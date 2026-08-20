@@ -26,6 +26,7 @@ function ctx(over: Partial<V2PatternCtx> = {}): V2PatternCtx {
     enemyBleed: 0,
     enemyPoison: 0,
     enemyVuln: 0,
+    enemyFrostChill: 0,
     turn: 1,
     ...over,
   };
@@ -170,6 +171,28 @@ describe("conditionPasses", () => {
     expect(conditionPasses({ kind: "enemy_status", tag: "bleed", op: "atMost", stacks: 2 }, c)).toBe(false);
     expect(conditionPasses({ kind: "enemy_status", tag: "poison", op: "none", stacks: 0 }, c)).toBe(true);
     expect(conditionPasses({ kind: "enemy_status", tag: "bleed", op: "none", stacks: 0 }, c)).toBe(false);
+  });
+
+  it("enemy_status 한기 — 현재 대상의 한기 스택을 경계 포함 비교한다", () => {
+    const chilled = ctx({ enemyFrostChill: 4 });
+    expect(
+      conditionPasses(
+        { kind: "enemy_status", tag: "frostChill", op: "atLeast", stacks: 4 },
+        chilled,
+      ),
+    ).toBe(true);
+    expect(
+      conditionPasses(
+        { kind: "enemy_status", tag: "frostChill", op: "atMost", stacks: 3 },
+        chilled,
+      ),
+    ).toBe(false);
+    expect(
+      conditionPasses(
+        { kind: "enemy_status", tag: "frostChill", op: "none", stacks: 0 },
+        ctx(),
+      ),
+    ).toBe(true);
   });
 
   it("self_resource none/atLeast/atMost — 내 전투 자원을 경계 포함 비교", () => {
@@ -455,6 +478,29 @@ describe("parseCombatPattern (저장 검증)", () => {
       })),
     });
     expect(many.blocks).toHaveLength(V2_COMBAT_PATTERN_MAX_BLOCKS);
+  });
+
+  it("한기 조건을 저장 데이터에서 안전하게 파싱한다", () => {
+    const parsed = parseCombatPattern({
+      blocks: [
+        {
+          condition: {
+            kind: "enemy_status",
+            tag: "frostChill",
+            op: "atLeast",
+            stacks: 4,
+          },
+          action: { kind: "skill", skillId: "v2c_cryomancer_absolutezero" },
+        },
+      ],
+    });
+
+    expect(parsed.blocks[0]?.condition).toEqual({
+      kind: "enemy_status",
+      tag: "frostChill",
+      op: "atLeast",
+      stacks: 4,
+    });
   });
 
   it("보호막 수치 조건은 0 이상의 정수로 정규화하고 잘못된 값은 버린다", () => {

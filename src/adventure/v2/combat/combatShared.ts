@@ -784,6 +784,8 @@ export type V2SkillCastResult = {
   enemyDamage: number;
   /** enemyDamage 중 scaling="magic"/"spi" 피해 효과에서 나온 피해분. */
   magicEnemyDamage: number;
+  /** 적중한 시전 1회가 대상에게 요청하는 한기 증가량. */
+  frostChillGain: number;
   /** 적에게 가한 damage 효과별 개별 피해(다단 스킬 = 타당 1개). 합 = enemyDamage.
    *  엔진이 전투 로그를 타마다 한 줄로 쪼개는 데 사용(부스트는 distributeBoostedHits 로 분배). */
   hitDamages: number[];
@@ -837,6 +839,7 @@ export type V2SkillCastResult = {
 export function v2SkillHasTargetEffects(result: V2SkillCastResult): boolean {
   return (
     result.enemyDamage > 0 ||
+    result.frostChillGain > 0 ||
     result.enemyDebuffsToApply.length > 0 ||
     result.dotsToApplyToTarget.length > 0 ||
     result.enemyVulnToApply != null ||
@@ -861,6 +864,7 @@ export function removeMissedV2SkillTargetEffects(
     ...result,
     enemyDamage: 0,
     magicEnemyDamage: 0,
+    frostChillGain: 0,
     hitDamages: [],
     selfHeal: result.selfHealOnMiss,
     healFromActualDamagePct: 0,
@@ -985,6 +989,7 @@ export type V2SkillCastInput = {
     bleedTurns?: number;
     poisonStacks?: number;
     magicVulnStacks?: number;
+    frostChillStacks?: number;
     // 전투 패턴의 봉쇄 계열 상태 판정 및 순수 디버프 중복 시전 방지.
     enemyVulnerabilityActive?: boolean;
     enemyDamageDownActive?: boolean;
@@ -1000,6 +1005,7 @@ const EMPTY_CAST_RESULT_BASE = {
   mpSpent: 0,
   enemyDamage: 0,
   magicEnemyDamage: 0,
+  frostChillGain: 0,
   hitDamages: [] as number[],
   selfHeal: 0,
   selfHealOnMiss: 0,
@@ -1083,6 +1089,7 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
     enemyBleed: t.bleedStacks ?? 0,
     enemyPoison: t.poisonStacks ?? 0,
     enemyVuln: t.magicVulnStacks ?? 0,
+    enemyFrostChill: t.frostChillStacks ?? 0,
     enemyVulnerabilityActive: t.enemyVulnerabilityActive ?? false,
     enemyDamageDownActive: t.enemyDamageDownActive ?? false,
     enemySkillProcDownActive: t.enemySkillProcDownActive ?? false,
@@ -2162,6 +2169,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       (def.elementNamed ? `${V2_ELEMENT_LABEL[charEl]} 마법` : def.name),
     enemyDamage: finalEnemyDamage,
     magicEnemyDamage: applyRitualPower(scaledMagicEnemyDamage),
+    frostChillGain: Math.max(0, Math.floor(def.frostChillGain ?? 0)),
     hitDamages:
       (singleHitPhysicalBonusActive || missingHpSingleHit) &&
       hitDamages.length === 1

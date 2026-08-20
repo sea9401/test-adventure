@@ -298,6 +298,12 @@ export type DerivePlayerCombatV2PureInput = {
   maxMpPct?: number;
   /** 장착 패시브의 직접 피해 마법 MP 소모 감소율. */
   passiveMpCostReductionPct?: number;
+  /** 빙결 추가타 피해 증가율. */
+  passiveFreezeDamagePct?: number;
+  /** 빙결 다음 행동 지연율. */
+  passiveFreezeDelayPct?: number;
+  /** 빙결 발동 뒤 남기는 한기 수. */
+  passiveFreezeRetainStacks?: number;
   /** 마나 실드 패시브 장착 여부. true일 때만 INT·최대 MP 기반 장벽을 활성화한다. */
   passiveMagicBarrier?: boolean;
   // ── 다양성 확장(A 메타) — 장착 패시브 합산분. 엔진 레버에 가산. 미지정 = 무적용(byte-identical).
@@ -707,6 +713,15 @@ export function derivePlayerCombatV2Pure(
       ? { mpCostReductionPct: input.passiveMpCostReductionPct }
       : {}),
     intStat: totalStats.int,
+    ...((input.passiveFreezeDamagePct ?? 0) > 0
+      ? { freezeDamagePct: input.passiveFreezeDamagePct }
+      : {}),
+    ...((input.passiveFreezeDelayPct ?? 0) > 0
+      ? { freezeDelayPct: input.passiveFreezeDelayPct }
+      : {}),
+    ...((input.passiveFreezeRetainStacks ?? 0) > 0
+      ? { freezeRetainStacks: input.passiveFreezeRetainStacks }
+      : {}),
     ...(magicBarrier.maxDurability > 0
       ? {
           magicBarrierMax: magicBarrier.maxDurability,
@@ -1081,6 +1096,9 @@ export function derivePlayerCombatV2FromSaves(saves: {
     maxHpPct,
     maxMpPct,
     passiveMpCostReductionPct: passiveAgg.mpCostReductionPct,
+    passiveFreezeDamagePct: passiveAgg.freezeDamagePct,
+    passiveFreezeDelayPct: passiveAgg.freezeDelayPct,
+    passiveFreezeRetainStacks: passiveAgg.freezeRetainStacks,
     passiveMagicBarrier: passiveAgg.magicBarrier,
     // 다양성 패시브(A 메타) — 장착 합산분을 엔진 레버로 전달.
     passiveCritPct: passiveAgg.critPct,

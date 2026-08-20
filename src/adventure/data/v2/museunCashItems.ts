@@ -225,6 +225,20 @@ export const MUSEUN_CASH_ITEMS = {
     tradeable: false,
     effect: { kind: "cosmetic", slot: "profile_border", style: "jade" },
   },
+  dangerous_abyssal_profile_border: {
+    id: "dangerous_abyssal_profile_border",
+    name: "심해의 지배자 프로필 꾸미기",
+    description:
+      "위험 해역 교환으로만 획득하는 영구 프로필 꾸미기입니다. 심해의 파문과 거대어의 잔광을 적용하며 기간 제한 없이 사용할 수 있습니다.",
+    coinPrice: 0,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: {
+      kind: "cosmetic",
+      slot: "profile_border",
+      style: "abyssal_master",
+    },
+  },
   starlight_chat_badge: {
     id: "starlight_chat_badge",
     name: "별빛 채팅 배지",

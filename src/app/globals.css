@@ -2203,6 +2203,25 @@ body {
   --profile-decoration-animation: none;
 }
 
+.ui-profile-frame-abyssal_master {
+  --profile-frame-rgb: 45 212 191;
+  --profile-frame-gradient: linear-gradient(110deg, #020617, #0f766e, #5eead4, #1d4ed8, #312e81, #020617);
+  --profile-theme-background:
+    radial-gradient(circle at 82% 28%, rgb(94 234 212 / 0.36), transparent 18%),
+    radial-gradient(ellipse at 68% 88%, rgb(29 78 216 / 0.58), transparent 42%),
+    linear-gradient(125deg, #020617, #083344 48%, #172554);
+  --profile-theme-pattern:
+    repeating-radial-gradient(ellipse at 78% 70%, transparent 0 12px, rgb(94 234 212 / 0.18) 13px 15px, transparent 16px 29px),
+    radial-gradient(ellipse at 84% 48%, rgb(255 255 255 / 0.24) 0 2%, transparent 3% 100%);
+  --profile-theme-pattern-size: 120px 76px, 180px 92px;
+  --profile-theme-pattern-opacity: 0.72;
+  --profile-avatar-decoration-background:
+    repeating-radial-gradient(circle at 50% 58%, transparent 0 8px, rgb(94 234 212 / 0.25) 9px 10px, transparent 11px 18px);
+  --profile-avatar-decoration-size: 150% 120%;
+  --profile-avatar-decoration-opacity: 0.54;
+  --profile-decoration-animation: profile-decoration-drift 8s ease-in-out infinite;
+}
+
 .ui-profile-frame-verdant {
   --profile-frame-rgb: 22 163 74;
   --profile-frame-gradient: linear-gradient(110deg, #2a1b0f, #755326, #15803d, #d4a934, #166534, #3f2a16);

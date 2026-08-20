@@ -157,6 +157,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   overlord: ["v2c_overlord_ruin", "v2c_overlord_throne"], // 패왕: 파멸일격 + 광기의 왕좌
   arcanist: ["v2c_arcanist_burst", "v2c_arcanist_theory", "v2c_arcanist_magicdismantle2"], // 비전술사: 비전 폭발 + 비전 이론 + 마력 해체 II
   elementallord: ["v2c_elementallord_surge", "v2c_elementallord_resonance"], // 원소군주: 원소 폭주 + 원소 공명
+  cryomancer: ["v2c_cryomancer_absolutezero", "v2c_cryomancer_freezingpoint"], // 빙결술사: 절대영도 + 빙점 지배
   inscriber: ["v2c_inscriber_release", "v2c_inscriber_amplification"], // 각인술사: 각인 해방 + 각인 증폭
   marksman: ["v2c_marksman_shot", "v2c_marksman_aim"], // 명궁: 정밀 사격 + 조준
   nightshade: ["v2c_nightshade_eclipse", "v2c_nightshade_cloak", "v2c_nightshade_weakpoint2"], // 밤그림자: 월식 + 은신 II + 급소 노출 II
@@ -180,6 +181,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   hegemon: ["v2c_hegemon_annihilation", "v2c_hegemon_dominion"], // 패황: 멸왕일도 + 패황의 지배
   archmage: ["v2c_archmage_collapse", "v2c_archmage_theory", "v2c_archmage_magicdismantle3"], // 대마도사: 비전 붕괴 + 대마도 이론 + 마력 해체 III
   primordialmage: ["v2c_primordialmage_return", "v2c_primordialmage_resonance", "v2c_primordialmage_amplification"], // 태초술사: 태초회귀 + 근원공명 + 원초 증폭
+  frostsovereign: ["v2c_frostsovereign_eternalprison", "v2c_frostsovereign_permafrost"], // 빙천제: 영겁빙옥 + 영구동토
   lawweaver: ["v2c_lawweaver_release", "v2c_lawweaver_inscription"], // 법칙술사: 만상각인 해방 + 법칙 각인
   savior: ["v2c_savior_judgment", "v2c_savior_grace"], // 구원자: 구원의 심판 + 구원의 은총
   lawguardian: ["v2c_lawguardian_inviolable", "v2c_lawguardian_domain"], // 만법수호자: 만법불침 + 만법수호영역

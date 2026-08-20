@@ -964,6 +964,10 @@ describe("직업 킷 — 스킬셋", () => {
         "v2c_arcanist_magicdismantle2",
       ],
       elementallord: ["v2c_elementallord_surge", "v2c_elementallord_resonance"],
+      cryomancer: [
+        "v2c_cryomancer_absolutezero",
+        "v2c_cryomancer_freezingpoint",
+      ],
       inscriber: ["v2c_inscriber_release", "v2c_inscriber_amplification"],
       marksman: ["v2c_marksman_shot", "v2c_marksman_aim"],
       nightshade: [

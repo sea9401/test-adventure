@@ -189,6 +189,28 @@ describe("arenaPatternActionSummary — 실제 패턴 행동만 표시", () => {
     );
   });
 
+  it("한기 스택 조건을 사용자 문구로 표시한다", () => {
+    const loadout = mk("frost-chill-status", {
+      pattern: {
+        blocks: [
+          {
+            condition: {
+              kind: "enemy_status",
+              tag: "frostChill",
+              op: "atLeast",
+              stacks: 4,
+            },
+            action: { kind: "role", role: "main_attack" },
+          },
+        ],
+      },
+    });
+
+    expect(arenaPatternActionSummary(loadout)[0]?.condition).toBe(
+      "적 한기 4스택 이상",
+    );
+  });
+
   it("내 보호막 수치의 이하 조건을 표시한다", () => {
     const loadout = mk("self-shield-at-most", {
       pattern: {

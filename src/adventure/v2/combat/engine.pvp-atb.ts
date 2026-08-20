@@ -32,6 +32,7 @@ import { enterShockAction } from "./shockAction";
 import { mergeTripleWardResourceSnapshot } from "./tripleWard";
 import { mergeLawInscriptionSnapshot } from "./lawInscription";
 import { mergeTier7ResourceSnapshot } from "./engineState";
+import { mergeFrostChillSnapshot } from "./frostChill";
 import {
   pickPvpInitiative,
   type PvPInitiativeActor,
@@ -44,25 +45,31 @@ export const PVP_ATB_TICK_CAP = ATB_TIMELINE_TICK_CAP;
 export const PVP_ATB_ACTION_GUARD = 2000;
 
 function hpBarEntry(state: PvPBattleState, tick?: number): BattleLogEntry {
-  const playerResources = mergeLawInscriptionSnapshot(
-    mergeTripleWardResourceSnapshot(
-      mergeTier7ResourceSnapshot(
-        activeTier6ResourceSnapshot(state.p1.stacks.tier6Uniques),
-        state.p1.stacks.tier7,
+  const playerResources = mergeFrostChillSnapshot(
+    mergeLawInscriptionSnapshot(
+      mergeTripleWardResourceSnapshot(
+        mergeTier7ResourceSnapshot(
+          activeTier6ResourceSnapshot(state.p1.stacks.tier6Uniques),
+          state.p1.stacks.tier7,
+        ),
+        state.p1.stacks.tripleWard,
       ),
-      state.p1.stacks.tripleWard,
+      state.p1.stacks.lawInscriptions,
     ),
-    state.p1.stacks.lawInscriptions,
+    state.p1.stacks.frostChillStacks,
   );
-  const enemyResources = mergeLawInscriptionSnapshot(
-    mergeTripleWardResourceSnapshot(
-      mergeTier7ResourceSnapshot(
-        activeTier6ResourceSnapshot(state.p2.stacks.tier6Uniques),
-        state.p2.stacks.tier7,
+  const enemyResources = mergeFrostChillSnapshot(
+    mergeLawInscriptionSnapshot(
+      mergeTripleWardResourceSnapshot(
+        mergeTier7ResourceSnapshot(
+          activeTier6ResourceSnapshot(state.p2.stacks.tier6Uniques),
+          state.p2.stacks.tier7,
+        ),
+        state.p2.stacks.tripleWard,
       ),
-      state.p2.stacks.tripleWard,
+      state.p2.stacks.lawInscriptions,
     ),
-    state.p2.stacks.lawInscriptions,
+    state.p2.stacks.frostChillStacks,
   );
   return {
     kind: "hp_bar",

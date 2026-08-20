@@ -80,6 +80,7 @@ const ENEMY_STATUS_LABEL = {
   bleed: "출혈",
   poison: "중독",
   vuln: "마법취약",
+  frostChill: "한기",
 } as const;
 
 const SELF_RESOURCE_LABEL = {

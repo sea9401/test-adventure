@@ -70,6 +70,12 @@ export type V2PassiveSkillEffect = {
   maxMpPct?: number;
   /** 직접 피해 마법 스킬의 실제 MP 소모 감소율. 여러 패시브는 가산한다. */
   mpCostReductionPct?: number;
+  /** 한기 5중첩으로 발생하는 빙결 피해 증가율. */
+  freezeDamagePct?: number;
+  /** 한기 5중첩으로 발생하는 다음 행동 지연율. */
+  freezeDelayPct?: number;
+  /** 빙결 발동 뒤 대상에게 남기는 한기 수. 여러 패시브는 최대값만 적용한다. */
+  freezeRetainStacks?: number;
   /** 마나 실드 활성화 — INT·최대 MP 기반 전투별 장벽을 전개한다. 현재 MP는 소모하지 않는다. */
   magicBarrier?: boolean;
   /** 민첩→공격력 보조 계수(예기). */
@@ -492,6 +498,8 @@ export type V2SkillDefinition = {
   skillCritChancePct?: number;
   /** 이 액티브에만 적용되는 명중도 가산(%p). */
   accuracyBonusPct?: number;
+  /** 적중한 시전 1회당 대상에게 쌓는 한기. 다단 피해여도 한 번만 적용한다. */
+  frostChillGain?: number;
   /** 도발 시 사냥·PvP 상대가 즉시 시전자에게 가하는 기본 공격 횟수. */
   provokeImmediateBasicAttacks?: number;
   /** 철벽 태세 — 시전 시 갱신할 전용 반사 횟수와 피격 효과. */
@@ -1124,6 +1132,7 @@ const ACTIVE_JOB_TEMPO: Partial<Record<string, ActiveJobTempo>> = {
   overlord: "burst",
   arcanist: "burst",
   elementallord: "burst",
+  cryomancer: "steady",
   inscriber: "burst",
   lawweaver: "burst",
   marksman: "burst",
@@ -1174,6 +1183,7 @@ const ACTIVE_SKILL_TEMPO: Partial<Record<V2SkillId, V2SkillTempo>> = {
   v2c_crimsontemplar_judgment: "control",
   v2c_firemage_inferno: "control",
   v2c_frostmage_glacier: "control",
+  v2c_cryomancer_absolutezero: "control",
   v2c_earthmage_tectonic: "control",
   v2c_calamitycaller_brand: "control",
   v2c_swordmaster_cut: "control",
@@ -1501,6 +1511,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   maxHpPct: number;
   maxMpPct: number;
   mpCostReductionPct: number;
+  freezeDamagePct: number;
+  freezeDelayPct: number;
+  freezeRetainStacks: number;
   magicBarrier: boolean;
   atkPerDexCoef: number;
   atkPerLukCoef: number;
@@ -1552,6 +1565,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let maxHpPct = 0;
   let maxMpPct = 0;
   let mpCostReductionPct = 0;
+  let freezeDamagePct = 0;
+  let freezeDelayPct = 0;
+  let freezeRetainStacks = 0;
   let magicBarrier = false;
   let atkPerDexCoef = 0;
   let atkPerLukCoef = 0;
@@ -1622,6 +1638,12 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     maxHpPct += p.maxHpPct ?? 0;
     maxMpPct += p.maxMpPct ?? 0;
     mpCostReductionPct += p.mpCostReductionPct ?? 0;
+    freezeDamagePct += p.freezeDamagePct ?? 0;
+    freezeDelayPct = Math.max(freezeDelayPct, p.freezeDelayPct ?? 0);
+    freezeRetainStacks = Math.max(
+      freezeRetainStacks,
+      p.freezeRetainStacks ?? 0,
+    );
     if (p.magicBarrier) magicBarrier = true;
     atkPerDexCoef += p.atkPerDexCoef ?? 0;
     atkPerLukCoef += p.atkPerLukCoef ?? 0;
@@ -1703,6 +1725,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     maxHpPct,
     maxMpPct,
     mpCostReductionPct,
+    freezeDamagePct,
+    freezeDelayPct,
+    freezeRetainStacks,
     magicBarrier,
     atkPerDexCoef,
     atkPerLukCoef,
@@ -2204,6 +2229,11 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.maxMpPct) chips.push(`최대 MP +${p.maxMpPct}%`);
   if (p.mpCostReductionPct)
     chips.push(`마법 MP 소모 -${p.mpCostReductionPct}%`);
+  if (p.freezeDamagePct) chips.push(`빙결 피해 +${p.freezeDamagePct}%`);
+  if (p.freezeDelayPct) chips.push(`빙결 행동 지연 ${p.freezeDelayPct}%`);
+  if (p.freezeRetainStacks) {
+    chips.push(`빙결 후 한기 ${p.freezeRetainStacks} 잔류`);
+  }
   if (p.magicBarrier) chips.push("마나 실드 활성화");
   if (p.atkPerDexCoef) chips.push("민첩이 공격력을 보조");
   if (p.critPct) chips.push(`치명타 확률 +${p.critPct}%`);
@@ -2424,7 +2454,7 @@ const MP_TIER_MULT: Record<1 | 2 | 3, number> = { 1: 1.0, 2: 1.4, 3: 1.8 };
 const MP_CASTER_JOBS = new Set([
   "mage", "caster", "acolyte", "warder", "magus", "bishop", "sage", "elementalist", "archbishop",
   "firemage", "frostmage", "lightningmage", "windmage", "earthmage",
-  "elementallord", "inscriber", "archmage", "primordialmage",
+  "elementallord", "cryomancer", "inscriber", "archmage", "primordialmage", "frostsovereign",
 ]);
 // 무인 ×0.85 — 기 기반·작은 풀.
 const MP_MARTIAL_JOBS = new Set([
@@ -2529,6 +2559,9 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   if (skill.consumesFortressImpact) chips.push("명중 시 충격 전부 소비");
   if (skill.mutationWeightGain) {
     chips.push(`중량 +${skill.mutationWeightGain} (최대 3)`);
+  }
+  if (skill.frostChillGain) {
+    chips.push(`적중 시 한기 +${skill.frostChillGain}`);
   }
   if (skill.mutationWeightConsumePctPerStack) {
     chips.push(

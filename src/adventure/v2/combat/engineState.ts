@@ -108,7 +108,7 @@ export type BattleLogEntry =
       enemyMagicBarrierMax?: number;
       /** 6T 시그니처 전투 자원. 빈 객체/미장착은 생략한다. */
       playerSignatureResources?: Record<string, number | string>;
-      /** PvP 상대의 6T 시그니처 전투 자원. PvE에서는 생략한다. */
+      /** 상대가 보유한 전투 자원. PvE 한기와 PvP 시그니처·한기를 표시한다. */
       enemySignatureResources?: Record<string, number | string>;
     };
 
@@ -237,6 +237,8 @@ export type BattleStacks = {
   mutationWeight: number;
   /** 법칙술사 전투 한정 각인. 패시브 미보유·기존 상태에서는 생략한다. */
   lawInscriptions?: LawInscriptionState;
+  /** 플레이어가 현재 적에게 누적한 한기. 기존 몬스터→플레이어 chillStacks와 별개다. */
+  enemyFrostChillStacks?: number;
   // 한기 (chill 스킬) — 플레이어에 누적되는 추위 스택. 적 chill 공격이 적중할 때마다 +perHit.
   // 적 페이즈 시작 시 threshold 이상이면 스택당 dmgPerStack 만큼 플레이어 HP 감소 (DEF·보호막 무시).
   // 출혈의 미러(적→플레이어). 무한 탱킹 차단용 시간압.
@@ -394,6 +396,12 @@ export type PlayerCombat = {
   // v2 스킬 데미지 계산용 INT total (derive 결과 totalStats.int 그대로). v2 스킬에서 int stat
   // buff/debuff 보정 등에 사용. 0/undefined = no-op.
   intStat?: number;
+  /** 한기 임계점에서 발생하는 빙결 추가타 피해 증가율. */
+  freezeDamagePct?: number;
+  /** 한기 임계점에서 발생하는 다음 행동 지연율. */
+  freezeDelayPct?: number;
+  /** 빙결 발동 뒤 대상에게 남기는 한기 수. */
+  freezeRetainStacks?: number;
   magicBarrierMax?: number;
   magicBarrierAbsorbPct?: number;
   magicBarrierPvpAbsorbPct?: number;

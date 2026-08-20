@@ -127,6 +127,7 @@ const ENEMY_STATUS_OPTIONS = [
   { value: "bleed", label: "출혈" },
   { value: "poison", label: "중독" },
   { value: "vuln", label: "마법취약" },
+  { value: "frostChill", label: "한기" },
 ] as const;
 const ENEMY_STATUS_OP_OPTIONS = [
   { value: "atLeast", label: "스택 이상" },
@@ -1310,6 +1311,7 @@ export function ConditionParams({
             <PatternNumberInput
               key="enemy-status-stacks"
               min={c.op === "atLeast" ? 1 : 0}
+              max={c.tag === "frostChill" ? 5 : undefined}
               value={c.stacks}
               onValueChange={(stacks) => onChange({ ...c, stacks })}
             />

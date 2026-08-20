@@ -144,6 +144,24 @@ describe("combat pattern choice controls", () => {
     expect(html).toContain('value="3"');
   });
 
+  it("한기 조건은 5스택 상한을 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <ConditionParams
+        condition={{
+          kind: "enemy_status",
+          tag: "frostChill",
+          op: "atLeast",
+          stacks: 4,
+        }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("한기");
+    expect(html).toContain('max="5"');
+    expect(html).toContain('value="4"');
+  });
+
   it("renders the selected action skill as a large dialog trigger", () => {
     const html = renderToStaticMarkup(
       <SkillPatternPicker

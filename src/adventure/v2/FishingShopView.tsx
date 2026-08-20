@@ -39,6 +39,7 @@ import {
   type DangerousFishingShopAction,
 } from "./DangerousFishingShopSection";
 import type { DangerousFishingViewModel } from "./useDangerousFishing";
+import type { DangerousFishingExchangeSectionProps } from "./DangerousFishingExchangeSection";
 
 // 낚시 코인 상점 — 칭호 구매. 데이터·구매 핸들러는 주입(useFishingShop 실 API / dev mock).
 // 설계: docs/fishing-content-plan.md §6
@@ -104,6 +105,7 @@ export function FishingShopView({
     error?: string | null;
     buying: string | null;
     onShop: DangerousFishingShopAction;
+    exchange?: DangerousFishingExchangeSectionProps;
   };
   onBack?: () => void;
   // 낚시터 서브 탭바 — 미전달(dev 하니스)이면 그 탭 숨김.
@@ -152,6 +154,18 @@ export function FishingShopView({
   const handleDangerousShop: DangerousFishingShopAction = async (...args) => {
     if (!dangerousShop) return { ok: false, message: "위험 해역 상점을 불러오지 못했다." };
     const result = await dangerousShop.onShop(...args);
+    showMessage(result);
+    return result;
+  };
+
+  const dangerousExchange = dangerousShop?.exchange;
+  const handleDangerousExchange: DangerousFishingExchangeSectionProps["onExchange"] = async (
+    request,
+  ) => {
+    if (!dangerousExchange) {
+      return { ok: false, message: "위험 해역 교환 목록을 불러오지 못했다." };
+    }
+    const result = await dangerousExchange.onExchange(request);
     showMessage(result);
     return result;
   };
@@ -272,6 +286,14 @@ export function FishingShopView({
             coins={state?.coins ?? dangerousShop.model.fishingCoins}
             buying={dangerousShop.buying}
             onShop={handleDangerousShop}
+            exchange={
+              dangerousExchange
+                ? {
+                    ...dangerousExchange,
+                    onExchange: handleDangerousExchange,
+                  }
+                : undefined
+            }
           />
         ) : (
           <p className="py-8 text-center text-sm text-rose-600 dark:text-rose-400">위험 해역 상점을 불러오지 못했다.</p>

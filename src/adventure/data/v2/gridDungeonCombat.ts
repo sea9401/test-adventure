@@ -132,6 +132,7 @@ function partyPatternCtx({
     enemyBleed: 0,
     enemyPoison: 0,
     enemyVuln: 0,
+    enemyFrostChill: 0,
     turn,
   };
 }

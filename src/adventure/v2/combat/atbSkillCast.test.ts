@@ -11,6 +11,7 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
 });
 
 import type { Monster } from "@/adventure/data/monsters";
+import { actionInterval } from "./combatTimeline";
 import {
   resolveBattle,
   type BattleResolution,
@@ -55,6 +56,70 @@ function countText(res: BattleResolution, needle: string): number {
 }
 
 describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
+  it("빙하진 빙결은 적의 예약된 다음 행동을 정확히 30% 미룬다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const speed = 30;
+    const res = resolveBattle(
+      {
+        ...player,
+        hp: 100_000,
+        maxHp: 100_000,
+        atk: 100,
+        magicAtk: 100,
+        intStat: 100,
+        maxMp: 1_000,
+        mp: 100_000,
+        spd: speed,
+      },
+      {
+        name: "한기 허수아비",
+        tags: [],
+        hp: 100_000,
+        atk: 1,
+        def: 0,
+        magicDef: 0,
+        spd: speed,
+        exp: 0,
+        evasionPct: 0,
+      },
+      "테스터",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        maxTurns: 8,
+        v2Skills: {
+          learned: ["v2c_frostmage_glacier"],
+          equipped: ["v2c_frostmage_glacier"],
+        },
+      } as never,
+    );
+    const freezeTick = res.finalState.log.find(
+      (entry) => entry.text === "한기 5스택을 소비해 빙결이 발생했다.",
+    )?.t;
+    const enemyTicks = res.finalState.log
+      .filter((entry) => entry.kind === "enemy_attack")
+      .map((entry) => entry.t)
+      .filter((tick): tick is number => typeof tick === "number");
+    const interval = actionInterval(10 + speed * 6);
+    const unshiftedNextTick =
+      Math.ceil(((freezeTick ?? 0) + Number.EPSILON) / interval) * interval;
+    const firstEnemyAfterFreeze = enemyTicks.find(
+      (tick) => freezeTick != null && tick > freezeTick,
+    );
+
+    expect(freezeTick).toBeTypeOf("number");
+    expect(firstEnemyAfterFreeze).toBe(
+      unshiftedNextTick + interval * 0.3,
+    );
+    expect(
+      res.finalState.log.some(
+        (entry) =>
+          entry.kind === "hp_bar" &&
+          entry.enemySignatureResources?.frostChill === "한기 2/5",
+      ),
+    ).toBe(true);
+  });
+
   it("무영검신은 단일 피해를 기록해 적의 다음 행동 뒤 검영으로 실현한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const res = resolveBattle(

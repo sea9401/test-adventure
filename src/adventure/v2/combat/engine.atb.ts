@@ -51,6 +51,7 @@ import { enterShockAction } from "./shockAction";
 import { mergeTripleWardResourceSnapshot } from "./tripleWard";
 import { mergeLawInscriptionSnapshot } from "./lawInscription";
 import { mergeTier7ResourceSnapshot } from "./engineState";
+import { mergeFrostChillSnapshot } from "./frostChill";
 import { weightSpeedMultiplier } from "./mutationCombat";
 import { recordChargeHpLoss } from "./ruinBladeCombat";
 
@@ -67,6 +68,10 @@ function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {
       state.stacks.tripleWard,
     ),
     state.stacks.lawInscriptions,
+  );
+  const enemyResources = mergeFrostChillSnapshot(
+    undefined,
+    state.stacks.enemyFrostChillStacks,
   );
   return {
     kind: "hp_bar",
@@ -86,6 +91,11 @@ function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {
     ...(playerResources
       ? {
           playerSignatureResources: playerResources,
+        }
+      : {}),
+    ...(enemyResources
+      ? {
+          enemySignatureResources: enemyResources,
         }
       : {}),
   };

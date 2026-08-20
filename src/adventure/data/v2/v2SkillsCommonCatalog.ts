@@ -238,6 +238,8 @@ export type V2CommonSkillId =
   | "v2c_arcanist_magicdismantle2" // 마력 해체 II (적 마법 방어 -11%)
   | "v2c_elementallord_surge" // 원소 폭주 (속성별 강화 마법)
   | "v2c_elementallord_resonance" // 원소 공명 (원소 폭주 보조 효과 강화)
+  | "v2c_cryomancer_absolutezero" // 빙결술사: 절대영도
+  | "v2c_cryomancer_freezingpoint" // 빙결술사: 빙점 지배
   | "v2c_inscriber_release" // 각인 해방 (장착 문장 조합형 마법)
   | "v2c_inscriber_amplification" // 각인 증폭 (각인 해방 시너지 강화)
   | "v2c_marksman_shot" // 정밀 사격 (DEX 관통 다단)
@@ -277,6 +279,8 @@ export type V2CommonSkillId =
   | "v2c_primordialmage_return" // 태초회귀 (근원 마법 피해 + 취약 + 지연)
   | "v2c_primordialmage_resonance" // 근원공명 (지능 + 정신 + 마법 운용)
   | "v2c_primordialmage_amplification" // 원초 증폭 (장비 치명타 배율 → 마법 스킬 치명타 배율)
+  | "v2c_frostsovereign_eternalprison" // 빙천제: 영겁빙옥 (강한 마법 피해 + 한기 4)
+  | "v2c_frostsovereign_permafrost" // 빙천제: 영구동토 (빙결 강화 + 한기 잔류)
   | "v2c_lawweaver_release" // 만상각인 해방 (전투 중 각인 전량 소비)
   | "v2c_lawweaver_inscription" // 법칙 각인 (문장 해방 시 각인 생성)
   | "v2c_savior_judgment" // 구원의 심판 (마법 피해 + 취약)
@@ -1655,13 +1659,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_frostmage_glacier: {
     id: "v2c_frostmage_glacier", name: "빙하진", stat: "int", category: "attack", tier: 3,
-    description: "빙하의 마력을 폭발시켜 적의 행동을 늦추고 자신을 얼음 장벽으로 감싼다.",
+    description: "빙하의 마력을 폭발시켜 적에게 한기를 2중첩 쌓는다.",
     mpCost: 46, fixedMpCost: 120, cooldown: 0, procChance: 30,
-    effects: [
-      dmg(1.5, 290, "magic"),
-      { kind: "shield", pctMaxHp: 8, pctMaxMp: 4, turns: 3 },
-      { kind: "enemyDelay", pct: 25 },
-    ],
+    spCost: 7,
+    effects: [dmg(1.5, 290, "magic")],
+    frostChillGain: 2,
   },
   v2c_frostmage_frozenheart: {
     id: "v2c_frostmage_frozenheart", name: "얼어붙은 심장", stat: "int", category: "passive", tier: 3,
@@ -2063,6 +2065,20 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { elementResonance: true },
+  },
+  v2c_cryomancer_absolutezero: {
+    id: "v2c_cryomancer_absolutezero", name: "절대영도", stat: "int", category: "attack", tier: 3,
+    description: "극한의 냉기를 응축해 적에게 큰 마법 피해를 주고 한기를 3중첩 쌓는다.",
+    mpCost: 0, fixedMpCost: 155, cooldown: 0, procChance: 30,
+    learnCost: 8000, spCost: 7,
+    effects: [dmg(2.2, 540, "magic")],
+    frostChillGain: 3,
+  },
+  v2c_cryomancer_freezingpoint: {
+    id: "v2c_cryomancer_freezingpoint", name: "빙점 지배", stat: "int", category: "passive", tier: 3,
+    description: "빙점을 지배해 마나를 늘리고 한기에서 발생하는 빙결을 강화한다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000, spCost: 6, effects: [],
+    passive: { maxMpPct: 12, freezeDamagePct: 50, freezeDelayPct: 40 },
   },
   v2c_inscriber_release: {
     id: "v2c_inscriber_release", name: "각인 해방", stat: "int", category: "attack", tier: 3,
@@ -2521,6 +2537,25 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { equipmentMagicSkillCritConversion: true },
+  },
+  v2c_frostsovereign_eternalprison: {
+    id: "v2c_frostsovereign_eternalprison", name: "영겁빙옥", stat: "int", category: "attack", tier: 3,
+    description: "영겁의 얼음 감옥을 닫아 큰 마법 피해를 주고 적에게 한기를 4중첩 쌓는다.",
+    mpCost: 84, fixedMpCost: 195, cooldown: 0, procChance: 32, learnCost: 12000, spCost: 9,
+    effects: [dmg(3, 760, "magic")],
+    frostChillGain: 4,
+  },
+  v2c_frostsovereign_permafrost: {
+    id: "v2c_frostsovereign_permafrost", name: "영구동토", stat: "int", category: "passive", tier: 3,
+    description: "빙결 뒤에도 녹지 않는 한기를 남겨 다음 빙결을 앞당기고 그 위력과 지연을 강화한다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 10,
+    effects: [],
+    passive: {
+      maxMpPct: 16,
+      freezeDamagePct: 35,
+      freezeDelayPct: 50,
+      freezeRetainStacks: 1,
+    },
   },
   v2c_lawweaver_release: {
     id: "v2c_lawweaver_release", name: "만상각인 해방", stat: "int", category: "attack", tier: 3,

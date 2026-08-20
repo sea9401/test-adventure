@@ -837,6 +837,44 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     // 적 풀피 → 조건 불충족 → null.
     expect(resolveV2SkillCast(castInput([SKILL], { combatPattern: none })).castSkillId).toBeNull();
   });
+
+  it("대상의 현재 한기 스택으로 빙결술사 스킬 우선순위를 고른다", () => {
+    const skills = [
+      "v2c_cryomancer_absolutezero",
+      "v2c_frostmage_glacier",
+    ];
+    const pattern: V2CombatPattern = {
+      blocks: [
+        {
+          condition: {
+            kind: "enemy_status",
+            tag: "frostChill",
+            op: "atLeast",
+            stacks: 2,
+          },
+          action: { kind: "skill", skillId: "v2c_cryomancer_absolutezero" },
+        },
+        {
+          condition: { kind: "always" },
+          action: { kind: "skill", skillId: "v2c_frostmage_glacier" },
+        },
+      ],
+    };
+    const base = castInput(skills, { combatPattern: pattern });
+
+    expect(
+      resolveV2SkillCast({
+        ...base,
+        target: { ...base.target, frostChillStacks: 2 },
+      }).castSkillId,
+    ).toBe("v2c_cryomancer_absolutezero");
+    expect(
+      resolveV2SkillCast({
+        ...base,
+        target: { ...base.target, frostChillStacks: 1 },
+      }).castSkillId,
+    ).toBe("v2c_frostmage_glacier");
+  });
 });
 
 describe("resolveV2SkillCast — 수집형 변이 자원", () => {

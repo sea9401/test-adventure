@@ -13,8 +13,12 @@ import type { StatKey } from "@/adventure/data/stats";
 //    스킬을 고르고 procChance 를 건너뛴다(확정 발동). off 면 옛 슬롯순서+proc 경로 유지(무변).
 export const V2_COMBAT_PATTERN_ENABLED = true;
 
-// 적 상태 태그 — 적에게 쌓인 DoT/취약 스택(combatShared V2Dot tag + magicVuln).
-export type V2PatternEnemyStatus = "bleed" | "poison" | "vuln";
+// 적 상태 태그 — 적에게 쌓인 DoT/취약/한기 스택.
+export type V2PatternEnemyStatus =
+  | "bleed"
+  | "poison"
+  | "vuln"
+  | "frostChill";
 export type V2PatternEnemyDebuff =
   | "vulnerability"
   | "damageDown"
@@ -106,6 +110,7 @@ export type V2PatternCtx = {
   enemyBleed: number; // 스택
   enemyPoison: number;
   enemyVuln: number;
+  enemyFrostChill: number;
   enemyVulnerabilityActive?: boolean;
   enemyDamageDownActive?: boolean;
   enemySkillProcDownActive?: boolean;
@@ -114,11 +119,16 @@ export type V2PatternCtx = {
 };
 
 function enemyStatusStacks(ctx: V2PatternCtx, tag: V2PatternEnemyStatus): number {
-  return tag === "bleed"
-    ? ctx.enemyBleed
-    : tag === "poison"
-      ? ctx.enemyPoison
-      : ctx.enemyVuln;
+  switch (tag) {
+    case "bleed":
+      return ctx.enemyBleed;
+    case "poison":
+      return ctx.enemyPoison;
+    case "vuln":
+      return ctx.enemyVuln;
+    case "frostChill":
+      return ctx.enemyFrostChill;
+  }
 }
 
 function enemyDebuffActive(
@@ -478,13 +488,26 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
     }
     case "enemy_status": {
       const tag =
-        c.tag === "bleed" || c.tag === "poison" || c.tag === "vuln" ? c.tag : null;
+        c.tag === "bleed" ||
+        c.tag === "poison" ||
+        c.tag === "vuln" ||
+        c.tag === "frostChill"
+          ? c.tag
+          : null;
       const op =
         c.op === "atLeast" || c.op === "atMost" || c.op === "none"
           ? c.op
           : null;
       if (!tag || !op || !isFinitePct(c.stacks)) return null;
-      return { kind: "enemy_status", tag, op, stacks: Math.max(0, Math.floor(c.stacks)) };
+      return {
+        kind: "enemy_status",
+        tag,
+        op,
+        stacks: Math.min(
+          tag === "frostChill" ? 5 : Number.MAX_SAFE_INTEGER,
+          Math.max(0, Math.floor(c.stacks)),
+        ),
+      };
     }
     case "enemy_debuff": {
       const target =

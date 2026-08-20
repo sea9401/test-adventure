@@ -61,7 +61,8 @@ export type CodexResearchConfirmationOperation =
   | "schedule"
   | "settle"
   | "resettle"
-  | "award-trophies";
+  | "award-trophies"
+  | "publish-honors";
 
 function validDate(value: unknown): value is Date {
   return value instanceof Date && Number.isFinite(value.getTime());
@@ -189,6 +190,7 @@ export function codexResearchConfirmation(
     settle: "SETTLE",
     resettle: "RESETTLE",
     "award-trophies": "AWARD",
+    "publish-honors": "PUBLISH",
   }[operation];
   return `${prefix} ${seasonId}`;
 }

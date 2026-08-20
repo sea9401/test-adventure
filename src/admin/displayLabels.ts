@@ -12,6 +12,7 @@ export const ADMIN_ACTION_LABELS: Record<string, string> = {
   "codex-research.award-trophies": "도감 연구 트로피 발급",
   "codex-research.invalid": "도감 연구 잘못된 운영 요청",
   "codex-research.preview-settlement": "도감 연구 결산 미리보기",
+  "codex-research.publish-honors": "도감 연구 명예 공개",
   "codex-research.resettle": "도감 연구 재결산",
   "codex-research.schedule": "도감 연구 시즌 예약",
   "codex-research.settle": "도감 연구 결산",

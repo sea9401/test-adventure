@@ -203,5 +203,7 @@ describe("codex research operations previews", () => {
       .toBe("RESETTLE 2026-09");
     expect(codexResearchConfirmation("award-trophies", "2026-09"))
       .toBe("AWARD 2026-09");
+    expect(codexResearchConfirmation("publish-honors", "2026-09"))
+      .toBe("PUBLISH 2026-09");
   });
 });

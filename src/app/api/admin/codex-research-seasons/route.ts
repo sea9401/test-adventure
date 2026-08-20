@@ -13,6 +13,7 @@ import {
 import { readCodexResearchSeasonOpsList } from "@/lib/server/codexResearchOpsRepository";
 import { settleCodexResearchSeason } from "@/lib/server/codexResearchSettlement";
 import { awardCodexResearchSeasonTrophies } from "@/lib/server/codexResearchTrophies";
+import { publishCodexResearchSeasonHonors } from "@/lib/server/codexResearchPublication";
 import {
   currentAdminEmail,
   getAdminEmailsList,
@@ -28,6 +29,7 @@ const OPS = [
   "settle",
   "resettle",
   "award-trophies",
+  "publish-honors",
 ] as const;
 type CodexResearchAdminOp = (typeof OPS)[number];
 
@@ -94,7 +96,7 @@ function definitionSeasonId(body: JsonObject): string | null {
 }
 
 function expectedConfirmation(
-  op: "schedule" | "settle" | "resettle" | "award-trophies",
+  op: "schedule" | "settle" | "resettle" | "award-trophies" | "publish-honors",
   seasonId: string,
 ): string | null {
   try {
@@ -115,6 +117,10 @@ function successDetail(
     "eligibleCount",
     "createdCount",
     "existingCount",
+    "notificationCreatedCount",
+    "notificationExistingCount",
+    "feedCreatedCount",
+    "feedExistingCount",
   ]) {
     if (Object.hasOwn(result, key)) detail[key] = result[key];
   }
@@ -160,6 +166,7 @@ export async function GET() {
     features: {
       settlementEnabled: features.settlementEnabled,
       trophiesEnabled: features.trophiesEnabled,
+      feedEnabled: features.feedEnabled,
     },
   });
 }
@@ -231,6 +238,7 @@ export async function POST(req: Request) {
   if (
     op === "schedule" || op === "settle" ||
     op === "resettle" || op === "award-trophies"
+    || op === "publish-honors"
   ) {
     const expected = seasonId ? expectedConfirmation(op, seasonId) : null;
     if (
@@ -343,6 +351,26 @@ export async function POST(req: Request) {
         }
         const result = await db.transaction((tx) =>
           awardCodexResearchSeasonTrophies(tx, seasonId!)
+        );
+        await audit(adminEmail, op, successDetail(seasonId!, result));
+        return Response.json({ ok: true, op, result });
+      }
+      case "publish-honors": {
+        const features = await readCodexMasteryFeatureSettings(db);
+        if (!features.settlementEnabled || !features.trophiesEnabled) {
+          return fail(adminEmail, op, {
+            error: "feature_disabled",
+            status: 409,
+            message: "도감 연구 결산 또는 트로피 기능이 꺼져 있습니다.",
+            seasonId: seasonId!,
+          });
+        }
+        const result = await db.transaction((tx) =>
+          publishCodexResearchSeasonHonors(tx, {
+            seasonId: seasonId!,
+            now,
+            feedEnabled: features.feedEnabled,
+          })
         );
         await audit(adminEmail, op, successDetail(seasonId!, result));
         return Response.json({ ok: true, op, result });

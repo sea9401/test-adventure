@@ -31,6 +31,7 @@ type SeasonSummary = {
   endAt: string;
   status: SeasonStatus;
   settledAt: string | null;
+  publishedAt: string | null;
   opsState: OpsState;
   counts: {
     progress: number;
@@ -74,7 +75,7 @@ type SettlementPreview = {
 export type CodexResearchSeasonOpsData = {
   ok: true;
   seasons: SeasonSummary[];
-  features: { settlementEnabled: boolean; trophiesEnabled: boolean };
+  features: { settlementEnabled: boolean; trophiesEnabled: boolean; feedEnabled: boolean };
   /** 정적 렌더 테스트용 초기 검증 결과. 실제 GET 응답에는 포함되지 않는다. */
   definitionPreview?: DefinitionPreview;
 };
@@ -147,7 +148,7 @@ function FeatureState({ enabled, label }: { enabled: boolean; label: string }) {
 function ConfirmationGuide({ seasonId }: { seasonId: string }) {
   return (
     <p className="mt-2 break-all font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
-      확인 문구: SETTLE {seasonId} · RESETTLE {seasonId} · AWARD {seasonId}
+      확인 문구: SETTLE {seasonId} · RESETTLE {seasonId} · AWARD {seasonId} · PUBLISH {seasonId}
     </p>
   );
 }
@@ -278,14 +279,16 @@ export function CodexResearchSeasonOps({
   };
 
   const runSeasonOperation = async (
-    op: "settle" | "resettle" | "award-trophies",
+    op: "settle" | "resettle" | "award-trophies" | "publish-honors",
     seasonId: string,
   ) => {
     const prefix = op === "settle"
       ? "SETTLE"
       : op === "resettle"
         ? "RESETTLE"
-        : "AWARD";
+        : op === "award-trophies"
+          ? "AWARD"
+          : "PUBLISH";
     setRunning(`${op}:${seasonId}`);
     try {
       await adminPost("/api/admin/codex-research-seasons", {
@@ -312,7 +315,7 @@ export function CodexResearchSeasonOps({
               도감 연구 시즌 운영
             </h3>
             <p className="mt-1 max-w-3xl text-sm leading-relaxed text-amber-900 dark:text-amber-200">
-              월간 정의 검증 → 미래 시즌 예약 → 결산 미리보기 → 결산 → 트로피 발급 순서로
+              월간 정의 검증 → 미래 시즌 예약 → 결산 미리보기 → 결산 → 트로피 발급 → 명예 공개 순서로
               진행합니다. 자동 예약이나 자동 결산은 없으며, 이 화면은 기능 플래그를 바꾸지 않습니다.
             </p>
           </div>
@@ -324,6 +327,10 @@ export function CodexResearchSeasonOps({
             <FeatureState
               label="트로피"
               enabled={data?.features.trophiesEnabled ?? false}
+            />
+            <FeatureState
+              label="전체 소식"
+              enabled={data?.features.feedEnabled ?? false}
             />
           </div>
         </div>
@@ -450,9 +457,10 @@ export function CodexResearchSeasonOps({
               {(data?.seasons ?? []).map((season) => {
                 const canSettle = season.opsState === "ready";
                 const canResettle = season.status === "closed" &&
-                  season.counts.trophies === 0;
+                  season.counts.trophies === 0 && !season.publishedAt;
                 const canAward = season.status === "closed" &&
                   season.counts.finalRanked > 0;
+                const canPublish = season.status === "closed";
                 return (
                   <tr key={season.seasonId} className="align-top">
                     <td className="px-4 py-4">
@@ -471,6 +479,9 @@ export function CodexResearchSeasonOps({
                       </p>
                       <p className="font-mono text-[11px] text-zinc-500">
                         {shortTimestamp(season.endAt)}
+                      </p>
+                      <p className="mt-1 font-mono text-[11px] text-zinc-500">
+                        공개 {shortTimestamp(season.publishedAt)}
                       </p>
                     </td>
                     <td className="px-4 py-4">
@@ -530,6 +541,22 @@ export function CodexResearchSeasonOps({
                                 !data?.features.trophiesEnabled
                               }
                               onConfirm={() => void runSeasonOperation("award-trophies", season.seasonId)}
+                            />
+                          ) : null}
+                          {canPublish ? (
+                            <DangerAction
+                              trigger={season.publishedAt ? "전체 소식 보완" : "명예 공개"}
+                              title={`${season.seasonId} 명예의 전당 공개`}
+                              description={data?.features.feedEnabled
+                                ? "검증된 트로피 결과를 개인 알림과 다이아·전설 전체 소식으로 공개합니다."
+                                : "개인 알림과 명예의 전당만 공개합니다. 전체 소식은 플래그를 켠 뒤 같은 작업으로 보완할 수 있습니다."}
+                              confirmText={`PUBLISH ${season.seasonId}`}
+                              disabled={
+                                running !== null ||
+                                !data?.features.settlementEnabled ||
+                                !data?.features.trophiesEnabled
+                              }
+                              onConfirm={() => void runSeasonOperation("publish-honors", season.seasonId)}
                             />
                           ) : null}
                         </div>

@@ -62,6 +62,16 @@ const mocks = vi.hoisted(() => {
       createdCount: 2,
       existingCount: 0,
     })),
+    publish: vi.fn(async () => ({
+      status: "published",
+      seasonId: "2026-08",
+      publishedAt: "2026-09-01T00:00:00.000Z",
+      eligibleCount: 2,
+      notificationCreatedCount: 2,
+      notificationExistingCount: 0,
+      feedCreatedCount: 1,
+      feedExistingCount: 0,
+    })),
   };
 });
 
@@ -94,6 +104,7 @@ vi.mock("@/adventure/data/v2/codexResearchOps", async (importOriginal) => ({
       settle: "SETTLE",
       resettle: "RESETTLE",
       "award-trophies": "AWARD",
+      "publish-honors": "PUBLISH",
     }[op]} ${seasonId}`;
   },
 }));
@@ -109,6 +120,9 @@ vi.mock("@/lib/server/codexResearchSettlement", async (importOriginal) => ({
 }));
 vi.mock("@/lib/server/codexResearchTrophies", () => ({
   awardCodexResearchSeasonTrophies: mocks.award,
+}));
+vi.mock("@/lib/server/codexResearchPublication", () => ({
+  publishCodexResearchSeasonHonors: mocks.publish,
 }));
 
 import { CodexResearchOpsError } from "@/lib/server/codexResearchOps";
@@ -139,7 +153,7 @@ describe("/api/admin/codex-research-seasons", () => {
     await expect(response.json()).resolves.toEqual({
       ok: true,
       seasons: [{ seasonId: "2026-08", opsState: "closed" }],
-      features: { settlementEnabled: false, trophiesEnabled: false },
+      features: { settlementEnabled: false, trophiesEnabled: false, feedEnabled: false },
     });
     expect(mocks.list).toHaveBeenCalledWith(
       expect.objectContaining({ marker: "db" }),
@@ -307,6 +321,59 @@ describe("/api/admin/codex-research-seasons", () => {
         seasonId: "2026-08",
         participantCount: 2,
         tierCounts: expect.any(Object),
+      },
+    });
+  });
+
+  it("requires exact publish confirmation and both required flags", async () => {
+    const mismatch = await POST(post({
+      op: "publish-honors",
+      seasonId: "2026-08",
+      confirm: "PUBLISH yes",
+    }));
+    expect(mismatch.status).toBe(400);
+    expect(mocks.settings).not.toHaveBeenCalled();
+    expect(mocks.publish).not.toHaveBeenCalled();
+
+    mocks.settings.mockResolvedValue({ ...FEATURES, settlementEnabled: true });
+    const disabled = await POST(post({
+      op: "publish-honors",
+      seasonId: "2026-08",
+      confirm: "PUBLISH 2026-08",
+    }));
+    expect(disabled.status).toBe(409);
+    expect(mocks.publish).not.toHaveBeenCalled();
+  });
+
+  it("publishes personal honors with feed disabled and audits only counts", async () => {
+    mocks.settings.mockResolvedValue({
+      ...FEATURES,
+      settlementEnabled: true,
+      trophiesEnabled: true,
+      feedEnabled: false,
+    });
+    const response = await POST(post({
+      op: "publish-honors",
+      seasonId: "2026-08",
+      confirm: "PUBLISH 2026-08",
+    }));
+    expect(response.status).toBe(200);
+    expect(mocks.publish).toHaveBeenCalledWith(mocks.tx, {
+      seasonId: "2026-08",
+      now: expect.any(Date),
+      feedEnabled: false,
+    });
+    expect(mocks.audit).toHaveBeenLastCalledWith({
+      adminEmail: "owner@example.com",
+      action: "codex-research.publish-honors",
+      detail: {
+        status: "success",
+        seasonId: "2026-08",
+        eligibleCount: 2,
+        notificationCreatedCount: 2,
+        notificationExistingCount: 0,
+        feedCreatedCount: 1,
+        feedExistingCount: 0,
       },
     });
   });

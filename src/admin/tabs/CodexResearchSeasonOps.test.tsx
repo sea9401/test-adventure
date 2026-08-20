@@ -19,7 +19,7 @@ import {
 
 const previewData = {
   ok: true as const,
-  features: { settlementEnabled: false, trophiesEnabled: false },
+  features: { settlementEnabled: false, trophiesEnabled: false, feedEnabled: false },
   seasons: [
     {
       seasonId: "2026-08",
@@ -30,6 +30,7 @@ const previewData = {
       endAt: "2026-08-31T15:00:00.000Z",
       status: "closed" as const,
       settledAt: "2026-08-31T16:00:00.000Z",
+      publishedAt: null,
       opsState: "inconsistent" as const,
       counts: {
         progress: 12,
@@ -80,6 +81,8 @@ describe("도감 연구 시즌 운영 화면", () => {
     expect(html).toContain("SETTLE 2026-08");
     expect(html).toContain("RESETTLE 2026-08");
     expect(html).toContain("AWARD 2026-08");
+    expect(html).toContain("PUBLISH 2026-08");
+    expect(html).toContain("전체 소식 꺼짐");
     expect(html).toContain("SCHEDULE 2026-09");
     expect(html).toContain("bg-white");
     expect(html).toContain("dark:bg-zinc-900");
@@ -98,6 +101,7 @@ describe("도감 연구 시즌 운영 화면", () => {
     expect(html).not.toContain(">결산 실행<");
     expect(html).not.toContain(">재결산 실행<");
     expect(html).not.toContain(">트로피 발급<");
+    expect(html).not.toContain(">명예 공개<");
   });
 
   it("keeps malformed editor JSON local and never calls the admin API", () => {

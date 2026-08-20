@@ -83,7 +83,12 @@ function OpenStormExpeditionNodeDialog({ model, busy, onAction, onClose }: Props
   const titleId = `storm-expedition-node-dialog-${model.node.id}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) closeIfIdle();
+      }}
+    >
       <div
         ref={panelRef}
         role="dialog"
@@ -91,20 +96,10 @@ function OpenStormExpeditionNodeDialog({ model, busy, onAction, onClose }: Props
         aria-labelledby={titleId}
         className={`${SURFACE_CARD} max-h-[min(88vh,760px)] w-full max-w-lg overflow-y-auto p-4`}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold text-sky-700 dark:text-sky-300">{modelLabel(model)}</p>
-            <h2 id={titleId} className="mt-0.5 text-lg font-bold">{model.node.name}</h2>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{model.node.description}</p>
-          </div>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={closeIfIdle}
-            className="min-h-11 shrink-0 rounded-md border border-zinc-300 px-3 text-sm font-semibold disabled:opacity-50 dark:border-zinc-700"
-          >
-            닫기
-          </button>
+        <div>
+          <p className="text-xs font-semibold text-sky-700 dark:text-sky-300">{modelLabel(model)}</p>
+          <h2 id={titleId} className="mt-0.5 text-lg font-bold">{model.node.name}</h2>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{model.node.description}</p>
         </div>
 
         <div className="mt-4">
@@ -115,6 +110,14 @@ function OpenStormExpeditionNodeDialog({ model, busy, onAction, onClose }: Props
           {model.kind === "completed" && <SummaryBody lines={model.summary} />}
           {model.kind === "locked" && <SummaryBody lines={[model.reason]} />}
         </div>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={closeIfIdle}
+          className="mt-4 min-h-11 w-full rounded-md border border-zinc-300 px-4 text-sm font-semibold transition hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+        >
+          확인
+        </button>
       </div>
     </div>
   );

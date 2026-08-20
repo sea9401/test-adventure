@@ -1,5 +1,8 @@
+// @vitest-environment jsdom
+
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { stormExpeditionMapNode } from "@/adventure/data/v2/stormExpeditionMap";
 import { StormExpeditionNodeDialog } from "./StormExpeditionNodeDialog";
 
@@ -15,6 +18,8 @@ const common = {
   onAction: vi.fn(),
   onClose: vi.fn(),
 };
+
+afterEach(cleanup);
 
 describe("StormExpeditionNodeDialog", () => {
   it("전투 노드에서 적·남은 연전·예상 보상과 전투 시작을 표시한다", () => {
@@ -109,7 +114,43 @@ describe("StormExpeditionNodeDialog", () => {
     expect(html).not.toContain("이 경로로 이동");
   });
 
-  it("서버 요청 중에는 닫기와 행동 버튼을 잠근다", () => {
+  it("본문 다음에 전체 폭 확인 버튼을 표시한다", () => {
+    render(
+      <StormExpeditionNodeDialog
+        {...common}
+        model={{ kind: "completed", node: node("gale_outer"), summary: ["결과 요약"] }}
+      />,
+    );
+
+    const summary = screen.getByText("결과 요약");
+    const confirmButton = screen.getByRole("button", { name: "확인" });
+
+    expect(summary.compareDocumentPosition(confirmButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(confirmButton.className).toContain("w-full");
+  });
+
+  it("팝업 바깥을 누르면 닫고 내부를 누르면 유지한다", () => {
+    const onClose = vi.fn();
+    render(
+      <StormExpeditionNodeDialog
+        {...common}
+        onClose={onClose}
+        model={{ kind: "completed", node: node("gale_outer"), summary: ["결과 요약"] }}
+      />,
+    );
+
+    const dialog = screen.getByRole("dialog");
+    const overlay = dialog.parentElement;
+    if (!overlay) throw new Error("missing dialog overlay");
+
+    fireEvent.mouseDown(dialog);
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.mouseDown(overlay);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("서버 요청 중에는 확인과 행동 버튼을 잠근다", () => {
     const html = renderToStaticMarkup(
       <StormExpeditionNodeDialog
         {...common}
@@ -117,8 +158,8 @@ describe("StormExpeditionNodeDialog", () => {
         model={{ kind: "move", node: node("supply"), routeName: null, disabledReason: null }}
       />,
     );
-    expect(html).toMatch(/>닫기<\/button>/);
-    expect(html).toMatch(/disabled=""[^>]*>닫기<\/button>/);
+    expect(html).toMatch(/>확인<\/button>/);
+    expect(html).toMatch(/disabled=""[^>]*>확인<\/button>/);
     expect(html).toMatch(/disabled=""[^>]*>이동 처리 중/);
   });
 });

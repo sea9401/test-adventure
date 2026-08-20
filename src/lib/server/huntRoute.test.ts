@@ -77,19 +77,41 @@ vi.mock("@/lib/server/savesKv", () => ({
   lockSaveForUpdate: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
+  lockSavesForUpdate: vi.fn(
+    async (_tx, _uid, fallbacks: Record<string, unknown>) =>
+      Object.fromEntries(
+        Object.entries(fallbacks).map(([key, fallback]) => [
+          key,
+          store.has(key) ? store.get(key) : fallback,
+        ]),
+      ),
+  ),
   readSave: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
+  readSaves: vi.fn(async (_tx, _uid, fallbacks: Record<string, unknown>) =>
+    Object.fromEntries(
+      Object.entries(fallbacks).map(([key, fallback]) => [
+        key,
+        store.has(key) ? store.get(key) : fallback,
+      ]),
+    ),
+  ),
   upsertSave: vi.fn(async (_tx, _uid, key: string, value: unknown) => {
     store.set(key, value);
+  }),
+  upsertSaves: vi.fn(async (_tx, _uid, entries: Record<string, unknown>) => {
+    for (const [key, value] of Object.entries(entries)) store.set(key, value);
   }),
 }));
 
 import { POST } from "@/app/api/v2/dungeon/hunt/route";
 import {
   lockSaveForUpdate,
-  readSave,
+  lockSavesForUpdate,
+  readSaves,
   upsertSave,
+  upsertSaves,
 } from "@/lib/server/savesKv";
 import { GUILD_DINING_USER_SAVE_KEY } from "@/adventure/data/v2/guildDining";
 import { battleReplays } from "@/db/schema";
@@ -208,6 +230,16 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       monsters: Record<string, { kills?: number }>;
     };
     expect(log.monsters[json.result.enemyName]?.kills).toBe(1);
+  });
+
+  it("단판 성공의 나머지 save 잠금·읽기·최종 쓰기를 각각 한 쿼리로 묶는다", async () => {
+    const res = await POST(huntReq({ floor: 2 }));
+
+    expect(res.status).toBe(200);
+    expect(lockSavesForUpdate).toHaveBeenCalledTimes(1);
+    expect(readSaves).toHaveBeenCalledTimes(1);
+    expect(upsertSaves).toHaveBeenCalledTimes(1);
+    expect(upsertSave).not.toHaveBeenCalled();
   });
 
   it("활성 음식의 사냥 경험치 버프를 캐릭터 EXP에 적용한다", async () => {
@@ -449,38 +481,30 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
 
     // 첫 판이 잡은 사용자 save lock을 같은 tx의 다음 판들이 재사용한다.
     // 캐시가 빠지면 이 값들이 completed(5)만큼 늘어나므로 성능 회귀를 바로 잡는다.
-    const lockKeys = vi
-      .mocked(lockSaveForUpdate)
-      .mock.calls.map((call) => call[2]);
-    for (const key of [
-      "character.v2",
-      "equipment.v2",
-      "skills.v2",
-      "proficiency.v2",
-      "inventory.v2",
-      "adventure-log.v2",
-    ]) {
-      expect(lockKeys.filter((lockedKey) => lockedKey === key)).toHaveLength(1);
-    }
-    const killLogWrites = vi
-      .mocked(upsertSave)
-      .mock.calls.filter((call) => call[2] === "adventure-log.v2");
-    expect(killLogWrites).toHaveLength(1);
-    for (const key of [
-      "character.v2",
-      "equipment.v2",
-      "inventory.v2",
-      "proficiency.v2",
-    ]) {
-      expect(
-        vi.mocked(upsertSave).mock.calls.filter((call) => call[2] === key),
-      ).toHaveLength(1);
-    }
     expect(
       vi
-        .mocked(readSave)
-        .mock.calls.filter((call) => call[2] === GUILD_DINING_USER_SAVE_KEY),
+        .mocked(lockSaveForUpdate)
+        .mock.calls.filter((call) => call[2] === "character.v2"),
     ).toHaveLength(1);
+    expect(lockSavesForUpdate).toHaveBeenCalledTimes(1);
+    const lockedFallbacks = vi.mocked(lockSavesForUpdate).mock.calls[0][2];
+    expect(Object.keys(lockedFallbacks).sort()).toEqual([
+      "adventure-log.v2",
+      "equipment.v2",
+      GUILD_DINING_USER_SAVE_KEY,
+      "inventory.v2",
+      "proficiency.v2",
+      "skills.v2",
+    ]);
+    expect(upsertSaves).toHaveBeenCalledTimes(1);
+    expect(Object.keys(vi.mocked(upsertSaves).mock.calls[0][2]).sort()).toEqual([
+      "adventure-log.v2",
+      "character.v2",
+      "equipment.v2",
+      "inventory.v2",
+      "proficiency.v2",
+    ]);
+    expect(upsertSave).not.toHaveBeenCalled();
   });
 
   it("배치의 활성 길드 식사 효과를 판간 이월하고 마지막에 한 번 저장한다", async () => {
@@ -507,21 +531,12 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(json.batch.completed).toBe(5);
     expect(json.batch.totalExp).toBeGreaterThan(0);
 
-    expect(
-      vi
-        .mocked(readSave)
-        .mock.calls.filter((call) => call[2] === GUILD_DINING_USER_SAVE_KEY),
-    ).toHaveLength(1);
-    expect(
-      vi
-        .mocked(lockSaveForUpdate)
-        .mock.calls.filter((call) => call[2] === GUILD_DINING_USER_SAVE_KEY),
-    ).toHaveLength(1);
-    expect(
-      vi
-        .mocked(upsertSave)
-        .mock.calls.filter((call) => call[2] === GUILD_DINING_USER_SAVE_KEY),
-    ).toHaveLength(1);
+    expect(lockSavesForUpdate).toHaveBeenCalledTimes(1);
+    expect(upsertSaves).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(upsertSaves).mock.calls[0][2]).toHaveProperty(
+      GUILD_DINING_USER_SAVE_KEY,
+    );
+    expect(upsertSave).not.toHaveBeenCalled();
   });
 
   it("현재 거점이 있어도 사냥세 없이 골드 전액을 지급한다", async () => {
@@ -648,6 +663,27 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
 
     const inv = store.get("inventory.v2") as { hpCharges: number };
     expect(inv.hpCharges).toBe(json.result.hpCharges);
+  });
+
+  it("부족한 HP 충전량을 소모하고 저체력으로 중단돼도 한 번의 배치 쓰기로 보존한다", async () => {
+    store.set("character.v2", {
+      ...(store.get("character.v2") as object),
+      hp: 0,
+      hpRegenSince: Date.now(),
+    });
+    store.set("inventory.v2", { hpCharges: 1, mpCharges: 0 });
+
+    const res = await POST(huntReq({ floor: 2 }));
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      ok: false,
+      error: "hp_zero",
+    });
+    expect(store.get("inventory.v2")).toMatchObject({ hpCharges: 0 });
+    expect(store.get("character.v2")).toMatchObject({ hp: 1 });
+    expect(upsertSaves).toHaveBeenCalledTimes(1);
+    expect(upsertSave).not.toHaveBeenCalled();
   });
 
   it("HP 충전약 목표를 설정하면 전투 전에도 해당 체력까지만 회복한다", async () => {

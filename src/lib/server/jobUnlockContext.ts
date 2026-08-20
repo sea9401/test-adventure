@@ -21,8 +21,11 @@ import {
   WOODCUTTING_LOG_KEY,
   parseWoodcuttingLog,
 } from "@/adventure/v2/woodcuttingSession";
-import { loadCompletedQuestIds } from "@/lib/server/v2QuestContext";
-import { readSave, type DbExecutor } from "@/lib/server/savesKv";
+import {
+  GUIDE_QUESTS_KEY,
+  parseClaimed,
+} from "@/lib/server/v2QuestContext";
+import { readSaves, type DbExecutor } from "@/lib/server/savesKv";
 import {
   COOKING_SAVE_KEY,
   cookingLevelForXp,
@@ -85,22 +88,29 @@ export async function readJobUnlockContext(
   userId: string,
   now = Date.now(),
 ): Promise<JobUnlockContext> {
-  // executor 가 transaction 이면 모든 쿼리가 같은 pg client 를 공유한다. pg client 는
-  // 동시 query 를 지원하지 않으므로 조건별 read 를 순서대로 실행한다.
+  const fallbacks: Record<string, unknown> = {};
+  if (CATALOG_USES_QUEST_CONDITION) fallbacks[GUIDE_QUESTS_KEY] = {};
+  if (CATALOG_USES_FARMING_LEVEL_CONDITION) fallbacks[FARM_SAVE_KEY] = {};
+  if (CATALOG_USES_COOKING_LEVEL_CONDITION) fallbacks[COOKING_SAVE_KEY] = {};
+  if (CATALOG_USES_WOODCUTTING_LEVEL_CONDITION) {
+    fallbacks[WOODCUTTING_LOG_KEY] = {};
+  }
+  if (CATALOG_USES_MINING_LEVEL_CONDITION) fallbacks[MINING_LOG_KEY] = {};
+  const saves = await readSaves(executor, userId, fallbacks);
   const completedQuestIds = CATALOG_USES_QUEST_CONDITION
-    ? await loadCompletedQuestIds(executor, userId)
+    ? parseClaimed(saves[GUIDE_QUESTS_KEY])
     : undefined;
   const farmRaw = CATALOG_USES_FARMING_LEVEL_CONDITION
-    ? await readSave(executor, userId, FARM_SAVE_KEY, {})
+    ? saves[FARM_SAVE_KEY]
     : undefined;
   const cookingRaw = CATALOG_USES_COOKING_LEVEL_CONDITION
-    ? await readSave(executor, userId, COOKING_SAVE_KEY, {})
+    ? saves[COOKING_SAVE_KEY]
     : undefined;
   const woodcuttingRaw = CATALOG_USES_WOODCUTTING_LEVEL_CONDITION
-    ? await readSave(executor, userId, WOODCUTTING_LOG_KEY, {})
+    ? saves[WOODCUTTING_LOG_KEY]
     : undefined;
   const miningRaw = CATALOG_USES_MINING_LEVEL_CONDITION
-    ? await readSave(executor, userId, MINING_LOG_KEY, {})
+    ? saves[MINING_LOG_KEY]
     : undefined;
   const jobSpRebalance = await readJobSpRebalanceState(executor, now);
   return {

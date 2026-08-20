@@ -1,8 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { FISH_IDS } from "@/adventure/data/v2/fish";
 import { emptyFishCodex, registerFishSpecimen } from "@/adventure/v2/fishingCodex";
-import { codexSpBonusFromRaw } from "./codexSpBonus";
+const { readSave, readSaves } = vi.hoisted(() => ({
+  readSave: vi.fn(),
+  readSaves: vi.fn(),
+}));
+
+vi.mock("./savesKv", () => ({ readSave, readSaves }));
+
+import { codexSpBonusFromRaw, readCodexSpBonus } from "./codexSpBonus";
 
 describe("codexSpBonusFromRaw", () => {
   it("장비 도감 SP 보너스를 total 에 포함한다", () => {
@@ -31,5 +38,21 @@ describe("codexSpBonusFromRaw", () => {
 
     expect(bonus.fishSp).toBe(1);
     expect(bonus.total).toBe(1);
+  });
+});
+
+describe("readCodexSpBonus", () => {
+  it("어보·장비 도감 입력을 한 번의 multi-key read로 가져온다", async () => {
+    readSaves.mockResolvedValueOnce({
+      "fishing-codex.v1": { fish: {} },
+      "equipment-codex.v1": {
+        registeredIds: Object.keys(V2_EQUIPMENT).slice(0, 15),
+      },
+    });
+    const bonus = await readCodexSpBonus({} as never, "u-1");
+
+    expect(bonus.equipmentSp).toBe(2);
+    expect(readSaves).toHaveBeenCalledTimes(1);
+    expect(readSave).not.toHaveBeenCalled();
   });
 });

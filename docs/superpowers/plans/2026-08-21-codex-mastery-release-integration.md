@@ -77,11 +77,11 @@ Expected: both hashes are recorded. If the merge base is not the current `origin
 Run:
 
 ```bash
-ln -s /home/sea9401/test-adventure/node_modules node_modules
+cp -al /home/sea9401/test-adventure/node_modules node_modules
 npm --version
 ```
 
-Expected: `node_modules` is an untracked ignored symlink and npm exits successfully. Do not run `npm install` unless the package manifests later prove incompatible.
+Expected: `node_modules` is an untracked ignored local directory backed by hard links and npm exits successfully. A symlink outside the worktree is forbidden because Turbopack rejects package links that point outside the project filesystem root. Do not run `npm install` unless the package manifests later prove incompatible.
 
 - [ ] **Step 4: Read the installed Next.js routing and component-boundary guides**
 

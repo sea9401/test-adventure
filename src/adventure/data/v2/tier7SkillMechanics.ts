@@ -1,21 +1,14 @@
-export const TIER7_COMBAT_JOB_IDS = [
-  "shadowblade",
-  "ruinblade",
-  "skyascendant",
-  "primordialsage",
-] as const;
+import {
+  TIER7_COMBAT_JOB_IDS,
+  type Tier7CombatJobId,
+} from "./tier7Jobs";
 
-export type Tier7CombatJobId = (typeof TIER7_COMBAT_JOB_IDS)[number];
-
-export const TIER7_COMBAT_JOB_PREREQS: Record<
-  Tier7CombatJobId,
-  readonly [string, string]
-> = {
-  shadowblade: ["swordsaint", "blackmoon"],
-  ruinblade: ["swordsaint", "hegemon"],
-  skyascendant: ["heavenlybow", "celestialdragon"],
-  primordialsage: ["archmage", "primordialmage"],
-};
+export {
+  TIER7_COMBAT_JOB_IDS,
+  TIER7_COMBAT_JOB_NAMES,
+  TIER7_COMBAT_JOB_PREREQS,
+  type Tier7CombatJobId,
+} from "./tier7Jobs";
 
 export function tier7CombatJobIdForSkillId(
   skillId: string,

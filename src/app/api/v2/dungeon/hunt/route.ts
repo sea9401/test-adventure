@@ -109,6 +109,10 @@ import {
   enforceUserAndIpRateLimit,
 } from "@/lib/server/userRateLimit";
 import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
+import {
+  recordCodexMasteryGameplayBatch,
+  type CodexMasteryGameplayEvent,
+} from "@/lib/server/codexMasteryGameplay";
 import { referralHuntTaskIds } from "@/adventure/data/v2/referralTutorial";
 import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
 import { rollHuntDrops } from "./huntDrops";
@@ -354,6 +358,9 @@ export type RunOneHuntCtx = {
   nowOverride?: number;
   // 온라인 일괄 사냥 전용. 첫 판이 잡은 row lock과 최신 save 상태를 같은 tx의 다음 판에서 재사용한다.
   batchState?: HuntBatchState;
+  // 온라인 일괄·오프라인 정산 전용. 판별 이벤트를 모아 같은 tx에서 한 번에 기록한다.
+  // 미지정인 단판은 해당 판이 끝날 때 즉시 기록한다.
+  codexMasteryEvents?: CodexMasteryGameplayEvent[];
 };
 
 // 한 번의 사냥 — 기존 단판 로직 그대로(트랜잭션 클로저 tx 사용). 일괄 모드는 이 함수를
@@ -1085,6 +1092,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     proficiencyGained,
     proficiencyPointsAfter,
     masteryGained,
+    masteryJobId,
     masteryAfter,
     spMilestonesGained,
     statGains,
@@ -1114,6 +1122,52 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
           intGained: statGains.int ?? 0,
         })
       : { hp: 0, mp: 0 };
+
+  const codexMasteryEvents: CodexMasteryGameplayEvent[] = [];
+  if (won) {
+    codexMasteryEvents.push({
+      category: "monster",
+      entryId: enemy.key,
+      amount: 1,
+      source: "hunt.victory",
+    });
+  }
+  if (droppedEquipment) {
+    codexMasteryEvents.push({
+      category: "equipment",
+      entryId: droppedEquipment,
+      amount: 1,
+      source: "equipment.drop",
+    });
+  }
+  if (droppedUnique) {
+    codexMasteryEvents.push({
+      category: "equipment",
+      entryId: droppedUnique,
+      amount: 1,
+      source: "equipment.drop",
+    });
+  }
+  if (masteryJobId && masteryGained > 0) {
+    codexMasteryEvents.push({
+      category: "job",
+      entryId: masteryJobId,
+      amount: masteryGained,
+      source: "job.victory",
+    });
+  }
+  if (codexMasteryEvents.length > 0) {
+    if (ctx.codexMasteryEvents) {
+      ctx.codexMasteryEvents.push(...codexMasteryEvents);
+    } else {
+      await recordCodexMasteryGameplayBatch(
+        tx,
+        userId,
+        codexMasteryEvents,
+        new Date(now),
+      );
+    }
+  }
 
   // 코어루프 패배 페널티는 순수 소실이다. 보유 골드에서 이미 차감됐고, 세금처럼 금고에 쌓지 않는다.
   if (won && !ctx.offline && !ctx.batchState?.deferGuildExploration) {
@@ -1375,9 +1429,11 @@ async function handleHunt(req: Request, userId: string) {
       dining: {},
       deferGuildExploration: true,
     };
+    const codexMasteryEvents: CodexMasteryGameplayEvent[] = [];
     const batchCtx: RunOneHuntCtx = {
       ...ctx,
       batchState,
+      codexMasteryEvents,
     };
     // count>1 — 한 트랜잭션에서 N회. 스태미나 부족·HP 부족·사망이면 중단(완료분은 커밋).
     let completed = 0;
@@ -1573,6 +1629,15 @@ async function handleHunt(req: Request, userId: string) {
           progressAt,
         );
       }
+    }
+
+    if (codexMasteryEvents.length > 0) {
+      await recordCodexMasteryGameplayBatch(
+        tx,
+        userId,
+        codexMasteryEvents,
+        new Date(),
+      );
     }
 
     return {

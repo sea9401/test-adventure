@@ -1,7 +1,12 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
+import {
+  lockSaveForUpdate,
+  readSave,
+  upsertSave,
+  type DbTransactionExecutor,
+} from "@/lib/server/savesKv";
 import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
@@ -17,6 +22,7 @@ import {
 import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import { recordUniqueEquipmentAcquisitions } from "@/lib/server/uniqueEquipmentAchievement";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 import {
   STORM_EXPEDITION_ALTAR_CHOICES,
   STORM_EXPEDITION_CAMP_CHOICES,
@@ -724,7 +730,7 @@ async function claimPendingRewards({
   equipmentSave,
   active,
 }: {
-  tx: Parameters<typeof upsertSave>[0];
+  tx: DbTransactionExecutor;
   userId: string;
   charSave: CharacterSave;
   equipmentSave: Record<string, unknown>;
@@ -760,6 +766,19 @@ async function claimPendingRewards({
         acquiredIds: acquiredUniqueIds,
       },
     });
+  }
+  if (active.pendingEquipment.length > 0) {
+    await recordCodexMasteryGameplayBatch(
+      tx,
+      userId,
+      active.pendingEquipment.map((instance) => ({
+        category: "equipment" as const,
+        entryId: instance.id,
+        amount: 1,
+        source: "equipment.drop" as const,
+      })),
+      new Date(),
+    );
   }
   return {
     character,

@@ -1,5 +1,13 @@
 import type { CoopBossKindId } from "./coopBosses";
 import type { FishId } from "./fish";
+import type { CodexMasteryCategory } from "./codexMasteryTypes";
+import {
+  codexTrophyDisplayCategory,
+  isCodexTrophyId,
+  type CodexTrophyDisplayCategory,
+  type CodexTrophyId,
+  type CodexMasteryTrophyTier,
+} from "./codexMasteryTrophies";
 
 // 개인 숙소 — 격자 배치와 공개 전시의 서버/클라이언트 공용 모델.
 // 1차는 기본 가구를 전원에게 지급한다. 이후 가구 제작이 붙으면 owned 수량만 별도 파생해
@@ -16,6 +24,10 @@ export type HousingDisplayRef =
   | { kind: "equipment"; iid: string }
   | { kind: "fish"; fishId: FishId }
   | { kind: "boss"; bossId: CoopBossKindId };
+
+export type HousingMasteryTrophyRef = {
+  trophyId: CodexTrophyId;
+};
 
 export type HousingFurnitureCategory = "furniture" | "display";
 
@@ -123,6 +135,7 @@ export type HousingPlacement = {
   y: number;
   rotated: boolean;
   display?: HousingDisplayRef;
+  masteryTrophy?: HousingMasteryTrophyRef;
 };
 
 export type HousingState = {
@@ -149,6 +162,14 @@ export type HousingDisplayOption =
       bossId: CoopBossKindId;
       label: string;
       detail: string;
+    }
+  | {
+      kind: "masteryTrophy";
+      trophyId: CodexTrophyId;
+      category: CodexTrophyDisplayCategory;
+      currentTier: CodexMasteryTrophyTier;
+      label: string;
+      detail: string;
     };
 
 export type HousingEntitlements = {
@@ -156,6 +177,7 @@ export type HousingEntitlements = {
   equipmentIids?: ReadonlySet<string>;
   fishIds?: ReadonlySet<string>;
   bossIds?: ReadonlySet<string>;
+  masteryTrophyIds?: ReadonlySet<string>;
 };
 
 export type HousingValidationResult =
@@ -170,8 +192,47 @@ export type HousingValidationResult =
         | "furniture_not_owned"
         | "items_overlap"
         | "invalid_display"
-        | "display_not_owned";
+        | "display_not_owned"
+        | "invalid_mastery_trophy"
+        | "mastery_trophy_not_owned";
     };
+
+type HousingMasteryTrophyCategory = CodexMasteryCategory | "overall" | "research";
+
+const ALL_MASTERY_TROPHY_CATEGORIES: readonly HousingMasteryTrophyCategory[] = [
+  "equipment",
+  "fish",
+  "monster",
+  "cooking",
+  "life",
+  "job",
+  "overall",
+  "research",
+];
+
+const HOUSING_MASTERY_TROPHY_CATEGORIES: Partial<
+  Record<HousingFurnitureId, readonly HousingMasteryTrophyCategory[]>
+> = Object.freeze({
+  record_shelf: ALL_MASTERY_TROPHY_CATEGORIES,
+  trophy_aquarium: ["fish"],
+  equipment_mannequin: ["equipment"],
+  boss_trophy: ["monster"],
+  weapon_rack: ["equipment"],
+  cookware_display: ["cooking"],
+});
+
+export function housingMasteryTrophyCategoriesFor(
+  furnitureId: HousingFurnitureId,
+): readonly HousingMasteryTrophyCategory[] {
+  return HOUSING_MASTERY_TROPHY_CATEGORIES[furnitureId] ?? [];
+}
+
+export function housingMasteryTrophyIsEligible(
+  furnitureId: HousingFurnitureId,
+  category: HousingMasteryTrophyCategory,
+): boolean {
+  return housingMasteryTrophyCategoriesFor(furnitureId).includes(category);
+}
 
 export function isHousingFurnitureId(value: unknown): value is HousingFurnitureId {
   return typeof value === "string" && value in HOUSING_FURNITURE;
@@ -250,6 +311,16 @@ function parseDisplayRef(raw: unknown): HousingDisplayRef | undefined {
   return undefined;
 }
 
+function parseMasteryTrophyRef(
+  raw: unknown,
+): HousingMasteryTrophyRef | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const trophyId = (raw as { trophyId?: unknown }).trophyId;
+  if (typeof trophyId !== "string") return undefined;
+  const normalized = trophyId.trim();
+  return isCodexTrophyId(normalized) ? { trophyId: normalized } : undefined;
+}
+
 function parsePlacement(raw: unknown): HousingPlacement | null {
   if (!raw || typeof raw !== "object") return null;
   const value = raw as Record<string, unknown>;
@@ -266,6 +337,16 @@ function parsePlacement(raw: unknown): HousingPlacement | null {
   };
   const display = parseDisplayRef(value.display);
   if (display) placement.display = display;
+  const masteryTrophy = parseMasteryTrophyRef(value.masteryTrophy);
+  if (masteryTrophy) {
+    const category = codexTrophyDisplayCategory(masteryTrophy.trophyId);
+    if (
+      category &&
+      housingMasteryTrophyIsEligible(placement.furnitureId, category)
+    ) {
+      placement.masteryTrophy = masteryTrophy;
+    }
+  }
   return placement;
 }
 
@@ -312,8 +393,22 @@ export function validateHousingState(
   const cells = new Set<string>();
 
   for (const rawPlacement of value.layout) {
+    const rawPlacementValue = rawPlacement && typeof rawPlacement === "object"
+      ? rawPlacement as Record<string, unknown>
+      : null;
+    const suppliedMasteryTrophy = rawPlacementValue &&
+      Object.hasOwn(rawPlacementValue, "masteryTrophy");
+    const parsedMasteryTrophy = suppliedMasteryTrophy
+      ? parseMasteryTrophyRef(rawPlacementValue.masteryTrophy)
+      : undefined;
+    if (suppliedMasteryTrophy && !parsedMasteryTrophy) {
+      return { ok: false, error: "invalid_mastery_trophy" };
+    }
     const placement = parsePlacement(rawPlacement);
     if (!placement) return { ok: false, error: "invalid_placement" };
+    if (suppliedMasteryTrophy && !placement.masteryTrophy) {
+      return { ok: false, error: "invalid_mastery_trophy" };
+    }
     if (uids.has(placement.uid)) return { ok: false, error: "duplicate_placement" };
     uids.add(placement.uid);
 
@@ -345,6 +440,12 @@ export function validateHousingState(
     if (placement.display && !displayIsEntitled(placement.display, entitlements)) {
       return { ok: false, error: "display_not_owned" };
     }
+    if (
+      placement.masteryTrophy &&
+      entitlements.masteryTrophyIds?.has(placement.masteryTrophy.trophyId) !== true
+    ) {
+      return { ok: false, error: "mastery_trophy_not_owned" };
+    }
     layout.push(placement);
   }
 
@@ -356,7 +457,10 @@ export function validateHousingState(
 
 // 읽기 경로는 손상된 과거 세이브 한 건 때문에 숙소 전체가 열리지 않지 않도록 유효한 배치만
 // 순서대로 복구한다. 쓰기 경로는 위 validateHousingState 로 엄격 검증한다.
-export function parseHousingState(raw: unknown): HousingState {
+export function parseHousingState(
+  raw: unknown,
+  ownedCounts?: Partial<Record<HousingFurnitureId, number>>,
+): HousingState {
   if (!raw || typeof raw !== "object" || !Array.isArray((raw as { layout?: unknown }).layout)) {
     return defaultHousingState();
   }
@@ -377,7 +481,7 @@ export function parseHousingState(raw: unknown): HousingState {
       placement.y + height > HOUSING_GRID_ROWS
     ) continue;
     const count = (counts.get(placement.furnitureId) ?? 0) + 1;
-    if (count > housingOwnedCount(placement.furnitureId)) continue;
+    if (count > housingOwnedCount(placement.furnitureId, ownedCounts)) continue;
     const nextCells = placementCells(placement);
     if (nextCells.some((cell) => cells.has(cell))) continue;
     const expectedDisplayKind = housingDisplayKindFor(placement.furnitureId);
@@ -404,5 +508,45 @@ export function housingDisplayKey(display: HousingDisplayRef): string {
 export function housingOptionKey(option: HousingDisplayOption): string {
   if (option.kind === "equipment") return `equipment:${option.iid}`;
   if (option.kind === "fish") return `fish:${option.fishId}`;
-  return `boss:${option.bossId}`;
+  if (option.kind === "boss") return `boss:${option.bossId}`;
+  return `masteryTrophy:${option.trophyId}`;
+}
+
+export function housingMasteryTrophyKey(
+  masteryTrophy: HousingMasteryTrophyRef,
+): string {
+  return `masteryTrophy:${masteryTrophy.trophyId}`;
+}
+
+export function stripHousingMasteryTrophies(state: HousingState): HousingState {
+  return {
+    ...state,
+    layout: state.layout.map((placement) => {
+      const { masteryTrophy: _masteryTrophy, ...withoutMasteryTrophy } = placement;
+      return withoutMasteryTrophy;
+    }),
+  };
+}
+
+export function restoreHousingMasteryTrophies(
+  stored: HousingState,
+  submitted: HousingState,
+): HousingState {
+  const storedByUid = new Map(
+    stored.layout.map((placement) => [placement.uid, placement.masteryTrophy]),
+  );
+  return {
+    ...submitted,
+    layout: submitted.layout.map((placement) => {
+      const { masteryTrophy: _submittedMasteryTrophy, ...withoutMasteryTrophy } =
+        placement;
+      const masteryTrophy = storedByUid.get(placement.uid);
+      if (!masteryTrophy) return withoutMasteryTrophy;
+      const category = codexTrophyDisplayCategory(masteryTrophy.trophyId);
+      return category &&
+          housingMasteryTrophyIsEligible(placement.furnitureId, category)
+        ? { ...withoutMasteryTrophy, masteryTrophy }
+        : withoutMasteryTrophy;
+    }),
+  };
 }

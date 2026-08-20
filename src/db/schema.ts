@@ -1,4 +1,15 @@
 import { sql } from "drizzle-orm";
+import type { CodexMasteryStage } from "@/adventure/data/v2/codexMasteryTypes";
+import type {
+  CodexMasteryTrophyTier,
+  CodexTrophyKind,
+} from "@/adventure/data/v2/codexMasteryTrophies";
+import type {
+  CodexResearchDefinitionSnapshot,
+  CodexResearchProgressState,
+  CodexResearchRepresentativeRecord,
+  CodexResearchSeasonStatus,
+} from "@/adventure/data/v2/codexResearch";
 import {
   pgTable,
   text,
@@ -2503,5 +2514,326 @@ export const adminAuditLog = pgTable(
     index("admin_audit_log_admin_created_idx").on(t.adminEmail, sql`${t.id} DESC`),
     index("admin_audit_log_action_created_idx").on(t.action, sql`${t.id} DESC`),
     index("admin_audit_log_target_created_idx").on(t.targetUserId, sql`${t.id} DESC`),
+  ],
+);
+
+// 도감 숙련도 항목별 진행 — 사용자/분야/항목 복합키로 한 항목의 단조 진행을 보관한다.
+export const codexMasteryProgress = pgTable(
+  "codex_mastery_progress",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    category: text("category").notNull(),
+    entryId: text("entry_id").notNull(),
+    count: bigint("count", { mode: "number" }).notNull().default(0),
+    bestValue: doublePrecision("best_value"),
+    currentTier: text("current_tier").notNull().default("none"),
+    sealIds: jsonb("seal_ids").$type<string[]>().notNull().default([]),
+    tierAchievedAt: jsonb("tier_achieved_at")
+      .$type<Partial<Record<CodexMasteryStage, string>>>()
+      .notNull()
+      .default({}),
+    scoreMilli: bigint("score_milli", { mode: "number" }).notNull().default(0),
+    firstRecordedAt: timestamp("first_recorded_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.category, t.entryId] }),
+    index("codex_mastery_progress_user_category_tier_idx").on(
+      t.userId,
+      t.category,
+      t.currentTier,
+    ),
+    check("codex_mastery_progress_count_nonnegative", sql`${t.count} >= 0`),
+    check("codex_mastery_progress_score_nonnegative", sql`${t.scoreMilli} >= 0`),
+  ],
+);
+
+// 도감 숙련도 요약 — 공개 랭킹과 사용자별 총점 조회를 위한 사용자당 한 행이다.
+export const codexMasterySummary = pgTable(
+  "codex_mastery_summary",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    totalScoreMilli: bigint("total_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    equipmentScoreMilli: bigint("equipment_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    fishScoreMilli: bigint("fish_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    monsterScoreMilli: bigint("monster_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    cookingScoreMilli: bigint("cooking_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    lifeScoreMilli: bigint("life_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    jobScoreMilli: bigint("job_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    bronzeCount: integer("bronze_count").notNull().default(0),
+    silverCount: integer("silver_count").notNull().default(0),
+    goldCount: integer("gold_count").notNull().default(0),
+    platinumCount: integer("platinum_count").notNull().default(0),
+    diamondCount: integer("diamond_count").notNull().default(0),
+    legendaryCount: integer("legendary_count").notNull().default(0),
+    sealCount: integer("seal_count").notNull().default(0),
+    scoredCategoryCount: integer("scored_category_count").notNull().default(0),
+    scoreReachedAt: timestamp("score_reached_at"),
+    equipmentScoreReachedAt: timestamp("equipment_score_reached_at"),
+    fishScoreReachedAt: timestamp("fish_score_reached_at"),
+    monsterScoreReachedAt: timestamp("monster_score_reached_at"),
+    cookingScoreReachedAt: timestamp("cooking_score_reached_at"),
+    lifeScoreReachedAt: timestamp("life_score_reached_at"),
+    jobScoreReachedAt: timestamp("job_score_reached_at"),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("codex_mastery_summary_total_score_rank_idx").on(
+      t.totalScoreMilli.desc(),
+      t.goldCount.desc(),
+      t.sealCount.desc(),
+      t.scoredCategoryCount.desc(),
+      t.scoreReachedAt.asc().nullsLast(),
+      t.userId.asc(),
+    ),
+    index("codex_mastery_summary_equipment_score_rank_idx").on(
+      t.equipmentScoreMilli.desc(),
+      t.goldCount.desc(),
+      t.sealCount.desc(),
+      t.scoredCategoryCount.desc(),
+      t.equipmentScoreReachedAt.asc().nullsLast(),
+      t.userId.asc(),
+    ),
+    index("codex_mastery_summary_fish_score_rank_idx").on(
+      t.fishScoreMilli.desc(),
+      t.goldCount.desc(),
+      t.sealCount.desc(),
+      t.scoredCategoryCount.desc(),
+      t.fishScoreReachedAt.asc().nullsLast(),
+      t.userId.asc(),
+    ),
+    index("codex_mastery_summary_monster_score_rank_idx").on(
+      t.monsterScoreMilli.desc(),
+      t.goldCount.desc(),
+      t.sealCount.desc(),
+      t.scoredCategoryCount.desc(),
+      t.monsterScoreReachedAt.asc().nullsLast(),
+      t.userId.asc(),
+    ),
+    index("codex_mastery_summary_cooking_score_rank_idx").on(
+      t.cookingScoreMilli.desc(),
+      t.goldCount.desc(),
+      t.sealCount.desc(),
+      t.scoredCategoryCount.desc(),
+      t.cookingScoreReachedAt.asc().nullsLast(),
+      t.userId.asc(),
+    ),
+    index("codex_mastery_summary_life_score_rank_idx").on(
+      t.lifeScoreMilli.desc(),
+      t.goldCount.desc(),
+      t.sealCount.desc(),
+      t.scoredCategoryCount.desc(),
+      t.lifeScoreReachedAt.asc().nullsLast(),
+      t.userId.asc(),
+    ),
+    index("codex_mastery_summary_job_score_rank_idx").on(
+      t.jobScoreMilli.desc(),
+      t.goldCount.desc(),
+      t.sealCount.desc(),
+      t.scoredCategoryCount.desc(),
+      t.jobScoreReachedAt.asc().nullsLast(),
+      t.userId.asc(),
+    ),
+  ],
+);
+
+// 도감·월간 트로피 연혁 — 가족 ID별 최고 등급과 모든 승급일을 단조 증가로 보존한다.
+export const codexTrophyHistory = pgTable(
+  "codex_trophy_history",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    trophyId: text("trophy_id").notNull(),
+    trophyKind: text("trophy_kind").$type<CodexTrophyKind>().notNull(),
+    currentTier: text("current_tier").$type<CodexMasteryTrophyTier>().notNull(),
+    tierAchievedAt: jsonb("tier_achieved_at")
+      .$type<Partial<Record<CodexMasteryTrophyTier, string>>>()
+      .notNull()
+      .default({}),
+    catalogVersion: integer("catalog_version").notNull().default(1),
+    seasonMetadata: jsonb("season_metadata").$type<Record<string, unknown>>(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.trophyId] }),
+    index("codex_trophy_history_user_kind_tier_idx").on(
+      t.userId,
+      t.trophyKind,
+      t.currentTier,
+    ),
+    check(
+      "codex_trophy_history_kind_valid",
+      sql`${t.trophyKind} IN ('mastery_category', 'mastery_overall', 'research_season')`,
+    ),
+    check(
+      "codex_trophy_history_tier_valid",
+      sql`${t.currentTier} IN ('bronze', 'silver', 'gold', 'platinum', 'diamond', 'legendary')`,
+    ),
+    check(
+      "codex_trophy_history_catalog_version_positive",
+      sql`${t.catalogVersion} >= 1`,
+    ),
+  ],
+);
+
+// 월간 도감 연구 시즌 — 운영자가 검토해 예약한 불변 정의만 저장한다.
+export const codexResearchSeasons = pgTable(
+  "codex_research_seasons",
+  {
+    seasonId: text("season_id").primaryKey(),
+    themeId: text("theme_id").notNull(),
+    definitionSnapshot: jsonb("definition_snapshot")
+      .$type<CodexResearchDefinitionSnapshot>()
+      .notNull(),
+    startAt: timestamp("start_at").notNull(),
+    endAt: timestamp("end_at").notNull(),
+    status: text("status")
+      .$type<CodexResearchSeasonStatus>()
+      .notNull()
+      .default("scheduled"),
+    settledAt: timestamp("settled_at"),
+    publishedAt: timestamp("published_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("codex_research_seasons_window_idx").on(
+      t.status,
+      t.startAt,
+      t.endAt,
+    ),
+    check(
+      "codex_research_seasons_status_valid",
+      sql`${t.status} IN ('scheduled', 'active', 'settling', 'closed')`,
+    ),
+    check(
+      "codex_research_seasons_window_valid",
+      sql`${t.endAt} > ${t.startAt}`,
+    ),
+  ],
+);
+
+// 월간 도감 연구 개인 진행 — 사용자/시즌당 한 행을 잠가 점수를 단조 갱신한다.
+export const codexResearchProgress = pgTable(
+  "codex_research_progress",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    seasonId: text("season_id")
+      .notNull()
+      .references(() => codexResearchSeasons.seasonId, { onDelete: "cascade" }),
+    score: integer("score").notNull().default(0),
+    objectiveProgress: jsonb("objective_progress")
+      .$type<CodexResearchProgressState>()
+      .notNull()
+      .default({ objectives: {}, diversityEntries: {}, recordValues: {} }),
+    objectiveCompletedCount: integer("objective_completed_count")
+      .notNull()
+      .default(0),
+    diversityScore: integer("diversity_score").notNull().default(0),
+    recordScore: integer("record_score").notNull().default(0),
+    scoreReachedAt: timestamp("score_reached_at"),
+    finalRank: integer("final_rank"),
+    finalTier: text("final_tier").$type<CodexMasteryTrophyTier>(),
+    representativeRecord: jsonb("representative_record")
+      .$type<CodexResearchRepresentativeRecord>(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.seasonId] }),
+    index("codex_research_progress_season_score_rank_idx").on(
+      t.seasonId,
+      t.score.desc(),
+      t.objectiveCompletedCount.desc(),
+      t.diversityScore.desc(),
+      t.recordScore.desc(),
+      t.scoreReachedAt.asc().nullsLast(),
+      t.userId.asc(),
+    ),
+    uniqueIndex("codex_research_progress_season_final_rank_unique")
+      .on(t.seasonId, t.finalRank)
+      .where(sql`${t.finalRank} IS NOT NULL`),
+    check(
+      "codex_research_progress_score_valid",
+      sql`${t.score} >= 0 AND ${t.score} <= 20000`,
+    ),
+    check(
+      "codex_research_progress_objectives_valid",
+      sql`${t.objectiveCompletedCount} >= 0 AND ${t.objectiveCompletedCount} <= 18`,
+    ),
+    check(
+      "codex_research_progress_diversity_valid",
+      sql`${t.diversityScore} >= 0 AND ${t.diversityScore} <= 5000`,
+    ),
+    check(
+      "codex_research_progress_record_valid",
+      sql`${t.recordScore} >= 0 AND ${t.recordScore} <= 3000`,
+    ),
+    check(
+      "codex_research_progress_components_valid",
+      sql`${t.score} >= ${t.diversityScore} + ${t.recordScore}
+        AND ${t.score} <= ${t.diversityScore} + ${t.recordScore} + 12000`,
+    ),
+    check(
+      "codex_research_progress_reached_at_valid",
+      sql`(${t.score} = 0 AND ${t.scoreReachedAt} IS NULL)
+        OR (${t.score} > 0 AND ${t.scoreReachedAt} IS NOT NULL)`,
+    ),
+    check(
+      "codex_research_progress_final_rank_valid",
+      sql`${t.finalRank} IS NULL OR ${t.finalRank} >= 1`,
+    ),
+    check(
+      "codex_research_progress_final_tier_valid",
+      sql`${t.finalTier} IS NULL OR ${t.finalTier} IN ('bronze', 'silver', 'gold', 'platinum', 'diamond', 'legendary')`,
+    ),
+  ],
+);
+
+export type CodexResearchPublicationChannel = "notification" | "feed";
+
+// 월간 도감 연구 공개 원장 — 사용자/시즌/채널별 발행을 멱등하게 보장한다.
+export const codexResearchPublications = pgTable(
+  "codex_research_publications",
+  {
+    seasonId: text("season_id")
+      .notNull()
+      .references(() => codexResearchSeasons.seasonId, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    channel: text("channel").$type<CodexResearchPublicationChannel>().notNull(),
+    publishedAt: timestamp("published_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.seasonId, t.userId, t.channel] }),
+    index("codex_research_publications_user_published_idx").on(
+      t.userId,
+      t.publishedAt,
+    ),
+    check(
+      "codex_research_publications_channel_valid",
+      sql`${t.channel} IN ('notification', 'feed')`,
+    ),
   ],
 );

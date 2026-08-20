@@ -10,12 +10,15 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyStochasticPercentBonus } from "@/lib/percentBonus";
+import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
 // vi.mock 팩토리는 호이스팅되므로 공유 스토어는 vi.hoisted 로.
 const {
   deferLongBattleReplays,
   insertTargets,
   rewardReferralTutorialTasks,
+  recordCodexMasteryGameplayBatch,
+  huntDropOverride,
   store,
 } = vi.hoisted(() => ({
   deferLongBattleReplays: vi.fn(
@@ -28,6 +31,18 @@ const {
     newlyCompletedTaskIds: [] as string[],
     completedTaskIds: [] as string[],
   })),
+  recordCodexMasteryGameplayBatch: vi.fn(
+    async (
+      _executor: unknown,
+      _userId: string,
+      _events: readonly CodexMasteryGameplayEvent[],
+      _now: Date,
+    ) => [],
+  ),
+  huntDropOverride: {
+    equipmentId: null as string | null,
+    uniqueId: null as string | null,
+  },
   store: new Map<string, unknown>(),
 }));
 
@@ -42,6 +57,37 @@ vi.mock("@/lib/server/serverFeed", () => ({
   resolveUserDisplayName: vi.fn(async () => "이름 없는 모험가"),
 }));
 vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
+vi.mock("@/lib/server/codexMasteryGameplay", () => ({
+  recordCodexMasteryGameplayBatch,
+}));
+vi.mock("@/app/api/v2/dungeon/hunt/huntDrops", async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import("@/app/api/v2/dungeon/hunt/huntDrops")
+  >();
+  return {
+    ...actual,
+    rollHuntDrops: (
+      params: Parameters<typeof actual.rollHuntDrops>[0],
+    ): ReturnType<typeof actual.rollHuntDrops> => {
+      const result = actual.rollHuntDrops(params);
+      if (!huntDropOverride.equipmentId && !huntDropOverride.uniqueId) return result;
+      const forced = [
+        huntDropOverride.equipmentId
+          ? { iid: "forced-regular", id: huntDropOverride.equipmentId }
+          : null,
+        huntDropOverride.uniqueId
+          ? { iid: "forced-unique", id: huntDropOverride.uniqueId }
+          : null,
+      ].filter((entry): entry is { iid: string; id: string } => entry !== null);
+      return {
+        ...result,
+        droppedEquipment: huntDropOverride.equipmentId,
+        droppedUnique: huntDropOverride.uniqueId,
+        nextOwned: [...params.ownedEquip, ...forced],
+      } as ReturnType<typeof actual.rollHuntDrops>;
+    },
+  };
+});
 vi.mock("@/lib/server/battleReplayStore", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/server/battleReplayStore")>()),
   deferLongBattleReplays,
@@ -173,6 +219,8 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     vi.clearAllMocks();
     insertTargets.length = 0;
     seedStrongWarrior();
+    huntDropOverride.equipmentId = null;
+    huntDropOverride.uniqueId = null;
     // 결정적 RNG — 0.5 는 명중 임계(missPct ~6) 위라 평타 적중, 크리/추가타 임계 아래라 단타.
     // 강한 무기(atk ~175) + 우호 명중 → depth1 몹 확정 1타 처치.
     vi.spyOn(Math, "random").mockReturnValue(0.5);
@@ -230,6 +278,64 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       monsters: Record<string, { kills?: number }>;
     };
     expect(log.monsters[json.result.enemyName]?.kills).toBe(1);
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledOnce();
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      [
+        {
+          category: "monster",
+          entryId: "박쥐",
+          amount: 1,
+          source: "hunt.victory",
+        },
+        {
+          category: "job",
+          entryId: "warrior",
+          amount: 1,
+          source: "job.victory",
+        },
+      ],
+      expect.any(Date),
+    );
+  });
+
+  it("실제 정규·유니크 장비 드롭을 단판과 배치 수집기에 각각 기록한다", async () => {
+    // Break caught: equipment is persisted by huntDrops but only monster/job mastery is flushed.
+    huntDropOverride.equipmentId = "v2_iron_sword";
+    huntDropOverride.uniqueId = "v2_storm_gale_bow";
+
+    const response = await POST(huntReq({ floor: 2, count: 2 }));
+
+    expect(response.status).toBe(200);
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledOnce();
+    const events = recordCodexMasteryGameplayBatch.mock.calls[0]?.[2] ?? [];
+    expect(events.filter((event) => event.category === "equipment")).toEqual([
+      {
+        category: "equipment",
+        entryId: "v2_iron_sword",
+        amount: 1,
+        source: "equipment.drop",
+      },
+      {
+        category: "equipment",
+        entryId: "v2_storm_gale_bow",
+        amount: 1,
+        source: "equipment.drop",
+      },
+      {
+        category: "equipment",
+        entryId: "v2_iron_sword",
+        amount: 1,
+        source: "equipment.drop",
+      },
+      {
+        category: "equipment",
+        entryId: "v2_storm_gale_bow",
+        amount: 1,
+        source: "equipment.drop",
+      },
+    ]);
   });
 
   it("단판 성공의 나머지 save 잠금·읽기·최종 쓰기를 각각 한 쿼리로 묶는다", async () => {
@@ -449,6 +555,23 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       deferLongBattleReplays.mock.calls[0]?.[2] as unknown[],
     ).toHaveLength(5);
     expect(insertTargets).not.toContain(battleReplays);
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledOnce();
+    const masteryEvents = recordCodexMasteryGameplayBatch.mock.calls[0]?.[2];
+    expect(masteryEvents).toHaveLength(10);
+    expect(masteryEvents).toEqual(Array.from({ length: 5 }, () => [
+      {
+        category: "monster",
+        entryId: "박쥐",
+        amount: 1,
+        source: "hunt.victory",
+      },
+      {
+        category: "job",
+        entryId: "warrior",
+        amount: 1,
+        source: "job.victory",
+      },
+    ]).flat());
 
     // 판간 이월 — 매 판 stamina 1 차감을 다음 판이 재read. 5판 후 5000-5=4995.
     const char = store.get("character.v2") as {

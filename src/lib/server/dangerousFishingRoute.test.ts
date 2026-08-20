@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store, auth, bossSpawn } = vi.hoisted(() => ({
+const { store, auth, bossSpawn, recordCodexMasteryGameplayBatch } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   auth: { userId: "u-danger" as string | null },
   bossSpawn: vi.fn(async () => null),
+  recordCodexMasteryGameplayBatch: vi.fn(async () => []),
 }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -11,6 +12,9 @@ vi.mock("@/lib/server/ensureUser", () => ({
 }));
 vi.mock("@/lib/server/userRateLimit", () => ({
   enforceUserAndIpRateLimit: vi.fn(() => null),
+}));
+vi.mock("@/lib/server/codexMasteryGameplay", () => ({
+  recordCodexMasteryGameplayBatch,
 }));
 vi.mock("@/lib/server/dangerousFishingBoss", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/server/dangerousFishingBoss")>();
@@ -118,6 +122,7 @@ describe("위험 해역 개인 Route Handler", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     bossSpawn.mockClear();
     bossSpawn.mockResolvedValue(null);
+    recordCodexMasteryGameplayBatch.mockClear();
   });
 
   afterEach(() => {
@@ -289,6 +294,18 @@ describe("위험 해역 개인 Route Handler", () => {
       masteryGained: 1,
       fishingCoinsGained: 4,
     });
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledOnce();
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-danger",
+      [{
+        category: "job",
+        entryId: "fisher",
+        amount: 1,
+        source: "job.activity",
+      }],
+      new Date(NOW),
+    );
     const saved = savedDangerousState();
     expect(saved.voyage?.cargo).toEqual([
       expect.objectContaining({
@@ -320,6 +337,7 @@ describe("위험 해역 개인 Route Handler", () => {
     );
     expect(duplicate.status).toBe(409);
     expect(savedDangerousState().voyage?.cargo).toHaveLength(1);
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledOnce();
   });
 
   it("위험도 4 이상의 영웅 어획은 같은 처리 안에서 거대어 발견을 판정한다", async () => {

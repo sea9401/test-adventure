@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { outpostVillages } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 import { recordEconomyEventSoon, recordRewardFailureSoon } from "@/lib/server/economyLog";
 import {
   associationFacilityLevel,
@@ -499,6 +500,19 @@ export async function POST(req: Request) {
 
     await upsertSave(tx, userId, "proficiency.v2", prof);
     await upsertSave(tx, userId, TRAINING_SAVE_KEY, nextState);
+    if (totalRewardMastery > 0) {
+      await recordCodexMasteryGameplayBatch(
+        tx,
+        userId,
+        [{
+          category: "job",
+          entryId: current.jobId,
+          amount: totalRewardMastery,
+          source: "job.training",
+        }],
+        new Date(),
+      );
+    }
     if (!association) {
       await logGuildActivity(tx, {
         guildId,

@@ -44,6 +44,7 @@ import { rolloverRepeatQuestsBeforeProgress } from "@/lib/server/v2QuestContext"
 import { referralLifeTaskIds } from "@/adventure/data/v2/referralTutorial";
 import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
 import { settleRanch } from "@/adventure/v2/ranch";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 
 // POST /api/v2/farm/harvest — 다 자란 밭을 수확한다.
 export async function POST(req: Request) {
@@ -155,6 +156,19 @@ export async function POST(req: Request) {
           prof = addJobCumLevel(prof, farmJobId ?? "", masteryGained);
           masteryAfter = prof.jobCumLevel?.[farmJobId ?? ""] ?? 0;
           await upsertSave(tx, userId, "proficiency.v2", prof);
+          if (masteryGained > 0) {
+            await recordCodexMasteryGameplayBatch(
+              tx,
+              userId,
+              [{
+                category: "job",
+                entryId: farmJobId ?? "",
+                amount: masteryGained,
+                source: "job.activity",
+              }],
+              new Date(now),
+            );
+          }
         }
 
         await incrementGuildExplorationProgressForUser(

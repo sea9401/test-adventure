@@ -9,7 +9,10 @@ import { savesKv } from "@/db/schema";
 //
 // `executor` 는 최상위 `db` 또는 `db.transaction` 콜백 인자 (`tx`) 양쪽을 받을 수 있도록
 // 타입을 느슨하게 가져감.
-export type DbExecutor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type DbTransactionExecutor = Parameters<
+  Parameters<typeof db.transaction>[0]
+>[0];
+export type DbExecutor = typeof db | DbTransactionExecutor;
 
 type SaveFallbacks = Record<string, unknown>;
 

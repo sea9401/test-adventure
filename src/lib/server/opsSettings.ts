@@ -12,6 +12,7 @@ export const REWARD_FAILURE_STATUS_KEY = "reward-failure-status.v1";
 export const REWARD_COMPENSATION_PRESETS_KEY = "reward-compensation-presets.v1";
 export const OPS_NOTE_TEMPLATES_KEY = "ops-note-templates.v1";
 export const LIFE_FIELD_FEATURES_KEY = "life-field-features.v1";
+export const CODEX_MASTERY_FEATURES_KEY = "codex-mastery-features.v1";
 
 export type LifeFieldFeatureSettings = {
   environmentEnabled: boolean;
@@ -27,6 +28,30 @@ export const DEFAULT_LIFE_FIELD_FEATURES: LifeFieldFeatureSettings = {
   discoveryRewardsEnabled: true,
   feedEnabled: true,
   milestonesEnabled: true,
+};
+
+export type CodexMasteryFeatureSettings = {
+  recordingEnabled: boolean;
+  overviewVisible: boolean;
+  rankingVisible: boolean;
+  sealsEnabled: boolean;
+  trophiesEnabled: boolean;
+  monthlyProgressEnabled: boolean;
+  monthlyRankingVisible: boolean;
+  settlementEnabled: boolean;
+  feedEnabled: boolean;
+};
+
+export const DEFAULT_CODEX_MASTERY_FEATURES: CodexMasteryFeatureSettings = {
+  recordingEnabled: false,
+  overviewVisible: false,
+  rankingVisible: false,
+  sealsEnabled: false,
+  trophiesEnabled: false,
+  monthlyProgressEnabled: false,
+  monthlyRankingVisible: false,
+  settlementEnabled: false,
+  feedEnabled: false,
 };
 
 export type HotTimeSettings = {
@@ -345,6 +370,77 @@ export async function readLifeFieldFeatureSettings(
       .limit(1)
   )[0];
   return parseLifeFieldFeatureSettings(row?.value);
+}
+
+export function parseCodexMasteryFeatureSettings(
+  raw: unknown,
+): CodexMasteryFeatureSettings {
+  const value =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+  return {
+    recordingEnabled:
+      Object.hasOwn(value, "recordingEnabled") &&
+      typeof value.recordingEnabled === "boolean"
+        ? value.recordingEnabled
+        : DEFAULT_CODEX_MASTERY_FEATURES.recordingEnabled,
+    overviewVisible:
+      Object.hasOwn(value, "overviewVisible") &&
+      typeof value.overviewVisible === "boolean"
+        ? value.overviewVisible
+        : DEFAULT_CODEX_MASTERY_FEATURES.overviewVisible,
+    rankingVisible:
+      Object.hasOwn(value, "rankingVisible") &&
+      typeof value.rankingVisible === "boolean"
+        ? value.rankingVisible
+        : DEFAULT_CODEX_MASTERY_FEATURES.rankingVisible,
+    sealsEnabled:
+      Object.hasOwn(value, "sealsEnabled") &&
+      typeof value.sealsEnabled === "boolean"
+        ? value.sealsEnabled
+        : DEFAULT_CODEX_MASTERY_FEATURES.sealsEnabled,
+    trophiesEnabled:
+      Object.hasOwn(value, "trophiesEnabled") &&
+      typeof value.trophiesEnabled === "boolean"
+        ? value.trophiesEnabled
+        : DEFAULT_CODEX_MASTERY_FEATURES.trophiesEnabled,
+    monthlyProgressEnabled:
+      Object.hasOwn(value, "monthlyProgressEnabled") &&
+      typeof value.monthlyProgressEnabled === "boolean"
+        ? value.monthlyProgressEnabled
+        : DEFAULT_CODEX_MASTERY_FEATURES.monthlyProgressEnabled,
+    monthlyRankingVisible:
+      Object.hasOwn(value, "monthlyRankingVisible") &&
+      typeof value.monthlyRankingVisible === "boolean"
+        ? value.monthlyRankingVisible
+        : DEFAULT_CODEX_MASTERY_FEATURES.monthlyRankingVisible,
+    settlementEnabled:
+      Object.hasOwn(value, "settlementEnabled") &&
+      typeof value.settlementEnabled === "boolean"
+        ? value.settlementEnabled
+        : DEFAULT_CODEX_MASTERY_FEATURES.settlementEnabled,
+    feedEnabled:
+      Object.hasOwn(value, "feedEnabled") && typeof value.feedEnabled === "boolean"
+        ? value.feedEnabled
+        : DEFAULT_CODEX_MASTERY_FEATURES.feedEnabled,
+  };
+}
+
+export async function readCodexMasteryFeatureSettings(
+  executor: DbExecutor = db,
+): Promise<CodexMasteryFeatureSettings> {
+  if (typeof (executor as { select?: unknown }).select !== "function") {
+    return DEFAULT_CODEX_MASTERY_FEATURES;
+  }
+  const row = (
+    await executor
+      .select({ value: opsSettings.value })
+      .from(opsSettings)
+      .where(eq(opsSettings.key, CODEX_MASTERY_FEATURES_KEY))
+      .limit(1)
+  )[0];
+  return parseCodexMasteryFeatureSettings(row?.value);
 }
 
 export async function upsertOpsSetting(

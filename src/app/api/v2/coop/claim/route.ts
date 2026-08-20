@@ -35,6 +35,7 @@ import { coopTierMeetsExplorationRequirement } from "@/adventure/data/v2/guildEx
 import { incrementGuildExplorationCoopProgress } from "@/lib/server/guildExplorationWeekly";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import { applyUniqueEquipmentAcquisitions } from "@/lib/server/uniqueEquipmentAchievement";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 
 // POST /api/v2/coop/claim — 처치된 협동 보스의 기여 보상 수령.
 //
@@ -246,6 +247,19 @@ export async function POST(req: Request) {
         ...nextLog,
         coopBossKinds: nextKinds,
       });
+    }
+    if (uniqueId) {
+      await recordCodexMasteryGameplayBatch(
+        tx,
+        userId,
+        [{
+          category: "equipment",
+          entryId: uniqueId,
+          amount: 1,
+          source: "equipment.drop",
+        }],
+        new Date(now),
+      );
     }
 
     // === 5. claim 마킹 + 스냅샷(retry 시 그대로 반환) ===

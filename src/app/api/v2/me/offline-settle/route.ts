@@ -24,6 +24,10 @@ import {
   runOneHunt,
   type RunOneHuntCtx,
 } from "@/app/api/v2/dungeon/hunt/route";
+import {
+  recordCodexMasteryGameplayBatch,
+  type CodexMasteryGameplayEvent,
+} from "@/lib/server/codexMasteryGameplay";
 
 // POST /api/v2/me/offline-settle — 오프라인 자동전투 정산(코어루프 전용).
 //
@@ -140,6 +144,7 @@ export async function POST(req: Request) {
     let levelsGained = 0;
     let spMilestonesGained = 0; // 코어루프 — 자리 비운 동안 새로 넘은 SP 마일스톤 합산.
     let stopped: "hp" | "error" | AutoHuntStopReason | null = null;
+    const codexMasteryEvents: CodexMasteryGameplayEvent[] = [];
 
     for (let i = 0; i < n; i++) {
       // 판별 시뮬 시각 — 5초 간격, 마지막 판이 이번 batchEnd에 맞닿는다.
@@ -155,6 +160,7 @@ export async function POST(req: Request) {
         mpPotionTargetPct: autoStopConfig.mpPotionTargetPct,
         offline: true,
         nowOverride,
+        codexMasteryEvents,
       };
       const r = await runOneHunt(false, ctx);
       if (!r.ok) {
@@ -217,6 +223,15 @@ export async function POST(req: Request) {
           }
         : {}),
     });
+
+    if (codexMasteryEvents.length > 0) {
+      await recordCodexMasteryGameplayBatch(
+        tx,
+        userId,
+        codexMasteryEvents,
+        new Date(batchEnd),
+      );
+    }
 
     return {
       battles: completed,

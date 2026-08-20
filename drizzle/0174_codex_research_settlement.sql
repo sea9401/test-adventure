@@ -1,0 +1,3 @@
+ALTER TABLE "codex_trophy_history" DROP CONSTRAINT "codex_trophy_history_kind_valid";--> statement-breakpoint
+CREATE UNIQUE INDEX "codex_research_progress_season_final_rank_unique" ON "codex_research_progress" USING btree ("season_id","final_rank") WHERE "codex_research_progress"."final_rank" IS NOT NULL;--> statement-breakpoint
+ALTER TABLE "codex_trophy_history" ADD CONSTRAINT "codex_trophy_history_kind_valid" CHECK ("codex_trophy_history"."trophy_kind" IN ('mastery_category', 'mastery_overall', 'research_season'));

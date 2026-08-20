@@ -19,6 +19,7 @@ import type {
 import { V2CharacterBasics } from "./V2CharacterBasics";
 import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 import type {
+  ProfileMasteryTrophyDisplay,
   ProfileShowcaseSelection,
   ProfileShowcaseSlots,
 } from "@/adventure/profile/profileShowcase";
@@ -50,6 +51,7 @@ type StateResponse = {
   cosmetics?: MuseunCosmeticAppearance;
   profileShowcase?: ProfileShowcaseSelection | null;
   profileShowcaseSlots?: ProfileShowcaseSlots;
+  profileMasteryTrophies?: ProfileMasteryTrophyDisplay[];
   profileBadgeStandOwned?: boolean;
   profileBadgeStandVisible?: boolean;
   stats?: {
@@ -223,6 +225,7 @@ export function V2CharacterScreen({
           championshipBadge={state?.cosmetics?.championshipBadge ?? null}
           profileShowcase={state?.profileShowcase ?? null}
           profileShowcaseSlots={state?.profileShowcaseSlots}
+          profileMasteryTrophies={state?.profileMasteryTrophies}
           profileBadgeStandOwned={state?.profileBadgeStandOwned === true}
           profileBadgeStandVisible={state?.profileBadgeStandVisible !== false}
           showcaseEditable={!playerName}

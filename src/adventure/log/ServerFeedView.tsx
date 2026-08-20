@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Fish,
+  Crown,
   Flag,
   HandWaving,
   Hammer,
@@ -150,6 +151,9 @@ const TYPE_ICON: Record<FeedType, React.ReactNode> = {
   ),
   life_discovery: (
     <Sparkle size={14} weight="fill" className="shrink-0 text-violet-500 dark:text-violet-400" />
+  ),
+  codex_research_result: (
+    <Crown size={14} weight="fill" className="shrink-0 text-violet-500 dark:text-violet-400" />
   ),
 };
 
@@ -364,6 +368,11 @@ function entryText(e: FeedEntry): React.ReactNode {
         완성!
       </>
     );
+  }
+  if (e.type === "codex_research_result") {
+    const p = e.payload as { seasonId: string; themeName: string; tier: import("@/adventure/data/v2/codexMasteryTrophies").CodexMasteryTrophyTier; finalRank: number };
+    const labels = { bronze: "동", silver: "은", gold: "금", platinum: "백금", diamond: "다이아", legendary: "전설" } as const;
+    return <>{name} 님이 {p.seasonId} {p.themeName} <span className="font-medium text-violet-600 dark:text-violet-400">확정 {p.finalRank}위 · {labels[p.tier]} 트로피</span>를 기록했습니다!</>;
   }
   // masterpiece
   const p = e.payload as { itemId: string };

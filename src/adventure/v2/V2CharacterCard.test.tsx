@@ -117,6 +117,29 @@ describe("V2CharacterCard profile theme", () => {
     expect(html).not.toContain("대표 배지 편집");
   });
 
+  it("resolves a mastery family selection to its earned platinum medal", () => {
+    const html = renderToStaticMarkup(
+      <V2CharacterCard
+        character={CHARACTER}
+        profileBadgeStandOwned
+        profileShowcaseSlots={[
+          { kind: "masteryTrophy", trophyId: "mastery:fish" },
+          null,
+          null,
+        ]}
+        profileMasteryTrophies={[{
+          trophyId: "mastery:fish",
+          title: "만경의 어탁",
+          currentTier: "platinum",
+        }]}
+      />,
+    );
+
+    expect(html).toContain("만경의 어탁");
+    expect(html).toContain("백금 · 도감 숙련");
+    expect(html).toContain("border-sky-500");
+  });
+
   it("does not show or reserve the badge stand before purchase", () => {
     const html = renderToStaticMarkup(
       <V2CharacterCard

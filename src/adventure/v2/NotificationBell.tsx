@@ -79,6 +79,11 @@ function previewText(notification: V2NotificationEntry): string {
       const p = payload as { readyCount: number };
       return `수확 가능한 작물이 ${p.readyCount}개 있어요.`;
     }
+    case "codex_research_trophy": {
+      const p = payload as { seasonId: string; themeName: string; tier: import("@/adventure/data/v2/codexMasteryTrophies").CodexMasteryTrophyTier; finalRank: number };
+      const labels = { bronze: "동", silver: "은", gold: "금", platinum: "백금", diamond: "다이아", legendary: "전설" } as const;
+      return `${p.seasonId} ${p.themeName} 최종 ${p.finalRank}위 · ${labels[p.tier]} 트로피`;
+    }
   }
 }
 

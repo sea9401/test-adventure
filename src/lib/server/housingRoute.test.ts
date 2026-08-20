@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store, housingGate } = vi.hoisted(() => ({
+const { store, housingGate, mastery } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   housingGate: { enabled: true },
+  mastery: {
+    enabled: false,
+    history: [] as Array<Record<string, unknown>>,
+  },
 }));
 const keyOf = (userId: string, key: string) => `${userId}::${key}`;
 
@@ -24,6 +28,28 @@ vi.mock("@/db", () => ({
     transaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback({})),
   },
 }));
+vi.mock("@/lib/server/opsSettings", () => ({
+  readCodexMasteryFeatureSettings: vi.fn(async () => ({
+    recordingEnabled: false,
+    overviewVisible: false,
+    rankingVisible: false,
+    sealsEnabled: false,
+    trophiesEnabled: mastery.enabled,
+    monthlyProgressEnabled: false,
+    monthlyRankingVisible: false,
+    settlementEnabled: false,
+    feedEnabled: false,
+  })),
+}));
+vi.mock("@/lib/server/codexMasteryTrophyRepository", () => ({
+  readCodexMasteryTrophyHistory: vi.fn(async () => {
+    if (!mastery.enabled) throw new Error("disabled trophy history read");
+    return mastery.history;
+  }),
+}));
+vi.mock("@/lib/server/codexResearchTrophies", () => ({
+  readCodexResearchTrophyHistory: vi.fn(async () => []),
+}));
 vi.mock("@/lib/server/savesKv", () => ({
   readSave: vi.fn(
     async (_db: unknown, userId: string, key: string, fallback: unknown) =>
@@ -44,6 +70,7 @@ import { GET, POST } from "@/app/api/v2/me/housing/route";
 import { defaultHousingState, HOUSING_SAVE_KEY } from "@/adventure/data/v2/housing";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { readCodexMasteryTrophyHistory } from "@/lib/server/codexMasteryTrophyRepository";
 
 const EQUIPMENT_ID = Object.keys(V2_EQUIPMENT)[0] as keyof typeof V2_EQUIPMENT;
 
@@ -60,6 +87,8 @@ describe("housing route", () => {
     vi.clearAllMocks();
     store.clear();
     housingGate.enabled = true;
+    mastery.enabled = false;
+    mastery.history = [];
     vi.mocked(ensureUser).mockResolvedValue("u1");
     store.set(keyOf("u1", "character-profile.v2"), { name: "검은여우" });
     store.set(keyOf("u1", "equipment.v2"), {
@@ -147,5 +176,177 @@ describe("housing route", () => {
     expect(response.status).toBe(400);
     expect((await response.json()).error).toBe("display_not_owned");
     expect(store.has(keyOf("u1", HOUSING_SAVE_KEY))).toBe(false);
+  });
+
+  it("returns earned mastery trophy options only while the trophy feature is enabled", async () => {
+    mastery.enabled = true;
+    mastery.history = [{
+      trophyId: "mastery:fish",
+      kind: "mastery_category",
+      currentTier: "platinum",
+      tierAchievedAt: {
+        bronze: "2026-01-01T00:00:00.000Z",
+        silver: "2026-02-01T00:00:00.000Z",
+        gold: "2026-03-01T00:00:00.000Z",
+        platinum: "2026-04-01T00:00:00.000Z",
+      },
+      catalogVersion: 1,
+    }];
+
+    const response = await GET(request());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.displayOptions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: "masteryTrophy",
+        trophyId: "mastery:fish",
+        detail: "도감 숙련 · 백금",
+      }),
+    ]));
+  });
+
+  it("saves an earned mastery trophy on the free record shelf", async () => {
+    mastery.enabled = true;
+    mastery.history = [{
+      trophyId: "mastery:fish",
+      kind: "mastery_category",
+      currentTier: "gold",
+      tierAchievedAt: {
+        bronze: "2026-01-01T00:00:00.000Z",
+        silver: "2026-02-01T00:00:00.000Z",
+        gold: "2026-03-01T00:00:00.000Z",
+      },
+      catalogVersion: 1,
+    }];
+    const room = defaultHousingState();
+    room.layout = room.layout.map((placement) =>
+      placement.furnitureId === "record_shelf"
+        ? {
+            ...placement,
+            masteryTrophy: { trophyId: "mastery:fish" as const },
+          }
+        : placement,
+    );
+
+    const response = await POST(request(room));
+
+    expect(response.status).toBe(200);
+    expect(store.get(keyOf("u1", HOUSING_SAVE_KEY))).toEqual(room);
+  });
+
+  it("rejects an unearned mastery trophy without changing the save", async () => {
+    mastery.enabled = true;
+    const room = defaultHousingState();
+    room.layout = room.layout.map((placement) =>
+      placement.furnitureId === "record_shelf"
+        ? {
+            ...placement,
+            masteryTrophy: { trophyId: "mastery:overall" as const },
+          }
+        : placement,
+    );
+
+    const response = await POST(request(room));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      error: "mastery_trophy_not_owned",
+    });
+    expect(store.has(keyOf("u1", HOUSING_SAVE_KEY))).toBe(false);
+  });
+
+  it("hides but preserves a stored trophy while disabled and removes it with its placement", async () => {
+    const stored = defaultHousingState();
+    stored.layout = stored.layout.map((placement) =>
+      placement.furnitureId === "record_shelf"
+        ? {
+            ...placement,
+            masteryTrophy: { trophyId: "mastery:overall" as const },
+          }
+        : placement,
+    );
+    store.set(keyOf("u1", HOUSING_SAVE_KEY), stored);
+
+    const getResponse = await GET(request());
+    const getJson = await getResponse.json();
+    expect(getJson.room.layout).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ masteryTrophy: expect.anything() }),
+    ]));
+    expect(getJson.displayOptions).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "masteryTrophy" }),
+    ]));
+
+    const moved = getJson.room;
+    moved.layout = moved.layout.map((placement: { furnitureId: string }) =>
+      placement.furnitureId === "record_shelf"
+        ? { ...placement, y: 1 }
+        : placement
+    );
+    expect((await POST(request(moved))).status).toBe(200);
+    expect(store.get(keyOf("u1", HOUSING_SAVE_KEY))).toEqual(expect.objectContaining({
+      layout: expect.arrayContaining([
+        expect.objectContaining({
+          furnitureId: "record_shelf",
+          y: 1,
+          masteryTrophy: { trophyId: "mastery:overall" },
+        }),
+      ]),
+    }));
+
+    const withoutShelf = {
+      ...moved,
+      layout: moved.layout.filter(
+        (placement: { furnitureId: string }) =>
+          placement.furnitureId !== "record_shelf",
+      ),
+    };
+    expect((await POST(request(withoutShelf))).status).toBe(200);
+    expect(store.get(keyOf("u1", HOUSING_SAVE_KEY))).toEqual(withoutShelf);
+    expect(readCodexMasteryTrophyHistory).not.toHaveBeenCalled();
+  });
+
+  it("returns a cooking trophy on an owned crafted cookware display", async () => {
+    mastery.enabled = true;
+    mastery.history = [{
+      trophyId: "mastery:cooking",
+      kind: "mastery_category",
+      currentTier: "gold",
+      tierAchievedAt: {
+        bronze: "2026-01-01T00:00:00.000Z",
+        silver: "2026-02-01T00:00:00.000Z",
+        gold: "2026-03-01T00:00:00.000Z",
+      },
+      catalogVersion: 1,
+    }];
+    const room = {
+      version: 1,
+      isPublic: true,
+      layout: [{
+        uid: "cookware",
+        furnitureId: "cookware_display",
+        x: 0,
+        y: 0,
+        rotated: false,
+        masteryTrophy: { trophyId: "mastery:cooking" },
+      }],
+    };
+    store.set(keyOf("u1", HOUSING_SAVE_KEY), room);
+    store.set(keyOf("u1", "life-workshop.v1"), {
+      crafting: { balances: { cookware_display: 1 } },
+    });
+
+    const response = await GET(request());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.ownedCounts.cookware_display).toBe(1);
+    expect(json.room).toEqual(room);
+    expect(json.displayOptions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: "masteryTrophy",
+        trophyId: "mastery:cooking",
+      }),
+    ]));
   });
 });

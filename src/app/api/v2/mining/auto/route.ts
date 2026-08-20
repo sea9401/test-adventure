@@ -57,6 +57,7 @@ import {
   addJobCumLevel,
   parseProficiencyForChar,
 } from "@/adventure/data/v2/proficiency";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 import {
   V2_JOB_CATALOG,
   isMiningJobId,
@@ -405,6 +406,19 @@ export async function POST(req: Request) {
       masteryGained = settlement.masteryGained;
       masteryAfter = proficiency.jobCumLevel?.[jobId] ?? 0;
       await upsertSave(tx, userId, "proficiency.v2", proficiency);
+      if (masteryGained > 0) {
+        await recordCodexMasteryGameplayBatch(
+          tx,
+          userId,
+          [{
+            category: "job",
+            entryId: jobId,
+            amount: masteryGained,
+            source: "job.activity",
+          }],
+          new Date(now),
+        );
+      }
     }
     await upsertSave(tx, userId, MINING_AUTO_KEY, settlement.state);
     return {

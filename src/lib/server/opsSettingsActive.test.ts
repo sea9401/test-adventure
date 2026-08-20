@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DbExecutor } from "./savesKv";
 import {
+  CODEX_MASTERY_FEATURES_KEY,
   HOT_TIME_KEY,
   HOT_TIME_SCHEDULES_KEY,
   applyPctBonus,
   readActiveHotTime,
+  readCodexMasteryFeatureSettings,
+  parseCodexMasteryFeatureSettings,
   parseLifeFieldFeatureSettings,
 } from "./opsSettings";
 
@@ -98,5 +101,57 @@ describe("life field feature settings", () => {
       feedEnabled: true,
       milestonesEnabled: true,
     });
+  });
+});
+
+describe("codex mastery feature settings", () => {
+  it("defaults every new feature off and preserves explicit switches", () => {
+    expect(parseCodexMasteryFeatureSettings({
+      recordingEnabled: true,
+      overviewVisible: true,
+    })).toEqual({
+      recordingEnabled: true,
+      overviewVisible: true,
+      rankingVisible: false,
+      sealsEnabled: false,
+      trophiesEnabled: false,
+      monthlyProgressEnabled: false,
+      monthlyRankingVisible: false,
+      settlementEnabled: false,
+      feedEnabled: false,
+    });
+  });
+
+  it("ignores inherited switches while preserving own boolean siblings", () => {
+    const inherited = Object.create({ recordingEnabled: true }) as {
+      rankingVisible?: unknown;
+    };
+    inherited.rankingVisible = true;
+
+    expect(parseCodexMasteryFeatureSettings(inherited)).toEqual({
+      recordingEnabled: false,
+      overviewVisible: false,
+      rankingVisible: true,
+      sealsEnabled: false,
+      trophiesEnabled: false,
+      monthlyProgressEnabled: false,
+      monthlyRankingVisible: false,
+      settlementEnabled: false,
+      feedEnabled: false,
+    });
+  });
+
+  it("reads through the supplied executor", async () => {
+    const { executor, select } = executorReturning([
+      {
+        key: CODEX_MASTERY_FEATURES_KEY,
+        value: { recordingEnabled: true },
+      },
+    ]);
+
+    const settings = await readCodexMasteryFeatureSettings(executor);
+
+    expect(select).toHaveBeenCalledTimes(1);
+    expect(settings).toMatchObject({ recordingEnabled: true });
   });
 });

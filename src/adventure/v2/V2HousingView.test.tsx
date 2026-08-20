@@ -13,11 +13,14 @@ const PREVIEW_DATA: HousingPreviewData = {
   displayOptions: [],
 };
 
-function renderHousing(playerName?: string) {
+function renderHousing(
+  playerName?: string,
+  previewData: HousingPreviewData = PREVIEW_DATA,
+) {
   return renderToStaticMarkup(
     <RewardToastProvider>
       <V2HousingView
-        previewData={PREVIEW_DATA}
+        previewData={previewData}
         playerName={playerName}
         onBack={() => {}}
       />
@@ -41,5 +44,64 @@ describe("V2HousingView 모바일 방 확대", () => {
 
     expect(html).not.toContain(">방 확대<");
     expect(html).not.toContain('data-testid="housing-room-scroll"');
+  });
+});
+
+describe("V2HousingView 도감 숙련 트로피 전시", () => {
+  it("shows artifact and mastery trophy companions together to visitors", () => {
+    const room = defaultHousingState();
+    room.layout = room.layout.map((placement) => {
+      if (placement.furnitureId === "record_shelf") {
+        return {
+          ...placement,
+          masteryTrophy: { trophyId: "mastery:overall" as const },
+        };
+      }
+      if (placement.furnitureId === "trophy_aquarium") {
+        return {
+          ...placement,
+          display: { kind: "fish" as const, fishId: "crucian_carp" as const },
+          masteryTrophy: { trophyId: "mastery:fish" as const },
+        };
+      }
+      return placement;
+    });
+    const html = renderHousing("검은여우", {
+      ownerName: "검은여우",
+      room,
+      displayOptions: [
+        {
+          kind: "fish",
+          fishId: "crucian_carp",
+          label: "붕어",
+          detail: "흔함 · 개인 최대 34.5cm",
+        },
+        {
+          kind: "masteryTrophy",
+          trophyId: "mastery:fish",
+          category: "fish",
+          currentTier: "platinum",
+          label: "만경의 어탁",
+          detail: "도감 숙련 · 백금",
+        },
+        {
+          kind: "masteryTrophy",
+          trophyId: "mastery:overall",
+          category: "overall",
+          currentTier: "diamond",
+          label: "모험왕의 대서",
+          detail: "도감 숙련 · 다이아",
+        },
+      ],
+    });
+
+    expect(html).toContain("모험 기록 서가: 모험왕의 대서");
+    expect(html).toContain("대물 전시 수조: 붕어 · 만경의 어탁");
+    expect(html).toContain("모험왕의 대서");
+    expect(html).toContain("만경의 어탁");
+    expect(html).toContain("도감 숙련 · 백금");
+    expect(html).toContain("도감 숙련 · 다이아");
+    expect(html).toContain("bg-zinc-50");
+    expect(html).not.toContain("opacity-40");
   });
 });

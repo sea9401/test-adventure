@@ -66,6 +66,7 @@ import {
   type ActiveCookingBuff,
 } from "@/adventure/v2/cooking";
 import type {
+  ProfileMasteryTrophyDisplay,
   ProfileShowcaseSelection,
   ProfileShowcaseSlots,
 } from "@/adventure/profile/profileShowcase";
@@ -166,6 +167,7 @@ export function V2CharacterCard({
   activeFoodBuff = null,
   profileShowcase = null,
   profileShowcaseSlots,
+  profileMasteryTrophies,
   profileBadgeStandOwned = false,
   profileBadgeStandVisible = true,
   showcaseEditable = false,
@@ -196,6 +198,7 @@ export function V2CharacterCard({
   activeFoodBuff?: ActiveCookingBuff | null;
   profileShowcase?: ProfileShowcaseSelection | null;
   profileShowcaseSlots?: ProfileShowcaseSlots;
+  profileMasteryTrophies?: readonly ProfileMasteryTrophyDisplay[];
   profileBadgeStandOwned?: boolean;
   profileBadgeStandVisible?: boolean;
   showcaseEditable?: boolean;
@@ -343,6 +346,7 @@ export function V2CharacterCard({
               <div className="col-span-2 min-w-0">
                 <ProfileBadgeRack
                   initialSlots={badgeSlots}
+                  masteryTrophies={profileMasteryTrophies}
                   standOwned={profileBadgeStandOwned}
                   initialVisible={profileBadgeStandVisible}
                   owned={owned ?? []}

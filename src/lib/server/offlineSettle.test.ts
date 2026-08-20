@@ -3,10 +3,19 @@
 // 판수를 정산하고, lastBattleAt 을 realNow 로 전진(멱등)하는지 검증.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
-const { store, forceRareMap } = vi.hoisted(() => ({
+const { store, forceRareMap, recordCodexMasteryGameplayBatch } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   forceRareMap: { value: false },
+  recordCodexMasteryGameplayBatch: vi.fn(
+    async (
+      _executor: unknown,
+      _userId: string,
+      _events: readonly CodexMasteryGameplayEvent[],
+      _now: Date,
+    ) => [],
+  ),
 }));
 
 vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
@@ -29,6 +38,9 @@ vi.mock("@/adventure/data/v2/rareMaps", async (importOriginal) => {
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
+}));
+vi.mock("@/lib/server/codexMasteryGameplay", () => ({
+  recordCodexMasteryGameplayBatch,
 }));
 vi.mock("@/lib/server/v2EnsureSoloGuild", () => ({
   getGuildId: vi.fn(async () => null),
@@ -129,6 +141,7 @@ function setOfflineStopConfig(config: Record<string, unknown>) {
 
 describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on)", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     resetUserRateLimitForTests();
     forceRareMap.value = false;
     vi.spyOn(Math, "random").mockReturnValue(0.5); // 확정 승리
@@ -178,6 +191,13 @@ describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on
     expect(prof.jobCumLevel?.warrior).toBe(json.totalMastery);
     // lastBattleAt 가 realNow(±) 로 전진.
     expect(char().lastBattleAt!).toBeGreaterThanOrEqual(now);
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledOnce();
+    const masteryEvents = recordCodexMasteryGameplayBatch.mock.calls[0]?.[2];
+    expect(masteryEvents).toHaveLength(24);
+    expect(masteryEvents?.filter((event) => event.category === "monster"))
+      .toHaveLength(12);
+    expect(masteryEvents?.filter((event) => event.category === "job"))
+      .toHaveLength(12);
   });
 
   it("멱등 — 정산 직후 재호출은 battles 0(누적 0)", async () => {
@@ -188,6 +208,7 @@ describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on
     const second = await POST(settleRequest());
     const j2 = (await second.json()) as { battles: number };
     expect(j2.battles).toBe(0); // lastBattleAt 이 now 로 전진 → 누적 0
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledOnce();
   });
 
   it("충전약 잔량 조건에 도달한 첫 판에서 세션을 종료한다", async () => {

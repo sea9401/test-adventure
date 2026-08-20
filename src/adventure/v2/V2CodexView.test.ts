@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
+  CODEX_TAB_ITEMS,
   DropChip,
   classifyCodexEquipmentIds,
   codexEquipmentProgress,
@@ -10,6 +11,7 @@ import {
   codexUniqueDropSummary,
   SKY_RIFT_CODEX_DROP_SUMMARY,
   shouldShowCodexTutorial,
+  shouldLoadCodexMastery,
   spCollectionSpRange,
   spEligibleJobProgress,
   spFruitCodexSource,
@@ -38,6 +40,30 @@ describe("모험의 서 URL 탭", () => {
 
   it("요리 도감 링크를 요리 탭으로 연다", () => {
     expect(codexTabFromParam("cooking")).toBe("cooking");
+  });
+
+  it("숙련 링크를 숙련 탭으로 열고 SP 수집 바로 뒤에 표시한다", () => {
+    expect(codexTabFromParam("mastery")).toBe("mastery");
+    expect(CODEX_TAB_ITEMS).toEqual([
+      ["spFruit", "SP 수집"],
+      ["mastery", "숙련"],
+      ["job", "직업"],
+      ["equipment", "장비"],
+      ["huntground", "사냥터"],
+      ["fish", "어보"],
+      ["cooking", "요리"],
+      ["life", "현장 기록"],
+      ["title", "칭호"],
+    ]);
+  });
+
+  it("숙련 탭 최초 진입의 idle 상태에서만 스냅샷을 요청한다", () => {
+    expect(shouldLoadCodexMastery("mastery", "idle")).toBe(true);
+    expect(shouldLoadCodexMastery("fish", "idle")).toBe(false);
+    expect(shouldLoadCodexMastery("mastery", "loading")).toBe(false);
+    expect(shouldLoadCodexMastery("mastery", "ready")).toBe(false);
+    expect(shouldLoadCodexMastery("mastery", "disabled")).toBe(false);
+    expect(shouldLoadCodexMastery("mastery", "error")).toBe(false);
   });
 
   it("탭이 없거나 잘못됐으면 기존 기본 탭을 사용한다", () => {

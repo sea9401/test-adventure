@@ -17,12 +17,19 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import {
   housingDisplayKey,
+  housingMasteryTrophyKey,
   housingOptionKey,
   type HousingDisplayOption,
   type HousingEntitlements,
   type HousingFurnitureId,
   type HousingState,
 } from "@/adventure/data/v2/housing";
+import {
+  codexMasteryTrophyDefinition,
+  type CodexMasteryTrophyHistory,
+  type CodexMasteryTrophyTier,
+} from "@/adventure/data/v2/codexMasteryTrophies";
+import type { CodexResearchSeasonTrophyHistory } from "@/adventure/data/v2/codexResearchRanking";
 import { parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
 import { LIFE_CRAFTING_RECIPES } from "@/adventure/v2/lifeCrafting";
 
@@ -36,6 +43,56 @@ export const HOUSING_SUPPORT_SAVE_KEYS = [
   "adventure-log.v2",
   FISHING_CODEX_KEY,
 ] as const;
+
+const TROPHY_TIER_LABELS: Record<CodexMasteryTrophyTier, string> = {
+  bronze: "동",
+  silver: "은",
+  gold: "금",
+  platinum: "백금",
+  diamond: "다이아",
+  legendary: "전설",
+};
+
+export function housingMasteryTrophyContext(
+  history: readonly CodexMasteryTrophyHistory[],
+  researchHistory: readonly CodexResearchSeasonTrophyHistory[] = [],
+): {
+  entitlements: Pick<HousingEntitlements, "masteryTrophyIds">;
+  displayOptions: HousingDisplayOption[];
+} {
+  const permanentOptions = history.flatMap((item): HousingDisplayOption[] => {
+    const definition = codexMasteryTrophyDefinition(item.trophyId);
+    return definition
+      ? [{
+          kind: "masteryTrophy",
+          trophyId: definition.id,
+          category: definition.category,
+          currentTier: item.currentTier,
+          label: definition.title,
+          detail: `도감 숙련 · ${TROPHY_TIER_LABELS[item.currentTier]}`,
+        }]
+      : [];
+  });
+  const researchOptions = researchHistory.map((item): HousingDisplayOption => ({
+    kind: "masteryTrophy",
+    trophyId: item.trophyId,
+    category: "research",
+    currentTier: item.currentTier,
+    label: item.seasonMetadata.themeName,
+    detail: `${item.seasonMetadata.seasonId} · 최종 ${item.seasonMetadata.finalRank}위 · ${TROPHY_TIER_LABELS[item.currentTier]}`,
+  }));
+  const displayOptions = [...permanentOptions, ...researchOptions];
+  return {
+    entitlements: {
+      masteryTrophyIds: new Set(
+        displayOptions.flatMap((option) =>
+          option.kind === "masteryTrophy" ? [option.trophyId] : []
+        ),
+      ),
+    },
+    displayOptions,
+  };
+}
 
 function killedBossIds(raw: unknown): Set<CoopBossKindId> {
   const log = raw && typeof raw === "object" ? (raw as AdventureLog) : {};
@@ -147,17 +204,20 @@ export function publicHousingOptions(
 ): HousingDisplayOption[] {
   const selected = new Set(
     state.layout.flatMap((placement) => {
+      const keys: string[] = [];
       const display = placement.display;
-      if (!display) return [];
-      if (display.kind === "equipment") return [`equipment:${display.iid}`];
-      if (display.kind === "fish") return [`fish:${display.fishId}`];
-      return [`boss:${display.bossId}`];
+      if (display) keys.push(housingDisplayKey(display));
+      if (placement.masteryTrophy) {
+        keys.push(housingMasteryTrophyKey(placement.masteryTrophy));
+      }
+      return keys;
     }),
   );
   return options.filter((option) => {
     if (option.kind === "equipment") return selected.has(`equipment:${option.iid}`);
     if (option.kind === "fish") return selected.has(`fish:${option.fishId}`);
-    return selected.has(`boss:${option.bossId}`);
+    if (option.kind === "boss") return selected.has(`boss:${option.bossId}`);
+    return selected.has(`masteryTrophy:${option.trophyId}`);
   });
 }
 
@@ -169,11 +229,23 @@ export function sanitizePublicHousingState(
   return {
     ...state,
     layout: state.layout.map((placement) => {
-      if (!placement.display || allowed.has(housingDisplayKey(placement.display))) {
-        return placement;
+      let sanitized = placement;
+      if (
+        placement.display &&
+        !allowed.has(housingDisplayKey(placement.display))
+      ) {
+        const { display: _display, ...withoutDisplay } = sanitized;
+        sanitized = withoutDisplay;
       }
-      const { display: _display, ...withoutDisplay } = placement;
-      return withoutDisplay;
+      if (
+        placement.masteryTrophy &&
+        !allowed.has(housingMasteryTrophyKey(placement.masteryTrophy))
+      ) {
+        const { masteryTrophy: _masteryTrophy, ...withoutMasteryTrophy } =
+          sanitized;
+        sanitized = withoutMasteryTrophy;
+      }
+      return sanitized;
     }),
   };
 }

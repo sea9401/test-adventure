@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
-const { store, incrementGuildExplorationProgressForUser, rewardReferralTutorialTasks } = vi.hoisted(() => ({
+const { store, incrementGuildExplorationProgressForUser, rewardReferralTutorialTasks, recordCodexMasteryGameplayBatch } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   incrementGuildExplorationProgressForUser: vi.fn(async () => null),
   rewardReferralTutorialTasks: vi.fn(async () => ({
@@ -8,6 +9,14 @@ const { store, incrementGuildExplorationProgressForUser, rewardReferralTutorialT
     newlyCompletedTaskIds: [] as string[],
     completedTaskIds: [] as string[],
   })),
+  recordCodexMasteryGameplayBatch: vi.fn(
+    async (
+      _executor: unknown,
+      _userId: string,
+      _events: readonly CodexMasteryGameplayEvent[],
+      _now: Date,
+    ) => [],
+  ),
 }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -23,6 +32,9 @@ vi.mock("@/lib/server/guildExplorationWeekly", () => ({
   incrementGuildExplorationProgressForUser,
 }));
 vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
+vi.mock("@/lib/server/codexMasteryGameplay", () => ({
+  recordCodexMasteryGameplayBatch,
+}));
 vi.mock("@/db", () => ({
   db: {
     transaction: vi.fn(async (callback: (tx: unknown) => unknown) => {
@@ -83,6 +95,7 @@ describe("POST /api/v2/farm/harvest", () => {
     store.clear();
     incrementGuildExplorationProgressForUser.mockClear();
     rewardReferralTutorialTasks.mockClear();
+    recordCodexMasteryGameplayBatch.mockClear();
     resetUserRateLimitForTests();
     vi.restoreAllMocks();
   });
@@ -117,6 +130,51 @@ describe("POST /api/v2/farm/harvest", () => {
       levelCurveVersion: 2,
       stats: { farmingXp: farmingLevelXpThreshold(60) + 30 },
     });
+  });
+
+  it("농부의 성공한 수확 XP를 직업 도감 숙련도로 기록한다", async () => {
+    const planted = plantCrop(
+      emptyFarmState(NOW),
+      "plot-1",
+      "wheat",
+      NOW - FARM_CROPS.wheat.growMs - 1,
+    );
+    store.set(FARM_SAVE_KEY, planted);
+    store.set("character.v2", {
+      class: "survivor",
+      specChoice: "farmer",
+    });
+    store.set("skills.v2", {});
+    store.set("proficiency.v2", {
+      groups: { survivor: { tier: 1, cumLevel: 900 } },
+      jobCumLevel: { farmer: 10 },
+    });
+
+    const response = await POST(
+      new Request("http://test.local/api/v2/farm/harvest", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ plotId: "plot-1" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      farmJobId: "farmer",
+      masteryGained: 30,
+      masteryAfter: 40,
+    });
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      [{
+        category: "job",
+        entryId: "farmer",
+        amount: 30,
+        source: "job.activity",
+      }],
+      new Date(NOW),
+    );
   });
 
   it("자정 뒤 첫 수확 전에 일일 퀘스트 기준값을 갱신한다", async () => {

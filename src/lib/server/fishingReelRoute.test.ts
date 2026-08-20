@@ -8,6 +8,7 @@ const {
   incrementGuildExplorationProgressForUser,
   grantTitleIfMissingInTx,
   rewardReferralTutorialTasks,
+  recordCodexMasteryGameplayBatch,
 } = vi.hoisted(() => ({
     store: new Map<string, unknown>(),
     upsertFishingRecord: vi.fn(async () => {}),
@@ -18,6 +19,7 @@ const {
     newlyCompletedTaskIds: [] as string[],
     completedTaskIds: [] as string[],
   })),
+  recordCodexMasteryGameplayBatch: vi.fn(async () => []),
 }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -36,6 +38,9 @@ vi.mock("@/lib/server/grantTitle", () => ({
   grantTitleIfMissingInTx,
 }));
 vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
+vi.mock("@/lib/server/codexMasteryGameplay", () => ({
+  recordCodexMasteryGameplayBatch,
+}));
 vi.mock("@/db", () => ({
   db: {
     transaction: vi.fn(async (cb: (tx: unknown) => unknown) => {
@@ -100,6 +105,7 @@ function seedFisherSession(now: number) {
   upsertFishingRecord.mockClear();
   incrementGuildExplorationProgressForUser.mockClear();
   rewardReferralTutorialTasks.mockClear();
+  recordCodexMasteryGameplayBatch.mockClear();
   store.set("character.v2", {
     class: "survivor",
     specChoice: "fisher",
@@ -188,6 +194,7 @@ describe("POST /api/v2/fishing/reel", () => {
       activeAutoActivity: "mining",
     });
     expect(store.get(FISHING_SESSION_KEY)).toMatchObject({ castId: "cast-1" });
+    expect(recordCodexMasteryGameplayBatch).not.toHaveBeenCalled();
   });
 
   it("낚시 계열 직업은 성공한 챔질로 직업 숙련도가 오른다", async () => {
@@ -214,6 +221,27 @@ describe("POST /api/v2/fishing/reel", () => {
     expect(json.fishingCatches).toBe(1);
     expect(json.masteryGained).toBe(1);
     expect(json.masteryAfter).toBe(6);
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledTimes(2);
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      [
+        {
+          category: "fish",
+          entryId: "carp",
+          amount: 1,
+          bestValue: 42,
+          source: "fishing.catch",
+        },
+        {
+          category: "job",
+          entryId: "fisher",
+          amount: 1,
+          source: "job.activity",
+        },
+      ],
+      new Date(now),
+    );
     expect(json.catchItem).toEqual({
       id: "catch_fresh",
       name: "신선한 어획물",

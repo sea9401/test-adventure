@@ -6,10 +6,17 @@ import { RewardToastProvider } from "@/adventure/v2/RewardToastProvider";
 
 const room = defaultHousingState();
 room.layout = room.layout.map((placement) => {
+  if (placement.furnitureId === "record_shelf") {
+    return {
+      ...placement,
+      masteryTrophy: { trophyId: "mastery:overall" as const },
+    };
+  }
   if (placement.furnitureId === "boss_trophy") {
     return {
       ...placement,
       display: { kind: "boss" as const, bossId: "mountain_chief" as const },
+      masteryTrophy: { trophyId: "mastery:monster" as const },
     };
   }
   if (placement.furnitureId === "equipment_mannequin") {
@@ -42,6 +49,22 @@ const PREVIEW_DATA: HousingPreviewData = {
       bossId: "mountain_chief",
       label: "산군",
       detail: "하드 협동 보스 토벌 기록",
+    },
+    {
+      kind: "masteryTrophy",
+      trophyId: "mastery:monster",
+      category: "monster",
+      currentTier: "platinum",
+      label: "대륙 생태 표본",
+      detail: "도감 숙련 · 백금",
+    },
+    {
+      kind: "masteryTrophy",
+      trophyId: "mastery:overall",
+      category: "overall",
+      currentTier: "diamond",
+      label: "모험왕의 대서",
+      detail: "도감 숙련 · 다이아",
     },
   ],
 };

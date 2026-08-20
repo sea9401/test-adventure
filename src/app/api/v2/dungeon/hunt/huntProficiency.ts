@@ -31,6 +31,8 @@ export type HuntProficiencyResult = {
   proficiencyPointsAfter: number;
   /** 승리 시 현재 직업 숙련도(+1). 전직/스킬포인트 게이트 입력. */
   masteryGained: number;
+  /** 이번 승리에서 jobCumLevel이 실제로 오른 구체 직업 ID. */
+  masteryJobId: string | null;
   /** 상시 카드 readout — 이 사냥 후 현재 직업 숙련도(none=null). */
   masteryAfter: number | null;
   /** deprecated — 숙련도 마일스톤 SP 지급 제거로 항상 0. */
@@ -64,6 +66,7 @@ export function applyHuntProficiency(params: {
 
   let proficiencyGained = 0;
   let masteryGained = 0;
+  let masteryJobId: string | null = null;
   let masteryAfter: number | null = null;
   const spMilestonesGained = 0;
   const statGains: Partial<Record<V2StatKey, number>> = {};
@@ -93,6 +96,7 @@ export function applyHuntProficiency(params: {
         prof = addCumLevel(prof, group, 1);
         prof = addJobCumLevel(prof, v2JobId, 1);
         masteryGained = 1;
+        masteryJobId = v2JobId;
       }
     }
     // 레벨업 시 — 랜덤 스탯 성장. 직업 숙련도는 레벨업이 아니라 사냥 승리에서 적립한다.
@@ -125,6 +129,7 @@ export function applyHuntProficiency(params: {
       proficiencyGained,
       proficiencyPointsAfter: prof.points,
       masteryGained,
+      masteryJobId,
       masteryAfter,
       spMilestonesGained,
       statGains,
@@ -151,6 +156,7 @@ export function applyHuntProficiency(params: {
     proficiencyPointsAfter: parseProficiencyForChar(proficiencyRaw, charSave)
       .points,
     masteryGained,
+    masteryJobId,
     masteryAfter,
     spMilestonesGained,
     statGains,

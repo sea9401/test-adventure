@@ -127,6 +127,10 @@ import {
   recordLifeFieldSuccessInTx,
 } from "@/lib/server/lifeFieldProgress";
 import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
+import {
+  recordCodexMasteryGameplayBatch,
+  type CodexMasteryGameplayEvent,
+} from "@/lib/server/codexMasteryGameplay";
 
 // POST /api/v2/fishing/reel — 챔질. body: { castId, reactionMs }.
 //
@@ -519,6 +523,28 @@ export async function POST(req: Request) {
     const blueprint = rollHiddenBlueprint(crafting, "fishing");
     workshop = { ...workshop, crafting: blueprint.state };
     await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);
+
+    const codexMasteryEvents: CodexMasteryGameplayEvent[] = [{
+      category: "fish",
+      entryId: session.fishId,
+      amount: 1,
+      bestValue: session.size,
+      source: "fishing.catch",
+    }];
+    if (masteryJobId && masteryGained > 0) {
+      codexMasteryEvents.push({
+        category: "job",
+        entryId: masteryJobId,
+        amount: masteryGained,
+        source: "job.activity",
+      });
+    }
+    await recordCodexMasteryGameplayBatch(
+      tx,
+      userId,
+      codexMasteryEvents,
+      new Date(now),
+    );
 
     return {
       caught: true as const,

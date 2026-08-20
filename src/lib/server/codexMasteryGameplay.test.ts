@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { CodexResearchEvent } from "@/adventure/data/v2/codexResearch";
 import type { CodexMasteryRecordInput } from "./codexMasteryService";
 import {
   createCodexMasteryGameplayRecorder,
@@ -11,21 +12,41 @@ const ENABLED = {
   recordingEnabled: true,
   sealsEnabled: false,
   trophiesEnabled: false,
+  monthlyProgressEnabled: false,
 };
 
-function runtime(options: { enabled?: boolean; fail?: boolean } = {}) {
+function runtime(options: {
+  enabled?: boolean;
+  monthlyEnabled?: boolean;
+  fail?: boolean;
+  monthlyFail?: boolean;
+} = {}) {
   const inputs: CodexMasteryRecordInput[] = [];
+  const monthlyBatches: Array<{
+    userId: string;
+    events: readonly CodexResearchEvent[];
+    now: Date;
+  }> = [];
   const value: CodexMasteryGameplayRecorderRuntime<object> = {
     async readSettings() {
-      return { ...ENABLED, recordingEnabled: options.enabled !== false };
+      return {
+        ...ENABLED,
+        recordingEnabled: options.enabled !== false,
+        monthlyProgressEnabled: options.monthlyEnabled === true,
+      };
     },
     async record(_executor, input) {
       inputs.push(input);
       if (options.fail) throw new Error("record failed");
       return { recorded: false as const, reason: "unchanged" as const };
     },
+    async recordMonthly(_executor, userId, events, now) {
+      monthlyBatches.push({ userId, events, now });
+      if (options.monthlyFail) throw new Error("monthly record failed");
+      return { recorded: false as const, reason: "unchanged" as const };
+    },
   };
-  return { value, inputs };
+  return { value, inputs, monthlyBatches };
 }
 
 describe("codex mastery gameplay recorder", () => {
@@ -183,6 +204,76 @@ describe("codex mastery gameplay recorder", () => {
 
     expect(readSettings).toHaveBeenCalledTimes(1);
     expect(fake.inputs).toEqual([]);
+    expect(fake.monthlyBatches).toEqual([]);
+  });
+
+  it("records one sorted monthly aggregate while permanent recording is off", async () => {
+    const fake = runtime({ enabled: false, monthlyEnabled: true });
+    const record = createCodexMasteryGameplayRecorder(fake.value);
+    const events: CodexMasteryGameplayEvent[] = [
+      {
+        category: "monster",
+        entryId: "bat",
+        amount: 2,
+        source: "hunt.victory",
+      },
+      {
+        category: "fish",
+        entryId: "carp",
+        amount: 1,
+        bestValue: 80,
+        source: "fishing.catch",
+      },
+      {
+        category: "fish",
+        entryId: "carp",
+        amount: 2,
+        bestValue: 90,
+        source: "fishing.catch",
+      },
+    ];
+
+    await expect(record({}, "user-1", events, NOW)).resolves.toEqual([]);
+    expect(fake.inputs).toEqual([]);
+    expect(fake.monthlyBatches).toEqual([{
+      userId: "user-1",
+      now: NOW,
+      events: [
+        {
+          category: "fish",
+          entryId: "carp",
+          amount: 3,
+          bestValue: 90,
+          source: "fishing.catch",
+        },
+        {
+          category: "monster",
+          entryId: "bat",
+          amount: 2,
+          source: "hunt.victory",
+        },
+      ],
+    }]);
+  });
+
+  it("uses the same aggregate for permanent rows and one monthly batch", async () => {
+    const fake = runtime({ monthlyEnabled: true });
+    const record = createCodexMasteryGameplayRecorder(fake.value);
+    const events: CodexMasteryGameplayEvent[] = [{
+      category: "job",
+      entryId: "warrior",
+      amount: 2,
+      source: "job.activity",
+    }];
+
+    await record({}, "user-1", events, NOW);
+
+    expect(fake.inputs).toHaveLength(1);
+    expect(fake.monthlyBatches).toEqual([{
+      userId: "user-1",
+      events,
+      now: NOW,
+    }]);
   });
 
   it("rejects unsafe aggregate counts and malformed fish sizes before recording", async () => {
@@ -212,6 +303,7 @@ describe("codex mastery gameplay recorder", () => {
       source: "fishing.catch",
     }], NOW)).rejects.toThrow("bestValue");
     expect(fake.inputs).toEqual([]);
+    expect(fake.monthlyBatches).toEqual([]);
   });
 
   it("propagates central recorder failures to the game transaction", async () => {
@@ -225,5 +317,21 @@ describe("codex mastery gameplay recorder", () => {
       amount: 1,
       source: "job.training",
     }], NOW)).rejects.toThrow("record failed");
+  });
+
+  it("propagates monthly recorder failures to the game transaction", async () => {
+    const fake = runtime({
+      enabled: false,
+      monthlyEnabled: true,
+      monthlyFail: true,
+    });
+    const record = createCodexMasteryGameplayRecorder(fake.value);
+
+    await expect(record({}, "user-1", [{
+      category: "job",
+      entryId: "warrior",
+      amount: 1,
+      source: "job.training",
+    }], NOW)).rejects.toThrow("monthly record failed");
   });
 });

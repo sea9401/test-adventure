@@ -1,8 +1,10 @@
 import type { FishId } from "@/adventure/data/v2/fish";
 import { CODEX_MASTERY_CATALOG } from "@/adventure/data/v2/codexMasteryProductionCatalog";
+import type { CodexResearchEvent } from "@/adventure/data/v2/codexResearch";
 import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import type { DbTransactionExecutor } from "./savesKv";
 import { readCodexMasteryFeatureSettings } from "./opsSettings";
+import { recordCodexResearchGameplayBatch } from "./codexResearchService";
 import {
   recordCodexMastery,
   type CodexMasteryRecordInput,
@@ -50,13 +52,21 @@ export type CodexMasteryGameplayEvent =
     };
 
 export type CodexMasteryGameplayRecorderRuntime<Executor> = {
-  readSettings(executor: Executor): Promise<CodexMasteryRecordingSettings>;
+  readSettings(executor: Executor): Promise<
+    CodexMasteryRecordingSettings & { monthlyProgressEnabled: boolean }
+  >;
   record(
     executor: Executor,
     input: CodexMasteryRecordInput,
     settings: CodexMasteryRecordingSettings,
     now: Date,
   ): Promise<CodexMasteryRecordResult>;
+  recordMonthly(
+    executor: Executor,
+    userId: string,
+    events: readonly CodexResearchEvent[],
+    now: Date,
+  ): Promise<unknown>;
 };
 
 type AggregatedEvent = CodexMasteryGameplayEvent;
@@ -154,7 +164,7 @@ export function createCodexMasteryGameplayRecorder<Executor>(
     now: Date,
   ): Promise<CodexMasteryRecordResult[]> => {
     const settings = await runtime.readSettings(executor);
-    if (!settings.recordingEnabled) return [];
+    if (!settings.recordingEnabled && !settings.monthlyProgressEnabled) return [];
 
     const aggregated = new Map<string, AggregatedEvent>();
     for (const event of events) {
@@ -177,18 +187,24 @@ export function createCodexMasteryGameplayRecorder<Executor>(
       }
     }
 
-    const results: CodexMasteryRecordResult[] = [];
-    for (const event of [...aggregated.values()].sort((left, right) =>
+    const sortedEvents = [...aggregated.values()].sort((left, right) =>
       left.category.localeCompare(right.category) ||
       left.entryId.localeCompare(right.entryId) ||
       left.source.localeCompare(right.source)
-    )) {
-      results.push(await runtime.record(
-        executor,
-        inputFor(userId, event),
-        settings,
-        now,
-      ));
+    );
+    const results: CodexMasteryRecordResult[] = [];
+    if (settings.recordingEnabled) {
+      for (const event of sortedEvents) {
+        results.push(await runtime.record(
+          executor,
+          inputFor(userId, event),
+          settings,
+          now,
+        ));
+      }
+    }
+    if (settings.monthlyProgressEnabled && sortedEvents.length > 0) {
+      await runtime.recordMonthly(executor, userId, sortedEvents, now);
     }
     return results;
   };
@@ -205,4 +221,5 @@ export const recordCodexMasteryGameplayBatch = createCodexMasteryGameplayRecorde
     settings,
     now,
   ),
+  recordMonthly: recordCodexResearchGameplayBatch,
 });

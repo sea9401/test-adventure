@@ -273,6 +273,26 @@ describe("production security surface", () => {
     expect(install).toContain("previous Next build restored");
   });
 
+  it("일반 단위 테스트는 병렬 실행하고 결정적 시뮬레이션만 단일 worker로 격리한다", () => {
+    const workflow = source(join(ROOT, ".github/workflows/ci.yml"));
+
+    expect(workflow).toContain(
+      "run: npx vitest run --exclude src/adventure/data/v2/levelDesignSim.test.ts",
+    );
+    expect(workflow).toMatch(
+      /level-design-sim-tests:[\s\S]*?run: npx vitest run src\/adventure\/data\/v2\/levelDesignSim\.test\.ts --maxWorkers=1/,
+    );
+    expect(workflow).toContain(
+      "needs: [static-checks, unit-tests, level-design-sim-tests, production-build, browser-e2e]",
+    );
+    expect(workflow).toContain(
+      "LEVEL_DESIGN_SIM_TESTS_RESULT: ${{ needs.level-design-sim-tests.result }}",
+    );
+    expect(workflow).toContain(
+      'test "$LEVEL_DESIGN_SIM_TESTS_RESULT" = "success"',
+    );
+  });
+
   it("운영 빌드 동안 두 Next 런타임을 멈추고 실패 시 복구한다", () => {
     const release = source(join(ROOT, "deploy/release-production.sh"));
     const stagingService = source(

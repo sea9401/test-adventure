@@ -13,6 +13,10 @@ import type {
   CodexMasteryPinnedGoal,
   CodexMasterySnapshot,
 } from "@/adventure/data/v2/codexMasteryView";
+import type {
+  CodexResearchObjectiveGroup,
+  CodexResearchPersonalView,
+} from "@/adventure/data/v2/codexResearch";
 import { Card } from "@/components/ui/Card";
 import {
   SURFACE_ACCENT,
@@ -292,6 +296,157 @@ function EntryDetail({ entry, sealsEnabled }: {
   );
 }
 
+const CODEX_RESEARCH_GROUP_LABELS: Record<
+  CodexResearchObjectiveGroup,
+  string
+> = {
+  basic: "기초 조사",
+  field: "분야 연구",
+  expert: "전문 연구",
+  challenge: "도전 기록",
+};
+
+const CODEX_RESEARCH_GROUP_ORDER: readonly CodexResearchObjectiveGroup[] = [
+  "basic",
+  "field",
+  "expert",
+  "challenge",
+];
+
+function formatCodexResearchPeriod(startAt: string, endAt: string): string {
+  const format = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "날짜 확인 중";
+    return new Intl.DateTimeFormat("ko-KR", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }).format(date);
+  };
+  return `${format(startAt)} ~ ${format(endAt)} 00:00 (KST)`;
+}
+
+function MonthlyResearchPanel({
+  research,
+}: {
+  research: CodexResearchPersonalView;
+}) {
+  if (research.status === "no_season") {
+    return (
+      <Card padding="md" data-monthly-research="no-season">
+        <h2 className="text-base font-bold">이번 달 월간 연구를 준비하고 있어요</h2>
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+          운영 검토를 마친 연구 정의가 예약되면 18개 목표가 한꺼번에 열립니다.
+          일일 과제나 연속 출석은 없습니다.
+        </p>
+      </Card>
+    );
+  }
+
+  const scorePercent = Math.round((research.score / 20_000) * 100);
+  return (
+    <Card
+      as="section"
+      padding="md"
+      className="space-y-4"
+      data-monthly-research={research.seasonId}
+      aria-label="월간 도감 연구"
+    >
+      <div className={`${SURFACE_ACCENT} p-4`}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-xs font-semibold text-amber-800 dark:text-amber-200">
+              월간 연구 · {research.seasonId}
+            </div>
+            <h2 className="mt-1 text-xl font-black">{research.themeName}</h2>
+            <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
+              {formatCodexResearchPeriod(research.startAt, research.endAt)}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-black tabular-nums">
+              {formatNumber(research.score)} / 20,000
+            </div>
+            <div className="mt-1 text-xs font-semibold">
+              완료 {research.objectiveCompletedCount}/{research.objectiveCount}
+            </div>
+          </div>
+        </div>
+        <div className="mt-3">
+          <ProgressBar value={scorePercent} label="월간 연구 총점 진행" />
+        </div>
+        <div className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
+          {[
+            ["연구 목표", research.objectiveScore, "12,000"],
+            ["다양성", research.diversityScore, "5,000"],
+            ["기록", research.recordScore, "3,000"],
+          ].map(([label, value, maximum]) => (
+            <div key={label} className={`${SURFACE_CARD} p-2.5`}>
+              <div className="text-zinc-500 dark:text-zinc-400">{label}</div>
+              <div className="mt-0.5 font-bold tabular-nums">
+                {formatNumber(Number(value))} / {maximum}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {CODEX_RESEARCH_GROUP_ORDER.map((group) => {
+          const objectives = research.objectives.filter(
+            (objective) => objective.group === group,
+          );
+          return (
+            <section key={group} aria-label={CODEX_RESEARCH_GROUP_LABELS[group]}>
+              <div className="mb-2 flex items-baseline justify-between gap-2 px-1">
+                <h3 className="text-sm font-bold">
+                  {CODEX_RESEARCH_GROUP_LABELS[group]}
+                </h3>
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {objectives.filter((objective) => objective.completedAt).length}/{objectives.length} 완료
+                </span>
+              </div>
+              <div className="grid gap-2 lg:grid-cols-2">
+                {objectives.map((objective) => (
+                  <div
+                    key={objective.id}
+                    data-research-objective={objective.id}
+                    className={`${SURFACE_INSET} p-3`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold">{objective.label}</div>
+                        <p className="mt-0.5 text-[11px] text-zinc-600 dark:text-zinc-300">
+                          {objective.description}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right text-xs">
+                        <div className="font-bold tabular-nums">
+                          {formatNumber(objective.value)}/{formatNumber(objective.target)}
+                        </div>
+                        <div className="text-amber-700 dark:text-amber-300">
+                          {objective.completedAt ? "완료" : `${formatNumber(objective.points)}점`}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <ProgressBar
+                        value={objective.progressPercent}
+                        label={`${objective.label} 월간 진행`}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
 export function CodexMasteryPanel({
   state,
   onRetry,
@@ -408,8 +563,14 @@ export function CodexMasteryPanel({
 
       {futureFeatures.length > 0 && (
         <div className={`${SURFACE_CARD} p-3 text-xs text-zinc-600 dark:text-zinc-300`}>
-          {futureFeatures.join(" · ")}은 다음 단계에서 연결됩니다
+          {futureFeatures.join(" · ")} 기능은 다음 단계에서 연결됩니다
         </div>
+      )}
+
+      {snapshot.features.monthlyProgressEnabled && (
+        <MonthlyResearchPanel
+          research={snapshot.monthlyResearch ?? { status: "no_season" }}
+        />
       )}
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">

@@ -5,6 +5,7 @@ import type {
   CodexMasteryEntryView,
   CodexMasterySnapshot,
 } from "@/adventure/data/v2/codexMasteryView";
+import type { CodexResearchPersonalView } from "@/adventure/data/v2/codexResearch";
 import {
   CODEX_MASTERY_PAGE_SIZE,
   CodexMasteryPanel,
@@ -104,6 +105,50 @@ function snapshot(entries: CodexMasteryEntryView[] = [entry()]): CodexMasterySna
       trophiesEnabled: false,
       monthlyProgressEnabled: false,
     },
+  };
+}
+
+function activeMonthlyResearch(): CodexResearchPersonalView {
+  const groups = [
+    ["basic", 6],
+    ["field", 6],
+    ["expert", 4],
+    ["challenge", 2],
+  ] as const;
+  return {
+    status: "active",
+    seasonId: "2026-08",
+    themeId: "rivers-and-lakes",
+    themeName: "강과 호수의 달",
+    startAt: "2026-07-31T15:00:00.000Z",
+    endAt: "2026-08-31T15:00:00.000Z",
+    score: 12_345,
+    objectiveScore: 7_200,
+    diversityScore: 3_645,
+    recordScore: 1_500,
+    objectiveCompletedCount: 7,
+    objectiveCount: 18,
+    scoreReachedAt: "2026-08-20T03:04:05.000Z",
+    representativeRecord: {
+      trackId: "fish-size",
+      category: "fish",
+      entryId: "carp",
+      value: 121.5,
+      recordedAt: "2026-08-20T03:04:05.000Z",
+    },
+    objectives: groups.flatMap(([group, count]) =>
+      Array.from({ length: count }, (_, index) => ({
+        id: `${group}-${index + 1}`,
+        group,
+        label: `월간 목표 ${group}-${index + 1}`,
+        description: "한 달 안에 천천히 진행할 수 있는 연구입니다.",
+        points: group === "basic" ? 400 : group === "field" ? 600 : 1_000,
+        value: index === 0 ? 3 : 1,
+        target: 3,
+        progressPercent: index === 0 ? 100 : 33,
+        completedAt: index === 0 ? "2026-08-10T00:00:00.000Z" : null,
+      }))
+    ),
   };
 }
 
@@ -262,8 +307,63 @@ describe("CodexMasteryPanel", () => {
     expect(html).toContain("개인 최고 88.4");
     expect(html).toContain("금 · 10회");
     expect(html).toContain("특별 인장 1/2");
-    expect(html).toContain("서버 랭킹 · 트로피 · 월간 연구전은 다음 단계에서 연결됩니다");
+    expect(html).toContain("서버 랭킹 · 트로피 · 월간 연구전 기능은 다음 단계에서 연결됩니다");
     expect(html).not.toContain("서버 순위 0위");
+  });
+
+  it("shows a nonnumeric preparation state when monthly recording is enabled without a season", () => {
+    const value = snapshot();
+    value.features.monthlyProgressEnabled = true;
+    value.monthlyResearch = { status: "no_season" };
+
+    const html = renderToStaticMarkup(
+      <CodexMasteryPanel
+        state={{ status: "ready", snapshot: value }}
+        onRetry={vi.fn()}
+        onReplacePinnedGoals={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("이번 달 월간 연구를 준비하고 있어요");
+    expect(html).not.toContain("월간 연구전은 다음 단계에서 연결됩니다");
+    expect(html).not.toContain("0 / 20,000");
+    expect(html).toContain("bg-white");
+    expect(html).toContain("dark:bg-zinc-900");
+  });
+
+  it("renders the active score composition and all 18 visible grouped goals", () => {
+    const value = snapshot();
+    value.features.monthlyProgressEnabled = true;
+    value.monthlyResearch = activeMonthlyResearch();
+
+    const html = renderToStaticMarkup(
+      <CodexMasteryPanel
+        state={{ status: "ready", snapshot: value }}
+        onRetry={vi.fn()}
+        onReplacePinnedGoals={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("강과 호수의 달");
+    expect(html).toContain("12,345 / 20,000");
+    expect(html).toContain("연구 목표");
+    expect(html).toContain("7,200");
+    expect(html).toContain("다양성");
+    expect(html).toContain("3,645");
+    expect(html).toContain("기록");
+    expect(html).toContain("1,500");
+    expect(html).toContain("완료 7/18");
+    expect(html).toContain("기초 조사");
+    expect(html).toContain("분야 연구");
+    expect(html).toContain("전문 연구");
+    expect(html).toContain("도전 기록");
+    expect(html.match(/data-research-objective=/g)).toHaveLength(18);
+    expect(html).toContain("월간 목표 challenge-2");
+    expect(html).not.toContain("잠정 순위");
+    expect(html).not.toContain("예상 트로피");
+    expect(html).not.toContain("시즌 정산");
+    expect(html).not.toMatch(/(?:bg|dark:bg)-[^\s\"]+\/(?:20|40|70)/);
+    expect(html).not.toMatch(/data-research-objective=[^>]+opacity-/);
   });
 
   it("bounds the rendered catalog rows to thirty", () => {

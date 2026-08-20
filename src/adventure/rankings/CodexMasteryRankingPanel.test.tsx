@@ -120,6 +120,7 @@ describe("CodexMasteryRankingPanel", () => {
 
     expect((html.match(/상세 기록/g) ?? [])).toHaveLength(15);
     expect(html).toContain("내 주변 순위");
+    expect(html).toContain("랭킹 새로고침");
     expect(html).toContain("52위");
     expect(html).toContain("내연구가");
     expect(html).toContain("금 이상 10");

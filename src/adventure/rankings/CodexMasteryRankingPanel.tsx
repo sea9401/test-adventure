@@ -269,14 +269,24 @@ export function CodexMasteryRankingPanel({
               점수 동률은 금 이상 항목·특별 인장·연구 분야·먼저 도달한 순으로 정합니다.
             </p>
           </div>
-          {state.data.me && (
-            <div className={`${SURFACE_ACCENT} px-3 py-2 text-right`}>
-              <div className="text-[10px] text-amber-800 dark:text-amber-200">내 순위</div>
-              <div className="text-sm font-bold tabular-nums text-amber-900 dark:text-amber-100">
-                {state.data.me.rank.toLocaleString()}위 · {formatNumber(state.data.me.score)}점
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onRetry}
+              aria-label="랭킹 새로고침"
+              className={`${SURFACE_INSET} px-3 py-2 text-xs font-medium text-zinc-700 hover:text-sky-700 dark:text-zinc-200 dark:hover:text-sky-300`}
+            >
+              새로고침
+            </button>
+            {state.data.me && (
+              <div className={`${SURFACE_ACCENT} px-3 py-2 text-right`}>
+                <div className="text-[10px] text-amber-800 dark:text-amber-200">내 순위</div>
+                <div className="text-sm font-bold tabular-nums text-amber-900 dark:text-amber-100">
+                  {state.data.me.rank.toLocaleString()}위 · {formatNumber(state.data.me.score)}점
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </Card>
 

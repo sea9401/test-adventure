@@ -305,6 +305,23 @@ aws iam put-role-policy \
   --policy-name AdventureRdsMetricsRead \
   --policy-document file://infra/iam/adventure-rds-metrics-policy.json
 
+# RDS 재시작·장애조치 이벤트 확인(입력 시각은 UTC)
+aws rds describe-events \
+  --region ap-northeast-2 \
+  --source-type db-instance \
+  --source-identifier adventure-rpg-db \
+  --start-time 2026-08-20T14:40:00Z \
+  --end-time 2026-08-20T15:15:00Z \
+  --query 'Events[].{Date:Date,Message:Message}' \
+  --output table
+
+# 현재 DB 클래스·Multi-AZ·유지보수 창 확인
+aws rds describe-db-instances \
+  --region ap-northeast-2 \
+  --db-instance-identifier adventure-rpg-db \
+  --query 'DBInstances[0].{Class:DBInstanceClass,MultiAZ:MultiAZ,Maintenance:PreferredMaintenanceWindow,Status:DBInstanceStatus}' \
+  --output table
+
 # 수동 검증: journal에 RDS MEMORY OK/WARN과 현재 MiB가 출력돼야 한다.
 sudo systemctl start adventure-rds-memory-monitor.service
 journalctl -u adventure-rds-memory-monitor.service -n 30 --no-pager

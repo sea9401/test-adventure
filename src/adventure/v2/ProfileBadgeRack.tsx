@@ -42,7 +42,15 @@ type ShowcaseOptionsResponse = {
   achievementOptions?: AchievementOption[];
 };
 
-type BadgeTone = "bronze" | "silver" | "gold" | "legendary" | "rose" | "violet";
+type BadgeTone =
+  | "bronze"
+  | "silver"
+  | "gold"
+  | "platinum"
+  | "diamond"
+  | "legendary"
+  | "rose"
+  | "violet";
 
 type BadgeContent = {
   title: string;
@@ -70,6 +78,16 @@ const BADGE_TONE: Record<
     outer: "border-amber-600 bg-amber-300 dark:border-amber-500 dark:bg-amber-800",
     inner: "border-amber-100 bg-amber-50 dark:border-amber-700 dark:bg-amber-950",
     icon: "text-amber-700 dark:text-amber-300",
+  },
+  platinum: {
+    outer: "border-sky-500 bg-sky-200 dark:border-sky-300 dark:bg-sky-800",
+    inner: "border-sky-100 bg-white dark:border-sky-600 dark:bg-sky-950",
+    icon: "text-sky-700 dark:text-sky-200",
+  },
+  diamond: {
+    outer: "border-teal-500 bg-teal-200 dark:border-teal-300 dark:bg-teal-800",
+    inner: "border-teal-100 bg-teal-50 dark:border-teal-600 dark:bg-teal-950",
+    icon: "text-teal-700 dark:text-teal-200",
   },
   legendary: {
     outer: "border-violet-600 bg-violet-300 dark:border-violet-400 dark:bg-violet-800",

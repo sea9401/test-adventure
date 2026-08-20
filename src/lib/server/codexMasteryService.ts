@@ -10,6 +10,7 @@ import type {
   CodexMasteryProgress,
   CodexMasteryStage,
 } from "@/adventure/data/v2/codexMasteryTypes";
+import type { CodexMasteryTrophyPromotion } from "@/adventure/data/v2/codexMasteryTrophies";
 import {
   CODEX_MASTERY_POINT_UNITS,
   CODEX_MASTERY_STAGES,
@@ -20,6 +21,7 @@ import {
   type CodexMasterySummaryState,
 } from "./codexMasteryRepository";
 import type { DbTransactionExecutor } from "./savesKv";
+import { reconcileCodexMasteryTrophies } from "./codexMasteryTrophyRepository";
 
 export const CODEX_MASTERY_SOURCES = {
   equipment: ["equipment.drop", "equipment.craft", "codex.backfill.v1"],
@@ -76,6 +78,7 @@ export type CodexMasteryTargetInput = {
 export type CodexMasteryRecordingSettings = {
   recordingEnabled: boolean;
   sealsEnabled: boolean;
+  trophiesEnabled: boolean;
 };
 
 export type CodexMasteryRecordResult =
@@ -86,6 +89,7 @@ export type CodexMasteryRecordResult =
       newStages: CodexMasteryStage[];
       newSealIds: string[];
       scoreDeltaMilli: number;
+      newTrophyPromotions: CodexMasteryTrophyPromotion[];
     };
 
 export class CodexMasteryRecordError extends Error {
@@ -370,12 +374,24 @@ export function createCodexMasteryRecorder(
       summary,
       progress: transition.next,
     }, now);
+    let newTrophyPromotions: CodexMasteryTrophyPromotion[] = [];
+    const crossedCountTier = transition.newStages.some(
+      (stage) => stage !== "discovered",
+    );
+    if (settings.trophiesEnabled && crossedCountTier) {
+      if (!store.reconcileTrophies) {
+        throw new Error("codex mastery trophy reconciliation is unavailable");
+      }
+      const reconciled = await store.reconcileTrophies(input.userId, now);
+      newTrophyPromotions = reconciled.promotions;
+    }
     return {
       recorded: true,
       progress: transition.next,
       newStages: transition.newStages,
       newSealIds: transition.newSealIds,
       scoreDeltaMilli: transition.scoreDeltaMilli,
+      newTrophyPromotions,
     };
   };
 
@@ -433,7 +449,11 @@ export async function recordCodexMastery(
   settings: CodexMasteryRecordingSettings,
   now = new Date(),
 ): Promise<CodexMasteryRecordResult> {
-  const store = createDrizzleCodexMasteryStore(executor);
+  const store: CodexMasteryStore = {
+    ...createDrizzleCodexMasteryStore(executor),
+    reconcileTrophies: (userId, at) =>
+      reconcileCodexMasteryTrophies(executor, userId, catalog, at),
+  };
   return createCodexMasteryRecorder(store, catalog).record(input, settings, now);
 }
 
@@ -444,6 +464,10 @@ export async function syncCodexMasteryTarget(
   settings: CodexMasteryRecordingSettings,
   now = new Date(),
 ): Promise<CodexMasteryRecordResult> {
-  const store = createDrizzleCodexMasteryStore(executor);
+  const store: CodexMasteryStore = {
+    ...createDrizzleCodexMasteryStore(executor),
+    reconcileTrophies: (userId, at) =>
+      reconcileCodexMasteryTrophies(executor, userId, catalog, at),
+  };
   return createCodexMasteryRecorder(store, catalog).syncTarget(input, settings, now);
 }

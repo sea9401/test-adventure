@@ -176,7 +176,7 @@ function drizzleRuntime(database: typeof db): CodexMasteryBackfillRunnerRuntime<
         },
         source: "codex.backfill.v1",
       },
-      { recordingEnabled: true, sealsEnabled: false },
+      { recordingEnabled: true, sealsEnabled: false, trophiesEnabled: false },
       now,
     ),
     writeMarker: (executor, userId, now) => upsertSave(

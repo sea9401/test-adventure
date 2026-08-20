@@ -10,6 +10,7 @@ import * as databaseSchema from "@/db/schema";
 import {
   codexMasteryProgress,
   codexMasterySummary,
+  codexTrophyHistory,
 } from "@/db/schema";
 import { recordCodexMastery } from "./codexMasteryService";
 
@@ -32,7 +33,11 @@ const FISH: CodexMasteryEntryDefinition = {
   seals: {},
 };
 const CATALOG = createCodexMasteryCatalog([FISH]);
-const ENABLED = { recordingEnabled: true, sealsEnabled: true };
+const ENABLED = {
+  recordingEnabled: true,
+  sealsEnabled: true,
+  trophiesEnabled: false,
+};
 
 describeWithDatabase("codex mastery PostgreSQL transaction integration", () => {
   const isolatedSchema = `codex_mastery_${randomUUID().replaceAll("-", "")}`;
@@ -47,16 +52,21 @@ describeWithDatabase("codex mastery PostgreSQL transaction integration", () => {
     await admin.query(`SET search_path TO "${isolatedSchema}"`);
     await admin.query("CREATE TABLE users (id text PRIMARY KEY)");
 
-    const migration = await readFile(
-      new URL("../../../drizzle/0169_codex_mastery_foundation.sql", import.meta.url),
-      "utf8",
-    );
-    const isolatedMigration = migration.replaceAll(
-      '"public"."users"',
-      `"${isolatedSchema}"."users"`,
-    );
-    for (const statement of isolatedMigration.split("--> statement-breakpoint")) {
-      if (statement.trim()) await admin.query(statement);
+    for (const migrationName of [
+      "0169_codex_mastery_foundation.sql",
+      "0170_codex_mastery_trophy_history.sql",
+    ]) {
+      const migration = await readFile(
+        new URL(`../../../drizzle/${migrationName}`, import.meta.url),
+        "utf8",
+      );
+      const isolatedMigration = migration.replaceAll(
+        '"public"."users"',
+        `"${isolatedSchema}"."users"`,
+      );
+      for (const statement of isolatedMigration.split("--> statement-breakpoint")) {
+        if (statement.trim()) await admin.query(statement);
+      }
     }
 
     pool = new Pool({
@@ -168,5 +178,50 @@ describeWithDatabase("codex mastery PostgreSQL transaction integration", () => {
       fishScoreMilli: 1_000,
       bronzeCount: 0,
     });
+    expect(await database
+      .select()
+      .from(codexTrophyHistory)
+      .where(eq(codexTrophyHistory.userId, userId))).toEqual([]);
+  }, 30_000);
+
+  it("commits a trophy promotion with the progress and summary", async () => {
+    const userId = "trophy-user";
+    await admin.query("INSERT INTO users (id) VALUES ($1)", [userId]);
+
+    const result = await database.transaction((tx) => recordCodexMastery(
+      tx,
+      CATALOG,
+      {
+        userId,
+        category: "fish",
+        entryId: FISH.entryId,
+        mutation: { amount: 5 },
+        source: "fishing.catch",
+      },
+      { ...ENABLED, trophiesEnabled: true },
+      new Date("2026-08-20T02:00:00.000Z"),
+    ));
+
+    expect(result).toMatchObject({
+      recorded: true,
+      newTrophyPromotions: [{
+        trophyId: "mastery:fish",
+        tier: "bronze",
+      }],
+    });
+    expect(await database
+      .select({
+        trophyId: codexTrophyHistory.trophyId,
+        currentTier: codexTrophyHistory.currentTier,
+        tierAchievedAt: codexTrophyHistory.tierAchievedAt,
+      })
+      .from(codexTrophyHistory)
+      .where(eq(codexTrophyHistory.userId, userId))).toEqual([{
+        trophyId: "mastery:fish",
+        currentTier: "bronze",
+        tierAchievedAt: {
+          bronze: "2026-08-20T02:00:00.000Z",
+        },
+      }]);
   }, 30_000);
 });

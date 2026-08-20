@@ -39,7 +39,11 @@ const TEST_ENTRY: CodexMasteryEntryDefinition = {
 };
 
 const TEST_CATALOG: CodexMasteryCatalog = createCodexMasteryCatalog([TEST_ENTRY]);
-const ENABLED = { recordingEnabled: true, sealsEnabled: true };
+const ENABLED = {
+  recordingEnabled: true,
+  sealsEnabled: true,
+  trophiesEnabled: false,
+};
 
 const REQUIRED_SOURCES = [
   ["fish", "fishing.catch"],
@@ -72,17 +76,20 @@ type MemoryCodexMasteryStore = CodexMasteryStore & {
   progress: CodexMasteryProgress;
   lockCalls: number;
   saveCalls: number;
+  reconcileCalls: number;
 };
 
 function memoryCodexMasteryStore(options: {
   summary?: CodexMasterySummaryState;
   progress?: CodexMasteryProgress;
+  reconcileError?: Error;
 } = {}): MemoryCodexMasteryStore {
   const store: MemoryCodexMasteryStore = {
     summary: options.summary ?? emptyCodexMasterySummary(),
     progress: options.progress ?? emptyCodexMasteryProgress("fish", TEST_ENTRY.entryId),
     lockCalls: 0,
     saveCalls: 0,
+    reconcileCalls: 0,
     async lock() {
       store.lockCalls += 1;
       return { summary: store.summary, progress: store.progress };
@@ -91,6 +98,17 @@ function memoryCodexMasteryStore(options: {
       store.saveCalls += 1;
       store.summary = input.summary;
       store.progress = input.progress;
+    },
+    async reconcileTrophies() {
+      store.reconcileCalls += 1;
+      if (options.reconcileError) throw options.reconcileError;
+      return {
+        promotions: [{
+          trophyId: "mastery:fish",
+          tier: "bronze",
+          achievedAt: "2026-08-20T00:00:00.000Z",
+        }],
+      };
     },
   };
   return store;
@@ -167,6 +185,67 @@ describe("recordCodexMastery", () => {
       recordingEnabled: false,
     }, new Date())).resolves.toEqual({ recorded: false, reason: "disabled" });
     expect(store.lockCalls).toBe(0);
+  });
+
+  it("does not access trophy history while its independent switch is disabled", async () => {
+    const store = memoryCodexMasteryStore();
+    const recorder = createCodexMasteryRecorder(store, TEST_CATALOG);
+
+    await recorder.record({
+      ...validInput(),
+      mutation: { amount: 5 },
+    }, ENABLED, new Date("2026-08-20T00:00:00.000Z"));
+
+    expect(store.reconcileCalls).toBe(0);
+  });
+
+  it("reconciles after saving a count-tier promotion and returns grouped promotions", async () => {
+    const store = memoryCodexMasteryStore();
+    const recorder = createCodexMasteryRecorder(store, TEST_CATALOG);
+
+    const result = await recorder.record({
+      ...validInput(),
+      mutation: { amount: 5 },
+    }, { ...ENABLED, trophiesEnabled: true }, new Date(
+      "2026-08-20T00:00:00.000Z",
+    ));
+
+    expect(store.reconcileCalls).toBe(1);
+    expect(result).toMatchObject({
+      recorded: true,
+      newTrophyPromotions: [{
+        trophyId: "mastery:fish",
+        tier: "bronze",
+        achievedAt: "2026-08-20T00:00:00.000Z",
+      }],
+    });
+  });
+
+  it("skips trophy reconciliation for discovery-only progress", async () => {
+    const store = memoryCodexMasteryStore();
+    const recorder = createCodexMasteryRecorder(store, TEST_CATALOG);
+
+    await recorder.record(validInput(), {
+      ...ENABLED,
+      trophiesEnabled: true,
+    }, new Date("2026-08-20T00:00:00.000Z"));
+
+    expect(store.reconcileCalls).toBe(0);
+  });
+
+  it("propagates trophy persistence failure after the mastery save", async () => {
+    const store = memoryCodexMasteryStore({
+      reconcileError: new Error("trophy write failed"),
+    });
+    const recorder = createCodexMasteryRecorder(store, TEST_CATALOG);
+
+    await expect(recorder.record({
+      ...validInput(),
+      mutation: { amount: 5 },
+    }, { ...ENABLED, trophiesEnabled: true }, new Date()))
+      .rejects.toThrow("trophy write failed");
+    expect(store.saveCalls).toBe(1);
+    expect(store.reconcileCalls).toBe(1);
   });
 
   it("records stages but suppresses seals when seal scoring is disabled", async () => {

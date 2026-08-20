@@ -63,6 +63,16 @@ const TIER_STYLE: Record<
     icon: "text-amber-700 dark:text-amber-300",
     label: "금",
   },
+  platinum: {
+    ring: "border-sky-500 bg-sky-50 dark:border-sky-300 dark:bg-sky-950",
+    icon: "text-sky-700 dark:text-sky-200",
+    label: "백금",
+  },
+  diamond: {
+    ring: "border-teal-500 bg-teal-50 dark:border-teal-300 dark:bg-teal-950",
+    icon: "text-teal-700 dark:text-teal-200",
+    label: "다이아",
+  },
   legendary: {
     ring: "border-violet-600 bg-violet-100 dark:border-violet-400 dark:bg-violet-950",
     icon: "text-violet-700 dark:text-violet-200",

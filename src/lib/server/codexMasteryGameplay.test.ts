@@ -7,7 +7,11 @@ import {
 } from "./codexMasteryGameplay";
 
 const NOW = new Date("2026-08-20T03:04:05.000Z");
-const ENABLED = { recordingEnabled: true, sealsEnabled: false };
+const ENABLED = {
+  recordingEnabled: true,
+  sealsEnabled: false,
+  trophiesEnabled: false,
+};
 
 function runtime(options: { enabled?: boolean; fail?: boolean } = {}) {
   const inputs: CodexMasteryRecordInput[] = [];

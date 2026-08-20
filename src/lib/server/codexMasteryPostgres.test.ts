@@ -21,6 +21,11 @@ import {
 import { scheduleCodexResearchSeason } from "./codexResearchRepository";
 import { recordCodexResearchGameplayBatch } from "./codexResearchService";
 import { settleCodexResearchSeason } from "./codexResearchSettlement";
+import {
+  awardCodexResearchSeasonTrophies,
+  readCodexResearchTrophyHistory,
+} from "./codexResearchTrophies";
+import { readCodexMasteryTrophyHistory } from "./codexMasteryTrophyRepository";
 import { recordCodexMastery } from "./codexMasteryService";
 
 const databaseUrl = process.env.CODEX_MASTERY_POSTGRES_TEST_DATABASE_URL;
@@ -464,6 +469,35 @@ describeWithDatabase("codex mastery PostgreSQL transaction integration", () => {
       .toBe(true);
     expect(finals.slice(10).every(({ finalTier }) => finalTier === "platinum"))
       .toBe(true);
+
+    const firstAward = await database.transaction((tx) =>
+      awardCodexResearchSeasonTrophies(tx, settledDefinition.seasonId)
+    );
+    const repeatedAward = await database.transaction((tx) =>
+      awardCodexResearchSeasonTrophies(tx, settledDefinition.seasonId)
+    );
+    expect(firstAward).toMatchObject({
+      eligibleCount: 12,
+      createdCount: 12,
+      existingCount: 0,
+    });
+    expect(repeatedAward).toMatchObject({
+      eligibleCount: 12,
+      createdCount: 0,
+      existingCount: 12,
+    });
+    expect(await database
+      .select()
+      .from(codexTrophyHistory)
+      .where(eq(codexTrophyHistory.trophyKind, "research_season")))
+      .toHaveLength(12);
+    expect(await readCodexMasteryTrophyHistory(database, userIds[0])).toEqual([]);
+    expect(await readCodexResearchTrophyHistory(database, userIds[0]))
+      .toEqual([expect.objectContaining({
+        trophyId: "research:2026-09",
+        currentTier: "legendary",
+        seasonMetadata: expect.objectContaining({ finalRank: 1, score: 18_000 }),
+      })]);
 
     const rollbackDefinition = researchDefinition("2026-10");
     const rollbackUserId = "settlement-rollback-user";

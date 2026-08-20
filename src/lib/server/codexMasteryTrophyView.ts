@@ -1,4 +1,8 @@
 import type { CodexMasteryCatalog } from "@/adventure/data/v2/codexMasteryCatalog";
+import type {
+  CodexResearchSeasonTrophyHistory,
+  CodexResearchSeasonTrophyMetadata,
+} from "@/adventure/data/v2/codexResearchRanking";
 import type { ProfileMasteryTrophyDisplay } from "@/adventure/profile/profileShowcase";
 import type { CodexMasteryProgress } from "@/adventure/data/v2/codexMasteryTypes";
 import {
@@ -31,6 +35,46 @@ export type CodexMasteryTrophyOption = {
   progress: { current: number; required: number } | null;
   tierAchievedAt: Partial<Record<CodexMasteryTrophyTier, string>>;
 };
+
+export type CodexResearchTrophyOption = {
+  id: string;
+  kind: "research";
+  category: "research";
+  title: string;
+  desc: string;
+  points: 0;
+  badgeTier: CodexMasteryTrophyTier;
+  unlocked: true;
+  currentTier: CodexMasteryTrophyTier;
+  nextTier: null;
+  progress: null;
+  tierAchievedAt: Partial<Record<CodexMasteryTrophyTier, string>>;
+  season: CodexResearchSeasonTrophyMetadata;
+};
+
+export type CodexTrophyOption =
+  | CodexMasteryTrophyOption
+  | CodexResearchTrophyOption;
+
+export function buildCodexResearchTrophyOptions(
+  history: readonly CodexResearchSeasonTrophyHistory[],
+): CodexResearchTrophyOption[] {
+  return history.map((item) => ({
+    id: item.trophyId,
+    kind: "research",
+    category: "research",
+    title: item.seasonMetadata.themeName,
+    desc: `${item.seasonMetadata.seasonId} · 최종 ${item.seasonMetadata.finalRank}위 · ${item.seasonMetadata.score.toLocaleString("ko-KR")}점`,
+    points: 0,
+    badgeTier: item.currentTier,
+    unlocked: true,
+    currentTier: item.currentTier,
+    nextTier: null,
+    progress: null,
+    tierAchievedAt: { ...item.tierAchievedAt },
+    season: structuredClone(item.seasonMetadata),
+  }));
+}
 
 export function buildCodexMasteryTrophyOptions({
   catalog,

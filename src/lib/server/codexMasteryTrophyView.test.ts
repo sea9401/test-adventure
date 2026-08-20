@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createCodexMasteryCatalog } from "@/adventure/data/v2/codexMasteryCatalog";
 import { emptyCodexMasteryProgress } from "@/adventure/data/v2/codexMastery";
-import { buildCodexMasteryTrophyOptions } from "./codexMasteryTrophyView";
+import {
+  buildCodexMasteryTrophyOptions,
+  buildCodexResearchTrophyOptions,
+} from "./codexMasteryTrophyView";
 
 const CATALOG = createCodexMasteryCatalog([{
   category: "fish",
@@ -20,6 +23,47 @@ const CATALOG = createCodexMasteryCatalog([{
 }]);
 
 describe("codex mastery trophy view", () => {
+  it("maps an awarded monthly season into a distinct display option", () => {
+    const options = buildCodexResearchTrophyOptions([{
+      trophyId: "research:2026-08",
+      kind: "research_season",
+      currentTier: "legendary",
+      tierAchievedAt: { legendary: "2026-08-31T15:00:01.000Z" },
+      catalogVersion: 1,
+      seasonMetadata: {
+        seasonId: "2026-08",
+        themeId: "rivers-and-lakes",
+        themeName: "강과 호수의 달",
+        finalRank: 1,
+        score: 19_000,
+        objectiveCompletedCount: 18,
+        objectiveScore: 12_000,
+        diversityScore: 4_000,
+        recordScore: 3_000,
+        representativeRecord: null,
+        settledAt: "2026-08-31T15:00:01.000Z",
+        firstPlaceEngraving: true,
+      },
+    }]);
+
+    expect(options).toEqual([expect.objectContaining({
+      id: "research:2026-08",
+      kind: "research",
+      category: "research",
+      title: "강과 호수의 달",
+      badgeTier: "legendary",
+      unlocked: true,
+      currentTier: "legendary",
+      nextTier: null,
+      progress: null,
+      season: expect.objectContaining({
+        seasonId: "2026-08",
+        finalRank: 1,
+        score: 19_000,
+      }),
+    })]);
+  });
+
   it("returns seven stable family cards with locked next-step progress", () => {
     const options = buildCodexMasteryTrophyOptions({
       catalog: CATALOG,

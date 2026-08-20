@@ -89,6 +89,7 @@ describe("협동 보스 결정적 밸런스 시뮬레이션", () => {
         minContributionRatio: 0.01,
         medianContributionRatio: 0.03,
         p95ContributionRatio: 0.03,
+        medianRequiredAttacks: 34,
       },
       {
         bossId: "void_priest",
@@ -96,6 +97,7 @@ describe("협동 보스 결정적 밸런스 시뮬레이션", () => {
         minContributionRatio: 0.08,
         medianContributionRatio: 0.08,
         p95ContributionRatio: 0.08,
+        medianRequiredAttacks: 13,
       },
     ]);
     expect(JSON.stringify(summary)).not.toMatch(

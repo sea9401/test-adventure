@@ -88,16 +88,51 @@ describe("coopBosses 카탈로그", () => {
       difficulty: "hard",
       name: "재앙의 스콜피온 킹",
       scrollCost: 30,
-      sharedMaxHp: 14_000_000,
+      sharedMaxHp: 8_400_000,
       anchorDepth: 78,
     });
     expect(COOP_BOSSES.lake_sovereign_hard).toMatchObject({
       difficulty: "hard",
       name: "혹한의 호수 괴물",
       scrollCost: 30,
-      sharedMaxHp: 14_000_000,
+      sharedMaxHp: 8_400_000,
       anchorDepth: 78,
     });
+  });
+
+  it("신규 6T HARD 보스는 운영 상위 중앙 피해 기준 14회 공격을 요구한다", () => {
+    const scorpion = COOP_BOSSES.canyon_predator_hard;
+    const lake = COOP_BOSSES.lake_sovereign_hard;
+
+    // 2026-08-20 운영 상위 20명 익명 감사의 두 보스 중앙 피해는 회당 약 61만이었다.
+    // 보수적으로 60만을 기준으로 고정해 목표 범위 12~15회의 중앙인 14회를 맞춘다.
+    const liveTopMedianDamage = 600_000;
+    expect(Math.ceil(scorpion.sharedMaxHp / liveTopMedianDamage)).toBe(14);
+    expect(Math.ceil(lake.sharedMaxHp / liveTopMedianDamage)).toBe(14);
+  });
+
+  it("신규 6T HARD 보스는 초기부터 기존 HARD와 구별되는 파생 공·방·속을 가진다", () => {
+    const scorpion = COOP_BOSSES.canyon_predator_hard;
+    const lake = COOP_BOSSES.lake_sovereign_hard;
+    const scorpionFull = coopBossForBattle(scorpion, scorpion.sharedMaxHp).monster;
+    const lakeFull = coopBossForBattle(lake, lake.sharedMaxHp).monster;
+
+    expect(scorpionFull).toMatchObject({
+      atk: 804,
+      def: 717,
+      magicDef: 675,
+      spd: 22,
+      evasionPct: 18,
+    });
+    expect(lakeFull).toMatchObject({
+      atk: 804,
+      def: 759,
+      magicDef: 970,
+      spd: 20,
+      evasionPct: 12,
+    });
+    expect(scorpionFull.accuracy).toBeLessThan(120);
+    expect(lakeFull.accuracy).toBeLessThan(120);
   });
 
   it("신규 6T HARD 보스는 일반판 이미지를 재사용하고 70%·40%에서 다음 공격의 페이즈를 강화한다", () => {
@@ -108,9 +143,6 @@ describe("coopBosses 카탈로그", () => {
     expect(lake.base.image).toBe(COOP_BOSSES.lake_sovereign.base.image);
     expect(coopBossDurationMs(scorpion)).toBe(COOP_DURATION_MAX_MS);
     expect(coopBossDurationMs(lake)).toBe(COOP_DURATION_MAX_MS);
-    const hardSangoonOneShotDamage = COOP_BOSSES.mountain_chief_hard.sharedMaxHp;
-    expect(Math.ceil(scorpion.sharedMaxHp / hardSangoonOneShotDamage)).toBe(12);
-    expect(Math.ceil(lake.sharedMaxHp / hardSangoonOneShotDamage)).toBe(12);
 
     const scorpionFull = coopBossForBattle(scorpion, scorpion.sharedMaxHp).monster;
     const scorpionMid = coopBossForBattle(scorpion, scorpion.sharedMaxHp * 0.7).monster;
@@ -121,6 +153,8 @@ describe("coopBosses 카탈로그", () => {
     expect(scorpionMid.evasionPct).toBeGreaterThan(scorpionFull.evasionPct ?? 0);
     expect(scorpionDeep.v2Skills?.equipped).toContain("mob_venom_sunder");
     expect(scorpionDeep.atk).toBeGreaterThan(scorpionMid.atk);
+    expect(scorpionMid.spd).toBe(25);
+    expect(scorpionDeep.atk).toBe(1_005);
     expect(scorpionDeep.skill).toMatchObject({
       kind: "pierce",
       armorPierce: 24,
@@ -130,14 +164,15 @@ describe("coopBosses 카탈로그", () => {
     const lakeMid = coopBossForBattle(lake, lake.sharedMaxHp * 0.7).monster;
     const lakeDeep = coopBossForBattle(lake, lake.sharedMaxHp * 0.4).monster;
     expect(lakeFull.atkType).toBe("magic");
-    expect(scorpionFull.accuracy).toBeLessThan(110);
-    expect(lakeFull.accuracy).toBeLessThan(110);
     expect(lakeFull.v2Skills?.equipped).toContain("mob_chilling_touch");
     expect(lakeMid.v2Skills?.equipped).toContain("mob_deep_chill");
     expect(lakeMid.def).toBeGreaterThan(lakeFull.def);
     expect(lakeMid.magicDef).toBeGreaterThan(lakeFull.magicDef ?? 0);
     expect(lakeDeep.v2Skills?.equipped).toContain("mob_glacial_chill");
     expect(lakeDeep.atk).toBeGreaterThan(lakeMid.atk);
+    expect(lakeDeep.atk).toBe(1_005);
+    expect(lakeDeep.def).toBe(809);
+    expect(lakeDeep.magicDef).toBe(1_020);
     expect(lakeDeep.skill).toMatchObject({
       kind: "chill",
       perHit: 4,

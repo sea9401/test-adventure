@@ -6,6 +6,7 @@ import {
   ROADMAP_DRAG_THRESHOLD_PX,
   RoadmapScroller,
 } from "./JobRoadmapDialog";
+import { tier7AdvancementStatus } from "@/adventure/data/v2/tier7Advancement";
 
 describe("RoadmapScroller", () => {
   it("distinguishes a job-card click from an intentional drag", () => {
@@ -58,6 +59,39 @@ describe("JobRoadmapDetails", () => {
       },
     ],
   };
+
+  it("shows tier-7 first-unlock progress in job details", () => {
+    const tier7Advancement = tier7AdvancementStatus({
+      targetJobId: "shadowblade",
+      currentJobId: "swordsaint",
+      currentLevel: 100,
+      jobCumLevel: { swordsaint: 99_999, blackmoon: 100_000 },
+      jobHistory: [],
+      materials: { v2_storm_origin_fragment: 29 },
+    })!;
+    const html = renderToStaticMarkup(
+      <JobRoadmapDetails
+        job={{
+          id: "shadowblade",
+          name: "무영검신",
+          tier: 7,
+          unlocked: false,
+          condition: "7차 최초 전직 조건",
+          tier7Advancement,
+        }}
+        currentJobId="swordsaint"
+        goalJobId={null}
+        atLevelCap
+        currentJobSelectable
+        onSetGoal={() => {}}
+      />,
+    );
+
+    expect(html).toContain("검성 숙련도");
+    expect(html).toContain("99,999 / 100,000");
+    expect(html).toContain("폭풍 기원의 파편");
+    expect(html).toContain("29 / 30");
+  });
 
   it("offers advancement for an eligible unlocked job", () => {
     const html = renderToStaticMarkup(

@@ -115,16 +115,18 @@ describe("production security surface", () => {
       expect(proxy).toContain(path);
     }
     for (const maintenance of [proxy, maintenancePage]) {
-      expect(maintenance).toContain("8월 21일 서버 점검 안내");
-      expect(maintenance).toContain("서비스 점검");
+      expect(maintenance).toContain("8월 21일 서버 점검 연장 안내");
+      expect(maintenance).toContain("점검 30분 연장");
       expect(maintenance).toContain("안녕하세요, 무슨무슨게임입니다.");
       expect(maintenance).toContain(
-        "원활한 서비스 제공을 위해 서버 점검을 진행합니다.",
+        "안정적인 작업 마무리를 위해 점검 시간을 30분 연장합니다.",
       );
       expect(maintenance).toContain("점검 일시:");
-      expect(maintenance).toContain("8월 21일(금) 오전 1시 ~ 오전 2시");
+      expect(maintenance).toContain(
+        "8월 21일(금) 오전 1시 ~ 오전 2시 30분",
+      );
       expect(maintenance).toContain("점검 시간:");
-      expect(maintenance).toContain("약 1시간");
+      expect(maintenance).toContain("약 1시간 30분 (30분 연장)");
       expect(maintenance).toContain("점검 내용:");
       expect(maintenance).toContain(
         "전일 미완료 패치 외 업데이트, 서버 안정화",
@@ -136,7 +138,7 @@ describe("production security surface", () => {
       expect(maintenance).toContain(
         "※ 작업 진행 상황에 따라 점검이 예정보다 일찍 종료될 수 있습니다.",
       );
-      expect(maintenance).not.toContain("점검이 1시간 연장되었습니다.");
+      expect(maintenance).not.toContain("8월 21일(금) 오전 1시 ~ 오전 2시</dd>");
       expect(maintenance).not.toContain("잠시 점검 중입니다");
       expect(maintenance).not.toContain("금방 다시 열릴 예정입니다.");
     }

@@ -56,6 +56,7 @@ import {
   effectiveLevelCap,
   refundableCultivationPoints,
   cultivationResetGoldCost,
+  type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import { V2_STAT_KEYS, V2_STAT_LABELS } from "@/adventure/data/v2/v2StatKeys";
@@ -96,6 +97,10 @@ import {
 import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
 import type { derivePlayerCombatV2FromSaves } from "@/lib/server/derivePlayerCombatV2";
 import type { JobSpLoadoutMigration } from "@/lib/server/v2Skills";
+import {
+  tier7AdvancementStatus,
+  type Tier7AdvancementStatus,
+} from "@/adventure/data/v2/tier7Advancement";
 
 // 라우트가 cast 해 들고 있는 character.v2 의 느슨한 모양 — 섹션이 읽는 키만 선언.
 type StateCharSave = {
@@ -161,6 +166,23 @@ export function combatStatsSection(
 }
 
 // 코어루프 직업 트리(전직 UI) — off 면 null. 해금/조건/보너스/스킬수집까지 카탈로그 파생.
+export function tier7AdvancementViewForJob(args: {
+  jobId: string;
+  currentJobId: string;
+  level: number;
+  proficiency: V2ProficiencyState;
+  materials: unknown;
+}): Tier7AdvancementStatus | null {
+  return tier7AdvancementStatus({
+    targetJobId: args.jobId,
+    currentJobId: args.currentJobId,
+    currentLevel: args.level,
+    jobCumLevel: args.proficiency.jobCumLevel ?? {},
+    jobHistory: args.proficiency.jobHistory ?? [],
+    materials: args.materials,
+  });
+}
+
 export function jobsV2Section(params: {
   charSave: StateCharSave;
   proficiencyRaw: unknown;
@@ -199,7 +221,17 @@ export function jobsV2Section(params: {
       // 루트 직업도 전직 대상에 포함 — 모험가/생존자 킷을 배우려면 되돌아갈 수 있어야 한다.
       (job) => isRootJobSelectable(job),
     ).map((job) => {
-      const unlocked = isJobUnlocked(job, prof, jobUnlockCtx);
+      const tier7Advancement = tier7AdvancementViewForJob({
+        jobId: job.id,
+        currentJobId,
+        level,
+        proficiency: prof,
+        materials: charSave.materials,
+      });
+      const unlocked = tier7Advancement
+        ? tier7Advancement.permanentlyUnlocked ||
+          tier7Advancement.nonLevelRequirementsMet
+        : isJobUnlocked(job, prof, jobUnlockCtx);
       const cumLevel = cumLevelForJob(prof, job);
       const conditionRevealed = isJobUnlockConditionRevealed(
         job,
@@ -243,6 +275,7 @@ export function jobsV2Section(params: {
         bonus,
         signatureSkills,
         skillsCollected,
+        ...(tier7Advancement ? { tier7Advancement } : {}),
       };
     }),
   };

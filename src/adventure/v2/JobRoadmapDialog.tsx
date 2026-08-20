@@ -37,6 +37,8 @@ import {
   buildJobRoadmap,
   type JobRoadmapNode,
 } from "./jobRoadmapModel";
+import type { Tier7AdvancementStatus } from "@/adventure/data/v2/tier7Advancement";
+import { Tier7AdvancementRequirements } from "./Tier7AdvancementRequirements";
 
 export type JobRoadmapPlayerJob = {
   id: string;
@@ -54,6 +56,7 @@ export type JobRoadmapPlayerJob = {
     kind: "active" | "passive";
   }>;
   skillsCollected?: boolean;
+  tier7Advancement?: Tier7AdvancementStatus;
 };
 
 export function JobRoadmapDialog({
@@ -336,6 +339,11 @@ export function JobRoadmapDetails({
           </dd>
         </div>
       </dl>
+      {job.tier7Advancement ? (
+        <div className="mt-3">
+          <Tier7AdvancementRequirements status={job.tier7Advancement} />
+        </div>
+      ) : null}
     </section>
   );
 }

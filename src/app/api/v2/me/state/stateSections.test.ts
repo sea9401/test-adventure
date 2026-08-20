@@ -7,6 +7,7 @@ import {
   fishingCodexSection,
   huntGateSections,
   isRecordedJobVisit,
+  tier7AdvancementViewForJob,
   elementalSkillsSection,
   materialCodexSection,
   loadoutSection,
@@ -16,6 +17,7 @@ import {
 } from "./stateSections";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import { V2_SKILLS, spCostOf } from "@/adventure/data/v2/v2Skills";
+import { emptyProficiency } from "@/adventure/data/v2/proficiency";
 
 describe("battleCountOf", () => {
   it("monster kills 합 + 패배수 (랭킹 battleCount 와 동일 정의)", () => {
@@ -316,5 +318,59 @@ describe("isRecordedJobVisit", () => {
         cumLevel: 0,
       }),
     ).toBe(false);
+  });
+});
+
+describe("tier7AdvancementViewForJob", () => {
+  it("serializes both prerequisite masteries and material progress", () => {
+    const status = tier7AdvancementViewForJob({
+      jobId: "shadowblade",
+      currentJobId: "swordsaint",
+      level: 100,
+      proficiency: {
+        ...emptyProficiency(),
+        jobCumLevel: { swordsaint: 99_999, blackmoon: 100_000 },
+      },
+      materials: { v2_storm_origin_fragment: 29 },
+    });
+
+    expect(status).toMatchObject({
+      permanentlyUnlocked: false,
+      prerequisiteProgress: [
+        { jobId: "swordsaint", current: 99_999, required: 100_000, met: false },
+        { jobId: "blackmoon", current: 100_000, required: 100_000, met: true },
+      ],
+      material: { current: 29, required: 30, met: false },
+      firstUnlockReady: false,
+    });
+  });
+
+  it("reports a ready candidate and a history-unlocked revisit", () => {
+    const ready = tier7AdvancementViewForJob({
+      jobId: "shadowblade",
+      currentJobId: "blackmoon",
+      level: 100,
+      proficiency: {
+        ...emptyProficiency(),
+        jobCumLevel: { swordsaint: 100_000, blackmoon: 100_000 },
+      },
+      materials: { v2_storm_origin_fragment: 30 },
+    });
+    const permanent = tier7AdvancementViewForJob({
+      jobId: "shadowblade",
+      currentJobId: "warrior",
+      level: 1,
+      proficiency: {
+        ...emptyProficiency(),
+        jobHistory: ["shadowblade"],
+      },
+      materials: {},
+    });
+
+    expect(ready?.firstUnlockReady).toBe(true);
+    expect(permanent).toMatchObject({
+      permanentlyUnlocked: true,
+      failure: null,
+    });
   });
 });

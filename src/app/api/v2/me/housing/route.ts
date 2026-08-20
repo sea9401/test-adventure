@@ -67,8 +67,11 @@ export async function GET(req: Request) {
     housingSourceSaves(userId),
     readCodexMasteryFeatureSettings(db),
   ]);
-  const room = parseHousingState(source.housingRaw);
   const baseContext = housingContextFromSaves(source);
+  const room = parseHousingState(
+    source.housingRaw,
+    baseContext.entitlements.ownedCounts,
+  );
   const trophyContext = settings.trophiesEnabled
     ? housingMasteryTrophyContext(
         await readCodexMasteryTrophyHistory(db, userId),
@@ -138,7 +141,10 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  const storedRoom = parseHousingState(source.housingRaw);
+  const storedRoom = parseHousingState(
+    source.housingRaw,
+    baseContext.entitlements.ownedCounts,
+  );
   const candidate = settings.trophiesEnabled
     ? initiallyValidated.state
     : restoreHousingMasteryTrophies(storedRoom, initiallyValidated.state);

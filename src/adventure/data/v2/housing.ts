@@ -454,7 +454,10 @@ export function validateHousingState(
 
 // 읽기 경로는 손상된 과거 세이브 한 건 때문에 숙소 전체가 열리지 않지 않도록 유효한 배치만
 // 순서대로 복구한다. 쓰기 경로는 위 validateHousingState 로 엄격 검증한다.
-export function parseHousingState(raw: unknown): HousingState {
+export function parseHousingState(
+  raw: unknown,
+  ownedCounts?: Partial<Record<HousingFurnitureId, number>>,
+): HousingState {
   if (!raw || typeof raw !== "object" || !Array.isArray((raw as { layout?: unknown }).layout)) {
     return defaultHousingState();
   }
@@ -475,7 +478,7 @@ export function parseHousingState(raw: unknown): HousingState {
       placement.y + height > HOUSING_GRID_ROWS
     ) continue;
     const count = (counts.get(placement.furnitureId) ?? 0) + 1;
-    if (count > housingOwnedCount(placement.furnitureId)) continue;
+    if (count > housingOwnedCount(placement.furnitureId, ownedCounts)) continue;
     const nextCells = placementCells(placement);
     if (nextCells.some((cell) => cells.has(cell))) continue;
     const expectedDisplayKind = housingDisplayKindFor(placement.furnitureId);

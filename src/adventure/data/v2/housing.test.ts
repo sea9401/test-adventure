@@ -251,4 +251,22 @@ describe("housing layout", () => {
       layout: [],
     }).layout).toEqual([]);
   });
+
+  it("recovers crafted display furniture using authoritative owned counts", () => {
+    const room = {
+      version: 1,
+      isPublic: true,
+      layout: [{
+        uid: "cookware",
+        furnitureId: "cookware_display",
+        x: 0,
+        y: 0,
+        rotated: false,
+        masteryTrophy: { trophyId: "mastery:cooking" },
+      }],
+    };
+
+    expect(parseHousingState(room, { cookware_display: 1 })).toEqual(room);
+    expect(parseHousingState(room).layout).toEqual([]);
+  });
 });

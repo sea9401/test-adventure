@@ -302,4 +302,48 @@ describe("housing route", () => {
     expect(store.get(keyOf("u1", HOUSING_SAVE_KEY))).toEqual(withoutShelf);
     expect(readCodexMasteryTrophyHistory).not.toHaveBeenCalled();
   });
+
+  it("returns a cooking trophy on an owned crafted cookware display", async () => {
+    mastery.enabled = true;
+    mastery.history = [{
+      trophyId: "mastery:cooking",
+      kind: "mastery_category",
+      currentTier: "gold",
+      tierAchievedAt: {
+        bronze: "2026-01-01T00:00:00.000Z",
+        silver: "2026-02-01T00:00:00.000Z",
+        gold: "2026-03-01T00:00:00.000Z",
+      },
+      catalogVersion: 1,
+    }];
+    const room = {
+      version: 1,
+      isPublic: true,
+      layout: [{
+        uid: "cookware",
+        furnitureId: "cookware_display",
+        x: 0,
+        y: 0,
+        rotated: false,
+        masteryTrophy: { trophyId: "mastery:cooking" },
+      }],
+    };
+    store.set(keyOf("u1", HOUSING_SAVE_KEY), room);
+    store.set(keyOf("u1", "life-workshop.v1"), {
+      crafting: { balances: { cookware_display: 1 } },
+    });
+
+    const response = await GET(request());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.ownedCounts.cookware_display).toBe(1);
+    expect(json.room).toEqual(room);
+    expect(json.displayOptions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: "masteryTrophy",
+        trophyId: "mastery:cooking",
+      }),
+    ]));
+  });
 });

@@ -79,16 +79,19 @@ export async function GET(req: Request, ctx: Ctx) {
       readSave(db, target.user_id, LIFE_WORKSHOP_SAVE_KEY, {}),
       readCodexMasteryFeatureSettings(db),
     ]);
-  const room = parseHousingState(housingRaw);
-  if (!room.isPublic && target.user_id !== viewerId) {
-    return Response.json({ ok: false, error: "private_room" }, { status: 403 });
-  }
   const baseContext = housingContextFromSaves({
     equipmentRaw,
     adventureLogRaw,
     fishingCodexRaw,
     lifeWorkshopRaw,
   });
+  const room = parseHousingState(
+    housingRaw,
+    baseContext.entitlements.ownedCounts,
+  );
+  if (!room.isPublic && target.user_id !== viewerId) {
+    return Response.json({ ok: false, error: "private_room" }, { status: 403 });
+  }
   const trophyContext = settings.trophiesEnabled
     ? housingMasteryTrophyContext(
         await readCodexMasteryTrophyHistory(db, target.user_id),

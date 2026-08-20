@@ -34,6 +34,7 @@ export type CodexResearchOpsErrorCode =
   | "season_not_future"
   | "season_not_ready"
   | "season_already_published"
+  | "trophies_not_published"
   | "trophies_already_published";
 
 export class CodexResearchOpsError extends Error {

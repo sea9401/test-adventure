@@ -50,6 +50,12 @@ function createRuntime() {
   return createPoolRuntime<Pool, Database>({
     createPool,
     createDatabase: (pool) => drizzle(pool, { schema }),
+    registerPoolErrorHandler: (pool, handler) => {
+      pool.on("error", handler);
+    },
+    onPoolError: (metadata) => {
+      console.error("[database] pool client error", metadata);
+    },
     closePool: async (pool, reason) => {
       console.error(`[database] recycling pool: ${reason}`);
       await pool.end();

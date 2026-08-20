@@ -22,6 +22,7 @@ describe("도감 숙련·월간 연구 랭킹 전환", () => {
     expect(codexMasteryScopeForView("category", "fish")).toBe("fish");
     expect(codexMasteryScopeForView("category", "job")).toBe("job");
     expect(codexMasteryScopeForView("monthly", "job")).toBeNull();
+    expect(codexMasteryScopeForView("archive", "job")).toBeNull();
   });
 
   it("완성도·종합 숙련·분야별과 여섯 분야를 모두 노출한다", () => {
@@ -38,6 +39,7 @@ describe("도감 숙련·월간 연구 랭킹 전환", () => {
     expect(html).toContain("종합 숙련");
     expect(html).toContain("분야별");
     expect(html).toContain("월간 연구");
+    expect(html).toContain("명예의 전당");
     expect(html).toContain("장비 연구");
     expect(html).toContain("어류 연구");
     expect(html).toContain("생태 연구");

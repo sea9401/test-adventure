@@ -24,6 +24,8 @@ import { CodexMasteryRankingPanel } from "./CodexMasteryRankingPanel";
 import { useCodexMasteryRanking } from "./useCodexMasteryRanking";
 import { CodexResearchRankingPanel } from "./CodexResearchRankingPanel";
 import { useCodexResearchRanking } from "./useCodexResearchRanking";
+import { CodexResearchArchivePanel } from "./CodexResearchArchivePanel";
+import { useCodexResearchArchive } from "./useCodexResearchArchive";
 import {
   useGuildRankings,
   useRankings,
@@ -58,6 +60,9 @@ export function RankingsView() {
   );
   const research = useCodexResearchRanking(
     metric === "codexCompletion" && codexView === "monthly",
+  );
+  const archive = useCodexResearchArchive(
+    metric === "codexCompletion" && codexView === "archive",
   );
   const selectName = (name: string) =>
     router.push(`/profile/${encodeURIComponent(name)}`);
@@ -97,6 +102,13 @@ export function RankingsView() {
           onRetry={research.retry}
           onSelectName={selectName}
         />
+      ) : metric === "codexCompletion" && codexView === "archive" ? (
+        <CodexResearchArchivePanel
+          state={archive.state}
+          onRetry={archive.retry}
+          onSeasonChange={archive.selectSeason}
+          onSelectName={selectName}
+        />
       ) : metric === "codexCompletion" && codexView !== "completion" ? (
         <CodexMasteryRankingPanel
           scope={masteryScope}
@@ -114,7 +126,7 @@ export function RankingsView() {
   );
 }
 
-export type CodexRankingView = "completion" | "overall" | "category" | "monthly";
+export type CodexRankingView = "completion" | "overall" | "category" | "monthly" | "archive";
 type CodexMasteryCategoryScope = Exclude<
   CodexMasteryRankingScope,
   "overall"
@@ -128,6 +140,7 @@ const CODEX_RANKING_VIEW_TABS: ReadonlyArray<{
   { key: "overall", label: "종합 숙련" },
   { key: "category", label: "분야별" },
   { key: "monthly", label: "월간 연구" },
+  { key: "archive", label: "명예의 전당" },
 ];
 
 const CODEX_RANKING_CATEGORY_TABS: ReadonlyArray<{
@@ -146,7 +159,7 @@ export function codexMasteryScopeForView(
   view: CodexRankingView,
   category: CodexMasteryCategoryScope,
 ): CodexMasteryRankingScope | null {
-  if (view === "completion" || view === "monthly") return null;
+  if (view === "completion" || view === "monthly" || view === "archive") return null;
   return view === "overall" ? "overall" : category;
 }
 
@@ -241,6 +254,8 @@ function CodexMetricPill({ view }: { view: CodexRankingView }) {
             ? "직업 해금·장비 등록·어보 발견 수를 전체 수집 항목과 비교합니다."
             : view === "monthly"
               ? "매달 바뀌는 목표·다양성·기록 점수의 잠정 순위를 비교합니다."
+              : view === "archive"
+                ? "공개를 마친 종료 시즌의 확정 순위와 트로피를 보존합니다."
               : "도감 단계와 특별 인장으로 쌓은 영구 연구 점수를 비교합니다."}
         </span>
       </div>

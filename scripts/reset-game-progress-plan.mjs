@@ -41,6 +41,7 @@ export const RESET_TABLES = Object.freeze([
   "chat_rooms",
   "codex_mastery_progress",
   "codex_mastery_summary",
+  "codex_trophy_history",
   "coop_boss_attack_log",
   "coop_boss_contributors",
   "coop_boss_sessions",

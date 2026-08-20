@@ -74,6 +74,7 @@ describe("reset game progress plan", () => {
       resetTables: expect.arrayContaining([
         "codex_mastery_progress",
         "codex_mastery_summary",
+        "codex_trophy_history",
       ]),
     });
     expect(buildResetTablePlan(migrationTables, execute)).toMatchObject({
@@ -81,6 +82,7 @@ describe("reset game progress plan", () => {
       resetTables: expect.arrayContaining([
         "codex_mastery_progress",
         "codex_mastery_summary",
+        "codex_trophy_history",
       ]),
     });
   });
@@ -93,6 +95,7 @@ describe("reset game progress plan", () => {
     expect(RESET_TABLES).toEqual(expect.arrayContaining([
       "codex_mastery_progress",
       "codex_mastery_summary",
+      "codex_trophy_history",
     ]));
     expect(RESET_TABLES).toEqual(
       expect.arrayContaining([

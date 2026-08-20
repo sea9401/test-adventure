@@ -15,8 +15,137 @@ import { SkillsContent } from "./content/skills";
 import { StatsContent } from "./content/stats";
 import { TownContent } from "./content/town";
 import { CompendiumContent } from "./content/compendium";
+import { CoopContent } from "./content/coop";
+import { OverviewContent } from "./content/overview";
 
 describe("최신 게임 안내서 내용", () => {
+  it("협동 보스 공격 비용과 단방향 전체 공개 규칙을 안내한다", () => {
+    const html = renderToStaticMarkup(<CoopContent />);
+
+    expect(html).toContain("스태미나");
+    expect(html).toContain(">20<");
+    expect(html).toContain("10초");
+    expect(html).toContain("나만");
+    expect(html).toContain("전체 공개한 뒤에는 다시 범위를 줄일 수 없습니다");
+    expect(html).not.toContain("공격에는 별도 비용이 들지 않습니다");
+  });
+
+  it("공개된 7차 전직 4종의 최초 해금 조건과 영구 해금을 안내한다", () => {
+    const html = renderToStaticMarkup(<JobsContent />);
+
+    expect(html).toContain("7차 전직");
+    expect(html).toContain("무영검신");
+    expect(html).toContain("멸검제");
+    expect(html).toContain("비천무신");
+    expect(html).toContain("태초현자");
+    expect(html).toContain("100,000");
+    expect(html).toContain("폭풍 기원의 파편");
+    expect(html).toContain("30개");
+    expect(html).toContain("영구 해금");
+  });
+
+  it("전직 이력이 있는 전투 직업을 골라 수행할 수 있다고 안내한다", () => {
+    const html = renderToStaticMarkup(<JobsContent />);
+
+    expect(html).toContain("전직 이력이 있는 전투 직업");
+    expect(html).toContain("현재 직업과 달라도");
+    expect(html).toContain("수행 성장 직업");
+  });
+
+  it("도감 숙련의 6분야와 발견부터 전설까지의 장기 수집 단계를 안내한다", () => {
+    const html = renderToStaticMarkup(<CompendiumContent />);
+
+    expect(html).toContain("도감 숙련");
+    for (const label of ["장비 연구", "어류 연구", "생태 연구", "미식 연구", "현장 연구", "직업 연구"]) {
+      expect(html).toContain(label);
+    }
+    expect(html).toContain("발견 → 동 → 은 → 금 → 백금 → 다이아 → 전설");
+    expect(html).toContain("SP·스탯·드랍률");
+    expect(html).toContain("종합·분야별 영구 랭킹");
+  });
+
+  it("월간 연구의 2만점 구성과 잠정·확정 순위를 구분해 안내한다", () => {
+    const html = renderToStaticMarkup(<CompendiumContent />);
+
+    expect(html).toContain("월간 연구");
+    expect(html).toContain("20,000점");
+    expect(html).toContain("연구 목표 12,000");
+    expect(html).toContain("다양성 5,000");
+    expect(html).toContain("기록 3,000");
+    expect(html).toContain("잠정 순위");
+    expect(html).toContain("명예의 전당");
+  });
+
+  it("도감·월간 트로피의 6단계와 대표 3종 전시를 안내한다", () => {
+    const quests = renderToStaticMarkup(<QuestsContent />);
+    const plaza = renderToStaticMarkup(<PlazaContent />);
+
+    expect(quests).toContain("도감 숙련");
+    expect(quests).toContain("월간 연구");
+    expect(quests).toContain("동·은·금·백금·다이아·전설");
+    expect(quests).toContain("대표 트로피 3종");
+    expect(quests).toContain("업적 점수에는 더하지 않습니다");
+    expect(plaza).toContain("도감 숙련");
+    expect(plaza).toContain("월간 연구");
+    expect(plaza).toContain("명예의 전당");
+  });
+
+  it("폭풍 원정의 일괄 진행 계획·위험·중단과 재개 규칙을 안내한다", () => {
+    const html = renderToStaticMarkup(<HuntingContent />);
+
+    expect(html).toContain("직접 진행과 일괄 진행");
+    expect(html).toContain("외곽·중층·수호자");
+    expect(html).toContain("공격·생존·자원");
+    expect(html).toContain("위험 이벤트는 자동으로 지나칩니다");
+    expect(html).toContain("자동 귀환하지 않습니다");
+    expect(html).toContain("일괄 진행 재개");
+    expect(html).toContain("현재 요청이 끝난 뒤");
+  });
+
+  it("게시판 활동 점수·일일 인정 한도와 Lv.20 칭호를 안내한다", () => {
+    const html = renderToStaticMarkup(<PlazaContent />);
+
+    expect(html).toContain("게시글 3점");
+    expect(html).toContain("댓글 1점");
+    expect(html).toContain("받은 좋아요 4점");
+    expect(html).toContain("게시글 2개·댓글 5개");
+    expect(html).toContain("Lv.15");
+    expect(html).toContain("광장 원로");
+    expect(html).toContain("Lv.20");
+    expect(html).toContain("광장의 전설");
+  });
+
+  it("거래 이용 제한 중 가능한 조회·취소·정산과 제한 행위를 안내한다", () => {
+    const html = renderToStaticMarkup(<PlazaContent />);
+
+    expect(html).toContain("거래 이용 제한");
+    expect(html).toContain("거래 정보 조회");
+    expect(html).toContain("신규 등록·구매·입찰·구매 주문·선물");
+    expect(html).toContain("취소·정산·환불");
+  });
+
+  it("장비 등록 상태와 공용 스킬 상세, 전투 기록 틱 표시를 안내한다", () => {
+    const compendium = renderToStaticMarkup(<CompendiumContent />);
+    const skills = renderToStaticMarkup(<SkillsContent />);
+    const combat = renderToStaticMarkup(<CombatContent />);
+
+    expect(compendium).toContain("등록·미등록");
+    expect(skills).toContain("스킬 상세 보기");
+    expect(skills).toContain("스킬 학습·장착");
+    expect(skills).toContain("전직 로드맵");
+    expect(skills).toContain("SP·MP·발동 확률·재사용 대기");
+    expect(combat).toContain("현재 틱 / 전체 틱");
+    expect(combat).toContain("같은 틱 안의 사건 순서");
+  });
+
+  it("게임 개요에서 도감 숙련과 월간 연구를 장기 목표로 안내한다", () => {
+    const html = renderToStaticMarkup(<OverviewContent />);
+
+    expect(html).toContain("도감 숙련");
+    expect(html).toContain("월간 연구");
+    expect(html).toContain("전투력 보상 없이");
+  });
+
   it("정신의 마법 공격 보조와 초과 정신 추가 전환을 안내한다", () => {
     const stats = renderToStaticMarkup(<StatsContent />);
     const combat = renderToStaticMarkup(<CombatContent />);
@@ -29,6 +158,7 @@ describe("최신 게임 안내서 내용", () => {
   it("네 가지 화면 모드의 표시 방식과 저장 동작을 안내한다", () => {
     const html = renderToStaticMarkup(<ControlsContent />);
 
+    expect(html).toContain("트로피 전시대");
     expect(html).toContain("기본 모드");
     expect(html).toContain("배경 숨김");
     expect(html).toContain("은신 모드");

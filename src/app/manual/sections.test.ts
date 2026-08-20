@@ -27,4 +27,16 @@ describe("게임 안내서 구성", () => {
       MANUAL_SECTIONS.some((section) => section.slug === "outpost"),
     ).toBe(false);
   });
+
+  it("목차에서 도감 숙련·월간 연구와 트로피 전시를 찾을 수 있다", () => {
+    expect(
+      MANUAL_SECTIONS.find((section) => section.slug === "compendium")?.summary,
+    ).toContain("도감 숙련");
+    expect(
+      MANUAL_SECTIONS.find((section) => section.slug === "compendium")?.summary,
+    ).toContain("월간 연구");
+    expect(
+      MANUAL_SECTIONS.find((section) => section.slug === "quests")?.summary,
+    ).toContain("트로피");
+  });
 });

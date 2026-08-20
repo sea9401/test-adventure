@@ -38,6 +38,7 @@ export type CodexMasteryEntryDefinition = {
   label: string;
   thresholds: Record<CodexMasteryCountStage, number>;
   scoreWeightMilli: number;
+  compatibleScoreWeightsMilli?: readonly number[];
   seals: Readonly<Record<string, { pointUnits: 2 | 4 }>>;
 };
 

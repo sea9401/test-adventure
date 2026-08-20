@@ -84,17 +84,21 @@ for (const theme of monsterThemes) {
   });
 }
 
-const sourceCounts: Record<CodexMasteryCategory, number> = {
-  equipment: Object.keys(V2_EQUIPMENT).length,
-  fish: FISH_IDS.length,
-  monster: monsterById.size,
-  cooking: COOKING_RECIPES.length,
-  life: LIFE_FIELD_RECORD_CATALOG.length,
-  job: V2_JOB_LIST.filter((job) => job.tier > 0).length,
+const V1_SCORE_WEIGHT_SOURCE_COUNTS: Record<CodexMasteryCategory, number> = {
+  equipment: 351,
+  fish: 50,
+  monster: 70,
+  cooking: 45,
+  life: 36,
+  job: 134,
 };
 
+const JOB_COMPATIBLE_SCORE_WEIGHTS_MILLI = Object.freeze([3_294]);
+
 function scoreWeight(category: CodexMasteryCategory): number {
-  return Math.round(10_000_000 / (22 * sourceCounts[category]));
+  return Math.round(
+    10_000_000 / (22 * V1_SCORE_WEIGHT_SOURCE_COUNTS[category]),
+  );
 }
 
 function definition(
@@ -110,6 +114,9 @@ function definition(
     label,
     thresholds,
     scoreWeightMilli: scoreWeight(category),
+    ...(category === "job"
+      ? { compatibleScoreWeightsMilli: JOB_COMPATIBLE_SCORE_WEIGHTS_MILLI }
+      : {}),
     seals,
   };
 }

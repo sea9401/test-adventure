@@ -186,10 +186,35 @@ const COUNT_STAGES: readonly CodexMasteryCountStage[] = [
   "legendary",
 ];
 
-function assertLockedProgressMatchesDefinition(
+type NormalizedLockedProgress = {
+  progress: CodexMasteryProgress;
+  scoreCorrectionMilli: number;
+};
+
+function lockedProgressPointUnits(
   definition: CodexMasteryEntryDefinition,
   progress: CodexMasteryProgress,
-): void {
+): number {
+  const currentTierIndex = progress.currentTier === "none"
+    ? -1
+    : CODEX_MASTERY_STAGES.indexOf(progress.currentTier);
+  const stagePointUnits = CODEX_MASTERY_STAGES.reduce(
+    (sum, stage, index) => index <= currentTierIndex
+      ? sum + CODEX_MASTERY_POINT_UNITS[stage]
+      : sum,
+    0,
+  );
+  const sealPointUnits = progress.sealIds.reduce(
+    (sum, sealId) => sum + definition.seals[sealId].pointUnits,
+    0,
+  );
+  return stagePointUnits + sealPointUnits;
+}
+
+function normalizeLockedProgressScore(
+  definition: CodexMasteryEntryDefinition,
+  progress: CodexMasteryProgress,
+): NormalizedLockedProgress {
   if (
     progress.category !== definition.category ||
     progress.entryId !== definition.entryId
@@ -221,27 +246,32 @@ function assertLockedProgressMatchesDefinition(
     throw new Error("codex mastery locked progress tier/count is inconsistent");
   }
 
-  const currentTierIndex = progress.currentTier === "none"
-    ? -1
-    : CODEX_MASTERY_STAGES.indexOf(progress.currentTier);
-  const stagePointUnits = CODEX_MASTERY_STAGES.reduce(
-    (sum, stage, index) => index <= currentTierIndex
-      ? sum + CODEX_MASTERY_POINT_UNITS[stage]
-      : sum,
-    0,
-  );
-  const sealPointUnits = progress.sealIds.reduce(
-    (sum, sealId) => sum + definition.seals[sealId].pointUnits,
-    0,
-  );
-  const expectedScoreMilli =
-    (stagePointUnits + sealPointUnits) * definition.scoreWeightMilli;
-  if (
-    !Number.isSafeInteger(expectedScoreMilli) ||
-    progress.scoreMilli !== expectedScoreMilli
-  ) {
+  const pointUnits = lockedProgressPointUnits(definition, progress);
+  const expectedScoreMilli = pointUnits * definition.scoreWeightMilli;
+  if (!Number.isSafeInteger(expectedScoreMilli)) {
     throw new Error("codex mastery locked progress score is inconsistent");
   }
+  if (progress.scoreMilli === expectedScoreMilli) {
+    return { progress, scoreCorrectionMilli: 0 };
+  }
+
+  const compatibleWeight = definition.compatibleScoreWeightsMilli?.find((weight) => {
+    const compatibleScoreMilli = pointUnits * weight;
+    return Number.isSafeInteger(compatibleScoreMilli) &&
+      progress.scoreMilli === compatibleScoreMilli;
+  });
+  if (compatibleWeight === undefined) {
+    throw new Error("codex mastery locked progress score is inconsistent");
+  }
+
+  const scoreCorrectionMilli = expectedScoreMilli - progress.scoreMilli;
+  if (!Number.isSafeInteger(scoreCorrectionMilli) || scoreCorrectionMilli < 0) {
+    throw new Error("codex mastery locked progress score is inconsistent");
+  }
+  return {
+    progress: { ...progress, scoreMilli: expectedScoreMilli },
+    scoreCorrectionMilli,
+  };
 }
 
 function safeAdd(value: number, delta: number): number {
@@ -312,6 +342,30 @@ function nextSummaryFromTransition(
   return nextSummary;
 }
 
+function normalizeSummaryScore(
+  summary: CodexMasterySummaryState,
+  category: CodexMasteryCategory,
+  scoreCorrectionMilli: number,
+): CodexMasterySummaryState {
+  if (scoreCorrectionMilli === 0) return summary;
+  const totalScoreMilli = safeAdd(summary.totalScoreMilli, scoreCorrectionMilli);
+  const categoryScoreMilli = safeAdd(
+    summary.categoryScoreMilli[category],
+    scoreCorrectionMilli,
+  );
+  if (totalScoreMilli < 0 || categoryScoreMilli < 0) {
+    throw new Error("codex mastery summary score correction is invalid");
+  }
+  return {
+    ...summary,
+    totalScoreMilli,
+    categoryScoreMilli: {
+      ...summary.categoryScoreMilli,
+      [category]: categoryScoreMilli,
+    },
+  };
+}
+
 export function createCodexMasteryRecorder(
   store: CodexMasteryStore,
   catalog: CodexMasteryCatalog,
@@ -350,21 +404,34 @@ export function createCodexMasteryRecorder(
       category: input.category,
       entryId: input.entryId,
     }, now);
-    assertLockedProgressMatchesDefinition(entry, locked.progress);
-    const requestedMutation = mutationForLockedProgress(locked.progress);
+    const normalized = normalizeLockedProgressScore(entry, locked.progress);
+    const requestedMutation = mutationForLockedProgress(normalized.progress);
     validateCallerMutation(requestedMutation, entry.seals);
     const mutation = settings.sealsEnabled
       ? requestedMutation
       : { ...requestedMutation, sealIds: [] };
 
-    const transition = applyCodexMasteryMutation(entry, locked.progress, mutation, now);
+    const transition = applyCodexMasteryMutation(
+      entry,
+      normalized.progress,
+      mutation,
+      now,
+    );
 
-    if (unchangedProgress(locked.progress, transition.next)) {
+    if (
+      normalized.scoreCorrectionMilli === 0 &&
+      unchangedProgress(locked.progress, transition.next)
+    ) {
       return { recorded: false, reason: "unchanged" };
     }
 
-    const summary = nextSummaryFromTransition(
+    const normalizedSummary = normalizeSummaryScore(
       locked.summary,
+      input.category,
+      normalized.scoreCorrectionMilli,
+    );
+    const summary = nextSummaryFromTransition(
+      normalizedSummary,
       input.category,
       transition,
       now,

@@ -4,6 +4,7 @@ import {
   createCodexMasteryCatalog,
   type CodexMasteryCatalog,
 } from "@/adventure/data/v2/codexMasteryCatalog";
+import { CODEX_MASTERY_CATALOG } from "@/adventure/data/v2/codexMasteryProductionCatalog";
 import type {
   CodexMasteryCategory,
   CodexMasteryEntryDefinition,
@@ -405,6 +406,82 @@ describe("recordCodexMastery", () => {
       reason: "unchanged",
     });
     expect(store.saveCalls).toBe(0);
+  });
+
+  it("continues recording a legendary job row scored with the published v1 weight", async () => {
+    // Break caught: adding job definitions reinterprets persisted scores and rolls back hunting.
+    const summary = Object.assign(emptyCodexMasterySummary(), {
+      totalScoreMilli: 74_624,
+      categoryScoreMilli: {
+        ...emptyCodexMasterySummary().categoryScoreMilli,
+        job: 74_624,
+      },
+      scoredCategoryCount: 1,
+    });
+    const progress: CodexMasteryProgress = {
+      ...emptyCodexMasteryProgress("job", "warrior"),
+      count: 10_000,
+      currentTier: "legendary",
+      scoreMilli: 74_624,
+      tierAchievedAt: {},
+    };
+    const store = memoryCodexMasteryStore({ summary, progress });
+    const recorder = createCodexMasteryRecorder(store, CODEX_MASTERY_CATALOG);
+
+    await expect(recorder.record({
+      userId: "user-1",
+      category: "job",
+      entryId: "warrior",
+      mutation: { amount: 1 },
+      source: "job.victory",
+    }, ENABLED, new Date("2026-08-21T00:00:00.000Z"))).resolves.toMatchObject({
+      recorded: true,
+      progress: { count: 10_001, scoreMilli: 74_624 },
+    });
+    expect(store.summary).toMatchObject({
+      totalScoreMilli: 74_624,
+      categoryScoreMilli: { job: 74_624 },
+    });
+    expect(store.saveCalls).toBe(1);
+  });
+
+  it("normalizes a registered compatible score in progress and summary together", async () => {
+    // Break caught: a recognized short-lived weight is either rejected or repairs only one row.
+    const compatibleCatalog = createCodexMasteryCatalog([{
+      ...TEST_ENTRY,
+      compatibleScoreWeightsMilli: [900],
+    }]);
+    const summary = Object.assign(emptyCodexMasterySummary(), {
+      totalScoreMilli: 3_600,
+      categoryScoreMilli: {
+        ...emptyCodexMasterySummary().categoryScoreMilli,
+        fish: 3_600,
+      },
+      scoredCategoryCount: 1,
+    });
+    const progress: CodexMasteryProgress = {
+      ...emptyCodexMasteryProgress("fish", TEST_ENTRY.entryId),
+      count: 30,
+      currentTier: "silver",
+      scoreMilli: 3_600,
+      tierAchievedAt: {},
+    };
+    const store = memoryCodexMasteryStore({ summary, progress });
+    const recorder = createCodexMasteryRecorder(store, compatibleCatalog);
+
+    await expect(recorder.record({
+      ...validInput(),
+      mutation: { amount: 1 },
+    }, ENABLED, new Date("2026-08-21T00:00:00.000Z"))).resolves.toMatchObject({
+      recorded: true,
+      progress: { count: 31, scoreMilli: 4_000 },
+      scoreDeltaMilli: 0,
+    });
+    expect(store.summary).toMatchObject({
+      totalScoreMilli: 4_000,
+      categoryScoreMilli: { fish: 4_000 },
+    });
+    expect(store.saveCalls).toBe(1);
   });
 
   it.each([

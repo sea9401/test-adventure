@@ -20,6 +20,8 @@ const definition = (entryId: string): CodexMasteryEntryDefinition => ({
 describe("codex mastery catalog", () => {
   it("provides immutable keyed lookup and deterministic category lists", () => {
     const sourceDefinition = definition("fish:a");
+    const compatibleWeights = [900];
+    sourceDefinition.compatibleScoreWeightsMilli = compatibleWeights;
     const catalog = createCodexMasteryCatalog([
       definition("fish:b"),
       sourceDefinition,
@@ -31,6 +33,7 @@ describe("codex mastery catalog", () => {
     ]);
     expect(Object.isFrozen(storedDefinition)).toBe(true);
     expect(Object.isFrozen(storedDefinition?.thresholds)).toBe(true);
+    expect(Object.isFrozen(storedDefinition?.compatibleScoreWeightsMilli)).toBe(true);
     expect(Object.isFrozen(storedDefinition?.seals)).toBe(true);
     expect(Object.isFrozen(storedDefinition?.seals.giant)).toBe(true);
     expect(Object.isFrozen(catalog.list("fish"))).toBe(true);
@@ -38,10 +41,12 @@ describe("codex mastery catalog", () => {
 
     sourceDefinition.label = "mutated label";
     sourceDefinition.thresholds.bronze = 999;
+    compatibleWeights[0] = 800;
     sourceDefinition.seals.giant.pointUnits = 2;
     expect(catalog.get("fish", "fish:a")).toMatchObject({
       label: "fish:a",
       thresholds: { bronze: 5 },
+      compatibleScoreWeightsMilli: [900],
       seals: { giant: { pointUnits: 4 } },
     });
   });

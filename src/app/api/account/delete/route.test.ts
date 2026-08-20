@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   transactionRows: [] as Row[][],
   queuedTargets: [] as Row[],
   queuedRows: [] as Array<{ id: number }>,
+  inboxRows: [] as Row[],
+  updates: [] as Row[],
   deleteUser: vi.fn(async () => undefined),
   clearAffiliation: vi.fn(async () => undefined),
   signOut: vi.fn(async () => undefined),
@@ -21,6 +23,11 @@ const mocks = vi.hoisted(() => ({
   })),
   sendOpsAlert: vi.fn(async () => undefined),
   preserveReferral: vi.fn(async () => undefined),
+  lockActiveTradeExposure: vi.fn(async () => ({
+    participantUserIds: ["user-1"],
+    listings: [] as Row[],
+    buyOrders: [] as Row[],
+  })),
 }));
 
 function queryResult(rows: Row[]) {
@@ -54,6 +61,9 @@ vi.mock("@/lib/server/opsAlert", () => ({
 vi.mock("@/lib/server/referrals", () => ({
   preserveReferralBeforeUserDeletion: mocks.preserveReferral,
 }));
+vi.mock("@/lib/server/tradeSuspensionCleanup", () => ({
+  lockActiveTradeExposure: mocks.lockActiveTradeExposure,
+}));
 vi.mock("@/db", () => {
   const tx = {
     select: vi.fn(() => ({
@@ -62,7 +72,11 @@ vi.mock("@/db", () => {
       })),
     })),
     insert: vi.fn(() => ({
-      values: vi.fn((values: Row[]) => {
+      values: vi.fn((values: Row | Row[]) => {
+        if (!Array.isArray(values)) {
+          mocks.inboxRows.push(values);
+          return Promise.resolve();
+        }
         mocks.queuedTargets = values;
         return {
           onConflictDoNothing: vi.fn(() => ({
@@ -72,7 +86,11 @@ vi.mock("@/db", () => {
       }),
     })),
     update: vi.fn(() => ({
-      set: vi.fn(() => ({ where: vi.fn(async () => undefined) })),
+      set: vi.fn((values: Row) => ({
+        where: vi.fn(async () => {
+          mocks.updates.push(values);
+        }),
+      })),
     })),
     delete: vi.fn(() => ({ where: mocks.deleteUser })),
   };
@@ -112,6 +130,8 @@ describe("POST /api/account/delete", () => {
     mocks.transactionRows.length = 0;
     mocks.queuedTargets = [];
     mocks.queuedRows = [];
+    mocks.inboxRows = [];
+    mocks.updates = [];
     mocks.processStorageQueue.mockResolvedValue({
       attempted: 0,
       completed: 0,
@@ -158,6 +178,15 @@ describe("POST /api/account/delete", () => {
     );
     expect(mocks.deleteUser).toHaveBeenCalledOnce();
     expect(mocks.signOut).toHaveBeenCalledWith({ redirect: false });
+    expect(mocks.lockActiveTradeExposure).toHaveBeenCalledWith(
+      expect.anything(),
+      "user-1",
+      expect.any(Date),
+      { includeHistoricalReferences: true },
+    );
+    expect(
+      mocks.lockActiveTradeExposure.mock.invocationCallOrder[0],
+    ).toBeLessThan(mocks.deleteUser.mock.invocationCallOrder[0]);
   });
 
   it("길드 마스터 삭제 전 남는 멤버의 소속 표기를 정리한다", async () => {
@@ -206,5 +235,85 @@ describe("POST /api/account/delete", () => {
       ids: [11, 12, 13],
     });
     expect(mocks.deleteUser).toHaveBeenCalledOnce();
+  });
+
+  it("이미 유예 종료로 환불된 활성 매물의 옛 최고 입찰자에게 탈퇴 환불을 중복 생성하지 않는다", async () => {
+    mocks.lockActiveTradeExposure.mockResolvedValueOnce({
+      participantUserIds: ["seller-2", "user-1"],
+      listings: [
+        {
+          id: 71,
+          sellerId: "seller-2",
+          sellerName: "판매자",
+          kind: "material",
+          itemId: "iron_ore",
+          highestBidderId: "user-1",
+          highestBid: 7_000,
+          itemName: "철광석",
+          quantity: 1,
+          price: 8_000,
+          instancePayload: null,
+          status: "active",
+          createdAt: new Date("2026-08-20T10:00:00.000Z"),
+          bidEndsAt: new Date("2026-08-20T11:00:00.000Z"),
+          expiresAt: new Date("2026-08-21T10:00:00.000Z"),
+          bidCount: 2,
+          bidResolvedAt: new Date("2026-08-20T11:05:00.000Z"),
+          closedAt: null,
+          buyerId: null,
+        },
+      ],
+      buyOrders: [],
+    });
+    mocks.transactionRows.push([], [], []);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    expect(mocks.inboxRows.filter((row) => row.kind === "bid_refund")).toHaveLength(0);
+    expect(mocks.updates).toContainEqual({
+      highestBid: null,
+      highestBidderId: null,
+    });
+  });
+
+  it("종료된 경매의 최고 입찰자 참조도 유저 삭제 전에 잠그고 정리한다", async () => {
+    mocks.lockActiveTradeExposure.mockResolvedValueOnce({
+      participantUserIds: ["seller-2", "user-1"],
+      listings: [
+        {
+          id: 72,
+          sellerId: "seller-2",
+          sellerName: "판매자",
+          kind: "material",
+          itemId: "iron_ore",
+          highestBidderId: "user-1",
+          highestBid: 8_000,
+          itemName: "철광석",
+          quantity: 1,
+          price: 8_000,
+          instancePayload: null,
+          status: "sold",
+          createdAt: new Date("2026-08-20T10:00:00.000Z"),
+          bidEndsAt: new Date("2026-08-20T11:00:00.000Z"),
+          expiresAt: new Date("2026-08-21T10:00:00.000Z"),
+          bidCount: 2,
+          bidResolvedAt: new Date("2026-08-20T11:05:00.000Z"),
+          closedAt: new Date("2026-08-20T11:05:00.000Z"),
+          buyerId: "user-1",
+        },
+      ],
+      buyOrders: [],
+    });
+    mocks.transactionRows.push([], [], []);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    expect(mocks.inboxRows.filter((row) => row.kind === "bid_refund")).toHaveLength(0);
+    expect(mocks.updates).toContainEqual({
+      highestBid: null,
+      highestBidderId: null,
+    });
   });
 });

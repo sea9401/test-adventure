@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { users, userSanctions } from "@/db/schema";
 import type { PlayerSanctionStatus } from "@/lib/playerSanctions";
@@ -11,11 +11,13 @@ export async function readPlayerSanctionStatus(
   userId: string,
   now = new Date(),
 ): Promise<PlayerSanctionStatus | null> {
-  const [userRows, warningRows] = await Promise.all([
+  const [userRows, warningRows, tradeSuspensionRows] = await Promise.all([
     db
       .select({
         bannedUntil: users.bannedUntil,
         banReason: users.banReason,
+        tradeSuspendedUntil: users.tradeSuspendedUntil,
+        tradeSuspensionReason: users.tradeSuspensionReason,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -36,6 +38,26 @@ export async function readPlayerSanctionStatus(
       )
       .orderBy(desc(userSanctions.id))
       .limit(1),
+    db
+      .select({
+        id: userSanctions.id,
+        reason: userSanctions.reason,
+        expiresAt: userSanctions.expiresAt,
+        acknowledgedAt: userSanctions.acknowledgedAt,
+      })
+      .from(userSanctions)
+      .innerJoin(users, eq(users.id, userSanctions.userId))
+      .where(
+        and(
+          eq(userSanctions.userId, userId),
+          inArray(userSanctions.type, ["trade_suspend", "trade_ban"]),
+          isNull(userSanctions.liftedAt),
+          gt(userSanctions.expiresAt, now),
+          eq(userSanctions.expiresAt, users.tradeSuspendedUntil),
+        ),
+      )
+      .orderBy(desc(userSanctions.id))
+      .limit(1),
   ]);
 
   const user = userRows[0];
@@ -43,6 +65,13 @@ export async function readPlayerSanctionStatus(
 
   const bannedUntil = user.bannedUntil;
   const warning = warningRows[0];
+  const currentTradeUntil = user.tradeSuspendedUntil;
+  const tradeSuspension =
+    currentTradeUntil && currentTradeUntil.getTime() > now.getTime()
+      ? tradeSuspensionRows.find(
+          (row) => row.expiresAt?.getTime() === currentTradeUntil.getTime(),
+        )
+      : undefined;
   return {
     suspension:
       bannedUntil && bannedUntil.getTime() > now.getTime()
@@ -52,6 +81,18 @@ export async function readPlayerSanctionStatus(
             permanent: bannedUntil.getUTCFullYear() >= PERMANENT_YEAR,
           }
         : null,
+    tradeSuspension: tradeSuspension
+      ? {
+          id: tradeSuspension.id,
+          reason:
+            tradeSuspension.reason ||
+            user.tradeSuspensionReason ||
+            "운영 정책에 따라 거래 이용이 제한되었습니다.",
+          expiresAt: tradeSuspension.expiresAt!.toISOString(),
+          permanent: tradeSuspension.expiresAt!.getUTCFullYear() >= PERMANENT_YEAR,
+          acknowledged: tradeSuspension.acknowledgedAt !== null,
+        }
+      : null,
     warning: warning
       ? {
           id: warning.id,

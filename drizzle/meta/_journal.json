@@ -1184,6 +1184,13 @@
       "when": 1786970667445,
       "tag": "0168_melted_paladin",
       "breakpoints": true
+    },
+    {
+      "idx": 169,
+      "version": "7",
+      "when": 1787161383404,
+      "tag": "0169_trade_suspension",
+      "breakpoints": true
     }
   ]
 }

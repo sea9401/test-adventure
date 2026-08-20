@@ -40,6 +40,10 @@ import { TITLES } from "@/adventure/data/titles";
 import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
 import { cookingFoodDefinition } from "@/adventure/v2/cooking";
 import { bulkClaimIds, isUnreadInboxItem } from "./inboxViewState";
+import {
+  isTradeSuspensionMessagePayload,
+  tradeSuspensionMessage,
+} from "@/lib/tradeSuspension";
 
 const EQUIPMENT_BY_ID = V2_EQUIPMENT as unknown as Readonly<
   Record<string, { name: string } | undefined>
@@ -268,6 +272,23 @@ function formatFull(iso: string): string {
 
 type Tab = "inbox" | "sent";
 
+type InboxClaimErrorPayload = {
+  error?: string;
+  reason?: string;
+  expiresAt?: string;
+  permanent?: boolean;
+};
+
+export function inboxClaimErrorLabel(
+  payload: InboxClaimErrorPayload | null,
+  status: number,
+): string {
+  if (isTradeSuspensionMessagePayload(payload)) {
+    return tradeSuspensionMessage(payload);
+  }
+  return payload?.error ?? `수령 실패 (${status})`;
+}
+
 export function V2InboxView({
   onBack,
   embedded = false,
@@ -387,9 +408,12 @@ export function V2InboxView({
           materialsV2Added?: { count: number }[];
           instancesAdded?: unknown[];
           error?: string;
+          reason?: string;
+          expiresAt?: string;
+          permanent?: boolean;
         } | null;
         if (!res.ok || !j?.ok) {
-          setError(j?.error ?? `수령 실패 (${res.status})`);
+          setError(inboxClaimErrorLabel(j, res.status));
           return;
         }
         const gold = j.goldAdded ?? 0;

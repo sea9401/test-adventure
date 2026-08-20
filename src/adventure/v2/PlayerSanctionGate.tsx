@@ -7,10 +7,12 @@ import { Warning } from "@phosphor-icons/react";
 import {
   PLAYER_SANCTION_POLL_MS,
   type PlayerSanctionStatus,
+  type PlayerTradeSuspension,
   type PlayerSanctionWarning,
   type PlayerSuspension,
 } from "@/lib/playerSanctions";
 import { useModalA11y } from "@/lib/useModalA11y";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 
 type GateState =
   | { kind: "loading" }
@@ -20,27 +22,33 @@ type GateState =
 
 export function PlayerSanctionGate({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<GateState>({ kind: "loading" });
+  const refreshRequestIdRef = useRef(0);
 
   const refresh = useCallback(async () => {
+    const requestId = ++refreshRequestIdRef.current;
     try {
       const res = await fetch("/api/v2/me/sanctions", { cache: "no-store" });
+      if (requestId !== refreshRequestIdRef.current) return;
       if (res.status === 401 || res.status === 404) {
         setState({ kind: "unauthorized" });
         return;
       }
       if (!res.ok) throw new Error(`sanctions -> ${res.status}`);
       const json = (await res.json()) as PlayerSanctionStatus & { ok?: boolean };
+      if (requestId !== refreshRequestIdRef.current) return;
       if (!json.ok) throw new Error("invalid sanction status");
       setState({
         kind: "ready",
         status: {
           suspension: json.suspension,
+          tradeSuspension: json.tradeSuspension,
           warning: json.warning,
         },
       });
     } catch {
       // 최초 확인 실패는 제재 여부를 모른 채 저장 API를 호출하지 않도록 재시도 화면을
       // 보여준다. 플레이 중 폴링 한 번이 실패한 경우에는 마지막 정상 상태를 유지한다.
+      if (requestId !== refreshRequestIdRef.current) return;
       setState((current) => (current.kind === "ready" ? current : { kind: "error" }));
     }
   }, []);
@@ -69,6 +77,12 @@ export function PlayerSanctionGate({ children }: { children: React.ReactNode }) 
   return (
     <>
       {children}
+      {state.status.tradeSuspension && !state.status.tradeSuspension.acknowledged ? (
+        <TradeSuspensionAcknowledgementModal
+          tradeSuspension={state.status.tradeSuspension}
+          onAcknowledged={refresh}
+        />
+      ) : null}
       {state.status.warning ? (
         <WarningAcknowledgementModal
           warning={state.status.warning}
@@ -76,6 +90,113 @@ export function PlayerSanctionGate({ children }: { children: React.ReactNode }) 
         />
       ) : null}
     </>
+  );
+}
+
+function TradeSuspensionAcknowledgementModal({
+  tradeSuspension,
+  onAcknowledged,
+}: {
+  tradeSuspension: PlayerTradeSuspension;
+  onAcknowledged: () => Promise<void>;
+}) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useModalA11y(contentRef);
+
+  const acknowledge = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/v2/me/sanctions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sanctionId: tradeSuspension.id, kind: "trade" }),
+      });
+      if (!res.ok) throw new Error(`acknowledge trade suspension -> ${res.status}`);
+      await onAcknowledged();
+    } catch {
+      setError("거래 이용 제한 확인을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="trade-suspension-title"
+      aria-describedby="trade-suspension-description"
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/65 p-4 backdrop-blur-sm sm:items-center"
+    >
+      <div
+        ref={contentRef}
+        className={`${SURFACE_CARD} w-full max-w-md overflow-hidden shadow-2xl`}
+      >
+        <div className="border-b border-rose-200 px-5 py-4 dark:border-rose-900">
+          <div className="flex items-start gap-3">
+            <Warning
+              size={26}
+              weight="duotone"
+              className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400"
+            />
+            <div>
+              <p className="text-xs font-semibold text-rose-700 dark:text-rose-300">
+                거래 기능 안내
+              </p>
+              <h2
+                id="trade-suspension-title"
+                className="mt-0.5 text-lg font-bold text-zinc-900 dark:text-zinc-100"
+              >
+                거래 이용 제한
+              </h2>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4 px-5 py-5">
+          <div>
+            <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              제한 기간
+            </div>
+            <div className="mt-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              {tradeSuspension.permanent
+                ? "영구 거래 이용 제한"
+                : `${formatSanctionDate(tradeSuspension.expiresAt)}까지`}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              제한 사유
+            </div>
+            <p
+              id="trade-suspension-description"
+              className={`${SURFACE_INSET} mt-1 px-3 py-2.5 text-sm leading-6 text-zinc-700 dark:text-zinc-300`}
+            >
+              {tradeSuspension.reason}
+            </p>
+          </div>
+          <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+            제한 중에도 일반 게임과 거래 정보 조회는 이용할 수 있습니다. 제한 해제는 이
+            확인과 별도로 운영 정책에 따라 처리됩니다.
+          </p>
+
+          {error ? <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p> : null}
+
+          <button
+            type="button"
+            onClick={() => void acknowledge()}
+            disabled={submitting}
+            className="w-full rounded-md bg-rose-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {submitting ? "확인 저장 중..." : "내용을 확인했습니다"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

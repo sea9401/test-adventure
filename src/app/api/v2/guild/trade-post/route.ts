@@ -44,7 +44,11 @@ import {
   readGuildTradeItemBalances,
 } from "@/lib/server/guildTradeInventory";
 import { buildingLevelFromSlots } from "@/lib/server/settlementBuildingAccess";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import {
+  lockSaveForUpdate,
+  upsertSave,
+  type DbExecutor,
+} from "@/lib/server/savesKv";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { addGuildFame } from "@/lib/server/v2GuildFame";
 import {
@@ -59,10 +63,18 @@ import {
   readGuildFacilityDonationProgress,
   setGuildFacilityDonationProgress,
 } from "@/lib/server/guildFacilityUpgradeDonations";
-import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
+import {
+  getGuildId,
+  getGuildIdByUser,
+} from "@/lib/server/v2EnsureSoloGuild";
 import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
 import { kstWeekMondayKey } from "@/lib/kst";
 import { claimWeeklyFacilitySource } from "@/lib/server/adventurerAssociation";
+import {
+  TradeSuspendedError,
+  lockTradeParticipantStatuses,
+  tradeSuspendedResponse,
+} from "@/lib/server/tradeSuspension";
 
 type TradeBody = {
   action?: unknown;
@@ -162,7 +174,7 @@ async function readGuildFacilitySupportTargets(
 }
 
 async function guildMemberIds(
-  tx: Tx,
+  tx: DbExecutor,
   guildId: number,
 ): Promise<string[]> {
   const rows = await tx
@@ -170,6 +182,13 @@ async function guildMemberIds(
     .from(guildMembers)
     .where(eq(guildMembers.guildId, guildId));
   return [...new Set(rows.map((row) => row.userId))].sort();
+}
+
+function sameUserIds(left: readonly string[], right: readonly string[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((userId, index) => userId === right[index])
+  );
 }
 
 /**
@@ -364,12 +383,61 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "invalid_action" }, { status: 400 });
   }
 
+  const probedShopItem =
+    body.action === "buy" ? guildTradeShopItem(body.shopItemId) : null;
+  const memberGrantProbe =
+    probedShopItem?.target === "members"
+      ? await (async () => {
+          const guildId = await getGuildIdByUser(userId);
+          return {
+            guildId,
+            recipientUserIds:
+              guildId == null ? [] : await guildMemberIds(db, guildId),
+          };
+        })()
+      : null;
+  const participantUserIds = memberGrantProbe
+    ? [...new Set([userId, ...memberGrantProbe.recipientUserIds])].sort()
+    : [userId];
   const now = new Date();
   const weekKey = kstWeekMondayKey(now);
   const result = await db.transaction(async (tx) => {
+    const participantStatuses = await lockTradeParticipantStatuses(
+      tx,
+      participantUserIds,
+      now,
+    );
+    const actorRestriction = participantStatuses.get(userId);
+    if (actorRestriction) throw new TradeSuspendedError(actorRestriction);
+
     const guildId = await getGuildId(tx, userId);
     if (guildId == null) {
       return { status: 403, body: { ok: false as const, error: "no_guild" } };
+    }
+    let eligibleRecipientUserIds: string[] | null = null;
+    if (memberGrantProbe) {
+      const authoritativeRecipientUserIds = await guildMemberIds(tx, guildId);
+      if (
+        guildId !== memberGrantProbe.guildId ||
+        !sameUserIds(
+          authoritativeRecipientUserIds,
+          memberGrantProbe.recipientUserIds,
+        )
+      ) {
+        return {
+          status: 409,
+          body: { ok: false as const, error: "guild_members_changed" },
+        };
+      }
+      eligibleRecipientUserIds = authoritativeRecipientUserIds.filter(
+        (recipientUserId) => !participantStatuses.get(recipientUserId),
+      );
+      if (eligibleRecipientUserIds.length === 0) {
+        return {
+          status: 409,
+          body: { ok: false as const, error: "no_recipients" },
+        };
+      }
     }
     const level = await tradePostLevel(tx, guildId);
     if (level <= 0) {
@@ -537,7 +605,7 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "guild_admin_required" },
       };
     }
-    const shopItem = guildTradeShopItem(body.shopItemId);
+    const shopItem = probedShopItem;
     if (!shopItem) {
       return { status: 400, body: { ok: false as const, error: "invalid_shop_item" } };
     }
@@ -555,6 +623,7 @@ export async function POST(req: Request) {
       guildId,
       shopItem,
       body.facilityId,
+      eligibleRecipientUserIds,
     );
     if (!grant.ok) {
       return {
@@ -610,8 +679,15 @@ export async function POST(req: Request) {
         })),
       },
     };
+  }).catch((error: unknown) => {
+    if (error instanceof TradeSuspendedError) {
+      return error;
+    }
+    throw error;
   });
-
+  if (result instanceof TradeSuspendedError) {
+    return tradeSuspendedResponse(result);
+  }
   return Response.json(result.body, { status: result.status });
 }
 
@@ -644,9 +720,10 @@ async function lockGuildShopGrant(
   guildId: number,
   item: GuildTradeShopItem,
   rawFacilityId: unknown,
+  memberRecipientUserIds: readonly string[] | null,
 ): Promise<GuildShopGrantResult> {
   if (item.target === "members") {
-    const recipientUserIds = await guildMemberIds(tx, guildId);
+    const recipientUserIds = memberRecipientUserIds ?? [];
     if (recipientUserIds.length === 0) {
       return { ok: false, status: 409, error: "no_recipients" };
     }

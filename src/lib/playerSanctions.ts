@@ -12,7 +12,13 @@ export type PlayerSuspension = {
   permanent: boolean;
 };
 
+export type PlayerTradeSuspension = PlayerSuspension & {
+  id: number;
+  acknowledged: boolean;
+};
+
 export type PlayerSanctionStatus = {
   suspension: PlayerSuspension | null;
+  tradeSuspension: PlayerTradeSuspension | null;
   warning: PlayerSanctionWarning | null;
 };

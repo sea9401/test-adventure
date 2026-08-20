@@ -15,6 +15,12 @@ import {
   isValidPrice,
   marketplaceNextBidMinimum,
 } from "@/lib/server/marketplaceV2";
+import {
+  TradeSuspendedError,
+  requireTradeParticipants,
+  tradeSuspendedResponse,
+} from "@/lib/server/tradeSuspension";
+import { unresolvedMarketplaceHighestBidderId } from "@/lib/server/marketplaceEscrow";
 
 type CharSave = {
   gold?: number;
@@ -26,8 +32,9 @@ function bad(error: string, status = 400, detail?: Record<string, unknown>) {
   return Response.json({ ok: false, error, ...detail }, { status });
 }
 
-// POST /api/v2/marketplace/bid — 공개 입찰. listing 행을 잠근 뒤 구매자의 입찰금을
-// character.v2에서 에스크로 차감한다. 다른 선두를 밀어내면 이전 입찰금은 우편으로 반환한다.
+// POST /api/v2/marketplace/bid — 공개 입찰. 현재 참여자 user 행을 먼저 잠근 뒤 listing을
+// 재잠그고 구매자의 입찰금을 character.v2에서 에스크로 차감한다. 다른 선두를 밀어내면
+// 이전 입찰금은 우편으로 반환한다.
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) return bad("unauthorized", 401);
@@ -56,7 +63,30 @@ export async function POST(req: Request) {
 
   const listingId = body.listingId;
   const amount = body.amount;
+  const now = new Date();
   const result = await db.transaction(async (tx) => {
+    const [probe] = await tx
+      .select({
+        sellerId: marketplaceListingsV2.sellerId,
+        highestBidderId: marketplaceListingsV2.highestBidderId,
+        highestBid: marketplaceListingsV2.highestBid,
+        bidResolvedAt: marketplaceListingsV2.bidResolvedAt,
+      })
+      .from(marketplaceListingsV2)
+      .where(eq(marketplaceListingsV2.id, listingId))
+      .limit(1);
+    if (!probe) {
+      await requireTradeParticipants(tx, [userId], now);
+      return { status: 404, body: { ok: false as const, error: "not_found" } };
+    }
+    const probeBidderId = unresolvedMarketplaceHighestBidderId(probe);
+    const participantIds = [
+      userId,
+      probe.sellerId,
+      ...(probeBidderId ? [probeBidderId] : []),
+    ];
+    await requireTradeParticipants(tx, participantIds, now);
+
     const [listing] = await tx
       .select()
       .from(marketplaceListingsV2)
@@ -64,6 +94,16 @@ export async function POST(req: Request) {
       .for("update");
     if (!listing) {
       return { status: 404, body: { ok: false as const, error: "not_found" } };
+    }
+    const bidderId = unresolvedMarketplaceHighestBidderId(listing);
+    if (
+      listing.sellerId !== probe.sellerId ||
+      (bidderId != null && !participantIds.includes(bidderId))
+    ) {
+      return {
+        status: 409,
+        body: { ok: false as const, error: "not_available" },
+      };
     }
     if (listing.status !== "active") {
       return {
@@ -77,7 +117,7 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "own_listing" },
       };
     }
-    if (new Date() >= listing.bidEndsAt) {
+    if (now >= listing.bidEndsAt) {
       return {
         status: 409,
         body: { ok: false as const, error: "bidding_closed" },
@@ -170,7 +210,11 @@ export async function POST(req: Request) {
         bankedGold: spend.bankedGold,
       },
     };
+  }).catch((error) => {
+    if (error instanceof TradeSuspendedError) return tradeSuspendedResponse(error);
+    throw error;
   });
+  if (result instanceof Response) return result;
 
   const economyLog = "log" in result ? result.log : null;
   if (result.status === 200 && economyLog) {

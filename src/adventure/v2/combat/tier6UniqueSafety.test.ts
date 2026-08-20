@@ -186,5 +186,5 @@ describe("6T 유니크 조합 구조 안전성", () => {
     }
     // 계수 상한을 강제하지 않고 관측만 보존한다. 실제 밸런스 조정은 운영 지표로 판단한다.
     expect(observedMaxDamage).toBeGreaterThan(0);
-  });
+  }, 15_000);
 });

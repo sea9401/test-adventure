@@ -30,6 +30,11 @@ import {
 } from "@/lib/server/marketplaceV2";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { lockGuildSettlementBuilding } from "@/lib/server/v2Settlement";
+import {
+  TradeSuspendedError,
+  requireTradeParticipants,
+  tradeSuspendedResponse,
+} from "@/lib/server/tradeSuspension";
 
 type CharacterSave = {
   materials?: Record<string, number>;
@@ -272,6 +277,7 @@ export async function POST(req: Request) {
 
   try {
     const result = await db.transaction(async (tx) => {
+      await requireTradeParticipants(tx, [userId], new Date());
       const guildId = await getGuildId(tx, userId);
       if (guildId == null) {
         return { status: 403, body: { ok: false as const, error: "no_guild" } };
@@ -503,6 +509,9 @@ export async function POST(req: Request) {
     });
     return Response.json(result.body, { status: result.status });
   } catch (error) {
+    if (error instanceof TradeSuspendedError) {
+      return tradeSuspendedResponse(error);
+    }
     console.error("[guild.warehouse] failed", error);
     return Response.json({ ok: false, error: "server_error" }, { status: 500 });
   }

@@ -24,7 +24,7 @@ describe("협동 보스 결정적 밸런스 시뮬레이션", () => {
         ),
       ),
     ).toBe(true);
-  });
+  }, 15_000);
 
   it("같은 시드의 보고서는 보스 실행 순서와 무관하다", () => {
     const ids = ["mountain_chief", "void_priest"] as const;

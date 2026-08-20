@@ -16,6 +16,10 @@ import { FarmItemIcon } from "@/adventure/v2/FarmItemIcon";
 import type { FarmItemId } from "@/adventure/v2/farm";
 import { FishingCatchItemIcon } from "@/adventure/v2/FishingCatchItemIcon";
 import type { FishingCatchItemId } from "@/adventure/v2/fishingStock";
+import {
+  isTradeSuspensionMessagePayload,
+  tradeSuspensionMessage,
+} from "@/lib/tradeSuspension";
 
 type TradeContract = GuildTradeItem & {
   progress: number;
@@ -54,6 +58,9 @@ type TradeState = {
 type TradeResponse = TradeState & {
   ok?: boolean;
   error?: string;
+  reason?: string;
+  expiresAt?: string;
+  permanent?: boolean;
   delivered?: {
     itemName: string;
     quantity: number;
@@ -128,7 +135,7 @@ export function GuildTradePostPanel({
       });
       const json = (await response.json().catch(() => null)) as TradeResponse | null;
       if (!response.ok || !json?.ok) {
-        setNotice({ kind: "err", text: tradeErrorText(json?.error) });
+        setNotice({ kind: "err", text: tradeErrorText(json, response.status) });
         return;
       }
       setState(json);
@@ -166,7 +173,7 @@ export function GuildTradePostPanel({
       });
       const json = (await response.json().catch(() => null)) as TradeResponse | null;
       if (!response.ok || !json?.ok) {
-        setNotice({ kind: "err", text: tradeErrorText(json?.error) });
+        setNotice({ kind: "err", text: tradeErrorText(json, response.status) });
         // 공동 잔고 또는 계약 진행도가 달라졌을 수 있으므로 실패 뒤 최신 상태를 받는다.
         void load();
         return;
@@ -757,7 +764,19 @@ function shopButtonText(item: TradeShopItem, canPurchase: boolean): string {
   return `구매 · 주 ${item.remaining}/${item.weeklyLimit}회 남음`;
 }
 
-function tradeErrorText(error?: string): string {
+type TradeErrorPayload = Pick<
+  TradeResponse,
+  "error" | "reason" | "expiresAt" | "permanent"
+>;
+
+export function tradeErrorText(
+  payload: TradeErrorPayload | null,
+  _status: number,
+): string {
+  if (isTradeSuspensionMessagePayload(payload)) {
+    return tradeSuspensionMessage(payload);
+  }
+  const error = payload?.error;
   switch (error) {
     case "no_guild":
       return "소속 길드가 없습니다.";

@@ -21,13 +21,24 @@ import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
 import { isCookingFoodId } from "@/adventure/v2/cooking";
 import { RARE_MAP_CAP, parseRareMaps } from "@/adventure/data/v2/rareMaps";
 import { fishIdFromSpecimenItemId } from "@/adventure/v2/fishSpecimens";
+import {
+  TradeSuspendedError,
+  requireTradeParticipants,
+  tradeSuspendedResponse,
+} from "@/lib/server/tradeSuspension";
+import {
+  clearMarketplaceHighestBid,
+  unresolvedMarketplaceHighestBidderId,
+} from "@/lib/server/marketplaceEscrow";
 
 // POST /api/v2/marketplace/buy — 매물 구매(원자적).
 //   body: { listingId:int }
-// 흐름: listing 행 FOR UPDATE 잠금 → status active 재확인 → 본인 매물 금지 → 구매자 골드 차감
+// 흐름: 참여자 user 행 잠금 → listing 행 FOR UPDATE 잠금 → status active 재확인
+//   → 본인 매물 금지 → 구매자 골드 차감
 //   → 아이템을 구매자 save 합류(장비=새 개체, 재료=수량 가산) → listing sold 마킹
 //   → 판매자에게 sale_proceeds 우편(대금−판매세; 세금분 소각). 판매자 save 는 잠그지 않음(우편 정산).
-// 잠금 순서: listing → 구매자 character.v2 → 구매자 equipment.v2 (교차 유저 save 락 없음 = 데드락 회피).
+// 잠금 순서: 참여자 users(ID 오름차순) → listing → 구매자 character.v2
+//   → 구매자 equipment.v2 (교차 유저 save 락 없음 = 데드락 회피).
 
 type CharSave = {
   gold?: number;
@@ -63,22 +74,52 @@ export async function POST(req: Request) {
     return bad("bad_listingId");
   }
   const listingId = body.listingId;
+  const now = new Date();
 
   const result = await db.transaction(async (tx) => {
-    // 1) listing 행 잠금 + 활성 재확인(동시 구매 직렬화).
+    const [probe] = await tx
+      .select({
+        sellerId: marketplaceListingsV2.sellerId,
+        highestBidderId: marketplaceListingsV2.highestBidderId,
+        highestBid: marketplaceListingsV2.highestBid,
+        bidResolvedAt: marketplaceListingsV2.bidResolvedAt,
+      })
+      .from(marketplaceListingsV2)
+      .where(eq(marketplaceListingsV2.id, listingId))
+      .limit(1);
+    if (!probe) {
+      await requireTradeParticipants(tx, [userId], now);
+      return { status: 404, body: { ok: false as const, error: "not_found" } };
+    }
+    const probeBidderId = unresolvedMarketplaceHighestBidderId(probe);
+    const participantIds = [
+      userId,
+      probe.sellerId,
+      ...(probeBidderId ? [probeBidderId] : []),
+    ];
+    await requireTradeParticipants(tx, participantIds, now);
+
+    // 1) 참여자 잠금 뒤 listing 행 잠금 + 활성/상대 재확인(동시 구매 직렬화).
     const [listing] = await tx
       .select()
       .from(marketplaceListingsV2)
       .where(eq(marketplaceListingsV2.id, listingId))
       .for("update");
     if (!listing) return { status: 404, body: { ok: false as const, error: "not_found" } };
+    const bidderId = unresolvedMarketplaceHighestBidderId(listing);
+    if (
+      listing.sellerId !== probe.sellerId ||
+      (bidderId != null && !participantIds.includes(bidderId))
+    ) {
+      return { status: 409, body: { ok: false as const, error: "not_available" } };
+    }
     if (listing.status !== "active") {
       return { status: 409, body: { ok: false as const, error: "not_available" } };
     }
     if (listing.sellerId === userId) {
       return { status: 400, body: { ok: false as const, error: "own_listing" } };
     }
-    const phase = marketplaceListingPhase(listing, new Date());
+    const phase = marketplaceListingPhase(listing, now);
     if (phase === "bidding") {
       return { status: 409, body: { ok: false as const, error: "buy_pending" } };
     }
@@ -91,23 +132,7 @@ export async function POST(req: Request) {
     if (phase !== "fixed") {
       return { status: 409, body: { ok: false as const, error: "listing_expired" } };
     }
-    if (
-      !listing.bidResolvedAt &&
-      listing.highestBidderId &&
-      (listing.highestBid ?? 0) > 0
-    ) {
-      await tx.insert(marketplaceInbox).values(
-        inboxValues({
-          userId: listing.highestBidderId,
-          payload: { kind: "bid_refund", gold: listing.highestBid! },
-          message: `${listing.itemName} 유예 종료 · ${listing.highestBid!.toLocaleString()}골드 반환`,
-        }),
-      );
-      await tx
-        .update(marketplaceListingsV2)
-        .set({ bidResolvedAt: new Date() })
-        .where(eq(marketplaceListingsV2.id, listingId));
-    }
+    await clearMarketplaceHighestBid(tx, listing, now, "expired");
     if (listing.kind === "material" && !isTradableMaterial(listing.itemId)) {
       return {
         status: 409,
@@ -142,7 +167,7 @@ export async function POST(req: Request) {
       if (!inst) {
         await tx
           .update(marketplaceListingsV2)
-          .set({ status: "expired", closedAt: new Date() })
+          .set({ status: "expired", closedAt: now })
           .where(eq(marketplaceListingsV2.id, listingId));
         return {
           status: 409,
@@ -185,7 +210,7 @@ export async function POST(req: Request) {
     // 4) listing sold 마킹.
     await tx
       .update(marketplaceListingsV2)
-      .set({ status: "sold", buyerId: userId, closedAt: new Date() })
+      .set({ status: "sold", buyerId: userId, closedAt: now })
       .where(eq(marketplaceListingsV2.id, listingId));
 
     // 5) 판매자 정산 우편 — 대금 − 판매세(세금분 소각). 판매자 오프라인이어도 우편으로 수령.
@@ -226,7 +251,11 @@ export async function POST(req: Request) {
         ...(V2_CORE_LOOP_V2 ? { bankedGold: nextChar.bankedGold } : {}),
       },
     };
+  }).catch((error) => {
+    if (error instanceof TradeSuspendedError) return tradeSuspendedResponse(error);
+    throw error;
   });
+  if (result instanceof Response) return result;
 
   const economyLog = result.status === 200 && "log" in result ? result.log : null;
   if (economyLog) {

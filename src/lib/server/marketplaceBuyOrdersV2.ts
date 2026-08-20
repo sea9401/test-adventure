@@ -5,6 +5,7 @@ import {
   eq,
   gt,
   gte,
+  inArray,
   isNull,
   lte,
   ne,
@@ -31,8 +32,24 @@ import { isTradeableMuseunCashItemId } from "@/adventure/data/v2/museunCashItems
 import { isCookingFoodId } from "@/adventure/v2/cooking";
 import { fishIdFromSpecimenItemId } from "@/adventure/v2/fishSpecimens";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
+import {
+  TradeSuspendedError,
+  lockTradeParticipantStatuses,
+} from "@/lib/server/tradeSuspension";
+import type { ActiveTradeRestriction } from "@/lib/tradeSuspension";
+import {
+  clearMarketplaceHighestBid,
+  unresolvedMarketplaceHighestBidderId,
+} from "@/lib/server/marketplaceEscrow";
 
 type CharSave = { adventureSupport?: unknown; [key: string]: unknown };
+
+export type MarketplaceMatchScope = {
+  participantIds: Set<string>;
+  participantStatuses: Map<string, ActiveTradeRestriction | null>;
+  orderIds: Set<number>;
+  listingIds: Set<number>;
+};
 
 export type MarketplaceAutoMatchFill = {
   orderId: number;
@@ -95,11 +112,175 @@ export function marketplaceBuyOrderDeliveryKind(
   return null;
 }
 
+export async function prepareMarketplaceMatchScope(
+  tx: DbExecutor,
+  args: {
+    kind: string;
+    itemId: string;
+    now?: Date;
+    participantIds?: readonly string[];
+  },
+): Promise<MarketplaceMatchScope> {
+  const now = args.now ?? new Date();
+  const orders = await tx
+    .select({
+      id: marketplaceBuyOrdersV2.id,
+      buyerId: marketplaceBuyOrdersV2.buyerId,
+    })
+    .from(marketplaceBuyOrdersV2)
+    .where(
+      and(
+        eq(marketplaceBuyOrdersV2.status, "active"),
+        eq(marketplaceBuyOrdersV2.kind, args.kind),
+        eq(marketplaceBuyOrdersV2.itemId, args.itemId),
+        gt(marketplaceBuyOrdersV2.expiresAt, now),
+      ),
+    )
+    .orderBy(
+      desc(marketplaceBuyOrdersV2.unitPrice),
+      asc(marketplaceBuyOrdersV2.createdAt),
+      asc(marketplaceBuyOrdersV2.id),
+    )
+    .limit(50);
+  const listings = await tx
+    .select({
+      id: marketplaceListingsV2.id,
+      sellerId: marketplaceListingsV2.sellerId,
+      highestBidderId: marketplaceListingsV2.highestBidderId,
+      highestBid: marketplaceListingsV2.highestBid,
+      bidResolvedAt: marketplaceListingsV2.bidResolvedAt,
+    })
+    .from(marketplaceListingsV2)
+    .where(
+      and(
+        eq(marketplaceListingsV2.status, "active"),
+        eq(marketplaceListingsV2.kind, args.kind),
+        eq(marketplaceListingsV2.itemId, args.itemId),
+        lte(marketplaceListingsV2.bidEndsAt, now),
+        gt(marketplaceListingsV2.expiresAt, now),
+        or(
+          isNull(marketplaceListingsV2.highestBid),
+          sql`${marketplaceListingsV2.highestBid} <= ${marketplaceListingsV2.price}`,
+        ),
+      ),
+    )
+    .orderBy(
+      asc(
+        sql`ceil(${marketplaceListingsV2.price}::numeric / greatest(${marketplaceListingsV2.quantity}, 1))`,
+      ),
+      asc(marketplaceListingsV2.createdAt),
+      asc(marketplaceListingsV2.id),
+    )
+    .limit(100);
+  const participantIds = new Set([
+    ...(args.participantIds ?? []),
+    ...orders.map((order) => order.buyerId),
+    ...listings.flatMap((listing) => {
+      const bidderId = unresolvedMarketplaceHighestBidderId(listing);
+      return [listing.sellerId, ...(bidderId ? [bidderId] : [])];
+    }),
+  ]);
+  const participantStatuses = await lockTradeParticipantStatuses(
+    tx,
+    [...participantIds],
+    now,
+  );
+  return {
+    participantIds,
+    participantStatuses,
+    orderIds: new Set(orders.map((order) => order.id)),
+    listingIds: new Set(listings.map((listing) => listing.id)),
+  };
+}
+
+export function requireMarketplaceMatchParticipants(
+  scope: MarketplaceMatchScope,
+  userIds: readonly string[],
+) {
+  for (const userId of userIds) {
+    const restriction = scope.participantStatuses.get(userId);
+    if (restriction) throw new TradeSuspendedError(restriction);
+  }
+}
+
+export async function lockMarketplaceMatchOrdersForItem(
+  tx: DbExecutor,
+  args: {
+    scope: MarketplaceMatchScope;
+    kind: string;
+    itemId: string;
+    now: Date;
+  },
+) {
+  if (args.scope.orderIds.size === 0) return [];
+  const orders = await tx
+    .select({
+      id: marketplaceBuyOrdersV2.id,
+      unitPrice: marketplaceBuyOrdersV2.unitPrice,
+      createdAt: marketplaceBuyOrdersV2.createdAt,
+    })
+    .from(marketplaceBuyOrdersV2)
+    .where(
+      and(
+        eq(marketplaceBuyOrdersV2.status, "active"),
+        eq(marketplaceBuyOrdersV2.kind, args.kind),
+        eq(marketplaceBuyOrdersV2.itemId, args.itemId),
+        gt(marketplaceBuyOrdersV2.expiresAt, args.now),
+        inArray(marketplaceBuyOrdersV2.id, [...args.scope.orderIds]),
+      ),
+    )
+    .orderBy(asc(marketplaceBuyOrdersV2.id))
+    .for("update");
+  orders.sort(
+    (left, right) =>
+      right.unitPrice - left.unitPrice ||
+      left.createdAt.getTime() - right.createdAt.getTime() ||
+      left.id - right.id,
+  );
+  return orders;
+}
+
 export async function matchMarketplaceBuyOrder(
   tx: DbExecutor,
   orderId: number,
   now = new Date(),
+  preparedScope?: MarketplaceMatchScope,
 ): Promise<MarketplaceAutoMatchFill[]> {
+  let scope = preparedScope;
+  if (!scope) {
+    const [probe] = await tx
+      .select({
+        id: marketplaceBuyOrdersV2.id,
+        buyerId: marketplaceBuyOrdersV2.buyerId,
+        kind: marketplaceBuyOrdersV2.kind,
+        itemId: marketplaceBuyOrdersV2.itemId,
+        status: marketplaceBuyOrdersV2.status,
+        quantityRemaining: marketplaceBuyOrdersV2.quantityRemaining,
+        expiresAt: marketplaceBuyOrdersV2.expiresAt,
+      })
+      .from(marketplaceBuyOrdersV2)
+      .where(eq(marketplaceBuyOrdersV2.id, orderId))
+      .limit(1);
+    if (
+      !probe ||
+      probe.status !== "active" ||
+      probe.quantityRemaining <= 0 ||
+      probe.expiresAt <= now
+    ) {
+      return [];
+    }
+    scope = await prepareMarketplaceMatchScope(tx, {
+      kind: probe.kind,
+      itemId: probe.itemId,
+      now,
+      participantIds: [probe.buyerId],
+    });
+    // 명시 호출 대상은 위에서 별도 probe했고 구매자도 참여자 잠금에 포함했다.
+    // 일반 우선순위 상위 50개 밖이어도 이 시도에서 권위 재검증할 수 있게 허용한다.
+    scope.orderIds.add(probe.id);
+  }
+  if (!scope.orderIds.has(orderId)) return [];
+
   const [order] = await tx
     .select()
     .from(marketplaceBuyOrdersV2)
@@ -113,38 +294,49 @@ export async function matchMarketplaceBuyOrder(
   ) {
     return [];
   }
+  if (
+    !scope.participantIds.has(order.buyerId) ||
+    scope.participantStatuses.get(order.buyerId)
+  ) {
+    return [];
+  }
   const itemKind = marketplaceBuyOrderDeliveryKind(order.kind, order.itemId);
   if (!itemKind) return [];
 
-  const listings = await tx
-    .select()
-    .from(marketplaceListingsV2)
-    .where(
-      and(
-        eq(marketplaceListingsV2.status, "active"),
-        eq(marketplaceListingsV2.kind, order.kind),
-        eq(marketplaceListingsV2.itemId, order.itemId),
-        ne(marketplaceListingsV2.sellerId, order.buyerId),
-        lte(marketplaceListingsV2.bidEndsAt, now),
-        gt(marketplaceListingsV2.expiresAt, now),
-        lte(
-          sql`ceil(${marketplaceListingsV2.price}::numeric / greatest(${marketplaceListingsV2.quantity}, 1))`,
-          order.unitPrice,
-        ),
-        or(
-          isNull(marketplaceListingsV2.highestBid),
-          sql`${marketplaceListingsV2.highestBid} <= ${marketplaceListingsV2.price}`,
-        ),
-      ),
-    )
-    .orderBy(
-      asc(
-        sql`ceil(${marketplaceListingsV2.price}::numeric / greatest(${marketplaceListingsV2.quantity}, 1))`,
-      ),
-      asc(marketplaceListingsV2.createdAt),
-    )
-    .limit(100)
-    .for("update");
+  const listings =
+    scope.listingIds.size === 0
+      ? []
+      : await tx
+          .select()
+          .from(marketplaceListingsV2)
+          .where(
+            and(
+              inArray(marketplaceListingsV2.id, [...scope.listingIds]),
+              eq(marketplaceListingsV2.status, "active"),
+              eq(marketplaceListingsV2.kind, order.kind),
+              eq(marketplaceListingsV2.itemId, order.itemId),
+              ne(marketplaceListingsV2.sellerId, order.buyerId),
+              lte(marketplaceListingsV2.bidEndsAt, now),
+              gt(marketplaceListingsV2.expiresAt, now),
+              lte(
+                sql`ceil(${marketplaceListingsV2.price}::numeric / greatest(${marketplaceListingsV2.quantity}, 1))`,
+                order.unitPrice,
+              ),
+              or(
+                isNull(marketplaceListingsV2.highestBid),
+                sql`${marketplaceListingsV2.highestBid} <= ${marketplaceListingsV2.price}`,
+              ),
+            ),
+          )
+          .orderBy(asc(marketplaceListingsV2.id))
+          .for("update");
+  listings.sort(
+    (left, right) =>
+      marketplaceUnitPrice(left.price, left.quantity) -
+        marketplaceUnitPrice(right.price, right.quantity) ||
+      left.createdAt.getTime() - right.createdAt.getTime() ||
+      left.id - right.id,
+  );
 
   let remaining = order.quantityRemaining;
   let escrow = order.goldEscrow;
@@ -153,6 +345,17 @@ export async function matchMarketplaceBuyOrder(
 
   for (const listing of listings) {
     if (remaining <= 0) break;
+    const bidderId = unresolvedMarketplaceHighestBidderId(listing);
+    if (
+      !scope.listingIds.has(listing.id) ||
+      !scope.participantIds.has(listing.sellerId) ||
+      scope.participantStatuses.get(listing.sellerId) ||
+      (bidderId != null &&
+        (!scope.participantIds.has(bidderId) ||
+          scope.participantStatuses.get(bidderId)))
+    ) {
+      continue;
+    }
     let take = Math.min(remaining, listing.quantity);
     let gross = marketplacePartialPrice(listing.price, listing.quantity, take);
     if (gross == null) {
@@ -198,19 +401,7 @@ export async function matchMarketplaceBuyOrder(
         }),
       );
     }
-    if (
-      !listing.bidResolvedAt &&
-      listing.highestBidderId &&
-      (listing.highestBid ?? 0) > 0
-    ) {
-      await tx.insert(marketplaceInbox).values(
-        inboxValues({
-          userId: listing.highestBidderId,
-          payload: { kind: "bid_refund", gold: listing.highestBid! },
-          message: `${listing.itemName} 유예 종료 · ${listing.highestBid!.toLocaleString()}골드 반환`,
-        }),
-      );
-    }
+    await clearMarketplaceHighestBid(tx, listing, now, "expired");
 
     await tx
       .update(marketplaceListingsV2)
@@ -262,6 +453,7 @@ export async function matchMarketplaceBuyOrder(
     });
   }
 
+  if (fills.length === 0) return [];
   const filled = remaining <= 0;
   if (filled && escrow > 0) {
     await tx.insert(marketplaceInbox).values(
@@ -289,26 +481,21 @@ export async function matchMarketplaceBuyOrdersForItem(
   kind: string,
   itemId: string,
   now = new Date(),
+  preparedScope?: MarketplaceMatchScope,
 ): Promise<MarketplaceAutoMatchFill[]> {
-  const orders = await tx
-    .select({ id: marketplaceBuyOrdersV2.id })
-    .from(marketplaceBuyOrdersV2)
-    .where(
-      and(
-        eq(marketplaceBuyOrdersV2.status, "active"),
-        eq(marketplaceBuyOrdersV2.kind, kind),
-        eq(marketplaceBuyOrdersV2.itemId, itemId),
-        gt(marketplaceBuyOrdersV2.expiresAt, now),
-      ),
-    )
-    .orderBy(
-      desc(marketplaceBuyOrdersV2.unitPrice),
-      asc(marketplaceBuyOrdersV2.createdAt),
-    )
-    .limit(50);
+  const scope =
+    preparedScope ??
+    (await prepareMarketplaceMatchScope(tx, { kind, itemId, now }));
+  if (scope.orderIds.size === 0) return [];
+  const orders = await lockMarketplaceMatchOrdersForItem(tx, {
+    scope,
+    kind,
+    itemId,
+    now,
+  });
   const fills: MarketplaceAutoMatchFill[] = [];
   for (const order of orders) {
-    fills.push(...(await matchMarketplaceBuyOrder(tx, order.id, now)));
+    fills.push(...(await matchMarketplaceBuyOrder(tx, order.id, now, scope)));
   }
   return fills;
 }

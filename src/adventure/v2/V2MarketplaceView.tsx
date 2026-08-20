@@ -67,6 +67,10 @@ import { TabBar } from "@/components/ui/TabBar";
 import { usePagination } from "@/lib/usePagination";
 import { useSingleFlightGuard } from "@/lib/useSingleFlight";
 import {
+  isTradeSuspensionMessagePayload,
+  tradeSuspensionMessage,
+} from "@/lib/tradeSuspension";
+import {
   V2_ITEM_TABS,
   itemTabForMaterial,
   itemTabForMarketplaceListing,
@@ -333,21 +337,32 @@ const ERR_LABEL: Record<string, string> = {
   bad_iids: "일괄 판매할 장비는 한 번에 1~10개까지 선택해 주세요.",
 };
 
-function actionErrorLabel(
-  error: string | undefined,
+type ActionErrorPayload = {
+  error?: string;
+  reason?: string;
+  expiresAt?: string;
+  permanent?: boolean;
+  retryAfterSec?: number;
+  slotLimit?: number;
+  minimumPrice?: number;
+};
+
+export function actionErrorLabel(
+  payload: ActionErrorPayload | null,
   status: number,
-  retryAfterSec?: number,
-  slotLimit?: number,
-  minimumPrice?: number,
 ) {
+  if (isTradeSuspensionMessagePayload(payload)) {
+    return tradeSuspensionMessage(payload);
+  }
+  const error = payload?.error;
   if (error === "rate_limited") {
-    return `요청이 많아요. ${Math.max(1, Math.floor(retryAfterSec ?? 1))}초 후 다시 시도하세요.`;
+    return `요청이 많아요. ${Math.max(1, Math.floor(payload?.retryAfterSec ?? 1))}초 후 다시 시도하세요.`;
   }
-  if (error === "slot_full" && typeof slotLimit === "number") {
-    return `활성 매물이 가득 찼어요 (최대 ${slotLimit}개).`;
+  if (error === "slot_full" && typeof payload?.slotLimit === "number") {
+    return `활성 매물이 가득 찼어요 (최대 ${payload.slotLimit}개).`;
   }
-  if (error === "price_below_floor" && typeof minimumPrice === "number") {
-    return `장비 구매 주문은 NPC 매입가 ${minimumPrice.toLocaleString()}골드 이상이어야 해요.`;
+  if (error === "price_below_floor" && typeof payload?.minimumPrice === "number") {
+    return `장비 구매 주문은 NPC 매입가 ${payload.minimumPrice.toLocaleString()}골드 이상이어야 해요.`;
   }
   return ERR_LABEL[error ?? ""] ?? error ?? `실패 (${status})`;
 }
@@ -747,17 +762,14 @@ export function V2MarketplaceView({
               retryAfterSec?: number;
               slotLimit?: number;
               minimumPrice?: number;
+              reason?: string;
+              expiresAt?: string;
+              permanent?: boolean;
             }
           | null;
         if (!res.ok || !j?.ok) {
           setError(
-            actionErrorLabel(
-              j?.error,
-              res.status,
-              j?.retryAfterSec,
-              j?.slotLimit,
-              j?.minimumPrice,
-            ),
+            actionErrorLabel(j, res.status),
           );
           return false;
         }

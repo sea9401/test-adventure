@@ -75,4 +75,3 @@
 - [ ] Run `npm run build`.
 - [ ] Run `git diff --check` and review the complete diff against the design.
 - [ ] Commit any verification-only fixes. Do not push, open a PR, deploy, or change maintenance mode.
-

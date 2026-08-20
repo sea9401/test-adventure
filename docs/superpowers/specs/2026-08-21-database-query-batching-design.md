@@ -83,4 +83,3 @@ The operations runbook will record how to compare request count, DB query count,
 - Hunt integration tests for unchanged success/error state plus a query-boundary budget: one remaining-save lock preload, one read-only preload, and one save flush on the normal successful path.
 - Route-classifier tests proving exact normalized save/life labels and absence of query strings or dynamic IDs.
 - Focused tests during TDD, then TypeScript, lint, full Vitest, build, `git diff --check`, and final diff review.
-

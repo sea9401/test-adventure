@@ -15,6 +15,7 @@ import {
 } from "@/lib/server/housing";
 import { readCodexMasteryFeatureSettings } from "@/lib/server/opsSettings";
 import { readCodexMasteryTrophyHistory } from "@/lib/server/codexMasteryTrophyRepository";
+import { readCodexResearchTrophyHistory } from "@/lib/server/codexResearchTrophies";
 import {
   lockSaveForUpdate,
   readSave,
@@ -73,8 +74,11 @@ export async function GET(req: Request) {
     baseContext.entitlements.ownedCounts,
   );
   const trophyContext = settings.trophiesEnabled
-    ? housingMasteryTrophyContext(
-        await readCodexMasteryTrophyHistory(db, userId),
+    ? await Promise.all([
+        readCodexMasteryTrophyHistory(db, userId),
+        readCodexResearchTrophyHistory(db, userId),
+      ]).then(([masteryHistory, researchHistory]) =>
+        housingMasteryTrophyContext(masteryHistory, researchHistory)
       )
     : null;
   const displayOptions = [
@@ -126,8 +130,11 @@ export async function POST(req: Request) {
   ]);
   const baseContext = housingContextFromSaves(source);
   const trophyContext = settings.trophiesEnabled
-    ? housingMasteryTrophyContext(
-        await readCodexMasteryTrophyHistory(db, userId),
+    ? await Promise.all([
+        readCodexMasteryTrophyHistory(db, userId),
+        readCodexResearchTrophyHistory(db, userId),
+      ]).then(([masteryHistory, researchHistory]) =>
+        housingMasteryTrophyContext(masteryHistory, researchHistory)
       )
     : null;
   const initialEntitlements = {

@@ -133,5 +133,40 @@ describe("V2TrophyCabinetView", () => {
       id: "combat_100",
       kind: "achievement",
     })).toEqual({ kind: "achievement", achievementId: "combat_100" });
+    expect(profileSelectionForTrophy({
+      id: "research:2026-08",
+      kind: "research",
+    })).toEqual({ kind: "masteryTrophy", trophyId: "research:2026-08" });
+  });
+
+  it("renders monthly research trophies as a separate collection kind", () => {
+    const html = renderToStaticMarkup(
+      <V2TrophyCabinetView
+        previewData={{
+          ok: true,
+          standOwned: true,
+          visible: true,
+          slots: [{ kind: "masteryTrophy", trophyId: "research:2026-08" }, null, null],
+          trophyOptions: [{
+            id: "research:2026-08",
+            kind: "research",
+            category: "research",
+            title: "강과 호수의 달",
+            desc: "2026-08 · 최종 1위 · 19,000점",
+            points: 0,
+            badgeTier: "legendary",
+            unlocked: true,
+            currentTier: "legendary",
+            nextTier: null,
+            progress: null,
+            tierAchievedAt: { legendary: "2026-08-31T15:00:01.000Z" },
+          }],
+        }}
+      />,
+    );
+
+    expect(html).toContain("월간 연구");
+    expect(html).toContain("강과 호수의 달");
+    expect(html).toContain("최종 1위");
   });
 });

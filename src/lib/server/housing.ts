@@ -29,6 +29,7 @@ import {
   type CodexMasteryTrophyHistory,
   type CodexMasteryTrophyTier,
 } from "@/adventure/data/v2/codexMasteryTrophies";
+import type { CodexResearchSeasonTrophyHistory } from "@/adventure/data/v2/codexResearchRanking";
 import { parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
 import { LIFE_CRAFTING_RECIPES } from "@/adventure/v2/lifeCrafting";
 
@@ -54,11 +55,12 @@ const TROPHY_TIER_LABELS: Record<CodexMasteryTrophyTier, string> = {
 
 export function housingMasteryTrophyContext(
   history: readonly CodexMasteryTrophyHistory[],
+  researchHistory: readonly CodexResearchSeasonTrophyHistory[] = [],
 ): {
   entitlements: Pick<HousingEntitlements, "masteryTrophyIds">;
   displayOptions: HousingDisplayOption[];
 } {
-  const displayOptions = history.flatMap((item): HousingDisplayOption[] => {
+  const permanentOptions = history.flatMap((item): HousingDisplayOption[] => {
     const definition = codexMasteryTrophyDefinition(item.trophyId);
     return definition
       ? [{
@@ -71,6 +73,15 @@ export function housingMasteryTrophyContext(
         }]
       : [];
   });
+  const researchOptions = researchHistory.map((item): HousingDisplayOption => ({
+    kind: "masteryTrophy",
+    trophyId: item.trophyId,
+    category: "research",
+    currentTier: item.currentTier,
+    label: item.seasonMetadata.themeName,
+    detail: `${item.seasonMetadata.seasonId} · 최종 ${item.seasonMetadata.finalRank}위 · ${TROPHY_TIER_LABELS[item.currentTier]}`,
+  }));
+  const displayOptions = [...permanentOptions, ...researchOptions];
   return {
     entitlements: {
       masteryTrophyIds: new Set(

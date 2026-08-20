@@ -2,8 +2,10 @@ import type { CoopBossKindId } from "./coopBosses";
 import type { FishId } from "./fish";
 import type { CodexMasteryCategory } from "./codexMasteryTypes";
 import {
-  codexMasteryTrophyDefinition,
-  type CodexMasteryTrophyId,
+  codexTrophyDisplayCategory,
+  isCodexTrophyId,
+  type CodexTrophyDisplayCategory,
+  type CodexTrophyId,
   type CodexMasteryTrophyTier,
 } from "./codexMasteryTrophies";
 
@@ -24,7 +26,7 @@ export type HousingDisplayRef =
   | { kind: "boss"; bossId: CoopBossKindId };
 
 export type HousingMasteryTrophyRef = {
-  trophyId: CodexMasteryTrophyId;
+  trophyId: CodexTrophyId;
 };
 
 export type HousingFurnitureCategory = "furniture" | "display";
@@ -163,8 +165,8 @@ export type HousingDisplayOption =
     }
   | {
       kind: "masteryTrophy";
-      trophyId: CodexMasteryTrophyId;
-      category: CodexMasteryCategory | "overall";
+      trophyId: CodexTrophyId;
+      category: CodexTrophyDisplayCategory;
       currentTier: CodexMasteryTrophyTier;
       label: string;
       detail: string;
@@ -195,7 +197,7 @@ export type HousingValidationResult =
         | "mastery_trophy_not_owned";
     };
 
-type HousingMasteryTrophyCategory = CodexMasteryCategory | "overall";
+type HousingMasteryTrophyCategory = CodexMasteryCategory | "overall" | "research";
 
 const ALL_MASTERY_TROPHY_CATEGORIES: readonly HousingMasteryTrophyCategory[] = [
   "equipment",
@@ -205,6 +207,7 @@ const ALL_MASTERY_TROPHY_CATEGORIES: readonly HousingMasteryTrophyCategory[] = [
   "life",
   "job",
   "overall",
+  "research",
 ];
 
 const HOUSING_MASTERY_TROPHY_CATEGORIES: Partial<
@@ -314,8 +317,8 @@ function parseMasteryTrophyRef(
   if (!raw || typeof raw !== "object") return undefined;
   const trophyId = (raw as { trophyId?: unknown }).trophyId;
   if (typeof trophyId !== "string") return undefined;
-  const definition = codexMasteryTrophyDefinition(trophyId.trim());
-  return definition ? { trophyId: definition.id } : undefined;
+  const normalized = trophyId.trim();
+  return isCodexTrophyId(normalized) ? { trophyId: normalized } : undefined;
 }
 
 function parsePlacement(raw: unknown): HousingPlacement | null {
@@ -336,10 +339,10 @@ function parsePlacement(raw: unknown): HousingPlacement | null {
   if (display) placement.display = display;
   const masteryTrophy = parseMasteryTrophyRef(value.masteryTrophy);
   if (masteryTrophy) {
-    const definition = codexMasteryTrophyDefinition(masteryTrophy.trophyId);
+    const category = codexTrophyDisplayCategory(masteryTrophy.trophyId);
     if (
-      definition &&
-      housingMasteryTrophyIsEligible(placement.furnitureId, definition.category)
+      category &&
+      housingMasteryTrophyIsEligible(placement.furnitureId, category)
     ) {
       placement.masteryTrophy = masteryTrophy;
     }
@@ -539,9 +542,9 @@ export function restoreHousingMasteryTrophies(
         placement;
       const masteryTrophy = storedByUid.get(placement.uid);
       if (!masteryTrophy) return withoutMasteryTrophy;
-      const definition = codexMasteryTrophyDefinition(masteryTrophy.trophyId);
-      return definition &&
-          housingMasteryTrophyIsEligible(placement.furnitureId, definition.category)
+      const category = codexTrophyDisplayCategory(masteryTrophy.trophyId);
+      return category &&
+          housingMasteryTrophyIsEligible(placement.furnitureId, category)
         ? { ...withoutMasteryTrophy, masteryTrophy }
         : withoutMasteryTrophy;
     }),

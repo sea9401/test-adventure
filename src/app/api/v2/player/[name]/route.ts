@@ -45,7 +45,8 @@ import {
 } from "@/adventure/profile/profileShowcase";
 import { readBlockedUserIds } from "@/lib/server/ugcSafety";
 import { readCodexMasteryTrophyHistory } from "@/lib/server/codexMasteryTrophyRepository";
-import { profileMasteryTrophyDisplays } from "@/lib/server/codexMasteryTrophyView";
+import { profileCodexTrophyDisplays } from "@/lib/server/codexMasteryTrophyView";
+import { readCodexResearchTrophyHistory } from "@/lib/server/codexResearchTrophies";
 
 // GET /api/v2/player/[name] — 다른 모험가의 공개 캐릭터 정보. URL 의 [name] = 닉네임.
 //   "내 정보" 화면과 같은 항목(레벨·직업·속성·능력치·전투 스탯·장착 장비·숙련도)을 돌려준다.
@@ -192,11 +193,15 @@ export async function GET(_req: Request, ctx: Ctx) {
       slot?.kind === "masteryTrophy" ? [slot.trophyId] : []
     ),
   );
-  const masteryTrophyHistory = selectedMasteryTrophyIds.size > 0
-    ? await readCodexMasteryTrophyHistory(db, targetId)
-    : [];
-  const profileMasteryTrophies = profileMasteryTrophyDisplays(
+  const [masteryTrophyHistory, researchTrophyHistory] = selectedMasteryTrophyIds.size > 0
+    ? await Promise.all([
+        readCodexMasteryTrophyHistory(db, targetId),
+        readCodexResearchTrophyHistory(db, targetId),
+      ])
+    : [[], []];
+  const profileMasteryTrophies = profileCodexTrophyDisplays(
     masteryTrophyHistory,
+    researchTrophyHistory,
     selectedMasteryTrophyIds,
   );
   const ownedMasteryTrophyIds = new Set(

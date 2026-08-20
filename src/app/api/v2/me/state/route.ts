@@ -78,7 +78,8 @@ import {
 import { readGuildResources } from "@/lib/server/v2GuildResources";
 import { readActiveHotTime } from "@/lib/server/opsSettings";
 import { readCodexMasteryTrophyHistory } from "@/lib/server/codexMasteryTrophyRepository";
-import { profileMasteryTrophyDisplays } from "@/lib/server/codexMasteryTrophyView";
+import { profileCodexTrophyDisplays } from "@/lib/server/codexMasteryTrophyView";
+import { readCodexResearchTrophyHistory } from "@/lib/server/codexResearchTrophies";
 import { requiredExpToNext } from "@/lib/leveling";
 import {
   applyRegen,
@@ -346,10 +347,14 @@ export async function GET(req: Request) {
     ),
   );
   const profileMasteryTrophies = selectedMasteryTrophyIds.size > 0
-    ? profileMasteryTrophyDisplays(
-      await readCodexMasteryTrophyHistory(db, userId),
-      selectedMasteryTrophyIds,
-    )
+    ? await Promise.all([
+        readCodexMasteryTrophyHistory(db, userId),
+        readCodexResearchTrophyHistory(db, userId),
+      ]).then(([masteryHistory, researchHistory]) => profileCodexTrophyDisplays(
+        masteryHistory,
+        researchHistory,
+        selectedMasteryTrophyIds,
+      ))
     : [];
 
   // 현 거점 카드 — character.v2.lastVisitedOutpost → 점령/영주/금고 동봉(stateOutpost).

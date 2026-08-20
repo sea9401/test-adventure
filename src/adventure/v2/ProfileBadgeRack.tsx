@@ -653,8 +653,10 @@ function resolveBadgeContent(
     };
     return {
       title: trophy.title,
-      description: "도감 숙련의 누적 기록으로 획득한 성장형 트로피입니다.",
-      detail: `${tierLabel[trophy.currentTier]} · 도감 숙련`,
+      description: trophy.kind === "research"
+        ? "월간 도감 연구전의 최종 성적으로 획득한 시즌 트로피입니다."
+        : "도감 숙련의 누적 기록으로 획득한 성장형 트로피입니다.",
+      detail: `${tierLabel[trophy.currentTier]} · ${trophy.kind === "research" ? "월간 연구" : "도감 숙련"}`,
       icon: <Trophy size={23} weight="duotone" aria-hidden="true" />,
       tone: trophy.currentTier,
     };

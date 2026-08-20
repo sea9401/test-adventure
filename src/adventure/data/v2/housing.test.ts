@@ -216,6 +216,8 @@ describe("housing layout", () => {
 
   it("matches each display furnishing to its mastery category", () => {
     expect(housingMasteryTrophyIsEligible("record_shelf", "overall")).toBe(true);
+    expect(housingMasteryTrophyIsEligible("record_shelf", "research")).toBe(true);
+    expect(housingMasteryTrophyIsEligible("trophy_aquarium", "research")).toBe(false);
     expect(housingMasteryTrophyIsEligible("trophy_aquarium", "fish")).toBe(true);
     expect(housingMasteryTrophyIsEligible("trophy_aquarium", "monster")).toBe(false);
     expect(housingMasteryTrophyIsEligible("boss_trophy", "monster")).toBe(true);
@@ -223,6 +225,31 @@ describe("housing layout", () => {
     expect(housingMasteryTrophyIsEligible("weapon_rack", "equipment")).toBe(true);
     expect(housingMasteryTrophyIsEligible("cookware_display", "cooking")).toBe(true);
     expect(housingMasteryTrophyIsEligible("traveler_bed", "overall")).toBe(false);
+  });
+
+  it("stores monthly research trophies only on the record shelf", () => {
+    const shelf = {
+      version: 1,
+      isPublic: true,
+      layout: [{
+        uid: "season",
+        furnitureId: "record_shelf",
+        x: 0,
+        y: 0,
+        rotated: false,
+        masteryTrophy: { trophyId: "research:2026-08" },
+      }],
+    };
+    expect(validateHousingState(shelf, {
+      masteryTrophyIds: new Set(["research:2026-08"]),
+    })).toEqual({ ok: true, state: shelf });
+
+    expect(validateHousingState({
+      ...shelf,
+      layout: [{ ...shelf.layout[0], furnitureId: "trophy_aquarium" }],
+    }, {
+      masteryTrophyIds: new Set(["research:2026-08"]),
+    })).toEqual({ ok: false, error: "invalid_mastery_trophy" });
   });
 
   it("hides trophy companions without losing same-placement stored selections", () => {

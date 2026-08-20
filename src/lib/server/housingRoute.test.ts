@@ -47,6 +47,9 @@ vi.mock("@/lib/server/codexMasteryTrophyRepository", () => ({
     return mastery.history;
   }),
 }));
+vi.mock("@/lib/server/codexResearchTrophies", () => ({
+  readCodexResearchTrophyHistory: vi.fn(async () => []),
+}));
 vi.mock("@/lib/server/savesKv", () => ({
   readSave: vi.fn(
     async (_db: unknown, userId: string, key: string, fallback: unknown) =>

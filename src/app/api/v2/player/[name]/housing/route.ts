@@ -15,6 +15,7 @@ import {
 } from "@/lib/server/housing";
 import { readCodexMasteryFeatureSettings } from "@/lib/server/opsSettings";
 import { readCodexMasteryTrophyHistory } from "@/lib/server/codexMasteryTrophyRepository";
+import { readCodexResearchTrophyHistory } from "@/lib/server/codexResearchTrophies";
 import { readSave } from "@/lib/server/savesKv";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
@@ -93,8 +94,11 @@ export async function GET(req: Request, ctx: Ctx) {
     return Response.json({ ok: false, error: "private_room" }, { status: 403 });
   }
   const trophyContext = settings.trophiesEnabled
-    ? housingMasteryTrophyContext(
-        await readCodexMasteryTrophyHistory(db, target.user_id),
+    ? await Promise.all([
+        readCodexMasteryTrophyHistory(db, target.user_id),
+        readCodexResearchTrophyHistory(db, target.user_id),
+      ]).then(([masteryHistory, researchHistory]) =>
+        housingMasteryTrophyContext(masteryHistory, researchHistory)
       )
     : null;
   const displayOptions = publicHousingOptions(room, [

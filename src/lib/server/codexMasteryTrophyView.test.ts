@@ -4,6 +4,7 @@ import { emptyCodexMasteryProgress } from "@/adventure/data/v2/codexMastery";
 import {
   buildCodexMasteryTrophyOptions,
   buildCodexResearchTrophyOptions,
+  profileCodexTrophyDisplays,
 } from "./codexMasteryTrophyView";
 
 const CATALOG = createCodexMasteryCatalog([{
@@ -23,6 +24,45 @@ const CATALOG = createCodexMasteryCatalog([{
 }]);
 
 describe("codex mastery trophy view", () => {
+  it("maps selected permanent and monthly trophies into public profile displays", () => {
+    const monthly = buildCodexResearchTrophyOptions([{
+      trophyId: "research:2026-08",
+      kind: "research_season",
+      currentTier: "legendary",
+      tierAchievedAt: { legendary: "2026-08-31T15:00:01.000Z" },
+      catalogVersion: 1,
+      seasonMetadata: {
+        seasonId: "2026-08",
+        themeId: "rivers-and-lakes",
+        themeName: "강과 호수의 달",
+        finalRank: 1,
+        score: 19_000,
+        objectiveCompletedCount: 18,
+        objectiveScore: 12_000,
+        diversityScore: 4_000,
+        recordScore: 3_000,
+        representativeRecord: null,
+        settledAt: "2026-08-31T15:00:01.000Z",
+        firstPlaceEngraving: true,
+      },
+    }]);
+    const displays = profileCodexTrophyDisplays([], [{
+      trophyId: monthly[0].id as `research:${string}`,
+      kind: "research_season",
+      currentTier: monthly[0].currentTier,
+      tierAchievedAt: monthly[0].tierAchievedAt,
+      catalogVersion: 1,
+      seasonMetadata: monthly[0].season,
+    }], new Set(["research:2026-08"]));
+
+    expect(displays).toEqual([{
+      trophyId: "research:2026-08",
+      title: "강과 호수의 달",
+      currentTier: "legendary",
+      kind: "research",
+    }]);
+  });
+
   it("maps an awarded monthly season into a distinct display option", () => {
     const options = buildCodexResearchTrophyOptions([{
       trophyId: "research:2026-08",

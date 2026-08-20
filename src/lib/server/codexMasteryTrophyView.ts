@@ -141,3 +141,25 @@ export function profileMasteryTrophyDisplays(
       : [];
   });
 }
+
+export function profileCodexTrophyDisplays(
+  masteryHistory: readonly CodexMasteryTrophyHistory[],
+  researchHistory: readonly CodexResearchSeasonTrophyHistory[],
+  selectedTrophyIds: ReadonlySet<string>,
+): ProfileMasteryTrophyDisplay[] {
+  return [
+    ...profileMasteryTrophyDisplays(masteryHistory, selectedTrophyIds).map(
+      (item) => ({ ...item, kind: "mastery" as const }),
+    ),
+    ...researchHistory.flatMap((item) =>
+      selectedTrophyIds.has(item.trophyId)
+        ? [{
+            trophyId: item.trophyId,
+            title: item.seasonMetadata.themeName,
+            currentTier: item.currentTier,
+            kind: "research" as const,
+          }]
+        : []
+    ),
+  ];
+}

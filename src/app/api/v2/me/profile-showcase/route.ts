@@ -10,7 +10,7 @@ import {
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import { CODEX_MASTERY_CATALOG } from "@/adventure/data/v2/codexMasteryProductionCatalog";
 import { CODEX_MASTERY_CATALOG_VERSION } from "@/adventure/data/v2/codexMasteryProductionCatalog";
-import { codexMasteryTrophyDefinition } from "@/adventure/data/v2/codexMasteryTrophies";
+import { isCodexTrophyId } from "@/adventure/data/v2/codexMasteryTrophies";
 import {
   PROFILE_SHOWCASE_SAVE_KEY,
   parseProfileBadgeStandVisible,
@@ -39,7 +39,11 @@ import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { readCodexMasteryFeatureSettings } from "@/lib/server/opsSettings";
 import { readCodexMasteryProgressRows } from "@/lib/server/codexMasteryRepository";
 import { readCodexMasteryTrophyHistory } from "@/lib/server/codexMasteryTrophyRepository";
-import { buildCodexMasteryTrophyOptions } from "@/lib/server/codexMasteryTrophyView";
+import {
+  buildCodexMasteryTrophyOptions,
+  buildCodexResearchTrophyOptions,
+} from "@/lib/server/codexMasteryTrophyView";
+import { readCodexResearchTrophyHistory } from "@/lib/server/codexResearchTrophies";
 
 function usableTitleSlots(
   slots: ProfileShowcaseSlots,
@@ -88,17 +92,21 @@ export async function GET(req: Request) {
     parseProfileShowcaseSlots(showcaseRaw),
     ownedTitleIds,
   );
-  const masteryOptions = settings.trophiesEnabled
+  const codexTrophyOptions = settings.trophiesEnabled
     ? await Promise.all([
       readCodexMasteryProgressRows(db, userId),
       readCodexMasteryTrophyHistory(db, userId),
-    ]).then(([progressRows, history]) => buildCodexMasteryTrophyOptions({
-      catalog: CODEX_MASTERY_CATALOG,
-      progressRows,
-      history,
-      now: new Date(),
-      catalogVersion: CODEX_MASTERY_CATALOG_VERSION,
-    }))
+      readCodexResearchTrophyHistory(db, userId),
+    ]).then(([progressRows, history, researchHistory]) => [
+      ...buildCodexMasteryTrophyOptions({
+        catalog: CODEX_MASTERY_CATALOG,
+        progressRows,
+        history,
+        now: new Date(),
+        catalogVersion: CODEX_MASTERY_CATALOG_VERSION,
+      }),
+      ...buildCodexResearchTrophyOptions(researchHistory),
+    ])
     : [];
 
   return Response.json({
@@ -134,7 +142,7 @@ export async function GET(req: Request) {
         badgeTier: badgeTier!,
         unlocked: claimed.has(id),
       })),
-      ...masteryOptions,
+      ...codexTrophyOptions,
     ],
   });
 }
@@ -229,13 +237,16 @@ export async function POST(req: Request) {
     accountOwnedTitleIds(adventureLogRaw, isAdminAccount),
   );
   const claimed = parseClaimed(claimedRaw);
-  const masteryHistory = requestedSlots?.some(
+  const [masteryHistory, researchHistory] = requestedSlots?.some(
     (slot) => slot?.kind === "masteryTrophy",
   ) && settings.trophiesEnabled
-    ? await readCodexMasteryTrophyHistory(db, userId)
-    : [];
-  const ownedMasteryTrophyIds = new Set<string>(
-    masteryHistory.map((item) => item.trophyId),
+    ? await Promise.all([
+        readCodexMasteryTrophyHistory(db, userId),
+        readCodexResearchTrophyHistory(db, userId),
+      ])
+    : [[], []];
+  const ownedCodexTrophyIds = new Set<string>(
+    [...masteryHistory, ...researchHistory].map((item) => item.trophyId),
   );
 
   for (const slot of requestedSlots ?? []) {
@@ -278,13 +289,13 @@ export async function POST(req: Request) {
           { status: 409 },
         );
       }
-      if (!codexMasteryTrophyDefinition(slot.trophyId)) {
+      if (!isCodexTrophyId(slot.trophyId)) {
         return Response.json(
           { ok: false, error: "unknown_trophy" },
           { status: 400 },
         );
       }
-      if (!ownedMasteryTrophyIds.has(slot.trophyId)) {
+      if (!ownedCodexTrophyIds.has(slot.trophyId)) {
         return Response.json({ ok: false, error: "not_owned" }, { status: 400 });
       }
     }

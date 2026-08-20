@@ -7,6 +7,7 @@ const { store, account, mastery } = vi.hoisted(() => ({
     trophiesEnabled: false,
     progressRows: [] as unknown[],
     history: [] as unknown[],
+    researchHistory: [] as unknown[],
   },
 }));
 const keyOf = (userId: string, key: string) => `${userId}::${key}`;
@@ -35,6 +36,9 @@ vi.mock("@/lib/server/codexMasteryRepository", () => ({
 }));
 vi.mock("@/lib/server/codexMasteryTrophyRepository", () => ({
   readCodexMasteryTrophyHistory: vi.fn(async () => mastery.history),
+}));
+vi.mock("@/lib/server/codexResearchTrophies", () => ({
+  readCodexResearchTrophyHistory: vi.fn(async () => mastery.researchHistory),
 }));
 vi.mock("@/db", () => ({
   db: {
@@ -98,6 +102,7 @@ describe("profile showcase route", () => {
     mastery.trophiesEnabled = false;
     mastery.progressRows = [];
     mastery.history = [];
+    mastery.researchHistory = [];
     vi.mocked(ensureUser).mockResolvedValue("u1");
     store.set(keyOf("u1", "character.v2"), {
       profileBadgeStandOwned: true,
@@ -339,6 +344,46 @@ describe("profile showcase route", () => {
       slots: [{ kind: "masteryTrophy", trophyId: "mastery:fish" }, null, null],
       visible: true,
     });
+  });
+
+  it("offers and saves an earned monthly research trophy", async () => {
+    mastery.trophiesEnabled = true;
+    mastery.researchHistory = [{
+      trophyId: "research:2026-08",
+      kind: "research_season",
+      currentTier: "legendary",
+      tierAchievedAt: { legendary: "2026-08-31T15:00:01.000Z" },
+      catalogVersion: 1,
+      seasonMetadata: {
+        seasonId: "2026-08",
+        themeId: "rivers-and-lakes",
+        themeName: "강과 호수의 달",
+        finalRank: 1,
+        score: 19_000,
+        objectiveCompletedCount: 18,
+        objectiveScore: 12_000,
+        diversityScore: 4_000,
+        recordScore: 3_000,
+        representativeRecord: null,
+        settledAt: "2026-08-31T15:00:01.000Z",
+        firstPlaceEngraving: true,
+      },
+    }];
+
+    const body = await GET(new Request("http://t/api/v2/me/profile-showcase"))
+      .then((response) => response.json()) as {
+        trophyOptions: Array<{ id: string; kind?: string }>;
+      };
+    expect(body.trophyOptions).toContainEqual(expect.objectContaining({
+      id: "research:2026-08",
+      kind: "research",
+    }));
+
+    const saved = await post({
+      kind: "masteryTrophy",
+      trophyId: "research:2026-08",
+    });
+    expect(saved.status).toBe(200);
   });
 
   it("rejects disabled, unknown, and unearned mastery selections without deleting stored ones", async () => {

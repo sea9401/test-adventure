@@ -21,6 +21,7 @@ export type ProfileMasteryTrophyDisplay = {
   trophyId: string;
   title: string;
   currentTier: CodexMasteryTrophyTier;
+  kind?: "mastery" | "research";
 };
 
 const MAX_SHOWCASE_ID_LENGTH = 160;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CodexMasteryTrophyHistory } from "@/adventure/data/v2/codexMasteryTrophies";
+import type { CodexResearchSeasonTrophyHistory } from "@/adventure/data/v2/codexResearchRanking";
 import type {
   HousingDisplayOption,
   HousingState,
@@ -36,6 +37,28 @@ const HISTORY: CodexMasteryTrophyHistory[] = [
   },
 ];
 
+const RESEARCH_HISTORY: CodexResearchSeasonTrophyHistory[] = [{
+  trophyId: "research:2026-08",
+  kind: "research_season",
+  currentTier: "legendary",
+  tierAchievedAt: { legendary: "2026-08-31T15:00:01.000Z" },
+  catalogVersion: 1,
+  seasonMetadata: {
+    seasonId: "2026-08",
+    themeId: "rivers-and-lakes",
+    themeName: "강과 호수의 달",
+    finalRank: 1,
+    score: 19_000,
+    objectiveCompletedCount: 18,
+    objectiveScore: 12_000,
+    diversityScore: 4_000,
+    recordScore: 3_000,
+    representativeRecord: null,
+    settledAt: "2026-08-31T15:00:01.000Z",
+    firstPlaceEngraving: true,
+  },
+}];
+
 const FISH_OPTION: HousingDisplayOption = {
   kind: "fish",
   fishId: "crucian_carp",
@@ -63,10 +86,10 @@ function aquariumRoom(): HousingState {
 
 describe("housing mastery trophy context", () => {
   it("turns earned history into authoritative tier-labelled display options", () => {
-    const context = housingMasteryTrophyContext(HISTORY);
+    const context = housingMasteryTrophyContext(HISTORY, RESEARCH_HISTORY);
 
     expect(context.entitlements.masteryTrophyIds).toEqual(
-      new Set(["mastery:fish", "mastery:overall"]),
+      new Set(["mastery:fish", "mastery:overall", "research:2026-08"]),
     );
     expect(context.displayOptions).toEqual([
       {
@@ -84,6 +107,14 @@ describe("housing mastery trophy context", () => {
         currentTier: "gold",
         label: "모험왕의 대서",
         detail: "도감 숙련 · 금",
+      },
+      {
+        kind: "masteryTrophy",
+        trophyId: "research:2026-08",
+        category: "research",
+        currentTier: "legendary",
+        label: "강과 호수의 달",
+        detail: "2026-08 · 최종 1위 · 전설",
       },
     ]);
   });

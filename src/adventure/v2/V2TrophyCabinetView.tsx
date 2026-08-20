@@ -23,8 +23,8 @@ import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 
 export type TrophyOption = {
   id: string;
-  kind?: "achievement" | "mastery";
-  category?: "equipment" | "fish" | "monster" | "cooking" | "life" | "job" | "overall";
+  kind?: "achievement" | "mastery" | "research";
+  category?: "equipment" | "fish" | "monster" | "cooking" | "life" | "job" | "overall" | "research";
   title: string;
   desc: string;
   points: number;
@@ -45,7 +45,7 @@ type TrophyResponse = {
 };
 
 type TrophyFilter = "all" | "unlocked" | "locked";
-type TrophyKindFilter = "all" | "achievement" | "mastery";
+type TrophyKindFilter = "all" | "achievement" | "mastery" | "research";
 
 const EMPTY_SLOTS: ProfileShowcaseSlots = [null, null, null];
 const FILTERS: { id: TrophyFilter; label: string }[] = [
@@ -61,6 +61,7 @@ const CATEGORY_LABELS = {
   life: "현장 기록",
   job: "직업",
   overall: "종합",
+  research: "월간 연구",
 } as const;
 
 const TIER_STYLE: Record<
@@ -99,14 +100,20 @@ const TIER_STYLE: Record<
   },
 };
 
-function trophyKind(trophy: Pick<TrophyOption, "kind">): "achievement" | "mastery" {
+function trophyKind(
+  trophy: Pick<TrophyOption, "kind">,
+): "achievement" | "mastery" | "research" {
   return trophy.kind ?? "achievement";
+}
+
+function isCodexTrophy(trophy: Pick<TrophyOption, "kind">): boolean {
+  return trophyKind(trophy) !== "achievement";
 }
 
 export function profileSelectionForTrophy(
   trophy: Pick<TrophyOption, "id" | "kind">,
 ): ProfileShowcaseSelection {
-  return trophyKind(trophy) === "mastery"
+  return isCodexTrophy(trophy)
     ? { kind: "masteryTrophy", trophyId: trophy.id }
     : { kind: "achievement", achievementId: trophy.id };
 }
@@ -115,7 +122,7 @@ function selectionMatchesTrophy(
   selection: ProfileShowcaseSelection | null,
   trophy: TrophyOption,
 ): boolean {
-  return trophyKind(trophy) === "mastery"
+  return isCodexTrophy(trophy)
     ? selection?.kind === "masteryTrophy" && selection.trophyId === trophy.id
     : selection?.kind === "achievement" && selection.achievementId === trophy.id;
 }
@@ -397,13 +404,14 @@ export function V2TrophyCabinetView({
               </label>
               <div>
                 <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-                  업적 · 도감 숙련
+                  업적 · 도감 숙련 · 월간 연구
                 </span>
                 <div className="mt-1 flex gap-1" aria-label="트로피 종류">
                   {([
                     ["all", "전체"],
                     ["achievement", "업적"],
                     ["mastery", "도감 숙련"],
+                    ["research", "월간 연구"],
                   ] as const).map(([id, label]) => (
                     <button
                       key={id}
@@ -485,12 +493,17 @@ export function V2TrophyCabinetView({
                       {trophy.title}
                     </span>
                     <span className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
-                      {trophyKind(trophy) === "mastery"
+                      {isCodexTrophy(trophy)
                         ? `${TIER_STYLE[trophy.badgeTier].label}${trophy.unlocked ? " 획득" : " 목표"}`
                         : trophy.unlocked
                           ? `${trophy.points}점`
                           : "미획득"}
                     </span>
+                    {trophyKind(trophy) === "research" ? (
+                      <span className="mt-1 line-clamp-2 text-[10px] text-zinc-500 dark:text-zinc-400">
+                        {trophy.desc}
+                      </span>
+                    ) : null}
                     {trophyKind(trophy) === "mastery" && trophy.progress ? (
                       <span className="mt-1 text-[10px] font-semibold text-zinc-600 dark:text-zinc-300">
                         {trophy.progress.current} / {trophy.progress.required}
@@ -509,13 +522,13 @@ export function V2TrophyCabinetView({
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-bold">{selected.title}</h3>
                       <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                        {TIER_STYLE[selected.badgeTier].label} · {trophyKind(selected) === "mastery" ? "도감 숙련" : `${selected.points}점`}
+                        {TIER_STYLE[selected.badgeTier].label} · {trophyKind(selected) === "research" ? "월간 연구" : trophyKind(selected) === "mastery" ? "도감 숙련" : `${selected.points}점`}
                       </span>
                     </div>
                     <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
                       {selected.desc}
                     </p>
-                    {trophyKind(selected) === "mastery" && selected.tierAchievedAt ? (
+                    {isCodexTrophy(selected) && selected.tierAchievedAt ? (
                       <div className="mt-3 flex flex-wrap gap-1.5" aria-label="승급 연혁">
                         {Object.entries(selected.tierAchievedAt).map(([tier, achievedAt]) => (
                           <span

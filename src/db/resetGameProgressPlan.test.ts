@@ -75,6 +75,7 @@ describe("reset game progress plan", () => {
         "codex_mastery_progress",
         "codex_mastery_summary",
         "codex_research_progress",
+        "codex_research_publications",
         "codex_research_seasons",
         "codex_trophy_history",
       ]),
@@ -85,6 +86,7 @@ describe("reset game progress plan", () => {
         "codex_mastery_progress",
         "codex_mastery_summary",
         "codex_research_progress",
+        "codex_research_publications",
         "codex_research_seasons",
         "codex_trophy_history",
       ]),
@@ -100,6 +102,7 @@ describe("reset game progress plan", () => {
       "codex_mastery_progress",
       "codex_mastery_summary",
       "codex_research_progress",
+      "codex_research_publications",
       "codex_research_seasons",
       "codex_trophy_history",
     ]));

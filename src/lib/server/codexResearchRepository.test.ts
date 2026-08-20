@@ -358,6 +358,16 @@ describe("codex research repository", () => {
     expect(first.updates[0].values).toHaveProperty("updatedAt");
     const query = new PgDialect().sqlToQuery(first.updates[0].where);
     expect(query.params).toEqual(["2026-08", "closed"]);
+
+    const repeated = fakeExecutor({
+      seasonRows: [seasonRow({ status: "closed", publishedAt })],
+      activateRows: [],
+    });
+    await expect(markCodexResearchSeasonPublished(
+      repeated.executor,
+      "2026-08",
+      new Date("2026-09-03T00:00:00.000Z"),
+    )).resolves.toEqual(publishedAt);
   });
 
   it("rejects duplicate final users or ranks before clearing stored results", async () => {

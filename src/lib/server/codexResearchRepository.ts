@@ -6,7 +6,6 @@ import {
   inArray,
   isNull,
   lte,
-  sql,
 } from "drizzle-orm";
 import {
   CODEX_RESEARCH_DIVERSITY_SCORE,
@@ -343,18 +342,33 @@ export async function markCodexResearchSeasonPublished(
   const rows = await executor
     .update(codexResearchSeasons)
     .set({
-      publishedAt: sql`COALESCE(${codexResearchSeasons.publishedAt}, ${publishedAt})`,
+      publishedAt,
       updatedAt: publishedAt,
     })
     .where(and(
       eq(codexResearchSeasons.seasonId, seasonId),
       eq(codexResearchSeasons.status, "closed"),
+      isNull(codexResearchSeasons.publishedAt),
     ))
     .returning({ publishedAt: codexResearchSeasons.publishedAt });
-  if (rows.length !== 1 || !validDate(rows[0].publishedAt)) {
+  if (rows.length === 1 && validDate(rows[0].publishedAt)) {
+    return new Date(rows[0].publishedAt.getTime());
+  }
+  if (rows.length !== 0) {
     throw new Error("codex research season was not published");
   }
-  return new Date(rows[0].publishedAt.getTime());
+  const existing = await executor
+    .select({ publishedAt: codexResearchSeasons.publishedAt })
+    .from(codexResearchSeasons)
+    .where(and(
+      eq(codexResearchSeasons.seasonId, seasonId),
+      eq(codexResearchSeasons.status, "closed"),
+    ))
+    .limit(1);
+  if (existing.length !== 1 || !validDate(existing[0].publishedAt)) {
+    throw new Error("codex research season was not published");
+  }
+  return new Date(existing[0].publishedAt.getTime());
 }
 
 function validateFinalResults(

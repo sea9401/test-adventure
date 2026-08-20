@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  buildStormExpeditionAutoplayResultModel,
   confirmStormExpeditionExit,
   shouldShowAcceptedRisk,
+  stormExpeditionArrivalNodeId,
   stormUniqueDropPreview,
 } from "./V2StormExpeditionView";
 import type { StormExpeditionRiskEventOffer } from "@/adventure/data/v2/stormExpedition";
@@ -87,5 +89,55 @@ describe("폭풍 원정 적용 중인 위험 표시", () => {
 
   it("남은 원정에 적용되는 위험은 다음 전투 효과가 없어도 표시한다", () => {
     expect(shouldShowAcceptedRisk(acceptedRisk("storm_contract"), [])).toBe(true);
+  });
+});
+
+describe("폭풍 원정 수동 도착 모달", () => {
+  const response = {
+    error: undefined,
+    state: { active: { currentNodeId: "supply" as const } },
+  };
+
+  it("수동 시작과 이동 성공 뒤에는 도착 노드를 연다", () => {
+    expect(stormExpeditionArrivalNodeId("start", response)).toBe("supply");
+    expect(stormExpeditionArrivalNodeId("move", response)).toBe("supply");
+  });
+
+  it("전투·선택 응답이나 오류·초기 로드에서는 모달을 강제로 열지 않는다", () => {
+    expect(stormExpeditionArrivalNodeId("fight", response)).toBeNull();
+    expect(stormExpeditionArrivalNodeId("move", { ...response, error: "stale_state" })).toBeNull();
+    expect(stormExpeditionArrivalNodeId("move", { state: { active: null } })).toBeNull();
+  });
+});
+
+describe("폭풍 원정 일괄 진행 결과 요약", () => {
+  it("완주하면 최종 도달 지점과 확정 획득 보상을 요약한다", () => {
+    expect(buildStormExpeditionAutoplayResultModel("complete", {
+      currentNodeId: "storm_heart",
+      nodes: [{ id: "storm_heart", name: "폭풍의 심장" }],
+      gainedGold: 12_000,
+      gainedMaterials: { storm_shard: 2 },
+      gainedEquipment: [{ id: "reward-1" }],
+    }, null)).toEqual({
+      kind: "complete",
+      reachedNodeName: "폭풍의 심장",
+      rewards: ["12,000 G", "재료 2개", "장비 1개"],
+    });
+  });
+
+  it("패배하면 직전 상태를 기준으로 잃은 임시 전리품을 요약한다", () => {
+    expect(buildStormExpeditionAutoplayResultModel("defeated", {
+      currentNodeId: "thunder_elite",
+      nodes: [{ id: "thunder_elite", name: "뇌운 정예" }],
+    }, {
+      currentNodeId: "thunder_elite",
+      pendingGold: 8_500,
+      pendingMaterials: { storm_shard: 3, wreckage: 2 },
+      pendingEquipment: [{ id: "lost-1" }, { id: "lost-2" }],
+    })).toEqual({
+      kind: "defeated",
+      reachedNodeName: "뇌운 정예",
+      lostLoot: ["8,500 G", "재료 5개", "장비 2개"],
+    });
   });
 });

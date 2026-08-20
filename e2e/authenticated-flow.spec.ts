@@ -6,6 +6,7 @@ import {
   setAuthenticatedE2eCharacterLevel,
 } from "./support/authenticatedDatabase";
 import { prepareLocalHttpBrowser } from "./support/localHttpBrowser";
+import { installStormExpeditionApiFixture } from "./support/stormExpeditionFixture";
 
 const LOCAL_ORIGIN = "http://localhost:3212";
 const CHARACTER_NAME = "자동검증모험가";
@@ -13,6 +14,8 @@ const ATTENDANCE_CHARACTER_NAME = "출석검증모험가";
 const GAMEPLAY_CHARACTER_NAME = "사냥검증모험가";
 const DELETION_CHARACTER_NAME = "삭제검증모험가";
 const CHAT_CHARACTER_NAME = "채팅검증모험가";
+const STORM_DIRECT_CHARACTER_NAME = "원정직접검증가";
+const STORM_AUTOPLAY_CHARACTER_NAME = "원정일괄검증가";
 const PERSISTED_FLAG = "e2e.persisted-after-login";
 const account = authenticatedE2eConfig();
 
@@ -258,6 +261,76 @@ test("모바일 전체화면 채팅은 플로팅 토글을 숨기고 헤더에�
   await page.getByRole("button", { name: "채팅 닫기" }).click();
   await expect(page.getByRole("dialog", { name: "채팅" })).toHaveCount(0);
   await expect(floatingToggle).toBeVisible();
+});
+
+test("폭풍 원정을 모바일 지도와 노드 모달에서 직접 진행한다", async ({
+  page,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.includes("mobile"));
+  if (!account) throw new Error("Authenticated E2E configuration is missing");
+
+  await loginWithPassword(page, account.loginId, account.password);
+  await createCharacter(page, STORM_DIRECT_CHARACTER_NAME);
+  const fixture = await installStormExpeditionApiFixture(page);
+  await page.goto("/battle/storm-expedition");
+
+  const map = page.getByTestId("storm-expedition-command-map");
+  await expect(map).toBeVisible();
+  await map.getByRole("button", { name: /칼바람 외곽, 이동 가능/ }).click();
+  const nodeDialog = page.getByRole("dialog", { name: "칼바람 외곽" });
+  await expect(nodeDialog).toContainText("다음 경로 확인");
+  await nodeDialog.getByRole("button", { name: "이 경로로 이동" }).click();
+  await expect(nodeDialog.getByRole("button", { name: "전투 시작" })).toBeVisible();
+
+  expect(fixture.actions).toEqual([
+    { action: "start", mode: "normal", targetNodeId: "gale_outer" },
+  ]);
+  await expect(page.getByTestId("storm-expedition-current-action")).toHaveCount(0);
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    content: document.documentElement.scrollWidth,
+  }));
+  expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport);
+
+  await nodeDialog.getByRole("button", { name: "닫기" }).click();
+  const order = await page.evaluate(() => {
+    const mapElement = document.querySelector('[data-testid="storm-expedition-command-map"]');
+    const support = document.querySelector('[data-testid="storm-expedition-support"]');
+    return Boolean(mapElement && support && (mapElement.compareDocumentPosition(support) & Node.DOCUMENT_POSITION_FOLLOWING));
+  });
+  expect(order).toBe(true);
+});
+
+test("폭풍 원정을 모바일에서 혼합 항로로 일괄 진행한다", async ({
+  page,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.includes("mobile"));
+  if (!account) throw new Error("Authenticated E2E configuration is missing");
+
+  await loginWithPassword(page, account.loginId, account.password);
+  await createCharacter(page, STORM_AUTOPLAY_CHARACTER_NAME);
+  const fixture = await installStormExpeditionApiFixture(page);
+  await page.goto("/battle/storm-expedition");
+
+  await page.getByRole("button", { name: "일괄 진행 설정" }).click();
+  const planDialog = page.getByRole("dialog", { name: "일괄 진행 설정" });
+  await expect(planDialog).toContainText("패배하면 임시 전리품을 모두 잃으며 자동 귀환하지 않습니다.");
+  await planDialog.getByRole("button", { name: "중층 항로 뇌운" }).click();
+  await planDialog.getByRole("button", { name: "수호자 항로 잔해" }).click();
+  await planDialog.getByRole("button", { name: "축복 전략 공격 우선" }).click();
+  await planDialog.getByRole("button", { name: "일괄 진행 시작" }).click();
+
+  const resultDialog = page.getByRole("dialog", { name: "일괄 진행 완료" });
+  await expect(resultDialog).toBeVisible();
+  await expect(resultDialog).toContainText("폭풍의 심장");
+  await expect(page.getByRole("dialog", { name: /칼바람|뇌운|잔해|표류|제단|정비/ })).toHaveCount(0);
+
+  const moveTargets = fixture.actions
+    .filter((action) => action.action === "move")
+    .map((action) => action.targetNodeId);
+  expect(moveTargets).toEqual(expect.arrayContaining(["thunder_middle", "wreckage_guardian"]));
+  expect(fixture.actions).toContainEqual(expect.objectContaining({ action: "choose", choiceId: "swift_fate" }));
+  expect(fixture.actions.some((action) => action.action === "withdraw")).toBe(false);
 });
 
 test("전투 메뉴로 사냥터에 진입해 얻은 진행은 새로고침과 재로그인 뒤에도 복원된다", async ({

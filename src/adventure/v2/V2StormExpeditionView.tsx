@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowClockwise, CloudLightning, Flag, ShieldChevron } from "@phosphor-icons/react";
+import { ArrowClockwise, CloudLightning, ShieldChevron } from "@phosphor-icons/react";
 import type { Gender } from "@/adventure/profile/avatars";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import {
@@ -19,8 +19,6 @@ import {
 } from "@/adventure/data/v2/stormExpedition";
 import type { StormExpeditionMapNode, StormExpeditionMapNodeId } from "@/adventure/data/v2/stormExpeditionMap";
 import {
-  STORM_EXPEDITION_EQUIPMENT_IDS,
-  STORM_EXPEDITION_ROUTE_MATERIAL_ID,
   type StormExpeditionLootRule,
   type StormExpeditionUniqueRule,
 } from "@/adventure/data/v2/stormExpeditionRewards";
@@ -33,9 +31,38 @@ import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
-import { stormExpeditionEntryActions, stormExpeditionMoveRequest, stormExpeditionStartRequest } from "./stormExpeditionViewModel";
-import { StormExpeditionActiveLayout } from "./StormExpeditionActiveLayout";
-import { StormExpeditionRouteMap } from "./StormExpeditionRouteMap";
+import {
+  stormExpeditionChooseRequest,
+  stormExpeditionFightRequest,
+  stormExpeditionMoveRequest,
+  stormExpeditionNodeIntent,
+  stormExpeditionRiskRequest,
+  stormExpeditionStartRequest,
+  stormExpeditionWithdrawRequest,
+  type StormExpeditionActionRequest,
+} from "./stormExpeditionViewModel";
+import {
+  StormExpeditionCommandMap,
+  type StormExpeditionAutoplayDisplay,
+} from "./StormExpeditionCommandMap";
+import { StormExpeditionAutoPlanDialog } from "./StormExpeditionAutoPlanDialog";
+import {
+  StormExpeditionAutoplayResultDialog,
+  type StormExpeditionAutoplayResultModel,
+} from "./StormExpeditionAutoplayResultDialog";
+import {
+  StormExpeditionNodeDialog,
+  type StormExpeditionNodeDialogAction,
+  type StormExpeditionNodeDialogModel,
+} from "./StormExpeditionNodeDialog";
+import { runStormExpeditionAutoplay } from "./stormExpeditionAutoplay";
+import {
+  clearStormExpeditionAutoplayPlan,
+  loadStormExpeditionAutoplayDefaults,
+  loadStormExpeditionResumePlan,
+  storeStormExpeditionAutoplayPlan,
+  type StormExpeditionAutoplayPlan,
+} from "./stormExpeditionAutoplayPolicy";
 
 type ActiveExpedition = {
   version: 3;
@@ -150,6 +177,15 @@ const ERROR_MESSAGES: Record<string, string> = {
   node_already_completed: "현재 체크포인트는 이미 완료했습니다. 지도에서 다음 노드를 선택해 주세요.",
 };
 
+const DEFAULT_AUTOPLAY_PLAN: StormExpeditionAutoplayPlan = {
+  version: 1,
+  mode: "normal",
+  outerRouteId: "gale",
+  middleRouteId: "gale",
+  guardianRouteId: "gale",
+  boonStrategy: "offense",
+};
+
 export function confirmStormExpeditionExit({
   mode,
   onExit,
@@ -167,6 +203,17 @@ export function confirmStormExpeditionExit({
   return true;
 }
 
+export function stormExpeditionArrivalNodeId(
+  action: StormExpeditionActionRequest["action"],
+  response: {
+    error?: string;
+    state?: { active: { currentNodeId: StormExpeditionMapNodeId } | null };
+  },
+): StormExpeditionMapNodeId | null {
+  if (response.error || (action !== "start" && action !== "move")) return null;
+  return response.state?.active?.currentNodeId ?? null;
+}
+
 export function shouldShowAcceptedRisk(
   riskEvent: StormExpeditionRiskEventOffer | null,
   nextBattleEffects: readonly string[],
@@ -174,6 +221,61 @@ export function shouldShowAcceptedRisk(
   if (riskEvent?.status !== "accepted") return false;
   return riskEvent.id !== "rift_cache"
     || nextBattleEffects.includes("risk_enemy_fury");
+}
+
+export function buildStormExpeditionAutoplayResultModel(
+  kind: "complete" | "defeated",
+  status: {
+    currentNodeId?: StormExpeditionMapNodeId;
+    nodes?: readonly { id: StormExpeditionMapNodeId; name: string }[];
+    gainedGold?: number;
+    gainedMaterials?: Record<string, number>;
+    gainedEquipment?: readonly unknown[];
+  },
+  latestActive: {
+    currentNodeId: StormExpeditionMapNodeId;
+    pendingGold: number;
+    pendingMaterials: Record<string, number>;
+    pendingEquipment: readonly unknown[];
+  } | null,
+): StormExpeditionAutoplayResultModel {
+  const reachedNodeId = status.currentNodeId ?? latestActive?.currentNodeId;
+  const reachedNodeName = status.nodes?.find((node) => node.id === reachedNodeId)?.name
+    ?? reachedNodeId
+    ?? "원정 시작점";
+  if (kind === "complete") {
+    return {
+      kind,
+      reachedNodeName,
+      rewards: compactLootSummary(
+        status.gainedGold,
+        status.gainedMaterials,
+        status.gainedEquipment,
+      ),
+    };
+  }
+  return {
+    kind,
+    reachedNodeName,
+    lostLoot: compactLootSummary(
+      latestActive?.pendingGold,
+      latestActive?.pendingMaterials,
+      latestActive?.pendingEquipment,
+    ),
+  };
+}
+
+function compactLootSummary(
+  gold: number | undefined,
+  materials: Record<string, number> | undefined,
+  equipment: readonly unknown[] | undefined,
+): string[] {
+  const lines: string[] = [];
+  if ((gold ?? 0) > 0) lines.push(`${Math.floor(gold ?? 0).toLocaleString("ko-KR")} G`);
+  const materialCount = Object.values(materials ?? {}).reduce((sum, amount) => sum + Math.max(0, amount), 0);
+  if (materialCount > 0) lines.push(`재료 ${materialCount.toLocaleString("ko-KR")}개`);
+  if ((equipment?.length ?? 0) > 0) lines.push(`장비 ${equipment?.length.toLocaleString("ko-KR")}개`);
+  return lines;
 }
 
 export function V2StormExpeditionView() {
@@ -186,7 +288,20 @@ export function V2StormExpeditionView() {
   const [loadError, setLoadError] = useState(false);
   const [skipReplay, setSkipReplay] = useState(false);
   const [selectedMode, setSelectedMode] = useState<StormExpeditionMode>("normal");
-  const [selectedNodeId, setSelectedNodeId] = useState<StormExpeditionMapNodeId | null>(null);
+  const [openNodeId, setOpenNodeId] = useState<StormExpeditionMapNodeId | null>(null);
+  const [autoPlanOpen, setAutoPlanOpen] = useState(false);
+  const [autoPlan, setAutoPlan] = useState<StormExpeditionAutoplayPlan>(() =>
+    typeof window === "undefined"
+      ? DEFAULT_AUTOPLAY_PLAN
+      : loadStormExpeditionAutoplayDefaults(window.localStorage) ?? DEFAULT_AUTOPLAY_PLAN
+  );
+  const [resumePlan, setResumePlan] = useState<StormExpeditionAutoplayPlan | null>(null);
+  const [autoplay, setAutoplay] = useState<StormExpeditionAutoplayDisplay>({ kind: "idle" });
+  const [autoplayResult, setAutoplayResult] = useState<StormExpeditionAutoplayResultModel | null>(null);
+  const stopAutoplayRef = useRef(false);
+  const autoplayRunIdRef = useRef(0);
+  const latestAutoplayActiveRef = useRef<ActiveExpedition | null>(null);
+  const storageInitializedRef = useRef(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -196,6 +311,20 @@ export function V2StormExpeditionView() {
       const json = await response.json().catch(() => null) as ExpeditionStatus | null;
       if (!json?.ok) throw new Error(json?.error ?? `http ${response.status}`);
       setStatus(json);
+      if (!storageInitializedRef.current) {
+        storageInitializedRef.current = true;
+        const activeRun = json.state?.active;
+        if (!activeRun) {
+          clearStormExpeditionAutoplayPlan(window.localStorage);
+        } else {
+          const storedPlan = loadStormExpeditionResumePlan(window.localStorage, activeRun.visitedNodeIds);
+          if (storedPlan) {
+            setAutoPlan(storedPlan);
+            setResumePlan(storedPlan);
+            setAutoplay({ kind: "resume" });
+          }
+        }
+      }
     } catch {
       setLoadError(true);
     } finally {
@@ -208,64 +337,177 @@ export function V2StormExpeditionView() {
     return () => window.clearTimeout(timer);
   }, [refresh]);
 
-  const act = useCallback(async (
-    action: "start" | "move" | "fight" | "choose" | "risk_event" | "withdraw",
-    payload?: {
-      targetNodeId?: StormExpeditionMapNodeId;
-      mode?: StormExpeditionMode;
-      choiceId?: string;
-      expectedCurrentNodeId?: StormExpeditionMapNodeId;
-      expectedEncounterIndex?: number;
-      decision?: "accept" | "decline";
-    },
-  ) => {
+  const requestAction = useCallback(async (
+    request: StormExpeditionActionRequest,
+    options: { suppressReplay?: boolean } = {},
+  ): Promise<ExpeditionStatus | null> => {
     setBusy(true);
     try {
       const response = await fetch("/api/v2/storm-expedition", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action, ...payload }),
+        body: JSON.stringify(request),
       });
       const json = await response.json().catch(() => null) as ExpeditionStatus | null;
       if (!json) {
         setResult({ ok: false, error: `http ${response.status}` });
-        return;
+        return null;
       }
       setStatus(json);
-      setResult(action === "start" ? null : skipReplay ? { ...json, replay: undefined } : json);
-      if (action === "start" || action === "move" || json.error) setSelectedNodeId(null);
+      setResult(request.action === "start"
+        ? null
+        : skipReplay || options.suppressReplay
+          ? { ...json, replay: undefined }
+          : json);
+      if (json.error) setOpenNodeId(null);
       if (json.claimedRewards) await refreshGameState();
+      if (json.failed || json.bossClear || json.practiceCompleted || json.withdrew || json.practiceEnded) {
+        clearStormExpeditionAutoplayPlan(window.localStorage);
+        setResumePlan(null);
+      }
+      return json;
     } catch {
       setResult({ ok: false, error: "network" });
+      return null;
     } finally {
       setBusy(false);
     }
   }, [refreshGameState, skipReplay]);
 
   const active = status?.state?.active ?? null;
-  const entryActions = stormExpeditionEntryActions(status?.attemptsLeft ?? 0);
+  const autoplayLocked = autoplay.kind === "running" || autoplay.kind === "stopping";
+  const displayedPlan = resumePlan ?? (autoplayLocked ? autoPlan : null);
   const isPracticeRun = active?.mode === "practice" || result?.practice === true;
   const currentNode = active ? status?.nodes?.find((node) => node.id === active.currentNodeId) ?? null : null;
-  const selectedNode = status?.nodes?.find((node) => node.id === selectedNodeId) ?? null;
-  const selectedRoute = status?.routes?.find((route) => route.id === selectedNode?.routeId) ?? null;
   const previewableNodeIds = active ? currentNode?.nextNodeIds ?? [] : status?.entranceNodeIds ?? [];
   const activeRoute = status?.routes?.find((route) => route.id === (active?.routeId ?? result?.routeId)) ?? null;
+
+  const runAutoplay = useCallback(async (plan: StormExpeditionAutoplayPlan) => {
+    if (!status || autoplayLocked) return;
+    storeStormExpeditionAutoplayPlan(window.localStorage, plan);
+    setAutoPlan(plan);
+    setSelectedMode(plan.mode);
+    setResumePlan(null);
+    setAutoPlanOpen(false);
+    setOpenNodeId(null);
+    setAutoplayResult(null);
+    setResult(null);
+    stopAutoplayRef.current = false;
+    const runId = autoplayRunIdRef.current + 1;
+    autoplayRunIdRef.current = runId;
+    latestAutoplayActiveRef.current = status.state?.active ?? null;
+    setAutoplay({ kind: "running", label: "계획 확인 중" });
+
+    const runResult = await runStormExpeditionAutoplay({
+      initialStatus: status,
+      plan,
+      request: async (request) => {
+        const response = await requestAction(request, { suppressReplay: true });
+        if (!response) throw new Error("network");
+        return response;
+      },
+      onStatus: (nextStatus, label) => {
+        if (autoplayRunIdRef.current !== runId) return;
+        const nextActive = nextStatus.state?.active;
+        if (nextActive) latestAutoplayActiveRef.current = nextActive as ActiveExpedition;
+        setAutoplay((current) => current.kind === "stopping"
+          ? { kind: "stopping", label }
+          : { kind: "running", label });
+      },
+      shouldStop: () => stopAutoplayRef.current || autoplayRunIdRef.current !== runId,
+    });
+
+    if (autoplayRunIdRef.current !== runId) return;
+    const finalStatus = runResult.status as ExpeditionStatus;
+    if (runResult.kind === "complete" || runResult.kind === "defeated") {
+      clearStormExpeditionAutoplayPlan(window.localStorage);
+      setResumePlan(null);
+      setAutoplay({ kind: "idle" });
+      setAutoplayResult(buildStormExpeditionAutoplayResultModel(
+        runResult.kind,
+        finalStatus,
+        latestAutoplayActiveRef.current,
+      ));
+      return;
+    }
+    if (runResult.kind === "conflict") {
+      clearStormExpeditionAutoplayPlan(window.localStorage);
+      setResumePlan(null);
+      setAutoplay({ kind: "error", message: runResult.message });
+      return;
+    }
+    setResumePlan(plan);
+    setAutoplay({ kind: "resume" });
+    if (runResult.kind === "stale") void refresh();
+  }, [autoplayLocked, refresh, requestAction, status]);
+
+  const stopAutoplay = useCallback(() => {
+    stopAutoplayRef.current = true;
+    setAutoplay((current) => current.kind === "running"
+      ? { kind: "stopping", label: current.label }
+      : current);
+  }, []);
+
+  const useManualProgress = useCallback(() => {
+    autoplayRunIdRef.current += 1;
+    stopAutoplayRef.current = true;
+    clearStormExpeditionAutoplayPlan(window.localStorage);
+    setResumePlan(null);
+    setAutoplay({ kind: "idle" });
+  }, []);
+
   const exitActiveExpedition = useCallback(() => {
     if (!active) return;
     confirmStormExpeditionExit({
       mode: active.mode,
-      onExit: () => void act("withdraw", {
-        expectedCurrentNodeId: active.currentNodeId,
-        expectedEncounterIndex: active.encounterIndex,
-      }),
+      onExit: () => void requestAction(stormExpeditionWithdrawRequest(active.currentNodeId, active.encounterIndex)),
     });
-  }, [act, active]);
+  }, [active, requestAction]);
   const replay = useMemo(() => result?.replay ? {
     payload: result.replay,
     outcome: result.success ? "win" as const : "lose" as const,
     playerName: result.playerName ?? "모험가",
     gender: (result.gender ?? "male1") as Gender,
   } : null, [result]);
+  const openNode = status?.nodes?.find((node) => node.id === openNodeId) ?? null;
+  const openNodeDialogModel = useMemo(() => buildStormExpeditionNodeDialogModel({
+    status,
+    active,
+    node: openNode,
+    skipReplay,
+    selectedMode,
+  }), [active, openNode, selectedMode, skipReplay, status]);
+
+  const executeManualRequest = useCallback(async (request: StormExpeditionActionRequest) => {
+    const response = await requestAction(request);
+    if (!response) return;
+    const arrivalNodeId = stormExpeditionArrivalNodeId(request.action, response);
+    if (arrivalNodeId) setOpenNodeId(arrivalNodeId);
+    if (!response.state?.active) setOpenNodeId(null);
+  }, [requestAction]);
+
+  const handleNodeAction = useCallback((action: StormExpeditionNodeDialogAction) => {
+    if (action.kind === "skip_replay") {
+      setSkipReplay(action.value);
+      return;
+    }
+    if (!openNode) return;
+    if (action.kind === "move") {
+      const request = active
+        ? stormExpeditionMoveRequest(openNode.id, active.currentNodeId, active.encounterIndex)
+        : stormExpeditionStartRequest(selectedMode, openNode.id);
+      void executeManualRequest(request);
+      return;
+    }
+    if (!active || openNode.id !== active.currentNodeId) return;
+    if (action.kind === "fight") {
+      void executeManualRequest(stormExpeditionFightRequest(active.currentNodeId, active.encounterIndex));
+    } else if (action.kind === "choose") {
+      void executeManualRequest(stormExpeditionChooseRequest(action.choiceId, active.currentNodeId, active.encounterIndex));
+    } else {
+      void executeManualRequest(stormExpeditionRiskRequest(action.decision, active.currentNodeId, active.encounterIndex));
+    }
+  }, [active, executeManualRequest, openNode, selectedMode]);
 
   return (
     <main className="mx-auto max-w-[900px] space-y-4 p-4 text-zinc-900 sm:p-6 dark:text-zinc-100">
@@ -316,50 +558,69 @@ export function V2StormExpeditionView() {
       {result?.riskEventResolved && <StatusBanner tone={result.riskEventAccepted ? "warning" : "info"}>{result.riskEventAccepted ? (isPracticeRun ? "위험 계약을 수락했습니다. 연습에서는 전투 효과와 대가만 적용됩니다." : "위험 계약을 수락했습니다. 이익과 대가가 즉시 적용됩니다.") : "위험 이벤트를 지나쳤습니다."}</StatusBanner>}
 
       {status?.unlocked && !active && !replay && (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2 px-1"><Flag size={18} className="text-sky-500" /><h2 className="font-semibold">첫 입구 · 항로 선택</h2></div>
-          <Card padding="md" className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              <button type="button" aria-pressed={selectedMode === "normal"} onClick={() => setSelectedMode("normal")} className={`rounded-md border px-4 py-2 text-sm font-semibold ${selectedMode === "normal" ? "border-sky-500 bg-sky-600 text-white" : SURFACE_INSET}`}>{entryActions.normal.label}</button>
-              <button type="button" aria-pressed={selectedMode === "practice"} onClick={() => setSelectedMode("practice")} className={`rounded-md border px-4 py-2 text-sm font-semibold ${selectedMode === "practice" ? "border-violet-500 bg-violet-600 text-white" : SURFACE_INSET}`}>{entryActions.practice.label}</button>
-              <span className="self-center text-xs text-zinc-500">{selectedMode === "practice" ? entryActions.practice.description : `오늘 ${status.attemptsLeft ?? 0}회 입장 가능`}</span>
-            </div>
-            <StormExpeditionRouteMap nodes={status.nodes ?? []} currentNodeId={null} visitedNodeIds={[]} completedNodeIds={[]} availableNodeIds={status.entranceNodeIds ?? []} selectedNodeId={selectedNodeId} onSelect={setSelectedNodeId} />
-          </Card>
-          {selectedNode && selectedRoute && (
-            <RoutePreview
-              node={selectedNode}
-              route={selectedRoute}
-              actionLabel="이 항로로 원정 시작"
-              disabled={busy || (selectedMode === "normal" ? !entryActions.normal.enabled : !entryActions.practice.enabled)}
-              onConfirm={() => {
-                const request = stormExpeditionStartRequest(selectedMode, selectedNode.id);
-                void act(request.action, request);
-              }}
+        <section className="space-y-4">
+          <StormExpeditionCommandMap
+            nodes={status.nodes ?? []}
+            active={null}
+            availableNodeIds={status.entranceNodeIds ?? []}
+            nodeCount={status.nodeCount ?? 9}
+            plan={displayedPlan}
+            autoplay={autoplay}
+            entry={{ selectedMode, attemptsLeft: status.attemptsLeft ?? 0, onModeChange: setSelectedMode }}
+            onNodeOpen={(nodeId) => {
+              if (!busy && !autoplayLocked && autoplay.kind !== "resume") setOpenNodeId(nodeId);
+            }}
+            onOpenAutoplayPlan={() => {
+              setAutoPlan((current) => ({ ...current, mode: selectedMode }));
+              setAutoPlanOpen(true);
+            }}
+            onStopAutoplay={stopAutoplay}
+            onResumeAutoplay={() => resumePlan && void runAutoplay(resumePlan)}
+            onUseManual={useManualProgress}
+          />
+          {openNodeDialogModel && (
+            <StormExpeditionNodeDialog
+              open={openNodeId !== null}
+              model={openNodeDialogModel}
+              busy={busy || autoplayLocked}
+              onAction={handleNodeAction}
+              onClose={() => setOpenNodeId(null)}
             />
           )}
         </section>
       )}
 
       {active && !replay && (
-        <div className="space-y-4">
+        <section className="space-y-4">
           {active.mode === "practice" && (
             <StatusBanner tone="info">
               <strong>연습 모드</strong> · 실전과 같은 전투와 선택을 체험하지만 입장 횟수와 보상·완주 기록은 변하지 않습니다.
             </StatusBanner>
           )}
-          <StormExpeditionActiveLayout
-            currentAction={(
-            <Card padding="md" className="space-y-3">
-              <div>
-                <p className="text-xs font-semibold text-sky-600 dark:text-sky-400">현재 체크포인트</p>
-                <h2 className="mt-0.5 text-lg font-bold">{currentNode?.name ?? "폭풍 항로"}</h2>
-                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{currentNode?.description}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-center text-sm">
-                <Metric label="HP" value={`${active.hp.toLocaleString("ko-KR")} / ${active.maxHp.toLocaleString("ko-KR")}`} />
-                <Metric label="MP" value={`${active.mp.toLocaleString("ko-KR")} / ${active.maxMp.toLocaleString("ko-KR")}`} />
-              </div>
+          <StormExpeditionCommandMap
+            nodes={status?.nodes ?? []}
+            active={active}
+            availableNodeIds={status?.availableNextNodeIds ?? []}
+            previewableNodeIds={previewableNodeIds}
+            nodeCount={status?.nodeCount ?? 9}
+            plan={displayedPlan}
+            autoplay={autoplay}
+            onNodeOpen={(nodeId) => {
+              if (!busy && !autoplayLocked && autoplay.kind !== "resume") setOpenNodeId(nodeId);
+            }}
+            onOpenAutoplayPlan={() => setAutoPlanOpen(true)}
+            onStopAutoplay={stopAutoplay}
+            onResumeAutoplay={() => resumePlan && void runAutoplay(resumePlan)}
+            onUseManual={useManualProgress}
+          />
+          <Card as="details" padding="md" className="group space-y-3" data-testid="storm-expedition-support">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm font-bold">
+              <span>{active.mode === "practice" ? "연습 안내와 적용 효과" : "전리품 가방과 적용 효과"}</span>
+              <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                {active.mode === "practice" ? "보상 없음" : `${active.pendingGold.toLocaleString("ko-KR")} G · 패배 시 소실`}
+              </span>
+            </summary>
+            <div className="space-y-3 pt-2">
               {active.boons.length > 0 && <BoonList boons={active.boons} />}
               {shouldShowAcceptedRisk(active.riskEvent, active.nextBattleEffects) && active.riskEvent && (
                 <AcceptedRisk
@@ -369,105 +630,54 @@ export function V2StormExpeditionView() {
                   practice={active.mode === "practice"}
                 />
               )}
-              {active.completedNodeIds.includes(active.currentNodeId) && (
-                <div className={`${SURFACE_INSET} p-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300`}>체크포인트 완료 · 지도에서 연결된 다음 노드를 선택하세요.</div>
-              )}
-              {currentNode?.kind === "battle" && currentNode.encounterKind && !active.completedNodeIds.includes(active.currentNodeId) && (
-                <BattleControls
-                  busy={busy}
-                  node={currentNode}
-                  encounterIndex={active.encounterIndex}
-                  lootRule={status?.lootRules?.[currentNode.encounterKind]}
-                  uniqueLootRule={status?.uniqueLootRules}
-                  equipmentChanceMultiplier={active.riskEvent?.status === "accepted" && active.riskEvent.id === "storm_contract" ? 2 : 1}
-                  goldMultiplier={active.riskEvent?.status === "accepted" && active.riskEvent.id === "golden_compass" ? 1.35 : 1}
-                  practice={active.mode === "practice"}
-                  skipReplay={skipReplay}
-                  onSkipReplay={setSkipReplay}
-                  onFight={() => void act("fight", {
-                    expectedCurrentNodeId: active.currentNodeId,
-                    expectedEncounterIndex: active.encounterIndex,
-                  })}
-                />
-              )}
-              {currentNode && currentNode.kind !== "battle" && active.riskEvent?.status === "offered" && riskCheckpointForNode(active.currentNodeId) === active.riskEvent.triggerCheckpoint && (
-                <RiskEventControls
-                  busy={busy}
-                  offer={active.riskEvent}
-                  definition={status?.riskEvents?.[active.riskEvent.id]}
-                  boon={active.riskEvent.boonId ? status?.choices?.altar.find((choice) => choice.id === active.riskEvent?.boonId) : undefined}
-                  curse={active.riskEvent.curseId ? status?.riskCurses?.[active.riskEvent.curseId] : undefined}
-                  practice={active.mode === "practice"}
-                  onDecision={(decision) => void act("risk_event", {
-                    decision,
-                    expectedCurrentNodeId: active.currentNodeId,
-                    expectedEncounterIndex: active.encounterIndex,
-                  })}
-                />
-              )}
-              {currentNode && currentNode.kind !== "battle" && !(active.riskEvent?.status === "offered" && riskCheckpointForNode(active.currentNodeId) === active.riskEvent.triggerCheckpoint) && !active.completedNodeIds.includes(active.currentNodeId) && (
-                <ChoiceControls
-                  busy={busy}
-                  kind={currentNode.kind}
-                  choices={(status?.choices?.[currentNode.kind] ?? []).filter((choice) => currentNode.kind !== "altar" || (active.altarOffers.includes(choice.id as StormExpeditionBoonId) && !active.boons.includes(choice.id as StormExpeditionBoonId)))}
-                  onChoose={(choiceId) => void act("choose", {
-                    choiceId,
-                    expectedCurrentNodeId: active.currentNodeId,
-                    expectedEncounterIndex: active.encounterIndex,
-                  })}
-                />
-              )}
-            </Card>
-            )}
-            routePlanner={(
-              <>
-                <Card padding="md" className="space-y-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div><p className="text-xs text-zinc-500">진행 중인 항로</p><div className="flex flex-wrap items-center gap-2"><h2 className="text-lg font-bold">{activeRoute?.name ?? "폭풍 항로"}</h2>{active.mode === "practice" && <PracticeBadge />}</div></div>
-                    <span className="rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">{active.visitedNodeIds.length}/{status?.nodeCount ?? 9}</span>
-                  </div>
-                  <StormExpeditionRouteMap
-                    nodes={status?.nodes ?? []}
-                    currentNodeId={active.currentNodeId}
-                    visitedNodeIds={active.visitedNodeIds}
-                    completedNodeIds={active.completedNodeIds}
-                    availableNodeIds={status?.availableNextNodeIds ?? []}
-                    previewableNodeIds={previewableNodeIds}
-                    selectedNodeId={selectedNodeId}
-                    onSelect={setSelectedNodeId}
-                  />
-                </Card>
-                {selectedNode && (
-                  <RoutePreview
-                    node={selectedNode}
-                    route={selectedRoute}
-                    actionLabel="이 노드로 이동"
-                    disabled={busy || !(status?.availableNextNodeIds ?? []).includes(selectedNode.id)}
-                    disabledReason={active.completedNodeIds.includes(active.currentNodeId) ? undefined : "현재 체크포인트를 완료하면 이동할 수 있습니다."}
-                    onConfirm={() => {
-                      const request = stormExpeditionMoveRequest(selectedNode.id, active.currentNodeId, active.encounterIndex);
-                      void act(request.action, request);
-                    }}
-                  />
-                )}
-              </>
-            )}
-            support={active.mode === "practice" ? (
-              <Card padding="md" className="space-y-3 border-violet-200 dark:border-violet-900/70">
-                <div className="flex items-center justify-between gap-2"><p className="text-sm font-bold">연습 안내</p><PracticeBadge /></div>
+              {active.mode === "practice" ? (
                 <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">연습에서는 골드·재료·장비·SP 열매가 생성되지 않으며 완주와 천장 기록도 오르지 않습니다.</p>
-                <button type="button" disabled={busy} onClick={exitActiveExpedition} className="h-10 w-full rounded-md border border-violet-400 text-sm font-semibold text-violet-700 transition hover:bg-violet-50 disabled:opacity-50 dark:border-violet-700 dark:text-violet-300 dark:hover:bg-violet-950">연습 종료</button>
-              </Card>
-            ) : (
-              <Card padding="md" className="space-y-3 border-amber-200 dark:border-amber-900/70">
-              <div className="flex items-center justify-between gap-2"><p className="text-sm font-bold">임시 전리품 가방</p><span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">패배 시 전부 소실</span></div>
-              <LootRows gold={active.pendingGold} materials={active.pendingMaterials} equipment={active.pendingEquipment} />
-              <button type="button" disabled={busy || active.defeatedCount <= 0 || active.nextBattleEffects.includes("risk_enemy_fury")} onClick={exitActiveExpedition} className="h-10 w-full rounded-md border border-amber-300 text-sm font-semibold text-amber-800 disabled:opacity-40 dark:border-amber-800 dark:text-amber-200">{active.nextBattleEffects.includes("risk_enemy_fury") ? "강화된 다음 전투 후 귀환 가능" : "지금 전리품을 확보하고 귀환"}</button>
+              ) : (
+                <LootRows gold={active.pendingGold} materials={active.pendingMaterials} equipment={active.pendingEquipment} />
+              )}
+              <button
+                type="button"
+                disabled={busy || autoplayLocked || autoplay.kind === "resume" || (active.mode === "normal" && (active.defeatedCount <= 0 || active.nextBattleEffects.includes("risk_enemy_fury")))}
+                onClick={exitActiveExpedition}
+                className="min-h-11 w-full rounded-md border border-amber-300 text-sm font-semibold text-amber-800 disabled:opacity-50 dark:border-amber-800 dark:text-amber-200"
+              >
+                {active.mode === "practice"
+                  ? "연습 종료"
+                  : active.nextBattleEffects.includes("risk_enemy_fury")
+                    ? "강화된 다음 전투 후 귀환 가능"
+                    : "지금 전리품을 확보하고 귀환"}
+              </button>
               <p className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400"><ShieldChevron size={14} /> 적 {active.defeatedCount}/7 처치 · 전투 체크포인트마다 귀환 가능</p>
-              </Card>
-            )}
-          />
-        </div>
+            </div>
+          </Card>
+          {openNodeDialogModel && (
+            <StormExpeditionNodeDialog
+              open={openNodeId !== null}
+              model={openNodeDialogModel}
+              busy={busy || autoplayLocked}
+              onAction={handleNodeAction}
+              onClose={() => setOpenNodeId(null)}
+            />
+          )}
+        </section>
+      )}
+
+      <StormExpeditionAutoPlanDialog
+        open={autoPlanOpen}
+        value={autoPlan}
+        attemptsLeft={status?.attemptsLeft ?? 0}
+        busy={autoplayLocked}
+        onChange={setAutoPlan}
+        onSubmit={() => void runAutoplay(autoPlan)}
+        onClose={() => setAutoPlanOpen(false)}
+      />
+
+      {autoplayResult && (
+        <StormExpeditionAutoplayResultDialog
+          open
+          model={autoplayResult}
+          onClose={() => setAutoplayResult(null)}
+        />
       )}
 
       {replay && (
@@ -509,126 +719,125 @@ export function V2StormExpeditionView() {
   );
 }
 
-function RoutePreview({ node, route, actionLabel, disabled, disabledReason, onConfirm }: {
-  node: StormExpeditionMapNode;
-  route: NonNullable<ExpeditionStatus["routes"]>[number] | null | undefined;
-  actionLabel: string;
-  disabled: boolean;
-  disabledReason?: string;
-  onConfirm: () => void;
-}) {
-  return (
-    <Card padding="md" className="space-y-3">
-      <div>
-        <p className="text-xs font-semibold text-sky-600 dark:text-sky-400">선택 노드 미리보기</p>
-        <h3 className="mt-1 text-lg font-bold">{node.name}</h3>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{node.description}</p>
-      </div>
-      {route && (
-        <div className={`${SURFACE_INSET} grid gap-1 p-3 text-xs sm:grid-cols-2`}>
-          <p><strong>위협</strong> · {route.threat}</p>
-          <p><strong>능력 경향</strong> · {route.statTheme}</p>
-          <p><strong>항로 재료</strong> · {V2_MATERIALS[STORM_EXPEDITION_ROUTE_MATERIAL_ID[route.id]]?.name}</p>
-          <p><strong>장비</strong> · {v2EquipCatalogTierLabel(16)} {STORM_EXPEDITION_EQUIPMENT_IDS[route.id].length}종</p>
-        </div>
-      )}
-      {disabledReason && disabled && <p className="text-xs font-medium text-amber-700 dark:text-amber-300">{disabledReason}</p>}
-      <button type="button" disabled={disabled} onClick={onConfirm} className="h-11 w-full rounded-md bg-sky-600 text-sm font-semibold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-800">{actionLabel}</button>
-    </Card>
-  );
-}
-
-function riskCheckpointForNode(nodeId: StormExpeditionMapNodeId): StormExpeditionRiskEventOffer["triggerCheckpoint"] | null {
-  if (nodeId === "supply") return "supply";
-  if (nodeId === "altar") return "altar";
-  return nodeId.endsWith("_camp") ? "camp" : null;
-}
-
-function BattleControls({ busy, node, encounterIndex, lootRule, uniqueLootRule, equipmentChanceMultiplier, goldMultiplier, practice, skipReplay, onSkipReplay, onFight }: {
-  busy: boolean;
-  node: StormExpeditionMapNode;
-  encounterIndex: number;
-  lootRule?: StormExpeditionLootRule;
-  uniqueLootRule?: StormExpeditionUniqueRule;
-  equipmentChanceMultiplier: number;
-  goldMultiplier: number;
-  practice: boolean;
+function buildStormExpeditionNodeDialogModel({
+  status,
+  active,
+  node,
+  skipReplay,
+  selectedMode,
+}: {
+  status: ExpeditionStatus | null;
+  active: ActiveExpedition | null;
+  node: StormExpeditionMapNode | null;
   skipReplay: boolean;
-  onSkipReplay: (value: boolean) => void;
-  onFight: () => void;
-}) {
-  const finalBoss = node.encounterKind === "final_boss";
-  const uniquePreview = node.encounterKind && uniqueLootRule
-    ? stormUniqueDropPreview(
-        node.encounterKind,
-        uniqueLootRule,
-        equipmentChanceMultiplier,
-      )
-    : [];
-  return (
-    <div className="space-y-3">
-      {lootRule && (
-        <div className={`${SURFACE_INSET} space-y-1 p-3 text-xs`}>
-          <p className="font-semibold">{practice ? "실전 기준 보상 미리보기" : "이번 전투 드롭"}</p>
-          {practice && <p className="font-semibold text-violet-700 dark:text-violet-300">연습에서는 아래 보상이 지급되지 않습니다.</p>}
-          <p className="text-zinc-600 dark:text-zinc-300">항로 재료 {lootRule.routeMaterialChance >= 1 ? `${lootRule.routeMaterialMin}~${lootRule.routeMaterialMax}개 확정` : formatChance(lootRule.routeMaterialChance)} · 6티어 장비 {formatChance(Math.min(1, lootRule.equipmentChance * equipmentChanceMultiplier))}</p>
-          {uniquePreview.length > 0 && (
-            <p className="font-semibold text-violet-700 dark:text-violet-300">
-              {uniquePreview.join(" · ")} · 각각 독립 굴림
-            </p>
-          )}
-          {(lootRule.originFragmentGuaranteed > 0 || lootRule.originFragmentChance > 0) && <p className="text-violet-700 dark:text-violet-300">7차 재료 {lootRule.originFragmentGuaranteed > 0 ? `${lootRule.originFragmentGuaranteed}개 이상 확정` : formatChance(lootRule.originFragmentChance)}</p>}
-          {goldMultiplier > 1 && <p className="font-semibold text-amber-700 dark:text-amber-300">황금 나침반 · 이번 골드 +{Math.round((goldMultiplier - 1) * 100)}%</p>}
-        </div>
-      )}
-      <label className="flex items-center justify-end gap-2 text-xs text-zinc-500">
-        <input type="checkbox" checked={skipReplay} onChange={(event) => onSkipReplay(event.target.checked)} className="accent-sky-600" />전투 결과 바로 보기
-      </label>
-      <button type="button" disabled={busy} onClick={onFight} className="h-11 w-full rounded-md bg-sky-600 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-50">{busy ? "전투 중..." : finalBoss ? "폭풍의 심장 도전" : (node.encounterCount ?? 1) > 1 ? `${encounterIndex + 1}전 시작` : "전투 시작"}</button>
-    </div>
-  );
+  selectedMode: StormExpeditionMode;
+}): StormExpeditionNodeDialogModel | null {
+  if (!status || !node) return null;
+  const availableNodeIds = active
+    ? status.availableNextNodeIds ?? []
+    : status.entranceNodeIds ?? [];
+  const intent = stormExpeditionNodeIntent(node.id, active, availableNodeIds, node.kind);
+  const route = status.routes?.find((candidate) => candidate.id === node.routeId) ?? null;
+
+  if (intent.kind === "move") {
+    const disabledReason = !active && selectedMode === "normal" && (status.attemptsLeft ?? 0) <= 0
+      ? "오늘의 실전 입장 횟수를 모두 사용했습니다. 연습 모드를 선택해 주세요."
+      : null;
+    return { kind: "move", node, routeName: route?.name ?? null, disabledReason };
+  }
+  if (intent.kind === "completed") {
+    const choice = node.kind === "battle"
+      ? null
+      : (() => {
+          const choiceKind = node.kind;
+          const choiceId = active?.chosenChoices[choiceKind];
+          return choiceId
+            ? status.choices?.[choiceKind]?.find((candidate) => candidate.id === choiceId) ?? null
+            : null;
+        })();
+    return {
+      kind: "completed",
+      node,
+      summary: choice
+        ? [`${choice.name} 선택 완료`, choice.description]
+        : [node.kind === "battle" ? "전투 완료" : "체크포인트 완료"],
+    };
+  }
+  if (intent.kind === "locked") {
+    return {
+      kind: "locked",
+      node,
+      reason: active
+        ? "앞선 체크포인트를 완료하고 연결된 경로로 이동해야 합니다."
+        : "먼저 외곽 항로를 선택해 원정을 시작해야 합니다.",
+    };
+  }
+  if (!active || node.id !== active.currentNodeId) return null;
+  if (intent.kind === "risk" && active.riskEvent) {
+    const definition = status.riskEvents?.[active.riskEvent.id];
+    const boon = active.riskEvent.boonId
+      ? status.choices?.altar.find((choice) => choice.id === active.riskEvent?.boonId)
+      : null;
+    const curse = active.riskEvent.curseId
+      ? status.riskCurses?.[active.riskEvent.curseId]
+      : null;
+    return {
+      kind: "risk",
+      node,
+      title: definition?.name ?? active.riskEvent.id,
+      benefit: `${definition?.description ?? "원정 이익"}${boon ? ` (${boon.name}: ${boon.description})` : ""}`,
+      cost: curse ? `${curse.name}: ${curse.description}` : definition?.cost ?? "위험 효과가 적용됩니다.",
+    };
+  }
+  if (intent.kind === "battle") {
+    const rewardLines = stormExpeditionBattleRewardLines(status, active, node);
+    return {
+      kind: "battle",
+      node,
+      encounterIndex: active.encounterIndex,
+      encounterCount: node.encounterCount ?? 1,
+      enemyName: null,
+      rewardLines,
+      skipReplay,
+    };
+  }
+  if (intent.kind === "choice" && node.kind !== "battle") {
+    const choices = (status.choices?.[node.kind] ?? []).filter((choice) =>
+      node.kind !== "altar"
+      || (active.altarOffers.includes(choice.id as StormExpeditionBoonId)
+        && !active.boons.includes(choice.id as StormExpeditionBoonId))
+    );
+    return {
+      kind: "choice",
+      node,
+      choiceKind: node.kind,
+      hp: active.hp,
+      maxHp: active.maxHp,
+      mp: active.mp,
+      maxMp: active.maxMp,
+      choices,
+    };
+  }
+  return null;
 }
 
-function ChoiceControls({ busy, kind, choices, onChoose }: { busy: boolean; kind: StormExpeditionChoiceKind; choices: StormExpeditionChoice[]; onChoose: (choiceId: string) => void }) {
-  return (
-    <div className="space-y-2">
-      <p className="text-xs font-semibold text-zinc-500">{kind === "altar" ? "제시된 축복 3개 중 하나를 선택하세요." : "한 가지를 선택하면 이 체크포인트가 완료됩니다."}</p>
-      {choices.map((choice) => (
-        <button key={choice.id} type="button" disabled={busy} onClick={() => onChoose(choice.id)} className={`${SURFACE_INSET} w-full p-3 text-left transition hover:border-sky-300 disabled:opacity-50 dark:hover:border-sky-800`}>
-          <span className="text-sm font-semibold">{choice.name}</span>
-          <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">{choice.description}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function RiskEventControls({ busy, offer, definition, boon, curse, practice, onDecision }: {
-  busy: boolean;
-  offer: StormExpeditionRiskEventOffer;
-  definition?: StormExpeditionChoice & { cost: string };
-  boon?: StormExpeditionChoice;
-  curse?: StormExpeditionChoice;
-  practice: boolean;
-  onDecision: (decision: "accept" | "decline") => void;
-}) {
-  return (
-    <div className={`${SURFACE_INSET} space-y-3 border-rose-300 p-3 dark:border-rose-900`}>
-      <div>
-        <p className="text-xs font-semibold text-rose-700 dark:text-rose-300">선택형 위험 이벤트</p>
-        <h3 className="mt-0.5 font-bold">{definition?.name ?? offer.id}</h3>
-      </div>
-      <div className="space-y-1.5 text-xs">
-        <p className="text-emerald-700 dark:text-emerald-300">이익 · {definition?.description}{boon ? ` (${boon.name}: ${boon.description})` : ""}</p>
-        <p className="text-rose-700 dark:text-rose-300">대가 · {curse ? `${curse.name}: ${curse.description}` : definition?.cost}</p>
-        {practice && offer.id !== "unstable_blessing" && <p className="font-semibold text-violet-700 dark:text-violet-300">연습에서는 보상 이익은 지급되지 않고 전투 효과와 대가만 체험합니다.</p>}
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <button type="button" disabled={busy} onClick={() => onDecision("decline")} className="h-10 rounded-md border border-zinc-300 text-sm font-semibold disabled:opacity-50 dark:border-zinc-700">지나치기</button>
-        <button type="button" disabled={busy} onClick={() => onDecision("accept")} className="h-10 rounded-md bg-rose-600 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-50">위험 감수</button>
-      </div>
-    </div>
-  );
+function stormExpeditionBattleRewardLines(
+  status: ExpeditionStatus,
+  active: ActiveExpedition,
+  node: StormExpeditionMapNode,
+): string[] {
+  if (!node.encounterKind) return [];
+  const lootRule = status.lootRules?.[node.encounterKind];
+  if (!lootRule) return [];
+  const equipmentMultiplier = active.riskEvent?.status === "accepted" && active.riskEvent.id === "storm_contract" ? 2 : 1;
+  const lines = [
+    active.mode === "practice" ? "연습 모드 · 보상 지급 없음" : "이번 전투 예상 보상",
+    `항로 재료 ${lootRule.routeMaterialChance >= 1 ? `${lootRule.routeMaterialMin}~${lootRule.routeMaterialMax}개 확정` : formatChance(lootRule.routeMaterialChance)} · 6티어 장비 ${formatChance(Math.min(1, lootRule.equipmentChance * equipmentMultiplier))}`,
+  ];
+  if (status.uniqueLootRules) {
+    lines.push(...stormUniqueDropPreview(node.encounterKind, status.uniqueLootRules, equipmentMultiplier));
+  }
+  return lines;
 }
 
 function AcceptedRisk({ offer, definition, curse, practice }: {
@@ -660,10 +869,6 @@ function BoonList({ boons }: { boons: StormExpeditionBoonId[] }) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return <div className={`${SURFACE_INSET} px-2 py-2.5`}><p className="text-[11px] text-zinc-500">{label}</p><p className="mt-0.5 font-semibold tabular-nums">{value}</p></div>;
-}
-
-function PracticeBadge() {
-  return <span className="rounded-full bg-violet-100 px-2 py-1 text-[10px] font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300">연습 모드</span>;
 }
 
 function SpFruitProgress({ reward, pity, obtained }: {

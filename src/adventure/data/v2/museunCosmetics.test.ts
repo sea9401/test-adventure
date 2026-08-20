@@ -376,14 +376,14 @@ describe("무슨 코인 기간제 꾸미기", () => {
     expect(odds.reduce((sum, entry) => sum + entry.probabilityPct, 0)).toBeCloseTo(
       100,
     );
-    const granted = grantChromaName(before, "solar");
+    const granted = grantChromaName(before, "solar", NOW);
     expect(granted.chromaNames).toContain("solar");
     expect(granted.equippedChromaName).toBe("solar");
-    expect(equipChromaName(granted, "aurora")?.equippedChromaName).toBe(
+    expect(equipChromaName(granted, "aurora", NOW)?.equippedChromaName).toBe(
       "aurora",
     );
-    expect(equipChromaName(granted, "royal")).toBeNull();
-    const unequipped = equipChromaName(granted, null);
+    expect(equipChromaName(granted, "royal", NOW)).toBeNull();
+    const unequipped = equipChromaName(granted, null, NOW);
     expect(parseMuseunCosmetics(unequipped).equippedChromaName).toBeNull();
   });
 

@@ -59,12 +59,23 @@ describe("production codex mastery catalog", () => {
     });
   });
 
-  it("keeps each standard-stage category within one percent of 10,000 points", () => {
-    for (const report of Object.values(CODEX_MASTERY_BUDGET_REPORT)) {
+  it("keeps published v1 weights stable while category catalogs grow", () => {
+    for (const [category, report] of Object.entries(CODEX_MASTERY_BUDGET_REPORT)) {
+      if (category === "job") continue;
       expect(report.scoreMilli).toBeGreaterThanOrEqual(9_900_000);
       expect(report.scoreMilli).toBeLessThanOrEqual(10_100_000);
       expect(report.entries).toBeGreaterThan(0);
     }
+
+    const jobEntries = V2_JOB_LIST.filter((job) => job.tier > 0).length;
+    expect(CODEX_MASTERY_CATALOG.get("job", "warrior")).toMatchObject({
+      scoreWeightMilli: 3_392,
+      compatibleScoreWeightsMilli: [3_294],
+    });
+    expect(CODEX_MASTERY_BUDGET_REPORT.job).toEqual({
+      entries: jobEntries,
+      scoreMilli: jobEntries * 22 * 3_392,
+    });
   });
 
   it("maps legacy monster display names to one stable mastery entry", () => {
@@ -77,6 +88,8 @@ describe("production codex mastery catalog", () => {
   it("freezes generated definitions and exposes server-provable seals", () => {
     const fish = CODEX_MASTERY_CATALOG.get("fish", "crucian_carp")!;
     expect(Object.isFrozen(fish)).toBe(true);
+    const job = CODEX_MASTERY_CATALOG.get("job", "warrior")!;
+    expect(Object.isFrozen(job.compatibleScoreWeightsMilli)).toBe(true);
     expect(Object.keys(fish.seals)).toEqual([
       "giant", "legendary_print", "night_catch",
     ]);

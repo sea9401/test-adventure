@@ -50,6 +50,24 @@ export function validateCodexMasteryDefinition(
   if (!Number.isSafeInteger(definition.scoreWeightMilli) || definition.scoreWeightMilli <= 0) {
     return "scoreWeightMilli must be a positive safe integer";
   }
+  if (definition.compatibleScoreWeightsMilli !== undefined) {
+    if (!Array.isArray(definition.compatibleScoreWeightsMilli)) {
+      return "compatibleScoreWeightsMilli must be an array";
+    }
+    const compatibleWeights = new Set<number>();
+    for (const weight of definition.compatibleScoreWeightsMilli) {
+      if (!Number.isSafeInteger(weight) || weight <= 0) {
+        return "compatible score weights must be positive safe integers";
+      }
+      if (weight >= definition.scoreWeightMilli) {
+        return "compatible score weights must be lower than scoreWeightMilli";
+      }
+      if (compatibleWeights.has(weight)) {
+        return "compatible score weights must be unique";
+      }
+      compatibleWeights.add(weight);
+    }
+  }
 
   let previousThreshold = 0;
   if (!Object.hasOwn(definition, "thresholds")) {

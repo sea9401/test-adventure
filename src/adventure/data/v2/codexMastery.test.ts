@@ -136,6 +136,25 @@ describe("codex mastery transition", () => {
     )).toThrow("unknown seal");
   });
 
+  it("accepts only unique lower historical score weights", () => {
+    expect(validateCodexMasteryDefinition({
+      ...FISH,
+      compatibleScoreWeightsMilli: [900],
+    })).toBeNull();
+    expect(validateCodexMasteryDefinition({
+      ...FISH,
+      compatibleScoreWeightsMilli: [0],
+    })).toContain("positive safe integers");
+    expect(validateCodexMasteryDefinition({
+      ...FISH,
+      compatibleScoreWeightsMilli: [1_000],
+    })).toContain("lower than scoreWeightMilli");
+    expect(validateCodexMasteryDefinition({
+      ...FISH,
+      compatibleScoreWeightsMilli: [900, 900],
+    })).toContain("unique");
+  });
+
   it("rounds milli-points only for display", () => {
     expect(displayCodexMasteryScore(10_499)).toBe(10);
     expect(displayCodexMasteryScore(10_500)).toBe(11);

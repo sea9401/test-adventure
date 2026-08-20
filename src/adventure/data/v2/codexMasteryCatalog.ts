@@ -18,6 +18,9 @@ function cloneDefinition(
   definition: CodexMasteryEntryDefinition,
 ): CodexMasteryEntryDefinition {
   const thresholds = Object.freeze({ ...definition.thresholds });
+  const compatibleScoreWeightsMilli = definition.compatibleScoreWeightsMilli === undefined
+    ? undefined
+    : Object.freeze([...definition.compatibleScoreWeightsMilli]);
   const seals = Object.freeze(
     Object.fromEntries(
       Object.entries(definition.seals).map(([sealId, seal]) => [
@@ -30,6 +33,7 @@ function cloneDefinition(
   return Object.freeze({
     ...definition,
     thresholds,
+    compatibleScoreWeightsMilli,
     seals,
   });
 }

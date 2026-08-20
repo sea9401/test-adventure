@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Client, Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -20,6 +20,7 @@ import {
 } from "@/db/schema";
 import { scheduleCodexResearchSeason } from "./codexResearchRepository";
 import { recordCodexResearchGameplayBatch } from "./codexResearchService";
+import { settleCodexResearchSeason } from "./codexResearchSettlement";
 import { recordCodexMastery } from "./codexMasteryService";
 
 const databaseUrl = process.env.CODEX_MASTERY_POSTGRES_TEST_DATABASE_URL;
@@ -47,7 +48,9 @@ const ENABLED = {
   trophiesEnabled: false,
 };
 
-function researchDefinition(): CodexResearchDefinitionSnapshot {
+function researchDefinition(
+  seasonId = "2026-08",
+): CodexResearchDefinitionSnapshot {
   const groups: Array<[
     CodexResearchObjective["group"],
     number,
@@ -60,8 +63,8 @@ function researchDefinition(): CodexResearchDefinitionSnapshot {
   ];
   return {
     version: 1,
-    seasonId: "2026-08",
-    themeId: "postgres-rivers",
+    seasonId,
+    themeId: `postgres-rivers-${seasonId}`,
     themeName: "PostgreSQL 강과 호수의 달",
     primaryCategories: ["fish", "life"],
     supportCategory: "cooking",
@@ -128,12 +131,28 @@ describeWithDatabase("codex mastery PostgreSQL transaction integration", () => {
     await admin.connect();
     await admin.query(`CREATE SCHEMA "${isolatedSchema}"`);
     await admin.query(`SET search_path TO "${isolatedSchema}"`);
-    await admin.query("CREATE TABLE users (id text PRIMARY KEY)");
+    await admin.query(`
+      CREATE TABLE users (
+        id text PRIMARY KEY,
+        email text,
+        game_name text,
+        banned_until timestamp
+      )
+    `);
+    await admin.query(`
+      CREATE TABLE saves_kv (
+        user_id text NOT NULL,
+        key text NOT NULL,
+        value jsonb NOT NULL,
+        PRIMARY KEY (user_id, key)
+      )
+    `);
 
     for (const migrationName of [
       "0169_codex_mastery_foundation.sql",
       "0170_codex_mastery_trophy_history.sql",
       "0171_wandering_scrambler.sql",
+      "0172_codex_research_settlement.sql",
     ]) {
       const migration = await readFile(
         new URL(`../../../drizzle/${migrationName}`, import.meta.url),
@@ -376,5 +395,116 @@ describeWithDatabase("codex mastery PostgreSQL transaction integration", () => {
       .select()
       .from(codexResearchProgress)
       .where(eq(codexResearchProgress.userId, endedUserId))).toEqual([]);
+  }, 30_000);
+
+  it("serializes monthly settlement and rolls final ranks back with its transaction", async () => {
+    const settledDefinition = researchDefinition("2026-09");
+    const userIds = Array.from(
+      { length: 12 },
+      (_, index) => `settlement-user-${String(index + 1).padStart(2, "0")}`,
+    );
+    for (const [index, userId] of userIds.entries()) {
+      await admin.query(
+        "INSERT INTO users (id, email, game_name) VALUES ($1, $2, $3)",
+        [userId, `${userId}@example.com`, `연구자 ${index + 1}`],
+      );
+    }
+    await database.transaction((tx) => scheduleCodexResearchSeason(
+      tx,
+      settledDefinition,
+      new Date("2026-08-20T00:00:00.000Z"),
+    ));
+    await database.insert(codexResearchProgress).values(userIds.map(
+      (userId, index) => ({
+        userId,
+        seasonId: settledDefinition.seasonId,
+        score: 18_000,
+        objectiveProgress: {
+          objectives: {},
+          diversityEntries: {},
+          recordValues: {},
+        },
+        objectiveCompletedCount: 18,
+        diversityScore: 3_000,
+        recordScore: 3_000,
+        scoreReachedAt: new Date(`2026-09-20T00:00:${String(index).padStart(2, "0")}.000Z`),
+        representativeRecord: null,
+        updatedAt: new Date("2026-09-20T00:01:00.000Z"),
+      }),
+    ));
+    const settlementInput = {
+      seasonId: settledDefinition.seasonId,
+      now: new Date("2026-09-30T15:00:00.000Z"),
+      adminEmails: [] as string[],
+    };
+
+    const results = await Promise.all([
+      database.transaction((tx) => settleCodexResearchSeason(tx, settlementInput)),
+      database.transaction((tx) => settleCodexResearchSeason(tx, settlementInput)),
+    ]);
+    expect(results.map((result) => result.status).sort()).toEqual([
+      "already_closed",
+      "settled",
+    ]);
+    const finals = await database
+      .select({
+        userId: codexResearchProgress.userId,
+        finalRank: codexResearchProgress.finalRank,
+        finalTier: codexResearchProgress.finalTier,
+      })
+      .from(codexResearchProgress)
+      .where(eq(codexResearchProgress.seasonId, settledDefinition.seasonId))
+      .orderBy(asc(codexResearchProgress.finalRank));
+    expect(finals.map(({ finalRank }) => finalRank)).toEqual(
+      Array.from({ length: 12 }, (_, index) => index + 1),
+    );
+    expect(finals.slice(0, 3).every(({ finalTier }) => finalTier === "legendary"))
+      .toBe(true);
+    expect(finals.slice(3, 10).every(({ finalTier }) => finalTier === "diamond"))
+      .toBe(true);
+    expect(finals.slice(10).every(({ finalTier }) => finalTier === "platinum"))
+      .toBe(true);
+
+    const rollbackDefinition = researchDefinition("2026-10");
+    const rollbackUserId = "settlement-rollback-user";
+    await admin.query(
+      "INSERT INTO users (id, email, game_name) VALUES ($1, $2, $3)",
+      [rollbackUserId, "settlement-rollback@example.com", "롤백 연구자"],
+    );
+    await database.transaction((tx) => scheduleCodexResearchSeason(
+      tx,
+      rollbackDefinition,
+      new Date("2026-09-20T00:00:00.000Z"),
+    ));
+    await database.insert(codexResearchProgress).values({
+      userId: rollbackUserId,
+      seasonId: rollbackDefinition.seasonId,
+      score: 4_000,
+      objectiveProgress: { objectives: {}, diversityEntries: {}, recordValues: {} },
+      objectiveCompletedCount: 1,
+      diversityScore: 0,
+      recordScore: 0,
+      scoreReachedAt: new Date("2026-10-20T00:00:00.000Z"),
+      representativeRecord: null,
+      updatedAt: new Date("2026-10-20T00:00:00.000Z"),
+    });
+    await expect(database.transaction(async (tx) => {
+      await settleCodexResearchSeason(tx, {
+        seasonId: rollbackDefinition.seasonId,
+        now: new Date("2026-10-31T15:00:00.000Z"),
+        adminEmails: [],
+      });
+      throw new Error("settlement rollback sentinel");
+    })).rejects.toThrow("settlement rollback sentinel");
+    const [rolledBackSeason] = await database
+      .select()
+      .from(codexResearchSeasons)
+      .where(eq(codexResearchSeasons.seasonId, rollbackDefinition.seasonId));
+    const [rolledBackProgress] = await database
+      .select()
+      .from(codexResearchProgress)
+      .where(eq(codexResearchProgress.seasonId, rollbackDefinition.seasonId));
+    expect(rolledBackSeason).toMatchObject({ status: "scheduled", settledAt: null });
+    expect(rolledBackProgress).toMatchObject({ finalRank: null, finalTier: null });
   }, 30_000);
 });

@@ -278,7 +278,7 @@ test("폭풍 원정을 모바일 지도와 노드 모달에서 직접 진행한�
   await expect(map).toBeVisible();
   await map.getByRole("button", { name: /칼바람 외곽, 이동 가능/ }).click();
   const nodeDialog = page.getByRole("dialog", { name: "칼바람 외곽" });
-  await expect(nodeDialog).toContainText("경로 이동 확인");
+  await expect(nodeDialog).toContainText("다음 경로 확인");
   await nodeDialog.getByRole("button", { name: "이 경로로 이동" }).click();
   await expect(nodeDialog.getByRole("button", { name: "전투 시작" })).toBeVisible();
 

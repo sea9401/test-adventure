@@ -27,7 +27,7 @@ const directCoef = (skillId: V2SkillId): number =>
     0,
   );
 
-describe("내부 7차 전투 패키지", () => {
+describe("7차 전투 패키지", () => {
   const packages = {
     shadowblade: [
       "v2c_shadowblade_afterimage",
@@ -87,12 +87,12 @@ describe("내부 7차 전투 패키지", () => {
     }
   });
 
-  it("keeps internal packages out of every selectable job pool", () => {
+  it("공개된 네 7차의 선택 가능한 직업 풀에 패키지를 연결한다", () => {
     const selectableSkills = new Set(
       V2_JOB_LIST.flatMap((job) => skillsForJob(job.id)),
     );
     for (const ids of Object.values(packages)) {
-      for (const id of ids) expect(selectableSkills.has(id)).toBe(false);
+      for (const id of ids) expect(selectableSkills.has(id)).toBe(true);
     }
   });
 

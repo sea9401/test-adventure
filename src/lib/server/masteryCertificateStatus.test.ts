@@ -32,4 +32,22 @@ describe("masteryCertificateStatusFromSaves", () => {
         .certificates,
     ).toBe(0);
   });
+
+  it("7차는 첫 전직 성공 이력이 있어야 숙련 증서 대상으로 제공한다", () => {
+    const candidate = {
+      points: 0,
+      groups: {},
+      jobCumLevel: { swordsaint: 100_000, blackmoon: 100_000 },
+      jobHistory: [] as string[],
+      caps: {},
+      grown: {},
+    };
+
+    const before = masteryCertificateStatusFromSaves({}, candidate, {});
+    expect(before.jobs.some((job) => job.id === "shadowblade")).toBe(false);
+
+    candidate.jobHistory = ["shadowblade"];
+    const after = masteryCertificateStatusFromSaves({}, candidate, {});
+    expect(after.jobs.some((job) => job.id === "shadowblade")).toBe(true);
+  });
 });

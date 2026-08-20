@@ -30,8 +30,8 @@ import {
 import {
   LEGACY_CLASS_SPEC_BY_JOB,
   V2_JOB_LIST,
+  isJobContentUnlocked,
   isLifestyleMasteryJobId,
-  isJobUnlocked,
   isRootJobSelectable,
 } from "@/adventure/data/v2/v2JobCatalog";
 import { parseProficiencyForChar } from "@/adventure/data/v2/proficiency";
@@ -123,7 +123,7 @@ export async function GET() {
       job.id !== "none" &&
       !isLifestyleMasteryJobId(job.id) &&
       isRootJobSelectable(job) &&
-      isJobUnlocked(job, prof),
+      isJobContentUnlocked(job, prof),
   ).map((job) => ({
     id: job.id,
     name: job.name,

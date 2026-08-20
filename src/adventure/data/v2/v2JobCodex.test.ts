@@ -18,14 +18,24 @@ function profWith(groups: Record<string, number>): V2ProficiencyState {
 }
 
 describe("buildJobCodex", () => {
-  it("does not publish internal tier-7 jobs before their profiles are approved", () => {
-    const ids = new Set(
-      buildJobCodex(emptyProficiency(), [], "warrior", null).jobs.map(
-        (job) => job.id,
-      ),
-    );
+  it("7차는 목록에 공개하되 첫 전직 성공 뒤에만 도감 해금으로 센다", () => {
+    const candidate = emptyProficiency();
+    candidate.jobCumLevel = { swordsaint: 100_000, blackmoon: 100_000 };
+    const before = buildJobCodex(candidate, [], "warrior", "swordsaint");
 
-    for (const jobId of TIER7_COMBAT_JOB_IDS) expect(ids.has(jobId)).toBe(false);
+    expect(before.jobs.find((job) => job.id === "shadowblade")).toMatchObject({
+      unlocked: false,
+      skillsTotal: 3,
+    });
+    expect(
+      before.jobs.filter((job) => job.tier === 7).map((job) => job.id),
+    ).toEqual([...TIER7_COMBAT_JOB_IDS]);
+
+    candidate.jobHistory = ["shadowblade"];
+    const after = buildJobCodex(candidate, [], "warrior", "swordsaint");
+    expect(after.jobs.find((job) => job.id === "shadowblade")?.unlocked).toBe(
+      true,
+    );
   });
 
   it("전체 직업 목록 + unlocked 상태 + totalJobs=전체 + 폐지 필드 없음 + condition 포함", () => {

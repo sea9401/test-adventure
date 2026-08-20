@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const harness = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
@@ -102,10 +102,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 }));
 
 import { POST } from "@/app/api/v2/me/advance-class/route";
-import {
-  LEGACY_CLASS_SPEC_BY_JOB,
-  V2_JOB_CATALOG,
-} from "@/adventure/data/v2/v2JobCatalog";
+import { LEGACY_CLASS_SPEC_BY_JOB } from "@/adventure/data/v2/v2JobCatalog";
 
 function advanceReq(targetJobId: string): Request {
   return new Request("http://t/api/v2/me/advance-class", {
@@ -167,27 +164,7 @@ function proficiency(): Record<string, unknown> {
 beforeEach(() => {
   harness.failUpsertKey = null;
   harness.mutex = Promise.resolve();
-  V2_JOB_CATALOG.shadowblade = {
-    id: "shadowblade",
-    name: "무영검신",
-    tier: 7,
-    cultivateProfile: { luk: 1 },
-    jobBonus: { luk: 1 },
-    unlock: {
-      prereqs: { swordsaint: 100_000, blackmoon: 100_000 },
-    },
-  };
-  LEGACY_CLASS_SPEC_BY_JOB.shadowblade = {
-    class: "rogue",
-    spec: "shadowblade",
-  };
-});
-
-afterEach(() => {
-  delete V2_JOB_CATALOG.shadowblade;
-  delete LEGACY_CLASS_SPEC_BY_JOB.shadowblade;
   harness.store.clear();
-  harness.failUpsertKey = null;
 });
 
 describe("advance-class tier 7 first unlock", () => {
@@ -198,7 +175,7 @@ describe("advance-class tier 7 first unlock", () => {
 
     expect(response.status).toBe(200);
     expect(character()).toMatchObject({
-      class: "rogue",
+      class: "warrior",
       specChoice: "shadowblade",
       level: 1,
       materials: { v2_storm_origin_fragment: 5 },
@@ -275,6 +252,6 @@ describe("advance-class tier 7 first unlock", () => {
 
     expect(response.status).toBe(200);
     expect(character().materials).toEqual({});
-    expect(character()).toMatchObject({ class: "rogue", specChoice: "shadowblade" });
+    expect(character()).toMatchObject({ class: "warrior", specChoice: "shadowblade" });
   });
 });

@@ -28,6 +28,7 @@ import {
   CATALOG_USES_MINING_LEVEL_CONDITION,
   jobIdFromLegacy,
   isJobUnlocked,
+  isJobContentUnlocked,
   isDirectNextJob,
   isJobUnlockConditionRevealed,
   isVisitedJob,
@@ -261,22 +262,24 @@ describe("jobUnlockSpBonus", () => {
       }
     }
 
-    expect(
-      jobUnlockSpBonus(proficiency, {
-        completedQuestIds,
-        killCounts,
-        farmingLevel: 1_000,
-        cookingLevel: 1_000,
-        woodcuttingLevel: 1_000,
-        miningLevel: 1_000,
-      }),
-    ).toBe(92);
+    const ctx = {
+      completedQuestIds,
+      killCounts,
+      farmingLevel: 1_000,
+      cookingLevel: 1_000,
+      woodcuttingLevel: 1_000,
+      miningLevel: 1_000,
+    };
+    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(92);
+
+    proficiency.jobHistory = [...TIER7_COMBAT_JOB_IDS];
+    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(94);
   });
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("빙결술사·빙천제와 수인 2~6차를 포함한 137개 직업을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(137);
+  it("빙결술사·빙천제, 수인 2~6차와 선공개 7차를 포함한 141개 직업을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(141);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(3);
     expect(byTier(1)).toBe(6);
@@ -285,6 +288,7 @@ describe("v2JobCatalog 구조", () => {
     expect(byTier(4)).toBe(31);
     expect(byTier(5)).toBe(26);
     expect(byTier(6)).toBe(26);
+    expect(byTier(7)).toBe(4);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -320,16 +324,89 @@ describe("스탯 맵 무결성", () => {
     ["jobBonus", job.jobBonus] as const,
 ];
 
-describe("unreleased tier-7 boundary", () => {
-  it("keeps internal tier-7 jobs outside every selectable catalog surface", () => {
-    const unlocked = new Set(unlockedJobs(emptyProficiency()).map((job) => job.id));
+describe("released tier-7 boundary", () => {
+  const released = [
+    {
+      id: "shadowblade",
+      name: "무영검신",
+      cultivateProfile: { luk: 4, dex: 2, str: 1 },
+      jobBonus: { luk: 32, dex: 10, str: 6 },
+      prereqs: { swordsaint: 100_000, blackmoon: 100_000 },
+      legacy: { class: "warrior", spec: "shadowblade" },
+    },
+    {
+      id: "ruinblade",
+      name: "멸검제",
+      cultivateProfile: { str: 4, vit: 2, luk: 1 },
+      jobBonus: { str: 34, vit: 10, luk: 4 },
+      prereqs: { swordsaint: 100_000, hegemon: 100_000 },
+      legacy: { class: "warrior", spec: "ruinblade" },
+    },
+    {
+      id: "skyascendant",
+      name: "비천무신",
+      cultivateProfile: { dex: 4, str: 2, luk: 1 },
+      jobBonus: { dex: 32, str: 10, luk: 6 },
+      prereqs: { heavenlybow: 100_000, celestialdragon: 100_000 },
+      legacy: { class: "rogue", spec: "skyascendant" },
+    },
+    {
+      id: "primordialsage",
+      name: "태초현자",
+      cultivateProfile: { int: 4, spi: 3 },
+      jobBonus: { int: 32, spi: 16 },
+      prereqs: { archmage: 100_000, primordialmage: 100_000 },
+      legacy: { class: "mage", spec: "primordialsage" },
+    },
+  ] as const;
 
-    for (const jobId of TIER7_COMBAT_JOB_IDS) {
-      expect(V2_JOB_CATALOG[jobId]).toBeUndefined();
-      expect(V2_JOB_LIST.some((job) => job.id === jobId)).toBe(false);
-      expect(LEGACY_CLASS_SPEC_BY_JOB[jobId]).toBeUndefined();
-      expect(unlocked.has(jobId)).toBe(false);
-    }
+  it.each(released)(
+    "$name을 승인된 능력치와 호환 매핑으로 공개한다",
+    ({ id, name, cultivateProfile, jobBonus, prereqs, legacy }) => {
+      const job = V2_JOB_CATALOG[id];
+      expect(job).toMatchObject({
+        id,
+        name,
+        tier: 7,
+        cultivateProfile,
+        jobBonus,
+        unlock: { prereqs },
+      });
+      expect(LEGACY_CLASS_SPEC_BY_JOB[id]).toEqual(legacy);
+      expect(jobIdFromLegacy(legacy.class, legacy.spec)).toBe(id);
+      expect(effectiveCultivateProfile(legacy.class, id)).toEqual(
+        cultivateProfile,
+      );
+    },
+  );
+
+  it("승인된 네 직업 외의 7차는 공개하지 않는다", () => {
+    expect(V2_JOB_LIST.filter((job) => job.tier === 7).map((job) => job.id)).toEqual([
+      "shadowblade",
+      "ruinblade",
+      "skyascendant",
+      "primordialsage",
+    ]);
+    expect(TIER7_COMBAT_JOB_IDS).toEqual([
+      "shadowblade",
+      "ruinblade",
+      "skyascendant",
+      "primordialsage",
+    ]);
+  });
+
+  it("선행 숙련도와 첫 전직 성공을 서로 다른 해금 경계로 취급한다", () => {
+    const candidate = profJobs({ swordsaint: 100_000, blackmoon: 100_000 });
+    const shadowblade = V2_JOB_CATALOG.shadowblade;
+
+    expect(isJobUnlocked(shadowblade, candidate)).toBe(true);
+    expect(isJobContentUnlocked(shadowblade, candidate)).toBe(false);
+
+    candidate.jobHistory = ["shadowblade"];
+    expect(isJobContentUnlocked(shadowblade, candidate)).toBe(true);
+
+    const ordinary = profWith({ warrior: TIER2_UNLOCK_CUMLEVEL });
+    expect(isJobContentUnlocked(V2_JOB_CATALOG.squire, ordinary)).toBe(true);
   });
 });
 

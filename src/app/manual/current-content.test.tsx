@@ -15,8 +15,42 @@ import { SkillsContent } from "./content/skills";
 import { StatsContent } from "./content/stats";
 import { TownContent } from "./content/town";
 import { CompendiumContent } from "./content/compendium";
+import { CoopContent } from "./content/coop";
 
 describe("최신 게임 안내서 내용", () => {
+  it("협동 보스 공격 비용과 단방향 전체 공개 규칙을 안내한다", () => {
+    const html = renderToStaticMarkup(<CoopContent />);
+
+    expect(html).toContain("스태미나");
+    expect(html).toContain(">20<");
+    expect(html).toContain("10초");
+    expect(html).toContain("나만");
+    expect(html).toContain("전체 공개한 뒤에는 다시 범위를 줄일 수 없습니다");
+    expect(html).not.toContain("공격에는 별도 비용이 들지 않습니다");
+  });
+
+  it("공개된 7차 전직 4종의 최초 해금 조건과 영구 해금을 안내한다", () => {
+    const html = renderToStaticMarkup(<JobsContent />);
+
+    expect(html).toContain("7차 전직");
+    expect(html).toContain("무영검신");
+    expect(html).toContain("멸검제");
+    expect(html).toContain("비천무신");
+    expect(html).toContain("태초현자");
+    expect(html).toContain("100,000");
+    expect(html).toContain("폭풍 기원의 파편");
+    expect(html).toContain("30개");
+    expect(html).toContain("영구 해금");
+  });
+
+  it("전직 이력이 있는 전투 직업을 골라 수행할 수 있다고 안내한다", () => {
+    const html = renderToStaticMarkup(<JobsContent />);
+
+    expect(html).toContain("전직 이력이 있는 전투 직업");
+    expect(html).toContain("현재 직업과 달라도");
+    expect(html).toContain("수행 성장 직업");
+  });
+
   it("정신의 마법 공격 보조와 초과 정신 추가 전환을 안내한다", () => {
     const stats = renderToStaticMarkup(<StatsContent />);
     const combat = renderToStaticMarkup(<CombatContent />);

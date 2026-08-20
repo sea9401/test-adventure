@@ -5,7 +5,18 @@ import {
   TIER4_UNLOCK_CUMLEVEL,
   TIER5_UNLOCK_CUMLEVEL,
   TIER6_UNLOCK_CUMLEVEL,
+  jobById,
 } from "@/adventure/data/v2/v2JobCatalog";
+import {
+  TIER7_COMBAT_JOB_IDS,
+  TIER7_COMBAT_JOB_NAMES,
+  TIER7_COMBAT_JOB_PREREQS,
+} from "@/adventure/data/v2/tier7Jobs";
+import {
+  TIER7_FIRST_UNLOCK_LEVEL,
+  TIER7_FIRST_UNLOCK_MATERIAL_COST,
+  TIER7_PREREQUISITE_MASTERY,
+} from "@/adventure/data/v2/tier7Advancement";
 import {
   buildJobRoadmap,
   type JobRoadmapNode as RoadmapNode,
@@ -22,6 +33,12 @@ import { H2, P, UL, Em, Table, Note } from "./primitives";
 import { JobRoadmapScroller } from "./JobRoadmapScroller";
 
 const MASTERY_TOWER_SAMPLE_FLOORS = [10, 20, 30];
+const TIER7_ROWS = TIER7_COMBAT_JOB_IDS.map((jobId) => [
+  TIER7_COMBAT_JOB_NAMES[jobId],
+  TIER7_COMBAT_JOB_PREREQS[jobId]
+    .map((prerequisiteId) => jobById(prerequisiteId)?.name ?? prerequisiteId)
+    .join(" + "),
+]);
 
 export function JobsContent() {
   return (
@@ -56,10 +73,9 @@ export function JobsContent() {
           있습니다. 자세한 내용은 <Em>스킬</Em>에서 확인할 수 있습니다.
         </li>
         <li>
-          <Em>최상위 직업의 고유 특성</Em> — 최상위 직업에는 계열의 전투 방식을
-          강화하는 고유 특성이 있습니다. 검성·천궁은 주력 공격을 강화하고,
-          태초술사는 원소 효과를 조율합니다. 흑월은 치명타 한계 초과분을 스킬에도
-          반영합니다.
+          <Em>고차 직업의 고유 특성</Em> — 6차와 7차 전투 직업에는 계열의 전투
+          방식을 강화하는 고유 특성이 있습니다. 정확한 발동 조건과 PvE·PvP 차이는
+          각 직업과 스킬 상세에서 확인합니다.
         </li>
       </UL>
       <P>
@@ -72,8 +88,8 @@ export function JobsContent() {
         <Em>수행 화면</Em>(캐릭터 → 성장의 신전)의 직업 사다리에서 전직합니다.
         전투 직업은 전투 레벨 {V2_LEVEL_CAP}이 필요하지만,
         <Em>낚시·농사·요리·벌목·채광 계열</Em>은 캐릭터 레벨 제한 없이 생활 숙련
-        조건을 갖추면 상위 직업으로 전직할 수 있습니다. 전직에 골드는 들지
-        않습니다.
+        조건을 갖추면 상위 직업으로 전직할 수 있습니다. 전직에 골드는 들지 않지만,
+        7차 최초 해금에는 별도 재료가 필요합니다.
       </P>
       <P>
         상위 직업은 <Em>바로 아래 직업의 숙련도</Em>가 게이트를 넘으면 열립니다.
@@ -82,6 +98,24 @@ export function JobsContent() {
         {TIER5_UNLOCK_CUMLEVEL} → {TIER6_UNLOCK_CUMLEVEL}). 일부 상위 직업은
         두 계보를 합친 <Em>하이브리드</Em>라 양쪽을 모두 키워야 열립니다(예:
         성기사 = 기사 + 사제).
+      </P>
+      <H2>7차 전직</H2>
+      <P>
+        현재 공개된 7차 전투 직업은 두 6차 계보를 결합합니다. 최초 해금하려면 두
+        선행 직업의 숙련도가 <Em>각각 {TIER7_PREREQUISITE_MASTERY.toLocaleString("ko-KR")}</Em>
+        이상이어야 하며, 두
+        선행 직업 중 하나로 레벨 <Em>{TIER7_FIRST_UNLOCK_LEVEL}</Em>에 도달해야 합니다.
+      </P>
+      <Table
+        head={["7차 직업", "선행 6차 직업"]}
+        rows={TIER7_ROWS}
+        caption="현재 선공개된 네 직업만 표시합니다. 전직 로드맵에서도 같은 계보와 진행 상태를 확인할 수 있습니다."
+      />
+      <P>
+        조건을 모두 갖춘 뒤 <Em>폭풍 기원의 파편 {TIER7_FIRST_UNLOCK_MATERIAL_COST}개</Em>를
+        사용하면 처음 해금됩니다. 한 번
+        해금한 7차 직업은 <Em>영구 해금</Em>되어 이후에는 파편과 두 선행 숙련 조건을
+        다시 요구하지 않으며, 일반 전직의 레벨 초기화 규칙은 그대로 적용됩니다.
       </P>
       <UL>
         <li>
@@ -195,13 +229,15 @@ export function JobsContent() {
 
       <H2>수행 (한계 올리기)</H2>
       <P>
-        성장의 신전 <Em>수행</Em> 탭에서 숙달 포인트를 써 현재 직업군 주력 스탯의{" "}
-        <Em>한계치</Em>를 올립니다(스탯 자체가 아니라 천장을 올리는 것). 직업군마다
-        오르는 스탯이 다르며, 한계를 높일수록 비용이 증가합니다. <Em>하이브리드</Em>(성기사·
-        마검사)는 직군 대신 합쳐진 두 정체성에 맞는 스탯의 한계가 오릅니다.
+        성장의 신전 <Em>수행</Em> 탭에서 숙달 포인트를 쓰면 먼저 <Em>수행 성장 직업</Em>을
+        고릅니다. <Em>전직 이력이 있는 전투 직업</Em>이라면 현재 직업과 달라도 선택할
+        수 있고, 목록에서 직업별 1회 성장 수치를 비교한 뒤 확정합니다. 생활 직업은
+        수행 대상으로 고를 수 없습니다.
       </P>
       <P>
-        수행으로 한계를 넓히면 이후 레벨업에서 스탯이 새 한계까지 성장합니다.
+        수행 결과는 선택한 직업의 성장 프로필에 따라 해당 스탯의 <Em>한계치</Em>를
+        올립니다(스탯 자체가 아니라 천장을 올리는 것). 한계를 높일수록 비용이
+        증가하며, 넓어진 범위는 이후 레벨업 성장에 반영됩니다.
       </P>
     </>
   );

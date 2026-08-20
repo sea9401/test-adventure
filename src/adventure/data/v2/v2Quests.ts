@@ -32,7 +32,13 @@ import { COOKING_CODEX_MILESTONES } from "../../v2/cooking";
 import { LIFE_HOUSING_ENABLED } from "../../v2/lifeCrafting";
 
 export type QuestLineId = string;
-export type AchievementBadgeTier = "bronze" | "silver" | "gold" | "legendary";
+export type AchievementBadgeTier =
+  | "bronze"
+  | "silver"
+  | "gold"
+  | "platinum"
+  | "diamond"
+  | "legendary";
 export type QuestDetailKind = "monster_codex";
 
 export type QuestReward = {

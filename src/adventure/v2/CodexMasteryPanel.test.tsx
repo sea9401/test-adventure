@@ -97,6 +97,7 @@ function snapshot(entries: CodexMasteryEntryView[] = [entry()]): CodexMasterySna
       nextProgressPercent: 40,
       pinned: true,
     }],
+    monthlyResearch: null,
     features: {
       rankingVisible: false,
       sealsEnabled: true,

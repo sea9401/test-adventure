@@ -21,6 +21,7 @@ const snapshot = {
   pinnedGoals: [],
   recentPromotions: [],
   nearGoals: [],
+  monthlyResearch: null,
   features: {
     rankingVisible: false,
     sealsEnabled: false,
@@ -46,6 +47,7 @@ const mocks = vi.hoisted(() => ({
   readSummary: vi.fn(),
   readProgress: vi.fn(),
   readPins: vi.fn(),
+  readMonthly: vi.fn(),
   writePins: vi.fn(),
   buildSnapshot: vi.fn(),
   transaction: vi.fn(),
@@ -73,6 +75,9 @@ vi.mock("@/lib/server/codexMasteryPins", async (importOriginal) => ({
 vi.mock("@/lib/server/codexMasterySnapshot", () => ({
   buildCodexMasterySnapshot: mocks.buildSnapshot,
 }));
+vi.mock("@/lib/server/codexResearchService", () => ({
+  readCodexResearchPersonalView: mocks.readMonthly,
+}));
 
 import { GET, POST } from "./route";
 
@@ -93,6 +98,7 @@ describe("/api/v2/me/codex-mastery", () => {
     mocks.readSummary.mockResolvedValue(emptyCodexMasterySummary());
     mocks.readProgress.mockResolvedValue([]);
     mocks.readPins.mockResolvedValue([]);
+    mocks.readMonthly.mockResolvedValue({ status: "no_season" });
     mocks.writePins.mockImplementation(async (_tx, _userId, entries) => entries);
     mocks.buildSnapshot.mockReturnValue(snapshot);
     mocks.transaction.mockImplementation(async (callback) =>
@@ -125,6 +131,7 @@ describe("/api/v2/me/codex-mastery", () => {
     expect(mocks.readSummary).not.toHaveBeenCalled();
     expect(mocks.readProgress).not.toHaveBeenCalled();
     expect(mocks.readPins).not.toHaveBeenCalled();
+    expect(mocks.readMonthly).not.toHaveBeenCalled();
     expect(mocks.buildSnapshot).not.toHaveBeenCalled();
   });
 
@@ -158,7 +165,32 @@ describe("/api/v2/me/codex-mastery", () => {
         trophiesEnabled: false,
         monthlyProgressEnabled: false,
       },
+      monthlyResearch: null,
     });
+    expect(mocks.readMonthly).not.toHaveBeenCalled();
+  });
+
+  it("reads one personal monthly view only while monthly progress is enabled", async () => {
+    mocks.settings.overviewVisible = true;
+    mocks.settings.monthlyProgressEnabled = true;
+    const monthlyResearch = {
+      status: "active",
+      seasonId: "2026-08",
+      themeName: "강과 호수의 달",
+    };
+    mocks.readMonthly.mockResolvedValue(monthlyResearch);
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    expect(mocks.readMonthly).toHaveBeenCalledWith(
+      expect.objectContaining({ marker: "db" }),
+      "user-1",
+    );
+    expect(mocks.buildSnapshot).toHaveBeenCalledWith(expect.objectContaining({
+      monthlyResearch,
+      features: expect.objectContaining({ monthlyProgressEnabled: true }),
+    }));
   });
 
   it("does not open a transaction for hidden pin updates", async () => {

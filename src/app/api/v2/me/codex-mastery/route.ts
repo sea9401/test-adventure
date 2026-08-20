@@ -11,6 +11,7 @@ import {
   writeCodexMasteryPins,
 } from "@/lib/server/codexMasteryPins";
 import { buildCodexMasterySnapshot } from "@/lib/server/codexMasterySnapshot";
+import { readCodexResearchPersonalView } from "@/lib/server/codexResearchService";
 
 export async function GET() {
   const userId = await ensureUser();
@@ -23,10 +24,13 @@ export async function GET() {
     return Response.json({ ok: true, enabled: false });
   }
 
-  const [summary, progressRows, pinnedGoals] = await Promise.all([
+  const [summary, progressRows, pinnedGoals, monthlyResearch] = await Promise.all([
     readCodexMasterySummary(db, userId),
     readCodexMasteryProgressRows(db, userId),
     readCodexMasteryPins(db, userId),
+    settings.monthlyProgressEnabled
+      ? readCodexResearchPersonalView(db, userId)
+      : Promise.resolve(null),
   ]);
   const snapshot = buildCodexMasterySnapshot({
     summary,
@@ -38,6 +42,7 @@ export async function GET() {
       trophiesEnabled: settings.trophiesEnabled,
       monthlyProgressEnabled: settings.monthlyProgressEnabled,
     },
+    monthlyResearch,
   });
   return Response.json({ ok: true, enabled: true, snapshot });
 }

@@ -4,6 +4,7 @@ import type {
   CodexMasteryStage,
   CodexMasteryTier,
 } from "./codexMasteryTypes";
+import type { CodexResearchPersonalView } from "./codexResearch";
 
 export type CodexMasteryPinnedGoal = {
   category: CodexMasteryCategory;
@@ -79,6 +80,7 @@ export type CodexMasterySnapshot = {
   pinnedGoals: CodexMasteryPinnedGoal[];
   recentPromotions: CodexMasteryPromotionView[];
   nearGoals: CodexMasteryGoalView[];
+  monthlyResearch: CodexResearchPersonalView | null;
   features: CodexMasteryViewFeatures;
 };
 

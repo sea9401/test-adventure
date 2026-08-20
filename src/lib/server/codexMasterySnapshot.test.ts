@@ -93,6 +93,7 @@ describe("codex mastery view snapshot", () => {
       ],
       pinnedGoals: [{ category: "job", entryId: "warrior" }],
       features,
+      monthlyResearch: { status: "no_season" },
       catalog,
     });
 
@@ -127,6 +128,7 @@ describe("codex mastery view snapshot", () => {
       nextThreshold: null,
       pinned: true,
     });
+    expect(snapshot.monthlyResearch).toEqual({ status: "no_season" });
   });
 
   it("sorts recent promotions newest first with a stable tie break", () => {
@@ -146,6 +148,7 @@ describe("codex mastery view snapshot", () => {
       ],
       pinnedGoals: [],
       features,
+      monthlyResearch: null,
       catalog,
     });
 
@@ -177,6 +180,7 @@ describe("codex mastery view snapshot", () => {
       ],
       pinnedGoals: [],
       features,
+      monthlyResearch: null,
       catalog,
     });
 
@@ -207,6 +211,7 @@ describe("codex mastery view snapshot", () => {
       ],
       pinnedGoals: [],
       features,
+      monthlyResearch: null,
       catalog,
     });
 

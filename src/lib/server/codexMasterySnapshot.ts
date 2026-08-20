@@ -18,6 +18,7 @@ import type {
   CodexMasterySnapshot,
   CodexMasteryViewFeatures,
 } from "@/adventure/data/v2/codexMasteryView";
+import type { CodexResearchPersonalView } from "@/adventure/data/v2/codexResearch";
 import type { CodexMasterySummaryState } from "./codexMasteryRepository";
 
 const COUNT_STAGES: readonly CodexMasteryCountStage[] = [
@@ -110,12 +111,14 @@ export function buildCodexMasterySnapshot({
   progressRows,
   pinnedGoals,
   features,
+  monthlyResearch,
   catalog = CODEX_MASTERY_CATALOG,
 }: {
   summary: CodexMasterySummaryState;
   progressRows: readonly CodexMasteryProgress[];
   pinnedGoals: readonly CodexMasteryPinnedGoal[];
   features: CodexMasteryViewFeatures;
+  monthlyResearch: CodexResearchPersonalView | null;
   catalog?: CodexMasteryCatalog;
 }): CodexMasterySnapshot {
   const progressByKey = new Map<string, CodexMasteryProgress>();
@@ -200,6 +203,7 @@ export function buildCodexMasterySnapshot({
     pinnedGoals: pinnedGoals.map((goal) => ({ ...goal })),
     recentPromotions,
     nearGoals,
+    monthlyResearch: monthlyResearch ? structuredClone(monthlyResearch) : null,
     features: { ...features },
   };
 }

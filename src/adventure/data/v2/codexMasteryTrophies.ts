@@ -20,9 +20,16 @@ export const CODEX_MASTERY_TROPHY_TIERS = [
 export type CodexMasteryTrophyTier =
   (typeof CODEX_MASTERY_TROPHY_TIERS)[number];
 export type CodexMasteryTrophyKind = "mastery_category" | "mastery_overall";
+export type CodexTrophyKind = CodexMasteryTrophyKind | "research_season";
 export type CodexMasteryTrophyId =
   | `mastery:${CodexMasteryCategory}`
   | "mastery:overall";
+export type CodexResearchTrophyId = `research:${string}`;
+export type CodexTrophyId = CodexMasteryTrophyId | CodexResearchTrophyId;
+export type CodexTrophyDisplayCategory =
+  | CodexMasteryCategory
+  | "overall"
+  | "research";
 
 export type CodexMasteryTrophyDefinition = {
   id: CodexMasteryTrophyId;
@@ -95,6 +102,22 @@ export function codexMasteryTrophyDefinition(
   trophyId: string,
 ): CodexMasteryTrophyDefinition | null {
   return TROPHY_BY_ID.get(trophyId as CodexMasteryTrophyId) ?? null;
+}
+
+export function isCodexTrophyId(value: unknown): value is CodexTrophyId {
+  if (typeof value !== "string") return false;
+  if (codexMasteryTrophyDefinition(value)) return true;
+  const match = /^research:(\d{4})-(0[1-9]|1[0-2])$/.exec(value);
+  return match !== null && Number(match[1]) >= 2_000;
+}
+
+export function codexTrophyDisplayCategory(
+  trophyId: unknown,
+): CodexTrophyDisplayCategory | null {
+  if (typeof trophyId !== "string") return null;
+  const permanent = codexMasteryTrophyDefinition(trophyId);
+  if (permanent) return permanent.category;
+  return isCodexTrophyId(trophyId) ? "research" : null;
 }
 
 function trophyTierIndex(tier: CodexMasteryTrophyTier | null): number {

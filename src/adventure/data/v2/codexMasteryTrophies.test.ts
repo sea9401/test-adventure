@@ -9,7 +9,9 @@ import type {
 } from "./codexMasteryTypes";
 import {
   CODEX_MASTERY_TROPHY_DEFINITIONS,
+  codexTrophyDisplayCategory,
   evaluateCodexMasteryTrophies,
+  isCodexTrophyId,
   type CodexMasteryTrophyHistory,
 } from "./codexMasteryTrophies";
 
@@ -92,6 +94,18 @@ function categoryCatalog(entriesPerCategory: number) {
 }
 
 describe("codex mastery trophies", () => {
+  it("recognizes permanent and calendar-month research trophy IDs", () => {
+    expect(isCodexTrophyId("mastery:fish")).toBe(true);
+    expect(isCodexTrophyId("research:2026-08")).toBe(true);
+    expect(isCodexTrophyId("research:2026-13")).toBe(false);
+    expect(isCodexTrophyId("research:1999-12")).toBe(false);
+    expect(isCodexTrophyId("research:2026-08 ")).toBe(false);
+    expect(isCodexTrophyId("research:2026-8")).toBe(false);
+    expect(codexTrophyDisplayCategory("mastery:fish")).toBe("fish");
+    expect(codexTrophyDisplayCategory("research:2026-08")).toBe("research");
+    expect(codexTrophyDisplayCategory("research:2026-13")).toBeNull();
+  });
+
   it("exposes one stable family for every category and the overall trophy", () => {
     expect(CODEX_MASTERY_TROPHY_DEFINITIONS.map(({ id, title }) => [id, title])).toEqual([
       ["mastery:equipment", "무구의 기록자"],

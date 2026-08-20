@@ -114,6 +114,8 @@ describe("V2TrophyCabinetView", () => {
     expect(html).toContain("업적 · 도감 숙련");
     expect(html).toContain("분야 선택");
     expect(html).toContain("등급 선택");
+    expect(html).toContain("연도 선택");
+    expect(html).toContain("2026년");
     expect(html).toContain("백금");
     expect(html).toContain("다이아");
     expect(html).toContain("2 / 5");

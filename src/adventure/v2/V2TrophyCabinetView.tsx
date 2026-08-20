@@ -133,6 +133,7 @@ export function V2TrophyCabinetView({
   const [kindFilter, setKindFilter] = useState<TrophyKindFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [tierFilter, setTierFilter] = useState("all");
+  const [yearFilter, setYearFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [targetSlot, setTargetSlot] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -171,6 +172,20 @@ export function V2TrophyCabinetView({
     [data?.trophyOptions],
   );
   const normalizedQuery = query.trim().toLocaleLowerCase("ko");
+  const availableYears = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          trophies.flatMap((trophy) =>
+            Object.values(trophy.tierAchievedAt ?? {}).flatMap((achievedAt) => {
+              const year = new Date(achievedAt).getFullYear();
+              return Number.isFinite(year) ? [String(year)] : [];
+            }),
+          ),
+        ),
+      ).sort((a, b) => Number(b) - Number(a)),
+    [trophies],
+  );
   const filtered = trophies.filter((trophy) =>
     (filter === "all"
       ? true
@@ -180,6 +195,10 @@ export function V2TrophyCabinetView({
     (kindFilter === "all" || trophyKind(trophy) === kindFilter) &&
     (categoryFilter === "all" || trophy.category === categoryFilter) &&
     (tierFilter === "all" || trophy.badgeTier === tierFilter) &&
+    (yearFilter === "all" ||
+      Object.values(trophy.tierAchievedAt ?? {}).some(
+        (achievedAt) => String(new Date(achievedAt).getFullYear()) === yearFilter,
+      )) &&
     (normalizedQuery.length === 0 ||
       `${trophy.title} ${trophy.desc}`.toLocaleLowerCase("ko").includes(normalizedQuery)),
   );
@@ -422,6 +441,17 @@ export function V2TrophyCabinetView({
                 <option value="all">모든 등급</option>
                 {Object.entries(TIER_STYLE).map(([id, style]) => (
                   <option key={id} value={id}>{style.label}</option>
+                ))}
+              </select>
+              <select
+                aria-label="연도 선택"
+                value={yearFilter}
+                onChange={(event) => setYearFilter(event.target.value)}
+                className="min-h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+              >
+                <option value="all">모든 획득 연도</option>
+                {availableYears.map((year) => (
+                  <option key={year} value={year}>{year}년</option>
                 ))}
               </select>
             </div>

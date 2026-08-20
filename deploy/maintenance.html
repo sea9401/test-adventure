@@ -4,24 +4,36 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>서비스 점검 안내 — 무슨무슨게임</title>
+  <title>8월 21일 서버 점검 안내 — 무슨무슨게임</title>
   <style>
     html,body{margin:0;padding:0;height:100%;background:#09090b;color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
     main{min-height:100%;display:flex;align-items:center;justify-content:center;padding:1.5rem;box-sizing:border-box}
-    .box{width:min(100%,32rem);box-sizing:border-box;padding:2.75rem 2rem;text-align:center;background:#18181b;border:1px solid #3f3f46;border-radius:1rem;box-shadow:0 1.5rem 4rem rgba(0,0,0,.4)}
+    .box{width:min(100%,36rem);box-sizing:border-box;padding:2.5rem 2rem;text-align:center;background:#18181b;border:1px solid #3f3f46;border-radius:1rem;box-shadow:0 1.5rem 4rem rgba(0,0,0,.4)}
     .status{display:inline-flex;align-items:center;gap:.5rem;margin-bottom:1.25rem;padding:.4rem .75rem;border:1px solid #3f3f46;border-radius:999px;color:#d4d4d8;font-size:.75rem;font-weight:700;letter-spacing:.04em}
     .status::before{content:"";width:.45rem;height:.45rem;border-radius:50%;background:#f59e0b;box-shadow:0 0 0 .2rem rgba(245,158,11,.14)}
     h1{font-size:clamp(1.6rem,6vw,2rem);font-weight:800;letter-spacing:-.035em;margin:0}
-    .lead{margin:1rem 0 0;color:#d4d4d8;font-size:1rem;font-weight:600;line-height:1.7}
-    @media (max-width:30rem){main{padding:1rem}.box{padding:2.25rem 1.35rem;border-radius:.875rem}}
+    .lead{margin:1rem 0 0;color:#d4d4d8;font-size:.95rem;line-height:1.75}
+    .details{display:grid;gap:.75rem;margin:1.5rem 0 0;padding:1rem;text-align:left;background:#09090b;border:1px solid #3f3f46;border-radius:.75rem}
+    .row{display:grid;grid-template-columns:6.25rem 1fr;gap:.75rem;margin:0;font-size:.9rem;line-height:1.55}
+    .row dt{color:#a1a1aa;font-weight:700}.row dd{margin:0;color:#f4f4f5;font-weight:600}
+    .notice{margin:1.25rem 0 0;color:#d4d4d8;font-size:.9rem;line-height:1.65}
+    .note{margin:.75rem 0 0;color:#a1a1aa;font-size:.8rem;line-height:1.6}
+    @media (max-width:30rem){main{padding:1rem}.box{padding:2rem 1.25rem;border-radius:.875rem}.row{grid-template-columns:1fr;gap:.2rem}}
   </style>
 </head>
 <body>
   <main>
     <div class="box" role="status" aria-live="polite">
       <div class="status">서비스 점검</div>
-      <h1>잠시 점검 중입니다</h1>
-      <p class="lead">금방 다시 열릴 예정입니다.<br />잠시만 기다려 주세요.</p>
+      <h1>8월 21일 서버 점검 안내</h1>
+      <p class="lead">안녕하세요, 무슨무슨게임입니다.<br />원활한 서비스 제공을 위해 서버 점검을 진행합니다.</p>
+      <dl class="details">
+        <div class="row"><dt>점검 일시:</dt><dd>8월 21일(금) 오전 1시 ~ 오전 2시</dd></div>
+        <div class="row"><dt>점검 시간:</dt><dd>약 1시간</dd></div>
+        <div class="row"><dt>점검 내용:</dt><dd>전일 미완료 패치 외 업데이트, 서버 안정화</dd></div>
+      </dl>
+      <p class="notice">점검 중에는 게임에 접속할 수 없습니다.<br />이용에 불편을 드려 죄송합니다.</p>
+      <p class="note">※ 작업 진행 상황에 따라 점검이 예정보다 일찍 종료될 수 있습니다.</p>
     </div>
   </main>
 </body>

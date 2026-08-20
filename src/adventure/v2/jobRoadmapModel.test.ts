@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { V2JobDefinition } from "@/adventure/data/v2/v2JobCatalog";
 import {
   buildJobRoadmap,
-  buildJobRoadmapFromJobs,
   type JobRoadmapNode,
 } from "./jobRoadmapModel";
 
@@ -47,45 +45,20 @@ describe("job roadmap model", () => {
     expect(byId.get("survivor")?.production).toBe(false);
   });
 
-  it("preserves both prerequisite lineages on a hybrid tier-7 node", () => {
-    const jobs: V2JobDefinition[] = [
-      {
-        id: "none",
-        name: "모험가",
-        tier: 0,
-        cultivateProfile: {},
-        jobBonus: {},
-        unlock: { prereqs: {} },
-      },
-      {
-        id: "swordsaint",
-        name: "검성",
-        tier: 6,
-        cultivateProfile: {},
-        jobBonus: {},
-        unlock: { prereqs: { none: 1 } },
-      },
-      {
-        id: "blackmoon",
-        name: "흑월",
-        tier: 6,
-        cultivateProfile: {},
-        jobBonus: {},
-        unlock: { prereqs: { none: 1 } },
-      },
-      {
-        id: "shadowblade",
-        name: "무영검신",
-        tier: 7,
-        cultivateProfile: {},
-        jobBonus: {},
-        unlock: {
-          prereqs: { swordsaint: 100_000, blackmoon: 100_000 },
-        },
-      },
-    ];
+  it("공개된 네 7차를 실제 로드맵에 한 번씩 배치하고 두 선행 계보를 보존한다", () => {
+    const nodes = flatten(buildJobRoadmap());
+    const tier7Ids = nodes
+      .filter((node) => node.tier === 7)
+      .map((node) => node.id)
+      .sort();
+    expect(tier7Ids).toEqual([
+      "primordialsage",
+      "ruinblade",
+      "shadowblade",
+      "skyascendant",
+    ]);
 
-    const node = flatten(buildJobRoadmapFromJobs(jobs)).find(
+    const node = nodes.find(
       (candidate) => candidate.id === "shadowblade",
     );
 

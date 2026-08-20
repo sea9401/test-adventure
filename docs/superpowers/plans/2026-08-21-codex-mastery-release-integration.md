@@ -219,7 +219,7 @@ Expected: all tests pass, including dry/apply separation, marker idempotency, pr
 Run:
 
 ```bash
-npm run report:codex-mastery-budget
+npm run codex-mastery:budget
 git diff --check
 git status --short
 ```

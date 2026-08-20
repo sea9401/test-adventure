@@ -1,6 +1,6 @@
 {
-  "id": "35f53655-963d-4aae-b23b-8eef5fd99ff9",
-  "prevId": "af3ef8a4-385c-4d61-be6e-0e818ac1aa54",
+  "id": "b4d53877-a2b7-4aa0-8998-039668d5fec2",
+  "prevId": "ff5ca65c-33a9-426d-8368-2a6a5ea18239",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -7127,6 +7127,28 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "listings_v2_active_highest_bidder_idx": {
+          "name": "listings_v2_active_highest_bidder_idx",
+          "columns": [
+            {
+              "expression": "highest_bidder_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"marketplace_listings_v2\".\"status\" = 'active' AND \"marketplace_listings_v2\".\"highest_bidder_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -10826,6 +10848,18 @@
         },
         "ban_reason": {
           "name": "ban_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "trade_suspended_until": {
+          "name": "trade_suspended_until",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "trade_suspension_reason": {
+          "name": "trade_suspension_reason",
           "type": "text",
           "primaryKey": false,
           "notNull": false

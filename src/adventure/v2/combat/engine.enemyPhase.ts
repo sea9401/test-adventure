@@ -1260,14 +1260,25 @@ export function resolveEnemyPhase(
     const v2AtkMultM = v2AtkBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
     const v2DefMultM = v2DefBuffMult(state.enemyV2SelfBuffs, state.enemyV2Debuffs);
     const counterDefM = playerFacingEnemyDef(state, player);
+    const counterBoostPct =
+      player.passiveCounterDamageUsesReflectBoost &&
+      state.stacks.skillReflectBoostTurns > 0
+        ? state.stacks.skillReflectBoostPct
+        : 0;
+    const counterAtkM =
+      v2AtkMultM !== 1 ? Math.floor(player.atk * v2AtkMultM) : player.atk;
+    const boostedCounterAtkM =
+      counterBoostPct > 0
+        ? Math.floor(counterAtkM * (1 + counterBoostPct / 100))
+        : counterAtkM;
     const counterDmgM = damageBetween(
-      v2AtkMultM !== 1 ? Math.floor(player.atk * v2AtkMultM) : player.atk,
+      boostedCounterAtkM,
       v2DefMultM !== 1 ? Math.floor(counterDefM * v2DefMultM) : counterDefM,
     );
     enemyHpAfterMartialCounter = Math.max(0, enemyHpAfterRuneCounter - counterDmgM);
     log = appendLog(log, {
       kind: "player_attack",
-      text: `[반격] ${state.enemy.name}에게 ${counterDmgM} 반격 피해.`,
+      text: `[${counterBoostPct > 0 ? "반격 + 금강인" : "반격"}] ${state.enemy.name}에게 ${counterDmgM} 반격 피해.`,
     });
   }
   const reactiveDefenseCharges = consumeReactiveDefenseCharges(

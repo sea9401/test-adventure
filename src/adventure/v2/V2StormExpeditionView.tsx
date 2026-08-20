@@ -665,10 +665,11 @@ export function V2StormExpeditionView() {
       <StormExpeditionAutoPlanDialog
         open={autoPlanOpen}
         value={autoPlan}
+        lockedMode={active?.mode}
         attemptsLeft={status?.attemptsLeft ?? 0}
         busy={autoplayLocked}
         onChange={setAutoPlan}
-        onSubmit={() => void runAutoplay(autoPlan)}
+        onSubmit={(plan) => void runAutoplay(plan)}
         onClose={() => setAutoPlanOpen(false)}
       />
 

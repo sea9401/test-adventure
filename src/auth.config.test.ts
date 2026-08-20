@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { authConfig, PUBLIC_PATHS } from "./auth.config";
+import {
+  authConfig,
+  isAuthorizedRequest,
+  PUBLIC_PATHS,
+} from "./auth.config";
 
 describe("출시 OAuth provider 설정", () => {
   it("카카오만 등록하고 Google 직접 로그인 경로를 만들지 않는다", () => {
@@ -29,5 +33,12 @@ describe("출시 OAuth provider 설정", () => {
         "/api/v2/museun-coin-shop",
       ]),
     );
+  });
+
+  it("로그아웃 완료 표식이 있으면 남아 있는 JWT로 보호 경로에 재진입하지 못한다", () => {
+    expect(isAuthorizedRequest("/", true, true)).toBe(false);
+    expect(isAuthorizedRequest("/api/v2/me/state", true, true)).toBe(false);
+    expect(isAuthorizedRequest("/sign-in", true, true)).toBe(true);
+    expect(isAuthorizedRequest("/", true, false)).toBe(true);
   });
 });

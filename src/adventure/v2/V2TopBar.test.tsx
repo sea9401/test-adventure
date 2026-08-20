@@ -15,6 +15,16 @@ vi.mock("./V2SettingsMenu", () => ({
 }));
 
 describe("V2TopBar", () => {
+  it("화면 상단 안전 영역 아래에 게임 조작부를 배치한다", () => {
+    const html = renderToStaticMarkup(
+      <V2TopBar autoGathering={null} fishingActive={false} />,
+    );
+
+    expect(html).toContain(
+      "pt-[max(0.75rem,env(safe-area-inset-top))]",
+    );
+  });
+
   it("홈 아이콘과 휴식 상태를 분리하고 아이콘을 32px로 표시한다", () => {
     const html = renderToStaticMarkup(
       <V2TopBar autoGathering={null} fishingActive={false} />,

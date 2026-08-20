@@ -18,7 +18,7 @@ describe("public release smoke", () => {
 
       if (request.url === "/") {
         response.writeHead(503, { "content-type": "text/html; charset=utf-8" });
-        response.end("<h1>잠시 점검 중입니다</h1>");
+        response.end("<p>점검 중에는 게임에 접속할 수 없습니다.</p>");
         return;
       }
 

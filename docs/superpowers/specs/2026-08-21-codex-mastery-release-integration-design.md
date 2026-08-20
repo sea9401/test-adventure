@@ -76,13 +76,14 @@ Phase A 기반부터 영구 랭킹, 트로피, 숙소 전시, 월간 연구, 결
 
 ## 5. 데이터와 비활성 배포 경계
 
-도감 전용 마이그레이션은 `0169`부터 `0173`까지 순서대로 유지한다.
+출처 브랜치의 도감 마이그레이션은 `0169`부터 `0173`이었지만 최신 `main`이 `0169`와 `0170`을
+이미 사용한다. SQL 의미와 상대 순서를 유지하면서 출시 후보에서는 `0171`부터 `0175`로 재번호화한다.
 
-- `0169_codex_mastery_foundation.sql`
-- `0170_codex_mastery_trophy_history.sql`
-- `0171_wandering_scrambler.sql`
-- `0172_codex_research_settlement.sql`
-- `0173_codex_research_publication.sql`
+- `0171_codex_mastery_foundation.sql`
+- `0172_codex_mastery_trophy_history.sql`
+- `0173_wandering_scrambler.sql`
+- `0174_codex_research_settlement.sql`
+- `0175_codex_research_publication.sql`
 
 마이그레이션은 새 PostgreSQL과 현재 운영 마이그레이션 계보를 반영한 검증 DB에서 모두 실행한다.
 기존 종료 시즌을 자동 공개하거나 자동으로 트로피를 발급하는 데이터 변경은 허용하지 않는다.
@@ -158,4 +159,3 @@ settlementEnabled, feedEnabled
 
 완료 상태는 모든 기능이 기본 OFF인 깨끗한 로컬 도감 전용 커밋과 검증 기록이다. 이 상태만으로
 푸시, PR, 배포, 운영 DB 변경이나 기능 활성화를 수행하지 않는다.
-

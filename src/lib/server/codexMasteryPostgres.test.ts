@@ -192,11 +192,11 @@ describeWithDatabase("codex mastery PostgreSQL transaction integration", () => {
     `);
 
     for (const migrationName of [
-      "0169_codex_mastery_foundation.sql",
-      "0170_codex_mastery_trophy_history.sql",
-      "0171_wandering_scrambler.sql",
-      "0172_codex_research_settlement.sql",
-      "0173_codex_research_publication.sql",
+      "0171_codex_mastery_foundation.sql",
+      "0172_codex_mastery_trophy_history.sql",
+      "0173_wandering_scrambler.sql",
+      "0174_codex_research_settlement.sql",
+      "0175_codex_research_publication.sql",
     ]) {
       const migration = await readFile(
         new URL(`../../../drizzle/${migrationName}`, import.meta.url),

@@ -10,7 +10,7 @@
 2. `npm run check:codex-mastery-release`로 도감 플래그 기본값 전부 `false`, B10 공개 경계와 API·UI,
    `PUBLISH` 확인 문자열, 도감 전용 cron·실운영 시즌 정의 부재를 확인한다.
 3. `npm run check-migrations`, `npm run check-images`, 타입 검사, 전체 테스트와 빌드를 새로 실행한다.
-4. 0169~0173 마이그레이션 순서와 백업·복구 지점을 확인한다. 0173은 `published_at`과 채널별 공개
+4. 0171~0175 마이그레이션 순서와 백업·복구 지점을 확인한다. 0175는 `published_at`과 채널별 공개
    원장을 추가하며 기존 종료 시즌을 자동 공개하지 않는다.
 
 ## 2. 배포 직후 비활성 확인

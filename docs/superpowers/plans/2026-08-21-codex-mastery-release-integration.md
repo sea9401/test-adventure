@@ -28,12 +28,12 @@
 
 The implementation is split into reviewable dependency layers:
 
-- Foundation: `src/adventure/data/v2/codexMastery*.ts`, `src/lib/server/codexMastery{Repository,Service,Repair}*.ts`, `src/db/schema.ts`, `drizzle/0169_codex_mastery_foundation.sql`, and codex feature settings in `src/lib/server/opsSettings.ts`.
+- Foundation: `src/adventure/data/v2/codexMastery*.ts`, `src/lib/server/codexMastery{Repository,Service,Repair}*.ts`, `src/db/schema.ts`, `drizzle/0171_codex_mastery_foundation.sql`, and codex feature settings in `src/lib/server/opsSettings.ts`.
 - Production catalog and backfill: `src/adventure/data/v2/codexMasteryProductionCatalog*.ts`, `src/lib/server/codexMasteryBackfill*.ts`, and `scripts/{backfill-codex-mastery,report-codex-mastery-budget}.ts`.
 - Recording connections: existing server-authoritative fishing, hunting, cooking, farming, mining, woodcutting, guild, co-op, storm expedition, mastery item, offline settlement, and life-field routes plus `src/lib/server/codexMasteryGameplay*.ts`.
 - Read UI: `src/lib/server/codexMastery{Snapshot,Pins}*.ts`, `src/app/api/v2/me/codex-mastery/route.ts`, `src/adventure/v2/CodexMasteryPanel.tsx`, and `src/adventure/v2/V2CodexView.tsx`.
 - Permanent ranking: `src/lib/server/codexMasteryRanking*.ts`, `src/app/api/rankings/codex-mastery/route.ts`, and `src/adventure/rankings/CodexMasteryRankingPanel.tsx`.
-- Trophies and housing: `src/adventure/data/v2/codexMasteryTrophies*.ts`, `src/lib/server/codexMasteryTrophy*.ts`, profile showcase files, housing files, and `drizzle/0170_codex_mastery_trophy_history.sql`.
+- Trophies and housing: `src/adventure/data/v2/codexMasteryTrophies*.ts`, `src/lib/server/codexMasteryTrophy*.ts`, profile showcase files, housing files, and `drizzle/0172_codex_mastery_trophy_history.sql`.
 - Monthly research: `src/adventure/data/v2/codexResearch*.ts`, `src/lib/server/codexResearch*.ts`, monthly ranking/archive API and UI files, admin season operations, and migrations `0171` through `0173`.
 - Release boundary: `scripts/check-codex-mastery-release.mjs`, `src/lib/server/codexMasteryReleaseCheck.test.ts`, and `docs/operations/codex-mastery-launch-runbook.md`.
 
@@ -118,8 +118,8 @@ Expected: counts `20` and `98`; both merge-commit queries print nothing.
 - Create: `src/lib/server/codexMasteryRepair.ts`
 - Create: `src/lib/server/codexMasteryRepairCli.ts`
 - Create: `scripts/repair-codex-mastery-summary.ts`
-- Create: `drizzle/0169_codex_mastery_foundation.sql`
-- Create: `drizzle/meta/0169_snapshot.json`
+- Create: `drizzle/0171_codex_mastery_foundation.sql`
+- Create: `drizzle/meta/0171_snapshot.json`
 - Modify: `src/db/schema.ts`
 - Modify: `src/lib/server/opsSettings.ts`
 - Modify: `src/app/api/admin/ops-settings/route.ts`
@@ -403,8 +403,8 @@ Expected: all unit/UI/API tests pass; the PostgreSQL integration test remains re
 ### Task 8: Replay growing trophies and profile display (B6)
 
 **Files:**
-- Create: `drizzle/0170_codex_mastery_trophy_history.sql`
-- Create: `drizzle/meta/0170_snapshot.json`
+- Create: `drizzle/0172_codex_mastery_trophy_history.sql`
+- Create: `drizzle/meta/0172_snapshot.json`
 - Create: `src/adventure/data/v2/codexMasteryTrophies.ts`
 - Create: `src/lib/server/codexMasteryTrophyRepository.ts`
 - Create: `src/lib/server/codexMasteryTrophyRebuild.ts`
@@ -491,8 +491,8 @@ Expected: all tests pass, including ownership checks, private/public parity, and
 ### Task 10: Replay personal monthly research progress (B8a)
 
 **Files:**
-- Create: `drizzle/0171_wandering_scrambler.sql`
-- Create: `drizzle/meta/0171_snapshot.json`
+- Create: `drizzle/0173_wandering_scrambler.sql`
+- Create: `drizzle/meta/0173_snapshot.json`
 - Create: `src/adventure/data/v2/codexResearch.ts`
 - Create: `src/lib/server/codexResearchRepository.ts`
 - Create: `src/lib/server/codexResearchService.ts`
@@ -531,8 +531,8 @@ Expected: migration check and all selected tests pass; permanent and monthly sco
 ### Task 11: Replay monthly ranking, settlement, and trophies (B8b)
 
 **Files:**
-- Create: `drizzle/0172_codex_research_settlement.sql`
-- Create: `drizzle/meta/0172_snapshot.json`
+- Create: `drizzle/0174_codex_research_settlement.sql`
+- Create: `drizzle/meta/0174_snapshot.json`
 - Create: `src/adventure/data/v2/codexResearchRanking.ts`
 - Create: `src/adventure/rankings/CodexResearchRankingPanel.tsx`
 - Create: `src/adventure/rankings/useCodexResearchRanking.ts`
@@ -617,7 +617,7 @@ Expected: no output and exit status 1 from `rg`.
 ### Task 13: Replay publication, archive, notices, and release guard (B10)
 
 **Files:**
-- Create: `drizzle/0173_codex_research_publication.sql`
+- Create: `drizzle/0175_codex_research_publication.sql`
 - Create: `src/adventure/data/v2/codexResearchArchive.ts`
 - Create: `src/adventure/rankings/CodexResearchArchivePanel.tsx`
 - Create: `src/adventure/rankings/useCodexResearchArchive.ts`
@@ -667,11 +667,11 @@ Expected: all tests pass, including unpublished-season invisibility, exact publi
 **Files:**
 - Test: `src/lib/server/codexMasteryPostgres.test.ts`
 - Test: `src/lib/server/codexMasteryRanking.integration.test.ts`
-- Verify: `drizzle/0169_codex_mastery_foundation.sql`
-- Verify: `drizzle/0170_codex_mastery_trophy_history.sql`
-- Verify: `drizzle/0171_wandering_scrambler.sql`
-- Verify: `drizzle/0172_codex_research_settlement.sql`
-- Verify: `drizzle/0173_codex_research_publication.sql`
+- Verify: `drizzle/0171_codex_mastery_foundation.sql`
+- Verify: `drizzle/0172_codex_mastery_trophy_history.sql`
+- Verify: `drizzle/0173_wandering_scrambler.sql`
+- Verify: `drizzle/0174_codex_research_settlement.sql`
+- Verify: `drizzle/0175_codex_research_publication.sql`
 
 **Interfaces:**
 - Consumes: PostgreSQL 16 binaries and the complete integrated schema.
@@ -760,7 +760,7 @@ Expected: no unexplained missing source hunk and no unexplained candidate-only i
 
 - [ ] **Step 3: Write the integration audit with exact evidence**
 
-Create `docs/operations/codex-mastery-integration-audit.md` with the title `도감 숙련도 재통합 감사`. Record the literal output of `git rev-parse origin/main`, source SHAs `fea3aa2ee` and `ad43a86b2`, the selective-linear-replay method, all nine disabled defaults, migrations `0169` through `0173`, the observed PostgreSQL file/test counts, zero unexplained omissions, zero unrelated imports, and the fact that deployment, operating-production backfill, and feature activation were not performed. Every value must come from the commands in this task.
+Create `docs/operations/codex-mastery-integration-audit.md` with the title `도감 숙련도 재통합 감사`. Record the literal output of `git rev-parse origin/main`, source SHAs `fea3aa2ee` and `ad43a86b2`, the selective-linear-replay method, all nine disabled defaults, migrations `0171` through `0175`, the observed PostgreSQL file/test counts, zero unexplained omissions, zero unrelated imports, and the fact that deployment, operating-production backfill, and feature activation were not performed. Every value must come from the commands in this task.
 
 - [ ] **Step 4: Run static checks**
 

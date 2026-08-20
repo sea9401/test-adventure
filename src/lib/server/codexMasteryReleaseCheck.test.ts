@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { validateCodexMasteryRelease } from "../../../scripts/check-codex-mastery-release.mjs";
 
 const required = [
-  "drizzle/0173_codex_research_publication.sql",
+  "drizzle/0175_codex_research_publication.sql",
   "src/app/api/rankings/codex-research/archive/route.ts",
   "src/app/api/admin/codex-research-seasons/route.ts",
   "src/adventure/rankings/CodexResearchArchivePanel.tsx",

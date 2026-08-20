@@ -46,10 +46,10 @@ type RawOpsRow = {
   theme_id: unknown;
   theme_name: unknown;
   definition_version: unknown;
-  start_at: unknown;
-  end_at: unknown;
+  start_at_ms: unknown;
+  end_at_ms: unknown;
   status: unknown;
-  settled_at: unknown;
+  settled_at_ms: unknown;
   progress_count: unknown;
   scored_count: unknown;
   final_rank_count: unknown;
@@ -83,6 +83,18 @@ function integer(value: unknown): number {
   return parsed;
 }
 
+function epochDate(value: unknown): Date {
+  const date = new Date(integer(value));
+  if (!validDate(date)) {
+    throw new Error("codex research operations row is malformed");
+  }
+  return date;
+}
+
+function nullableEpochDate(value: unknown): Date | null {
+  return value === null ? null : epochDate(value);
+}
+
 export function codexResearchSeasonOpsRowToSummary(
   row: RawOpsRow,
   now: Date,
@@ -92,17 +104,17 @@ export function codexResearchSeasonOpsRowToSummary(
     typeof row.season_id !== "string" ||
     typeof row.theme_id !== "string" || row.theme_id.trim().length === 0 ||
     typeof row.theme_name !== "string" || row.theme_name.trim().length === 0 ||
-    !validDate(row.start_at) ||
-    !validDate(row.end_at) ||
-    !validStatus(row.status) ||
-    (row.settled_at !== null && !validDate(row.settled_at))
+    !validStatus(row.status)
   ) {
     throw new Error("codex research operations row is malformed");
   }
+  const startAt = epochDate(row.start_at_ms);
+  const endAt = epochDate(row.end_at_ms);
+  const settledAt = nullableEpochDate(row.settled_at_ms);
   const window = kstCodexResearchSeasonWindow(row.season_id);
   if (
-    window.startAt.getTime() !== row.start_at.getTime() ||
-    window.endAt.getTime() !== row.end_at.getTime()
+    window.startAt.getTime() !== startAt.getTime() ||
+    window.endAt.getTime() !== endAt.getTime()
   ) {
     throw new Error("codex research operations row is malformed");
   }
@@ -130,16 +142,16 @@ export function codexResearchSeasonOpsRowToSummary(
   const inconsistent =
     progress < scored || scored < finalRanked || finalRanked < tiered ||
     trophies > tiered ||
-    (row.status === "closed" && row.settled_at === null) ||
-    (row.status !== "closed" && row.settled_at !== null) ||
+    (row.status === "closed" && settledAt === null) ||
+    (row.status !== "closed" && settledAt !== null) ||
     (row.status === "closed" && scored > 0 && finalRanked === 0) ||
     (row.status !== "closed" && finalRanked > 0) ||
-    (row.status === "settling" && row.end_at.getTime() > now.getTime());
+    (row.status === "settling" && endAt.getTime() > now.getTime());
   const opsState: CodexResearchSeasonOpsState = inconsistent
     ? "inconsistent"
     : row.status === "closed"
       ? "closed"
-      : row.end_at.getTime() > now.getTime()
+      : endAt.getTime() > now.getTime()
         ? "too_early"
         : "ready";
 
@@ -148,10 +160,10 @@ export function codexResearchSeasonOpsRowToSummary(
     themeId: row.theme_id,
     themeName: row.theme_name,
     definitionVersion,
-    startAt: row.start_at.toISOString(),
-    endAt: row.end_at.toISOString(),
+    startAt: startAt.toISOString(),
+    endAt: endAt.toISOString(),
     status: row.status,
-    settledAt: row.settled_at?.toISOString() ?? null,
+    settledAt: settledAt?.toISOString() ?? null,
     opsState,
     counts: { progress, scored, finalRanked, finalTiers, trophies },
   };
@@ -185,10 +197,13 @@ export async function readCodexResearchSeasonOpsList(
       s.theme_id,
       s.definition_snapshot ->> 'themeName' AS theme_name,
       s.definition_snapshot ->> 'version' AS definition_version,
-      s.start_at,
-      s.end_at,
+      (EXTRACT(EPOCH FROM s.start_at) * 1000)::bigint AS start_at_ms,
+      (EXTRACT(EPOCH FROM s.end_at) * 1000)::bigint AS end_at_ms,
       s.status,
-      s.settled_at,
+      CASE
+        WHEN s.settled_at IS NULL THEN NULL
+        ELSE (EXTRACT(EPOCH FROM s.settled_at) * 1000)::bigint
+      END AS settled_at_ms,
       COUNT(p.user_id)::bigint AS progress_count,
       COUNT(p.user_id) FILTER (WHERE p.score > 0)::bigint AS scored_count,
       COUNT(p.user_id) FILTER (WHERE p.final_rank IS NOT NULL)::bigint

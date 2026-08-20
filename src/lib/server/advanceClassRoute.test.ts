@@ -185,6 +185,15 @@ describe("advance-class — 모험가(none) 전직 허용(킷 재학습 경로)"
     expect(res.status).toBe(400);
     expect(json.error).toBe("bad_target");
   });
+
+  it("아직 공개하지 않은 7차 직업 타겟은 bad_target", async () => {
+    seed("warrior", "warrior", 100);
+
+    const res = await POST(advanceReq("shadowblade"));
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ ok: false, error: "bad_target" });
+  });
 });
 
 describe("advance-class — 생활 직업 레벨 조건", () => {

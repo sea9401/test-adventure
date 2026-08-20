@@ -72,6 +72,10 @@ import {
   cookingLevelForXp,
   parseCookingState,
 } from "@/adventure/v2/cooking";
+import {
+  spendTier7FirstUnlockMaterial,
+  tier7AdvancementStatus,
+} from "@/adventure/data/v2/tier7Advancement";
 
 // POST /api/v2/me/advance-class.
 // 코어루프 on: targetJobId 로 직업을 선택해 재전직한다. 게이트는 현재 직업별 필요 레벨 +
@@ -204,6 +208,44 @@ export async function POST(req: Request) {
       //   해금 규칙이 나중에 바뀌어도(예: 직군 게이팅 → 계보 게이팅) 자기 직업 환생은 항상 가능해야
       //   한다(옛 규칙으로 얻은 직업이 새 규칙 미달이라 재전직조차 막히는 잠금 방지).
       const isReJobToCurrent = targetJobId === currentJobId;
+      const tier7Status = tier7AdvancementStatus({
+        targetJobId,
+        currentJobId,
+        currentLevel: lvl,
+        jobCumLevel: prof.jobCumLevel ?? {},
+        jobHistory: prof.jobHistory ?? [],
+        materials: charSave.materials,
+      });
+      const tier7PreviouslyUnlocked =
+        tier7Status?.permanentlyUnlocked === true;
+      if (tier7Status && !tier7PreviouslyUnlocked && tier7Status.failure) {
+        if (tier7Status.failure === "level_too_low") {
+          return {
+            status: 400,
+            body: {
+              ok: false as const,
+              error: "level_too_low" as const,
+              required: tier7Status.level.required,
+              have: tier7Status.level.current,
+            },
+          };
+        }
+        if (tier7Status.failure === "tier7_material_shortage") {
+          return {
+            status: 400,
+            body: {
+              ok: false as const,
+              error: "tier7_material_shortage" as const,
+              required: tier7Status.material.required,
+              have: tier7Status.material.current,
+            },
+          };
+        }
+        return {
+          status: 400,
+          body: { ok: false as const, error: tier7Status.failure },
+        };
+      }
       // 해금 게이트 = 직업 숙련도 prereqs + 추가조건(stat=proficiency·quest=ctx). 기본 직업은
       //   prereqs 비어 통과(위 레벨 한계가 바닥 게이트). quest 조건 쓰는 직업이 있을 때만 quest 세이브 로드.
       const jobCtx: JobUnlockContext | undefined = {
@@ -215,7 +257,11 @@ export async function POST(req: Request) {
         ...(woodcuttingLevel != null ? { woodcuttingLevel } : {}),
         ...(miningLevel != null ? { miningLevel } : {}),
       };
-      if (!isReJobToCurrent && !isJobUnlocked(jobDef, prof, jobCtx)) {
+      if (
+        !isReJobToCurrent &&
+        !tier7PreviouslyUnlocked &&
+        !isJobUnlocked(jobDef, prof, jobCtx)
+      ) {
         return {
           status: 400,
           body: { ok: false as const, error: "job_locked" as const },
@@ -229,6 +275,10 @@ export async function POST(req: Request) {
         (targetJobId === "none" ||
           (prof.jobHistory ?? []).includes(targetJobId) ||
           cumLevelForJob(prof, jobDef) > 0);
+      const nextMaterials =
+        tier7Status && !tier7PreviouslyUnlocked
+          ? spendTier7FirstUnlockMaterial(charSave.materials, tier7Status)
+          : null;
 
       // 재전직 — class/spec 갈아끼우고 레벨1·exp0·grown 리셋(스탯은 floor 부터 재성장).
       await upsertSave(tx, userId, "character.v2", {
@@ -238,6 +288,7 @@ export async function POST(req: Request) {
         level: 1,
         exp: 0,
         revisitJobId: revisitingTarget ? targetJobId : null,
+        ...(nextMaterials ? { materials: nextMaterials } : {}),
       });
       // 차수 폐지 — 모든 직업군 tier=1 정규화(flattenGroupTiers). setGroupTier 는 max-clamp 라
       //   1차로 내릴 수 없어 옛 차수 보너스(앵커 %·floor mult)가 샌다. 숙련도/points/caps 보존.

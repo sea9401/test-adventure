@@ -15,6 +15,7 @@ import {
   ShieldWarning,
   Skull,
   Sword,
+  Trophy,
   UsersThree,
 } from "@phosphor-icons/react";
 import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
@@ -103,6 +104,9 @@ const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
       weight="duotone"
       className="shrink-0 text-emerald-600 dark:text-emerald-400"
     />
+  ),
+  codex_research_trophy: (
+    <Trophy size={16} weight="duotone" className="shrink-0 text-violet-500 dark:text-violet-400" />
   ),
 };
 
@@ -234,6 +238,11 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
         주세요
       </>
     );
+  }
+  if (n.type === "codex_research_trophy") {
+    const p = n.payload as { seasonId: string; themeName: string; tier: import("@/adventure/data/v2/codexMasteryTrophies").CodexMasteryTrophyTier; finalRank: number };
+    const labels = { bronze: "동", silver: "은", gold: "금", platinum: "백금", diamond: "다이아", legendary: "전설" } as const;
+    return <>{p.seasonId} {p.themeName} 최종 <span className="font-medium">{p.finalRank}위 · {labels[p.tier]} 트로피</span></>;
   }
   const p = n.payload as { byName?: string; gold?: number };
   return (

@@ -16,6 +16,14 @@ export const CODEX_MASTERY_TROPHY_TIERS = [
   "diamond",
   "legendary",
 ] as const;
+export const CODEX_MASTERY_TROPHY_TIER_LABELS: Record<CodexMasteryTrophyTier, string> = {
+  bronze: "동",
+  silver: "은",
+  gold: "금",
+  platinum: "백금",
+  diamond: "다이아",
+  legendary: "전설",
+};
 
 export type CodexMasteryTrophyTier =
   (typeof CODEX_MASTERY_TROPHY_TIERS)[number];

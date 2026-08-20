@@ -17,6 +17,7 @@ import {
   COOP_BOSSES,
 } from "@/adventure/data/v2/coopBosses";
 import { FISH, formatFishSize } from "@/adventure/data/v2/fish";
+import { CODEX_MASTERY_TROPHY_TIER_LABELS } from "@/adventure/data/v2/codexMasteryTrophies";
 import { formatRelative } from "@/lib/notifications";
 import {
   LIFE_CRAFTING_RECIPE_BY_ID,
@@ -164,6 +165,15 @@ export function warTickerText(
         p.discoveryId as keyof typeof LIFE_FIELD_DISCOVERIES
       ];
     return `${e.actorName} 님이 희귀 현장 기록 ${discovery?.label ?? p.discoveryId} 완성!`;
+  }
+  if (e.type === "codex_research_result") {
+    const p = e.payload as {
+      seasonId: string;
+      themeName: string;
+      tier: keyof typeof CODEX_MASTERY_TROPHY_TIER_LABELS;
+      finalRank: number;
+    };
+    return `${e.actorName} 님, ${p.seasonId} ${p.themeName} 확정 ${p.finalRank}위 · ${CODEX_MASTERY_TROPHY_TIER_LABELS[p.tier]} 트로피!`;
   }
   return null;
 }

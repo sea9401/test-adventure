@@ -46,6 +46,7 @@ export const FEED_TYPES = [
   "newcomer",
   "life_blueprint",
   "life_discovery",
+  "codex_research_result",
 ] as const;
 export type FeedType = (typeof FEED_TYPES)[number];
 
@@ -74,6 +75,7 @@ export const WAR_FEED_TYPES: readonly FeedType[] = [
   "newcomer",
   "life_blueprint",
   "life_discovery",
+  "codex_research_result",
 ];
 
 // 전광판(티커) 표시 범위 — 이 시간(분) 안의 사건만 순환. 0건이면 띠 자체를 숨긴다
@@ -160,7 +162,14 @@ export type FeedPayload =
   // newcomer — 새 모험가 합류(첫 캐릭터 생성). 닉네임은 actorName 에 스냅샷되므로 payload 는 비움.
   | { newcomer: true }
   | { recipeId: string }
-  | { discoveryId: string };
+  | { discoveryId: string }
+  | {
+      seasonId: string;
+      themeName: string;
+      tier: import("@/adventure/data/v2/codexMasteryTrophies").CodexMasteryTrophyTier;
+      finalRank: number;
+      score: number;
+    };
 
 // 클라/서버가 주고받는 한 항목.
 export type FeedEntry = {

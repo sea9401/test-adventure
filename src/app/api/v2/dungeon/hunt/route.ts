@@ -2,7 +2,14 @@ import { inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { outpostOccupations } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
+import {
+  lockSaveForUpdate,
+  lockSavesForUpdate,
+  readSave,
+  readSaves,
+  upsertSave,
+  upsertSaves,
+} from "@/lib/server/savesKv";
 import { battleCountOf } from "@/lib/server/battleCount";
 import { v2LevelGrowthHpMp } from "@/lib/server/derivePlayerCombatV2";
 import {
@@ -12,7 +19,6 @@ import {
 import { readGuildCombatSupplyLevels } from "@/lib/server/guildCombatSupply";
 import {
   consumeGuildDiningEffect,
-  flushGuildDiningEffectCache,
   type GuildDiningEffectCache,
 } from "@/lib/server/guildDining";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
@@ -119,6 +125,9 @@ import {
   type AdventureLogSave,
 } from "./huntKillLog";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
+import { FISHING_CODEX_KEY } from "@/adventure/v2/fishingCodex";
+import { GUILD_DINING_USER_SAVE_KEY } from "@/adventure/data/v2/guildDining";
+import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
 import { applyHuntProficiency } from "./huntProficiency";
 import { normalizedHuntLocationIds } from "./huntLocations";
 import { activeCookingBuff } from "@/adventure/v2/cooking";
@@ -226,6 +235,8 @@ type InventorySave = {
   [k: string]: unknown;
 };
 type HuntBatchState = {
+  savesPreloaded?: boolean;
+  deferGuildExploration?: boolean;
   occupationById?: Map<string, OccupationRow>;
   viewerGuildId?: number | null;
   guildCombatSupply?: ReturnType<typeof guildCombatSupplyBonuses>;
@@ -244,6 +255,79 @@ type HuntBatchState = {
   actor: V2BattlePrepCache;
   proficiencyDirty?: boolean;
 };
+
+async function preloadHuntSaves(
+  tx: HuntTx,
+  userId: string,
+  state: HuntBatchState,
+): Promise<void> {
+  if (state.savesPreloaded) return;
+  const locked = await lockSavesForUpdate(tx, userId, {
+    "adventure-log.v2": {} as AdventureLogSave,
+    "equipment.v2": {} as EquipmentSave,
+    [GUILD_DINING_USER_SAVE_KEY]: {} as Record<string, unknown>,
+    "inventory.v2": {} as InventorySave,
+    "proficiency.v2": {} as NonNullable<
+      V2BattlePrepCache["proficiencyRaw"]
+    >,
+    "skills.v2": {} as Record<string, unknown>,
+  });
+  const readOnly = await readSaves(tx, userId, {
+    "character-profile.v2": null as { name?: string } | null,
+    [EQUIPMENT_CODEX_KEY]: {} as Record<string, unknown>,
+    [FISHING_CODEX_KEY]: {} as Record<string, unknown>,
+  });
+
+  state.equipmentSave = locked["equipment.v2"];
+  state.inventorySave = locked["inventory.v2"];
+  state.adventureLog = locked["adventure-log.v2"];
+  state.equipmentCodexRaw = readOnly[EQUIPMENT_CODEX_KEY];
+  state.playerName =
+    readOnly["character-profile.v2"]?.name?.trim() || "모험가";
+  state.actor.skillsRaw = locked["skills.v2"];
+  state.actor.proficiencyRaw = locked["proficiency.v2"];
+  state.actor.codexBonus = codexSpBonusFromRaw(
+    readOnly[FISHING_CODEX_KEY],
+    readOnly[EQUIPMENT_CODEX_KEY],
+  );
+  state.dining.initialized = true;
+  state.dining.locked = true;
+  state.dining.raw = locked[GUILD_DINING_USER_SAVE_KEY];
+  state.savesPreloaded = true;
+}
+
+async function flushHuntSaves(
+  tx: HuntTx,
+  userId: string,
+  state: HuntBatchState,
+): Promise<void> {
+  const entries: Record<string, unknown> = {};
+  if (state.equipmentSaveDirty && state.equipmentSave) {
+    entries["equipment.v2"] = state.equipmentSave;
+  }
+  if (state.inventorySaveDirty && state.inventorySave) {
+    entries["inventory.v2"] = state.inventorySave;
+  }
+  if (state.charSaveDirty && state.charSave) {
+    entries["character.v2"] = state.charSave;
+  }
+  if (state.proficiencyDirty && state.actor.proficiencyRaw) {
+    entries["proficiency.v2"] = state.actor.proficiencyRaw;
+  }
+  if (state.adventureLogDirty && state.adventureLog) {
+    entries["adventure-log.v2"] = state.adventureLog;
+  }
+  if (state.dining.dirty && state.dining.raw) {
+    entries[GUILD_DINING_USER_SAVE_KEY] = state.dining.raw;
+  }
+  await upsertSaves(tx, userId, entries);
+  state.equipmentSaveDirty = false;
+  state.inventorySaveDirty = false;
+  state.charSaveDirty = false;
+  state.proficiencyDirty = false;
+  state.adventureLogDirty = false;
+  state.dining.dirty = false;
+}
 
 export type RunOneHuntCtx = {
   tx: HuntTx;
@@ -387,6 +471,10 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         },
       };
     }
+  }
+
+  if (ctx.batchState) {
+    await preloadHuntSaves(tx, userId, ctx.batchState);
   }
 
   // equipment.v2 조기 잠금 (드랍/굴림 한 번에 기록). lock 순서 char→equipment.
@@ -681,16 +769,19 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         hp: startPlayerHp,
         hpRegenSince: now,
       };
-      await upsertSave(tx, userId, "character.v2", nextRecoveryCharacter);
       const nextInventory = {
         ...invSave,
         hpCharges,
         mpCharges,
       };
-      await upsertSave(tx, userId, "inventory.v2", nextInventory);
       if (ctx.batchState) {
         ctx.batchState.charSave = nextRecoveryCharacter;
         ctx.batchState.inventorySave = nextInventory;
+        ctx.batchState.charSaveDirty = true;
+        ctx.batchState.inventorySaveDirty = true;
+      } else {
+        await upsertSave(tx, userId, "character.v2", nextRecoveryCharacter);
+        await upsertSave(tx, userId, "inventory.v2", nextInventory);
       }
     }
     return {
@@ -1025,7 +1116,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       : { hp: 0, mp: 0 };
 
   // 코어루프 패배 페널티는 순수 소실이다. 보유 골드에서 이미 차감됐고, 세금처럼 금고에 쌓지 않는다.
-  if (won && !ctx.offline && !ctx.batchState) {
+  if (won && !ctx.offline && !ctx.batchState?.deferGuildExploration) {
     await incrementGuildExplorationProgressForUser(
       tx,
       userId,
@@ -1267,12 +1358,23 @@ async function handleHunt(req: Request, userId: string) {
       mpPotionTargetPct: autoStopConfig.mpPotionTargetPct,
     };
 
-    // === 일괄(batch) 루프 ===
-    // count===1 은 기존 단판 응답 그대로(full 리플레이 포함, 무변경).
+    // 단판도 같은 request-scoped save 상태를 사용해 여러 save 잠금·최종 쓰기를 한 쿼리로
+    // 합친다. 응답 모양과 길드 탐사 반영 시점은 기존 단판 경로를 그대로 유지한다.
     if (count === 1) {
-      return await runOneHunt(true, ctx);
+      const singleState: HuntBatchState = { actor: {}, dining: {} };
+      const single = await runOneHunt(true, {
+        ...ctx,
+        batchState: singleState,
+      });
+      await flushHuntSaves(tx, userId, singleState);
+      return single;
     }
-    const batchState: HuntBatchState = { actor: {}, dining: {} };
+    // === 일괄(batch) 루프 ===
+    const batchState: HuntBatchState = {
+      actor: {},
+      dining: {},
+      deferGuildExploration: true,
+    };
     const batchCtx: RunOneHuntCtx = {
       ...ctx,
       batchState,
@@ -1343,7 +1445,10 @@ async function handleHunt(req: Request, userId: string) {
         // 첫 사냥부터 실패면 단판과 동일하게 에러 응답 그대로(409 스태미나/HP·403 정책 등).
         //   버튼이 스태미나/회복 상태에선 비활성이라 실사용상 드물다. 중간(완료>0) 실패는
         //   완료분 요약 + 라벨로 중단(스태미나 소진·저체력·기타).
-        if (completed === 0) return r;
+        if (completed === 0) {
+          await flushHuntSaves(tx, userId, batchState);
+          return r;
+        }
         const err = (r.body as { error?: string }).error;
         if (err === "out_of_stamina") stoppedReason = "stamina";
         else if (err === "hp_zero") stoppedReason = "recovery";
@@ -1444,48 +1549,9 @@ async function handleHunt(req: Request, userId: string) {
       }
     }
 
-    await flushGuildDiningEffectCache(tx, userId, batchState.dining);
-
     // 첫 판이 잡은 row lock을 유지한 채 판간 상태는 메모리로 이월하고, 최종 save만 한 번 쓴다.
     // 중간 실패로 루프가 멈춰도 완료된 판의 최신 상태가 여기서 함께 커밋된다.
-    if (batchState.equipmentSaveDirty && batchState.equipmentSave) {
-      await upsertSave(
-        tx,
-        userId,
-        "equipment.v2",
-        batchState.equipmentSave,
-      );
-    }
-    if (batchState.inventorySaveDirty && batchState.inventorySave) {
-      await upsertSave(
-        tx,
-        userId,
-        "inventory.v2",
-        batchState.inventorySave,
-      );
-    }
-    if (batchState.charSaveDirty && batchState.charSave) {
-      await upsertSave(tx, userId, "character.v2", batchState.charSave);
-    }
-    if (batchState.proficiencyDirty && batchState.actor.proficiencyRaw) {
-      await upsertSave(
-        tx,
-        userId,
-        "proficiency.v2",
-        batchState.actor.proficiencyRaw,
-      );
-    }
-
-    // 배치 중에는 신참 보너스 판정을 위해 메모리의 누적 킬로그를 즉시 갱신하고,
-    // 영속화만 마지막 한 번으로 합친다.
-    if (batchState.adventureLogDirty && batchState.adventureLog) {
-      await upsertSave(
-        tx,
-        userId,
-        "adventure-log.v2",
-        batchState.adventureLog,
-      );
-    }
+    await flushHuntSaves(tx, userId, batchState);
 
     // 매 승리마다 같은 길드 멤버십·본부·주간 row를 다시 조회/잠그지 않고 합산 반영한다.
     // addGuildExplorationProgress의 계산은 count에 선형이므로 판별 결과는 기존과 같다.

@@ -113,6 +113,7 @@ export type LiveCoopAuditSummary = {
   minContributionRatio: number;
   medianContributionRatio: number;
   p95ContributionRatio: number;
+  medianRequiredAttacks: number | null;
 };
 
 function powerOf(
@@ -151,6 +152,7 @@ export function summarizeLiveCoopAudits(
     const bossRows = rows.filter((row) => row.bossId === bossId);
     if (bossRows.length === 0) return [];
     const contributions = bossRows.map((row) => row.contributionRatio);
+    const medianContributionRatio = percentile(contributions, 0.5);
     return [
       {
         bossId,
@@ -158,8 +160,12 @@ export function summarizeLiveCoopAudits(
           (bossRows.filter((row) => row.survived).length / bossRows.length) *
           100,
         minContributionRatio: percentile(contributions, 0),
-        medianContributionRatio: percentile(contributions, 0.5),
+        medianContributionRatio,
         p95ContributionRatio: percentile(contributions, 0.95),
+        medianRequiredAttacks:
+          medianContributionRatio > 0
+            ? Math.ceil(1 / medianContributionRatio)
+            : null,
       },
     ];
   });
@@ -374,11 +380,11 @@ function printCoopResults(players: SimPlayer[]): void {
   console.log(
     `운영 전투력 상위 ${players.length}명 · 협동 보스 ${COOP_TRIALS_PER_BOSS}회/인/보스 · 식별 정보 제외`,
   );
-  console.log("보스                         생존율  기여율 최소/중앙/p95");
+  console.log("보스                         생존율  기여율 최소/중앙/p95  중앙 예상 공격");
   for (const summary of summarizeLiveCoopAudits(rows)) {
     const label = `${summary.bossId} (${COOP_BOSSES[summary.bossId].name})`;
     console.log(
-      `${label.padEnd(29)} ${summary.survivalRatePct.toFixed(1).padStart(5)}%  ${(summary.minContributionRatio * 100).toFixed(2).padStart(5)}/${(summary.medianContributionRatio * 100).toFixed(2).padStart(5)}/${(summary.p95ContributionRatio * 100).toFixed(2).padStart(5)}%`,
+      `${label.padEnd(29)} ${summary.survivalRatePct.toFixed(1).padStart(5)}%  ${(summary.minContributionRatio * 100).toFixed(2).padStart(5)}/${(summary.medianContributionRatio * 100).toFixed(2).padStart(5)}/${(summary.p95ContributionRatio * 100).toFixed(2).padStart(5)}%  ${String(summary.medianRequiredAttacks ?? "-").padStart(4)}회`,
     );
   }
 }

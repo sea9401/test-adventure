@@ -95,8 +95,8 @@ describe("POST /api/v2/coop/summon", () => {
     expect(insertedSessions[0]).toMatchObject({
       regionId: "canyon_predator_hard",
       bossName: "재앙의 스콜피온 킹",
-      hp: 14_000_000,
-      maxHp: 14_000_000,
+      hp: 8_400_000,
+      maxHp: 8_400_000,
       visibility: "summoner_only",
     });
     const spawnedAt = insertedSessions[0]?.spawnedAt as Date;

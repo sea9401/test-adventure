@@ -1191,6 +1191,13 @@
       "when": 1787161383404,
       "tag": "0169_trade_suspension",
       "breakpoints": true
+    },
+    {
+      "idx": 170,
+      "version": "7",
+      "when": 1787186119292,
+      "tag": "0170_rebalance_tier6_hard_coop_sessions",
+      "breakpoints": true
     }
   ]
 }

@@ -20,7 +20,7 @@
 - 테스트: `src/adventure/data/v2/coopBosses.test.ts`
 - 테스트: `src/adventure/data/v2/v2Skills.test.ts`
 
-1. `coopBosses.test.ts`에 두 신규 ID, HARD 판정, 30장 소환, 1,400만 HP, 24시간, 이미지 재사용, 70%·40% 페이즈의 스탯/스킬 변화가 기대대로 나오는 실패 테스트를 추가한다.
+1. `coopBosses.test.ts`에 두 신규 ID, HARD 판정, 30장 소환, 운영 감사로 확정한 840만 HP, 24시간, 이미지 재사용, 초기 파생 공·방·속과 70%·40% 페이즈의 스탯/스킬 변화가 기대대로 나오는 실패 테스트를 추가한다.
 2. `v2Skills.test.ts`에 강화 독·한기 몬스터 전용 스킬이 플레이어 학습 목록에는 섞이지 않고 중독 스택/둔화 수치/방어 약화를 정확히 설명하는 실패 테스트를 추가한다.
 3. 다음 ID를 타입과 카탈로그에 등록한다.
    - `canyon_predator_hard`, `lake_sovereign_hard`
@@ -109,7 +109,7 @@
 **파일:**
 - 수정: `scripts/sim-v2-coop-boss.ts`
 - 수정: `src/adventure/data/v2/coopBossBalance.test.ts`
-- 수정: `docs/superpowers/specs/2026-08-19-tier6-hard-coop-bosses-design.md` (검증으로 확정된 수치가 1,400만과 다를 때만)
+- 수정: `docs/superpowers/specs/2026-08-19-tier6-hard-coop-bosses-design.md` (운영 검증으로 확정된 HP·파생 스탯 반영)
 
 1. 실제 `coopBossForBattle → resolveBattle`, 10초 재공격 대기와 ATB 3,000틱 제한을 사용하는 고정 시드 6T 완성 빌드 표본을 추가한다.
 2. 두 보스 각각 빌드별 200회를 실행해 공격 1회 피해 중앙값, 생존율, `ceil(sharedMaxHp / medianDamage)`를 출력한다.
@@ -122,7 +122,8 @@
 ## 완료 조건
 
 - 신규 두 보스가 같은 6T HARD 단계로 소환·공개·공격·보상 수령 가능하다.
-- 페이즈는 70%·40%에서 다음 공격부터 적용되고, 피해 상한·무적·DB 마이그레이션이 없다.
+- 페이즈는 70%·40%에서 다음 공격부터 적용되고 피해 상한·무적·DB 스키마 변경이 없다.
+  운영 재보정 시 일회성 데이터 마이그레이션이 활성 세션의 HP·기여 비율을 보존한다.
 - 신규 6종 장비와 두 3부위 세트가 모든 직업에서 사용할 수 있으며 boots 충돌로 동시 3세트 완성이 불가능하다.
 - 두 세트의 핵심 기믹이 PvE/PvP에서 동일하게 동작하고 다른 보호막으로 빙호수호가 오발동하지 않는다.
 - HARD 산군과 동일한 주화 수량 및 지정된 재료·상자·확정타 보상이 적용된다.

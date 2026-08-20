@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
+import { db } from "@/db";
 import type {
   CodexResearchDefinitionSnapshot,
   CodexResearchObjective,
@@ -7,6 +8,7 @@ import { kstCodexResearchSeasonWindow } from "@/adventure/data/v2/codexResearch"
 import type { CodexResearchSeasonState } from "./codexResearchRepository";
 import {
   createCodexResearchSettlement,
+  readCodexResearchSettlementCandidates,
   type CodexResearchSettlementCandidate,
 } from "./codexResearchSettlement";
 
@@ -118,6 +120,11 @@ function runtimeFixture(options: {
 }
 
 describe("monthly codex research settlement", () => {
+  it("allows the read-only candidate query on the global executor", () => {
+    expectTypeOf<typeof db>()
+      .toMatchTypeOf<Parameters<typeof readCodexResearchSettlementCandidates>[0]>();
+  });
+
   it("rejects settlement before the exclusive season end", async () => {
     const fixture = runtimeFixture();
     const settle = createCodexResearchSettlement(fixture.runtime);

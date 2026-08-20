@@ -15,7 +15,7 @@ import {
   type CodexResearchFinalResult,
   type CodexResearchSeasonState,
 } from "./codexResearchRepository";
-import type { DbTransactionExecutor } from "./savesKv";
+import type { DbExecutor, DbTransactionExecutor } from "./savesKv";
 
 export type CodexResearchSettlementCandidate = {
   userId: string;
@@ -193,7 +193,7 @@ function excludeAdminEmails(adminEmails: readonly string[]): SQL {
 }
 
 export async function readCodexResearchSettlementCandidates(
-  executor: DbTransactionExecutor,
+  executor: Pick<DbExecutor, "execute">,
   seasonId: string,
   adminEmails: readonly string[],
   now: Date,

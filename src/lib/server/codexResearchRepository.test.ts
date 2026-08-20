@@ -22,6 +22,7 @@ import {
   closeCodexResearchSeason,
   lockCodexResearchSeasonForSettlement,
   markCodexResearchSeasonSettling,
+  markCodexResearchSeasonResettling,
   lockCodexResearchProgress,
   readCurrentCodexResearchSeason,
   saveCodexResearchProgress,
@@ -239,6 +240,8 @@ describe("codex research repository", () => {
       .toEqualTypeOf<DbTransactionExecutor>();
     expectTypeOf<Parameters<typeof markCodexResearchSeasonSettling>[0]>()
       .toEqualTypeOf<DbTransactionExecutor>();
+    expectTypeOf<Parameters<typeof markCodexResearchSeasonResettling>[0]>()
+      .toEqualTypeOf<DbTransactionExecutor>();
     expectTypeOf<Parameters<typeof writeCodexResearchFinalResults>[0]>()
       .toEqualTypeOf<DbTransactionExecutor>();
     expectTypeOf<Parameters<typeof closeCodexResearchSeason>[0]>()
@@ -305,6 +308,30 @@ describe("codex research repository", () => {
       .toEqual(["user-1", "2026-08"]);
     expect(new PgDialect().sqlToQuery(fake.updates[3].where).params)
       .toEqual(["2026-08", "settling"]);
+  });
+
+  it("reopens only a closed season for correction and clears settledAt", async () => {
+    const reopened = fakeExecutor();
+
+    await markCodexResearchSeasonResettling(
+      reopened.executor,
+      "2026-08",
+      NOW,
+    );
+
+    expect(reopened.updates[0]).toMatchObject({
+      table: codexResearchSeasons,
+      values: { status: "settling", settledAt: null, updatedAt: NOW },
+    });
+    expect(new PgDialect().sqlToQuery(reopened.updates[0].where).params)
+      .toEqual(["2026-08", "closed"]);
+
+    const missing = fakeExecutor({ activateRows: [] });
+    await expect(markCodexResearchSeasonResettling(
+      missing.executor,
+      "2026-08",
+      NOW,
+    )).rejects.toThrow("was not marked resettling");
   });
 
   it("rejects duplicate final users or ranks before clearing stored results", async () => {

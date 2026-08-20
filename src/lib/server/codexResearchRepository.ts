@@ -305,6 +305,25 @@ export async function markCodexResearchSeasonSettling(
   }
 }
 
+export async function markCodexResearchSeasonResettling(
+  executor: DbTransactionExecutor,
+  seasonId: string,
+  now: Date,
+): Promise<void> {
+  if (!validDate(now)) throw new Error("now must be a valid date");
+  const rows = await executor
+    .update(codexResearchSeasons)
+    .set({ status: "settling", settledAt: null, updatedAt: now })
+    .where(and(
+      eq(codexResearchSeasons.seasonId, seasonId),
+      eq(codexResearchSeasons.status, "closed"),
+    ))
+    .returning({ seasonId: codexResearchSeasons.seasonId });
+  if (rows.length !== 1) {
+    throw new Error("codex research season was not marked resettling");
+  }
+}
+
 function validateFinalResults(
   results: readonly CodexResearchFinalResult[],
 ): void {

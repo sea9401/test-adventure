@@ -9,9 +9,12 @@ import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
   housingContextFromSaves,
+  housingMasteryTrophyContext,
   publicHousingOptions,
   sanitizePublicHousingState,
 } from "@/lib/server/housing";
+import { readCodexMasteryFeatureSettings } from "@/lib/server/opsSettings";
+import { readCodexMasteryTrophyHistory } from "@/lib/server/codexMasteryTrophyRepository";
 import { readSave } from "@/lib/server/savesKv";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
@@ -60,25 +63,41 @@ export async function GET(req: Request, ctx: Ctx) {
     return Response.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
-  const [housingRaw, equipmentRaw, adventureLogRaw, fishingCodexRaw, lifeWorkshopRaw] =
+  const [
+    housingRaw,
+    equipmentRaw,
+    adventureLogRaw,
+    fishingCodexRaw,
+    lifeWorkshopRaw,
+    settings,
+  ] =
     await Promise.all([
       readSave(db, target.user_id, HOUSING_SAVE_KEY, null),
       readSave(db, target.user_id, "equipment.v2", {}),
       readSave(db, target.user_id, "adventure-log.v2", {}),
       readSave(db, target.user_id, FISHING_CODEX_KEY, {}),
       readSave(db, target.user_id, LIFE_WORKSHOP_SAVE_KEY, {}),
+      readCodexMasteryFeatureSettings(db),
     ]);
   const room = parseHousingState(housingRaw);
   if (!room.isPublic && target.user_id !== viewerId) {
     return Response.json({ ok: false, error: "private_room" }, { status: 403 });
   }
-  const context = housingContextFromSaves({
+  const baseContext = housingContextFromSaves({
     equipmentRaw,
     adventureLogRaw,
     fishingCodexRaw,
     lifeWorkshopRaw,
   });
-  const displayOptions = publicHousingOptions(room, context.displayOptions);
+  const trophyContext = settings.trophiesEnabled
+    ? housingMasteryTrophyContext(
+        await readCodexMasteryTrophyHistory(db, target.user_id),
+      )
+    : null;
+  const displayOptions = publicHousingOptions(room, [
+    ...baseContext.displayOptions,
+    ...(trophyContext?.displayOptions ?? []),
+  ]);
 
   return Response.json({
     ok: true,

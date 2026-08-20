@@ -11,7 +11,7 @@ export async function readPlayerSanctionStatus(
   userId: string,
   now = new Date(),
 ): Promise<PlayerSanctionStatus | null> {
-  const [userRows, warningRows, tradeSuspensionRows] = await Promise.all([
+  const [userRows, warningRows] = await Promise.all([
     db
       .select({
         bannedUntil: users.bannedUntil,
@@ -38,26 +38,6 @@ export async function readPlayerSanctionStatus(
       )
       .orderBy(desc(userSanctions.id))
       .limit(1),
-    db
-      .select({
-        id: userSanctions.id,
-        reason: userSanctions.reason,
-        expiresAt: userSanctions.expiresAt,
-        acknowledgedAt: userSanctions.acknowledgedAt,
-      })
-      .from(userSanctions)
-      .innerJoin(users, eq(users.id, userSanctions.userId))
-      .where(
-        and(
-          eq(userSanctions.userId, userId),
-          inArray(userSanctions.type, ["trade_suspend", "trade_ban"]),
-          isNull(userSanctions.liftedAt),
-          gt(userSanctions.expiresAt, now),
-          eq(userSanctions.expiresAt, users.tradeSuspendedUntil),
-        ),
-      )
-      .orderBy(desc(userSanctions.id))
-      .limit(1),
   ]);
 
   const user = userRows[0];
@@ -66,6 +46,29 @@ export async function readPlayerSanctionStatus(
   const bannedUntil = user.bannedUntil;
   const warning = warningRows[0];
   const currentTradeUntil = user.tradeSuspendedUntil;
+  const tradeSuspensionRows =
+    currentTradeUntil && currentTradeUntil.getTime() > now.getTime()
+      ? await db
+          .select({
+            id: userSanctions.id,
+            reason: userSanctions.reason,
+            expiresAt: userSanctions.expiresAt,
+            acknowledgedAt: userSanctions.acknowledgedAt,
+          })
+          .from(userSanctions)
+          .innerJoin(users, eq(users.id, userSanctions.userId))
+          .where(
+            and(
+              eq(userSanctions.userId, userId),
+              inArray(userSanctions.type, ["trade_suspend", "trade_ban"]),
+              isNull(userSanctions.liftedAt),
+              gt(userSanctions.expiresAt, now),
+              eq(userSanctions.expiresAt, users.tradeSuspendedUntil),
+            ),
+          )
+          .orderBy(desc(userSanctions.id))
+          .limit(1)
+      : [];
   const tradeSuspension =
     currentTradeUntil && currentTradeUntil.getTime() > now.getTime()
       ? tradeSuspensionRows.find(

@@ -59,6 +59,7 @@ import {
 } from "./proficiency";
 import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
 import { emptyProficiency, type V2ProficiencyState } from "./proficiency";
+import { TIER7_COMBAT_JOB_IDS } from "./tier7Jobs";
 
 const BASE_JOBS = ["warrior", "martial", "mage", "rogue"];
 const LEGACY_CLASSES = [...BASE_JOBS, "survivor", "mutant"];
@@ -316,7 +317,20 @@ describe("스탯 맵 무결성", () => {
   const allStatMaps = (job: V2JobDefinition) => [
     ["cultivateProfile", job.cultivateProfile] as const,
     ["jobBonus", job.jobBonus] as const,
-  ];
+];
+
+describe("unreleased tier-7 boundary", () => {
+  it("keeps internal tier-7 jobs outside every selectable catalog surface", () => {
+    const unlocked = new Set(unlockedJobs(emptyProficiency()).map((job) => job.id));
+
+    for (const jobId of TIER7_COMBAT_JOB_IDS) {
+      expect(V2_JOB_CATALOG[jobId]).toBeUndefined();
+      expect(V2_JOB_LIST.some((job) => job.id === jobId)).toBe(false);
+      expect(LEGACY_CLASS_SPEC_BY_JOB[jobId]).toBeUndefined();
+      expect(unlocked.has(jobId)).toBe(false);
+    }
+  });
+});
 
   it("cultivateProfile·jobBonus 의 키는 전부 유효 V2StatKey, 값은 양수", () => {
     for (const job of V2_JOB_LIST) {

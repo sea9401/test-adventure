@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildJobRoadmap, type JobRoadmapNode } from "./jobRoadmapModel";
+import type { V2JobDefinition } from "@/adventure/data/v2/v2JobCatalog";
+import {
+  buildJobRoadmap,
+  buildJobRoadmapFromJobs,
+  type JobRoadmapNode,
+} from "./jobRoadmapModel";
 
 function flatten(node: JobRoadmapNode): JobRoadmapNode[] {
   return [node, ...node.children.flatMap(flatten)];
@@ -40,5 +45,57 @@ describe("job roadmap model", () => {
     expect(byId.get("healthtrainer")?.production).toBe(false);
     expect(byId.get("mastertrainer")?.production).toBe(false);
     expect(byId.get("survivor")?.production).toBe(false);
+  });
+
+  it("preserves both prerequisite lineages on a hybrid tier-7 node", () => {
+    const jobs: V2JobDefinition[] = [
+      {
+        id: "none",
+        name: "모험가",
+        tier: 0,
+        cultivateProfile: {},
+        jobBonus: {},
+        unlock: { prereqs: {} },
+      },
+      {
+        id: "swordsaint",
+        name: "검성",
+        tier: 6,
+        cultivateProfile: {},
+        jobBonus: {},
+        unlock: { prereqs: { none: 1 } },
+      },
+      {
+        id: "blackmoon",
+        name: "흑월",
+        tier: 6,
+        cultivateProfile: {},
+        jobBonus: {},
+        unlock: { prereqs: { none: 1 } },
+      },
+      {
+        id: "shadowblade",
+        name: "무영검신",
+        tier: 7,
+        cultivateProfile: {},
+        jobBonus: {},
+        unlock: {
+          prereqs: { swordsaint: 100_000, blackmoon: 100_000 },
+        },
+      },
+    ];
+
+    const node = flatten(buildJobRoadmapFromJobs(jobs)).find(
+      (candidate) => candidate.id === "shadowblade",
+    );
+
+    expect(node).toMatchObject({
+      id: "shadowblade",
+      tier: 7,
+      hybrid: true,
+      prerequisiteJobIds: ["swordsaint", "blackmoon"],
+    });
+    expect(node?.prereqText).toContain("검성 숙련도 100000");
+    expect(node?.prereqText).toContain("흑월 숙련도 100000");
   });
 });

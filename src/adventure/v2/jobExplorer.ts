@@ -11,6 +11,7 @@ import {
   V2_STAT_LABELS,
   type V2StatKey,
 } from "@/adventure/data/v2/v2StatKeys";
+import type { Tier7AdvancementStatus } from "@/adventure/data/v2/tier7Advancement";
 
 export const JOB_GOAL_STORAGE_KEY = "adventure.v2.jobGoalId";
 
@@ -26,6 +27,7 @@ export type JobExplorerJob = {
   skillsLearned?: number;
   skillsTotal?: number;
   conditionRevealed?: boolean;
+  tier7Advancement?: Tier7AdvancementStatus;
 };
 
 export type JobExplorerContext = {
@@ -44,12 +46,31 @@ export function resolveJobAdvanceAction({
   atLevelCap,
   currentJobSelectable,
 }: {
-  job: Pick<JobExplorerJob, "id" | "name" | "unlocked">;
+  job: Pick<
+    JobExplorerJob,
+    "id" | "name" | "unlocked" | "tier7Advancement"
+  >;
   currentJobId: string;
   atLevelCap: boolean;
   currentJobSelectable: boolean;
 }): JobAdvanceAction {
   const isCurrent = job.id === currentJobId;
+  const tier7 = job.tier7Advancement;
+  if (tier7 && !tier7.permanentlyUnlocked) {
+    const enabled = tier7.firstUnlockReady;
+    const label = enabled
+      ? "전직"
+      : tier7.failure === "level_too_low"
+        ? (`Lv ${tier7.level.required} 필요` as const)
+        : "조건 부족";
+    return {
+      enabled,
+      label,
+      ariaLabel: enabled
+        ? `${job.name}(으)로 전직`
+        : `${job.name} 전직: ${label}`,
+    };
+  }
   const unlocked = job.unlocked !== false;
   const enabled = unlocked && (isCurrent ? currentJobSelectable : atLevelCap);
   const label = !unlocked

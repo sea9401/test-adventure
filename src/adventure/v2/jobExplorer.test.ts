@@ -22,6 +22,7 @@ import {
   toggleJobTagFilter,
   type JobExplorerJob,
 } from "./jobExplorer";
+import { tier7AdvancementStatus } from "@/adventure/data/v2/tier7Advancement";
 
 const job = (id: string, extra: Partial<JobExplorerJob> = {}): JobExplorerJob => ({
   id,
@@ -281,6 +282,31 @@ describe("jobExplorer tags", () => {
 });
 
 describe("job advancement action", () => {
+  const incompleteTier7 = tier7AdvancementStatus({
+    targetJobId: "shadowblade",
+    currentJobId: "swordsaint",
+    currentLevel: 100,
+    jobCumLevel: { swordsaint: 100_000, blackmoon: 99_999 },
+    jobHistory: [],
+    materials: { v2_storm_origin_fragment: 30 },
+  })!;
+  const levelBlockedTier7 = tier7AdvancementStatus({
+    targetJobId: "shadowblade",
+    currentJobId: "swordsaint",
+    currentLevel: 99,
+    jobCumLevel: { swordsaint: 100_000, blackmoon: 100_000 },
+    jobHistory: [],
+    materials: { v2_storm_origin_fragment: 30 },
+  })!;
+  const permanentTier7 = tier7AdvancementStatus({
+    targetJobId: "shadowblade",
+    currentJobId: "warrior",
+    currentLevel: 100,
+    jobCumLevel: {},
+    jobHistory: ["shadowblade"],
+    materials: {},
+  })!;
+
   it.each([
     {
       label: "eligible unlocked job",
@@ -354,5 +380,50 @@ describe("job advancement action", () => {
     },
   ])("resolves $label consistently", ({ params, expected }) => {
     expect(resolveJobAdvanceAction(params)).toEqual(expected);
+  });
+
+  it("blocks an incomplete tier-7 first unlock even when the row is visible", () => {
+    expect(
+      resolveJobAdvanceAction({
+        job: job("shadowblade", {
+          name: "무영검신",
+          unlocked: true,
+          tier7Advancement: incompleteTier7,
+        }),
+        currentJobId: "swordsaint",
+        atLevelCap: true,
+        currentJobSelectable: true,
+      }),
+    ).toMatchObject({ enabled: false, label: "조건 부족" });
+  });
+
+  it("labels the actual level requirement separately for a tier-7 first unlock", () => {
+    expect(
+      resolveJobAdvanceAction({
+        job: job("shadowblade", {
+          name: "무영검신",
+          unlocked: true,
+          tier7Advancement: levelBlockedTier7,
+        }),
+        currentJobId: "swordsaint",
+        atLevelCap: false,
+        currentJobSelectable: false,
+      }),
+    ).toMatchObject({ enabled: false, label: "Lv 100 필요" });
+  });
+
+  it("uses ordinary rejob availability after permanent tier-7 unlock", () => {
+    expect(
+      resolveJobAdvanceAction({
+        job: job("shadowblade", {
+          name: "무영검신",
+          unlocked: true,
+          tier7Advancement: permanentTier7,
+        }),
+        currentJobId: "warrior",
+        atLevelCap: true,
+        currentJobSelectable: false,
+      }),
+    ).toMatchObject({ enabled: true, label: "전직" });
   });
 });

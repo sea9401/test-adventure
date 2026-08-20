@@ -6,6 +6,7 @@ import {
   V2_JOB_LIST,
 } from "./v2JobCatalog";
 import { emptyProficiency, type V2ProficiencyState } from "./proficiency";
+import { TIER7_COMBAT_JOB_IDS } from "./tier7Jobs";
 
 // 직군 cumLevel 을 세팅한 proficiency 생성 헬퍼.
 function profWith(groups: Record<string, number>): V2ProficiencyState {
@@ -17,6 +18,16 @@ function profWith(groups: Record<string, number>): V2ProficiencyState {
 }
 
 describe("buildJobCodex", () => {
+  it("does not publish internal tier-7 jobs before their profiles are approved", () => {
+    const ids = new Set(
+      buildJobCodex(emptyProficiency(), [], "warrior", null).jobs.map(
+        (job) => job.id,
+      ),
+    );
+
+    for (const jobId of TIER7_COMBAT_JOB_IDS) expect(ids.has(jobId)).toBe(false);
+  });
+
   it("전체 직업 목록 + unlocked 상태 + totalJobs=전체 + 폐지 필드 없음 + condition 포함", () => {
     const prof = profWith({
       warrior: TIER2_UNLOCK_CUMLEVEL,

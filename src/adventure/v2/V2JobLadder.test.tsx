@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { V2JobLadder } from "./V2JobLadder";
+import { advanceClassErrorLabel, V2JobLadder } from "./V2JobLadder";
 
 describe("V2JobLadder production-job guidance", () => {
   it("수인 단일 계보와 바로 아래 직업 숙련도 조건을 표시한다", () => {
@@ -110,5 +110,28 @@ describe("V2JobLadder production-job guidance", () => {
     expect(html).toContain("놓친 스킬을 배운 뒤 바로 다른 직업으로 이동할 수");
     expect(html).not.toContain("생산직 전직에는 캐릭터 레벨 제한이 없어요.");
     expect(html).toContain("Lv 100 필요");
+  });
+});
+
+describe("advanceClassErrorLabel", () => {
+  it.each([
+    [
+      { error: "tier7_prerequisite_proficiency" },
+      "두 선행 6차 숙련도가 각각 100,000 필요해요",
+    ],
+    [
+      { error: "tier7_current_job" },
+      "선행 6차 직업으로 Lv.100을 달성한 뒤 전직할 수 있어요",
+    ],
+    [
+      { error: "tier7_material_shortage", required: 30 },
+      "폭풍 기원의 파편 30개가 필요해요",
+    ],
+    [
+      { error: "level_too_low", required: 100 },
+      "전투 Lv 100 도달 후 전직할 수 있어요",
+    ],
+  ])("maps %o to actionable Korean copy", (payload, expected) => {
+    expect(advanceClassErrorLabel(payload, 400)).toBe(expected);
   });
 });

@@ -14,31 +14,45 @@ export type JobRoadmapNode = {
   hybrid: boolean;
   /** 전투 레벨 제한 없이 생활 숙련 조건으로 전직하는 생산직 계열. */
   production: boolean;
+  prerequisiteJobIds: string[];
   prereqText: string;
   children: JobRoadmapNode[];
 };
 
-const JOB_ORDER = new Map(V2_JOB_LIST.map((job, index) => [job.id, index]));
-
 export function buildJobRoadmap(): JobRoadmapNode {
+  return buildJobRoadmapFromJobs(V2_JOB_LIST);
+}
+
+export function buildJobRoadmapFromJobs(
+  jobs: readonly V2JobDefinition[],
+): JobRoadmapNode {
+  const jobById = new Map(jobs.map((job) => [job.id, job] as const));
+  const jobOrder = new Map(jobs.map((job, index) => [job.id, index] as const));
   const childrenByParent = new Map<string, V2JobDefinition[]>();
-  for (const job of V2_JOB_LIST) {
+  for (const job of jobs) {
     const parent = primaryParentId(job);
     const children = childrenByParent.get(parent) ?? [];
     children.push(job);
     childrenByParent.set(parent, children);
   }
 
-  const toNode = (job: V2JobDefinition): JobRoadmapNode => ({
-    id: job.id,
-    name: job.name,
-    tier: job.tier,
-    group: groupForJob(job),
-    hybrid: prerequisiteJobIds(job).length > 1,
-    production: isLifestyleMasteryJobId(job.id),
-    prereqText: prereqText(job),
-    children: sortedChildren(childrenByParent.get(job.id) ?? []).map(toNode),
-  });
+  const toNode = (job: V2JobDefinition): JobRoadmapNode => {
+    const prerequisiteIds = prerequisiteJobIds(job);
+    return {
+      id: job.id,
+      name: job.name,
+      tier: job.tier,
+      group: groupForJob(job),
+      hybrid: prerequisiteIds.length > 1,
+      production: isLifestyleMasteryJobId(job.id),
+      prerequisiteJobIds: prerequisiteIds,
+      prereqText: prereqText(job, jobById),
+      children: sortedChildren(
+        childrenByParent.get(job.id) ?? [],
+        jobOrder,
+      ).map(toNode),
+    };
+  };
 
   return {
     id: "start",
@@ -47,8 +61,12 @@ export function buildJobRoadmap(): JobRoadmapNode {
     group: "root",
     hybrid: false,
     production: false,
+    prerequisiteJobIds: [],
     prereqText: "",
-    children: sortedChildren(childrenByParent.get("start") ?? []).map(toNode),
+    children: sortedChildren(
+      childrenByParent.get("start") ?? [],
+      jobOrder,
+    ).map(toNode),
   };
 }
 
@@ -69,10 +87,13 @@ function prerequisiteJobIds(job: V2JobDefinition): string[] {
   return ids;
 }
 
-function sortedChildren(children: V2JobDefinition[]): V2JobDefinition[] {
+function sortedChildren(
+  children: V2JobDefinition[],
+  jobOrder: ReadonlyMap<string, number>,
+): V2JobDefinition[] {
   return [...children].sort((a, b) => {
     if (a.tier !== b.tier) return a.tier - b.tier;
-    return (JOB_ORDER.get(a.id) ?? 0) - (JOB_ORDER.get(b.id) ?? 0);
+    return (jobOrder.get(a.id) ?? 0) - (jobOrder.get(b.id) ?? 0);
   });
 }
 
@@ -81,15 +102,19 @@ function groupForJob(job: V2JobDefinition): string {
   return LEGACY_CLASS_SPEC_BY_JOB[job.id]?.class ?? job.id;
 }
 
-function prereqText(job: V2JobDefinition): string {
+function prereqText(
+  job: V2JobDefinition,
+  jobById: ReadonlyMap<string, V2JobDefinition>,
+): string {
   const parts = Object.entries(job.unlock.prereqs).map(
-    ([id, level]) => `${V2_JOB_CATALOG[id]?.name ?? id} 숙련도 ${level}`,
+    ([id, level]) =>
+      `${jobById.get(id)?.name ?? V2_JOB_CATALOG[id]?.name ?? id} 숙련도 ${level}`,
   );
   for (const condition of job.unlock.extraConditions ?? []) {
     switch (condition.type) {
       case "jobUnlocked":
         parts.push(
-          `${V2_JOB_CATALOG[condition.jobId]?.name ?? condition.jobId} 해금`,
+          `${jobById.get(condition.jobId)?.name ?? V2_JOB_CATALOG[condition.jobId]?.name ?? condition.jobId} 해금`,
         );
         break;
       case "farmingLevel":

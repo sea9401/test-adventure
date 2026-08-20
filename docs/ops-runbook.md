@@ -387,6 +387,13 @@ AWS 구독 확인 링크를 승인한 뒤 `PendingConfirmation`이 아닌 구독
 확인하고 테스트 메시지 수신까지 검증한다. `sea9401@gmail.com` 구독은 2026-08-13에
 활성 ARN 전환과 테스트 메시지 수신을 확인했다.
 
+2026-08-21 01:12~01:14 KST에는 `adventure-rpg-db`의 20 GiB 스토리지만 gp2에서
+gp3로 즉시 전환했다. 클래스(`db.t4g.micro`), Single-AZ, 최대 자동 확장 100 GiB,
+백업·암호화·삭제 보호 설정은 변경하지 않았다. 적용 결과는 gp3 기본 성능
+3,000 IOPS/125 MiB/s, 미결 변경 없음, `storage-optimization`이었고 내부·외부 health와
+DB 응답은 정상이었다. 변경 구간의 애플리케이션 DB 연결 오류는 0건, CloudWatch 최신값은
+읽기 1.06 ms·쓰기 0.67 ms·디스크 큐 0.017이었다. 이 변경은 앱 배포를 동반하지 않았다.
+
 스택 생성 직후 RDS 가용 메모리와 저장 공간 경보가 실제로 발생했다. 같은 날 확인한
 `FreeableMemory`는 약 86–160 MB, `FreeStorageSpace`는 약 6 GB였고, 후자는 7일 전 약
 18 GB에서 감소한 값이다. 원인은 약 10.9 GB의 `battle_replays` 물리 파일이었다. 운영 SHA

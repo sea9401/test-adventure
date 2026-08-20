@@ -27,6 +27,8 @@ import {
   resolveJobAdvanceAction,
   toggleJobTagFilter,
 } from "./jobExplorer";
+import type { Tier7AdvancementStatus } from "@/adventure/data/v2/tier7Advancement";
+import { Tier7FirstUnlockNotice } from "./Tier7AdvancementRequirements";
 
 // 직업 시스템 v2 전직 화면(직업 숙련도 점진 공개).
 // 조건이 공개된 직업을 검색/태그/목표로 탐색하고, 해금된 직업과 조건 부족 직업을 현재 캐릭터 기준으로 나눈다.
@@ -57,9 +59,36 @@ export type JobLadderEntry = {
   }>;
   // 그 직업의 시그니처 스킬을 전부 배웠는가(직업 도감과 동일 기준) — "수집 완료" 배지용.
   skillsCollected?: boolean;
+  tier7Advancement?: Tier7AdvancementStatus;
 };
 
-type Pending = { id: string; name: string; current: boolean };
+type Pending = {
+  id: string;
+  name: string;
+  current: boolean;
+  tier7Advancement?: Tier7AdvancementStatus;
+};
+
+export function advanceClassErrorLabel(
+  payload: { error?: string; required?: number } | null,
+  status: number,
+): string {
+  if (payload?.error === "level_too_low") {
+    return `전투 Lv ${payload.required ?? V2_LEVEL_CAP} 도달 후 전직할 수 있어요`;
+  }
+  if (payload?.error === "tier7_prerequisite_proficiency") {
+    return "두 선행 6차 숙련도가 각각 100,000 필요해요";
+  }
+  if (payload?.error === "tier7_current_job") {
+    return "선행 6차 직업으로 Lv.100을 달성한 뒤 전직할 수 있어요";
+  }
+  if (payload?.error === "tier7_material_shortage") {
+    return `폭풍 기원의 파편 ${payload.required ?? 30}개가 필요해요`;
+  }
+  if (payload?.error === "job_locked") return "아직 해금되지 않은 직업이에요";
+  if (payload?.error === "bad_target") return "선택할 수 없는 직업이에요";
+  return payload?.error ?? `http ${status}`;
+}
 
 export function V2JobLadder({
   level,
@@ -145,12 +174,15 @@ export function V2JobLadder({
     setActiveTags((prev) => toggleJobTagFilter(prev, key));
   }
 
-  function pickJob(job: Pick<JobLadderEntry, "id" | "name">) {
+  function pickJob(
+    job: Pick<JobLadderEntry, "id" | "name" | "tier7Advancement">,
+  ) {
     setMsg(null);
     setPending({
       id: job.id,
       name: job.name,
       current: job.id === currentJobId,
+      tier7Advancement: job.tier7Advancement,
     });
   }
 
@@ -170,14 +202,7 @@ export function V2JobLadder({
         required?: number;
       } | null;
       if (!j?.ok) {
-        const label =
-          j?.error === "level_too_low"
-            ? `전투 Lv ${j.required ?? V2_LEVEL_CAP} 도달 후 전직할 수 있어요`
-            : j?.error === "job_locked"
-              ? "아직 해금되지 않은 직업이에요"
-              : j?.error === "bad_target"
-                ? "선택할 수 없는 직업이에요"
-                : (j?.error ?? `http ${res.status}`);
+        const label = advanceClassErrorLabel(j, res.status);
         setMsg(`✗ ${label}`);
         return;
       }
@@ -352,11 +377,17 @@ export function V2JobLadder({
                 ? `${pending.name} 재전직`
                 : `${pending.name}(으)로 전직`}
             </h2>
-            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-              {pending.current
-                ? "같은 직업으로 재전직해요. 레벨이 1로 돌아가고 스탯이 다시 자라기 시작하지만, 숙련도와 성장 한계치는 그대로 유지됩니다."
-                : "전직하면 레벨이 1로 돌아가고 스탯이 다시 자라기 시작해요. 숙련도와 성장 한계치는 그대로 유지됩니다."}
-            </p>
+            {pending.tier7Advancement &&
+            !pending.tier7Advancement.permanentlyUnlocked &&
+            pending.tier7Advancement.firstUnlockReady ? (
+              <Tier7FirstUnlockNotice status={pending.tier7Advancement} />
+            ) : (
+              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                {pending.current
+                  ? "같은 직업으로 재전직해요. 레벨이 1로 돌아가고 스탯이 다시 자라기 시작하지만, 숙련도와 성장 한계치는 그대로 유지됩니다."
+                  : "전직하면 레벨이 1로 돌아가고 스탯이 다시 자라기 시작해요. 숙련도와 성장 한계치는 그대로 유지됩니다."}
+              </p>
+            )}
             <div className="mt-5 flex gap-2">
               <button
                 type="button"

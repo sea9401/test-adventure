@@ -13,12 +13,14 @@
     "ISC",
     "LGPL-3.0-or-later",
     "MIT",
+    "MIT-0",
     "MPL-2.0",
     "Python-2.0"
   ],
   "notes": {
     "CC-BY-4.0": "caniuse-lite build data; attribution and license text are retained in the public notice.",
     "LGPL-3.0-or-later": "sharp optional libvips binaries run on the server; upstream source information is retained in the public notice.",
+    "MIT-0": "Current MIT-0 packages are development-only jsdom transitive dependencies from CSSTools.",
     "MPL-2.0": "Current MPL packages are build or development tooling; license texts are retained when present."
   }
 }

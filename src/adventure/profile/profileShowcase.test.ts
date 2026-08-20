@@ -21,6 +21,12 @@ describe("profile showcase parser", () => {
     expect(
       parseProfileShowcase({ selection: { kind: "title", titleId: "hero" } }),
     ).toEqual({ kind: "title", titleId: "hero" });
+    expect(
+      parseProfileShowcaseSelection({
+        kind: "masteryTrophy",
+        trophyId: "mastery:fish",
+      }),
+    ).toEqual({ kind: "masteryTrophy", trophyId: "mastery:fish" });
   });
 
   it("rejects malformed and oversized values", () => {
@@ -31,6 +37,10 @@ describe("profile showcase parser", () => {
       }),
     ).toBeNull();
     expect(parseProfileShowcase({ selection: { kind: "unknown", id: "x" } })).toBeNull();
+    expect(parseProfileShowcaseSelection({
+      kind: "masteryTrophy",
+      trophyId: "x".repeat(161),
+    })).toBeNull();
   });
 
   it("parses three slots and migrates the legacy single selection", () => {

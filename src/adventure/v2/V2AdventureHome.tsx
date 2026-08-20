@@ -17,6 +17,7 @@ import type {
   V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import type {
+  ProfileMasteryTrophyDisplay,
   ProfileShowcaseSelection,
   ProfileShowcaseSlots,
 } from "@/adventure/profile/profileShowcase";
@@ -36,6 +37,7 @@ type StateResponse = {
   activeFoodBuff?: ActiveCookingBuff | null;
   profileShowcase?: ProfileShowcaseSelection | null;
   profileShowcaseSlots?: ProfileShowcaseSlots;
+  profileMasteryTrophies?: ProfileMasteryTrophyDisplay[];
   profileBadgeStandOwned?: boolean;
   profileBadgeStandVisible?: boolean;
   hotTime?: {
@@ -124,6 +126,7 @@ export function V2AdventureHome() {
             activeFoodBuff={state.activeFoodBuff ?? null}
             profileShowcase={state.profileShowcase ?? null}
             profileShowcaseSlots={state.profileShowcaseSlots}
+            profileMasteryTrophies={state.profileMasteryTrophies}
             profileBadgeStandOwned={state.profileBadgeStandOwned === true}
             profileBadgeStandVisible={state.profileBadgeStandVisible !== false}
             showcaseEditable

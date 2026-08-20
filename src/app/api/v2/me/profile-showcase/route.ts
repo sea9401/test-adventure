@@ -8,6 +8,9 @@ import {
   questById,
 } from "@/adventure/data/v2/v2Quests";
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
+import { CODEX_MASTERY_CATALOG } from "@/adventure/data/v2/codexMasteryProductionCatalog";
+import { CODEX_MASTERY_CATALOG_VERSION } from "@/adventure/data/v2/codexMasteryProductionCatalog";
+import { codexMasteryTrophyDefinition } from "@/adventure/data/v2/codexMasteryTrophies";
 import {
   PROFILE_SHOWCASE_SAVE_KEY,
   parseProfileBadgeStandVisible,
@@ -33,6 +36,10 @@ import {
   upsertSave,
 } from "@/lib/server/savesKv";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
+import { readCodexMasteryFeatureSettings } from "@/lib/server/opsSettings";
+import { readCodexMasteryProgressRows } from "@/lib/server/codexMasteryRepository";
+import { readCodexMasteryTrophyHistory } from "@/lib/server/codexMasteryTrophyRepository";
+import { buildCodexMasteryTrophyOptions } from "@/lib/server/codexMasteryTrophyView";
 
 function usableTitleSlots(
   slots: ProfileShowcaseSlots,
@@ -60,7 +67,7 @@ export async function GET(req: Request) {
   });
   if (limited) return limited;
 
-  const [showcaseRaw, adventureLogRaw, claimedRaw, characterRaw, userRow] = await Promise.all([
+  const [showcaseRaw, adventureLogRaw, claimedRaw, characterRaw, userRow, settings] = await Promise.all([
     readSave(db, userId, PROFILE_SHOWCASE_SAVE_KEY, {}),
     readSave(db, userId, "adventure-log.v2", {}),
     readSave(db, userId, GUIDE_QUESTS_KEY, {}),
@@ -71,6 +78,7 @@ export async function GET(req: Request) {
       .where(eq(users.id, userId))
       .limit(1)
       .then((rows) => rows[0]),
+    readCodexMasteryFeatureSettings(db),
   ]);
   const ownedTitleIds = new Set(
     accountOwnedTitleIds(adventureLogRaw, isAdminEmail(userRow?.email)),
@@ -80,6 +88,18 @@ export async function GET(req: Request) {
     parseProfileShowcaseSlots(showcaseRaw),
     ownedTitleIds,
   );
+  const masteryOptions = settings.trophiesEnabled
+    ? await Promise.all([
+      readCodexMasteryProgressRows(db, userId),
+      readCodexMasteryTrophyHistory(db, userId),
+    ]).then(([progressRows, history]) => buildCodexMasteryTrophyOptions({
+      catalog: CODEX_MASTERY_CATALOG,
+      progressRows,
+      history,
+      now: new Date(),
+      catalogVersion: CODEX_MASTERY_CATALOG_VERSION,
+    }))
+    : [];
 
   return Response.json({
     ok: true,
@@ -102,16 +122,20 @@ export async function GET(req: Request) {
       points: points ?? 0,
       badgeTier,
     })),
-    trophyOptions: V2_QUESTS.filter(
-      (quest) => !isTutorialLine(quest.line) && quest.badgeTier != null,
-    ).map(({ id, title, desc, points, badgeTier }) => ({
-      id,
-      title,
-      desc,
-      points: points ?? 0,
-      badgeTier,
-      unlocked: claimed.has(id),
-    })),
+    trophyOptions: [
+      ...V2_QUESTS.filter(
+        (quest) => !isTutorialLine(quest.line) && quest.badgeTier != null,
+      ).map(({ id, title, desc, points, badgeTier }) => ({
+        id,
+        kind: "achievement" as const,
+        title,
+        desc,
+        points: points ?? 0,
+        badgeTier: badgeTier!,
+        unlocked: claimed.has(id),
+      })),
+      ...masteryOptions,
+    ],
   });
 }
 
@@ -181,7 +205,7 @@ export async function POST(req: Request) {
     }
   }
 
-  const [characterRaw, equipmentRaw, adventureLogRaw, claimedRaw, userRow] =
+  const [characterRaw, equipmentRaw, adventureLogRaw, claimedRaw, userRow, settings] =
     await Promise.all([
       readSave(db, userId, "character.v2", {}),
       readSave(db, userId, "equipment.v2", {}),
@@ -193,6 +217,7 @@ export async function POST(req: Request) {
         .where(eq(users.id, userId))
         .limit(1)
         .then((rows) => rows[0]),
+      readCodexMasteryFeatureSettings(db),
     ]);
   if (!ownsProfileBadgeStand(characterRaw)) {
     return Response.json({ ok: false, error: "stand_required" }, { status: 403 });
@@ -204,6 +229,14 @@ export async function POST(req: Request) {
     accountOwnedTitleIds(adventureLogRaw, isAdminAccount),
   );
   const claimed = parseClaimed(claimedRaw);
+  const masteryHistory = requestedSlots?.some(
+    (slot) => slot?.kind === "masteryTrophy",
+  ) && settings.trophiesEnabled
+    ? await readCodexMasteryTrophyHistory(db, userId)
+    : [];
+  const ownedMasteryTrophyIds = new Set<string>(
+    masteryHistory.map((item) => item.trophyId),
+  );
 
   for (const slot of requestedSlots ?? []) {
     if (slot?.kind === "equipment") {
@@ -236,6 +269,22 @@ export async function POST(req: Request) {
         );
       }
       if (!claimed.has(slot.achievementId)) {
+        return Response.json({ ok: false, error: "not_owned" }, { status: 400 });
+      }
+    } else if (slot?.kind === "masteryTrophy") {
+      if (!settings.trophiesEnabled) {
+        return Response.json(
+          { ok: false, error: "feature_disabled" },
+          { status: 409 },
+        );
+      }
+      if (!codexMasteryTrophyDefinition(slot.trophyId)) {
+        return Response.json(
+          { ok: false, error: "unknown_trophy" },
+          { status: 400 },
+        );
+      }
+      if (!ownedMasteryTrophyIds.has(slot.trophyId)) {
         return Response.json({ ok: false, error: "not_owned" }, { status: 400 });
       }
     }

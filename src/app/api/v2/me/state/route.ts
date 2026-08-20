@@ -77,6 +77,8 @@ import {
 } from "@/adventure/data/v2/intruderTracking";
 import { readGuildResources } from "@/lib/server/v2GuildResources";
 import { readActiveHotTime } from "@/lib/server/opsSettings";
+import { readCodexMasteryTrophyHistory } from "@/lib/server/codexMasteryTrophyRepository";
+import { profileMasteryTrophyDisplays } from "@/lib/server/codexMasteryTrophyView";
 import { requiredExpToNext } from "@/lib/leveling";
 import {
   applyRegen,
@@ -338,6 +340,17 @@ export async function GET(req: Request) {
           ? null
           : slot,
       ) as ProfileShowcaseSlots);
+  const selectedMasteryTrophyIds = new Set(
+    profileShowcaseSlots.flatMap((slot) =>
+      slot?.kind === "masteryTrophy" ? [slot.trophyId] : []
+    ),
+  );
+  const profileMasteryTrophies = selectedMasteryTrophyIds.size > 0
+    ? profileMasteryTrophyDisplays(
+      await readCodexMasteryTrophyHistory(db, userId),
+      selectedMasteryTrophyIds,
+    )
+    : [];
 
   // 현 거점 카드 — character.v2.lastVisitedOutpost → 점령/영주/금고 동봉(stateOutpost).
   const currentOutpost = await loadCurrentOutpost(
@@ -622,6 +635,7 @@ export async function GET(req: Request) {
     ),
     profileShowcase: profileShowcaseSlots[0],
     profileShowcaseSlots,
+    profileMasteryTrophies,
     profileBadgeStandOwned: ownsProfileBadgeStand(charSave),
     profileBadgeStandVisible: parseProfileBadgeStandVisible(
       stateSaves.get(PROFILE_SHOWCASE_SAVE_KEY),

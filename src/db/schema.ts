@@ -4,6 +4,12 @@ import type {
   CodexMasteryTrophyKind,
   CodexMasteryTrophyTier,
 } from "@/adventure/data/v2/codexMasteryTrophies";
+import type {
+  CodexResearchDefinitionSnapshot,
+  CodexResearchProgressState,
+  CodexResearchRepresentativeRecord,
+  CodexResearchSeasonStatus,
+} from "@/adventure/data/v2/codexResearch";
 import {
   pgTable,
   text,
@@ -2685,6 +2691,117 @@ export const codexTrophyHistory = pgTable(
     check(
       "codex_trophy_history_catalog_version_positive",
       sql`${t.catalogVersion} >= 1`,
+    ),
+  ],
+);
+
+// 월간 도감 연구 시즌 — 운영자가 검토해 예약한 불변 정의만 저장한다.
+export const codexResearchSeasons = pgTable(
+  "codex_research_seasons",
+  {
+    seasonId: text("season_id").primaryKey(),
+    themeId: text("theme_id").notNull(),
+    definitionSnapshot: jsonb("definition_snapshot")
+      .$type<CodexResearchDefinitionSnapshot>()
+      .notNull(),
+    startAt: timestamp("start_at").notNull(),
+    endAt: timestamp("end_at").notNull(),
+    status: text("status")
+      .$type<CodexResearchSeasonStatus>()
+      .notNull()
+      .default("scheduled"),
+    settledAt: timestamp("settled_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("codex_research_seasons_window_idx").on(
+      t.status,
+      t.startAt,
+      t.endAt,
+    ),
+    check(
+      "codex_research_seasons_status_valid",
+      sql`${t.status} IN ('scheduled', 'active', 'settling', 'closed')`,
+    ),
+    check(
+      "codex_research_seasons_window_valid",
+      sql`${t.endAt} > ${t.startAt}`,
+    ),
+  ],
+);
+
+// 월간 도감 연구 개인 진행 — 사용자/시즌당 한 행을 잠가 점수를 단조 갱신한다.
+export const codexResearchProgress = pgTable(
+  "codex_research_progress",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    seasonId: text("season_id")
+      .notNull()
+      .references(() => codexResearchSeasons.seasonId, { onDelete: "cascade" }),
+    score: integer("score").notNull().default(0),
+    objectiveProgress: jsonb("objective_progress")
+      .$type<CodexResearchProgressState>()
+      .notNull()
+      .default({ objectives: {}, diversityEntries: {}, recordValues: {} }),
+    objectiveCompletedCount: integer("objective_completed_count")
+      .notNull()
+      .default(0),
+    diversityScore: integer("diversity_score").notNull().default(0),
+    recordScore: integer("record_score").notNull().default(0),
+    scoreReachedAt: timestamp("score_reached_at"),
+    finalRank: integer("final_rank"),
+    finalTier: text("final_tier").$type<CodexMasteryTrophyTier>(),
+    representativeRecord: jsonb("representative_record")
+      .$type<CodexResearchRepresentativeRecord>(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.seasonId] }),
+    index("codex_research_progress_season_score_rank_idx").on(
+      t.seasonId,
+      t.score.desc(),
+      t.objectiveCompletedCount.desc(),
+      t.diversityScore.desc(),
+      t.recordScore.desc(),
+      t.scoreReachedAt.asc().nullsLast(),
+      t.userId.asc(),
+    ),
+    check(
+      "codex_research_progress_score_valid",
+      sql`${t.score} >= 0 AND ${t.score} <= 20000`,
+    ),
+    check(
+      "codex_research_progress_objectives_valid",
+      sql`${t.objectiveCompletedCount} >= 0 AND ${t.objectiveCompletedCount} <= 18`,
+    ),
+    check(
+      "codex_research_progress_diversity_valid",
+      sql`${t.diversityScore} >= 0 AND ${t.diversityScore} <= 5000`,
+    ),
+    check(
+      "codex_research_progress_record_valid",
+      sql`${t.recordScore} >= 0 AND ${t.recordScore} <= 3000`,
+    ),
+    check(
+      "codex_research_progress_components_valid",
+      sql`${t.score} >= ${t.diversityScore} + ${t.recordScore}
+        AND ${t.score} <= ${t.diversityScore} + ${t.recordScore} + 12000`,
+    ),
+    check(
+      "codex_research_progress_reached_at_valid",
+      sql`(${t.score} = 0 AND ${t.scoreReachedAt} IS NULL)
+        OR (${t.score} > 0 AND ${t.scoreReachedAt} IS NOT NULL)`,
+    ),
+    check(
+      "codex_research_progress_final_rank_valid",
+      sql`${t.finalRank} IS NULL OR ${t.finalRank} >= 1`,
+    ),
+    check(
+      "codex_research_progress_final_tier_valid",
+      sql`${t.finalTier} IS NULL OR ${t.finalTier} IN ('bronze', 'silver', 'gold', 'platinum', 'diamond', 'legendary')`,
     ),
   ],
 );

@@ -1212,6 +1212,13 @@
       "when": 1787254645562,
       "tag": "0172_codex_mastery_trophy_history",
       "breakpoints": true
+    },
+    {
+      "idx": 173,
+      "version": "7",
+      "when": 1787254829965,
+      "tag": "0173_wandering_scrambler",
+      "breakpoints": true
     }
   ]
 }

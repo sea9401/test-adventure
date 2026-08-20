@@ -74,6 +74,8 @@ describe("reset game progress plan", () => {
       resetTables: expect.arrayContaining([
         "codex_mastery_progress",
         "codex_mastery_summary",
+        "codex_research_progress",
+        "codex_research_seasons",
         "codex_trophy_history",
       ]),
     });
@@ -82,6 +84,8 @@ describe("reset game progress plan", () => {
       resetTables: expect.arrayContaining([
         "codex_mastery_progress",
         "codex_mastery_summary",
+        "codex_research_progress",
+        "codex_research_seasons",
         "codex_trophy_history",
       ]),
     });
@@ -95,6 +99,8 @@ describe("reset game progress plan", () => {
     expect(RESET_TABLES).toEqual(expect.arrayContaining([
       "codex_mastery_progress",
       "codex_mastery_summary",
+      "codex_research_progress",
+      "codex_research_seasons",
       "codex_trophy_history",
     ]));
     expect(RESET_TABLES).toEqual(

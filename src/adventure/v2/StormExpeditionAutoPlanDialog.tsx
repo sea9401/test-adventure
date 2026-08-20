@@ -1,7 +1,10 @@
 "use client";
 
 import { useRef } from "react";
-import type { StormExpeditionRouteId } from "@/adventure/data/v2/stormExpedition";
+import type {
+  StormExpeditionMode,
+  StormExpeditionRouteId,
+} from "@/adventure/data/v2/stormExpedition";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
@@ -13,10 +16,11 @@ import type {
 type Props = {
   open: boolean;
   value: StormExpeditionAutoplayPlan;
+  lockedMode?: StormExpeditionMode;
   attemptsLeft: number;
   busy: boolean;
   onChange: (value: StormExpeditionAutoplayPlan) => void;
-  onSubmit: () => void;
+  onSubmit: (value: StormExpeditionAutoplayPlan) => void;
   onClose: () => void;
 };
 
@@ -38,6 +42,7 @@ export function StormExpeditionAutoPlanDialog(props: Props) {
 
 function OpenStormExpeditionAutoPlanDialog({
   value,
+  lockedMode,
   attemptsLeft,
   busy,
   onChange,
@@ -45,6 +50,10 @@ function OpenStormExpeditionAutoPlanDialog({
   onClose,
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const effectiveValue = lockedMode && value.mode !== lockedMode
+    ? { ...value, mode: lockedMode }
+    : value;
+  const modeLocked = lockedMode !== undefined;
   const closeIfIdle = () => {
     if (!busy) onClose();
   };
@@ -72,29 +81,30 @@ function OpenStormExpeditionAutoPlanDialog({
           <fieldset className={`${SURFACE_INSET} p-3`}>
             <legend className="px-1 text-sm font-bold">모드</legend>
             <div className="grid grid-cols-2 gap-2">
-              <PlanButton label="실전 모드" selected={value.mode === "normal"} disabled={busy || attemptsLeft <= 0} onClick={() => onChange({ ...value, mode: "normal" })}>실전</PlanButton>
-              <PlanButton label="연습 모드" selected={value.mode === "practice"} disabled={busy} onClick={() => onChange({ ...value, mode: "practice" })}>연습</PlanButton>
+              <PlanButton label="실전 모드" selected={effectiveValue.mode === "normal"} disabled={busy || modeLocked || attemptsLeft <= 0} onClick={() => onChange({ ...effectiveValue, mode: "normal" })}>실전</PlanButton>
+              <PlanButton label="연습 모드" selected={effectiveValue.mode === "practice"} disabled={busy || modeLocked} onClick={() => onChange({ ...effectiveValue, mode: "practice" })}>연습</PlanButton>
             </div>
+            {modeLocked && <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">진행 중인 원정에서는 모드를 변경할 수 없습니다.</p>}
             {attemptsLeft <= 0 && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">오늘의 실전 입장 횟수를 모두 사용했습니다.</p>}
           </fieldset>
 
           <RouteStage
             label="외곽 항로"
-            value={value.outerRouteId}
+            value={effectiveValue.outerRouteId}
             busy={busy}
-            onChange={(outerRouteId) => onChange({ ...value, outerRouteId })}
+            onChange={(outerRouteId) => onChange({ ...effectiveValue, outerRouteId })}
           />
           <RouteStage
             label="중층 항로"
-            value={value.middleRouteId}
+            value={effectiveValue.middleRouteId}
             busy={busy}
-            onChange={(middleRouteId) => onChange({ ...value, middleRouteId })}
+            onChange={(middleRouteId) => onChange({ ...effectiveValue, middleRouteId })}
           />
           <RouteStage
             label="수호자 항로"
-            value={value.guardianRouteId}
+            value={effectiveValue.guardianRouteId}
             busy={busy}
-            onChange={(guardianRouteId) => onChange({ ...value, guardianRouteId })}
+            onChange={(guardianRouteId) => onChange({ ...effectiveValue, guardianRouteId })}
           />
 
           <fieldset className={`${SURFACE_INSET} p-3`}>
@@ -104,9 +114,9 @@ function OpenStormExpeditionAutoPlanDialog({
                 <PlanButton
                   key={strategy.id}
                   label={`축복 전략 ${strategy.name}`}
-                  selected={value.boonStrategy === strategy.id}
+                  selected={effectiveValue.boonStrategy === strategy.id}
                   disabled={busy}
-                  onClick={() => onChange({ ...value, boonStrategy: strategy.id })}
+                  onClick={() => onChange({ ...effectiveValue, boonStrategy: strategy.id })}
                 >
                   <span className="block font-semibold">{strategy.name}</span>
                   <span className="mt-1 block text-[11px] font-normal">{strategy.description}</span>
@@ -120,8 +130,8 @@ function OpenStormExpeditionAutoPlanDialog({
           </p>
           <button
             type="button"
-            disabled={busy || (value.mode === "normal" && attemptsLeft <= 0)}
-            onClick={onSubmit}
+            disabled={busy || (effectiveValue.mode === "normal" && attemptsLeft <= 0)}
+            onClick={() => onSubmit(effectiveValue)}
             className="min-h-11 w-full rounded-md bg-sky-600 px-4 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-50"
           >
             {busy ? "시작 준비 중" : "일괄 진행 시작"}

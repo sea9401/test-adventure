@@ -11,6 +11,16 @@ const LEVEL_BADGE_CLASS = [
   "border-fuchsia-300 bg-fuchsia-50 text-fuchsia-800 dark:border-fuchsia-700 dark:bg-fuchsia-950 dark:text-fuchsia-200",
   "border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-200",
   "border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-100",
+  "border-emerald-500 bg-emerald-100 text-emerald-950 ring-1 ring-emerald-300 dark:border-emerald-500 dark:bg-emerald-900 dark:text-emerald-100 dark:ring-emerald-700",
+  "border-teal-500 bg-teal-100 text-teal-950 ring-1 ring-teal-300 dark:border-teal-500 dark:bg-teal-900 dark:text-teal-100 dark:ring-teal-700",
+  "border-cyan-500 bg-cyan-100 text-cyan-950 ring-1 ring-cyan-300 dark:border-cyan-500 dark:bg-cyan-900 dark:text-cyan-100 dark:ring-cyan-700",
+  "border-sky-500 bg-sky-100 text-sky-950 ring-1 ring-sky-300 dark:border-sky-500 dark:bg-sky-900 dark:text-sky-100 dark:ring-sky-700",
+  "border-blue-500 bg-blue-100 text-blue-950 ring-1 ring-blue-300 dark:border-blue-500 dark:bg-blue-900 dark:text-blue-100 dark:ring-blue-700",
+  "border-indigo-500 bg-indigo-100 text-indigo-950 ring-1 ring-indigo-300 dark:border-indigo-500 dark:bg-indigo-900 dark:text-indigo-100 dark:ring-indigo-700",
+  "border-violet-500 bg-violet-100 text-violet-950 ring-1 ring-violet-300 dark:border-violet-500 dark:bg-violet-900 dark:text-violet-100 dark:ring-violet-700",
+  "border-fuchsia-500 bg-fuchsia-100 text-fuchsia-950 ring-1 ring-fuchsia-300 dark:border-fuchsia-500 dark:bg-fuchsia-900 dark:text-fuchsia-100 dark:ring-fuchsia-700",
+  "border-rose-500 bg-rose-100 text-rose-950 ring-1 ring-rose-300 dark:border-rose-500 dark:bg-rose-900 dark:text-rose-100 dark:ring-rose-700",
+  "border-amber-500 bg-amber-200 text-amber-950 ring-2 ring-amber-300 shadow-sm dark:border-amber-400 dark:bg-amber-900 dark:text-amber-50 dark:ring-amber-600",
 ] as const;
 
 export function bulletinActivityBadgeClass(level: number): string {

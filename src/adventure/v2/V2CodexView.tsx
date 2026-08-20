@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { Package, Question, Sword } from "@phosphor-icons/react";
+import {
+  CheckCircle,
+  Package,
+  Question,
+  Sword,
+} from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
@@ -78,6 +83,7 @@ import {
   type FishSpecimenExtractProjection,
 } from "./FishSpecimenExtractModal";
 import { useRefreshGameState } from "./GameStateRefreshContext";
+import { useEquipmentCodexContext } from "./GameStateProvider";
 import { useSystemToast } from "./RewardToastProvider";
 import { FishingCodexPanel } from "./FishingCodexPanel";
 
@@ -230,15 +236,52 @@ function equipPoolChance(pool: FloorEquipDropPool): number {
   return pool.chance;
 }
 
+export function codexEquipmentProgress(
+  ids: Iterable<V2EquipmentId>,
+  registeredIds: ReadonlySet<string>,
+): {
+  registeredCount: number;
+  totalCount: number;
+  complete: boolean;
+} {
+  const uniqueIds = new Set(ids);
+  let registeredCount = 0;
+  for (const id of uniqueIds) {
+    if (registeredIds.has(id)) registeredCount += 1;
+  }
+  const totalCount = uniqueIds.size;
+  return {
+    registeredCount,
+    totalCount,
+    complete: totalCount > 0 && registeredCount === totalCount,
+  };
+}
+
+function EquipmentRegistrationMark({
+  registered,
+}: {
+  registered: boolean | undefined;
+}) {
+  if (registered === undefined) return null;
+  return (
+    <span className="ml-1 inline-flex items-center gap-0.5 rounded bg-white px-1 py-px text-[9px] font-semibold text-zinc-700 dark:bg-zinc-950 dark:text-zinc-200">
+      {registered && <CheckCircle size={10} weight="fill" aria-hidden />}
+      {registered ? "등록" : "미등록"}
+    </span>
+  );
+}
+
 // 드랍 목록의 아이템 칩 — 클릭하면 옵션 팝오버(V2ItemCard, 인벤과 동일)를 띄운다.
 //   카탈로그 id 가 V2_EQUIPMENT 에 없으면(방어) 클릭 불가 라벨로만.
-function DropChip({
+export function DropChip({
   id,
   kind,
+  registered,
   onOpen,
 }: {
   id: V2EquipmentId;
   kind: "common" | "set" | "unique";
+  registered?: boolean;
   onOpen: (item: V2Equipment, anchor: ItemCardAnchor) => void;
 }) {
   const item = V2_EQUIPMENT[id];
@@ -250,7 +293,17 @@ function DropChip({
         : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200";
   if (!item) {
     return (
-      <span className={`rounded px-1.5 py-0.5 text-[11px] ${tone}`}>{id}</span>
+      <span
+        aria-label={
+          registered === undefined
+            ? undefined
+            : `${id} · 장비 도감 ${registered ? "등록" : "미등록"}`
+        }
+        className={`rounded px-1.5 py-0.5 text-[11px] ${tone}`}
+      >
+        {id}
+        <EquipmentRegistrationMark registered={registered} />
+      </span>
     );
   }
   const hover =
@@ -263,6 +316,11 @@ function DropChip({
     <button
       type="button"
       onClick={(e) => onOpen(item, anchorOf(e.currentTarget))}
+      aria-label={
+        registered === undefined
+          ? undefined
+          : `${item.name} · 장비 도감 ${registered ? "등록" : "미등록"}`
+      }
       className={`rounded px-1.5 py-0.5 text-[11px] transition-colors ${tone} ${hover}`}
     >
       {item.name}
@@ -271,6 +329,7 @@ function DropChip({
           세트
         </span>
       )}
+      <EquipmentRegistrationMark registered={registered} />
     </button>
   );
 }
@@ -392,6 +451,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   const tabParam = useSearchParams().get("tab");
   const { has: hasStoryFlag, set: setStoryFlag } = useStoryFlags();
   const refreshGameState = useRefreshGameState();
+  const equipmentCodexContext = useEquipmentCodexContext();
+  const registeredEquipmentIds =
+    equipmentCodexContext?.loaded === true
+      ? equipmentCodexContext.registeredIds
+      : null;
   const { notifySystem } = useSystemToast();
   const [tutorialReplayRequested, setTutorialReplayRequested] = useState(false);
   const showTutorial = shouldShowCodexTutorial(
@@ -884,6 +948,12 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   ? starterGridIds(pool)
                   : [];
               const classified = classifyCodexEquipmentIds(regularIds);
+              const huntgroundCodexProgress = registeredEquipmentIds
+                ? codexEquipmentProgress(
+                    [...regularIds, ...uniqueIds],
+                    registeredEquipmentIds,
+                  )
+                : null;
               const regularChance = bandIds.length > 0
                 ? theme.depthStart >= 73
                   ? SKY_RIFT_CODEX_DROP_SUMMARY
@@ -979,9 +1049,29 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                         <Sword size={15} weight="duotone" aria-hidden />
                         장비 드랍
                       </h3>
-                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                        일반 · 세트 · 유니크
-                      </span>
+                      <div className="flex flex-wrap items-center justify-end gap-1.5">
+                        {huntgroundCodexProgress &&
+                          huntgroundCodexProgress.totalCount > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
+                              {huntgroundCodexProgress.complete && (
+                                <CheckCircle
+                                  size={11}
+                                  weight="fill"
+                                  className="text-emerald-600 dark:text-emerald-300"
+                                  aria-hidden
+                                />
+                              )}
+                              {huntgroundCodexProgress.complete
+                                ? "도감 완료"
+                                : "도감 등록"}{" "}
+                              {huntgroundCodexProgress.registeredCount}/
+                              {huntgroundCodexProgress.totalCount}
+                            </span>
+                          )}
+                        <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                          일반 · 세트 · 유니크
+                        </span>
+                      </div>
                     </div>
                     {regularIds.length > 0 && (
                       <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
@@ -1004,6 +1094,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                               key={id}
                               id={id}
                               kind="common"
+                              registered={
+                                registeredEquipmentIds
+                                  ? registeredEquipmentIds.has(id)
+                                  : undefined
+                              }
                               onOpen={(item, anchor) =>
                                 setCard({ item, anchor })
                               }
@@ -1027,6 +1122,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                               key={id}
                               id={id}
                               kind="set"
+                              registered={
+                                registeredEquipmentIds
+                                  ? registeredEquipmentIds.has(id)
+                                  : undefined
+                              }
                               onOpen={(item, anchor) =>
                                 setCard({ item, anchor })
                               }
@@ -1057,6 +1157,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                               key={id}
                               id={id}
                               kind="unique"
+                              registered={
+                                registeredEquipmentIds
+                                  ? registeredEquipmentIds.has(id)
+                                  : undefined
+                              }
                               onOpen={(item, anchor) =>
                                 setCard({ item, anchor })
                               }

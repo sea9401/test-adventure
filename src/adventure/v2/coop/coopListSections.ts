@@ -8,7 +8,7 @@ export const COOP_LIST_VISIBILITY_LABEL: Record<CoopVisibility, string> = {
 };
 
 export type CoopSessionListSection = {
-  id: "mine" | "guild" | "public";
+  id: "mine" | "participated" | "guild" | "public";
   title: string;
   description: string;
   emptyLabel: string;
@@ -19,7 +19,10 @@ export type CoopSessionListSection = {
 export function coopSessionListSections(
   sessions: readonly CoopSessionSummary[],
 ): CoopSessionListSection[] {
-  return [
+  const participated = sessions.filter(
+    (session) => !session.isOwner && session.myDamage > 0,
+  );
+  const sections: CoopSessionListSection[] = [
     {
       id: "mine",
       title: "내가 소환한 보스",
@@ -27,13 +30,29 @@ export function coopSessionListSections(
       emptyLabel: "내가 소환한 진행 중 보스가 없습니다.",
       sessions: sessions.filter((session) => session.isOwner),
     },
+  ];
+
+  if (participated.length > 0) {
+    sections.push({
+      id: "participated",
+      title: "내가 참여한 보스",
+      description: "내 기여도가 기록된 진행 중 토벌 목록",
+      emptyLabel: "내가 참여한 진행 중 보스가 없습니다.",
+      sessions: participated,
+    });
+  }
+
+  sections.push(
     {
       id: "guild",
       title: "길드 공개 보스",
       description: "다른 길드원이 길드에 공개한 목록",
       emptyLabel: "다른 길드원이 길드에 공개한 보스가 없습니다.",
       sessions: sessions.filter(
-        (session) => !session.isOwner && session.visibility === "guild_only",
+        (session) =>
+          !session.isOwner &&
+          session.visibility === "guild_only" &&
+          session.myDamage <= 0,
       ),
     },
     {
@@ -42,8 +61,13 @@ export function coopSessionListSections(
       description: "모든 모험가에게 공개된 목록",
       emptyLabel: "현재 전체 공개된 보스가 없습니다.",
       sessions: sessions.filter(
-        (session) => !session.isOwner && session.visibility === "public",
+        (session) =>
+          !session.isOwner &&
+          session.visibility === "public" &&
+          session.myDamage <= 0,
       ),
     },
-  ];
+  );
+
+  return sections;
 }

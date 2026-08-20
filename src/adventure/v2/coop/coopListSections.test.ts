@@ -6,6 +6,7 @@ function session(
   id: string,
   visibility: CoopSessionSummary["visibility"],
   isOwner: boolean,
+  myDamage = 0,
 ): CoopSessionSummary {
   return {
     id,
@@ -19,7 +20,7 @@ function session(
     visibility,
     isOwner,
     participantCount: 0,
-    myDamage: 0,
+    myDamage,
     myTier: null,
   };
 }
@@ -49,5 +50,35 @@ describe("coopSessionListSections", () => {
 
     expect(sections[1]?.sessions.map((item) => item.id)).toEqual(["guild"]);
     expect(sections[2]?.sessions.map((item) => item.id)).toEqual(["public"]);
+  });
+
+  it("내가 공격한 다른 사람의 보스를 공개 범위 구역보다 위에 한 번만 표시한다", () => {
+    const sections = coopSessionListSections([
+      session("mine", "public", true),
+      session("participated-guild", "guild_only", false, 12_000),
+      session("guild", "guild_only", false),
+      session("participated-public", "public", false, 34_000),
+      session("public", "public", false),
+    ]);
+
+    expect(sections.map((section) => section.id)).toEqual([
+      "mine",
+      "participated",
+      "guild",
+      "public",
+    ]);
+    expect(sections[1]?.sessions.map((item) => item.id)).toEqual([
+      "participated-guild",
+      "participated-public",
+    ]);
+    expect(
+      sections.flatMap((section) => section.sessions.map((item) => item.id)),
+    ).toEqual([
+      "mine",
+      "participated-guild",
+      "participated-public",
+      "guild",
+      "public",
+    ]);
   });
 });

@@ -39,7 +39,7 @@ const activeOrder = {
   minQualityPct: null,
   status: "active",
   createdAt: new Date("2026-08-20T10:00:00.000Z"),
-  expiresAt: new Date("2026-08-21T10:00:00.000Z"),
+  expiresAt: new Date("2099-08-21T10:00:00.000Z"),
   closedAt: null,
 } as typeof marketplaceBuyOrdersV2.$inferSelect;
 

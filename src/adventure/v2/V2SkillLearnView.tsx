@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { fetchGameState } from "./fetchGameState";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusBanner } from "@/components/ui/StatusBanner";
@@ -355,7 +356,7 @@ export function V2SkillLearnView({
   // 마운트 1회 로드 — setState 동기 호출을 피하려 loading 초기값(true)에서 시작, 완료 시 해제.
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/v2/me/state");
+      const res = await fetchGameState();
       const j = (await res.json().catch(() => null)) as StateShape | null;
       if (j?.ok) {
         setElementalSkills(j.elementalSkills ?? []);

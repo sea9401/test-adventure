@@ -3,6 +3,7 @@ import { applyStochasticPercentBonus } from "@/lib/percentBonus";
 import { db } from "@/db";
 import { opsSettings } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
+import { ShortTtlCache } from "@/lib/server/shortTtlCache";
 
 export const HOT_TIME_KEY = "hot-time.v1";
 export const HOT_TIME_SCHEDULES_KEY = "hot-time-schedules.v1";
@@ -13,6 +14,10 @@ export const REWARD_COMPENSATION_PRESETS_KEY = "reward-compensation-presets.v1";
 export const OPS_NOTE_TEMPLATES_KEY = "ops-note-templates.v1";
 export const LIFE_FIELD_FEATURES_KEY = "life-field-features.v1";
 export const CODEX_MASTERY_FEATURES_KEY = "codex-mastery-features.v1";
+
+const OPS_SETTINGS_CACHE_TTL_MS = 1_000;
+const ACTIVE_HOT_TIME_INPUTS_CACHE_KEY = "active-hot-time-inputs";
+const opsSettingsCache = new ShortTtlCache(OPS_SETTINGS_CACHE_TTL_MS);
 
 export type LifeFieldFeatureSettings = {
   environmentEnabled: boolean;
@@ -228,21 +233,7 @@ export async function readHotTimeSettings(): Promise<{
   updatedByEmail: string | null;
   updatedAt: Date | null;
 }> {
-  if (typeof (db as { select?: unknown }).select !== "function") {
-    return defaultHotTimeRead();
-  }
-
-  const row = (
-    await db
-      .select({
-        value: opsSettings.value,
-        updatedByEmail: opsSettings.updatedByEmail,
-        updatedAt: opsSettings.updatedAt,
-      })
-      .from(opsSettings)
-      .where(eq(opsSettings.key, HOT_TIME_KEY))
-      .limit(1)
-  )[0];
+  const row = await readSettingRow(HOT_TIME_KEY);
   return {
     hotTime: parseHotTime(row?.value),
     updatedByEmail: row?.updatedByEmail ?? null,
@@ -362,13 +353,16 @@ export async function readLifeFieldFeatureSettings(
   if (typeof (executor as { select?: unknown }).select !== "function") {
     return DEFAULT_LIFE_FIELD_FEATURES;
   }
-  const row = (
-    await executor
-      .select({ value: opsSettings.value })
-      .from(opsSettings)
-      .where(eq(opsSettings.key, LIFE_FIELD_FEATURES_KEY))
-      .limit(1)
-  )[0];
+  const row =
+    executor === db
+      ? await readSettingRow(LIFE_FIELD_FEATURES_KEY)
+      : (
+          await executor
+            .select({ value: opsSettings.value })
+            .from(opsSettings)
+            .where(eq(opsSettings.key, LIFE_FIELD_FEATURES_KEY))
+            .limit(1)
+        )[0];
   return parseLifeFieldFeatureSettings(row?.value);
 }
 
@@ -433,13 +427,16 @@ export async function readCodexMasteryFeatureSettings(
   if (typeof (executor as { select?: unknown }).select !== "function") {
     return DEFAULT_CODEX_MASTERY_FEATURES;
   }
-  const row = (
-    await executor
-      .select({ value: opsSettings.value })
-      .from(opsSettings)
-      .where(eq(opsSettings.key, CODEX_MASTERY_FEATURES_KEY))
-      .limit(1)
-  )[0];
+  const row =
+    executor === db
+      ? await readSettingRow(CODEX_MASTERY_FEATURES_KEY)
+      : (
+          await executor
+            .select({ value: opsSettings.value })
+            .from(opsSettings)
+            .where(eq(opsSettings.key, CODEX_MASTERY_FEATURES_KEY))
+            .limit(1)
+        )[0];
   return parseCodexMasteryFeatureSettings(row?.value);
 }
 
@@ -461,6 +458,10 @@ export async function upsertOpsSetting(
       target: opsSettings.key,
       set: { value, updatedByEmail, updatedAt },
     });
+  opsSettingsCache.invalidate(settingCacheKey(key));
+  if (key === HOT_TIME_KEY || key === HOT_TIME_SCHEDULES_KEY) {
+    opsSettingsCache.invalidate(ACTIVE_HOT_TIME_INPUTS_CACHE_KEY);
+  }
 }
 
 async function readSettingRow(key: string): Promise<{
@@ -468,28 +469,26 @@ async function readSettingRow(key: string): Promise<{
   updatedByEmail: string | null;
   updatedAt: Date | null;
 } | null> {
-  if (typeof (db as { select?: unknown }).select !== "function") {
-    return null;
-  }
-  return (
-    await db
-      .select({
-        value: opsSettings.value,
-        updatedByEmail: opsSettings.updatedByEmail,
-        updatedAt: opsSettings.updatedAt,
-      })
-      .from(opsSettings)
-      .where(eq(opsSettings.key, key))
-      .limit(1)
-  )[0] ?? null;
+  return opsSettingsCache.get(settingCacheKey(key), async () => {
+    if (typeof (db as { select?: unknown }).select !== "function") {
+      return null;
+    }
+    return (
+      await db
+        .select({
+          value: opsSettings.value,
+          updatedByEmail: opsSettings.updatedByEmail,
+          updatedAt: opsSettings.updatedAt,
+        })
+        .from(opsSettings)
+        .where(eq(opsSettings.key, key))
+        .limit(1)
+    )[0] ?? null;
+  });
 }
 
-function defaultHotTimeRead() {
-  return {
-    hotTime: DEFAULT_HOT_TIME,
-    updatedByEmail: null,
-    updatedAt: null,
-  };
+function settingCacheKey(key: string) {
+  return `setting:${key}`;
 }
 
 export async function readActiveHotTime(
@@ -503,11 +502,16 @@ export async function readActiveHotTime(
   if (typeof (executor as { select?: unknown }).select !== "function") {
     return { ...DEFAULT_HOT_TIME, active: false, source: null };
   }
-  const rows = await executor
-    .select({ key: opsSettings.key, value: opsSettings.value })
-    .from(opsSettings)
-    .where(inArray(opsSettings.key, [HOT_TIME_KEY, HOT_TIME_SCHEDULES_KEY]))
-    .limit(2);
+  const loadRows = () =>
+    executor
+      .select({ key: opsSettings.key, value: opsSettings.value })
+      .from(opsSettings)
+      .where(inArray(opsSettings.key, [HOT_TIME_KEY, HOT_TIME_SCHEDULES_KEY]))
+      .limit(2);
+  const rows =
+    executor === db
+      ? await opsSettingsCache.get(ACTIVE_HOT_TIME_INPUTS_CACHE_KEY, loadRows)
+      : await loadRows();
   const values = new Map(rows.map((row) => [row.key, row.value]));
   const hotTime = parseHotTime(values.get(HOT_TIME_KEY));
   const schedules = parseHotTimeSchedules(values.get(HOT_TIME_SCHEDULES_KEY));

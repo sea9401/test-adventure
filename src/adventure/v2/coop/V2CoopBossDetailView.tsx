@@ -7,7 +7,6 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useState } from "react";
-import { FilmStrip } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
@@ -33,6 +32,7 @@ import {
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { CombatMatchupSummary } from "@/adventure/battle/CombatMatchupSummary";
+import { CoopRecentAttackList } from "./CoopRecentAttackList";
 
 function fmtPreviewNumber(value: number): string {
   return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1);
@@ -575,58 +575,10 @@ export function V2CoopBossDetailView({
 
       {/* 최근 공격 활동 */}
       {detail.recentAttacks.length > 0 && (
-        <Card padding="md" className="space-y-1">
-          <div className="flex items-baseline justify-between gap-2">
-            <div className="text-sm font-semibold">전투 기록</div>
-            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-              최근 10회
-            </span>
-          </div>
-          {detail.recentAttacks.map((a, i) => (
-            <button
-              key={a.id || `${a.at}-${i}`}
-              type="button"
-              disabled={!a.replay}
-              onClick={() => a.replay && onOpenAttackLog(a.id)}
-              className={`flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs transition ${
-                a.replay
-                  ? "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                  : "cursor-default text-zinc-400 dark:text-zinc-500"
-              }`}
-            >
-              <span className="flex min-w-0 items-center gap-2 truncate">
-                <CosmeticAvatar
-                  avatar={a.avatar}
-                  name={a.name}
-                  profileBorder={a.profileBorder}
-                  width={26}
-                  height={26}
-                  sizes="26px"
-                  className="h-[26px] w-[26px] rounded-md"
-                />
-                <span className="min-w-0 truncate">
-                  {a.name}
-                  {a.isMe && (
-                    <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400">
-                      나
-                    </span>
-                  )}
-                  {a.diedEarly && (
-                    <span className="ml-1 text-[10px] text-rose-500">
-                      전투불능
-                    </span>
-                  )}
-                </span>
-              </span>
-              <span className="flex shrink-0 items-center gap-2">
-                <span className="font-mono">
-                  -{a.damageDealt.toLocaleString()}
-                </span>
-                {a.replay && <FilmStrip size={14} className="text-zinc-400" />}
-              </span>
-            </button>
-          ))}
-        </Card>
+        <CoopRecentAttackList
+          attacks={detail.recentAttacks}
+          onOpenAttackLog={onOpenAttackLog}
+        />
       )}
     </main>
   );

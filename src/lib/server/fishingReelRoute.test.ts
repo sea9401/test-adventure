@@ -9,8 +9,12 @@ const {
   grantTitleIfMissingInTx,
   rewardReferralTutorialTasks,
   recordCodexMasteryGameplayBatch,
-} = vi.hoisted(() => ({
-    store: new Map<string, unknown>(),
+  lockSavesForUpdate,
+  upsertSaves,
+} = vi.hoisted(() => {
+  const store = new Map<string, unknown>();
+  return {
+    store,
     upsertFishingRecord: vi.fn(async () => {}),
     incrementGuildExplorationProgressForUser: vi.fn(async () => null),
   grantTitleIfMissingInTx: vi.fn(async () => true),
@@ -20,7 +24,23 @@ const {
     completedTaskIds: [] as string[],
   })),
   recordCodexMasteryGameplayBatch: vi.fn(async () => []),
-}));
+    lockSavesForUpdate: vi.fn(async (
+      _tx,
+      _uid,
+      fallbacks: Record<string, unknown>,
+    ) => Object.fromEntries(Object.entries(fallbacks).map(([key, fallback]) => [
+      key,
+      store.has(key) ? store.get(key) : fallback,
+    ]))),
+    upsertSaves: vi.fn(async (
+      _tx,
+      _uid,
+      entries: Record<string, unknown>,
+    ) => {
+      for (const [key, value] of Object.entries(entries)) store.set(key, value);
+    }),
+  };
+});
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
@@ -56,6 +76,7 @@ vi.mock("@/db", () => ({
   },
 }));
 vi.mock("@/lib/server/savesKv", () => ({
+  lockSavesForUpdate,
   lockSaveForUpdate: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
@@ -65,6 +86,7 @@ vi.mock("@/lib/server/savesKv", () => ({
   upsertSave: vi.fn(async (_tx, _uid, key: string, value: unknown) => {
     store.set(key, value);
   }),
+  upsertSaves,
 }));
 
 import { POST } from "@/app/api/v2/fishing/reel/route";
@@ -75,6 +97,8 @@ import { FISHING_CODEX_KEY } from "@/adventure/v2/fishingCodex";
 import { FISHING_STREAK_KEY } from "@/adventure/v2/fishingStreak";
 import { FISHING_STOCK_KEY } from "@/adventure/v2/fishingStock";
 import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
+import { FISHING_DAILY_KEY } from "@/adventure/data/v2/fishingDailyChallenges";
+import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
 import {
   FISHING_PROGRESS_KEY,
   emptyFishingProgression,
@@ -106,6 +130,8 @@ function seedFisherSession(now: number) {
   incrementGuildExplorationProgressForUser.mockClear();
   rewardReferralTutorialTasks.mockClear();
   recordCodexMasteryGameplayBatch.mockClear();
+  lockSavesForUpdate.mockClear();
+  upsertSaves.mockClear();
   store.set("character.v2", {
     class: "survivor",
     specChoice: "fisher",
@@ -277,6 +303,20 @@ describe("POST /api/v2/fishing/reel", () => {
         awarded: { catch_fresh: 1 },
       },
     });
+    expect(upsertSaves).toHaveBeenCalledTimes(1);
+    expect(Object.keys(upsertSaves.mock.calls[0]?.[2] ?? {}).sort()).toEqual([
+      ACTIVITY_GUARD_KEY,
+      FISHING_ANTI_MACRO_KEY,
+      FISHING_CODEX_KEY,
+      FISHING_DAILY_KEY,
+      FISHING_PROGRESS_KEY,
+      FISHING_SESSION_KEY,
+      FISHING_STOCK_KEY,
+      FISHING_STREAK_KEY,
+      FISHING_WALLET_KEY,
+      LIFE_WORKSHOP_SAVE_KEY,
+      "proficiency.v2",
+    ].sort());
     expect(upsertFishingRecord).toHaveBeenCalledOnce();
     expect(
       activityGuardView(
@@ -674,6 +714,13 @@ describe("POST /api/v2/fishing/reel", () => {
       nextActionAt: null,
     });
     expect(store.get(FISHING_STREAK_KEY)).toEqual({ current: 0, best: 9 });
+    expect(upsertSaves).toHaveBeenCalledTimes(1);
+    expect(Object.keys(upsertSaves.mock.calls[0]?.[2] ?? {}).sort()).toEqual([
+      ACTIVITY_GUARD_KEY,
+      FISHING_ANTI_MACRO_KEY,
+      FISHING_SESSION_KEY,
+      FISHING_STREAK_KEY,
+    ].sort());
   });
 
   it("입질보다 300ms 이상 빠른 입력은 최근 다섯 번째부터 강신호로 승격한다", async () => {

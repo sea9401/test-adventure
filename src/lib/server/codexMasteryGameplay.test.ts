@@ -22,6 +22,7 @@ function runtime(options: {
   monthlyFail?: boolean;
 } = {}) {
   const inputs: CodexMasteryRecordInput[] = [];
+  const batches: CodexMasteryRecordInput[][] = [];
   const monthlyBatches: Array<{
     userId: string;
     events: readonly CodexResearchEvent[];
@@ -35,10 +36,14 @@ function runtime(options: {
         monthlyProgressEnabled: options.monthlyEnabled === true,
       };
     },
-    async record(_executor, input) {
-      inputs.push(input);
+    async recordBatch(_executor, batch) {
+      batches.push([...batch]);
+      inputs.push(...batch);
       if (options.fail) throw new Error("record failed");
-      return { recorded: false as const, reason: "unchanged" as const };
+      return batch.map(() => ({
+        recorded: false as const,
+        reason: "unchanged" as const,
+      }));
     },
     async recordMonthly(_executor, userId, events, now) {
       monthlyBatches.push({ userId, events, now });
@@ -46,7 +51,7 @@ function runtime(options: {
       return { recorded: false as const, reason: "unchanged" as const };
     },
   };
-  return { value, inputs, monthlyBatches };
+  return { value, inputs, batches, monthlyBatches };
 }
 
 describe("codex mastery gameplay recorder", () => {
@@ -93,6 +98,7 @@ describe("codex mastery gameplay recorder", () => {
     const results = await record({}, "user-1", events, NOW);
 
     expect(results).toHaveLength(3);
+    expect(fake.batches).toHaveLength(1);
     expect(fake.inputs).toEqual([
       {
         userId: "user-1",

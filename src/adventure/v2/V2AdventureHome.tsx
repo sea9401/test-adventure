@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { fetchGameState } from "./fetchGameState";
 import {
   V2CharacterCard,
   type V2CharacterCardData,
@@ -77,7 +78,7 @@ export function V2AdventureHome() {
   const refresh = useCallback(async () => {
     try {
       const [stateRes, equipmentRes] = await Promise.all([
-        fetch("/api/v2/me/state").then((response) =>
+        fetchGameState().then((response) =>
           response.ok ? response.json() : null,
         ),
         fetch("/api/v2/me/equipment").then((response) =>

@@ -2,6 +2,7 @@
 
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { fetchGameState } from "./fetchGameState";
 import { CheckCircle, X } from "@phosphor-icons/react";
 import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
 import { StatusBanner } from "@/components/ui/StatusBanner";
@@ -704,7 +705,7 @@ export function V2CombatPatternView({
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/v2/me/state");
+        const res = await fetchGameState();
         const j = (await res.json().catch(() => null)) as StateShape | null;
         const eq = j?.skills?.equipped ?? [];
         setEquipped(eq);

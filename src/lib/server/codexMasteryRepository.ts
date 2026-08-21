@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, or, sql } from "drizzle-orm";
 import {
   CODEX_MASTERY_CATEGORIES,
   CODEX_MASTERY_STAGES,
@@ -36,6 +36,28 @@ export type CodexMasteryStore = {
     userId: string;
     summary: CodexMasterySummaryState;
     progress: CodexMasteryProgress;
+  }, now: Date): Promise<void>;
+  reconcileTrophies?(
+    userId: string,
+    now: Date,
+  ): Promise<{ promotions: CodexMasteryTrophyPromotion[] }>;
+};
+
+export type CodexMasteryBatchStore = {
+  lockBatch(input: {
+    userId: string;
+    entries: readonly {
+      category: CodexMasteryCategory;
+      entryId: string;
+    }[];
+  }, now: Date): Promise<{
+    summary: CodexMasterySummaryState;
+    progress: CodexMasteryProgress[];
+  }>;
+  saveBatch(input: {
+    userId: string;
+    summary: CodexMasterySummaryState;
+    progress: readonly CodexMasteryProgress[];
   }, now: Date): Promise<void>;
   reconcileTrophies?(
     userId: string,
@@ -430,6 +452,89 @@ export async function lockCodexMasteryState(
   };
 }
 
+function masteryProgressIdentityKey(
+  category: CodexMasteryCategory,
+  entryId: string,
+): string {
+  return `${category}\u0000${entryId}`;
+}
+
+export async function lockCodexMasteryBatchState(
+  executor: DbTransactionExecutor,
+  userId: string,
+  requestedEntries: readonly {
+    category: CodexMasteryCategory;
+    entryId: string;
+  }[],
+  now: Date,
+): Promise<{
+  summary: CodexMasterySummaryState;
+  progress: CodexMasteryProgress[];
+}> {
+  const entries = [...new Map(requestedEntries.map((entry) => [
+    masteryProgressIdentityKey(entry.category, entry.entryId),
+    entry,
+  ])).values()].sort((left, right) =>
+    left.category.localeCompare(right.category) ||
+    left.entryId.localeCompare(right.entryId)
+  );
+  if (entries.length === 0) {
+    throw new Error("codex mastery batch requires at least one entry");
+  }
+
+  await executor
+    .insert(codexMasterySummary)
+    .values(emptySummaryRow(userId, now))
+    .onConflictDoNothing();
+  await executor
+    .insert(codexMasteryProgress)
+    .values(entries.map(({ category, entryId }) =>
+      emptyProgressRow(userId, category, entryId, now)
+    ))
+    .onConflictDoNothing();
+
+  const summaryRow = await selectSummary(executor, userId, { forUpdate: true });
+  if (!summaryRow) {
+    throw new Error("codex mastery summary row could not be locked");
+  }
+
+  const identityCondition = or(...entries.map(({ category, entryId }) =>
+    and(
+      eq(codexMasteryProgress.category, category),
+      eq(codexMasteryProgress.entryId, entryId),
+    )
+  ));
+  const progressRows = await executor
+    .select()
+    .from(codexMasteryProgress)
+    .where(and(
+      eq(codexMasteryProgress.userId, userId),
+      identityCondition,
+    ))
+    .orderBy(
+      asc(codexMasteryProgress.category),
+      asc(codexMasteryProgress.entryId),
+    )
+    .for("update");
+  const progress = progressRows.map(lockedCodexMasteryRowToProgress);
+  const actualKeys = new Set(progress.map((row) =>
+    masteryProgressIdentityKey(row.category, row.entryId)
+  ));
+  if (
+    progress.length !== entries.length ||
+    actualKeys.size !== entries.length ||
+    entries.some((entry) =>
+      !actualKeys.has(masteryProgressIdentityKey(entry.category, entry.entryId))
+    )
+  ) {
+    throw new Error("codex mastery batch progress rows could not be locked");
+  }
+  return {
+    summary: codexMasterySummaryRowToState(summaryRow),
+    progress,
+  };
+}
+
 export async function saveCodexMasteryState(
   executor: DbTransactionExecutor,
   input: {
@@ -520,6 +625,120 @@ export async function saveCodexMasteryState(
   }
 }
 
+export async function saveCodexMasteryBatchState(
+  executor: DbTransactionExecutor,
+  input: {
+    userId: string;
+    summary: CodexMasterySummaryState;
+    progress: readonly CodexMasteryProgress[];
+  },
+  now: Date,
+): Promise<void> {
+  const summary = codexMasterySummaryRowToState({
+    totalScoreMilli: input.summary.totalScoreMilli,
+    equipmentScoreMilli: input.summary.categoryScoreMilli.equipment,
+    fishScoreMilli: input.summary.categoryScoreMilli.fish,
+    monsterScoreMilli: input.summary.categoryScoreMilli.monster,
+    cookingScoreMilli: input.summary.categoryScoreMilli.cooking,
+    lifeScoreMilli: input.summary.categoryScoreMilli.life,
+    jobScoreMilli: input.summary.categoryScoreMilli.job,
+    bronzeCount: input.summary.stageCounts.bronze,
+    silverCount: input.summary.stageCounts.silver,
+    goldCount: input.summary.stageCounts.gold,
+    platinumCount: input.summary.stageCounts.platinum,
+    diamondCount: input.summary.stageCounts.diamond,
+    legendaryCount: input.summary.stageCounts.legendary,
+    sealCount: input.summary.sealCount,
+    scoredCategoryCount: input.summary.scoredCategoryCount,
+    scoreReachedAt: input.summary.scoreReachedAt,
+    equipmentScoreReachedAt: input.summary.categoryScoreReachedAt.equipment,
+    fishScoreReachedAt: input.summary.categoryScoreReachedAt.fish,
+    monsterScoreReachedAt: input.summary.categoryScoreReachedAt.monster,
+    cookingScoreReachedAt: input.summary.categoryScoreReachedAt.cooking,
+    lifeScoreReachedAt: input.summary.categoryScoreReachedAt.life,
+    jobScoreReachedAt: input.summary.categoryScoreReachedAt.job,
+  });
+  const savedSummary = await executor
+    .update(codexMasterySummary)
+    .set({
+      totalScoreMilli: summary.totalScoreMilli,
+      equipmentScoreMilli: summary.categoryScoreMilli.equipment,
+      fishScoreMilli: summary.categoryScoreMilli.fish,
+      monsterScoreMilli: summary.categoryScoreMilli.monster,
+      cookingScoreMilli: summary.categoryScoreMilli.cooking,
+      lifeScoreMilli: summary.categoryScoreMilli.life,
+      jobScoreMilli: summary.categoryScoreMilli.job,
+      bronzeCount: summary.stageCounts.bronze,
+      silverCount: summary.stageCounts.silver,
+      goldCount: summary.stageCounts.gold,
+      platinumCount: summary.stageCounts.platinum,
+      diamondCount: summary.stageCounts.diamond,
+      legendaryCount: summary.stageCounts.legendary,
+      sealCount: summary.sealCount,
+      scoredCategoryCount: summary.scoredCategoryCount,
+      scoreReachedAt: summary.scoreReachedAt,
+      equipmentScoreReachedAt: summary.categoryScoreReachedAt.equipment,
+      fishScoreReachedAt: summary.categoryScoreReachedAt.fish,
+      monsterScoreReachedAt: summary.categoryScoreReachedAt.monster,
+      cookingScoreReachedAt: summary.categoryScoreReachedAt.cooking,
+      lifeScoreReachedAt: summary.categoryScoreReachedAt.life,
+      jobScoreReachedAt: summary.categoryScoreReachedAt.job,
+      updatedAt: now,
+    })
+    .where(eq(codexMasterySummary.userId, input.userId))
+    .returning({ userId: codexMasterySummary.userId });
+  if (savedSummary.length !== 1) {
+    throw new Error("codex mastery summary row was not saved");
+  }
+
+  const progress = input.progress
+    .map(codexMasteryRowToProgress)
+    .sort((left, right) =>
+      left.category.localeCompare(right.category) ||
+      left.entryId.localeCompare(right.entryId)
+    );
+  if (progress.length === 0) return;
+  const savedProgress = await executor
+    .insert(codexMasteryProgress)
+    .values(progress.map((row) => ({
+      userId: input.userId,
+      category: row.category,
+      entryId: row.entryId,
+      count: row.count,
+      bestValue: row.bestValue,
+      currentTier: row.currentTier,
+      sealIds: row.sealIds,
+      tierAchievedAt: row.tierAchievedAt,
+      scoreMilli: row.scoreMilli,
+      firstRecordedAt: now,
+      updatedAt: now,
+    })))
+    .onConflictDoUpdate({
+      target: [
+        codexMasteryProgress.userId,
+        codexMasteryProgress.category,
+        codexMasteryProgress.entryId,
+      ],
+      set: {
+        count: sql`excluded.count`,
+        bestValue: sql`excluded.best_value`,
+        currentTier: sql`excluded.current_tier`,
+        sealIds: sql`excluded.seal_ids`,
+        tierAchievedAt: sql`excluded.tier_achieved_at`,
+        scoreMilli: sql`excluded.score_milli`,
+        updatedAt: sql`excluded.updated_at`,
+      },
+    })
+    .returning({
+      userId: codexMasteryProgress.userId,
+      category: codexMasteryProgress.category,
+      entryId: codexMasteryProgress.entryId,
+    });
+  if (savedProgress.length !== progress.length) {
+    throw new Error("codex mastery batch progress rows were not saved");
+  }
+}
+
 export function createDrizzleCodexMasteryStore(
   executor: DbTransactionExecutor,
 ): CodexMasteryStore {
@@ -532,5 +751,20 @@ export function createDrizzleCodexMasteryStore(
       now,
     ),
     save: (input, now) => saveCodexMasteryState(executor, input, now),
+  };
+}
+
+export function createDrizzleCodexMasteryBatchStore(
+  executor: DbTransactionExecutor,
+): CodexMasteryBatchStore {
+  return {
+    lockBatch: (input, now) => lockCodexMasteryBatchState(
+      executor,
+      input.userId,
+      input.entries,
+      now,
+    ),
+    saveBatch: (input, now) =>
+      saveCodexMasteryBatchState(executor, input, now),
   };
 }

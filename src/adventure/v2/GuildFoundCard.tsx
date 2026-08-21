@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { fetchGameState } from "./fetchGameState";
 import { Shield } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import {
@@ -41,7 +42,7 @@ export function GuildFoundCard({ onCreated }: { onCreated: () => void }) {
 
   useEffect(() => {
     let alive = true;
-    fetch("/api/v2/me/state")
+    fetchGameState()
       .then((r) => (r.ok ? r.json() : null))
       .then((j: StateResponse | null) => {
         if (!alive || !j?.character) return;

@@ -15,6 +15,7 @@ export const RETENTION_POLICY = {
   resolvedUgcReportDays: 180,
   storageMetricsDays: 30,
   deleteBatchSize: 5_000,
+  backlogDeleteMaxBatches: 6,
   tableDailyGrowthBytes: 100 * 1024 * 1024,
   tableDailyGrowthRatio: 0.2,
   storageWarningRatio: 0.7,
@@ -23,4 +24,20 @@ export const RETENTION_POLICY = {
 
 export function retentionCutoff(days: number, now = new Date()): Date {
   return new Date(now.getTime() - days * DAY_MS);
+}
+
+export async function drainRetentionBatches(
+  runBatch: () => Promise<{ deleted: number; more: boolean }>,
+  maxBatches: number,
+): Promise<{ deleted: number; more: boolean }> {
+  const limit = Math.max(1, Math.floor(maxBatches));
+  let deleted = 0;
+  let more = false;
+  for (let batch = 0; batch < limit; batch += 1) {
+    const result = await runBatch();
+    deleted += result.deleted;
+    more = result.more;
+    if (!more) break;
+  }
+  return { deleted, more };
 }

@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
+import {
+  lockSaveForUpdate,
+  readSave,
+  upsertSave,
+  upsertSaves,
+} from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
   parseActivityGuardState,
@@ -309,6 +314,7 @@ export async function POST(req: Request) {
       await lockSaveForUpdate(tx, userId, WOODCUTTING_LOG_KEY, {}),
     );
     const currentLog = parsedLog.log;
+    const dirtySaves: Record<string, unknown> = {};
     const levelBonuses = woodcuttingPost50Bonuses(
       woodcuttingProgressionView(currentLog.cuts, currentLog.xp).level,
     );
@@ -331,7 +337,7 @@ export async function POST(req: Request) {
       levelBonuses.rareResultChancePct,
     );
     workshop = { ...workshop, crafting: blueprint.state };
-    await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);
+    dirtySaves[LIFE_WORKSHOP_SAVE_KEY] = workshop;
     const charSave = await lockSaveForUpdate<CharSave>(
       tx,
       userId,
@@ -341,7 +347,7 @@ export async function POST(req: Request) {
     const materials = mergeDrops(charSave.materials, {
       [tree.materialId]: settlement.materialsGained,
     });
-    await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
+    dirtySaves["character.v2"] = { ...charSave, materials };
 
     const environmentXpGained = lifeFeatures.environmentEnabled
       ? Math.floor(
@@ -377,7 +383,7 @@ export async function POST(req: Request) {
         [tree.id]: (currentLog.trees[tree.id] ?? 0) + settlement.successes,
       },
     };
-    await upsertSave(tx, userId, WOODCUTTING_LOG_KEY, log);
+    dirtySaves[WOODCUTTING_LOG_KEY] = log;
 
     const seedDrops: Record<string, number> = {};
     const seedRolls = Math.floor(
@@ -394,7 +400,7 @@ export async function POST(req: Request) {
       const farm = parseFarmState(
         await lockSaveForUpdate(tx, userId, FARM_SAVE_KEY, emptyFarmState(now)),
       );
-      await upsertSave(tx, userId, FARM_SAVE_KEY, grantFarmSeeds(farm, seedDrops));
+      dirtySaves[FARM_SAVE_KEY] = grantFarmSeeds(farm, seedDrops);
     }
 
     const playerClass = parseV2Class(charSave.class);
@@ -414,7 +420,7 @@ export async function POST(req: Request) {
       proficiency = addJobCumLevel(proficiency, jobId, settlement.masteryGained);
       masteryGained = settlement.masteryGained;
       masteryAfter = proficiency.jobCumLevel?.[jobId] ?? 0;
-      await upsertSave(tx, userId, "proficiency.v2", proficiency);
+      dirtySaves["proficiency.v2"] = proficiency;
       if (masteryGained > 0) {
         await recordCodexMasteryGameplayBatch(
           tx,
@@ -436,7 +442,8 @@ export async function POST(req: Request) {
       settlement.masteryGained,
       new Date(now),
     );
-    await upsertSave(tx, userId, WOODCUTTING_AUTO_KEY, settlement.state);
+    dirtySaves[WOODCUTTING_AUTO_KEY] = settlement.state;
+    await upsertSaves(tx, userId, dirtySaves);
     return {
       settlement,
       tree,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { fetchGameState } from "./fetchGameState";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
@@ -164,7 +165,7 @@ export function V2ShopView({
     setLoadError(false);
     try {
       const [stateRes, equipRes, invRes] = await Promise.all([
-        fetch("/api/v2/me/state"),
+        fetchGameState(),
         fetch("/api/v2/me/equipment"),
         fetch("/api/v2/me/inventory"),
       ]);

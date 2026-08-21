@@ -95,7 +95,6 @@ export type CoopRecentAttack = {
   isMe?: boolean;
   avatar: Avatar;
   profileBorder: ProfileBorderId | null;
-  replay?: ReplayPayload | null;
   at: number;
 };
 

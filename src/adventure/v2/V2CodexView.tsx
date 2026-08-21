@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
+import { fetchGameState } from "./fetchGameState";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
   CheckCircle,
@@ -54,7 +56,6 @@ import {
   FISH_IDS,
   type FishId,
 } from "@/adventure/data/v2/fish";
-import { JobCodexList } from "./V2JobCodexView";
 import type { JobCodex } from "@/adventure/data/v2/v2JobCodex";
 import type { V2LoadoutSpBreakdown } from "./V2LoadoutPanel";
 import {
@@ -65,12 +66,8 @@ import {
 } from "@/adventure/data/v2/spFruit";
 import { COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
 import { STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID } from "@/adventure/data/v2/stormExpeditionRewards";
-import { CodexEquipmentPanel } from "./CodexEquipmentPanel";
-import { CodexTitlePanel } from "./CodexTitlePanel";
 import { TutorialOverlayInner } from "@/adventure/tutorial/TutorialOverlay";
 import { TUTORIAL_CODEX_INTRO } from "@/adventure/tutorial/flags";
-import { LifeFieldCodexPanel } from "@/adventure/v2/LifeFieldPanels";
-import { CookingCodexPanel } from "@/adventure/v2/CookingCodexPanel";
 import { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
 import {
   commonHuntMaterialDrops,
@@ -85,16 +82,36 @@ import {
 import { useRefreshGameState } from "./GameStateRefreshContext";
 import { useEquipmentCodexContext } from "./GameStateProvider";
 import { useSystemToast } from "./RewardToastProvider";
-import { FishingCodexPanel } from "./FishingCodexPanel";
-import {
-  CodexMasteryPanel,
-  type CodexMasteryPanelState,
-} from "./CodexMasteryPanel";
+import type { CodexMasteryPanelState } from "./CodexMasteryPanel";
 import { useCodexResearchRanking } from "@/adventure/rankings/useCodexResearchRanking";
 import type {
   CodexMasteryOverviewResponse,
   CodexMasteryPinnedGoal,
 } from "@/adventure/data/v2/codexMasteryView";
+
+const JobCodexList = dynamic(() =>
+  import("./V2JobCodexView").then((module) => module.JobCodexList),
+);
+const CodexEquipmentPanel = dynamic(() =>
+  import("./CodexEquipmentPanel").then(
+    (module) => module.CodexEquipmentPanel,
+  ),
+);
+const CodexTitlePanel = dynamic(() =>
+  import("./CodexTitlePanel").then((module) => module.CodexTitlePanel),
+);
+const LifeFieldCodexPanel = dynamic(() =>
+  import("./LifeFieldPanels").then((module) => module.LifeFieldCodexPanel),
+);
+const CookingCodexPanel = dynamic(() =>
+  import("./CookingCodexPanel").then((module) => module.CookingCodexPanel),
+);
+const FishingCodexPanel = dynamic(() =>
+  import("./FishingCodexPanel").then((module) => module.FishingCodexPanel),
+);
+const CodexMasteryPanel = dynamic(() =>
+  import("./CodexMasteryPanel").then((module) => module.CodexMasteryPanel),
+);
 
 // v2 모험의 서 — 사냥터(장비·재료 드랍) + 어보(어종) + 직업(거쳐온 직업/스킬 수집) 탭.
 // 정적 카탈로그(전종 공개)는 /me/state 가 발견 여부 권위. 직업 도감만 별도(/api/v2/me/job-codex, lazy).
@@ -646,7 +663,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   const [equippedTitleId, setEquippedTitleId] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
-    fetch("/api/v2/me/state")
+    fetchGameState()
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (!alive || !j) return;

@@ -39,6 +39,24 @@ vi.mock("@/db", () => ({
   },
 }));
 vi.mock("@/lib/server/savesKv", () => ({
+  lockSavesForUpdate: vi.fn(
+    async (_tx, _uid, fallbacks: Record<string, unknown>) =>
+      Object.fromEntries(
+        Object.entries(fallbacks).map(([key, fallback]) => [
+          key,
+          store.has(key) ? store.get(key) : fallback,
+        ]),
+      ),
+  ),
+  readSaves: vi.fn(
+    async (_tx, _uid, fallbacks: Record<string, unknown>) =>
+      Object.fromEntries(
+        Object.entries(fallbacks).map(([key, fallback]) => [
+          key,
+          store.has(key) ? store.get(key) : fallback,
+        ]),
+      ),
+  ),
   lockSaveForUpdate: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),

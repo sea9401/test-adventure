@@ -32,6 +32,7 @@ import { requireCronAuth } from "@/lib/server/cronAuth";
 import { sendOpsAlert } from "@/lib/server/opsAlert";
 import {
   RETENTION_POLICY,
+  drainRetentionBatches,
   retentionCutoff,
 } from "@/lib/server/retentionPolicy";
 import { processStorageDeletionQueue } from "@/lib/server/storageDeletionQueue";
@@ -457,13 +458,17 @@ export async function POST(req: Request) {
           retentionCutoff(RETENTION_POLICY.abuseDays, now),
         ),
       ),
-      deleteSimpleRows(
-        economyEvents,
-        economyEvents.id,
-        lt(
-          economyEvents.createdAt,
-          retentionCutoff(RETENTION_POLICY.economyDays, now),
-        ),
+      drainRetentionBatches(
+        () =>
+          deleteSimpleRows(
+            economyEvents,
+            economyEvents.id,
+            lt(
+              economyEvents.createdAt,
+              retentionCutoff(RETENTION_POLICY.economyDays, now),
+            ),
+          ),
+        RETENTION_POLICY.backlogDeleteMaxBatches,
       ),
       deleteSimpleRows(
         adminAuditLog,
@@ -531,10 +536,14 @@ export async function POST(req: Request) {
 
   const [battleReplay, coopReplay, guildActivity, marketplace] =
     await Promise.all([
-      deleteSimpleRows(
-        battleReplays,
-        battleReplays.id,
-        lt(battleReplays.expiresAt, now),
+      drainRetentionBatches(
+        () =>
+          deleteSimpleRows(
+            battleReplays,
+            battleReplays.id,
+            lt(battleReplays.expiresAt, now),
+          ),
+        RETENTION_POLICY.backlogDeleteMaxBatches,
       ),
       trimCoopReplays(now),
       archiveAndTrimGuildActivities(),

@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
-const { store, rewardReferralTutorialTasks, recordCodexMasteryGameplayBatch } = vi.hoisted(() => ({
-  store: new Map<string, unknown>(),
+const { store, rewardReferralTutorialTasks, recordCodexMasteryGameplayBatch, upsertSaves } = vi.hoisted(() => {
+  const store = new Map<string, unknown>();
+  return {
+  store,
   rewardReferralTutorialTasks: vi.fn(async () => ({
     staminaPotions: 0,
     newlyCompletedTaskIds: [] as string[],
@@ -16,7 +18,11 @@ const { store, rewardReferralTutorialTasks, recordCodexMasteryGameplayBatch } = 
       _now: Date,
     ) => [],
   ),
-}));
+  upsertSaves: vi.fn(async (_tx, _uid, entries: Record<string, unknown>) => {
+    for (const [key, value] of Object.entries(entries)) store.set(key, value);
+  }),
+  };
+});
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
@@ -38,15 +44,28 @@ vi.mock("@/db", () => ({
   },
 }));
 vi.mock("@/lib/server/savesKv", () => ({
+  lockSavesForUpdate: vi.fn(async (_tx, _uid, fallbacks: Record<string, unknown>) =>
+    Object.fromEntries(Object.entries(fallbacks).map(([key, fallback]) => [
+      key,
+      store.has(key) ? store.get(key) : fallback,
+    ]))
+  ),
   lockSaveForUpdate: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
   readSave: vi.fn(async (_dbOrTx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
+  readSaves: vi.fn(async (_dbOrTx, _uid, fallbacks: Record<string, unknown>) =>
+    Object.fromEntries(Object.entries(fallbacks).map(([key, fallback]) => [
+      key,
+      store.has(key) ? store.get(key) : fallback,
+    ]))
+  ),
   upsertSave: vi.fn(async (_tx, _uid, key: string, value: unknown) => {
     store.set(key, value);
   }),
+  upsertSaves,
 }));
 
 import { POST as START } from "@/app/api/v2/mining/start/route";
@@ -89,6 +108,7 @@ afterEach(() => {
   store.clear();
   rewardReferralTutorialTasks.mockClear();
   recordCodexMasteryGameplayBatch.mockClear();
+  upsertSaves.mockClear();
   resetUserRateLimitForTests();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
@@ -219,6 +239,14 @@ describe("mining routes", () => {
       xp: 700,
       oreEarned: 80,
     });
+    expect(upsertSaves).toHaveBeenCalledTimes(1);
+    expect(Object.keys(upsertSaves.mock.calls[0]?.[2] ?? {}).sort()).toEqual([
+      LIFE_WORKSHOP_SAVE_KEY,
+      MINING_AUTO_KEY,
+      MINING_LOG_KEY,
+      "character.v2",
+      "proficiency.v2",
+    ].sort());
     expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
       expect.anything(),
       "u-test",
@@ -616,6 +644,15 @@ describe("mining routes", () => {
       groups: { survivor: { cumLevel: 901 } },
       jobCumLevel: { miner: 13 },
     });
+    expect(upsertSaves).toHaveBeenCalledTimes(1);
+    expect(Object.keys(upsertSaves.mock.calls[0]?.[2] ?? {}).sort()).toEqual([
+      ACTIVITY_GUARD_KEY,
+      LIFE_WORKSHOP_SAVE_KEY,
+      MINING_LOG_KEY,
+      MINING_SESSION_KEY,
+      "character.v2",
+      "proficiency.v2",
+    ].sort());
     expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
       expect.anything(),
       "u-test",

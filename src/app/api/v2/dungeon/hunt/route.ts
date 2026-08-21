@@ -426,9 +426,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   const guildCombatSupply =
     ctx.batchState?.guildCombatSupply ??
     (await readGuildCombatSupplyBonuses(
-      tx,
-      viewerGuildId,
-      new Date(ctx.nowOverride ?? Date.now()),
+      tx, viewerGuildId, new Date(ctx.nowOverride ?? Date.now()),
     ));
   if (ctx.batchState) {
     ctx.batchState.viewerGuildId = viewerGuildId;

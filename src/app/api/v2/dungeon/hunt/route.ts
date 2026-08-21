@@ -47,7 +47,6 @@ import { scaleMonsterForHunt } from "@/adventure/data/v2/monsterScale";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import { type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
-import { jobById } from "@/adventure/data/v2/v2JobCatalog";
 import {
   applyGuildCombatRewardBonus,
   guildCombatSupplyBonuses,
@@ -1149,11 +1148,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       source: "equipment.drop",
     });
   }
-  if (
-    masteryJobId &&
-    masteryGained > 0 &&
-    (jobById(masteryJobId)?.tier ?? 0) > 0
-  ) {
+  if (masteryJobId && masteryGained > 0) {
     codexMasteryEvents.push({
       category: "job",
       entryId: masteryJobId,

@@ -20,7 +20,7 @@
 
 **Files:**
 - Modify: `src/lib/server/huntRoute.test.ts`
-- Modify: `src/app/api/v2/dungeon/hunt/route.ts`
+- Modify: `src/app/api/v2/dungeon/hunt/huntProficiency.ts`
 
 **Interfaces:**
 - Consumes: `jobById(id: string): V2JobDefinition | undefined`
@@ -38,7 +38,7 @@
 
 - [ ] **Step 3: 최소 구현**
 
-  `route.ts`에서 `masteryJobId`에 대응하는 직업의 `tier`가 0보다 클 때만 `job.victory` 이벤트를 추가한다.
+  `huntProficiency.ts`에서 직업 숙련도 적립은 유지하되 `tier`가 0보다 큰 직업만 도감 기록 대상 `masteryJobId`로 반환한다.
 
 - [ ] **Step 4: GREEN 및 관련 회귀 검증**
 
@@ -48,13 +48,13 @@
 
 - [ ] **Step 5: 정적 검사**
 
-  Run: `npx eslint src/app/api/v2/dungeon/hunt/route.ts src/lib/server/huntRoute.test.ts`
+  Run: `npx eslint src/app/api/v2/dungeon/hunt/huntProficiency.ts src/lib/server/huntRoute.test.ts`
 
   Expected: 오류 0건.
 
 - [ ] **Step 6: 커밋**
 
   ```bash
-  git add docs/superpowers/specs/2026-08-21-tier0-job-hunt-codex-hotfix-design.md docs/superpowers/plans/2026-08-21-tier0-job-hunt-codex-hotfix.md src/app/api/v2/dungeon/hunt/route.ts src/lib/server/huntRoute.test.ts
+  git add docs/superpowers/specs/2026-08-21-tier0-job-hunt-codex-hotfix-design.md docs/superpowers/plans/2026-08-21-tier0-job-hunt-codex-hotfix.md src/app/api/v2/dungeon/hunt/huntProficiency.ts src/lib/server/huntRoute.test.ts
   git commit -m "fix: keep tier zero jobs hunting"
   ```

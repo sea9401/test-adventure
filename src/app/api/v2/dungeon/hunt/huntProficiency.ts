@@ -31,7 +31,7 @@ export type HuntProficiencyResult = {
   proficiencyPointsAfter: number;
   /** 승리 시 현재 직업 숙련도(+1). 전직/스킬포인트 게이트 입력. */
   masteryGained: number;
-  /** 이번 승리에서 jobCumLevel이 실제로 오른 구체 직업 ID. */
+  /** 이번 승리에서 jobCumLevel이 오르고 도감 숙련도에도 기록할 직업 ID. */
   masteryJobId: string | null;
   /** 상시 카드 readout — 이 사냥 후 현재 직업 숙련도(none=null). */
   masteryAfter: number | null;
@@ -96,7 +96,7 @@ export function applyHuntProficiency(params: {
         prof = addCumLevel(prof, group, 1);
         prof = addJobCumLevel(prof, v2JobId, 1);
         masteryGained = 1;
-        masteryJobId = v2JobId;
+        masteryJobId = (V2_JOB_CATALOG[v2JobId]?.tier ?? 0) > 0 ? v2JobId : null;
       }
     }
     // 레벨업 시 — 랜덤 스탯 성장. 직업 숙련도는 레벨업이 아니라 사냥 승리에서 적립한다.

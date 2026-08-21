@@ -35,6 +35,7 @@ export type GuildActivityType =
   | "building_upgrade"
   | "guild_level_upgrade"
   | "combat_supply_upgrade"
+  | "combat_supply_funding"
   | "training_drill_claim"
   | "alchemy_craft"
   | "emblem_change"
@@ -75,6 +76,7 @@ export type GuildActivityMeta = {
   supplyName?: string; // combat_supply_upgrade
   supplyLevel?: number; // combat_supply_upgrade
   fameCost?: number; // combat_supply_upgrade
+  operationsTier?: number; // combat_supply_funding
   drillTitle?: string; // training_drill_claim
   rewardMastery?: number; // training_drill_claim
   chargeTarget?: GuildAlchemyChargeTarget; // alchemy_craft

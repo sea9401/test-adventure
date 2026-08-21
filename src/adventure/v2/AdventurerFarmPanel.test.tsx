@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   AdventurerFarmPanel,
   FarmBatchActionPanel,
+  FarmExchangeShopPanel,
   FarmPlotCard,
   prioritizeDeliverable,
 } from "./AdventurerFarmPanel";
@@ -22,6 +23,7 @@ vi.mock("./useFarm", async () => {
       busySpecialDeliveryId: null,
       busyWeeklyDeliveryId: null,
       busyShopItemId: null,
+      busyEndgameShopItemId: null,
       busyPlotUpgrade: false,
       busyRanchFeedPenId: null,
       busyRanchCollect: false,
@@ -40,6 +42,16 @@ vi.mock("./useFarm", async () => {
       specialDeliveries: [],
       weeklyDeliveries: [],
       shopItems: [],
+      endgameShop: {
+        unlocked: false,
+        plots: 2,
+        requiredPlots: 6,
+        pens: 0,
+        requiredPens: 4,
+        items: [],
+        ownedTitleIds: [],
+      },
+      lastEndgameShopResult: null,
       clearNotice: noop,
       refresh: noopAsync,
       plant: noopAsync,
@@ -52,6 +64,7 @@ vi.mock("./useFarm", async () => {
       deliverSpecial: noopAsync,
       deliverWeekly: noopAsync,
       buyShopItem: noopAsync,
+      buyEndgameShopItem: noopAsync,
       buyPlotUpgrade: noopAsync,
       feedRanchPen: noopAsync,
       collectRanch: noopAsync,
@@ -80,6 +93,22 @@ describe("모험가 농장 모바일 섹션", () => {
     expect(html).toContain("농사 레벨");
     expect(html).toContain("농장 성장");
     expect(html).toContain("sticky top-16");
+  });
+
+  it("농장 화면과 통합 교환소에 기존 상점과 농장주의 교환소를 함께 표시한다", () => {
+    const farmHtml = renderToStaticMarkup(
+      <AdventurerFarmPanel
+        onBack={vi.fn()}
+        onOpenKitchen={vi.fn()}
+        onOpenLifeWorkshop={vi.fn()}
+      />,
+    );
+    const exchangeHtml = renderToStaticMarkup(<FarmExchangeShopPanel />);
+
+    for (const html of [farmHtml, exchangeHtml]) {
+      expect(html).toContain("농장 증표 상점");
+      expect(html).toContain("농장주의 교환소");
+    }
   });
 });
 

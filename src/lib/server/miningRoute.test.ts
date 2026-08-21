@@ -152,6 +152,7 @@ describe("mining routes", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
+    expect(json.serverNow).toBe(NOW);
     expect(json.autoSession).toMatchObject({
       planId: "extended",
       readyAt: NOW + 2 * 60 * 60_000,
@@ -720,6 +721,7 @@ describe("mining routes", () => {
   });
 
   it("status — 채광 재료와 누적 기록을 반환한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
     store.set("character.v2", {
       materials: { [MINING_MATERIAL_ID.silver]: 4 },
     });
@@ -729,6 +731,7 @@ describe("mining routes", () => {
       equipped: ["v2c_miningtechnician_toolcare"],
     });
     const json = await (await STATUS()).json();
+    expect(json.serverNow).toBe(NOW);
     expect(json.materials[MINING_MATERIAL_ID.silver]).toBe(4);
     expect(json.log).toMatchObject({ successes: 3, xp: 30, oreEarned: 3 });
     expect(json.durationReductionPct).toBe(8);

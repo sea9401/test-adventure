@@ -140,6 +140,27 @@ describe("mastery certificate route", () => {
     );
   });
 
+  it("수인 숙련도 사용 응답은 개별 직업 숙련도를 반환한다", async () => {
+    store.clear();
+    store.set("character.v2", { class: "mutant", specChoice: "beastkin" });
+    store.set("inventory.v2", { [MASTERY_CERTIFICATE_KEY]: 5 });
+    store.set("proficiency.v2", {
+      groups: {
+        mutant: { tier: 1, cultivations: 0, cumLevel: 1_000 },
+      },
+      jobCumLevel: { beastkin: 40 },
+    });
+
+    const res = await POST(req({ jobId: "beastkin", amount: 2 }));
+    const json = (await res.json()) as {
+      ok?: boolean;
+      jobMastery?: number;
+    };
+
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({ ok: true, jobMastery: 42 });
+  });
+
   it("알 수 없는 증서 사용 용도는 거부한다", async () => {
     store.clear();
     store.set("inventory.v2", { [MASTERY_CERTIFICATE_KEY]: 5 });

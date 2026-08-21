@@ -56,9 +56,10 @@ import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import type { Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
-import type {
-  AutoGatheringActivity,
-  AutoGatheringStatus,
+import {
+  correctedAutoGatheringReadyAt,
+  type AutoGatheringActivity,
+  type AutoGatheringStatus,
 } from "@/adventure/v2/autoGathering";
 import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import { parseEquipmentCodex } from "@/adventure/data/v2/equipmentCodex";
@@ -772,7 +773,11 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
           activity: auto.activity,
           sourceId: auto.sourceId,
           sourceName: auto.sourceName,
-          readyAt: Date.now() + (auto.readyAt - auto.serverNow),
+          readyAt: correctedAutoGatheringReadyAt(
+            auto.readyAt,
+            auto.serverNow,
+            Date.now(),
+          ),
         });
       } else {
         setAutoGathering(null);

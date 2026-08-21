@@ -50,4 +50,21 @@ describe("masteryCertificateStatusFromSaves", () => {
     const after = masteryCertificateStatusFromSaves({}, candidate, {});
     expect(after.jobs.some((job) => job.id === "shadowblade")).toBe(true);
   });
+
+  it("수인처럼 1차 전문 직업은 개별 직업 숙련도를 반환한다", () => {
+    const status = masteryCertificateStatusFromSaves(
+      { class: "mutant", specChoice: "beastkin" },
+      {
+        groups: {
+          mutant: { tier: 1, cultivations: 0, cumLevel: 1_000 },
+        },
+        jobCumLevel: { beastkin: 42 },
+      },
+      {},
+    );
+
+    expect(status.jobs).toContainEqual(
+      expect.objectContaining({ id: "beastkin", mastery: 42 }),
+    );
+  });
 });

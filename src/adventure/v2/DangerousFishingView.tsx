@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TabBar } from "@/components/ui/TabBar";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
@@ -20,6 +21,8 @@ import {
 } from "./DangerousFishingBossPanel";
 import { FishingSubTabs } from "./FishingSubTabs";
 import { ActivityVerificationGate } from "./ActivityVerificationGate";
+import { DangerousFishingFeedbackCard } from "./DangerousFishingFeedbackCard";
+import type { DangerousFishingFeedback } from "./dangerousFishingFeedback";
 import type {
   ActivityVerificationChallenge,
   ActivityVerificationSubmission,
@@ -68,6 +71,7 @@ export function DangerousFishingView({
   loading,
   busy,
   error,
+  feedback = null,
   verification = null,
   verifyHuman,
   onBack,
@@ -89,6 +93,7 @@ export function DangerousFishingView({
   loading: boolean;
   busy: DangerousFishingBusy;
   error: string | null;
+  feedback?: DangerousFishingFeedback | null;
   verification?: ActivityVerificationChallenge | null;
   verifyHuman?: (
     submission: ActivityVerificationSubmission,
@@ -113,6 +118,11 @@ export function DangerousFishingView({
   const [baitId, setBaitId] = useState<DangerousBaitId>("basic_bait");
   const encounter = model?.state.voyage?.encounter ?? null;
   const interactionBlocked = busy !== null || verification !== null;
+  const activeFeedback = feedback?.scope === activeTab ? feedback : null;
+  const showPurpose =
+    model?.heritage.unlocked === true &&
+    !encounter &&
+    !(activeTab === "boss" && boss?.attempt);
 
   useEffect(() => {
     if (!encounter || activeTab !== "voyage") return;
@@ -164,6 +174,43 @@ export function DangerousFishingView({
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
         기존 낚시와 별개의 선택형 콘텐츠입니다. 정해진 20분 세션이나 일일 숙제 없이 한 번의 어획 후에도 귀환할 수 있습니다.
       </p>
+      {showPurpose ? (
+        <section className={`${SURFACE_INSET} space-y-3 p-4`} aria-label="위험 해역 목표와 보상">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-bold">위험 해역에서 얻는 것</h2>
+              <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                더 위험한 해역에서 어획하고, 돌아와 성장과 교환 보상으로 확정합니다.
+              </p>
+            </div>
+            {onOpenShop ? (
+              <Button size="xs" variant="secondary" onClick={onOpenShop}>
+                위험 해역 교환 보기
+              </Button>
+            ) : null}
+          </div>
+          <div className="grid gap-2 text-xs sm:grid-cols-3">
+            <div className={`${SURFACE_CARD} p-3`}>
+              <strong>1. 어획 성공</strong>
+              <p className="mt-1 leading-5 text-zinc-600 dark:text-zinc-300">
+                경험치·코인·도감을 즉시 획득
+              </p>
+            </div>
+            <div className={`${SURFACE_CARD} p-3`}>
+              <strong>2. 안전 귀환</strong>
+              <p className="mt-1 leading-5 text-zinc-600 dark:text-zinc-300">
+                화물을 상점 교환·거래소 재료로 확정
+              </p>
+            </div>
+            <div className={`${SURFACE_CARD} p-3`}>
+              <strong>3. 거대어 제압</strong>
+              <p className="mt-1 leading-5 text-zinc-600 dark:text-zinc-300">
+                공용 제압에 기여하고 코인·거대어 증표 획득
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : null}
       <details className={`${SURFACE_INSET} group p-4 text-sm`}>
         <summary className="cursor-pointer font-bold">처음 이용하시나요?</summary>
         <div className="mt-3 space-y-3 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
@@ -190,6 +237,9 @@ export function DangerousFishingView({
           {dangerousFishingErrorMessage(error)}
         </div>
       ) : null}
+      {activeFeedback && !encounter && activeTab === "voyage" ? (
+        <DangerousFishingFeedbackCard feedback={activeFeedback} />
+      ) : null}
 
       {loading && !model ? (
         <div className={`${SURFACE_INSET} p-8 text-center text-sm text-zinc-500`}>위험 해역 정보를 불러오는 중…</div>
@@ -204,6 +254,7 @@ export function DangerousFishingView({
         <DangerousFishingBossPanel
           model={boss}
           busy={interactionBlocked}
+          feedback={activeFeedback}
           onStart={onStartBossAttempt}
           onAction={onBossAction}
           onClaim={onClaimBossReward}
@@ -250,6 +301,7 @@ export function DangerousFishingView({
                   targetImageSrc={model.catalogs.fish[encounter.targetId].imageSrc}
                   targetName={model.catalogs.fish[encounter.targetId].name}
                   busy={interactionBlocked}
+                  feedback={activeFeedback}
                   onAction={(action) => void onAction(action, encounter.id, encounter.revision)}
                 />
               ) : (

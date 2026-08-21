@@ -28,6 +28,11 @@ import {
 import type { RanchPenId } from "./ranch";
 import { useSystemToast } from "./RewardToastProvider";
 import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
+import {
+  farmEndgameShopView,
+  type FarmEndgameShopPurchaseResult,
+  type FarmEndgameShopView,
+} from "./farmEndgameShop";
 
 type FarmResponse = {
   ok: boolean;
@@ -53,6 +58,8 @@ type FarmResponse = {
   ranchFeedResult?: FarmRanchFeedResult;
   ranchCollectResult?: FarmRanchCollectResult;
   ranchUpgradeResult?: FarmRanchUpgradeResult;
+  endgameShop?: FarmEndgameShopView;
+  endgameShopResult?: FarmEndgameShopPurchaseResult;
   levelCurveMigrated?: boolean;
 };
 
@@ -64,6 +71,7 @@ export type FarmClientState = {
   busySpecialDeliveryId: string | null;
   busyWeeklyDeliveryId: string | null;
   busyShopItemId: string | null;
+  busyEndgameShopItemId: string | null;
   busyPlotUpgrade: boolean;
   busyRanchFeedPenId: RanchPenId | null;
   busyRanchCollect: boolean;
@@ -81,11 +89,13 @@ export type FarmClientState = {
   specialDeliveries: FarmSpecialDeliveryRequest[];
   weeklyDeliveries: FarmWeeklyDeliveryRequest[];
   shopItems: FarmShopItem[];
+  endgameShop: FarmEndgameShopView | null;
   lastResult: FarmHarvestResult | null;
   lastDeliveryResult: FarmDeliveryResult | null;
   lastSpecialDeliveryResult: FarmSpecialDeliveryResult | null;
   lastWeeklyDeliveryResult: FarmWeeklyDeliveryResult | null;
   lastShopResult: FarmShopPurchaseResult | null;
+  lastEndgameShopResult: FarmEndgameShopPurchaseResult | null;
   lastPlotUpgradeResult: FarmPlotUpgradeResult | null;
   clearNotice: () => void;
   refresh: () => Promise<void>;
@@ -99,6 +109,7 @@ export type FarmClientState = {
   deliverSpecial: (requestId: string) => Promise<void>;
   deliverWeekly: (requestId: string) => Promise<void>;
   buyShopItem: (itemId: string) => Promise<void>;
+  buyEndgameShopItem: (itemId: string) => Promise<void>;
   buyPlotUpgrade: () => Promise<void>;
   feedRanchPen: (penId: RanchPenId, amount: number) => Promise<void>;
   collectRanch: () => Promise<void>;
@@ -112,6 +123,7 @@ export type FarmNotice =
   | { id: number; kind: "specialDelivery"; result: FarmSpecialDeliveryResult }
   | { id: number; kind: "weeklyDelivery"; result: FarmWeeklyDeliveryResult }
   | { id: number; kind: "shop"; result: FarmShopPurchaseResult }
+  | { id: number; kind: "endgameShop"; result: FarmEndgameShopPurchaseResult }
   | { id: number; kind: "plotUpgrade"; result: FarmPlotUpgradeResult }
   | { id: number; kind: "fertilizer"; reducedMs: number }
   | { id: number; kind: "batchPlant"; count: number; cropName: string }
@@ -135,6 +147,9 @@ export function useFarm(): FarmClientState {
     null,
   );
   const [busyShopItemId, setBusyShopItemId] = useState<string | null>(null);
+  const [busyEndgameShopItemId, setBusyEndgameShopItemId] = useState<string | null>(
+    null,
+  );
   const [busyPlotUpgrade, setBusyPlotUpgrade] = useState(false);
   const [busyRanchFeedPenId, setBusyRanchFeedPenId] =
     useState<RanchPenId | null>(null);
@@ -158,6 +173,7 @@ export function useFarm(): FarmClientState {
     FarmWeeklyDeliveryRequest[]
   >([]);
   const [shopItems, setShopItems] = useState<FarmShopItem[]>([]);
+  const [endgameShop, setEndgameShop] = useState<FarmEndgameShopView | null>(null);
   const [lastResult, setLastResult] = useState<FarmHarvestResult | null>(null);
   const [lastDeliveryResult, setLastDeliveryResult] =
     useState<FarmDeliveryResult | null>(null);
@@ -167,6 +183,8 @@ export function useFarm(): FarmClientState {
     useState<FarmWeeklyDeliveryResult | null>(null);
   const [lastShopResult, setLastShopResult] =
     useState<FarmShopPurchaseResult | null>(null);
+  const [lastEndgameShopResult, setLastEndgameShopResult] =
+    useState<FarmEndgameShopPurchaseResult | null>(null);
   const [lastPlotUpgradeResult, setLastPlotUpgradeResult] =
     useState<FarmPlotUpgradeResult | null>(null);
 
@@ -194,6 +212,10 @@ export function useFarm(): FarmClientState {
     setSpecialDeliveries(data.specialDeliveries ?? []);
     setWeeklyDeliveries(data.weeklyDeliveries ?? []);
     setShopItems(data.shopItems ?? []);
+    setEndgameShop((current) =>
+      data.endgameShop ??
+      (current ? farmEndgameShopView(data.farm!, current.ownedTitleIds) : null),
+    );
     setNow(data.now ?? Date.now());
     if (data.levelCurveMigrated) {
       notifySystem(LIFE_LEVEL_MIGRATION_NOTICE, "info");
@@ -240,6 +262,14 @@ export function useFarm(): FarmClientState {
     if (data.shopResult) {
       setLastShopResult(data.shopResult);
       setNotice({ id: Date.now(), kind: "shop", result: data.shopResult });
+    }
+    if (data.endgameShopResult) {
+      setLastEndgameShopResult(data.endgameShopResult);
+      setNotice({
+        id: Date.now(),
+        kind: "endgameShop",
+        result: data.endgameShopResult,
+      });
     }
     if (data.plotUpgradeResult) {
       setLastPlotUpgradeResult(data.plotUpgradeResult);
@@ -498,6 +528,26 @@ export function useFarm(): FarmClientState {
     [apply, reportError],
   );
 
+  const buyEndgameShopItem = useCallback(
+    async (itemId: string) => {
+      setBusyEndgameShopItemId(itemId);
+      setError(null);
+      try {
+        const res = await fetch("/api/v2/farm/endgame-shop", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ itemId }),
+        });
+        apply((await res.json()) as FarmResponse);
+      } catch (e) {
+        reportError(e);
+      } finally {
+        setBusyEndgameShopItemId(null);
+      }
+    },
+    [apply, reportError],
+  );
+
   const buyPlotUpgrade = useCallback(async () => {
     setBusyPlotUpgrade(true);
     setError(null);
@@ -600,6 +650,7 @@ export function useFarm(): FarmClientState {
     busySpecialDeliveryId,
     busyWeeklyDeliveryId,
     busyShopItemId,
+    busyEndgameShopItemId,
     busyPlotUpgrade,
     busyRanchFeedPenId,
     busyRanchCollect,
@@ -617,11 +668,13 @@ export function useFarm(): FarmClientState {
     specialDeliveries,
     weeklyDeliveries,
     shopItems,
+    endgameShop,
     lastResult,
     lastDeliveryResult,
     lastSpecialDeliveryResult,
     lastWeeklyDeliveryResult,
     lastShopResult,
+    lastEndgameShopResult,
     lastPlotUpgradeResult,
     clearNotice,
     refresh,
@@ -635,6 +688,7 @@ export function useFarm(): FarmClientState {
     deliverSpecial,
     deliverWeekly,
     buyShopItem,
+    buyEndgameShopItem,
     buyPlotUpgrade,
     feedRanchPen,
     collectRanch,
@@ -670,6 +724,9 @@ function errorMessage(error: unknown): string {
       already_unlocked: "이미 열린 축사입니다.",
       pen_not_found: "축사 정보를 찾을 수 없습니다.",
       bad_quantity: "넣을 사료 수량을 확인해 주세요.",
+      endgame_shop_locked: "밭과 유료 축사를 모두 열면 농장주의 교환소를 이용할 수 있습니다.",
+      already_owned: "이미 보유한 칭호입니다.",
+      shop_item_not_found: "교환 상품 정보를 찾을 수 없습니다.",
     }[message] ?? "요청에 실패했습니다."
   );
 }

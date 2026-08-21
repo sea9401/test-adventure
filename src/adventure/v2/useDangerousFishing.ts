@@ -30,6 +30,12 @@ import {
   ActivityVerificationRequiredError,
   useActivityVerification,
 } from "./useActivityVerification";
+import {
+  dangerousFishingActionFeedback,
+  dangerousFishingBossClaimFeedback,
+  dangerousFishingReturnFeedback,
+  type DangerousFishingFeedback,
+} from "./dangerousFishingFeedback";
 
 export type DangerousFishingClientVoyage = Omit<
   DangerousFishingVoyage,
@@ -111,6 +117,9 @@ export function useDangerousFishing() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<DangerousFishingBusy>(null);
   const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<DangerousFishingFeedback | null>(
+    null,
+  );
 
   const refresh = useCallback(async () => {
     try {
@@ -150,12 +159,13 @@ export function useDangerousFishing() {
       kind: Exclude<DangerousFishingBusy, null>,
       endpoint: string,
       body: Record<string, unknown>,
+      onSuccess?: (json: Record<string, unknown>) => void,
     ) => {
       if (busy) return false;
       setBusy(kind);
       setError(null);
       try {
-        await apiJson(
+        const json = await apiJson(
           endpoint,
           readJson,
           {
@@ -164,6 +174,7 @@ export function useDangerousFishing() {
             body: JSON.stringify(body),
           },
         );
+        onSuccess?.(json);
         return await refresh();
       } catch (caught) {
         if (!(caught instanceof ActivityVerificationRequiredError)) {
@@ -178,44 +189,71 @@ export function useDangerousFishing() {
   );
 
   const startVoyage = useCallback(
-    (zoneId: DangerousZoneId, depthId: DangerousDepthId) =>
-      mutate("voyage", "/api/v2/dangerous-fishing/voyage", {
+    (zoneId: DangerousZoneId, depthId: DangerousDepthId) => {
+      setFeedback(null);
+      return mutate("voyage", "/api/v2/dangerous-fishing/voyage", {
         action: "start",
         zoneId,
         depthId,
-      }),
+      });
+    },
     [mutate],
   );
   const returnVoyage = useCallback(
     () =>
       mutate("return", "/api/v2/dangerous-fishing/voyage", {
         action: "return",
+      }, (json) => {
+        setFeedback(dangerousFishingReturnFeedback(json));
       }),
     [mutate],
   );
   const startEncounter = useCallback(
-    (baitId: DangerousBaitId) =>
-      mutate("encounter", "/api/v2/dangerous-fishing/encounter", {
+    (baitId: DangerousBaitId) => {
+      setFeedback(null);
+      return mutate("encounter", "/api/v2/dangerous-fishing/encounter", {
         action: "start",
         baitId,
-      }),
+      }, (json) => {
+        const returned = dangerousFishingReturnFeedback(json);
+        if (returned) setFeedback(returned);
+      });
+    },
     [mutate],
   );
   const act = useCallback(
-    (action: DangerousFishingAction, encounterId: string, revision: number) =>
-      mutate("action", "/api/v2/dangerous-fishing/encounter", {
+    (action: DangerousFishingAction, encounterId: string, revision: number) => {
+      const before = model?.state.voyage?.encounter;
+      const targetName = before
+        ? (model?.catalogs.fish[before.targetId]?.name ?? before.targetId)
+        : null;
+      return mutate("action", "/api/v2/dangerous-fishing/encounter", {
         action,
         encounterId,
         revision,
-      }),
-    [mutate],
+      }, (json) => {
+        if (!before || !targetName) return;
+        setFeedback(
+          dangerousFishingActionFeedback({
+            scope: "voyage",
+            action,
+            before,
+            response: json,
+            targetName,
+          }),
+        );
+      });
+    },
+    [model, mutate],
   );
   const startBossAttempt = useCallback(
-    (eventId: string) =>
-      mutate("boss", "/api/v2/dangerous-fishing/boss", {
+    (eventId: string) => {
+      setFeedback(null);
+      return mutate("boss", "/api/v2/dangerous-fishing/boss", {
         action: "start",
         eventId,
-      }),
+      });
+    },
     [mutate],
   );
   const actOnBoss = useCallback(
@@ -224,22 +262,40 @@ export function useDangerousFishing() {
       eventId: string,
       encounterId: string,
       revision: number,
-    ) =>
-      mutate("boss", "/api/v2/dangerous-fishing/boss", {
+    ) => {
+      const before = boss?.attempt?.encounter;
+      const targetName = boss?.event?.name ?? before?.targetId ?? null;
+      return mutate("boss", "/api/v2/dangerous-fishing/boss", {
         action,
         eventId,
         encounterId,
         revision,
-      }),
-    [mutate],
+      }, (json) => {
+        if (!before || !targetName) return;
+        setFeedback(
+          dangerousFishingActionFeedback({
+            scope: "boss",
+            action,
+            before,
+            response: json,
+            targetName,
+          }),
+        );
+      });
+    },
+    [boss, mutate],
   );
   const claimBossReward = useCallback(
-    (eventId: string) =>
-      mutate("boss", "/api/v2/dangerous-fishing/boss", {
+    (eventId: string) => {
+      const bossName = boss?.event?.name ?? "거대어";
+      return mutate("boss", "/api/v2/dangerous-fishing/boss", {
         action: "claim",
         eventId,
-      }),
-    [mutate],
+      }, (json) => {
+        setFeedback(dangerousFishingBossClaimFeedback(json, bossName));
+      });
+    },
+    [boss?.event?.name, mutate],
   );
 
   return {
@@ -248,6 +304,7 @@ export function useDangerousFishing() {
     loading,
     busy,
     error,
+    feedback,
     verification,
     verifyHuman,
     refresh,

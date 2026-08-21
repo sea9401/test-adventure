@@ -15,7 +15,7 @@ import type {
   AutoGatheringSessionView,
 } from "./AutoGatheringCard";
 import {
-  autoGatheringPlan,
+  parseAutoGatheringSessionView,
   type AutoGatheringActivity,
   type AutoGatheringPlanId,
 } from "./autoGathering";
@@ -68,25 +68,6 @@ function parseMaterials(value: unknown): Record<string, number> {
 function parseNextActionAt(value: unknown): number | null {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
-}
-
-function parseAutoSession(value: unknown): AutoGatheringSessionView | null {
-  if (!value || typeof value !== "object") return null;
-  const item = value as Record<string, unknown>;
-  if (typeof item.sessionId !== "string" || typeof item.sourceId !== "string") return null;
-  const readyAt = Number(item.readyAt);
-  const startedAt = Number(item.startedAt);
-  if (!Number.isFinite(readyAt) || !Number.isFinite(startedAt)) return null;
-  return {
-    sessionId: item.sessionId,
-    planId: autoGatheringPlan(item.planId).id,
-    sourceId: item.sourceId,
-    sourceName: String(item.sourceName ?? "광맥"),
-    materialId: String(item.materialId ?? ""),
-    startedAt: Math.floor(startedAt),
-    readyAt: Math.floor(readyAt),
-    attempts: Math.max(1, Math.floor(Number(item.attempts) || 1)),
-  };
 }
 
 function parseAutoResult(value: unknown): AutoGatheringResultView {
@@ -144,7 +125,12 @@ export function useMining(): MiningHandlers {
         if (!alive || !json?.ok) return;
         setMaterials(parseMaterials(json.materials));
         setLog(parseLog(json.log));
-        setAutoSession(parseAutoSession(json.autoSession));
+        setAutoSession(
+          parseAutoGatheringSessionView(json.autoSession, {
+            serverNow: json.serverNow,
+            fallbackSourceName: "광맥",
+          }),
+        );
         setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
       } catch {
         // 표시용 상태라 실패해도 화면 진입은 유지한다.
@@ -261,7 +247,10 @@ export function useMining(): MiningHandlers {
         if (active) setActiveAutoActivity(active);
         throw new Error("mining_auto_start_failed");
       }
-      const session = parseAutoSession(json.autoSession);
+      const session = parseAutoGatheringSessionView(json.autoSession, {
+        serverNow: json.serverNow,
+        fallbackSourceName: "광맥",
+      });
       setAutoSession(session);
       setActiveAutoActivity("mining");
       setAutoResult(null);

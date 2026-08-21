@@ -1900,12 +1900,6 @@ export function FishingView({
                 어보 {result.codexCount}/{FISH_TOTAL}종
               </div>
               <CatchRewardSummary result={result} />
-              {result.streak && result.streak.buffTier > 0 && (
-                <div className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                  연속 {result.streak.current} 버프 · 코인 +
-                  {result.streak.coinBonus}
-                </div>
-              )}
               {result.coopBoss && (
                 <div className="mt-3 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-left dark:border-rose-800 dark:bg-rose-950/30">
                   <div className="text-sm font-semibold text-rose-800 dark:text-rose-200">

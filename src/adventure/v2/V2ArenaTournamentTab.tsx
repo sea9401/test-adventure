@@ -21,6 +21,7 @@ type TournamentResponse = {
     id: string;
     rankedEndsAt: string;
     snapshotsAt: string;
+    startsAt: string;
     endAt: string;
   };
   tournament?: {
@@ -162,7 +163,7 @@ export function V2ArenaTournamentTab() {
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
           <span>예선 마감 {formatKst(data.season?.rankedEndsAt)}</span>
           <span>전투 세팅 마감 {formatKst(data.season?.snapshotsAt)}</span>
-          <span>경기 시작 {formatKst(bracket?.startsAt)}</span>
+          <span>경기 시작 {formatKst(data.season?.startsAt)}</span>
           <span>시즌 정산 {formatKst(data.season?.endAt)}</span>
         </div>
       </div>

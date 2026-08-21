@@ -5,6 +5,7 @@ import {
   arenaRankedEndsAt,
   arenaSeasonPhase,
   arenaTournamentSnapshotsAt,
+  arenaTournamentStartsAt,
 } from "@/lib/server/pvp/arenaTournament";
 import {
   ensureArenaTournament,
@@ -41,6 +42,7 @@ export async function GET() {
       id: season.id,
       rankedEndsAt: arenaRankedEndsAt(season.endAt).toISOString(),
       snapshotsAt: arenaTournamentSnapshotsAt(season.endAt).toISOString(),
+      startsAt: arenaTournamentStartsAt(season.endAt).toISOString(),
       endAt: season.endAt.toISOString(),
     },
     tournament: latest

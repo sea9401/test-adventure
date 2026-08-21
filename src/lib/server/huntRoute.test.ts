@@ -10,6 +10,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyStochasticPercentBonus } from "@/lib/percentBonus";
+import { CODEX_MASTERY_CATALOG } from "@/adventure/data/v2/codexMasteryProductionCatalog";
 import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
 // vi.mock 팩토리는 호이스팅되므로 공유 스토어는 vi.hoisted 로.
@@ -299,6 +300,46 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       expect.any(Date),
     );
   });
+
+  it.each(["survivor", "mutant"] as const)(
+    "0단계 직업 %s은 직업 숙련도를 적립하면서 도감에 없는 직업 이벤트를 만들지 않는다",
+    async (classId) => {
+      // Break caught: a tier-zero job is sent to the mastery catalog and aborts
+      // the otherwise successful hunt transaction with unknown_entry.
+      const char = store.get("character.v2") as Record<string, unknown>;
+      store.set("character.v2", { ...char, class: classId });
+      store.set("proficiency.v2", {
+        groups: { [classId]: { tier: 0, points: 0, cumLevel: 0 } },
+        grown: {
+          str: 50_000,
+          vit: 50_000,
+          dex: 50_000,
+          luk: 50_000,
+        },
+      });
+      recordCodexMasteryGameplayBatch.mockImplementationOnce(
+        async (_executor, _userId, events) => {
+          const unknown = events.find(
+            (event) => !CODEX_MASTERY_CATALOG.get(event.category, event.entryId),
+          );
+          if (unknown) throw new Error(`unknown_entry:${unknown.entryId}`);
+          return [];
+        },
+      );
+
+      const response = await POST(huntReq({ floor: 2 }));
+
+      expect(response.status).toBe(200);
+      const events = recordCodexMasteryGameplayBatch.mock.calls[0]?.[2] ?? [];
+      expect(events.filter((event) => event.category === "job")).toEqual([]);
+      const proficiency = store.get("proficiency.v2") as {
+        groups: Record<string, { cumLevel?: number }>;
+        jobCumLevel?: Record<string, number>;
+      };
+      expect(proficiency.groups[classId]?.cumLevel).toBe(1);
+      expect(proficiency.jobCumLevel?.[classId]).toBe(1);
+    },
+  );
 
   it("실제 정규·유니크 장비 드롭을 단판과 배치 수집기에 각각 기록한다", async () => {
     // Break caught: equipment is persisted by huntDrops but only monster/job mastery is flushed.

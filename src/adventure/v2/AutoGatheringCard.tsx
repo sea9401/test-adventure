@@ -9,18 +9,10 @@ import {
   autoGatheringPlan,
   type AutoGatheringActivity,
   type AutoGatheringPlanId,
+  type AutoGatheringSessionView,
 } from "./autoGathering";
 
-export type AutoGatheringSessionView = {
-  sessionId: string;
-  planId: AutoGatheringPlanId;
-  sourceId: string;
-  sourceName: string;
-  materialId: string;
-  startedAt: number;
-  readyAt: number;
-  attempts: number;
-};
+export type { AutoGatheringSessionView } from "./autoGathering";
 
 export type AutoGatheringResultView = {
   attempts: number;

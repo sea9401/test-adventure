@@ -223,6 +223,7 @@ export async function POST(req: Request) {
     }
     return Response.json({
       ok: true,
+      serverNow: Date.now(),
       autoSession: startResult.session,
       materialName: MINING_MATERIALS[node.materialId].name,
       lifeEnvironment,

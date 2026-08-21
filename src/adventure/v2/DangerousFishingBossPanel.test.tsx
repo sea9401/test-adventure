@@ -61,13 +61,16 @@ describe("거대어 비동기 기여 패널", () => {
     expect(html).toContain("12,000 / 18,000");
     expect(html).toContain("약 5시간 남음");
     expect(html).toContain("발견자");
-    expect(html).toContain("내 기여 240");
+    expect(html).toContain("내 누적 기여 240");
     expect(html).toContain("기본 보상 자격 확보");
+    expect(html).toContain("개인 시도 1회 성공");
+    expect(html).toContain("낚시 코인·거대어 증표");
+    expect(html).toContain("전용 장비·미끼·칭호·꾸미기");
     expect(html).not.toContain("기여 순위");
     expect(html).not.toContain("1위");
   });
 
-  it("개인 시도가 복원되면 1~3분 장력 조작을 이어서 한다", () => {
+  it("개인 시도가 복원되면 공용 현황과 장력 조작을 중복 이미지 없이 한 화면에서 이어서 한다", () => {
     const html = renderToStaticMarkup(
       <DangerousFishingBossPanel
         model={bossModel({
@@ -103,9 +106,13 @@ describe("거대어 비동기 기여 패널", () => {
     );
     expect(html).toContain("개인 장력 시도");
     expect(html).toContain("1~3분");
+    expect(html).toContain("공용 제압 현황");
+    expect(html).toContain("내 누적 기여 240");
+    expect(html).toContain("이번 성공 시 기여 240");
     expect(html).toContain("감아올리기");
     expect(html).toContain("줄 풀기");
     expect(html).toContain("버티기");
+    expect((html.match(/<img /g) ?? []).length).toBe(2);
   });
 
   it("줄이 끊긴 뒤에는 누적 기여를 보존한 채 다시 시도할 수 있다", () => {
@@ -148,6 +155,28 @@ describe("거대어 비동기 기여 패널", () => {
     );
     expect(html).toContain("현재 포착된 거대어가 없습니다");
     expect(html).toContain("위험도 4 이상");
+    expect(html).toContain("거대어를 발견하면 모든 낚시꾼이 함께 제압");
+    expect(html).toContain("거대어 증표는 전용 장비·미끼·칭호·꾸미기 교환");
     expect(html).toContain("dangerous-fishing-abyssal-rift.webp");
+  });
+
+  it("개인 시도 결과를 즉시 알린다", () => {
+    const html = renderToStaticMarkup(
+      <DangerousFishingBossPanel
+        model={bossModel()}
+        busy={false}
+        feedback={{
+          scope: "boss",
+          tone: "success",
+          title: "개인 시도 성공",
+          detail: "공용 제압에 240만큼 기여했습니다.",
+          terminal: true,
+        }}
+        {...handlers}
+      />,
+    );
+    expect(html).toContain('aria-live="polite"');
+    expect(html).toContain("개인 시도 성공");
+    expect(html).toContain("공용 제압에 240만큼 기여했습니다.");
   });
 });

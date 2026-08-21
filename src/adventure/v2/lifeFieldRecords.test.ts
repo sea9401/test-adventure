@@ -7,6 +7,7 @@ import {
   emptyLifeFieldRecordsState,
   lifeFieldDailyView,
   lifeFieldRecordSummary,
+  lifeFieldTraceLocationText,
 } from "./lifeFieldRecords";
 
 const NOW = Date.parse("2026-08-06T12:00:00+09:00");
@@ -17,6 +18,21 @@ function sequence(values: number[]) {
 }
 
 describe("life field records", () => {
+  it("names the trace source region and marks whether the current region can progress it", () => {
+    expect(
+      lifeFieldTraceLocationText(
+        { activity: "woodcutting", sourceId: "oak_grove" },
+        "oak_grove",
+      ),
+    ).toBe("발견 지역: 깊은 참나무숲 · 이 지역에서 진행 가능");
+    expect(
+      lifeFieldTraceLocationText(
+        { activity: "woodcutting", sourceId: "oak_grove" },
+        "pine_grove",
+      ),
+    ).toBe("발견 지역: 깊은 참나무숲 · 해당 지역에서 성공하면 진행");
+  });
+
   it("starts with 33 basic and 3 rare records", () => {
     expect(LIFE_FIELD_BASIC_RECORD_TOTAL).toBe(33);
     expect(LIFE_FIELD_RARE_RECORD_TOTAL).toBe(3);

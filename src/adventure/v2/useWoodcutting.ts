@@ -15,7 +15,7 @@ import type {
   AutoGatheringSessionView,
 } from "./AutoGatheringCard";
 import {
-  autoGatheringPlan,
+  parseAutoGatheringSessionView,
   type AutoGatheringActivity,
   type AutoGatheringPlanId,
 } from "./autoGathering";
@@ -66,25 +66,6 @@ function parseNextActionAt(value: unknown): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
 }
 
-function parseAutoSession(value: unknown): AutoGatheringSessionView | null {
-  if (!value || typeof value !== "object") return null;
-  const item = value as Record<string, unknown>;
-  if (typeof item.sessionId !== "string" || typeof item.sourceId !== "string") return null;
-  const readyAt = Number(item.readyAt);
-  const startedAt = Number(item.startedAt);
-  if (!Number.isFinite(readyAt) || !Number.isFinite(startedAt)) return null;
-  return {
-    sessionId: item.sessionId,
-    planId: autoGatheringPlan(item.planId).id,
-    sourceId: item.sourceId,
-    sourceName: String(item.sourceName ?? "나무"),
-    materialId: String(item.materialId ?? ""),
-    startedAt: Math.floor(startedAt),
-    readyAt: Math.floor(readyAt),
-    attempts: Math.max(1, Math.floor(Number(item.attempts) || 1)),
-  };
-}
-
 function parseAutoResult(value: unknown): AutoGatheringResultView {
   const item = (value ?? {}) as Record<string, unknown>;
   return {
@@ -126,7 +107,12 @@ export function useWoodcutting(): WoodcuttingHandlers {
         setDurationReductionPct(
           Math.min(50, Math.max(0, Number(json.durationReductionPct) || 0)),
         );
-        setAutoSession(parseAutoSession(json.autoSession));
+        setAutoSession(
+          parseAutoGatheringSessionView(json.autoSession, {
+            serverNow: json.serverNow,
+            fallbackSourceName: "나무",
+          }),
+        );
         setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
       } catch {
         // 표시용 상태라 실패해도 화면 진입은 유지한다.
@@ -257,7 +243,10 @@ export function useWoodcutting(): WoodcuttingHandlers {
         if (active) setActiveAutoActivity(active);
         throw new Error("woodcutting_auto_start_failed");
       }
-      const session = parseAutoSession(json.autoSession);
+      const session = parseAutoGatheringSessionView(json.autoSession, {
+        serverNow: json.serverNow,
+        fallbackSourceName: "나무",
+      });
       setAutoSession(session);
       setActiveAutoActivity("woodcutting");
       setAutoResult(null);

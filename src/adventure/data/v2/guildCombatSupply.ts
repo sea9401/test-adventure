@@ -1,6 +1,12 @@
 import { applyStochasticPercentBonus } from "@/lib/percentBonus";
+import { kstWeekMondayKey } from "@/lib/kst";
 
 export const GUILD_COMBAT_SUPPLY_MAX_LEVEL = 10;
+export const GUILD_COMBAT_OPERATIONS_BUFF_ID = "combat_operations";
+export const GUILD_COMBAT_OPERATIONS_MAX_TIER = 3;
+export const GUILD_COMBAT_OPERATIONS_TIER_COSTS = [
+  10_000_000, 20_000_000, 40_000_000,
+] as const;
 
 export const GUILD_COMBAT_SUPPLY_LEVEL_COSTS = [
   200, 400, 700, 1100, 1600, 2300, 3200, 4400, 6000, 8000,
@@ -82,6 +88,12 @@ export function clampGuildCombatSupplyLevel(level: unknown): number {
   return Math.max(0, Math.min(GUILD_COMBAT_SUPPLY_MAX_LEVEL, n));
 }
 
+function clampGuildCombatOperationsTier(tier: unknown): number {
+  const n = Math.floor(Number(tier));
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(GUILD_COMBAT_OPERATIONS_MAX_TIER, n));
+}
+
 function parseExistingBuffTier(level: unknown): number {
   const n = Math.floor(Number(level));
   if (!Number.isFinite(n)) return 0;
@@ -113,6 +125,39 @@ export function guildCombatSupplyNextCost(level: number): number | null {
   return GUILD_COMBAT_SUPPLY_LEVEL_COSTS[safeLevel] ?? null;
 }
 
+export function guildCombatOperationsNextCost(tier: number): number | null {
+  const safeTier = clampGuildCombatOperationsTier(tier);
+  if (safeTier >= GUILD_COMBAT_OPERATIONS_MAX_TIER) return null;
+  return GUILD_COMBAT_OPERATIONS_TIER_COSTS[safeTier] ?? null;
+}
+
+export function parseGuildCombatOperationsTier(
+  rawBuffs: unknown,
+  now: Date = new Date(),
+): number {
+  if (!Array.isArray(rawBuffs)) return 0;
+  const currentWeekKey = kstWeekMondayKey(now);
+  let activeTier = 0;
+  for (const raw of rawBuffs) {
+    if (typeof raw !== "object" || raw === null) continue;
+    const slot = raw as {
+      buffId?: unknown;
+      tier?: unknown;
+      installedAt?: unknown;
+    };
+    if (slot.buffId !== GUILD_COMBAT_OPERATIONS_BUFF_ID) continue;
+    if (typeof slot.installedAt !== "string") continue;
+    const installedAt = new Date(slot.installedAt);
+    if (!Number.isFinite(installedAt.getTime())) continue;
+    if (kstWeekMondayKey(installedAt) !== currentWeekKey) continue;
+    activeTier = Math.max(
+      activeTier,
+      clampGuildCombatOperationsTier(slot.tier),
+    );
+  }
+  return activeTier;
+}
+
 export function goldSupplyBonusPct(level: number): number {
   return clampGuildCombatSupplyLevel(level);
 }
@@ -125,17 +170,21 @@ export function proficiencySupplyChancePct(level: number): number {
   return clampGuildCombatSupplyLevel(level) * 5;
 }
 
-export function guildCombatSupplyBonuses(levels: GuildCombatSupplyLevels): {
+export function guildCombatSupplyBonuses(
+  levels: GuildCombatSupplyLevels,
+  operationsTier: number = 0,
+): {
   goldPct: number;
   expPct: number;
   proficiencyChancePct: number;
 } {
+  const safeOperationsTier = clampGuildCombatOperationsTier(operationsTier);
   return {
-    goldPct: goldSupplyBonusPct(levels.combat_gold),
-    expPct: expSupplyBonusPct(levels.combat_exp),
-    proficiencyChancePct: proficiencySupplyChancePct(
-      levels.combat_proficiency,
-    ),
+    goldPct: goldSupplyBonusPct(levels.combat_gold) + safeOperationsTier,
+    expPct: expSupplyBonusPct(levels.combat_exp) + safeOperationsTier,
+    proficiencyChancePct:
+      proficiencySupplyChancePct(levels.combat_proficiency) +
+      safeOperationsTier * 5,
   };
 }
 
@@ -199,6 +248,52 @@ export function upsertGuildCombatSupplyBuff(
   });
   if (!updated) {
     next.push({ buffId: supplyId, tier: safeLevel, installedAt });
+  }
+  return next;
+}
+
+export function upsertGuildCombatOperationsBuff(
+  rawBuffs: unknown,
+  nextTier: number,
+  installedAt: string,
+): GuildCombatSupplyBuffSlot[] {
+  const existing = Array.isArray(rawBuffs)
+    ? rawBuffs
+        .filter(
+          (raw) =>
+            typeof raw === "object" &&
+            raw !== null &&
+            typeof (raw as { buffId?: unknown }).buffId === "string",
+        )
+        .map((raw) => {
+          const slot = raw as {
+            buffId: string;
+            tier?: unknown;
+            installedAt?: unknown;
+          };
+          return {
+            buffId: slot.buffId,
+            tier: parseExistingBuffTier(slot.tier),
+            installedAt:
+              typeof slot.installedAt === "string"
+                ? slot.installedAt
+                : installedAt,
+          };
+        })
+    : [];
+  const safeTier = clampGuildCombatOperationsTier(nextTier);
+  let updated = false;
+  const next = existing.map((slot) => {
+    if (slot.buffId !== GUILD_COMBAT_OPERATIONS_BUFF_ID) return slot;
+    updated = true;
+    return { ...slot, tier: safeTier, installedAt };
+  });
+  if (!updated) {
+    next.push({
+      buffId: GUILD_COMBAT_OPERATIONS_BUFF_ID,
+      tier: safeTier,
+      installedAt,
+    });
   }
   return next;
 }

@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { nextSettlementBuildingUpgrade } from "@/adventure/data/v2/settlement";
-import { confirmCombatSupplyUpgrade } from "./GuildCombatSupplyPanel";
+import {
+  confirmCombatOperationsFunding,
+  confirmCombatSupplyUpgrade,
+} from "./GuildCombatSupplyPanel";
 import { confirmGuildFacilityUpgrade } from "./GuildOutpostsPanel";
 
 describe("길드 재화 소모 동작 확인", () => {
@@ -45,5 +48,30 @@ describe("길드 재화 소모 동작 확인", () => {
       expect.stringContaining(`${Math.max(0, next.cost.gold ?? 0).toLocaleString()} G`),
     );
     expect(onUpgrade).toHaveBeenCalledWith("guild_smithy");
+  });
+
+  it("주간 운용비 확인을 취소하면 길드 자금 결제를 실행하지 않는다", () => {
+    const onFund = vi.fn();
+    const confirm = vi.fn(() => false);
+
+    expect(
+      confirmCombatOperationsFunding({
+        operations: {
+          tier: 1,
+          nextCost: 20_000_000,
+        },
+        confirm,
+        onFund,
+      }),
+    ).toBe(false);
+    expect(confirm).toHaveBeenCalledWith(
+      expect.stringContaining("20,000,000 G"),
+    );
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("+2%p"));
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("+10%p"));
+    expect(confirm).toHaveBeenCalledWith(
+      expect.stringContaining("월요일 00:00"),
+    );
+    expect(onFund).not.toHaveBeenCalled();
   });
 });

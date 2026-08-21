@@ -42,6 +42,7 @@ export type GuildActivity = {
     supplyName?: string;
     supplyLevel?: number;
     fameCost?: number;
+    operationsTier?: number;
     drillTitle?: string;
     rewardMastery?: number;
     artisanXp?: number;
@@ -152,6 +153,8 @@ function describe(a: GuildActivity): string {
       return `${actor} 님이 ${a.meta?.supplyName ?? "전투보급"}을 Lv ${a.meta?.supplyLevel ?? "?"}로 업그레이드했어요${
         a.meta?.fameCost ? ` · 명성 -${a.meta.fameCost.toLocaleString()}` : ""
       }`;
+    case "combat_supply_funding":
+      return `${actor} 님이 주간 전투보급 운용을 Lv ${a.meta?.operationsTier ?? "?"}로 강화했어요 · 길드 자금 -${(a.meta?.goldCost ?? 0).toLocaleString()} G`;
     case "training_drill_claim":
       return `${actor} 님이 ${a.meta?.drillTitle ?? "훈련"}을 완료했어요${
         a.meta?.rewardMastery
@@ -227,6 +230,7 @@ const DOT_CLASS: Record<string, string> = {
   building_upgrade: "bg-orange-500",
   guild_level_upgrade: "bg-sky-500",
   combat_supply_upgrade: "bg-rose-500",
+  combat_supply_funding: "bg-amber-500",
   training_drill_claim: "bg-emerald-500",
   emblem_change: "bg-fuchsia-500",
   nation_declare: "bg-indigo-500",

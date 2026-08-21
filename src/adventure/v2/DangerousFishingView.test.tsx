@@ -96,6 +96,35 @@ describe("위험 해역 개인 화면", () => {
     expect(html).toContain("급선회 → 감아올리기");
     expect(html).toContain("어체력과 거리를 모두 0");
     expect(html).toContain("안전 귀환해야");
+    expect(html).toContain("위험 해역에서 얻는 것");
+    expect(html).toContain("경험치·코인·도감");
+    expect(html).toContain("상점 교환·거래소");
+    expect(html).toContain("거대어 증표");
+    expect(html).toContain("위험 해역 교환 보기");
+  });
+
+  it("조우 종료 결과를 다음 시도 전까지 안내한다", () => {
+    const html = renderToStaticMarkup(
+      <DangerousFishingView
+        model={model()}
+        boss={null}
+        loading={false}
+        busy={null}
+        error={null}
+        feedback={{
+          scope: "voyage",
+          tone: "success",
+          title: "철턱 참치 132cm 어획 성공",
+          detail: "낚시 경험치 +34 · 낚시 코인 +8 · 귀환 전 화물 +1",
+          terminal: true,
+        }}
+        {...handlers}
+      />,
+    );
+
+    expect(html).toContain('aria-live="polite"');
+    expect(html).toContain("철턱 참치 132cm 어획 성공");
+    expect(html).toContain("낚시 경험치 +34");
   });
 
   it("낚시 레벨 15 미만에는 해금 조건과 기존 낚시 성장 경로를 안내한다", () => {
@@ -197,7 +226,8 @@ describe("위험 해역 개인 화면", () => {
     expect(html).toContain("철턱 참치");
     expect(html).toContain("dangerous-fishing-storm-trench.webp");
     expect(html).toContain("ironjaw_tuna.webp");
-    expect(html).toContain("2개");
+    expect(html).toContain("총 2개");
+    expect(html).toContain("상점 교환이나 거래소에서 사용");
     expect(html).toContain("안전 귀환");
     expect(html).toContain("한 마리만 잡고도 돌아갈 수 있습니다");
     expect(html).toContain("낚시 상점의 위험 해역 교환");
@@ -276,7 +306,10 @@ describe("위험 해역 개인 화면", () => {
               risk: 1,
               startedAt: 1_800_000_000_000,
               cargo: [],
-              encounter: dangerousEncounterView(encounter),
+              encounter: {
+                ...dangerousEncounterView(encounter),
+                tension: 90,
+              },
             },
           },
         })}
@@ -287,7 +320,7 @@ describe("위험 해역 개인 화면", () => {
         {...handlers}
       />,
     );
-    expect(html).toContain("장력 42 / 100");
+    expect(html).toContain("장력 90 / 100");
     expect(html).toContain("dangerous-fishing-shattered-reef.webp");
     expect(html).toContain("ironjaw_tuna.webp");
     expect(html).toContain("다음 징후");
@@ -298,6 +331,9 @@ describe("위험 해역 개인 화면", () => {
     expect(html).toContain("S");
     expect(html).toContain("D");
     expect(html).toContain("sticky");
+    expect(html).toContain("추천");
+    expect(html).toContain("줄이 끊어질 위험");
+    expect(html).toContain("transition-[width]");
   });
 
   it("처리 중에는 중복 조작을 막고 API 오류를 행동 가능한 문장으로 바꾼다", () => {

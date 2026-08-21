@@ -155,6 +155,16 @@ describe("최신 게임 안내서 내용", () => {
     expect(combat).toContain("마법 공격력은 INT가 주축이고 SPI가 보조");
   });
 
+  it("무기 종류에 따른 물리·마법 공격력 분기를 안내한다", () => {
+    const combat = renderToStaticMarkup(<CombatContent />);
+    const equipment = renderToStaticMarkup(<EquipmentContent />);
+
+    expect(combat).toContain("비지팡이 무기 위력");
+    expect(combat).toContain("지팡이 위력");
+    expect(equipment).toContain("비지팡이: 물리 공격력 / 지팡이: 마법 공격력");
+    expect(equipment).not.toContain("물리 공격력 + 마법 공격력 (양쪽 모두)");
+  });
+
   it("네 가지 화면 모드의 표시 방식과 저장 동작을 안내한다", () => {
     const html = renderToStaticMarkup(<ControlsContent />);
 
@@ -236,6 +246,15 @@ describe("최신 게임 안내서 내용", () => {
     expect(pastimes).toContain("즐겨찾기");
     expect(pastimes).toContain("거래소의 소모품");
     expect(pastimes).toContain("최대 <strong");
+  });
+
+  it("농장 후반 교환소의 해금과 반복 상품을 안내한다", () => {
+    const html = renderToStaticMarkup(<PastimesContent />);
+
+    expect(html).toContain("농장주의 교환소");
+    expect(html).toContain("밭 6칸과 모든 유료 축사");
+    expect(html).toContain("배합 사료 5개");
+    expect(html).toContain("유기질 거름 3개");
   });
 
   it("마을에서 생활 의뢰·조합 작업장으로 바로 이동할 수 있다고 안내한다", () => {

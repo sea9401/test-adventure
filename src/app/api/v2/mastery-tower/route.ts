@@ -27,13 +27,7 @@ import {
   parseStaminaFromSave,
   staminaConfigForCharacter,
 } from "@/adventure/v2/stamina";
-import {
-  LEGACY_CLASS_SPEC_BY_JOB,
-  V2_JOB_LIST,
-  isJobContentUnlocked,
-  isLifestyleMasteryJobId,
-  isRootJobSelectable,
-} from "@/adventure/data/v2/v2JobCatalog";
+import { masteryCertificateJobs } from "@/lib/server/masteryCertificateStatus";
 import { parseProficiencyForChar } from "@/adventure/data/v2/proficiency";
 
 const STATUS_KEYS = [
@@ -118,22 +112,7 @@ export async function GET() {
     ),
   );
 
-  const jobs = V2_JOB_LIST.filter(
-    (job) =>
-      job.id !== "none" &&
-      !isLifestyleMasteryJobId(job.id) &&
-      isRootJobSelectable(job) &&
-      isJobContentUnlocked(job, prof),
-  ).map((job) => ({
-    id: job.id,
-    name: job.name,
-    tier: job.tier,
-    group: LEGACY_CLASS_SPEC_BY_JOB[job.id]?.class ?? job.id,
-    mastery:
-      job.tier <= 1
-        ? (prof.groups[job.id]?.cumLevel ?? 0)
-        : (prof.jobCumLevel?.[job.id] ?? 0),
-  }));
+  const jobs = masteryCertificateJobs(prof);
   const startOptions = masteryTowerStartFloors(tower).map((floor) => ({
     floor,
     checkpointFloor: floor === 1 ? null : floor - 1,

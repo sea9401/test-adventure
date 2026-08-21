@@ -14,6 +14,7 @@ export default function DangerousFishingPage() {
       loading={fishing.loading}
       busy={fishing.busy}
       error={fishing.error}
+      feedback={fishing.feedback}
       verification={fishing.verification}
       verifyHuman={fishing.verifyHuman}
       onBack={() => router.push("/map")}

@@ -301,6 +301,16 @@ export type LifeFieldTrace = {
   progress: number;
 };
 
+export function lifeFieldTraceLocationText(
+  trace: Pick<LifeFieldTrace, "activity" | "sourceId">,
+  currentSpotId?: string,
+): string {
+  const sourceName = spotName(trace.activity, trace.sourceId);
+  return trace.sourceId === currentSpotId
+    ? `발견 지역: ${sourceName} · 이 지역에서 진행 가능`
+    : `발견 지역: ${sourceName} · 해당 지역에서 성공하면 진행`;
+}
+
 export type LifeFieldDailyProgress = {
   dayKey: string;
   evaluated: number;

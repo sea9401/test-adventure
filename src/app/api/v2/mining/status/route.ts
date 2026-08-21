@@ -46,6 +46,7 @@ export async function GET() {
   const autoState = parseAutoGatheringState(autoRaw);
   return Response.json({
     ok: true,
+    serverNow: Date.now(),
     materials: miningMaterialBalances(charSave.materials),
     log: parseMiningLog(logRaw),
     durationReductionPct:

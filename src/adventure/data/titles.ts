@@ -17,6 +17,8 @@ export const SHATTERED_DREAM_TITLE_ID = "shattered_dream";
 export const FIELD_RECORDER_TITLE_ID = "field_recorder";
 export const ECOLOGICAL_RESEARCHER_TITLE_ID = "ecological_researcher";
 export const EARTH_WITNESS_TITLE_ID = "earth_witness";
+export const FARM_BOUNTIFUL_HAND_TITLE_ID = "farm_bountiful_hand";
+export const FARM_GOLDEN_FIELDS_OWNER_TITLE_ID = "farm_golden_fields_owner";
 
 // 도감의 칭호 섹션 분류. 추가 시 TITLE_CATEGORY_ORDER 에 라벨/순서 등록.
 export type TitleCategory =
@@ -106,6 +108,20 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "모든 현장 기록 36개 완성",
     category: "collection",
     hidden: true,
+  },
+  [FARM_BOUNTIFUL_HAND_TITLE_ID]: {
+    id: FARM_BOUNTIFUL_HAND_TITLE_ID,
+    name: "풍요의 손",
+    description: "오랜 수확으로 마을의 풍요를 일군 농장주.",
+    condition: "농장주의 교환소에서 농장 증표 1,000개로 구매",
+    category: "collection",
+  },
+  [FARM_GOLDEN_FIELDS_OWNER_TITLE_ID]: {
+    id: FARM_GOLDEN_FIELDS_OWNER_TITLE_ID,
+    name: "황금 들판의 주인",
+    description: "끝없이 이어진 황금빛 들판을 가꾼 대농장주.",
+    condition: "농장주의 교환소에서 농장 증표 5,000개로 구매",
+    category: "collection",
   },
   frail: {
     id: "frail",

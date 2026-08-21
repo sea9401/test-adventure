@@ -7,6 +7,7 @@ import {
   GUILD_MAX_LEVEL,
 } from "@/adventure/data/guild";
 import {
+  GUILD_COMBAT_OPERATIONS_TIER_COSTS,
   GUILD_COMBAT_SUPPLY_DEFS,
   GUILD_COMBAT_SUPPLY_IDS,
   GUILD_COMBAT_SUPPLY_MAX_LEVEL,
@@ -215,6 +216,28 @@ export function GuildContent() {
           ];
         })}
         caption="단계가 오를수록 다음 연구 비용이 증가합니다. 골드 보급과 EXP 보급은 사냥 보상을 올리고, 숙달 보급은 사냥 승리 시 추가 숙달 포인트를 확률로 줍니다."
+      />
+      <P>
+        마스터와 관리자는 길드 자금으로 <Em>주간 전투보급 운용</Em>을 최대
+        3단계까지 강화할 수 있습니다. 운용 단계마다 기존 연구 효과와 별도로 사냥
+        골드·EXP가 1%p, 추가 숙달 확률이 5%p씩 오릅니다. 운용 단계는 매주{" "}
+        <Em>월요일 00:00 KST</Em>에 초기화됩니다.
+      </P>
+      <Table
+        head={["운용 단계", "해당 단계 비용", "주간 누적 비용", "추가 효과"]}
+        rows={GUILD_COMBAT_OPERATIONS_TIER_COSTS.map((cost, index, costs) => {
+          const tier = index + 1;
+          const cumulative = costs
+            .slice(0, tier)
+            .reduce((sum, amount) => sum + amount, 0);
+          return [
+            `Lv.${tier}`,
+            `${cost.toLocaleString("ko-KR")} G`,
+            `${cumulative.toLocaleString("ko-KR")} G`,
+            `사냥 골드·EXP +${tier}%p · 추가 숙달 확률 +${tier * 5}%p`,
+          ];
+        })}
+        caption="운용비는 단계별로 결제하며 자동 차감되지 않습니다. 최고 단계 길드와 전투보급 연구를 모두 마친 길드도 매주 이용할 수 있습니다."
       />
 
       <H2>길드 훈련장</H2>

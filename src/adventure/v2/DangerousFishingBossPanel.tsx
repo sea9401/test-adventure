@@ -9,7 +9,9 @@ import type {
   DangerousEncounterView,
   DangerousFishingAction,
 } from "./dangerousFishingEncounter";
+import type { DangerousFishingFeedback } from "./dangerousFishingFeedback";
 import { DangerousFishingEncounterPanel } from "./DangerousFishingEncounterPanel";
+import { DangerousFishingFeedbackCard } from "./DangerousFishingFeedbackCard";
 
 export type DangerousFishingBossViewModel = {
   ok: true;
@@ -52,6 +54,7 @@ function remainingLabel(expiresAt: number, now: number): string {
 export function DangerousFishingBossPanel({
   model,
   busy,
+  feedback = null,
   onStart,
   onAction,
   onClaim,
@@ -59,6 +62,7 @@ export function DangerousFishingBossPanel({
 }: {
   model: DangerousFishingBossViewModel | null;
   busy: boolean;
+  feedback?: DangerousFishingFeedback | null;
   onStart: (eventId: string) => Promise<boolean>;
   onAction: (
     action: DangerousFishingAction,
@@ -87,6 +91,12 @@ export function DangerousFishingBossPanel({
             위험도 4 이상에서 영웅·전설 어종을 낚으면 거대어의 흔적을 발견할 수 있습니다.
           </p>
         </div>
+        <div className={`${SURFACE_INSET} space-y-1 p-3 text-xs leading-5`}>
+          <p>거대어를 발견하면 모든 낚시꾼이 함께 제압합니다.</p>
+          <p>개인 시도를 한 번 성공하면 기본 보상 자격을 얻습니다.</p>
+          <p>거대어 증표는 전용 장비·미끼·칭호·꾸미기 교환에 사용합니다.</p>
+        </div>
+        {feedback ? <DangerousFishingFeedbackCard feedback={feedback} /> : null}
       </section>
     );
   }
@@ -99,6 +109,70 @@ export function DangerousFishingBossPanel({
       : DANGEROUS_ZONES.abyssal_rift;
   const staminaPct = Math.min(100, (event.stamina / event.maxStamina) * 100);
   const active = event.status === "active";
+
+  if (active && model.attempt && boss) {
+    const attemptContribution = Math.min(event.stamina, boss.attemptStamina);
+    return (
+      <section className={`${SURFACE_CARD} space-y-3 p-4`} aria-label="비동기 거대어 개인 시도">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-bold">{event.name}</h2>
+              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800 dark:bg-sky-950 dark:text-sky-200">
+                개인 장력 시도
+              </span>
+              {event.isDiscoverer ? (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                  발견자
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              약 1~3분 · {remainingLabel(event.expiresAt, model.now)}
+            </p>
+          </div>
+        </div>
+
+        <div className={`${SURFACE_INSET} space-y-2 p-3`}>
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <strong>공용 제압 현황</strong>
+            <span className="font-semibold">
+              {event.stamina.toLocaleString()} / {event.maxStamina.toLocaleString()}
+            </span>
+          </div>
+          <div className="h-2.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+            <div
+              className="h-full rounded-full bg-cyan-600 transition-[width] duration-300"
+              style={{ width: `${staminaPct}%` }}
+            />
+          </div>
+          <div className="grid gap-1 text-xs sm:grid-cols-2">
+            <span>내 누적 기여 {(model.contribution?.totalContribution ?? 0).toLocaleString()}</span>
+            <span>이번 성공 시 기여 {attemptContribution.toLocaleString()}</span>
+          </div>
+        </div>
+
+        <DangerousFishingEncounterPanel
+          encounter={model.attempt.encounter}
+          sceneImageSrc={scene.imageSrc}
+          targetImageSrc={boss.imageSrc}
+          targetName={boss.name}
+          busy={busy}
+          feedback={feedback}
+          embedded
+          onAction={(action) =>
+            void onAction(
+              action,
+              event.id,
+              model.attempt!.encounter.id,
+              model.attempt!.encounter.revision,
+            )
+          }
+        />
+      </section>
+    );
+  }
+
   return (
     <section className={`${SURFACE_CARD} space-y-4 p-4`} aria-label="비동기 거대어">
       {boss ? (
@@ -132,7 +206,7 @@ export function DangerousFishingBossPanel({
       </div>
       <div className={`${SURFACE_INSET} grid gap-2 p-3 text-sm sm:grid-cols-2`}>
         <span>
-          내 기여 {(model.contribution?.totalContribution ?? 0).toLocaleString()}
+          내 누적 기여 {(model.contribution?.totalContribution ?? 0).toLocaleString()}
         </span>
         <span>
           성공 시도 <strong>{model.contribution?.successfulAttempts ?? 0}회</strong>
@@ -147,26 +221,17 @@ export function DangerousFishingBossPanel({
         ) : null}
       </div>
 
-      {active && model.attempt ? (
-        <div className="space-y-2">
-          <p className="text-center text-xs font-semibold">개인 장력 시도 · 약 1~3분</p>
-          <DangerousFishingEncounterPanel
-            encounter={model.attempt.encounter}
-            sceneImageSrc={scene.imageSrc}
-            targetImageSrc={boss.imageSrc}
-            targetName={boss.name}
-            busy={busy}
-            onAction={(action) =>
-              void onAction(
-                action,
-                event.id,
-                model.attempt!.encounter.id,
-                model.attempt!.encounter.revision,
-              )
-            }
-          />
+      {active ? (
+        <div className={`${SURFACE_INSET} space-y-1 p-3 text-xs leading-5`}>
+          <p>개인 시도 1회 성공 시 기본 보상 자격을 얻습니다.</p>
+          <p>거대어 제압 후 낚시 코인·거대어 증표를 받을 수 있습니다.</p>
+          <p>증표는 전용 장비·미끼·칭호·꾸미기 교환에 사용합니다.</p>
         </div>
-      ) : active ? (
+      ) : null}
+
+      {feedback ? <DangerousFishingFeedbackCard feedback={feedback} /> : null}
+
+      {active ? (
         <div className="space-y-2">
           <Button fullWidth variant="info" disabled={busy} onClick={() => void onStart(event.id)}>
             개인 시도 시작

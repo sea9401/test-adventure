@@ -333,7 +333,7 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     );
 
     expect(html.match(/w-full sm:w-\[6\.25rem\]/g)).toHaveLength(2);
-    expect(html.match(/whitespace-nowrap/g)).toHaveLength(5);
+    expect(html.match(/whitespace-nowrap/g)).toHaveLength(4);
     expect(html).toContain("min-w-0 flex-1 sm:min-w-52");
     expect(html).toContain("flex-col sm:flex-row");
     expect(html).toContain("min-w-0 max-w-full overflow-x-auto");
@@ -344,7 +344,7 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     expect(html).toContain(">SP 부족<");
   });
 
-  it("생활 패시브를 항상 적용 상태로 표시하고 해제 동작을 제공하지 않는다", () => {
+  it("생활 패시브가 있어도 상단에는 전투 장착 영역만 표시한다", () => {
     const html = renderToStaticMarkup(
       <V2LoadoutPanel
         loadout={{
@@ -371,12 +371,10 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     );
 
     expect(html).toContain("전투 스킬 장착");
-    expect(html).toContain("생활 패시브 적용");
-    expect(html).toContain("씨앗 선별");
-    expect(html).toContain("SP 0");
-    expect(html).toContain("배우면 자동으로 항상 적용됩니다.");
-    expect(html).toContain("적용 중");
     expect(html.match(/전부 해제/g)).toHaveLength(1);
+    expect(html).not.toContain('id="lifestyle-equipped-heading"');
+    expect(html).not.toContain('id="lifestyle-equipped-skills"');
+    expect(html).not.toContain('aria-controls="lifestyle-equipped-skills"');
     expect(html).not.toContain('aria-label="씨앗 선별 해제"');
   });
 
@@ -413,7 +411,7 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     expect(html).toContain(">펼쳐보기<");
     expect(html).toContain('class="flex shrink-0 items-center gap-1"');
     expect(html.match(/h-11 shrink-0 items-center whitespace-nowrap/g)).toHaveLength(
-      3,
+      2,
     );
     expect(html).toContain(
       'id="combat-equipped-skills" class="hidden sm:block"',
@@ -422,34 +420,6 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     expect(html).toContain("sm:flex-wrap sm:overflow-visible");
   });
 
-  it("모바일에서 생활 패시브도 개수 요약과 함께 기본으로 접는다", () => {
-    const html = renderToStaticMarkup(
-      <V2LoadoutPanel
-        loadout={{
-          spBudget: 0,
-          spUsed: 0,
-          equipped: ["v2c_farmer_seedselection"],
-          library: [
-            {
-              skillId: "v2c_farmer_seedselection",
-              name: "씨앗 선별",
-              spCost: 0,
-              equipped: true,
-              category: "passive",
-            },
-          ],
-        }}
-      />,
-    );
-
-    expect(html).toContain('class="sr-only">생활 패시브 1개 적용</span>');
-    expect(html).toContain('aria-hidden="true">생활 · 1개</span>');
-    expect(html).toContain('aria-controls="lifestyle-equipped-skills"');
-    expect(html).toContain('aria-label="생활 패시브 펼쳐보기"');
-    expect(html).toContain(
-      'id="lifestyle-equipped-skills" class="hidden sm:block"',
-    );
-  });
 });
 
 describe("V2LoadoutPanel 원소 공명 유효 SP", () => {

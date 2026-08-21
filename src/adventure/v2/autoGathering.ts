@@ -60,6 +60,67 @@ export type AutoGatheringStatus = {
   readyAt: number;
 };
 
+export type AutoGatheringSessionView = {
+  sessionId: string;
+  planId: AutoGatheringPlanId;
+  sourceId: string;
+  sourceName: string;
+  materialId: string;
+  startedAt: number;
+  readyAt: number;
+  attempts: number;
+};
+
+export function correctedAutoGatheringReadyAt(
+  readyAt: number,
+  serverNow: number,
+  clientNow: number,
+): number {
+  return Math.floor(clientNow + (readyAt - serverNow));
+}
+
+export function parseAutoGatheringSessionView(
+  value: unknown,
+  options: {
+    serverNow?: unknown;
+    clientNow?: number;
+    fallbackSourceName?: string;
+  } = {},
+): AutoGatheringSessionView | null {
+  if (!value || typeof value !== "object") return null;
+  const item = value as Record<string, unknown>;
+  if (typeof item.sessionId !== "string" || typeof item.sourceId !== "string") {
+    return null;
+  }
+  const readyAt = Number(item.readyAt);
+  const startedAt = Number(item.startedAt);
+  if (!Number.isFinite(readyAt) || !Number.isFinite(startedAt)) return null;
+
+  const parsedServerNow = options.serverNow;
+  const clientNow = options.clientNow ?? Date.now();
+  const clockOffset =
+    typeof parsedServerNow === "number" && Number.isFinite(parsedServerNow)
+      ? clientNow - parsedServerNow
+      : null;
+  const correctTimestamp = (timestamp: number) =>
+    clockOffset != null
+      ? Math.floor(timestamp + clockOffset)
+      : Math.floor(timestamp);
+
+  return {
+    sessionId: item.sessionId,
+    planId: autoGatheringPlan(item.planId).id,
+    sourceId: item.sourceId,
+    sourceName: String(
+      item.sourceName ?? options.fallbackSourceName ?? "작업 장소",
+    ),
+    materialId: String(item.materialId ?? ""),
+    startedAt: correctTimestamp(startedAt),
+    readyAt: correctTimestamp(readyAt),
+    attempts: Math.max(1, Math.floor(Number(item.attempts) || 1)),
+  };
+}
+
 export type AutoGatheringStatusDisplay = {
   text: string;
   contextLabel: string;

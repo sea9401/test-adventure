@@ -10,6 +10,7 @@ import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
 import {
   LEGACY_CLASS_SPEC_BY_JOB,
   V2_JOB_CATALOG,
+  cumLevelForJob,
   isFarmingJobId,
   isFishingJobId,
   isJobContentUnlocked,
@@ -164,10 +165,7 @@ export async function POST(req: Request) {
         used: amount,
         remaining,
         groupMastery: prof.groups[group]?.cumLevel ?? 0,
-        jobMastery:
-          job.tier <= 1
-            ? (prof.groups[job.id]?.cumLevel ?? 0)
-            : (prof.jobCumLevel?.[job.id] ?? 0),
+        jobMastery: cumLevelForJob(prof, job),
       },
     };
   });

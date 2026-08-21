@@ -160,6 +160,7 @@ describe("woodcutting routes", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
+    expect(json.serverNow).toBe(NOW);
     expect(json.autoSession).toMatchObject({
       planId: "extended",
       readyAt: NOW + 2 * 60 * 60_000,
@@ -851,6 +852,7 @@ describe("woodcutting routes", () => {
   });
 
   it("status — 통나무와 누적 기록을 반환한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
     store.set("character.v2", { materials: { [TIMBER]: 11 } });
     store.set(WOODCUTTING_LOG_KEY, { cuts: 3, timberEarned: 12 });
     store.set("skills.v2", {
@@ -860,6 +862,7 @@ describe("woodcutting routes", () => {
     const response = await STATUS();
     const json = await response.json();
     expect(json.ok).toBe(true);
+    expect(json.serverNow).toBe(NOW);
     expect(json.timber).toBe(11);
     expect(json.log.cuts).toBe(3);
     expect(json.log.xp).toBe(30);

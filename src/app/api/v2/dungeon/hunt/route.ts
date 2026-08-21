@@ -16,7 +16,7 @@ import {
   prepareV2BattleActor,
   type V2BattlePrepCache,
 } from "@/lib/server/v2BattlePrep";
-import { readGuildCombatSupplyLevels } from "@/lib/server/guildCombatSupply";
+import { readGuildCombatSupplyBonuses } from "@/lib/server/guildCombatSupply";
 import {
   consumeGuildDiningEffect,
   type GuildDiningEffectCache,
@@ -425,9 +425,9 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       : await getGuildId(tx, userId);
   const guildCombatSupply =
     ctx.batchState?.guildCombatSupply ??
-    guildCombatSupplyBonuses(
-      await readGuildCombatSupplyLevels(tx, viewerGuildId),
-    );
+    (await readGuildCombatSupplyBonuses(
+      tx, viewerGuildId, new Date(ctx.nowOverride ?? Date.now()),
+    ));
   if (ctx.batchState) {
     ctx.batchState.viewerGuildId = viewerGuildId;
     ctx.batchState.guildCombatSupply = guildCombatSupply;

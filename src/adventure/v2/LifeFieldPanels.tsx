@@ -5,6 +5,7 @@ import { Compass, Medal, Sparkle } from "@phosphor-icons/react";
 import {
   LIFE_FIELD_DISCOVERIES,
   LIFE_FIELD_TRACE_REQUIRED_SUCCESSES,
+  lifeFieldTraceLocationText,
   type LifeFieldRecordView,
   type LifeFieldTrace,
 } from "@/adventure/v2/lifeFieldRecords";
@@ -238,7 +239,7 @@ export function LifeFieldEnvironmentCard({
       {trace ? (
         <div className={`${SURFACE_INSET} px-2.5 py-2 text-[11px]`}>
           흔적 조사 중 · {LIFE_FIELD_DISCOVERIES[trace.discoveryId].label} · {trace.progress}/{LIFE_FIELD_TRACE_REQUIRED_SUCCESSES}
-          {trace.sourceId === spotId ? " · 이 지역에서 진행 가능" : " · 발견 지역에서만 진행"}
+          {` · ${lifeFieldTraceLocationText(trace, spotId)}`}
         </div>
       ) : null}
     </div>
@@ -335,7 +336,7 @@ export function LifeFieldCodexPanel() {
             {trace ? (
               <div className="border-b border-zinc-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-zinc-800 dark:bg-amber-950 dark:text-amber-200">
                 <Sparkle size={14} weight="fill" className="mr-1 inline" />
-                {LIFE_FIELD_DISCOVERIES[trace.discoveryId].label} 흔적 · {trace.progress}/{LIFE_FIELD_TRACE_REQUIRED_SUCCESSES} · 발견 지역에서 성공하면 진행
+                {LIFE_FIELD_DISCOVERIES[trace.discoveryId].label} 흔적 · {trace.progress}/{LIFE_FIELD_TRACE_REQUIRED_SUCCESSES} · {lifeFieldTraceLocationText(trace)}
               </div>
             ) : null}
             <ul className="grid gap-2 p-3 sm:grid-cols-2">

@@ -17,6 +17,8 @@ import {
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
+import { farmEndgameShopView } from "@/adventure/v2/farmEndgameShop";
+import { ownedTitleIdsOf } from "@/lib/server/grantTitle";
 import { settleRanch } from "@/adventure/v2/ranch";
 
 // GET /api/v2/farm — 모험가 농장 상태.
@@ -27,10 +29,11 @@ export async function GET() {
   }
 
   const now = Date.now();
-  const [farmRaw, skillsRaw, workshopRaw] = await Promise.all([
+  const [farmRaw, skillsRaw, workshopRaw, adventureLogRaw] = await Promise.all([
     readSave(db, userId, FARM_SAVE_KEY, emptyFarmState(now)),
     readSave(db, userId, "skills.v2", emptyV2SkillsState()),
     readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
+    readSave(db, userId, "adventure-log.v2", {}),
   ]);
   const parsedFarm = normalizeFarmForDay(parseFarmState(farmRaw, now), now);
   const farm = { ...parsedFarm, ranch: settleRanch(parsedFarm.ranch, now) };
@@ -47,5 +50,6 @@ export async function GET() {
     weeklyDeliveries: getFarmWeeklyDeliveryRequests(),
     shopItems: getFarmShopItems(),
     fertilizerBalance: workshop.crafting.balances.organic_fertilizer ?? 0,
+    endgameShop: farmEndgameShopView(farm, ownedTitleIdsOf(adventureLogRaw)),
   });
 }

@@ -48,6 +48,7 @@ import {
   type FarmBatchAction,
 } from "./farmBatchActions";
 import { FarmRanchPanel } from "./FarmRanchPanel";
+import { FarmEndgameShopPanel } from "./FarmEndgameShopPanel";
 import { useFarm } from "./useFarm";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 import { LIFE_LEVEL_CAP } from "./lifeLevelProgression";
@@ -102,6 +103,7 @@ export function AdventurerFarmPanel({
     busySpecialDeliveryId,
     busyWeeklyDeliveryId,
     busyShopItemId,
+    busyEndgameShopItemId,
     busyPlotUpgrade,
     busyRanchFeedPenId,
     busyRanchCollect,
@@ -116,6 +118,7 @@ export function AdventurerFarmPanel({
     specialDeliveries,
     weeklyDeliveries,
     shopItems,
+    endgameShop,
     clearNotice,
     refresh,
     plant,
@@ -128,6 +131,7 @@ export function AdventurerFarmPanel({
     deliverSpecial,
     deliverWeekly,
     buyShopItem,
+    buyEndgameShopItem,
     buyPlotUpgrade,
     feedRanchPen,
     collectRanch,
@@ -276,6 +280,14 @@ export function AdventurerFarmPanel({
             ? ` 씨앗 보상: ${formatSeedRewards(result.rewardSeeds)}.`
             : ""
         }`,
+      };
+    }
+    if (notice.kind === "endgameShop") {
+      const { result } = notice;
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: `${result.title} 구매 완료. 농장 증표 ${result.costReputation.toLocaleString("ko-KR")}개를 사용해 ${result.rewardText}를 받았습니다.`,
       };
     }
     if (notice.kind === "plotUpgrade") {
@@ -528,6 +540,14 @@ export function AdventurerFarmPanel({
                   busyShopItemId={busyShopItemId}
                   onBuy={buyShopItem}
                 />
+                {endgameShop ? (
+                  <FarmEndgameShopPanel
+                    view={endgameShop}
+                    availableReputation={availableReputation}
+                    busyItemId={busyEndgameShopItemId}
+                    onBuy={(itemId) => void buyEndgameShopItem(itemId)}
+                  />
+                ) : null}
               </div>
             </div>
           </div>
@@ -551,15 +571,20 @@ export function FarmExchangeShopPanel() {
     farm,
     learnedSkillIds,
     shopItems,
+    endgameShop,
     busyShopItemId,
+    busyEndgameShopItemId,
     clearNotice,
     refresh,
     buyShopItem,
+    buyEndgameShopItem,
   } = useFarm();
   const availableReputation = farm ? farmAvailableReputation(farm) : 0;
   const shopNotice =
     notice?.kind === "shop"
       ? `${notice.result.title} 구매 완료. 농장 증표 ${notice.result.costReputation}개를 사용했습니다.`
+      : notice?.kind === "endgameShop"
+        ? `${notice.result.title} 구매 완료. 농장 증표 ${notice.result.costReputation.toLocaleString("ko-KR")}개를 사용해 ${notice.result.rewardText}를 받았습니다.`
       : notice?.kind === "error"
         ? notice.text
         : null;
@@ -603,13 +628,23 @@ export function FarmExchangeShopPanel() {
           농장 상점을 불러오는 중...
         </div>
       ) : farm ? (
-        <FarmShopPanel
-          items={shopItems}
-          availableReputation={availableReputation}
-          learnedSkillIds={learnedSkillIds}
-          busyShopItemId={busyShopItemId}
-          onBuy={(itemId) => void buyShopItem(itemId)}
-        />
+        <div className="space-y-3">
+          <FarmShopPanel
+            items={shopItems}
+            availableReputation={availableReputation}
+            learnedSkillIds={learnedSkillIds}
+            busyShopItemId={busyShopItemId}
+            onBuy={(itemId) => void buyShopItem(itemId)}
+          />
+          {endgameShop ? (
+            <FarmEndgameShopPanel
+              view={endgameShop}
+              availableReputation={availableReputation}
+              busyItemId={busyEndgameShopItemId}
+              onBuy={(itemId) => void buyEndgameShopItem(itemId)}
+            />
+          ) : null}
+        </div>
       ) : (
         <div className={`${SURFACE_CARD} space-y-3 px-4 py-6 text-center text-sm`}>
           <p className="text-rose-600 dark:text-rose-300">

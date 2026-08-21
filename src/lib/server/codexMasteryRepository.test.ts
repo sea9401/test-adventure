@@ -8,10 +8,12 @@ import {
   codexMasteryRowToProgress,
   createDrizzleCodexMasteryStore,
   emptyCodexMasterySummary,
+  lockCodexMasteryBatchState,
   lockCodexMasteryState,
   readCodexMasteryProgressRows,
   readCodexMasterySummary,
   saveCodexMasteryState,
+  saveCodexMasteryBatchState,
 } from "./codexMasteryRepository";
 import { recordCodexMastery } from "./codexMasteryService";
 import type { DbTransactionExecutor } from "./savesKv";
@@ -25,6 +27,8 @@ type RecordedUpdate = {
 type RecordedExecutor = {
   executor: DbTransactionExecutor;
   events: string[];
+  inserts: Array<{ table: unknown; values: unknown }>;
+  conflictUpdates: Array<{ table: unknown; config: unknown }>;
   updates: RecordedUpdate[];
 };
 
@@ -52,6 +56,8 @@ function recordingExecutor(options: {
   progressUpdateRows?: unknown[];
 } = {}): RecordedExecutor {
   const events: string[] = [];
+  const inserts: Array<{ table: unknown; values: unknown }> = [];
+  const conflictUpdates: Array<{ table: unknown; config: unknown }> = [];
   const updates: RecordedUpdate[] = [];
   const summaryRow = {
     userId: "user-1",
@@ -88,10 +94,22 @@ function recordingExecutor(options: {
   const executor = {
     insert(table: unknown) {
       return {
-        values() {
+        values(values: unknown) {
+          inserts.push({ table, values });
           return {
             async onConflictDoNothing() {
               events.push(table === codexMasterySummary ? "ensure-summary" : "ensure-progress");
+            },
+            onConflictDoUpdate(config: unknown) {
+              conflictUpdates.push({ table, config });
+              events.push("upsert-progress");
+              return {
+                async returning() {
+                  return Array.isArray(values)
+                    ? values.map(() => ({ userId: "user-1" }))
+                    : [{ userId: "user-1" }];
+                },
+              };
             },
           };
         },
@@ -120,6 +138,9 @@ function recordingExecutor(options: {
               return {
                 for(mode: string) {
                   lockMode = mode;
+                  return this;
+                },
+                orderBy() {
                   return this;
                 },
                 limit: read,
@@ -155,10 +176,80 @@ function recordingExecutor(options: {
     },
   } as unknown as DbTransactionExecutor;
 
-  return { executor, events, updates };
+  return { executor, events, inserts, conflictUpdates, updates };
 }
 
 describe("codex mastery repository", () => {
+  it("ensures and locks unique batch progress identities once in sorted order", async () => {
+    const fake = recordingExecutor({
+      progressRows: [
+        persistedProgressRow({ category: "fish", entryId: "fish:a" }),
+        persistedProgressRow({ category: "monster", entryId: "monster:b" }),
+      ],
+    });
+
+    const locked = await lockCodexMasteryBatchState(
+      fake.executor,
+      "user-1",
+      [
+        { category: "monster", entryId: "monster:b" },
+        { category: "fish", entryId: "fish:a" },
+        { category: "monster", entryId: "monster:b" },
+      ],
+      new Date("2026-08-21T00:00:00.000Z"),
+    );
+
+    expect(fake.events).toEqual([
+      "ensure-summary",
+      "ensure-progress",
+      "lock-summary",
+      "lock-progress",
+    ]);
+    expect(fake.inserts[1]?.values).toMatchObject([
+      { category: "fish", entryId: "fish:a" },
+      { category: "monster", entryId: "monster:b" },
+    ]);
+    expect(locked.progress.map(({ category, entryId }) => `${category}:${entryId}`))
+      .toEqual(["fish:fish:a", "monster:monster:b"]);
+  });
+
+  it("updates one summary and upserts all changed progress rows once", async () => {
+    const fake = recordingExecutor();
+    const summary = emptyCodexMasterySummary();
+    summary.totalScoreMilli = 6_000;
+    summary.categoryScoreMilli.fish = 2_000;
+    summary.categoryScoreMilli.monster = 4_000;
+    const progress = [
+      codexMasteryRowToProgress(persistedProgressRow({
+        category: "fish",
+        entryId: "fish:a",
+        count: 5,
+        currentTier: "bronze",
+        scoreMilli: 2_000,
+      })),
+      codexMasteryRowToProgress(persistedProgressRow({
+        category: "monster",
+        entryId: "monster:b",
+        count: 30,
+        currentTier: "silver",
+        scoreMilli: 4_000,
+      })),
+    ];
+
+    await saveCodexMasteryBatchState(fake.executor, {
+      userId: "user-1",
+      summary,
+      progress,
+    }, new Date("2026-08-21T00:00:00.000Z"));
+
+    expect(fake.updates).toHaveLength(1);
+    expect(fake.events).toEqual(["upsert-progress"]);
+    expect(fake.conflictUpdates).toHaveLength(1);
+    expect(fake.inserts[0]?.values).toMatchObject([
+      { category: "fish", entryId: "fish:a", count: 5, scoreMilli: 2_000 },
+      { category: "monster", entryId: "monster:b", count: 30, scoreMilli: 4_000 },
+    ]);
+  });
   it("reads an existing summary without inserting or locking rows", async () => {
     const fake = recordingExecutor({
       summaryRows: [{

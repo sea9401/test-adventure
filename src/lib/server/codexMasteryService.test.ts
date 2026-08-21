@@ -11,6 +11,7 @@ import type {
   CodexMasteryProgress,
 } from "@/adventure/data/v2/codexMasteryTypes";
 import {
+  type CodexMasteryBatchStore,
   emptyCodexMasterySummary,
   type CodexMasteryStore,
   type CodexMasterySummaryState,
@@ -18,6 +19,7 @@ import {
 import {
   CodexMasteryRecordError,
   type CodexMasterySourceForCategory,
+  createCodexMasteryBatchRecorder,
   createCodexMasteryRecorder,
   type CodexMasteryRecordInput,
   type CodexMasteryTargetInput,
@@ -780,5 +782,268 @@ describe("recordCodexMastery", () => {
     await expect(recorder.record({ ...validInput(), mutation }, ENABLED, new Date()))
       .rejects.toMatchObject({ code: "invalid_mutation" });
     expect(store.saveCalls).toBe(0);
+  });
+});
+
+describe("recordCodexMasteryBatch", () => {
+  type MemoryBatchStore = CodexMasteryBatchStore & {
+    summary: CodexMasterySummaryState;
+    savedProgress: CodexMasteryProgress[];
+    lockBatchCalls: number;
+    saveBatchCalls: number;
+    reconcileCalls: number;
+  };
+
+  function batchStore(options: {
+    progress?: readonly CodexMasteryProgress[];
+    summary?: CodexMasterySummaryState;
+  } = {}): MemoryBatchStore {
+    const progressByKey = new Map(
+      (options.progress ?? []).map((progress) => [
+        `${progress.category}:${progress.entryId}`,
+        progress,
+      ]),
+    );
+    const store: MemoryBatchStore = {
+      summary: options.summary ?? emptyCodexMasterySummary(),
+      savedProgress: [] as CodexMasteryProgress[],
+      lockBatchCalls: 0,
+      saveBatchCalls: 0,
+      reconcileCalls: 0,
+      async lockBatch(input) {
+        store.lockBatchCalls += 1;
+        return {
+          summary: store.summary,
+          progress: input.entries.map(({ category, entryId }) =>
+            progressByKey.get(`${category}:${entryId}`) ??
+              emptyCodexMasteryProgress(category, entryId)
+          ),
+        };
+      },
+      async saveBatch(input) {
+        store.saveBatchCalls += 1;
+        store.summary = input.summary;
+        store.savedProgress = [...input.progress];
+      },
+      async reconcileTrophies() {
+        store.reconcileCalls += 1;
+        return {
+          promotions: [{
+            trophyId: "mastery:overall",
+            tier: "bronze" as const,
+            achievedAt: "2026-08-21T00:00:00.000Z",
+          }],
+        };
+      },
+    };
+    return store;
+  }
+
+  it("normalizes compatible persisted scores in a batch without losing job points", async () => {
+    const compatibleCatalog = createCodexMasteryCatalog([{
+      ...TEST_ENTRY,
+      compatibleScoreWeightsMilli: [900],
+    }]);
+    const summary = Object.assign(emptyCodexMasterySummary(), {
+      totalScoreMilli: 3_600,
+      categoryScoreMilli: {
+        ...emptyCodexMasterySummary().categoryScoreMilli,
+        fish: 3_600,
+      },
+      scoredCategoryCount: 1,
+    });
+    const progress: CodexMasteryProgress = {
+      ...emptyCodexMasteryProgress("fish", TEST_ENTRY.entryId),
+      count: 30,
+      currentTier: "silver",
+      scoreMilli: 3_600,
+      tierAchievedAt: {},
+    };
+    const store = batchStore({ summary, progress: [progress] });
+    const recorder = createCodexMasteryBatchRecorder(store, compatibleCatalog);
+
+    await expect(recorder.recordBatch([{
+      ...validInput(),
+      mutation: { amount: 1 },
+    }], ENABLED, new Date("2026-08-21T00:00:00.000Z"))).resolves.toMatchObject([{
+      recorded: true,
+      progress: { count: 31, scoreMilli: 4_000 },
+      scoreDeltaMilli: 0,
+    }]);
+    expect(store.summary).toMatchObject({
+      totalScoreMilli: 4_000,
+      categoryScoreMilli: { fish: 4_000 },
+    });
+    expect(store.saveBatchCalls).toBe(1);
+  });
+
+  it("locks and saves multiple entry transitions as one batch", async () => {
+    const progressByKey = new Map<string, CodexMasteryProgress>();
+    const store: CodexMasteryBatchStore & {
+      summary: CodexMasterySummaryState;
+      savedProgress: CodexMasteryProgress[];
+      lockBatchCalls: number;
+      saveBatchCalls: number;
+    } = {
+      summary: emptyCodexMasterySummary(),
+      savedProgress: [] as CodexMasteryProgress[],
+      lockBatchCalls: 0,
+      saveBatchCalls: 0,
+      async lockBatch(input) {
+        store.lockBatchCalls += 1;
+        return {
+          summary: store.summary,
+          progress: input.entries.map(({ category, entryId }) => {
+            const key = `${category}:${entryId}`;
+            const existing = progressByKey.get(key) ??
+              emptyCodexMasteryProgress(category, entryId);
+            progressByKey.set(key, existing);
+            return existing;
+          }),
+        };
+      },
+      async saveBatch(input) {
+        store.saveBatchCalls += 1;
+        store.summary = input.summary;
+        store.savedProgress = [...input.progress];
+        for (const progress of input.progress) {
+          progressByKey.set(`${progress.category}:${progress.entryId}`, progress);
+        }
+      },
+    };
+    const recorder = createCodexMasteryBatchRecorder(
+      store,
+      REQUIRED_SOURCE_CATALOG,
+    );
+
+    await recorder.recordBatch([
+      {
+        userId: "user-1",
+        category: "fish",
+        entryId: "fish:test-entry",
+        mutation: { amount: 1 },
+        source: "fishing.catch",
+      },
+      {
+        userId: "user-1",
+        category: "monster",
+        entryId: "monster:test-entry",
+        mutation: { amount: 1 },
+        source: "hunt.victory",
+      },
+    ], ENABLED, new Date("2026-08-21T00:00:00.000Z"));
+
+    expect(store.lockBatchCalls).toBe(1);
+    expect(store.saveBatchCalls).toBe(1);
+    expect(store.savedProgress.map((row) => `${row.category}:${row.entryId}`))
+      .toEqual(["fish:fish:test-entry", "monster:monster:test-entry"]);
+    expect(store.summary.totalScoreMilli).toBe(2_000);
+  });
+
+  it("applies multiple authoritative sources to the same locked progress row", async () => {
+    const store = batchStore();
+    const recorder = createCodexMasteryBatchRecorder(
+      store,
+      REQUIRED_SOURCE_CATALOG,
+    );
+
+    await recorder.recordBatch([
+      {
+        userId: "user-1",
+        category: "equipment",
+        entryId: "equipment:test-entry",
+        mutation: { amount: 1 },
+        source: "equipment.craft",
+      },
+      {
+        userId: "user-1",
+        category: "equipment",
+        entryId: "equipment:test-entry",
+        mutation: { amount: 2 },
+        source: "equipment.drop",
+      },
+    ], ENABLED, new Date("2026-08-21T00:00:00.000Z"));
+
+    expect(store.savedProgress).toHaveLength(1);
+    expect(store.savedProgress[0]).toMatchObject({ count: 3 });
+  });
+
+  it("does not save an all-unchanged batch", async () => {
+    const store = batchStore();
+    const recorder = createCodexMasteryBatchRecorder(store, TEST_CATALOG);
+
+    await expect(recorder.recordBatch([{
+      ...validInput(),
+      mutation: { amount: 0 },
+    }], ENABLED, new Date())).resolves.toEqual([{
+      recorded: false,
+      reason: "unchanged",
+    }]);
+
+    expect(store.saveBatchCalls).toBe(0);
+  });
+
+  it("rejects mixed-user inputs before locking", async () => {
+    const store = batchStore();
+    const recorder = createCodexMasteryBatchRecorder(store, TEST_CATALOG);
+
+    await expect(recorder.recordBatch([
+      validInput(),
+      { ...validInput(), userId: "user-2" },
+    ], ENABLED, new Date())).rejects.toMatchObject({
+      code: "invalid_mutation",
+    });
+    expect(store.lockBatchCalls).toBe(0);
+  });
+
+  it("fails closed on corrupt locked progress before saving", async () => {
+    const store = batchStore({
+      progress: [{
+        ...emptyCodexMasteryProgress("fish", TEST_ENTRY.entryId),
+        count: 1,
+        currentTier: "silver",
+        scoreMilli: 4_000,
+      }],
+    });
+    const recorder = createCodexMasteryBatchRecorder(store, TEST_CATALOG);
+
+    await expect(recorder.recordBatch([{
+      ...validInput(),
+      mutation: { amount: 0 },
+    }], ENABLED, new Date())).rejects.toThrow();
+    expect(store.saveBatchCalls).toBe(0);
+  });
+
+  it("reconciles trophies once after multiple tier crossings", async () => {
+    const store = batchStore();
+    const recorder = createCodexMasteryBatchRecorder(
+      store,
+      REQUIRED_SOURCE_CATALOG,
+    );
+
+    const results = await recorder.recordBatch([
+      {
+        userId: "user-1",
+        category: "fish",
+        entryId: "fish:test-entry",
+        mutation: { amount: 5 },
+        source: "fishing.catch",
+      },
+      {
+        userId: "user-1",
+        category: "monster",
+        entryId: "monster:test-entry",
+        mutation: { amount: 5 },
+        source: "hunt.victory",
+      },
+    ], { ...ENABLED, trophiesEnabled: true }, new Date(
+      "2026-08-21T00:00:00.000Z",
+    ));
+
+    expect(store.reconcileCalls).toBe(1);
+    expect(results[1]).toMatchObject({
+      recorded: true,
+      newTrophyPromotions: [{ trophyId: "mastery:overall", tier: "bronze" }],
+    });
   });
 });

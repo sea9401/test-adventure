@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { ChatCircle, X } from "@phosphor-icons/react";
 import { isNoticeMessage } from "@/lib/chat-config";
-import { ChatPanel, type ChatMessage } from "./ChatPanel";
+import type { ChatMessage } from "./ChatPanel";
 import { CHAT_CLOSE_REQUEST_EVENT } from "./chat/useMobileChatHistory";
 import {
   fetchMainChatMessages,
@@ -11,6 +12,11 @@ import {
   mergeChatMessages,
 } from "./chat/chatMessagesApi";
 import { chatPollDelayMs } from "./chat/chatPollingPolicy";
+
+const ChatPanel = dynamic(
+  () => import("./ChatPanel").then((module) => module.ChatPanel),
+  { ssr: false },
+);
 
 // 패널이 닫혀 있을 땐 unread 배지 갱신용으로 느리게,
 // 열려 있을 땐 상대 메시지 수신감을 살리려 짧게 폴링.
@@ -54,6 +60,7 @@ export function ChatButton({
   onSent?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [panelActivated, setPanelActivated] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [tradeMessages, setTradeMessages] = useState<ChatMessage[]>([]);
   const [guildMessages, setGuildMessages] = useState<ChatMessage[]>([]);
@@ -278,6 +285,7 @@ export function ChatButton({
           if (open) {
             window.dispatchEvent(new Event(CHAT_CLOSE_REQUEST_EVENT));
           } else {
+            setPanelActivated(true);
             setOpen(true);
           }
         }}
@@ -325,23 +333,25 @@ export function ChatButton({
             )
           ))}
       </button>
-      <ChatPanel
-        open={open}
-        onClose={() => setOpen(false)}
-        name={name}
-        className={className}
-        title={title}
-        messages={messages}
-        tradeMessages={tradeMessages}
-        guildMessages={guildMessages}
-        guildAvailable={guildAvailable}
-        onMessageSent={handleMessageSent}
-        unreadChat={hasUnreadChat}
-        unreadTrade={hasUnreadTrade}
-        unreadGuild={hasUnreadGuild}
-        unreadNotice={hasUnreadNotice}
-        onSeen={handleSeen}
-      />
+      {panelActivated && (
+        <ChatPanel
+          open={open}
+          onClose={() => setOpen(false)}
+          name={name}
+          className={className}
+          title={title}
+          messages={messages}
+          tradeMessages={tradeMessages}
+          guildMessages={guildMessages}
+          guildAvailable={guildAvailable}
+          onMessageSent={handleMessageSent}
+          unreadChat={hasUnreadChat}
+          unreadTrade={hasUnreadTrade}
+          unreadGuild={hasUnreadGuild}
+          unreadNotice={hasUnreadNotice}
+          onSeen={handleSeen}
+        />
+      )}
     </>
   );
 }

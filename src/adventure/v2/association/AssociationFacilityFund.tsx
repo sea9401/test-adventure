@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fetchGameState } from "../fetchGameState";
 import {
   SETTLEMENT_RESOURCE_KEYS,
   SETTLEMENT_RESOURCE_TO_MATERIAL,
@@ -64,7 +65,7 @@ export function AssociationFacilityFund({
     try {
       const [inventoryResponse, stateResponse] = await Promise.all([
         fetch("/api/v2/me/inventory"),
-        fetch("/api/v2/me/state"),
+        fetchGameState(),
       ]);
       const inventoryJson = (await inventoryResponse.json().catch(() => null)) as {
         materials?: Record<string, number>;

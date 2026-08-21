@@ -7,6 +7,7 @@
 // 데이터: /api/v2/me/equipment(owned/equipped) + /api/v2/me/inventory(materials).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { fetchGameState } from "./fetchGameState";
 import { Hammer } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
@@ -459,7 +460,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         fetch("/api/v2/me/equipment"),
         fetch("/api/v2/me/inventory"),
         // 골드 표시용 보조 조회 — 거부(네트워크 끊김)돼도 장비/인벤 로드를 깨지 않게 격리.
-        fetch("/api/v2/me/state").catch(() => null),
+        fetchGameState().catch(() => null),
       ]);
       // 보유 골드 — 매 작업 후 핸들러가 refresh() 를 부르므로 여기서만 읽으면 자동 갱신.
       if (stateRes?.ok) {

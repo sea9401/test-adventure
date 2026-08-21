@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
+import {
+  lockSaveForUpdate,
+  readSave,
+  upsertSave,
+  upsertSaves,
+} from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
   parseActivityGuardState,
@@ -301,6 +306,7 @@ export async function POST(req: Request) {
       await lockSaveForUpdate(tx, userId, MINING_LOG_KEY, {}),
     );
     const currentLog = parsedLog.log;
+    const dirtySaves: Record<string, unknown> = {};
     const levelBonuses = miningPost50Bonuses(
       miningProgressionView(currentLog.successes, currentLog.xp).level,
     );
@@ -317,7 +323,7 @@ export async function POST(req: Request) {
     }
     const blueprint = rollHiddenBlueprint(crafting, "mining", settlement.successes);
     workshop = { ...workshop, crafting: blueprint.state };
-    await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);
+    dirtySaves[LIFE_WORKSHOP_SAVE_KEY] = workshop;
     const byproductDrops: Record<string, number> = {};
     for (let index = 0; index < settlement.successes; index += 1) {
       for (const [materialId, amount] of Object.entries(
@@ -349,7 +355,7 @@ export async function POST(req: Request) {
       [node.materialId]: settlement.materialsGained,
       ...byproductDrops,
     });
-    await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
+    dirtySaves["character.v2"] = { ...charSave, materials };
 
     const environmentXpGained = lifeFeatures.environmentEnabled
       ? Math.floor(
@@ -386,7 +392,7 @@ export async function POST(req: Request) {
         [node.id]: (currentLog.nodes[node.id] ?? 0) + settlement.successes,
       },
     };
-    await upsertSave(tx, userId, MINING_LOG_KEY, log);
+    dirtySaves[MINING_LOG_KEY] = log;
 
     const playerClass = parseV2Class(charSave.class);
     const group = tier1ClassOf(playerClass);
@@ -405,7 +411,7 @@ export async function POST(req: Request) {
       proficiency = addJobCumLevel(proficiency, jobId, settlement.masteryGained);
       masteryGained = settlement.masteryGained;
       masteryAfter = proficiency.jobCumLevel?.[jobId] ?? 0;
-      await upsertSave(tx, userId, "proficiency.v2", proficiency);
+      dirtySaves["proficiency.v2"] = proficiency;
       if (masteryGained > 0) {
         await recordCodexMasteryGameplayBatch(
           tx,
@@ -420,7 +426,8 @@ export async function POST(req: Request) {
         );
       }
     }
-    await upsertSave(tx, userId, MINING_AUTO_KEY, settlement.state);
+    dirtySaves[MINING_AUTO_KEY] = settlement.state;
+    await upsertSaves(tx, userId, dirtySaves);
     return {
       settlement,
       node,

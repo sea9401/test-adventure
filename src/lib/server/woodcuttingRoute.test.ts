@@ -3,8 +3,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
-const { store, incrementGuildExplorationProgressForUser, rewardReferralTutorialTasks, recordCodexMasteryGameplayBatch } = vi.hoisted(() => ({
-  store: new Map<string, unknown>(),
+const { store, incrementGuildExplorationProgressForUser, rewardReferralTutorialTasks, recordCodexMasteryGameplayBatch, upsertSaves } = vi.hoisted(() => {
+  const store = new Map<string, unknown>();
+  return {
+  store,
   incrementGuildExplorationProgressForUser: vi.fn(async () => null),
   rewardReferralTutorialTasks: vi.fn(async () => ({
     staminaPotions: 0,
@@ -19,7 +21,11 @@ const { store, incrementGuildExplorationProgressForUser, rewardReferralTutorialT
       _now: Date,
     ) => [],
   ),
-}));
+  upsertSaves: vi.fn(async (_tx, _uid, entries: Record<string, unknown>) => {
+    for (const [key, value] of Object.entries(entries)) store.set(key, value);
+  }),
+  };
+});
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
@@ -44,15 +50,28 @@ vi.mock("@/db", () => ({
   },
 }));
 vi.mock("@/lib/server/savesKv", () => ({
+  lockSavesForUpdate: vi.fn(async (_tx, _uid, fallbacks: Record<string, unknown>) =>
+    Object.fromEntries(Object.entries(fallbacks).map(([key, fallback]) => [
+      key,
+      store.has(key) ? store.get(key) : fallback,
+    ]))
+  ),
   lockSaveForUpdate: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
   readSave: vi.fn(async (_dbOrTx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
+  readSaves: vi.fn(async (_dbOrTx, _uid, fallbacks: Record<string, unknown>) =>
+    Object.fromEntries(Object.entries(fallbacks).map(([key, fallback]) => [
+      key,
+      store.has(key) ? store.get(key) : fallback,
+    ]))
+  ),
   upsertSave: vi.fn(async (_tx, _uid, key: string, value: unknown) => {
     store.set(key, value);
   }),
+  upsertSaves,
 }));
 
 import { POST as START } from "@/app/api/v2/woodcutting/start/route";
@@ -118,6 +137,7 @@ afterEach(() => {
   incrementGuildExplorationProgressForUser.mockClear();
   rewardReferralTutorialTasks.mockClear();
   recordCodexMasteryGameplayBatch.mockClear();
+  upsertSaves.mockClear();
   resetUserRateLimitForTests();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
@@ -258,6 +278,14 @@ describe("woodcutting routes", () => {
       xp: 630,
       timberEarned: 72,
     });
+    expect(upsertSaves).toHaveBeenCalledTimes(1);
+    expect(Object.keys(upsertSaves.mock.calls[0]?.[2] ?? {}).sort()).toEqual([
+      LIFE_WORKSHOP_SAVE_KEY,
+      WOODCUTTING_AUTO_KEY,
+      WOODCUTTING_LOG_KEY,
+      "character.v2",
+      "proficiency.v2",
+    ].sort());
     expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
       expect.anything(),
       "u-test",
@@ -755,6 +783,15 @@ describe("woodcutting routes", () => {
       groups: { survivor: { cumLevel: 901 } },
       jobCumLevel: { lumberjack: 13 },
     });
+    expect(upsertSaves).toHaveBeenCalledTimes(1);
+    expect(Object.keys(upsertSaves.mock.calls[0]?.[2] ?? {}).sort()).toEqual([
+      ACTIVITY_GUARD_KEY,
+      LIFE_WORKSHOP_SAVE_KEY,
+      WOODCUTTING_LOG_KEY,
+      WOODCUTTING_SESSION_KEY,
+      "character.v2",
+      "proficiency.v2",
+    ].sort());
     expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
       expect.anything(),
       "u-test",

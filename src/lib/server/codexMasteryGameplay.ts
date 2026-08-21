@@ -6,7 +6,7 @@ import type { DbTransactionExecutor } from "./savesKv";
 import { readCodexMasteryFeatureSettings } from "./opsSettings";
 import { recordCodexResearchGameplayBatch } from "./codexResearchService";
 import {
-  recordCodexMastery,
+  recordCodexMasteryBatch,
   type CodexMasteryRecordInput,
   type CodexMasteryRecordResult,
   type CodexMasteryRecordingSettings,
@@ -55,12 +55,12 @@ export type CodexMasteryGameplayRecorderRuntime<Executor> = {
   readSettings(executor: Executor): Promise<
     CodexMasteryRecordingSettings & { monthlyProgressEnabled: boolean }
   >;
-  record(
+  recordBatch(
     executor: Executor,
-    input: CodexMasteryRecordInput,
+    inputs: readonly CodexMasteryRecordInput[],
     settings: CodexMasteryRecordingSettings,
     now: Date,
-  ): Promise<CodexMasteryRecordResult>;
+  ): Promise<CodexMasteryRecordResult[]>;
   recordMonthly(
     executor: Executor,
     userId: string,
@@ -192,17 +192,10 @@ export function createCodexMasteryGameplayRecorder<Executor>(
       left.entryId.localeCompare(right.entryId) ||
       left.source.localeCompare(right.source)
     );
-    const results: CodexMasteryRecordResult[] = [];
-    if (settings.recordingEnabled) {
-      for (const event of sortedEvents) {
-        results.push(await runtime.record(
-          executor,
-          inputFor(userId, event),
-          settings,
-          now,
-        ));
-      }
-    }
+    const inputs = sortedEvents.map((event) => inputFor(userId, event));
+    const results = settings.recordingEnabled && inputs.length > 0
+      ? await runtime.recordBatch(executor, inputs, settings, now)
+      : [];
     if (settings.monthlyProgressEnabled && sortedEvents.length > 0) {
       await runtime.recordMonthly(executor, userId, sortedEvents, now);
     }
@@ -214,10 +207,10 @@ export const recordCodexMasteryGameplayBatch = createCodexMasteryGameplayRecorde
   DbTransactionExecutor
 >({
   readSettings: readCodexMasteryFeatureSettings,
-  record: (executor, input, settings, now) => recordCodexMastery(
+  recordBatch: (executor, inputs, settings, now) => recordCodexMasteryBatch(
     executor,
     CODEX_MASTERY_CATALOG,
-    input,
+    inputs,
     settings,
     now,
   ),

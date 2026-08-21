@@ -77,8 +77,6 @@ export function usePresenceHeartbeat({
       try {
         const res = await fetch("/api/presence", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, className, title: title ?? null }),
           keepalive: true,
         });
         if (res.status === 410) {

@@ -1,7 +1,11 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import {
+  lockSaveForUpdate,
+  upsertSave,
+  upsertSaves,
+} from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
   activityGuardView,
@@ -149,7 +153,9 @@ export async function POST(req: Request) {
       return { success: false as const, reason: "expired" as const };
     }
 
-    await upsertSave(tx, userId, MINING_SESSION_KEY, {});
+    const dirtySaves: Record<string, unknown> = {
+      [MINING_SESSION_KEY]: {},
+    };
     const guardUpdate = recordActivityCompletion(
       parseActivityGuardState(
         await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
@@ -157,7 +163,7 @@ export async function POST(req: Request) {
       "mining",
       now,
     );
-    await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, guardUpdate.state);
+    dirtySaves[ACTIVITY_GUARD_KEY] = guardUpdate.state;
     const nextActionAt = activityGuardView(
       guardUpdate.state,
       "mining",
@@ -181,6 +187,7 @@ export async function POST(req: Request) {
       (session.failureRecoveryRate ?? 0) > 0 &&
       Math.random() < (session.failureRecoveryRate ?? 0);
     if (!initiallySucceeded && !recovered) {
+      await upsertSaves(tx, userId, dirtySaves);
       return {
         success: false as const,
         reason: "failed" as const,
@@ -258,13 +265,13 @@ export async function POST(req: Request) {
       [node.materialId]: materialGained,
       ...byproductDrops,
     });
-    await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
+    dirtySaves["character.v2"] = { ...charSave, materials };
     let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
     let crafting = workshop.crafting;
     crafting = consumeLifeAidUses(crafting, "mining", session.aidItemId, 1).state;
     const blueprint = rollHiddenBlueprint(crafting, "mining");
     workshop = { ...workshop, crafting: blueprint.state };
-    await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);
+    dirtySaves[LIFE_WORKSHOP_SAVE_KEY] = workshop;
 
     const diningXp = await consumeGuildDiningEffect(
       tx,
@@ -288,7 +295,7 @@ export async function POST(req: Request) {
       byproducts: byproductTotal,
       xp: xpGained,
     });
-    await upsertSave(tx, userId, MINING_LOG_KEY, log);
+    dirtySaves[MINING_LOG_KEY] = log;
     await rewardReferralTutorialTasks(
       tx,
       userId,
@@ -313,7 +320,7 @@ export async function POST(req: Request) {
       prof = addJobCumLevel(prof, jobId, 1);
       masteryGained = 1;
       masteryAfter = prof.jobCumLevel?.[jobId] ?? 0;
-      await upsertSave(tx, userId, "proficiency.v2", prof);
+      dirtySaves["proficiency.v2"] = prof;
       if (masteryGained > 0) {
         await recordCodexMasteryGameplayBatch(
           tx,
@@ -328,6 +335,8 @@ export async function POST(req: Request) {
         );
       }
     }
+
+    await upsertSaves(tx, userId, dirtySaves);
 
     return {
       success: true as const,

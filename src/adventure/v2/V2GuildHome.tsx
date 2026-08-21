@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { fetchGameState } from "./fetchGameState";
 import { useSearchParams } from "next/navigation";
 import { TabBar } from "@/components/ui/TabBar";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
@@ -98,7 +99,7 @@ export function V2GuildHome({
     setLoading(true);
     try {
       const [stateRes, infoRes, actRes, contributionRes] = await Promise.all([
-        fetch("/api/v2/me/state").then((r) => (r.ok ? r.json() : null)),
+        fetchGameState().then((r) => (r.ok ? r.json() : null)),
         fetch("/api/v2/me/guild/info").then((r) => (r.ok ? r.json() : null)),
         fetch("/api/v2/guild/activity").then((r) => (r.ok ? r.json() : null)),
         fetch("/api/v2/guild/contributions").then((r) =>

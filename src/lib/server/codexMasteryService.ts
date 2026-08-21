@@ -17,6 +17,8 @@ import {
 } from "@/adventure/data/v2/codexMasteryTypes";
 import {
   createDrizzleCodexMasteryStore,
+  createDrizzleCodexMasteryBatchStore,
+  type CodexMasteryBatchStore,
   type CodexMasteryStore,
   type CodexMasterySummaryState,
 } from "./codexMasteryRepository";
@@ -509,6 +511,162 @@ export function createCodexMasteryRecorder(
   };
 }
 
+function masteryProgressKey(
+  category: CodexMasteryCategory,
+  entryId: string,
+): string {
+  return `${category}\u0000${entryId}`;
+}
+
+export function createCodexMasteryBatchRecorder(
+  store: CodexMasteryBatchStore,
+  catalog: CodexMasteryCatalog,
+): {
+  recordBatch(
+    inputs: readonly CodexMasteryRecordInput[],
+    settings: CodexMasteryRecordingSettings,
+    now?: Date,
+  ): Promise<CodexMasteryRecordResult[]>;
+} {
+  return {
+    async recordBatch(inputs, settings, now = new Date()) {
+      if (!settings.recordingEnabled) {
+        return inputs.map(() => ({ recorded: false, reason: "disabled" }));
+      }
+      if (inputs.length === 0) return [];
+
+      const userId = inputs[0].userId;
+      const entriesByKey = new Map<string, {
+        category: CodexMasteryCategory;
+        entryId: string;
+      }>();
+      for (const input of inputs) {
+        if (input.userId !== userId) {
+          throw invalidMutation("batch inputs must belong to one user");
+        }
+        const entry = catalog.get(input.category, input.entryId);
+        if (!entry) {
+          throw new CodexMasteryRecordError(
+            "unknown_entry",
+            "codex mastery entry is unknown",
+          );
+        }
+        if (!isCodexMasterySourceForCategory(input.category, input.source)) {
+          throw new CodexMasteryRecordError(
+            "invalid_source",
+            "source must be server-owned",
+          );
+        }
+        validateCallerMutation(input.mutation, entry.seals);
+        entriesByKey.set(masteryProgressKey(input.category, input.entryId), {
+          category: input.category,
+          entryId: input.entryId,
+        });
+      }
+
+      const entries = [...entriesByKey.values()].sort((left, right) =>
+        left.category.localeCompare(right.category) ||
+        left.entryId.localeCompare(right.entryId)
+      );
+      const locked = await store.lockBatch({ userId, entries }, now);
+      const progressByKey = new Map(
+        locked.progress.map((progress) => [
+          masteryProgressKey(progress.category, progress.entryId),
+          progress,
+        ]),
+      );
+      if (progressByKey.size !== entries.length) {
+        throw new Error("codex mastery batch progress rows do not match entries");
+      }
+
+      let summary = locked.summary;
+      const dirtyKeys = new Set<string>();
+      const countTierResultIndexes: number[] = [];
+      const results: CodexMasteryRecordResult[] = [];
+      for (const input of inputs) {
+        const key = masteryProgressKey(input.category, input.entryId);
+        const progress = progressByKey.get(key);
+        const entry = catalog.get(input.category, input.entryId);
+        if (!progress || !entry) {
+          throw new Error("codex mastery batch locked progress is missing");
+        }
+        const normalized = normalizeLockedProgressScore(entry, progress);
+        const mutation = settings.sealsEnabled
+          ? input.mutation
+          : { ...input.mutation, sealIds: [] };
+        const transition = applyCodexMasteryMutation(
+          entry,
+          normalized.progress,
+          mutation,
+          now,
+        );
+        if (
+          normalized.scoreCorrectionMilli === 0 &&
+          unchangedProgress(progress, transition.next)
+        ) {
+          results.push({ recorded: false, reason: "unchanged" });
+          continue;
+        }
+
+        summary = normalizeSummaryScore(
+          summary,
+          input.category,
+          normalized.scoreCorrectionMilli,
+        );
+        summary = nextSummaryFromTransition(
+          summary,
+          input.category,
+          transition,
+          now,
+        );
+        progressByKey.set(key, transition.next);
+        dirtyKeys.add(key);
+        const resultIndex = results.length;
+        if (transition.newStages.some((stage) => stage !== "discovered")) {
+          countTierResultIndexes.push(resultIndex);
+        }
+        results.push({
+          recorded: true,
+          progress: transition.next,
+          newStages: transition.newStages,
+          newSealIds: transition.newSealIds,
+          scoreDeltaMilli: transition.scoreDeltaMilli,
+          newTrophyPromotions: [],
+        });
+      }
+
+      if (dirtyKeys.size > 0) {
+        const progress = [...dirtyKeys]
+          .map((key) => progressByKey.get(key))
+          .filter((value): value is CodexMasteryProgress => value !== undefined)
+          .sort((left, right) =>
+            left.category.localeCompare(right.category) ||
+            left.entryId.localeCompare(right.entryId)
+          );
+        await store.saveBatch({ userId, summary, progress }, now);
+      }
+
+      if (settings.trophiesEnabled && countTierResultIndexes.length > 0) {
+        if (!store.reconcileTrophies) {
+          throw new Error("codex mastery trophy reconciliation is unavailable");
+        }
+        const reconciled = await store.reconcileTrophies(userId, now);
+        const resultIndex = countTierResultIndexes.at(-1);
+        if (resultIndex !== undefined) {
+          const result = results[resultIndex];
+          if (result.recorded) {
+            results[resultIndex] = {
+              ...result,
+              newTrophyPromotions: reconciled.promotions,
+            };
+          }
+        }
+      }
+      return results;
+    },
+  };
+}
+
 export async function recordCodexMastery(
   executor: DbTransactionExecutor,
   catalog: CodexMasteryCatalog,
@@ -522,6 +680,22 @@ export async function recordCodexMastery(
       reconcileCodexMasteryTrophies(executor, userId, catalog, at),
   };
   return createCodexMasteryRecorder(store, catalog).record(input, settings, now);
+}
+
+export async function recordCodexMasteryBatch(
+  executor: DbTransactionExecutor,
+  catalog: CodexMasteryCatalog,
+  inputs: readonly CodexMasteryRecordInput[],
+  settings: CodexMasteryRecordingSettings,
+  now = new Date(),
+): Promise<CodexMasteryRecordResult[]> {
+  const store: CodexMasteryBatchStore = {
+    ...createDrizzleCodexMasteryBatchStore(executor),
+    reconcileTrophies: (userId, at) =>
+      reconcileCodexMasteryTrophies(executor, userId, catalog, at),
+  };
+  return createCodexMasteryBatchRecorder(store, catalog)
+    .recordBatch(inputs, settings, now);
 }
 
 export async function syncCodexMasteryTarget(

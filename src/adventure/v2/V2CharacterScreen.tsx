@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { fetchGameState } from "./fetchGameState";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { StatsPanel } from "@/adventure/character/StatsPanel";
@@ -167,7 +168,7 @@ export function V2CharacterScreen({
         return;
       }
       const [stateRes, equipRes, lifeRes] = await Promise.all([
-        fetch("/api/v2/me/state").then((r) => (r.ok ? r.json() : null)),
+        fetchGameState().then((r) => (r.ok ? r.json() : null)),
         fetch("/api/v2/me/equipment").then((r) => (r.ok ? r.json() : null)),
         fetch("/api/v2/me/life-summary")
           .then((r) => (r.ok ? r.json() : null))

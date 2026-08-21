@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { fetchGameState } from "./fetchGameState";
 import { FirstAid } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
@@ -54,7 +55,7 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
     setLoadError(false);
     try {
       const [stateRes, invRes] = await Promise.all([
-        fetch("/api/v2/me/state"),
+        fetchGameState(),
         fetch("/api/v2/me/inventory"),
       ]);
       const j = (await stateRes.json().catch(() => null)) as StateResponse | null;

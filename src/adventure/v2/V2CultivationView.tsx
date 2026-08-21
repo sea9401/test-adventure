@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { fetchGameState } from "./fetchGameState";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -138,7 +139,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   // 마운트 1회 로드 — setState 동기 호출을 피하려 loading 초기값(true)에서 시작, 완료 시 해제.
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/v2/me/state");
+      const res = await fetchGameState();
       const j = (await res.json().catch(() => null)) as StateShape | null;
       const cur = j?.proficiency?.current;
       if (j?.ok && cur) {

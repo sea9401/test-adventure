@@ -7,6 +7,10 @@ import { APP_BUILD_VERSION } from "@/lib/clientVersion";
 import { clientIpFromRequest } from "@/lib/server/abuseLog";
 import { recordSameIpPresenceSoon } from "@/lib/server/sameIpPresence";
 import { requireActiveDeviceSession } from "@/lib/server/checkSession";
+import { ShortTtlCache } from "@/lib/server/shortTtlCache";
+
+const presenceActorCache = new ShortTtlCache(60_000);
+
 export async function POST(req: Request) {
   // 하트비트는 비활성 기기에 명시적인 410을 내려 클라이언트가 즉시 로그아웃하게 한다.
   const userId = await ensureUser({ skipDeviceCheck: true });
@@ -28,7 +32,10 @@ export async function POST(req: Request) {
   // identity 는 서버 권위로 해석 — 클라가 보내는 body 는 무시 (사칭 방지).
   // 본 라우트는 다른 두 라우트(chat/bulletin)와 달리 본문이 비어도 동작해야 해
   // body 파싱 자체를 생략한다.
-  const { name, className, title } = await resolveActor(userId);
+  const { name, className, title } = await presenceActorCache.get(
+    userId,
+    () => resolveActor(userId),
+  );
 
   await db
     .insert(presence)

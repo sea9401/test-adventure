@@ -462,8 +462,8 @@ describe("위험 해역 저장 상태", () => {
     expect(parsed.voyage?.encounter).toBeNull();
   });
 
-  it("revision 2와 revision 3 조우를 각자의 고정 계산으로 복구한다", () => {
-    for (const balanceRevision of [2, 3] as const) {
+  it("revision 2·3·4 조우를 각자의 고정 계산으로 복구한다", () => {
+    for (const balanceRevision of [2, 3, 4] as const) {
       const encounter = v2Encounter(
         `realtime-revision-${balanceRevision}`,
         {},
@@ -491,7 +491,7 @@ describe("위험 해역 저장 상태", () => {
     }
   });
 
-  it.each([0, 4, "3", null])(
+  it.each([0, 5, "4", null])(
     "비정상 또는 미래 realtime balance revision %j은 fail-closed한다",
     (balanceRevision) => {
       const encounter = { ...v2Encounter(), balanceRevision };

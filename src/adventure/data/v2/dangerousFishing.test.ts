@@ -29,13 +29,22 @@ describe("위험 해역 출시 카탈로그", () => {
       "midwater",
       "deep",
     ]);
-    expect(Object.keys(DANGEROUS_FISH)).toHaveLength(9);
+    expect(Object.keys(DANGEROUS_FISH)).toHaveLength(18);
     expect(new Set(Object.values(DANGEROUS_FISH).map((fish) => fish.zoneId))).toEqual(
       new Set(["shattered_reef", "storm_trench", "abyssal_rift"]),
     );
     expect(new Set(Object.values(DANGEROUS_FISH).map((fish) => fish.depthId))).toEqual(
       new Set(["surface", "midwater", "deep"]),
     );
+    for (const zoneId of Object.keys(DANGEROUS_ZONES)) {
+      const zoneFish = Object.values(DANGEROUS_FISH).filter(
+        (fish) => fish.zoneId === zoneId,
+      );
+      expect(zoneFish).toHaveLength(6);
+      for (const depthId of Object.keys(DANGEROUS_DEPTHS)) {
+        expect(zoneFish.filter((fish) => fish.depthId === depthId)).toHaveLength(2);
+      }
+    }
     expect(isDangerousZoneId("storm_trench")).toBe(true);
     expect(isDangerousZoneId("toString")).toBe(false);
     expect(isDangerousFishId("ironjaw_tuna")).toBe(true);
@@ -74,15 +83,28 @@ describe("위험 해역 출시 카탈로그", () => {
     expect(isDangerousBaitId("constructor")).toBe(false);
   });
 
-  it("미끼의 기존 출현 가중치 정보와 실시간 조우 효과를 함께 보존한다", () => {
+  it("미끼가 목표 희귀도 출현 가중치와 실시간 조우 효과를 함께 제공한다", () => {
     expect(DANGEROUS_BAITS.reef_bait).toMatchObject({
       targetBehaviors: ["turn"],
-      rarityBonus: 0.02,
+      targetRarities: ["common", "rare"],
+      rarityBonus: 0.25,
       realtimeEffect: {
         turnDistanceRecoveryReductionPct: 20,
         turnTensionImpactReductionPct: 20,
         maxTimeReductionPct: 20,
       },
+    });
+    expect(DANGEROUS_BAITS.blood_bait).toMatchObject({
+      targetRarities: ["rare", "epic"],
+      rarityBonus: 0.4,
+    });
+    expect(DANGEROUS_BAITS.luminous_bait).toMatchObject({
+      targetRarities: ["epic", "legendary"],
+      rarityBonus: 0.65,
+    });
+    expect(DANGEROUS_BAITS.abyss_bait).toMatchObject({
+      targetRarities: ["legendary"],
+      rarityBonus: 1,
     });
     expect(DANGEROUS_BAITS.abyss_bait.realtimeEffect).toMatchObject({
       startingStaminaReductionPct: 10,
@@ -100,7 +122,7 @@ describe("위험 해역 출시 카탈로그", () => {
       ...Object.keys(DANGEROUS_FISH).map((id) => dangerousCatchMaterialId(id)),
       ...Object.keys(DANGEROUS_BOSSES).map((id) => dangerousBossMaterialId(id)),
     ];
-    expect(new Set(materialIds).size).toBe(11);
+    expect(new Set(materialIds).size).toBe(20);
     expect(materialIds).toContain("danger_catch_ironjaw_tuna");
     expect(materialIds).toContain("danger_boss_abyss_kraken");
     expect(materialIds.every(isDangerousCatchMaterialId)).toBe(true);
@@ -112,12 +134,21 @@ describe("위험 해역 출시 카탈로그", () => {
       danger_catch_razor_sardine: 800,
       danger_catch_ironjaw_tuna: 2_100,
       danger_catch_reef_maw_grouper: 4_300,
+      danger_catch_glassscale_herring: 950,
+      danger_catch_coralhorn_snapper: 2_400,
+      danger_catch_trenchshell_sturgeon: 4_800,
       danger_catch_storm_mackerel: 1_500,
       danger_catch_thunder_ray: 3_300,
       danger_catch_tempest_swordfish: 6_800,
+      danger_catch_gale_needlefish: 1_750,
+      danger_catch_stormbell_sunfish: 3_650,
+      danger_catch_cyclone_marlin: 7_400,
       danger_catch_lantern_eel: 3_900,
       danger_catch_voidfin_coelacanth: 7_900,
       danger_catch_abyssal_crownfish: 13_500,
+      danger_catch_ghostlight_jellyfish: 4_300,
+      danger_catch_nightglass_shark: 8_600,
+      danger_catch_starless_leviathan: 15_000,
     } as const;
 
     for (const [materialId, expectedPrice] of Object.entries(expectedPrices)) {
@@ -131,9 +162,9 @@ describe("위험 해역 출시 카탈로그", () => {
     expect(DANGEROUS_ZONES.shattered_reef.imageSrc).toBe(
       "/images/ui/dangerous-fishing-shattered-reef.webp",
     );
-    expect(DANGEROUS_FISH.ironjaw_tuna.imageSrc).toBe(
-      "/images/fish/ironjaw_tuna.webp",
-    );
+    for (const fish of Object.values(DANGEROUS_FISH)) {
+      expect(fish.imageSrc).toBe(`/images/fish/${fish.id}.webp`);
+    }
     expect(DANGEROUS_BOSSES.abyss_kraken.imageSrc).toBe(
       "/images/fish/abyss_kraken.webp",
     );

@@ -1,6 +1,7 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { cookingFailedCombinations, cookingFirstDiscoveries } from "@/db/cookingSchema";
+import { savesKv, users } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
@@ -20,13 +21,14 @@ import { COOKING_LEVEL_CAP, COOKING_SAVE_KEY, COOKING_STANDING_DELIVERY_DAILY_LI
 import type { CookingField, CookingIngredientId, CookingMethod, CookingRecipeSecret } from "@/adventure/v2/cooking/types";
 import { COOKING_SECRET_RECIPE_BY_ID, COOKING_SECRET_RECIPES } from "@/lib/server/cooking/recipes";
 import { cookingCombinationHash, resolveCookingResearch, type CookingIngredientBalances } from "@/lib/server/cooking/research";
-import { insertFeedEntry } from "@/lib/server/serverFeed";
+import { insertFeedEntry, resolveUserDisplayName } from "@/lib/server/serverFeed";
 import { referralLifeTaskIds } from "@/adventure/data/v2/referralTutorial";
 import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
 import { recordCodexMasteryGameplayBatch, type CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
 type CharacterSave = Record<string, unknown> & {
   gold?: number;
+  bankedGold?: number;
   class?: unknown;
   level?: number;
   name?: string;
@@ -41,8 +43,11 @@ type FirstDiscoveryRow = {
   recipeId: string;
   userId: string;
   actorName: string;
+  authoritativeActorName: string | null;
   discoveredAt: Date;
 };
+
+const DEFAULT_ACTOR_NAME = "이름 없는 모험가";
 
 function currentCookingJob(char: CharacterSave) {
   const cls = parseV2Class(char.class);
@@ -101,7 +106,9 @@ function cookingView(userId: string, now: number, values: {
     knownRecipes: knownRecipeDetails(cooking.discoveredRecipeIds),
     firstDiscoveries: values.firstDiscoveries.map((row) => ({
       recipeId: row.recipeId,
-      actorName: row.actorName,
+      actorName: row.actorName === DEFAULT_ACTOR_NAME
+        ? row.authoritativeActorName?.trim() || row.actorName
+        : row.actorName,
       discoveredAt: row.discoveredAt.getTime(),
       mine: row.userId === userId,
     })),
@@ -130,9 +137,18 @@ async function firstDiscoveryRows(executor: DbExecutor): Promise<FirstDiscoveryR
       recipeId: cookingFirstDiscoveries.recipeId,
       userId: cookingFirstDiscoveries.userId,
       actorName: cookingFirstDiscoveries.actorName,
+      authoritativeActorName: sql<string | null>`coalesce(
+        nullif(btrim(${users.gameName}), ''),
+        nullif(btrim(${savesKv.value}->>'name'), '')
+      )`,
       discoveredAt: cookingFirstDiscoveries.discoveredAt,
     })
-    .from(cookingFirstDiscoveries);
+    .from(cookingFirstDiscoveries)
+    .innerJoin(users, eq(users.id, cookingFirstDiscoveries.userId))
+    .leftJoin(savesKv, and(
+      eq(savesKv.userId, cookingFirstDiscoveries.userId),
+      eq(savesKv.key, "character-profile.v2"),
+    ));
 }
 
 export async function GET(req: Request) {
@@ -212,6 +228,9 @@ export async function POST(req: Request) {
   }
   const now = Date.now();
   try {
+    const researchActorName = action === "research"
+      ? await resolveUserDisplayName(userId)
+      : null;
     const transactionResult = await db.transaction(async (tx) => {
       const character = await lockSaveForUpdate<CharacterSave>(tx, userId, "character.v2", {});
       const skills = parseV2SkillsState(await lockSaveForUpdate(tx, userId, "skills.v2", emptyV2SkillsState()));
@@ -249,7 +268,11 @@ export async function POST(req: Request) {
           result = { action, outcome: "failure", earnedXp: ingredientIds.length * 2, failedDishCount: 1 };
         } else {
           const inserted = await tx.insert(cookingFirstDiscoveries)
-            .values({ recipeId: transition.recipe!.id, userId, actorName: typeof character.name === "string" && character.name.trim() ? character.name.trim() : "이름 없는 모험가" })
+            .values({
+              recipeId: transition.recipe!.id,
+              userId,
+              actorName: researchActorName ?? DEFAULT_ACTOR_NAME,
+            })
             .onConflictDoNothing({ target: cookingFirstDiscoveries.recipeId })
             .returning({ recipeId: cookingFirstDiscoveries.recipeId });
           const firstDiscovery = inserted.length > 0;
@@ -289,8 +312,16 @@ export async function POST(req: Request) {
       } else if (action === "buy_pantry") {
         const itemId = body?.itemId as CookingPantryItem["id"];
         const quantity = positiveQuantity(body?.quantity ?? 1, 100);
-        const bought = buyCookingPantryItem({ gold: Number(character.gold) || 0, kitchenItems: cooking.kitchenItems }, itemId, quantity);
-        nextCharacter = { ...character, gold: bought.gold };
+        const bought = buyCookingPantryItem({
+          gold: Number(character.gold) || 0,
+          bankedGold: Number(character.bankedGold) || 0,
+          kitchenItems: cooking.kitchenItems,
+        }, itemId, quantity);
+        nextCharacter = {
+          ...character,
+          gold: bought.gold,
+          bankedGold: bought.bankedGold,
+        };
         cooking = { ...cooking, kitchenItems: bought.kitchenItems };
         result = { action, itemId, quantity };
       } else if (action === "process") {

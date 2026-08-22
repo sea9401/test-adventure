@@ -284,6 +284,9 @@ export function useDangerousFishingRealtime({
     dangerousRealtimeView(encounter.checkpoint, encounter.config),
   );
   const [holding, setHolding] = useState(false);
+  const [startPending, setStartPending] = useState(
+    () => Date.now() < encounter.startedAt,
+  );
   const [connection, setConnection] =
     useState<DangerousRealtimeConnection>("online");
   const serverRef = useRef(encounter);
@@ -301,6 +304,7 @@ export function useDangerousFishingRealtime({
   const automaticRetryBlockedRef = useRef(false);
   const verificationBlockedRef = useRef(verification !== null);
   const finishDeliveredRef = useRef(false);
+  const startPendingRef = useRef(startPending);
   const highTensionVibratedRef = useRef(
     view.tension >= view.safeTensionMax,
   );
@@ -464,6 +468,10 @@ export function useDangerousFishingRealtime({
 
   const advanceToNow = useCallback(
     (now: number) => {
+      if (startPendingRef.current && now >= encounter.startedAt) {
+        startPendingRef.current = false;
+        if (mountedRef.current) setStartPending(false);
+      }
       const targetTick = wallTickAt(now);
       if (targetTick <= stateRef.current.tick) return;
       try {
@@ -477,7 +485,7 @@ export function useDangerousFishingRealtime({
         persist();
       }
     },
-    [persist, publish, replayLocal, wallTickAt],
+    [encounter.startedAt, persist, publish, replayLocal, wallTickAt],
   );
 
   const reconcile = useCallback(
@@ -654,9 +662,12 @@ export function useDangerousFishingRealtime({
     automaticRetryBlockedRef.current = false;
     verificationBlockedRef.current = verification !== null;
     finishDeliveredRef.current = false;
+    const pendingStart = Date.now() < encounter.startedAt;
+    startPendingRef.current = pendingStart;
     // Encounter identity is the reset boundary for every visible and ref state.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setHolding(false);
+    setStartPending(pendingStart);
     setConnection("online");
     const storageKey = dangerousFishingRealtimeStorageKey(encounter.id);
     const raw = window.sessionStorage.getItem(storageKey);
@@ -763,6 +774,7 @@ export function useDangerousFishingRealtime({
   const onPointerDown = useCallback(
     (event: PointerInputEvent) => {
       event.preventDefault?.();
+      if (Date.now() < encounter.startedAt) return;
       try {
         event.currentTarget?.setPointerCapture?.(event.pointerId);
       } catch {
@@ -772,7 +784,7 @@ export function useDangerousFishingRealtime({
       setHolding(true);
       appendMode("reel");
     },
-    [appendMode],
+    [appendMode, encounter.startedAt],
   );
 
   const onPointerUp = useCallback(
@@ -797,12 +809,13 @@ export function useDangerousFishingRealtime({
     (event: KeyboardInputEvent) => {
       if (event.code !== "Space" && event.key !== " ") return;
       event.preventDefault();
+      if (Date.now() < encounter.startedAt) return;
       if (event.repeat || inputSourcesRef.current.keyboard) return;
       inputSourcesRef.current.keyboard = true;
       setHolding(true);
       appendMode("reel");
     },
-    [appendMode],
+    [appendMode, encounter.startedAt],
   );
 
   const onKeyUp = useCallback(
@@ -828,6 +841,7 @@ export function useDangerousFishingRealtime({
   return {
     view,
     holding,
+    startPending,
     warning: warningFor(view),
     connection,
     onPointerDown,

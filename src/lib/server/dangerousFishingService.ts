@@ -451,23 +451,29 @@ export function pickFish(
   baitId: DangerousBaitId,
   random: number,
 ): DangerousFish {
-  let candidates = Object.values(DANGEROUS_FISH).filter(
-    (fish) => fish.zoneId === zoneId && fish.depthId === depthId,
-  );
-  if (candidates.length === 0) {
-    candidates = Object.values(DANGEROUS_FISH).filter(
-      (fish) => fish.zoneId === zoneId,
+  const depthIndex: Record<DangerousDepthId, number> = {
+    surface: 0,
+    midwater: 1,
+    deep: 2,
+  };
+  const depthAffinity = [1, 0.22, 0.05] as const;
+  const candidates = Object.values(DANGEROUS_FISH)
+    .filter((fish) => fish.zoneId === zoneId)
+    .sort(
+      (left, right) =>
+        Math.abs(depthIndex[left.depthId] - depthIndex[depthId]) -
+        Math.abs(depthIndex[right.depthId] - depthIndex[depthId]),
     );
-  }
   const bait = DANGEROUS_BAITS[baitId];
   const weighted = candidates.map((fish) => ({
     fish,
     weight:
       fish.spawnWeight *
+      depthAffinity[Math.abs(depthIndex[fish.depthId] - depthIndex[depthId])] *
       (bait.targetBehaviors.some((behavior) => fish.behaviorPattern.includes(behavior))
         ? 1.5
         : 1) *
-      (fish.rarity === "epic" || fish.rarity === "legendary"
+      (bait.targetRarities.includes(fish.rarity)
         ? 1 + bait.rarityBonus
         : 1),
   }));
@@ -478,28 +484,6 @@ export function pickFish(
     if (cursor < 0) return entry.fish;
   }
   return weighted.at(-1)?.fish ?? DANGEROUS_FISH.razor_sardine;
-}
-
-export function pickRealtimeFish(
-  zoneId: DangerousZoneId,
-  depthId: DangerousDepthId,
-  random: number,
-): DangerousFish {
-  let candidates = Object.values(DANGEROUS_FISH).filter(
-    (fish) => fish.zoneId === zoneId && fish.depthId === depthId,
-  );
-  if (candidates.length === 0) {
-    candidates = Object.values(DANGEROUS_FISH).filter(
-      (fish) => fish.zoneId === zoneId,
-    );
-  }
-  const total = candidates.reduce((sum, fish) => sum + fish.spawnWeight, 0);
-  let cursor = Math.max(0, Math.min(0.999999, random)) * total;
-  for (const fish of candidates) {
-    cursor -= fish.spawnWeight;
-    if (cursor < 0) return fish;
-  }
-  return candidates.at(-1) ?? DANGEROUS_FISH.razor_sardine;
 }
 
 export async function settleIncidentFromLockedSaves(

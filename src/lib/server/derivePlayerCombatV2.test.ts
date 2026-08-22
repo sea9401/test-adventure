@@ -633,6 +633,12 @@ describe("생존 패시브 중첩 점감", () => {
     expect(stackedMaxHpIncreasePct(124)).toBeCloseTo(62.9, 5);
   });
 
+  it("방어력 비율도 소프트캡 뒤에 계속 증가한다", () => {
+    expect(stackedDefenseIncreasePct(30)).toBe(30);
+    expect(stackedDefenseIncreasePct(86)).toBeCloseTo(52.4, 5);
+    expect(stackedDefenseIncreasePct(136)).toBeCloseTo(72.4, 5);
+  });
+
   it("고중첩 최대 HP 패시브를 해제하면 실제 최대 HP도 감소한다", () => {
     const full = derivePlayerCombatV2Pure({
       level: 100,
@@ -646,6 +652,23 @@ describe("생존 패시브 중첩 점감", () => {
     });
 
     expect(full.maxHp).toBeGreaterThan(reduced.maxHp);
+  });
+
+  it("고중첩 방어력 패시브를 더 장착하면 실제 방어력도 증가한다", () => {
+    const full = derivePlayerCombatV2Pure({
+      level: 100,
+      allocatedStats: { vit: 1_000 },
+      v2Equipped: {},
+      passiveDefPct: 136,
+    });
+    const reduced = derivePlayerCombatV2Pure({
+      level: 100,
+      allocatedStats: { vit: 1_000 },
+      v2Equipped: {},
+      passiveDefPct: 86,
+    });
+
+    expect(full.player.def).toBeGreaterThan(reduced.player.def);
   });
 });
 

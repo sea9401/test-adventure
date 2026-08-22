@@ -15,7 +15,7 @@ import {
 
 describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
   it("채광·생활 등 비매 재료는 위험 어획물 판매가 등록 뒤에도 비등재한다", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(84);
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(93);
     expect(V2_MATERIALS.v2_reforge_stone).toBeDefined();
     expect(V2_MATERIALS.v2_reforge_stone_high).toBeDefined();
     expect(V2_MATERIALS.v2_timber).toBeDefined();
@@ -80,7 +80,7 @@ describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
     expect(V2_MATERIALS.v2_coop_void_equipment_box).toBeDefined();
     expect(V2_MATERIALS.v2_coop_mastery_tome).toBeDefined();
     const npcSellableIds = new Set(Object.keys(V2_MATERIAL_SELL_PRICE));
-    expect(npcSellableIds.size).toBe(9);
+    expect(npcSellableIds.size).toBe(18);
     for (const id of Object.keys(V2_MATERIALS)) {
       expect(V2_MATERIALS[id].name.length).toBeGreaterThan(0);
       if (npcSellableIds.has(id)) continue;

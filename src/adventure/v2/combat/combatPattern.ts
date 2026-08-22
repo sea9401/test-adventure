@@ -81,13 +81,18 @@ export type V2CombatCondition =
   // 내 공격 차례(턴, 1-based). atMost/atLeast = 이하/이상, every = N 배수(주기).
   | { kind: "turn"; op: "atMost" | "atLeast" | "every"; value: number };
 
-// 행동 — 특정 스킬 사용 또는 현재 로드아웃에서 역할에 맞는 스킬 사용.
+// 행동 — 일반 공격, 특정 스킬 사용 또는 현재 로드아웃에서 역할에 맞는 스킬 사용.
 // role 은 패턴 블록을 장착 스킬 id 에서 분리하는 QoL 경로다. 실제 발동은 호출부가 현재 equipped
 // 안에서만 resolve 하므로 SP/장착 게이트는 그대로 유지된다.
 export type V2CombatRole = "main_attack" | "heal" | "buff" | "debuff";
 export type V2CombatAction =
+  | { kind: "basic_attack" }
   | { kind: "skill"; skillId: string }
   | { kind: "role"; role: V2CombatRole };
+
+export type V2CombatPatternCandidate =
+  | { kind: "basic_attack" }
+  | { kind: "skill"; skillId: string };
 
 export type V2CombatBlock = {
   condition: V2CombatCondition;
@@ -220,15 +225,17 @@ export function evaluateCombatPattern(
   isUsable: (skillId: string) => boolean,
   resolveRole?: (role: V2CombatRole) => string | null,
 ): string | null {
-  return evaluateCombatPatternCandidates(
+  const candidate = evaluateCombatPatternCandidates(
     pattern,
     ctx,
     isUsable,
     resolveRole,
-  )[0] ?? null;
+  )[0];
+  return candidate?.kind === "skill" ? candidate.skillId : null;
 }
 
-// 패턴 평가 후보 목록 — 우선순위 순서대로 조건 충족 + 실행 가능(isUsable)한 스킬 id 를 반환한다.
+// 패턴 평가 후보 목록 — 우선순위 순서대로 조건 충족 + 실행 가능한 행동을 반환한다.
+// 일반 공격을 만나면 그 아래 블록은 평가하지 않는다.
 // 발동확률(procChance)처럼 "선택 후 실패"할 수 있는 게이트는 호출부가 이 목록을 순회해 다음 순위로
 // 넘어갈 수 있다. MP/쿨다운/효과 없음은 isUsable 단계에서 이미 걸러져 다음 블록으로 이동한다.
 export function evaluateCombatPatternCandidates(
@@ -236,16 +243,20 @@ export function evaluateCombatPatternCandidates(
   ctx: V2PatternCtx,
   isUsable: (skillId: string) => boolean,
   resolveRole?: (role: V2CombatRole) => string | null,
-): string[] {
-  const out: string[] = [];
+): V2CombatPatternCandidate[] {
+  const out: V2CombatPatternCandidate[] = [];
   for (const block of pattern.blocks) {
     if (!conditionPasses(block.condition, ctx)) continue;
+    if (block.action.kind === "basic_attack") {
+      out.push({ kind: "basic_attack" });
+      break;
+    }
     const id =
       block.action.kind === "skill"
         ? block.action.skillId
         : (resolveRole?.(block.action.role) ?? null);
     if (!id || !isUsable(id)) continue;
-    out.push(id);
+    out.push({ kind: "skill", skillId: id });
   }
   return out;
 }
@@ -555,6 +566,7 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
 function parseAction(raw: unknown): V2CombatAction | null {
   if (!raw || typeof raw !== "object") return null;
   const a = raw as Record<string, unknown>;
+  if (a.kind === "basic_attack") return { kind: "basic_attack" };
   if (a.kind === "skill" && typeof a.skillId === "string" && a.skillId.length > 0) {
     return { kind: "skill", skillId: a.skillId };
   }

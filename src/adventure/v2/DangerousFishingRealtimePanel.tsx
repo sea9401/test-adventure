@@ -239,6 +239,7 @@ export function DangerousFishingRealtimePanel({
     : localResultCopy(view.status, realtime.connection);
   const inputDisabled =
     !active ||
+    realtime.startPending ||
     secured ||
     feedback?.terminal === true ||
     realtime.connection === "verification_required";
@@ -300,7 +301,9 @@ export function DangerousFishingRealtimePanel({
       >
         <span><strong>연결 상태</strong> · {CONNECTION_COPY[realtime.connection]}</span>
         <span>
-          {secured
+          {realtime.startPending
+            ? "잠시 후 시작"
+            : secured
             ? "포획 확보 · 인양 중"
             : realtime.holding
               ? "감아올리는 중"
@@ -327,14 +330,22 @@ export function DangerousFishingRealtimePanel({
         </div>
       ) : null}
 
-      <div data-realtime-region="control" className={`${SURFACE_CARD} p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:sticky sm:bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] sm:z-20 sm:pb-2`}>
+      <div data-realtime-region="control" className={`${SURFACE_CARD} sticky bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-20 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2`}>
         <Button
           fullWidth
           size="md"
           variant={realtime.holding && !secured ? "warning" : "info"}
           className="min-h-16 touch-none select-none text-base"
-          aria-label={secured ? "포획 확보 · 자동 인양 중" : "누르고 감아올리기"}
-          aria-pressed={secured ? false : realtime.holding}
+          aria-label={
+            realtime.startPending
+              ? "조우 준비 중"
+              : secured
+                ? "포획 확보 · 자동 인양 중"
+                : "누르고 감아올리기"
+          }
+          aria-pressed={
+            realtime.startPending || secured ? false : realtime.holding
+          }
           disabled={inputDisabled}
           onPointerDown={realtime.onPointerDown}
           onPointerUp={realtime.onPointerUp}
@@ -343,7 +354,9 @@ export function DangerousFishingRealtimePanel({
           onKeyDown={realtime.onKeyDown}
           onKeyUp={realtime.onKeyUp}
         >
-          {secured
+          {realtime.startPending
+            ? "잠시 후 시작"
+            : secured
             ? "최소 연출 시간까지 자동 인양 중"
             : realtime.holding
               ? "놓아서 줄 풀기"

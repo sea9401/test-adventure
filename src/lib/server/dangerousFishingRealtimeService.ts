@@ -26,6 +26,7 @@ import {
   replayDangerousRealtimeInputs,
   validateDangerousRealtimeInputs,
   DANGEROUS_REALTIME_TICK_MS,
+  DANGEROUS_REALTIME_START_DELAY_MS,
   type DangerousRealtimeConfig,
   type DangerousRealtimeInput,
 } from "@/adventure/v2/dangerousFishingRealtime";
@@ -66,7 +67,7 @@ import {
 import {
   caughtSize,
   dangerousRealtimeEncounterView,
-  pickRealtimeFish,
+  pickFish,
   prepareDangerousFishingCatchFromLockedSaves,
   publicState,
   settleDangerousFishingCatchRewardsInTx,
@@ -366,9 +367,10 @@ export async function startRealtimeEncounterInTx(
   if (!consumed.ok) return fail(consumed.error, 409);
   state = consumed.state;
   if (!state.voyage) return fail("no_voyage", 409);
-  const fish = pickRealtimeFish(
+  const fish = pickFish(
     state.voyage.zoneId,
     state.voyage.depthId,
+    args.baitId,
     args.random(),
   );
   const modifierSource = {
@@ -394,6 +396,7 @@ export async function startRealtimeEncounterInTx(
     modifiers: realtimeModifiers,
   };
   const config = { ...configBase, maxTicks: dangerousRealtimeMaxTicks(configBase) };
+  const startedAt = args.now + DANGEROUS_REALTIME_START_DELAY_MS;
   const encounter: DangerousRealtimeEncounter = {
     simulationVersion: 2,
     balanceRevision: DANGEROUS_REALTIME_BALANCE_REVISION,
@@ -405,8 +408,8 @@ export async function startRealtimeEncounterInTx(
     checkpoint: createDangerousRealtimeState(config),
     approvedTick: 0,
     revision: 0,
-    startedAt: args.now,
-    expiresAt: args.now + config.maxTicks * DANGEROUS_REALTIME_TICK_MS,
+    startedAt,
+    expiresAt: startedAt + config.maxTicks * DANGEROUS_REALTIME_TICK_MS,
   };
   const nextState: DangerousFishingState = {
     ...state,

@@ -785,7 +785,7 @@ describe("위험 해역 50ms 결정론 시뮬레이션", () => {
     });
   });
 
-  it("floor 180의 0/0·장력 996 확보 상태는 다음 reel에서 line_broken 대신 caught가 된다", () => {
+  it("floor의 고장력 확보 상태는 revision 4에서 끊어지고 revision 3 재생은 기존 포획을 보존한다", () => {
     const config = fixtureRealtimeConfig({ seed: 7, rarity: "common" });
     const pending = activeBehaviorState("turn", config, {
       tick: 179,
@@ -796,6 +796,24 @@ describe("위험 해역 50ms 결정론 시뮬레이션", () => {
 
     expect(advanceDangerousRealtimeTick(pending, config, "reel")).toMatchObject({
       tick: 180,
+      status: "line_broken",
+      tension: 1_004,
+      stamina: 0,
+      distance: 0,
+    });
+    expect(
+      advanceDangerousRealtimeTick(pending, config, "release"),
+    ).toMatchObject({
+      tick: 180,
+      status: "active",
+      tension: 980,
+      stamina: 0,
+      distance: 0,
+    });
+    expect(
+      advanceDangerousRealtimeTick(pending, config, "reel", 3),
+    ).toMatchObject({
+      tick: 180,
       status: "caught",
       tension: 996,
       stamina: 0,
@@ -803,7 +821,7 @@ describe("위험 해역 50ms 결정론 시뮬레이션", () => {
     });
   });
 
-  it("floor 전 확보한 0/0 상태는 reel과 release의 진행 및 위험 판정을 동결한다", () => {
+  it("revision 3의 확보 동결을 보존하고 revision 4는 floor 전에도 장력 실패를 판정한다", () => {
     const config = fixtureRealtimeConfig({ seed: 7, rarity: "common" });
     const pending = activeBehaviorState("turn", config, {
       tick: 177,
@@ -814,7 +832,7 @@ describe("위험 해역 50ms 결정론 시뮬레이션", () => {
     });
 
     for (const mode of ["reel", "release"] as const) {
-      expect(advanceDangerousRealtimeTick(pending, config, mode)).toMatchObject({
+      expect(advanceDangerousRealtimeTick(pending, config, mode, 3)).toMatchObject({
         tick: 178,
         mode,
         status: "active",
@@ -823,10 +841,18 @@ describe("위험 해역 50ms 결정론 시뮬레이션", () => {
         distance: 0,
         lowTensionTicks: DANGEROUS_REALTIME_LOW_TENSION_GRACE_TICKS - 1,
       });
+      expect(advanceDangerousRealtimeTick(pending, config, mode)).toMatchObject({
+        tick: 178,
+        mode,
+        status: "hook_lost",
+        stamina: 0,
+        distance: 0,
+        lowTensionTicks: DANGEROUS_REALTIME_LOW_TENSION_GRACE_TICKS,
+      });
     }
   });
 
-  it("확보 대기 상태는 split replay와 legacy 즉시 catch 의미를 보존한다", () => {
+  it("revision 4 확보 대기는 split replay를 보존하고 legacy는 즉시 포획한다", () => {
     const config = fixtureRealtimeConfig({ seed: 7, rarity: "common" });
     const pending = activeBehaviorState("turn", config, {
       tick: 177,
@@ -864,10 +890,10 @@ describe("위험 해역 50ms 결정론 시뮬레이션", () => {
       tick: 180,
       mode: "release",
       status: "caught",
-      tension: 500,
       stamina: 0,
       distance: 0,
     });
+    expect(complete.tension).toBeLessThan(500);
     expect(
       replayDangerousRealtimeInputs(config, [], 178, pending, 1),
     ).toMatchObject({
@@ -955,6 +981,43 @@ describe("위험 해역 50ms 결정론 시뮬레이션", () => {
       }
     }
     expect([...reachedRisks].sort()).toEqual([0, 1, 2, 3, 4, 5]);
+  }, 30_000);
+
+  it("위험도 1 이상은 최대 보정에서도 계속 당기기만 해서는 포획되지 않는다", () => {
+    const modifiers = dangerousRealtimeModifiers({
+      fishingLevel: 100,
+      baitId: "abyss_bait",
+      reelPowerBonus: 7,
+      staminaDamageBonus: 12,
+      tensionControlBonus: 5,
+      slackTolerance: 1,
+      telegraphSteps: 1,
+      rodEnhancementLevel: 3,
+      reelEnhancementLevel: 3,
+      lineEnhancementLevel: 3,
+    });
+
+    for (const item of productionCases()) {
+      for (let seed = 0; seed < 128; seed += 1) {
+        const config = productionConfig(
+          item.target,
+          seed,
+          modifiers,
+          31,
+        );
+        if (config.risk === 0) continue;
+
+        let state = createDangerousRealtimeState(config);
+        while (state.status === "active") {
+          state = advanceDangerousRealtimeTick(state, config, "reel");
+        }
+
+        expect(
+          state.status,
+          `${item.id}/risk${config.risk}/seed${seed}`,
+        ).toBe("line_broken");
+      }
+    }
   }, 10_000);
 
   it("공허지느러미 실러캔스의 부분 장비 반례도 기본 시간의 65% 이상을 유지한다", () => {
@@ -1207,8 +1270,8 @@ describe("위험 해역 50ms 결정론 시뮬레이션", () => {
             expect(outcome.tick, `${failure}/baseline-65pct`).toBeGreaterThanOrEqual(
               Math.ceil((baseline.tick * 650) / 1_000),
             );
-            expect(outcome.tick, `${failure}/baseline-100pct`).toBeLessThanOrEqual(
-              baseline.tick,
+            expect(outcome.tick, `${failure}/baseline-plus-telegraph`).toBeLessThanOrEqual(
+              baseline.tick + DANGEROUS_REALTIME_TELEGRAPH_TICKS,
             );
             expect(reachable.modifiers.timeReductionPct, failure).toBeLessThanOrEqual(35);
             if (trace.securedTick !== null) {
@@ -1225,9 +1288,9 @@ describe("위험 해역 50ms 결정론 시뮬레이션", () => {
     expect([...reachedRisks].sort()).toEqual([0, 1, 2, 3, 4, 5]);
     expect(rawProjectionCount).toBe(640);
     expect(simulationProjections.size).toBe(640);
-    expect(actualReplayCount).toBe(40_960);
+    expect(actualReplayCount).toBe(79_360);
     expect(securedReplayCount).toBeGreaterThan(0);
-  }, 240_000);
+  }, 480_000);
 
   it("모든 시간 단축 기여는 관측 예산의 단일 보수 스케일을 사용한다", () => {
     const baseline = createDangerousRealtimeState(fixtureRealtimeConfig());

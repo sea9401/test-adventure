@@ -66,8 +66,27 @@ type CharacterSave = {
   [key: string]: unknown;
 };
 
+type InventorySave = Record<string, unknown> & {
+  failedCookingDishes?: unknown;
+};
+
 function materialBalances(raw: unknown): Record<string, number> {
   return mergeDrops(raw, {});
+}
+
+function failedDishCount(raw: unknown): number {
+  return Math.min(999_999, Math.max(0, Math.floor(Number(raw) || 0)));
+}
+
+function maxCraftableByCosts(
+  balances: Record<string, number>,
+  costs: Record<string, number>,
+): number {
+  const entries = Object.entries(costs).filter(([, amount]) => amount > 0);
+  if (entries.length === 0) return Number.MAX_SAFE_INTEGER;
+  return Math.min(
+    ...entries.map(([id, amount]) => Math.floor((balances[id] ?? 0) / amount)),
+  );
 }
 
 function lifeLevels(woodcuttingRaw: unknown, miningRaw: unknown) {
@@ -89,11 +108,15 @@ function workshopPayload(args: {
   miningRaw: unknown;
   farmRaw?: unknown;
   skillsRaw?: unknown;
+  inventoryRaw?: unknown;
 }) {
   const levels = lifeLevels(args.woodcuttingRaw, args.miningRaw);
   const materials = materialBalances(args.charSave.materials);
   const farm = parseFarmState(args.farmRaw ?? emptyFarmState());
   const skills = parseV2SkillsState(args.skillsRaw ?? emptyV2SkillsState());
+  const failedCookingDishes = failedDishCount(
+    (args.inventoryRaw as InventorySave | null | undefined)?.failedCookingDishes,
+  );
   const ranchCraftCount =
     args.state.crafting.craftCounts[RANCH_FEED_RECIPE.id] ?? 0;
   const ranchMasteryStage = recipeMasteryStage(ranchCraftCount);
@@ -107,6 +130,7 @@ function workshopPayload(args: {
     state: args.state,
     levels,
     materials,
+    failedCookingDishes,
     gold: Math.max(0, Math.floor(Number(args.charSave.gold) || 0)),
     bankedGold: Math.max(0, Math.floor(Number(args.charSave.bankedGold) || 0)),
     recipes: [...LIFE_PROCESSING_RECIPE_BY_ID.values()].map((recipe) => ({
@@ -139,8 +163,11 @@ function workshopPayload(args: {
       const craftCount = args.state.crafting.craftCounts[recipe.id] ?? 0;
       const stage = recipeMasteryStage(craftCount);
       const batchLimit = [1, 5, 15, 40, 100, 100][stage];
-      const maxByMaterials = Math.min(...Object.entries(recipe.costs).map(([id, amount]) => Math.floor((materials[id] ?? 0) / amount)));
-      return { ...recipe, learned, craftCount, masteryStage: stage, batchLimit, maxCraftable: learned && level >= recipe.requiredLevel ? Math.max(0, Math.min(batchLimit, maxByMaterials)) : 0 };
+      const maxByMaterials = maxCraftableByCosts(materials, recipe.costs);
+      const maxByFailedDishes = recipe.failedDishCost
+        ? Math.floor(failedCookingDishes / recipe.failedDishCost)
+        : Number.MAX_SAFE_INTEGER;
+      return { ...recipe, learned, craftCount, masteryStage: stage, batchLimit, maxCraftable: learned && level >= recipe.requiredLevel ? Math.max(0, Math.min(batchLimit, maxByMaterials, maxByFailedDishes)) : 0 };
     }),
     ranchCraftingRecipe: {
       ...RANCH_FEED_RECIPE,
@@ -163,13 +190,14 @@ function workshopPayload(args: {
 }
 
 async function readWorkshopSnapshot(userId: string) {
-  const [charSave, workshopRaw, woodcuttingRaw, miningRaw, farmRaw, skillsRaw] = await Promise.all([
+  const [charSave, workshopRaw, woodcuttingRaw, miningRaw, farmRaw, skillsRaw, inventoryRaw] = await Promise.all([
     readSave<CharacterSave>(db, userId, "character.v2", {}),
     readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
     readSave(db, userId, WOODCUTTING_LOG_KEY, {}),
     readSave(db, userId, MINING_LOG_KEY, {}),
     readSave(db, userId, FARM_SAVE_KEY, emptyFarmState()),
     readSave(db, userId, "skills.v2", emptyV2SkillsState()),
+    readSave(db, userId, "inventory.v2", {}),
   ]);
   return {
     charSave,
@@ -178,6 +206,7 @@ async function readWorkshopSnapshot(userId: string) {
     miningRaw,
     farmRaw,
     skillsRaw,
+    inventoryRaw,
   };
 }
 
@@ -269,6 +298,24 @@ export async function POST(req: Request) {
       const costs = Object.fromEntries(Object.entries(recipe.costs).map(([id, amount]) => [id, amount * quantity]));
       const nextMaterials = consumeMaterials(materials, costs);
       if (!nextMaterials) return { error: "not_enough_materials" as const };
+      let nextInventory: InventorySave | null = null;
+      if (recipe.failedDishCost) {
+        const inventory = await lockSaveForUpdate<InventorySave>(
+          tx,
+          userId,
+          "inventory.v2",
+          {},
+        );
+        const held = failedDishCount(inventory.failedCookingDishes);
+        const required = recipe.failedDishCost * quantity;
+        if (held < required) {
+          return { error: "not_enough_failed_dishes" as const };
+        }
+        nextInventory = {
+          ...inventory,
+          failedCookingDishes: held - required,
+        };
+      }
       const produced = recipe.outputAmount * quantity;
       const discovered = new Set(state.crafting.discoveredRecipeIds);
       discovered.add(recipe.id);
@@ -282,6 +329,9 @@ export async function POST(req: Request) {
       };
       const nextState: LifeWorkshopState = { ...state, crafting: nextCrafting };
       const nextCharSave = { ...charSave, materials: nextMaterials };
+      if (nextInventory) {
+        await upsertSave(tx, userId, "inventory.v2", nextInventory);
+      }
       await upsertSave(tx, userId, "character.v2", nextCharSave);
       await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, nextState);
       const grantedTitles: string[] = [];
@@ -445,19 +495,20 @@ export async function POST(req: Request) {
   });
 
   if (!("ok" in result) || !result.ok) {
-    const status = result.error === "not_enough_gold" || result.error === "not_enough_materials"
+    const status = result.error === "not_enough_gold" || result.error === "not_enough_materials" || result.error === "not_enough_failed_dishes"
       ? 409
       : 400;
     return Response.json({ ok: false, ...result }, { status });
   }
   if ("blueprintRecipeId" in result.result && result.result.blueprintRecipeId) await insertFeedEntry(userId, "life_blueprint", { recipeId: result.result.blueprintRecipeId });
-  const [farmRaw, skillsRaw] = await Promise.all([
+  const [farmRaw, skillsRaw, inventoryRaw] = await Promise.all([
     readSave(db, userId, FARM_SAVE_KEY, emptyFarmState()),
     readSave(db, userId, "skills.v2", emptyV2SkillsState()),
+    readSave(db, userId, "inventory.v2", {}),
   ]);
   return Response.json({
     ok: true,
     result: result.result,
-    ...workshopPayload({ ...result.snapshot, farmRaw, skillsRaw }),
+    ...workshopPayload({ ...result.snapshot, farmRaw, skillsRaw, inventoryRaw }),
   });
 }

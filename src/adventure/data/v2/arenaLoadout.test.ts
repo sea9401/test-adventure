@@ -66,6 +66,30 @@ describe("active arena loadout", () => {
 });
 
 describe("arenaPatternActionSummary — 실제 패턴 행동만 표시", () => {
+  it("일반 공격 패턴을 아레나 요약에서도 보존한다", () => {
+    const [loadout] = parseArenaLoadouts([
+      {
+        ...mk("basic-attack-summary"),
+        pattern: {
+          blocks: [
+            {
+              condition: { kind: "always" },
+              action: { kind: "basic_attack" },
+            },
+          ],
+        },
+      },
+    ]);
+
+    expect(arenaPatternActionSummary(loadout!)).toEqual([
+      {
+        key: "0:basic_attack:basic_attack",
+        name: "일반 공격",
+        condition: "항상",
+      },
+    ]);
+  });
+
   it("장착 액티브 목록 대신 스킬·역할 패턴을 우선순위대로 요약한다", () => {
     const pattern = {
       blocks: [

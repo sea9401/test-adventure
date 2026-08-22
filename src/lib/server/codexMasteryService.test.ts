@@ -486,6 +486,94 @@ describe("recordCodexMastery", () => {
     expect(store.saveCalls).toBe(1);
   });
 
+  it("continues recording a published cooking row after the recipe catalog expands", async () => {
+    // Break caught: changing a surviving recipe's threshold profile or score weight
+    // makes every later cooking completion roll back as inconsistent progress.
+    const summary = Object.assign(emptyCodexMasterySummary(), {
+      totalScoreMilli: 20_202,
+      categoryScoreMilli: {
+        ...emptyCodexMasterySummary().categoryScoreMilli,
+        cooking: 20_202,
+      },
+      stageCounts: {
+        ...emptyCodexMasterySummary().stageCounts,
+        bronze: 1,
+      },
+      scoredCategoryCount: 1,
+    });
+    const progress: CodexMasteryProgress = {
+      ...emptyCodexMasteryProgress("cooking", "egg_salad_sandwich"),
+      count: 1,
+      currentTier: "bronze",
+      scoreMilli: 20_202,
+      tierAchievedAt: {
+        discovered: "2026-08-21T00:00:00.000Z",
+        bronze: "2026-08-21T00:00:00.000Z",
+      },
+    };
+    const store = memoryCodexMasteryStore({ summary, progress });
+    const recorder = createCodexMasteryRecorder(store, CODEX_MASTERY_CATALOG);
+
+    await expect(recorder.record({
+      userId: "user-1",
+      category: "cooking",
+      entryId: "egg_salad_sandwich",
+      mutation: { amount: 1, discovered: true },
+      source: "cooking.complete",
+    }, ENABLED, new Date("2026-08-23T00:00:00.000Z"))).resolves.toMatchObject({
+      recorded: true,
+      progress: { count: 2, currentTier: "bronze", scoreMilli: 20_202 },
+      scoreDeltaMilli: 0,
+    });
+    expect(store.summary).toMatchObject({
+      totalScoreMilli: 20_202,
+      categoryScoreMilli: { cooking: 20_202 },
+    });
+  });
+
+  it("normalizes cooking scores written during the expanded-catalog compatibility window", async () => {
+    const summary = Object.assign(emptyCodexMasterySummary(), {
+      totalScoreMilli: 9_090,
+      categoryScoreMilli: {
+        ...emptyCodexMasterySummary().categoryScoreMilli,
+        cooking: 9_090,
+      },
+      stageCounts: {
+        ...emptyCodexMasterySummary().stageCounts,
+        bronze: 1,
+      },
+      scoredCategoryCount: 1,
+    });
+    const progress: CodexMasteryProgress = {
+      ...emptyCodexMasteryProgress("cooking", "egg_salad_sandwich"),
+      count: 1,
+      currentTier: "bronze",
+      scoreMilli: 9_090,
+      tierAchievedAt: {
+        discovered: "2026-08-23T00:00:00.000Z",
+        bronze: "2026-08-23T00:00:00.000Z",
+      },
+    };
+    const store = memoryCodexMasteryStore({ summary, progress });
+    const recorder = createCodexMasteryRecorder(store, CODEX_MASTERY_CATALOG);
+
+    await expect(recorder.record({
+      userId: "user-1",
+      category: "cooking",
+      entryId: "egg_salad_sandwich",
+      mutation: { amount: 1, discovered: true },
+      source: "cooking.complete",
+    }, ENABLED, new Date("2026-08-23T00:10:00.000Z"))).resolves.toMatchObject({
+      recorded: true,
+      progress: { count: 2, currentTier: "bronze", scoreMilli: 20_202 },
+      scoreDeltaMilli: 0,
+    });
+    expect(store.summary).toMatchObject({
+      totalScoreMilli: 20_202,
+      categoryScoreMilli: { cooking: 20_202 },
+    });
+  });
+
   it.each([
     {
       label: "unknown stored seal",

@@ -5,14 +5,23 @@ export type DangerousZoneId =
 export type DangerousDepthId = "surface" | "midwater" | "deep";
 export type DangerousFishId =
   | "razor_sardine"
+  | "glassscale_herring"
   | "ironjaw_tuna"
+  | "coralhorn_snapper"
   | "reef_maw_grouper"
+  | "trenchshell_sturgeon"
   | "storm_mackerel"
+  | "gale_needlefish"
   | "thunder_ray"
+  | "stormbell_sunfish"
   | "tempest_swordfish"
+  | "cyclone_marlin"
   | "lantern_eel"
+  | "ghostlight_jellyfish"
   | "voidfin_coelacanth"
-  | "abyssal_crownfish";
+  | "nightglass_shark"
+  | "abyssal_crownfish"
+  | "starless_leviathan";
 export type DangerousGearKind = "rod" | "reel" | "line";
 export type DangerousRodId = "starter_rod" | "breaker_rod" | "leviathan_rod";
 export type DangerousReelId =
@@ -109,6 +118,7 @@ export type DangerousBait = {
   packSize: number;
   unlimited: boolean;
   targetBehaviors: readonly DangerousFishBehavior[];
+  targetRarities: readonly DangerousFishRarity[];
   rarityBonus: number;
   realtimeEffect: DangerousRealtimeBaitEffect;
 };
@@ -212,6 +222,25 @@ export const DANGEROUS_FISH: Record<DangerousFishId, DangerousFish> = {
     fishingCoinReward: 4,
     spawnWeight: 42,
   },
+  glassscale_herring: {
+    id: "glassscale_herring",
+    imageSrc: "/images/fish/glassscale_herring.webp",
+    name: "유리비늘 청어",
+    description: "투명한 비늘로 암초의 빛을 흩뜨리며 무리를 지어 선회한다.",
+    zoneId: "shattered_reef",
+    depthId: "surface",
+    rarity: "common",
+    behaviorPattern: ["turn", "dive", "charge", "turn"],
+    stamina: 46,
+    distance: 45,
+    baseTension: 37,
+    minSizeCm: 40,
+    maxSizeCm: 70,
+    cargoValue: 95,
+    fishingXp: 20,
+    fishingCoinReward: 5,
+    spawnWeight: 38,
+  },
   ironjaw_tuna: {
     id: "ironjaw_tuna",
     imageSrc: "/images/fish/ironjaw_tuna.webp",
@@ -230,6 +259,25 @@ export const DANGEROUS_FISH: Record<DangerousFishId, DangerousFish> = {
     fishingXp: 34,
     fishingCoinReward: 8,
     spawnWeight: 30,
+  },
+  coralhorn_snapper: {
+    id: "coralhorn_snapper",
+    imageSrc: "/images/fish/coralhorn_snapper.webp",
+    name: "산호뿔 도미",
+    description: "이마의 산호뿔로 물살을 가르며 암초 사이를 거칠게 꺾어 돈다.",
+    zoneId: "shattered_reef",
+    depthId: "midwater",
+    rarity: "rare",
+    behaviorPattern: ["thrash", "turn", "dive", "charge"],
+    stamina: 70,
+    distance: 61,
+    baseTension: 43,
+    minSizeCm: 105,
+    maxSizeCm: 180,
+    cargoValue: 240,
+    fishingXp: 37,
+    fishingCoinReward: 9,
+    spawnWeight: 26,
   },
   reef_maw_grouper: {
     id: "reef_maw_grouper",
@@ -250,6 +298,25 @@ export const DANGEROUS_FISH: Record<DangerousFishId, DangerousFish> = {
     fishingCoinReward: 14,
     spawnWeight: 14,
   },
+  trenchshell_sturgeon: {
+    id: "trenchshell_sturgeon",
+    imageSrc: "/images/fish/trenchshell_sturgeon.webp",
+    name: "해구갑 철갑상어",
+    description: "해구의 광물을 두른 등껍질로 줄을 짓누르며 바닥으로 파고든다.",
+    zoneId: "shattered_reef",
+    depthId: "deep",
+    rarity: "epic",
+    behaviorPattern: ["dive", "thrash", "turn", "thrash", "charge"],
+    stamina: 98,
+    distance: 78,
+    baseTension: 50,
+    minSizeCm: 190,
+    maxSizeCm: 315,
+    cargoValue: 480,
+    fishingXp: 62,
+    fishingCoinReward: 16,
+    spawnWeight: 12,
+  },
   storm_mackerel: {
     id: "storm_mackerel",
     imageSrc: "/images/fish/storm_mackerel.webp",
@@ -268,6 +335,25 @@ export const DANGEROUS_FISH: Record<DangerousFishId, DangerousFish> = {
     fishingXp: 28,
     fishingCoinReward: 6,
     spawnWeight: 38,
+  },
+  gale_needlefish: {
+    id: "gale_needlefish",
+    imageSrc: "/images/fish/gale_needlefish.webp",
+    name: "질풍 침치",
+    description: "바늘처럼 가는 몸으로 파도 위를 꿰뚫으며 순간적으로 돌진한다.",
+    zoneId: "storm_trench",
+    depthId: "surface",
+    rarity: "common",
+    behaviorPattern: ["charge", "turn", "charge", "dive"],
+    stamina: 62,
+    distance: 56,
+    baseTension: 41,
+    minSizeCm: 62,
+    maxSizeCm: 105,
+    cargoValue: 175,
+    fishingXp: 30,
+    fishingCoinReward: 7,
+    spawnWeight: 34,
   },
   thunder_ray: {
     id: "thunder_ray",
@@ -288,6 +374,25 @@ export const DANGEROUS_FISH: Record<DangerousFishId, DangerousFish> = {
     fishingCoinReward: 11,
     spawnWeight: 27,
   },
+  stormbell_sunfish: {
+    id: "stormbell_sunfish",
+    imageSrc: "/images/fish/stormbell_sunfish.webp",
+    name: "폭뢰 개복치",
+    description: "종처럼 둥근 몸 안에 번개를 머금고 몸부림칠 때마다 충격을 퍼뜨린다.",
+    zoneId: "storm_trench",
+    depthId: "midwater",
+    rarity: "rare",
+    behaviorPattern: ["thrash", "turn", "thrash", "charge"],
+    stamina: 90,
+    distance: 71,
+    baseTension: 49,
+    minSizeCm: 165,
+    maxSizeCm: 270,
+    cargoValue: 365,
+    fishingXp: 50,
+    fishingCoinReward: 12,
+    spawnWeight: 24,
+  },
   tempest_swordfish: {
     id: "tempest_swordfish",
     imageSrc: "/images/fish/tempest_swordfish.webp",
@@ -306,6 +411,25 @@ export const DANGEROUS_FISH: Record<DangerousFishId, DangerousFish> = {
     fishingXp: 76,
     fishingCoinReward: 20,
     spawnWeight: 12,
+  },
+  cyclone_marlin: {
+    id: "cyclone_marlin",
+    imageSrc: "/images/fish/cyclone_marlin.webp",
+    name: "회오리 청새치",
+    description: "나선형으로 비틀린 창끝 주둥이로 해구의 소용돌이를 끌고 다닌다.",
+    zoneId: "storm_trench",
+    depthId: "deep",
+    rarity: "epic",
+    behaviorPattern: ["charge", "dive", "charge", "thrash", "turn"],
+    stamina: 124,
+    distance: 98,
+    baseTension: 56,
+    minSizeCm: 250,
+    maxSizeCm: 420,
+    cargoValue: 740,
+    fishingXp: 82,
+    fishingCoinReward: 22,
+    spawnWeight: 10,
   },
   lantern_eel: {
     id: "lantern_eel",
@@ -326,6 +450,25 @@ export const DANGEROUS_FISH: Record<DangerousFishId, DangerousFish> = {
     fishingCoinReward: 13,
     spawnWeight: 32,
   },
+  ghostlight_jellyfish: {
+    id: "ghostlight_jellyfish",
+    imageSrc: "/images/fish/ghostlight_jellyfish.webp",
+    name: "유령빛 해파리",
+    description: "창백한 촉수에 심연의 빛을 모아 물살과 함께 모습을 감춘다.",
+    zoneId: "abyssal_rift",
+    depthId: "surface",
+    rarity: "rare",
+    behaviorPattern: ["turn", "dive", "thrash", "dive"],
+    stamina: 88,
+    distance: 76,
+    baseTension: 48,
+    minSizeCm: 135,
+    maxSizeCm: 230,
+    cargoValue: 430,
+    fishingXp: 56,
+    fishingCoinReward: 15,
+    spawnWeight: 28,
+  },
   voidfin_coelacanth: {
     id: "voidfin_coelacanth",
     imageSrc: "/images/fish/voidfin_coelacanth.webp",
@@ -345,6 +488,25 @@ export const DANGEROUS_FISH: Record<DangerousFishId, DangerousFish> = {
     fishingCoinReward: 23,
     spawnWeight: 18,
   },
+  nightglass_shark: {
+    id: "nightglass_shark",
+    imageSrc: "/images/fish/nightglass_shark.webp",
+    name: "밤유리 상어",
+    description: "검푸른 유리 같은 피부로 빛을 삼키며 중층을 조용히 가른다.",
+    zoneId: "abyssal_rift",
+    depthId: "midwater",
+    rarity: "epic",
+    behaviorPattern: ["charge", "turn", "dive", "thrash", "charge"],
+    stamina: 134,
+    distance: 102,
+    baseTension: 58,
+    minSizeCm: 280,
+    maxSizeCm: 460,
+    cargoValue: 860,
+    fishingXp: 94,
+    fishingCoinReward: 26,
+    spawnWeight: 16,
+  },
   abyssal_crownfish: {
     id: "abyssal_crownfish",
     imageSrc: "/images/fish/abyssal_crownfish.webp",
@@ -363,6 +525,25 @@ export const DANGEROUS_FISH: Record<DangerousFishId, DangerousFish> = {
     fishingXp: 130,
     fishingCoinReward: 36,
     spawnWeight: 7,
+  },
+  starless_leviathan: {
+    id: "starless_leviathan",
+    imageSrc: "/images/fish/starless_leviathan.webp",
+    name: "무광 리바이어던",
+    description: "빛 한 점 반사하지 않는 거체로 균열의 바닥을 뒤흔드는 고대어.",
+    zoneId: "abyssal_rift",
+    depthId: "deep",
+    rarity: "legendary",
+    behaviorPattern: ["dive", "thrash", "charge", "turn", "dive", "charge"],
+    stamina: 180,
+    distance: 132,
+    baseTension: 65,
+    minSizeCm: 380,
+    maxSizeCm: 680,
+    cargoValue: 1_500,
+    fishingXp: 145,
+    fishingCoinReward: 40,
+    spawnWeight: 6,
   },
 };
 
@@ -466,6 +647,7 @@ export const DANGEROUS_BAITS: Record<DangerousBaitId, DangerousBait> = {
     packSize: 0,
     unlimited: true,
     targetBehaviors: [],
+    targetRarities: [],
     rarityBonus: 0,
     realtimeEffect: {
       turnDistanceRecoveryReductionPct: 0,
@@ -487,7 +669,8 @@ export const DANGEROUS_BAITS: Record<DangerousBaitId, DangerousBait> = {
     packSize: 5,
     unlimited: false,
     targetBehaviors: ["turn"],
-    rarityBonus: 0.02,
+    targetRarities: ["common", "rare"],
+    rarityBonus: 0.25,
     realtimeEffect: {
       turnDistanceRecoveryReductionPct: 20,
       turnTensionImpactReductionPct: 20,
@@ -508,7 +691,8 @@ export const DANGEROUS_BAITS: Record<DangerousBaitId, DangerousBait> = {
     packSize: 5,
     unlimited: false,
     targetBehaviors: ["charge", "thrash"],
-    rarityBonus: 0.04,
+    targetRarities: ["rare", "epic"],
+    rarityBonus: 0.4,
     realtimeEffect: {
       turnDistanceRecoveryReductionPct: 0,
       turnTensionImpactReductionPct: 0,
@@ -529,7 +713,8 @@ export const DANGEROUS_BAITS: Record<DangerousBaitId, DangerousBait> = {
     packSize: 5,
     unlimited: false,
     targetBehaviors: ["dive"],
-    rarityBonus: 0.06,
+    targetRarities: ["epic", "legendary"],
+    rarityBonus: 0.65,
     realtimeEffect: {
       turnDistanceRecoveryReductionPct: 0,
       turnTensionImpactReductionPct: 0,
@@ -550,7 +735,8 @@ export const DANGEROUS_BAITS: Record<DangerousBaitId, DangerousBait> = {
     packSize: 5,
     unlimited: false,
     targetBehaviors: ["charge", "thrash", "turn", "dive"],
-    rarityBonus: 0.1,
+    targetRarities: ["legendary"],
+    rarityBonus: 1,
     realtimeEffect: {
       turnDistanceRecoveryReductionPct: 0,
       turnTensionImpactReductionPct: 0,

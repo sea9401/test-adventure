@@ -2,15 +2,20 @@
 
 import Image from "next/image";
 import { Star } from "@phosphor-icons/react";
+import { Pagination } from "@/components/ui/Pagination";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { usePagination } from "@/lib/usePagination";
 import { cookingEffectText } from "./food";
 import { COOKING_FIELD_NAMES, COOKING_METHOD_NAMES } from "./types";
 import type { CookingMutation, CookingResponse } from "./clientTypes";
 import { cookingIngredientCount, cookingIngredientName } from "./clientDisplay";
 
+const COOKING_CODEX_PAGE_SIZE = 12;
+
 export function CookingCodexPanel({ data, busy, mutate }: { data: CookingResponse; busy: boolean; mutate: CookingMutation }) {
   const known = new Map(data.knownRecipes.map((entry) => [entry.id, entry]));
   const first = new Map(data.firstDiscoveries.map((entry) => [entry.recipeId, entry]));
+  const pager = usePagination(data.recipes, COOKING_CODEX_PAGE_SIZE);
   return (
     <section className={`${SURFACE_CARD} p-4`}>
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -21,7 +26,7 @@ export function CookingCodexPanel({ data, busy, mutate }: { data: CookingRespons
         <div className="text-xs text-zinc-500">전승 토큰 {data.cooking.legacy.tokens}개</div>
       </div>
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
-        {data.recipes.map((recipe) => {
+        {pager.pageItems.map((recipe) => {
           const detail = known.get(recipe.id);
           const discovery = first.get(recipe.id);
           const favorite = data.cooking.favoriteRecipeIds.includes(recipe.id);
@@ -42,6 +47,7 @@ export function CookingCodexPanel({ data, busy, mutate }: { data: CookingRespons
                       : "분야 · 조리법 · 등급 미확인"}
                   </div>
                   {detail ? <div className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">{cookingEffectText(recipe.effect)}</div> : <div className="mt-1 text-xs text-zinc-500">직접 연구해 조합을 밝혀내세요.</div>}
+                  {detail ? <div className="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">기본 조리 XP +{detail.craftXp.toLocaleString("ko-KR")}</div> : null}
                 </div>
               </div>
               {detail ? (
@@ -59,6 +65,11 @@ export function CookingCodexPanel({ data, busy, mutate }: { data: CookingRespons
           );
         })}
       </div>
+      <Pagination
+        page={pager.page}
+        pageCount={pager.pageCount}
+        setPage={pager.setPage}
+      />
     </section>
   );
 }

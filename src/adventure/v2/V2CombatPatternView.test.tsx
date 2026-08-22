@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
+  ACTION_KIND_OPTIONS,
   PatternChoiceButtons,
   PatternChoicePicker,
   ConditionParams,
@@ -18,6 +19,20 @@ const OPTIONS = [
 ] as const;
 
 describe("combat pattern choice controls", () => {
+  it("행동 방식에서 일반 공격을 직접 선택할 수 있다", () => {
+    const html = renderToStaticMarkup(
+      <PatternChoiceButtons
+        value="basic_attack"
+        options={ACTION_KIND_OPTIONS}
+        label="행동 방식"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("일반 공격");
+    expect(html).toContain('aria-checked="true"');
+  });
+
   it("발동 실패의 다음 순위 검사와 중복 스킬의 공유 판정을 안내한다", () => {
     const html = renderToStaticMarkup(<V2CombatPatternView onBack={vi.fn()} />);
 

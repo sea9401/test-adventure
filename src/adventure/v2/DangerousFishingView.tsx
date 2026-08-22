@@ -44,6 +44,7 @@ export function dangerousFishingErrorMessage(error: string): string {
     stale: "다른 요청에서 조우가 먼저 진행되었습니다. 최신 상태를 불러왔습니다.",
     too_fast: "낚싯줄이 반응할 때까지 잠깐 기다려 주세요.",
     encounter_active: "진행 중인 조우를 먼저 마쳐 주세요.",
+    voyage_active: "진행 중인 항해를 마치고 귀환한 뒤 거대어 개인 시도를 시작하세요.",
     insufficient_coins: "낚시 코인이 부족합니다.",
   };
   return messages[error] ?? "요청을 처리하지 못했습니다. 상태를 확인하고 다시 시도해 주세요.";
@@ -273,6 +274,11 @@ export function DangerousFishingView({
           model={boss}
           busy={interactionBlocked}
           feedback={activeFeedback}
+          startBlockedReason={
+            model.state.voyage
+              ? "진행 중인 항해를 마치고 귀환한 뒤 개인 시도를 시작할 수 있습니다."
+              : null
+          }
           onStart={onStartBossAttempt}
           onAction={onBossAction}
           onClaim={onClaimBossReward}

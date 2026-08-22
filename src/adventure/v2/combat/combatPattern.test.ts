@@ -363,6 +363,26 @@ describe("evaluateCombatPattern", () => {
     };
     expect(evaluateCombatPattern(noFallback, ctx(), all)).toBeNull();
   });
+
+  it("명시한 일반 공격은 조건이 맞으면 아래 스킬 후보를 중단한다", () => {
+    const explicitBasicAttack = parseCombatPattern({
+      blocks: [
+        {
+          condition: { kind: "always" },
+          action: { kind: "basic_attack" },
+        },
+        {
+          condition: { kind: "always" },
+          action: { kind: "skill", skillId: "strike" },
+        },
+      ],
+    });
+
+    expect(explicitBasicAttack.blocks[0]?.action).toEqual({
+      kind: "basic_attack",
+    });
+    expect(evaluateCombatPattern(explicitBasicAttack, ctx(), all)).toBeNull();
+  });
 });
 
 describe("parseCombatPattern (저장 검증)", () => {

@@ -742,6 +742,40 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     expect(r.castSkillId).toBe(fallback);
   });
 
+  it("일반 공격 블록이 조건을 만족하면 아래 스킬 후보를 검사하지 않는다", () => {
+    const pattern: V2CombatPattern = {
+      blocks: [
+        { condition: { kind: "always" }, action: { kind: "basic_attack" } },
+        { condition: { kind: "always" }, action: { kind: "skill", skillId: SKILL } },
+      ],
+    };
+
+    expect(
+      resolveV2SkillCast(castInput([SKILL], { combatPattern: pattern })).castSkillId,
+    ).toBeNull();
+  });
+
+  it("스킬 발동 판정 실패 뒤 일반 공격 블록을 만나면 더 낮은 스킬로 넘어가지 않는다", () => {
+    const fallback = "v2c_warrior_warcry";
+    const pattern: V2CombatPattern = {
+      blocks: [
+        { condition: { kind: "always" }, action: { kind: "skill", skillId: SKILL } },
+        { condition: { kind: "always" }, action: { kind: "basic_attack" } },
+        { condition: { kind: "always" }, action: { kind: "skill", skillId: fallback } },
+      ],
+    };
+
+    expect(
+      resolveV2SkillCast(
+        castInput([SKILL, fallback], {
+          procRoll: 99,
+          combatPattern: pattern,
+          applyProcInPattern: true,
+        }),
+      ).castSkillId,
+    ).toBeNull();
+  });
+
   it("applyProcInPattern=true 라도 procChanceBonus 합산이 게이트를 넘기면 발동(워메이지 주문연사)", () => {
     // procChance 40 + 보너스 60 = 100 클램프 → procRoll 99 여도 발동(100 미만 게이트 자체 미적용).
     const boosted = resolveV2SkillCast(

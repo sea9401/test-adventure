@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-08-22",
+  "reviewedAt": "2026-08-23",
   "instructions": "Every deployed visual or media asset must have an exact SHA-256 entry. Change a source rule only after reviewing evidence; --strict is the public-release clearance gate.",
   "sources": [
     {
@@ -14,7 +14,7 @@
     {
       "id": "operator-cleared-game-art",
       "releaseStatus": "cleared",
-      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06, the nine ranch and cooking rasters added on 2026-08-10, the six Star Grave environment and monster rasters added on 2026-08-14, the 37 dangerous-fishing and ranch/cooking rasters added on 2026-08-15, the six ranch cooking rasters added on 2026-08-16, the 55 cooking-research recipe rasters added on 2026-08-22, and the five dangerous-fishing realtime rasters added on 2026-08-22 were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. The 2026-08-22 boss sheets use cleared repository fish artwork for identity and style; a user-supplied, non-deployed golem sheet served only as a generic spacing/motion-layout reference, with no pixels, character identity, palette, anatomy, or style carried into the deployed assets. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included in deployed game art.",
+      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06, the nine ranch and cooking rasters added on 2026-08-10, the six Star Grave environment and monster rasters added on 2026-08-14, the 37 dangerous-fishing and ranch/cooking rasters added on 2026-08-15, the six ranch cooking rasters added on 2026-08-16, the 55 cooking-research recipe rasters added on 2026-08-22, the five dangerous-fishing realtime rasters added on 2026-08-22, and the nine dangerous-fishing species rasters added on 2026-08-23 were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. The 2026-08-22 boss sheets use cleared repository fish artwork for identity and style; a user-supplied, non-deployed golem sheet served only as a generic spacing/motion-layout reference, with no pixels, character identity, palette, anatomy, or style carried into the deployed assets. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included in deployed game art.",
       "evidence": [
         "docs/image-gen-prompt.md",
         "https://github.com/sea9401/test-adventure/pull/232",
@@ -30,7 +30,8 @@
         "docs/superpowers/plans/2026-08-15-ranch-recipe-expansion.md",
         "docs/superpowers/plans/2026-08-16-cooking-delivery-ranch-recipes.md",
         "docs/superpowers/specs/2026-08-22-cooking-research-overhaul-design.md",
-        "docs/asset-provenance-dangerous-fishing-realtime-2026-08-22.md"
+        "docs/asset-provenance-dangerous-fishing-realtime-2026-08-22.md",
+        "docs/superpowers/plans/2026-08-23-dangerous-fishing-species-variety.md"
       ]
     },
     {
@@ -155,8 +156,18 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/fish/coralhorn_snapper.webp",
+      "sha256": "c4f575fc0d337adc43fa6a71b4da6f6d8871c43ee3c29369697b4dfaed04d570",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/fish/crucian_carp.webp",
       "sha256": "97f06695eb7752ee1771a868489108898e1bf861634fcdead533c8aab76dd7aa",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/cyclone_marlin.webp",
+      "sha256": "974fcc50a034a367fdb99404a5317cd338e5817943a6143b3cc3ec719c5fb5b8",
       "source": "operator-cleared-game-art"
     },
     {
@@ -180,8 +191,18 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/fish/gale_needlefish.webp",
+      "sha256": "e327566d298c1c6702bb016520c65c49bd5621372899847a8bc7fbc824476710",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/fish/ghost_eel.webp",
       "sha256": "c3b7008a26be823b60a9be8019b422f514c412d9b205398063a08a38f91f8c95",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/ghostlight_jellyfish.webp",
+      "sha256": "e61230da459faacae12a110abd824b1a511ac57727514f479c6fcd363f4cb525",
       "source": "operator-cleared-game-art"
     },
     {
@@ -192,6 +213,11 @@
     {
       "path": "public/images/fish/gizzard_shad.webp",
       "sha256": "3c91af65f7c0f0ba8654d324488a8cfa4e81a8851a7c20a079d43c69374fcd6c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/glassscale_herring.webp",
+      "sha256": "0bfeb2f6643ae572358613859f6920cd12a33c16b79b918085c377fd3444adb1",
       "source": "operator-cleared-game-art"
     },
     {
@@ -280,6 +306,11 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/fish/nightglass_shark.webp",
+      "sha256": "5aa1d26563146c94348a340e9e5978144281bca118d6bacce2d3bec89d3987b2",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/fish/oarfish.webp",
       "sha256": "fe67361a2b127eece9c69a5b308fccbb4452cb8e74be23d21cc79b20ec3d52b5",
       "source": "operator-cleared-game-art"
@@ -340,6 +371,11 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/fish/starless_leviathan.webp",
+      "sha256": "ad85fd40fbc82af86dd77e5a40450b7abc83800d7adbb862c1b6ae1eabb068de",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/fish/starlit_ray.webp",
       "sha256": "01e3ce53826fb9cbd63175a46bbe36664e2d5efd38e4048d2a3d25ba1d25857d",
       "source": "operator-cleared-game-art"
@@ -347,6 +383,11 @@
     {
       "path": "public/images/fish/storm_mackerel.webp",
       "sha256": "db8f517bd80f028d394c580596b44fea84842400ea6a6d7b84e87a0d6cd4cd0a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/stormbell_sunfish.webp",
+      "sha256": "9b3ca490a4017ee95a247a45965ce7be662e5a3a8700943488455b8653b99561",
       "source": "operator-cleared-game-art"
     },
     {
@@ -387,6 +428,11 @@
     {
       "path": "public/images/fish/tidal_colossus.webp",
       "sha256": "9f4a66bfe5dd0c0c2df1ad42c18964f0ef7945993d98b1c65114ccd0499c74b4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/trenchshell_sturgeon.webp",
+      "sha256": "b1a576c6d78e24f67ebc1702d0aba661793a8ef37d0ae22a09f769d7109cfe77",
       "source": "operator-cleared-game-art"
     },
     {

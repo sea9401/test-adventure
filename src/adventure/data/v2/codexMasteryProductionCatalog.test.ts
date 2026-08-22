@@ -59,9 +59,24 @@ describe("production codex mastery catalog", () => {
     });
   });
 
+  it("keeps published mastery rules for recipes that survived the cooking overhaul", () => {
+    expect(CODEX_MASTERY_CATALOG.get("cooking", "egg_salad_sandwich")).toMatchObject({
+      thresholds: {
+        bronze: 1,
+        silver: 10,
+        gold: 50,
+        platinum: 100,
+        diamond: 250,
+        legendary: 500,
+      },
+      scoreWeightMilli: 10_101,
+      compatibleScoreWeightsMilli: [4_545],
+    });
+  });
+
   it("keeps published v1 weights stable while category catalogs grow", () => {
     for (const [category, report] of Object.entries(CODEX_MASTERY_BUDGET_REPORT)) {
-      if (category === "job") continue;
+      if (category === "job" || category === "cooking") continue;
       expect(report.scoreMilli).toBeGreaterThanOrEqual(9_900_000);
       expect(report.scoreMilli).toBeLessThanOrEqual(10_100_000);
       expect(report.entries).toBeGreaterThan(0);
@@ -75,6 +90,10 @@ describe("production codex mastery catalog", () => {
     expect(CODEX_MASTERY_BUDGET_REPORT.job).toEqual({
       entries: jobEntries,
       scoreMilli: jobEntries * 22 * 3_392,
+    });
+    expect(CODEX_MASTERY_BUDGET_REPORT.cooking).toEqual({
+      entries: COOKING_PUBLIC_RECIPES.length,
+      scoreMilli: COOKING_PUBLIC_RECIPES.length * 22 * 10_101,
     });
   });
 

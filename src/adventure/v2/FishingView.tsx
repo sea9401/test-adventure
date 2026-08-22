@@ -26,6 +26,7 @@ import {
 import {
   FISHING_LURES,
   FISHING_RODS,
+  formatFishingBonusPercent,
   fishingSizeBonusLabels,
   type FishingProgressionView,
 } from "@/adventure/v2/fishingProgression";
@@ -1379,7 +1380,9 @@ const TIER_REVEAL: Record<FishTier, { iconCls: string; glow: boolean }> = {
 function levelBonusLabels(progression: FishingProgressionView): string[] {
   const bonuses = progression.levelBonuses;
   const labels = fishingSizeBonusLabels(bonuses);
-  labels.push(`특별 손님 +${bonuses.specialWeightPct}%`);
+  labels.push(
+    `특별 손님 +${formatFishingBonusPercent(bonuses.specialWeightPct)}%`,
+  );
   return labels;
 }
 

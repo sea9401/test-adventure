@@ -116,10 +116,13 @@ describe("위험 해역 교환 카탈로그", () => {
   it("등급별 적격 어획물 ID만 반환한다", () => {
     expect(eligibleCatchMaterialIds("legendary")).toEqual([
       dangerousCatchMaterialId("abyssal_crownfish"),
+      dangerousCatchMaterialId("starless_leviathan"),
     ]);
     expect(eligibleCatchMaterialIds("common")).toEqual([
       dangerousCatchMaterialId("razor_sardine"),
+      dangerousCatchMaterialId("glassscale_herring"),
       dangerousCatchMaterialId("storm_mackerel"),
+      dangerousCatchMaterialId("gale_needlefish"),
     ]);
   });
 

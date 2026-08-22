@@ -17,6 +17,7 @@ export default function DangerousFishingPage() {
       feedback={fishing.feedback}
       verification={fishing.verification}
       verifyHuman={fishing.verifyHuman}
+      readJson={fishing.readJson}
       onBack={() => router.push("/map")}
       onOpenFishing={() => router.push("/town/fishing")}
       onOpenChallenges={() => router.push("/town/fishing/challenges")}
@@ -30,6 +31,7 @@ export default function DangerousFishingPage() {
       onStartBossAttempt={fishing.startBossAttempt}
       onBossAction={fishing.actOnBoss}
       onClaimBossReward={fishing.claimBossReward}
+      onRealtimeFinish={fishing.handleRealtimeFinish}
     />
   );
 }

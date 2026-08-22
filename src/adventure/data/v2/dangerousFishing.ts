@@ -36,6 +36,7 @@ export type DangerousFishRarity = "common" | "rare" | "epic" | "legendary";
 export type DangerousZone = {
   id: DangerousZoneId;
   imageSrc: string;
+  encounterImageSrc: string;
   name: string;
   description: string;
   unlockLevel: number;
@@ -109,11 +110,24 @@ export type DangerousBait = {
   unlimited: boolean;
   targetBehaviors: readonly DangerousFishBehavior[];
   rarityBonus: number;
+  realtimeEffect: DangerousRealtimeBaitEffect;
+};
+
+export type DangerousRealtimeBaitEffect = {
+  turnDistanceRecoveryReductionPct: number;
+  turnTensionImpactReductionPct: number;
+  chargeAndThrashStaminaDamagePct: number;
+  telegraphCount: number;
+  diveSpeedReductionPct: number;
+  startingStaminaReductionPct: number;
+  tensionImpulseReductionPct: number;
+  maxTimeReductionPct: number;
 };
 
 export type DangerousBoss = {
   id: DangerousBossId;
   imageSrc: string;
+  struggleSpriteSrc: string;
   name: string;
   description: string;
   minRisk: number;
@@ -128,6 +142,8 @@ export const DANGEROUS_ZONES: Record<DangerousZoneId, DangerousZone> = {
   shattered_reef: {
     id: "shattered_reef",
     imageSrc: "/images/ui/dangerous-fishing-shattered-reef.webp",
+    encounterImageSrc:
+      "/images/ui/dangerous-fishing-shattered-reef-encounter.webp",
     name: "파쇄 암초",
     description: "부서진 암초 사이로 빠른 어종이 몰려드는 초입 해역.",
     unlockLevel: 15,
@@ -136,6 +152,8 @@ export const DANGEROUS_ZONES: Record<DangerousZoneId, DangerousZone> = {
   storm_trench: {
     id: "storm_trench",
     imageSrc: "/images/ui/dangerous-fishing-storm-trench.webp",
+    encounterImageSrc:
+      "/images/ui/dangerous-fishing-storm-trench-encounter.webp",
     name: "폭풍 해구",
     description: "급류와 낙뢰가 반복되어 한순간의 판단이 중요한 해역.",
     unlockLevel: 25,
@@ -144,6 +162,8 @@ export const DANGEROUS_ZONES: Record<DangerousZoneId, DangerousZone> = {
   abyssal_rift: {
     id: "abyssal_rift",
     imageSrc: "/images/ui/dangerous-fishing-abyssal-rift.webp",
+    encounterImageSrc:
+      "/images/ui/dangerous-fishing-abyssal-rift-encounter.webp",
     name: "심연 균열",
     description: "빛이 닿지 않는 균열. 거대한 그림자가 줄을 노린다.",
     unlockLevel: 35,
@@ -447,6 +467,16 @@ export const DANGEROUS_BAITS: Record<DangerousBaitId, DangerousBait> = {
     unlimited: true,
     targetBehaviors: [],
     rarityBonus: 0,
+    realtimeEffect: {
+      turnDistanceRecoveryReductionPct: 0,
+      turnTensionImpactReductionPct: 0,
+      chargeAndThrashStaminaDamagePct: 0,
+      telegraphCount: 0,
+      diveSpeedReductionPct: 0,
+      startingStaminaReductionPct: 0,
+      tensionImpulseReductionPct: 0,
+      maxTimeReductionPct: 0,
+    },
   },
   reef_bait: {
     id: "reef_bait",
@@ -458,6 +488,16 @@ export const DANGEROUS_BAITS: Record<DangerousBaitId, DangerousBait> = {
     unlimited: false,
     targetBehaviors: ["turn"],
     rarityBonus: 0.02,
+    realtimeEffect: {
+      turnDistanceRecoveryReductionPct: 20,
+      turnTensionImpactReductionPct: 20,
+      chargeAndThrashStaminaDamagePct: 0,
+      telegraphCount: 0,
+      diveSpeedReductionPct: 0,
+      startingStaminaReductionPct: 0,
+      tensionImpulseReductionPct: 0,
+      maxTimeReductionPct: 20,
+    },
   },
   blood_bait: {
     id: "blood_bait",
@@ -469,6 +509,16 @@ export const DANGEROUS_BAITS: Record<DangerousBaitId, DangerousBait> = {
     unlimited: false,
     targetBehaviors: ["charge", "thrash"],
     rarityBonus: 0.04,
+    realtimeEffect: {
+      turnDistanceRecoveryReductionPct: 0,
+      turnTensionImpactReductionPct: 0,
+      chargeAndThrashStaminaDamagePct: 20,
+      telegraphCount: 0,
+      diveSpeedReductionPct: 0,
+      startingStaminaReductionPct: 0,
+      tensionImpulseReductionPct: 0,
+      maxTimeReductionPct: 20,
+    },
   },
   luminous_bait: {
     id: "luminous_bait",
@@ -480,6 +530,16 @@ export const DANGEROUS_BAITS: Record<DangerousBaitId, DangerousBait> = {
     unlimited: false,
     targetBehaviors: ["dive"],
     rarityBonus: 0.06,
+    realtimeEffect: {
+      turnDistanceRecoveryReductionPct: 0,
+      turnTensionImpactReductionPct: 0,
+      chargeAndThrashStaminaDamagePct: 0,
+      telegraphCount: 1,
+      diveSpeedReductionPct: 15,
+      startingStaminaReductionPct: 0,
+      tensionImpulseReductionPct: 0,
+      maxTimeReductionPct: 15,
+    },
   },
   abyss_bait: {
     id: "abyss_bait",
@@ -491,6 +551,16 @@ export const DANGEROUS_BAITS: Record<DangerousBaitId, DangerousBait> = {
     unlimited: false,
     targetBehaviors: ["charge", "thrash", "turn", "dive"],
     rarityBonus: 0.1,
+    realtimeEffect: {
+      turnDistanceRecoveryReductionPct: 0,
+      turnTensionImpactReductionPct: 0,
+      chargeAndThrashStaminaDamagePct: 0,
+      telegraphCount: 0,
+      diveSpeedReductionPct: 0,
+      startingStaminaReductionPct: 10,
+      tensionImpulseReductionPct: 12,
+      maxTimeReductionPct: 10,
+    },
   },
 };
 
@@ -498,6 +568,7 @@ export const DANGEROUS_BOSSES: Record<DangerousBossId, DangerousBoss> = {
   tidal_colossus: {
     id: "tidal_colossus",
     imageSrc: "/images/fish/tidal_colossus.webp",
+    struggleSpriteSrc: "/images/fish/tidal_colossus-struggle.webp",
     name: "해일의 거신",
     description: "등 위로 파도를 일으키며 해역 전체를 떠도는 거대어.",
     minRisk: 4,
@@ -510,6 +581,7 @@ export const DANGEROUS_BOSSES: Record<DangerousBossId, DangerousBoss> = {
   abyss_kraken: {
     id: "abyss_kraken",
     imageSrc: "/images/fish/abyss_kraken.webp",
+    struggleSpriteSrc: "/images/fish/abyss_kraken-struggle.webp",
     name: "심연 크라켄",
     description: "균열 아래에서 여러 촉수로 낚싯줄을 휘감는 심연의 주인.",
     minRisk: 5,

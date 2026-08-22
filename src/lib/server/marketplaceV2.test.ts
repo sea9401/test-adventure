@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { V2_EQUIPMENT, sellPriceOf } from "@/adventure/data/v2/v2Equipment";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { MUSEUN_CASH_ITEMS } from "@/adventure/data/v2/museunCashItems";
-import { cookingFoodId } from "@/adventure/v2/cooking";
+import { cookingFoodId } from "@/adventure/v2/cooking/food";
 import {
   DANGEROUS_BOSSES,
   DANGEROUS_FISH,
@@ -311,11 +311,11 @@ describe("tradable 판정 + 이름 스냅샷", () => {
     const foodId = cookingFoodId({
       recipeId: "rustic_bread",
       quality: "careful",
-      usedRare: true,
-      extended: true,
+      originator: true,
+      specialtyBonusPct: 5,
     });
     expect(itemDisplayName("consumable", foodId)).toBe(
-      "투박한 밀빵 (정성작 · 희귀 특선 · 장시간)",
+      "투박한 밀빵 (정성작 · 원조 · 전문 +5%)",
     );
     expect(itemDisplayName("consumable", "nope")).toBeNull();
   });
@@ -342,8 +342,8 @@ describe("tradable 판정 + 이름 스냅샷", () => {
     const foodId = cookingFoodId({
       recipeId: "rustic_bread",
       quality: "normal",
-      usedRare: false,
-      extended: false,
+      originator: false,
+      specialtyBonusPct: 0,
     });
     expect(
       currentMarketplaceItemName("consumable", foodId, "옛 음식 이름"),

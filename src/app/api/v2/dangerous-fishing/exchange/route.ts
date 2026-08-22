@@ -37,10 +37,15 @@ export async function POST(request: Request) {
   }
   const result = await db.transaction((tx) =>
     exchangeDangerousFishingInTx(tx, userId, {
+      action: body.action,
       operationId: body.operationId,
       entryId: body.entryId,
       batches: body.batches,
       selectedMaterials: body.selectedMaterials,
+      gearKind: body.gearKind,
+      gearId: body.gearId,
+      expectedCurrentLevel: body.expectedCurrentLevel,
+      expectedNextLevel: body.expectedNextLevel,
       now: Date.now(),
     }),
   );

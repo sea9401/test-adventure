@@ -13,11 +13,11 @@ import {
 import { FISH_TOTAL } from "@/adventure/data/v2/fish";
 import {
   COOKING_LEVEL_CAP,
-  COOKING_RECIPES,
   cookingLevelForXp,
   cookingLevelXpThreshold,
   parseCookingState,
-} from "./cooking";
+} from "./cooking/state";
+import { COOKING_PUBLIC_RECIPES } from "./cooking/catalog";
 import {
   countDiscoveredFish,
   parseFishCodex,
@@ -326,15 +326,15 @@ export function lifeSummaryFromSaves(
       records: [
         { label: "조리한 요리", value: cookingState.stats.dishesCooked, suffix: "개" },
         { label: "걸작 요리", value: cookingState.stats.masterpiecesCooked, suffix: "개" },
-        { label: "주문 완료", value: cookingState.stats.ordersCompleted, suffix: "회" },
+        { label: "납품 완료", value: cookingState.stats.deliveriesCompleted, suffix: "회" },
         {
           label: "발견 조리법",
           value: cookingState.discoveredRecipeIds.length,
-          suffix: `/${COOKING_RECIPES.length}개`,
+          suffix: `/${COOKING_PUBLIC_RECIPES.length}개`,
         },
       ],
       effects: [
-        `현재 레벨 조리법 ${COOKING_RECIPES.filter((recipe) => recipe.requiredLevel <= cooking.level).length}/${COOKING_RECIPES.length}개 이용 가능`,
+        `현재 레벨 연구 대상 ${COOKING_PUBLIC_RECIPES.filter((recipe) => recipe.requiredLevel <= cooking.level).length}/${COOKING_PUBLIC_RECIPES.length}개`,
       ],
       nextGoal: nextLifeJobGoal(LIFE_JOB_MILESTONES.cooking, cooking.level),
     },

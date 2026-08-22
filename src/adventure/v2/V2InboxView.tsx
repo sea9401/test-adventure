@@ -38,7 +38,7 @@ import {
 } from "@/adventure/v2/RewardToastProvider";
 import { TITLES } from "@/adventure/data/titles";
 import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
-import { cookingFoodDefinition } from "@/adventure/v2/cooking";
+import { cookingFoodDefinition } from "@/adventure/v2/cooking/food";
 import { bulkClaimIds, isUnreadInboxItem } from "./inboxViewState";
 import {
   isTradeSuspensionMessagePayload,

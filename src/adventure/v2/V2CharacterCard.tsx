@@ -62,9 +62,9 @@ import {
 } from "@/components/chat/ChatCosmetics";
 import {
   cookingQualityName,
-  cookingStatText,
+  cookingEffectText,
   type ActiveCookingBuff,
-} from "@/adventure/v2/cooking";
+} from "@/adventure/v2/cooking/food";
 import type {
   ProfileMasteryTrophyDisplay,
   ProfileShowcaseSelection,
@@ -552,7 +552,7 @@ function ActiveFoodBuffBadge({ buff }: { buff: ActiveCookingBuff }) {
   }, []);
   const remaining = buff.expiresAt - now;
   if (remaining <= 0) return null;
-  const stats = cookingStatText(buff.statPct, buff.expPct);
+  const stats = cookingEffectText(buff.effect);
   return (
     <div
       title={`${buff.recipeName} · ${cookingQualityName(buff.quality)} · ${stats}`}

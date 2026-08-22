@@ -169,6 +169,16 @@ export function FishingShopView({
     showMessage(result);
     return result;
   };
+  const handleDangerousEnhance: DangerousFishingExchangeSectionProps["onEnhanceGear"] = async (
+    request,
+  ) => {
+    if (!dangerousExchange?.onEnhanceGear) {
+      return { ok: false, message: "위험 해역 강화 목록을 불러오지 못했다." };
+    }
+    const result = await dangerousExchange.onEnhanceGear(request);
+    showMessage(result);
+    return result;
+  };
 
   const coins = state?.coins ?? 0;
   const displayedCoins =
@@ -291,6 +301,9 @@ export function FishingShopView({
                 ? {
                     ...dangerousExchange,
                     onExchange: handleDangerousExchange,
+                    onEnhanceGear: dangerousExchange.onEnhanceGear
+                      ? handleDangerousEnhance
+                      : undefined,
                   }
                 : undefined
             }

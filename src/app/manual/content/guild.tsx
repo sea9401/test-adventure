@@ -31,6 +31,7 @@ import {
 } from "@/adventure/data/v2/settlement";
 import { GUILD_ALCHEMY_RECIPES } from "@/adventure/data/v2/guildAlchemy";
 import {
+  ASSOCIATION_DINING_POINTS_PER_TICKET,
   GUILD_DINING_BASE_WEEKLY_TICKETS,
   GUILD_DINING_EFFECT_DURATION_HOURS,
   GUILD_DINING_INGREDIENTS,
@@ -378,6 +379,12 @@ export function GuildContent() {
           같은 주에 이미 사용한 식권과 적용 중인 음식 효과는 유지됩니다.
         </li>
       </UL>
+      <P>
+        협회 식당은 개인이 식재료 <Em>{ASSOCIATION_DINING_POINTS_PER_TICKET}점</Em>을
+        기여할 때마다 식권 1장을 즉시 얻습니다. 공동 준비 목표를 기다리지 않으며,
+        주간 개인 납품 한도는 없습니다. 개인 기여·식권·효과는 매주 월요일 00:00
+        KST에 초기화됩니다.
+      </P>
       <Table
         head={["시설 레벨", "기여 식권", "이용 가능 메뉴"]}
         rows={DINING_HALL_UPGRADES.map((upgrade) => [
@@ -535,6 +542,27 @@ export function GuildContent() {
           추가로 받습니다.
         </li>
       </UL>
+      <P>
+        대장장이 Lv.13부터는 무기 단조·방어구 단조·장신구 세공 중 하나를
+        전문 분야로 정합니다. 전문 분야는 한 번 정하면 변경하거나 초기화할 수
+        없습니다. 다른 분야 장비도 계속 만들 수 있지만, 아래 전문 제작 기술은
+        선택한 분야의 장비에만 적용됩니다.
+      </P>
+      <Table
+        head={["대장장이 레벨", "전문 제작 해금"]}
+        rows={[
+          ["Lv.13 영구 전문 분야", "무기·방어구·장신구 중 하나를 영구 선택"],
+          ["Lv.15 옵션 성향", "원하는 옵션군이 우선될 기본 확률 75%"],
+          ["Lv.17 집중 촉매", "티어별 제작 재료 1개를 더 써서 성향 확률을 90%로 강화"],
+          ["Lv.20 구조 제작술", "같은 총 옵션량 안에서 주력·옵션·극한 배분 선택"],
+          ["Lv.22 안정 제작", "옵션 편차를 중앙으로 모으는 구조 해금"],
+          ["Lv.24 촉매 회수", "사용한 촉매를 20% 확률로 보존"],
+          ["Lv.26 명장 전문 제작", "성향과 구조 제작술을 명장 제작에도 적용"],
+          ["Lv.28 전문 각인·대표작", "전문 분야 표식을 남기고 보유 제작품을 대표작으로 전시"],
+          ["Lv.30 최종 검수", "명장 전문 제작 시 같은 총 옵션량의 두 배분안 중 하나를 확정"],
+        ]}
+        caption="옵션 성향과 구조 제작술은 새로운 스탯 상한을 추가하지 않고 기존 굴림 총량의 배분만 조절합니다. 최종 검수를 확정하기 전에는 다음 장비를 제작할 수 없습니다."
+      />
       <Table
         head={["장비 티어", "원목·광석", "기본 총량", "촉매 총량"]}
         rows={[

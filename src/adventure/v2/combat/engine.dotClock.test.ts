@@ -107,6 +107,8 @@ describe("DoT 행동 틱 (ATB) — 대상 행동 시작 시 틱", () => {
   it("적에게 걸린 출혈은 적 행동 tick 에 붙는다", () => {
     vi.spyOn(Math, "random").mockImplementation(mulberry32(1));
     const bleeder = derive({
+      // 출혈의 적 행동 틱을 관찰하기 전에 전역 STR 상향 평타로 적을 처치하지 않게 한다.
+      atk: 1,
       bleedOnHit: {
         flatPerStack: 10,
         atkCoefPerStack: PLAYER_BLEED_ATK_COEF_PER_STACK,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   activeEffectForMenu,
+  associationDiningTicketProgress,
   consumeGuildDiningEffectState,
   GUILD_DINING_EFFECT_DURATION_MS,
   GUILD_DINING_INGREDIENTS,
@@ -114,6 +115,40 @@ describe("guild dining", () => {
       earned: 4,
       available: 4,
     });
+  });
+
+  it("협회 식당은 개인 기여 20점마다 상한 없이 식권 1장을 지급한다", () => {
+    const state = parseGuildDiningUserState(
+      {
+        weekKey: "2026-07-13",
+        guildId: 0,
+        contributionPoints: 19,
+        mealsUsed: 0,
+      },
+      { weekKey: "2026-07-13", guildId: 0 },
+    );
+
+    expect(associationDiningTicketProgress(state)).toEqual({
+      base: 0,
+      contributionEarned: 0,
+      earned: 0,
+      used: 0,
+      available: 0,
+      contributionCap: null,
+    });
+    expect(
+      associationDiningTicketProgress({
+        ...state,
+        contributionPoints: 20,
+      }),
+    ).toMatchObject({ earned: 1, used: 0, available: 1 });
+    expect(
+      associationDiningTicketProgress({
+        ...state,
+        contributionPoints: 40,
+        mealsUsed: 1,
+      }),
+    ).toMatchObject({ earned: 2, used: 1, available: 1 });
   });
 
   it("Lv3부터 Lv5까지 단계마다 신규 메뉴를 연다", () => {

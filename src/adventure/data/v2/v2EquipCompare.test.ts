@@ -9,6 +9,8 @@ const greatSword = { item: V2_EQUIPMENT.v2_greatsword };
 const hornBow = { item: V2_EQUIPMENT.v2_horn_bow };
 const woodenBow = { item: V2_EQUIPMENT.v2_wooden_bow };
 const oakStaff = { item: V2_EQUIPMENT.v2_oak_staff };
+const leatherArmor = { item: V2_EQUIPMENT.v2_leather_armor };
+const shadowCloak = { item: V2_EQUIPMENT.v2_shadow_cloak };
 
 function row(rows: ReturnType<typeof v2EquipCompareRows>, label: string) {
   const r = rows.find((x) => x.label === label);
@@ -49,6 +51,23 @@ describe("v2EquipCompareRows", () => {
       `+${V2_EQUIPMENT.v2_oak_staff.power}`,
     );
     expect(row(rows, "마법 공격력").better).toBe(1);
+  });
+
+  it("경갑 후보의 기본 회피도와 현재 장비 대비 증감을 표시한다", () => {
+    const rows = v2EquipCompareRows(shadowCloak, leatherArmor);
+    const evasion = row(rows, "회피도");
+
+    expect(evasion.value).toBe("+4");
+    expect(evasion.deltaText).toBe("+2");
+    expect(evasion.better).toBe(1);
+  });
+
+  it("추가 회피도 증감은 퍼센트가 아닌 고정 수치로 표시한다", () => {
+    const rows = v2EquipCompareRows(shadowCloak, leatherArmor);
+    const evasion = row(rows, "추가 회피도");
+
+    expect(evasion.value).toBe("+2");
+    expect(evasion.deltaText).toBe("+2");
   });
 
   it("후보엔 없고 장착엔 있는 옵션은 '—' + 손해(better=-1)", () => {

@@ -561,6 +561,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_mage_boltcast: {
     id: "v2c_mage_boltcast", name: "마력탄", stat: "int", category: "attack", tier: 1,
     description: "마력을 뭉쳐 쏜다.", mpCost: 0, cooldown: 0, procChance: 100,
+    spCostDiscount: 1,
     effects: [dmg(1.15, 150, "magic")],
   },
 
@@ -2367,7 +2368,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     passive: {
       statPct: { str: 24 },
-      critDmgPct: 35,
+      skillCritDmgPct: 35,
       singleHitPhysicalSkillDamagePct: 30,
       accuracyPct: 15,
     },
@@ -2895,7 +2896,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_primordialsage_greatorb: {
     id: "v2c_primordialsage_greatorb", name: "대마력구", stat: "int", category: "attack", tier: 3,
     description: "거대한 마력구를 압축해 던진다. 새로운 주문식 한 단계를 쌓고 완전식을 완성하면 다음 행동이 15% 빨라진다.",
-    mpCost: 41, fixedMpCost: 133, cooldown: 0, procChance: 60, learnCost: 20000, spCost: 12,
+    mpCost: 41, fixedMpCost: 133, cooldown: 0, procChance: 60, learnCost: 20000, spCost: 12, spCostDiscount: 3,
     effects: [dmg(1.98, 501, "magic", 15)],
     tier7Mechanic: { kind: "formulaStrike", stages: 1, completionHastePct: 15 },
   },

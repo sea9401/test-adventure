@@ -103,4 +103,23 @@ describe("mintListedEquipInstance (거래소 payload 복원)", () => {
       }),
     ).toEqual({ level: 3, bonusPct: 4 });
   });
+
+  it("restores a traded blacksmith specialty mark", () => {
+    const inst = mintListedEquipInstance(ANY_ID, {
+      ...roll,
+      craftedBy: {
+        userId: "u1",
+        profession: "blacksmith",
+        level: 28,
+        craftedAt: "2026-08-22T00:00:00.000Z",
+        specialty: "jewelry",
+        masterwork: true,
+      },
+    });
+
+    expect(inst.craftedBy).toMatchObject({
+      specialty: "jewelry",
+      masterwork: true,
+    });
+  });
 });

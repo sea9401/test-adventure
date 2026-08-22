@@ -30,6 +30,11 @@ import {
   GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT,
   guildWorkshopMaterialName,
 } from "@/adventure/data/v2/guildWorkshop";
+import type {
+  BlacksmithCraftControlSelection,
+  BlacksmithOptionFocusId,
+  BlacksmithStructureId,
+} from "@/adventure/data/v2/blacksmithSpecialization";
 import {
   CRAFTED_EQUIP_TAG_SET_IDS,
   V2_EQUIPMENT,
@@ -66,6 +71,7 @@ import {
   type WorkshopRecipeView,
   type WorkshopState,
 } from "./guildWorkshopPanelModel";
+import { WorkshopInspectionPanel } from "./WorkshopInspectionPanel";
 
 type WorkshopTierFilter = "all" | 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -230,7 +236,34 @@ export type CraftServerSync = {
   workshopRecords?: WorkshopState["workshopRecords"];
   guildBonus?: WorkshopState["guildBonus"];
   recipes?: WorkshopState["recipes"];
+  blacksmithProgression?: WorkshopState["blacksmithProgression"];
 };
+
+type WorkshopCraftControl = BlacksmithCraftControlSelection;
+
+export function workshopCraftRequestBody({
+  recipeId,
+  craftMode,
+  useMaterialSubstitution,
+  outpostId,
+  control,
+}: {
+  recipeId: GuildWorkshopRecipeId;
+  craftMode: GuildWorkshopCraftMode;
+  useMaterialSubstitution: boolean;
+  outpostId?: string;
+  control?: WorkshopCraftControl;
+}) {
+  return {
+    recipeId,
+    mode: craftMode,
+    ...(outpostId ? { outpostId } : {}),
+    useMaterialSubstitution,
+    ...(control?.optionFocus ? { optionFocus: control.optionFocus } : {}),
+    ...(control?.structure ? { structure: control.structure } : {}),
+    ...(control?.useCatalyst ? { useCatalyst: true } : {}),
+  };
+}
 
 export function matchesWorkshopCodexFilter(
   equipmentId: string,
@@ -309,8 +342,12 @@ export function WorkshopCraftPanel({
   );
   const [favoriteBusyId, setFavoriteBusyId] =
     useState<GuildWorkshopRecipeId | null>(null);
+  const [craftControls, setCraftControls] = useState<
+    Partial<Record<GuildWorkshopRecipeId, WorkshopCraftControl>>
+  >({});
 
   const materials = useMemo(() => state?.materials ?? {}, [state?.materials]);
+  const pendingInspection = state?.blacksmithProgression?.pendingInspection;
   const favoriteSet = useMemo(
     () => new Set(state?.favoriteRecipeIds ?? []),
     [state?.favoriteRecipeIds],
@@ -462,6 +499,24 @@ export function WorkshopCraftPanel({
     });
   }
 
+  function craftControl(recipeId: GuildWorkshopRecipeId): WorkshopCraftControl {
+    return (
+      craftControls[recipeId] ?? {
+        useCatalyst: false,
+      }
+    );
+  }
+
+  function updateCraftControl(
+    recipeId: GuildWorkshopRecipeId,
+    patch: Partial<WorkshopCraftControl>,
+  ) {
+    setCraftControls((current) => ({
+      ...current,
+      [recipeId]: { ...craftControl(recipeId), ...patch },
+    }));
+  }
+
   async function toggleFavorite(recipeId: GuildWorkshopRecipeId) {
     setFavoriteBusyId(recipeId);
     onMessage(null);
@@ -500,6 +555,8 @@ export function WorkshopCraftPanel({
     const recommended = recommendedRecipeId === recipe.id;
     const favorite = favoriteSet.has(recipe.id);
     const equipment = V2_EQUIPMENT[recipe.equipmentId as V2EquipmentId];
+    const techniques = recipe.techniques;
+    const control = craftControl(recipe.id);
     const codexStatus = workshopEquipmentCodexStatus(
       recipe.equipmentId,
       registeredEquipmentIds,
@@ -616,7 +673,12 @@ export function WorkshopCraftPanel({
           <div className="flex w-full items-center gap-1.5 md:hidden">
             <button
               type="button"
-              disabled={!recipe.canCraft || busy || craftingId != null}
+              disabled={
+                !recipe.canCraft ||
+                busy ||
+                craftingId != null ||
+                pendingInspection != null
+              }
               onClick={() => void craft(recipe.id)}
               className="inline-flex h-8 flex-1 items-center justify-center rounded border border-emerald-700 bg-emerald-700 px-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-emerald-500 dark:bg-emerald-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
             >
@@ -658,6 +720,97 @@ export function WorkshopCraftPanel({
           id={`workshop-recipe-detail-${recipe.id}`}
           className={`${expanded ? "grid" : "hidden"} gap-2 md:grid md:grid-cols-2`}
         >
+          {techniques?.eligible ? (
+            <div className={`${SURFACE_CARD} space-y-2 p-2 text-[11px] md:col-span-2`}>
+              <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                전문 제작 설정
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="space-y-1">
+                  <span className="block text-zinc-600 dark:text-zinc-300">
+                    옵션 성향
+                  </span>
+                  <select
+                    value={control.optionFocus ?? ""}
+                    onChange={(event) =>
+                      updateCraftControl(recipe.id, {
+                        optionFocus: (event.target.value || undefined) as
+                          | BlacksmithOptionFocusId
+                          | undefined,
+                        useCatalyst: event.target.value
+                          ? control.useCatalyst
+                          : false,
+                      })
+                    }
+                    className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                  >
+                    <option value="">성향 사용 안 함</option>
+                    {techniques.optionFocuses.map((focus) => (
+                      <option key={focus.id} value={focus.id}>
+                        {focus.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="block text-zinc-600 dark:text-zinc-300">
+                    구조 제작술
+                  </span>
+                  <select
+                    value={control.structure ?? ""}
+                    onChange={(event) =>
+                      updateCraftControl(recipe.id, {
+                        structure: (event.target.value || undefined) as
+                          | BlacksmithStructureId
+                          | undefined,
+                      })
+                    }
+                    className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                  >
+                    <option value="">구조 제작술 사용 안 함</option>
+                    {techniques.structures.map((structure) => (
+                      <option key={structure.id} value={structure.id}>
+                        {structure.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {techniques.catalystUnlocked && techniques.catalyst ? (
+                <label className={`${SURFACE_ACCENT} flex items-start gap-2 p-2`}>
+                  <input
+                    type="checkbox"
+                    checked={control.useCatalyst}
+                    disabled={!control.optionFocus}
+                    onChange={(event) =>
+                      updateCraftControl(recipe.id, {
+                        useCatalyst: event.target.checked,
+                      })
+                    }
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <strong>촉매 사용</strong> · 기본 {techniques.focusChancePct}% · 촉매{" "}
+                    {techniques.catalystFocusChancePct}%
+                    <span className="mt-0.5 block text-zinc-600 dark:text-zinc-300">
+                      {guildWorkshopMaterialName(techniques.catalyst.materialId)}{" "}
+                      {techniques.catalyst.required}개 · 보유{" "}
+                      {techniques.catalyst.owned}개
+                    </span>
+                  </span>
+                </label>
+              ) : (
+                <div className="text-zinc-500 dark:text-zinc-400">
+                  선택한 제작술은 일반 제작에 적용됩니다.
+                </div>
+              )}
+              {masterwork && !techniques.masterworkTechniquesUnlocked ? (
+                <div className="text-zinc-500 dark:text-zinc-400">
+                  명장 제작 적용은 대장장이 Lv 26에 해금됩니다.
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <div className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] dark:border-zinc-700 dark:bg-zinc-900">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-semibold text-zinc-800 dark:text-zinc-100">
@@ -665,7 +818,12 @@ export function WorkshopCraftPanel({
               </span>
               <button
                 type="button"
-                disabled={!recipe.canCraft || busy || craftingId != null}
+                disabled={
+                  !recipe.canCraft ||
+                  busy ||
+                  craftingId != null ||
+                  pendingInspection != null
+                }
                 onClick={() => void craft(recipe.id)}
                 className="inline-flex h-7 min-w-16 items-center justify-center rounded border border-emerald-700 bg-emerald-700 px-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-emerald-500 dark:bg-emerald-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
               >
@@ -701,7 +859,7 @@ export function WorkshopCraftPanel({
               <MaterialSubstitutionOption
                 substitution={recipe.materialSubstitution}
                 busy={busy}
-                crafting={craftingId != null}
+                crafting={craftingId != null || pendingInspection != null}
                 onCraft={() => void craft(recipe.id, "normal", true)}
               />
             ) : null}
@@ -714,7 +872,12 @@ export function WorkshopCraftPanel({
               </span>
               <button
                 type="button"
-                disabled={!masterwork?.canCraft || busy || craftingId != null}
+                disabled={
+                  !masterwork?.canCraft ||
+                  busy ||
+                  craftingId != null ||
+                  pendingInspection != null
+                }
                 onClick={() => void craft(recipe.id, "masterwork")}
                 className="inline-flex h-7 min-w-20 items-center justify-center rounded border border-rose-700 bg-rose-700 px-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-rose-500 dark:bg-rose-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
               >
@@ -761,7 +924,7 @@ export function WorkshopCraftPanel({
               <MaterialSubstitutionOption
                 substitution={masterwork.materialSubstitution}
                 busy={busy}
-                crafting={craftingId != null}
+                crafting={craftingId != null || pendingInspection != null}
                 onCraft={() => void craft(recipe.id, "masterwork", true)}
               />
             ) : null}
@@ -776,6 +939,10 @@ export function WorkshopCraftPanel({
     craftMode: GuildWorkshopCraftMode = "normal",
     useMaterialSubstitution = false,
   ) {
+    if (pendingInspection) {
+      onMessage(ERROR_TEXT.pending_inspection);
+      return;
+    }
     setCraftingId(recipeId);
     onMessage(null);
     setCraftResult(null);
@@ -783,12 +950,18 @@ export function WorkshopCraftPanel({
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: JSON.stringify(workshopCraftRequestBody({
           recipeId,
-          mode: craftMode,
+          craftMode,
           outpostId,
           useMaterialSubstitution,
-        }),
+          control:
+            craftMode === "normal" ||
+            state?.recipes.find((recipe) => recipe.id === recipeId)?.techniques
+              ?.masterworkTechniquesUnlocked
+              ? craftControl(recipeId)
+              : undefined,
+        })),
       });
       const json = await res.json();
       if (!json.ok) {
@@ -810,6 +983,11 @@ export function WorkshopCraftPanel({
             )
             .filter((name: unknown): name is string => typeof name === "string")
         : [];
+      if (json.pendingInspection) {
+        setCraftResult(null);
+        onAfterCraft();
+        return;
+      }
       setCraftResult({
         iid: typeof json.iid === "string" ? json.iid : null,
         itemName: crafted?.itemName ?? "장비",
@@ -868,6 +1046,17 @@ export function WorkshopCraftPanel({
         <CraftResultDialog
           result={craftResult}
           onClose={() => setCraftResult(null)}
+        />
+      ) : null}
+
+      {pendingInspection ? (
+        <WorkshopInspectionPanel
+          pending={pendingInspection}
+          onConfirmed={(blacksmithProgression) => {
+            onServerSync({ ok: true, blacksmithProgression });
+            onAfterCraft();
+          }}
+          onMessage={onMessage}
         />
       ) : null}
 

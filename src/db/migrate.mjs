@@ -16,6 +16,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { existsSync } from "node:fs";
 import { createDatabaseConnectionOptions } from "./databaseTls.mjs";
+import { recallLegacyCooking } from "./legacyCookingRecall.mjs";
 
 // drizzle/ 폴더가 아직 없으면(첫 generate 이전) 무중단 종료.
 if (!existsSync("./drizzle/meta/_journal.json")) {
@@ -43,6 +44,17 @@ try {
   const db = drizzle(pool);
   await migrate(db, { migrationsFolder: "./drizzle" });
   console.log("✓ migrations 적용 완료");
+  const client = await pool.connect();
+  try {
+    const recall = await recallLegacyCooking(client);
+    console.log(
+      recall.skipped
+        ? "→ 기존 요리 회수 이미 완료 — skip"
+        : `✓ 기존 요리 ${recall.recalledFoods}개 회수 · ${recall.users}명 재료 환급`,
+    );
+  } finally {
+    client.release();
+  }
 } catch (err) {
   console.error("✗ migration 실패:", err);
   process.exitCode = 1;

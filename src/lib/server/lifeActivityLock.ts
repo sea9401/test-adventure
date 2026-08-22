@@ -34,7 +34,7 @@ export type ManualLifeActivity = "fishing" | AutoGatheringActivity;
 
 // users 행은 ensureUser 가 항상 보장한다. savesKv 신규 키는 행이 없어 FOR UPDATE 로
 // 직렬화할 수 없으므로, 생활 활동 요청은 이 사용자 행을 첫 잠금으로 잡아 경쟁 요청을 막는다.
-async function lockLifeActivityUser(
+export async function lockLifeActivityUserForUpdate(
   tx: DbExecutor,
   userId: string,
 ): Promise<void> {
@@ -60,7 +60,7 @@ export async function lockAutoGatheringStatesForUpdate(
   tx: DbExecutor,
   userId: string,
 ): Promise<LockedAutoGatheringStates> {
-  await lockLifeActivityUser(tx, userId);
+  await lockLifeActivityUserForUpdate(tx, userId);
   // 모든 호출처에서 키 정렬 한 번으로 잠가 교차 벌목/채광 요청의 데드락을 피한다.
   const saves = await lockSavesForUpdate(tx, userId, {
     [WOODCUTTING_AUTO_KEY]: {},

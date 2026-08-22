@@ -26,7 +26,7 @@ import {
 } from "@/adventure/v2/woodcuttingProgression";
 import { parseWoodcuttingLog } from "@/adventure/v2/woodcuttingSession";
 import { jobUnlockContextFromSaves } from "@/lib/server/jobUnlockContext";
-import { cookingLevelForXp, parseCookingState } from "@/adventure/v2/cooking";
+import { cookingLevelForXp, parseCookingState } from "@/adventure/v2/cooking/state";
 import { parseClaimed } from "@/lib/server/v2QuestContext";
 
 const FARMING_RANKING_LEVEL_CAP = 50;

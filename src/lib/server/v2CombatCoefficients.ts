@@ -5,6 +5,7 @@
 // 모두 float — 합산은 derive 내부에서 누적 후 최종 floor 한 번만.
 
 export const MP_PER_INT = 2; // 옛 10. 5×INT × 2 = 10 MP (동등)
+export const HP_PER_STR = 1;
 export const HP_PER_VIT = 3;
 
 export const DEF_PER_VIT = 0.35;
@@ -12,10 +13,10 @@ export const DEF_PER_VIT = 0.35;
 // 초반부터 높게 체감되어 0.15 → 0.12 로 소폭 하향. 치명피해(CRIT_DMG_PER_LUK)는 유지해
 // LUK 빌드 정체성은 확률보다 누적 투자 보상 쪽에 남긴다.
 export const CRIT_PER_LUK = 0.12;
-export const ATK_PER_STR = 0.35;
+export const ATK_PER_STR = 0.7;
 // VIT→atk(DEX 재설계 lever-2·docs §0-C) — 순수/헤비 VIT 도 천천히 솔로 클리어 가능하게 하는 보조 딜.
-// 과거 0.16은 HP·DEF까지 함께 붙은 VIT가 물리 공격 투자를 대체했다. 현재 값은 STR 0.35의
-// 약 29%로 제한해 느린 탱커의 처치력을 돕되 주 공격 스탯을 대신하지 않는다.
+// 과거 0.16은 HP·DEF까지 함께 붙은 VIT가 물리 공격 투자를 대체했다. 현재 값은 STR 0.7의
+// 약 14%로 제한해 느린 탱커의 처치력을 돕되 주 공격 스탯을 대신하지 않는다.
 export const VIT_ATK_COEF = 0.1;
 // 도적 직군 패시브 "예기" — 공격력에 DEX×계수 가산(도적 한정). 죽은 축 DEX 부활.
 // 스킬 재설계(docs/v2-skill-system-plan.md). 🔑 v2c_rogue_finesse(예기) passive.atkPerDexCoef 와 동기.
@@ -98,7 +99,9 @@ export const CRIT_MULT_SCALE = 3.0;
 // 프리미엄(메테오 2.8 등)으로 유지. 알려진 공백: Lv18 전 마법 공격 스킬 부재(상수 무관, 후속).
 // 2026-06-21 0.15→0.22: DEX 독주 재밸런스에서 INT 솔로 viability 부양(sim: INT d50 wr 62%→95%).
 //   STR 대칭(0.15)을 의도적으로 깸 — 마법 버스트축 회복. docs/v2-dex-rebalance-plan.md.
-export const MAGIC_ATK_PER_INT = 0.35;
+// 2026-08-22 0.35→0.7: 후반 무기 위력에 묻히는 주스탯 투자 체감을 높인다. 순수 마법
+// 스킬은 combatPattern의 직접 INT 계수 보정으로 기준 피해를 보존한다.
+export const MAGIC_ATK_PER_INT = 0.7;
 // 정신은 지능 이하에서도 마법 공격을 보조하고, 지능을 초과한 부분은 더 높은 비율로 전환한다.
 // 초과 구간의 한계 계수는 0.1+0.6=0.7로 기존과 같아 순수 SPI 빌드의 성장 기울기를 보존한다.
 // 기본 공격 전환은 derive에서 이 보너스를 포함한 마공이 물공보다 높을 때만 켜진다.

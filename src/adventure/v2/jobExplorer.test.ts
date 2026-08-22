@@ -91,7 +91,7 @@ describe("jobExplorer tags", () => {
     // 궁수는 힘 직업 보너스가 있지만 수행으로는 민첩과 행운만 올린다.
     expect(matchesJobExplorerFilters(job("archer"), "", strTag)).toBe(false);
     expect(matchesJobExplorerFilters(job("archer"), "", dexTag)).toBe(true);
-    expect(jobCultivationSummary("archer")).toBe("민첩 +2 · 행운 +2");
+    expect(jobCultivationSummary("archer")).toBe("민첩 +3 · 행운 +1");
   });
 
   it("모험가는 실제 수행과 같이 네 스탯만 표시한다", () => {
@@ -117,6 +117,9 @@ describe("jobExplorer tags", () => {
     expect(jobCultivationSummary("templar")).toBe(
       "힘 +2 · 활력 +1 · 정신 +1",
     );
+    expect(jobCultivationSummary("archmage")).toBe("지능 +4 · 정신 +2");
+    expect(jobCultivationSummary("heavenlybow")).toBe("민첩 +4 · 행운 +2");
+    expect(jobCultivationSummary("blackmoon")).toBe("행운 +4 · 민첩 +2");
   });
 
   it("모든 직업의 수행 설명과 스탯 필터가 실제 적용 프로필과 일치한다", () => {

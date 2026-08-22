@@ -21,6 +21,15 @@ import type {
   V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import {
+  BLACKSMITH_OPTION_FOCUSES,
+  BLACKSMITH_SPECIALTY_NAMES,
+  BLACKSMITH_STRUCTURES,
+  type BlacksmithOptionFocusId,
+  type BlacksmithProgressionState,
+  type BlacksmithSpecialtyId,
+  type BlacksmithStructureId,
+} from "@/adventure/data/v2/blacksmithSpecialization";
+import {
   v2EquipCatalogTierDisplayLabel,
   v2EquipCatalogTierToDisplayTier,
 } from "@/adventure/data/v2/v2Equipment";
@@ -81,6 +90,31 @@ export type WorkshopRecipeView = {
       totalGoldCost: number;
       goldOk: boolean;
       canCraft: boolean;
+    } | null;
+  };
+  techniques?: {
+    eligible: boolean;
+    optionFocuses: readonly {
+      id: BlacksmithOptionFocusId;
+      name: string;
+      optionKeys: readonly string[];
+    }[];
+    structures: readonly {
+      id: BlacksmithStructureId;
+      name: string;
+      requiredLevel: number;
+    }[];
+    focusChancePct: number;
+    catalystUnlocked: boolean;
+    catalystFocusChancePct: number;
+    catalystPreserveChancePct: number;
+    masterworkTechniquesUnlocked: boolean;
+    signatureUnlocked: boolean;
+    inspectionUnlocked: boolean;
+    catalyst: {
+      materialId: string;
+      required: number;
+      owned: number;
     } | null;
   };
 };
@@ -150,6 +184,15 @@ export type WorkshopState = {
     useFeeGold: number;
   } | null;
   recipes: WorkshopRecipeView[];
+  blacksmithProgression?: BlacksmithProgressionState;
+  signatureCandidates?: {
+    iid: string;
+    equipmentId: string;
+    itemName: string;
+    slot: V2EquipSlot;
+    masterwork: boolean;
+    craftQualityLevel: number;
+  }[];
 };
 
 export type WorkshopEquipmentCodexLoadStatus =
@@ -313,7 +356,33 @@ export const ERROR_TEXT: Record<string, string> = {
   insufficient_gold: "제작 수수료 또는 외부 이용료를 낼 골드가 부족합니다.",
   policy_blocked: "점령 길드가 길드원 전용으로 설정한 제작소입니다.",
   weekly_source_conflict: "이번 주 제작소 보상처를 이미 다른 곳으로 선택했습니다.",
+  specialty_level_locked: "대장장이 Lv 13에 영구 전문 분야가 해금됩니다.",
+  specialty_locked: "이미 정한 전문 분야는 바꿀 수 없습니다.",
+  technique_locked: "아직 해금되지 않은 전문 제작 기술입니다.",
+  invalid_option_focus: "이 장비에는 선택한 옵션 성향을 적용할 수 없습니다.",
+  invalid_structure: "이 장비에는 선택한 구조 제작술을 적용할 수 없습니다.",
+  option_focus_required: "옵션 성향을 먼저 선택해야 합니다.",
+  insufficient_catalyst: "전문 제작에 사용할 촉매 재료가 부족합니다.",
+  pending_inspection: "진행 중인 최종 검수를 먼저 확정해야 합니다.",
+  inspection_not_found: "확정할 최종 검수 결과를 찾지 못했습니다.",
+  inspection_already_resolved: "이미 다른 최종 검수 결과를 확정했습니다.",
 };
+
+export function blacksmithSpecialtyLabel(id: BlacksmithSpecialtyId): string {
+  return BLACKSMITH_SPECIALTY_NAMES[id];
+}
+
+export function blacksmithFocusLabel(id: BlacksmithOptionFocusId): string {
+  return (
+    Object.values(BLACKSMITH_OPTION_FOCUSES)
+      .flat()
+      .find((focus) => focus.id === id)?.name ?? id
+  );
+}
+
+export function blacksmithStructureLabel(id: BlacksmithStructureId): string {
+  return BLACKSMITH_STRUCTURES.find((structure) => structure.id === id)?.name ?? id;
+}
 
 export const WEEKLY_ERROR_TEXT: Record<string, string> = {
   unauthorized: "로그인이 필요합니다.",

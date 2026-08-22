@@ -12,7 +12,7 @@ import {
   V2_REFORGE_ENABLED,
   isReforgeStoneMaterialId,
 } from "@/adventure/data/v2/v2EquipVariance";
-import { parseCookingFoodInventory } from "@/adventure/v2/cooking";
+import { parseCookingFoodInventory } from "@/adventure/v2/cooking/food";
 import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
 
 // GET /api/v2/me/inventory — V2InventoryView + V2ShopView 자체 fetch.

@@ -3,7 +3,7 @@ import type { db } from "@/db";
 import { savesKv } from "@/db/schema";
 import { CODEX_MASTERY_CATALOG } from "@/adventure/data/v2/codexMasteryProductionCatalog";
 import type { CodexMasteryProgress } from "@/adventure/data/v2/codexMasteryTypes";
-import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking";
+import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking/state";
 import { FISHING_CODEX_KEY } from "@/adventure/v2/fishingCodex";
 import { LIFE_FIELD_RECORDS_KEY } from "@/adventure/v2/lifeFieldRecords";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";

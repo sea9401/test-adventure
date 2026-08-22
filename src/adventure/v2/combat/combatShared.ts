@@ -789,6 +789,9 @@ export type V2SkillCastResult = {
   /** 적에게 가한 damage 효과별 개별 피해(다단 스킬 = 타당 1개). 합 = enemyDamage.
    *  엔진이 전투 로그를 타마다 한 줄로 쪼개는 데 사용(부스트는 distributeBoostedHits 로 분배). */
   hitDamages: number[];
+  /** hitDamages 각 타격이 마나 실드 분할 대상인지 여부. 처형 피해처럼 명시적으로
+   *  우회하는 타격만 false이며, 복합 스킬에서도 타격별 분류를 보존한다. */
+  hitManaShieldEligible: boolean[];
   selfHeal: number;
   /** 빗나감 시에도 유지되는 직접 회복분. healFromDamage 회복은 포함하지 않는다. */
   selfHealOnMiss: number;
@@ -866,6 +869,7 @@ export function removeMissedV2SkillTargetEffects(
     magicEnemyDamage: 0,
     frostChillGain: 0,
     hitDamages: [],
+    hitManaShieldEligible: [],
     selfHeal: result.selfHealOnMiss,
     healFromActualDamagePct: 0,
     bleedChangeToApply: undefined,
@@ -1007,6 +1011,7 @@ const EMPTY_CAST_RESULT_BASE = {
   magicEnemyDamage: 0,
   frostChillGain: 0,
   hitDamages: [] as number[],
+  hitManaShieldEligible: [] as boolean[],
   selfHeal: 0,
   selfHealOnMiss: 0,
   skillAccuracyBonusPct: 0,
@@ -1291,6 +1296,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   let magicEnemyDamage = 0;
   // 개별 damage 효과(다단 스킬 = 타당 1개)를 따로 모아 둔다 — 엔진이 로그를 타마다 쪼갬.
   const hitDamages: number[] = [];
+  const hitManaShieldEligible: boolean[] = [];
   const dealDamage = (
     x: number,
     scaling:
@@ -1304,10 +1310,12 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       | "all"
       | "maxHp"
       | undefined,
+    manaShieldEligible = true,
   ): void => {
     enemyDamage += x;
     if (scaling === "magic" || scaling === "spi") magicEnemyDamage += x;
     hitDamages.push(x);
+    hitManaShieldEligible.push(manaShieldEligible);
   };
   let selfHeal = 0;
   let selfHpCost = 0;
@@ -1880,6 +1888,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
           directDamagePiercePct(),
         ),
         effect.scaling,
+        false,
       );
     } else if (effect.kind === "ambushDamage") {
       // 기습 — 처형의 역. 적 HP 임계 "이상"(풀피)이면 ×bonusMult (오프너 알파), 아니면 낮은 기본딜.
@@ -2175,6 +2184,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       hitDamages.length === 1
         ? [finalEnemyDamage]
         : hitDamages,
+    hitManaShieldEligible,
     selfHeal: applyRitualPower(scaledSelfHeal),
     selfHealOnMiss: applyRitualPower(scaledSelfHealOnMiss),
     skillAccuracyBonusPct,

@@ -33,7 +33,7 @@ import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/l
 import { consumeFinishedItem } from "@/adventure/v2/lifeCrafting";
 import { FARM_DAILY_DELIVERY_LIMIT, FARM_SAVE_KEY, emptyFarmState, normalizeFarmForDay, parseFarmState } from "@/adventure/v2/farm";
 import { FISHING_PROGRESS_KEY, emptyFishingProgression, parseFishingProgression } from "@/adventure/v2/fishingProgression";
-import { COOKING_DAILY_ORDER_COUNT, COOKING_SAVE_KEY, emptyCookingState, parseCookingState } from "@/adventure/v2/cooking";
+import { COOKING_DAILY_REQUEST_COUNT, COOKING_SAVE_KEY, emptyCookingState, parseCookingState } from "@/adventure/v2/cooking/state";
 import { WOODCUTTING_LOG_KEY, parseWoodcuttingLog } from "@/adventure/v2/woodcuttingSession";
 import { MINING_LOG_KEY, parseMiningLog } from "@/adventure/v2/miningSession";
 import { FISHING_DAILY_CHALLENGES, FISHING_DAILY_KEY, emptyFishingDaily, parseFishingDaily, rolloverFishingDaily } from "@/adventure/data/v2/fishingDailyChallenges";
@@ -184,10 +184,10 @@ function boardPayload(now: Date, snapshot: Snapshot) {
       },
       {
         id: "cooking",
-        title: "선술집 주문",
-        description: "완성 요리 주문과 식당 평판 보상은 기존 주방에서 진행합니다.",
+        title: "요리 조건 납품",
+        description: "분야·조리법·품질 조건 납품은 주방에서 진행합니다.",
         href: "/town/kitchen",
-        progressLabel: `오늘 ${cooking.daily.completedOrderIds.length}/${COOKING_DAILY_ORDER_COUNT}건 완료`,
+        progressLabel: `오늘 ${cooking.daily.completedRequestIds.length}/${COOKING_DAILY_REQUEST_COUNT}건 완료`,
       },
       {
         id: "fishing",

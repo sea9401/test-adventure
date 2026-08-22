@@ -33,7 +33,11 @@ import { STAMINA_SHARD_MATERIAL } from "./staminaPotionCrafting";
 import { SCAVENGED_CRAFT_MATERIALS } from "./scavengedCrafting";
 import { STORM_EXPEDITION_MATERIALS } from "./stormExpeditionRewards";
 import { LIFE_PROCESSED_MATERIALS } from "@/adventure/v2/lifeWorkshop";
-import { DANGEROUS_FISHING_MATERIALS } from "./dangerousFishing";
+import {
+  DANGEROUS_FISH,
+  DANGEROUS_FISHING_MATERIALS,
+  dangerousCatchMaterialId,
+} from "./dangerousFishing";
 
 // === 재료/제작 보류 토글 (단일 reversible 플래그) =====================
 // 재료·제작 시스템을 통째로 "park" 하는 단일 스위치. false 면:
@@ -129,7 +133,13 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
 
 // 재료 NPC 판매가 (개당, 골드). 강화석은 의도적으로 **비등재** — NPC 환금 없음,
 // 유저 거래(거래소) 전용(사용자 결정 2026-06-11). 미등재 재료는 판매 라우트가 거부.
-export const V2_MATERIAL_SELL_PRICE: Partial<Record<V2MaterialId, number>> = {};
+export const V2_MATERIAL_SELL_PRICE: Partial<Record<V2MaterialId, number>> =
+  Object.fromEntries(
+    Object.values(DANGEROUS_FISH).map((fish) => [
+      dangerousCatchMaterialId(fish.id),
+      fish.cargoValue * 10,
+    ]),
+  );
 
 // NPC 판매가는 카탈로그 등재 여부와 별도다. V2MaterialId가 string 이라
 // Record 직접 인덱싱은 미등재 id도 number로 추론해 UI에서 undefined × 수량 =

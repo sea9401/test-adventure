@@ -13,6 +13,11 @@ import {
   withDangerousFishingTransaction,
 } from "@/lib/server/dangerousFishingService";
 import type { DangerousFishingAction } from "@/adventure/v2/dangerousFishingEncounter";
+import {
+  checkpointRealtimeEncounterInTx,
+  finishRealtimeEncounterInTx,
+  startRealtimeEncounterInTx,
+} from "@/lib/server/dangerousFishingRealtimeService";
 
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -31,36 +36,65 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
   const isStart = body.action === "start";
+  const isRealtimeStart = body.action === "start_realtime";
+  const isCheckpoint = body.action === "checkpoint";
+  const isFinish = body.action === "finish";
   const isAction = body.action === "reel" || body.action === "give" || body.action === "brace";
-  if (!isStart && !isAction) {
+  if (!isStart && !isRealtimeStart && !isCheckpoint && !isFinish && !isAction) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
   const limited = enforceUserAndIpRateLimit(req, {
     userId,
-    action: isStart
+    action: isStart || isRealtimeStart
       ? "v2:dangerous-fishing:start"
       : "v2:dangerous-fishing:action",
-    userLimit: isStart ? 45 : 120,
-    ipLimit: isStart ? 240 : 720,
+    userLimit: isStart || isRealtimeStart ? 45 : 120,
+    ipLimit: isStart || isRealtimeStart ? 240 : 720,
     windowMs: 60_000,
   });
   if (limited) return limited;
-  const result = isStart
-    ? await withDangerousFishingTransaction((tx) =>
-        startEncounterInTx(tx, userId, {
-          baitId: body.baitId,
-          now: Date.now(),
-          random: Math.random,
-        }),
-      )
-    : await withDangerousFishingTransaction((tx) =>
-        actOnEncounterInTx(tx, userId, {
-          action: body.action as DangerousFishingAction,
-          encounterId: body.encounterId,
-          revision: body.revision,
-          now: Date.now(),
-          random: Math.random,
-        }),
-      );
+  const result = await withDangerousFishingTransaction((tx) => {
+    if (isStart) {
+      return startEncounterInTx(tx, userId, {
+        baitId: body.baitId,
+        now: Date.now(),
+        random: Math.random,
+      });
+    }
+    if (isRealtimeStart) {
+      return startRealtimeEncounterInTx(tx, userId, {
+        baitId: body.baitId,
+        now: Date.now(),
+        random: Math.random,
+      });
+    }
+    if (isCheckpoint) {
+      return checkpointRealtimeEncounterInTx(tx, userId, {
+        encounterId: body.encounterId,
+        revision: body.revision,
+        inputs: body.inputs,
+        clientTick: body.clientTick,
+        now: Date.now(),
+      });
+    }
+    if (isFinish) {
+      return finishRealtimeEncounterInTx(tx, userId, {
+        encounterId: body.encounterId,
+        revision: body.revision,
+        inputs: body.inputs,
+        clientTick: body.clientTick,
+        requestId: body.requestId,
+        now: Date.now(),
+        random: Math.random,
+      });
+    }
+    return actOnEncounterInTx(tx, userId, {
+      action: body.action as DangerousFishingAction,
+      encounterId: body.encounterId,
+      revision: body.revision,
+      now: Date.now(),
+      random: Math.random,
+    });
+  });
   return Response.json(result, { status: result.status });
 }

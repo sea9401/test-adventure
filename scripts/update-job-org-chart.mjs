@@ -37,6 +37,7 @@ const GROUP_LABEL = {
   mage: "마법 계열",
   rogue: "도적 계열",
   survivor: "생존자 계열",
+  mutant: "변이자 계열",
 };
 
 function esc(v) {
@@ -48,7 +49,10 @@ function esc(v) {
 }
 
 function groupOf(jobId) {
-  if (jobId === "__start" || jobId === "none") return "root";
+  if (
+    jobId === "__start" ||
+    ["none", "survivor", "mutant"].includes(jobId)
+  ) return "root";
   return LEGACY_CLASS_SPEC_BY_JOB[jobId]?.class ?? jobId;
 }
 
@@ -79,8 +83,12 @@ function extraConditionText(condition) {
       return `${V2_JOB_CATALOG[condition.jobId]?.name ?? condition.jobId} 해금`;
     case "farmingLevel":
       return `농사 Lv.${condition.min}`;
+    case "cookingLevel":
+      return `요리 Lv.${condition.min}`;
     case "woodcuttingLevel":
       return `벌목 Lv.${condition.min}`;
+    case "miningLevel":
+      return `채광 Lv.${condition.min}`;
     case "statThreshold":
       return `${STAT_LABEL[condition.stat] ?? condition.stat.toUpperCase()} 한계 ${condition.min}`;
     case "questCompleted":
@@ -158,7 +166,10 @@ function buildTree() {
     unlock: { prereqs: {} },
   };
   const children = new Map();
-  children.set("__start", ["none", "survivor"]);
+  children.set(
+    "__start",
+    V2_JOB_LIST.filter((job) => job.tier === 0).map((job) => job.id),
+  );
   for (const job of V2_JOB_LIST) children.set(job.id, []);
 
   const addChild = (parent, child) => {
@@ -177,6 +188,22 @@ function buildTree() {
   }
 
   return { virtualRoot, children };
+}
+
+function assertTreeCoverage(children) {
+  const visited = new Set();
+  const visit = (jobId) => {
+    if (visited.has(jobId)) return;
+    visited.add(jobId);
+    for (const childId of children.get(jobId) ?? []) visit(childId);
+  };
+  visit("__start");
+  const missing = V2_JOB_LIST.filter((job) => !visited.has(job.id));
+  if (missing.length > 0) {
+    throw new Error(
+      `직업 조직도에 연결되지 않은 직업: ${missing.map((job) => `${job.name}(${job.id})`).join(", ")}`,
+    );
+  }
 }
 
 function renderNode(job, children) {
@@ -216,8 +243,14 @@ for (const [id, rawDef] of Object.entries(V2_COMMON_SKILLS)) {
 }
 
 const { virtualRoot, children } = buildTree();
+assertTreeCoverage(children);
 const chart = renderNode(virtualRoot, children);
 const total = V2_JOB_LIST.length;
+const maxTier = Math.max(...V2_JOB_LIST.map((job) => job.tier));
+const rootNames = V2_JOB_LIST
+  .filter((job) => job.tier === 0)
+  .map((job) => job.name)
+  .join("/");
 
 const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>직업 전직 조직도 (v2)</title><style>
 :root{font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif}
@@ -248,6 +281,7 @@ h1{font-size:30px;line-height:1.25;margin:0 0 8px}.sub{color:#71717a;font-size:1
 .g-root{border-top-color:#a1a1aa}.g-warrior{border-top-color:#dc2626}.lg.g-warrior{background:#dc2626}
 .g-martial{border-top-color:#16a34a}.lg.g-martial{background:#16a34a}.g-mage{border-top-color:#2563eb}.lg.g-mage{background:#2563eb}
 .g-rogue{border-top-color:#9333ea}.lg.g-rogue{background:#9333ea}.g-survivor{border-top-color:#ea580c}.lg.g-survivor{background:#ea580c}
+.g-mutant{border-top-color:#be123c}.lg.g-mutant{background:#be123c}
 #tip{position:fixed;display:none;z-index:50;max-width:280px;background:#18181b;color:#fafafa;padding:8px 10px;border-radius:8px;font-size:11px;line-height:1.5;box-shadow:0 6px 18px rgba(0,0,0,.35);pointer-events:none}
 #tip b{font-size:15px}#tip .tk{font-size:10px;padding:1px 5px;border-radius:4px;vertical-align:middle}
 #tip .tk-a{background:#4338ca}#tip .tk-p{background:#3f3f46}#tip .tm{color:#a1a1aa;margin-top:2px}
@@ -269,7 +303,7 @@ body.dark .theme-toggle{background:#1f1f23;color:#e4e4e7;border-color:#3f3f46}
 </style></head><body>
 <button type="button" class="theme-toggle" id="themeToggle" aria-label="테마 전환">🌙 다크</button>
 <h1>직업 전직 조직도 — v2</h1>
-<p class="sub">총 ${total}개 직업 · 모험가/생존자 루트와 1~6차 전직. 🔒=해금 조건(숙련도). <b>하이브리드</b>(점선 카드)=조건 2개 직업. 스킬 칩 <b>마우스 오버</b>=필요 SP·효과·수치·마나 소모량·발동 확률.</p>
+<p class="sub">총 ${total}개 직업 · ${rootNames} 루트와 1~${maxTier}차 전직. 🔒=해금 조건(숙련도). <b>하이브리드</b>(점선 카드)=조건 2개 직업. 스킬 칩 <b>마우스 오버</b>=필요 SP·효과·수치·마나 소모량·발동 확률.</p>
 <section class="view-controls" aria-labelledby="viewControlsTitle"><h2 class="section-title" id="viewControlsTitle">계보 표시 설정</h2><div class="control-row"><button type="button" class="control-btn" id="expandAll">전체 펼치기</button><button type="button" class="control-btn" id="collapseAll">전체 접기</button><label class="search-label" for="jobSearch"><span>직업·스킬 검색</span><input type="search" id="jobSearch" placeholder="예: 검성, 맹독" autocomplete="off"></label><span class="search-status" id="searchStatus" aria-live="polite"></span></div></section>
 <div class="legend">${Object.entries(GROUP_LABEL).map(([k, v]) => `<span class="lg g-${k}">${v}</span>`).join("")}<span class="lg lg-hyb">하이브리드(조건 2개)</span></div>
 <div class="scroll"><ul class="chart">${chart}</ul></div>

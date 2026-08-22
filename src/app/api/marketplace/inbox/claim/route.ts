@@ -62,7 +62,7 @@ import {
   addCookingFood,
   isCookingFoodId,
   type CookingFoodId,
-} from "@/adventure/v2/cooking";
+} from "@/adventure/v2/cooking/food";
 import { randomUUID } from "node:crypto";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import type { FishId } from "@/adventure/data/v2/fish";

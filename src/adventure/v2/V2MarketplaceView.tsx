@@ -117,7 +117,7 @@ import {
   isCookingFoodId,
   type CookingFoodId,
   type CookingFoodInventory,
-} from "./cooking";
+} from "./cooking/food";
 import { SURFACE_ACCENT, SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   equippedInstanceForMarketplaceItem,

@@ -122,7 +122,7 @@ export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   fortressknight: { vit: 4, str: 2 }, // 성채기사 — 철벽기사 최종형, 방어 중심
   swordsaint: { str: 3, dex: 2, vit: 1 }, // 검성 — 검호 최종형, 힘과 정밀 중심
   hegemon: { str: 3, vit: 2, luk: 1 }, // 패황 — 패왕 최종형, 힘·광기·치명 중심
-  archmage: { int: 3, spi: 3 }, // 대마도사 — 비전술사 최종형, 순수 마법 중심
+  archmage: { int: 4, spi: 2 }, // 대마도사 — 비전술사 최종형, 지능 집중 마법
   lawweaver: { int: 3, spi: 3 }, // 법칙술사 — 각인술사 최종형, 문장 조합과 해방 중심
   savior: { spi: 3, int: 2, vit: 1 }, // 구원자 — 성자 최종형, 치유와 생존 보조 중심
   calamitycaller: { int: 3, spi: 1, luk: 1 }, // 재앙술사 — 대주술사 심화, 저주·재앙 디버프 중심
@@ -133,7 +133,7 @@ export const V2_HYBRID_CULTIVATE_PROFILE: Record<
 };
 
 // 단일 직군 안에서도 공용 프로필과 역할 축이 크게 다른 전문 계보의 수행 오버라이드.
-// 방패 계보는 방어력 기반 공격·방벽·보호막·반사가 핵심이라 전사 공용 DEX 대신 VIT에 집중한다.
+// 방패는 VIT, 공격 마법은 INT, 궁술은 DEX, 암살은 LUK에 집중해 공용 균등 프로필과 구분한다.
 // 값은 V2_JOB_CATALOG[id].cultivateProfile 과 동일해야 하며 차수별 총 성장량은 유지한다.
 export const V2_SPECIALIZED_CULTIVATE_PROFILE: Record<
   string,
@@ -144,6 +144,21 @@ export const V2_SPECIALIZED_CULTIVATE_PROFILE: Record<
   warden: { vit: 3, str: 1 },
   ironknight: { vit: 4, str: 1 },
   fortressknight: { vit: 4, str: 2 },
+  caster: { int: 3, spi: 1 },
+  magus: { int: 3, spi: 1 },
+  sage: { int: 3, spi: 1 },
+  arcanist: { int: 4, spi: 1 },
+  archmage: { int: 4, spi: 2 },
+  archer: { dex: 3, luk: 1 },
+  ranger: { dex: 3, luk: 1 },
+  chief: { dex: 3, luk: 1 },
+  marksman: { dex: 4, luk: 1 },
+  heavenlybow: { dex: 4, luk: 2 },
+  assassin: { luk: 3, dex: 1 },
+  shadow: { luk: 3, dex: 1 },
+  phantom: { luk: 3, dex: 1 },
+  nightshade: { luk: 4, dex: 1 },
+  blackmoon: { luk: 4, dex: 2 },
   beastwarrior: { str: 2, dex: 2 },
   tracker: { str: 2, dex: 2 },
   bloodtracker: { str: 2, dex: 2 },

@@ -1,4 +1,5 @@
 import {
+  DANGEROUS_BOSSES,
   DANGEROUS_FISH,
   dangerousCatchMaterialId,
   isDangerousBaitId,
@@ -23,10 +24,33 @@ import type {
   DangerousEncounter,
   DangerousEncounterEvent,
   DangerousEncounterTransition,
+  DangerousRealtimeCompletion,
+  DangerousRealtimeEncounter,
+  DangerousRealtimeModifierSource,
+  DangerousStoredEncounter,
+  DangerousV1StoredEncounter,
 } from "./dangerousFishingEncounter";
+import { isDangerousRealtimeEncounter } from "./dangerousFishingEncounter";
+import {
+  DANGEROUS_REALTIME_LEGACY_BALANCE_REVISION,
+  dangerousRealtimeTargetCalibration,
+  dangerousRealtimeMaxTicks,
+  isDangerousRealtimeBalanceRevision,
+  isDangerousRealtimeCheckpoint,
+  DANGEROUS_REALTIME_TICK_MS,
+  type DangerousRealtimeConfig,
+  type DangerousRealtimeBalanceRevision,
+  type DangerousRealtimeState,
+} from "./dangerousFishingRealtime";
+import {
+  dangerousRealtimeModifiers,
+  type DangerousRealtimeModifiers,
+} from "./dangerousFishingRealtimeModifiers";
 
 export const DANGEROUS_FISHING_SAVE_KEY = "dangerous-fishing.v1";
-export const DANGEROUS_FISHING_STATE_VERSION = 1 as const;
+export const DANGEROUS_FISHING_STATE_VERSION = 2 as const;
+export const DANGEROUS_REALTIME_FINISH_GRACE_MS = 30_000;
+const DANGEROUS_REALTIME_COMPLETION_LIMIT = 32;
 
 export type DangerousCargoStack = {
   fishId: DangerousFishId;
@@ -51,7 +75,13 @@ export type DangerousBossCodexEntry = {
 
 export type DangerousBossAttempt = {
   eventId: string;
-  encounter: DangerousEncounter;
+  encounter: DangerousStoredEncounter;
+};
+
+export type DangerousGearEnhancements = {
+  rods: Partial<Record<DangerousRodId, number>>;
+  reels: Partial<Record<DangerousReelId, number>>;
+  lines: Partial<Record<DangerousLineId, number>>;
 };
 
 export type DangerousFishingVoyage = {
@@ -61,7 +91,7 @@ export type DangerousFishingVoyage = {
   risk: number;
   startedAt: number;
   cargo: DangerousCargoStack[];
-  encounter: DangerousEncounter | null;
+  encounter: DangerousStoredEncounter | null;
 };
 
 export type DangerousFishingState = {
@@ -83,6 +113,8 @@ export type DangerousFishingState = {
   bossTraces: Partial<Record<DangerousBossId, number>>;
   bossAttempt: DangerousBossAttempt | null;
   resolvedEncounterIds: string[];
+  gearEnhancements: DangerousGearEnhancements;
+  realtimeCompletions: DangerousRealtimeCompletion[];
   voyage: DangerousFishingVoyage | null;
 };
 
@@ -93,6 +125,7 @@ export type DangerousFishingReturn = {
   lostValue: number;
   lostCargo: Record<string, number>;
   materials: Record<string, number>;
+  retainedCargoValue: number;
 };
 
 export type DangerousRiskPreview = {
@@ -118,9 +151,11 @@ export function emptyDangerousFishingState(): DangerousFishingState {
     baitCounts: {},
       codex: {},
       bossCodex: {},
-      bossTraces: {},
-      bossAttempt: null,
+    bossTraces: {},
+    bossAttempt: null,
     resolvedEncounterIds: [],
+    gearEnhancements: { rods: {}, reels: {}, lines: {} },
+    realtimeCompletions: [],
     voyage: null,
   };
 }
@@ -133,6 +168,17 @@ function objectRecord(value: unknown): Record<string, unknown> | null {
 function safeInt(value: unknown, fallback = 0): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
   return Math.floor(value);
+}
+
+function nonNegativeSafeInt(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  return Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, Math.floor(value)));
+}
+
+function saturatingSafeAdd(left: number, right: number): number {
+  return left >= Number.MAX_SAFE_INTEGER - right
+    ? Number.MAX_SAFE_INTEGER
+    : left + right;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -157,7 +203,7 @@ const BEHAVIORS = new Set<DangerousFishBehavior>([
   "dive",
 ]);
 
-function parseEncounter(raw: unknown): DangerousEncounter | null {
+function parseV1Encounter(raw: unknown): DangerousV1StoredEncounter | null {
   const value = objectRecord(raw);
   if (!value || typeof value.id !== "string" || value.id.length === 0) return null;
   const targetKind = value.targetKind;
@@ -191,6 +237,7 @@ function parseEncounter(raw: unknown): DangerousEncounter | null {
   const maxStamina = Math.max(1, safeInt(value.maxStamina, 1));
   const startDistance = Math.max(1, safeInt(value.startDistance, 1));
   return {
+    simulationVersion: 1,
     id: value.id,
     targetKind,
     targetId,
@@ -216,22 +263,381 @@ function parseEncounter(raw: unknown): DangerousEncounter | null {
   };
 }
 
+function isNonNegativeInt(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+function sameBehaviors(
+  raw: unknown,
+  expected: readonly DangerousFishBehavior[],
+): raw is DangerousFishBehavior[] {
+  return (
+    Array.isArray(raw) &&
+    raw.every((behavior) => typeof behavior === "string" && BEHAVIORS.has(behavior as DangerousFishBehavior)) &&
+    raw.length === expected.length &&
+    raw.every((behavior, index) => behavior === expected[index])
+  );
+}
+
+function sameBaitEffects(
+  left: DangerousRealtimeModifiers["baitEffect"],
+  right: DangerousRealtimeModifiers["baitEffect"],
+): boolean {
+  return (
+    left.turnDistanceRecoveryReductionPct === right.turnDistanceRecoveryReductionPct &&
+    left.turnTensionImpactReductionPct === right.turnTensionImpactReductionPct &&
+    left.chargeAndThrashStaminaDamagePct === right.chargeAndThrashStaminaDamagePct &&
+    left.telegraphCount === right.telegraphCount &&
+    left.diveSpeedReductionPct === right.diveSpeedReductionPct &&
+    left.startingStaminaReductionPct === right.startingStaminaReductionPct &&
+    left.tensionImpulseReductionPct === right.tensionImpulseReductionPct &&
+    left.maxTimeReductionPct === right.maxTimeReductionPct
+  );
+}
+
+type RealtimeParseContext = {
+  ownedGear: DangerousFishingState["ownedGear"];
+  gearEnhancements: DangerousGearEnhancements;
+};
+
+function parseRealtimeModifierSource(
+  raw: unknown,
+): DangerousRealtimeModifierSource | null {
+  const value = objectRecord(raw);
+  if (!value) return null;
+  const {
+    fishingLevel,
+    baitId,
+    rodId,
+    reelId,
+    lineId,
+    maxTensionBonus,
+    reelPowerBonus,
+    staminaDamageBonus,
+    tensionControlBonus,
+    slackTolerance,
+    telegraphSteps,
+    rodEnhancementLevel,
+    reelEnhancementLevel,
+    lineEnhancementLevel,
+    cargoProtectionPct,
+    targetStamina,
+    targetDistance,
+    targetBaseTension,
+  } = value;
+  if (
+    !isNonNegativeInt(fishingLevel) ||
+    fishingLevel > 100 ||
+    !isDangerousBaitId(baitId) ||
+    !isDangerousRodId(rodId) ||
+    !isDangerousReelId(reelId) ||
+    !isDangerousLineId(lineId) ||
+    !Number.isSafeInteger(maxTensionBonus) ||
+    (maxTensionBonus as number) < -50 ||
+    (maxTensionBonus as number) > 100 ||
+    !isNonNegativeInt(reelPowerBonus) ||
+    reelPowerBonus > 100 ||
+    !isNonNegativeInt(staminaDamageBonus) ||
+    staminaDamageBonus > 100 ||
+    !isNonNegativeInt(tensionControlBonus) ||
+    tensionControlBonus > 100 ||
+    !isNonNegativeInt(slackTolerance) ||
+    slackTolerance > 10 ||
+    !isNonNegativeInt(telegraphSteps) ||
+    telegraphSteps > 2 ||
+    !isNonNegativeInt(rodEnhancementLevel) ||
+    rodEnhancementLevel > 3 ||
+    !isNonNegativeInt(reelEnhancementLevel) ||
+    reelEnhancementLevel > 3 ||
+    !isNonNegativeInt(lineEnhancementLevel) ||
+    lineEnhancementLevel > 3 ||
+    !isNonNegativeInt(cargoProtectionPct) ||
+    cargoProtectionPct > 15 ||
+    !isNonNegativeInt(targetStamina) ||
+    targetStamina === 0 ||
+    targetStamina > 1_000_000 ||
+    !isNonNegativeInt(targetDistance) ||
+    targetDistance === 0 ||
+    targetDistance > 1_000_000 ||
+    !isNonNegativeInt(targetBaseTension) ||
+    targetBaseTension > 10_000
+  ) {
+    return null;
+  }
+  return {
+    fishingLevel,
+    baitId,
+    rodId,
+    reelId,
+    lineId,
+    maxTensionBonus: maxTensionBonus as number,
+    reelPowerBonus,
+    staminaDamageBonus,
+    tensionControlBonus,
+    slackTolerance,
+    telegraphSteps,
+    rodEnhancementLevel,
+    reelEnhancementLevel,
+    lineEnhancementLevel,
+    cargoProtectionPct,
+    targetStamina,
+    targetDistance,
+    targetBaseTension,
+  };
+}
+
+function sameRealtimeModifiers(
+  left: DangerousRealtimeModifiers,
+  right: DangerousRealtimeModifiers,
+): boolean {
+  return (
+    left.reelEfficiencyPct === right.reelEfficiencyPct &&
+    left.tensionControlPct === right.tensionControlPct &&
+    left.safeZoneBonusPct === right.safeZoneBonusPct &&
+    left.cargoProtectionPct === right.cargoProtectionPct &&
+    left.staminaDamagePct === right.staminaDamagePct &&
+    left.distanceRecoveryPct === right.distanceRecoveryPct &&
+    left.lowTensionGraceTicks === right.lowTensionGraceTicks &&
+    left.telegraphCount === right.telegraphCount &&
+    left.timeReductionPct === right.timeReductionPct &&
+    sameBaitEffects(left.baitEffect, right.baitEffect)
+  );
+}
+
+function parseRealtimeModifiers(raw: unknown): DangerousRealtimeModifiers | null {
+  const value = objectRecord(raw);
+  const baitEffect = objectRecord(value?.baitEffect);
+  if (!value || !baitEffect) return null;
+  const modifierKeys = [
+    "reelEfficiencyPct",
+    "tensionControlPct",
+    "safeZoneBonusPct",
+    "cargoProtectionPct",
+    "staminaDamagePct",
+    "distanceRecoveryPct",
+    "lowTensionGraceTicks",
+    "telegraphCount",
+    "timeReductionPct",
+  ] as const;
+  const baitEffectKeys = [
+    "turnDistanceRecoveryReductionPct",
+    "turnTensionImpactReductionPct",
+    "chargeAndThrashStaminaDamagePct",
+    "telegraphCount",
+    "diveSpeedReductionPct",
+    "startingStaminaReductionPct",
+    "tensionImpulseReductionPct",
+    "maxTimeReductionPct",
+  ] as const;
+  if (
+    !modifierKeys.every((key) => isNonNegativeInt(value[key])) ||
+    !baitEffectKeys.every((key) => isNonNegativeInt(baitEffect[key]))
+  ) {
+    return null;
+  }
+  return {
+    reelEfficiencyPct: value.reelEfficiencyPct as number,
+    tensionControlPct: value.tensionControlPct as number,
+    safeZoneBonusPct: value.safeZoneBonusPct as number,
+    cargoProtectionPct: value.cargoProtectionPct as number,
+    staminaDamagePct: value.staminaDamagePct as number,
+    distanceRecoveryPct: value.distanceRecoveryPct as number,
+    lowTensionGraceTicks: value.lowTensionGraceTicks as number,
+    telegraphCount: value.telegraphCount as number,
+    timeReductionPct: value.timeReductionPct as number,
+    baitEffect: {
+      turnDistanceRecoveryReductionPct:
+        baitEffect.turnDistanceRecoveryReductionPct as number,
+      turnTensionImpactReductionPct:
+        baitEffect.turnTensionImpactReductionPct as number,
+      chargeAndThrashStaminaDamagePct:
+        baitEffect.chargeAndThrashStaminaDamagePct as number,
+      telegraphCount: baitEffect.telegraphCount as number,
+      diveSpeedReductionPct: baitEffect.diveSpeedReductionPct as number,
+      startingStaminaReductionPct:
+        baitEffect.startingStaminaReductionPct as number,
+      tensionImpulseReductionPct:
+        baitEffect.tensionImpulseReductionPct as number,
+      maxTimeReductionPct: baitEffect.maxTimeReductionPct as number,
+    },
+  };
+}
+
+function parseRealtimeConfig(
+  raw: unknown,
+  modifierSourceRaw: unknown,
+  targetKind: "fish" | "boss",
+  targetId: DangerousFishId | DangerousBossId,
+  balanceRevision: DangerousRealtimeBalanceRevision,
+): { config: DangerousRealtimeConfig; modifierSource: DangerousRealtimeModifierSource } | null {
+  const value = objectRecord(raw);
+  if (!value || value.targetKind !== targetKind || !isNonNegativeInt(value.seed)) {
+    return null;
+  }
+  const target =
+    targetKind === "fish"
+      ? DANGEROUS_FISH[targetId as DangerousFishId]
+      : DANGEROUS_BOSSES[targetId as DangerousBossId];
+  const rarity =
+    targetKind === "fish"
+      ? DANGEROUS_FISH[targetId as DangerousFishId].rarity
+      : "boss";
+  if (
+    value.rarity !== rarity ||
+    !sameBehaviors(value.behaviorPattern, target.behaviorPattern) ||
+    !isNonNegativeInt(value.risk) ||
+    value.risk > 5 ||
+    typeof value.initialTension !== "number" ||
+    typeof value.maxTension !== "number" ||
+    typeof value.initialStamina !== "number" ||
+    typeof value.initialDistance !== "number"
+  ) {
+    return null;
+  }
+  const modifierSource = parseRealtimeModifierSource(modifierSourceRaw);
+  if (!modifierSource) return null;
+  const targetCalibration = dangerousRealtimeTargetCalibration({
+    stamina: modifierSource.targetStamina,
+    distance: modifierSource.targetDistance,
+    baseTension: modifierSource.targetBaseTension,
+    maxTensionBonus: modifierSource.maxTensionBonus,
+  }, balanceRevision);
+  if (
+    value.initialTension !== targetCalibration.initialTension ||
+    value.maxTension !== targetCalibration.maxTension ||
+    value.initialStamina !== targetCalibration.initialStamina ||
+    value.initialDistance !== targetCalibration.initialDistance
+  ) {
+    return null;
+  }
+  const modifiers = dangerousRealtimeModifiers({
+    fishingLevel: modifierSource.fishingLevel,
+    baitId: modifierSource.baitId,
+    reelPowerBonus: modifierSource.reelPowerBonus,
+    staminaDamageBonus: modifierSource.staminaDamageBonus,
+    tensionControlBonus: modifierSource.tensionControlBonus,
+    slackTolerance: modifierSource.slackTolerance,
+    telegraphSteps: modifierSource.telegraphSteps,
+    rodEnhancementLevel: modifierSource.rodEnhancementLevel,
+    reelEnhancementLevel: modifierSource.reelEnhancementLevel,
+    lineEnhancementLevel: modifierSource.lineEnhancementLevel,
+    cargoProtectionPct: modifierSource.cargoProtectionPct,
+  });
+  const persistedModifiers = parseRealtimeModifiers(value.modifiers);
+  if (!persistedModifiers) return null;
+  if (!sameRealtimeModifiers(persistedModifiers, modifiers)) return null;
+  const config: DangerousRealtimeConfig = {
+    seed: value.seed,
+    risk: value.risk,
+    targetKind,
+    rarity,
+    behaviorPattern: [...target.behaviorPattern],
+    ...targetCalibration,
+    maxTicks: 0,
+    modifiers,
+  };
+  const maxTicks = dangerousRealtimeMaxTicks(config);
+  if (value.maxTicks !== maxTicks) return null;
+  return { config: { ...config, maxTicks }, modifierSource };
+}
+
+function parseRealtimeCheckpoint(
+  raw: unknown,
+  config: DangerousRealtimeConfig,
+  balanceRevision: DangerousRealtimeBalanceRevision,
+): DangerousRealtimeState | null {
+  return isDangerousRealtimeCheckpoint(raw, config, balanceRevision)
+    ? raw
+    : null;
+}
+
+export function parseDangerousStoredEncounter(
+  raw: unknown,
+  _context: RealtimeParseContext,
+): DangerousStoredEncounter | null {
+  const value = objectRecord(raw);
+  if (!value) return null;
+  if (value.simulationVersion === undefined || value.simulationVersion === 1) {
+    return parseV1Encounter(value);
+  }
+  if (
+    value.simulationVersion !== 2 ||
+    typeof value.id !== "string" ||
+    value.id.length === 0 ||
+    (value.targetKind !== "fish" && value.targetKind !== "boss") ||
+    typeof value.targetId !== "string" ||
+    (value.targetKind === "fish"
+      ? !isDangerousFishId(value.targetId)
+      : !isDangerousBossId(value.targetId))
+  ) {
+    return null;
+  }
+  const balanceRevision =
+    value.balanceRevision === undefined
+      ? DANGEROUS_REALTIME_LEGACY_BALANCE_REVISION
+      : isDangerousRealtimeBalanceRevision(value.balanceRevision)
+        ? value.balanceRevision
+        : null;
+  if (balanceRevision === null) return null;
+  const parsedConfig = parseRealtimeConfig(
+    value.config,
+    value.modifierSource,
+    value.targetKind,
+    value.targetId as DangerousFishId | DangerousBossId,
+    balanceRevision,
+  );
+  if (!parsedConfig) return null;
+  const { config, modifierSource } = parsedConfig;
+  const checkpoint = parseRealtimeCheckpoint(
+    value.checkpoint,
+    config,
+    balanceRevision,
+  );
+  if (
+    !config ||
+    !checkpoint ||
+    !isNonNegativeInt(value.approvedTick) ||
+    !isNonNegativeInt(value.revision) ||
+    !isNonNegativeInt(value.startedAt) ||
+    !isNonNegativeInt(value.expiresAt) ||
+    value.approvedTick !== checkpoint.tick ||
+    value.expiresAt !== value.startedAt + config.maxTicks * DANGEROUS_REALTIME_TICK_MS
+  ) {
+    return null;
+  }
+  const encounter: DangerousRealtimeEncounter = {
+    simulationVersion: 2,
+    balanceRevision,
+    id: value.id,
+    targetKind: value.targetKind,
+    targetId: value.targetId,
+    modifierSource,
+    config,
+    checkpoint,
+    approvedTick: value.approvedTick,
+    revision: value.revision,
+    startedAt: value.startedAt,
+    expiresAt: value.expiresAt,
+  };
+  return encounter;
+}
+
 function parseCargo(raw: unknown): DangerousCargoStack[] {
   if (!Array.isArray(raw)) return [];
   const byFish = new Map<DangerousFishId, DangerousCargoStack>();
   for (const item of raw) {
     const value = objectRecord(item);
     if (!value || !isDangerousFishId(value.fishId)) continue;
-    const quantity = Math.max(0, safeInt(value.quantity));
-    const totalValue = Math.max(0, safeInt(value.totalValue));
+    const quantity = nonNegativeSafeInt(value.quantity);
+    const totalValue = nonNegativeSafeInt(value.totalValue);
     const materialId = dangerousCatchMaterialId(value.fishId);
     if (quantity === 0 || totalValue === 0 || value.materialId !== materialId) continue;
     const previous = byFish.get(value.fishId);
     byFish.set(value.fishId, {
       fishId: value.fishId,
       materialId,
-      quantity: quantity + (previous?.quantity ?? 0),
-      totalValue: totalValue + (previous?.totalValue ?? 0),
+      quantity: saturatingSafeAdd(previous?.quantity ?? 0, quantity),
+      totalValue: saturatingSafeAdd(previous?.totalValue ?? 0, totalValue),
     });
   }
   return [...byFish.values()];
@@ -282,17 +688,23 @@ function parseBossCodex(
   return codex;
 }
 
-function parseBossAttempt(raw: unknown): DangerousBossAttempt | null {
+function parseBossAttempt(
+  raw: unknown,
+  context: RealtimeParseContext,
+): DangerousBossAttempt | null {
   const value = objectRecord(raw);
   if (!value || typeof value.eventId !== "string" || value.eventId.length === 0) {
     return null;
   }
-  const encounter = parseEncounter(value.encounter);
+  const encounter = parseDangerousStoredEncounter(value.encounter, context);
   if (!encounter || encounter.targetKind !== "boss") return null;
   return { eventId: value.eventId, encounter };
 }
 
-function parseVoyage(raw: unknown): DangerousFishingVoyage | null {
+function parseVoyage(
+  raw: unknown,
+  context: RealtimeParseContext,
+): DangerousFishingVoyage | null {
   const value = objectRecord(raw);
   if (
     !value ||
@@ -303,15 +715,105 @@ function parseVoyage(raw: unknown): DangerousFishingVoyage | null {
   ) {
     return null;
   }
+  const risk = clamp(safeInt(value.risk), 0, 5);
+  const encounter = parseDangerousStoredEncounter(value.encounter, context);
   return {
     id: value.id,
     zoneId: value.zoneId,
     depthId: value.depthId,
-    risk: clamp(safeInt(value.risk), 0, 5),
+    risk,
     startedAt: Math.max(0, safeInt(value.startedAt)),
     cargo: parseCargo(value.cargo),
-    encounter: parseEncounter(value.encounter),
+    encounter:
+      encounter &&
+      (!isDangerousRealtimeEncounter(encounter) || encounter.config.risk === risk)
+        ? encounter
+        : null,
   };
+}
+
+function parseEnhancementLevels<T extends string>(
+  raw: unknown,
+  guard: (value: unknown) => value is T,
+): Partial<Record<T, number>> {
+  const value = objectRecord(raw);
+  const levels: Partial<Record<T, number>> = {};
+  if (!value) return levels;
+  for (const [id, rawLevel] of Object.entries(value)) {
+    if (!guard(id)) continue;
+    levels[id] = clamp(safeInt(rawLevel), 0, 3);
+  }
+  return levels;
+}
+
+function parseGearEnhancements(
+  raw: unknown,
+  ownedGear: DangerousFishingState["ownedGear"],
+): DangerousGearEnhancements {
+  const value = objectRecord(raw);
+  return {
+    rods: Object.fromEntries(
+      Object.entries(parseEnhancementLevels(value?.rods, isDangerousRodId)).filter(
+        ([id]) => ownedGear.rods.includes(id as DangerousRodId),
+      ),
+    ),
+    reels: Object.fromEntries(
+      Object.entries(parseEnhancementLevels(value?.reels, isDangerousReelId)).filter(
+        ([id]) => ownedGear.reels.includes(id as DangerousReelId),
+      ),
+    ),
+    lines: Object.fromEntries(
+      Object.entries(parseEnhancementLevels(value?.lines, isDangerousLineId)).filter(
+        ([id]) => ownedGear.lines.includes(id as DangerousLineId),
+      ),
+    ),
+  };
+}
+
+function isJsonValue(value: unknown): boolean {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "boolean" ||
+    (typeof value === "number" && Number.isFinite(value))
+  ) {
+    return true;
+  }
+  if (Array.isArray(value)) return value.every(isJsonValue);
+  const record = objectRecord(value);
+  return !!record && Object.values(record).every(isJsonValue);
+}
+
+function parseRealtimeCompletions(raw: unknown): DangerousRealtimeCompletion[] {
+  if (!Array.isArray(raw)) return [];
+  const completions: DangerousRealtimeCompletion[] = [];
+  const requestIds = new Set<string>();
+  for (const rawCompletion of raw) {
+    const value = objectRecord(rawCompletion);
+    if (
+      !value ||
+      typeof value.requestId !== "string" ||
+      value.requestId.length === 0 ||
+      typeof value.encounterId !== "string" ||
+      value.encounterId.length === 0 ||
+      !isJsonValue(value.result)
+    ) {
+      continue;
+    }
+    if (requestIds.has(value.requestId)) {
+      const previous = completions.findIndex(
+        (completion) => completion.requestId === value.requestId,
+      );
+      completions.splice(previous, 1);
+    }
+    requestIds.add(value.requestId);
+    completions.push({
+      requestId: value.requestId,
+      encounterId: value.encounterId,
+      result: value.result,
+    });
+  }
+  return completions.slice(-32);
 }
 
 export function parseDangerousFishingState(raw: unknown): DangerousFishingState {
@@ -351,6 +853,15 @@ export function parseDangerousFishingState(raw: unknown): DangerousFishingState 
     (rawLoadout.baitId === "basic_bait" || (baitCounts[rawLoadout.baitId] ?? 0) > 0)
       ? rawLoadout.baitId
       : "basic_bait";
+  const gearEnhancements = parseGearEnhancements(value.gearEnhancements, {
+    rods,
+    reels,
+    lines,
+  });
+  const realtimeContext: RealtimeParseContext = {
+    ownedGear: { rods, reels, lines },
+    gearEnhancements,
+  };
 
   const bossTraces: Partial<Record<DangerousBossId, number>> = {};
   const rawTraces = objectRecord(value.bossTraces);
@@ -377,9 +888,113 @@ export function parseDangerousFishingState(raw: unknown): DangerousFishingState 
     codex: parseCodex(value.codex),
     bossCodex: parseBossCodex(value.bossCodex),
     bossTraces,
-    bossAttempt: parseBossAttempt(value.bossAttempt),
+    bossAttempt: parseBossAttempt(value.bossAttempt, realtimeContext),
     resolvedEncounterIds,
-    voyage: parseVoyage(value.voyage),
+    gearEnhancements,
+    realtimeCompletions: parseRealtimeCompletions(value.realtimeCompletions),
+    voyage: parseVoyage(value.voyage, realtimeContext),
+  };
+}
+
+export type DangerousRealtimeExpiryRecovery = {
+  state: DangerousFishingState;
+  encounter: DangerousStoredEncounter | null;
+};
+
+function realtimeExpiryCompletion(
+  state: DangerousFishingState,
+  encounter: DangerousRealtimeEncounter,
+  result: unknown,
+  requestId?: string,
+): Pick<DangerousFishingState, "realtimeCompletions" | "resolvedEncounterIds"> {
+  const completion: DangerousRealtimeCompletion = {
+    requestId: requestId ?? `expired:${encounter.id}`,
+    encounterId: encounter.id,
+    result,
+  };
+  return {
+    realtimeCompletions: [
+      ...state.realtimeCompletions.filter(
+        (entry) =>
+          entry.requestId !== completion.requestId &&
+          entry.encounterId !== encounter.id,
+      ),
+      completion,
+    ].slice(-DANGEROUS_REALTIME_COMPLETION_LIMIT),
+    resolvedEncounterIds: withResolvedId(state, encounter.id),
+  };
+}
+
+function isPastRealtimeFinishGrace(
+  encounter: DangerousRealtimeEncounter,
+  now: number,
+): boolean {
+  return now > encounter.expiresAt + DANGEROUS_REALTIME_FINISH_GRACE_MS;
+}
+
+export function recoverExpiredRealtimeVoyageEncounter(
+  state: DangerousFishingState,
+  args: { now: number; result: unknown; requestId?: string },
+): DangerousRealtimeExpiryRecovery {
+  const encounter = state.voyage?.encounter;
+  if (
+    !encounter ||
+    !isDangerousRealtimeEncounter(encounter) ||
+    !isPastRealtimeFinishGrace(encounter, args.now)
+  ) {
+    return { state, encounter: null };
+  }
+  const resolution = realtimeExpiryCompletion(
+    state,
+    encounter,
+    args.result,
+    args.requestId,
+  );
+  return {
+    encounter,
+    state: {
+      ...state,
+      ...resolution,
+      voyage: state.voyage
+        ? { ...state.voyage, encounter: null }
+        : state.voyage,
+    },
+  };
+}
+
+export function recoverExpiredRealtimeBossAttempt(
+  state: DangerousFishingState,
+  args: { now: number; result: unknown; requestId?: string },
+): DangerousRealtimeExpiryRecovery {
+  const encounter = state.bossAttempt?.encounter;
+  if (!encounter) {
+    return { state, encounter: null };
+  }
+  if (!isDangerousRealtimeEncounter(encounter)) {
+    if (args.now < encounter.expiresAt) {
+      return { state, encounter: null };
+    }
+    return {
+      encounter,
+      state: { ...state, bossAttempt: null },
+    };
+  }
+  if (!isPastRealtimeFinishGrace(encounter, args.now)) {
+    return { state, encounter: null };
+  }
+  const resolution = realtimeExpiryCompletion(
+    state,
+    encounter,
+    args.result,
+    args.requestId,
+  );
+  return {
+    encounter,
+    state: {
+      ...state,
+      ...resolution,
+      bossAttempt: null,
+    },
   };
 }
 
@@ -424,6 +1039,9 @@ export function startPersonalEncounter(
       state: DangerousFishingState;
     } {
   if (!state.voyage) return { ok: false, error: "no_voyage", state };
+  if (state.bossAttempt) {
+    return { ok: false, error: "encounter_active", state };
+  }
   if (state.voyage.encounter) {
     return { ok: false, error: "encounter_active", state };
   }
@@ -431,7 +1049,10 @@ export function startPersonalEncounter(
     ok: true,
     state: {
       ...state,
-      voyage: { ...state.voyage, encounter },
+      voyage: {
+        ...state.voyage,
+        encounter: { ...encounter, simulationVersion: 1 },
+      },
     },
   };
 }
@@ -463,11 +1084,17 @@ export function resolvePersonalEncounter(
   if (!state.voyage?.encounter || state.voyage.encounter.id !== encounterId) {
     return { state, outcome: "no_encounter", event: transition.event };
   }
+  if (isDangerousRealtimeEncounter(state.voyage.encounter)) {
+    return { state, outcome: "no_encounter", event: transition.event };
+  }
   if (transition.event === "progress") {
     return {
       state: {
         ...state,
-        voyage: { ...state.voyage, encounter: transition.encounter },
+        voyage: {
+          ...state.voyage,
+          encounter: { ...transition.encounter, simulationVersion: 1 },
+        },
       },
       outcome: "progress",
       event: transition.event,
@@ -561,9 +1188,20 @@ export function dangerousRiskPreview(risk: number): DangerousRiskPreview {
 function settledMaterials(cargo: readonly DangerousCargoStack[]): Record<string, number> {
   const materials: Record<string, number> = {};
   for (const item of cargo) {
-    materials[item.materialId] = (materials[item.materialId] ?? 0) + item.quantity;
+    materials[item.materialId] = saturatingSafeAdd(
+      materials[item.materialId] ?? 0,
+      nonNegativeSafeInt(item.quantity),
+    );
   }
   return materials;
+}
+
+function settledCargoValue(cargo: readonly DangerousCargoStack[]): number {
+  let total = 0;
+  for (const item of cargo) {
+    total = saturatingSafeAdd(total, nonNegativeSafeInt(item.totalValue));
+  }
+  return total;
 }
 
 export function returnDangerousVoyage(
@@ -577,6 +1215,7 @@ export function returnDangerousVoyage(
       lostValue: 0,
       lostCargo: {},
       materials: {},
+      retainedCargoValue: 0,
     };
   }
   return {
@@ -586,6 +1225,7 @@ export function returnDangerousVoyage(
     lostValue: 0,
     lostCargo: {},
     materials: settledMaterials(state.voyage.cargo),
+    retainedCargoValue: settledCargoValue(state.voyage.cargo),
   };
 }
 
@@ -605,36 +1245,66 @@ export function applyDangerousAccidentAndReturn(
       lostValue: 0,
       lostCargo: {},
       materials: {},
+      retainedCargoValue: 0,
     };
   }
 
-  const cargo = state.voyage.cargo;
-  const totalValue = cargo.reduce((sum, item) => sum + item.totalValue, 0);
+  const cargo = state.voyage.cargo
+    .map((item) => ({
+      ...item,
+      quantity: nonNegativeSafeInt(item.quantity),
+      totalValue: nonNegativeSafeInt(item.totalValue),
+    }))
+    .filter((item) => item.quantity > 0 && item.totalValue > 0);
+  const bigintZero = BigInt(0);
+  const totalValue = cargo.reduce(
+    (sum, item) => sum + BigInt(item.totalValue),
+    bigintZero,
+  );
   const protection = clamp(
     Number.isFinite(cargoProtectionPct) ? cargoProtectionPct : 0,
     0,
     100,
   );
-  const lossBudget = Math.floor(
-    totalValue * preview.maxLossFraction * (1 - protection / 100),
+  const fractionScale = BigInt(1_000_000);
+  const lossFractionUnits = BigInt(
+    Math.round(preview.maxLossFraction * Number(fractionScale)),
   );
+  const protectionFractionUnits = BigInt(
+    Math.round((protection / 100) * Number(fractionScale)),
+  );
+  const lossBudget =
+    (totalValue * lossFractionUnits *
+      (fractionScale - protectionFractionUnits)) /
+    (fractionScale * fractionScale);
   const lostCargo: Record<string, number> = {};
   const retainedCargo: DangerousCargoStack[] = [];
-  let lostValue = 0;
+  let lostValue = bigintZero;
 
   for (const item of cargo) {
     const proportionalBudget =
-      totalValue > 0 ? Math.floor((lossBudget * item.totalValue) / totalValue) : 0;
-    const unitValue = item.totalValue / item.quantity;
-    const lostQuantity = Math.min(
-      item.quantity,
-      unitValue > 0 ? Math.floor(proportionalBudget / unitValue) : 0,
+      totalValue > bigintZero
+        ? (lossBudget * BigInt(item.totalValue)) / totalValue
+        : bigintZero;
+    const itemQuantity = BigInt(item.quantity);
+    const itemValue = BigInt(item.totalValue);
+    const lostQuantityBig =
+      itemValue > bigintZero
+        ? (proportionalBudget * itemQuantity) / itemValue
+        : bigintZero;
+    const lostQuantity = Number(
+      lostQuantityBig > itemQuantity ? itemQuantity : lostQuantityBig,
     );
-    const itemLostValue = Math.floor(
-      (item.totalValue * lostQuantity) / item.quantity,
+    const itemLostValue = Number(
+      (itemValue * BigInt(lostQuantity)) / itemQuantity,
     );
-    lostValue += itemLostValue;
-    if (lostQuantity > 0) lostCargo[item.materialId] = lostQuantity;
+    lostValue += BigInt(itemLostValue);
+    if (lostQuantity > 0) {
+      lostCargo[item.materialId] = saturatingSafeAdd(
+        lostCargo[item.materialId] ?? 0,
+        lostQuantity,
+      );
+    }
     const retainedQuantity = item.quantity - lostQuantity;
     if (retainedQuantity > 0) {
       retainedCargo.push({
@@ -649,8 +1319,13 @@ export function applyDangerousAccidentAndReturn(
     state: { ...state, voyage: null },
     incident: true,
     returned: true,
-    lostValue,
+    lostValue: Number(
+      lostValue > BigInt(Number.MAX_SAFE_INTEGER)
+        ? BigInt(Number.MAX_SAFE_INTEGER)
+        : lostValue,
+    ),
     lostCargo,
     materials: settledMaterials(retainedCargo),
+    retainedCargoValue: settledCargoValue(retainedCargo),
   };
 }

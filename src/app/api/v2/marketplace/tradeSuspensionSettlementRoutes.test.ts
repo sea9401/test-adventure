@@ -86,7 +86,7 @@ vi.mock("@/adventure/data/v2/adventureSupport", () => ({
 vi.mock("@/adventure/data/v2/museunCashItems", () => ({
   isMuseunCashItemId: vi.fn(() => false),
 }));
-vi.mock("@/adventure/v2/cooking", () => ({
+vi.mock("@/adventure/v2/cooking/food", () => ({
   isCookingFoodId: vi.fn(() => false),
 }));
 vi.mock("@/adventure/data/v2/rareMaps", () => ({

@@ -28,7 +28,7 @@ import {
   ECOLOGICAL_RESEARCHER_TITLE_ID,
   FIELD_RECORDER_TITLE_ID,
 } from "../titles";
-import { COOKING_CODEX_MILESTONES } from "../../v2/cooking";
+import { COOKING_CODEX_MILESTONES } from "../../v2/cooking/catalog";
 import { LIFE_HOUSING_ENABLED } from "../../v2/lifeCrafting";
 
 export type QuestLineId = string;
@@ -160,7 +160,7 @@ export type QuestCtx = {
   equipmentCodexTotal: number;
   /** 숙련의 탑 최고 층. */
   masteryTowerFloor: number;
-  /** 개인 요리 누적 성장. cooking.v1. */
+  /** 개인 요리 누적 성장. cooking.v2. */
   cookingLevel: number;
   cookingRecipesDiscovered: number;
   cookingDishesCooked: number;
@@ -983,7 +983,7 @@ const COOKING: QuestDef[] = [
       1_000_000,
     ], 75),
   ]),
-  ...milestones("cooking", "요리 의뢰 완료", (c) => c.cookingOrdersCompleted, [
+  ...milestones("cooking", "요리 조건 납품 완료", (c) => c.cookingOrdersCompleted, [
     { id: "cooking_order1", title: "첫 주문표", goal: 1, points: 5 },
     { id: "cooking_order25", title: "단골이 생긴 주방", goal: 25, points: 15, badgeTier: "bronze" },
     { id: "cooking_order100", title: "소문난 맛집", goal: 100, points: 35, badgeTier: "gold" },
@@ -1000,7 +1000,7 @@ const COOKING: QuestDef[] = [
       250, 500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000,
     ], 70),
   ]),
-  ...milestones("cooking", "희귀 재료 요리 완성", (c) => c.cookingRareIngredientDishes, [
+  ...milestones("cooking", "숨은 레시피 연구 성공", (c) => c.cookingRareIngredientDishes, [
     { id: "cooking_rare1", title: "특별한 한 접시", goal: 1, points: 10, badgeTier: "bronze" },
     { id: "cooking_rare50", title: "비밀 재료의 대가", goal: 50, points: 35, badgeTier: "gold" },
     { id: "cooking_rare250", title: "환상의 미식가", goal: 250, points: 70, badgeTier: "legendary" },

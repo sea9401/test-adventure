@@ -1,9 +1,18 @@
 import type {
   DangerousFishBehavior,
+  DangerousBaitId,
+  DangerousLineId,
   DangerousLine,
+  DangerousReelId,
   DangerousReel,
+  DangerousRodId,
   DangerousRod,
 } from "@/adventure/data/v2/dangerousFishing";
+import type {
+  DangerousRealtimeBalanceRevision,
+  DangerousRealtimeConfig,
+  DangerousRealtimeState,
+} from "./dangerousFishingRealtime";
 
 export type DangerousFishingAction = "reel" | "give" | "brace";
 export type DangerousEncounterStatus = "active" | "caught" | "failed";
@@ -40,6 +49,71 @@ export type DangerousEncounter = {
   tensionControlBonus: number;
   telegraphSteps?: number;
 };
+
+export type DangerousRealtimeEncounter = {
+  simulationVersion: 2;
+  balanceRevision: DangerousRealtimeBalanceRevision;
+  id: string;
+  targetKind: "fish" | "boss";
+  targetId: string;
+  modifierSource: DangerousRealtimeModifierSource;
+  config: DangerousRealtimeConfig;
+  checkpoint: DangerousRealtimeState;
+  approvedTick: number;
+  revision: number;
+  startedAt: number;
+  expiresAt: number;
+};
+
+export type DangerousRealtimeModifierSource = {
+  fishingLevel: number;
+  baitId: DangerousBaitId;
+  rodId: DangerousRodId;
+  reelId: DangerousReelId;
+  lineId: DangerousLineId;
+  maxTensionBonus: number;
+  reelPowerBonus: number;
+  staminaDamageBonus: number;
+  tensionControlBonus: number;
+  slackTolerance: number;
+  telegraphSteps: number;
+  rodEnhancementLevel: number;
+  reelEnhancementLevel: number;
+  lineEnhancementLevel: number;
+  cargoProtectionPct: number;
+  targetStamina: number;
+  targetDistance: number;
+  targetBaseTension: number;
+};
+
+export type DangerousStoredEncounter =
+  | DangerousV1StoredEncounter
+  | DangerousRealtimeEncounter;
+
+export type DangerousV1StoredEncounter = DangerousEncounter & {
+  simulationVersion: 1;
+};
+
+export type DangerousRealtimeCompletion = {
+  requestId: string;
+  encounterId: string;
+  result: unknown;
+};
+
+export type DangerousRealtimeEncounterRecoveryView = {
+  simulationVersion: 2;
+  balanceRevision: DangerousRealtimeBalanceRevision;
+  id: string;
+  targetKind: "fish" | "boss";
+  targetId: string;
+  revision: number;
+};
+
+export function isDangerousRealtimeEncounter(
+  value: DangerousStoredEncounter | null | undefined,
+): value is DangerousRealtimeEncounter {
+  return value?.simulationVersion === 2;
+}
 
 export type DangerousEncounterView = Omit<
   DangerousEncounter,

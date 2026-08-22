@@ -31,7 +31,7 @@ import {
   COOKING_SAVE_KEY,
   cookingLevelForXp,
   parseCookingState,
-} from "@/adventure/v2/cooking";
+} from "@/adventure/v2/cooking/state";
 import { guildMembers } from "@/db/schema";
 import { readSave, type DbExecutor } from "@/lib/server/savesKv";
 

@@ -72,6 +72,43 @@ function exchangeModel(): DangerousFishingExchangeViewModel {
     materials: {},
     fishingCoins: 150_000,
     state: dangerous.state,
+    enhancementCosts: {
+      1: { materials: { common: 6, rare: 4 }, fishingCoins: 1_000 },
+      2: { materials: { rare: 8, epic: 5 }, fishingCoins: 3_000 },
+      3: { materials: { epic: 8, legendary: 3 }, fishingCoins: 8_000 },
+    },
+    enhancementItems: [
+      {
+        gearKind: "rod",
+        gearId: "starter_rod",
+        level: 0,
+        nextEnhancement: {
+          level: 1,
+          cost: { materials: { common: 6, rare: 4 }, fishingCoins: 1_000 },
+          affordable: false,
+        },
+      },
+      {
+        gearKind: "reel",
+        gearId: "starter_reel",
+        level: 0,
+        nextEnhancement: {
+          level: 1,
+          cost: { materials: { common: 6, rare: 4 }, fishingCoins: 1_000 },
+          affordable: false,
+        },
+      },
+      {
+        gearKind: "line",
+        gearId: "starter_line",
+        level: 0,
+        nextEnhancement: {
+          level: 1,
+          cost: { materials: { common: 6, rare: 4 }, fishingCoins: 1_000 },
+          affordable: false,
+        },
+      },
+    ],
     ownedTitleIds: [],
     ownedCosmeticIds: [],
     entries: DANGEROUS_FISHING_EXCHANGE_ENTRIES.map((entry) => ({
@@ -114,6 +151,30 @@ describe("위험 해역 낚시 상점", () => {
     expect(html).toContain("보유 0개");
     expect(html).not.toMatch(/bg-[^" ]+\/40/);
     expect(html).not.toMatch(/bg-[^" ]+\/70/);
+  });
+
+  it("모든 미끼의 카탈로그 기반 실시간 행동 효과와 기존 묶음·가격을 정확히 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <DangerousFishingShopSection
+        model={shopModel()}
+        coins={150_000}
+        buying={null}
+        onShop={vi.fn(async () => ({ ok: true, message: "완료" }))}
+      />,
+    );
+
+    expect(html).toContain("위험 해역 실시간 조우에만 적용");
+    expect(html).toContain("추가 실시간 효과 없음");
+    expect(html).toContain("급선회 중 거리 회복·장력 충격 20% 감소");
+    expect(html).toContain("돌진·몸부림 중 어체력 피해 20% 증가");
+    expect(html).toContain("다음 행동 1개 예고");
+    expect(html).toContain("잠수 속도 15% 감소");
+    expect(html).toContain("시작 어체력 10% 감소");
+    expect(html).toContain("모든 행동 장력 충격 12% 감소");
+    expect(html.match(/보유 0개 · 5개 묶음/g)).toHaveLength(4);
+    for (const price of ["500", "1,000", "1,800", "3,000"]) {
+      expect(html).toContain(price);
+    }
   });
 
   it("기존 낚시 상점 안에서 일반 낚시와 위험 해역 탭을 분리한다", () => {

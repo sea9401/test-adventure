@@ -1682,6 +1682,7 @@ const COMPARE_FIELD_ORDER: { label: string; lowerBetter: boolean }[] = [
   { label: "공격력", lowerBetter: false },
   { label: "마법 공격력", lowerBetter: false },
   { label: "방어력", lowerBetter: false },
+  { label: "회피도", lowerBetter: false },
   { label: "마법 방어력", lowerBetter: false },
   ...V2_EQUIP_OPTION_KEYS.map((k) => ({
     label: OPTION_LABELS[k],
@@ -1707,14 +1708,13 @@ function compareNumeric(
   return out;
 }
 
-// 증감 표시 — v2EquipStatRows 와 단위 일치(치명피해 ×, 치명/회피/회복 %, 그 외 flat).
+// 증감 표시 — v2EquipStatRows 와 단위 일치(치명피해 ×, 치명/회복 %, 그 외 flat).
 function formatCompareDelta(label: string, delta: number): string {
   const sign = delta > 0 ? "+" : "-";
   const a = Math.abs(delta);
   if (label === OPTION_LABELS.critMult) return `${sign}${(a / 100).toFixed(2)}×`;
   if (
     label === OPTION_LABELS.crit ||
-    label === OPTION_LABELS.eva ||
     label === OPTION_LABELS.healPowerPct ||
     label === OPTION_LABELS.critResist ||
     label === OPTION_LABELS.statusDamageReductionPct
@@ -1814,6 +1814,8 @@ export type V2CraftedBy = {
   craftedAt: string;
   /** 명장 제작 모드로 생산된 제작품 표식. 납품·거래 가치 판정에 사용한다. */
   masterwork?: boolean;
+  /** Lv.28 이상 대장장이의 영구 전문 분야 각인. 성능에는 관여하지 않는다. */
+  specialty?: "weapon" | "armor" | "jewelry";
 };
 
 export type V2CraftQualityLevel = 1 | 2;
@@ -1998,6 +2000,12 @@ export function parseCraftedBy(val: unknown): V2CraftedBy | undefined {
     typeof raw.name === "string" && raw.name.trim().length > 0
       ? raw.name.trim()
       : undefined;
+  const specialty =
+    raw.specialty === "weapon" ||
+    raw.specialty === "armor" ||
+    raw.specialty === "jewelry"
+      ? raw.specialty
+      : undefined;
   return {
     userId: raw.userId,
     ...(name ? { name } : {}),
@@ -2005,6 +2013,7 @@ export function parseCraftedBy(val: unknown): V2CraftedBy | undefined {
     level,
     craftedAt,
     ...(raw.masterwork === true ? { masterwork: true } : {}),
+    ...(specialty ? { specialty } : {}),
   };
 }
 

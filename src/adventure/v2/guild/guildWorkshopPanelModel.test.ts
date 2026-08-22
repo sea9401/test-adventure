@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  ERROR_TEXT,
+  blacksmithFocusLabel,
+  blacksmithSpecialtyLabel,
+  blacksmithStructureLabel,
   matchesDismantleScopeFilter,
   matchesDismantleTierFilter,
   workshopEquipmentCodexStatus,
@@ -100,5 +104,22 @@ describe("guild workshop equipment codex status", () => {
         "error",
       ),
     ).toBe("error");
+  });
+});
+
+describe("blacksmith specialization labels", () => {
+  it("uses the approved Korean names", () => {
+    expect(blacksmithSpecialtyLabel("weapon")).toBe("무기 단조");
+    expect(blacksmithSpecialtyLabel("jewelry")).toBe("장신구 세공");
+    expect(blacksmithFocusLabel("armor_resistance")).toBe("저항");
+    expect(blacksmithStructureLabel("stable")).toBe("안정 제작");
+  });
+
+  it("provides actionable server error copy", () => {
+    expect(ERROR_TEXT.specialty_locked).toContain("바꿀 수 없습니다");
+    expect(ERROR_TEXT.technique_locked).toContain("해금");
+    expect(ERROR_TEXT.insufficient_catalyst).toContain("촉매");
+    expect(ERROR_TEXT.pending_inspection).toContain("최종 검수");
+    expect(ERROR_TEXT.inspection_not_found).toContain("검수");
   });
 });

@@ -35,10 +35,10 @@ import {
 } from "@/adventure/data/v2/coopRewards";
 import {
   cookingFoodDefinition,
-  cookingStatText,
+  cookingEffectText,
   type CookingFoodId,
   type CookingFoodInventory,
-} from "@/adventure/v2/cooking";
+} from "@/adventure/v2/cooking/food";
 import {
   V2SimpleItemInfoCard,
   anchorOf,
@@ -242,7 +242,7 @@ function CookingFoodSection({
                     </span>
                   </div>
                   <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                    {cookingStatText(food.statPct, food.expPct)} · {formatFoodDuration(food.durationMs)}
+                    {cookingEffectText(food.effect)} · {formatFoodDuration(food.durationMs)}
                   </div>
                 </div>
                 <Button

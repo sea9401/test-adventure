@@ -10,6 +10,7 @@ import {
   WorkshopCraftPanel,
   matchesWorkshopCodexFilter,
   matchesWorkshopTierFilter,
+  workshopCraftRequestBody,
 } from "./WorkshopCraftPanel";
 import type {
   WorkshopEquipmentCodexLoadStatus,
@@ -71,6 +72,76 @@ function renderWorkshop(
 }
 
 describe("guild workshop recipe equipment codex badge", () => {
+  it("builds a craft request with only the selected professional controls", () => {
+    expect(
+      workshopCraftRequestBody({
+        recipeId: recipe.id,
+        craftMode: "normal",
+        useMaterialSubstitution: false,
+        outpostId: undefined,
+        control: {
+          optionFocus: "weapon_offense",
+          structure: "primary",
+          useCatalyst: true,
+        },
+      }),
+    ).toEqual({
+      recipeId: recipe.id,
+      mode: "normal",
+      useMaterialSubstitution: false,
+      optionFocus: "weapon_offense",
+      structure: "primary",
+      useCatalyst: true,
+    });
+  });
+
+  it("shows only server-provided focus, structure, and catalyst choices", () => {
+    const controlledState: WorkshopState = {
+      ...workshopState(),
+      blacksmithProgression: { specialty: "weapon" },
+      materials: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 3 },
+      recipes: [
+        {
+          ...guildWorkshopRecipeView(recipe, {}),
+          techniques: {
+            eligible: true,
+            optionFocuses: [
+              {
+                id: "weapon_offense",
+                name: "화력",
+                optionKeys: ["crit", "critMult"],
+              },
+            ],
+            structures: [
+              { id: "balanced", name: "균형 제작", requiredLevel: 20 },
+              { id: "stable", name: "안정 제작", requiredLevel: 22 },
+            ],
+            focusChancePct: 75,
+            catalystUnlocked: true,
+            catalystFocusChancePct: 90,
+            catalystPreserveChancePct: 20,
+            masterworkTechniquesUnlocked: false,
+            signatureUnlocked: false,
+            inspectionUnlocked: false,
+            catalyst: {
+              materialId: GUILD_WORKSHOP_MATERIAL_ID.refinedIron,
+              required: 1,
+              owned: 3,
+            },
+          },
+        },
+      ],
+    };
+
+    const html = renderWorkshop(new Set(), "ready", controlledState);
+    expect(html).toContain("전문 제작 설정");
+    expect(html).toContain("화력");
+    expect(html).toContain("균형 제작");
+    expect(html).toContain("안정 제작");
+    expect(html).toContain("기본 75% · 촉매 90%");
+    expect(html).toContain("정제 철괴 1개 · 보유 3개");
+    expect(html).not.toContain("저항");
+  });
   it("shows normal and masterwork crafting fees", () => {
     const html = renderWorkshop(new Set());
     expect(html).toContain("제작 수수료: 10,000 G");

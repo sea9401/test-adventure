@@ -16,6 +16,7 @@ import { ArtisanLeaderboardPanel } from "./ArtisanLeaderboardPanel";
 import { GuildArtisanContributionPanel } from "./GuildArtisanContributionPanel";
 import { WorkshopDismantlePanel } from "./WorkshopDismantlePanel";
 import { WorkshopGrowthPanel } from "./WorkshopGrowthPanel";
+import { WorkshopSpecializationPanel } from "./WorkshopSpecializationPanel";
 import {
   WorkshopCraftPanel,
   type CraftServerSync,
@@ -298,6 +299,10 @@ export function GuildWorkshopPanel({
           smithyBonus: json.smithyBonus,
           externalAccess: json.externalAccess ?? null,
           recipes: json.recipes ?? [],
+          blacksmithProgression: json.blacksmithProgression ?? {},
+          signatureCandidates: Array.isArray(json.signatureCandidates)
+            ? json.signatureCandidates
+            : [],
         });
       })
       .catch(() => {
@@ -359,7 +364,14 @@ export function GuildWorkshopPanel({
         setBankedGold(Math.max(0, json.bankedGold));
       }
       if (!json.ok) {
-        if ((json.resources || json.artisan || json.materials || json.recipes) && state) {
+        if (
+          (json.resources ||
+            json.artisan ||
+            json.materials ||
+            json.recipes ||
+            json.blacksmithProgression) &&
+          state
+        ) {
           setState({
             ...state,
             spendableGold:
@@ -370,6 +382,9 @@ export function GuildWorkshopPanel({
             materials: json.materials ?? state.materials,
             ...(json.artisan ? { artisan: json.artisan } : {}),
             ...(Array.isArray(json.recipes) ? { recipes: json.recipes } : {}),
+            ...(json.blacksmithProgression
+              ? { blacksmithProgression: json.blacksmithProgression }
+              : {}),
           });
         }
         return;
@@ -400,6 +415,9 @@ export function GuildWorkshopPanel({
                 ? { workshopRecords: nextWorkshopRecords }
                 : {}),
               ...(nextGuildBonus ? { guildBonus: nextGuildBonus } : {}),
+              ...(json.blacksmithProgression
+                ? { blacksmithProgression: json.blacksmithProgression }
+                : {}),
               externalAccess: prev.externalAccess,
               recipes: Array.isArray(json.recipes)
                 ? json.recipes
@@ -434,10 +452,21 @@ export function GuildWorkshopPanel({
   );
   // 제작 성공 후속 재조회 — 새 제작품이 즉시 납품 후보에 나타나도록 일일 납품도 갱신한다.
   const afterCraftRefresh = useCallback(() => {
+    setWorkshopRefreshVersion((version) => version + 1);
     void loadWeekly();
     void loadDelivery();
     void loadContributionInfo();
   }, [loadWeekly, loadDelivery, loadContributionInfo]);
+
+  const applyBlacksmithProgression = useCallback(
+    (blacksmithProgression: NonNullable<WorkshopState["blacksmithProgression"]>) => {
+      setState((current) =>
+        current ? { ...current, blacksmithProgression } : current,
+      );
+      setWorkshopRefreshVersion((version) => version + 1);
+    },
+    [],
+  );
 
   async function claimWeekly(questId: string) {
     setWeeklyClaimingId(questId);
@@ -1047,7 +1076,14 @@ export function GuildWorkshopPanel({
       ) : null}
 
       {workshopMode === "growth" && state ? (
-        <WorkshopGrowthPanel state={state} />
+        <div className="space-y-3">
+          <WorkshopSpecializationPanel
+            state={state}
+            onProgressionChange={applyBlacksmithProgression}
+            onMessage={setMessage}
+          />
+          <WorkshopGrowthPanel state={state} />
+        </div>
       ) : null}
 
       {message ? (

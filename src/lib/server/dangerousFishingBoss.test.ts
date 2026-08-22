@@ -4,7 +4,10 @@ import {
 } from "@/adventure/data/v2/dangerousFishing";
 import { emptyDangerousFishingState } from "@/adventure/v2/dangerousFishingState";
 import type { DangerousFishingState } from "@/adventure/v2/dangerousFishingState";
-import type { DangerousFishingAction } from "@/adventure/v2/dangerousFishingEncounter";
+import {
+  isDangerousRealtimeEncounter,
+  type DangerousFishingAction,
+} from "@/adventure/v2/dangerousFishingEncounter";
 import type { DangerousFishingHeritage } from "@/adventure/v2/dangerousFishingHeritage";
 import {
   activeDangerousFishingBoss,
@@ -105,6 +108,10 @@ class MemoryBossStore implements DangerousFishingBossStore {
     return this.states.get(userId) ?? emptyDangerousFishingState();
   }
 
+  async activeAutoActivityForUpdate() {
+    return null;
+  }
+
   async saveDangerousState(userId: string, state: DangerousFishingState) {
     this.states.set(userId, state);
   }
@@ -162,13 +169,16 @@ async function forceSuccessfulAttempt(
   });
   expect(started.ok).toBe(true);
   const state = store.states.get(userId);
-  if (!state?.bossAttempt) throw new Error("boss attempt fixture missing");
+  const attempt = state?.bossAttempt;
+  if (!attempt || isDangerousRealtimeEncounter(attempt.encounter)) {
+    throw new Error("boss attempt fixture missing");
+  }
   store.states.set(userId, {
     ...state,
     bossAttempt: {
-      ...state.bossAttempt,
+      ...attempt,
       encounter: {
-        ...state.bossAttempt.encounter,
+        ...attempt.encounter,
         behaviorPattern: ["turn"],
         stamina: 5,
         distance: 5,
@@ -180,7 +190,7 @@ async function forceSuccessfulAttempt(
     userId,
     eventId,
     encounterId: `${userId}-attempt`,
-    revision: state.bossAttempt.encounter.revision,
+    revision: attempt.encounter.revision,
     action: "reel" as DangerousFishingAction,
     now: NOW,
   });
@@ -393,14 +403,17 @@ describe("비동기 거대어 서비스", () => {
       encounterId: "failed-attempt",
     });
     const state = store.states.get("angler");
-    if (!state?.bossAttempt) throw new Error("boss attempt fixture missing");
+    const attempt = state?.bossAttempt;
+    if (!attempt || isDangerousRealtimeEncounter(attempt.encounter)) {
+      throw new Error("boss attempt fixture missing");
+    }
     store.states.set("angler", {
       ...state,
       bossAttempt: {
-        ...state.bossAttempt,
+        ...attempt,
         encounter: {
-          ...state.bossAttempt.encounter,
-          tension: state.bossAttempt.encounter.maxTension - 1,
+          ...attempt.encounter,
+          tension: attempt.encounter.maxTension - 1,
           behaviorPattern: ["charge"],
           nextActionAt: NOW.getTime(),
         },
@@ -410,7 +423,7 @@ describe("비동기 거대어 서비스", () => {
       userId: "angler",
       eventId: "event-1",
       encounterId: "failed-attempt",
-      revision: state.bossAttempt.encounter.revision,
+      revision: attempt.encounter.revision,
       action: "reel",
       now: NOW,
     });
@@ -528,6 +541,46 @@ describe("비동기 거대어 서비스", () => {
     expect(duplicate).toMatchObject({ ok: true, alreadyClaimed: true });
     expect(store.wallets.get("angler")).toMatchObject({ coins: 90 });
   });
+
+  it.each([
+    Number.MAX_SAFE_INTEGER - 1,
+    Number.MAX_SAFE_INTEGER,
+    Number.MAX_VALUE,
+  ])(
+    "보스 보상 수령은 기존 지갑 %s에서도 코인을 안전 정수 상한으로 정산한다",
+    async (startingCoins) => {
+      store.events.set(
+        "event-safe-wallet",
+        event({
+          id: "event-safe-wallet",
+          stamina: 0,
+          status: "defeated",
+          defeatedAt: NOW,
+        }),
+      );
+      store.contributions.set("event-safe-wallet:angler", {
+        eventId: "event-safe-wallet",
+        userId: "angler",
+        totalContribution: 240,
+        successfulAttempts: 1,
+        firstContributedAt: NOW,
+        lastContributedAt: NOW,
+        rewardClaimedAt: null,
+      });
+      store.wallets.set("angler", { coins: startingCoins });
+
+      const result = await claimBossRewardInTx(store, {
+        userId: "angler",
+        eventId: "event-safe-wallet",
+        now: NOW,
+      });
+      const finalCoins = (store.wallets.get("angler") as { coins: number }).coins;
+
+      expect(result).toMatchObject({ ok: true, alreadyClaimed: false });
+      expect(finalCoins).toBe(Number.MAX_SAFE_INTEGER);
+      expect(Number.isSafeInteger(finalCoins)).toBe(true);
+    },
+  );
 
   it("활성 조회는 기여 순위 없이 현재 이벤트만 돌려준다", async () => {
     store.events.set("event-1", event());

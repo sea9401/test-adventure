@@ -18,7 +18,7 @@ import { deliverMarketplaceListing } from "@/lib/server/marketplaceV2Fulfillment
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import { isMuseunCashItemId } from "@/adventure/data/v2/museunCashItems";
 import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
-import { isCookingFoodId } from "@/adventure/v2/cooking";
+import { isCookingFoodId } from "@/adventure/v2/cooking/food";
 import { RARE_MAP_CAP, parseRareMaps } from "@/adventure/data/v2/rareMaps";
 import { fishIdFromSpecimenItemId } from "@/adventure/v2/fishSpecimens";
 import {

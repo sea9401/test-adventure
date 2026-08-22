@@ -248,6 +248,53 @@ describe("보호막 완전 흡수 시 반사·반격 차단", () => {
 });
 
 describe("마나 실드 직접 피해 순서", () => {
+  it("월식은 1타만 마나 실드로 막고 2타 처형 피해는 우회한다", () => {
+    const attacker: PlayerCombat = {
+      ...PLAYER,
+      hp: 10_000,
+      maxHp: 10_000,
+      atk: 1_000,
+      lukStat: 700,
+      classTier: 3,
+      spd: 100,
+    };
+    const defender: PlayerCombat = {
+      ...PLAYER,
+      hp: 10_000,
+      maxHp: 10_000,
+      def: 500,
+      spd: 50,
+      magicBarrierMax: 10_000,
+      magicBarrierPvpAbsorbPct: 100,
+      magicBarrierPvpEfficiencyPct: 0,
+    };
+    const eclipse: V2SkillsState = {
+      learned: ["v2c_nightshade_eclipse"],
+      equipped: ["v2c_nightshade_eclipse"],
+    };
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+
+    const next = castV2SkillOnAttackerTurnPvP(
+      initialBattleStatePvP(
+        attacker,
+        defender,
+        "공격자",
+        "마도사",
+        eclipse,
+        EMPTY_SKILLS,
+      ),
+      "p1",
+    ).state;
+    const eclipseLogs = next.log.filter((entry) =>
+      entry.text.startsWith("월식!"),
+    );
+
+    expect(next.p2.magicBarrier).toBeLessThan(10_000);
+    expect(next.p2.hp).toBeLessThan(10_000);
+    expect(eclipseLogs[0]?.text).toContain("0 피해");
+    expect(eclipseLogs[1]?.text).not.toContain("0 피해");
+  });
+
   it("PvE 평타를 방어 전에 나눠 몸통만 방어하고 HP행 피해에 일반 보호막을 적용한다", () => {
     const defender: PlayerCombat = {
       ...PLAYER,

@@ -1,5 +1,13 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { DANGEROUS_BAITS } from "@/adventure/data/v2/dangerousFishing";
+import {
+  DANGEROUS_REALTIME_BALANCE_REVISION,
+  DANGEROUS_REALTIME_RETAINED_DURATION_PERMILLE,
+  dangerousRealtimeEffectiveModifierProjection,
+} from "@/adventure/v2/dangerousFishingRealtime";
+import { dangerousRealtimeModifiers } from "@/adventure/v2/dangerousFishingRealtimeModifiers";
+import { dangerousBaitRealtimeEffectCopy } from "@/adventure/v2/DangerousFishingShopSection";
 import { CombatContent } from "./content/combat";
 import { ControlsContent } from "./content/controls";
 import { EconomyContent } from "./content/economy";
@@ -19,6 +27,18 @@ import { CoopContent } from "./content/coop";
 import { OverviewContent } from "./content/overview";
 
 describe("최신 게임 안내서 내용", () => {
+  it("힘·지능의 공격 환산과 힘·활력의 최대 HP 환산을 안내한다", () => {
+    const stats = renderToStaticMarkup(<StatsContent />);
+    const combat = renderToStaticMarkup(<CombatContent />);
+
+    expect(stats).toContain("힘 1당 공격력 0.7");
+    expect(stats).toContain("힘 1당 최대 HP 1");
+    expect(stats).toContain("활력 1당 최대 HP 3");
+    expect(stats).toContain("지능 1당 마법 공격력 0.7");
+    expect(combat).toContain("힘 1당 공격력 0.7");
+    expect(combat).toContain("지능 1당 마법 공격력 0.7");
+  });
+
   it("협동 보스 공격 비용과 단방향 전체 공개 규칙을 안내한다", () => {
     const html = renderToStaticMarkup(<CoopContent />);
 
@@ -243,9 +263,10 @@ describe("최신 게임 안내서 내용", () => {
     const pastimes = renderToStaticMarkup(<PastimesContent />);
 
     expect(town).toContain("농장과 별도의 생활 메뉴");
-    expect(pastimes).toContain("즐겨찾기");
-    expect(pastimes).toContain("거래소의 소모품");
-    expect(pastimes).toContain("최대 <strong");
+    expect(pastimes).toContain("총 <strong");
+    expect(pastimes).toContain("정확히 <strong");
+    expect(pastimes).toContain("성능 +10%");
+    expect(pastimes).toContain("영구 선택");
   });
 
   it("농장 후반 교환소의 해금과 반복 상품을 안내한다", () => {
@@ -274,15 +295,20 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("같은 날 살 때마다 가격이 오릅니다");
   });
 
-  it("위험 해역의 해금·조작·화물 확정·사고 구조를 안내한다", () => {
+  it("일반 낚시와 위험 해역 실시간 조작을 구분해 안내한다", () => {
     const html = renderToStaticMarkup(<PastimesContent />);
 
+    expect(html).toContain("일반 낚시는 기존 방식");
+    expect(html).toContain("찌 던지기 → 입질 기다리기 → 챔질");
     expect(html).toContain("위험 해역 낚시");
     expect(html).toContain("Lv.15");
-    expect(html).toContain("돌진");
-    expect(html).toContain("줄 풀기");
-    expect(html).toContain("몸부림·잠수");
-    expect(html).toContain("버티기");
+    expect(html).toContain("누르고 감아올리기");
+    expect(html).toContain("놓아서 줄 풀기");
+    expect(html).toContain("50ms");
+    expect(html).toContain("파쇄 암초");
+    expect(html).toContain("폭풍 해구");
+    expect(html).toContain("심연 균열");
+    expect(html).toContain("표층·중층·심층");
     expect(html).toContain("어체력과 거리");
     expect(html).toContain("안전 귀환");
     expect(html).toContain("위험도 3");
@@ -290,12 +316,135 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("위험도 5");
     expect(html).toContain("32%");
     expect(html).toContain("전용 낚싯대·릴·낚싯줄");
+    expect(html).toContain("포획 확보");
+    expect(html).toContain("최소 연출 시간까지 자동으로 인양");
+    const retainedDurationPct =
+      DANGEROUS_REALTIME_RETAINED_DURATION_PERMILLE / 10;
+    expect(retainedDurationPct).toBe(65);
+    expect(html).toContain(`최소 ${retainedDurationPct}%`);
+    expect(html).not.toContain("어체력과 거리를 모두 0으로 만들면 포획합니다");
+  });
+
+  it("위험 해역의 레벨·장비·미끼 성장 효과를 정확히 안내한다", () => {
+    const html = renderToStaticMarkup(<PastimesContent />);
+
+    expect(html).toContain("낚시 레벨은 최대 100");
+    expect(html).toContain("감기 효율 최대 12%");
+    expect(html).toContain("장력 제어 최대 8%");
+    expect(html).toContain("최대 +3");
+    expect(html).toContain("일반 어획물 6개 + 희귀 어획물 4개 + 낚시 코인 1,000");
+    expect(html).toContain("희귀 어획물 8개 + 영웅 어획물 5개 + 낚시 코인 3,000");
+    expect(html).toContain("영웅 어획물 8개 + 전설 어획물 3개 + 낚시 코인 8,000");
+    expect(html).toContain("낚싯대 · 레벨당 어체력 피해 +6%");
+    expect(html).toContain("릴 · 레벨당 거리 회수량 +5%");
+    expect(html).toContain("낚싯줄 · 레벨당 안전 구간 폭 +3%p, 화물 보호 +2%p");
+    expect(html).toContain("급선회 중 거리 회복·장력 충격 20% 감소");
+    expect(html).toContain("돌진·몸부림 중 어체력 피해 20% 증가");
+    expect(html).toContain("다음 행동 1개 예고·잠수 속도 15% 감소");
+    expect(html).toContain("시작 어체력 10%·모든 행동 장력 충격 12% 감소");
+  });
+
+  it("현재 문서와 미끼 UI는 current engine이 실제 적용하는 카탈로그 퍼센트와 일치한다", () => {
+    const html = renderToStaticMarkup(<PastimesContent />);
+    const level100 = dangerousRealtimeEffectiveModifierProjection(
+      dangerousRealtimeModifiers({ fishingLevel: 100, baitId: "basic_bait" }),
+      DANGEROUS_REALTIME_BALANCE_REVISION,
+    );
+    const rodPlusOne = dangerousRealtimeEffectiveModifierProjection(
+      dangerousRealtimeModifiers({
+        fishingLevel: 50,
+        baitId: "basic_bait",
+        rodEnhancementLevel: 1,
+      }),
+      DANGEROUS_REALTIME_BALANCE_REVISION,
+    );
+    const reelPlusOne = dangerousRealtimeEffectiveModifierProjection(
+      dangerousRealtimeModifiers({
+        fishingLevel: 50,
+        baitId: "basic_bait",
+        reelEnhancementLevel: 1,
+      }),
+      DANGEROUS_REALTIME_BALANCE_REVISION,
+    );
+    const linePlusOne = dangerousRealtimeEffectiveModifierProjection(
+      dangerousRealtimeModifiers({
+        fishingLevel: 50,
+        baitId: "basic_bait",
+        lineEnhancementLevel: 1,
+      }),
+      DANGEROUS_REALTIME_BALANCE_REVISION,
+    );
+
+    expect(DANGEROUS_REALTIME_BALANCE_REVISION).toBe(3);
+    expect(html).toContain(`감기 효율 최대 ${level100.reelEfficiencyPct}%`);
+    expect(html).toContain(`장력 제어 최대 ${level100.tensionControlPct}%`);
+    expect(html).toContain(
+      `낚싯대 · 레벨당 어체력 피해 +${rodPlusOne.staminaDamagePct}%`,
+    );
+    expect(html).toContain(
+      `릴 · 레벨당 거리 회수량 +${reelPlusOne.distanceRecoveryPct}%`,
+    );
+    expect(html).toContain(
+      `낚싯줄 · 레벨당 안전 구간 폭 +${linePlusOne.safeZoneBonusPct}%p, 화물 보호 +${linePlusOne.cargoProtectionPct}%p`,
+    );
+
+    for (const baitId of [
+      "reef_bait",
+      "blood_bait",
+      "luminous_bait",
+      "abyss_bait",
+    ] as const) {
+      const bait = DANGEROUS_BAITS[baitId];
+      const effective = dangerousRealtimeEffectiveModifierProjection(
+        dangerousRealtimeModifiers({ fishingLevel: 50, baitId }),
+        DANGEROUS_REALTIME_BALANCE_REVISION,
+      );
+      expect(effective.baitEffect).toMatchObject({
+        turnDistanceRecoveryReductionPct:
+          bait.realtimeEffect.turnDistanceRecoveryReductionPct,
+        turnTensionImpactReductionPct:
+          bait.realtimeEffect.turnTensionImpactReductionPct,
+        chargeAndThrashStaminaDamagePct:
+          bait.realtimeEffect.chargeAndThrashStaminaDamagePct,
+        telegraphCount: bait.realtimeEffect.telegraphCount,
+        diveSpeedReductionPct: bait.realtimeEffect.diveSpeedReductionPct,
+        startingStaminaReductionPct:
+          bait.realtimeEffect.startingStaminaReductionPct,
+        tensionImpulseReductionPct:
+          bait.realtimeEffect.tensionImpulseReductionPct,
+      });
+      const uiCopy = dangerousBaitRealtimeEffectCopy(bait);
+      for (const pct of [
+        effective.baitEffect.turnDistanceRecoveryReductionPct,
+        effective.baitEffect.chargeAndThrashStaminaDamagePct,
+        effective.baitEffect.diveSpeedReductionPct,
+        effective.baitEffect.startingStaminaReductionPct,
+        effective.baitEffect.tensionImpulseReductionPct,
+      ].filter((value) => value > 0)) {
+        expect(uiCopy).toContain(`${pct}%`);
+        expect(html).toContain(`${pct}%`);
+      }
+    }
+  });
+
+  it("귀환 보상·판매·영구 보존과 기존 조우 호환을 안내한다", () => {
+    const html = renderToStaticMarkup(<PastimesContent />);
+
+    expect(html).toContain("남은 화물 가치 × 위험도 × 2%");
+    expect(html).toContain("사고 후 남은 화물 가치");
+    expect(html).toContain("화물 가치의 10배");
+    expect(html).toContain("은행 예치금");
+    expect(html).toContain("거래소에서도 계속 거래");
+    expect(html).toContain("거대어 증표 교환 경로는 그대로");
+    expect(html).toContain("일간·주간·월간 단위로 초기화되지 않습니다");
+    expect(html).toContain("기존 세 가지 조작으로 완료");
+    expect(html).toContain("제한 시간이 지나면 정상적으로 만료");
     expect(html).toContain("위험 해역 교환");
     expect(html).toContain("일반 어획물 4개");
     expect(html).toContain("레비아탄 낚싯대");
     expect(html).toContain("심해의 지배자");
     expect(html).toContain("서로 다른 어종을 섞어");
-    expect(html).toContain("거래소에서 거래할 수 있지만 NPC에게 판매할 수는 없습니다");
+    expect(html).not.toContain("거래소에서 거래할 수 있지만 NPC에게 판매할 수는 없습니다");
   });
 
   it("어종 표본의 등록 권리 이전과 어획 기록 보존을 안내한다", () => {
@@ -414,6 +563,25 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("총 <strong");
     expect(html).toContain("별표로 즐겨찾기에 저장");
     expect(html).toContain("즐겨찾기 필터");
+  });
+
+  it("대장장이 영구 전문화와 전문 제작의 핵심 단계를 안내한다", () => {
+    const html = renderToStaticMarkup(<GuildContent />);
+
+    expect(html).toContain("Lv.13 영구 전문 분야");
+    expect(html).toContain("촉매");
+    expect(html).toContain("Lv.30 최종 검수");
+    expect(html).toContain("같은 총 옵션량");
+    expect(html).toContain("변경하거나 초기화할 수 없습니다");
+  });
+
+  it("협회 식당의 개인 기여 식권과 무제한 주간 납품을 안내한다", () => {
+    const html = renderToStaticMarkup(<GuildContent />);
+
+    expect(html).toContain("협회 식당은 개인이 식재료");
+    expect(html).toContain(">20점</strong>");
+    expect(html).toContain("을 기여할 때마다 식권 1장");
+    expect(html).toContain("주간 개인 납품 한도는 없습니다");
   });
 
   it("폭풍 개량의 대상·비용·되돌릴 수 없는 제한을 안내한다", () => {

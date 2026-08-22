@@ -32,7 +32,7 @@ export const V2_BASE_MP = 50;
 // 레벨 성장은 V2_HP_PER_LEVEL(=10) — Lv100 = 135 + 99×10 + vit = 1125 + vit.
 export const V2_BASE_HP = 135;
 
-// 레벨업 시 추가되는 maxHp(레벨당 고정 성장분). 여기에 VIT 성장분(HP_PER_VIT)이 더해진다.
+// 레벨업 시 추가되는 maxHp(레벨당 고정 성장분). 여기에 STR·VIT 성장분이 더해진다.
 // v2 전용(라이브는 별도 defaults.ts:HP_PER_LEVEL). 튜닝 다이얼.
 export const V2_HP_PER_LEVEL = 10;
 

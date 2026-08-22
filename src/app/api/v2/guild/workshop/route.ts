@@ -79,6 +79,21 @@ import {
   canUseAdventurerAssociation,
   claimWeeklyFacilitySource,
 } from "@/lib/server/adventurerAssociation";
+import {
+  applyBlacksmithCraftControl,
+  blacksmithCatalystMaterialForItem,
+  blacksmithSpecialtyForSlot,
+  blacksmithTechniqueView,
+  isBlacksmithOptionFocusId,
+  isBlacksmithStructureId,
+  parseBlacksmithProgressionState,
+  rollBlacksmithCatalystPreserved,
+  rollBlacksmithInspectionCandidates,
+  type BlacksmithOptionFocusId,
+  type BlacksmithStructureId,
+} from "@/adventure/data/v2/blacksmithSpecialization";
+import { mintEquipInstance } from "@/adventure/data/v2/v2EquipMint";
+import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
 
 type CharacterSaveWithMaterials = {
   materials?: unknown;
@@ -275,6 +290,7 @@ export async function GET(req: Request) {
     equipment,
     artisan,
     artisanState,
+    blacksmithProgression,
     workshopStats,
     workshopRecords,
     favoriteRecipeIds,
@@ -305,6 +321,9 @@ export async function GET(req: Request) {
       equipment: parseEquipmentSave(equipmentRaw),
       artisan: artisanView(craftingRaw),
       artisanState: parseArtisanState(craftingRaw.artisan),
+      blacksmithProgression: parseBlacksmithProgressionState(
+        craftingRaw.blacksmithProgression,
+      ),
       workshopStats: workshopStatsView(craftingRaw),
       workshopRecords: workshopRecordsView(craftingRaw),
       favoriteRecipeIds: parseGuildWorkshopFavoriteRecipeIds(
@@ -316,6 +335,29 @@ export async function GET(req: Request) {
       ),
     };
   });
+  const signatureCandidates =
+    artisan.blacksmith.level >= 28 && blacksmithProgression.specialty
+      ? equipment.owned.flatMap((instance) => {
+          const item = V2_EQUIPMENT[instance.id];
+          if (
+            instance.craftedBy?.userId !== userId ||
+            blacksmithSpecialtyForSlot(item.slot) !==
+              blacksmithProgression.specialty
+          ) {
+            return [];
+          }
+          return [
+            {
+              iid: instance.iid,
+              equipmentId: instance.id,
+              itemName: item.name,
+              slot: item.slot,
+              masterwork: instance.craftedBy.masterwork === true,
+              craftQualityLevel: instance.craftQuality?.level ?? 0,
+            },
+          ];
+        })
+      : [];
   const craftSpendableGold = Math.max(
     0,
     playerSpendableGold - Math.max(0, Math.floor(access.useFeeGold)),
@@ -330,26 +372,48 @@ export async function GET(req: Request) {
     materials,
     spendableGold: playerSpendableGold,
     artisan,
+    blacksmithProgression,
+    signatureCandidates,
     workshopStats,
     workshopRecords,
     favoriteRecipeIds,
     externalAccess: externalAccessView(access),
-    recipes: GUILD_WORKSHOP_RECIPE_IDS.map((id) =>
-      guildWorkshopRecipeView(
-        GUILD_WORKSHOP_RECIPES[id],
-        resources,
-        artisanState,
-        guildBonus,
-        smithyLevel,
-        materials,
-        guildWorkshopBaseEquipmentCandidates(
-          equipment.owned,
-          equipment.equipped,
-          GUILD_WORKSHOP_RECIPES[id],
-        ).length,
-        craftSpendableGold,
-      ),
-    ),
+    recipes: GUILD_WORKSHOP_RECIPE_IDS.map((id) => {
+      const recipe = GUILD_WORKSHOP_RECIPES[id];
+      const item = V2_EQUIPMENT[recipe.equipmentId];
+      const techniques = blacksmithTechniqueView({
+        level: artisan.blacksmith.level,
+        specialty: blacksmithProgression.specialty,
+        item,
+      });
+      const catalystMaterialId = blacksmithCatalystMaterialForItem(item);
+      return {
+        ...guildWorkshopRecipeView(
+          recipe,
+          resources,
+          artisanState,
+          guildBonus,
+          smithyLevel,
+          materials,
+          guildWorkshopBaseEquipmentCandidates(
+            equipment.owned,
+            equipment.equipped,
+            recipe,
+          ).length,
+          craftSpendableGold,
+        ),
+        techniques: {
+          ...techniques,
+          catalyst: techniques.catalystUnlocked
+            ? {
+                materialId: catalystMaterialId,
+                required: 1,
+                owned: materials[catalystMaterialId] ?? 0,
+              }
+            : null,
+        },
+      };
+    }),
   });
 }
 
@@ -364,6 +428,9 @@ export async function POST(req: Request) {
     mode?: unknown;
     outpostId?: unknown;
     useMaterialSubstitution?: unknown;
+    optionFocus?: unknown;
+    structure?: unknown;
+    useCatalyst?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -379,6 +446,21 @@ export async function POST(req: Request) {
   const recipe = GUILD_WORKSHOP_RECIPES[body.recipeId];
   const craftMode = isGuildWorkshopCraftMode(body.mode) ? body.mode : "normal";
   const useMaterialSubstitution = body.useMaterialSubstitution === true;
+  if (body.optionFocus != null && !isBlacksmithOptionFocusId(body.optionFocus)) {
+    return Response.json(
+      { ok: false, error: "invalid_option_focus" },
+      { status: 400 },
+    );
+  }
+  if (body.structure != null && !isBlacksmithStructureId(body.structure)) {
+    return Response.json(
+      { ok: false, error: "invalid_structure" },
+      { status: 400 },
+    );
+  }
+  const optionFocus = body.optionFocus as BlacksmithOptionFocusId | undefined;
+  const structure = body.structure as BlacksmithStructureId | undefined;
+  const useCatalyst = body.useCatalyst === true;
 
   const resolved = await resolveWorkshopAccess(
     userId,
@@ -460,6 +542,84 @@ export async function POST(req: Request) {
     const parsed = parseEquipmentSave(equipSave);
     const currentArtisan = parseArtisanState(craftingRaw.artisan);
     const currentBlacksmithLevel = artisanLevel(currentArtisan.blacksmith);
+    const item = V2_EQUIPMENT[recipe.equipmentId];
+    const blacksmithProgression = parseBlacksmithProgressionState(
+      craftingRaw.blacksmithProgression,
+    );
+    if (blacksmithProgression.pendingInspection) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "pending_inspection" as const,
+          blacksmithProgression,
+        },
+      };
+    }
+    const techniqueView = blacksmithTechniqueView({
+      level: currentBlacksmithLevel,
+      specialty: blacksmithProgression.specialty,
+      item,
+    });
+    const requestedControl = optionFocus != null || structure != null || useCatalyst;
+    if (requestedControl && !techniqueView.eligible) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "technique_locked" as const },
+      };
+    }
+    if (
+      optionFocus &&
+      !techniqueView.optionFocuses.some((focus) => focus.id === optionFocus)
+    ) {
+      return {
+        status: currentBlacksmithLevel < 15 ? 403 : 400,
+        body: {
+          ok: false as const,
+          error:
+            currentBlacksmithLevel < 15
+              ? ("technique_locked" as const)
+              : ("invalid_option_focus" as const),
+        },
+      };
+    }
+    if (
+      structure &&
+      !techniqueView.structures.some((entry) => entry.id === structure)
+    ) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "technique_locked" as const },
+      };
+    }
+    if (structure === "option" && !optionFocus) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "option_focus_required" as const },
+      };
+    }
+    if (useCatalyst && (!optionFocus || !techniqueView.catalystUnlocked)) {
+      return {
+        status: currentBlacksmithLevel < 17 ? 403 : 400,
+        body: {
+          ok: false as const,
+          error:
+            currentBlacksmithLevel < 17
+              ? ("technique_locked" as const)
+              : ("option_focus_required" as const),
+        },
+      };
+    }
+    if (
+      requestedControl &&
+      craftMode === "masterwork" &&
+      !techniqueView.masterworkTechniquesUnlocked
+    ) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "technique_locked" as const },
+      };
+    }
     if (!meetsGuildWorkshopRecipeLevel(currentArtisan, recipe)) {
       return {
         status: 403,
@@ -563,6 +723,23 @@ export async function POST(req: Request) {
         },
       };
     }
+    const materialsAfterRecipe = useMaterialSubstitution
+      ? spendGuildWorkshopMaterialsFromPlan(materials, materialSpendPlan)
+      : spendGuildWorkshopRecipeMaterials(materials, recipe, craftMode);
+    const catalystMaterialId = blacksmithCatalystMaterialForItem(item);
+    if (
+      useCatalyst &&
+      Math.max(0, materialsAfterRecipe[catalystMaterialId] ?? 0) < 1
+    ) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "insufficient_catalyst" as const,
+          catalystMaterialId,
+        },
+      };
+    }
     const goldPreflight = spendGold(
       currentGold,
       currentBankedGold,
@@ -655,9 +832,19 @@ export async function POST(req: Request) {
       recipe.profession,
       recipe.artisanXp,
     );
-    const nextMaterials = useMaterialSubstitution
-      ? spendGuildWorkshopMaterialsFromPlan(materials, materialSpendPlan)
-      : spendGuildWorkshopRecipeMaterials(materials, recipe, craftMode);
+    const catalystPreserved =
+      useCatalyst &&
+      rollBlacksmithCatalystPreserved(currentBlacksmithLevel, Math.random);
+    const nextMaterials =
+      useCatalyst && !catalystPreserved
+        ? {
+            ...materialsAfterRecipe,
+            [catalystMaterialId]: Math.max(
+              0,
+              (materialsAfterRecipe[catalystMaterialId] ?? 0) - 1,
+            ),
+          }
+        : materialsAfterRecipe;
     const craftQuality = rollGuildWorkshopEnhance(
       currentArtisan,
       recipe,
@@ -681,7 +868,6 @@ export async function POST(req: Request) {
             : 1,
       },
     );
-    const item = V2_EQUIPMENT[recipe.equipmentId];
     const craftedAt = new Date().toISOString();
     const nextWeekly = association
       ? null
@@ -693,19 +879,69 @@ export async function POST(req: Request) {
           tier: item.tier,
         });
     const crafterName = profile?.name?.trim() || undefined;
-    const craftedItem = {
-      ...mintRolledEquipInstance(recipe.equipmentId),
-      ...(craftQuality ? { craftQuality } : {}),
-      craftedBy: {
-        userId,
-        ...(crafterName ? { name: crafterName } : {}),
-        profession: recipe.profession,
-        level: currentBlacksmithLevel,
-        craftedAt,
-        ...(craftMode === "masterwork" ? { masterwork: true } : {}),
-      },
+    const shouldCreateInspection =
+      craftMode === "masterwork" &&
+      currentBlacksmithLevel >= 30 &&
+      techniqueView.eligible;
+    const inspectionCandidates = shouldCreateInspection
+      ? rollBlacksmithInspectionCandidates(
+          item,
+          { optionFocus, structure, useCatalyst },
+          Math.random,
+        )
+      : null;
+    const controlledRoll = !shouldCreateInspection && requestedControl
+      ? applyBlacksmithCraftControl(
+          item,
+          rollItemStats(item, Math.random),
+          { optionFocus, structure, useCatalyst },
+          Math.random,
+        )
+      : null;
+    const craftedBy = {
+      userId,
+      ...(crafterName ? { name: crafterName } : {}),
+      profession: recipe.profession,
+      level: currentBlacksmithLevel,
+      craftedAt,
+      ...(craftMode === "masterwork" ? { masterwork: true as const } : {}),
+      ...(currentBlacksmithLevel >= 28 && techniqueView.eligible
+        ? { specialty: blacksmithProgression.specialty }
+        : {}),
     };
-    const nextOwned = [...baseEquipmentSpend.owned, craftedItem];
+    if (shouldCreateInspection && (!craftQuality || !inspectionCandidates)) {
+      throw new Error("masterwork inspection requires quality and candidates");
+    }
+    const pendingInspection =
+      shouldCreateInspection && craftQuality && inspectionCandidates
+        ? {
+            inspectionId: `inspection_${crypto.randomUUID()}`,
+            recipeId: recipe.id,
+            equipmentId: recipe.equipmentId,
+            craftQuality,
+            candidates: [
+              inspectionCandidates[0].roll,
+              inspectionCandidates[1].roll,
+            ] as const,
+            craftedBy,
+            createdAt: craftedAt,
+          }
+        : null;
+    const craftedItem = pendingInspection
+      ? null
+      : {
+          ...(controlledRoll
+            ? mintEquipInstance(recipe.equipmentId, controlledRoll.roll)
+            : mintRolledEquipInstance(recipe.equipmentId)),
+          ...(craftQuality ? { craftQuality } : {}),
+          craftedBy,
+        };
+    const nextOwned = craftedItem
+      ? [...baseEquipmentSpend.owned, craftedItem]
+      : baseEquipmentSpend.owned;
+    const nextBlacksmithProgression = pendingInspection
+      ? { ...blacksmithProgression, pendingInspection }
+      : blacksmithProgression;
 
     await upsertSave(tx, userId, "character.v2", {
       ...paidCharRaw,
@@ -715,7 +951,7 @@ export async function POST(req: Request) {
       owned: nextOwned,
       equipped: parsed.equipped,
     });
-    if (isUnique(item)) {
+    if (craftedItem && isUnique(item)) {
       await recordUniqueEquipmentAcquisitions({
         executor: tx,
         userId,
@@ -748,6 +984,7 @@ export async function POST(req: Request) {
       workshopStats: nextWorkshopStats,
       workshopRecords: nextWorkshopRecords,
       weeklyWorkshopStats: nextWeeklyWorkshopStats,
+      blacksmithProgression: nextBlacksmithProgression,
     });
     if (!association && shouldLogGuildWorkshopCraftActivity(item)) {
       await logGuildActivity(tx, {
@@ -831,7 +1068,7 @@ export async function POST(req: Request) {
         recipeId: recipe.id,
         craftMode,
         equipmentId: recipe.equipmentId,
-        iid: craftedItem.iid,
+        iid: craftedItem?.iid ?? null,
         craftQuality: craftQuality ?? null,
         artisanXpGained: recipe.artisanXp,
         artisan: artisanView({ ...craftingRaw, artisan: nextArtisan }),
@@ -856,6 +1093,18 @@ export async function POST(req: Request) {
         ),
         smithyLevel,
         smithyBonus,
+        blacksmithProgression: nextBlacksmithProgression,
+        pendingInspection,
+        blacksmithControl: requestedControl
+          ? {
+              optionFocus: optionFocus ?? null,
+              structure: structure ?? null,
+              focusApplied: controlledRoll?.focusApplied ?? false,
+              catalystUsed: useCatalyst,
+              catalystMaterialId: useCatalyst ? catalystMaterialId : null,
+              catalystPreserved,
+            }
+          : null,
         guildBonus: nextGuildBonus,
         recipes: GUILD_WORKSHOP_RECIPE_IDS.map((id) =>
           guildWorkshopRecipeView(

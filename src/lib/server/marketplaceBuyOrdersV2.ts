@@ -29,7 +29,7 @@ import {
 } from "@/lib/server/marketplaceV2";
 import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
 import { isTradeableMuseunCashItemId } from "@/adventure/data/v2/museunCashItems";
-import { isCookingFoodId } from "@/adventure/v2/cooking";
+import { isCookingFoodId } from "@/adventure/v2/cooking/food";
 import { fishIdFromSpecimenItemId } from "@/adventure/v2/fishSpecimens";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import {

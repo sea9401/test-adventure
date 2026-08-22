@@ -1,6 +1,15 @@
 import { eq } from "drizzle-orm";
 import { users } from "@/db/schema";
 import {
+  isDangerousLineId,
+  isDangerousReelId,
+  isDangerousRodId,
+  type DangerousGearKind,
+  type DangerousLineId,
+  type DangerousReelId,
+  type DangerousRodId,
+} from "@/adventure/data/v2/dangerousFishing";
+import {
   DANGEROUS_FISHING_EXCHANGE_ENTRIES,
   DANGEROUS_FISHING_EXCHANGE_ENTRY_BY_ID,
   eligibleCatchMaterialIds,
@@ -11,12 +20,20 @@ import {
   isMuseunCosmeticItemId,
   parseMuseunCosmetics,
   unlockPermanentMuseunCosmetic,
+  type MuseunCosmeticItemId,
 } from "@/adventure/data/v2/museunCosmetics";
 import {
   DANGEROUS_FISHING_SAVE_KEY,
   parseDangerousFishingState,
   type DangerousFishingState,
 } from "@/adventure/v2/dangerousFishingState";
+import {
+  DANGEROUS_GEAR_ENHANCEMENT_COSTS,
+  dangerousGearEnhancementLevel,
+  enhanceDangerousGear,
+  selectEnhancementMaterials,
+  type DangerousGearEnhancementLevel,
+} from "@/adventure/v2/dangerousFishingEnhancement";
 import {
   FISHING_PROGRESS_KEY,
   emptyFishingProgression,
@@ -46,7 +63,37 @@ export const DANGEROUS_FISHING_EXCHANGE_MAX_BATCHES = 100;
 const IDEMPOTENCY_WINDOW_MS = 24 * 60 * 60 * 1_000;
 const MAX_OPERATION_IDS = 128;
 
-type ExchangeOperation = { id: string; completedAt: number };
+type DangerousGearId = DangerousRodId | DangerousReelId | DangerousLineId;
+
+type UnboundExchangeOperation = {
+  id: string;
+  completedAt: number;
+  action?: undefined;
+};
+
+type EnhancementOperation = {
+  id: string;
+  completedAt: number;
+  action: "enhance";
+  gearKind: DangerousGearKind;
+  gearId: DangerousGearId;
+  currentLevel: 0 | 1 | 2;
+  nextLevel: DangerousGearEnhancementLevel;
+};
+
+type LegacyExchangeOperation = {
+  id: string;
+  completedAt: number;
+  action: "exchange";
+  entryId: string;
+  batches: number;
+  selectedMaterials: Record<string, number> | null;
+};
+
+type ExchangeOperation =
+  | UnboundExchangeOperation
+  | EnhancementOperation
+  | LegacyExchangeOperation;
 export type DangerousFishingExchangeState = {
   version: 1;
   operations: ExchangeOperation[];
@@ -58,10 +105,15 @@ type CharacterSave = Record<string, unknown> & {
 };
 
 type ExchangeRequest = {
+  action?: unknown;
   operationId: unknown;
-  entryId: unknown;
-  batches: unknown;
+  entryId?: unknown;
+  batches?: unknown;
   selectedMaterials?: unknown;
+  gearKind?: unknown;
+  gearId?: unknown;
+  expectedCurrentLevel?: unknown;
+  expectedNextLevel?: unknown;
   now: number;
 };
 
@@ -101,6 +153,39 @@ function selectedMaterials(raw: unknown): Record<string, number> | null {
     selected[materialId] = Number(value);
   }
   return selected;
+}
+
+function canonicalMaterials(
+  materials: Record<string, number> | null,
+): Record<string, number> | null {
+  if (!materials) return null;
+  return Object.fromEntries(
+    Object.entries(materials).sort(([left], [right]) =>
+      left.localeCompare(right),
+    ),
+  );
+}
+
+function sameMaterials(
+  left: Record<string, number> | null,
+  right: Record<string, number> | null,
+): boolean {
+  if (left === null || right === null) return left === right;
+  const leftEntries = Object.entries(left);
+  const rightEntries = Object.entries(right);
+  return (
+    leftEntries.length === rightEntries.length &&
+    leftEntries.every(([materialId, count]) => right[materialId] === count)
+  );
+}
+
+function validEnhancementTarget(
+  kind: DangerousGearKind,
+  gearId: unknown,
+): gearId is DangerousGearId {
+  if (kind === "rod") return isDangerousRodId(gearId);
+  if (kind === "reel") return isDangerousReelId(gearId);
+  return isDangerousLineId(gearId);
 }
 
 const relevantMaterialIds = [
@@ -149,7 +234,74 @@ export function parseDangerousFishingExchangeState(
         continue;
       }
       seen.add(id);
-      operations.push({ id, completedAt: Number(completedAt) });
+      const base = { id, completedAt: Number(completedAt) };
+      const record = item as Record<string, unknown>;
+      if (
+        record.action === "enhance" &&
+        (record.gearKind === "rod" ||
+          record.gearKind === "reel" ||
+          record.gearKind === "line") &&
+        validEnhancementTarget(record.gearKind, record.gearId) &&
+        (record.nextLevel === 1 ||
+          record.nextLevel === 2 ||
+          record.nextLevel === 3)
+      ) {
+        const derivedCurrentLevel = (record.nextLevel - 1) as 0 | 1 | 2;
+        if (
+          record.currentLevel !== undefined &&
+          record.currentLevel !== derivedCurrentLevel
+        ) {
+          operations.push(base);
+          continue;
+        }
+        operations.push({
+          ...base,
+          action: "enhance",
+          gearKind: record.gearKind,
+          gearId: record.gearId,
+          currentLevel: derivedCurrentLevel,
+          nextLevel: record.nextLevel,
+        });
+        continue;
+      }
+      if (record.action === "exchange") {
+        const entry =
+          typeof record.entryId === "string"
+            ? DANGEROUS_FISHING_EXCHANGE_ENTRY_BY_ID.get(record.entryId)
+            : undefined;
+        const batches = record.batches;
+        const selection = selectedMaterials(record.selectedMaterials);
+        if (
+          entry &&
+          typeof batches === "number" &&
+          Number.isSafeInteger(batches) &&
+          batches >= 1 &&
+          batches <= DANGEROUS_FISHING_EXCHANGE_MAX_BATCHES &&
+          (entry.repeatable || batches === 1) &&
+          (entry.cost.kind !== "catch" ||
+            (selection !== null &&
+              validateCatchSelection(
+                entry.cost.rarity,
+                entry.cost.count * batches,
+                selection,
+              )))
+        ) {
+          operations.push({
+            ...base,
+            action: "exchange",
+            entryId: entry.id,
+            batches,
+            selectedMaterials:
+              entry.cost.kind === "catch"
+                ? canonicalMaterials(selection)
+                : null,
+          });
+          continue;
+        }
+      }
+      // Task 2 이전 ID-only 레코드와 손상된 신규 intent는 재차감을 막기
+      // 위해 보존하되, 아래 duplicate 처리에서 강화 성공으로 인정하지 않는다.
+      operations.push(base);
     }
   }
   operations.sort((left, right) => right.completedAt - left.completedAt);
@@ -215,6 +367,44 @@ function buildView(args: {
   const ownedTitleIds = ownedTitleIdsOf(args.adventureLogRaw);
   const ownedCosmeticIds = cosmetics.owned;
   const unlocked = args.fishingLevel >= DANGEROUS_FISHING_EXCHANGE_MIN_LEVEL;
+  const enhancementItems = [
+    ...args.dangerous.ownedGear.rods.map((gearId) => ({
+      gearKind: "rod" as const,
+      gearId,
+    })),
+    ...args.dangerous.ownedGear.reels.map((gearId) => ({
+      gearKind: "reel" as const,
+      gearId,
+    })),
+    ...args.dangerous.ownedGear.lines.map((gearId) => ({
+      gearKind: "line" as const,
+      gearId,
+    })),
+  ].map(({ gearKind, gearId }) => {
+    const level = dangerousGearEnhancementLevel(
+      args.dangerous,
+      gearKind,
+      gearId,
+    );
+    if (level >= 3) {
+      return { gearKind, gearId, level, nextEnhancement: null };
+    }
+    const nextLevel = (level + 1) as DangerousGearEnhancementLevel;
+    const cost = DANGEROUS_GEAR_ENHANCEMENT_COSTS[nextLevel];
+    return {
+      gearKind,
+      gearId,
+      level,
+      nextEnhancement: {
+        level: nextLevel,
+        cost,
+        affordable:
+          unlocked &&
+          fishingCoins >= cost.fishingCoins &&
+          selectEnhancementMaterials(materials, nextLevel) !== null,
+      },
+    };
+  });
   return {
     ok: true as const,
     unlocked,
@@ -225,7 +415,10 @@ function buildView(args: {
     state: {
       ownedGear: args.dangerous.ownedGear,
       baitCounts: args.dangerous.baitCounts,
+      gearEnhancements: args.dangerous.gearEnhancements,
     },
+    enhancementCosts: DANGEROUS_GEAR_ENHANCEMENT_COSTS,
+    enhancementItems,
     ownedTitleIds,
     ownedCosmeticIds,
     entries: DANGEROUS_FISHING_EXCHANGE_ENTRIES.map((entry) => {
@@ -332,42 +525,93 @@ export async function exchangeDangerousFishingInTx(
   ) {
     return fail("bad_request", 400);
   }
+  const isEnhancement = request.action === "enhance";
+  if (request.action !== undefined && !isEnhancement) {
+    return fail("bad_request", 400);
+  }
+  let enhancementTarget:
+    | {
+        gearKind: DangerousGearKind;
+        gearId: DangerousGearId;
+        currentLevel: 0 | 1 | 2 | 3;
+        nextLevel: DangerousGearEnhancementLevel;
+      }
+    | null = null;
+  if (isEnhancement) {
+    if (
+      request.gearKind !== "rod" &&
+      request.gearKind !== "reel" &&
+      request.gearKind !== "line"
+    ) {
+      return fail("invalid_kind", 400);
+    }
+    if (!validEnhancementTarget(request.gearKind, request.gearId)) {
+      return fail("invalid_item", 400);
+    }
+    if (
+      !Number.isSafeInteger(request.expectedCurrentLevel) ||
+      !Number.isSafeInteger(request.expectedNextLevel) ||
+      (request.expectedCurrentLevel !== 0 &&
+        request.expectedCurrentLevel !== 1 &&
+        request.expectedCurrentLevel !== 2 &&
+        request.expectedCurrentLevel !== 3) ||
+      (request.expectedNextLevel !== 1 &&
+        request.expectedNextLevel !== 2 &&
+        request.expectedNextLevel !== 3) ||
+      (request.expectedCurrentLevel < 3 &&
+        request.expectedNextLevel !== request.expectedCurrentLevel + 1) ||
+      (request.expectedCurrentLevel === 3 && request.expectedNextLevel !== 3)
+    ) {
+      return fail("invalid_level", 400);
+    }
+    enhancementTarget = {
+      gearKind: request.gearKind,
+      gearId: request.gearId,
+      currentLevel: request.expectedCurrentLevel,
+      nextLevel: request.expectedNextLevel,
+    };
+  }
   const entry =
-    typeof request.entryId === "string"
+    !isEnhancement && typeof request.entryId === "string"
       ? DANGEROUS_FISHING_EXCHANGE_ENTRY_BY_ID.get(request.entryId)
       : undefined;
-  if (!entry) return fail("invalid_entry", 400);
-  if (
-    !Number.isSafeInteger(request.batches) ||
-    Number(request.batches) < 1 ||
-    Number(request.batches) > DANGEROUS_FISHING_EXCHANGE_MAX_BATCHES ||
-    (!entry.repeatable && Number(request.batches) !== 1)
-  ) {
-    return fail("invalid_quantity", 400);
-  }
-  const batches = Number(request.batches);
-  const selection =
-    entry.cost.kind === "catch"
-      ? selectedMaterials(request.selectedMaterials)
-      : null;
-  if (
-    entry.cost.kind === "catch" &&
-    (!selection ||
-      !validateCatchSelection(
-        entry.cost.rarity,
-        entry.cost.count * batches,
-        selection,
-      ))
-  ) {
-    return fail("invalid_material_selection", 400);
-  }
-  const cosmeticItemId =
-    entry.output.kind === "cosmetic" &&
-    isMuseunCosmeticItemId(entry.output.itemId)
-      ? entry.output.itemId
-      : null;
-  if (entry.output.kind === "cosmetic" && cosmeticItemId === null) {
-    return fail("invalid_entry", 400);
+  let batches = 0;
+  let selection: Record<string, number> | null = null;
+  let cosmeticItemId: MuseunCosmeticItemId | null = null;
+  if (!isEnhancement) {
+    if (!entry) return fail("invalid_entry", 400);
+    if (
+      !Number.isSafeInteger(request.batches) ||
+      Number(request.batches) < 1 ||
+      Number(request.batches) > DANGEROUS_FISHING_EXCHANGE_MAX_BATCHES ||
+      (!entry.repeatable && Number(request.batches) !== 1)
+    ) {
+      return fail("invalid_quantity", 400);
+    }
+    batches = Number(request.batches);
+    selection =
+      entry.cost.kind === "catch"
+        ? selectedMaterials(request.selectedMaterials)
+        : null;
+    if (
+      entry.cost.kind === "catch" &&
+      (!selection ||
+        !validateCatchSelection(
+          entry.cost.rarity,
+          entry.cost.count * batches,
+          selection,
+        ))
+    ) {
+      return fail("invalid_material_selection", 400);
+    }
+    cosmeticItemId =
+      entry.output.kind === "cosmetic" &&
+      isMuseunCosmeticItemId(entry.output.itemId)
+        ? entry.output.itemId
+        : null;
+    if (entry.output.kind === "cosmetic" && cosmeticItemId === null) {
+      return fail("invalid_entry", 400);
+    }
   }
 
   // 사용자 행은 항상 존재하며, 저장 행이 아직 없는 첫 교환도 같은 사용자끼리 직렬화한다.
@@ -419,11 +663,63 @@ export async function exchangeDangerousFishingInTx(
     });
   }
 
-  if (
-    exchangeState.operations.some(
-      (operation) => operation.id === request.operationId,
-    )
-  ) {
+  const processedOperation = exchangeState.operations.find(
+    (operation) => operation.id === request.operationId,
+  );
+  if (processedOperation) {
+    if (processedOperation.action === undefined) {
+      if (isEnhancement) return fail("operation_conflict", 409);
+      return {
+        ...buildView({
+          fishingLevel,
+          character,
+          walletRaw,
+          dangerous,
+          adventureLogRaw,
+        }),
+        status: 200,
+        alreadyProcessed: true as const,
+        operationId: request.operationId,
+      };
+    }
+    if (processedOperation.action === "enhance") {
+      if (
+        !enhancementTarget ||
+        processedOperation.gearKind !== enhancementTarget.gearKind ||
+        processedOperation.gearId !== enhancementTarget.gearId ||
+        processedOperation.currentLevel !== enhancementTarget.currentLevel ||
+        processedOperation.nextLevel !== enhancementTarget.nextLevel
+      ) {
+        return fail("operation_conflict", 409);
+      }
+      return {
+        ...buildView({
+          fishingLevel,
+          character,
+          walletRaw,
+          dangerous,
+          adventureLogRaw,
+        }),
+        status: 200,
+        alreadyProcessed: true as const,
+        operationId: request.operationId,
+        gearKind: processedOperation.gearKind,
+        gearId: processedOperation.gearId,
+        nextLevel: processedOperation.nextLevel,
+      };
+    }
+    if (
+      isEnhancement ||
+      !entry ||
+      processedOperation.entryId !== entry.id ||
+      processedOperation.batches !== batches ||
+      !sameMaterials(
+        processedOperation.selectedMaterials,
+        entry.cost.kind === "catch" ? canonicalMaterials(selection) : null,
+      )
+    ) {
+      return fail("operation_conflict", 409);
+    }
     return {
       ...buildView({
         fishingLevel,
@@ -435,8 +731,113 @@ export async function exchangeDangerousFishingInTx(
       status: 200,
       alreadyProcessed: true as const,
       operationId: request.operationId,
+      entryId: processedOperation.entryId,
+      batches: processedOperation.batches,
     };
   }
+
+  if (isEnhancement) {
+    if (!enhancementTarget) return fail("invalid_item", 400);
+    const materials = positiveMaterials(character.materials);
+    const fishingCoins = walletCoins(walletRaw);
+    const currentLevel = dangerousGearEnhancementLevel(
+      dangerous,
+      request.gearKind,
+      request.gearId,
+    );
+    if (currentLevel !== enhancementTarget.currentLevel) {
+      const view = buildView({
+        fishingLevel,
+        character,
+        walletRaw,
+        dangerous,
+        adventureLogRaw,
+      });
+      return {
+        ...view,
+        ok: false as const,
+        error: "stale_enhancement",
+        status: 409,
+      };
+    }
+    const enhanced = enhanceDangerousGear(
+      dangerous,
+      enhancementTarget.nextLevel,
+      request.gearKind,
+      request.gearId,
+      { materials, fishingCoins },
+    );
+    if (!enhanced.ok) {
+      if (enhanced.error === "insufficient_fishing_coins") {
+        return fail("insufficient_coins", 402, { fishingCoins });
+      }
+      if (enhanced.error === "insufficient_materials") {
+        return fail("insufficient_materials", 402, {
+          materials: materialView(materials),
+        });
+      }
+      if (enhanced.error === "not_owned" || enhanced.error === "max_level") {
+        return fail(enhanced.error, 409);
+      }
+      return fail(enhanced.error, 400);
+    }
+
+    const nextCharacter: CharacterSave = {
+      ...character,
+      materials: positiveMaterials(enhanced.materials),
+    };
+    const nextWallet = fishingWalletWithCoins(walletRaw, enhanced.fishingCoins!);
+    const completedOperation: EnhancementOperation = {
+      id: request.operationId,
+      completedAt: request.now,
+      action: "enhance",
+      gearKind: enhancementTarget.gearKind,
+      gearId: enhancementTarget.gearId,
+      currentLevel: enhancementTarget.currentLevel as 0 | 1 | 2,
+      nextLevel: enhanced.nextLevel,
+    };
+    const nextExchangeState: DangerousFishingExchangeState = {
+      version: 1,
+      operations: [
+        completedOperation,
+        ...exchangeState.operations.filter(
+          (operation) => operation.id !== request.operationId,
+        ),
+      ].slice(0, MAX_OPERATION_IDS),
+    };
+
+    await upsertSave(tx, userId, "character.v2", nextCharacter);
+    await upsertSave(
+      tx,
+      userId,
+      DANGEROUS_FISHING_SAVE_KEY,
+      enhanced.state,
+    );
+    await upsertSave(tx, userId, FISHING_WALLET_KEY, nextWallet);
+    await upsertSave(
+      tx,
+      userId,
+      DANGEROUS_FISHING_EXCHANGE_STATE_KEY,
+      nextExchangeState,
+    );
+
+    return {
+      ...buildView({
+        fishingLevel,
+        character: nextCharacter,
+        walletRaw: nextWallet,
+        dangerous: enhanced.state,
+        adventureLogRaw,
+      }),
+      status: 200,
+      alreadyProcessed: false as const,
+      operationId: request.operationId,
+      gearKind: enhancementTarget.gearKind,
+      gearId: enhancementTarget.gearId,
+      nextLevel: enhanced.nextLevel,
+    };
+  }
+  if (!entry) return fail("invalid_entry", 400);
 
   const materials = positiveMaterials(character.materials);
   const costs =
@@ -510,10 +911,19 @@ export async function exchangeDangerousFishingInTx(
       : {}),
   };
   const nextWallet = fishingWalletWithCoins(walletRaw, fishingCoins - coinCost);
+  const completedOperation: LegacyExchangeOperation = {
+    id: request.operationId,
+    completedAt: request.now,
+    action: "exchange",
+    entryId: entry.id,
+    batches,
+    selectedMaterials:
+      entry.cost.kind === "catch" ? canonicalMaterials(selection) : null,
+  };
   const nextExchangeState: DangerousFishingExchangeState = {
     version: 1,
     operations: [
-      { id: request.operationId, completedAt: request.now },
+      completedOperation,
       ...exchangeState.operations.filter(
         (operation) => operation.id !== request.operationId,
       ),

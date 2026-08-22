@@ -16,6 +16,8 @@ import {
   V2_REFORGE_ENABLED,
   VARIANCE_FRACTION,
   canReforge,
+  equipRollFromPercentiles,
+  equipRollPercentiles,
   effectiveStats,
   reforgeGoldCost,
   reforgeRollCount,
@@ -106,6 +108,33 @@ describe("rollItemStats", () => {
         }
       }
     }
+  });
+});
+
+describe("equipment roll percentile conversion", () => {
+  it("round-trips variable and fixed stats without adding option keys", () => {
+    const item = V2_EQUIPMENT.v2_storm_gale_bow;
+    const values = [0.1, 0.9, 0.4, 0.7, 0.2];
+    let index = 0;
+    const roll = rollItemStats(item, () => values[index++] ?? 0.5);
+
+    expect(equipRollFromPercentiles(item, equipRollPercentiles(item, roll))).toEqual(
+      roll,
+    );
+    expect(Object.keys(roll.options ?? {}).sort()).toEqual(
+      Object.keys(item.options ?? {}).sort(),
+    );
+  });
+
+  it("preserves fixed negative options and tier-16 scale metadata", () => {
+    const item = V2_EQUIPMENT.v2_storm_wreckage_greatsword;
+    const roll = rollItemStats(item, () => 0.75);
+
+    expect(equipRollFromPercentiles(item, equipRollPercentiles(item, roll))).toEqual(
+      roll,
+    );
+    expect(roll.options?.spd).toBe(-6);
+    expect(roll.powerScaleVersion).toBeDefined();
   });
 });
 

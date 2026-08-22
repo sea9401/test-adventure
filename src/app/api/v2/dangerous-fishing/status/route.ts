@@ -7,5 +7,9 @@ export async function GET() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  return Response.json(await readDangerousFishingView(db, userId, Date.now()));
+  return Response.json(
+    await db.transaction((tx) =>
+      readDangerousFishingView(tx, userId, Date.now()),
+    ),
+  );
 }

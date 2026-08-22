@@ -52,7 +52,7 @@ export type JobUnlockContext = {
   killCounts?: Readonly<Record<string, number>>;
   /** 농장 콘텐츠 전체 숙련 레벨(farm.v2 stats.farmingXp 에서 파생). */
   farmingLevel?: number;
-  /** 개인 요리 콘텐츠 숙련 레벨(cooking.v1 xp 에서 파생). */
+  /** 개인 요리 콘텐츠 숙련 레벨(cooking.v2 xp 에서 파생). */
   cookingLevel?: number;
   /** 벌목 콘텐츠 레벨(woodcutting-log.v1 XP에서 파생). */
   woodcuttingLevel?: number;
@@ -360,7 +360,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "caster",
     name: "마법사",
     tier: 2,
-    cultivateProfile: { int: 2, spi: 2 },
+    cultivateProfile: { int: 3, spi: 1 },
     jobBonus: { int: 14, spi: 4 }, // 버스트 원소 (← 옛 arcane)
     unlock: { prereqs: { mage: TIER2_UNLOCK_CUMLEVEL } },
   },
@@ -385,7 +385,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "assassin",
     name: "자객",
     tier: 2,
-    cultivateProfile: { dex: 2, luk: 2 },
+    cultivateProfile: { luk: 3, dex: 1 },
     jobBonus: { dex: 10, luk: 10 }, // 크리 폭발 (id 유지)
     unlock: { prereqs: { rogue: TIER2_UNLOCK_CUMLEVEL } },
   },
@@ -393,7 +393,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "archer",
     name: "궁수",
     tier: 2,
-    cultivateProfile: { dex: 2, luk: 2 },
+    cultivateProfile: { dex: 3, luk: 1 },
     jobBonus: { dex: 12, str: 5 }, // 다단 물량 (← 옛 archery)
     unlock: { prereqs: { rogue: TIER2_UNLOCK_CUMLEVEL } },
   },
@@ -450,7 +450,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "magus",
     name: "마도사",
     tier: 3,
-    cultivateProfile: { int: 2, spi: 2 },
+    cultivateProfile: { int: 3, spi: 1 },
     jobBonus: { int: 13, spi: 7 }, // 마법 고차 — 지능 중심
     unlock: { prereqs: { caster: TIER3_UNLOCK_CUMLEVEL } }, // 마법사 계보
   },
@@ -466,7 +466,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "ranger",
     name: "궁사",
     tier: 3,
-    cultivateProfile: { dex: 2, luk: 2 },
+    cultivateProfile: { dex: 3, luk: 1 },
     jobBonus: { dex: 13, luk: 7 }, // 도적 고차 — 민첩 중심
     unlock: { prereqs: { archer: TIER3_UNLOCK_CUMLEVEL } }, // 궁수 계보
   },
@@ -516,7 +516,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "shadow",
     name: "그림자",
     tier: 3,
-    cultivateProfile: { luk: 2, dex: 2 },
+    cultivateProfile: { luk: 3, dex: 1 },
     jobBonus: { luk: 15, dex: 5 }, // 도적 고차(자객 계승) — 행운/치명
     unlock: { prereqs: { assassin: TIER3_UNLOCK_CUMLEVEL } }, // 자객 계보
   },
@@ -724,7 +724,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "sage",
     name: "대마법사",
     tier: 4,
-    cultivateProfile: { int: 2, spi: 2 },
+    cultivateProfile: { int: 3, spi: 1 },
     jobBonus: { int: 15, spi: 7 }, // 마법 심화(마도사 라인 정점)
     unlock: { prereqs: { magus: TIER4_UNLOCK_CUMLEVEL } }, // 마도사 계보
   },
@@ -805,7 +805,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "chief",
     name: "신궁",
     tier: 4,
-    cultivateProfile: { dex: 2, luk: 2 },
+    cultivateProfile: { dex: 3, luk: 1 },
     jobBonus: { dex: 15, luk: 7 }, // 도적 심화(궁술 라인 정점)
     unlock: { prereqs: { ranger: TIER4_UNLOCK_CUMLEVEL } }, // 궁사 계보
   },
@@ -834,7 +834,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "phantom",
     name: "암살자",
     tier: 4,
-    cultivateProfile: { luk: 2, dex: 2 },
+    cultivateProfile: { luk: 3, dex: 1 },
     jobBonus: { luk: 15, dex: 7 }, // 도적 심화(암살 라인 정점) — 행운 중심(신궁의 DEX 거울상)
     unlock: { prereqs: { shadow: TIER4_UNLOCK_CUMLEVEL } }, // 그림자 계보
   },
@@ -1019,7 +1019,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "arcanist",
     name: "비전술사",
     tier: 5,
-    cultivateProfile: { int: 3, spi: 2 },
+    cultivateProfile: { int: 4, spi: 1 },
     jobBonus: { int: 18, spi: 8 },
     unlock: { prereqs: { sage: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -1059,7 +1059,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "marksman",
     name: "명궁",
     tier: 5,
-    cultivateProfile: { dex: 3, luk: 2 },
+    cultivateProfile: { dex: 4, luk: 1 },
     jobBonus: { dex: 18, luk: 8 },
     unlock: { prereqs: { chief: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -1067,7 +1067,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "nightshade",
     name: "밤그림자",
     tier: 5,
-    cultivateProfile: { luk: 3, dex: 2 },
+    cultivateProfile: { luk: 4, dex: 1 },
     jobBonus: { luk: 18, dex: 8 },
     unlock: { prereqs: { phantom: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -1269,7 +1269,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "archmage",
     name: "대마도사",
     tier: 6,
-    cultivateProfile: { int: 3, spi: 3 },
+    cultivateProfile: { int: 4, spi: 2 },
     jobBonus: { int: 28, spi: 12 },
     unlock: { prereqs: { arcanist: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1325,7 +1325,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "heavenlybow",
     name: "천궁",
     tier: 6,
-    cultivateProfile: { dex: 3, luk: 3 },
+    cultivateProfile: { dex: 4, luk: 2 },
     jobBonus: { dex: 28, luk: 12 },
     unlock: { prereqs: { marksman: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1333,7 +1333,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "blackmoon",
     name: "흑월",
     tier: 6,
-    cultivateProfile: { luk: 3, dex: 3 },
+    cultivateProfile: { luk: 4, dex: 2 },
     jobBonus: { luk: 28, dex: 12 },
     unlock: { prereqs: { nightshade: TIER6_UNLOCK_CUMLEVEL } },
   },

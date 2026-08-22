@@ -58,11 +58,7 @@ import { EquipmentTab } from "./inventory/EquipmentTab";
 import { MaterialsTab } from "./inventory/MaterialsTab";
 import { RareMapsTab } from "./inventory/RareMapsTab";
 import { useSystemToast } from "./RewardToastProvider";
-import {
-  type ActiveCookingBuff,
-  type CookingFoodId,
-  type CookingFoodInventory,
-} from "./cooking";
+import type { ActiveCookingBuff, CookingFoodId, CookingFoodInventory } from "./cooking/food";
 import { shopSaleBalancePatch, shopSaleBankNotice } from "./shopSaleBalance";
 import { MasteryCertificateUseModal } from "./MasteryCertificateUseModal";
 import type { FishId } from "@/adventure/data/v2/fish";

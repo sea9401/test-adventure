@@ -51,7 +51,7 @@ describe("7차 전투 패키지", () => {
     ],
   } as const satisfies Record<string, readonly V2SkillId[]>;
 
-  it("maps the approved names, prerequisites, and 46 SP packages", () => {
+  it("maps the approved names, prerequisites, and discounted SP packages", () => {
     expect(TIER7_COMBAT_JOB_PREREQS).toEqual({
       shadowblade: ["swordsaint", "blackmoon"],
       ruinblade: ["swordsaint", "hegemon"],
@@ -82,7 +82,9 @@ describe("7차 전투 패키지", () => {
     for (const [jobId, ids] of Object.entries(packages)) {
       expect(skillsForJob(jobId)).toEqual(ids);
       const defs = ids.map((id) => V2_SKILLS[id]);
-      expect(defs.map(spCostOf).reduce((sum, cost) => sum + cost, 0)).toBe(46);
+      expect(defs.map(spCostOf).reduce((sum, cost) => sum + cost, 0)).toBe(
+        jobId === "primordialsage" ? 43 : 46,
+      );
       expect(() => validateTier7Package(defs, skillPowerScore)).not.toThrow();
     }
   });
@@ -1250,14 +1252,14 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_swordsaint_transcendence.name).toBe("일검필살");
     expect(V2_SKILLS.v2c_swordsaint_transcendence.passive).toMatchObject({
       statPct: { str: 24 },
-      critDmgPct: 35,
+      skillCritDmgPct: 35,
       singleHitPhysicalSkillDamagePct: 30,
       accuracyPct: 15,
     });
     expect(
       V2_SKILLS.v2c_swordsaint_transcendence.passive,
     ).not.toHaveProperty("reflectDamageTakenReductionPct");
-    expect(spCostOf(V2_SKILLS.v2c_swordsaint_transcendence)).toBe(15);
+    expect(spCostOf(V2_SKILLS.v2c_swordsaint_transcendence)).toBe(13);
     expect(
       V2_SKILLS.v2c_swordsaint_transcendence.passive?.spdToAtkMaxPct,
     ).toBeUndefined();

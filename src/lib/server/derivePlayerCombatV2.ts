@@ -87,7 +87,7 @@ import {
 import type { V2Element } from "@/adventure/data/v2/elements";
 import type { PlayerCombat } from "@/adventure/v2/combat/engine";
 import { duelistStanceSnapshot } from "@/adventure/v2/combat/duelistCombat";
-import { activeCookingBuff } from "@/adventure/v2/cooking";
+import { activeCookingBuff } from "@/adventure/v2/cooking/food";
 import {
   ACCURACY_PCT_CAP,
   ACCURACY_PCT_PER_DEX,
@@ -111,6 +111,7 @@ import {
   EXTRA_ATTACK_PCT_PER_SPD,
   HEAL_MULT_PER_SPI,
   HEAL_MULT_PER_VIT,
+  HP_PER_STR,
   HP_PER_VIT,
   MAGIC_ATK_PER_INT,
   MAGIC_ATK_PER_SPI,
@@ -185,15 +186,20 @@ export {
 } from "./v2CombatCoefficients";
 
 // 레벨업 1회분 maxHp/maxMp 성장량 — maxHp/maxMp 파생식과 동일 계수(드리프트 방지). 레벨업
-// 결과 카드 표기용. HP = 레벨당 고정(V2_HP_PER_LEVEL) + 오른 VIT × HP_PER_VIT,
+// 결과 카드 표기용. HP = 레벨당 고정(V2_HP_PER_LEVEL) + 오른 STR × HP_PER_STR
+// + 오른 VIT × HP_PER_VIT,
 // MP = 레벨당 고정(V2_MP_PER_LEVEL) + 오른 INT × MP_PER_INT. 모든 계수 정수라 floor 불필요.
 export function v2LevelGrowthHpMp(args: {
   levelsGained: number;
+  strGained: number;
   vitGained: number;
   intGained: number;
 }): { hp: number; mp: number } {
   return {
-    hp: args.levelsGained * V2_HP_PER_LEVEL + args.vitGained * HP_PER_VIT,
+    hp:
+      args.levelsGained * V2_HP_PER_LEVEL +
+      args.strGained * HP_PER_STR +
+      args.vitGained * HP_PER_VIT,
     mp: args.levelsGained * V2_MP_PER_LEVEL + args.intGained * MP_PER_INT,
   };
 }
@@ -537,6 +543,7 @@ export function derivePlayerCombatV2Pure(
   const characterHp =
     V2_BASE_HP +
       Math.max(0, level - 1) * V2_HP_PER_LEVEL +
+      totalStats.str * HP_PER_STR +
       totalStats.vit * HP_PER_VIT;
   const maxHp = Math.floor(
     characterHp *
@@ -1064,8 +1071,10 @@ export function derivePlayerCombatV2FromSaves(saves: {
     : activeCookingBuff(character.activeFoodBuff);
   if (foodBuff) {
     for (const k of V2_STAT_KEYS) {
-      const bonus = foodBuff.statPct[k];
-      if (bonus) statPct[k] = (statPct[k] ?? 0) + bonus;
+      const flat = foodBuff.effect.primaryFlat?.[k];
+      if (flat) jobBonus[k] = (jobBonus[k] ?? 0) + flat;
+      const pct = foodBuff.effect.primaryPct?.[k];
+      if (pct) statPct[k] = (statPct[k] ?? 0) + pct;
     }
   }
   const maxHpPct = passiveAgg.maxHpPct;
@@ -1074,7 +1083,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
   const jobPassiveEffect = jobPassive(v2JobId);
   const duelistStance = duelistStanceSnapshot(v2JobId, equippedSkillIds, []);
 
-  return derivePlayerCombatV2Pure({
+  const derived = derivePlayerCombatV2Pure({
     level: character.level ?? 1,
     allocatedStats: prof.grown,
     statCaps: prof.caps,
@@ -1163,6 +1172,24 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveBasicCritHastePct: passiveAgg.basicCritHastePct,
     passiveBasicCritChanceCap: passiveAgg.basicCritChanceCap,
   });
+  if (!foodBuff?.effect.combatFlat) return derived;
+  const flat = foodBuff.effect.combatFlat;
+  const maxHp = derived.maxHp + (flat.maxHp ?? 0);
+  const maxMp = (derived.player.maxMp ?? 0) + (flat.maxMp ?? 0);
+  return {
+    ...derived,
+    maxHp,
+    player: {
+      ...derived.player,
+      atk: derived.player.atk + (flat.atk ?? 0),
+      magicAtk: (derived.player.magicAtk ?? derived.player.atk) + (flat.magicAtk ?? 0),
+      def: derived.player.def + (flat.def ?? 0),
+      magicDef: (derived.player.magicDef ?? 0) + (flat.magicDef ?? 0),
+      accRating: (derived.player.accRating ?? 0) + (flat.accuracy ?? 0),
+      maxHp,
+      maxMp,
+    },
+  };
 }
 
 // DB select 래퍼 — v2 save 를 read 후 FromSaves 로 derive. 9개 라우트가 그대로 사용.

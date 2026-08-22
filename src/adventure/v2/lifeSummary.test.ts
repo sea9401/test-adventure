@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cookingLevelXpThreshold } from "./cooking";
+import { cookingLevelXpThreshold } from "./cooking/state";
 import { farmingLevelXpThreshold } from "./farm";
 import { fishingLevelXpThreshold } from "./fishingProgression";
 import { lifeSummaryFromSaves } from "./lifeSummary";

@@ -8,7 +8,7 @@ import type { MaterialId } from "../data/materials";
 import type { PotionId } from "../data/potions";
 import type { RuneGrade, RuneId } from "../data/runes";
 import type { EquipmentInstance } from "./equipmentInstances";
-import type { CookingFoodInventory } from "../v2/cooking";
+import type { CookingFoodInventory } from "../v2/cooking/food";
 
 // 제작산 품질 등급 인스턴스 — itemId → (등급 문자열 "-2"|"-1"|"1"|"2" → 개수).
 // 등급 0(일반)은 베이스와 동일하므로 별도로 두지 않고 equipment[] 에 합산한다.

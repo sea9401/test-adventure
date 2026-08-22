@@ -15,7 +15,7 @@ import {
   FISHING_CODEX_KEY,
 } from "@/adventure/v2/fishingCodex";
 import { FARM_SAVE_KEY } from "@/adventure/v2/farm";
-import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking";
+import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking/state";
 import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
 import { MINING_LOG_KEY } from "@/adventure/v2/miningSession";
 import { WOODCUTTING_LOG_KEY } from "@/adventure/v2/woodcuttingSession";

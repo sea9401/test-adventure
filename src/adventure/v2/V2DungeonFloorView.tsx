@@ -340,7 +340,9 @@ export function V2DungeonFloorView({
     map: RareMapInstance;
     serverNow: number;
   } | null>(null);
-  const [rareMapExpired, setRareMapExpired] = useState(false);
+  const [expiredRareMapIid, setExpiredRareMapIid] = useState<string | null>(
+    null,
+  );
   useEffect(() => {
     if (!rareMapIid) return;
     let alive = true;
@@ -361,10 +363,11 @@ export function V2DungeonFloorView({
             typeof data.serverNow !== "number" ||
             !Number.isFinite(data.serverNow)
           ) {
-            setRareMapExpired(true);
+            setExpiredRareMapIid(rareMapIid);
             onReturnToNormalHunt?.();
             return;
           }
+          setExpiredRareMapIid(null);
           setRareMapSnapshot({ map, serverNow: data.serverNow });
           setRareMapRunsLeft(map.runsLeft);
         },
@@ -1092,11 +1095,11 @@ export function V2DungeonFloorView({
           {readiness.label}
         </span>
       </p>
-      {rareMapIid && rareMapExpired ? (
+      {rareMapIid && expiredRareMapIid === rareMapIid ? (
         <DiscoveryNotice kind="hunt" align="start">
           희귀 탐사 시간이 만료되어 일반 사냥터로 이동합니다.
         </DiscoveryNotice>
-      ) : rareMapIid && rareMapSnapshot ? (
+      ) : rareMapIid && rareMapSnapshot?.map.iid === rareMapIid ? (
         <RareMapProgressNotice
           map={{
             ...rareMapSnapshot.map,
@@ -1105,7 +1108,7 @@ export function V2DungeonFloorView({
           serverNow={rareMapSnapshot.serverNow}
           onReturnToNormalHunt={onReturnToNormalHunt}
           onExpire={() => {
-            setRareMapExpired(true);
+            setExpiredRareMapIid(rareMapIid);
             onReturnToNormalHunt?.();
           }}
         />
@@ -1127,7 +1130,9 @@ export function V2DungeonFloorView({
           }
         >
           희귀 탐사 진행 중
-          {rareMapRunsLeft != null && ` — 남은 ${rareMapRunsLeft}판`}
+          {rareMapRunsLeft != null &&
+            rareMapSnapshot?.map.iid === rareMapIid &&
+            ` — 남은 ${rareMapRunsLeft}판`}
         </DiscoveryNotice>
       ) : null}
 

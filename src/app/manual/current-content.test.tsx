@@ -7,7 +7,7 @@ import {
   dangerousRealtimeEffectiveModifierProjection,
 } from "@/adventure/v2/dangerousFishingRealtime";
 import { dangerousRealtimeModifiers } from "@/adventure/v2/dangerousFishingRealtimeModifiers";
-import { dangerousBaitRealtimeEffectCopy } from "@/adventure/v2/DangerousFishingShopSection";
+import { dangerousBaitRealtimeEffectCopy } from "@/adventure/v2/dangerousFishingBaitCopy";
 import { CombatContent } from "./content/combat";
 import { ControlsContent } from "./content/controls";
 import { EconomyContent } from "./content/economy";
@@ -338,6 +338,13 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("낚싯대 · 레벨당 어체력 피해 +6%");
     expect(html).toContain("릴 · 레벨당 거리 회수량 +5%");
     expect(html).toContain("낚싯줄 · 레벨당 안전 구간 폭 +3%p, 화물 보호 +2%p");
+    expect(html).toContain("선호 수심 100%");
+    expect(html).toContain("한 단계 차이 22%");
+    expect(html).toContain("두 단계 차이 5%");
+    expect(html).toContain("일반·희귀 어종 출현 가중치 +25%");
+    expect(html).toContain("희귀·영웅 어종 출현 가중치 +40%");
+    expect(html).toContain("영웅·전설 어종 출현 가중치 +65%");
+    expect(html).toContain("전설 어종 출현 가중치 +100%");
     expect(html).toContain("급선회 중 거리 회복·장력 충격 20% 감소");
     expect(html).toContain("돌진·몸부림 중 어체력 피해 20% 증가");
     expect(html).toContain("다음 행동 1개 예고·잠수 속도 15% 감소");
@@ -375,7 +382,7 @@ describe("최신 게임 안내서 내용", () => {
       DANGEROUS_REALTIME_BALANCE_REVISION,
     );
 
-    expect(DANGEROUS_REALTIME_BALANCE_REVISION).toBe(3);
+    expect(DANGEROUS_REALTIME_BALANCE_REVISION).toBe(4);
     expect(html).toContain(`감기 효율 최대 ${level100.reelEfficiencyPct}%`);
     expect(html).toContain(`장력 제어 최대 ${level100.tensionControlPct}%`);
     expect(html).toContain(

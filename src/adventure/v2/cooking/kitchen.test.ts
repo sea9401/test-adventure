@@ -14,12 +14,13 @@ describe("cooking kitchen supplies", () => {
   });
 
   it("상점 재료를 수량만큼 구매한다", () => {
-    expect(buyCookingPantryItem({ gold: 1_000, kitchenItems: {} }, "pantry:salt", 3)).toEqual({
+    expect(buyCookingPantryItem({ gold: 1_000, bankedGold: 0, kitchenItems: {} }, "pantry:salt", 3)).toEqual({
       gold: 850,
+      bankedGold: 0,
       kitchenItems: { "pantry:salt": 3 },
     });
     expect(() =>
-      buyCookingPantryItem({ gold: 100, kitchenItems: {} }, "pantry:spice", 2),
+      buyCookingPantryItem({ gold: 100, bankedGold: 0, kitchenItems: {} }, "pantry:spice", 2),
     ).toThrow("not_enough_gold");
   });
 

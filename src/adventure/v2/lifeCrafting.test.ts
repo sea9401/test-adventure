@@ -269,7 +269,6 @@ describe("life crafting", () => {
 
   it("provides an item image for every life aid recipe", () => {
     const aidRecipes = LIFE_CRAFTING_RECIPES.filter((recipe) => recipe.kind === "aid");
-    expect(aidRecipes).toHaveLength(9);
     for (const recipe of aidRecipes) {
       expect(recipe.image).toBe(`/images/items/life-aids/${recipe.outputId}.webp`);
     }

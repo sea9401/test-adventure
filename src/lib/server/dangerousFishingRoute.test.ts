@@ -145,8 +145,9 @@ import {
 import {
   DANGEROUS_BOSSES,
   DANGEROUS_FISH,
+  isDangerousFishId,
 } from "@/adventure/data/v2/dangerousFishing";
-import { pickRealtimeFish } from "@/lib/server/dangerousFishingService";
+import { pickFish } from "@/lib/server/dangerousFishingService";
 
 const NOW = 1_800_100_000_000;
 
@@ -799,10 +800,18 @@ describe("위험 해역 개인 Route Handler", () => {
     expect(after.resolvedEncounterIds).toEqual(before.resolvedEncounterIds);
   });
 
-  it("v2 대상 선택기는 legacy 미끼 가중치 입력 없이 카탈로그만 결정한다", () => {
-    expect(
-      pickRealtimeFish("shattered_reef", "midwater", 0.5),
-    ).toBe(DANGEROUS_FISH.ironjaw_tuna);
+  it("선택 수심 밖의 같은 해역 어종도 낮은 가중치로 출현한다", () => {
+    expect(pickFish("abyssal_rift", "deep", "basic_bait", 0.999999).id).toBe(
+      "ghostlight_jellyfish",
+    );
+  });
+
+  it("심연 응축 미끼는 같은 난수에서 전설 어종 쪽으로 선택을 바꾼다", () => {
+    const basic = pickFish("abyssal_rift", "deep", "basic_bait", 0.58);
+    const abyss = pickFish("abyssal_rift", "deep", "abyss_bait", 0.58);
+
+    expect(basic.rarity).toBe("epic");
+    expect(abyss.rarity).toBe("legendary");
   });
 
   it("특수 미끼는 유효한 조우가 만들어질 때만 하나 소비한다", async () => {
@@ -875,6 +884,10 @@ describe("위험 해역 개인 Route Handler", () => {
     );
     const state = savedDangerousState();
     if (!state.voyage?.encounter) throw new Error("encounter fixture missing");
+    if (!isDangerousFishId(state.voyage.encounter.targetId)) {
+      throw new Error("fish target missing");
+    }
+    const caughtFish = DANGEROUS_FISH[state.voyage.encounter.targetId];
     const encounter = {
       ...state.voyage.encounter,
       behaviorPattern: ["turn"],
@@ -912,9 +925,9 @@ describe("위험 해역 개인 Route Handler", () => {
     expect(json).toMatchObject({
       ok: true,
       event: "caught",
-      fishingXpGained: 18,
+      fishingXpGained: caughtFish.fishingXp,
       masteryGained: 1,
-      fishingCoinsGained: 4,
+      fishingCoinsGained: caughtFish.fishingCoinReward,
     });
     expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledOnce();
     expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
@@ -931,22 +944,22 @@ describe("위험 해역 개인 Route Handler", () => {
     const saved = savedDangerousState();
     expect(saved.voyage?.cargo).toEqual([
       expect.objectContaining({
-        fishId: "razor_sardine",
-        materialId: "danger_catch_razor_sardine",
+        fishId: caughtFish.id,
+        materialId: `danger_catch_${caughtFish.id}`,
         quantity: 1,
       }),
     ]);
-    expect(saved.codex.razor_sardine?.caughtCount).toBe(1);
+    expect(saved.codex[caughtFish.id]?.caughtCount).toBe(1);
     expect(
       (store.get(FISHING_PROGRESS_KEY) as { xp: number }).xp,
-    ).toBe(14 ** 2 * 35 + 18);
+    ).toBe(14 ** 2 * 35 + caughtFish.fishingXp);
     expect(
       (store.get("proficiency.v2") as { jobCumLevel: Record<string, number> })
         .jobCumLevel.fisher,
     ).toBe(6);
     expect(
       (store.get(FISHING_WALLET_KEY) as { coins: number }).coins,
-    ).toBe(150_004);
+    ).toBe(150_000 + caughtFish.fishingCoinReward);
     expect(store.get(ACTIVITY_GUARD_KEY)).toBeDefined();
     expect(bossSpawn).not.toHaveBeenCalled();
 
@@ -1075,8 +1088,12 @@ describe("위험 해역 개인 Route Handler", () => {
     if (!stored || !isDangerousRealtimeEncounter(stored)) {
       throw new Error("realtime encounter missing");
     }
-    expect(stored.balanceRevision).toBe(3);
+    expect(stored.balanceRevision).toBe(4);
     expect(stored.checkpoint.performanceScalePermille).toBe(1_000);
+    if (!isDangerousFishId(encounter.targetId)) {
+      throw new Error("realtime fish target missing");
+    }
+    const selectedFish = DANGEROUS_FISH[encounter.targetId];
     expect(stored.modifierSource).toEqual({
       fishingLevel: 15,
       baitId: "basic_bait",
@@ -1093,9 +1110,9 @@ describe("위험 해역 개인 Route Handler", () => {
       reelEnhancementLevel: 2,
       lineEnhancementLevel: 1,
       cargoProtectionPct: 0,
-      targetStamina: DANGEROUS_FISH.razor_sardine.stamina,
-      targetDistance: DANGEROUS_FISH.razor_sardine.distance,
-      targetBaseTension: DANGEROUS_FISH.razor_sardine.baseTension,
+      targetStamina: selectedFish.stamina,
+      targetDistance: selectedFish.distance,
+      targetBaseTension: selectedFish.baseTension,
     });
     store.set(DANGEROUS_FISHING_SAVE_KEY, {
       ...savedDangerousState(),
@@ -1109,9 +1126,20 @@ describe("위험 해역 개인 Route Handler", () => {
       },
     });
     expect(encounter).not.toHaveProperty("modifierSource");
-    expect(encounter).toHaveProperty("balanceRevision", 3);
+    expect(encounter).toHaveProperty("balanceRevision", 4);
     expect(encounter.checkpoint.performanceScalePermille).toBe(1_000);
     expect(encounter.config.maxTicks).toBeGreaterThan(1);
+  });
+
+  it("realtime 개인 조우는 생성 후 1초의 준비 시간을 거쳐 시작한다", async () => {
+    await startVoyage();
+
+    const encounter = await startRealtime();
+
+    expect(encounter.startedAt).toBe(NOW + 1_000);
+    expect(encounter.expiresAt).toBe(
+      NOW + 1_000 + encounter.config.maxTicks * 50,
+    );
   });
 
   it("실제 시작 경로에서 레벨 15 < 50 < 100이고 100은 승인된 post-50 보정을 더한다", async () => {
@@ -1185,6 +1213,10 @@ describe("위험 해역 개인 Route Handler", () => {
     if (!stored || !isDangerousRealtimeEncounter(stored)) {
       throw new Error("top realtime encounter missing");
     }
+    if (!isDangerousFishId(top.targetId)) {
+      throw new Error("top fish target missing");
+    }
+    const topFish = DANGEROUS_FISH[top.targetId];
 
     expect(stored.modifierSource).toMatchObject({
       maxTensionBonus: 31,
@@ -1195,7 +1227,7 @@ describe("위험 해역 개인 Route Handler", () => {
       telegraphSteps: 1,
     });
     expect(top.config).toMatchObject({
-      initialTension: DANGEROUS_FISH.razor_sardine.baseTension * 10,
+      initialTension: topFish.baseTension * 10,
       maxTension: 1_310,
       modifiers: {
         staminaDamagePct: 12,
@@ -1226,14 +1258,17 @@ describe("위험 해역 개인 Route Handler", () => {
     await startVoyage("abyssal_rift", "deep");
     const abyssal = await startRealtime();
 
-    expect(shallow.targetId).toBe("razor_sardine");
-    expect(abyssal.targetId).toBe("abyssal_crownfish");
+    if (!isDangerousFishId(shallow.targetId) || !isDangerousFishId(abyssal.targetId)) {
+      throw new Error("production fish target missing");
+    }
+    expect(DANGEROUS_FISH[shallow.targetId].zoneId).toBe("shattered_reef");
+    expect(DANGEROUS_FISH[abyssal.targetId].zoneId).toBe("abyssal_rift");
     expect(shallow.config.initialStamina + shallow.config.initialDistance).toBe(20_000);
     expect(abyssal.config.initialStamina + abyssal.config.initialDistance).toBe(20_000);
     expect(abyssal.config.initialStamina).not.toBe(shallow.config.initialStamina);
     expect(abyssal.config.initialDistance).not.toBe(shallow.config.initialDistance);
     expect(abyssal.config.initialTension).toBe(
-      DANGEROUS_FISH.abyssal_crownfish.baseTension * 10,
+      DANGEROUS_FISH[abyssal.targetId].baseTension * 10,
     );
   });
 
@@ -1241,7 +1276,7 @@ describe("위험 해역 개인 Route Handler", () => {
     await startVoyage();
     const encounter = await startRealtime();
     const transcript = responsiveTranscript(encounter, 40);
-    vi.mocked(Date.now).mockReturnValue(NOW + 2_000);
+    vi.mocked(Date.now).mockReturnValue(encounter.startedAt + 2_000);
 
     const approved = await ENCOUNTER(
       request("encounter", {
@@ -1312,7 +1347,9 @@ describe("위험 해역 개인 Route Handler", () => {
     const encounter = await startRealtime();
     const transcript = responsiveTranscript(encounter);
     expect(transcript.state.status).toBe("caught");
-    vi.mocked(Date.now).mockReturnValue(NOW + transcript.clientTick * 50);
+    vi.mocked(Date.now).mockReturnValue(
+      encounter.startedAt + transcript.clientTick * 50,
+    );
 
     const [left, right] = await Promise.all([
       finishRealtime(encounter, transcript, "finish-caught-1"),
@@ -1366,7 +1403,9 @@ describe("위험 해역 개인 Route Handler", () => {
       const transcript = responsiveTranscript(encounter);
       expect(transcript.state.status).toBe("caught");
       store.set(FISHING_WALLET_KEY, { coins: startingCoins });
-      vi.mocked(Date.now).mockReturnValue(NOW + transcript.clientTick * 50);
+      vi.mocked(Date.now).mockReturnValue(
+        encounter.startedAt + transcript.clientTick * 50,
+      );
 
       const response = await finishRealtime(
         encounter,
@@ -1404,7 +1443,9 @@ describe("위험 해역 개인 Route Handler", () => {
     expect(transcript.state.status).not.toBe("caught");
     const progressBefore = store.get(FISHING_PROGRESS_KEY);
     const walletBefore = store.get(FISHING_WALLET_KEY);
-    vi.mocked(Date.now).mockReturnValue(NOW + transcript.clientTick * 50);
+    vi.mocked(Date.now).mockReturnValue(
+      encounter.startedAt + transcript.clientTick * 50,
+    );
 
     const response = await finishRealtime(encounter, transcript, "finish-failed-1");
     expect(response.status).toBe(200);
@@ -1566,7 +1607,9 @@ describe("위험 해역 개인 Route Handler", () => {
     await startVoyage();
     const encounter = await startRealtime();
     const transcript = responsiveTranscript(encounter);
-    vi.mocked(Date.now).mockReturnValue(NOW + transcript.clientTick * 50);
+    vi.mocked(Date.now).mockReturnValue(
+      encounter.startedAt + transcript.clientTick * 50,
+    );
     const finished = await finishRealtime(encounter, transcript, "finish-recover");
     const result = await finished.json();
 

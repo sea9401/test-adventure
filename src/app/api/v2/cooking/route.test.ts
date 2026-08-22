@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
   const store = new Map<string, unknown>();
@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => {
   const insertResults: unknown[][] = [];
   const insertValues = vi.fn();
   const insertFeedEntry = vi.fn(async () => undefined);
+  const resolveUserDisplayName = vi.fn(async () => "나리");
   const ensureUser = vi.fn(async (): Promise<string | null> => "cook-user");
 
   function select() {
@@ -17,6 +18,8 @@ const mocks = vi.hoisted(() => {
     };
     const builder: Record<string, unknown> = {};
     builder.from = vi.fn(() => builder);
+    builder.innerJoin = vi.fn(() => builder);
+    builder.leftJoin = vi.fn(() => builder);
     builder.where = vi.fn(() => builder);
     builder.limit = vi.fn(async () => take());
     builder.then = (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) =>
@@ -43,12 +46,29 @@ const mocks = vi.hoisted(() => {
     insert,
     transaction: vi.fn(async (callback: (executor: typeof tx) => unknown) => callback(tx)),
   };
-  return { store, selectResults, insertResults, insertValues, insertFeedEntry, ensureUser, db };
+  return {
+    originalCoreLoopEnv: process.env.NEXT_PUBLIC_V2_CORE_LOOP_V2,
+    store,
+    selectResults,
+    insertResults,
+    insertValues,
+    insertFeedEntry,
+    resolveUserDisplayName,
+    ensureUser,
+    db,
+  };
+});
+
+vi.hoisted(() => {
+  process.env.NEXT_PUBLIC_V2_CORE_LOOP_V2 = "true";
 });
 
 vi.mock("@/db", () => ({ db: mocks.db }));
 vi.mock("@/lib/server/ensureUser", () => ({ ensureUser: mocks.ensureUser }));
-vi.mock("@/lib/server/serverFeed", () => ({ insertFeedEntry: mocks.insertFeedEntry }));
+vi.mock("@/lib/server/serverFeed", () => ({
+  insertFeedEntry: mocks.insertFeedEntry,
+  resolveUserDisplayName: mocks.resolveUserDisplayName,
+}));
 vi.mock("@/lib/server/userRateLimit", () => ({ enforceUserAndIpRateLimit: vi.fn(() => null) }));
 vi.mock("@/lib/server/referrals", () => ({
   rewardReferralTutorialTasks: vi.fn(async () => ({
@@ -79,6 +99,14 @@ import { COOKING_SECRET_RECIPE_BY_ID } from "@/lib/server/cooking/recipes";
 
 const NOW = Date.parse("2026-08-22T12:00:00+09:00");
 
+afterAll(() => {
+  if (mocks.originalCoreLoopEnv === undefined) {
+    delete process.env.NEXT_PUBLIC_V2_CORE_LOOP_V2;
+  } else {
+    process.env.NEXT_PUBLIC_V2_CORE_LOOP_V2 = mocks.originalCoreLoopEnv;
+  }
+});
+
 function post(body: Record<string, unknown>) {
   return POST(new Request("http://localhost/api/v2/cooking", {
     method: "POST",
@@ -105,6 +133,8 @@ describe("/api/v2/cooking", () => {
     mocks.insertResults.length = 0;
     mocks.insertValues.mockClear();
     mocks.insertFeedEntry.mockClear();
+    mocks.resolveUserDisplayName.mockReset();
+    mocks.resolveUserDisplayName.mockResolvedValue("나리");
     mocks.ensureUser.mockResolvedValue("cook-user");
     seed();
   });
@@ -130,6 +160,39 @@ describe("/api/v2/cooking", () => {
     expect(json.recipes.find((entry: { id: string }) => entry.id === "tomato_salad")).not.toHaveProperty("ingredients");
     expect(json.knownRecipes.map((entry: { id: string }) => entry.id)).not.toContain("tomato_salad");
     expect(json.knownRecipes).toHaveLength(6);
+  });
+
+  it("GET은 기본 이름으로 저장된 최초 발견자를 권위 닉네임으로 표시한다", async () => {
+    mocks.selectResults.push([{
+      recipeId: "egg_salad_sandwich",
+      userId: "cook-user",
+      actorName: "이름 없는 모험가",
+      authoritativeActorName: "나리",
+      discoveredAt: new Date(NOW),
+    }, {
+      recipeId: "tomato_salad",
+      userId: "other-user",
+      actorName: "옛 발견자",
+      authoritativeActorName: "바뀐 닉네임",
+      discoveredAt: new Date(NOW),
+    }]);
+
+    const response = await GET(new Request("http://localhost/api/v2/cooking"));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.firstDiscoveries).toEqual([
+      expect.objectContaining({
+        recipeId: "egg_salad_sandwich",
+        actorName: "나리",
+        mine: true,
+      }),
+      expect.objectContaining({
+        recipeId: "tomato_salad",
+        actorName: "옛 발견자",
+        mine: false,
+      }),
+    ]);
   });
 
   it("정답 연구를 개인 도감에 저장하고 DB insert 승자만 최초 발견자로 기록한다", async () => {
@@ -159,6 +222,10 @@ describe("/api/v2/cooking", () => {
     expect(response.status).toBe(200);
     expect(json.result).toMatchObject({ outcome: "success", recipeId: recipe.id, firstDiscovery: true });
     expect((mocks.store.get("cooking.v2") as { discoveredRecipeIds: string[] }).discoveredRecipeIds).toContain(recipe.id);
+    expect(mocks.insertValues).toHaveBeenCalledWith(expect.objectContaining({
+      userId: "cook-user",
+      actorName: "나리",
+    }));
     expect(mocks.insertFeedEntry).toHaveBeenCalledWith("cook-user", "cooking_discovery", { recipeId: recipe.id });
   });
 
@@ -210,5 +277,30 @@ describe("/api/v2/cooking", () => {
     expect(response.status).toBe(200);
     expect((mocks.store.get("farm.v2") as { inventory: object }).inventory).toEqual({});
     expect(mocks.store.get("cooking.v2")).toMatchObject({ kitchenItems: { "processed:flour": 2 } });
+  });
+
+  it("조미료는 지갑이 비어 있어도 은행 골드로 구매한다", async () => {
+    mocks.store.set("character.v2", {
+      class: "none",
+      level: 1,
+      gold: 0,
+      bankedGold: 500,
+    });
+    mocks.selectResults.push([]);
+
+    const response = await post({
+      action: "buy_pantry",
+      itemId: "pantry:salt",
+      quantity: 1,
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.store.get("character.v2")).toMatchObject({
+      gold: 0,
+      bankedGold: 450,
+    });
+    expect(mocks.store.get("cooking.v2")).toMatchObject({
+      kitchenItems: { "pantry:salt": 1 },
+    });
   });
 });

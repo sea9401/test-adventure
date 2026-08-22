@@ -240,6 +240,81 @@ describe("life workshop route", () => {
     });
   });
 
+  it("실패 음식 3개를 유기질 거름 1개로 재활용한다", async () => {
+    store.set("inventory.v2", {
+      failedCookingDishes: 4,
+      cookingFoods: { "food:rustic_bread:normal:regular:0": 2 },
+    });
+
+    const response = await POST(request({
+      action: "craft",
+      recipeId: "failed_dish_compost",
+      quantity: 1,
+    }));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.result).toMatchObject({
+      action: "craft",
+      recipeId: "failed_dish_compost",
+      itemId: "organic_fertilizer",
+      produced: 1,
+    });
+    expect(store.get("inventory.v2")).toEqual({
+      failedCookingDishes: 1,
+      cookingFoods: { "food:rustic_bread:normal:regular:0": 2 },
+    });
+    expect(store.get(LIFE_WORKSHOP_SAVE_KEY)).toMatchObject({
+      crafting: {
+        balances: { organic_fertilizer: 1 },
+        craftCounts: { failed_dish_compost: 1 },
+        discoveredRecipeIds: ["failed_dish_compost"],
+        totalCrafts: 1,
+      },
+    });
+  });
+
+  it("실패 음식이 부족하면 퇴비 제작 상태를 변경하지 않는다", async () => {
+    const inventory = { failedCookingDishes: 2, cookingFoods: {} };
+    store.set("inventory.v2", inventory);
+
+    const response = await POST(request({
+      action: "craft",
+      recipeId: "failed_dish_compost",
+      quantity: 1,
+    }));
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      error: "not_enough_failed_dishes",
+    });
+    expect(store.get("inventory.v2")).toEqual(inventory);
+    expect(store.has(LIFE_WORKSHOP_SAVE_KEY)).toBe(false);
+  });
+
+  it("GET은 실패 음식 보유량으로 퇴비 최대 제작 가능량을 계산한다", async () => {
+    store.set("inventory.v2", { failedCookingDishes: 8 });
+    store.set(LIFE_WORKSHOP_SAVE_KEY, {
+      crafting: { craftCounts: { failed_dish_compost: 1 } },
+    });
+
+    const response = await GET();
+    const json = await response.json();
+    const recipe = json.craftingRecipes.find(
+      (entry: { id: string }) => entry.id === "failed_dish_compost",
+    );
+
+    expect(response.status).toBe(200);
+    expect(json.failedCookingDishes).toBe(8);
+    expect(recipe).toMatchObject({
+      failedDishCost: 3,
+      craftCount: 1,
+      batchLimit: 5,
+      maxCraftable: 2,
+    });
+  });
+
   it("비공개 숙소 가구는 직접 제작 요청도 거절한다", async () => {
     const response = await POST(request({
       action: "craft",

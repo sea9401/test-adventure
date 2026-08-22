@@ -532,11 +532,11 @@ describe("거대어 Route Handler", () => {
     });
     expect(encounter.config.maxTicks).toBeGreaterThan(0);
     expect(encounter).not.toHaveProperty("modifierSource");
-    expect(encounter).toHaveProperty("balanceRevision", 3);
+    expect(encounter).toHaveProperty("balanceRevision", 4);
     expect(encounter.checkpoint.performanceScalePermille).toBe(1_000);
     const stored = parseDangerousFishingState(memory.states.get("route-user"));
     expect(stored.bossAttempt?.encounter).toMatchObject({
-      balanceRevision: 3,
+      balanceRevision: 4,
       checkpoint: { performanceScalePermille: 1_000 },
       modifierSource: {
         fishingLevel: 15,
@@ -601,6 +601,17 @@ describe("거대어 Route Handler", () => {
     expect(legacyJson.encounter).not.toHaveProperty("simulationVersion");
     expect(parseDangerousFishingState(memory.states.get("route-user")).bossAttempt)
       .toMatchObject({ encounter: { simulationVersion: 1 } });
+  });
+
+  it("realtime 거대어 조우는 생성 후 1초의 준비 시간을 거쳐 시작한다", async () => {
+    memory.events.set("event-route", event());
+
+    const encounter = await startRealtimeBoss();
+
+    expect(encounter.startedAt).toBe(NOW.getTime() + 1_000);
+    expect(encounter.expiresAt).toBe(
+      NOW.getTime() + 1_000 + encounter.config.maxTicks * 50,
+    );
   });
 
   it("realtime 거대어 시작은 유한 특수 미끼를 한 개만 소비하고 마지막 미끼 보정을 복구한다", async () => {
@@ -826,7 +837,7 @@ describe("거대어 Route Handler", () => {
     expect(future.status).toBe(409);
     await expect(future.json()).resolves.toMatchObject({ error: "future_tick" });
 
-    vi.mocked(Date.now).mockReturnValue(NOW.getTime() + 2_000);
+    vi.mocked(Date.now).mockReturnValue(encounter.startedAt + 2_000);
     const transcript = responsiveTranscript(encounter);
     const approved = await POST(request({
       action: "checkpoint",
@@ -1186,7 +1197,10 @@ describe("거대어 Route Handler", () => {
     const firstTranscript = responsiveTranscript(firstEncounter);
     const secondTranscript = responsiveTranscript(secondEncounter);
     vi.mocked(Date.now).mockReturnValue(
-      NOW.getTime() + Math.max(firstTranscript.clientTick, secondTranscript.clientTick) * 50,
+      Math.max(
+        firstEncounter.startedAt + firstTranscript.clientTick * 50,
+        secondEncounter.startedAt + secondTranscript.clientTick * 50,
+      ),
     );
 
     auth.userId = "angler-a";

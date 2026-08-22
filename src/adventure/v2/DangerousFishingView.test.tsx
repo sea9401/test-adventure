@@ -1,6 +1,14 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -78,6 +86,7 @@ function model(overrides: Partial<DangerousFishingViewModel> = {}): DangerousFis
 }
 
 function realtimeEncounter(): DangerousRealtimeClientEncounter {
+  const startedAt = Date.now() - 1_000;
   const config: DangerousRealtimeClientEncounter["config"] = {
     seed: 23,
     risk: 1,
@@ -105,8 +114,8 @@ function realtimeEncounter(): DangerousRealtimeClientEncounter {
     checkpoint,
     approvedTick: 0,
     revision: 2,
-    startedAt: 1_800_000_000_000,
-    expiresAt: 1_800_000_020_000,
+    startedAt,
+    expiresAt: startedAt + 20_000,
   };
 }
 
@@ -455,6 +464,44 @@ describe("위험 해역 개인 화면", () => {
     expect(html).toContain("한 마리만 잡고도 돌아갈 수 있습니다");
     expect(html).toContain("낚시 상점의 위험 해역 교환");
     expect(html).toContain("교환 보기");
+    expect(html).toContain("다른 수심을 선호하는 어종도 낮은 확률로 출현");
+    expect(html).toContain("전설 어종 출현 가중치 +100%");
+    expect(html).toContain("시작 어체력 10% 감소");
+    expect(html).toContain("모든 행동 장력 충격 12% 감소");
+  });
+
+  it("항해 중에는 거대어 개인 시도를 막고 먼저 귀환하라고 안내한다", () => {
+    const state = emptyDangerousFishingState();
+    render(
+      <DangerousFishingView
+        model={model({
+          state: {
+            ...state,
+            bossAttempt: null,
+            voyage: {
+              id: "voyage-1",
+              zoneId: "storm_trench",
+              depthId: "midwater",
+              risk: 4,
+              startedAt: 1_799_999_000_000,
+              encounter: null,
+              cargo: [],
+            },
+          },
+        })}
+        boss={activeBossModel()}
+        loading={false}
+        busy={null}
+        error={null}
+        {...handlers}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: /거대어/ }));
+
+    const startButton = screen.getByRole("button", { name: "개인 시도 시작" });
+    expect((startButton as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/항해를 마치고 귀환한 뒤/)).toBeDefined();
   });
 
   it("복원된 v2 조우는 legacy 설명 없이 한 개의 hold 조작과 접근 가능한 HUD를 렌더링한다", () => {
@@ -609,6 +656,9 @@ describe("위험 해역 개인 화면", () => {
       "선택한 특수 미끼가 없습니다. 기본 미끼를 쓰거나 상점에서 보충하세요.",
     );
     expect(dangerousFishingErrorMessage("auto_active")).toContain("자동 채집");
+    expect(dangerousFishingErrorMessage("voyage_active")).toContain(
+      "항해를 마치고 귀환한 뒤",
+    );
     expect(dangerousFishingErrorMessage("network")).toContain("다시 시도");
     const html = renderToStaticMarkup(
       <DangerousFishingView

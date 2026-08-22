@@ -9,6 +9,10 @@ import type {
   DangerousZoneId,
 } from "@/adventure/data/v2/dangerousFishing";
 import type { DangerousFishingViewModel } from "./useDangerousFishing";
+import {
+  dangerousBaitAttractionCopy,
+  dangerousBaitRealtimeEffectCopy,
+} from "./dangerousFishingBaitCopy";
 
 export function DangerousFishingPreparationPanel({
   model,
@@ -41,7 +45,7 @@ export function DangerousFishingPreparationPanel({
         <div>
           <h2 className="font-bold">다음 어획</h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            미끼마다 노리기 쉬운 행동과 희귀 어종 보정이 다릅니다.
+            선택한 수심의 어종이 가장 자주 나오지만, 다른 수심을 선호하는 어종도 낮은 확률로 출현합니다.
           </p>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -56,7 +60,7 @@ export function DangerousFishingPreparationPanel({
                 disabled={unavailable}
                 aria-pressed={selected}
                 onClick={() => onBaitChange(bait.id)}
-                className={`${SURFACE_INSET} flex min-h-20 items-center gap-3 p-3 text-left transition-colors disabled:cursor-not-allowed ${
+                className={`${SURFACE_INSET} flex min-h-28 items-center gap-3 p-3 text-left transition-colors disabled:cursor-not-allowed ${
                   selected
                     ? "border-cyan-500 ring-2 ring-cyan-500/30 dark:border-cyan-400"
                     : "hover:border-cyan-300 dark:hover:border-cyan-700"
@@ -67,6 +71,12 @@ export function DangerousFishingPreparationPanel({
                   <span className="block text-sm font-semibold">{bait.name}</span>
                   <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
                     {bait.unlimited ? "무제한" : unavailable ? "보유 없음" : `보유 ${count}개`}
+                  </span>
+                  <span className="mt-1 block text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                    {dangerousBaitAttractionCopy(bait)}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] font-medium text-sky-700 dark:text-sky-300">
+                    {dangerousBaitRealtimeEffectCopy(bait)}
                   </span>
                 </span>
               </button>

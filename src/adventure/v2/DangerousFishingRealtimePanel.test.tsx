@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDangerousRealtimeState } from "./dangerousFishingRealtime";
@@ -12,6 +12,7 @@ function encounterFixture(
   patch: Partial<DangerousRealtimeClientEncounter["checkpoint"]> = {},
   balanceRevision: DangerousRealtimeClientEncounter["balanceRevision"] = 2,
 ): DangerousRealtimeClientEncounter {
+  const startedAt = Date.now() - 1_000;
   const config: DangerousRealtimeClientEncounter["config"] = {
     seed: 17,
     risk: 3,
@@ -43,8 +44,8 @@ function encounterFixture(
     checkpoint,
     approvedTick: checkpoint.tick,
     revision: 0,
-    startedAt: 1_800_000_000_000,
-    expiresAt: 1_800_000_020_000,
+    startedAt,
+    expiresAt: startedAt + 20_000,
   };
 }
 
@@ -83,6 +84,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -137,7 +139,7 @@ describe("위험 해역 실시간 조우 HUD", () => {
     expect(fill?.style.width).toBe("100%");
   });
 
-  it("mobile에서는 조작 카드를 문서 흐름에 두고 넓은 화면에서만 sticky로 전환한다", () => {
+  it("mobile에서도 상태·경고 변화와 무관하게 조작 카드를 하단에 고정한다", () => {
     render(
       <DangerousFishingRealtimePanel
         {...baseProps}
@@ -147,12 +149,44 @@ describe("위험 해역 실시간 조우 HUD", () => {
 
     const button = screen.getByRole("button", { name: "누르고 감아올리기" });
     const control = button.parentElement;
-    expect(control?.className.split(" ")).toContain("sm:sticky");
-    expect(control?.className.split(" ")).not.toContain("sticky");
+    expect(control?.className.split(" ")).toContain("sticky");
+    expect(control?.className.split(" ")).toContain(
+      "bottom-[calc(env(safe-area-inset-bottom)+0.5rem)]",
+    );
+    expect(control?.className.split(" ")).toContain("z-20");
+    expect(control?.className.split(" ")).not.toContain("sm:sticky");
     expect(control?.className).toContain(
       "pb-[max(0.5rem,env(safe-area-inset-bottom))]",
     );
     expect(button.className).toContain("min-h-16");
+  });
+
+  it("시작 전 1초 준비 구간에는 조작을 잠그고 시간이 지나면 자동으로 시작한다", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_800_000_000_000);
+    const encounter = encounterFixture();
+
+    render(
+      <DangerousFishingRealtimePanel
+        {...baseProps}
+        encounter={{
+          ...encounter,
+          startedAt: 1_800_000_001_000,
+          expiresAt: 1_800_000_021_000,
+        }}
+      />,
+    );
+
+    const preparingButton = screen.getByRole("button", { name: "조우 준비 중" });
+    expect((preparingButton as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("status").textContent).toContain("잠시 후 시작");
+
+    act(() => {
+      vi.advanceTimersByTime(1_000);
+    });
+
+    const activeButton = screen.getByRole("button", { name: "누르고 감아올리기" });
+    expect((activeButton as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("포인터 capture와 해제·취소·capture 상실을 모두 hold/release로 연결한다", () => {

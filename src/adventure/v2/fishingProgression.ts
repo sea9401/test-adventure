@@ -62,6 +62,14 @@ export type FishingLure = {
   bonuses: Partial<FishingGearBonuses>;
 };
 
+const FISHING_BONUS_FORMATTER = new Intl.NumberFormat("ko-KR", {
+  maximumFractionDigits: 2,
+});
+
+export function formatFishingBonusPercent(value: number): string {
+  return FISHING_BONUS_FORMATTER.format(value);
+}
+
 // 크기 보정의 적용 범위를 장비·숙련도 UI에서 같은 표현으로 안내한다.
 // 실제 계산은 fish.ts rollFishSize 에서 모든 어종 → 희귀 이상 → 상위 20% 순으로 중첩된다.
 export function fishingSizeBonusLabels(
@@ -69,13 +77,19 @@ export function fishingSizeBonusLabels(
 ): string[] {
   const labels: string[] = [];
   if (bonuses.sizeBonusPct) {
-    labels.push(`모든 어종 크기 +${bonuses.sizeBonusPct}%`);
+    labels.push(
+      `모든 어종 크기 +${formatFishingBonusPercent(bonuses.sizeBonusPct)}%`,
+    );
   }
   if (bonuses.rareSizeBonusPct) {
-    labels.push(`희귀 이상 추가 크기 +${bonuses.rareSizeBonusPct}%`);
+    labels.push(
+      `희귀 이상 추가 크기 +${formatFishingBonusPercent(bonuses.rareSizeBonusPct)}%`,
+    );
   }
   if (bonuses.bigCatchSizeBonusPct) {
-    labels.push(`상위 20% 굴림 추가 크기 +${bonuses.bigCatchSizeBonusPct}%`);
+    labels.push(
+      `상위 20% 굴림 추가 크기 +${formatFishingBonusPercent(bonuses.bigCatchSizeBonusPct)}%`,
+    );
   }
   return labels;
 }

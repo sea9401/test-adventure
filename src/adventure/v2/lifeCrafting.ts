@@ -39,6 +39,7 @@ export type LifeCraftingRecipe = {
   outputId: LifeFinishedItemId;
   outputAmount: number;
   costs: Record<string, number>;
+  failedDishCost?: number;
   requiredLevel: number;
   hidden?: boolean;
   blueprintSource?: LifeBlueprintSource;
@@ -83,6 +84,7 @@ export const LIFE_CRAFTING_RECIPES: readonly LifeCraftingRecipe[] = [
   { id: "mining_probe_advanced", name: "중급 광맥 탐침", description: "3~4등급 채광 800회 동안 추가 광물 +8%p, 부산물 확률 +25%를 적용합니다.", image: "/images/items/life-aids/mining_probe_advanced.webp", kind: "aid", outputId: "mining_probe_advanced", outputAmount: 1, costs: { [P.preciousIngot]: 4, [P.hardwood]: 1 }, requiredLevel: 20 },
   { id: "mining_probe_master", name: "명인의 광맥 탐침", description: "5~6등급 채광 1,000회 동안 추가 광물 +6%p, 부산물 확률 +25%를 적용합니다.", image: "/images/items/life-aids/mining_probe_master.webp", kind: "aid", outputId: "mining_probe_master", outputAmount: 1, costs: { [P.arcaneAlloy]: 4, [P.masterwood]: 1, [M.roughGem]: 1 }, requiredLevel: 40, hidden: true, blueprintSource: "mining", blueprintRarity: "top" },
   { id: "organic_fertilizer", name: "유기질 거름", description: "자라는 중인 밭에 사용해 남은 재배 시간을 20%(최대 2시간) 줄입니다. 파종당 1회만 사용합니다.", image: "/images/items/life-aids/organic_fertilizer.webp", kind: "aid", outputId: "organic_fertilizer", outputAmount: 3, costs: { [P.softwood]: 3, [M.coal]: 3 }, requiredLevel: 1 },
+  { id: "failed_dish_compost", name: "실패 음식 퇴비", description: "실패한 요리를 발효해 유기질 거름으로 되살립니다.", image: "/images/items/life-aids/organic_fertilizer.webp", kind: "aid", outputId: "organic_fertilizer", outputAmount: 1, costs: {}, failedDishCost: 3, requiredLevel: 1 },
   { id: "cooking_prep_set", name: "요리 준비 세트", description: "선택한 조리 수량만큼 사용해 걸작 확률을 8%p 높입니다. 기본값은 사용 안 함입니다.", image: "/images/items/life-aids/cooking_prep_set.webp", kind: "aid", outputId: "cooking_prep_set", outputAmount: 5, costs: { [P.softwood]: 3, [P.basicIngot]: 3 }, requiredLevel: 1 },
   { id: "tidy_bait_box", name: "정갈한 미끼 상자", description: "켜 둔 동안 성공한 낚시에만 1회가 소모되며 희귀 어종 가중치를 조금 높입니다. 800회분입니다.", image: "/images/items/life-aids/tidy_bait_box.webp", kind: "aid", outputId: "tidy_bait_box", outputAmount: 1, costs: { [P.hardwood]: 8, [P.preciousIngot]: 4 }, requiredLevel: 20 },
   { id: "pine_work_shelf", name: "소나무 작업 선반", description: "다듬은 목재로 만든 실용적인 생활 가구입니다.", kind: "furniture", outputId: "pine_work_shelf", outputAmount: 1, costs: { [P.softwood]: 4, [P.basicIngot]: 1 }, requiredLevel: 1 },

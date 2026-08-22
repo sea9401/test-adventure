@@ -65,6 +65,7 @@ export function DangerousFishingBossPanel({
   model,
   busy,
   feedback = null,
+  startBlockedReason = null,
   onStart,
   onAction,
   onClaim,
@@ -76,6 +77,7 @@ export function DangerousFishingBossPanel({
   model: DangerousFishingBossViewModel | null;
   busy: boolean;
   feedback?: DangerousFishingFeedback | null;
+  startBlockedReason?: string | null;
   onStart: (eventId: string) => Promise<boolean>;
   onAction: (
     action: DangerousFishingAction,
@@ -319,11 +321,17 @@ export function DangerousFishingBossPanel({
 
       {active ? (
         <div className="space-y-2">
-          <Button fullWidth variant="info" disabled={busy} onClick={() => void onStart(event.id)}>
+          <Button
+            fullWidth
+            variant="info"
+            disabled={busy || Boolean(startBlockedReason)}
+            onClick={() => void onStart(event.id)}
+          >
             개인 시도 시작
           </Button>
           <p className="text-center text-[11px] text-zinc-500">
-            줄이 끊겨 실패해도 기존 기여는 유지되며 다시 시도할 수 있습니다.
+            {startBlockedReason ??
+              "줄이 끊겨 실패해도 기존 기여는 유지되며 다시 시도할 수 있습니다."}
           </p>
         </div>
       ) : event.status === "defeated" && model.eligible ? (

@@ -241,7 +241,7 @@ export function stackedMaxHpIncreasePct(rawPct: number): number {
 }
 
 export function stackedDefenseIncreasePct(rawPct: number): number {
-  return stackedSurvivalIncreasePct(rawPct, 30, 0.4, 50);
+  return stackedSurvivalIncreasePct(rawPct, 30, 0.4, null);
 }
 
 // PR-S2: V2_BASE_STATS / V2_STAT_POINTS_PER_LEVEL 은 v2Stats.ts 로 분리 (클라 import 가능).

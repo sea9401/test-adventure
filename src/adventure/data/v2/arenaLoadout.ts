@@ -150,13 +150,20 @@ export function arenaPatternActionSummary(
   if (!pattern) return [];
   return pattern.blocks.map((block, index) => {
     const action = block.action;
-    const value = action.kind === "skill" ? action.skillId : action.role;
+    const value =
+      action.kind === "skill"
+        ? action.skillId
+        : action.kind === "role"
+          ? action.role
+          : "basic_attack";
     return {
       key: `${index}:${action.kind}:${value}`,
       name:
         action.kind === "skill"
           ? (V2_SKILLS[action.skillId as V2SkillId]?.name ?? action.skillId)
-          : ROLE_LABEL[action.role],
+          : action.kind === "role"
+            ? ROLE_LABEL[action.role]
+            : "일반 공격",
       condition: arenaPatternConditionSummary(block.condition),
     };
   });
@@ -179,7 +186,7 @@ export function arenaLoadoutIssueSummary(
   const coveredRoles = new Set<V2CombatRole>();
   for (const block of loadout.pattern?.blocks ?? []) {
     if (block.action.kind === "skill") directSkills.add(block.action.skillId);
-    else coveredRoles.add(block.action.role);
+    else if (block.action.kind === "role") coveredRoles.add(block.action.role);
   }
   const categoryRole = {
     attack: "main_attack",

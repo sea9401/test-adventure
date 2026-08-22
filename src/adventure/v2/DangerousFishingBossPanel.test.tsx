@@ -71,6 +71,7 @@ afterEach(() => {
 });
 
 function realtimeBossEncounter(): DangerousRealtimeClientEncounter {
+  const startedAt = Date.now() - 1_000;
   const config: DangerousRealtimeClientEncounter["config"] = {
     seed: 31,
     risk: 5,
@@ -98,8 +99,8 @@ function realtimeBossEncounter(): DangerousRealtimeClientEncounter {
     checkpoint,
     approvedTick: 0,
     revision: 0,
-    startedAt: NOW,
-    expiresAt: NOW + 30_000,
+    startedAt,
+    expiresAt: startedAt + 30_000,
   };
 }
 

@@ -22,6 +22,7 @@ import {
   FISHING_LURES,
   FISHING_ROD_IDS,
   FISHING_RODS,
+  formatFishingBonusPercent,
   fishingSizeBonusLabels,
   type FishingGearBonuses,
   type FishingProgressionView,
@@ -48,15 +49,21 @@ const ENTRIES = fishingShopEntries();
 
 function bonusLabels(bonuses: Partial<FishingGearBonuses>): string[] {
   const labels: string[] = [];
-  if (bonuses.waitReductionPct) labels.push(`대기 -${bonuses.waitReductionPct}%`);
+  if (bonuses.waitReductionPct) {
+    labels.push(`대기 -${formatFishingBonusPercent(bonuses.waitReductionPct)}%`);
+  }
   labels.push(...fishingSizeBonusLabels(bonuses));
   if (bonuses.specialWeightPct)
-    labels.push(`특별 손님 +${bonuses.specialWeightPct}%`);
+    labels.push(
+      `특별 손님 +${formatFishingBonusPercent(bonuses.specialWeightPct)}%`,
+    );
   if (bonuses.tierWeightPct) {
     for (const tier of FISH_TIER_ORDER) {
       const bonus = bonuses.tierWeightPct[tier] ?? 0;
       if (bonus === 0) continue;
-      labels.push(`${FISH_TIERS[tier].label} ${bonus > 0 ? "+" : ""}${bonus}%`);
+      labels.push(
+        `${FISH_TIERS[tier].label} ${bonus > 0 ? "+" : ""}${formatFishingBonusPercent(bonus)}%`,
+      );
     }
   }
   return labels.length > 0 ? labels : ["기본"];
@@ -65,7 +72,9 @@ function bonusLabels(bonuses: Partial<FishingGearBonuses>): string[] {
 function levelBonusLabels(progression: FishingProgressionView): string[] {
   const bonuses = progression.levelBonuses;
   const labels = fishingSizeBonusLabels(bonuses);
-  labels.push(`특별 손님 +${bonuses.specialWeightPct}%`);
+  labels.push(
+    `특별 손님 +${formatFishingBonusPercent(bonuses.specialWeightPct)}%`,
+  );
   return labels;
 }
 

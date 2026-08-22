@@ -8,6 +8,7 @@ import {
 } from "./dangerousFishingRealtimeModifiers";
 
 export const DANGEROUS_REALTIME_TICK_MS = 50;
+export const DANGEROUS_REALTIME_START_DELAY_MS = 1_000;
 export const DANGEROUS_REALTIME_LOW_TENSION_GRACE_TICKS = 20;
 export const DANGEROUS_REALTIME_TELEGRAPH_TICKS = 5;
 export const DANGEROUS_REALTIME_START_TENSION = 500;
@@ -17,10 +18,12 @@ export const DANGEROUS_REALTIME_START_DISTANCE = 10_000;
 export const DANGEROUS_REALTIME_TOTAL_TARGET_WORK = 20_000;
 export const DANGEROUS_REALTIME_LEGACY_BALANCE_REVISION = 1 as const;
 export const DANGEROUS_REALTIME_CALIBRATED_BALANCE_REVISION = 2 as const;
-export const DANGEROUS_REALTIME_BALANCE_REVISION = 3 as const;
+export const DANGEROUS_REALTIME_FULL_PERFORMANCE_BALANCE_REVISION = 3 as const;
+export const DANGEROUS_REALTIME_BALANCE_REVISION = 4 as const;
 export type DangerousRealtimeBalanceRevision =
   | typeof DANGEROUS_REALTIME_LEGACY_BALANCE_REVISION
   | typeof DANGEROUS_REALTIME_CALIBRATED_BALANCE_REVISION
+  | typeof DANGEROUS_REALTIME_FULL_PERFORMANCE_BALANCE_REVISION
   | typeof DANGEROUS_REALTIME_BALANCE_REVISION;
 
 export function isDangerousRealtimeBalanceRevision(
@@ -29,6 +32,7 @@ export function isDangerousRealtimeBalanceRevision(
   return (
     value === DANGEROUS_REALTIME_LEGACY_BALANCE_REVISION ||
     value === DANGEROUS_REALTIME_CALIBRATED_BALANCE_REVISION ||
+    value === DANGEROUS_REALTIME_FULL_PERFORMANCE_BALANCE_REVISION ||
     value === DANGEROUS_REALTIME_BALANCE_REVISION
   );
 }
@@ -283,11 +287,11 @@ export function isDangerousRealtimeCheckpoint(
     return false;
   }
 
-  const terminalCatch =
-    checkpoint.stamina === 0 &&
-    checkpoint.distance === 0 &&
-    (balanceRevision === DANGEROUS_REALTIME_LEGACY_BALANCE_REVISION ||
-      checkpoint.tick >= dangerousRealtimeMinimumCatchTick(checkpoint.targetTicks));
+  const terminalCatch = dangerousRealtimeCatchReady(
+    checkpoint,
+    config,
+    balanceRevision,
+  );
   const terminalLineBreak = checkpoint.tension > checkpoint.maxTension;
   const terminalHookLoss =
     checkpoint.lowTensionTicks >= config.modifiers.lowTensionGraceTicks;
@@ -604,6 +608,37 @@ function safeTensionBounds(
   return { min, max: min + width };
 }
 
+function dangerousRealtimeLowTensionGraceTicks(
+  config: DangerousRealtimeConfig,
+): number {
+  return Math.max(
+    DANGEROUS_REALTIME_LOW_TENSION_GRACE_TICKS,
+    finiteInt(
+      config.modifiers.lowTensionGraceTicks,
+      DANGEROUS_REALTIME_LOW_TENSION_GRACE_TICKS,
+    ),
+  );
+}
+
+function dangerousRealtimeCatchReady(
+  state: DangerousRealtimeState,
+  config: DangerousRealtimeConfig,
+  balanceRevision: DangerousRealtimeBalanceRevision,
+): boolean {
+  if (state.stamina !== 0 || state.distance !== 0) return false;
+  if (balanceRevision === DANGEROUS_REALTIME_LEGACY_BALANCE_REVISION) {
+    return true;
+  }
+  if (state.tick < dangerousRealtimeMinimumCatchTick(state.targetTicks)) {
+    return false;
+  }
+  if (balanceRevision !== DANGEROUS_REALTIME_BALANCE_REVISION) return true;
+  return (
+    state.tension <= safeTensionBounds(state, config).max &&
+    state.lowTensionTicks < dangerousRealtimeLowTensionGraceTicks(config)
+  );
+}
+
 export function createDangerousRealtimeState(
   config: DangerousRealtimeConfig,
   balanceRevision: DangerousRealtimeBalanceRevision =
@@ -903,43 +938,55 @@ export function advanceDangerousRealtimeTick(
   }
   if (state.stamina === 0 && state.distance === 0) {
     const nextTick = state.tick + 1;
-    return {
-      ...state,
-      tick: nextTick,
-      mode,
-      status:
-        balanceRevision === DANGEROUS_REALTIME_LEGACY_BALANCE_REVISION ||
-        nextTick >= dangerousRealtimeMinimumCatchTick(state.targetTicks)
-          ? "caught"
-          : "active",
-    };
+    if (balanceRevision === DANGEROUS_REALTIME_BALANCE_REVISION) {
+      if (
+        dangerousRealtimeCatchReady(
+          { ...state, tick: nextTick },
+          config,
+          balanceRevision,
+        )
+      ) {
+        return { ...state, tick: nextTick, mode, status: "caught" };
+      }
+    } else {
+      return {
+        ...state,
+        tick: nextTick,
+        mode,
+        status:
+          balanceRevision === DANGEROUS_REALTIME_LEGACY_BALANCE_REVISION ||
+          nextTick >= dangerousRealtimeMinimumCatchTick(state.targetTicks)
+            ? "caught"
+            : "active",
+      };
+    }
   }
 
-  const progress = tickProgress(state, config, mode);
+  const rawProgress = tickProgress(state, config, mode);
+  const progress =
+    balanceRevision === DANGEROUS_REALTIME_BALANCE_REVISION &&
+    state.stamina === 0 &&
+    state.distance === 0
+      ? { ...rawProgress, stamina: 0, distance: 0 }
+      : rawProgress;
   const bounds = safeTensionBounds(state, config);
   const lowTensionTicks =
     progress.tension < bounds.min ? state.lowTensionTicks + 1 : 0;
   const nextTick = state.tick + 1;
+  const nextState = {
+    ...state,
+    ...progress,
+    tick: nextTick,
+    lowTensionTicks,
+  };
   let status: DangerousRealtimeStatus = "active";
   if (progress.tension > state.maxTension) {
     status = "line_broken";
   } else if (
-    lowTensionTicks >=
-    Math.max(
-      DANGEROUS_REALTIME_LOW_TENSION_GRACE_TICKS,
-      finiteInt(
-        config.modifiers.lowTensionGraceTicks,
-        DANGEROUS_REALTIME_LOW_TENSION_GRACE_TICKS,
-      ),
-    )
+    lowTensionTicks >= dangerousRealtimeLowTensionGraceTicks(config)
   ) {
     status = "hook_lost";
-  } else if (
-    progress.stamina === 0 &&
-    progress.distance === 0 &&
-    (balanceRevision === DANGEROUS_REALTIME_LEGACY_BALANCE_REVISION ||
-      nextTick >= dangerousRealtimeMinimumCatchTick(state.targetTicks))
-  ) {
+  } else if (dangerousRealtimeCatchReady(nextState, config, balanceRevision)) {
     status = "caught";
   } else if (nextTick >= state.maxTicks) {
     status = "timeout";

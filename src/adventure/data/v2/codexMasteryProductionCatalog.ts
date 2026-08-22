@@ -88,12 +88,13 @@ const V1_SCORE_WEIGHT_SOURCE_COUNTS: Record<CodexMasteryCategory, number> = {
   equipment: 351,
   fish: 50,
   monster: 70,
-  cooking: 100,
+  cooking: 45,
   life: 36,
   job: 134,
 };
 
 const JOB_COMPATIBLE_SCORE_WEIGHTS_MILLI = Object.freeze([3_294]);
+const COOKING_COMPATIBLE_SCORE_WEIGHTS_MILLI = Object.freeze([4_545]);
 
 function scoreWeight(category: CodexMasteryCategory): number {
   return Math.round(
@@ -116,7 +117,9 @@ function definition(
     scoreWeightMilli: scoreWeight(category),
     ...(category === "job"
       ? { compatibleScoreWeightsMilli: JOB_COMPATIBLE_SCORE_WEIGHTS_MILLI }
-      : {}),
+      : category === "cooking"
+        ? { compatibleScoreWeightsMilli: COOKING_COMPATIBLE_SCORE_WEIGHTS_MILLI }
+        : {}),
     seals,
   };
 }
@@ -129,7 +132,59 @@ function equipmentThresholds(id: keyof typeof V2_EQUIPMENT): Thresholds {
   return EQUIPMENT_THRESHOLDS.common;
 }
 
+const LEGACY_COOKING_THRESHOLD_KIND = {
+  rustic_bread: "rareIngredient",
+  herb_tea: "rareIngredient",
+  grilled_corn: "rareIngredient",
+  fish_skewer: "normal",
+  herb_flatbread: "rareIngredient",
+  country_egg_bread: "normal",
+  fishermans_pie: "rareIngredient",
+  tomato_salad: "rareIngredient",
+  strawberry_tart: "rareIngredient",
+  fresh_fish_soup: "normal",
+  corn_tomato_potage: "rareIngredient",
+  strawberry_herb_punch: "rareIngredient",
+  herb_omelet: "normal",
+  egg_salad_sandwich: "rareIngredient",
+  potato_stew: "rareIngredient",
+  quality_fish_platter: "advanced",
+  pearl_onion_soup: "rareIngredient",
+  fish_croquettes: "rareIngredient",
+  milk_potato_soup: "advanced",
+  egg_fried_rice: "advanced",
+  milk_rice_porridge: "advanced",
+  corn_milk_chowder: "rareIngredient",
+  soybean_rice: "rareIngredient",
+  special_seafood_rice: "advanced",
+  soy_glazed_fish_bowl: "rareIngredient",
+  aromatic_fish_curry: "rareIngredient",
+  ranch_cream_gratin: "advanced",
+  soy_braised_eggs: "rareIngredient",
+  milk_custard_pudding: "rareIngredient",
+  strawberry_milk_parfait: "rareIngredient",
+  flame_corn_stew: "rareIngredient",
+  herb_roasted_pork: "advanced",
+  crispy_pork_cutlet: "rareIngredient",
+  soy_pork_rice_bowl: "rareIngredient",
+  spicy_pork_stew: "rareIngredient",
+  royal_pork_pie: "rareIngredient",
+  ranch_grand_feast: "advanced",
+  golden_gratin: "rareIngredient",
+  ancient_tomato_meal: "rareIngredient",
+  royal_cacao_tart: "rareIngredient",
+  white_strawberry_dessert: "rareIngredient",
+  legendary_sea_banquet: "rareIngredient",
+  earth_grand_feast: "rareIngredient",
+  dragonfire_seafood_hotpot: "rareIngredient",
+  crystal_cacao_drink: "rareIngredient",
+} as const satisfies Record<string, keyof typeof COOKING_THRESHOLDS>;
+
 function cookingThresholds(recipe: (typeof COOKING_PUBLIC_RECIPES)[number]): Thresholds {
+  const legacyKind = LEGACY_COOKING_THRESHOLD_KIND[
+    recipe.id as keyof typeof LEGACY_COOKING_THRESHOLD_KIND
+  ];
+  if (legacyKind) return COOKING_THRESHOLDS[legacyKind];
   if (recipe.discovery === "signature" || recipe.tier >= 5) return COOKING_THRESHOLDS.rareIngredient;
   if (recipe.tier >= 3) return COOKING_THRESHOLDS.advanced;
   return COOKING_THRESHOLDS.normal;

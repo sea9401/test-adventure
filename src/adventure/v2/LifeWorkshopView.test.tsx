@@ -1,5 +1,8 @@
+// @vitest-environment jsdom
+
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   LifeWorkshopMaxConfirmDialog,
   RanchFeedRecipeCard,
@@ -7,6 +10,12 @@ import {
   LifeWorkshopQuantityControls,
   lifeWorkshopErrorText,
 } from "./LifeWorkshopView";
+import { emptyLifeWorkshopState } from "./lifeWorkshop";
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe("생활 조합 작업장 모바일 배치", () => {
   it("터치 기기에서 상단 메뉴를 네 칸으로 되돌릴 수 있는 표식을 둔다", () => {
@@ -68,6 +77,66 @@ describe("생활 조합 작업장 오류 안내", () => {
     expect(
       lifeWorkshopErrorText({ error: "level_required", requiredLevel: 20 }),
     ).toBe("생활 레벨이 부족합니다. (필요 Lv.20)");
+  });
+
+  it("퇴비 제작에 필요한 실패 음식 부족을 안내한다", () => {
+    expect(
+      lifeWorkshopErrorText({ error: "not_enough_failed_dishes" }),
+    ).toBe("실패 음식이 부족합니다.");
+  });
+});
+
+describe("실패 음식 퇴비 제작 카드", () => {
+  it("실패 음식 비용과 현재 보유량을 보여준다", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      ok: true,
+      state: emptyLifeWorkshopState(),
+      levels: { woodcutting: 1, mining: 1 },
+      materials: {},
+      failedCookingDishes: 8,
+      gold: 0,
+      bankedGold: 0,
+      recipes: [],
+      tools: [
+        { activity: "woodcutting", tier: 0, name: "낡은 벌목 도구", durationReductionPct: 0, bonusMaterialPct: 0, nextUpgrade: null },
+        { activity: "mining", tier: 0, name: "낡은 채광 도구", durationReductionPct: 0, bonusMaterialPct: 0, nextUpgrade: null },
+      ],
+      craftingRecipes: [{
+        id: "failed_dish_compost",
+        name: "실패 음식 퇴비",
+        description: "실패한 요리를 발효해 유기질 거름으로 되살립니다.",
+        image: "/images/items/life-aids/organic_fertilizer.webp",
+        kind: "aid",
+        outputId: "organic_fertilizer",
+        outputAmount: 1,
+        costs: {},
+        failedDishCost: 3,
+        requiredLevel: 1,
+        learned: true,
+        craftCount: 1,
+        masteryStage: 1,
+        batchLimit: 5,
+        maxCraftable: 2,
+      }],
+      ranchCraftingRecipe: {
+        id: "compound_feed",
+        name: "배합 사료",
+        outputAmount: 5,
+        costs: { wheat: 4, corn: 3, herb: 1 },
+        unlocked: false,
+        craftCount: 0,
+        masteryStage: 0,
+        batchLimit: 1,
+        maxCraftable: 0,
+        ownedFeed: 0,
+        ingredientBalances: { wheat: 0, corn: 0, herb: 0 },
+      },
+    }), { status: 200, headers: { "content-type": "application/json" } })));
+
+    render(<LifeWorkshopView onBack={vi.fn()} initialTab="craft" />);
+
+    await waitFor(() => expect(screen.getByText("실패 음식 퇴비")).toBeTruthy());
+    expect(screen.getByText("실패 음식 3개 (보유 8개)")).toBeTruthy();
   });
 });
 

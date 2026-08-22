@@ -17,6 +17,7 @@ import {
   replayDangerousRealtimeInputs,
   validateDangerousRealtimeInputs,
   DANGEROUS_REALTIME_TICK_MS,
+  DANGEROUS_REALTIME_START_DELAY_MS,
   type DangerousRealtimeConfig,
   type DangerousRealtimeInput,
 } from "@/adventure/v2/dangerousFishingRealtime";
@@ -372,7 +373,7 @@ export async function startRealtimeBossAttemptInTx(
     ...configBase,
     maxTicks: dangerousRealtimeMaxTicks(configBase),
   };
-  const startedAt = args.now.getTime();
+  const startedAt = args.now.getTime() + DANGEROUS_REALTIME_START_DELAY_MS;
   const encounter: DangerousRealtimeEncounter = {
     simulationVersion: 2,
     balanceRevision: DANGEROUS_REALTIME_BALANCE_REVISION,

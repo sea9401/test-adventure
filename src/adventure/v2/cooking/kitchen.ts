@@ -1,4 +1,5 @@
 import type { FarmItemId, FarmItemInventory } from "../farm";
+import { spendGold } from "../../data/v2/coreLoopConfig";
 import type { CookingKitchenItemId, CookingStateV2 } from "./state";
 
 export type CookingPantryItem = {
@@ -47,18 +48,27 @@ function positiveQuantity(raw: number): number {
 }
 
 export function buyCookingPantryItem(
-  current: { gold: number; kitchenItems: CookingStateV2["kitchenItems"] },
+  current: {
+    gold: number;
+    bankedGold: number;
+    kitchenItems: CookingStateV2["kitchenItems"];
+  },
   itemId: CookingPantryItem["id"],
   rawQuantity: number,
-): { gold: number; kitchenItems: CookingStateV2["kitchenItems"] } {
+): {
+  gold: number;
+  bankedGold: number;
+  kitchenItems: CookingStateV2["kitchenItems"];
+} {
   const item = COOKING_PANTRY_BY_ID.get(itemId);
   if (!item) throw new Error("invalid_pantry_item");
   const quantity = positiveQuantity(rawQuantity);
-  const gold = Math.max(0, Math.floor(Number(current.gold) || 0));
   const total = item.price * quantity;
-  if (gold < total) throw new Error("not_enough_gold");
+  const payment = spendGold(current.gold, current.bankedGold, total);
+  if (!payment.ok) throw new Error("not_enough_gold");
   return {
-    gold: gold - total,
+    gold: payment.gold,
+    bankedGold: payment.bankedGold,
     kitchenItems: {
       ...current.kitchenItems,
       [item.id]: (current.kitchenItems[item.id] ?? 0) + quantity,

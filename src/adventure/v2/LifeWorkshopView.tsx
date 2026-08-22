@@ -56,6 +56,7 @@ type WorkshopPayload = {
   state: LifeWorkshopState;
   levels: Record<LifeWorkshopActivity, number>;
   materials: Record<string, number>;
+  failedCookingDishes: number;
   gold: number;
   bankedGold: number;
   recipes: WorkshopRecipeView[];
@@ -125,6 +126,7 @@ const ERROR_TEXT: Record<string, string> = {
   bad_recipe: "가공법을 확인할 수 없습니다.",
   level_required: "생활 레벨이 부족합니다.",
   not_enough_materials: "필요한 재료가 부족합니다.",
+  not_enough_failed_dishes: "실패 음식이 부족합니다.",
   not_enough_gold: "전문화 변경에 필요한 골드가 부족합니다.",
   already_selected: "이미 선택한 전문화입니다.",
   max_tool: "도구를 최고 단계까지 승급했습니다.",
@@ -178,10 +180,17 @@ function materialName(id: string): string {
 function requirementText(
   costs: Record<string, number>,
   materials: Record<string, number>,
+  failedDishCost = 0,
+  failedCookingDishes = 0,
 ): string {
-  return Object.entries(costs)
-    .map(([id, amount]) => `${materialName(id)} ${materials[id] ?? 0}/${amount}`)
-    .join(" · ");
+  const requirements = Object.entries(costs)
+    .map(([id, amount]) => `${materialName(id)} ${materials[id] ?? 0}/${amount}`);
+  if (failedDishCost > 0) {
+    requirements.push(
+      `실패 음식 ${failedDishCost}개 (보유 ${failedCookingDishes}개)`,
+    );
+  }
+  return requirements.join(" · ");
 }
 
 function LifeAidArtwork({
@@ -719,7 +728,7 @@ export function LifeWorkshopView({
                       </div>
                       {!hiddenUnknown ? (
                         <>
-                          <div className="mt-2 text-[11px] text-zinc-600 dark:text-zinc-300">{requirementText(recipe.costs, data.materials)}</div>
+                          <div className="mt-2 text-[11px] text-zinc-600 dark:text-zinc-300">{requirementText(recipe.costs, data.materials, recipe.failedDishCost, data.failedCookingDishes)}</div>
                           <div className="mt-1 text-[10px] text-zinc-500">제작 기록 {recipe.craftCount}회 · 단계 {recipe.masteryStage}/5 · 일괄 한도 {recipe.batchLimit}</div>
                           <div className="mt-2">
                             <LifeWorkshopQuantityControls
@@ -736,7 +745,7 @@ export function LifeWorkshopView({
                                 })
                               }
                             />
-                            {recipe.maxCraftable === 0 ? <span className="self-center text-[11px] text-rose-600">재료 또는 레벨 부족</span> : null}
+                            {recipe.maxCraftable === 0 ? <span className="self-center text-[11px] text-rose-600">{recipe.failedDishCost ? "실패 음식 또는 레벨 부족" : "재료 또는 레벨 부족"}</span> : null}
                           </div>
                         </>
                       ) : null}

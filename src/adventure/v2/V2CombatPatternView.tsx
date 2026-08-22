@@ -94,7 +94,8 @@ const SHIELD_CONDITION_MODE_OPTIONS = [
   { value: "atMost", label: "이하" },
   { value: "atLeast", label: "이상" },
 ] as const;
-const ACTION_KIND_OPTIONS = [
+export const ACTION_KIND_OPTIONS = [
+  { value: "basic_attack", label: "일반 공격" },
   { value: "role", label: "역할 사용" },
   { value: "skill", label: "특정 스킬" },
 ] as const;
@@ -1035,13 +1036,19 @@ export function V2CombatPatternView({
                     onChange={(kind) => {
                       update(i, {
                         action:
-                          kind === "role"
+                          kind === "basic_attack"
+                            ? { kind: "basic_attack" }
+                            : kind === "role"
                             ? { kind: "role", role: "main_attack" }
                             : { kind: "skill", skillId: castableEquipped[0] ?? "" },
                       });
                     }}
                   />
-                  {b.action.kind === "role" ? (
+                  {b.action.kind === "basic_attack" ? (
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                      장착 스킬 대신 일반 공격을 사용합니다.
+                    </span>
+                  ) : b.action.kind === "role" ? (
                     <PatternChoiceButtons
                       value={b.action.role}
                       options={ROLE_OPTIONS}
@@ -1084,7 +1091,11 @@ export function V2CombatPatternView({
                 {/* 선택 스킬 정보 칩(MP·피해·효과) — 무엇을 발동하는지 한눈에. */}
                 {(() => {
                   const selectedSkillId =
-                    b.action.kind === "skill" ? b.action.skillId : roleCandidate(b.action.role);
+                    b.action.kind === "skill"
+                      ? b.action.skillId
+                      : b.action.kind === "role"
+                        ? roleCandidate(b.action.role)
+                        : null;
                   const def = selectedSkillId ? V2_SKILLS[selectedSkillId as V2SkillId] : undefined;
                   if (!def) return null;
                   return (

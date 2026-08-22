@@ -1190,19 +1190,24 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     }
     return null;
   };
-  const candidateIds: V2SkillId[] = viaPattern
-    ? (evaluateCombatPatternCandidates(
+  const candidates = viaPattern
+    ? evaluateCombatPatternCandidates(
         effectivePattern!,
         buildPatternCtx(input),
         isUsable,
         resolveRole,
-      ) as V2SkillId[])
+      )
     : (activeCombatSkillIds.find((skillId) => isUsable(skillId))
-        ? [activeCombatSkillIds.find((skillId) => isUsable(skillId))!]
+        ? [{
+            kind: "skill" as const,
+            skillId: activeCombatSkillIds.find((skillId) => isUsable(skillId))!,
+          }]
         : []);
   let id: V2SkillId | null = null;
   let selectedPatternUsesProcGate = false;
-  for (const candidateId of candidateIds) {
+  for (const candidate of candidates) {
+    if (candidate.kind === "basic_attack") break;
+    const candidateId = candidate.skillId as V2SkillId;
     const candidateDef = V2_SKILLS[candidateId];
     if (!candidateDef) continue;
     // 비패턴 경로도 광전사 전투별 사용 횟수처럼 카탈로그 밖의 강제 게이트를 우회할 수 없다.

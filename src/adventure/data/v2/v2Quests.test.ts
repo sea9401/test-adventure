@@ -15,7 +15,7 @@ import {
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
 import { TITLES } from "../titles";
-import { COOKING_RECIPES } from "../../v2/cooking";
+import { COOKING_PUBLIC_RECIPES } from "../../v2/cooking/catalog";
 
 // 테스트 기본값(1차 전사, 활동 없음). 부분 ctx 는 이걸 스프레드.
 const ZERO: QuestCtx = {
@@ -1093,13 +1093,13 @@ describe("오늘 추가된 요리·길드 시설 업적", () => {
     expect(
       questById("cooking_recipe18")!.check({
         ...ZERO,
-        cookingRecipesDiscovered: COOKING_RECIPES.length - 1,
+        cookingRecipesDiscovered: COOKING_PUBLIC_RECIPES.length - 1,
       }),
     ).toBe(false);
     expect(
       questById("cooking_recipe18")!.check({
         ...ZERO,
-        cookingRecipesDiscovered: COOKING_RECIPES.length,
+        cookingRecipesDiscovered: COOKING_PUBLIC_RECIPES.length,
       }),
     ).toBe(true);
   });

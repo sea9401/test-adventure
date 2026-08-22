@@ -68,7 +68,7 @@ const SAVE_KEYS = [
   "fishing-codex.v1",
   "equipment-codex.v1",
   "farm.v2",
-  "cooking.v1",
+  "cooking.v2",
   "woodcutting-log.v1",
   "mining-log.v1",
   "guide-quests.v2",
@@ -398,7 +398,7 @@ function preparePlayer(candidate: Candidate): SimPlayer | null {
   );
   const unlockContext = jobUnlockContextFromSaves({
     farmRaw: saves["farm.v2"],
-    cookingRaw: saves["cooking.v1"],
+    cookingRaw: saves["cooking.v2"],
     woodcuttingRaw: saves["woodcutting-log.v1"],
     miningRaw: saves["mining-log.v1"],
     completedQuestIds: parseClaimed(saves["guide-quests.v2"]),

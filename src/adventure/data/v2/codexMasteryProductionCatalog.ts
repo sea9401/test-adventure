@@ -1,4 +1,4 @@
-import { COOKING_RECIPES } from "@/adventure/v2/cooking";
+import { COOKING_PUBLIC_RECIPES } from "@/adventure/v2/cooking/catalog";
 import {
   LIFE_FIELD_RECORD_CATALOG,
   type LifeFieldRecordDefinition,
@@ -88,7 +88,7 @@ const V1_SCORE_WEIGHT_SOURCE_COUNTS: Record<CodexMasteryCategory, number> = {
   equipment: 351,
   fish: 50,
   monster: 70,
-  cooking: 45,
+  cooking: 100,
   life: 36,
   job: 134,
 };
@@ -129,10 +129,9 @@ function equipmentThresholds(id: keyof typeof V2_EQUIPMENT): Thresholds {
   return EQUIPMENT_THRESHOLDS.common;
 }
 
-function cookingThresholds(recipe: (typeof COOKING_RECIPES)[number]): Thresholds {
-  const legendaryCatch = Object.hasOwn(recipe.fishingIngredients ?? {}, "catch_legendary");
-  if (recipe.optionalRareItemId || legendaryCatch) return COOKING_THRESHOLDS.rareIngredient;
-  if (recipe.requiredLevel >= 20) return COOKING_THRESHOLDS.advanced;
+function cookingThresholds(recipe: (typeof COOKING_PUBLIC_RECIPES)[number]): Thresholds {
+  if (recipe.discovery === "signature" || recipe.tier >= 5) return COOKING_THRESHOLDS.rareIngredient;
+  if (recipe.tier >= 3) return COOKING_THRESHOLDS.advanced;
   return COOKING_THRESHOLDS.normal;
 }
 
@@ -165,7 +164,7 @@ export const CODEX_MASTERY_DEFINITIONS: readonly CodexMasteryEntryDefinition[] =
       { rival: { pointUnits: 2 }, tactical_variety: { pointUnits: 4 } },
     ),
   ),
-  ...COOKING_RECIPES.map((recipe) =>
+  ...COOKING_PUBLIC_RECIPES.map((recipe) =>
     definition("cooking", recipe.id, recipe.name, cookingThresholds(recipe), {
       careful: { pointUnits: 2 },
       masterpiece: { pointUnits: 4 },

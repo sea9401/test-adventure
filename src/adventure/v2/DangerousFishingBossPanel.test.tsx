@@ -1,9 +1,15 @@
+// @vitest-environment jsdom
+
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createDangerousRealtimeState } from "./dangerousFishingRealtime";
+import { dangerousRealtimeModifiers } from "./dangerousFishingRealtimeModifiers";
 import {
   DangerousFishingBossPanel,
   type DangerousFishingBossViewModel,
 } from "./DangerousFishingBossPanel";
+import type { DangerousRealtimeClientEncounter } from "./useDangerousFishingRealtime";
 
 const NOW = 1_800_000_000_000;
 
@@ -32,6 +38,7 @@ function bossModel(
       rewardClaimedAt: null,
     },
     attempt: null,
+    realtimeAttempt: null,
     eligible: true,
     claimed: false,
     rewardPreview: {
@@ -48,7 +55,53 @@ const handlers = {
   onStart: vi.fn(async () => true),
   onAction: vi.fn(async () => true),
   onClaim: vi.fn(async () => true),
+  readJson: (response: Response) => response.json(),
+  onRealtimeFinish: vi.fn(),
 };
+
+beforeEach(() => {
+  sessionStorage.clear();
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+});
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+function realtimeBossEncounter(): DangerousRealtimeClientEncounter {
+  const config: DangerousRealtimeClientEncounter["config"] = {
+    seed: 31,
+    risk: 5,
+    targetKind: "boss",
+    rarity: "boss",
+    behaviorPattern: ["charge", "thrash", "dive", "turn"],
+    initialTension: 500,
+    maxTension: 1_000,
+    initialStamina: 12_000,
+    initialDistance: 12_000,
+    maxTicks: 600,
+    modifiers: dangerousRealtimeModifiers({
+      fishingLevel: 50,
+      baitId: "basic_bait",
+    }),
+  };
+  const checkpoint = createDangerousRealtimeState(config);
+  return {
+    simulationVersion: 2,
+    balanceRevision: 2,
+    id: "boss-realtime-attempt",
+    targetKind: "boss",
+    targetId: "tidal_colossus",
+    config,
+    checkpoint,
+    approvedTick: 0,
+    revision: 0,
+    startedAt: NOW,
+    expiresAt: NOW + 30_000,
+  };
+}
 
 describe("거대어 비동기 기여 패널", () => {
   it("활성 이벤트의 공용 체력·남은 시간·내 기여·발견자를 표시하고 순위는 숨긴다", () => {
@@ -113,6 +166,104 @@ describe("거대어 비동기 기여 패널", () => {
     expect(html).toContain("줄 풀기");
     expect(html).toContain("버티기");
     expect((html.match(/<img /g) ?? []).length).toBe(2);
+  });
+
+  it("versionless v1 개인 시도의 세 버튼은 기존 onAction 계약을 호출한다", () => {
+    const onAction = vi.fn(async () => true);
+    render(
+      <DangerousFishingBossPanel
+        model={bossModel({
+          attempt: {
+            eventId: "event-ui",
+            encounter: {
+              id: "boss-attempt",
+              targetKind: "boss",
+              targetId: "tidal_colossus",
+              status: "active",
+              tension: 58,
+              maxTension: 100,
+              stamina: 200,
+              maxStamina: 240,
+              distance: 130,
+              startDistance: 150,
+              slackTurns: 0,
+              slackTolerance: 0,
+              step: 2,
+              revision: 2,
+              nextActionAt: NOW,
+              expiresAt: NOW + 120_000,
+              reelPowerBonus: 0,
+              staminaDamageBonus: 0,
+              tensionControlBonus: 0,
+              behavior: "charge",
+            },
+          },
+        })}
+        busy={false}
+        {...handlers}
+        onAction={onAction}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /감아올리기/ }));
+    expect(onAction).toHaveBeenCalledWith(
+      "reel",
+      "event-ui",
+      "boss-attempt",
+      2,
+    );
+  });
+
+  it("v2 개인 시도는 공용 기여 요약을 유지하고 scene 이미지는 Canvas에만 맡긴다", () => {
+    const html = renderToStaticMarkup(
+      <DangerousFishingBossPanel
+        model={bossModel({
+          attempt: null,
+          realtimeAttempt: {
+            eventId: "event-ui",
+            encounter: realtimeBossEncounter(),
+          },
+        })}
+        busy={false}
+        {...handlers}
+      />,
+    );
+
+    expect(html).toContain("공용 제압 현황");
+    expect(html).toContain("내 누적 기여 240");
+    expect(html).toContain("이번 성공 시 기여");
+    expect((html.match(/aria-label="누르고 감아올리기"/g) ?? []).length).toBe(1);
+    expect(html).toContain("<canvas");
+    expect((html.match(/<img /g) ?? []).length).toBe(0);
+    expect(html).not.toContain("추천");
+    expect(html).not.toContain("현재 행동");
+  });
+
+  it("v2 개인 시도는 hold 조작만 노출하고 legacy onAction을 사용하지 않는다", () => {
+    const onAction = vi.fn(async () => true);
+    render(
+      <DangerousFishingBossPanel
+        model={bossModel({
+          attempt: null,
+          realtimeAttempt: {
+            eventId: "event-ui",
+            encounter: realtimeBossEncounter(),
+          },
+        })}
+        busy={false}
+        {...handlers}
+        onAction={onAction}
+      />,
+    );
+
+    const hold = screen.getByRole("button", { name: "누르고 감아올리기" });
+    fireEvent.keyDown(hold, { code: "Space", key: " " });
+    fireEvent.keyUp(hold, { code: "Space", key: " " });
+
+    expect(screen.queryByRole("button", { name: /^감아올리기/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^줄 풀기/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^버티기/ })).toBeNull();
+    expect(onAction).not.toHaveBeenCalled();
   });
 
   it("줄이 끊긴 뒤에는 누적 기여를 보존한 채 다시 시도할 수 있다", () => {

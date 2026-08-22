@@ -1,5 +1,8 @@
+// @vitest-environment jsdom
+
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DANGEROUS_BAITS,
   DANGEROUS_DEPTHS,
@@ -12,13 +15,21 @@ import {
 import { dangerousEncounterView } from "./dangerousFishingEncounter";
 import { createDangerousEncounter } from "./dangerousFishingEncounter";
 import { emptyDangerousFishingState } from "./dangerousFishingState";
+import { createDangerousRealtimeState } from "./dangerousFishingRealtime";
+import { dangerousRealtimeModifiers } from "./dangerousFishingRealtimeModifiers";
 import {
   DangerousFishingView,
   dangerousFishingErrorMessage,
   dangerousFishingShortcut,
 } from "./DangerousFishingView";
-import type { DangerousFishingViewModel } from "./useDangerousFishing";
+import type {
+  DangerousFishingClientState,
+  DangerousFishingViewModel,
+} from "./useDangerousFishing";
+import { useDangerousFishing } from "./useDangerousFishing";
 import { DangerousFishingBossPanel } from "./DangerousFishingBossPanel";
+import type { DangerousFishingBossViewModel } from "./DangerousFishingBossPanel";
+import type { DangerousRealtimeClientEncounter } from "./useDangerousFishingRealtime";
 
 function model(overrides: Partial<DangerousFishingViewModel> = {}): DangerousFishingViewModel {
   return {
@@ -66,6 +77,39 @@ function model(overrides: Partial<DangerousFishingViewModel> = {}): DangerousFis
   };
 }
 
+function realtimeEncounter(): DangerousRealtimeClientEncounter {
+  const config: DangerousRealtimeClientEncounter["config"] = {
+    seed: 23,
+    risk: 1,
+    targetKind: "fish",
+    rarity: "common",
+    behaviorPattern: ["turn", "charge"],
+    initialTension: 500,
+    maxTension: 1_000,
+    initialStamina: 10_000,
+    initialDistance: 10_000,
+    maxTicks: 400,
+    modifiers: dangerousRealtimeModifiers({
+      fishingLevel: 15,
+      baitId: "basic_bait",
+    }),
+  };
+  const checkpoint = createDangerousRealtimeState(config);
+  return {
+    simulationVersion: 2,
+    balanceRevision: 2,
+    id: "realtime-restored",
+    targetKind: "fish",
+    targetId: "razor_sardine",
+    config,
+    checkpoint,
+    approvedTick: 0,
+    revision: 2,
+    startedAt: 1_800_000_000_000,
+    expiresAt: 1_800_000_020_000,
+  };
+}
+
 const handlers = {
   onStartVoyage: vi.fn(async () => true),
   onReturnVoyage: vi.fn(async () => true),
@@ -75,9 +119,188 @@ const handlers = {
   onStartBossAttempt: vi.fn(async () => true),
   onBossAction: vi.fn(async () => true),
   onClaimBossReward: vi.fn(async () => true),
+  readJson: (response: Response) => response.json(),
+  onRealtimeFinish: vi.fn(),
 };
 
+const clientStateOmitsCompletionJournal: "realtimeCompletions" extends keyof DangerousFishingClientState
+  ? false
+  : true = true;
+
+function activeBossModel(
+  attempt: DangerousFishingBossViewModel["attempt"] = null,
+): DangerousFishingBossViewModel {
+  return {
+    ok: true,
+    now: 1_800_000_000_000,
+    event: {
+      id: "event-client",
+      bossId: "tidal_colossus",
+      name: "해일의 거신",
+      stamina: 18_000,
+      maxStamina: 18_000,
+      status: "active",
+      spawnedAt: 1_799_999_000_000,
+      expiresAt: 1_800_100_000_000,
+      defeatedAt: null,
+      isDiscoverer: false,
+      isLastHaul: false,
+    },
+    contribution: null,
+    attempt,
+    realtimeAttempt: null,
+    eligible: false,
+    claimed: false,
+    rewardPreview: null,
+  };
+}
+
+function installFishingApi(
+  status: DangerousFishingViewModel,
+  boss: DangerousFishingBossViewModel,
+) {
+  const fetcher = vi.fn(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      if (init?.method === "POST") return Response.json({ ok: true });
+      if (path === "/api/v2/dangerous-fishing/status") {
+        return Response.json(status);
+      }
+      if (path === "/api/v2/dangerous-fishing/boss") {
+        return Response.json(boss);
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    },
+  );
+  vi.stubGlobal("fetch", fetcher);
+  return fetcher;
+}
+
+function postBodies(fetcher: ReturnType<typeof vi.fn>) {
+  return fetcher.mock.calls
+    .filter(([, init]) => init?.method === "POST")
+    .map(([, init]) => JSON.parse(String(init?.body)) as Record<string, unknown>);
+}
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+describe("위험 해역 시작 요청 선택", () => {
+  it("새 일반 조우와 거대어 시도는 선택한 미끼·이벤트를 start_realtime으로 보낸다", async () => {
+    const state = emptyDangerousFishingState();
+    const status = model({
+      state: {
+        ...state,
+        loadout: { ...state.loadout, baitId: "reef_bait" },
+        baitCounts: { reef_bait: 2 },
+        voyage: null,
+        bossAttempt: null,
+      },
+    });
+    const fetcher = installFishingApi(status, activeBossModel());
+    const hook = renderHook(() => useDangerousFishing());
+    await waitFor(() => expect(hook.result.current.loading).toBe(false));
+
+    await act(async () => {
+      await hook.result.current.startEncounter("blood_bait");
+      await hook.result.current.startBossAttempt("event-client");
+    });
+
+    expect(postBodies(fetcher)).toEqual([
+      { action: "start_realtime", baitId: "blood_bait" },
+      {
+        action: "start_realtime",
+        eventId: "event-client",
+        baitId: "reef_bait",
+      },
+    ]);
+  });
+
+  it("저장된 v1 일반·거대어 조우는 기존 세 동작 요청을 그대로 보낸다", async () => {
+    const state = emptyDangerousFishingState();
+    const legacyEncounter = {
+      ...dangerousEncounterView(createDangerousEncounter({
+        id: "legacy-voyage",
+        targetKind: "fish",
+        target: DANGEROUS_FISH.ironjaw_tuna,
+        rod: DANGEROUS_RODS.starter_rod,
+        reel: DANGEROUS_REELS.starter_reel,
+        line: DANGEROUS_LINES.starter_line,
+        startedAt: 1_800_000_000_000,
+        patternSeed: 3,
+        assistance: { telegraphSteps: 1 },
+      })),
+      simulationVersion: 1 as const,
+    };
+    const status = model({
+      state: {
+        ...state,
+        voyage: {
+          id: "legacy-voyage-session",
+          zoneId: "shattered_reef",
+          depthId: "surface",
+          risk: 1,
+          startedAt: 1_800_000_000_000,
+          cargo: [],
+          encounter: legacyEncounter,
+        },
+        bossAttempt: null,
+      },
+    });
+    const legacyBossEncounter = {
+      ...legacyEncounter,
+      id: "legacy-boss",
+      targetKind: "boss" as const,
+      targetId: "tidal_colossus",
+    };
+    const fetcher = installFishingApi(
+      status,
+      activeBossModel({
+        eventId: "event-client",
+        encounter: legacyBossEncounter,
+      }),
+    );
+    const hook = renderHook(() => useDangerousFishing());
+    await waitFor(() => expect(hook.result.current.loading).toBe(false));
+
+    await act(async () => {
+      await hook.result.current.act(
+        "brace",
+        legacyEncounter.id,
+        legacyEncounter.revision,
+      );
+      await hook.result.current.actOnBoss(
+        "give",
+        "event-client",
+        legacyBossEncounter.id,
+        legacyBossEncounter.revision,
+      );
+    });
+
+    expect(postBodies(fetcher)).toEqual([
+      {
+        action: "brace",
+        encounterId: "legacy-voyage",
+        revision: legacyEncounter.revision,
+      },
+      {
+        action: "give",
+        eventId: "event-client",
+        encounterId: "legacy-boss",
+        revision: legacyBossEncounter.revision,
+      },
+    ]);
+  });
+
+});
+
 describe("위험 해역 개인 화면", () => {
+  it("공개 클라이언트 상태 계약은 서버 completion journal을 포함하지 않는다", () => {
+    expect(clientStateOmitsCompletionJournal).toBe(true);
+  });
   it("첫 이용자가 출항부터 안전 귀환까지 필요한 핵심 규칙을 한곳에서 확인한다", () => {
     const html = renderToStaticMarkup(
       <DangerousFishingView
@@ -234,6 +457,47 @@ describe("위험 해역 개인 화면", () => {
     expect(html).toContain("교환 보기");
   });
 
+  it("복원된 v2 조우는 legacy 설명 없이 한 개의 hold 조작과 접근 가능한 HUD를 렌더링한다", () => {
+    const state = emptyDangerousFishingState();
+    const html = renderToStaticMarkup(
+      <DangerousFishingView
+        model={model({
+          state: {
+            ...state,
+            bossAttempt: null,
+            voyage: {
+              id: "voyage-realtime",
+              zoneId: "shattered_reef",
+              depthId: "surface",
+              risk: 1,
+              startedAt: 1_800_000_000_000,
+              cargo: [],
+              encounter: realtimeEncounter(),
+            },
+          },
+        })}
+        boss={null}
+        loading={false}
+        busy={null}
+        error={null}
+        {...handlers}
+      />,
+    );
+
+    expect((html.match(/aria-label="누르고 감아올리기"/g) ?? []).length).toBe(1);
+    expect(html).toContain("낚싯줄 장력");
+    expect(html).toContain("어체력");
+    expect(html).toContain("남은 거리");
+    expect(html).toContain("남은 시간");
+    expect(html).toContain('role="meter"');
+    expect(html).toContain("bg-zinc-50");
+    expect(html).not.toContain('aria-label="위험 해역 조우"');
+    expect(html).not.toContain("추천");
+    expect(html).not.toContain("현재 행동");
+    expect(html).not.toContain("dangerous-fishing-shattered-reef.webp");
+    expect((html.match(/<img /g) ?? []).length).toBe(0);
+  });
+
   it("거대어 증표 보상에서 장비·칭호·꾸미기 교환 사용처를 안내한다", () => {
     const html = renderToStaticMarkup(
       <DangerousFishingBossPanel
@@ -259,6 +523,7 @@ describe("위험 해역 개인 화면", () => {
             rewardClaimedAt: null,
           },
           attempt: null,
+          realtimeAttempt: null,
           eligible: true,
           claimed: false,
           rewardPreview: {
@@ -273,6 +538,8 @@ describe("위험 해역 개인 화면", () => {
         onAction={vi.fn(async () => true)}
         onClaim={vi.fn(async () => true)}
         onOpenShop={vi.fn()}
+        readJson={handlers.readJson}
+        onRealtimeFinish={handlers.onRealtimeFinish}
       />,
     );
     expect(html).toContain("최상급 장비");
@@ -334,6 +601,7 @@ describe("위험 해역 개인 화면", () => {
     expect(html).toContain("추천");
     expect(html).toContain("줄이 끊어질 위험");
     expect(html).toContain("transition-[width]");
+    expect(html).not.toContain("누르고 감아올리기");
   });
 
   it("처리 중에는 중복 조작을 막고 API 오류를 행동 가능한 문장으로 바꾼다", () => {

@@ -205,8 +205,8 @@ describe("sim-v2-level-design", () => {
     // 전역 INT 장벽을 2차 마법사 패시브로 옮긴 뒤 26구간 무수행 표본은 약 89.5%다.
     expect(averageWinRate(20)).toBeGreaterThan(90);
     expect(averageWinRate(26)).toBeGreaterThan(85);
-    // 수행 스탯 상향으로 일부 중반 구간은 쉬워졌지만, 44부터 다시 막히며 최종 지역은 통과할 수 없다.
-    expect(averageWinRate(32)).toBeLessThan(90);
+    // 주스탯 공격력 0.7 전역 적용으로 32까지는 쉬워졌지만, 44부터 다시 막히며 최종 지역은 통과할 수 없다.
+    expect(averageWinRate(32)).toBeGreaterThan(90);
     expect(averageWinRate(44)).toBeLessThan(90);
     expect(averageWinRate(72)).toBeLessThan(20);
   }, SIMULATION_TEST_TIMEOUT_MS);

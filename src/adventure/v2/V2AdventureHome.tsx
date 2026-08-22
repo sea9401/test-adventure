@@ -12,7 +12,7 @@ import { AdventureRankingPreview } from "./AdventureRankingPreview";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import { activeLoadoutPresetName } from "@/adventure/data/v2/v2LoadoutPresets";
 import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
-import type { ActiveCookingBuff } from "@/adventure/v2/cooking";
+import type { ActiveCookingBuff } from "@/adventure/v2/cooking/food";
 import type {
   V2EquipInstance,
   V2EquipSlot,

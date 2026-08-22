@@ -25,6 +25,8 @@ import type {
   DangerousEncounterView,
   DangerousFishingAction,
 } from "./dangerousFishingEncounter";
+import type { DangerousRealtimeClientEncounter } from "./useDangerousFishingRealtime";
+import { dangerousRealtimeView } from "./dangerousFishingRealtime";
 import type { DangerousFishingBossViewModel } from "./DangerousFishingBossPanel";
 import {
   ActivityVerificationRequiredError,
@@ -41,17 +43,22 @@ export type DangerousFishingClientVoyage = Omit<
   DangerousFishingVoyage,
   "encounter"
 > & {
-  encounter: DangerousEncounterView | null;
+  encounter:
+    | (DangerousEncounterView & { simulationVersion?: 1 })
+    | DangerousRealtimeClientEncounter
+    | null;
 };
 
 export type DangerousFishingClientState = Omit<
   DangerousFishingState,
-  "voyage" | "bossAttempt"
+  "voyage" | "bossAttempt" | "realtimeCompletions"
 > & {
   voyage: DangerousFishingClientVoyage | null;
   bossAttempt: {
     eventId: string;
-    encounter: DangerousEncounterView;
+    encounter:
+      | (DangerousEncounterView & { simulationVersion?: 1 })
+      | DangerousRealtimeClientEncounter;
   } | null;
 };
 
@@ -107,6 +114,51 @@ async function apiJson(
 
 function errorCode(error: unknown): string {
   return error instanceof Error && error.message ? error.message : "network";
+}
+
+export function dangerousFishingRealtimeFinishFeedback(args: {
+  scope: "voyage" | "boss";
+  encounter: DangerousRealtimeClientEncounter;
+  response: Record<string, unknown>;
+  targetName: string;
+}): DangerousFishingFeedback | null {
+  const current = args.encounter.view ?? dangerousRealtimeView(
+    args.encounter.checkpoint,
+    args.encounter.config,
+  );
+  const before: DangerousEncounterView = {
+    id: args.encounter.id,
+    targetKind: args.encounter.targetKind,
+    targetId: args.encounter.targetId,
+    status: current.status === "active"
+      ? "active"
+      : current.status === "caught"
+        ? "caught"
+        : "failed",
+    tension: current.tension,
+    maxTension: current.maxTension,
+    stamina: current.stamina,
+    maxStamina: current.maxStamina,
+    distance: current.distance,
+    startDistance: current.startDistance,
+    slackTurns: current.lowTensionTicks,
+    slackTolerance: 0,
+    step: current.tick,
+    revision: args.encounter.revision,
+    nextActionAt: 0,
+    expiresAt: args.encounter.expiresAt,
+    reelPowerBonus: 0,
+    staminaDamageBonus: 0,
+    tensionControlBonus: 0,
+    behavior: current.behavior,
+  };
+  return dangerousFishingActionFeedback({
+    scope: args.scope,
+    action: "reel",
+    before,
+    response: args.response,
+    targetName: args.targetName,
+  });
 }
 
 export function useDangerousFishing() {
@@ -212,7 +264,7 @@ export function useDangerousFishing() {
     (baitId: DangerousBaitId) => {
       setFeedback(null);
       return mutate("encounter", "/api/v2/dangerous-fishing/encounter", {
-        action: "start",
+        action: "start_realtime",
         baitId,
       }, (json) => {
         const returned = dangerousFishingReturnFeedback(json);
@@ -224,20 +276,21 @@ export function useDangerousFishing() {
   const act = useCallback(
     (action: DangerousFishingAction, encounterId: string, revision: number) => {
       const before = model?.state.voyage?.encounter;
-      const targetName = before
-        ? (model?.catalogs.fish[before.targetId]?.name ?? before.targetId)
+      const legacyBefore = before?.simulationVersion === 2 ? null : before;
+      const targetName = legacyBefore
+        ? (model?.catalogs.fish[legacyBefore.targetId]?.name ?? legacyBefore.targetId)
         : null;
       return mutate("action", "/api/v2/dangerous-fishing/encounter", {
         action,
         encounterId,
         revision,
       }, (json) => {
-        if (!before || !targetName) return;
+        if (!legacyBefore || !targetName) return;
         setFeedback(
           dangerousFishingActionFeedback({
             scope: "voyage",
             action,
-            before,
+            before: legacyBefore,
             response: json,
             targetName,
           }),
@@ -250,11 +303,12 @@ export function useDangerousFishing() {
     (eventId: string) => {
       setFeedback(null);
       return mutate("boss", "/api/v2/dangerous-fishing/boss", {
-        action: "start",
+        action: "start_realtime",
         eventId,
+        baitId: model?.state.loadout.baitId ?? "basic_bait",
       });
     },
-    [mutate],
+    [model?.state.loadout.baitId, mutate],
   );
   const actOnBoss = useCallback(
     (
@@ -297,6 +351,28 @@ export function useDangerousFishing() {
     },
     [boss?.event?.name, mutate],
   );
+  const handleRealtimeFinish = useCallback(
+    (scope: "voyage" | "boss", response: Record<string, unknown>) => {
+      const realtime = scope === "voyage"
+        ? model?.state.voyage?.encounter
+        : boss?.realtimeAttempt?.encounter;
+      if (realtime?.simulationVersion === 2) {
+        const encounter = realtime as unknown as DangerousRealtimeClientEncounter;
+        const targetName = scope === "voyage"
+          ? (model?.catalogs.fish[encounter.targetId]?.name ?? encounter.targetId)
+          : (boss?.event?.name ?? encounter.targetId);
+        const nextFeedback = dangerousFishingRealtimeFinishFeedback({
+          scope,
+          encounter,
+          response,
+          targetName,
+        });
+        if (nextFeedback) setFeedback(nextFeedback);
+      }
+      void refresh();
+    },
+    [boss, model, refresh],
+  );
 
   return {
     model,
@@ -307,6 +383,7 @@ export function useDangerousFishing() {
     feedback,
     verification,
     verifyHuman,
+    readJson,
     refresh,
     startVoyage,
     returnVoyage,
@@ -315,5 +392,6 @@ export function useDangerousFishing() {
     startBossAttempt,
     actOnBoss,
     claimBossReward,
+    handleRealtimeFinish,
   };
 }

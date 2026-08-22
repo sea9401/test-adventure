@@ -39,7 +39,7 @@ import { MINING_LOG_KEY } from "@/adventure/v2/miningSession";
 import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import { MASTERY_TOWER_SAVE_KEY } from "@/adventure/data/v2/masteryTower";
-import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking";
+import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking/state";
 import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
 import { LIFE_REQUESTS_SAVE_KEY } from "@/adventure/v2/lifeRequests";
 import { LIFE_FIELD_RECORDS_KEY } from "@/adventure/v2/lifeFieldRecords";

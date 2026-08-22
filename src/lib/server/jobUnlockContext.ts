@@ -30,7 +30,7 @@ import {
   COOKING_SAVE_KEY,
   cookingLevelForXp,
   parseCookingState,
-} from "@/adventure/v2/cooking";
+} from "@/adventure/v2/cooking/state";
 import { readJobSpRebalanceState } from "./jobSpRollout";
 
 export function jobUnlockContextFromSaves(input: {

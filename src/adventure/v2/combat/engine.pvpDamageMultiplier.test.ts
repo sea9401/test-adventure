@@ -322,7 +322,8 @@ describe("PvP 호출 표면별 최종 피해 배율", () => {
     };
     const attacker = {
       ...BASE,
-      atk: 200,
+      // 기존 공격력 200에 STR 환산 증가분 300×0.35를 반영해 관통 외 피해 총량을 보존한다.
+      atk: 305,
       strStat: 300,
       maxMp: 10_000,
       mp: 10_000,
@@ -346,8 +347,8 @@ describe("PvP 호출 표면별 최종 피해 배율", () => {
 
     const normalDamage = 10_000 - normal.p2.hp;
     const piercedDamage = 10_000 - pierced.p2.hp;
-    expect(normalDamage).toBe(58);
-    expect(piercedDamage).toBe(134);
+    expect(normalDamage).toBe(137);
+    expect(piercedDamage).toBe(267);
   });
 
   it("분신 같은 턴 종료 추가타에도 배율을 적용한다", () => {

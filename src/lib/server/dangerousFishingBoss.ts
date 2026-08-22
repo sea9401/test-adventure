@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, gt, lte } from "drizzle-orm";
+import type { AutoGatheringActivity } from "@/adventure/v2/autoGathering";
 import type { DbExecutor } from "@/lib/server/savesKv";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
@@ -18,11 +19,13 @@ import {
   applyDangerousEncounterAction,
   createDangerousEncounter,
   dangerousEncounterView,
+  isDangerousRealtimeEncounter,
   type DangerousFishingAction,
 } from "@/adventure/v2/dangerousFishingEncounter";
 import {
   DANGEROUS_FISHING_SAVE_KEY,
   parseDangerousFishingState,
+  recoverExpiredRealtimeBossAttempt,
   type DangerousFishingState,
 } from "@/adventure/v2/dangerousFishingState";
 import {
@@ -42,12 +45,19 @@ import {
 import { parseProficiencyForChar } from "@/adventure/data/v2/proficiency";
 import { parseV2Class } from "@/adventure/data/v2/classes";
 import { jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
-import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 import {
-  FISHING_WALLET_KEY,
-  fishingWalletWithCoins,
-  walletCoins,
-} from "@/lib/server/fishing/coins";
+  dangerousFishingBossEventError,
+  dangerousRealtimeBossEncounterView,
+} from "@/lib/server/dangerousFishingRealtimeBoss";
+import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
+import {
+  dangerousFishingWalletWithAddedCoins,
+  mergeDangerousFishingMaterials,
+} from "@/lib/server/dangerousFishingSettlement";
+import {
+  activeAutoGatheringActivity,
+  lockAutoGatheringStatesForUpdate,
+} from "@/lib/server/lifeActivityLock";
 
 export const DANGEROUS_BOSS_EVENT_DURATION_MS = 6 * 60 * 60_000;
 export const DANGEROUS_BOSS_DISCOVERY_CHANCE = 0.08;
@@ -95,6 +105,9 @@ export interface DangerousFishingBossStore {
     contribution: DangerousFishingBossContributionRecord,
   ): Promise<void>;
   dangerousStateForUpdate(userId: string): Promise<DangerousFishingState>;
+  activeAutoActivityForUpdate(
+    userId: string,
+  ): Promise<AutoGatheringActivity | null>;
   heritageForUpdate(userId: string): Promise<DangerousFishingHeritage>;
   saveDangerousState(userId: string, state: DangerousFishingState): Promise<void>;
   characterForUpdate(userId: string): Promise<Record<string, unknown>>;
@@ -249,6 +262,11 @@ export function drizzleDangerousFishingBossStore(
         await lockSaveForUpdate(tx, userId, DANGEROUS_FISHING_SAVE_KEY, {}),
       );
     },
+    async activeAutoActivityForUpdate(userId) {
+      return activeAutoGatheringActivity(
+        await lockAutoGatheringStatesForUpdate(tx, userId),
+      );
+    },
     async saveDangerousState(userId, state) {
       await upsertSave(tx, userId, DANGEROUS_FISHING_SAVE_KEY, state);
     },
@@ -320,9 +338,27 @@ export async function readDangerousFishingBossView(
   userId: string,
   now: Date,
 ) {
+  let state = await store.dangerousStateForUpdate(userId);
+  const expired = recoverExpiredRealtimeBossAttempt(state, {
+    now: now.getTime(),
+    result: { ok: false, error: "expired" },
+  });
+  if (expired.encounter) {
+    state = expired.state;
+    await store.saveDangerousState(userId, state);
+  }
+  if (
+    state.bossAttempt &&
+    !isDangerousRealtimeEncounter(state.bossAttempt.encounter)
+  ) {
+    const attemptEvent = await store.eventForUpdate(state.bossAttempt.eventId);
+    if (dangerousFishingBossEventError(attemptEvent, now)) {
+      state = { ...state, bossAttempt: null };
+      await store.saveDangerousState(userId, state);
+    }
+  }
   await store.expireActive(now);
   const event = await store.findLatest();
-  const state = await store.dangerousStateForUpdate(userId);
   if (!event) {
     return {
       ok: true as const,
@@ -333,6 +369,7 @@ export async function readDangerousFishingBossView(
       eligible: false,
       claimed: false,
       rewardPreview: null,
+      realtimeAttempt: null,
     };
   }
   const contribution = await store.contributionForUpdate(event.id, userId);
@@ -368,10 +405,21 @@ export async function readDangerousFishingBossView(
         }
       : null,
     attempt:
-      state.bossAttempt?.eventId === event.id
+      state.bossAttempt?.eventId === event.id &&
+      !isDangerousRealtimeEncounter(state.bossAttempt.encounter)
         ? {
             eventId: event.id,
             encounter: dangerousEncounterView(state.bossAttempt.encounter),
+          }
+        : null,
+    realtimeAttempt:
+      state.bossAttempt?.eventId === event.id &&
+      isDangerousRealtimeEncounter(state.bossAttempt.encounter)
+        ? {
+            eventId: event.id,
+            encounter: dangerousRealtimeBossEncounterView(
+              state.bossAttempt.encounter,
+            ),
           }
         : null,
     eligible: (contribution?.successfulAttempts ?? 0) > 0,
@@ -428,17 +476,6 @@ export async function maybeSpawnDangerousFishingBoss(
   return (await store.createEvent(event)) ? event : store.findActive(args.now);
 }
 
-function eventError(event: DangerousFishingBossEventRecord | null, now: Date) {
-  if (!event) return "not_found" as const;
-  if (event.status === "defeated" || event.stamina <= 0) {
-    return "already_defeated" as const;
-  }
-  if (event.status === "expired" || event.expiresAt <= now) {
-    return "expired" as const;
-  }
-  return null;
-}
-
 export async function startBossAttemptInTx(
   store: DangerousFishingBossStore,
   args: {
@@ -449,9 +486,27 @@ export async function startBossAttemptInTx(
     encounterId?: string;
   },
 ) {
-  const state = await store.dangerousStateForUpdate(args.userId);
-  if (state.voyage?.encounter) {
-    return { ok: false as const, error: "encounter_active" as const };
+  const activeAutoActivity = await store.activeAutoActivityForUpdate(
+    args.userId,
+  );
+  if (activeAutoActivity) {
+    return {
+      ok: false as const,
+      error: "auto_active" as const,
+      activeAutoActivity,
+    };
+  }
+  let state = await store.dangerousStateForUpdate(args.userId);
+  const expired = recoverExpiredRealtimeBossAttempt(state, {
+    now: args.now.getTime(),
+    result: { ok: false, error: "expired" },
+  });
+  if (expired.encounter) {
+    state = expired.state;
+    await store.saveDangerousState(args.userId, state);
+  }
+  if (state.voyage) {
+    return { ok: false as const, error: "voyage_active" as const };
   }
   if (state.bossAttempt) {
     if (state.bossAttempt.eventId === args.eventId) {
@@ -460,7 +515,7 @@ export async function startBossAttemptInTx(
     const previousEvent = await store.eventForUpdate(
       state.bossAttempt.eventId,
     );
-    if (!eventError(previousEvent, args.now)) {
+    if (!dangerousFishingBossEventError(previousEvent, args.now)) {
       return { ok: false as const, error: "encounter_active" as const };
     }
   }
@@ -469,7 +524,7 @@ export async function startBossAttemptInTx(
     return { ok: false as const, error: "fishing_level_locked" as const };
   }
   const event = await store.eventForUpdate(args.eventId);
-  const error = eventError(event, args.now);
+  const error = dangerousFishingBossEventError(event, args.now);
   if (error) return { ok: false as const, error };
   const validEvent = event as DangerousFishingBossEventRecord;
   const boss = DANGEROUS_BOSSES[validEvent.bossId];
@@ -499,7 +554,10 @@ export async function startBossAttemptInTx(
   });
   const nextState: DangerousFishingState = {
     ...state,
-    bossAttempt: { eventId: validEvent.id, encounter },
+    bossAttempt: {
+      eventId: validEvent.id,
+      encounter: { ...encounter, simulationVersion: 1 },
+    },
   };
   await store.saveDangerousState(args.userId, nextState);
   return {
@@ -529,8 +587,11 @@ export async function applyBossActionInTx(
   ) {
     return { ok: false as const, error: "no_attempt" as const };
   }
+  if (isDangerousRealtimeEncounter(attempt.encounter)) {
+    return { ok: false as const, error: "realtime_attempt" as const };
+  }
   const event = await store.eventForUpdate(args.eventId);
-  const error = eventError(event, args.now);
+  const error = dangerousFishingBossEventError(event, args.now);
   if (error) {
     await store.saveDangerousState(args.userId, { ...state, bossAttempt: null });
     return { ok: false as const, error };
@@ -548,7 +609,10 @@ export async function applyBossActionInTx(
   if (transition.event === "progress") {
     await store.saveDangerousState(args.userId, {
       ...state,
-      bossAttempt: { ...attempt, encounter: transition.encounter },
+      bossAttempt: {
+        ...attempt,
+        encounter: { ...transition.encounter, simulationVersion: 1 },
+      },
     });
     return {
       ok: true as const,
@@ -670,13 +734,13 @@ export async function claimBossRewardInTx(
   const materialId = dangerousBossMaterialId(event.bossId);
   await store.saveCharacter(args.userId, {
     ...character,
-    materials: mergeDrops(character.materials, {
+    materials: mergeDangerousFishingMaterials(character.materials, {
       [materialId]: reward.materialCount,
     }),
   });
   await store.saveWallet(
     args.userId,
-    fishingWalletWithCoins(wallet, walletCoins(wallet) + reward.fishingCoins),
+    dangerousFishingWalletWithAddedCoins(wallet, reward.fishingCoins),
   );
   const previousCodex = state.bossCodex[event.bossId];
   await store.saveDangerousState(args.userId, {

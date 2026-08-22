@@ -201,7 +201,14 @@ describe("buildReviewAdminLifePreset", () => {
     expect(result.cooking).toMatchObject({
       levelCurveVersion: 2,
       xp: 120_050,
-      discoveredRecipeIds: ["rustic_bread"],
+      discoveredRecipeIds: [
+        "rustic_bread",
+        "herb_tea",
+        "grilled_corn",
+        "fish_skewer",
+        "herb_flatbread",
+        "country_egg_bread",
+      ],
       stats: expect.objectContaining({ dishesCooked: 11 }),
     });
   });

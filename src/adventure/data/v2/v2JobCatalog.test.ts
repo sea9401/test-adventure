@@ -475,6 +475,30 @@ describe("released tier-7 boundary", () => {
     }
   });
 
+  it.each([
+    ["caster", { int: 3, spi: 1 }],
+    ["magus", { int: 3, spi: 1 }],
+    ["sage", { int: 3, spi: 1 }],
+    ["arcanist", { int: 4, spi: 1 }],
+    ["archmage", { int: 4, spi: 2 }],
+    ["archer", { dex: 3, luk: 1 }],
+    ["ranger", { dex: 3, luk: 1 }],
+    ["chief", { dex: 3, luk: 1 }],
+    ["marksman", { dex: 4, luk: 1 }],
+    ["heavenlybow", { dex: 4, luk: 2 }],
+    ["assassin", { luk: 3, dex: 1 }],
+    ["shadow", { luk: 3, dex: 1 }],
+    ["phantom", { luk: 3, dex: 1 }],
+    ["nightshade", { luk: 4, dex: 1 }],
+    ["blackmoon", { luk: 4, dex: 2 }],
+  ] as const)("집중 수행 계보 %s는 카탈로그와 실제 수행에 같은 프로필을 쓴다", (id, expected) => {
+    expect(V2_JOB_CATALOG[id].cultivateProfile).toEqual(expected);
+    expect(V2_SPECIALIZED_CULTIVATE_PROFILE[id]).toEqual(expected);
+
+    const group = LEGACY_CLASS_SPEC_BY_JOB[id]?.class ?? id;
+    expect(effectiveCultivateProfile(group, id)).toEqual(expected);
+  });
+
   it("5차·6차 직업은 수행 상승 총합이 각각 5·6으로 동일하다", () => {
     for (const job of V2_JOB_LIST.filter((entry) => entry.tier >= 5)) {
       const expectedTotal = job.tier;

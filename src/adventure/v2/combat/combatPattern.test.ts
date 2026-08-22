@@ -5,6 +5,7 @@ import {
   defaultPatternFromEquipped,
   parseCombatPattern,
   parseCombatPresets,
+  v2PureSkillFormulaCoefficients,
   V2_COMBAT_PATTERN_MAX_BLOCKS,
   V2_COMBAT_PATTERN_MAX_PRESETS,
   V2_COMBAT_PRESET_NAME_MAXLEN,
@@ -670,5 +671,59 @@ describe("parseCombatPresets (C4 저장 검증)", () => {
       })),
     );
     expect(many).toHaveLength(V2_COMBAT_PATTERN_MAX_PRESETS);
+  });
+});
+
+describe("v2PureSkillFormulaCoefficients 주스탯 공격력 환산 보정", () => {
+  it("물리·마법 1~3차는 공격력 환산 0.7에서도 기존 주스탯 피해 기울기를 보존한다", () => {
+    const cases = [
+      { scaling: "physical" as const, tier: 1 as const, attack: 1.08, primary: 0.197 },
+      { scaling: "physical" as const, tier: 2 as const, attack: 1.12, primary: 0.643 },
+      { scaling: "physical" as const, tier: 3 as const, attack: 1.2, primary: 1.075 },
+      { scaling: "magic" as const, tier: 1 as const, attack: 1.05, primary: 0.035 },
+      { scaling: "magic" as const, tier: 2 as const, attack: 1.08, primary: 0.3695 },
+      { scaling: "magic" as const, tier: 3 as const, attack: 1.1, primary: 0.88 },
+    ];
+
+    for (const testCase of cases) {
+      const actual = v2PureSkillFormulaCoefficients({
+        tier: testCase.tier,
+        scaling: testCase.scaling,
+        directDamageEffectCount: 1,
+        resolvedAttackCoef: testCase.tier === 1 ? 1.3 : testCase.tier === 2 ? 1.5 : 1.75,
+      });
+      expect(actual.attackCoef, `${testCase.scaling} tier ${testCase.tier}`).toBeCloseTo(
+        testCase.attack,
+        6,
+      );
+      expect(
+        actual.primaryStatCoef,
+        `${testCase.scaling} tier ${testCase.tier}`,
+      ).toBeCloseTo(testCase.primary, 6);
+    }
+  });
+
+  it("다단 스킬도 타격별 공격력 환산 증가분을 직접 계수에서 차감한다", () => {
+    const actual = v2PureSkillFormulaCoefficients({
+      tier: 2,
+      scaling: "physical",
+      directDamageEffectCount: 3,
+      resolvedAttackCoef: 0.5,
+    });
+
+    expect(actual.attackCoef).toBeCloseTo(0.373333, 6);
+    expect(actual.primaryStatCoef).toBeCloseTo(0.214333, 6);
+  });
+
+  it("공격력 계수가 높은 스킬의 보정 직접 계수는 0 아래로 내려가지 않는다", () => {
+    const actual = v2PureSkillFormulaCoefficients({
+      tier: 1,
+      scaling: "magic",
+      directDamageEffectCount: 1,
+      resolvedAttackCoef: 4,
+    });
+
+    expect(actual.attackCoef).toBe(3.75);
+    expect(actual.primaryStatCoef).toBe(0);
   });
 });

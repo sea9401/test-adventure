@@ -1047,7 +1047,7 @@ describe("resolveV2SkillCast — dex/luk 비례 딜(도적 직군)", () => {
         procRoll: 0,
         attacker: {
           ...castInput(["v2c_warrior_strike"]).attacker,
-          atk: 100,
+          atk: 170,
           str: 200,
         },
         target: {
@@ -1057,7 +1057,7 @@ describe("resolveV2SkillCast — dex/luk 비례 딜(도적 직군)", () => {
       }),
     );
 
-    expect(result.enemyDamage).toBe(223);
+    expect(result.enemyDamage).toBe(222);
   });
 
   it("특화 공격 스킬의 직접 스탯 계수는 기존보다 15% 높다", () => {
@@ -1467,7 +1467,7 @@ describe("resolveV2SkillCast — 원소군주·태초술사 주문식", () => {
       attacker: {
         ...castInput(baseSkills).attacker,
         atk: 100,
-        magicAtk: 100,
+        magicAtk: 135,
         int: 100,
       },
       target: {
@@ -1484,7 +1484,7 @@ describe("resolveV2SkillCast — 원소군주·태초술사 주문식", () => {
     expect(base.castSkillName).toBe("태초의 화염폭풍");
     expect(catalyst.castSkillName).toBe("태초의 화염폭풍");
     expect(catalyst.hitDamages).toHaveLength(base.hitDamages.length + 1);
-    expect(catalyst.enemyDamage - base.enemyDamage).toBe(28);
+    expect(catalyst.enemyDamage - base.enemyDamage).toBe(52);
   });
 
   it("동일 40 SP에서 태초술사 개벽 직타는 천궁·흑월 중앙값보다 15~30% 강하다", () => {
@@ -1521,8 +1521,8 @@ describe("resolveV2SkillCast — 원소군주·태초술사 주문식", () => {
         castInput([...equipped], {
           attacker: {
             ...castInput([...equipped]).attacker,
-            atk: 1_000,
-            magicAtk: 1_000,
+            atk: 1_350,
+            magicAtk: 1_350,
             str: 1_000,
             int: 1_000,
             dex: 1_000,

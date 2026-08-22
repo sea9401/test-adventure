@@ -49,9 +49,9 @@ export async function readSaves<T extends SaveFallbacks>(
   return savesWithFallbacks(fallbacks, rows);
 }
 
-// character.v2 같은 선행 잠금을 호출부가 먼저 잡은 뒤, 나머지 save 키를 정렬된 순서로
-// 한 번에 잠글 때 사용한다. 정렬은 서로 다른 라우트의 동일 사용자 동시 요청에서도 잠금
-// 획득 순서를 안정적으로 유지한다.
+// 호출부가 먼저 사용자 행을 잠근 뒤, 여러 save 키를 정렬된 순서로 한 번에 잠글 때
+// 사용한다. 정렬은 서로 다른 라우트의 동일 사용자 동시 요청에서도 잠금 획득 순서를
+// 안정적으로 유지한다.
 export async function lockSavesForUpdate<T extends SaveFallbacks>(
   executor: DbExecutor,
   userId: string,

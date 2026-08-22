@@ -183,7 +183,7 @@ function seedRebalanceStore(proficiency: V2ProficiencyState) {
   store.set("proficiency.v2", proficiency);
   store.set("guide-quests.v2", { claimed: questIds });
   store.set("farm.v2", { stats: { farmingXp: 1_000_000 } });
-  store.set("cooking.v1", { xp: 1_000_000 });
+  store.set("cooking.v2", { xp: 1_000_000 });
   store.set("woodcutting-log.v1", { cuts: 1_000_000, xp: 1_000_000 });
   store.set("mining-log.v1", { successes: 1_000_000, xp: 1_000_000 });
 }

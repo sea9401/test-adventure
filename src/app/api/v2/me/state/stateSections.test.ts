@@ -174,12 +174,19 @@ describe("loadoutSection — 직업 SP 산식 전환", () => {
 });
 
 describe("cookingCodexSection", () => {
-  it("알려진 첫 완성 요리법만 중복 없이 반환한다", () => {
+  it("기본 6종을 자동 등록하고 알려진 발견만 중복 없이 반환한다", () => {
     const section = cookingCodexSection({
       discoveredRecipeIds: ["rustic_bread", "rustic_bread", "unknown"],
     });
 
-    expect(section.discoveredIds).toEqual(["rustic_bread"]);
+    expect(section.discoveredIds).toEqual([
+      "rustic_bread",
+      "herb_tea",
+      "grilled_corn",
+      "fish_skewer",
+      "herb_flatbread",
+      "country_egg_bread",
+    ]);
     expect(section.total).toBeGreaterThan(section.discoveredIds.length);
   });
 });

@@ -475,7 +475,8 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       cooldowns: {},
       attacker: {
         mp: 1000,
-        atk: 100,
+        // 기존 공격력 100에 STR 환산 증가분 200×0.35를 반영한다.
+        atk: 170,
         str: 200,
         maxHp: 200,
         selfBuffs: {},
@@ -483,8 +484,8 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       },
       target: { def: 20, selfBuffs: {}, selfDebuffs: {} },
     });
-    // t1 순수 물리: 공격력×1.08 + 힘×(0.5×1.15) - 방어력 20.
-    expect(result.enemyDamage).toBe(203);
+    // t1 순수 물리: 공격력×1.08 + 힘×0.197 - 방어력 20. 반올림 오차만 1 발생한다.
+    expect(result.enemyDamage).toBe(202);
   });
 
   it("무심검은 현 세대 힘 300의 총량을 유지하면서 장기 힘 투자에 크게 보상한다", () => {
@@ -498,7 +499,8 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
         procRoll: 0,
         attacker: {
           mp: 10_000,
-          atk: 1_000,
+          // 기존 공격력 1,000에 STR 환산 증가분을 더해 직접 계수 이전 전 총량과 비교한다.
+          atk: 1_000 + Math.floor(str * 0.35),
           str,
           maxHp: 10_000,
           selfBuffs: {},
@@ -507,7 +509,7 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
         target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
       });
 
-    // 본타 공격력×1.3 + 힘×(1.3×1.15), 여기에 무심검의 15% 관통 추가 피해.
+    // 본타 공격력×1.3 + 힘×1.04, 여기에 무심검의 15% 관통 추가 피해.
     expect(cast(300).enemyDamage).toBe(2_010);
     expect(cast(1_000).enemyDamage).toBe(3_214);
   });

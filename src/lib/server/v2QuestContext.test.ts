@@ -77,12 +77,12 @@ describe("buildQuestCtx 신규 콘텐츠 누적 신호", () => {
       craftingRaw: {},
       cookingRaw: {
         xp: 810,
-        discoveredRecipeIds: ["rustic_bread", "herb_tea", "rustic_bread"],
+        discoveredRecipeIds: ["tomato_salad", "fresh_fish_soup", "tomato_salad"],
         stats: {
           dishesCooked: 120,
-          ordersCompleted: 15,
+          deliveriesCompleted: 15,
           masterpiecesCooked: 7,
-          rareIngredientDishes: 9,
+          researchSuccesses: 9,
         },
       },
       extras: EXTRAS,

@@ -97,7 +97,7 @@ describe("POST /api/admin/users/review-op-preset", () => {
       ["woodcutting-log.v1", { xp: 20, cuts: 8 }],
       ["mining-log.v1", { xp: 30, successes: 9 }],
       ["fishing-progress.v1", { xp: 40, catches: 10 }],
-      ["cooking.v1", { xp: 50, stats: { dishesCooked: 11 } }],
+      ["cooking.v2", { xp: 50, stats: { dishesCooked: 11 } }],
     ]);
     mocks.select.mockReturnValue({
       from: vi.fn(() => ({
@@ -208,7 +208,7 @@ describe("POST /api/admin/users/review-op-preset", () => {
       "woodcutting-log.v1",
       "mining-log.v1",
       "fishing-progress.v1",
-      "cooking.v1",
+      "cooking.v2",
     ]);
     expect(mocks.upsert).toHaveBeenCalledWith(
       mocks.tx,
@@ -263,7 +263,7 @@ describe("POST /api/admin/users/review-op-preset", () => {
     expect(mocks.upsert).toHaveBeenCalledWith(
       mocks.tx,
       "review-user",
-      "cooking.v1",
+      "cooking.v2",
       expect.objectContaining({
         levelCurveVersion: 2,
         xp: 120_050,

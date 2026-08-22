@@ -49,8 +49,11 @@ export function FishingShopPanel({
     loading: exchangeLoading,
     error: exchangeError,
     exchanging,
+    sellingCatch,
     refresh: refreshExchange,
     exchange,
+    enhanceGear,
+    sellCatch,
   } = useDangerousFishingExchange();
   const handleDangerousShop = useCallback(
     async (...args: Parameters<typeof dangerousShop>) => {
@@ -75,6 +78,19 @@ export function FishingShopPanel({
       return result;
     },
     [exchange, refreshDangerousShop, syncCoins],
+  );
+  const handleEnhanceGear = useCallback(
+    async (...args: Parameters<typeof enhanceGear>) => {
+      const result = await enhanceGear(...args);
+      if (result.ok) {
+        if (typeof result.fishingCoins === "number") {
+          syncCoins(result.fishingCoins);
+        }
+        await refreshDangerousShop();
+      }
+      return result;
+    },
+    [enhanceGear, refreshDangerousShop, syncCoins],
   );
   const handleBuy = useCallback(
     async (...args: Parameters<typeof buy>) => {
@@ -120,8 +136,11 @@ export function FishingShopPanel({
           loading: exchangeLoading,
           error: exchangeError,
           exchanging,
+          sellingCatch,
           onRefresh: refreshExchange,
           onExchange: handleExchange,
+          onEnhanceGear: handleEnhanceGear,
+          onSellCatch: sellCatch,
         },
       }}
       onBack={onBack}

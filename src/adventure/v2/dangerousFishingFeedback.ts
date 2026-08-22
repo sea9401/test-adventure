@@ -152,13 +152,16 @@ export function dangerousFishingReturnFeedback(
     const quantity = finiteNumber(value);
     return sum + (quantity == null ? 0 : Math.max(0, Math.floor(quantity)));
   }, 0);
+  const returnFishingCoinsGained = Math.floor(
+    finiteNumber(response.returnFishingCoinsGained) ?? 0,
+  );
   if (response.incident === true) {
     const lostValue = finiteNumber(response.lostValue) ?? 0;
     return {
       scope: "voyage",
       tone: "warning",
       title: "해상 사고로 강제 귀환",
-      detail: `손실 가치 ${lostValue.toLocaleString()} · 남은 어획물 ${confirmedCount.toLocaleString()}개를 확정했습니다.`,
+      detail: `손실 가치 ${lostValue.toLocaleString()} · 남은 어획물 ${confirmedCount.toLocaleString()}개 확정 · 낚시 코인 ${signed(returnFishingCoinsGained).toLocaleString()}`,
       terminal: true,
     };
   }
@@ -166,7 +169,7 @@ export function dangerousFishingReturnFeedback(
     scope: "voyage",
     tone: "success",
     title: "안전 귀환 완료",
-    detail: `어획물 ${confirmedCount.toLocaleString()}개를 확정했습니다. 낚시 상점의 위험 해역 교환이나 거래소에서 사용할 수 있습니다.`,
+    detail: `어획물 ${confirmedCount.toLocaleString()}개를 확정하고 낚시 코인 ${signed(returnFishingCoinsGained)}을 받았습니다. 낚시 상점의 위험 해역 교환이나 거래소에서 사용할 수 있습니다.`,
     terminal: true,
   };
 }

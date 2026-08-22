@@ -323,6 +323,10 @@ const V2_PURE_SKILL_PRIMARY_STAT_FORMULA_BY_TIER = {
   },
 } as const;
 
+// STR/INT의 공격력 환산이 0.35에서 0.7로 늘어난 만큼 순수 스킬의 직접 주스탯 계수에서
+// 같은 피해 기여분을 옮긴다. 특화 스킬은 직접 STR/INT 항이 없으므로 이 보정을 쓰지 않는다.
+export const V2_PRIMARY_STAT_ATTACK_CONVERSION_GAIN = 0.35;
+
 /** 순수 직접 피해 효과 1개의 공격력 계수와 STR/INT 계수. 다단기는 총계수를 타수로 나눈다. */
 export function v2PureSkillFormulaCoefficients({
   tier,
@@ -334,16 +338,33 @@ export function v2PureSkillFormulaCoefficients({
   scaling: "physical" | "magic";
   directDamageEffectCount: number;
   resolvedAttackCoef: number;
-}): { attackCoef: number; primaryStatCoef: number } {
+}): {
+  attackCoef: number;
+  primaryStatCoef: number;
+  uncompensatedPrimaryStatCoef: number;
+} {
   const hitCount = Math.max(1, directDamageEffectCount);
   const formula = V2_PURE_SKILL_PRIMARY_STAT_FORMULA_BY_TIER[scaling][tier];
+  const attackCoef = Math.max(
+    0,
+    resolvedAttackCoef - formula.attackTransfer / hitCount,
+  );
+  const previousPrimaryStatCoef =
+    scaledSkillStatCoef(
+      formula.primaryStatCoef,
+      V2_DIRECT_SKILL_STAT_COEF_MULT,
+    ) / hitCount;
   return {
-    attackCoef: Math.max(0, resolvedAttackCoef - formula.attackTransfer / hitCount),
-    primaryStatCoef:
+    attackCoef,
+    uncompensatedPrimaryStatCoef: previousPrimaryStatCoef,
+    primaryStatCoef: Math.max(
+      0,
       scaledSkillStatCoef(
-        formula.primaryStatCoef,
-        V2_DIRECT_SKILL_STAT_COEF_MULT,
-      ) / hitCount,
+        previousPrimaryStatCoef -
+          attackCoef * V2_PRIMARY_STAT_ATTACK_CONVERSION_GAIN,
+        1,
+      ),
+    ),
   };
 }
 

@@ -30,6 +30,7 @@ import {
   WAR_TICKER_WINDOW_MIN,
   type FeedEntry,
 } from "@/lib/feed-config";
+import { COOKING_PUBLIC_RECIPE_BY_ID } from "./cooking/catalog";
 
 type CoopFeedPayload = {
   kind: string;
@@ -165,6 +166,10 @@ export function warTickerText(
         p.discoveryId as keyof typeof LIFE_FIELD_DISCOVERIES
       ];
     return `${e.actorName} 님이 희귀 현장 기록 ${discovery?.label ?? p.discoveryId} 완성!`;
+  }
+  if (e.type === "cooking_discovery") {
+    const p = e.payload as { recipeId: string };
+    return `${e.actorName} 님이 숨은 요리 ${COOKING_PUBLIC_RECIPE_BY_ID.get(p.recipeId)?.name ?? p.recipeId} 최초 개발!`;
   }
   if (e.type === "codex_research_result") {
     const p = e.payload as {

@@ -32,7 +32,7 @@ vi.mock("@/adventure/data/v2/museunCashItems", () => ({
   isMuseunCashItemId: mocks.isMuseunCashItemId,
   addMuseunCashItem: mocks.addMuseunCashItem,
 }));
-vi.mock("@/adventure/v2/cooking", () => ({
+vi.mock("@/adventure/v2/cooking/food", () => ({
   isCookingFoodId: mocks.isCookingFoodId,
   addCookingFood: mocks.addCookingFood,
 }));

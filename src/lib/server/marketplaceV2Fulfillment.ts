@@ -12,7 +12,7 @@ import {
 import {
   addCookingFood,
   isCookingFoodId,
-} from "@/adventure/v2/cooking";
+} from "@/adventure/v2/cooking/food";
 import { restoreMarketplaceRareMap } from "@/lib/server/marketplaceV2";
 import {
   FISH_SPECIMEN_SAVE_KEY,

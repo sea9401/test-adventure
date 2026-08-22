@@ -104,6 +104,7 @@ describe("dangerous fishing feedback", () => {
         returned: true,
         incident: false,
         lostValue: 0,
+        returnFishingCoinsGained: 270,
         materials: { danger_catch_a: 2, danger_catch_b: 1 },
       }),
     ).toEqual({
@@ -111,7 +112,7 @@ describe("dangerous fishing feedback", () => {
       tone: "success",
       title: "안전 귀환 완료",
       detail:
-        "어획물 3개를 확정했습니다. 낚시 상점의 위험 해역 교환이나 거래소에서 사용할 수 있습니다.",
+        "어획물 3개를 확정하고 낚시 코인 +270을 받았습니다. 낚시 상점의 위험 해역 교환이나 거래소에서 사용할 수 있습니다.",
       terminal: true,
     });
     expect(
@@ -119,6 +120,7 @@ describe("dangerous fishing feedback", () => {
         returned: true,
         incident: true,
         lostValue: 420,
+        returnFishingCoinsGained: 53,
         materials: { danger_catch_a: 1 },
       }),
     ).toMatchObject({
@@ -126,6 +128,27 @@ describe("dangerous fishing feedback", () => {
       title: "해상 사고로 강제 귀환",
       detail: expect.stringContaining("손실 가치 420"),
     });
+    expect(
+      dangerousFishingReturnFeedback({
+        returned: true,
+        incident: true,
+        lostValue: 420,
+        returnFishingCoinsGained: 53,
+        materials: { danger_catch_a: 1 },
+      })?.detail,
+    ).toContain("낚시 코인 +53");
+  });
+
+  it("does not disguise a destructive return coin value as a zero reward", () => {
+    const feedback = dangerousFishingReturnFeedback({
+      returned: true,
+      incident: false,
+      returnFishingCoinsGained: -1,
+      materials: {},
+    });
+
+    expect(feedback?.detail).toContain("낚시 코인 -1");
+    expect(feedback?.detail).not.toContain("낚시 코인 +0");
   });
 
   it("explains boss contribution and claimed token uses", () => {

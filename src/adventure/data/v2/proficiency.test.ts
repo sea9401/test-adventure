@@ -401,7 +401,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(reset!.next.growthRespecPoints).toBe(100);
   });
 
-  it("레히인 회귀 — 기존 219 성장 포인트를 초기화한 뒤 도적 재수행하면 민첩·행운으로만 옮긴다", () => {
+  it("레히인 회귀 — 기존 219 성장 포인트를 초기화한 뒤 궁수 재수행하면 민첩 3·행운 1 비율로 옮긴다", () => {
     const before = parseProficiency({
       points: 1_000_000,
       groups: { rogue: { cultivations: 177, tier: 1, cumLevel: 11_503 } },
@@ -429,7 +429,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
       current = cultivated!.next;
     }
 
-    expect(current.grown).toEqual({ dex: 110, luk: 109 });
+    expect(current.grown).toEqual({ dex: 165, luk: 54 });
     expect(current.growthRespecPoints).toBe(0);
   });
 
@@ -544,6 +544,40 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(result!.next.caps.str).toBe(str);
     expect(result!.next.caps.dex).toBeUndefined();
   });
+
+  it.each([
+    ["mage", "caster", "int", 3, "spi", 1],
+    ["mage", "magus", "int", 3, "spi", 1],
+    ["mage", "sage", "int", 3, "spi", 1],
+    ["mage", "arcanist", "int", 4, "spi", 1],
+    ["mage", "archmage", "int", 4, "spi", 2],
+    ["rogue", "archer", "dex", 3, "luk", 1],
+    ["rogue", "ranger", "dex", 3, "luk", 1],
+    ["rogue", "chief", "dex", 3, "luk", 1],
+    ["rogue", "marksman", "dex", 4, "luk", 1],
+    ["rogue", "heavenlybow", "dex", 4, "luk", 2],
+    ["rogue", "assassin", "luk", 3, "dex", 1],
+    ["rogue", "shadow", "luk", 3, "dex", 1],
+    ["rogue", "phantom", "luk", 3, "dex", 1],
+    ["rogue", "nightshade", "luk", 4, "dex", 1],
+    ["rogue", "blackmoon", "luk", 4, "dex", 2],
+  ] as const)(
+    "applyCultivation — %s 집중 계보 %s는 주력 %s +%i · 보조 %s +%i를 올린다",
+    (group, jobId, primary, primaryGain, secondary, secondaryGain) => {
+      const p = parseProficiency({ groups: { [group]: { points: 100 } } });
+      const result = applyCultivation(
+        p,
+        group,
+        undefined,
+        undefined,
+        jobId,
+      );
+
+      expect(result!.next.caps[primary]).toBe(primaryGain);
+      expect(result!.next.caps[secondary]).toBe(secondaryGain);
+      expect(totalCapGains(result!.next)).toBe(primaryGain + secondaryGain);
+    },
+  );
 
   it("applyCultivation — 5차 초월자는 행운을 제외한 총 +5 cap을 얻는다", () => {
     const p = parseProficiency({ groups: { warrior: { points: 1000 } } });

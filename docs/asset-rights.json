@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-08-16",
+  "reviewedAt": "2026-08-22",
   "instructions": "Every deployed visual or media asset must have an exact SHA-256 entry. Change a source rule only after reviewing evidence; --strict is the public-release clearance gate.",
   "sources": [
     {
@@ -14,7 +14,7 @@
     {
       "id": "operator-cleared-game-art",
       "releaseStatus": "cleared",
-      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06, the nine ranch and cooking rasters added on 2026-08-10, the six Star Grave environment and monster rasters added on 2026-08-14, the 37 dangerous-fishing and ranch/cooking rasters added on 2026-08-15, and the six ranch cooking rasters added on 2026-08-16 were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included.",
+      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06, the nine ranch and cooking rasters added on 2026-08-10, the six Star Grave environment and monster rasters added on 2026-08-14, the 37 dangerous-fishing and ranch/cooking rasters added on 2026-08-15, the six ranch cooking rasters added on 2026-08-16, the 55 cooking-research recipe rasters added on 2026-08-22, and the five dangerous-fishing realtime rasters added on 2026-08-22 were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. The 2026-08-22 boss sheets use cleared repository fish artwork for identity and style; a user-supplied, non-deployed golem sheet served only as a generic spacing/motion-layout reference, with no pixels, character identity, palette, anatomy, or style carried into the deployed assets. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included in deployed game art.",
       "evidence": [
         "docs/image-gen-prompt.md",
         "https://github.com/sea9401/test-adventure/pull/232",
@@ -28,7 +28,9 @@
         "docs/superpowers/plans/2026-08-15-dangerous-fishing-visual-refresh.md",
         "docs/superpowers/plans/2026-08-15-pig-shipment-ranch.md",
         "docs/superpowers/plans/2026-08-15-ranch-recipe-expansion.md",
-        "docs/superpowers/plans/2026-08-16-cooking-delivery-ranch-recipes.md"
+        "docs/superpowers/plans/2026-08-16-cooking-delivery-ranch-recipes.md",
+        "docs/superpowers/specs/2026-08-22-cooking-research-overhaul-design.md",
+        "docs/asset-provenance-dangerous-fishing-realtime-2026-08-22.md"
       ]
     },
     {
@@ -95,6 +97,11 @@
     {
       "path": "public/images/fish/abyss_catfish.webp",
       "sha256": "79546b36fd37c8cf20f72380e162dd65d98e39a67bc23a75bd4fe4956cf1e86a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/abyss_kraken-struggle.webp",
+      "sha256": "0e5cbba164a2571bd040fecf64db45f338c85b3a7182176158349e4a54d0be55",
       "source": "operator-cleared-game-art"
     },
     {
@@ -373,6 +380,11 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/fish/tidal_colossus-struggle.webp",
+      "sha256": "1e2861b738829b7c9a54892e6d957e32891105a2a56261b17064a4b6d46c66f9",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/fish/tidal_colossus.webp",
       "sha256": "9f4a66bfe5dd0c0c2df1ad42c18964f0ef7945993d98b1c65114ccd0499c74b4",
       "source": "operator-cleared-game-art"
@@ -478,6 +490,11 @@
       "source": "repository-authored-vector"
     },
     {
+      "path": "public/images/items/cooking/abyssal_fisher_stew.webp",
+      "sha256": "7126999c09765a4b2ab3d6eb303869fdc038180b6753dbddcb18652cdb339868",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/ancient_tomato_meal.webp",
       "sha256": "0b77aec9a6869c51367b34540c19cd9358eb3110e37b89743b09772e398849aa",
       "source": "operator-cleared-game-art"
@@ -485,6 +502,41 @@
     {
       "path": "public/images/items/cooking/aromatic_fish_curry.webp",
       "sha256": "6f76f848c678f04a94a344e5ef85e19a8051268a408df1456c025e96b8c68798",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/black_bean_fish_braise.webp",
+      "sha256": "f6abb31c93e133ccc1ce4eed0b55d4441026113702f27ec6bb1a51f99550e638",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/black_bean_hotpot.webp",
+      "sha256": "ca33ab2fe81581cc9acd6cce34452ae6fb72a0ef452f28642b3978f4270af14c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/black_bean_pork_roast.webp",
+      "sha256": "7ef707be16a597407ee6d8514cbd564e2d608172a9dd0c23550c35a8d74da60a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/black_soybean_tonic.webp",
+      "sha256": "afdbf6d765413e17192ae921998bd22653a218aab92e328d27145df1e4b5c045",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/butter_croissant.webp",
+      "sha256": "f01807a3d351261bf723bff6e7b564506672bb9a59730d3ba82be5541158828b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_souffle.webp",
+      "sha256": "c313af02cc8658e34cd5e06caa96b2b1c28ee949706ac5e869d07cbe60cd60de",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_cheese_bread.webp",
+      "sha256": "e0bd89b8ca6779fcac3999b4667af2de6cb61019cdfa88bf6b593d20a9c4925c",
       "source": "operator-cleared-game-art"
     },
     {
@@ -513,6 +565,21 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/crystal_sugar_syrup.webp",
+      "sha256": "082f83df926b317aaa80f7281c4359b39b170ad6f451c399fc819e6febd42869",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/deep_pot_banquet.webp",
+      "sha256": "9f33d3eec1a4864c41e2c70996f3e5a1d5ab2c76d638fcdb1ec589d1212f6efb",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/dragon_chef_omakase.webp",
+      "sha256": "fa9dabddb34ef09b93d6d35c3cf5529722b3f233c58777618bfaebd3d417d05f",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/dragonfire_seafood_hotpot.webp",
       "sha256": "43c34c072070dd406c004496f67e03cad41a58b03a9b7a6cdb44397907816f06",
       "source": "operator-cleared-game-art"
@@ -533,6 +600,16 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/eternal_kitchen_legend.webp",
+      "sha256": "fbbac656fe7d784936c21b8cc3da1fd5c1e1e4c10b4693e0bbea0d584394c04a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/firecracker_eggs.webp",
+      "sha256": "b031b4143e3071490bf161a54fbd862424506f43132dd77598f2e5537d288c0a",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/fish_croquettes.webp",
       "sha256": "6ce1c86e53eed4531a46a60cf1a04c8f2761d344891051797e5027954a0fa952",
       "source": "operator-cleared-game-art"
@@ -548,6 +625,11 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/five_flame_banquet.webp",
+      "sha256": "6cccddf62d95290f8f2b5e656ec18c8bf25d8918351916afae124b6b8f94e120",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/flame_corn_stew.webp",
       "sha256": "cbb2b41aa9517b2a50a2fc105b468a79d18044756842bbf46d6187db78cfae65",
       "source": "operator-cleared-game-art"
@@ -558,13 +640,78 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/golden_corn_fritters.webp",
+      "sha256": "7887db0f2591255bf7ee885bae759ecdf2befd2182dd4655812a1a7686a2dd88",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/golden_field_festival.webp",
+      "sha256": "7aa171af0ac04b7dde53656ab469aabdc0ddbc9e20298e15d9904ec0a8b3392d",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/golden_gratin.webp",
       "sha256": "65db204f4e7e25451d22ad456d193b3661ad333c1b7248a3d1185cc3db964128",
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/golden_potato_decoction.webp",
+      "sha256": "2d07cb75f4a85ec0dd1ef4d2f04ffabfbf7c2fa98fa03bdd3530288e3a6e5f75",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/golden_rice_congee.webp",
+      "sha256": "5512ec05f077dc61f4c1b5c6702fb664126cf985f21b6b966cd6e92d82cf4c54",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/golden_rice_ferment.webp",
+      "sha256": "be87a93c0228503ab338b3acbf1c05a841c30b6975ff51fe6053f920f7a787eb",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/golden_seafood_paella.webp",
+      "sha256": "afdf89a4e97f6a6a85f8e21470a27c4ebdf12db859b584a72a116ce092d408df",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/golden_wheat_tea.webp",
+      "sha256": "f153a8c0c961c5872a235c922ba78c254b0754f44852da38272d765223a2343d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/grand_bakers_loaf.webp",
+      "sha256": "24315fd08d0bb08ce545647f4d60faf0547741c433224aa8dfb8bc33c8a0c404",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/grilled_corn.webp",
       "sha256": "3f16db7c85e9cb1cfd7d3ec61f6a4978d9fad7c2de20eccdc98dca4320638d74",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/harvest_moon_feast.webp",
+      "sha256": "f2a6840e9be88cb628f1af36593f8d9f2915548204c79f23df937ec4597b0221",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/harvest_root_soup.webp",
+      "sha256": "b8bf9e3b93991118a08ae2fa16eef8214346fe773fe147470da9a4965fc76b27",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/harvest_stir_fry.webp",
+      "sha256": "053a63bc5343cedc551d0e77dcc7a115a90eeed18d1317925622d878f3bd6ba3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/heirloom_tomato_juice.webp",
+      "sha256": "d58aed502c143d024fa86de54b946d6c60be1e27e2f3572d70c65fa3cd7f0c72",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/herb_fish_terrine.webp",
+      "sha256": "1e421e110e5c2a6a983559fe439b697d3a8b0362b910174aceac2d7d8a069d50",
       "source": "operator-cleared-game-art"
     },
     {
@@ -578,6 +725,11 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/herb_rice_cakes.webp",
+      "sha256": "f7cb933ba2a15d33d4be84a663c606125162c1cf4c3b0aae78cae5d8ce67bdb4",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/herb_roasted_pork.webp",
       "sha256": "743fbb4f5be2a73ac8d13b2c14554431128544bcef2b8621b3261602663498a0",
       "source": "operator-cleared-game-art"
@@ -588,8 +740,18 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/herbal_steam_pot.webp",
+      "sha256": "48335bee4cd40f5e654a91bc67ca10794d69127eab77e910972856ccea7f586d",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/legendary_sea_banquet.webp",
       "sha256": "fe5fe754e8ccc924fd49d4901e6a6747737c8db256f57a25472aa9eddbc1f6a5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/midnight_cacao_banquet.webp",
+      "sha256": "b0d15db8d7a8fd9ea8d3844b2ac9ab35574645f12f43a9e2dc1d097b7e1fc991",
       "source": "operator-cleared-game-art"
     },
     {
@@ -608,8 +770,68 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/moon_onion_potage.webp",
+      "sha256": "a348fd39e8d2382182556815893206338cee47801eca5dd911635d711abe8aae",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/moon_tide_sashimi.webp",
+      "sha256": "4b5d539322fc32dfb1c6cd82da87b2d215569af59477e431190cd5cc154d321e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/moonlight_shortcake.webp",
+      "sha256": "e1ed4a41922cbb2e498b5f4145571b736cc09a5ad51b3f481da1ecb671c90a5f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/moonlit_cutlet.webp",
+      "sha256": "b62cddb1e56fc35e315e9efb1d937e138e2634142aed351ec3dd3e08ef332757",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/ocean_emperors_table.webp",
+      "sha256": "ea7d3cf62f966a7dfed2f34a6af7f38e2fbe3ce0823e664778c33d17d5dca309",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/onion_quiche.webp",
+      "sha256": "ac33d52e8d6580586a47679b89abe7fb814bd6e4cd705b5af7c8f608684a29f4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/onion_steak.webp",
+      "sha256": "337c2160017b700edee9b36b933893b4b0a43b7c58ba1de531fe89a7e681f65e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pearl_coast_wedding_feast.webp",
+      "sha256": "5f968a1ada4b55541555a90d6f522cd65ee6bd6883d6b45675b3c78a1a88d375",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pearl_fish_steam.webp",
+      "sha256": "f9175a6decddde7ebbee2099e9d92fe93131eb7a40928032f1fd3819fdd06b6a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pearl_onion_extract.webp",
+      "sha256": "e3747676d135576c4701939991f93540032becd072c1a97fef1a429b62604e34",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/pearl_onion_soup.webp",
       "sha256": "a876f25c155b339781912a205440ca97ac89deade3f04844e233b28cc306a0a5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/peppered_pork_plate.webp",
+      "sha256": "5f40ff3246bf8d836e292fe066b220e5fee4bb7350ae95b64630aee4fac574ee",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_bone_broth.webp",
+      "sha256": "3832922bdd0777e7f0118751911f60b5125d7494b15bf00652a1830dcf24de08",
       "source": "operator-cleared-game-art"
     },
     {
@@ -633,8 +855,23 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/restorative_herb_porridge.webp",
+      "sha256": "4690648b6e200ec6a8be882322392fa8b6852a338ea20799527a26faed7f7b00",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/royal_cacao_brew.webp",
+      "sha256": "e07876fba7a6778639d9e140c0bb68622dfaf9b2fbde88b88256e17bd59c3c3c",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/royal_cacao_tart.webp",
       "sha256": "cee32f2be3c282b8a19b14ea4fed0bb2f91d80f9adeabb05dd3e7a755e35e874",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/royal_pastry_tower.webp",
+      "sha256": "2f7181053f04054f38a7165004526daa7c2ed55c013cc1a05e458b71da4826a8",
       "source": "operator-cleared-game-art"
     },
     {
@@ -645,6 +882,21 @@
     {
       "path": "public/images/items/cooking/rustic_bread.webp",
       "sha256": "4b570120dec535812c108744ed40f255bed54dde59f98a8f2e285c90ab38aca0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/sage_medicinal_table.webp",
+      "sha256": "1fa95f4864b9bec58e347a681b2f7e9427c429871f1810d06a01fdf3e1a3237c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/sea_salt_grilled_fish.webp",
+      "sha256": "d1698ce3768803d5ff720f890a515aaf65b0bc5ce2396a605a56a35a9bdff537",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/silverleaf_tonic.webp",
+      "sha256": "ac8c8073290c26a655f5ad967aa962b2c43678f65ef4f0216a39627374a2b731",
       "source": "operator-cleared-game-art"
     },
     {
@@ -678,6 +930,16 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/starlight_breakfast.webp",
+      "sha256": "6c14e7467dcfd4f2e6c165dccd455e86141ab0f60f98e85e7a16ad31fea7e816",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/storm_seafood_fry.webp",
+      "sha256": "9c0e296d9f63bfcc996159a965ae7839726d265b5543a8424122a8cdc62a9fa1",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/strawberry_herb_punch.webp",
       "sha256": "628960db11c6852a645361f56c357de7232eecc7f63ddeacf394284df10d6d73",
       "source": "operator-cleared-game-art"
@@ -693,6 +955,26 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/sunset_fish_chowder.webp",
+      "sha256": "1ddc52c74e792872cb364d603a53b89655ab0b06c3d5c5583407c1f589d7edcd",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/sweet_corn_elixir.webp",
+      "sha256": "3603133944a0a274f0ccc1009faf9519e1dc18386741cfaadaca863e69023ed3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_cream_stew.webp",
+      "sha256": "1374c9c8d0f4f4b0d4c16bbab4fe869aa8aacf30b8c02d2cd5222a792d932715",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_pork_skewers.webp",
+      "sha256": "f55b9ba48d95ba54707bce30bcee4dcb957ae06d2a112b85e420907863fa9bcc",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/tomato_salad.webp",
       "sha256": "9ea4bd6d39d42134289510562f7c86b68bb17859ad185ccf5f07e1b5a67e7236",
       "source": "operator-cleared-game-art"
@@ -700,6 +982,11 @@
     {
       "path": "public/images/items/cooking/white_strawberry_dessert.webp",
       "sha256": "463a8685aad90181f4920d979738bb89b729ac52a63f9bc70d051684367928c9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/white_strawberry_tea.webp",
+      "sha256": "9c3a222139e31261c07f2fd58fda1aec514a3756f392edac81fd446ff09ea063",
       "source": "operator-cleared-game-art"
     },
     {
@@ -1958,13 +2245,28 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/ui/dangerous-fishing-abyssal-rift-encounter.webp",
+      "sha256": "37f1c33bd953f3570a485d0b8b4dc5338043b2e6b713e583296b4d9f559a321c",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/ui/dangerous-fishing-abyssal-rift.webp",
       "sha256": "c5e911aeeeabba5fd445bb0720e40f01ae195335287aa3ae1c43a6856f50259b",
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/ui/dangerous-fishing-shattered-reef-encounter.webp",
+      "sha256": "11c22bc8d226d1e185d9df08c28cb8f1e9cbc2dcffd758146d52865ae0e0c052",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/ui/dangerous-fishing-shattered-reef.webp",
       "sha256": "b5d9aadeb6447b6fc6cd9846f6b35d4febd2690b4568f10d4435eca3328f4a23",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/dangerous-fishing-storm-trench-encounter.webp",
+      "sha256": "6fe9a0c52085934856a2073a64df657d24275b7cffc95a40e363156b96ed3e76",
       "source": "operator-cleared-game-art"
     },
     {

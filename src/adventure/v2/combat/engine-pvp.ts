@@ -3063,6 +3063,7 @@ export function castV2SkillOnAttackerTurnPvP(
       enemyDamage: 0,
       magicEnemyDamage: 0,
       hitDamages: [],
+      hitManaShieldEligible: [],
     };
   }
   const castDefinition = result.castSkillId
@@ -3205,7 +3206,6 @@ export function castV2SkillOnAttackerTurnPvP(
   let skillMagicBarrierDestroyed = false;
   let skillDamageToHp = 0;
   let healShieldAmount = 0;
-  const castSkillDef = result.castSkillId ? V2_SKILLS[result.castSkillId] : null;
   let actualSkillDamage = 0;
   // hpCostDamage는 명중한 공격에 HP를 피해로 교환한다. 확정 회피에서는
   // removeMissedV2SkillTargetEffects가 selfHpCost를 0으로 만들며, 일반 회피 경감에서는
@@ -3385,8 +3385,13 @@ export function castV2SkillOnAttackerTurnPvP(
       result.hitDamages.length > 1
         ? distributeBoostedHits(result.hitDamages, singleSkillDamage)
         : [singleSkillDamage];
+    const singleHitManaShieldEligible = singleHits.map((_, index) => result.hitManaShieldEligible[index] ?? true);
     const repeatedHits: number[] = [];
-    for (let h = 0; h < skillHitCount; h++) repeatedHits.push(...singleHits);
+    const repeatedHitManaShieldEligible: boolean[] = [];
+    for (let h = 0; h < skillHitCount; h++) {
+      repeatedHits.push(...singleHits);
+      repeatedHitManaShieldEligible.push(...singleHitManaShieldEligible);
+    }
     const comboResult = applyComboFinisherToHits(
       repeatedHits,
       side.stacks.comboHitCount,
@@ -3399,10 +3404,8 @@ export function castV2SkillOnAttackerTurnPvP(
               (crossover.damagePct / 100),
           )
         : 0;
-    const directHits =
-      pursuitRawDamage > 0
-        ? [...comboResult.hitDamages, pursuitRawDamage]
-        : comboResult.hitDamages;
+    const directHits = pursuitRawDamage > 0 ? [...comboResult.hitDamages, pursuitRawDamage] : comboResult.hitDamages;
+    const directHitManaShieldEligible = pursuitRawDamage > 0 ? [...repeatedHitManaShieldEligible, true] : repeatedHitManaShieldEligible;
     const perHitAfterEvasion = directHits.map((hit) =>
       applyEvasionDamageReduction(hit, skillEvasionReductionPct),
     );
@@ -3469,16 +3472,13 @@ export function castV2SkillOnAttackerTurnPvP(
     }
     // 모든 직접 피해 스킬은 보호막을 먼저 소모한다. 보호막을 뚫고 실제 HP 피해가
     // 남은 경우에만 아래 반사 판정이 활성화된다.
-    const manaShieldEligible =
-      result.selfHpCost <= 0 &&
-      !castSkillDef?.effects.some((effect) => effect.kind === "executeDamage");
-    const hpHits = directHits.map((rawHit) => {
+    const hpHits = directHits.map((rawHit, hitIndex) => {
       const barrier = resolveMagicBarrierDamage({
         rawDamage: rawHit,
         durability: nextOppMagicBarrier,
         absorbPct: opp.player.magicBarrierPvpAbsorbPct,
         efficiencyPct: opp.player.magicBarrierPvpEfficiencyPct,
-        eligible: manaShieldEligible,
+        eligible: result.selfHpCost <= 0 && (directHitManaShieldEligible[hitIndex] ?? true),
         mitigateBody: (bodyRawDamage) => {
           if (bodyRawDamage <= 0) return 0;
           const afterEvasion = applyEvasionDamageReduction(

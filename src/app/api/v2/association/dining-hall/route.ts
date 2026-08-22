@@ -4,13 +4,11 @@ import {
   GUILD_DINING_MENUS,
   GUILD_DINING_USER_SAVE_KEY,
   activeEffectForMenu,
+  associationDiningTicketProgress,
   guildDiningDonationPoints,
   guildDiningIngredient,
   guildDiningMenu,
-  guildDiningMenusForFacilityLevel,
-  guildDiningTicketProgress,
   parseGuildDiningUserState,
-  type GuildDiningMenuId,
   type GuildDiningUserState,
 } from "@/adventure/data/v2/guildDining";
 import { diningHallUpgradeForLevel } from "@/adventure/data/v2/settlement";
@@ -21,11 +19,6 @@ import {
   claimWeeklyFacilitySource,
   readWeeklyFacilitySource,
 } from "@/lib/server/adventurerAssociation";
-import {
-  lockAssociationDiningWeekly,
-  saveAssociationDiningWeekly,
-  type AssociationDiningWeekly,
-} from "@/lib/server/adventurerAssociationDining";
 import {
   lockGuildDiningIngredient,
   readGuildDiningIngredientBalances,
@@ -44,15 +37,11 @@ function safeCharge(value: unknown): number {
   return Math.max(0, Math.min(MAX_CHARGE, Math.floor(Number(value) || 0)));
 }
 
-function defaultMenus(level: number): GuildDiningMenuId[] {
-  return guildDiningMenusForFacilityLevel(level).map((menu) => menu.id);
-}
-
 async function diningView(args: {
   tx: Tx;
   userId: string;
   level: number;
-  weekly: AssociationDiningWeekly;
+  weekKey: string;
   now: Date;
   userState?: GuildDiningUserState;
   inventory?: InventorySave;
@@ -72,13 +61,13 @@ async function diningView(args: {
       args.tx,
       args.userId,
       "dining_hall",
-      args.weekly.weekKey,
+      args.weekKey,
     ),
   ]);
   const userState =
     args.userState ??
     parseGuildDiningUserState(diningRaw, {
-      weekKey: args.weekly.weekKey,
+      weekKey: args.weekKey,
       guildId: ASSOCIATION_OWNER_ID,
       now: args.now,
     });
@@ -90,16 +79,16 @@ async function diningView(args: {
   return {
     level: args.level,
     stageLabel: upgrade.label,
-    weekKey: args.weekly.weekKey,
+    weekKey: args.weekKey,
     weeklySource,
     eligible: weeklySource !== "guild",
     pantry: {
-      points: args.weekly.pantryPoints,
-      target: args.weekly.targetPoints,
-      remaining: Math.max(0, args.weekly.targetPoints - args.weekly.pantryPoints),
-      ready: args.weekly.pantryPoints >= args.weekly.targetPoints,
+      points: 0,
+      target: 0,
+      remaining: 0,
+      ready: true,
     },
-    tickets: guildDiningTicketProgress(userState, upgrade.weeklyMealTickets),
+    tickets: associationDiningTicketProgress(userState),
     contributionPoints: userState.contributionPoints,
     ingredients: GUILD_DINING_INGREDIENTS.map((ingredient) => ({
       ...ingredient,
@@ -133,8 +122,10 @@ export async function GET() {
   const weekKey = kstWeekMondayKey(now);
   const body = await db.transaction(async (tx) => {
     const level = await associationFacilityLevel(tx, "dining_hall");
-    const weekly = await lockAssociationDiningWeekly(tx, weekKey, defaultMenus(level));
-    return { ok: true as const, ...(await diningView({ tx, userId, level, weekly, now })) };
+    return {
+      ok: true as const,
+      ...(await diningView({ tx, userId, level, weekKey, now })),
+    };
   });
   return Response.json(body);
 }
@@ -170,8 +161,6 @@ export async function POST(req: Request) {
   const weekKey = kstWeekMondayKey(now);
   const result = await db.transaction(async (tx) => {
     const level = await associationFacilityLevel(tx, "dining_hall");
-    const weekly = await lockAssociationDiningWeekly(tx, weekKey, defaultMenus(level));
-    const upgrade = diningHallUpgradeForLevel(level);
 
     if (body.action === "donate") {
       const ingredient = guildDiningIngredient(body.ingredientId);
@@ -195,13 +184,6 @@ export async function POST(req: Request) {
         guildId: ASSOCIATION_OWNER_ID,
         now,
       });
-      const tickets = guildDiningTicketProgress(state, upgrade.weeklyMealTickets);
-      if (
-        state.contributionPoints + points > tickets.contributionCap ||
-        weekly.pantryPoints + points > weekly.targetPoints
-      ) {
-        return { status: 409, body: { ok: false as const, error: "contribution_cap" } };
-      }
       if (sourceInventory.owned < quantity) {
         return { status: 409, body: { ok: false as const, error: "insufficient_ingredients" } };
       }
@@ -219,16 +201,14 @@ export async function POST(req: Request) {
         };
       }
       const nextState = { ...state, contributionPoints: state.contributionPoints + points };
-      const nextWeekly = { ...weekly, pantryPoints: weekly.pantryPoints + points };
       await sourceInventory.consume(quantity);
       await upsertSave(tx, userId, GUILD_DINING_USER_SAVE_KEY, nextState);
-      await saveAssociationDiningWeekly(tx, nextWeekly);
       return {
         status: 200,
         body: {
           ok: true as const,
           donated: { ingredientName: ingredient.name, quantity, points },
-          ...(await diningView({ tx, userId, level, weekly: nextWeekly, now, userState: nextState })),
+          ...(await diningView({ tx, userId, level, weekKey, now, userState: nextState })),
         },
       };
     }
@@ -236,9 +216,6 @@ export async function POST(req: Request) {
     const menu = guildDiningMenu(body.menuId);
     if (!menu || menu.minFacilityLevel > level) {
       return { status: 400, body: { ok: false as const, error: "menu_unavailable" } };
-    }
-    if (weekly.pantryPoints < weekly.targetPoints) {
-      return { status: 409, body: { ok: false as const, error: "pantry_not_ready" } };
     }
     const inventory = await lockSaveForUpdate<InventorySave>(tx, userId, "inventory.v2", {});
     const raw = await lockSaveForUpdate<Record<string, unknown>>(
@@ -252,7 +229,7 @@ export async function POST(req: Request) {
       guildId: ASSOCIATION_OWNER_ID,
       now,
     });
-    if (guildDiningTicketProgress(state, upgrade.weeklyMealTickets).available <= 0) {
+    if (associationDiningTicketProgress(state).available <= 0) {
       return { status: 409, body: { ok: false as const, error: "no_meal_ticket" } };
     }
     const weeklySource = await claimWeeklyFacilitySource(
@@ -298,7 +275,7 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         ordered: { menuId: menu.id, menuName: menu.name, recovery },
-        ...(await diningView({ tx, userId, level, weekly, now, userState: nextState, inventory: nextInventory })),
+        ...(await diningView({ tx, userId, level, weekKey, now, userState: nextState, inventory: nextInventory })),
       },
     };
   });

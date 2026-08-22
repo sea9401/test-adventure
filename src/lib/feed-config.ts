@@ -46,6 +46,7 @@ export const FEED_TYPES = [
   "newcomer",
   "life_blueprint",
   "life_discovery",
+  "cooking_discovery",
   "codex_research_result",
 ] as const;
 export type FeedType = (typeof FEED_TYPES)[number];
@@ -75,6 +76,7 @@ export const WAR_FEED_TYPES: readonly FeedType[] = [
   "newcomer",
   "life_blueprint",
   "life_discovery",
+  "cooking_discovery",
   "codex_research_result",
 ];
 
@@ -103,6 +105,7 @@ export const FEED_CATEGORY_TYPES: Record<FeedCategory, readonly FeedType[]> = {
     "masterpiece",
     "life_blueprint",
     "life_discovery",
+    "cooking_discovery",
   ],
   // 강화 — 고강(+9 이상) 성공/파괴.
   enhance: ["enhance_high", "enhance_destroy"],
@@ -161,6 +164,7 @@ export type FeedPayload =
   | { cultivationMult: number }
   // newcomer — 새 모험가 합류(첫 캐릭터 생성). 닉네임은 actorName 에 스냅샷되므로 payload 는 비움.
   | { newcomer: true }
+  | { recipeId: string }
   | { recipeId: string }
   | { discoveryId: string }
   | {

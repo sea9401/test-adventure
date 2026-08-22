@@ -79,7 +79,8 @@ import {
 import {
   cookingLevelForXp,
   parseCookingState,
-} from "@/adventure/v2/cooking";
+} from "@/adventure/v2/cooking/state";
+import { COOKING_PUBLIC_RECIPE_BY_ID } from "@/adventure/v2/cooking/catalog";
 import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
 import { LIFE_CRAFTING_RECIPE_BY_ID } from "@/adventure/v2/lifeCrafting";
@@ -267,7 +268,9 @@ export function buildQuestCtx(args: {
   const lifeRequests = parseLifeRequestsState(args.lifeRequestsRaw, "", "");
   const lifeFieldRecords = lifeFieldRecordSummary(args.lifeFieldRecordsRaw);
   const cookingLevel = cookingLevelForXp(cooking.xp);
-  const cookingRecipesDiscovered = cooking.discoveredRecipeIds.length;
+  const cookingRecipesDiscovered = cooking.discoveredRecipeIds.filter(
+    (id) => COOKING_PUBLIC_RECIPE_BY_ID.get(id)?.discovery !== "basic",
+  ).length;
 
   // 확장 신호(2026-06-11) — 직업 숙련도·몬스터 종 수.
   const cumLevel = totalCumLevel(prof);
@@ -352,9 +355,9 @@ export function buildQuestCtx(args: {
     cookingLevel,
     cookingRecipesDiscovered,
     cookingDishesCooked: cooking.stats.dishesCooked,
-    cookingOrdersCompleted: cooking.stats.ordersCompleted,
+    cookingOrdersCompleted: cooking.stats.deliveriesCompleted,
     cookingMasterpiecesCooked: cooking.stats.masterpiecesCooked,
-    cookingRareIngredientDishes: cooking.stats.rareIngredientDishes,
+    cookingRareIngredientDishes: cooking.stats.researchSuccesses,
     guildDiningMeals: args.extras.guildDiningMeals,
     guildTrainingDrills: args.extras.guildTrainingDrills,
     guildExpeditions: args.extras.guildExpeditions,

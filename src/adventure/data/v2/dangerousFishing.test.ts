@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { materialSellPriceOf } from "./dungeonDrops";
 import {
   DANGEROUS_BAITS,
   DANGEROUS_BOSSES,
@@ -73,6 +74,23 @@ describe("위험 해역 출시 카탈로그", () => {
     expect(isDangerousBaitId("constructor")).toBe(false);
   });
 
+  it("미끼의 기존 출현 가중치 정보와 실시간 조우 효과를 함께 보존한다", () => {
+    expect(DANGEROUS_BAITS.reef_bait).toMatchObject({
+      targetBehaviors: ["turn"],
+      rarityBonus: 0.02,
+      realtimeEffect: {
+        turnDistanceRecoveryReductionPct: 20,
+        turnTensionImpactReductionPct: 20,
+        maxTimeReductionPct: 20,
+      },
+    });
+    expect(DANGEROUS_BAITS.abyss_bait.realtimeEffect).toMatchObject({
+      startingStaminaReductionPct: 10,
+      tensionImpulseReductionPct: 12,
+      maxTimeReductionPct: 10,
+    });
+  });
+
   it("거대어 두 종과 충돌 없는 거래 재료 ID를 만든다", () => {
     expect(Object.keys(DANGEROUS_BOSSES)).toEqual([
       "tidal_colossus",
@@ -87,6 +105,26 @@ describe("위험 해역 출시 카탈로그", () => {
     expect(materialIds).toContain("danger_boss_abyss_kraken");
     expect(materialIds.every(isDangerousCatchMaterialId)).toBe(true);
     expect(isDangerousCatchMaterialId("danger_catch_unknown")).toBe(false);
+  });
+
+  it("일반 위험 어획물만 화물 가치의 10배로 NPC 판매할 수 있다", () => {
+    const expectedPrices = {
+      danger_catch_razor_sardine: 800,
+      danger_catch_ironjaw_tuna: 2_100,
+      danger_catch_reef_maw_grouper: 4_300,
+      danger_catch_storm_mackerel: 1_500,
+      danger_catch_thunder_ray: 3_300,
+      danger_catch_tempest_swordfish: 6_800,
+      danger_catch_lantern_eel: 3_900,
+      danger_catch_voidfin_coelacanth: 7_900,
+      danger_catch_abyssal_crownfish: 13_500,
+    } as const;
+
+    for (const [materialId, expectedPrice] of Object.entries(expectedPrices)) {
+      expect(materialSellPriceOf(materialId)).toBe(expectedPrice);
+    }
+    expect(materialSellPriceOf(dangerousBossMaterialId("tidal_colossus"))).toBeUndefined();
+    expect(materialSellPriceOf(dangerousBossMaterialId("abyss_kraken"))).toBeUndefined();
   });
 
   it("모든 위험 해역 카탈로그 항목에 ID 기반 이미지 경로가 있다", () => {
@@ -105,5 +143,23 @@ describe("위험 해역 출시 카탈로그", () => {
     expect(DANGEROUS_BAITS.luminous_bait.imageSrc).toBe(
       "/images/items/fishing/dangerous/luminous_bait.webp",
     );
+  });
+
+  it("실시간 조우용 배경과 거대어 몸부림 시트 경로를 제공한다", () => {
+    const encounterImageByZone = {
+      shattered_reef:
+        "/images/ui/dangerous-fishing-shattered-reef-encounter.webp",
+      storm_trench:
+        "/images/ui/dangerous-fishing-storm-trench-encounter.webp",
+      abyssal_rift:
+        "/images/ui/dangerous-fishing-abyssal-rift-encounter.webp",
+    } as const;
+
+    for (const zone of Object.values(DANGEROUS_ZONES)) {
+      expect(zone.encounterImageSrc).toBe(encounterImageByZone[zone.id]);
+    }
+    for (const boss of Object.values(DANGEROUS_BOSSES)) {
+      expect(boss.struggleSpriteSrc).toMatch(/-struggle\.webp$/);
+    }
   });
 });

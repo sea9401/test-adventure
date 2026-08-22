@@ -45,7 +45,7 @@ export async function POST(req: Request) {
           now: Date.now(),
         })
       : body.action === "return"
-        ? returnVoyageInTx(tx, userId)
+        ? returnVoyageInTx(tx, userId, { now: Date.now() })
         : Promise.resolve({ ok: false as const, error: "bad_request", status: 400 }),
   );
   return Response.json(result, { status: result.status });

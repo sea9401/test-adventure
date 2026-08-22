@@ -64,13 +64,76 @@ export function catalogItemStats(item: V2Equipment): V2EquipRoll {
 }
 
 // 한 스탯의 굴림 범위 [lo, hi] — rollStat 과 동일. 변동 없으면(spread 0) null.
-function statRange(
+export function equipStatRange(
   value: number,
   floor: number,
 ): { lo: number; hi: number } | null {
   const spread = Math.round(value * VARIANCE_FRACTION);
   if (spread <= 0) return null;
   return { lo: Math.max(floor, value - spread), hi: value + spread };
+}
+
+export type V2EquipRollPercentiles = {
+  power: number;
+  options?: Partial<Record<keyof V2EquipOptions, number>>;
+};
+
+function clampPercentile(value: number): number {
+  return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0.5));
+}
+
+function statPercentile(base: number, rolled: number, floor: number): number {
+  const range = equipStatRange(base, floor);
+  if (!range || range.hi <= range.lo) return 0.5;
+  return clampPercentile((rolled - range.lo) / (range.hi - range.lo));
+}
+
+function statFromPercentile(base: number, floor: number, percentile: number): number {
+  const range = equipStatRange(base, floor);
+  if (!range || range.hi <= range.lo) return base;
+  return Math.round(
+    range.lo + clampPercentile(percentile) * (range.hi - range.lo),
+  );
+}
+
+export function equipRollPercentiles(
+  item: V2Equipment,
+  roll: V2EquipRoll,
+): V2EquipRollPercentiles {
+  const options: Partial<Record<keyof V2EquipOptions, number>> = {};
+  for (const key of V2_EQUIP_OPTION_KEYS) {
+    const base = item.options?.[key];
+    if (base == null || equipStatRange(base, 1) == null) continue;
+    options[key] = statPercentile(base, roll.options?.[key] ?? base, 1);
+  }
+  return {
+    power: statPercentile(item.power, roll.power, 1),
+    ...(Object.keys(options).length > 0 ? { options } : {}),
+  };
+}
+
+export function equipRollFromPercentiles(
+  item: V2Equipment,
+  percentiles: V2EquipRollPercentiles,
+): V2EquipRoll {
+  const options: V2EquipOptions = {};
+  for (const key of V2_EQUIP_OPTION_KEYS) {
+    const base = item.options?.[key];
+    if (base == null) continue;
+    options[key] = statFromPercentile(
+      base,
+      1,
+      percentiles.options?.[key] ?? 0.5,
+    );
+  }
+  return {
+    power: statFromPercentile(item.power, 1, percentiles.power),
+    weight: 0,
+    ...(item.tier === 16
+      ? { powerScaleVersion: TIER_6_POWER_SCALE_VERSION }
+      : {}),
+    ...(Object.keys(options).length > 0 ? { options } : {}),
+  };
 }
 
 // 개체 굴림 품질 % — 카탈로그 기준값 대비 굴린 위치(0 = 최저 굴림, 100 = god-roll).
@@ -93,7 +156,7 @@ export function rollQualityPct(
     w: number,
     lowerBetter: boolean,
   ) => {
-    const range = statRange(value, floor);
+    const range = equipStatRange(value, floor);
     if (!range || range.hi <= range.lo) return;
     let pos = (rolled - range.lo) / (range.hi - range.lo);
     if (lowerBetter) pos = 1 - pos;

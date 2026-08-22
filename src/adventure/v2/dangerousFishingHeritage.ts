@@ -18,6 +18,7 @@ import {
   fishingLevelForXp,
   type FishingProgressionState,
 } from "./fishingProgression";
+export { dangerousRealtimeLevelBonuses } from "./dangerousFishingRealtimeModifiers";
 
 export const DANGEROUS_FISHING_UNLOCK_LEVEL = 15;
 export const DANGEROUS_FISHING_ASSIST_CAP_PCT = 10;
@@ -141,6 +142,16 @@ export type DangerousFishingEncounterModifiers = {
   sizeBonusPct: number;
 };
 
+export type DangerousFishingRealtimeProjection = {
+  maxTensionBonus: number;
+  reelPowerBonus: number;
+  staminaDamageBonus: number;
+  tensionControlBonus: number;
+  slackTolerance: number;
+  telegraphSteps: number;
+  cargoProtectionPct: number;
+};
+
 function cap(value: number, max: number): number {
   return Math.min(max, Math.max(0, value));
 }
@@ -195,5 +206,28 @@ export function dangerousFishingEncounterModifiers(
     cargoProtectionPct,
     traceBonusPct,
     sizeBonusPct,
+  };
+}
+
+export function dangerousFishingRealtimeProjection(
+  modifiers: DangerousFishingEncounterModifiers,
+): DangerousFishingRealtimeProjection {
+  return {
+    maxTensionBonus:
+      modifiers.rod.maxTensionBonus +
+      modifiers.line.maxTensionBonus +
+      modifiers.assistance.maxTensionBonus,
+    reelPowerBonus:
+      modifiers.reel.reelPowerBonus + modifiers.assistance.reelPowerBonus,
+    staminaDamageBonus:
+      modifiers.rod.staminaDamageBonus +
+      modifiers.assistance.staminaDamageBonus,
+    tensionControlBonus:
+      modifiers.reel.tensionControlBonus +
+      modifiers.assistance.tensionControlBonus,
+    slackTolerance:
+      modifiers.line.slackTolerance + modifiers.assistance.slackTolerance,
+    telegraphSteps: modifiers.telegraphSteps,
+    cargoProtectionPct: modifiers.cargoProtectionPct,
   };
 }

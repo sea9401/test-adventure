@@ -1,11 +1,8 @@
 import { CheckCircle, Circle, CookingPot, Trophy } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
-import {
-  COOKING_CODEX_MILESTONES,
-  COOKING_RECIPES,
-  cookingStatText,
-} from "./cooking";
+import { COOKING_CODEX_MILESTONES, COOKING_PUBLIC_RECIPES } from "./cooking/catalog";
+import { cookingEffectText } from "./cooking/food";
 
 export function CookingCodexPanel({
   discoveredIds,
@@ -13,15 +10,15 @@ export function CookingCodexPanel({
   discoveredIds: readonly string[];
 }) {
   const discovered = new Set(discoveredIds);
-  const discoveredCount = COOKING_RECIPES.filter((recipe) =>
+  const discoveredCount = COOKING_PUBLIC_RECIPES.filter((recipe) =>
     discovered.has(recipe.id),
   ).length;
   const progressPct =
-    COOKING_RECIPES.length > 0
-      ? Math.min(100, (discoveredCount / COOKING_RECIPES.length) * 100)
+    COOKING_PUBLIC_RECIPES.length > 0
+      ? Math.min(100, (discoveredCount / COOKING_PUBLIC_RECIPES.length) * 100)
       : 0;
   const levelGroups = Array.from(
-    new Set(COOKING_RECIPES.map((recipe) => recipe.requiredLevel)),
+    new Set(COOKING_PUBLIC_RECIPES.map((recipe) => recipe.requiredLevel)),
   ).sort((a, b) => a - b);
 
   return (
@@ -38,13 +35,13 @@ export function CookingCodexPanel({
             <div>
               <h2 className="text-sm font-bold">요리 완성 도감</h2>
               <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-                요리를 처음 완성하면 자동으로 등록됩니다. 등록 수는 요리법 발견
+                주방 연구에서 레시피를 발견하면 자동으로 등록됩니다. 등록 수는 요리법 발견
                 업적에 반영되며, 별도의 능력치나 SP를 직접 지급하지는 않습니다.
               </p>
             </div>
           </div>
           <span className="shrink-0 text-sm font-bold tabular-nums text-amber-700 dark:text-amber-300">
-            {discoveredCount} / {COOKING_RECIPES.length}
+            {discoveredCount} / {COOKING_PUBLIC_RECIPES.length}
           </span>
         </div>
         <div
@@ -52,7 +49,7 @@ export function CookingCodexPanel({
           role="progressbar"
           aria-label="요리 완성 도감 진행도"
           aria-valuemin={0}
-          aria-valuemax={COOKING_RECIPES.length}
+          aria-valuemax={COOKING_PUBLIC_RECIPES.length}
           aria-valuenow={discoveredCount}
         >
           <div
@@ -117,7 +114,7 @@ export function CookingCodexPanel({
       </Card>
 
       {levelGroups.map((requiredLevel) => {
-        const recipes = COOKING_RECIPES.filter(
+        const recipes = COOKING_PUBLIC_RECIPES.filter(
           (recipe) => recipe.requiredLevel === requiredLevel,
         );
         const completedInGroup = recipes.filter((recipe) =>
@@ -141,7 +138,7 @@ export function CookingCodexPanel({
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-sm font-semibold">{recipe.name}</span>
+                        <span className="text-sm font-semibold">{found ? recipe.name : "미발견 레시피"}</span>
                         <span
                           className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
                             found
@@ -153,10 +150,10 @@ export function CookingCodexPanel({
                         </span>
                       </div>
                       <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-                        {recipe.description}
+                        {found ? recipe.description : "주방 연구에서 직접 발견해야 합니다."}
                       </p>
                       <p className="mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
-                        기본 효과 · {cookingStatText(recipe.baseStatPct, recipe.baseExpPct)}
+                        {found ? `효과 · ${cookingEffectText(recipe.effect)}` : "효과 미확인"}
                       </p>
                     </div>
                   </li>

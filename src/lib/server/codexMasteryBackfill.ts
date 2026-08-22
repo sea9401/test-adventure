@@ -14,7 +14,7 @@ import type {
 import { parseEquipmentCodex } from "@/adventure/data/v2/equipmentCodex";
 import { parseProficiency } from "@/adventure/data/v2/proficiency";
 import { V2_JOB_LIST, cumLevelForJob } from "@/adventure/data/v2/v2JobCatalog";
-import { parseCookingState } from "@/adventure/v2/cooking";
+import { parseCookingState } from "@/adventure/v2/cooking/state";
 import { parseFishCodex } from "@/adventure/v2/fishingCodex";
 import {
   LIFE_FIELD_RECORD_CATALOG,
@@ -134,8 +134,10 @@ export function deriveCodexMasteryBackfillTargets(
     add({ category: "equipment", entryId, targetCount: 0, discovered: true });
   }
 
-  for (const entryId of parseCookingState(source.cooking, 0).discoveredRecipeIds) {
-    add({ category: "cooking", entryId, targetCount: 0, discovered: true });
+  if (source.cooking !== undefined && source.cooking !== null) {
+    for (const entryId of parseCookingState(source.cooking, 0).discoveredRecipeIds) {
+      add({ category: "cooking", entryId, targetCount: 0, discovered: true });
+    }
   }
 
   const life = parseLifeFieldRecordsState(source.lifeFieldRecords);

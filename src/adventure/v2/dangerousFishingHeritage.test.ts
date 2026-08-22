@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { emptyProficiency } from "@/adventure/data/v2/proficiency";
-import { emptyFishingProgression } from "./fishingProgression";
+import {
+  emptyFishingProgression,
+  fishingLevelXpThreshold,
+} from "./fishingProgression";
 import {
   DANGEROUS_FISHING_ASSIST_CAP_PCT,
   dangerousFishingEncounterModifiers,
   dangerousFishingHeritage,
+  dangerousFishingRealtimeProjection,
+  dangerousRealtimeLevelBonuses,
 } from "./dangerousFishingHeritage";
 
 function progressionAtLevel(level: number) {
   return {
     ...emptyFishingProgression(),
-    xp: (level - 1) ** 2 * 35,
+    xp: fishingLevelXpThreshold(level),
   };
 }
 
@@ -44,6 +49,25 @@ describe("기존 낚시 성장의 위험 해역 효용", () => {
     expect(capped.levelAssistPct).toBeLessThanOrEqual(
       DANGEROUS_FISHING_ASSIST_CAP_PCT,
     );
+    expect(dangerousRealtimeLevelBonuses(capped.fishingLevel)).toEqual({
+      reelEfficiencyPct: 0,
+      tensionControlPct: 0,
+    });
+  });
+
+  it("레벨 100은 기존 보조를 유지하고 실시간 조우에만 새 끝단 보정을 더한다", () => {
+    const heritage = dangerousFishingHeritage({
+      fishingProgression: progressionAtLevel(100),
+      proficiency: emptyProficiency(),
+      currentJobId: "mage",
+      equippedSkillIds: [],
+    });
+
+    expect(heritage.levelAssistPct).toBe(10);
+    expect(dangerousRealtimeLevelBonuses(heritage.fishingLevel)).toEqual({
+      reelEfficiencyPct: 12,
+      tensionControlPct: 8,
+    });
   });
 
   it("현재 직업이 달라도 이력상 최고 낚시 계보를 누적 적용한다", () => {
@@ -104,5 +128,37 @@ describe("기존 낚시 성장의 위험 해역 효용", () => {
     expect(modifiers.sizeBonusPct).toBeLessThanOrEqual(5);
     expect(modifiers.assistance.maxTensionBonus).toBeGreaterThan(0);
     expect(modifiers.assistance.staminaDamageBonus).toBeGreaterThan(0);
+  });
+
+  it("실시간 조우는 기존 계보 투영에서 내재 장비·보조 수치만 한 번 스냅샷한다", () => {
+    const heritage = dangerousFishingHeritage({
+      fishingProgression: progressionAtLevel(50),
+      proficiency: {
+        ...emptyProficiency(),
+        jobHistory: ["seagod"],
+      },
+      currentJobId: "mage",
+      equippedSkillIds: [
+        "v2c_masterangler_bigcatchsense",
+        "v2c_fullcatchking_bountyhaul",
+      ],
+    });
+    const projected = dangerousFishingRealtimeProjection(
+      dangerousFishingEncounterModifiers(heritage, {
+        rodId: "leviathan_rod",
+        reelId: "maelstrom_reel",
+        lineId: "abyss_chain_line",
+      }),
+    );
+
+    expect(projected).toEqual({
+      maxTensionBonus: 31,
+      reelPowerBonus: 7,
+      staminaDamageBonus: 12,
+      tensionControlBonus: 5,
+      slackTolerance: 1,
+      telegraphSteps: 1,
+      cargoProtectionPct: 15,
+    });
   });
 });

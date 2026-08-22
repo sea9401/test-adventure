@@ -134,7 +134,7 @@ import { GUILD_DINING_USER_SAVE_KEY } from "@/adventure/data/v2/guildDining";
 import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
 import { applyHuntProficiency } from "./huntProficiency";
 import { normalizedHuntLocationIds } from "./huntLocations";
-import { activeCookingBuff } from "@/adventure/v2/cooking";
+import { activeCookingBuff } from "@/adventure/v2/cooking/food";
 import {
   getAutoHuntStopReason,
   normalizeAutoHuntStopConfig,
@@ -862,10 +862,8 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     ? applyPctBonus(expAfterGuild, hotTime.bonuses.expPct)
     : expAfterGuild;
   const foodBuff = activeCookingBuff(charSave.activeFoodBuff, now);
-  const expAfterFood =
-    foodBuff && (foodBuff.expPct ?? 0) > 0
-      ? applyPctBonus(expBeforeDining, foodBuff.expPct ?? 0)
-      : expBeforeDining;
+  const foodExpPct = foodBuff?.effect.huntExpPct ?? 0;
+  const expAfterFood = foodBuff && foodExpPct > 0 ? applyPctBonus(expBeforeDining, foodExpPct) : expBeforeDining;
   const diningExp = await consumeGuildDiningEffect(
     tx,
     userId,
@@ -875,12 +873,13 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     ctx.batchState?.dining,
   );
   const expGained = expAfterFood + diningExp.bonus;
-  const goldGross = hotTime.active
-    ? applyPctBonus(goldAfterGuild, hotTime.bonuses.goldPct)
-    : goldAfterGuild;
+  const goldBeforeFood = hotTime.active ? applyPctBonus(goldAfterGuild, hotTime.bonuses.goldPct) : goldAfterGuild;
+  const foodGoldPct = foodBuff?.effect.huntGoldPct ?? 0;
+  const goldGross = foodBuff && foodGoldPct > 0 ? applyPctBonus(goldBeforeFood, foodGoldPct) : goldBeforeFood;
   const hotTimeExpBonus = bonusDelta(expAfterGuild, expBeforeDining);
   const foodExpBonus = bonusDelta(expBeforeDining, expAfterFood);
-  const hotTimeGoldBonus = bonusDelta(goldAfterGuild, goldGross);
+  const hotTimeGoldBonus = bonusDelta(goldAfterGuild, goldBeforeFood);
+  const foodGoldBonus = bonusDelta(goldBeforeFood, goldGross);
   // 드랍 굴림 — 승리 시 재료/강화석/소환서/재련석/정착지 재료 + 정규/유니크 장비를 한 번에
   //   굴린다(순수 RNG 헬퍼·huntDrops). 영속(materials merge·equipment.v2 기록)은 아래 라우트가.
   const { drops, droppedEquipment, droppedUnique, nextOwned } = rollHuntDrops({
@@ -1113,11 +1112,12 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       await upsertSave(tx, userId, "proficiency.v2", nextProficiency);
     }
   }
-  // 레벨업 HP/MP 성장량 — 결과 카드 표시용(레벨당 고정분 + 오른 VIT·INT). 파생식과 동일 계수.
+  // 레벨업 HP/MP 성장량 — 결과 카드 표시용(레벨당 고정분 + 오른 STR·VIT·INT). 파생식과 동일 계수.
   const { hp: hpGain, mp: mpGain } =
     expResult.levelsGained > 0
       ? v2LevelGrowthHpMp({
           levelsGained: expResult.levelsGained,
+          strGained: statGains.str ?? 0,
           vitGained: statGains.vit ?? 0,
           intGained: statGains.int ?? 0,
         })
@@ -1225,11 +1225,11 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
             : null,
         foodExpBuff:
           foodBuff && foodExpBonus > 0
-            ? {
-                name: foodBuff.recipeName,
-                expPct: foodBuff.expPct ?? 0,
-                expBonus: foodExpBonus,
-              }
+            ? { name: foodBuff.recipeName, expPct: foodExpPct, expBonus: foodExpBonus }
+            : null,
+        foodGoldBuff:
+          foodBuff && foodGoldBonus > 0
+            ? { name: foodBuff.recipeName, goldPct: foodGoldPct, goldBonus: foodGoldBonus }
             : null,
         goldTaxed,
         // 코어루프 패배 페널티 — flag on 일 때만 노출(off 면 키 없음 = 응답 byte-identical).

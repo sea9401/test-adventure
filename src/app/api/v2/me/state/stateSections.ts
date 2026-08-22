@@ -90,10 +90,8 @@ import {
   parseFishCodex,
   registeredFishIds,
 } from "@/adventure/v2/fishingCodex";
-import {
-  COOKING_RECIPES,
-  parseCookingState,
-} from "@/adventure/v2/cooking";
+import { COOKING_PUBLIC_RECIPES } from "@/adventure/v2/cooking/catalog";
+import { parseCookingState } from "@/adventure/v2/cooking/state";
 import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
 import type { derivePlayerCombatV2FromSaves } from "@/lib/server/derivePlayerCombatV2";
 import type { JobSpLoadoutMigration } from "@/lib/server/v2Skills";
@@ -558,7 +556,7 @@ export function cookingCodexSection(cookingRaw: unknown) {
   const cooking = parseCookingState(cookingRaw);
   return {
     discoveredIds: cooking.discoveredRecipeIds,
-    total: COOKING_RECIPES.length,
+    total: COOKING_PUBLIC_RECIPES.length,
   };
 }
 

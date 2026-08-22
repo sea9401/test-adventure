@@ -5,6 +5,7 @@ export const GUILD_DINING_USER_SAVE_KEY = "guild-dining-user.v1";
 export const GUILD_DINING_BASE_WEEKLY_TICKETS = 4;
 export const GUILD_DINING_POINTS_PER_TICKET = 4;
 export const GUILD_DINING_POINTS_PER_MEMBER_TARGET = 20;
+export const ASSOCIATION_DINING_POINTS_PER_TICKET = 20;
 export const GUILD_DINING_EFFECT_DURATION_HOURS = 3;
 export const GUILD_DINING_EFFECT_DURATION_MS =
   GUILD_DINING_EFFECT_DURATION_HOURS * 60 * 60 * 1000;
@@ -350,6 +351,29 @@ export function guildDiningTicketProgress(
     available: Math.max(0, earned - used),
     contributionCap:
       contributionLimit * GUILD_DINING_POINTS_PER_TICKET,
+  };
+}
+
+export function associationDiningTicketProgress(
+  state: GuildDiningUserState,
+): {
+  base: 0;
+  contributionEarned: number;
+  earned: number;
+  used: number;
+  available: number;
+  contributionCap: null;
+} {
+  const earned = Math.floor(
+    state.contributionPoints / ASSOCIATION_DINING_POINTS_PER_TICKET,
+  );
+  return {
+    base: 0,
+    contributionEarned: earned,
+    earned,
+    used: state.mealsUsed,
+    available: Math.max(0, earned - state.mealsUsed),
+    contributionCap: null,
   };
 }
 

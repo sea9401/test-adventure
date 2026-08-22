@@ -61,10 +61,10 @@ import {
 import { activeAutoGatheringActivity } from "@/lib/server/lifeActivityLock";
 import {
   COOKING_SAVE_KEY,
-  activeCookingBuff,
   cookingLevelForXp,
   parseCookingState,
-} from "@/adventure/v2/cooking";
+} from "@/adventure/v2/cooking/state";
+import { activeCookingBuff } from "@/adventure/v2/cooking/food";
 import { loadCompletedQuestIds } from "@/lib/server/v2QuestContext";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
 import {

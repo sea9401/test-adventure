@@ -1,580 +1,214 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
-const { store, rewardReferralTutorialTasks, recordCodexMasteryGameplayBatch } = vi.hoisted(() => ({
-  store: new Map<string, unknown>(),
+const mocks = vi.hoisted(() => {
+  const store = new Map<string, unknown>();
+  const selectResults: unknown[][] = [];
+  const insertResults: unknown[][] = [];
+  const insertValues = vi.fn();
+  const insertFeedEntry = vi.fn(async () => undefined);
+  const ensureUser = vi.fn(async (): Promise<string | null> => "cook-user");
+
+  function select() {
+    let consumed = false;
+    const take = () => {
+      if (consumed) return [];
+      consumed = true;
+      return selectResults.shift() ?? [];
+    };
+    const builder: Record<string, unknown> = {};
+    builder.from = vi.fn(() => builder);
+    builder.where = vi.fn(() => builder);
+    builder.limit = vi.fn(async () => take());
+    builder.then = (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) =>
+      Promise.resolve(take()).then(resolve, reject);
+    return builder;
+  }
+
+  function insert() {
+    const builder: Record<string, unknown> = {};
+    builder.values = vi.fn((value: unknown) => {
+      insertValues(value);
+      return builder;
+    });
+    builder.onConflictDoNothing = vi.fn(() => builder);
+    builder.returning = vi.fn(async () => insertResults.shift() ?? []);
+    builder.then = (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) =>
+      Promise.resolve(undefined).then(resolve, reject);
+    return builder;
+  }
+
+  const tx = { select, insert };
+  const db = {
+    select,
+    insert,
+    transaction: vi.fn(async (callback: (executor: typeof tx) => unknown) => callback(tx)),
+  };
+  return { store, selectResults, insertResults, insertValues, insertFeedEntry, ensureUser, db };
+});
+
+vi.mock("@/db", () => ({ db: mocks.db }));
+vi.mock("@/lib/server/ensureUser", () => ({ ensureUser: mocks.ensureUser }));
+vi.mock("@/lib/server/serverFeed", () => ({ insertFeedEntry: mocks.insertFeedEntry }));
+vi.mock("@/lib/server/userRateLimit", () => ({ enforceUserAndIpRateLimit: vi.fn(() => null) }));
+vi.mock("@/lib/server/referrals", () => ({
   rewardReferralTutorialTasks: vi.fn(async () => ({
     staminaPotions: 0,
-    newlyCompletedTaskIds: [] as string[],
-    completedTaskIds: [] as string[],
+    newlyCompletedTaskIds: [],
+    completedTaskIds: [],
   })),
-  recordCodexMasteryGameplayBatch: vi.fn(
-    async (
-      _executor: unknown,
-      _userId: string,
-      _events: readonly CodexMasteryGameplayEvent[],
-      _now: Date,
-    ) => [],
-  ),
 }));
-
-vi.mock("@/db", () => ({
-  db: {
-    transaction: vi.fn(async (callback: (tx: object) => unknown) =>
-      callback({}),
-    ),
-  },
-}));
-vi.mock("@/lib/server/ensureUser", () => ({
-  ensureUser: vi.fn(async () => "cook-user"),
-}));
-vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
 vi.mock("@/lib/server/codexMasteryGameplay", () => ({
-  recordCodexMasteryGameplayBatch,
-}));
-vi.mock("@/lib/server/userRateLimit", () => ({
-  enforceUserAndIpRateLimit: vi.fn(() => null),
+  recordCodexMasteryGameplayBatch: vi.fn(async () => []),
 }));
 vi.mock("@/lib/server/savesKv", () => ({
-  lockSaveForUpdate: vi.fn(
-    async (_tx, _userId, key: string, fallback: unknown) =>
-      store.has(key) ? store.get(key) : fallback,
-  ),
+  lockSaveForUpdate: vi.fn(async (_tx, _userId, key: string, fallback: unknown) =>
+    mocks.store.has(key) ? mocks.store.get(key) : fallback),
   readSave: vi.fn(async (_tx, _userId, key: string, fallback: unknown) =>
-    store.has(key) ? store.get(key) : fallback,
-  ),
-  upsertSave: vi.fn(
-    async (_tx, _userId, key: string, value: unknown) => {
-      store.set(key, value);
-    },
-  ),
+    mocks.store.has(key) ? mocks.store.get(key) : fallback),
+  upsertSave: vi.fn(async (_tx, _userId, key: string, value: unknown) => {
+    mocks.store.set(key, value);
+  }),
 }));
 
 import { GET, POST } from "./route";
-import {
-  cookingFoodId,
-  cookingOrderReward,
-  cookingOrders,
-  cookingLevelXpThreshold,
-  emptyCookingState,
-} from "@/adventure/v2/cooking";
+import { emptyCookingState, cookingLevelXpThreshold } from "@/adventure/v2/cooking/state";
 import { emptyFarmState } from "@/adventure/v2/farm";
 import { emptyFishingStock } from "@/adventure/v2/fishingStock";
 import { emptyV2SkillsState } from "@/adventure/data/v2/v2Skills";
+import { COOKING_SECRET_RECIPE_BY_ID } from "@/lib/server/cooking/recipes";
 
-const NOW = Date.parse("2026-08-03T09:00:00+09:00");
+const NOW = Date.parse("2026-08-22T12:00:00+09:00");
 
-function request(body: Record<string, unknown>): Request {
-  return new Request("http://localhost/api/v2/cooking", {
+function post(body: Record<string, unknown>) {
+  return POST(new Request("http://localhost/api/v2/cooking", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }));
 }
 
 function seed() {
-  store.clear();
-  const cooking = emptyCookingState(NOW);
-  const farm = emptyFarmState(NOW);
-  store.set("character.v2", { class: "none", level: 1, gold: 100 });
-  store.set("skills.v2", emptyV2SkillsState());
-  store.set("farm.v2", farm);
-  store.set("fishing-stock.v1", emptyFishingStock());
-  store.set("cooking.v1", cooking);
-  store.set("inventory.v2", {});
-  return { cooking, farm };
+  mocks.store.clear();
+  mocks.store.set("character.v2", { class: "none", level: 1, gold: 10_000, name: "테스터" });
+  mocks.store.set("skills.v2", emptyV2SkillsState());
+  mocks.store.set("farm.v2", emptyFarmState(NOW));
+  mocks.store.set("fishing-stock.v1", emptyFishingStock());
+  mocks.store.set("cooking.v2", emptyCookingState(NOW));
+  mocks.store.set("inventory.v2", {});
 }
 
 describe("/api/v2/cooking", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
+    mocks.selectResults.length = 0;
+    mocks.insertResults.length = 0;
+    mocks.insertValues.mockClear();
+    mocks.insertFeedEntry.mockClear();
+    mocks.ensureUser.mockResolvedValue("cook-user");
     seed();
-    rewardReferralTutorialTasks.mockClear();
-    recordCodexMasteryGameplayBatch.mockClear();
   });
+
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
-  it("요리 화면에는 누적 획득량이 아닌 현재 보유 농장 증표를 표시한다", async () => {
-    const farm = store.get("farm.v2") as ReturnType<typeof emptyFarmState>;
-    store.set("farm.v2", {
-      ...farm,
-      stats: {
-        ...farm.stats,
-        reputation: 120,
-        reputationSpent: 45,
-      },
-    });
+  it("인증되지 않은 요청을 거부한다", async () => {
+    mocks.ensureUser.mockResolvedValueOnce(null);
+    const response = await GET(new Request("http://localhost/api/v2/cooking"));
+    expect(response.status).toBe(401);
+  });
 
-    const response = await GET(
-      new Request("http://localhost/api/v2/cooking"),
-    );
+  it("GET은 공개 카탈로그와 발견한 조합만 반환한다", async () => {
+    mocks.selectResults.push([]);
+    const response = await GET(new Request("http://localhost/api/v2/cooking"));
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.farmReputation).toBe(75);
+    expect(json.recipes).toHaveLength(100);
+    expect(json.recipes.find((entry: { id: string }) => entry.id === "tomato_salad")).not.toHaveProperty("ingredients");
+    expect(json.knownRecipes.map((entry: { id: string }) => entry.id)).not.toContain("tomato_salad");
+    expect(json.knownRecipes).toHaveLength(6);
   });
 
-  it("50레벨 이후에도 100레벨 전까지 다음 경험치 기준을 제공한다", async () => {
-    const cooking = store.get("cooking.v1") as ReturnType<typeof emptyCookingState>;
-    store.set("cooking.v1", {
-      ...cooking,
-      levelCurveVersion: 2,
-      xp: cookingLevelXpThreshold(75),
-    });
+  it("정답 연구를 개인 도감에 저장하고 DB insert 승자만 최초 발견자로 기록한다", async () => {
+    const recipe = COOKING_SECRET_RECIPE_BY_ID.get("tomato_salad")!;
+    const cooking = emptyCookingState(NOW);
+    mocks.store.set("cooking.v2", { ...cooking, xp: cookingLevelXpThreshold(10) });
+    const farm = emptyFarmState(NOW);
+    const farmItems: Record<string, number> = {};
+    const kitchenItems: Record<string, number> = {};
+    for (const ingredient of recipe.ingredients) {
+      const [kind, id] = ingredient.id.split(":");
+      if (kind === "farm") farmItems[id] = 1;
+      else kitchenItems[ingredient.id] = 1;
+    }
+    mocks.store.set("farm.v2", { ...farm, inventory: farmItems });
+    mocks.store.set("cooking.v2", { ...cooking, xp: cookingLevelXpThreshold(10), kitchenItems });
+    mocks.selectResults.push([], [{ recipeId: recipe.id, userId: "cook-user", actorName: "테스터", discoveredAt: new Date(NOW) }]);
+    mocks.insertResults.push([{ recipeId: recipe.id }]);
 
-    const growingResponse = await GET(
-      new Request("http://localhost/api/v2/cooking"),
-    );
-    const growing = await growingResponse.json();
-    expect(growing).toMatchObject({
-      level: 75,
-      currentLevelXp: cookingLevelXpThreshold(75),
-      nextLevelXp: cookingLevelXpThreshold(76),
+    const response = await post({
+      action: "research",
+      method: recipe.method,
+      ingredientIds: recipe.ingredients.map((entry) => entry.id).reverse(),
     });
-
-    store.set("cooking.v1", {
-      ...cooking,
-      levelCurveVersion: 2,
-      xp: cookingLevelXpThreshold(100),
-    });
-    const maxResponse = await GET(
-      new Request("http://localhost/api/v2/cooking"),
-    );
-    expect(await maxResponse.json()).toMatchObject({
-      level: 100,
-      nextLevelXp: null,
-    });
-  });
-
-  it("일반 조리는 완성 수량을 인벤토리와 요리 도감 숙련도에 함께 기록한다", async () => {
-    const farm = store.get("farm.v2") as ReturnType<typeof emptyFarmState>;
-    store.set("farm.v2", { ...farm, inventory: { wheat: 30 } });
-    vi.spyOn(Math, "random").mockReturnValue(0.99);
-
-    const response = await POST(
-      request({ action: "cook", recipeId: "rustic_bread", quantity: 2 }),
-    );
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.result).toMatchObject({
-      action: "cook",
-      quality: "normal",
-      deliveredFoodId: null,
-    });
-    expect(json.result.foodId).toBeTruthy();
-    expect(store.get("inventory.v2")).toMatchObject({
-      cookingFoods: { [json.result.foodId]: 2 },
-    });
-    expect(store.get("farm.v2")).toMatchObject({
-      inventory: {},
-    });
-    expect(store.get("cooking.v1")).toMatchObject({
-      discoveredRecipeIds: ["rustic_bread"],
-      stats: expect.objectContaining({ dishesCooked: 2, ordersCompleted: 0 }),
-    });
-    expect(rewardReferralTutorialTasks).toHaveBeenCalledWith(
-      expect.anything(),
-      "cook-user",
-      "새 모험가",
-      [],
-    );
-    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
-      expect.anything(),
-      "cook-user",
-      [{
-        category: "cooking",
-        entryId: "rustic_bread",
-        amount: 2,
-        source: "cooking.complete",
-      }],
-      new Date(NOW),
-    );
+    expect(json.result).toMatchObject({ outcome: "success", recipeId: recipe.id, firstDiscovery: true });
+    expect((mocks.store.get("cooking.v2") as { discoveredRecipeIds: string[] }).discoveredRecipeIds).toContain(recipe.id);
+    expect(mocks.insertFeedEntry).toHaveBeenCalledWith("cook-user", "cooking_discovery", { recipeId: recipe.id });
   });
 
-  it("요리사의 조리 XP를 직업 도감 숙련도로 기록한다", async () => {
-    const farm = store.get("farm.v2") as ReturnType<typeof emptyFarmState>;
-    store.set("farm.v2", { ...farm, inventory: { wheat: 30 } });
-    store.set("character.v2", {
-      class: "survivor",
-      specChoice: "cook",
-      level: 1,
-      gold: 100,
-    });
-    store.set("proficiency.v2", {
-      groups: { survivor: { tier: 1, cumLevel: 900 } },
-      jobCumLevel: { cook: 10 },
-    });
-    vi.spyOn(Math, "random").mockReturnValue(0.99);
+  it("오답은 한 개씩 소비하고 실패 조합과 실패 음식을 남긴다", async () => {
+    const cooking = emptyCookingState(NOW);
+    mocks.store.set("cooking.v2", { ...cooking, xp: cookingLevelXpThreshold(10) });
+    const farm = emptyFarmState(NOW);
+    mocks.store.set("farm.v2", { ...farm, inventory: { wheat: 1, milk: 1, rice: 1 } });
+    mocks.selectResults.push([], []);
 
-    const response = await POST(
-      request({ action: "cook", recipeId: "rustic_bread", quantity: 1 }),
-    );
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      result: {
-        earnedXp: 13,
-        masteryGained: 13,
-        masteryAfter: 23,
-      },
-    });
-    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
-      expect.anything(),
-      "cook-user",
-      [
-        {
-          category: "cooking",
-          entryId: "rustic_bread",
-          amount: 1,
-          source: "cooking.complete",
-        },
-        {
-          category: "job",
-          entryId: "cook",
-          amount: 13,
-          source: "job.activity",
-        },
-      ],
-      new Date(NOW),
-    );
-  });
-
-  it("구 초과 요리 XP를 한 번 환산한 뒤 이번 조리 XP를 저장한다", async () => {
-    const farm = store.get("farm.v2") as ReturnType<typeof emptyFarmState>;
-    const cooking = store.get("cooking.v1") as ReturnType<
-      typeof emptyCookingState
-    >;
-    store.set("farm.v2", { ...farm, inventory: { wheat: 30 } });
-    store.set("cooking.v1", {
-      ...cooking,
-      levelCurveVersion: undefined,
-      xp: 999_999,
-    });
-    vi.spyOn(Math, "random").mockReturnValue(0.99);
-
-    const response = await POST(
-      request({ action: "cook", recipeId: "rustic_bread", quantity: 1 }),
-    );
+    const response = await post({ action: "research", method: "stir_fry", ingredientIds: ["farm:wheat", "farm:milk", "farm:rice"] });
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.levelCurveMigrated).toBe(true);
-    expect(store.get("cooking.v1")).toMatchObject({
-      levelCurveVersion: 2,
-      xp: cookingLevelXpThreshold(60) + 1,
-    });
+    expect(json.result).toMatchObject({ outcome: "failure", earnedXp: 6, failedDishCount: 1 });
+    expect(mocks.store.get("inventory.v2")).toMatchObject({ failedCookingDishes: 1 });
+    expect((mocks.store.get("farm.v2") as { inventory: object }).inventory).toEqual({});
+    expect(mocks.insertValues).toHaveBeenCalledWith(expect.objectContaining({ userId: "cook-user", method: "stir_fry" }));
   });
 
-  it("요리 레벨 5 이상에서 조리하면 홍보 생활 단계를 확인한다", async () => {
-    const farm = store.get("farm.v2") as ReturnType<typeof emptyFarmState>;
-    const cooking = store.get("cooking.v1") as ReturnType<typeof emptyCookingState>;
-    store.set("farm.v2", { ...farm, inventory: { wheat: 30 } });
-    store.set("cooking.v1", { ...cooking, xp: cookingLevelXpThreshold(5) });
-    vi.spyOn(Math, "random").mockReturnValue(0.99);
-
-    const response = await POST(
-      request({ action: "cook", recipeId: "rustic_bread", quantity: 1 }),
-    );
-
-    expect(response.status).toBe(200);
-    expect(rewardReferralTutorialTasks).toHaveBeenCalledWith(
-      expect.anything(),
-      "cook-user",
-      "새 모험가",
-      ["life_level_5"],
-    );
-  });
-
-  it("달걀과 우유 목장 요리는 농장 재료를 정확히 차감한다", async () => {
-    const farm = store.get("farm.v2") as ReturnType<typeof emptyFarmState>;
-    const cooking = store.get("cooking.v1") as ReturnType<typeof emptyCookingState>;
-    store.set("farm.v2", {
-      ...farm,
-      inventory: { wheat: 10, egg: 10, milk: 10, potato: 10, onion: 5 },
-    });
-    store.set("cooking.v1", {
+  it("전문 분야는 조건 달성 후 한 번만 정한다", async () => {
+    const hidden = [
+      "tomato_salad", "herb_omelet", "egg_fried_rice", "herb_roasted_pork", "crispy_pork_cutlet",
+      "soy_pork_rice_bowl", "soy_braised_eggs", "onion_steak", "golden_corn_fritters", "tomato_pork_skewers",
+    ];
+    const cooking = emptyCookingState(NOW);
+    mocks.store.set("cooking.v2", {
       ...cooking,
-      xp: cookingLevelXpThreshold(50),
+      xp: cookingLevelXpThreshold(20),
+      discoveredRecipeIds: [...cooking.discoveredRecipeIds, ...hidden],
     });
-    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    mocks.selectResults.push([]);
 
-    const eggResponse = await POST(
-      request({ action: "cook", recipeId: "country_egg_bread", quantity: 1 }),
-    );
-    const milkResponse = await POST(
-      request({ action: "cook", recipeId: "milk_potato_soup", quantity: 1 }),
-    );
+    const first = await post({ action: "choose_specialty", field: "hearth" });
+    expect(first.status).toBe(200);
+    expect((mocks.store.get("cooking.v2") as { specialty: object }).specialty).toEqual({ field: "hearth", xp: 0 });
 
-    expect(eggResponse.status).toBe(200);
-    expect(milkResponse.status).toBe(200);
-    expect(store.get("farm.v2")).toMatchObject({
-      inventory: { wheat: 2, egg: 6, milk: 4, potato: 2, onion: 1 },
-    });
+    const second = await post({ action: "choose_specialty", field: "pot" });
+    expect(second.status).toBe(409);
+    await expect(second.json()).resolves.toMatchObject({ error: "specialty_permanent" });
   });
 
-  it("걸작 완성품을 소비하고 원재료 대신 품질 보상을 지급한다", async () => {
-    const cooking = store.get("cooking.v1") as ReturnType<
-      typeof emptyCookingState
-    >;
-    const order = cookingOrders("cook-user", cooking)[0];
-    const foodId = cookingFoodId({
-      recipeId: order.recipeId,
-      quality: "masterpiece",
-      usedRare: false,
-      extended: false,
-    });
-    store.set("inventory.v2", { cookingFoods: { [foodId]: 1 } });
-    const farmBefore = structuredClone(store.get("farm.v2"));
+  it("가공은 농장 재료를 차감하고 주방 재료를 저장한다", async () => {
+    const farm = emptyFarmState(NOW);
+    mocks.store.set("farm.v2", { ...farm, inventory: { wheat: 6 } });
+    mocks.selectResults.push([]);
 
-    const response = await POST(
-      request({ action: "order", recipeId: order.recipeId, foodId }),
-    );
-    const json = await response.json();
-    const reward = cookingOrderReward(order, "masterpiece");
-
+    const response = await post({ action: "process", itemId: "processed:flour", quantity: 2 });
     expect(response.status).toBe(200);
-    expect(json.result).toMatchObject({
-      action: "order",
-      quality: "masterpiece",
-      deliveredFoodId: foodId,
-      foodId: null,
-      orderRewardGold: reward.gold,
-      orderRewardReputation: reward.reputation,
-      orderQualityBonusPct: 50,
-      earnedXp: reward.bonusXp,
-    });
-    expect(json.cookingFoods).toEqual({});
-    expect(store.get("inventory.v2")).toMatchObject({ cookingFoods: {} });
-    expect(store.get("character.v2")).toMatchObject({
-      gold: 100 + reward.gold,
-    });
-    expect(store.get("farm.v2")).toMatchObject({
-      ...(farmBefore as object),
-      stats: expect.objectContaining({ reputation: reward.reputation }),
-    });
-    expect(store.get("cooking.v1")).toMatchObject({
-      xp: reward.bonusXp,
-      discoveredRecipeIds: [],
-      stats: {
-        dishesCooked: 0,
-        ordersCompleted: 1,
-        masterpiecesCooked: 0,
-        rareIngredientDishes: 0,
-      },
-    });
-    expect(recordCodexMasteryGameplayBatch).not.toHaveBeenCalled();
-  });
-
-  it("주문과 일치하는 완성품이 없으면 원재료가 있어도 거부한다", async () => {
-    const { cooking, farm } = seed();
-    const order = cookingOrders("cook-user", cooking)[0];
-    store.set("farm.v2", {
-      ...farm,
-      inventory: { wheat: 999, herb: 999, corn: 999 },
-    });
-
-    const response = await POST(
-      request({ action: "order", recipeId: order.recipeId }),
-    );
-
-    expect(response.status).toBe(409);
-    expect(await response.json()).toMatchObject({
-      ok: false,
-      error: "cooked_food_unavailable",
-    });
-  });
-
-  it("상시 납품은 여러 완성품을 차감하고 골드만 지급한다", async () => {
-    const cooking = store.get("cooking.v1") as ReturnType<
-      typeof emptyCookingState
-    >;
-    const farmBefore = structuredClone(store.get("farm.v2"));
-    const foodId = cookingFoodId({
-      recipeId: "flame_corn_stew",
-      quality: "careful",
-      usedRare: false,
-      extended: false,
-    });
-    store.set("cooking.v1", {
-      ...cooking,
-      xp: cookingLevelXpThreshold(50),
-    });
-    store.set("inventory.v2", { cookingFoods: { [foodId]: 3 } });
-
-    const response = await POST(
-      request({
-        action: "standing_delivery",
-        recipeId: "flame_corn_stew",
-        foodId,
-        quantity: 3,
-      }),
-    );
-    const json = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(json.result).toMatchObject({
-      action: "standing_delivery",
-      quantity: 3,
-      quality: "careful",
-      deliveredFoodId: foodId,
-      standingDeliveryRewardGold: 180_000,
-      orderRewardReputation: 0,
-      earnedXp: 0,
-    });
-    expect(store.get("inventory.v2")).toMatchObject({ cookingFoods: {} });
-    expect(store.get("character.v2")).toMatchObject({ gold: 180_100 });
-    expect(store.get("farm.v2")).toEqual(farmBefore);
-    expect(store.get("cooking.v1")).toMatchObject({
-      xp: cookingLevelXpThreshold(50),
-      daily: { standingDeliveries: 3, completedOrderIds: [] },
-      stats: { ordersCompleted: 0 },
-    });
-    expect(recordCodexMasteryGameplayBatch).not.toHaveBeenCalled();
-  });
-
-  it("상시 납품은 남은 일일 한도를 넘으면 아무 상태도 바꾸지 않는다", async () => {
-    const cooking = store.get("cooking.v1") as ReturnType<
-      typeof emptyCookingState
-    >;
-    const foodId = cookingFoodId({
-      recipeId: "rustic_bread",
-      quality: "normal",
-      usedRare: false,
-      extended: false,
-    });
-    store.set("cooking.v1", {
-      ...cooking,
-      daily: { ...cooking.daily, standingDeliveries: 19 },
-    });
-    store.set("inventory.v2", { cookingFoods: { [foodId]: 2 } });
-    const before = {
-      character: structuredClone(store.get("character.v2")),
-      inventory: structuredClone(store.get("inventory.v2")),
-      cooking: structuredClone(store.get("cooking.v1")),
-    };
-
-    const response = await POST(
-      request({
-        action: "standing_delivery",
-        recipeId: "rustic_bread",
-        foodId,
-        quantity: 2,
-      }),
-    );
-
-    expect(response.status).toBe(409);
-    expect(await response.json()).toMatchObject({
-      ok: false,
-      error: "standing_delivery_limit",
-    });
-    expect(store.get("character.v2")).toEqual(before.character);
-    expect(store.get("inventory.v2")).toEqual(before.inventory);
-    expect(store.get("cooking.v1")).toEqual(before.cooking);
-  });
-
-  it("상시 납품은 요청 수량보다 재고가 적으면 아무 상태도 바꾸지 않는다", async () => {
-    const foodId = cookingFoodId({
-      recipeId: "rustic_bread",
-      quality: "normal",
-      usedRare: false,
-      extended: false,
-    });
-    store.set("inventory.v2", { cookingFoods: { [foodId]: 1 } });
-    const before = {
-      character: structuredClone(store.get("character.v2")),
-      inventory: structuredClone(store.get("inventory.v2")),
-      cooking: structuredClone(store.get("cooking.v1")),
-    };
-
-    const response = await POST(
-      request({
-        action: "standing_delivery",
-        recipeId: "rustic_bread",
-        foodId,
-        quantity: 2,
-      }),
-    );
-
-    expect(response.status).toBe(409);
-    expect(await response.json()).toMatchObject({
-      ok: false,
-      error: "cooked_food_unavailable",
-    });
-    expect(store.get("character.v2")).toEqual(before.character);
-    expect(store.get("inventory.v2")).toEqual(before.inventory);
-    expect(store.get("cooking.v1")).toEqual(before.cooking);
-  });
-
-  it.each([0, 1.5])(
-    "상시 납품 수량 %s개는 양의 정수가 아니므로 거부한다",
-    async (quantity) => {
-      const foodId = cookingFoodId({
-        recipeId: "rustic_bread",
-        quality: "normal",
-        usedRare: false,
-        extended: false,
-      });
-      store.set("inventory.v2", { cookingFoods: { [foodId]: 2 } });
-      const before = {
-        character: structuredClone(store.get("character.v2")),
-        inventory: structuredClone(store.get("inventory.v2")),
-        cooking: structuredClone(store.get("cooking.v1")),
-      };
-
-      const response = await POST(
-        request({
-          action: "standing_delivery",
-          recipeId: "rustic_bread",
-          foodId,
-          quantity,
-        }),
-      );
-
-      expect(response.status).toBe(400);
-      expect(await response.json()).toMatchObject({
-        ok: false,
-        error: "bad_request",
-      });
-      expect(store.get("character.v2")).toEqual(before.character);
-      expect(store.get("inventory.v2")).toEqual(before.inventory);
-      expect(store.get("cooking.v1")).toEqual(before.cooking);
-    },
-  );
-});
-
-describe("GET /api/v2/cooking — 농장 증표 잔액", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(NOW);
-    seed();
-  });
-  afterEach(() => {
-    vi.useRealTimers();
-    vi.restoreAllMocks();
-  });
-
-  it("누적 획득량에서 사용량을 뺀 현재 보유 증표를 반환한다", async () => {
-    const farm = store.get("farm.v2") as ReturnType<typeof emptyFarmState>;
-    store.set("farm.v2", {
-      ...farm,
-      stats: {
-        ...farm.stats,
-        reputation: 120,
-        reputationSpent: 45,
-      },
-    });
-
-    const response = await GET(
-      new Request("http://localhost/api/v2/cooking"),
-    );
-    const json = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(json.farmReputation).toBe(75);
+    expect((mocks.store.get("farm.v2") as { inventory: object }).inventory).toEqual({});
+    expect(mocks.store.get("cooking.v2")).toMatchObject({ kitchenItems: { "processed:flour": 2 } });
   });
 });

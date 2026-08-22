@@ -679,7 +679,8 @@ function spDirectDamageValue(
     });
     return (
       pure.attackCoef +
-      (pure.primaryStatCoef / V2_DIRECT_SKILL_STAT_COEF_MULT) *
+      (pure.uncompensatedPrimaryStatCoef /
+        V2_DIRECT_SKILL_STAT_COEF_MULT) *
         SP_REFERENCE_PRIMARY_STAT_TO_ATTACK
     );
   }

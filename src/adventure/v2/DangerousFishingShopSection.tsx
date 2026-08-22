@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import type {
   DangerousGearKind,
+  DangerousBait,
   DangerousLine,
   DangerousReel,
   DangerousRod,
@@ -41,6 +42,42 @@ function gearEffectLabels(
   }
   const line = item as DangerousLine;
   return [signedStat("최대 장력", line.maxTensionBonus), `느슨함 허용 +${line.slackTolerance}회`];
+}
+
+export function dangerousBaitRealtimeEffectCopy(bait: DangerousBait): string {
+  const effect = bait.realtimeEffect;
+  const labels: string[] = [];
+  if (
+    effect.turnDistanceRecoveryReductionPct > 0 &&
+    effect.turnDistanceRecoveryReductionPct === effect.turnTensionImpactReductionPct
+  ) {
+    labels.push(
+      `급선회 중 거리 회복·장력 충격 ${effect.turnDistanceRecoveryReductionPct}% 감소`,
+    );
+  } else {
+    if (effect.turnDistanceRecoveryReductionPct > 0) {
+      labels.push(`급선회 중 거리 회복 ${effect.turnDistanceRecoveryReductionPct}% 감소`);
+    }
+    if (effect.turnTensionImpactReductionPct > 0) {
+      labels.push(`급선회 중 장력 충격 ${effect.turnTensionImpactReductionPct}% 감소`);
+    }
+  }
+  if (effect.chargeAndThrashStaminaDamagePct > 0) {
+    labels.push(`돌진·몸부림 중 어체력 피해 ${effect.chargeAndThrashStaminaDamagePct}% 증가`);
+  }
+  if (effect.telegraphCount > 0) {
+    labels.push(`다음 행동 ${effect.telegraphCount}개 예고`);
+  }
+  if (effect.diveSpeedReductionPct > 0) {
+    labels.push(`잠수 속도 ${effect.diveSpeedReductionPct}% 감소`);
+  }
+  if (effect.startingStaminaReductionPct > 0) {
+    labels.push(`시작 어체력 ${effect.startingStaminaReductionPct}% 감소`);
+  }
+  if (effect.tensionImpulseReductionPct > 0) {
+    labels.push(`모든 행동 장력 충격 ${effect.tensionImpulseReductionPct}% 감소`);
+  }
+  return labels.length > 0 ? labels.join(" · ") : "추가 실시간 효과 없음";
 }
 
 export function DangerousFishingShopSection({
@@ -169,6 +206,9 @@ export function DangerousFishingShopSection({
 
       <section className="space-y-1.5">
         <h3 className="px-1 text-xs font-semibold text-zinc-500 dark:text-zinc-400">특수 미끼</h3>
+        <p className="px-1 text-xs text-zinc-500 dark:text-zinc-400">
+          아래 효과는 위험 해역 실시간 조우에만 적용되며 일반 낚시는 바뀌지 않습니다.
+        </p>
         <div className={`${SURFACE_CARD} divide-y divide-zinc-200 overflow-hidden dark:divide-zinc-700`}>
           {Object.values(model.catalogs.baits).map((bait) => {
             const count = model.state.baitCounts[bait.id] ?? 0;
@@ -185,6 +225,9 @@ export function DangerousFishingShopSection({
                       {bait.unlimited ? "무제한 사용" : `보유 ${count}개 · ${bait.packSize}개 묶음`}
                     </p>
                     <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">{bait.description}</p>
+                    <p className="mt-1 text-[11px] font-medium text-sky-700 dark:text-sky-300">
+                      실시간 효과 · {dangerousBaitRealtimeEffectCopy(bait)}
+                    </p>
                   </div>
                 </div>
                 {bait.unlimited ? (

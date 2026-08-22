@@ -73,7 +73,7 @@ vi.mock("@/adventure/data/v2/museunCashItems", () => ({
   addMuseunCashItem: vi.fn((value: unknown) => value),
   isMuseunCashItemId: vi.fn(() => false),
 }));
-vi.mock("@/adventure/v2/cooking", () => ({
+vi.mock("@/adventure/v2/cooking/food", () => ({
   addCookingFood: vi.fn((value: unknown) => value),
   isCookingFoodId: vi.fn(() => false),
 }));

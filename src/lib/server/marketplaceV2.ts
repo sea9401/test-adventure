@@ -32,7 +32,7 @@ import {
 import {
   cookingFoodDefinition,
   isCookingFoodId,
-} from "@/adventure/v2/cooking";
+} from "@/adventure/v2/cooking/food";
 import { FISH } from "@/adventure/data/v2/fish";
 import { fishIdFromSpecimenItemId } from "@/adventure/v2/fishSpecimens";
 

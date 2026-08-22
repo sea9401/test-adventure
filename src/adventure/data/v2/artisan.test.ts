@@ -6,6 +6,7 @@ import {
   addArtisanXp,
   addArtisanXpOnly,
   artisanLevel,
+  artisanXpForLevel,
   artisanXpForNextLevel,
   artisanXpIntoLevel,
   blacksmithJobForLevel,
@@ -44,6 +45,15 @@ describe("artisan state", () => {
       12,
     );
     expect(next.blacksmith).toEqual({ xp: 107, crafts: 2 });
+  });
+
+  it("keeps existing levels through 18 and uses the approved long-term curve", () => {
+    expect(artisanLevel({ xp: 52_499, crafts: 0 })).toBe(17);
+    expect(artisanLevel({ xp: 52_500, crafts: 0 })).toBe(18);
+    expect(artisanLevel({ xp: 307_499, crafts: 0 })).toBe(29);
+    expect(artisanLevel({ xp: 307_500, crafts: 0 })).toBe(30);
+    expect(artisanXpForLevel(31)).toBe(345_000);
+    expect(artisanXpForLevel(32)).toBe(385_000);
   });
 
   it("exposes blacksmith reward milestones by artisan level", () => {
@@ -110,5 +120,14 @@ describe("artisan state", () => {
     expect(unlockedBlacksmithSkills(9).map((skill) => skill.id)).toContain(
       "blacksmith_high_quality",
     );
+    expect(
+      BLACKSMITH_ARTISAN_SKILLS.filter((skill) => skill.level >= 13).map(
+        (skill) => skill.level,
+      ),
+    ).toEqual([13, 15, 17, 20, 22, 24, 26, 28, 30]);
+    expect(nextArtisanMilestone(BLACKSMITH_REWARD_MILESTONES, 10)?.level).toBe(
+      13,
+    );
+    expect(nextArtisanMilestone(BLACKSMITH_REWARD_MILESTONES, 30)).toBeNull();
   });
 });

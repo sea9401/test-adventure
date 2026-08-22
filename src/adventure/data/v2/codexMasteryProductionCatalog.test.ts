@@ -3,7 +3,7 @@ import { FISH_IDS } from "./fish";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { MAX_FRONTIER_DEPTH, dungeonThemeCatalog } from "./dungeon";
 import { V2_JOB_LIST } from "./v2JobCatalog";
-import { COOKING_RECIPES } from "@/adventure/v2/cooking";
+import { COOKING_PUBLIC_RECIPES } from "@/adventure/v2/cooking/catalog";
 import { LIFE_FIELD_RECORD_CATALOG } from "@/adventure/v2/lifeFieldRecords";
 import {
   CODEX_MASTERY_BUDGET_REPORT,
@@ -29,7 +29,7 @@ describe("production codex mastery catalog", () => {
     expect(ids("fish")).toEqual([...FISH_IDS].sort());
     expect(ids("monster")).toEqual(monsterIds);
     expect(ids("equipment")).toEqual(Object.keys(V2_EQUIPMENT).sort());
-    expect(ids("cooking")).toEqual(COOKING_RECIPES.map((recipe) => recipe.id).sort());
+    expect(ids("cooking")).toEqual(COOKING_PUBLIC_RECIPES.map((recipe) => recipe.id).sort());
     expect(ids("life")).toEqual(LIFE_FIELD_RECORD_CATALOG.map((entry) => entry.id).sort());
     expect(ids("job")).toEqual(
       V2_JOB_LIST.filter((job) => job.tier > 0).map((job) => job.id).sort(),

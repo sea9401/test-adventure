@@ -20,7 +20,7 @@ import {
   cookingLevelForXp,
   cookingLevelXpThreshold,
   parseCookingState,
-} from "@/adventure/v2/cooking";
+} from "@/adventure/v2/cooking/state";
 import {
   FISHING_LEVEL_CAP,
   FISHING_PROGRESS_KEY,

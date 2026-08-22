@@ -15,6 +15,7 @@ import {
   stackedDamageReductionPct,
   stackedMaxHpIncreasePct,
   stackedVitalityIncreasePct,
+  v2LevelGrowthHpMp,
   V2_BASE_COMBAT_BONUS,
   VIT_ATK_COEF,
 } from "./derivePlayerCombatV2";
@@ -167,16 +168,16 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       }).player;
 
     const cases = [
-      { allocatedDex: 300, spd: 299.25, expectedAtk: 401 },
-      { allocatedDex: 511, spd: 499.7, expectedAtk: 415 },
-      { allocatedDex: 1_062, spd: 1_023.15, expectedAtk: 433 },
-      { allocatedDex: 2_000, spd: 1_914.25, expectedAtk: 446 },
+      { allocatedDex: 300, spd: 299.25, expectedAtk: 797 },
+      { allocatedDex: 511, spd: 499.7, expectedAtk: 824 },
+      { allocatedDex: 1_062, spd: 1_023.15, expectedAtk: 861 },
+      { allocatedDex: 2_000, spd: 1_914.25, expectedAtk: 887 },
     ];
     for (const testCase of cases) {
       const base = derive(testCase.allocatedDex);
       const converted = derive(testCase.allocatedDex, 30);
       expect(base.spd).toBe(testCase.spd);
-      expect(base.atk).toBe(361);
+      expect(base.atk).toBe(717);
       expect(converted.atk).toBe(testCase.expectedAtk);
     }
   });
@@ -557,6 +558,50 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
   });
 });
 
+describe("derivePlayerCombatV2Pure 힘·지능 파생 효율", () => {
+  it("힘 100 투자는 공격력 70과 최대 HP 100을 더한다", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { str: 0 },
+      v2Equipped: {},
+    });
+    const invested = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { str: 100 },
+      v2Equipped: {},
+    });
+
+    expect(invested.player.atk - base.player.atk).toBe(70);
+    expect(invested.maxHp - base.maxHp).toBe(100);
+  });
+
+  it("지능 100 투자는 마법 공격력 70을 더한다", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { int: 0 },
+      v2Equipped: {},
+    });
+    const invested = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { int: 100 },
+      v2Equipped: {},
+    });
+
+    expect(invested.player.magicAtk! - base.player.magicAtk!).toBe(70);
+  });
+
+  it("레벨업 결과 HP는 레벨·힘·활력 성장분을 모두 합산한다", () => {
+    expect(
+      v2LevelGrowthHpMp({
+        levelsGained: 2,
+        strGained: 4,
+        vitGained: 3,
+        intGained: 2,
+      }),
+    ).toEqual({ hp: 33, mp: 10 });
+  });
+});
+
 describe("속도 기반 추가 공격 점감", () => {
   it("100%까지는 선형이고 이후 증가분은 200% 미만으로 점근한다", () => {
     expect(diminishingExtraAttackChancePct(80)).toBe(80);
@@ -698,14 +743,14 @@ describe("derivePlayerCombatV2Pure critResistPct (SPI PR-3b — 정신 치명저
   });
 });
 
-describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", () => {
-  it("Lv1 신캐는 VIT 1당 HP 3을 얻는다", () => {
+describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + str + vit)", () => {
+  it("Lv1 신캐는 STR 1당 HP 1과 VIT 1당 HP 3을 얻는다", () => {
     const d = derivePlayerCombatV2Pure({
       level: 1,
       v2Equipped: {},
     });
     expect(d.totalStats.vit).toBe(15);
-    expect(d.maxHp).toBe(V2_BASE_HP + 15 * HP_PER_VIT);
+    expect(d.maxHp).toBe(V2_BASE_HP + 15 + 15 * HP_PER_VIT);
   });
 
   it("레벨 성장 — Lv100 = V2_BASE_HP + 99×10 + vit", () => {
@@ -714,7 +759,7 @@ describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", ()
       v2Equipped: {},
     });
     expect(d.maxHp).toBe(
-      V2_BASE_HP + 99 * V2_HP_PER_LEVEL + 15 * HP_PER_VIT,
+      V2_BASE_HP + 99 * V2_HP_PER_LEVEL + 15 + 15 * HP_PER_VIT,
     );
   });
 
@@ -725,7 +770,7 @@ describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", ()
       v2Equipped: {},
     });
     expect(d.totalStats.vit).toBe(65);
-    expect(d.maxHp).toBe(V2_BASE_HP + 65 * HP_PER_VIT);
+    expect(d.maxHp).toBe(V2_BASE_HP + 15 + 65 * HP_PER_VIT);
   });
 });
 
@@ -1045,14 +1090,18 @@ describe("derivePlayerCombatV2FromSaves (사냥 라우트 dedup용 — select �
     expect(viaSaves!.player.atk).toBeGreaterThan(0);
   });
 
-  it("applies active food stats in PvE and excludes them when requested for PvP", () => {
+  it("applies v2 food primary and flat combat effects only in PvE", () => {
     const saves = {
       character: {
         ...character,
         activeFoodBuff: {
           recipeId: "flame_corn_stew",
           recipeName: "불꽃 옥수수 스튜",
-          statPct: { str: 20, vit: 10 },
+          effect: {
+            primaryFlat: { str: 10 },
+            primaryPct: { str: 5 },
+            combatFlat: { atk: 100, def: 50, maxHp: 300 },
+          },
           quality: "normal",
           expiresAt: Date.now() + 60_000,
         },
@@ -1063,8 +1112,12 @@ describe("derivePlayerCombatV2FromSaves (사냥 라우트 dedup용 — select �
     };
     const pve = derivePlayerCombatV2FromSaves(saves)!;
     const pvp = derivePlayerCombatV2FromSaves({ ...saves, includeCookingBuff: false })!;
-    expect(pve.totalStats.str).toBeGreaterThan(pvp.totalStats.str);
-    expect(pve.totalStats.vit).toBeGreaterThan(pvp.totalStats.vit);
+    expect(pve.totalStats.str).toBeGreaterThan(pvp.totalStats.str + 10);
+    expect(pve.player.atk).toBeGreaterThanOrEqual(pvp.player.atk + 100);
+    expect(pve.player.def).toBe(pvp.player.def + 50);
+    expect(pve.maxHp).toBe(
+      pvp.maxHp + 300 + (pve.totalStats.str - pvp.totalStats.str),
+    );
   });
 
   it("2차 마법사는 마나 실드를 장착한 경우에만 장벽을 전개한다", () => {

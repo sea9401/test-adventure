@@ -39,7 +39,7 @@ import {
 import {
   isCookingFoodId,
   removeCookingFood,
-} from "@/adventure/v2/cooking";
+} from "@/adventure/v2/cooking/food";
 import {
   FISH_SPECIMEN_SAVE_KEY,
   fishIdFromSpecimenItemId,

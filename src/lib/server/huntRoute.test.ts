@@ -389,10 +389,10 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(upsertSave).not.toHaveBeenCalled();
   });
 
-  it("활성 음식의 사냥 경험치 버프를 캐릭터 EXP에 적용한다", async () => {
+  it("활성 v2 음식의 사냥 경험치와 골드 버프를 적용한다", async () => {
     const baselineRes = await POST(huntReq({ floor: 2 }));
     const baseline = (await baselineRes.json()) as {
-      result: { expGained: number };
+      result: { expGained: number; goldGross: number };
     };
 
     seedStrongWarrior();
@@ -402,8 +402,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       activeFoodBuff: {
         recipeId: "herb_tea",
         recipeName: "깨달음의 허브차",
-        statPct: { int: 5 },
-        expPct: 60,
+        effect: { huntExpPct: 15, huntGoldPct: 15 },
         quality: "normal",
         expiresAt: Date.now() + 60 * 60 * 1000,
       },
@@ -419,18 +418,35 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
           expPct: number;
           expBonus: number;
         };
+        foodGoldBuff: {
+          name: string;
+          goldPct: number;
+          goldBonus: number;
+        };
+        goldGross: number;
       };
     };
     const expected = applyStochasticPercentBonus(
       baseline.result.expGained,
-      60,
+      15,
       () => 0.5,
     );
     expect(boosted.result.expGained).toBe(expected);
     expect(boosted.result.foodExpBuff).toEqual({
       name: "깨달음의 허브차",
-      expPct: 60,
+      expPct: 15,
       expBonus: expected - baseline.result.expGained,
+    });
+    const expectedGold = applyStochasticPercentBonus(
+      baseline.result.goldGross,
+      15,
+      () => 0.5,
+    );
+    expect(boosted.result.goldGross).toBe(expectedGold);
+    expect(boosted.result.foodGoldBuff).toEqual({
+      name: "깨달음의 허브차",
+      goldPct: 15,
+      goldBonus: expectedGold - baseline.result.goldGross,
     });
   });
 

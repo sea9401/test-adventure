@@ -874,7 +874,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 
   it("피해 계수는 공격 기반선과 특화 스탯을 구분해 명시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_mage_boltcast)).toContain(
-      "피해 마법 공격력×1.05 + 지능×0.4",
+      "피해 마법 공격력×1.05 + 지능×0.04",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_shieldman_bash)).toContain(
       "피해 공격력×1.05 + 방어력×1.67",
@@ -883,10 +883,10 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 
   it("6차 순수형과 혼합형 모두 직접 스탯 계수 상향을 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_swordsaint_flash)).toContain(
-      "피해 공격력×1.3 + 힘×1.5",
+      "피해 공격력×1.3 + 힘×1.04",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_archmage_collapse)).toContain(
-      "피해 마법 공격력×1.68 + 지능×1.27",
+      "피해 마법 공격력×1.68 + 지능×0.68",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_heavenlybow_orbit)).toEqual(
       expect.arrayContaining([
@@ -898,7 +898,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 
   it("다단 스킬의 공격 계수는 소수 둘째 자리까지 반올림해 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_warrior_flurry)).toContain(
-      "피해 공격력×0.36 + 힘×0.19",
+      "피해 공격력×0.36 + 힘×0.07",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_ranger_ambush)).toContain(
       "피해 공격력×0.4 + 민첩×0.12",
@@ -976,7 +976,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     );
     expect(
       describeV2Skill(V2_SKILLS.v2c_warrior_strike).some((chip) =>
-        chip.includes("공격력×1.08 + 힘×0.58"),
+        chip.includes("공격력×1.08 + 힘×0.2"),
       ),
     ).toBe(true);
     expect(
@@ -1361,12 +1361,14 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
 
     expect(skill.name).toBe("일검필살");
     expect(skill.passive?.statPct).toEqual({ str: 24 });
-    expect(skill.passive?.critDmgPct).toBe(35);
+    expect(skill.passive?.critDmgPct).toBeUndefined();
+    expect(skill.passive?.skillCritDmgPct).toBe(35);
     expect(passive.singleHitPhysicalSkillDamagePct).toBe(30);
     expect(passive.accuracyPct).toBe(15);
     expect(passive).not.toHaveProperty("reflectDamageTakenReductionPct");
-    expect(spCostOf(skill)).toBe(15);
+    expect(spCostOf(skill)).toBe(13);
     expect(describeV2Skill(skill)).toContain("단일 타격 물리 스킬 피해 +30%");
+    expect(describeV2Skill(skill)).toContain("스킬 치명타 피해 +35%");
   });
 
   it("성도 조준은 흑월의 치명 오버플로 대신 고정 스킬 치명 피해를 제공한다", () => {
@@ -1452,9 +1454,8 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(spCostOf(V2_SKILLS.v2c_ranger_ambush)).toBeGreaterThanOrEqual(
       spCostOf(V2_SKILLS.v2c_warrior_flurry),
     );
-    expect(spCostOf(V2_SKILLS.v2c_mage_boltcast)).toBeGreaterThan(
-      spCostOf(V2_SKILLS.v2c_caster_bolt),
-    );
+    expect(spCostOf(V2_SKILLS.v2c_mage_boltcast)).toBe(4);
+    expect(spCostOf(V2_SKILLS.v2c_primordialsage_greatorb)).toBe(9);
     expect(spCostOf(V2_SKILLS.v2c_warder_barrier)).toBeLessThan(
       spCostOf(V2_SKILLS.v2c_ironman_brace),
     );

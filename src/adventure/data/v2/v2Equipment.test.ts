@@ -1248,6 +1248,7 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
             level: 2.9,
             craftedAt: "2026-06-29T00:00:00.000Z",
             masterwork: true,
+            specialty: "weapon",
           },
         },
         {
@@ -1264,8 +1265,29 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
       level: 2,
       craftedAt: "2026-06-29T00:00:00.000Z",
       masterwork: true,
+      specialty: "weapon",
     });
     expect(r.owned[1].craftedBy).toBeUndefined();
+  });
+
+  it("drops an invalid blacksmith specialty mark", () => {
+    const r = parseEquipmentSave({
+      owned: [
+        {
+          iid: "a1",
+          id: "v2_iron_sword",
+          craftedBy: {
+            userId: "u1",
+            profession: "blacksmith",
+            level: 28,
+            craftedAt: "2026-06-29T00:00:00.000Z",
+            specialty: "invalid",
+          },
+        },
+      ],
+    });
+
+    expect(r.owned[0].craftedBy).not.toHaveProperty("specialty");
   });
 
   it("legacy crafted quality enhance is migrated to craftQuality", () => {

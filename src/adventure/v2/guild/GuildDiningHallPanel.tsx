@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ASSOCIATION_DINING_POINTS_PER_TICKET,
   GUILD_DINING_EFFECT_DURATION_HOURS,
   GUILD_DINING_POINTS_PER_TICKET,
   type GuildDiningEffectKind,
@@ -23,6 +24,8 @@ import {
   SURFACE_INSET,
 } from "@/components/ui/surfaces";
 import {
+  associationDiningContributionProgress,
+  diningDonationQuantityLimit,
   guildDiningMenuUnavailableReason,
   guildDiningUnavailableReasons,
   type DiningFacilitySource,
@@ -43,7 +46,7 @@ type DiningState = {
     earned: number;
     used: number;
     available: number;
-    contributionCap: number;
+    contributionCap: number | null;
   };
   contributionPoints: number;
   ingredients: Array<GuildDiningIngredient & { owned: number }>;
@@ -164,18 +167,16 @@ export function GuildDiningHallPanel({
   const selectedBatchSize = selectedIngredient?.batchSize ?? 1;
   const maxDonation = useMemo(() => {
     if (!state || !selectedIngredient) return 0;
-    const personalRoom = state.tickets.contributionCap - state.contributionPoints;
-    const maxBatches = Math.max(
-      0,
-      Math.min(
-        Math.floor(selectedIngredient.owned / selectedIngredient.batchSize),
-        Math.floor(personalRoom / selectedIngredient.pointValue),
-        Math.floor(state.pantry.remaining / selectedIngredient.pointValue),
-        Math.floor(999 / selectedIngredient.batchSize),
-      ),
-    );
-    return maxBatches * selectedIngredient.batchSize;
-  }, [selectedIngredient, state]);
+    return diningDonationQuantityLimit({
+      source,
+      owned: selectedIngredient.owned,
+      batchSize: selectedIngredient.batchSize,
+      pointValue: selectedIngredient.pointValue,
+      contributionPoints: state.contributionPoints,
+      contributionCap: state.tickets.contributionCap,
+      pantryRemaining: state.pantry.remaining,
+    });
+  }, [selectedIngredient, source, state]);
   const donationQuantity =
     maxDonation > 0
       ? Math.max(
@@ -216,14 +217,19 @@ export function GuildDiningHallPanel({
 
   const sourceConflict =
     state.weeklySource != null && state.weeklySource !== source;
+  const isAssociation = source === "association";
   const canParticipate = state.eligible && !sourceConflict;
   const unavailableReasons = guildDiningUnavailableReasons({
     eligible: state.eligible,
     weeklySource: state.weeklySource,
     currentSource: source,
     pantry: state.pantry,
+    contributionPoints: state.contributionPoints,
     availableTickets: state.tickets.available,
   });
+  const associationProgress = associationDiningContributionProgress(
+    state.contributionPoints,
+  );
   const activeEffect =
     state.activeEffect && state.activeEffect.expiresAt > clockNow
       ? state.activeEffect
@@ -239,12 +245,16 @@ export function GuildDiningHallPanel({
               <h3 className="text-base font-bold">{title} Lv.{state.level}</h3>
             </div>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              {state.stageLabel} · 공동 목표를 달성하면 각자 원하는 메뉴를 고를 수 있습니다.
+              {state.stageLabel} · {isAssociation
+                ? `개인 식재료 ${ASSOCIATION_DINING_POINTS_PER_TICKET}점마다 식권 1장을 얻습니다.`
+                : "공동 목표를 달성하면 각자 원하는 메뉴를 고를 수 있습니다."}
             </p>
           </div>
           <div className="rounded-md bg-white px-3 py-2 text-right shadow-sm dark:bg-zinc-900">
             <div className="text-[11px] text-zinc-500">
-              {state.pantry.ready ? "내 식권" : "목표 달성 시 식권"}
+              {isAssociation || state.pantry.ready
+                ? "내 식권"
+                : "목표 달성 시 식권"}
             </div>
             <div className="text-sm font-bold tabular-nums text-amber-700 dark:text-amber-300">
               {state.tickets.available} / {state.tickets.earned}장
@@ -253,24 +263,46 @@ export function GuildDiningHallPanel({
         </div>
       </section>
 
-      <section className={`${SURFACE_INSET} p-3`}>
-        <div className="flex items-center justify-between gap-3 text-xs">
-          <span className="font-semibold">공동 식재료 준비</span>
-          <span className="tabular-nums text-zinc-500">
-            {state.pantry.points} / {state.pantry.target}점
-          </span>
-        </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
-          <div
-            className="h-full rounded-full bg-amber-500"
-            style={{ width: `${Math.min(100, (state.pantry.points / state.pantry.target) * 100)}%` }}
-          />
-        </div>
-        <p className="mt-2 text-xs text-zinc-500">
-          목표 달성 후 주간 참여자 기본 {state.tickets.base}장 사용 가능 · 내 기여 {state.contributionPoints}/
-          {state.tickets.contributionCap}점 · {GUILD_DINING_POINTS_PER_TICKET}점마다 추가 식권 1장
-        </p>
-      </section>
+      {isAssociation ? (
+        <section className={`${SURFACE_INSET} p-3`}>
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <span className="font-semibold">개인 식재료 기여</span>
+            <span className="tabular-nums text-zinc-500">
+              이번 주 {state.contributionPoints.toLocaleString("ko-KR")}점 · 다음 식권까지 {associationProgress.remaining}점
+            </span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+            <div
+              className="h-full rounded-full bg-amber-500"
+              style={{
+                width: `${(associationProgress.points / associationProgress.target) * 100}%`,
+              }}
+            />
+          </div>
+          <p className="mt-2 text-xs text-zinc-500">
+            {ASSOCIATION_DINING_POINTS_PER_TICKET}점마다 식권 1장 · 주간 납품 제한 없음
+          </p>
+        </section>
+      ) : (
+        <section className={`${SURFACE_INSET} p-3`}>
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <span className="font-semibold">공동 식재료 준비</span>
+            <span className="tabular-nums text-zinc-500">
+              {state.pantry.points} / {state.pantry.target}점
+            </span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+            <div
+              className="h-full rounded-full bg-amber-500"
+              style={{ width: `${Math.min(100, (state.pantry.points / state.pantry.target) * 100)}%` }}
+            />
+          </div>
+          <p className="mt-2 text-xs text-zinc-500">
+            목표 달성 후 주간 참여자 기본 {state.tickets.base}장 사용 가능 · 내 기여 {state.contributionPoints}/
+            {state.tickets.contributionCap}점 · {GUILD_DINING_POINTS_PER_TICKET}점마다 추가 식권 1장
+          </p>
+        </section>
+      )}
 
       {unavailableReasons.length > 0 && (
         <section
@@ -323,7 +355,7 @@ export function GuildDiningHallPanel({
                   ?.batchSize ?? 1,
               );
             }}
-            disabled={busy || !canParticipate || state.pantry.ready}
+            disabled={busy || !canParticipate || (!isAssociation && state.pantry.ready)}
             className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
           >
             {(["farm", "fishing_item"] as const).map((source) => (
@@ -372,7 +404,9 @@ export function GuildDiningHallPanel({
                   quantity: donationQuantity,
                 },
                 (json) =>
-                  `${json.donated?.ingredientName ?? "식재료"} ${json.donated?.quantity ?? 0}개 기부 · 식당 +${json.donated?.points ?? 0}점 · 길드 기여 +${json.donated?.contributionPoints ?? 0}점`,
+                  isAssociation
+                    ? `${json.donated?.ingredientName ?? "식재료"} ${json.donated?.quantity ?? 0}개 기부 · 개인 기여 +${json.donated?.points ?? 0}점`
+                    : `${json.donated?.ingredientName ?? "식재료"} ${json.donated?.quantity ?? 0}개 기부 · 식당 +${json.donated?.points ?? 0}점 · 길드 기여 +${json.donated?.contributionPoints ?? 0}점`,
               )
             }
             className="h-9 rounded-md bg-amber-600 px-4 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-50"
@@ -471,7 +505,7 @@ export function GuildDiningHallPanel({
         </p>
       )}
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        효과식은 한 번에 하나만 적용됩니다. 같은 메뉴를 다시 주문하면 {GUILD_DINING_EFFECT_DURATION_HOURS}시간이 추가되고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. 공동 준비·개인 기여·식권·효과는 매주 월요일 00:00 KST에 초기화됩니다.
+        효과식은 한 번에 하나만 적용됩니다. 같은 메뉴를 다시 주문하면 {GUILD_DINING_EFFECT_DURATION_HOURS}시간이 추가되고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. {isAssociation ? "개인 기여·식권·효과" : "공동 준비·개인 기여·식권·효과"}는 매주 월요일 00:00 KST에 초기화됩니다.
       </p>
     </section>
   );

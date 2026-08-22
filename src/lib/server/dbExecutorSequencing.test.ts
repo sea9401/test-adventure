@@ -61,7 +61,7 @@ describe("transaction 호환 DB helper", () => {
     await readJobUnlockContext({} as DbExecutor, "u-test");
 
     expect(tracker.calls).toEqual([
-      "cooking.v1,farm.v2,guide-quests.v2,mining-log.v1,woodcutting-log.v1",
+      "cooking.v2,farm.v2,guide-quests.v2,mining-log.v1,woodcutting-log.v1",
     ]);
     expect(tracker.maxActive).toBe(1);
   });

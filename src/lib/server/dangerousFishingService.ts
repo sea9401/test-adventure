@@ -20,7 +20,6 @@ import {
   type DangerousGearKind,
   type DangerousZoneId,
 } from "@/adventure/data/v2/dangerousFishing";
-import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 import { parseV2Class } from "@/adventure/data/v2/classes";
 import {
   addJobCumLevel,
@@ -39,8 +38,12 @@ import {
   applyDangerousEncounterAction,
   createDangerousEncounter,
   dangerousEncounterView,
+  isDangerousRealtimeEncounter,
+  type DangerousRealtimeEncounter,
   type DangerousFishingAction,
 } from "@/adventure/v2/dangerousFishingEncounter";
+import { dangerousRealtimeView } from "@/adventure/v2/dangerousFishingRealtime";
+import { dangerousReturnFishingCoins } from "@/adventure/v2/dangerousFishingRewards";
 import {
   dangerousFishingEncounterModifiers,
   dangerousFishingHeritage,
@@ -50,6 +53,8 @@ import {
   DANGEROUS_FISHING_SAVE_KEY,
   dangerousRiskPreview,
   parseDangerousFishingState,
+  recoverExpiredRealtimeBossAttempt,
+  recoverExpiredRealtimeVoyageEncounter,
   resolvePersonalEncounter,
   returnDangerousVoyage,
   startDangerousVoyage,
@@ -80,12 +85,18 @@ import {
   walletCoins,
 } from "@/lib/server/fishing/coins";
 import {
+  dangerousFishingWalletCoins,
+  dangerousFishingWalletWithAddedCoins,
+  mergeDangerousFishingMaterials,
+} from "@/lib/server/dangerousFishingSettlement";
+import {
   activeAutoGatheringActivity,
   lockAutoGatheringStatesForUpdate,
+  lockLifeActivityUserForUpdate,
   readActiveAutoGatheringActivity,
 } from "@/lib/server/lifeActivityLock";
 import {
-  lockSaveForUpdate,
+  lockSavesForUpdate,
   readSave,
   upsertSave,
   type DbExecutor,
@@ -114,20 +125,89 @@ function fail(error: string, status: number, detail = {}): ServiceError {
   return { ok: false, error, status, ...detail };
 }
 
-function publicState(state: DangerousFishingState) {
+export function dangerousRealtimeEncounterView(
+  encounter: DangerousRealtimeEncounter,
+) {
+  const { config, checkpoint } = encounter;
+  return {
+    simulationVersion: 2 as const,
+    balanceRevision: encounter.balanceRevision,
+    id: encounter.id,
+    targetKind: encounter.targetKind,
+    targetId: encounter.targetId,
+    config: {
+      seed: config.seed,
+      risk: config.risk,
+      targetKind: config.targetKind,
+      rarity: config.rarity,
+      behaviorPattern: [...config.behaviorPattern],
+      initialTension: config.initialTension,
+      maxTension: config.maxTension,
+      initialStamina: config.initialStamina,
+      initialDistance: config.initialDistance,
+      maxTicks: config.maxTicks,
+      modifiers: {
+        reelEfficiencyPct: config.modifiers.reelEfficiencyPct,
+        tensionControlPct: config.modifiers.tensionControlPct,
+        safeZoneBonusPct: config.modifiers.safeZoneBonusPct,
+        cargoProtectionPct: config.modifiers.cargoProtectionPct,
+        staminaDamagePct: config.modifiers.staminaDamagePct,
+        distanceRecoveryPct: config.modifiers.distanceRecoveryPct,
+        lowTensionGraceTicks: config.modifiers.lowTensionGraceTicks,
+        telegraphCount: config.modifiers.telegraphCount,
+        timeReductionPct: config.modifiers.timeReductionPct,
+        baitEffect: { ...config.modifiers.baitEffect },
+      },
+    },
+    checkpoint: {
+      tick: checkpoint.tick,
+      mode: checkpoint.mode,
+      status: checkpoint.status,
+      tension: checkpoint.tension,
+      maxTension: checkpoint.maxTension,
+      stamina: checkpoint.stamina,
+      maxStamina: checkpoint.maxStamina,
+      distance: checkpoint.distance,
+      startDistance: checkpoint.startDistance,
+      lowTensionTicks: checkpoint.lowTensionTicks,
+      behavior: checkpoint.behavior,
+      nextBehavior: checkpoint.nextBehavior,
+      behaviorCursor: checkpoint.behaviorCursor,
+      phase: checkpoint.phase,
+      phaseTicksRemaining: checkpoint.phaseTicksRemaining,
+      chainRemaining: checkpoint.chainRemaining,
+      rngState: checkpoint.rngState,
+      targetTicks: checkpoint.targetTicks,
+      maxTicks: checkpoint.maxTicks,
+      performanceScalePermille: checkpoint.performanceScalePermille,
+    },
+    view: dangerousRealtimeView(checkpoint, config),
+    approvedTick: encounter.approvedTick,
+    revision: encounter.revision,
+    startedAt: encounter.startedAt,
+    expiresAt: encounter.expiresAt,
+  };
+}
+
+export function publicState(state: DangerousFishingState) {
+  const { realtimeCompletions: _realtimeCompletions, ...publicStateBase } = state;
   const bossAttempt = state.bossAttempt
     ? {
         ...state.bossAttempt,
-        encounter: dangerousEncounterView(state.bossAttempt.encounter),
+        encounter: isDangerousRealtimeEncounter(state.bossAttempt.encounter)
+          ? dangerousRealtimeEncounterView(state.bossAttempt.encounter)
+          : dangerousEncounterView(state.bossAttempt.encounter),
       }
     : null;
-  if (!state.voyage?.encounter) return { ...state, bossAttempt };
+  if (!state.voyage?.encounter) return { ...publicStateBase, bossAttempt };
   return {
-    ...state,
+    ...publicStateBase,
     bossAttempt,
     voyage: {
       ...state.voyage,
-      encounter: dangerousEncounterView(state.voyage.encounter),
+      encounter: isDangerousRealtimeEncounter(state.voyage.encounter)
+        ? dangerousRealtimeEncounterView(state.voyage.encounter)
+        : dangerousEncounterView(state.voyage.encounter),
     },
   };
 }
@@ -174,6 +254,26 @@ export async function readDangerousFishingView(
   userId: string,
   now: number,
 ) {
+  await lockLifeActivityUserForUpdate(executor, userId);
+  const locked = await lockSavesForUpdate(executor, userId, {
+    [DANGEROUS_FISHING_SAVE_KEY]: {},
+  });
+  const recoveredVoyage = recoverExpiredRealtimeVoyageEncounter(
+    parseDangerousFishingState(locked[DANGEROUS_FISHING_SAVE_KEY]),
+    { now, result: fail("expired", 409) },
+  );
+  const recoveredBoss = recoverExpiredRealtimeBossAttempt(
+    recoveredVoyage.state,
+    { now, result: fail("expired", 409) },
+  );
+  if (recoveredVoyage.encounter || recoveredBoss.encounter) {
+    await upsertSave(
+      executor,
+      userId,
+      DANGEROUS_FISHING_SAVE_KEY,
+      recoveredBoss.state,
+    );
+  }
   const inputs = await readHeritageInputs(executor, userId);
   const activeAutoActivity = await readActiveAutoGatheringActivity(executor, userId);
   return {
@@ -211,17 +311,27 @@ export async function startVoyageInTx(
   if (activeAutoActivity) {
     return fail("auto_active", 409, { activeAutoActivity });
   }
-  const dangerous = parseDangerousFishingState(
-    await lockSaveForUpdate(tx, userId, DANGEROUS_FISHING_SAVE_KEY, {}),
+  const saves = await lockSavesForUpdate(tx, userId, {
+    [DANGEROUS_FISHING_SAVE_KEY]: {},
+    [FISHING_PROGRESS_KEY]: emptyFishingProgression(),
+  });
+  let dangerous = parseDangerousFishingState(
+    saves[DANGEROUS_FISHING_SAVE_KEY],
   );
-  const progress = parseFishingProgression(
-    await lockSaveForUpdate(
-      tx,
-      userId,
-      FISHING_PROGRESS_KEY,
-      emptyFishingProgression(),
-    ),
-  );
+  const recoveredBoss = recoverExpiredRealtimeBossAttempt(dangerous, {
+    now: args.now,
+    result: fail("expired", 409),
+  });
+  if (recoveredBoss.encounter) {
+    dangerous = recoveredBoss.state;
+    await upsertSave(tx, userId, DANGEROUS_FISHING_SAVE_KEY, dangerous);
+  }
+  if (dangerous.bossAttempt) {
+    return fail("encounter_active", 409, {
+      eventId: dangerous.bossAttempt.eventId,
+    });
+  }
+  const progress = parseFishingProgression(saves[FISHING_PROGRESS_KEY]);
   const fishingLevel = fishingLevelForXp(progress.xp);
   if (fishingLevel < 15) {
     return fail("fishing_level_locked", 403, { requiredLevel: 15 });
@@ -252,26 +362,67 @@ function settleReturnIntoCharacter(
 ) {
   return {
     ...character,
-    materials: mergeDrops(character.materials, returned.materials),
+    materials: mergeDangerousFishingMaterials(
+      character.materials,
+      returned.materials,
+    ),
+  };
+}
+
+function settleReturnIntoWallet(
+  walletRaw: unknown,
+  returned: DangerousFishingReturn,
+  risk: number,
+) {
+  const currentCoins = dangerousFishingWalletCoins(walletRaw);
+  const calculated = dangerousReturnFishingCoins(
+    returned.retainedCargoValue,
+    risk,
+  );
+  const remainingCapacity = Math.max(
+    0,
+    Number.MAX_SAFE_INTEGER - currentCoins,
+  );
+  const returnFishingCoinsGained = Math.max(
+    0,
+    Math.min(calculated, remainingCapacity),
+  );
+  return {
+    returnFishingCoinsGained,
+    wallet: fishingWalletWithCoins(
+      walletRaw,
+      currentCoins + returnFishingCoinsGained,
+    ),
   };
 }
 
 export async function returnVoyageInTx(
   tx: DbExecutor,
   userId: string,
+  args: { now: number },
 ) {
-  const state = parseDangerousFishingState(
-    await lockSaveForUpdate(tx, userId, DANGEROUS_FISHING_SAVE_KEY, {}),
-  );
+  await lockLifeActivityUserForUpdate(tx, userId);
+  const saves = await lockSavesForUpdate(tx, userId, {
+    [DANGEROUS_FISHING_SAVE_KEY]: {},
+    "character.v2": {},
+    [FISHING_WALLET_KEY]: {},
+  });
+  let state = parseDangerousFishingState(saves[DANGEROUS_FISHING_SAVE_KEY]);
+  const expired = recoverExpiredRealtimeVoyageEncounter(state, {
+    now: args.now,
+    result: fail("expired", 409),
+  });
+  if (expired.encounter) state = expired.state;
   if (!state.voyage) return fail("no_voyage", 409);
   if (state.voyage.encounter) return fail("encounter_active", 409);
-  const character = (await lockSaveForUpdate(
-    tx,
-    userId,
-    "character.v2",
-    {},
-  )) as CharacterSave;
+  const character = saves["character.v2"] as CharacterSave;
+  const risk = state.voyage.risk;
   const returned = returnDangerousVoyage(state);
+  const walletSettlement = settleReturnIntoWallet(
+    saves[FISHING_WALLET_KEY],
+    returned,
+    risk,
+  );
   await upsertSave(tx, userId, DANGEROUS_FISHING_SAVE_KEY, returned.state);
   await upsertSave(
     tx,
@@ -279,10 +430,22 @@ export async function returnVoyageInTx(
     "character.v2",
     settleReturnIntoCharacter(character, returned),
   );
-  return { ok: true as const, status: 200, ...returned, state: publicState(returned.state) };
+  await upsertSave(
+    tx,
+    userId,
+    FISHING_WALLET_KEY,
+    walletSettlement.wallet,
+  );
+  return {
+    ok: true as const,
+    status: 200,
+    ...returned,
+    returnFishingCoinsGained: walletSettlement.returnFishingCoinsGained,
+    state: publicState(returned.state),
+  };
 }
 
-function pickFish(
+export function pickFish(
   zoneId: DangerousZoneId,
   depthId: DangerousDepthId,
   baitId: DangerousBaitId,
@@ -317,10 +480,34 @@ function pickFish(
   return weighted.at(-1)?.fish ?? DANGEROUS_FISH.razor_sardine;
 }
 
-async function settleIncident(
+export function pickRealtimeFish(
+  zoneId: DangerousZoneId,
+  depthId: DangerousDepthId,
+  random: number,
+): DangerousFish {
+  let candidates = Object.values(DANGEROUS_FISH).filter(
+    (fish) => fish.zoneId === zoneId && fish.depthId === depthId,
+  );
+  if (candidates.length === 0) {
+    candidates = Object.values(DANGEROUS_FISH).filter(
+      (fish) => fish.zoneId === zoneId,
+    );
+  }
+  const total = candidates.reduce((sum, fish) => sum + fish.spawnWeight, 0);
+  let cursor = Math.max(0, Math.min(0.999999, random)) * total;
+  for (const fish of candidates) {
+    cursor -= fish.spawnWeight;
+    if (cursor < 0) return fish;
+  }
+  return candidates.at(-1) ?? DANGEROUS_FISH.razor_sardine;
+}
+
+export async function settleIncidentFromLockedSaves(
   tx: DbExecutor,
   userId: string,
   state: DangerousFishingState,
+  character: CharacterSave,
+  walletRaw: unknown,
   roll: number,
   cargoProtectionPct: number,
 ) {
@@ -330,12 +517,8 @@ async function settleIncident(
     cargoProtectionPct,
   );
   if (!incident.incident) return null;
-  const character = (await lockSaveForUpdate(
-    tx,
-    userId,
-    "character.v2",
-    {},
-  )) as CharacterSave;
+  const risk = state.voyage?.risk ?? 0;
+  const walletSettlement = settleReturnIntoWallet(walletRaw, incident, risk);
   await upsertSave(tx, userId, DANGEROUS_FISHING_SAVE_KEY, incident.state);
   await upsertSave(
     tx,
@@ -343,10 +526,17 @@ async function settleIncident(
     "character.v2",
     settleReturnIntoCharacter(character, incident),
   );
+  await upsertSave(
+    tx,
+    userId,
+    FISHING_WALLET_KEY,
+    walletSettlement.wallet,
+  );
   return {
     ok: true as const,
     status: 200,
     ...incident,
+    returnFishingCoinsGained: walletSettlement.returnFishingCoinsGained,
     state: publicState(incident.state),
   };
 }
@@ -362,31 +552,40 @@ export async function startEncounterInTx(
   if (activeAutoActivity) {
     return fail("auto_active", 409, { activeAutoActivity });
   }
-  let state = parseDangerousFishingState(
-    await lockSaveForUpdate(tx, userId, DANGEROUS_FISHING_SAVE_KEY, {}),
-  );
+  const saves = await lockSavesForUpdate(tx, userId, {
+    [DANGEROUS_FISHING_SAVE_KEY]: {},
+    [FISHING_PROGRESS_KEY]: emptyFishingProgression(),
+    [FISHING_WALLET_KEY]: {},
+    "character.v2": {},
+    "proficiency.v2": {},
+    "skills.v2": emptyV2SkillsState(),
+  });
+  let state = parseDangerousFishingState(saves[DANGEROUS_FISHING_SAVE_KEY]);
+  const expiredVoyage = recoverExpiredRealtimeVoyageEncounter(state, {
+    now: args.now,
+    result: fail("expired", 409),
+  });
+  const recoveredBoss = recoverExpiredRealtimeBossAttempt(expiredVoyage.state, {
+    now: args.now,
+    result: fail("expired", 409),
+  });
+  if (expiredVoyage.encounter || recoveredBoss.encounter) {
+    state = recoveredBoss.state;
+    await upsertSave(tx, userId, DANGEROUS_FISHING_SAVE_KEY, state);
+  }
+  if (state.bossAttempt) {
+    return fail("encounter_active", 409, {
+      eventId: state.bossAttempt.eventId,
+    });
+  }
   if (!state.voyage) return fail("no_voyage", 409);
   if (state.voyage.encounter) return fail("encounter_active", 409);
 
-  const progress = parseFishingProgression(
-    await lockSaveForUpdate(
-      tx,
-      userId,
-      FISHING_PROGRESS_KEY,
-      emptyFishingProgression(),
-    ),
-  );
-  const skills = parseV2SkillsState(
-    await lockSaveForUpdate(tx, userId, "skills.v2", emptyV2SkillsState()),
-  );
-  const character = (await lockSaveForUpdate(
-    tx,
-    userId,
-    "character.v2",
-    {},
-  )) as CharacterSave;
+  const progress = parseFishingProgression(saves[FISHING_PROGRESS_KEY]);
+  const skills = parseV2SkillsState(saves["skills.v2"]);
+  const character = saves["character.v2"] as CharacterSave;
   const proficiency = parseProficiencyForChar(
-    await lockSaveForUpdate(tx, userId, "proficiency.v2", {}),
+    saves["proficiency.v2"],
     character,
   );
   const currentClass = parseV2Class(character.class);
@@ -404,10 +603,12 @@ export async function startEncounterInTx(
     return fail("fishing_level_locked", 403, { requiredLevel: 15 });
   }
   const modifiers = dangerousFishingEncounterModifiers(heritage, state.loadout);
-  const incident = await settleIncident(
+  const incident = await settleIncidentFromLockedSaves(
     tx,
     userId,
     state,
+    character,
+    saves[FISHING_WALLET_KEY],
     args.random(),
     modifiers.cargoProtectionPct,
   );
@@ -448,10 +649,135 @@ export async function startEncounterInTx(
   };
 }
 
-function caughtSize(fish: DangerousFish, random: number, sizeBonusPct: number) {
+export function caughtSize(fish: DangerousFish, random: number, sizeBonusPct: number) {
   const span = fish.maxSizeCm - fish.minSizeCm + 1;
   const base = fish.minSizeCm + Math.floor(Math.max(0, Math.min(0.999999, random)) * span);
   return Math.min(fish.maxSizeCm, Math.floor(base * (1 + sizeBonusPct / 100)));
+}
+
+export function prepareDangerousFishingCatchFromLockedSaves(
+  state: DangerousFishingState,
+  saves: Record<string, unknown>,
+) {
+  const progress = parseFishingProgression(
+    saves[FISHING_PROGRESS_KEY],
+  );
+  const skills = parseV2SkillsState(
+    saves["skills.v2"],
+  );
+  const character = (saves["character.v2"] ?? {}) as CharacterSave;
+  const proficiency = parseProficiencyForChar(
+    saves["proficiency.v2"],
+    character,
+  );
+  const walletRaw = saves[FISHING_WALLET_KEY] ?? {};
+  const currentClass = parseV2Class(character.class);
+  const currentJobId = jobIdFromLegacy(
+    currentClass,
+    typeof character.specChoice === "string" ? character.specChoice : null,
+  );
+  const heritage = dangerousFishingHeritage({
+    fishingProgression: progress,
+    proficiency,
+    currentJobId,
+    equippedSkillIds: skills.equipped,
+  });
+  return {
+    progress,
+    proficiency,
+    walletRaw,
+    activityGuardRaw: saves[ACTIVITY_GUARD_KEY] ?? {},
+    currentJobId,
+    modifiers: dangerousFishingEncounterModifiers(heritage, state.loadout),
+  };
+}
+
+export async function settleDangerousFishingCatchRewardsInTx(
+  tx: DbTransactionExecutor,
+  userId: string,
+  args: {
+    state: DangerousFishingState;
+    fish: DangerousFish;
+    sizeCm: number;
+    now: number;
+    random: () => number;
+    prepared: ReturnType<typeof prepareDangerousFishingCatchFromLockedSaves>;
+  },
+) {
+  const {
+    progress,
+    proficiency,
+    currentJobId,
+    walletRaw,
+    activityGuardRaw,
+    modifiers,
+  } =
+    args.prepared;
+  const nextProgress = { ...progress, xp: progress.xp + args.fish.fishingXp };
+  const highestFishingJobId = highestVisitedFishingJobId(
+    proficiency,
+    currentJobId,
+  );
+  const nextProficiency = highestFishingJobId
+    ? addJobHistory(
+        addJobCumLevel(proficiency, highestFishingJobId, 1),
+        highestFishingJobId,
+      )
+    : proficiency;
+  const guard = recordActivityCompletion(
+    parseActivityGuardState(activityGuardRaw),
+    "fishing",
+    args.now,
+  );
+  await upsertSave(tx, userId, FISHING_PROGRESS_KEY, nextProgress);
+  await upsertSave(tx, userId, "proficiency.v2", nextProficiency);
+  await upsertSave(
+    tx,
+    userId,
+    FISHING_WALLET_KEY,
+    dangerousFishingWalletWithAddedCoins(
+      walletRaw,
+      args.fish.fishingCoinReward,
+    ),
+  );
+  await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, guard.state);
+  if (highestFishingJobId) {
+    await recordCodexMasteryGameplayBatch(tx, userId, [{
+      category: "job",
+      entryId: highestFishingJobId,
+      amount: 1,
+      source: "job.activity",
+    }], new Date(args.now));
+  }
+  const risk = args.state.voyage?.risk ?? 0;
+  const bossSpawn =
+    risk >= 4 &&
+    (args.fish.rarity === "epic" || args.fish.rarity === "legendary")
+      ? await maybeSpawnDangerousFishingBoss(
+          drizzleDangerousFishingBossStore(tx),
+          {
+            userId,
+            risk,
+            rarity: args.fish.rarity,
+            discoveryBonusPct: modifiers.traceBonusPct,
+            now: new Date(args.now),
+            random: args.random,
+          },
+        )
+      : null;
+  return {
+    fish: { id: args.fish.id, name: args.fish.name, sizeCm: args.sizeCm },
+    fishingXpGained: args.fish.fishingXp,
+    masteryGained: highestFishingJobId ? 1 : 0,
+    fishingCoinsGained: args.fish.fishingCoinReward,
+    bossSpawn: bossSpawn
+      ? {
+          id: bossSpawn.id,
+          bossId: bossSpawn.bossId,
+          expiresAt: bossSpawn.expiresAt.getTime(),
+        }
+      : null,
+  };
 }
 
 export async function actOnEncounterInTx(
@@ -468,9 +794,17 @@ export async function actOnEncounterInTx(
   if (typeof args.encounterId !== "string" || !Number.isInteger(args.revision)) {
     return fail("bad_request", 400);
   }
-  const state = parseDangerousFishingState(
-    await lockSaveForUpdate(tx, userId, DANGEROUS_FISHING_SAVE_KEY, {}),
-  );
+  await lockLifeActivityUserForUpdate(tx, userId);
+  const saves = await lockSavesForUpdate(tx, userId, {
+    [ACTIVITY_GUARD_KEY]: {},
+    [DANGEROUS_FISHING_SAVE_KEY]: {},
+    [FISHING_PROGRESS_KEY]: emptyFishingProgression(),
+    [FISHING_WALLET_KEY]: {},
+    "character.v2": {},
+    "proficiency.v2": {},
+    "skills.v2": emptyV2SkillsState(),
+  });
+  const state = parseDangerousFishingState(saves[DANGEROUS_FISHING_SAVE_KEY]);
   const encounter = state.voyage?.encounter;
   if (!encounter || encounter.id !== args.encounterId) {
     return fail(
@@ -479,6 +813,9 @@ export async function actOnEncounterInTx(
         : "no_encounter",
       409,
     );
+  }
+  if (isDangerousRealtimeEncounter(encounter)) {
+    return fail("realtime_encounter", 409);
   }
   const transition = applyDangerousEncounterAction(
     encounter,
@@ -496,52 +833,16 @@ export async function actOnEncounterInTx(
   let caught:
     | { fishId: keyof typeof DANGEROUS_FISH; sizeCm: number; quantity: number }
     | undefined;
-  let modifiers: ReturnType<typeof dangerousFishingEncounterModifiers> | null = null;
-  let progress = null;
-  let proficiency = null;
-  let character: CharacterSave | null = null;
-  let currentJobId: string | null = null;
-  let walletRaw: unknown = {};
+  let prepared:
+    | ReturnType<typeof prepareDangerousFishingCatchFromLockedSaves>
+    | null = null;
 
   if (transition.event === "caught") {
-    progress = parseFishingProgression(
-      await lockSaveForUpdate(
-        tx,
-        userId,
-        FISHING_PROGRESS_KEY,
-        emptyFishingProgression(),
-      ),
-    );
-    const skills = parseV2SkillsState(
-      await lockSaveForUpdate(tx, userId, "skills.v2", emptyV2SkillsState()),
-    );
-    character = (await lockSaveForUpdate(
-      tx,
-      userId,
-      "character.v2",
-      {},
-    )) as CharacterSave;
-    proficiency = parseProficiencyForChar(
-      await lockSaveForUpdate(tx, userId, "proficiency.v2", {}),
-      character,
-    );
-    walletRaw = await lockSaveForUpdate(tx, userId, FISHING_WALLET_KEY, {});
-    const currentClass = parseV2Class(character.class);
-    currentJobId = jobIdFromLegacy(
-      currentClass,
-      typeof character.specChoice === "string" ? character.specChoice : null,
-    );
-    const heritage = dangerousFishingHeritage({
-      fishingProgression: progress,
-      proficiency,
-      currentJobId,
-      equippedSkillIds: skills.equipped,
-    });
-    modifiers = dangerousFishingEncounterModifiers(heritage, state.loadout);
+    prepared = prepareDangerousFishingCatchFromLockedSaves(state, saves);
     const fish = DANGEROUS_FISH[encounter.targetId as keyof typeof DANGEROUS_FISH];
     caught = {
       fishId: fish.id,
-      sizeCm: caughtSize(fish, args.random(), modifiers.sizeBonusPct),
+      sizeCm: caughtSize(fish, args.random(), prepared.modifiers.sizeBonusPct),
       quantity: 1,
     };
   }
@@ -553,7 +854,7 @@ export async function actOnEncounterInTx(
     caught,
   );
   await upsertSave(tx, userId, DANGEROUS_FISHING_SAVE_KEY, resolved.state);
-  if (resolved.outcome !== "caught" || !caught || !progress || !proficiency) {
+  if (resolved.outcome !== "caught" || !caught || !prepared) {
     return {
       ok: true as const,
       status: 200,
@@ -564,73 +865,20 @@ export async function actOnEncounterInTx(
   }
 
   const fish = DANGEROUS_FISH[caught.fishId];
-  const nextProgress = { ...progress, xp: progress.xp + fish.fishingXp };
-  const highestFishingJobId = highestVisitedFishingJobId(
-    proficiency,
-    currentJobId,
-  );
-  const nextProficiency = highestFishingJobId
-    ? addJobHistory(
-        addJobCumLevel(proficiency, highestFishingJobId, 1),
-        highestFishingJobId,
-      )
-    : proficiency;
-  const nextCoins = walletCoins(walletRaw) + fish.fishingCoinReward;
-  const guard = recordActivityCompletion(
-    parseActivityGuardState(
-      await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
-    ),
-    "fishing",
-    args.now,
-  );
-  await upsertSave(tx, userId, FISHING_PROGRESS_KEY, nextProgress);
-  await upsertSave(tx, userId, "proficiency.v2", nextProficiency);
-  await upsertSave(
-    tx,
-    userId,
-    FISHING_WALLET_KEY,
-    fishingWalletWithCoins(walletRaw, nextCoins),
-  );
-  await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, guard.state);
-  if (highestFishingJobId) {
-    await recordCodexMasteryGameplayBatch(tx, userId, [{
-      category: "job",
-      entryId: highestFishingJobId,
-      amount: 1,
-      source: "job.activity",
-    }], new Date(args.now));
-  }
-  const risk = state.voyage?.risk ?? 0;
-  const bossSpawn =
-    risk >= 4 && (fish.rarity === "epic" || fish.rarity === "legendary")
-      ? await maybeSpawnDangerousFishingBoss(
-          drizzleDangerousFishingBossStore(tx),
-          {
-            userId,
-            risk,
-            rarity: fish.rarity,
-            discoveryBonusPct: modifiers?.traceBonusPct ?? 0,
-            now: new Date(args.now),
-            random: args.random,
-          },
-        )
-      : null;
+  const rewards = await settleDangerousFishingCatchRewardsInTx(tx, userId, {
+    state,
+    fish,
+    sizeCm: caught.sizeCm,
+    now: args.now,
+    random: args.random,
+    prepared,
+  });
   return {
     ok: true as const,
     status: 200,
     event: "caught" as const,
     state: publicState(resolved.state),
-    fish: { id: fish.id, name: fish.name, sizeCm: caught.sizeCm },
-    fishingXpGained: fish.fishingXp,
-    masteryGained: highestFishingJobId ? 1 : 0,
-    fishingCoinsGained: fish.fishingCoinReward,
-    bossSpawn: bossSpawn
-      ? {
-          id: bossSpawn.id,
-          bossId: bossSpawn.bossId,
-          expiresAt: bossSpawn.expiresAt.getTime(),
-        }
-      : null,
+    ...rewards,
   };
 }
 
@@ -649,9 +897,12 @@ export async function purchaseDangerousFishingItemInTx(
   ) {
     return fail("bad_request", 400);
   }
-  let state = parseDangerousFishingState(
-    await lockSaveForUpdate(tx, userId, DANGEROUS_FISHING_SAVE_KEY, {}),
-  );
+  await lockLifeActivityUserForUpdate(tx, userId);
+  const saves = await lockSavesForUpdate(tx, userId, {
+    [DANGEROUS_FISHING_SAVE_KEY]: {},
+    [FISHING_WALLET_KEY]: {},
+  });
+  let state = parseDangerousFishingState(saves[DANGEROUS_FISHING_SAVE_KEY]);
   if (state.voyage?.encounter) return fail("encounter_active", 409);
 
   if (args.action === "equip") {
@@ -666,7 +917,7 @@ export async function purchaseDangerousFishingItemInTx(
     return { ok: true as const, status: 200, state: publicState(equipped.state) };
   }
 
-  const walletRaw = await lockSaveForUpdate(tx, userId, FISHING_WALLET_KEY, {});
+  const walletRaw = saves[FISHING_WALLET_KEY];
   const coins = walletCoins(walletRaw);
   const purchased =
     args.kind === "bait"

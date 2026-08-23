@@ -278,7 +278,7 @@ describe("useDangerousFishingRealtime", () => {
     });
   });
 
-  it.each([0, 5, "4", null])(
+  it.each([0, 6, "5", null])(
     "authoritative checkpoint의 미래·비정상 balance revision %j은 거부한다",
     async (balanceRevision) => {
       const encounter = encounterFixture({}, 3);

@@ -131,7 +131,7 @@ describe("POST /api/v2/me/cultivate — 특별 수행", () => {
     });
   });
 
-  it("일반 수행은 새 한계 증가량만큼 대기 성장값을 현재 직업 프로필로 재분배한다", async () => {
+  it("일반 수행은 과거 재분배 대기값을 폐기하고 성장값으로 옮기지 않는다", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     mocks.store.set("proficiency.v2", {
       ...emptyProficiency(),
@@ -143,11 +143,11 @@ describe("POST /api/v2/me/cultivate — 특별 수행", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.redistributedGrowthPoints).toBe(4);
-    expect(json.growthRespecPoints).toBe(6);
+    expect(json.redistributedGrowthPoints).toBe(0);
+    expect(json.growthRespecPoints).toBe(0);
     expect(mocks.store.get("proficiency.v2")).toMatchObject({
-      grown: { str: 2, dex: 1, vit: 1 },
-      growthRespecPoints: 6,
+      grown: {},
+      growthRespecPoints: 0,
     });
   });
 

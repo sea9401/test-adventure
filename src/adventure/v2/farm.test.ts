@@ -333,6 +333,47 @@ describe("adventurer farm", () => {
     expect(state.stats.yieldBonusRemainderPct).toBe(0);
   });
 
+  it("비료를 사용한 밭은 수확량 보너스 누적과 별도로 작물을 1개 더 얻는다", () => {
+    const planted = plantCrop(
+      { ...emptyFarmState(), seeds: { corn: 1 } },
+      "plot-1",
+      "corn",
+      1_000,
+      { learnedSkillIds: [FARM_CROP_REQUIRED_SKILL_ID] },
+    );
+    const fertilized = {
+      ...planted,
+      plots: planted.plots.map((plot) =>
+        plot.id === "plot-1" ? { ...plot, fertilized: true } : plot,
+      ),
+    };
+    const readyAt = 1_000 + FARM_CROPS.corn.growMs;
+
+    const normalHarvest = harvestPlot(
+      planted,
+      "plot-1",
+      readyAt,
+      () => 0,
+      { yieldBonusPct: 10 },
+    );
+    const fertilizedHarvest = harvestPlot(
+      fertilized,
+      "plot-1",
+      readyAt,
+      () => 0,
+      { yieldBonusPct: 10 },
+    );
+
+    expect(normalHarvest.result.quantity).toBe(5);
+    expect(fertilizedHarvest.result.quantity).toBe(6);
+    expect(fertilizedHarvest.state.stats.yieldBonusRemainderPct).toBe(
+      normalHarvest.state.stats.yieldBonusRemainderPct,
+    );
+    expect(fertilizedHarvest.result.farmingXpGained).toBe(
+      normalHarvest.result.farmingXpGained,
+    );
+  });
+
   it("농장 패시브의 희귀 수확 보너스를 적용한다", () => {
     const planted = plantCrop(
       { ...emptyFarmState(), seeds: { wheat: 1 } },
@@ -684,7 +725,7 @@ describe("adventurer farm", () => {
       ...emptyFarmState(1_000),
       stats: {
         ...emptyFarmState(1_000).stats,
-        reputation: 350,
+        reputation: 1_150,
       },
     };
 
@@ -698,25 +739,35 @@ describe("adventurer farm", () => {
       costReputation: 20,
     });
     expect(first.plots).toHaveLength(3);
-    expect(first.stats.reputation).toBe(350);
+    expect(first.stats.reputation).toBe(1_150);
     expect(first.stats.reputationSpent).toBe(20);
-    expect(farmAvailableReputation(first)).toBe(330);
+    expect(farmAvailableReputation(first)).toBe(1_130);
 
     const { state: second } = buyFarmPlotUpgrade(first);
     expect(second.plots).toHaveLength(4);
     expect(second.stats.reputationSpent).toBe(70);
-    expect(farmAvailableReputation(second)).toBe(280);
+    expect(farmAvailableReputation(second)).toBe(1_080);
 
     const { state: third } = buyFarmPlotUpgrade(second);
     expect(third.plots).toHaveLength(5);
     expect(third.stats.reputationSpent).toBe(170);
-    expect(farmAvailableReputation(third)).toBe(180);
+    expect(farmAvailableReputation(third)).toBe(980);
 
     const { state: fourth } = buyFarmPlotUpgrade(third);
     expect(fourth.plots).toHaveLength(6);
     expect(fourth.stats.reputationSpent).toBe(350);
-    expect(farmAvailableReputation(fourth)).toBe(0);
-    expect(nextFarmPlotUpgrade(fourth)).toBeNull();
+    expect(farmAvailableReputation(fourth)).toBe(800);
+
+    const { state: fifth } = buyFarmPlotUpgrade(fourth);
+    expect(fifth.plots).toHaveLength(7);
+    expect(fifth.stats.reputationSpent).toBe(650);
+    expect(farmAvailableReputation(fifth)).toBe(500);
+
+    const { state: sixth } = buyFarmPlotUpgrade(fifth);
+    expect(sixth.plots).toHaveLength(8);
+    expect(sixth.stats.reputationSpent).toBe(1_150);
+    expect(farmAvailableReputation(sixth)).toBe(0);
+    expect(nextFarmPlotUpgrade(sixth)).toBeNull();
   });
 
   it("rejects farm plot growth without enough available reputation", () => {
@@ -755,6 +806,21 @@ describe("adventurer farm", () => {
 
     expect(parsed.plots).toHaveLength(6);
     expect(parsed.plots[5]).toMatchObject({ id: "plot-6", cropId: null });
+  });
+
+  it("preserves at most eight purchased plots from saved data", () => {
+    const parsed = parseFarmState({
+      plots: Array.from({ length: 9 }, (_, index) => ({
+        id: `plot-${index + 1}`,
+        cropId: null,
+      })),
+    });
+
+    expect(parsed.plots).toHaveLength(8);
+    expect(parsed.plots[7]).toMatchObject({ id: "plot-8", cropId: null });
+    expect(parsed.plots).not.toContainEqual(
+      expect.objectContaining({ id: "plot-9" }),
+    );
   });
 
   it("normalizes malformed saves to two stable plots", () => {

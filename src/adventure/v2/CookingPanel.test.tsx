@@ -39,6 +39,7 @@ function fixture(): CookingResponse {
     recipes: [...COOKING_PUBLIC_RECIPES],
     knownRecipes: COOKING_SECRET_RECIPES.filter((entry) => cooking.discoveredRecipeIds.includes(entry.id)),
     firstDiscoveries: [],
+    failedResearches: [],
     requests,
     cookingFoods: { [foodId]: 2 },
     failedCookingDishes: 1,
@@ -95,6 +96,10 @@ describe("개편 요리 연구실", () => {
 
   it("중복 오답은 재료 비소모 안내로 번역한다", () => {
     expect(cookingErrorText("duplicate_combination")).toContain("재료는 소비하지 않았습니다");
+  });
+
+  it("요리 요청 제한은 잠시 기다리라는 안내로 번역한다", () => {
+    expect(cookingErrorText("rate_limited")).toContain("잠시 후");
   });
 
   it("현재 레벨 구간 경험치를 계산한다", () => {

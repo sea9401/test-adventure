@@ -335,7 +335,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(usablePoints(p)).toBe(100); // 원본 비파괴
   });
 
-  it("resetCultivation — 한계치와 적용 성장값을 비우고 성장 포인트는 재분배 대기로 보존한다", () => {
+  it("resetCultivation — 한계치와 레벨 성장값 및 재분배 대기값을 모두 비운다", () => {
     const p = parseProficiency({
       points: 60,
       groups: {
@@ -358,10 +358,10 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(reset!.next.cultivationResetCount).toBe(1);
     expect(reset!.next.groups.warrior).toEqual(p.groups.warrior);
     expect(reset!.next.grown).toEqual({});
-    expect(reset!.next.growthRespecPoints).toBe(11);
+    expect(reset!.next.growthRespecPoints).toBe(0);
   });
 
-  it("applyCultivation — 재분배 대기 성장값을 새 수행 프로필과 같은 비율로 옮긴다", () => {
+  it("parseProficiency/applyCultivation — 과거 재분배 대기값을 폐기하고 수행에 적용하지 않는다", () => {
     const p = parseProficiency({
       points: 1_000,
       groups: { warrior: { cultivations: 0, tier: 1, cumLevel: 0 } },
@@ -370,19 +370,14 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
 
     const result = applyCultivation(p, "warrior");
 
+    expect(p.growthRespecPoints).toBe(0);
     expect(result).not.toBeNull();
-    expect(result!.redistributedGrowthPoints).toBe(4);
-    expect(result!.next.grown).toEqual({ str: 2, dex: 1, vit: 1 });
-    expect(result!.next.growthRespecPoints).toBe(6);
-    expect(
-      Object.values(result!.next.grown).reduce(
-        (sum, value) => sum + (value ?? 0),
-        0,
-      ) + (result!.next.growthRespecPoints ?? 0),
-    ).toBe(10);
+    expect(result!.redistributedGrowthPoints).toBe(0);
+    expect(result!.next.grown).toEqual({});
+    expect(result!.next.growthRespecPoints).toBe(0);
   });
 
-  it("applyCultivation — 각성 배수만큼 재분배하고 반복 초기화해도 성장 총량이 복제되지 않는다", () => {
+  it("applyCultivation — 각성 수행도 과거 재분배 대기값을 복원하지 않는다", () => {
     const p = parseProficiency({
       points: 10_000,
       groups: { warrior: { cultivations: 0, tier: 1, cumLevel: 0 } },
@@ -391,17 +386,17 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
 
     const awakened = applyCultivation(p, "warrior", () => 0);
     expect(awakened).not.toBeNull();
-    expect(awakened!.redistributedGrowthPoints).toBe(20);
-    expect(awakened!.next.grown).toEqual({ str: 10, dex: 5, vit: 5 });
-    expect(awakened!.next.growthRespecPoints).toBe(80);
+    expect(awakened!.redistributedGrowthPoints).toBe(0);
+    expect(awakened!.next.grown).toEqual({});
+    expect(awakened!.next.growthRespecPoints).toBe(0);
 
     const reset = resetCultivation(awakened!.next);
     expect(reset).not.toBeNull();
     expect(reset!.next.grown).toEqual({});
-    expect(reset!.next.growthRespecPoints).toBe(100);
+    expect(reset!.next.growthRespecPoints).toBe(0);
   });
 
-  it("레히인 회귀 — 기존 219 성장 포인트를 초기화한 뒤 궁수 재수행하면 민첩 3·행운 1 비율로 옮긴다", () => {
+  it("레히인 회귀 — 기존 219 성장 포인트를 초기화해도 새 직업 수행으로 옮기지 않는다", () => {
     const before = parseProficiency({
       points: 1_000_000,
       groups: { rogue: { cultivations: 177, tier: 1, cumLevel: 11_503 } },
@@ -414,7 +409,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     const reset = resetCultivation(before);
     expect(reset).not.toBeNull();
     expect(reset!.next.grown).toEqual({});
-    expect(reset!.next.growthRespecPoints).toBe(219);
+    expect(reset!.next.growthRespecPoints).toBe(0);
 
     let current = reset!.next;
     for (let i = 0; i < 55; i += 1) {
@@ -429,7 +424,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
       current = cultivated!.next;
     }
 
-    expect(current.grown).toEqual({ dex: 165, luk: 54 });
+    expect(current.grown).toEqual({});
     expect(current.growthRespecPoints).toBe(0);
   });
 

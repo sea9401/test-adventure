@@ -1,12 +1,18 @@
 import "server-only";
 
-import { COOKING_PUBLIC_RECIPES } from "@/adventure/v2/cooking/catalog";
+import {
+  COOKING_LEGACY_RECIPE_INDEX_BY_ID,
+  COOKING_PUBLIC_RECIPES,
+  EXPANSION_COOKING_RECIPE_IDS,
+} from "@/adventure/v2/cooking/catalog";
+import { canonicalCookingEffect } from "@/adventure/v2/cooking/expansion/effects";
 import type {
   CookingField,
   CookingIngredientId,
   CookingMethod,
   CookingRecipeSecret,
 } from "@/adventure/v2/cooking/types";
+import { COOKING_EXPANSION_ANSWERS } from "./expansion";
 
 const INGREDIENT_POOLS: Record<CookingField, readonly CookingIngredientId[]> = {
   hearth: [
@@ -38,13 +44,39 @@ const INGREDIENT_POOLS: Record<CookingField, readonly CookingIngredientId[]> = {
   ],
 };
 
-const BASIC_COMBINATIONS: Record<string, readonly CookingIngredientId[]> = {
+const EXPLICIT_COMBINATIONS: Record<string, readonly CookingIngredientId[]> = {
   rustic_bread: ["farm:wheat", "pantry:yeast"],
   herb_tea: ["farm:herb", "farm:sugarcane"],
   grilled_corn: ["farm:corn", "pantry:oil"],
   fish_skewer: ["fishing:catch_common", "farm:herb"],
   herb_flatbread: ["farm:wheat", "farm:herb"],
   country_egg_bread: ["farm:egg", "farm:wheat"],
+  fried_egg: ["farm:egg", "pantry:salt"],
+  boiled_egg: ["farm:egg", "pantry:salt"],
+  grilled_potato: ["farm:potato", "pantry:salt"],
+  buttered_corn: ["farm:corn", "processed:butter"],
+  simple_tomato_soup: ["farm:tomato", "processed:broth"],
+  milk_bread: ["farm:wheat", "farm:milk"],
+  sugar_cookie: ["farm:wheat", "farm:sugarcane"],
+  strawberry_jam: ["farm:strawberry", "farm:sugarcane"],
+  campfire_fish: ["fishing:catch_common", "pantry:salt"],
+  simple_fish_soup: ["fishing:catch_common", "processed:broth"],
+  strawberry_milk: ["farm:strawberry", "farm:milk"],
+  hot_cacao: ["farm:cacao", "farm:milk"],
+  tomato_egg_stir_fry: ["farm:tomato", "farm:egg", "pantry:oil"],
+  potato_fries: ["farm:potato", "pantry:oil", "pantry:salt"],
+  herb_egg_soup: ["farm:egg", "farm:herb", "pantry:salt"],
+  corn_cream_soup: ["farm:corn", "farm:milk", "pantry:salt"],
+  cacao_cookie: ["farm:wheat", "farm:cacao", "farm:sugarcane"],
+  fish_fry: ["fishing:catch_common", "processed:flour", "pantry:oil"],
+  steamed_fish: ["fishing:catch_fresh", "farm:onion", "pantry:salt"],
+  herb_pickles: ["farm:herb", "pantry:vinegar", "pantry:salt"],
+  ...Object.fromEntries(
+    COOKING_EXPANSION_ANSWERS.map((answer) => [
+      answer.recipeId,
+      answer.ingredientIds,
+    ]),
+  ),
 };
 
 const NAMED_ANCHORS: readonly [needle: string, ingredient: CookingIngredientId][] = [
@@ -71,8 +103,8 @@ function ingredientsForRecipe(
   index: number,
   usedAnswers: Set<string>,
 ): readonly CookingIngredientId[] {
-  const basic = BASIC_COMBINATIONS[recipe.id];
-  if (basic) return basic;
+  const explicit = EXPLICIT_COMBINATIONS[recipe.id];
+  if (explicit) return explicit;
   const pool = INGREDIENT_POOLS[recipe.field];
   const anchors = NAMED_ANCHORS.flatMap(([needle, ingredient]) =>
     recipe.id.includes(needle) ? [ingredient] : [],
@@ -111,7 +143,12 @@ export function canonicalCookingCombination(
 const usedAnswers = new Set<string>();
 export const COOKING_SECRET_RECIPES: readonly CookingRecipeSecret[] =
   COOKING_PUBLIC_RECIPES.map((recipe, index) => {
-    const ingredientIds = ingredientsForRecipe(recipe, index, usedAnswers);
+    const legacyIndex = COOKING_LEGACY_RECIPE_INDEX_BY_ID.get(recipe.id);
+    const ingredientIds = ingredientsForRecipe(
+      recipe,
+      legacyIndex ?? index,
+      usedAnswers,
+    );
     const answer = canonicalCookingCombination(recipe.method, ingredientIds);
     if (!answer) throw new Error(`invalid_cooking_combination:${recipe.id}`);
     usedAnswers.add(answer);
@@ -149,11 +186,31 @@ export function findSecretRecipe(
 
 export function validateCookingRecipeCatalog(): string[] {
   const errors: string[] = [];
-  if (COOKING_SECRET_RECIPES.length !== 100) errors.push("recipe_count");
-  if (new Set(COOKING_SECRET_RECIPES.map((entry) => entry.id)).size !== 100) {
+  const expectedCount = COOKING_PUBLIC_RECIPES.length;
+  if (COOKING_SECRET_RECIPES.length !== expectedCount) errors.push("recipe_count");
+  if (new Set(COOKING_SECRET_RECIPES.map((entry) => entry.id)).size !== expectedCount) {
     errors.push("duplicate_id");
   }
-  if (usedAnswers.size !== 100) errors.push("duplicate_answer");
+  if (usedAnswers.size !== expectedCount) errors.push("duplicate_answer");
+  const publicExpansionIds = new Set(EXPANSION_COOKING_RECIPE_IDS);
+  const answerExpansionIds = new Set(
+    COOKING_EXPANSION_ANSWERS.map((answer) => answer.recipeId),
+  );
+  if (
+    publicExpansionIds.size !== answerExpansionIds.size ||
+    [...publicExpansionIds].some((id) => !answerExpansionIds.has(id))
+  ) {
+    errors.push("expansion_answer_mismatch");
+  }
+  const effectOwners = new Map<string, string>();
+  for (const recipe of COOKING_SECRET_RECIPES) {
+    const key = canonicalCookingEffect(recipe.effect);
+    if (publicExpansionIds.has(recipe.id)) {
+      const owner = effectOwners.get(key);
+      if (owner) errors.push(`duplicate_effect:${recipe.id}`);
+    }
+    if (!effectOwners.has(key)) effectOwners.set(key, recipe.id);
+  }
   for (const recipe of COOKING_SECRET_RECIPES) {
     if (recipe.ingredients.length !== slotsForTier(recipe.tier)) {
       errors.push(`wrong_slots:${recipe.id}`);

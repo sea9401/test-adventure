@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { BASIC_COOKING_RECIPE_IDS, COOKING_PUBLIC_RECIPES } from "./catalog";
+import {
+  BASIC_COOKING_RECIPE_IDS,
+  COOKING_CODEX_MILESTONES,
+  COOKING_PUBLIC_RECIPES,
+} from "./catalog";
 import {
   chooseCookingSpecialty,
   cookingLevelXpThreshold,
@@ -17,6 +21,12 @@ const TEN_HIDDEN_IDS = COOKING_PUBLIC_RECIPES.filter(
   .map((entry) => entry.id);
 
 describe("cooking v2 state", () => {
+  it("offers discovery milestones through the five-hundred-recipe catalog", () => {
+    expect(COOKING_CODEX_MILESTONES.map((milestone) => milestone.goal)).toEqual([
+      10, 25, 50, 75, 100, 150, 200, 300, 400, 500,
+    ]);
+  });
+
   it("auto-knows exactly the six basics and preserves valid progress", () => {
     const state = parseCookingState(
       {

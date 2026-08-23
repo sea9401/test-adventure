@@ -45,7 +45,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: CULTIVATION_RESET_POTION_ITEM_ID,
     name: "수행 초기화 물약",
     description:
-      "골드 소모 없이 수행 한계치를 모두 초기화하고 사용한 숙달 포인트를 돌려받습니다. 현재 성장 스탯은 재분배 대기 포인트로 회수되며, 다시 수행하면 새 수행 방향에 맞춰 배분됩니다. 계정 귀속 아이템입니다.",
+      "골드 소모 없이 수행 한계치를 모두 초기화하고 사용한 숙달 포인트를 돌려받습니다. 캐릭터는 레벨 1·경험치 0으로 돌아가며 현재 레벨 성장값은 사라집니다. 계정 귀속 아이템입니다.",
     coinPrice: 0,
     delivery: "inventory",
     tradeable: false,

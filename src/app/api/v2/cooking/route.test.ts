@@ -8,6 +8,17 @@ const mocks = vi.hoisted(() => {
   const insertFeedEntry = vi.fn(async () => undefined);
   const resolveUserDisplayName = vi.fn(async () => "나리");
   const ensureUser = vi.fn(async (): Promise<string | null> => "cook-user");
+  const rateLimitCounts = new Map<string, number>();
+  const enforceUserAndIpRateLimit = vi.fn((
+    _request: Request,
+    options: { action: string; userLimit: number },
+  ) => {
+    const next = (rateLimitCounts.get(options.action) ?? 0) + 1;
+    rateLimitCounts.set(options.action, next);
+    return next > options.userLimit
+      ? Response.json({ ok: false, error: "rate_limited", retryAfterSec: 60 }, { status: 429 })
+      : null;
+  });
 
   function select() {
     let consumed = false;
@@ -21,7 +32,8 @@ const mocks = vi.hoisted(() => {
     builder.innerJoin = vi.fn(() => builder);
     builder.leftJoin = vi.fn(() => builder);
     builder.where = vi.fn(() => builder);
-    builder.limit = vi.fn(async () => take());
+    builder.orderBy = vi.fn(() => builder);
+    builder.limit = vi.fn(() => builder);
     builder.then = (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) =>
       Promise.resolve(take()).then(resolve, reject);
     return builder;
@@ -55,6 +67,8 @@ const mocks = vi.hoisted(() => {
     insertFeedEntry,
     resolveUserDisplayName,
     ensureUser,
+    rateLimitCounts,
+    enforceUserAndIpRateLimit,
     db,
   };
 });
@@ -69,7 +83,9 @@ vi.mock("@/lib/server/serverFeed", () => ({
   insertFeedEntry: mocks.insertFeedEntry,
   resolveUserDisplayName: mocks.resolveUserDisplayName,
 }));
-vi.mock("@/lib/server/userRateLimit", () => ({ enforceUserAndIpRateLimit: vi.fn(() => null) }));
+vi.mock("@/lib/server/userRateLimit", () => ({
+  enforceUserAndIpRateLimit: mocks.enforceUserAndIpRateLimit,
+}));
 vi.mock("@/lib/server/referrals", () => ({
   rewardReferralTutorialTasks: vi.fn(async () => ({
     staminaPotions: 0,
@@ -96,6 +112,7 @@ import { emptyFarmState } from "@/adventure/v2/farm";
 import { emptyFishingStock } from "@/adventure/v2/fishingStock";
 import { emptyV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { COOKING_SECRET_RECIPE_BY_ID } from "@/lib/server/cooking/recipes";
+import { COOKING_PUBLIC_RECIPES } from "@/adventure/v2/cooking/catalog";
 
 const NOW = Date.parse("2026-08-22T12:00:00+09:00");
 
@@ -136,6 +153,8 @@ describe("/api/v2/cooking", () => {
     mocks.resolveUserDisplayName.mockReset();
     mocks.resolveUserDisplayName.mockResolvedValue("나리");
     mocks.ensureUser.mockResolvedValue("cook-user");
+    mocks.rateLimitCounts.clear();
+    mocks.enforceUserAndIpRateLimit.mockClear();
     seed();
   });
 
@@ -151,15 +170,38 @@ describe("/api/v2/cooking", () => {
   });
 
   it("GET은 공개 카탈로그와 발견한 조합만 반환한다", async () => {
-    mocks.selectResults.push([]);
+    mocks.selectResults.push([], [{
+      method: "stir_fry",
+      ingredientIds: ["farm:wheat", "farm:milk"],
+      createdAt: new Date(NOW),
+    }, {
+      method: "fry",
+      ingredientIds: ["pantry:salt", "farm:egg"],
+      createdAt: new Date(NOW - 500),
+    }, {
+      method: "sous_vide",
+      ingredientIds: ["farm:wheat", "farm:milk"],
+      createdAt: new Date(NOW - 1_000),
+    }, {
+      method: "grill",
+      ingredientIds: ["farm:unreleased_ingredient", "farm:milk"],
+      createdAt: new Date(NOW - 2_000),
+    }]);
     const response = await GET(new Request("http://localhost/api/v2/cooking"));
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.recipes).toHaveLength(100);
+    expect(json.recipes.map((entry: { id: string }) => entry.id)).toEqual(
+      COOKING_PUBLIC_RECIPES.map((entry) => entry.id),
+    );
     expect(json.recipes.find((entry: { id: string }) => entry.id === "tomato_salad")).not.toHaveProperty("ingredients");
     expect(json.knownRecipes.map((entry: { id: string }) => entry.id)).not.toContain("tomato_salad");
     expect(json.knownRecipes).toHaveLength(6);
+    expect(json.failedResearches).toEqual([{
+      method: "stir_fry",
+      ingredientIds: ["farm:wheat", "farm:milk"],
+      createdAt: NOW,
+    }]);
   });
 
   it("GET은 기본 이름으로 저장된 최초 발견자를 권위 닉네임으로 표시한다", async () => {
@@ -229,12 +271,68 @@ describe("/api/v2/cooking", () => {
     expect(mocks.insertFeedEntry).toHaveBeenCalledWith("cook-user", "cooking_discovery", { recipeId: recipe.id });
   });
 
+  it("요구 레벨 전 정답 연구는 발견만 허용하고 제작은 잠근다", async () => {
+    const recipe = COOKING_SECRET_RECIPE_BY_ID.get("ranch_grand_feast")!;
+    expect(recipe.requiredLevel).toBe(50);
+
+    const cooking = emptyCookingState(NOW);
+    const farm = emptyFarmState(NOW);
+    const fishing = emptyFishingStock();
+    const farmItems: Record<string, number> = {};
+    const fishingItems: Record<string, number> = {};
+    const kitchenItems: Record<string, number> = {};
+    for (const ingredient of recipe.ingredients) {
+      const [kind, id] = ingredient.id.split(":");
+      if (kind === "farm") farmItems[id] = 1;
+      else if (kind === "fishing") fishingItems[id] = 1;
+      else kitchenItems[ingredient.id] = 1;
+    }
+    mocks.store.set("farm.v2", { ...farm, inventory: farmItems });
+    mocks.store.set("fishing-stock.v1", { ...fishing, items: fishingItems });
+    mocks.store.set("cooking.v2", {
+      ...cooking,
+      xp: cookingLevelXpThreshold(35),
+      kitchenItems,
+    });
+    mocks.selectResults.push([]);
+
+    const researchResponse = await post({
+      action: "research",
+      method: recipe.method,
+      ingredientIds: recipe.ingredients.map((entry) => entry.id),
+    });
+    const researchJson = await researchResponse.json();
+
+    expect(researchResponse.status).toBe(200);
+    expect(researchJson.result).toMatchObject({
+      outcome: "success",
+      recipeId: recipe.id,
+    });
+    expect(
+      (mocks.store.get("cooking.v2") as { discoveredRecipeIds: string[] })
+        .discoveredRecipeIds,
+    ).toContain(recipe.id);
+
+    const craftResponse = await post({
+      action: "craft",
+      recipeId: recipe.id,
+      quantity: 1,
+    });
+
+    expect(craftResponse.status).toBe(409);
+    await expect(craftResponse.json()).resolves.toMatchObject({ error: "recipe_locked" });
+  });
+
   it("오답은 한 개씩 소비하고 실패 조합과 실패 음식을 남긴다", async () => {
     const cooking = emptyCookingState(NOW);
     mocks.store.set("cooking.v2", { ...cooking, xp: cookingLevelXpThreshold(10) });
     const farm = emptyFarmState(NOW);
     mocks.store.set("farm.v2", { ...farm, inventory: { wheat: 1, milk: 1, rice: 1 } });
-    mocks.selectResults.push([], []);
+    mocks.selectResults.push([], [], [{
+      method: "stir_fry",
+      ingredientIds: ["farm:wheat", "farm:milk", "farm:rice"],
+      createdAt: new Date(NOW),
+    }]);
 
     const response = await post({ action: "research", method: "stir_fry", ingredientIds: ["farm:wheat", "farm:milk", "farm:rice"] });
     const json = await response.json();
@@ -244,6 +342,11 @@ describe("/api/v2/cooking", () => {
     expect(mocks.store.get("inventory.v2")).toMatchObject({ failedCookingDishes: 1 });
     expect((mocks.store.get("farm.v2") as { inventory: object }).inventory).toEqual({});
     expect(mocks.insertValues).toHaveBeenCalledWith(expect.objectContaining({ userId: "cook-user", method: "stir_fry" }));
+    expect(json.failedResearches).toEqual([{
+      method: "stir_fry",
+      ingredientIds: ["farm:wheat", "farm:milk", "farm:rice"],
+      createdAt: NOW,
+    }]);
   });
 
   it("전문 분야는 조건 달성 후 한 번만 정한다", async () => {
@@ -301,6 +404,21 @@ describe("/api/v2/cooking", () => {
     });
     expect(mocks.store.get("cooking.v2")).toMatchObject({
       kitchenItems: { "pantry:salt": 1 },
+    });
+  });
+
+  it("조미료 단건 구매를 반복해도 일반 요리 작업 제한과 별도로 처리한다", async () => {
+    for (let purchase = 0; purchase < 41; purchase += 1) {
+      const response = await post({
+        action: "buy_pantry",
+        itemId: "pantry:salt",
+        quantity: 1,
+      });
+      expect(response.status).toBe(200);
+    }
+
+    expect(mocks.store.get("cooking.v2")).toMatchObject({
+      kitchenItems: { "pantry:salt": 41 },
     });
   });
 });

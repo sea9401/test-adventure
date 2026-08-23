@@ -50,6 +50,7 @@ beforeEach(() => {
   mocks.store.set("character.v2", {
     class: "warrior",
     level: 100,
+    exp: 888,
     gold: 123,
     bankedGold: 456,
     cashItems: { cultivation_reset_potion: 2 },
@@ -66,7 +67,7 @@ beforeEach(() => {
 });
 
 describe("POST /api/v2/me/use-cash-item — 수행 초기화 물약", () => {
-  it("골드 없이 수행을 초기화하고 성공한 뒤에만 물약 한 개를 소모한다", async () => {
+  it("골드 없이 수행을 초기화해 레벨 1로 되돌리고 성공한 뒤에만 물약 한 개를 소모한다", async () => {
     const response = await POST(request());
     const json = await response.json();
 
@@ -80,7 +81,9 @@ describe("POST /api/v2/me/use-cash-item — 수행 초기화 물약", () => {
       points: 100,
       capGains: 0,
       caps: {},
-      growthRespecPoints: 11,
+      growthRespecPoints: 0,
+      level: 1,
+      exp: 0,
       resetCount: 8,
       nextResetGoldCost: V2_CULTIVATION_RESET_GOLD_COST,
     });
@@ -88,12 +91,14 @@ describe("POST /api/v2/me/use-cash-item — 수행 초기화 물약", () => {
     expect(mocks.store.get("character.v2")).toMatchObject({
       gold: 123,
       bankedGold: 456,
+      level: 1,
+      exp: 0,
       cashItems: { cultivation_reset_potion: 1 },
     });
     expect(mocks.store.get("proficiency.v2")).toMatchObject({
       caps: {},
       grown: {},
-      growthRespecPoints: 11,
+      growthRespecPoints: 0,
       cultivationPointsSpent: 0,
       cultivationResetCount: 8,
     });

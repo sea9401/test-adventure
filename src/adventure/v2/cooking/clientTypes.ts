@@ -5,13 +5,24 @@ import type { CookingDeliveryRequest } from "./delivery";
 import type { CookingFoodInventory } from "./food";
 import type { CookingPantryItem, CookingProcessingRecipe } from "./kitchen";
 import type { CookingStateV2 } from "./state";
-import type { CookingRecipePublic, CookingRecipeSecret } from "./types";
+import type {
+  CookingIngredientId,
+  CookingMethod,
+  CookingRecipePublic,
+  CookingRecipeSecret,
+} from "./types";
 
 export type CookingFirstDiscoveryView = {
   recipeId: string;
   actorName: string;
   discoveredAt: number;
   mine: boolean;
+};
+
+export type CookingFailedResearchView = {
+  method: CookingMethod;
+  ingredientIds: CookingIngredientId[];
+  createdAt: number;
 };
 
 export type CookingResponse = {
@@ -24,6 +35,7 @@ export type CookingResponse = {
   recipes: CookingRecipePublic[];
   knownRecipes: CookingRecipeSecret[];
   firstDiscoveries: CookingFirstDiscoveryView[];
+  failedResearches: CookingFailedResearchView[];
   requests: { daily: CookingDeliveryRequest[]; weekly: CookingDeliveryRequest };
   cookingFoods: CookingFoodInventory;
   failedCookingDishes: number;

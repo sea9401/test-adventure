@@ -391,6 +391,8 @@ export async function POST(req: Request) {
 
       await upsertSave(tx, userId, "character.v2", {
         ...character,
+        level: 1,
+        exp: 0,
         cashItems,
       });
       await upsertSave(tx, userId, "proficiency.v2", reset.next);
@@ -408,6 +410,8 @@ export async function POST(req: Request) {
           capGains: totalCapGains(reset.next),
           caps: {},
           growthRespecPoints: reset.next.growthRespecPoints ?? 0,
+          level: 1,
+          exp: 0,
           resetCount,
           nextResetGoldCost: cultivationResetGoldCost(resetCount),
         },

@@ -311,12 +311,6 @@ export function DangerousFishingRealtimePanel({
         </span>
       </div>
 
-      {realtime.warning && !secured ? (
-        <p data-realtime-region="alert" role="alert" className={`${SURFACE_INSET} border-amber-400 p-3 text-sm font-semibold text-amber-800 dark:border-amber-800 dark:text-amber-200`}>
-          {realtime.warning}
-        </p>
-      ) : null}
-
       {feedback ? (
         <DangerousFishingFeedbackCard feedback={feedback} />
       ) : result ? (
@@ -330,7 +324,19 @@ export function DangerousFishingRealtimePanel({
         </div>
       ) : null}
 
-      <div data-realtime-region="control" className={`${SURFACE_CARD} sticky bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-20 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2`}>
+      <div
+        data-realtime-region="control"
+        className={`${SURFACE_CARD} relative sticky bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-20 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2`}
+      >
+        {realtime.warning && !secured ? (
+          <p
+            data-realtime-region="alert"
+            role="alert"
+            className={`${SURFACE_INSET} pointer-events-none absolute inset-x-0 bottom-[calc(100%+0.5rem)] border-amber-400 p-3 text-sm font-semibold text-amber-800 dark:border-amber-800 dark:text-amber-200`}
+          >
+            {realtime.warning}
+          </p>
+        ) : null}
         <Button
           fullWidth
           size="md"

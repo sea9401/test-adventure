@@ -3,7 +3,7 @@ import {
   FARM_GOLDEN_FIELDS_OWNER_TITLE_ID,
   TITLES,
 } from "@/adventure/data/titles";
-import type { FarmState } from "./farm";
+import { FARM_MAX_PLOT_COUNT, type FarmState } from "./farm";
 import { RANCH_PEN_DEFINITIONS } from "./ranch";
 
 export type FarmEndgameShopReward =
@@ -24,7 +24,7 @@ export type FarmEndgameShopItem = {
 export type FarmEndgameShopProgress = {
   unlocked: boolean;
   plots: number;
-  requiredPlots: 6;
+  requiredPlots: typeof FARM_MAX_PLOT_COUNT;
   pens: number;
   requiredPens: 4;
 };
@@ -59,7 +59,7 @@ export const FARM_ENDGAME_SHOP_ITEMS: readonly FarmEndgameShopItem[] = [
   {
     id: "fertilizer-bundle",
     title: "영농 거름 꾸러미",
-    note: "재배 시간을 줄이는 유기질 거름을 보충합니다.",
+    note: "재배 시간을 줄이고 수확량 +1을 적용하는 유기질 거름을 보충합니다.",
     rewardText: "유기질 거름 3개",
     imageSrc: "/images/items/life-aids/organic_fertilizer.webp",
     costReputation: 24,
@@ -96,9 +96,9 @@ export function farmEndgameShopProgress(farm: FarmState): FarmEndgameShopProgres
   const plots = farm.plots.length;
 
   return {
-    unlocked: plots >= 6 && pens >= 4,
+    unlocked: plots >= FARM_MAX_PLOT_COUNT && pens >= 4,
     plots,
-    requiredPlots: 6,
+    requiredPlots: FARM_MAX_PLOT_COUNT,
     pens,
     requiredPens: 4,
   };

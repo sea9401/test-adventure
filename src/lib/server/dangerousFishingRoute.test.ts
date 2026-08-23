@@ -1088,7 +1088,7 @@ describe("위험 해역 개인 Route Handler", () => {
     if (!stored || !isDangerousRealtimeEncounter(stored)) {
       throw new Error("realtime encounter missing");
     }
-    expect(stored.balanceRevision).toBe(4);
+    expect(stored.balanceRevision).toBe(5);
     expect(stored.checkpoint.performanceScalePermille).toBe(1_000);
     if (!isDangerousFishId(encounter.targetId)) {
       throw new Error("realtime fish target missing");
@@ -1126,7 +1126,7 @@ describe("위험 해역 개인 Route Handler", () => {
       },
     });
     expect(encounter).not.toHaveProperty("modifierSource");
-    expect(encounter).toHaveProperty("balanceRevision", 4);
+    expect(encounter).toHaveProperty("balanceRevision", 5);
     expect(encounter.checkpoint.performanceScalePermille).toBe(1_000);
     expect(encounter.config.maxTicks).toBeGreaterThan(1);
   });

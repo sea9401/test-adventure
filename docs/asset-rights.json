@@ -14,7 +14,7 @@
     {
       "id": "operator-cleared-game-art",
       "releaseStatus": "cleared",
-      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06, the nine ranch and cooking rasters added on 2026-08-10, the six Star Grave environment and monster rasters added on 2026-08-14, the 37 dangerous-fishing and ranch/cooking rasters added on 2026-08-15, the six ranch cooking rasters added on 2026-08-16, the 55 cooking-research recipe rasters added on 2026-08-22, the five dangerous-fishing realtime rasters added on 2026-08-22, and the nine dangerous-fishing species rasters added on 2026-08-23 were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. The 2026-08-22 boss sheets use cleared repository fish artwork for identity and style; a user-supplied, non-deployed golem sheet served only as a generic spacing/motion-layout reference, with no pixels, character identity, palette, anatomy, or style carried into the deployed assets. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included in deployed game art.",
+      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06, the nine ranch and cooking rasters added on 2026-08-10, the six Star Grave environment and monster rasters added on 2026-08-14, the 37 dangerous-fishing and ranch/cooking rasters added on 2026-08-15, the six ranch cooking rasters added on 2026-08-16, the 55 cooking-research recipe rasters added on 2026-08-22, the five dangerous-fishing realtime rasters added on 2026-08-22, the nine dangerous-fishing species rasters added on 2026-08-23, and the simple and staged cooking-expansion rasters added beginning on 2026-08-24 were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. The 2026-08-22 boss sheets use cleared repository fish artwork for identity and style; a user-supplied, non-deployed golem sheet served only as a generic spacing/motion-layout reference, with no pixels, character identity, palette, anatomy, or style carried into the deployed assets. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included in deployed game art.",
       "evidence": [
         "docs/image-gen-prompt.md",
         "https://github.com/sea9401/test-adventure/pull/232",
@@ -31,7 +31,9 @@
         "docs/superpowers/plans/2026-08-16-cooking-delivery-ranch-recipes.md",
         "docs/superpowers/specs/2026-08-22-cooking-research-overhaul-design.md",
         "docs/asset-provenance-dangerous-fishing-realtime-2026-08-22.md",
-        "docs/superpowers/plans/2026-08-23-dangerous-fishing-species-variety.md"
+        "docs/superpowers/plans/2026-08-23-dangerous-fishing-species-variety.md",
+        "docs/superpowers/plans/2026-08-24-simple-cooking-recipes.md",
+        "docs/superpowers/plans/2026-08-24-cooking-500-recipes.md"
       ]
     },
     {
@@ -541,6 +543,11 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/ancient_tomato_elixir.webp",
+      "sha256": "d8f1fb6522b40ee2715384481e0a8d233193415914770156f1a6ccf65bff102a",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/ancient_tomato_meal.webp",
       "sha256": "0b77aec9a6869c51367b34540c19cd9358eb3110e37b89743b09772e398849aa",
       "source": "operator-cleared-game-art"
@@ -566,8 +573,43 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/black_bean_pork_stew.webp",
+      "sha256": "a05886107d794003dc0a55eed542d3cf7cf9c9d87b41dda364dd0d95f09bd51d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/black_bean_royal_tonic.webp",
+      "sha256": "046522c4f0ae27f5481785f4c1836dbf83c9adbefead4c043e1d36c6c8c79448",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/black_soybean_egg_butter_potato_salt_fritter.webp",
+      "sha256": "9c8d77b4748b8c9da5d7caca31e9179f85036f81239efded7b1e3d8aec1f7385",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/black_soybean_heirloom_tomato_egg_butter_potato_skillet.webp",
+      "sha256": "7a3d6caf1da3ee507e497e878d3741c7ed3c9781c30f623c5164db8f2d7f4641",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/black_soybean_onion_rice_sauce_heirloom_tomato_soup.webp",
+      "sha256": "35801763d548d376169e7e703d56a739af5a7191d513bc7bf4d04c09577d44d2",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/black_soybean_tonic.webp",
       "sha256": "afdbf6d765413e17192ae921998bd22653a218aab92e328d27145df1e4b5c045",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/blackbean_rice_stew.webp",
+      "sha256": "cf51be27e366b22ac157412c0b46035485bb06deac8eab1f0e4d21a727772d11",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/boiled_egg.webp",
+      "sha256": "49040fb18060c3af77aab69b13ad7cbe35d3190915d460bc144fb33791594ac0",
       "source": "operator-cleared-game-art"
     },
     {
@@ -576,8 +618,303 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/butter_onion_grill.webp",
+      "sha256": "426ec04fb92f4d211fd259e9d42217233d7d36633012f64aeba0f7a341df2834",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/butter_potato_mash.webp",
+      "sha256": "7b40b02c1fac483d57f5212ac5c47915ba787ca331e42b0be4370995e4b49e23",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/butter_toast.webp",
+      "sha256": "f467385009352f3c75f83cd4088015897b7613696adc9423670ced9131515de6",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/buttered_corn.webp",
+      "sha256": "0e8a42192b6cd72f8f37c49958e10e97fb259bbbd88762d2bcc8f9fad55172d4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_butter_cake.webp",
+      "sha256": "6818e79399160a5b1adfe2903c373814c36f8ddc9e8c40efb633f105d7ce747f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_butter_cookie.webp",
+      "sha256": "995cb1b6db74646be1532b22476ff80dc55217ab7ee74d08c2239ae5aae5a8d5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_cookie.webp",
+      "sha256": "3e9b85864ef3cdc72b298066a47638a816ad85bef0b41233c9cdb191058918a0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_cream_roll.webp",
+      "sha256": "0efc9600ad24b10bd9421299f7f81ec87d134c4dd992081a2d37f43c3e2a6b26",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_flour_fermented_bread.webp",
+      "sha256": "1c2f966418ee63548cad13f54700e10da610865216ed979ca575d21731bac4d0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_flour_pie.webp",
+      "sha256": "5ac3a6ad96482d5cf677bcae15ae8cffba81ce52ad5dbc3d256d678826d984d4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_flour_pudding.webp",
+      "sha256": "bf57a24f7571bfdf589ad15cd695f297ff6d583db9ff324a5a1dc40622fc0ff0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_flour_yeast_fermented_bread.webp",
+      "sha256": "5e61898fb4ed5da514ec24f3d5a00f7b2a9c3f7b709324e951ad5dcbd1c4f645",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_flour_yeast_pie.webp",
+      "sha256": "6f012892a8d057967301e01f94d28c23e7d63570a55bbe3782bc77bf97180b86",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_flour_yeast_pudding.webp",
+      "sha256": "015af5aaa383e0264e4d3913640a199dfacb3bfc6e8486d500163351b2b4fd03",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_golden_wheat_strawberry_vinegar_herbal_steamed_cake.webp",
+      "sha256": "08a2400d06136898853931da42f4d6e7ce136f492a210735c4bb50cdc2089c91",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_herb_brew.webp",
+      "sha256": "904a1143cce2853c98ddf688d03c4fd9e095b655b11efeb677ab25589219cdcd",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_herb_strawberry_restorative_dish.webp",
+      "sha256": "4adb7a3253bf944fa9d02ea34745ee54a76e81efabb777ef79ded7da6558d6d4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_rice_golden_wheat_soybean_punch.webp",
+      "sha256": "98c204ea5870989a2404bf128f5702fde20f93fe0b0bbb90ff024cc86837e71c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_rice_herbal_steamed_cake.webp",
+      "sha256": "0541b975f69432cb6ab2fd0d87298e87f6cf262c6cc45daa56d2545d89573d0c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_rice_strawberry_extract.webp",
+      "sha256": "8fbdc412285bf44afd49fc30227fa7b63895de70191cb378c48cc6471a943826",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/cacao_souffle.webp",
       "sha256": "c313af02cc8658e34cd5e06caa96b2b1c28ee949706ac5e869d07cbe60cd60de",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_strawberry_sugar_rice_medicinal_porridge.webp",
+      "sha256": "4484d7f94bf9b3e570b92eb85c352c70b40ad5e22f99709f48bfa4e0c8e770e1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_strawberry_tomato_medicinal_pickle.webp",
+      "sha256": "aa32c57cbd40f38f24ee8107e0242085ea348e5bb0d1525ce793ef168cac7e42",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_strawberry_tonic.webp",
+      "sha256": "2c97ba1e5eee223d27ec1c1d537ce97fa7a36788e26701a3f70ea0c7fe1a6301",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cacao_tomato_herb_tonic.webp",
+      "sha256": "7961225df853dfe76710591d8fe9193af6bb111c54179acd12a5b11541218f2e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/campfire_fish.webp",
+      "sha256": "32be11431d8ab1bffbd43a8e05f91b2588447ee7b06f92a12f6b68febc2094e6",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cheese_corn_skewer.webp",
+      "sha256": "606f741cce22e53f4f05c44d58bace2cef11c1156302e845b4bfb253b065e8cd",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cheese_corn_stew.webp",
+      "sha256": "5ab86a35b8da94e4e7541ce986a76bc05521f083b309f124d6b5dd34ebf50dbf",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cheese_onion_bread.webp",
+      "sha256": "e49b016748909b7d019fe930aedd91bab822bba1b8278b29b7ef6db47cbf7408",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/cheese_pork_pie.webp",
+      "sha256": "95584cbffd2b60a1f8f5f53be01686000703088b7d4b6052c56fa2b362d387d3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_herb_chowder.webp",
+      "sha256": "caa2c4d8f9e1dabe258425279b073a3774ebcea1e29e52f1faa5dd506ba12936",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_herb_fish_pickle.webp",
+      "sha256": "3fde6fe55278104c05df58f64ab1d3959a6eb2c7e17fb4fcc6c58e361ab3f498",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_herb_fritter.webp",
+      "sha256": "d859ac440dda21e5a6786afdcc27711ebdb315fd1a31245057feecf7e6e937ac",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_herb_seafood_pot_steam.webp",
+      "sha256": "fcc8d516b843558ffddcedc670a4b6259b4df1040714d78b24eb60989ee212a4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_herb_skillet.webp",
+      "sha256": "d8a11389923e206c4cb85c8c3c7f95f605d0e31475b19a5b5bb71cf82a4f04a4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_onion_croquette.webp",
+      "sha256": "76da31dabcb3a9d40d569b1dbcd01996c3c6c1badeed54674ddc86d70753fa73",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_onion_fermented_seafood.webp",
+      "sha256": "dfcda2cfec4d1187811495966555748e9e98f2bd56f8aead8637d1a99a7c753a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_rice_charcoal_grill.webp",
+      "sha256": "bd99b73dc8cf9cf871f5536a6364607f758b0edf9a2782eb2e09a204825f0feb",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_rice_croquette.webp",
+      "sha256": "f1bdc473b29f1d7de3ba6196ebab78ccad219ea899ff797fac75673bb114be8f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_rice_fermented_seafood.webp",
+      "sha256": "e69f6ac22f975b7270f0549549fc89cd0d5e3cc784ebe3dc9ab64442a458e0c3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_rice_sauce_fry.webp",
+      "sha256": "ef0816eb9fd46056b7030e9ff0c212e6cb9654e94fc63335010f576d1af7dbd5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_rice_seafood_hotpot.webp",
+      "sha256": "dd6f359a483aef53736f919b1a6fda124a0006f0e838cca29a84d6fcb26a578b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_rice_terrine.webp",
+      "sha256": "5016fbd3ec8ee4c9d20ce9134fd4d576550009f9a21d35126bbb6b71ddc98796",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_soybean_fish_pickle.webp",
+      "sha256": "020af00f024fd10eeee10cb19092d994fff0fbba233d146e041d839d5c0e82c4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_soybean_fritter.webp",
+      "sha256": "b59c7646bcd0fba9845949a5e50dc4544d1822aa9b0e20935b35c00b9b7c3a7a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_soybean_seafood_pot_steam.webp",
+      "sha256": "caca42ed5b56f98124a5e5fbfd2b41169daebaa434645793788974df02beeb29",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_soybean_seafood_stew.webp",
+      "sha256": "f6de99e8d9193c12b0a5f0c5c9ba52f5a9c4c6fd59ecce99482596cab3c26f94",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_soybean_skewer.webp",
+      "sha256": "db84493850634962b0e62435d870b48fcbef7967567b2306ac267db42e19f2d8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_soybean_skillet.webp",
+      "sha256": "9bbcde372d6ae2b781b9275081951eff59bb2ae1d4dfc29bfc26f47e585ad8da",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_tomato_clear_broth.webp",
+      "sha256": "a5ed854c18ef58afaa817dc9b09a0d597985c543bd9364db44d7ef40d13745d9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_tomato_skewer.webp",
+      "sha256": "cd5e0bcf559724f15fb9a355487011cd1805eadcb4dced2a6fc337073e9e9bd6",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_vinegar_charcoal_grill.webp",
+      "sha256": "27c649762dac2cf497fabacbe52bbab75f2a4f6cb38fe84a55f739c5ecdc5ff5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_vinegar_croquette.webp",
+      "sha256": "a937d54fc14730670467e3ed9f0cfc49ff763af6364beca40e24fca35cb64960",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_vinegar_potage.webp",
+      "sha256": "1b93c6ea051758d8647fb45a08d7f4c21763693610317b8e6ed81c4b430ef459",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_vinegar_sauce_fry.webp",
+      "sha256": "b638ef3de15612f9f6f1cacb0d6e008dda497f6e875a3ae0e0252d87b6730e4f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/common_fish_vinegar_terrine.webp",
+      "sha256": "6063d141ef9cdbbaee757713446079d5fe30fcfc2579c8a4e0af7ea2f2971cfa",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_butter_biscuit.webp",
+      "sha256": "57b097f624cc31e9637dc937a48b41b5f22e19bbe6afa72d41136ce6ad7f7edb",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_butter_golden_rice_milk_potage.webp",
+      "sha256": "7785c09c8119563e06dd53072b58dc2cef679e66d1c4778dc0bebc97a8a740b0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_butter_pork_hotpot.webp",
+      "sha256": "1c38e8c542769fa1bd3910b41f7041d2f289d5f1cf8fad172d6b8421bbc25030",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_butter_steam_hotpot.webp",
+      "sha256": "52895b833c5e38d42c548262ad4029a61eff2ca46ab3ea2a087903f3e51dd3ba",
       "source": "operator-cleared-game-art"
     },
     {
@@ -586,8 +923,83 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/corn_cream_butter_nutritious_steam.webp",
+      "sha256": "d5e1489f4c56ae89e1024b7ce8131441e77ca8c521b04f97971baaebe3e9c315",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_cream_soup_27.webp",
+      "sha256": "b65ffeaeb22df31bff0859ea8d9b29d0d611f96c3ac675b27018d4ea41d54303",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_cream_soup.webp",
+      "sha256": "4d7e5b5591c2293c0d9bdda73792e4d53ae198875c2696691c7a58a4e99fc537",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_egg_fritter.webp",
+      "sha256": "13f61dea7923a7ae32e67a2ed2e499e766afda87bd76f35e2e4ee7e5235995ae",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_fish_fritter.webp",
+      "sha256": "0849b840a471ba09675515f72037e3ca0f803030df493d105203bcf67d8091a3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_herb_flour_fry.webp",
+      "sha256": "367637a3f689f1e5d9f604210a40155485a24a5a8f9f4b9218768ef82fa46adc",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_herb_fritter.webp",
+      "sha256": "eea354a958508e81dc3bc639d6b3da94c71d30c223698b577e2a890bbcad3d5b",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/corn_milk_chowder.webp",
       "sha256": "919707e59f5fc741ecf9a0f7024b27a4c6d0bcbb3b3c10884fb1a8be6fa69fe4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_milk_porridge.webp",
+      "sha256": "069e4a51481d80a4c5cf4e3716151ff5d1e9d9804e8c486d45a55606e755b962",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_pork_pepper_golden_rice_stir_fry.webp",
+      "sha256": "4750c3cd3784a173f81285ca70e831eb6de7392ec510738154411b1ae7139746",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_potato_soup.webp",
+      "sha256": "2cef0cd94db6959ed2c5cfad0c2c7a0f71c688a44e9e308eddb85c2bc9c2852c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_sauce_grill.webp",
+      "sha256": "249d3d7c5952b6b92fe9e082fda69c395abd2304e64adfa1503e4a7c43f5277b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_sauce_pork_stir_fry.webp",
+      "sha256": "4db294d1dbe7d721335b1c94584e7f43083964b9e02b8a734d9bb291469d3ec9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_sauce_stir_fry.webp",
+      "sha256": "51690d895589922486aafae933d7a87c827a3f44f6b4927ba6d8440a5878a532",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_soybean_broth.webp",
+      "sha256": "0d9747ad857981972881a17d5c9cb7055b4acb1d2ec184b4da9a91a8ef73824f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_soybean_salt_nutritious_steam.webp",
+      "sha256": "99f982f71cd1be52984035c47bc854a465d228bc13158466b78f0417c224999c",
       "source": "operator-cleared-game-art"
     },
     {
@@ -601,6 +1013,11 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/cream_pork_chowder.webp",
+      "sha256": "02b565b50f26a877326732505f041ac44825f70e0418a0b17117db28de73d54b",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/crispy_pork_cutlet.webp",
       "sha256": "8afa32d95125d98319c03d43cc775649d0e9efee2c9523625318ee3242297423",
       "source": "operator-cleared-game-art"
@@ -611,8 +1028,43 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/crystal_sugar_butter_white_strawberry_milk_pork_aged_cream.webp",
+      "sha256": "69418b7331d4d42cd1f5c193e120727108f03c6f804d376566d2bd1c35e0e05f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/crystal_sugar_golden_wheat_soybean_cacao_vinegar_medicinal_porridge.webp",
+      "sha256": "3629e6cb74c0c1002c2ed2e8752215fb0a7fbdbed4b31d60171f12a7cf37faaf",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/crystal_sugar_milk_potato_cream_wheat_fermented_bread.webp",
+      "sha256": "0e7fc0cddd6ae53ffb264b0878d46712040c216d5bdde58a7a0e1d8533d243bf",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/crystal_sugar_silverleaf_black_soybean_heirloom_tomato_pearl_onion_extract.webp",
+      "sha256": "c311c237dc18d87bc0da0d941dc7ab1493846d035a5bcd55d304a8d862dd7d66",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/crystal_sugar_syrup.webp",
       "sha256": "082f83df926b317aaa80f7281c4359b39b170ad6f451c399fc819e6febd42869",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/crystal_sugar_white_strawberry_heirloom_tomato_pearl_onion_black_soybean_tonic.webp",
+      "sha256": "cec416805eab87b2f4f8e3ef2a6902622f758278a2f6232d34f12b486664bcb1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/crystal_sugar_white_strawberry_wheat_potato_cream_fermented_bread.webp",
+      "sha256": "7ad63ed6536f8618a649d40d1a9fba0f609f4961d04b9cf7f38fa1a9de721df3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/crystal_sugar_white_strawberry_wheat_potato_cream_steamed_cake.webp",
+      "sha256": "ffdf0cf4c837445618184516044f056cdf263a6973425c4e47aa652f4f486f24",
       "source": "operator-cleared-game-art"
     },
     {
@@ -636,8 +1088,78 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/egg_black_soybean_butter_potato_fritter.webp",
+      "sha256": "3c59d80b5514160ca6a0dc5a87d3632faac7f6978d9f7c67a26a46e07795d362",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/egg_black_soybean_butter_potato_skewer.webp",
+      "sha256": "8ab9cbc1c06c4a996958bc5bda4129290aca6a8d3bf838584e4bd2b8217933b0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/egg_broth_skewer.webp",
+      "sha256": "d83b97c8955924ca6ecef7481aaea213c6fae02d9dba49e84c38136138697edf",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/egg_broth_soybean_skewer.webp",
+      "sha256": "9a0ebd093b37606d3a3ddd3f26c62d29bd2b004cea1881d12de571098631a169",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/egg_butter_scramble.webp",
+      "sha256": "394840d05a37e1333437f4c679c3a4e6b4dc0d80d6fe3c6d5e23d734078c8b79",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/egg_cheese_fritter.webp",
+      "sha256": "21aaff94fe919d5994bc373933b6fff6051e01d5f4b433e26349028e956b000c",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/egg_fried_rice.webp",
       "sha256": "2dc09eb87c507f275ebf14a2a025925846454f3540ce226fa64724430b3f7be8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/egg_milk_aged_cream.webp",
+      "sha256": "d630bdb6f9c17c0f1ddd47f5c13bf80b03479d1d5126773c1c0f5974546774ae",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/egg_milk_potato_aged_cream.webp",
+      "sha256": "7e5fa13d25e7f7682f6a093b0679ae4fd464a45a952c1a63a33639d6478331f1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/egg_milk_potato_steamed_cake.webp",
+      "sha256": "8b088f1970a79dab0eecf9139c4c6ea0f4d4b6a1ee17476b4f9dd9d22075173b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/egg_milk_steamed_cake.webp",
+      "sha256": "21c031bfe1be026e58fd118a944a2ddca016d039a12fdc2c59ce68e4949b4592",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/egg_milk_tart.webp",
+      "sha256": "d9f2d4f2d0f7e8654e22103c956c4abad66d8250a211526d56841ba5cc3d470c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/egg_oil_fry.webp",
+      "sha256": "ebf65adec7bf493459b94cda0ffde2ecb88b2cd305585c60c02d6fb962de9337",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/egg_potato_oil_fritter.webp",
+      "sha256": "e8cd38c067981d4df825d18fafcee7b06d40e0822bf7d6627e7d1b048841f28d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/egg_potato_skillet.webp",
+      "sha256": "5e98f786ce686d57e82765d81fc3fb645efa6fdb914afcbfc2ebf9bb4e44cc10",
       "source": "operator-cleared-game-art"
     },
     {
@@ -661,6 +1183,16 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/fish_fry.webp",
+      "sha256": "7e342c978d3c3ae9fc19571b1e6ae3b95c4626ec50b9a1fa04031ba67c9ccd3b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fish_rice_ball.webp",
+      "sha256": "a5c3ff00a61fbaf295533c8e9475ea6f4f72f5daf34ab969c2497af5f3b7877d",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/fish_skewer.webp",
       "sha256": "7ada8e63b30871e600abd788dbc280ac010c6c64bf03dc545815f87e1a990920",
       "source": "operator-cleared-game-art"
@@ -681,8 +1213,143 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/flour_egg_aged_cream.webp",
+      "sha256": "ec28d5c4f986ebe27427f31a099a289ee22507d40e59523461fe03d558ae2573",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/flour_egg_cacao_aged_cream.webp",
+      "sha256": "54cee89b884f2ba4ae7c39822da64e5f62988331ebfe6956b05886e5b805039b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/flour_egg_cacao_bread.webp",
+      "sha256": "2cdc4ac8a9b832f3f46776b01e4944ddadc356fd279c0ceb1a3279c05ea98125",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/flour_egg_cacao_steamed_cake.webp",
+      "sha256": "29af570f0125c918fd5cee6b95989e722098b43d057d4767f0bacd43f890b658",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/flour_egg_cake.webp",
+      "sha256": "1dbef4b008c7d84f36886c70d4334cbcb1aa266d28c9764d721f60dbe813b517",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/flour_egg_steamed_cake.webp",
+      "sha256": "1505a400a35351e72f3445f1a05317555e8e13cd913526bf4a149a8abda21ad1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/flour_onion_cheese_golden_wheat_biscuit.webp",
+      "sha256": "5b554279caac8073e5fece4323026007c5381049be8ab6b2e2f2e9999e67146f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_herb_salt_fish_pickle.webp",
+      "sha256": "51363ce2063f5ccea6e32b51e424178267ebfad13840db02907e03c950bf0914",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_herb_salt_potage.webp",
+      "sha256": "1388353933d6b3cc5679d78da59ce9bfa3c85ffe08f34e6d7da0c912763871b1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_herb_salt_seafood_pot_steam.webp",
+      "sha256": "9793ca13c97f58e2509a142a98caa11b8e8e551e5b96086a99a1170da01f7cb9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_herb_salt_skewer.webp",
+      "sha256": "6f01365bdc573204862c1c3c1335f1501b5beba81c5c4fe67990ea8ee8fd6769",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_rice_tomato_charcoal_grill.webp",
+      "sha256": "26280cd93c02c07a62a0d6defdb25eddde80a8a681bfc681e46956e6a3cc4c14",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_rice_tomato_fish_porridge.webp",
+      "sha256": "008330cf86e764c7352968a9d373c2589790d74ab06faa393f04476cc0bee290",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_rice_tomato_sauce_fry.webp",
+      "sha256": "65a97a840fe6d401d40b0b116388963e606f840306e8e1a12166399d824298d3",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/fresh_fish_soup.webp",
       "sha256": "a4798e591e271fee757e6840c89a3f47e95680d6272e0c3ff1923b103f5f77fe",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_soybean_broth_fish_pickle.webp",
+      "sha256": "ca2c7d1c57cdac345977b82dabf148fd4f9f1b2cf414f61fd609cacef0ef3d53",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_soybean_broth_fish_porridge.webp",
+      "sha256": "9b89912446450c90f6aadf44beabc54104dcb973ebca7ea50cb2123ec3d30f6d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_soybean_broth_fritter.webp",
+      "sha256": "e683cb9576906d3726533d219b4ff79494ddda7ca47a4e5e4c88abc445a69640",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_soybean_broth_seafood_pot_steam.webp",
+      "sha256": "b571e4c90b4a4865348ea30d68d111c49d692704d19013f8e4e658432d9271a7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_soybean_broth_skewer.webp",
+      "sha256": "c656a84cc276522221736a56a3f2655436e6d8e2d7760ad8aed90a2bc0caed0a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_soybean_broth_skillet.webp",
+      "sha256": "41c7561aaf45fd67269f8876bc02832b18aa94d312081a659c71f327547f709f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_vinegar_herb_charcoal_grill.webp",
+      "sha256": "8e5f93b6db16e19db9788ee1e65f547104bc29abdf1824aa703746c2266ef0d9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_vinegar_herb_croquette.webp",
+      "sha256": "2d38481b433b38a635c4c97db9280f7ce417a7dd8259533caa27912101c396fa",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_vinegar_herb_fermented_seafood.webp",
+      "sha256": "6d1202fbae94d6c6efabf59c0dfd2bbf8cb21bc161f570fd1eaeeb77b5b459a5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_vinegar_herb_fish_soup.webp",
+      "sha256": "dd9e7ed97d0c387eda8d22d4dd16201b9c589c9c5beb736fbed4d7270db0ce80",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_vinegar_herb_sauce_fry.webp",
+      "sha256": "10bb5d1569b0ebb0a2f252dcc4d25e5abaf820c98eab4bcc9536d300e25bdb74",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_vinegar_herb_terrine.webp",
+      "sha256": "2d0471557fa091d3ec9af2f68ca711336ccaa03e39279f894fd2d680bef5be27",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fried_egg.webp",
+      "sha256": "c49112309a578ab067b7de7f49a7feee779908238a75f399b2bcbc5e3de22fff",
       "source": "operator-cleared-game-art"
     },
     {
@@ -706,8 +1373,23 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/golden_rice_black_soybean_royal_cacao_spice_white_strawberry_medicinal_pickle.webp",
+      "sha256": "7be82d8f26c79ff7c27f73f6f2942c48e53d995801ec016120a714db68376c6b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/golden_rice_butter_milk_salt_corn_nutritious_steam.webp",
+      "sha256": "7fc4f19ec38c01da7c221bb5d7c612a4fcd192c195b9cebb9e23c470dbabe8fb",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/golden_rice_congee.webp",
       "sha256": "5512ec05f077dc61f4c1b5c6702fb664126cf985f21b6b966cd6e92d82cf4c54",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/golden_rice_elixir.webp",
+      "sha256": "34d938d250ed482bf0e45ae0d100a89653df5b28f9a6449fb169edee1258271b",
       "source": "operator-cleared-game-art"
     },
     {
@@ -716,8 +1398,23 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/golden_rice_heirloom_tomato_butter_milk_salt_broth.webp",
+      "sha256": "44909157660a98eae60291486515f8ee81bf679052ea41b645dfcd052b085d00",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/golden_rice_pepper_flour_pork_herb_fry.webp",
+      "sha256": "51592e021a24c692d712042e38517b032c444959c40734088ea4cf54c519ab91",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/golden_seafood_paella.webp",
       "sha256": "afdf89a4e97f6a6a85f8e21470a27c4ebdf12db859b584a72a116ce092d408df",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/golden_wheat_sun_brew.webp",
+      "sha256": "ebed01262de42229b9e855abac898760ca9f8511d8b83a5d714e998f1d038b92",
       "source": "operator-cleared-game-art"
     },
     {
@@ -736,6 +1433,11 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/grilled_potato.webp",
+      "sha256": "d25cd2d3d8b6539ee9d77dbfb79fd567d886384803e17080dce1b2669d1a36cc",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/harvest_moon_feast.webp",
       "sha256": "f2a6840e9be88cb628f1af36593f8d9f2915548204c79f23df937ec4597b0221",
       "source": "operator-cleared-game-art"
@@ -751,8 +1453,38 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/heirloom_tomato_black_soybean_sauce_cheese_onion_chowder.webp",
+      "sha256": "f9cfb0f996fd817a47c88c4360a8c940784b0cadaefeacd23d0fea5a76e3393b",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/heirloom_tomato_juice.webp",
       "sha256": "d58aed502c143d024fa86de54b946d6c60be1e27e2f3572d70c65fa3cd7f0c72",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/heirloom_tomato_sauce_cheese_onion_broth_steam_hotpot.webp",
+      "sha256": "4c34bb73225697c7b674be3250e46639c31ab33be61799b3bdbdaf3aa0704fcc",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/heirloom_tomato_soybean_salt_potato_butter_fritter.webp",
+      "sha256": "33f219ba301605749323cb768083f83736d5b61002f253405c0e6f52afb85681",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/herb_cacao_medicinal_pickle.webp",
+      "sha256": "65b0bd0771b67b1e6f3f68b6d7336df90f8899dba13389076948ae4df8477c68",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/herb_egg_soup.webp",
+      "sha256": "2e6a9c4f03c364d8b15aa2084194ad1fd92522e695d9f3d340e72497eb28238b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/herb_fish_broth.webp",
+      "sha256": "b48497af6aa036066924729d4e3a07fa7de42a91b190a625008eeabbd6b93283",
       "source": "operator-cleared-game-art"
     },
     {
@@ -771,8 +1503,18 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/herb_pickles.webp",
+      "sha256": "00a24f96444bf5c5554c880a778bc56dda378d1ea1de312a1c08fac540d30b13",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/herb_rice_cakes.webp",
       "sha256": "f7cb933ba2a15d33d4be84a663c606125162c1cf4c3b0aae78cae5d8ce67bdb4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/herb_rice_medicinal_porridge.webp",
+      "sha256": "a06d3810623f966c9faec0e3b1c7e471a048674e4c510aa277c6c8ea11dc4607",
       "source": "operator-cleared-game-art"
     },
     {
@@ -781,8 +1523,23 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/herb_soybean_herbal_steamed_cake.webp",
+      "sha256": "98c5dda7e61c2084ef6ced6e8fcebe02c782ca8f809423d28d2889d77c0dd873",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/herb_strawberry_fermented_drink.webp",
+      "sha256": "e9664211a8a7ebb2003c6e742c0edbf093c168aa9d9b59c20fc8df56b8848d71",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/herb_tea.webp",
       "sha256": "8f312bf257b0c02079e1a009bf1e62d3705a993830803320eac9a54d1709330d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/herb_vinegar_punch.webp",
+      "sha256": "640302d58f59d40befd86e149e1bd133c7d21924b021adb92cc05797ca55b87b",
       "source": "operator-cleared-game-art"
     },
     {
@@ -791,8 +1548,23 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/hot_cacao.webp",
+      "sha256": "155c21434195a28302e078e307cf0ec7134f486932131bebca448312c427cb03",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/legendary_sea_banquet.webp",
       "sha256": "fe5fe754e8ccc924fd49d4901e6a6747737c8db256f57a25472aa9eddbc1f6a5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/legendary_seafood_soybean_broth_silverleaf_rice_skillet.webp",
+      "sha256": "b16205e02fafd387d610ddff90f594d472780aa197f907f75ba19c442908706e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/legendary_seafood_soybean_broth_silverleaf_rice_terrine.webp",
+      "sha256": "1c5b844f692ce6f2a1262fb03481424923504c92f89adbbb79c9c5c36a08d208",
       "source": "operator-cleared-game-art"
     },
     {
@@ -801,8 +1573,98 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/milk_bread.webp",
+      "sha256": "05a2084669962039e1430167d048e7594ee19250951f4c4f4b18db9fd8ae7fed",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_butter_biscuit.webp",
+      "sha256": "95eae7f9c3c7a088fc08e62877618b41f34ec54013ccb2db539950a9f8b4d6dc",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_cacao_flour_strawberry_fermented_bread.webp",
+      "sha256": "0855813ccdd2855ae7cc42f63a92cafa317fc5a838a7c817806201c0b530f6a9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_cheese_royal_cacao_strawberry_fermented_bread.webp",
+      "sha256": "c06a5c21e0f2bb8796ec9c1cceb6b64c546f747f464a8d3b814a74ed8066d97c",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/milk_custard_pudding.webp",
       "sha256": "fef94bc32572ea5fc2299b11e248caedda71763894c90c12ec143bf7bad1c9ec",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_flour_yeast_egg_pie.webp",
+      "sha256": "83abb40cb4eb74b8dc5fea8622364db9b4faed6dba4be0123995400e5479f671",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_herb_tea.webp",
+      "sha256": "0b692fd89039486af78c9c6e6f803de8e638d61324d49a871c00ec5fb3323bfc",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_onion_broth.webp",
+      "sha256": "baf257d4e479877cf60e0674e64bb50cbca788d61cf10bc184589c1d983e98bf",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_onion_cheese_fermented_bread.webp",
+      "sha256": "86dd0485596f58bdf3b7ae07206842a5bdc60f7b2582decc46b073a44d7ef438",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_onion_cheese_golden_wheat_pudding.webp",
+      "sha256": "d0fd52144a846009e483ee14f17c500ec6dcdc6cd16cf9b4a2e3b61d5fb72495",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_onion_cheese_gratin.webp",
+      "sha256": "5f20dcf167d2e58cc10b4241320c8980224af0315f123a430afd823c30e79674",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_onion_cheese_pudding.webp",
+      "sha256": "ae1d1422f5f289b20136a2cc8d018025fbd7418c4b5f62897626f686f54339cc",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_onion_fermented_bread.webp",
+      "sha256": "75e4b0aaa11e0ef151baaa4477fcfd64ded1bd94312550b1fee2a4880f618c39",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_onion_gratin.webp",
+      "sha256": "69f6ec871d18ed5b51a74869794149f75ddda6a6b0910323f19e26af6aa52cc7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_onion_pudding.webp",
+      "sha256": "c96d5469c8586aae23dbd199ed4cb32a0199cb85467bf9712a5980e1e1273a43",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_pork_butter_corn_nutritious_steam.webp",
+      "sha256": "964ff82169a91db3fe11f131ec3999e6b9a68de6e144f70fc50b0a5a9ef921bf",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_pork_butter_stew.webp",
+      "sha256": "f562e9d0e81019864d04ada658d0eb71c07523d43fd2a7bb2a62496e2fd69fb1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_pork_nutritious_steam.webp",
+      "sha256": "114dc6c854f3f89bab1a11e63070f936165e875b20c214764864d5cf6d8c0d0c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_pork_soup.webp",
+      "sha256": "6206013cdba58f4b4b1514185136610b98ac66f3d73b98d7cd3447f915a6a8c5",
       "source": "operator-cleared-game-art"
     },
     {
@@ -813,6 +1675,41 @@
     {
       "path": "public/images/items/cooking/milk_rice_porridge.webp",
       "sha256": "7e95b9a632a51f2fa2ddd0c7f380eeb8282c261c4e40c777a0447090638ea10c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_royal_cacao_egg_onion_cookie.webp",
+      "sha256": "97cd74cf0f8018f25b3bda7a5c60876f9428fb9da1e374ecfd193a5cdb8fe828",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_salt_nutritious_steam.webp",
+      "sha256": "43200d4da7d06d5380440421c3feac286fb0942f875ed2da6f8bdef06e8e9ff6",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_salt_potato_hotpot.webp",
+      "sha256": "502a21294e77c56ba7b9c581415ba69c09e52ad96a7253cd75c50848fd8724ed",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_strawberry_aged_cream.webp",
+      "sha256": "d51935d642f8add62431a4936e901e1e4918520f5c9a3a0af9b6315cdd54043b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_strawberry_bread.webp",
+      "sha256": "937f457e222f142bc59bf8562b526e41a61dc3dda9e29858267896c034c99d31",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_strawberry_onion_steamed_cake.webp",
+      "sha256": "843f55259e4ad23e8f730f7b93310cbb02a46226ba232c43c1c22e31e9f29331",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_strawberry_steamed_cake.webp",
+      "sha256": "77d56253e4d4afbc9ef25c926cdda39f7b7898cae2bb02e8554e97dd230ce355",
       "source": "operator-cleared-game-art"
     },
     {
@@ -841,8 +1738,98 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/oil_common_fish_fry.webp",
+      "sha256": "282c7a5c3a18cca25f75a609f2cde4a4a001be7fb80fcf07d6a8c2079f7ee2b6",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/oil_grilled_fresh_fish.webp",
+      "sha256": "9e7b6d54c0aa96831778ff819b572ce1fa5d0a8b33638b0516836984d332bd73",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/onion_broth_soup.webp",
+      "sha256": "eef38e2c348ee5f22987a75aedadc39a3d2bad34d473c2ab0fa51117293a3746",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/onion_egg_scramble.webp",
+      "sha256": "aacae01ca4c5f2825fe4fa1e3a0fe3446de2b37253e1919f2bfec8a0968efc8c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/onion_fish_soup.webp",
+      "sha256": "7f061cac2fc2f6d50992a32f2c5524931bce626b74a5397fa4a63bfd4bef771d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/onion_flour_skewer.webp",
+      "sha256": "85315e4ecfda1e42a938eb1e61f4006996f87fa7be6865d9f8c4825f25900ec0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/onion_pepper_flour_pork_grill.webp",
+      "sha256": "7830794f8aa7ff5824ed1d4137c1fe46758ea09d20ae548b7ea4afabd708ad35",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/onion_pepper_flour_stir_fry.webp",
+      "sha256": "d99e3061046d464b8dc94255be00a9ab5c19a021eb411f46871cade6cda6aff5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/onion_pepper_stir_fry.webp",
+      "sha256": "49f279420b775ca5f8b496276910e33ea9e052ee7b4e4d7f166e9d23bc929bd2",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/onion_pork_skewer.webp",
+      "sha256": "b691e5a088a5c399a724819511a117625258e7aed38a0b72cd841d00c15215d7",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/onion_quiche.webp",
       "sha256": "ac33d52e8d6580586a47679b89abe7fb814bd6e4cd705b5af7c8f608684a29f4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/onion_rice_broth_potage.webp",
+      "sha256": "90b072e6fa6b255a7383bba77683f211846320cc8e3c270ae918be2fda131300",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/onion_rice_fry.webp",
+      "sha256": "debdc62a64861ee4ed1d4b2f8f9e128ea56674e298655f283d8cde3b7ccbd8a0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/onion_rice_grill.webp",
+      "sha256": "8eb78ae1df2c4d5dd48f9f0350b1668a1d5b8600da30ebf4e50bde2ec802b03d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/onion_rice_sauce_fry.webp",
+      "sha256": "dc36a730ea1cfe145141ab7df3d0696c4afdce65be6e3e64d05df9e6258570dd",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/onion_rice_sauce_heirloom_tomato_steam_hotpot.webp",
+      "sha256": "9bf1d37977f5872b01db8ed01e0b9a50384d24f1e46a495ea30b3a7c8913c697",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/onion_rice_steam_hotpot.webp",
+      "sha256": "6bc83dbbbea215f1a902a1826034407756501c7efd6b9062e6ec5a5ba3dde9bf",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/onion_spice_herb_porridge.webp",
+      "sha256": "4c73f2798349f62236b2a3ad8cd0e9dbbc75ec07cc5b0fb551d9492b740959ba",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/onion_spice_steam_hotpot.webp",
+      "sha256": "f2ead07a641a8e6fb484c18291f447ccec899ddba922de899d12ff4269192385",
       "source": "operator-cleared-game-art"
     },
     {
@@ -861,13 +1848,58 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/pearl_onion_black_soybean_pork_corn_pepper_grill.webp",
+      "sha256": "bfac3c585c65ec077c74d77d569f3261e18eead5e97c126f92767843658c5728",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/pearl_onion_extract.webp",
       "sha256": "e3747676d135576c4701939991f93540032becd072c1a97fef1a429b62604e34",
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/pearl_onion_milk_pork_butter_corn_porridge.webp",
+      "sha256": "7aa1448c89d53a45e00203fb13d2025498e0da3fd19596969c994374b14bde0c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pearl_onion_night_tonic.webp",
+      "sha256": "05e259a5c071f47511979e0464bb8ae559a9cb31c445d2fe0c2d1cd95876f4d9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pearl_onion_pork_corn_pepper_golden_rice_grill.webp",
+      "sha256": "4759df09b8a71d5072410a3659a246094a914e8233ced2092cb6eb33fd70b424",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pearl_onion_pork_corn_pepper_golden_rice_stir_fry.webp",
+      "sha256": "35eef0db6194ad3ac2b69a020dff48b8507e3820694c67d92a4bba9fd2c1eab8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pearl_onion_silver_brew.webp",
+      "sha256": "426af331c6c184e1d510ce9e059220d70b482267ae0b1d8742b37d323f0b0d61",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/pearl_onion_soup.webp",
       "sha256": "a876f25c155b339781912a205440ca97ac89deade3f04844e233b28cc306a0a5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pepper_fish_pan_fry.webp",
+      "sha256": "c48ea2979f543840c843e448f246d3e516048f9fa736a6958e03c190e9245557",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pepper_fresh_fish.webp",
+      "sha256": "fc281cecb36b921b25a1a9546bdf096e75f3fb0aeea3da89815242092df29d50",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pepper_pork_grill.webp",
+      "sha256": "cc64873d92aef1a66a2d9607de73e08cb2381808f1b6c7f8e6340a37ec440f31",
       "source": "operator-cleared-game-art"
     },
     {
@@ -881,13 +1913,238 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/pork_cheese_porridge.webp",
+      "sha256": "b0d60f9359a0abd9e0d75874f14cdaee4f1f1bcfdae3a3d833b11db978011bdf",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_corn_grill.webp",
+      "sha256": "4258a03c04ac98a979035b59a546d62f4714e5d33b71c0ac6c579725ba66ecff",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_corn_herb_fritter.webp",
+      "sha256": "53fce37a547ef750ede038d86757b551687c2dae5fd0549c174431597df10373",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_corn_pepper_golden_rice_grill.webp",
+      "sha256": "255be7679503486d63be5a32191488fea2e4245cf288c87ce87e16a5215f93d3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_corn_pepper_grill.webp",
+      "sha256": "948725b7990c39175617b9c40620dd4d96a893bbc9fc62e93b36c6b1d6508530",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_egg_fry.webp",
+      "sha256": "55b0413a13413f48b932d6fd9f21a579eeeb33d466941e9f3fd2dd2c68cfbfeb",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_herb_broth.webp",
+      "sha256": "08f36d948e29d3d2bfe46d74db3b475e109edc1bf7676cd0d77b16eb337311ff",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_herb_fry.webp",
+      "sha256": "53c3a2ec9bb8f58c705b701172a0dadaec972e5e70f77d0d436a232e1f8ec042",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_herb_nutritious_steam.webp",
+      "sha256": "6a230504d36f443400244b9d4efc2ee3d8bbcf37a3c7aa250437a9f8e2450e6a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_herb_sauce_stir_fry.webp",
+      "sha256": "cb22c32c1094b67ed07cf74fe62396f93932ca208d5aa6d339b39ba3b244144d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_herb_stir_fry.webp",
+      "sha256": "6d3d84ad30c0854070d14f6bd14b72502d327bccb0d732cb0c04fba5e7d8a06b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_oil_grill.webp",
+      "sha256": "26688c324f8ffea7214dde69d4be89752b2171e4a1d95bd2997102ff8c024177",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_onion_broth.webp",
+      "sha256": "8f162dbcda79abaaec19bf88bcd3aa76061a25224226eb5d5b2e3afc5252625a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_rice_gumbo.webp",
+      "sha256": "b64f28cf38e40753ee689bb47c28563b406031e10b981c65fd0ca2e2a79237b5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_sauce_cheese_onion_broth.webp",
+      "sha256": "520569a309628661f5af73f923656d240b0dbaeb03f265aabac5a1cf1b285bac",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_sauce_cheese_steam_hotpot.webp",
+      "sha256": "f2aeba2beb1b35489ea39723002b21d784c99b6693d7a6772306a6d2ac8d0b3f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_sauce_potage.webp",
+      "sha256": "63cde6ec694cb7dd9e4b72c9754cc5226d08f5cf278d6a3adb43113e243aa257",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_tomato_herb_steam_hotpot.webp",
+      "sha256": "520c3757269654968205215d4c092037ff31706a19c802abbbbe924068b05e6f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_tomato_hotpot.webp",
+      "sha256": "cb5467add2b234146bdd0b4c0e04a1a81c08ca0df38dd1b2d25a32f37a5c0820",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pork_tomato_steam_hotpot.webp",
+      "sha256": "7198fb6122a5efc7ea0677d547b54bbd7208124a9b904e767d5df59e0e848fcd",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/potato_black_soybean_egg_butter_skillet.webp",
+      "sha256": "891b2ab626eb6b047e246d704dac44b0bb84e95663c2bb4f9f067f664b4fc3de",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/potato_cheese_bake.webp",
+      "sha256": "28348679012d3a020568e266ffc8d1f0ab7e1a99623d3061c0e2cabe599d6523",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/potato_egg_fritter.webp",
+      "sha256": "b43756a5c2c8e6f5b7a4c506d6732e594965f7bdd2810fb8a77ecbc61cfcca96",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/potato_egg_salt_fritter.webp",
+      "sha256": "781bfc7a0e47b2cd9301557c7e67b8bfa9777f2329d6e5b7b494fa0ea40e0499",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/potato_egg_skewer.webp",
+      "sha256": "b49a7c66893f24e78568e6c2a72459447a1d6f403bf40b91153a7e836c04453a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/potato_fries.webp",
+      "sha256": "3d3e05f9092f779c52ffd839fe455c1773156deb96f9e2e01a7c0a7e78daab89",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/potato_milk_broth.webp",
+      "sha256": "0f4a1e23d4883368a2aea2eec5dd523c199c318a0a103abc143a780b0f1bcb82",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/potato_milk_cream_hotpot.webp",
+      "sha256": "7619e0583b542cbd501dcf2ca68c12e98ec79a6da919a8265718d160342818ae",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/potato_milk_nutritious_steam.webp",
+      "sha256": "b8be9b0720489731c7dfa48137c6b551b0f17390bdcdce5f00f7760736980fb5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/potato_milk_pork_butter_nutritious_steam.webp",
+      "sha256": "48aa3300196ba0f9160b543a95c55886a9b6efb80f55b39b0c1c647fc5065d56",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/potato_milk_pork_steam_hotpot.webp",
+      "sha256": "69d336605e40ba49aa9736d38d71a9fc69a5e9af8e8dd2a17c3acfd06239994c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/potato_oil_broth_skillet.webp",
+      "sha256": "3c250719cad41b157db8e45223849be4d74abe201d699dc4ab1d92306696e848",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/potato_oil_fry.webp",
+      "sha256": "a3581a4c69f2dfbf3345cf3ad0f3ea0f4671511d443213ed8bd29043b0346426",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/potato_oil_skillet.webp",
+      "sha256": "ce11f39ded51dea5ddbf23de59c1f9c6077c8c155744748b5f38b1e445fcaeb0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/potato_pork_nutritious_steam.webp",
+      "sha256": "97dbee58395a2f0444a253c6b7c0da001f7e20eb45c9ce5a79517d34e2618fe7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/potato_pork_salt_chowder.webp",
+      "sha256": "a8247f770c3264f309773eefcccb99c70a2ba1860294d8902b12fe3bdbbcc3e8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/potato_salt_chowder.webp",
+      "sha256": "2f2b45e87f7c2fd3d9fdf33bfa532aec227f61a0a5a532b21a82160736c116f3",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/potato_stew.webp",
       "sha256": "bad069c05daba606953e97319645b578aeb2e6c35e0b5e31b1abcdd18f253604",
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/quality_fish_broth_pearl_onion_tomato_fermented_seafood.webp",
+      "sha256": "ba150319e883860d3c0773a049ebce233e707ab56b52b161268eb07618fc2492",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/quality_fish_broth_pearl_onion_tomato_terrine.webp",
+      "sha256": "64249b6005be00530abe767f2dc5f9a71839ca8162db369ea1a579b4c234d4ef",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/quality_fish_golden_rice_herb_vinegar_skillet.webp",
+      "sha256": "af1b514e9738163e908f2bf4822a077fa4c30651c55f8b92a90a244ca8425146",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/quality_fish_herb_salt_onion_seafood_pot_steam.webp",
+      "sha256": "c575e5e2131d5c96917c57331e5394357e8d5d24b16030d53ace8389b385835b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/quality_fish_oil_silverleaf_rice_croquette.webp",
+      "sha256": "04d68b079ad93689ce8bf8f8dc873bb80ba18d158e3778bf7dc6d600d0897662",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/quality_fish_platter.webp",
       "sha256": "c884b0fc6d5cb2d4c6e89e372ea8f57bd6af9216cf9034bd0ff0d1c0c2fd5307",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/quality_fish_salt_golden_rice_sauce_clear_broth.webp",
+      "sha256": "f37d4582331d8c3f6d504c9813bf21714b0e3fde049be5752719657b556eabc4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/quality_fish_sauce_vinegar_herb_fritter.webp",
+      "sha256": "49ec54fa949d4c24441230cec58265e8c1a0ef83ebd09f1d8115e68054fe251b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/quality_fish_tomato_oil_soybean_charcoal_grill.webp",
+      "sha256": "0e36b6aabf9f1a9ca258fb15ad03d7b45ac8cadef355124cfdb497bbc78b6170",
       "source": "operator-cleared-game-art"
     },
     {
@@ -906,8 +2163,118 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/rice_broth_cheese_soup.webp",
+      "sha256": "f201f62a8acd3da11bfde405b7b93c697b3d704997b81ea7e64b37fb1c46143e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_broth_spice_potage.webp",
+      "sha256": "4d40317369c03caf94231712540afbb6ca42533626073c71050e8e0580c4f5ff",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_broth_steam_hotpot.webp",
+      "sha256": "cf46b2c4e8ceeb544808dac49c1d45bbf31710e7d8c07068f86eb1a29409b620",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_cacao_punch.webp",
+      "sha256": "cba0c7a3792a5e29efb341f94e0d442bd62bb4027e44d0dc4d41899c6f69bbd8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_flour_grill.webp",
+      "sha256": "203d1136214ac6a6a9f9889eaf4da8d948bc286120bf5978554f519431ec77df",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_flour_onion_grill.webp",
+      "sha256": "0862c0b5e6942212ce3721e4a90c685f99365a5824547baac9f1093c6a648232",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_flour_onion_stir_fry.webp",
+      "sha256": "b8c3c36c902f6b067fb5256a3a659d8a6713e723cc5a1a7777194323306d4f92",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_flour_stir_fry.webp",
+      "sha256": "368aba4c12999c04a91261f7d5420edc2d75bc6b4a95ad42b02e3e52d9013b9b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_herb_cacao_tonic.webp",
+      "sha256": "621f8dd657768c8a95a27c63a3defa9a865f383336ddd3016f7e63c63863a02e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_herb_fermented_drink.webp",
+      "sha256": "1ed880badb5ce64ccc26e38dcd4030a04746bda3c593f6b80572d23090f5207f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_onion_sauce_broth.webp",
+      "sha256": "3cf6b16342df598759089f235103165df723e5c8f27aaf1d020b8a14f0fc3c7a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_pearl_onion_black_soybean_heirloom_tomato_tonic.webp",
+      "sha256": "ebc8acb8ca80a7c27b9af164e8818d20bee715989daac8f8430d7a7fa55c196d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_pearl_onion_white_strawberry_royal_cacao_restorative_dish.webp",
+      "sha256": "680bcbc1e9b1497dd09496244aacca66884d05147897f7b7cae9e0042f563c2a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_pepper_flour_pork_fry.webp",
+      "sha256": "c47bc9c757e3f6c864eb687acb0909a7ff8d49425569cf8cf28a59ea2ad6a84e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_pepper_fry.webp",
+      "sha256": "8e1351e01ae88d06f2f3ca645b1fcde2ba3713d11748c2b393e50c582d18a882",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_pepper_pork_fry.webp",
+      "sha256": "931dc5a4577edbb152baf73b426006beab3cf34e96e7086824e40891eac08488",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_spice_onion_chowder.webp",
+      "sha256": "a3168921188b968fa20acf19b4506ea2f0e5e7004eb575c3b4ae9774b085fc07",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_strawberry_herbal_steamed_cake.webp",
+      "sha256": "901fda7de60c7d6210e508fcfa111c78a830182c8c29b5905f6a092290d317d0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_vinegar_restorative_dish.webp",
+      "sha256": "3d3ee9afd555c6c1803b136eadbded05d86d3fe28593b8cc6cb5f296641007da",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rice_white_strawberry_crystal_sugar_silverleaf_extract.webp",
+      "sha256": "06c2c7aff5e0f295bdc4e4110a677861544e8c7ed499593ca5249debf5b1a1b7",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/royal_cacao_brew.webp",
       "sha256": "e07876fba7a6778639d9e140c0bb68622dfaf9b2fbde88b88256e17bd59c3c3c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/royal_cacao_cheesecake.webp",
+      "sha256": "5c41436ad9d15c12931c8af91bb425ffe7ee9c59254a8c5ee0cce448c831c15f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/royal_cacao_mousse.webp",
+      "sha256": "5f628a32d304aa314b8c7fc0a93a39eeb111dffd2984a45361ad2ea20c627339",
       "source": "operator-cleared-game-art"
     },
     {
@@ -936,13 +2303,63 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/salt_fresh_fish_soup.webp",
+      "sha256": "ad9a9a98616f348987b80f3676217eb187aed8cb0afe233c6cb5f5304ccb2aba",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/salt_quality_fish_grill.webp",
+      "sha256": "deb680b7519228f069024ee40a14734ba849838469d2d2d54f77c8c0fe76f9ed",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/salted_onion_grill.webp",
+      "sha256": "3372fbab4aede901c5e072073d94870fec8e506a9cb8c1dccf0482dd3cfb3a90",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/sea_salt_grilled_fish.webp",
       "sha256": "d1698ce3768803d5ff720f890a515aaf65b0bc5ce2396a605a56a35a9bdff537",
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/silverleaf_crystal_tonic.webp",
+      "sha256": "0e6489e38e2dd4a7c5a52ca2dfc768dcf21a78fa8ff57fa6f4f05ea4bddbb325",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/silverleaf_herb_soybean_tomato_golden_wheat_fermented_drink.webp",
+      "sha256": "31635535f6dc9b651e5a7c92aaec2df16b39dcec855ac8df5ad5d419865919d1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/silverleaf_herb_soybean_tomato_golden_wheat_medicinal_porridge.webp",
+      "sha256": "7ed8bc4fa39600918f21e0a85f0ebd5769b34cde4fc989b35bd027ef25dc145c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/silverleaf_milk_tea.webp",
+      "sha256": "42f7405789eb4bf69e4d6bf7a0f26703ca142289b2c9c3d08b59d99495fd1caf",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/silverleaf_sugar_tea.webp",
+      "sha256": "9a565e84ab6827fce883bb69dbfbf70ac7ca4eb96d891af8748b116b3770131b",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/silverleaf_tonic.webp",
       "sha256": "ac8c8073290c26a655f5ad967aa962b2c43678f65ef4f0216a39627374a2b731",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/simple_fish_soup.webp",
+      "sha256": "8217ae17cea36db6865fb7a6b846c31da6532ad4a04d28a2645cfa9011949b4c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/simple_tomato_soup.webp",
+      "sha256": "d5824b40d7dea53ec8ac3200fc457c7f873495d11f57b49ecc0dbefdd8bf4c9d",
       "source": "operator-cleared-game-art"
     },
     {
@@ -961,13 +2378,188 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/soy_pork_stir_fry.webp",
+      "sha256": "b0c8bd5c7eeeae6bf9dd1dbf3c4ab9cdc7c75f00a15e61ece9d9c3ae69c61bd3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soy_steamed_fish.webp",
+      "sha256": "355d6d88c2ceea21c27dc3ccd2a706b6b63e25fc52163590970cab821017fc9e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soy_tomato_hotpot.webp",
+      "sha256": "0b21c00d5daf6da70659fa4700746ccd8e77769cd89a4ffaf5733178331549e5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_butter_chowder.webp",
+      "sha256": "20265c8f475d635e8ff80c5e20afed1a1786a10dbf74d6fed67d7ce08cac127f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_butter_corn_nutritious_steam.webp",
+      "sha256": "24d32bfbf0a77451ec68c94e19e9b1c37d04828055237d2573c91b7bb08965c1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_butter_golden_rice_milk_potage.webp",
+      "sha256": "604d537b8d085bec4b0487e48292cc32ea1e21ae3decc6f3c2ad3c540656fc06",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_cacao_spice_punch.webp",
+      "sha256": "a833ca576f3f5d45f8843bc2562e98a464598a4ea8827b1beb4eea68a993422d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_corn_salt_potato_steam_hotpot.webp",
+      "sha256": "b22425129e5988538ca8080cb1989eb19a0a6badb121d8bf522ab6ec2dd51e0c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_corn_steam_hotpot.webp",
+      "sha256": "5fba2023783f7c722d21ed3b52be3eaee9d6b9b420aefd8c8934d39b0602d0d9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_cream_nutritious_steam.webp",
+      "sha256": "ffca019861b61309b5ecb5c1ac3f22d35f8e5f0f99c7c381bc5bf986bb43a3f2",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_cream_potato_nutritious_steam.webp",
+      "sha256": "2b61cfb2345d4e847ad25e9969569cec11c91225e2ecb413f2b5f7ba78bb7cd9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_cream_soup.webp",
+      "sha256": "570e024a1915b9a406b9c9b3ea84a25db525efb471332a654a335f8fef4c8abd",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_herb_cacao_fermented_drink.webp",
+      "sha256": "110fb4d353a494950b7e07ce2337abd7009f81eea98dc2f3806527ce0805eed8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_herb_tea.webp",
+      "sha256": "544fafd372ab06169b0fe0ee2e54e98223e6e6d8ee9e54bb3af58436b1edf3a2",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_milk_tea.webp",
+      "sha256": "33d9a1d4ad08044fc02b6806697697d9b5d1d8b381a31b0d7c3bacb2052ce4d1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_rice_porridge.webp",
+      "sha256": "05236a7c1e2d7837d2f5433e0d340ef61bb890183c275023d3322cbce4fbc166",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_rice_sugar_extract.webp",
+      "sha256": "6f1f8453a9959dfbbcb3244ba1addf1b2fd9a34f0b910f278c48e92d58f86641",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_rice_tonic.webp",
+      "sha256": "93a2069b0102f9c28cf832140572be0815893c0bdb8ec90e93d02362ad0110cb",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/soybean_rice.webp",
       "sha256": "a552233a0f9186615e8e9b6a023cc9669866cc49b418f180de961f71f1f0f9f0",
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/soybean_salt_butter_skewer.webp",
+      "sha256": "9c3fe8e36b2f7151d054af89bd427606b7b948714763340baaf9eed19d85802e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_salt_fritter.webp",
+      "sha256": "aaf89536d07c6cfb34895788f36041384c8471f87b0c9965a11e46f1ae6cc548",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_salt_potato_butter_fritter.webp",
+      "sha256": "77edecfdbdf3892a9786b6477e15d4f7f502fddc690e2d89d09ac6a2efd35742",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_salt_skewer.webp",
+      "sha256": "a34aeae992fc6f524a0b98f9fc7780b61bf65a2d297b3daff07ae614662b29fb",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_salt_skillet.webp",
+      "sha256": "65d6ff07d814835eeadd9a466131bc654ddbd2facf97323d562ec64bdd7ad593",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_spice_sugar_herbal_steamed_cake.webp",
+      "sha256": "5baa49edddc69ae1883ae5e0ee8e5b388b60ff8fe9520a6cca3a92bf13a1bd5c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_spice_tonic.webp",
+      "sha256": "afa7bd668161d326e8d746ea906d7b1b65ae098d093e11523ab3daaf41b0982d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_sugar_restorative_dish.webp",
+      "sha256": "ebe834f26a1353e2de753aaf177cbfeff9eaacc536b3b27240a77175167e79f7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_tomato_broth_fritter.webp",
+      "sha256": "4c52f0ee0871fb0625bc2ba589dadda5d28e3d49813238e2e7072d42824b7ea5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_tomato_fritter.webp",
+      "sha256": "87315f6cc7e6306b8ed1ae71fcc78a86e72bd1113e69e6bbadd5f0edccde69d7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_tomato_herb_medicinal_porridge.webp",
+      "sha256": "bb1cf065fa2b850a26ec1294b5a801c906c65c70ee958177f70806b6b7746fa4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_vinegar_extract.webp",
+      "sha256": "f064e0388b22f63e02c85f3310a001b0375cc28a7d14887819ca526bcc53982a",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/special_seafood_rice.webp",
       "sha256": "09fbe9a34e28a9da2923436a8cd44e34d7eabde7325109eb106639d240cbf485",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/special_seafood_soybean_broth_silverleaf_rice_chowder.webp",
+      "sha256": "aa51e2d79df31eaf2796730b3a91e0fa87d66b514e91e24ce862bed0def1f369",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/special_seafood_soybean_broth_silverleaf_rice_fermented_seafood.webp",
+      "sha256": "4c2dcbffc65b2ee4a10f70cce396999be5564860a58f6d1764886e4ee4d01944",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/special_seafood_soybean_broth_silverleaf_rice_fritter.webp",
+      "sha256": "3d3e40e2cddc074e0fa98209b5a1c2a5055d51bf3923a1f9432441e47bf248a5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/special_seafood_soybean_broth_silverleaf_rice_sauce_fry.webp",
+      "sha256": "c8616a48e5b08f0513f9223314ce6a8a482f7657e0087b0824946cf86b237c9e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/special_seafood_soybean_broth_silverleaf_rice_skewer.webp",
+      "sha256": "13c0800328d534047441f866481054b7d510121c6600bd99eafdb2ce40032de7",
       "source": "operator-cleared-game-art"
     },
     {
@@ -981,8 +2573,23 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/steamed_fish.webp",
+      "sha256": "977ebb43c4e4026566dd206ae3086fd6a90b0987e6179df7f46bba59ba6d34a2",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/storm_seafood_fry.webp",
       "sha256": "9c0e296d9f63bfcc996159a965ae7839726d265b5543a8424122a8cdc62a9fa1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_cream_cake.webp",
+      "sha256": "9077c9e550830ac7b07dcbbd35da5688f5e6138eecfa5e3ea7ea70e818f0f27d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_custard_tart.webp",
+      "sha256": "ceff7d49d69893780df5d94b3432f4bc7f9d0c8cd478b48b9a3f9663154f8ee5",
       "source": "operator-cleared-game-art"
     },
     {
@@ -991,13 +2598,163 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/strawberry_herb_tea.webp",
+      "sha256": "3c288f4583ef3bf6507a95bcd31fe3a58a343bc67c997fa44aa95a63a89978b1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_jam.webp",
+      "sha256": "3e4abf0c47b8f616a0525b886dcb9e945c284bc99422d204d9e665d4537257b0",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/strawberry_milk_parfait.webp",
       "sha256": "588447b480727ffd726d7db4db827f1474a8d13eb132d369e6d3f16a8d2dfdf9",
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/strawberry_milk.webp",
+      "sha256": "594862a1b9514a7673c09c9a87f8d28f206b469fce7d518adea51764b208505e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_pork_cookie.webp",
+      "sha256": "d0a150aaea9cf3fd1a16d9cea22b1dab35c46b6dd73fb2aadcd4a5306dc71311",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_pork_cream_cookie.webp",
+      "sha256": "c77c10976e33a212dcf9fa3ee27fe38c88f826d10cebeabca77d8a90e4f3dfbe",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_pork_cream_fermented_bread.webp",
+      "sha256": "ad669437a837204740c6068aae1653fad6eb2cc2116a3d3acd9e7e6e91ac44b9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_pork_cream_pudding.webp",
+      "sha256": "f256a9bb20919cfd60671903f20517149e677234589de283e525a9ab64ba8b3d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_pork_fermented_bread.webp",
+      "sha256": "50d7b8f45266b99963dc88d71d9b3cbb1d5a8b44e8bd8090b17c96f06dcee934",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_pork_pudding.webp",
+      "sha256": "857c10ed1d13ef6c0487fb114ca8bccaa46c9170f24f509623e259c784d437d3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_rice_extract.webp",
+      "sha256": "f887d14a508ceb1de03c3105205e53844cdfa9e55745538f2f5b0feee36ee94a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_scone.webp",
+      "sha256": "6a6c356ecb9727c556cac25189f98b5e22f7c1fdd56a9fa95c30fd8400322722",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_soybean_restorative_dish.webp",
+      "sha256": "0a9dc8d80c724c1ddc3eac0f4499b27c95db270a68aa3390120f9ae7653458c2",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_soybean_rice_medicinal_porridge.webp",
+      "sha256": "2d494387b3b987fd60884fba15519a6d78badc6ad06102b86b67a25d1d41285f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_spice_punch.webp",
+      "sha256": "35a545410fa0bf6047045c1832dbf8c23b4f13bf3ecd100124f14e2255bf2049",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_sugar_aged_cream.webp",
+      "sha256": "df35352193be340eaed0778309f5e4603f999d19f887211b1ebfce67819450d2",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_sugar_biscuit.webp",
+      "sha256": "96f9abe0e68b52a8e90a21d709546410837909283cf8e5e77c63a6b60ab83717",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_sugar_vinegar_punch.webp",
+      "sha256": "53e9e571c02847ef5f4ab31de98f72d8613f218d8ac778c6ca3795c950c43c0e",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/strawberry_tart.webp",
       "sha256": "1d258ad2d689065bccf75babd0ef4939c31ad6f005dd8650b5276c781f836440",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_tomato_medicinal_pickle.webp",
+      "sha256": "3ba44fb487378dd1508dca76ef1199cde5e244a1b7360947df709e15d73071f4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_tomato_tonic.webp",
+      "sha256": "23ada967c897be576f9b30c74a3d21e4f19a7aad8b0de3090ea5465caa725b04",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_vinegar_medicinal_porridge.webp",
+      "sha256": "48e773a315feed48d24159a4aacd9f90fd01a102600b49fa3149ce0917643219",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_vinegar_soybean_herbal_steamed_cake.webp",
+      "sha256": "b0e268376714775802741c246737055fd54bbfe1d3d1808038f4056b376e4070",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_yeast_bread.webp",
+      "sha256": "f9bf816534af900367db3215681bd08ced9bc625cb8889142a2cf8286504acc6",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/sugar_cacao_restorative_dish.webp",
+      "sha256": "ec10db19fa375f64a65778e5f02bdb94ae436ce1d5e038946c092069e44c99b9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/sugar_cookie.webp",
+      "sha256": "37e3a64c01ee4c7ad69a7cc595069b490a650c6296e4301de5a9d62cbb1c0ccc",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/sugar_rice_strawberry_medicinal_porridge.webp",
+      "sha256": "07694eaba0b0c2909222e27c661124122e7812b9298f712158125647039dd824",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/sugar_soybean_rice_herbal_steamed_cake.webp",
+      "sha256": "2271983e1089731beef94180b23c91c5c44d8c9771b8cd12e306adc0d992bcb1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/sugar_spice_herb_restorative_dish.webp",
+      "sha256": "57e414f6fd2807c684d00037974f4a6c46d79ef10173e48a5c6cdda66512529c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/sugar_tomato_medicinal_pickle.webp",
+      "sha256": "a5a92fe538b48487a040ef00c39ff7d1a94c2e762683037e2bd511d5117da2fb",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/sugar_tomato_vinegar_strawberry_medicinal_porridge.webp",
+      "sha256": "bd6330b441596a00b7c46cefacbfcf98071ca130aa040e383b2ec049c630e1ca",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/sugar_vinegar_herb_rice_fermented_drink.webp",
+      "sha256": "7985eff13a68fda92d498c35159ef6c325d4f58e0f0003d15dca52f3c0ac4297",
       "source": "operator-cleared-game-art"
     },
     {
@@ -1011,8 +2768,83 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/tomato_butter_oil_skewer.webp",
+      "sha256": "7c5656ffc8b9d5b8721dbfec882b0eadec2c91173315fbd262a91a1f6a6d0107",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_butter_skewer.webp",
+      "sha256": "6099cdc5e55b655976d5575cf1dbeb868edc689237600397f1531c3090c89983",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_cheese_broth_steam_hotpot.webp",
+      "sha256": "52a9f63a0935601eb9962b42007f69b5fb49af5c4cb96bf2f515d1c2f16e7cfd",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_cheese_hotpot.webp",
+      "sha256": "fddfee97ce2472f789ed74eec921429a41db64e2807bcdba4087b590a437328a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_cheese_skillet.webp",
+      "sha256": "f72094f23412bc2eea128b14abe2d421dc18eb25332aba11be0942c2095d5528",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/tomato_cream_stew.webp",
       "sha256": "1374c9c8d0f4f4b0d4c16bbab4fe869aa8aacf30b8c02d2cd5222a792d932715",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_cured_fish.webp",
+      "sha256": "e5951cd349778a0d31899c97d9d14920b66c33410a852797be1f8e13e91dcc14",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_egg_grill.webp",
+      "sha256": "86258c9d5f6d4252f8adc01de74b6a3311fb039bc61ce995b1e9941ee97ce65a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_egg_stir_fry.webp",
+      "sha256": "22a581af165896fcacffe01a863797eefcec396abf3325cc104d971f03a16f92",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_fish_steam.webp",
+      "sha256": "b6586cbdcf365a79754ffe31e91e63dcbc151fc340f729bef8f2127615ca52ef",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_herb_sauce_steam_hotpot.webp",
+      "sha256": "2f185354aba39850132a4ab6018786b6d22b82aa926943707043089670f4778e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_herb_steam_hotpot.webp",
+      "sha256": "0ef79d9b0b65aa1bc1bcfdcced88873681b0ed33baa757ca79c1f217164d864f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_herb_stew.webp",
+      "sha256": "fc9711f102dbe20e482041bc63c5310b42d24f45c25071867800487490a4d756",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_herb_tea.webp",
+      "sha256": "fb127bc03d40a511ecf35e37334d0af23f68124c1177a139cc4d757a21141a19",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_onion_grill.webp",
+      "sha256": "9c6acb30c79ff537db0358498d4c3fa6d8b0f58c77ce3d709a67868827d009b8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_pork_fry.webp",
+      "sha256": "22f7886a2cf5d96503fdc55fdd8585f27c8f63855237db8c5d75082b435f6d39",
       "source": "operator-cleared-game-art"
     },
     {
@@ -1021,8 +2853,163 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/tomato_rice_soup.webp",
+      "sha256": "1198c836d889d9e45d6d3e2488d526bce5caac63d0791f8565f7168a14c63982",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_rice_stew.webp",
+      "sha256": "ce2112e3426f66719375a4d3c81cb3300c268bbb02dd9b216c78265e2f8feb87",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/tomato_salad.webp",
       "sha256": "9ea4bd6d39d42134289510562f7c86b68bb17859ad185ccf5f07e1b5a67e7236",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_sauce_cheese_nutritious_steam.webp",
+      "sha256": "fa8dca423721d0377213a5cb17c02d62a2168bb91a2eb656257ac54614073f55",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_sauce_cheese_onion_broth.webp",
+      "sha256": "21c42be6a06e57aec1a3476775f99730eaa9db6af9e0df286ca5389c0c7663ee",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_soybean_rice_medicinal_pickle.webp",
+      "sha256": "654fe398c08b4fe156925e891d1a4820fd48090ada1de4434dbd14e7ddb8fb8f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_soybean_salt_potato_skewer.webp",
+      "sha256": "39f13f39a3ecac720846e87fe2f49698914a9db22af4387d6d140cfed7d784d9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_soybean_salt_skillet.webp",
+      "sha256": "138d4657091186c9ab9e1a2afe4e433e1888c9d27e4a474c38096fbcaa7bbe91",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_soybean_skillet.webp",
+      "sha256": "cf9f75d9e052d9955503c0fce5891558737a76b5ddd0ef6c836f0ca38b91d6b9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_spice_fermented_drink.webp",
+      "sha256": "c721be5e3f35d656da758b8c91896b4e6b763e9c7bf74d232ed96b5f48d8190e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_spice_silverleaf_crystal_sugar_medicinal_pickle.webp",
+      "sha256": "f3fffad9dc87a1005240c85c001165ad9701f17ba65171a77a7483aa9b7abba7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_sugar_punch.webp",
+      "sha256": "6de4de6a327a63447ca861b6e12fd21ccdf8604ffa22bad31cd9cf957252b77c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_sugar_vinegar_restorative_dish.webp",
+      "sha256": "9622c6df64fcf242d95618cd9e53607bc948dccc31bc376ad45dcc9e7b949c7f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_vinegar_herbal_steamed_cake.webp",
+      "sha256": "d207361c1dc5749ffb94cb7ef145f0becca8f233c9eb00863d85cb07902d7a66",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_vinegar_soybean_extract.webp",
+      "sha256": "c0fb9095ffb55f452b9c019bca24a4f6b7e79e92246caf47ad98a18bd78e999e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/vinegar_common_cure.webp",
+      "sha256": "2af3382f5d1b00d5288be29745b5e9c9d591d8fe783ff1f11ca5482bb9dd0720",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/vinegar_cured_fish.webp",
+      "sha256": "c2f29f2269c6a8a17b20924f7299d6bfef82b0b3e8744b8d605af7e4e8925984",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/vinegar_quality_cure.webp",
+      "sha256": "1813342bb98340a813bb22a0d5ce5ab7b3268c827e1919c3a170d5c4dd3cd7c5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/wheat_butter_cookie.webp",
+      "sha256": "0b4ce385eb6c92f3b5e46767478d41a5b0e573265c9a48a20f6e8cf0fa2e90f8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/wheat_butter_fermented_bread.webp",
+      "sha256": "2f4c6ba980b98ee6cfc587ccd0aa7889398876a142d6a12392f009525b2c9884",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/wheat_butter_potato_fermented_bread.webp",
+      "sha256": "1b59ee58441e00cc61a2376fecb23692c9fc821373eddd1286e28065abde6b29",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/wheat_butter_pudding.webp",
+      "sha256": "01284384adc59c09885183337cefb66451a298f579441d66f39f32204faf57f8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/wheat_pork_cream_potato_aged_cream.webp",
+      "sha256": "f1d973baae9987c6114297052934522f8616f36cfa9bb105040fa2752ec674d5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/wheat_potato_butter_crystal_sugar_bread.webp",
+      "sha256": "3fa2e4e34d64d9732db6ec4c7e5feee6586e7156e47509ba5c7c1e851fe5622e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/wheat_sugar_aged_cream.webp",
+      "sha256": "742fd7a4d0192edf0b0f5e211b1cf32ce7bcc2d7b262d4f1a3a47a8ffbbe2e12",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/wheat_sugar_butter_aged_cream.webp",
+      "sha256": "673638f2f8a741e410af1512cf09fcd23e9483d74acaf7613f56c6525564a6ad",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/wheat_sugar_butter_steamed_cake.webp",
+      "sha256": "a62aa9a9f1c68b1de4f223bd2df0f9a373a767716b4d3a0135e37e5af71ad1e8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/wheat_sugar_butter_tart.webp",
+      "sha256": "1d7558ebb1f1fc237ada3c775eea03471043b650178ce236b36bd26e13a79f2f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/wheat_sugar_pork_white_strawberry_steamed_cake.webp",
+      "sha256": "97cf3faa175de39b41082fb7f803f35e37077e821b2d2fea12cc0ac2c67b6bd4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/wheat_sugar_steamed_cake.webp",
+      "sha256": "3125fd0c960efa4aa7c6e3d82f63cd30c849743bc813c970a335ac5f6ae08cb2",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/wheat_white_strawberry_potato_cream_aged_cream.webp",
+      "sha256": "f4eea386fee49a94b636c3f7eb933b1edb9784c4479b467bb087008689310f36",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/white_strawberry_crystal_sugar_milk_potato_cream_pudding.webp",
+      "sha256": "081fb9aac913a748c24bb0787542a4f5f4e3b7b280e4dd270e67ef6f94b7a80e",
       "source": "operator-cleared-game-art"
     },
     {
@@ -1031,8 +3018,23 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/white_strawberry_royal_cacao_crystal_sugar_milk_pork_bread.webp",
+      "sha256": "1cf8e7be0c951a3cc3443b8c996c2885398798de04b308f1ba8c81c8bf26acab",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/white_strawberry_tea.webp",
       "sha256": "9c3a222139e31261c07f2fd58fda1aec514a3756f392edac81fd446ff09ea063",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/whiteberry_cream_tart.webp",
+      "sha256": "a402c75c3e33cf94648004ef8695d7685e73cdc507ea88f82d837a27aad4608a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/whiteberry_moon_tea.webp",
+      "sha256": "cb26720d1c552169dc9714c6e00786d224a5bd607c99b76a499a0ce47512fd0a",
       "source": "operator-cleared-game-art"
     },
     {

@@ -255,7 +255,7 @@ describe("proficiencySection", () => {
     expect(s.current.cultivationPointsSpent).toBe(8);
     expect(s.current.cultivationResetCount).toBe(1);
     expect(s.current.cultivationResetGoldCost).toBe(15_000_000);
-    expect(s.current.growthRespecPoints).toBe(27);
+    expect(s.current.growthRespecPoints).toBe(0);
   });
 
   it("사냥 숙련도가 높아도 표시 한계치는 기본 60 + 수행 이득만 반영한다", () => {

@@ -65,6 +65,28 @@ describe("cooking research", () => {
     }
   });
 
+  it("discovers a newly valid recipe even when the combination was previously recorded as a failure", () => {
+    const recipe = COOKING_SECRET_RECIPE_BY_ID.get("fried_egg")!;
+    const ingredientIds = recipe.ingredients.map((entry) => entry.id).reverse();
+
+    const result = resolveCookingResearch({
+      state: {
+        ...emptyCookingState(NOW),
+        xp: cookingLevelXpThreshold(10),
+      },
+      method: recipe.method,
+      ingredientIds,
+      balances: balancesFor(ingredientIds),
+      failedBefore: true,
+    });
+
+    expect(result.kind).toBe("success");
+    expect(result.recipe?.id).toBe("fried_egg");
+    expect(result.state.discoveredRecipeIds).toContain("fried_egg");
+    expect(result.balances.farm.egg).toBe(4);
+    expect(result.balances.kitchen["pantry:salt"]).toBe(4);
+  });
+
   it("records a no-hint failure with small xp and one failed dish", () => {
     const ingredientIds = [
       "farm:wheat",

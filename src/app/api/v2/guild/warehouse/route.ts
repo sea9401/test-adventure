@@ -24,10 +24,7 @@ import {
   upsertGuildWarehouse,
 } from "@/lib/server/guildWarehouse";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
-import {
-  isTradableMaterial,
-  marketplaceEquipListError,
-} from "@/lib/server/marketplaceV2";
+import { marketplaceEquipListError } from "@/lib/server/marketplaceV2";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { lockGuildSettlementBuilding } from "@/lib/server/v2Settlement";
 import {
@@ -122,7 +119,6 @@ export async function GET() {
   }
 
   const [
-    character,
     equipmentSave,
     warehouse,
     access,
@@ -130,7 +126,6 @@ export async function GET() {
     memberRows,
     activityRows,
   ] = await Promise.all([
-    readSave<CharacterSave>(db, userId, "character.v2", {}),
     readSave<EquipmentSave>(db, userId, "equipment.v2", {}),
     readGuildWarehouse(db, guildId),
     canTransferWarehouse(db, guildId, userId),
@@ -195,11 +190,6 @@ export async function GET() {
   const equippedIids = new Set(Object.values(personalEquipment.equipped));
   const permissionSet = new Set(permissionUserIds);
   const capacity = guildWarehouseUpgradeForLevel(level).capacity;
-  const depositablePersonalMaterials = Object.fromEntries(
-    Object.entries(parsePersonalMaterials(character.materials)).filter(
-      ([materialId]) => isTradableMaterial(materialId),
-    ),
-  );
   const depositablePersonalEquipment = personalEquipment.owned.filter(
     (equipment) =>
       marketplaceEquipListError(equipment, equippedIids.has(equipment.iid)) ===
@@ -212,7 +202,6 @@ export async function GET() {
     capacity,
     used: guildWarehouseUsedSlots(warehouse),
     ...access,
-    personalMaterials: depositablePersonalMaterials,
     personalEquipment: depositablePersonalEquipment,
     equippedIids: [...equippedIids],
     warehouse: warehouse.materials,
@@ -300,6 +289,12 @@ export async function POST(req: Request) {
           body: { ok: false as const, error: "not_authorized" },
         };
       }
+      if (kind === "material" && action === "deposit") {
+        return {
+          status: 409,
+          body: { ok: false as const, error: "warehouse_equipment_only" },
+        };
+      }
 
       const level = Math.max(
         1,
@@ -318,60 +313,25 @@ export async function POST(req: Request) {
         const warehouse = await lockGuildWarehouse(tx, guildId);
         const safeMaterialId = materialId as string;
 
-        if (action === "deposit") {
-          if (!isTradableMaterial(safeMaterialId)) {
-            return {
-              status: 409,
-              body: { ok: false as const, error: "material_not_tradable" },
-            };
-          }
-          const owned = personalMaterialCount(personalMaterials, safeMaterialId);
-          if (owned < quantity) {
-            return {
-              status: 409,
-              body: { ok: false as const, error: "insufficient_material", owned },
-            };
-          }
-          const used = guildWarehouseUsedSlots(warehouse);
-          const usesNewSlot = (warehouse.materials[safeMaterialId] ?? 0) <= 0;
-          if (usesNewSlot && used >= capacity) {
-            return {
-              status: 409,
-              body: {
-                ok: false as const,
-                error: "capacity_exceeded",
-                capacity,
-                available: Math.max(0, capacity - used),
-              },
-            };
-          }
-          personalMaterials[safeMaterialId] = owned - quantity;
-          if (Number(personalMaterials[safeMaterialId]) <= 0) {
-            delete personalMaterials[safeMaterialId];
-          }
-          warehouse.materials[safeMaterialId] =
-            (warehouse.materials[safeMaterialId] ?? 0) + quantity;
-        } else {
-          const stored = warehouse.materials[safeMaterialId] ?? 0;
-          if (stored < quantity) {
-            return {
-              status: 409,
-              body: { ok: false as const, error: "insufficient_stock", stored },
-            };
-          }
-          warehouse.materials[safeMaterialId] = stored - quantity;
-          if (warehouse.materials[safeMaterialId] <= 0) {
-            delete warehouse.materials[safeMaterialId];
-          }
-          const owned = personalMaterialCount(personalMaterials, safeMaterialId);
-          if (!Number.isSafeInteger(owned + quantity)) {
-            return {
-              status: 409,
-              body: { ok: false as const, error: "inventory_overflow" },
-            };
-          }
-          personalMaterials[safeMaterialId] = owned + quantity;
+        const stored = warehouse.materials[safeMaterialId] ?? 0;
+        if (stored < quantity) {
+          return {
+            status: 409,
+            body: { ok: false as const, error: "insufficient_stock", stored },
+          };
         }
+        warehouse.materials[safeMaterialId] = stored - quantity;
+        if (warehouse.materials[safeMaterialId] <= 0) {
+          delete warehouse.materials[safeMaterialId];
+        }
+        const owned = personalMaterialCount(personalMaterials, safeMaterialId);
+        if (!Number.isSafeInteger(owned + quantity)) {
+          return {
+            status: 409,
+            body: { ok: false as const, error: "inventory_overflow" },
+          };
+        }
+        personalMaterials[safeMaterialId] = owned + quantity;
 
         await upsertSave(tx, userId, "character.v2", {
           ...character,
@@ -380,7 +340,7 @@ export async function POST(req: Request) {
         await upsertGuildWarehouse(tx, guildId, warehouse);
         await logGuildActivity(tx, {
           guildId,
-          type: action === "deposit" ? "warehouse_deposit" : "warehouse_withdraw",
+          type: "warehouse_withdraw",
           actorUserId: userId,
           meta: {
             itemKind: "material",
@@ -393,8 +353,8 @@ export async function POST(req: Request) {
           status: 200,
           body: {
             ok: true as const,
-            action: action as WarehouseAction,
-            kind: kind as WarehouseKind,
+            action: "withdraw" as const,
+            kind: "material" as const,
             level,
             capacity,
             used: guildWarehouseUsedSlots(warehouse),

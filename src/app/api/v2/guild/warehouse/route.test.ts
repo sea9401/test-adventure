@@ -163,46 +163,27 @@ describe("길드 창고 입출고", () => {
     expect(upsertGuildWarehouse).not.toHaveBeenCalled();
   });
 
-  it("권한을 받은 길드원 입고는 개인 재료 차감과 창고 적립을 같은 트랜잭션에 기록한다", async () => {
+  it("권한이 있어도 길드 창고에 재료를 새로 입고할 수 없다", async () => {
     const response = await POST(
       request({ action: "deposit", materialId: MATERIAL_ID, quantity: 3 }),
     );
 
-    expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ used: 1, capacity: 1 });
-    expect(upsertSave).toHaveBeenCalledWith(
-      tx,
-      "u-member",
-      "character.v2",
-      {
-        materials: {
-          [MATERIAL_ID]: 7,
-          [SECOND_MATERIAL_ID]: 10,
-          legacy_material: 4,
-        },
-      },
-    );
-    expect(upsertGuildWarehouse).toHaveBeenCalledWith(tx, 7, {
-      materials: { [MATERIAL_ID]: 5 },
-      equipment: [],
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      error: "warehouse_equipment_only",
     });
-    expect(logGuildActivity).toHaveBeenCalledWith(
-      tx,
-      expect.objectContaining({
-        guildId: 7,
-        type: "warehouse_deposit",
-        actorUserId: "u-member",
-        meta: expect.objectContaining({ materialId: MATERIAL_ID, quantity: 3 }),
-      }),
-    );
+    expect(lockSaveForUpdate).not.toHaveBeenCalled();
+    expect(lockGuildWarehouse).not.toHaveBeenCalled();
+    expect(upsertSave).not.toHaveBeenCalled();
+    expect(upsertGuildWarehouse).not.toHaveBeenCalled();
   });
 
-  it("빈 슬롯 없이 새로운 종류를 입고하면 어느 저장소도 변경하지 않는다", async () => {
+  it("기존 재료가 슬롯을 채운 창고에는 장비를 추가 입고할 수 없다", async () => {
     const response = await POST(
       request({
         action: "deposit",
-        materialId: SECOND_MATERIAL_ID,
-        quantity: 2,
+        kind: "equipment",
+        iid: EQUIPMENT.iid,
       }),
     );
 
@@ -419,29 +400,6 @@ describe("길드 창고 입출고", () => {
       owned: [ENHANCED_EQUIPMENT],
       equipped: {},
     });
-  });
-
-  it("거래 불가 재료는 창고에 입고할 수 없다", async () => {
-    vi.mocked(lockSaveForUpdate).mockResolvedValue({
-      materials: { v2_reforge_stone: 1 },
-    });
-    vi.mocked(lockGuildWarehouse).mockResolvedValue({
-      materials: {},
-      equipment: [],
-    });
-
-    const response = await POST(
-      request({
-        action: "deposit",
-        materialId: "v2_reforge_stone",
-        quantity: 1,
-      }),
-    );
-
-    expect(response.status).toBe(409);
-    expect((await response.json()).error).toBe("material_not_tradable");
-    expect(upsertSave).not.toHaveBeenCalled();
-    expect(upsertGuildWarehouse).not.toHaveBeenCalled();
   });
 
   it("기존 창고에 보관된 거래 불가 재료는 개인 인벤토리로 회수할 수 있다", async () => {

@@ -58,7 +58,7 @@ function cashItemUseLabel(itemId: MuseunCashItemId): string {
     return `모험 지원 혜택 ${effect.days}일`;
   }
   if (effect.kind === "cultivation_reset") {
-    return "골드 소모 없이 수행 전체 초기화";
+    return "레벨 1로 돌아가며 수행 전체 초기화";
   }
   if (effect.kind === "level_target") {
     return `사용 즉시 ${effect.level}레벨 달성`;
@@ -283,6 +283,7 @@ function CashItemSection({
     itemId: MuseunCashItemId;
     anchor: ItemCardAnchor;
   } | null>(null);
+  const [resetConfirming, setResetConfirming] = useState(false);
   const heldItems = MUSEUN_UTILITY_ITEM_IDS.filter(
     (itemId) => (cashItems[itemId] ?? 0) > 0,
   );
@@ -337,7 +338,13 @@ function CashItemSection({
                 </button>
                 <Button
                   disabled={isBusy}
-                  onClick={() => onUse(itemId)}
+                  onClick={() => {
+                    if (itemId === "cultivation_reset_potion") {
+                      setResetConfirming(true);
+                      return;
+                    }
+                    onUse(itemId);
+                  }}
                   variant="warning"
                   size="xs"
                   className="shrink-0"
@@ -381,6 +388,50 @@ function CashItemSection({
             />
           );
         })()
+      ) : null}
+      {resetConfirming ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cultivation-reset-potion-title"
+          className="fixed inset-0 z-[120] flex items-end justify-center bg-black/60 p-3 sm:items-center"
+        >
+          <div className={`${SURFACE_CARD} w-full max-w-md p-4 shadow-xl`}>
+            <h2
+              id="cultivation-reset-potion-title"
+              className="text-base font-semibold text-rose-700 dark:text-rose-300"
+            >
+              수행 초기화 물약을 사용할까요?
+            </h2>
+            <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-200">
+              캐릭터가 레벨 1·경험치 0으로 돌아갑니다. 수행 한계치와 현재
+              레벨 성장값은 사라집니다. 사용한 숙달 포인트는 돌려받으며 수행
+              횟수와 직업 숙련도는 유지됩니다.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                onClick={() => setResetConfirming(false)}
+                disabled={busy === "cash_cultivation_reset_potion"}
+                variant="secondary"
+                size="sm"
+              >
+                취소
+              </Button>
+              <Button
+                aria-label="수행 초기화 물약 사용 확정"
+                onClick={() => {
+                  setResetConfirming(false);
+                  onUse("cultivation_reset_potion");
+                }}
+                disabled={busy === "cash_cultivation_reset_potion"}
+                variant="danger"
+                size="sm"
+              >
+                물약 사용
+              </Button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

@@ -304,6 +304,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("Lv.15");
     expect(html).toContain("누르고 감아올리기");
     expect(html).toContain("놓아서 줄 풀기");
+    expect(html).toContain("2초 동안");
     expect(html).toContain("50ms");
     expect(html).toContain("파쇄 암초");
     expect(html).toContain("폭풍 해구");
@@ -382,7 +383,7 @@ describe("최신 게임 안내서 내용", () => {
       DANGEROUS_REALTIME_BALANCE_REVISION,
     );
 
-    expect(DANGEROUS_REALTIME_BALANCE_REVISION).toBe(4);
+    expect(DANGEROUS_REALTIME_BALANCE_REVISION).toBe(5);
     expect(html).toContain(`감기 효율 최대 ${level100.reelEfficiencyPct}%`);
     expect(html).toContain(`장력 제어 최대 ${level100.tensionControlPct}%`);
     expect(html).toContain(

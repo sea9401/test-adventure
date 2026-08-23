@@ -15,7 +15,7 @@ import {
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
 import { TITLES } from "../titles";
-import { COOKING_PUBLIC_RECIPES } from "../../v2/cooking/catalog";
+import { COOKING_CODEX_MILESTONES } from "../../v2/cooking/catalog";
 
 // 테스트 기본값(1차 전사, 활동 없음). 부분 ctx 는 이걸 스프레드.
 const ZERO: QuestCtx = {
@@ -1088,18 +1088,20 @@ describe("확장 라인(재전직/생활/도감) 판정", () => {
 
 describe("오늘 추가된 요리·길드 시설 업적", () => {
   it("요리 레벨과 발견한 요리법 마일스톤", () => {
+    const finalCookingMilestone = COOKING_CODEX_MILESTONES.at(-1)!.goal;
+
     expect(questById("cooking_level10")!.check({ ...ZERO, cookingLevel: 9 })).toBe(false);
     expect(questById("cooking_level10")!.check({ ...ZERO, cookingLevel: 10 })).toBe(true);
     expect(
       questById("cooking_recipe18")!.check({
         ...ZERO,
-        cookingRecipesDiscovered: COOKING_PUBLIC_RECIPES.length - 1,
+        cookingRecipesDiscovered: finalCookingMilestone - 1,
       }),
     ).toBe(false);
     expect(
       questById("cooking_recipe18")!.check({
         ...ZERO,
-        cookingRecipesDiscovered: COOKING_PUBLIC_RECIPES.length,
+        cookingRecipesDiscovered: finalCookingMilestone,
       }),
     ).toBe(true);
   });

@@ -10,7 +10,7 @@ function completedFarm(): FarmState {
   const farm = emptyFarmState(1_000);
   return {
     ...farm,
-    plots: Array.from({ length: 6 }, (_, index) => ({
+    plots: Array.from({ length: 8 }, (_, index) => ({
       id: `plot-${index + 1}`,
       cropId: null,
       plantedAt: null,
@@ -51,14 +51,20 @@ describe("농장주의 교환소", () => {
     ]);
   });
 
-  it("밭 6칸과 유료 축사 4칸을 모두 열어야 해금한다", () => {
+  it("밭 8칸과 유료 축사 4칸을 모두 열어야 해금한다", () => {
     expect(farmEndgameShopProgress(emptyFarmState(1_000))).toEqual({
       unlocked: false,
       plots: 2,
-      requiredPlots: 6,
+      requiredPlots: 8,
       pens: 0,
       requiredPens: 4,
     });
+    expect(
+      farmEndgameShopProgress({
+        ...completedFarm(),
+        plots: completedFarm().plots.slice(0, 7),
+      }).unlocked,
+    ).toBe(false);
     expect(farmEndgameShopProgress(completedFarm()).unlocked).toBe(true);
   });
 

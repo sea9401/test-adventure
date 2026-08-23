@@ -29,6 +29,7 @@ function codexFixture(recipeCount: number): CookingResponse {
       cooking.discoveredRecipeIds.includes(recipe.id),
     ),
     firstDiscoveries: [],
+    failedResearches: [],
     requests: cookingRequests("cook-user", cooking),
     cookingFoods: {},
     failedCookingDishes: 0,
@@ -54,6 +55,18 @@ function codexFixture(recipeCount: number): CookingResponse {
 }
 
 describe("요리 도감 페이지네이션", () => {
+  it("전체 레시피 수를 실제 공개 도감 기준으로 표시한다", () => {
+    render(
+      <CookingCodexPanel
+        data={codexFixture(120)}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+
+    expect(screen.getByText(/개인 발견 6\/120/)).toBeTruthy();
+  });
+
   it("발견한 레시피에 기본 조리 경험치를 표시한다", () => {
     render(
       <CookingCodexPanel

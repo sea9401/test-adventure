@@ -45,7 +45,7 @@ vi.mock("./useFarm", async () => {
       endgameShop: {
         unlocked: false,
         plots: 2,
-        requiredPlots: 6,
+        requiredPlots: 8,
         pens: 0,
         requiredPens: 4,
         items: [],

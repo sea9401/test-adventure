@@ -191,6 +191,14 @@ function postBodies(fetcher: ReturnType<typeof vi.fn>) {
     .map(([, init]) => JSON.parse(String(init?.body)) as Record<string, unknown>);
 }
 
+function deferred<T>() {
+  let resolve: (value: T) => void = () => {};
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -198,6 +206,86 @@ afterEach(() => {
 });
 
 describe("위험 해역 시작 요청 선택", () => {
+  it("조우 시작 뒤 늦게 끝난 이전 상태 조회가 낚시터 선택 화면으로 되돌리지 않는다", async () => {
+    const state = emptyDangerousFishingState();
+    const encounter = realtimeEncounter();
+    const voyage = {
+      id: "voyage-race",
+      zoneId: "shattered_reef" as const,
+      depthId: "surface" as const,
+      risk: 1,
+      startedAt: 1_800_000_000_000,
+      cargo: [],
+      encounter: null,
+    };
+    const before = model({
+      state: {
+        ...state,
+        baitCounts: { reef_bait: 2 },
+        voyage,
+        bossAttempt: null,
+      },
+    });
+    const started = model({
+      state: {
+        ...state,
+        baitCounts: { reef_bait: 1 },
+        voyage: { ...voyage, encounter },
+        bossAttempt: null,
+      },
+    });
+    const staleStatus = deferred<Response>();
+    let statusRequests = 0;
+    const fetcher = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const path = String(input);
+        if (init?.method === "POST") {
+          return Response.json({
+            ok: true,
+            state: started.state,
+            encounter,
+          });
+        }
+        if (path === "/api/v2/dangerous-fishing/status") {
+          statusRequests += 1;
+          if (statusRequests === 1) return Response.json(before);
+          if (statusRequests === 2) return staleStatus.promise;
+          return Response.json(started);
+        }
+        if (path === "/api/v2/dangerous-fishing/boss") {
+          return Response.json(activeBossModel());
+        }
+        throw new Error(`Unexpected request: ${path}`);
+      },
+    );
+    vi.stubGlobal("fetch", fetcher);
+    const hook = renderHook(() => useDangerousFishing());
+    await waitFor(() => expect(hook.result.current.loading).toBe(false));
+
+    let olderRefresh: Promise<boolean> | undefined;
+    act(() => {
+      olderRefresh = hook.result.current.refresh();
+    });
+    await waitFor(() => expect(statusRequests).toBe(2));
+
+    await act(async () => {
+      await hook.result.current.startEncounter("reef_bait");
+    });
+    expect(hook.result.current.model?.state.voyage?.encounter?.id).toBe(
+      encounter.id,
+    );
+
+    await act(async () => {
+      staleStatus.resolve(Response.json(before));
+      await olderRefresh;
+    });
+
+    expect(hook.result.current.model?.state.voyage?.encounter?.id).toBe(
+      encounter.id,
+    );
+    expect(hook.result.current.model?.state.baitCounts.reef_bait).toBe(1);
+  });
+
   it("새 일반 조우와 거대어 시도는 선택한 미끼·이벤트를 start_realtime으로 보낸다", async () => {
     const state = emptyDangerousFishingState();
     const status = model({

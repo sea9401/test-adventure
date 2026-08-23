@@ -76,7 +76,6 @@ type WarehouseResponse = {
   used?: number;
   canTransfer?: boolean;
   canManagePermissions?: boolean;
-  personalMaterials?: Record<string, number>;
   personalEquipment?: V2EquipInstance[];
   equippedIids?: string[];
   warehouse?: Record<string, number>;
@@ -126,7 +125,7 @@ export function GuildWarehousePanel() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [action, setAction] = useState<WarehouseAction>("deposit");
-  const [kind, setKind] = useState<WarehouseKind>("material");
+  const [kind, setKind] = useState<WarehouseKind>("equipment");
   const [selectedMaterialId, setSelectedMaterialId] = useState("");
   const [selectedEquipmentIid, setSelectedEquipmentIid] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -160,8 +159,7 @@ export function GuildWarehousePanel() {
     void load();
   }, [load]);
 
-  const materialSource =
-    action === "deposit" ? data?.personalMaterials : data?.warehouse;
+  const materialSource = data?.warehouse;
   const materialCandidates = useMemo(
     () =>
       Object.entries(materialSource ?? {})
@@ -179,6 +177,10 @@ export function GuildWarehousePanel() {
   const maxQuantity = activeMaterialId
     ? (materialSource?.[activeMaterialId] ?? 0)
     : 0;
+  const canRecoverMaterials =
+    action === "withdraw" && materialCandidates.length > 0;
+  const activeKind: WarehouseKind =
+    canRecoverMaterials && kind === "material" ? "material" : "equipment";
 
   const equippedIids = useMemo(
     () => new Set(data?.equippedIids ?? []),
@@ -238,11 +240,12 @@ export function GuildWarehousePanel() {
   async function submit() {
     const parsedQuantity = Number(quantity);
     const invalidMaterial =
-      kind === "material" &&
+      activeKind === "material" &&
       (!activeMaterialId ||
         !Number.isSafeInteger(parsedQuantity) ||
         parsedQuantity <= 0);
-    const invalidEquipment = kind === "equipment" && !activeEquipmentIid;
+    const invalidEquipment =
+      activeKind === "equipment" && !activeEquipmentIid;
     if (busy || invalidMaterial || invalidEquipment) {
       setNotice({ kind: "err", text: "처리할 아이템과 수량을 확인해 주세요." });
       return;
@@ -251,14 +254,14 @@ export function GuildWarehousePanel() {
     setNotice(null);
     try {
       const body =
-        kind === "material"
+        activeKind === "material"
           ? {
               action,
-              kind,
+              kind: activeKind,
               materialId: activeMaterialId,
               quantity: parsedQuantity,
             }
-          : { action, kind, iid: activeEquipmentIid };
+          : { action, kind: activeKind, iid: activeEquipmentIid };
       const res = await fetch("/api/v2/guild/warehouse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -270,7 +273,7 @@ export function GuildWarehousePanel() {
         return;
       }
       const itemName =
-        kind === "material"
+        activeKind === "material"
           ? V2_MATERIALS[activeMaterialId].name
           : V2_EQUIPMENT[
               equipmentCandidates.find(
@@ -280,7 +283,7 @@ export function GuildWarehousePanel() {
       setQuantity("1");
       setNotice({
         kind: "ok",
-        text: `${itemName}${kind === "material" ? ` ${parsedQuantity.toLocaleString()}개` : ""}를 ${action === "deposit" ? "입고" : "출고"}했습니다.`,
+        text: `${itemName}${activeKind === "material" ? ` ${parsedQuantity.toLocaleString()}개` : ""}를 ${action === "deposit" ? "입고" : "출고"}했습니다.`,
       });
       await load();
     } catch {
@@ -373,8 +376,8 @@ export function GuildWarehousePanel() {
             <div>
               <h3 className="font-semibold">길드 창고 Lv {data.level ?? 1}</h3>
               <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300">
-                재료 한 종류와 장비 한 개가 각각 1칸을 사용합니다. 같은 재료는
-                한 칸에 수량 제한 없이 쌓입니다.
+                장비 한 개가 1칸을 사용합니다. 기존 보관 재료는 회수할 때까지
+                종류마다 1칸을 사용합니다.
               </p>
             </div>
           </div>
@@ -404,7 +407,10 @@ export function GuildWarehousePanel() {
               <div className="flex gap-2" role="tablist" aria-label="창고 처리 방식">
                 <ActionTab
                   active={action === "deposit"}
-                  onClick={() => setAction("deposit")}
+                  onClick={() => {
+                    setAction("deposit");
+                    setKind("equipment");
+                  }}
                 >
                   입고
                 </ActionTab>
@@ -416,16 +422,18 @@ export function GuildWarehousePanel() {
                 </ActionTab>
               </div>
               <div className="flex gap-2" role="tablist" aria-label="창고 아이템 종류">
-                <KindTab active={kind === "material"} onClick={() => setKind("material")}>
-                  재료
-                </KindTab>
-                <KindTab active={kind === "equipment"} onClick={() => setKind("equipment")}>
+                <KindTab active={activeKind === "equipment"} onClick={() => setKind("equipment")}>
                   장비
                 </KindTab>
+                {canRecoverMaterials ? (
+                  <KindTab active={activeKind === "material"} onClick={() => setKind("material")}>
+                    기존 재료 회수
+                  </KindTab>
+                ) : null}
               </div>
             </div>
 
-            {kind === "material" ? (
+            {activeKind === "material" ? (
               <MaterialTransferForm
                 action={action}
                 candidates={materialCandidates}
@@ -483,7 +491,11 @@ export function GuildWarehousePanel() {
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="재료·장비 검색"
+              placeholder={
+                materialCandidates.length > 0
+                  ? "장비·기존 재료 검색"
+                  : "장비 검색"
+              }
               className="h-9 w-full rounded-md border border-zinc-300 bg-white pl-8 pr-3 text-sm dark:border-zinc-700 dark:bg-zinc-900"
             />
           </label>
@@ -501,7 +513,7 @@ export function GuildWarehousePanel() {
             {storedMaterialRows.length > 0 ? (
               <div className="space-y-2">
                 <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                  재료
+                  기존 재료 · 출고 전용
                 </h4>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {storedMaterialRows.map(([materialId, count]) => (
@@ -1198,6 +1210,8 @@ export function warehouseErrorText(
       return "강화되었거나 잠긴 거래 불가 장비는 입고할 수 없습니다.";
     case "material_not_tradable":
       return "거래 불가 재료는 입고할 수 없습니다.";
+    case "warehouse_equipment_only":
+      return "길드 창고에는 장비만 입고할 수 있습니다.";
     case "equipment_not_stored":
       return "창고에서 해당 장비를 찾을 수 없습니다.";
     case "member_not_found":

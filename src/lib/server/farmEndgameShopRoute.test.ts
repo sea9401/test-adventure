@@ -72,7 +72,7 @@ function completedFarm(reputation = 10_000): FarmState {
   const farm = emptyFarmState(NOW);
   return {
     ...farm,
-    plots: Array.from({ length: 6 }, (_, index) => ({
+    plots: Array.from({ length: 8 }, (_, index) => ({
       id: `plot-${index + 1}`,
       cropId: null,
       plantedAt: null,
@@ -120,7 +120,7 @@ describe("farm endgame shop route", () => {
     expect(await response.json()).toMatchObject({
       endgameShop: {
         unlocked: true,
-        plots: 6,
+        plots: 8,
         pens: 4,
         ownedTitleIds: ["farm_bountiful_hand"],
       },

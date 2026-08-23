@@ -36,6 +36,7 @@ import {
   dangerousRealtimePerformanceScalePermille,
   dangerousRealtimeTargetTicks,
   dangerousRealtimeView,
+  isDangerousRealtimeCheckpoint,
   replayDangerousRealtimeInputs,
   validateDangerousRealtimeInputs,
   type DangerousRealtimeConfig,
@@ -394,21 +395,59 @@ describe("위험 해역 50ms 결정론 시뮬레이션", () => {
     );
   });
 
-  it("안전 구간 아래 장력은 정확히 1초 동안 허용한 뒤 훅을 놓친다", () => {
+  it("revision 4는 안전 구간 아래 장력을 정확히 1초 허용한 뒤 훅을 놓친다", () => {
     const config = fixtureRealtimeConfig();
     const state = activeBehaviorState("turn", config, {
+      tick: 20,
       tension: 0,
       lowTensionTicks: DANGEROUS_REALTIME_LOW_TENSION_GRACE_TICKS - 2,
     });
-    const grace = advanceDangerousRealtimeTick(state, config, "release");
-    const lost = advanceDangerousRealtimeTick(grace, config, "release");
+    const grace = advanceDangerousRealtimeTick(state, config, "release", 4);
+    const lost = advanceDangerousRealtimeTick(grace, config, "release", 4);
 
     expect(DANGEROUS_REALTIME_LOW_TENSION_GRACE_TICKS).toBe(20);
     expect(grace.status).toBe("active");
     expect(lost.status).toBe("hook_lost");
   });
 
-  it("기존 slackTolerance 한 점은 저장력 유예를 정확히 1초 더한다", () => {
+  it("새 조우는 낮은 장력에서 2초 동안 감아올릴 시간을 준다", () => {
+    const config = fixtureRealtimeConfig();
+    let state = activeBehaviorState("turn", config, {
+      tick: 20,
+      tension: 0,
+      lowTensionTicks: 0,
+    });
+
+    for (let tick = 0; tick < 39; tick += 1) {
+      state = advanceDangerousRealtimeTick(state, config, "release");
+      state = { ...state, tension: 0 };
+    }
+    expect(state.status).toBe("active");
+
+    state = advanceDangerousRealtimeTick(state, config, "release");
+    expect(state.status).toBe("hook_lost");
+  });
+
+  it("새 2초 유예 중간 상태와 종료 상태를 모두 유효한 checkpoint로 복구한다", () => {
+    const config = fixtureRealtimeConfig();
+    const active = {
+      ...createDangerousRealtimeState(config),
+      tick: 39,
+      tension: 0,
+      lowTensionTicks: 39,
+    };
+    const lost = {
+      ...active,
+      tick: 40,
+      status: "hook_lost" as const,
+      lowTensionTicks: 40,
+    };
+
+    expect(isDangerousRealtimeCheckpoint(active, config, 5)).toBe(true);
+    expect(isDangerousRealtimeCheckpoint(lost, config, 5)).toBe(true);
+  });
+
+  it("새 2초 유예에 기존 slackTolerance 한 점의 1초를 더한다", () => {
     const config = fixtureRealtimeConfig({
       modifiers: dangerousRealtimeModifiers({
         fishingLevel: 50,
@@ -418,7 +457,7 @@ describe("위험 해역 50ms 결정론 시뮬레이션", () => {
     });
     let state = createDangerousRealtimeState(config);
     state = { ...state, tension: 0 };
-    for (let tick = 0; tick < 39; tick += 1) {
+    for (let tick = 0; tick < 59; tick += 1) {
       state = advanceDangerousRealtimeTick(state, config, "reel");
       state = { ...state, tension: 0 };
     }
@@ -794,7 +833,7 @@ describe("위험 해역 50ms 결정론 시뮬레이션", () => {
       distance: 0,
     });
 
-    expect(advanceDangerousRealtimeTick(pending, config, "reel")).toMatchObject({
+    expect(advanceDangerousRealtimeTick(pending, config, "reel", 4)).toMatchObject({
       tick: 180,
       status: "line_broken",
       tension: 1_004,
@@ -802,7 +841,7 @@ describe("위험 해역 50ms 결정론 시뮬레이션", () => {
       distance: 0,
     });
     expect(
-      advanceDangerousRealtimeTick(pending, config, "release"),
+      advanceDangerousRealtimeTick(pending, config, "release", 4),
     ).toMatchObject({
       tick: 180,
       status: "active",
@@ -841,7 +880,7 @@ describe("위험 해역 50ms 결정론 시뮬레이션", () => {
         distance: 0,
         lowTensionTicks: DANGEROUS_REALTIME_LOW_TENSION_GRACE_TICKS - 1,
       });
-      expect(advanceDangerousRealtimeTick(pending, config, mode)).toMatchObject({
+      expect(advanceDangerousRealtimeTick(pending, config, mode, 4)).toMatchObject({
         tick: 178,
         mode,
         status: "hook_lost",
@@ -871,12 +910,14 @@ describe("위험 해역 50ms 결정론 시뮬레이션", () => {
       inputs,
       180,
       pending,
+      4,
     );
     const checkpoint = replayDangerousRealtimeInputs(
       config,
       inputs.slice(0, 2),
       179,
       pending,
+      4,
     );
     expect(
       replayDangerousRealtimeInputs(
@@ -884,6 +925,7 @@ describe("위험 해역 50ms 결정론 시뮬레이션", () => {
         inputs.slice(2),
         180,
         checkpoint,
+        4,
       ),
     ).toEqual(complete);
     expect(complete).toMatchObject({
@@ -1612,7 +1654,7 @@ describe("위험 해역 50ms 결정론 시뮬레이션", () => {
       activeBehaviorState("turn", config, {
         tick: minimumCatchTick - 1,
         tension: 0,
-        lowTensionTicks: DANGEROUS_REALTIME_LOW_TENSION_GRACE_TICKS - 1,
+        lowTensionTicks: DANGEROUS_REALTIME_LOW_TENSION_GRACE_TICKS * 2 - 1,
       }),
       activeBehaviorState("turn", config, {
         tick: minimumCatchTick - 1,

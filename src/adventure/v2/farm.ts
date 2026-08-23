@@ -20,7 +20,7 @@ export const FARM_SAVE_KEY = "farm.v2";
 
 export const FARM_PLOT_COUNT = 2;
 
-export const FARM_MAX_PLOT_COUNT = 6;
+export const FARM_MAX_PLOT_COUNT = 8;
 
 export const FARM_DAILY_DELIVERY_LIMIT = 2;
 export const FARM_RARE_PITY_HARVESTS = 20;
@@ -106,6 +106,8 @@ export const FARM_PLOT_UPGRADES: readonly FarmPlotUpgrade[] = [
   { plotCount: 4, costReputation: 50, title: "두 번째 밭두렁" },
   { plotCount: 5, costReputation: 100, title: "작은 공동 텃밭" },
   { plotCount: 6, costReputation: 180, title: "넓은 공동 텃밭" },
+  { plotCount: 7, costReputation: 300, title: "마을 공동 농장" },
+  { plotCount: 8, costReputation: 500, title: "풍요의 대농장" },
 ];
 
 export type FarmItemId =
@@ -1437,7 +1439,8 @@ export function harvestPlot(
   const yieldBonusProgress =
     state.stats.yieldBonusRemainderPct + baseQuantity * yieldBonusPct;
   const bonusQuantity = Math.floor(yieldBonusProgress / 100);
-  const quantity = baseQuantity + bonusQuantity;
+  const fertilizerQuantity = plot.fertilized ? 1 : 0;
+  const quantity = baseQuantity + bonusQuantity + fertilizerQuantity;
   const yieldBonusRemainderPct = yieldBonusProgress % 100;
   const rareChance = Math.min(
     0.75,

@@ -52,6 +52,12 @@ describe("무슨 코인 캐시 소모품", () => {
       tradeable: false,
       effect: { kind: "cultivation_reset" },
     });
+    expect(
+      MUSEUN_CASH_ITEMS.cultivation_reset_potion.description,
+    ).toContain("레벨 1");
+    expect(
+      MUSEUN_CASH_ITEMS.cultivation_reset_potion.description,
+    ).not.toContain("재분배 대기");
     expect(MUSEUN_CASH_ITEMS.profile_badge_display_stand).toMatchObject({
       coinPrice: 600,
       delivery: "permanent",

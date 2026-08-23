@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { cookingFailedCombinations, cookingFirstDiscoveries } from "@/db/cookingSchema";
 import { savesKv, users } from "@/db/schema";
@@ -18,8 +18,12 @@ import { applyCookingDelivery, cookingRequests, cookingStandingDeliveryReward } 
 import { activeCookingBuff, addCookingFood, cookingFoodDefinition, cookingFoodId, parseCookingFoodInventory, removeCookingFood, type CookingFoodId, type CookingQuality } from "@/adventure/v2/cooking/food";
 import { COOKING_PANTRY_ITEMS, COOKING_PROCESSING_RECIPES, buyCookingPantryItem, processCookingIngredient, type CookingPantryItem, type CookingProcessingRecipe } from "@/adventure/v2/cooking/kitchen";
 import { COOKING_LEVEL_CAP, COOKING_SAVE_KEY, COOKING_STANDING_DELIVERY_DAILY_LIMIT, chooseCookingSpecialty, cookingLevelForXp, cookingLevelXpThreshold, cookingSpecialtyRank, emptyCookingState, parseCookingState } from "@/adventure/v2/cooking/state";
-import type { CookingField, CookingIngredientId, CookingMethod, CookingRecipeSecret } from "@/adventure/v2/cooking/types";
-import { COOKING_SECRET_RECIPE_BY_ID, COOKING_SECRET_RECIPES } from "@/lib/server/cooking/recipes";
+import { COOKING_METHOD_NAMES, type CookingField, type CookingIngredientId, type CookingMethod, type CookingRecipeSecret } from "@/adventure/v2/cooking/types";
+import {
+  COOKING_SECRET_RECIPE_BY_ID,
+  COOKING_SECRET_RECIPES,
+  findSecretRecipe,
+} from "@/lib/server/cooking/recipes";
 import { cookingCombinationHash, resolveCookingResearch, type CookingIngredientBalances } from "@/lib/server/cooking/research";
 import { insertFeedEntry, resolveUserDisplayName } from "@/lib/server/serverFeed";
 import { referralLifeTaskIds } from "@/adventure/data/v2/referralTutorial";
@@ -46,8 +50,54 @@ type FirstDiscoveryRow = {
   authoritativeActorName: string | null;
   discoveredAt: Date;
 };
+type StoredFailedResearchRow = {
+  method: string;
+  ingredientIds: string[];
+  createdAt: Date;
+};
+type FailedResearchRow = {
+  method: CookingMethod;
+  ingredientIds: CookingIngredientId[];
+  createdAt: Date;
+};
 
 const DEFAULT_ACTOR_NAME = "이름 없는 모험가";
+const KITCHEN_RESEARCH_INGREDIENT_IDS = new Set<string>([
+  ...COOKING_PANTRY_ITEMS.map((entry) => entry.id),
+  ...COOKING_PROCESSING_RECIPES.map((entry) => entry.outputId),
+]);
+
+function isKnownCookingIngredientId(value: unknown): value is CookingIngredientId {
+  if (typeof value !== "string") return false;
+  const [kind, id, extra] = value.split(":");
+  if (!id || extra !== undefined) return false;
+  if (kind === "farm") return Object.hasOwn(FARM_ITEMS, id);
+  if (kind === "fishing") return Object.hasOwn(FISHING_CATCH_ITEMS, id);
+  return KITCHEN_RESEARCH_INGREDIENT_IDS.has(value);
+}
+
+function normalizeFailedResearchRow(
+  row: StoredFailedResearchRow,
+): FailedResearchRow | null {
+  if (!Object.hasOwn(COOKING_METHOD_NAMES, row.method)) return null;
+  if (!(row.createdAt instanceof Date) || !Number.isFinite(row.createdAt.getTime())) {
+    return null;
+  }
+  const ingredientIds = row.ingredientIds.filter(isKnownCookingIngredientId);
+  if (
+    ingredientIds.length < 2 ||
+    ingredientIds.length > 5 ||
+    ingredientIds.length !== row.ingredientIds.length ||
+    new Set(ingredientIds).size !== ingredientIds.length
+  ) {
+    return null;
+  }
+  return {
+    method: row.method as CookingMethod,
+    ingredientIds,
+    createdAt: row.createdAt,
+  };
+}
 
 function currentCookingJob(char: CharacterSave) {
   const cls = parseV2Class(char.class);
@@ -88,6 +138,7 @@ function cookingView(userId: string, now: number, values: {
   inventoryRaw: unknown;
   character: CharacterSave;
   firstDiscoveries: readonly FirstDiscoveryRow[];
+  failedResearches: readonly FailedResearchRow[];
 }) {
   const cooking = parseCookingState(values.cookingRaw, now);
   const farm = normalizeFarmForDay(parseFarmState(values.farmRaw), now);
@@ -111,6 +162,11 @@ function cookingView(userId: string, now: number, values: {
         : row.actorName,
       discoveredAt: row.discoveredAt.getTime(),
       mine: row.userId === userId,
+    })),
+    failedResearches: values.failedResearches.map((row) => ({
+      method: row.method,
+      ingredientIds: [...row.ingredientIds],
+      createdAt: row.createdAt.getTime(),
     })),
     requests: cookingRequests(userId, cooking),
     cookingFoods: parseCookingFoodInventory(inventory.cookingFoods),
@@ -151,13 +207,35 @@ async function firstDiscoveryRows(executor: DbExecutor): Promise<FirstDiscoveryR
     ));
 }
 
+async function failedCombinationRows(
+  executor: DbExecutor,
+  userId: string,
+): Promise<FailedResearchRow[]> {
+  const rows = await executor
+    .select({
+      method: cookingFailedCombinations.method,
+      ingredientIds: cookingFailedCombinations.ingredientIds,
+      createdAt: cookingFailedCombinations.createdAt,
+    })
+    .from(cookingFailedCombinations)
+    .where(eq(cookingFailedCombinations.userId, userId))
+    .orderBy(desc(cookingFailedCombinations.createdAt))
+    .limit(100);
+  return rows.flatMap((row) => {
+    const normalized = normalizeFailedResearchRow(row);
+    if (!normalized) return [];
+    const recipe = findSecretRecipe(normalized.method, normalized.ingredientIds);
+    return recipe && recipe.discovery !== "basic" ? [] : [normalized];
+  });
+}
+
 export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   const limited = enforceUserAndIpRateLimit(req, { userId, action: "v2:cooking:get", userLimit: 120, ipLimit: 600, windowMs: 60_000 });
   if (limited) return limited;
   const now = Date.now();
-  const [cookingRaw, farmRaw, fishingRaw, skillsRaw, inventoryRaw, character, discoveries] = await Promise.all([
+  const [cookingRaw, farmRaw, fishingRaw, skillsRaw, inventoryRaw, character, discoveries, failedResearches] = await Promise.all([
     readSave(db, userId, COOKING_SAVE_KEY, emptyCookingState(now)),
     readSave(db, userId, FARM_SAVE_KEY, emptyFarmState(now)),
     readSave(db, userId, FISHING_STOCK_KEY, emptyFishingStock()),
@@ -165,8 +243,18 @@ export async function GET(req: Request) {
     readSave<InventorySave>(db, userId, "inventory.v2", {}),
     readSave<CharacterSave>(db, userId, "character.v2", {}),
     firstDiscoveryRows(db),
+    failedCombinationRows(db, userId),
   ]);
-  return Response.json(cookingView(userId, now, { cookingRaw, farmRaw, fishingRaw, skillsRaw, inventoryRaw, character, firstDiscoveries: discoveries }));
+  return Response.json(cookingView(userId, now, {
+    cookingRaw,
+    farmRaw,
+    fishingRaw,
+    skillsRaw,
+    inventoryRaw,
+    character,
+    firstDiscoveries: discoveries,
+    failedResearches,
+  }));
 }
 
 function positiveQuantity(raw: unknown, maximum = 20): number {
@@ -219,10 +307,17 @@ type PostBody = {
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  const limited = enforceUserAndIpRateLimit(req, { userId, action: "v2:cooking:post", userLimit: 40, ipLimit: 240, windowMs: 60_000 });
-  if (limited) return limited;
   const body = (await req.json().catch(() => null)) as PostBody | null;
   const action = typeof body?.action === "string" ? body.action : "";
+  const pantryPurchase = action === "buy_pantry";
+  const limited = enforceUserAndIpRateLimit(req, {
+    userId,
+    action: pantryPurchase ? "v2:cooking:shop:buy_pantry" : "v2:cooking:post",
+    userLimit: pantryPurchase ? 120 : 40,
+    ipLimit: pantryPurchase ? 720 : 240,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
   if (!["research", "craft", "buy_pantry", "process", "choose_specialty", "favorite", "deliver", "standing_delivery"].includes(action)) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
@@ -402,10 +497,20 @@ export async function POST(req: Request) {
         await rewardReferralTutorialTasks(tx, userId, "새 모험가", referralLifeTaskIds(cookingLevelForXp(cooking.xp)));
       }
       const discoveries = await firstDiscoveryRows(tx);
+      const failedResearches = await failedCombinationRows(tx, userId);
       return {
         feedRecipeId,
         result: { ...result, masteryGained, masteryAfter },
-        view: cookingView(userId, now, { cookingRaw: cooking, farmRaw: farm, fishingRaw: fishing, skillsRaw: skills, inventoryRaw: inventory, character: nextCharacter, firstDiscoveries: discoveries }),
+        view: cookingView(userId, now, {
+          cookingRaw: cooking,
+          farmRaw: farm,
+          fishingRaw: fishing,
+          skillsRaw: skills,
+          inventoryRaw: inventory,
+          character: nextCharacter,
+          firstDiscoveries: discoveries,
+          failedResearches,
+        }),
       };
     });
     if (transactionResult.feedRecipeId) await insertFeedEntry(userId, "cooking_discovery", { recipeId: transactionResult.feedRecipeId });

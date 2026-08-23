@@ -532,11 +532,11 @@ describe("거대어 Route Handler", () => {
     });
     expect(encounter.config.maxTicks).toBeGreaterThan(0);
     expect(encounter).not.toHaveProperty("modifierSource");
-    expect(encounter).toHaveProperty("balanceRevision", 4);
+    expect(encounter).toHaveProperty("balanceRevision", 5);
     expect(encounter.checkpoint.performanceScalePermille).toBe(1_000);
     const stored = parseDangerousFishingState(memory.states.get("route-user"));
     expect(stored.bossAttempt?.encounter).toMatchObject({
-      balanceRevision: 4,
+      balanceRevision: 5,
       checkpoint: { performanceScalePermille: 1_000 },
       modifierSource: {
         fishingLevel: 15,

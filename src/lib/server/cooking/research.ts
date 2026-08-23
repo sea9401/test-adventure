@@ -120,12 +120,13 @@ export function resolveCookingResearch(args: {
     throw new Error("invalid_ingredient");
   }
   const comboHash = cookingCombinationHash(args.method, args.ingredientIds);
-  if (args.failedBefore) throw new Error("duplicate_combination");
   const recipe = findSecretRecipe(args.method, args.ingredientIds);
   if (recipe && args.state.discoveredRecipeIds.includes(recipe.id)) {
     throw new Error("recipe_already_known");
   }
-  if (recipe && level < recipe.requiredLevel) throw new Error("recipe_locked");
+  if (args.failedBefore && (!recipe || recipe.discovery === "basic")) {
+    throw new Error("duplicate_combination");
+  }
   const balances = consumeResearchIngredients(args.balances, args.ingredientIds);
   if (!recipe || recipe.discovery === "basic") {
     return {

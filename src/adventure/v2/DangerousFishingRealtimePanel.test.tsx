@@ -161,6 +161,25 @@ describe("위험 해역 실시간 조우 HUD", () => {
     expect(button.className).toContain("min-h-16");
   });
 
+  it("장력 경고를 조작 카드의 바깥 흐름에 띄워 버튼 위치를 바꾸지 않는다", () => {
+    render(
+      <DangerousFishingRealtimePanel
+        {...baseProps}
+        encounter={encounterFixture({ tension: 200 })}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "누르고 감아올리기" });
+    const control = button.parentElement;
+    const alert = screen.getByRole("alert");
+
+    expect(alert.textContent).toContain("장력이 너무 낮습니다");
+    expect(control?.contains(alert)).toBe(true);
+    expect(control?.className.split(" ")).toContain("relative");
+    expect(alert.className.split(" ")).toContain("absolute");
+    expect(alert.className.split(" ")).toContain("pointer-events-none");
+  });
+
   it("시작 전 1초 준비 구간에는 조작을 잠그고 시간이 지나면 자동으로 시작한다", () => {
     vi.useFakeTimers();
     vi.setSystemTime(1_800_000_000_000);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   DangerousBait,
   DangerousBaitId,
@@ -172,24 +172,28 @@ export function useDangerousFishing() {
   const [feedback, setFeedback] = useState<DangerousFishingFeedback | null>(
     null,
   );
+  const refreshRequestIdRef = useRef(0);
 
   const refresh = useCallback(async () => {
+    const requestId = ++refreshRequestIdRef.current;
     try {
       const [statusJson, bossJson] = await Promise.all([
         apiJson("/api/v2/dangerous-fishing/status", readJson),
         apiJson("/api/v2/dangerous-fishing/boss", readJson),
       ]);
+      if (requestId !== refreshRequestIdRef.current) return true;
       setModel(statusJson as unknown as DangerousFishingViewModel);
       setBoss(bossJson as unknown as DangerousFishingBossViewModel);
       setError(null);
       return true;
     } catch (caught) {
+      if (requestId !== refreshRequestIdRef.current) return false;
       if (!(caught instanceof ActivityVerificationRequiredError)) {
         setError(errorCode(caught));
       }
       return false;
     } finally {
-      setLoading(false);
+      if (requestId === refreshRequestIdRef.current) setLoading(false);
     }
   }, [readJson]);
 

@@ -21,7 +21,7 @@ export function CookingCodexPanel({ data, busy, mutate }: { data: CookingRespons
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h3 className="font-bold text-zinc-900 dark:text-zinc-100">요리 도감</h3>
-          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">개인 발견 {data.cooking.discoveredRecipeIds.length}/100 · 기본 6종은 경험치용으로 자동 습득합니다.</p>
+          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">개인 발견 {data.cooking.discoveredRecipeIds.length}/{data.recipes.length} · 기본 6종은 경험치용으로 자동 습득합니다.</p>
         </div>
         <div className="text-xs text-zinc-500">전승 토큰 {data.cooking.legacy.tokens}개</div>
       </div>

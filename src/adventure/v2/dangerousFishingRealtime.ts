@@ -19,11 +19,13 @@ export const DANGEROUS_REALTIME_TOTAL_TARGET_WORK = 20_000;
 export const DANGEROUS_REALTIME_LEGACY_BALANCE_REVISION = 1 as const;
 export const DANGEROUS_REALTIME_CALIBRATED_BALANCE_REVISION = 2 as const;
 export const DANGEROUS_REALTIME_FULL_PERFORMANCE_BALANCE_REVISION = 3 as const;
-export const DANGEROUS_REALTIME_BALANCE_REVISION = 4 as const;
+export const DANGEROUS_REALTIME_SECURED_CATCH_BALANCE_REVISION = 4 as const;
+export const DANGEROUS_REALTIME_BALANCE_REVISION = 5 as const;
 export type DangerousRealtimeBalanceRevision =
   | typeof DANGEROUS_REALTIME_LEGACY_BALANCE_REVISION
   | typeof DANGEROUS_REALTIME_CALIBRATED_BALANCE_REVISION
   | typeof DANGEROUS_REALTIME_FULL_PERFORMANCE_BALANCE_REVISION
+  | typeof DANGEROUS_REALTIME_SECURED_CATCH_BALANCE_REVISION
   | typeof DANGEROUS_REALTIME_BALANCE_REVISION;
 
 export function isDangerousRealtimeBalanceRevision(
@@ -33,6 +35,7 @@ export function isDangerousRealtimeBalanceRevision(
     value === DANGEROUS_REALTIME_LEGACY_BALANCE_REVISION ||
     value === DANGEROUS_REALTIME_CALIBRATED_BALANCE_REVISION ||
     value === DANGEROUS_REALTIME_FULL_PERFORMANCE_BALANCE_REVISION ||
+    value === DANGEROUS_REALTIME_SECURED_CATCH_BALANCE_REVISION ||
     value === DANGEROUS_REALTIME_BALANCE_REVISION
   );
 }
@@ -257,7 +260,8 @@ export function isDangerousRealtimeCheckpoint(
     checkpoint.startDistance !== config.initialDistance ||
     checkpoint.stamina > checkpoint.maxStamina ||
     checkpoint.distance > checkpoint.startDistance * 2 ||
-    checkpoint.lowTensionTicks > config.modifiers.lowTensionGraceTicks ||
+    checkpoint.lowTensionTicks >
+      dangerousRealtimeLowTensionGraceTicks(config, balanceRevision) ||
     checkpoint.behaviorCursor > config.maxTicks ||
     checkpoint.chainRemaining > riskRules.maxChain ||
     checkpoint.rngState === 0 ||
@@ -294,7 +298,8 @@ export function isDangerousRealtimeCheckpoint(
   );
   const terminalLineBreak = checkpoint.tension > checkpoint.maxTension;
   const terminalHookLoss =
-    checkpoint.lowTensionTicks >= config.modifiers.lowTensionGraceTicks;
+    checkpoint.lowTensionTicks >=
+    dangerousRealtimeLowTensionGraceTicks(config, balanceRevision);
   const terminalTimeout = checkpoint.tick >= checkpoint.maxTicks;
   switch (checkpoint.status) {
     case "caught":
@@ -610,14 +615,18 @@ function safeTensionBounds(
 
 function dangerousRealtimeLowTensionGraceTicks(
   config: DangerousRealtimeConfig,
+  balanceRevision: DangerousRealtimeBalanceRevision,
 ): number {
-  return Math.max(
+  const configured = Math.max(
     DANGEROUS_REALTIME_LOW_TENSION_GRACE_TICKS,
     finiteInt(
       config.modifiers.lowTensionGraceTicks,
       DANGEROUS_REALTIME_LOW_TENSION_GRACE_TICKS,
     ),
   );
+  return balanceRevision === DANGEROUS_REALTIME_BALANCE_REVISION
+    ? configured + DANGEROUS_REALTIME_LOW_TENSION_GRACE_TICKS
+    : configured;
 }
 
 function dangerousRealtimeCatchReady(
@@ -632,10 +641,15 @@ function dangerousRealtimeCatchReady(
   if (state.tick < dangerousRealtimeMinimumCatchTick(state.targetTicks)) {
     return false;
   }
-  if (balanceRevision !== DANGEROUS_REALTIME_BALANCE_REVISION) return true;
+  if (
+    balanceRevision < DANGEROUS_REALTIME_SECURED_CATCH_BALANCE_REVISION
+  ) {
+    return true;
+  }
   return (
     state.tension <= safeTensionBounds(state, config).max &&
-    state.lowTensionTicks < dangerousRealtimeLowTensionGraceTicks(config)
+    state.lowTensionTicks <
+      dangerousRealtimeLowTensionGraceTicks(config, balanceRevision)
   );
 }
 
@@ -938,7 +952,9 @@ export function advanceDangerousRealtimeTick(
   }
   if (state.stamina === 0 && state.distance === 0) {
     const nextTick = state.tick + 1;
-    if (balanceRevision === DANGEROUS_REALTIME_BALANCE_REVISION) {
+    if (
+      balanceRevision >= DANGEROUS_REALTIME_SECURED_CATCH_BALANCE_REVISION
+    ) {
       if (
         dangerousRealtimeCatchReady(
           { ...state, tick: nextTick },
@@ -964,7 +980,7 @@ export function advanceDangerousRealtimeTick(
 
   const rawProgress = tickProgress(state, config, mode);
   const progress =
-    balanceRevision === DANGEROUS_REALTIME_BALANCE_REVISION &&
+    balanceRevision >= DANGEROUS_REALTIME_SECURED_CATCH_BALANCE_REVISION &&
     state.stamina === 0 &&
     state.distance === 0
       ? { ...rawProgress, stamina: 0, distance: 0 }
@@ -983,7 +999,8 @@ export function advanceDangerousRealtimeTick(
   if (progress.tension > state.maxTension) {
     status = "line_broken";
   } else if (
-    lowTensionTicks >= dangerousRealtimeLowTensionGraceTicks(config)
+    lowTensionTicks >=
+    dangerousRealtimeLowTensionGraceTicks(config, balanceRevision)
   ) {
     status = "hook_lost";
   } else if (dangerousRealtimeCatchReady(nextState, config, balanceRevision)) {

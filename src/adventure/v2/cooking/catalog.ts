@@ -6,6 +6,8 @@ import type {
   CookingRecipePublic,
 } from "./types";
 import { COOKING_METHOD_UNLOCK_LEVEL } from "./types";
+import { COOKING_EXPANSION_ROWS } from "./expansion";
+import { effectForCookingExpansion } from "./expansion/effects";
 
 type Tier = CookingRecipePublic["tier"];
 type RecipeRow = readonly [
@@ -15,6 +17,7 @@ type RecipeRow = readonly [
   method: CookingMethod,
   icon: string,
 ];
+type SimpleRecipeRow = readonly [...RecipeRow, tier: 1 | 2];
 
 const LEVEL_BY_TIER = [1, 1, 10, 20, 35, 50] as const;
 const PRIMARY_POWER = [0, 6, 10, 16, 24, 32] as const;
@@ -101,6 +104,29 @@ const BASIC_ROWS: readonly RecipeRow[] = [
   ["fish_skewer", "생선 꼬치구이", "seafood", "grill", "🐟"],
   ["herb_flatbread", "향긋한 허브 납작빵", "baking", "bake", "🫓"],
   ["country_egg_bread", "시골식 달걀빵", "baking", "bake", "🥚"],
+];
+
+const SIMPLE_ROWS: readonly SimpleRecipeRow[] = [
+  ["fried_egg", "소금 간 계란후라이", "hearth", "fry", "🍳", 1],
+  ["boiled_egg", "소금 삶은 달걀", "pot", "boil", "🥚", 1],
+  ["grilled_potato", "소금 감자구이", "hearth", "grill", "🥔", 1],
+  ["buttered_corn", "버터 옥수수구이", "hearth", "grill", "🌽", 1],
+  ["simple_tomato_soup", "소박한 토마토 수프", "pot", "boil", "🥣", 1],
+  ["milk_bread", "부드러운 우유빵", "baking", "bake", "🍞", 1],
+  ["sugar_cookie", "바삭한 설탕 쿠키", "baking", "bake", "🍪", 1],
+  ["strawberry_jam", "달콤한 딸기잼", "baking", "boil", "🍓", 1],
+  ["campfire_fish", "모닥불 생선구이", "seafood", "grill", "🐟", 1],
+  ["simple_fish_soup", "소박한 생선국", "seafood", "boil", "🍲", 1],
+  ["strawberry_milk", "딸기 우유", "medicinal", "brew", "🥛", 1],
+  ["hot_cacao", "따뜻한 카카오", "medicinal", "brew", "☕", 1],
+  ["tomato_egg_stir_fry", "토마토 달걀볶음", "hearth", "stir_fry", "🍳", 2],
+  ["potato_fries", "바삭한 감자튀김", "hearth", "fry", "🍟", 2],
+  ["herb_egg_soup", "허브 달걀국", "pot", "boil", "🍲", 2],
+  ["corn_cream_soup", "고소한 옥수수 수프", "pot", "boil", "🥣", 2],
+  ["cacao_cookie", "카카오 쿠키", "baking", "bake", "🍪", 2],
+  ["fish_fry", "바삭한 생선튀김", "seafood", "fry", "🐟", 2],
+  ["steamed_fish", "담백한 생선찜", "seafood", "steam", "🐟", 2],
+  ["herb_pickles", "새콤한 허브 절임", "medicinal", "ferment", "🌿", 2],
 ];
 
 const FIELD_ROWS: Record<CookingField, readonly RecipeRow[]> = {
@@ -214,6 +240,10 @@ const SIGNATURE_ROWS: readonly RecipeRow[] = [
 ];
 
 const basic = BASIC_ROWS.map((row, index) => rowToRecipe(row, 1, "basic", index));
+const simple = SIMPLE_ROWS.map((row, index) => {
+  const [id, name, field, method, icon, tier] = row;
+  return rowToRecipe([id, name, field, method, icon], tier, "hidden", index);
+});
 const hidden = (Object.keys(FIELD_ROWS) as CookingField[]).flatMap((field) =>
   FIELD_ROWS[field].map((row, index) =>
     rowToRecipe(row, (2 + Math.floor(index / 4)) as Tier, "hidden", index),
@@ -222,14 +252,42 @@ const hidden = (Object.keys(FIELD_ROWS) as CookingField[]).flatMap((field) =>
 const signature = SIGNATURE_ROWS.map((row, index) =>
   rowToRecipe(row, 5, "signature", index),
 );
+const expansionOccurrences = new Map<string, number>();
+const expansion = COOKING_EXPANSION_ROWS.map((row) => {
+  const [id, name, field, method, icon, tier] = row;
+  const group = `${field}:${tier}`;
+  const occurrence = expansionOccurrences.get(group) ?? 0;
+  expansionOccurrences.set(group, occurrence + 1);
+  const { effect, effectTags } = effectForCookingExpansion(
+    field,
+    tier,
+    occurrence,
+  );
+  return {
+    ...rowToRecipe([id, name, field, method, icon], tier, "hidden", occurrence),
+    effect,
+    effectTags,
+    description:
+      tier <= 2
+        ? `${name}의 친숙한 조합을 직접 연구해 발견합니다.`
+        : `${name}에 담긴 특별한 조리법을 직접 연구해 발견합니다.`,
+  };
+});
+const legacyRecipes = [...basic, ...hidden, ...signature];
 
 export const COOKING_PUBLIC_RECIPES: readonly CookingRecipePublic[] = [
   ...basic,
+  ...simple,
   ...hidden,
   ...signature,
+  ...expansion,
 ];
 
 export const BASIC_COOKING_RECIPE_IDS = basic.map((entry) => entry.id);
+export const SIMPLE_COOKING_RECIPE_IDS = simple.map((entry) => entry.id);
+export const EXPANSION_COOKING_RECIPE_IDS = expansion.map((entry) => entry.id);
+export const COOKING_LEGACY_RECIPE_INDEX_BY_ID: ReadonlyMap<string, number> =
+  new Map(legacyRecipes.map((entry, index) => [entry.id, index]));
 export const COOKING_PUBLIC_RECIPE_BY_ID = new Map(
   COOKING_PUBLIC_RECIPES.map((entry) => [entry.id, entry]),
 );
@@ -240,4 +298,9 @@ export const COOKING_CODEX_MILESTONES = [
   { goal: 50, title: "숨은 맛의 탐구자", points: 30 },
   { goal: 75, title: "왕실 조리 연구관", points: 40 },
   { goal: 100, title: "영원의 주방 전설", points: 50 },
+  { goal: 150, title: "백미의 기록자", points: 60 },
+  { goal: 200, title: "왕국의 조리학자", points: 70 },
+  { goal: 300, title: "삼백 가지 맛의 대가", points: 90 },
+  { goal: 400, title: "대륙의 미식 현자", points: 120 },
+  { goal: 500, title: "오백 레시피의 전설", points: 160 },
 ] as const;

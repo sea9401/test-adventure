@@ -19,8 +19,8 @@ describe("농장주의 교환소 패널", () => {
       <FarmEndgameShopPanel
         view={{
           unlocked: false,
-          plots: 6,
-          requiredPlots: 6,
+          plots: 7,
+          requiredPlots: 8,
           pens: 3,
           requiredPens: 4,
           items: [...FARM_ENDGAME_SHOP_ITEMS],
@@ -33,7 +33,7 @@ describe("농장주의 교환소 패널", () => {
     );
 
     expect(html).toContain("농장주의 교환소");
-    expect(html).toContain("밭 6/6");
+    expect(html).toContain("밭 7/8");
     expect(html).toContain("축사 3/4");
     expect(html).not.toContain("목장 사료 꾸러미");
     expect(html).toContain("bg-white");
@@ -45,8 +45,8 @@ describe("농장주의 교환소 패널", () => {
       <FarmEndgameShopPanel
         view={{
           unlocked: true,
-          plots: 6,
-          requiredPlots: 6,
+          plots: 8,
+          requiredPlots: 8,
           pens: 4,
           requiredPens: 4,
           items: [...FARM_ENDGAME_SHOP_ITEMS],
@@ -67,8 +67,8 @@ describe("농장주의 교환소 패널", () => {
   it("칭호는 이름과 가격을 확인한 뒤 구매한다", () => {
     const unlockedView: FarmEndgameShopView = {
       unlocked: true,
-      plots: 6,
-      requiredPlots: 6,
+      plots: 8,
+      requiredPlots: 8,
       pens: 4,
       requiredPens: 4,
       items: [...FARM_ENDGAME_SHOP_ITEMS],

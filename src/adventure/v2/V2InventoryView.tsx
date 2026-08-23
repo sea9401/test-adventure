@@ -514,7 +514,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           itemId === LEVEL_100_ELIXIR_ITEM_ID
             ? `✓ 100레벨 달성 · ${data.levelsGained ?? 0}레벨 상승`
             : itemId === "cultivation_reset_potion"
-            ? `✓ 수행 초기화 완료 · 숙달 포인트 +${(data.refundedPoints ?? 0).toLocaleString()}`
+            ? `✓ 수행 초기화 완료 · Lv.1로 초기화 · 숙달 포인트 +${(data.refundedPoints ?? 0).toLocaleString()}`
             : `✓ 월간 모험 지원권 ${data.daysAdded ?? 30}일 적용`,
         );
       } catch (err) {

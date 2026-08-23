@@ -70,20 +70,11 @@ export function cultivationCompletionMessage(
   targetJobName?: string,
 ): string {
   const spent = summary.spent ?? fallbackSpent;
-  const redistributed = summary.redistributedGrowthPoints ?? 0;
-  const redistribution =
-    redistributed > 0
-      ? `성장 재분배 +${redistributed.toLocaleString()}${
-          summary.growthRespecPoints != null
-            ? ` (대기 ${summary.growthRespecPoints.toLocaleString()})`
-            : ""
-        }`
-      : "";
 
   if (mode === "once") {
     const outcome = cultivationOutcomeLabel(summary.mult ?? 1);
     const special = outcome ? `${outcome} ×${summary.mult}!` : "";
-    const details = [special, redistribution].filter(Boolean);
+    const details = [special].filter(Boolean);
     return `✓ ${targetJobName ? `${targetJobName} 수행` : "수행"} 완료 (숙달 포인트 -${spent.toLocaleString()})${
       details.length > 0 ? ` · ${details.join(" · ")}` : ""
     }`;
@@ -96,7 +87,6 @@ export function cultivationCompletionMessage(
     (summary.awakenings ?? 0) > 0
       ? `각성 ${summary.awakenings?.toLocaleString()}회`
       : "",
-    redistribution,
     summary.hasMore ? "남은 포인트로 추가 수행 가능" : "",
   ].filter(Boolean);
   return `✓ ${targetJobName ? `${targetJobName} 수행` : "수행"} ${(summary.performed ?? 0).toLocaleString()}회 완료 (숙달 포인트 -${spent.toLocaleString()})${

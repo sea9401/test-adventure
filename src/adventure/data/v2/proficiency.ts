@@ -33,7 +33,7 @@ export type V2ProficiencyState = {
   groups: Record<string, V2ProficiencyGroup>;
   caps: Partial<Record<V2StatKey, number>>;
   grown: Partial<Record<V2StatKey, number>>; // 랜덤 레벨 성장 누적분(1차 스탯).
-  // 수행 초기화로 회수한 레벨 성장 포인트. 다시 수행할 때 새 수행 프로필 비율로 grown 에 옮긴다.
+  // 폐기된 수행 재분배 저장 필드. 과거 저장 형식 호환을 위해 0으로만 유지한다.
   growthRespecPoints?: number;
   // 직업별 숙련도 — 특정 직업(예: 기사·사제)으로 쌓은 승리 수. groups(직군 숙련도)와 별개.
   //   하이브리드 직업 해금 게이트 입력(직군이 아니라 특정 상위 직업의 깊이를 요구). 승리당 +1.
@@ -434,7 +434,7 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     groups,
     caps,
     grown,
-    growthRespecPoints: posInt(obj.growthRespecPoints),
+    growthRespecPoints: 0,
     jobCumLevel,
     jobHistory,
     masteryScaleVersion,
@@ -640,10 +640,6 @@ export function resetCultivation(
 ): { next: V2ProficiencyState; refundedPoints: number } | null {
   if (totalCapGains(p) <= 0) return null;
   const refundedPoints = refundableCultivationPoints(p);
-  const growthRespecPoints = V2_STAT_KEYS.reduce(
-    (sum, stat) => sum + (p.grown[stat] ?? 0),
-    Math.max(0, Math.floor(Number(p.growthRespecPoints) || 0)),
-  );
   return {
     refundedPoints,
     next: {
@@ -651,7 +647,7 @@ export function resetCultivation(
       points: usablePoints(p) + refundedPoints,
       caps: {},
       grown: {},
-      growthRespecPoints,
+      growthRespecPoints: 0,
       cultivationPointsSpent: 0,
       cultivationResetCount:
         Math.max(0, Math.floor(Number(p.cultivationResetCount) || 0)) + 1,
@@ -770,45 +766,25 @@ export function applyCultivation(
     cumLevel: 0,
   };
   const nextCaps: Partial<Record<V2StatKey, number>> = { ...p.caps };
-  const cultivationGains: Partial<Record<V2StatKey, number>> = {};
   if (targetStat) {
     // 선택 스탯 한 곳 — 프로필 분산과 동일 총량(합 × mult)이라 비용/economy 불변.
     const profileSum = V2_STAT_KEYS.reduce((s, k) => s + (profile[k] ?? 0), 0);
     const gain = profileSum * mult;
     if (gain > 0) {
       nextCaps[targetStat] = (nextCaps[targetStat] ?? 0) + gain;
-      cultivationGains[targetStat] = gain;
     }
   } else {
     for (const stat of V2_STAT_KEYS) {
       const gain = (profile[stat] ?? 0) * mult;
       if (gain > 0) {
         nextCaps[stat] = (nextCaps[stat] ?? 0) + gain;
-        cultivationGains[stat] = gain;
       }
     }
-  }
-  const nextGrown: Partial<Record<V2StatKey, number>> = { ...p.grown };
-  let growthRespecPoints = Math.max(
-    0,
-    Math.floor(Number(p.growthRespecPoints) || 0),
-  );
-  let redistributedGrowthPoints = 0;
-  // 이번 수행으로 실제로 열린 한계 증가량까지만 옮긴다. 따라서 부분 재수행 중에도 남은
-  // 포인트는 대기하고, 다른 직업으로 방향을 바꾸면 이후 수행분부터 새 프로필을 따른다.
-  for (const stat of V2_STAT_KEYS) {
-    if (growthRespecPoints <= 0) break;
-    const quota = cultivationGains[stat] ?? 0;
-    const moved = Math.min(quota, growthRespecPoints);
-    if (moved <= 0) continue;
-    nextGrown[stat] = (nextGrown[stat] ?? 0) + moved;
-    growthRespecPoints -= moved;
-    redistributedGrowthPoints += moved;
   }
   return {
     cost,
     mult,
-    redistributedGrowthPoints,
+    redistributedGrowthPoints: 0,
     next: {
       ...p,
       points: p.points - cost, // 전역 잔액에서 차감
@@ -819,8 +795,8 @@ export function applyCultivation(
         [group]: { ...cur, cultivations: cur.cultivations + 1 },
       },
       caps: nextCaps,
-      grown: nextGrown,
-      growthRespecPoints,
+      grown: { ...p.grown },
+      growthRespecPoints: 0,
     },
   };
 }

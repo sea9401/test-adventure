@@ -38,6 +38,7 @@ const ERROR_TEXT: Record<string, string> = {
   delivery_completed: "이미 완료한 납품 요청입니다.",
   cooked_food_unavailable: "선택한 완성 음식을 보유하고 있지 않습니다.",
   standing_delivery_limit: "오늘의 상시 납품 한도를 모두 사용했습니다.",
+  rate_limited: "요리 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
 };
 
 export function cookingErrorText(code: string): string {

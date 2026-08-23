@@ -128,7 +128,7 @@ function itemSummary(itemId: MuseunCashItemId): string {
     return "프로필에 업적 배지 3개를 전시하는 전시대를 영구 해금합니다.";
   }
   if (item.effect.kind === "cultivation_reset") {
-    return "골드 소모 없이 수행 한계치를 초기화하고 숙달 포인트를 돌려받습니다.";
+    return "골드 소모 없이 수행 한계치를 초기화하고 숙달 포인트를 돌려받으며, 레벨 1·경험치 0으로 돌아갑니다.";
   }
   if (item.effect.kind === "level_target") {
     return `사용 즉시 ${item.effect.level}레벨을 달성합니다.`;

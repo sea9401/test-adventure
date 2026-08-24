@@ -149,7 +149,7 @@ export function V2TopBar({
             aria-label={`스태미나 ${displayStamina.current} / ${staminaMax}`}
             title="스태미나 포션 사용"
             onClick={() => setPotionModalOpen(true)}
-            className={`${SURFACE_INSET} ml-auto inline-flex min-h-8 items-center gap-1 border-0 px-2 py-1 text-[11px] font-semibold tabular-nums text-zinc-600 shadow-none transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 md:ml-0 md:min-h-10 md:px-3 md:text-xs dark:text-zinc-300 dark:hover:bg-zinc-800`}
+            className={`${SURFACE_INSET} ml-auto inline-flex min-h-8 shrink-0 items-center gap-1 border-0 px-2 py-1 text-[11px] font-semibold tabular-nums text-zinc-600 shadow-none transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 md:ml-0 md:min-h-10 md:px-3 md:text-xs dark:text-zinc-300 dark:hover:bg-zinc-800`}
           >
             <Lightning size={12} weight="fill" className="text-orange-500" aria-hidden />
             {numberFormatter.format(displayStamina.current)} / {numberFormatter.format(staminaMax)}

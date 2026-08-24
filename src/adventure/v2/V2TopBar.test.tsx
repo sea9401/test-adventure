@@ -99,11 +99,12 @@ describe("V2TopBar", () => {
       "[data-topbar-left-status]",
     );
     expect(leftStatus).not.toBeNull();
-    expect(
-      within(leftStatus as HTMLElement).getByRole("button", {
-        name: "스태미나 86 / 120",
-      }),
-    ).toBeTruthy();
+    const staminaButton = within(leftStatus as HTMLElement).getByRole(
+      "button",
+      { name: "스태미나 86 / 120" },
+    );
+    expect(staminaButton).toBeTruthy();
+    expect(staminaButton.className).toContain("shrink-0");
   });
 
   it("저장 기준값 이후의 자동 회복을 1초마다 헤더 숫자에 반영한다", () => {

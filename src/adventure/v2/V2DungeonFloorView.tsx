@@ -1196,6 +1196,8 @@ export function V2DungeonFloorView({
           mp={mp}
           exp={statusExp}
           maxExp={statusMaxExp}
+          hpCharges={statusHpCharges}
+          mpCharges={statusMpCharges}
         >
           <PlayerStatusCard
             gender={playerGender}
@@ -1229,7 +1231,10 @@ export function V2DungeonFloorView({
       )}
 
       <Card padding="md" className="sticky bottom-3 z-20 shadow-lg sm:static sm:shadow-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <div
+          data-hunt-primary-actions
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3"
+        >
           <button
             type="button"
             onClick={onHuntClick}
@@ -1290,23 +1295,24 @@ export function V2DungeonFloorView({
             disabled={batchRunning}
             aria-label="전투 설정"
             aria-expanded={settingsOpen}
-            className="ui-game-button flex shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 sm:w-auto dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            className="ui-game-button flex shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 p-2.5 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
           >
             <Gear size={16} weight="duotone" />
           </button>
+          {!rareMapIid && onEnterRareMap && (
+            <RareMapQuickEntry
+              className="col-start-1 mt-0"
+              maps={heldRareMaps}
+              serverNow={rareMapServerNow}
+              onEnter={onEnterRareMap}
+              onExpire={(expiredMap) =>
+                setHeldRareMaps((current) =>
+                  current.filter((map) => map.iid !== expiredMap.iid),
+                )
+              }
+            />
+          )}
         </div>
-        {!rareMapIid && onEnterRareMap && (
-          <RareMapQuickEntry
-            maps={heldRareMaps}
-            serverNow={rareMapServerNow}
-            onEnter={onEnterRareMap}
-            onExpire={(expiredMap) =>
-              setHeldRareMaps((current) =>
-                current.filter((map) => map.iid !== expiredMap.iid),
-              )
-            }
-          />
-        )}
         {settingsOpen && (
           <div className="mt-3 space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
             {!coreLoopOn && (

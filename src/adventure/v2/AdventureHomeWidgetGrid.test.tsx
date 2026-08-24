@@ -40,4 +40,37 @@ describe("모험 홈 위젯 편집", () => {
       "ranking_preview",
     ]);
   });
+
+  it("공지·최근 게시글·랭킹 위젯을 데스크톱에서 같은 높이로 표시한다", () => {
+    render(
+      <AdventureHomeWidgetGrid
+        order={["announcements", "bulletin_preview", "ranking_preview"]}
+        hidden={[]}
+        editing={false}
+        onOrderChange={vi.fn()}
+        onHiddenChange={vi.fn()}
+        widgets={{
+          announcements: <section>공지</section>,
+          bulletin_preview: <section>최근 게시글</section>,
+          ranking_preview: <section>랭킹</section>,
+        }}
+      />,
+    );
+
+    const contentClasses = screen
+      .getAllByTestId("home-widget")
+      .slice(-3)
+      .map((widget) => widget.lastElementChild?.className);
+
+    expect(contentClasses).toEqual([
+      expect.stringContaining("sm:h-[21rem]"),
+      expect.stringContaining("sm:h-[21rem]"),
+      expect.stringContaining("sm:h-[21rem]"),
+    ]);
+    expect(contentClasses).toEqual([
+      expect.stringContaining("[&>*]:h-full"),
+      expect.stringContaining("[&>*]:h-full"),
+      expect.stringContaining("[&>*]:h-full"),
+    ]);
+  });
 });

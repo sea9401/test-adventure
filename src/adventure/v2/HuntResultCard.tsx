@@ -233,7 +233,6 @@ export function HuntResultCard({
   mpCharges,
   hasMp,
   onEnterRareMap,
-  nextRareMap,
 }: {
   result: HuntResult;
   // HP/MP 충전약 잔량 — 전투 결과 하단에 표기(전투 화면에서 이리로 이관). 미전달 시 미표시.
@@ -241,7 +240,6 @@ export function HuntResultCard({
   mpCharges?: number;
   hasMp?: boolean;
   onEnterRareMap?: (map: RareMapInstance) => void;
-  nextRareMap?: RareMapInstance | null;
 }) {
   const won = result.won;
   const drops = result.drops
@@ -486,15 +484,6 @@ export function HuntResultCard({
             />
           )}
         </div>
-      )}
-      {nextRareMap && onEnterRareMap && (
-        <button
-          type="button"
-          onClick={() => onEnterRareMap(nextRareMap)}
-          className="ui-game-button mt-3 w-full rounded-md border border-amber-500 bg-amber-500 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-600"
-        >
-          다음 희귀 탐사 · {RARE_MAP_KINDS[nextRareMap.kind].name}
-        </button>
       )}
     </Card>
   );

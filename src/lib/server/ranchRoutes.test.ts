@@ -232,9 +232,9 @@ describe("ranch routes", () => {
     store.set(FARM_SAVE_KEY, {
       ...emptyFarmState(NOW),
       inventory: {
-        wheat: 3,
+        wheat: 2,
         corn: 4,
-        tomato: 3,
+        tomato: 4,
         egg: 7,
         milk: 5,
         pork: 2,
@@ -252,7 +252,10 @@ describe("ranch routes", () => {
     });
 
     const response = await craftFeed(
-      request("/api/v2/farm/feed-craft", { quantity: 2 }),
+      request("/api/v2/farm/feed-craft", {
+        quantity: 2,
+        cropSelection: { wheat: 1, corn: 2, tomato: 2 },
+      }),
     );
     expect(response.status).toBe(200);
     const farm = store.get(FARM_SAVE_KEY) as FarmState;
@@ -268,21 +271,43 @@ describe("ranch routes", () => {
     expect(workshop.crafting.totalCrafts).toBe(3);
   });
 
-  it("uses common crops before rare crops when crafting feed", async () => {
+  it("crafts feed from only the crops explicitly selected by the player", async () => {
     store.set(FARM_SAVE_KEY, {
       ...emptyFarmState(NOW),
       inventory: { wheat: 5, golden_wheat: 5 },
     });
 
     const response = await craftFeed(
-      request("/api/v2/farm/feed-craft", { quantity: 1 }),
+      request("/api/v2/farm/feed-craft", {
+        quantity: 1,
+        cropSelection: { golden_wheat: 5 },
+      }),
     );
 
     expect(response.status).toBe(200);
     expect((store.get(FARM_SAVE_KEY) as FarmState).inventory).toEqual({
-      golden_wheat: 5,
+      wheat: 5,
       compound_feed: 5,
     });
+  });
+
+  it("requires an exact five-crop selection before touching saves", async () => {
+    const farm = {
+      ...emptyFarmState(NOW),
+      inventory: { wheat: 10 },
+    };
+    store.set(FARM_SAVE_KEY, farm);
+
+    for (const cropSelection of [undefined, { wheat: 4 }, { wheat: 5, egg: 1 }]) {
+      const response = await craftFeed(
+        request("/api/v2/farm/feed-craft", { quantity: 1, cropSelection }),
+      );
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ error: "bad_request" });
+    }
+    expect(store.get(FARM_SAVE_KEY)).toBe(farm);
+    expect(upsertSave).not.toHaveBeenCalled();
   });
 
   it("does not count ranch products as feed recipe crops", async () => {
@@ -293,7 +318,10 @@ describe("ranch routes", () => {
     store.set(FARM_SAVE_KEY, farm);
 
     const response = await craftFeed(
-      request("/api/v2/farm/feed-craft", { quantity: 1 }),
+      request("/api/v2/farm/feed-craft", {
+        quantity: 1,
+        cropSelection: { wheat: 5 },
+      }),
     );
 
     expect(response.status).toBe(409);
@@ -383,7 +411,10 @@ describe("ranch routes", () => {
     store.set(LIFE_WORKSHOP_SAVE_KEY, workshop);
 
     const response = await craftFeed(
-      request("/api/v2/farm/feed-craft", { quantity: 1 }),
+      request("/api/v2/farm/feed-craft", {
+        quantity: 1,
+        cropSelection: { wheat: 5 },
+      }),
     );
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ error: "ranch_locked" });

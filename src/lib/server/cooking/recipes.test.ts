@@ -239,6 +239,22 @@ describe("hidden cooking recipe catalog", () => {
     expect(missing).toEqual([]);
   });
 
+  it("keeps the golden rice congee background transparent in light mode", async () => {
+    const recipe = COOKING_SECRET_RECIPE_BY_ID.get("golden_rice_congee")!;
+    const image = sharp(
+      path.join(process.cwd(), "public", recipe.imageSrc),
+    );
+    const metadata = await image.metadata();
+
+    expect(metadata).toMatchObject({
+      width: 256,
+      height: 256,
+      hasAlpha: true,
+    });
+    const stats = await image.stats();
+    expect(stats.channels[3]?.min).toBe(0);
+  });
+
   it("provides optimized transparent artwork for every completed expansion batch", async () => {
     const missing = COOKING_EXPANSION_ROWS.flatMap(([id]) => {
       const recipe = COOKING_SECRET_RECIPE_BY_ID.get(id);

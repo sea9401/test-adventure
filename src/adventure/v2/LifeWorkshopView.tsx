@@ -38,6 +38,12 @@ import {
 } from "./lifeCrafting";
 import { LifeRequestBoard } from "./LifeRequestBoard";
 import { FarmItemIcon } from "./FarmItemIcon";
+import {
+  FARM_CROP_ITEM_IDS,
+  FARM_ITEMS,
+  type FarmCropSelection,
+  type FarmItemId,
+} from "./farm";
 
 export type WorkshopRecipeView = {
   id: string;
@@ -139,7 +145,7 @@ const ERROR_TEXT: Record<string, string> = {
   aid_not_active: "활성화된 보조품이 없습니다.",
   ranch_locked: "씨앗 선별을 배우면 배합 사료를 제작할 수 있습니다.",
   not_enough_items: "배합 사료 제작에 필요한 농장 재료가 부족합니다.",
-  bad_request: "제작 수량을 확인해 주세요.",
+  bad_request: "제작 수량과 작물 선택을 확인해 주세요.",
 };
 
 export type RanchCraftingRecipeView = {
@@ -154,6 +160,7 @@ export type RanchCraftingRecipeView = {
   maxCraftable: number;
   ownedFeed: number;
   availableCropCount: number;
+  cropInventory: FarmCropSelection;
 };
 
 export type FailedDishFeedRecipeView = {
@@ -478,8 +485,54 @@ export function RanchFeedRecipeCard({
 }: {
   recipe: RanchCraftingRecipeView;
   busy: boolean;
-  onCraft: (quantity: number) => void;
+  onCraft: (quantity: number, cropSelection: FarmCropSelection) => void;
 }) {
+  const [cropSelection, setCropSelection] = useState<FarmCropSelection>({});
+  const availableCropIds = FARM_CROP_ITEM_IDS.filter(
+    (itemId) =>
+      (recipe.cropInventory[itemId] ?? 0) > 0 ||
+      (cropSelection[itemId] ?? 0) > 0,
+  );
+  const selectedCropCount = Object.values(cropSelection).reduce(
+    (total, amount) => total + (amount ?? 0),
+    0,
+  );
+  const selectionMaxCraftable =
+    selectedCropCount === recipe.ingredientAmount
+      ? Math.min(
+          recipe.batchLimit,
+          ...Object.entries(cropSelection).map(([itemId, amount]) =>
+            Math.floor(
+              (recipe.cropInventory[itemId as FarmItemId] ?? 0) /
+                Math.max(1, amount ?? 0),
+            ),
+          ),
+        )
+      : 0;
+
+  const changeCropSelection = (itemId: FarmItemId, delta: -1 | 1) => {
+    setCropSelection((current) => {
+      const currentAmount = current[itemId] ?? 0;
+      const currentTotal = Object.values(current).reduce(
+        (total, amount) => total + (amount ?? 0),
+        0,
+      );
+      const nextAmount = currentAmount + delta;
+      if (
+        nextAmount < 0 ||
+        (delta > 0 &&
+          (currentTotal >= recipe.ingredientAmount ||
+            nextAmount > (recipe.cropInventory[itemId] ?? 0)))
+      ) {
+        return current;
+      }
+      const next = { ...current };
+      if (nextAmount === 0) delete next[itemId];
+      else next[itemId] = nextAmount;
+      return next;
+    });
+  };
+
   return (
     <Card padding="md">
       <h2 className="text-sm font-bold">목장 용품</h2>
@@ -501,29 +554,85 @@ export function RanchFeedRecipeCard({
             </p>
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] text-zinc-700 dark:text-zinc-200">
-          <span className={`${SURFACE_CARD} px-2 py-1`}>
-            농장 작물 아무거나 {recipe.ingredientAmount}개
-            <span className="ml-1 text-zinc-500 dark:text-zinc-400">
-              (보유 {recipe.availableCropCount.toLocaleString("ko-KR")}개)
-            </span>
+        <div className="mt-3 flex items-center justify-between gap-2 text-xs">
+          <strong>작물 {recipe.ingredientAmount}개를 선택해 주세요</strong>
+          <span className="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">
+            선택 {selectedCropCount}/{recipe.ingredientAmount} · 보유 {recipe.availableCropCount.toLocaleString("ko-KR")}개
           </span>
         </div>
+        {availableCropIds.length > 0 ? (
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {availableCropIds.map((itemId) => {
+              const item = FARM_ITEMS[itemId];
+              const held = recipe.cropInventory[itemId] ?? 0;
+              const selected = cropSelection[itemId] ?? 0;
+              return (
+                <div
+                  key={itemId}
+                  className={`${SURFACE_CARD} flex items-center gap-2 p-2`}
+                >
+                  <FarmItemIcon itemId={itemId} className="size-9" />
+                  <div className="min-w-0 flex-1 text-xs">
+                    <strong className="block truncate">{item.name}</strong>
+                    <span className="text-zinc-500 dark:text-zinc-400">
+                      보유 {held.toLocaleString("ko-KR")}개
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="xs"
+                      variant="secondary"
+                      className="min-h-8 px-2"
+                      aria-label={`${item.name} 1개 빼기`}
+                      disabled={busy || selected === 0}
+                      onClick={() => changeCropSelection(itemId, -1)}
+                    >
+                      −
+                    </Button>
+                    <span className="w-5 text-center text-xs font-bold tabular-nums">
+                      {selected}
+                    </span>
+                    <Button
+                      size="xs"
+                      variant="secondary"
+                      className="min-h-8 px-2"
+                      aria-label={`${item.name} 1개 추가`}
+                      disabled={
+                        busy ||
+                        selectedCropCount >= recipe.ingredientAmount ||
+                        selected >= held
+                      }
+                      onClick={() => changeCropSelection(itemId, 1)}
+                    >
+                      +
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="mt-2 text-[11px] text-rose-600 dark:text-rose-300">
+            보유한 농장 작물이 없습니다.
+          </p>
+        )}
         <div className="mt-2 text-[10px] text-zinc-500 dark:text-zinc-400">
           제작 기록 {recipe.craftCount}회 · 단계 {recipe.masteryStage}/5 · 일괄 한도 {recipe.batchLimit}
         </div>
         {recipe.unlocked ? (
           <div className="mt-2">
             <LifeWorkshopQuantityControls
-              maxQuantity={recipe.maxCraftable}
+              maxQuantity={selectionMaxCraftable}
               unit="회"
               actionLabel="제작"
               inputLabel="배합 사료 제작 수량"
               busy={busy}
-              onSubmit={onCraft}
+              onSubmit={(quantity) => onCraft(quantity, cropSelection)}
             />
-            {recipe.maxCraftable === 0 ? (
-              <span className="text-[11px] text-rose-600">농장 재료가 부족합니다.</span>
+            {selectedCropCount < recipe.ingredientAmount ? (
+              <span className="text-[11px] text-rose-600 dark:text-rose-300">
+                작물을 {recipe.ingredientAmount - selectedCropCount}개 더 선택해 주세요.
+              </span>
             ) : null}
           </div>
         ) : (
@@ -683,7 +792,11 @@ export function LifeWorkshopView({
   );
 
   const craftRanchFeed = useCallback(
-    async (quantity: number, recipeId?: string) => {
+    async (
+      quantity: number,
+      recipeId?: string,
+      cropSelection?: FarmCropSelection,
+    ) => {
       if (busy) return;
       setBusy(`ranch-feed:${recipeId ?? "compound_feed"}:${quantity}`);
       setNotice(null);
@@ -691,7 +804,11 @@ export function LifeWorkshopView({
         const response = await fetch("/api/v2/farm/feed-craft", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify(recipeId ? { quantity, recipeId } : { quantity }),
+          body: JSON.stringify(
+            recipeId
+              ? { quantity, recipeId }
+              : { quantity, cropSelection },
+          ),
         });
         const json = (await response.json().catch(() => null)) as
           | ({
@@ -834,7 +951,9 @@ export function LifeWorkshopView({
           <RanchFeedRecipeCard
             recipe={data.ranchCraftingRecipe}
             busy={busy !== null}
-            onCraft={(quantity) => void craftRanchFeed(quantity)}
+            onCraft={(quantity, cropSelection) =>
+              void craftRanchFeed(quantity, undefined, cropSelection)
+            }
           />
           <FailedDishFeedRecipeCard
             recipe={data.failedDishFeedRecipe}

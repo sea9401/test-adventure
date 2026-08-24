@@ -625,12 +625,50 @@ export const FARM_CROP_LIST = Object.values(FARM_CROPS);
 
 /**
  * 배합 사료에 사용할 수 있는 농장 작물 수확물입니다.
- * 일반 작물을 먼저 두어 자동 소비 시 희귀 작물을 가능한 한 보존합니다.
+ * 일반 작물과 희귀 작물을 제작 화면에 일정한 순서로 표시합니다.
  */
 export const FARM_CROP_ITEM_IDS: readonly FarmItemId[] = [
   ...FARM_CROP_LIST.map((crop) => crop.itemId),
   ...FARM_CROP_LIST.map((crop) => crop.rareItemId),
 ];
+
+const FARM_CROP_ITEM_ID_SET = new Set<FarmItemId>(FARM_CROP_ITEM_IDS);
+
+export type FarmCropSelection = Partial<Record<FarmItemId, number>>;
+
+export function parseFarmCropSelection(
+  value: unknown,
+  requiredAmount: number,
+): FarmCropSelection | null {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    !Number.isSafeInteger(requiredAmount) ||
+    requiredAmount < 1
+  ) {
+    return null;
+  }
+
+  const selection: FarmCropSelection = {};
+  let total = 0;
+  for (const [rawItemId, rawAmount] of Object.entries(value)) {
+    const itemId = rawItemId as FarmItemId;
+    if (
+      !FARM_CROP_ITEM_ID_SET.has(itemId) ||
+      !Number.isSafeInteger(rawAmount) ||
+      Number(rawAmount) < 1
+    ) {
+      return null;
+    }
+    const amount = Number(rawAmount);
+    total += amount;
+    if (!Number.isSafeInteger(total) || total > requiredAmount) return null;
+    selection[itemId] = amount;
+  }
+
+  return total === requiredAmount ? selection : null;
+}
 
 export function farmCropItemCount(inventory: FarmItemInventory): number {
   return FARM_CROP_ITEM_IDS.reduce(
@@ -639,20 +677,33 @@ export function farmCropItemCount(inventory: FarmItemInventory): number {
   );
 }
 
-export function spendFarmCropItems(
+export function spendSelectedFarmCropItems(
   inventory: FarmItemInventory,
-  amount: number,
+  selection: FarmCropSelection,
+  batches: number,
 ): FarmItemInventory | null {
-  let remaining = nonNegativeInt(amount);
-  if (farmCropItemCount(inventory) < remaining) return null;
+  if (!Number.isSafeInteger(batches) || batches < 1) return null;
+
+  const costs = Object.entries(selection) as Array<[FarmItemId, number]>;
+  if (costs.length === 0) return null;
+  for (const [itemId, amountPerBatch] of costs) {
+    const required = amountPerBatch * batches;
+    if (
+      !FARM_CROP_ITEM_ID_SET.has(itemId) ||
+      !Number.isSafeInteger(amountPerBatch) ||
+      amountPerBatch < 1 ||
+      !Number.isSafeInteger(required) ||
+      required < 1 ||
+      nonNegativeInt(inventory[itemId]) < required
+    ) {
+      return null;
+    }
+  }
 
   const next = { ...inventory };
-  for (const itemId of FARM_CROP_ITEM_IDS) {
-    if (remaining === 0) break;
+  for (const [itemId, amountPerBatch] of costs) {
     const held = nonNegativeInt(next[itemId]);
-    const spent = Math.min(held, remaining);
-    setPositiveCount(next, itemId, held - spent);
-    remaining -= spent;
+    setPositiveCount(next, itemId, held - amountPerBatch * batches);
   }
   return next;
 }

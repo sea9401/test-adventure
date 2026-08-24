@@ -27,14 +27,43 @@ import {
   grantFarmSeeds,
   harvestPlot,
   nextFarmPlotUpgrade,
+  parseFarmCropSelection,
   parseFarmState,
   parseFarmStateWithLevelMigration,
   plantCrop,
   rebuildFarmRanchSlot,
+  spendSelectedFarmCropItems,
   type FarmState,
 } from "./farm";
 
 describe("adventurer farm", () => {
+  it("배합 사료 1회분으로 선택한 작물 5개만 일괄 횟수만큼 차감한다", () => {
+    const selection = parseFarmCropSelection({ wheat: 3, corn: 2 }, 5);
+
+    expect(selection).toEqual({ wheat: 3, corn: 2 });
+    expect(
+      spendSelectedFarmCropItems(
+        { wheat: 10, corn: 5, golden_wheat: 1 },
+        selection!,
+        2,
+      ),
+    ).toEqual({ wheat: 4, corn: 1, golden_wheat: 1 });
+  });
+
+  it("배합 사료 작물 선택에서 합계 오류와 작물이 아닌 항목을 거부한다", () => {
+    expect(parseFarmCropSelection({ wheat: 4 }, 5)).toBeNull();
+    expect(parseFarmCropSelection({ wheat: 5, compound_feed: 1 }, 5)).toBeNull();
+    expect(parseFarmCropSelection({ wheat: 4, corn: 1.5 }, 5)).toBeNull();
+  });
+
+  it("선택한 배합 사료 작물이 일괄 제작에 부족하면 아무것도 차감하지 않는다", () => {
+    const inventory = { wheat: 5, corn: 1 };
+    const selection = parseFarmCropSelection({ wheat: 4, corn: 1 }, 5)!;
+
+    expect(spendSelectedFarmCropItems(inventory, selection, 2)).toBeNull();
+    expect(inventory).toEqual({ wheat: 5, corn: 1 });
+  });
+
   it("기존 50레벨 기준을 보존하고 100레벨 곡선으로 확장한다", () => {
     expect(farmingLevelXpThreshold(50)).toBe(24_010);
     expect(farmingLevelXpThreshold(100)).toBe(120_050);

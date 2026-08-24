@@ -28,10 +28,11 @@ import {
 import {
   STORM_EXPEDITION_DAILY_ATTEMPTS,
   STORM_EXPEDITION_SAVE_KEY,
+  STORM_EXPEDITION_UNLOCK_DEPTH,
   parseStormExpeditionState,
   stormExpeditionDateKey,
 } from "@/adventure/data/v2/stormExpedition";
-import { ARENA_STATE_KEY } from "@/lib/storage-keys";
+import { ARENA_STATE_KEY, CHARACTER_STATE_KEY } from "@/lib/storage-keys";
 import { arenaDailyMatchCount, parseArenaState } from "./arena";
 
 export const ADVENTURE_HOME_SAVE_KEY = "adventure-home.v1";
@@ -44,6 +45,7 @@ export const ADVENTURE_DASHBOARD_SAVE_FALLBACKS = {
   [MINING_AUTO_KEY]: {},
   [MASTERY_TOWER_SAVE_KEY]: {},
   [STORM_EXPEDITION_SAVE_KEY]: {},
+  [CHARACTER_STATE_KEY]: {},
   [ARENA_STATE_KEY]: {},
 } satisfies Record<string, unknown>;
 
@@ -140,6 +142,14 @@ export function resolveAdventureActivities(
     saves[STORM_EXPEDITION_SAVE_KEY],
     stormExpeditionDateKey(now),
   );
+  const character = saves[CHARACTER_STATE_KEY] as
+    | Record<string, unknown>
+    | undefined;
+  const frontierDepth = Math.max(
+    2,
+    Math.floor(Number(character?.frontierDepth) || 2),
+  );
+  const expeditionUnlocked = frontierDepth >= STORM_EXPEDITION_UNLOCK_DEPTH;
   const arena = parseArenaState(saves[ARENA_STATE_KEY]);
   const arenaCount = arenaDailyMatchCount(arena, now);
 
@@ -242,7 +252,9 @@ export function resolveAdventureActivities(
         : `${expedition.attemptsUsed} / ${STORM_EXPEDITION_DAILY_ATTEMPTS}`,
       href: "/battle/storm-expedition",
       state:
-        expedition.active || expedition.attemptsUsed < STORM_EXPEDITION_DAILY_ATTEMPTS
+        !expeditionUnlocked
+          ? "unavailable"
+          : expedition.active || expedition.attemptsUsed < STORM_EXPEDITION_DAILY_ATTEMPTS
           ? "actionable"
           : "completed",
       current: expedition.attemptsUsed,

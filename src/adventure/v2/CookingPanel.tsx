@@ -136,6 +136,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
     } catch (error) {
       const code = error instanceof Error ? error.message : "";
       setNotice(cookingErrorText(code));
+      return { error: code };
     } finally {
       setBusy(false);
     }

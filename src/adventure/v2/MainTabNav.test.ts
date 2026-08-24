@@ -36,14 +36,12 @@ describe("마을 드롭다운 메뉴", () => {
 });
 
 describe("생활 드롭다운 메뉴", () => {
-  it("기존 URL을 유지하며 일곱 생활 콘텐츠를 분리한다", () => {
+  it("장소 선택이 필요한 벌목과 채광은 생활 지도로 통합한다", () => {
     expect(LIFE_MENU_ITEMS.map(({ href }) => href)).toEqual([
       "/map",
       "/town/life-workshop",
       "/town/farm",
       "/town/fishing",
-      "/town/logging",
-      "/town/mining",
       "/town/kitchen",
     ]);
   });

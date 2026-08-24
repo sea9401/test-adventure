@@ -1192,7 +1192,9 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       if (!d) continue;
       if (role === "main_attack" && d.category !== "attack") continue;
       if (role !== "main_attack" && d.category !== role) continue;
-      if (isUsable(sid)) return sid;
+      // 역할은 UI·도움말에 표시되는 장착 순서상 첫 스킬에 고정한다. 현재 사용 불가하면
+      // evaluateCombatPatternCandidates 가 이 블록을 건너뛰어 다음 우선순위를 평가한다.
+      return sid;
     }
     return null;
   };

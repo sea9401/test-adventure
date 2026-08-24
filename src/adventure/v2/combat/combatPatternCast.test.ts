@@ -897,6 +897,34 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     expect(r.castSkillId).toBe("v2c_warrior_strike");
   });
 
+  it("역할 사용은 첫 장착 스킬이 사용 불가하면 다음 패턴 블록으로 넘어간다", () => {
+    const shield = "v2c_mage_shield";
+    const bolt = "v2c_mage_boltcast";
+    const meditate = "v2c_mage_meditate";
+    const pattern: V2CombatPattern = {
+      blocks: [
+        {
+          condition: { kind: "self_shield", active: false },
+          action: { kind: "role", role: "buff" },
+        },
+        {
+          condition: { kind: "always" },
+          action: { kind: "skill", skillId: bolt },
+        },
+      ],
+    };
+    const base = castInput([shield, bolt, meditate], {
+      combatPattern: pattern,
+    });
+
+    const result = resolveV2SkillCast({
+      ...base,
+      attacker: { ...base.attacker, mp: 0 },
+    });
+
+    expect(result.castSkillId).toBe(bolt);
+  });
+
   it("역할 블록도 장착 풀 밖의 스킬은 고르지 않는다", () => {
     const rolePattern: V2CombatPattern = {
       blocks: [{ condition: { kind: "always" }, action: { kind: "role", role: "heal" } }],

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
 import { Button } from "@/components/ui/Button";
 import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
-import { Gear } from "@phosphor-icons/react";
+import { Gear, MapTrifold } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { HuntResultCard } from "@/adventure/v2/HuntResultCard";
 import { applyHpRegen, canHuntWithHp } from "@/adventure/v2/hpRegen";
@@ -22,7 +22,6 @@ import {
 } from "@/adventure/v2/PlayerStatusCard";
 import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
 import type { HuntResultPayload } from "@/adventure/v2/useDungeonHunt";
-import { HuntResultSheet } from "@/adventure/v2/HuntResultSheet";
 import { DungeonContextSummary } from "@/adventure/v2/DungeonContextSummary";
 import { CompactBattlePlayerStatus } from "@/adventure/v2/CompactBattlePlayerStatus";
 import {
@@ -400,7 +399,6 @@ export function V2DungeonFloorView({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchSummary, setBatchSummary] = useState<BatchSummary | null>(null);
-  const [resultSheetOpen, setResultSheetOpen] = useState(false);
   const [latestPresentedResult, setLatestPresentedResult] = useState<
     | { kind: "single"; result: HuntResultPayload }
     | { kind: "batch"; summary: BatchSummary }
@@ -413,7 +411,7 @@ export function V2DungeonFloorView({
         : []
       : latestPresentedResult.summary.rareMapDropInstances ?? []
     : [];
-  const resultSheetRareMap =
+  const resultRareMap =
     newlyDiscoveredRareMaps
       .filter(
         (map) => RARE_MAP_KINDS[map.kind]?.category !== "utility",
@@ -801,10 +799,7 @@ export function V2DungeonFloorView({
         if (stopReason) {
           setAutoHunt(false);
           setAutoStopReason(stopReason);
-          setResultSheetOpen(true);
         }
-      } else {
-        setResultSheetOpen(true);
       }
     } finally {
       setBatchRunning(false);
@@ -902,7 +897,6 @@ export function V2DungeonFloorView({
       if (stopReason) {
         setAutoHunt(false);
         setAutoStopReason(stopReason);
-        if (latestPresentedResult) setResultSheetOpen(true);
         return;
       }
     }
@@ -911,7 +905,6 @@ export function V2DungeonFloorView({
       setAutoHunt(false);
       if (autoRun) {
         setAutoStopReason(lowStamina ? "stamina" : "recovery");
-        if (latestPresentedResult) setResultSheetOpen(true);
       }
       return;
     }
@@ -1026,10 +1019,7 @@ export function V2DungeonFloorView({
             if (stopReason) {
               setAutoHunt(false);
               setAutoStopReason(stopReason);
-              setResultSheetOpen(true);
             }
-          } else {
-            setResultSheetOpen(true);
           }
         } else {
           // 사냥이 서버에서 거부됨(depth_locked·policy_blocked·hp_zero 등) — 실패 시
@@ -1086,7 +1076,6 @@ export function V2DungeonFloorView({
     if (offlineLocked) return;
     if (autoHunt) {
       setAutoHunt(false);
-      if (latestPresentedResult) setResultSheetOpen(true);
       return;
     }
     setAutoStopReason(null);
@@ -1542,16 +1531,6 @@ export function V2DungeonFloorView({
         )}
       </Card>
 
-      {latestPresentedResult && !resultSheetOpen && (
-        <button
-          type="button"
-          onClick={() => setResultSheetOpen(true)}
-          className="ui-game-button min-h-11 w-full rounded-md border border-indigo-300 bg-white px-3 text-sm font-semibold text-indigo-700 shadow-sm hover:bg-indigo-50 dark:border-indigo-800 dark:bg-zinc-900 dark:text-indigo-300 dark:hover:bg-zinc-800"
-        >
-          최근 결과 다시 보기
-        </button>
-      )}
-
       {needsRecovery && (
         <div className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 dark:border-rose-800 dark:bg-rose-950">
           <p className="text-sm font-medium text-rose-700 dark:text-rose-300">
@@ -1573,50 +1552,7 @@ export function V2DungeonFloorView({
       )}
 
       {latestPresentedResult && (
-        <HuntResultSheet
-          open={resultSheetOpen}
-          title={
-            latestPresentedResult.kind === "single"
-              ? latestPresentedResult.result.won
-                ? "사냥 승리"
-                : "사냥 패배"
-              : `${latestPresentedResult.summary.completed}회 사냥 결과`
-          }
-          onClose={() => setResultSheetOpen(false)}
-          onRepeat={() => {
-            setResultSheetOpen(false);
-            tapHunt();
-          }}
-          rareMapAction={
-            resultSheetRareMap && onEnterRareMap
-              ? {
-                  label: `레어맵 · ${RARE_MAP_KINDS[resultSheetRareMap.kind].name}`,
-                  onClick: () => {
-                    setResultSheetOpen(false);
-                    onEnterRareMap(resultSheetRareMap);
-                  },
-                }
-              : undefined
-          }
-          onViewLog={
-            latestPresentedResult.kind === "single"
-              ? latestPresentedResult.result.replay
-                ? () => {
-                    setShowReplay(true);
-                    setResultSheetOpen(false);
-                    window.setTimeout(() => replaySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-                  }
-                : undefined
-              : latestPresentedResult.summary.replays?.length
-                ? () => {
-                    setSelectedBatchReplay(latestPresentedResult.summary.replays?.[0] ?? null);
-                    setShowReplay(true);
-                    setResultSheetOpen(false);
-                    window.setTimeout(() => replaySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-                  }
-                : undefined
-          }
-        >
+        <section aria-label="최근 사냥 결과" className="space-y-2">
           {latestPresentedResult.kind === "batch" ? (
             <BatchSummaryCard
               summary={latestPresentedResult.summary}
@@ -1625,7 +1561,6 @@ export function V2DungeonFloorView({
               onSelectReplay={(entry) => {
                 setSelectedBatchReplay(entry);
                 setShowReplay(true);
-                setResultSheetOpen(false);
                 window.setTimeout(() => replaySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
               }}
             />
@@ -1637,7 +1572,41 @@ export function V2DungeonFloorView({
               hasMp={(mp?.maxMp ?? 0) > 0}
             />
           )}
-        </HuntResultSheet>
+          {resultRareMap && onEnterRareMap && (
+            <Button
+              type="button"
+              variant="warning"
+              size="md"
+              className="w-full"
+              onClick={() => onEnterRareMap(resultRareMap)}
+            >
+              <MapTrifold size={18} aria-hidden /> 레어맵 ·{" "}
+              {RARE_MAP_KINDS[resultRareMap.kind].name}
+            </Button>
+          )}
+          {latestPresentedResult.kind === "single" &&
+            latestPresentedResult.result.replay && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="md"
+                className="w-full"
+                onClick={() => {
+                  setShowReplay(true);
+                  window.setTimeout(
+                    () =>
+                      replaySectionRef.current?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                      }),
+                    0,
+                  );
+                }}
+              >
+                전투 기록 보기
+              </Button>
+            )}
+        </section>
       )}
 
       {showReplay && selectedBatchReplay?.replay && (

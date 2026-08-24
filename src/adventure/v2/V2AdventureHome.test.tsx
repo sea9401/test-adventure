@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -67,7 +67,7 @@ afterEach(() => {
 });
 
 describe("V2AdventureHome 스태미나 위젯", () => {
-  it("저장 설정으로 스태미나 바를 표시하고 홈 편집에서 숨긴다", () => {
+  it("저장 설정으로 스태미나 바를 표시하되 홈 편집 진입점은 노출하지 않는다", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(JSON.stringify({ ok: true }))),
@@ -76,10 +76,7 @@ describe("V2AdventureHome 스태미나 위젯", () => {
     render(<V2AdventureHome />);
 
     expect(screen.getByText("홈 스태미나 바")).not.toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "홈 편집" }));
-    fireEvent.click(screen.getByRole("button", { name: "스태미나 숨기기" }));
-    expect(mocks.updatePreferences).toHaveBeenCalledWith({
-      hiddenWidgetIds: ["stamina"],
-    });
+    expect(screen.queryByRole("button", { name: "홈 편집" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "스태미나 숨기기" })).toBeNull();
   });
 });

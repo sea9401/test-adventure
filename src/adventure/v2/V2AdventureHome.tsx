@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowCounterClockwise, SlidersHorizontal, X } from "@phosphor-icons/react";
 import { fetchGameState } from "./fetchGameState";
 import {
   V2CharacterCard,
@@ -25,20 +24,16 @@ import type {
 } from "@/adventure/profile/profileShowcase";
 import { useAdventureDashboard } from "./AdventureDashboardProvider";
 import {
-  DEFAULT_ADVENTURE_HOME_HIDDEN_WIDGET_IDS,
   DEFAULT_ADVENTURE_HOME_PREFERENCES,
-  DEFAULT_ADVENTURE_HOME_WIDGET_ORDER,
   type AdventureHomePreferences,
   type AdventureHomeWidgetId,
 } from "./adventureDashboard";
 import { AdventureHomeWidgetGrid } from "./AdventureHomeWidgetGrid";
 import { AdventureActivityChecklist } from "./AdventureActivityChecklist";
-import { AdventureActivitySettings } from "./AdventureActivitySettings";
 import { CompactCharacterSummary } from "./CompactCharacterSummary";
 import { RecentBulletinPreview } from "./RecentBulletinPreview";
 import { StaminaBar } from "./StaminaBar";
 import { useGameState } from "./GameStateProvider";
-import { Button } from "@/components/ui/Button";
 import { Inset } from "@/components/ui/Inset";
 import { PageShell } from "@/components/ui/PageShell";
 import { StatusBanner } from "@/components/ui/StatusBanner";
@@ -95,7 +90,6 @@ type EquipmentResponse = {
 export function V2AdventureHome() {
   const [state, setState] = useState<StateResponse | null>(null);
   const [equipment, setEquipment] = useState<EquipmentResponse | null>(null);
-  const [editing, setEditing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const { snapshot, loading, error, refresh: refreshDashboard, updatePreferences } =
     useAdventureDashboard();
@@ -230,54 +224,16 @@ export function V2AdventureHome() {
 
   return (
     <PageShell spacing="tight" className="py-3 sm:py-6">
-        <div className="flex items-center justify-end gap-2">
-          {saveError && <StatusBanner tone="error" role="status" className="mr-auto">{saveError}</StatusBanner>}
-          {editing && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => persistPreferences({
-                widgetOrder: [...DEFAULT_ADVENTURE_HOME_WIDGET_ORDER],
-                hiddenWidgetIds: [...DEFAULT_ADVENTURE_HOME_HIDDEN_WIDGET_IDS],
-              })}
-            >
-              <ArrowCounterClockwise size={17} aria-hidden /> 기본 배치
-            </Button>
-          )}
-          <Button
-            type="button"
-            variant="soft"
-            size="sm"
-            onClick={() => setEditing((value) => !value)}
-          >
-            {editing ? <X size={17} aria-hidden /> : <SlidersHorizontal size={17} aria-hidden />}
-            {editing ? "편집 완료" : "홈 편집"}
-          </Button>
-        </div>
-        {editing && snapshot && (
-          <AdventureActivitySettings
-            activities={snapshot.activities}
-            onToggle={(id, enabled) =>
-              persistPreferences({
-                activityEnabled: {
-                  ...preferences.activityEnabled,
-                  [id]: enabled,
-                },
-              })
-            }
-          />
-        )}
-        <AdventureHomeWidgetGrid
-          order={preferences.widgetOrder}
-          hidden={preferences.hiddenWidgetIds}
-          editing={editing}
-          widgets={widgets}
-          onOrderChange={(widgetOrder) => persistPreferences({ widgetOrder })}
-          onHiddenChange={(hiddenWidgetIds) =>
-            persistPreferences({ hiddenWidgetIds })
-          }
-        />
+      {saveError && (
+        <StatusBanner tone="error" role="status">
+          {saveError}
+        </StatusBanner>
+      )}
+      <AdventureHomeWidgetGrid
+        order={preferences.widgetOrder}
+        hidden={preferences.hiddenWidgetIds}
+        widgets={widgets}
+      />
     </PageShell>
   );
 }

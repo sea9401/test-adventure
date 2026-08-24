@@ -19,12 +19,20 @@ import {
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { PageShell } from "@/components/ui/PageShell";
+import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { PushNotificationSettings } from "@/components/PushNotificationSettings";
 import { BlockedUsersPanel } from "@/components/safety/BlockedUsersPanel";
 import { useGameState } from "./GameStateProvider";
 import { useAdventureDashboard } from "./AdventureDashboardProvider";
+import { AdventureActivitySettings } from "./AdventureActivitySettings";
+import { AdventureHomeLayoutSettings } from "./AdventureHomeLayoutSettings";
+import {
+  DEFAULT_ADVENTURE_HOME_HIDDEN_WIDGET_IDS,
+  DEFAULT_ADVENTURE_HOME_WIDGET_ORDER,
+  type AdventureHomePreferences,
+} from "./adventureDashboard";
 import {
   BACKGROUND_HIDDEN_MODE_CLASS,
   DISCREET_MODE_CLASS,
@@ -85,6 +93,7 @@ export function V2PreferencesView() {
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [notificationSaving, setNotificationSaving] = useState(false);
   const [notificationSaveError, setNotificationSaveError] = useState(false);
+  const [homeSaveError, setHomeSaveError] = useState(false);
   const activityNotificationsEnabled =
     snapshot?.preferences.activityNotificationsEnabled ?? true;
 
@@ -150,9 +159,54 @@ export function V2PreferencesView() {
     }
   };
 
+  const persistHomePreferences = (patch: Partial<AdventureHomePreferences>) => {
+    setHomeSaveError(false);
+    void updatePreferences(patch).catch(() => setHomeSaveError(true));
+  };
+
   return (
     <PageShell>
       <SubViewHeader title="환경 설정" onBack={() => router.push("/")} />
+
+      {homeSaveError && (
+        <StatusBanner tone="error" role="status">
+          홈 설정을 저장하지 못해 이전 상태로 되돌렸습니다.
+        </StatusBanner>
+      )}
+
+      {snapshot && (
+        <>
+          <AdventureHomeLayoutSettings
+            order={snapshot.preferences.widgetOrder}
+            hidden={snapshot.preferences.hiddenWidgetIds}
+            onOrderChange={(widgetOrder) =>
+              persistHomePreferences({ widgetOrder })
+            }
+            onHiddenChange={(hiddenWidgetIds) =>
+              persistHomePreferences({ hiddenWidgetIds })
+            }
+            onReset={() =>
+              persistHomePreferences({
+                widgetOrder: [...DEFAULT_ADVENTURE_HOME_WIDGET_ORDER],
+                hiddenWidgetIds: [
+                  ...DEFAULT_ADVENTURE_HOME_HIDDEN_WIDGET_IDS,
+                ],
+              })
+            }
+          />
+          <AdventureActivitySettings
+            activities={snapshot.activities}
+            onToggle={(id, enabled) =>
+              persistHomePreferences({
+                activityEnabled: {
+                  ...snapshot.preferences.activityEnabled,
+                  [id]: enabled,
+                },
+              })
+            }
+          />
+        </>
+      )}
 
       <Card as="section" padding="md" className="space-y-3">
         <div>

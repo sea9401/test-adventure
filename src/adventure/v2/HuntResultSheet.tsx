@@ -2,7 +2,12 @@
 
 import { useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ArrowClockwise, ListBullets, X } from "@phosphor-icons/react";
+import {
+  ArrowClockwise,
+  ListBullets,
+  MapTrifold,
+  X,
+} from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
@@ -15,6 +20,7 @@ export function HuntResultSheet({
   onClose,
   onRepeat,
   onViewLog,
+  rareMapAction,
 }: {
   open: boolean;
   title: string;
@@ -22,6 +28,10 @@ export function HuntResultSheet({
   onClose: () => void;
   onRepeat: () => void;
   onViewLog?: () => void;
+  rareMapAction?: {
+    label: string;
+    onClick: () => void;
+  };
 }) {
   if (!open || typeof document === "undefined") return null;
   return createPortal(
@@ -30,6 +40,7 @@ export function HuntResultSheet({
       onClose={onClose}
       onRepeat={onRepeat}
       onViewLog={onViewLog}
+      rareMapAction={rareMapAction}
     >
       {children}
     </OpenHuntResultSheet>,
@@ -43,6 +54,7 @@ function OpenHuntResultSheet({
   onClose,
   onRepeat,
   onViewLog,
+  rareMapAction,
 }: Omit<Parameters<typeof HuntResultSheet>[0], "open">) {
   const contentRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -71,10 +83,31 @@ function OpenHuntResultSheet({
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4">
           {children}
         </div>
-        <footer className="grid shrink-0 grid-cols-2 gap-2 border-t border-zinc-200 px-3 pt-3 dark:border-zinc-700 sm:grid-cols-[1fr_auto_auto]">
-          <Button type="button" onClick={onRepeat} variant="primary" size="md" className="col-span-2 sm:col-span-1">
+        <footer
+          className={`grid shrink-0 grid-cols-2 gap-2 border-t border-zinc-200 px-3 pt-3 dark:border-zinc-700 ${
+            rareMapAction ? "sm:grid-cols-2" : "sm:grid-cols-[1fr_auto_auto]"
+          }`}
+        >
+          <Button
+            type="button"
+            onClick={onRepeat}
+            variant="primary"
+            size="md"
+            className={`col-span-2 ${rareMapAction ? "" : "sm:col-span-1"}`}
+          >
             <ArrowClockwise size={18} aria-hidden /> 다시 사냥
           </Button>
+          {rareMapAction && (
+            <Button
+              type="button"
+              onClick={rareMapAction.onClick}
+              variant="warning"
+              size="md"
+              className="col-span-2"
+            >
+              <MapTrifold size={18} aria-hidden /> {rareMapAction.label}
+            </Button>
+          )}
           {onViewLog && (
             <Button type="button" onClick={onViewLog} variant="secondary" size="md">
               <ListBullets size={17} aria-hidden /> 전투 기록 보기

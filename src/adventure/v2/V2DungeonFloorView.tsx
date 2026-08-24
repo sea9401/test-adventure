@@ -406,6 +406,27 @@ export function V2DungeonFloorView({
     | { kind: "batch"; summary: BatchSummary }
     | null
   >(null);
+  const newlyDiscoveredRareMaps = latestPresentedResult
+    ? latestPresentedResult.kind === "single"
+      ? latestPresentedResult.result.rareMapDropInstance
+        ? [latestPresentedResult.result.rareMapDropInstance]
+        : []
+      : latestPresentedResult.summary.rareMapDropInstances ?? []
+    : [];
+  const resultSheetRareMap =
+    newlyDiscoveredRareMaps
+      .filter(
+        (map) => RARE_MAP_KINDS[map.kind]?.category !== "utility",
+      )
+      .slice()
+      .sort(
+        (a, b) => a.foundAt - b.foundAt || a.iid.localeCompare(b.iid),
+      )[0] ??
+    (rareMapIid &&
+    latestPresentedResult?.kind === "single" &&
+    latestPresentedResult.result.won
+      ? sortHuntRareMaps(heldRareMaps)[0] ?? null
+      : null);
   const [showReplay, setShowReplay] = useState(false);
   const replaySectionRef = useRef<HTMLDivElement>(null);
   const [selectedBatchReplay, setSelectedBatchReplay] =
@@ -1566,6 +1587,17 @@ export function V2DungeonFloorView({
             setResultSheetOpen(false);
             tapHunt();
           }}
+          rareMapAction={
+            resultSheetRareMap && onEnterRareMap
+              ? {
+                  label: `레어맵 · ${RARE_MAP_KINDS[resultSheetRareMap.kind].name}`,
+                  onClick: () => {
+                    setResultSheetOpen(false);
+                    onEnterRareMap(resultSheetRareMap);
+                  },
+                }
+              : undefined
+          }
           onViewLog={
             latestPresentedResult.kind === "single"
               ? latestPresentedResult.result.replay
@@ -1596,7 +1628,6 @@ export function V2DungeonFloorView({
                 setResultSheetOpen(false);
                 window.setTimeout(() => replaySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
               }}
-              onEnterRareMap={onEnterRareMap}
             />
           ) : (
             <HuntResultCard
@@ -1604,12 +1635,6 @@ export function V2DungeonFloorView({
               hpCharges={latestPresentedResult.result.hpCharges}
               mpCharges={latestPresentedResult.result.mpCharges}
               hasMp={(mp?.maxMp ?? 0) > 0}
-              onEnterRareMap={onEnterRareMap}
-              nextRareMap={
-                rareMapIid && latestPresentedResult.result.won
-                  ? sortHuntRareMaps(heldRareMaps)[0] ?? null
-                  : null
-              }
             />
           )}
         </HuntResultSheet>

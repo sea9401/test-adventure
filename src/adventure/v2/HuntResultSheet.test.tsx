@@ -41,4 +41,31 @@ describe("사냥 결과 하단 시트", () => {
     expect(onViewLog).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("다시 사냥 바로 아래에 별도의 레어맵 입장 버튼을 표시한다", () => {
+    const onEnterRareMap = vi.fn();
+    render(
+      <HuntResultSheet
+        open
+        title="50회 사냥 결과"
+        onClose={vi.fn()}
+        onRepeat={vi.fn()}
+        rareMapAction={{
+          label: "레어맵 · 낡은 탐사로",
+          onClick: onEnterRareMap,
+        }}
+      >
+        결과
+      </HuntResultSheet>,
+    );
+
+    const repeat = screen.getByRole("button", { name: "다시 사냥" });
+    const rareMap = screen.getByRole("button", {
+      name: "레어맵 · 낡은 탐사로",
+    });
+    expect(repeat.nextElementSibling).toBe(rareMap);
+
+    fireEvent.click(rareMap);
+    expect(onEnterRareMap).toHaveBeenCalledTimes(1);
+  });
 });

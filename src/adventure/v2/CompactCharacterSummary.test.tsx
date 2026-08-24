@@ -3,11 +3,12 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CompactCharacterSummary } from "./CompactCharacterSummary";
+import { V2CharacterCard } from "./V2CharacterCard";
 
 afterEach(cleanup);
 
 describe("접을 수 있는 캐릭터 요약", () => {
-  it("펼친 상세 카드 안쪽의 간단한 화살표 버튼으로 다시 접는다", () => {
+  it("펼친 상세 카드 내부의 문구가 있는 버튼으로 다시 접는다", () => {
     const onExpandedChange = vi.fn();
     render(
       <CompactCharacterSummary
@@ -16,16 +17,17 @@ describe("접을 수 있는 캐릭터 요약", () => {
         expanded
         onExpandedChange={onExpandedChange}
       >
-        <div>전체 캐릭터 카드</div>
+        <V2CharacterCard
+          character={{ name: "젠피", level: 87, exp: 462, expToNext: 1_000, hp: 80, maxHp: 100, mp: 20, maxMp: 40, gold: 0 }}
+          onCollapse={() => onExpandedChange(false)}
+        />
       </CompactCharacterSummary>,
     );
 
-    expect(screen.getByText("전체 캐릭터 카드")).toBeTruthy();
-    expect(screen.queryByText("캐릭터 상세 정보")).toBeNull();
     const collapse = screen.getByRole("button", { name: "캐릭터 정보 접기" });
-    expect(collapse.textContent).toBe("");
-    expect(collapse.className).toContain("absolute");
-    expect(collapse.className).not.toContain("w-full");
+    expect(collapse.textContent).toContain("상세 정보 접기");
+    expect(collapse.closest(".ui-character-card")).not.toBeNull();
+    expect(collapse.className).not.toContain("absolute");
 
     fireEvent.click(collapse);
     expect(onExpandedChange).toHaveBeenCalledWith(false);

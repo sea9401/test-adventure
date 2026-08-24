@@ -193,6 +193,7 @@ export function V2AdventureHome() {
         profileBadgeStandOwned={state.profileBadgeStandOwned === true}
         profileBadgeStandVisible={state.profileBadgeStandVisible !== false}
         showcaseEditable
+        onCollapse={() => persistPreferences({ characterExpanded: false })}
         equipped={equipment?.equipped}
         owned={equipment?.owned}
       />

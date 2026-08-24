@@ -422,7 +422,7 @@ export function MainTabNav({
                   onNavigate(s.href);
                 }}
                 aria-label={`${s.label}${hasActionable ? ", 처리 가능한 항목 있음" : ""}`}
-                className={`${SURFACE_INSET} relative flex min-h-11 items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-zinc-100 active:bg-zinc-200 dark:hover:bg-zinc-900 dark:active:bg-zinc-800`}
+                className={`${SURFACE_INSET} relative flex h-14 items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-zinc-100 active:bg-zinc-200 dark:hover:bg-zinc-900 dark:active:bg-zinc-800`}
               >
                 <s.Icon
                   size={20}

@@ -165,4 +165,27 @@ describe("메인 탭 디자인 시스템", () => {
     });
     expect(map.textContent).toContain("자동 벌목 · 느티나무 작업 완료");
   });
+
+  it("모든 드롭다운 메뉴 카드를 상태 문구 유무와 관계없이 같은 높이로 표시한다", () => {
+    render(
+      <MainTabNav
+        activeKey="battle"
+        gameStateLoaded
+        viewerGuildId={null}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    for (const tabName of ["전투", "마을", "생활", "캐릭터", "길드"]) {
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: new RegExp(`^${tabName}`),
+        }),
+      );
+
+      for (const item of screen.getAllByRole("menuitem")) {
+        expect(item.className).toContain("h-14");
+      }
+    }
+  });
 });

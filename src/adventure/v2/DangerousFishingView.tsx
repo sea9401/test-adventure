@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TabBar } from "@/components/ui/TabBar";
@@ -126,12 +126,27 @@ export function DangerousFishingView({
   const [zoneId, setZoneId] = useState<DangerousZoneId>("shattered_reef");
   const [depthId, setDepthId] = useState<DangerousDepthId>("surface");
   const [baitId, setBaitId] = useState<DangerousBaitId>("basic_bait");
+  const [preparedEncounter, setPreparedEncounter] = useState<{
+    voyageId: string;
+    baitId: DangerousBaitId;
+  } | null>(null);
+  const pendingEncounterScrollRef = useRef<"voyage" | "boss" | null>(null);
+  const voyageEncounterRef = useRef<HTMLDivElement>(null);
+  const bossEncounterRef = useRef<HTMLDivElement>(null);
   const encounter = model?.state.voyage?.encounter ?? null;
   const realtimeEncounter =
     encounter?.simulationVersion === 2 ? encounter : null;
   const legacyEncounter =
     encounter && encounter.simulationVersion !== 2 ? encounter : null;
+  const realtimeEncounterId = realtimeEncounter?.id ?? null;
+  const realtimeBossEncounterId = boss?.realtimeAttempt?.encounter.id ?? null;
   const interactionBlocked = busy !== null || verification !== null;
+  const encounterPrepared = Boolean(
+    !encounter &&
+    preparedEncounter &&
+    preparedEncounter.voyageId === model?.state.voyage?.id &&
+    preparedEncounter.baitId === baitId,
+  );
   const activeFeedback = feedback?.scope === activeTab ? feedback : null;
   const showPurpose =
     model?.heritage.unlocked === true &&
@@ -153,6 +168,44 @@ export function DangerousFishingView({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activeTab, interactionBlocked, legacyEncounter, onAction]);
+
+  useEffect(() => {
+    const pendingScope = pendingEncounterScrollRef.current;
+    const target =
+      pendingScope === "voyage" && realtimeEncounterId
+        ? voyageEncounterRef.current
+        : pendingScope === "boss" && realtimeBossEncounterId
+          ? bossEncounterRef.current
+          : null;
+    if (!target) return;
+    pendingEncounterScrollRef.current = null;
+    target.scrollIntoView({ block: "start" });
+  }, [realtimeBossEncounterId, realtimeEncounterId]);
+
+  const prepareEncounter = () => {
+    const voyageId = model?.state.voyage?.id;
+    if (!voyageId) return;
+    setPreparedEncounter({ voyageId, baitId });
+  };
+  const changeBait = (nextBaitId: DangerousBaitId) => {
+    setBaitId(nextBaitId);
+    setPreparedEncounter(null);
+  };
+  const startPreparedEncounter = async () => {
+    pendingEncounterScrollRef.current = "voyage";
+    const started = await onStartEncounter(baitId);
+    if (started) {
+      setPreparedEncounter(null);
+    } else {
+      pendingEncounterScrollRef.current = null;
+    }
+  };
+  const startPreparedBossAttempt = async (eventId: string) => {
+    pendingEncounterScrollRef.current = "boss";
+    const started = await onStartBossAttempt(eventId);
+    if (!started) pendingEncounterScrollRef.current = null;
+    return started;
+  };
 
   return (
     <main className={`${SURFACE_CARD} mx-auto my-2 w-[calc(100%-1rem)] max-w-[780px] space-y-4 rounded-2xl p-4 text-zinc-900 shadow-lg dark:text-zinc-100 sm:my-4 sm:w-[calc(100%-2rem)] sm:p-6`}>
@@ -270,23 +323,25 @@ export function DangerousFishingView({
           <p className="text-sm text-zinc-600 dark:text-zinc-300">현재 {model.heritage.fishingLevel}레벨입니다. 기존 낚시에서 경험치를 쌓으면 별도 비용 없이 스타터 세트를 받습니다.</p>
         </section>
       ) : activeTab === "boss" ? (
-        <DangerousFishingBossPanel
-          model={boss}
-          busy={interactionBlocked}
-          feedback={activeFeedback}
-          startBlockedReason={
-            model.state.voyage
-              ? "진행 중인 항해를 마치고 귀환한 뒤 개인 시도를 시작할 수 있습니다."
-              : null
-          }
-          onStart={onStartBossAttempt}
-          onAction={onBossAction}
-          onClaim={onClaimBossReward}
-          onOpenShop={onOpenShop}
-          readJson={readJson}
-          verification={verification}
-          onRealtimeFinish={(response) => onRealtimeFinish("boss", response)}
-        />
+        <div ref={bossEncounterRef} className="scroll-mt-24">
+          <DangerousFishingBossPanel
+            model={boss}
+            busy={interactionBlocked}
+            feedback={activeFeedback}
+            startBlockedReason={
+              model.state.voyage
+                ? "진행 중인 항해를 마치고 귀환한 뒤 개인 시도를 시작할 수 있습니다."
+                : null
+            }
+            onStart={startPreparedBossAttempt}
+            onAction={onBossAction}
+            onClaim={onClaimBossReward}
+            onOpenShop={onOpenShop}
+            readJson={readJson}
+            verification={verification}
+            onRealtimeFinish={(response) => onRealtimeFinish("boss", response)}
+          />
+        </div>
       ) : (
         <>
           {!model.state.voyage ? (
@@ -296,11 +351,14 @@ export function DangerousFishingView({
               depthId={depthId}
               baitId={baitId}
               busy={interactionBlocked}
+              encounterPrepared={encounterPrepared}
               onZoneChange={setZoneId}
               onDepthChange={setDepthId}
-              onBaitChange={setBaitId}
+              onBaitChange={changeBait}
               onStartVoyage={() => void onStartVoyage(zoneId, depthId)}
-              onStartEncounter={() => void onStartEncounter(baitId)}
+              onPrepareEncounter={prepareEncounter}
+              onStartEncounter={() => void startPreparedEncounter()}
+              onCancelEncounter={() => setPreparedEncounter(null)}
               onOpenShop={onOpenShop}
             />
           ) : (
@@ -322,32 +380,34 @@ export function DangerousFishingView({
                 <span>위험도 {model.riskPreview.risk} · 사고 확률 {Math.round(model.riskPreview.accidentChance * 100)}% · 최대 손실 {Math.round(model.riskPreview.maxLossFraction * 100)}%</span>
               </section>
               {realtimeEncounter ? (
-                <DangerousFishingRealtimePanel
-                  encounter={realtimeEncounter}
-                  scene={{
-                    encounterImageSrc:
-                      model.catalogs.zones[model.state.voyage.zoneId]
-                        .encounterImageSrc,
-                    depth: model.state.voyage.depthId,
-                    risk: realtimeEncounter.config.risk,
-                    description: `${model.catalogs.zones[model.state.voyage.zoneId].name} · ${model.catalogs.depths[model.state.voyage.depthId].name}`,
-                  }}
-                  targetMetadata={{
-                    imageSrc:
-                      model.catalogs.fish[realtimeEncounter.targetId].imageSrc,
-                    name: model.catalogs.fish[realtimeEncounter.targetId].name,
-                  }}
-                  endpointTarget={{
-                    kind: "voyage",
-                    endpoint: "/api/v2/dangerous-fishing/encounter",
-                  }}
-                  readJson={readJson}
-                  verification={verification}
-                  onFinish={(response) =>
-                    onRealtimeFinish("voyage", response)
-                  }
-                  feedback={activeFeedback}
-                />
+                <div ref={voyageEncounterRef} className="scroll-mt-24">
+                  <DangerousFishingRealtimePanel
+                    encounter={realtimeEncounter}
+                    scene={{
+                      encounterImageSrc:
+                        model.catalogs.zones[model.state.voyage.zoneId]
+                          .encounterImageSrc,
+                      depth: model.state.voyage.depthId,
+                      risk: realtimeEncounter.config.risk,
+                      description: `${model.catalogs.zones[model.state.voyage.zoneId].name} · ${model.catalogs.depths[model.state.voyage.depthId].name}`,
+                    }}
+                    targetMetadata={{
+                      imageSrc:
+                        model.catalogs.fish[realtimeEncounter.targetId].imageSrc,
+                      name: model.catalogs.fish[realtimeEncounter.targetId].name,
+                    }}
+                    endpointTarget={{
+                      kind: "voyage",
+                      endpoint: "/api/v2/dangerous-fishing/encounter",
+                    }}
+                    readJson={readJson}
+                    verification={verification}
+                    onFinish={(response) =>
+                      onRealtimeFinish("voyage", response)
+                    }
+                    feedback={activeFeedback}
+                  />
+                </div>
               ) : legacyEncounter ? (
                 <DangerousFishingEncounterPanel
                   encounter={legacyEncounter}
@@ -365,11 +425,14 @@ export function DangerousFishingView({
                   depthId={depthId}
                   baitId={baitId}
                   busy={interactionBlocked}
+                  encounterPrepared={encounterPrepared}
                   onZoneChange={setZoneId}
                   onDepthChange={setDepthId}
-                  onBaitChange={setBaitId}
+                  onBaitChange={changeBait}
                   onStartVoyage={() => void onStartVoyage(zoneId, depthId)}
-                  onStartEncounter={() => void onStartEncounter(baitId)}
+                  onPrepareEncounter={prepareEncounter}
+                  onStartEncounter={() => void startPreparedEncounter()}
+                  onCancelEncounter={() => setPreparedEncounter(null)}
                   onOpenShop={onOpenShop}
                 />
               )}

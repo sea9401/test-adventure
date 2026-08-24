@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { DANGEROUS_BOSSES, DANGEROUS_ZONES } from "@/adventure/data/v2/dangerousFishing";
@@ -91,6 +92,8 @@ export function DangerousFishingBossPanel({
   verification?: ActivityVerificationChallenge | null;
   onRealtimeFinish: (response: Record<string, unknown>) => void;
 }) {
+  const [preparedEventId, setPreparedEventId] = useState<string | null>(null);
+
   if (!model?.event) {
     return (
       <section className={`${SURFACE_CARD} space-y-3 p-4`}>
@@ -127,6 +130,12 @@ export function DangerousFishingBossPanel({
       : DANGEROUS_ZONES.abyssal_rift;
   const staminaPct = Math.min(100, (event.stamina / event.maxStamina) * 100);
   const active = event.status === "active";
+  const prepared = active && preparedEventId === event.id;
+
+  const startPreparedAttempt = async () => {
+    const started = await onStart(event.id);
+    if (started) setPreparedEventId(null);
+  };
 
   if (active && model.realtimeAttempt && boss) {
     const attemptContribution = Math.min(event.stamina, boss.attemptStamina);
@@ -320,20 +329,55 @@ export function DangerousFishingBossPanel({
       {feedback ? <DangerousFishingFeedbackCard feedback={feedback} /> : null}
 
       {active ? (
-        <div className="space-y-2">
-          <Button
-            fullWidth
-            variant="info"
-            disabled={busy || Boolean(startBlockedReason)}
-            onClick={() => void onStart(event.id)}
+        prepared ? (
+          <div
+            className={`${SURFACE_INSET} space-y-3 p-3`}
+            role="region"
+            aria-label="거대어 낚시 시작 준비"
           >
-            개인 시도 시작
-          </Button>
-          <p className="text-center text-[11px] text-zinc-500">
-            {startBlockedReason ??
-              "줄이 끊겨 실패해도 기존 기여는 유지되며 다시 시도할 수 있습니다."}
-          </p>
-        </div>
+            <div>
+              <h3 className="text-sm font-bold">거대어 낚시 준비 완료</h3>
+              <p className="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
+                화면과 조작 위치를 확인한 뒤 시작하세요. 시작 버튼을 누르기
+                전에는 제한 시간이 흐르지 않습니다.
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+              <Button
+                fullWidth
+                size="md"
+                variant="info"
+                className="min-h-14 text-base"
+                disabled={busy}
+                onClick={() => void startPreparedAttempt()}
+              >
+                거대어 낚시 시작
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={busy}
+                onClick={() => setPreparedEventId(null)}
+              >
+                준비 취소
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Button
+              fullWidth
+              variant="info"
+              disabled={busy || Boolean(startBlockedReason)}
+              onClick={() => setPreparedEventId(event.id)}
+            >
+              개인 시도 준비
+            </Button>
+            <p className="text-center text-[11px] text-zinc-500">
+              {startBlockedReason ??
+                "줄이 끊겨 실패해도 기존 기여는 유지되며 다시 시도할 수 있습니다."}
+            </p>
+          </div>
+        )
       ) : event.status === "defeated" && model.eligible ? (
         <div className="space-y-2">
           {model.rewardPreview ? (

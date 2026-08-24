@@ -20,11 +20,14 @@ export function DangerousFishingPreparationPanel({
   depthId,
   baitId,
   busy,
+  encounterPrepared,
   onZoneChange,
   onDepthChange,
   onBaitChange,
   onStartVoyage,
+  onPrepareEncounter,
   onStartEncounter,
+  onCancelEncounter,
   onOpenShop,
 }: {
   model: DangerousFishingViewModel;
@@ -32,13 +35,72 @@ export function DangerousFishingPreparationPanel({
   depthId: DangerousDepthId;
   baitId: DangerousBaitId;
   busy: boolean;
+  encounterPrepared: boolean;
   onZoneChange: (zoneId: DangerousZoneId) => void;
   onDepthChange: (depthId: DangerousDepthId) => void;
   onBaitChange: (baitId: DangerousBaitId) => void;
   onStartVoyage: () => void;
+  onPrepareEncounter: () => void;
   onStartEncounter: () => void;
+  onCancelEncounter: () => void;
   onOpenShop?: () => void;
 }) {
+  if (model.state.voyage && encounterPrepared) {
+    const bait = model.catalogs.baits[baitId];
+    const count = model.state.baitCounts[bait.id] ?? 0;
+    return (
+      <section
+        className={`${SURFACE_CARD} space-y-4 p-4`}
+        aria-label="위험 해역 낚시 시작 준비"
+      >
+        <div>
+          <h2 className="font-bold">낚시 준비 완료</h2>
+          <p className="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
+            화면과 조작 위치를 확인한 뒤 시작하세요. 시작 버튼을 누르기
+            전에는 제한 시간이 흐르지 않습니다.
+          </p>
+        </div>
+        <div className={`${SURFACE_INSET} flex items-center gap-3 p-3`}>
+          <Image
+            src={bait.imageSrc}
+            alt=""
+            width={58}
+            height={58}
+            className="h-14 w-14 shrink-0 object-contain"
+          />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">{bait.name}</p>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              {bait.unlimited ? "무제한" : `보유 ${count}개 · 시작 시 1개 사용`}
+            </p>
+            <p className="mt-1 text-[11px] font-medium text-sky-700 dark:text-sky-300">
+              {dangerousBaitRealtimeEffectCopy(bait)}
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+          <Button
+            fullWidth
+            size="md"
+            variant="info"
+            className="min-h-14 text-base"
+            disabled={busy}
+            onClick={onStartEncounter}
+          >
+            낚시 시작
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={busy}
+            onClick={onCancelEncounter}
+          >
+            준비 취소
+          </Button>
+        </div>
+      </section>
+    );
+  }
+
   if (model.state.voyage) {
     return (
       <section className={`${SURFACE_CARD} space-y-3 p-4`}>
@@ -84,8 +146,8 @@ export function DangerousFishingPreparationPanel({
           })}
         </div>
         <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-          <Button fullWidth variant="info" disabled={busy} onClick={onStartEncounter}>
-            낚싯줄 던지기
+          <Button fullWidth variant="info" disabled={busy} onClick={onPrepareEncounter}>
+            낚시 준비
           </Button>
           {onOpenShop ? (
             <Button variant="secondary" disabled={busy} onClick={onOpenShop}>

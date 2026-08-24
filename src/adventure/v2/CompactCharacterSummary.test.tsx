@@ -8,6 +8,97 @@ import { V2CharacterCard } from "./V2CharacterCard";
 afterEach(cleanup);
 
 describe("접을 수 있는 캐릭터 요약", () => {
+  it("접힌 요약의 모험 지원권을 누르면 혜택과 남은 시간을 상세 카드로 보여준다", () => {
+    render(
+      <CompactCharacterSummary
+        character={{ name: "젠피", level: 87, exp: 462, expToNext: 1_000, hp: 80, maxHp: 100, mp: 20, maxMp: 40, gold: 0 }}
+        guild={null}
+        adventureSupport={{
+          active: true,
+          activeUntil: Date.now() + 86_400_000,
+          regenBonusPct: 20,
+        }}
+        expanded={false}
+        onExpandedChange={vi.fn()}
+      >
+        <div>전체 캐릭터 카드</div>
+      </CompactCharacterSummary>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "모험 지원권 상세 보기" }),
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "모험 지원권 정보" });
+    expect(dialog.textContent).toContain("에너지 회복량 20% 증가");
+    expect(dialog.textContent).toContain("남음");
+    expect(dialog.textContent).toContain("까지");
+  });
+
+  it("접힌 요약의 음식을 누르면 품질과 효과와 남은 시간을 상세 카드로 보여준다", () => {
+    render(
+      <CompactCharacterSummary
+        character={{ name: "젠피", level: 87, exp: 462, expToNext: 1_000, hp: 80, maxHp: 100, mp: 20, maxMp: 40, gold: 0 }}
+        guild={null}
+        activeFoodBuff={{
+          recipeId: "fried_egg",
+          recipeName: "계란 프라이",
+          quality: "careful",
+          effect: { combatFlat: { atk: 25 }, huntExpPct: 10 },
+          expiresAt: Date.now() + 3_600_000,
+        }}
+        expanded={false}
+        onExpandedChange={vi.fn()}
+      >
+        <div>전체 캐릭터 카드</div>
+      </CompactCharacterSummary>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "계란 프라이 음식 효과 보기" }),
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "계란 프라이 음식 효과" });
+    expect(dialog.textContent).toContain("정성작");
+    expect(dialog.textContent).toContain("공격력 +25");
+    expect(dialog.textContent).toContain("사냥 경험치 +10%");
+    expect(dialog.textContent).toContain("남음");
+    expect(dialog.textContent).toContain("까지");
+  });
+
+  it("접힌 요약의 장착 장비를 누르면 실제 개체 옵션 카드를 읽기 전용으로 보여준다", () => {
+    render(
+      <CompactCharacterSummary
+        character={{ name: "젠피", level: 87, exp: 462, expToNext: 1_000, hp: 80, maxHp: 100, mp: 20, maxMp: 40, gold: 0 }}
+        guild={null}
+        equipped={{ weapon: "weapon-1" }}
+        owned={[
+          {
+            iid: "weapon-1",
+            id: "v2_iron_sword",
+            roll: { power: 100, weight: 0, options: {} },
+            enhance: { level: 5, bonusPct: 8 },
+          },
+        ]}
+        expanded={false}
+        onExpandedChange={vi.fn()}
+      >
+        <div>전체 캐릭터 카드</div>
+      </CompactCharacterSummary>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "철검 아이템 옵션 보기" }),
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "철검 정보" });
+    expect(dialog.textContent).toContain("철검 +5");
+    expect(dialog.textContent).toContain("기본 +100 · 강화 +8");
+    expect(screen.queryByRole("button", { name: /비어 있음.*옵션 보기/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "장착하기" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "해제" })).toBeNull();
+  });
+
   it("펼친 상세 카드 내부의 문구가 있는 버튼으로 다시 접는다", () => {
     const onExpandedChange = vi.fn();
     render(
@@ -64,7 +155,6 @@ describe("접을 수 있는 캐릭터 요약", () => {
     expect(document.querySelectorAll("[data-compact-equipment-slot]")).toHaveLength(6);
     expect(screen.getByTitle("무기 · 철검")).toBeTruthy();
     const expand = screen.getByRole("button", { name: "캐릭터 정보 펼치기" });
-    expect(screen.getAllByRole("button")).toHaveLength(1);
     expect(expand.className).toContain("size-11");
     fireEvent.click(expand);
     expect(onExpandedChange).toHaveBeenCalledWith(true);

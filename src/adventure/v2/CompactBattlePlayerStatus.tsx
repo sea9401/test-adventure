@@ -82,7 +82,7 @@ export function CompactBattlePlayerStatus({
               HP 충전약 {hpCharges.toLocaleString()}
               {mp && mp.maxMp > 0 ? ` · MP 충전약 ${mpCharges.toLocaleString()}` : ""}
             </span>
-            <span className="block">EXP {Math.max(0, exp).toLocaleString()} / {Math.max(1, maxExp).toLocaleString()} · 상세 보기</span>
+            <span className="block">EXP {Math.max(0, exp).toLocaleString()} / {Math.max(1, maxExp).toLocaleString()} · {expanded ? "상세 접기" : "상세 보기"}</span>
           </span>
         </div>
       </summary>

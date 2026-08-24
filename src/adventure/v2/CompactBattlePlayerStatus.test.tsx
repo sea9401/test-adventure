@@ -39,6 +39,9 @@ describe("사냥터 캐릭터 정보", () => {
     const { container } = renderPlayerStatus();
 
     expect(container.querySelector("details")?.open).toBe(true);
+    expect(container.querySelector("summary")?.textContent).toContain(
+      "상세 접기",
+    );
   });
 
   it("마지막 접기·펼치기 상태를 사냥터에 다시 들어왔을 때 복원한다", async () => {
@@ -48,7 +51,10 @@ describe("사냥터 캐릭터 정보", () => {
 
     fireEvent.click(summary);
     expect(first.container.querySelector("details")?.open).toBe(false);
-    await waitFor(() => expect(localStorage.length).toBe(1));
+    await waitFor(() => {
+      expect(summary.textContent).toContain("상세 보기");
+      expect(localStorage.length).toBe(1);
+    });
     first.unmount();
 
     const second = renderPlayerStatus();

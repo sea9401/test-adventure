@@ -1,5 +1,8 @@
+// @vitest-environment jsdom
+
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { V2TopBar } from "./V2TopBar";
 import type { AutoGatheringStatus } from "./autoGathering";
 
@@ -21,13 +24,21 @@ describe("V2TopBar", () => {
   } = {}) =>
     renderToStaticMarkup(
       <V2TopBar
-        stamina={{ current: 86, lastUpdatedAt: 0 }}
+        stamina={{ current: 86, lastUpdatedAt: Date.now() }}
         staminaMax={120}
+        staminaRegenBonusPct={0}
+        staminaPotions={3}
+        onUsePotion={vi.fn()}
         spendableGold={128_450}
         autoGathering={autoGathering}
         fishingActive={fishingActive}
       />,
     );
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
 
   it("파비콘과 자동 생활 남은 시간을 핵심 자원과 한 줄에 표시한다", () => {
     vi.useFakeTimers();
@@ -67,5 +78,55 @@ describe("V2TopBar", () => {
     expect(html).toMatch(/data-topbar-gold[^>]+class="[^"]*hidden[^"]*sm:inline-flex/);
     expect(html).toMatch(/^<div[^>]+data-game-top-bar/);
     expect(html).not.toContain("sticky top-0");
+  });
+
+  it("저장 기준값 이후의 자동 회복을 1초마다 헤더 숫자에 반영한다", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-25T00:00:00Z"));
+    const lastUpdatedAt = Date.now();
+
+    render(
+      <V2TopBar
+        stamina={{ current: 86, lastUpdatedAt }}
+        staminaMax={120}
+        staminaRegenBonusPct={0}
+        staminaPotions={3}
+        onUsePotion={vi.fn()}
+        spendableGold={128_450}
+        autoGathering={null}
+        fishingActive={false}
+      />,
+    );
+
+    expect(screen.getByLabelText("스태미나 86 / 120")).toBeTruthy();
+
+    act(() => {
+      vi.advanceTimersByTime(12_000);
+    });
+
+    expect(screen.getByLabelText("스태미나 87 / 120")).toBeTruthy();
+  });
+
+  it("헤더 스태미나를 누르면 기존 포션 사용 기능을 연다", () => {
+    render(
+      <V2TopBar
+        stamina={{ current: 86, lastUpdatedAt: Date.now() }}
+        staminaMax={120}
+        staminaRegenBonusPct={0}
+        staminaPotions={3}
+        onUsePotion={vi.fn()}
+        spendableGold={128_450}
+        autoGathering={null}
+        fishingActive={false}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "스태미나 86 / 120" }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "스태미나 포션 사용" }),
+    ).toBeTruthy();
   });
 });

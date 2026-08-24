@@ -123,6 +123,9 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
           <V2TopBar
             stamina={stamina}
             staminaMax={staminaMax}
+            staminaRegenBonusPct={staminaRegenBonusPct}
+            staminaPotions={staminaPotions}
+            onUsePotion={usePotion}
             spendableGold={spendableGold}
             autoGathering={autoGathering}
             fishingActive={fishingActive}

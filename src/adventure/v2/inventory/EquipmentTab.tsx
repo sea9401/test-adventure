@@ -115,7 +115,7 @@ export function EquipmentTab({
                   size="xs"
                   className="mr-1 min-h-0 px-2 py-0.5 text-[11px]"
                 >
-                  도감 일괄등록 ({codexBulk.registerableCount})
+                  일괄등록 ({codexBulk.registerableCount})
                 </Button>
               </>
             ) : null}

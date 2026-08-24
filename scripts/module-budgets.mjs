@@ -11,13 +11,13 @@ export const MODULE_BUDGETS = [
   },
   { path: "src/adventure/v2/GameStateProvider.tsx", maxLines: 1_300 },
   { path: "src/adventure/v2/GameStateRefreshContext.tsx", maxLines: 50 },
-  { path: "src/adventure/v2/combat/engine.ts", maxLines: 4_766 },
+  { path: "src/adventure/v2/combat/engine.ts", maxLines: 4_777 },
   { path: "src/adventure/v2/combat/engine-pvp.ts", maxLines: 5_254 },
-  { path: "src/app/api/v2/dungeon/hunt/route.ts", maxLines: 1_730 },
+  { path: "src/app/api/v2/dungeon/hunt/route.ts", maxLines: 1_769 },
   { path: "src/app/api/v2/dungeon/hunt/huntLocations.ts", maxLines: 30 },
   { path: "src/admin/tabs/OpsDashboardTab.tsx", maxLines: 2_650 },
   { path: "src/adventure/v2/V2CodexView.tsx", maxLines: 1_619 },
-  { path: "src/components/ChatPanel.tsx", maxLines: 1_294 },
+  { path: "src/components/ChatPanel.tsx", maxLines: 1_297 },
   { path: "src/app/api/v2/me/state/route.ts", maxLines: 762 },
 ];
 

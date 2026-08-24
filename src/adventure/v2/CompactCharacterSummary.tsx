@@ -98,21 +98,7 @@ export function CompactCharacterSummary({
   children: React.ReactNode;
 }) {
   if (expanded) {
-    return (
-      <section className="relative">
-        {children}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="absolute right-5 top-5 z-20"
-          onClick={() => onExpandedChange(false)}
-          aria-label="캐릭터 정보 접기"
-        >
-          <CaretDown size={18} className="rotate-180" aria-hidden />
-        </Button>
-      </section>
-    );
+    return <>{children}</>;
   }
 
   const jobName =

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  CaretDown,
   CaretRight,
   CookingPot,
   HandFist,
@@ -16,6 +17,7 @@ import {
 } from "@phosphor-icons/react";
 import { NecklaceIcon, RingIcon } from "./EquipmentSlotIcons";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { StatBar } from "@/components/ui/StatBar";
 import {
   avatarImageSrc,
@@ -172,6 +174,7 @@ export function V2CharacterCard({
   profileBadgeStandVisible = true,
   showcaseEditable = false,
   onOpenTrophies,
+  onCollapse,
   profileImageMotion = "static",
   // 있으면 카드 하단에 6슬롯 인라인 표시 (display only — 장착/해제는 인벤토리에서).
   // equipped 는 슬롯→iid(개체 식별자), owned 는 그 iid 를 카탈로그 아이템·굴림으로 푸는 개체 목록.
@@ -203,6 +206,7 @@ export function V2CharacterCard({
   profileBadgeStandVisible?: boolean;
   showcaseEditable?: boolean;
   onOpenTrophies?: () => void;
+  onCollapse?: () => void;
   profileImageMotion?: ProfileImageMotion;
   equipped?: Partial<Record<V2EquipSlot, string>>;
   owned?: V2EquipInstance[];
@@ -513,6 +517,21 @@ export function V2CharacterCard({
             </div>
           </div>
         )}
+        {onCollapse ? (
+          <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+            <Button
+              type="button"
+              variant="secondary"
+              size="md"
+              fullWidth
+              onClick={onCollapse}
+              aria-label="캐릭터 정보 접기"
+            >
+              <CaretDown size={18} className="rotate-180" aria-hidden />
+              상세 정보 접기
+            </Button>
+          </div>
+        ) : null}
       </Card>
       {selected && (
         <V2ItemCard

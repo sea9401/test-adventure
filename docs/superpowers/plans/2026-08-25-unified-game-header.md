@@ -99,7 +99,7 @@ export const SURFACE_GAME_HEADER =
 </header>
 ```
 
-`V2TopBar.tsx` 루트를 `<div data-game-top-bar>`로 바꾸고 sticky·z-index·바깥 표면 스타일을 제거한다. 내부 행에는 `border-b`, `px-3`, `py-1`, 데스크톱 패딩만 남긴다.
+`V2TopBar.tsx` 루트를 `<div data-game-top-bar>`로 바꾸고 sticky·z-index·바깥 표면 스타일을 제거한다. 내부 행에는 `border-b`, `px-3`, `py-1`, 데스크톱 패딩만 남긴다. 왼쪽에는 파비콘 홈 버튼과 `autoGatheringStatusDisplay()` 기반 자동 생활 카운트다운을 두고, 오른쪽의 자원·알림·메뉴는 유지한다.
 
 - [x] **Step 4: GREEN 확인**
 

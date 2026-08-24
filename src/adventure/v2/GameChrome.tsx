@@ -50,6 +50,8 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     gameStateLoaded,
     coreLoopOn,
     huntStaminaMode,
+    autoGathering,
+    fishingActive,
     refreshGameState,
   } = useGameState();
   // 스태미나 포션 사용(모달에서 개수 선택) — 서버 권위 회복 후 전역 상태 갱신.
@@ -122,6 +124,8 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
             stamina={stamina}
             staminaMax={staminaMax}
             spendableGold={spendableGold}
+            autoGathering={autoGathering}
+            fishingActive={fishingActive}
           />
           {/* 메인 내비 — 마을 시설과 생활 콘텐츠를 분리한 6탭. */}
           <MainTabNav

@@ -1,138 +1,59 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import {
-  autoGatheringActivityHref,
-  autoGatheringStatusDisplay,
-  type AutoGatheringStatus,
-} from "./autoGathering";
+import { Coins, Lightning } from "@phosphor-icons/react";
+import type { StaminaState } from "./stamina";
 import { NotificationBell } from "./NotificationBell";
-import { V2NoticeLink } from "./V2NoticeLink";
 import { V2SettingsMenu } from "./V2SettingsMenu";
-import { buttonClassName } from "@/components/ui/Button";
-import {
-  SURFACE_FROSTED_BAR,
-  SURFACE_INSET,
-} from "@/components/ui/surfaces";
+import { SURFACE_FROSTED_BAR, SURFACE_INSET } from "@/components/ui/surfaces";
 
-// v2 메인 화면 타이틀 줄.
-// 좌측: 게임 아이콘(홈) + 자동 생활 작업 상태(진행 중인 생활 화면) 독립 링크.
-// 우측: 공지사항 바로가기·통합 알림(일반 알림+우편) 미리보기·광장/설정 메뉴.
-
-function LifeActivityStatus({
-  status,
-}: {
-  status: AutoGatheringStatus | null;
-}) {
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (!status) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
-    return () => window.clearInterval(timer);
-  }, [status]);
-
-  const display = autoGatheringStatusDisplay(status, now);
-  const ready = status != null && now >= status.readyAt;
-  return (
-    <span
-      title={display.text}
-      className={`flex min-w-0 max-w-[142px] items-center gap-1 text-left text-[10px] tabular-nums sm:max-w-[320px] sm:text-[11px] ${
-        status == null
-          ? "text-zinc-500 dark:text-zinc-400"
-          : ready
-            ? "font-medium text-amber-700 dark:text-amber-300"
-            : "font-medium text-emerald-700 dark:text-emerald-300"
-      }`}
-    >
-      <span className="min-w-0 truncate">{display.contextLabel}</span>
-      {display.stateLabel ? (
-        <span
-          data-auto-gathering-status-detail
-          className="shrink-0 whitespace-nowrap"
-        >
-          {display.stateLabel}
-        </span>
-      ) : null}
-    </span>
-  );
-}
+const numberFormatter = new Intl.NumberFormat("ko-KR");
 
 export function V2TopBar({
-  autoGathering,
-  fishingActive,
+  stamina,
+  staminaMax,
+  spendableGold,
 }: {
-  autoGathering: AutoGatheringStatus | null;
-  fishingActive: boolean;
+  stamina: StaminaState;
+  staminaMax: number;
+  spendableGold: number;
 }) {
-  const activityHref = autoGatheringActivityHref(autoGathering);
-
   return (
     <header
       data-game-top-bar
-      className={`${SURFACE_FROSTED_BAR} sticky top-0 z-[60] flex items-center justify-between gap-3 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6`}
+      className={`${SURFACE_FROSTED_BAR} sticky top-0 z-[60] px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6 sm:pb-3`}
     >
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="mx-auto flex w-full max-w-[864px] items-center justify-between gap-3">
         <Link
           href="/"
           aria-label="무슨무슨게임 홈으로 이동"
-          title="홈"
-          className={buttonClassName({
-            variant: "secondary",
-            size: "icon",
-            className: "game-brand-mark",
-          })}
+          className="flex min-h-11 min-w-0 items-center rounded-lg px-1 text-sm font-extrabold tracking-tight text-zinc-900 transition-colors hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 sm:text-base dark:text-zinc-100 dark:hover:text-violet-300"
         >
-          <Image
-            src="/icon-192.png"
-            alt=""
-            width={32}
-            height={32}
-            className="game-brand-image size-8 shrink-0 rounded-md"
-          />
+          <span className="truncate">무슨무슨게임</span>
         </Link>
-        {activityHref ? (
-          <Link
-            href={activityHref}
-            aria-label={`${autoGathering?.activity === "woodcutting" ? "벌목" : "채광"} 화면으로 이동`}
-            className={buttonClassName({
-              variant: "secondary",
-              size: "sm",
-              className: "min-w-0 px-3 text-left",
-            })}
+
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span
+            aria-label={`스태미나 ${stamina.current} / ${staminaMax}`}
+            className={`${SURFACE_INSET} inline-flex min-h-8 items-center gap-1 border-0 px-2 py-1 text-[11px] font-semibold tabular-nums text-zinc-600 shadow-none dark:text-zinc-300`}
           >
-            <LifeActivityStatus
-              key={autoGathering?.readyAt}
-              status={autoGathering}
-            />
-          </Link>
-        ) : fishingActive ? (
-          <Link
-            href="/town/fishing"
-            aria-label="낚시 화면으로 이동"
-            className={buttonClassName({
-              variant: "secondary",
-              size: "sm",
-              className: "min-w-0 px-3 text-left",
-            })}
+            <Lightning size={12} weight="fill" className="text-orange-500" aria-hidden />
+            {numberFormatter.format(stamina.current)} / {numberFormatter.format(staminaMax)}
+          </span>
+          <span
+            data-topbar-gold
+            aria-label={`사용 가능 골드 ${numberFormatter.format(spendableGold)}`}
+            className={`${SURFACE_INSET} hidden min-h-8 items-center gap-1 border-0 px-2 py-1 text-[11px] font-semibold tabular-nums text-zinc-600 shadow-none sm:inline-flex dark:text-zinc-300`}
           >
-            <span className="text-[10px] font-medium text-emerald-700 sm:text-[11px] dark:text-emerald-300">
-              낚시 중
-            </span>
-          </Link>
-        ) : (
-          <div className={`${SURFACE_INSET} flex min-h-10 min-w-0 items-center px-3`}>
-            <LifeActivityStatus key="rest" status={null} />
-          </div>
-        )}
+            <Coins size={12} weight="fill" className="text-amber-500" aria-hidden />
+            {numberFormatter.format(spendableGold)}
+          </span>
+          <nav className="relative z-[61] flex items-center gap-0.5" aria-label="빠른 메뉴">
+            <NotificationBell />
+            <V2SettingsMenu />
+          </nav>
+        </div>
       </div>
-      <nav className="relative z-[61] flex shrink-0 items-center gap-1">
-        <V2NoticeLink />
-        <NotificationBell />
-        <V2SettingsMenu />
-      </nav>
     </header>
   );
 }

@@ -143,6 +143,12 @@ export function V2AdventureHome() {
     <CompactCharacterSummary
       character={state.character}
       guild={state.guild ?? null}
+      levelCap={levelCap}
+      activePresetName={activePresetName}
+      adventureSupport={state.adventureSupport}
+      activeFoodBuff={state.activeFoodBuff ?? null}
+      equipped={equipment?.equipped}
+      owned={equipment?.owned}
       expanded={preferences.characterExpanded}
       onExpandedChange={(characterExpanded) =>
         persistPreferences({ characterExpanded })
@@ -178,6 +184,7 @@ export function V2AdventureHome() {
       <AdventureActivityChecklist
         activities={snapshot?.activities ?? []}
         summary={snapshot?.summary ?? { completed: 0, total: 0, actionableCount: 0 }}
+        serverNow={snapshot?.serverNow}
         loading={loading}
         error={error}
         onRetry={() => void refreshDashboard()}

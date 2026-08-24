@@ -1,5 +1,6 @@
 export const DEFAULT_ADVENTURE_HOME_WIDGET_ORDER = [
   "character_summary",
+  "stamina",
   "activity_checklist",
   "quest_rewards",
   "hot_time",
@@ -10,6 +11,10 @@ export const DEFAULT_ADVENTURE_HOME_WIDGET_ORDER = [
 
 export type AdventureHomeWidgetId =
   (typeof DEFAULT_ADVENTURE_HOME_WIDGET_ORDER)[number];
+
+export const DEFAULT_ADVENTURE_HOME_HIDDEN_WIDGET_IDS = [
+  "stamina",
+] as const satisfies readonly AdventureHomeWidgetId[];
 
 export type AdventureHomePreferences = {
   version: 1;
@@ -24,7 +29,7 @@ export type AdventureHomePreferences = {
 export const DEFAULT_ADVENTURE_HOME_PREFERENCES: AdventureHomePreferences = {
   version: 1,
   widgetOrder: [...DEFAULT_ADVENTURE_HOME_WIDGET_ORDER],
-  hiddenWidgetIds: [],
+  hiddenWidgetIds: [...DEFAULT_ADVENTURE_HOME_HIDDEN_WIDGET_IDS],
   characterExpanded: false,
   activityNotificationsEnabled: true,
   activityEnabled: {},
@@ -94,7 +99,7 @@ export function normalizeAdventureHomePreferences(
     return {
       ...DEFAULT_ADVENTURE_HOME_PREFERENCES,
       widgetOrder: [...DEFAULT_ADVENTURE_HOME_WIDGET_ORDER],
-      hiddenWidgetIds: [],
+      hiddenWidgetIds: [...DEFAULT_ADVENTURE_HOME_HIDDEN_WIDGET_IDS],
       activityNotificationsEnabled: true,
       activityEnabled: {},
       seenUnlockedActivityIds: [],
@@ -108,6 +113,15 @@ export function normalizeAdventureHomePreferences(
     ...savedOrder,
     ...DEFAULT_ADVENTURE_HOME_WIDGET_ORDER.filter((id) => !savedSet.has(id)),
   ];
+  const hiddenWidgetIds = uniqueKnownStrings(
+    raw.hiddenWidgetIds,
+    WIDGET_IDS,
+  ) as AdventureHomeWidgetId[];
+  for (const id of DEFAULT_ADVENTURE_HOME_HIDDEN_WIDGET_IDS) {
+    if (!savedSet.has(id) && !hiddenWidgetIds.includes(id)) {
+      hiddenWidgetIds.push(id);
+    }
+  }
   const knownActivities = new Set(knownActivityIds);
   const rawEnabled = raw.activityEnabled;
   const activityEnabled: Record<string, boolean> = {};
@@ -122,10 +136,7 @@ export function normalizeAdventureHomePreferences(
   return {
     version: 1,
     widgetOrder,
-    hiddenWidgetIds: uniqueKnownStrings(
-      raw.hiddenWidgetIds,
-      WIDGET_IDS,
-    ) as AdventureHomeWidgetId[],
+    hiddenWidgetIds,
     characterExpanded: raw.characterExpanded === true,
     activityNotificationsEnabled: raw.activityNotificationsEnabled !== false,
     activityEnabled,

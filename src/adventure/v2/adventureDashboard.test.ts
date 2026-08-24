@@ -43,7 +43,7 @@ describe("모험 홈 환경설정 정규화", () => {
         (id) => id !== "ranking_preview",
       ),
     ]);
-    expect(parsed.hiddenWidgetIds).toEqual(["ranking_preview"]);
+    expect(parsed.hiddenWidgetIds).toEqual(["ranking_preview", "stamina"]);
     expect(parsed.characterExpanded).toBe(true);
     expect(parsed.activityEnabled).toEqual({ farm_ready: false });
     expect(parsed.seenUnlockedActivityIds).toEqual(["farm_ready"]);
@@ -53,6 +53,23 @@ describe("모험 홈 환경설정 정규화", () => {
     expect(normalizeAdventureHomePreferences(null, [])).toEqual(
       DEFAULT_ADVENTURE_HOME_PREFERENCES,
     );
+    expect(DEFAULT_ADVENTURE_HOME_PREFERENCES.hiddenWidgetIds).toEqual([
+      "stamina",
+    ]);
+  });
+
+  it("사용자가 스태미나 위젯을 추가한 저장값은 표시 상태를 유지한다", () => {
+    const parsed = normalizeAdventureHomePreferences(
+      {
+        version: 1,
+        widgetOrder: ["stamina", "character_summary"],
+        hiddenWidgetIds: [],
+      },
+      [],
+    );
+
+    expect(parsed.widgetOrder[0]).toBe("stamina");
+    expect(parsed.hiddenWidgetIds).not.toContain("stamina");
   });
 
   it("기존 저장값은 콘텐츠 알림을 켜고 명시적으로 끈 설정은 유지한다", () => {

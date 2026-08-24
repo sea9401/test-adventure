@@ -91,7 +91,7 @@ describe("모험 대시보드 API", () => {
       "dashboard-user",
       ADVENTURE_HOME_SAVE_KEY,
       expect.objectContaining({
-        hiddenWidgetIds: [],
+        hiddenWidgetIds: ["stamina"],
         activityEnabled: { farm_ready: false },
       }),
     );

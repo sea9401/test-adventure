@@ -25,6 +25,7 @@ import type {
 } from "@/adventure/profile/profileShowcase";
 import { useAdventureDashboard } from "./AdventureDashboardProvider";
 import {
+  DEFAULT_ADVENTURE_HOME_HIDDEN_WIDGET_IDS,
   DEFAULT_ADVENTURE_HOME_PREFERENCES,
   DEFAULT_ADVENTURE_HOME_WIDGET_ORDER,
   type AdventureHomePreferences,
@@ -35,6 +36,8 @@ import { AdventureActivityChecklist } from "./AdventureActivityChecklist";
 import { AdventureActivitySettings } from "./AdventureActivitySettings";
 import { CompactCharacterSummary } from "./CompactCharacterSummary";
 import { RecentBulletinPreview } from "./RecentBulletinPreview";
+import { StaminaBar } from "./StaminaBar";
+import { useGameState } from "./GameStateProvider";
 import { Button } from "@/components/ui/Button";
 import { Inset } from "@/components/ui/Inset";
 import { PageShell } from "@/components/ui/PageShell";
@@ -96,6 +99,24 @@ export function V2AdventureHome() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const { snapshot, loading, error, refresh: refreshDashboard, updatePreferences } =
     useAdventureDashboard();
+  const {
+    stamina,
+    staminaMax,
+    staminaRegenBonusPct,
+    staminaPotions,
+    refreshGameState,
+  } = useGameState();
+
+  const usePotion = useCallback(async (count: number) => {
+    try {
+      await fetch("/api/v2/me/use-stamina-potion", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ count }),
+      });
+    } catch {}
+    await refreshGameState();
+  }, [refreshGameState]);
 
   const refresh = useCallback(async () => {
     try {
@@ -180,6 +201,15 @@ export function V2AdventureHome() {
 
   const widgets: Partial<Record<AdventureHomeWidgetId, React.ReactNode>> = {
     character_summary: characterWidget,
+    stamina: (
+      <StaminaBar
+        state={stamina}
+        max={staminaMax}
+        regenBonusPct={staminaRegenBonusPct}
+        potions={staminaPotions}
+        onUsePotion={usePotion}
+      />
+    ),
     activity_checklist: (
       <AdventureActivityChecklist
         activities={snapshot?.activities ?? []}
@@ -208,7 +238,7 @@ export function V2AdventureHome() {
               size="sm"
               onClick={() => persistPreferences({
                 widgetOrder: [...DEFAULT_ADVENTURE_HOME_WIDGET_ORDER],
-                hiddenWidgetIds: [],
+                hiddenWidgetIds: [...DEFAULT_ADVENTURE_HOME_HIDDEN_WIDGET_IDS],
               })}
             >
               <ArrowCounterClockwise size={17} aria-hidden /> 기본 배치

@@ -40,7 +40,6 @@ describe("모험 홈 위젯 편집", () => {
       "ranking_preview",
     ]);
   });
-
   it("공지·최근 게시글·랭킹 위젯을 데스크톱에서 같은 높이로 표시한다", () => {
     render(
       <AdventureHomeWidgetGrid
@@ -72,5 +71,25 @@ describe("모험 홈 위젯 편집", () => {
       expect.stringContaining("[&>*]:h-full"),
       expect.stringContaining("[&>*]:h-full"),
     ]);
+  });
+
+  it("기본으로 숨긴 스태미나 위젯을 홈 편집에서 다시 추가한다", () => {
+    const onHiddenChange = vi.fn();
+    render(
+      <AdventureHomeWidgetGrid
+        order={["stamina"]}
+        hidden={["stamina"]}
+        editing
+        onOrderChange={vi.fn()}
+        onHiddenChange={onHiddenChange}
+        widgets={{ stamina: <div>스태미나 상태</div> }}
+      />,
+    );
+
+    expect(screen.queryByText("스태미나 상태")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "스태미나" }),
+    );
+    expect(onHiddenChange).toHaveBeenCalledWith([]);
   });
 });

@@ -9,6 +9,8 @@ import {
 } from "@phosphor-icons/react";
 import { NecklaceIcon, RingIcon } from "../EquipmentSlotIcons";
 import {
+  V2_EQUIP_SETS,
+  V2_EQUIP_TAG_SETS,
   V2_EQUIPMENT,
   type V2EquipInstance,
   type V2EquipSlot,
@@ -50,6 +52,24 @@ export function EquippedItemSummaryGrid({
         const iid = equipped[slot];
         const inst = iid ? byIid.get(iid) : undefined;
         const item = inst ? V2_EQUIPMENT[inst.id] : undefined;
+        const setNames = item
+          ? Array.from(
+              new Set(
+                [
+                  item.setId
+                    ? V2_EQUIP_SETS.find((set) => set.id === item.setId)?.name
+                    : undefined,
+                  ...(item.setTags ?? []).map(
+                    (tag) =>
+                      V2_EQUIP_TAG_SETS.find((set) => set.id === tag)?.name,
+                  ),
+                ].filter((name): name is string => Boolean(name)),
+              ),
+            )
+          : [];
+        const setLabel = setNames.length
+          ? `세트 · ${setNames.join(", ")}`
+          : "세트 없음";
         const content = (
           <>
             <span className="flex items-center justify-center gap-1">
@@ -62,6 +82,23 @@ export function EquippedItemSummaryGrid({
                 <span className="ml-0.5 shrink-0 text-amber-600 dark:text-amber-400">+{inst.enhance.level}</span>
               )}
             </span>
+            {item ? (
+              <span
+                data-testid="equipped-set-label"
+                title={setLabel}
+                className={`w-full truncate text-[0.625rem] leading-tight ${
+                  setNames.length
+                    ? "font-medium text-violet-600 dark:text-violet-400"
+                    : "text-zinc-400 dark:text-zinc-500"
+                }`}
+              >
+                {setLabel}
+              </span>
+            ) : (
+              <span className="text-[0.625rem] leading-tight text-zinc-300 dark:text-zinc-700">
+                —
+              </span>
+            )}
           </>
         );
         return inst && item ? (

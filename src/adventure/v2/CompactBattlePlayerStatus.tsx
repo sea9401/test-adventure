@@ -11,6 +11,8 @@ export function CompactBattlePlayerStatus({
   mp,
   exp,
   maxExp,
+  hpCharges,
+  mpCharges,
   children,
 }: {
   name: string;
@@ -19,6 +21,8 @@ export function CompactBattlePlayerStatus({
   mp?: { mp: number; maxMp: number } | null;
   exp: number;
   maxExp: number;
+  hpCharges: number;
+  mpCharges: number;
   children: ReactNode;
 }) {
   return (
@@ -31,6 +35,10 @@ export function CompactBattlePlayerStatus({
           </span>
           <span className="shrink-0 text-right text-[0.6875rem] tabular-nums text-zinc-500 dark:text-zinc-400">
             <span className="block">HP {hp.hp.toLocaleString()} / {hp.maxHp.toLocaleString()}{mp && mp.maxMp > 0 ? ` · MP ${mp.mp.toLocaleString()} / ${mp.maxMp.toLocaleString()}` : ""}</span>
+            <span className="block">
+              HP 충전약 {hpCharges.toLocaleString()}
+              {mp && mp.maxMp > 0 ? ` · MP 충전약 ${mpCharges.toLocaleString()}` : ""}
+            </span>
             <span className="block">EXP {Math.max(0, exp).toLocaleString()} / {Math.max(1, maxExp).toLocaleString()} · 상세 보기</span>
           </span>
         </div>

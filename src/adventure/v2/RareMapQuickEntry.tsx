@@ -33,12 +33,14 @@ export function RareMapQuickEntry({
   onEnter,
   onExpire,
   nextLabel = false,
+  className = "mt-2",
 }: {
   maps: readonly RareMapInstance[];
   serverNow: number | null;
   onEnter: (map: RareMapInstance) => void;
   onExpire?: (map: RareMapInstance) => void;
   nextLabel?: boolean;
+  className?: string;
 }) {
   const [otherMapsOpen, setOtherMapsOpen] = useState(false);
   const huntMaps = sortHuntRareMaps(maps);
@@ -47,7 +49,11 @@ export function RareMapQuickEntry({
 
   const primaryDef = RARE_MAP_KINDS[primary.kind];
   return (
-    <Card padding="sm" className="mt-2 border-amber-400 dark:border-amber-700">
+    <Card
+      padding="sm"
+      data-rare-map-quick-entry
+      className={`${className} border-amber-400 dark:border-amber-700`}
+    >
       <button
         type="button"
         onClick={() => onEnter(primary)}

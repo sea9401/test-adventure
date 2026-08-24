@@ -84,7 +84,7 @@ describe("희귀 탐사 지도 전환", () => {
     ).toBeNull();
   });
 
-  it("일반 사냥 버튼 바로 아래에 열린 희귀 탐사 빠른 입장을 표시한다", async () => {
+  it("일반 사냥 버튼 바로 아래 같은 왼쪽 열에 열린 희귀 탐사 빠른 입장을 표시한다", async () => {
     const now = Date.now();
     fetchMock.mockResolvedValueOnce(
       response({
@@ -124,5 +124,12 @@ describe("희귀 탐사 지도 전환", () => {
       huntButton.compareDocumentPosition(rareMapButton) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+    const actionGrid = huntButton.closest("[data-hunt-primary-actions]");
+    expect(actionGrid).not.toBeNull();
+    expect(rareMapButton.closest("[data-hunt-primary-actions]")).toBe(actionGrid);
+    expect(actionGrid?.className).toContain("grid-cols-[minmax(0,1fr)_auto]");
+    expect(
+      rareMapButton.closest("[data-rare-map-quick-entry]")?.className,
+    ).toContain("col-start-1");
   });
 });

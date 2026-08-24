@@ -116,6 +116,45 @@ test("전투 로그 보조 정보는 모바일에서도 읽을 수 있는 크기
   expect(fontSizes.every((fontSize) => fontSize >= 12)).toBe(true);
 });
 
+test("긴 전투 행동명과 결과는 모바일 카드 안에서 모두 줄바꿈된다", async ({
+  page,
+}) => {
+  await page.goto("/dev/battle-log");
+
+  const action = page.locator('[data-battle-action="left"]').first();
+  await expect(action).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+
+  const layout = await action.evaluate((root) => {
+    const section = root.querySelector<HTMLElement>("section");
+    const grid = section?.firstElementChild as HTMLElement | null;
+    const identity = grid?.children[0] as HTMLElement | undefined;
+    const result = grid?.children[1] as HTMLElement | undefined;
+    const title = identity?.lastElementChild as HTMLElement | null;
+    const resultLine = result?.lastElementChild as HTMLElement | null;
+    if (!section || !grid || !title || !resultLine) {
+      throw new Error("전투 행동 카드 구조를 찾지 못했습니다.");
+    }
+
+    title.textContent = "개벽·오원소 회귀";
+    resultLine.textContent = "플루디아 마나 451 회복했다.";
+
+    const rootWidth = root.getBoundingClientRect().width;
+    const sectionWidth = section.getBoundingClientRect().width;
+    return {
+      widthRatio: sectionWidth / rootWidth,
+      titleWhiteSpace: getComputedStyle(title).whiteSpace,
+      titleOverflows: title.scrollWidth > title.clientWidth + 1,
+      gridOverflows: grid.scrollWidth > section.clientWidth + 1,
+    };
+  });
+
+  expect(layout.widthRatio).toBeGreaterThan(0.95);
+  expect(layout.titleWhiteSpace).not.toBe("nowrap");
+  expect(layout.titleOverflows).toBe(false);
+  expect(layout.gridOverflows).toBe(false);
+});
+
 test("한국어 본문은 어절 중간에서 줄바꿈하지 않는다", async ({ page }) => {
   await page.goto("/dev/battle-log");
 

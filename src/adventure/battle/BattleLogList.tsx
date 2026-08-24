@@ -848,13 +848,19 @@ function ActionCard({
       : "border-r-4 border-r-violet-500";
   const headerGrid =
     side === "left"
-      ? "grid-cols-[minmax(0,1fr)_auto]"
-      : "grid-cols-[auto_minmax(0,1fr)]";
+      ? "grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto]"
+      : "grid-cols-1 sm:grid-cols-[auto_minmax(0,1fr)]";
   const identityAlign = side === "left" ? "" : "justify-end text-right";
-  const resultAlign = side === "left" ? "text-right" : "text-left";
-  const labelAlign = side === "left" ? "justify-end" : "justify-start";
+  const resultAlign =
+    side === "left"
+      ? "text-left sm:text-right"
+      : "text-right sm:text-left";
+  const labelAlign =
+    side === "left"
+      ? "justify-start sm:justify-end"
+      : "justify-end sm:justify-start";
   const identityContent = (
-    <div className={`min-w-0 ${identityAlign}`}>
+    <div className={`order-1 min-w-0 sm:order-none ${identityAlign}`}>
       <div className={`mb-0.5 flex min-w-0 items-center gap-1 ${side === "right" ? "justify-end" : ""}`}>
         <span
           className={`${sizes.actionLabel} shrink-0 rounded border px-1 py-0.5 font-bold ${
@@ -869,20 +875,20 @@ function ActionCard({
           {actorName}
         </span>
       </div>
-      <div className={`${sizes.actionBubble} min-w-0 truncate font-semibold text-zinc-900 dark:text-zinc-100`}>
+      <div className={`${sizes.actionBubble} min-w-0 whitespace-normal break-words sm:truncate font-semibold text-zinc-900 dark:text-zinc-100`}>
         {title}
       </div>
     </div>
   );
   const resultContent = (
-    <div className={resultAlign}>
+    <div className={`order-2 min-w-0 sm:order-none ${resultAlign}`}>
       {hasDamageResult ? (
         <div className={`${sizes.actionLabel} mb-0.5 font-semibold text-zinc-500 dark:text-zinc-400`}>
           {damageTargetLabel}
         </div>
       ) : null}
       {labels.length > 0 ? (
-        <div className={`mb-0.5 flex gap-1 sm:mb-1 ${labelAlign}`}>
+        <div className={`mb-0.5 flex flex-wrap gap-1 sm:mb-1 ${labelAlign}`}>
           {labels.map((label, index) => (
             <span
               key={`${label}-${index}`}
@@ -894,7 +900,7 @@ function ActionCard({
         </div>
       ) : null}
       <div
-        className={`${sizes.actionBubble} whitespace-nowrap text-zinc-700 dark:text-zinc-200`}
+        className={`${sizes.actionBubble} whitespace-normal break-words sm:whitespace-nowrap text-zinc-700 dark:text-zinc-200`}
         aria-label={isMultiHit ? displayedResult : undefined}
       >
         {emphasizeNumbers(displayedResult)}
@@ -903,7 +909,7 @@ function ActionCard({
   );
   return (
     <div className={`flex ${align}`} data-battle-action={side}>
-      <section className={`${SURFACE_CARD} ${accent} w-[70%] overflow-hidden`}>
+      <section className={`${SURFACE_CARD} ${accent} w-full sm:w-[70%] overflow-hidden`}>
         <div className={`grid ${headerGrid} items-center gap-2 px-2 py-1.5 sm:gap-3 sm:px-3 sm:py-2.5`}>
           {side === "left" ? (
             <>

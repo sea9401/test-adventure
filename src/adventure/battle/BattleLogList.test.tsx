@@ -136,6 +136,41 @@ describe("BattleLogList 표시 기호", () => {
     expect(compactHtml).toContain("text-xs sm:text-[10px]");
   });
 
+  it("긴 행동명과 결과를 모바일에서 잘라내지 않는 반응형 행동 카드를 렌더한다", () => {
+    // Break caught: the 70%-wide, single-row card lets the nowrap result
+    // collapse and truncate a long skill title on narrow phones.
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "player_attack",
+            text: "[치명타] 개벽·오원소 회귀! 4557 피해를 입혔다.",
+            turn: "player",
+            t: 10,
+          },
+          {
+            kind: "info",
+            text: "개벽·오원소 회귀! 플루디아 마나 451 회복했다.",
+            turn: "player",
+            t: 10,
+          },
+        ]}
+        playerName="플루디아"
+        enemyName="훈련용 적"
+      />,
+    );
+
+    expect(html).toContain("개벽·오원소 회귀");
+    expect(html).toContain("w-full sm:w-[70%]");
+    expect(html).toContain(
+      "grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto]",
+    );
+    expect(html).toContain("break-words sm:truncate");
+    expect(html).toContain(
+      "whitespace-normal break-words sm:whitespace-nowrap",
+    );
+  });
+
   it("치명타 라벨 앞에 별 아이콘을 붙이지 않는다", () => {
     const html = renderToStaticMarkup(
       <BattleLogList

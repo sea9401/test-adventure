@@ -5,7 +5,7 @@ import {
   CHAT_OVERLAY_CLASS,
   CHAT_PANEL_CLASS,
   CHAT_RESIZE_HANDLE_CLASS,
-} from "./ChatPanel";
+} from "./chat/chatPanelStyles";
 
 describe("ChatPanel responsive layout", () => {
   it("모바일에서는 전체 화면 최상위 레이어로 메뉴 입력을 차단한다", () => {

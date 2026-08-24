@@ -104,7 +104,6 @@ import {
 } from "@/adventure/data/v2/intruderTracking";
 import type { DungeonEnemy, DungeonFloorId } from "@/adventure/data/v2/types";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
-import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
   enforceUserAndIpRateLimit,
 } from "@/lib/server/userRateLimit";
@@ -137,6 +136,7 @@ import { GUILD_DINING_USER_SAVE_KEY } from "@/adventure/data/v2/guildDining";
 import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
 import { applyHuntProficiency } from "./huntProficiency";
 import { normalizedHuntLocationIds } from "./huntLocations";
+import { broadcastHuntUniqueDrops, huntEquipmentCodexEvents } from "./huntResultEffects";
 import { activeCookingBuff } from "@/adventure/v2/cooking/food";
 import {
   getAutoHuntStopReason,
@@ -1166,22 +1166,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       source: "hunt.victory",
     });
   }
-  for (const equipmentId of droppedEquipments) {
-    codexMasteryEvents.push({
-      category: "equipment",
-      entryId: equipmentId,
-      amount: 1,
-      source: "equipment.drop",
-    });
-  }
-  for (const equipmentId of droppedUniques) {
-    codexMasteryEvents.push({
-      category: "equipment",
-      entryId: equipmentId,
-      amount: 1,
-      source: "equipment.drop",
-    });
-  }
+  codexMasteryEvents.push(...huntEquipmentCodexEvents(droppedEquipments, droppedUniques));
   if (masteryJobId && masteryGained > 0) {
     codexMasteryEvents.push({
       category: "job",
@@ -1740,30 +1725,6 @@ async function handleHunt(req: Request, userId: string) {
       replay: deferredPayloads[index] ?? entry.replay,
     }));
   }
-
-  // 전체 소식 — 유니크 장비 드랍 broadcast. tx 커밋 후 side-effect 로 호출(중첩 트랜잭션
-  // 회피 — guild-lodge 데드락 교훈). insertFeedEntry 가 opt-out/디바운스/실패삼킴을 자체
-  // 처리하므로 응답엔 영향 없음. droppedUnique 는 승리 성공 응답 body 에만 존재.
-  const resultBody = result.body as {
-    result?: {
-      droppedUnique?: V2EquipmentId | null;
-      droppedUniques?: V2EquipmentId[];
-      rareMapDrop?: RareMapKindId | null;
-    };
-    batch?: {
-      droppedUniques?: V2EquipmentId[];
-      rareMapDrops?: RareMapKindId[];
-    };
-  };
-  const uniqueIds = resultBody.batch
-    ? (resultBody.batch.droppedUniques ?? [])
-    : (resultBody.result?.droppedUniques ??
-      (resultBody.result?.droppedUnique
-        ? [resultBody.result.droppedUnique]
-        : []));
-  for (const itemId of uniqueIds) {
-    await insertFeedEntry(userId, "unique_drop", { itemId });
-  }
-
+  await broadcastHuntUniqueDrops(userId, result.body);
   return Response.json(result.body, { status: result.status });
 }

@@ -177,6 +177,7 @@ import {
 import {
   BOSS_MAX_HP_DAMAGE_MULT,
   BOSS_PCT_HP_DAMAGE_MULT,
+  markForcedActionMainLog,
   mergeTier7ResourceSnapshot,
   type BattleBuffs,
   type BattleLogEntry,
@@ -2388,18 +2389,7 @@ function applyImmediateProvokedEnemyBasicAttacks(
         ...next,
         log: next.log.map((entry, logIndex) => {
           if (logIndex < logStart) return entry;
-          const isForcedActionMain =
-            ((entry.kind === "player_attack" ||
-              entry.kind === "enemy_attack") &&
-              /^(?:\[[^\]]+\]\s*)*공격!/.test(entry.text)) ||
-            (entry.kind === "info" &&
-              entry.text.startsWith("[회피 강화]") &&
-              entry.text.includes("회피했다"));
-          return {
-            ...entry,
-            ...(entry.turn ? {} : { turn: "enemy" as const }),
-            ...(isForcedActionMain ? { forcedBySkill: skillName } : {}),
-          };
+          return markForcedActionMainLog(entry.turn ? entry : { ...entry, turn: "enemy" as const }, skillName);
         }),
       };
     }
@@ -2415,7 +2405,6 @@ function applyImmediateProvokedEnemyBasicAttacks(
     },
   };
 }
-
 export function applyPlayerV2SkillCast(
   state: BattleState,
   player: PlayerCombat,

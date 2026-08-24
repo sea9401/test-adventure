@@ -117,6 +117,20 @@ export type BattleLogEntry =
       enemySignatureResources?: Record<string, number | string>;
     };
 
+export function markForcedActionMainLog(
+  entry: BattleLogEntry,
+  skillName: string,
+): BattleLogEntry {
+  if (entry.kind === "hp_bar") return entry;
+  const isMainAttack =
+    ((entry.kind === "player_attack" || entry.kind === "enemy_attack") &&
+      /^(?:\[[^\]]+\]\s*)*공격!/.test(entry.text)) ||
+    (entry.kind === "info" &&
+      entry.text.startsWith("[회피 강화]") &&
+      entry.text.includes("회피했다"));
+  return isMainAttack ? { ...entry, forcedBySkill: skillName } : entry;
+}
+
 export type BattleOutcome = "win" | "lose";
 
 export type BattlePhase = "player" | "enemy" | "ended";

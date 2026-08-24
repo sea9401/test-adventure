@@ -34,6 +34,7 @@ import {
   damageBetween,
 } from "./engine";
 import {
+  markForcedActionMainLog,
   mergeTier7ResourceSnapshot,
   type Tier7BattleResources,
 } from "./engineState";
@@ -2677,18 +2678,10 @@ function applyImmediateProvokedBasicAttacksPvP(
         ...next,
         log: next.log.map((entry, logIndex) => {
           if (logIndex < logStart) return entry;
-          const isForcedActionMain =
-            ((entry.kind === "player_attack" ||
-              entry.kind === "enemy_attack") &&
-              /^(?:\[[^\]]+\]\s*)*공격!/.test(entry.text)) ||
-            (entry.kind === "info" &&
-              entry.text.startsWith("[회피 강화]") &&
-              entry.text.includes("회피했다"));
-          return {
-            ...entry,
-            ...(entry.side ? {} : { side: attackerKey }),
-            ...(isForcedActionMain ? { forcedBySkill: skillName } : {}),
-          };
+          return markForcedActionMainLog(
+            entry.side ? entry : { ...entry, side: attackerKey },
+            skillName,
+          );
         }),
       };
     }

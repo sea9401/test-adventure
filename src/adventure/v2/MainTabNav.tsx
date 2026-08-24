@@ -19,7 +19,6 @@ import {
   Fish,
   Hammer,
   Lightning,
-  Mountains,
   PottedPlant,
   ShieldStar,
   SlidersHorizontal,
@@ -31,7 +30,6 @@ import {
   TestTube,
   Toolbox,
   Trophy,
-  Tree,
   UserCircle,
   Warehouse,
   type Icon,
@@ -138,8 +136,6 @@ export const LIFE_MENU_ITEMS = [
   { label: "생활 의뢰·조합 작업장", href: "/town/life-workshop", Icon: Toolbox, color: "text-amber-600" },
   { label: "모험가 농장", href: "/town/farm", Icon: PottedPlant, color: "text-emerald-500" },
   { label: "낚시", href: "/town/fishing", Icon: Fish, color: "text-sky-500" },
-  { label: "자동 벌목", href: "/town/logging", Icon: Tree, color: "text-emerald-600" },
-  { label: "자동 채광", href: "/town/mining", Icon: Mountains, color: "text-stone-500" },
   { label: "주방", href: "/town/kitchen", Icon: CookingPot, color: "text-amber-600" },
 ] satisfies SubItem[];
 

@@ -74,7 +74,7 @@ describe("상단 캐릭터 하위 메뉴", () => {
 });
 
 describe("메인 탭 디자인 시스템", () => {
-  it("6개 탭을 864px 크롬 안에서 균등한 한 줄로 배치한다", () => {
+  it("6개 탭을 전체 폭에 균등한 한 줄로 배치한다", () => {
     render(
       <MainTabNav
         activeKey="adventure"
@@ -85,7 +85,7 @@ describe("메인 탭 디자인 시스템", () => {
     );
 
     const nav = screen.getByRole("navigation", { name: "메인 메뉴" });
-    expect(nav.className).toContain("max-w-[864px]");
+    expect(nav.className).not.toContain("max-w-[864px]");
     expect(nav.firstElementChild?.className).toContain("grid-cols-6");
 
     const tabs = screen.getAllByRole("button", {

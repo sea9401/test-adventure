@@ -335,7 +335,7 @@ export function MainTabNav({
       : (openTab?.sub ?? []);
 
   return (
-    <nav className="relative mx-auto w-full max-w-[864px]" aria-label="메인 메뉴">
+    <nav className="relative w-full" aria-label="메인 메뉴">
       <div className="grid grid-cols-6 border-b border-zinc-200 px-1 sm:px-3 dark:border-zinc-800">
         {TABS.map((t) => {
           const isActive = t.key === activeKey;

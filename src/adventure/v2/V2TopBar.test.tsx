@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { V2TopBar } from "./V2TopBar";
+import type { AutoGatheringStatus } from "./autoGathering";
 
 vi.mock("./NotificationBell", () => ({
   NotificationBell: () => <span>알림</span>,
@@ -11,32 +12,57 @@ vi.mock("./V2SettingsMenu", () => ({
 }));
 
 describe("V2TopBar", () => {
-  const renderTopBar = () =>
+  const renderTopBar = ({
+    autoGathering = null,
+    fishingActive = false,
+  }: {
+    autoGathering?: AutoGatheringStatus | null;
+    fishingActive?: boolean;
+  } = {}) =>
     renderToStaticMarkup(
       <V2TopBar
         stamina={{ current: 86, lastUpdatedAt: 0 }}
         staminaMax={120}
         spendableGold={128_450}
+        autoGathering={autoGathering}
+        fishingActive={fishingActive}
       />,
     );
 
-  it("승인된 목업처럼 텍스트 브랜드와 핵심 자원을 한 줄에 표시한다", () => {
-    const html = renderTopBar();
+  it("파비콘과 자동 생활 남은 시간을 핵심 자원과 한 줄에 표시한다", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-25T00:00:00Z"));
+    const html = renderTopBar({
+      autoGathering: {
+        activity: "woodcutting",
+        sourceId: "oak",
+        sourceName: "참나무 숲",
+        readyAt: Date.now() + 65_000,
+      },
+    });
+    vi.useRealTimers();
 
-    expect(html).toContain("무슨무슨게임");
+    expect(html).toContain('/icon-192.png');
+    expect(html).not.toContain(">무슨무슨게임<");
+    expect(html).toContain("벌목 자동 중 · 참나무 숲");
+    expect(html).toContain("남은 1:05");
     expect(html).toContain("86 / 120");
     expect(html).toContain("128,450");
     expect(html).toContain("알림");
     expect(html).toContain("메뉴");
-    expect(html).not.toContain("/icon-192.png");
-    expect(html).not.toContain("휴식 중");
+  });
+
+  it("자동 생활이 없으면 아이콘 옆에 휴식 상태를 표시한다", () => {
+    expect(renderTopBar()).toContain("휴식 중");
   });
 
   it("결합형 헤더 안의 상단 행으로 렌더하고 모바일에서는 골드를 숨긴다", () => {
     const html = renderTopBar();
 
     expect(html).toContain("data-game-top-bar");
-    expect(html).toContain("max-w-[864px]");
+    expect(html).not.toContain("max-w-[864px]");
+    expect(html).toContain("min-w-0 flex-1");
+    expect(html).toContain("max-w-[142px]");
     expect(html).toContain("data-topbar-gold");
     expect(html).toMatch(/data-topbar-gold[^>]+class="[^"]*hidden[^"]*sm:inline-flex/);
     expect(html).toMatch(/^<div[^>]+data-game-top-bar/);

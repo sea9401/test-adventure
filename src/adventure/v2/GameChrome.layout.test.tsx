@@ -48,7 +48,7 @@ vi.mock("./GameSceneBackground", () => ({
 }));
 
 describe("GameChrome 결합형 게임 헤더", () => {
-  it("상단 행과 메인 탭, 티커 슬롯을 하나의 sticky 헤더 안에 둔다", () => {
+  it("헤더 표면과 내부 콘텐츠가 화면 상단과 좌우를 모두 채운다", () => {
     const container = document.createElement("div");
     container.innerHTML = renderToStaticMarkup(
       <GameChrome>
@@ -61,9 +61,12 @@ describe("GameChrome 결합형 게임 헤더", () => {
     );
     expect(gameHeader).not.toBeNull();
     expect(gameHeader?.className).toContain("sticky");
-    expect(gameHeader?.className).toContain(
-      "pt-[max(0.5rem,env(safe-area-inset-top))]",
-    );
+    expect(gameHeader?.className).toContain("bg-white");
+    expect(gameHeader?.className).toContain("pt-[env(safe-area-inset-top)]");
+    expect(gameHeader?.className).not.toContain("px-3");
+    expect(gameHeader?.className).not.toContain("sm:px-6");
+    expect(gameHeader?.className).not.toContain("rounded-xl");
+    expect(gameHeader?.firstElementChild?.className).not.toContain("max-w-");
     expect(gameHeader?.querySelector("[data-game-top-bar]")).not.toBeNull();
     expect(
       within(gameHeader as HTMLElement).getByRole("navigation", {

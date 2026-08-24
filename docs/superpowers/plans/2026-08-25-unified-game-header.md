@@ -14,6 +14,7 @@
 - 상단 행과 탭 행에는 불투명 표면을 사용하며 `src/components/ui/surfaces.ts`를 단일 출처로 삼는다.
 - 메뉴·라우트·자원·티커 데이터와 기존 상호작용은 변경하지 않는다.
 - 모바일 safe area, 44px 터치 영역, 라이트·다크 모드를 유지한다.
+- 일반 게임 본문의 `720px` 모바일 기준은 유지하고 `md` 이상 공통 최대 폭만 `960px`로 넓힌다.
 - 배포와 점검 모드 조작은 하지 않는다.
 
 ---
@@ -69,7 +70,7 @@ Expected: 현재 `GameChrome`에 `header[data-game-header]`가 없고 `V2TopBar`
 
 ```ts
 export const SURFACE_GAME_HEADER =
-  "rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900";
+  "border-b border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900";
 ```
 
 `GameChrome.tsx`에서 `V2TopBar`, `MainTabNav`, `WarTicker`를 다음 셸로 묶는다.
@@ -77,9 +78,9 @@ export const SURFACE_GAME_HEADER =
 ```tsx
 <header
   data-game-header
-  className="sticky top-0 z-[60] px-3 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-6 sm:pt-3"
+  className={`${SURFACE_GAME_HEADER} sticky top-0 z-[60] pt-[env(safe-area-inset-top)]`}
 >
-  <div className={`${SURFACE_GAME_HEADER} mx-auto w-full max-w-[864px]`}>
+  <div className="w-full">
     <V2TopBar
       stamina={stamina}
       staminaMax={staminaMax}
@@ -98,7 +99,7 @@ export const SURFACE_GAME_HEADER =
 </header>
 ```
 
-`V2TopBar.tsx` 루트를 `<div data-game-top-bar>`로 바꾸고 sticky·z-index·바깥 표면 스타일을 제거한다. 내부 행에는 `border-b`, `px-3`, `py-1`, 데스크톱 패딩만 남긴다.
+`V2TopBar.tsx` 루트를 `<div data-game-top-bar>`로 바꾸고 sticky·z-index·바깥 표면 스타일을 제거한다. 내부 행에는 `border-b`, `px-3`, `py-1`, 데스크톱 패딩만 남긴다. 왼쪽에는 파비콘 홈 버튼과 `autoGatheringStatusDisplay()` 기반 자동 생활 카운트다운을 두고, 오른쪽의 자원·알림·메뉴는 유지한다.
 
 - [x] **Step 4: GREEN 확인**
 
@@ -112,7 +113,7 @@ Expected: 모든 관련 테스트 PASS.
 
 - [x] **Step 5: 레이아웃 세부 정리와 회귀 확인**
 
-드롭다운이 카드 밖으로 열릴 수 있도록 헤더 셸에 `overflow-hidden`을 추가하지 않는다. 중복 `max-w-[864px]`은 정렬 안전장치로 유지하고, 티커가 없을 때 빈 높이가 생기지 않는지 DOM과 브라우저 출력에서 확인한다. `V2ItemCardPopover`는 `[data-game-header]`의 하단을 우선 사용하고, 독립 렌더링 호환을 위해 `[data-game-top-bar]`를 보조 경계로 사용한다.
+드롭다운이 헤더 밖으로 열릴 수 있도록 헤더 셸에 `overflow-hidden`을 추가하지 않는다. 헤더 내부 컴포넌트에도 최대 폭 제한을 두지 않고, 티커가 없을 때 빈 높이가 생기지 않는지 DOM과 브라우저 출력에서 확인한다. `V2ItemCardPopover`는 `[data-game-header]`의 하단을 우선 사용하고, 독립 렌더링 호환을 위해 `[data-game-top-bar]`를 보조 경계로 사용한다.
 
 Run:
 

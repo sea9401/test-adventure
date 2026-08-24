@@ -50,6 +50,8 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     gameStateLoaded,
     coreLoopOn,
     huntStaminaMode,
+    autoGathering,
+    fishingActive,
     refreshGameState,
   } = useGameState();
   // 스태미나 포션 사용(모달에서 개수 선택) — 서버 권위 회복 후 전역 상태 갱신.
@@ -115,15 +117,15 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     >
       <header
         data-game-header
-        className="sticky top-0 z-[60] px-3 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-6 sm:pt-3"
+        className={`${SURFACE_GAME_HEADER} sticky top-0 z-[60] pt-[env(safe-area-inset-top)]`}
       >
-        <div
-          className={`${SURFACE_GAME_HEADER} mx-auto w-full max-w-[864px]`}
-        >
+        <div className="w-full">
           <V2TopBar
             stamina={stamina}
             staminaMax={staminaMax}
             spendableGold={spendableGold}
+            autoGathering={autoGathering}
+            fishingActive={fishingActive}
           />
           {/* 메인 내비 — 마을 시설과 생활 콘텐츠를 분리한 6탭. */}
           <MainTabNav
@@ -135,7 +137,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
           {/* 전쟁 전광판 — 탭바 바로 아래 전역 한 줄. 사건 0건이면 빈 높이를 만들지 않는다. */}
           <div
             data-game-ticker-slot
-            className="overflow-hidden rounded-b-[11px]"
+            className="overflow-hidden"
           >
             <WarTicker />
           </div>

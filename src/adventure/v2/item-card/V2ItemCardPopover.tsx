@@ -93,11 +93,15 @@ function visibleViewport(): ItemCardViewport {
     return { width: 360, height: 640, top: MARGIN };
   }
 
-  const topBar = document.querySelector<HTMLElement>("[data-game-top-bar]");
-  const topBarRect = topBar?.getBoundingClientRect();
+  const stickyHeader =
+    document.querySelector<HTMLElement>("[data-game-header]") ??
+    document.querySelector<HTMLElement>("[data-game-top-bar]");
+  const stickyHeaderRect = stickyHeader?.getBoundingClientRect();
   const top =
-    topBarRect && topBarRect.bottom > 0 && topBarRect.top < window.innerHeight
-      ? topBarRect.bottom + MARGIN
+    stickyHeaderRect &&
+    stickyHeaderRect.bottom > 0 &&
+    stickyHeaderRect.top < window.innerHeight
+      ? stickyHeaderRect.bottom + MARGIN
       : MARGIN;
   return { width: window.innerWidth, height: window.innerHeight, top };
 }

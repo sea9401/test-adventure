@@ -5,7 +5,7 @@ import { Coins, Lightning } from "@phosphor-icons/react";
 import type { StaminaState } from "./stamina";
 import { NotificationBell } from "./NotificationBell";
 import { V2SettingsMenu } from "./V2SettingsMenu";
-import { SURFACE_FROSTED_BAR, SURFACE_INSET } from "@/components/ui/surfaces";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 
 const numberFormatter = new Intl.NumberFormat("ko-KR");
 
@@ -19,9 +19,9 @@ export function V2TopBar({
   spendableGold: number;
 }) {
   return (
-    <header
+    <div
       data-game-top-bar
-      className={`${SURFACE_FROSTED_BAR} sticky top-0 z-[60] px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6 sm:pb-3`}
+      className="border-b border-zinc-200 px-3 py-1 sm:px-4 dark:border-zinc-700"
     >
       <div className="mx-auto flex w-full max-w-[864px] items-center justify-between gap-3">
         <Link
@@ -54,6 +54,6 @@ export function V2TopBar({
           </nav>
         </div>
       </div>
-    </header>
+    </div>
   );
 }

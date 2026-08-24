@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   CaretDown,
   CookingPot,
@@ -17,6 +18,7 @@ import { avatarImageSrc, type Gender } from "@/adventure/profile/avatars";
 import { parseV2Class, V2_CLASS_DEFS } from "@/adventure/data/v2/classes";
 import {
   V2_EQUIPMENT,
+  type V2Equipment,
   type V2EquipInstance,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
@@ -25,6 +27,11 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Inset } from "@/components/ui/Inset";
 import type { V2CharacterCardData } from "./V2CharacterCard";
+import {
+  CompactCharacterEffectCard,
+  type CompactCharacterEffectDetail,
+} from "./CompactCharacterEffectCard";
+import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
 
 const numberFormatter = new Intl.NumberFormat("ko-KR");
 
@@ -72,6 +79,18 @@ type AdventureSupportSummary = {
   regenBonusPct: number;
 };
 
+type CompactDetailSelection =
+  | {
+      kind: CompactCharacterEffectDetail["kind"];
+      anchor: ItemCardAnchor;
+    }
+  | {
+      kind: "equipment";
+      instance: V2EquipInstance;
+      item: V2Equipment;
+      anchor: ItemCardAnchor;
+    };
+
 export function CompactCharacterSummary({
   character,
   guild,
@@ -97,6 +116,9 @@ export function CompactCharacterSummary({
   onExpandedChange: (expanded: boolean) => void;
   children: React.ReactNode;
 }) {
+  const [selectedDetail, setSelectedDetail] =
+    useState<CompactDetailSelection | null>(null);
+
   if (expanded) {
     return <>{children}</>;
   }
@@ -108,6 +130,12 @@ export function CompactCharacterSummary({
   const mp = Math.max(0, character.mp ?? 0);
   const maxMp = Math.max(0, character.maxMp ?? 0);
   const showExp = character.expToNext != null && character.expToNext > 0;
+  const supportActiveUntil =
+    adventureSupport?.active &&
+    typeof adventureSupport.activeUntil === "number" &&
+    Number.isFinite(adventureSupport.activeUntil)
+      ? adventureSupport.activeUntil
+      : null;
   const equippedBySlot = new Map(
     EQUIPMENT_SLOTS.map(({ slot }) => {
       const iid = equipped?.[slot];
@@ -115,23 +143,40 @@ export function CompactCharacterSummary({
       return [slot, instance] as const;
     }),
   );
+  const equippedItemIds = new Set(
+    Array.from(equippedBySlot.values(), (instance) => instance?.id).filter(
+      (id): id is NonNullable<typeof id> => id != null,
+    ),
+  );
 
   return (
-    <Card as="section" padding="none" aria-label="캐릭터 요약" className="overflow-hidden">
-      <div className="relative flex items-start gap-3 p-3 sm:gap-4 sm:p-4">
-        <Inset
-          padding="none"
-          className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden sm:h-28 sm:w-28"
-        >
-          <UserCircle size={42} className="absolute z-0 text-zinc-400" aria-hidden />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={avatarImageSrc(gender, "static")}
-            alt=""
-            className="relative z-10 h-full w-full object-contain"
-            onError={(event) => { event.currentTarget.hidden = true; }}
-          />
-        </Inset>
+    <>
+      <Card
+        as="section"
+        padding="none"
+        aria-label="캐릭터 요약"
+        className="overflow-hidden"
+      >
+        <div className="relative flex items-start gap-3 p-3 sm:gap-4 sm:p-4">
+          <Inset
+            padding="none"
+            className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden sm:h-28 sm:w-28"
+          >
+            <UserCircle
+              size={42}
+              className="absolute z-0 text-zinc-400"
+              aria-hidden
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={avatarImageSrc(gender, "static")}
+              alt=""
+              className="relative z-10 h-full w-full object-contain"
+              onError={(event) => {
+                event.currentTarget.hidden = true;
+              }}
+            />
+          </Inset>
 
         <div className="min-w-0 flex-1 pr-10 sm:pr-16">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -158,13 +203,39 @@ export function CompactCharacterSummary({
 
           <div className="mt-3 flex flex-wrap gap-1.5">
             {activeFoodBuff ? (
-              <Inset as="span" padding="none" className="inline-flex items-center gap-1 border-0 px-2 py-1 text-[10px] text-zinc-600 shadow-none dark:text-zinc-300">
+              <Inset
+                as="button"
+                type="button"
+                padding="none"
+                aria-label={`${activeFoodBuff.recipeName} 음식 효과 보기`}
+                aria-haspopup="dialog"
+                onClick={(event) =>
+                  setSelectedDetail({
+                    kind: "food",
+                    anchor: anchorOf(event.currentTarget),
+                  })
+                }
+                className="inline-flex items-center gap-1 border-0 px-2 py-1 text-[10px] text-zinc-600 shadow-none transition-colors hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:text-zinc-300 dark:hover:text-white"
+              >
                 <CookingPot size={13} className="text-orange-500" aria-hidden />
                 <span className="max-w-28 truncate">{activeFoodBuff.recipeName}</span>
               </Inset>
             ) : null}
             {adventureSupport?.active ? (
-              <Inset as="span" padding="none" className="inline-flex items-center gap-1 border-0 px-2 py-1 text-[10px] text-zinc-600 shadow-none dark:text-zinc-300">
+              <Inset
+                as="button"
+                type="button"
+                padding="none"
+                aria-label="모험 지원권 상세 보기"
+                aria-haspopup="dialog"
+                onClick={(event) =>
+                  setSelectedDetail({
+                    kind: "support",
+                    anchor: anchorOf(event.currentTarget),
+                  })
+                }
+                className="inline-flex items-center gap-1 border-0 px-2 py-1 text-[10px] text-zinc-600 shadow-none transition-colors hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:text-zinc-300 dark:hover:text-white"
+              >
                 <Sparkle size={13} className="text-amber-500" aria-hidden />
                 모험 지원권
               </Inset>
@@ -188,37 +259,101 @@ export function CompactCharacterSummary({
             type="button"
             variant="ghost"
             size="icon"
-            onClick={() => onExpandedChange(true)}
+            onClick={() => {
+              setSelectedDetail(null);
+              onExpandedChange(true);
+            }}
             aria-label="캐릭터 정보 펼치기"
           >
             <CaretDown size={18} aria-hidden />
           </Button>
         </div>
-      </div>
+        </div>
 
-      <div className="grid grid-cols-6 gap-1 border-t border-zinc-200 p-2 sm:gap-2 sm:p-3 dark:border-zinc-700">
-        {EQUIPMENT_SLOTS.map(({ slot, label, Icon, color }) => {
-          const instance = equippedBySlot.get(slot);
-          const item = instance ? V2_EQUIPMENT[instance.id] : null;
-          return (
-            <Inset
-              key={slot}
-              data-compact-equipment-slot={slot}
-              padding="none"
-              title={`${label}${item ? ` · ${item.name}` : " · 비어 있음"}`}
-              className="flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 p-1"
-            >
-              <Icon
-                size={18}
-                weight={item ? "duotone" : "regular"}
-                className={item ? color : "text-zinc-300 dark:text-zinc-600"}
-                aria-hidden
-              />
-              <span className="truncate text-[9px] text-zinc-500 dark:text-zinc-400">{label}</span>
-            </Inset>
-          );
-        })}
-      </div>
-    </Card>
+        <div className="grid grid-cols-6 gap-1 border-t border-zinc-200 p-2 sm:gap-2 sm:p-3 dark:border-zinc-700">
+          {EQUIPMENT_SLOTS.map(({ slot, label, Icon, color }) => {
+            const instance = equippedBySlot.get(slot);
+            const item = instance ? V2_EQUIPMENT[instance.id] : null;
+            const content = (
+              <>
+                <Icon
+                  size={18}
+                  weight={item ? "duotone" : "regular"}
+                  className={
+                    item ? color : "text-zinc-300 dark:text-zinc-600"
+                  }
+                  aria-hidden
+                />
+                <span className="truncate text-[9px] text-zinc-500 dark:text-zinc-400">
+                  {label}
+                </span>
+              </>
+            );
+
+            return instance && item ? (
+              <Inset
+                key={slot}
+                as="button"
+                type="button"
+                data-compact-equipment-slot={slot}
+                aria-label={`${item.name} 아이템 옵션 보기`}
+                aria-haspopup="dialog"
+                padding="none"
+                title={`${label} · ${item.name}`}
+                onClick={(event) =>
+                  setSelectedDetail({
+                    kind: "equipment",
+                    instance,
+                    item,
+                    anchor: anchorOf(event.currentTarget),
+                  })
+                }
+                className="flex min-h-11 min-w-0 cursor-pointer flex-col items-center justify-center gap-0.5 p-1 transition-colors hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:hover:text-white"
+              >
+                {content}
+              </Inset>
+            ) : (
+              <Inset
+                key={slot}
+                data-compact-equipment-slot={slot}
+                padding="none"
+                title={`${label} · 비어 있음`}
+                className="flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 p-1"
+              >
+                {content}
+              </Inset>
+            );
+          })}
+        </div>
+      </Card>
+      {selectedDetail?.kind === "equipment" ? (
+        <V2ItemCard
+          item={selectedDetail.item}
+          roll={selectedDetail.instance.roll}
+          enhance={selectedDetail.instance.enhance}
+          craftQuality={selectedDetail.instance.craftQuality}
+          craftedBy={selectedDetail.instance.craftedBy}
+          equippedIds={equippedItemIds}
+          anchor={selectedDetail.anchor}
+          onClose={() => setSelectedDetail(null)}
+        />
+      ) : selectedDetail?.kind === "support" && supportActiveUntil != null ? (
+        <CompactCharacterEffectCard
+          detail={{
+            kind: "support",
+            activeUntil: supportActiveUntil,
+            regenBonusPct: adventureSupport?.regenBonusPct ?? 0,
+          }}
+          anchor={selectedDetail.anchor}
+          onClose={() => setSelectedDetail(null)}
+        />
+      ) : selectedDetail?.kind === "food" && activeFoodBuff ? (
+        <CompactCharacterEffectCard
+          detail={{ kind: "food", buff: activeFoodBuff }}
+          anchor={selectedDetail.anchor}
+          onClose={() => setSelectedDetail(null)}
+        />
+      ) : null}
+    </>
   );
 }

@@ -32,13 +32,14 @@ describe("V2TopBar", () => {
     expect(html).not.toContain("휴식 중");
   });
 
-  it("게임 크롬을 864px 안에 정렬하고 모바일에서는 골드를 숨긴다", () => {
+  it("결합형 헤더 안의 상단 행으로 렌더하고 모바일에서는 골드를 숨긴다", () => {
     const html = renderTopBar();
 
     expect(html).toContain("data-game-top-bar");
     expect(html).toContain("max-w-[864px]");
     expect(html).toContain("data-topbar-gold");
     expect(html).toMatch(/data-topbar-gold[^>]+class="[^"]*hidden[^"]*sm:inline-flex/);
-    expect(html).toContain("pt-[max(0.75rem,env(safe-area-inset-top))]");
+    expect(html).toMatch(/^<div[^>]+data-game-top-bar/);
+    expect(html).not.toContain("sticky top-0");
   });
 });

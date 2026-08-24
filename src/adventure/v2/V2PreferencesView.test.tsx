@@ -10,6 +10,15 @@ vi.mock("./GameStateProvider", () => ({
   useGameState: () => ({ accountName: "테스터" }),
 }));
 
+vi.mock("./AdventureDashboardProvider", () => ({
+  useAdventureDashboard: () => ({
+    snapshot: {
+      preferences: { activityNotificationsEnabled: true },
+    },
+    updatePreferences: vi.fn(),
+  }),
+}));
+
 describe("환경 설정 화면", () => {
   it("테마·표시 모드·푸시 알림·정책·회원 탈퇴를 한 화면에서 제공한다", () => {
     const html = renderToStaticMarkup(<V2PreferencesView />);
@@ -22,6 +31,8 @@ describe("환경 설정 화면", () => {
     expect(html).toContain("은신 모드");
     expect(html).toContain("터미널 모드");
     expect(html).toContain("푸시 알림");
+    expect(html).toContain("콘텐츠 알림 표시");
+    expect(html).toContain('aria-label="콘텐츠 알림 표시"');
     expect(html).toContain("검은 화면");
     expect(html).toContain('href="/privacy"');
     expect(html).toContain("정책·약관");

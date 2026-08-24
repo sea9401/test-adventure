@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  Bell,
   CaretRight,
   Check,
   Eye,
@@ -23,6 +24,7 @@ import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { PushNotificationSettings } from "@/components/PushNotificationSettings";
 import { BlockedUsersPanel } from "@/components/safety/BlockedUsersPanel";
 import { useGameState } from "./GameStateProvider";
+import { useAdventureDashboard } from "./AdventureDashboardProvider";
 import {
   BACKGROUND_HIDDEN_MODE_CLASS,
   DISCREET_MODE_CLASS,
@@ -77,9 +79,14 @@ const DISPLAY_OPTIONS = [
 export function V2PreferencesView() {
   const router = useRouter();
   const { accountName } = useGameState();
+  const { snapshot, updatePreferences } = useAdventureDashboard();
   const [theme, setTheme] = useState<Theme>("dark");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("default");
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [notificationSaving, setNotificationSaving] = useState(false);
+  const [notificationSaveError, setNotificationSaveError] = useState(false);
+  const activityNotificationsEnabled =
+    snapshot?.preferences.activityNotificationsEnabled ?? true;
 
   useEffect(() => {
     const root = document.documentElement;
@@ -128,6 +135,21 @@ export function V2PreferencesView() {
     } catch {}
   };
 
+  const toggleActivityNotifications = async () => {
+    if (!snapshot || notificationSaving) return;
+    setNotificationSaving(true);
+    setNotificationSaveError(false);
+    try {
+      await updatePreferences({
+        activityNotificationsEnabled: !activityNotificationsEnabled,
+      });
+    } catch {
+      setNotificationSaveError(true);
+    } finally {
+      setNotificationSaving(false);
+    }
+  };
+
   return (
     <PageShell>
       <SubViewHeader title="환경 설정" onBack={() => router.push("/")} />
@@ -174,8 +196,50 @@ export function V2PreferencesView() {
         <div>
           <h2 className="text-sm font-bold">알림</h2>
           <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-            기기별로 푸시 알림 수신 여부를 선택합니다.
+            게임 화면의 콘텐츠 알림과 기기별 푸시 알림 수신 여부를 선택합니다.
           </p>
+        </div>
+        <div className={`${SURFACE_INSET} flex items-start gap-3 p-3`}>
+          <Bell
+            size={24}
+            weight={activityNotificationsEnabled ? "fill" : "duotone"}
+            className={`mt-0.5 shrink-0 ${
+              activityNotificationsEnabled
+                ? "text-amber-600 dark:text-amber-300"
+                : "text-zinc-500 dark:text-zinc-400"
+            }`}
+          />
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+              콘텐츠 알림 표시
+            </h3>
+            <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+              전투·마을·생활 등 상단 메뉴와 하위 콘텐츠에 노란 알림 점을 표시합니다.
+            </p>
+            <button
+              type="button"
+              aria-label="콘텐츠 알림 표시"
+              aria-pressed={activityNotificationsEnabled}
+              disabled={!snapshot || notificationSaving}
+              onClick={toggleActivityNotifications}
+              className={`mt-3 min-h-9 rounded-md border px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                activityNotificationsEnabled
+                  ? "border-amber-400 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-950"
+                  : "border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+              }`}
+            >
+              {notificationSaving
+                ? "저장 중…"
+                : activityNotificationsEnabled
+                  ? "표시 켜짐"
+                  : "표시 꺼짐"}
+            </button>
+            {notificationSaveError && (
+              <p role="status" className="mt-2 text-xs text-rose-600 dark:text-rose-400">
+                콘텐츠 알림 설정을 저장하지 못했습니다. 다시 시도해 주세요.
+              </p>
+            )}
+          </div>
         </div>
         <PushNotificationSettings />
       </Card>

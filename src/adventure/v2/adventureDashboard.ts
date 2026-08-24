@@ -16,6 +16,7 @@ export type AdventureHomePreferences = {
   widgetOrder: AdventureHomeWidgetId[];
   hiddenWidgetIds: AdventureHomeWidgetId[];
   characterExpanded: boolean;
+  activityNotificationsEnabled: boolean;
   activityEnabled: Record<string, boolean>;
   seenUnlockedActivityIds: string[];
 };
@@ -25,6 +26,7 @@ export const DEFAULT_ADVENTURE_HOME_PREFERENCES: AdventureHomePreferences = {
   widgetOrder: [...DEFAULT_ADVENTURE_HOME_WIDGET_ORDER],
   hiddenWidgetIds: [],
   characterExpanded: false,
+  activityNotificationsEnabled: true,
   activityEnabled: {},
   seenUnlockedActivityIds: [],
 };
@@ -93,6 +95,7 @@ export function normalizeAdventureHomePreferences(
       ...DEFAULT_ADVENTURE_HOME_PREFERENCES,
       widgetOrder: [...DEFAULT_ADVENTURE_HOME_WIDGET_ORDER],
       hiddenWidgetIds: [],
+      activityNotificationsEnabled: true,
       activityEnabled: {},
       seenUnlockedActivityIds: [],
     };
@@ -124,6 +127,7 @@ export function normalizeAdventureHomePreferences(
       WIDGET_IDS,
     ) as AdventureHomeWidgetId[],
     characterExpanded: raw.characterExpanded === true,
+    activityNotificationsEnabled: raw.activityNotificationsEnabled !== false,
     activityEnabled,
     seenUnlockedActivityIds: uniqueKnownStrings(
       raw.seenUnlockedActivityIds,
@@ -168,9 +172,13 @@ export function sortAdventureActivities(
     .map(({ item }) => item);
 }
 
-export function activityTabDots(activities: readonly AdventureActivityView[]) {
+export function activityTabDots(
+  activities: readonly AdventureActivityView[],
+  enabled = true,
+) {
   const tabs: Partial<Record<AdventureActivityTab, true>> = {};
   const paths: Record<string, true> = {};
+  if (!enabled) return { tabs, paths };
   for (const activity of activities) {
     if (!activity.enabled || activity.state !== "actionable") continue;
     if (activity.tab != null) tabs[activity.tab] = true;

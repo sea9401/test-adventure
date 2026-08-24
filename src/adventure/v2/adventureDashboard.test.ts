@@ -54,6 +54,19 @@ describe("모험 홈 환경설정 정규화", () => {
       DEFAULT_ADVENTURE_HOME_PREFERENCES,
     );
   });
+
+  it("기존 저장값은 콘텐츠 알림을 켜고 명시적으로 끈 설정은 유지한다", () => {
+    expect(
+      normalizeAdventureHomePreferences({ version: 1 }, [])
+        .activityNotificationsEnabled,
+    ).toBe(true);
+    expect(
+      normalizeAdventureHomePreferences(
+        { version: 1, activityNotificationsEnabled: false },
+        [],
+      ).activityNotificationsEnabled,
+    ).toBe(false);
+  });
 });
 
 describe("모험 활동 집계", () => {
@@ -113,5 +126,14 @@ describe("모험 활동 집계", () => {
       "/town/farm": true,
       "/guild?tab=raid": true,
     });
+  });
+
+  it("콘텐츠 알림 표시를 끄면 활동 상태와 관계없이 점을 만들지 않는다", () => {
+    expect(
+      activityTabDots(
+        [activity({ id: "farm", state: "actionable", href: "/town/farm" })],
+        false,
+      ),
+    ).toEqual({ tabs: {}, paths: {} });
   });
 });

@@ -1,8 +1,8 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
-import { FARM_ITEMS } from "@/adventure/v2/farm";
 import { FISHING_CATCH_ITEMS } from "@/adventure/v2/fishingStock";
+import { isCookingFarmIngredientId } from "@/adventure/v2/cooking/researchIngredients";
 import {
   cookingLevelForXp,
   type CookingKitchenItemId,
@@ -68,7 +68,7 @@ export function cookingCombinationHash(
 function isKnownIngredient(id: CookingIngredientId): boolean {
   const [kind, itemId, extra] = id.split(":");
   if (!itemId || extra !== undefined) return false;
-  if (kind === "farm") return Object.hasOwn(FARM_ITEMS, itemId);
+  if (kind === "farm") return isCookingFarmIngredientId(itemId);
   if (kind === "fishing") return Object.hasOwn(FISHING_CATCH_ITEMS, itemId);
   return KITCHEN_ITEM_IDS.has(id as CookingKitchenItemId);
 }

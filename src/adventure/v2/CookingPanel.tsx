@@ -31,6 +31,7 @@ const ERROR_TEXT: Record<string, string> = {
   not_enough_farm_items: "농장·목장 재료가 부족합니다.",
   not_enough_fishing_items: "어획물이 부족합니다.",
   not_enough_kitchen_items: "주방 재료가 부족합니다.",
+  not_enough_cooking_prep_sets: "요리 준비 세트가 조리 수량보다 부족합니다.",
   not_enough_gold: "골드가 부족합니다.",
   specialty_locked: "요리 Lv 20과 숨은 레시피 10종 발견이 필요합니다.",
   specialty_permanent: "주 전문 분야는 이미 확정되어 변경할 수 없습니다.",
@@ -65,11 +66,14 @@ export function cookingLevelProgressView(input: { xp: number; currentLevelXp: nu
 function resultMessage(data: CookingResponse): string {
   const result = data.result ?? {};
   if (result.action === "research") {
-    return result.outcome === "success"
-      ? `${String(result.recipeName)} 레시피 발견!${result.firstDiscovery ? " 서버 최초 개발자로 등록되어 이 음식을 만들면 성능 +10%가 붙습니다." : ""}`
-      : "조합 연구에 실패했습니다. 소량의 요리 경험치와 실패 음식을 얻었습니다.";
+    if (result.outcome === "success") {
+      return `${String(result.recipeName)} 레시피 발견!${result.firstDiscovery ? " 서버 최초 개발자로 등록되어 이 음식을 만들면 성능 +10%가 붙습니다." : ""}`;
+    }
+    const earnedXp = Math.max(0, Math.floor(Number(result.earnedXp) || 0));
+    const failedDishCount = Math.max(0, Math.floor(Number(result.failedDishCount) || 0));
+    return `조합 연구 실패 · 선택 재료 각 1개 소비 · 요리 XP +${earnedXp.toLocaleString("ko-KR")} · 실패 음식 +${failedDishCount.toLocaleString("ko-KR")}`;
   }
-  if (result.action === "craft") return `${data.recipes.find((entry) => entry.id === result.recipeId)?.name ?? "요리"} ${Number(result.quantity) || 1}개 완성 · ${String(result.quality ?? "normal")}`;
+  if (result.action === "craft") return `${data.recipes.find((entry) => entry.id === result.recipeId)?.name ?? "요리"} ${Number(result.quantity) || 1}개 완성 · ${String(result.quality ?? "normal")}${Number(result.usedPrepSets) > 0 ? ` · 준비 세트 ${Number(result.usedPrepSets)}개 사용` : ""}`;
   if (result.action === "choose_specialty") return `${COOKING_FIELD_NAMES[result.field as keyof typeof COOKING_FIELD_NAMES]} 전문 분야를 영구 확정했습니다.`;
   if (result.action === "deliver") return result.completedNow ? "납품 목표를 달성해 보상을 받았습니다." : `납품 점수 +${Number(result.scoreAdded) || 0}`;
   if (result.action === "standing_delivery") return `상시 납품 완료 · ${Number(result.gold).toLocaleString()}골드`;

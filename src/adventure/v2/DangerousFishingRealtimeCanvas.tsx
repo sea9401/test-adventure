@@ -243,6 +243,32 @@ function drawScene(
   context.restore();
 }
 
+function StaticFishingFallback({ view }: { view: DangerousRealtimeView }) {
+  const fallback = staticFallbackFor(view);
+  return (
+    <svg
+      viewBox="0 0 160 96"
+      aria-hidden="true"
+      data-fallback-fish="silhouette"
+      className="absolute h-auto max-h-[72%] w-[48%] overflow-visible drop-shadow-2xl"
+      style={{
+        left: `${fallback.pose.x * 100}%`,
+        top: `${fallback.pose.y * 100}%`,
+        transform: `translate(-50%, -50%) scale(${fallback.pose.scale})`,
+      }}
+    >
+      <path
+        d="M42 48 8 19v58l34-29c18-25 68-31 104 0-36 31-86 25-104 0Z"
+        fill="#67e8f9"
+        stroke="#cffafe"
+        strokeWidth="4"
+        strokeLinejoin="round"
+      />
+      <circle cx="125" cy="42" r="4" fill="#082f49" />
+    </svg>
+  );
+}
+
 export function DangerousFishingRealtimeCanvas({
   view,
   scene,
@@ -256,7 +282,9 @@ export function DangerousFishingRealtimeCanvas({
   const tickStartedAtRef = useRef(0);
   const assetKey = `${scene.encounterImageSrc}|${target.imageSrc}|${target.struggleSpriteSrc ?? ""}`;
   const [failedAssetKey, setFailedAssetKey] = useState<string | null>(null);
+  const [readyAssetKey, setReadyAssetKey] = useState<string | null>(null);
   const failed = failedAssetKey === assetKey;
+  const ready = readyAssetKey === assetKey;
   const sceneDescription = `${scene.description}에서 ${target.name}과 벌이는 위험 해역 낚시 장면`;
 
   useEffect(() => {
@@ -281,6 +309,7 @@ export function DangerousFishingRealtimeCanvas({
     let height = 0;
     let images: LoadedSceneImages | null = null;
     let observer: ResizeObserver | null = null;
+    let firstFrameDrawn = false;
 
     const fail = () => {
       if (!disposed) setFailedAssetKey(assetKey);
@@ -336,6 +365,10 @@ export function DangerousFishingRealtimeCanvas({
               height,
               target.facing ?? "right",
             );
+            if (!firstFrameDrawn) {
+              firstFrameDrawn = true;
+              setReadyAssetKey(assetKey);
+            }
           }
           animationFrame = window.requestAnimationFrame(frame);
         };
@@ -384,37 +417,24 @@ export function DangerousFishingRealtimeCanvas({
         data-renderer={fallback.background}
         className={`relative aspect-video overflow-hidden bg-cyan-950 ${className}`}
       >
-        <svg
-          viewBox="0 0 160 96"
-          aria-hidden="true"
-          data-fallback-fish="silhouette"
-          className="absolute h-auto max-h-[72%] w-[48%] overflow-visible drop-shadow-2xl"
-          style={{
-            left: `${fallback.pose.x * 100}%`,
-            top: `${fallback.pose.y * 100}%`,
-            transform: `translate(-50%, -50%) scale(${fallback.pose.scale})`,
-          }}
-        >
-          <path
-            d="M42 48 8 19v58l34-29c18-25 68-31 104 0-36 31-86 25-104 0Z"
-            fill="#67e8f9"
-            stroke="#cffafe"
-            strokeWidth="4"
-            strokeLinejoin="round"
-          />
-          <circle cx="125" cy="42" r="4" fill="#082f49" />
-        </svg>
+        <StaticFishingFallback view={view} />
       </div>
     );
   }
 
   return (
-    <canvas
-      ref={canvasRef}
+    <div
       role="img"
       aria-label={sceneDescription}
-      data-renderer="canvas"
-      className={`block aspect-video w-full bg-slate-950 ${className}`}
-    />
+      data-renderer={ready ? "canvas" : "loading-fallback"}
+      className={`relative aspect-video overflow-hidden bg-cyan-950 ${className}`}
+    >
+      {!ready ? <StaticFishingFallback view={view} /> : null}
+      <canvas
+        ref={canvasRef}
+        aria-hidden="true"
+        className={`absolute inset-0 block h-full w-full transition-opacity ${ready ? "opacity-100" : "opacity-0"}`}
+      />
+    </div>
   );
 }

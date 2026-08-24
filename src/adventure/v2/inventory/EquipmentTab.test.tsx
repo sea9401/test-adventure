@@ -6,6 +6,39 @@ import { EquipmentTab } from "./EquipmentTab";
 const id = (value: string) => value as V2EquipmentId;
 
 describe("EquipmentTab 선택 판매", () => {
+  it("현재 장비 탭에서 등록 가능한 도감 항목 수와 일괄등록 버튼을 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <EquipmentTab
+        slot="weapon"
+        instances={[{ iid: "plain", id: id("v2_iron_sword") }]}
+        equippedIid={null}
+        busy={null}
+        sortMode="default"
+        setSortMode={vi.fn()}
+        sellQualityPct={40}
+        setSellQualityPct={vi.fn()}
+        pageSize={20}
+        frontierDepth={99}
+        onBulkSell={vi.fn()}
+        onOpenCard={vi.fn()}
+        onRegisterCodex={vi.fn()}
+        codexBulk={{ registerableCount: 1, onStart: vi.fn() }}
+        selection={{
+          active: false,
+          selectedIids: new Set(),
+          selectedCount: 0,
+          selectedGold: 0,
+          onStart: vi.fn(),
+          onCancel: vi.fn(),
+          onToggle: vi.fn(),
+          onConfirm: vi.fn(),
+        }}
+      />,
+    );
+
+    expect(html).toContain("도감 일괄등록 (1)");
+  });
+
   it("선택 개수와 예상 골드를 표시하고 장착·잠금 장비 선택을 막는다", () => {
     const instances: V2EquipInstance[] = [
       { iid: "equipped", id: id("v2_iron_sword") },

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { LockKey, Sparkle } from "@phosphor-icons/react";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import type { FarmEndgameShopView } from "./farmEndgameShop";
 
 export function FarmEndgameShopPanel({
@@ -77,12 +78,12 @@ export function FarmEndgameShopPanel({
                   ? "구매하기"
                   : "증표 부족";
 
-            const buy = () => {
+            const buy = async () => {
               if (
                 titleId &&
-                !window.confirm(
+                !(await confirmGameAction(
                   `${item.title} 칭호를 구매할까요?\n농장 증표 ${item.costReputation.toLocaleString("ko-KR")}개가 사용됩니다.`,
-                )
+                ))
               ) {
                 return;
               }
@@ -118,7 +119,7 @@ export function FarmEndgameShopPanel({
                   <button
                     type="button"
                     aria-label={`${item.title} 구매`}
-                    onClick={buy}
+                    onClick={() => void buy()}
                     disabled={owned || !affordable || busyItemId !== null}
                     className="mt-2 rounded-md bg-amber-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
                   >

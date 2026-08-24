@@ -3,8 +3,10 @@ import {
   FARM_GOLDEN_FIELDS_OWNER_TITLE_ID,
   TITLES,
 } from "@/adventure/data/titles";
-import { FARM_MAX_PLOT_COUNT, type FarmState } from "./farm";
-import { RANCH_PEN_DEFINITIONS } from "./ranch";
+import type { FarmState } from "./farm";
+import { RANCH_SLOT_DEFINITIONS } from "./ranch";
+
+export const FARM_ENDGAME_SHOP_REQUIRED_PLOTS = 8 as const;
 
 export type FarmEndgameShopReward =
   | { kind: "farmItem"; itemId: "compound_feed"; quantity: 5 }
@@ -24,7 +26,7 @@ export type FarmEndgameShopItem = {
 export type FarmEndgameShopProgress = {
   unlocked: boolean;
   plots: number;
-  requiredPlots: typeof FARM_MAX_PLOT_COUNT;
+  requiredPlots: typeof FARM_ENDGAME_SHOP_REQUIRED_PLOTS;
   pens: number;
   requiredPens: 4;
 };
@@ -88,17 +90,21 @@ export function farmEndgameShopItem(itemId: string): FarmEndgameShopItem | null 
 }
 
 export function farmEndgameShopProgress(farm: FarmState): FarmEndgameShopProgress {
-  const requiredPens = RANCH_PEN_DEFINITIONS.filter(
-    (definition) => definition.costReputation > 0,
+  const requiredSlots = RANCH_SLOT_DEFINITIONS.slice(0, 5);
+  const requiredPens = RANCH_SLOT_DEFINITIONS.slice(1, 5);
+  const pens = requiredPens.filter(
+    (definition) => farm.ranch.slots[definition.id].unlocked,
+  ).length;
+  const requiredSlotsUnlocked = requiredSlots.every(
+    (definition) => farm.ranch.slots[definition.id].unlocked,
   );
-  const pens = requiredPens.filter((definition) => farm.ranch.pens[definition.id].unlocked)
-    .length;
   const plots = farm.plots.length;
 
   return {
-    unlocked: plots >= FARM_MAX_PLOT_COUNT && pens >= 4,
+    unlocked:
+      plots >= FARM_ENDGAME_SHOP_REQUIRED_PLOTS && requiredSlotsUnlocked,
     plots,
-    requiredPlots: FARM_MAX_PLOT_COUNT,
+    requiredPlots: FARM_ENDGAME_SHOP_REQUIRED_PLOTS,
     pens,
     requiredPens: 4,
   };

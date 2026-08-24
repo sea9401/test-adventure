@@ -15,6 +15,16 @@ vi.mock("./V2SettingsMenu", () => ({
 }));
 
 describe("V2TopBar", () => {
+  it("프로스티드 공용 헤더와 44px 홈 조작 영역을 사용한다", () => {
+    const html = renderToStaticMarkup(
+      <V2TopBar autoGathering={null} fishingActive={false} />,
+    );
+
+    expect(html).toContain("backdrop-blur");
+    expect(html).toContain("data-game-top-bar");
+    expect(html).toContain("size-11");
+  });
+
   it("화면 상단 안전 영역 아래에 게임 조작부를 배치한다", () => {
     const html = renderToStaticMarkup(
       <V2TopBar autoGathering={null} fishingActive={false} />,

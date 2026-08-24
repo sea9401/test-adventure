@@ -10,6 +10,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import {
   ArrowLeft,
   BellRinging,
@@ -105,6 +106,8 @@ export const CHAT_HEADER_CLASS =
   "relative z-20 flex shrink-0 items-center justify-between gap-2 border-b border-zinc-200 pb-3.5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(0.875rem,env(safe-area-inset-top))] sm:px-4 sm:py-3.5 dark:border-zinc-700";
 export const CHAT_CLOSE_BUTTON_CLASS =
   "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-zinc-600 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700";
+export const CHAT_RESIZE_HANDLE_CLASS =
+  "absolute left-0 top-0 z-30 flex h-5 w-5 cursor-nwse-resize touch-none items-start justify-start rounded-tl-xl p-1 text-zinc-300 hover:text-zinc-500 dark:text-zinc-600 dark:hover:text-zinc-400";
 
 const clampInt = (v: number, min: number, max: number) =>
   Math.round(Math.max(min, Math.min(max, v)));
@@ -907,7 +910,7 @@ export function ChatPanel({
           ? `${activeCustomRoom.name} 채팅방에서 나갈까요?\n\n방장 권한은 가장 먼저 참여한 멤버에게 넘어갑니다.`
           : `${activeCustomRoom.name} 채팅방에서 나갈까요?\n\n마지막 참여자이므로 채팅방과 대화 내용이 삭제됩니다.`
         : `${activeCustomRoom.name} 채팅방에서 나갈까요?`;
-    if (!window.confirm(confirmation)) return;
+    if (!(await confirmGameAction(confirmation))) return;
     setRoomActionBusy(true);
     try {
       await updateChatRoomMembership(activeCustomRoom.id, "leave");
@@ -1089,7 +1092,7 @@ export function ChatPanel({
             role="separator"
             aria-label="채팅창 크기 조절"
             title="드래그해서 크기 조절"
-            className="absolute left-0 top-0 z-20 flex h-5 w-5 cursor-nwse-resize touch-none items-start justify-start rounded-tl-xl p-1 text-zinc-300 hover:text-zinc-500 dark:text-zinc-600 dark:hover:text-zinc-400"
+            className={CHAT_RESIZE_HANDLE_CLASS}
           >
             <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
               <path

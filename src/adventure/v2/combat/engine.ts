@@ -2386,11 +2386,21 @@ function applyImmediateProvokedEnemyBasicAttacks(
     if (next.log.length > logStart) {
       next = {
         ...next,
-        log: next.log.map((entry, logIndex) =>
-          logIndex < logStart || entry.turn
-            ? entry
-            : { ...entry, turn: "enemy" as const },
-        ),
+        log: next.log.map((entry, logIndex) => {
+          if (logIndex < logStart) return entry;
+          const isForcedActionMain =
+            ((entry.kind === "player_attack" ||
+              entry.kind === "enemy_attack") &&
+              /^(?:\[[^\]]+\]\s*)*공격!/.test(entry.text)) ||
+            (entry.kind === "info" &&
+              entry.text.startsWith("[회피 강화]") &&
+              entry.text.includes("회피했다"));
+          return {
+            ...entry,
+            ...(entry.turn ? {} : { turn: "enemy" as const }),
+            ...(isForcedActionMain ? { forcedBySkill: skillName } : {}),
+          };
+        }),
       };
     }
   }
@@ -2470,6 +2480,7 @@ export function applyPlayerV2SkillCast(
     magicMpCostReductionPct: formulaOptimizationEquipped ? 20 : 0,
     mpOverdraftSkillIds: formulaOverdraftSkillIds,
     procRoll: Math.random() * 100,
+    nextProcRoll: () => Math.random() * 100,
     bleedHuntRoll: needsBleedHuntRoll ? Math.random() * 100 : undefined,
     procChanceBonus: player.skillProcChanceAdd ?? 0,
     // 패턴 경로에서도 procChance 굴림(부활) — 플래그 on 이면 패턴이 고른 스킬도 확률 게이트 통과 필요.

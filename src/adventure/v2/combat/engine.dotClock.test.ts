@@ -131,6 +131,43 @@ describe("DoT 행동 틱 (ATB) — 대상 행동 시작 시 틱", () => {
     }
   });
 
+  it("피의 양식은 ATB 적 행동의 두 번째 10중첩 출혈 틱에서 회복한다", () => {
+    vi.spyOn(Math, "random").mockImplementation(mulberry32(11));
+    const predator = derive({
+      hp: 5_000,
+      maxHp: 5_000,
+      atk: 1,
+      spd: 50,
+      attackCount: 10,
+      bleedOnHit: { flatPerStack: 100, atkCoefPerStack: 0 },
+    });
+    const enemy = {
+      ...m("부서진 골렘"),
+      hp: 100_000,
+      atk: 1_000,
+      def: 100_000,
+      spd: 50,
+      accuracy: 100,
+    };
+
+    const res = resolveBattle(predator, enemy, "포식자", {
+      pickAction: (state) =>
+        pickAutoAction(state, { rules: [], potions: {} }),
+      potions: {},
+      v2Skills: {
+        learned: ["v2c_predator_bloodnourishment"],
+        equipped: ["v2c_predator_bloodnourishment"],
+      },
+      maxTurns: 4,
+    });
+
+    expect(
+      res.finalState.log.some((entry) =>
+        entry.text.includes("[피의 양식] HP 50 회복했다."),
+      ),
+    ).toBe(true);
+  });
+
   it("DoT 미보유 빌드는 출혈 틱이 없다 (누출 가드)", () => {
     vi.spyOn(Math, "random").mockImplementation(mulberry32(1));
     const plain = derive();

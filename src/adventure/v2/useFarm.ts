@@ -10,6 +10,7 @@ import type {
   FarmPlotUpgradeResult,
   FarmRanchCollectResult,
   FarmRanchFeedResult,
+  FarmRanchRebuildResult,
   FarmRanchUpgradeResult,
   FarmShopItem,
   FarmShopPurchaseResult,
@@ -25,7 +26,7 @@ import {
   runFarmPlotBatch,
   type FarmBatchAction,
 } from "./farmBatchActions";
-import type { RanchPenId } from "./ranch";
+import type { RanchAnimalId, RanchSlotId } from "./ranch";
 import { useSystemToast } from "./RewardToastProvider";
 import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
 import {
@@ -57,6 +58,7 @@ type FarmResponse = {
   fertilizerResult?: { plotId: string; reducedMs: number };
   ranchFeedResult?: FarmRanchFeedResult;
   ranchCollectResult?: FarmRanchCollectResult;
+  ranchRebuildResult?: FarmRanchRebuildResult;
   ranchUpgradeResult?: FarmRanchUpgradeResult;
   endgameShop?: FarmEndgameShopView;
   endgameShopResult?: FarmEndgameShopPurchaseResult;
@@ -73,9 +75,10 @@ export type FarmClientState = {
   busyShopItemId: string | null;
   busyEndgameShopItemId: string | null;
   busyPlotUpgrade: boolean;
-  busyRanchFeedPenId: RanchPenId | null;
+  busyRanchFeedSlotId: RanchSlotId | null;
   busyRanchCollect: boolean;
-  busyRanchUpgradePenId: RanchPenId | null;
+  busyRanchUpgradeSlotId: RanchSlotId | null;
+  busyRanchRebuildSlotId: RanchSlotId | null;
   fertilizerBalance: number;
   error: string | null;
   notice: FarmNotice | null;
@@ -111,9 +114,10 @@ export type FarmClientState = {
   buyShopItem: (itemId: string) => Promise<void>;
   buyEndgameShopItem: (itemId: string) => Promise<void>;
   buyPlotUpgrade: () => Promise<void>;
-  feedRanchPen: (penId: RanchPenId, amount: number) => Promise<void>;
+  feedRanchSlot: (slotId: RanchSlotId, amount: number) => Promise<void>;
   collectRanch: () => Promise<void>;
-  buyRanchPen: (penId: RanchPenId) => Promise<void>;
+  buyRanchSlot: (slotId: RanchSlotId, animalId: RanchAnimalId) => Promise<void>;
+  rebuildRanchSlot: (slotId: RanchSlotId, animalId: RanchAnimalId) => Promise<void>;
 };
 
 export type FarmNotice =
@@ -131,7 +135,8 @@ export type FarmNotice =
   | { id: number; kind: "batchFertilizer"; count: number }
   | { id: number; kind: "ranchFeed"; result: FarmRanchFeedResult }
   | { id: number; kind: "ranchCollect"; result: FarmRanchCollectResult }
-  | { id: number; kind: "ranchUpgrade"; result: FarmRanchUpgradeResult };
+  | { id: number; kind: "ranchUpgrade"; result: FarmRanchUpgradeResult }
+  | { id: number; kind: "ranchRebuild"; result: FarmRanchRebuildResult };
 
 export function useFarm(): FarmClientState {
   const { notifySystem } = useSystemToast();
@@ -151,11 +156,13 @@ export function useFarm(): FarmClientState {
     null,
   );
   const [busyPlotUpgrade, setBusyPlotUpgrade] = useState(false);
-  const [busyRanchFeedPenId, setBusyRanchFeedPenId] =
-    useState<RanchPenId | null>(null);
+  const [busyRanchFeedSlotId, setBusyRanchFeedSlotId] =
+    useState<RanchSlotId | null>(null);
   const [busyRanchCollect, setBusyRanchCollect] = useState(false);
-  const [busyRanchUpgradePenId, setBusyRanchUpgradePenId] =
-    useState<RanchPenId | null>(null);
+  const [busyRanchUpgradeSlotId, setBusyRanchUpgradeSlotId] =
+    useState<RanchSlotId | null>(null);
+  const [busyRanchRebuildSlotId, setBusyRanchRebuildSlotId] =
+    useState<RanchSlotId | null>(null);
   const [fertilizerBalance, setFertilizerBalance] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<FarmNotice | null>(null);
@@ -298,6 +305,13 @@ export function useFarm(): FarmClientState {
         id: Date.now(),
         kind: "ranchUpgrade",
         result: data.ranchUpgradeResult,
+      });
+    }
+    if (data.ranchRebuildResult) {
+      setNotice({
+        id: Date.now(),
+        kind: "ranchRebuild",
+        result: data.ranchRebuildResult,
       });
     }
   }, [notifySystem]);
@@ -564,22 +578,22 @@ export function useFarm(): FarmClientState {
     }
   }, [apply, reportError]);
 
-  const feedRanchPen = useCallback(
-    async (penId: RanchPenId, amount: number) => {
-      setBusyRanchFeedPenId(penId);
+  const feedRanchSlot = useCallback(
+    async (slotId: RanchSlotId, amount: number) => {
+      setBusyRanchFeedSlotId(slotId);
       setError(null);
       try {
         const res = await fetch("/api/v2/farm/ranch/feed", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ penId, amount }),
+          body: JSON.stringify({ slotId, amount }),
         });
         const data = (await res.json()) as FarmResponse;
         apply(data);
       } catch (e) {
         reportError(e);
       } finally {
-        setBusyRanchFeedPenId(null);
+        setBusyRanchFeedSlotId(null);
       }
     },
     [apply, reportError],
@@ -601,22 +615,43 @@ export function useFarm(): FarmClientState {
     }
   }, [apply, reportError]);
 
-  const buyRanchPen = useCallback(
-    async (penId: RanchPenId) => {
-      setBusyRanchUpgradePenId(penId);
+  const buyRanchSlot = useCallback(
+    async (slotId: RanchSlotId, animalId: RanchAnimalId) => {
+      setBusyRanchUpgradeSlotId(slotId);
       setError(null);
       try {
         const res = await fetch("/api/v2/farm/ranch/upgrade", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ penId }),
+          body: JSON.stringify({ slotId, animalId }),
         });
         const data = (await res.json()) as FarmResponse;
         apply(data);
       } catch (e) {
         reportError(e);
       } finally {
-        setBusyRanchUpgradePenId(null);
+        setBusyRanchUpgradeSlotId(null);
+      }
+    },
+    [apply, reportError],
+  );
+
+  const rebuildRanchSlot = useCallback(
+    async (slotId: RanchSlotId, animalId: RanchAnimalId) => {
+      setBusyRanchRebuildSlotId(slotId);
+      setError(null);
+      try {
+        const res = await fetch("/api/v2/farm/ranch/rebuild", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ slotId, animalId }),
+        });
+        const data = (await res.json()) as FarmResponse;
+        apply(data);
+      } catch (e) {
+        reportError(e);
+      } finally {
+        setBusyRanchRebuildSlotId(null);
       }
     },
     [apply, reportError],
@@ -652,9 +687,10 @@ export function useFarm(): FarmClientState {
     busyShopItemId,
     busyEndgameShopItemId,
     busyPlotUpgrade,
-    busyRanchFeedPenId,
+    busyRanchFeedSlotId,
     busyRanchCollect,
-    busyRanchUpgradePenId,
+    busyRanchUpgradeSlotId,
+    busyRanchRebuildSlotId,
     fertilizerBalance,
     error,
     notice,
@@ -690,9 +726,10 @@ export function useFarm(): FarmClientState {
     buyShopItem,
     buyEndgameShopItem,
     buyPlotUpgrade,
-    feedRanchPen,
+    feedRanchSlot,
     collectRanch,
-    buyRanchPen,
+    buyRanchSlot,
+    rebuildRanchSlot,
   };
 }
 
@@ -716,13 +753,17 @@ function errorMessage(error: unknown): string {
       already_fertilized: "이번 파종에는 이미 거름을 사용했습니다.",
       already_ready: "이미 수확할 수 있는 작물에는 거름을 사용할 수 없습니다.",
       ranch_locked: "씨앗 선별을 배우면 목장을 이용할 수 있습니다.",
-      pen_locked: "아직 열리지 않은 축사입니다.",
+      slot_locked: "아직 열리지 않았거나 앞 부지를 먼저 열어야 합니다.",
       feed_capacity: "이 축사에는 사료가 이미 가득 차 있습니다.",
       not_enough_feed: "보유한 배합 사료가 부족합니다.",
       nothing_to_collect: "아직 수확할 축산물이 없습니다.",
       level_required: "농사 레벨이 부족합니다.",
       already_unlocked: "이미 열린 축사입니다.",
-      pen_not_found: "축사 정보를 찾을 수 없습니다.",
+      slot_not_found: "목장 부지 정보를 찾을 수 없습니다.",
+      animal_not_found: "선택한 축사 종류를 찾을 수 없습니다.",
+      animal_level_required: "선택한 축사를 건설하려면 농사 레벨이 더 필요합니다.",
+      slot_not_empty: "사료와 진행 중인 생산물, 수확 대기 물품을 모두 비워야 재건축할 수 있습니다.",
+      same_animal: "현재와 다른 축사 종류를 선택해 주세요.",
       bad_quantity: "넣을 사료 수량을 확인해 주세요.",
       endgame_shop_locked: "밭과 유료 축사를 모두 열면 농장주의 교환소를 이용할 수 있습니다.",
       already_owned: "이미 보유한 칭호입니다.",

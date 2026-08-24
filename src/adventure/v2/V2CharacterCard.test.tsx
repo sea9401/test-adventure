@@ -54,6 +54,23 @@ describe("V2CharacterCard profile theme", () => {
     expect(html).not.toContain(">전투 Lv 42 / 1<");
   });
 
+  it("keeps level-cap guidance out of the regular character card", () => {
+    for (const rejobRequiredLevel of [1, 100]) {
+      const html = renderToStaticMarkup(
+        <V2CharacterCard
+          character={{ ...CHARACTER, level: 100 }}
+          levelCap={100}
+          rejobRequiredLevel={rejobRequiredLevel}
+        />,
+      );
+
+      expect(html).toContain("전투 Lv 100 / 100");
+      expect(html).not.toContain("전투 레벨이 한계에 도달했어요");
+      expect(html).not.toContain("직업 숙련도를 쌓으면 새 직업이 열려요");
+      expect(html).not.toContain("생활 숙련 조건만 충족하면");
+    }
+  });
+
   it("keeps the header shadow off chroma nicknames", () => {
     const html = renderToStaticMarkup(
       <V2CharacterCard

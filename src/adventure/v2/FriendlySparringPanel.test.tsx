@@ -44,11 +44,13 @@ beforeEach(() => {
 });
 
 describe("FriendlySparringPanel", () => {
-  it("정확한 닉네임 검색과 무보상 규칙을 안내한다", () => {
+  it("간결한 상대 닉네임 검색 폼만 표시한다", () => {
     const html = panel();
-    expect(html).toContain("정확한 닉네임");
+    expect(html).toContain("상대 닉네임");
     expect(html).toContain("상대 찾기");
-    expect(html).toContain("점수·전적·보상·기록에 영향을 주지 않습니다");
+    expect(html).not.toContain("정확한 닉네임");
+    expect(html).not.toContain("겨룹니다");
+    expect(html).not.toContain("점수·전적·보상·기록");
     expect(html).not.toContain("bg-white/");
   });
 

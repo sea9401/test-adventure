@@ -568,6 +568,13 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
       immediateEnemyAttacks.every((entry) => entry.text.startsWith("공격!")),
     ).toBe(true);
     expect(
+      immediateEnemyAttacks.every(
+        (entry) =>
+          entry.kind !== "hp_bar" &&
+          entry.forcedBySkill === "수호의 도발",
+      ),
+    ).toBe(true);
+    expect(
       res.finalState.log
         .slice(provokeIndex + 1)
         .filter(

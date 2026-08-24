@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
+import { confirmGameAction, type ConfirmGameAction } from "@/components/ui/gameDialog";
 import { applyRegen, type StaminaState } from "@/adventure/v2/stamina";
 import {
   COOP_ATTACK_STAMINA_COST,
@@ -41,14 +42,14 @@ function fmtPreviewNumber(value: number): string {
 export const COOP_BOSS_PUBLICATION_CONFIRMATION =
   "전체 공개하면 모든 모험가가 이 보스를 볼 수 있습니다. 공개 후에는 나만 또는 길드원만으로 되돌릴 수 없습니다. 전체 공개할까요?";
 
-export function confirmCoopBossPublication({
+export async function confirmCoopBossPublication({
   confirm,
   onPublish,
 }: {
-  confirm: (message: string) => boolean;
+  confirm: ConfirmGameAction;
   onPublish: () => void;
-}): boolean {
-  if (!confirm(COOP_BOSS_PUBLICATION_CONFIRMATION)) return false;
+}): Promise<boolean> {
+  if (!(await confirm(COOP_BOSS_PUBLICATION_CONFIRMATION))) return false;
   onPublish();
   return true;
 }
@@ -408,8 +409,8 @@ export function V2CoopBossDetailView({
                   disabled={busy || cur}
                   onClick={() => {
                     if (val === "public") {
-                      confirmCoopBossPublication({
-                        confirm: (message) => window.confirm(message),
+                      void confirmCoopBossPublication({
+                        confirm: confirmGameAction,
                         onPublish: () => void setVisibility(val),
                       });
                       return;

@@ -12,16 +12,20 @@
 
 /** 기본 카드 — 페이지 배경 위에 뜨는 1단 패널(흰 / zinc-900, 테두리+그림자). 대부분의 패널. */
 export const SURFACE_CARD =
-  "rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900";
+  "rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900";
 
 /** 인셋 — 카드 "안에서" 한 단계 파인 영역(슬롯 칸·서브 박스·리스트 행). 카드보다 어둡게 = recessed. */
 export const SURFACE_INSET =
-  "rounded-md border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900";
+  "rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950";
 
 /** 강조 패널 — 테마색(amber) 카드. 정착지처럼 정체성을 주는 패널. 불투명. */
 export const SURFACE_ACCENT =
-  "rounded-lg border border-amber-300 bg-amber-50 shadow-sm dark:border-amber-900/70 dark:bg-amber-950";
+  "rounded-xl border border-amber-300 bg-amber-50 shadow-sm dark:border-amber-900/70 dark:bg-amber-950";
 
 /** 프로스티드 헤더 — 반투명 + backdrop-blur(유일한 반투명 예외, 의도적). 지역 배경 위 헤더. */
 export const SURFACE_FROSTED =
   "rounded-xl bg-white/75 shadow-sm backdrop-blur-sm dark:bg-zinc-900/80";
+
+/** 영속 상단바 — 둥근 모서리 없이 화면 폭을 채우는 의도적인 프로스티드 크롬. */
+export const SURFACE_FROSTED_BAR =
+  "border-b border-zinc-200 bg-white/90 shadow-sm backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/90";

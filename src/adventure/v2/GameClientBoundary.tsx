@@ -11,6 +11,7 @@ import { GameStateProvider } from "./GameStateProvider";
 import { GameChrome } from "./GameChrome";
 import { RewardToastProvider } from "./RewardToastProvider";
 import { PlayerSanctionGate } from "./PlayerSanctionGate";
+import { AdventureDashboardProvider } from "./AdventureDashboardProvider";
 
 // 게임 라우트 그룹 (app/(game)) 의 클라이언트 경계.
 // SaveProvider / STARTER_SAVES 등 client hook chain (useCharacterState → useRemotePatch)
@@ -30,9 +31,11 @@ export function GameClientBoundary({
       <SaveProvider starters={STARTER_SAVES}>
         <OnboardingGate>
           <GameStateProvider>
-            <RewardToastProvider>
-              <GameChrome>{children}</GameChrome>
-            </RewardToastProvider>
+            <AdventureDashboardProvider>
+              <RewardToastProvider>
+                <GameChrome>{children}</GameChrome>
+              </RewardToastProvider>
+            </AdventureDashboardProvider>
           </GameStateProvider>
         </OnboardingGate>
       </SaveProvider>

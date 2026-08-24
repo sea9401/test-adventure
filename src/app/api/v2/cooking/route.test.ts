@@ -113,6 +113,7 @@ import { emptyFishingStock } from "@/adventure/v2/fishingStock";
 import { emptyV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { COOKING_SECRET_RECIPE_BY_ID } from "@/lib/server/cooking/recipes";
 import { COOKING_PUBLIC_RECIPES } from "@/adventure/v2/cooking/catalog";
+import { emptyLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
 
 const NOW = Date.parse("2026-08-22T12:00:00+09:00");
 
@@ -140,6 +141,7 @@ function seed() {
   mocks.store.set("fishing-stock.v1", emptyFishingStock());
   mocks.store.set("cooking.v2", emptyCookingState(NOW));
   mocks.store.set("inventory.v2", {});
+  mocks.store.set("life-workshop.v1", emptyLifeWorkshopState());
 }
 
 describe("/api/v2/cooking", () => {
@@ -202,6 +204,120 @@ describe("/api/v2/cooking", () => {
       ingredientIds: ["farm:wheat", "farm:milk"],
       createdAt: NOW,
     }]);
+    expect(json.cookingPrepSets).toBe(0);
+  });
+
+  it("요리 준비 세트를 선택한 수량만큼 차감하고 걸작 확률을 8%p 높인다", async () => {
+    const recipe = COOKING_SECRET_RECIPE_BY_ID.get("rustic_bread")!;
+    const farm = emptyFarmState(NOW);
+    const cooking = emptyCookingState(NOW);
+    mocks.store.set("farm.v2", { ...farm, inventory: { wheat: 10 } });
+    mocks.store.set("cooking.v2", {
+      ...cooking,
+      kitchenItems: { "pantry:yeast": 10 },
+    });
+    const workshop = emptyLifeWorkshopState();
+    mocks.store.set("life-workshop.v1", {
+      ...workshop,
+      crafting: {
+        ...workshop.crafting,
+        balances: { cooking_prep_set: 2 },
+      },
+    });
+    vi.spyOn(Math, "random").mockReturnValue(0.05);
+
+    const response = await post({
+      action: "craft",
+      recipeId: recipe.id,
+      quantity: 1,
+      usePrepSet: true,
+    });
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.result).toMatchObject({
+      quality: "masterpiece",
+      usedPrepSets: 1,
+    });
+    expect(json.cookingPrepSets).toBe(1);
+    expect(mocks.store.get("life-workshop.v1")).toMatchObject({
+      crafting: {
+        balances: { cooking_prep_set: 1 },
+        aidsUsed: 1,
+      },
+    });
+  });
+
+  it("요리 준비 세트가 조리 수량보다 부족하면 재료를 소비하지 않는다", async () => {
+    const recipe = COOKING_SECRET_RECIPE_BY_ID.get("rustic_bread")!;
+    const farm = emptyFarmState(NOW);
+    const cooking = emptyCookingState(NOW);
+    mocks.store.set("farm.v2", { ...farm, inventory: { wheat: 10 } });
+    mocks.store.set("cooking.v2", {
+      ...cooking,
+      kitchenItems: { "pantry:yeast": 10 },
+    });
+
+    const response = await post({
+      action: "craft",
+      recipeId: recipe.id,
+      quantity: 2,
+      usePrepSet: true,
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "not_enough_cooking_prep_sets",
+    });
+    expect(mocks.store.get("farm.v2")).toMatchObject({
+      inventory: { wheat: 10 },
+    });
+    expect(mocks.store.get("cooking.v2")).toMatchObject({
+      kitchenItems: { "pantry:yeast": 10 },
+    });
+  });
+
+  it("효율적인 조리는 일반 재료만 줄이고 희귀 재료는 줄이지 않는다", async () => {
+    const recipe = COOKING_SECRET_RECIPE_BY_ID.get("silverleaf_milk_tea")!;
+    const quantity = 10;
+    const silverleaf = recipe.ingredients.find((entry) => entry.id === "farm:silverleaf")!;
+    const milk = recipe.ingredients.find((entry) => entry.id === "farm:milk")!;
+    const cooking = emptyCookingState(NOW);
+    const farm = emptyFarmState(NOW);
+    mocks.store.set("character.v2", {
+      class: "v2_warrior",
+      level: 35,
+      specChoice: "v2c_headchef",
+      gold: 10_000,
+      name: "테스터",
+    });
+    mocks.store.set("skills.v2", {
+      learned: ["v2c_headchef_batchcooking"],
+      equipped: ["v2c_headchef_batchcooking"],
+    });
+    mocks.store.set("farm.v2", {
+      ...farm,
+      inventory: { silverleaf: 100, milk: 100 },
+    });
+    mocks.store.set("cooking.v2", {
+      ...cooking,
+      xp: cookingLevelXpThreshold(recipe.requiredLevel),
+      discoveredRecipeIds: [...cooking.discoveredRecipeIds, recipe.id],
+    });
+
+    const response = await post({
+      action: "craft",
+      recipeId: recipe.id,
+      quantity,
+    });
+
+    expect(response.status).toBe(200);
+    expect((mocks.store.get("farm.v2") as {
+      inventory: Record<string, number>;
+    }).inventory).toMatchObject({
+      silverleaf: 100 - silverleaf.count * quantity,
+      milk: 100 - Math.floor(milk.count * quantity * 0.9),
+    });
   });
 
   it("GET은 기본 이름으로 저장된 최초 발견자를 권위 닉네임으로 표시한다", async () => {

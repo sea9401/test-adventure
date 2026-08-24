@@ -39,6 +39,10 @@ import {
 import { TITLES } from "@/adventure/data/titles";
 import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
 import { cookingFoodDefinition } from "@/adventure/v2/cooking/food";
+import {
+  COOKING_PANTRY_ITEMS,
+  COOKING_PROCESSING_RECIPES,
+} from "@/adventure/v2/cooking/kitchen";
 import { bulkClaimIds, isUnreadInboxItem } from "./inboxViewState";
 import {
   isTradeSuspensionMessagePayload,
@@ -108,6 +112,14 @@ function cashItemName(id: string): string {
   return isMuseunShopItemId(id) ? MUSEUN_CASH_ITEMS[id].name : id;
 }
 
+function cookingIngredientName(id: string): string {
+  return (
+    COOKING_PANTRY_ITEMS.find((item) => item.id === id)?.name ??
+    COOKING_PROCESSING_RECIPES.find((recipe) => recipe.outputId === id)?.name ??
+    id
+  );
+}
+
 function pushReward(lines: string[], label: string, count: number) {
   if (count > 0) lines.push(`${label} x${count.toLocaleString()}`);
 }
@@ -131,6 +143,17 @@ function pushEquipRewards(lines: string[], raw: unknown) {
     const id = asId(row.itemId);
     const count = asCount(row.count);
     if (id && count > 0) pushReward(lines, equipName(id), count);
+  }
+}
+
+function pushCookingIngredientRewards(lines: string[], raw: unknown) {
+  if (!Array.isArray(raw)) return;
+  for (const ingredient of raw) {
+    if (typeof ingredient !== "object" || ingredient === null) continue;
+    const row = ingredient as { ingredientId?: unknown; count?: unknown };
+    const id = asId(row.ingredientId);
+    const count = asCount(row.count);
+    if (id && count > 0) pushReward(lines, cookingIngredientName(id), count);
   }
 }
 
@@ -225,6 +248,7 @@ function rewardLinesOf(it: InboxItem): string[] {
       pushReward(lines, "골드", asCount(p.gold));
       pushReward(lines, "무슨 코인", asCount(p.museunCoins));
       pushMaterialRewards(lines, p.materials);
+      pushCookingIngredientRewards(lines, p.cookingIngredients);
       pushEquipRewards(lines, p.items);
       pushCashItemRewards(lines, p.cashItems);
       pushReward(lines, "스태미나 회복약", asCount(p.staminaPotions));
@@ -398,6 +422,7 @@ export function V2InboxView({
           museunCoinsAdded?: number;
           museunCoins?: number | null;
           cashItemsAdded?: { itemId: string; count: number }[];
+          cookingIngredientsAdded?: { ingredientId: string; count: number }[];
           staminaPotionsAdded?: number;
           staminaPotions?: number | null;
           adventureSupportDaysAdded?: number;
@@ -446,6 +471,13 @@ export function V2InboxView({
         for (const item of j.cashItemsAdded ?? []) {
           if (item.count > 0) {
             parts.push(`+${cashItemName(item.itemId)} ${item.count}개`);
+          }
+        }
+        for (const ingredient of j.cookingIngredientsAdded ?? []) {
+          if (ingredient.count > 0) {
+            parts.push(
+              `+${cookingIngredientName(ingredient.ingredientId)} ${ingredient.count}개`,
+            );
           }
         }
         if ((j.staminaPotionsAdded ?? 0) > 0) {

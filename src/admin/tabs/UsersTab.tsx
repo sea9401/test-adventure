@@ -13,6 +13,7 @@ import type {
   V2GrantPayload,
 } from "./users/types";
 import { SelectedUserPanel } from "./users/SelectedUserPanel";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 
 function formatLastSeen(iso: string | null): string {
   if (!iso) return "—";
@@ -205,7 +206,7 @@ export function UsersTab() {
   const resetMasteryTowerDaily = async () => {
     if (!selected || readOnly) return;
     const name = selected.gameName?.trim() || selected.email || selected.id;
-    const ok = window.confirm(
+    const ok = await confirmGameAction(
       `「${name}」 님의 숙련의 탑 오늘 진행을 0층으로 초기화합니다.\n` +
         "영구 최고층과 최초 돌파 보상 기록은 유지됩니다.\n" +
         "미수령 보상이 있으면 초기화와 함께 사라집니다.",
@@ -233,7 +234,7 @@ export function UsersTab() {
   const applyReviewOpPreset = async () => {
     if (!selected || readOnly || !adminMe?.capabilities.super) return;
     const label = selected.gameName?.trim() || selected.email || selected.id;
-    const ok = window.confirm(
+    const ok = await confirmGameAction(
       `「${label}」 캐릭터를 심의용 OP 상태로 상향할까요?\n` +
         "생활 레벨 5종도 Lv.100으로 상향합니다. 직업·장비·퀘스트는 유지되지만 진행도와 성장 수치는 자동으로 되돌아가지 않습니다.",
     );
@@ -263,7 +264,7 @@ export function UsersTab() {
   const resetStormExpeditionDailyAttempts = async () => {
     if (!selected || readOnly || !adminMe?.capabilities.reward) return;
     const name = selected.gameName?.trim() || selected.email || selected.id;
-    const ok = window.confirm(
+    const ok = await confirmGameAction(
       `「${name}」 님의 오늘 폭풍 원정 입장 사용 횟수를 0회로 초기화합니다.\n` +
         "진행 중 원정과 누적 완주·SP 열매 기록은 유지됩니다.",
     );

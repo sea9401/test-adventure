@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ArrowCounterClockwise, SlidersHorizontal, X } from "@phosphor-icons/react";
 import { fetchGameState } from "./fetchGameState";
 import {
   V2CharacterCard,
@@ -22,6 +23,23 @@ import type {
   ProfileShowcaseSelection,
   ProfileShowcaseSlots,
 } from "@/adventure/profile/profileShowcase";
+import { useAdventureDashboard } from "./AdventureDashboardProvider";
+import {
+  DEFAULT_ADVENTURE_HOME_PREFERENCES,
+  DEFAULT_ADVENTURE_HOME_WIDGET_ORDER,
+  type AdventureHomePreferences,
+  type AdventureHomeWidgetId,
+} from "./adventureDashboard";
+import { AdventureHomeWidgetGrid } from "./AdventureHomeWidgetGrid";
+import { AdventureActivityChecklist } from "./AdventureActivityChecklist";
+import { AdventureActivitySettings } from "./AdventureActivitySettings";
+import { CompactCharacterSummary } from "./CompactCharacterSummary";
+import { RecentBulletinPreview } from "./RecentBulletinPreview";
+import { Button } from "@/components/ui/Button";
+import { Inset } from "@/components/ui/Inset";
+import { PageShell } from "@/components/ui/PageShell";
+import { StatusBanner } from "@/components/ui/StatusBanner";
+import { SURFACE_ACCENT } from "@/components/ui/surfaces";
 
 // 모험 탭 — 캐릭터 상태 + 안내/공지.
 
@@ -74,6 +92,10 @@ type EquipmentResponse = {
 export function V2AdventureHome() {
   const [state, setState] = useState<StateResponse | null>(null);
   const [equipment, setEquipment] = useState<EquipmentResponse | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const { snapshot, loading, error, refresh: refreshDashboard, updatePreferences } =
+    useAdventureDashboard();
 
   const refresh = useCallback(async () => {
     try {
@@ -108,43 +130,117 @@ export function V2AdventureHome() {
     state?.skills?.loadoutPresets,
     state?.skills?.equipped,
   );
+  const preferences =
+    snapshot?.preferences ?? DEFAULT_ADVENTURE_HOME_PREFERENCES;
+  const persistPreferences = (patch: Partial<AdventureHomePreferences>) => {
+    setSaveError(null);
+    void updatePreferences(patch).catch(() => {
+      setSaveError("홈 설정을 저장하지 못해 이전 상태로 되돌렸습니다.");
+    });
+  };
+
+  const characterWidget = state?.character ? (
+    <CompactCharacterSummary
+      character={state.character}
+      guild={state.guild ?? null}
+      expanded={preferences.characterExpanded}
+      onExpandedChange={(characterExpanded) =>
+        persistPreferences({ characterExpanded })
+      }
+    >
+      <V2CharacterCard
+        character={state.character}
+        guild={state.guild ?? null}
+        levelCap={levelCap}
+        rejobRequiredLevel={state.jobsV2?.currentJobLevelCap ?? null}
+        showGold={true}
+        activePresetName={activePresetName}
+        adventureSupport={state.adventureSupport}
+        profileBorder={state.cosmetics?.profileBorder ?? null}
+        chatNameEffect={state.cosmetics?.chatNameEffect ?? null}
+        championshipBadge={state.cosmetics?.championshipBadge ?? null}
+        activeFoodBuff={state.activeFoodBuff ?? null}
+        profileShowcase={state.profileShowcase ?? null}
+        profileShowcaseSlots={state.profileShowcaseSlots}
+        profileMasteryTrophies={state.profileMasteryTrophies}
+        profileBadgeStandOwned={state.profileBadgeStandOwned === true}
+        profileBadgeStandVisible={state.profileBadgeStandVisible !== false}
+        showcaseEditable
+        equipped={equipment?.equipped}
+        owned={equipment?.owned}
+      />
+    </CompactCharacterSummary>
+  ) : null;
+
+  const widgets: Partial<Record<AdventureHomeWidgetId, React.ReactNode>> = {
+    character_summary: characterWidget,
+    activity_checklist: (
+      <AdventureActivityChecklist
+        activities={snapshot?.activities ?? []}
+        summary={snapshot?.summary ?? { completed: 0, total: 0, actionableCount: 0 }}
+        loading={loading}
+        error={error}
+        onRetry={() => void refreshDashboard()}
+      />
+    ),
+    quest_rewards: <GuideQuestBanner />,
+    hot_time: state?.hotTime ? <HotTimeBanner hotTime={state.hotTime} /> : null,
+    announcements: <V2AnnouncementsPanel />,
+    bulletin_preview: <RecentBulletinPreview />,
+    ranking_preview: <AdventureRankingPreview />,
+  };
 
   return (
-    <main className="text-zinc-900 dark:text-zinc-100">
-      <div className="mx-auto max-w-[720px] space-y-4 p-6">
-        {state?.character && (
-          <V2CharacterCard
-            character={state.character}
-            guild={state.guild ?? null}
-            levelCap={levelCap}
-            rejobRequiredLevel={state.jobsV2?.currentJobLevelCap ?? null}
-            showGold={true}
-            activePresetName={activePresetName}
-            adventureSupport={state.adventureSupport}
-            profileBorder={state.cosmetics?.profileBorder ?? null}
-            chatNameEffect={state.cosmetics?.chatNameEffect ?? null}
-            championshipBadge={state.cosmetics?.championshipBadge ?? null}
-            activeFoodBuff={state.activeFoodBuff ?? null}
-            profileShowcase={state.profileShowcase ?? null}
-            profileShowcaseSlots={state.profileShowcaseSlots}
-            profileMasteryTrophies={state.profileMasteryTrophies}
-            profileBadgeStandOwned={state.profileBadgeStandOwned === true}
-            profileBadgeStandVisible={state.profileBadgeStandVisible !== false}
-            showcaseEditable
-            equipped={equipment?.equipped}
-            owned={equipment?.owned}
+    <PageShell spacing="tight" className="py-3 sm:py-6">
+        <div className="flex items-center justify-end gap-2">
+          {saveError && <StatusBanner tone="error" role="status" className="mr-auto">{saveError}</StatusBanner>}
+          {editing && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => persistPreferences({
+                widgetOrder: [...DEFAULT_ADVENTURE_HOME_WIDGET_ORDER],
+                hiddenWidgetIds: [],
+              })}
+            >
+              <ArrowCounterClockwise size={17} aria-hidden /> 기본 배치
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="soft"
+            size="sm"
+            onClick={() => setEditing((value) => !value)}
+          >
+            {editing ? <X size={17} aria-hidden /> : <SlidersHorizontal size={17} aria-hidden />}
+            {editing ? "편집 완료" : "홈 편집"}
+          </Button>
+        </div>
+        {editing && snapshot && (
+          <AdventureActivitySettings
+            activities={snapshot.activities}
+            onToggle={(id, enabled) =>
+              persistPreferences({
+                activityEnabled: {
+                  ...preferences.activityEnabled,
+                  [id]: enabled,
+                },
+              })
+            }
           />
         )}
-
-        {state?.hotTime ? <HotTimeBanner hotTime={state.hotTime} /> : null}
-
-        <GuideQuestBanner />
-
-        <V2AnnouncementsPanel />
-
-        <AdventureRankingPreview />
-      </div>
-    </main>
+        <AdventureHomeWidgetGrid
+          order={preferences.widgetOrder}
+          hidden={preferences.hiddenWidgetIds}
+          editing={editing}
+          widgets={widgets}
+          onOrderChange={(widgetOrder) => persistPreferences({ widgetOrder })}
+          onHiddenChange={(hiddenWidgetIds) =>
+            persistPreferences({ hiddenWidgetIds })
+          }
+        />
+    </PageShell>
   );
 }
 
@@ -162,7 +258,7 @@ function HotTimeBanner({ hotTime }: { hotTime: NonNullable<StateResponse["hotTim
       : "",
   ].filter(Boolean);
   return (
-    <section className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+    <section className={`${SURFACE_ACCENT} px-4 py-3 text-amber-950 dark:text-amber-100`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <div className="text-sm font-semibold">
@@ -172,9 +268,9 @@ function HotTimeBanner({ hotTime }: { hotTime: NonNullable<StateResponse["hotTim
             {bonusLabels.length > 0 ? bonusLabels.join(" · ") : "보너스 적용 중"}
           </div>
         </div>
-        <div className="rounded bg-white/70 px-2 py-1 text-xs font-medium tabular-nums dark:bg-zinc-900/60">
+        <Inset className="px-2 py-1 text-xs font-medium tabular-nums">
           {formatRemaining(remainingMs)}
-        </div>
+        </Inset>
       </div>
     </section>
   );

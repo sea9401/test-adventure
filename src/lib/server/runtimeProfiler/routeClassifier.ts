@@ -152,6 +152,7 @@ const STATIC_LIFE_PATHS = new Set([
   "/api/v2/farm/plot-upgrade",
   "/api/v2/farm/ranch/collect",
   "/api/v2/farm/ranch/feed",
+  "/api/v2/farm/ranch/rebuild",
   "/api/v2/farm/ranch/upgrade",
   "/api/v2/farm/shop",
   "/api/v2/farm/special-deliver",

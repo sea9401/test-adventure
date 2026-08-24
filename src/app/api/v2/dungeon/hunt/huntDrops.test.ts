@@ -4,7 +4,7 @@ import {
   ENHANCE_EMBER_MATERIAL_ID,
   TORN_MAP_FRAGMENT_MATERIAL_ID,
 } from "@/adventure/data/v2/scavengedCrafting";
-import { rollHuntDrops } from "./huntDrops";
+import { rollHuntDrops, rollHuntDropsRepeated } from "./huntDrops";
 
 const baseParams = {
   dropFloor: 1 as const,
@@ -38,5 +38,24 @@ describe("rollHuntDrops global crafting materials", () => {
     expect(result.drops[ENHANCE_EMBER_MATERIAL_ID]).toBeUndefined();
     expect(result.drops[TORN_MAP_FRAGMENT_MATERIAL_ID]).toBeUndefined();
     expect(random).not.toHaveBeenCalled();
+  });
+
+  it("압축 보상 횟수마다 실제 드랍 굴림과 장비 개체 생성을 독립 반복한다", () => {
+    // Break caught: compressed settlement scales one drop chance instead of preserving rolls.
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+
+    const result = rollHuntDropsRepeated({
+      ...baseParams,
+      won: true,
+      depth: 84,
+      rewardRolls: 3,
+      mapDropMult: 1_000,
+      mapUniqueMult: 100_000,
+      mapStoneMult: 1,
+    });
+
+    expect(result.droppedEquipments).toHaveLength(3);
+    expect(result.droppedUniques).toHaveLength(3);
+    expect(result.nextOwned).toHaveLength(6);
   });
 });

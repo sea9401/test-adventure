@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DotsThreeVertical, Flag, Prohibit, X } from "@phosphor-icons/react";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import {
   CONTENT_REPORT_REASONS,
   UGC_REPORT_REASON_LABELS,
@@ -177,9 +178,9 @@ export function ContentSafetyActions({
     setMenuOpen(false);
     setMenuPosition(null);
     if (
-      !window.confirm(
+      !(await confirmGameAction(
         `${targetName}님을 차단할까요?\n\n이 사용자의 공개 콘텐츠와 게시글·댓글·채팅이 숨겨지고 서로 새 쪽지나 채팅방 초대를 보낼 수 없습니다.`,
-      )
+      ))
     ) {
       return;
     }

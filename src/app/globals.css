@@ -69,6 +69,10 @@ html {
 body {
   background: transparent;
   color: var(--foreground);
+  /* 한국어 문장은 음절 중간이 아니라 어절 경계에서 우선 줄바꿈한다.
+     URL·식별자처럼 공백 없는 긴 문자열만 컨테이너 안에서 안전하게 끊는다. */
+  word-break: keep-all;
+  overflow-wrap: break-word;
   /* iOS 의 가로 바운스(상하좌우 rubber-band) 중 좌우 방향만 차단 — 세로 스크롤은 유지. */
   overscroll-behavior-x: none;
 }
@@ -835,15 +839,15 @@ body {
 .ui-game-card {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.62),
-    0 1px 2px rgba(15, 23, 42, 0.06),
-    0 10px 24px rgba(15, 23, 42, 0.04);
+    0 1px 2px rgba(15, 23, 42, 0.08),
+    0 6px 16px rgba(15, 23, 42, 0.04);
 }
 
 .dark .ui-game-card {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 1px 2px rgba(0, 0, 0, 0.32),
-    0 12px 28px rgba(0, 0, 0, 0.18);
+    0 1px 2px rgba(0, 0, 0, 0.34),
+    0 8px 18px rgba(0, 0, 0, 0.16);
 }
 
 .ui-game-button {
@@ -857,14 +861,14 @@ body {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
     0 2px 0 rgba(15, 23, 42, 0.2),
-    0 8px 16px rgba(15, 23, 42, 0.1);
+    0 5px 12px rgba(15, 23, 42, 0.09);
 }
 
 .dark .ui-game-button {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 2px 0 rgba(0, 0, 0, 0.38),
-    0 8px 18px rgba(0, 0, 0, 0.24);
+    0 6px 14px rgba(0, 0, 0, 0.22);
 }
 
 .ui-game-button:not(:disabled):active {
@@ -927,7 +931,7 @@ body {
 .ui-equipment-card {
   position: relative;
   overflow: hidden;
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
 }
 
 .ui-equipment-card::after {

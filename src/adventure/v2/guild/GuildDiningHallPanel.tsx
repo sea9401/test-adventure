@@ -18,6 +18,7 @@ import type { FarmItemId } from "@/adventure/v2/farm";
 import { FishingCatchItemIcon } from "@/adventure/v2/FishingCatchItemIcon";
 import type { FishingCatchItemId } from "@/adventure/v2/fishingStock";
 import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import {
   SURFACE_ACCENT,
   SURFACE_CARD,
@@ -464,14 +465,14 @@ export function GuildDiningHallPanel({
                     <button
                       type="button"
                       disabled={busy || orderUnavailableReason != null}
-                      onClick={() => {
+                      onClick={async () => {
                         if (
                           menu.effect.kind !== "recovery" &&
                           activeEffect &&
                           activeEffect.menuId !== menu.id &&
-                          !window.confirm(
+                          !(await confirmGameAction(
                             `현재 적용 중인 ${activeEffect.name} 효과와 남은 시간이 사라집니다. ${menu.name} 메뉴로 교체할까요?`,
-                          )
+                          ))
                         ) {
                           return;
                         }

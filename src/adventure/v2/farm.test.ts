@@ -6,7 +6,7 @@ import {
   FARM_CROP_UNLOCK_SKILLS,
   FARM_CROPS,
   FARM_ITEMS,
-  buyFarmRanchPen,
+  buyFarmRanchSlot,
   buyFarmPlotUpgrade,
   buyFarmShopItem,
   canPlantFarmCrop,
@@ -22,6 +22,7 @@ import {
   farmingLevelXpThreshold,
   getFarmDeliveryRequests,
   getFarmShopItems,
+  getFarmSpecialDeliveryRequests,
   getFarmWeeklyDeliveryRequests,
   grantFarmSeeds,
   harvestPlot,
@@ -29,6 +30,7 @@ import {
   parseFarmState,
   parseFarmStateWithLevelMigration,
   plantCrop,
+  rebuildFarmRanchSlot,
   type FarmState,
 } from "./farm";
 
@@ -60,8 +62,9 @@ describe("adventurer farm", () => {
     const { ranch: _ranch, ...oldFarm } = emptyFarmState(1_000);
     const parsed = parseFarmState(oldFarm, 50_000);
 
-    expect(parsed.ranch.pens["coop-1"]).toMatchObject({
+    expect(parsed.ranch.slots["slot-1"]).toMatchObject({
       unlocked: true,
+      animalId: "chicken",
       feed: 0,
       readyItems: 0,
       lastSettledAt: 50_000,
@@ -74,7 +77,7 @@ describe("adventurer farm", () => {
         ...emptyFarmState(1_000),
         inventory: { compound_feed: 6 },
       },
-      "coop-1",
+      "slot-1",
       6,
       1_000,
     );
@@ -91,22 +94,16 @@ describe("adventurer farm", () => {
 
   it("includes the first pig and spends four feed only to restock after shipment", () => {
     const base = emptyFarmState(1_000);
-    const bought = buyFarmRanchPen(
+    const bought = buyFarmRanchSlot(
       {
         ...base,
         ranch: {
           ...base.ranch,
-          pens: {
-            ...base.ranch.pens,
-            "coop-2": { ...base.ranch.pens["coop-2"], unlocked: true },
-            "cowshed-1": {
-              ...base.ranch.pens["cowshed-1"],
-              unlocked: true,
-            },
-            "cowshed-2": {
-              ...base.ranch.pens["cowshed-2"],
-              unlocked: true,
-            },
+          slots: {
+            ...base.ranch.slots,
+            "slot-2": { ...base.ranch.slots["slot-2"], unlocked: true, animalId: "chicken" },
+            "slot-3": { ...base.ranch.slots["slot-3"], unlocked: true, animalId: "chicken" },
+            "slot-4": { ...base.ranch.slots["slot-4"], unlocked: true, animalId: "chicken" },
           },
         },
         stats: {
@@ -115,11 +112,12 @@ describe("adventurer farm", () => {
           farmingXp: 24_010,
         },
       },
-      "pigsty-1",
+      "slot-5",
+      "pig",
       1_000,
     );
     expect(bought.state.inventory.compound_feed).toBeUndefined();
-    expect(bought.state.ranch.pens["pigsty-1"].feed).toBe(4);
+    expect(bought.state.ranch.slots["slot-5"].feed).toBe(4);
 
     const shipped = collectFarmRanch(
       bought.state,
@@ -140,19 +138,19 @@ describe("adventurer farm", () => {
           compound_feed: 4,
         },
       },
-      "pigsty-1",
+      "slot-5",
       4,
       1_000 + 16 * 60 * 60 * 1000,
     );
     expect(restocked.inventory.compound_feed).toBeUndefined();
-    expect(restocked.ranch.pens["pigsty-1"]).toMatchObject({
+    expect(restocked.ranch.slots["slot-5"]).toMatchObject({
       feed: 4,
       progressMs: 0,
       readyItems: 0,
     });
   });
 
-  it("buys ranch pens with available reputation at the required farming level", () => {
+  it("buys a selected ranch building with available reputation at the required farming level", () => {
     const state = {
       ...emptyFarmState(1_000),
       stats: {
@@ -162,13 +160,72 @@ describe("adventurer farm", () => {
       },
     };
 
-    const bought = buyFarmRanchPen(state, "coop-2", 1_000);
+    const bought = buyFarmRanchSlot(state, "slot-2", "chicken", 1_000);
     expect(bought.result).toMatchObject({
-      penId: "coop-2",
+      slotId: "slot-2",
+      animalId: "chicken",
       costReputation: 30,
     });
-    expect(bought.state.ranch.pens["coop-2"].unlocked).toBe(true);
+    expect(bought.state.ranch.slots["slot-2"]).toMatchObject({
+      unlocked: true,
+      animalId: "chicken",
+    });
     expect(bought.state.stats.reputationSpent).toBe(30);
+  });
+
+  it("rebuilds an idle slot atomically and spends the target building cost", () => {
+    const base = emptyFarmState(1_000);
+    const state = {
+      ...base,
+      ranch: {
+        ...base.ranch,
+        slots: {
+          ...base.ranch.slots,
+          "slot-2": {
+            ...base.ranch.slots["slot-2"],
+            unlocked: true,
+            animalId: "chicken" as const,
+          },
+        },
+      },
+      stats: {
+        ...base.stats,
+        reputation: 1_000,
+        farmingXp: farmingLevelXpThreshold(20),
+      },
+    };
+
+    const rebuilt = rebuildFarmRanchSlot(state, "slot-2", "cow", 2_000);
+
+    expect(rebuilt.result).toEqual({
+      slotId: "slot-2",
+      animalId: "cow",
+      costReputation: 1_000,
+    });
+    expect(rebuilt.state.ranch.slots["slot-2"]).toMatchObject({
+      animalId: "cow",
+      feed: 0,
+      lastSettledAt: 2_000,
+    });
+    expect(rebuilt.state.stats.reputationSpent).toBe(1_000);
+  });
+
+  it("does not mutate or spend reputation when ranch construction or rebuild fails", () => {
+    const base = emptyFarmState(1_000);
+    const state = {
+      ...base,
+      inventory: { compound_feed: 1 },
+      stats: { ...base.stats, reputation: 999, farmingXp: 0 },
+    };
+    const snapshot = structuredClone(state);
+
+    expect(() => buyFarmRanchSlot(state, "slot-2", "cow", 1_000)).toThrow(
+      "level_required",
+    );
+    expect(() =>
+      rebuildFarmRanchSlot(state, "slot-1", "cow", 1_000),
+    ).toThrow("animal_level_required");
+    expect(state).toEqual(snapshot);
   });
 
   it("maps ranch inventory items to identifier-matched image assets", () => {
@@ -699,7 +756,7 @@ describe("adventurer farm", () => {
     expect(claimed.inventory.wheat).toBe(30);
     expect(claimed.inventory.golden_wheat).toBe(1);
     expect(claimed.seeds.wheat).toBe(6);
-    expect(claimed.stats.reputation).toBe(8);
+    expect(claimed.stats.reputation).toBe(11);
     expect(() =>
       claimFarmWeeklyDelivery(claimed, "weekly-bakery-crate", monday),
     ).toThrow("weekly_delivery_already_claimed");
@@ -711,13 +768,28 @@ describe("adventurer farm", () => {
     );
     expect(reset.weekly.claimedIds).toEqual(["weekly-bakery-crate"]);
     expect(reset.seeds.wheat).toBe(12);
-    expect(reset.stats.reputation).toBe(16);
+    expect(reset.stats.reputation).toBe(22);
   });
 
   it("주간 기본 납품은 해당 작물 씨앗 6개를 지급한다", () => {
     expect(
       getFarmWeeklyDeliveryRequests().map((request) => request.rewardSeeds),
     ).toEqual([{ wheat: 6 }, { herb: 6 }, { corn: 6 }]);
+  });
+
+  it("주간 희귀 작물 보너스는 반복 희귀 납품보다 증표 2개를 더 지급한다", () => {
+    const specialRewards = new Map(
+      getFarmSpecialDeliveryRequests().map((request) => [
+        Object.keys(request.requiredItems)[0],
+        request.rewardReputation,
+      ]),
+    );
+
+    for (const request of getFarmWeeklyDeliveryRequests()) {
+      expect(request.optionalRareBonusReputation).toBe(
+        specialRewards.get(request.optionalRareItemId ?? "")! + 2,
+      );
+    }
   });
 
   it("buys farm plot growth with available reputation", () => {
@@ -767,7 +839,57 @@ describe("adventurer farm", () => {
     expect(sixth.plots).toHaveLength(8);
     expect(sixth.stats.reputationSpent).toBe(1_150);
     expect(farmAvailableReputation(sixth)).toBe(0);
-    expect(nextFarmPlotUpgrade(sixth)).toBeNull();
+    expect(nextFarmPlotUpgrade(sixth)).toMatchObject({
+      plotCount: 12,
+      costReputation: 1_000,
+    });
+  });
+
+  it("buys four plots at each late farm growth stage", () => {
+    const template = emptyFarmState(1_000);
+    let state: FarmState = {
+      ...template,
+      plots: Array.from({ length: 8 }, (_, index) => ({
+        ...template.plots[0],
+        id: `plot-${index + 1}`,
+        ...(index === 0
+          ? { cropId: "wheat" as const, plantedAt: 100, readyAt: 200 }
+          : {}),
+      })),
+      stats: {
+        ...template.stats,
+        reputation: 15_000,
+      },
+    };
+    const plantedPlot = { ...state.plots[0] };
+    const resultSequence: Array<{
+      plotCount: number;
+      costReputation: number;
+    }> = [];
+
+    for (let index = 0; index < 4; index += 1) {
+      const bought = buyFarmPlotUpgrade(state);
+      state = bought.state;
+      resultSequence.push({
+        plotCount: bought.result.plotCount,
+        costReputation: bought.result.costReputation,
+      });
+    }
+
+    expect(resultSequence).toEqual([
+      { plotCount: 12, costReputation: 1_000 },
+      { plotCount: 16, costReputation: 2_000 },
+      { plotCount: 20, costReputation: 4_000 },
+      { plotCount: 24, costReputation: 8_000 },
+    ]);
+    expect(state.plots).toHaveLength(24);
+    expect(state.plots[0]).toEqual(plantedPlot);
+    expect(state.plots.slice(8)).toHaveLength(16);
+    expect(state.plots.slice(8).every((plot) => plot.cropId === null)).toBe(
+      true,
+    );
+    expect(state.stats.reputationSpent).toBe(15_000);
+    expect(nextFarmPlotUpgrade(state)).toBeNull();
   });
 
   it("rejects farm plot growth without enough available reputation", () => {
@@ -808,18 +930,18 @@ describe("adventurer farm", () => {
     expect(parsed.plots[5]).toMatchObject({ id: "plot-6", cropId: null });
   });
 
-  it("preserves at most eight purchased plots from saved data", () => {
+  it("preserves at most twenty-four purchased plots from saved data", () => {
     const parsed = parseFarmState({
-      plots: Array.from({ length: 9 }, (_, index) => ({
+      plots: Array.from({ length: 25 }, (_, index) => ({
         id: `plot-${index + 1}`,
         cropId: null,
       })),
     });
 
-    expect(parsed.plots).toHaveLength(8);
-    expect(parsed.plots[7]).toMatchObject({ id: "plot-8", cropId: null });
+    expect(parsed.plots).toHaveLength(24);
+    expect(parsed.plots[23]).toMatchObject({ id: "plot-24", cropId: null });
     expect(parsed.plots).not.toContainEqual(
-      expect.objectContaining({ id: "plot-9" }),
+      expect.objectContaining({ id: "plot-25" }),
     );
   });
 

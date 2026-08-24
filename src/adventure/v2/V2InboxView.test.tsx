@@ -102,6 +102,32 @@ describe("MailDetailModal 장문 가독성", () => {
 
     expect(html).toContain("읽음 처리 실패 (503)");
   });
+
+  it("운영자 우편의 요리 재료 이름과 수량을 표시한다", () => {
+    const html = renderToStaticMarkup(
+      createElement(MailDetailModal, {
+        item: inboxItem({
+          kind: "admin_gift",
+          payload: {
+            cookingIngredients: [
+              { ingredientId: "pantry:salt", count: 2 },
+              { ingredientId: "processed:flour", count: 3 },
+            ],
+          },
+          hasReward: true,
+          claimState: "claimable",
+        }),
+        busy: false,
+        onClose: vi.fn(),
+        onClaim: vi.fn(),
+        onRespondInvite: vi.fn(),
+        onBlocked: vi.fn(),
+      }),
+    );
+
+    expect(html).toContain("소금 x2");
+    expect(html).toContain("밀가루 x3");
+  });
 });
 
 describe("InboxMailCard 상태 표시", () => {

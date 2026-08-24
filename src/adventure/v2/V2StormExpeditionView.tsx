@@ -27,6 +27,7 @@ import { V2_EQUIPMENT, v2EquipCatalogTierLabel, type V2EquipInstance } from "@/a
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { useRefreshGameState } from "@/adventure/v2/GameStateRefreshContext";
 import { Card } from "@/components/ui/Card";
+import { confirmGameAction, type ConfirmGameAction } from "@/components/ui/gameDialog";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -90,6 +91,7 @@ type ActiveExpedition = {
 type ExpeditionStatus = {
   ok?: boolean;
   error?: string;
+  retryAfterSec?: number;
   unlocked?: boolean;
   unlockDepth?: number;
   frontierDepth?: number;
@@ -177,6 +179,39 @@ const ERROR_MESSAGES: Record<string, string> = {
   node_already_completed: "현재 체크포인트는 이미 완료했습니다. 지도에서 다음 노드를 선택해 주세요.",
 };
 
+export function stormExpeditionStatusAfterResponse(
+  current: ExpeditionStatus | null,
+  response: ExpeditionStatus,
+): ExpeditionStatus | null {
+  return response.state ? response : current;
+}
+
+export function stormExpeditionErrorMessage(
+  result: Pick<ExpeditionStatus, "error" | "retryAfterSec">,
+): string {
+  if (result.error === "rate_limited") {
+    const retryAfterSec = Math.max(
+      1,
+      Math.ceil(Number(result.retryAfterSec) || 1),
+    );
+    return `원정 요청이 많습니다. ${retryAfterSec}초 후 일괄 진행을 다시 시작해 주세요.`;
+  }
+  return result.error
+    ? ERROR_MESSAGES[result.error]
+      ?? "원정을 진행하지 못했습니다. 잠시 후 다시 시도해 주세요."
+    : "";
+}
+
+export function stormExpeditionResultAfterResponse(
+  action: StormExpeditionActionRequest["action"],
+  response: ExpeditionStatus,
+  suppressReplay: boolean,
+): ExpeditionStatus | null {
+  if (response.error) return response;
+  if (action === "start") return null;
+  return suppressReplay ? { ...response, replay: undefined } : response;
+}
+
 const DEFAULT_AUTOPLAY_PLAN: StormExpeditionAutoplayPlan = {
   version: 1,
   mode: "normal",
@@ -186,19 +221,19 @@ const DEFAULT_AUTOPLAY_PLAN: StormExpeditionAutoplayPlan = {
   boonStrategy: "offense",
 };
 
-export function confirmStormExpeditionExit({
+export async function confirmStormExpeditionExit({
   mode,
   onExit,
-  confirm = (message) => window.confirm(message),
+  confirm = confirmGameAction,
 }: {
   mode: StormExpeditionMode;
   onExit: () => void;
-  confirm?: (message: string) => boolean;
-}): boolean {
+  confirm?: ConfirmGameAction;
+}): Promise<boolean> {
   const message = mode === "practice"
     ? "연습 원정을 종료할까요?"
     : "원정에서 귀환할까요?\n현재 임시 전리품을 모두 확보하고 원정을 종료합니다.";
-  if (!confirm(message)) return false;
+  if (!(await confirm(message))) return false;
   onExit();
   return true;
 }
@@ -353,12 +388,12 @@ export function V2StormExpeditionView() {
         setResult({ ok: false, error: `http ${response.status}` });
         return null;
       }
-      setStatus(json);
-      setResult(request.action === "start"
-        ? null
-        : skipReplay || options.suppressReplay
-          ? { ...json, replay: undefined }
-          : json);
+      setStatus((current) => stormExpeditionStatusAfterResponse(current, json));
+      setResult(stormExpeditionResultAfterResponse(
+        request.action,
+        json,
+        Boolean(skipReplay || options.suppressReplay),
+      ));
       if (json.error) setOpenNodeId(null);
       if (json.claimedRewards) await refreshGameState();
       if (json.failed || json.bossClear || json.practiceCompleted || json.withdrew || json.practiceEnded) {
@@ -458,7 +493,7 @@ export function V2StormExpeditionView() {
 
   const exitActiveExpedition = useCallback(() => {
     if (!active) return;
-    confirmStormExpeditionExit({
+    void confirmStormExpeditionExit({
       mode: active.mode,
       onExit: () => void requestAction(stormExpeditionWithdrawRequest(active.currentNodeId, active.encounterIndex)),
     });
@@ -547,7 +582,7 @@ export function V2StormExpeditionView() {
       {status && !status.unlocked && (
         <StatusBanner tone="warning">심해 폐허 최심부 돌파 후 개방 · 현재 진행 {Math.floor((status.frontierDepth ?? 2) / 2)}/{Math.floor((status.unlockDepth ?? 72) / 2)}단계</StatusBanner>
       )}
-      {result?.error && <StatusBanner tone="error">{ERROR_MESSAGES[result.error] ?? "원정을 진행하지 못했습니다. 잠시 후 다시 시도해 주세요."}</StatusBanner>}
+      {result?.error && <StatusBanner tone="error">{stormExpeditionErrorMessage(result)}</StatusBanner>}
       {result?.practiceCompleted && <StatusBanner tone="success">폭풍의 심장까지 연습을 마쳤습니다. 입장 횟수와 보상·완주 기록은 변하지 않았습니다.</StatusBanner>}
       {result?.bossClear && !result.practiceCompleted && <StatusBanner tone="success">폭풍의 심장을 쓰러뜨렸습니다. 모든 임시 전리품을 확보했습니다.</StatusBanner>}
       {result?.spFruitDropped && <StatusBanner tone="success">원정 완주 보상으로 SP 열매 V를 획득했습니다. SP 열매 천장 횟수가 초기화됩니다.</StatusBanner>}

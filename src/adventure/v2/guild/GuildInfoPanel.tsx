@@ -1,5 +1,6 @@
 import {
   GUILD_BASE_MEMBER_CAP,
+  GUILD_MEMBER_CAP_PER_LEVEL,
   GUILD_MAX_LEVEL,
 } from "@/adventure/data/guild";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
@@ -77,9 +78,17 @@ export function GuildInfoPanel({
                 : `다음 승급: 명성 ${info.guild.levelUpgradeCost.fame.toLocaleString()} · ${info.guild.levelUpgradeCost.gold.toLocaleString()} G`}
             </span>
           </div>
-          <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-            관리자가 길드 연구에서 사용 가능 명성과 길드 자금을 소비해 승급하며,
-            레벨마다 정원이 1명 늘어납니다.
+          <p className="mt-1.5 text-xs text-zinc-700 dark:text-zinc-200">
+            <span className="font-semibold">
+              {info.guild.levelUpgradeCost === null
+                ? "최종 길드 마일스톤 달성 · MAX"
+                : `다음 길드 마일스톤 · Lv.${info.guild.levelUpgradeCost.nextLevel}`}
+            </span>
+            <span className="ml-2 text-zinc-600 dark:text-zinc-300">
+              {info.guild.levelUpgradeCost === null
+                ? `기본 정원 대비 +${(GUILD_MAX_LEVEL - 1) * GUILD_MEMBER_CAP_PER_LEVEL}명`
+                : `길드원 정원 +${GUILD_MEMBER_CAP_PER_LEVEL}명`}
+            </span>
           </p>
         </div>
         <dl className="divide-y divide-zinc-200 dark:divide-zinc-800">

@@ -211,7 +211,7 @@ export function RecoveryReadout({
   );
 }
 
-// 전투 스탯 표시용 — 공/방/속 기본 + 상세(명중/회피/치명/마공). 적·플레이어 공용 shape.
+// 전투 스탯 표시용 — 공/방/마방/속 기본 + 상세(명중/회피/치명/마공). 적·플레이어 공용 shape.
 export type BattleStats = {
   atk: number;
   def: number;
@@ -247,7 +247,7 @@ function pct(n: number): string {
   return `${Math.max(0, Math.min(100, Math.round(n)))}%`;
 }
 
-// 전투 스탯 한 줄 — 공/방/속 기본, 누르면 상세(명중/회피/치명/마공) 칩 펼침. 플레이어 카드·적 칸 공용.
+// 전투 스탯 한 줄 — 공/방/마방/속 기본, 누르면 상세(명중/회피/치명/마공) 칩 펼침. 플레이어 카드·적 칸 공용.
 export function BattleStatStrip({
   stats,
   center = false,
@@ -280,9 +280,6 @@ export function BattleStatStrip({
             value: `+${Math.round(stats.bonusAttackChancePct)}%`,
           },
         ]
-      : []),
-    ...(stats.magicDef != null
-      ? [{ label: "마방", value: String(Math.round(stats.magicDef)) }]
       : []),
     ...(stats.statusDamageReductionPct && stats.statusDamageReductionPct > 0
       ? [
@@ -324,6 +321,12 @@ export function BattleStatStrip({
         <span>
           <span className={dim}>방</span> {(stats.def ?? 0).toLocaleString()}
         </span>
+        {stats.magicDef != null && (
+          <span>
+            <span className={dim}>마방</span>{" "}
+            {Math.round(stats.magicDef).toLocaleString()}
+          </span>
+        )}
         <span>
           <span className={dim}>{speedLabel}</span>{" "}
           {Math.round(speedValue ?? 0).toLocaleString()}
@@ -646,7 +649,7 @@ export function BattleScene({
                     color="bg-blue-500"
                   />
                 )}
-                {/* 공/방/속 — 적 칸과 대칭. 누르면 명중/회피/치명 펼침. EXP 바는 이 패널에서 제거
+                {/* 공/방/마방/속 — 적 칸과 대칭. 누르면 명중/회피/치명 펼침. EXP 바는 이 패널에서 제거
                     (전투 결과/캐릭터 카드에 노출). */}
                 {playerCombat && <BattleStatStrip center stats={playerCombat} />}
               </div>
@@ -695,7 +698,7 @@ export function BattleScene({
                     color="bg-blue-500"
                   />
                 )}
-                {/* 공/방/속 — 누르면 명중/회피 펼침. 리플레이/PvP enemy 는 스탯이 없을 수
+                {/* 공/방/마방/속 — 누르면 명중/회피 펼침. 리플레이/PvP enemy 는 스탯이 없을 수
                     있어(payload 부분 객체) atk 숫자일 때만 렌더 — 없으면 표시 생략(크래시 방지). */}
                 {enemyCombat && (
                   <BattleStatStrip

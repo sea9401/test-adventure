@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   CaretDown,
   CheckCircle,
@@ -296,68 +297,80 @@ function JobRow({
   onSetGoal: () => void;
 }) {
   const tags = jobCardTags(job, { currentJobId }).slice(0, 4);
+  const hasSkills = job.skillsTotal > 0;
+  const skillsCollected =
+    hasSkills && job.skillsLearned >= job.skillsTotal;
   return (
     <li
-      className={`flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 ${
+      className={`flex items-start justify-between gap-2 rounded-md border px-3 py-2 ${
         job.unlocked
           ? "border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900"
           : "border-zinc-200 bg-zinc-100 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
       }`}
     >
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{job.name}</span>
-          {job.isCurrent && (
-            <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 sm:text-[10px] dark:bg-emerald-500/15 dark:text-emerald-300">
-              현재 직업
-            </span>
-          )}
-          {!job.unlocked && (
-            <Lock size={12} weight="duotone" className="shrink-0 text-zinc-400" />
-          )}
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {tags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded bg-white px-1.5 py-0.5 text-xs text-zinc-500 sm:text-[10px] dark:bg-zinc-900 dark:text-zinc-400"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-        {job.skillsTotal > 0 &&
-          (() => {
-            const done = job.skillsLearned >= job.skillsTotal;
-            return (
-              <span className="flex items-center gap-1 text-xs text-zinc-500 sm:text-[11px] dark:text-zinc-400">
-                {done ? (
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <header className="flex min-w-0 flex-wrap items-start gap-x-2 gap-y-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="text-sm font-medium">{job.name}</span>
+            {job.isCurrent && (
+              <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 sm:text-[10px] dark:bg-emerald-500/15 dark:text-emerald-300">
+                현재 직업
+              </span>
+            )}
+            {hasSkills && (
+              <span
+                className={`flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs font-semibold sm:text-[10px] ${
+                  skillsCollected
+                    ? "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300"
+                    : "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                }`}
+              >
+                {skillsCollected ? (
                   <CheckCircle
-                    size={13}
+                    size={11}
                     weight="fill"
-                    className="shrink-0 text-emerald-500"
+                    className="shrink-0"
                   />
                 ) : (
-                  <span className="inline-block h-[13px] w-[13px] shrink-0 rounded-full border border-zinc-300 dark:border-zinc-600" />
+                  <span className="inline-block h-[11px] w-[11px] shrink-0 rounded-full border border-current" />
                 )}
-                {done ? (
-                  <span className="text-emerald-600 dark:text-emerald-400">
-                    스킬 수집 완료
-                  </span>
-                ) : (
-                  <span>
-                    스킬 수집 {job.skillsLearned}/{job.skillsTotal}
-                  </span>
-                )}
+                {skillsCollected
+                  ? "수집 완료"
+                  : `스킬 ${job.skillsLearned}/${job.skillsTotal}`}
               </span>
-            );
-          })()}
-        <span className="text-xs font-medium tabular-nums text-zinc-600 sm:text-[11px] dark:text-zinc-300">
-          숙련도 {job.mastery.toLocaleString("ko-KR")}
-        </span>
-        <span className="text-xs text-zinc-400 sm:text-[11px] dark:text-zinc-500">
-          해금 · {job.condition}
-        </span>
+            )}
+            {!job.unlocked && (
+              <Lock
+                size={12}
+                weight="duotone"
+                className="shrink-0 text-zinc-400"
+              />
+            )}
+          </div>
+          {tags.length > 0 && (
+            <ul
+              aria-label={`${job.name} 카테고리`}
+              className={`${SURFACE_INSET} ml-auto flex shrink-0 flex-wrap justify-end gap-0.5 p-0.5`}
+            >
+              {tags.map((tag) => (
+                <li
+                  key={tag}
+                  className="px-1 text-xs text-zinc-500 sm:text-[10px] dark:text-zinc-400"
+                >
+                  {tag}
+                </li>
+              ))}
+            </ul>
+          )}
+        </header>
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span className="text-xs font-medium tabular-nums text-zinc-600 sm:text-[11px] dark:text-zinc-300">
+            숙련도 {job.mastery.toLocaleString("ko-KR")}
+          </span>
+          <span className="text-xs text-zinc-400 sm:text-[11px] dark:text-zinc-500">
+            해금 · {job.condition}
+          </span>
+        </div>
       </div>
       <button
         type="button"

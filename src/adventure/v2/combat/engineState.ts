@@ -74,6 +74,11 @@ export type BattleLogEntry =
        */
       side?: "p1" | "p2";
       /**
+       * 다른 스킬 효과로 즉시 실행된 행동의 원인 스킬명. 전투 판정에는 관여하지 않고,
+       * UI가 일반적인 "기본 공격" 대신 강제 행동임을 설명할 때만 사용한다.
+       */
+      forcedBySkill?: string;
+      /**
        * ATB 타임라인 틱(이 행동이 발생한 시각). resolveBattleAtb / resolveBattlePvPAtb 가
        * 찍는다. UI 가 일정 틱 윈도우(ATB_LOG_WINDOW_TICKS) 단위로 로그를 묶어 한 박스에
        * 보여줄 때 사용. 레거시(고정교대) 엔진·옛 로그는 미동봉(undefined) → UI 가 턴 단위로 폴백.

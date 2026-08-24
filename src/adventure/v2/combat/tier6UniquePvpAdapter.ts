@@ -13,6 +13,12 @@ import {
   type Tier6UniqueCommand,
   type Tier6UniqueEvent,
 } from "./tier6UniqueEffects";
+import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
+import {
+  appendPvPSurvivalLogs,
+  resolvePvPHostileDamageSurvival,
+  type PvPHostileDamageSurvival,
+} from "./pvpHostileDamage";
 
 export type PvPSideKey = "p1" | "p2";
 
@@ -70,8 +76,11 @@ export function applyTier6UniquePvpEvent(
     stacks: { ...actor.stacks, tier6Uniques: resolved.state },
   };
   let log = state.log;
+  let finishTargetCurrentActionGuard = false;
   for (const command of resolved.commands) {
-    ({ actor, target } = applyCommand(actor, target, command));
+    const applied = applyCommand(actor, target, command);
+    actor = applied.actor;
+    target = applied.target;
     log = [
       ...log,
       {
@@ -81,6 +90,21 @@ export function applyTier6UniquePvpEvent(
         side: actorKey,
       },
     ];
+    if (applied.survival) {
+      log = appendPvPSurvivalLogs(
+        { ...state, [actorKey]: actor, [targetKey]: target, log },
+        targetKey,
+        target.name,
+        applied.survival,
+      ).log;
+      finishTargetCurrentActionGuard ||= applied.survival.berserkerTriggered;
+    }
+  }
+  if (finishTargetCurrentActionGuard && target.berserker) {
+    target = {
+      ...target,
+      berserker: finishBerserkerCurrentActionGuard(target.berserker),
+    };
   }
   return { ...state, [actorKey]: actor, [targetKey]: target, log };
 }
@@ -89,9 +113,17 @@ function applyCommand(
   actor: PvPSide,
   target: PvPSide,
   command: Tier6UniqueCommand,
-): { actor: PvPSide; target: PvPSide } {
+): {
+  actor: PvPSide;
+  target: PvPSide;
+  survival?: PvPHostileDamageSurvival;
+} {
   if (command.kind === "damage_fixed") {
-    target = { ...target, hp: Math.max(0, target.hp - command.amount) };
+    const survival = resolvePvPHostileDamageSurvival(
+      target,
+      target.hp - command.amount,
+    );
+    return { actor, target: survival.side, survival };
   } else if (command.kind === "shield") {
     actor = {
       ...actor,

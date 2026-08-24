@@ -39,7 +39,7 @@ describe("숙련의 탑 시작 위치 선택", () => {
     expect(html).toContain("31층부터 시작");
     expect(html.match(/aria-pressed="true"/g)).toHaveLength(1);
     expect(html).toContain("bg-zinc-50");
-    expect(html).toContain("dark:bg-zinc-900");
+    expect(html).toContain("dark:bg-zinc-950");
   });
 
   it("체크포인트가 없으면 1층 시작만 표시한다", () => {

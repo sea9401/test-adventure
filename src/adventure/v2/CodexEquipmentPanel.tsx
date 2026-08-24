@@ -13,12 +13,12 @@ import { NecklaceIcon, RingIcon } from "./EquipmentSlotIcons";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import { usePagination } from "@/lib/usePagination";
 import { useRewardToast } from "@/adventure/v2/RewardToastProvider";
 import {
   V2_EQUIPMENT,
   V2_SLOT_LABEL,
-  effectiveStats,
   v2ItemTypeLabel,
   type V2EquipInstance,
   type V2EquipSlot,
@@ -27,8 +27,6 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { CRAFT_ONLY_CODEX_REWARDS } from "@/adventure/data/v2/equipmentCodex";
 import { GUILD_WORKSHOP_MATERIALS } from "@/adventure/data/v2/guildWorkshopMaterials";
-import { enhancedPower } from "@/adventure/data/v2/v2Enhance";
-import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import {
   EquipmentTierBadge,
   anchorOf,
@@ -42,6 +40,7 @@ import {
   EquipmentCodexBulkDialog,
   type EquipmentCodexBulkCandidate,
 } from "./EquipmentCodexBulkDialog";
+import { compareEquipmentCodexCandidate } from "./equipmentCodexBulk";
 import { useEquipmentCodexContext } from "./GameStateProvider";
 
 // 모험의 서 — 장비 도감 탭(V2CodexView 에서 분리, 2026-07). 탭 진입 시 lazy fetch(도감+보유)
@@ -109,28 +108,6 @@ const EQUIPMENT_CODEX_ENTRIES = [...EQUIPMENT_IDS].sort((a, b) => {
     ia.name.localeCompare(ib.name, "ko")
   );
 });
-
-function compareEquipmentCodexCandidate(
-  a: V2EquipInstance,
-  b: V2EquipInstance,
-): number {
-  const ia = V2_EQUIPMENT[a.id];
-  const ib = V2_EQUIPMENT[b.id];
-  const enhanceA = a.enhance?.level ?? 0;
-  const enhanceB = b.enhance?.level ?? 0;
-  if (enhanceA !== enhanceB) return enhanceA - enhanceB;
-  const qualityA = ia ? (rollQualityPct(ia, a.roll) ?? 50) : 50;
-  const qualityB = ib ? (rollQualityPct(ib, b.roll) ?? 50) : 50;
-  if (qualityA !== qualityB) return qualityA - qualityB;
-  const powerA = ia
-    ? enhancedPower(effectiveStats(ia, a.roll).power, a.enhance)
-    : 0;
-  const powerB = ib
-    ? enhancedPower(effectiveStats(ib, b.roll).power, b.enhance)
-    : 0;
-  if (powerA !== powerB) return powerA - powerB;
-  return a.iid.localeCompare(b.iid);
-}
 
 function parseEquipmentCraftRecord(raw: unknown): EquipmentCraftRecordView | null {
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return null;
@@ -350,7 +327,7 @@ export function CodexEquipmentPanel({
   async function registerEquipment(inst: V2EquipInstance) {
     const item = V2_EQUIPMENT[inst.id];
     if (!item || equipmentCodexBusy) return;
-    if (!window.confirm(`${item.name} 1개를 장비 도감에 등록할까요?`)) return;
+    if (!(await confirmGameAction(`${item.name} 1개를 장비 도감에 등록할까요?`))) return;
     setEquipmentCodexBusy(inst.iid);
     setEquipmentCodexMsg(null);
     try {

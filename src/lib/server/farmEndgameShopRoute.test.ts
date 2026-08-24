@@ -80,9 +80,14 @@ function completedFarm(reputation = 10_000): FarmState {
     })),
     ranch: {
       ...farm.ranch,
-      pens: Object.fromEntries(
-        Object.entries(farm.ranch.pens).map(([id, pen]) => [id, { ...pen, unlocked: true }]),
-      ) as FarmState["ranch"]["pens"],
+      slots: Object.fromEntries(
+        Object.entries(farm.ranch.slots).map(([id, slot], index) => [
+          id,
+          index < 5
+            ? { ...slot, unlocked: true, animalId: "chicken" }
+            : slot,
+        ]),
+      ) as FarmState["ranch"]["slots"],
     },
     stats: { ...farm.stats, reputation },
   };

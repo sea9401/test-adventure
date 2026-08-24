@@ -63,6 +63,12 @@ import {
   isCookingFoodId,
   type CookingFoodId,
 } from "@/adventure/v2/cooking/food";
+import {
+  COOKING_SAVE_KEY,
+  emptyCookingState,
+  parseCookingState,
+  type CookingKitchenItemId,
+} from "@/adventure/v2/cooking/state";
 import { randomUUID } from "node:crypto";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import type { FishId } from "@/adventure/data/v2/fish";
@@ -188,6 +194,7 @@ export async function POST(req: Request) {
       let museunCoinsTotal = 0;
       const museunCashItemTotals = new Map<MuseunCashItemId, number>();
       const cookingFoodTotals = new Map<CookingFoodId, number>();
+      const cookingIngredientTotals = new Map<CookingKitchenItemId, number>();
       const fishSpecimenTotals = new Map<FishId, number>();
       let adventureSupportDaysTotal = 0;
       const titleIdsToGrant = new Set<string>();
@@ -335,6 +342,13 @@ export async function POST(req: Request) {
             if (parsed.gold > 0) walletGoldTotal += parsed.gold;
             for (const m of parsed.materials) {
               pushMaterial(m.materialId, m.count);
+            }
+            for (const ingredient of parsed.cookingIngredients ?? []) {
+              cookingIngredientTotals.set(
+                ingredient.ingredientId,
+                (cookingIngredientTotals.get(ingredient.ingredientId) ?? 0) +
+                  ingredient.count,
+              );
             }
             for (const it of parsed.items) {
               pushEquip(it.itemId, it.count);
@@ -611,6 +625,40 @@ export async function POST(req: Request) {
         }
       }
 
+      const cookingIngredientsAdded: Array<{
+        ingredientId: CookingKitchenItemId;
+        count: number;
+      }> = [];
+      if (cookingIngredientTotals.size > 0) {
+        const cooking = parseCookingState(
+          await lockSaveForUpdate(
+            tx,
+            userId,
+            COOKING_SAVE_KEY,
+            emptyCookingState(),
+          ),
+        );
+        const kitchenItems = { ...cooking.kitchenItems };
+        for (const [ingredientId, requestedCount] of cookingIngredientTotals) {
+          const previous = Math.max(
+            0,
+            Math.floor(kitchenItems[ingredientId] ?? 0),
+          );
+          const next = Math.min(999_999, previous + requestedCount);
+          kitchenItems[ingredientId] = next;
+          if (next > previous) {
+            cookingIngredientsAdded.push({
+              ingredientId,
+              count: next - previous,
+            });
+          }
+        }
+        await upsertSave(tx, userId, COOKING_SAVE_KEY, {
+          ...cooking,
+          kitchenItems,
+        });
+      }
+
       // 시즌 순위 보상 코인 — season 별 지갑(pvp/낚시)에 적립. 단일 유저라
       // character→inventory→crafting 다음에 지갑을 잠가도 교차 데드락 없음.
       const coinsAdded: { season: SeasonRewardSeason; coins: number }[] = [];
@@ -736,6 +784,7 @@ export async function POST(req: Request) {
           itemId,
           count,
         })),
+        cookingIngredientsAdded,
         fishSpecimensAdded: Array.from(fishSpecimenTotals, ([fishId, count]) => ({
           fishId,
           count,

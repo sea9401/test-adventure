@@ -32,6 +32,7 @@ describe("희귀 탐사 일반 사냥터 복귀", () => {
 
     expect(html).toContain("희귀 탐사 진행 중");
     expect(html).toContain("일반 사냥터로");
+    expect(html).toContain("희귀 탐사 시작");
   });
 
   it("진행 안내에 남은 판수와 만료 시간을 함께 표시한다", () => {
@@ -47,7 +48,8 @@ describe("희귀 탐사 일반 사냥터 복귀", () => {
       />,
     );
 
-    expect(html).toContain("희귀 탐사 진행 중 — 남은 4판");
+    expect(html).toContain("희귀 탐사 진행 중 · 1회 전투");
+    expect(html).toContain("보상 4회분");
     expect(html).toContain("30분 동안 개방");
     expect(html).toContain("남은 시간 30:00");
   });

@@ -32,6 +32,7 @@ import {
   type HuntEndReason,
 } from "@/adventure/v2/huntEndNotice";
 import { RareMapCountdownText } from "@/adventure/v2/RareMapCountdownText";
+import { sortHuntRareMaps } from "@/adventure/v2/RareMapQuickEntry";
 
 // N회 일괄 사냥의 합산 결과. EXP/골드/드랍/전적.
 
@@ -114,6 +115,10 @@ export function BatchSummaryCard({
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
   const rareMapDrops = summary.rareMapDrops ?? [];
   const rareMapDropInstances = summary.rareMapDropInstances ?? [];
+  const huntRareMapInstances = sortHuntRareMaps(rareMapDropInstances);
+  const otherRareMapInstances = rareMapDropInstances.filter(
+    (map) => RARE_MAP_KINDS[map.kind]?.category !== "hunt",
+  );
   const huntRareMapNames = rareMapDrops
     .filter((k) => RARE_MAP_KINDS[k]?.category === "hunt")
     .map((k) => RARE_MAP_KINDS[k]?.name ?? k);
@@ -169,7 +174,40 @@ export function BatchSummaryCard({
 
   return (
     <Card padding="sm">
-      {rareMapDropInstances.map((map) => {
+      {huntRareMapInstances.length > 0 && (() => {
+        const primary = huntRareMapInstances[0];
+        const primaryDef = RARE_MAP_KINDS[primary.kind];
+        const names = huntRareMapInstances.map(
+          (map) => RARE_MAP_KINDS[map.kind].name,
+        );
+        return (
+          <DiscoveryNotice
+            kind="hunt"
+            className="mb-2"
+            action={
+              onEnterRareMap ? (
+                <button
+                  type="button"
+                  onClick={() => onEnterRareMap(primary)}
+                  className="ui-game-button shrink-0 rounded-md border border-sky-500 bg-sky-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-sky-700"
+                >
+                  바로가기
+                </button>
+              ) : undefined
+            }
+          >
+            {huntRareMapInstances.length === 1
+              ? `희귀 탐사 「${primaryDef.name}」 개방!`
+              : `희귀 탐사 ${huntRareMapInstances.length}개 발견! · ${names.join(", ")}`}
+            {" · 30분 동안 개방 · "}
+            <RareMapCountdownText
+              foundAt={primary.foundAt}
+              serverNow={primary.foundAt}
+            />
+          </DiscoveryNotice>
+        );
+      })()}
+      {otherRareMapInstances.map((map) => {
         const def = RARE_MAP_KINDS[map.kind];
         return (
           <DiscoveryNotice
@@ -188,15 +226,7 @@ export function BatchSummaryCard({
               ) : undefined
             }
           >
-            {def.category === "hunt" ? (
-              <>
-                희귀 탐사 「{def.name}」 개방! · 30분 동안 개방 ·{" "}
-                <RareMapCountdownText
-                  foundAt={map.foundAt}
-                  serverNow={map.foundAt}
-                />
-              </>
-            ) : def.category === "location" ? (
+            {def.category === "location" ? (
               `희귀 장소 「${def.name}」 개방!`
             ) : (
               `「${def.name}」 획득! — 가방 소모품에서 사용`

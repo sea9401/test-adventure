@@ -2,41 +2,24 @@ const HOUR = 60 * 60 * 1000;
 
 export type RanchAnimalId = "chicken" | "cow" | "pig";
 export type RanchProductItemId = "egg" | "milk" | "pork";
-export type RanchPenId =
-  | "coop-1"
-  | "coop-2"
-  | "cowshed-1"
-  | "cowshed-2"
-  | "pigsty-1";
+export type RanchSlotId =
+  | "slot-1"
+  | "slot-2"
+  | "slot-3"
+  | "slot-4"
+  | "slot-5"
+  | "slot-6"
+  | "slot-7"
+  | "slot-8"
+  | "slot-9"
+  | "slot-10";
 
-export const RANCH_ANIMALS: Record<
-  RanchAnimalId,
-  {
-    name: string;
-    outputName: string;
-    imageSrc: string;
-  }
-> = {
-  chicken: {
-    name: "닭",
-    outputName: "달걀",
-    imageSrc: "/images/items/farm/chicken.webp",
-  },
-  cow: {
-    name: "소",
-    outputName: "우유",
-    imageSrc: "/images/items/farm/cow.webp",
-  },
-  pig: {
-    name: "돼지",
-    outputName: "돼지고기",
-    imageSrc: "/images/items/farm/pig.webp",
-  },
-};
-
-export type RanchPenDefinition = {
-  id: RanchPenId;
-  animalId: RanchAnimalId;
+export type RanchAnimalDefinition = {
+  id: RanchAnimalId;
+  name: string;
+  buildingName: string;
+  outputName: string;
+  imageSrc: string;
   outputItemId: RanchProductItemId;
   cycleMs: number;
   outputAmount: number;
@@ -45,13 +28,18 @@ export type RanchPenDefinition = {
   mode: "recurring" | "shipment";
   xpPerCycle: number;
   requiredLevel: number;
-  costReputation: number;
 };
 
-export const RANCH_PEN_DEFINITIONS: readonly RanchPenDefinition[] = [
-  {
-    id: "coop-1",
-    animalId: "chicken",
+export const RANCH_ANIMAL_DEFINITIONS: Record<
+  RanchAnimalId,
+  RanchAnimalDefinition
+> = {
+  chicken: {
+    id: "chicken",
+    name: "닭",
+    buildingName: "닭장",
+    outputName: "달걀",
+    imageSrc: "/images/items/farm/chicken.webp",
     outputItemId: "egg",
     cycleMs: 2 * HOUR,
     outputAmount: 2,
@@ -60,24 +48,13 @@ export const RANCH_PEN_DEFINITIONS: readonly RanchPenDefinition[] = [
     mode: "recurring",
     xpPerCycle: 2,
     requiredLevel: 1,
-    costReputation: 0,
   },
-  {
-    id: "coop-2",
-    animalId: "chicken",
-    outputItemId: "egg",
-    cycleMs: 2 * HOUR,
-    outputAmount: 2,
-    feedCapacity: 6,
-    feedPerCycle: 1,
-    mode: "recurring",
-    xpPerCycle: 2,
-    requiredLevel: 10,
-    costReputation: 30,
-  },
-  {
-    id: "cowshed-1",
-    animalId: "cow",
+  cow: {
+    id: "cow",
+    name: "소",
+    buildingName: "외양간",
+    outputName: "우유",
+    imageSrc: "/images/items/farm/cow.webp",
     outputItemId: "milk",
     cycleMs: 6 * HOUR,
     outputAmount: 3,
@@ -86,24 +63,13 @@ export const RANCH_PEN_DEFINITIONS: readonly RanchPenDefinition[] = [
     mode: "recurring",
     xpPerCycle: 6,
     requiredLevel: 20,
-    costReputation: 60,
   },
-  {
-    id: "cowshed-2",
-    animalId: "cow",
-    outputItemId: "milk",
-    cycleMs: 6 * HOUR,
-    outputAmount: 3,
-    feedCapacity: 2,
-    feedPerCycle: 1,
-    mode: "recurring",
-    xpPerCycle: 6,
-    requiredLevel: 35,
-    costReputation: 120,
-  },
-  {
-    id: "pigsty-1",
-    animalId: "pig",
+  pig: {
+    id: "pig",
+    name: "돼지",
+    buildingName: "돼지우리",
+    outputName: "돼지고기",
+    imageSrc: "/images/items/farm/pig.webp",
     outputItemId: "pork",
     cycleMs: 16 * HOUR,
     outputAmount: 8,
@@ -112,19 +78,56 @@ export const RANCH_PEN_DEFINITIONS: readonly RanchPenDefinition[] = [
     mode: "shipment",
     xpPerCycle: 16,
     requiredLevel: 50,
-    costReputation: 180,
   },
+};
+
+export const RANCH_ANIMALS: Record<
+  RanchAnimalId,
+  Pick<RanchAnimalDefinition, "name" | "outputName" | "imageSrc">
+> = RANCH_ANIMAL_DEFINITIONS;
+
+export type RanchSlotDefinition = {
+  id: RanchSlotId;
+  requiredLevel: number;
+  costReputation: number;
+};
+
+export const RANCH_SLOT_DEFINITIONS: readonly RanchSlotDefinition[] = [
+  { id: "slot-1", requiredLevel: 1, costReputation: 0 },
+  { id: "slot-2", requiredLevel: 10, costReputation: 30 },
+  { id: "slot-3", requiredLevel: 20, costReputation: 60 },
+  { id: "slot-4", requiredLevel: 35, costReputation: 120 },
+  { id: "slot-5", requiredLevel: 50, costReputation: 180 },
+  { id: "slot-6", requiredLevel: 60, costReputation: 1_000 },
+  { id: "slot-7", requiredLevel: 70, costReputation: 2_000 },
+  { id: "slot-8", requiredLevel: 80, costReputation: 4_000 },
+  { id: "slot-9", requiredLevel: 90, costReputation: 8_000 },
+  { id: "slot-10", requiredLevel: 100, costReputation: 16_000 },
 ] as const;
+
+export const RANCH_REBUILD_COSTS: Record<RanchAnimalId, number> = {
+  chicken: 500,
+  cow: 1_000,
+  pig: 2_000,
+};
 
 export const RANCH_FEED_RECIPE = {
   id: "compound_feed",
   name: "배합 사료",
   outputAmount: 5,
-  costs: { wheat: 4, corn: 3, herb: 1 },
+  ingredientAmount: 5,
 } as const;
 
-export type RanchPenState = {
+export const FAILED_DISH_FEED_RECIPE = {
+  id: "failed_dish_feed",
+  name: "재활용 배합 사료",
+  outputAmount: 5,
+  failedDishCost: 25,
+} as const;
+
+export type RanchSlotState = {
   unlocked: boolean;
+  animalId: RanchAnimalId | null;
   feed: number;
   lastSettledAt: number;
   progressMs: number;
@@ -132,17 +135,19 @@ export type RanchPenState = {
   readyCycles: number;
 };
 
+export type RanchStats = {
+  chickenCycles: number;
+  cowCycles: number;
+  pigCycles: number;
+  eggsCollected: number;
+  milkCollected: number;
+  porkCollected: number;
+};
+
 export type RanchState = {
-  version: 1;
-  pens: Record<RanchPenId, RanchPenState>;
-  stats: {
-    chickenCycles: number;
-    cowCycles: number;
-    pigCycles: number;
-    eggsCollected: number;
-    milkCollected: number;
-    porkCollected: number;
-  };
+  version: 2;
+  slots: Record<RanchSlotId, RanchSlotState>;
+  stats: RanchStats;
 };
 
 export type RanchCollection = {
@@ -159,9 +164,28 @@ export class RanchError extends Error {
   }
 }
 
-const DEFINITION_BY_ID = new Map(
-  RANCH_PEN_DEFINITIONS.map((definition) => [definition.id, definition]),
+const SLOT_DEFINITION_BY_ID = new Map(
+  RANCH_SLOT_DEFINITIONS.map((definition) => [definition.id, definition]),
 );
+
+const LEGACY_PEN_MIGRATION = [
+  { penId: "coop-1", slotId: "slot-1", animalId: "chicken" },
+  { penId: "coop-2", slotId: "slot-2", animalId: "chicken" },
+  { penId: "cowshed-1", slotId: "slot-3", animalId: "cow" },
+  { penId: "cowshed-2", slotId: "slot-4", animalId: "cow" },
+  { penId: "pigsty-1", slotId: "slot-5", animalId: "pig" },
+] as const;
+
+export function isRanchSlotId(value: unknown): value is RanchSlotId {
+  return typeof value === "string" && SLOT_DEFINITION_BY_ID.has(value as RanchSlotId);
+}
+
+export function isRanchAnimalId(value: unknown): value is RanchAnimalId {
+  return (
+    typeof value === "string" &&
+    Object.prototype.hasOwnProperty.call(RANCH_ANIMAL_DEFINITIONS, value)
+  );
+}
 
 function safeInt(value: unknown): number {
   const number = Number(value);
@@ -172,9 +196,14 @@ function safeNow(value: number): number {
   return Number.isFinite(value) && value >= 0 ? Math.floor(value) : Date.now();
 }
 
-function emptyPenState(unlocked: boolean, now: number): RanchPenState {
+function emptySlotState(
+  unlocked: boolean,
+  animalId: RanchAnimalId | null,
+  now: number,
+): RanchSlotState {
   return {
     unlocked,
+    animalId,
     feed: 0,
     lastSettledAt: now,
     progressMs: 0,
@@ -183,164 +212,203 @@ function emptyPenState(unlocked: boolean, now: number): RanchPenState {
   };
 }
 
+function emptyStats(): RanchStats {
+  return {
+    chickenCycles: 0,
+    cowCycles: 0,
+    pigCycles: 0,
+    eggsCollected: 0,
+    milkCollected: 0,
+    porkCollected: 0,
+  };
+}
+
 export function emptyRanchState(now = Date.now()): RanchState {
   const safeTimestamp = safeNow(now);
+  const slots = Object.fromEntries(
+    RANCH_SLOT_DEFINITIONS.map((definition) => [
+      definition.id,
+      emptySlotState(
+        definition.id === "slot-1",
+        definition.id === "slot-1" ? "chicken" : null,
+        safeTimestamp,
+      ),
+    ]),
+  ) as Record<RanchSlotId, RanchSlotState>;
+  return { version: 2, slots, stats: emptyStats() };
+}
+
+function normalizeSlot(
+  candidate: unknown,
+  animalId: RanchAnimalId,
+  now: number,
+): RanchSlotState {
+  if (!candidate || typeof candidate !== "object") {
+    return emptySlotState(false, null, now);
+  }
+  const source = candidate as Partial<RanchSlotState>;
+  if (source.unlocked !== true) return emptySlotState(false, null, now);
+
+  const definition = RANCH_ANIMAL_DEFINITIONS[animalId];
+  const lastSettledAtRaw = Number(source.lastSettledAt);
+  const lastSettledAt =
+    Number.isFinite(lastSettledAtRaw) &&
+    lastSettledAtRaw >= 0 &&
+    lastSettledAtRaw <= now
+      ? Math.floor(lastSettledAtRaw)
+      : now;
+  const rawFeed = Math.min(definition.feedCapacity, safeInt(source.feed));
+  const feed =
+    definition.mode === "shipment" && rawFeed !== definition.feedPerCycle
+      ? 0
+      : rawFeed;
+  const readyCycles = safeInt(source.readyCycles);
   return {
-    version: 1,
-    pens: {
-      "coop-1": emptyPenState(true, safeTimestamp),
-      "coop-2": emptyPenState(false, safeTimestamp),
-      "cowshed-1": emptyPenState(false, safeTimestamp),
-      "cowshed-2": emptyPenState(false, safeTimestamp),
-      "pigsty-1": emptyPenState(false, safeTimestamp),
-    },
-    stats: {
-      chickenCycles: 0,
-      cowCycles: 0,
-      pigCycles: 0,
-      eggsCollected: 0,
-      milkCollected: 0,
-      porkCollected: 0,
-    },
+    unlocked: true,
+    animalId,
+    feed,
+    lastSettledAt,
+    progressMs:
+      feed > 0
+        ? Math.min(definition.cycleMs - 1, safeInt(source.progressMs))
+        : 0,
+    readyItems: readyCycles * definition.outputAmount,
+    readyCycles,
+  };
+}
+
+function parseStats(raw: unknown): RanchStats {
+  const source = raw && typeof raw === "object" ? (raw as Partial<RanchStats>) : {};
+  return {
+    chickenCycles: safeInt(source.chickenCycles),
+    cowCycles: safeInt(source.cowCycles),
+    pigCycles: safeInt(source.pigCycles),
+    eggsCollected: safeInt(source.eggsCollected),
+    milkCollected: safeInt(source.milkCollected),
+    porkCollected: safeInt(source.porkCollected),
   };
 }
 
 export function parseRanchState(raw: unknown, now = Date.now()): RanchState {
   const safeTimestamp = safeNow(now);
-  if (!raw || typeof raw !== "object") return emptyRanchState(safeTimestamp);
-  const source = raw as Partial<RanchState>;
-  const sourcePens =
-    source.pens && typeof source.pens === "object"
-      ? (source.pens as Partial<Record<RanchPenId, Partial<RanchPenState>>>)
-      : {};
   const base = emptyRanchState(safeTimestamp);
-  const pens = { ...base.pens };
+  if (!raw || typeof raw !== "object") return base;
 
-  for (const definition of RANCH_PEN_DEFINITIONS) {
-    const candidate = sourcePens[definition.id];
-    if (!candidate || typeof candidate !== "object") continue;
-    const lastSettledAtRaw = Number(candidate.lastSettledAt);
-    const lastSettledAt =
-      Number.isFinite(lastSettledAtRaw) &&
-      lastSettledAtRaw >= 0 &&
-      lastSettledAtRaw <= safeTimestamp
-        ? Math.floor(lastSettledAtRaw)
-        : safeTimestamp;
-    const rawFeed = Math.min(
-      definition.feedCapacity,
-      safeInt(candidate.feed),
-    );
-    const feed =
-      definition.mode === "shipment" && rawFeed !== definition.feedPerCycle
-        ? 0
-        : rawFeed;
-    const readyCycles = safeInt(candidate.readyCycles);
-    pens[definition.id] = {
-      unlocked:
-        definition.id === "coop-1" ? true : candidate.unlocked === true,
-      feed,
-      lastSettledAt,
-      progressMs:
-        feed > 0
-          ? Math.min(definition.cycleMs - 1, safeInt(candidate.progressMs))
-          : 0,
-      readyCycles,
-      readyItems: readyCycles * definition.outputAmount,
-    };
+  const source = raw as {
+    version?: unknown;
+    slots?: unknown;
+    pens?: unknown;
+    stats?: unknown;
+  };
+  const slots = { ...base.slots };
+
+  if (source.version === 2 && source.slots && typeof source.slots === "object") {
+    const sourceSlots = source.slots as Partial<Record<RanchSlotId, unknown>>;
+    for (const definition of RANCH_SLOT_DEFINITIONS) {
+      const candidate = sourceSlots[definition.id];
+      if (!candidate || typeof candidate !== "object") continue;
+      const candidateAnimalId = (candidate as { animalId?: unknown }).animalId;
+      const animalId = isRanchAnimalId(candidateAnimalId)
+        ? candidateAnimalId
+        : definition.id === "slot-1"
+          ? "chicken"
+          : null;
+      slots[definition.id] = animalId
+        ? normalizeSlot(candidate, animalId, safeTimestamp)
+        : emptySlotState(false, null, safeTimestamp);
+    }
+  } else if (source.pens && typeof source.pens === "object") {
+    const sourcePens = source.pens as Record<string, unknown>;
+    for (const migration of LEGACY_PEN_MIGRATION) {
+      const candidate = sourcePens[migration.penId];
+      if (!candidate || typeof candidate !== "object") continue;
+      slots[migration.slotId] = normalizeSlot(
+        candidate,
+        migration.animalId,
+        safeTimestamp,
+      );
+    }
   }
 
-  const statsSource: Partial<RanchState["stats"]> =
-    source.stats && typeof source.stats === "object" ? source.stats : {};
-  return {
-    version: 1,
-    pens,
-    stats: {
-      chickenCycles: safeInt(statsSource.chickenCycles),
-      cowCycles: safeInt(statsSource.cowCycles),
-      pigCycles: safeInt(statsSource.pigCycles),
-      eggsCollected: safeInt(statsSource.eggsCollected),
-      milkCollected: safeInt(statsSource.milkCollected),
-      porkCollected: safeInt(statsSource.porkCollected),
-    },
-  };
+  slots["slot-1"] = slots["slot-1"].unlocked
+    ? slots["slot-1"]
+    : emptySlotState(true, "chicken", safeTimestamp);
+
+  return { version: 2, slots, stats: parseStats(source.stats) };
 }
 
 export function settleRanch(state: RanchState, now = Date.now()): RanchState {
   const safeTimestamp = safeNow(now);
   const parsed = parseRanchState(state, safeTimestamp);
-  const pens = { ...parsed.pens };
-  let chickenCycles = parsed.stats.chickenCycles;
-  let cowCycles = parsed.stats.cowCycles;
-  let pigCycles = parsed.stats.pigCycles;
+  const slots = { ...parsed.slots };
+  const stats = { ...parsed.stats };
 
-  for (const definition of RANCH_PEN_DEFINITIONS) {
-    const pen = pens[definition.id];
-    const elapsed = Math.max(0, safeTimestamp - pen.lastSettledAt);
-    if (!pen.unlocked || pen.feed < definition.feedPerCycle) {
-      pens[definition.id] = {
-        ...pen,
+  for (const slotDefinition of RANCH_SLOT_DEFINITIONS) {
+    const slot = slots[slotDefinition.id];
+    const animal = slot.animalId
+      ? RANCH_ANIMAL_DEFINITIONS[slot.animalId]
+      : null;
+    const elapsed = Math.max(0, safeTimestamp - slot.lastSettledAt);
+    if (!slot.unlocked || !animal || slot.feed < animal.feedPerCycle) {
+      slots[slotDefinition.id] = {
+        ...slot,
         lastSettledAt: safeTimestamp,
         progressMs: 0,
       };
       continue;
     }
-    const totalProgress = pen.progressMs + elapsed;
+
+    const totalProgress = slot.progressMs + elapsed;
     const completed = Math.min(
-      Math.floor(pen.feed / definition.feedPerCycle),
-      Math.floor(totalProgress / definition.cycleMs),
+      Math.floor(slot.feed / animal.feedPerCycle),
+      Math.floor(totalProgress / animal.cycleMs),
     );
-    const feed = pen.feed - completed * definition.feedPerCycle;
-    pens[definition.id] = {
-      ...pen,
+    const feed = slot.feed - completed * animal.feedPerCycle;
+    slots[slotDefinition.id] = {
+      ...slot,
       feed,
       lastSettledAt: safeTimestamp,
-      progressMs:
-        feed > 0 ? totalProgress - completed * definition.cycleMs : 0,
-      readyItems: pen.readyItems + completed * definition.outputAmount,
-      readyCycles: pen.readyCycles + completed,
+      progressMs: feed > 0 ? totalProgress - completed * animal.cycleMs : 0,
+      readyItems: slot.readyItems + completed * animal.outputAmount,
+      readyCycles: slot.readyCycles + completed,
     };
-    if (definition.animalId === "chicken") chickenCycles += completed;
-    else if (definition.animalId === "cow") cowCycles += completed;
-    else pigCycles += completed;
+    if (animal.id === "chicken") stats.chickenCycles += completed;
+    else if (animal.id === "cow") stats.cowCycles += completed;
+    else stats.pigCycles += completed;
   }
 
-  return {
-    ...parsed,
-    pens,
-    stats: { ...parsed.stats, chickenCycles, cowCycles, pigCycles },
-  };
+  return { ...parsed, slots, stats };
 }
 
 export function addRanchFeed(
   state: RanchState,
-  penId: RanchPenId,
+  slotId: RanchSlotId,
   amount: number,
   now = Date.now(),
 ): RanchState {
-  const definition = DEFINITION_BY_ID.get(penId);
-  if (!definition) throw new RanchError("pen_not_found");
+  if (!isRanchSlotId(slotId)) throw new RanchError("slot_not_found");
   const count = Math.floor(Number(amount));
-  if (!Number.isFinite(count) || count < 1) {
-    throw new RanchError("bad_quantity");
-  }
+  if (!Number.isFinite(count) || count < 1) throw new RanchError("bad_quantity");
+
   const settled = settleRanch(state, now);
-  const pen = settled.pens[penId];
-  if (!pen.unlocked) throw new RanchError("pen_locked");
-  if (definition.mode === "shipment") {
-    if (pen.readyItems > 0) throw new RanchError("shipment_pending");
-    if (pen.feed > 0) throw new RanchError("shipment_in_progress");
-    if (count !== definition.feedPerCycle) {
+  const slot = settled.slots[slotId];
+  if (!slot.unlocked || !slot.animalId) throw new RanchError("slot_locked");
+  const animal = RANCH_ANIMAL_DEFINITIONS[slot.animalId];
+  if (animal.mode === "shipment") {
+    if (slot.readyItems > 0) throw new RanchError("shipment_pending");
+    if (slot.feed > 0) throw new RanchError("shipment_in_progress");
+    if (count !== animal.feedPerCycle) {
       throw new RanchError("shipment_feed_required");
     }
   }
-  if (pen.feed + count > definition.feedCapacity) {
+  if (slot.feed + count > animal.feedCapacity) {
     throw new RanchError("feed_capacity");
   }
   return {
     ...settled,
-    pens: {
-      ...settled.pens,
-      [penId]: { ...pen, feed: pen.feed + count },
+    slots: {
+      ...settled.slots,
+      [slotId]: { ...slot, feed: slot.feed + count },
     },
   };
 }
@@ -350,30 +418,27 @@ export function collectRanchProducts(
   now = Date.now(),
 ): RanchCollection {
   const settled = settleRanch(state, now);
-  const pens = { ...settled.pens };
+  const slots = { ...settled.slots };
   const items: Partial<Record<RanchProductItemId, number>> = {};
-  const cycles: Record<RanchAnimalId, number> = {
-    chicken: 0,
-    cow: 0,
-    pig: 0,
-  };
+  const cycles: Record<RanchAnimalId, number> = { chicken: 0, cow: 0, pig: 0 };
   let farmingXp = 0;
 
-  for (const definition of RANCH_PEN_DEFINITIONS) {
-    const pen = pens[definition.id];
-    if (pen.readyItems < 1 || pen.readyCycles < 1) continue;
-    items[definition.outputItemId] =
-      (items[definition.outputItemId] ?? 0) + pen.readyItems;
-    cycles[definition.animalId] += pen.readyCycles;
-    farmingXp += pen.readyCycles * definition.xpPerCycle;
-    pens[definition.id] = { ...pen, readyItems: 0, readyCycles: 0 };
+  for (const slotDefinition of RANCH_SLOT_DEFINITIONS) {
+    const slot = slots[slotDefinition.id];
+    if (!slot.animalId || slot.readyItems < 1 || slot.readyCycles < 1) continue;
+    const animal = RANCH_ANIMAL_DEFINITIONS[slot.animalId];
+    items[animal.outputItemId] =
+      (items[animal.outputItemId] ?? 0) + slot.readyItems;
+    cycles[animal.id] += slot.readyCycles;
+    farmingXp += slot.readyCycles * animal.xpPerCycle;
+    slots[slotDefinition.id] = { ...slot, readyItems: 0, readyCycles: 0 };
   }
 
   if (farmingXp < 1) throw new RanchError("nothing_to_collect");
   return {
     ranch: {
       ...settled,
-      pens,
+      slots,
       stats: {
         ...settled.stats,
         eggsCollected: settled.stats.eggsCollected + (items.egg ?? 0),
@@ -387,51 +452,86 @@ export function collectRanchProducts(
   };
 }
 
-export function unlockRanchPen(
+export function unlockRanchSlot(
   state: RanchState,
-  penId: RanchPenId,
+  slotId: RanchSlotId,
+  animalId: RanchAnimalId,
   farmingLevel: number,
   now = Date.now(),
 ): { ranch: RanchState; costReputation: number } {
-  const index = RANCH_PEN_DEFINITIONS.findIndex(
-    (definition) => definition.id === penId,
-  );
-  const definition = RANCH_PEN_DEFINITIONS[index];
-  if (!definition || definition.costReputation < 1) {
-    throw new RanchError("pen_not_found");
-  }
+  if (!isRanchSlotId(slotId)) throw new RanchError("slot_not_found");
+  if (!isRanchAnimalId(animalId)) throw new RanchError("animal_not_found");
+  const index = RANCH_SLOT_DEFINITIONS.findIndex((entry) => entry.id === slotId);
+  const slotDefinition = RANCH_SLOT_DEFINITIONS[index];
   const settled = settleRanch(state, now);
-  if (settled.pens[penId].unlocked) {
-    throw new RanchError("already_unlocked");
+  if (settled.slots[slotId].unlocked) throw new RanchError("already_unlocked");
+  const previous = RANCH_SLOT_DEFINITIONS[index - 1];
+  if (previous && !settled.slots[previous.id].unlocked) {
+    throw new RanchError("slot_locked");
   }
-  const previous = RANCH_PEN_DEFINITIONS[index - 1];
-  if (previous && !settled.pens[previous.id].unlocked) {
-    throw new RanchError("pen_locked");
-  }
-  if (Math.floor(Number(farmingLevel) || 0) < definition.requiredLevel) {
-    throw new RanchError("level_required");
-  }
+
+  const level = Math.floor(Number(farmingLevel) || 0);
+  if (level < slotDefinition.requiredLevel) throw new RanchError("level_required");
+  const animal = RANCH_ANIMAL_DEFINITIONS[animalId];
+  if (level < animal.requiredLevel) throw new RanchError("animal_level_required");
+
   return {
     ranch: {
       ...settled,
-      pens: {
-        ...settled.pens,
-        [penId]: {
-          ...settled.pens[penId],
-          unlocked: true,
-          feed:
-            definition.mode === "shipment"
-              ? definition.feedPerCycle
-              : settled.pens[penId].feed,
+      slots: {
+        ...settled.slots,
+        [slotId]: {
+          ...emptySlotState(true, animalId, safeNow(now)),
+          feed: animal.mode === "shipment" ? animal.feedPerCycle : 0,
         },
       },
     },
-    costReputation: definition.costReputation,
+    costReputation: slotDefinition.costReputation,
   };
 }
 
-export function ranchReadyPenCount(state: RanchState): number {
-  return RANCH_PEN_DEFINITIONS.filter(
-    (definition) => state.pens[definition.id].readyItems > 0,
+export function rebuildRanchSlot(
+  state: RanchState,
+  slotId: RanchSlotId,
+  animalId: RanchAnimalId,
+  farmingLevel: number,
+  now = Date.now(),
+): { ranch: RanchState; costReputation: number } {
+  if (!isRanchSlotId(slotId)) throw new RanchError("slot_not_found");
+  if (!isRanchAnimalId(animalId)) throw new RanchError("animal_not_found");
+  const settled = settleRanch(state, now);
+  const slot = settled.slots[slotId];
+  if (!slot.unlocked || !slot.animalId) throw new RanchError("slot_locked");
+  if (slot.animalId === animalId) throw new RanchError("same_animal");
+  const animal = RANCH_ANIMAL_DEFINITIONS[animalId];
+  const level = Math.floor(Number(farmingLevel) || 0);
+  if (level < animal.requiredLevel) throw new RanchError("animal_level_required");
+  if (
+    slot.feed > 0 ||
+    slot.progressMs > 0 ||
+    slot.readyItems > 0 ||
+    slot.readyCycles > 0
+  ) {
+    throw new RanchError("slot_not_empty");
+  }
+
+  return {
+    ranch: {
+      ...settled,
+      slots: {
+        ...settled.slots,
+        [slotId]: {
+          ...emptySlotState(true, animalId, safeNow(now)),
+          feed: animal.mode === "shipment" ? animal.feedPerCycle : 0,
+        },
+      },
+    },
+    costReputation: RANCH_REBUILD_COSTS[animalId],
+  };
+}
+
+export function ranchReadySlotCount(state: RanchState): number {
+  return RANCH_SLOT_DEFINITIONS.filter(
+    (definition) => state.slots[definition.id].readyItems > 0,
   ).length;
 }

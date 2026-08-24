@@ -332,7 +332,7 @@ const GROWTH: QuestDef[] = [
     id: "g_advance2",
     line: "growth",
     title: "2차 전직",
-    desc: "캐릭터 > 성장의 신전에서 더 강한 2차 직업으로 전직하세요.",
+    desc: "전투직은 사냥으로 직업 숙련도를 쌓고, 생산직은 생활 숙련 조건을 충족한 뒤 캐릭터 > 성장의 신전에서 2차 전직하세요.",
     href: "/character/shrine",
     reward: { staminaPotions: 1 },
     progress: (c) => c.tier,

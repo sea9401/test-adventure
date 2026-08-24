@@ -4,6 +4,7 @@ import {
   advanceTurnPvP,
   initialBattleStatePvP,
 } from "./engine-pvp";
+import { makeBleedDot } from "./combatShared";
 import type { PlayerCombat } from "./engineState";
 
 function player(over: Partial<PlayerCombat> = {}): PlayerCombat {
@@ -179,5 +180,41 @@ describe("6T 유니크 PvP 대칭 연동", () => {
     expect(after.p2.stacks.tier6Uniques?.sanctuaryReserve).toBe(300);
     expect(after.log.some((entry) => entry.text.includes("성역 소비")))
       .toBe(false);
+  });
+
+  it("혈맥 폭발의 치명적인 추가 피해에도 방어자의 사망 극복이 발동한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999999);
+    const initial = initialBattleStatePvP(
+      player({
+        spd: 100,
+        atk: 100,
+        equipSignatures: [signature("bleed_burst")],
+      }),
+      player({ hp: 500, berserkerMadnessRank: 3 }),
+      "혈맥 검사자",
+      "패황 검사자",
+    );
+    const bleeding = {
+      ...initial,
+      p2: {
+        ...initial.p2,
+        v2Dots: [
+          makeBleedDot({
+            stacks: 4,
+            turns: 3,
+            flatPerStack: 100,
+            sourceAtk: 100,
+          }),
+        ],
+      },
+    };
+
+    const after = advanceTurnPvP(bleeding);
+
+    expect(after.outcome).toBeNull();
+    expect(after.p2.hp).toBe(800);
+    expect(after.p2.berserker?.deathOvercomeUsed).toBe(true);
+    expect(after.log.some((entry) => entry.text.includes("[사망 극복]")))
+      .toBe(true);
   });
 });

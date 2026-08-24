@@ -1,6 +1,10 @@
+// @vitest-environment jsdom
+
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
-import { CookingWorkspace, cookingErrorText, cookingLevelProgressView } from "./CookingPanel";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { CookingPanel, CookingWorkspace, cookingErrorText, cookingLevelProgressView } from "./CookingPanel";
+import { GameStateRefreshProvider } from "./GameStateRefreshContext";
 import { COOKING_PUBLIC_RECIPES } from "./cooking/catalog";
 import { COOKING_SECRET_RECIPES } from "@/lib/server/cooking/recipes";
 import { cookingRequests } from "./cooking/delivery";
@@ -13,6 +17,11 @@ import { SURFACE_CARD } from "@/components/ui/surfaces";
 import type { CookingResponse } from "./cooking/clientTypes";
 
 const NOW = Date.parse("2026-08-22T12:00:00+09:00");
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 function fixture(): CookingResponse {
   const cooking = {
@@ -43,6 +52,7 @@ function fixture(): CookingResponse {
     requests,
     cookingFoods: { [foodId]: 2 },
     failedCookingDishes: 1,
+    cookingPrepSets: 0,
     farmItems: { wheat: 10, milk: 10, tomato: 10, pork: 10, onion: 10 },
     farmItemDefinitions: FARM_ITEMS,
     farmReputation: 12,
@@ -94,6 +104,43 @@ describe("개편 요리 연구실", () => {
     expect(html).toContain("이번 42점");
   });
 
+  it("상시 납품은 요리와 판매 대금을 확인한 뒤에만 실행한다", async () => {
+    const mutate = vi.fn(async () => undefined);
+    render(
+      <CookingWorkspace
+        data={fixture()}
+        section="delivery"
+        onSectionChange={vi.fn()}
+        busy={false}
+        mutate={mutate}
+      />,
+    );
+
+    const sellButton = screen.getByRole("button", {
+      name: /불향 토마토 샐러드.*1개 납품/,
+    });
+    fireEvent.click(sellButton);
+
+    expect(screen.getByRole("dialog", { name: "요리 판매 확인" })).toBeTruthy();
+    expect(screen.getByText("판매 후 1개")).toBeTruthy();
+    expect(screen.getByText("1,600골드")).toBeTruthy();
+    expect(mutate).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "취소" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(mutate).not.toHaveBeenCalled();
+
+    fireEvent.click(sellButton);
+    fireEvent.click(screen.getByRole("button", { name: "1개 판매 확정" }));
+
+    await waitFor(() => expect(mutate).toHaveBeenCalledOnce());
+    expect(mutate).toHaveBeenCalledWith({
+      action: "standing_delivery",
+      foodId: expect.stringContaining("food2:tomato_salad:masterpiece:o1:s5"),
+      quantity: 1,
+    });
+  });
+
   it("중복 오답은 재료 비소모 안내로 번역한다", () => {
     expect(cookingErrorText("duplicate_combination")).toContain("재료는 소비하지 않았습니다");
   });
@@ -104,5 +151,53 @@ describe("개편 요리 연구실", () => {
 
   it("현재 레벨 구간 경험치를 계산한다", () => {
     expect(cookingLevelProgressView({ xp: 12_345, currentLevelXp: 10_000, nextLevelXp: 15_000 })).toEqual({ percent: 46.9, label: "2,345 / 5,000 XP" });
+  });
+
+  it("첫 연구 실패 결과에 실제 재료 차감과 획득 XP를 함께 표시한다", async () => {
+    const initial = fixture();
+    const failed: CookingResponse = {
+      ...initial,
+      cooking: { ...initial.cooking, xp: initial.cooking.xp + 4 },
+      failedResearches: [{
+        method: "grill",
+        ingredientIds: ["farm:wheat", "farm:milk"],
+        createdAt: NOW + 1_000,
+      }],
+      failedCookingDishes: initial.failedCookingDishes + 1,
+      farmItems: { ...initial.farmItems, wheat: 9, milk: 9 },
+      result: {
+        action: "research",
+        outcome: "failure",
+        earnedXp: 4,
+        failedDishCount: 1,
+      },
+    };
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url === "/api/v2/cooking" && init?.method === "POST") {
+        return Response.json(failed);
+      }
+      if (url === "/api/v2/cooking") {
+        return Response.json(initial);
+      }
+      return Response.json({ ok: true });
+    });
+
+    render(
+      <GameStateRefreshProvider refreshGameState={vi.fn(async () => undefined)}>
+        <CookingPanel />
+      </GameStateRefreshProvider>,
+    );
+
+    await screen.findByText("레시피 연구");
+    fireEvent.click(screen.getByRole("button", { name: "밀×10" }));
+    fireEvent.click(screen.getByRole("button", { name: "우유×10" }));
+    fireEvent.click(screen.getByRole("button", { name: "이 조합 연구" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/조합 연구 실패/).textContent).toBe(
+        "조합 연구 실패 · 선택 재료 각 1개 소비 · 요리 XP +4 · 실패 음식 +1",
+      );
+    });
   });
 });

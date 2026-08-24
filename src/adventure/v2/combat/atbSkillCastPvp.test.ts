@@ -702,6 +702,13 @@ describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
     );
     expect(immediateOpponentAttacks).toHaveLength(2);
     expect(
+      immediateOpponentAttacks.every(
+        (entry) =>
+          entry.kind !== "hp_bar" &&
+          entry.forcedBySkill === "수호의 도발",
+      ),
+    ).toBe(true);
+    expect(
       res.finalState.log.slice(provokeIndex + 1, casterActionEnd).filter(
         (entry) => entry.t === provokeTick && entry.text.includes("[철벽 반사]"),
       ),

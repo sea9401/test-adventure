@@ -145,6 +145,7 @@ function Meter({
   safeMax,
   displayMax = max,
   visualMax = max,
+  active = false,
 }: {
   label: string;
   value: number;
@@ -154,6 +155,7 @@ function Meter({
   safeMax?: number;
   displayMax?: number;
   visualMax?: number;
+  active?: boolean;
 }) {
   const boundedMax = Math.max(1, max);
   const valuePct = Math.max(
@@ -179,7 +181,14 @@ function Meter({
       aria-valuetext={`${value.toLocaleString()} / ${displayMax.toLocaleString()}`}
     >
       <div className="mb-1 flex items-center justify-between gap-2 text-xs font-medium">
-        <span>{label}</span>
+        <span className="inline-flex items-center gap-1.5">
+          {label}
+          {active ? (
+            <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+              조작 가능
+            </span>
+          ) : null}
+        </span>
         <span>{value.toLocaleString()} / {displayMax.toLocaleString()}</span>
       </div>
       <div className="relative h-3 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
@@ -243,6 +252,33 @@ export function DangerousFishingRealtimePanel({
     secured ||
     feedback?.terminal === true ||
     realtime.connection === "verification_required";
+  const controlStatus = realtime.startPending
+    ? "잠시 후 시작"
+    : !active
+      ? "조우 종료"
+      : secured
+        ? "포획 확보 · 인양 중"
+        : realtime.holding
+          ? "감아올리는 중"
+          : inputDisabled
+            ? "조작 대기 중"
+            : "조작 가능 · 버튼을 누르면 감아올립니다";
+  const controlLabel = realtime.startPending
+    ? "조우 준비 중"
+    : !active
+      ? "조우 종료"
+      : secured
+        ? "포획 확보 · 자동 인양 중"
+        : "누르고 감아올리기";
+  const controlText = realtime.startPending
+    ? "잠시 후 시작"
+    : !active
+      ? "조우 종료"
+      : secured
+        ? "최소 연출 시간까지 자동 인양 중"
+        : realtime.holding
+          ? "놓아서 줄 풀기"
+          : "누르고 감아올리기";
 
   return (
     <section
@@ -266,6 +302,7 @@ export function DangerousFishingRealtimePanel({
           safeMin={view.safeTensionMin}
           safeMax={view.safeTensionMax}
           color="bg-rose-500"
+          active={!inputDisabled}
         />
         <div className="grid gap-3 sm:grid-cols-2">
           <Meter
@@ -300,15 +337,7 @@ export function DangerousFishingRealtimePanel({
         className={`${SURFACE_INSET} flex flex-wrap items-center justify-between gap-2 p-3 text-xs`}
       >
         <span><strong>연결 상태</strong> · {CONNECTION_COPY[realtime.connection]}</span>
-        <span>
-          {realtime.startPending
-            ? "잠시 후 시작"
-            : secured
-            ? "포획 확보 · 인양 중"
-            : realtime.holding
-              ? "감아올리는 중"
-              : "줄을 풀어 장력 조절 중"}
-        </span>
+        <span>{controlStatus}</span>
       </div>
 
       {feedback ? (
@@ -328,7 +357,7 @@ export function DangerousFishingRealtimePanel({
         data-realtime-region="control"
         className={`${SURFACE_CARD} relative sticky bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-20 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2`}
       >
-        {realtime.warning && !secured ? (
+        {realtime.warning && active && !secured ? (
           <p
             data-realtime-region="alert"
             role="alert"
@@ -341,16 +370,16 @@ export function DangerousFishingRealtimePanel({
           fullWidth
           size="md"
           variant={realtime.holding && !secured ? "warning" : "info"}
-          className="min-h-16 touch-none select-none text-base"
-          aria-label={
-            realtime.startPending
-              ? "조우 준비 중"
-              : secured
-                ? "포획 확보 · 자동 인양 중"
-                : "누르고 감아올리기"
-          }
+          className={`min-h-16 touch-none select-none text-base ${
+            inputDisabled
+              ? ""
+              : realtime.holding
+                ? "ring-2 ring-amber-300 ring-offset-2 ring-offset-white dark:ring-amber-500 dark:ring-offset-zinc-900"
+                : "ring-2 ring-sky-300 ring-offset-2 ring-offset-white dark:ring-sky-500 dark:ring-offset-zinc-900"
+          }`}
+          aria-label={controlLabel}
           aria-pressed={
-            realtime.startPending || secured ? false : realtime.holding
+            realtime.startPending || !active || secured ? false : realtime.holding
           }
           disabled={inputDisabled}
           onPointerDown={realtime.onPointerDown}
@@ -360,13 +389,7 @@ export function DangerousFishingRealtimePanel({
           onKeyDown={realtime.onKeyDown}
           onKeyUp={realtime.onKeyUp}
         >
-          {realtime.startPending
-            ? "잠시 후 시작"
-            : secured
-            ? "최소 연출 시간까지 자동 인양 중"
-            : realtime.holding
-              ? "놓아서 줄 풀기"
-              : "누르고 감아올리기"}
+          {controlText}
         </Button>
       </div>
     </section>

@@ -33,6 +33,7 @@ function codexFixture(recipeCount: number): CookingResponse {
     requests: cookingRequests("cook-user", cooking),
     cookingFoods: {},
     failedCookingDishes: 0,
+    cookingPrepSets: 0,
     farmItems: {},
     farmItemDefinitions: FARM_ITEMS,
     farmReputation: 0,
@@ -55,6 +56,79 @@ function codexFixture(recipeCount: number): CookingResponse {
 }
 
 describe("요리 도감 페이지네이션", () => {
+  it("기본 목록에서 발견한 레시피를 미발견 레시피보다 먼저 보여준다", () => {
+    const data = codexFixture(7);
+    data.recipes = [data.recipes[6], ...data.recipes.slice(0, 6)];
+
+    render(
+      <CookingCodexPanel
+        data={data}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+
+    const cards = screen.getAllByRole("article");
+    expect(cards[0].textContent).toContain("투박한 밀빵");
+    expect(cards.at(-1)?.textContent).toContain("미발견 레시피");
+  });
+
+  it("발견한 요리를 이름과 재료로 검색하고 결과 수를 표시한다", () => {
+    const { container } = render(
+      <CookingCodexPanel
+        data={codexFixture(13)}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+
+    const search = screen.getByRole("searchbox", { name: "요리 도감 검색" });
+    fireEvent.change(search, { target: { value: "효모" } });
+
+    expect(container.querySelectorAll("article")).toHaveLength(1);
+    expect(screen.getByText("투박한 밀빵")).toBeTruthy();
+    expect(screen.getByText("검색 결과 1개")).toBeTruthy();
+  });
+
+  it("미발견 레시피의 숨겨진 이름은 검색으로 노출하지 않는다", () => {
+    const data = codexFixture(7);
+    const hiddenName = data.recipes[6].name;
+    const { container } = render(
+      <CookingCodexPanel
+        data={data}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "요리 도감 검색" }),
+      { target: { value: hiddenName } },
+    );
+
+    expect(container.querySelectorAll("article")).toHaveLength(0);
+    expect(screen.getByText("검색 조건에 맞는 레시피가 없습니다.")).toBeTruthy();
+  });
+
+  it("발견한 레시피를 이름순으로 정렬한다", () => {
+    const data = codexFixture(3);
+    data.recipes = [data.recipes[0], data.recipes[2], data.recipes[1]];
+    render(
+      <CookingCodexPanel
+        data={data}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+
+    fireEvent.change(
+      screen.getByRole("combobox", { name: "요리 도감 정렬" }),
+      { target: { value: "name" } },
+    );
+
+    expect(screen.getAllByRole("article")[0].textContent).toContain("구운 옥수수");
+  });
+
   it("전체 레시피 수를 실제 공개 도감 기준으로 표시한다", () => {
     render(
       <CookingCodexPanel
@@ -77,6 +151,27 @@ describe("요리 도감 페이지네이션", () => {
     );
 
     expect(screen.getByText("기본 조리 XP +20")).toBeTruthy();
+  });
+
+  it("요리 준비 세트는 기본적으로 끄고 선택했을 때만 조리 요청에 포함한다", () => {
+    const data = codexFixture(1);
+    data.cookingPrepSets = 2;
+    const mutate = vi.fn(async () => undefined);
+    render(
+      <CookingCodexPanel data={data} busy={false} mutate={mutate} />,
+    );
+
+    const prepSet = screen.getByRole("checkbox", { name: /요리 준비 세트 사용/ });
+    expect((prepSet as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(prepSet);
+    fireEvent.click(screen.getByRole("button", { name: "1개 조리" }));
+
+    expect(mutate).toHaveBeenCalledWith({
+      action: "craft",
+      recipeId: data.recipes[0].id,
+      quantity: 1,
+      usePrepSet: true,
+    });
   });
 
   it("레시피를 12개씩 보여주고 다음 페이지로 이동한다", () => {

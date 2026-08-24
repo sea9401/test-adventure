@@ -11,6 +11,7 @@ import {
   SURFACE_CARD,
   SURFACE_INSET,
 } from "@/components/ui/surfaces";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { FarmItemIcon } from "@/adventure/v2/FarmItemIcon";
 import type { FarmItemId } from "@/adventure/v2/farm";
@@ -496,7 +497,7 @@ export function GuildTradePostPanel({
                   <button
                     type="button"
                     disabled={disabled}
-                    onClick={() => {
+                    onClick={async () => {
                       if (isFacilitySupport) {
                         setSelectedFacilityId(
                           eligibleFacilityTargets[0]?.buildingId ?? null,
@@ -505,13 +506,13 @@ export function GuildTradePostPanel({
                         return;
                       }
                       if (
-                        !window.confirm(
+                        !(await confirmGameAction(
                           sharedTokens
                             ? targetsGuildPool
                               ? `${item.name}을(를) 길드 공용 보상으로 적용할까요?\n길드 공동 토큰 ${item.tokenCost.toLocaleString()}개가 사용됩니다.`
                               : `${item.name}을(를) 길드원 전원에게 지급할까요?\n길드 공동 토큰 ${item.tokenCost.toLocaleString()}개가 사용됩니다.`
                             : `${item.name}을(를) 구매할까요?\n내 협회 토큰 ${item.tokenCost.toLocaleString()}개가 사용됩니다.`,
-                        )
+                        ))
                       ) {
                         return;
                       }

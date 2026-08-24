@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
 import { Button } from "@/components/ui/Button";
 import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
-import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Gear } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { HuntResultCard } from "@/adventure/v2/HuntResultCard";
@@ -22,6 +21,10 @@ import {
   type PlayerCombatStats,
 } from "@/adventure/v2/PlayerStatusCard";
 import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
+import type { HuntResultPayload } from "@/adventure/v2/useDungeonHunt";
+import { HuntResultSheet } from "@/adventure/v2/HuntResultSheet";
+import { DungeonContextSummary } from "@/adventure/v2/DungeonContextSummary";
+import { CompactBattlePlayerStatus } from "@/adventure/v2/CompactBattlePlayerStatus";
 import {
   HUNT_COST,
   msUntilStaminaAtLeast,
@@ -51,6 +54,11 @@ import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { DiscoveryNotice } from "@/adventure/v2/DiscoveryNotice";
 import { RareMapCountdownText } from "@/adventure/v2/RareMapCountdownText";
+import {
+  heldRareMapsAfterExpedition,
+  RareMapQuickEntry,
+  sortHuntRareMaps,
+} from "@/adventure/v2/RareMapQuickEntry";
 import {
   AUTO_HUNT_LEVEL_TARGET,
   getAutoHuntStopReason,
@@ -140,7 +148,7 @@ export function RareMapProgressNotice({
         ) : undefined
       }
     >
-      희귀 탐사 진행 중 — 남은 {map.runsLeft}판 · 30분 동안 개방 ·{" "}
+      희귀 탐사 진행 중 · 1회 전투 · 보상 {map.runsLeft}회분 · 30분 동안 개방 ·{" "}
       <RareMapCountdownText
         foundAt={map.foundAt}
         serverNow={serverNow}
@@ -334,7 +342,9 @@ export function V2DungeonFloorView({
     setStamina,
     rareMapIid,
   });
-  // 레어맵 남은 판수 — 단판/일괄 응답에서 갱신(서버 권위). null = 아직 응답 없음.
+  // 희귀 탐사 보유 목록과 현재 지도의 압축 보상 횟수 — 서버 응답을 권위로 갱신한다.
+  const [heldRareMaps, setHeldRareMaps] = useState<RareMapInstance[]>([]);
+  const [rareMapServerNow, setRareMapServerNow] = useState<number | null>(null);
   const [rareMapRunsLeft, setRareMapRunsLeft] = useState<number | null>(null);
   const [rareMapSnapshot, setRareMapSnapshot] = useState<{
     map: RareMapInstance;
@@ -344,7 +354,7 @@ export function V2DungeonFloorView({
     null,
   );
   useEffect(() => {
-    if (!rareMapIid) return;
+    if (!rareMapIid && !onEnterRareMap) return;
     let alive = true;
     fetch("/api/v2/me/rare-maps")
       .then((response) => (response.ok ? response.json() : null))
@@ -355,7 +365,16 @@ export function V2DungeonFloorView({
           serverNow?: number;
         } | null) => {
           if (!alive || !data?.ok) return;
-          const map = (data.rareMaps ?? []).find(
+          const maps = data.rareMaps ?? [];
+          setHeldRareMaps(maps);
+          if (
+            typeof data.serverNow === "number" &&
+            Number.isFinite(data.serverNow)
+          ) {
+            setRareMapServerNow(data.serverNow);
+          }
+          if (!rareMapIid) return;
+          const map = maps.find(
             (candidate) => candidate.iid === rareMapIid,
           );
           if (
@@ -376,11 +395,19 @@ export function V2DungeonFloorView({
     return () => {
       alive = false;
     };
-  }, [onReturnToNormalHunt, rareMapIid]);
+  }, [onEnterRareMap, onReturnToNormalHunt, rareMapIid]);
   // 일괄 사냥 상태.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchSummary, setBatchSummary] = useState<BatchSummary | null>(null);
+  const [resultSheetOpen, setResultSheetOpen] = useState(false);
+  const [latestPresentedResult, setLatestPresentedResult] = useState<
+    | { kind: "single"; result: HuntResultPayload }
+    | { kind: "batch"; summary: BatchSummary }
+    | null
+  >(null);
+  const [showReplay, setShowReplay] = useState(false);
+  const replaySectionRef = useRef<HTMLDivElement>(null);
   const [selectedBatchReplay, setSelectedBatchReplay] =
     useState<BatchReplayEntry | null>(null);
   // 연패 카운터 — 단판 사냥 결과마다 갱신(승=0 리셋·패=+1). 넛지 배너 격상 조건에 사용.
@@ -630,7 +657,7 @@ export function V2DungeonFloorView({
         }
         return; // 네트워크/서버 오류 — hook 이 로그 남김. 요약 없이 종료.
       }
-      setBatchSummary({
+      const summary: BatchSummary = {
         attempted: b.attempted,
         completed: b.completed,
         wins: b.wins,
@@ -655,7 +682,21 @@ export function V2DungeonFloorView({
         rareMapDropInstances: b.rareMapDropInstances,
         stoppedReason: b.stoppedReason,
         replays: b.replays,
-      });
+      };
+      setBatchSummary(summary);
+      setLatestPresentedResult({ kind: "batch", summary });
+      setShowReplay(false);
+      if (b.rareMapDropInstances?.length) {
+        setHeldRareMaps((current) => {
+          const discoveredIids = new Set(
+            b.rareMapDropInstances!.map((map) => map.iid),
+          );
+          return [
+            ...current.filter((map) => !discoveredIids.has(map.iid)),
+            ...b.rareMapDropInstances!,
+          ];
+        });
+      }
       if (b.rareMapRunsLeft != null) setRareMapRunsLeft(b.rareMapRunsLeft);
       if (typeof b.finalGoldAfter === "number") onGoldChange?.(b.finalGoldAfter);
       if (b.proficiencyAfter !== undefined) {
@@ -739,7 +780,10 @@ export function V2DungeonFloorView({
         if (stopReason) {
           setAutoHunt(false);
           setAutoStopReason(stopReason);
+          setResultSheetOpen(true);
         }
+      } else {
+        setResultSheetOpen(true);
       }
     } finally {
       setBatchRunning(false);
@@ -837,6 +881,7 @@ export function V2DungeonFloorView({
       if (stopReason) {
         setAutoHunt(false);
         setAutoStopReason(stopReason);
+        if (latestPresentedResult) setResultSheetOpen(true);
         return;
       }
     }
@@ -845,6 +890,7 @@ export function V2DungeonFloorView({
       setAutoHunt(false);
       if (autoRun) {
         setAutoStopReason(lowStamina ? "stamina" : "recovery");
+        if (latestPresentedResult) setResultSheetOpen(true);
       }
       return;
     }
@@ -852,7 +898,7 @@ export function V2DungeonFloorView({
     setSelectedBatchReplay(null);
     // 코어루프 on = 항상 단판(일괄 폐지 — 누적은 오프라인 정산). 스태미나 모드는
     // 수동/자동 모두 설정한 huntCount 를 반영한다.
-    if (coreLoopOn || huntCount === 1) {
+    if (rareMapIid || coreLoopOn || huntCount === 1) {
       // 이미 한 판이 진행 중이면 무발동(동시 제출 차단). hunt 결과 .then 에서 해제.
       if (huntInFlightRef.current) return;
       huntInFlightRef.current = true;
@@ -860,6 +906,8 @@ export function V2DungeonFloorView({
       void hunt(depth, autoStopConfigRef.current).then((r) => {
         huntInFlightRef.current = false;
         if (r) {
+          setLatestPresentedResult({ kind: "single", result: r });
+          setShowReplay(false);
           if (
             typeof r.expAfter === "number" &&
             typeof r.maxExpAfter === "number"
@@ -880,6 +928,19 @@ export function V2DungeonFloorView({
           setLossStreak((s) => (r.won ? 0 : s + 1));
           recordHp(r);
           recordMp(r);
+          if (rareMapIid) {
+            setHeldRareMaps((current) =>
+              heldRareMapsAfterExpedition(current, rareMapIid, r.won),
+            );
+          }
+          if (r.rareMapDropInstance) {
+            setHeldRareMaps((current) => [
+              ...current.filter(
+                (map) => map.iid !== r.rareMapDropInstance!.iid,
+              ),
+              r.rareMapDropInstance!,
+            ]);
+          }
           if (r.rareMapRunsLeft != null) setRareMapRunsLeft(r.rareMapRunsLeft);
           if (typeof r.goldAfter === "number") onGoldChange?.(r.goldAfter);
           if (r.masteryAfter !== undefined) {
@@ -944,7 +1005,10 @@ export function V2DungeonFloorView({
             if (stopReason) {
               setAutoHunt(false);
               setAutoStopReason(stopReason);
+              setResultSheetOpen(true);
             }
+          } else {
+            setResultSheetOpen(true);
           }
         } else {
           // 사냥이 서버에서 거부됨(depth_locked·policy_blocked·hp_zero 등) — 실패 시
@@ -980,7 +1044,7 @@ export function V2DungeonFloorView({
   const startAutoHunt = () => {
     // 스태미나 모드에서도 자동 사냥 허용(coreLoopOn 게이트 제거). 능동적 길게누르기라 방치
     //   자동전투(#840 우려)와 무관하고, 스태미나·체력으로 자연 제한된다(소진 시 triggerHunt 정지).
-    if (offlineLocked || autoHunt) return;
+    if (rareMapIid || offlineLocked || autoHunt) return;
     const stopReason = getAutoHuntStopReason(autoStopConfigRef.current, {
       hpCharges: statusHpCharges,
       mpCharges: statusMpCharges,
@@ -1001,6 +1065,7 @@ export function V2DungeonFloorView({
     if (offlineLocked) return;
     if (autoHunt) {
       setAutoHunt(false);
+      if (latestPresentedResult) setResultSheetOpen(true);
       return;
     }
     setAutoStopReason(null);
@@ -1017,7 +1082,7 @@ export function V2DungeonFloorView({
   // 누르기 시작 → 0.5초 유지하면 자동 시작(두 모드 공용). 자동 중·잠금이면 길게 무의미(탭만 동작).
   const onHuntPressStart = () => {
     longPressFired.current = false;
-    if (offlineLocked || autoHunt) return;
+    if (rareMapIid || offlineLocked || autoHunt) return;
     cancelLongPress();
     longPressTimer.current = setTimeout(() => {
       longPressFired.current = true;
@@ -1050,51 +1115,16 @@ export function V2DungeonFloorView({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 px-4 py-5 text-zinc-900 sm:p-6 dark:text-zinc-100">
-      <SubViewHeader
-        title={
-          <>
-            {displayName}
-            {isChallenge && (
-              <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-normal text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                도전
-              </span>
-            )}
-          </>
-        }
+      <DungeonContextSummary
+        displayName={displayName}
+        outpostName={outpostName}
+        challenge={isChallenge}
+        playerPower={myPower}
+        difficultyPower={powerGate}
+        growthLabel={growthLabel}
+        readiness={readiness}
         onBack={onBack}
-        right={
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            {outpostName}
-          </span>
-        }
       />
-      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        {myPower != null && (
-          <>
-            내 전투력{" "}
-            <span className="font-semibold tabular-nums text-zinc-700 dark:text-zinc-200">
-              {myPower.toLocaleString()}
-            </span>
-            {" · "}
-          </>
-        )}
-        난이도 지표{" "}
-        <span className="tabular-nums">{powerGate.toLocaleString()}</span>
-      </p>
-      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        {growthLabel && <>{growthLabel} · </>}
-        <span
-          className={
-            readiness.tone === "positive"
-              ? "font-medium text-emerald-600 dark:text-emerald-400"
-              : readiness.tone === "warning"
-                ? "font-medium text-amber-600 dark:text-amber-400"
-                : "font-medium text-zinc-600 dark:text-zinc-300"
-          }
-        >
-          {readiness.label}
-        </span>
-      </p>
       {rareMapIid && expiredRareMapIid === rareMapIid ? (
         <DiscoveryNotice kind="hunt" align="start">
           희귀 탐사 시간이 만료되어 일반 사냥터로 이동합니다.
@@ -1149,21 +1179,30 @@ export function V2DungeonFloorView({
       {/* 캐릭터 정보 — 전투 버튼 위 상시 노출. 첫 사냥 전에도 EXP/회복약 행을 유지해 버튼
           클릭 때 카드 높이가 바뀌지 않게 한다. */}
       {hp && (
-        <PlayerStatusCard
-          gender={playerGender}
+        <CompactBattlePlayerStatus
           name={playerName}
           subtitle={playerSubtitle}
           hp={hp}
           mp={mp}
           exp={statusExp}
           maxExp={statusMaxExp}
-          hpCharges={statusHpCharges}
-          mpCharges={statusMpCharges}
-          hasMp={(mp?.maxMp ?? 0) > 0}
-          combat={playerCombat}
-          primaryAttack={playerPrimaryAttack}
-          proficiency={statusProficiency}
-        />
+        >
+          <PlayerStatusCard
+            gender={playerGender}
+            name={playerName}
+            subtitle={playerSubtitle}
+            hp={hp}
+            mp={mp}
+            exp={statusExp}
+            maxExp={statusMaxExp}
+            hpCharges={statusHpCharges}
+            mpCharges={statusMpCharges}
+            hasMp={(mp?.maxMp ?? 0) > 0}
+            combat={playerCombat}
+            primaryAttack={playerPrimaryAttack}
+            proficiency={statusProficiency}
+          />
+        </CompactBattlePlayerStatus>
       )}
 
       {showDefeatNudge && (
@@ -1227,7 +1266,9 @@ export function V2DungeonFloorView({
                     ? "회복 필요"
                     : onCooldown
                       ? `다음 사냥까지 ${cooldownLeftSec}초`
-                      : coreLoopOn
+                      : rareMapIid
+                        ? "희귀 탐사 시작"
+                        : coreLoopOn
                         ? "사냥 (길게 눌러 자동)"
                         : huntCount === 1
                           ? "사냥 (길게 눌러 자동 · 스태미너 1)"
@@ -1244,6 +1285,18 @@ export function V2DungeonFloorView({
             <Gear size={16} weight="duotone" />
           </button>
         </div>
+        {!rareMapIid && onEnterRareMap && (
+          <RareMapQuickEntry
+            maps={heldRareMaps}
+            serverNow={rareMapServerNow}
+            onEnter={onEnterRareMap}
+            onExpire={(expiredMap) =>
+              setHeldRareMaps((current) =>
+                current.filter((map) => map.iid !== expiredMap.iid),
+              )
+            }
+          />
+        )}
         {settingsOpen && (
           <div className="mt-3 space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
             {!coreLoopOn && (
@@ -1468,6 +1521,16 @@ export function V2DungeonFloorView({
         )}
       </Card>
 
+      {latestPresentedResult && !resultSheetOpen && (
+        <button
+          type="button"
+          onClick={() => setResultSheetOpen(true)}
+          className="ui-game-button min-h-11 w-full rounded-md border border-indigo-300 bg-white px-3 text-sm font-semibold text-indigo-700 shadow-sm hover:bg-indigo-50 dark:border-indigo-800 dark:bg-zinc-900 dark:text-indigo-300 dark:hover:bg-zinc-800"
+        >
+          최근 결과 다시 보기
+        </button>
+      )}
+
       {needsRecovery && (
         <div className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 dark:border-rose-800 dark:bg-rose-950">
           <p className="text-sm font-medium text-rose-700 dark:text-rose-300">
@@ -1488,51 +1551,87 @@ export function V2DungeonFloorView({
         </div>
       )}
 
-      {/* batch summary 가 우선 노출. 1회 사냥 결과(HuntResultCard) 는 summary 없을 때만. */}
-      {/* 캐릭터 정보(HP/MP/EXP)는 위 PlayerStatusCard 로 상시 노출 — 결과는 요약/리플레이만. */}
-      {batchSummary ? (
-        <BatchSummaryCard
-          summary={batchSummary}
-          remainingStamina={
-            !coreLoopOn && !autoHunt ? staminaCurrent : undefined
+      {latestPresentedResult && (
+        <HuntResultSheet
+          open={resultSheetOpen}
+          title={
+            latestPresentedResult.kind === "single"
+              ? latestPresentedResult.result.won
+                ? "사냥 승리"
+                : "사냥 패배"
+              : `${latestPresentedResult.summary.completed}회 사냥 결과`
           }
-          potionThreshold={autoStopConfig.potionThreshold}
-          onSelectReplay={setSelectedBatchReplay}
-          onEnterRareMap={onEnterRareMap}
-        />
-      ) : (
-        lastResult && (
-          <HuntResultCard
-            result={lastResult}
-            hpCharges={lastResult.hpCharges}
-            mpCharges={lastResult.mpCharges}
-            hasMp={(mp?.maxMp ?? 0) > 0}
-            onEnterRareMap={onEnterRareMap}
-          />
-        )
+          onClose={() => setResultSheetOpen(false)}
+          onRepeat={() => {
+            setResultSheetOpen(false);
+            tapHunt();
+          }}
+          onViewLog={
+            latestPresentedResult.kind === "single"
+              ? latestPresentedResult.result.replay
+                ? () => {
+                    setShowReplay(true);
+                    setResultSheetOpen(false);
+                    window.setTimeout(() => replaySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+                  }
+                : undefined
+              : latestPresentedResult.summary.replays?.length
+                ? () => {
+                    setSelectedBatchReplay(latestPresentedResult.summary.replays?.[0] ?? null);
+                    setShowReplay(true);
+                    setResultSheetOpen(false);
+                    window.setTimeout(() => replaySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+                  }
+                : undefined
+          }
+        >
+          {latestPresentedResult.kind === "batch" ? (
+            <BatchSummaryCard
+              summary={latestPresentedResult.summary}
+              remainingStamina={!coreLoopOn && !autoHunt ? staminaCurrent : undefined}
+              potionThreshold={autoStopConfig.potionThreshold}
+              onSelectReplay={(entry) => {
+                setSelectedBatchReplay(entry);
+                setShowReplay(true);
+                setResultSheetOpen(false);
+                window.setTimeout(() => replaySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+              }}
+              onEnterRareMap={onEnterRareMap}
+            />
+          ) : (
+            <HuntResultCard
+              result={latestPresentedResult.result}
+              hpCharges={latestPresentedResult.result.hpCharges}
+              mpCharges={latestPresentedResult.result.mpCharges}
+              hasMp={(mp?.maxMp ?? 0) > 0}
+              onEnterRareMap={onEnterRareMap}
+              nextRareMap={
+                rareMapIid && latestPresentedResult.result.won
+                  ? sortHuntRareMaps(heldRareMaps)[0] ?? null
+                  : null
+              }
+            />
+          )}
+        </HuntResultSheet>
       )}
 
-      {batchSummary && selectedBatchReplay?.replay && (
-        <ReplayBattleScene
-          key={selectedBatchReplay.index}
-          payload={selectedBatchReplay.replay}
-          startPlayerHp={selectedBatchReplay.startPlayerHp}
-          playerName={playerName}
-          gender={playerGender}
-          exp={selectedBatchReplay.expForBar ?? 0}
-          maxExp={selectedBatchReplay.maxExpForBar ?? 1}
-          hpCharges={selectedBatchReplay.hpCharges}
-          mpCharges={selectedBatchReplay.mpCharges}
-          playerSubtitle={playerSubtitle}
-          outcome={selectedBatchReplay.won ? undefined : "lose"}
-          playerCombat={
-            playerCombat
-              ? playerCombatToBattleStats(playerCombat, {
-                  primaryAttack: playerPrimaryAttack,
-                })
-              : undefined
-          }
-        />
+      {showReplay && selectedBatchReplay?.replay && (
+        <div ref={replaySectionRef}>
+          <ReplayBattleScene
+            key={selectedBatchReplay.index}
+            payload={selectedBatchReplay.replay}
+            startPlayerHp={selectedBatchReplay.startPlayerHp}
+            playerName={playerName}
+            gender={playerGender}
+            exp={selectedBatchReplay.expForBar ?? 0}
+            maxExp={selectedBatchReplay.maxExpForBar ?? 1}
+            hpCharges={selectedBatchReplay.hpCharges}
+            mpCharges={selectedBatchReplay.mpCharges}
+            playerSubtitle={playerSubtitle}
+            outcome={selectedBatchReplay.won ? undefined : "lose"}
+            playerCombat={playerCombat ? playerCombatToBattleStats(playerCombat, { primaryAttack: playerPrimaryAttack }) : undefined}
+          />
+        </div>
       )}
 
       {showLevelupModal && (
@@ -1558,19 +1657,20 @@ export function V2DungeonFloorView({
       )}
 
       {/* 1회 사냥 replay — batch summary 표시 중에는 숨김(합산만 보길 원함). */}
-      {!batchSummary && lastResult?.replay && (
+      {showReplay && latestPresentedResult?.kind === "single" && latestPresentedResult.result.replay && (
+        <div ref={replaySectionRef}>
         <ReplayBattleScene
-          payload={lastResult.replay}
-          startPlayerHp={lastResult.startPlayerHp}
+          payload={latestPresentedResult.result.replay}
+          startPlayerHp={latestPresentedResult.result.startPlayerHp}
           playerName={playerName}
           gender={playerGender}
-          exp={lastResult.expForBar ?? 0}
-          maxExp={lastResult.maxExpForBar ?? 1}
-          hpCharges={lastResult.hpCharges}
-          mpCharges={lastResult.mpCharges}
+          exp={latestPresentedResult.result.expForBar ?? 0}
+          maxExp={latestPresentedResult.result.maxExpForBar ?? 1}
+          hpCharges={latestPresentedResult.result.hpCharges}
+          mpCharges={latestPresentedResult.result.mpCharges}
           playerSubtitle={playerSubtitle}
           // 승리는 결과 카드의 "전투 결과 승리"와 중복이라 배너 생략 — 패배만 부각(코덱스 권고).
-          outcome={lastResult.won ? undefined : "lose"}
+          outcome={latestPresentedResult.result.won ? undefined : "lose"}
           playerCombat={
             playerCombat
               ? playerCombatToBattleStats(playerCombat, {
@@ -1579,6 +1679,7 @@ export function V2DungeonFloorView({
               : undefined
           }
         />
+        </div>
       )}
     </main>
   );

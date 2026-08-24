@@ -51,6 +51,7 @@ export function EquipmentTab({
   onBulkSell,
   onOpenCard,
   onRegisterCodex,
+  codexBulk,
   selection,
 }: {
   slot: V2EquipSlot;
@@ -66,6 +67,10 @@ export function EquipmentTab({
   onBulkSell: (opts: BulkSellOpts, label: string) => void;
   onOpenCard: (inst: V2EquipInstance, anchor: ItemCardAnchor) => void;
   onRegisterCodex: (inst: V2EquipInstance) => void;
+  codexBulk?: {
+    registerableCount: number;
+    onStart: () => void;
+  };
   selection: EquipmentSaleSelection;
 }) {
   const tabLabel = V2_ITEM_TABS.find((t) => t.key === slot)?.label ?? "";
@@ -98,6 +103,22 @@ export function EquipmentTab({
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           {/* 정리(일괄 판매) — 현재 탭 슬롯, 장착·잠금만 제외(전 장비 판매 가능) */}
           <div className="flex flex-wrap items-center gap-1">
+            {!selection.active && codexBulk ? (
+              <>
+                <span className="mr-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
+                  도감
+                </span>
+                <Button
+                  onClick={codexBulk.onStart}
+                  disabled={busy !== null || codexBulk.registerableCount === 0}
+                  variant="success"
+                  size="xs"
+                  className="mr-1 min-h-0 px-2 py-0.5 text-[11px]"
+                >
+                  도감 일괄등록 ({codexBulk.registerableCount})
+                </Button>
+              </>
+            ) : null}
             <span className="mr-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
               정리
             </span>

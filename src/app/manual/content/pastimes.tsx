@@ -34,6 +34,7 @@ import {
   FARM_PLOT_COUNT,
   FARM_RARE_PITY_HARVESTS,
 } from "@/adventure/v2/farm";
+import { RANCH_SLOT_DEFINITIONS } from "@/adventure/v2/ranch";
 import {
   AUTO_GATHERING_PLANS,
 } from "@/adventure/v2/autoGathering";
@@ -91,7 +92,18 @@ export function PastimesContent() {
           마치면 해당 기본 작물의 씨앗 6개도 돌려받습니다.
         </li>
         <li>
-          밭 6칸과 모든 유료 축사를 열면 <Em>농장주의 교환소</Em>가 열립니다. 이곳에서
+          목장은 기본 닭장 1칸으로 시작해 최대 <Em>{RANCH_SLOT_DEFINITIONS.length}개 부지</Em>까지
+          순서대로 넓힐 수 있습니다. 새 부지를 열 때 닭장·외양간·돼지우리 중 하나를
+          직접 선택하며, 선택 가능 레벨은 각각 농사 Lv.1·20·50입니다. 6~10번 부지는
+          농사 Lv.60·70·80·90·100에 열리고 농장 증표 1,000·2,000·4,000·8,000·16,000개가 듭니다.
+        </li>
+        <li>
+          사료, 진행 중인 생산, 수확·출하 대기 물품이 모두 없는 축사는 다른 종류로
+          재건축할 수 있습니다. 재건축 비용은 닭장 500개, 외양간 1,000개,
+          돼지우리 2,000개이며 돼지우리를 건설하거나 재건축하면 첫 돼지가 포함됩니다.
+        </li>
+        <li>
+          밭 8칸과 목장 부지 1~5를 열면 <Em>농장주의 교환소</Em>가 열립니다. 이곳에서
           농장 증표 20개로 배합 사료 5개, 증표 24개로 유기질 거름 3개를 제한 없이
           교환하고 전용 칭호를 구매할 수 있습니다.
         </li>

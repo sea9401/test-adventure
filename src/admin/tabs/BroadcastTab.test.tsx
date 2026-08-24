@@ -38,4 +38,35 @@ describe("관리자 공지·우편", () => {
     expect(cashItemSection).not.toContain("수행 초기화 물약");
     expect(cashItemSection).not.toContain("100레벨 달성의 비약");
   });
+
+  it("대량 우편에서 상점·가공 요리 재료를 첨부할 수 있다", () => {
+    const html = renderToStaticMarkup(
+      <AdminProvider>
+        <BroadcastTab />
+      </AdminProvider>,
+    );
+
+    const cookingStart = html.indexOf(">요리 재료 첨부<");
+    const equipmentStart = html.indexOf(">장비 첨부 (기본 등급)<");
+    const cookingSection = html.slice(cookingStart, equipmentStart);
+
+    expect(cookingStart).toBeGreaterThanOrEqual(0);
+    expect(equipmentStart).toBeGreaterThan(cookingStart);
+    for (const ingredientName of [
+      "소금",
+      "후추",
+      "조리용 기름",
+      "숙성 식초",
+      "향신료",
+      "효모",
+      "밀가루",
+      "버터",
+      "치즈",
+      "진한 육수",
+      "만능 소스",
+      "생크림",
+    ]) {
+      expect(cookingSection).toContain(ingredientName);
+    }
+  });
 });

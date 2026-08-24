@@ -801,7 +801,12 @@ function ActionCard({
   enemyName: string;
   sizes: Sizes;
 }) {
-  const { labels, title, result } = actionHeadline(item.main.text);
+  const { labels, title: rawTitle, result } = actionHeadline(item.main.text);
+  const forcedBySkill =
+    item.main.kind === "hp_bar" ? undefined : item.main.forcedBySkill;
+  const title = forcedBySkill
+    ? `${forcedBySkill} 강제 공격`
+    : rawTitle;
   const hitDamages = item.hits
     .map((entry) => damageActionHeadline(entry)?.damage ?? null)
     .filter((damage): damage is number => damage != null);
@@ -831,7 +836,7 @@ function ActionCard({
           : enemyName
         : undefined;
       return {
-        content: actionEffectContent(entry, title, sizes, ownerName),
+        content: actionEffectContent(entry, rawTitle, sizes, ownerName),
         key: index,
       };
     })

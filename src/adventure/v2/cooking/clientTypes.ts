@@ -39,6 +39,7 @@ export type CookingResponse = {
   requests: { daily: CookingDeliveryRequest[]; weekly: CookingDeliveryRequest };
   cookingFoods: CookingFoodInventory;
   failedCookingDishes: number;
+  cookingPrepSets: number;
   farmItems: FarmItemInventory;
   farmItemDefinitions: Record<string, FarmItemDefinition>;
   farmReputation: number;

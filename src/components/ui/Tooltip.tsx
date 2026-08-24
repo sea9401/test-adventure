@@ -8,11 +8,13 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 // 가로 잘림을 피한다. 부모(Card)는 overflow-hidden 이 아니라 카드 밖으로 떠도 안 잘림.
 
 type Align = "start" | "center" | "end";
+type TooltipSize = "compact" | "wide";
 
 export function Tooltip({
   content,
   align = "center",
   placement = "top",
+  size = "compact",
   triggerClassName,
   className,
   children,
@@ -23,6 +25,8 @@ export function Tooltip({
   align?: Align;
   /** 트리거 위/아래 — 상단 요소(위가 막힌 경우)는 bottom 으로 아래에 띄움. */
   placement?: "top" | "bottom";
+  /** 긴 규칙 안내는 wide 로 표시해 세로로 지나치게 길어지지 않게 한다. */
+  size?: TooltipSize;
   /** 트리거 버튼 클래스(셀 모양 그대로 넘겨받음). */
   triggerClassName?: string;
   /** 외곽 래퍼 클래스 — 여백(mt 등) 전달용. */
@@ -61,6 +65,10 @@ export function Tooltip({
         : "left-1/2 -translate-x-1/2";
   const placementClass =
     placement === "bottom" ? "top-full mt-1.5" : "bottom-full mb-1.5";
+  const sizeClass =
+    size === "wide"
+      ? "w-80 max-w-[calc(100vw-2rem)]"
+      : "w-44 max-w-[60vw]";
 
   return (
     <div
@@ -82,7 +90,7 @@ export function Tooltip({
           id={id}
           role="tooltip"
           data-placement={placement}
-          className={`ui-tooltip-reveal pointer-events-none absolute w-44 max-w-[60vw] whitespace-normal break-keep rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 text-left text-[11px] font-normal leading-relaxed text-zinc-600 shadow-lg dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 ${placementClass} ${alignClass}`}
+          className={`ui-tooltip-reveal pointer-events-none absolute ${sizeClass} whitespace-normal break-keep rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 text-left text-[11px] font-normal leading-relaxed text-zinc-600 shadow-lg dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 ${placementClass} ${alignClass}`}
         >
           {content}
         </div>

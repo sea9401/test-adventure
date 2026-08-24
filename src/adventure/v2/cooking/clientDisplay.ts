@@ -1,5 +1,6 @@
 import type { CookingResponse } from "./clientTypes";
 import type { CookingIngredientId } from "./types";
+import { isCookingFarmIngredientId } from "./researchIngredients";
 
 export function cookingIngredientName(data: CookingResponse, ingredientId: CookingIngredientId): string {
   const [kind, id] = ingredientId.split(":");
@@ -18,7 +19,9 @@ export function cookingIngredientCount(data: CookingResponse, ingredientId: Cook
 }
 
 export function cookingResearchIngredients(data: CookingResponse): CookingIngredientId[] {
-  const farm = Object.keys(data.farmItemDefinitions).map((id) => `farm:${id}` as CookingIngredientId);
+  const farm = Object.keys(data.farmItemDefinitions)
+    .filter(isCookingFarmIngredientId)
+    .map((id) => `farm:${id}` as CookingIngredientId);
   const fishing = Object.keys(data.fishingItemDefinitions).map((id) => `fishing:${id}` as CookingIngredientId);
   const kitchen = [
     ...data.pantryItems.map((entry) => entry.id),

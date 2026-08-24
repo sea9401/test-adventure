@@ -929,8 +929,8 @@ export function V2CombatPatternView({
       {!embedded && <SubViewHeader title="스킬 패턴" onBack={onBack} />}
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
         위에서부터 조건과 사용 가능 여부를 확인합니다. 스킬 발동률 판정에 실패하면 다음
-        블록을 확인하고, 모두 실패하면 기본 공격을 사용합니다. 한 행동의 후보는 같은
-        판정값을 공유하므로 같은 스킬을 중복 배치해도 발동률을 따로 다시 굴리지는 않습니다.
+        블록을 확인하고, 모두 실패하면 기본 공격을 사용합니다. 서로 다른 스킬은 독립적으로
+        판정하며, 같은 스킬을 중복 배치해도 발동률을 따로 다시 굴리지는 않습니다.
       </p>
 
       {loading ? (

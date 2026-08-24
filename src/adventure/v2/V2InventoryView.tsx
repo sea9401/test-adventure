@@ -3,20 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { Button } from "@/components/ui/Button";
-import {
-  HandFist,
-  Shield,
-  Sneaker,
-  Sword,
-  type Icon,
-} from "@phosphor-icons/react";
-import { NecklaceIcon, RingIcon } from "./EquipmentSlotIcons";
 import { Card } from "@/components/ui/Card";
 import { PageShell } from "@/components/ui/PageShell";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { TabBar } from "@/components/ui/TabBar";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import { type RareMapInstance } from "@/adventure/data/v2/rareMaps";
 import {
   LEVEL_100_ELIXIR_ITEM_ID,
@@ -41,8 +33,6 @@ import { equipmentProgressionLock } from "@/adventure/data/v2/equipmentProgressi
 import {
   V2ItemCard,
   V2ItemCompareCard,
-  anchorOf,
-  powerNameClass,
   type ItemCardAnchor,
 } from "./V2ItemCard";
 import {
@@ -63,6 +53,12 @@ import { shopSaleBalancePatch, shopSaleBankNotice } from "./shopSaleBalance";
 import { MasteryCertificateUseModal } from "./MasteryCertificateUseModal";
 import type { FishId } from "@/adventure/data/v2/fish";
 import type { FishSpecimenInventory } from "@/adventure/v2/fishSpecimens";
+import {
+  EquipmentCodexBulkDialog,
+  type EquipmentCodexBulkCandidate,
+} from "./EquipmentCodexBulkDialog";
+import { selectEquipmentCodexBulkCandidates } from "./equipmentCodexBulk";
+import { EquippedItemSummaryGrid } from "./inventory/EquippedItemSummaryGrid";
 
 // 강화/재련 등 다른 화면도 같은 장비 카드 그리드를 쓴다 — 기존 import 경로 유지를 위해
 // 분리한 컴포넌트를 여기서 재노출(re-export).
@@ -75,23 +71,13 @@ export {
 // 개체(instance) 모델: 같은 종류라도 굴림이 다르면 별도 카드. 행 우측 버튼으로 장착/해제
 // (POST /api/v2/me/equipment/equip, iid 기준).
 
-const EQUIP_SLOTS: {
-  slot: V2EquipSlot;
-  label: string;
-  Icon: Icon;
-  color: string;
-}[] = [
-  { slot: "weapon", label: "무기", Icon: Sword, color: "text-rose-500" },
-  { slot: "armor", label: "갑옷", Icon: Shield, color: "text-sky-500" },
-  { slot: "gloves", label: "장갑", Icon: HandFist, color: "text-amber-500" },
-  { slot: "boots", label: "신발", Icon: Sneaker, color: "text-emerald-500" },
-  { slot: "ring", label: "반지", Icon: RingIcon, color: "text-violet-500" },
-  {
-    slot: "necklace",
-    label: "목걸이",
-    Icon: NecklaceIcon,
-    color: "text-pink-500",
-  },
+const EQUIP_SLOTS: V2EquipSlot[] = [
+  "weapon",
+  "armor",
+  "gloves",
+  "boots",
+  "ring",
+  "necklace",
 ];
 
 // 한 페이지에 보여줄 아이템 수 — 목록이 길어지면 < 1 2 3 … > 로 나눈다.
@@ -103,6 +89,12 @@ const SELL_PCT_STORAGE_KEY = "v2-inventory-sell-pct";
 type EquipmentSaleSelectionState = {
   slot: V2EquipSlot;
   iids: Set<string>;
+};
+
+type EquipmentCodexBulkState = {
+  slot: V2EquipSlot;
+  candidates: EquipmentCodexBulkCandidate[];
+  selectedIids: Set<string>;
 };
 
 function itemTabFromParam(value: string | null): V2ItemTabKey {
@@ -119,6 +111,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   );
   const [saleSelection, setSaleSelection] =
     useState<EquipmentSaleSelectionState | null>(null);
+  const [codexBulk, setCodexBulk] =
+    useState<EquipmentCodexBulkState | null>(null);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- URL tab 파라미터 변경 시 로컬 탭 재시드
     setTab(itemTabFromParam(tabParam));
@@ -646,6 +640,55 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     [notifySystem],
   );
 
+  const submitEquipmentCodexRegistration = useCallback(
+    async (inst: V2EquipInstance) => {
+      const res = await fetch("/api/v2/me/equipment-codex", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ iid: inst.iid }),
+      });
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        registeredIds?: string[];
+        owned?: V2EquipInstance[];
+        equipped?: Partial<Record<V2EquipSlot, string>>;
+        materials?: Partial<Record<V2MaterialId, number>>;
+      } | null;
+      if (!res.ok || !data?.ok) {
+        const reason =
+          data?.error === "locked"
+            ? "잠긴 장비는 등록할 수 없습니다"
+            : data?.error === "equipped"
+              ? "장착 중인 장비는 등록할 수 없습니다"
+              : data?.error === "already_registered"
+                ? "이미 도감에 등록된 장비입니다"
+                : data?.error === "not_owned"
+                  ? "보유 장비를 찾을 수 없습니다"
+                  : "장비를 도감에 등록할 수 없습니다";
+        throw new Error(reason);
+      }
+
+      setOwned((current) =>
+        Array.isArray(data.owned)
+          ? data.owned
+          : current.filter((entry) => entry.iid !== inst.iid),
+      );
+      if (data.equipped && typeof data.equipped === "object") {
+        setEquipped(data.equipped);
+      }
+      if (data.materials && typeof data.materials === "object") {
+        setMaterials(data.materials);
+      }
+      if (Array.isArray(data.registeredIds)) {
+        equipmentCodex?.replaceRegisteredIds(data.registeredIds);
+      }
+      setCard((current) => (current?.inst.iid === inst.iid ? null : current));
+      return data;
+    },
+    [equipmentCodex],
+  );
+
   // 인벤토리의 "도감 미등록" 배지에서 바로 등록한다. 서버 규칙과 동일하게 장착·잠금
   // 개체는 차단하고, 영구 소모 작업이라 최종 확인은 유지한다.
   const registerEquipmentCodex = useCallback(
@@ -670,60 +713,16 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         return;
       }
       if (
-        !window.confirm(
+        !(await confirmGameAction(
           `${item.name} 1개를 장비 도감에 등록할까요?\n등록한 장비는 영구적으로 소모됩니다.`,
-        )
+        ))
       ) {
         return;
       }
 
       setBusy(liveInst.iid);
       try {
-        const res = await fetch("/api/v2/me/equipment-codex", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ iid: liveInst.iid }),
-        });
-        const j = (await res.json().catch(() => null)) as {
-          ok?: boolean;
-          error?: string;
-          registeredIds?: string[];
-          owned?: V2EquipInstance[];
-          equipped?: Partial<Record<V2EquipSlot, string>>;
-          materials?: Partial<Record<V2MaterialId, number>>;
-        } | null;
-        if (!res.ok || !j?.ok) {
-          const reason =
-            j?.error === "locked"
-              ? "잠긴 장비는 등록할 수 없습니다"
-              : j?.error === "equipped"
-                ? "장착 중인 장비는 등록할 수 없습니다"
-                : j?.error === "already_registered"
-                  ? "이미 도감에 등록된 장비입니다"
-                  : j?.error === "not_owned"
-                    ? "보유 장비를 찾을 수 없습니다"
-                    : "장비를 도감에 등록할 수 없습니다";
-          notifySystem(`✗ ${reason}`);
-          return;
-        }
-
-        setOwned(
-          Array.isArray(j.owned)
-            ? j.owned
-            : owned.filter((entry) => entry.iid !== liveInst.iid),
-        );
-        if (j.equipped && typeof j.equipped === "object") {
-          setEquipped(j.equipped);
-        }
-        if (j.materials && typeof j.materials === "object") {
-          setMaterials(j.materials);
-        }
-        if (Array.isArray(j.registeredIds)) {
-          equipmentCodex?.replaceRegisteredIds(j.registeredIds);
-        }
-        setCard((current) =>
-          current?.inst.iid === liveInst.iid ? null : current,
-        );
+        await submitEquipmentCodexRegistration(liveInst);
         void refreshGameState();
         notifySystem(`✓ ${item.name} 도감 등록 완료`);
       } catch (err) {
@@ -739,8 +738,75 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
       notifySystem,
       owned,
       refreshGameState,
+      submitEquipmentCodexRegistration,
     ],
   );
+
+  const openEquipmentCodexBulk = useCallback(
+    (slot: V2EquipSlot) => {
+      if (busy !== null) return;
+      if (!equipmentCodex?.loaded) {
+        notifySystem("✗ 장비 도감 정보를 불러오는 중입니다");
+        return;
+      }
+      const candidates = selectEquipmentCodexBulkCandidates({
+        owned,
+        equipped,
+        registeredIds: equipmentCodex.registeredIds,
+        slot,
+      });
+      if (candidates.length === 0) {
+        notifySystem("✗ 이 부위에 등록 가능한 장비가 없습니다");
+        return;
+      }
+      setCard(null);
+      setCodexBulk({
+        slot,
+        candidates,
+        selectedIids: new Set(candidates.map(({ inst }) => inst.iid)),
+      });
+    },
+    [busy, equipmentCodex, equipped, notifySystem, owned],
+  );
+
+  const confirmEquipmentCodexBulk = useCallback(async () => {
+    if (!codexBulk || busy !== null) return;
+    const selected = codexBulk.candidates.filter(({ inst }) =>
+      codexBulk.selectedIids.has(inst.iid),
+    );
+    if (selected.length === 0) return;
+
+    setBusy(`codex-bulk:${codexBulk.slot}`);
+    let registered = 0;
+    let failed = 0;
+    try {
+      for (const { inst } of selected) {
+        try {
+          await submitEquipmentCodexRegistration(inst);
+          registered += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+      void refreshGameState();
+      notifySystem(
+        registered === 0
+          ? `✗ 장비 도감 일괄등록 실패 · ${failed}종을 다시 확인해 주세요`
+          : failed > 0
+          ? `✓ 장비 도감 ${registered}종 등록 완료 · ${failed}종 실패`
+          : `✓ 장비 도감 ${registered}종 일괄등록 완료`,
+      );
+    } finally {
+      setBusy(null);
+      setCodexBulk(null);
+    }
+  }, [
+    busy,
+    codexBulk,
+    notifySystem,
+    refreshGameState,
+    submitEquipmentCodexRegistration,
+  ]);
 
   // 일괄 판매 — 클라에서 selectBulkSell 로 미리보기(개수·골드) 후 확인, 서버가 권위 판매.
   // 장착·잠금 개체만 자동 제외(전 장비 판매 가능 — 유니크 등도 포함). 응답의 owned 로 갱신.
@@ -752,9 +818,9 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         return;
       }
       if (
-        !window.confirm(
+        !(await confirmGameAction(
           `${label}\n${plan.count}개 판매 → +${plan.gold.toLocaleString()}골드\n(장착·잠금만 제외) 진행할까요?`,
-        )
+        ))
       ) {
         return;
       }
@@ -844,9 +910,9 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     }
     const plan = selectedSaleResult.plan;
     if (
-      !window.confirm(
+      !(await confirmGameAction(
         `선택한 장비 ${plan.count}개를 판매할까요?\n판매 대금 +${plan.gold.toLocaleString()}골드는 은행에 입금됩니다.`,
-      )
+      ))
     ) {
       return;
     }
@@ -948,6 +1014,27 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     return groups;
   }, [owned]);
 
+  const equipmentCodexBulkCounts = useMemo(() => {
+    const counts: Record<V2EquipSlot, number> = {
+      weapon: 0,
+      armor: 0,
+      gloves: 0,
+      boots: 0,
+      ring: 0,
+      necklace: 0,
+    };
+    if (!equipmentCodex?.loaded) return counts;
+    for (const slot of EQUIP_SLOTS) {
+      counts[slot] = selectEquipmentCodexBulkCandidates({
+        owned,
+        equipped,
+        registeredIds: equipmentCodex.registeredIds,
+        slot,
+      }).length;
+    }
+    return counts;
+  }, [equipmentCodex, equipped, owned]);
+
   useEffect(() => {
     if (!itemParam || loading) return;
     const inst = owned.find((item) => item.iid === itemParam);
@@ -970,75 +1057,17 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     <PageShell>
       <SubViewHeader title="인벤토리" onBack={onBack} />
 
-      {/* 위쪽 — 장착 슬롯 (해제 버튼 인라인) */}
+      {/* 위쪽 — 모바일 3×2, PC 6×1 장착 요약. 해제는 상세 카드에서만 수행한다. */}
       <Card padding="md">
         <h2 className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
           장착 중
         </h2>
-        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {EQUIP_SLOTS.map(({ slot, label, Icon, color }) => {
-            const iid = equipped[slot] ?? null;
-            const inst = iid ? owned.find((i) => i.iid === iid) : undefined;
-            const item = inst ? V2_EQUIPMENT[inst.id] : null;
-            const slotInner = (
-              <>
-                <Icon size={18} weight="duotone" className={color} />
-                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                  {label}
-                </div>
-                <div
-                  className={`flex max-w-full items-baseline justify-center text-xs font-medium ${
-                    item
-                      ? powerNameClass(item, inst?.roll)
-                      : "text-zinc-400 dark:text-zinc-600"
-                  }`}
-                >
-                  <span className="truncate">{item?.name ?? "—"}</span>
-                  {item && inst?.enhance && inst.enhance.level > 0 ? (
-                    <span className="ml-1 shrink-0 text-amber-500">
-                      +{inst.enhance.level}
-                    </span>
-                  ) : null}
-                </div>
-              </>
-            );
-            return (
-              <div
-                key={slot}
-                className="flex min-h-[6.25rem] flex-col items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-2 text-center sm:min-h-[6.75rem] dark:border-zinc-700 dark:bg-zinc-900"
-              >
-                {inst && item ? (
-                  // 장착 아이템 클릭 → 옵션 카드 팝오버.
-                  <button
-                    type="button"
-                    onClick={(e) =>
-                      setCard({ inst, anchor: anchorOf(e.currentTarget) })
-                    }
-                    className="flex w-full min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md px-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  >
-                    {slotInner}
-                  </button>
-                ) : (
-                  slotInner
-                )}
-                {iid ? (
-                  <Button
-                    onClick={() => applyEquip(slot, null, slot)}
-                    disabled={busy !== null}
-                    variant="secondary"
-                    size="xs"
-                    className="min-h-0 px-1.5 py-0.5 text-[10px]"
-                  >
-                    {busy === slot ? "…" : "해제"}
-                  </Button>
-                ) : (
-                  <span className="text-[10px] text-zinc-400 dark:text-zinc-600">
-                    비어있음
-                  </span>
-                )}
-              </div>
-            );
-          })}
+        <div className="mt-2">
+          <EquippedItemSummaryGrid
+            equipped={equipped}
+            owned={owned}
+            onOpen={(inst, anchor) => setCard({ inst, anchor })}
+          />
         </div>
       </Card>
 
@@ -1101,6 +1130,10 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             onBulkSell={applyBulkSell}
             onOpenCard={(inst, anchor) => setCard({ inst, anchor })}
             onRegisterCodex={registerEquipmentCodex}
+            codexBulk={{
+              registerableCount: equipmentCodexBulkCounts[tab],
+              onStart: () => openEquipmentCodexBulk(tab),
+            }}
             selection={{
               active: saleSelection?.slot === tab,
               selectedIids:
@@ -1123,6 +1156,42 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           />
         )}
       </Card>
+      {codexBulk ? (
+        <EquipmentCodexBulkDialog
+          slot={codexBulk.slot}
+          candidates={codexBulk.candidates}
+          selectedIids={codexBulk.selectedIids}
+          busy={busy === `codex-bulk:${codexBulk.slot}`}
+          onToggle={(iid) =>
+            setCodexBulk((current) => {
+              if (!current) return current;
+              const selectedIids = new Set(current.selectedIids);
+              if (selectedIids.has(iid)) selectedIids.delete(iid);
+              else selectedIids.add(iid);
+              return { ...current, selectedIids };
+            })
+          }
+          onSelectAll={() =>
+            setCodexBulk((current) =>
+              current
+                ? {
+                    ...current,
+                    selectedIids: new Set(
+                      current.candidates.map(({ inst }) => inst.iid),
+                    ),
+                  }
+                : current,
+            )
+          }
+          onClearAll={() =>
+            setCodexBulk((current) =>
+              current ? { ...current, selectedIids: new Set() } : current,
+            )
+          }
+          onCancel={() => setCodexBulk(null)}
+          onConfirm={() => void confirmEquipmentCodexBulk()}
+        />
+      ) : null}
       {card &&
         (() => {
           const candItem = V2_EQUIPMENT[card.inst.id];

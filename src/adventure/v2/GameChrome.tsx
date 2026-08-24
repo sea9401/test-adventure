@@ -14,29 +14,15 @@ import { UgcConsentPrompt } from "@/components/safety/UgcConsentPrompt";
 import { GameSceneBackground } from "@/adventure/v2/GameSceneBackground";
 import { GameContentTransition } from "@/adventure/v2/GameContentTransition";
 import { gameSceneBackgroundForPath } from "@/adventure/v2/gameSceneBackgroundForPath";
+import { gameTabForPath, type GameTabId } from "@/adventure/v2/gameTabForPath";
 
 // v2 게임 chrome — 모든 라우트가 공유하는 영속 틀(상단바·탭바·배경).
 // (game)/layout.tsx 안에 마운트되어 네비게이션마다 remount 되지 않는다 → 자식 page 만 교체.
 
-type TabId = "adventure" | "battle" | "town" | "character" | "guild" | "plaza";
-
 // 탭 목록·하위 메뉴는 MainTabNav 가 소유(#723: 광장은 탭 제외·설정 메뉴로 이관, /plaza/* 라우트·배경만 유지).
 
 // 배경을 깔 탭 — 모험/마을/캐릭터. 전투·길드·광장은 별도 이미지 없음(중립 배경).
-const BG_TABS = new Set<TabId>(["adventure", "town", "character"]);
-
-// 현재 경로 → 활성 탭.
-function tabOfPath(pathname: string): TabId {
-  if (pathname === "/") return "adventure";
-  if (pathname.startsWith("/battle")) return "battle";
-  if (pathname.startsWith("/town")) return "town";
-  // 퀘스트(/quests)는 캐릭터 탭의 하위 메뉴 — 캐릭터로 묶어 활성 강조·배경이 안 깨지게.
-  if (pathname.startsWith("/character") || pathname.startsWith("/quests"))
-    return "character";
-  if (pathname.startsWith("/guild")) return "guild";
-  if (pathname.startsWith("/plaza")) return "plaza";
-  return "adventure";
-}
+const BG_TABS = new Set<GameTabId>(["adventure", "town", "life", "character"]);
 
 function selectNumericInputValue(event: FocusEvent<HTMLDivElement>) {
   const input = event.target;
@@ -78,7 +64,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     await refreshGameState();
   };
 
-  const activeTab = tabOfPath(pathname);
+  const activeTab = gameTabForPath(pathname);
   // 스태미나 바 — 스태미나를 직접 사용하는 지정 화면에서만 노출한다.
   const showStamina = shouldShowStaminaBar(pathname);
 
@@ -150,7 +136,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         />
       )}
       <div>
-        {/* 메인 내비 — 5탭 유지, 하위 화면은 드롭다운으로 진입. */}
+        {/* 메인 내비 — 마을 시설과 생활 콘텐츠를 분리한 6탭. */}
         <MainTabNav
           activeKey={activeTab}
           gameStateLoaded={gameStateLoaded}

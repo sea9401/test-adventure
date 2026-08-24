@@ -7,12 +7,12 @@ import {
 import { confirmGuildFacilityUpgrade } from "./GuildOutpostsPanel";
 
 describe("길드 재화 소모 동작 확인", () => {
-  it("길드 공용 버프 확인을 취소하면 업그레이드 요청을 실행하지 않는다", () => {
+  it("길드 공용 버프 확인을 취소하면 업그레이드 요청을 실행하지 않는다", async () => {
     const onUpgrade = vi.fn();
-    const confirm = vi.fn(() => false);
+    const confirm = vi.fn(async () => false);
 
     expect(
-      confirmCombatSupplyUpgrade({
+      await confirmCombatSupplyUpgrade({
         supply: {
           id: "combat_exp",
           name: "경험 훈련 교범",
@@ -28,15 +28,15 @@ describe("길드 재화 소모 동작 확인", () => {
     expect(onUpgrade).not.toHaveBeenCalled();
   });
 
-  it("길드 시설 확인을 승인해야만 최종 업그레이드 요청을 실행한다", () => {
+  it("길드 시설 확인을 승인해야만 최종 업그레이드 요청을 실행한다", async () => {
     const next = nextSettlementBuildingUpgrade("guild_smithy", 1);
     const onUpgrade = vi.fn();
-    const confirm = vi.fn(() => true);
+    const confirm = vi.fn(async () => true);
 
     expect(next).not.toBeNull();
     if (!next) return;
     expect(
-      confirmGuildFacilityUpgrade({
+      await confirmGuildFacilityUpgrade({
         buildingId: "guild_smithy",
         next,
         confirm,
@@ -50,12 +50,12 @@ describe("길드 재화 소모 동작 확인", () => {
     expect(onUpgrade).toHaveBeenCalledWith("guild_smithy");
   });
 
-  it("주간 운용비 확인을 취소하면 길드 자금 결제를 실행하지 않는다", () => {
+  it("주간 운용비 확인을 취소하면 길드 자금 결제를 실행하지 않는다", async () => {
     const onFund = vi.fn();
-    const confirm = vi.fn(() => false);
+    const confirm = vi.fn(async () => false);
 
     expect(
-      confirmCombatOperationsFunding({
+      await confirmCombatOperationsFunding({
         operations: {
           tier: 1,
           nextCost: 20_000_000,

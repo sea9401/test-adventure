@@ -6,6 +6,10 @@ import {
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
+import {
+  COOKING_PANTRY_ITEMS,
+  COOKING_PROCESSING_RECIPES,
+} from "@/adventure/v2/cooking/kitchen";
 
 export type CatalogOption = { id: string; name: string; label: string };
 
@@ -29,6 +33,21 @@ export function v2MaterialOptions(): CatalogOption[] {
     name: m.name,
     label: m.name,
   }));
+}
+
+export function cookingIngredientOptions(): CatalogOption[] {
+  return [
+    ...COOKING_PANTRY_ITEMS.map((item) => ({
+      id: item.id,
+      name: item.name,
+      label: `상점 · ${item.icon} ${item.name}`,
+    })),
+    ...COOKING_PROCESSING_RECIPES.map((recipe) => ({
+      id: recipe.outputId,
+      name: recipe.name,
+      label: `가공 · ${recipe.icon} ${recipe.name}`,
+    })),
+  ];
 }
 
 export function v2EquipmentOptions(): CatalogOption[] {

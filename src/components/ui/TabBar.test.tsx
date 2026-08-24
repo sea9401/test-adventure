@@ -40,3 +40,29 @@ describe("TabBar 모바일 폭", () => {
     },
   );
 });
+
+describe("TabBar 선택과 알림", () => {
+  it("선택 탭은 보라색 밑줄을, 알림은 접근 가능한 라벨을 사용한다", () => {
+    const html = renderToStaticMarkup(
+      <TabBar
+        tabs={[
+          { key: "home", label: "모험" },
+          {
+            key: "life",
+            label: "생활",
+            badge: "",
+            badgeLabel: "처리 가능한 생활 항목 있음",
+          },
+        ]}
+        active="home"
+        onChange={() => {}}
+        ariaLabel="메인 탭"
+        variant="highlight"
+      />,
+    );
+
+    expect(html).toContain("text-violet-700");
+    expect(html).toContain("border-b-2");
+    expect(html).toContain('aria-label="처리 가능한 생활 항목 있음"');
+  });
+});

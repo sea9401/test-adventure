@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useGameState } from "./GameStateProvider";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { confirmGameAction, type ConfirmGameAction } from "@/components/ui/gameDialog";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { terrainTraitOf } from "@/adventure/data/v2/outposts";
@@ -65,21 +66,21 @@ type Village = {
 };
 type Resources = SettlementResources;
 
-export function confirmVillageBuildingUpgrade({
+export async function confirmVillageBuildingUpgrade({
   buildingId,
   next,
   onUpgrade,
-  confirm = (message) => window.confirm(message),
+  confirm = confirmGameAction,
 }: {
   buildingId: SettlementBuildingId;
   next: AnySettlementBuildingUpgradeDef;
   onUpgrade: () => void;
-  confirm?: (message: string) => boolean;
-}): boolean {
+  confirm?: ConfirmGameAction;
+}): Promise<boolean> {
   if (
-    !confirm(
+    !(await confirm(
       `${SETTLEMENT_BUILDINGS[buildingId].name}을(를) Lv.${next.level}(으)로 업그레이드할까요?\n${settlementBuildingUpgradeCostText(next.cost)}이(가) 사용됩니다.`,
-    )
+    ))
   ) {
     return false;
   }
@@ -727,7 +728,7 @@ export function V2VillagePanel({
                                 !canAffordBuildingUpgrade
                               }
                               onClick={() =>
-                                confirmVillageBuildingUpgrade({
+                                void confirmVillageBuildingUpgrade({
                                   buildingId: id,
                                   next: nextUpgrade,
                                   onUpgrade: () =>
@@ -747,9 +748,9 @@ export function V2VillagePanel({
                         <button
                           type="button"
                           disabled={busy || !canManageActions}
-                          onClick={() => {
+                          onClick={async () => {
                             if (
-                              window.confirm(
+                              await confirmGameAction(
                                 `${def.name}을 폐기할까요? 같은 길드가 다시 배치하면 현재 레벨이 복구됩니다.`,
                               )
                             ) {

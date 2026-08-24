@@ -33,11 +33,11 @@ describe("combat pattern choice controls", () => {
     expect(html).toContain('aria-checked="true"');
   });
 
-  it("발동 실패의 다음 순위 검사와 중복 스킬의 공유 판정을 안내한다", () => {
+  it("서로 다른 스킬의 독립 판정과 중복 스킬의 공유 판정을 안내한다", () => {
     const html = renderToStaticMarkup(<V2CombatPatternView onBack={vi.fn()} />);
 
     expect(html).toContain("발동률 판정에 실패하면 다음");
-    expect(html).toContain("같은 판정값을 공유");
+    expect(html).toContain("서로 다른 스킬은 독립적으로 판정");
     expect(html).toContain("중복 배치해도");
   });
 

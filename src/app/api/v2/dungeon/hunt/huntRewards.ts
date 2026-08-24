@@ -5,6 +5,39 @@ import {
 } from "@/lib/leveling";
 import { monsterGoldReward } from "@/adventure/v2/combat/monsterGold";
 import type { Monster } from "@/adventure/data/monsters";
+import type { RareMapInstance } from "@/adventure/data/v2/rareMaps";
+
+/** 실제 전투 1회 승리 뒤 정산할 기존 희귀 탐사 보상 횟수. */
+export function rareMapRewardRolls(
+  activeRareMap: RareMapInstance | null,
+  won: boolean,
+): number {
+  if (!activeRareMap || !won) return 1;
+  return Math.max(1, Math.floor(activeRareMap.runsLeft));
+}
+
+/** 1회 확정 보상을 압축 정산 횟수만큼 합산한다. */
+export function multiplyHuntReward(
+  value: number,
+  rewardRolls: number,
+): number {
+  const safeValue = Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+  const safeRolls = Number.isFinite(rewardRolls)
+    ? Math.max(1, Math.floor(rewardRolls))
+    : 1;
+  return safeValue * safeRolls;
+}
+
+/** 희귀 탐사는 저장된 배치 설정과 무관하게 실제 전투를 한 번만 해결한다. */
+export function normalizeHuntBattleCount(
+  requestedCount: number,
+  rareMapIid: string | null,
+): number {
+  if (rareMapIid) return 1;
+  return Number.isFinite(requestedCount)
+    ? Math.max(1, Math.floor(requestedCount))
+    : 1;
+}
 
 export function potionTargetAmount(
   maxHp: number,

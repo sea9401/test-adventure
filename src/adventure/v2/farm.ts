@@ -3,8 +3,10 @@ import {
   collectRanchProducts,
   emptyRanchState,
   parseRanchState,
-  unlockRanchPen,
-  type RanchPenId,
+  rebuildRanchSlot as rebuildRanchSlotDomain,
+  unlockRanchSlot,
+  type RanchAnimalId,
+  type RanchSlotId,
   type RanchState,
 } from "./ranch";
 import {
@@ -20,7 +22,7 @@ export const FARM_SAVE_KEY = "farm.v2";
 
 export const FARM_PLOT_COUNT = 2;
 
-export const FARM_MAX_PLOT_COUNT = 8;
+export const FARM_MAX_PLOT_COUNT = 24;
 
 export const FARM_DAILY_DELIVERY_LIMIT = 2;
 export const FARM_RARE_PITY_HARVESTS = 20;
@@ -108,6 +110,10 @@ export const FARM_PLOT_UPGRADES: readonly FarmPlotUpgrade[] = [
   { plotCount: 6, costReputation: 180, title: "넓은 공동 텃밭" },
   { plotCount: 7, costReputation: 300, title: "마을 공동 농장" },
   { plotCount: 8, costReputation: 500, title: "풍요의 대농장" },
+  { plotCount: 12, costReputation: 1_000, title: "비옥한 경작지" },
+  { plotCount: 16, costReputation: 2_000, title: "풍요의 들판" },
+  { plotCount: 20, costReputation: 4_000, title: "대지주의 농장" },
+  { plotCount: 24, costReputation: 8_000, title: "왕국의 곡창지대" },
 ];
 
 export type FarmItemId =
@@ -416,7 +422,7 @@ export type FarmPlotUpgradeResult = {
 };
 
 export type FarmRanchFeedResult = {
-  penId: RanchPenId;
+  slotId: RanchSlotId;
   amount: number;
   feedRemaining: number;
 };
@@ -429,7 +435,14 @@ export type FarmRanchCollectResult = {
 };
 
 export type FarmRanchUpgradeResult = {
-  penId: RanchPenId;
+  slotId: RanchSlotId;
+  animalId: RanchAnimalId;
+  costReputation: number;
+};
+
+export type FarmRanchRebuildResult = {
+  slotId: RanchSlotId;
+  animalId: RanchAnimalId;
   costReputation: number;
 };
 
@@ -609,6 +622,40 @@ export const FARM_CROPS: Record<FarmCropId, FarmCrop> = {
 };
 
 export const FARM_CROP_LIST = Object.values(FARM_CROPS);
+
+/**
+ * 배합 사료에 사용할 수 있는 농장 작물 수확물입니다.
+ * 일반 작물을 먼저 두어 자동 소비 시 희귀 작물을 가능한 한 보존합니다.
+ */
+export const FARM_CROP_ITEM_IDS: readonly FarmItemId[] = [
+  ...FARM_CROP_LIST.map((crop) => crop.itemId),
+  ...FARM_CROP_LIST.map((crop) => crop.rareItemId),
+];
+
+export function farmCropItemCount(inventory: FarmItemInventory): number {
+  return FARM_CROP_ITEM_IDS.reduce(
+    (total, itemId) => total + nonNegativeInt(inventory[itemId]),
+    0,
+  );
+}
+
+export function spendFarmCropItems(
+  inventory: FarmItemInventory,
+  amount: number,
+): FarmItemInventory | null {
+  let remaining = nonNegativeInt(amount);
+  if (farmCropItemCount(inventory) < remaining) return null;
+
+  const next = { ...inventory };
+  for (const itemId of FARM_CROP_ITEM_IDS) {
+    if (remaining === 0) break;
+    const held = nonNegativeInt(next[itemId]);
+    const spent = Math.min(held, remaining);
+    setPositiveCount(next, itemId, held - spent);
+    remaining -= spent;
+  }
+  return next;
+}
 
 export const FARM_STARTER_SEEDS: FarmSeedInventory = {
   wheat: 3,
@@ -905,7 +952,7 @@ export function getFarmWeeklyDeliveryRequests(): FarmWeeklyDeliveryRequest[] {
       rewardReputation: 6,
       optionalRareItemId: "golden_wheat",
       optionalRareItemName: "황금 밀",
-      optionalRareBonusReputation: 2,
+      optionalRareBonusReputation: 5,
     },
     {
       id: "weekly-clinic-bundle",
@@ -916,7 +963,7 @@ export function getFarmWeeklyDeliveryRequests(): FarmWeeklyDeliveryRequest[] {
       rewardReputation: 7,
       optionalRareItemId: "silverleaf",
       optionalRareItemName: "은빛잎",
-      optionalRareBonusReputation: 2,
+      optionalRareBonusReputation: 6,
     },
     {
       id: "weekly-market-cart",
@@ -927,7 +974,7 @@ export function getFarmWeeklyDeliveryRequests(): FarmWeeklyDeliveryRequest[] {
       rewardReputation: 8,
       optionalRareItemId: "sweet_corn",
       optionalRareItemName: "달콤 옥수수",
-      optionalRareBonusReputation: 2,
+      optionalRareBonusReputation: 7,
     },
   ];
 }
@@ -1213,7 +1260,7 @@ export function nextFarmPlotUpgrade(state: FarmState): FarmPlotUpgrade | null {
 
 export function feedFarmRanch(
   state: FarmState,
-  penId: RanchPenId,
+  slotId: RanchSlotId,
   amount: number,
   now = Date.now(),
 ): FarmState {
@@ -1222,7 +1269,7 @@ export function feedFarmRanch(
   if ((state.inventory.compound_feed ?? 0) < count) {
     throw new FarmError("not_enough_feed");
   }
-  const ranch = addRanchFeed(state.ranch, penId, count, now);
+  const ranch = addRanchFeed(state.ranch, slotId, count, now);
   return {
     ...state,
     ranch,
@@ -1264,14 +1311,16 @@ export function collectFarmRanch(
   };
 }
 
-export function buyFarmRanchPen(
+export function buyFarmRanchSlot(
   state: FarmState,
-  penId: RanchPenId,
+  slotId: RanchSlotId,
+  animalId: RanchAnimalId,
   now = Date.now(),
 ): { state: FarmState; result: FarmRanchUpgradeResult } {
-  const unlocked = unlockRanchPen(
+  const unlocked = unlockRanchSlot(
     state.ranch,
-    penId,
+    slotId,
+    animalId,
     farmingLevelForState(state),
     now,
   );
@@ -1288,7 +1337,37 @@ export function buyFarmRanchPen(
           state.stats.reputationSpent + unlocked.costReputation,
       },
     },
-    result: { penId, costReputation: unlocked.costReputation },
+    result: { slotId, animalId, costReputation: unlocked.costReputation },
+  };
+}
+
+export function rebuildFarmRanchSlot(
+  state: FarmState,
+  slotId: RanchSlotId,
+  animalId: RanchAnimalId,
+  now = Date.now(),
+): { state: FarmState; result: FarmRanchRebuildResult } {
+  const rebuilt = rebuildRanchSlotDomain(
+    state.ranch,
+    slotId,
+    animalId,
+    farmingLevelForState(state),
+    now,
+  );
+  if (farmAvailableReputation(state) < rebuilt.costReputation) {
+    throw new FarmError("not_enough_reputation");
+  }
+  return {
+    state: {
+      ...state,
+      ranch: rebuilt.ranch,
+      stats: {
+        ...state.stats,
+        reputationSpent:
+          state.stats.reputationSpent + rebuilt.costReputation,
+      },
+    },
+    result: { slotId, animalId, costReputation: rebuilt.costReputation },
   };
 }
 

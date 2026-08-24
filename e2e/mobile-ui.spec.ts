@@ -115,3 +115,44 @@ test("전투 로그 보조 정보는 모바일에서도 읽을 수 있는 크기
 
   expect(fontSizes.every((fontSize) => fontSize >= 12)).toBe(true);
 });
+
+test("한국어 본문은 어절 중간에서 줄바꿈하지 않는다", async ({ page }) => {
+  await page.goto("/dev/battle-log");
+
+  const copy = page.getByText(
+    "공세 전술을 취한다. 공격이 거세지지만 방어와 회피가 무뎌진다.",
+    { exact: true },
+  );
+  await expect(copy).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+
+  const splitsInsideKoreanWords = await copy.evaluate((element) => {
+    const textNode = Array.from(element.childNodes).find(
+      (node) => node.nodeType === Node.TEXT_NODE,
+    );
+    if (!textNode?.textContent) return [];
+
+    const characters = Array.from(textNode.textContent);
+    const tops = characters.map((_, index) => {
+      const range = document.createRange();
+      range.setStart(textNode, index);
+      range.setEnd(textNode, index + 1);
+      return Math.round(range.getBoundingClientRect().top);
+    });
+
+    return characters.flatMap((character, index) => {
+      const nextCharacter = characters[index + 1];
+      if (
+        nextCharacter &&
+        /[가-힣]/.test(character) &&
+        /[가-힣]/.test(nextCharacter) &&
+        Math.abs(tops[index] - tops[index + 1]) > 2
+      ) {
+        return [`${character}|${nextCharacter}`];
+      }
+      return [];
+    });
+  });
+
+  expect(splitsInsideKoreanWords).toEqual([]);
+});

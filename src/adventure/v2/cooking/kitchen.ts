@@ -41,6 +41,17 @@ export const COOKING_PROCESSING_BY_ID = new Map(
   COOKING_PROCESSING_RECIPES.map((entry) => [entry.outputId, entry]),
 );
 
+export function isCookingKitchenItemId(
+  value: string,
+): value is CookingKitchenItemId {
+  return (
+    COOKING_PANTRY_BY_ID.has(value as CookingPantryItem["id"]) ||
+    COOKING_PROCESSING_BY_ID.has(
+      value as CookingProcessingRecipe["outputId"],
+    )
+  );
+}
+
 function positiveQuantity(raw: number): number {
   const quantity = Math.floor(Number(raw) || 0);
   if (quantity < 1 || quantity > 100) throw new Error("invalid_quantity");

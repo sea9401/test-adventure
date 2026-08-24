@@ -1,21 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
+  LIFE_MENU_ITEMS,
   TOWN_MENU_ITEMS,
   guildMenuItemsForViewer,
+  lifeMenuStateForHref,
   townMenuItemsForViewer,
 } from "./MainTabNav";
 
 describe("마을 드롭다운 메뉴", () => {
-  it("협회·통합 교환소·생활 작업장을 노출하고 일반 상점은 제거한다", () => {
+  it("NPC·시설만 노출하고 생활 항목과 일반 상점은 제거한다", () => {
     const items = TOWN_MENU_ITEMS.map(({ label, href }) => ({ label, href }));
 
     expect(items).toEqual(
       expect.arrayContaining([
         { label: "모험가 협회", href: "/town/association" },
         { label: "통합 교환소", href: "/town/exchange" },
-        { label: "생활 의뢰·조합 작업장", href: "/town/life-workshop" },
       ]),
     );
+    expect(items.map(({ href }) => href)).not.toContain("/town/farm");
+    expect(items.map(({ href }) => href)).not.toContain("/town/life-workshop");
     expect(items).not.toContainEqual({ label: "일반 상점", href: "/town/shop" });
   });
 
@@ -29,6 +32,74 @@ describe("마을 드롭다운 메뉴", () => {
     expect(
       townMenuItemsForViewer(null, false).map((item) => item.href),
     ).not.toContain("/town/association");
+  });
+});
+
+describe("생활 드롭다운 메뉴", () => {
+  it("기존 URL을 유지하며 일곱 생활 콘텐츠를 분리한다", () => {
+    expect(LIFE_MENU_ITEMS.map(({ href }) => href)).toEqual([
+      "/map",
+      "/town/life-workshop",
+      "/town/farm",
+      "/town/fishing",
+      "/town/logging",
+      "/town/mining",
+      "/town/kitchen",
+    ]);
+  });
+
+  it("활성 활동 중 행동 가능 상태를 우선해 표시한다", () => {
+    const state = lifeMenuStateForHref(
+      [
+        {
+          id: "farm_daily",
+          group: "daily",
+          tab: "life",
+          title: "납품",
+          detail: "1 / 2",
+          href: "/town/farm",
+          state: "in_progress",
+          current: 1,
+          target: 2,
+          enabled: true,
+          defaultEnabled: true,
+        },
+        {
+          id: "farm_ready",
+          group: "ready",
+          tab: "life",
+          title: "수확",
+          detail: "수확 가능 3칸",
+          href: "/town/farm",
+          state: "actionable",
+          enabled: true,
+          defaultEnabled: true,
+        },
+      ],
+      "/town/farm",
+    );
+    expect(state).toEqual({ text: "수확 가능 3칸", actionable: true });
+  });
+
+  it("개인 설정에서 끈 활동은 상태와 점에서 제외한다", () => {
+    expect(
+      lifeMenuStateForHref(
+        [
+          {
+            id: "farm_ready",
+            group: "ready",
+            tab: "life",
+            title: "수확",
+            detail: "수확 가능",
+            href: "/town/farm",
+            state: "actionable",
+            enabled: false,
+            defaultEnabled: true,
+          },
+        ],
+        "/town/farm",
+      ),
+    ).toBeNull();
   });
 });
 

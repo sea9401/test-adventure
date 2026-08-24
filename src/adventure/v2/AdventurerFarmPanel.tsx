@@ -42,7 +42,7 @@ import {
   type FarmState,
   type FarmWeeklyDeliveryRequest,
 } from "./farm";
-import { ranchReadyPenCount } from "./ranch";
+import { RANCH_ANIMAL_DEFINITIONS, ranchReadySlotCount } from "./ranch";
 import {
   farmBatchOutcomeText,
   type FarmBatchAction,
@@ -105,9 +105,10 @@ export function AdventurerFarmPanel({
     busyShopItemId,
     busyEndgameShopItemId,
     busyPlotUpgrade,
-    busyRanchFeedPenId,
+    busyRanchFeedSlotId,
     busyRanchCollect,
-    busyRanchUpgradePenId,
+    busyRanchUpgradeSlotId,
+    busyRanchRebuildSlotId,
     fertilizerBalance,
     notice,
     now,
@@ -133,9 +134,10 @@ export function AdventurerFarmPanel({
     buyShopItem,
     buyEndgameShopItem,
     buyPlotUpgrade,
-    feedRanchPen,
+    feedRanchSlot,
     collectRanch,
-    buyRanchPen,
+    buyRanchSlot,
+    rebuildRanchSlot,
   } = useFarm();
   const [selectedCropId, setSelectedCropId] = useState<FarmCropId>("wheat");
   const [activeSection, setActiveSection] = useState<FarmSectionKey>(
@@ -181,7 +183,7 @@ export function AdventurerFarmPanel({
     [farm?.plots, fertilizerBalance, now],
   );
   const readyPlotCount = readyPlotIds.length;
-  const readyRanchPenCount = farm ? ranchReadyPenCount(farm.ranch) : 0;
+  const readyRanchSlotCount = farm ? ranchReadySlotCount(farm.ranch) : 0;
   const deliverableCount = useMemo(
     () =>
       farm
@@ -227,7 +229,7 @@ export function AdventurerFarmPanel({
           key: "ranch",
           label: "목장",
           icon: <PawPrint size={16} weight="duotone" />,
-          badge: readyRanchPenCount > 0 ? readyRanchPenCount : undefined,
+          badge: readyRanchSlotCount > 0 ? readyRanchSlotCount : undefined,
         },
         {
           key: "delivery",
@@ -247,7 +249,7 @@ export function AdventurerFarmPanel({
         icon: ReactNode;
         badge?: number;
       }>,
-    [affordableShopCount, deliverableCount, readyPlotCount, readyRanchPenCount],
+    [affordableShopCount, deliverableCount, readyPlotCount, readyRanchSlotCount],
   );
   const selectFarmSection = (next: FarmSectionKey) => {
     lastFarmSection = next;
@@ -346,10 +348,19 @@ export function AdventurerFarmPanel({
       };
     }
     if (notice.kind === "ranchUpgrade") {
+      const animal = RANCH_ANIMAL_DEFINITIONS[notice.result.animalId];
       return {
         id: notice.id,
         tone: "ok",
-        text: `새 축사를 열었습니다. 농장 증표 ${notice.result.costReputation}개를 사용했습니다.`,
+        text: `${animal.buildingName}을(를) 건설했습니다. 농장 증표 ${notice.result.costReputation.toLocaleString("ko-KR")}개를 사용했습니다.`,
+      };
+    }
+    if (notice.kind === "ranchRebuild") {
+      const animal = RANCH_ANIMAL_DEFINITIONS[notice.result.animalId];
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: `${animal.buildingName}으로 재건축했습니다. 농장 증표 ${notice.result.costReputation.toLocaleString("ko-KR")}개를 사용했습니다.`,
       };
     }
     const { result } = notice;
@@ -419,7 +430,7 @@ export function AdventurerFarmPanel({
                   farm={farm}
                   busyPlotUpgrade={busyPlotUpgrade}
                   readyPlotCount={readyPlotCount}
-                  readyRanchPenCount={readyRanchPenCount}
+                  readyRanchSlotCount={readyRanchSlotCount}
                   deliverableCount={deliverableCount}
                   affordableShopCount={affordableShopCount}
                   onBuyPlotUpgrade={buyPlotUpgrade}
@@ -456,7 +467,7 @@ export function AdventurerFarmPanel({
                   }
                 />
 
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-4">
                   {farm.plots.map((plot) => (
                     <FarmPlotCard
                       key={plot.id}
@@ -487,12 +498,14 @@ export function AdventurerFarmPanel({
                   farm={farm}
                   now={now}
                   learnedSkillIds={learnedSkillIds}
-                  busyFeedPenId={busyRanchFeedPenId}
+                  busyFeedSlotId={busyRanchFeedSlotId}
                   busyCollect={busyRanchCollect}
-                  busyUpgradePenId={busyRanchUpgradePenId}
-                  onFeed={(penId, amount) => void feedRanchPen(penId, amount)}
+                  busyUpgradeSlotId={busyRanchUpgradeSlotId}
+                  busyRebuildSlotId={busyRanchRebuildSlotId}
+                  onFeed={(slotId, amount) => void feedRanchSlot(slotId, amount)}
                   onCollect={() => void collectRanch()}
-                  onUpgrade={(penId) => void buyRanchPen(penId)}
+                  onUpgrade={(slotId, animalId) => void buyRanchSlot(slotId, animalId)}
+                  onRebuild={(slotId, animalId) => void rebuildRanchSlot(slotId, animalId)}
                   onOpenLifeWorkshop={onOpenLifeWorkshop}
                 />
               </div>
@@ -667,7 +680,7 @@ function FarmHome({
   farm,
   busyPlotUpgrade,
   readyPlotCount,
-  readyRanchPenCount,
+  readyRanchSlotCount,
   deliverableCount,
   affordableShopCount,
   onBuyPlotUpgrade,
@@ -677,7 +690,7 @@ function FarmHome({
   farm: FarmState;
   busyPlotUpgrade: boolean;
   readyPlotCount: number;
-  readyRanchPenCount: number;
+  readyRanchSlotCount: number;
   deliverableCount: number;
   affordableShopCount: number;
   onBuyPlotUpgrade: () => void;
@@ -718,7 +731,7 @@ function FarmHome({
         <FarmHomeShortcut
           icon={<PawPrint size={18} weight="duotone" />}
           label="목장"
-          status={readyRanchPenCount > 0 ? `${readyRanchPenCount}칸 수확` : "축사 확인"}
+          status={readyRanchSlotCount > 0 ? `${readyRanchSlotCount}칸 수확` : "축사 확인"}
           onClick={() => onNavigate("ranch")}
         />
         <FarmHomeShortcut

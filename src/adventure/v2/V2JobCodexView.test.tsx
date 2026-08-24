@@ -1,6 +1,10 @@
+// @vitest-environment jsdom
+
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { buildJobCodex } from "@/adventure/data/v2/v2JobCodex";
+import type { JobCodex } from "@/adventure/data/v2/v2JobCodex";
 import { emptyProficiency } from "@/adventure/data/v2/proficiency";
 import {
   JobCodexList,
@@ -8,6 +12,8 @@ import {
 } from "./V2JobCodexView";
 
 const CODEX = buildJobCodex(emptyProficiency(), [], "warrior", null);
+
+afterEach(cleanup);
 
 describe("JobCodexList 모바일 터치 영역", () => {
   it("검색 지우기와 목표 버튼에 44px 터치 영역을 제공한다", () => {
@@ -46,5 +52,41 @@ describe("JobCodexList 섹션 접기", () => {
     expect(html).toContain('aria-label="조건 부족 펼치기"');
     expect(html.match(/aria-expanded="false"/g)).toHaveLength(2);
     expect(html).toContain("min-h-10");
+  });
+});
+
+describe("JobCodexList 카드 밀도", () => {
+  it("직업명·수집 배지·카테고리를 헤더에, 숙련도·해금 조건을 한 행에 표시한다", () => {
+    const compactCodex: JobCodex = {
+      currentJobId: "beastkin",
+      totalJobs: 1,
+      jobs: [
+        {
+          id: "beastkin",
+          name: "수인",
+          tier: 1,
+          unlocked: true,
+          isCurrent: true,
+          mastery: 1_000,
+          condition: "변이자 숙련도 1000",
+          conditionRevealed: true,
+          skillsLearned: 2,
+          skillsTotal: 2,
+        },
+      ],
+    };
+
+    render(<JobCodexList codex={compactCodex} />);
+
+    const cardHeader = screen.getByText("수인").closest("header");
+    expect(cardHeader).not.toBeNull();
+    expect(within(cardHeader!).getByText("수집 완료")).toBeTruthy();
+    expect(
+      within(cardHeader!).getByRole("list", { name: "수인 카테고리" }),
+    ).toBeTruthy();
+
+    const mastery = screen.getByText("숙련도 1,000");
+    const condition = screen.getByText("해금 · 변이자 숙련도 1000");
+    expect(mastery.parentElement).toBe(condition.parentElement);
   });
 });

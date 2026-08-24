@@ -20,11 +20,17 @@ import {
   type MuseunAdminGiftItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import { TITLES } from "@/adventure/data/titles";
+import { isCookingKitchenItemId } from "@/adventure/v2/cooking/kitchen";
+import type { CookingKitchenItemId } from "@/adventure/v2/cooking/state";
 
 export type GuildQuestRewardMaterial = { materialId: string; count: number };
 export type GuildQuestRewardItem = { itemId: string; count: number };
 export type AdminGiftCashItem = {
   itemId: MuseunAdminGiftItemId;
+  count: number;
+};
+export type AdminGiftCookingIngredient = {
+  ingredientId: CookingKitchenItemId;
   count: number;
 };
 
@@ -109,6 +115,8 @@ export type InboxPayload =
       kind: "admin_gift";
       gold: number;
       materials: GuildQuestRewardMaterial[];
+      /** 요리 전용 재료. 누락은 기존 운영자 우편 호환을 위해 빈 배열로 처리한다. */
+      cookingIngredients?: AdminGiftCookingIngredient[];
       items: GuildQuestRewardItem[];
       staminaPotions: number;
       /** 관리자 지급분만 귀속 처리한다. 누락된 레거시·이벤트 보상은 비귀속으로 유지. */
@@ -278,6 +286,9 @@ export function parseInboxPayload(
       // 모든 첨부는 선택 — 구 페이로드 호환을 위해 누락은 0/빈배열로 정규화한다.
       const gold = asNonNegInt(p.gold) ?? 0;
       const materials = parseRewardMaterials(p.materials);
+      const cookingIngredients = parseRewardCookingIngredients(
+        p.cookingIngredients,
+      );
       const items = parseRewardItems(p.items);
       const staminaPotions = asNonNegInt(p.staminaPotions) ?? 0;
       const staminaPotionsBound = p.staminaPotionsBound === true;
@@ -289,6 +300,7 @@ export function parseInboxPayload(
         kind,
         gold,
         materials,
+        cookingIngredients,
         items,
         staminaPotions,
         ...(staminaPotionsBound ? { staminaPotionsBound: true } : {}),
@@ -341,6 +353,7 @@ export function inboxClaimState(
     case "admin_gift":
       return parsed.gold > 0 ||
         parsed.materials.length > 0 ||
+        (parsed.cookingIngredients?.length ?? 0) > 0 ||
         parsed.items.length > 0 ||
         parsed.staminaPotions > 0 ||
         parsed.museunCoins > 0 ||
@@ -399,6 +412,28 @@ function parseRewardMaterials(v: unknown): GuildQuestRewardMaterial[] {
     const count = asNonNegInt(r.count);
     if (materialId && count != null && count > 0) {
       out.push({ materialId, count });
+    }
+  }
+  return out;
+}
+
+function parseRewardCookingIngredients(
+  v: unknown,
+): AdminGiftCookingIngredient[] {
+  if (!Array.isArray(v)) return [];
+  const out: AdminGiftCookingIngredient[] = [];
+  for (const ingredient of v) {
+    if (typeof ingredient !== "object" || ingredient === null) continue;
+    const row = ingredient as Record<string, unknown>;
+    const ingredientId = asString(row.ingredientId);
+    const count = asNonNegInt(row.count);
+    if (
+      ingredientId &&
+      isCookingKitchenItemId(ingredientId) &&
+      count != null &&
+      count > 0
+    ) {
+      out.push({ ingredientId, count });
     }
   }
   return out;

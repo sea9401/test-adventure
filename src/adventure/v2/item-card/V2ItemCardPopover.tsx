@@ -27,7 +27,6 @@ import {
   CraftOnlyBadge,
   CraftQualityBadge,
   EquipmentTierBadge,
-  EnhanceLevelBadge,
   GAP,
   MARGIN,
   MasterworkBadge,
@@ -215,6 +214,10 @@ export function V2ItemCard({
   }, [onClose]);
 
   // 강화 수치는 이름 옆 "+N" 으로만 표기하고, 모든 스탯/옵션은 한 패널에 모은다.
+  const enhanceLevel = Math.max(
+    0,
+    Math.floor(Number(enhance?.level ?? 0) || 0),
+  );
   const statRows = v2EquipStatRows(item, roll, enhance, craftQuality).map((row) =>
     statRowWithRollRange(item, row, roll, enhance, craftQuality),
   );
@@ -259,6 +262,7 @@ export function V2ItemCard({
               className={`truncate text-base font-semibold leading-tight ${powerNameClass(item, roll, enhance, craftQuality)}`}
             >
               {item.name}
+              {enhanceLevel > 0 ? ` +${enhanceLevel}` : ""}
             </h2>
             <div className="flex flex-wrap items-center gap-1.5">
               <EquipmentTierBadge tier={item.tier} />
@@ -269,7 +273,6 @@ export function V2ItemCard({
                 onRegister={codexRegister?.onRegister}
                 busy={codexRegister?.busy}
               />
-              <EnhanceLevelBadge enhance={enhance} />
               <CraftQualityBadge craftQuality={craftQuality} />
               {craftedBy?.masterwork ? <MasterworkBadge /> : null}
               {item.craftOnly ? <CraftOnlyBadge /> : null}

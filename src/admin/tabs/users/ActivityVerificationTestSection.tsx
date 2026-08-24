@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { Button, Field, Select } from "../../ui/Field";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 
 type Activity = "fishing" | "woodcutting" | "mining";
 type Mode = "standard" | "captcha";
@@ -246,9 +247,9 @@ export function ActivityVerificationTestSection({
   async function requireVerification() {
     if (busy || readOnly) return;
     if (
-      !window.confirm(
+      !(await confirmGameAction(
         `${ACTIVITY_LABEL[activity]}의 다음 행동에 ${MODE_LABEL[mode]}을 표시할까요?\n\n요청은 10분 뒤 자동 만료됩니다.`,
-      )
+      ))
     ) {
       return;
     }
@@ -272,7 +273,7 @@ export function ActivityVerificationTestSection({
 
   async function cancelVerification(activeActivity: Activity) {
     if (busy || readOnly) return;
-    if (!window.confirm(`${ACTIVITY_LABEL[activeActivity]} 사람 확인 요청을 취소할까요?`)) {
+    if (!(await confirmGameAction(`${ACTIVITY_LABEL[activeActivity]} 사람 확인 요청을 취소할까요?`))) {
       return;
     }
     setBusy(true);

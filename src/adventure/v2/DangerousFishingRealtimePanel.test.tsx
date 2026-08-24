@@ -208,6 +208,20 @@ describe("위험 해역 실시간 조우 HUD", () => {
     expect((activeButton as HTMLButtonElement).disabled).toBe(false);
   });
 
+  it("입력 가능한 대기 상태를 장력 HUD와 감아올리기 버튼에 명시적으로 표시한다", () => {
+    render(
+      <DangerousFishingRealtimePanel
+        {...baseProps}
+        encounter={encounterFixture()}
+      />,
+    );
+
+    expect(screen.getByText("조작 가능")).not.toBeNull();
+    const button = screen.getByRole("button", { name: "누르고 감아올리기" });
+    expect((button as HTMLButtonElement).disabled).toBe(false);
+    expect(button.className).toContain("ring-2");
+  });
+
   it("포인터 capture와 해제·취소·capture 상실을 모두 hold/release로 연결한다", () => {
     render(
       <DangerousFishingRealtimePanel
@@ -363,8 +377,31 @@ describe("위험 해역 실시간 조우 HUD", () => {
     );
 
     expect(html).toContain("조우 실패");
-    expect(html).toContain("낚싯줄이 끊어졌습니다");
+    expect(html).toContain("낚싯줄 끊김");
+    expect(html).toContain('aria-label="조우 종료"');
+    expect(html).not.toContain(">누르고 감아올리기</span>");
+    expect(html).not.toContain('data-realtime-region="alert"');
     expect(html).toContain('role="status"');
+  });
+
+  it("오프라인 종료 경고가 결과 영역 위에 떠서 재시도 동선을 가리지 않는다", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new TypeError("offline");
+    }));
+    render(
+      <DangerousFishingRealtimePanel
+        {...baseProps}
+        encounter={encounterFixture({ status: "hook_lost", tension: 0 })}
+      />,
+    );
+
+    await act(async () => vi.advanceTimersByTimeAsync(100));
+
+    expect(screen.getByText(/조우 실패 · 바늘 빠짐/)).not.toBeNull();
+    expect(screen.getByText(/오프라인 보관 · 재전송 필요/)).not.toBeNull();
+    expect(screen.getByRole("button", { name: "결과 전송 다시 시도" })).not.toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("로컬 어획 성공은 서버 응답 전까지 확정 대신 확인 대기라고 알린다", () => {

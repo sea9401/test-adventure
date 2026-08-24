@@ -847,6 +847,26 @@ describe("BattleLogList 행동 묶음", () => {
     expect(html).not.toContain("계산 상세");
   });
 
+  it("스킬로 강제된 기본 공격은 원인 스킬을 행동명에 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "player_attack",
+            text: "공격! 3 피해를 입혔다.",
+            turn: "player",
+            forcedBySkill: "수호의 도발",
+          },
+        ]}
+        playerName="또또미"
+        enemyName="IVE유진"
+      />,
+    );
+
+    expect(html).toContain("수호의 도발 강제 공격");
+    expect(html).not.toContain("기본 공격");
+  });
+
   it("HP 스냅샷에 6T 시그니처 자원을 양쪽 관점으로 표시한다", () => {
     const html = renderToStaticMarkup(
       <BattleLogList

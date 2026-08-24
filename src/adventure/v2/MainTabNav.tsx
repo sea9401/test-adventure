@@ -234,7 +234,6 @@ export const CHARACTER_MENU_ITEMS = [
 
 // 하위 항목·아이콘은 각 탭 홈(card 메뉴)에서 그대로 가져온 라우트/아이콘. 새 하위화면 추가 시 여기 한 줄.
 const TABS: TabDef[] = [
-  { key: "adventure", label: "모험", href: "/" },
   {
     key: "battle",
     label: "전투",
@@ -336,7 +335,7 @@ export function MainTabNav({
 
   return (
     <nav className="relative w-full" aria-label="메인 메뉴">
-      <div className="grid grid-cols-6 border-b border-zinc-200 px-1 sm:px-3 dark:border-zinc-800">
+      <div className="grid grid-cols-5 border-b border-zinc-200 px-1 sm:px-3 dark:border-zinc-800">
         {TABS.map((t) => {
           const isActive = t.key === activeKey;
           const hasSub = !!t.sub;
@@ -364,7 +363,7 @@ export function MainTabNav({
                 }
               }}
               aria-label={`${t.label}${hasActionable ? ", 처리 가능한 항목 있음" : ""}`}
-              className={`relative -mb-px flex min-h-11 min-w-0 items-center justify-center gap-0.5 whitespace-nowrap border-b-2 px-0.5 py-2 text-[0.625rem] font-semibold transition-colors sm:gap-1 sm:px-2 sm:text-sm ${
+              className={`relative -mb-px flex min-h-11 min-w-0 items-center justify-center gap-0.5 whitespace-nowrap border-b-2 px-0.5 py-2 text-sm font-semibold transition-colors sm:gap-1 sm:px-2 ${
                 isActive
                   ? "border-violet-600 text-violet-700 dark:border-violet-400 dark:text-violet-300"
                   : "border-transparent text-zinc-500 hover:text-violet-600 dark:text-zinc-400 dark:hover:text-violet-300"

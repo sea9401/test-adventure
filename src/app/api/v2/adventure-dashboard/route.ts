@@ -44,6 +44,9 @@ export async function GET() {
     preferences,
     activities,
     summary: activitySummary(activities),
-    notifications: activityTabDots(activities),
+    notifications: activityTabDots(
+      activities,
+      preferences.activityNotificationsEnabled,
+    ),
   });
 }

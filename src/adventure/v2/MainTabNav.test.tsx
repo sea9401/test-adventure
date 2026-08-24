@@ -19,10 +19,36 @@ vi.mock("./AdventureDashboardProvider", () => ({
           enabled: true,
           defaultEnabled: true,
         },
+        {
+          id: "mastery_tower_daily",
+          group: "daily",
+          tab: "battle",
+          title: "숙련의 탑",
+          detail: "오늘 기록 보상 수령 가능",
+          href: "/battle/mastery-tower",
+          state: "actionable",
+          enabled: true,
+          defaultEnabled: true,
+        },
+        {
+          id: "woodcutting_ready",
+          group: "ready",
+          tab: "life",
+          title: "자동 벌목",
+          detail: "느티나무 작업 완료",
+          href: "/town/logging",
+          state: "actionable",
+          enabled: true,
+          defaultEnabled: true,
+        },
       ],
       notifications: {
-        tabs: { life: true },
-        paths: { "/town/farm": true },
+        tabs: { battle: true, life: true },
+        paths: {
+          "/battle/mastery-tower": true,
+          "/town/farm": true,
+          "/town/logging": true,
+        },
       },
     },
   }),
@@ -94,5 +120,49 @@ describe("메인 탭 디자인 시스템", () => {
     });
     expect(farm.className).toContain("bg-zinc-50");
     expect(farm.textContent).toContain("수확 가능 5칸");
+  });
+
+  it("전투 탭 알림의 정확한 하위 콘텐츠와 상태를 표시한다", () => {
+    render(
+      <MainTabNav
+        activeKey="battle"
+        gameStateLoaded
+        viewerGuildId={null}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "전투, 처리 가능한 항목 있음",
+      }),
+    );
+
+    const tower = screen.getByRole("menuitem", {
+      name: "숙련의 탑, 처리 가능한 항목 있음",
+    });
+    expect(tower.textContent).toContain("오늘 기록 보상 수령 가능");
+  });
+
+  it("생활 지도의 하위 작업 알림도 실제 콘텐츠 이름으로 모아 표시한다", () => {
+    render(
+      <MainTabNav
+        activeKey="life"
+        gameStateLoaded
+        viewerGuildId={null}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "생활, 처리 가능한 항목 있음",
+      }),
+    );
+
+    const map = screen.getByRole("menuitem", {
+      name: "생활 지도, 처리 가능한 항목 있음",
+    });
+    expect(map.textContent).toContain("자동 벌목 · 느티나무 작업 완료");
   });
 });

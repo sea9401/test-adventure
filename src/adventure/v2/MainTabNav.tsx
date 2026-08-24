@@ -54,6 +54,7 @@ import type { AdventureActivityView } from "./adventureDashboard";
 type SubItem = {
   label: string;
   href: string;
+  activityHrefs?: readonly string[];
   Icon: Icon;
   color: string;
 };
@@ -132,22 +133,50 @@ export const TOWN_MENU_ITEMS = [
 ] satisfies SubItem[];
 
 export const LIFE_MENU_ITEMS = [
-  { label: "생활 지도", href: "/map", Icon: Compass, color: "text-sky-600" },
+  {
+    label: "생활 지도",
+    href: "/map",
+    activityHrefs: ["/town/logging", "/town/mining"],
+    Icon: Compass,
+    color: "text-sky-600",
+  },
   { label: "생활 의뢰·조합 작업장", href: "/town/life-workshop", Icon: Toolbox, color: "text-amber-600" },
   { label: "모험가 농장", href: "/town/farm", Icon: PottedPlant, color: "text-emerald-500" },
   { label: "낚시", href: "/town/fishing", Icon: Fish, color: "text-sky-500" },
   { label: "주방", href: "/town/kitchen", Icon: CookingPot, color: "text-amber-600" },
 ] satisfies SubItem[];
 
-export function lifeMenuStateForHref(
+function activityMenuText(
+  activity: AdventureActivityView,
+  menuLabel: string,
+): string {
+  return menuLabel.length === 0 || activity.title === menuLabel
+    ? activity.detail
+    : `${activity.title} · ${activity.detail}`;
+}
+
+export function menuActivityStateForHref(
   activities: readonly AdventureActivityView[],
   href: string,
+  menuLabel: string,
+  activityHrefs: readonly string[] = [],
 ): { text: string; actionable: boolean } | null {
+  const matchingHrefs = new Set([href, ...activityHrefs]);
   const candidates = activities.filter(
-    (activity) =>
-      activity.enabled && activity.tab === "life" && activity.href === href,
+    (activity) => activity.enabled && matchingHrefs.has(activity.href),
   );
   if (candidates.length === 0) return null;
+  const actionable = candidates.filter(
+    (activity) => activity.state === "actionable",
+  );
+  if (actionable.length > 0) {
+    return {
+      text: actionable
+        .map((activity) => activityMenuText(activity, menuLabel))
+        .join(" / "),
+      actionable: true,
+    };
+  }
   const ranked = candidates
     .map((activity, index) => ({
       activity,
@@ -164,8 +193,18 @@ export function lifeMenuStateForHref(
     .sort((a, b) => a.priority - b.priority || a.index - b.index);
   const activity = ranked[0]?.activity;
   return activity
-    ? { text: activity.detail, actionable: activity.state === "actionable" }
+    ? {
+        text: activityMenuText(activity, menuLabel),
+        actionable: false,
+      }
     : null;
+}
+
+export function lifeMenuStateForHref(
+  activities: readonly AdventureActivityView[],
+  href: string,
+): { text: string; actionable: boolean } | null {
+  return menuActivityStateForHref(activities, href, "");
 }
 
 export function townMenuItemsForViewer(
@@ -361,10 +400,18 @@ export function MainTabNav({
             className={`${SURFACE_CARD} ui-dropdown-reveal absolute left-0 right-0 top-full z-50 mx-2 mt-2 grid max-h-[calc(100dvh-10rem)] grid-cols-2 gap-1 overflow-y-auto overscroll-contain p-2 sm:mx-6 sm:grid-cols-3`}
           >
             {openSubItems.map((s) => {
-              const lifeState =
-                openTab.key === "life"
-                  ? lifeMenuStateForHref(snapshot?.activities ?? [], s.href)
-                  : null;
+              const activityState = menuActivityStateForHref(
+                snapshot?.activities ?? [],
+                s.href,
+                s.label,
+                s.activityHrefs,
+              );
+              const notificationHrefs = [s.href, ...(s.activityHrefs ?? [])];
+              const hasActionable =
+                activityState?.actionable === true &&
+                notificationHrefs.some(
+                  (href) => snapshot?.notifications.paths[href] === true,
+                );
               return (
               <button
                 key={s.href}
@@ -374,7 +421,7 @@ export function MainTabNav({
                   close();
                   onNavigate(s.href);
                 }}
-                aria-label={`${s.label}${lifeState?.actionable ? ", 처리 가능한 항목 있음" : ""}`}
+                aria-label={`${s.label}${hasActionable ? ", 처리 가능한 항목 있음" : ""}`}
                 className={`${SURFACE_INSET} relative flex min-h-11 items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-zinc-100 active:bg-zinc-200 dark:hover:bg-zinc-900 dark:active:bg-zinc-800`}
               >
                 <s.Icon
@@ -387,13 +434,13 @@ export function MainTabNav({
                   <span className="block truncate text-sm font-medium text-zinc-700 dark:text-zinc-200">
                     {s.label}
                   </span>
-                  {lifeState && (
-                    <span className={`block truncate text-[0.6875rem] ${lifeState.actionable ? "font-semibold text-orange-700 dark:text-orange-300" : "text-zinc-500 dark:text-zinc-400"}`}>
-                      {lifeState.text}
+                  {activityState && (
+                    <span className={`block truncate text-[0.6875rem] ${hasActionable ? "font-semibold text-orange-700 dark:text-orange-300" : "text-zinc-500 dark:text-zinc-400"}`}>
+                      {activityState.text}
                     </span>
                   )}
                 </span>
-                {lifeState?.actionable && (
+                {hasActionable && (
                   <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-orange-500" />
                 )}
               </button>

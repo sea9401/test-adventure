@@ -45,7 +45,10 @@ function withPreferences(
     preferences,
     activities,
     summary: activitySummary(activities),
-    notifications: activityTabDots(activities),
+    notifications: activityTabDots(
+      activities,
+      preferences.activityNotificationsEnabled,
+    ),
   };
 }
 

@@ -99,20 +99,18 @@ export function CompactCharacterSummary({
 }) {
   if (expanded) {
     return (
-      <section className="space-y-2">
+      <section className="relative">
+        {children}
         <Button
           type="button"
-          variant="secondary"
-          size="md"
-          fullWidth
+          variant="ghost"
+          size="icon"
+          className="absolute right-5 top-5 z-20"
           onClick={() => onExpandedChange(false)}
           aria-label="캐릭터 정보 접기"
         >
-          <span className="flex w-full items-center justify-between">
-            캐릭터 상세 정보 <CaretDown size={18} className="rotate-180" aria-hidden />
-          </span>
+          <CaretDown size={18} className="rotate-180" aria-hidden />
         </Button>
-        {children}
       </section>
     );
   }

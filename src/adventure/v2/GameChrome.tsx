@@ -117,7 +117,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         data-game-header
         className={`${SURFACE_GAME_HEADER} sticky top-0 z-[60] pt-[env(safe-area-inset-top)]`}
       >
-        <div className="mx-auto w-full max-w-[864px]">
+        <div className="w-full">
           <V2TopBar
             stamina={stamina}
             staminaMax={staminaMax}

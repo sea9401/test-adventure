@@ -36,7 +36,7 @@ describe("V2TopBar", () => {
     const html = renderTopBar();
 
     expect(html).toContain("data-game-top-bar");
-    expect(html).toContain("max-w-[864px]");
+    expect(html).not.toContain("max-w-[864px]");
     expect(html).toContain("data-topbar-gold");
     expect(html).toMatch(/data-topbar-gold[^>]+class="[^"]*hidden[^"]*sm:inline-flex/);
     expect(html).toMatch(/^<div[^>]+data-game-top-bar/);

@@ -23,7 +23,7 @@ export function V2TopBar({
       data-game-top-bar
       className="border-b border-zinc-200 px-3 py-1 sm:px-4 dark:border-zinc-700"
     >
-      <div className="mx-auto flex w-full max-w-[864px] items-center justify-between gap-3">
+      <div className="flex w-full items-center justify-between gap-3">
         <Link
           href="/"
           aria-label="무슨무슨게임 홈으로 이동"

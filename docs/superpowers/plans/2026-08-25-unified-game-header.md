@@ -79,7 +79,7 @@ export const SURFACE_GAME_HEADER =
   data-game-header
   className={`${SURFACE_GAME_HEADER} sticky top-0 z-[60] pt-[env(safe-area-inset-top)]`}
 >
-  <div className="mx-auto w-full max-w-[864px]">
+  <div className="w-full">
     <V2TopBar
       stamina={stamina}
       staminaMax={staminaMax}
@@ -112,7 +112,7 @@ Expected: 모든 관련 테스트 PASS.
 
 - [x] **Step 5: 레이아웃 세부 정리와 회귀 확인**
 
-드롭다운이 카드 밖으로 열릴 수 있도록 헤더 셸에 `overflow-hidden`을 추가하지 않는다. 중복 `max-w-[864px]`은 정렬 안전장치로 유지하고, 티커가 없을 때 빈 높이가 생기지 않는지 DOM과 브라우저 출력에서 확인한다. `V2ItemCardPopover`는 `[data-game-header]`의 하단을 우선 사용하고, 독립 렌더링 호환을 위해 `[data-game-top-bar]`를 보조 경계로 사용한다.
+드롭다운이 헤더 밖으로 열릴 수 있도록 헤더 셸에 `overflow-hidden`을 추가하지 않는다. 헤더 내부 컴포넌트에도 최대 폭 제한을 두지 않고, 티커가 없을 때 빈 높이가 생기지 않는지 DOM과 브라우저 출력에서 확인한다. `V2ItemCardPopover`는 `[data-game-header]`의 하단을 우선 사용하고, 독립 렌더링 호환을 위해 `[data-game-top-bar]`를 보조 경계로 사용한다.
 
 Run:
 

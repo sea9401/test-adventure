@@ -124,6 +124,57 @@ describe("거대어 비동기 기여 패널", () => {
     expect(html).not.toContain("1위");
   });
 
+  it("거대어 개인 시도는 준비·취소 후 실제 시작을 별도 입력으로 받는다", async () => {
+    const onStart = vi.fn(async () => true);
+    render(
+      <DangerousFishingBossPanel
+        model={bossModel()}
+        busy={false}
+        {...handlers}
+        onStart={onStart}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "개인 시도 준비" }));
+
+    expect(onStart).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("region", { name: "거대어 낚시 시작 준비" }),
+    ).toBeDefined();
+    expect(screen.getByText(/시작 버튼을 누르기 전에는 제한 시간이 흐르지 않습니다/)).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "준비 취소" }));
+    expect(screen.getByRole("button", { name: "개인 시도 준비" })).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "개인 시도 준비" }));
+    fireEvent.click(screen.getByRole("button", { name: "거대어 낚시 시작" }));
+
+    expect(onStart).toHaveBeenCalledTimes(1);
+    expect(onStart).toHaveBeenCalledWith("event-ui");
+  });
+
+  it("거대어 시작 요청이 실패하면 준비 화면을 유지해 다시 시도한다", async () => {
+    const onStart = vi.fn(async () => false);
+    render(
+      <DangerousFishingBossPanel
+        model={bossModel()}
+        busy={false}
+        {...handlers}
+        onStart={onStart}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "개인 시도 준비" }));
+    fireEvent.click(screen.getByRole("button", { name: "거대어 낚시 시작" }));
+
+    expect(onStart).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole("region", { name: "거대어 낚시 시작 준비" }),
+    ).toBeDefined();
+    expect(
+      screen.getByRole("button", { name: "거대어 낚시 시작" }),
+    ).toBeDefined();
+  });
+
   it("개인 시도가 복원되면 공용 현황과 장력 조작을 중복 이미지 없이 한 화면에서 이어서 한다", () => {
     const html = renderToStaticMarkup(
       <DangerousFishingBossPanel
@@ -271,7 +322,7 @@ describe("거대어 비동기 기여 패널", () => {
     const html = renderToStaticMarkup(
       <DangerousFishingBossPanel model={bossModel()} busy={false} {...handlers} />,
     );
-    expect(html).toContain("개인 시도 시작");
+    expect(html).toContain("개인 시도 준비");
     expect(html).toContain("실패해도 기존 기여는 유지");
   });
 

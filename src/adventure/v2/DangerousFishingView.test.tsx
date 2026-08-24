@@ -10,7 +10,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DANGEROUS_BAITS,
   DANGEROUS_DEPTHS,
@@ -38,6 +38,21 @@ import { useDangerousFishing } from "./useDangerousFishing";
 import { DangerousFishingBossPanel } from "./DangerousFishingBossPanel";
 import type { DangerousFishingBossViewModel } from "./DangerousFishingBossPanel";
 import type { DangerousRealtimeClientEncounter } from "./useDangerousFishingRealtime";
+
+const originalScrollIntoView = Object.getOwnPropertyDescriptor(
+  HTMLElement.prototype,
+  "scrollIntoView",
+);
+
+function installScrollIntoView() {
+  const scrollIntoView = vi.fn();
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+    configurable: true,
+    writable: true,
+    value: scrollIntoView,
+  });
+  return scrollIntoView;
+}
 
 function model(overrides: Partial<DangerousFishingViewModel> = {}): DangerousFishingViewModel {
   return {
@@ -199,10 +214,23 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
+beforeEach(() => {
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+});
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  if (originalScrollIntoView) {
+    Object.defineProperty(
+      HTMLElement.prototype,
+      "scrollIntoView",
+      originalScrollIntoView,
+    );
+  } else {
+    Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+  }
 });
 
 describe("위험 해역 시작 요청 선택", () => {
@@ -558,6 +586,207 @@ describe("위험 해역 개인 화면", () => {
     expect(html).toContain("모든 행동 장력 충격 12% 감소");
   });
 
+  it("일반 조우는 준비와 실제 시작을 분리하고 두 번째 입력에서만 시작한다", async () => {
+    const state = emptyDangerousFishingState();
+    const onStartEncounter = vi.fn(async () => true);
+    render(
+      <DangerousFishingView
+        model={model({
+          state: {
+            ...state,
+            bossAttempt: null,
+            voyage: {
+              id: "voyage-ready",
+              zoneId: "shattered_reef",
+              depthId: "surface",
+              risk: 1,
+              startedAt: 1_799_999_000_000,
+              encounter: null,
+              cargo: [],
+            },
+          },
+        })}
+        boss={null}
+        loading={false}
+        busy={null}
+        error={null}
+        {...handlers}
+        onStartEncounter={onStartEncounter}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "낚시 준비" }));
+
+    expect(onStartEncounter).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("region", { name: "위험 해역 낚시 시작 준비" }),
+    ).toBeDefined();
+    expect(screen.getByText("해역용 기본 미끼")).toBeDefined();
+    expect(screen.getByText(/시작 버튼을 누르기 전에는 제한 시간이 흐르지 않습니다/)).toBeDefined();
+    expect(screen.getByRole("button", { name: "준비 취소" })).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "낚시 시작" }));
+
+    await waitFor(() => expect(onStartEncounter).toHaveBeenCalledTimes(1));
+    expect(onStartEncounter).toHaveBeenCalledWith("basic_bait");
+  });
+
+  it("일반 조우 시작 요청이 실패하면 준비 화면을 유지해 다시 시도한다", async () => {
+    const state = emptyDangerousFishingState();
+    const onStartEncounter = vi.fn(async () => false);
+    render(
+      <DangerousFishingView
+        model={model({
+          state: {
+            ...state,
+            bossAttempt: null,
+            voyage: {
+              id: "voyage-retry",
+              zoneId: "shattered_reef",
+              depthId: "surface",
+              risk: 1,
+              startedAt: 1_799_999_000_000,
+              encounter: null,
+              cargo: [],
+            },
+          },
+        })}
+        boss={null}
+        loading={false}
+        busy={null}
+        error={null}
+        {...handlers}
+        onStartEncounter={onStartEncounter}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "낚시 준비" }));
+    fireEvent.click(screen.getByRole("button", { name: "낚시 시작" }));
+
+    await waitFor(() => expect(onStartEncounter).toHaveBeenCalledTimes(1));
+    expect(
+      screen.getByRole("region", { name: "위험 해역 낚시 시작 준비" }),
+    ).toBeDefined();
+    expect(screen.getByRole("button", { name: "낚시 시작" })).toBeDefined();
+  });
+
+  it("실제 시작으로 새 일반 조우가 나타나면 HUD 상단으로 한 번 이동한다", async () => {
+    const state = emptyDangerousFishingState();
+    const voyage = {
+      id: "voyage-scroll",
+      zoneId: "shattered_reef" as const,
+      depthId: "surface" as const,
+      risk: 1,
+      startedAt: 1_799_999_000_000,
+      encounter: null,
+      cargo: [],
+    };
+    const before = model({
+      state: { ...state, bossAttempt: null, voyage },
+    });
+    const after = model({
+      state: {
+        ...state,
+        bossAttempt: null,
+        voyage: { ...voyage, encounter: realtimeEncounter() },
+      },
+    });
+    const scrollIntoView = installScrollIntoView();
+    const props = {
+      boss: null,
+      loading: false,
+      busy: null,
+      error: null,
+      ...handlers,
+      onStartEncounter: vi.fn(async () => true),
+    } as const;
+    const view = render(<DangerousFishingView model={before} {...props} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "낚시 준비" }));
+    fireEvent.click(screen.getByRole("button", { name: "낚시 시작" }));
+    await waitFor(() => expect(props.onStartEncounter).toHaveBeenCalledTimes(1));
+    view.rerender(<DangerousFishingView model={after} {...props} />);
+
+    await waitFor(() =>
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" }),
+    );
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+  });
+
+  it("페이지 진입 때 복원된 일반 조우는 현재 화면 위치를 바꾸지 않는다", () => {
+    const state = emptyDangerousFishingState();
+    const scrollIntoView = installScrollIntoView();
+    render(
+      <DangerousFishingView
+        model={model({
+          state: {
+            ...state,
+            bossAttempt: null,
+            voyage: {
+              id: "voyage-restored-scroll",
+              zoneId: "shattered_reef",
+              depthId: "surface",
+              risk: 1,
+              startedAt: 1_799_999_000_000,
+              encounter: realtimeEncounter(),
+              cargo: [],
+            },
+          },
+        })}
+        boss={null}
+        loading={false}
+        busy={null}
+        error={null}
+        {...handlers}
+      />,
+    );
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it("실제 시작으로 새 거대어 조우가 나타나면 개인 시도 상단으로 이동한다", async () => {
+    const scrollIntoView = installScrollIntoView();
+    const onStartBossAttempt = vi.fn(async () => true);
+    const props = {
+      model: model(),
+      loading: false,
+      busy: null,
+      error: null,
+      ...handlers,
+      onStartBossAttempt,
+    } as const;
+    const before = activeBossModel();
+    const realtime = realtimeEncounter();
+    const after: DangerousFishingBossViewModel = {
+      ...before,
+      realtimeAttempt: {
+        eventId: "event-client",
+        encounter: {
+          ...realtime,
+          targetKind: "boss",
+          targetId: "tidal_colossus",
+          config: {
+            ...realtime.config,
+            targetKind: "boss",
+            rarity: "boss",
+          },
+        },
+      },
+    };
+    const view = render(<DangerousFishingView boss={before} {...props} />);
+    fireEvent.click(screen.getByRole("tab", { name: /거대어/ }));
+    fireEvent.click(screen.getByRole("button", { name: "개인 시도 준비" }));
+    fireEvent.click(screen.getByRole("button", { name: "거대어 낚시 시작" }));
+    await waitFor(() => expect(onStartBossAttempt).toHaveBeenCalledTimes(1));
+
+    view.rerender(<DangerousFishingView boss={after} {...props} />);
+
+    await waitFor(() =>
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" }),
+    );
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+  });
+
   it("항해 중에는 거대어 개인 시도를 막고 먼저 귀환하라고 안내한다", () => {
     const state = emptyDangerousFishingState();
     render(
@@ -587,7 +816,7 @@ describe("위험 해역 개인 화면", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: /거대어/ }));
 
-    const startButton = screen.getByRole("button", { name: "개인 시도 시작" });
+    const startButton = screen.getByRole("button", { name: "개인 시도 준비" });
     expect((startButton as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/항해를 마치고 귀환한 뒤/)).toBeDefined();
   });

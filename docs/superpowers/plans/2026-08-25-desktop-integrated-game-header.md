@@ -38,7 +38,7 @@ Add assertions that the main menu keeps `grid-cols-5` below `md`, switches to `m
 expect(nav.firstElementChild?.className).toContain("grid-cols-5");
 expect(nav.firstElementChild?.className).toContain("md:flex");
 expect(lifeTab.parentElement?.className).toContain("md:relative");
-expect(screen.getByRole("menu").className).toContain("md:w-[22rem]");
+expect(screen.getByRole("menu").className).toContain("md:w-72");
 ```
 
 - [ ] **Step 2: Write failing top-bar and chrome tests**
@@ -114,7 +114,7 @@ Wrap each tab in `contents md:relative`, switch the tab container from the uncha
   <div className="contents md:relative">
     <button className="... md:min-h-16 md:px-4 md:text-[0.9375rem]">...</button>
     {isOpen ? (
-      <div className="... absolute left-0 right-0 top-full ... md:left-1/2 md:right-auto md:w-[22rem] md:-translate-x-1/2 md:grid-cols-2">
+      <div className="... absolute left-0 right-0 top-full ... md:left-1/2 md:right-auto md:w-72 md:-translate-x-1/2 md:grid-cols-1">
         {menuItems}
       </div>
     ) : null}
@@ -150,4 +150,3 @@ Expected: All existing suites pass with only documented skips.
 git add src/adventure/v2/MainTabNav.tsx src/adventure/v2/V2TopBar.tsx src/adventure/v2/GameChrome.tsx src/adventure/v2/MainTabNav.test.tsx src/adventure/v2/V2TopBar.test.tsx src/adventure/v2/GameChrome.layout.test.tsx
 git commit -m "feat: integrate desktop game navigation into header"
 ```
-

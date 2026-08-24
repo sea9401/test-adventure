@@ -94,15 +94,18 @@ export function V2TopBar({
   return (
     <div
       data-game-top-bar
-      className="border-b border-zinc-200 px-3 py-1 sm:px-4 dark:border-zinc-700"
+      className="border-b border-zinc-200 px-3 py-1 sm:px-4 md:contents dark:border-zinc-700"
     >
-      <div className="flex w-full items-center justify-between gap-2 sm:gap-3">
-        <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
+      <div className="flex w-full items-center justify-between gap-2 sm:gap-3 md:contents">
+        <div
+          data-topbar-left-status
+          className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2 md:col-start-1 md:row-start-1 md:h-16"
+        >
           <Link
             href="/"
             aria-label="무슨무슨게임 홈으로 이동"
             title="홈"
-            className={`${SURFACE_INSET} inline-flex size-10 shrink-0 items-center justify-center border-0 shadow-none transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:hover:bg-zinc-800`}
+            className={`${SURFACE_INSET} inline-flex size-10 shrink-0 items-center justify-center border-0 shadow-none transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 md:size-12 dark:hover:bg-zinc-800`}
           >
             <Image
               src="/icon-192.png"
@@ -110,14 +113,14 @@ export function V2TopBar({
               width={32}
               height={32}
               unoptimized
-              className="size-8 shrink-0 rounded-md"
+              className="size-8 shrink-0 rounded-md md:size-9"
             />
           </Link>
           {activityHref ? (
             <Link
               href={activityHref}
               aria-label={`${autoGathering?.activity === "woodcutting" ? "벌목" : "채광"} 화면으로 이동`}
-              className={`${SURFACE_INSET} flex h-10 min-w-0 items-center border-0 px-2 shadow-none transition-colors hover:bg-zinc-100 sm:px-3 dark:hover:bg-zinc-800`}
+              className={`${SURFACE_INSET} flex h-10 min-w-0 items-center border-0 px-2 shadow-none transition-colors hover:bg-zinc-100 sm:px-3 md:h-12 dark:hover:bg-zinc-800`}
             >
               <LifeActivityStatus
                 key={autoGathering?.readyAt}
@@ -128,7 +131,7 @@ export function V2TopBar({
             <Link
               href="/town/fishing"
               aria-label="낚시 화면으로 이동"
-              className={`${SURFACE_INSET} flex h-10 min-w-0 items-center border-0 px-2 shadow-none transition-colors hover:bg-zinc-100 sm:px-3 dark:hover:bg-zinc-800`}
+              className={`${SURFACE_INSET} flex h-10 min-w-0 items-center border-0 px-2 shadow-none transition-colors hover:bg-zinc-100 sm:px-3 md:h-12 dark:hover:bg-zinc-800`}
             >
               <span className="truncate text-[10px] font-medium text-emerald-700 sm:text-[11px] dark:text-emerald-300">
                 낚시 중
@@ -136,28 +139,28 @@ export function V2TopBar({
             </Link>
           ) : (
             <div
-              className={`${SURFACE_INSET} flex h-10 min-w-0 items-center border-0 px-2 shadow-none sm:px-3`}
+              className={`${SURFACE_INSET} flex h-10 min-w-0 items-center border-0 px-2 shadow-none sm:px-3 md:h-12`}
             >
               <LifeActivityStatus key="rest" status={null} />
             </div>
           )}
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1.5">
           <button
             type="button"
             aria-label={`스태미나 ${displayStamina.current} / ${staminaMax}`}
             title="스태미나 포션 사용"
             onClick={() => setPotionModalOpen(true)}
-            className={`${SURFACE_INSET} inline-flex min-h-8 items-center gap-1 border-0 px-2 py-1 text-[11px] font-semibold tabular-nums text-zinc-600 shadow-none transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:text-zinc-300 dark:hover:bg-zinc-800`}
+            className={`${SURFACE_INSET} ml-auto inline-flex min-h-8 items-center gap-1 border-0 px-2 py-1 text-[11px] font-semibold tabular-nums text-zinc-600 shadow-none transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 md:ml-0 md:min-h-10 md:px-3 md:text-xs dark:text-zinc-300 dark:hover:bg-zinc-800`}
           >
             <Lightning size={12} weight="fill" className="text-orange-500" aria-hidden />
             {numberFormatter.format(displayStamina.current)} / {numberFormatter.format(staminaMax)}
           </button>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1.5 md:col-start-3 md:row-start-1">
           <span
             data-topbar-gold
             aria-label={`사용 가능 골드 ${numberFormatter.format(spendableGold)}`}
-            className={`${SURFACE_INSET} hidden min-h-8 items-center gap-1 border-0 px-2 py-1 text-[11px] font-semibold tabular-nums text-zinc-600 shadow-none sm:inline-flex dark:text-zinc-300`}
+            className={`${SURFACE_INSET} hidden min-h-8 items-center gap-1 border-0 px-2 py-1 text-[11px] font-semibold tabular-nums text-zinc-600 shadow-none sm:inline-flex md:hidden dark:text-zinc-300`}
           >
             <Coins size={12} weight="fill" className="text-amber-500" aria-hidden />
             {numberFormatter.format(spendableGold)}

@@ -125,7 +125,13 @@ describe("메인 탭 디자인 시스템", () => {
     expect(menu.className).toContain("right-0");
     expect(menu.className).toContain("md:left-1/2");
     expect(menu.className).toContain("md:right-auto");
-    expect(menu.className).toContain("md:w-[22rem]");
+    expect(menu.className).toContain("md:w-72");
+    expect(menu.className).toContain("md:grid-cols-1");
+
+    for (const item of screen.getAllByRole("menuitem")) {
+      expect(item.className).toContain("h-14");
+      expect(item.className).toContain("md:h-auto");
+    }
   });
 
   it("활성 탭과 처리 가능한 생활 메뉴를 같은 상태 언어로 표시한다", () => {

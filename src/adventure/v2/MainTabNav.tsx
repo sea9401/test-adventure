@@ -334,8 +334,14 @@ export function MainTabNav({
       : (openTab?.sub ?? []);
 
   return (
-    <nav className="relative w-full" aria-label="메인 메뉴">
-      <div className="grid grid-cols-5 border-b border-zinc-200 px-1 sm:px-3 dark:border-zinc-800">
+    <nav
+      className="relative w-full md:col-start-2 md:row-start-1 md:w-auto"
+      aria-label="메인 메뉴"
+    >
+      {openTab && (
+        <div className="fixed inset-0 z-40" onClick={close} aria-hidden />
+      )}
+      <div className="grid grid-cols-5 border-b border-zinc-200 px-1 sm:px-3 md:flex md:border-b-0 md:px-0 dark:border-zinc-800">
         {TABS.map((t) => {
           const isActive = t.key === activeKey;
           const hasSub = !!t.sub;
@@ -344,110 +350,115 @@ export function MainTabNav({
             t.key as keyof typeof snapshot.notifications.tabs
           ] === true;
           return (
-            <button
-              key={t.key}
-              ref={isActive ? activeButtonRef : undefined}
-              type="button"
-              aria-haspopup={hasSub ? "menu" : undefined}
-              aria-expanded={hasSub ? isOpen : undefined}
-              onClick={() => {
-                if (hasSub) {
-                  const nextOpen = isOpen ? null : t.key;
-                  setOpenKey(nextOpen);
-                  if (nextOpen === "guild" && viewerGuildId != null) {
-                    void refreshGuildFacilities(viewerGuildId);
+            <div key={t.key} className="contents md:relative">
+              <button
+                ref={isActive ? activeButtonRef : undefined}
+                type="button"
+                aria-haspopup={hasSub ? "menu" : undefined}
+                aria-expanded={hasSub ? isOpen : undefined}
+                onClick={() => {
+                  if (hasSub) {
+                    const nextOpen = isOpen ? null : t.key;
+                    setOpenKey(nextOpen);
+                    if (nextOpen === "guild" && viewerGuildId != null) {
+                      void refreshGuildFacilities(viewerGuildId);
+                    }
+                  } else {
+                    close();
+                    onNavigate(t.href);
                   }
-                } else {
-                  close();
-                  onNavigate(t.href);
-                }
-              }}
-              aria-label={`${t.label}${hasActionable ? ", 처리 가능한 항목 있음" : ""}`}
-              className={`relative -mb-px flex min-h-11 min-w-0 items-center justify-center gap-0.5 whitespace-nowrap border-b-2 px-0.5 py-2 text-sm font-semibold transition-colors sm:gap-1 sm:px-2 ${
-                isActive
-                  ? "border-violet-600 text-violet-700 dark:border-violet-400 dark:text-violet-300"
-                  : "border-transparent text-zinc-500 hover:text-violet-600 dark:text-zinc-400 dark:hover:text-violet-300"
-              }`}
-            >
-              {t.label}
-              {hasActionable && (
-                <span
-                  aria-hidden
-                  className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-orange-500 ring-2 ring-white dark:ring-zinc-950"
-                />
+                }}
+                aria-label={`${t.label}${hasActionable ? ", 처리 가능한 항목 있음" : ""}`}
+                className={`relative -mb-px flex min-h-11 min-w-0 items-center justify-center gap-0.5 whitespace-nowrap border-b-2 px-0.5 py-2 text-sm font-semibold transition-colors sm:gap-1 sm:px-2 md:min-h-16 md:px-3.5 md:text-[0.9375rem] ${
+                  isActive
+                    ? "border-violet-600 text-violet-700 dark:border-violet-400 dark:text-violet-300"
+                    : "border-transparent text-zinc-500 hover:text-violet-600 dark:text-zinc-400 dark:hover:text-violet-300"
+                }`}
+              >
+                {t.label}
+                {hasActionable && (
+                  <span
+                    aria-hidden
+                    className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-orange-500 ring-2 ring-white md:right-2 md:top-2 dark:ring-zinc-950"
+                  />
+                )}
+                {hasSub && (
+                  <CaretDown
+                    size={10}
+                    weight="bold"
+                    className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
+                  />
+                )}
+              </button>
+
+              {isOpen && openTab && (
+                <div
+                  key={openTab.key}
+                  role="menu"
+                  aria-label={`${openTab.label} 메뉴`}
+                  className={`${SURFACE_CARD} ui-dropdown-reveal absolute left-0 right-0 top-full z-50 mx-2 mt-2 grid max-h-[calc(100dvh-10rem)] grid-cols-2 gap-1 overflow-y-auto overscroll-contain p-2 sm:mx-6 sm:grid-cols-3 md:left-1/2 md:right-auto md:mx-0 md:w-72 md:-translate-x-1/2 md:grid-cols-1 md:gap-0.5`}
+                >
+                  {openSubItems.map((s) => {
+                    const activityState = menuActivityStateForHref(
+                      snapshot?.activities ?? [],
+                      s.href,
+                      s.label,
+                      s.activityHrefs,
+                    );
+                    const notificationHrefs = [
+                      s.href,
+                      ...(s.activityHrefs ?? []),
+                    ];
+                    const itemHasActionable =
+                      activityState?.actionable === true &&
+                      notificationHrefs.some(
+                        (href) => snapshot?.notifications.paths[href] === true,
+                      );
+                    return (
+                      <button
+                        key={s.href}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          close();
+                          onNavigate(s.href);
+                        }}
+                        aria-label={`${s.label}${itemHasActionable ? ", 처리 가능한 항목 있음" : ""}`}
+                        className={`${SURFACE_INSET} relative flex h-14 items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-zinc-100 active:bg-zinc-200 md:h-auto md:min-h-10 md:rounded-md md:px-3 md:py-2 dark:hover:bg-zinc-900 dark:active:bg-zinc-800`}
+                      >
+                        <s.Icon
+                          size={20}
+                          weight="duotone"
+                          aria-hidden
+                          className={`shrink-0 ${s.color}`}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                            {s.label}
+                          </span>
+                          {activityState && (
+                            <span
+                              className={`block truncate text-[0.6875rem] ${itemHasActionable ? "font-semibold text-orange-700 dark:text-orange-300" : "text-zinc-500 dark:text-zinc-400"}`}
+                            >
+                              {activityState.text}
+                            </span>
+                          )}
+                        </span>
+                        {itemHasActionable && (
+                          <span
+                            aria-hidden
+                            className="h-2 w-2 shrink-0 rounded-full bg-orange-500"
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               )}
-              {hasSub && (
-                <CaretDown
-                  size={10}
-                  weight="bold"
-                  className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
-                />
-              )}
-            </button>
+            </div>
           );
         })}
       </div>
-
-      {openTab && (
-        <>
-          {/* 바깥 클릭 닫기 — 투명 캐처. */}
-          <div className="fixed inset-0 z-40" onClick={close} aria-hidden />
-          <div
-            key={openTab.key}
-            role="menu"
-            aria-label={`${openTab.label} 메뉴`}
-            className={`${SURFACE_CARD} ui-dropdown-reveal absolute left-0 right-0 top-full z-50 mx-2 mt-2 grid max-h-[calc(100dvh-10rem)] grid-cols-2 gap-1 overflow-y-auto overscroll-contain p-2 sm:mx-6 sm:grid-cols-3`}
-          >
-            {openSubItems.map((s) => {
-              const activityState = menuActivityStateForHref(
-                snapshot?.activities ?? [],
-                s.href,
-                s.label,
-                s.activityHrefs,
-              );
-              const notificationHrefs = [s.href, ...(s.activityHrefs ?? [])];
-              const hasActionable =
-                activityState?.actionable === true &&
-                notificationHrefs.some(
-                  (href) => snapshot?.notifications.paths[href] === true,
-                );
-              return (
-              <button
-                key={s.href}
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  close();
-                  onNavigate(s.href);
-                }}
-                aria-label={`${s.label}${hasActionable ? ", 처리 가능한 항목 있음" : ""}`}
-                className={`${SURFACE_INSET} relative flex h-14 items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-zinc-100 active:bg-zinc-200 dark:hover:bg-zinc-900 dark:active:bg-zinc-800`}
-              >
-                <s.Icon
-                  size={20}
-                  weight="duotone"
-                  aria-hidden
-                  className={`shrink-0 ${s.color}`}
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-zinc-700 dark:text-zinc-200">
-                    {s.label}
-                  </span>
-                  {activityState && (
-                    <span className={`block truncate text-[0.6875rem] ${hasActionable ? "font-semibold text-orange-700 dark:text-orange-300" : "text-zinc-500 dark:text-zinc-400"}`}>
-                      {activityState.text}
-                    </span>
-                  )}
-                </span>
-                {hasActionable && (
-                  <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-orange-500" />
-                )}
-              </button>
-              );
-            })}
-          </div>
-        </>
-      )}
     </nav>
   );
 }

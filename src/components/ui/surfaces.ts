@@ -26,6 +26,6 @@ export const SURFACE_ACCENT =
 export const SURFACE_FROSTED =
   "rounded-xl bg-white/75 shadow-sm backdrop-blur-sm dark:bg-zinc-900/80";
 
-/** 영속 상단바 — 둥근 모서리 없이 화면 폭을 채우는 의도적인 프로스티드 크롬. */
-export const SURFACE_FROSTED_BAR =
-  "border-b border-zinc-200 bg-white/90 shadow-sm backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/90";
+/** 결합형 게임 헤더 — 상단 행·메인 탭·티커가 공유하는 불투명 크롬 카드. */
+export const SURFACE_GAME_HEADER =
+  "rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900";

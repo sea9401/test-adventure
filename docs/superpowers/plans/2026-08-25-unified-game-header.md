@@ -24,6 +24,8 @@
 - Modify: `src/adventure/v2/V2TopBar.tsx` — 상단 행 스타일과 의미 구조만 담당한다.
 - Modify: `src/adventure/v2/V2TopBar.test.tsx` — 상단 행이 독립 sticky 헤더가 아님을 검증한다.
 - Create: `src/adventure/v2/GameChrome.layout.test.tsx` — 실제 `V2TopBar`와 `MainTabNav`가 단일 헤더 안에 배치되는 레이아웃 계약을 검증한다.
+- Modify: `src/adventure/v2/item-card/V2ItemCardPopover.tsx` — 팝오버의 상단 경계를 결합형 게임 헤더 전체 높이에서 읽는다.
+- Create: `src/adventure/v2/item-card/V2ItemCardPopover.header.test.tsx` — 탭 뒤로 팝오버가 가려지는 회귀를 검증한다.
 - Modify: `src/components/ui/surfaces.ts` — 불투명 게임 헤더 표면 토큰을 추가한다.
 
 ### Task 1: 단일 게임 헤더 레이아웃 계약
@@ -32,7 +34,7 @@
 - Consumes: `GameChrome({ children }: { children: React.ReactNode })`, `V2TopBar`, `MainTabNav`, `WarTicker`
 - Produces: `data-game-header`가 있는 단일 `<header>`와 그 안의 `data-game-top-bar`, `aria-label="메인 메뉴"`, 티커 영역
 
-- [ ] **Step 1: 실패하는 레이아웃 테스트 작성**
+- [x] **Step 1: 실패하는 레이아웃 테스트 작성**
 
 `src/adventure/v2/GameChrome.layout.test.tsx`에서 라우터와 게임 상태 공급자만 격리하고 `GameChrome`을 렌더한다. `header[data-game-header]`가 아직 없으므로 다음 계약이 실패해야 한다.
 
@@ -51,7 +53,7 @@ expect(html).toMatch(/^<div[^>]+data-game-top-bar/);
 expect(html).not.toContain("sticky top-0");
 ```
 
-- [ ] **Step 2: RED 확인**
+- [x] **Step 2: RED 확인**
 
 Run:
 
@@ -61,7 +63,7 @@ npm test -- src/adventure/v2/GameChrome.layout.test.tsx src/adventure/v2/V2TopBa
 
 Expected: 현재 `GameChrome`에 `header[data-game-header]`가 없고 `V2TopBar` 루트가 자체 sticky `<header>`이므로 관련 assertion이 실패한다.
 
-- [ ] **Step 3: 최소 구현**
+- [x] **Step 3: 최소 구현**
 
 `surfaces.ts`에 다음 불투명 표면 토큰을 추가한다.
 
@@ -98,7 +100,7 @@ export const SURFACE_GAME_HEADER =
 
 `V2TopBar.tsx` 루트를 `<div data-game-top-bar>`로 바꾸고 sticky·z-index·바깥 표면 스타일을 제거한다. 내부 행에는 `border-b`, `px-3`, `py-1`, 데스크톱 패딩만 남긴다.
 
-- [ ] **Step 4: GREEN 확인**
+- [x] **Step 4: GREEN 확인**
 
 Run:
 
@@ -108,24 +110,24 @@ npm test -- src/adventure/v2/GameChrome.layout.test.tsx src/adventure/v2/V2TopBa
 
 Expected: 모든 관련 테스트 PASS.
 
-- [ ] **Step 5: 레이아웃 세부 정리와 회귀 확인**
+- [x] **Step 5: 레이아웃 세부 정리와 회귀 확인**
 
-드롭다운이 카드 밖으로 열릴 수 있도록 헤더 셸에 `overflow-hidden`을 추가하지 않는다. 중복 `max-w-[864px]`은 정렬 안전장치로 유지하고, 티커가 없을 때 빈 높이가 생기지 않는지 DOM과 브라우저 출력에서 확인한다.
+드롭다운이 카드 밖으로 열릴 수 있도록 헤더 셸에 `overflow-hidden`을 추가하지 않는다. 중복 `max-w-[864px]`은 정렬 안전장치로 유지하고, 티커가 없을 때 빈 높이가 생기지 않는지 DOM과 브라우저 출력에서 확인한다. `V2ItemCardPopover`는 `[data-game-header]`의 하단을 우선 사용하고, 독립 렌더링 호환을 위해 `[data-game-top-bar]`를 보조 경계로 사용한다.
 
 Run:
 
 ```bash
 npm run check-images
-npx eslint src/adventure/v2/GameChrome.tsx src/adventure/v2/V2TopBar.tsx src/adventure/v2/GameChrome.layout.test.tsx src/adventure/v2/V2TopBar.test.tsx src/components/ui/surfaces.ts
+npx eslint src/adventure/v2/GameChrome.tsx src/adventure/v2/V2TopBar.tsx src/adventure/v2/GameChrome.layout.test.tsx src/adventure/v2/V2TopBar.test.tsx src/adventure/v2/item-card/V2ItemCardPopover.tsx src/adventure/v2/item-card/V2ItemCardPopover.header.test.tsx src/components/ui/surfaces.ts
 npx tsc --noEmit
 npm run build
 ```
 
 Expected: 이미지 참조 오류 없음, ESLint 0 errors, TypeScript 0 errors, Next.js build exit 0.
 
-- [ ] **Step 6: 구현 커밋**
+- [x] **Step 6: 구현 커밋**
 
 ```bash
-git add src/adventure/v2/GameChrome.tsx src/adventure/v2/V2TopBar.tsx src/adventure/v2/GameChrome.layout.test.tsx src/adventure/v2/V2TopBar.test.tsx src/components/ui/surfaces.ts
+git add src/adventure/v2/GameChrome.tsx src/adventure/v2/V2TopBar.tsx src/adventure/v2/GameChrome.layout.test.tsx src/adventure/v2/V2TopBar.test.tsx src/adventure/v2/item-card/V2ItemCardPopover.tsx src/adventure/v2/item-card/V2ItemCardPopover.header.test.tsx src/components/ui/surfaces.ts docs/superpowers/specs/2026-08-25-unified-game-header-design.md docs/superpowers/plans/2026-08-25-unified-game-header.md
 git commit -m "feat: unify persistent game header"
 ```

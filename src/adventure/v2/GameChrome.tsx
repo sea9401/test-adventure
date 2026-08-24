@@ -15,6 +15,7 @@ import { GameSceneBackground } from "@/adventure/v2/GameSceneBackground";
 import { GameContentTransition } from "@/adventure/v2/GameContentTransition";
 import { gameSceneBackgroundForPath } from "@/adventure/v2/gameSceneBackgroundForPath";
 import { gameTabForPath, type GameTabId } from "@/adventure/v2/gameTabForPath";
+import { SURFACE_GAME_HEADER } from "@/components/ui/surfaces";
 
 // v2 게임 chrome — 모든 라우트가 공유하는 영속 틀(상단바·탭바·배경).
 // (game)/layout.tsx 안에 마운트되어 네비게이션마다 remount 되지 않는다 → 자식 page 만 교체.
@@ -112,11 +113,34 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
       className="game-desktop-compact"
       onFocusCapture={selectNumericInputValue}
     >
-      <V2TopBar
-        stamina={stamina}
-        staminaMax={staminaMax}
-        spendableGold={spendableGold}
-      />
+      <header
+        data-game-header
+        className="sticky top-0 z-[60] px-3 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-6 sm:pt-3"
+      >
+        <div
+          className={`${SURFACE_GAME_HEADER} mx-auto w-full max-w-[864px]`}
+        >
+          <V2TopBar
+            stamina={stamina}
+            staminaMax={staminaMax}
+            spendableGold={spendableGold}
+          />
+          {/* 메인 내비 — 마을 시설과 생활 콘텐츠를 분리한 6탭. */}
+          <MainTabNav
+            activeKey={activeTab}
+            gameStateLoaded={gameStateLoaded}
+            viewerGuildId={viewerGuildId}
+            onNavigate={(href) => router.push(href)}
+          />
+          {/* 전쟁 전광판 — 탭바 바로 아래 전역 한 줄. 사건 0건이면 빈 높이를 만들지 않는다. */}
+          <div
+            data-game-ticker-slot
+            className="overflow-hidden rounded-b-[11px]"
+          >
+            <WarTicker />
+          </div>
+        </div>
+      </header>
       <UgcConsentPrompt />
       {/* 전역 채팅 — 메뉴 안에 묻히지 않도록 모든 게임 화면 우하단에 고정한다.
           모바일은 하단 액션 바를 피하고, 단일 인스턴스라 폴링·읽음 상태도 중복되지 않는다. */}
@@ -136,15 +160,6 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         />
       )}
       <div>
-        {/* 메인 내비 — 마을 시설과 생활 콘텐츠를 분리한 6탭. */}
-        <MainTabNav
-          activeKey={activeTab}
-          gameStateLoaded={gameStateLoaded}
-          viewerGuildId={viewerGuildId}
-          onNavigate={(href) => router.push(href)}
-        />
-        {/* 전쟁 전광판 — 탭바 바로 아래 전역 한 줄. 사건 0건이면 스스로 숨는다. */}
-        <WarTicker />
         {/* 쿨다운 모드만 스태미나 폐지(전투 쿨다운 대체) → 바 숨김. 스태미나 모드/off 면 표시. */}
         {showStamina && (!coreLoopOn || huntStaminaMode) && (
           <div className="mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6">

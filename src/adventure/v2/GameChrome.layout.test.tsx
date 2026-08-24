@@ -67,6 +67,11 @@ describe("GameChrome 결합형 게임 헤더", () => {
     expect(gameHeader?.className).not.toContain("sm:px-6");
     expect(gameHeader?.className).not.toContain("rounded-xl");
     expect(gameHeader?.firstElementChild?.className).not.toContain("max-w-");
+    expect(gameHeader?.firstElementChild?.className).toContain("md:grid");
+    expect(gameHeader?.firstElementChild?.className).toContain(
+      "md:grid-cols-[minmax(0,1fr)_auto_auto]",
+    );
+    expect(gameHeader?.firstElementChild?.className).toContain("md:min-h-16");
     expect(gameHeader?.querySelector("[data-game-top-bar]")).not.toBeNull();
     expect(
       within(gameHeader as HTMLElement).getByRole("navigation", {

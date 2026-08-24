@@ -24,6 +24,12 @@ const FULL_WIDTH = new Set<AdventureHomeWidgetId>([
   "hot_time",
 ]);
 
+const MATCHED_HEIGHT = new Set<AdventureHomeWidgetId>([
+  "announcements",
+  "bulletin_preview",
+  "ranking_preview",
+]);
+
 export function AdventureHomeWidgetGrid({
   order,
   hidden,
@@ -96,7 +102,14 @@ export function AdventureHomeWidgetGrid({
                 <Button type="button" variant="ghost" size="icon" aria-label={`${WIDGET_LABELS[id]} 숨기기`} onClick={() => onHiddenChange([...hidden, id])}><EyeSlash size={18} /></Button>
               </Inset>
             )}
-            <div className={editing ? "pointer-events-none" : ""}>{widgets[id]}</div>
+            <div
+              className={[
+                editing ? "pointer-events-none" : "",
+                MATCHED_HEIGHT.has(id) ? "sm:h-[21rem] [&>*]:h-full" : "",
+              ].filter(Boolean).join(" ")}
+            >
+              {widgets[id]}
+            </div>
           </div>
         ))}
       </div>

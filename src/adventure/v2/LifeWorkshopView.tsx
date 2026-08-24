@@ -11,6 +11,7 @@ import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
@@ -37,9 +38,8 @@ import {
 } from "./lifeCrafting";
 import { LifeRequestBoard } from "./LifeRequestBoard";
 import { FarmItemIcon } from "./FarmItemIcon";
-import { FARM_ITEMS, type FarmItemId } from "./farm";
 
-type WorkshopRecipeView = {
+export type WorkshopRecipeView = {
   id: string;
   activity: LifeWorkshopActivity;
   inputId: string;
@@ -80,6 +80,7 @@ type WorkshopPayload = {
     maxCraftable: number;
   }>;
   ranchCraftingRecipe: RanchCraftingRecipeView;
+  failedDishFeedRecipe: FailedDishFeedRecipeView;
   result?: {
     action: string;
     produced?: number;
@@ -145,14 +146,26 @@ export type RanchCraftingRecipeView = {
   id: "compound_feed";
   name: string;
   outputAmount: number;
-  costs: Record<"wheat" | "corn" | "herb", number>;
+  ingredientAmount: number;
   unlocked: boolean;
   craftCount: number;
   masteryStage: number;
   batchLimit: number;
   maxCraftable: number;
   ownedFeed: number;
-  ingredientBalances: Record<"wheat" | "corn" | "herb", number>;
+  availableCropCount: number;
+};
+
+export type FailedDishFeedRecipeView = {
+  id: "failed_dish_feed";
+  name: string;
+  outputAmount: number;
+  failedDishCost: number;
+  craftCount: number;
+  masteryStage: number;
+  batchLimit: number;
+  maxCraftable: number;
+  ownedFeed: number;
 };
 
 type WorkshopErrorPayload = {
@@ -175,6 +188,18 @@ export function lifeWorkshopErrorText(payload: WorkshopErrorPayload | null): str
 
 function materialName(id: string): string {
   return V2_MATERIALS[id]?.name ?? id;
+}
+
+export function groupWorkshopRecipesByOutput(
+  recipes: readonly WorkshopRecipeView[],
+): WorkshopRecipeView[][] {
+  const groups = new Map<LifeProcessedMaterialId, WorkshopRecipeView[]>();
+  for (const recipe of recipes) {
+    const group = groups.get(recipe.outputId);
+    if (group) group.push(recipe);
+    else groups.set(recipe.outputId, [recipe]);
+  }
+  return [...groups.values()];
 }
 
 function requirementText(
@@ -385,6 +410,67 @@ export function LifeWorkshopQuantityControls({
   );
 }
 
+export function LifeWorkshopProcessingRecipeCard({
+  recipes,
+  level,
+  materials,
+  busy,
+  onProcess,
+}: {
+  recipes: readonly WorkshopRecipeView[];
+  level: number;
+  materials: Record<string, number>;
+  busy: boolean;
+  onProcess: (recipeId: string, batches: number) => void;
+}) {
+  const [selectedRecipeId, setSelectedRecipeId] = useState(
+    recipes[0]?.id ?? "",
+  );
+  const recipe =
+    recipes.find((entry) => entry.id === selectedRecipeId) ?? recipes[0];
+
+  if (!recipe) return null;
+
+  const outputName = materialName(recipe.outputId);
+  const unlocked = level >= recipe.requiredLevel;
+
+  return (
+    <div className={`${SURFACE_INSET} flex flex-col gap-3 p-3 sm:flex-row sm:items-center`}>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-semibold">
+          {outputName} {recipe.outputAmount}개
+        </div>
+        <label className="mt-2 flex items-center gap-2 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+          <span className="shrink-0">재료</span>
+          <select
+            aria-label={`${outputName} 재료 선택`}
+            value={recipe.id}
+            onChange={(event) => setSelectedRecipeId(event.currentTarget.value)}
+            className="min-h-9 min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-800 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+          >
+            {recipes.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {materialName(entry.inputId)} {entry.inputAmount}개
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+          필요 Lv.{recipe.requiredLevel} · 보유 {materials[recipe.inputId] ?? 0}개
+        </div>
+      </div>
+      <LifeWorkshopQuantityControls
+        maxQuantity={unlocked ? recipe.maxBatches : 0}
+        unit="회"
+        actionLabel="가공"
+        inputLabel={`${outputName} 가공 수량`}
+        busy={busy}
+        onSubmit={(batches) => onProcess(recipe.id, batches)}
+      />
+    </div>
+  );
+}
+
 export function RanchFeedRecipeCard({
   recipe,
   busy,
@@ -416,14 +502,12 @@ export function RanchFeedRecipeCard({
           </div>
         </div>
         <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] text-zinc-700 dark:text-zinc-200">
-          {Object.entries(recipe.costs).map(([itemId, amount]) => (
-            <span key={itemId} className={`${SURFACE_CARD} px-2 py-1`}>
-              {FARM_ITEMS[itemId as FarmItemId].name} {amount}개
-              <span className="ml-1 text-zinc-500 dark:text-zinc-400">
-                (보유 {recipe.ingredientBalances[itemId as keyof typeof recipe.ingredientBalances]}개)
-              </span>
+          <span className={`${SURFACE_CARD} px-2 py-1`}>
+            농장 작물 아무거나 {recipe.ingredientAmount}개
+            <span className="ml-1 text-zinc-500 dark:text-zinc-400">
+              (보유 {recipe.availableCropCount.toLocaleString("ko-KR")}개)
             </span>
-          ))}
+          </span>
         </div>
         <div className="mt-2 text-[10px] text-zinc-500 dark:text-zinc-400">
           제작 기록 {recipe.craftCount}회 · 단계 {recipe.masteryStage}/5 · 일괄 한도 {recipe.batchLimit}
@@ -447,6 +531,67 @@ export function RanchFeedRecipeCard({
             씨앗 선별을 배우면 제작할 수 있습니다.
           </p>
         )}
+      </div>
+    </Card>
+  );
+}
+
+export function FailedDishFeedRecipeCard({
+  recipe,
+  failedCookingDishes,
+  busy,
+  onCraft,
+}: {
+  recipe: FailedDishFeedRecipeView;
+  failedCookingDishes: number;
+  busy: boolean;
+  onCraft: (quantity: number) => void;
+}) {
+  return (
+    <Card padding="md">
+      <h2 className="text-sm font-bold">실패 음식 재활용</h2>
+      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+        실패한 요리를 가공해 목장에서 사용하는 사료로 재활용합니다.
+      </p>
+      <div className={`${SURFACE_INSET} mt-3 p-3`}>
+        <div className="flex items-start gap-3">
+          <FarmItemIcon itemId="compound_feed" className="size-16" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <strong>{recipe.name}</strong>
+              <span className="shrink-0 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                보유 {recipe.ownedFeed.toLocaleString("ko-KR")}개
+              </span>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+              실패 음식의 별도 소모처입니다. 1회 제작 시 {recipe.outputAmount}개 완성.
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] text-zinc-700 dark:text-zinc-200">
+          <span className={`${SURFACE_CARD} px-2 py-1`}>
+            실패 음식 {recipe.failedDishCost}개
+            <span className="ml-1 text-zinc-500 dark:text-zinc-400">
+              (보유 {failedCookingDishes.toLocaleString("ko-KR")}개)
+            </span>
+          </span>
+        </div>
+        <div className="mt-2 text-[10px] text-zinc-500 dark:text-zinc-400">
+          제작 기록 {recipe.craftCount}회 · 단계 {recipe.masteryStage}/5 · 일괄 한도 {recipe.batchLimit}
+        </div>
+        <div className="mt-2">
+          <LifeWorkshopQuantityControls
+            maxQuantity={recipe.maxCraftable}
+            unit="회"
+            actionLabel="제작"
+            inputLabel="재활용 배합 사료 제작 수량"
+            busy={busy}
+            onSubmit={onCraft}
+          />
+          {recipe.maxCraftable === 0 ? (
+            <span className="text-[11px] text-rose-600">실패 음식이 부족합니다.</span>
+          ) : null}
+        </div>
       </div>
     </Card>
   );
@@ -538,15 +683,15 @@ export function LifeWorkshopView({
   );
 
   const craftRanchFeed = useCallback(
-    async (quantity: number) => {
+    async (quantity: number, recipeId?: string) => {
       if (busy) return;
-      setBusy(`ranch-feed:${quantity}`);
+      setBusy(`ranch-feed:${recipeId ?? "compound_feed"}:${quantity}`);
       setNotice(null);
       try {
         const response = await fetch("/api/v2/farm/feed-craft", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ quantity }),
+          body: JSON.stringify(recipeId ? { quantity, recipeId } : { quantity }),
         });
         const json = (await response.json().catch(() => null)) as
           | ({
@@ -572,11 +717,15 @@ export function LifeWorkshopView({
     [busy, refresh],
   );
 
-  const recipesByActivity = useMemo(() => {
+  const recipeGroupsByActivity = useMemo(() => {
     if (!data) return { woodcutting: [], mining: [] };
     return {
-      woodcutting: data.recipes.filter((recipe) => recipe.activity === "woodcutting"),
-      mining: data.recipes.filter((recipe) => recipe.activity === "mining"),
+      woodcutting: groupWorkshopRecipesByOutput(
+        data.recipes.filter((recipe) => recipe.activity === "woodcutting"),
+      ),
+      mining: groupWorkshopRecipesByOutput(
+        data.recipes.filter((recipe) => recipe.activity === "mining"),
+      ),
     };
   }, [data]);
 
@@ -660,35 +809,22 @@ export function LifeWorkshopView({
                 </span>
               </div>
               <div className="mt-3 space-y-2">
-                {recipesByActivity[activity].map((recipe) => {
-                  const unlocked = data.levels[activity] >= recipe.requiredLevel;
-                  return (
-                    <div key={recipe.id} className={`${SURFACE_INSET} flex flex-col gap-2 p-3 sm:flex-row sm:items-center`}>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-semibold">
-                          {materialName(recipe.inputId)} {recipe.inputAmount}개 → {materialName(recipe.outputId)} {recipe.outputAmount}개
-                        </div>
-                        <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                          필요 Lv.{recipe.requiredLevel} · 보유 {data.materials[recipe.inputId] ?? 0}개
-                        </div>
-                      </div>
-                      <LifeWorkshopQuantityControls
-                        maxQuantity={unlocked ? recipe.maxBatches : 0}
-                        unit="회"
-                        actionLabel="가공"
-                        inputLabel={`${materialName(recipe.outputId)} 가공 수량`}
-                        busy={busy !== null}
-                        onSubmit={(batches) =>
-                          void mutate(`process:${recipe.id}:${batches}`, {
-                            action: "process",
-                            recipeId: recipe.id,
-                            batches,
-                          })
-                        }
-                      />
-                    </div>
-                  );
-                })}
+                {recipeGroupsByActivity[activity].map((recipes) => (
+                  <LifeWorkshopProcessingRecipeCard
+                    key={recipes[0].outputId}
+                    recipes={recipes}
+                    level={data.levels[activity]}
+                    materials={data.materials}
+                    busy={busy !== null}
+                    onProcess={(recipeId, batches) =>
+                      void mutate(`process:${recipeId}:${batches}`, {
+                        action: "process",
+                        recipeId,
+                        batches,
+                      })
+                    }
+                  />
+                ))}
               </div>
             </Card>
           ))}
@@ -699,6 +835,14 @@ export function LifeWorkshopView({
             recipe={data.ranchCraftingRecipe}
             busy={busy !== null}
             onCraft={(quantity) => void craftRanchFeed(quantity)}
+          />
+          <FailedDishFeedRecipeCard
+            recipe={data.failedDishFeedRecipe}
+            failedCookingDishes={data.failedCookingDishes}
+            busy={busy !== null}
+            onCraft={(quantity) =>
+              void craftRanchFeed(quantity, data.failedDishFeedRecipe.id)
+            }
           />
           {VISIBLE_LIFE_CRAFTING_KINDS.map((kind) => (
             <Card key={kind} padding="md">
@@ -939,8 +1083,13 @@ export function LifeWorkshopView({
                           size="xs"
                           variant={selected ? "secondary" : "primary"}
                           disabled={selected || level < LIFE_SPECIALIZATION_LEVEL || busy !== null}
-                          onClick={() => {
-                            if (changeCost > 0 && !window.confirm(`${changeCost.toLocaleString()}골드를 사용해 전문화를 변경할까요?`)) return;
+                          onClick={async () => {
+                            if (
+                              changeCost > 0 &&
+                              !(await confirmGameAction(
+                                `${changeCost.toLocaleString()}골드를 사용해 전문화를 변경할까요?`,
+                              ))
+                            ) return;
                             void mutate(`spec:${entry.id}`, { action: "specialize", activity, specializationId: entry.id satisfies LifeSpecializationId });
                           }}
                         >

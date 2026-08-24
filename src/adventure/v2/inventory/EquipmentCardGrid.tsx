@@ -126,7 +126,7 @@ export function EquipmentCardGrid({
     );
   }
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div className="grid grid-cols-2 gap-2">
       {cards.map(({ inst, isEquipped }) => {
         const item = V2_EQUIPMENT[inst.id];
         const { Icon, color } = SLOT_ICON[item.slot];
@@ -151,7 +151,7 @@ export function EquipmentCardGrid({
         return (
           <div
             key={inst.iid}
-            className={`ui-equipment-card ui-item-rarity-t${item.tier} ui-lift-card relative flex min-h-[7.5rem] flex-col gap-1 rounded-lg border p-3 text-left shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-zinc-950 ${
+            className={`ui-equipment-card ui-item-rarity-t${item.tier} ui-game-card ui-lift-card relative flex min-h-11 flex-col gap-0.5 rounded-xl border p-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-violet-400 dark:focus-visible:ring-offset-zinc-950 ${
               isSaleSelected
                 ? "is-active border-rose-400 bg-rose-50 ring-1 ring-rose-200 dark:border-rose-500 dark:bg-rose-950 dark:ring-rose-900/70"
                 : highlighted
@@ -175,7 +175,7 @@ export function EquipmentCardGrid({
                   : `${item.name} 정보`
               }
               aria-pressed={saleSelectionActive ? isSaleSelected : undefined}
-              className="absolute inset-0 z-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400"
+              className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500 dark:focus-visible:ring-violet-400"
             />
             <div className="pointer-events-none relative z-10 flex items-start justify-between gap-1">
               <span className="flex items-center gap-1">
@@ -251,14 +251,14 @@ export function EquipmentCardGrid({
               {item.craftOnly ? <CraftOnlyBadge /> : null}
               {progressionLock ? (
                 <span
-                  className="rounded border border-amber-300 bg-amber-50 px-1.5 py-px text-[10px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                  className="rounded border border-amber-300 bg-amber-50 px-1.5 py-px text-[10px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300"
                   title={`착용 조건: ${progressionLock.label}`}
                 >
                   진행 잠금
                 </span>
               ) : null}
             </div>
-            <div className="pointer-events-none relative z-10 line-clamp-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+            <div className="pointer-events-none relative z-10 line-clamp-1 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
               {cardStatLine(item, inst.roll, inst.enhance, inst.craftQuality)}
             </div>
           </div>

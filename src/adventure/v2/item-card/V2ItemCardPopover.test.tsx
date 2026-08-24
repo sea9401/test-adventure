@@ -117,6 +117,20 @@ describe("V2ItemCard set information", () => {
     expect(html).toContain("기본 +100 · 강화 +8");
   });
 
+  it("강화 단계는 별도 배지 대신 장비명과 같은 제목에 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <V2ItemCard
+        item={V2_EQUIPMENT.v2_iron_sword}
+        anchor={{ top: 20, bottom: 60, left: 20 }}
+        onClose={() => undefined}
+        enhance={{ level: 11, bonusPct: 109 }}
+      />,
+    );
+
+    expect(html).toMatch(/<h2[^>]*>철검 \+11<\/h2>/);
+    expect(html).not.toContain("강화 +11");
+  });
+
   it("합일의 망토에서 핵심 기믹 판정과 강화 수치를 펼쳐 볼 수 있다", () => {
     const html = renderToStaticMarkup(
       <V2ItemCard

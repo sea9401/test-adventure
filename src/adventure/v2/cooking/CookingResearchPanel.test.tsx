@@ -28,6 +28,21 @@ function researchFixture(
 }
 
 describe("요리 레시피 연구 재료 선택", () => {
+  it("농장 보유품 중 배합 사료는 연구 재료 목록에서 제외한다", () => {
+    render(
+      <CookingResearchPanel
+        data={researchFixture({ wheat: 1, compound_feed: 2 })}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "밀×1" })).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "배합 사료×2" }),
+    ).toBeNull();
+  });
+
   it("최근 실패 기록에서 조리법과 사용한 재료를 확인한다", () => {
     const view = render(
       <CookingResearchPanel
@@ -112,5 +127,36 @@ describe("요리 레시피 연구 재료 선택", () => {
       method: "grill",
       ingredientIds: ["farm:milk", "farm:tomato"],
     });
+  });
+
+  it("새 실패 기록이 도착하면 방금 시도한 재료 선택을 초기화한다", async () => {
+    const mutate = vi.fn(async () => undefined);
+    const view = render(
+      <CookingResearchPanel
+        data={researchFixture({ wheat: 2, milk: 2 })}
+        busy={false}
+        mutate={mutate}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "밀×2" }));
+    fireEvent.click(screen.getByRole("button", { name: "우유×2" }));
+    expect(screen.getByText("선택 2/2")).toBeTruthy();
+
+    view.rerender(
+      <CookingResearchPanel
+        data={researchFixture({ wheat: 1, milk: 1 }, [{
+          method: "grill",
+          ingredientIds: ["farm:wheat", "farm:milk"],
+          createdAt: NOW,
+        }])}
+        busy={false}
+        mutate={mutate}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByText("선택 0/2")).toBeTruthy());
+    expect(screen.getByRole("button", { name: "이 조합 연구" })).toBeTruthy();
+    expect(screen.queryByText("이미 실패한 조합입니다. 재료는 소비되지 않습니다.")).toBeNull();
   });
 });

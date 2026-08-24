@@ -742,6 +742,51 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     expect(r.castSkillId).toBe(fallback);
   });
 
+  it("서로 다른 다음 순위 스킬은 독립된 발동 판정값을 사용한다", () => {
+    const first = "v2c_archmage_collapse"; // 40%
+    const second = "v2c_arcanist_burst"; // 45%
+    const fallback = "v2c_mage_boltcast"; // 100%
+    const pattern: V2CombatPattern = {
+      blocks: [first, second, fallback].map((skillId) => ({
+        condition: { kind: "always" },
+        action: { kind: "skill", skillId },
+      })),
+    };
+
+    const result = resolveV2SkillCast(
+      castInput([first, second, fallback], {
+        procRoll: 50, // 1순위 실패
+        nextProcRoll: () => 10, // 2순위 독립 판정 성공
+        combatPattern: pattern,
+        applyProcInPattern: true,
+      }),
+    );
+
+    expect(result.castSkillId).toBe(second);
+  });
+
+  it("같은 스킬을 중복 등록해도 한 행동에서는 발동 판정값을 공유한다", () => {
+    const duplicated = "v2c_archmage_collapse"; // 40%
+    const fallback = "v2c_arcanist_burst"; // 45%
+    const pattern: V2CombatPattern = {
+      blocks: [duplicated, duplicated, fallback].map((skillId) => ({
+        condition: { kind: "always" },
+        action: { kind: "skill", skillId },
+      })),
+    };
+
+    const result = resolveV2SkillCast(
+      castInput([duplicated, fallback], {
+        procRoll: 50, // 중복된 1·2순위는 모두 실패해야 함
+        nextProcRoll: () => 10, // 서로 다른 3순위만 새로 판정해 성공
+        combatPattern: pattern,
+        applyProcInPattern: true,
+      }),
+    );
+
+    expect(result.castSkillId).toBe(fallback);
+  });
+
   it("일반 공격 블록이 조건을 만족하면 아래 스킬 후보를 검사하지 않는다", () => {
     const pattern: V2CombatPattern = {
       blocks: [

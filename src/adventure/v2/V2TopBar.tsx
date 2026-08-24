@@ -11,6 +11,11 @@ import {
 import { NotificationBell } from "./NotificationBell";
 import { V2NoticeLink } from "./V2NoticeLink";
 import { V2SettingsMenu } from "./V2SettingsMenu";
+import { buttonClassName } from "@/components/ui/Button";
+import {
+  SURFACE_FROSTED_BAR,
+  SURFACE_INSET,
+} from "@/components/ui/surfaces";
 
 // v2 메인 화면 타이틀 줄.
 // 좌측: 게임 아이콘(홈) + 자동 생활 작업 상태(진행 중인 생활 화면) 독립 링크.
@@ -67,14 +72,18 @@ export function V2TopBar({
   return (
     <header
       data-game-top-bar
-      className="sticky top-0 z-[60] flex items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur sm:px-6 dark:border-zinc-700 dark:bg-zinc-900/90"
+      className={`${SURFACE_FROSTED_BAR} sticky top-0 z-[60] flex items-center justify-between gap-3 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6`}
     >
       <div className="flex min-w-0 items-center gap-2">
         <Link
           href="/"
           aria-label="무슨무슨게임 홈으로 이동"
           title="홈"
-          className="game-brand-mark inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+          className={buttonClassName({
+            variant: "secondary",
+            size: "icon",
+            className: "game-brand-mark",
+          })}
         >
           <Image
             src="/icon-192.png"
@@ -88,7 +97,11 @@ export function V2TopBar({
           <Link
             href={activityHref}
             aria-label={`${autoGathering?.activity === "woodcutting" ? "벌목" : "채광"} 화면으로 이동`}
-            className="flex h-10 min-w-0 items-center rounded-lg border border-zinc-200 bg-white px-3 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+            className={buttonClassName({
+              variant: "secondary",
+              size: "sm",
+              className: "min-w-0 px-3 text-left",
+            })}
           >
             <LifeActivityStatus
               key={autoGathering?.readyAt}
@@ -99,14 +112,18 @@ export function V2TopBar({
           <Link
             href="/town/fishing"
             aria-label="낚시 화면으로 이동"
-            className="flex h-10 min-w-0 items-center rounded-lg border border-zinc-200 bg-white px-3 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+            className={buttonClassName({
+              variant: "secondary",
+              size: "sm",
+              className: "min-w-0 px-3 text-left",
+            })}
           >
             <span className="text-[10px] font-medium text-emerald-700 sm:text-[11px] dark:text-emerald-300">
               낚시 중
             </span>
           </Link>
         ) : (
-          <div className="flex h-10 min-w-0 items-center rounded-lg border border-zinc-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-900">
+          <div className={`${SURFACE_INSET} flex min-h-10 min-w-0 items-center px-3`}>
             <LifeActivityStatus key="rest" status={null} />
           </div>
         )}

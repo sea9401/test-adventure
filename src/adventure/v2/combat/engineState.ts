@@ -74,6 +74,11 @@ export type BattleLogEntry =
        */
       side?: "p1" | "p2";
       /**
+       * 다른 스킬 효과로 즉시 실행된 행동의 원인 스킬명. 전투 판정에는 관여하지 않고,
+       * UI가 일반적인 "기본 공격" 대신 강제 행동임을 설명할 때만 사용한다.
+       */
+      forcedBySkill?: string;
+      /**
        * ATB 타임라인 틱(이 행동이 발생한 시각). resolveBattleAtb / resolveBattlePvPAtb 가
        * 찍는다. UI 가 일정 틱 윈도우(ATB_LOG_WINDOW_TICKS) 단위로 로그를 묶어 한 박스에
        * 보여줄 때 사용. 레거시(고정교대) 엔진·옛 로그는 미동봉(undefined) → UI 가 턴 단위로 폴백.
@@ -111,6 +116,20 @@ export type BattleLogEntry =
       /** 상대가 보유한 전투 자원. PvE 한기와 PvP 시그니처·한기를 표시한다. */
       enemySignatureResources?: Record<string, number | string>;
     };
+
+export function markForcedActionMainLog(
+  entry: BattleLogEntry,
+  skillName: string,
+): BattleLogEntry {
+  if (entry.kind === "hp_bar") return entry;
+  const isMainAttack =
+    ((entry.kind === "player_attack" || entry.kind === "enemy_attack") &&
+      /^(?:\[[^\]]+\]\s*)*공격!/.test(entry.text)) ||
+    (entry.kind === "info" &&
+      entry.text.startsWith("[회피 강화]") &&
+      entry.text.includes("회피했다"));
+  return isMainAttack ? { ...entry, forcedBySkill: skillName } : entry;
+}
 
 export type BattleOutcome = "win" | "lose";
 

@@ -159,6 +159,40 @@ describe("희귀맵 발견 바로가기", () => {
     expect(html).toContain("30분 동안 개방");
     expect(html).toContain("남은 시간 30:00");
   });
+
+  it("일괄 결과에서 여러 희귀 탐사 지도를 알림 하나로 묶는다", () => {
+    const maps = [
+      map,
+      { ...map, iid: "rm-second", kind: "relic_map" as const, foundAt: 2 },
+      { ...map, iid: "rm-third", foundAt: 3 },
+    ];
+    const summary: BatchSummary = {
+      attempted: 50,
+      completed: 50,
+      wins: 50,
+      losses: 0,
+      totalExp: 100,
+      totalProficiency: 2,
+      totalGold: 100,
+      levelsGained: 0,
+      statGains: {},
+      drops: {},
+      droppedEquipments: [],
+      droppedUniques: [],
+      rareMapDrops: maps.map((item) => item.kind),
+      rareMapDropInstances: maps,
+    };
+
+    const html = renderToStaticMarkup(
+      <BatchSummaryCard summary={summary} onEnterRareMap={vi.fn()} />,
+    );
+
+    expect(html).toContain("희귀 탐사 3개 발견!");
+    expect(html).toContain("낡은 탐사로");
+    expect(html).toContain("빛바랜 유적 탐사");
+    expect(html.match(/30분 동안 개방/g)).toHaveLength(1);
+    expect(html.match(/>바로가기<\/button>/g)).toHaveLength(1);
+  });
 });
 
 describe("사냥 장비 획득 분류", () => {
@@ -217,5 +251,29 @@ describe("사냥 장비 획득 분류", () => {
     expect(html).toContain("세트");
     expect(html).toContain("황토 흉갑");
     expect(html).toContain("협곡의 단판을(를) 획득했다!");
+  });
+
+  it("압축 희귀 탐사에서 여러 장비와 유니크를 모두 표시한다", () => {
+    // Break caught: the compatibility aliases hide every compressed drop after the first.
+    const html = renderToStaticMarkup(
+      <HuntResultCard
+        result={{
+          ...BASE_RESULT,
+          won: true,
+          hpAfter: 100,
+          rewardRolls: 30,
+          droppedEquipments: [
+            "v2_canyon_greatsword",
+            "v2_canyon_set_armor",
+          ],
+          droppedUniques: ["v2_sanctum_sig_priest_armor"],
+        }}
+      />,
+    );
+
+    expect(html).toContain("보상 30회분 일괄 정산");
+    expect(html).toContain("협곡의 단판");
+    expect(html).toContain("황토 흉갑");
+    expect(html).toContain("잊힌 사제의 성갑");
   });
 });

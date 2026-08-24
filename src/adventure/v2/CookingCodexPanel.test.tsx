@@ -58,4 +58,23 @@ describe("모험의 서 요리 완성 도감", () => {
         .getAttribute("aria-current"),
     ).toBe("page");
   });
+
+  it("발견한 레시피는 실제 요리 이미지를 보여준다", () => {
+    render(<CookingCodexPanel discoveredIds={["rustic_bread"]} />);
+
+    const image = screen.getByRole("img", {
+      name: "투박한 밀빵 이미지",
+    });
+    expect(image.getAttribute("src")).toContain("rustic_bread.webp");
+  });
+
+  it("미발견 레시피는 이미지를 불러오지 않고 검정 칸으로 완전히 가린다", () => {
+    const { container } = render(<CookingCodexPanel discoveredIds={[]} />);
+
+    const hiddenImage = container.querySelector(
+      '[data-cooking-codex-hidden-image="true"]',
+    );
+    expect(hiddenImage?.classList.contains("bg-black")).toBe(true);
+    expect(container.innerHTML).not.toContain("rustic_bread.webp");
+  });
 });

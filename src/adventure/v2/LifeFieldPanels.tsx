@@ -14,6 +14,7 @@ import type {
   LifeFieldEnvironmentSnapshot,
 } from "@/adventure/data/v2/lifeFieldEnvironment";
 import { SURFACE_ACCENT, SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import { environmentRefreshDelay } from "./lifeFieldRefresh";
 import { lifeFieldStatusPresentation } from "./lifeFieldStatusPresentation";
 
@@ -268,7 +269,7 @@ export function LifeFieldCodexPanel() {
   });
 
   const abandon = async (activity: LifeFieldActivity) => {
-    if (!window.confirm("이 흔적을 포기할까요? 피티 수치는 복구되지 않습니다.")) return;
+    if (!(await confirmGameAction("이 흔적을 포기할까요? 피티 수치는 복구되지 않습니다."))) return;
     setAbandoning(activity);
     try {
       await fetch("/api/v2/life-fields", {
@@ -306,17 +307,17 @@ export function LifeFieldCodexPanel() {
             총 {data.summary.basic.discovered + data.summary.rare.discovered}/36
           </span>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
+        <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
           {[
             ["5개", "5P · 배지"],
             ["15개", "10P · 현장 기록가"],
             ["30개", "20P · 배지"],
             ["33개", "30P · 생태 조사관"],
           ].map(([count, reward]) => (
-            <div key={count} className={`${SURFACE_INSET} p-2`}><b>{count}</b><div className="mt-0.5 text-zinc-500">{reward}</div></div>
+            <div key={count} className={`${SURFACE_INSET} p-2`}><b>{count}</b><div className="mt-0.5 text-zinc-600 dark:text-zinc-300">{reward}</div></div>
           ))}
         </div>
-        <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">희귀 기록까지 36개를 모두 완성하면 히든 칭호 ‘대지의 목격자’를 획득합니다.</p>
+        <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">희귀 기록까지 36개를 모두 완성하면 히든 칭호 ‘대지의 목격자’를 획득합니다.</p>
       </section>
 
       {(["fishing", "woodcutting", "mining"] as const).map((activity) => {
@@ -327,7 +328,7 @@ export function LifeFieldCodexPanel() {
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 px-3 py-2.5 dark:border-zinc-800">
               <div>
                 <h3 className="text-sm font-bold">{ACTIVITY_LABEL[activity]} 기록</h3>
-                <p className="mt-0.5 text-[11px] text-zinc-500">일일 흔적 탐색 {daily.evaluated}/{daily.limit}회{daily.paused ? " · 일시 정지" : ""}</p>
+                <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300">일일 흔적 탐색 {daily.evaluated}/{daily.limit}회{daily.paused ? " · 일시 정지" : ""}</p>
               </div>
               {trace ? (
                 <button type="button" disabled={abandoning === activity} onClick={() => void abandon(activity)} className="rounded-md border border-rose-300 bg-white px-2 py-1 text-[11px] font-bold text-rose-600 disabled:opacity-50 dark:border-rose-800 dark:bg-zinc-900 dark:text-rose-300">흔적 포기</button>
@@ -347,7 +348,7 @@ export function LifeFieldCodexPanel() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="truncate text-xs font-bold">{hidden ? "???" : entry.label}</div>
-                        <div className="mt-1 text-[10px] text-zinc-500">{entry.discovered ? `${entry.count}회 관찰` : hidden ? "숨겨진 현장 기록" : entry.hint}</div>
+                        <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{entry.discovered ? `${entry.count}회 관찰` : hidden ? "숨겨진 현장 기록" : entry.hint}</div>
                       </div>
                       {entry.medal ? (
                         <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-zinc-900 dark:text-amber-300"><Medal size={12} weight="fill" />{MEDAL_LABEL[entry.medal]}</span>

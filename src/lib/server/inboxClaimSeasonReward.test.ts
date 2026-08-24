@@ -421,6 +421,42 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(savesStore.get("u1::inventory.v2")).toBeUndefined();
   });
 
+  it("admin_gift 요리 재료는 cooking.v2의 기존 보유량에 누적한다", async () => {
+    savesStore.set("u1::cooking.v2", {
+      kitchenItems: { "pantry:salt": 3 },
+    });
+    inboxRows.push({
+      id: 1,
+      kind: "admin_gift",
+      payload: {
+        cookingIngredients: [
+          { ingredientId: "pantry:salt", count: 4 },
+          { ingredientId: "processed:flour", count: 3 },
+        ],
+      },
+      claimedAt: null,
+    });
+
+    const response = await POST(req([1]));
+    const json = (await response.json()) as {
+      cookingIngredientsAdded: Array<{ ingredientId: string; count: number }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.cookingIngredientsAdded).toEqual([
+      { ingredientId: "pantry:salt", count: 4 },
+      { ingredientId: "processed:flour", count: 3 },
+    ]);
+    expect(savesStore.get("u1::cooking.v2")).toMatchObject({
+      kitchenItems: {
+        "pantry:salt": 7,
+        "processed:flour": 3,
+      },
+    });
+    expect(savesStore.get("u1::character.v2")).toBeUndefined();
+    expect(savesStore.get("u1::inventory.v2")).toBeUndefined();
+  });
+
   it("거래 정지 중에는 사용자에게 받은 제작서 선물을 수령하지 않는다", async () => {
     tradeState.restricted = true;
     inboxRows.push({

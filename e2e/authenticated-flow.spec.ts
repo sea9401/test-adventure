@@ -346,7 +346,7 @@ test("전투 메뉴로 사냥터에 진입해 얻은 진행은 새로고침과 �
   expect(before.battleCount).toBe(0);
 
   const mainNavigation = page.getByRole("navigation", { name: "메인 메뉴" });
-  await mainNavigation.getByRole("button", { name: "전투", exact: true }).click();
+  await mainNavigation.getByRole("button", { name: /^전투(?:,|$)/ }).click();
   await page
     .getByRole("menu", { name: "전투 메뉴" })
     .getByRole("menuitem", { name: "사냥터" })
@@ -380,7 +380,11 @@ test("전투 메뉴로 사냥터에 진입해 얻은 진행은 새로고침과 �
   expect(hunt.result?.won).toBe(true);
   expect(hunt.result?.expGained).toBeGreaterThan(0);
   expect(hunt.result?.goldGained).toBeGreaterThan(0);
-  await expect(page.getByText("승리", { exact: true }).first()).toBeVisible();
+  const huntResultDialog = page.getByRole("dialog", { name: "사냥 승리" });
+  await expect(huntResultDialog).toBeVisible();
+  await huntResultDialog
+    .getByRole("button", { name: "전투 기록 보기" })
+    .click();
   await dismissTutorialOverlayIfVisible(page);
 
   const battleLogButton = page.getByRole("button", {

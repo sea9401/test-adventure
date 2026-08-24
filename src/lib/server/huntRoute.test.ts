@@ -87,6 +87,30 @@ vi.mock("@/app/api/v2/dungeon/hunt/huntDrops", async (importOriginal) => {
         nextOwned: [...params.ownedEquip, ...forced],
       } as ReturnType<typeof actual.rollHuntDrops>;
     },
+    rollHuntDropsRepeated: (
+      params: Parameters<typeof actual.rollHuntDropsRepeated>[0],
+    ): ReturnType<typeof actual.rollHuntDropsRepeated> => {
+      const result = actual.rollHuntDropsRepeated(params);
+      if (!huntDropOverride.equipmentId && !huntDropOverride.uniqueId) {
+        return result;
+      }
+      const repeats = Math.max(0, Math.floor(params.rewardRolls));
+      const droppedEquipments = huntDropOverride.equipmentId
+        ? Array.from({ length: repeats }, () => huntDropOverride.equipmentId!)
+        : [];
+      const droppedUniques = huntDropOverride.uniqueId
+        ? Array.from({ length: repeats }, () => huntDropOverride.uniqueId!)
+        : [];
+      const forced = [...droppedEquipments, ...droppedUniques].map(
+        (id, index) => ({ iid: `forced-${index}`, id }),
+      );
+      return {
+        ...result,
+        droppedEquipments,
+        droppedUniques,
+        nextOwned: [...params.ownedEquip, ...forced],
+      } as ReturnType<typeof actual.rollHuntDropsRepeated>;
+    },
   };
 });
 vi.mock("@/lib/server/battleReplayStore", async (importOriginal) => ({

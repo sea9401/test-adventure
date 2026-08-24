@@ -23,6 +23,7 @@ import {
 } from "@/adventure/v2/dungeonReadiness";
 import { useSystemToast } from "@/adventure/v2/RewardToastProvider";
 import { RareMapCountdownText } from "@/adventure/v2/RareMapCountdownText";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 
 // 프론티어 사냥터 목록 — 2단. 테마 카드 → 입구·심부·최심부의 3단계.
 // 내부 깊이와 밸런스는 유지하고 각 두 깊이의 뒤쪽 값(2·4·6)을 대표 전투 깊이로 사용한다.
@@ -141,9 +142,9 @@ export function V2DungeonList({
   async function discardRareMap(map: RareMapInstance) {
     const name = RARE_MAP_KINDS[map.kind]?.name ?? map.kind;
     if (
-      !window.confirm(
+      !(await confirmGameAction(
         `${name}을 삭제할까요?\n삭제한 지도는 복구할 수 없습니다.`,
-      )
+      ))
     ) {
       return;
     }
@@ -413,7 +414,7 @@ export function RareMapButton({
               "희귀 장소 · 발견 후 30분 동안 개방"
             ) : (
               <>
-                남은 {map.runsLeft}판 · 30분 동안 개방
+                1회 탐사 · 보상 {map.runsLeft}회분 · 30분 동안 개방
                 {serverNow != null && (
                   <>
                     {" · "}

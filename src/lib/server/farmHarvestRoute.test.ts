@@ -70,7 +70,7 @@ import {
   plantCrop,
   type FarmState,
 } from "@/adventure/v2/farm";
-import { ranchReadyPenCount } from "@/adventure/v2/ranch";
+import { ranchReadySlotCount } from "@/adventure/v2/ranch";
 import {
   deriveRepeatViews,
   kstDailyKey,
@@ -272,16 +272,17 @@ describe("POST /api/v2/farm/harvest", () => {
       ...planted,
       ranch: {
         ...planted.ranch,
-        pens: {
-          ...planted.ranch.pens,
-          "coop-1": {
-            ...planted.ranch.pens["coop-1"],
+        slots: {
+          ...planted.ranch.slots,
+          "slot-1": {
+            ...planted.ranch.slots["slot-1"],
             feed: 1,
             lastSettledAt: ranchStartedAt,
           },
-          "coop-2": {
-            ...planted.ranch.pens["coop-2"],
+          "slot-2": {
+            ...planted.ranch.slots["slot-2"],
             unlocked: true,
+            animalId: "chicken",
             feed: 1,
             lastSettledAt: ranchStartedAt,
           },
@@ -301,6 +302,6 @@ describe("POST /api/v2/farm/harvest", () => {
 
     expect(response.status).toBe(200);
     const body = (await response.json()) as { farm: FarmState };
-    expect(ranchReadyPenCount(body.farm.ranch)).toBe(2);
+    expect(ranchReadySlotCount(body.farm.ranch)).toBe(2);
   });
 });

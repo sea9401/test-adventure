@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSystemMessageState } from "@/adventure/v2/RewardToastProvider";
+import { confirmGameAction, type ConfirmGameAction } from "@/components/ui/gameDialog";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 
 type Supply = {
@@ -39,20 +40,20 @@ type CombatSupplyResponse = {
 
 type ErrorResponse = { ok: false; error: string };
 
-export function confirmCombatSupplyUpgrade({
+export async function confirmCombatSupplyUpgrade({
   supply,
   onUpgrade,
-  confirm = (message) => window.confirm(message),
+  confirm = confirmGameAction,
 }: {
   supply: Pick<Supply, "id" | "name" | "level" | "nextEffect" | "nextCost">;
   onUpgrade: (supplyId: string) => void;
-  confirm?: (message: string) => boolean;
-}): boolean {
+  confirm?: ConfirmGameAction;
+}): Promise<boolean> {
   if (supply.nextCost == null || supply.nextEffect == null) return false;
   if (
-    !confirm(
+    !(await confirm(
       `${supply.name}을(를) Lv.${supply.level + 1}(으)로 올릴까요?\n${supply.nextCost.toLocaleString()} 명성이 사용되며, ${supply.nextEffect} 효과가 적용됩니다.`,
-    )
+    ))
   ) {
     return false;
   }
@@ -60,21 +61,21 @@ export function confirmCombatSupplyUpgrade({
   return true;
 }
 
-export function confirmCombatOperationsFunding({
+export async function confirmCombatOperationsFunding({
   operations,
   onFund,
-  confirm = (message) => window.confirm(message),
+  confirm = confirmGameAction,
 }: {
   operations: Pick<CombatOperations, "tier" | "nextCost">;
   onFund: () => void;
-  confirm?: (message: string) => boolean;
-}): boolean {
+  confirm?: ConfirmGameAction;
+}): Promise<boolean> {
   if (operations.nextCost == null) return false;
   const nextTier = operations.tier + 1;
   if (
-    !confirm(
+    !(await confirm(
       `주간 전투보급 운용을 Lv.${nextTier}(으)로 강화할까요?\n길드 자금 ${operations.nextCost.toLocaleString()} G가 사용되며, 이번 주 사냥 골드·EXP +${nextTier}%p와 추가 숙달 확률 +${nextTier * 5}%p가 적용됩니다.\n운용 단계는 월요일 00:00 KST에 초기화됩니다.`,
-    )
+    ))
   ) {
     return false;
   }
@@ -353,7 +354,7 @@ export function GuildCombatSupplyPanel() {
             <button
               type="button"
               onClick={() =>
-                confirmCombatOperationsFunding({
+                void confirmCombatOperationsFunding({
                   operations: data.operations,
                   onFund: () => void fundOperations(),
                 })
@@ -438,7 +439,7 @@ export function GuildCombatSupplyPanel() {
                   <button
                     type="button"
                     onClick={() =>
-                      confirmCombatSupplyUpgrade({
+                      void confirmCombatSupplyUpgrade({
                         supply,
                         onUpgrade: (supplyId) => void upgrade(supplyId),
                       })

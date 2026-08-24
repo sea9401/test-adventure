@@ -27,20 +27,20 @@ const CONTAINER: Record<TabVariant, string> = {
 
 const TAB_BASE: Record<TabVariant, string> = {
   underline: "-mb-px border-b-2",
-  highlight: "",
+  highlight: "-mb-px border-b-2",
 };
 
 const TAB_STATE: Record<TabVariant, { active: string; inactive: string }> = {
   underline: {
-    active: "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100",
+    active: "border-violet-600 text-violet-700 dark:border-violet-400 dark:text-violet-300",
     inactive:
       "border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100",
   },
   // 박스(테두리·배경) 없이 글자 색만 — 선택은 진한 인디고, 호버는 옅은 인디고, 기본은 중립 회색.
   highlight: {
-    active: "text-indigo-700 dark:text-indigo-300",
+    active: "border-violet-600 text-violet-700 dark:border-violet-400 dark:text-violet-300",
     inactive:
-      "text-zinc-500 hover:text-indigo-500 dark:text-zinc-400 dark:hover:text-indigo-400",
+      "border-transparent text-zinc-500 hover:text-violet-600 dark:text-zinc-400 dark:hover:text-violet-300",
   },
 };
 

@@ -119,7 +119,8 @@ function CombatSummary({
   const itemClass =
     "inline-flex items-baseline gap-1 whitespace-nowrap text-[13px] leading-tight tabular-nums text-zinc-600 dark:text-zinc-300";
   const labelClass = "text-zinc-400 dark:text-zinc-500";
-  const attackLabel = primaryAttack === "magic" ? "마공" : "힘";
+  const attackLabel =
+    primaryAttack === "magic" ? "마법 공격력" : "물리 공격력";
   const attackValue =
     primaryAttack === "magic" ? (combat.magicAtk ?? combat.atk) : combat.atk;
   return (
@@ -129,11 +130,11 @@ function CombatSummary({
         <span>{Math.round(attackValue).toLocaleString()}</span>
       </span>
       <span className={itemClass}>
-        <span className={labelClass}>방</span>
+        <span className={labelClass}>방어력</span>
         <span>{Math.round(combat.def).toLocaleString()}</span>
       </span>
       <span className={itemClass}>
-        <span className={labelClass}>속</span>
+        <span className={labelClass}>속도</span>
         <span>{Math.round(combat.spd).toLocaleString()}</span>
       </span>
     </div>

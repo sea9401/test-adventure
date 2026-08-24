@@ -69,4 +69,24 @@ describe("applyHuntProficiency", () => {
       charSave: { class: "survivor", specChoice: "fisher" },
     }).masteryJobId).toBeNull();
   });
+
+  it("압축 희귀 탐사의 보상 승리 수만큼 숙달과 직업 숙련도를 적립한다", () => {
+    // Break caught: a 30-roll expedition grants only one proficiency reward.
+    const result = applyHuntProficiency({
+      won: true,
+      depth: 84,
+      charSave: { class: "warrior" },
+      proficiencyRaw: {},
+      equippedSkills: [],
+      proficiencyChancePct: 0,
+      levelsGained: 0,
+      rewardWins: 30,
+      rng: () => 0.5,
+    });
+
+    expect(result.proficiencyGained).toBe(150);
+    expect(result.masteryGained).toBe(30);
+    expect(result.masteryAfter).toBe(30);
+    expect(result.nextProficiency?.groups.warrior?.cumLevel).toBe(30);
+  });
 });

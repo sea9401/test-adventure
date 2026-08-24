@@ -9,10 +9,11 @@ import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import { addCumLevel, addJobCumLevel, parseProficiencyForChar } from "@/adventure/data/v2/proficiency";
 import { V2_JOB_CATALOG, isCookingJobId, jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
 import { emptyV2SkillsState, equippedCookingBonuses, parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
-import { FARM_ITEMS, FARM_SAVE_KEY, emptyFarmState, farmAvailableReputation, normalizeFarmForDay, parseFarmState } from "@/adventure/v2/farm";
+import { FARM_CROPS, FARM_ITEMS, FARM_SAVE_KEY, emptyFarmState, farmAvailableReputation, normalizeFarmForDay, parseFarmState } from "@/adventure/v2/farm";
 import { FISHING_CATCH_ITEMS, FISHING_STOCK_KEY, emptyFishingStock, parseFishingStock } from "@/adventure/v2/fishingStock";
 import { applyLifeXpGain } from "@/adventure/v2/lifeLevelProgression";
 import { cookingPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
+import { LIFE_WORKSHOP_SAVE_KEY, emptyLifeWorkshopState, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
 import { COOKING_PUBLIC_RECIPES, COOKING_PUBLIC_RECIPE_BY_ID } from "@/adventure/v2/cooking/catalog";
 import { applyCookingDelivery, cookingRequests, cookingStandingDeliveryReward } from "@/adventure/v2/cooking/delivery";
 import { activeCookingBuff, addCookingFood, cookingFoodDefinition, cookingFoodId, parseCookingFoodInventory, removeCookingFood, type CookingFoodId, type CookingQuality } from "@/adventure/v2/cooking/food";
@@ -62,6 +63,11 @@ type FailedResearchRow = {
 };
 
 const DEFAULT_ACTOR_NAME = "이름 없는 모험가";
+const COOKING_PREP_SET_ID = "cooking_prep_set" as const;
+const COOKING_PREP_SET_MASTERPIECE_BONUS_PCT = 8;
+const RARE_FARM_COOKING_INGREDIENT_IDS = new Set<string>(
+  Object.values(FARM_CROPS).map((crop) => crop.rareItemId),
+);
 const KITCHEN_RESEARCH_INGREDIENT_IDS = new Set<string>([
   ...COOKING_PANTRY_ITEMS.map((entry) => entry.id),
   ...COOKING_PROCESSING_RECIPES.map((entry) => entry.outputId),
@@ -130,12 +136,21 @@ function knownRecipeDetails(discoveredIds: readonly string[]) {
   }));
 }
 
+function isRareCookingIngredient(ingredientId: CookingIngredientId): boolean {
+  const [kind, id] = ingredientId.split(":");
+  if (kind === "farm") return RARE_FARM_COOKING_INGREDIENT_IDS.has(id);
+  if (kind !== "fishing") return false;
+  const tier = FISHING_CATCH_ITEMS[id as keyof typeof FISHING_CATCH_ITEMS]?.tier;
+  return tier === "rare" || tier === "epic" || tier === "legendary";
+}
+
 function cookingView(userId: string, now: number, values: {
   cookingRaw: unknown;
   farmRaw: unknown;
   fishingRaw: unknown;
   skillsRaw: unknown;
   inventoryRaw: unknown;
+  lifeWorkshopRaw: unknown;
   character: CharacterSave;
   firstDiscoveries: readonly FirstDiscoveryRow[];
   failedResearches: readonly FailedResearchRow[];
@@ -144,6 +159,7 @@ function cookingView(userId: string, now: number, values: {
   const farm = normalizeFarmForDay(parseFarmState(values.farmRaw), now);
   const fishing = parseFishingStock(values.fishingRaw);
   const inventory = (values.inventoryRaw ?? {}) as InventorySave;
+  const lifeWorkshop = parseLifeWorkshopState(values.lifeWorkshopRaw);
   const level = cookingLevelForXp(cooking.xp);
   const job = currentCookingJob(values.character);
   return {
@@ -171,6 +187,7 @@ function cookingView(userId: string, now: number, values: {
     requests: cookingRequests(userId, cooking),
     cookingFoods: parseCookingFoodInventory(inventory.cookingFoods),
     failedCookingDishes: failedDishCount(inventory.failedCookingDishes),
+    cookingPrepSets: lifeWorkshop.crafting.balances[COOKING_PREP_SET_ID] ?? 0,
     farmItems: farm.inventory,
     farmItemDefinitions: FARM_ITEMS,
     farmReputation: farmAvailableReputation(farm),
@@ -235,12 +252,13 @@ export async function GET(req: Request) {
   const limited = enforceUserAndIpRateLimit(req, { userId, action: "v2:cooking:get", userLimit: 120, ipLimit: 600, windowMs: 60_000 });
   if (limited) return limited;
   const now = Date.now();
-  const [cookingRaw, farmRaw, fishingRaw, skillsRaw, inventoryRaw, character, discoveries, failedResearches] = await Promise.all([
+  const [cookingRaw, farmRaw, fishingRaw, skillsRaw, inventoryRaw, lifeWorkshopRaw, character, discoveries, failedResearches] = await Promise.all([
     readSave(db, userId, COOKING_SAVE_KEY, emptyCookingState(now)),
     readSave(db, userId, FARM_SAVE_KEY, emptyFarmState(now)),
     readSave(db, userId, FISHING_STOCK_KEY, emptyFishingStock()),
     readSave(db, userId, "skills.v2", emptyV2SkillsState()),
     readSave<InventorySave>(db, userId, "inventory.v2", {}),
+    readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, emptyLifeWorkshopState()),
     readSave<CharacterSave>(db, userId, "character.v2", {}),
     firstDiscoveryRows(db),
     failedCombinationRows(db, userId),
@@ -251,6 +269,7 @@ export async function GET(req: Request) {
     fishingRaw,
     skillsRaw,
     inventoryRaw,
+    lifeWorkshopRaw,
     character,
     firstDiscoveries: discoveries,
     failedResearches,
@@ -267,7 +286,8 @@ function consumeCraftIngredients(args: {
   recipe: CookingRecipeSecret;
   quantity: number;
   balances: CookingIngredientBalances;
-  reductionPct: number;
+  ordinaryReductionPct: number;
+  allIngredientReductionPct: number;
   remainders: Record<string, number>;
 }): { balances: CookingIngredientBalances; remainders: Record<string, number> } {
   const balances: CookingIngredientBalances = {
@@ -275,7 +295,9 @@ function consumeCraftIngredients(args: {
   };
   const remainders = { ...args.remainders };
   for (const ingredient of args.recipe.ingredients) {
-    const reductionBps = Math.min(5_000, Math.max(0, Math.round(args.reductionPct * 100)));
+    const reductionPct = args.allIngredientReductionPct
+      + (isRareCookingIngredient(ingredient.id) ? 0 : args.ordinaryReductionPct);
+    const reductionBps = Math.min(5_000, Math.max(0, Math.round(reductionPct * 100)));
     const exactBps = ingredient.count * args.quantity * (10_000 - reductionBps) + (remainders[ingredient.id] ?? 0);
     const required = Math.floor(exactBps / 10_000);
     remainders[ingredient.id] = exactBps % 10_000;
@@ -302,6 +324,7 @@ function rollCookingQuality(args: { jobTier: number; carefulChancePct: number; m
 type PostBody = {
   action?: unknown; recipeId?: unknown; requestId?: unknown; foodId?: unknown;
   method?: unknown; ingredientIds?: unknown; itemId?: unknown; field?: unknown; quantity?: unknown;
+  usePrepSet?: unknown;
 };
 
 export async function POST(req: Request) {
@@ -333,6 +356,13 @@ export async function POST(req: Request) {
       let fishing = parseFishingStock(await lockSaveForUpdate(tx, userId, FISHING_STOCK_KEY, emptyFishingStock()));
       let cooking = parseCookingState(await lockSaveForUpdate(tx, userId, COOKING_SAVE_KEY, emptyCookingState(now)), now);
       let inventory = await lockSaveForUpdate<InventorySave>(tx, userId, "inventory.v2", {});
+      let lifeWorkshop = parseLifeWorkshopState(await lockSaveForUpdate(
+        tx,
+        userId,
+        LIFE_WORKSHOP_SAVE_KEY,
+        emptyLifeWorkshopState(),
+      ));
+      let lifeWorkshopChanged = false;
       let nextCharacter = character;
       let feedRecipeId: string | null = null;
       let result: Record<string, unknown> = { action };
@@ -378,20 +408,45 @@ export async function POST(req: Request) {
         const recipeId = typeof body?.recipeId === "string" ? body.recipeId : "";
         const recipe = COOKING_SECRET_RECIPE_BY_ID.get(recipeId);
         const quantity = positiveQuantity(body?.quantity ?? 1);
+        const usePrepSet = body?.usePrepSet === true;
         if (!recipe || !cooking.discoveredRecipeIds.includes(recipe.id) || cookingLevelForXp(cooking.xp) < recipe.requiredLevel) throw new Error("recipe_locked");
+        const heldPrepSets = lifeWorkshop.crafting.balances[COOKING_PREP_SET_ID] ?? 0;
+        if (usePrepSet && heldPrepSets < quantity) throw new Error("not_enough_cooking_prep_sets");
         const levelBonuses = cookingPost50Bonuses(cookingLevelForXp(cooking.xp));
         const consumed = consumeCraftIngredients({
           recipe, quantity,
           balances: ingredientBalances(farm.inventory, fishing.items, cooking.kitchenItems),
-          reductionPct: skillBonuses.materialReductionPct + levelBonuses.materialReductionPct,
+          ordinaryReductionPct: skillBonuses.materialReductionPct,
+          allIngredientReductionPct: levelBonuses.materialReductionPct,
           remainders: cooking.ingredientReductionRemainderBps ?? {},
         });
+        if (usePrepSet) {
+          const balances = { ...lifeWorkshop.crafting.balances };
+          const remainingPrepSets = heldPrepSets - quantity;
+          if (remainingPrepSets > 0) balances[COOKING_PREP_SET_ID] = remainingPrepSets;
+          else delete balances[COOKING_PREP_SET_ID];
+          lifeWorkshop = {
+            ...lifeWorkshop,
+            crafting: {
+              ...lifeWorkshop.crafting,
+              balances,
+              aidsUsed: lifeWorkshop.crafting.aidsUsed + quantity,
+            },
+          };
+          lifeWorkshopChanged = true;
+        }
         farm = { ...farm, inventory: consumed.balances.farm };
         fishing = { ...fishing, items: consumed.balances.fishing };
         const originRows = await tx.select({ userId: cookingFirstDiscoveries.userId }).from(cookingFirstDiscoveries).where(eq(cookingFirstDiscoveries.recipeId, recipe.id)).limit(1);
         const originator = originRows[0]?.userId === userId;
         const specialtyBonusPct = cooking.specialty?.field === recipe.field ? cookingSpecialtyRank(cooking.specialty.xp) : 0;
-        const quality = rollCookingQuality({ jobTier: job.tier, carefulChancePct: skillBonuses.carefulChancePct, masterpieceChancePct: skillBonuses.masterpieceChancePct + levelBonuses.masterpieceChancePct });
+        const quality = rollCookingQuality({
+          jobTier: job.tier,
+          carefulChancePct: skillBonuses.carefulChancePct,
+          masterpieceChancePct: skillBonuses.masterpieceChancePct
+            + levelBonuses.masterpieceChancePct
+            + (usePrepSet ? COOKING_PREP_SET_MASTERPIECE_BONUS_PCT : 0),
+        });
         const foodId = cookingFoodId({ recipeId: recipe.id, quality, originator, specialtyBonusPct });
         inventory = { ...inventory, cookingFoods: addCookingFood(inventory.cookingFoods, foodId, quantity) };
         const foodXpBonus = activeCookingBuff(character.activeFoodBuff, now)?.effect.cookingXpPct ?? 0;
@@ -403,7 +458,7 @@ export async function POST(req: Request) {
           specialty: cooking.specialty?.field === recipe.field ? { ...cooking.specialty, xp: cooking.specialty.xp + recipe.tier * 10 * quantity } : cooking.specialty,
           stats: { ...cooking.stats, dishesCooked: cooking.stats.dishesCooked + quantity, masterpiecesCooked: cooking.stats.masterpiecesCooked + (quality === "masterpiece" ? quantity : 0) },
         };
-        result = { action, recipeId, quantity, quality, foodId, originator, specialtyBonusPct, earnedXp };
+        result = { action, recipeId, quantity, quality, foodId, originator, specialtyBonusPct, earnedXp, usedPrepSets: usePrepSet ? quantity : 0 };
       } else if (action === "buy_pantry") {
         const itemId = body?.itemId as CookingPantryItem["id"];
         const quantity = positiveQuantity(body?.quantity ?? 1, 100);
@@ -476,6 +531,9 @@ export async function POST(req: Request) {
       await upsertSave(tx, userId, FISHING_STOCK_KEY, fishing);
       await upsertSave(tx, userId, "inventory.v2", inventory);
       await upsertSave(tx, userId, "character.v2", nextCharacter);
+      if (lifeWorkshopChanged) {
+        await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, lifeWorkshop);
+      }
 
       let masteryGained = 0;
       let masteryAfter: number | null = null;
@@ -507,6 +565,7 @@ export async function POST(req: Request) {
           fishingRaw: fishing,
           skillsRaw: skills,
           inventoryRaw: inventory,
+          lifeWorkshopRaw: lifeWorkshop,
           character: nextCharacter,
           firstDiscoveries: discoveries,
           failedResearches,
@@ -521,6 +580,7 @@ export async function POST(req: Request) {
       "duplicate_combination", "method_locked", "too_few_ingredients", "too_many_ingredients",
       "invalid_combination", "invalid_ingredient", "not_enough_ingredients", "recipe_already_known",
       "recipe_locked", "not_enough_farm_items", "not_enough_fishing_items", "not_enough_kitchen_items",
+      "not_enough_cooking_prep_sets",
       "not_enough_gold", "specialty_locked", "specialty_permanent", "delivery_completed",
       "food_not_eligible", "cooked_food_unavailable", "standing_delivery_limit",
     ]);

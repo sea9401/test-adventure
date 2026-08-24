@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { Question } from "@phosphor-icons/react";
 import {
   GUILD_CONTRIBUTION_CATEGORIES,
   GUILD_CONTRIBUTION_CATEGORY_LABEL,
 } from "@/adventure/data/v2/guildContribution";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { Tooltip } from "@/components/ui/Tooltip";
 import type {
   GuildContributionResponse,
   GuildInfoResponse,
@@ -33,19 +35,42 @@ export function GuildContributionPanel({
   const viewer = data?.rows.find((row) => row.userId === data.viewerUserId);
 
   return (
-    <section className={`${SURFACE_CARD} overflow-hidden`}>
+    <section className={SURFACE_CARD}>
       <div className="border-b border-zinc-200 px-3 py-3 dark:border-zinc-700">
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="flex items-center gap-1.5">
             <h3 className="text-sm font-semibold">길드 기여도</h3>
-            <p className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-              이번 주 점수는 매주 월요일 00:00(KST)에 새로 시작하며 누적 점수는 유지됩니다.
-            </p>
-            {canViewDetails && (
-              <p className="mt-1 text-[11px] font-medium text-sky-700 dark:text-sky-300">
-                길드원을 선택하면 기부액과 상세 기여 내역을 볼 수 있습니다.
-              </p>
-            )}
+            <Tooltip
+              align="start"
+              placement="bottom"
+              size="wide"
+              content={
+                <div className="space-y-1.5">
+                  <p>
+                    이번 주 점수는 매주 월요일 00:00(KST)에 새로 시작하며 누적
+                    점수는 유지됩니다.
+                  </p>
+                  <p>
+                    세부 점수는 이번 주 / 누적 순서입니다. 골드·길드 보상
+                    10,000G당 1점, 길드 명성 1당 10점, 식당·교역 기존 기여
+                    1점당 10점으로 환산하며 시설 재료는 희소도를 반영합니다.
+                  </p>
+                  <p>
+                    기본 시설 활동 1회는 10점이며, 길드원이 함께 달성하는
+                    제작소·탐사 공동 보상은 개인 기여도에 포함되지 않습니다.
+                  </p>
+                  {canViewDetails && (
+                    <p className="font-medium text-sky-700 dark:text-sky-300">
+                      길드원을 선택하면 기부액과 상세 기여 내역을 볼 수 있습니다.
+                    </p>
+                  )}
+                </div>
+              }
+              triggerClassName="inline-flex h-7 w-7 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-600 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              <Question size={14} weight="bold" aria-hidden />
+              <span className="sr-only">길드 기여도 도움말</span>
+            </Tooltip>
           </div>
           <div className="shrink-0 text-right text-xs tabular-nums">
             <div className="font-semibold text-sky-700 dark:text-sky-300">
@@ -146,12 +171,6 @@ export function GuildContributionPanel({
           })}
         </ol>
       )}
-      <div className="border-t border-zinc-200 px-3 py-2 text-[10px] leading-relaxed text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-        세부 점수는 이번 주 / 누적 순서입니다. 골드·길드 보상 10,000G당 1점,
-        길드 명성 1당 10점, 식당·교역 기존 기여 1점당 10점으로 환산하며 시설
-        재료는 희소도를 반영합니다. 기본 시설 활동 1회는 10점이며, 길드원이
-        함께 달성하는 제작소·탐사 공동 보상은 개인 기여도에 포함되지 않습니다.
-      </div>
       {canViewDetails && selectedMember && (
         <GuildContributionDetailDialog
           member={selectedMember}

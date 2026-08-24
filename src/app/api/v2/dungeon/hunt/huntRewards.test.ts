@@ -1,5 +1,38 @@
 import { describe, expect, it } from "vitest";
-import { applyChargeRestore } from "./huntRewards";
+import {
+  applyChargeRestore,
+  multiplyHuntReward,
+  normalizeHuntBattleCount,
+  rareMapRewardRolls,
+} from "./huntRewards";
+
+describe("희귀 탐사 압축 보상 횟수", () => {
+  const map = {
+    iid: "rm-compressed",
+    kind: "worn_map" as const,
+    depth: 84,
+    runsLeft: 30,
+    foundAt: 1,
+  };
+
+  it("승리하면 저장된 남은 횟수 전체를 보상 추첨 횟수로 쓴다", () => {
+    // Break caught: compressed settlement awards only one old hunt reward.
+    expect(rareMapRewardRolls(map, true)).toBe(30);
+    expect(multiplyHuntReward(3_285, 30)).toBe(98_550);
+  });
+
+  it("패배와 일반 사냥은 보상 횟수를 늘리지 않는다", () => {
+    // Break caught: a failed expedition grants its stored reward rolls.
+    expect(rareMapRewardRolls(map, false)).toBe(1);
+    expect(rareMapRewardRolls(null, true)).toBe(1);
+  });
+
+  it("희귀 탐사 요청은 클라이언트 count와 무관하게 실제 전투 한 번만 허용한다", () => {
+    // Break caught: a stale batch setting resolves 30 actual rare-map combats.
+    expect(normalizeHuntBattleCount(50, "rm-compressed")).toBe(1);
+    expect(normalizeHuntBattleCount(10, null)).toBe(10);
+  });
+});
 
 describe("applyChargeRestore", () => {
   it("HP가 0이어도 보유 충전량으로 자동 회복한다", () => {

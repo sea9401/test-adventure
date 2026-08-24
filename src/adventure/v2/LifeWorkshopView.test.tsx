@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
 
 import { renderToStaticMarkup } from "react-dom/server";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   LifeWorkshopMaxConfirmDialog,
+  LifeWorkshopProcessingRecipeCard,
   RanchFeedRecipeCard,
   LifeWorkshopView,
   LifeWorkshopQuantityControls,
+  groupWorkshopRecipesByOutput,
   lifeWorkshopErrorText,
 } from "./LifeWorkshopView";
 import { emptyLifeWorkshopState } from "./lifeWorkshop";
@@ -33,6 +35,70 @@ describe("생활 조합 작업장 모바일 배치", () => {
   });
 });
 
+describe("생활 가공 재료 선택", () => {
+  const recipes = [
+    {
+      id: "pine_softwood",
+      activity: "woodcutting" as const,
+      inputId: "v2_timber",
+      inputAmount: 10,
+      outputId: "v2_processed_softwood" as const,
+      outputAmount: 1,
+      requiredLevel: 1,
+      maxBatches: 67,
+      greatSuccessPct: 5,
+    },
+    {
+      id: "birch_softwood",
+      activity: "woodcutting" as const,
+      inputId: "v2_birch_log",
+      inputAmount: 8,
+      outputId: "v2_processed_softwood" as const,
+      outputAmount: 1,
+      requiredLevel: 10,
+      maxBatches: 71,
+      greatSuccessPct: 5,
+    },
+  ];
+
+  it("같은 결과물을 만드는 원재료 레시피를 한 그룹으로 묶는다", () => {
+    const hardwoodRecipe = {
+      ...recipes[0],
+      id: "willow_hardwood",
+      inputId: "v2_willow_log",
+      outputId: "v2_processed_hardwood" as const,
+      requiredLevel: 20,
+    };
+
+    expect(
+      groupWorkshopRecipesByOutput([...recipes, hardwoodRecipe]),
+    ).toEqual([recipes, [hardwoodRecipe]]);
+  });
+
+  it("선택한 원재료의 보유량과 최대 횟수로 가공한다", () => {
+    const onProcess = vi.fn();
+    render(
+      <LifeWorkshopProcessingRecipeCard
+        recipes={recipes}
+        level={70}
+        materials={{ v2_timber: 672, v2_birch_log: 568 }}
+        busy={false}
+        onProcess={onProcess}
+      />,
+    );
+
+    expect(screen.getAllByText("다듬은 목재 1개")).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText("다듬은 목재 재료 선택"), {
+      target: { value: "birch_softwood" },
+    });
+
+    expect(screen.getByText("필요 Lv.10 · 보유 568개")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "최대 71회" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "1회 가공" }));
+    expect(onProcess).toHaveBeenCalledWith("birch_softwood", 1);
+  });
+});
+
 describe("목장 사료 제작 카드", () => {
   it("공용 사료의 재료, 생산량, 보유량과 제작 수량을 보여준다", () => {
     const html = renderToStaticMarkup(
@@ -41,14 +107,14 @@ describe("목장 사료 제작 카드", () => {
           id: "compound_feed",
           name: "배합 사료",
           outputAmount: 5,
-          costs: { wheat: 4, corn: 3, herb: 1 },
+          ingredientAmount: 5,
           unlocked: true,
           craftCount: 1,
           masteryStage: 1,
           batchLimit: 5,
-          maxCraftable: 2,
+          maxCraftable: 3,
           ownedFeed: 7,
-          ingredientBalances: { wheat: 8, corn: 6, herb: 2 },
+          availableCropCount: 16,
         }}
         busy={false}
         onCraft={vi.fn()}
@@ -58,11 +124,10 @@ describe("목장 사료 제작 카드", () => {
     expect(html).toContain("목장 용품");
     expect(html).toContain("배합 사료");
     expect(html).toContain("보유 7개");
-    expect(html).toContain("밀 4개");
-    expect(html).toContain("옥수수 3개");
-    expect(html).toContain("허브 1개");
+    expect(html).toContain("농장 작물 아무거나 5개");
+    expect(html).toContain("보유 16개");
     expect(html).toContain("5개 완성");
-    expect(html).toContain('max="2"');
+    expect(html).toContain('max="3"');
   });
 });
 
@@ -122,14 +187,25 @@ describe("실패 음식 퇴비 제작 카드", () => {
         id: "compound_feed",
         name: "배합 사료",
         outputAmount: 5,
-        costs: { wheat: 4, corn: 3, herb: 1 },
+        ingredientAmount: 5,
         unlocked: false,
         craftCount: 0,
         masteryStage: 0,
         batchLimit: 1,
         maxCraftable: 0,
         ownedFeed: 0,
-        ingredientBalances: { wheat: 0, corn: 0, herb: 0 },
+        availableCropCount: 0,
+      },
+      failedDishFeedRecipe: {
+        id: "failed_dish_feed",
+        name: "재활용 배합 사료",
+        outputAmount: 5,
+        failedDishCost: 25,
+        craftCount: 1,
+        masteryStage: 1,
+        batchLimit: 5,
+        maxCraftable: 0,
+        ownedFeed: 0,
       },
     }), { status: 200, headers: { "content-type": "application/json" } })));
 
@@ -137,6 +213,56 @@ describe("실패 음식 퇴비 제작 카드", () => {
 
     await waitFor(() => expect(screen.getByText("실패 음식 퇴비")).toBeTruthy());
     expect(screen.getByText("실패 음식 3개 (보유 8개)")).toBeTruthy();
+  });
+
+  it("실패 음식으로 만드는 사료의 비용과 생산량을 보여준다", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      ok: true,
+      state: emptyLifeWorkshopState(),
+      levels: { woodcutting: 1, mining: 1 },
+      materials: {},
+      failedCookingDishes: 51,
+      gold: 0,
+      bankedGold: 0,
+      recipes: [],
+      tools: [
+        { activity: "woodcutting", tier: 0, name: "낡은 벌목 도구", durationReductionPct: 0, bonusMaterialPct: 0, nextUpgrade: null },
+        { activity: "mining", tier: 0, name: "낡은 채광 도구", durationReductionPct: 0, bonusMaterialPct: 0, nextUpgrade: null },
+      ],
+      craftingRecipes: [],
+      ranchCraftingRecipe: {
+        id: "compound_feed",
+        name: "배합 사료",
+        outputAmount: 5,
+        ingredientAmount: 5,
+        unlocked: false,
+        craftCount: 0,
+        masteryStage: 0,
+        batchLimit: 1,
+        maxCraftable: 0,
+        ownedFeed: 3,
+        availableCropCount: 0,
+      },
+      failedDishFeedRecipe: {
+        id: "failed_dish_feed",
+        name: "재활용 배합 사료",
+        outputAmount: 5,
+        failedDishCost: 25,
+        craftCount: 0,
+        masteryStage: 0,
+        batchLimit: 1,
+        maxCraftable: 1,
+        ownedFeed: 3,
+      },
+    }), { status: 200, headers: { "content-type": "application/json" } })));
+
+    render(<LifeWorkshopView onBack={vi.fn()} initialTab="craft" />);
+
+    const recipeName = await screen.findByText("재활용 배합 사료");
+    expect(screen.getByText(/실패 음식 25개/).textContent).toContain("보유 51개");
+    expect(recipeName.closest(".ui-game-card")?.textContent).toContain(
+      "1회 제작 시 5개 완성",
+    );
   });
 });
 

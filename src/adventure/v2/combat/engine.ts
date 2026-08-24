@@ -177,6 +177,7 @@ import {
 import {
   BOSS_MAX_HP_DAMAGE_MULT,
   BOSS_PCT_HP_DAMAGE_MULT,
+  markForcedActionMainLog,
   mergeTier7ResourceSnapshot,
   type BattleBuffs,
   type BattleLogEntry,
@@ -2386,11 +2387,10 @@ function applyImmediateProvokedEnemyBasicAttacks(
     if (next.log.length > logStart) {
       next = {
         ...next,
-        log: next.log.map((entry, logIndex) =>
-          logIndex < logStart || entry.turn
-            ? entry
-            : { ...entry, turn: "enemy" as const },
-        ),
+        log: next.log.map((entry, logIndex) => {
+          if (logIndex < logStart) return entry;
+          return markForcedActionMainLog(entry.turn ? entry : { ...entry, turn: "enemy" as const }, skillName);
+        }),
       };
     }
   }
@@ -2405,7 +2405,6 @@ function applyImmediateProvokedEnemyBasicAttacks(
     },
   };
 }
-
 export function applyPlayerV2SkillCast(
   state: BattleState,
   player: PlayerCombat,
@@ -2470,6 +2469,7 @@ export function applyPlayerV2SkillCast(
     magicMpCostReductionPct: formulaOptimizationEquipped ? 20 : 0,
     mpOverdraftSkillIds: formulaOverdraftSkillIds,
     procRoll: Math.random() * 100,
+    nextProcRoll: () => Math.random() * 100,
     bleedHuntRoll: needsBleedHuntRoll ? Math.random() * 100 : undefined,
     procChanceBonus: player.skillProcChanceAdd ?? 0,
     // 패턴 경로에서도 procChance 굴림(부활) — 플래그 on 이면 패턴이 고른 스킬도 확률 게이트 통과 필요.

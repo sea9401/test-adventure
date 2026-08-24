@@ -15,6 +15,7 @@ import {
 import {
   equipRollFromPercentiles,
   equipRollPercentiles,
+  equipRollQualityWeights,
   rollItemStats,
   type V2EquipRollPercentiles,
 } from "./v2EquipVariance";
@@ -371,18 +372,28 @@ export function blacksmithTechniqueView({
 }
 
 type PercentileEntry =
-  | { kind: "power"; weight: 2 }
-  | { kind: "option"; key: keyof V2EquipOptions; weight: 1 };
+  | { kind: "power"; weight: number }
+  | { kind: "option"; key: keyof V2EquipOptions; weight: number };
 
 function percentileEntries(
+  item: V2Equipment,
   percentiles: V2EquipRollPercentiles,
 ): PercentileEntry[] {
+  const weights = equipRollQualityWeights(item);
   return [
-    { kind: "power", weight: 2 },
+    ...(weights.power > 0
+      ? [{ kind: "power" as const, weight: weights.power }]
+      : []),
     ...V2_EQUIP_OPTION_KEYS.flatMap((key) =>
-      percentiles.options?.[key] == null
+      percentiles.options?.[key] == null || (weights.options?.[key] ?? 0) <= 0
         ? []
-        : [{ kind: "option" as const, key, weight: 1 as const }],
+        : [
+            {
+              kind: "option" as const,
+              key,
+              weight: weights.options?.[key] ?? 0,
+            },
+          ],
     ),
   ];
 }
@@ -420,9 +431,10 @@ function clonePercentiles(
 }
 
 export function blacksmithWeightedPercentileBudget(
+  item: V2Equipment,
   percentiles: V2EquipRollPercentiles,
 ): number {
-  return percentileEntries(percentiles).reduce(
+  return percentileEntries(item, percentiles).reduce(
     (sum, entry) => sum + entryValue(percentiles, entry) * entry.weight,
     0,
   );
@@ -455,11 +467,13 @@ function adjustBudget(
 }
 
 function rebalanceBudget(
+  item: V2Equipment,
   percentiles: V2EquipRollPercentiles,
   targetBudget: number,
 ) {
-  const delta = targetBudget - blacksmithWeightedPercentileBudget(percentiles);
-  adjustBudget(percentiles, percentileEntries(percentiles), delta);
+  const delta =
+    targetBudget - blacksmithWeightedPercentileBudget(item, percentiles);
+  adjustBudget(percentiles, percentileEntries(item, percentiles), delta);
 }
 
 function focusDefinition(
@@ -472,10 +486,11 @@ function focusDefinition(
 }
 
 function focusEntries(
+  item: V2Equipment,
   percentiles: V2EquipRollPercentiles,
   focus: BlacksmithOptionFocusDefinition,
 ) {
-  const options = percentileEntries(percentiles).filter(
+  const options = percentileEntries(item, percentiles).filter(
     (entry): entry is Extract<PercentileEntry, { kind: "option" }> =>
       entry.kind === "option",
   );
@@ -535,10 +550,10 @@ export function applyBlacksmithCraftControl(
   rng: () => number,
 ): BlacksmithControlledRoll {
   const original = equipRollPercentiles(item, baseRoll);
-  const targetBudget = blacksmithWeightedPercentileBudget(original);
+  const targetBudget = blacksmithWeightedPercentileBudget(item, original);
   const percentiles = clonePercentiles(original);
   const focus = focusDefinition(selection.optionFocus);
-  const grouped = focus ? focusEntries(percentiles, focus) : null;
+  const grouped = focus ? focusEntries(item, percentiles, focus) : null;
   const validFocus =
     grouped != null && grouped.targets.length > 0 && grouped.others.length > 0;
   const focusApplied =
@@ -554,7 +569,7 @@ export function applyBlacksmithCraftControl(
     }
   }
 
-  const entries = percentileEntries(percentiles);
+  const entries = percentileEntries(item, percentiles);
   const powerEntries = entries.filter((entry) => entry.kind === "power");
   const optionEntries = entries.filter((entry) => entry.kind === "option");
   const transfer = entries.reduce((sum, entry) => sum + entry.weight, 0) *
@@ -573,7 +588,7 @@ export function applyBlacksmithCraftControl(
       setEntryValue(percentiles, entry, 0.5 + (value - 0.5) * factor);
     }
   }
-  rebalanceBudget(percentiles, targetBudget);
+  rebalanceBudget(item, percentiles, targetBudget);
   return {
     roll: equipRollFromPercentiles(item, percentiles),
     percentiles,
@@ -597,7 +612,7 @@ function normalizedToBudget(
   targetBudget: number,
 ): V2EquipRoll {
   const percentiles = equipRollPercentiles(item, roll);
-  rebalanceBudget(percentiles, targetBudget);
+  rebalanceBudget(item, percentiles, targetBudget);
   return equipRollFromPercentiles(item, percentiles);
 }
 
@@ -606,7 +621,7 @@ function distinctInspectionPercentiles(
   baseline: V2EquipRollPercentiles,
   otherRoll: V2EquipRoll,
 ): V2EquipRollPercentiles {
-  const entries = percentileEntries(baseline);
+  const entries = percentileEntries(item, baseline);
   for (const source of entries) {
     for (const target of entries) {
       if (source === target) continue;
@@ -647,14 +662,16 @@ export function rollBlacksmithInspectionCandidates(
 ): readonly [BlacksmithControlledRoll, BlacksmithControlledRoll] {
   const firstBase = rollItemStats(item, rng);
   const budget = blacksmithWeightedPercentileBudget(
+    item,
     equipRollPercentiles(item, firstBase),
   );
   const secondBase = normalizedToBudget(item, rollItemStats(item, rng), budget);
   const first = applyBlacksmithCraftControl(item, firstBase, selection, rng);
   const second = applyBlacksmithCraftControl(item, secondBase, selection, rng);
   rebalanceBudget(
+    item,
     second.percentiles,
-    blacksmithWeightedPercentileBudget(first.percentiles),
+    blacksmithWeightedPercentileBudget(item, first.percentiles),
   );
   second.roll = equipRollFromPercentiles(item, second.percentiles);
   if (JSON.stringify(first.roll) === JSON.stringify(second.roll)) {

@@ -43,6 +43,13 @@ export type HuntDropResult = {
   nextOwned: V2EquipInstance[];
 };
 
+export type HuntRepeatedDropResult = {
+  drops: DropResult;
+  droppedEquipments: V2EquipmentId[];
+  droppedUniques: V2EquipmentId[];
+  nextOwned: V2EquipInstance[];
+};
+
 // 승리 시 1회 드랍 굴림. 패배면 빈 결과(원본 보유분 그대로).
 //   - drops: 재료 + 강화석(mapStoneMult) + 소환서 + 재련석 + 정착지 재료 + 제작소 제작 재료.
 //   - droppedEquipment: 정규 장비(스타터 rollEquipDrop ?? 프론티어 밴드 rollBandCommonDrop).
@@ -171,4 +178,35 @@ export function rollHuntDrops(params: {
   }
 
   return { drops, droppedEquipment, droppedUnique, nextOwned };
+}
+
+/**
+ * 희귀 탐사 압축 정산용. 확률을 곱해 한 번 굴리지 않고 기존 1회 드랍을 독립 반복해
+ * 무득·복수 획득 분포와 장비별 iid/옵션 굴림을 그대로 보존한다.
+ */
+export function rollHuntDropsRepeated(
+  params: Parameters<typeof rollHuntDrops>[0] & { rewardRolls: number },
+): HuntRepeatedDropResult {
+  const rewardRolls = Number.isFinite(params.rewardRolls)
+    ? Math.max(1, Math.floor(params.rewardRolls))
+    : 1;
+  const drops: DropResult = {};
+  const droppedEquipments: V2EquipmentId[] = [];
+  const droppedUniques: V2EquipmentId[] = [];
+  let nextOwned = params.ownedEquip;
+
+  for (let i = 0; i < rewardRolls; i += 1) {
+    const result = rollHuntDrops({ ...params, ownedEquip: nextOwned });
+    nextOwned = result.nextOwned;
+    for (const [id, amount] of Object.entries(result.drops)) {
+      if (!amount || amount <= 0) continue;
+      drops[id] = (drops[id] ?? 0) + amount;
+    }
+    if (result.droppedEquipment) {
+      droppedEquipments.push(result.droppedEquipment);
+    }
+    if (result.droppedUnique) droppedUniques.push(result.droppedUnique);
+  }
+
+  return { drops, droppedEquipments, droppedUniques, nextOwned };
 }

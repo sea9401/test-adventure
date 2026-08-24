@@ -51,6 +51,8 @@ export function applyHuntProficiency(params: {
   /** 길드 전투 보급 — 숙련도 보너스 확률(%). */
   proficiencyChancePct: number;
   levelsGained: number;
+  /** 압축 희귀 탐사에서 적립할 기존 승리 보상 횟수. 실제 전투 기록과는 분리한다. */
+  rewardWins?: number;
   rng?: () => number;
 }): HuntProficiencyResult {
   const {
@@ -61,6 +63,7 @@ export function applyHuntProficiency(params: {
     equippedSkills,
     proficiencyChancePct,
     levelsGained,
+    rewardWins = 1,
     rng = Math.random,
   } = params;
 
@@ -82,21 +85,27 @@ export function applyHuntProficiency(params: {
     // 적립 — 승리 시. 숙달 포인트는 깊이 밴드 비례(2~5), 직업 숙련도는 승리당 +1.
     //   none(모험가)은 숙달 포인트만 적립하고, 직업 숙련도/정복 게이트는 제외한다.
     if (won) {
-      // 승리당 숙달 포인트 = 깊이 밴드(2~5) + 착용 패시브 보너스(수련 = +1).
-      const perKill =
-        proficiencyPerKillAtDepth(depth) +
-        equippedProfPerKillBonus(equippedSkills) +
-        rollGuildCombatProficiencyBonus(proficiencyChancePct, rng);
-      const nextProf = addPoints(prof, group, perKill);
-      if (nextProf !== prof) {
-        prof = nextProf;
-        proficiencyGained = perKill;
-      }
-      if (group !== "none" && !isLifestyleMasteryJobId(v2JobId)) {
-        prof = addCumLevel(prof, group, 1);
-        prof = addJobCumLevel(prof, v2JobId, 1);
-        masteryGained = 1;
-        masteryJobId = (V2_JOB_CATALOG[v2JobId]?.tier ?? 0) > 0 ? v2JobId : null;
+      const wins = Number.isFinite(rewardWins)
+        ? Math.max(1, Math.floor(rewardWins))
+        : 1;
+      for (let i = 0; i < wins; i += 1) {
+        // 승리당 숙달 포인트 = 깊이 밴드(2~5) + 착용 패시브 보너스(수련 = +1).
+        const perKill =
+          proficiencyPerKillAtDepth(depth) +
+          equippedProfPerKillBonus(equippedSkills) +
+          rollGuildCombatProficiencyBonus(proficiencyChancePct, rng);
+        const nextProf = addPoints(prof, group, perKill);
+        if (nextProf !== prof) {
+          prof = nextProf;
+          proficiencyGained += perKill;
+        }
+        if (group !== "none" && !isLifestyleMasteryJobId(v2JobId)) {
+          prof = addCumLevel(prof, group, 1);
+          prof = addJobCumLevel(prof, v2JobId, 1);
+          masteryGained += 1;
+          masteryJobId =
+            (V2_JOB_CATALOG[v2JobId]?.tier ?? 0) > 0 ? v2JobId : null;
+        }
       }
     }
     // 레벨업 시 — 랜덤 스탯 성장. 직업 숙련도는 레벨업이 아니라 사냥 승리에서 적립한다.

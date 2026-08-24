@@ -77,10 +77,52 @@ describe("희귀 탐사 지도 전환", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/희귀 탐사 진행 중 — 남은 10판/)).toBeDefined();
+      expect(screen.getByText(/희귀 탐사 진행 중 · 1회 전투/)).toBeDefined();
     });
     expect(
       screen.queryByText("희귀 탐사 시간이 만료되어 일반 사냥터로 이동합니다."),
     ).toBeNull();
+  });
+
+  it("일반 사냥 버튼 바로 아래에 열린 희귀 탐사 빠른 입장을 표시한다", async () => {
+    const now = Date.now();
+    fetchMock.mockResolvedValueOnce(
+      response({
+        ok: true,
+        rareMaps: [
+          {
+            iid: "quick-map",
+            kind: "worn_map",
+            depth: 10,
+            runsLeft: 30,
+            foundAt: now,
+          },
+        ],
+        serverNow: now,
+      }),
+    );
+
+    render(
+      <V2DungeonFloorView
+        floorId={10}
+        outpostId="outpost-1"
+        outpostName="마른 협곡 거점"
+        playerName="모험가"
+        playerGender="male"
+        stamina={{ current: 100, lastUpdatedAt: 0 }}
+        setStamina={vi.fn()}
+        onBack={vi.fn()}
+        onEnterRareMap={vi.fn()}
+      />,
+    );
+
+    const huntButton = screen.getByRole("button", { name: /사냥/ });
+    const rareMapButton = await screen.findByRole("button", {
+      name: "희귀 탐사 · 낡은 탐사로",
+    });
+    expect(
+      huntButton.compareDocumentPosition(rareMapButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });

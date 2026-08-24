@@ -18,6 +18,7 @@ import { GuildDiningHallPanel } from "./GuildDiningHallPanel";
 import { GuildTradePostPanel } from "./GuildTradePostPanel";
 import { GuildWarehousePanel } from "./GuildWarehousePanel";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { confirmGameAction, type ConfirmGameAction } from "@/components/ui/gameDialog";
 import {
   GUILD_FACILITY_IDS,
   GUILD_FACILITY_ICON_COLORS,
@@ -34,24 +35,24 @@ const FACILITY_DESC: Partial<Record<SettlementBuildingId, string>> = {
   guild_warehouse: "길드 재료를 함께 보관하고 운영진이 필요한 곳에 배분하는 시설입니다.",
 };
 
-export function confirmGuildFacilityUpgrade({
+export async function confirmGuildFacilityUpgrade({
   buildingId,
   next,
   onUpgrade,
-  confirm = (message) => window.confirm(message),
+  confirm = confirmGameAction,
 }: {
   buildingId: SettlementBuildingId;
   next: AnySettlementBuildingUpgradeDef;
   onUpgrade: (buildingId: SettlementBuildingId) => void;
-  confirm?: (message: string) => boolean;
-}): boolean {
+  confirm?: ConfirmGameAction;
+}): Promise<boolean> {
   const goldCost = Math.max(0, Math.floor(next.cost.gold ?? 0));
   const fameCost = Math.max(0, Math.floor(next.cost.fame ?? 0));
   const fameText = fameCost > 0 ? ` · 명성 ${fameCost.toLocaleString()}` : "";
   if (
-    !confirm(
+    !(await confirm(
       `${SETTLEMENT_BUILDINGS[buildingId].name}을(를) Lv.${next.level}(으)로 업그레이드할까요?\n기부 완료 재료와 길드 자금 ${goldCost.toLocaleString()} G${fameText}이(가) 사용됩니다.`,
-    )
+    ))
   ) {
     return false;
   }
@@ -277,7 +278,7 @@ export function GuildFacilitiesPanel({
                     canComplete={canManage}
                     completing={upgradingId === row.id}
                     onComplete={() =>
-                      confirmGuildFacilityUpgrade({
+                      void confirmGuildFacilityUpgrade({
                         buildingId: row.id,
                         next,
                         onUpgrade: (buildingId) =>

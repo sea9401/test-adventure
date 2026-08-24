@@ -41,6 +41,8 @@ import {
   v2DotLogCause,
 } from "./combatShared";
 import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
+import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
+import { BLEED_MAX_STACKS } from "@/adventure/data/v2/v2CombatConstants";
 import {
   magicBarrierCombatLogEntries,
   resolveMagicBarrierDamage,
@@ -316,6 +318,9 @@ export function tickPlayerDotsOnAction(
 
 // 적 행동 시작 — 적에게 걸린 DoT 가 먼저 틱한다. 로그는 적 행동 묶음(tick)에 붙인다.
 function tickEnemyDotsOnAction(state: BattleState): BattleState {
+  const bleedBeforeTick = state.enemyV2Dots.find(
+    (dot) => dot.tag === "bleed" && dot.turns > 0,
+  );
   const eTick = tickV2Dots(
     state.enemyV2Dots,
     state.enemy.hp,
@@ -333,7 +338,12 @@ function tickEnemyDotsOnAction(state: BattleState): BattleState {
     state.enemy.statusDamageReductionPct,
   );
   if (damage <= 0) return { ...state, enemyV2Dots: eTick.nextDots };
-  const dotLog = distributeV2DotTicks(eTick.ticks, damage).reduce(
+  const actualEnemyDotDamage = Math.min(state.enemyHp, damage);
+  const actualBleedDamage =
+    distributeV2DotTicks(eTick.ticks, actualEnemyDotDamage).find(
+      (tick) => tick.tag === "bleed",
+    )?.damage ?? 0;
+  let dotLog = distributeV2DotTicks(eTick.ticks, damage).reduce(
     (log, tick) =>
       appendLog(log, {
         kind: "info",
@@ -343,8 +353,34 @@ function tickEnemyDotsOnAction(state: BattleState): BattleState {
       }),
     state.log,
   );
+  const bleedTickHealPct =
+    bleedBeforeTick && bleedBeforeTick.stacks >= BLEED_MAX_STACKS
+      ? state.v2Skills.equipped.reduce((sum, skillId) => {
+          const mechanic = V2_SKILLS[skillId]?.passive
+            ? V2_SKILLS[skillId]?.bleedHunt
+            : undefined;
+          return sum + Math.max(0, mechanic?.bleedTickHealMaxHpPct ?? 0);
+        }, 0)
+      : 0;
+  const bleedTickHeal =
+    actualBleedDamage > 0 && bleedTickHealPct > 0
+      ? Math.floor((state.playerMaxHp * bleedTickHealPct) / 100)
+      : 0;
+  const nextPlayerHp = Math.min(
+    state.playerMaxHp,
+    state.playerHp + bleedTickHeal,
+  );
+  const actualBleedTickHeal = nextPlayerHp - state.playerHp;
+  if (actualBleedTickHeal > 0) {
+    dotLog = appendLog(dotLog, {
+      kind: "info",
+      text: `[피의 양식] HP ${actualBleedTickHeal} 회복했다.`,
+      turn: "enemy",
+    });
+  }
   const next = applyPhaseTriggerIfAny({
     ...state,
+    playerHp: nextPlayerHp,
     enemyV2Dots: eTick.nextDots,
     enemyHp: Math.max(0, state.enemyHp - damage),
     log: dotLog,

@@ -39,7 +39,7 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex,nofollow" />
-<title>8월 23일 서버 점검 안내 — 무슨무슨게임</title>
+<title>8월 24일 서버 점검 안내 — 무슨무슨게임</title>
 <style>
   html,body{margin:0;padding:0;height:100%;background:#09090b;color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
   main{min-height:100%;display:flex;align-items:center;justify-content:center;padding:1.5rem;box-sizing:border-box}
@@ -60,15 +60,15 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <main>
   <div class="box" role="status" aria-live="polite">
     <div class="status">서비스 점검</div>
-    <h1>8월 23일 서버 점검 안내</h1>
+    <h1>8월 24일 서버 점검 안내</h1>
     <p class="lead">안녕하세요, 무슨무슨게임입니다.<br />안정적인 서비스 제공을 위해 아래와 같이 점검을 진행합니다.</p>
     <dl class="details">
-      <div class="row"><dt>점검 일시:</dt><dd>8월 23일(일) 오전 1시 ~ 오전 1시 30분</dd></div>
-      <div class="row"><dt>점검 시간:</dt><dd>약 30분</dd></div>
+      <div class="row"><dt>점검 일시:</dt><dd>8월 24일(월) 오후 10시 30분 ~ 8월 25일(화) 오전 12시</dd></div>
+      <div class="row"><dt>점검 시간:</dt><dd>약 1시간 30분</dd></div>
       <div class="row"><dt>점검 내용:</dt><dd>서버 안정화 및 시스템 점검</dd></div>
     </dl>
     <p class="notice">점검 중에는 게임에 접속할 수 없습니다.<br />이용에 불편을 드려 죄송합니다.</p>
-    <p class="note">※ 점검 상황에 따라 종료 시간이 변경될 수 있습니다.</p>
+    <p class="note">※ 점검 진행 상황에 따라 예정보다 조금 일찍 종료될 수 있습니다.</p>
   </div>
 </main>
 </body>

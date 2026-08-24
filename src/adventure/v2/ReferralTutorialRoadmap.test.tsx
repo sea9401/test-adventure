@@ -34,7 +34,7 @@ describe("ReferralTutorialRoadmap", () => {
     expect(html).toContain('href="/character/life"');
     expect(html).not.toContain('href="null"');
     expect(html).toContain("bg-zinc-50");
-    expect(html).toContain("dark:bg-zinc-900");
+    expect(html).toContain("dark:bg-zinc-950");
   });
 
   it("과거 지급 방식을 별도 표시하지 않는다", () => {

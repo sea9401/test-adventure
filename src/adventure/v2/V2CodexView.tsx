@@ -926,7 +926,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     {
       label: "기본 SP",
       value: spBreakdown?.base ?? 0,
-      detail: "캐릭터 기본 예산",
     },
     {
       label: "직업 해금",
@@ -1367,9 +1366,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                       {row.value}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                    {row.detail}
-                  </p>
+                  {row.detail && (
+                    <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {row.detail}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -1391,15 +1392,17 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   row.value > 0 || row.label === "기본 SP" || row.value < 0;
                 return (
                   <Card key={row.label} padding="md">
-                    <div className="flex min-h-[8.75rem] flex-col">
+                    <div className="flex flex-col">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <h3 className="truncate text-sm font-bold">
                             {row.label}
                           </h3>
-                          <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                            {row.detail}
-                          </p>
+                          {row.detail && (
+                            <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                              {row.detail}
+                            </p>
+                          )}
                         </div>
                         <span
                           className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
@@ -1436,11 +1439,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                       <div className="mt-1.5 text-[11px] font-medium tabular-nums text-zinc-600 dark:text-zinc-300">
                         {row.progress.label}
                       </div>
-                      <div className="mt-auto pt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-                        {row.label === "상한 조정"
-                          ? "SP 최대치 계산에서 차감"
-                          : "현재 SP 최대치에 반영"}
-                      </div>
+                      {row.label === "상한 조정" && (
+                        <div className="mt-auto pt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                          SP 최대치 계산에서 차감
+                        </div>
+                      )}
                     </div>
                   </Card>
                 );
@@ -1463,7 +1466,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                 const complete = used >= def.useCap;
                 return (
                   <Card key={tier} padding="md">
-                    <div className="flex min-h-[8.75rem] flex-col">
+                    <div className="flex flex-col">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <h3 className="truncate text-sm font-bold">
@@ -1497,10 +1500,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                             width: `${Math.min(100, (used / def.useCap) * 100)}%`,
                           }}
                         />
-                      </div>
-                      <div className="mt-auto pt-3 text-[11px] text-zinc-500 dark:text-zinc-400">
-                        현재 SP +{used * def.spPerUse} · 1개당 SP +
-                        {def.spPerUse}
                       </div>
                     </div>
                   </Card>

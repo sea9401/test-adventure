@@ -4,6 +4,9 @@ import {
   confirmStormExpeditionExit,
   shouldShowAcceptedRisk,
   stormExpeditionArrivalNodeId,
+  stormExpeditionErrorMessage,
+  stormExpeditionResultAfterResponse,
+  stormExpeditionStatusAfterResponse,
   stormUniqueDropPreview,
 } from "./V2StormExpeditionView";
 import type { StormExpeditionRiskEventOffer } from "@/adventure/data/v2/stormExpedition";
@@ -44,24 +47,24 @@ describe("폭풍 원정 유니크 보상 미리보기", () => {
 });
 
 describe("폭풍 원정 자진 이탈 확인", () => {
-  it("확인을 취소하면 이탈하지 않고 확인 창은 한 번만 표시한다", () => {
-    const confirm = vi.fn(() => false);
+  it("확인을 취소하면 이탈하지 않고 확인 창은 한 번만 표시한다", async () => {
+    const confirm = vi.fn(async () => false);
     const onExit = vi.fn();
 
     expect(
-      confirmStormExpeditionExit({ mode: "normal", confirm, onExit }),
+      await confirmStormExpeditionExit({ mode: "normal", confirm, onExit }),
     ).toBe(false);
     expect(confirm).toHaveBeenCalledTimes(1);
     expect(confirm).toHaveBeenCalledWith(expect.stringContaining("귀환"));
     expect(onExit).not.toHaveBeenCalled();
   });
 
-  it("확인하면 이탈 요청을 한 번만 실행한다", () => {
-    const confirm = vi.fn(() => true);
+  it("확인하면 이탈 요청을 한 번만 실행한다", async () => {
+    const confirm = vi.fn(async () => true);
     const onExit = vi.fn();
 
     expect(
-      confirmStormExpeditionExit({ mode: "practice", confirm, onExit }),
+      await confirmStormExpeditionExit({ mode: "practice", confirm, onExit }),
     ).toBe(true);
     expect(confirm).toHaveBeenCalledTimes(1);
     expect(confirm).toHaveBeenCalledWith(expect.stringContaining("연습 원정"));
@@ -139,5 +142,34 @@ describe("폭풍 원정 일괄 진행 결과 요약", () => {
       reachedNodeName: "뇌운 정예",
       lostLoot: ["8,500 G", "재료 5개", "장비 2개"],
     });
+  });
+});
+
+describe("폭풍 원정 축약 오류 응답", () => {
+  it("429 응답이 현재 원정 상태와 지표를 지우지 않는다", () => {
+    const current = {
+      ok: true,
+      unlocked: true,
+      attemptsLeft: 1,
+      gold: 123_456,
+      state: { clears: 33, active: null, spFruitPity: 0, spFruitObtained: 0 },
+    };
+    const response = { ok: false, error: "rate_limited", retryAfterSec: 17 };
+    expect(stormExpeditionStatusAfterResponse(current, response)).toBe(current);
+  });
+
+  it("429 응답의 남은 대기 시간을 사용자에게 안내한다", () => {
+    expect(stormExpeditionErrorMessage({
+      error: "rate_limited",
+      retryAfterSec: 17,
+    })).toBe(
+      "원정 요청이 많습니다. 17초 후 일괄 진행을 다시 시작해 주세요.",
+    );
+  });
+
+  it("출발 요청에서 받은 429도 직전 결과처럼 숨기지 않는다", () => {
+    const response = { ok: false, error: "rate_limited", retryAfterSec: 17 };
+
+    expect(stormExpeditionResultAfterResponse("start", response, true)).toBe(response);
   });
 });

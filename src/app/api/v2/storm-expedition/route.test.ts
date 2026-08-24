@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   },
   rollUnique: vi.fn(),
   recordUnique: vi.fn(),
+  rateLimitCount: 0,
 }));
 
 vi.mock("@/db", () => ({
@@ -24,7 +25,17 @@ vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-storm-unique"),
 }));
 vi.mock("@/lib/server/userRateLimit", () => ({
-  enforceUserAndIpRateLimit: vi.fn(() => null),
+  enforceUserAndIpRateLimit: vi.fn(
+    (_request: Request, options: { userLimit: number }) => {
+      mocks.rateLimitCount += 1;
+      return mocks.rateLimitCount > options.userLimit
+        ? Response.json(
+            { ok: false, error: "rate_limited", retryAfterSec: 60 },
+            { status: 429 },
+          )
+        : null;
+    },
+  ),
 }));
 vi.mock("@/lib/server/savesKv", () => ({
   readSave: vi.fn(
@@ -136,6 +147,7 @@ beforeEach(() => {
   mocks.mintedIds.length = 0;
   mocks.rollUnique.mockReset().mockReturnValue(mocks.uniqueResult);
   mocks.recordUnique.mockReset().mockResolvedValue(undefined);
+  mocks.rateLimitCount = 0;
   mocks.saves.set("character.v2", { frontierDepth: 78, gold: 0, materials: {} });
   mocks.saves.set("equipment.v2", { owned: [], equipped: {} });
 });
@@ -209,5 +221,22 @@ describe("POST /api/v2/storm-expedition — 6T 유니크", () => {
     expect(mocks.rollUnique).not.toHaveBeenCalled();
     expect(mocks.mintedIds).toEqual([]);
     expect(mocks.recordUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/v2/storm-expedition — 일괄 진행 요청 제한", () => {
+  it("하루 3회 일괄 진행의 최대 63단계 요청을 1분 제한이 막지 않는다", async () => {
+    const responses = [];
+    for (let index = 0; index < 63; index += 1) {
+      responses.push(await POST(
+        new Request("http://localhost/api/v2/storm-expedition", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "invalid" }),
+        }),
+      ));
+    }
+
+    expect(responses.every((response) => response.status !== 429)).toBe(true);
   });
 });

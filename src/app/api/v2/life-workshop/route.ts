@@ -49,13 +49,17 @@ import {
   FARM_CROP_REQUIRED_SKILL_ID,
   FARM_SAVE_KEY,
   emptyFarmState,
+  farmCropItemCount,
   parseFarmState,
 } from "@/adventure/v2/farm";
 import {
   emptyV2SkillsState,
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
-import { RANCH_FEED_RECIPE } from "@/adventure/v2/ranch";
+import {
+  FAILED_DISH_FEED_RECIPE,
+  RANCH_FEED_RECIPE,
+} from "@/adventure/v2/ranch";
 
 const CRAFTING_BATCH_LIMITS = [1, 5, 15, 40, 100, 100] as const;
 
@@ -121,11 +125,17 @@ function workshopPayload(args: {
     args.state.crafting.craftCounts[RANCH_FEED_RECIPE.id] ?? 0;
   const ranchMasteryStage = recipeMasteryStage(ranchCraftCount);
   const ranchBatchLimit = CRAFTING_BATCH_LIMITS[ranchMasteryStage];
-  const ranchMaxByMaterials = Math.min(
-    ...Object.entries(RANCH_FEED_RECIPE.costs).map(([id, amount]) =>
-      Math.floor((farm.inventory[id as keyof typeof farm.inventory] ?? 0) / amount),
-    ),
+  const availableCropCount = farmCropItemCount(farm.inventory);
+  const ranchMaxByMaterials = Math.floor(
+    availableCropCount / RANCH_FEED_RECIPE.ingredientAmount,
   );
+  const failedDishFeedCraftCount =
+    args.state.crafting.craftCounts[FAILED_DISH_FEED_RECIPE.id] ?? 0;
+  const failedDishFeedMasteryStage = recipeMasteryStage(
+    failedDishFeedCraftCount,
+  );
+  const failedDishFeedBatchLimit =
+    CRAFTING_BATCH_LIMITS[failedDishFeedMasteryStage];
   return {
     state: args.state,
     levels,
@@ -179,12 +189,23 @@ function workshopPayload(args: {
         ? Math.max(0, Math.min(ranchBatchLimit, ranchMaxByMaterials))
         : 0,
       ownedFeed: farm.inventory.compound_feed ?? 0,
-      ingredientBalances: Object.fromEntries(
-        Object.keys(RANCH_FEED_RECIPE.costs).map((id) => [
-          id,
-          farm.inventory[id as keyof typeof farm.inventory] ?? 0,
-        ]),
+      availableCropCount,
+    },
+    failedDishFeedRecipe: {
+      ...FAILED_DISH_FEED_RECIPE,
+      craftCount: failedDishFeedCraftCount,
+      masteryStage: failedDishFeedMasteryStage,
+      batchLimit: failedDishFeedBatchLimit,
+      maxCraftable: Math.max(
+        0,
+        Math.min(
+          failedDishFeedBatchLimit,
+          Math.floor(
+            failedCookingDishes / FAILED_DISH_FEED_RECIPE.failedDishCost,
+          ),
+        ),
       ),
+      ownedFeed: farm.inventory.compound_feed ?? 0,
     },
   };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Backpack,
   Bank,
@@ -16,8 +16,10 @@ import {
   CookingPot,
   Crown,
   FirstAid,
+  Fish,
   Hammer,
   Lightning,
+  Mountains,
   PottedPlant,
   ShieldStar,
   SlidersHorizontal,
@@ -29,11 +31,12 @@ import {
   TestTube,
   Toolbox,
   Trophy,
+  Tree,
   UserCircle,
   Warehouse,
   type Icon,
 } from "@phosphor-icons/react";
-import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import type { SettlementBuildingId } from "@/adventure/data/v2/settlement";
 import {
@@ -42,8 +45,10 @@ import {
   availableGuildFacilityIds,
   type GuildFacilityId,
 } from "./guild/guildFacilities";
+import { useAdventureDashboard } from "./AdventureDashboardProvider";
+import type { AdventureActivityView } from "./adventureDashboard";
 
-// 메인 내비 — 가로 5탭(모험/전투/마을/캐릭터/길드). 하위 메뉴가 있는 탭은 누르면
+// 메인 내비 — 가로 6탭(모험/전투/마을/생활/캐릭터/길드). 하위 메뉴가 있는 탭은 누르면
 // 드롭다운으로 내려온다. 길드는 기존 길드 화면 + 준비된 기본 시설을 동적으로 노출한다.
 // 색·활성 표기는 기존 탭바(highlight)와 동일한 인디고 언어. 드롭다운 항목은 각 탭 홈 카드와
 // 같은 아이콘·색을 재사용해 일관·깔끔하게 보이도록 한다.
@@ -126,11 +131,46 @@ export const TOWN_MENU_ITEMS = [
   { label: "은행", href: "/town/bank", Icon: Bank, color: "text-yellow-600" },
   { label: "통합 교환소", href: "/town/exchange", Icon: Storefront, color: "text-orange-600" },
   { label: "대장간", href: "/town/smithy", Icon: Hammer, color: "text-amber-600" },
+] satisfies SubItem[];
+
+export const LIFE_MENU_ITEMS = [
   { label: "생활 지도", href: "/map", Icon: Compass, color: "text-sky-600" },
   { label: "생활 의뢰·조합 작업장", href: "/town/life-workshop", Icon: Toolbox, color: "text-amber-600" },
   { label: "모험가 농장", href: "/town/farm", Icon: PottedPlant, color: "text-emerald-500" },
+  { label: "낚시", href: "/town/fishing", Icon: Fish, color: "text-sky-500" },
+  { label: "자동 벌목", href: "/town/logging", Icon: Tree, color: "text-emerald-600" },
+  { label: "자동 채광", href: "/town/mining", Icon: Mountains, color: "text-stone-500" },
   { label: "주방", href: "/town/kitchen", Icon: CookingPot, color: "text-amber-600" },
 ] satisfies SubItem[];
+
+export function lifeMenuStateForHref(
+  activities: readonly AdventureActivityView[],
+  href: string,
+): { text: string; actionable: boolean } | null {
+  const candidates = activities.filter(
+    (activity) =>
+      activity.enabled && activity.tab === "life" && activity.href === href,
+  );
+  if (candidates.length === 0) return null;
+  const ranked = candidates
+    .map((activity, index) => ({
+      activity,
+      index,
+      priority:
+        activity.state === "actionable"
+          ? 0
+          : activity.current != null && activity.target != null && activity.state !== "completed"
+            ? 1
+            : activity.readyAt != null && activity.state === "in_progress"
+              ? 2
+              : 3,
+    }))
+    .sort((a, b) => a.priority - b.priority || a.index - b.index);
+  const activity = ranked[0]?.activity;
+  return activity
+    ? { text: activity.detail, actionable: activity.state === "actionable" }
+    : null;
+}
 
 export function townMenuItemsForViewer(
   viewerGuildId: number | null,
@@ -180,6 +220,12 @@ const TABS: TabDef[] = [
     sub: TOWN_MENU_ITEMS,
   },
   {
+    key: "life",
+    label: "생활",
+    href: "/map",
+    sub: LIFE_MENU_ITEMS,
+  },
+  {
     key: "character",
     label: "캐릭터",
     href: "/character",
@@ -200,14 +246,23 @@ export function MainTabNav({
   onNavigate: (href: string) => void;
   viewerGuildId: number | null;
 }) {
+  const { snapshot } = useAdventureDashboard();
   // 열린 드롭다운 탭 key — 한 번에 하나만. null=닫힘.
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const activeButtonRef = useRef<HTMLButtonElement>(null);
   const [guildFacilityCache, setGuildFacilityCache] = useState<{
     guildId: number;
     ids: GuildFacilityId[];
   } | null>(null);
   const guildFacilityRequest = useRef<number | null>(null);
   useEscapeKey(() => setOpenKey(null));
+  useEffect(() => {
+    activeButtonRef.current?.scrollIntoView({
+      behavior: "auto",
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [activeKey]);
   const close = () => setOpenKey(null);
 
   async function refreshGuildFacilities(guildId: number) {
@@ -251,9 +306,13 @@ export function MainTabNav({
           const isActive = t.key === activeKey;
           const hasSub = !!t.sub;
           const isOpen = openKey === t.key;
+          const hasActionable = snapshot?.notifications.tabs[
+            t.key as keyof typeof snapshot.notifications.tabs
+          ] === true;
           return (
             <button
               key={t.key}
+              ref={isActive ? activeButtonRef : undefined}
               type="button"
               aria-haspopup={hasSub ? "menu" : undefined}
               aria-expanded={hasSub ? isOpen : undefined}
@@ -269,13 +328,20 @@ export function MainTabNav({
                   onNavigate(t.href);
                 }
               }}
-              className={`flex shrink-0 items-center gap-1 whitespace-nowrap px-3 py-2.5 text-[1.0625rem] font-semibold transition-colors sm:px-5 ${
+              aria-label={`${t.label}${hasActionable ? ", 처리 가능한 항목 있음" : ""}`}
+              className={`relative -mb-px flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap border-b-2 px-3 py-2.5 text-[1.0625rem] font-semibold transition-colors sm:px-5 ${
                 isActive
-                  ? "text-indigo-700 dark:text-indigo-300"
-                  : "text-zinc-500 hover:text-indigo-500 dark:text-zinc-400 dark:hover:text-indigo-400"
+                  ? "border-violet-600 text-violet-700 dark:border-violet-400 dark:text-violet-300"
+                  : "border-transparent text-zinc-500 hover:text-violet-600 dark:text-zinc-400 dark:hover:text-violet-300"
               }`}
             >
               {t.label}
+              {hasActionable && (
+                <span
+                  aria-hidden
+                  className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-orange-500 ring-2 ring-white dark:ring-zinc-950"
+                />
+              )}
               {hasSub && (
                 <CaretDown
                   size={13}
@@ -298,7 +364,12 @@ export function MainTabNav({
             aria-label={`${openTab.label} 메뉴`}
             className={`${SURFACE_CARD} ui-dropdown-reveal absolute left-0 right-0 top-full z-50 mx-2 mt-2 grid max-h-[calc(100dvh-10rem)] grid-cols-2 gap-1 overflow-y-auto overscroll-contain p-2 sm:mx-6 sm:grid-cols-3`}
           >
-            {openSubItems.map((s) => (
+            {openSubItems.map((s) => {
+              const lifeState =
+                openTab.key === "life"
+                  ? lifeMenuStateForHref(snapshot?.activities ?? [], s.href)
+                  : null;
+              return (
               <button
                 key={s.href}
                 type="button"
@@ -307,7 +378,8 @@ export function MainTabNav({
                   close();
                   onNavigate(s.href);
                 }}
-                className="flex items-center gap-2.5 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-zinc-100 active:bg-zinc-200 dark:hover:bg-zinc-800/70 dark:active:bg-zinc-800"
+                aria-label={`${s.label}${lifeState?.actionable ? ", 처리 가능한 항목 있음" : ""}`}
+                className={`${SURFACE_INSET} relative flex min-h-11 items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-zinc-100 active:bg-zinc-200 dark:hover:bg-zinc-900 dark:active:bg-zinc-800`}
               >
                 <s.Icon
                   size={20}
@@ -315,11 +387,22 @@ export function MainTabNav({
                   aria-hidden
                   className={`shrink-0 ${s.color}`}
                 />
-                <span className="truncate text-sm font-medium text-zinc-700 dark:text-zinc-200">
-                  {s.label}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                    {s.label}
+                  </span>
+                  {lifeState && (
+                    <span className={`block truncate text-[0.6875rem] ${lifeState.actionable ? "font-semibold text-orange-700 dark:text-orange-300" : "text-zinc-500 dark:text-zinc-400"}`}>
+                      {lifeState.text}
+                    </span>
+                  )}
                 </span>
+                {lifeState?.actionable && (
+                  <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-orange-500" />
+                )}
               </button>
-            ))}
+              );
+            })}
           </div>
         </>
       )}

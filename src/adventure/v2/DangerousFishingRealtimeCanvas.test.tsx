@@ -90,6 +90,19 @@ function installImageLoader(rejectedSrc?: string) {
   vi.stubGlobal("Image", FakeImage);
 }
 
+function installStalledImageLoader() {
+  class StalledImage {
+    naturalWidth = 640;
+    naturalHeight = 360;
+    onload: ((event: Event) => void) | null = null;
+    onerror: ((event: Event) => void) | null = null;
+
+    set src(_value: string) {}
+  }
+
+  vi.stubGlobal("Image", StalledImage);
+}
+
 function installCanvasContext() {
   const context = {
     setTransform: vi.fn(),
@@ -129,6 +142,22 @@ describe("DangerousFishingRealtimeCanvas failure boundary", () => {
         container.querySelector('[data-renderer="solid-underwater"]'),
       ).not.toBeNull();
     });
+  });
+
+  it("장면 이미지 로딩이 지연돼도 빈 canvas 대신 즉시 정적 조우 장면을 표시한다", () => {
+    installCanvasContext();
+    installStalledImageLoader();
+
+    const { container } = render(
+      <DangerousFishingRealtimeCanvas {...props} />,
+    );
+
+    expect(
+      container.querySelector('[data-renderer="loading-fallback"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-fallback-fish="silhouette"]'),
+    ).not.toBeNull();
   });
 
   it("대상 이미지 거절 시 실패 URL과 무관한 정적 물고기 visual을 보인다", async () => {

@@ -218,7 +218,6 @@ export function V2CharacterCard({
     typeof levelCap === "number" && Number.isFinite(levelCap)
       ? Math.max(1, Math.floor(levelCap))
       : null;
-  const isAtCap = cappedLevel != null && character.level >= cappedLevel;
   const hasNoRejobLevelRequirement =
     typeof rejobRequiredLevel === "number" && rejobRequiredLevel <= 1;
   const supportActiveUntil =
@@ -385,13 +384,6 @@ export function V2CharacterCard({
             {activeFoodBuff ? (
               <ActiveFoodBuffBadge buff={activeFoodBuff} />
             ) : null}
-            {isAtCap && (
-              <p className="text-[11px] text-amber-600 dark:text-amber-400">
-                {hasNoRejobLevelRequirement
-                  ? "전투 레벨이 한계에 도달했어요. 생산직 전직은 생활 숙련 조건만 충족하면 바로 할 수 있어요."
-                  : "전투 레벨이 한계에 도달했어요. 성장의 신전에서 환생하고 사냥으로 직업 숙련도를 쌓으면 새 직업이 열려요."}
-              </p>
-            )}
             <div className="space-y-1.5">
               <StatBar
                 label="HP"

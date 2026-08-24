@@ -216,11 +216,11 @@ describe("rollQualityPct", () => {
     ).toBe(50);
   });
 
-  it("위력만 god(나머지 가운데) — 위력 가중 2 → 83%", () => {
-    // power 1.0(w2) + crit 0.5(w1) = 2.5/3
+  it("위력만 god(나머지 가운데) — 실제 전투 기여 폭 기준 99%", () => {
+    // 별노래궁은 공격력 굴림 폭이 치명타 2%p 폭보다 훨씬 커 위력이 품질을 지배한다.
     expect(
       rollQualityPct(bow, { power: pMax, weight: 2, options: { crit: 2 } }),
-    ).toBe(83);
+    ).toBe(99);
   });
 
   it("굴림 없으면(상점 정가) null", () => {
@@ -232,6 +232,45 @@ describe("rollQualityPct", () => {
     const ring = V2_EQUIPMENT.v2_silver_ring;
     expect(Math.round(ring.power * VARIANCE_FRACTION)).toBeGreaterThan(0);
     expect(rollQualityPct(ring, { power: 1, weight: 0 })).not.toBeNull();
+  });
+
+  it("낮은 주 능력치를 값싼 다옵션 개수만으로 고품질로 만들지 않는다", () => {
+    const item = {
+      ...bow,
+      power: 100,
+      options: { hp: 100, mp: 100, crit: 10, critMult: 20 },
+    };
+
+    // 위력 [35,165]은 최저, 모든 옵션은 최대다. 전투 기여 폭은
+    // 위력 130, HP 13, MP 13, 치명 7, 치명피해 3.25라 36.25 / 166.25 = 22%.
+    expect(
+      rollQualityPct(item, {
+        power: 35,
+        weight: 0,
+        options: { hp: 165, mp: 165, crit: 17, critMult: 33 },
+      }),
+    ).toBe(22);
+  });
+
+  it("같은 굴림 폭이면 HP보다 방어력의 전투 기여를 크게 반영한다", () => {
+    const item = {
+      ...bow,
+      power: 100,
+      options: { hp: 10, def: 10 },
+    };
+    const hpHigh = rollQualityPct(item, {
+      power: 35,
+      weight: 0,
+      options: { hp: 17, def: 3 },
+    });
+    const defHigh = rollQualityPct(item, {
+      power: 35,
+      weight: 0,
+      options: { hp: 3, def: 17 },
+    });
+
+    expect(hpHigh).toBe(1);
+    expect(defHigh).toBe(10);
   });
 });
 

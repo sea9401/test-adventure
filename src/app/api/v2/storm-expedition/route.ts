@@ -115,7 +115,9 @@ export async function POST(req: Request) {
   const limited = enforceUserAndIpRateLimit(req, {
     userId,
     action: "v2:storm-expedition",
-    userLimit: 60,
+    // 일괄 진행은 1회 최대 21개 요청이며 하루 3회를 연달아 실행할 수 있다.
+    // 정상 최대치 63회에 중단·재개 여유를 더하되 IP 제한은 그대로 유지한다.
+    userLimit: 90,
     ipLimit: 400,
     windowMs: 60_000,
   });

@@ -902,6 +902,12 @@ export type V2SkillCastInput = {
   /** 발동 확률 롤 (0~100). 엔진이 Math.random()*100 로 채움. procChance<100 스킬만 사용 —
    *  미지정이면 항상 발동(구 호출·테스트 호환). */
   procRoll?: number;
+  /**
+   * 패턴의 첫 후보가 실패한 뒤 서로 다른 다음 스킬을 판정할 때 사용할 새 롤.
+   * 미지정이면 구 호출 호환을 위해 procRoll을 공유한다. 같은 스킬의 중복 블록은 이 함수를
+   * 다시 호출하지 않고 한 행동에서 최초 판정값을 공유한다.
+   */
+  nextProcRoll?: () => number;
   /** 출혈 지속 연장 전용 독립 롤(0~100). 한 시전에서 정확히 한 번 공급한다. */
   bleedHuntRoll?: number;
   /** 발동 확률 보너스 %p (워메이지 주문연사 등 — 스킬 procChance 에 합산, 100 클램프). 미지정=0. */
@@ -1205,6 +1211,16 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         : []);
   let id: V2SkillId | null = null;
   let selectedPatternUsesProcGate = false;
+  const procRollBySkill = new Map<V2SkillId, number | undefined>();
+  const procRollForSkill = (skillId: V2SkillId): number | undefined => {
+    if (procRollBySkill.has(skillId)) return procRollBySkill.get(skillId);
+    const roll =
+      procRollBySkill.size === 0 || input.nextProcRoll == null
+        ? input.procRoll
+        : input.nextProcRoll();
+    procRollBySkill.set(skillId, roll);
+    return roll;
+  };
   for (const candidate of candidates) {
     if (candidate.kind === "basic_attack") break;
     const candidateId = candidate.skillId as V2SkillId;
@@ -1246,10 +1262,11 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         ),
       );
       candidatePatternUsesProcGate = viaPattern && procChance < 100;
+      const candidateProcRoll = procRollForSkill(candidateId);
       if (
         procChance < 100 &&
-        input.procRoll !== undefined &&
-        input.procRoll >= procChance
+        candidateProcRoll !== undefined &&
+        candidateProcRoll >= procChance
       ) {
         continue;
       }

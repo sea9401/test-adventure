@@ -4,7 +4,7 @@ import {
   FARM_CROP_REQUIRED_SKILL_ID,
   FARM_SAVE_KEY,
   FarmError,
-  buyFarmRanchPen,
+  buyFarmRanchSlot,
   emptyFarmState,
   getFarmDeliveryRequests,
   getFarmShopItems,
@@ -14,7 +14,11 @@ import {
   parseFarmState,
 } from "@/adventure/v2/farm";
 import { emptyV2SkillsState, parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
-import { RANCH_PEN_DEFINITIONS, RanchError, type RanchPenId } from "@/adventure/v2/ranch";
+import {
+  RanchError,
+  isRanchAnimalId,
+  isRanchSlotId,
+} from "@/adventure/v2/ranch";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceFarmingRateLimit } from "@/lib/server/farmingRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
@@ -24,18 +28,21 @@ export async function POST(req: Request) {
   if (!userId) return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   const guarded = enforceFarmingRateLimit(req, userId);
   if (guarded) return guarded;
-  const body = await req.json().catch(() => null) as { penId?: unknown } | null;
-  const penId = typeof body?.penId === "string" ? body.penId as RanchPenId : "" as RanchPenId;
-  if (!RANCH_PEN_DEFINITIONS.some((entry) => entry.id === penId && entry.costReputation > 0)) {
+  const body = await req.json().catch(() => null) as {
+    slotId?: unknown;
+    animalId?: unknown;
+  } | null;
+  if (!isRanchSlotId(body?.slotId) || !isRanchAnimalId(body?.animalId)) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
+  const { slotId, animalId } = body;
   const now = Date.now();
   try {
     const result = await db.transaction(async (tx) => {
       const skills = parseV2SkillsState(await lockSaveForUpdate(tx, userId, "skills.v2", emptyV2SkillsState()));
       if (!skills.learned.includes(FARM_CROP_REQUIRED_SKILL_ID)) return { ok: false as const, error: "ranch_locked" as const };
       const farm = normalizeFarmForDay(parseFarmState(await lockSaveForUpdate(tx, userId, FARM_SAVE_KEY, emptyFarmState(now)), now), now);
-      const bought = buyFarmRanchPen(farm, penId, now);
+      const bought = buyFarmRanchSlot(farm, slotId, animalId, now);
       await upsertSave(tx, userId, FARM_SAVE_KEY, bought.state);
       return { ok: true as const, farm: bought.state, learnedSkillIds: skills.learned, ranchUpgradeResult: bought.result };
     });

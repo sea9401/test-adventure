@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { Button } from "./Button";
+import { Button, buttonClassName } from "./Button";
 import { BackButton } from "./BackButton";
 
 describe("Button 비동기 로딩 상태", () => {
@@ -47,5 +47,31 @@ describe("Button 모바일 터치 영역", () => {
 
     expect(html).toContain("min-h-11");
     expect(html).toContain("sm:min-h-8");
+  });
+
+  it("큰 버튼과 아이콘 버튼도 모바일 44px 터치 영역을 유지한다", () => {
+    const large = renderToStaticMarkup(<Button size="lg">대표 행동</Button>);
+    const icon = renderToStaticMarkup(
+      <Button size="icon" aria-label="메뉴">
+        ☰
+      </Button>,
+    );
+
+    expect(large).toContain("min-h-11");
+    expect(icon).toContain("size-11");
+  });
+});
+
+describe("Button 디자인 계층", () => {
+  it("soft 변형과 링크용 클래스가 같은 시각 언어를 사용한다", () => {
+    const soft = renderToStaticMarkup(
+      <Button variant="soft">홈 편집</Button>,
+    );
+
+    expect(soft).toContain("bg-violet-50");
+    expect(soft).toContain("text-violet-700");
+    expect(buttonClassName({ variant: "primary", size: "md" })).toContain(
+      "bg-violet-600",
+    );
   });
 });

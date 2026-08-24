@@ -25,6 +25,22 @@ function balancesFor(ids: readonly CookingIngredientId[], count = 5) {
 }
 
 describe("cooking research", () => {
+  it("배합 사료를 연구 재료로 거부하고 보유량을 소비하지 않는다", () => {
+    const ingredientIds = ["farm:wheat", "farm:compound_feed"] as const;
+    const balances = balancesFor(ingredientIds);
+
+    expect(() =>
+      resolveCookingResearch({
+        state: emptyCookingState(NOW),
+        method: "grill",
+        ingredientIds,
+        balances,
+        failedBefore: false,
+      }),
+    ).toThrow("invalid_ingredient");
+    expect(balances.farm).toEqual({ wheat: 5, compound_feed: 5 });
+  });
+
   it("알 수 없는 조리법을 거부한다", () => {
     expect(() => resolveCookingResearch({
       state: { ...emptyCookingState(NOW), xp: cookingLevelXpThreshold(50) },

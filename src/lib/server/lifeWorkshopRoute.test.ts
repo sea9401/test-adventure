@@ -213,10 +213,16 @@ describe("life workshop route", () => {
     expect(json.craftingRecipes.some((recipe: { id: string }) => recipe.id === "fishing_trophy_wall")).toBe(false);
   });
 
-  it("GET은 농장 재료와 제작 숙련도로 배합 사료 제작 가능량을 계산한다", async () => {
+  it("GET은 모든 농장 작물 수량과 제작 숙련도로 배합 사료 제작 가능량을 계산한다", async () => {
     store.set(FARM_SAVE_KEY, {
       ...emptyFarmState(1_000),
-      inventory: { wheat: 8, corn: 6, herb: 2, compound_feed: 7 },
+      inventory: {
+        wheat: 4,
+        tomato: 5,
+        golden_wheat: 6,
+        egg: 99,
+        compound_feed: 7,
+      },
     });
     store.set("skills.v2", { learned: [FARM_CROP_REQUIRED_SKILL_ID] });
     store.set(LIFE_WORKSHOP_SAVE_KEY, {
@@ -234,9 +240,36 @@ describe("life workshop route", () => {
       craftCount: 1,
       masteryStage: 1,
       batchLimit: 5,
+      maxCraftable: 3,
+      ownedFeed: 7,
+      ingredientAmount: 5,
+      availableCropCount: 15,
+    });
+  });
+
+  it("GET은 실패 음식 보유량으로 재활용 사료 제작 가능량을 계산한다", async () => {
+    store.set(FARM_SAVE_KEY, {
+      ...emptyFarmState(1_000),
+      inventory: { compound_feed: 7 },
+    });
+    store.set("inventory.v2", { failedCookingDishes: 74 });
+    store.set(LIFE_WORKSHOP_SAVE_KEY, {
+      crafting: { craftCounts: { failed_dish_feed: 1 } },
+    });
+
+    const response = await GET();
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.failedDishFeedRecipe).toMatchObject({
+      id: "failed_dish_feed",
+      outputAmount: 5,
+      failedDishCost: 25,
+      craftCount: 1,
+      masteryStage: 1,
+      batchLimit: 5,
       maxCraftable: 2,
       ownedFeed: 7,
-      ingredientBalances: { wheat: 8, corn: 6, herb: 2 },
     });
   });
 

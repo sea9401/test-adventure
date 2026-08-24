@@ -40,7 +40,7 @@ export function FriendlySparringPanel({
       <section className={`${SURFACE_CARD} p-4`}>
         <form onSubmit={submitSearch} className="space-y-2">
           <label className="block text-sm font-semibold" htmlFor="friendly-target">
-            상대의 정확한 닉네임
+            상대 닉네임
           </label>
           <div className="flex gap-2">
             <input
@@ -61,9 +61,6 @@ export function FriendlySparringPanel({
             </button>
           </div>
         </form>
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-          상대의 현재 장비·스킬·전투 패턴과 겨룹니다. 점수·전적·보상·기록에 영향을 주지 않습니다.
-        </p>
       </section>
 
       {friendly.error && (

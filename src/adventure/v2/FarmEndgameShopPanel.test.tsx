@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -8,6 +8,7 @@ import {
   type FarmEndgameShopView,
 } from "./farmEndgameShop";
 import { FarmEndgameShopPanel } from "./FarmEndgameShopPanel";
+import { GameDialogHost } from "@/components/ui/GameDialogHost";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -64,7 +65,7 @@ describe("농장주의 교환소 패널", () => {
     expect(html).toContain("증표 부족");
   });
 
-  it("칭호는 이름과 가격을 확인한 뒤 구매한다", () => {
+  it("칭호는 이름과 가격을 확인한 뒤 구매한다", async () => {
     const unlockedView: FarmEndgameShopView = {
       unlocked: true,
       plots: 8,
@@ -75,21 +76,24 @@ describe("농장주의 교환소 패널", () => {
       ownedTitleIds: [],
     };
     const onBuy = vi.fn();
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     const screen = render(
-      <FarmEndgameShopPanel
-        view={unlockedView}
-        availableReputation={10_000}
-        busyItemId={null}
-        onBuy={onBuy}
-      />,
+      <>
+        <FarmEndgameShopPanel
+          view={unlockedView}
+          availableReputation={10_000}
+          busyItemId={null}
+          onBuy={onBuy}
+        />
+        <GameDialogHost />
+      </>,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "풍요의 손 구매" }));
 
-    expect(confirm).toHaveBeenCalledWith(
-      expect.stringContaining("농장 증표 1,000개"),
-    );
-    expect(onBuy).toHaveBeenCalledWith("title-bountiful-hand");
+    expect(await screen.findByText(/농장 증표 1,000개가 사용됩니다/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+    await waitFor(() => {
+      expect(onBuy).toHaveBeenCalledWith("title-bountiful-hand");
+    });
   });
 });

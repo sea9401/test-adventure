@@ -34,6 +34,25 @@ describe("대표 공격력 표시", () => {
   });
 });
 
+describe("기본 전투 능력치 표시", () => {
+  it("마법 방어력을 상세 영역을 열지 않아도 보여준다", () => {
+    const html = renderToStaticMarkup(
+      <BattleStatStrip
+        stats={{
+          atk: 548,
+          def: 88,
+          magicDef: 578,
+          spd: 920,
+        }}
+      />,
+    );
+    const summary = html.match(/<button[^>]*>([\s\S]*?)<\/button>/)?.[1];
+
+    expect(summary).toContain("마방</span> 578");
+    expect(html.match(/마방/g)).toHaveLength(1);
+  });
+});
+
 describe("좌우 전투 상태 정렬", () => {
   it("암석 강타를 장착했을 때 현재 중량만 표시한다", () => {
     const enemy: Monster = {

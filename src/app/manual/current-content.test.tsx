@@ -273,7 +273,9 @@ describe("최신 게임 안내서 내용", () => {
     const html = renderToStaticMarkup(<PastimesContent />);
 
     expect(html).toContain("농장주의 교환소");
-    expect(html).toContain("밭 6칸과 모든 유료 축사");
+    expect(html).toContain("10개 부지");
+    expect(html).toContain("밭 8칸과 목장 부지 1~5");
+    expect(html).toContain("재건축 비용은 닭장 500개");
     expect(html).toContain("배합 사료 5개");
     expect(html).toContain("유기질 거름 3개");
   });
@@ -479,12 +481,12 @@ describe("최신 게임 안내서 내용", () => {
     expect(skills).toContain("장비 도감·어보 수집 단계");
   });
 
-  it("스킬 패턴의 확률 폴백·공유 판정과 전투 프리셋 범위를 안내한다", () => {
+  it("스킬 패턴의 독립 확률 폴백·중복 공유와 전투 프리셋 범위를 안내한다", () => {
     const html = renderToStaticMarkup(<SkillsContent />);
 
     expect(html).toContain("발동 확률");
     expect(html).toContain("1순위가 확률 판정에 실패하면 2순위");
-    expect(html).toContain("같은 발동 판정값을 공유");
+    expect(html).toContain("서로 다른 스킬은 각각 독립적으로 발동 확률을 판정");
     expect(html).toContain("독립된 재도전 횟수가 늘어나지 않습니다");
     expect(html).toContain("최대 5개 슬롯");
     expect(html).toContain("장착 스킬·전투 패턴·장비");

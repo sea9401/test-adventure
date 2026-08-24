@@ -34,6 +34,7 @@ import {
   damageBetween,
 } from "./engine";
 import {
+  markForcedActionMainLog,
   mergeTier7ResourceSnapshot,
   type Tier7BattleResources,
 } from "./engineState";
@@ -206,14 +207,18 @@ import {
 } from "./fortressKnight";
 import {
   applyBerserkerCastTransition,
-  applyBerserkerLethalDamage,
   berserkerCastContext,
-  clampBerserkerGuardedHp,
   finishBerserkerCurrentActionGuard,
   finishBerserkerPlayerAttack,
   initialBerserkerCombatState,
   type BerserkerCombatState,
 } from "./berserkerCombat";
+import {
+  appendPvPSurvivalLogs,
+  applyBerserkerHostileDamagePvP,
+  resolvePvPHostileDamageSurvival,
+} from "./pvpHostileDamage";
+export { applyBerserkerHostileDamagePvP } from "./pvpHostileDamage";
 export { advanceTurnPvP }; // 공개 API 보존 (resolveBattlePvP 가 로컬 호출도 함 → import+export 둘 다)
 
 // ── 타입 정의 ───────────────────────────────────────────────────────────────
@@ -963,106 +968,6 @@ function buildSide(
         : {}),
     },
   };
-}
-
-/** PvP의 모든 적대 피해가 공유하는 사망 극복 관문. 일반 불굴은 호출자가 뒤에서 처리한다. */
-export function applyBerserkerHostileDamagePvP(
-  side: PvPSide,
-  hpAfterDamage: number,
-): { side: PvPSide; triggered: boolean } {
-  if (!side.berserker) {
-    return {
-      side: { ...side, hp: Math.max(0, hpAfterDamage) },
-      triggered: false,
-    };
-  }
-  const guardedHp = clampBerserkerGuardedHp(
-    side.berserker,
-    hpAfterDamage,
-  );
-  const result = applyBerserkerLethalDamage({
-    state: side.berserker,
-    madnessRank: side.player.berserkerMadnessRank ?? 0,
-    hp: guardedHp,
-    maxHp: side.maxHp,
-    source: "hostile",
-  });
-  return {
-    side: {
-      ...side,
-      hp: Math.max(0, result.hp),
-      berserker: result.state,
-    },
-    triggered: result.triggered,
-  };
-}
-
-function resolvePvPHostileDamageSurvival(
-  side: PvPSide,
-  hpAfterDamage: number,
-): {
-  side: PvPSide;
-  berserkerTriggered: boolean;
-  enduranceTriggered: boolean;
-} {
-  const survival = applyBerserkerHostileDamagePvP(side, hpAfterDamage);
-  let nextSide = survival.side;
-  const enduranceTriggered =
-    nextSide.hp <= 0 &&
-    !!side.player.enduranceActive &&
-    !side.flags.enduranceTriggered;
-  if (enduranceTriggered) {
-    nextSide = {
-      ...nextSide,
-      hp: 1,
-      flags: { ...nextSide.flags, enduranceTriggered: true },
-    };
-  }
-  return {
-    side: nextSide,
-    berserkerTriggered: survival.triggered,
-    enduranceTriggered,
-  };
-}
-
-function appendPvPSurvivalLogs(
-  state: PvPBattleState,
-  key: "p1" | "p2",
-  name: string,
-  result: ReturnType<typeof resolvePvPHostileDamageSurvival>,
-): PvPBattleState {
-  let next = state;
-  if (result.berserkerTriggered) {
-    next = {
-      ...next,
-      log: appendLog(next.log, {
-        kind: "info",
-        text: `[사망 극복] ${name}이(가) 쓰러지지 않고 HP ${result.side.hp}로 돌아왔다.`,
-        side: key,
-      }),
-    };
-    if ((result.side.player.berserkerMadnessRank ?? 0) >= 4) {
-      next = {
-        ...next,
-        log: appendLog(next.log, {
-          kind: "info",
-          text: `[패황의 지배] 다음 공격 강화 · 멸왕일도 1회 재충전.`,
-          side: key,
-        }),
-      };
-    }
-  }
-  if (result.enduranceTriggered) {
-    next = {
-      ...next,
-      log: appendLog(next.log, {
-        kind: "info",
-        text: `[불굴] ${name} 마지막 한 숨 — HP 1 로 버텼다!`,
-        side: key,
-      }),
-    };
-  }
-  return next;
 }
 
 /** 공격 시작 시점의 패황 보호만 소비하고, 반사로 새로 얻은 다음 공격 준비는 보존한다. */
@@ -2771,11 +2676,13 @@ function applyImmediateProvokedBasicAttacksPvP(
     if (next.log.length > logStart) {
       next = {
         ...next,
-        log: next.log.map((entry, logIndex) =>
-          logIndex < logStart || entry.side
-            ? entry
-            : { ...entry, side: attackerKey },
-        ),
+        log: next.log.map((entry, logIndex) => {
+          if (logIndex < logStart) return entry;
+          return markForcedActionMainLog(
+            entry.side ? entry : { ...entry, side: attackerKey },
+            skillName,
+          );
+        }),
       };
     }
   }
@@ -2862,6 +2769,7 @@ export function castV2SkillOnAttackerTurnPvP(
     // PR2-B(Codex) — PvP 도 발동확률 게이트 + 워메이지 proc 보너스. 단 스킬 미보유 전투자에게
     //   Math.random() 을 소비하면 PvP RNG 가 드리프트하므로(Codex 2차) 장착 스킬 있을 때만 롤.
     procRoll: side.v2Skills.equipped.length > 0 ? Math.random() * 100 : undefined,
+    nextProcRoll: () => Math.random() * 100,
     bleedHuntRoll: needsBleedHuntRoll ? Math.random() * 100 : undefined,
     procChanceBonus:
       (side.player.skillProcChanceAdd ?? 0) -

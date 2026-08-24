@@ -3,11 +3,12 @@ import { GUILD_WORKSHOP_RECIPES } from "./guildWorkshop";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import {
   equipRollPercentiles,
+  rollQualityPct,
   rollItemStats,
-  type V2EquipRollPercentiles,
 } from "./v2EquipVariance";
 import {
   applyBlacksmithCraftControl,
+  blacksmithWeightedPercentileBudget,
   blacksmithSpecialtyForSlot,
   blacksmithTechniqueView,
   parseBlacksmithProgressionState,
@@ -18,16 +19,6 @@ import {
 function sequenceRng(values: number[]) {
   let index = 0;
   return () => values[index++] ?? 0.5;
-}
-
-function percentileBudget(percentiles: V2EquipRollPercentiles): number {
-  return (
-    percentiles.power * 2 +
-    Object.values(percentiles.options ?? {}).reduce(
-      (sum, value) => sum + (value ?? 0),
-      0,
-    )
-  );
 }
 
 describe("blacksmith specialization progression", () => {
@@ -122,10 +113,9 @@ describe("blacksmith controlled rolls", () => {
     expect(result.percentiles.options?.accuracy).toBe(
       Math.max(...Object.values(before.options ?? {}).map(Number)),
     );
-    expect(percentileBudget(result.percentiles)).toBeCloseTo(
-      percentileBudget(before),
-      8,
-    );
+    expect(
+      blacksmithWeightedPercentileBudget(item, result.percentiles),
+    ).toBeCloseTo(blacksmithWeightedPercentileBudget(item, before), 8);
     expect(Object.keys(result.roll.options ?? {}).sort()).toEqual(
       Object.keys(item.options ?? {}).sort(),
     );
@@ -184,10 +174,9 @@ describe("blacksmith controlled rolls", () => {
       () => 0,
     );
 
-    expect(percentileBudget(result.percentiles)).toBeCloseTo(
-      percentileBudget(before),
-      8,
-    );
+    expect(
+      blacksmithWeightedPercentileBudget(item, result.percentiles),
+    ).toBeCloseTo(blacksmithWeightedPercentileBudget(item, before), 8);
     if (metric === "power") {
       expect(result.percentiles.power).toBeGreaterThan(before.power);
     } else if (metric === "accuracy") {
@@ -211,6 +200,26 @@ describe("blacksmith controlled rolls", () => {
     }
   });
 
+  it("주력과 옵션을 재배분해도 전투 기여 기반 품질을 보존한다", () => {
+    const baseRoll = rollItemStats(
+      item,
+      sequenceRng([0.2, 0.9, 0.7, 0.1, 0.3]),
+    );
+    const beforeQuality = rollQualityPct(item, baseRoll);
+    const result = applyBlacksmithCraftControl(
+      item,
+      baseRoll,
+      {
+        optionFocus: "weapon_precision",
+        structure: "primary",
+        useCatalyst: false,
+      },
+      () => 0,
+    );
+
+    expect(rollQualityPct(item, result.roll)).toBe(beforeQuality);
+  });
+
   it("preserves catalysts only from level 24 at the 20% boundary", () => {
     expect(rollBlacksmithCatalystPreserved(23, () => 0)).toBe(false);
     expect(rollBlacksmithCatalystPreserved(24, () => 0.1999)).toBe(true);
@@ -232,8 +241,10 @@ describe("blacksmith controlled rolls", () => {
       ]),
     );
 
-    expect(percentileBudget(candidates[0].percentiles)).toBeCloseTo(
-      percentileBudget(candidates[1].percentiles),
+    expect(
+      blacksmithWeightedPercentileBudget(item, candidates[0].percentiles),
+    ).toBeCloseTo(
+      blacksmithWeightedPercentileBudget(item, candidates[1].percentiles),
       8,
     );
     expect(candidates[0].roll).not.toEqual(candidates[1].roll);
@@ -246,8 +257,10 @@ describe("blacksmith controlled rolls", () => {
       () => 0.5,
     );
 
-    expect(percentileBudget(candidates[0].percentiles)).toBeCloseTo(
-      percentileBudget(candidates[1].percentiles),
+    expect(
+      blacksmithWeightedPercentileBudget(item, candidates[0].percentiles),
+    ).toBeCloseTo(
+      blacksmithWeightedPercentileBudget(item, candidates[1].percentiles),
       8,
     );
     expect(candidates[0].roll).not.toEqual(candidates[1].roll);

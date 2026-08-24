@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Image from "next/image";
 import { CheckCircle, Circle, CookingPot, Trophy } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
@@ -147,9 +148,21 @@ export function CookingCodexPanel({
                 key={recipe.id}
                 className="flex items-start gap-2.5 px-3 py-2.5"
               >
-                <span className="text-xl" aria-hidden>
-                  {recipe.icon}
-                </span>
+                {found ? (
+                  <Image
+                    src={recipe.imageSrc}
+                    alt={`${recipe.name} 이미지`}
+                    width={48}
+                    height={48}
+                    className="h-12 w-12 shrink-0 rounded-md object-contain"
+                  />
+                ) : (
+                  <span
+                    aria-hidden
+                    data-cooking-codex-hidden-image="true"
+                    className="h-12 w-12 shrink-0 rounded-md bg-black"
+                  />
+                )}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-sm font-semibold">

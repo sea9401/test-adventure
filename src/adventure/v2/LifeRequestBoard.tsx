@@ -531,8 +531,7 @@ export function LifeRequestBoard({
         <details className={`${SURFACE_INSET} mt-3 group p-3`}>
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
             <div>
-              <div className="text-sm font-bold">의뢰가 마음에 들지 않나요?</div>
-              <div className="mt-0.5 text-xs text-zinc-500">하루 한 번, 한 분야의 의뢰를 교체할 수 있습니다.</div>
+              <div className="text-sm font-bold">하루 1회 의뢰 교체 가능</div>
             </div>
             <span className="shrink-0 text-xs font-semibold text-amber-700 group-open:hidden dark:text-amber-300">교체하기</span>
             <span className="hidden shrink-0 text-xs font-semibold text-amber-700 group-open:inline dark:text-amber-300">접기</span>

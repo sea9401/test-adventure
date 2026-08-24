@@ -12,12 +12,14 @@ import {
   TIER_6_POWER_SCALE_VERSION,
   isUnique,
   sellPriceOf,
+  v2EquipSurvivalPowerKind,
   type V2Equipment,
   type V2EquipInstance,
   type V2EquipOptions,
   type V2EquipRoll,
   type V2EquipSlot,
 } from "./v2Equipment";
+import { V2_POWER_WEIGHT } from "./power";
 
 export const VARIANCE_FRACTION = 0.65;
 
@@ -136,41 +138,109 @@ export function equipRollFromPercentiles(
   };
 }
 
-// 개체 굴림 품질 % — 카탈로그 기준값 대비 굴린 위치(0 = 최저 굴림, 100 = god-roll).
-// 스탯별 [lo, hi](rollStat 과 동일 범위) 안의 정규화 위치를 가중 평균.
-// 변동 없는(spread 0) 스탯·굴림 없는 아이템(상점 정가)은 제외 → 그런 건 null.
-// 가중: 위력 2(주 스탯), 옵션 1. 다이얼.
-const ROLL_WEIGHT_POWER = 2;
-const ROLL_WEIGHT_OPTION = 1;
+// 개체 굴림 품질 % — 카탈로그 기준값 대비 굴린 전투 기여량의 위치
+// (0 = 가능한 전투 기여 최저, 100 = god-roll).
+//
+// 단순히 "위력 2 + 옵션당 1"로 평균하면 옵션이 많은 장비일수록 주 능력치의 비중이
+// 작아지고 HP 1과 방어력 1도 같은 값으로 취급된다. 대신 각 굴림 범위의 폭에 전투력
+// 환산치를 곱한 값을 가중치로 쓴다. 치명·회복은 derivePowerScore의 보수적 기대값 계수,
+// 전투력 지표에 아직 없는 저항 2종은 조건부 생존 옵션이라 보조 가중치 0.25를 적용한다.
+const QUALITY_OPTION_POWER_UNIT_WEIGHT: Record<keyof V2EquipOptions, number> = {
+  crit: V2_POWER_WEIGHT.criticalExpected,
+  eva: V2_POWER_WEIGHT.evasion,
+  accuracy: V2_POWER_WEIGHT.accuracy,
+  mp: V2_POWER_WEIGHT.mp,
+  hp: V2_POWER_WEIGHT.hp,
+  // 기준 치명 확률 25%에서 치명 배수 +0.01의 기대 기여량.
+  critMult: V2_POWER_WEIGHT.criticalExpected * 0.25,
+  spd: V2_POWER_WEIGHT.spd,
+  def: 1,
+  magicDef: 1,
+  healPowerPct: V2_POWER_WEIGHT.healingSupport,
+  critResist: 0.25,
+  statusDamageReductionPct: 0.25,
+};
+
+export type V2EquipRollQualityWeights = {
+  power: number;
+  options?: Partial<Record<keyof V2EquipOptions, number>>;
+};
+
+function qualityPowerUnitWeight(item: V2Equipment): number {
+  if (item.slot === "weapon") return 1;
+  if (item.slot === "ring" || item.slot === "necklace") return 1;
+  return v2EquipSurvivalPowerKind(item) === "evasion"
+    ? V2_POWER_WEIGHT.evasion
+    : 1;
+}
+
+function rangeContributionWeight(
+  base: number,
+  floor: number,
+  unitWeight: number,
+): number {
+  const range = equipStatRange(base, floor);
+  if (!range || range.hi <= range.lo) return 0;
+  return (range.hi - range.lo) * unitWeight;
+}
+
+/** 대장장이 굴림 재배분도 품질과 같은 예산을 쓰도록 공개한 전투 기여 폭 가중치. */
+export function equipRollQualityWeights(
+  item: V2Equipment,
+): V2EquipRollQualityWeights {
+  const options: Partial<Record<keyof V2EquipOptions, number>> = {};
+  for (const key of V2_EQUIP_OPTION_KEYS) {
+    const base = item.options?.[key];
+    if (base == null) continue;
+    const weight = rangeContributionWeight(
+      base,
+      1,
+      QUALITY_OPTION_POWER_UNIT_WEIGHT[key],
+    );
+    if (weight > 0) options[key] = weight;
+  }
+  return {
+    power: rangeContributionWeight(
+      item.power,
+      1,
+      qualityPowerUnitWeight(item),
+    ),
+    ...(Object.keys(options).length > 0 ? { options } : {}),
+  };
+}
+
 export function rollQualityPct(
   item: V2Equipment,
   roll: V2EquipRoll | undefined,
 ): number | null {
   if (!roll) return null;
+  const powerBase = roll.powerBase ?? item.power;
+  // 폭풍 개량은 위력의 백분위만 새 밴드로 옮기며 개체 품질은 보존한다. 위치 계산은
+  // powerBase 밴드를 읽되, 전체 품질에서 차지하는 전투 기여 폭은 원본 카탈로그 기준으로
+  // 고정해야 개량 자체가 옵션 대비 위력 가중치를 바꾸지 않는다.
+  const weights = equipRollQualityWeights(item);
   let weightSum = 0;
   let acc = 0;
   const consider = (
-    value: number,
+    base: number,
     rolled: number,
     floor: number,
     w: number,
-    lowerBetter: boolean,
   ) => {
-    const range = equipStatRange(value, floor);
-    if (!range || range.hi <= range.lo) return;
-    let pos = (rolled - range.lo) / (range.hi - range.lo);
-    if (lowerBetter) pos = 1 - pos;
+    const range = equipStatRange(base, floor);
+    if (!range || range.hi <= range.lo || w <= 0) return;
+    const pos = (rolled - range.lo) / (range.hi - range.lo);
     acc += w * Math.max(0, Math.min(1, pos));
     weightSum += w;
   };
   // 폭풍 개량은 원래 굴림의 위치를 6T 위력 밴드로 옮긴다. powerBase 를 기준으로 읽어야
   // 개량 전 품질(저품질/고품질)이 100%로 뭉개지지 않고 그대로 보존된다.
-  consider(roll.powerBase ?? item.power, roll.power, 1, ROLL_WEIGHT_POWER, false);
+  consider(powerBase, roll.power, 1, weights.power);
   if (item.options) {
     for (const k of V2_EQUIP_OPTION_KEYS) {
       const base = item.options[k];
       if (base == null) continue;
-      consider(base, roll.options?.[k] ?? base, 1, ROLL_WEIGHT_OPTION, false);
+      consider(base, roll.options?.[k] ?? base, 1, weights.options?.[k] ?? 0);
     }
   }
   if (weightSum === 0) return null; // 변동 가능한 스탯 0 — 굴림 의미 없음

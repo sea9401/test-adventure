@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import {
   AUTO_GATHERING_PLAN_LIST,
   autoGatheringPlan,
@@ -206,12 +207,12 @@ export function AutoGatheringCard({
           {!ready ? (
             <Button
               disabled={loading}
-              onClick={() => {
+              onClick={async () => {
                 setError(null);
                 if (
-                  !window.confirm(
+                  !(await confirmGameAction(
                     `자동 ${activityName}을 중단할까요? 지금까지 완료된 작업은 정산됩니다.`,
-                  )
+                  ))
                 ) {
                   return;
                 }

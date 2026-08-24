@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { Pagination } from "@/components/ui/Pagination";
 import { TabBar } from "@/components/ui/TabBar";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import { usePagination } from "@/lib/usePagination";
 import {
   BULLETIN_CATEGORIES,
@@ -179,7 +180,7 @@ export function BulletinBoardView({
   // PostListRow / PostDetailPage 가 콜백을 prop 으로 받으니 useCallback 으로 안정화.
   // memo 가 같은 post 인 행은 렌더 skip 하도록.
   const handleDelete = useCallback(async (id: number) => {
-    if (!confirm("이 글을 삭제할까요?")) return;
+    if (!(await confirmGameAction("이 글을 삭제할까요?"))) return;
     try {
       await deletePost(id);
       setPosts((prev) => prev?.filter((p) => p.id !== id) ?? null);

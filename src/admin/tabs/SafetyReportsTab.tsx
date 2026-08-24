@@ -9,6 +9,7 @@ import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { UGC_REPORT_REASON_LABELS, type UgcReportReason } from "@/lib/ugc-safety";
 import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 import { GuildEmblemImage } from "@/adventure/v2/guild/GuildEmblemImage";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 
 export type SafetyReport = {
   id: number;
@@ -176,7 +177,7 @@ export function SafetyReportItem({
           : report.sourceType === "chat_room"
             ? "신고된 채팅방 이름을 안전한 기본값으로 바꾸고 처리 완료로 바꿀까요?"
             : "신고된 원본 콘텐츠를 삭제하고 처리 완료로 바꿀까요?";
-    if (!window.confirm(confirmation)) return;
+    if (!(await confirmGameAction(confirmation))) return;
     setBusy(true);
     try {
       const response = await fetch("/api/admin/safety-reports", {

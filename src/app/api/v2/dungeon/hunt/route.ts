@@ -104,7 +104,6 @@ import {
 } from "@/adventure/data/v2/intruderTracking";
 import type { DungeonEnemy, DungeonFloorId } from "@/adventure/data/v2/types";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
-import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
   enforceUserAndIpRateLimit,
 } from "@/lib/server/userRateLimit";
@@ -115,12 +114,15 @@ import {
 } from "@/lib/server/codexMasteryGameplay";
 import { referralHuntTaskIds } from "@/adventure/data/v2/referralTutorial";
 import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
-import { rollHuntDrops } from "./huntDrops";
+import { rollHuntDropsRepeated } from "./huntDrops";
 import { computeLossTax } from "./huntTax";
 import {
   applyChargeRestore,
   computeBattleRewards,
+  multiplyHuntReward,
+  normalizeHuntBattleCount,
   potionTargetAmount,
+  rareMapRewardRolls,
 } from "./huntRewards";
 import { updateRareMaps } from "./huntRareMaps";
 import {
@@ -134,6 +136,7 @@ import { GUILD_DINING_USER_SAVE_KEY } from "@/adventure/data/v2/guildDining";
 import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
 import { applyHuntProficiency } from "./huntProficiency";
 import { normalizedHuntLocationIds } from "./huntLocations";
+import { broadcastHuntUniqueDrops, huntEquipmentCodexEvents } from "./huntResultEffects";
 import { activeCookingBuff } from "@/adventure/v2/cooking/food";
 import {
   getAutoHuntStopReason,
@@ -823,6 +826,9 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
 
   const won = battleResult.outcome === "win";
   const timedOut = battleResult.endReason === "timeout";
+  // 희귀 탐사는 실제 전투를 한 번만 해결하고, 승리 뒤 저장된 runsLeft만큼 기존 보상을
+  // 독립 정산한다. 패배/일반 사냥은 항상 1회다.
+  const rewardRolls = rareMapRewardRolls(activeRareMap, won);
   const curLevel = Math.max(1, charSave.level ?? 1);
   // 신참 보너스 판정용 누적 전투 전적 — adventure-log.v2 의 monster kills 합 + 패배수.
   // v2 는 재전직이 레벨을 1 로 리셋하므로 레벨이 아닌 전적으로 신참을 가린다(베테랑이
@@ -864,25 +870,48 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   const foodBuff = activeCookingBuff(charSave.activeFoodBuff, now);
   const foodExpPct = foodBuff?.effect.huntExpPct ?? 0;
   const expAfterFood = foodBuff && foodExpPct > 0 ? applyPctBonus(expBeforeDining, foodExpPct) : expBeforeDining;
-  const diningExp = await consumeGuildDiningEffect(
-    tx,
-    userId,
-    "hunt_exp",
-    expAfterFood,
-    new Date(now),
-    ctx.batchState?.dining,
-  );
-  const expGained = expAfterFood + diningExp.bonus;
+  let diningExpBonus = 0;
+  for (let i = 0; i < rewardRolls; i += 1) {
+    const diningExp = await consumeGuildDiningEffect(
+      tx,
+      userId,
+      "hunt_exp",
+      expAfterFood,
+      new Date(now),
+      ctx.batchState?.dining,
+    );
+    diningExpBonus += diningExp.bonus;
+  }
+  const expGained =
+    multiplyHuntReward(expAfterFood, rewardRolls) + diningExpBonus;
   const goldBeforeFood = hotTime.active ? applyPctBonus(goldAfterGuild, hotTime.bonuses.goldPct) : goldAfterGuild;
   const foodGoldPct = foodBuff?.effect.huntGoldPct ?? 0;
-  const goldGross = foodBuff && foodGoldPct > 0 ? applyPctBonus(goldBeforeFood, foodGoldPct) : goldBeforeFood;
-  const hotTimeExpBonus = bonusDelta(expAfterGuild, expBeforeDining);
-  const foodExpBonus = bonusDelta(expBeforeDining, expAfterFood);
-  const hotTimeGoldBonus = bonusDelta(goldAfterGuild, goldBeforeFood);
-  const foodGoldBonus = bonusDelta(goldBeforeFood, goldGross);
+  const goldGrossPerRoll = foodBuff && foodGoldPct > 0 ? applyPctBonus(goldBeforeFood, foodGoldPct) : goldBeforeFood;
+  const goldGross = multiplyHuntReward(goldGrossPerRoll, rewardRolls);
+  const hotTimeExpBonus = multiplyHuntReward(
+    bonusDelta(expAfterGuild, expBeforeDining),
+    rewardRolls,
+  );
+  const foodExpBonus = multiplyHuntReward(
+    bonusDelta(expBeforeDining, expAfterFood),
+    rewardRolls,
+  );
+  const hotTimeGoldBonus = multiplyHuntReward(
+    bonusDelta(goldAfterGuild, goldBeforeFood),
+    rewardRolls,
+  );
+  const foodGoldBonus = multiplyHuntReward(
+    bonusDelta(goldBeforeFood, goldGrossPerRoll),
+    rewardRolls,
+  );
   // 드랍 굴림 — 승리 시 재료/강화석/소환서/재련석/정착지 재료 + 정규/유니크 장비를 한 번에
   //   굴린다(순수 RNG 헬퍼·huntDrops). 영속(materials merge·equipment.v2 기록)은 아래 라우트가.
-  const { drops, droppedEquipment, droppedUnique, nextOwned } = rollHuntDrops({
+  const {
+    drops,
+    droppedEquipments,
+    droppedUniques,
+    nextOwned,
+  } = rollHuntDropsRepeated({
     won,
     dropFloor,
     depth,
@@ -891,7 +920,11 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     mapDropMult,
     mapUniqueMult,
     mapStoneMult,
+    rewardRolls,
   });
+  // 구버전 단판 응답 소비자 호환. 압축 결과 전체는 아래 plural 필드로 함께 보낸다.
+  const droppedEquipment = droppedEquipments[0] ?? null;
+  const droppedUnique = droppedUniques[0] ?? null;
   const nextMaterials = mergeDrops(charSave.materials, drops);
   // equipment.v2 한 번에 기록 — owned(+드랍 개체). 굴림은 개체에 포함. 조기 lock 한 걸 한 번에 기록.
   const nextEquipment: EquipmentSave = {
@@ -1060,14 +1093,14 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   // 전투수 랭킹용 몬스터 킬 카운터 — huntKillLog(콜로케이트) 로 추출.
   // lock 순서: character.v2 다음 → proficiency.v2 앞(일관 순서, 데드락 회피)은 이 위치가 보장.
   if (won) {
-    const uniqueEquipment = droppedUnique
+    const uniqueEquipment = droppedUniques.length > 0
       ? {
           equipmentOwnedAfter: nextOwned,
           equipmentCodexRaw: ctx.batchState
             ? (ctx.batchState.equipmentCodexRaw ??=
                 await readSave(tx, userId, EQUIPMENT_CODEX_KEY, {}))
             : await readSave(tx, userId, EQUIPMENT_CODEX_KEY, {}),
-          acquiredIds: [droppedUnique],
+          acquiredIds: droppedUniques,
         }
       : undefined;
     if (ctx.batchState) {
@@ -1103,6 +1136,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     equippedSkills: v2Skills.equipped,
     proficiencyChancePct: guildCombatSupply.proficiencyChancePct,
     levelsGained: expResult.levelsGained,
+    rewardWins: rewardRolls,
   });
   if (nextProficiency) {
     if (ctx.batchState) {
@@ -1132,22 +1166,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       source: "hunt.victory",
     });
   }
-  if (droppedEquipment) {
-    codexMasteryEvents.push({
-      category: "equipment",
-      entryId: droppedEquipment,
-      amount: 1,
-      source: "equipment.drop",
-    });
-  }
-  if (droppedUnique) {
-    codexMasteryEvents.push({
-      category: "equipment",
-      entryId: droppedUnique,
-      amount: 1,
-      source: "equipment.drop",
-    });
-  }
+  codexMasteryEvents.push(...huntEquipmentCodexEvents(droppedEquipments, droppedUniques));
   if (masteryJobId && masteryGained > 0) {
     codexMasteryEvents.push({
       category: "job",
@@ -1251,12 +1270,15 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         rareMapDrop,
         rareMapDropInstance,
         rareMapRunsLeft,
+        rewardRolls,
         // 충전식 회복약 잔량 — HP/MP 모두 전투 후 부족분 자동 소모 반영.
         hpCharges,
         mpCharges,
         drops,
         droppedEquipment,
         droppedUnique,
+        droppedEquipments,
+        droppedUniques,
         ejected: ejectedNotice,
         // BattleScene replay 용 — BattleScene 이 실제로 보는 필드만 추출
         // (enemy.{name,hp,image}, playerMaxHp, log). 클라가 buildBattleStateFromReplay
@@ -1366,12 +1388,16 @@ async function handleHunt(req: Request, userId: string) {
       { status: 409 },
     );
   }
+  const rareMapIid =
+    typeof body.rareMap === "string" && body.rareMap.length > 0
+      ? body.rareMap
+      : null;
   const hasAdventureSupport = adventureSupportActive(
     supportCharacter.adventureSupport,
   );
   const maxHuntBatch = maxHuntBatchForAdventureSupport(hasAdventureSupport);
   const requestedCount = Math.max(1, Math.floor(Number(body.count) || 1));
-  if (!HUNT_COOLDOWN_MODE && requestedCount > maxHuntBatch) {
+  if (!rareMapIid && !HUNT_COOLDOWN_MODE && requestedCount > maxHuntBatch) {
     return Response.json(
       {
         ok: false,
@@ -1381,15 +1407,11 @@ async function handleHunt(req: Request, userId: string) {
       { status: 403 },
     );
   }
-  const count = HUNT_COOLDOWN_MODE
-    ? 1
-    : Math.min(maxHuntBatch, requestedCount);
+  const count = normalizeHuntBattleCount(
+    HUNT_COOLDOWN_MODE ? 1 : Math.min(maxHuntBatch, requestedCount),
+    rareMapIid,
+  );
   const autoStopConfig = normalizeAutoHuntStopConfig(body.autoStopConfig);
-
-  const rareMapIid =
-    typeof body.rareMap === "string" && body.rareMap.length > 0
-      ? body.rareMap
-      : null;
   // 잠금/보상 로직에 들어가기 전 형식적으로 불가능한 일반 사냥 깊이를 빠르게 거부한다.
   // 희귀 지도는 레거시 홀수 깊이를 그대로 보유할 수 있어 save lock 후 별도 검증한다.
   if (!rareMapIid && !isHuntStageDepth(depth)) {
@@ -1538,8 +1560,8 @@ async function handleHunt(req: Request, userId: string) {
         const key = id as keyof DropResult;
         drops[key] = (drops[key] ?? 0) + (n ?? 0);
       }
-      if (res.droppedEquipment) droppedEquipments.push(res.droppedEquipment);
-      if (res.droppedUnique) droppedUniques.push(res.droppedUnique);
+      droppedEquipments.push(...res.droppedEquipments);
+      droppedUniques.push(...res.droppedUniques);
       if (res.rareMapDrop) rareMapDrops.push(res.rareMapDrop);
       if (res.rareMapDropInstance) {
         rareMapDropInstances.push(res.rareMapDropInstance);
@@ -1703,28 +1725,6 @@ async function handleHunt(req: Request, userId: string) {
       replay: deferredPayloads[index] ?? entry.replay,
     }));
   }
-
-  // 전체 소식 — 유니크 장비 드랍 broadcast. tx 커밋 후 side-effect 로 호출(중첩 트랜잭션
-  // 회피 — guild-lodge 데드락 교훈). insertFeedEntry 가 opt-out/디바운스/실패삼킴을 자체
-  // 처리하므로 응답엔 영향 없음. droppedUnique 는 승리 성공 응답 body 에만 존재.
-  const resultBody = result.body as {
-    result?: {
-      droppedUnique?: V2EquipmentId | null;
-      rareMapDrop?: RareMapKindId | null;
-    };
-    batch?: {
-      droppedUniques?: V2EquipmentId[];
-      rareMapDrops?: RareMapKindId[];
-    };
-  };
-  const uniqueIds = resultBody.batch
-    ? (resultBody.batch.droppedUniques ?? [])
-    : resultBody.result?.droppedUnique
-      ? [resultBody.result.droppedUnique]
-      : [];
-  for (const itemId of uniqueIds) {
-    await insertFeedEntry(userId, "unique_drop", { itemId });
-  }
-
+  await broadcastHuntUniqueDrops(userId, result.body);
   return Response.json(result.body, { status: result.status });
 }

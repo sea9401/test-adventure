@@ -25,9 +25,10 @@ vi.mock("./useFarm", async () => {
       busyShopItemId: null,
       busyEndgameShopItemId: null,
       busyPlotUpgrade: false,
-      busyRanchFeedPenId: null,
+      busyRanchFeedSlotId: null,
       busyRanchCollect: false,
-      busyRanchUpgradePenId: null,
+      busyRanchUpgradeSlotId: null,
+      busyRanchRebuildSlotId: null,
       fertilizerBalance: 2,
       notice: null,
       now: 0,
@@ -66,9 +67,10 @@ vi.mock("./useFarm", async () => {
       buyShopItem: noopAsync,
       buyEndgameShopItem: noopAsync,
       buyPlotUpgrade: noopAsync,
-      feedRanchPen: noopAsync,
+      feedRanchSlot: noopAsync,
       collectRanch: noopAsync,
-      buyRanchPen: noopAsync,
+      buyRanchSlot: noopAsync,
+      rebuildRanchSlot: noopAsync,
     }),
   };
 });
@@ -93,6 +95,7 @@ describe("모험가 농장 모바일 섹션", () => {
     expect(html).toContain("농사 레벨");
     expect(html).toContain("농장 성장");
     expect(html).toContain("sticky top-16");
+    expect(html).toContain("xl:grid-cols-4");
   });
 
   it("농장 화면과 통합 교환소에 기존 상점과 농장주의 교환소를 함께 표시한다", () => {

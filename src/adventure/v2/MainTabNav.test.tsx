@@ -74,7 +74,7 @@ describe("상단 캐릭터 하위 메뉴", () => {
 });
 
 describe("메인 탭 디자인 시스템", () => {
-  it("6개 탭을 전체 폭에 균등한 한 줄로 배치한다", () => {
+  it("홈은 헤더 아이콘에 맡기고 나머지 5개 탭을 읽기 쉬운 크기로 균등 배치한다", () => {
     render(
       <MainTabNav
         activeKey="adventure"
@@ -86,15 +86,19 @@ describe("메인 탭 디자인 시스템", () => {
 
     const nav = screen.getByRole("navigation", { name: "메인 메뉴" });
     expect(nav.className).not.toContain("max-w-[864px]");
-    expect(nav.firstElementChild?.className).toContain("grid-cols-6");
+    expect(nav.firstElementChild?.className).toContain("grid-cols-5");
+    expect(
+      screen.queryByRole("button", { name: /^모험(?:,|$)/ }),
+    ).toBeNull();
 
     const tabs = screen.getAllByRole("button", {
-      name: /^(모험|전투|마을|생활|캐릭터|길드)/,
+      name: /^(전투|마을|생활|캐릭터|길드)/,
     });
-    expect(tabs).toHaveLength(6);
+    expect(tabs).toHaveLength(5);
     for (const tab of tabs) {
       expect(tab.className).toContain("min-w-0");
-      expect(tab.className).toContain("text-[0.625rem]");
+      expect(tab.className).toContain("text-sm");
+      expect(tab.className).not.toContain("text-[0.625rem]");
     }
   });
 

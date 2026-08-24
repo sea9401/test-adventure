@@ -30,6 +30,9 @@ export function CookingResearchPanel({ data, busy, mutate }: {
     .filter((method) => data.level >= COOKING_METHOD_UNLOCK_LEVEL[method]);
   const [method, setMethod] = useState<CookingMethod>(availableMethods[0] ?? "grill");
   const [selected, setSelected] = useState<CookingIngredientId[]>([]);
+  const [rejectedAttemptKeys, setRejectedAttemptKeys] = useState<Set<string>>(
+    () => new Set(),
+  );
   const maxSlots = data.level >= 35 ? 5 : data.level >= 20 ? 4 : data.level >= 10 ? 3 : 2;
   const ingredients = useMemo(() => cookingResearchIngredients(data), [data]);
   const latestFailureMarker = data.failedResearches[0]
@@ -40,8 +43,10 @@ export function CookingResearchPanel({ data, busy, mutate }: {
       researchAttemptKey(entry.method, entry.ingredientIds))),
     [data.failedResearches],
   );
-  const duplicateFailure = selected.length >= 2 && failedAttemptKeys.has(
-    researchAttemptKey(method, selected),
+  const selectedAttemptKey = researchAttemptKey(method, selected);
+  const duplicateFailure = selected.length >= 2 && (
+    failedAttemptKeys.has(selectedAttemptKey) ||
+    rejectedAttemptKeys.has(selectedAttemptKey)
   );
   const [previousFailureMarker, setPreviousFailureMarker] = useState(latestFailureMarker);
   if (latestFailureMarker !== previousFailureMarker) {
@@ -82,9 +87,13 @@ export function CookingResearchPanel({ data, busy, mutate }: {
           </div>
           <div className="mt-3 text-xs text-zinc-500">선택 {selected.length}/{maxSlots}</div>
           <button type="button" disabled={busy || selected.length < 2 || duplicateFailure}
-            onClick={() => {
+            onClick={async () => {
               if (!duplicateFailure) {
-                void mutate({ action: "research", method, ingredientIds: selected });
+                const attemptKey = researchAttemptKey(method, selected);
+                const result = await mutate({ action: "research", method, ingredientIds: selected });
+                if (result?.error === "duplicate_combination") {
+                  setRejectedAttemptKeys((current) => new Set(current).add(attemptKey));
+                }
               }
             }}
             className="mt-2 w-full rounded-md bg-amber-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">

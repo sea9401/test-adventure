@@ -11,7 +11,13 @@ export function RecentBulletinPreview() {
   useEffect(() => {
     let active = true;
     void fetchPosts("all", "")
-      .then((feed) => { if (active) setPosts(feed.posts.slice(0, 3)); })
+      .then((feed) => {
+        if (active) {
+          setPosts(
+            feed.posts.filter((post) => post.category !== "notice").slice(0, 3),
+          );
+        }
+      })
       .catch(() => { if (active) setPosts([]); });
     return () => { active = false; };
   }, []);

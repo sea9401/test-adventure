@@ -1,8 +1,30 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Card } from "@/components/ui/Card";
 import { Inset } from "@/components/ui/Inset";
+
+const HUNT_PLAYER_STATUS_EXPANDED_STORAGE_KEY =
+  "v2-hunt-player-status-expanded.v1";
+
+function loadExpandedPreference(): boolean {
+  try {
+    return (
+      localStorage.getItem(HUNT_PLAYER_STATUS_EXPANDED_STORAGE_KEY) !== "false"
+    );
+  } catch {
+    return true;
+  }
+}
+
+function saveExpandedPreference(expanded: boolean): void {
+  try {
+    localStorage.setItem(
+      HUNT_PLAYER_STATUS_EXPANDED_STORAGE_KEY,
+      String(expanded),
+    );
+  } catch {}
+}
 
 export function CompactBattlePlayerStatus({
   name,
@@ -25,8 +47,29 @@ export function CompactBattlePlayerStatus({
   mpCharges: number;
   children: ReactNode;
 }) {
+  const [expanded, setExpanded] = useState(true);
+  const preferenceLoaded = useRef(false);
+
+  useEffect(() => {
+    // 서버와 첫 클라이언트 렌더는 기본 펼침으로 맞추고, 마운트 뒤 저장값을 복원한다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage 클라이언트 하이드레이션
+    setExpanded(loadExpandedPreference());
+    preferenceLoaded.current = true;
+  }, []);
+
   return (
-    <Card as="details" padding="none" className="overflow-hidden">
+    <Card
+      as="details"
+      open={expanded}
+      onToggle={(event) => {
+        if (!preferenceLoaded.current) return;
+        const nextExpanded = event.currentTarget.open;
+        setExpanded(nextExpanded);
+        saveExpandedPreference(nextExpanded);
+      }}
+      padding="none"
+      className="overflow-hidden"
+    >
       <summary className="cursor-pointer list-none p-3 [&::-webkit-details-marker]:hidden">
         <div className="flex items-center justify-between gap-3">
           <span className="min-w-0">

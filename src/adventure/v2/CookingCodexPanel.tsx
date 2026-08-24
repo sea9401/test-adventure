@@ -1,15 +1,25 @@
+"use client";
+
+import { useMemo } from "react";
 import { CheckCircle, Circle, CookingPot, Trophy } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
+import { Pagination } from "@/components/ui/Pagination";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
-import { COOKING_CODEX_MILESTONES, COOKING_PUBLIC_RECIPES } from "./cooking/catalog";
+import { usePagination } from "@/lib/usePagination";
+import {
+  COOKING_CODEX_MILESTONES,
+  COOKING_PUBLIC_RECIPES,
+} from "./cooking/catalog";
 import { cookingEffectText } from "./cooking/food";
+
+const COOKING_CODEX_PAGE_SIZE = 20;
 
 export function CookingCodexPanel({
   discoveredIds,
 }: {
   discoveredIds: readonly string[];
 }) {
-  const discovered = new Set(discoveredIds);
+  const discovered = useMemo(() => new Set(discoveredIds), [discoveredIds]);
   const discoveredCount = COOKING_PUBLIC_RECIPES.filter((recipe) =>
     discovered.has(recipe.id),
   ).length;
@@ -17,9 +27,14 @@ export function CookingCodexPanel({
     COOKING_PUBLIC_RECIPES.length > 0
       ? Math.min(100, (discoveredCount / COOKING_PUBLIC_RECIPES.length) * 100)
       : 0;
-  const levelGroups = Array.from(
-    new Set(COOKING_PUBLIC_RECIPES.map((recipe) => recipe.requiredLevel)),
-  ).sort((a, b) => a - b);
+  const sortedRecipes = useMemo(
+    () => [
+      ...COOKING_PUBLIC_RECIPES.filter((recipe) => discovered.has(recipe.id)),
+      ...COOKING_PUBLIC_RECIPES.filter((recipe) => !discovered.has(recipe.id)),
+    ],
+    [discovered],
+  );
+  const pager = usePagination(sortedRecipes, COOKING_CODEX_PAGE_SIZE);
 
   return (
     <div className="space-y-3">
@@ -113,56 +128,61 @@ export function CookingCodexPanel({
         </ul>
       </Card>
 
-      {levelGroups.map((requiredLevel) => {
-        const recipes = COOKING_PUBLIC_RECIPES.filter(
-          (recipe) => recipe.requiredLevel === requiredLevel,
-        );
-        const completedInGroup = recipes.filter((recipe) =>
-          discovered.has(recipe.id),
-        ).length;
-        return (
-          <Card key={requiredLevel} padding="none" className="overflow-hidden">
-            <div className="flex items-center justify-between gap-2 border-b border-zinc-200 px-3 py-2 dark:border-zinc-800">
-              <h2 className="text-sm font-bold">요리 Lv {requiredLevel}</h2>
-              <span className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
-                {completedInGroup}/{recipes.length} 등록
-              </span>
-            </div>
-            <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-              {recipes.map((recipe) => {
-                const found = discovered.has(recipe.id);
-                return (
-                  <li key={recipe.id} className="flex items-start gap-2.5 px-3 py-2.5">
-                    <span className="text-xl" aria-hidden>
-                      {recipe.icon}
+      <Card padding="none" className="overflow-hidden">
+        <div className="flex items-center justify-between gap-2 border-b border-zinc-200 px-3 py-2 dark:border-zinc-800">
+          <h2 className="text-sm font-bold">레시피 목록</h2>
+          <span className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+            발견 {discoveredCount} · 미발견{" "}
+            {COOKING_PUBLIC_RECIPES.length - discoveredCount}
+          </span>
+        </div>
+        <ul
+          aria-label="요리 레시피 목록"
+          className="divide-y divide-zinc-200 dark:divide-zinc-800"
+        >
+          {pager.pageItems.map((recipe) => {
+            const found = discovered.has(recipe.id);
+            return (
+              <li
+                key={recipe.id}
+                className="flex items-start gap-2.5 px-3 py-2.5"
+              >
+                <span className="text-xl" aria-hidden>
+                  {recipe.icon}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-sm font-semibold">
+                      {found ? recipe.name : "미발견 레시피"}
                     </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-sm font-semibold">{found ? recipe.name : "미발견 레시피"}</span>
-                        <span
-                          className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-                            found
-                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                              : "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-                          }`}
-                        >
-                          {found ? "도감 등록" : "미등록"}
-                        </span>
-                      </div>
-                      <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-                        {found ? recipe.description : "주방 연구에서 직접 발견해야 합니다."}
-                      </p>
-                      <p className="mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
-                        {found ? `효과 · ${cookingEffectText(recipe.effect)}` : "효과 미확인"}
-                      </p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
-        );
-      })}
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                        found
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                          : "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                      }`}
+                    >
+                      {found ? "도감 등록" : "미등록"}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+                    {found ? recipe.description : "주방 연구에서 직접 발견해야 합니다."}
+                  </p>
+                  <p className="mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                    {found ? `효과 · ${cookingEffectText(recipe.effect)}` : "효과 미확인"}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        <Pagination
+          page={pager.page}
+          pageCount={pager.pageCount}
+          setPage={pager.setPage}
+          className="border-t border-zinc-200 px-3 pb-3 dark:border-zinc-800"
+        />
+      </Card>
     </div>
   );
 }

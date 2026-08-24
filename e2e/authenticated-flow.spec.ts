@@ -380,12 +380,13 @@ test("전투 메뉴로 사냥터에 진입해 얻은 진행은 새로고침과 �
   expect(hunt.result?.won).toBe(true);
   expect(hunt.result?.expGained).toBeGreaterThan(0);
   expect(hunt.result?.goldGained).toBeGreaterThan(0);
-  const huntResultDialog = page.getByRole("dialog", { name: "사냥 승리" });
-  await expect(huntResultDialog).toBeVisible();
-  await huntResultDialog
-    .getByRole("button", { name: "전투 기록 보기" })
-    .click();
+  const huntResult = page.getByRole("region", { name: "최근 사냥 결과" });
+  await expect(huntResult).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: /사냥 (?:승리|패배)/ }),
+  ).toHaveCount(0);
   await dismissTutorialOverlayIfVisible(page);
+  await huntResult.getByRole("button", { name: "전투 기록 보기" }).click();
 
   const battleLogButton = page.getByRole("button", {
     name: "전체 전투 로그 보기",

@@ -36,7 +36,9 @@ describe("EquipmentTab 선택 판매", () => {
       />,
     );
 
-    expect(html).toContain("도감 일괄등록 (1)");
+    expect(html).toContain(">도감<");
+    expect(html).toContain(">일괄등록 (1)<");
+    expect(html).not.toContain("도감 일괄등록 (1)");
   });
 
   it("선택 개수와 예상 골드를 표시하고 장착·잠금 장비 선택을 막는다", () => {

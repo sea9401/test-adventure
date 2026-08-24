@@ -1198,6 +1198,7 @@ export function V2DungeonFloorView({
           maxExp={statusMaxExp}
           hpCharges={statusHpCharges}
           mpCharges={statusMpCharges}
+          proficiency={statusProficiency}
         >
           <PlayerStatusCard
             gender={playerGender}

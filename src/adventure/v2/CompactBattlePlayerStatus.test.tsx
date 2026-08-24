@@ -14,12 +14,40 @@ describe("사냥터 캐릭터 정보", () => {
     cleanup();
   });
 
-  it("상세 정보를 열지 않아도 HP·MP 충전약 잔량을 보여준다", () => {
+  it("상세 정보를 열지 않아도 숙련도와 HP·MP 충전약 잔량을 고정된 줄로 보여준다", () => {
     const html = renderToStaticMarkup(
       <CompactBattlePlayerStatus
         name="모험가"
+        subtitle="전투 Lv.100 / 100 · 바람 마법사"
         hp={{ hp: 120, maxHp: 200 }}
         mp={{ mp: 30, maxMp: 50 }}
+        exp={40}
+        maxExp={100}
+        hpCharges={17}
+        mpCharges={9}
+        proficiency={7_562}
+      >
+        <div>펼친 상세 정보</div>
+      </CompactBattlePlayerStatus>,
+    );
+
+    const summary = html.match(/<summary[^>]*>([\s\S]*?)<\/summary>/)?.[1];
+
+    expect(summary).toContain("HP 충전약 17");
+    expect(summary).toContain("MP 충전약 9");
+    expect(summary).toContain("직업 숙련도 7,562");
+    expect(summary?.match(/data-recovery-charge=/g)).toHaveLength(2);
+    expect(summary).toContain('data-recovery-charge="hp"');
+    expect(summary).toContain('data-recovery-charge="mp"');
+    expect(summary).toContain("text-[15px]");
+    expect(summary).toContain("text-[12px]");
+  });
+
+  it("MP를 사용하지 않는 캐릭터는 HP 충전약 한 줄만 보여준다", () => {
+    const html = renderToStaticMarkup(
+      <CompactBattlePlayerStatus
+        name="전사"
+        hp={{ hp: 120, maxHp: 200 }}
         exp={40}
         maxExp={100}
         hpCharges={17}
@@ -30,9 +58,9 @@ describe("사냥터 캐릭터 정보", () => {
     );
 
     const summary = html.match(/<summary[^>]*>([\s\S]*?)<\/summary>/)?.[1];
-
-    expect(summary).toContain("HP 충전약 17");
-    expect(summary).toContain("MP 충전약 9");
+    expect(summary?.match(/data-recovery-charge=/g)).toHaveLength(1);
+    expect(summary).toContain('data-recovery-charge="hp"');
+    expect(summary).not.toContain('data-recovery-charge="mp"');
   });
 
   it("저장된 선택이 없으면 상세 정보를 펼친 상태로 시작한다", () => {
@@ -40,7 +68,7 @@ describe("사냥터 캐릭터 정보", () => {
 
     expect(container.querySelector("details")?.open).toBe(true);
     expect(container.querySelector("summary")?.textContent).toContain(
-      "상세 접기",
+      "간략히 보기",
     );
   });
 
@@ -84,6 +112,7 @@ function renderPlayerStatus() {
       maxExp={100}
       hpCharges={17}
       mpCharges={9}
+      proficiency={7_562}
     >
       <div>펼친 상세 정보</div>
     </CompactBattlePlayerStatus>,

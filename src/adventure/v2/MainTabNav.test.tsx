@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { CHARACTER_MENU_ITEMS, MainTabNav } from "./MainTabNav";
 
 vi.mock("./AdventureDashboardProvider", () => ({
@@ -32,6 +32,8 @@ beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn();
 });
 
+afterEach(cleanup);
+
 describe("상단 캐릭터 하위 메뉴", () => {
   it("전투 프리셋 전용 경로를 제공한다", () => {
     expect(CHARACTER_MENU_ITEMS).toEqual(
@@ -46,6 +48,30 @@ describe("상단 캐릭터 하위 메뉴", () => {
 });
 
 describe("메인 탭 디자인 시스템", () => {
+  it("6개 탭을 864px 크롬 안에서 균등한 한 줄로 배치한다", () => {
+    render(
+      <MainTabNav
+        activeKey="adventure"
+        gameStateLoaded
+        viewerGuildId={null}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    const nav = screen.getByRole("navigation", { name: "메인 메뉴" });
+    expect(nav.className).toContain("max-w-[864px]");
+    expect(nav.firstElementChild?.className).toContain("grid-cols-6");
+
+    const tabs = screen.getAllByRole("button", {
+      name: /^(모험|전투|마을|생활|캐릭터|길드)/,
+    });
+    expect(tabs).toHaveLength(6);
+    for (const tab of tabs) {
+      expect(tab.className).toContain("min-w-0");
+      expect(tab.className).toContain("text-[0.625rem]");
+    }
+  });
+
   it("활성 탭과 처리 가능한 생활 메뉴를 같은 상태 언어로 표시한다", () => {
     render(
       <MainTabNav

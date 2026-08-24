@@ -296,8 +296,8 @@ export function MainTabNav({
       : (openTab?.sub ?? []);
 
   return (
-    <nav className="relative mx-auto w-full max-w-[720px]" aria-label="메인 메뉴">
-      <div className="flex gap-0.5 overflow-x-auto border-b border-zinc-200 px-2 sm:px-6 dark:border-zinc-800">
+    <nav className="relative mx-auto w-full max-w-[864px]" aria-label="메인 메뉴">
+      <div className="grid grid-cols-6 border-b border-zinc-200 px-1 sm:px-3 dark:border-zinc-800">
         {TABS.map((t) => {
           const isActive = t.key === activeKey;
           const hasSub = !!t.sub;
@@ -325,7 +325,7 @@ export function MainTabNav({
                 }
               }}
               aria-label={`${t.label}${hasActionable ? ", 처리 가능한 항목 있음" : ""}`}
-              className={`relative -mb-px flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap border-b-2 px-3 py-2.5 text-[1.0625rem] font-semibold transition-colors sm:px-5 ${
+              className={`relative -mb-px flex min-h-11 min-w-0 items-center justify-center gap-0.5 whitespace-nowrap border-b-2 px-0.5 py-2 text-[0.625rem] font-semibold transition-colors sm:gap-1 sm:px-2 sm:text-sm ${
                 isActive
                   ? "border-violet-600 text-violet-700 dark:border-violet-400 dark:text-violet-300"
                   : "border-transparent text-zinc-500 hover:text-violet-600 dark:text-zinc-400 dark:hover:text-violet-300"
@@ -340,7 +340,7 @@ export function MainTabNav({
               )}
               {hasSub && (
                 <CaretDown
-                  size={13}
+                  size={10}
                   weight="bold"
                   className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
                 />

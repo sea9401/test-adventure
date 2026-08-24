@@ -41,13 +41,12 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
   const {
     stamina,
     staminaMax,
+    spendableGold,
     staminaRegenBonusPct,
     staminaPotions,
     viewerName,
     viewerGuildId,
     gameStateLoaded,
-    autoGathering,
-    fishingActive,
     coreLoopOn,
     huntStaminaMode,
     refreshGameState,
@@ -114,8 +113,9 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
       onFocusCapture={selectNumericInputValue}
     >
       <V2TopBar
-        autoGathering={autoGathering}
-        fishingActive={fishingActive}
+        stamina={stamina}
+        staminaMax={staminaMax}
+        spendableGold={spendableGold}
       />
       <UgcConsentPrompt />
       {/* 전역 채팅 — 메뉴 안에 묻히지 않도록 모든 게임 화면 우하단에 고정한다.

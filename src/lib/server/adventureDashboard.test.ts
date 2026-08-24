@@ -10,6 +10,7 @@ import {
 } from "@/adventure/v2/autoGathering";
 import { FISHING_DAILY_KEY } from "@/adventure/data/v2/fishingDailyChallenges";
 import { STORM_EXPEDITION_SAVE_KEY } from "@/adventure/data/v2/stormExpedition";
+import { CHARACTER_STATE_KEY } from "@/lib/storage-keys";
 
 describe("모험 대시보드 서버 활동 변환", () => {
   it("수확과 자동 채집 완료를 행동 가능한 생활 활동으로 만든다", () => {
@@ -81,6 +82,7 @@ describe("모험 대시보드 서버 활동 변환", () => {
           attemptsUsed: 3,
           active: null,
         },
+        [CHARACTER_STATE_KEY]: { frontierDepth: 72 },
       },
       now,
     );

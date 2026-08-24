@@ -46,6 +46,7 @@ import {
   type LifeFinishedItemId,
 } from "@/adventure/v2/lifeCrafting";
 import {
+  FARM_CROP_ITEM_IDS,
   FARM_CROP_REQUIRED_SKILL_ID,
   FARM_SAVE_KEY,
   emptyFarmState,
@@ -190,6 +191,12 @@ function workshopPayload(args: {
         : 0,
       ownedFeed: farm.inventory.compound_feed ?? 0,
       availableCropCount,
+      cropInventory: Object.fromEntries(
+        FARM_CROP_ITEM_IDS.map((itemId) => [
+          itemId,
+          farm.inventory[itemId] ?? 0,
+        ]),
+      ),
     },
     failedDishFeedRecipe: {
       ...FAILED_DISH_FEED_RECIPE,

@@ -3,8 +3,9 @@ import {
   FARM_CROP_REQUIRED_SKILL_ID,
   FARM_SAVE_KEY,
   emptyFarmState,
+  parseFarmCropSelection,
   parseFarmState,
-  spendFarmCropItems,
+  spendSelectedFarmCropItems,
 } from "@/adventure/v2/farm";
 import { emptyV2SkillsState, parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { LIFE_CRAFTING_RECIPE_BY_ID, recipeMasteryStage } from "@/adventure/v2/lifeCrafting";
@@ -36,14 +37,22 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null) as {
     quantity?: unknown;
     recipeId?: unknown;
+    cropSelection?: unknown;
   } | null;
   const quantity = Math.floor(Number(body?.quantity));
   const recipeId = body?.recipeId ?? RANCH_FEED_RECIPE.id;
   const failedDishRecipe = recipeId === FAILED_DISH_FEED_RECIPE.id;
+  const cropSelection = failedDishRecipe
+    ? null
+    : parseFarmCropSelection(
+        body?.cropSelection,
+        RANCH_FEED_RECIPE.ingredientAmount,
+      );
   if (
     !Number.isFinite(quantity) ||
     quantity < 1 ||
-    (recipeId !== RANCH_FEED_RECIPE.id && !failedDishRecipe)
+    (recipeId !== RANCH_FEED_RECIPE.id && !failedDishRecipe) ||
+    (!failedDishRecipe && !cropSelection)
   ) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
@@ -78,9 +87,10 @@ export async function POST(req: Request) {
         failedCookingDishes: held - required,
       };
     } else {
-      const nextFarmInventory = spendFarmCropItems(
+      const nextFarmInventory = spendSelectedFarmCropItems(
         farm.inventory,
-        RANCH_FEED_RECIPE.ingredientAmount * quantity,
+        cropSelection!,
+        quantity,
       );
       if (!nextFarmInventory) {
         return { error: "not_enough_items" as const };

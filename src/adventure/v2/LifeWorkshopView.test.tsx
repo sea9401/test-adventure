@@ -115,6 +115,7 @@ describe("목장 사료 제작 카드", () => {
           maxCraftable: 3,
           ownedFeed: 7,
           availableCropCount: 16,
+          cropInventory: { wheat: 10, corn: 5, golden_wheat: 1 },
         }}
         busy={false}
         onCraft={vi.fn()}
@@ -124,10 +125,86 @@ describe("목장 사료 제작 카드", () => {
     expect(html).toContain("목장 용품");
     expect(html).toContain("배합 사료");
     expect(html).toContain("보유 7개");
-    expect(html).toContain("농장 작물 아무거나 5개");
+    expect(html).toContain("작물 5개를 선택해 주세요");
     expect(html).toContain("보유 16개");
     expect(html).toContain("5개 완성");
-    expect(html).toContain('max="3"');
+    expect(html).toContain("밀");
+    expect(html).toContain("옥수수");
+  });
+
+  it("선택한 1회분 작물 5개와 제작 횟수를 함께 전달한다", () => {
+    const onCraft = vi.fn();
+    render(
+      <RanchFeedRecipeCard
+        recipe={{
+          id: "compound_feed",
+          name: "배합 사료",
+          outputAmount: 5,
+          ingredientAmount: 5,
+          unlocked: true,
+          craftCount: 1,
+          masteryStage: 1,
+          batchLimit: 5,
+          maxCraftable: 3,
+          ownedFeed: 7,
+          availableCropCount: 16,
+          cropInventory: { wheat: 10, corn: 5, golden_wheat: 1 },
+        }}
+        busy={false}
+        onCraft={onCraft}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "밀 1개 추가" }));
+    fireEvent.click(screen.getByRole("button", { name: "밀 1개 추가" }));
+    fireEvent.click(screen.getByRole("button", { name: "밀 1개 추가" }));
+    fireEvent.click(screen.getByRole("button", { name: "옥수수 1개 추가" }));
+    fireEvent.click(screen.getByRole("button", { name: "옥수수 1개 추가" }));
+    fireEvent.click(screen.getByRole("button", { name: "1회 제작" }));
+
+    expect(onCraft).toHaveBeenCalledWith(1, { wheat: 3, corn: 2 });
+  });
+
+  it("제작 후 소진된 작물도 선택에서 뺄 때까지 표시한다", () => {
+    const baseRecipe = {
+      id: "compound_feed" as const,
+      name: "배합 사료",
+      outputAmount: 5,
+      ingredientAmount: 5,
+      unlocked: true,
+      craftCount: 1,
+      masteryStage: 1,
+      batchLimit: 5,
+      maxCraftable: 1,
+      ownedFeed: 0,
+      availableCropCount: 5,
+      cropInventory: { wheat: 5 },
+    };
+    const { rerender } = render(
+      <RanchFeedRecipeCard
+        recipe={baseRecipe}
+        busy={false}
+        onCraft={vi.fn()}
+      />,
+    );
+
+    for (let count = 0; count < 5; count += 1) {
+      fireEvent.click(screen.getByRole("button", { name: "밀 1개 추가" }));
+    }
+    rerender(
+      <RanchFeedRecipeCard
+        recipe={{
+          ...baseRecipe,
+          ownedFeed: 5,
+          availableCropCount: 0,
+          cropInventory: {},
+        }}
+        busy={false}
+        onCraft={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "밀 1개 빼기" })).toBeTruthy();
   });
 });
 
@@ -195,6 +272,7 @@ describe("실패 음식 퇴비 제작 카드", () => {
         maxCraftable: 0,
         ownedFeed: 0,
         availableCropCount: 0,
+        cropInventory: {},
       },
       failedDishFeedRecipe: {
         id: "failed_dish_feed",
@@ -242,6 +320,7 @@ describe("실패 음식 퇴비 제작 카드", () => {
         maxCraftable: 0,
         ownedFeed: 3,
         availableCropCount: 0,
+        cropInventory: {},
       },
       failedDishFeedRecipe: {
         id: "failed_dish_feed",

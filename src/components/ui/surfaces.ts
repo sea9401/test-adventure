@@ -26,6 +26,6 @@ export const SURFACE_ACCENT =
 export const SURFACE_FROSTED =
   "rounded-xl bg-white/75 shadow-sm backdrop-blur-sm dark:bg-zinc-900/80";
 
-/** 결합형 게임 헤더 — 상단 행·메인 탭·티커가 공유하는 불투명 크롬 카드. */
+/** 결합형 게임 헤더 — 화면 상단과 좌우를 채우는 불투명 크롬 바. */
 export const SURFACE_GAME_HEADER =
-  "rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900";
+  "border-b border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900";

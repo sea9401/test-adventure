@@ -9,6 +9,7 @@ import type { AdventureHomeWidgetId } from "./adventureDashboard";
 
 const WIDGET_LABELS: Record<AdventureHomeWidgetId, string> = {
   character_summary: "캐릭터",
+  stamina: "스태미나",
   activity_checklist: "오늘의 모험 체크",
   quest_rewards: "퀘스트",
   hot_time: "핫타임",
@@ -19,6 +20,7 @@ const WIDGET_LABELS: Record<AdventureHomeWidgetId, string> = {
 
 const FULL_WIDTH = new Set<AdventureHomeWidgetId>([
   "character_summary",
+  "stamina",
   "activity_checklist",
   "quest_rewards",
   "hot_time",

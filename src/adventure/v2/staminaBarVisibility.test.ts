@@ -3,7 +3,6 @@ import { shouldShowStaminaBar } from "./staminaBarVisibility";
 
 describe("shouldShowStaminaBar", () => {
   it.each([
-    "/",
     "/battle/dungeon",
     "/battle/dungeon/12",
     "/battle/coop",
@@ -16,6 +15,10 @@ describe("shouldShowStaminaBar", () => {
     "/battle/storm-expedition/result",
   ])("지정 화면에서는 표시한다: %s", (pathname) => {
     expect(shouldShowStaminaBar(pathname)).toBe(true);
+  });
+
+  it("홈에서는 편집 가능한 위젯과 중복되지 않도록 공용 바를 숨긴다", () => {
+    expect(shouldShowStaminaBar("/")).toBe(false);
   });
 
   it.each([

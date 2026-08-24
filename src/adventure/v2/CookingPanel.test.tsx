@@ -145,6 +145,42 @@ describe("개편 요리 연구실", () => {
     expect(cookingErrorText("duplicate_combination")).toContain("재료는 소비하지 않았습니다");
   });
 
+  it("서버가 중복 오답을 판정하면 현재 조합의 연구 버튼을 막는다", async () => {
+    const initial = fixture();
+    let researchRequests = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url === "/api/v2/cooking" && init?.method === "POST") {
+        researchRequests += 1;
+        return Response.json(
+          { ok: false, error: "duplicate_combination" },
+          { status: 409 },
+        );
+      }
+      if (url === "/api/v2/cooking") return Response.json(initial);
+      return Response.json({ ok: true });
+    });
+
+    render(
+      <GameStateRefreshProvider refreshGameState={vi.fn(async () => undefined)}>
+        <CookingPanel />
+      </GameStateRefreshProvider>,
+    );
+
+    await screen.findByText("레시피 연구");
+    fireEvent.click(screen.getByRole("button", { name: "밀×10" }));
+    fireEvent.click(screen.getByRole("button", { name: "우유×10" }));
+    fireEvent.click(screen.getByRole("button", { name: "이 조합 연구" }));
+
+    const action = await screen.findByRole("button", {
+      name: "이미 실패한 조합",
+    });
+    expect((action as HTMLButtonElement).disabled).toBe(true);
+
+    fireEvent.click(action);
+    expect(researchRequests).toBe(1);
+  });
+
   it("요리 요청 제한은 잠시 기다리라는 안내로 번역한다", () => {
     expect(cookingErrorText("rate_limited")).toContain("잠시 후");
   });

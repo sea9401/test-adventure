@@ -55,4 +55,8 @@ export type CookingResponse = {
   result?: Record<string, unknown>;
 };
 
-export type CookingMutation = (body: Record<string, unknown>) => Promise<void>;
+export type CookingMutationResult = { error: string } | undefined;
+
+export type CookingMutation = (
+  body: Record<string, unknown>,
+) => Promise<CookingMutationResult>;

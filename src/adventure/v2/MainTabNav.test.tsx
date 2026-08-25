@@ -87,6 +87,7 @@ describe("메인 탭 디자인 시스템", () => {
     const nav = screen.getByRole("navigation", { name: "메인 메뉴" });
     expect(nav.className).not.toContain("max-w-[864px]");
     expect(nav.firstElementChild?.className).toContain("grid-cols-5");
+    expect(nav.firstElementChild?.className).toContain("md:flex");
     expect(
       screen.queryByRole("button", { name: /^모험(?:,|$)/ }),
     ).toBeNull();
@@ -99,6 +100,37 @@ describe("메인 탭 디자인 시스템", () => {
       expect(tab.className).toContain("min-w-0");
       expect(tab.className).toContain("text-sm");
       expect(tab.className).not.toContain("text-[0.625rem]");
+    }
+  });
+
+  it("PC에서는 각 탭 아래에 고정 폭 드롭다운을 연다", () => {
+    render(
+      <MainTabNav
+        activeKey="battle"
+        gameStateLoaded
+        viewerGuildId={null}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    const battleTab = screen.getByRole("button", {
+      name: "전투, 처리 가능한 항목 있음",
+    });
+    expect(battleTab.parentElement?.className).toContain("md:relative");
+
+    fireEvent.click(battleTab);
+
+    const menu = screen.getByRole("menu", { name: "전투 메뉴" });
+    expect(menu.className).toContain("left-0");
+    expect(menu.className).toContain("right-0");
+    expect(menu.className).toContain("md:left-1/2");
+    expect(menu.className).toContain("md:right-auto");
+    expect(menu.className).toContain("md:w-72");
+    expect(menu.className).toContain("md:grid-cols-1");
+
+    for (const item of screen.getAllByRole("menuitem")) {
+      expect(item.className).toContain("h-14");
+      expect(item.className).toContain("md:h-auto");
     }
   });
 

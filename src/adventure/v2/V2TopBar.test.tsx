@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { renderToStaticMarkup } from "react-dom/server";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { V2TopBar } from "./V2TopBar";
 import type { AutoGatheringStatus } from "./autoGathering";
@@ -76,8 +76,35 @@ describe("V2TopBar", () => {
     expect(html).toContain("max-w-[142px]");
     expect(html).toContain("data-topbar-gold");
     expect(html).toMatch(/data-topbar-gold[^>]+class="[^"]*hidden[^"]*sm:inline-flex/);
+    expect(html).toMatch(/data-topbar-gold[^>]+class="[^"]*md:hidden/);
     expect(html).toMatch(/^<div[^>]+data-game-top-bar/);
     expect(html).not.toContain("sticky top-0");
+  });
+
+  it("스태미나를 생활 상태 바로 다음의 좌측 상태 그룹에 둔다", () => {
+    const { container } = render(
+      <V2TopBar
+        stamina={{ current: 86, lastUpdatedAt: Date.now() }}
+        staminaMax={120}
+        staminaRegenBonusPct={0}
+        staminaPotions={3}
+        onUsePotion={vi.fn()}
+        spendableGold={128_450}
+        autoGathering={null}
+        fishingActive={false}
+      />,
+    );
+
+    const leftStatus = container.querySelector<HTMLElement>(
+      "[data-topbar-left-status]",
+    );
+    expect(leftStatus).not.toBeNull();
+    const staminaButton = within(leftStatus as HTMLElement).getByRole(
+      "button",
+      { name: "스태미나 86 / 120" },
+    );
+    expect(staminaButton).toBeTruthy();
+    expect(staminaButton.className).toContain("shrink-0");
   });
 
   it("저장 기준값 이후의 자동 회복을 1초마다 헤더 숫자에 반영한다", () => {

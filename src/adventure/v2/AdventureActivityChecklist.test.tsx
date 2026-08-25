@@ -76,4 +76,33 @@ describe("오늘의 모험 체크", () => {
     fireEvent.click(retry);
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
+
+  it("반복 활동은 오늘 진행률에서 제외하고 반복으로 표시한다", () => {
+    render(
+      <AdventureActivityChecklist
+        activities={[
+          activities[1]!,
+          {
+            id: "arena_daily",
+            group: "daily",
+            tab: "battle",
+            title: "아레나",
+            detail: "오늘 1회 참여",
+            href: "/battle/arena",
+            state: "in_progress",
+            countsTowardCompletion: false,
+            enabled: true,
+            defaultEnabled: true,
+          },
+        ]}
+        summary={{ completed: 1, total: 1, actionableCount: 0 }}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("1 / 1")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /아레나/ }).textContent).toContain(
+      "반복",
+    );
+  });
 });

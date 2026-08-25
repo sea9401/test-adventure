@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildJobRoadmap,
+  roadmapRootJumpTargets,
   type JobRoadmapNode,
 } from "./jobRoadmapModel";
 
@@ -43,6 +44,14 @@ describe("job roadmap model", () => {
     expect(byId.get("healthtrainer")?.production).toBe(false);
     expect(byId.get("mastertrainer")?.production).toBe(false);
     expect(byId.get("survivor")?.production).toBe(false);
+  });
+
+  it("1차 직업 위의 루트 직업을 빠른 이동 대상으로 만든다", () => {
+    expect(roadmapRootJumpTargets(buildJobRoadmap())).toEqual([
+      { id: "none", label: "모험가" },
+      { id: "survivor", label: "생존자" },
+      { id: "mutant", label: "변이자" },
+    ]);
   });
 
   it("공개된 네 7차를 실제 로드맵에 한 번씩 배치하고 두 선행 계보를 보존한다", () => {

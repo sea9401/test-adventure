@@ -23,6 +23,14 @@ export function buildJobRoadmap(): JobRoadmapNode {
   return buildJobRoadmapFromJobs(V2_JOB_LIST);
 }
 
+export function roadmapRootJumpTargets(
+  root: JobRoadmapNode,
+): Array<{ id: string; label: string }> {
+  return root.children
+    .filter((node) => node.tier === 0)
+    .map((node) => ({ id: node.id, label: node.name }));
+}
+
 export function buildJobRoadmapFromJobs(
   jobs: readonly V2JobDefinition[],
 ): JobRoadmapNode {

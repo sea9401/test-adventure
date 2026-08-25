@@ -56,6 +56,7 @@ type FarmResponse = {
   plotUpgradeResult?: FarmPlotUpgradeResult;
   fertilizerBalance?: number;
   fertilizerResult?: { plotId: string; reducedMs: number };
+  uprootedPlotId?: string;
   ranchFeedResult?: FarmRanchFeedResult;
   ranchCollectResult?: FarmRanchCollectResult;
   ranchRebuildResult?: FarmRanchRebuildResult;
@@ -105,6 +106,7 @@ export type FarmClientState = {
   plant: (plotId: string, cropId: FarmCropId) => Promise<void>;
   harvest: (plotId: string) => Promise<void>;
   fertilize: (plotId: string) => Promise<void>;
+  uproot: (plotId: string) => Promise<void>;
   plantAll: (plotIds: readonly string[], cropId: FarmCropId) => Promise<void>;
   harvestAll: (plotIds: readonly string[]) => Promise<void>;
   fertilizeAll: (plotIds: readonly string[]) => Promise<void>;
@@ -130,6 +132,7 @@ export type FarmNotice =
   | { id: number; kind: "endgameShop"; result: FarmEndgameShopPurchaseResult }
   | { id: number; kind: "plotUpgrade"; result: FarmPlotUpgradeResult }
   | { id: number; kind: "fertilizer"; reducedMs: number }
+  | { id: number; kind: "uproot" }
   | { id: number; kind: "batchPlant"; count: number; cropName: string }
   | { id: number; kind: "batchHarvest"; count: number }
   | { id: number; kind: "batchFertilizer"; count: number }
@@ -234,6 +237,9 @@ export function useFarm(): FarmClientState {
         kind: "fertilizer",
         reducedMs: data.fertilizerResult.reducedMs,
       });
+    }
+    if (data.uprootedPlotId && !options.suppressActionNotice) {
+      setNotice({ id: Date.now(), kind: "uproot" });
     }
     if (data.result) {
       setLastResult(data.result);
@@ -376,6 +382,24 @@ export function useFarm(): FarmClientState {
       const res = await fetch("/api/v2/farm/fertilize", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ plotId }) });
       const data = await res.json() as FarmResponse;
       if (!res.ok) throw new Error(data.error ?? "fertilize_failed");
+      apply(data);
+    } catch (e) {
+      reportError(e);
+    } finally {
+      setBusyPlotId(null);
+    }
+  }, [apply, reportError]);
+
+  const uproot = useCallback(async (plotId: string) => {
+    setBusyPlotId(plotId);
+    setError(null);
+    try {
+      const res = await fetch("/api/v2/farm/uproot", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ plotId }),
+      });
+      const data = (await res.json()) as FarmResponse;
       apply(data);
     } catch (e) {
       reportError(e);
@@ -717,6 +741,7 @@ export function useFarm(): FarmClientState {
     plant,
     harvest,
     fertilize,
+    uproot,
     plantAll,
     harvestAll,
     fertilizeAll,
@@ -751,7 +776,7 @@ function errorMessage(error: unknown): string {
       plot_empty: "수확할 작물이 없습니다.",
       no_fertilizer: "보유한 유기질 거름이 없습니다.",
       already_fertilized: "이번 파종에는 이미 거름을 사용했습니다.",
-      already_ready: "이미 수확할 수 있는 작물에는 거름을 사용할 수 없습니다.",
+      already_ready: "이미 수확할 수 있는 작물에는 이 작업을 할 수 없습니다.",
       ranch_locked: "씨앗 선별을 배우면 목장을 이용할 수 있습니다.",
       slot_locked: "아직 열리지 않았거나 앞 부지를 먼저 열어야 합니다.",
       feed_capacity: "이 축사에는 사료가 이미 가득 차 있습니다.",

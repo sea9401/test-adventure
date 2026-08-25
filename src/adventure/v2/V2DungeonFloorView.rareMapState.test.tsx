@@ -11,6 +11,19 @@ vi.mock("@/adventure/storyFlags/useStoryFlags", () => ({
   }),
 }));
 
+vi.mock("./autoHuntStopConditions", async (importActual) => {
+  const actual =
+    await importActual<typeof import("./autoHuntStopConditions")>();
+  return {
+    ...actual,
+    useAutoHuntStopConfig: () => ({
+      config: actual.DEFAULT_AUTO_HUNT_STOP_CONFIG,
+      configRef: { current: actual.DEFAULT_AUTO_HUNT_STOP_CONFIG },
+      updateConfig: vi.fn(),
+    }),
+  };
+});
+
 const fetchMock = vi.fn();
 
 function response(body: Record<string, unknown>): Response {

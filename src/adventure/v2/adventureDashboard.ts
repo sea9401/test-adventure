@@ -61,6 +61,7 @@ export type AdventureActivityView = {
   target?: number;
   resetAt?: number;
   readyAt?: number;
+  countsTowardCompletion?: boolean;
   enabled: boolean;
   defaultEnabled: boolean;
 };
@@ -154,9 +155,12 @@ export function activitySummary(
     (item) => item.enabled && item.state !== "unavailable",
   );
   const cyclical = enabledAvailable.filter((item) => item.group !== "ready");
+  const tracked = cyclical.filter(
+    (item) => item.countsTowardCompletion !== false,
+  );
   return {
-    completed: cyclical.filter((item) => item.state === "completed").length,
-    total: cyclical.length,
+    completed: tracked.filter((item) => item.state === "completed").length,
+    total: tracked.length,
     actionableCount: enabledAvailable.filter(
       (item) => item.state === "actionable",
     ).length,

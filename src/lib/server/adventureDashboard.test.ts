@@ -116,4 +116,16 @@ describe("모험 대시보드 서버 활동 변환", () => {
       detail: "진행 중인 작업 없음",
     });
   });
+
+  it("아레나는 참여 횟수를 표시하지만 일일 완료 집계에는 넣지 않는다", () => {
+    const activities = resolveAdventureActivities(
+      ADVENTURE_DASHBOARD_SAVE_FALLBACKS,
+      Date.UTC(2026, 7, 24, 4),
+    );
+
+    expect(activities.find(({ id }) => id === "arena_daily")).toMatchObject({
+      detail: "오늘 0회 참여",
+      countsTowardCompletion: false,
+    });
+  });
 });

@@ -33,6 +33,7 @@ import {
   plantCrop,
   rebuildFarmRanchSlot,
   spendSelectedFarmCropItems,
+  uprootCrop,
   type FarmState,
 } from "./farm";
 
@@ -351,6 +352,40 @@ describe("adventurer farm", () => {
     expect(() => harvestPlot(state, "plot-1", 2_000, () => 0)).toThrow(
       "not_ready",
     );
+  });
+
+  it("성장 중인 작물을 보상 없이 파내고 밭을 완전히 비운다", () => {
+    const planted = plantCrop(emptyFarmState(1_000), "plot-1", "wheat", 1_000);
+    const fertilized = {
+      ...planted,
+      plots: planted.plots.map((plot) =>
+        plot.id === "plot-1" ? { ...plot, fertilized: true } : plot,
+      ),
+    };
+    const beforeInventory = structuredClone(fertilized.inventory);
+    const beforeSeeds = structuredClone(fertilized.seeds);
+
+    const next = uprootCrop(fertilized, "plot-1", 2_000);
+
+    expect(next.plots[0]).toEqual({
+      id: "plot-1",
+      cropId: null,
+      plantedAt: null,
+      readyAt: null,
+    });
+    expect(next.inventory).toEqual(beforeInventory);
+    expect(next.seeds).toEqual(beforeSeeds);
+    expect(next.stats).toEqual(fertilized.stats);
+  });
+
+  it("빈 밭이나 이미 다 자란 작물은 파낼 수 없다", () => {
+    expect(() => uprootCrop(emptyFarmState(1_000), "plot-1", 2_000)).toThrow(
+      "plot_empty",
+    );
+    const planted = plantCrop(emptyFarmState(1_000), "plot-1", "wheat", 1_000);
+    expect(() =>
+      uprootCrop(planted, "plot-1", 1_000 + FARM_CROPS.wheat.growMs),
+    ).toThrow("already_ready");
   });
 
   it("harvests yield, rare crop, and clears the plot", () => {

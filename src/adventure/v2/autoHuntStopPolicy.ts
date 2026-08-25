@@ -1,4 +1,5 @@
 export const AUTO_HUNT_LEVEL_TARGET = 100;
+export const AUTO_HUNT_STOP_SAVE_KEY = "auto-hunt-stop-config.v1";
 
 export type AutoHuntStopConfig = {
   hpPotionTargetPct: number;

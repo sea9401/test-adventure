@@ -103,6 +103,23 @@ describe("모험 활동 집계", () => {
     });
   });
 
+  it("반복 콘텐츠는 목록에 남아도 완료율에서는 제외한다", () => {
+    const summary = activitySummary([
+      activity({ id: "daily_done", state: "completed" }),
+      activity({
+        id: "arena_daily",
+        state: "in_progress",
+        countsTowardCompletion: false,
+      }),
+    ]);
+
+    expect(summary).toEqual({
+      completed: 1,
+      total: 1,
+      actionableCount: 0,
+    });
+  });
+
   it("행동 가능, 진행 중, 완료, 확인 불가 순으로 정렬한다", () => {
     const sorted = sortAdventureActivities([
       activity({ id: "done", state: "completed" }),

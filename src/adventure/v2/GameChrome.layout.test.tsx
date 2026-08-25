@@ -72,15 +72,22 @@ describe("GameChrome 결합형 게임 헤더", () => {
       "md:grid-cols-[minmax(0,1fr)_auto_auto]",
     );
     expect(gameHeader?.firstElementChild?.className).toContain("md:min-h-16");
+    expect(gameHeader?.firstElementChild?.className).not.toContain(
+      "md:border-b",
+    );
     expect(gameHeader?.querySelector("[data-game-top-bar]")).not.toBeNull();
     expect(
       within(gameHeader as HTMLElement).getByRole("navigation", {
         name: "메인 메뉴",
       }),
     ).toBeTruthy();
-    expect(
-      gameHeader?.querySelector("[data-game-ticker-slot]"),
-    ).not.toBeNull();
+    const tickerSlot = gameHeader?.querySelector<HTMLElement>(
+      "[data-game-ticker-slot]",
+    );
+    expect(tickerSlot).not.toBeNull();
+    expect(tickerSlot?.className).toContain("md:border-t");
+    expect(tickerSlot?.className).toContain("md:border-zinc-200");
+    expect(tickerSlot?.className).toContain("dark:md:border-zinc-800");
     expect(container.querySelectorAll("header")).toHaveLength(1);
   });
 });

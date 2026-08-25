@@ -369,7 +369,7 @@ export function MainTabNav({
                   }
                 }}
                 aria-label={`${t.label}${hasActionable ? ", 처리 가능한 항목 있음" : ""}`}
-                className={`relative -mb-px flex min-h-11 min-w-0 items-center justify-center gap-0.5 whitespace-nowrap border-b-2 px-0.5 py-2 text-sm font-semibold transition-colors sm:gap-1 sm:px-2 md:min-h-16 md:px-3.5 md:text-[0.9375rem] ${
+                className={`relative -mb-px flex min-h-11 min-w-0 items-center justify-center gap-0.5 whitespace-nowrap border-b-2 px-0.5 py-2 text-sm font-semibold transition-colors sm:gap-1 sm:px-2 md:min-h-16 md:px-3.5 md:text-base md:font-bold ${
                   isActive
                     ? "border-violet-600 text-violet-700 dark:border-violet-400 dark:text-violet-300"
                     : "border-transparent text-zinc-500 hover:text-violet-600 dark:text-zinc-400 dark:hover:text-violet-300"

@@ -40,6 +40,7 @@ import {
   useGameState,
 } from "@/adventure/v2/GameStateProvider";
 import {
+  groupEquipInstancesBySlot,
   V2_ITEM_TABS,
   type V2ItemTabKey,
   type SortMode,
@@ -985,34 +986,12 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     return new Set(owned.filter((i) => iids.has(i.iid)).map((i) => i.id));
   }, [owned, equipped]);
 
-  // 슬롯별 보유 개체 — T1→T5, concept, 이름, iid 정렬(안정).
-  const ownedBySlot = useMemo(() => {
-    const groups: Record<V2EquipSlot, V2EquipInstance[]> = {
-      weapon: [],
-      armor: [],
-      gloves: [],
-      boots: [],
-      ring: [],
-      necklace: [],
-    };
-    for (const inst of owned) {
-      const item = V2_EQUIPMENT[inst.id];
-      if (item) groups[item.slot].push(inst);
-    }
-    for (const slot of Object.keys(groups) as V2EquipSlot[]) {
-      groups[slot].sort((a, b) => {
-        const ia = V2_EQUIPMENT[a.id];
-        const ib = V2_EQUIPMENT[b.id];
-        return (
-          ia.tier - ib.tier ||
-          ia.concept.localeCompare(ib.concept) ||
-          ia.name.localeCompare(ib.name, "ko") ||
-          a.iid.localeCompare(b.iid)
-        );
-      });
-    }
-    return groups;
-  }, [owned]);
+  // 슬롯별로만 나누고 저장 배열의 획득 순서를 보존한다. 각 정렬 기준은 EquipmentTab이
+  // 원본 순서를 바탕으로 적용하므로 `획득순`도 실제 최신 장비를 찾을 수 있다.
+  const ownedBySlot = useMemo(
+    () => groupEquipInstancesBySlot(owned),
+    [owned],
+  );
 
   const equipmentCodexBulkCounts = useMemo(() => {
     const counts: Record<V2EquipSlot, number> = {

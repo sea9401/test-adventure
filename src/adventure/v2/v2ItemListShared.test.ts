@@ -3,6 +3,7 @@ import { COOP_ALL_EQUIPMENT_BOXES } from "@/adventure/data/v2/coopRewards";
 import { SP_FRUIT_TIERS, SP_FRUIT } from "@/adventure/data/v2/spFruit";
 import type { V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
 import {
+  groupEquipInstancesBySlot,
   itemTabForMarketplaceListing,
   itemTabForMaterial,
   nextSortMode,
@@ -72,6 +73,24 @@ describe("equipment list sorting", () => {
       "second",
       "latest",
     ]);
+  });
+
+  it("슬롯별로 나눠도 같은 슬롯 장비의 획득 순서를 보존한다", () => {
+    const instances: V2EquipInstance[] = [
+      { iid: "older-gloves", id: "v2_crafted_guard_gauntlets" },
+      { iid: "other-slot", id: "v2_iron_sword" },
+      { iid: "latest-gloves", id: "v2_crafted_focus_gloves" },
+    ];
+
+    const grouped = groupEquipInstancesBySlot(instances);
+
+    expect(grouped.gloves.map((item) => item.iid)).toEqual([
+      "older-gloves",
+      "latest-gloves",
+    ]);
+    expect(
+      sortEquipInstances(grouped.gloves, "acquired").map((item) => item.iid),
+    ).toEqual(["latest-gloves", "older-gloves"]);
   });
 
   it("표시 티어가 높은 장비부터 정렬하고 같은 표시 티어에서는 기본 순서를 유지한다", () => {

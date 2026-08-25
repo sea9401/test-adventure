@@ -119,7 +119,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         data-game-header
         className={`${SURFACE_GAME_HEADER} sticky top-0 z-[60] pt-[env(safe-area-inset-top)]`}
       >
-        <div className="w-full md:grid md:min-h-16 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center md:border-b md:border-zinc-200 md:px-5 dark:md:border-zinc-800">
+        <div className="w-full md:grid md:min-h-16 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center md:px-5">
           <V2TopBar
             stamina={stamina}
             staminaMax={staminaMax}
@@ -140,7 +140,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
           {/* 전쟁 전광판 — 탭바 바로 아래 전역 한 줄. 사건 0건이면 빈 높이를 만들지 않는다. */}
           <div
             data-game-ticker-slot
-            className="overflow-hidden md:col-span-3 md:row-start-2"
+            className="overflow-hidden md:col-span-3 md:row-start-2 md:border-t md:border-zinc-200 dark:md:border-zinc-800"
           >
             <WarTicker />
           </div>

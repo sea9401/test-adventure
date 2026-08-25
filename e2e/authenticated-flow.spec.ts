@@ -243,8 +243,7 @@ test("모바일 전체화면 채팅은 플로팅 토글을 숨기고 헤더에�
   await floatingToggle.click();
 
   await expect(page.getByRole("dialog", { name: "채팅" })).toBeVisible();
-  await expect(floatingToggle).toHaveAttribute("aria-label", "채팅 닫기");
-  await expect(floatingToggle).toBeHidden();
+  await expect(floatingToggle).toHaveCount(0);
   await expect(page.getByRole("button", { name: "채팅 닫기" })).toHaveCount(1);
 
   const globalRoomButton = page.getByRole("button", {

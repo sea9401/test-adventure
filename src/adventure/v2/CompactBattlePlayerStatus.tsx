@@ -73,29 +73,35 @@ export function CompactBattlePlayerStatus({
       className="overflow-hidden"
     >
       <summary className="cursor-pointer list-none p-3 [&::-webkit-details-marker]:hidden">
-        <div className="flex items-center justify-between gap-3">
-          <span className="min-w-0">
-            <span className="block truncate text-[15px] font-semibold leading-tight text-zinc-800 dark:text-zinc-100">{name}</span>
-            {subtitle && <span className="block truncate text-[12px] leading-tight text-zinc-500 dark:text-zinc-400">{subtitle}</span>}
+        {expanded ? (
+          <span className="block text-right text-[0.6875rem] text-zinc-500 dark:text-zinc-400">
+            간략히 보기
           </span>
-          <span className="shrink-0 whitespace-nowrap text-right text-[0.6875rem] tabular-nums text-zinc-500 dark:text-zinc-400">
-            <span className="block">HP {hp.hp.toLocaleString()} / {hp.maxHp.toLocaleString()}{mp && mp.maxMp > 0 ? ` · MP ${mp.mp.toLocaleString()} / ${mp.maxMp.toLocaleString()}` : ""}</span>
-            <span className="block" data-recovery-charge="hp">
-              HP 충전약 {hpCharges.toLocaleString()}
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <span className="min-w-0">
+              <span className="block truncate text-[15px] font-semibold leading-tight text-zinc-800 dark:text-zinc-100">{name}</span>
+              {subtitle && <span className="block truncate text-[12px] leading-tight text-zinc-500 dark:text-zinc-400">{subtitle}</span>}
             </span>
-            {mp && mp.maxMp > 0 ? (
-              <span className="block" data-recovery-charge="mp">
-                MP 충전약 {mpCharges.toLocaleString()}
+            <span className="shrink-0 whitespace-nowrap text-right text-[0.6875rem] tabular-nums text-zinc-500 dark:text-zinc-400">
+              <span className="block">HP {hp.hp.toLocaleString()} / {hp.maxHp.toLocaleString()}{mp && mp.maxMp > 0 ? ` · MP ${mp.mp.toLocaleString()} / ${mp.maxMp.toLocaleString()}` : ""}</span>
+              <span className="block" data-recovery-charge="hp">
+                HP 충전약 {hpCharges.toLocaleString()}
               </span>
-            ) : null}
-            {proficiency != null ? (
-              <span className="block">
-                직업 숙련도 {proficiency.toLocaleString()}
-              </span>
-            ) : null}
-            <span className="block">EXP {Math.max(0, exp).toLocaleString()} / {Math.max(1, maxExp).toLocaleString()} · {expanded ? "간략히 보기" : "상세 보기"}</span>
-          </span>
-        </div>
+              {mp && mp.maxMp > 0 ? (
+                <span className="block" data-recovery-charge="mp">
+                  MP 충전약 {mpCharges.toLocaleString()}
+                </span>
+              ) : null}
+              {proficiency != null ? (
+                <span className="block">
+                  직업 숙련도 {proficiency.toLocaleString()}
+                </span>
+              ) : null}
+              <span className="block">EXP {Math.max(0, exp).toLocaleString()} / {Math.max(1, maxExp).toLocaleString()} · 상세 보기</span>
+            </span>
+          </div>
+        )}
       </summary>
       <Inset className="m-2 mt-0 p-1">{children}</Inset>
     </Card>

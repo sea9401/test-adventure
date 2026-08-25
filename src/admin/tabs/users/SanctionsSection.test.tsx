@@ -146,10 +146,12 @@ describe("SanctionsSection 거래 제재", () => {
       .getByRole("heading", { name: "거래 제재" })
       .closest("section");
 
-    expect(accountCard?.textContent).toContain("계정 이력 사유");
-    expect(accountCard?.textContent).not.toContain("거래 이력 사유");
-    expect(tradeCard?.textContent).toContain("거래 이력 사유");
-    expect(tradeCard?.textContent).not.toContain("계정 이력 사유");
+    await waitFor(() => {
+      expect(accountCard?.textContent).toContain("계정 이력 사유");
+      expect(accountCard?.textContent).not.toContain("거래 이력 사유");
+      expect(tradeCard?.textContent).toContain("거래 이력 사유");
+      expect(tradeCard?.textContent).not.toContain("계정 이력 사유");
+    });
   });
 
   it("거래 기간 정지는 프리셋 사유와 기간을 trade 범위로 전송한다", async () => {

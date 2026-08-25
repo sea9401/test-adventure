@@ -1785,7 +1785,7 @@ describe("위험 해역 개인 Route Handler", () => {
       ok: true,
       returned: true,
       retainedCargoValue: 630,
-      returnFishingCoinsGained: 63,
+      returnFishingCoinsGained: 31,
     });
     expect(savedDangerousState().voyage).toBeNull();
     expect(
@@ -1793,7 +1793,7 @@ describe("위험 해역 개인 Route Handler", () => {
     ).toEqual({ v2_iron_ore: 3, danger_catch_ironjaw_tuna: 3 });
     expect(
       (store.get(FISHING_WALLET_KEY) as { coins: number }).coins,
-    ).toBe(150_063);
+    ).toBe(150_031);
   });
 
   it.each([Number.MAX_SAFE_INTEGER, Number.MAX_VALUE])(
@@ -1905,7 +1905,7 @@ describe("위험 해역 개인 Route Handler", () => {
     ).toBe(3);
     expect(
       (store.get(FISHING_WALLET_KEY) as { coins: number }).coins,
-    ).toBe(150_063);
+    ).toBe(150_031);
   });
 
   it.each(["character.v2", FISHING_WALLET_KEY])(
@@ -1998,7 +1998,7 @@ describe("위험 해역 개인 Route Handler", () => {
     expect(json).toMatchObject({ ok: true, incident: true, returned: true });
     expect(json).toMatchObject({
       retainedCargoValue: 570,
-      returnFishingCoinsGained: 57,
+      returnFishingCoinsGained: 28,
     });
     expect(json.lostValue).toBeLessThanOrEqual(450);
     expect(savedDangerousState().voyage).toBeNull();
@@ -2009,7 +2009,7 @@ describe("위험 해역 개인 Route Handler", () => {
     expect(materials.danger_catch_ironjaw_tuna).toBeLessThanOrEqual(20);
     expect(
       (store.get(FISHING_WALLET_KEY) as { coins: number }).coins,
-    ).toBe(150_057);
+    ).toBe(150_028);
   });
 
   it.each([
@@ -2059,7 +2059,7 @@ describe("위험 해역 개인 Route Handler", () => {
         returned: true,
         lostValue: expectedLostValue,
         retainedCargoValue: Number.MAX_SAFE_INTEGER,
-        returnFishingCoinsGained: 900_719_925_474_099,
+        returnFishingCoinsGained: 450_359_962_737_049,
         materials: {
           danger_catch_razor_sardine: expectedRetainedQuantity,
           danger_catch_ironjaw_tuna: expectedRetainedQuantity,
@@ -2152,7 +2152,7 @@ describe("위험 해역 개인 Route Handler", () => {
       returned: true,
       lostValue: 470,
       retainedCargoValue: 530,
-      returnFishingCoinsGained: 53,
+      returnFishingCoinsGained: 26,
     });
     const materials = (store.get("character.v2") as {
       materials: Record<string, number>;
@@ -2160,7 +2160,7 @@ describe("위험 해역 개인 Route Handler", () => {
     expect(materials.danger_catch_razor_sardine).toBe(53);
     expect(
       (store.get(FISHING_WALLET_KEY) as { coins: number }).coins,
-    ).toBe(150_053);
+    ).toBe(150_026);
   });
 
   it("상점 구매·장착은 낚시 코인 지갑과 전용 상태를 함께 갱신한다", async () => {

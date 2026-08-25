@@ -28,6 +28,13 @@ export type CustomChatRoomInvite = {
   expiresAt: number;
 };
 
+export type CustomChatRoomMember = {
+  userId: string;
+  name: string;
+  role: "owner" | "member";
+  joinedAt: number;
+};
+
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { cache: "no-store", ...init });
   if (!res.ok) {
@@ -83,6 +90,12 @@ export function updateChatRoomOrder(roomOrder: ChatRoomOrderId[]) {
 export function fetchPublicChatRooms() {
   return requestJson<{ rooms: PublicChatRoom[] }>(
     "/api/chat/rooms?scope=public",
+  );
+}
+
+export function fetchChatRoomMembers(roomId: number) {
+  return requestJson<{ members: CustomChatRoomMember[] }>(
+    `/api/chat/rooms/${roomId}`,
   );
 }
 

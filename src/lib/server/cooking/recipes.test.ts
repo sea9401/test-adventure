@@ -41,7 +41,7 @@ const SIMPLE_RECIPES = [
   ["strawberry_milk", "딸기 우유", "medicinal", "brew", 1],
   ["hot_cacao", "따뜻한 카카오", "medicinal", "brew", 1],
   ["tomato_egg_stir_fry", "토마토 달걀볶음", "hearth", "stir_fry", 2],
-  ["potato_fries", "바삭한 감자튀김", "hearth", "fry", 2],
+  ["potato_fries", "짭짤한 감자튀김", "hearth", "fry", 2],
   ["herb_egg_soup", "허브 달걀국", "pot", "boil", 2],
   ["corn_cream_soup", "고소한 옥수수 수프", "pot", "boil", 2],
   ["cacao_cookie", "카카오 쿠키", "baking", "bake", 2],

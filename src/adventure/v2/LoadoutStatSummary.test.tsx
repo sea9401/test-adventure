@@ -104,7 +104,9 @@ describe("LoadoutStatResponsiveLayout", () => {
     expect(html).toContain("<details");
     expect(html).toContain("<aside");
     expect(html).toContain("lg:hidden");
-    expect(html).toContain("sticky top-3 hidden lg:block");
+    expect(html).toContain(
+      "sticky top-[calc(var(--game-header-height,4rem)+0.75rem)] hidden lg:block",
+    );
     expect(html).toContain("스킬 목록");
   });
 });

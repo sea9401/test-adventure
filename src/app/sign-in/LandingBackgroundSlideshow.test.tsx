@@ -20,6 +20,17 @@ describe("대문 게임 이미지 슬라이드", () => {
     expect(html).not.toContain("실제 게임 화면");
   });
 
+  it("모바일에서는 전체 장면을 보존하고 어두운 배경으로 빈 공간을 채운다", () => {
+    const html = renderToStaticMarkup(<LandingBackgroundSlideshow />);
+
+    expect(html).toMatch(
+      /data-landing-image-layer="mobile-backdrop"[^>]*class="[^"]*object-cover[^"]*sm:hidden/,
+    );
+    expect(html).toMatch(
+      /data-landing-image-layer="scene"[^>]*class="[^"]*object-contain[^"]*object-top[^"]*sm:object-cover/,
+    );
+  });
+
   it("실패한 이미지를 건너뛰고 끝에서 처음으로 순환한다", () => {
     expect(nextAvailableSlideIndex(0, new Set([1, 2]))).toBe(3);
     expect(nextAvailableSlideIndex(4, new Set())).toBe(0);

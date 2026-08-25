@@ -3,12 +3,12 @@ import { dangerousReturnFishingCoins } from "./dangerousFishingRewards";
 
 describe("dangerous fishing return rewards", () => {
   it.each([
-    [2_700, 5, 270],
-    [2_700.99, 5, 270],
-    [2_701, 2.5, 135],
+    [2_700, 5, 135],
+    [2_700.99, 5, 135],
+    [2_701, 2.5, 67],
     [2_700, 0, 0],
     [2_700, -3, 0],
-    [2_700, 99, 270],
+    [2_700, 99, 135],
     [0, 5, 0],
     [-200, 5, 0],
   ])(
@@ -19,6 +19,10 @@ describe("dangerous fishing return rewards", () => {
       ).toBe(expected);
     },
   );
+
+  it("returns 75 coins for the highest cargo value at maximum risk", () => {
+    expect(dangerousReturnFishingCoins(1_500, 5)).toBe(75);
+  });
 
   it("keeps huge and malformed inputs from producing an unsafe reward", () => {
     const huge = dangerousReturnFishingCoins(Number.MAX_VALUE, 5);

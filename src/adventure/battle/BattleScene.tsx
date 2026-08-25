@@ -537,6 +537,7 @@ export function BattleScene({
   );
   const enemyDisplay = state.enemy as typeof state.enemy & {
     actionSpd?: number;
+    magicAtk?: number;
     displayAttack?: "physical" | "magic";
   };
   const enemyCombat: BattleStats | null =
@@ -551,7 +552,8 @@ export function BattleScene({
           evasionPct: state.enemy.evasionPct,
           critChancePct: state.enemy.critPct,
           magicAtk:
-            state.enemy.atkType === "magic" ? state.enemy.atk : undefined,
+            enemyDisplay.magicAtk ??
+            (state.enemy.atkType === "magic" ? state.enemy.atk : undefined),
           bonusAttackChancePct: state.enemy.bonusAttackChancePct,
           statusDamageReductionPct: state.enemy.statusDamageReductionPct,
           primaryAttack:

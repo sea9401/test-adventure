@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   emptyFishingStock,
+  fishingCatchItemDailyProgress,
+  parseFishingCatchItemDailyProgress,
   parseFishingStock,
+  replaceFishingCatchItemDailyProgress,
   rollFishingCatchToStock,
   spendFishingCatchItem,
 } from "./fishingStock";
@@ -107,5 +110,111 @@ describe("fishing stock", () => {
       catch_common: 2,
     });
     expect(spendFishingCatchItem(stock, "catch_common", 6)).toBeNull();
+  });
+
+  it("오늘 어획물 5종의 획득량과 일일 최대치를 고정 순서로 만든다", () => {
+    const progress = fishingCatchItemDailyProgress(
+      {
+        version: 1,
+        items: {},
+        daily: {
+          date: "2026-08-25",
+          awarded: { catch_common: 12, catch_special: 8 },
+        },
+      },
+      "2026-08-25",
+    );
+
+    expect(
+      progress.map(({ itemId, awarded, cap }) => ({ itemId, awarded, cap })),
+    ).toEqual([
+      { itemId: "catch_common", awarded: 12, cap: 40 },
+      { itemId: "catch_fresh", awarded: 0, cap: 30 },
+      { itemId: "catch_quality", awarded: 0, cap: 20 },
+      { itemId: "catch_special", awarded: 8, cap: 8 },
+      { itemId: "catch_legendary", awarded: 0, cap: 2 },
+    ]);
+  });
+
+  it("이전 날짜의 획득량은 오늘 진행량에 포함하지 않는다", () => {
+    const progress = fishingCatchItemDailyProgress(
+      {
+        version: 1,
+        items: {},
+        daily: {
+          date: "2026-08-24",
+          awarded: { catch_common: 40 },
+        },
+      },
+      "2026-08-25",
+    );
+
+    expect(progress.every((row) => row.awarded === 0)).toBe(true);
+  });
+
+  it("API 진행 목록에서 알려진 어획물의 유효한 값만 정규화한다", () => {
+    expect(
+      parseFishingCatchItemDailyProgress([
+        {
+          itemId: "catch_common",
+          name: "조작된 이름",
+          awarded: 7.9,
+          cap: 40,
+        },
+        {
+          itemId: "unknown",
+          name: "알 수 없음",
+          awarded: 2,
+          cap: 3,
+        },
+        {
+          itemId: "catch_fresh",
+          name: "신선한 어획물",
+          awarded: 3,
+          cap: 0,
+        },
+        {
+          itemId: "catch_quality",
+          name: "고급 어획물",
+          awarded: "3",
+          cap: 20,
+        },
+        {
+          itemId: "catch_special",
+          name: "특급 어획물",
+          awarded: 1,
+          cap: 0.5,
+        },
+      ]),
+    ).toEqual([
+      {
+        itemId: "catch_common",
+        name: "일반 어획물",
+        awarded: 7,
+        cap: 40,
+      },
+    ]);
+  });
+
+  it("챔질 응답으로 해당 등급 진행량만 교체한다", () => {
+    const rows = fishingCatchItemDailyProgress(
+      emptyFishingStock(),
+      "2026-08-25",
+    );
+
+    const next = replaceFishingCatchItemDailyProgress(rows, {
+      itemId: "catch_special",
+      name: "조작된 이름",
+      awarded: 8,
+      cap: 8,
+    });
+
+    expect(next.find((row) => row.itemId === "catch_special")).toEqual({
+      itemId: "catch_special",
+      name: "특급 어획물",
+      awarded: 8,
+      cap: 8,
+    });
+    expect(next.find((row) => row.itemId === "catch_common")?.awarded).toBe(0);
   });
 });

@@ -103,4 +103,40 @@ describe("전투 로그 표시 방식", () => {
     expect(html).toContain("지속 피해 보정");
     expect(html).toContain("방어 전 피해에서 20% 분리");
   });
+
+  it("마공 표시 상대는 물공이 아닌 리플레이의 실제 마공을 보여준다", () => {
+    const magicOpponentPayload: ReplayPayload = {
+      ...payload,
+      enemy: {
+        name: "라샤",
+        hp: 5_294,
+        atk: 95,
+        magicAtk: 1_060,
+        def: 132,
+        magicDef: 1_060,
+        spd: 301,
+        atkType: "physical",
+        displayAttack: "magic",
+      },
+      playerCombat: {
+        atk: 2_226,
+        def: 235,
+        magicDef: 793,
+        spd: 1_240,
+        primaryAttack: "physical",
+      },
+      ruleset: "pvp",
+    };
+
+    const html = renderToStaticMarkup(
+      <ReplayBattleScene
+        {...commonProps}
+        payload={magicOpponentPayload}
+        presentation="page"
+      />,
+    );
+
+    expect(html).toContain("마공</span> 1,060");
+    expect(html).not.toContain("마공</span> 95");
+  });
 });

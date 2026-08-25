@@ -81,6 +81,15 @@ describe("V2TopBar", () => {
     expect(html).not.toContain("sticky top-0");
   });
 
+  it("빠른 메뉴에서 공지사항 바로가기를 알림 종 바로 앞에 표시한다", () => {
+    const html = renderTopBar();
+    const noticePosition = html.indexOf('href="/plaza/notices"');
+    const notificationPosition = html.indexOf("알림");
+
+    expect(noticePosition).toBeGreaterThan(-1);
+    expect(notificationPosition).toBeGreaterThan(noticePosition);
+  });
+
   it("스태미나를 생활 상태 바로 다음의 좌측 상태 그룹에 둔다", () => {
     const { container } = render(
       <V2TopBar

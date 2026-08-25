@@ -12,6 +12,7 @@ import {
   type AutoGatheringStatus,
 } from "./autoGathering";
 import { NotificationBell } from "./NotificationBell";
+import { V2NoticeLink } from "./V2NoticeLink";
 import { V2SettingsMenu } from "./V2SettingsMenu";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 
@@ -166,6 +167,7 @@ export function V2TopBar({
             {numberFormatter.format(spendableGold)}
           </span>
           <nav className="relative z-[61] flex items-center gap-0.5" aria-label="빠른 메뉴">
+            <V2NoticeLink />
             <NotificationBell />
             <V2SettingsMenu />
           </nav>

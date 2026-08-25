@@ -15,6 +15,7 @@ import { FARM_ITEMS } from "./farm";
 import { FISHING_CATCH_ITEMS } from "./fishingStock";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import type { CookingResponse } from "./cooking/clientTypes";
+import type { CookingEffectTag } from "./cooking/types";
 
 const NOW = Date.parse("2026-08-22T12:00:00+09:00");
 
@@ -23,7 +24,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function fixture(): CookingResponse {
+function fixture(effectTag: CookingEffectTag = "offense"): CookingResponse {
   const cooking = {
     ...emptyCookingState(NOW),
     xp: cookingLevelXpThreshold(20),
@@ -36,6 +37,14 @@ function fixture(): CookingResponse {
     targetScore: 100,
     condition: { field: "hearth", minimumQuality: "normal" },
     rewards: { gold: 35_000, reputation: 4, cookingXp: 80, specialtyXp: 40 },
+  };
+  requests.daily[2] = {
+    id: `daily:test:effect:${effectTag}`,
+    kind: "daily",
+    title: "정성 효과식",
+    targetScore: 100,
+    condition: { effectTag, minimumQuality: "careful" },
+    rewards: { gold: 60_000, reputation: 6, cookingXp: 120, specialtyXp: 60 },
   };
   const foodId = cookingFoodId({ recipeId: "tomato_salad", quality: "masterpiece", originator: true, specialtyBonusPct: 5 });
   return {
@@ -102,6 +111,28 @@ describe("개편 요리 연구실", () => {
     const html = renderSection("delivery");
     expect(html).toContain("개당 42점");
     expect(html).toContain("이번 42점");
+  });
+
+  it.each([
+    ["offense", "공격 효과"],
+    ["defense", "방어 효과"],
+    ["recovery", "회복 효과"],
+    ["hunt_exp", "사냥 경험치 효과"],
+    ["hunt_gold", "사냥 골드 효과"],
+    ["life", "생활 효과"],
+  ] as const)("정성 효과식 제목에 %s 조건을 표시한다", (effectTag, label) => {
+    const data = fixture(effectTag);
+    const html = renderToStaticMarkup(
+      <CookingWorkspace
+        data={data}
+        section="delivery"
+        onSectionChange={vi.fn()}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+
+    expect(html).toContain(`정성 효과식 · ${label}`);
   });
 
   it("상시 납품은 요리와 판매 대금을 확인한 뒤에만 실행한다", async () => {

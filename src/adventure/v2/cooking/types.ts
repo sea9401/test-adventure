@@ -96,6 +96,15 @@ export const COOKING_METHOD_NAMES: Record<CookingMethod, string> = {
   ferment: "발효",
 };
 
+export const COOKING_EFFECT_TAG_NAMES: Record<CookingEffectTag, string> = {
+  offense: "공격",
+  defense: "방어",
+  recovery: "회복",
+  hunt_exp: "사냥 경험치",
+  hunt_gold: "사냥 골드",
+  life: "생활",
+};
+
 export const COOKING_METHOD_UNLOCK_LEVEL: Record<
   CookingMethod,
   1 | 10 | 20 | 35

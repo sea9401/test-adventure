@@ -99,6 +99,9 @@ describe("메인 탭 디자인 시스템", () => {
     for (const tab of tabs) {
       expect(tab.className).toContain("min-w-0");
       expect(tab.className).toContain("text-sm");
+      expect(tab.className).toContain("font-semibold");
+      expect(tab.className).toContain("md:text-base");
+      expect(tab.className).toContain("md:font-bold");
       expect(tab.className).not.toContain("text-[0.625rem]");
     }
   });

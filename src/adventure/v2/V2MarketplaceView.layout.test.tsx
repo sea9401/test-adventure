@@ -136,4 +136,36 @@ describe("V2MarketplaceView 모바일 매물 카드", () => {
     expect(html).not.toContain("판매자");
     expect(html).not.toContain("구매자");
   });
+
+  it("음식 매물에는 희귀 지도 실물 경고를 표시하지 않는다", () => {
+    const html = renderToStaticMarkup(
+      <MarketplaceRecentTradeList
+        rows={[
+          {
+            id: 43,
+            isMine: false,
+            isHighestBidder: false,
+            kind: "consumable",
+            itemId: "two_bite_boiled_bread",
+            itemName: "두박한 밀빵 (일반)",
+            quantity: 1,
+            price: 100_000,
+            instancePayload: { kind: "cooking_food" },
+            createdAt: "2026-08-17T01:00:00.000Z",
+            bidEndsAt: "2026-08-17T01:00:00.000Z",
+            expiresAt: "2026-08-17T01:00:00.000Z",
+            highestBid: null,
+            bidCount: 0,
+            bidResolvedAt: "2026-08-17T01:00:00.000Z",
+            nextBid: 1,
+          },
+        ]}
+        clockMs={Date.parse("2026-08-17T02:00:00.000Z")}
+      />,
+    );
+
+    expect(html).toContain("두박한 밀빵 (일반)");
+    expect(html).not.toContain("실물 없음");
+    expect(html).not.toContain("구매 불가");
+  });
 });

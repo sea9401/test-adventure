@@ -58,6 +58,7 @@ vi.mock("./useFarm", async () => {
       plant: noopAsync,
       harvest: noopAsync,
       fertilize: noopAsync,
+      uproot: noopAsync,
       plantAll: noopAsync,
       harvestAll: noopAsync,
       fertilizeAll: noopAsync,
@@ -143,6 +144,7 @@ describe("재배 카드 작업 위치", () => {
     onPlant: vi.fn(),
     onHarvest: vi.fn(),
     onFertilize: vi.fn(),
+    onUproot: vi.fn(),
   };
 
   it("빈 밭과 재배 중인 밭 모두 같은 높이의 두 줄 작업 영역을 유지한다", () => {
@@ -180,6 +182,8 @@ describe("재배 카드 작업 위치", () => {
     expect(emptyHtml).toContain(">밀 심기<");
     expect(growingHtml).toContain(">재배 중<");
     expect(growingHtml).toContain("유기질 거름 사용");
+    expect(growingHtml).toContain("작물 파내기");
+    expect(growingHtml).toContain("씨앗·수확물·비료는 반환되지 않습니다");
   });
 });
 

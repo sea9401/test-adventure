@@ -125,6 +125,7 @@ export function AdventurerFarmPanel({
     plant,
     harvest,
     fertilize,
+    uproot,
     plantAll,
     harvestAll,
     fertilizeAll,
@@ -302,6 +303,9 @@ export function AdventurerFarmPanel({
     }
     if (notice.kind === "fertilizer") {
       return { id: notice.id, tone: "ok", text: `유기질 거름을 사용해 수확 시간을 ${Math.max(1, Math.round(notice.reducedMs / 60_000))}분 줄였습니다.` };
+    }
+    if (notice.kind === "uproot") {
+      return { id: notice.id, tone: "ok", text: "작물을 파내고 밭을 비웠습니다." };
     }
     if (notice.kind === "batchPlant") {
       return {
@@ -488,6 +492,7 @@ export function AdventurerFarmPanel({
                       }
                       onHarvest={() => harvest(plot.id)}
                       onFertilize={() => fertilize(plot.id)}
+                      onUproot={() => uproot(plot.id)}
                     />
                   ))}
                 </div>
@@ -1389,6 +1394,7 @@ export function FarmPlotCard({
   onPlant,
   onHarvest,
   onFertilize,
+  onUproot,
 }: {
   plot: FarmPlot;
   now: number;
@@ -1401,6 +1407,7 @@ export function FarmPlotCard({
   onPlant: () => void;
   onHarvest: () => void;
   onFertilize: () => void;
+  onUproot: () => void;
 }) {
   const ready = !!crop && !!plot.readyAt && plot.readyAt <= now;
   const progress =
@@ -1506,16 +1513,35 @@ export function FarmPlotCard({
         )}
 
         {crop && !ready ? (
-          <button
-            type="button"
-            onClick={onFertilize}
-            disabled={busy || plot.fertilized || fertilizerBalance < 1}
-            className="h-8 rounded-md border border-emerald-300 bg-white px-3 text-xs font-bold text-emerald-700 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 dark:bg-zinc-900"
-          >
-            {plot.fertilized
-              ? "거름 사용 완료"
-              : `유기질 거름 사용 · 보유 ${fertilizerBalance}`}
-          </button>
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              onClick={onFertilize}
+              disabled={busy || plot.fertilized || fertilizerBalance < 1}
+              className="h-8 rounded-md border border-emerald-300 bg-white px-2 text-[0.6875rem] font-bold text-emerald-700 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 dark:bg-zinc-900"
+            >
+              {plot.fertilized
+                ? "거름 사용 완료"
+                : `유기질 거름 사용 · ${fertilizerBalance}`}
+            </button>
+            <button
+              type="button"
+              title="씨앗·수확물·비료는 반환되지 않습니다"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `${crop.name}을(를) 파내시겠습니까?\n씨앗·수확물·비료는 반환되지 않습니다.`,
+                  )
+                ) {
+                  onUproot();
+                }
+              }}
+              disabled={busy}
+              className="h-8 rounded-md border border-rose-300 bg-white px-2 text-[0.6875rem] font-bold text-rose-700 disabled:cursor-not-allowed disabled:text-zinc-400 dark:bg-zinc-900 dark:text-rose-300"
+            >
+              작물 파내기
+            </button>
+          </div>
         ) : (
           <span aria-hidden="true" className="h-8" />
         )}

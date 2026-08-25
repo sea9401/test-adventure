@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   isRoadmapDragGesture,
+  centeredRoadmapScrollLeft,
   JobRoadmapDetails,
   ROADMAP_DRAG_THRESHOLD_PX,
   RoadmapScroller,
@@ -35,6 +36,39 @@ describe("RoadmapScroller", () => {
     expect(html).toContain("로드맵 왼쪽으로 이동");
     expect(html).toContain("로드맵 오른쪽으로 이동");
     expect(html).toContain("shrine-job-roadmap-canvas");
+  });
+
+  it("provides edge, root-job, and current-job jump controls", () => {
+    const html = renderToStaticMarkup(
+      <RoadmapScroller
+        jumpTargets={[
+          { id: "none", label: "모험가" },
+          { id: "survivor", label: "생존자" },
+        ]}
+        currentJobId="warrior"
+        onSelectJob={() => {}}
+      >
+        <button data-roadmap-job-id="warrior">견습 병사</button>
+      </RoadmapScroller>,
+    );
+
+    expect(html).toContain("로드맵 처음으로 이동");
+    expect(html).toContain("로드맵 끝으로 이동");
+    expect(html).toContain("모험가로 이동");
+    expect(html).toContain("생존자로 이동");
+    expect(html).toContain("현재 직업으로 이동");
+  });
+
+  it("centers a target node in the current viewport", () => {
+    expect(
+      centeredRoadmapScrollLeft({
+        scrollLeft: 300,
+        viewportLeft: 100,
+        viewportWidth: 600,
+        targetLeft: 700,
+        targetWidth: 120,
+      }),
+    ).toBe(660);
   });
 });
 

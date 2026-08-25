@@ -35,6 +35,7 @@ import {
 import { SkillEffectChips } from "./SkillEffectChips";
 import {
   buildJobRoadmap,
+  roadmapRootJumpTargets,
   type JobRoadmapNode,
 } from "./jobRoadmapModel";
 import type { Tier7AdvancementStatus } from "@/adventure/data/v2/tier7Advancement";
@@ -86,6 +87,10 @@ export function JobRoadmapDialog({
     [jobs],
   );
   const selectedJob = jobById.get(selectedJobId) ?? null;
+  const rootJumpTargets = useMemo(
+    () => roadmapRootJumpTargets(root),
+    [root],
+  );
   useEscapeKey(onClose);
   useModalA11y(contentRef);
 
@@ -139,7 +144,11 @@ export function JobRoadmapDialog({
             </div>
           </div>
 
-          <RoadmapScroller>
+          <RoadmapScroller
+            jumpTargets={rootJumpTargets}
+            currentJobId={currentJobId}
+            onSelectJob={setSelectedJobId}
+          >
             <ul className="shrine-job-tree">
               <RoadmapBranch
                 node={root}
@@ -361,6 +370,25 @@ export function isRoadmapDragGesture(startX: number, currentX: number) {
   return Math.abs(currentX - startX) >= ROADMAP_DRAG_THRESHOLD_PX;
 }
 
+export function centeredRoadmapScrollLeft({
+  scrollLeft,
+  viewportLeft,
+  viewportWidth,
+  targetLeft,
+  targetWidth,
+}: {
+  scrollLeft: number;
+  viewportLeft: number;
+  viewportWidth: number;
+  targetLeft: number;
+  targetWidth: number;
+}) {
+  return Math.max(
+    0,
+    scrollLeft + targetLeft - viewportLeft - (viewportWidth - targetWidth) / 2,
+  );
+}
+
 function touchDistance(touches: TouchList) {
   const first = touches[0];
   const second = touches[1];
@@ -369,7 +397,17 @@ function touchDistance(touches: TouchList) {
     : 0;
 }
 
-export function RoadmapScroller({ children }: { children: React.ReactNode }) {
+export function RoadmapScroller({
+  children,
+  jumpTargets = [],
+  currentJobId,
+  onSelectJob,
+}: {
+  children: React.ReactNode;
+  jumpTargets?: ReadonlyArray<{ id: string; label: string }>;
+  currentJobId?: string;
+  onSelectJob?: (jobId: string) => void;
+}) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
     id: number;
@@ -420,6 +458,40 @@ export function RoadmapScroller({ children }: { children: React.ReactNode }) {
       left: direction * Math.max(320, scroller.clientWidth * 0.75),
       behavior: "smooth",
     });
+  };
+
+  const moveToEdge = (edge: "start" | "end") => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    scroller.scrollTo({
+      left: edge === "start" ? 0 : scroller.scrollWidth,
+      behavior: "smooth",
+    });
+  };
+
+  const moveToJob = (jobId: string) => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const target = scroller.querySelector<HTMLElement>(
+      `[data-roadmap-job-id="${jobId}"]`,
+    );
+    if (!target) return;
+    const viewportRect = scroller.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    scroller.scrollTo({
+      left: centeredRoadmapScrollLeft({
+        scrollLeft: scroller.scrollLeft,
+        viewportLeft: viewportRect.left,
+        viewportWidth: viewportRect.width,
+        targetLeft: targetRect.left,
+        targetWidth: targetRect.width,
+      }),
+      behavior: "smooth",
+    });
+    onSelectJob?.(jobId);
+    if (target instanceof HTMLButtonElement) {
+      target.focus({ preventScroll: true });
+    }
   };
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
@@ -532,52 +604,92 @@ export function RoadmapScroller({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="shrine-job-roadmap-wrap">
-      <div className="shrine-job-roadmap-controls">
-        <button
-          type="button"
-          className="shrine-job-roadmap-button"
-          aria-label={`로드맵 축소, 현재 ${zoomPct}%`}
-          title="축소"
-          disabled={zoom <= ROADMAP_ZOOM_MIN}
-          onClick={() => zoomAt(zoomRef.current - ROADMAP_ZOOM_STEP)}
-        >
-          <MagnifyingGlassMinus size={15} weight="bold" />
-        </button>
-        <button
-          type="button"
-          className="shrine-job-roadmap-button is-zoom-level"
-          aria-label={`확대/축소 초기화, 현재 ${zoomPct}%`}
-          title="100%로 초기화"
-          onClick={() => zoomAt(1)}
-        >
-          <span aria-live="polite">{zoomPct}%</span>
-        </button>
-        <button
-          type="button"
-          className="shrine-job-roadmap-button"
-          aria-label={`로드맵 확대, 현재 ${zoomPct}%`}
-          title="확대"
-          disabled={zoom >= ROADMAP_ZOOM_MAX}
-          onClick={() => zoomAt(zoomRef.current + ROADMAP_ZOOM_STEP)}
-        >
-          <MagnifyingGlassPlus size={15} weight="bold" />
-        </button>
-        <button
-          type="button"
-          className="shrine-job-roadmap-button"
-          aria-label="로드맵 왼쪽으로 이동"
-          onClick={() => move(-1)}
-        >
-          <CaretLeft size={15} weight="bold" />
-        </button>
-        <button
-          type="button"
-          className="shrine-job-roadmap-button"
-          aria-label="로드맵 오른쪽으로 이동"
-          onClick={() => move(1)}
-        >
-          <CaretRight size={15} weight="bold" />
-        </button>
+      <div className="shrine-job-roadmap-toolbar">
+        <div className="shrine-job-roadmap-jumps" aria-label="로드맵 빠른 이동">
+          <button
+            type="button"
+            className="shrine-job-roadmap-jump"
+            aria-label="로드맵 처음으로 이동"
+            onClick={() => moveToEdge("start")}
+          >
+            처음
+          </button>
+          <button
+            type="button"
+            className="shrine-job-roadmap-jump"
+            aria-label="로드맵 끝으로 이동"
+            onClick={() => moveToEdge("end")}
+          >
+            끝
+          </button>
+          {jumpTargets.map((target) => (
+            <button
+              key={target.id}
+              type="button"
+              className="shrine-job-roadmap-jump"
+              aria-label={`${target.label}로 이동`}
+              onClick={() => moveToJob(target.id)}
+            >
+              {target.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="shrine-job-roadmap-jump is-current"
+            aria-label="현재 직업으로 이동"
+            disabled={!currentJobId}
+            onClick={() => currentJobId && moveToJob(currentJobId)}
+          >
+            현재 직업
+          </button>
+        </div>
+        <div className="shrine-job-roadmap-controls">
+          <button
+            type="button"
+            className="shrine-job-roadmap-button"
+            aria-label={`로드맵 축소, 현재 ${zoomPct}%`}
+            title="축소"
+            disabled={zoom <= ROADMAP_ZOOM_MIN}
+            onClick={() => zoomAt(zoomRef.current - ROADMAP_ZOOM_STEP)}
+          >
+            <MagnifyingGlassMinus size={15} weight="bold" />
+          </button>
+          <button
+            type="button"
+            className="shrine-job-roadmap-button is-zoom-level"
+            aria-label={`확대/축소 초기화, 현재 ${zoomPct}%`}
+            title="100%로 초기화"
+            onClick={() => zoomAt(1)}
+          >
+            <span aria-live="polite">{zoomPct}%</span>
+          </button>
+          <button
+            type="button"
+            className="shrine-job-roadmap-button"
+            aria-label={`로드맵 확대, 현재 ${zoomPct}%`}
+            title="확대"
+            disabled={zoom >= ROADMAP_ZOOM_MAX}
+            onClick={() => zoomAt(zoomRef.current + ROADMAP_ZOOM_STEP)}
+          >
+            <MagnifyingGlassPlus size={15} weight="bold" />
+          </button>
+          <button
+            type="button"
+            className="shrine-job-roadmap-button"
+            aria-label="로드맵 왼쪽으로 이동"
+            onClick={() => move(-1)}
+          >
+            <CaretLeft size={15} weight="bold" />
+          </button>
+          <button
+            type="button"
+            className="shrine-job-roadmap-button"
+            aria-label="로드맵 오른쪽으로 이동"
+            onClick={() => move(1)}
+          >
+            <CaretRight size={15} weight="bold" />
+          </button>
+        </div>
       </div>
       <div
         ref={scrollerRef}
@@ -633,6 +745,7 @@ function RoadmapBranch({
       {job ? (
         <button
           type="button"
+          data-roadmap-job-id={node.id}
           className={nodeClass}
           onClick={() => onSelectJob(node.id)}
           aria-pressed={selected}
@@ -649,7 +762,11 @@ function RoadmapBranch({
           />
         </button>
       ) : (
-        <div className={nodeClass} title={node.prereqText || undefined}>
+        <div
+          data-roadmap-job-id={node.id}
+          className={nodeClass}
+          title={node.prereqText || undefined}
+        >
           <RoadmapNodeContent
             node={node}
             tierLabel={tierLabel}
@@ -756,13 +873,18 @@ function DetailBadge({
 
 const ROADMAP_CSS = `
 .shrine-job-roadmap-wrap{position:relative;max-width:100%}
-.shrine-job-roadmap-controls{position:absolute;right:10px;top:10px;z-index:2;display:flex;gap:6px}
+.shrine-job-roadmap-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #3f3549;border-bottom:0;border-radius:8px 8px 0 0;background:#17131d}
+.shrine-job-roadmap-jumps,.shrine-job-roadmap-controls{display:flex;flex-wrap:wrap;gap:6px}
+.shrine-job-roadmap-jump{display:inline-flex;min-height:30px;align-items:center;justify-content:center;border:1px solid rgba(248,250,252,.18);border-radius:7px;background:#211b2a;padding:0 10px;color:#f8fafc;font-size:10px;font-weight:800;box-shadow:0 6px 14px rgba(0,0,0,.2)}
+.shrine-job-roadmap-jump:hover{border-color:rgba(248,250,252,.34);background:#342b40}
+.shrine-job-roadmap-jump.is-current{border-color:#34d399;color:#a7f3d0}
+.shrine-job-roadmap-jump:disabled{cursor:not-allowed;color:#71717a;border-color:rgba(248,250,252,.1);box-shadow:none}
 .shrine-job-roadmap-button{display:inline-flex;height:30px;width:30px;align-items:center;justify-content:center;border:1px solid rgba(248,250,252,.18);border-radius:7px;background:#211b2a;color:#f8fafc;box-shadow:0 8px 18px rgba(0,0,0,.28);transition:background-color .15s ease,border-color .15s ease,transform .12s ease}
 .shrine-job-roadmap-button.is-zoom-level{width:46px;font-size:10px;font-variant-numeric:tabular-nums}
 .shrine-job-roadmap-button:hover{border-color:rgba(248,250,252,.34);background:#342b40}
 .shrine-job-roadmap-button:active{transform:translateY(1px)}
 .shrine-job-roadmap-button:disabled{cursor:not-allowed;color:#71717a;border-color:rgba(248,250,252,.1);background:#211b2a;box-shadow:none}
-.shrine-job-roadmap{max-width:100%;overflow-x:auto;overflow-y:hidden;border:1px solid #3f3549;border-radius:8px;color:#f8fafc;background:#17131d;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:28px 28px;overscroll-behavior-x:contain;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;cursor:grab}
+.shrine-job-roadmap{max-width:100%;overflow-x:auto;overflow-y:hidden;border:1px solid #3f3549;border-radius:0 0 8px 8px;color:#f8fafc;background:#17131d;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:28px 28px;overscroll-behavior-x:contain;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;cursor:grab}
 .shrine-job-roadmap.is-dragging{cursor:grabbing}
 .shrine-job-roadmap-canvas{display:flow-root;width:max-content;min-width:100%;transform-origin:top left}
 .shrine-job-tree{display:flex;width:max-content;min-width:max(100%,1560px);justify-content:flex-start;margin:0;padding:38px 24px 20px}

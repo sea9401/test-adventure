@@ -270,6 +270,7 @@ export function resolveAdventureActivities(
       href: "/battle/arena",
       state: "in_progress",
       current: arenaCount,
+      countsTowardCompletion: false,
       defaultEnabled: true,
     },
   ];

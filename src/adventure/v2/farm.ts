@@ -1455,6 +1455,26 @@ export function plantCrop(
   };
 }
 
+export function uprootCrop(
+  state: FarmState,
+  plotId: string,
+  now = Date.now(),
+): FarmState {
+  const plot = state.plots.find((entry) => entry.id === plotId);
+  if (!plot) throw new FarmError("plot_not_found");
+  if (!plot.cropId || !plot.readyAt) throw new FarmError("plot_empty");
+  if (plot.readyAt <= now) throw new FarmError("already_ready");
+
+  return {
+    ...state,
+    plots: state.plots.map((entry) =>
+      entry.id === plotId
+        ? { id: entry.id, cropId: null, plantedAt: null, readyAt: null }
+        : entry,
+    ),
+  };
+}
+
 export function grantFarmSeeds(
   state: FarmState,
   reward: FarmSeedInventory,

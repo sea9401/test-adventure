@@ -57,9 +57,12 @@ function actionableLabel(activity: AdventureActivityView): string {
 function ActivityRow({ activity }: { activity: AdventureActivityView }) {
   const actionable = activity.state === "actionable";
   const completed = activity.state === "completed";
-  const stateLabel = actionable
-    ? actionableLabel(activity)
-    : STATE_LABELS[activity.state];
+  const stateLabel =
+    activity.countsTowardCompletion === false
+      ? "반복"
+      : actionable
+        ? actionableLabel(activity)
+        : STATE_LABELS[activity.state];
 
   return (
     <a
@@ -111,7 +114,10 @@ function ActivityGroup({
     activities.filter((activity) => activity.group === group),
   );
   if (items.length === 0) return null;
-  const completed = items.filter((item) => item.state === "completed").length;
+  const tracked = items.filter(
+    (item) => item.countsTowardCompletion !== false,
+  );
+  const completed = tracked.filter((item) => item.state === "completed").length;
   return (
     <Inset as="section" padding="none" className="overflow-hidden">
       <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 dark:border-zinc-700">
@@ -119,7 +125,7 @@ function ActivityGroup({
           {GROUP_LABELS[group]}
         </h3>
         <span className="text-[0.6875rem] font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">
-          {group === "ready" ? `준비 ${items.length}개` : `${completed} / ${items.length}`}
+          {group === "ready" ? `준비 ${items.length}개` : `${completed} / ${tracked.length}`}
         </span>
       </div>
       <div>

@@ -3409,11 +3409,7 @@ function BuyConfirm({
           )}
           {listing.kind === "consumable" &&
             (() => {
-              const st = consumableStatusLine(
-                listing.itemId,
-                listing.instancePayload,
-                clockMs,
-              );
+              const st = consumableStatusLine(listing.itemId, listing.instancePayload, clockMs);
               return st ? (
                 <div
                   className={`flex items-center gap-1 text-[11px] ${
@@ -3509,10 +3505,7 @@ function remainingLabel(until: string, nowMs: number): string {
 
 // 레어맵 매물 상태 — payload 실물 기준 잔여 판수와 30분 만료를 함께 판정.
 // 실물이 없으면(소진/만료/불량 스냅샷) 구매 불가 경고. expiryLabel(매물 자체 TTL)은 별개.
-function consumableStatusLine(itemId: string, payload: unknown, nowMs: number): {
-  text: string;
-  expired: boolean;
-} | null {
+function consumableStatusLine(itemId: string, payload: unknown, nowMs: number): { text: string; expired: boolean } | null {
   if (!(itemId in RARE_MAP_KINDS)) return null;
   const raw =
     typeof payload === "object" && payload !== null
@@ -3715,11 +3708,7 @@ function ListingList({
             </div>
             {l.kind === "consumable" &&
               (() => {
-                const st = consumableStatusLine(
-                  l.itemId,
-                  l.instancePayload,
-                  clockMs,
-                );
+                const st = consumableStatusLine(l.itemId, l.instancePayload, clockMs);
                 return st ? (
                   <div
                     className={`mt-0.5 flex items-center gap-1 text-[11px] ${

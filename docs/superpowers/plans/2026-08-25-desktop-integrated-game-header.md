@@ -150,3 +150,70 @@ Expected: All existing suites pass with only documented skips.
 git add src/adventure/v2/MainTabNav.tsx src/adventure/v2/V2TopBar.tsx src/adventure/v2/GameChrome.tsx src/adventure/v2/MainTabNav.test.tsx src/adventure/v2/V2TopBar.test.tsx src/adventure/v2/GameChrome.layout.test.tsx
 git commit -m "feat: integrate desktop game navigation into header"
 ```
+
+### Task 3: Separate the PC header from the ticker and strengthen menu type
+
+**Files:**
+- Modify: `src/adventure/v2/GameChrome.layout.test.tsx`
+- Modify: `src/adventure/v2/GameChrome.tsx`
+- Modify: `src/adventure/v2/MainTabNav.test.tsx`
+- Modify: `src/adventure/v2/MainTabNav.tsx`
+
+**Interfaces:**
+- Consumes: Existing `data-game-ticker-slot` and responsive main-tab button classes.
+- Produces: A PC-only divider above the ticker plus 16px·bold PC menu labels, with unchanged mobile type.
+
+- [ ] **Step 1: Write the failing layout and typography assertions**
+
+```tsx
+expect(gameHeader?.firstElementChild?.className).not.toContain("md:border-b");
+expect(tickerSlot?.className).toContain("md:border-t");
+expect(tickerSlot?.className).toContain("md:border-zinc-200");
+expect(tickerSlot?.className).toContain("dark:md:border-zinc-800");
+
+expect(tab.className).toContain("text-sm");
+expect(tab.className).toContain("font-semibold");
+expect(tab.className).toContain("md:text-base");
+expect(tab.className).toContain("md:font-bold");
+```
+
+- [ ] **Step 2: Run the focused tests and verify RED**
+
+Run: `npm test -- src/adventure/v2/GameChrome.layout.test.tsx src/adventure/v2/MainTabNav.test.tsx --run`
+
+Expected: FAIL because the ticker has no desktop top border and PC tab labels are still 15px·semibold.
+
+- [ ] **Step 3: Move the divider and strengthen PC menu type**
+
+```tsx
+<div className="w-full md:grid md:min-h-16 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center md:px-5">
+  {/* ... */}
+  <div
+    data-game-ticker-slot
+    className="overflow-hidden md:col-span-3 md:row-start-2 md:border-t md:border-zinc-200 dark:md:border-zinc-800"
+  />
+</div>
+
+<button className="... text-sm font-semibold ... md:text-base md:font-bold">
+```
+
+- [ ] **Step 4: Run focused and static verification**
+
+Run: `npm test -- src/adventure/v2/GameChrome.layout.test.tsx src/adventure/v2/MainTabNav.test.tsx --run`
+
+Expected: All focused tests pass.
+
+Run: `npx tsc --noEmit`
+
+Expected: Exit 0.
+
+Run: `npx eslint src/adventure/v2/GameChrome.tsx src/adventure/v2/MainTabNav.tsx src/adventure/v2/GameChrome.layout.test.tsx src/adventure/v2/MainTabNav.test.tsx`
+
+Expected: Exit 0.
+
+- [ ] **Step 5: Commit the follow-up**
+
+```bash
+git add src/adventure/v2/GameChrome.tsx src/adventure/v2/MainTabNav.tsx src/adventure/v2/GameChrome.layout.test.tsx src/adventure/v2/MainTabNav.test.tsx docs/superpowers/plans/2026-08-25-desktop-integrated-game-header.md
+git commit -m "fix: separate desktop header from ticker"
+```

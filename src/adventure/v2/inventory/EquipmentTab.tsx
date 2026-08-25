@@ -16,8 +16,6 @@ import {
 import { type ItemCardAnchor } from "../V2ItemCard";
 import {
   V2_ITEM_TABS,
-  nextSortMode,
-  sortModeLabel,
   sortEquipInstances,
   type SortMode,
 } from "../v2ItemListShared";
@@ -33,6 +31,17 @@ export type EquipmentSaleSelection = {
   onToggle: (inst: V2EquipInstance) => void;
   onConfirm: () => void;
 };
+
+const INVENTORY_SORT_OPTIONS: ReadonlyArray<{
+  key: SortMode;
+  label: string;
+}> = [
+  { key: "default", label: "기본 · 종류별" },
+  { key: "acquired", label: "최근 획득 · 최신부터" },
+  { key: "tier", label: "티어 · 높은순" },
+  { key: "roll", label: "품질 · 높은순" },
+  { key: "power", label: "위력 · 높은순" },
+];
 
 // 장비 슬롯 탭(무기/갑옷/장갑/신발/반지/목걸이) — 일괄 판매 컨트롤 + 정렬 버튼 +
 // 보유 장비 카드 그리드 + 페이지네이션. 정렬·일괄판매 임계값 상태는 코디네이터(부모)가
@@ -188,16 +197,25 @@ export function EquipmentTab({
               </>
             )}
           </div>
-          {/* 정렬 — 단일 버튼, 누를 때마다 순환(기본 → 획득순 → 티어순 → 품질순 → 위력순). */}
-          <Button
-            title="누를 때마다 정렬 전환 (기본 → 획득순 → 티어순 → 품질순 → 위력순)"
-            onClick={() => setSortMode((m) => nextSortMode(m))}
-            variant="secondary"
-            size="xs"
-            className="min-h-0 px-2.5 py-0.5 text-[11px]"
-          >
-            정렬 ⇅ {sortModeLabel(sortMode)}
-          </Button>
+          <label className="flex min-h-8 items-center gap-1.5 rounded-lg border border-zinc-300 bg-white pl-2 pr-1 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+              정렬
+            </span>
+            <select
+              aria-label="장비 정렬 기준"
+              value={sortMode}
+              onChange={(event) =>
+                setSortMode(event.currentTarget.value as SortMode)
+              }
+              className="min-h-7 rounded-md border-0 bg-transparent py-0.5 pl-1 pr-6 text-xs font-semibold text-zinc-800 outline-none focus:ring-2 focus:ring-violet-500 dark:text-zinc-100"
+            >
+              {INVENTORY_SORT_OPTIONS.map((option) => (
+                <option key={option.key} value={option.key}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       )}
       <EquipmentCardGrid
@@ -213,6 +231,9 @@ export function EquipmentTab({
           selectedIids: selection.selectedIids,
           onToggle: selection.onToggle,
         }}
+        recentlyAcquiredIid={
+          sortMode === "acquired" ? tabInstances[0]?.iid : undefined
+        }
         frontierDepth={frontierDepth}
       />
       {selection.active ? (

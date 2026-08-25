@@ -98,6 +98,7 @@ export function EquipmentCardGrid({
   codexBusyIid,
   selectedIid,
   saleSelection,
+  recentlyAcquiredIid,
   frontierDepth,
 }: {
   cards: EquipmentCard[];
@@ -111,6 +112,8 @@ export function EquipmentCardGrid({
   selectedIid?: string | null;
   // 인벤토리 선택 판매 모드. 장착·잠금 카드는 서버 규칙과 동일하게 선택할 수 없다.
   saleSelection?: EquipmentSaleCardSelection;
+  // 획득순에서 첫 카드가 최신임을 즉시 알아볼 수 있도록 표시한다.
+  recentlyAcquiredIid?: string;
   // 인벤토리에서만 전달. 진행도 미달 장비는 보유·거래 가능하되 착용 잠금 배지를 표시한다.
   frontierDepth?: number;
 }) {
@@ -188,6 +191,14 @@ export function EquipmentCardGrid({
                     aria-label="잠금됨"
                   />
                 )}
+                {inst.iid === recentlyAcquiredIid ? (
+                  <span
+                    aria-label="가장 최근에 획득한 장비"
+                    className="rounded-md border border-violet-300 bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-200"
+                  >
+                    최신 획득
+                  </span>
+                ) : null}
               </span>
               <span className="flex shrink-0 items-center gap-1">
                 {isSaleSelected ? (

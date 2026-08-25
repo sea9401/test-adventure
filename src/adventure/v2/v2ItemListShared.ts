@@ -73,6 +73,26 @@ export function sortModeLabel(mode: SortMode): string {
   return SORT_CYCLE.find((s) => s.key === mode)?.label ?? "기본";
 }
 
+// 저장 배열은 오래된 장비 → 최근 장비 순이다. 슬롯별로 나눌 때 이 순서를 유지해야
+// `acquired` 정렬이 각 슬롯에서 실제 최근 획득 장비부터 보여 줄 수 있다.
+export function groupEquipInstancesBySlot(
+  list: readonly V2EquipInstance[],
+): Record<V2EquipSlot, V2EquipInstance[]> {
+  const groups: Record<V2EquipSlot, V2EquipInstance[]> = {
+    weapon: [],
+    armor: [],
+    gloves: [],
+    boots: [],
+    ring: [],
+    necklace: [],
+  };
+  for (const inst of list) {
+    const item = V2_EQUIPMENT[inst.id];
+    if (item) groups[item.slot].push(inst);
+  }
+  return groups;
+}
+
 function compareEquipInstancesDefault(
   a: V2EquipInstance,
   b: V2EquipInstance,

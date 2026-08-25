@@ -13,6 +13,7 @@ import {
 } from "./delivery";
 import { cookingFoodDefinition, cookingEffectText, type CookingFoodDefinition } from "./food";
 import type { CookingMutation, CookingResponse } from "./clientTypes";
+import { COOKING_EFFECT_TAG_NAMES } from "./types";
 
 type PendingCookingSale = {
   food: CookingFoodDefinition;
@@ -21,6 +22,9 @@ type PendingCookingSale = {
 
 function RequestCard({ request, data, busy, mutate }: { request: CookingDeliveryRequest; data: CookingResponse; busy: boolean; mutate: CookingMutation }) {
   const [quantity, setQuantity] = useState(1);
+  const requestTitle = request.condition.effectTag
+    ? `${request.title} · ${COOKING_EFFECT_TAG_NAMES[request.condition.effectTag]} 효과`
+    : request.title;
   const foods = Object.entries(data.cookingFoods).flatMap(([id, count]) => {
     const food = cookingFoodDefinition(id);
     const score = food ? cookingDeliveryScore(food, request) : 0;
@@ -31,7 +35,7 @@ function RequestCard({ request, data, busy, mutate }: { request: CookingDelivery
   return (
     <article className={`${SURFACE_INSET} p-3`}>
       <div className="flex items-start justify-between gap-2">
-        <div><h4 className="font-bold text-zinc-900 dark:text-zinc-100">{request.title}</h4><div className="text-xs text-zinc-500">점수 {Math.min(progress, request.targetScore)}/{request.targetScore}</div></div>
+        <div><h4 className="font-bold text-zinc-900 dark:text-zinc-100">{requestTitle}</h4><div className="text-xs text-zinc-500">점수 {Math.min(progress, request.targetScore)}/{request.targetScore}</div></div>
         <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">{complete ? "완료" : request.kind === "weekly" ? "주간" : "일일"}</div>
       </div>
       <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">보상: {request.rewards.gold.toLocaleString()}골드 · 농장 증표 {request.rewards.reputation} · 요리 XP {request.rewards.cookingXp}</div>

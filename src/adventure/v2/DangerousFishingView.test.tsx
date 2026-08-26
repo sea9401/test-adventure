@@ -176,6 +176,7 @@ function activeBossModel(
     eligible: false,
     claimed: false,
     rewardPreview: null,
+    pendingReward: null,
   };
 }
 
@@ -896,6 +897,7 @@ describe("위험 해역 개인 화면", () => {
             materialCount: 3,
             discovererBonus: false,
           },
+          pendingReward: null,
         }}
         busy={false}
         onStart={vi.fn(async () => true)}

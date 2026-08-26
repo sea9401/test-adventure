@@ -838,7 +838,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
       "잃은 HP가 많을수록 강해지는 패황의 최종 일격. 혈전과 사망 극복으로 더욱 강해진다.",
     );
     expect(describeV2Skill(skill)).toEqual([
-      "기본 피해 공격력×2 + 힘×2.4",
+      "기본 피해 공격력×2.2 + 힘×2.64",
       "잃은 HP 1%당 피해 +2% (최대 ×3 · 대련 추가분 60%)",
       "혈전 준비 시 광폭 계수 +25% · 확정 치명타",
       "사망 극복 시 1회 재충전 (전투당 최대 2회)",
@@ -883,7 +883,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 
   it("6차 순수형과 혼합형 모두 직접 스탯 계수 상향을 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_swordsaint_flash)).toContain(
-      "피해 공격력×1.3 + 힘×1.04",
+      "피해 공격력×1.3 + 힘×5",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_archmage_collapse)).toContain(
       "피해 마법 공격력×1.68 + 지능×0.68",
@@ -1191,8 +1191,8 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
       effects: [
         {
           kind: "missingHpDamage",
-          attackCoef: 2,
-          statCoef: 2.4,
+          attackCoef: 2.2,
+          statCoef: 2.64,
           missingHpCoef: 2,
           scaling: "physical",
         },

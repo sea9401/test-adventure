@@ -12,6 +12,10 @@ import {
   type Tier6UniqueCommand,
   type Tier6UniqueEvent,
 } from "./tier6UniqueEffects";
+import {
+  effectiveTier6MagicDefense,
+  tier6MagicDamageAfterMitigation,
+} from "./tier6UniqueMagicDamage";
 
 export function tier6DotContext(state: BattleState) {
   const summarize = (tag: "bleed" | "poison") => {
@@ -63,7 +67,24 @@ export function applyTier6UniquePveEvent(
     stacks: { ...state.stacks, tier6Uniques: resolved.state },
   };
   for (const command of resolved.commands) {
-    next = applyCommand(next, player, command);
+    const applied = applyCommand(next, player, command);
+    next = applied.state;
+    if (command.kind === "damage_magic" && applied.signatureDamage > 0) {
+      const linked = resolveTier6UniqueEvent(
+        player.equipSignatures,
+        next.stacks.tier6Uniques,
+        {
+          kind: "signature_damage",
+          mechanic: command.mechanic,
+          damage: applied.signatureDamage,
+          origin: event.origin,
+        },
+      );
+      next = {
+        ...next,
+        stacks: { ...next.stacks, tier6Uniques: linked.state },
+      };
+    }
   }
   return next;
 }
@@ -72,11 +93,30 @@ function applyCommand(
   state: BattleState,
   player: PlayerCombat,
   command: Tier6UniqueCommand,
-): BattleState {
-  const effect = command.kind === "damage_fixed" ? "extra_damage" : "status";
+): { state: BattleState; signatureDamage: number } {
+  const effect = command.kind === "damage_fixed" || command.kind === "damage_magic"
+    ? "extra_damage"
+    : "status";
   let next = state;
+  let signatureDamage = 0;
   if (command.kind === "damage_fixed") {
     next = { ...next, enemyHp: Math.max(0, next.enemyHp - command.amount) };
+  } else if (command.kind === "damage_magic") {
+    const magicDefense = effectiveTier6MagicDefense({
+      baseDefense: next.enemy.magicDef ?? next.enemy.def,
+      reductionPcts: [
+        (next.buffs.enemyMagicDefDebuffTurnsLeft ?? 0) > 0
+          ? next.buffs.enemyMagicDefDebuffPct ?? 0
+          : 0,
+        player.enemyMagicDefReductionPct ?? 0,
+      ],
+    });
+    const mitigated = tier6MagicDamageAfterMitigation({
+      rawDamage: command.amount,
+      magicDefense,
+    });
+    signatureDamage = mitigated;
+    next = { ...next, enemyHp: Math.max(0, next.enemyHp - mitigated) };
   } else if (command.kind === "shield") {
     next = {
       ...next,
@@ -183,18 +223,26 @@ function applyCommand(
         ? command.attackPct
         : 0;
   return {
-    ...next,
-    log: [...next.log, {
-      kind: "info",
-      effect,
-      text: `[${command.label}] ${commandText(command, value)}`,
-      turn: "player",
-    }],
+    state: {
+      ...next,
+      log: [...next.log, {
+        kind: "info",
+        effect,
+        text: `[${command.label}] ${commandText(command, value, signatureDamage)}`,
+        turn: "player",
+      }],
+    },
+    signatureDamage,
   };
 }
 
-function commandText(command: Tier6UniqueCommand, value: number): string {
+function commandText(
+  command: Tier6UniqueCommand,
+  value: number,
+  signatureDamage: number,
+): string {
   if (command.kind === "damage_fixed") return `${value} 추가 피해`;
+  if (command.kind === "damage_magic") return `${signatureDamage} 마법 피해`;
   if (command.kind === "shield") return `보호막 ${command.amount >= 0 ? "+" : "-"}${value}`;
   if (command.kind === "heal") return `HP +${value}`;
   if (command.kind === "mp") return `MP +${value}`;

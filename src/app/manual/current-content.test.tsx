@@ -280,6 +280,18 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("유기질 거름 3개");
   });
 
+  it("벌목에서 전직 단계보다 높은 농장 씨앗도 발견할 수 있다고 안내한다", () => {
+    const html = renderToStaticMarkup(<PastimesContent />);
+
+    expect(html).toContain("수동 벌목에 성공하면");
+    expect(html).toContain("자동 벌목도 정산할 때");
+    expect(html).toContain("완료한 작업 수와 재료 효율에 따라");
+    expect(html).toContain("현재 농부 계열 전직 단계와 무관하게");
+    expect(html).toContain("상위 작물 씨앗도 먼저 발견");
+    expect(html).toContain("농부 계열 패시브를 배운 뒤 심을 수 있습니다");
+    expect(html).toContain("고등급 작물일수록 발견 확률이 낮습니다");
+  });
+
   it("마을에서 생활 의뢰·조합 작업장으로 바로 이동할 수 있다고 안내한다", () => {
     const html = renderToStaticMarkup(<TownContent />);
 
@@ -485,6 +497,10 @@ describe("최신 게임 안내서 내용", () => {
   it("스킬 패턴의 독립 확률 폴백·중복 공유와 전투 프리셋 범위를 안내한다", () => {
     const html = renderToStaticMarkup(<SkillsContent />);
 
+    expect(html).toContain("AND (모두 만족)");
+    expect(html).toContain("내 HP 50% 이상");
+    expect(html).toContain("혈전 준비 없음");
+    expect(html).toContain("혈전 준비 있음");
     expect(html).toContain("발동 확률");
     expect(html).toContain("1순위가 확률 판정에 실패하면 2순위");
     expect(html).toContain("서로 다른 스킬은 각각 독립적으로 발동 확률을 판정");

@@ -346,12 +346,14 @@ const hits = (
   statCoef: number,
   baseFlat: number,
   scaling?: V2DamageScaling,
+  primaryStatCoef?: number,
 ): V2SkillEffect[] =>
   Array.from({ length: n }, () => ({
     kind: "damage" as const,
     statCoef,
     baseFlat,
     ...(scaling ? { scaling } : {}),
+    ...(primaryStatCoef != null ? { primaryStatCoef } : {}),
   }));
 
 const dmg = (
@@ -359,12 +361,14 @@ const dmg = (
   baseFlat: number,
   scaling?: V2DamageScaling,
   pierceDamagePct?: number,
+  primaryStatCoef?: number,
 ): V2SkillEffect => ({
   kind: "damage",
   statCoef,
   baseFlat,
   ...(scaling ? { scaling } : {}),
   ...(pierceDamagePct ? { pierceDamagePct } : {}),
+  ...(primaryStatCoef != null ? { primaryStatCoef } : {}),
 });
 
 export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
@@ -2353,9 +2357,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_swordsaint_flash: {
     id: "v2c_swordsaint_flash", name: "무심검", stat: "str", category: "attack", tier: 3,
     description: "마음을 비운 한 검으로 적의 자세와 흐름을 동시에 끊는다.",
-    mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000,
+    mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000, spCostDiscount: 2,
     effects: [
-      dmg(1.95, 460, undefined, 15),
+      dmg(1.95, 460, undefined, 15, 5),
       { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 },
       { kind: "enemyHealReduce", pct: 40, turns: 2 },
       { kind: "enemyDelay", pct: 45 },
@@ -2395,7 +2399,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       },
     },
     effects: [
-      { kind: "missingHpDamage", attackCoef: 2, statCoef: 2.4, missingHpCoef: 2, scaling: "physical" },
+      { kind: "missingHpDamage", attackCoef: 2.2, statCoef: 2.64, missingHpCoef: 2, scaling: "physical" },
     ],
   },
   v2c_hegemon_dominion: {
@@ -2707,9 +2711,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_celestialdragon_combo: {
     id: "v2c_celestialdragon_combo", name: "천룡난무", stat: "str", category: "attack", tier: 3,
     description: "하늘로 솟구친 뒤 다섯 번 내리꽂아 적의 흐름을 끊고 전장을 장악한다.",
-    mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000,
+    mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000, spCostDiscount: 4,
     effects: [
-      ...hits(5, 0.36, 150),
+      ...hits(5, 0.36, 150, undefined, 1.2),
       { kind: "enemyVuln", pct: 20, turns: 3 },
       { kind: "selfBuffPct", target: "evasion", pct: 12, turns: 3 },
       { kind: "enemyDelay", pct: 40 },

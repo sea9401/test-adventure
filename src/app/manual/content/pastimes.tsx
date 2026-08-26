@@ -34,7 +34,10 @@ import {
   FARM_PLOT_COUNT,
   FARM_RARE_PITY_HARVESTS,
 } from "@/adventure/v2/farm";
-import { RANCH_SLOT_DEFINITIONS } from "@/adventure/v2/ranch";
+import {
+  RANCH_ANIMAL_DEFINITIONS,
+  RANCH_SLOT_DEFINITIONS,
+} from "@/adventure/v2/ranch";
 import {
   AUTO_GATHERING_PLANS,
 } from "@/adventure/v2/autoGathering";
@@ -103,6 +106,14 @@ export function PastimesContent() {
           돼지우리 2,000개이며 돼지우리를 건설하거나 재건축하면 첫 돼지가 포함됩니다.
         </li>
         <li>
+          돼지우리에는 최대 <Em>{RANCH_ANIMAL_DEFINITIONS.pig.shipmentCapacityCycles}마리</Em>를
+          들일 수 있습니다. 돼지 한 마리당 배합 사료 {RANCH_ANIMAL_DEFINITIONS.pig.feedPerCycle}개가
+          필요하고 <Em>{RANCH_ANIMAL_DEFINITIONS.pig.cycleMs / (60 * 60 * 1_000)}시간</Em> 뒤
+          돼지고기 {RANCH_ANIMAL_DEFINITIONS.pig.outputAmount}개와 농사 경험치{" "}
+          {RANCH_ANIMAL_DEFINITIONS.pig.xpPerCycle}을 받습니다. 두 돼지의 비육 시간은 따로
+          흐르며, 비육이 끝난 돼지도 출하할 때까지 한 자리를 차지합니다.
+        </li>
+        <li>
           밭 8칸과 목장 부지 1~5를 열면 <Em>농장주의 교환소</Em>가 열립니다. 이곳에서
           농장 증표 20개로 배합 사료 5개, 증표 24개로 유기질 거름 3개를 제한 없이
           교환하고 전용 칭호를 구매할 수 있습니다.
@@ -162,6 +173,14 @@ export function PastimesContent() {
         <li>
           생활 레벨과 장착 패시브는 작업 시간과 실패율을 줄이거나 추가 재료 획득에
           영향을 줍니다.
+        </li>
+        <li>
+          <Em>수동 벌목에 성공하면</Em> 낮은 확률로 농장 씨앗 1개를 발견합니다.
+          자동 벌목도 정산할 때 완료한 작업 수와 재료 효율에 따라 같은 씨앗 보상을
+          판정합니다. 현재 농부 계열 전직 단계와 무관하게 상위 작물 씨앗도 먼저
+          발견할 수 있습니다. 획득한 씨앗은 그대로 보관되고, 해당 작물에 필요한
+          농부 계열 패시브를 배운 뒤 심을 수 있습니다. 고등급 작물일수록 발견
+          확률이 낮습니다.
         </li>
         <li>
           자동 작업은 <Em>30분 기본 작업</Em>과 <Em>2시간 느긋한 작업</Em> 중에서

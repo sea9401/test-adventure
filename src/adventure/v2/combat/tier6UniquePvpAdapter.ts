@@ -19,6 +19,21 @@ import {
   resolvePvPHostileDamageSurvival,
   type PvPHostileDamageSurvival,
 } from "./pvpHostileDamage";
+import {
+  magicBarrierCombatLogEntries,
+  resolveMagicBarrierDamage,
+} from "./magicBarrier";
+import { pvpSideDamageTakenReductionPct } from "./pvpDamageReduction";
+import {
+  effectiveTier6MagicDefense,
+  tier6DamageAfterMultiplier,
+  tier6MagicDamageAfterMitigation,
+} from "./tier6UniqueMagicDamage";
+import {
+  resolveTripleWardDamage,
+  TRIPLE_WARD_LABELS,
+  tripleWardStabilityReductionPct,
+} from "./tripleWard";
 
 export type PvPSideKey = "p1" | "p2";
 
@@ -78,15 +93,38 @@ export function applyTier6UniquePvpEvent(
   let log = state.log;
   let finishTargetCurrentActionGuard = false;
   for (const command of resolved.commands) {
-    const applied = applyCommand(actor, target, command);
+    const applied = applyCommand(state, actor, target, command);
     actor = applied.actor;
     target = applied.target;
+    if (command.kind === "damage_magic" && applied.signatureDamage > 0) {
+      const linked = resolveTier6UniqueEvent(
+        actor.player.equipSignatures,
+        actor.stacks.tier6Uniques,
+        {
+          kind: "signature_damage",
+          mechanic: command.mechanic,
+          damage: applied.signatureDamage,
+          origin: event.origin,
+        },
+      );
+      actor = {
+        ...actor,
+        stacks: { ...actor.stacks, tier6Uniques: linked.state },
+      };
+    }
+    log = [...log, ...applied.defenseLogs.map((text) => ({
+      kind: "info" as const,
+      text,
+      side: targetKey,
+    }))];
     log = [
       ...log,
       {
         kind: "info",
-        effect: command.kind === "damage_fixed" ? "extra_damage" : "status",
-        text: `[${command.label}] ${pvpCommandText(command)}`,
+        effect: command.kind === "damage_fixed" || command.kind === "damage_magic"
+          ? "extra_damage"
+          : "status",
+        text: `[${command.label}] ${pvpCommandText(command, applied.hpDamage)}`,
         side: actorKey,
       },
     ];
@@ -110,6 +148,7 @@ export function applyTier6UniquePvpEvent(
 }
 
 function applyCommand(
+  state: PvPBattleState,
   actor: PvPSide,
   target: PvPSide,
   command: Tier6UniqueCommand,
@@ -117,13 +156,112 @@ function applyCommand(
   actor: PvPSide;
   target: PvPSide;
   survival?: PvPHostileDamageSurvival;
+  signatureDamage: number;
+  hpDamage: number;
+  defenseLogs: string[];
 } {
   if (command.kind === "damage_fixed") {
     const survival = resolvePvPHostileDamageSurvival(
       target,
       target.hp - command.amount,
     );
-    return { actor, target: survival.side, survival };
+    return {
+      actor,
+      target: survival.side,
+      survival,
+      signatureDamage: 0,
+      hpDamage: Math.min(target.hp, command.amount),
+      defenseLogs: [],
+    };
+  } else if (command.kind === "damage_magic") {
+    const magicDefense = effectiveTier6MagicDefense({
+      baseDefense: target.player.magicDef ?? target.player.def,
+      reductionPcts: [
+        (actor.buffs.enemyMagicDefDebuffTurnsLeft ?? 0) > 0
+          ? actor.buffs.enemyMagicDefDebuffPct ?? 0
+          : 0,
+        actor.player.enemyMagicDefReductionPct ?? 0,
+      ],
+    });
+    const stabilityPct = tripleWardStabilityReductionPct(
+      target.stacks.tripleWard,
+    );
+    let stabilityReducedBy = 0;
+    const magicBarrier = resolveMagicBarrierDamage({
+      rawDamage: command.amount,
+      durability: target.magicBarrier ?? 0,
+      absorbPct: target.player.magicBarrierPvpAbsorbPct,
+      efficiencyPct: target.player.magicBarrierPvpEfficiencyPct,
+      eligible: true,
+      mitigateBody: (bodyRawDamage) => {
+        const reduced = tier6MagicDamageAfterMitigation({
+          rawDamage: bodyRawDamage,
+          magicDefense,
+          damageTakenReductionPct: pvpSideDamageTakenReductionPct(target),
+        });
+        const afterStability = stabilityPct > 0 && reduced > 0
+          ? Math.max(1, Math.floor(reduced * (1 - stabilityPct / 100)))
+          : reduced;
+        stabilityReducedBy += reduced - afterStability;
+        return afterStability;
+      },
+    });
+    const ward = resolveTripleWardDamage(
+      target.stacks.tripleWard,
+      "magic",
+      "pvp",
+      [magicBarrier.hpBoundDamage],
+    );
+    const scaledDamage = tier6DamageAfterMultiplier(
+      ward.totalDamage,
+      state.damageMultiplier ?? 1,
+    );
+    const shieldAbsorbed = Math.min(
+      target.stacks.playerShield,
+      scaledDamage,
+    );
+    const hpBoundDamage = scaledDamage - shieldAbsorbed;
+    const defendedTarget: PvPSide = {
+      ...target,
+      magicBarrier: magicBarrier.durabilityLeft,
+      stacks: {
+        ...target.stacks,
+        playerShield: target.stacks.playerShield - shieldAbsorbed,
+        tripleWard: ward.state,
+      },
+    };
+    const survival = hpBoundDamage > 0
+      ? resolvePvPHostileDamageSurvival(
+          defendedTarget,
+          defendedTarget.hp - hpBoundDamage,
+        )
+      : undefined;
+    const defenseLogs = magicBarrierCombatLogEntries(magicBarrier).map(
+      (entry) => entry.text,
+    );
+    if (stabilityReducedBy > 0) {
+      defenseLogs.push(
+        `[영역 안정 ${target.stacks.tripleWard.stabilityStacks}중첩] ${target.name} 피해 -${stabilityReducedBy}`,
+      );
+    }
+    if (ward.consumed) {
+      defenseLogs.push(
+        `[${TRIPLE_WARD_LABELS.magic}] ${target.name} 직접 마법 피해 ${ward.reductionPct}% 감소 (${ward.remaining}회 남음)`,
+      );
+    }
+    if (shieldAbsorbed > 0) {
+      defenseLogs.push(
+        `[철벽] ${target.name} 보호막이 ${shieldAbsorbed} 흡수 (남은 ${defendedTarget.stacks.playerShield})`,
+      );
+    }
+    return {
+      actor,
+      target: survival?.side ?? defendedTarget,
+      survival,
+      signatureDamage: scaledDamage,
+      hpDamage: Math.min(target.hp, hpBoundDamage),
+      defenseLogs,
+    };
   } else if (command.kind === "shield") {
     actor = {
       ...actor,
@@ -210,11 +348,21 @@ function applyCommand(
       },
     };
   }
-  return { actor, target };
+  return {
+    actor,
+    target,
+    signatureDamage: 0,
+    hpDamage: 0,
+    defenseLogs: [],
+  };
 }
 
-function pvpCommandText(command: Tier6UniqueCommand): string {
+function pvpCommandText(
+  command: Tier6UniqueCommand,
+  hpDamage: number,
+): string {
   if (command.kind === "damage_fixed") return `${command.amount} 추가 피해`;
+  if (command.kind === "damage_magic") return `${hpDamage} 마법 피해`;
   if (command.kind === "shield") return `보호막 ${command.amount >= 0 ? "+" : ""}${command.amount}`;
   if (command.kind === "heal") return `HP +${command.amount}`;
   if (command.kind === "mp") return `MP +${command.amount}`;

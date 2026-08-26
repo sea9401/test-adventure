@@ -5,6 +5,7 @@ import { applyPlayerV2SkillCast, initialBattleState } from "./engine";
 import { resolveEnemyPhase } from "./engine.enemyPhase";
 import { resolvePlayerPhase } from "./engine.playerPhase";
 import type { PlayerCombat } from "./engineState";
+import { makeBleedDot } from "./combatShared";
 import {
   applyTier6UniquePveEvent,
   tier6StatusKindCount,
@@ -215,6 +216,111 @@ describe("6T 유니크 PvE 연동", () => {
     expect(after.buffs.enemyMagicDefDebuffPct).toBe(10);
     expect(after.buffs.enemyMagicDefDebuffTurnsLeft).toBe(2);
     expect(tier6StatusKindCount(after)).toBe(2);
+  });
+
+  it("혈맥 폭발 뒤에도 기존 출혈 중첩과 지속시간을 보존한다", () => {
+    const player = {
+      ...basePlayer,
+      equipSignatures: [signature("bleed_burst")],
+    };
+    const initial = initialBattleState(player, enemy, "혈맥 검사자");
+    const bleed = makeBleedDot({
+      stacks: 10,
+      turns: 3,
+      flatPerStack: 10,
+      sourceAtk: 100,
+    });
+    const bleeding = { ...initial, enemyV2Dots: [bleed] };
+
+    const after = applyTier6UniquePveEvent(bleeding, player, {
+      kind: "direct_hit",
+      damage: 100,
+      crit: false,
+      attackKind: "basic",
+      paidMp: 0,
+      statusKinds: 1,
+      bleedStacks: 10,
+      bleedRemainingDamage: 1_000,
+      poisonStacks: 0,
+      poisonRemainingDamage: 0,
+      magicAtk: 100,
+      maxHp: 1_000,
+      origin: { actionId: 1, eventId: 1 },
+    });
+
+    expect(after.enemyHp).toBe(initial.enemyHp - 500);
+    expect(after.enemyV2Dots).toEqual([bleed]);
+  });
+
+  it("과부하 낙뢰는 적 마법방어를 거친 마법 피해를 준다", () => {
+    const player = {
+      ...basePlayer,
+      magicAtk: 500,
+      equipSignatures: [signature("arcane_overload")],
+    };
+    const initial = initialBattleState(
+      player,
+      { ...enemy, magicDef: 300 },
+      "뇌정술사",
+    );
+    const after = applyTier6UniquePveEvent(initial, player, {
+      kind: "mp_spent",
+      amount: 100,
+      magicAtk: 500,
+      targetHasStatus: false,
+      origin: { actionId: 1, eventId: 1 },
+    });
+
+    expect(initial.enemyHp - after.enemyHp).toBe(400);
+    expect(after.log.at(-1)?.text).toContain("400 마법 피해");
+  });
+
+  it("과부하 낙뢰는 상시 마법방어 감소도 적용한다", () => {
+    const player = {
+      ...basePlayer,
+      magicAtk: 500,
+      enemyMagicDefReductionPct: 50,
+      equipSignatures: [signature("arcane_overload")],
+    };
+    const initial = initialBattleState(
+      player,
+      { ...enemy, magicDef: 300 },
+      "뇌정술사",
+    );
+    const after = applyTier6UniquePveEvent(initial, player, {
+      kind: "mp_spent",
+      amount: 100,
+      magicAtk: 500,
+      targetHasStatus: false,
+      origin: { actionId: 1, eventId: 1 },
+    });
+
+    expect(initial.enemyHp - after.enemyHp).toBe(550);
+  });
+
+  it("삼상 연계는 과부하 낙뢰의 방어 적용 후 피해를 저장한다", () => {
+    const player = {
+      ...basePlayer,
+      magicAtk: 500,
+      equipSignatures: [
+        signature("arcane_overload"),
+        signature("triphase_link"),
+      ],
+    };
+    const initial = initialBattleState(
+      player,
+      { ...enemy, magicDef: 300 },
+      "뇌정술사",
+    );
+    const after = applyTier6UniquePveEvent(initial, player, {
+      kind: "mp_spent",
+      amount: 100,
+      magicAtk: 500,
+      targetHasStatus: false,
+      origin: { actionId: 1, eventId: 1 },
+    });
+
+    expect(after.stacks.tier6Uniques?.sanctuaryReserve).toBe(40);
   });
 
   it("합일 발동은 공격과 별도로 회복·마법공격 효율 18%를 3행동 저장한다", () => {

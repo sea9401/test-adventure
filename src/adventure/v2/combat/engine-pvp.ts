@@ -86,7 +86,6 @@ import {
   formatDefDebuffLog,
   formatShockAppliedLog,
   healToShield,
-  lowHpDamageReductionPct,
   onDodgeSpeedBuff,
   onHitTakenDefGain,
   onSkillCastMpRefund,
@@ -202,9 +201,10 @@ import {
 } from "./tier6UniquePvpAdapter";
 import {
   consumeReactiveDefenseCharges,
-  ironWallDamageReductionPct,
   resolveFortressReaction,
 } from "./fortressKnight";
+import { pvpSideDamageTakenReductionPct } from "./pvpDamageReduction";
+export { pvpSideDamageTakenReductionPct } from "./pvpDamageReduction";
 import {
   applyBerserkerCastTransition,
   berserkerCastContext,
@@ -792,25 +792,6 @@ export function setSide(
   next: PvPSide,
 ): PvPBattleState {
   return which === "p1" ? { ...state, p1: next } : { ...state, p2: next };
-}
-
-export function pvpSideDamageTakenReductionPct(side: PvPSide): number {
-  const activePct =
-    side.stacks.skillDmgReduceTurns > 0
-      ? side.stacks.skillDmgReducePct
-      : 0;
-  const signaturePct = lowHpDamageReductionPct(
-    side.player.equipSignatures,
-    side.hp,
-    side.maxHp,
-  );
-  return Math.max(
-    0,
-    (side.player.passiveDamageTakenReductionPct ?? 0) +
-      activePct +
-      ironWallDamageReductionPct(side.stacks.ironWallReflectCharges) +
-      signaturePct,
-  );
 }
 
 // 현 phase 에서 (attacker, defender) 키 결정.

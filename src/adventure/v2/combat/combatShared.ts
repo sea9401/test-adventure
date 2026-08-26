@@ -1105,6 +1105,11 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
     enemyDamageDownActive: t.enemyDamageDownActive ?? false,
     enemySkillProcDownActive: t.enemySkillProcDownActive ?? false,
     enemyHealReductionActive: t.enemyHealReductionActive ?? false,
+    enemyStatDebuffs: new Set(
+      (Object.entries(t.selfDebuffs) as [StatKey, V2BuffEntry | undefined][])
+        .filter(([, entry]) => entry != null && entry.turns > 0)
+        .map(([stat]) => stat),
+    ),
     turn: input.turn ?? 1,
   };
 }
@@ -1388,6 +1393,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     legacyBaseFlat: number,
     extraFlat = 0,
     targetDefOverride?: number,
+    primaryStatCoefOverride?: number,
   ): number => {
     const scale: "physical" | "magic" =
       scaling === "magic" || scaling === "spi" ? "magic" : "physical";
@@ -1460,7 +1466,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     const purePrimaryStatBonus = pureFormula
       ? Math.floor(
           (purePrimaryStat ?? 0) *
-            pureFormula.primaryStatCoef *
+            (primaryStatCoefOverride ?? pureFormula.primaryStatCoef) *
             (skillElementMult ?? 1) +
             1e-9,
         )
@@ -1692,6 +1698,9 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         effect.scaling,
         effect.attackCoef,
         flatOf(effect.baseFlat, effect.baseFlatByTier),
+        0,
+        undefined,
+        effect.primaryStatCoef,
       );
       // 관통(방어 무시) 추가타 — 0방어 피해의 pierceDamagePct% 를 방어로 깎이지 않는 추가분으로 합산.
       const pierceDamagePct = directDamagePiercePct(
@@ -1706,6 +1715,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
               flatOf(effect.baseFlat, effect.baseFlatByTier),
               0,
               0,
+              effect.primaryStatCoef,
             ) *
               pierceDamagePct) /
               100,

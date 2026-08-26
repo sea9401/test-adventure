@@ -15,6 +15,7 @@ import {
   claimBossRewardInTx,
   dangerousBossReward,
   maybeSpawnDangerousFishingBoss,
+  readDangerousFishingBossView,
   startBossAttemptInTx,
   type DangerousFishingBossContributionRecord,
   type DangerousFishingBossEventRecord,
@@ -68,6 +69,24 @@ class MemoryBossStore implements DangerousFishingBossStore {
       [...this.events.values()].sort(
         (a, b) => b.spawnedAt.getTime() - a.spawnedAt.getTime(),
       )[0] ?? null
+    );
+  }
+
+  async findOldestUnclaimedReward(userId: string) {
+    return (
+      [...this.contributions.values()]
+        .filter(
+          (contribution) =>
+            contribution.userId === userId &&
+            contribution.rewardClaimedAt == null &&
+            contribution.successfulAttempts > 0,
+        )
+        .map((contribution) => this.events.get(contribution.eventId))
+        .filter(
+          (candidate): candidate is DangerousFishingBossEventRecord =>
+            candidate?.status === "defeated" && candidate.stamina === 0,
+        )
+        .sort((a, b) => a.spawnedAt.getTime() - b.spawnedAt.getTime())[0] ?? null
     );
   }
 
@@ -588,5 +607,77 @@ describe("비동기 거대어 서비스", () => {
     expect(active?.id).toBe("event-1");
     expect(active).not.toHaveProperty("contributors");
     expect(active).not.toHaveProperty("rankings");
+  });
+
+  it("새 거대어가 활성화되어도 과거 미수령 보상을 함께 돌려준다", async () => {
+    store.events.set(
+      "old-defeated",
+      event({
+        id: "old-defeated",
+        stamina: 0,
+        status: "defeated",
+        defeatedAt: new Date(NOW.getTime() + 1_000),
+      }),
+    );
+    store.events.set(
+      "new-active",
+      event({
+        id: "new-active",
+        discovererId: "other",
+        spawnedAt: new Date(NOW.getTime() + 2_000),
+      }),
+    );
+    store.contributions.set("old-defeated:angler", {
+      eventId: "old-defeated",
+      userId: "angler",
+      totalContribution: 240,
+      successfulAttempts: 1,
+      firstContributedAt: NOW,
+      lastContributedAt: NOW,
+      rewardClaimedAt: null,
+    });
+
+    const view = await readDangerousFishingBossView(
+      store,
+      "angler",
+      new Date(NOW.getTime() + 2_000),
+    );
+
+    expect(view).toMatchObject({
+      event: { id: "new-active" },
+      pendingReward: {
+        event: { id: "old-defeated", name: "해일의 거신" },
+        contribution: { totalContribution: 240, successfulAttempts: 1 },
+        rewardPreview: { fishingCoins: 80, materialCount: 1 },
+      },
+    });
+  });
+
+  it("화면의 최신 거대어 보상은 과거 미수령 보상으로 중복하지 않는다", async () => {
+    store.events.set(
+      "latest-defeated",
+      event({
+        id: "latest-defeated",
+        stamina: 0,
+        status: "defeated",
+        defeatedAt: NOW,
+      }),
+    );
+    store.contributions.set("latest-defeated:angler", {
+      eventId: "latest-defeated",
+      userId: "angler",
+      totalContribution: 240,
+      successfulAttempts: 1,
+      firstContributedAt: NOW,
+      lastContributedAt: NOW,
+      rewardClaimedAt: null,
+    });
+
+    const view = await readDangerousFishingBossView(store, "angler", NOW);
+
+    expect(view).toMatchObject({
+      event: { id: "latest-defeated" },
+      pendingReward: null,
+    });
   });
 });

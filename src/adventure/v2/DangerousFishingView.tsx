@@ -116,7 +116,7 @@ export function DangerousFishingView({
   onAction: (action: DangerousFishingAction, encounterId: string, revision: number) => Promise<boolean>;
   onStartBossAttempt: (eventId: string) => Promise<boolean>;
   onBossAction: (action: DangerousFishingAction, eventId: string, encounterId: string, revision: number) => Promise<boolean>;
-  onClaimBossReward: (eventId: string) => Promise<boolean>;
+  onClaimBossReward: (eventId: string, bossName?: string) => Promise<boolean>;
   onRealtimeFinish: (
     scope: "voyage" | "boss",
     response: Record<string, unknown>,

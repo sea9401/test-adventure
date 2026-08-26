@@ -106,8 +106,8 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
       combatMode: "pvp",
     });
 
-    expect(pve.enemyDamage).toBe(2_090); // (200+240) × (1 + 2×1.25×1.5)
-    expect(pvp.enemyDamage).toBe(1_430); // (200+240) × (1 + 3.75×0.6)
+    expect(pve.enemyDamage).toBe(2_299); // (220+264) × (1 + 2×1.25×1.5)
+    expect(pvp.enemyDamage).toBe(1_573); // (220+264) × (1 + 3.75×0.6)
     expect(pve.berserkerTransition).toEqual({
       grantFinisher: false,
       consumeFinisher: true,

@@ -12,6 +12,10 @@ import {
 } from "@/adventure/v2/staminaPotions";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import { COMBINE_GOLD_COST } from "@/adventure/data/v2/v2EquipVariance";
+import {
+  forgeCombinationTotal,
+  parseForgeCombinationQuantity,
+} from "@/adventure/data/v2/forgeCombination";
 
 type CharSave = {
   materials?: Record<string, number>;
@@ -36,6 +40,25 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
+  const body = (await req.json().catch(() => null)) as {
+    quantity?: unknown;
+  } | null;
+  const quantity = parseForgeCombinationQuantity(body?.quantity);
+  const shardCost =
+    quantity == null
+      ? null
+      : forgeCombinationTotal(STAMINA_SHARD_COMBINE_COST, quantity);
+  const goldCost =
+    quantity == null
+      ? null
+      : forgeCombinationTotal(COMBINE_GOLD_COST, quantity);
+  if (quantity == null || shardCost == null || goldCost == null) {
+    return Response.json(
+      { ok: false, error: "invalid_quantity" },
+      { status: 400 },
+    );
+  }
+
   const result = await db.transaction(async (tx) => {
     const charSave = await lockSaveForUpdate<CharSave>(
       tx,
@@ -48,13 +71,13 @@ export async function POST(req: Request) {
       0,
       Math.floor(Number(materials[STAMINA_SHARD_MATERIAL_ID]) || 0),
     );
-    if (heldShards < STAMINA_SHARD_COMBINE_COST) {
+    if (heldShards < shardCost) {
       return {
         status: 400,
         body: {
           ok: false as const,
           error: "insufficient_material" as const,
-          need: STAMINA_SHARD_COMBINE_COST,
+          need: shardCost,
         },
       };
     }
@@ -64,14 +87,14 @@ export async function POST(req: Request) {
       0,
       Math.floor(Number(charSave.bankedGold) || 0),
     );
-    const spend = spendGold(gold, bankedGold, COMBINE_GOLD_COST);
+    const spend = spendGold(gold, bankedGold, goldCost);
     if (!spend.ok) {
       return {
         status: 400,
         body: {
           ok: false as const,
           error: "insufficient_gold" as const,
-          goldCost: COMBINE_GOLD_COST,
+          goldCost,
         },
       };
     }
@@ -82,8 +105,8 @@ export async function POST(req: Request) {
       STAMINA_POTIONS_KEY,
       { count: 0 },
     );
-    const nextPotions = grantStaminaPotions(potionSave, 1);
-    const shardsLeft = heldShards - STAMINA_SHARD_COMBINE_COST;
+    const nextPotions = grantStaminaPotions(potionSave, quantity);
+    const shardsLeft = heldShards - shardCost;
     if (shardsLeft > 0) materials[STAMINA_SHARD_MATERIAL_ID] = shardsLeft;
     else delete materials[STAMINA_SHARD_MATERIAL_ID];
 
@@ -99,9 +122,10 @@ export async function POST(req: Request) {
       status: 200,
       body: {
         ok: true as const,
+        quantity,
         shardsLeft,
         staminaPotions: nextPotions.count,
-        goldCost: COMBINE_GOLD_COST,
+        goldCost,
         gold: spend.gold,
         ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
       },

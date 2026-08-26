@@ -47,6 +47,7 @@ function bossModel(
       materialCount: 2,
       discovererBonus: true,
     },
+    pendingReward: null,
     ...patch,
   };
 }
@@ -346,6 +347,49 @@ describe("거대어 비동기 기여 패널", () => {
     expect(html).toContain("마지막 인양 기록");
     expect(html).toContain("보상 수령");
     expect(html).not.toContain("독점");
+  });
+
+  it("새 거대어 참여를 유지하면서 지난 거대어 미수령 보상을 받는다", () => {
+    const onClaim = vi.fn(async () => true);
+    const model = bossModel({
+      pendingReward: {
+        event: {
+          id: "old-defeated",
+          bossId: "tidal_colossus",
+          name: "해일의 거신",
+          defeatedAt: NOW - 60_000,
+          isDiscoverer: false,
+          isLastHaul: false,
+        },
+        contribution: {
+          totalContribution: 240,
+          successfulAttempts: 1,
+        },
+        rewardPreview: {
+          tier: "base",
+          fishingCoins: 80,
+          materialCount: 1,
+          discovererBonus: false,
+        },
+      },
+    });
+
+    render(
+      <DangerousFishingBossPanel
+        model={model}
+        busy={false}
+        {...handlers}
+        onClaim={onClaim}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "개인 시도 준비" })).toBeDefined();
+    fireEvent.click(
+      screen.getByRole("button", { name: "지난 거대어 보상 수령" }),
+    );
+    expect(screen.getByText("지난 이벤트 기여 240")).toBeDefined();
+    expect(screen.getByText("낚시 코인 80 · 증표 1개")).toBeDefined();
+    expect(onClaim).toHaveBeenCalledWith("old-defeated", "해일의 거신");
   });
 
   it("이벤트가 없으면 위험도 높은 영웅 이상 어획에서 발견된다고 안내한다", () => {

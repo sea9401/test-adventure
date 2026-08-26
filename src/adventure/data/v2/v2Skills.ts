@@ -317,6 +317,8 @@ export type V2SkillEffect =
       kind: "damage";
       /** 공격력/마법공격력 기반 계수. 미지정이면 스킬 차수와 타격 수로 기본값을 정한다. */
       attackCoef?: number;
+      /** 순수 물리·마법 스킬의 STR/INT 직접 계수. 미지정이면 공통 차수 공식을 사용한다. */
+      primaryStatCoef?: number;
       statCoef: number;
       baseFlat?: number;
       baseFlatByTier?: readonly [number, number, number];
@@ -679,7 +681,9 @@ function spDirectDamageValue(
     });
     return (
       pure.attackCoef +
-      (pure.uncompensatedPrimaryStatCoef /
+      ((effect.kind === "damage" && effect.primaryStatCoef != null
+        ? effect.primaryStatCoef
+        : pure.uncompensatedPrimaryStatCoef) /
         V2_DIRECT_SKILL_STAT_COEF_MULT) *
         SP_REFERENCE_PRIMARY_STAT_TO_ATTACK
     );
@@ -2011,7 +2015,11 @@ function damageFormulaChip(
   }
   if (!pureFormula) return attackTerm;
   const primaryStatLabel = e.scaling === "magic" ? "지능" : "힘";
-  return `${attackTerm} + ${primaryStatLabel}×${formatSkillCoefficient(pureFormula.primaryStatCoef)}`;
+  const primaryStatCoef =
+    e.kind === "damage" && e.primaryStatCoef != null
+      ? e.primaryStatCoef
+      : pureFormula.primaryStatCoef;
+  return `${attackTerm} + ${primaryStatLabel}×${formatSkillCoefficient(primaryStatCoef)}`;
 }
 function actionsChip(actions: number): string {
   return `${actions}행동`;

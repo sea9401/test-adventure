@@ -42,6 +42,27 @@ const { auth, memory, transactionQueue } = vi.hoisted(() => {
             (b.spawnedAt as Date).getTime() - (a.spawnedAt as Date).getTime(),
         )[0] ?? null;
       },
+      async findOldestUnclaimedReward(userId: string) {
+        return (
+          [...contributions.values()]
+            .filter(
+              (contribution) =>
+                contribution.userId === userId &&
+                contribution.rewardClaimedAt == null &&
+                (contribution.successfulAttempts as number) > 0,
+            )
+            .map((contribution) => events.get(contribution.eventId as string))
+            .filter(
+              (candidate): candidate is Record<string, unknown> =>
+                candidate?.status === "defeated" && candidate.stamina === 0,
+            )
+            .sort(
+              (a, b) =>
+                (a.spawnedAt as Date).getTime() -
+                (b.spawnedAt as Date).getTime(),
+            )[0] ?? null
+        );
+      },
       async expireActive(now: Date) {
         lockTrace.push("event:expire");
         for (const [id, event] of events) {

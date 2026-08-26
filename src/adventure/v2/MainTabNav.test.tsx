@@ -106,7 +106,7 @@ describe("메인 탭 디자인 시스템", () => {
     }
   });
 
-  it("PC에서는 각 탭 아래에 고정 폭 드롭다운을 연다", () => {
+  it("PC에서는 좁은 고정 폭과 테두리 없는 항목으로 드롭다운을 연다", () => {
     render(
       <MainTabNav
         activeKey="battle"
@@ -128,12 +128,14 @@ describe("메인 탭 디자인 시스템", () => {
     expect(menu.className).toContain("right-0");
     expect(menu.className).toContain("md:left-1/2");
     expect(menu.className).toContain("md:right-auto");
-    expect(menu.className).toContain("md:w-72");
+    expect(menu.className).toContain("md:w-64");
     expect(menu.className).toContain("md:grid-cols-1");
 
     for (const item of screen.getAllByRole("menuitem")) {
       expect(item.className).toContain("h-14");
       expect(item.className).toContain("md:h-auto");
+      expect(item.className).toContain("md:min-h-9");
+      expect(item.className).not.toContain("border");
     }
   });
 

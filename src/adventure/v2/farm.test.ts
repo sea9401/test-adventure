@@ -122,7 +122,7 @@ describe("adventurer farm", () => {
     expect(collected.state.stats.farmingXp).toBe(12);
   });
 
-  it("includes the first pig and spends four feed only to restock after shipment", () => {
+  it("includes the first pig and handles each later pig at half cost and reward", () => {
     const base = emptyFarmState(1_000);
     const bought = buyFarmRanchSlot(
       {
@@ -147,37 +147,53 @@ describe("adventurer farm", () => {
       1_000,
     );
     expect(bought.state.inventory.compound_feed).toBeUndefined();
-    expect(bought.state.ranch.slots["slot-5"].feed).toBe(4);
-
-    const shipped = collectFarmRanch(
-      bought.state,
-      1_000 + 16 * 60 * 60 * 1000,
-    );
-    expect(shipped.result).toMatchObject({
-      items: { pork: 8 },
-      farmingXpGained: 16,
+    expect(bought.state.ranch.slots["slot-5"]).toMatchObject({
+      feed: 0,
+      shipmentStartedAt: [1_000],
     });
-    expect(shipped.state.inventory.pork).toBe(8);
-    expect(shipped.state.stats.farmingXp).toBe(24_026);
 
-    const restocked = feedFarmRanch(
+    const secondPig = feedFarmRanch(
       {
-        ...shipped.state,
+        ...bought.state,
         inventory: {
-          ...shipped.state.inventory,
-          compound_feed: 4,
+          ...bought.state.inventory,
+          compound_feed: 2,
         },
       },
       "slot-5",
-      4,
-      1_000 + 16 * 60 * 60 * 1000,
+      2,
+      1_000 + 6 * 60 * 60 * 1000,
     );
-    expect(restocked.inventory.compound_feed).toBeUndefined();
-    expect(restocked.ranch.slots["slot-5"]).toMatchObject({
-      feed: 4,
-      progressMs: 0,
-      readyItems: 0,
+    expect(secondPig.inventory.compound_feed).toBeUndefined();
+    expect(secondPig.ranch.slots["slot-5"].shipmentStartedAt).toEqual([
+      1_000,
+      1_000 + 6 * 60 * 60 * 1000,
+    ]);
+
+    const firstShipped = collectFarmRanch(
+      secondPig,
+      1_000 + 12 * 60 * 60 * 1000,
+    );
+    expect(firstShipped.result).toMatchObject({
+      items: { pork: 4 },
+      farmingXpGained: 8,
     });
+    expect(firstShipped.state.inventory.pork).toBe(4);
+    expect(firstShipped.state.stats.farmingXp).toBe(24_018);
+    expect(firstShipped.state.ranch.slots["slot-5"].shipmentStartedAt).toEqual([
+      1_000 + 6 * 60 * 60 * 1000,
+    ]);
+
+    const secondShipped = collectFarmRanch(
+      firstShipped.state,
+      1_000 + 18 * 60 * 60 * 1000,
+    );
+    expect(secondShipped.result).toMatchObject({
+      items: { pork: 4 },
+      farmingXpGained: 8,
+    });
+    expect(secondShipped.state.inventory.pork).toBe(8);
+    expect(secondShipped.state.stats.farmingXp).toBe(24_026);
   });
 
   it("buys a selected ranch building with available reputation at the required farming level", () => {

@@ -95,7 +95,7 @@ describe("6T 유니크 순수 런타임", () => {
     );
   });
 
-  it("출혈 기본 공격은 남은 피해 70%를 터뜨리고 스택당 방어 3%·출혈 1을 남긴다", () => {
+  it("출혈 기본 공격은 출혈을 소비하지 않고 남은 피해 50%와 상흔 효과를 적용한다", () => {
     const result = resolveTier6UniqueEvent(
       signatures("bleed_burst", "bleed_aftermath"),
       initialTier6UniqueRuntime(),
@@ -117,12 +117,55 @@ describe("6T 유니크 순수 런타임", () => {
     );
     expect(result.commands).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ kind: "consume_dot", dot: "bleed", stacks: 4 }),
-        expect.objectContaining({ kind: "damage_fixed", amount: 700 }),
+        expect.objectContaining({ kind: "damage_fixed", amount: 500 }),
         expect.objectContaining({ kind: "def_debuff", pct: 12, actions: 2 }),
         expect.objectContaining({ kind: "apply_dot", dot: "bleed", stacks: 1 }),
       ]),
     );
+    expect(result.commands).not.toContainEqual(
+      expect.objectContaining({ kind: "consume_dot", dot: "bleed" }),
+    );
+  });
+
+  it("혈맥 폭발은 같은 행동과 다음 3행동을 건너뛰고 4행동 간격으로 재발동한다", () => {
+    const sigs = signatures("bleed_burst");
+    const hit = (actionId: number, state = initialTier6UniqueRuntime()) =>
+      resolveTier6UniqueEvent(sigs, state, {
+        kind: "direct_hit",
+        damage: 100,
+        crit: false,
+        attackKind: "basic",
+        paidMp: 0,
+        statusKinds: 1,
+        bleedStacks: 10,
+        bleedRemainingDamage: 1_000,
+        poisonStacks: 0,
+        poisonRemainingDamage: 0,
+        magicAtk: 0,
+        maxHp: 1_000,
+        origin: { actionId, eventId: 1 },
+      });
+
+    const first = hit(1);
+    expect(first.commands).toContainEqual(
+      expect.objectContaining({ kind: "damage_fixed", amount: 500 }),
+    );
+    expect(first.state.bleedBurstLastActionId).toBe(1);
+
+    let state = first.state;
+    for (const actionId of [1, 2, 3, 4]) {
+      const blocked = hit(actionId, state);
+      expect(blocked.commands).not.toContainEqual(
+        expect.objectContaining({ mechanic: "bleed_burst", kind: "damage_fixed" }),
+      );
+      state = blocked.state;
+    }
+
+    const ready = hit(5, state);
+    expect(ready.commands).toContainEqual(
+      expect.objectContaining({ kind: "damage_fixed", amount: 500 }),
+    );
+    expect(ready.state.bleedBurstLastActionId).toBe(5);
   });
 
   it("추적은 5번째 직접 적중에 직전 피해 60%를 발사하고 빗나가면 초기화한다", () => {
@@ -228,10 +271,16 @@ describe("6T 유니크 순수 런타임", () => {
         origin,
       },
     );
-    expect(result.commands.filter((command) => command.kind === "damage_fixed"))
+    expect(result.commands.filter((command) => command.kind === "damage_magic"))
       .toHaveLength(2);
     expect(result.commands).toContainEqual(
-      expect.objectContaining({ kind: "damage_fixed", amount: 700 }),
+      expect.objectContaining({ kind: "damage_magic", amount: 700 }),
+    );
+    expect(result.commands).not.toContainEqual(
+      expect.objectContaining({
+        kind: "damage_fixed",
+        mechanic: "arcane_overload",
+      }),
     );
     expect(result.commands).toContainEqual(
       expect.objectContaining({ kind: "mp", amount: 44 }),

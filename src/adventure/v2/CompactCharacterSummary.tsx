@@ -118,6 +118,7 @@ export function CompactCharacterSummary({
 }) {
   const [selectedDetail, setSelectedDetail] =
     useState<CompactDetailSelection | null>(null);
+  const [portraitErrored, setPortraitErrored] = useState(false);
 
   if (expanded) {
     return <>{children}</>;
@@ -162,20 +163,17 @@ export function CompactCharacterSummary({
             padding="none"
             className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden sm:h-28 sm:w-28"
           >
-            <UserCircle
-              size={42}
-              className="absolute z-0 text-zinc-400"
-              aria-hidden
-            />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={avatarImageSrc(gender, "static")}
-              alt=""
-              className="relative z-10 h-full w-full object-contain"
-              onError={(event) => {
-                event.currentTarget.hidden = true;
-              }}
-            />
+            {portraitErrored ? (
+              <UserCircle size={42} className="text-zinc-400" aria-hidden />
+            ) : (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={avatarImageSrc(gender, "static")}
+                alt=""
+                className="h-full w-full object-contain"
+                onError={() => setPortraitErrored(true)}
+              />
+            )}
           </Inset>
 
         <div className="min-w-0 flex-1 pr-10 sm:pr-16">

@@ -13,7 +13,7 @@ const retryDelayMs = positiveInteger(
 const maintenancePolicy = maintenancePolicyFromEnv(
   process.env.PUBLIC_RELEASE_MAINTENANCE_POLICY,
 );
-const maintenanceMarker = "점검 중에는 게임에 접속할 수 없습니다.";
+const maintenanceMarker = 'data-msmsge-maintenance="true"';
 
 const checks = [
   {

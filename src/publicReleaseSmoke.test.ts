@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { once } from "node:events";
+import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { promisify } from "node:util";
@@ -9,6 +10,7 @@ const execFileAsync = promisify(execFile);
 
 describe("public release smoke", () => {
   it("새 점검 대문을 maintenance 상태로 승인한다", async () => {
+    const maintenancePage = await readFile("deploy/maintenance.html", "utf8");
     const server = createServer((request, response) => {
       if (request.url === "/api/health") {
         response.writeHead(200, { "content-type": "application/json" });
@@ -18,7 +20,7 @@ describe("public release smoke", () => {
 
       if (request.url === "/") {
         response.writeHead(503, { "content-type": "text/html; charset=utf-8" });
-        response.end("<p>점검 중에는 게임에 접속할 수 없습니다.</p>");
+        response.end(maintenancePage);
         return;
       }
 

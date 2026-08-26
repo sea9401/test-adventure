@@ -8,6 +8,27 @@ import { V2CharacterCard } from "./V2CharacterCard";
 afterEach(cleanup);
 
 describe("접을 수 있는 캐릭터 요약", () => {
+  it("캐릭터 이미지가 정상적으로 보일 때 사람 모양 대체 아이콘을 겹쳐 그리지 않는다", () => {
+    const { container } = render(
+      <CompactCharacterSummary
+        character={{ name: "젠피", gender: "female1", level: 87, exp: 462, expToNext: 1_000, hp: 80, maxHp: 100, gold: 0 }}
+        guild={null}
+        expanded={false}
+        onExpandedChange={vi.fn()}
+      >
+        <div>전체 캐릭터 카드</div>
+      </CompactCharacterSummary>,
+    );
+
+    const portrait = container.querySelector('img[alt=""]');
+    const portraitFrame = portrait?.parentElement;
+    expect(portrait).not.toBeNull();
+    expect(portraitFrame?.querySelector("svg")).toBeNull();
+
+    fireEvent.error(portrait as HTMLImageElement);
+    expect(portraitFrame?.querySelector("svg")).not.toBeNull();
+  });
+
   it("접힌 요약의 모험 지원권을 누르면 혜택과 남은 시간을 상세 카드로 보여준다", () => {
     render(
       <CompactCharacterSummary

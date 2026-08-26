@@ -3325,7 +3325,7 @@ function BuyConfirm({
 }: {
   listing: Listing;
   gold: number | null;
-  // affordability 게이트 — flag on 이면 보유+은행. 표시되는 "구매 후 골드" 투영은 보유 기준 유지.
+  // affordability 게이트와 구매 후 잔액은 같은 결제 가능 골드를 사용한다.
   coreLoopOn: boolean;
   bankedGold: number;
   frontierDepth: number;
@@ -3352,10 +3352,11 @@ function BuyConfirm({
       : null;
   const craftedBy =
     listing.kind === "equip" ? listingCraftedBy(listing.instancePayload) : undefined;
-  const enough =
-    gold === null ||
-    (coreLoopOn ? gold + bankedGold : gold) >= listing.price;
-  const after = gold === null ? null : gold - listing.price;
+  const availableGold =
+    gold === null ? null : coreLoopOn ? gold + bankedGold : gold;
+  const enough = availableGold === null || availableGold >= listing.price;
+  const after =
+    availableGold === null ? null : availableGold - listing.price;
   const progressionLock = item
     ? equipmentProgressionLock(item, frontierDepth)
     : null;
@@ -3431,11 +3432,11 @@ function BuyConfirm({
               {listing.price.toLocaleString()}골드
             </span>
           </div>
-          {gold !== null && (
+          {availableGold !== null && (
             <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400">
               <span>구매 후 골드</span>
               <span className={enough ? "" : "text-rose-600 dark:text-rose-400"}>
-                {gold.toLocaleString()} → {(after ?? 0).toLocaleString()}
+                {availableGold.toLocaleString()} → {(after ?? 0).toLocaleString()}
               </span>
             </div>
           )}

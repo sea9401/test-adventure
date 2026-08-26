@@ -353,8 +353,9 @@ body {
 }
 
 .ui-hunt-floor-enter {
-  animation: ui-hunt-floor-enter 160ms ease-out both;
-  will-change: opacity, transform;
+  /* 완료 프레임의 transform을 유지하면 90% zoom 아래 작은 글자가
+     합성 레이어에 남아 흐릿하게 보일 수 있으므로 전환 뒤 즉시 해제한다. */
+  animation: ui-hunt-floor-enter 160ms ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {

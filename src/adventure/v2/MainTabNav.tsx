@@ -34,7 +34,7 @@ import {
   Warehouse,
   type Icon,
 } from "@phosphor-icons/react";
-import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import type { SettlementBuildingId } from "@/adventure/data/v2/settlement";
 import {
@@ -396,7 +396,7 @@ export function MainTabNav({
                   key={openTab.key}
                   role="menu"
                   aria-label={`${openTab.label} 메뉴`}
-                  className={`${SURFACE_CARD} ui-dropdown-reveal absolute left-0 right-0 top-full z-50 mx-2 mt-2 grid max-h-[calc(100dvh-10rem)] grid-cols-2 gap-1 overflow-y-auto overscroll-contain p-2 sm:mx-6 sm:grid-cols-3 md:left-1/2 md:right-auto md:mx-0 md:w-72 md:-translate-x-1/2 md:grid-cols-1 md:gap-0.5`}
+                  className={`${SURFACE_CARD} ui-dropdown-reveal absolute left-0 right-0 top-full z-50 mx-2 mt-2 grid max-h-[calc(100dvh-10rem)] grid-cols-2 gap-1 overflow-y-auto overscroll-contain p-2 sm:mx-6 sm:grid-cols-3 md:left-1/2 md:right-auto md:mx-0 md:w-64 md:-translate-x-1/2 md:grid-cols-1 md:gap-0.5 md:p-1.5`}
                 >
                   {openSubItems.map((s) => {
                     const activityState = menuActivityStateForHref(
@@ -424,7 +424,7 @@ export function MainTabNav({
                           onNavigate(s.href);
                         }}
                         aria-label={`${s.label}${itemHasActionable ? ", 처리 가능한 항목 있음" : ""}`}
-                        className={`${SURFACE_INSET} relative flex h-14 items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-zinc-100 active:bg-zinc-200 md:h-auto md:min-h-10 md:rounded-md md:px-3 md:py-2 dark:hover:bg-zinc-900 dark:active:bg-zinc-800`}
+                        className="relative flex h-14 items-center gap-2.5 rounded-lg bg-zinc-50 px-3 py-2.5 text-left transition-colors hover:bg-zinc-100 active:bg-zinc-200 md:h-auto md:min-h-9 md:gap-2 md:rounded-md md:px-2.5 md:py-1.5 dark:bg-zinc-950 dark:hover:bg-zinc-900 dark:active:bg-zinc-800"
                       >
                         <s.Icon
                           size={20}

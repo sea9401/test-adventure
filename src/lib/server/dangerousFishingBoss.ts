@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, gt, lte } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull, lte } from "drizzle-orm";
 import type { AutoGatheringActivity } from "@/adventure/v2/autoGathering";
 import type { DbExecutor } from "@/lib/server/savesKv";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
@@ -93,6 +93,9 @@ export type DangerousFishingBossContributionRecord = {
 export interface DangerousFishingBossStore {
   findActive(now: Date): Promise<DangerousFishingBossEventRecord | null>;
   findLatest(): Promise<DangerousFishingBossEventRecord | null>;
+  findOldestUnclaimedReward(
+    userId: string,
+  ): Promise<DangerousFishingBossEventRecord | null>;
   expireActive(now: Date): Promise<void>;
   createEvent(event: DangerousFishingBossEventRecord): Promise<boolean>;
   eventForUpdate(eventId: string): Promise<DangerousFishingBossEventRecord | null>;
@@ -180,6 +183,30 @@ export function drizzleDangerousFishingBossStore(
         .orderBy(desc(dangerousFishingBossEvents.spawnedAt))
         .limit(1);
       return row ? mapEvent(row) : null;
+    },
+    async findOldestUnclaimedReward(userId) {
+      const [row] = await tx
+        .select({ event: dangerousFishingBossEvents })
+        .from(dangerousFishingBossContributions)
+        .innerJoin(
+          dangerousFishingBossEvents,
+          eq(
+            dangerousFishingBossEvents.id,
+            dangerousFishingBossContributions.eventId,
+          ),
+        )
+        .where(
+          and(
+            eq(dangerousFishingBossContributions.userId, userId),
+            isNull(dangerousFishingBossContributions.rewardClaimedAt),
+            gt(dangerousFishingBossContributions.successfulAttempts, 0),
+            eq(dangerousFishingBossEvents.status, "defeated"),
+            eq(dangerousFishingBossEvents.stamina, 0),
+          ),
+        )
+        .orderBy(asc(dangerousFishingBossEvents.spawnedAt))
+        .limit(1);
+      return row ? mapEvent(row.event) : null;
     },
     async expireActive(now) {
       await tx
@@ -369,6 +396,7 @@ export async function readDangerousFishingBossView(
       eligible: false,
       claimed: false,
       rewardPreview: null,
+      pendingReward: null,
       realtimeAttempt: null,
     };
   }
@@ -379,6 +407,19 @@ export async function readDangerousFishingBossView(
         contribution.totalContribution,
         event.maxStamina,
         event.discovererId === userId,
+      )
+    : null;
+  const pendingEvent = await store.findOldestUnclaimedReward(userId);
+  const pendingContribution =
+    pendingEvent && pendingEvent.id !== event.id
+      ? await store.contributionForUpdate(pendingEvent.id, userId)
+      : null;
+  const pendingRewardPreview = pendingEvent && pendingContribution
+    ? dangerousBossReward(
+        pendingContribution.successfulAttempts,
+        pendingContribution.totalContribution,
+        pendingEvent.maxStamina,
+        pendingEvent.discovererId === userId,
       )
     : null;
   return {
@@ -425,6 +466,24 @@ export async function readDangerousFishingBossView(
     eligible: (contribution?.successfulAttempts ?? 0) > 0,
     claimed: contribution?.rewardClaimedAt != null,
     rewardPreview,
+    pendingReward:
+      pendingEvent && pendingContribution && pendingRewardPreview
+        ? {
+            event: {
+              id: pendingEvent.id,
+              bossId: pendingEvent.bossId,
+              name: DANGEROUS_BOSSES[pendingEvent.bossId].name,
+              defeatedAt: pendingEvent.defeatedAt?.getTime() ?? null,
+              isDiscoverer: pendingEvent.discovererId === userId,
+              isLastHaul: pendingEvent.lastHaulUserId === userId,
+            },
+            contribution: {
+              totalContribution: pendingContribution.totalContribution,
+              successfulAttempts: pendingContribution.successfulAttempts,
+            },
+            rewardPreview: pendingRewardPreview,
+          }
+        : null,
   };
 }
 

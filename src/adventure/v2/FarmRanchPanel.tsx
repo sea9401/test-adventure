@@ -141,7 +141,7 @@ export function FarmRanchPanel({
               : " · 모든 부지를 열었습니다"}
           </p>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            돼지우리를 건설하면 첫 돼지가 포함됩니다. 비어 있는 축사는 다른 종류로 재건축할 수 있습니다.
+            돼지우리에는 돼지를 최대 2마리까지 들일 수 있으며, 각 돼지는 12시간 동안 따로 비육합니다. 비어 있는 축사는 다른 종류로 재건축할 수 있습니다.
           </p>
         </div>
         <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:flex-nowrap sm:justify-start">
@@ -273,13 +273,39 @@ export function FarmRanchPanel({
                   )
                 : 0;
             const nextReadyMs = Math.max(0, animal.cycleMs - liveProgressMs);
-            const shipmentReady = animal.mode === "shipment" && slot.readyItems > 0;
-            const shipmentInProgress = animal.mode === "shipment" && slot.feed > 0;
+            const shipmentCapacity = animal.shipmentCapacityCycles ?? 1;
+            const shipmentOccupiedCycles =
+              slot.readyCycles + slot.shipmentStartedAt.length;
+            const shipmentAtCapacity =
+              animal.mode === "shipment" &&
+              shipmentOccupiedCycles >= shipmentCapacity;
+            const shipmentPositions = animal.mode === "shipment"
+              ? [
+                  ...Array.from(
+                    { length: slot.readyCycles },
+                    () => ({ kind: "ready" as const }),
+                  ),
+                  ...slot.shipmentStartedAt.map((startedAt) => ({
+                    kind: "active" as const,
+                    startedAt,
+                  })),
+                  ...Array.from(
+                    {
+                      length: Math.max(
+                        0,
+                        shipmentCapacity - shipmentOccupiedCycles,
+                      ),
+                    },
+                    () => ({ kind: "empty" as const }),
+                  ),
+                ]
+              : [];
             const canRebuild =
               slot.feed === 0 &&
               slot.progressMs === 0 &&
               slot.readyItems === 0 &&
-              slot.readyCycles === 0;
+              slot.readyCycles === 0 &&
+              slot.shipmentStartedAt.length === 0;
 
             return (
               <article key={slotDefinition.id} className={`${SURFACE_INSET} space-y-3 p-4`}>
@@ -302,7 +328,9 @@ export function FarmRanchPanel({
                       부지 {index + 1} · {animal.buildingName}
                     </p>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {animal.outputName} {animal.outputAmount}개 / {formatDuration(animal.cycleMs)}
+                      {animal.mode === "shipment"
+                        ? `${animal.outputName} ${animal.outputAmount}개 / 마리 · ${formatDuration(animal.cycleMs)} · 최대 ${shipmentCapacity}마리`
+                        : `${animal.outputName} ${animal.outputAmount}개 / ${formatDuration(animal.cycleMs)}`}
                     </p>
                     <div className="mt-2 flex items-center gap-2">
                       <FarmItemIcon itemId={animal.outputItemId} className="size-9" />
@@ -316,24 +344,47 @@ export function FarmRanchPanel({
                 {animal.mode === "shipment" ? (
                   <>
                     <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className={`${SURFACE_CARD} px-3 py-2`}>
-                        <span className="block text-xs text-zinc-500 dark:text-zinc-400">우리 상태</span>
-                        <strong>{shipmentReady ? "출하 대기" : shipmentInProgress ? "비육 중" : "비어 있음"}</strong>
-                      </div>
-                      <div className={`${SURFACE_CARD} px-3 py-2`}>
-                        <span className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-                          <Clock size={13} aria-hidden /> 출하까지
-                        </span>
-                        <strong>{shipmentReady ? "출하 대기" : shipmentInProgress ? formatDuration(nextReadyMs) : `새 돼지 · 사료 ${animal.feedPerCycle}개`}</strong>
-                      </div>
+                      {shipmentPositions.map((position, positionIndex) => (
+                        <div
+                          key={`${position.kind}-${positionIndex}`}
+                          className={`${SURFACE_CARD} px-3 py-2`}
+                        >
+                          <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                            돼지 {positionIndex + 1}
+                          </span>
+                          <strong className="flex items-center gap-1">
+                            {position.kind === "ready" ? (
+                              "출하 대기"
+                            ) : position.kind === "active" ? (
+                              <>
+                                <Clock size={13} aria-hidden />
+                                비육 중 ·{" "}
+                                {formatDuration(
+                                  Math.max(
+                                    0,
+                                    animal.cycleMs -
+                                      Math.max(0, now - position.startedAt),
+                                  ),
+                                )}
+                              </>
+                            ) : (
+                              "빈 자리"
+                            )}
+                          </strong>
+                        </div>
+                      ))}
                     </div>
                     <button
                       type="button"
-                      disabled={shipmentReady || shipmentInProgress || feedOwned < animal.feedPerCycle || busyFeedSlotId !== null}
+                      disabled={shipmentAtCapacity || feedOwned < animal.feedPerCycle || busyFeedSlotId !== null}
                       onClick={() => onFeed(slotDefinition.id, animal.feedPerCycle)}
                       className="w-full rounded-md bg-amber-600 px-3 py-2 text-sm font-bold text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {busyFeedSlotId === slotDefinition.id ? "새 돼지 데려오는 중..." : shipmentReady ? "먼저 출하해 주세요" : shipmentInProgress ? "비육 중" : `사료 ${animal.feedPerCycle}개로 새 돼지 데려오기`}
+                      {busyFeedSlotId === slotDefinition.id
+                        ? "돼지 데려오는 중..."
+                        : shipmentAtCapacity
+                          ? "돼지우리 가득 참"
+                          : `사료 ${animal.feedPerCycle}개로 돼지 데려오기`}
                     </button>
                   </>
                 ) : (

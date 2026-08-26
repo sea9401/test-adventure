@@ -28,6 +28,7 @@ import {
   type V2CombatCondition,
   type V2CombatPreset,
   type V2CombatRole,
+  type V2PatternEnemyDebuff,
   type V2PatternSelfResource,
   type V2PatternSelfStatus,
 } from "@/adventure/v2/combat/combatPattern";
@@ -52,7 +53,7 @@ type PatternChoiceOption<T extends string> = {
   detail?: string;
 };
 
-const COND_KINDS: PatternChoiceOption<CondKind>[] = [
+export const COMBAT_PATTERN_CONDITION_OPTIONS: PatternChoiceOption<CondKind>[] = [
   { value: "always", label: "항상", group: "기본" },
   { value: "self_hp", label: "내 HP", group: "내 상태" },
   { value: "self_mp", label: "내 MP", group: "내 상태" },
@@ -64,12 +65,23 @@ const COND_KINDS: PatternChoiceOption<CondKind>[] = [
   { value: "enemy_status", label: "적 상태", group: "적 상태" },
   { value: "enemy_debuff", label: "적 디버프", group: "적 상태" },
   { value: "turn", label: "내 공격 차례", group: "타이밍" },
-  { value: "all", label: "모두 만족", group: "복합 조건" },
-  { value: "any", label: "하나 만족", group: "복합 조건" },
+  {
+    value: "all",
+    label: "AND (모두 만족)",
+    group: "복합 조건",
+    detail: "모든 하위 조건을 만족할 때",
+  },
+  {
+    value: "any",
+    label: "OR (하나 만족)",
+    group: "복합 조건",
+    detail: "하위 조건을 하나 이상 만족할 때",
+  },
 ];
 const SIMPLE_COND_KINDS: PatternChoiceOption<SimpleCondKind>[] =
-  COND_KINDS.filter((c): c is PatternChoiceOption<SimpleCondKind> =>
-    c.value !== "all" && c.value !== "any",
+  COMBAT_PATTERN_CONDITION_OPTIONS.filter(
+    (c): c is PatternChoiceOption<SimpleCondKind> =>
+      c.value !== "all" && c.value !== "any",
   );
 
 const ROLE_OPTIONS: { value: V2CombatRole; label: string }[] = [
@@ -136,12 +148,16 @@ const ENEMY_STATUS_OP_OPTIONS = [
   { value: "atMost", label: "스택 이하" },
   { value: "none", label: "없을 때" },
 ] as const;
-export const ENEMY_DEBUFF_OPTIONS = [
+export const ENEMY_DEBUFF_OPTIONS: PatternChoiceOption<V2PatternEnemyDebuff>[] = [
   { value: "vulnerability", label: "받는 피해 증가(취약)" },
   { value: "damageDown", label: "주는 피해 감소" },
   { value: "skillProcDown", label: "스킬 발동률 감소" },
   { value: "healReduction", label: "회복 효과 감소" },
-] as const;
+  ...STAT_KEYS.map((value) => ({
+    value,
+    label: `${STAT_LABELS[value]} 감소`,
+  })),
+];
 const TURN_OP_OPTIONS = [
   { value: "atMost", label: "이하" },
   { value: "atLeast", label: "이상" },
@@ -384,7 +400,33 @@ export function PatternChoiceButtons<T extends string>({
 type SkillPatternChoice = {
   value: string;
   unavailable?: boolean;
+  resonanceMaterial?: boolean;
 };
+
+export function combatPatternSkillChoices({
+  castableEquipped,
+  currentSkillId,
+  resonanceMaterialIds,
+}: {
+  castableEquipped: readonly string[];
+  currentSkillId: string;
+  resonanceMaterialIds: ReadonlySet<string>;
+}): SkillPatternChoice[] {
+  const activeSkillIds = castableEquipped.filter(
+    (id) => !resonanceMaterialIds.has(id),
+  );
+  const currentChoice = currentSkillId
+    ? resonanceMaterialIds.has(currentSkillId)
+      ? { value: currentSkillId, resonanceMaterial: true as const }
+      : !castableEquipped.includes(currentSkillId)
+        ? { value: currentSkillId, unavailable: true as const }
+        : null
+    : null;
+  return [
+    ...(currentChoice ? [currentChoice] : []),
+    ...activeSkillIds.map((value) => ({ value })),
+  ];
+}
 
 const SKILL_CATEGORY_LABEL = {
   attack: "공격",
@@ -415,8 +457,9 @@ export function SkillPatternChoiceList({
             type="button"
             role="option"
             aria-selected={active}
+            disabled={choice.resonanceMaterial}
             onClick={() => onSelect(choice.value)}
-            className={`${active ? SURFACE_ACCENT : SURFACE_INSET} w-full p-3 text-left transition hover:border-indigo-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500`}
+            className={`${active ? SURFACE_ACCENT : SURFACE_INSET} w-full p-3 text-left transition hover:border-indigo-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed`}
           >
             <span className="flex items-start justify-between gap-3">
               <span className="min-w-0">
@@ -430,6 +473,11 @@ export function SkillPatternChoiceList({
                   {choice.unavailable ? (
                     <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-950 dark:text-amber-300">
                       미장착
+                    </span>
+                  ) : null}
+                  {choice.resonanceMaterial ? (
+                    <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+                      공명 재료
                     </span>
                   ) : null}
                 </span>
@@ -459,6 +507,11 @@ export function SkillPatternChoiceList({
             {choice.unavailable ? (
               <span className="mt-2 block text-[11px] font-medium text-amber-700 dark:text-amber-300">
                 현재 장착되지 않아 전투에서는 발동하지 않습니다.
+              </span>
+            ) : null}
+            {choice.resonanceMaterial ? (
+              <span className="mt-2 block text-[11px] font-medium text-violet-700 dark:text-violet-300">
+                상위 원소 스킬에 흡수되어 개별 발동하지 않습니다.
               </span>
             ) : null}
           </button>
@@ -551,6 +604,7 @@ export function SkillPatternPicker({
 }) {
   const [open, setOpen] = useState(false);
   const selected = V2_SKILLS[value as V2SkillId];
+  const selectedChoice = choices.find((choice) => choice.value === value);
   const close = useCallback(() => setOpen(false), []);
   const choose = useCallback(
     (next: string) => {
@@ -576,7 +630,9 @@ export function SkillPatternPicker({
           </span>
           {selected ? (
             <span className="mt-0.5 block truncate text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
-              {describeV2Skill(selected).slice(0, 3).join(" · ")}
+              {selectedChoice?.resonanceMaterial
+                ? "공명 재료 · 개별 발동 불가"
+                : describeV2Skill(selected).slice(0, 3).join(" · ")}
             </span>
           ) : null}
         </span>
@@ -649,10 +705,30 @@ type StateShape = {
   ok?: boolean;
   skills?: {
     equipped?: string[];
+    library?: Array<{
+      skillId?: string;
+      resonanceRole?: "catalyst" | "material" | "inactive";
+    }>;
     pattern?: { blocks?: V2CombatBlock[] } | null;
     presets?: V2CombatPreset[] | null;
   };
 };
+
+export function resonanceMaterialSkillIds(
+  library: ReadonlyArray<{
+    skillId?: string;
+    resonanceRole?: "catalyst" | "material" | "inactive";
+  }>,
+): Set<string> {
+  return new Set(
+    library
+      .filter(
+        (entry): entry is typeof entry & { skillId: string } =>
+          entry.resonanceRole === "material" && !!entry.skillId,
+      )
+      .map((entry) => entry.skillId),
+  );
+}
 
 const num =
   "w-16 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm tabular-nums dark:border-zinc-700 dark:bg-zinc-900";
@@ -693,6 +769,9 @@ export function V2CombatPatternView({
 }) {
   const [blocks, setBlocks] = useState<V2CombatBlock[]>([]);
   const [equipped, setEquipped] = useState<string[]>([]);
+  const [resonanceMaterialIds, setResonanceMaterialIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [presets, setPresets] = useState<V2CombatPreset[]>([]);
   const [presetName, setPresetName] = useState("");
   const [loading, setLoading] = useState(true);
@@ -710,6 +789,9 @@ export function V2CombatPatternView({
         const j = (await res.json().catch(() => null)) as StateShape | null;
         const eq = j?.skills?.equipped ?? [];
         setEquipped(eq);
+        setResonanceMaterialIds(
+          resonanceMaterialSkillIds(j?.skills?.library ?? []),
+        );
         setPresets(j?.skills?.presets ?? []);
         const saved = j?.skills?.pattern?.blocks;
         // 저장 패턴은 보존하되 그림자 도약 같은 필수 오프너는 엔진과 같은 규칙으로 첫 블록에 보완한다.
@@ -729,18 +811,18 @@ export function V2CombatPatternView({
   const castableEquipped = equipped.filter(
     (id) => V2_SKILLS[id as V2SkillId]?.category !== "passive",
   );
-  const roleCandidate = useCallback(
-    (role: V2CombatRole): string | null => {
-      for (const id of castableEquipped) {
-        const def = V2_SKILLS[id as V2SkillId];
-        if (!def) continue;
-        if (role === "main_attack" && def.category === "attack") return id;
-        if (role !== "main_attack" && def.category === role) return id;
-      }
-      return null;
-    },
-    [castableEquipped],
+  const activeCastableEquipped = castableEquipped.filter(
+    (id) => !resonanceMaterialIds.has(id),
   );
+  const roleCandidate = (role: V2CombatRole): string | null => {
+    for (const id of activeCastableEquipped) {
+      const def = V2_SKILLS[id as V2SkillId];
+      if (!def) continue;
+      if (role === "main_attack" && def.category === "attack") return id;
+      if (role !== "main_attack" && def.category === role) return id;
+    }
+    return null;
+  };
 
   // 사용자가 패턴을 편집할 때마다 호출 — 자동 저장 디바운스를 깨운다(아래 useEffect 가 처리).
   const markEdited = useCallback(() => {
@@ -931,6 +1013,8 @@ export function V2CombatPatternView({
         위에서부터 조건과 사용 가능 여부를 확인합니다. 스킬 발동률 판정에 실패하면 다음
         블록을 확인하고, 모두 실패하면 기본 공격을 사용합니다. 서로 다른 스킬은 독립적으로
         판정하며, 같은 스킬을 중복 배치해도 발동률을 따로 다시 굴리지는 않습니다.
+        여러 조건은 AND (모두 만족) 또는 OR (하나 만족)으로 묶습니다. 예: 내 HP 50% 이상
+        AND 혈전 준비 없음 → 혈전, 혈전 준비 있음 → 필살기.
       </p>
 
       {loading ? (
@@ -980,9 +1064,17 @@ export function V2CombatPatternView({
             </div>
           </section>
 
-          {castableEquipped.length === 0 && (
+          {resonanceMaterialIds.size > 0 && (
+            <div className={`${SURFACE_ACCENT} p-3 text-sm text-violet-800 dark:text-violet-200`}>
+              <strong>공명 재료 {resonanceMaterialIds.size}개</strong>는 상위 원소
+              스킬에 흡수되어 개별 발동하지 않습니다. 기존 패턴 블록은 보존되지만
+              전투에서는 건너뜁니다.
+            </div>
+          )}
+
+          {activeCastableEquipped.length === 0 && (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
-              장착한 스킬이 없어 새 역할 블록은 전투에서 발동하지 않습니다.
+              개별 발동 가능한 장착 스킬이 없어 새 역할 블록은 전투에서 발동하지 않습니다.
               <br />
               <span className="text-amber-600/80 dark:text-amber-400/80">
                 기존 특정 스킬 블록은 보존되며, 스킬을 다시 장착하면 그대로 발동합니다.
@@ -1014,7 +1106,7 @@ export function V2CombatPatternView({
                   <span className="w-8 text-zinc-500 dark:text-zinc-400">조건</span>
                   <PatternChoicePicker
                     value={b.condition.kind}
-                    options={COND_KINDS}
+                    options={COMBAT_PATTERN_CONDITION_OPTIONS}
                     label="행동 조건 선택"
                     className="w-40"
                     onChange={(kind) =>
@@ -1040,7 +1132,7 @@ export function V2CombatPatternView({
                             ? { kind: "basic_attack" }
                             : kind === "role"
                             ? { kind: "role", role: "main_attack" }
-                            : { kind: "skill", skillId: castableEquipped[0] ?? "" },
+                            : { kind: "skill", skillId: activeCastableEquipped[0] ?? "" },
                       });
                     }}
                   />
@@ -1062,23 +1154,14 @@ export function V2CombatPatternView({
                   ) : (
                     <SkillPatternPicker
                       value={b.action.skillId}
-                      choices={[
-                        ...(b.action.skillId &&
-                        !castableEquipped.includes(b.action.skillId)
-                          ? [
-                              {
-                                value: b.action.skillId,
-                                unavailable: true,
-                              },
-                            ]
-                          : []),
-                        ...castableEquipped.map((id) => ({
-                          value: id,
-                        })),
-                      ]}
+                      choices={combatPatternSkillChoices({
+                        castableEquipped,
+                        currentSkillId: b.action.skillId,
+                        resonanceMaterialIds,
+                      })}
                       placeholder="장착한 스킬 없음"
                       disabled={
-                        castableEquipped.length === 0 && !b.action.skillId
+                        activeCastableEquipped.length === 0 && !b.action.skillId
                       }
                       className="w-full sm:w-64"
                       onChange={(skillId) =>
@@ -1118,6 +1201,11 @@ export function V2CombatPatternView({
                 {actionSkillId(b.action) && !equipped.includes(actionSkillId(b.action)!) && (
                   <p className="mt-1 pl-10 text-[11px] text-amber-600 dark:text-amber-400">
                     미장착 스킬 — 이 블록은 전투에서 발동하지 않습니다
+                  </p>
+                )}
+                {actionSkillId(b.action) && resonanceMaterialIds.has(actionSkillId(b.action)!) && (
+                  <p className="mt-1 pl-10 text-[11px] font-medium text-violet-700 dark:text-violet-300">
+                    공명 재료 — 상위 원소 스킬에 흡수되어 이 블록은 개별 발동하지 않습니다
                   </p>
                 )}
               </li>
@@ -1396,10 +1484,15 @@ function CompoundConditionParams({
 
   return (
     <div className="flex min-w-[240px] flex-1 flex-col gap-1.5">
+      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+        {c.kind === "all"
+          ? "AND는 모든 하위 조건을 만족해야 합니다."
+          : "OR는 하위 조건을 하나 이상 만족하면 됩니다."}
+      </p>
       {c.conditions.map((child, idx) => (
         <div
           key={idx}
-          className="flex flex-wrap items-center gap-1 rounded-md border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
+          className={`${SURFACE_INSET} flex flex-wrap items-center gap-1 px-2 py-1`}
         >
           <span className="w-10 text-[11px] text-zinc-400">
             {c.kind === "all" ? "AND" : "OR"} {idx + 1}

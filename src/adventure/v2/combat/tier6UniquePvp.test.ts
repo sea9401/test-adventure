@@ -6,6 +6,7 @@ import {
 } from "./engine-pvp";
 import { makeBleedDot } from "./combatShared";
 import type { PlayerCombat } from "./engineState";
+import { applyTier6UniquePvpEvent } from "./tier6UniquePvpAdapter";
 
 function player(over: Partial<PlayerCombat> = {}): PlayerCombat {
   return {
@@ -212,9 +213,180 @@ describe("6T 유니크 PvP 대칭 연동", () => {
     const after = advanceTurnPvP(bleeding);
 
     expect(after.outcome).toBeNull();
-    expect(after.p2.hp).toBe(800);
+    // 폭발에 사망 극복이 발동한 뒤, 보존된 출혈의 다음 틱 피해도 이어진다.
+    expect(after.p2.hp).toBe(220);
     expect(after.p2.berserker?.deathOvercomeUsed).toBe(true);
     expect(after.log.some((entry) => entry.text.includes("[사망 극복]")))
       .toBe(true);
+  });
+
+  it("PvP 혈맥 폭발도 대상의 기존 출혈을 보존한다", () => {
+    const initial = initialBattleStatePvP(
+      player({ equipSignatures: [signature("bleed_burst")] }),
+      player(),
+      "혈맥 검사자",
+      "상대",
+    );
+    const bleed = makeBleedDot({
+      stacks: 10,
+      turns: 3,
+      flatPerStack: 10,
+      sourceAtk: 100,
+    });
+    const bleeding = {
+      ...initial,
+      p2: { ...initial.p2, v2Dots: [bleed] },
+    };
+
+    const after = applyTier6UniquePvpEvent(bleeding, "p1", "p2", {
+      kind: "direct_hit",
+      damage: 100,
+      crit: false,
+      attackKind: "basic",
+      paidMp: 0,
+      statusKinds: 1,
+      bleedStacks: 10,
+      bleedRemainingDamage: 1_000,
+      poisonStacks: 0,
+      poisonRemainingDamage: 0,
+      magicAtk: 100,
+      maxHp: 2_000,
+      origin: { actionId: 1, eventId: 1 },
+    });
+
+    expect(after.p2.hp).toBe(initial.p2.hp - 500);
+    expect(after.p2.v2Dots).toEqual([bleed]);
+  });
+
+  it("과부하 낙뢰는 마법방어·받피감·아레나 배율을 순서대로 거친다", () => {
+    const attacker = player({
+      magicAtk: 500,
+      equipSignatures: [signature("arcane_overload")],
+    });
+    const defender = player({
+      magicDef: 300,
+      passiveDamageTakenReductionPct: 25,
+    });
+    const initial = {
+      ...initialBattleStatePvP(attacker, defender, "뇌정술사", "방어자"),
+      damageMultiplier: 0.65,
+    };
+    const after = applyTier6UniquePvpEvent(initial, "p1", "p2", {
+      kind: "mp_spent",
+      amount: 100,
+      magicAtk: 500,
+      targetHasStatus: false,
+      origin: { actionId: 1, eventId: 1 },
+    });
+
+    expect(initial.p2.hp - after.p2.hp).toBe(195);
+    expect(after.log.at(-1)?.text).toContain("195 마법 피해");
+  });
+
+  it("과부하 낙뢰는 마나 실드가 전부 흡수하면 HP 피해를 주지 않는다", () => {
+    const attacker = player({
+      magicAtk: 500,
+      equipSignatures: [signature("arcane_overload")],
+    });
+    const defender = player({
+      magicBarrierMax: 700,
+      magicBarrierPvpAbsorbPct: 100,
+      magicBarrierPvpEfficiencyPct: 0,
+    });
+    const initial = initialBattleStatePvP(
+      attacker,
+      defender,
+      "뇌정술사",
+      "마도사",
+    );
+    const after = applyTier6UniquePvpEvent(initial, "p1", "p2", {
+      kind: "mp_spent",
+      amount: 100,
+      magicAtk: 500,
+      targetHasStatus: false,
+      origin: { actionId: 1, eventId: 1 },
+    });
+
+    expect(after.p2.hp).toBe(initial.p2.hp);
+    expect(after.p2.magicBarrier).toBe(0);
+  });
+
+  it("과부하 낙뢰는 봉마결계 뒤 일반 보호막까지 순서대로 거친다", () => {
+    const attacker = player({
+      magicAtk: 500,
+      equipSignatures: [signature("arcane_overload")],
+    });
+    const initial = initialBattleStatePvP(
+      attacker,
+      player(),
+      "뇌정술사",
+      "결계사",
+    );
+    const defended = {
+      ...initial,
+      p2: {
+        ...initial.p2,
+        stacks: {
+          ...initial.p2.stacks,
+          playerShield: 100,
+          tripleWard: {
+            rank: 1 as const,
+            physical: 1,
+            magic: 1,
+            purification: 1,
+            stabilityStacks: 0,
+          },
+        },
+      },
+    };
+    const after = applyTier6UniquePvpEvent(defended, "p1", "p2", {
+      kind: "mp_spent",
+      amount: 100,
+      magicAtk: 500,
+      targetHasStatus: false,
+      origin: { actionId: 1, eventId: 1 },
+    });
+
+    expect(defended.p2.hp - after.p2.hp).toBe(389);
+    expect(after.p2.stacks.playerShield).toBe(0);
+    expect(after.p2.stacks.tripleWard.magic).toBe(0);
+  });
+
+  it("과부하 낙뢰는 영역 안정의 직접 피해 감소를 거친다", () => {
+    const attacker = player({
+      magicAtk: 500,
+      equipSignatures: [signature("arcane_overload")],
+    });
+    const initial = initialBattleStatePvP(
+      attacker,
+      player(),
+      "뇌정술사",
+      "대결계사",
+    );
+    const stable = {
+      ...initial,
+      p2: {
+        ...initial.p2,
+        stacks: {
+          ...initial.p2.stacks,
+          tripleWard: {
+            rank: 2 as const,
+            physical: 0,
+            magic: 0,
+            purification: 0,
+            stabilityStacks: 2,
+          },
+        },
+      },
+    };
+    const after = applyTier6UniquePvpEvent(stable, "p1", "p2", {
+      kind: "mp_spent",
+      amount: 100,
+      magicAtk: 500,
+      targetHasStatus: false,
+      origin: { actionId: 1, eventId: 1 },
+    });
+
+    expect(stable.p2.hp - after.p2.hp).toBe(644);
   });
 });

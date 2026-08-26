@@ -7,6 +7,14 @@ This version has breaking changes — APIs, conventions, and file structure may 
 # 배포
 
 - 사용자가 명시적으로 배포를 요청하기 전에는 어떤 환경에도 절대 배포하지 않는다.
+- 일반 운영 배포에서는 변경 사항을 `main`에 병합한다. 정확한 main SHA의 CI와
+  production-next-<SHA> 산출물이 준비되기 전에는 기존 서비스를 유지하고 별도로
+  `bash deploy/maintenance.sh on`을 실행하지 않는다.
+- 사용자가 점검 모드를 "지금 바로" 켜라고 명시하거나 서비스 지속이 위험한 장애 상황인
+  경우에만 배포 준비 전 점검 모드를 즉시 켠다.
+  일반적인 "점검 모드를 켜고 배포" 요청은 즉시 활성화 지시로 해석하지 않는다.
+- 준비된 운영 배포는 기존 배포 워크플로가 산출물 검증과 전송을 끝낸 뒤 실제 런타임 교체
+  직전에 점검 모드를 켜도록 맡긴다.
 - 운영 배포와 롤백이 끝나도 점검 모드를 자동으로 해제하지 않는다. 사용자가 별도로
   점검 해제를 지시한 뒤에만 `bash deploy/maintenance.sh off`를 실행한다.
 

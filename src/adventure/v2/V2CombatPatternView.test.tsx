@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
   ACTION_KIND_OPTIONS,
+  COMBAT_PATTERN_CONDITION_OPTIONS,
   PatternChoiceButtons,
   PatternChoicePicker,
   ConditionParams,
@@ -9,7 +10,9 @@ import {
   SkillPatternPicker,
   V2CombatPatternView,
   ENEMY_DEBUFF_OPTIONS,
+  combatPatternSkillChoices,
   filterPatternChoiceOptions,
+  resonanceMaterialSkillIds,
 } from "./V2CombatPatternView";
 
 const OPTIONS = [
@@ -41,11 +44,66 @@ describe("combat pattern choice controls", () => {
     expect(html).toContain("중복 배치해도");
   });
 
+  it("AND/OR 복합 조건의 의미와 혈전 조합 예시를 안내한다", () => {
+    const page = renderToStaticMarkup(
+      <V2CombatPatternView onBack={vi.fn()} />,
+    );
+    const andEditor = renderToStaticMarkup(
+      <ConditionParams
+        condition={{
+          kind: "all",
+          conditions: [
+            { kind: "self_hp", op: "above", pct: 50 },
+            {
+              kind: "self_buff_pct",
+              target: "berserkerFinisher",
+              active: false,
+            },
+          ],
+        }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(page).toContain("AND (모두 만족)");
+    expect(page).toContain("내 HP 50% 이상");
+    expect(page).toContain("혈전 준비 없음");
+    expect(andEditor).toContain("모든 하위 조건");
+  });
+
   it("적 디버프 선택지에 상대 회복 감소를 표시한다", () => {
     expect(ENEMY_DEBUFF_OPTIONS).toContainEqual({
       value: "healReduction",
       label: "회복 효과 감소",
     });
+  });
+
+  it("적 디버프 선택지에 모든 능력치 감소를 표시한다", () => {
+    expect(ENEMY_DEBUFF_OPTIONS).toEqual(
+      expect.arrayContaining([
+        { value: "str", label: "힘 감소" },
+        { value: "dex", label: "민첩 감소" },
+        { value: "vit", label: "활력 감소" },
+        { value: "spd", label: "속도 감소" },
+        { value: "luk", label: "행운 감소" },
+        { value: "int", label: "지능 감소" },
+      ]),
+    );
+
+    const html = renderToStaticMarkup(
+      <ConditionParams
+        condition={
+          {
+            kind: "enemy_debuff",
+            target: "vit",
+            active: true,
+          } as React.ComponentProps<typeof ConditionParams>["condition"]
+        }
+        onChange={vi.fn()}
+      />,
+    );
+    expect(html).toContain("활력 감소");
+    expect(html).toContain("있을 때");
   });
 
   it("filters choice labels and groups with Korean search text", () => {
@@ -54,6 +112,19 @@ describe("combat pattern choice controls", () => {
     expect(filterPatternChoiceOptions(OPTIONS, "내 상태")).toEqual([
       OPTIONS[1],
     ]);
+  });
+
+  it("실제 복합 조건 선택지를 AND와 OR로 검색할 수 있다", () => {
+    expect(
+      filterPatternChoiceOptions(COMBAT_PATTERN_CONDITION_OPTIONS, "AND").map(
+        (item) => item.value,
+      ),
+    ).toEqual(["all"]);
+    expect(
+      filterPatternChoiceOptions(COMBAT_PATTERN_CONDITION_OPTIONS, "OR").map(
+        (item) => item.value,
+      ),
+    ).toEqual(["any"]);
   });
 
   it("renders the selected condition as a dialog picker instead of a select", () => {
@@ -212,5 +283,74 @@ describe("combat pattern choice controls", () => {
     expect(html).toContain("회복");
     expect(html).toContain("미장착");
     expect(html).toContain("현재 장착되지 않아 전투에서는 발동하지 않습니다.");
+  });
+
+  it("공명 재료는 새 선택지에서 제외하고 기존 블록에서만 비활성 상태로 보존한다", () => {
+    expect(
+      combatPatternSkillChoices({
+        castableEquipped: [
+          "v2c_elementallord_surge",
+          "v2c_frostmage_glacier",
+          "v2c_lightningmage_thunderbolt",
+          "v2c_mage_boltcast",
+        ],
+        currentSkillId: "v2c_frostmage_glacier",
+        resonanceMaterialIds: new Set([
+          "v2c_frostmage_glacier",
+          "v2c_lightningmage_thunderbolt",
+        ]),
+      }),
+    ).toEqual([
+      { value: "v2c_frostmage_glacier", resonanceMaterial: true },
+      { value: "v2c_elementallord_surge" },
+      { value: "v2c_mage_boltcast" },
+    ]);
+  });
+
+  it("상태 응답의 공명 역할에서 개별 발동 불가 스킬만 식별한다", () => {
+    expect([
+      ...resonanceMaterialSkillIds([
+        {
+          skillId: "v2c_elementallord_surge",
+          resonanceRole: "inactive",
+        },
+        {
+          skillId: "v2c_frostmage_glacier",
+          resonanceRole: "material",
+        },
+        {
+          skillId: "v2c_lightningmage_thunderbolt",
+          resonanceRole: "material",
+        },
+        {
+          skillId: "v2c_mage_boltcast",
+        },
+      ]),
+    ]).toEqual([
+      "v2c_frostmage_glacier",
+      "v2c_lightningmage_thunderbolt",
+    ]);
+  });
+
+  it("기존 공명 재료 블록에 개별 발동 불가 사유를 표시하고 선택을 막는다", () => {
+    const choices = [
+      {
+        value: "v2c_frostmage_glacier",
+        resonanceMaterial: true,
+      },
+    ] as unknown as React.ComponentProps<
+      typeof SkillPatternChoiceList
+    >["choices"];
+    const html = renderToStaticMarkup(
+      <SkillPatternChoiceList
+        value="v2c_frostmage_glacier"
+        choices={choices}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("공명 재료");
+    expect(html).toContain("상위 원소 스킬에 흡수되어 개별 발동하지 않습니다.");
+    expect(html).toContain("disabled=\"\"");
   });
 });

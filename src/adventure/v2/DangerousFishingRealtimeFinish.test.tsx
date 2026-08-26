@@ -160,6 +160,7 @@ function bossModel(
     eligible: true,
     claimed: false,
     rewardPreview: null,
+    pendingReward: null,
   };
 }
 

@@ -26,6 +26,7 @@ export type RanchAnimalDefinition = {
   feedCapacity: number;
   feedPerCycle: number;
   mode: "recurring" | "shipment";
+  shipmentCapacityCycles?: number;
   xpPerCycle: number;
   requiredLevel: number;
 };
@@ -71,12 +72,13 @@ export const RANCH_ANIMAL_DEFINITIONS: Record<
     outputName: "돼지고기",
     imageSrc: "/images/items/farm/pig.webp",
     outputItemId: "pork",
-    cycleMs: 16 * HOUR,
-    outputAmount: 8,
+    cycleMs: 12 * HOUR,
+    outputAmount: 4,
     feedCapacity: 4,
-    feedPerCycle: 4,
+    feedPerCycle: 2,
     mode: "shipment",
-    xpPerCycle: 16,
+    shipmentCapacityCycles: 2,
+    xpPerCycle: 8,
     requiredLevel: 50,
   },
 };
@@ -133,6 +135,7 @@ export type RanchSlotState = {
   progressMs: number;
   readyItems: number;
   readyCycles: number;
+  shipmentStartedAt: number[];
 };
 
 export type RanchStats = {
@@ -145,7 +148,7 @@ export type RanchStats = {
 };
 
 export type RanchState = {
-  version: 2;
+  version: 3;
   slots: Record<RanchSlotId, RanchSlotState>;
   stats: RanchStats;
 };
@@ -209,6 +212,7 @@ function emptySlotState(
     progressMs: 0,
     readyItems: 0,
     readyCycles: 0,
+    shipmentStartedAt: [],
   };
 }
 
@@ -235,13 +239,14 @@ export function emptyRanchState(now = Date.now()): RanchState {
       ),
     ]),
   ) as Record<RanchSlotId, RanchSlotState>;
-  return { version: 2, slots, stats: emptyStats() };
+  return { version: 3, slots, stats: emptyStats() };
 }
 
 function normalizeSlot(
   candidate: unknown,
   animalId: RanchAnimalId,
   now: number,
+  sourceVersion: 1 | 2 | 3,
 ): RanchSlotState {
   if (!candidate || typeof candidate !== "object") {
     return emptySlotState(false, null, now);
@@ -257,12 +262,60 @@ function normalizeSlot(
     lastSettledAtRaw <= now
       ? Math.floor(lastSettledAtRaw)
       : now;
-  const rawFeed = Math.min(definition.feedCapacity, safeInt(source.feed));
-  const feed =
-    definition.mode === "shipment" && rawFeed !== definition.feedPerCycle
-      ? 0
-      : rawFeed;
-  const readyCycles = safeInt(source.readyCycles);
+
+  if (definition.mode === "shipment") {
+    const capacity = definition.shipmentCapacityCycles ?? 1;
+    const parsedReadyCycles = safeInt(source.readyCycles);
+    const readyCycles =
+      sourceVersion === 3
+        ? Math.min(capacity, parsedReadyCycles)
+        : parsedReadyCycles > 0
+          ? capacity
+          : 0;
+    const remainingCapacity = capacity - readyCycles;
+    let shipmentStartedAt: number[] = [];
+
+    if (sourceVersion === 3 && Array.isArray(source.shipmentStartedAt)) {
+      shipmentStartedAt = source.shipmentStartedAt
+        .map(Number)
+        .filter(
+          (startedAt) =>
+            Number.isFinite(startedAt) && startedAt >= 0 && startedAt <= now,
+        )
+        .map(Math.floor)
+        .sort((left, right) => left - right)
+        .slice(0, remainingCapacity);
+    } else if (remainingCapacity > 0 && safeInt(source.feed) >= 4) {
+      const legacyProgressMs = Math.min(
+        definition.cycleMs - 1,
+        safeInt(source.progressMs),
+      );
+      const startedAt = Math.max(0, lastSettledAt - legacyProgressMs);
+      shipmentStartedAt = Array.from(
+        { length: remainingCapacity },
+        () => startedAt,
+      );
+    }
+
+    return {
+      unlocked: true,
+      animalId,
+      feed: 0,
+      lastSettledAt: now,
+      progressMs: 0,
+      readyItems: readyCycles * definition.outputAmount,
+      readyCycles,
+      shipmentStartedAt,
+    };
+  }
+
+  const parsedReadyCycles = safeInt(source.readyCycles);
+  const readyCycles = parsedReadyCycles;
+  const rawFeed = Math.min(
+    definition.feedCapacity,
+    safeInt(source.feed),
+  );
+  const feed = rawFeed;
   return {
     unlocked: true,
     animalId,
@@ -274,6 +327,7 @@ function normalizeSlot(
         : 0,
     readyItems: readyCycles * definition.outputAmount,
     readyCycles,
+    shipmentStartedAt: [],
   };
 }
 
@@ -302,7 +356,11 @@ export function parseRanchState(raw: unknown, now = Date.now()): RanchState {
   };
   const slots = { ...base.slots };
 
-  if (source.version === 2 && source.slots && typeof source.slots === "object") {
+  if (
+    (source.version === 2 || source.version === 3) &&
+    source.slots &&
+    typeof source.slots === "object"
+  ) {
     const sourceSlots = source.slots as Partial<Record<RanchSlotId, unknown>>;
     for (const definition of RANCH_SLOT_DEFINITIONS) {
       const candidate = sourceSlots[definition.id];
@@ -314,7 +372,12 @@ export function parseRanchState(raw: unknown, now = Date.now()): RanchState {
           ? "chicken"
           : null;
       slots[definition.id] = animalId
-        ? normalizeSlot(candidate, animalId, safeTimestamp)
+        ? normalizeSlot(
+            candidate,
+            animalId,
+            safeTimestamp,
+            source.version,
+          )
         : emptySlotState(false, null, safeTimestamp);
     }
   } else if (source.pens && typeof source.pens === "object") {
@@ -326,6 +389,7 @@ export function parseRanchState(raw: unknown, now = Date.now()): RanchState {
         candidate,
         migration.animalId,
         safeTimestamp,
+        1,
       );
     }
   }
@@ -334,7 +398,7 @@ export function parseRanchState(raw: unknown, now = Date.now()): RanchState {
     ? slots["slot-1"]
     : emptySlotState(true, "chicken", safeTimestamp);
 
-  return { version: 2, slots, stats: parseStats(source.stats) };
+  return { version: 3, slots, stats: parseStats(source.stats) };
 }
 
 export function settleRanch(state: RanchState, now = Date.now()): RanchState {
@@ -348,6 +412,23 @@ export function settleRanch(state: RanchState, now = Date.now()): RanchState {
     const animal = slot.animalId
       ? RANCH_ANIMAL_DEFINITIONS[slot.animalId]
       : null;
+    if (slot.unlocked && animal?.mode === "shipment") {
+      const shipmentStartedAt = slot.shipmentStartedAt.filter(
+        (startedAt) => startedAt + animal.cycleMs > safeTimestamp,
+      );
+      const completed = slot.shipmentStartedAt.length - shipmentStartedAt.length;
+      slots[slotDefinition.id] = {
+        ...slot,
+        feed: 0,
+        lastSettledAt: safeTimestamp,
+        progressMs: 0,
+        readyItems: slot.readyItems + completed * animal.outputAmount,
+        readyCycles: slot.readyCycles + completed,
+        shipmentStartedAt,
+      };
+      stats.pigCycles += completed;
+      continue;
+    }
     const elapsed = Math.max(0, safeTimestamp - slot.lastSettledAt);
     if (!slot.unlocked || !animal || slot.feed < animal.feedPerCycle) {
       slots[slotDefinition.id] = {
@@ -395,11 +476,23 @@ export function addRanchFeed(
   if (!slot.unlocked || !slot.animalId) throw new RanchError("slot_locked");
   const animal = RANCH_ANIMAL_DEFINITIONS[slot.animalId];
   if (animal.mode === "shipment") {
-    if (slot.readyItems > 0) throw new RanchError("shipment_pending");
-    if (slot.feed > 0) throw new RanchError("shipment_in_progress");
     if (count !== animal.feedPerCycle) {
       throw new RanchError("shipment_feed_required");
     }
+    const occupiedCycles = slot.readyCycles + slot.shipmentStartedAt.length;
+    if (occupiedCycles >= (animal.shipmentCapacityCycles ?? 1)) {
+      throw new RanchError("shipment_capacity");
+    }
+    return {
+      ...settled,
+      slots: {
+        ...settled.slots,
+        [slotId]: {
+          ...slot,
+          shipmentStartedAt: [...slot.shipmentStartedAt, safeNow(now)],
+        },
+      },
+    };
   }
   if (slot.feed + count > animal.feedCapacity) {
     throw new RanchError("feed_capacity");
@@ -482,7 +575,8 @@ export function unlockRanchSlot(
         ...settled.slots,
         [slotId]: {
           ...emptySlotState(true, animalId, safeNow(now)),
-          feed: animal.mode === "shipment" ? animal.feedPerCycle : 0,
+          shipmentStartedAt:
+            animal.mode === "shipment" ? [safeNow(now)] : [],
         },
       },
     },
@@ -510,7 +604,8 @@ export function rebuildRanchSlot(
     slot.feed > 0 ||
     slot.progressMs > 0 ||
     slot.readyItems > 0 ||
-    slot.readyCycles > 0
+    slot.readyCycles > 0 ||
+    slot.shipmentStartedAt.length > 0
   ) {
     throw new RanchError("slot_not_empty");
   }
@@ -522,7 +617,8 @@ export function rebuildRanchSlot(
         ...settled.slots,
         [slotId]: {
           ...emptySlotState(true, animalId, safeNow(now)),
-          feed: animal.mode === "shipment" ? animal.feedPerCycle : 0,
+          shipmentStartedAt:
+            animal.mode === "shipment" ? [safeNow(now)] : [],
         },
       },
     },

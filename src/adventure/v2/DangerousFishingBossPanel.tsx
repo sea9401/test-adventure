@@ -3,7 +3,11 @@
 import Image from "next/image";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import {
+  SURFACE_ACCENT,
+  SURFACE_CARD,
+  SURFACE_INSET,
+} from "@/components/ui/surfaces";
 import { DANGEROUS_BOSSES, DANGEROUS_ZONES } from "@/adventure/data/v2/dangerousFishing";
 import type { DangerousBossReward } from "@/lib/server/dangerousFishingBoss";
 import type {
@@ -52,6 +56,21 @@ export type DangerousFishingBossViewModel = {
   eligible: boolean;
   claimed: boolean;
   rewardPreview: DangerousBossReward | null;
+  pendingReward: {
+    event: {
+      id: string;
+      bossId: string;
+      name: string;
+      defeatedAt: number | null;
+      isDiscoverer: boolean;
+      isLastHaul: boolean;
+    };
+    contribution: {
+      totalContribution: number;
+      successfulAttempts: number;
+    };
+    rewardPreview: DangerousBossReward;
+  } | null;
 };
 
 function remainingLabel(expiresAt: number, now: number): string {
@@ -86,7 +105,7 @@ export function DangerousFishingBossPanel({
     encounterId: string,
     revision: number,
   ) => Promise<boolean>;
-  onClaim: (eventId: string) => Promise<boolean>;
+  onClaim: (eventId: string, bossName: string) => Promise<boolean>;
   onOpenShop?: () => void;
   readJson: DangerousRealtimeJsonReader;
   verification?: ActivityVerificationChallenge | null;
@@ -131,6 +150,7 @@ export function DangerousFishingBossPanel({
   const staminaPct = Math.min(100, (event.stamina / event.maxStamina) * 100);
   const active = event.status === "active";
   const prepared = active && preparedEventId === event.id;
+  const pendingReward = model.pendingReward;
 
   const startPreparedAttempt = async () => {
     const started = await onStart(event.id);
@@ -272,6 +292,41 @@ export function DangerousFishingBossPanel({
 
   return (
     <section className={`${SURFACE_CARD} space-y-4 p-4`} aria-label="비동기 거대어">
+      {pendingReward ? (
+        <section
+          className={`${SURFACE_ACCENT} space-y-3 p-3`}
+          aria-label="지난 거대어 미수령 보상"
+        >
+          <div>
+            <h3 className="text-sm font-bold">
+              지난 거대어 보상 · {pendingReward.event.name}
+            </h3>
+            <p className="mt-1 text-xs text-amber-900 dark:text-amber-100">
+              수령 제한 없이 보관된 보상입니다.
+            </p>
+          </div>
+          <div className="grid gap-1 text-xs sm:grid-cols-2">
+            <span>
+              지난 이벤트 기여{" "}
+              {pendingReward.contribution.totalContribution.toLocaleString()}
+            </span>
+            <span>
+              낚시 코인 {pendingReward.rewardPreview.fishingCoins.toLocaleString()} · 증표{" "}
+              {pendingReward.rewardPreview.materialCount.toLocaleString()}개
+            </span>
+          </div>
+          <Button
+            fullWidth
+            variant="success"
+            disabled={busy}
+            onClick={() =>
+              void onClaim(pendingReward.event.id, pendingReward.event.name)
+            }
+          >
+            지난 거대어 보상 수령
+          </Button>
+        </section>
+      ) : null}
       {boss ? (
         <div className="relative aspect-[16/7] overflow-hidden rounded-lg bg-zinc-200 dark:bg-zinc-800">
           <Image src={scene.imageSrc} alt="" fill sizes="(min-width: 780px) 720px, 100vw" className="object-cover" loading="eager" />
@@ -390,7 +445,7 @@ export function DangerousFishingBossPanel({
             fullWidth
             variant="success"
             disabled={busy || model.claimed}
-            onClick={() => void onClaim(event.id)}
+            onClick={() => void onClaim(event.id, event.name)}
           >
             {model.claimed ? "보상 수령 완료" : "보상 수령"}
           </Button>

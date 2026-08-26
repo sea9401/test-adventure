@@ -344,8 +344,8 @@ export function useDangerousFishing() {
     [boss, mutate],
   );
   const claimBossReward = useCallback(
-    (eventId: string) => {
-      const bossName = boss?.event?.name ?? "거대어";
+    (eventId: string, claimedBossName?: string) => {
+      const bossName = claimedBossName ?? boss?.event?.name ?? "거대어";
       return mutate("boss", "/api/v2/dangerous-fishing/boss", {
         action: "claim",
         eventId,

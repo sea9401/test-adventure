@@ -7,7 +7,7 @@
 // 사용 가능 판정(쿨다운/MP/효과유무)은 호출부(combatShared)가 isUsable 콜백으로 주입한다.
 // 조건 평가에 필요한 전투 상태는 PatternCtx 로 받는다(엔진이 매 턴 합성).
 
-import type { StatKey } from "@/adventure/data/stats";
+import { STAT_KEYS, type StatKey } from "@/adventure/data/stats";
 
 // 🚩 기능 플래그 — C1~C3(데이터/엔진·UI·재밸런스) 완성 전까지 off. on 이면 엔진이 패턴 평가기로
 //    스킬을 고르고 procChance 를 건너뛴다(확정 발동). off 면 옛 슬롯순서+proc 경로 유지(무변).
@@ -20,6 +20,7 @@ export type V2PatternEnemyStatus =
   | "vuln"
   | "frostChill";
 export type V2PatternEnemyDebuff =
+  | StatKey
   | "vulnerability"
   | "damageDown"
   | "skillProcDown"
@@ -120,6 +121,7 @@ export type V2PatternCtx = {
   enemyDamageDownActive?: boolean;
   enemySkillProcDownActive?: boolean;
   enemyHealReductionActive?: boolean;
+  enemyStatDebuffs?: ReadonlySet<StatKey>;
   turn: number; // 1-based 공격 차례
 };
 
@@ -149,6 +151,8 @@ function enemyDebuffActive(
       return ctx.enemySkillProcDownActive ?? false;
     case "healReduction":
       return ctx.enemyHealReductionActive ?? false;
+    default:
+      return ctx.enemyStatDebuffs?.has(target) ?? false;
   }
 }
 
@@ -442,6 +446,13 @@ function isFinitePct(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);
 }
 
+function isStatKey(value: unknown): value is StatKey {
+  return (
+    typeof value === "string" &&
+    (STAT_KEYS as readonly string[]).includes(value)
+  );
+}
+
 function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
   if (!raw || typeof raw !== "object") return null;
   const c = raw as Record<string, unknown>;
@@ -548,7 +559,9 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
         c.target === "skillProcDown" ||
         c.target === "healReduction"
           ? c.target
-          : null;
+          : isStatKey(c.target)
+            ? c.target
+            : null;
       if (!target || typeof c.active !== "boolean") return null;
       return { kind: "enemy_debuff", target, active: c.active };
     }

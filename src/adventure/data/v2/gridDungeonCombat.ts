@@ -262,7 +262,10 @@ function partySkillDamage(
             ? effect.statCoef
             : v2SpecializedSkillStatCoef(effect.statCoef, effect.scaling))
         : 0) +
-      (pureFormula ? purePrimaryStat * pureFormula.primaryStatCoef : 0);
+      (pureFormula
+        ? purePrimaryStat *
+          (effect.primaryStatCoef ?? pureFormula.primaryStatCoef)
+        : 0);
     total += partyDamage(Math.round(raw), enemyDef);
   }
   return total;

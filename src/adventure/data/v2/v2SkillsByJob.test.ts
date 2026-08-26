@@ -1273,8 +1273,8 @@ describe("직업 킷 — 스킬셋", () => {
     ]);
     expect(V2_SKILLS.v2c_hegemon_annihilation.effects[0]).toMatchObject({
       kind: "missingHpDamage",
-      attackCoef: 2,
-      statCoef: 2.4,
+      attackCoef: 2.2,
+      statCoef: 2.64,
       missingHpCoef: 2,
     });
     expect(V2_SKILLS.v2c_hegemon_annihilation.oncePerBattle).toBe(true);
@@ -1508,6 +1508,10 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_celestialdragon_combo.effects[5]).toMatchObject({
       kind: "enemyVuln",
       pct: 20,
+    });
+    expect(V2_SKILLS.v2c_celestialdragon_combo.effects[0]).toMatchObject({
+      kind: "damage",
+      primaryStatCoef: 1.2,
     });
     expect(V2_SKILLS.v2c_celestialdragon_combo.effects[7]).toMatchObject({
       kind: "enemyDelay",

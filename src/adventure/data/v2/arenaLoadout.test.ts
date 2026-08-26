@@ -161,6 +161,27 @@ describe("arenaPatternActionSummary — 실제 패턴 행동만 표시", () => {
     });
   });
 
+  it("상대 능력치 감소 조건을 사용자 문구로 표시한다", () => {
+    const loadout = mk("enemy-stat-debuff-summary", {
+      pattern: {
+        blocks: [
+          {
+            condition: {
+              kind: "enemy_debuff",
+              target: "vit",
+              active: true,
+            },
+            action: { kind: "skill", skillId: "v2c_swordsaint_flash" },
+          },
+        ],
+      },
+    });
+
+    expect(arenaPatternActionSummary(loadout)[0]?.condition).toBe(
+      "적 활력 감소 있음",
+    );
+  });
+
   it("지속 회복과 확정 회피를 내 상태 효과 조건으로 표시한다", () => {
     const loadout = mk("status-effect-summary", {
       pattern: {

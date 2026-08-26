@@ -14,6 +14,7 @@ import type { V2EquipSlot } from "@/adventure/data/v2/v2Equipment";
 import {
   parseCombatPattern,
   type V2CombatCondition,
+  type V2PatternEnemyDebuff,
   type V2CombatRole,
   type V2CombatPattern,
 } from "@/adventure/v2/combat/combatPattern";
@@ -90,12 +91,18 @@ const SELF_RESOURCE_LABEL = {
   weight: "중량",
 } as const;
 
-const ENEMY_DEBUFF_LABEL = {
+const ENEMY_DEBUFF_LABEL: Record<V2PatternEnemyDebuff, string> = {
+  str: "힘 감소",
+  dex: "민첩 감소",
+  vit: "활력 감소",
+  spd: "속도 감소",
+  luk: "행운 감소",
+  int: "지능 감소",
   vulnerability: "받는 피해 증가(취약)",
   damageDown: "주는 피해 감소",
   skillProcDown: "스킬 발동률 감소",
   healReduction: "회복 효과 감소",
-} as const;
+};
 
 /** 아레나 템플릿에서 저장된 전투패턴 조건을 사람이 읽는 문구로 표시한다. */
 export function arenaPatternConditionSummary(

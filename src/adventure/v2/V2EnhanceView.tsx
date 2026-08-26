@@ -51,6 +51,7 @@ import {
   STAMINA_SHARD_COMBINE_COST,
   STAMINA_SHARD_MATERIAL_ID,
 } from "@/adventure/data/v2/staminaPotionCrafting";
+import { maxForgeCombinationQuantity } from "@/adventure/data/v2/forgeCombination";
 import {
   ENHANCE_EMBER_BLUE_COST,
   ENHANCE_EMBER_MATERIAL_ID,
@@ -62,6 +63,7 @@ import {
   type ScavengedCraftRecipeId,
 } from "@/adventure/data/v2/scavengedCrafting";
 import { huntStageName } from "@/adventure/data/v2/dungeon";
+import { RARE_MAP_CAP } from "@/adventure/data/v2/rareMaps";
 import {
   ENHANCE_STONE_MATERIAL_ID,
   ENHANCE_STONE_REQUIRED_FROM,
@@ -387,6 +389,12 @@ export function StormRefinementConfirmDialog({
 }
 
 type ForgeMode = "enhance" | "refine" | "reforge" | "combine";
+type CombineRecipeKey =
+  | "reforge-stone"
+  | "stamina-potion"
+  | "blue-enhance-stone"
+  | "red-enhance-stone"
+  | "rare-map";
 
 export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   // 강화·재련·조합은 골드 sink — 보유 골드를 헤더에 노출(사용자 요청). 코어루프면 지갑+은행이
@@ -410,6 +418,16 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const [scavengedMats, setScavengedMats] = useState({
     enhanceEmbers: 0,
     tornMapFragments: 0,
+  });
+  const [rareMapCount, setRareMapCount] = useState(0);
+  const [combineQuantities, setCombineQuantities] = useState<
+    Record<CombineRecipeKey, number>
+  >({
+    "reforge-stone": 1,
+    "stamina-potion": 1,
+    "blue-enhance-stone": 1,
+    "red-enhance-stone": 1,
+    "rare-map": 1,
   });
   const [stormMats, setStormMats] = useState({
     wreckage: 0,
@@ -456,11 +474,12 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
 
   const refresh = useCallback(async () => {
     try {
-      const [eqRes, invRes, stateRes] = await Promise.all([
+      const [eqRes, invRes, stateRes, rareMapRes] = await Promise.all([
         fetch("/api/v2/me/equipment"),
         fetch("/api/v2/me/inventory"),
         // 골드 표시용 보조 조회 — 거부(네트워크 끊김)돼도 장비/인벤 로드를 깨지 않게 격리.
         fetchGameState().catch(() => null),
+        fetch("/api/v2/me/rare-maps"),
       ]);
       // 보유 골드 — 매 작업 후 핸들러가 refresh() 를 부르므로 여기서만 읽으면 자동 갱신.
       if (stateRes?.ok) {
@@ -507,6 +526,10 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
             j.materials?.[STORM_EXPEDITION_ROUTE_MATERIAL_ID.thunder] ?? 0,
           heart: j.materials?.[STORM_HEART_FRAGMENT_MATERIAL_ID] ?? 0,
         });
+      }
+      if (rareMapRes.ok) {
+        const j = (await rareMapRes.json()) as { rareMaps?: unknown[] };
+        setRareMapCount(j.rareMaps?.length ?? 0);
       }
     } catch {
       /* 폴링 아님 — 조용히 */
@@ -581,6 +604,19 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const goldOnlyBlocked = stoneRequired && stone === "none";
   // 결제 가능 골드 — 코어루프면 지갑+은행(서버 spendGold 와 동일 기준), 아니면 지갑만.
   const spendable = coreLoopOn ? (gold ?? 0) + bankedGold : (gold ?? 0);
+
+  const setCombineQuantity = useCallback(
+    (key: CombineRecipeKey, nextValue: number, maxQuantity: number) => {
+      const normalized = Number.isFinite(nextValue)
+        ? Math.max(1, Math.floor(nextValue))
+        : 1;
+      setCombineQuantities((current) => ({
+        ...current,
+        [key]: Math.min(normalized, Math.max(1, maxQuantity)),
+      }));
+    },
+    [],
+  );
 
   const resetError = selected
     ? enhancementResetError(selected, equipped)
@@ -816,13 +852,15 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   }, [selected, item, busy, refresh, reforgeStone, refreshGameState]);
 
   // ── 조합(combine) — 일반 재련석 3개 → 상급 재련석 1개(결정론·무료) ──
-  const doCombine = useCallback(async () => {
+  const doCombine = useCallback(async (quantity: number) => {
     if (busy) return;
     setBusy(true);
     setMsg(null);
     try {
       const res = await fetch("/api/v2/me/reforge-stone-combine", {
         method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ quantity }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!json.ok) {
@@ -839,7 +877,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       }
       setMsg({
         kind: "success",
-        text: `재련석 ${REFORGE_COMBINE_COST}개 → 상급 재련석 1개 (−${COMBINE_GOLD_COST.toLocaleString()} G)`,
+        text: `재련석 ${(REFORGE_COMBINE_COST * quantity).toLocaleString()}개 → 상급 재련석 ${quantity.toLocaleString()}개 (−${(COMBINE_GOLD_COST * quantity).toLocaleString()} G)`,
       });
       await refresh();
     } catch {
@@ -850,13 +888,15 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   }, [busy, refresh]);
 
   // ── 조합(combine) — 활력의 파편 6개 → 스태미나 회복약 1개 ──
-  const doCombineStaminaPotion = useCallback(async () => {
+  const doCombineStaminaPotion = useCallback(async (quantity: number) => {
     if (busy) return;
     setBusy(true);
     setMsg(null);
     try {
       const res = await fetch("/api/v2/me/stamina-potion-combine", {
         method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ quantity }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!json.ok) {
@@ -864,16 +904,16 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           kind: "error",
           text:
             json.error === "insufficient_material"
-              ? `활력의 파편이 부족합니다 (${STAMINA_SHARD_COMBINE_COST}개 필요)`
+              ? `활력의 파편이 부족합니다 (${(STAMINA_SHARD_COMBINE_COST * quantity).toLocaleString()}개 필요)`
               : json.error === "insufficient_gold"
-                ? `골드가 부족합니다 (${COMBINE_GOLD_COST.toLocaleString()} G 필요)`
+                ? `골드가 부족합니다 (${(COMBINE_GOLD_COST * quantity).toLocaleString()} G 필요)`
                 : `실패: ${json.error ?? "unknown"}`,
         });
         return;
       }
       setMsg({
         kind: "success",
-        text: `활력의 파편 ${STAMINA_SHARD_COMBINE_COST}개 → 스태미나 회복약 1개 (−${COMBINE_GOLD_COST.toLocaleString()} G)`,
+        text: `활력의 파편 ${(STAMINA_SHARD_COMBINE_COST * quantity).toLocaleString()}개 → 스태미나 회복약 ${quantity.toLocaleString()}개 (−${(COMBINE_GOLD_COST * quantity).toLocaleString()} G)`,
       });
       await Promise.all([refresh(), refreshGameState()]);
     } catch {
@@ -889,6 +929,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       materialLabel: string,
       need: number,
       outputLabel: string,
+      quantity: number,
       mapDepth?: number,
     ) => {
       if (busy) return;
@@ -900,6 +941,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             recipe,
+            quantity,
             ...(recipe === "rare_map" ? { depth: mapDepth } : {}),
           }),
         });
@@ -914,9 +956,9 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
             kind: "error",
             text:
               json.error === "insufficient_material"
-                ? `${materialLabel}이 부족합니다 (${need}개 필요)`
+                ? `${materialLabel}이 부족합니다 (${(need * quantity).toLocaleString()}개 필요)`
                 : json.error === "insufficient_gold"
-                  ? `골드가 부족합니다 (${COMBINE_GOLD_COST.toLocaleString()} G 필요)`
+                  ? `골드가 부족합니다 (${(COMBINE_GOLD_COST * quantity).toLocaleString()} G 필요)`
                 : json.error === "rare_map_full"
                   ? "희귀 지도 보유 한도(5장)가 가득 찼습니다"
                   : json.error === "invalid_map_depth"
@@ -926,12 +968,14 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           return;
         }
         const craftedLabel =
-          recipe === "rare_map" && json.outputName
+          recipe === "rare_map" && quantity === 1 && json.outputName
             ? `${json.outputName} (깊이 ${json.rareMap?.depth ?? "?"})`
-            : outputLabel;
+            : outputLabel
+                .replace("1개", `${quantity.toLocaleString()}개`)
+                .replace("1장", `${quantity.toLocaleString()}장`);
         setMsg({
           kind: "success",
-          text: `${materialLabel} ${need}개 → ${craftedLabel} (−${COMBINE_GOLD_COST.toLocaleString()} G)`,
+          text: `${materialLabel} ${(need * quantity).toLocaleString()}개 → ${craftedLabel} (−${(COMBINE_GOLD_COST * quantity).toLocaleString()} G)`,
         });
         await Promise.all([refresh(), refreshGameState()]);
       } catch {
@@ -1560,7 +1604,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
             ...(V2_REFORGE_ENABLED
               ? [
                   {
-                    key: "reforge-stone",
+                    key: "reforge-stone" as CombineRecipeKey,
                     icon: <GameIcon name="Sparkle" size={24} />,
                     output: "상급 재련석",
                     cost: COMBINE_GOLD_COST,
@@ -1577,7 +1621,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 ]
               : []),
             {
-              key: "stamina-potion",
+              key: "stamina-potion" as CombineRecipeKey,
               icon: <GameIcon name="Flask" size={24} />,
               output: "스태미나 회복약",
               cost: COMBINE_GOLD_COST,
@@ -1592,7 +1636,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
               onCombine: doCombineStaminaPotion,
             },
             {
-              key: "blue-enhance-stone",
+              key: "blue-enhance-stone" as CombineRecipeKey,
               icon: <GameIcon name="Diamond" size={24} className="text-blue-500" />,
               output: "푸른 강화석",
               cost: COMBINE_GOLD_COST,
@@ -1604,16 +1648,17 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   need: ENHANCE_EMBER_BLUE_COST,
                 },
               ],
-              onCombine: () =>
+              onCombine: (quantity: number) =>
                 doCombineScavenged(
                   "blue_enhance_stone",
                   "강화의 불씨",
                   ENHANCE_EMBER_BLUE_COST,
                   "푸른 강화석 1개",
+                  quantity,
                 ),
             },
             {
-              key: "red-enhance-stone",
+              key: "red-enhance-stone" as CombineRecipeKey,
               icon: <GameIcon name="Diamond" size={24} className="text-red-500" />,
               output: "붉은 강화석",
               cost: COMBINE_GOLD_COST,
@@ -1625,16 +1670,17 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   need: ENHANCE_EMBER_RED_COST,
                 },
               ],
-              onCombine: () =>
+              onCombine: (quantity: number) =>
                 doCombineScavenged(
                   "red_enhance_stone",
                   "강화의 불씨",
                   ENHANCE_EMBER_RED_COST,
                   "붉은 강화석 1개",
+                  quantity,
                 ),
             },
             {
-              key: "rare-map",
+              key: "rare-map" as CombineRecipeKey,
               icon: <GameIcon name="MapTrifold" size={24} />,
               output: "랜덤 희귀 지도",
               cost: COMBINE_GOLD_COST,
@@ -1646,14 +1692,16 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   need: TORN_MAP_FRAGMENT_COMBINE_COST,
                 },
               ],
-              onCombine: () =>
+              onCombine: (quantity: number) =>
                 doCombineScavenged(
                   "rare_map",
                   "찢어진 지도 조각",
                   TORN_MAP_FRAGMENT_COMBINE_COST,
                   "랜덤 희귀 지도 1장",
+                  quantity,
                   rareMapDepth,
                 ),
+              capacity: Math.max(0, RARE_MAP_CAP - rareMapCount),
               extra: (
                 <label className="mt-2 block border-t border-zinc-200 pt-2 text-xs dark:border-zinc-700">
                   <span className="mb-1 block font-medium text-zinc-700 dark:text-zinc-200">
@@ -1683,7 +1731,19 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
               ),
             },
           ].map((r) => {
-            const short = r.mats.some((m) => m.have < m.need);
+            const firstMaterial = r.mats[0];
+            const maxQuantity = maxForgeCombinationQuantity({
+              materialHave: firstMaterial.have,
+              materialCost: firstMaterial.need,
+              spendableGold: spendable,
+              goldCost: r.cost,
+              ...("capacity" in r ? { capacity: r.capacity } : {}),
+            });
+            const quantity =
+              maxQuantity > 0
+                ? Math.min(combineQuantities[r.key], maxQuantity)
+                : 1;
+            const totalGoldCost = r.cost * quantity;
             return (
               <Card key={r.key} padding="sm" className="ui-lift-card">
                 <div className="flex items-center gap-3">
@@ -1692,13 +1752,20 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   </div>
                   <div className="min-w-0 shrink-0">
                     <div className="text-sm font-semibold">{r.output}</div>
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                      조합비 {r.cost.toLocaleString()} G
+                    <div
+                      className={`text-xs ${
+                        spendable >= totalGoldCost
+                          ? "text-zinc-500 dark:text-zinc-400"
+                          : "text-red-600 dark:text-red-400"
+                      }`}
+                    >
+                      조합비 {totalGoldCost.toLocaleString()} G
                     </div>
                   </div>
                   <div className="ml-auto space-y-0.5 text-xs tabular-nums">
                     {r.mats.map((m) => {
-                      const ok = m.have >= m.need;
+                      const totalNeed = m.need * quantity;
+                      const ok = m.have >= totalNeed;
                       return (
                         <div
                           key={m.label}
@@ -1711,20 +1778,81 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                           <span className="inline-flex items-center gap-1">
                             {ok ? "✓" : "✗"}
                             <GameIcon name={m.iconName} size={13} />
-                            {m.label} {m.have}/{m.need}
+                            {m.label} {m.have}/{totalNeed}
                           </span>
                         </div>
                       );
                     })}
                   </div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+                  <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                    수량
+                  </span>
+                  <div className={`${SURFACE_INSET} inline-flex min-h-10 items-stretch overflow-hidden p-0`}>
+                    <button
+                      type="button"
+                      aria-label={`${r.output} 조합 수량 줄이기`}
+                      disabled={busy || quantity <= 1 || maxQuantity < 1}
+                      onClick={() =>
+                        setCombineQuantity(r.key, quantity - 1, maxQuantity)
+                      }
+                      className="min-w-10 px-3 text-lg font-semibold text-zinc-700 disabled:text-zinc-300 dark:text-zinc-200 dark:disabled:text-zinc-600"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={Math.max(1, maxQuantity)}
+                      value={quantity}
+                      disabled={busy || maxQuantity < 1}
+                      aria-label={`${r.output} 조합 수량`}
+                      onFocus={(event) => event.currentTarget.select()}
+                      onChange={(event) =>
+                        setCombineQuantity(
+                          r.key,
+                          Number(event.currentTarget.value),
+                          maxQuantity,
+                        )
+                      }
+                      className="w-16 border-x border-zinc-200 bg-transparent px-1 text-center text-sm font-semibold tabular-nums outline-none disabled:text-zinc-400 dark:border-zinc-700"
+                    />
+                    <button
+                      type="button"
+                      aria-label={`${r.output} 조합 수량 늘리기`}
+                      disabled={
+                        busy || maxQuantity < 1 || quantity >= maxQuantity
+                      }
+                      onClick={() =>
+                        setCombineQuantity(r.key, quantity + 1, maxQuantity)
+                      }
+                      className="min-w-10 px-3 text-lg font-semibold text-zinc-700 disabled:text-zinc-300 dark:text-zinc-200 dark:disabled:text-zinc-600"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={
+                      busy || maxQuantity < 1 || quantity === maxQuantity
+                    }
+                    onClick={() =>
+                      setCombineQuantity(r.key, maxQuantity, maxQuantity)
+                    }
+                    className="min-h-10 rounded-lg border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 disabled:text-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:disabled:text-zinc-600"
+                  >
+                    최대 {maxQuantity.toLocaleString()}
+                  </button>
                   <Button
-                    onClick={() => void r.onCombine()}
-                    disabled={busy || short}
+                    onClick={() => void r.onCombine(quantity)}
+                    disabled={busy || maxQuantity < 1}
                     variant="primary"
                     size="md"
-                    className="shrink-0"
+                    className="ml-auto shrink-0"
                   >
-                    {busy ? "…" : "조합 →"}
+                    {busy ? "…" : `${quantity.toLocaleString()}개 조합 →`}
                   </Button>
                 </div>
                 {"extra" in r ? r.extra : null}

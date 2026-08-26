@@ -115,20 +115,29 @@ describe("production security surface", () => {
       expect(proxy).toContain(path);
     }
     for (const maintenance of [proxy, maintenancePage]) {
-      expect(maintenance).toContain("오류 수정 패치 점검 안내");
-      expect(maintenance).toContain("패치 점검");
+      expect(maintenance).toContain("서버 점검 안내");
+      expect(maintenance).toContain("서버 점검");
       expect(maintenance).toContain(
-        "오류 수정 패치 적용을 위해 잠시 점검을 진행합니다.",
+        "서버 안정화 작업을 위해 서버 점검을 진행합니다.",
       );
       expect(maintenance).toContain("점검 시간:");
-      expect(maintenance).toContain("08:30 ~ 08:45 (약 15분)");
-      expect(maintenance).toContain("점검 내용:");
-      expect(maintenance).toContain("오류 수정 패치 적용");
       expect(maintenance).toContain(
-        "점검 중에는 게임 이용이 제한됩니다.",
+        "8월 26일(수) 오후 11:00 ~ 오후 11:30 (약 30분)",
       );
-      expect(maintenance).toContain("이용에 불편을 드려 죄송합니다.");
-      expect(maintenance).not.toContain("8월 24일 서버 점검 안내");
+      expect(maintenance).toContain("점검 내용:");
+      expect(maintenance).toContain("서버 안정화 작업");
+      expect(maintenance).toContain(
+        "점검 중에는 게임 이용이 일시적으로 제한됩니다.",
+      );
+      expect(maintenance).toContain(
+        "점검 진행 상황에 따라 종료 시각이 예정보다 앞당겨지거나 연장될 수 있습니다.",
+      );
+      expect(maintenance).toContain(
+        "안정적인 서비스 제공을 위해 최선을 다하겠습니다.",
+      );
+      expect(maintenance).toContain("감사합니다.");
+      expect(maintenance).not.toContain("오류 수정 패치 점검 안내");
+      expect(maintenance).not.toContain("08:30 ~ 08:45 (약 15분)");
       expect(maintenance).not.toContain("약 1시간 30분");
       expect(maintenance).not.toContain("서버 안정화 및 시스템 점검");
       expect(maintenance).not.toContain("게임에 접속할 수 없습니다.");
@@ -301,6 +310,44 @@ describe("production security surface", () => {
     expect(release.match(/^sync_production_env$/gm)).toHaveLength(2);
     expect(stagingService).toContain("MemoryMax=768M");
     expect(stagingService).toContain("MemorySwapMax=256M");
+  });
+
+  it("일반 배포는 main 산출물 준비 뒤 실제 교체 직전에 점검을 시작한다", () => {
+    const instructions = source(join(ROOT, "AGENTS.md"));
+    const workflow = source(join(ROOT, ".github/workflows/deploy.yml"));
+    const release = source(join(ROOT, "deploy/release-production.sh"));
+    const normalizedInstructions = instructions.replace(/\s+/g, " ");
+
+    expect(normalizedInstructions).toContain(
+      "정확한 main SHA의 CI와 production-next-<SHA> 산출물이 준비되기 전에는",
+    );
+    expect(normalizedInstructions).toContain(
+      '사용자가 점검 모드를 "지금 바로" 켜라고 명시하거나',
+    );
+    expect(normalizedInstructions).toContain(
+      '일반적인 "점검 모드를 켜고 배포" 요청은 즉시 활성화 지시로 해석하지 않는다.',
+    );
+
+    const locateArtifact = workflow.indexOf(
+      "Locate successful main CI artifact",
+    );
+    const transferArtifact = workflow.indexOf(
+      "Transfer production build to EC2",
+    );
+    const deployRuntime = workflow.indexOf("SSH & deploy [prod]");
+    expect(locateArtifact).toBeGreaterThan(-1);
+    expect(transferArtifact).toBeGreaterThan(locateArtifact);
+    expect(deployRuntime).toBeGreaterThan(transferArtifact);
+
+    const productionPreflight = release.indexOf("production env preflight");
+    const maintenanceOn = release.indexOf("bash deploy/maintenance.sh on");
+    const productionStop = release.indexOf(
+      'sudo systemctl stop "$PRODUCTION_SERVICE"',
+      maintenanceOn,
+    );
+    expect(productionPreflight).toBeGreaterThan(-1);
+    expect(maintenanceOn).toBeGreaterThan(productionPreflight);
+    expect(productionStop).toBeGreaterThan(maintenanceOn);
   });
 
   it("배포와 롤백은 명시적 승인 전까지 점검 모드를 해제하지 않는다", () => {

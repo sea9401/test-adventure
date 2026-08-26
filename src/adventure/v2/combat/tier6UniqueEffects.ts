@@ -21,6 +21,7 @@ export type Tier6EventOrigin = {
 
 export type Tier6UniqueRuntimeState = {
   gravityReprisal: number;
+  bleedBurstLastActionId: number | null;
   pursuitMarks: number;
   shadowEchoes: number;
   arcaneOverload: number;
@@ -105,6 +106,7 @@ type CommandBase = {
 
 export type Tier6UniqueCommand =
   | (CommandBase & { kind: "damage_fixed"; amount: number })
+  | (CommandBase & { kind: "damage_magic"; amount: number })
   | (CommandBase & { kind: "shield"; amount: number })
   | (CommandBase & { kind: "heal"; amount: number })
   | (CommandBase & { kind: "mp"; amount: number })
@@ -146,6 +148,7 @@ const CORE_MECHANICS: Record<Tier6CoreMechanic, Tier6UniqueMechanic> = {
 export function initialTier6UniqueRuntime(): Tier6UniqueRuntimeState {
   return {
     gravityReprisal: 0,
+    bleedBurstLastActionId: null,
     pursuitMarks: 0,
     shadowEchoes: 0,
     arcaneOverload: 0,
@@ -284,6 +287,18 @@ export function resolveTier6UniqueEvent(
     if (dealt <= 0) return;
     commands.push({ kind: "damage_fixed", mechanic, label, amount: dealt });
     applySignatureDamageLinks(mechanic, dealt, allowConfluence);
+    recordCore(core);
+  };
+
+  const emitMagicDamage = (
+    mechanic: Tier6UniqueMechanic,
+    label: string,
+    amount: number,
+    core: Tier6CoreMechanic,
+  ) => {
+    const dealt = commandAmount(amount);
+    if (dealt <= 0) return;
+    commands.push({ kind: "damage_magic", mechanic, label, amount: dealt });
     recordCore(core);
   };
 
@@ -440,19 +455,18 @@ export function resolveTier6UniqueEvent(
     if (
       event.attackKind === "basic" &&
       event.bleedStacks > 0 &&
+      (state.bleedBurstLastActionId == null ||
+        event.origin.actionId - state.bleedBurstLastActionId >= 4) &&
       owns("bleed_burst")
     ) {
-      commands.push({
-        kind: "consume_dot",
-        mechanic: "bleed_burst",
-        label: "혈맥 폭발",
-        dot: "bleed",
-        stacks: Math.floor(event.bleedStacks),
-      });
+      state = {
+        ...state,
+        bleedBurstLastActionId: Math.floor(finite(event.origin.actionId)),
+      };
       emitDamage(
         "bleed_burst",
         "혈맥 폭발",
-        event.bleedRemainingDamage * 0.7 * dominantScale("bleed"),
+        event.bleedRemainingDamage * 0.5 * dominantScale("bleed"),
         "bleed",
       );
       if (owns("bleed_aftermath")) {
@@ -566,7 +580,7 @@ export function resolveTier6UniqueEvent(
     let guard = 0;
     while (overload >= 100 && guard < 100) {
       overload -= 100;
-      emitDamage(
+      emitMagicDamage(
         "arcane_overload",
         "과부하 낙뢰",
         event.magicAtk * 1.4 * dominantScale("overload"),
@@ -676,6 +690,11 @@ function sanitizeState(
   if (!state) return base;
   return {
     gravityReprisal: finite(state.gravityReprisal),
+    bleedBurstLastActionId:
+      typeof state.bleedBurstLastActionId === "number" &&
+      Number.isFinite(state.bleedBurstLastActionId)
+        ? Math.floor(Math.max(0, state.bleedBurstLastActionId))
+        : null,
     pursuitMarks: finite(state.pursuitMarks, 0, 5),
     shadowEchoes: finite(state.shadowEchoes, 0, 3),
     arcaneOverload: finite(state.arcaneOverload, 0, 99.999999),

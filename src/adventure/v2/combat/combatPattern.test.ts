@@ -302,6 +302,30 @@ describe("conditionPasses", () => {
     ).toBe(true);
   });
 
+  it("enemy_debuff — 상대 능력치 감소 활성 여부를 판정하고 저장한다", () => {
+    const condition = {
+      kind: "enemy_debuff",
+      target: "vit",
+      active: true,
+    } satisfies V2CombatPattern["blocks"][number]["condition"];
+    const debuffed = Object.assign(ctx(), {
+      enemyStatDebuffs: new Set<StatKey>(["vit"]),
+    });
+
+    expect(conditionPasses(condition, debuffed)).toBe(true);
+    expect(conditionPasses(condition, ctx())).toBe(false);
+    expect(
+      parseCombatPattern({
+        blocks: [
+          {
+            condition,
+            action: { kind: "skill", skillId: "v2c_swordsaint_flash" },
+          },
+        ],
+      }).blocks[0]?.condition,
+    ).toEqual({ kind: "enemy_debuff", target: "vit", active: true });
+  });
+
   it("turn atMost/atLeast/every — 오프너/주기", () => {
     expect(conditionPasses({ kind: "turn", op: "atMost", value: 1 }, ctx({ turn: 1 }))).toBe(true);
     expect(conditionPasses({ kind: "turn", op: "atMost", value: 1 }, ctx({ turn: 2 }))).toBe(false);
@@ -581,6 +605,14 @@ describe("parseCombatPattern (저장 검증)", () => {
         {
           condition: {
             kind: "enemy_debuff",
+            target: "str",
+            active: true,
+          },
+          action: { kind: "skill", skillId: "weaken" },
+        },
+        {
+          condition: {
+            kind: "enemy_debuff",
             target: "unknown",
             active: false,
           },
@@ -588,7 +620,7 @@ describe("parseCombatPattern (저장 검증)", () => {
         },
       ],
     });
-    expect(parsed.blocks).toHaveLength(2);
+    expect(parsed.blocks).toHaveLength(3);
     expect(parsed.blocks[0].condition).toEqual({
       kind: "enemy_debuff",
       target: "healReduction",
@@ -598,6 +630,11 @@ describe("parseCombatPattern (저장 검증)", () => {
       kind: "enemy_debuff",
       target: "skillProcDown",
       active: false,
+    });
+    expect(parsed.blocks[2].condition).toEqual({
+      kind: "enemy_debuff",
+      target: "str",
+      active: true,
     });
   });
 

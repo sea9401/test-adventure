@@ -99,7 +99,8 @@ describe("farm ranch panel", () => {
     expect(html).toContain("부지 4 · 돼지우리");
     expect(html).toContain("달걀 2개 / 2시간");
     expect(html).toContain("우유 3개 / 6시간");
-    expect(html).toContain("돼지고기 8개 / 16시간");
+    expect(html).toContain("돼지고기 4개 / 마리 · 12시간");
+    expect(html).toContain("최대 2마리");
     expect(html).toContain("비육 중");
   });
 
@@ -147,13 +148,31 @@ describe("farm ranch panel", () => {
   it("완료된 돼지를 출하 대기로 표시한다", () => {
     const base = emptyFarmState(1_000);
     const pig = unlockRanchSlot(base.ranch, "slot-2", "pig", 100, 1_000).ranch;
-    const now = 1_000 + 16 * HOUR;
+    const now = 1_000 + 12 * HOUR;
     const farm = { ...base, ranch: settleRanch(pig, now) };
     const html = renderRanch(farm, now);
 
-    expect(html).toContain("돼지고기 8개");
+    expect(html).toContain("돼지고기 4개");
     expect(html).toContain("출하 대기");
     expect(html).toContain("모두 수확·출하");
+  });
+
+  it("서로 다른 시각에 들어온 돼지 두 마리의 상태를 따로 표시한다", () => {
+    const base = emptyFarmState(1_000);
+    const pig = unlockRanchSlot(base.ranch, "slot-2", "pig", 100, 1_000).ranch;
+    const twoPigs = addRanchFeed(pig, "slot-2", 2, 1_000 + 6 * HOUR);
+    const farm = {
+      ...base,
+      inventory: { ...base.inventory, compound_feed: 2 },
+      ranch: settleRanch(twoPigs, 1_000 + 12 * HOUR),
+    };
+    const html = renderRanch(farm, 1_000 + 12 * HOUR);
+
+    expect(html).toContain("돼지 1");
+    expect(html).toContain("돼지 2");
+    expect(html).toContain("출하 대기");
+    expect(html).toContain("6시간");
+    expect(html).toContain("돼지우리 가득 참");
   });
 
   it("씨앗 선별을 배우기 전에는 목장 작업을 숨긴다", () => {

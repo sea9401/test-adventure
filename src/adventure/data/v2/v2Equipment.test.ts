@@ -1447,6 +1447,32 @@ describe("무기 종류 게이트 (weaponType / weaponTypeOf / weaponGateOpen)",
 });
 
 describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
+  it("혈맥 폭발 계열은 출혈 비소모·50%·4행동 제한과 현재 중첩 기준을 안내한다", () => {
+    expect(
+      signatureLabel({
+        trigger: "tier6_unique",
+        mechanic: "bleed_burst",
+        label: "상처 파열",
+      }),
+    ).toBe("기본 공격 시 출혈을 소비하지 않고 남은 피해의 50%를 즉시 적용 (4행동당 1회)");
+    expect(
+      signatureLabel({
+        trigger: "tier6_unique",
+        mechanic: "bleed_aftermath",
+        label: "상흔 계수",
+      }),
+    ).toBe("출혈 폭발 시 출혈 1스택 추가 및 현재 출혈 중첩당 방어 3% 감소");
+  });
+
+  it("과부하 낙뢰를 마법 피해로 명시한다", () => {
+    const signature = V2_EQUIPMENT.v2_sky_sig_overload_staff.signature;
+
+    expect(signature).toBeDefined();
+    expect(signatureLabel(signature!)).toBe(
+      "MP 100 소모마다 마법공격력 140%의 마법 피해를 주는 과부하 낙뢰",
+    );
+  });
+
   it("6티어 시그니처 유니크 18종은 세트에 속하지 않고 기준 장비 능력치를 복사한다", () => {
     const pairs = [
       ["v2_sky_sig_collapse_armor", "v2_storm_wreckage_armor", "gravity_reprisal"],

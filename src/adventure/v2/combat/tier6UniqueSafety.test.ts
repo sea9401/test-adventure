@@ -55,7 +55,10 @@ function simulate(mechanics: Tier6UniqueMechanic[], seed: number) {
     state = result.state;
     for (const command of result.commands) {
       logLength += 1;
-      if (command.kind === "damage_fixed") {
+      if (
+        command.kind === "damage_fixed" ||
+        command.kind === "damage_magic"
+      ) {
         enemyHp = Math.max(0, enemyHp - command.amount);
         maxDamage = Math.max(maxDamage, command.amount);
       } else if (command.kind === "shield") {

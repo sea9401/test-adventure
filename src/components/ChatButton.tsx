@@ -21,11 +21,8 @@ const ChatPanel = dynamic(
 // 패널이 닫혀 있을 땐 unread 배지 갱신용으로 느리게,
 // 열려 있을 땐 상대 메시지 수신감을 살리려 짧게 폴링.
 // 배경 폴링은 모든 로그인 유저에게서 영구히 도는 비용이라 보수적으로 길게.
-// 모바일 전체화면에는 헤더 닫기 버튼이 있으므로 열린 플로팅 토글을 숨겨
-// 하단 전송 버튼과 겹치지 않게 한다. 데스크톱에서는 도킹 패널(z-45) 위에 남긴다.
+// 열린 패널에는 별도 닫기 버튼이 있으므로 플로팅 토글은 닫힌 상태에만 표시한다.
 export const CHAT_FLOATING_CLOSED_LAYER_CLASS = "z-[44]";
-export const CHAT_FLOATING_OPEN_LAYER_CLASS =
-  "invisible pointer-events-none z-[44] sm:visible sm:pointer-events-auto sm:z-[46]";
 // 채팅 / 알림(협동 보스 등) 의 "마지막으로 본 메시지 id" 를 따로 저장 — 둘이 섞이지 않게.
 const LAST_SEEN_KEY = "chat:lastSeenId";
 const LAST_SEEN_TRADE_KEY = "chat:lastSeenTradeId";
@@ -272,67 +269,67 @@ export function ChatButton({
   const hasUnread =
     hasUnreadChat || hasUnreadTrade || hasUnreadGuild || hasUnreadNotice;
   const floating = variant === "floating";
-  const floatingLayerClass = open
-    ? CHAT_FLOATING_OPEN_LAYER_CLASS
-    : CHAT_FLOATING_CLOSED_LAYER_CLASS;
+  const showToggle = !floating || !open;
 
   return (
     <>
-      <button
-        type="button"
-        // 아이콘 토글 — 열려 있으면 다시 눌러 닫는다(X 버튼 외 추가 닫기 경로).
-        onClick={() => {
-          if (open) {
-            window.dispatchEvent(new Event(CHAT_CLOSE_REQUEST_EVENT));
-          } else {
-            setPanelActivated(true);
-            setOpen(true);
+      {showToggle && (
+        <button
+          type="button"
+          // 인라인 토글은 열려 있으면 다시 눌러 닫는다(X 버튼 외 추가 닫기 경로).
+          onClick={() => {
+            if (open) {
+              window.dispatchEvent(new Event(CHAT_CLOSE_REQUEST_EVENT));
+            } else {
+              setPanelActivated(true);
+              setOpen(true);
+            }
+          }}
+          aria-expanded={open}
+          aria-label={
+            open
+              ? "채팅 닫기"
+              : hasUnread
+                ? "채팅 열기 (새 메시지 있음)"
+                : "채팅 열기"
           }
-        }}
-        aria-expanded={open}
-        aria-label={
-          open
-            ? "채팅 닫기"
-            : hasUnread
-              ? "채팅 열기 (새 메시지 있음)"
-              : "채팅 열기"
-        }
-        title="채팅"
-        data-testid={floating ? "floating-chat-toggle" : undefined}
-        className={
-          floating
-            ? `fixed bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] right-4 ${floatingLayerClass} inline-flex h-14 w-14 items-center justify-center rounded-full border border-indigo-400/50 bg-indigo-600 text-white shadow-[0_10px_28px_rgba(49,46,129,0.4)] transition hover:-translate-y-0.5 hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 active:translate-y-0 sm:bottom-6 sm:right-6 dark:border-indigo-300/40 dark:bg-indigo-500 dark:hover:bg-indigo-400 dark:focus-visible:ring-offset-zinc-950 motion-reduce:transform-none`
-            : "relative inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-        }
-      >
-        {open ? (
-          <X size={floating ? 27 : 20} weight="bold" />
-        ) : (
-          <ChatCircle
-            size={floating ? 27 : 20}
-            weight={floating ? "fill" : "duotone"}
-          />
-        )}
-        {!open &&
-          (hasUnreadChat || hasUnreadTrade || hasUnreadGuild ? (
-            <span
-              aria-hidden
-              className={`absolute h-2.5 w-2.5 animate-pulse rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950 ${
-                floating ? "right-1.5 top-1.5" : "right-0.5 top-0.5"
-              }`}
-            />
+          title="채팅"
+          data-testid={floating ? "floating-chat-toggle" : undefined}
+          className={
+            floating
+              ? `fixed bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] right-4 ${CHAT_FLOATING_CLOSED_LAYER_CLASS} inline-flex h-14 w-14 items-center justify-center rounded-full border border-indigo-400/50 bg-indigo-600 text-white shadow-[0_10px_28px_rgba(49,46,129,0.4)] transition hover:-translate-y-0.5 hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 active:translate-y-0 sm:bottom-6 sm:right-6 dark:border-indigo-300/40 dark:bg-indigo-500 dark:hover:bg-indigo-400 dark:focus-visible:ring-offset-zinc-950 motion-reduce:transform-none`
+              : "relative inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          }
+        >
+          {open ? (
+            <X size={floating ? 27 : 20} weight="bold" />
           ) : (
-            hasUnreadNotice && (
-              // 보스 알림만 새로 있을 땐 덜 시끄러운 호박색 점으로.
+            <ChatCircle
+              size={floating ? 27 : 20}
+              weight={floating ? "fill" : "duotone"}
+            />
+          )}
+          {!open &&
+            (hasUnreadChat || hasUnreadTrade || hasUnreadGuild ? (
               <span
                 aria-hidden
-                className={`absolute h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white dark:ring-zinc-950 ${
+                className={`absolute h-2.5 w-2.5 animate-pulse rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950 ${
                   floating ? "right-1.5 top-1.5" : "right-0.5 top-0.5"
                 }`}
               />
-            )
-          ))}
-      </button>
+            ) : (
+              hasUnreadNotice && (
+                // 보스 알림만 새로 있을 땐 덜 시끄러운 호박색 점으로.
+                <span
+                  aria-hidden
+                  className={`absolute h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white dark:ring-zinc-950 ${
+                    floating ? "right-1.5 top-1.5" : "right-0.5 top-0.5"
+                  }`}
+                />
+              )
+            ))}
+        </button>
+      )}
       {panelActivated && (
         <ChatPanel
           open={open}

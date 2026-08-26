@@ -440,7 +440,8 @@ describe("최신 게임 안내서 내용", () => {
   it("귀환 보상·판매·영구 보존과 기존 조우 호환을 안내한다", () => {
     const html = renderToStaticMarkup(<PastimesContent />);
 
-    expect(html).toContain("남은 화물 가치 × 위험도 × 2%");
+    expect(html).toContain("남은 화물 가치 × 위험도 × 1%");
+    expect(html).not.toContain("남은 화물 가치 × 위험도 × 2%");
     expect(html).toContain("사고 후 남은 화물 가치");
     expect(html).toContain("화물 가치의 10배");
     expect(html).toContain("은행 예치금");

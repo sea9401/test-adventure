@@ -17,9 +17,57 @@ import { requireCurrentUgcConsent } from "@/lib/server/ugcSafety";
 
 type ActionBody = { action?: unknown; targetName?: unknown };
 
+type RoomRouteContext = { params: Promise<{ roomId: string }> };
+
+export async function GET(_req: Request, { params }: RoomRouteContext) {
+  const userId = await ensureUser();
+  if (!userId) return new Response("unauthorized", { status: 401 });
+  const { roomId: rawRoomId } = await params;
+  const roomId = Number(rawRoomId);
+  if (!Number.isInteger(roomId) || roomId <= 0) {
+    return new Response("invalid room id", { status: 400 });
+  }
+
+  const [membership] = await db
+    .select({ userId: chatRoomMembers.userId })
+    .from(chatRoomMembers)
+    .where(
+      and(
+        eq(chatRoomMembers.roomId, roomId),
+        eq(chatRoomMembers.userId, userId),
+      ),
+    )
+    .limit(1);
+  if (!membership) return new Response("not in room", { status: 403 });
+
+  const members = await db
+    .select({
+      userId: chatRoomMembers.userId,
+      name: users.gameName,
+      role: chatRoomMembers.role,
+      joinedAt: chatRoomMembers.joinedAt,
+    })
+    .from(chatRoomMembers)
+    .innerJoin(users, eq(users.id, chatRoomMembers.userId))
+    .where(eq(chatRoomMembers.roomId, roomId))
+    .orderBy(
+      asc(sql`case when ${chatRoomMembers.role} = 'owner' then 0 else 1 end`),
+      asc(chatRoomMembers.joinedAt),
+      asc(chatRoomMembers.userId),
+    );
+
+  return Response.json({
+    members: members.map((member) => ({
+      ...member,
+      name: member.name ?? "모험가",
+      joinedAt: member.joinedAt.getTime(),
+    })),
+  });
+}
+
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ roomId: string }> },
+  { params }: RoomRouteContext,
 ) {
   const userId = await ensureUser();
   if (!userId) return new Response("unauthorized", { status: 401 });

@@ -6,7 +6,7 @@ import { EquipmentTab } from "./EquipmentTab";
 const id = (value: string) => value as V2EquipmentId;
 
 describe("EquipmentTab 선택 판매", () => {
-  it("현재 장비 탭에서 등록 가능한 도감 항목 수와 일괄등록 버튼을 표시한다", () => {
+  it("현재 장비 탭에서 등록 가능한 도감 항목 수와 도감 일괄 등록 버튼을 표시한다", () => {
     const html = renderToStaticMarkup(
       <EquipmentTab
         slot="weapon"
@@ -36,9 +36,9 @@ describe("EquipmentTab 선택 판매", () => {
       />,
     );
 
-    expect(html).toContain(">도감<");
-    expect(html).toContain(">일괄등록 (1)<");
-    expect(html).not.toContain("도감 일괄등록 (1)");
+    expect(html).toContain(">도감 일괄 등록 (1)<");
+    expect(html).not.toContain(">도감<");
+    expect(html).not.toContain(">정리<");
   });
 
   it("선택 개수와 예상 골드를 표시하고 장착·잠금 장비 선택을 막는다", () => {
@@ -120,7 +120,10 @@ describe("EquipmentTab 정렬", () => {
     );
 
     expect(html).toContain('aria-label="장비 정렬 기준"');
+    expect(html).not.toContain(">정렬<");
     expect(html).toContain("최근 획득 · 최신부터");
+    expect(html).toContain("dark:[color-scheme:dark]");
+    expect(html).toContain("dark:bg-zinc-900 dark:text-zinc-100");
     expect(html).toContain('aria-label="가장 최근에 획득한 장비"');
     expect(html.indexOf('aria-label="한타검 정보"')).toBeLessThan(
       html.indexOf('aria-label="철검 정보"'),

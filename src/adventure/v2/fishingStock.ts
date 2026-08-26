@@ -68,6 +68,76 @@ export const FISHING_CATCH_ITEM_DAILY_CAP: Record<
   catch_legendary: 2,
 };
 
+export type FishingCatchItemDailyProgress = {
+  itemId: FishingCatchItemId;
+  name: string;
+  awarded: number;
+  cap: number;
+};
+
+export function fishingCatchItemDailyProgress(
+  stock: FishingStock,
+  dayKey: string,
+): FishingCatchItemDailyProgress[] {
+  const awarded = stock.daily?.date === dayKey ? stock.daily.awarded : {};
+  return FISHING_CATCH_ITEM_LIST.map((item) => ({
+    itemId: item.id,
+    name: item.name,
+    awarded: Math.min(
+      FISHING_CATCH_ITEM_DAILY_CAP[item.id],
+      awarded[item.id] ?? 0,
+    ),
+    cap: FISHING_CATCH_ITEM_DAILY_CAP[item.id],
+  }));
+}
+
+export function parseFishingCatchItemDailyProgress(
+  raw: unknown,
+): FishingCatchItemDailyProgress[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((entry): FishingCatchItemDailyProgress[] => {
+    if (!entry || typeof entry !== "object") return [];
+    const value = entry as Record<string, unknown>;
+    if (
+      typeof value.itemId !== "string" ||
+      !isFishingCatchItemId(value.itemId)
+    ) {
+      return [];
+    }
+    if (
+      typeof value.awarded !== "number" ||
+      typeof value.cap !== "number" ||
+      !Number.isFinite(value.awarded) ||
+      !Number.isFinite(value.cap)
+    ) {
+      return [];
+    }
+    const normalizedCap = Math.floor(value.cap);
+    if (normalizedCap <= 0) return [];
+    return [
+      {
+        itemId: value.itemId,
+        name: FISHING_CATCH_ITEMS[value.itemId].name,
+        awarded: Math.min(normalizedCap, nonNegativeInt(value.awarded)),
+        cap: normalizedCap,
+      },
+    ];
+  });
+}
+
+export function replaceFishingCatchItemDailyProgress(
+  rows: readonly FishingCatchItemDailyProgress[],
+  raw: unknown,
+): FishingCatchItemDailyProgress[] {
+  const [replacement] = parseFishingCatchItemDailyProgress([raw]);
+  if (!replacement || !rows.some((row) => row.itemId === replacement.itemId)) {
+    return rows.slice();
+  }
+  return rows.map((row) =>
+    row.itemId === replacement.itemId ? replacement : row,
+  );
+}
+
 const CATCH_ITEM_BY_TIER = Object.fromEntries(
   FISHING_CATCH_ITEM_LIST.map((item) => [item.tier, item]),
 ) as Record<FishTier, FishingCatchItem>;

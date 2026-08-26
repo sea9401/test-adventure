@@ -1,6 +1,6 @@
 "use client";
 
-import type { FocusEvent } from "react";
+import { useEffect, useRef, type FocusEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ChatButton } from "@/components/ChatButton";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
@@ -37,6 +37,8 @@ function selectNumericInputValue(event: FocusEvent<HTMLDivElement>) {
 }
 
 export function GameChrome({ children }: { children: React.ReactNode }) {
+  const chromeRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
   const router = useRouter();
   const {
@@ -69,6 +71,29 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
   const activeTab = gameTabForPath(pathname);
   // 스태미나 바 — 스태미나를 직접 사용하는 지정 화면에서만 노출한다.
   const showStamina = shouldShowStaminaBar(pathname);
+
+  useEffect(() => {
+    const chrome = chromeRef.current;
+    const header = headerRef.current;
+    if (!chrome || !header) return;
+
+    const syncHeaderHeight = () => {
+      const height = Math.ceil(header.getBoundingClientRect().height);
+      if (height > 0) {
+        chrome.style.setProperty("--game-header-height", `${height}px`);
+      }
+    };
+    syncHeaderHeight();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", syncHeaderHeight);
+      return () => window.removeEventListener("resize", syncHeaderHeight);
+    }
+
+    const observer = new ResizeObserver(syncHeaderHeight);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
 
   // 탭/화면별 배경 이미지 — 우선순위: 특정 화면(치료소·은행·상점·대장간·낚시터·사냥터·숙련의 탑·아레나·대련장)
   // > 거점 탭(모험/마을/캐릭터) > 길드 > 광장 > 전투 탭. 거점 탭은 현 위치 거점 종류별
@@ -112,10 +137,13 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <div
+      ref={chromeRef}
+      data-game-chrome
       className="game-desktop-compact"
       onFocusCapture={selectNumericInputValue}
     >
       <header
+        ref={headerRef}
         data-game-header
         className={`${SURFACE_GAME_HEADER} sticky top-0 z-[60] pt-[env(safe-area-inset-top)]`}
       >

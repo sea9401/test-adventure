@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 
 const SLIDE_INTERVAL_MS = 6_000;
@@ -77,26 +78,44 @@ export function LandingBackgroundSlideshow() {
     >
       <div aria-hidden className="absolute inset-0 bg-zinc-950">
         {LANDING_SLIDES.map((slide, index) => (
-          <Image
+          <div
             key={slide.src}
-            src={slide.src}
-            alt=""
-            fill
-            sizes="100vw"
-            preload={index === 0}
-            onError={() => {
-              failedIndexesRef.current.add(index);
-              if (index === activeIndex) {
-                setActiveIndex((current) =>
-                  nextAvailableSlideIndex(current, failedIndexesRef.current),
-                );
-              }
-            }}
-            className={`object-cover transition-opacity duration-1000 motion-reduce:transition-none ${
+            className={`absolute inset-0 transition-opacity duration-1000 motion-reduce:transition-none ${
               index === activeIndex ? "opacity-100" : "opacity-0"
             }`}
-            style={{ objectPosition: slide.position }}
-          />
+            style={
+              {
+                "--landing-desktop-position": slide.position,
+              } as CSSProperties
+            }
+          >
+            <Image
+              data-landing-image-layer="mobile-backdrop"
+              src={slide.src}
+              alt=""
+              fill
+              sizes="100vw"
+              className="scale-110 object-cover brightness-[0.35] blur-xl sm:hidden"
+              style={{ objectPosition: slide.position }}
+            />
+            <Image
+              data-landing-image-layer="scene"
+              src={slide.src}
+              alt=""
+              fill
+              sizes="100vw"
+              preload={index === 0}
+              onError={() => {
+                failedIndexesRef.current.add(index);
+                if (index === activeIndex) {
+                  setActiveIndex((current) =>
+                    nextAvailableSlideIndex(current, failedIndexesRef.current),
+                  );
+                }
+              }}
+              className="object-contain object-top sm:object-cover sm:[object-position:var(--landing-desktop-position)]"
+            />
+          </div>
         ))}
         <div className="absolute inset-0 bg-gradient-to-r from-black via-black/75 to-black/25" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/75" />

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   FISH_TIERS,
   formatFishSize,
@@ -20,8 +20,10 @@ import { FishingSubTabs } from "@/adventure/v2/FishingSubTabs";
 import { FishIcon } from "@/adventure/v2/FishIcon";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { FishingCatchItemIcon } from "@/adventure/v2/FishingCatchItemIcon";
+import { FishingDailyCatchChecklist } from "@/adventure/v2/FishingDailyCatchChecklist";
 import {
   isFishingCatchItemId,
+  type FishingCatchItemDailyProgress,
 } from "@/adventure/v2/fishingStock";
 import {
   FISHING_LURES,
@@ -89,12 +91,7 @@ export type ReelOutcome =
         dailyCap: number;
       };
       catchItemStatus?: "awarded" | "roll_miss" | "daily_cap";
-      catchItemDaily?: {
-        itemId: string;
-        name: string;
-        awarded: number;
-        cap: number;
-      };
+      catchItemDaily?: FishingCatchItemDailyProgress;
       /** 오늘 챔질로 획득한 낚시 코인 진행도. */
       dailyCatchCoins?: FishingDailyCatchCoins;
       /** 낚시 레벨 상승으로 받은 별도 낚시 코인 보상. */
@@ -141,6 +138,7 @@ export type FishingHandlers = {
   cast: () => Promise<CastOutcome>;
   reel: (castId: string, reactionMs: number) => Promise<ReelOutcome>;
   dailyCatchCoins?: FishingDailyCatchCoins | null;
+  dailyCatchItems?: FishingCatchItemDailyProgress[] | null;
   progression?: FishingProgressionView | null;
   progressionLoading?: boolean;
   challengeBadgeCount?: number;
@@ -218,7 +216,7 @@ function FishingStatusStrip({
   fishingSpot?: FishingSpot;
 }) {
   return (
-    <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-2.5 py-2 text-xs text-zinc-700 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-zinc-200">
+    <div className={`${SURFACE_INSET} px-2.5 py-2 text-xs text-zinc-700 dark:text-zinc-200`}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <div className="w-full min-w-0 sm:w-auto sm:flex-1">
           <MulttaeBadge compact />
@@ -1460,6 +1458,7 @@ export function FishingView({
   cast,
   reel,
   dailyCatchCoins,
+  dailyCatchItems,
   onBack,
   onOpenLeaderboard,
   onOpenDangerous,
@@ -1737,6 +1736,10 @@ export function FishingView({
           streak={streak}
           fishingSpot={fishingSpot}
         />
+
+        {dailyCatchItems && dailyCatchItems.length > 0 ? (
+          <FishingDailyCatchChecklist items={dailyCatchItems} />
+        ) : null}
 
         {progression ? (
           <>

@@ -290,7 +290,7 @@ export function LoadoutStatResponsiveLayout({
         </div>
         {children}
       </div>
-      <aside className="sticky top-3 hidden lg:block">
+      <aside className="sticky top-[calc(var(--game-header-height,4rem)+0.75rem)] hidden lg:block">
         <LoadoutStatSummary current={current} delta={delta} />
       </aside>
     </div>

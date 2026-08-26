@@ -47,6 +47,7 @@ export type ReplayPayload = {
     // 전투 스탯 — 전투창 적 칸 공/방/속(+상세) 표기용. 옛 payload(이전 배포본·PvP)엔
     //   없을 수 있어 optional — 없으면 BattleScene 이 스탯 줄을 생략(크래시 방지).
     atk?: number;
+    magicAtk?: number;
     def?: number;
     magicDef?: number;
     spd?: number;
@@ -212,6 +213,7 @@ function replayPvpEnemy(
     name,
     hp: side.maxHp,
     atk: combat.atk,
+    magicAtk: combat.magicAtk,
     def: combat.def,
     magicDef: combat.magicDef,
     spd: combat.spd,
@@ -251,6 +253,10 @@ export function toPvpReplayPayloadForSide(
         playerMaxMp: e.enemyMaxMp,
         enemyMp: e.playerMp,
         enemyMaxMp: e.playerMaxMp,
+        playerMagicBarrier: e.enemyMagicBarrier,
+        playerMagicBarrierMax: e.enemyMagicBarrierMax,
+        enemyMagicBarrier: e.playerMagicBarrier,
+        enemyMagicBarrierMax: e.playerMagicBarrierMax,
         playerSignatureResources: e.enemySignatureResources,
         enemySignatureResources: e.playerSignatureResources,
       };

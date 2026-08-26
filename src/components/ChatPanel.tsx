@@ -22,9 +22,7 @@ import {
   LockSimple,
   Plus,
   ShieldChevron,
-  SignOut,
   Storefront,
-  UserPlus,
   X,
 } from "@phosphor-icons/react";
 import { isNoticeMessage } from "@/lib/chat-config";
@@ -41,6 +39,7 @@ import {
   chatNameClass,
 } from "./chat/ChatCosmetics";
 import { ChatRoomManager } from "./chat/ChatRoomManager";
+import { ChatCustomRoomActions } from "./chat/ChatCustomRoomActions";
 import {
   CHAT_CLOSE_BUTTON_CLASS,
   CHAT_HEADER_CLASS,
@@ -1162,32 +1161,21 @@ export function ChatPanel({
                 )}
               </button>
             )}
-            {activeCustomRoom?.role === "owner" && (
-              <button
-                type="button"
-                onClick={() => {
+            {activeCustomRoom && (
+              <ChatCustomRoomActions
+                key={activeCustomRoom.id}
+                room={activeCustomRoom}
+                inviteOpen={inviteOpen}
+                roomActionBusy={roomActionBusy}
+                onToggleInvite={() => {
                   setInviteOpen((value) => !value);
                   setInviteFeedback(null);
                 }}
-                aria-expanded={inviteOpen}
-                aria-label="사용자 초대"
-                title="사용자 초대"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                <UserPlus size={19} weight="duotone" />
-              </button>
-            )}
-            {activeCustomRoom && (
-              <button
-                type="button"
-                disabled={roomActionBusy}
-                onClick={leaveCustomRoom}
-                aria-label="채팅방 나가기"
-                title="채팅방 나가기"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed dark:text-zinc-300 dark:hover:bg-rose-950 dark:hover:text-rose-300"
-              >
-                <SignOut size={19} weight="duotone" />
-              </button>
+                onLeave={leaveCustomRoom}
+                onSelectName={(memberName) =>
+                  router.push(`/profile/${encodeURIComponent(memberName)}`)
+                }
+              />
             )}
             <button
               type="button"

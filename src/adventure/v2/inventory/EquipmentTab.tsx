@@ -113,24 +113,16 @@ export function EquipmentTab({
           {/* 정리(일괄 판매) — 현재 탭 슬롯, 장착·잠금만 제외(전 장비 판매 가능) */}
           <div className="flex flex-wrap items-center gap-1">
             {!selection.active && codexBulk ? (
-              <>
-                <span className="mr-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
-                  도감
-                </span>
-                <Button
-                  onClick={codexBulk.onStart}
-                  disabled={busy !== null || codexBulk.registerableCount === 0}
-                  variant="success"
-                  size="xs"
-                  className="mr-1 min-h-0 px-2 py-0.5 text-[11px]"
-                >
-                  일괄등록 ({codexBulk.registerableCount})
-                </Button>
-              </>
+              <Button
+                onClick={codexBulk.onStart}
+                disabled={busy !== null || codexBulk.registerableCount === 0}
+                variant="success"
+                size="xs"
+                className="mr-1 min-h-0 px-2 py-0.5 text-[11px]"
+              >
+                도감 일괄 등록 ({codexBulk.registerableCount})
+              </Button>
             ) : null}
-            <span className="mr-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
-              정리
-            </span>
             {selection.active ? (
               <span className="text-xs font-medium text-rose-600 dark:text-rose-300">
                 판매할 장비를 선택하세요
@@ -197,25 +189,26 @@ export function EquipmentTab({
               </>
             )}
           </div>
-          <label className="flex min-h-8 items-center gap-1.5 rounded-lg border border-zinc-300 bg-white pl-2 pr-1 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-              정렬
-            </span>
+          <div className="flex min-h-8 items-center rounded-lg border border-zinc-300 bg-white px-1 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             <select
               aria-label="장비 정렬 기준"
               value={sortMode}
               onChange={(event) =>
                 setSortMode(event.currentTarget.value as SortMode)
               }
-              className="min-h-7 rounded-md border-0 bg-transparent py-0.5 pl-1 pr-6 text-xs font-semibold text-zinc-800 outline-none focus:ring-2 focus:ring-violet-500 dark:text-zinc-100"
+              className="min-h-7 rounded-md border-0 bg-white py-0.5 pl-1 pr-6 text-xs font-semibold text-zinc-800 [color-scheme:light] outline-none focus:ring-2 focus:ring-violet-500 dark:bg-zinc-900 dark:text-zinc-100 dark:[color-scheme:dark]"
             >
               {INVENTORY_SORT_OPTIONS.map((option) => (
-                <option key={option.key} value={option.key}>
+                <option
+                  key={option.key}
+                  value={option.key}
+                  className="bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100"
+                >
                   {option.label}
                 </option>
               ))}
             </select>
-          </label>
+          </div>
         </div>
       )}
       <EquipmentCardGrid

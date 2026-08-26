@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { renderToStaticMarkup } from "react-dom/server";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { CompactBattlePlayerStatus } from "./CompactBattlePlayerStatus";
 
@@ -14,8 +13,8 @@ describe("사냥터 캐릭터 정보", () => {
     cleanup();
   });
 
-  it("상세 정보를 열지 않아도 숙련도와 HP·MP 충전약 잔량을 고정된 줄로 보여준다", () => {
-    const html = renderToStaticMarkup(
+  it("상세 정보를 접으면 숙련도와 HP·MP 충전약 잔량을 고정된 줄로 보여준다", async () => {
+    const { container } = render(
       <CompactBattlePlayerStatus
         name="모험가"
         subtitle="전투 Lv.100 / 100 · 바람 마법사"
@@ -31,20 +30,25 @@ describe("사냥터 캐릭터 정보", () => {
       </CompactBattlePlayerStatus>,
     );
 
-    const summary = html.match(/<summary[^>]*>([\s\S]*?)<\/summary>/)?.[1];
+    const summary = container.querySelector("summary");
+    if (!summary) throw new Error("summary not found");
+    fireEvent.click(summary);
+    await waitFor(() =>
+      expect(container.querySelector("details")?.open).toBe(false),
+    );
 
-    expect(summary).toContain("HP 충전약 17");
-    expect(summary).toContain("MP 충전약 9");
-    expect(summary).toContain("직업 숙련도 7,562");
-    expect(summary?.match(/data-recovery-charge=/g)).toHaveLength(2);
-    expect(summary).toContain('data-recovery-charge="hp"');
-    expect(summary).toContain('data-recovery-charge="mp"');
-    expect(summary).toContain("text-[15px]");
-    expect(summary).toContain("text-[12px]");
+    expect(summary.textContent).toContain("HP 충전약 17");
+    expect(summary.textContent).toContain("MP 충전약 9");
+    expect(summary.textContent).toContain("직업 숙련도 7,562");
+    expect(summary.querySelectorAll("[data-recovery-charge]")).toHaveLength(2);
+    expect(summary.querySelector('[data-recovery-charge="hp"]')).not.toBeNull();
+    expect(summary.querySelector('[data-recovery-charge="mp"]')).not.toBeNull();
+    expect(summary.innerHTML).toContain("text-[15px]");
+    expect(summary.innerHTML).toContain("text-[12px]");
   });
 
-  it("MP를 사용하지 않는 캐릭터는 HP 충전약 한 줄만 보여준다", () => {
-    const html = renderToStaticMarkup(
+  it("MP를 사용하지 않는 캐릭터는 접힌 요약에 HP 충전약 한 줄만 보여준다", async () => {
+    const { container } = render(
       <CompactBattlePlayerStatus
         name="전사"
         hp={{ hp: 120, maxHp: 200 }}
@@ -57,10 +61,16 @@ describe("사냥터 캐릭터 정보", () => {
       </CompactBattlePlayerStatus>,
     );
 
-    const summary = html.match(/<summary[^>]*>([\s\S]*?)<\/summary>/)?.[1];
-    expect(summary?.match(/data-recovery-charge=/g)).toHaveLength(1);
-    expect(summary).toContain('data-recovery-charge="hp"');
-    expect(summary).not.toContain('data-recovery-charge="mp"');
+    const summary = container.querySelector("summary");
+    if (!summary) throw new Error("summary not found");
+    fireEvent.click(summary);
+    await waitFor(() =>
+      expect(container.querySelector("details")?.open).toBe(false),
+    );
+
+    expect(summary.querySelectorAll("[data-recovery-charge]")).toHaveLength(1);
+    expect(summary.querySelector('[data-recovery-charge="hp"]')).not.toBeNull();
+    expect(summary.querySelector('[data-recovery-charge="mp"]')).toBeNull();
   });
 
   it("저장된 선택이 없으면 상세 정보를 펼친 상태로 시작한다", () => {
@@ -70,6 +80,13 @@ describe("사냥터 캐릭터 정보", () => {
     expect(container.querySelector("summary")?.textContent).toContain(
       "간략히 보기",
     );
+  });
+
+  it("상세 정보를 펼치면 상세 카드와 겹치는 상단 요약을 숨긴다", () => {
+    const { container } = renderPlayerStatus();
+    const summary = container.querySelector("summary");
+
+    expect(summary?.textContent).toBe("간략히 보기");
   });
 
   it("마지막 접기·펼치기 상태를 사냥터에 다시 들어왔을 때 복원한다", async () => {

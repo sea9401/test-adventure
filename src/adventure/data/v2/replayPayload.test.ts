@@ -389,6 +389,35 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
     expect(p.playerMp).toBe(40);
   });
 
+  it("상대가 마공을 대표 표시할 때 실제 마공 수치를 리플레이에 보존한다", () => {
+    const finalState = {
+      p1: { maxHp: 600, maxMp: 100, mp: 40 },
+      p2: {
+        maxHp: 450,
+        maxMp: 80,
+        mp: 25,
+        player: {
+          atk: 95,
+          magicAtk: 1_060,
+          def: 132,
+          spd: 301,
+          evasionPct: 18,
+          attackCount: 1,
+          displayAttack: "magic",
+        },
+      },
+      log: [],
+    } as unknown as Parameters<typeof toPvpReplayPayload>[0];
+
+    const replay = toPvpReplayPayload(finalState, "라샤");
+
+    expect(replay.enemy).toMatchObject({
+      atk: 95,
+      magicAtk: 1_060,
+      displayAttack: "magic",
+    });
+  });
+
   it("PvP 관점 변환은 양쪽 전투 스탯을 함께 뒤집고 PvP 판정을 보존한다", () => {
     const finalState = {
       p1: {

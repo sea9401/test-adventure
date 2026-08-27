@@ -31,8 +31,17 @@ import type {
 } from "@/lib/admin-chat-monitor";
 import { parseChatEquipmentLink } from "@/lib/chat-item-link";
 
-const toIso = (value: Date | null | undefined) =>
-  value ? value.toISOString() : null;
+const toIso = (value: Date | string | null | undefined) => {
+  if (!value) return null;
+  const mapped =
+    typeof value === "string"
+      ? messages.createdAt.mapFromDriverValue(value)
+      : value;
+  if (!(mapped instanceof Date)) {
+    throw new TypeError("invalid admin chat timestamp");
+  }
+  return mapped.toISOString();
+};
 
 function targetSearchText(target: AdminChatTarget): string {
   const id = "scopeId" in target ? String(target.scopeId) : "";

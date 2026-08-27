@@ -1,11 +1,34 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PgDialect } from "drizzle-orm/pg-core";
 import type { AdminChatTarget } from "@/lib/admin-chat-monitor";
 import {
   adminChatMessageWhere,
   buildAdminChatMessagePage,
   paginateAdminChatTargets,
+  readAdminChatTargets,
 } from "./adminChatMonitor";
+
+const mocks = vi.hoisted(() => ({
+  select: vi.fn(),
+}));
+
+vi.mock("@/db", () => ({
+  db: { select: mocks.select },
+}));
+
+function queryRows(rows: readonly unknown[]) {
+  const query = {
+    from: () => query,
+    leftJoin: () => query,
+    where: () => query,
+    groupBy: () => query,
+    then: (
+      resolve: (value: readonly unknown[]) => unknown,
+      reject: (reason: unknown) => unknown,
+    ) => Promise.resolve(rows).then(resolve, reject),
+  };
+  return query;
+}
 
 const targets: AdminChatTarget[] = [
   {
@@ -110,6 +133,41 @@ describe("paginateAdminChatTargets", () => {
     ]);
     expect(page.total).toBe(5);
     expect(page.hasMore).toBe(true);
+  });
+});
+
+describe("readAdminChatTargets", () => {
+  beforeEach(() => {
+    mocks.select.mockReset();
+  });
+
+  it("SQL 집계 시각이 문자열이어도 ISO 시각으로 직렬화한다", async () => {
+    mocks.select
+      .mockReturnValueOnce(
+        queryRows([
+          {
+            channel: "global",
+            latestMessageAt: "2026-08-27 21:36:00",
+          },
+        ]),
+      )
+      .mockReturnValueOnce(queryRows([]))
+      .mockReturnValueOnce(queryRows([]))
+      .mockReturnValueOnce(queryRows([]))
+      .mockReturnValueOnce(queryRows([]));
+
+    const result = await readAdminChatTargets({
+      kind: "all",
+      visibility: "all",
+      q: "",
+      offset: 0,
+      limit: 50,
+    });
+
+    expect(result.targets[0]).toMatchObject({
+      targetKey: "global",
+      latestMessageAt: "2026-08-27T21:36:00.000Z",
+    });
   });
 });
 

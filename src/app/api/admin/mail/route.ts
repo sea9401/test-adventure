@@ -14,7 +14,7 @@ import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { normalizeAdventureSupportGrantDays } from "@/adventure/data/v2/adventureSupport";
 import { isMuseunAdminGiftItemId } from "@/adventure/data/v2/museunCashItems";
-import { isCookingKitchenItemId } from "@/adventure/v2/cooking/kitchen";
+import { isCookingStoredIngredientId } from "@/adventure/v2/cooking/storedIngredients";
 
 // POST /api/admin/mail — 운영자 대량 우편(골드/재료/요리 재료/장비/소비템/무슨 코인 + 메시지)을
 // 한 유저 또는 전체 유저에게 발송.
@@ -86,7 +86,7 @@ function parseAttachCookingIngredients(
       typeof row.count === "number" && Number.isFinite(row.count)
         ? Math.trunc(row.count)
         : 0;
-    if (isCookingKitchenItemId(ingredientId) && count > 0) {
+    if (isCookingStoredIngredientId(ingredientId) && count > 0) {
       out.push({ ingredientId, count: Math.min(count, MAX_COUNT) });
     }
   }

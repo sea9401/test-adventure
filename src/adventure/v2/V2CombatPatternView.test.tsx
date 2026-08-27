@@ -11,8 +11,10 @@ import {
   V2CombatPatternView,
   ENEMY_DEBUFF_OPTIONS,
   combatPatternSkillChoices,
+  enemyStatusConditionOptions,
   filterPatternChoiceOptions,
   resonanceMaterialSkillIds,
+  withEnemyStatusConditionMode,
 } from "./V2CombatPatternView";
 
 const OPTIONS = [
@@ -176,7 +178,7 @@ describe("combat pattern choice controls", () => {
     expect(html).toContain('value="100"');
   });
 
-  it("전투 자원 조건은 충격·철벽 반사·각인·중량만 표시한다", () => {
+  it("전투 자원 조건은 혈맥 폭발 준비를 0/1 자원으로 표시한다", () => {
     const html = renderToStaticMarkup(
       <ConditionParams
         condition={{
@@ -217,17 +219,29 @@ describe("combat pattern choice controls", () => {
         }}
         onChange={vi.fn()}
       />,
+    ) + renderToStaticMarkup(
+      <ConditionParams
+        condition={{
+          kind: "self_resource",
+          resource: "bloodlineBurstReady",
+          op: "atLeast",
+          value: 1,
+        }}
+        onChange={vi.fn()}
+      />,
     );
 
     expect(html).toContain("충격");
     expect(html).toContain("철벽 반사");
     expect(html).toContain("각인 총합");
     expect(html).toContain("중량");
+    expect(html).toContain("혈맥 폭발 준비");
     expect(html).not.toContain("분열체");
     expect(html).toContain('max="8"');
     expect(html).toContain("없을 때");
     expect(html).toContain("이상");
     expect(html).toContain('value="3"');
+    expect(html).toContain('max="1"');
   });
 
   it("한기 조건은 5스택 상한을 표시한다", () => {
@@ -246,6 +260,51 @@ describe("combat pattern choice controls", () => {
     expect(html).toContain("한기");
     expect(html).toContain('max="5"');
     expect(html).toContain('value="4"');
+  });
+
+  it("중독·출혈에는 남은 횟수 조건을 제공하고 마법취약·한기는 스택만 제공한다", () => {
+    expect(
+      enemyStatusConditionOptions("poison").map((option) => option.label),
+    ).toEqual([
+      "스택 이상",
+      "스택 이하",
+      "스택 없을 때",
+      "횟수 이상",
+      "횟수 이하",
+      "횟수 없을 때",
+    ]);
+    expect(
+      enemyStatusConditionOptions("bleed").map((option) => option.label),
+    ).toContain("횟수 이하");
+    expect(
+      enemyStatusConditionOptions("vuln").map((option) => option.label),
+    ).toEqual(["스택 이상", "스택 이하", "스택 없을 때"]);
+    expect(
+      enemyStatusConditionOptions("frostChill").map((option) => option.label),
+    ).not.toContain("횟수 이상");
+  });
+
+  it("남은 횟수 선택은 저장 조건에 기준을 넣고 스택 선택은 기존 형태를 유지한다", () => {
+    const condition = {
+      kind: "enemy_status" as const,
+      tag: "poison" as const,
+      op: "atLeast" as const,
+      stacks: 2,
+    };
+
+    expect(withEnemyStatusConditionMode(condition, "turnsAtMost")).toEqual({
+      kind: "enemy_status",
+      tag: "poison",
+      metric: "remainingTurns",
+      op: "atMost",
+      stacks: 2,
+    });
+    expect(
+      withEnemyStatusConditionMode(
+        { ...condition, metric: "remainingTurns" },
+        "stacksAtLeast",
+      ),
+    ).toEqual(condition);
   });
 
   it("renders the selected action skill as a large dialog trigger", () => {

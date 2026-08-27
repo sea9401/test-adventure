@@ -456,7 +456,7 @@ export type SignatureEffect = {
   label: string;
   /** 6티어 단품 유니크의 데이터 주도 메커니즘. 세트 태그와 독립이다. */
   mechanic?: Tier6UniqueMechanic;
-  /** low_hp: 현재 HP 가 maxHp 의 이 % 이하일 때 효과 활성. */
+  /** low_hp: 피격 직전 현재 HP 가 maxHp 의 이 % 이하일 때 효과 활성. */
   hpThresholdPct?: number;
   /** low_hp: 받는 피해 −% (조건 충족 시). */
   damageTakenReductionPct?: number;
@@ -508,7 +508,7 @@ export function signatureLabel(sig: SignatureEffect): string {
     case "battle_start":
       return `전투 시작 시 최대 HP의 ${sig.battleStartShieldPctMaxHp ?? 0}% 보호막`;
     case "low_hp":
-      return `체력 ${sig.hpThresholdPct ?? 0}% 이하일 때 받는 피해 −${sig.damageTakenReductionPct ?? 0}%`;
+      return `피격 직전 체력 ${sig.hpThresholdPct ?? 0}% 이하일 때 받는 피해 −${sig.damageTakenReductionPct ?? 0}%`;
     case "on_heal":
       return `회복 시 회복량의 ${sig.healToShieldPct ?? 0}% 보호막`;
     case "on_dodge":
@@ -553,7 +553,7 @@ export function signatureLabel(sig: SignatureEffect): string {
         gravity_reprisal: "보호막 파괴 시 충격의 35%를 저장해 다음 직접 공격으로 반격",
         gravity_feedback: "보호막 획득량의 20%를 반발로 저장하고 반발 시 최대 HP 5% 보호막",
         bleed_burst: "기본 공격 시 출혈을 소비하지 않고 남은 피해의 50%를 즉시 적용 (4행동당 1회)",
-        bleed_aftermath: "출혈 폭발 시 출혈 1스택 추가 및 현재 출혈 중첩당 방어 3% 감소",
+        bleed_aftermath: "출혈 폭발 시 출혈 지속을 최소 5회로 갱신하고 현재 출혈 중첩당 방어 3% 감소",
         pursuit_mark: "연속 적중 5회마다 직전 공격 피해 60%의 추적 사격",
         shadow_echo: "회피로 잔상을 쌓아 다음 치명타 피해의 45%를 복제",
         venom_burst: "스킬로 중독을 쌓고 기본 공격으로 5스택 이상 중독을 폭발",

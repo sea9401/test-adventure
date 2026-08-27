@@ -34,6 +34,7 @@ describe("낚시 상점 숙련도 표시", () => {
     );
 
     expect(html).toContain("숙련도 효과 · 특별 손님 +24.12%");
+    expect(html).toContain("숙련도 효과 · 어획물 획득 40%");
     expect(html).toContain("장착 총합 · 특별 손님 +54.12%");
     expect(html).not.toContain("54.120000000000005");
   });

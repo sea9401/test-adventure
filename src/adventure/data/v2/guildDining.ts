@@ -234,6 +234,11 @@ export type GuildDiningActiveEffect = {
   roundingRemainder: number;
 };
 
+export type GuildDiningEffectSummary = Omit<
+  GuildDiningActiveEffect,
+  "roundingRemainder"
+> & { name: string };
+
 export type GuildDiningUserState = {
   version: 1;
   weekKey: string;

@@ -76,6 +76,8 @@ import {
   spendTier7FirstUnlockMaterial,
   tier7AdvancementStatus,
 } from "@/adventure/data/v2/tier7Advancement";
+import { rollInitialLifeResourceGrowth } from "@/adventure/data/v2/lifeResourceGrowth";
+import { lifeResourceRangesForProficiency } from "@/adventure/data/v2/statGrowth";
 
 // POST /api/v2/me/advance-class.
 // 코어루프 on: targetJobId 로 직업을 선택해 재전직한다. 게이트는 현재 직업별 필요 레벨 +
@@ -303,11 +305,20 @@ export async function POST(req: Request) {
         completedCombatCycle
           ? addReincarnation(resetProf)
           : resetProf;
-      const nextProf = addJobHistory(
+      const historyProf = addJobHistory(
         rejobProf,
         currentJobId,
         targetJobId,
       );
+      const lifeResourceRanges = completedCombatCycle
+        ? lifeResourceRangesForProficiency(historyProf)
+        : null;
+      const lifeResourceGrowth = lifeResourceRanges
+        ? rollInitialLifeResourceGrowth(lifeResourceRanges)
+        : null;
+      const nextProf = lifeResourceGrowth
+        ? { ...historyProf, lifeResourceGrowth }
+        : historyProf;
       const codexBonus = await readCodexSpBonus(tx, userId);
       // 코어루프 — 환생: 모아둔 로드아웃 보존 + SP 예산 초과분만 빠진다(강제 재산출 아님 →
       //   타직업 공용/기본기 오픈믹스 수집분 유지). 예산은 tier 1 정규화 기준(정복 보너스 빠짐).
@@ -334,6 +345,16 @@ export async function POST(req: Request) {
           spec: targetSpec,
           reincarnated: true as const,
           revisitExpedited: revisitingTarget,
+          ...(lifeResourceGrowth && lifeResourceRanges
+            ? {
+                lifeResources: {
+                  maxHp: lifeResourceGrowth.baseHp,
+                  maxMp: lifeResourceGrowth.baseMp,
+                  hpPerLevel: lifeResourceRanges.hpPerLevel,
+                  mpPerLevel: lifeResourceRanges.mpPerLevel,
+                },
+              }
+            : {}),
         },
       };
     }
@@ -417,9 +438,18 @@ export async function POST(req: Request) {
     // points/숙련도/caps 는 보존(전직해도 잔액·숙련도·수행이득 유지). 위에서 잠가 읽은 prof 재사용.
     // 환생(4차 정점→1차)일 때만 환생 1회 기록 — 일반 차수 승급은 환생이 아니므로 제외.
     const advancedProf = setGroupTier(resetLevelGrowth(prof), group, nextTier);
-    const nextProf = isReincarnate
+    const reincarnatedProf = isReincarnate
       ? addReincarnation(advancedProf)
       : advancedProf;
+    const lifeResourceRanges = isReincarnate
+      ? lifeResourceRangesForProficiency(reincarnatedProf)
+      : null;
+    const lifeResourceGrowth = lifeResourceRanges
+      ? rollInitialLifeResourceGrowth(lifeResourceRanges)
+      : null;
+    const nextProf = lifeResourceGrowth
+      ? { ...reincarnatedProf, lifeResourceGrowth }
+      : reincarnatedProf;
     await upsertSave(tx, userId, "proficiency.v2", nextProf);
 
     return {
@@ -429,6 +459,16 @@ export async function POST(req: Request) {
         class: curClass,
         tier: nextTier,
         reincarnated: isReincarnate,
+        ...(lifeResourceGrowth && lifeResourceRanges
+          ? {
+              lifeResources: {
+                maxHp: lifeResourceGrowth.baseHp,
+                maxMp: lifeResourceGrowth.baseMp,
+                hpPerLevel: lifeResourceRanges.hpPerLevel,
+                mpPerLevel: lifeResourceRanges.mpPerLevel,
+              },
+            }
+          : {}),
       },
     };
   });

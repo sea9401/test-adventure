@@ -421,7 +421,14 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(savesStore.get("u1::inventory.v2")).toBeUndefined();
   });
 
-  it("admin_gift 요리 재료는 cooking.v2의 기존 보유량에 누적한다", async () => {
+  it("admin_gift 요리 재료를 원래 농장·낚시·주방 보관함에 누적한다", async () => {
+    savesStore.set("u1::farm.v2", {
+      inventory: { wheat: 2 },
+    });
+    savesStore.set("u1::fishing-stock.v1", {
+      version: 1,
+      items: { catch_legendary: 1 },
+    });
     savesStore.set("u1::cooking.v2", {
       kitchenItems: { "pantry:salt": 3 },
     });
@@ -430,6 +437,8 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
       kind: "admin_gift",
       payload: {
         cookingIngredients: [
+          { ingredientId: "farm:wheat", count: 5 },
+          { ingredientId: "fishing:catch_legendary", count: 2 },
           { ingredientId: "pantry:salt", count: 4 },
           { ingredientId: "processed:flour", count: 3 },
         ],
@@ -444,6 +453,8 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
 
     expect(response.status).toBe(200);
     expect(json.cookingIngredientsAdded).toEqual([
+      { ingredientId: "farm:wheat", count: 5 },
+      { ingredientId: "fishing:catch_legendary", count: 2 },
       { ingredientId: "pantry:salt", count: 4 },
       { ingredientId: "processed:flour", count: 3 },
     ]);
@@ -453,7 +464,12 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
         "processed:flour": 3,
       },
     });
-    expect(savesStore.get("u1::character.v2")).toBeUndefined();
+    expect(savesStore.get("u1::farm.v2")).toMatchObject({
+      inventory: { wheat: 7 },
+    });
+    expect(savesStore.get("u1::fishing-stock.v1")).toMatchObject({
+      items: { catch_legendary: 3 },
+    });
     expect(savesStore.get("u1::inventory.v2")).toBeUndefined();
   });
 

@@ -9,6 +9,7 @@ import {
   V2_SKILLS,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
+import { resolveElementalResonanceLoadout } from "@/adventure/data/v2/elementalResonance";
 import { STAT_LABELS } from "@/adventure/data/stats";
 import type { V2EquipSlot } from "@/adventure/data/v2/v2Equipment";
 import {
@@ -89,6 +90,7 @@ const SELF_RESOURCE_LABEL = {
   ironWallReflect: "철벽 반사",
   inscription: "각인 총합",
   weight: "중량",
+  bloodlineBurstReady: "혈맥 폭발 준비",
 } as const;
 
 const ENEMY_DEBUFF_LABEL: Record<V2PatternEnemyDebuff, string> = {
@@ -201,8 +203,12 @@ export function arenaLoadoutIssueSummary(
     buff: "buff",
     debuff: "debuff",
   } as const;
+  const activeCombatSkillIds = resolveElementalResonanceLoadout({
+    learned: loadout.skills,
+    equipped: loadout.skills,
+  }).activeCombatSkillIds;
   const uncoveredActiveSkills = loadout.pattern
-    ? loadout.skills.flatMap((id) => {
+    ? activeCombatSkillIds.flatMap((id) => {
         const skill = V2_SKILLS[id];
         if (!skill || skill.passive || skill.category === "passive") return [];
         const role = categoryRole[skill.category];

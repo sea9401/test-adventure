@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Monster } from "@/adventure/data/monsters";
 import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
+import type { V2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { applyPlayerV2SkillCast, initialBattleState } from "./engine";
 import { resolveEnemyPhase } from "./engine.enemyPhase";
 import { resolvePlayerPhase } from "./engine.playerPhase";
@@ -32,6 +33,34 @@ const basePlayer: PlayerCombat = {
   evasionPct: 0,
   attackCount: 1,
   critChancePct: 0,
+};
+
+const bloodlinePatternSkills: V2SkillsState = {
+  learned: ["v2c_warrior_flurry"],
+  equipped: ["v2c_warrior_flurry"],
+  pattern: {
+    blocks: [
+      {
+        condition: {
+          kind: "all",
+          conditions: [
+            { kind: "enemy_status", tag: "bleed", op: "atLeast", stacks: 5 },
+            {
+              kind: "self_resource",
+              resource: "bloodlineBurstReady",
+              op: "atLeast",
+              value: 1,
+            },
+          ],
+        },
+        action: { kind: "basic_attack" },
+      },
+      {
+        condition: { kind: "always" },
+        action: { kind: "skill", skillId: "v2c_warrior_flurry" },
+      },
+    ],
+  },
 };
 
 function signature(mechanic: NonNullable<SignatureEffect["mechanic"]>): SignatureEffect {
@@ -218,21 +247,19 @@ describe("6T 유니크 PvE 연동", () => {
     expect(tier6StatusKindCount(after)).toBe(2);
   });
 
-  it("혈맥 폭발 뒤에도 기존 출혈 중첩과 지속시간을 보존한다", () => {
+  it("상흔의 계수기는 기존 출혈의 출처·스택을 보존하고 지속을 최소 5회로 갱신한다", () => {
     const player = {
       ...basePlayer,
-      equipSignatures: [signature("bleed_burst")],
+      equipSignatures: [signature("bleed_burst"), signature("bleed_aftermath")],
     };
     const initial = initialBattleState(player, enemy, "혈맥 검사자");
     const bleed = makeBleedDot({
       stacks: 10,
-      turns: 3,
+      turns: 2,
       flatPerStack: 10,
       sourceAtk: 100,
     });
-    const bleeding = { ...initial, enemyV2Dots: [bleed] };
-
-    const after = applyTier6UniquePveEvent(bleeding, player, {
+    const burstEvent = {
       kind: "direct_hit",
       damage: 100,
       crit: false,
@@ -246,10 +273,59 @@ describe("6T 유니크 PvE 연동", () => {
       magicAtk: 100,
       maxHp: 1_000,
       origin: { actionId: 1, eventId: 1 },
-    });
+    } as const;
+    const after = applyTier6UniquePveEvent(
+      { ...initial, enemyV2Dots: [bleed] },
+      player,
+      burstEvent,
+    );
+    const longBleed = { ...bleed, turns: 6 };
+    const afterLongBleed = applyTier6UniquePveEvent(
+      { ...initial, enemyV2Dots: [longBleed] },
+      player,
+      burstEvent,
+    );
 
     expect(after.enemyHp).toBe(initial.enemyHp - 500);
-    expect(after.enemyV2Dots).toEqual([bleed]);
+    expect(after.enemyV2Dots).toEqual([{ ...bleed, turns: 5 }]);
+    expect(afterLongBleed.enemyV2Dots).toEqual([longBleed]);
+  });
+
+  it("PvE 패턴은 혈맥 폭발 준비 때만 출혈 대상 일반 공격을 선택한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const player = {
+      ...basePlayer,
+      maxMp: 1_000,
+      equipSignatures: [signature("bleed_burst")],
+    };
+    const initial = initialBattleState(
+      player,
+      enemy,
+      "혈맥 검사자",
+      bloodlinePatternSkills,
+    );
+    const bleed = makeBleedDot({
+      stacks: 5,
+      turns: 3,
+      flatPerStack: 10,
+      sourceAtk: 100,
+    });
+    const ready = { ...initial, enemyV2Dots: [bleed] };
+    const waiting = {
+      ...ready,
+      turn: { ...ready.turn, completedPlayerTurns: 1 },
+      stacks: {
+        ...ready.stacks,
+        tier6Uniques: {
+          ...ready.stacks.tier6Uniques!,
+          bleedBurstLastActionId: 1,
+        },
+      },
+    };
+    const ticked = { selfBuffs: {}, selfDebuffs: {}, enemyDebuffs: {} };
+
+    expect(applyPlayerV2SkillCast(ready, player, ticked).castFired).toBe(false);
+    expect(applyPlayerV2SkillCast(waiting, player, ticked).castFired).toBe(true);
   });
 
   it("과부하 낙뢰는 적 마법방어를 거친 마법 피해를 준다", () => {

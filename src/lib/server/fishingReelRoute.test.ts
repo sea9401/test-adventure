@@ -275,7 +275,7 @@ describe("POST /api/v2/fishing/reel", () => {
       quantity: 1,
       balance: 1,
       dailyAwarded: 1,
-      dailyCap: 30,
+      dailyCap: 35,
     });
 
     const prof = store.get("proficiency.v2") as {

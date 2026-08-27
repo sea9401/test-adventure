@@ -19,6 +19,7 @@ import {
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import { jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
+import { applyLevelTargetGrant } from "@/lib/server/levelTargetGrant";
 import {
   V2_MATERIALS,
   mergeDrops,
@@ -121,13 +122,15 @@ export async function POST(req: Request) {
       {},
     );
 
-    let level = Math.max(1, Math.min(MAX_LEVEL, charSave.level ?? 1));
+    const startingLevel = Math.max(
+      1,
+      Math.min(MAX_LEVEL, charSave.level ?? 1),
+    );
+    let level = startingLevel;
     let exp = Math.max(0, charSave.exp ?? 0);
-    let levelsGained = 0;
 
-    // 레벨 직접 지정(있으면 먼저). 올라간 만큼만 단련 포인트 적립.
+    // 레벨 직접 지정(있으면 먼저). 최종 레벨이 시작 레벨보다 오른 만큼만 성장 처리한다.
     if (setLevel != null && setLevel !== level) {
-      if (setLevel > level) levelsGained += setLevel - level;
       level = setLevel;
       exp = 0;
     }
@@ -135,10 +138,10 @@ export async function POST(req: Request) {
     // EXP 부여 — 정식 레벨업 로직 그대로 (단련 포인트 적립까지 사냥과 동일).
     if (expGain > 0) {
       const r = applyExpGain(level, exp, expGain);
-      levelsGained += r.levelsGained;
       level = r.level;
       exp = r.exp;
     }
+    const levelsGained = Math.max(0, level - startingLevel);
 
     const gold = Math.max(0, (charSave.gold ?? 0) + goldGain);
     const materials =
@@ -158,23 +161,35 @@ export async function POST(req: Request) {
     // (옛 training.v2 단련 포인트 지급은 수동분배 폐지로 제거 — docs 숙련도 재설계.)
     let proficiencyEarned: number | null = null;
     let masteryEarned: number | null = null;
-    if (proficiencyGain > 0 || masteryGain > 0) {
+    let hpGain = 0;
+    let mpGain = 0;
+    if (levelsGained > 0 || proficiencyGain > 0 || masteryGain > 0) {
       const cls = parseV2Class(charSave.class);
       const group = tier1ClassOf(cls);
-      if (group !== "none") {
-        const profSave = await lockSaveForUpdate<V2ProficiencyState>(
-          tx,
-          userId,
-          "proficiency.v2",
-          emptyProficiency(),
+      const profSave = await lockSaveForUpdate<V2ProficiencyState>(
+        tx,
+        userId,
+        "proficiency.v2",
+        emptyProficiency(),
+      );
+      let nextProf = parseProficiencyForChar(profSave, charSave);
+      if (levelsGained > 0) {
+        const growth = applyLevelTargetGrant(
+          { ...charSave, level: startingLevel },
+          nextProf,
+          level,
         );
-        const nextProf = addPoints(
-          // dev 도구가 같은 요청에서 레벨을 올릴 수 있어, cumLevel 시드는 갱신된 level 사용.
-          parseProficiencyForChar(profSave, { class: charSave.class, level }),
+        nextProf = growth.proficiency;
+        hpGain = growth.hpGain;
+        mpGain = growth.mpGain;
+      }
+      if (group !== "none") {
+        nextProf = addPoints(
+          nextProf,
           group,
           proficiencyGain,
         );
-        const withMastery =
+        nextProf =
           masteryGain > 0
             ? addJobCumLevel(
                 addCumLevel(nextProf, group, masteryGain),
@@ -187,9 +202,11 @@ export async function POST(req: Request) {
                 masteryGain,
               )
             : nextProf;
-        await upsertSave(tx, userId, "proficiency.v2", withMastery);
-        if (proficiencyGain > 0) proficiencyEarned = usablePoints(withMastery);
-        if (masteryGain > 0) masteryEarned = groupCumLevel(withMastery, group);
+        if (proficiencyGain > 0) proficiencyEarned = usablePoints(nextProf);
+        if (masteryGain > 0) masteryEarned = groupCumLevel(nextProf, group);
+      }
+      if (levelsGained > 0 || group !== "none") {
+        await upsertSave(tx, userId, "proficiency.v2", nextProf);
       }
     }
 
@@ -231,6 +248,8 @@ export async function POST(req: Request) {
       exp,
       gold,
       levelsGained,
+      hpGain,
+      mpGain,
       materials,
       ...(proficiencyEarned != null ? { proficiencyEarned } : {}),
       ...(masteryEarned != null ? { masteryEarned } : {}),

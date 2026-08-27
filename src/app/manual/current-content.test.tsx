@@ -222,6 +222,9 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("최고 생활 레벨 5·10");
     expect(html).toContain("단계마다 양쪽에 스태미나 회복약 2개");
     expect(html).toContain("각자 최대 12개");
+    expect(html).toContain("가입 후에도");
+    expect(html).toContain("한 번만");
+    expect(html).toContain("이미 완료한 단계");
     expect(html).not.toContain("지정된 사냥터의 최심부");
   });
 

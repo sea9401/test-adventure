@@ -135,6 +135,7 @@ import {
 import {
   applyTier6UniquePveEvent,
   tier6DotContext,
+  tier6PveCastContext,
   tier6StatusKindCount,
 } from "./tier6UniquePveAdapter";
 import {
@@ -2447,17 +2448,12 @@ export function applyPlayerV2SkillCast(
           equipped: state.v2Skills.equipped,
         })
       : [];
-  const tier6UnityPct =
-    (state.buffs.tier6UnityTurnsLeft ?? 0) > 0
-      ? state.buffs.tier6UnityHealPct ?? 0
-      : 0;
-  const tier6UnityMult = 1 + tier6UnityPct / 100;
-  const tier6UnityAtk = Math.floor(player.atk * tier6UnityMult);
-  const tier6UnityMagicAtk = Math.floor(
-    (player.magicAtk ?? player.atk) * tier6UnityMult,
-  );
+  const tier6Cast = tier6PveCastContext(state, player);
   const activeEnemyBleed = state.enemyV2Dots.find(
     (dot) => dot.tag === "bleed" && dot.turns > 0,
+  );
+  const activeEnemyPoison = state.enemyV2Dots.find(
+    (dot) => dot.tag === "poison" && dot.turns > 0,
   );
   const needsBleedHuntRoll = state.v2Skills.equipped.some(
     (skillId) =>
@@ -2492,9 +2488,9 @@ export function applyPlayerV2SkillCast(
       : undefined,
     attacker: {
       mp: state.playerMp,
-      atk: tier6UnityAtk,
+      atk: tier6Cast.tier6UnityAtk,
       attackCount: player.attackCount,
-      magicAtk: tier6UnityMagicAtk,
+      magicAtk: tier6Cast.tier6UnityMagicAtk,
       singleHitPhysicalSkillDamagePct:
         player.singleHitPhysicalSkillDamagePct,
       minDamage: player.minDamage,
@@ -2525,6 +2521,7 @@ export function applyPlayerV2SkillCast(
       lawInscription: player.lawInscription,
       lawInscriptions: state.stacks.lawInscriptions,
       mutationWeight: state.stacks.mutationWeight,
+      bloodlineBurstReady: tier6Cast.bloodlineBurstReady,
       bleedPhysicalSkillDamagePctPerStack:
         player.bleedPhysicalSkillDamagePctPerStack,
       // 활성 상태 효과 — self_buff_pct 조건 평가용(만료 시 재시전 선풍각·철포·운기 등).
@@ -2560,7 +2557,8 @@ export function applyPlayerV2SkillCast(
         state.isBoss === true ? 0 : NORMAL_MONSTER_EXECUTION_HP_PCT,
       bleedStacks: activeEnemyBleed?.stacks ?? 0,
       bleedTurns: activeEnemyBleed?.turns ?? 0,
-      poisonStacks: state.enemyV2Dots.filter((d) => d.tag === "poison").reduce((s, d) => s + d.stacks, 0),
+      poisonStacks: activeEnemyPoison?.stacks ?? 0,
+      poisonTurns: activeEnemyPoison?.turns ?? 0,
       magicVulnStacks: state.stacks.enemyMagicVulnStacks,
       frostChillStacks: state.stacks.enemyFrostChillStacks,
       enemyVulnerabilityActive: state.stacks.enemyVulnTurns > 0,
@@ -3314,7 +3312,7 @@ export function applyPlayerV2SkillCast(
         100,
     );
   const resolvedSelfHeal = Math.floor(
-    resolvedSelfHealBase * tier6UnityMult,
+    resolvedSelfHealBase * tier6Cast.tier6UnityMult,
   );
   if (resolvedSelfHeal > 0 && result.castSkillName) {
     const before = nextPlayerHp;
@@ -3843,7 +3841,7 @@ export function applyPlayerV2SkillCast(
       state = applyTier6UniquePveEvent(state, player, {
         kind: "mp_spent",
         amount: costPaid,
-        magicAtk: tier6UnityMagicAtk,
+        magicAtk: tier6Cast.tier6UnityMagicAtk,
         targetHasStatus: tier6StatusKindsBefore > 0,
         origin: { actionId, eventId: state.log.length },
       });
@@ -3861,7 +3859,7 @@ export function applyPlayerV2SkillCast(
         bleedRemainingDamage: tier6DotsBefore.bleed.remainingDamage,
         poisonStacks: tier6DotsBefore.poison.stacks,
         poisonRemainingDamage: tier6DotsBefore.poison.remainingDamage,
-        magicAtk: tier6UnityMagicAtk,
+        magicAtk: tier6Cast.tier6UnityMagicAtk,
         maxHp: state.playerMaxHp,
         origin: { actionId, eventId: state.log.length + index + 1 },
       });

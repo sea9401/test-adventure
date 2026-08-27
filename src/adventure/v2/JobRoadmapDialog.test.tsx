@@ -234,6 +234,8 @@ describe("JobRoadmapDetails", () => {
     expect(html).toContain("근력 II");
     expect(html).toContain("패시브");
     expect(html).toContain("거듭된 단련. 힘이 비례해 오른다.");
+    expect(html).toContain("SP 5");
+    expect(html).toContain("SP 3");
   });
 
   it.each([
@@ -275,6 +277,8 @@ describe("JobRoadmapDetails", () => {
     expect(html).not.toContain("돌격");
     expect(html).not.toContain("근력 II");
     expect(html).not.toContain("말을 몰듯 단숨에 파고들어 베어낸다.");
+    expect(html).not.toContain("SP 5");
+    expect(html).not.toContain("SP 3");
   });
 
   it("keeps unrevealed unlock conditions hidden in the preview", () => {

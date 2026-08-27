@@ -3,6 +3,7 @@ import {
   attributeReferral,
   createReferralCode,
   normalizeReferralCode,
+  normalizeReferralInput,
   REFERRAL_NEW_USER_STAMINA_POTIONS,
   REFERRAL_REFERRER_SIGNUP_STAMINA_POTIONS,
   REFERRAL_TUTORIAL_STAMINA_POTIONS_PER_TASK,
@@ -47,6 +48,22 @@ describe("referrals", () => {
     );
     expect(normalizeReferralCode("too-short")).toBeNull();
     expect(normalizeReferralCode("gggggggggggggggg")).toBeNull();
+  });
+
+  it("홍보 코드와 홍보 링크만 사후 등록 입력으로 정규화한다", () => {
+    expect(normalizeReferralInput(" ABCDEF0123456789 ")).toBe(
+      "abcdef0123456789",
+    );
+    expect(
+      normalizeReferralInput("https://msmsge.com/r/ABCDEF0123456789"),
+    ).toBe("abcdef0123456789");
+    expect(normalizeReferralInput("/r/abcdef0123456789/")).toBe(
+      "abcdef0123456789",
+    );
+    expect(
+      normalizeReferralInput("https://msmsge.com/not-referral/abcdef0123456789"),
+    ).toBeNull();
+    expect(normalizeReferralInput("홍보 코드가 아님")).toBeNull();
   });
 
   it("충분히 긴 임의 hex 코드를 발급한다", () => {
@@ -130,7 +147,10 @@ describe("referrals", () => {
         "abcdef0123456789",
         "돌아온 모험가",
       ),
-    ).resolves.toEqual({ attributed: false });
+    ).resolves.toEqual({
+      attributed: false,
+      reason: "already_attributed",
+    });
     expect(trace.inserted).toHaveLength(0);
   });
 
@@ -146,7 +166,7 @@ describe("referrals", () => {
         "same-user",
         "abcdef0123456789",
       ),
-    ).toEqual({ attributed: false });
+    ).toEqual({ attributed: false, reason: "self_referral" });
     expect(selfTrace.inserted).toHaveLength(0);
 
     const duplicateTrace = makeTrace();
@@ -160,10 +180,40 @@ describe("referrals", () => {
         "already-attributed",
         "abcdef0123456789",
       ),
-    ).toEqual({ attributed: false });
+    ).toEqual({ attributed: false, reason: "already_attributed" });
     expect(duplicateTrace.inserted.map((entry) => entry.table)).toEqual([
       referralConversions,
     ]);
+  });
+
+  it("잘못되었거나 비활성화된 홍보 코드는 귀속 사유를 구분해 거절한다", async () => {
+    const malformedTrace = makeTrace();
+    await expect(
+      attributeReferral(
+        fakeExecutor({
+          ownerUserId: "referrer",
+          conversionInserted: true,
+          trace: malformedTrace,
+        }) as never,
+        "new-user",
+        "잘못된 코드",
+      ),
+    ).resolves.toEqual({ attributed: false, reason: "invalid_code" });
+    expect(malformedTrace.selectedTables).toHaveLength(0);
+
+    const inactiveTrace = makeTrace();
+    await expect(
+      attributeReferral(
+        fakeExecutor({
+          ownerUserId: null,
+          conversionInserted: true,
+          trace: inactiveTrace,
+        }) as never,
+        "new-user",
+        "abcdef0123456789",
+      ),
+    ).resolves.toEqual({ attributed: false, reason: "invalid_code" });
+    expect(inactiveTrace.inserted).toHaveLength(0);
   });
 
   it("새 과제들을 로드맵 순서로 기록하고 양쪽 보상을 한 통씩 합산한다", async () => {
@@ -355,7 +405,7 @@ function makeTrace(): Trace {
 }
 
 function fakeExecutor(args: {
-  ownerUserId: string;
+  ownerUserId: string | null;
   conversionInserted: boolean;
   existingConversion?: boolean;
   lockedConversion?: {
@@ -373,7 +423,9 @@ function fakeExecutor(args: {
           where: () => ({
             limit: async () =>
               table === referralCodes
-                ? [{ userId: args.ownerUserId }]
+                ? args.ownerUserId === null
+                  ? []
+                  : [{ userId: args.ownerUserId }]
                 : table === referralConversions && args.existingConversion
                   ? [{ id: 1 }]
                   : [],

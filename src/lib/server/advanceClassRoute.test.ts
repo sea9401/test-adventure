@@ -103,6 +103,45 @@ function storedUsable(): number {
 }
 
 describe("advance-class — 전직 후 숙달 포인트 유지(#1220 전역화 회귀 가드)", () => {
+  it("Lv.100 전투 생애 완료 시 최신 영구 범위로 새 Lv.1 자원을 굴린다", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    seed("warrior", "warrior", 5000);
+    store.set("proficiency.v2", {
+      ...(store.get("proficiency.v2") as Record<string, unknown>),
+      lifeResourceGrowth: {
+        version: 1,
+        rolledLevel: 100,
+        baseHp: 999,
+        baseMp: 999,
+        gainedHp: 999,
+        gainedMp: 999,
+      },
+    });
+
+    const res = await POST(advanceReq("warrior"));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({
+      lifeResources: {
+        maxHp: 150,
+        maxMp: 65,
+        hpPerLevel: { min: 8, max: 12 },
+        mpPerLevel: { min: 3, max: 9 },
+      },
+    });
+    expect(
+      parseProficiency(store.get("proficiency.v2")).lifeResourceGrowth,
+    ).toEqual({
+      version: 1,
+      rolledLevel: 1,
+      baseHp: 150,
+      baseMp: 65,
+      gainedHp: 0,
+      gainedMp: 0,
+    });
+  });
+
   it("다른 직군으로 재전직(마법사→병사): 포인트 유지 + 활성 직업만 변경", async () => {
     seed("mage", "mage", 5000);
     // 전직 전: 옛 직군별 5000 이 전역으로 합산.
@@ -234,7 +273,19 @@ describe("advance-class — 생활 직업 레벨 조건", () => {
       level: 1,
     });
     const seededProf = store.get("proficiency.v2") as Record<string, unknown>;
-    store.set("proficiency.v2", { ...seededProf, reincarnations: 7 });
+    const lifeResourceGrowth = {
+      version: 1,
+      rolledLevel: 1,
+      baseHp: 142,
+      baseMp: 81,
+      gainedHp: 0,
+      gainedMp: 0,
+    };
+    store.set("proficiency.v2", {
+      ...seededProf,
+      reincarnations: 7,
+      lifeResourceGrowth,
+    });
 
     // 같은 생활직을 반복 선택해도 전직 자체는 허용하되 재전직 업적을 올릴 수 없다.
     for (let i = 0; i < 2; i += 1) {
@@ -243,7 +294,26 @@ describe("advance-class — 생활 직업 레벨 조건", () => {
       expect(res.status).toBe(200);
       expect(json).toMatchObject({ ok: true, reincarnated: true });
     }
-    expect(parseProficiency(store.get("proficiency.v2")).reincarnations).toBe(7);
+    const stored = parseProficiency(store.get("proficiency.v2"));
+    expect(stored.reincarnations).toBe(7);
+    expect(stored.lifeResourceGrowth).toEqual(lifeResourceGrowth);
+  });
+
+  it("레거시 생활직 전환은 생애 기록을 새로 만들지 않는다", async () => {
+    seedLifestyleCandidate("miner");
+    store.set("character.v2", {
+      class: "survivor",
+      specChoice: "miner",
+      level: 1,
+    });
+
+    const res = await POST(advanceReq("miner"));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).not.toHaveProperty("lifeResources");
+    expect(
+      parseProficiency(store.get("proficiency.v2")).lifeResourceGrowth,
+    ).toBeUndefined();
   });
 
   it("전투 직업은 여전히 캐릭터 Lv.100을 요구한다", async () => {

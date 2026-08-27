@@ -43,6 +43,8 @@ import {
   COOKING_PANTRY_ITEMS,
   COOKING_PROCESSING_RECIPES,
 } from "@/adventure/v2/cooking/kitchen";
+import { FARM_ITEMS } from "@/adventure/v2/farm";
+import { FISHING_CATCH_ITEMS } from "@/adventure/v2/fishingStock";
 import { bulkClaimIds, isUnreadInboxItem } from "./inboxViewState";
 import {
   isTradeSuspensionMessagePayload,
@@ -113,6 +115,13 @@ function cashItemName(id: string): string {
 }
 
 function cookingIngredientName(id: string): string {
+  const [kind, itemId] = id.split(":");
+  if (kind === "farm" && Object.hasOwn(FARM_ITEMS, itemId)) {
+    return FARM_ITEMS[itemId as keyof typeof FARM_ITEMS].name;
+  }
+  if (kind === "fishing" && Object.hasOwn(FISHING_CATCH_ITEMS, itemId)) {
+    return FISHING_CATCH_ITEMS[itemId as keyof typeof FISHING_CATCH_ITEMS].name;
+  }
   return (
     COOKING_PANTRY_ITEMS.find((item) => item.id === id)?.name ??
     COOKING_PROCESSING_RECIPES.find((recipe) => recipe.outputId === id)?.name ??

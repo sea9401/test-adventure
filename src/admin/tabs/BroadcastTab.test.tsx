@@ -39,7 +39,7 @@ describe("관리자 공지·우편", () => {
     expect(cashItemSection).not.toContain("100레벨 달성의 비약");
   });
 
-  it("대량 우편에서 상점·가공 요리 재료를 첨부할 수 있다", () => {
+  it("대량 우편에서 농장·낚시·상점·가공 요리 재료를 첨부할 수 있다", () => {
     const html = renderToStaticMarkup(
       <AdminProvider>
         <BroadcastTab />
@@ -53,6 +53,11 @@ describe("관리자 공지·우편", () => {
     expect(cookingStart).toBeGreaterThanOrEqual(0);
     expect(equipmentStart).toBeGreaterThan(cookingStart);
     for (const ingredientName of [
+      "밀",
+      "황금 밀",
+      "돼지고기",
+      "일반 어획물",
+      "전설의 어획물",
       "소금",
       "후추",
       "조리용 기름",
@@ -68,5 +73,6 @@ describe("관리자 공지·우편", () => {
     ]) {
       expect(cookingSection).toContain(ingredientName);
     }
+    expect(cookingSection).not.toContain("배합 사료");
   });
 });

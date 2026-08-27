@@ -3,6 +3,7 @@ import type {
   PvPSide,
 } from "./engine-pvp";
 import {
+  applyBleedChangeToDots,
   applyV2DotsToTarget,
   makeBleedDot,
   makePoisonDot,
@@ -289,6 +290,15 @@ function applyCommand(
           sourceAtk: actor.player.atk,
         });
     target = { ...target, v2Dots: applyV2DotsToTarget(target.v2Dots, [dot]) };
+  } else if (command.kind === "refresh_bleed") {
+    target = {
+      ...target,
+      v2Dots: applyBleedChangeToDots(target.v2Dots, {
+        stacksToAdd: 0,
+        setTurns: command.turns,
+        reason: "refresh",
+      }),
+    };
   } else if (command.kind === "def_debuff") {
     actor = {
       ...actor,
@@ -368,6 +378,7 @@ function pvpCommandText(
   if (command.kind === "mp") return `MP +${command.amount}`;
   if (command.kind === "consume_dot") return `${command.dot} ${command.stacks}스택 소비`;
   if (command.kind === "apply_dot") return `${command.dot} ${command.stacks}스택 부여`;
+  if (command.kind === "refresh_bleed") return `출혈 지속 최소 ${command.turns}회 유지`;
   if (command.kind === "def_debuff") return `방어 ${command.pct}% 감소`;
   if (command.kind === "mdef_debuff") return `마법방어 ${command.pct}% 감소`;
   if (command.kind === "extra_action") return "추가 기본 공격 +1회";

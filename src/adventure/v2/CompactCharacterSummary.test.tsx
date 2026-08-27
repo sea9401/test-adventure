@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CompactCharacterSummary } from "./CompactCharacterSummary";
 import { V2CharacterCard } from "./V2CharacterCard";
 
 afterEach(cleanup);
+afterEach(() => vi.useRealTimers());
 
 describe("접을 수 있는 캐릭터 요약", () => {
   it("캐릭터 이미지가 정상적으로 보일 때 사람 모양 대체 아이콘을 겹쳐 그리지 않는다", () => {
@@ -85,6 +86,69 @@ describe("접을 수 있는 캐릭터 요약", () => {
     expect(dialog.textContent).toContain("사냥 경험치 +10%");
     expect(dialog.textContent).toContain("남음");
     expect(dialog.textContent).toContain("까지");
+  });
+
+  it("길드 음식을 누르면 경험치 효과와 남은 시간을 상세 카드로 보여준다", () => {
+    render(
+      <CompactCharacterSummary
+        character={{ name: "젠피", level: 87, exp: 462, expToNext: 1_000, hp: 80, maxHp: 100, mp: 20, maxMp: 40, gold: 0 }}
+        guild={{ id: 3, name: "무무게" }}
+        activeGuildDiningEffect={{
+          menuId: "guild_grand_feast",
+          name: "길드 대연회",
+          kind: "all_xp",
+          bonusPct: 60,
+          lifeBonusPct: 20,
+          expiresAt: Date.now() + 3_600_000,
+        }}
+        expanded={false}
+        onExpandedChange={vi.fn()}
+      >
+        <div>전체 캐릭터 카드</div>
+      </CompactCharacterSummary>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "길드 대연회 길드 음식 효과 보기" }),
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "길드 대연회 길드 음식 효과" });
+    expect(dialog.textContent).toContain("사냥 경험치 +60%");
+    expect(dialog.textContent).toContain("생활 경험치 +20%");
+    expect(dialog.textContent).toContain("남음");
+    expect(dialog.textContent).toContain("까지");
+  });
+
+  it("표시 중 길드 음식이 만료되면 배지와 상세 카드를 숨긴다", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-27T03:00:00.000Z"));
+    render(
+      <CompactCharacterSummary
+        character={{ name: "젠피", level: 87, exp: 462, expToNext: 1_000, hp: 80, maxHp: 100, mp: 20, maxMp: 40, gold: 0 }}
+        guild={{ id: 3, name: "무무게" }}
+        activeGuildDiningEffect={{
+          menuId: "hunters_barbecue",
+          name: "사냥꾼의 바비큐",
+          kind: "hunt_exp",
+          bonusPct: 40,
+          expiresAt: Date.now() + 10_000,
+        }}
+        expanded={false}
+        onExpandedChange={vi.fn()}
+      >
+        <div>전체 캐릭터 카드</div>
+      </CompactCharacterSummary>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "사냥꾼의 바비큐 길드 음식 효과 보기" }),
+    );
+    expect(screen.getByRole("dialog", { name: "사냥꾼의 바비큐 길드 음식 효과" })).toBeTruthy();
+
+    act(() => vi.advanceTimersByTime(30_000));
+
+    expect(screen.queryByText("사냥꾼의 바비큐")).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "사냥꾼의 바비큐 길드 음식 효과" })).toBeNull();
   });
 
   it("접힌 요약의 장착 장비를 누르면 실제 개체 옵션 카드를 읽기 전용으로 보여준다", () => {

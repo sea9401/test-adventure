@@ -961,6 +961,7 @@ export type V2SkillCastInput = {
     lawInscription?: boolean;
     lawInscriptions?: Partial<LawInscriptionState>;
     mutationWeight?: number;
+    bloodlineBurstReady?: boolean;
     bleedPhysicalSkillDamagePctPerStack?: number;
     str?: number;
     int?: number;
@@ -998,6 +999,7 @@ export type V2SkillCastInput = {
     bleedStacks?: number;
     bleedTurns?: number;
     poisonStacks?: number;
+    poisonTurns?: number;
     magicVulnStacks?: number;
     frostChillStacks?: number;
     // 전투 패턴의 봉쇄 계열 상태 판정 및 순수 디버프 중복 시전 방지.
@@ -1095,10 +1097,13 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
       ),
       inscription: lawInscriptionTotal(a.lawInscriptions),
       weight: clampMutationResource(a.mutationWeight ?? 0),
+      bloodlineBurstReady: a.bloodlineBurstReady ? 1 : 0,
     },
     enemyHpPct: ((t.currentHp ?? enemyMaxHp) / enemyMaxHp) * 100,
     enemyBleed: t.bleedStacks ?? 0,
+    enemyBleedTurns: Math.max(0, Math.floor(t.bleedTurns ?? 0)),
     enemyPoison: t.poisonStacks ?? 0,
+    enemyPoisonTurns: Math.max(0, Math.floor(t.poisonTurns ?? 0)),
     enemyVuln: t.magicVulnStacks ?? 0,
     enemyFrostChill: t.frostChillStacks ?? 0,
     enemyVulnerabilityActive: t.enemyVulnerabilityActive ?? false,

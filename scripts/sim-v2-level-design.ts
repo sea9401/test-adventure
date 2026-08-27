@@ -110,6 +110,7 @@ import {
 import { clampLoadoutToBudget } from "../src/adventure/data/v2/v2Loadout";
 import {
   applyCultivation,
+  balanceCumLevel,
   emptyProficiency,
   V2_PROFICIENCY_PER_KILL_BASE,
   type V2ProficiencyState,
@@ -726,6 +727,10 @@ function proficiencyForCareer(
     tier: 1,
     cumLevel: wins,
   };
+  // 이 시뮬레이터의 careerWins는 배포 전부터 누적된 기존 경력 스냅샷이다. 운영 파서의
+  // 지연 이관과 동일하게 현재 floor 입력을 1회 고정해 기존 캐릭터 스탯을 보존한다.
+  // 배포 후 추가 승리는 이 값을 올리지 않으며, 실제 레벨 상승 경로만 별도로 누적한다.
+  prof.statFloorLevels[spec.baseClass] = balanceCumLevel(wins);
   prof.reincarnations = jobIndex;
   prof.jobHistory = spec.jobPath.slice(0, jobIndex + 1);
 

@@ -3,6 +3,7 @@ import {
   ARENA_LOADOUT_MAX,
   arenaLoadoutIssueSummary,
   arenaPatternActionSummary,
+  arenaPatternConditionSummary,
   parseArenaLoadouts,
   parseActiveArenaLoadout,
   serializeActiveArenaLoadout,
@@ -66,6 +67,17 @@ describe("active arena loadout", () => {
 });
 
 describe("arenaPatternActionSummary — 실제 패턴 행동만 표시", () => {
+  it("혈맥 폭발 준비 자원을 한글 조건으로 요약한다", () => {
+    expect(
+      arenaPatternConditionSummary({
+        kind: "self_resource",
+        resource: "bloodlineBurstReady",
+        op: "atLeast",
+        value: 1,
+      }),
+    ).toBe("내 혈맥 폭발 준비 1 이상");
+  });
+
   it("일반 공격 패턴을 아레나 요약에서도 보존한다", () => {
     const [loadout] = parseArenaLoadouts([
       {
@@ -342,6 +354,82 @@ describe("arenaLoadoutIssueSummary — 전투 적용 누락 경고", () => {
       arenaLoadoutIssueSummary(loadout, new Set(["w1", "a1"]))
         .uncoveredActiveSkills,
     ).toEqual([]);
+  });
+
+  it.each([
+    [
+      "오원소 폭주",
+      [
+        "v2c_elementallord_surge",
+        "v2c_elementallord_resonance",
+        "v2c_firemage_inferno",
+        "v2c_frostmage_glacier",
+        "v2c_lightningmage_thunderbolt",
+        "v2c_windmage_tempest",
+        "v2c_earthmage_tectonic",
+      ],
+      "v2c_elementallord_surge",
+    ],
+    [
+      "태초회귀",
+      [
+        "v2c_primordialmage_return",
+        "v2c_primordialmage_resonance",
+        "v2c_elementallord_surge",
+        "v2c_firemage_inferno",
+        "v2c_frostmage_glacier",
+        "v2c_lightningmage_thunderbolt",
+        "v2c_windmage_tempest",
+        "v2c_earthmage_tectonic",
+      ],
+      "v2c_primordialmage_return",
+    ],
+  ] as const)(
+    "%s에 흡수된 주문식 재료와 촉매는 패턴 누락 경고에서 제외한다",
+    (_name, skills, signatureSkillId) => {
+      const loadout = mk("resonance-materials", {
+        skills: [...skills],
+        pattern: {
+          blocks: [
+            {
+              condition: { kind: "always" },
+              action: { kind: "skill", skillId: signatureSkillId },
+            },
+          ],
+        },
+      });
+
+      expect(
+        arenaLoadoutIssueSummary(loadout, new Set()).uncoveredActiveSkills,
+      ).toEqual([]);
+    },
+  );
+
+  it("공명 주문식에 흡수되지 않은 원소 스킬은 패턴 누락 경고를 유지한다", () => {
+    const loadout = mk("remaining-element", {
+      skills: [
+        "v2c_elementallord_surge",
+        "v2c_elementallord_resonance",
+        "v2c_firemage_inferno",
+        "v2c_windmage_tempest",
+        "v2c_frostmage_glacier",
+      ],
+      pattern: {
+        blocks: [
+          {
+            condition: { kind: "always" },
+            action: {
+              kind: "skill",
+              skillId: "v2c_elementallord_surge",
+            },
+          },
+        ],
+      },
+    });
+
+    expect(
+      arenaLoadoutIssueSummary(loadout, new Set()).uncoveredActiveSkills,
+    ).toEqual([{ id: "v2c_frostmage_glacier", name: "빙하진" }]);
   });
 });
 

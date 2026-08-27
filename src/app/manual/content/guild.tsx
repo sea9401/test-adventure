@@ -47,9 +47,10 @@ import {
   GUILD_TRADE_TARGET_PER_EXTRA_MEMBER,
 } from "@/adventure/data/v2/guildTrade";
 import {
-  FISHING_CATCH_ITEM_CHANCE_PCT,
+  FISHING_CATCH_ITEM_BASE_CHANCE_PCT,
   FISHING_CATCH_ITEM_DAILY_CAP,
   FISHING_CATCH_ITEM_LIST,
+  FISHING_CATCH_ITEM_MAX_CHANCE_PCT,
 } from "@/adventure/v2/fishingStock";
 import {
   GUILD_TRAINING_DRILLS,
@@ -361,8 +362,9 @@ export function GuildContent() {
         길드 식당은 농장과 낚시에서 얻은 식재료를 길드원이 함께 준비하고 주간
         식권으로 식사하는 시설입니다. 낚은 어종과 크기는 어보·기록에 남고,
         식재료 보관함에는 물고기 등급에 맞는 어획물 한 종류가 자동으로 쌓입니다.
-        성공한 낚시마다 서버에서 <Em>{FISHING_CATCH_ITEM_CHANCE_PCT}%</Em>
-        확률을 판정하며, 어획물은 현재 공동 식재료 기부에만 사용합니다.
+        성공한 낚시마다 서버에서 낚시 레벨에 따라{" "}
+        <Em>{FISHING_CATCH_ITEM_BASE_CHANCE_PCT}~{FISHING_CATCH_ITEM_MAX_CHANCE_PCT}%</Em>
+        확률을 판정하며, 어획물은 요리와 공동 식재료 기부에 사용합니다.
       </P>
       <UL>
         <li>

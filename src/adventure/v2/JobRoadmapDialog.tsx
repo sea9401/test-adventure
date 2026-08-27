@@ -26,6 +26,7 @@ import { useModalA11y } from "@/lib/useModalA11y";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   V2_SKILLS,
+  spCostOf,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 import {
@@ -337,6 +338,11 @@ export function JobRoadmapDetails({
                         {skillDef?.description ??
                           "등록된 스킬 설명이 없습니다."}
                       </p>
+                      {skillDef ? (
+                        <span className="mt-2 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                          SP {spCostOf(skillDef)}
+                        </span>
+                      ) : null}
                       <SkillEffectChips skillId={skill.id} />
                     </div>
                   </details>

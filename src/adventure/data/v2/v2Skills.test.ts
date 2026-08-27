@@ -133,6 +133,12 @@ describe("결계사 마법 방어 패시브", () => {
       openingMagicDamageReductionPct: 10,
       openingMagicDamageReductionPhases: 3,
     });
+    expect(describeV2Skill(V2_SKILLS.v2c_warder_ward)).toEqual(
+      expect.arrayContaining([
+        "전투 초반 적 공격 3회 동안 받는 마법 피해 -10% (회피한 공격 포함)",
+        "초반 마법 피해 감소 중첩 시 감소율 합산 · 횟수는 최댓값",
+      ]),
+    );
   });
 
   it("결계사·진법사·봉마사 액티브는 보호막·받피감·봉쇄로 역할이 겹치지 않는다", () => {

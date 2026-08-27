@@ -129,7 +129,7 @@ describe("요리 레시피 연구 재료 선택", () => {
     });
   });
 
-  it("새 실패 기록이 도착하면 방금 시도한 재료 선택을 초기화한다", async () => {
+  it("새 실패 기록이 도착해도 남아 있는 재료 선택을 유지한다", async () => {
     const mutate = vi.fn(async () => undefined);
     const view = render(
       <CookingResearchPanel
@@ -155,8 +155,9 @@ describe("요리 레시피 연구 재료 선택", () => {
       />,
     );
 
-    await waitFor(() => expect(screen.getByText("선택 0/2")).toBeTruthy());
-    expect(screen.getByRole("button", { name: "이 조합 연구" })).toBeTruthy();
-    expect(screen.queryByText("이미 실패한 조합입니다. 재료는 소비되지 않습니다.")).toBeNull();
+    await waitFor(() => expect(screen.getByText("선택 2/2")).toBeTruthy());
+    expect(screen.getByRole("button", { name: "밀×1" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "우유×1" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "이미 실패한 조합" })).toBeTruthy();
   });
 });

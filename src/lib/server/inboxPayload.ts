@@ -20,8 +20,10 @@ import {
   type MuseunAdminGiftItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import { TITLES } from "@/adventure/data/titles";
-import { isCookingKitchenItemId } from "@/adventure/v2/cooking/kitchen";
-import type { CookingKitchenItemId } from "@/adventure/v2/cooking/state";
+import {
+  isCookingStoredIngredientId,
+  type CookingStoredIngredientId,
+} from "@/adventure/v2/cooking/storedIngredients";
 
 export type GuildQuestRewardMaterial = { materialId: string; count: number };
 export type GuildQuestRewardItem = { itemId: string; count: number };
@@ -30,7 +32,7 @@ export type AdminGiftCashItem = {
   count: number;
 };
 export type AdminGiftCookingIngredient = {
-  ingredientId: CookingKitchenItemId;
+  ingredientId: CookingStoredIngredientId;
   count: number;
 };
 
@@ -429,7 +431,7 @@ function parseRewardCookingIngredients(
     const count = asNonNegInt(row.count);
     if (
       ingredientId &&
-      isCookingKitchenItemId(ingredientId) &&
+      isCookingStoredIngredientId(ingredientId) &&
       count != null &&
       count > 0
     ) {

@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { TabBar } from "@/components/ui/TabBar";
 import { FISH_TIERS, FISH_TIER_ORDER } from "@/adventure/data/v2/fish";
 import { FishingSubTabs } from "./FishingSubTabs";
+import { fishingCatchItemChancePct } from "./fishingStock";
 import {
   CoinConsumableShopList,
   CoinTitleShopList,
@@ -74,6 +75,7 @@ function levelBonusLabels(progression: FishingProgressionView): string[] {
   const labels = fishingSizeBonusLabels(bonuses);
   labels.push(
     `특별 손님 +${formatFishingBonusPercent(bonuses.specialWeightPct)}%`,
+    `어획물 획득 ${fishingCatchItemChancePct(progression.level)}%`,
   );
   return labels;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CookingPot, Sparkle, X } from "@phosphor-icons/react";
+import { CookingPot, ForkKnife, Sparkle, X } from "@phosphor-icons/react";
 import { ADVENTURE_SUPPORT_PASS } from "@/adventure/data/v2/adventureSupport";
 import { MAX_STAMINA } from "@/adventure/v2/stamina";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
@@ -17,6 +17,7 @@ import {
 } from "./adventureSupportDisplay";
 import { itemCardPosition } from "./item-card/V2ItemCardPopover";
 import type { ItemCardAnchor } from "./V2ItemCard";
+import type { GuildDiningEffectSummary } from "@/adventure/data/v2/guildDining";
 
 const VIEWPORT_MARGIN = 8;
 
@@ -43,6 +44,10 @@ export type CompactCharacterEffectDetail =
   | {
       kind: "food";
       buff: ActiveCookingBuff;
+    }
+  | {
+      kind: "guildDining";
+      effect: GuildDiningEffectSummary;
     };
 
 function formatFoodRemaining(expiresAt: number, now: number): string {
@@ -81,7 +86,12 @@ export function CompactCharacterEffectCard({
   }, [onClose]);
 
   const isSupport = detail.kind === "support";
-  const title = isSupport ? "모험 지원권" : detail.buff.recipeName;
+  const isFood = detail.kind === "food";
+  const title = isSupport
+    ? "모험 지원권"
+    : isFood
+      ? detail.buff.recipeName
+      : detail.effect.name;
   const supportBenefits = isSupport
     ? [
         `에너지 회복량 ${detail.regenBonusPct}% 증가`,
@@ -90,14 +100,32 @@ export function CompactCharacterEffectCard({
         `거래소 수수료 ${ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}%로 감소`,
       ]
     : [];
-  const activeUntil = isSupport ? detail.activeUntil : detail.buff.expiresAt;
+  const activeUntil = isSupport
+    ? detail.activeUntil
+    : isFood
+      ? detail.buff.expiresAt
+      : detail.effect.expiresAt;
+  const guildDiningEffectText =
+    detail.kind !== "guildDining"
+      ? ""
+      : detail.effect.kind === "hunt_exp"
+        ? `사냥 경험치 +${detail.effect.bonusPct}%`
+        : detail.effect.kind === "life_xp"
+          ? `생활 경험치 +${detail.effect.bonusPct}%`
+          : `사냥 경험치 +${detail.effect.bonusPct}% · 생활 경험치 +${detail.effect.lifeBonusPct ?? 0}%`;
 
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} aria-hidden />
       <section
         role="dialog"
-        aria-label={isSupport ? "모험 지원권 정보" : `${detail.buff.recipeName} 음식 효과`}
+        aria-label={
+          isSupport
+            ? "모험 지원권 정보"
+            : isFood
+              ? `${detail.buff.recipeName} 음식 효과`
+              : `${detail.effect.name} 길드 음식 효과`
+        }
         style={{ position: "fixed", width, left, ...pos }}
         className={`${SURFACE_CARD} ui-floating-reveal z-50 overflow-y-auto p-4 shadow-xl`}
       >
@@ -105,12 +133,18 @@ export function CompactCharacterEffectCard({
           <div className="flex min-w-0 items-center gap-2">
             {isSupport ? (
               <Sparkle size={22} weight="duotone" className="shrink-0 text-amber-500" aria-hidden />
+            ) : detail.kind === "guildDining" ? (
+              <ForkKnife size={22} weight="duotone" className="shrink-0 text-emerald-500" aria-hidden />
             ) : (
               <CookingPot size={22} weight="duotone" className="shrink-0 text-orange-500" aria-hidden />
             )}
             <div className="min-w-0">
               <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-300">
-                {isSupport ? "혜택 적용 중" : `${cookingQualityName(detail.buff.quality)} · 음식 효과 적용 중`}
+                {isSupport
+                  ? "혜택 적용 중"
+                  : isFood
+                    ? `${cookingQualityName(detail.buff.quality)} · 음식 효과 적용 중`
+                    : "길드 음식 효과 적용 중"}
               </p>
               <h2 className="truncate text-base font-bold text-zinc-900 dark:text-zinc-100">{title}</h2>
             </div>
@@ -138,7 +172,9 @@ export function CompactCharacterEffectCard({
           <div className={`${SURFACE_INSET} mt-3 p-3`}>
             <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">적용 효과</p>
             <p className="mt-1 text-xs leading-relaxed text-zinc-800 dark:text-zinc-100">
-              {cookingEffectText(detail.buff.effect) || "효과 없음"}
+              {isFood
+                ? cookingEffectText(detail.buff.effect) || "효과 없음"
+                : guildDiningEffectText}
             </p>
           </div>
         )}
@@ -147,7 +183,7 @@ export function CompactCharacterEffectCard({
           <p className="font-bold tabular-nums text-amber-700 dark:text-amber-300">
             {isSupport
               ? formatAdventureSupportRemaining(detail.activeUntil, now)
-              : formatFoodRemaining(detail.buff.expiresAt, now)}
+              : formatFoodRemaining(activeUntil, now)}
           </p>
           <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
             {formatAdventureSupportExpiry(activeUntil)}까지

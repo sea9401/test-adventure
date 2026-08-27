@@ -370,6 +370,127 @@ describe("derivePlayerCombatV2Pure maxMp (V2_BASE_MP 가산)", () => {
   });
 });
 
+describe("derivePlayerCombatV2Pure 생애 자원 굴림", () => {
+  const lifeResourceGrowth = {
+    version: 1 as const,
+    rolledLevel: 100,
+    baseHp: 140,
+    baseMp: 80,
+    gainedHp: 900,
+    gainedMp: 400,
+  };
+
+  it("기록된 MP는 레벨과 최종 INT·INT% 변화에 재계산되지 않는다", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 100,
+      lifeResourceGrowth,
+      v2Equipped: {},
+    });
+    const amplifiedInt = derivePlayerCombatV2Pure({
+      level: 100,
+      lifeResourceGrowth,
+      allocatedStats: { int: 100 },
+      statPct: { int: 100 },
+      v2Equipped: {},
+    });
+
+    expect(base.player.maxMp).toBe(480);
+    expect(amplifiedInt.player.maxMp).toBe(base.player.maxMp);
+  });
+
+  it("장비 MP와 maxMpPct는 신형 생애 MP에도 기존 순서로 적용한다", () => {
+    const equipped = derivePlayerCombatV2Pure({
+      level: 100,
+      lifeResourceGrowth,
+      v2Equipped: { necklace: "v2_mana_essence" },
+      maxMpPct: 10,
+    });
+
+    expect(equipped.player.maxMp).toBe(Math.floor((480 + 48) * 1.1));
+  });
+
+  it("신형 HP는 확정 생애 HP 위에 최종 STR·VIT 효과를 계속 더한다", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 100,
+      lifeResourceGrowth,
+      v2Equipped: {},
+    });
+    const statPct = derivePlayerCombatV2Pure({
+      level: 100,
+      lifeResourceGrowth,
+      statPct: { str: 100, vit: 100 },
+      v2Equipped: {},
+    });
+
+    expect(base.maxHp).toBe(1_100);
+    expect(statPct.maxHp).toBeGreaterThan(base.maxHp);
+  });
+
+  it("신형 HP에도 maxHpPct를 적용하고 장비 고정 HP는 증폭하지 않는다", () => {
+    const plain = derivePlayerCombatV2Pure({
+      level: 100,
+      lifeResourceGrowth,
+      v2Equipped: {},
+      maxHpPct: 20,
+    });
+    const geared = derivePlayerCombatV2Pure({
+      level: 100,
+      lifeResourceGrowth,
+      v2Equipped: { armor: "v2_windweave_cloak" },
+      maxHpPct: 20,
+    });
+
+    expect(plain.maxHp).toBe(Math.floor(1_100 * 1.2));
+    expect(geared.maxHp - plain.maxHp).toBe(80);
+  });
+
+  it("현재 HP·MP는 신형 최대치로 클램프한다", () => {
+    const derived = derivePlayerCombatV2Pure({
+      level: 100,
+      lifeResourceGrowth,
+      hp: 999_999,
+      mp: 999_999,
+      v2Equipped: {},
+    });
+
+    expect(derived.player.hp).toBe(derived.maxHp);
+    expect(derived.player.mp).toBe(derived.player.maxMp);
+  });
+
+  it("저장 래퍼가 proficiency의 생애 기록을 순수 파생식에 전달한다", () => {
+    const derived = derivePlayerCombatV2FromSaves({
+      character: { level: 100 },
+      equipmentSave: {},
+      proficiencyRaw: { lifeResourceGrowth },
+      skillsRaw: {},
+    });
+
+    expect(derived?.player.maxMp).toBe(480);
+    expect(derived?.maxHp).toBe(1_100);
+  });
+
+  it("음식의 고정 HP·MP는 신형 생애 자원 위에도 그대로 가산한다", () => {
+    const derived = derivePlayerCombatV2FromSaves({
+      character: {
+        level: 100,
+        activeFoodBuff: {
+          recipeId: "flame_corn_stew",
+          recipeName: "불꽃 옥수수 스튜",
+          effect: { combatFlat: { maxHp: 300, maxMp: 70 } },
+          quality: "normal",
+          expiresAt: Date.now() + 60_000,
+        },
+      },
+      equipmentSave: {},
+      proficiencyRaw: { lifeResourceGrowth },
+      skillsRaw: {},
+    });
+
+    expect(derived?.maxHp).toBe(1_400);
+    expect(derived?.player.maxMp).toBe(550);
+  });
+});
+
 describe("derivePlayerCombatV2Pure 마나 실드", () => {
   it("INT만 투자해서는 생기지 않고 마나 실드 패시브 장착 시 내구도·흡수율을 만든다", () => {
     const base = derivePlayerCombatV2Pure({ level: 1, v2Equipped: {} }).player;

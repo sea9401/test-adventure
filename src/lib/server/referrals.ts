@@ -37,6 +37,20 @@ export function normalizeReferralCode(value: unknown): string | null {
   return REFERRAL_CODE_PATTERN.test(code) ? code : null;
 }
 
+export function normalizeReferralInput(value: unknown): string | null {
+  const direct = normalizeReferralCode(value);
+  if (direct) return direct;
+  if (typeof value !== "string") return null;
+
+  try {
+    const url = new URL(value.trim(), "https://referral.invalid");
+    const match = url.pathname.match(/^\/r\/([a-f0-9]{16})\/?$/i);
+    return match ? normalizeReferralCode(match[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function createReferralCode(): string {
   return randomBytes(8).toString("hex");
 }
@@ -48,29 +62,39 @@ export function referralLandingUrl(requestUrl: string): URL {
   return url;
 }
 
+export type ReferralAttributionResult =
+  | { attributed: true }
+  | {
+      attributed: false;
+      reason: "invalid_code" | "self_referral" | "already_attributed";
+    };
+
 export async function attributeReferral(
   tx: DbExecutor,
   referredUserId: string,
   rawCode: unknown,
   referredName = "새 모험가",
-): Promise<{ attributed: boolean }> {
+): Promise<ReferralAttributionResult> {
   const code = normalizeReferralCode(rawCode);
-  if (!code) return { attributed: false };
+  if (!code) return { attributed: false, reason: "invalid_code" };
 
   const [owner] = await tx
     .select({ userId: referralCodes.userId })
     .from(referralCodes)
     .where(and(eq(referralCodes.code, code), isNull(referralCodes.disabledAt)))
     .limit(1);
-  if (!owner || owner.userId === referredUserId) {
-    return { attributed: false };
+  if (!owner) return { attributed: false, reason: "invalid_code" };
+  if (owner.userId === referredUserId) {
+    return { attributed: false, reason: "self_referral" };
   }
 
   const identityReserved = await reserveReferralIdentityClaims(
     tx,
     referredUserId,
   );
-  if (!identityReserved) return { attributed: false };
+  if (!identityReserved) {
+    return { attributed: false, reason: "already_attributed" };
+  }
 
   const [conversion] = await tx
     .insert(referralConversions)
@@ -86,7 +110,9 @@ export async function attributeReferral(
     })
     .onConflictDoNothing({ target: referralConversions.referredUserId })
     .returning({ referredUserId: referralConversions.referredUserId });
-  if (!conversion) return { attributed: false };
+  if (!conversion) {
+    return { attributed: false, reason: "already_attributed" };
+  }
 
   await tx.insert(marketplaceInbox).values(
     inboxValues({

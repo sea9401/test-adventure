@@ -60,6 +60,7 @@ import {
 } from "@/adventure/data/v2/proficiency";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import { V2_STAT_KEYS, V2_STAT_LABELS } from "@/adventure/data/v2/v2StatKeys";
+import { lifeResourceRangesForProficiency } from "@/adventure/data/v2/statGrowth";
 import {
   V2_JOB_LIST,
   V2_JOB_CATALOG,
@@ -602,6 +603,11 @@ export function proficiencySection(
   return {
     groups: prof.groups,
     caps: effectiveCaps,
+    lifeResourceGrowth: {
+      mode: prof.lifeResourceGrowth ? ("rolled" as const) : ("legacy" as const),
+      currentRanges: lifeResourceRangesForProficiency(prof),
+      appliesAfterRejob: !prof.lifeResourceGrowth,
+    },
     current: {
       group,
       // 직업 숙련도 — tier1 은 직군 숙련도, tier2+ 는 jobCumLevel.

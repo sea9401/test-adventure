@@ -39,7 +39,8 @@ export type V2PatternSelfResource =
   | "impact"
   | "ironWallReflect"
   | "inscription"
-  | "weight";
+  | "weight"
+  | "bloodlineBurstReady";
 
 // 조건 — "언제 이 블록을 발동하나". 아군/위치는 1:1 자동전투엔 없어 미포함(파티 도입 시 확장).
 export type V2CombatCondition =
@@ -74,6 +75,7 @@ export type V2CombatCondition =
   | {
       kind: "enemy_status";
       tag: V2PatternEnemyStatus;
+      metric?: "stacks" | "remainingTurns";
       op: "atLeast" | "atMost" | "none";
       stacks: number;
     }
@@ -114,7 +116,9 @@ export type V2PatternCtx = {
   selfResources: Readonly<Partial<Record<V2PatternSelfResource, number>>>;
   enemyHpPct: number; // 0~100
   enemyBleed: number; // 스택
+  enemyBleedTurns: number; // 앞으로 출혈 피해가 발동할 횟수
   enemyPoison: number;
+  enemyPoisonTurns: number; // 앞으로 중독 피해가 발동할 횟수
   enemyVuln: number;
   enemyFrostChill: number;
   enemyVulnerabilityActive?: boolean;
@@ -136,6 +140,17 @@ function enemyStatusStacks(ctx: V2PatternCtx, tag: V2PatternEnemyStatus): number
     case "frostChill":
       return ctx.enemyFrostChill;
   }
+}
+
+function enemyStatusValue(
+  ctx: V2PatternCtx,
+  cond: Extract<V2CombatCondition, { kind: "enemy_status" }>,
+): number {
+  if (cond.metric === "remainingTurns") {
+    if (cond.tag === "bleed") return ctx.enemyBleedTurns;
+    if (cond.tag === "poison") return ctx.enemyPoisonTurns;
+  }
+  return enemyStatusStacks(ctx, cond.tag);
 }
 
 function enemyDebuffActive(
@@ -199,7 +214,7 @@ export function conditionPasses(
         ? ctx.enemyHpPct <= cond.pct
         : ctx.enemyHpPct >= cond.pct;
     case "enemy_status": {
-      const stacks = enemyStatusStacks(ctx, cond.tag);
+      const stacks = enemyStatusValue(ctx, cond);
       return cond.op === "none"
         ? stacks === 0
         : cond.op === "atMost"
@@ -514,7 +529,8 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
         c.resource === "impact" ||
         c.resource === "ironWallReflect" ||
         c.resource === "inscription" ||
-        c.resource === "weight"
+        c.resource === "weight" ||
+        c.resource === "bloodlineBurstReady"
           ? c.resource
           : null;
       const op =
@@ -542,9 +558,15 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
           ? c.op
           : null;
       if (!tag || !op || !isFinitePct(c.stacks)) return null;
+      const metric =
+        (tag === "bleed" || tag === "poison") &&
+        c.metric === "remainingTurns"
+          ? "remainingTurns"
+          : undefined;
       return {
         kind: "enemy_status",
         tag,
+        ...(metric ? { metric } : {}),
         op,
         stacks: Math.min(
           tag === "frostChill" ? 5 : Number.MAX_SAFE_INTEGER,

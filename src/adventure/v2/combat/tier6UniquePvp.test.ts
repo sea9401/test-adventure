@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
+import type { V2SkillsState } from "@/adventure/data/v2/v2Skills";
 import {
   advanceTurnPvP,
+  castV2SkillOnAttackerTurnPvP,
   initialBattleStatePvP,
 } from "./engine-pvp";
 import { makeBleedDot } from "./combatShared";
@@ -27,6 +29,34 @@ const pursuit: SignatureEffect = {
   trigger: "tier6_unique",
   mechanic: "pursuit_mark",
   label: "지평선 추적",
+};
+
+const bloodlinePatternSkills: V2SkillsState = {
+  learned: ["v2c_warrior_flurry"],
+  equipped: ["v2c_warrior_flurry"],
+  pattern: {
+    blocks: [
+      {
+        condition: {
+          kind: "all",
+          conditions: [
+            { kind: "enemy_status", tag: "bleed", op: "atLeast", stacks: 5 },
+            {
+              kind: "self_resource",
+              resource: "bloodlineBurstReady",
+              op: "atLeast",
+              value: 1,
+            },
+          ],
+        },
+        action: { kind: "basic_attack" },
+      },
+      {
+        condition: { kind: "always" },
+        action: { kind: "skill", skillId: "v2c_warrior_flurry" },
+      },
+    ],
+  },
 };
 
 function signature(mechanic: NonNullable<SignatureEffect["mechanic"]>): SignatureEffect {
@@ -220,25 +250,22 @@ describe("6T 유니크 PvP 대칭 연동", () => {
       .toBe(true);
   });
 
-  it("PvP 혈맥 폭발도 대상의 기존 출혈을 보존한다", () => {
+  it("PvP 상흔의 계수기도 출혈 출처·스택을 보존하고 지속을 최소 5회로 갱신한다", () => {
     const initial = initialBattleStatePvP(
-      player({ equipSignatures: [signature("bleed_burst")] }),
+      player({
+        equipSignatures: [signature("bleed_burst"), signature("bleed_aftermath")],
+      }),
       player(),
       "혈맥 검사자",
       "상대",
     );
     const bleed = makeBleedDot({
       stacks: 10,
-      turns: 3,
+      turns: 2,
       flatPerStack: 10,
       sourceAtk: 100,
     });
-    const bleeding = {
-      ...initial,
-      p2: { ...initial.p2, v2Dots: [bleed] },
-    };
-
-    const after = applyTier6UniquePvpEvent(bleeding, "p1", "p2", {
+    const burstEvent = {
       kind: "direct_hit",
       damage: 100,
       crit: false,
@@ -252,10 +279,67 @@ describe("6T 유니크 PvP 대칭 연동", () => {
       magicAtk: 100,
       maxHp: 2_000,
       origin: { actionId: 1, eventId: 1 },
-    });
+    } as const;
+    const after = applyTier6UniquePvpEvent(
+      { ...initial, p2: { ...initial.p2, v2Dots: [bleed] } },
+      "p1",
+      "p2",
+      burstEvent,
+    );
+    const longBleed = { ...bleed, turns: 6 };
+    const afterLongBleed = applyTier6UniquePvpEvent(
+      { ...initial, p2: { ...initial.p2, v2Dots: [longBleed] } },
+      "p1",
+      "p2",
+      burstEvent,
+    );
 
     expect(after.p2.hp).toBe(initial.p2.hp - 500);
-    expect(after.p2.v2Dots).toEqual([bleed]);
+    expect(after.p2.v2Dots).toEqual([{ ...bleed, turns: 5 }]);
+    expect(afterLongBleed.p2.v2Dots).toEqual([longBleed]);
+  });
+
+  it("PvP 패턴도 혈맥 폭발 준비 때만 출혈 대상 일반 공격을 선택한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const attacker = player({
+      spd: 100,
+      maxMp: 1_000,
+      equipSignatures: [signature("bleed_burst")],
+    });
+    const initial = initialBattleStatePvP(
+      attacker,
+      player({ spd: 1 }),
+      "혈맥 검사자",
+      "상대",
+      bloodlinePatternSkills,
+    );
+    const bleed = makeBleedDot({
+      stacks: 5,
+      turns: 3,
+      flatPerStack: 10,
+      sourceAtk: 100,
+    });
+    const ready = {
+      ...initial,
+      p2: { ...initial.p2, v2Dots: [bleed] },
+    };
+    const waiting = {
+      ...ready,
+      p1: {
+        ...ready.p1,
+        turn: { ...ready.p1.turn, completedPlayerTurns: 1 },
+        stacks: {
+          ...ready.p1.stacks,
+          tier6Uniques: {
+            ...ready.p1.stacks.tier6Uniques!,
+            bleedBurstLastActionId: 1,
+          },
+        },
+      },
+    };
+
+    expect(castV2SkillOnAttackerTurnPvP(ready, "p1").castFired).toBe(false);
+    expect(castV2SkillOnAttackerTurnPvP(waiting, "p1").castFired).toBe(true);
   });
 
   it("과부하 낙뢰는 마법방어·받피감·아레나 배율을 순서대로 거친다", () => {

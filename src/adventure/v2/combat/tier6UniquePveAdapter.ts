@@ -1,6 +1,7 @@
 import type { PlayerCombat } from "./engineState";
 import type { BattleState } from "./engineState";
 import {
+  applyBleedChangeToDots,
   applyV2DotsToTarget,
   makeBleedDot,
   makePoisonDot,
@@ -8,6 +9,7 @@ import {
 } from "./combatShared";
 import {
   initialTier6UniqueRuntime,
+  isBleedBurstReady,
   resolveTier6UniqueEvent,
   type Tier6UniqueCommand,
   type Tier6UniqueEvent,
@@ -16,6 +18,29 @@ import {
   effectiveTier6MagicDefense,
   tier6MagicDamageAfterMitigation,
 } from "./tier6UniqueMagicDamage";
+
+export function tier6PveCastContext(
+  state: BattleState,
+  player: PlayerCombat,
+) {
+  const unityPct =
+    (state.buffs.tier6UnityTurnsLeft ?? 0) > 0
+      ? state.buffs.tier6UnityHealPct ?? 0
+      : 0;
+  const tier6UnityMult = 1 + unityPct / 100;
+  return {
+    tier6UnityMult,
+    tier6UnityAtk: Math.floor(player.atk * tier6UnityMult),
+    tier6UnityMagicAtk: Math.floor(
+      (player.magicAtk ?? player.atk) * tier6UnityMult,
+    ),
+    bloodlineBurstReady: isBleedBurstReady(
+      player.equipSignatures,
+      state.stacks.tier6Uniques,
+      state.turn.completedPlayerTurns + 1,
+    ),
+  };
+}
 
 export function tier6DotContext(state: BattleState) {
   const summarize = (tag: "bleed" | "poison") => {
@@ -156,6 +181,15 @@ function applyCommand(
       ...next,
       enemyV2Dots: applyV2DotsToTarget(next.enemyV2Dots, [dot]),
     };
+  } else if (command.kind === "refresh_bleed") {
+    next = {
+      ...next,
+      enemyV2Dots: applyBleedChangeToDots(next.enemyV2Dots, {
+        stacksToAdd: 0,
+        setTurns: command.turns,
+        reason: "refresh",
+      }),
+    };
   } else if (command.kind === "def_debuff") {
     next = {
       ...next,
@@ -248,6 +282,7 @@ function commandText(
   if (command.kind === "mp") return `MP +${value}`;
   if (command.kind === "consume_dot") return `${command.dot} ${command.stacks}스택 소비`;
   if (command.kind === "apply_dot") return `${command.dot} ${command.stacks}스택 부여`;
+  if (command.kind === "refresh_bleed") return `출혈 지속 최소 ${command.turns}회 유지`;
   if (command.kind === "def_debuff") return `방어 ${value}% 감소`;
   if (command.kind === "mdef_debuff") return `마법방어 ${value}% 감소`;
   if (command.kind === "extra_action") return "추가 기본 공격 +1회";

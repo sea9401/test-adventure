@@ -90,6 +90,32 @@ export function advanceClassErrorLabel(
   return payload?.error ?? `http ${status}`;
 }
 
+export type LifeResourceRejobPayload = {
+  maxHp?: unknown;
+  maxMp?: unknown;
+  hpPerLevel?: { min?: unknown; max?: unknown };
+  mpPerLevel?: { min?: unknown; max?: unknown };
+};
+
+export function formatLifeResourceRejobMessage(
+  baseMessage: string,
+  payload: LifeResourceRejobPayload | null | undefined,
+): string {
+  const values = [
+    payload?.maxHp,
+    payload?.maxMp,
+    payload?.hpPerLevel?.min,
+    payload?.hpPerLevel?.max,
+    payload?.mpPerLevel?.min,
+    payload?.mpPerLevel?.max,
+  ];
+  if (!values.every((value) => typeof value === "number" && Number.isFinite(value))) {
+    return baseMessage;
+  }
+  const [maxHp, maxMp, hpMin, hpMax, mpMin, mpMax] = values as number[];
+  return `${baseMessage} · 새 생애 HP ${maxHp} / MP ${maxMp} · 레벨업 HP +${hpMin}~${hpMax}, MP +${mpMin}~${mpMax}`;
+}
+
 export function V2JobLadder({
   level,
   currentJobId,
@@ -200,17 +226,18 @@ export function V2JobLadder({
         ok?: boolean;
         error?: string;
         required?: number;
+        lifeResources?: LifeResourceRejobPayload;
       } | null;
       if (!j?.ok) {
         const label = advanceClassErrorLabel(j, res.status);
         setMsg(`✗ ${label}`);
         return;
       }
-      setMsg(
+      const baseMessage =
         pending.current
           ? `✓ ${pending.name} 재전직 완료. 레벨 1로 돌아왔어요`
-          : `✓ ${pending.name}(으)로 전직 완료. 레벨 1로 돌아왔어요`,
-      );
+          : `✓ ${pending.name}(으)로 전직 완료. 레벨 1로 돌아왔어요`;
+      setMsg(formatLifeResourceRejobMessage(baseMessage, j.lifeResources));
       setPending(null);
       setRoadmapOpen(false);
       await onChanged();

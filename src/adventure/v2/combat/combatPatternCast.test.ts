@@ -800,6 +800,55 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     ).toBeNull();
   });
 
+  it("출혈과 혈맥 폭발 준비가 모두 맞을 때만 일반 공격하고 대기 중에는 스킬을 쓴다", () => {
+    const pattern: V2CombatPattern = {
+      blocks: [
+        {
+          condition: {
+            kind: "all",
+            conditions: [
+              { kind: "enemy_status", tag: "bleed", op: "atLeast", stacks: 5 },
+              {
+                kind: "self_resource",
+                resource: "bloodlineBurstReady",
+                op: "atLeast",
+                value: 1,
+              },
+            ],
+          },
+          action: { kind: "basic_attack" },
+        },
+        { condition: { kind: "always" }, action: { kind: "skill", skillId: SKILL } },
+      ],
+    };
+    const bleedingTarget = { ...castInput([SKILL]).target, bleedStacks: 5 };
+
+    expect(
+      resolveV2SkillCast(
+        castInput([SKILL], {
+          combatPattern: pattern,
+          attacker: {
+            ...castInput([SKILL]).attacker,
+            bloodlineBurstReady: true,
+          },
+          target: bleedingTarget,
+        }),
+      ).castSkillId,
+    ).toBeNull();
+    expect(
+      resolveV2SkillCast(
+        castInput([SKILL], {
+          combatPattern: pattern,
+          attacker: {
+            ...castInput([SKILL]).attacker,
+            bloodlineBurstReady: false,
+          },
+          target: bleedingTarget,
+        }),
+      ).castSkillId,
+    ).toBe(SKILL);
+  });
+
   it("스킬 발동 판정 실패 뒤 일반 공격 블록을 만나면 더 낮은 스킬로 넘어가지 않는다", () => {
     const fallback = "v2c_warrior_warcry";
     const pattern: V2CombatPattern = {
@@ -981,6 +1030,50 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
         target: { ...base.target, frostChillStacks: 1 },
       }).castSkillId,
     ).toBe("v2c_frostmage_glacier");
+  });
+
+  it("대상의 남은 중독 피해 횟수로 만독개화 갱신 시점을 고른다", () => {
+    const refresh = "v2c_myriadvenom_mutation";
+    const pattern: V2CombatPattern = {
+      blocks: [
+        {
+          condition: {
+            kind: "enemy_status",
+            tag: "poison",
+            metric: "remainingTurns",
+            op: "atMost",
+            stacks: 2,
+          },
+          action: { kind: "skill", skillId: refresh },
+        },
+        {
+          condition: { kind: "always" },
+          action: { kind: "skill", skillId: SKILL },
+        },
+      ],
+    };
+    const base = castInput([refresh, SKILL], { combatPattern: pattern });
+
+    expect(
+      resolveV2SkillCast({
+        ...base,
+        target: {
+          ...base.target,
+          poisonStacks: 6,
+          poisonTurns: 2,
+        },
+      }).castSkillId,
+    ).toBe(refresh);
+    expect(
+      resolveV2SkillCast({
+        ...base,
+        target: {
+          ...base.target,
+          poisonStacks: 6,
+          poisonTurns: 3,
+        },
+      }).castSkillId,
+    ).toBe(SKILL);
   });
 });
 

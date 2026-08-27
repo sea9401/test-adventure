@@ -37,6 +37,8 @@ import {
   effectiveLevelCap,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
+import { rollInitialLifeResourceGrowth } from "@/adventure/data/v2/lifeResourceGrowth";
+import { lifeResourceRangesForProficiency } from "@/adventure/data/v2/statGrowth";
 
 // POST /api/v2/me/class-element — 레거시 경로명을 유지하는 직업 선택/변경 API.
 // 속성 선택·상성은 폐지되어 요청의 element 값은 더 이상 읽거나 저장하지 않는다.
@@ -139,8 +141,8 @@ export async function POST(req: Request) {
     // design A(§3.2·§6) — 직업군 변경(횡환생)은 5차 정점(만렙) 전용. 자유 respec 폐기로
     // "싼 저차수 farming·snap-back" 익스플로잇 구조 차단. 첫 선택·같은 직업군은 면제.
     // (잘못 고른 초반 캐릭의 탈출구는 신전 초기화 — respec 과 별개.)
+    const curGroupTier = prof.groups[tier1ClassOf(curClass)]?.tier ?? 1;
     if (groupChanged && !isFirstPick) {
-      const curGroupTier = prof.groups[tier1ClassOf(curClass)]?.tier ?? 1;
       if (curGroupTier !== 5 || level < effectiveLevelCap(5)) {
         return {
           status: 400,
@@ -269,8 +271,23 @@ export async function POST(req: Request) {
 
     // 직업군 변경 시 grown(랜덤 성장분) 리셋 — 레벨 1 = 성장분 0, floor 부터 재시작(advance 와 동일).
     // 위에서 이미 잠가 읽은 prof 재사용(중복 락 X). points/caps/tier/cumLevel 은 보존.
+    const completedCombatCycle =
+      groupChanged &&
+      !isFirstPick &&
+      curGroupTier >= 5 &&
+      level >= effectiveLevelCap(curGroupTier);
+    const resetProf = groupChanged ? resetLevelGrowth(prof) : prof;
+    const lifeResourceRanges = completedCombatCycle
+      ? lifeResourceRangesForProficiency(resetProf)
+      : null;
+    const lifeResourceGrowth = lifeResourceRanges
+      ? rollInitialLifeResourceGrowth(lifeResourceRanges)
+      : null;
     if (groupChanged) {
-      await upsertSave(tx, userId, "proficiency.v2", resetLevelGrowth(prof));
+      await upsertSave(tx, userId, "proficiency.v2", {
+        ...resetProf,
+        ...(lifeResourceGrowth ? { lifeResourceGrowth } : {}),
+      });
     }
 
     return {
@@ -282,6 +299,16 @@ export async function POST(req: Request) {
         ...(V2_CORE_LOOP_V2 ? { bankedGold: nextBankedGold } : {}),
         spent,
         cooldownUntil,
+        ...(lifeResourceGrowth && lifeResourceRanges
+          ? {
+              lifeResources: {
+                maxHp: lifeResourceGrowth.baseHp,
+                maxMp: lifeResourceGrowth.baseMp,
+                hpPerLevel: lifeResourceRanges.hpPerLevel,
+                mpPerLevel: lifeResourceRanges.mpPerLevel,
+              },
+            }
+          : {}),
       },
     };
   });

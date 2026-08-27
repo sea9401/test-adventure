@@ -25,7 +25,9 @@ function ctx(over: Partial<V2PatternCtx> = {}): V2PatternCtx {
     selfResources: { impact: 0, ironWallReflect: 0 },
     enemyHpPct: 100,
     enemyBleed: 0,
+    enemyBleedTurns: 0,
     enemyPoison: 0,
+    enemyPoisonTurns: 0,
     enemyVuln: 0,
     enemyFrostChill: 0,
     turn: 1,
@@ -174,6 +176,62 @@ describe("conditionPasses", () => {
     expect(conditionPasses({ kind: "enemy_status", tag: "bleed", op: "none", stacks: 0 }, c)).toBe(false);
   });
 
+  it("enemy_status 남은 횟수 — 중독과 출혈의 미래 피해 횟수를 비교한다", () => {
+    const active = ctx({
+      enemyPoison: 6,
+      enemyPoisonTurns: 2,
+      enemyBleed: 4,
+      enemyBleedTurns: 3,
+    });
+    expect(
+      conditionPasses(
+        {
+          kind: "enemy_status",
+          tag: "poison",
+          metric: "remainingTurns",
+          op: "atMost",
+          stacks: 2,
+        },
+        active,
+      ),
+    ).toBe(true);
+    expect(
+      conditionPasses(
+        {
+          kind: "enemy_status",
+          tag: "poison",
+          op: "atMost",
+          stacks: 2,
+        },
+        active,
+      ),
+    ).toBe(false);
+    expect(
+      conditionPasses(
+        {
+          kind: "enemy_status",
+          tag: "bleed",
+          metric: "remainingTurns",
+          op: "atLeast",
+          stacks: 3,
+        },
+        active,
+      ),
+    ).toBe(true);
+    expect(
+      conditionPasses(
+        {
+          kind: "enemy_status",
+          tag: "poison",
+          metric: "remainingTurns",
+          op: "none",
+          stacks: 0,
+        },
+        ctx(),
+      ),
+    ).toBe(true);
+  });
+
   it("enemy_status 한기 — 현재 대상의 한기 스택을 경계 포함 비교한다", () => {
     const chilled = ctx({ enemyFrostChill: 4 });
     expect(
@@ -270,6 +328,29 @@ describe("conditionPasses", () => {
         },
       ],
     });
+  });
+
+  it("혈맥 폭발 준비 자원을 파싱하고 0/1 상태로 일반 공격을 게이트한다", () => {
+    const condition = {
+      kind: "self_resource" as const,
+      resource: "bloodlineBurstReady" as const,
+      op: "atLeast" as const,
+      value: 1,
+    };
+    const pattern = parseCombatPattern({
+      blocks: [{ condition, action: { kind: "basic_attack" } }],
+    });
+
+    expect(pattern.blocks).toEqual([
+      { condition, action: { kind: "basic_attack" } },
+    ]);
+    expect(
+      conditionPasses(
+        condition,
+        ctx({ selfResources: { bloodlineBurstReady: 1 } }),
+      ),
+    ).toBe(true);
+    expect(conditionPasses(condition, ctx())).toBe(false);
   });
 
   it("enemy_debuff — 봉쇄 효과가 없을 때만 재시전한다", () => {
@@ -523,6 +604,62 @@ describe("parseCombatPattern (저장 검증)", () => {
       })),
     });
     expect(many.blocks).toHaveLength(V2_COMBAT_PATTERN_MAX_BLOCKS);
+  });
+
+  it("남은 횟수 기준은 중독·출혈만 보존하고 기존 조건은 스택 형태를 유지한다", () => {
+    const parsed = parseCombatPattern({
+      blocks: [
+        {
+          condition: {
+            kind: "enemy_status",
+            tag: "poison",
+            metric: "remainingTurns",
+            op: "atMost",
+            stacks: 2.9,
+          },
+          action: { kind: "skill", skillId: "poison-refresh" },
+        },
+        {
+          condition: {
+            kind: "enemy_status",
+            tag: "vuln",
+            metric: "remainingTurns",
+            op: "atLeast",
+            stacks: 3,
+          },
+          action: { kind: "skill", skillId: "vuln-skill" },
+        },
+        {
+          condition: {
+            kind: "enemy_status",
+            tag: "bleed",
+            op: "atLeast",
+            stacks: 4,
+          },
+          action: { kind: "skill", skillId: "legacy" },
+        },
+      ],
+    });
+
+    expect(parsed.blocks[0].condition).toEqual({
+      kind: "enemy_status",
+      tag: "poison",
+      metric: "remainingTurns",
+      op: "atMost",
+      stacks: 2,
+    });
+    expect(parsed.blocks[1].condition).toEqual({
+      kind: "enemy_status",
+      tag: "vuln",
+      op: "atLeast",
+      stacks: 3,
+    });
+    expect(parsed.blocks[2].condition).toEqual({
+      kind: "enemy_status",
+      tag: "bleed",
+      op: "atLeast",
+      stacks: 4,
+    });
   });
 
   it("한기 조건을 저장 데이터에서 안전하게 파싱한다", () => {

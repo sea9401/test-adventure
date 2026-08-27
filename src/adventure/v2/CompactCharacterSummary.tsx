@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CaretDown,
   CookingPot,
+  ForkKnife,
   HandFist,
   Shield,
   Sneaker,
@@ -23,6 +24,7 @@ import {
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import type { ActiveCookingBuff } from "@/adventure/v2/cooking/food";
+import type { GuildDiningEffectSummary } from "@/adventure/data/v2/guildDining";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Inset } from "@/components/ui/Inset";
@@ -98,6 +100,7 @@ export function CompactCharacterSummary({
   activePresetName,
   adventureSupport,
   activeFoodBuff,
+  activeGuildDiningEffect,
   equipped,
   owned,
   expanded,
@@ -110,6 +113,7 @@ export function CompactCharacterSummary({
   activePresetName?: string | null;
   adventureSupport?: AdventureSupportSummary;
   activeFoodBuff?: ActiveCookingBuff | null;
+  activeGuildDiningEffect?: GuildDiningEffectSummary | null;
   equipped?: Partial<Record<V2EquipSlot, string>>;
   owned?: V2EquipInstance[];
   expanded: boolean;
@@ -119,6 +123,21 @@ export function CompactCharacterSummary({
   const [selectedDetail, setSelectedDetail] =
     useState<CompactDetailSelection | null>(null);
   const [portraitErrored, setPortraitErrored] = useState(false);
+  const [effectNow, setEffectNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!activeGuildDiningEffect) return;
+    const timer = window.setInterval(() => {
+      const nextNow = Date.now();
+      setEffectNow(nextNow);
+      if (activeGuildDiningEffect.expiresAt <= nextNow) {
+        setSelectedDetail((current) =>
+          current?.kind === "guildDining" ? null : current,
+        );
+      }
+    }, 30_000);
+    return () => window.clearInterval(timer);
+  }, [activeGuildDiningEffect]);
 
   if (expanded) {
     return <>{children}</>;
@@ -136,6 +155,10 @@ export function CompactCharacterSummary({
     typeof adventureSupport.activeUntil === "number" &&
     Number.isFinite(adventureSupport.activeUntil)
       ? adventureSupport.activeUntil
+      : null;
+  const visibleGuildDiningEffect =
+    activeGuildDiningEffect && activeGuildDiningEffect.expiresAt > effectNow
+      ? activeGuildDiningEffect
       : null;
   const equippedBySlot = new Map(
     EQUIPMENT_SLOTS.map(({ slot }) => {
@@ -217,6 +240,27 @@ export function CompactCharacterSummary({
               >
                 <CookingPot size={13} className="text-orange-500" aria-hidden />
                 <span className="max-w-28 truncate">{activeFoodBuff.recipeName}</span>
+              </Inset>
+            ) : null}
+            {visibleGuildDiningEffect ? (
+              <Inset
+                as="button"
+                type="button"
+                padding="none"
+                aria-label={`${visibleGuildDiningEffect.name} 길드 음식 효과 보기`}
+                aria-haspopup="dialog"
+                onClick={(event) =>
+                  setSelectedDetail({
+                    kind: "guildDining",
+                    anchor: anchorOf(event.currentTarget),
+                  })
+                }
+                className="inline-flex items-center gap-1 border-0 px-2 py-1 text-[10px] text-zinc-600 shadow-none transition-colors hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:text-zinc-300 dark:hover:text-white"
+              >
+                <ForkKnife size={13} className="text-emerald-500" aria-hidden />
+                <span className="max-w-28 truncate">
+                  {visibleGuildDiningEffect.name}
+                </span>
               </Inset>
             ) : null}
             {adventureSupport?.active ? (
@@ -348,6 +392,16 @@ export function CompactCharacterSummary({
       ) : selectedDetail?.kind === "food" && activeFoodBuff ? (
         <CompactCharacterEffectCard
           detail={{ kind: "food", buff: activeFoodBuff }}
+          anchor={selectedDetail.anchor}
+          onClose={() => setSelectedDetail(null)}
+        />
+      ) : selectedDetail?.kind === "guildDining" &&
+        visibleGuildDiningEffect ? (
+        <CompactCharacterEffectCard
+          detail={{
+            kind: "guildDining",
+            effect: visibleGuildDiningEffect,
+          }}
           anchor={selectedDetail.anchor}
           onClose={() => setSelectedDetail(null)}
         />

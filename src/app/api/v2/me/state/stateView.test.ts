@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   currentJobSummary,
+  guildDiningEffectSummary,
   parseStateView,
   proficiencySummary,
 } from "./stateView";
@@ -43,5 +44,62 @@ describe("core state summaries", () => {
       groups: { warrior: { tier: 3 } },
       current: { group: "warrior", cumLevel: 42 },
     });
+  });
+});
+
+describe("길드 음식 상태 요약", () => {
+  const now = new Date("2026-08-27T03:00:00.000Z");
+  const args = { weekKey: "2026-08-24", guildId: 3, now };
+
+  it("활성 효과를 캐릭터 요약용 이름과 보너스로 반환한다", () => {
+    expect(
+      guildDiningEffectSummary(
+        {
+          version: 1,
+          weekKey: "2026-08-24",
+          guildId: 3,
+          contributionPoints: 20,
+          mealsUsed: 1,
+          activeEffect: {
+            menuId: "guild_grand_feast",
+            kind: "all_xp",
+            bonusPct: 60,
+            lifeBonusPct: 20,
+            expiresAt: now.getTime() + 60 * 60_000,
+            roundingRemainder: 0,
+          },
+        },
+        args,
+      ),
+    ).toEqual({
+      menuId: "guild_grand_feast",
+      name: "길드 대연회",
+      kind: "all_xp",
+      bonusPct: 60,
+      lifeBonusPct: 20,
+      expiresAt: now.getTime() + 60 * 60_000,
+    });
+  });
+
+  it("만료된 효과는 캐릭터 상태에서 제외한다", () => {
+    expect(
+      guildDiningEffectSummary(
+        {
+          version: 1,
+          weekKey: "2026-08-24",
+          guildId: 3,
+          contributionPoints: 20,
+          mealsUsed: 1,
+          activeEffect: {
+            menuId: "hunters_barbecue",
+            kind: "hunt_exp",
+            bonusPct: 40,
+            expiresAt: now.getTime(),
+            roundingRemainder: 0,
+          },
+        },
+        args,
+      ),
+    ).toBeNull();
   });
 });

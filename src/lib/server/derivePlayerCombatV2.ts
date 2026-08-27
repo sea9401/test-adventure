@@ -11,7 +11,7 @@
 //   vit → maxHp 주력 (vit×1), def 약화 (vit×0.1)
 //   spd → 레거시 다중공격 확률(100% 이후 점감) + ATB 행동 빈도(최대 기준의 3배)
 //   luk → 치명 확률(crit += luk×0.12) + 치명 데미지(critMult 점감곡선 bonus += luk×0.007). 항상 작동
-//   int → maxMp (int×2). 마법 axis 는 PR-7
+//   int → 레거시 생애 maxMp (int×2). 신형 생애에서는 MP 성장 고점의 영구 입력. 마법 axis 는 PR-7
 //
 // 장비(PR-4a 위력/무게/옵션 모델):
 //   - 위력 → 슬롯별 분기(지팡이=마공 / 기타 무기=물공 / 방어구=물방 / 장신구=마방). 결과 후-가산.
@@ -50,6 +50,7 @@ import {
 } from "@/adventure/data/v2/v2Skills";
 import { equipmentCritMultToMagicSkillCritBonus } from "@/adventure/data/v2/skillCritical";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
+import type { V2LifeResourceGrowth } from "@/adventure/data/v2/lifeResourceGrowth";
 import {
   V2_CORE_LOOP_V2,
   coreLoopMaxHpMult,
@@ -185,10 +186,8 @@ export {
   VIT_ATK_COEF,
 } from "./v2CombatCoefficients";
 
-// 레벨업 1회분 maxHp/maxMp 성장량 — maxHp/maxMp 파생식과 동일 계수(드리프트 방지). 레벨업
-// 결과 카드 표기용. HP = 레벨당 고정(V2_HP_PER_LEVEL) + 오른 STR × HP_PER_STR
-// + 오른 VIT × HP_PER_VIT,
-// MP = 레벨당 고정(V2_MP_PER_LEVEL) + 오른 INT × MP_PER_INT. 모든 계수 정수라 floor 불필요.
+// 레거시 생애의 레벨업 1회분 maxHp/maxMp 성장량 — 레거시 파생식과 동일 계수.
+// 신형 생애는 lifeResourceGrowth 의 실제 레벨별 굴림을 결과 카드에 사용한다.
 export function v2LevelGrowthHpMp(args: {
   levelsGained: number;
   strGained: number;
@@ -253,6 +252,8 @@ export { V2_BASE_STATS, V2_STAT_POINTS_PER_LEVEL } from "@/adventure/data/v2/v2S
 // saves 로드 후 이 함수에 위임(FromSaves → Pure).
 export type DerivePlayerCombatV2PureInput = {
   level: number;
+  /** 현재 전투 생애에서 확정된 자원 굴림. 미지정이면 레거시 자원 공식을 사용한다. */
+  lifeResourceGrowth?: V2LifeResourceGrowth;
   /** 1차 스탯 성장분 — V2_BASE_STATS 위에 더해질 값(랜덤 레벨 성장 grownStats). 옛 수동 분배 대체. */
   allocatedStats?: Partial<Record<V2StatKey, number>>;
   /** stat 별 cap(수행으로 상향). 미지정 스탯/입력은 무클램프 — sim 등 호환. */
@@ -540,23 +541,26 @@ export function derivePlayerCombatV2Pure(
     (1 + ((input.passiveHealPowerPct ?? 0) + equipAcc.healPowerPct) / 100);
   // HP%는 캐릭터 자체 HP만 강화한다. 장비 HP는 마지막에 더해 장비 HP와 HP% 패시브가
   // 서로를 중복 증폭하던 생존 편중을 제거한다.
+  const intrinsicHp = input.lifeResourceGrowth
+    ? input.lifeResourceGrowth.baseHp + input.lifeResourceGrowth.gainedHp
+    : V2_BASE_HP + Math.max(0, level - 1) * V2_HP_PER_LEVEL;
   const characterHp =
-    V2_BASE_HP +
-      Math.max(0, level - 1) * V2_HP_PER_LEVEL +
-      totalStats.str * HP_PER_STR +
-      totalStats.vit * HP_PER_VIT;
+    intrinsicHp +
+    totalStats.str * HP_PER_STR +
+    totalStats.vit * HP_PER_VIT;
   const maxHp = Math.floor(
     characterHp *
       coreLoopMaxHpMult(playerClass, V2_CORE_LOOP_V2) *
       (1 + stackedMaxHpIncreasePct(input.maxHpPct ?? 0) / 100) +
       equipAcc.hp,
   );
-  const maxMp = Math.floor(
-    (V2_BASE_MP +
+  const intrinsicMp = input.lifeResourceGrowth
+    ? input.lifeResourceGrowth.baseMp + input.lifeResourceGrowth.gainedMp
+    : V2_BASE_MP +
       Math.max(0, level - 1) * V2_MP_PER_LEVEL +
-      totalStats.int * MP_PER_INT +
-      equipAcc.mp) *
-      (1 + (input.maxMpPct ?? 0) / 100),
+      totalStats.int * MP_PER_INT;
+  const maxMp = Math.floor(
+    (intrinsicMp + equipAcc.mp) * (1 + (input.maxMpPct ?? 0) / 100),
   );
   // 치명타 확률 — 행운 + 장비 + 장착 패시브(급소·치명, A 메타 다양성). 미지정 +0.
   const critChancePct =
@@ -1085,6 +1089,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
 
   const derived = derivePlayerCombatV2Pure({
     level: character.level ?? 1,
+    lifeResourceGrowth: prof.lifeResourceGrowth,
     allocatedStats: prof.grown,
     statCaps: prof.caps,
     statFloors: computeStatFloors(prof),

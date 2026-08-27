@@ -22,10 +22,12 @@ import {
   type ReferralTutorialTask,
 } from "@/adventure/data/v2/referralTutorial";
 import { ReferralTutorialRoadmap } from "./ReferralTutorialRoadmap";
+import { ReferralRegistrationForm } from "./ReferralRegistrationForm";
 
 type ReferralSummary = {
   ok: true;
   code: string | null;
+  hasReferrer: boolean;
   newUserStaminaPotions: number;
   referrerSignupStaminaPotions: number;
   tutorialTaskStaminaPotions: number;
@@ -235,6 +237,10 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
           계정은 한 번만 인정 · 본인 링크는 제외됩니다.
         </p>
       </Card>
+
+      {!loading && summary && !summary.hasReferrer && (
+        <ReferralRegistrationForm onRegistered={load} />
+      )}
 
       <Card padding="md" className="space-y-3">
         <div>

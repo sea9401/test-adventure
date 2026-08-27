@@ -110,6 +110,8 @@ describe("MailDetailModal 장문 가독성", () => {
           kind: "admin_gift",
           payload: {
             cookingIngredients: [
+              { ingredientId: "farm:wheat", count: 4 },
+              { ingredientId: "fishing:catch_legendary", count: 1 },
               { ingredientId: "pantry:salt", count: 2 },
               { ingredientId: "processed:flour", count: 3 },
             ],
@@ -125,6 +127,8 @@ describe("MailDetailModal 장문 가독성", () => {
       }),
     );
 
+    expect(html).toContain("밀 x4");
+    expect(html).toContain("전설의 어획물 x1");
     expect(html).toContain("소금 x2");
     expect(html).toContain("밀가루 x3");
   });

@@ -74,6 +74,34 @@ describe("POST /api/v2/dev/grant", () => {
     expect(prof.points).toBe(100);
   });
 
+  it("숙련도 지급 없이 레벨만 올려도 스탯과 생애 자원을 함께 성장시킨다", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    store.set("proficiency.v2", {
+      lifeResourceGrowth: {
+        version: 1,
+        rolledLevel: 10,
+        baseHp: 120,
+        baseMp: 65,
+        gainedHp: 72,
+        gainedMp: 27,
+      },
+    });
+
+    const res = await POST(req({ setLevel: 12 }));
+    const json = await res.json();
+
+    expect(json).toMatchObject({ levelsGained: 2, hpGain: 16, mpGain: 6 });
+    const prof = parseProficiency(store.get("proficiency.v2"));
+    expect(prof.lifeResourceGrowth).toMatchObject({
+      rolledLevel: 12,
+      gainedHp: 88,
+      gainedMp: 33,
+    });
+    expect(Object.values(prof.grown).reduce((sum, value) => sum + value, 0)).toBe(
+      6,
+    );
+  });
+
   it("최고 관리자 권한이 없으면 지급하지 않는다", async () => {
     adminGate.response = new Response("forbidden", { status: 403 });
     const before = structuredClone(store.get("character.v2"));

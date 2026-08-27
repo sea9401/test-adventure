@@ -46,6 +46,14 @@ function activeCultivation(
     grown: { str: 3, vit: 2, dex: 1 },
     growthRespecPoints: 5,
     cultivationPointsSpent: 40,
+    lifeResourceGrowth: {
+      version: 1,
+      rolledLevel: 100,
+      baseHp: 142,
+      baseMp: 81,
+      gainedHp: 999,
+      gainedMp: 444,
+    },
     ...overrides,
   };
 }
@@ -96,6 +104,14 @@ describe("POST /api/v2/me/cultivate/reset", () => {
     expect(saved.cultivationPointsSpent).toBe(0);
     expect(saved.grown).toEqual({});
     expect(saved.growthRespecPoints).toBe(0);
+    expect(saved.lifeResourceGrowth).toEqual({
+      version: 1,
+      rolledLevel: 1,
+      baseHp: 142,
+      baseMp: 81,
+      gainedHp: 0,
+      gainedMp: 0,
+    });
   });
 
   it("두 번째부터는 1,500만 골드를 차감한다", async () => {

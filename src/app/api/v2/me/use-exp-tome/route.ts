@@ -85,6 +85,8 @@ export async function POST(req: Request) {
           ok: true as const,
           level: grant.level,
           levelsGained: grant.levelsGained,
+          hpGain: grant.hpGain,
+          mpGain: grant.mpGain,
           grantedExp: EXP_TOME_GRANT,
           runsLeft: map.runsLeft - 1,
         },

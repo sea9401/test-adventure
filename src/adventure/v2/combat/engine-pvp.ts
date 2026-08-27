@@ -173,6 +173,7 @@ import {
   hasTier6Unique,
   initialTier6UniqueRuntime,
   activeTier6ResourceSnapshot,
+  isBleedBurstReady,
   type Tier6UniqueRuntimeState,
 } from "./tier6UniqueEffects";
 import {
@@ -2736,6 +2737,9 @@ export function castV2SkillOnAttackerTurnPvP(
   const activeOpponentBleed = opp.v2Dots.find(
     (dot) => dot.tag === "bleed" && dot.turns > 0,
   );
+  const activeOpponentPoison = opp.v2Dots.find(
+    (dot) => dot.tag === "poison" && dot.turns > 0,
+  );
   const needsBleedHuntRoll = side.v2Skills.equipped.some(
     (skillId) =>
       V2_SKILLS[skillId]?.bleedHunt?.directPhysicalHitBleedExtend != null,
@@ -2823,6 +2827,11 @@ export function castV2SkillOnAttackerTurnPvP(
       lawInscription: side.player.lawInscription,
       lawInscriptions: side.stacks.lawInscriptions,
       mutationWeight: side.stacks.mutationWeight,
+      bloodlineBurstReady: isBleedBurstReady(
+        side.player.equipSignatures,
+        side.stacks.tier6Uniques,
+        side.turn.completedPlayerTurns + 1,
+      ),
       bleedPhysicalSkillDamagePctPerStack:
         side.player.bleedPhysicalSkillDamagePctPerStack,
       selfBuffs: tickedSelfBuffs,
@@ -2840,7 +2849,8 @@ export function castV2SkillOnAttackerTurnPvP(
       maxHp: opp.maxHp,
       bleedStacks: activeOpponentBleed?.stacks ?? 0,
       bleedTurns: activeOpponentBleed?.turns ?? 0,
-      poisonStacks: opp.v2Dots.filter((d) => d.tag === "poison").reduce((s, d) => s + d.stacks, 0),
+      poisonStacks: activeOpponentPoison?.stacks ?? 0,
+      poisonTurns: activeOpponentPoison?.turns ?? 0,
       // 약점 노출 — 비전 작렬(magicVuln payoff)이 상대 누적 스택을 읽어 추가딜.
       magicVulnStacks: opp.stacks.magicVulnStacks,
       frostChillStacks: opp.stacks.frostChillStacks,

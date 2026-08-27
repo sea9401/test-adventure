@@ -35,9 +35,6 @@ export function CookingResearchPanel({ data, busy, mutate }: {
   );
   const maxSlots = data.level >= 35 ? 5 : data.level >= 20 ? 4 : data.level >= 10 ? 3 : 2;
   const ingredients = useMemo(() => cookingResearchIngredients(data), [data]);
-  const latestFailureMarker = data.failedResearches[0]
-    ? `${researchAttemptKey(data.failedResearches[0].method, data.failedResearches[0].ingredientIds)}:${data.failedResearches[0].createdAt}`
-    : null;
   const failedAttemptKeys = useMemo(
     () => new Set(data.failedResearches.map((entry) =>
       researchAttemptKey(entry.method, entry.ingredientIds))),
@@ -48,11 +45,6 @@ export function CookingResearchPanel({ data, busy, mutate }: {
     failedAttemptKeys.has(selectedAttemptKey) ||
     rejectedAttemptKeys.has(selectedAttemptKey)
   );
-  const [previousFailureMarker, setPreviousFailureMarker] = useState(latestFailureMarker);
-  if (latestFailureMarker !== previousFailureMarker) {
-    setPreviousFailureMarker(latestFailureMarker);
-    if (latestFailureMarker !== null) setSelected([]);
-  }
   const [previousIngredients, setPreviousIngredients] = useState(ingredients);
   if (ingredients !== previousIngredients) {
     const available = new Set(ingredients);

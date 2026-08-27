@@ -87,6 +87,7 @@ describe("GET /api/referrals/me", () => {
 
     expect(response.status).toBe(200);
     expect(json).toMatchObject({
+      hasReferrer: false,
       attributedCount: 1,
       totalRewardStaminaPotions: 6,
       referrals: [
@@ -125,5 +126,6 @@ describe("GET /api/referrals/me", () => {
       completedTaskIds: ["hunt_depth_24", "life_level_10"],
       completedRewardStages: 3,
     });
+    expect(json.hasReferrer).toBe(true);
   });
 });

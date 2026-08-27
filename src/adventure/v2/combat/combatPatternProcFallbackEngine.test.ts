@@ -19,6 +19,7 @@ import {
   castV2SkillOnAttackerTurnPvP,
   initialBattleStatePvP,
 } from "./engine-pvp";
+import { makePoisonDot } from "./combatShared";
 
 const SKILL_IDS = [
   "v2c_archmage_collapse", // 40%
@@ -106,6 +107,95 @@ describe("전투 엔진의 다음 순위 스킬 독립 판정", () => {
 
     expect(
       result.state.log.some((entry) => entry.text.startsWith("비전 폭발!")),
+    ).toBe(true);
+  });
+
+  const remainingPoisonPatternSkills: V2SkillsState = {
+    learned: ["v2c_mage_boltcast", "v2c_warrior_flurry"],
+    equipped: ["v2c_mage_boltcast", "v2c_warrior_flurry"],
+    pattern: {
+      blocks: [
+        {
+          condition: {
+            kind: "enemy_status",
+            tag: "poison",
+            metric: "remainingTurns",
+            op: "atLeast",
+            stacks: 2,
+          },
+          action: { kind: "skill", skillId: "v2c_mage_boltcast" },
+        },
+        {
+          condition: { kind: "always" },
+          action: { kind: "skill", skillId: "v2c_warrior_flurry" },
+        },
+      ],
+    },
+  };
+
+  it("PvE에서 적 중독의 남은 횟수를 패턴 조건에 전달한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const initial = initialBattleState(
+      player,
+      enemy,
+      "P1",
+      remainingPoisonPatternSkills,
+    );
+    const prepared = {
+      ...initial,
+      enemyV2Dots: [
+        makePoisonDot({
+          stacks: 6,
+          turns: 2,
+          pctMaxHpPerStack: 0.001,
+          sourceAtk: 100,
+        }),
+      ],
+    };
+
+    const result = applyPlayerV2SkillCast(prepared, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    });
+
+    expect(
+      result.state.log.some((entry) => entry.text.startsWith("마력탄!")),
+    ).toBe(true);
+  });
+
+  it("PvP에서 상대 중독의 남은 횟수를 패턴 조건에 전달한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const initial = initialBattleStatePvP(
+      player,
+      { ...player, spd: 1 },
+      "P1",
+      "P2",
+      remainingPoisonPatternSkills,
+      { learned: [], equipped: [] },
+      undefined,
+      undefined,
+      "p1",
+    );
+    const prepared = {
+      ...initial,
+      p2: {
+        ...initial.p2,
+        v2Dots: [
+          makePoisonDot({
+            stacks: 6,
+            turns: 2,
+            pctMaxHpPerStack: 0.001,
+            sourceAtk: 100,
+          }),
+        ],
+      },
+    };
+
+    const result = castV2SkillOnAttackerTurnPvP(prepared, "p1");
+
+    expect(
+      result.state.log.some((entry) => entry.text.startsWith("마력탄!")),
     ).toBe(true);
   });
 });

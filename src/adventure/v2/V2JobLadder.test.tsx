@@ -1,6 +1,34 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { advanceClassErrorLabel, V2JobLadder } from "./V2JobLadder";
+import {
+  advanceClassErrorLabel,
+  formatLifeResourceRejobMessage,
+  V2JobLadder,
+} from "./V2JobLadder";
+
+describe("formatLifeResourceRejobMessage", () => {
+  it("새 Lv.1 HP·MP와 앞으로의 레벨업 범위를 성공 메시지에 붙인다", () => {
+    expect(
+      formatLifeResourceRejobMessage("✓ 병사 재전직 완료", {
+        maxHp: 142,
+        maxMp: 81,
+        hpPerLevel: { min: 8, max: 12 },
+        mpPerLevel: { min: 3, max: 5 },
+      }),
+    ).toBe(
+      "✓ 병사 재전직 완료 · 새 생애 HP 142 / MP 81 · 레벨업 HP +8~12, MP +3~5",
+    );
+  });
+
+  it("응답 필드가 없거나 손상됐으면 기존 메시지를 그대로 둔다", () => {
+    expect(formatLifeResourceRejobMessage("✓ 전직 완료", undefined)).toBe(
+      "✓ 전직 완료",
+    );
+    expect(
+      formatLifeResourceRejobMessage("✓ 전직 완료", { maxHp: 120 }),
+    ).toBe("✓ 전직 완료");
+  });
+});
 
 describe("V2JobLadder production-job guidance", () => {
   it("수인 단일 계보와 바로 아래 직업 숙련도 조건을 표시한다", () => {

@@ -6,6 +6,7 @@ import {
   addCumLevel,
   addJobCumLevel,
   addPoints,
+  addStatFloorLevels,
   groupCumLevel,
   parseProficiencyForChar,
   proficiencyPerKillAtDepth,
@@ -17,7 +18,12 @@ import {
   isLifestyleMasteryJobId,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
-import { rollLevelGrowth } from "@/adventure/data/v2/statGrowth";
+import {
+  lifeResourceRangesForProficiency,
+  rollLevelGrowth,
+} from "@/adventure/data/v2/statGrowth";
+import { rollLifeResourceLevels } from "@/adventure/data/v2/lifeResourceGrowth";
+import { v2LevelGrowthHpMp } from "@/lib/server/derivePlayerCombatV2";
 import { V2_STAT_KEYS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import { equippedProfPerKillBonus } from "@/adventure/data/v2/v2Skills";
 import { rollGuildCombatProficiencyBonus } from "@/adventure/data/v2/guildCombatSupply";
@@ -39,6 +45,10 @@ export type HuntProficiencyResult = {
   spMilestonesGained: number;
   /** 레벨업 랜덤 성장으로 오른 1차 스탯 — 결과 카드 표시용. */
   statGains: Partial<Record<V2StatKey, number>>;
+  /** 이번 레벨업으로 실제 증가한 최대 HP. */
+  hpGain: number;
+  /** 이번 레벨업으로 실제 증가한 최대 MP. */
+  mpGain: number;
 };
 
 export function applyHuntProficiency(params: {
@@ -73,6 +83,8 @@ export function applyHuntProficiency(params: {
   let masteryAfter: number | null = null;
   const spMilestonesGained = 0;
   const statGains: Partial<Record<V2StatKey, number>> = {};
+  let hpGain = 0;
+  let mpGain = 0;
 
   if (won || levelsGained > 0) {
     const playerClass = parseV2Class(charSave.class);
@@ -110,6 +122,7 @@ export function applyHuntProficiency(params: {
     }
     // 레벨업 시 — 랜덤 스탯 성장. 직업 숙련도는 레벨업이 아니라 사냥 승리에서 적립한다.
     if (levelsGained > 0) {
+      prof = addStatFloorLevels(prof, group, levelsGained);
       // 랜덤 레벨 성장 — 레벨업 수만큼 굴린다(cap 은 prof.caps, 수행 전 기본 60).
       const grownBefore = prof.grown; // rollLevelGrowth 는 비파괴 — 시작 맵 보존 안전.
       let grown = grownBefore;
@@ -123,6 +136,27 @@ export function applyHuntProficiency(params: {
       for (const k of V2_STAT_KEYS) {
         const d = (grown[k] ?? 0) - (grownBefore[k] ?? 0);
         if (d > 0) statGains[k] = d;
+      }
+      if (prof.lifeResourceGrowth) {
+        const rolled = rollLifeResourceLevels(
+          prof.lifeResourceGrowth,
+          Math.max(1, Math.floor(Number(charSave.level) || 1)),
+          levelsGained,
+          lifeResourceRangesForProficiency(prof),
+          rng,
+        );
+        prof = { ...prof, lifeResourceGrowth: rolled.record };
+        hpGain = rolled.hpGain;
+        mpGain = rolled.mpGain;
+      } else {
+        const legacy = v2LevelGrowthHpMp({
+          levelsGained,
+          strGained: statGains.str ?? 0,
+          vitGained: statGains.vit ?? 0,
+          intGained: statGains.int ?? 0,
+        });
+        hpGain = legacy.hp;
+        mpGain = legacy.mp;
       }
     }
     // 직업 숙련도(상시 카드 readout) — 현재 전직 중인 구체 직업 기준. none=숙련도 없음.
@@ -142,6 +176,8 @@ export function applyHuntProficiency(params: {
       masteryAfter,
       spMilestonesGained,
       statGains,
+      hpGain,
+      mpGain,
     };
   }
 
@@ -169,5 +205,7 @@ export function applyHuntProficiency(params: {
     masteryAfter,
     spMilestonesGained,
     statGains,
+    hpGain,
+    mpGain,
   };
 }

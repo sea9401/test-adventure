@@ -2270,10 +2270,12 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.stoneskinDefPctPerWeight)
     chips.push(`중량당 방어력 +${p.stoneskinDefPctPerWeight}%`);
   if (p.magicDefPct) chips.push(`마법 방어력 +${p.magicDefPct}%`);
-  if (p.openingMagicDamageReductionPct)
+  if (p.openingMagicDamageReductionPct) {
     chips.push(
-      `전투 초반 ${p.openingMagicDamageReductionPhases ?? 3}회 마법 피해 -${p.openingMagicDamageReductionPct}%`,
+      `전투 초반 적 공격 ${p.openingMagicDamageReductionPhases ?? 3}회 동안 받는 마법 피해 -${p.openingMagicDamageReductionPct}% (회피한 공격 포함)`,
     );
+    chips.push("초반 마법 피해 감소 중첩 시 감소율 합산 · 횟수는 최댓값");
+  }
   if (p.elementResonance) chips.push("원소 폭주 속성 효과 강화");
   if (p.inscriptionAmplification) chips.push("각인 해방 문장 시너지 강화");
   if (p.lawInscription) chips.push("문장 해방 시 장착 재료별 법칙 각인 생성");

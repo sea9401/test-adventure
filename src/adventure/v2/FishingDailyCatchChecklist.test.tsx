@@ -23,9 +23,9 @@ describe("FishingDailyCatchChecklist", () => {
 
     expect(html).toContain("요리 재료 일일 획득");
     expect(html).toContain("일반 어획물");
-    expect(html).toContain("12 / 40");
+    expect(html).toContain("12 / 50");
     expect(html).toContain("전설의 어획물");
-    expect(html).toContain("0 / 2");
+    expect(html).toContain("0 / 3");
     expect(html).toContain("bg-zinc-50");
     expect(html).not.toMatch(/bg-[^\s\"]+\/\d+/);
   });
@@ -37,8 +37,8 @@ describe("FishingDailyCatchChecklist", () => {
           {
             itemId: "catch_special",
             name: "특급 어획물",
-            awarded: 8,
-            cap: 8,
+            awarded: 10,
+            cap: 10,
           },
         ]}
       />,

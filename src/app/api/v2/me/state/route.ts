@@ -65,6 +65,8 @@ import {
   parseCookingState,
 } from "@/adventure/v2/cooking/state";
 import { activeCookingBuff } from "@/adventure/v2/cooking/food";
+import { GUILD_DINING_USER_SAVE_KEY } from "@/adventure/data/v2/guildDining";
+import { kstWeekMondayKey } from "@/lib/kst";
 import { loadCompletedQuestIds } from "@/lib/server/v2QuestContext";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
 import {
@@ -122,9 +124,15 @@ import {
 } from "./stateOutpost";
 import {
   currentJobSummary,
+  guildDiningEffectSummary,
   parseStateView,
   proficiencySummary,
 } from "./stateView";
+import {
+  CORE_STATE_SAVE_KEYS,
+  STATE_SAVE_KEYS,
+  type StateSaveKey,
+} from "./stateSaveKeys";
 
 // GET /api/v2/me/state — V2GameFlow 의 mount fetch (캐릭+자원+currentOutpost).
 //
@@ -132,43 +140,6 @@ import {
 // HP·stamina 는 시간 회복 적용한 현재값으로 surface (다음 사냥 진입 시 동기화).
 // 응답 섹션 계산은 stateSections(순수)·stateOutpost(DB 조회)로 분리 — 여기는
 // 인증/부수효과(reconcile·칭호 지급)와 응답 조립만 담당한다.
-
-const STATE_SAVE_KEYS = [
-  "character.v2",
-  "character-profile.v2",
-  "equipment.v2",
-  "skills.v2",
-  "proficiency.v2",
-  "fishing-codex.v1",
-  "adventure-log.v2",
-  STAMINA_POTIONS_KEY,
-  "inventory.v2",
-  EQUIPMENT_CODEX_KEY,
-  FARM_SAVE_KEY,
-  COOKING_SAVE_KEY,
-  WOODCUTTING_LOG_KEY,
-  MINING_LOG_KEY,
-  WOODCUTTING_AUTO_KEY,
-  MINING_AUTO_KEY,
-  PROFILE_SHOWCASE_SAVE_KEY,
-] as const;
-
-type StateSaveKey = (typeof STATE_SAVE_KEYS)[number];
-
-const CORE_STATE_SAVE_KEYS = [
-  "character.v2",
-  "character-profile.v2",
-  "equipment.v2",
-  "skills.v2",
-  "proficiency.v2",
-  "fishing-codex.v1",
-  "adventure-log.v2",
-  STAMINA_POTIONS_KEY,
-  "inventory.v2",
-  EQUIPMENT_CODEX_KEY,
-  WOODCUTTING_AUTO_KEY,
-  MINING_AUTO_KEY,
-] as const satisfies readonly StateSaveKey[];
 
 async function readStateSaveRows(
   userId: string,
@@ -654,6 +625,14 @@ export async function GET(req: Request) {
         }
       : null,
     activeFoodBuff: activeCookingBuff(charSave.activeFoodBuff, now),
+    activeGuildDiningEffect: guildDiningEffectSummary(
+      stateSaves.get(GUILD_DINING_USER_SAVE_KEY),
+      {
+        weekKey: kstWeekMondayKey(new Date(now)),
+        guildId: guildId ?? 0,
+        now: new Date(now),
+      },
+    ),
     // 사냥이 스태미나 모드인가(코어루프 on + 스태미나 다이얼) — 클라가 스태미나 바/UI 표시 판정.
     huntStaminaMode: V2_CORE_LOOP_V2 && !HUNT_COOLDOWN_MODE,
     // 사냥 쿨다운 — 쿨다운 모드만 객체, 스태미나 모드/off 면 null(스태미나 판정).

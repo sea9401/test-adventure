@@ -67,8 +67,21 @@ import {
   COOKING_SAVE_KEY,
   emptyCookingState,
   parseCookingState,
-  type CookingKitchenItemId,
 } from "@/adventure/v2/cooking/state";
+import {
+  parseCookingStoredIngredientId,
+  type CookingStoredIngredientId,
+} from "@/adventure/v2/cooking/storedIngredients";
+import {
+  FARM_SAVE_KEY,
+  emptyFarmState,
+  parseFarmState,
+} from "@/adventure/v2/farm";
+import {
+  FISHING_STOCK_KEY,
+  emptyFishingStock,
+  parseFishingStock,
+} from "@/adventure/v2/fishingStock";
 import { randomUUID } from "node:crypto";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import type { FishId } from "@/adventure/data/v2/fish";
@@ -194,7 +207,10 @@ export async function POST(req: Request) {
       let museunCoinsTotal = 0;
       const museunCashItemTotals = new Map<MuseunCashItemId, number>();
       const cookingFoodTotals = new Map<CookingFoodId, number>();
-      const cookingIngredientTotals = new Map<CookingKitchenItemId, number>();
+      const cookingIngredientTotals = new Map<
+        CookingStoredIngredientId,
+        number
+      >();
       const fishSpecimenTotals = new Map<FishId, number>();
       let adventureSupportDaysTotal = 0;
       const titleIdsToGrant = new Set<string>();
@@ -626,37 +642,122 @@ export async function POST(req: Request) {
       }
 
       const cookingIngredientsAdded: Array<{
-        ingredientId: CookingKitchenItemId;
+        ingredientId: CookingStoredIngredientId;
         count: number;
       }> = [];
       if (cookingIngredientTotals.size > 0) {
-        const cooking = parseCookingState(
-          await lockSaveForUpdate(
-            tx,
-            userId,
-            COOKING_SAVE_KEY,
-            emptyCookingState(),
-          ),
-        );
-        const kitchenItems = { ...cooking.kitchenItems };
-        for (const [ingredientId, requestedCount] of cookingIngredientTotals) {
-          const previous = Math.max(
-            0,
-            Math.floor(kitchenItems[ingredientId] ?? 0),
-          );
-          const next = Math.min(999_999, previous + requestedCount);
-          kitchenItems[ingredientId] = next;
-          if (next > previous) {
-            cookingIngredientsAdded.push({
-              ingredientId,
-              count: next - previous,
-            });
+        const farmTotals = new Map<
+          Extract<CookingStoredIngredientId, `farm:${string}`>,
+          number
+        >();
+        const fishingTotals = new Map<
+          Extract<CookingStoredIngredientId, `fishing:${string}`>,
+          number
+        >();
+        const kitchenTotals = new Map<
+          Extract<
+            CookingStoredIngredientId,
+            `pantry:${string}` | `processed:${string}`
+          >,
+          number
+        >();
+        for (const [ingredientId, count] of cookingIngredientTotals) {
+          const parsed = parseCookingStoredIngredientId(ingredientId);
+          if (parsed?.kind === "farm") farmTotals.set(parsed.ingredientId, count);
+          else if (parsed?.kind === "fishing") {
+            fishingTotals.set(parsed.ingredientId, count);
+          } else if (parsed?.kind === "kitchen") {
+            kitchenTotals.set(parsed.ingredientId, count);
           }
         }
-        await upsertSave(tx, userId, COOKING_SAVE_KEY, {
-          ...cooking,
-          kitchenItems,
-        });
+
+        if (farmTotals.size > 0) {
+          const farm = parseFarmState(
+            await lockSaveForUpdate(
+              tx,
+              userId,
+              FARM_SAVE_KEY,
+              emptyFarmState(),
+            ),
+          );
+          const inventory = { ...farm.inventory };
+          for (const [ingredientId, requestedCount] of farmTotals) {
+            const parsed = parseCookingStoredIngredientId(ingredientId);
+            if (parsed?.kind !== "farm") continue;
+            const previous = Math.max(
+              0,
+              Math.floor(inventory[parsed.itemId] ?? 0),
+            );
+            const next = Math.min(999_999, previous + requestedCount);
+            inventory[parsed.itemId] = next;
+            if (next > previous) {
+              cookingIngredientsAdded.push({
+                ingredientId,
+                count: next - previous,
+              });
+            }
+          }
+          await upsertSave(tx, userId, FARM_SAVE_KEY, { ...farm, inventory });
+        }
+
+        if (fishingTotals.size > 0) {
+          const fishing = parseFishingStock(
+            await lockSaveForUpdate(
+              tx,
+              userId,
+              FISHING_STOCK_KEY,
+              emptyFishingStock(),
+            ),
+          );
+          const items = { ...fishing.items };
+          for (const [ingredientId, requestedCount] of fishingTotals) {
+            const parsed = parseCookingStoredIngredientId(ingredientId);
+            if (parsed?.kind !== "fishing") continue;
+            const previous = Math.max(
+              0,
+              Math.floor(items[parsed.itemId] ?? 0),
+            );
+            const next = Math.min(999_999, previous + requestedCount);
+            items[parsed.itemId] = next;
+            if (next > previous) {
+              cookingIngredientsAdded.push({
+                ingredientId,
+                count: next - previous,
+              });
+            }
+          }
+          await upsertSave(tx, userId, FISHING_STOCK_KEY, { ...fishing, items });
+        }
+
+        if (kitchenTotals.size > 0) {
+          const cooking = parseCookingState(
+            await lockSaveForUpdate(
+              tx,
+              userId,
+              COOKING_SAVE_KEY,
+              emptyCookingState(),
+            ),
+          );
+          const kitchenItems = { ...cooking.kitchenItems };
+          for (const [ingredientId, requestedCount] of kitchenTotals) {
+            const previous = Math.max(
+              0,
+              Math.floor(kitchenItems[ingredientId] ?? 0),
+            );
+            const next = Math.min(999_999, previous + requestedCount);
+            kitchenItems[ingredientId] = next;
+            if (next > previous) {
+              cookingIngredientsAdded.push({
+                ingredientId,
+                count: next - previous,
+              });
+            }
+          }
+          await upsertSave(tx, userId, COOKING_SAVE_KEY, {
+            ...cooking,
+            kitchenItems,
+          });
+        }
       }
 
       // 시즌 순위 보상 코인 — season 별 지갑(pvp/낚시)에 적립. 단일 유저라

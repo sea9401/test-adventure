@@ -1461,7 +1461,9 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
         mechanic: "bleed_aftermath",
         label: "상흔 계수",
       }),
-    ).toBe("출혈 폭발 시 출혈 1스택 추가 및 현재 출혈 중첩당 방어 3% 감소");
+    ).toBe(
+      "출혈 폭발 시 출혈 지속을 최소 5회로 갱신하고 현재 출혈 중첩당 방어 3% 감소",
+    );
   });
 
   it("과부하 낙뢰를 마법 피해로 명시한다", () => {
@@ -1540,7 +1542,7 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
         hpThresholdPct: 30,
         damageTakenReductionPct: 25,
       }),
-    ).toBe("체력 30% 이하일 때 받는 피해 −25%");
+    ).toBe("피격 직전 체력 30% 이하일 때 받는 피해 −25%");
     expect(
       signatureLabel({ trigger: "on_heal", label: "묵주", healToShieldPct: 25 }),
     ).toBe("회복 시 회복량의 25% 보호막");

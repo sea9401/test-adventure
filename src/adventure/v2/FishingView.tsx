@@ -22,6 +22,7 @@ import { GameIcon } from "@/adventure/v2/GameIcon";
 import { FishingCatchItemIcon } from "@/adventure/v2/FishingCatchItemIcon";
 import { FishingDailyCatchChecklist } from "@/adventure/v2/FishingDailyCatchChecklist";
 import {
+  fishingCatchItemChancePct,
   isFishingCatchItemId,
   type FishingCatchItemDailyProgress,
 } from "@/adventure/v2/fishingStock";
@@ -1380,6 +1381,7 @@ function levelBonusLabels(progression: FishingProgressionView): string[] {
   const labels = fishingSizeBonusLabels(bonuses);
   labels.push(
     `특별 손님 +${formatFishingBonusPercent(bonuses.specialWeightPct)}%`,
+    `어획물 획득 ${fishingCatchItemChancePct(progression.level)}%`,
   );
   return labels;
 }

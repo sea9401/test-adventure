@@ -1,0 +1,1 @@
+ALTER TABLE "v2_guild_resources" ALTER COLUMN "gold" SET DATA TYPE bigint;

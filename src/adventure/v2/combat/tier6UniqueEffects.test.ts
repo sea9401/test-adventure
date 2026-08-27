@@ -5,6 +5,7 @@ import type {
 } from "@/adventure/data/v2/v2Equipment";
 import {
   initialTier6UniqueRuntime,
+  isBleedBurstReady,
   resolveTier6UniqueEvent,
   tier6ResourceSnapshot,
 } from "./tier6UniqueEffects";
@@ -119,11 +120,14 @@ describe("6T 유니크 순수 런타임", () => {
       expect.arrayContaining([
         expect.objectContaining({ kind: "damage_fixed", amount: 500 }),
         expect.objectContaining({ kind: "def_debuff", pct: 12, actions: 2 }),
-        expect.objectContaining({ kind: "apply_dot", dot: "bleed", stacks: 1 }),
+        expect.objectContaining({ kind: "refresh_bleed", turns: 5 }),
       ]),
     );
     expect(result.commands).not.toContainEqual(
       expect.objectContaining({ kind: "consume_dot", dot: "bleed" }),
+    );
+    expect(result.commands).not.toContainEqual(
+      expect.objectContaining({ kind: "apply_dot", dot: "bleed" }),
     );
   });
 
@@ -166,6 +170,20 @@ describe("6T 유니크 순수 런타임", () => {
       expect.objectContaining({ kind: "damage_fixed", amount: 500 }),
     );
     expect(ready.state.bleedBurstLastActionId).toBe(5);
+  });
+
+  it("혈맥 폭발 준비 상태는 장착 여부와 4행동 경계를 그대로 반영한다", () => {
+    const sigs = signatures("bleed_burst");
+    expect(isBleedBurstReady(sigs, initialTier6UniqueRuntime(), 1)).toBe(true);
+    expect(isBleedBurstReady([], initialTier6UniqueRuntime(), 1)).toBe(false);
+    expect(isBleedBurstReady(sigs, undefined, 1)).toBe(false);
+
+    const waiting = {
+      ...initialTier6UniqueRuntime(),
+      bleedBurstLastActionId: 1,
+    };
+    expect(isBleedBurstReady(sigs, waiting, 4)).toBe(false);
+    expect(isBleedBurstReady(sigs, waiting, 5)).toBe(true);
   });
 
   it("추적은 5번째 직접 적중에 직전 피해 60%를 발사하고 빗나가면 초기화한다", () => {

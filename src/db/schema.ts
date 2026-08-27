@@ -1930,7 +1930,7 @@ export const v2GuildResources = pgTable("v2_guild_resources", {
     .primaryKey()
     .references(() => guilds.id, { onDelete: "cascade" }),
   // 거점 세금 회수 시 90% 가 누적되는 길드 공용 골드 풀. 회수자 본인 10% 와 별개.
-  gold: integer("gold").notNull().default(0),
+  gold: bigint("gold", { mode: "number" }).notNull().default(0),
   // 길드 정착지 재화 풀 — 기초 목재/광석은 crop/ore, 상위 생활 재료는 재료 ID 키로 저장한다.
   // 길드원이 전환한 재료가 누적되고 마을·영지 건축물 업그레이드에 소비된다. 종류 추가 시 마이그 불요(jsonb).
   settlement: jsonb("settlement").notNull().default({}),

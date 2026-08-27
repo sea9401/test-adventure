@@ -118,28 +118,24 @@ describe("production security surface", () => {
       expect(maintenance).toContain("서버 점검 안내");
       expect(maintenance).toContain("서버 점검");
       expect(maintenance).toContain(
-        "서버 안정화 작업을 위해 서버 점검을 진행합니다.",
+        "안정적인 서비스 제공을 위해 아래와 같이 서버 점검을 진행합니다.",
       );
       expect(maintenance).toContain("점검 시간:");
       expect(maintenance).toContain(
-        "8월 26일(수) 오후 11:00 ~ 오후 11:30 (약 30분)",
+        "8월 28일(금) 오전 4:00 ~ 오전 5:00 (약 1시간)",
       );
       expect(maintenance).toContain("점검 내용:");
-      expect(maintenance).toContain("서버 안정화 작업");
+      expect(maintenance).toContain("서버 안정화 및 시스템 점검");
       expect(maintenance).toContain(
-        "점검 중에는 게임 이용이 일시적으로 제한됩니다.",
+        "점검 중에는 서비스 이용이 제한될 수 있습니다.",
       );
       expect(maintenance).toContain(
-        "점검 진행 상황에 따라 종료 시각이 예정보다 앞당겨지거나 연장될 수 있습니다.",
-      );
-      expect(maintenance).toContain(
-        "안정적인 서비스 제공을 위해 최선을 다하겠습니다.",
+        "이용에 불편을 드려 죄송하며, 더욱 안정적인 서비스를 제공할 수 있도록 최선을 다하겠습니다.",
       );
       expect(maintenance).toContain("감사합니다.");
       expect(maintenance).not.toContain("오류 수정 패치 점검 안내");
       expect(maintenance).not.toContain("08:30 ~ 08:45 (약 15분)");
       expect(maintenance).not.toContain("약 1시간 30분");
-      expect(maintenance).not.toContain("서버 안정화 및 시스템 점검");
       expect(maintenance).not.toContain("게임에 접속할 수 없습니다.");
     }
   });

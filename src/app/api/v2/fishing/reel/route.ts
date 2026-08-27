@@ -307,6 +307,12 @@ export async function POST(req: Request) {
     const multtaeEffect = multtaeAt(now).condition.effect;
     const dayKey = kstDailyKey(new Date(now));
 
+    const parsedProgress = parseFishingProgressionWithLevelMigration(
+      fishingSaves[FISHING_PROGRESS_KEY],
+    );
+    const progressBefore = parsedProgress.state;
+    const fishingLevelBeforeCatch = fishingProgressionView(progressBefore).level;
+
     // 어종·크기는 도감/기록에 남기고, 공동 식재료는 티어별 5종으로만 적립한다.
     // 길드 식당 기부도 어획물 → 식사 효과 순서로 잠그므로 같은 순서를 지킨다.
     const stockBefore = parseFishingStock(
@@ -316,6 +322,8 @@ export async function POST(req: Request) {
       stockBefore,
       FISH[session.fishId].tier,
       dayKey,
+      Math.random,
+      fishingLevelBeforeCatch,
     );
     if (catchStock.awarded) {
       dirtySaves[FISHING_STOCK_KEY] = catchStock.stock;
@@ -323,10 +331,6 @@ export async function POST(req: Request) {
 
     // 낚시 진행도 — 성공한 챔질에만 경험치/누적 어획을 지급한다.
     // 락 순서: 세션 → streak → 어획물 → 낚시진행도 → 식사 효과 → character → proficiency → 반복퀘스트 → 코덱스 → 일일트래커 → 지갑.
-    const parsedProgress = parseFishingProgressionWithLevelMigration(
-      fishingSaves[FISHING_PROGRESS_KEY],
-    );
-    const progressBefore = parsedProgress.state;
     const progressGoalViewsBefore = deriveFishingGoalViews(progressBefore);
     const diningXp = await consumeGuildDiningEffect(
       tx,

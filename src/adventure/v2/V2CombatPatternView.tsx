@@ -29,6 +29,7 @@ import {
   type V2CombatPreset,
   type V2CombatRole,
   type V2PatternEnemyDebuff,
+  type V2PatternEnemyStatus,
   type V2PatternSelfResource,
   type V2PatternSelfStatus,
 } from "@/adventure/v2/combat/combatPattern";
@@ -131,6 +132,7 @@ const SELF_RESOURCE_OPTIONS: PatternChoiceOption<V2PatternSelfResource>[] = [
   { value: "ironWallReflect", label: "철벽 반사" },
   { value: "inscription", label: "각인 총합" },
   { value: "weight", label: "중량" },
+  { value: "bloodlineBurstReady", label: "혈맥 폭발 준비" },
 ];
 const SELF_RESOURCE_OP_OPTIONS = [
   { value: "none", label: "없을 때" },
@@ -143,11 +145,70 @@ const ENEMY_STATUS_OPTIONS = [
   { value: "vuln", label: "마법취약" },
   { value: "frostChill", label: "한기" },
 ] as const;
-const ENEMY_STATUS_OP_OPTIONS = [
-  { value: "atLeast", label: "스택 이상" },
-  { value: "atMost", label: "스택 이하" },
-  { value: "none", label: "없을 때" },
-] as const;
+type EnemyStatusCondition = Extract<
+  V2CombatCondition,
+  { kind: "enemy_status" }
+>;
+export type EnemyStatusConditionMode =
+  | "stacksAtLeast"
+  | "stacksAtMost"
+  | "stacksNone"
+  | "turnsAtLeast"
+  | "turnsAtMost"
+  | "turnsNone";
+const ENEMY_STATUS_STACK_OPTIONS: PatternChoiceOption<EnemyStatusConditionMode>[] = [
+  { value: "stacksAtLeast", label: "스택 이상" },
+  { value: "stacksAtMost", label: "스택 이하" },
+  { value: "stacksNone", label: "스택 없을 때" },
+];
+const ENEMY_STATUS_TURN_OPTIONS: PatternChoiceOption<EnemyStatusConditionMode>[] = [
+  { value: "turnsAtLeast", label: "횟수 이상" },
+  { value: "turnsAtMost", label: "횟수 이하" },
+  { value: "turnsNone", label: "횟수 없을 때" },
+];
+
+export function enemyStatusConditionOptions(
+  tag: V2PatternEnemyStatus,
+): PatternChoiceOption<EnemyStatusConditionMode>[] {
+  return tag === "poison" || tag === "bleed"
+    ? [...ENEMY_STATUS_STACK_OPTIONS, ...ENEMY_STATUS_TURN_OPTIONS]
+    : [...ENEMY_STATUS_STACK_OPTIONS];
+}
+
+function enemyStatusConditionMode(
+  condition: EnemyStatusCondition,
+): EnemyStatusConditionMode {
+  const prefix =
+    condition.metric === "remainingTurns" ? "turns" : "stacks";
+  const suffix =
+    condition.op === "atLeast"
+      ? "AtLeast"
+      : condition.op === "atMost"
+        ? "AtMost"
+        : "None";
+  return `${prefix}${suffix}` as EnemyStatusConditionMode;
+}
+
+export function withEnemyStatusConditionMode(
+  condition: EnemyStatusCondition,
+  mode: EnemyStatusConditionMode,
+): EnemyStatusCondition {
+  const op = mode.endsWith("AtLeast")
+    ? "atLeast"
+    : mode.endsWith("AtMost")
+      ? "atMost"
+      : "none";
+  const remainingTurns =
+    mode.startsWith("turns") &&
+    (condition.tag === "poison" || condition.tag === "bleed");
+  return {
+    kind: "enemy_status",
+    tag: condition.tag,
+    ...(remainingTurns ? { metric: "remainingTurns" as const } : {}),
+    op,
+    stacks: condition.stacks,
+  };
+}
 export const ENEMY_DEBUFF_OPTIONS: PatternChoiceOption<V2PatternEnemyDebuff>[] = [
   { value: "vulnerability", label: "받는 피해 증가(취약)" },
   { value: "damageDown", label: "주는 피해 감소" },
@@ -1385,7 +1446,13 @@ export function ConditionParams({
             <PatternNumberInput
               key="self-resource-value"
               min={0}
-              max={c.resource === "inscription" ? 8 : 3}
+              max={
+                c.resource === "inscription"
+                  ? 8
+                  : c.resource === "bloodlineBurstReady"
+                    ? 1
+                    : 3
+              }
               value={c.value}
               onValueChange={(value) => onChange({ ...c, value })}
             />
@@ -1399,17 +1466,28 @@ export function ConditionParams({
             value={c.tag}
             options={ENEMY_STATUS_OPTIONS}
             label="적 상태 종류"
-            onChange={(tag) => onChange({ ...c, tag })}
+            onChange={(tag) => {
+              const currentMode = enemyStatusConditionMode(c);
+              const nextMode =
+                tag !== "poison" &&
+                tag !== "bleed" &&
+                currentMode.startsWith("turns")
+                  ? (`stacks${currentMode.slice(5)}` as EnemyStatusConditionMode)
+                  : currentMode;
+              onChange(withEnemyStatusConditionMode({ ...c, tag }, nextMode));
+            }}
           />
           <PatternChoiceButtons
-            value={c.op}
-            options={ENEMY_STATUS_OP_OPTIONS}
+            value={enemyStatusConditionMode(c)}
+            options={enemyStatusConditionOptions(c.tag)}
             label="적 상태 비교 방식"
-            onChange={(op) => onChange({ ...c, op })}
+            onChange={(mode) =>
+              onChange(withEnemyStatusConditionMode(c, mode))
+            }
           />
           {c.op !== "none" && (
             <PatternNumberInput
-              key="enemy-status-stacks"
+              key={`enemy-status-${c.metric ?? "stacks"}`}
               min={c.op === "atLeast" ? 1 : 0}
               max={c.tag === "frostChill" ? 5 : undefined}
               value={c.stacks}

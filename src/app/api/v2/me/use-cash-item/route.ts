@@ -351,6 +351,8 @@ export async function POST(req: Request) {
           cashItems,
           level: grant.level,
           levelsGained: grant.levelsGained,
+          hpGain: grant.hpGain,
+          mpGain: grant.mpGain,
         },
       };
     });

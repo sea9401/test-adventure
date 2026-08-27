@@ -1,8 +1,32 @@
+// @vitest-environment jsdom
+
+import { cleanup, render, screen } from "@testing-library/react";
+import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   fetchReferralSummary,
   referralProgressStatus,
 } from "./V2ReferralView";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ back: vi.fn() }),
+}));
+
+function summaryResponse(hasReferrer: boolean) {
+  return {
+    ok: true,
+    code: null,
+    hasReferrer,
+    newUserStaminaPotions: 2,
+    referrerSignupStaminaPotions: 2,
+    tutorialTaskStaminaPotions: 2,
+    tutorialTasks: [],
+    myReferralProgress: null,
+    attributedCount: 0,
+    totalRewardStaminaPotions: 0,
+    referrals: [],
+  };
+}
 
 describe("홍보 이벤트 참여자 상태 문구", () => {
   it("탈퇴한 참여자에게 현재 사냥터를 표시하지 않는다", () => {
@@ -26,6 +50,7 @@ describe("홍보 이벤트 참여자 상태 문구", () => {
 
 describe("홍보 진행도 불러오기", () => {
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
   });
 
@@ -54,5 +79,47 @@ describe("홍보 진행도 불러오기", () => {
 
     await expect(fetchReferralSummary()).rejects.toThrow("sync failed");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("추천인 등록 폼 노출", () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it("아직 귀속되지 않은 계정에만 사후 등록 폼을 보여준다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(Response.json({ ok: true }))
+        .mockResolvedValueOnce(Response.json(summaryResponse(false))),
+    );
+
+    const { V2ReferralView } = await import("./V2ReferralView");
+    render(createElement(V2ReferralView, { embedded: true }));
+
+    expect(
+      await screen.findByLabelText("추천인의 홍보 링크 또는 코드"),
+    ).toBeTruthy();
+  });
+
+  it("이미 귀속된 계정에는 영구 등록 폼을 다시 보여주지 않는다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(Response.json({ ok: true }))
+        .mockResolvedValueOnce(Response.json(summaryResponse(true))),
+    );
+
+    const { V2ReferralView } = await import("./V2ReferralView");
+    render(createElement(V2ReferralView, { embedded: true }));
+
+    await screen.findByText("아직 내 링크로 합류한 모험가가 없습니다.");
+    expect(
+      screen.queryByLabelText("추천인의 홍보 링크 또는 코드"),
+    ).toBeNull();
   });
 });

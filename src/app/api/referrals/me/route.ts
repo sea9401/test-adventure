@@ -109,6 +109,7 @@ async function referralSummary(userId: string) {
     tutorialTaskStaminaPotions:
       REFERRAL_TUTORIAL_STAMINA_POTIONS_PER_TASK,
     tutorialTasks: REFERRAL_TUTORIAL_TASKS,
+    hasReferrer: currentProgress != null,
     myReferralProgress: currentProgress
       ? {
           signupRewarded: mySignupRewarded,

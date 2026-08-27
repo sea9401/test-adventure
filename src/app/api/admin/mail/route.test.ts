@@ -45,15 +45,19 @@ describe("POST /api/admin/mail 요리 재료", () => {
     audit.mockClear();
   });
 
-  it("카탈로그에 있는 상점·가공 재료만 우편에 보존한다", async () => {
+  it("카탈로그에 있는 농장·낚시·상점·가공 재료만 우편에 보존한다", async () => {
     const response = await POST(
       request({
         target: "user",
         userId: "target-user",
         gold: 0,
         cookingIngredients: [
+          { ingredientId: "farm:wheat", count: 5 },
+          { ingredientId: "fishing:catch_legendary", count: 1 },
           { ingredientId: "pantry:salt", count: 4 },
           { ingredientId: "processed:flour", count: 2 },
+          { ingredientId: "farm:compound_feed", count: 99 },
+          { ingredientId: "fishing:unknown", count: 99 },
           { ingredientId: "pantry:unknown", count: 99 },
           { ingredientId: "processed:butter", count: 0 },
         ],
@@ -65,6 +69,8 @@ describe("POST /api/admin/mail 요리 재료", () => {
 
     expect(response.status).toBe(200);
     expect(json.cookingIngredients).toEqual([
+      { ingredientId: "farm:wheat", count: 5 },
+      { ingredientId: "fishing:catch_legendary", count: 1 },
       { ingredientId: "pantry:salt", count: 4 },
       { ingredientId: "processed:flour", count: 2 },
     ]);

@@ -12,7 +12,10 @@ import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
 import { powerInputFromPlayer } from "../src/lib/server/playerPowerInput";
 import { computeStatFloors, rollLevelGrowth } from "../src/adventure/data/v2/statGrowth";
-import { emptyProficiency } from "../src/adventure/data/v2/proficiency";
+import {
+  balanceCumLevel,
+  emptyProficiency,
+} from "../src/adventure/data/v2/proficiency";
 import { derivePowerScore } from "../src/adventure/data/v2/power";
 import { floorPowerGate } from "../src/adventure/data/v2/dungeonLadder";
 import { V2_MONSTERS } from "../src/adventure/data/v2/v2Monsters";
@@ -51,6 +54,7 @@ const GEAR: Partial<Record<V2EquipSlot, V2EquipmentId>> = {
 function makeRef(enhance: V2EnhanceState | undefined) {
   const prof = emptyProficiency();
   prof.groups["warrior"] = { tier: 4, points: 0, cumLevel: 2000 } as never;
+  prof.statFloorLevels.warrior = balanceCumLevel(2000);
   (prof as { caps: Partial<Record<V2StatKey, number>> }).caps = {
     str: 120, vit: 70, dex: 70, luk: 30,
   };

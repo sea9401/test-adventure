@@ -33,28 +33,37 @@ describe("fishing stock", () => {
     expect(second.dailyAwarded).toBe(2);
   });
 
-  it("성공한 낚시도 10% 판정에 실패하면 어획물을 지급하지 않는다", () => {
-    const result = rollFishingCatchToStock(
-      emptyFishingStock(),
-      "rare",
-      "2026-07-16",
-      () => 0.1,
-    );
-    expect(result).toMatchObject({
-      awarded: false,
-      reason: "roll_miss",
-      balance: 0,
-      dailyAwarded: 0,
-    });
-    expect(result.stock).toEqual(emptyFishingStock());
-  });
+  it.each([
+    [1, 0.249, true],
+    [1, 0.25, false],
+    [30, 0.399, true],
+    [30, 0.4, false],
+    [50, 0.399, true],
+    [50, 0.4, false],
+    [100, 0.399, true],
+    [100, 0.4, false],
+  ] as const)(
+    "낚시 Lv.%i의 어획물 획득 경계를 레벨 비례 확률로 판정한다",
+    (fishingLevel, roll, awarded) => {
+      const result = rollFishingCatchToStock(
+        emptyFishingStock(),
+        "rare",
+        "2026-07-16",
+        () => roll,
+        fishingLevel,
+      );
+
+      expect(result.awarded).toBe(awarded);
+      expect(result.reason).toBe(awarded ? "awarded" : "roll_miss");
+    },
+  );
 
   it("낮은 등급 한도가 차도 높은 등급은 자체 한도까지 독립 지급한다", () => {
     const stock = parseFishingStock({
-      items: { catch_common: 40, catch_legendary: 1 },
+      items: { catch_common: 50, catch_legendary: 2 },
       daily: {
         date: "2026-07-16",
-        awarded: { catch_common: 40, catch_legendary: 1 },
+        awarded: { catch_common: 50, catch_legendary: 2 },
       },
     });
     const common = rollFishingCatchToStock(
@@ -72,9 +81,9 @@ describe("fishing stock", () => {
     expect(common).toMatchObject({ awarded: false, reason: "daily_cap" });
     expect(legendary).toMatchObject({
       awarded: true,
-      balance: 2,
-      dailyAwarded: 2,
-      dailyCap: 2,
+      balance: 3,
+      dailyAwarded: 3,
+      dailyCap: 3,
     });
   });
 
@@ -89,7 +98,7 @@ describe("fishing stock", () => {
       "2026-07-16",
       () => 0,
     );
-    expect(result).toMatchObject({ awarded: true, dailyAwarded: 1, dailyCap: 8 });
+    expect(result).toMatchObject({ awarded: true, dailyAwarded: 1, dailyCap: 10 });
     expect(result.stock.daily).toEqual({
       date: "2026-07-16",
       awarded: { catch_special: 1 },
@@ -128,11 +137,11 @@ describe("fishing stock", () => {
     expect(
       progress.map(({ itemId, awarded, cap }) => ({ itemId, awarded, cap })),
     ).toEqual([
-      { itemId: "catch_common", awarded: 12, cap: 40 },
-      { itemId: "catch_fresh", awarded: 0, cap: 30 },
-      { itemId: "catch_quality", awarded: 0, cap: 20 },
-      { itemId: "catch_special", awarded: 8, cap: 8 },
-      { itemId: "catch_legendary", awarded: 0, cap: 2 },
+      { itemId: "catch_common", awarded: 12, cap: 50 },
+      { itemId: "catch_fresh", awarded: 0, cap: 35 },
+      { itemId: "catch_quality", awarded: 0, cap: 25 },
+      { itemId: "catch_special", awarded: 8, cap: 10 },
+      { itemId: "catch_legendary", awarded: 0, cap: 3 },
     ]);
   });
 

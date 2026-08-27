@@ -63,6 +63,14 @@ beforeEach(() => {
     growthRespecPoints: 5,
     cultivationPointsSpent: 40,
     cultivationResetCount: 7,
+    lifeResourceGrowth: {
+      version: 1,
+      rolledLevel: 100,
+      baseHp: 142,
+      baseMp: 81,
+      gainedHp: 999,
+      gainedMp: 444,
+    },
   } satisfies V2ProficiencyState);
 });
 
@@ -101,6 +109,14 @@ describe("POST /api/v2/me/use-cash-item — 수행 초기화 물약", () => {
       growthRespecPoints: 0,
       cultivationPointsSpent: 0,
       cultivationResetCount: 8,
+      lifeResourceGrowth: {
+        version: 1,
+        rolledLevel: 1,
+        baseHp: 142,
+        baseMp: 81,
+        gainedHp: 0,
+        gainedMp: 0,
+      },
     });
   });
 

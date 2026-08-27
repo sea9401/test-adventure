@@ -120,6 +120,7 @@ export type Tier6UniqueCommand =
       dot: "bleed" | "poison";
       stacks: number;
     })
+  | (CommandBase & { kind: "refresh_bleed"; turns: number })
   | (CommandBase & { kind: "def_debuff"; pct: number; actions: number })
   | (CommandBase & { kind: "mdef_debuff"; pct: number; actions: number })
   | (CommandBase & { kind: "extra_action"; amount: 1 })
@@ -171,6 +172,27 @@ export function hasTier6Unique(
     (signature) =>
       signature.trigger === "tier6_unique" && Boolean(signature.mechanic),
   ) ?? false;
+}
+
+export function isBleedBurstReady(
+  signatures: SignatureEffect[] | undefined,
+  current: Tier6UniqueRuntimeState | undefined,
+  actionId: number,
+): boolean {
+  if (
+    !current ||
+    !Number.isFinite(actionId) ||
+    actionId < 1 ||
+    !signatures?.some(
+      (signature) =>
+        signature.trigger === "tier6_unique" &&
+        signature.mechanic === "bleed_burst",
+    )
+  ) {
+    return false;
+  }
+  const lastActionId = sanitizeState(current).bleedBurstLastActionId;
+  return lastActionId == null || Math.floor(actionId) - lastActionId >= 4;
 }
 
 function mechanicsOf(
@@ -455,8 +477,7 @@ export function resolveTier6UniqueEvent(
     if (
       event.attackKind === "basic" &&
       event.bleedStacks > 0 &&
-      (state.bleedBurstLastActionId == null ||
-        event.origin.actionId - state.bleedBurstLastActionId >= 4) &&
+      isBleedBurstReady(signatures, state, event.origin.actionId) &&
       owns("bleed_burst")
     ) {
       state = {
@@ -478,11 +499,10 @@ export function resolveTier6UniqueEvent(
           actions: 2,
         });
         commands.push({
-          kind: "apply_dot",
+          kind: "refresh_bleed",
           mechanic: "bleed_aftermath",
-          label: "남은 상흔",
-          dot: "bleed",
-          stacks: 1,
+          label: "상흔 고정",
+          turns: 5,
         });
       }
     }

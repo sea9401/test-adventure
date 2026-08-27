@@ -2,12 +2,19 @@ import { applyExpGain } from "@/lib/leveling";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import { jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
 import {
+  addStatFloorLevels,
   parseProficiencyForChar,
   setGrown,
   effectiveLevelCap,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
-import { rollLevelGrowth } from "@/adventure/data/v2/statGrowth";
+import {
+  lifeResourceRangesForProficiency,
+  rollLevelGrowth,
+} from "@/adventure/data/v2/statGrowth";
+import { rollLifeResourceLevels } from "@/adventure/data/v2/lifeResourceGrowth";
+import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
+import { v2LevelGrowthHpMp } from "@/lib/server/derivePlayerCombatV2";
 
 // 「경험치의 비약」(테스트 전용 레어맵) 1회 사용 시 지급하는 EXP.
 export const EXP_TOME_GRANT = 1_000_000;
@@ -17,6 +24,8 @@ export type ExpTomeGrantResult = {
   exp: number;
   levelsGained: number;
   proficiency: V2ProficiencyState;
+  hpGain: number;
+  mpGain: number;
 };
 
 // hunt 라우트의 레벨업 블록(EXP → 레벨 → 랜덤 스탯 성장)을 그대로 재현한다.
@@ -47,10 +56,14 @@ export function applyExpTomeGrant(
   const curLevel = Math.max(1, charSave.level ?? 1);
   const curExp = Math.max(0, charSave.exp ?? 0);
   const expResult = applyExpGain(curLevel, curExp, grant, levelCap);
+  let hpGain = 0;
+  let mpGain = 0;
 
   if (expResult.levelsGained > 0) {
+    prof = addStatFloorLevels(prof, group, expResult.levelsGained);
     // 레벨업 수만큼 랜덤 스탯 성장 굴림 — 무직 포함 모든 직군 적용(hunt 와 동일).
-    let grown = prof.grown;
+    const grownBefore = prof.grown;
+    let grown = grownBefore;
     const currentJobId = jobIdFromLegacy(
       playerClass,
       typeof charSave.specChoice === "string" ? charSave.specChoice : null,
@@ -61,6 +74,33 @@ export function applyExpTomeGrant(
       });
     }
     prof = setGrown(prof, grown);
+    if (prof.lifeResourceGrowth) {
+      const rolled = rollLifeResourceLevels(
+        prof.lifeResourceGrowth,
+        curLevel,
+        expResult.levelsGained,
+        lifeResourceRangesForProficiency(prof),
+        rand,
+      );
+      prof = { ...prof, lifeResourceGrowth: rolled.record };
+      hpGain = rolled.hpGain;
+      mpGain = rolled.mpGain;
+    } else {
+      const statGains = Object.fromEntries(
+        V2_STAT_KEYS.map((stat) => [
+          stat,
+          Math.max(0, (grown[stat] ?? 0) - (grownBefore[stat] ?? 0)),
+        ]),
+      ) as Record<(typeof V2_STAT_KEYS)[number], number>;
+      const legacy = v2LevelGrowthHpMp({
+        levelsGained: expResult.levelsGained,
+        strGained: statGains.str,
+        vitGained: statGains.vit,
+        intGained: statGains.int,
+      });
+      hpGain = legacy.hp;
+      mpGain = legacy.mp;
+    }
   }
 
   return {
@@ -68,5 +108,7 @@ export function applyExpTomeGrant(
     exp: expResult.exp,
     levelsGained: expResult.levelsGained,
     proficiency: prof,
+    hpGain,
+    mpGain,
   };
 }

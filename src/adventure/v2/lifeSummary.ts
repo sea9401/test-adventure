@@ -22,6 +22,7 @@ import {
   countDiscoveredFish,
   parseFishCodex,
 } from "./fishingCodex";
+import { fishingCatchItemChancePct } from "./fishingStock";
 import {
   FISHING_LEVEL_CAP,
   fishingLevelBonuses,
@@ -310,6 +311,7 @@ export function lifeSummaryFromSaves(
       effects: [
         `물고기 크기 +${fishing.levelBonuses.sizeBonusPct}%`,
         `특별 손님 가중치 +${fishing.levelBonuses.specialWeightPct}%`,
+        `어획물 획득 확률 ${fishingCatchItemChancePct(fishing.level)}%`,
       ],
       nextGoal:
         fishing.level >= 50

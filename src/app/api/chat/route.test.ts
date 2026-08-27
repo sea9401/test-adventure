@@ -49,18 +49,20 @@ beforeEach(() => {
   mocks.getViewerGuild.mockResolvedValue({ guildId: 7 });
   mocks.readBlockedUserIds.mockResolvedValue([]);
   mocks.readCosmetics.mockResolvedValue(new Map());
-  mocks.select.mockImplementation(() => ({
-    from: () => ({
-      where: () => ({
-        orderBy: () => ({
-          limit: async () =>
-            mocks.channelRows.length > 0
-              ? (mocks.channelRows.shift() ?? [])
-              : mocks.rows,
+  mocks.select.mockImplementation(() => {
+    const limit = async () =>
+      mocks.channelRows.length > 0
+        ? (mocks.channelRows.shift() ?? [])
+        : mocks.rows;
+    return {
+      from: () => ({
+        where: () => ({
+          limit,
+          orderBy: () => ({ limit }),
         }),
       }),
-    }),
-  }));
+    };
+  });
 });
 describe("채팅 증분 조회", () => {
   const row = (id: number) => ({
@@ -136,6 +138,17 @@ describe("채팅 증분 조회", () => {
     expect(response.status).toBe(400);
     expect(await response.text()).toBe("invalid after id");
     expect(mocks.select).not.toHaveBeenCalled();
+  });
+
+  it("일반 채팅 API는 참여하지 않은 사용자방 조회를 계속 거절한다", async () => {
+    mocks.rows = [];
+
+    const response = await GET(
+      new Request("http://localhost/api/chat?channel=room&roomId=7"),
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.text()).toBe("not in room");
   });
 
   it("한 인증으로 기본 채널 세 개를 묶고 외형 조회도 한 번만 한다", async () => {

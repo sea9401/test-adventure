@@ -11,7 +11,6 @@ import {
   upsertSaves,
 } from "@/lib/server/savesKv";
 import { battleCountOf } from "@/lib/server/battleCount";
-import { v2LevelGrowthHpMp } from "@/lib/server/derivePlayerCombatV2";
 import {
   prepareV2BattleActor,
   type V2BattlePrepCache,
@@ -1128,6 +1127,8 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     masteryAfter,
     spMilestonesGained,
     statGains,
+    hpGain,
+    mpGain,
   } = applyHuntProficiency({
     won,
     depth,
@@ -1146,17 +1147,6 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       await upsertSave(tx, userId, "proficiency.v2", nextProficiency);
     }
   }
-  // 레벨업 HP/MP 성장량 — 결과 카드 표시용(레벨당 고정분 + 오른 STR·VIT·INT). 파생식과 동일 계수.
-  const { hp: hpGain, mp: mpGain } =
-    expResult.levelsGained > 0
-      ? v2LevelGrowthHpMp({
-          levelsGained: expResult.levelsGained,
-          strGained: statGains.str ?? 0,
-          vitGained: statGains.vit ?? 0,
-          intGained: statGains.int ?? 0,
-        })
-      : { hp: 0, mp: 0 };
-
   const codexMasteryEvents: CodexMasteryGameplayEvent[] = [];
   if (won) {
     codexMasteryEvents.push({

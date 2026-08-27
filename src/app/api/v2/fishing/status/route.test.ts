@@ -52,13 +52,13 @@ describe("GET /api/v2/fishing/status", () => {
       itemId: "catch_common",
       name: "일반 어획물",
       awarded: 7,
-      cap: 40,
+      cap: 50,
     });
     expect(body.dailyCatchItems[4]).toEqual({
       itemId: "catch_legendary",
       name: "전설의 어획물",
       awarded: 0,
-      cap: 2,
+      cap: 3,
     });
   });
 });

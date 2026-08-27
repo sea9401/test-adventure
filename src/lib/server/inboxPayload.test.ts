@@ -311,12 +311,16 @@ describe("parseInboxPayload — happy path", () => {
     });
   });
 
-  it("admin_gift (요리 재료는 카탈로그 항목만 양의 정수로 보존)", () => {
+  it("admin_gift (농장·낚시·상점·가공 요리 재료만 양의 정수로 보존)", () => {
     expect(
       parseInboxPayload("admin_gift", {
         cookingIngredients: [
+          { ingredientId: "farm:wheat", count: 5 },
+          { ingredientId: "fishing:catch_legendary", count: 1 },
           { ingredientId: "pantry:salt", count: 4 },
           { ingredientId: "processed:flour", count: 2 },
+          { ingredientId: "farm:compound_feed", count: 99 },
+          { ingredientId: "fishing:unknown", count: 99 },
           { ingredientId: "pantry:unknown", count: 99 },
           { ingredientId: "processed:butter", count: 0 },
         ],
@@ -326,6 +330,8 @@ describe("parseInboxPayload — happy path", () => {
       gold: 0,
       materials: [],
       cookingIngredients: [
+        { ingredientId: "farm:wheat", count: 5 },
+        { ingredientId: "fishing:catch_legendary", count: 1 },
         { ingredientId: "pantry:salt", count: 4 },
         { ingredientId: "processed:flour", count: 2 },
       ],

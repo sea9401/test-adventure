@@ -20,6 +20,7 @@ import {
   tierLevelCap,
   levelCapFor,
   addCumLevel,
+  addStatFloorLevels,
   addReincarnation,
   addJobCumLevel,
   addJobHistory,
@@ -98,6 +99,22 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(parseProficiency(undefined)).toEqual(emptyProficiency());
   });
 
+  it("parse — 유효한 생애 자원 굴림 기록을 보존하고 빈 저장에는 만들지 않는다", () => {
+    const lifeResourceGrowth = {
+      version: 1,
+      rolledLevel: 37,
+      baseHp: 142,
+      baseMp: 81,
+      gainedHp: 361,
+      gainedMp: 145,
+    };
+
+    expect(parseProficiency({ lifeResourceGrowth })).toMatchObject({
+      lifeResourceGrowth,
+    });
+    expect(parseProficiency({})).not.toHaveProperty("lifeResourceGrowth");
+  });
+
   it("parse — points 전역 합산, 의미없는 그룹 제외, 새 포맷 보존", () => {
     const p = parseProficiency({
       groups: {
@@ -153,6 +170,23 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
         groups: { warrior: { cumLevel: 9 } },
       }).masteryScaleVersion,
     ).toBe(2);
+  });
+
+  it("parse — 기존 숙련도 저장값은 현재 스탯 저점 입력으로 1회 고정한다", () => {
+    const migrated = parseProficiency({
+      groups: {
+        warrior: { cumLevel: 1800 },
+        mage: { cumLevel: 1799 },
+      },
+    });
+
+    expect(migrated.statFloorLevels).toEqual({ warrior: 200, mage: 199 });
+
+    const stored = parseProficiency({
+      groups: { warrior: { cumLevel: 9000 } },
+      statFloorLevels: { warrior: 123 },
+    });
+    expect(stored.statFloorLevels).toEqual({ warrior: 123 });
   });
 
   it("parse/addJobHistory — 전직 이력을 정제하고 중복 없이 누적한다", () => {
@@ -348,6 +382,14 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
       cultivationPointsSpent: 40,
       cultivationResetCount: 0,
       cultivationLedgerVersion: 1,
+      lifeResourceGrowth: {
+        version: 1,
+        rolledLevel: 37,
+        baseHp: 142,
+        baseMp: 81,
+        gainedHp: 361,
+        gainedMp: 145,
+      },
     });
     const reset = resetCultivation(p);
     expect(reset).not.toBeNull();
@@ -359,6 +401,14 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(reset!.next.groups.warrior).toEqual(p.groups.warrior);
     expect(reset!.next.grown).toEqual({});
     expect(reset!.next.growthRespecPoints).toBe(0);
+    expect(reset!.next.lifeResourceGrowth).toEqual({
+      version: 1,
+      rolledLevel: 1,
+      baseHp: 142,
+      baseMp: 81,
+      gainedHp: 0,
+      gainedMp: 0,
+    });
   });
 
   it("parseProficiency/applyCultivation — 과거 재분배 대기값을 폐기하고 수행에 적용하지 않는다", () => {
@@ -758,6 +808,18 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(addCumLevel(p1, "none", 5)).toBe(p1);
     expect(addCumLevel(p1, "warrior", 0)).toBe(p1);
     expect(groupCumLevel(p0, "nonexistent")).toBe(0);
+  });
+
+  it("addStatFloorLevels — 실제 레벨 상승분만 별도 누적한다", () => {
+    const p0 = parseProficiency({
+      groups: { warrior: { cumLevel: 1800 } },
+    });
+    const p1 = addStatFloorLevels(p0, "warrior", 3);
+
+    expect(p1.statFloorLevels.warrior).toBe(203);
+    expect(p0.statFloorLevels.warrior).toBe(200);
+    expect(addStatFloorLevels(p1, "none", 5)).toBe(p1);
+    expect(addStatFloorLevels(p1, "warrior", 0)).toBe(p1);
   });
 
   it("addJobCumLevel/jobCumLevelOf — 직업별 숙련도(groups·floor 와 별개), 비파괴, none/0 무변경", () => {

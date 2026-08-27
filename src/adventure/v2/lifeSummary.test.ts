@@ -24,6 +24,8 @@ describe("생활 기록 집계", () => {
     ]);
     expect(summary.lifeMastery).toEqual({ level: 50, maxLevel: 500 });
     expect(summary.artisan.id).toBe("blacksmith");
+    expect(summary.activities.find((activity) => activity.id === "fishing")?.effects)
+      .toContain("어획물 획득 확률 30%");
   });
 
   it("누적 생활 기록과 대장장이 성장을 함께 정규화한다", () => {

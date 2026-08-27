@@ -13,6 +13,7 @@ import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import { activeLoadoutPresetName } from "@/adventure/data/v2/v2LoadoutPresets";
 import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 import type { ActiveCookingBuff } from "@/adventure/v2/cooking/food";
+import type { GuildDiningEffectSummary } from "@/adventure/data/v2/guildDining";
 import type {
   V2EquipInstance,
   V2EquipSlot,
@@ -52,6 +53,7 @@ type StateResponse = {
   };
   cosmetics?: MuseunCosmeticAppearance;
   activeFoodBuff?: ActiveCookingBuff | null;
+  activeGuildDiningEffect?: GuildDiningEffectSummary | null;
   profileShowcase?: ProfileShowcaseSelection | null;
   profileShowcaseSlots?: ProfileShowcaseSlots;
   profileMasteryTrophies?: ProfileMasteryTrophyDisplay[];
@@ -162,6 +164,7 @@ export function V2AdventureHome() {
       activePresetName={activePresetName}
       adventureSupport={state.adventureSupport}
       activeFoodBuff={state.activeFoodBuff ?? null}
+      activeGuildDiningEffect={state.activeGuildDiningEffect ?? null}
       equipped={equipment?.equipped}
       owned={equipment?.owned}
       expanded={preferences.characterExpanded}

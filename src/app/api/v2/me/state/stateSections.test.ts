@@ -224,6 +224,44 @@ describe("huntGateSections", () => {
 });
 
 describe("proficiencySection", () => {
+  it("신형 생애에는 현재 자원 성장 범위를 활성 모드로 제공한다", () => {
+    const section = proficiencySection(
+      {
+        lifeResourceGrowth: {
+          version: 1,
+          rolledLevel: 37,
+          baseHp: 142,
+          baseMp: 81,
+          gainedHp: 361,
+          gainedMp: 145,
+        },
+      },
+      { class: "warrior", level: 37 },
+    );
+
+    expect(section.lifeResourceGrowth).toEqual({
+      mode: "rolled",
+      currentRanges: {
+        baseHp: { min: 150, max: 180 },
+        baseMp: { min: 65, max: 95 },
+        hpPerLevel: { min: 8, max: 12 },
+        mpPerLevel: { min: 3, max: 5 },
+      },
+      appliesAfterRejob: false,
+    });
+  });
+
+  it("레거시 생애에는 다음 전투 재전직 미리보기임을 명시한다", () => {
+    const section = proficiencySection({}, { class: "warrior", level: 37 });
+
+    expect(section.lifeResourceGrowth.mode).toBe("legacy");
+    expect(section.lifeResourceGrowth.appliesAfterRejob).toBe(true);
+    expect(section.lifeResourceGrowth.currentRanges.mpPerLevel).toEqual({
+      min: 3,
+      max: 5,
+    });
+  });
+
   it("빈 세이브 스모크 — 응답 shape(groups/caps/current) 유지", () => {
     const s = proficiencySection(undefined, { class: "warrior" });
     expect(s.groups).toBeDefined();

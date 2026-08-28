@@ -35,6 +35,11 @@ import {
 } from "@/adventure/v2/cooking/food";
 import { FISH } from "@/adventure/data/v2/fish";
 import { fishIdFromSpecimenItemId } from "@/adventure/v2/fishSpecimens";
+import {
+  isMarketplaceLifeItemId,
+  marketplaceLifeItemDefinition,
+  type MarketplaceLifeItemId,
+} from "@/adventure/v2/marketplace/lifeItemCatalog";
 
 // ── 다이얼 ──────────────────────────────────────────────────────────────────
 // 판매세 — 판매 성사 시 대금의 이 비율이 소각(골드 sink). 판매자는 (대금 − 세금) 수령.
@@ -311,6 +316,12 @@ export function isTradableMaterial(id: string): id is V2MaterialId {
   );
 }
 
+export function isTradableMarketplaceMaterial(
+  id: string,
+): id is V2MaterialId | MarketplaceLifeItemId {
+  return isTradableMaterial(id) || isMarketplaceLifeItemId(id);
+}
+
 // 등록 시점 이름 스냅샷용 — 카탈로그 표시명.
 export function itemDisplayName(kind: MarketKind, id: string): string | null {
   if (kind === "equip") return isTradableEquip(id) ? V2_EQUIPMENT[id].name : null;
@@ -323,7 +334,8 @@ export function itemDisplayName(kind: MarketKind, id: string): string | null {
       ? RARE_MAP_KINDS[id as keyof typeof RARE_MAP_KINDS].name
       : null;
   }
-  return isTradableMaterial(id) ? V2_MATERIALS[id].name : null;
+  if (isTradableMaterial(id)) return V2_MATERIALS[id].name;
+  return marketplaceLifeItemDefinition(id)?.name ?? null;
 }
 
 // 조회 표시명 — 장비/재료는 카탈로그 이름 변경을 즉시 반영하고, 레어맵은 깊이 정보가 들어간

@@ -23,6 +23,7 @@ import {
   isMarketKind,
   isStackableMarketplaceItem,
   isTradableEquip,
+  isTradableMarketplaceMaterial,
   isTradableMaterial,
   isValidBidGraceHours,
   isValidMaterialQty,
@@ -211,6 +212,22 @@ describe("위험 해역 귀환 어획물 거래 분류", () => {
     expect(itemDisplayName("material", "danger_catch_ironjaw_tuna")).toBe(
       "철턱 참치",
     );
+  });
+});
+
+describe("생활 재료 거래 분류", () => {
+  it("생활 재료는 수량형 재료로 거래하고 현재 카탈로그 이름을 사용한다", () => {
+    expect(isTradableMarketplaceMaterial("farm_seed:wheat")).toBe(true);
+    expect(isTradableMarketplaceMaterial("farm_item:golden_wheat")).toBe(true);
+    expect(isTradableMarketplaceMaterial("cooking_kitchen:processed:flour")).toBe(
+      true,
+    );
+    expect(isTradableMarketplaceMaterial("farm_item:compound_feed")).toBe(false);
+    expect(isStackableMarketplaceItem("material", "farm_seed:wheat")).toBe(true);
+    expect(itemDisplayName("material", "farm_seed:wheat")).toBe("밀 씨앗");
+    expect(
+      currentMarketplaceItemName("material", "farm_seed:wheat", "옛 씨앗 이름"),
+    ).toBe("밀 씨앗");
   });
 });
 

@@ -503,9 +503,17 @@ export function setGrown(
 }
 
 // 레벨 1로 돌아가는 환생·직업군 변경은 그 생애의 성장값을 끝낸다. 수행 초기화의 재분배
-// 대기값도 같은 성장 총량에서 나온 값이므로 함께 비워 다음 생애로 넘기는 악용을 막는다.
+// 대기값과 HP·MP 레벨 누적도 같은 성장 총량에서 나온 값이므로 함께 비워 다음 생애로
+// 넘기는 악용과 character.level/rolledLevel 불일치를 막는다. Lv.1 기본 굴림은 보존한다.
 export function resetLevelGrowth(p: V2ProficiencyState): V2ProficiencyState {
-  return { ...p, grown: {}, growthRespecPoints: 0 };
+  return {
+    ...p,
+    grown: {},
+    growthRespecPoints: 0,
+    ...(p.lifeResourceGrowth
+      ? { lifeResourceGrowth: resetLifeResourceLevels(p.lifeResourceGrowth) }
+      : {}),
+  };
 }
 
 // 레거시 차수 전직용 최고 차수 갱신. 코어루프 on 경로는 flattenGroupTiers 로 1차 정규화한다.

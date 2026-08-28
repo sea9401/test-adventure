@@ -125,10 +125,8 @@ import {
 } from "./marketplace/equipmentComparison";
 import { EquipmentCodexBadge } from "./EquipmentCodexBadge";
 import { MarketplaceTradeReportButton } from "./marketplace/MarketplaceTradeReportButton";
-import {
-  MARKETPLACE_LIFE_ITEM_IDS,
-  marketplaceLifeItemDefinition,
-} from "./marketplace/lifeItemCatalog";
+import { marketplaceLifeItemDefinition } from "./marketplace/lifeItemCatalog";
+import { marketplaceLifeItemPurchaseGroups } from "./marketplace/lifeItemPurchaseGroups";
 import {
   MARKETPLACE_EQUIPMENT_TIER_OPTIONS,
   matchesMarketplaceEquipmentTier,
@@ -535,11 +533,7 @@ export function V2MarketplaceView({
       fetch("/api/v2/me/fishing-specimens"),
     ]);
     if (inv.ok) {
-      const j = (await inv.json()) as {
-        materials?: Record<string, number>;
-        marketplaceMaterials?: Record<string, number>;
-        cookingFoods?: CookingFoodInventory;
-      };
+      const j = (await inv.json()) as { materials?: Record<string, number>; marketplaceMaterials?: Record<string, number>; cookingFoods?: CookingFoodInventory };
       setMaterials(j.marketplaceMaterials ?? j.materials ?? {});
       setCookingFoods(j.cookingFoods ?? {});
     }
@@ -1157,9 +1151,7 @@ export function V2MarketplaceView({
   const sellableEquip = owned.filter(
     (i) => !i.enhance && !i.locked && !equippedIids.has(i.iid),
   );
-  const sellableMats = Object.keys(materials).filter(
-    (id) => (materials[id] ?? 0) > 0,
-  );
+  const sellableMats = Object.keys(materials).filter((id) => (materials[id] ?? 0) > 0);
   const sellableMaterialItems = sellableMats.filter(
     (id) => itemTabForMaterial(id) === "material",
   );
@@ -1317,21 +1309,9 @@ export function V2MarketplaceView({
         listings: [],
       });
     }
-    if (browseTab === "material") {
-      for (const itemId of MARKETPLACE_LIFE_ITEM_IDS) {
-        const definition = marketplaceLifeItemDefinition(itemId);
-        if (!definition) continue;
-        groups.set(`material:${itemId}`, {
-          key: `material:${itemId}`,
-          kind: "material",
-          itemId,
-          itemName: definition.name,
-          totalQuantity: 0,
-          minUnitPrice: priceRef[itemId]?.unitAvg ?? 1,
-          listings: [],
-        });
-      }
-    }
+    if (browseTab === "material")
+      for (const group of marketplaceLifeItemPurchaseGroups(priceRef))
+        groups.set(group.key, group);
     if (browseTab === "consumable") {
       for (const itemId of MUSEUN_TRADEABLE_ITEM_IDS) {
         groups.set(`consumable:${itemId}`, {

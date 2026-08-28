@@ -41,7 +41,7 @@ import {
   type V2CraftQualityState,
 } from "@/adventure/data/v2/v2Equipment";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
-import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
+import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { equipmentProgressionLock } from "@/adventure/data/v2/equipmentProgression";
 import {
   RARE_MAP_KINDS,
@@ -125,6 +125,10 @@ import {
 } from "./marketplace/equipmentComparison";
 import { EquipmentCodexBadge } from "./EquipmentCodexBadge";
 import { MarketplaceTradeReportButton } from "./marketplace/MarketplaceTradeReportButton";
+import {
+  MARKETPLACE_LIFE_ITEM_IDS,
+  marketplaceLifeItemDefinition,
+} from "./marketplace/lifeItemCatalog";
 import {
   MARKETPLACE_EQUIPMENT_TIER_OPTIONS,
   matchesMarketplaceEquipmentTier,
@@ -402,7 +406,7 @@ export function V2MarketplaceView({
   // 팔기 — 내 인벤(미강화·미장착·미잠금 장비 + 재료).
   const [owned, setOwned] = useState<V2EquipInstance[]>([]);
   const [equipped, setEquipped] = useState<Partial<Record<V2EquipSlot, string>>>({});
-  const [materials, setMaterials] = useState<Partial<Record<V2MaterialId, number>>>({});
+  const [materials, setMaterials] = useState<Record<string, number>>({});
   const [rareMaps, setRareMaps] = useState<RareMapInstance[]>([]);
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
   const [cookingFoods, setCookingFoods] = useState<CookingFoodInventory>({});
@@ -532,10 +536,11 @@ export function V2MarketplaceView({
     ]);
     if (inv.ok) {
       const j = (await inv.json()) as {
-        materials?: Partial<Record<V2MaterialId, number>>;
+        materials?: Record<string, number>;
+        marketplaceMaterials?: Record<string, number>;
         cookingFoods?: CookingFoodInventory;
       };
-      setMaterials(j.materials ?? {});
+      setMaterials(j.marketplaceMaterials ?? j.materials ?? {});
       setCookingFoods(j.cookingFoods ?? {});
     }
     if (rm.ok) {
@@ -1006,7 +1011,7 @@ export function V2MarketplaceView({
       loadInventory,
     );
   };
-  const listMaterial = (matId: V2MaterialId) => {
+  const listMaterial = (matId: string) => {
     const unitPrice = parseAmount(prices[matId]);
     const qty = Number(qtys[matId] ?? "1");
     if (!Number.isInteger(unitPrice) || unitPrice < 1) {
@@ -1031,7 +1036,7 @@ export function V2MarketplaceView({
         price,
         graceHours: listingMode === "fixed" ? 0 : graceHours,
       },
-      `✓ ${V2_MATERIALS[matId]?.name ?? matId} ${qty}개 · 개당 ${unitPrice.toLocaleString()}골드 등록`,
+      `✓ ${V2_MATERIALS[matId]?.name ?? marketplaceLifeItemDefinition(matId)?.name ?? matId} ${qty}개 · 개당 ${unitPrice.toLocaleString()}골드 등록`,
       loadInventory,
     );
   };
@@ -1152,7 +1157,7 @@ export function V2MarketplaceView({
   const sellableEquip = owned.filter(
     (i) => !i.enhance && !i.locked && !equippedIids.has(i.iid),
   );
-  const sellableMats = (Object.keys(materials) as V2MaterialId[]).filter(
+  const sellableMats = Object.keys(materials).filter(
     (id) => (materials[id] ?? 0) > 0,
   );
   const sellableMaterialItems = sellableMats.filter(
@@ -1298,7 +1303,7 @@ export function V2MarketplaceView({
       if (
         itemId === "v2_reforge_stone" ||
         itemId === "v2_reforge_stone_high" ||
-        itemTabForMaterial(itemId as V2MaterialId) !== browseTab
+        itemTabForMaterial(itemId) !== browseTab
       ) {
         continue;
       }
@@ -1311,6 +1316,21 @@ export function V2MarketplaceView({
         minUnitPrice: priceRef[itemId]?.unitAvg ?? 1,
         listings: [],
       });
+    }
+    if (browseTab === "material") {
+      for (const itemId of MARKETPLACE_LIFE_ITEM_IDS) {
+        const definition = marketplaceLifeItemDefinition(itemId);
+        if (!definition) continue;
+        groups.set(`material:${itemId}`, {
+          key: `material:${itemId}`,
+          kind: "material",
+          itemId,
+          itemName: definition.name,
+          totalQuantity: 0,
+          minUnitPrice: priceRef[itemId]?.unitAvg ?? 1,
+          listings: [],
+        });
+      }
     }
     if (browseTab === "consumable") {
       for (const itemId of MUSEUN_TRADEABLE_ITEM_IDS) {

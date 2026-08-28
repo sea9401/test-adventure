@@ -28,6 +28,8 @@ import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { NumberInput, parseAmount } from "@/components/ui/NumberInput";
 import {
   V2_EQUIPMENT,
+  V2_EQUIP_SETS,
+  V2_EQUIP_TAG_SETS,
   parseCraftedBy,
   parseInstanceCraftQuality,
   parseInstanceEnhance,
@@ -2862,6 +2864,21 @@ function BuyOrderCatalogDialog({
   );
 }
 
+const EQUIPMENT_SET_NAMES = new Map(
+  [...V2_EQUIP_SETS, ...V2_EQUIP_TAG_SETS].map((set) => [set.id, set.name]),
+);
+
+function equipmentBuyOrderSetNames(item: V2Equipment): string[] {
+  const setIds = [item.setId, ...(item.setTags ?? [])];
+  return [
+    ...new Set(
+      setIds
+        .map((setId) => (setId ? EQUIPMENT_SET_NAMES.get(setId) : undefined))
+        .filter((name): name is string => name != null),
+    ),
+  ];
+}
+
 function EquipmentBuyOrderDialog({
   slot,
   priceRef,
@@ -2901,7 +2918,12 @@ function EquipmentBuyOrderDialog({
   const [days, setDays] = useState("3");
   const normalized = query.trim().toLowerCase();
   const filtered = items.filter(
-    (item) => !normalized || item.name.toLowerCase().includes(normalized),
+    (item) =>
+      !normalized ||
+      item.name.toLowerCase().includes(normalized) ||
+      equipmentBuyOrderSetNames(item).some((name) =>
+        name.toLowerCase().includes(normalized),
+      ),
   );
   const parsedPower = parseAmount(minPower);
   const parsedQuality = parseAmount(minQualityPct);
@@ -2971,23 +2993,33 @@ function EquipmentBuyOrderDialog({
               조건에 맞는 장비가 없어요.
             </div>
           ) : (
-            filtered.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => selectItem(item)}
-                className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs ${
-                  selectedId === item.id
-                    ? "bg-sky-100 font-semibold text-sky-900 dark:bg-sky-950 dark:text-sky-100"
-                    : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                }`}
-              >
-                <span>{item.name}</span>
-                <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
-                  기본 위력 {item.power.toLocaleString()}
-                </span>
-              </button>
-            ))
+            filtered.map((item) => {
+              const setNames = equipmentBuyOrderSetNames(item);
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => selectItem(item)}
+                  className={`flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-xs ${
+                    selectedId === item.id
+                      ? "bg-sky-100 font-semibold text-sky-900 dark:bg-sky-950 dark:text-sky-100"
+                      : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  }`}
+                >
+                  <span className="min-w-0">
+                    <span className="block">{item.name}</span>
+                    {setNames.length > 0 ? (
+                      <span className="mt-0.5 block text-[10px] font-normal text-zinc-500 dark:text-zinc-400">
+                        {setNames.map((name) => `${name} 세트`).join(" · ")}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">
+                    기본 위력 {item.power.toLocaleString()}
+                  </span>
+                </button>
+              );
+            })
           )}
         </div>
 

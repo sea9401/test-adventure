@@ -168,6 +168,7 @@ import {
   formulaCompletionOverdraftSkillIds,
   formulaStagesForCast,
   previewFormulaCast,
+  settleFormulaManaRecovery,
 } from "./primordialSageCombat";
 import {
   hasTier6Unique,
@@ -4183,14 +4184,35 @@ export function castV2SkillOnAttackerTurnPvP(
       });
     }
   }
+  const formulaManaSettlement = formulaPreview
+    ? settleFormulaManaRecovery({
+        state: formulaState,
+        next: formulaPreview.next,
+        completes: formulaPreview.completes,
+        castMpSpent: result.mpSpent,
+        castMpRestored: result.manaRestored + sigMpRefundAmount,
+        requestedCompletionRestore: formulaOptimizationEquipped
+          ? Math.floor(side.maxMp * 0.1)
+          : 0,
+        advancesFormula: formulaPreview.next !== formulaState,
+      })
+    : null;
+  const formulaRestore = formulaManaSettlement?.completionRestore ?? 0;
   if (nextTier7 && formulaPreview) {
-    nextTier7.formula = formulaPreview.next;
+    nextTier7.formula = formulaManaSettlement?.next ?? formulaPreview.next;
     if (formulaPreview.completes) {
       nextLog = appendLog(nextLog, {
         kind: "info",
         text: `[완전식] ${result.castSkillName ?? "주문"} 강화 발동.`,
         side: who,
       });
+      if (formulaRestore > 0) {
+        nextLog = appendLog(nextLog, {
+          kind: "info",
+          text: `[마력 최적화] ${side.name} 마나 ${formulaRestore} 회복`,
+          side: who,
+        });
+      }
     }
   }
   // 차수… 아니라 temp 버프 turns 감소는 **자기 턴 시작(여기, cast hook = phase 당 1회)**에서.
@@ -4304,8 +4326,8 @@ export function castV2SkillOnAttackerTurnPvP(
   }
   if (result.ironWallReflectToApply && result.castSkillName) {
     nextLog = appendLog(nextLog, {
-      kind: "info",
-      text: `[${result.castSkillName}] 철벽 반사 ${result.ironWallReflectToApply.charges}회 준비`,
+      kind: "player_attack",
+      text: `${result.castSkillName}! 철벽 반사 ${result.ironWallReflectToApply.charges}회 준비`,
       side: who,
     });
   }
@@ -4524,10 +4546,6 @@ export function castV2SkillOnAttackerTurnPvP(
       side: who,
     });
   }
-  const formulaRestore =
-    formulaPreview?.completes && formulaOptimizationEquipped
-      ? Math.floor(side.maxMp * 0.1)
-      : 0;
   const nextSide: PvPSide = {
     ...side,
     // 스킬은 이번 행동의 평타를 대체한다. 다단 적중 시그니처가 만든 추가 기본 공격만 남긴다.

@@ -51,7 +51,7 @@ describe("7차 스킬 설명", () => {
     ).toEqual(
       expect.arrayContaining([
         "마법 MP 소모 -20%",
-        "완전식 MP 부족 시 현재 MP 전부 소비 · 최대 MP 10% 회복",
+        "완전식 MP 부족 시 현재 MP 전부 소비 · 최대 MP 10% 회복 (주기 미환급 소비 MP 이하)",
       ]),
     );
   });
@@ -833,7 +833,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
       "잃은 HP 1%당 피해 +0.7% (최대 ×1.7 · 대련 추가분 60%)",
       "명중 시 혈전 준비 획득",
       "발동 50%",
-      "MP 76",
+      "MP 102",
     ]);
   });
 
@@ -850,7 +850,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
       "사망 극복 시 1회 재충전 (전투당 최대 2회)",
       "사망 극복 발동 시: 잃은 HP 100% 취급 · 광폭 계수 ×1.5",
       "발동 40%",
-      "MP 76",
+      "MP 132",
       "전투당 1회",
     ]);
   });
@@ -1019,17 +1019,29 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
   });
 
   it("디버프 스킬은 적 스탯 감소 칩 + MP 칩", () => {
-    // 파쇄 = 병사 계열(×1.0) tier 2 → 기준풀 600 × 7% × 1.4 = 58.8 → "MP 59".
+    // 파쇄 = 병사 tier 2 차등 비용 59 × 최종 압박 1.5 → "MP 89".
     const chips = describeV2Skill(V2_SKILLS.v2c_warrior_sunder);
     expect(chips.some((c) => c.startsWith("적 활력 −"))).toBe(true);
-    expect(chips).toContain("MP 59");
+    expect(chips).toContain("MP 89");
   });
 
   it("액티브 스킬은 100% 발동도 확률 칩으로 표시", () => {
     const chips = describeV2Skill(V2_SKILLS.v2c_ironknight_guard);
     expect(chips).toContain("발동 100%");
     expect(chips).toContain(
-      "철벽 반사 3회 · 받는 피해 -30% · 방어력의 180% 반사",
+      "철벽 반사 3회 · 해당 공격 피해 30% 감소 · 반사 원량: 방어력의 180%",
+    );
+  });
+
+  it("반사 피해 증폭은 받은 피해 비율 반사로 오해하지 않게 표시한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_vajraarhat_seal)).toContain(
+      "기존 반사 피해 +45% (3행동)",
+    );
+  });
+
+  it("반격 패시브는 30%가 피해 비율이 아니라 발동 확률임을 표시한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_vajraarhat_body)).toContain(
+      "HP 피해 시 30% 확률로 공격력 기반 반격",
     );
   });
 
@@ -1116,15 +1128,36 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     expect(chips.some((c) => c.startsWith("속성"))).toBe(false);
   });
 
-  it("MP 칩 = 고정 절대값 — 계열 차등 + 차수 스케일", () => {
-    // fixedMpCost 가 있으면 절대값을 우선 사용하고, 없으면 기존 공식 비용을 사용한다.
-    expect(describeV2Skill(V2_SKILLS.v2c_mage_fireball)).toContain("MP 90"); // 고비용 주문
-    expect(describeV2Skill(V2_SKILLS.v2c_warrior_strike)).toContain("MP 42"); // 병사 t1
-    // 같은 병사 계열에서 차수 스케일 t1(42) < t2(600×7%×1.4=58.8→59):
-    expect(describeV2Skill(V2_SKILLS.v2c_warrior_sunder)).toContain("MP 59");
-    // 같은 t2 에서 도적(×0.7·41) < 병사(59) — 계열 차등 재확인:
-    expect(describeV2Skill(V2_SKILLS.v2c_assassin_ambush)).toContain("MP 41");
+  it("MP 칩 = 계열·차수·스킬 편차와 최종 자원 압박", () => {
+    // fixedMpCost 를 우선한 뒤에도 캐스터 압박 배율을 적용한다.
+    expect(describeV2Skill(V2_SKILLS.v2c_mage_fireball)).toContain("MP 113");
+    expect(describeV2Skill(V2_SKILLS.v2c_warrior_strike)).toContain("MP 63");
+    // 같은 병사 계열에서 차수 기준과 원본 편차, 비캐스터 압박을 함께 반영한다.
+    expect(describeV2Skill(V2_SKILLS.v2c_warrior_sunder)).toContain("MP 89");
+    // 같은 t2 에서 도적 계열 할인 후 비캐스터 압박을 적용한다.
+    expect(describeV2Skill(V2_SKILLS.v2c_assassin_ambush)).toContain("MP 71");
     expect(describeV2Skill(V2_SKILLS.v2c_mage_boltcast)).not.toContain("MP 40");
+  });
+
+  it("같은 계열·차수에서도 스킬별 원본 MP 비용 차이를 보존한다", () => {
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_guardian_bash)).toBe(93);
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_swordmaster_cut)).toBe(114);
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_skyascendant_fallingstar)).toBe(119);
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_ruinblade_ruinsword)).toBe(189);
+
+    expect(describeV2Skill(V2_SKILLS.v2c_guardian_bash)).toContain("MP 93");
+    expect(describeV2Skill(V2_SKILLS.v2c_ruinblade_ruinsword)).toContain("MP 189");
+  });
+
+  it("최종 MP 압박을 높이고 모든 마법사 후속 계보에 캐스터 배율을 적용한다", () => {
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_warrior_strike)).toBe(63);
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_guardian_bash)).toBe(93);
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_hegemon_annihilation)).toBe(132);
+
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_mage_fireball)).toBe(113);
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_shaman_hex)).toBe(131);
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_ritualist_guardingarray)).toBe(105);
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_lawweaver_release)).toBe(250);
   });
 });
 
@@ -1283,10 +1316,10 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
         proc: V2_SKILLS[skillId as V2SkillId].procChance,
       })),
     ).toEqual([
-      { mp: 76, proc: 56 },
-      { mp: 76, proc: 50 },
-      { mp: 76, proc: 44 },
-      { mp: 76, proc: 40 },
+      { mp: 96, proc: 56 },
+      { mp: 102, proc: 50 },
+      { mp: 120, proc: 44 },
+      { mp: 132, proc: 40 },
     ]);
     expect(
       [
@@ -1672,6 +1705,20 @@ describe("태초술사 공명 개편", () => {
       maxMpPct: 20,
     });
     expect(spCostOf(resonance)).toBe(9);
+  });
+
+  it("MP 회복 패시브는 실제 소비량 상한을 안내한다", () => {
+    expect(
+      V2_SKILLS.v2c_primordialmage_resonance.description,
+    ).toContain("실제 소비 MP");
+    expect(
+      V2_SKILLS.v2c_primordialsage_optimization.description,
+    ).toContain("미환급 소비 MP");
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_primordialsage_optimization),
+    ).toContain(
+      "완전식 MP 부족 시 현재 MP 전부 소비 · 최대 MP 10% 회복 (주기 미환급 소비 MP 이하)",
+    );
   });
 
   it("원초 증폭은 기존 효과를 유지하면서 9 SP를 사용한다", () => {

@@ -35,33 +35,33 @@ const canContinueAttempt = (
 ).canContinueMasteryTowerAttempt;
 
 describe("숙련의 탑 전투 결과 문구", () => {
-  it("50층 연습 승리를 일반 층 돌파와 구분한다", () => {
+  it("100층 연습 승리를 일반 층 돌파와 구분한다", () => {
     expect(resultMessage).toBeTypeOf("function");
     expect(
       resultMessage?.(
-        { success: true, practice: true, floor: 50 },
+        { success: true, practice: true, floor: 100 },
         0,
       ),
-    ).toBe("50층 연습 승리");
+    ).toBe("100층 연습 승리");
   });
 
-  it("50층 연습 패배는 쿨다운 뒤 연습 재도전 가능 여부를 안내한다", () => {
+  it("100층 연습 패배는 쿨다운 뒤 연습 재도전 가능 여부를 안내한다", () => {
     expect(resultMessage).toBeTypeOf("function");
     expect(
       resultMessage?.(
         {
           success: false,
           practice: true,
-          floor: 50,
-          power: 5_000,
-          requiredPower: 5_100,
+          floor: 100,
+          power: 100_000,
+          requiredPower: 105_000,
         },
         30,
       ),
-    ).toBe("50층 연습 실패 · 전투력 5,000/5,100 · 30초 후 연습 재도전 가능");
+    ).toBe("100층 연습 실패 · 전투력 100,000/105,000 · 30초 후 연습 재도전 가능");
   });
 
-  it("50층 연습 패배 결과에서 쿨다운이 끝나면 바로 재도전할 수 있다", () => {
+  it("100층 연습 패배 결과에서 쿨다운이 끝나면 바로 재도전할 수 있다", () => {
     const result = {
       ok: true,
       success: false,

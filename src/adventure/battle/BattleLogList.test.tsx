@@ -824,6 +824,57 @@ describe("BattleLogList 행동 묶음", () => {
     expect(html).not.toContain("┘");
   });
 
+  it("중간 HP 표시를 접어도 연속된 서로 다른 행동을 독립 카드로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "player_attack",
+            text: "그림자 도약! 확정 회피를 준비했다.",
+            turn: "player",
+            t: 0,
+          },
+          {
+            kind: "info",
+            text: "[그림자 도약] 다음 공격 1회를 반드시 회피한다.",
+            turn: "player",
+            t: 0,
+          },
+          {
+            kind: "hp_bar",
+            text: "",
+            playerHp: 1_000,
+            playerMaxHp: 1_000,
+            enemyHp: 1_000,
+            enemyMaxHp: 1_000,
+            t: 0,
+          },
+          {
+            kind: "enemy_attack",
+            text: "철벽 태세! 철벽 반사 3회 준비",
+            turn: "enemy",
+            t: 0,
+          },
+          {
+            kind: "hp_bar",
+            text: "",
+            playerHp: 1_000,
+            playerMaxHp: 1_000,
+            enemyHp: 1_000,
+            enemyMaxHp: 1_000,
+            t: 0,
+          },
+        ]}
+        playerName="혈향"
+        enemyName="상대"
+      />,
+    );
+
+    expect(html.match(/data-battle-action=/g)).toHaveLength(2);
+    expect(html).toContain("그림자 도약");
+    expect(html).toContain("철벽 태세");
+  });
+
   it("상대 행동은 결과를 먼저, 행동 주체와 행동명을 오른쪽에 배치한다", () => {
     const playerHtml = renderToStaticMarkup(
       <BattleLogList

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
+import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import type { FarmItemInventory } from "../farm";
 import type { CookingMutation, CookingResponse } from "./clientTypes";
@@ -40,7 +41,10 @@ function PantryPurchaseRow({
     <div className={`${SURFACE_CARD} p-2 text-sm`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <div className="font-semibold text-zinc-900 dark:text-zinc-100">{item.icon} {item.name} · 보유 {owned}</div>
+          <div className="flex items-center gap-1.5 font-semibold text-zinc-900 dark:text-zinc-100">
+            <PlumpGameIcon name={item.iconName} size={20} />
+            <span>{item.name} · 보유 {owned}</span>
+          </div>
           <div className="text-[11px] text-zinc-500">개당 {item.price.toLocaleString("ko-KR")}골드</div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -90,7 +94,10 @@ function ProcessingRecipeRow({
     <div className={`${SURFACE_CARD} p-2 text-sm`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <div className="font-semibold text-zinc-900 dark:text-zinc-100">{recipe.icon} {recipe.name} · 보유 {data.kitchenItems[recipe.outputId] ?? 0}</div>
+          <div className="flex items-center gap-1.5 font-semibold text-zinc-900 dark:text-zinc-100">
+            <PlumpGameIcon name={recipe.iconName} size={20} />
+            <span>{recipe.name} · 보유 {data.kitchenItems[recipe.outputId] ?? 0}</span>
+          </div>
           <div className="text-[11px] text-zinc-500">{ingredientText}</div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">

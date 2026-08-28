@@ -169,6 +169,21 @@ describe("V2ItemCard set information", () => {
 
     expect(html).not.toContain("핵심 기믹이란?");
   });
+
+  it.each([
+    ["v2_sanctum_sig_spire_staff", true],
+    ["v2_swamp_bruiser_armor", false],
+  ] as const)("장비 등급을 유니크 배지로 명시한다 (%s)", (itemId, unique) => {
+    const html = renderToStaticMarkup(
+      <V2ItemCard
+        item={V2_EQUIPMENT[itemId]}
+        anchor={{ top: 20, bottom: 60, left: 20 }}
+        onClose={() => undefined}
+      />,
+    );
+
+    expect(html.includes(">유니크<")).toBe(unique);
+  });
 });
 
 describe("V2ItemCompareCard 읽기 전용", () => {

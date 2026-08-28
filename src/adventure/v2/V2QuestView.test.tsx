@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
   claimAllRewardText,
+  GuideEmptyState,
   MonsterHuntCodexCard,
   QuestTabContent,
   QuestTopTabs,
@@ -9,6 +10,16 @@ import {
 } from "./V2QuestView";
 
 describe("퀘스트 탭 전환 경계", () => {
+  it("진행 항목을 모두 마치면 자체 축하 아이콘을 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <GuideEmptyState tab="active" groupLabel="업적" />,
+    );
+
+    expect(html).toContain('data-plump-icon="celebration"');
+    expect(html).toContain("진행 중인 업적 항목이 없어요.");
+    expect(html).not.toContain("🎉");
+  });
+
   it("선택 탭을 독립 DOM 경계와 위치 이동 없는 전환으로 감싼다", () => {
     const html = renderToStaticMarkup(
       <QuestTabContent tab="weekly">

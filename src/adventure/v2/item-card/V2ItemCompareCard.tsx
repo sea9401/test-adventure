@@ -6,6 +6,7 @@ import { useEscapeKey } from "@/lib/useEscapeKey";
 import { Button } from "@/components/ui/Button";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
+import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 import {
   V2_EQUIP_SETS,
   signatureLabel,
@@ -195,9 +196,9 @@ function CompareHeader({
   );
 }
 
-// 비교용 세트 한 줄 — 세트면 "🔗 세트명 (N/M [발동])"(발동=amber), 아니면 "세트 없음"(muted).
+// 비교용 세트 한 줄 — 세트면 "세트명 (N/M [발동])"(발동=amber), 아니면 "세트 없음"(muted).
 //   전체 구성 목록은 단일 카드에서. 여기선 유무·진행도만 간결히(사용자 요청).
-function CompareSetLine({
+export function CompareSetLine({
   item,
   equippedIds,
 }: {
@@ -214,15 +215,18 @@ function CompareSetLine({
   const active = worn === set.pieces.length;
   return (
     <p
-      className={`truncate text-[11px] font-medium ${
+      className={`flex items-center gap-1 truncate text-[11px] font-medium ${
         active
           ? "text-amber-600 dark:text-amber-400"
           : "text-zinc-500 dark:text-zinc-400"
       }`}
       title={set.name}
     >
-      🔗 {set.name} ({worn}/{set.pieces.length}
-      {active ? " 발동" : ""})
+      <PlumpGameIcon name="equipment_set" size={15} />
+      <span className="truncate">
+        {set.name} ({worn}/{set.pieces.length}
+        {active ? " 발동" : ""})
+      </span>
     </p>
   );
 }

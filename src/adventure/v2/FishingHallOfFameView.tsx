@@ -16,6 +16,7 @@ import {
   type FishTier,
 } from "@/adventure/data/v2/fish";
 import type { FishingHallOfFameData } from "./fishingLeaderboard";
+import { FishingRankIcon } from "./FishingRankIcon";
 
 // 역대 최대어 명예의 전당 — 전 시즌 통틀어 종별 최대어. 데이터는 주입(useFishingHallOfFame / dev mock).
 // 주간 리더보드(FishingLeaderboardView)와 같은 구성이되 시즌 정산·코인 표시가 없는 영구 기록판.
@@ -29,12 +30,6 @@ const TIER_BADGE: Record<FishTier, string> = {
   legendary:
     "bg-amber-200/80 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200",
 };
-
-const MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
-
-function rankLabel(rank: number): string {
-  return MEDAL[rank] ?? `${rank}위`;
-}
 
 export function FishingHallOfFameView({
   data,
@@ -144,9 +139,7 @@ export function FishingHallOfFameView({
                             }`}
                           >
                             <span className="flex items-center gap-1.5">
-                              <span className="inline-block w-7 shrink-0 tabular-nums">
-                                {rankLabel(e.rank)}
-                              </span>
+                              <FishingRankIcon rank={e.rank} />
                               <PlayerNameLink name={e.name} />
                               {e.isMe && (
                                 <span className="rounded bg-sky-200/80 px-1 text-[10px] text-sky-800 dark:bg-sky-800/70 dark:text-sky-100">

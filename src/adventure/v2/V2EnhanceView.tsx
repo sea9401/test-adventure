@@ -26,11 +26,9 @@ import {
   effectiveStats,
   equipmentPowerDisplayValue,
   enhanceGoldCostForEquipment,
-  enhancementResetError,
   isUnique,
   powerWithBonuses,
   V2_EQUIPMENT,
-  type EnhancementResetError,
   type V2EquipInstance,
   type V2EquipRoll,
   type V2EquipSlot,
@@ -97,7 +95,6 @@ import {
 } from "@/adventure/v2/V2ItemCard";
 import { sortEnhanceCandidates } from "@/adventure/v2/v2EnhanceList";
 import { EnhancePowerPreview } from "@/adventure/v2/EnhancePowerPreview";
-import { resetEnhancementAndRefresh } from "@/adventure/v2/enhancementResetClient";
 import { useSystemToast } from "./RewardToastProvider";
 
 const SLOT_TABS: { key: V2EquipSlot; label: string }[] = [
@@ -153,125 +150,6 @@ type StormRefinementConfirmMaterial = {
   have: number;
   need: number;
 };
-
-export function EnhancementResetAction({
-  blockReason,
-  busy,
-  onClick,
-}: {
-  blockReason: EnhancementResetError | null;
-  busy: boolean;
-  onClick: () => void;
-}) {
-  const label =
-    blockReason === "equipped"
-      ? "장착 해제 후 초기화 가능"
-      : blockReason === "locked"
-        ? "잠금 해제 후 초기화 가능"
-        : "강화 초기화";
-
-  return (
-    <Button
-      onClick={onClick}
-      disabled={busy || blockReason !== null}
-      variant="secondary"
-      size="md"
-      fullWidth
-    >
-      {label}
-    </Button>
-  );
-}
-
-export function EnhancementResetConfirmDialog({
-  itemName,
-  enhanceLevel,
-  currentPower,
-  resetPower,
-  busy,
-  onConfirm,
-  onClose,
-}: {
-  itemName: string;
-  enhanceLevel: number;
-  currentPower: number;
-  resetPower: number;
-  busy: boolean;
-  onConfirm: () => void;
-  onClose: () => void;
-}) {
-  const panelRef = useRef<HTMLDivElement>(null);
-  const closeIfIdle = useCallback(() => {
-    if (!busy) onClose();
-  }, [busy, onClose]);
-  useEscapeKey(closeIfIdle);
-  useModalA11y(panelRef);
-
-  return (
-    <div
-      className="ui-modal-reveal fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.currentTarget === event.target) closeIfIdle();
-      }}
-    >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="enhancement-reset-confirm-title"
-        aria-describedby="enhancement-reset-confirm-description"
-        className={`${SURFACE_CARD} ui-modal-panel w-full max-w-md p-5 shadow-2xl`}
-      >
-        <p className="text-xs font-semibold text-rose-700 dark:text-rose-300">
-          강화 초기화 확인
-        </p>
-        <h2
-          id="enhancement-reset-confirm-title"
-          className="mt-1 text-lg font-bold"
-        >
-          +{enhanceLevel} {itemName}의 강화를 초기화할까요?
-        </h2>
-        <p
-          id="enhancement-reset-confirm-description"
-          className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300"
-        >
-          강화 단계와 강화 위력 보너스만 제거됩니다. 옵션, 제작 품질과 개량
-          상태는 유지되며, 초기화 후 다른 거래 조건을 충족하면 거래할 수
-          있습니다.
-        </p>
-
-        <div className={`${SURFACE_INSET} mt-4 p-3 text-sm`}>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-zinc-500 dark:text-zinc-400">위력</span>
-            <strong className="tabular-nums text-rose-700 dark:text-rose-300">
-              {currentPower.toLocaleString()} → {resetPower.toLocaleString()}
-            </strong>
-          </div>
-        </div>
-
-        <div className={`${SURFACE_ACCENT} mt-4 px-3 py-2 text-xs leading-relaxed text-amber-900 dark:text-amber-200`}>
-          사용한 골드·강화석·재료 장비는 환급되지 않습니다. 초기화는 되돌릴
-          수 없습니다.
-        </div>
-
-        <div className="mt-5 grid grid-cols-2 gap-2">
-          <Button size="md" disabled={busy} onClick={onClose}>
-            취소
-          </Button>
-          <Button
-            size="md"
-            variant="danger"
-            disabled={busy}
-            onClick={onConfirm}
-          >
-            {busy ? "초기화 중…" : "강화 초기화 확정"}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function StormRefinementConfirmDialog({
   itemName,
@@ -449,8 +327,6 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     text: string;
   } | null>(null);
   const [mode, setMode] = useState<ForgeMode>("enhance");
-  const [enhancementResetConfirmOpen, setEnhancementResetConfirmOpen] =
-    useState(false);
   const [stormRefineConfirmOpen, setStormRefineConfirmOpen] = useState(false);
   const { notifySystem } = useSystemToast();
   const rareMapDepthOptions = useMemo(
@@ -566,9 +442,6 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const curPower = equipmentPowerDisplayValue(
     powerWithBonuses(basePower, selected?.enhance, selected?.craftQuality),
   );
-  const resetPower = equipmentPowerDisplayValue(
-    powerWithBonuses(basePower, undefined, selected?.craftQuality),
-  );
   const nextPower = equipmentPowerDisplayValue(
     powerWithBonuses(
       basePower,
@@ -617,10 +490,6 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     },
     [],
   );
-
-  const resetError = selected
-    ? enhancementResetError(selected, equipped)
-    : "not_enhanced";
 
   const doEnhance = useCallback(async () => {
     if (!selected || busy) return;
@@ -680,44 +549,6 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       setBusy(false);
     }
   }, [selected, stone, feedIid, busy, refresh, refreshGameState]);
-
-  const doResetEnhancement = useCallback(async () => {
-    if (!selected?.enhance || busy || resetError) return;
-    setBusy(true);
-    setMsg(null);
-    try {
-      const json = await resetEnhancementAndRefresh({
-        iid: selected.iid,
-        refreshEquipment: refresh,
-        refreshGameState,
-      });
-      if (!json.ok) {
-        setMsg({
-          kind: "error",
-          text:
-            json.error === "not_owned"
-              ? "보유 장비를 찾을 수 없습니다"
-              : json.error === "not_enhanced"
-                ? "이미 강화가 초기화된 장비입니다"
-                : json.error === "equipped"
-                  ? "장착을 해제한 뒤 초기화해주세요"
-                  : json.error === "locked"
-                    ? "잠금을 해제한 뒤 초기화해주세요"
-                    : `실패: ${json.error ?? "unknown"}`,
-        });
-        return;
-      }
-      setMsg({
-        kind: "success",
-        text: "강화가 초기화되었습니다. 사용한 재화는 환급되지 않습니다.",
-      });
-    } catch {
-      setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
-    } finally {
-      setEnhancementResetConfirmOpen(false);
-      setBusy(false);
-    }
-  }, [busy, refresh, refreshGameState, resetError, selected]);
 
   // ── 폭풍 개량 — 특화 유니크의 옵션·강화는 유지하고 위력만 6T 밴드로 확정 이전 ──
   const refineable = !!(
@@ -1123,7 +954,6 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           setSelectedIid(null);
           setFeedIid(null);
           setMsg(null);
-          setEnhancementResetConfirmOpen(false);
           setStormRefineConfirmOpen(false);
         }}
         ariaLabel="대장간 작업"
@@ -1164,7 +994,6 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     setSelectedIid(null);
                     setMsg(null);
                     setFeedIid(null);
-                    setEnhancementResetConfirmOpen(false);
                   }}
                   className="shrink-0 text-xs text-zinc-500 hover:underline dark:text-zinc-400"
                 >
@@ -1322,13 +1151,6 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 >
                   {enhanceActionLabel}
                 </Button>
-                {selected.enhance ? (
-                  <EnhancementResetAction
-                    blockReason={resetError}
-                    busy={busy}
-                    onClick={() => setEnhancementResetConfirmOpen(true)}
-                  />
-                ) : null}
             </>
             {msg && (
               <StatusBanner tone={statusToneOf(msg.kind)}>
@@ -1372,7 +1194,6 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   onClick={() => {
                     setSelectedIid(null);
                     setMsg(null);
-                    setEnhancementResetConfirmOpen(false);
                     setStormRefineConfirmOpen(false);
                   }}
                   className="shrink-0 text-xs text-zinc-500 hover:underline dark:text-zinc-400"
@@ -1494,7 +1315,6 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   onClick={() => {
                     setSelectedIid(null);
                     setMsg(null);
-                    setEnhancementResetConfirmOpen(false);
                   }}
                   className="shrink-0 text-xs text-zinc-500 hover:underline dark:text-zinc-400"
                 >
@@ -1878,7 +1698,6 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
               setSelectedIid(null);
               setMsg(null);
               setFeedIid(null);
-              setEnhancementResetConfirmOpen(false);
               setStormRefineConfirmOpen(false);
             }}
             ariaLabel="강화 슬롯"
@@ -1899,7 +1718,6 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 setSelectedIid(inst.iid);
                 setMsg(null);
                 setFeedIid(null);
-                setEnhancementResetConfirmOpen(false);
                 setStormRefineConfirmOpen(false);
               }}
             />
@@ -1933,17 +1751,6 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
             </Button>
           </div>
         </div>
-      ) : null}
-      {enhancementResetConfirmOpen && selected?.enhance && item ? (
-        <EnhancementResetConfirmDialog
-          itemName={item.name}
-          enhanceLevel={selected.enhance.level}
-          currentPower={curPower}
-          resetPower={resetPower}
-          busy={busy}
-          onClose={() => setEnhancementResetConfirmOpen(false)}
-          onConfirm={() => void doResetEnhancement()}
-        />
       ) : null}
       {stormRefineConfirmOpen && selected && item && refinePreview ? (
         <StormRefinementConfirmDialog

@@ -230,7 +230,7 @@ export type V2CommonSkillId =
   | "v2c_swordmaster_focus" // 검의 집중 (힘 + 치명피해)
   | "v2c_swordmaster_armorinsight2" // 갑주 간파 II (적 물리 방어 -11%)
   | "v2c_ironknight_guard" // 철벽 태세 (다음 직접 공격 3회 경감 + 반사)
-  | "v2c_ironknight_wall" // 장벽술 (방어 + 반사)
+  | "v2c_ironknight_wall" // 장벽술 (방어 + 방어력 기반 직접 공격 강화)
   | "v2c_overlord_ruin" // 파멸 난무 (HP 소모 + 처형)
   | "v2c_overlord_throne" // 광기의 왕좌 (광전 + 치명피해)
   | "v2c_arcanist_burst" // 비전 폭발 (순수 마법 피해)
@@ -267,7 +267,7 @@ export type V2CommonSkillId =
   | "v2c_calamitycaller_omen" // 흉조 III (마법취약 심화)
   // ── 6차 직업 ──
   | "v2c_fortressknight_ram" // 성채 충각 (방어력 비례 피해 + 주는 피해 감소)
-  | "v2c_fortressknight_citadel" // 움직이는 성채 (방어 + 받피감 + 반사)
+  | "v2c_fortressknight_citadel" // 움직이는 성채 (방어 + 받피감 + 충격 소비 공격 강화)
   | "v2c_swordsaint_flash" // 무심검 (강한 일격 + 무력 + ATB 지연)
   | "v2c_swordsaint_transcendence" // 일검필살 (힘 + 치명피해 + 단일 타격 물리 스킬 피해 + 명중)
   | "v2c_swordsaint_armorinsight3" // 갑주 간파 III (적 물리 방어 -13%)
@@ -1154,7 +1154,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_berserker_bloodslash: {
     id: "v2c_berserker_bloodslash", name: "사혈격", stat: "str", category: "attack", tier: 3,
     description: "제 피를 뿌리듯 베어낸다. 명중하면 현재 체력을 10% 소모하고, 잃은 체력이 많을수록 강해진다.",
-    mpCost: 38, fixedMpCost: 76, cooldown: 0, procChance: 30, spCost: 6,
+    mpCost: 38, cooldown: 0, procChance: 30, spCost: 6,
     defaultPattern: {
       priority: 100,
       condition: { kind: "self_hp", op: "above", pct: 70 },
@@ -1815,7 +1815,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_warlord_bloodbath: {
     id: "v2c_warlord_bloodbath", name: "혈전", stat: "str", category: "attack", tier: 3,
     description: "피로 길을 연다. 명중하면 현재 체력을 15% 소모하고, 다음 파멸일격 또는 멸왕일도를 준비한다.",
-    mpCost: 42, fixedMpCost: 76, cooldown: 0, procChance: 30, spCost: 7,
+    mpCost: 42, cooldown: 0, procChance: 30, spCost: 7,
     defaultPattern: {
       priority: 200,
       condition: {
@@ -1933,7 +1933,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_overlord_ruin: {
     id: "v2c_overlord_ruin", name: "파멸일격", stat: "str", category: "attack", tier: 3,
     description: "모든 힘을 한 번에 내리꽂는다. 잃은 체력이 많을수록 파괴력이 폭증한다.",
-    mpCost: 54, fixedMpCost: 76, cooldown: 0, procChance: 30, learnCost: 8000, spCost: 10,
+    mpCost: 54, cooldown: 0, procChance: 30, learnCost: 8000, spCost: 10,
     defaultPattern: {
       priority: 300,
       condition: {
@@ -2386,7 +2386,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_hegemon_annihilation: {
     id: "v2c_hegemon_annihilation", name: "멸왕일도", stat: "str", category: "attack", tier: 3,
     description: "잃은 HP가 많을수록 강해지는 패황의 최종 일격. 혈전과 사망 극복으로 더욱 강해진다.",
-    mpCost: 62, fixedMpCost: 76, cooldown: 0, procChance: 30, learnCost: 12000, spCost: 13,
+    mpCost: 62, cooldown: 0, procChance: 30, learnCost: 12000, spCost: 13,
     oncePerBattle: true,
     defaultPattern: {
       priority: 400,
@@ -2442,7 +2442,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_primordialmage_return: {
     id: "v2c_primordialmage_return", name: "태초회귀", stat: "int", category: "attack", tier: 3,
-    description: "하위 원소 주문의 보유·장착 조합을 태초의 술식으로 승격시켜 이름과 권능을 다시 쓴다. 근원공명과 함께 장착하면 추가 마법 피해를 주고 최대 MP의 8%를 회복하며 선택된 주문식 재료를 공명시킨다. 오원소 폭주는 태초회귀를 강화하는 촉매가 된다.",
+    description: "하위 원소 주문의 보유·장착 조합을 태초의 술식으로 승격시켜 이름과 권능을 다시 쓴다. 근원공명과 함께 장착하면 추가 마법 피해를 주고 최대 MP의 8%를 실제 소비 MP 이하로 회복하며 선택된 주문식 재료를 공명시킨다. 오원소 폭주는 태초회귀를 강화하는 촉매가 된다.",
     mpCost: 82, fixedMpCost: 180, cooldown: 0, procChance: 32, learnCost: 12000,
     effects: [dmg(2.45, 650, "magic"), { kind: "enemyVuln", pct: 14, turns: 3 }, { kind: "enemyDelay", pct: 30 }],
     castVariants: [
@@ -2530,7 +2530,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_primordialmage_resonance: {
     id: "v2c_primordialmage_resonance", name: "근원공명", stat: "int", category: "passive", tier: 3,
-    description: "원소의 근원을 몸에 새긴다. 지능 +24%, 정신 +12%, 마법 스킬 피해 +16%, 최대 MP +20%. 태초회귀와 함께 장착하면 추가 마법 피해를 주고 최대 MP의 8%를 회복하며 선택된 주문식 재료가 공명한다.",
+    description: "원소의 근원을 몸에 새긴다. 지능 +24%, 정신 +12%, 마법 스킬 피해 +16%, 최대 MP +20%. 태초회귀와 함께 장착하면 추가 마법 피해를 주고 최대 MP의 8%를 실제 소비 MP 이하로 회복하며 선택된 주문식 재료가 공명한다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     spCostDiscount: 4,
     effects: [],
@@ -2739,7 +2739,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_vajraarhat_seal: {
     id: "v2c_vajraarhat_seal", name: "금강인", stat: "vit", category: "buff", tier: 3,
-    description: "금강의 인을 맺어 보호막을 얻고 받는 피해를 줄인다. 지속 중 모든 반사 피해와 나한금신의 반격 피해가 증가한다.",
+    description: "금강의 인을 맺어 보호막을 얻고 받는 피해를 줄인다. 지속 중 이미 발동한 반사 피해와 나한금신의 반격 피해가 증가하며, 반사 원량을 새로 만들지는 않는다.",
     mpCost: 58, cooldown: 0, procChance: 100, learnCost: 12000,
     effects: [
       { kind: "shield", pctMaxHp: 18, turns: 3 },
@@ -2906,7 +2906,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_primordialsage_optimization: {
     id: "v2c_primordialsage_optimization", name: "마력 최적화", stat: "int", category: "passive", tier: 3,
-    description: "최대 마력이 20% 늘고 모든 액티브 스킬의 MP 소모가 20% 줄어든다. 완전식은 MP가 부족해도 시전하고 최대 MP의 10%를 회복한다.",
+    description: "최대 마력이 20% 늘고 모든 액티브 스킬의 MP 소모가 20% 줄어든다. 완전식은 MP가 부족해도 시전하고 최대 MP의 10%를 이번 주기의 미환급 소비 MP 이하로 회복한다.",
     mpCost: 0, cooldown: 0, learnCost: 20000, spCost: 12,
     effects: [], passive: { maxMpPct: 20, mpCostReductionPct: 20 },
     tier7Mechanic: { kind: "manaOptimization", restoreMaxMpPct: 10, allowCompletionOverdraft: true },

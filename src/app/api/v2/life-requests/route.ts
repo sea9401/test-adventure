@@ -178,7 +178,7 @@ function boardPayload(now: Date, snapshot: Snapshot) {
       {
         id: "farm",
         title: "농장 납품",
-        description: "작물 납품과 농장 평판 보상은 기존 농장에서 진행합니다.",
+        description: "작물 납품과 농장 증표 보상은 기존 농장에서 진행합니다.",
         href: "/town/farm",
         progressLabel: `오늘 ${farm.deliveries.claimedIds.length}/${FARM_DAILY_DELIVERY_LIMIT}건 완료`,
       },

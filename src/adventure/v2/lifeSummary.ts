@@ -245,7 +245,7 @@ export function lifeSummaryFromSaves(
         { label: "총 수확", value: farm.stats.harvests, suffix: "회" },
         { label: "희귀 수확", value: farm.stats.rareHarvests, suffix: "회" },
         { label: "납품", value: farm.stats.deliveries, suffix: "회" },
-        { label: "농장 평판", value: farm.stats.reputation },
+        { label: "농장 증표", value: farm.stats.reputation, suffix: "개" },
       ],
       effects: ["생산직 계열 전직 조건에 반영"],
       nextGoal: nextLifeJobGoal(LIFE_JOB_MILESTONES.farming, farming.level),

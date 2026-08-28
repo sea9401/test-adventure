@@ -99,7 +99,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(parseProficiency(undefined)).toEqual(emptyProficiency());
   });
 
-  it("parse — 유효한 생애 자원 굴림 기록을 보존하고 빈 저장에는 만들지 않는다", () => {
+  it("parse — 두 자원 성장 버전을 보존하고 빈 저장에는 만들지 않는다", () => {
     const lifeResourceGrowth = {
       version: 1,
       rolledLevel: 37,
@@ -111,6 +111,11 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
 
     expect(parseProficiency({ lifeResourceGrowth })).toMatchObject({
       lifeResourceGrowth,
+    });
+    expect(
+      parseProficiency({ lifeResourceGrowth: { ...lifeResourceGrowth, version: 2 } }),
+    ).toMatchObject({
+      lifeResourceGrowth: { ...lifeResourceGrowth, version: 2 },
     });
     expect(parseProficiency({})).not.toHaveProperty("lifeResourceGrowth");
   });
@@ -383,7 +388,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
       cultivationResetCount: 0,
       cultivationLedgerVersion: 1,
       lifeResourceGrowth: {
-        version: 1,
+        version: 2,
         rolledLevel: 37,
         baseHp: 142,
         baseMp: 81,
@@ -402,7 +407,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(reset!.next.grown).toEqual({});
     expect(reset!.next.growthRespecPoints).toBe(0);
     expect(reset!.next.lifeResourceGrowth).toEqual({
-      version: 1,
+      version: 2,
       rolledLevel: 1,
       baseHp: 142,
       baseMp: 81,

@@ -114,6 +114,7 @@ import {
   formulaCompletionOverdraftSkillIds,
   formulaStagesForCast,
   previewFormulaCast,
+  settleFormulaManaRecovery,
 } from "./primordialSageCombat";
 import {
   V2_CORE_LOOP_V2,
@@ -3361,9 +3362,8 @@ export function applyPlayerV2SkillCast(
   }
   if (result.ironWallReflectToApply && result.castSkillName) {
     nextLog = appendLog(nextLog, {
-      kind: "info",
-      text: `[${result.castSkillName}] 철벽 반사 ${result.ironWallReflectToApply.charges}회 준비`,
-      turn: "player",
+      kind: "player_attack",
+      text: `${result.castSkillName}! 철벽 반사 ${result.ironWallReflectToApply.charges}회 준비`,
     });
   }
   const lawGain = addLawInscriptionGain(
@@ -3755,21 +3755,23 @@ export function applyPlayerV2SkillCast(
       });
     }
   }
+  const formulaManaSettlement = formulaPreview ? settleFormulaManaRecovery({
+        state: formulaState, next: formulaPreview.next,
+        completes: formulaPreview.completes, castMpSpent: result.mpSpent,
+        castMpRestored: result.manaRestored + mpRefund + sigMpRefundAmount,
+        requestedCompletionRestore: formulaOptimizationEquipped ? Math.floor(state.playerMaxMp * 0.1) : 0,
+        advancesFormula: formulaPreview.next !== formulaState,
+      }) : null;
+  const formulaRestore = formulaManaSettlement?.completionRestore ?? 0;
   if (nextTier7 && formulaPreview) {
-    nextTier7.formula = formulaPreview.next;
+    nextTier7.formula = formulaManaSettlement?.next ?? formulaPreview.next;
     if (formulaPreview.completes) {
-      nextLog = appendLog(nextLog, {
-        kind: "info",
-        text: `[완전식] ${result.castSkillName ?? "주문"} 강화 발동.`,
-        turn: "player",
-      });
+      nextLog = appendLog(nextLog, { kind: "info", text: `[완전식] ${result.castSkillName ?? "주문"} 강화 발동.`, turn: "player" });
+      if (formulaRestore > 0) {
+        nextLog = appendLog(nextLog, { kind: "info", text: `[마력 최적화] 마나 ${formulaRestore} 회복`, turn: "player" });
+      }
     }
   }
-  const formulaRestore =
-    formulaPreview?.completes &&
-    state.v2Skills.equipped.includes("v2c_primordialsage_optimization")
-      ? Math.floor(state.playerMaxMp * 0.1)
-      : 0;
   state = {
     ...state,
     playerHp: nextPlayerHp,

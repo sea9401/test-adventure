@@ -56,6 +56,8 @@ describe("StormExpeditionRouteMap", () => {
     expect(html).toContain("data-testid=\"storm-expedition-map-scroll\"");
     expect(html).toContain("overflow-x-auto");
     expect(html).toContain("min-w-[1120px]");
+    expect(html).toContain('data-plump-icon="battle_node"');
+    expect(html).not.toContain("⚔");
   });
 
   it("잠긴 노드도 정보 모달을 열 수 있도록 활성 버튼으로 제공한다", () => {

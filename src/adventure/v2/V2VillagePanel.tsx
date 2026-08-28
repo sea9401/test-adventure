@@ -6,6 +6,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { confirmGameAction, type ConfirmGameAction } from "@/components/ui/gameDialog";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { GameIcon } from "@/adventure/v2/GameIcon";
+import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 import { terrainTraitOf } from "@/adventure/data/v2/outposts";
 import {
   isTileOutpostId,
@@ -20,7 +21,6 @@ import {
   VILLAGE_TIER_NAME,
   TERRAIN_TRAIT_NAME,
   SETTLEMENT_RESOURCE_NAME,
-  PRODUCTION_KIND_ICON,
   PRODUCTION_KINDS,
   SETTLEMENT_VILLAGE_DONATION_MATERIAL_IDS,
   SETTLEMENT_VILLAGE_DONATION_VALUE,
@@ -41,7 +41,7 @@ import {
   settlementBuildingLevelOf,
   settlementBuildingUpgradeSummary,
   settlementBuildingUpgradeCostText,
-  settlementResourceIcon,
+  settlementResourceIconName,
   settlementResourceName,
   type AnySettlementBuildingUpgradeDef,
   type SettlementBuildingId,
@@ -105,10 +105,7 @@ function fmtGold(n: number): string {
 
 function costLabel(cost: Resources): string {
   return PRODUCTION_KINDS.filter((k) => (cost[k] ?? 0) > 0)
-    .map(
-      (k) =>
-        `${PRODUCTION_KIND_ICON[k]} ${SETTLEMENT_RESOURCE_NAME[k]} ${cost[k]}`,
-    )
+    .map((k) => `${SETTLEMENT_RESOURCE_NAME[k]} ${cost[k]}`)
     .join(" · ");
 }
 
@@ -368,9 +365,9 @@ export function V2VillagePanel({
       {SETTLEMENT_RESOURCE_KEYS.filter(
         (key) => key === "crop" || key === "ore" || (resources[key] ?? 0) > 0,
       ).map((key) => (
-        <span key={key} className="war-resource-pill tabular-nums">
-          {settlementResourceIcon(key)} {settlementResourceName(key)}{" "}
-          {resources[key] ?? 0}
+        <span key={key} className="war-resource-pill inline-flex items-center gap-1 tabular-nums">
+          <PlumpGameIcon name={settlementResourceIconName(key)} size={16} />
+          {settlementResourceName(key)} {resources[key] ?? 0}
         </span>
       ))}
     </div>
@@ -384,7 +381,7 @@ export function V2VillagePanel({
       id,
       label: settlementDonationMaterialName(id),
       target: settlementResourceName(resourceKey),
-      icon: settlementResourceIcon(resourceKey),
+      iconName: settlementResourceIconName(resourceKey),
       value,
       own: inv[id] ?? 0,
       val: donationDraft[id] ?? "",
@@ -418,7 +415,10 @@ export function V2VillagePanel({
               <span className="w-24 shrink-0">{row.label}</span>
               <span className="shrink-0 text-zinc-400">→</span>
               <span className="w-20 shrink-0 text-zinc-600 dark:text-zinc-300">
-                {row.icon} {row.target}
+                <span className="inline-flex items-center gap-1">
+                  <PlumpGameIcon name={row.iconName} size={15} />
+                  {row.target}
+                </span>
                 {row.value > 1 ? ` +${row.value}` : ""}
               </span>
               <input

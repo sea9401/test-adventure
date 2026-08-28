@@ -230,10 +230,10 @@ describe("gridDungeon party combat simulations", () => {
     expect(result.party.find((member) => member.id === "me")?.damageTaken).toBeGreaterThan(0);
   });
 
-  it("single dps support can clear the boss but still takes pressure", () => {
+  it("single dps support cannot clear the boss after MP pressure rises", () => {
     const result = runRoom("boss", [dps()], "me");
-    expect(result.outcome).toBe("win");
-    expect(result.playerHpAfter).toBeGreaterThan(0);
+    expect(result.outcome).toBe("lose");
+    expect(result.enemyHp).toBeGreaterThan(0);
     expect(result.party.find((member) => member.id === "me")?.damageTaken).toBeGreaterThan(0);
   });
 

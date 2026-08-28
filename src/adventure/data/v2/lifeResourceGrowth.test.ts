@@ -5,6 +5,7 @@ import {
   resetLifeResourceLevels,
   rollInitialLifeResourceGrowth,
   rollLifeResourceLevels,
+  trainedIntSpiMpBonus,
 } from "./lifeResourceGrowth";
 
 const baseRanges = lifeResourceRanges({
@@ -31,7 +32,7 @@ describe("v2 생애 HP·MP 성장", () => {
         vitCap: 70,
         spiFloor: 35,
         intCap: 80,
-      }),
+      }, 1),
     ).toEqual({
       baseHp: { min: 152, max: 184 },
       baseMp: { min: 67, max: 99 },
@@ -40,9 +41,33 @@ describe("v2 생애 HP·MP 성장", () => {
     });
   });
 
+  it("버전 2는 레벨업 MP 영향만 40%로 완화하고 Lv.1·HP 범위는 보존한다", () => {
+    const ryuInput = {
+      strFloor: 15,
+      vitCap: 60,
+      spiFloor: 218,
+      intCap: 60,
+    };
+    const version1 = lifeResourceRanges(ryuInput, 1);
+    const version2 = lifeResourceRanges(ryuInput, 2);
+
+    expect(version1.mpPerLevel).toEqual({ min: 23, max: 25 });
+    expect(version2.mpPerLevel).toEqual({ min: 11, max: 13 });
+    expect(version2.baseMp).toEqual({ min: 85, max: 115 });
+    expect(version2.baseMp).toEqual(version1.baseMp);
+    expect(version2.baseHp).toEqual(version1.baseHp);
+    expect(version2.hpPerLevel).toEqual(version1.hpPerLevel);
+  });
+
+  it("훈련한 지능·정신만 기준값 15를 넘긴 만큼 MP를 더한다", () => {
+    expect(trainedIntSpiMpBonus({ int: 60, spi: 60 })).toBe(90);
+    expect(trainedIntSpiMpBonus({ int: 100, spi: 100 })).toBe(170);
+    expect(trainedIntSpiMpBonus({ int: 5, spi: 15 })).toBe(0);
+  });
+
   it("Lv.1 굴림은 난수 양 끝에서 범위의 최솟값과 최댓값을 확정한다", () => {
     expect(rollInitialLifeResourceGrowth(baseRanges, () => 0)).toEqual({
-      version: 1,
+      version: 2,
       rolledLevel: 1,
       baseHp: 150,
       baseMp: 65,
@@ -125,10 +150,10 @@ describe("v2 생애 HP·MP 성장", () => {
     });
   });
 
-  it("수행 초기화는 Lv.1 굴림을 보존하고 레벨 누적만 비운다", () => {
+  it("수행 초기화는 버전과 Lv.1 굴림을 보존하고 레벨 누적만 비운다", () => {
     expect(
       resetLifeResourceLevels({
-        version: 1,
+        version: 2,
         rolledLevel: 37,
         baseHp: 142,
         baseMp: 81,
@@ -136,7 +161,7 @@ describe("v2 생애 HP·MP 성장", () => {
         gainedMp: 145,
       }),
     ).toEqual({
-      version: 1,
+      version: 2,
       rolledLevel: 1,
       baseHp: 142,
       baseMp: 81,
@@ -155,7 +180,11 @@ describe("v2 생애 HP·MP 성장", () => {
       gainedMp: 145,
     };
     expect(parseLifeResourceGrowth(valid)).toEqual(valid);
-    expect(parseLifeResourceGrowth({ ...valid, version: 2 })).toBeNull();
+    expect(parseLifeResourceGrowth({ ...valid, version: 2 })).toEqual({
+      ...valid,
+      version: 2,
+    });
+    expect(parseLifeResourceGrowth({ ...valid, version: 3 })).toBeNull();
     expect(parseLifeResourceGrowth({ ...valid, rolledLevel: 0 })).toBeNull();
     expect(parseLifeResourceGrowth({ ...valid, gainedMp: -1 })).toBeNull();
     expect(parseLifeResourceGrowth({ ...valid, baseHp: Number.NaN })).toBeNull();

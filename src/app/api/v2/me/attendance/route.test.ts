@@ -38,7 +38,7 @@ vi.mock("@/lib/server/economyLog", () => ({
   recordRewardFailureSoon: mocks.recordRewardFailureSoon,
 }));
 
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 const JULY_20 = new Date("2026-07-20T03:00:00Z");
 const DAY_MS = 86_400_000;
@@ -47,6 +47,13 @@ function julyDayKeys(count: number): string[] {
   return Array.from(
     { length: count },
     (_, index) => `2026-07-${String(index + 1).padStart(2, "0")}`,
+  );
+}
+
+function septemberDayKeys(count: number): string[] {
+  return Array.from(
+    { length: count },
+    (_, index) => `2026-09-${String(index + 1).padStart(2, "0")}`,
   );
 }
 
@@ -63,6 +70,36 @@ beforeEach(() => {
 });
 
 describe("월간 출석 보상 수령", () => {
+  it("2026년 9월에는 확정된 전용 보상표를 안내한다", async () => {
+    vi.setSystemTime(new Date("2026-09-01T03:00:00Z"));
+
+    const response = await GET();
+    const json = (await response.json()) as {
+      monthKey: string;
+      rewards: Array<Record<string, unknown>>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.monthKey).toBe("2026-09");
+    expect(json.rewards).toHaveLength(28);
+    expect(
+      [1, 7, 8, 11, 14, 17, 19, 21, 24, 28].map(
+        (day) => json.rewards[day - 1],
+      ),
+    ).toEqual([
+      { kind: "adventure_support", days: 7 },
+      { kind: "stamina_potion", count: 2 },
+      { kind: "boss_summon_scroll", count: 10 },
+      { kind: "torn_map_fragment", count: 5 },
+      { kind: "stamina_potion", count: 3 },
+      { kind: "boss_summon_scroll", count: 15 },
+      { kind: "torn_map_fragment", count: 10 },
+      { kind: "mastery_certificate", count: 500 },
+      { kind: "boss_summon_scroll", count: 20 },
+      { kind: "mastery_certificate", count: 1_500 },
+    ]);
+  });
+
   it("직업 없는 신규 모험가도 1일차 지원권 15일을 계정에 직접 적용한다", async () => {
     const response = await POST();
     const json = (await response.json()) as {
@@ -357,5 +394,36 @@ describe("월간 출석 보상 수령", () => {
     expect(mocks.saves.get("character.v2")).toMatchObject({
       cashItems: { profile_border_box: 1 },
     });
+  });
+
+  it("2026년 9월 28일차에는 꾸미기 상자 없이 숙련의 증표 1,500개를 지급한다", async () => {
+    vi.setSystemTime(new Date("2026-09-28T03:00:00Z"));
+    mocks.saves.set("monthly-attendance.v1", {
+      monthKey: "2026-09",
+      claimedDayKeys: septemberDayKeys(27),
+    });
+    mocks.saves.set("character.v2", { class: "warrior" });
+    mocks.saves.set("inventory.v2", { masteryCertificates: 50 });
+
+    const response = await POST();
+    const json = (await response.json()) as {
+      reward: { kind: string; count: number; cosmeticBox?: string };
+      masteryCertificates: number;
+      grantedCosmeticBox: string | null;
+      complete: boolean;
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.reward).toEqual({
+      kind: "mastery_certificate",
+      count: 1_500,
+    });
+    expect(json.masteryCertificates).toBe(1_550);
+    expect(json.grantedCosmeticBox).toBeNull();
+    expect(json.complete).toBe(true);
+    expect(mocks.saves.get("inventory.v2")).toEqual({
+      masteryCertificates: 1_550,
+    });
+    expect(mocks.saves.get("character.v2")).toEqual({ class: "warrior" });
   });
 });

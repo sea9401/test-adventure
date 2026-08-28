@@ -6,7 +6,7 @@ import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { inboxValues } from "@/lib/server/inboxPayload";
-import { listedEquipEnhance } from "@/adventure/data/v2/v2EquipMint";
+import { listedEquipBound } from "@/adventure/data/v2/v2EquipMint";
 import {
   isTradableMarketplaceMaterial,
   marketplaceTaxRateForAdventureSupport,
@@ -142,10 +142,10 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "not_available" },
       };
     }
-    // 정책 변경 전에 등록된 강화 매물도 새 구매는 막는다. 판매자는 취소하거나 만료 시
+    // 방어적으로 귀속 payload가 남은 옛 매물은 구매를 막는다. 판매자는 취소하거나 만료 시
     // 원형 그대로 돌려받을 수 있으므로 여기서 매물을 소멸시키지는 않는다.
-    if (listing.kind === "equip" && listedEquipEnhance(listing.instancePayload)) {
-      return { status: 409, body: { ok: false as const, error: "enhanced" } };
+    if (listing.kind === "equip" && listedEquipBound(listing.instancePayload)) {
+      return { status: 409, body: { ok: false as const, error: "bound" } };
     }
 
     const sellerCharacter = await readSave<CharSave>(

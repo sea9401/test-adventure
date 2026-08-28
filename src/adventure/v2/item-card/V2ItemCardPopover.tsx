@@ -32,6 +32,7 @@ import {
   MasterworkBadge,
   QualityPctText,
   StatRow,
+  UniqueBadge,
   WIDTH,
   formatSetBonus,
   powerNameClass,
@@ -270,6 +271,7 @@ export function V2ItemCard({
             </h2>
             <div className="flex flex-wrap items-center gap-1.5">
               <EquipmentTierBadge tier={item.tier} />
+              {item.rarity === "unique" ? <UniqueBadge /> : null}
               <ItemTypeChip item={item} />
               <EquipmentCodexBadge
                 itemId={item.id}

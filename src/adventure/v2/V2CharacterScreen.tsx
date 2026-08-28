@@ -107,6 +107,12 @@ type StateResponse = {
         hpPerLevel: { min: number; max: number };
         mpPerLevel: { min: number; max: number };
       };
+      nextRejobRanges: {
+        baseHp: { min: number; max: number };
+        baseMp: { min: number; max: number };
+        hpPerLevel: { min: number; max: number };
+        mpPerLevel: { min: number; max: number };
+      } | null;
     };
   };
   jobsV2?: {
@@ -370,21 +376,35 @@ export function V2CharacterScreen({
           />
           {state?.proficiency?.lifeResourceGrowth && (
             <div className={`${SURFACE_INSET} mt-4 p-3`}>
-              <div className="text-xs font-semibold">생애 자원 성장</div>
+              <div className="text-xs font-semibold">재전직 자원 성장</div>
               {state.proficiency.lifeResourceGrowth.mode === "rolled" ? (
-                <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-                  현재 레벨업 범위: HP +
-                  {state.proficiency.lifeResourceGrowth.currentRanges.hpPerLevel.min}
-                  ~
-                  {state.proficiency.lifeResourceGrowth.currentRanges.hpPerLevel.max}
-                  {" · "}MP +
-                  {state.proficiency.lifeResourceGrowth.currentRanges.mpPerLevel.min}
-                  ~
-                  {state.proficiency.lifeResourceGrowth.currentRanges.mpPerLevel.max}
-                </p>
+                <div className="mt-1 space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
+                  <p>
+                    현재 레벨업 범위: HP +
+                    {state.proficiency.lifeResourceGrowth.currentRanges.hpPerLevel.min}
+                    ~
+                    {state.proficiency.lifeResourceGrowth.currentRanges.hpPerLevel.max}
+                    {" · "}MP +
+                    {state.proficiency.lifeResourceGrowth.currentRanges.mpPerLevel.min}
+                    ~
+                    {state.proficiency.lifeResourceGrowth.currentRanges.mpPerLevel.max}
+                  </p>
+                  {state.proficiency.lifeResourceGrowth.nextRejobRanges && (
+                    <p>
+                      다음 전투 재전직부터: HP +
+                      {state.proficiency.lifeResourceGrowth.nextRejobRanges.hpPerLevel.min}
+                      ~
+                      {state.proficiency.lifeResourceGrowth.nextRejobRanges.hpPerLevel.max}
+                      {" · "}MP +
+                      {state.proficiency.lifeResourceGrowth.nextRejobRanges.mpPerLevel.min}
+                      ~
+                      {state.proficiency.lifeResourceGrowth.nextRejobRanges.mpPerLevel.max}
+                    </p>
+                  )}
+                </div>
               ) : (
                 <div className="mt-1 space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
-                  <p>현재 생애는 기존 HP·MP 성장 공식을 사용합니다.</p>
+                  <p>현재 캐릭터는 기존 HP·MP 성장 공식을 사용합니다.</p>
                   <p>
                     다음 Lv.100 전투 재전직부터: HP +
                     {state.proficiency.lifeResourceGrowth.currentRanges.hpPerLevel.min}

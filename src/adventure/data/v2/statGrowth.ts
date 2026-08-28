@@ -7,8 +7,10 @@ import { V2_BASE_STATS } from "./v2Stats";
 import type { V2Class } from "./classes";
 import { V2_JOB_CATALOG } from "./v2JobCatalog";
 import {
+  LIFE_RESOURCE_GROWTH_VERSION,
   lifeResourceRanges,
   type V2LifeResourceRanges,
+  type V2LifeResourceGrowthVersion,
 } from "./lifeResourceGrowth";
 import {
   capGain,
@@ -169,14 +171,18 @@ export function computeStatFloors(
 
 export function lifeResourceRangesForProficiency(
   prof: V2ProficiencyState,
+  version: V2LifeResourceGrowthVersion = LIFE_RESOURCE_GROWTH_VERSION,
 ): V2LifeResourceRanges {
   const floors = computeStatFloors(prof);
-  return lifeResourceRanges({
-    strFloor: floors.str,
-    vitCap: effectiveStatCap(capGain(prof, "vit")),
-    spiFloor: floors.spi,
-    intCap: effectiveStatCap(capGain(prof, "int")),
-  });
+  return lifeResourceRanges(
+    {
+      strFloor: floors.str,
+      vitCap: effectiveStatCap(capGain(prof, "vit")),
+      spiFloor: floors.spi,
+      intCap: effectiveStatCap(capGain(prof, "int")),
+    },
+    version,
+  );
 }
 
 // 레벨 1회 성장 — 앵커 가중(앵커 3 : 그 외 1)으로 POINTS 만큼 +1씩, cap 미달 스탯에만.

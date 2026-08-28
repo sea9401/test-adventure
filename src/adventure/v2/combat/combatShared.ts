@@ -2200,8 +2200,12 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   }
   const effectiveMpCost = castMpCost(def);
   const mpSpent = Math.min(Math.max(0, input.attacker.mp), effectiveMpCost);
+  // 유료 스킬의 MP 회복은 이번 시전에서 실제 지불한 MP를 넘지 않는다. MP 부족 강제
+  // 시전에서도 자원이 생성되지 않게 하며, 비용 0 명상은 기존 최대 MP 비례 회복을 유지한다.
+  const appliedManaRestore =
+    def.mpCost > 0 ? Math.min(manaRestore, mpSpent) : manaRestore;
   return {
-    nextMp: Math.max(0, input.attacker.mp - effectiveMpCost) + manaRestore,
+    nextMp: Math.max(0, input.attacker.mp - effectiveMpCost) + appliedManaRestore,
     mpSpent,
     nextCooldowns: {
       ...ticked,
@@ -2247,7 +2251,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     enemyDamageDownToApply,
     enemySkillProcDownToApply,
     enemyDotVulnToApply,
-    manaRestored: manaRestore,
+    manaRestored: appliedManaRestore,
     berserkerTransition,
     lawInscriptionGain: input.attacker.lawInscription
       ? lawInscriptionGainForCast(id, input.skills.equipped)

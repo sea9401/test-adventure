@@ -74,11 +74,6 @@ export const SETTLEMENT_RESOURCE_NAME: Record<ProductionKind, string> = {
   crop: "통나무",
   ore: "철광석",
 };
-// 종류별 간단 아이콘(이모지) — 슬롯/재화 표시용.
-export const PRODUCTION_KIND_ICON: Record<ProductionKind, string> = {
-  crop: "🪵",
-  ore: "🪨",
-};
 export const PRODUCTION_KINDS: ProductionKind[] = ["crop", "ore"];
 
 // 길드 정착지에 기부할 수 있는 생활 재료. 기초 소나무/철은 레거시 crop/ore 풀을
@@ -208,12 +203,14 @@ export function settlementResourceName(key: SettlementResourceKey): string {
   return settlementDonationMaterialName(key);
 }
 
-export function settlementResourceIcon(key: SettlementResourceKey): string {
+export function settlementResourceIconName(
+  key: SettlementResourceKey,
+): "wood_resource" | "ore_resource" {
   return key === "crop" || SETTLEMENT_WOOD_MATERIAL_IDS.includes(
     key as (typeof SETTLEMENT_WOOD_MATERIAL_IDS)[number],
   )
-    ? PRODUCTION_KIND_ICON.crop
-    : PRODUCTION_KIND_ICON.ore;
+    ? "wood_resource"
+    : "ore_resource";
 }
 
 // ── 영지 건축물 ───────────────────────────────────────────────────────────
@@ -984,9 +981,7 @@ export function settlementBuildingUpgradeCostText(
     (key) => (cost[key] ?? 0) > 0,
   ).map(
     (key) =>
-      `${settlementResourceIcon(key)} ${settlementResourceName(key)} ${(
-        cost[key] ?? 0
-      ).toLocaleString()}`,
+      `${settlementResourceName(key)} ${(cost[key] ?? 0).toLocaleString()}`,
   );
   if ((cost.gold ?? 0) > 0) {
     parts.push(`길드 금고 ${(cost.gold ?? 0).toLocaleString()}G`);

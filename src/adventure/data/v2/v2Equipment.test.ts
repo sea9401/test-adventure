@@ -13,13 +13,11 @@ import {
   TIER_6_POWER_SCALE_VERSION,
   enhanceGoldCostForEquipment,
   enhancePowerForCost,
-  enhancementResetError,
   signatureLabel,
   isUnique,
   parseEquipmentSave,
   powerBandOf,
   POWER_BAND_COUNT,
-  resetInstanceEnhancement,
   setInstanceLock,
   sellPriceOf,
   shopPriceOf,
@@ -1235,6 +1233,22 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
     expect(r.owned.find((i) => i.iid === "d4")).not.toHaveProperty("locked");
   });
 
+  it("bound:true 는 보존하고 false/누락/비boolean 은 귀속하지 않는다", () => {
+    const r = parseEquipmentSave({
+      owned: [
+        { iid: "a1", id: "v2_iron_sword", bound: true },
+        { iid: "b2", id: "v2_iron_sword", bound: false },
+        { iid: "c3", id: "v2_iron_sword" },
+        { iid: "d4", id: "v2_iron_sword", bound: "yes" },
+      ],
+    });
+
+    expect(r.owned.find((i) => i.iid === "a1")?.bound).toBe(true);
+    expect(r.owned.find((i) => i.iid === "b2")).not.toHaveProperty("bound");
+    expect(r.owned.find((i) => i.iid === "c3")).not.toHaveProperty("bound");
+    expect(r.owned.find((i) => i.iid === "d4")).not.toHaveProperty("bound");
+  });
+
   it("craftedBy 제작자 표식을 보존하고 정규화", () => {
     const r = parseEquipmentSave({
       owned: [
@@ -1371,51 +1385,6 @@ describe("setInstanceLock", () => {
     expect(next.map((i) => ({ iid: i.iid, locked: i.locked }))).toEqual(
       owned.map((i) => ({ iid: i.iid, locked: i.locked })),
     );
-  });
-});
-
-describe("장비 강화 초기화", () => {
-  const enhanced = {
-    iid: "a1",
-    id: "v2_iron_sword" as V2EquipmentId,
-    roll: { power: 77, weight: 3 },
-    enhance: { level: 8, bonusPct: 15 },
-    craftQuality: { level: 1 as const, bonusPct: 5 },
-    craftedBy: {
-      userId: "u1",
-      profession: "blacksmith" as const,
-      level: 6,
-      craftedAt: "2026-08-10T00:00:00.000Z",
-    },
-    stormRefined: true as const,
-  };
-
-  it("강화 필드만 제거하고 나머지 개체 정보를 보존한다", () => {
-    const [next] = resetInstanceEnhancement([enhanced], "a1");
-
-    expect(next).not.toHaveProperty("enhance");
-    expect(next).toMatchObject({
-      iid: "a1",
-      id: "v2_iron_sword",
-      roll: enhanced.roll,
-      craftQuality: enhanced.craftQuality,
-      craftedBy: enhanced.craftedBy,
-      stormRefined: true,
-    });
-    expect(enhanced.enhance).toEqual({ level: 8, bonusPct: 15 });
-  });
-
-  it("미강화·장착·잠금 상태를 각각 거부한다", () => {
-    expect(
-      enhancementResetError({ ...enhanced, enhance: undefined }, {}),
-    ).toBe("not_enhanced");
-    expect(enhancementResetError(enhanced, { weapon: "a1" })).toBe(
-      "equipped",
-    );
-    expect(
-      enhancementResetError({ ...enhanced, locked: true }, {}),
-    ).toBe("locked");
-    expect(enhancementResetError(enhanced, {})).toBeNull();
   });
 });
 

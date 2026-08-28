@@ -206,12 +206,17 @@ export async function POST(req: Request) {
           itemName: itemDisplayName("equip", inst.id) ?? inst.id,
           quantity: 1,
           price,
-          // roll 스냅샷(iid 제외) — 구매 시 새 개체로 복원. roll 없으면 null.
-          // 굴림 + 제작품질 + 제작자 표식을 한 payload 에 — 옛 행은 raw roll 객체(권위 파스가 양형 흡수).
+          // 개체 스냅샷(iid 제외) — 구매 시 새 개체로 복원. 메타데이터가 없으면 null.
+          // 굴림 + 강화 + 제작품질 + 제작자 표식을 한 payload 에 — 옛 행은 raw roll 객체도 흡수한다.
           instancePayload:
-            inst.roll || inst.craftQuality || inst.craftedBy || inst.stormRefined
+            inst.roll ||
+            inst.enhance ||
+            inst.craftQuality ||
+            inst.craftedBy ||
+            inst.stormRefined
               ? {
                   ...(inst.roll ?? {}),
+                  ...(inst.enhance ? { enhance: inst.enhance } : {}),
                   ...(inst.craftQuality ? { craftQuality: inst.craftQuality } : {}),
                   ...(inst.craftedBy ? { craftedBy: inst.craftedBy } : {}),
                   ...(inst.stormRefined ? { stormRefined: true } : {}),

@@ -206,8 +206,9 @@ describe("최신 게임 안내서 내용", () => {
 
     expect(html).toContain("일반 알림");
     expect(html).toContain("월간 모험 지원권");
-    expect(html).toContain("14·21일차");
-    expect(html).toContain("지원권 7일");
+    expect(html).toContain("월별 출석판");
+    expect(html).toContain("지원권 보상이 표시된 날");
+    expect(html).not.toContain("14·21일차");
     expect(html).toContain("빨간");
     expect(html).toContain("프로필 이미지");
     expect(html).toContain("회원 탈퇴");
@@ -258,6 +259,8 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("전투 시작 방어력");
     expect(html).toContain("가드 등으로 최종 HP 피해가 0이어도 반사가 발생");
     expect(html).toContain("보호막이 공격을 전부 흡수하면 반사와 피격 반격은 발동하지 않습니다");
+    expect(html).toContain("반사 피해 +N%");
+    expect(html).toContain("새 반사를 만드는 효과가 아닙니다");
     expect(html).not.toContain("어느 쪽이든 방어가 아무리");
   });
 
@@ -561,13 +564,15 @@ describe("최신 게임 안내서 내용", () => {
     expect(compendium).toContain("0.0035%");
   });
 
-  it("숙련의 탑 첫 입장 비용·재입장 대기·50층 연습을 함께 안내한다", () => {
+  it("숙련의 탑 100층 도전과 50층 보상 상한을 함께 안내한다", () => {
     const html = renderToStaticMarkup(<JobsContent />);
 
     expect(html).toContain("하루 첫 실제 전투에만 스태미나");
     expect(html).toContain(">200<");
     expect(html).toContain(">30초<");
-    expect(html).toContain("50층 수호자에게 연습 재도전");
+    expect(html).toContain("50층까지만");
+    expect(html).toContain("51~100층은 도전 구간");
+    expect(html).toContain("100층 수호자에게 연습 재도전");
     expect(html).toContain("추가 스태미나도 들지");
   });
 

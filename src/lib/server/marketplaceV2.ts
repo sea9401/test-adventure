@@ -293,17 +293,17 @@ export function equipmentBuyOrderMinimumPrice(id: string): number | null {
 
 export type MarketplaceEquipListError =
   | "not_tradable"
-  | "enhanced"
+  | "bound"
   | "locked"
   | "equipped";
 
-// 장비 등록 정책의 서버 권위 판정. 강화에 투자한 개체는 캐릭터에 귀속되어 거래할 수 없다.
+// 장비 등록 정책의 서버 권위 판정. 강화 여부와 별개로 명시적 귀속 장비만 계정 간 이동을 막는다.
 export function marketplaceEquipListError(
-  inst: Pick<V2EquipInstance, "id" | "enhance" | "locked">,
+  inst: Pick<V2EquipInstance, "id" | "bound" | "locked" | "enhance">,
   isEquipped: boolean,
 ): MarketplaceEquipListError | null {
   if (!isTradableEquip(inst.id)) return "not_tradable";
-  if (inst.enhance) return "enhanced";
+  if (inst.bound) return "bound";
   if (inst.locked) return "locked";
   if (isEquipped) return "equipped";
   return null;

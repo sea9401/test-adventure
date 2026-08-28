@@ -76,7 +76,10 @@ export function applyLevelTargetGrant(
       proficiency.lifeResourceGrowth,
       currentLevel,
       levelsGained,
-      lifeResourceRangesForProficiency(proficiency),
+      lifeResourceRangesForProficiency(
+        proficiency,
+        proficiency.lifeResourceGrowth.version,
+      ),
       rand,
     );
     proficiency = { ...proficiency, lifeResourceGrowth: rolled.record };

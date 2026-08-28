@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  listedEquipBound,
   listedEquipEnhance,
   mintEquipInstance,
   mintListedEquipInstance,
@@ -102,6 +103,19 @@ describe("mintListedEquipInstance (거래소 payload 복원)", () => {
         craftedBy: { userId: "u1", profession: "blacksmith" },
       }),
     ).toEqual({ level: 3, bonusPct: 4 });
+  });
+
+  it("명시적으로 true 인 귀속 상태만 복원한다", () => {
+    expect(
+      mintListedEquipInstance(ANY_ID, { ...roll, bound: true }),
+    ).toMatchObject({ bound: true });
+    expect(listedEquipBound({ bound: true })).toBe(true);
+    expect(listedEquipBound({ bound: false })).toBe(false);
+    expect(listedEquipBound({ bound: "true" })).toBe(false);
+    expect(listedEquipBound({ enhance: { level: 9 } })).toBe(false);
+    expect(
+      mintListedEquipInstance(ANY_ID, { ...roll, bound: false }),
+    ).not.toHaveProperty("bound");
   });
 
   it("restores a traded blacksmith specialty mark", () => {

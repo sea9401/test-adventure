@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  MASTERY_TOWER_MAX_FLOOR,
+  MASTERY_TOWER_REWARD_MAX_FLOOR,
   clearMasteryTowerFloor,
   failMasteryTowerRun,
   markMasteryTowerEntryStaminaPaid,
@@ -19,6 +21,23 @@ import {
 } from "./masteryTower";
 
 describe("masteryTower", () => {
+  it("50층 보상을 유지한 채 도전 상한을 100층으로 확장한다", () => {
+    expect(MASTERY_TOWER_MAX_FLOOR).toBe(100);
+    expect(MASTERY_TOWER_REWARD_MAX_FLOOR).toBe(50);
+    expect(masteryTowerFloorReward(51)).toBe(2_400);
+    expect(masteryTowerFloorReward(100)).toBe(2_400);
+  });
+
+  it("51층부터 100층까지 미래 성장용 지수 난이도를 적용한다", () => {
+    expect(masteryTowerRequiredPower(50)).toBe(5_100);
+    expect(masteryTowerRequiredPower(51)).toBe(5_420);
+    expect(masteryTowerRequiredPower(60)).toBe(9_340);
+    expect(masteryTowerRequiredPower(70)).toBe(17_100);
+    expect(masteryTowerRequiredPower(80)).toBe(31_310);
+    expect(masteryTowerRequiredPower(90)).toBe(57_340);
+    expect(masteryTowerRequiredPower(100)).toBe(105_000);
+  });
+
   it("층별 일일 보상은 뒤쪽 층일수록 더 크게 늘고 50층은 2400이다", () => {
     expect(masteryTowerFloorReward(5)).toBe(100);
     expect(masteryTowerFloorReward(10)).toBe(200);
@@ -225,6 +244,44 @@ describe("masteryTower", () => {
     });
   });
 
+  it("60층부터 100층까지 10층마다 고정 도전 보스를 배치한다", () => {
+    expect(masteryTowerGuardianPreview(60)).toMatchObject({
+      name: "심연의 처형자",
+      atkType: "physical",
+      skills: ["mob_crushing_blow", "mob_savage_roar", "mob_rending_claw"],
+    });
+    expect(masteryTowerGuardianPreview(70)).toMatchObject({
+      name: "비전 재판관",
+      atkType: "magic",
+      skills: ["mob_arcane_nova", "mob_chilling_touch", "mob_venom_bite"],
+    });
+    expect(masteryTowerGuardianPreview(80)).toMatchObject({
+      name: "추격의 환영",
+      skills: ["mob_savage_roar", "mob_crushing_blow", "mob_chilling_touch"],
+    });
+    expect(masteryTowerGuardianPreview(90)).toMatchObject({
+      name: "불멸의 문지기",
+      skills: ["mob_crushing_blow", "mob_rending_claw", "mob_savage_roar"],
+    });
+    expect(masteryTowerGuardianPreview(100)).toMatchObject({
+      name: "탑의 초월자",
+      atkType: "magic",
+      bonusAttackChancePct: 500,
+      skills: [
+        "mob_arcane_nova",
+        "mob_savage_roar",
+        "mob_crushing_blow",
+        "mob_chilling_touch",
+      ],
+    });
+    expect(masteryTowerGuardianPreview(80).spd).toBeGreaterThan(
+      masteryTowerGuardianPreview(70).spd,
+    );
+    expect(masteryTowerGuardianPreview(90).def).toBeGreaterThan(
+      masteryTowerGuardianPreview(80).def,
+    );
+  });
+
   it("수호자 전투 몬스터는 드랍/경험치 없이 생성된다", () => {
     const guardian = masteryTowerGuardianForFloor(25);
     expect(guardian.exp).toBe(0);
@@ -383,7 +440,9 @@ describe("masteryTower", () => {
       [9, null],
       [10, 11],
       [37, 31],
-      [50, 41],
+      [50, 51],
+      [90, 91],
+      [100, 91],
     ] as const) {
       const state = parseMasteryTowerState(
         {
@@ -442,7 +501,7 @@ describe("masteryTower", () => {
     });
   });
 
-  it("50층 완료 후에는 시작 층 지정 없이 50층 연습 전투를 다시 시작한다", () => {
+  it("기존 50층 완료 기록은 51층 도전으로 이어진다", () => {
     const state = parseMasteryTowerState(
       {
         date: "2026-08-09",
@@ -458,7 +517,7 @@ describe("masteryTower", () => {
 
     expect(resolveMasteryTowerAttemptFloor(state)).toEqual({
       ok: true,
-      floor: 50,
+      floor: 51,
     });
     expect(resolveMasteryTowerAttemptFloor(state, 50)).toEqual({
       ok: false,
@@ -466,7 +525,7 @@ describe("masteryTower", () => {
     });
   });
 
-  it("50층 연습 패배는 완료 기록을 유지하고 재도전 쿨다운만 건다", () => {
+  it("50층 이후 일반 도전 패배도 이번 등반만 초기화한다", () => {
     const completed = parseMasteryTowerState(
       {
         date: "2026-08-09",
@@ -485,7 +544,7 @@ describe("masteryTower", () => {
 
     expect(failMasteryTowerRun(completed, 1_000)).toEqual({
       ...completed,
-      runFloor: 50,
+      runFloor: 0,
       cooldownUntil: 31_000,
     });
   });

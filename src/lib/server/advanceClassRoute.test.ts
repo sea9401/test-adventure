@@ -127,13 +127,13 @@ describe("advance-class — 전직 후 숙달 포인트 유지(#1220 전역화 �
         maxHp: 150,
         maxMp: 65,
         hpPerLevel: { min: 8, max: 12 },
-        mpPerLevel: { min: 3, max: 9 },
+        mpPerLevel: { min: 3, max: 6 },
       },
     });
     expect(
       parseProficiency(store.get("proficiency.v2")).lifeResourceGrowth,
     ).toEqual({
-      version: 1,
+      version: 2,
       rolledLevel: 1,
       baseHp: 150,
       baseMp: 65,

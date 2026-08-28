@@ -77,8 +77,8 @@
 
 ## 보관 정책
 
-- `abuse_events`: 90일 보관.
-- `economy_events`: 180일 보관.
+- `abuse_events`: 30일 보관.
+- `economy_events`: 30일 보관.
 - `ops_settings`: 현재 설정 보관. 이력은 `admin_audit_log`로 추적한다.
 - 1회 삭제 상한은 5,000행이다. 오래 쌓였으면 다음 cron 이 이어서 정리한다.
 

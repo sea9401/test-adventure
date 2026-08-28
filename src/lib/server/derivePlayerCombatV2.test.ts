@@ -380,6 +380,71 @@ describe("derivePlayerCombatV2Pure 생애 자원 굴림", () => {
     gainedMp: 400,
   };
 
+  const storedLevel100 = {
+    rolledLevel: 100,
+    baseHp: 150,
+    baseMp: 100,
+    gainedHp: 1_000,
+    gainedMp: 1_188,
+  };
+
+  it("버전 2만 훈련한 지능·정신을 MP에 더하고 버전 1과 HP는 보존한다", () => {
+    const common = {
+      level: 100,
+      statFloors: { int: 60, spi: 60 },
+      statCaps: {},
+      v2Equipped: {},
+    } as const;
+    const version1 = derivePlayerCombatV2Pure({
+      ...common,
+      lifeResourceGrowth: { version: 1, ...storedLevel100 },
+    });
+    const version2 = derivePlayerCombatV2Pure({
+      ...common,
+      lifeResourceGrowth: { version: 2, ...storedLevel100 },
+    });
+
+    expect(version1.player.maxMp).toBe(1_288);
+    expect(version2.player.maxMp).toBe(1_378);
+    expect(version2.maxHp).toBe(version1.maxHp);
+  });
+
+  it("직업·플랫·퍼센트로 불어난 지능·정신은 버전 2 MP를 바꾸지 않는다", () => {
+    const common = {
+      level: 100,
+      lifeResourceGrowth: { version: 2 as const, ...storedLevel100 },
+      statFloors: { int: 60, spi: 60 },
+      statCaps: {},
+      v2Equipped: {},
+    };
+    const trainedOnly = derivePlayerCombatV2Pure(common);
+    const amplified = derivePlayerCombatV2Pure({
+      ...common,
+      playerClass: "mage",
+      classTier: 4,
+      jobBonus: { int: 100, spi: 100 },
+      statPct: { int: 100, spi: 100 },
+    });
+
+    expect(trainedOnly.player.maxMp).toBe(1_378);
+    expect(amplified.totalStats.int).toBeGreaterThan(trainedOnly.totalStats.int);
+    expect(amplified.totalStats.spi).toBeGreaterThan(trainedOnly.totalStats.spi);
+    expect(amplified.player.maxMp).toBe(trainedOnly.player.maxMp);
+  });
+
+  it("버전 2도 장비 MP를 더한 뒤 maxMpPct를 적용한다", () => {
+    const derived = derivePlayerCombatV2Pure({
+      level: 100,
+      lifeResourceGrowth: { version: 2, ...storedLevel100 },
+      statFloors: { int: 60, spi: 60 },
+      statCaps: {},
+      v2Equipped: { necklace: "v2_mana_essence" },
+      maxMpPct: 10,
+    });
+
+    expect(derived.player.maxMp).toBe(Math.floor((1_378 + 48) * 1.1));
+  });
+
   it("기록된 MP는 레벨과 최종 INT·INT% 변화에 재계산되지 않는다", () => {
     const base = derivePlayerCombatV2Pure({
       level: 100,
@@ -488,6 +553,45 @@ describe("derivePlayerCombatV2Pure 생애 자원 굴림", () => {
 
     expect(derived?.maxHp).toBe(1_400);
     expect(derived?.player.maxMp).toBe(550);
+  });
+
+  it("음식의 지능·정신 플랫과 퍼센트는 버전 2 훈련 MP에 포함하지 않는다", () => {
+    const saves = {
+      character: {
+        level: 100,
+        activeFoodBuff: {
+          recipeId: "flame_corn_stew",
+          recipeName: "불꽃 옥수수 스튜",
+          effect: {
+            primaryFlat: { int: 100, spi: 100 },
+            primaryPct: { int: 100, spi: 100 },
+          },
+          quality: "normal",
+          expiresAt: Date.now() + 60_000,
+        },
+      },
+      equipmentSave: {},
+      proficiencyRaw: {
+        growthScaleVersion: 1,
+        grown: { int: 45, spi: 45 },
+        lifeResourceGrowth: { version: 2, ...storedLevel100 },
+      },
+      skillsRaw: {},
+    } as const;
+    const withFood = derivePlayerCombatV2FromSaves(saves);
+    const withoutFood = derivePlayerCombatV2FromSaves({
+      ...saves,
+      includeCookingBuff: false,
+    });
+
+    expect(withoutFood?.player.maxMp).toBe(1_378);
+    expect(withFood?.totalStats.int).toBeGreaterThan(
+      withoutFood?.totalStats.int ?? 0,
+    );
+    expect(withFood?.totalStats.spi).toBeGreaterThan(
+      withoutFood?.totalStats.spi ?? 0,
+    );
+    expect(withFood?.player.maxMp).toBe(withoutFood?.player.maxMp);
   });
 });
 

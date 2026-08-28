@@ -79,7 +79,7 @@ export function applyExpTomeGrant(
         prof.lifeResourceGrowth,
         curLevel,
         expResult.levelsGained,
-        lifeResourceRangesForProficiency(prof),
+        lifeResourceRangesForProficiency(prof, prof.lifeResourceGrowth.version),
         rand,
       );
       prof = { ...prof, lifeResourceGrowth: rolled.record };

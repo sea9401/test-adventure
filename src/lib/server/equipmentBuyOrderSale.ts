@@ -40,11 +40,13 @@ export type EquipmentBuyOrderSaleScope = {
 
 function equipmentPayload(instance: V2EquipInstance) {
   return instance.roll ||
+    instance.enhance ||
     instance.craftQuality ||
     instance.craftedBy ||
     instance.stormRefined
     ? {
         ...(instance.roll ?? {}),
+        ...(instance.enhance ? { enhance: instance.enhance } : {}),
         ...(instance.craftQuality
           ? { craftQuality: instance.craftQuality }
           : {}),

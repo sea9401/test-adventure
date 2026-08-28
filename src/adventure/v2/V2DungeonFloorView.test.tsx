@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
+  LevelUpTutorialTitle,
   RareMapProgressNotice,
   V2DungeonFloorView,
 } from "./V2DungeonFloorView";
@@ -14,6 +15,14 @@ vi.mock("@/adventure/storyFlags/useStoryFlags", () => ({
 }));
 
 describe("희귀 탐사 일반 사냥터 복귀", () => {
+  it("첫 레벨업 안내 제목에 자체 축하 아이콘을 표시한다", () => {
+    const html = renderToStaticMarkup(<LevelUpTutorialTitle />);
+
+    expect(html).toContain('data-plump-icon="celebration"');
+    expect(html).toContain("레벨 업!");
+    expect(html).not.toContain("🎉");
+  });
+
   it("희귀 탐사 안내에 같은 지역의 일반 사냥터 이동 버튼을 표시한다", () => {
     const html = renderToStaticMarkup(
       <V2DungeonFloorView

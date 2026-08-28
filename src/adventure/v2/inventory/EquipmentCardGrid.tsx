@@ -39,6 +39,7 @@ import {
   MasterworkBadge,
   powerNameClass,
   QualityPctText,
+  UniqueBadge,
   type ItemCardAnchor,
 } from "../V2ItemCard";
 import { EquipmentCodexBadge } from "../EquipmentCodexBadge";
@@ -241,6 +242,7 @@ export function EquipmentCardGrid({
             </div>
             <div className="pointer-events-none relative z-10 flex min-w-0 flex-wrap items-center gap-1">
               <EquipmentTierBadge tier={item.tier} compact />
+              {item.rarity === "unique" ? <UniqueBadge /> : null}
               <EquipmentCodexBadge
                 itemId={item.id}
                 onRegister={

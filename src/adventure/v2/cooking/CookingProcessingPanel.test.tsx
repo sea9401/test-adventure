@@ -20,6 +20,21 @@ function processingFixture(): CookingResponse {
 }
 
 describe("요리 재료 가공 수량", () => {
+  it("상점과 가공 재료를 자체 SVG 아이콘으로 구분한다", () => {
+    const { container } = render(
+      <CookingProcessingPanel
+        data={processingFixture()}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+
+    expect(container.querySelector('svg[data-plump-icon="salt"]')).not.toBeNull();
+    expect(container.querySelector('svg[data-plump-icon="cheese"]')).not.toBeNull();
+    expect(container.textContent).not.toContain("🧂");
+    expect(container.textContent).not.toContain("🧀");
+  });
+
   it("상점 구매 수량과 총액을 조절한다", () => {
     const mutate = vi.fn(async () => undefined);
     render(

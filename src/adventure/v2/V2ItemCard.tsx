@@ -17,6 +17,7 @@ export {
   EnhanceLevelBadge,
   MasterworkBadge,
   QualityPctText,
+  UniqueBadge,
   anchorOf,
   itemNameClass,
   powerNameClass,

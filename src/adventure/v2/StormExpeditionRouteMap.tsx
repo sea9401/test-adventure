@@ -9,6 +9,7 @@ import {
   type StormExpeditionMobileNodeLayout,
 } from "./stormExpeditionMobileMap";
 import type { StormExpeditionAutoplayPlan } from "./stormExpeditionAutoplayPolicy";
+import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 
 type Props = {
   nodes: readonly StormExpeditionMapNode[];
@@ -221,7 +222,13 @@ function MapNodeButton({
       style={position}
     >
       <span aria-hidden="true" className="text-sm font-bold">
-        {completed ? "✓" : node.kind === "battle" ? "⚔" : "◆"}
+        {completed ? (
+          "✓"
+        ) : node.kind === "battle" ? (
+          <PlumpGameIcon name="battle_node" size={18} />
+        ) : (
+          "◆"
+        )}
       </span>
       <span className="mt-0.5 max-w-[66px] text-[10px] font-semibold leading-tight">
         {node.name}

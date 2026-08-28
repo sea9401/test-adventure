@@ -54,10 +54,12 @@ export function masteryTowerResultMessage(
   if (result.error === "max_floor") return "오늘 가능한 최고층에 도달했습니다.";
   if (result.error === "cooldown") {
     return result.practice
-      ? `재입장 대기 중 · ${cooldownSeconds}초 후 50층 연습 재도전 가능`
+      ? `재입장 대기 중 · ${cooldownSeconds}초 후 ${MASTERY_TOWER_MAX_FLOOR}층 연습 재도전 가능`
       : `재입장 대기 중 · ${cooldownSeconds}초 후 시작 위치 선택 가능`;
   }
-  if (result.practice && result.success) return "50층 연습 승리";
+  if (result.practice && result.success) {
+    return `${MASTERY_TOWER_MAX_FLOOR}층 연습 승리`;
+  }
   if (result.success) return `${result.floor ?? "-"}층 돌파`;
   const retry =
     cooldownSeconds > 0
@@ -230,7 +232,7 @@ export function V2MasteryTowerBattleView({
       {isCooldown && (
         <StatusBanner tone="warning">
           {isPractice
-            ? "50층 클리어 기록과 보상은 유지됩니다. 대기시간 뒤 같은 상대에게 다시 도전할 수 있습니다."
+            ? `${MASTERY_TOWER_MAX_FLOOR}층 클리어 기록과 보상은 유지됩니다. 대기시간 뒤 같은 상대에게 다시 도전할 수 있습니다.`
             : "패배하면 현재 등반은 초기화됩니다. 탑으로 돌아가 시작 위치를 다시 선택할 수 있습니다."}
         </StatusBanner>
       )}

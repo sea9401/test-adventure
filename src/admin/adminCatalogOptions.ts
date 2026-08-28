@@ -56,12 +56,12 @@ export function cookingIngredientOptions(): CatalogOption[] {
     ...COOKING_PANTRY_ITEMS.map((item) => ({
       id: item.id,
       name: item.name,
-      label: `상점 · ${item.icon} ${item.name}`,
+      label: `상점 · ${item.name}`,
     })),
     ...COOKING_PROCESSING_RECIPES.map((recipe) => ({
       id: recipe.outputId,
       name: recipe.name,
-      label: `가공 · ${recipe.icon} ${recipe.name}`,
+      label: `가공 · ${recipe.name}`,
     })),
   ];
 }

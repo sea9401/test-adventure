@@ -7,7 +7,47 @@ import { selectV2CastVariant } from "@/adventure/data/v2/elementalResonance";
 export type FormulaState = {
   stages: number;
   seenSkillIds: readonly V2SkillId[];
+  /** 현재 완전식 주기에서 실제 지불한 MP 누계. 옛 저장 상태는 undefined=0. */
+  mpSpent?: number;
+  /** 현재 완전식 주기에서 스킬 효과·환급으로 되돌려 받은 MP 누계. */
+  mpRestored?: number;
 };
+
+export function settleFormulaManaRecovery(input: {
+  state: FormulaState;
+  next: FormulaState;
+  completes: boolean;
+  castMpSpent: number;
+  castMpRestored: number;
+  requestedCompletionRestore: number;
+  advancesFormula: boolean;
+}): { completionRestore: number; next: FormulaState } {
+  if (!input.advancesFormula) {
+    return { completionRestore: 0, next: input.next };
+  }
+
+  const mpSpent =
+    Math.max(0, Math.floor(input.state.mpSpent ?? 0)) +
+    Math.max(0, Math.floor(input.castMpSpent));
+  const mpRestored =
+    Math.max(0, Math.floor(input.state.mpRestored ?? 0)) +
+    Math.max(0, Math.floor(input.castMpRestored));
+
+  if (input.completes) {
+    return {
+      completionRestore: Math.min(
+        Math.max(0, Math.floor(input.requestedCompletionRestore)),
+        Math.max(0, mpSpent - mpRestored),
+      ),
+      next: input.next,
+    };
+  }
+
+  return {
+    completionRestore: 0,
+    next: { ...input.next, mpSpent, mpRestored },
+  };
+}
 
 export function formulaStagesForCast(
   skillId: V2SkillId,

@@ -120,7 +120,7 @@ export async function POST(req: Request) {
             {
               kind: "fail" as const,
               text: completedTower
-                ? `재입장 대기 중입니다. ${retryAfterSeconds}초 후 50층 연습에 다시 도전할 수 있습니다.`
+                ? `재입장 대기 중입니다. ${retryAfterSeconds}초 후 ${MASTERY_TOWER_MAX_FLOOR}층 연습에 다시 도전할 수 있습니다.`
                 : `재입장 대기 중입니다. ${retryAfterSeconds}초 후 시작 위치를 다시 선택할 수 있습니다.`,
             },
           ],

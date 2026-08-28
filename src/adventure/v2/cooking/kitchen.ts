@@ -1,37 +1,54 @@
 import type { FarmItemId, FarmItemInventory } from "../farm";
 import { spendGold } from "../../data/v2/coreLoopConfig";
+import type { PlumpGameIconName } from "@/components/icons/PlumpGameIcon";
 import type { CookingKitchenItemId, CookingStateV2 } from "./state";
+
+type CookingKitchenIconName = Extract<
+  PlumpGameIconName,
+  | "salt"
+  | "pepper"
+  | "cooking_oil"
+  | "vinegar"
+  | "spice"
+  | "yeast"
+  | "flour"
+  | "butter"
+  | "cheese"
+  | "broth"
+  | "sauce"
+  | "cream"
+>;
 
 export type CookingPantryItem = {
   id: Extract<CookingKitchenItemId, `pantry:${string}`>;
   name: string;
-  icon: string;
+  iconName: CookingKitchenIconName;
   price: number;
 };
 
 export type CookingProcessingRecipe = {
   outputId: Extract<CookingKitchenItemId, `processed:${string}`>;
   name: string;
-  icon: string;
+  iconName: CookingKitchenIconName;
   farmIngredients: Partial<Record<FarmItemId, number>>;
 };
 
 export const COOKING_PANTRY_ITEMS: readonly CookingPantryItem[] = [
-  { id: "pantry:salt", name: "소금", icon: "🧂", price: 50 },
-  { id: "pantry:pepper", name: "후추", icon: "⚫", price: 80 },
-  { id: "pantry:oil", name: "조리용 기름", icon: "🫙", price: 100 },
-  { id: "pantry:vinegar", name: "숙성 식초", icon: "🍶", price: 120 },
-  { id: "pantry:spice", name: "향신료", icon: "🌶️", price: 180 },
-  { id: "pantry:yeast", name: "효모", icon: "🫧", price: 150 },
+  { id: "pantry:salt", name: "소금", iconName: "salt", price: 50 },
+  { id: "pantry:pepper", name: "후추", iconName: "pepper", price: 80 },
+  { id: "pantry:oil", name: "조리용 기름", iconName: "cooking_oil", price: 100 },
+  { id: "pantry:vinegar", name: "숙성 식초", iconName: "vinegar", price: 120 },
+  { id: "pantry:spice", name: "향신료", iconName: "spice", price: 180 },
+  { id: "pantry:yeast", name: "효모", iconName: "yeast", price: 150 },
 ];
 
 export const COOKING_PROCESSING_RECIPES: readonly CookingProcessingRecipe[] = [
-  { outputId: "processed:flour", name: "밀가루", icon: "🥣", farmIngredients: { wheat: 3 } },
-  { outputId: "processed:butter", name: "버터", icon: "🧈", farmIngredients: { milk: 3 } },
-  { outputId: "processed:cheese", name: "치즈", icon: "🧀", farmIngredients: { milk: 4 } },
-  { outputId: "processed:broth", name: "진한 육수", icon: "🍲", farmIngredients: { pork: 2, onion: 2 } },
-  { outputId: "processed:sauce", name: "만능 소스", icon: "🥫", farmIngredients: { tomato: 2, soybean: 2 } },
-  { outputId: "processed:cream", name: "생크림", icon: "🍦", farmIngredients: { milk: 3, sugarcane: 1 } },
+  { outputId: "processed:flour", name: "밀가루", iconName: "flour", farmIngredients: { wheat: 3 } },
+  { outputId: "processed:butter", name: "버터", iconName: "butter", farmIngredients: { milk: 3 } },
+  { outputId: "processed:cheese", name: "치즈", iconName: "cheese", farmIngredients: { milk: 4 } },
+  { outputId: "processed:broth", name: "진한 육수", iconName: "broth", farmIngredients: { pork: 2, onion: 2 } },
+  { outputId: "processed:sauce", name: "만능 소스", iconName: "sauce", farmIngredients: { tomato: 2, soybean: 2 } },
+  { outputId: "processed:cream", name: "생크림", iconName: "cream", farmIngredients: { milk: 3, sugarcane: 1 } },
 ];
 
 export const COOKING_PANTRY_BY_ID = new Map(

@@ -75,6 +75,19 @@ vi.mock("@/lib/server/marketplaceV2", async (importActual) => {
 import { POST } from "@/app/api/v2/marketplace/list/route";
 import { emptyFarmState } from "@/adventure/v2/farm";
 
+function listEquipmentRequest(iid: string): Request {
+  return new Request("http://test/api/v2/marketplace/list", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      kind: "equip",
+      iid,
+      price: 10_000,
+      graceHours: 2,
+    }),
+  });
+}
+
 function listRareMapRequest(iid: string): Request {
   return new Request("http://test/api/v2/marketplace/list", {
     method: "POST",
@@ -129,6 +142,60 @@ function listWheatSeedRequest(quantity: number): Request {
     }),
   });
 }
+
+describe("거래소 장비 등록", () => {
+  beforeEach(() => {
+    insertValues.length = 0;
+    store.clear();
+    vi.clearAllMocks();
+  });
+
+  it("강화 장비를 등록하고 강화 상태를 매물 payload에 보존한다", async () => {
+    store.set("character.v2", {});
+    store.set("equipment.v2", {
+      owned: [
+        {
+          iid: "enhanced-equipment",
+          id: "v2_iron_sword",
+          enhance: { level: 3, bonusPct: 999 },
+        },
+      ],
+      equipped: {},
+    });
+
+    const response = await POST(listEquipmentRequest("enhanced-equipment"));
+
+    expect(response.status).toBe(200);
+    expect(store.get("equipment.v2")).toEqual({ owned: [], equipped: {} });
+    expect(insertValues).toContainEqual(
+      expect.objectContaining({
+        kind: "equip",
+        instancePayload: { enhance: { level: 3, bonusPct: 4 } },
+      }),
+    );
+  });
+
+  it("귀속 장비는 등록하지 않고 보유 상태를 유지한다", async () => {
+    const equipmentSave = {
+      owned: [
+        { iid: "bound-equipment", id: "v2_iron_sword", bound: true },
+      ],
+      equipped: {},
+    };
+    store.set("character.v2", {});
+    store.set("equipment.v2", equipmentSave);
+
+    const response = await POST(listEquipmentRequest("bound-equipment"));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      error: "bound",
+    });
+    expect(store.get("equipment.v2")).toEqual(equipmentSave);
+    expect(insertValues).toHaveLength(0);
+  });
+});
 
 describe("거래소 레어맵 등록", () => {
   beforeEach(() => {

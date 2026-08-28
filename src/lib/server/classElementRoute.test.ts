@@ -172,7 +172,7 @@ describe("class-element — 코어루프 수동 로드아웃 보존", () => {
       grown: {},
       growthRespecPoints: 0,
       lifeResourceGrowth: {
-        version: 1,
+        version: 2,
         rolledLevel: 1,
         baseHp: 150,
         baseMp: 65,

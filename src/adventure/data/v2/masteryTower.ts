@@ -5,7 +5,8 @@ import type { V2SkillId } from "./v2Skills";
 export const MASTERY_TOWER_SAVE_KEY = "mastery-tower.v1";
 export const MASTERY_CERTIFICATE_KEY = "masteryCertificates";
 
-export const MASTERY_TOWER_MAX_FLOOR = 50;
+export const MASTERY_TOWER_MAX_FLOOR = 100;
+export const MASTERY_TOWER_REWARD_MAX_FLOOR = 50;
 export const MASTERY_TOWER_REENTRY_COOLDOWN_MS = 30_000;
 export const MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST = 200;
 
@@ -53,7 +54,7 @@ export function kstDateKey(now: number = Date.now()): string {
 }
 
 export function masteryTowerFloorReward(floor: number): number {
-  const f = clampFloor(floor);
+  const f = Math.min(clampFloor(floor), MASTERY_TOWER_REWARD_MAX_FLOOR);
   if (f <= 10) return f * 20;
   if (f <= 20) return 200 + (f - 10) * 30;
   if (f <= 30) return 500 + (f - 20) * 45;
@@ -66,7 +67,12 @@ export function masteryTowerRequiredPower(floor: number): number {
   if (f <= 0) return 0;
   if (f <= 10) return 90 + f * 30;
   if (f <= 20) return 390 + (f - 10) * 81;
-  return 1200 + (f - 20) * 130;
+  if (f <= 50) return 1200 + (f - 20) * 130;
+  return (
+    Math.round(
+      (5_100 * Math.pow(105_000 / 5_100, (f - 50) / 50)) / 10,
+    ) * 10
+  );
 }
 
 export type MasteryTowerGuardianPreview = {
@@ -159,13 +165,25 @@ export function masteryTowerGuardianPreview(
 function towerGuardianSkills(floor: number): V2SkillId[] {
   const f = clampFloor(floor);
   if (f < 8) return [];
-  if (f === 50) {
+  if (f === 50 || f === 100) {
     return [
       "mob_arcane_nova",
       "mob_savage_roar",
       "mob_crushing_blow",
       "mob_chilling_touch",
     ];
+  }
+  if (f === 90) {
+    return ["mob_crushing_blow", "mob_rending_claw", "mob_savage_roar"];
+  }
+  if (f === 80) {
+    return ["mob_savage_roar", "mob_crushing_blow", "mob_chilling_touch"];
+  }
+  if (f === 70) {
+    return ["mob_arcane_nova", "mob_chilling_touch", "mob_venom_bite"];
+  }
+  if (f === 60) {
+    return ["mob_crushing_blow", "mob_savage_roar", "mob_rending_claw"];
   }
   if (f === 40) {
     return ["mob_arcane_burst", "mob_chilling_touch", "mob_venom_bite"];
@@ -214,6 +232,81 @@ function towerGuardianBossGimmick(floor: number):
     }
   | null {
   const f = clampFloor(floor);
+  if (f === 100) {
+    return {
+      name: "탑의 초월자",
+      gimmickName: "초월의 시험",
+      gimmickDescription:
+        "물리와 마법, 상태 이상과 연속 공격을 모두 견뎌야 하는 탑의 최종 시험입니다.",
+      hpMult: 1.8,
+      atkMult: 1.55,
+      defMult: 1.35,
+      spdMult: 1.4,
+      accuracyBonus: 30,
+      critBonus: 22,
+      bonusAttackChancePct: 500,
+      v2MaxMp: 600,
+    };
+  }
+  if (f === 90) {
+    return {
+      name: "불멸의 문지기",
+      gimmickName: "불멸의 성벽",
+      gimmickDescription:
+        "압도적인 체력과 방어를 80턴 안에 돌파해야 하는 지속 화력 시험입니다.",
+      hpMult: 1.75,
+      atkMult: 1.15,
+      defMult: 1.65,
+      accuracyBonus: 15,
+      critBonus: 8,
+      bonusAttackChancePct: 180,
+    };
+  }
+  if (f === 80) {
+    return {
+      name: "추격의 환영",
+      gimmickName: "끝없는 추격",
+      gimmickDescription:
+        "높은 속도와 명중, 반복 행동으로 느리거나 명중이 낮은 도전자를 압박합니다.",
+      hpMult: 1.3,
+      atkMult: 1.3,
+      defMult: 1.1,
+      spdMult: 1.35,
+      accuracyBonus: 22,
+      critBonus: 15,
+      bonusAttackChancePct: 320,
+    };
+  }
+  if (f === 70) {
+    return {
+      name: "비전 재판관",
+      gimmickName: "비전 판결",
+      gimmickDescription:
+        "비전 폭발과 한기, 독으로 장기전의 마법 방어와 상태 대응을 시험합니다.",
+      hpMult: 1.25,
+      atkMult: 1.25,
+      defMult: 1.1,
+      spdMult: 1.15,
+      accuracyBonus: 14,
+      critBonus: 10,
+      bonusAttackChancePct: 240,
+    };
+  }
+  if (f === 60) {
+    return {
+      name: "심연의 처형자",
+      gimmickName: "처형 연격",
+      gimmickDescription:
+        "강한 물리 공격과 치명타, 출혈 연격으로 단기 생존력을 시험합니다.",
+      hpMult: 1.2,
+      atkMult: 1.3,
+      defMult: 1.05,
+      spdMult: 1.1,
+      accuracyBonus: 10,
+      critBonus: 12,
+      bonusAttackChancePct: 200,
+    };
+  }
   if (f === 30) {
     return {
       name: "탑의 숙련자",

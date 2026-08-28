@@ -129,6 +129,35 @@ beforeEach(() => {
 });
 
 describe("거래 정지 장비 구매 주문 판매", () => {
+  it("강화 장비를 체결하면 강화 상태를 구매자 우편 payload에 보존한다", async () => {
+    const enhanced = {
+      ...instance,
+      enhance: { level: 3, bonusPct: 4 },
+    };
+
+    await expect(
+      fillBestEquipmentBuyOrder(tx as never, {
+        sellerId: "seller-z",
+        instance: enhanced,
+        taxRate: 0,
+        now: new Date("2026-08-20T12:00:00.000Z"),
+      }),
+    ).resolves.toMatchObject({ orderId: 31, buyerId: "buyer-a" });
+
+    expect(mocks.inboxWrites).toContainEqual(
+      expect.objectContaining({
+        userId: "buyer-a",
+        payload: expect.objectContaining({
+          instance_payload: {
+            power: 20,
+            weight: 0,
+            enhance: { level: 3, bonusPct: 4 },
+          },
+        }),
+      }),
+    );
+  });
+
   it("제한된 주문 구매자는 건너뛰고 우편이나 주문을 변경하지 않는다", async () => {
     mocks.restrictedIds.add("buyer-a");
 

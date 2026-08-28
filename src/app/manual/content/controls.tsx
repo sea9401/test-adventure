@@ -1,8 +1,4 @@
 import { ADVENTURE_SUPPORT_PASS } from "@/adventure/data/v2/adventureSupport";
-import {
-  MONTHLY_ATTENDANCE_BONUS_SUPPORT_DAYS,
-  MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS,
-} from "@/adventure/data/v2/monthlyAttendance";
 import { MUSEUN_COSMETIC_ACCESS_DAYS } from "@/adventure/data/v2/museunCosmetics";
 import { H2, H3, P, UL, Em, Table, Note } from "./primitives";
 
@@ -102,18 +98,12 @@ export function ControlsContent() {
       </P>
       <UL>
         <li>
-          1일차에는{" "}
-          <Em>
-            월간 모험 지원권 {MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS}일
-          </Em>
-          이 즉시 적용됩니다. 이용 중이라면 남은 기간 뒤에 이어집니다.
+          보상 구성과 수량은 해당 월의 <Em>월별 출석판</Em>에서 확인할 수
+          있습니다.
         </li>
         <li>
-          14·21일차에는{" "}
-          <Em>
-            월간 모험 지원권 {MONTHLY_ATTENDANCE_BONUS_SUPPORT_DAYS}일
-          </Em>
-          을 추가로 받아 현재 이용 기간을 연장합니다.
+          <Em>월간 모험 지원권 보상이 표시된 날</Em> 수령하면 이용 기간이
+          즉시 적용됩니다. 이미 이용 중이라면 남은 기간 뒤에 이어집니다.
         </li>
         <li>
           지원권 적용 중에는 최대 스태미나 +
@@ -125,8 +115,8 @@ export function ControlsContent() {
           회복합니다.
         </li>
         <li>
-          7·14·28일차에는 각각 닉네임 꾸미기·채팅 배지·프로필 꾸미기 상자를
-          추가로 받고, 꾸미기 화면에서 열 수 있습니다.
+          꾸미기 상자가 포함된 보상은 출석판에 함께 표시되며, 받은 상자는 꾸미기
+          화면에서 열 수 있습니다.
         </li>
       </UL>
 

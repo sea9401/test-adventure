@@ -19,6 +19,10 @@ import {
   unacknowledgedReadyPlots,
 } from "@/adventure/v2/farmReadyNotification";
 import { FARM_SAVE_KEY } from "@/adventure/v2/farm";
+import {
+  DAY_MS,
+  RETENTION_POLICY,
+} from "@/lib/server/retentionPolicy";
 import { sendWebPushToUser } from "@/lib/server/webPush";
 
 const TIMER_SAVE_KEYS = [
@@ -27,7 +31,7 @@ const TIMER_SAVE_KEYS = [
   FARM_SAVE_KEY,
   FARM_READY_NOTIFICATION_SAVE_KEY,
 ] as const;
-const DELIVERY_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
+const DELIVERY_RETENTION_MS = RETENTION_POLICY.pushDeliveryDays * DAY_MS;
 
 type SaveMap = Map<string, unknown>;
 

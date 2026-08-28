@@ -71,6 +71,42 @@ export const MONTHLY_ATTENDANCE_REWARDS = [
   },
 ] as const satisfies readonly MonthlyAttendanceReward[];
 
+export const SEPTEMBER_2026_ATTENDANCE_REWARDS: readonly MonthlyAttendanceReward[] =
+  MONTHLY_ATTENDANCE_REWARDS.map((reward, index) => {
+    switch (index + 1) {
+      case 1:
+        return { kind: "adventure_support", days: 7 };
+      case 7:
+        return { kind: "stamina_potion", count: 2 };
+      case 8:
+        return { kind: "boss_summon_scroll", count: 10 };
+      case 11:
+        return { kind: "torn_map_fragment", count: 5 };
+      case 14:
+        return { kind: "stamina_potion", count: 3 };
+      case 17:
+        return { kind: "boss_summon_scroll", count: 15 };
+      case 19:
+        return { kind: "torn_map_fragment", count: 10 };
+      case 21:
+        return { kind: "mastery_certificate", count: 500 };
+      case 24:
+        return { kind: "boss_summon_scroll", count: 20 };
+      case 28:
+        return { kind: "mastery_certificate", count: 1_500 };
+      default:
+        return reward;
+    }
+  });
+
+export function monthlyAttendanceRewardsForMonth(
+  monthKey: string,
+): readonly MonthlyAttendanceReward[] {
+  return monthKey === "2026-09"
+    ? SEPTEMBER_2026_ATTENDANCE_REWARDS
+    : MONTHLY_ATTENDANCE_REWARDS;
+}
+
 export type MonthlyAttendanceState = {
   monthKey: string;
   claimedDayKeys: string[];
@@ -112,7 +148,7 @@ export function monthlyAttendanceState(
     ),
   )
     .sort()
-    .slice(0, MONTHLY_ATTENDANCE_REWARDS.length);
+    .slice(0, monthlyAttendanceRewardsForMonth(monthKey).length);
   return { monthKey, claimedDayKeys };
 }
 
@@ -124,7 +160,8 @@ export function monthlyAttendanceStatus(
   const todayKey = kstDayKey(now);
   const claimedCount = state.claimedDayKeys.length;
   const claimedToday = state.claimedDayKeys.includes(todayKey);
-  const complete = claimedCount >= MONTHLY_ATTENDANCE_REWARDS.length;
+  const complete =
+    claimedCount >= monthlyAttendanceRewardsForMonth(state.monthKey).length;
   return {
     ...state,
     todayKey,

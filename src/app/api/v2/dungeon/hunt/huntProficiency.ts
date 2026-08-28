@@ -142,7 +142,10 @@ export function applyHuntProficiency(params: {
           prof.lifeResourceGrowth,
           Math.max(1, Math.floor(Number(charSave.level) || 1)),
           levelsGained,
-          lifeResourceRangesForProficiency(prof),
+          lifeResourceRangesForProficiency(
+            prof,
+            prof.lifeResourceGrowth.version,
+          ),
           rng,
         );
         prof = { ...prof, lifeResourceGrowth: rolled.record };

@@ -35,6 +35,8 @@ import {
   mapWorkshopUpgradeForLevel,
   nextSettlementBuildingUpgrade,
   settlementBuildingUpgradeSummary,
+  settlementBuildingUpgradeCostText,
+  settlementResourceIconName,
   trainingGroundUpgradeForLevel,
 } from "./settlement";
 import { WOODCUTTING_MATERIAL_ID } from "./woodcuttingSpots";
@@ -45,6 +47,14 @@ import { terrainTraitOf } from "./outposts";
 //   생산 헬퍼 테스트는 함수와 함께 삭제. 정착지 업글·칸 해금·검증 테스트만 유지.
 
 describe("settlement — 정착지(업그레이드·칸 해금)", () => {
+  it("정착지 자원은 자체 아이콘 이름과 이모지 없는 비용 문구를 제공한다", () => {
+    expect(settlementResourceIconName("crop")).toBe("wood_resource");
+    expect(settlementResourceIconName("ore")).toBe("ore_resource");
+    expect(settlementBuildingUpgradeCostText({ crop: 3, ore: 4 })).toBe(
+      "소나무 원목 3 · 철광석 4",
+    );
+  });
+
   it("nextTier — 마을→도시→대도시→null", () => {
     expect(nextTier("village")).toBe("city");
     expect(nextTier("city")).toBe("metropolis");

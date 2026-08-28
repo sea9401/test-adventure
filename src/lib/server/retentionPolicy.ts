@@ -1,3 +1,5 @@
+import { FEED_RETENTION_DAYS } from "@/lib/feed-config";
+
 export const DAY_MS = 24 * 60 * 60 * 1_000;
 
 export const RETENTION_POLICY = {
@@ -10,7 +12,7 @@ export const RETENTION_POLICY = {
   guildActivitiesPerGuild: 500,
   marketplaceClosedDays: 60,
   arenaTournamentDays: 30,
-  serverFeedDays: 30,
+  serverFeedDays: FEED_RETENTION_DAYS,
   pushDeliveryDays: 30,
   resolvedUgcReportDays: 180,
   storageMetricsDays: 30,

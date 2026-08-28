@@ -49,6 +49,11 @@ export function listedEquipEnhance(payload: unknown) {
   );
 }
 
+/** 거래 payload에 명시적으로 저장된 계정 귀속 여부. */
+export function listedEquipBound(payload: unknown): boolean {
+  return (payload as { bound?: unknown } | null | undefined)?.bound === true;
+}
+
 /**
  * 거래소 매물 payload(굴림+강화+제작품질+제작자) → 새 iid 개체 복원 — buy/cancel/expire 공용.
  * 옛 행은 raw roll 만 저장돼 있어 방어 파스로 양형을 흡수한다.
@@ -64,6 +69,7 @@ export function mintListedEquipInstance(
         craftedBy?: unknown;
         craftQuality?: unknown;
         enhance?: unknown;
+        bound?: unknown;
         stormRefined?: unknown;
       })
     | null
@@ -76,9 +82,11 @@ export function mintListedEquipInstance(
     craftedBy,
   );
   const enhance = listedEquipEnhance(payloadRaw);
+  const bound = listedEquipBound(payloadRaw);
   return {
     ...mintEquipInstance(id, roll),
     ...(enhance ? { enhance } : {}),
+    ...(bound ? { bound: true as const } : {}),
     ...(craftQuality ? { craftQuality } : {}),
     ...(craftedBy ? { craftedBy } : {}),
     ...(payloadRaw?.stormRefined === true ? { stormRefined: true } : {}),

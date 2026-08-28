@@ -51,6 +51,7 @@ import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
 import type { RareMapInstance } from "@/adventure/data/v2/rareMaps";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 import { DiscoveryNotice } from "@/adventure/v2/DiscoveryNotice";
 import { RareMapCountdownText } from "@/adventure/v2/RareMapCountdownText";
 import {
@@ -82,6 +83,15 @@ import {
 
 // 한 층 전용 던전 페이지. 1회 사냥 + 5/10/50회 일괄 사냥 (한 번에 N회, 합산 결과).
 // 옛 무한 자동/연속 useEffect 트리거 폐기 — runBatch 가 직접 for-loop with await.
+
+export function LevelUpTutorialTitle() {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span>레벨 업!</span>
+      <PlumpGameIcon name="celebration" size={22} />
+    </span>
+  );
+}
 
 // 사냥 버튼이 한 번에 처리할 횟수. 전투 설정에서 고르면 메인 사냥 버튼이 이 값을 반영한다.
 // 1 이면 단판(hunt), 5/10/50 이면 일괄(runBatch).
@@ -1637,7 +1647,7 @@ export function V2DungeonFloorView({
 
       {showLevelupModal && (
         <TutorialOverlayInner
-          title="레벨 업! 🎉"
+          title={<LevelUpTutorialTitle />}
           body={
             <>
               <p>새로운 레벨에 도달했습니다. 캐릭터가 더 강해졌어요.</p>

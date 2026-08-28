@@ -88,6 +88,11 @@ const ENHANCED_EQUIPMENT = {
   iid: "eq-warehouse-enhanced",
   enhance: { level: 3, bonusPct: 4 },
 };
+const BOUND_EQUIPMENT = {
+  ...EQUIPMENT,
+  iid: "eq-warehouse-bound",
+  bound: true,
+};
 const LOCKED_EQUIPMENT = {
   ...EQUIPMENT,
   iid: "eq-warehouse-locked",
@@ -278,7 +283,7 @@ describe("길드 창고 입출고", () => {
     );
   });
 
-  it("강화 장비는 창고에 입고할 수 없다", async () => {
+  it("강화 장비를 창고에 입고하고 강화 상태를 보존한다", async () => {
     vi.mocked(lockSaveForUpdate).mockResolvedValue({
       owned: [ENHANCED_EQUIPMENT],
       equipped: {},
@@ -296,10 +301,40 @@ describe("길드 창고 입출고", () => {
       }),
     );
 
+    expect(response.status).toBe(200);
+    expect(upsertSave).toHaveBeenCalledWith(tx, "u-member", "equipment.v2", {
+      owned: [],
+      equipped: {},
+    });
+    expect(upsertGuildWarehouse).toHaveBeenCalledWith(
+      tx,
+      7,
+      expect.objectContaining({ equipment: [ENHANCED_EQUIPMENT] }),
+    );
+  });
+
+  it("귀속 장비는 창고에 입고할 수 없다", async () => {
+    vi.mocked(lockSaveForUpdate).mockResolvedValue({
+      owned: [BOUND_EQUIPMENT],
+      equipped: {},
+    });
+    vi.mocked(lockGuildWarehouse).mockResolvedValue({
+      materials: {},
+      equipment: [],
+    });
+
+    const response = await POST(
+      request({
+        action: "deposit",
+        kind: "equipment",
+        iid: BOUND_EQUIPMENT.iid,
+      }),
+    );
+
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({
       error: "equipment_not_tradable",
-      reason: "enhanced",
+      reason: "bound",
     });
     expect(upsertSave).not.toHaveBeenCalled();
     expect(upsertGuildWarehouse).not.toHaveBeenCalled();

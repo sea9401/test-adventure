@@ -230,11 +230,11 @@ describe("huntGateSections", () => {
 });
 
 describe("proficiencySection", () => {
-  it("신형 생애에는 현재 자원 성장 범위를 활성 모드로 제공한다", () => {
+  it("버전 2 기록에는 현재 자원 성장 범위만 제공한다", () => {
     const section = proficiencySection(
       {
         lifeResourceGrowth: {
-          version: 1,
+          version: 2,
           rolledLevel: 37,
           baseHp: 142,
           baseMp: 81,
@@ -254,7 +254,35 @@ describe("proficiencySection", () => {
         mpPerLevel: { min: 3, max: 5 },
       },
       appliesAfterRejob: false,
+      nextRejobRanges: null,
     });
+  });
+
+  it("버전 1 기록에는 종전 현재 범위와 완화된 다음 재전직 범위를 함께 제공한다", () => {
+    const section = proficiencySection(
+      {
+        statFloorLevels: { mage: 10_000 },
+        lifeResourceGrowth: {
+          version: 1,
+          rolledLevel: 37,
+          baseHp: 150,
+          baseMp: 100,
+          gainedHp: 500,
+          gainedMp: 500,
+        },
+      },
+      { class: "mage", level: 37 },
+    );
+
+    expect(section.lifeResourceGrowth.currentRanges.mpPerLevel).toEqual({
+      min: 24,
+      max: 26,
+    });
+    expect(section.lifeResourceGrowth.nextRejobRanges?.mpPerLevel).toEqual({
+      min: 11,
+      max: 13,
+    });
+    expect(section.lifeResourceGrowth.appliesAfterRejob).toBe(false);
   });
 
   it("레거시 생애에는 다음 전투 재전직 미리보기임을 명시한다", () => {
@@ -262,6 +290,7 @@ describe("proficiencySection", () => {
 
     expect(section.lifeResourceGrowth.mode).toBe("legacy");
     expect(section.lifeResourceGrowth.appliesAfterRejob).toBe(true);
+    expect(section.lifeResourceGrowth.nextRejobRanges).toBeNull();
     expect(section.lifeResourceGrowth.currentRanges.mpPerLevel).toEqual({
       min: 3,
       max: 5,

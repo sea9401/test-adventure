@@ -1860,11 +1860,14 @@ export function powerWithBonuses(
 // 장비 개체(instance) — 같은 카탈로그 id 라도 개별 굴림을 갖는 한 자루. iid 로 식별.
 //   iid: 고유 식별자(획득 시 생성, 재사용 금지) · id: 카탈로그 id · roll: 개체 굴림(없으면 카탈로그값).
 //   locked: 즐겨찾기 잠금 — 일괄/실수 판매 방지. true 만 저장(false/없음 = 미잠금).
+//   bound: 계정 귀속 — 계정 간 거래·이동 제한. 현재 부여처는 없으며 향후 요소용으로 보존.
 export type V2EquipInstance = {
   iid: string;
   id: V2EquipmentId;
   roll?: V2EquipRoll;
   locked?: boolean;
+  /** 계정 귀속 상태 — 명시적인 true만 저장하며 강화 여부와는 독립적이다. */
+  bound?: true;
   /** 강화 상태(+레벨·누적 위력 보너스 %p) — 미강화는 부재. v2Enhance 참고. */
   enhance?: V2EnhanceState;
   /** 제작 품질(★/★★) — 강화와 별도 표시·보너스 축. */
@@ -2062,7 +2065,7 @@ export function parseInstanceEnhance(
   return parseEnhance(enhance);
 }
 
-// equipment.v2 파싱 — 개체(instance) 모델. owned = {iid,id,roll?,locked?,enhance?} 배열.
+// equipment.v2 파싱 — 개체(instance) 모델. owned = {iid,id,roll?,locked?,bound?,enhance?} 배열.
 // 카탈로그 슬롯(item.slot) 기준 배치(저장 슬롯 키 불신). equipped = 슬롯→iid. 옛 24-class·티어
 // 리매핑(LEGACY_ID_REMAP)·옛 {owned:id[], statRolls} 마이그는 폐지(DB 초기화 전제) — 알 수 없는
 // id 는 무음 제거. 누락/중복 iid 는 결정적 스킴(`id~n`)으로 복구해 read=write 안정성을 유지한다.
@@ -2083,6 +2086,7 @@ export function parseEquipmentSave(raw: unknown): {
       id?: unknown;
       roll?: unknown;
       locked?: unknown;
+      bound?: unknown;
       enhance?: unknown;
       craftQuality?: unknown;
       craftedBy?: unknown;
@@ -2106,6 +2110,7 @@ export function parseEquipmentSave(raw: unknown): {
       roll: parseEquipRollForItem(V2_EQUIPMENT[id], e.roll),
     };
     if (e.locked === true) inst.locked = true;
+    if (e.bound === true) inst.bound = true;
     const craftedBy = parseCraftedBy(e.craftedBy);
     const craftQuality = parseInstanceCraftQuality(e.craftQuality, e.enhance, craftedBy);
     const enhance = parseInstanceEnhance(e.enhance, e.craftQuality, craftedBy);
@@ -2219,32 +2224,6 @@ export function setInstanceLock(
     if (locked) return { ...i, locked: true };
     const next = { ...i };
     delete next.locked;
-    return next;
-  });
-}
-
-export type EnhancementResetError = "not_enhanced" | "equipped" | "locked";
-
-/** 강화 초기화 가능 여부. 거래 전 보호 해제를 강제해 사용 중 장비의 오조작을 막는다. */
-export function enhancementResetError(
-  inst: V2EquipInstance,
-  equipped: Partial<Record<V2EquipSlot, string>>,
-): EnhancementResetError | null {
-  if (!inst.enhance) return "not_enhanced";
-  if (Object.values(equipped).includes(inst.iid)) return "equipped";
-  if (inst.locked) return "locked";
-  return null;
-}
-
-/** 해당 개체의 강화 상태만 제거한다. 옵션·제작·개량 메타데이터는 그대로 보존한다. */
-export function resetInstanceEnhancement(
-  owned: V2EquipInstance[],
-  iid: string,
-): V2EquipInstance[] {
-  return owned.map((inst) => {
-    if (inst.iid !== iid) return inst;
-    const next = { ...inst };
-    delete next.enhance;
     return next;
   });
 }

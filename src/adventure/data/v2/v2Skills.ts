@@ -700,12 +700,17 @@ function spDirectDamageValue(
 
 function spMpEfficiencyMultiplier(def: V2SkillDefinition): number {
   if (def.passive) return 1;
+  if (def.mpCost <= 0) return 1.12;
+  // 일반 스킬의 카탈로그 비용 편차는 MP 차등화에만 사용한다. SP 루브릭은 기존처럼
+  // 계열·차수 기준 비용을 중립값으로 보고, 명시적 fixedMpCost 예외만 효율 보정한다.
+  if (typeof def.fixedMpCost !== "number") return 1;
   const actual = v2SkillMpCostValue(def);
-  if (actual <= 0) return 1.12;
   const baseline = Math.max(
     1,
     Math.round(
-      MP_REFERENCE_POOL * MP_BASE_PCT * mpArchetypeMult(def.id) * MP_TIER_MULT[def.tier],
+      Math.round(
+        MP_REFERENCE_POOL * MP_BASE_PCT * mpArchetypeMult(def.id) * MP_TIER_MULT[def.tier],
+      ) * mpPressureMult(def.id),
     ),
   );
   return Math.min(1.2, Math.max(0.8, Math.sqrt(baseline / actual)));
@@ -1949,7 +1954,7 @@ const DERIVED_BUFF_LABEL: Record<"evasion" | "crit" | "damageReduction" | "refle
   evasion: "회피",
   crit: "치명타 확률",
   damageReduction: "받는 피해 감소",
-  reflectDamage: "반사 피해",
+  reflectDamage: "기존 반사 피해",
 };
 const STACK_TAG_LABEL: Record<"bleed" | "poison" | "magicVuln", string> = {
   bleed: "출혈",
@@ -2249,7 +2254,8 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.critDmgPct) chips.push(`치명타 피해 +${p.critDmgPct}%`);
   if (p.evasionPct) chips.push(`회피도 +${p.evasionPct}%`);
   if (p.lifestealPct) chips.push(`흡혈 +${p.lifestealPct}%`);
-  if (p.counterChancePct) chips.push(`HP 피해 시 ${p.counterChancePct}% 반격`);
+  if (p.counterChancePct)
+    chips.push(`HP 피해 시 ${p.counterChancePct}% 확률로 공격력 기반 반격`);
   if (p.defPct) chips.push(`물리·마법 방어력 +${p.defPct}%`);
   if (p.thornsDefPct) chips.push(`HP 피해 시 방어력의 ${p.thornsDefPct}% 반사`);
   if (p.fortressImpactOnHit) chips.push("적의 직접 공격 명중 시 충격 +1 (최대 3)");
@@ -2418,7 +2424,7 @@ function describeTier7Mechanic(mechanic: Tier7Mechanic): string[] {
       ];
     case "manaOptimization":
       return [
-        `완전식 MP 부족 시 현재 MP 전부 소비 · 최대 MP ${mechanic.restoreMaxMpPct}% 회복`,
+        `완전식 MP 부족 시 현재 MP 전부 소비 · 최대 MP ${mechanic.restoreMaxMpPct}% 회복 (주기 미환급 소비 MP 이하)`,
       ];
     case "completeFormula":
       return [
@@ -2454,45 +2460,93 @@ function describeDuelistDeclaration(
 }
 
 // ── MP 비용 루브릭 (P5 — 고정 절대값 모델) ──────────────────────────────────
-// 정적·직업무차별 mpCost(풀 대비 과소 → MP 가 죽은 자원) 를 "기준 풀 × % × 계열 × 차수" 로
-// 산정한 고정 절대값으로 대체. 풀 성장(INT)과 무관한 고정값 → 예측 가능(지속형 MP 자원: 전투 중
-// 재생 없이 치료소/물약 리필). 무료(mpCost 0 센티넬: 패시브·기본기·명상)·몬스터(monsterOnly)는
-// 그 literal 그대로. MP_REFERENCE_POOL·MP_BASE_PCT 가 튜닝 다이얼. 표시·차감 동일 산식 공유.
+// 정적·직업무차별 mpCost(풀 대비 과소 → MP 가 죽은 자원) 를 기준 풀·계열·차수로 보정하되,
+// 같은 그룹 안에서는 카탈로그 mpCost 의 스킬별 차이를 보존한다. 풀 성장(INT)과 무관한 고정값
+// → 예측 가능(지속형 MP 자원: 전투 중 재생 없이 치료소/물약 리필). 무료(mpCost 0 센티넬:
+// 패시브·기본기·명상)·몬스터(monsterOnly)는 그 literal 그대로. 표시·차감 동일 산식 공유.
 export const MP_REFERENCE_POOL = 600; // 산정 기준 풀(~중간 캐스터). 올리면 전체 비용↑·엔드 타이트.
 export const MP_BASE_PCT = 0.07;
 const MP_TIER_MULT: Record<1 | 2 | 3, number> = { 1: 1.0, 2: 1.4, 3: 1.8 };
-// 계열 = 직업 계보(tier1~4) 전체. 캐스터 ×1.3 — 큰 풀·마나가 핵심 자원.
-const MP_CASTER_JOBS = new Set([
-  "mage", "caster", "acolyte", "warder", "magus", "bishop", "sage", "elementalist", "archbishop",
-  "firemage", "frostmage", "lightningmage", "windmage", "earthmage",
-  "elementallord", "cryomancer", "inscriber", "archmage", "primordialmage", "frostsovereign",
-]);
-// 무인 ×0.85 — 기 기반·작은 풀.
-const MP_MARTIAL_JOBS = new Set([
-  "martial", "boxer", "monk", "brawler", "warmonk", "sensei", "battlemonk",
-  "dragonfist", "adamantmonk", "celestialdragon", "vajraarhat",
-]);
-// 도적 ×0.7 — 물리/술수·MP 가벼움.
-const MP_ROGUE_JOBS = new Set([
-  "rogue", "assassin", "archer", "venomist", "shadow", "ranger", "venomancer",
-  "phantom", "chief", "venomlord", "marksman", "nightshade", "plaguebringer",
-  "heavenlybow", "blackmoon", "myriadvenom",
-]);
-// default 1.0 = 병사 계보(warrior/shieldman/squire/paladin/guardian/veteran/warden)
-//   + 하이브리드(templar/spellblade) + none·스타터(v2_skill_).
+// 병사 계열의 대표 액티브 비용. 그룹 기준 비용은 유지하면서 원본 비용의 편차만 더한다.
+const MP_TIER_REFERENCE_COST: Record<1 | 2 | 3, number> = {
+  1: 30,
+  2: 28,
+  3: 50,
+};
+type MpArchetype = "caster" | "martial" | "rogue" | "default";
+
+const MP_ARCHETYPE_MULT: Record<MpArchetype, number> = {
+  caster: 1.3,
+  martial: 0.85,
+  rogue: 0.7,
+  default: 1,
+};
+const MP_PRESSURE_MULT: Record<MpArchetype, number> = {
+  caster: 1.25,
+  martial: 1.5,
+  rogue: 1.5,
+  default: 1.5,
+};
+const MP_ARCHETYPE_CACHE = new Map<string, MpArchetype>();
+
+function jobDescendsFrom(
+  jobId: string,
+  rootJobId: "mage" | "martial" | "rogue",
+  visited = new Set<string>(),
+): boolean {
+  if (jobId === rootJobId) return true;
+  if (visited.has(jobId)) return false;
+  visited.add(jobId);
+
+  const job = V2_JOB_CATALOG[jobId];
+  if (!job) return false;
+  const prerequisiteIds = [
+    ...Object.keys(job.unlock.prereqs),
+    ...(job.unlock.extraConditions ?? []).flatMap((condition) =>
+      condition.type === "jobUnlocked" ? [condition.jobId] : [],
+    ),
+  ];
+  return prerequisiteIds.some((prerequisiteId) =>
+    jobDescendsFrom(prerequisiteId, rootJobId, visited),
+  );
+}
+
+function mpArchetype(id: string): MpArchetype {
+  const jobId = id.split("_")[1] ?? ""; // v2c_<직업>_… / v2_skill_… 접두에서 계열 추출
+  const cached = MP_ARCHETYPE_CACHE.get(jobId);
+  if (cached) return cached;
+
+  const archetype = jobDescendsFrom(jobId, "mage")
+    ? "caster"
+    : jobDescendsFrom(jobId, "martial")
+      ? "martial"
+      : jobDescendsFrom(jobId, "rogue")
+        ? "rogue"
+        : "default";
+  MP_ARCHETYPE_CACHE.set(jobId, archetype);
+  return archetype;
+}
+
 function mpArchetypeMult(id: string): number {
-  const job = id.split("_")[1] ?? ""; // v2c_<직업>_… / v2_skill_… 접두에서 계열 추출
-  if (MP_CASTER_JOBS.has(job)) return 1.3;
-  if (MP_MARTIAL_JOBS.has(job)) return 0.85;
-  if (MP_ROGUE_JOBS.has(job)) return 0.7;
-  return 1.0;
+  return MP_ARCHETYPE_MULT[mpArchetype(id)];
+}
+
+function mpPressureMult(id: string): number {
+  return MP_PRESSURE_MULT[mpArchetype(id)];
 }
 // 플레이어 학습 스킬 1회 시전 MP 비용(고정 절대값). 무료·몬스터 스킬은 그 literal 그대로.
 export function v2SkillMpCostValue(def: V2SkillDefinition): number {
   if (def.mpCost === 0 || def.monsterOnly) return def.mpCost;
-  if (typeof def.fixedMpCost === "number") return Math.max(1, Math.floor(def.fixedMpCost));
-  const pct = MP_BASE_PCT * mpArchetypeMult(def.id) * MP_TIER_MULT[def.tier];
-  return Math.max(1, Math.round(MP_REFERENCE_POOL * pct));
+  const baseCost = (() => {
+    if (typeof def.fixedMpCost === "number") {
+      return Math.max(1, Math.floor(def.fixedMpCost));
+    }
+    const pct = MP_BASE_PCT * mpArchetypeMult(def.id) * MP_TIER_MULT[def.tier];
+    const baseline = Math.round(MP_REFERENCE_POOL * pct);
+    const skillCostDelta = def.mpCost - MP_TIER_REFERENCE_COST[def.tier];
+    return Math.max(1, baseline + skillCostDelta);
+  })();
+  return Math.max(1, Math.round(baseCost * mpPressureMult(def.id)));
 }
 
 export function describeV2Skill(skill: V2SkillDefinition): string[] {
@@ -2551,7 +2605,7 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   }
   if (skill.ironWallReflect) {
     chips.push(
-      `철벽 반사 ${skill.ironWallReflect.charges}회 · 받는 피해 -${skill.ironWallReflect.damageReductionPct}% · 방어력의 ${skill.ironWallReflect.reflectDefPct}% 반사`,
+      `철벽 반사 ${skill.ironWallReflect.charges}회 · 해당 공격 피해 ${skill.ironWallReflect.damageReductionPct}% 감소 · 반사 원량: 방어력의 ${skill.ironWallReflect.reflectDefPct}%`,
     );
   }
   if (skill.refreshTripleWards) chips.push("삼중 결계 전부 재전개");

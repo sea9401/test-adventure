@@ -79,7 +79,10 @@ vi.mock("@/lib/server/marketplaceV2", () => ({
   saleProceeds: vi.fn((gross: number) => gross),
 }));
 vi.mock("@/adventure/data/v2/v2EquipMint", () => ({
-  listedEquipEnhance: vi.fn(() => 0),
+  listedEquipBound: vi.fn(
+    (payload: unknown) =>
+      (payload as { bound?: unknown } | null | undefined)?.bound === true,
+  ),
 }));
 vi.mock("@/adventure/data/v2/adventureSupport", () => ({
   adventureSupportActive: vi.fn(() => false),
@@ -259,6 +262,30 @@ describe.each([
     expect(mocks.inboxWrites).toHaveLength(0);
     expect(mocks.upsertSave).not.toHaveBeenCalled();
     expect(mocks.deliverMarketplaceListing).not.toHaveBeenCalled();
+  });
+});
+
+describe("귀속 장비 입찰", () => {
+  it("직접 매물 ID로 요청해도 입찰금 차감 없이 거부한다", async () => {
+    mocks.listing = {
+      ...listing({ bidding: true }),
+      kind: "equip",
+      itemId: "v2_iron_sword",
+      itemName: "철검",
+      quantity: 1,
+      instancePayload: { bound: true },
+    };
+    const walletBefore = structuredClone(mocks.wallets.get("buyer-a"));
+
+    const response = await bid(requestFor("bid"));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      error: "bound",
+    });
+    expect(mocks.wallets.get("buyer-a")).toEqual(walletBefore);
+    expect(mocks.upsertSave).not.toHaveBeenCalled();
   });
 });
 

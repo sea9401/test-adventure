@@ -42,8 +42,8 @@ afterEach(() => vi.restoreAllMocks());
 describe("PR-2 DoT 피해 공식", () => {
   it("출혈 = flatPerStack + sourceAtk × ATK계수 (HP 무관)", () => {
     const dot = makeBleedDot({ flatPerStack: 10, sourceAtk: 100 });
-    expect(v2DotPerStackDamage(dot, 1000)).toBe(55);
-    expect(v2DotPerStackDamage(dot, 999999)).toBe(55);
+    expect(v2DotPerStackDamage(dot, 1000)).toBe(35);
+    expect(v2DotPerStackDamage(dot, 999999)).toBe(35);
   });
 
   it("중독 = %최대HP, 저HP 적은 상한 미적용(HP 비례 그대로)", () => {
@@ -96,9 +96,9 @@ describe("PR-2 DoT 피해 공식", () => {
     const bleed = makeBleedDot({ stacks: 3, flatPerStack: 10, sourceAtk: 100 });
     const poison = makePoisonDot({ stacks: 2, pctMaxHpPerStack: 0.005, sourceAtk: 100 }); // min(5,90)*2=10
     const r = tickV2Dots([bleed, poison], 1000);
-    expect(r.totalDmg).toBe(165 + 10);
+    expect(r.totalDmg).toBe(105 + 10);
     expect(r.ticks).toEqual([
-      { tag: "bleed", label: "출혈", damage: 165 },
+      { tag: "bleed", label: "출혈", damage: 105 },
       { tag: "poison", label: "중독", damage: 10 },
     ]);
   });
@@ -118,10 +118,10 @@ describe("PR-2 DoT 피해 공식", () => {
   });
 
   it("tick 피해는 정수로 내림 (소수점 누수 차단)", () => {
-    // perStack = 10 + 37×0.45 = 26.65 → 3스택 = 79.95 → floor 79 (79.95 아님).
+    // perStack = 10 + 37×0.25 = 19.25 → 3스택 = 57.75 → floor 57 (57.75 아님).
     const bleed = makeBleedDot({ stacks: 3, flatPerStack: 10, sourceAtk: 37 });
     const r = tickV2Dots([bleed], 1000);
-    expect(r.totalDmg).toBe(79);
+    expect(r.totalDmg).toBe(57);
     expect(Number.isInteger(r.totalDmg)).toBe(true);
   });
 });

@@ -77,4 +77,24 @@ describe("EquipmentCardGrid", () => {
     expect(html).toContain("회피도 286");
     expect(html).not.toContain("회피도 285.6");
   });
+
+  it("실제 유니크 장비에만 유니크 배지를 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <EquipmentCardGrid
+        cards={[
+          {
+            inst: { iid: "unique", id: "v2_sanctum_sig_spire_staff" },
+            isEquipped: false,
+          },
+          {
+            inst: { iid: "common", id: "v2_swamp_bruiser_armor" },
+            isEquipped: false,
+          },
+        ]}
+        onOpenCard={() => undefined}
+      />,
+    );
+
+    expect(html.match(/>유니크</g)).toHaveLength(1);
+  });
 });

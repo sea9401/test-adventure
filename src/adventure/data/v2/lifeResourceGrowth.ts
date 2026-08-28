@@ -1,5 +1,10 @@
+export const LIFE_RESOURCE_GROWTH_VERSION = 2 as const;
+export type V2LifeResourceGrowthVersion =
+  | 1
+  | typeof LIFE_RESOURCE_GROWTH_VERSION;
+
 export type V2LifeResourceGrowth = {
-  version: 1;
+  version: V2LifeResourceGrowthVersion;
   rolledLevel: number;
   baseHp: number;
   baseMp: number;
@@ -26,28 +31,49 @@ export type PermanentResourceStats = {
   intCap: number;
 };
 
+export const MP_LEVEL_STEP_SCALE = 0.4;
+
 function growthStep(value: number, baseline: number): number {
   return Math.floor(Math.max(0, value - baseline) / 10);
 }
 
 export function lifeResourceRanges(
   input: PermanentResourceStats,
+  version: V2LifeResourceGrowthVersion = LIFE_RESOURCE_GROWTH_VERSION,
 ): V2LifeResourceRanges {
   const str = growthStep(input.strFloor, 15);
   const spi = growthStep(input.spiFloor, 15);
   const vit = growthStep(input.vitCap, 60);
   const int = growthStep(input.intCap, 60);
+  const spiLevelStep =
+    version === 1 ? spi : Math.floor(spi * MP_LEVEL_STEP_SCALE);
+  const intLevelStep =
+    version === 1 ? int : Math.floor(int * MP_LEVEL_STEP_SCALE);
   const hpMin = 150 + 2 * str;
   const mpMin = 65 + spi;
   const hpLevelMin = 8 + str;
-  const mpLevelMin = 3 + spi;
+  const mpLevelMin = 3 + spiLevelStep;
 
   return {
     baseHp: { min: hpMin, max: hpMin + 30 + 2 * vit },
     baseMp: { min: mpMin, max: mpMin + 30 + int },
     hpPerLevel: { min: hpLevelMin, max: hpLevelMin + 4 + vit },
-    mpPerLevel: { min: mpLevelMin, max: mpLevelMin + 2 + int },
+    mpPerLevel: {
+      min: mpLevelMin,
+      max: mpLevelMin + 2 + intLevelStep,
+    },
   };
+}
+
+export function trainedIntSpiMpBonus(stats: {
+  int: number;
+  spi: number;
+}): number {
+  const trainedAboveBaseline = (value: number): number => {
+    const normalized = Number.isFinite(value) ? Math.floor(value) : 0;
+    return Math.max(0, normalized - 15);
+  };
+  return trainedAboveBaseline(stats.int) + trainedAboveBaseline(stats.spi);
 }
 
 function rollRange(range: V2ResourceRange, rng: () => number): number {
@@ -63,7 +89,7 @@ export function rollInitialLifeResourceGrowth(
   rng: () => number = Math.random,
 ): V2LifeResourceGrowth {
   return {
-    version: 1,
+    version: LIFE_RESOURCE_GROWTH_VERSION,
     rolledLevel: 1,
     baseHp: rollRange(ranges.baseHp, rng),
     baseMp: rollRange(ranges.baseMp, rng),
@@ -148,7 +174,8 @@ export function parseLifeResourceGrowth(
 ): V2LifeResourceGrowth | null {
   if (!raw || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
-  if (obj.version !== 1) return null;
+  const version = obj.version;
+  if (version !== 1 && version !== LIFE_RESOURCE_GROWTH_VERSION) return null;
   const rolledLevel = nonNegativeInt(obj.rolledLevel);
   const baseHp = nonNegativeInt(obj.baseHp);
   const baseMp = nonNegativeInt(obj.baseMp);
@@ -166,5 +193,5 @@ export function parseLifeResourceGrowth(
   ) {
     return null;
   }
-  return { version: 1, rolledLevel, baseHp, baseMp, gainedHp, gainedMp };
+  return { version, rolledLevel, baseHp, baseMp, gainedHp, gainedMp };
 }

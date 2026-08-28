@@ -50,7 +50,10 @@ import {
 } from "@/adventure/data/v2/v2Skills";
 import { equipmentCritMultToMagicSkillCritBonus } from "@/adventure/data/v2/skillCritical";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
-import type { V2LifeResourceGrowth } from "@/adventure/data/v2/lifeResourceGrowth";
+import {
+  trainedIntSpiMpBonus,
+  type V2LifeResourceGrowth,
+} from "@/adventure/data/v2/lifeResourceGrowth";
 import {
   V2_CORE_LOOP_V2,
   coreLoopMaxHpMult,
@@ -559,8 +562,13 @@ export function derivePlayerCombatV2Pure(
     : V2_BASE_MP +
       Math.max(0, level - 1) * V2_MP_PER_LEVEL +
       totalStats.int * MP_PER_INT;
+  const trainedMp =
+    input.lifeResourceGrowth?.version === 2
+      ? trainedIntSpiMpBonus(baseAllocatedStats)
+      : 0;
   const maxMp = Math.floor(
-    (intrinsicMp + equipAcc.mp) * (1 + (input.maxMpPct ?? 0) / 100),
+    (intrinsicMp + trainedMp + equipAcc.mp) *
+      (1 + (input.maxMpPct ?? 0) / 100),
   );
   // 치명타 확률 — 행운 + 장비 + 장착 패시브(급소·치명, A 메타 다양성). 미지정 +0.
   const critChancePct =

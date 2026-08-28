@@ -279,7 +279,7 @@ describe("tradable 판정 + 이름 스냅샷", () => {
     expect(isTradableEquip("constructor")).toBe(false);
   });
 
-  it("장비 등록은 미강화·미잠금·미장착 개체만 허용한다", () => {
+  it("장비 등록은 강화 여부와 무관하고 미귀속·미잠금·미장착 개체만 허용한다", () => {
     const id = Object.keys(V2_EQUIPMENT)[0] as keyof typeof V2_EQUIPMENT;
     expect(marketplaceEquipListError({ id }, false)).toBeNull();
     expect(
@@ -287,7 +287,10 @@ describe("tradable 판정 + 이름 스냅샷", () => {
         { id, enhance: { level: 1, bonusPct: 1 } },
         false,
       ),
-    ).toBe("enhanced");
+    ).toBeNull();
+    expect(marketplaceEquipListError({ id, bound: true }, false)).toBe(
+      "bound",
+    );
     expect(marketplaceEquipListError({ id, locked: true }, false)).toBe(
       "locked",
     );

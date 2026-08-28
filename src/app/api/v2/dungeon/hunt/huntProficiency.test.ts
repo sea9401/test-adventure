@@ -34,6 +34,36 @@ describe("applyHuntProficiency", () => {
     });
   });
 
+  it("레벨업할 때 저장된 자원 성장 버전의 MP 범위를 유지한다", () => {
+    const apply = (version: 1 | 2) =>
+      applyHuntProficiency({
+        won: false,
+        depth: 1,
+        charSave: { class: "mage", level: 1 },
+        proficiencyRaw: {
+          statFloorLevels: { mage: 10_000 },
+          lifeResourceGrowth: {
+            version,
+            rolledLevel: 1,
+            baseHp: 150,
+            baseMp: 100,
+            gainedHp: 0,
+            gainedMp: 0,
+          },
+        },
+        equippedSkills: [],
+        proficiencyChancePct: 0,
+        levelsGained: 1,
+        rng: () => 0,
+      });
+    const version1 = apply(1);
+    const version2 = apply(2);
+
+    expect(version1.mpGain).toBeGreaterThan(version2.mpGain);
+    expect(version1.nextProficiency?.lifeResourceGrowth?.version).toBe(1);
+    expect(version2.nextProficiency?.lifeResourceGrowth?.version).toBe(2);
+  });
+
   it("레거시 생애는 기록을 만들지 않고 기존 표시 계산을 유지한다", () => {
     const result = applyHuntProficiency({
       won: false,

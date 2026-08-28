@@ -53,7 +53,7 @@ describe("ensureV2Character", () => {
     expect(mocks.store.get("character.v2")).toEqual({});
     expect(mocks.store.get("proficiency.v2")).toMatchObject({
       lifeResourceGrowth: {
-        version: 1,
+        version: 2,
         rolledLevel: 1,
         baseHp: 150,
         baseMp: 65,

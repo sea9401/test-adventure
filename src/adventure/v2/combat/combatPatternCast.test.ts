@@ -1111,14 +1111,14 @@ describe("resolveV2SkillCast — 수집형 변이 자원", () => {
       expect.objectContaining({
         tag: "bleed",
         stacks: 1,
-        atkCoefPerStack: 0.45,
+        atkCoefPerStack: 0.25,
       }),
     );
     expect(flurry.dotsToApplyToTarget).toContainEqual(
       expect.objectContaining({
         tag: "bleed",
         stacks: 2,
-        atkCoefPerStack: 0.45,
+        atkCoefPerStack: 0.25,
       }),
     );
   });

@@ -5,6 +5,7 @@ import {
   formulaStagesForCast,
   optimizedMpCost,
   previewFormulaCast,
+  settleFormulaManaRecovery,
 } from "./primordialSageCombat";
 
 const empty = { stages: 0, seenSkillIds: [] } as const;
@@ -112,5 +113,49 @@ describe("태초현자 완전식", () => {
         equipped: ["v2c_mage_fireball", "v2c_archmage_collapse"],
       }),
     ).toEqual(["v2c_archmage_collapse"]);
+  });
+
+  it("caps completion recovery at the formula cycle's unrefunded MP spend", () => {
+    expect(
+      settleFormulaManaRecovery({
+        state: {
+          stages: 2,
+          seenSkillIds: ["v2c_mage_fireball"],
+          mpSpent: 80,
+          mpRestored: 20,
+        },
+        next: { stages: 0, seenSkillIds: [] },
+        completes: true,
+        castMpSpent: 0,
+        castMpRestored: 0,
+        requestedCompletionRestore: 100,
+        advancesFormula: true,
+      }),
+    ).toEqual({
+      completionRestore: 60,
+      next: { stages: 0, seenSkillIds: [] },
+    });
+  });
+
+  it("keeps formula mana accounting on incomplete cycles and defaults old state fields to zero", () => {
+    expect(
+      settleFormulaManaRecovery({
+        state: { stages: 0, seenSkillIds: [] },
+        next: { stages: 1, seenSkillIds: ["v2c_mage_fireball"] },
+        completes: false,
+        castMpSpent: 180,
+        castMpRestored: 0,
+        requestedCompletionRestore: 0,
+        advancesFormula: true,
+      }),
+    ).toEqual({
+      completionRestore: 0,
+      next: {
+        stages: 1,
+        seenSkillIds: ["v2c_mage_fireball"],
+        mpSpent: 180,
+        mpRestored: 0,
+      },
+    });
   });
 });

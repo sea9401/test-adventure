@@ -353,6 +353,7 @@ describe("resolveV2SkillCast (PR-4a — framework: cd/MP/슬롯 픽)", () => {
 
 describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 시스템)", () => {
   const fireballMp = v2SkillMpCost(V2_SKILLS["v2c_mage_fireball"]);
+  const sufficientFireballMp = 1_000;
 
   it("화염구 procChance=72 — 롤 < 72 이면 발동 (MP 차감 + 피해)", () => {
     const r = resolveV2SkillCast({
@@ -362,11 +363,11 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
       },
       cooldowns: {},
       procRoll: 20,
-      attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+      attacker: { mp: sufficientFireballMp, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(r.castSkillId).toBe("v2c_mage_fireball");
-    expect(r.nextMp).toBe(100 - fireballMp);
+    expect(r.nextMp).toBe(sufficientFireballMp - fireballMp);
     expect(r.enemyDamage).toBeGreaterThan(0);
   });
 
@@ -378,11 +379,11 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
       },
       cooldowns: {},
       procRoll: 75,
-      attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+      attacker: { mp: sufficientFireballMp, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(r.castSkillId).toBeNull();
-    expect(r.nextMp).toBe(100); // MP 미소모
+    expect(r.nextMp).toBe(sufficientFireballMp); // MP 미소모
     expect(r.enemyDamage).toBe(0);
   });
 
@@ -394,7 +395,7 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
       },
       cooldowns: {},
       procRoll: 72,
-      attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+      attacker: { mp: sufficientFireballMp, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(r.castSkillId).toBeNull();
@@ -407,7 +408,7 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
         equipped: ["v2c_mage_fireball"],
       },
       cooldowns: {},
-      attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+      attacker: { mp: sufficientFireballMp, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(r.castSkillId).toBe("v2c_mage_fireball");
@@ -434,7 +435,7 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
         cooldowns: {},
         procRoll: 75,
         procChanceBonus: bonus,
-        attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+        attacker: { mp: sufficientFireballMp, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
         target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
       });
     // 보너스 0: 72 → 75>=72 미발동. 보너스 10: 82 → 75<82 발동.
@@ -558,6 +559,71 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
     });
     // 치유: 잃은 HP 100의 6% + magicAtk 100×(0.45×1.1) + flat 50 = 105.
     expect(result.selfHeal).toBe(105);
+  });
+
+  it("유료 MP 회복 스킬은 최대 MP 비례 회복이 실제 소비량을 넘지 않는다", () => {
+    const expectedCost = v2SkillMpCost(
+      V2_SKILLS.v2c_primordialmage_return,
+    );
+    const startingMp = expectedCost * 2;
+    const result = resolveV2SkillCast({
+      skills: {
+        learned: [
+          "v2c_primordialmage_return",
+          "v2c_primordialmage_resonance",
+        ],
+        equipped: [
+          "v2c_primordialmage_return",
+          "v2c_primordialmage_resonance",
+        ],
+      },
+      cooldowns: {},
+      procRoll: 0,
+      attacker: {
+        mp: startingMp,
+        atk: 100,
+        magicAtk: 100,
+        maxHp: 1_000,
+        maxMp: expectedCost * 100,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: {
+        def: 0,
+        magicDef: 0,
+        maxHp: 10_000,
+        currentHp: 10_000,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+    });
+
+    expect(result.mpSpent).toBe(expectedCost);
+    expect(result.manaRestored).toBe(expectedCost);
+    expect(result.nextMp).toBe(startingMp);
+  });
+
+  it("비용이 없는 명상은 실제 소비량 상한 없이 기존 비율만큼 회복한다", () => {
+    const result = resolveV2SkillCast({
+      skills: {
+        learned: ["v2c_mage_meditate"],
+        equipped: ["v2c_mage_meditate"],
+      },
+      cooldowns: {},
+      attacker: {
+        mp: 0,
+        atk: 0,
+        maxHp: 1_000,
+        maxMp: 10_000,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+
+    expect(result.mpSpent).toBe(0);
+    expect(result.manaRestored).toBe(600);
+    expect(result.nextMp).toBe(600);
   });
 
   it("oncePerBattle 스킬은 시전 뒤 전투 내 재사용 불가 쿨다운으로 잠긴다", () => {

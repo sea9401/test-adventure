@@ -1,8 +1,8 @@
 import { db } from "@/db";
 import {
-  MONTHLY_ATTENDANCE_REWARDS,
   MONTHLY_ATTENDANCE_SAVE_KEY,
   monthlyAttendanceRewardLabel,
+  monthlyAttendanceRewardsForMonth,
   monthlyAttendanceStatus,
   type MonthlyAttendanceReward,
 } from "@/adventure/data/v2/monthlyAttendance";
@@ -62,7 +62,7 @@ function publicStatus(raw: unknown, now: Date) {
   const status = monthlyAttendanceStatus(raw, now);
   return {
     ...status,
-    rewards: MONTHLY_ATTENDANCE_REWARDS,
+    rewards: monthlyAttendanceRewardsForMonth(status.monthKey),
   };
 }
 
@@ -118,8 +118,8 @@ export async function POST() {
         };
       }
 
-      const reward: MonthlyAttendanceReward =
-        MONTHLY_ATTENDANCE_REWARDS[status.nextDay - 1];
+      const rewards = monthlyAttendanceRewardsForMonth(status.monthKey);
+      const reward: MonthlyAttendanceReward = rewards[status.nextDay - 1];
       let nextCharacter: CharacterSave = { ...character };
       let characterChanged = false;
       let adventureSupportActiveUntil: number | null = null;

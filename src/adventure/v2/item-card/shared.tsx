@@ -123,6 +123,16 @@ export function CraftOnlyBadge({ className = "" }: { className?: string }) {
   );
 }
 
+export function UniqueBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`shrink-0 rounded bg-purple-100 px-1.5 py-px text-[10px] font-semibold text-purple-700 dark:bg-purple-950 dark:text-purple-300 ${className}`}
+    >
+      유니크
+    </span>
+  );
+}
+
 export function EnhanceLevelBadge({
   enhance,
   level,

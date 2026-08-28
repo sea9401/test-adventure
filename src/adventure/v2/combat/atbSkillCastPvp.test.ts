@@ -197,7 +197,7 @@ describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
     expect(released.outcome).toBe("draw");
   });
 
-  it("완전식은 PvP에서도 MP 0에서 완성 주문을 시전하고 최대 MP 10%를 회복한다", () => {
+  it("완전식은 PvP에서 미환급 소비가 없으면 MP 0 강제 시전으로 자원을 만들지 않는다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const skills: V2SkillsState = {
       learned: [
@@ -241,9 +241,12 @@ describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
     const cast = castV2SkillOnAttackerTurnPvP(prepared, "p1");
 
     expect(cast.castFired).toBe(true);
-    expect(cast.state.p1.mp).toBe(100);
+    expect(cast.state.p1.mp).toBe(0);
     expect(cast.selfHastePct).toBe(12);
     expect(cast.state.log.some((entry) => entry.text.includes("[완전식]"))).toBe(true);
+    expect(
+      cast.state.log.some((entry) => entry.text.includes("[마력 최적화]")),
+    ).toBe(false);
   });
 
   it("PvP에서도 스킬 자체 MP 회복과 별개로 실제 지불 비용을 기준으로 환급한다", () => {
@@ -283,9 +286,9 @@ describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
 
     const cast = castV2SkillOnAttackerTurnPvP(initial, "p1");
 
-    expect(cast.state.p1.mp).toBe(927);
+    expect(cast.state.p1.mp).toBe(888);
     expect(cast.state.log.some((entry) => entry.text === "태초회귀! P1 마나 80 회복했다.")).toBe(true);
-    expect(cast.state.log.some((entry) => entry.text === "[마력 순환] P1 마나 27 환급")).toBe(true);
+    expect(cast.state.log.some((entry) => entry.text === "[마력 순환] P1 마나 33 환급")).toBe(true);
   });
 
   it("재앙독갑 직접 액티브 효과가 PvP에서도 중독 대상 피해와 시전당 중독을 적용한다", () => {
@@ -762,6 +765,14 @@ describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
     } as never);
     vi.restoreAllMocks();
 
+    expect(
+      res.finalState.log.some(
+        (entry) =>
+          entry.kind === "player_attack" &&
+          entry.side === "p1" &&
+          entry.text === "철벽 태세! 철벽 반사 3회 준비",
+      ),
+    ).toBe(true);
     expect(
       res.finalState.log.filter((entry) => entry.text.includes("철벽 반사 3회"))
         .length,

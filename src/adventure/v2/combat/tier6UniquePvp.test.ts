@@ -244,7 +244,7 @@ describe("6T 유니크 PvP 대칭 연동", () => {
 
     expect(after.outcome).toBeNull();
     // 폭발에 사망 극복이 발동한 뒤, 보존된 출혈의 다음 틱 피해도 이어진다.
-    expect(after.p2.hp).toBe(220);
+    expect(after.p2.hp).toBe(300);
     expect(after.p2.berserker?.deathOvercomeUsed).toBe(true);
     expect(after.log.some((entry) => entry.text.includes("[사망 극복]")))
       .toBe(true);

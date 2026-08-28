@@ -2,14 +2,15 @@
 //
 // 채팅과 분리된 "전광판" — 서버 전체에 흘러가는 자랑거리(유실된 명품 획득, 걸작 제작 성공).
 // 한 번에 FEED_FETCH_LIMIT 개씩 불러온다. append-only — insert 시 보관기간 초과분을
-// 잘라낸다(cron 없음, lazy trim).
+// 잘라내고 운영 보존 cron이 보완한다.
 
 // GET /api/feed 가 돌려주는 최근 항목 수. 패널이 한 번에 보여주는 상한.
 export const FEED_FETCH_LIMIT = 30;
 
 // DB 보관 기간 — insert 마다 이보다 오래된 행 trim(시간 기준).
 // (옛 FEED_MAX_ROWS=500 행 수 캡 대체 — 운영 보관 정책에 따라 최근 30일 보존.)
-export const FEED_RETENTION_MS = 30 * 24 * 3_600_000;
+export const FEED_RETENTION_DAYS = 30;
+export const FEED_RETENTION_MS = FEED_RETENTION_DAYS * 24 * 3_600_000;
 
 // 과거 페이지 cursor. server_feed 의 단조 증가 serial(PG integer) PK만 허용해 범위가
 // 불명확하거나 컬럼 범위 밖인 값을 쿼리에 넘기지 않는다.

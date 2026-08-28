@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { TabBar } from "@/components/ui/TabBar";
 import { SURFACE_ACCENT, SURFACE_CARD } from "@/components/ui/surfaces";
+import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 import { useSystemMessageState } from "./RewardToastProvider";
 import { useRefreshGameState } from "./GameStateRefreshContext";
 import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
@@ -95,7 +96,7 @@ export function CookingWorkspace({ data, section, onSectionChange, busy, mutate 
   return <div className="space-y-4">
     <section className={`${SURFACE_CARD} p-4`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><h2 className="font-bold text-zinc-900 dark:text-zinc-100">🍳 레시피 연구실 · 요리 Lv {data.level}</h2><p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">{recipeTotal}종의 레시피 조합을 연구하고, 거래 가능한 12시간 음식을 만듭니다.</p></div>
+        <div><h2 className="flex items-center gap-1.5 font-bold text-zinc-900 dark:text-zinc-100"><PlumpGameIcon name="cooking" size={22} />레시피 연구실 · 요리 Lv {data.level}</h2><p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">{recipeTotal}종의 레시피 조합을 연구하고, 거래 가능한 12시간 음식을 만듭니다.</p></div>
         <div className="text-right text-xs text-zinc-600 dark:text-zinc-300"><div>{data.cookingJobName ?? "요리 직업 미전직"}</div><div>발견 {data.cooking.discoveredRecipeIds.length}/{recipeTotal} · 실패 음식 {data.failedCookingDishes}개</div><div>농장 증표 {data.farmReputation}</div></div>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700"><div className="h-full bg-amber-500" style={{ width: `${progress.percent}%` }} /></div>

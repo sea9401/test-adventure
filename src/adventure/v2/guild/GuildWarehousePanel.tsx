@@ -1207,7 +1207,7 @@ export function warehouseErrorText(
     case "equipment_equipped":
       return "착용 중인 장비는 입고할 수 없습니다.";
     case "equipment_not_tradable":
-      return "강화되었거나 잠긴 거래 불가 장비는 입고할 수 없습니다.";
+      return "귀속되었거나 잠긴 거래 불가 장비는 입고할 수 없습니다.";
     case "material_not_tradable":
       return "거래 불가 재료는 입고할 수 없습니다.";
     case "warehouse_equipment_only":

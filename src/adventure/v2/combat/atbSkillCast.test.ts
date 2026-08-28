@@ -13,10 +13,13 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
 import type { Monster } from "@/adventure/data/monsters";
 import { actionInterval } from "./combatTimeline";
 import {
+  applyPlayerV2SkillCast,
+  initialBattleState,
   resolveBattle,
   type BattleResolution,
   type PlayerCombat,
 } from "@/adventure/v2/combat/engine";
+import type { V2SkillId } from "@/adventure/data/v2/v2Skills";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -56,6 +59,78 @@ function countText(res: BattleResolution, needle: string): number {
 }
 
 describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
+  it("완전식은 PvE에서 현재 주기의 미환급 MP까지만 회복한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const skills = {
+      learned: [
+        "v2c_archmage_collapse",
+        "v2c_primordialsage_optimization",
+        "v2c_primordialsage_completeformula",
+      ],
+      equipped: [
+        "v2c_archmage_collapse",
+        "v2c_primordialsage_optimization",
+        "v2c_primordialsage_completeformula",
+      ],
+    } as const;
+    const combatant: PlayerCombat = {
+      ...player,
+      hp: 1_000,
+      maxHp: 1_000,
+      maxMp: 1_000,
+      mp: 0,
+      magicAtk: 200,
+      intStat: 200,
+    };
+    const enemy: Monster = {
+      name: "완전식 허수아비",
+      tags: [],
+      hp: 20_000,
+      atk: 1,
+      def: 0,
+      magicDef: 0,
+      spd: 1,
+      exp: 0,
+      evasionPct: 0,
+    };
+    const initial = initialBattleState(
+      combatant,
+      enemy,
+      "테스터",
+      skills as never,
+    );
+    const prepared = {
+      ...initial,
+      playerMp: 0,
+      stacks: {
+        ...initial.stacks,
+        tier7: {
+          formula: {
+            stages: 2,
+            seenSkillIds: ["v2c_mage_fireball"] as V2SkillId[],
+            mpSpent: 80,
+            mpRestored: 20,
+          },
+        },
+      },
+    };
+
+    const cast = applyPlayerV2SkillCast(
+      prepared,
+      combatant,
+      { selfBuffs: {}, selfDebuffs: {}, enemyDebuffs: {} },
+      "테스터",
+    );
+
+    expect(cast.castFired).toBe(true);
+    expect(cast.state.playerMp).toBe(60);
+    expect(
+      cast.state.log.some(
+        (entry) => entry.text === "[마력 최적화] 마나 60 회복",
+      ),
+    ).toBe(true);
+  });
+
   it("빙하진 빙결은 적의 예약된 다음 행동을 정확히 30% 미룬다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const speed = 30;
@@ -626,6 +701,13 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
     );
     vi.restoreAllMocks();
 
+    expect(
+      res.finalState.log.some(
+        (entry) =>
+          entry.kind === "player_attack" &&
+          entry.text === "철벽 태세! 철벽 반사 3회 준비",
+      ),
+    ).toBe(true);
     expect(countText(res, "철벽 반사 3회")).toBeGreaterThan(0);
     expect(countText(res, "[철벽 반사]")).toBeGreaterThanOrEqual(3);
     expect(countText(res, "충격 3스택 소비")).toBeGreaterThan(0);

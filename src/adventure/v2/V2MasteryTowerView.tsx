@@ -11,7 +11,10 @@ import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
-import { MASTERY_TOWER_MAX_FLOOR } from "@/adventure/data/v2/masteryTower";
+import {
+  MASTERY_TOWER_MAX_FLOOR,
+  MASTERY_TOWER_REWARD_MAX_FLOOR,
+} from "@/adventure/data/v2/masteryTower";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { applyRegen, type StaminaState } from "@/adventure/v2/stamina";
 import {
@@ -303,6 +306,18 @@ export function V2MasteryTowerView({
                       {targetRequiredPower?.toLocaleString("ko-KR") ?? "-"}
                     </p>
                   )}
+                  {(status.tower.todayBestFloor >=
+                    MASTERY_TOWER_REWARD_MAX_FLOOR) && (
+                    <p className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                      일일 보상 상한 달성 · 숙련 증서 2,400개
+                    </p>
+                  )}
+                  {targetFloor != null &&
+                    targetFloor > MASTERY_TOWER_REWARD_MAX_FLOOR && (
+                      <p className="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                        도전 구간 · 추가 보상 없음
+                      </p>
+                    )}
                   <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                     {entryStaminaCost > 0
                       ? `오늘 최초 입장 스태미나 ${entryStaminaCost}`

@@ -124,6 +124,22 @@ describe("v2 생애 자원 영구 범위", () => {
     expect(progressed.mpPerLevel.min).toBeGreaterThan(base.mpPerLevel.min);
     expect(progressed.mpPerLevel.max).toBeGreaterThan(base.mpPerLevel.max);
   });
+
+  it("기존 기록은 종전 MP 성장 범위를, 새 기록은 완화된 범위를 사용한다", () => {
+    const progressed = {
+      ...emptyProficiency(),
+      statFloorLevels: { mage: 10_000 },
+      caps: { int: 10 },
+    };
+    const version1 = lifeResourceRangesForProficiency(progressed, 1);
+    const version2 = lifeResourceRangesForProficiency(progressed, 2);
+
+    expect(version1.mpPerLevel.min).toBeGreaterThan(version2.mpPerLevel.min);
+    expect(version1.mpPerLevel.max).toBeGreaterThan(version2.mpPerLevel.max);
+    expect(version1.baseMp).toEqual(version2.baseMp);
+    expect(version1.baseHp).toEqual(version2.baseHp);
+    expect(version1.hpPerLevel).toEqual(version2.hpPerLevel);
+  });
 });
 
 describe("v2 스탯 floor", () => {

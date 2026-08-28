@@ -9,7 +9,7 @@ import type { TutorialStepId } from "./flags";
 
 type Props = {
   stepId: TutorialStepId;
-  title: string;
+  title: ReactNode;
   body: ReactNode;
   dismissLabel?: string;
 };

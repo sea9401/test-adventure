@@ -1,18 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { fetchGameState } from "../fetchGameState";
 import {
   SETTLEMENT_RESOURCE_KEYS,
   SETTLEMENT_RESOURCE_TO_MATERIAL,
   settlementDonationMaterialName,
-  settlementResourceIcon,
+  settlementResourceIconName,
   settlementResourceName,
   type SettlementDonationMaterialId,
   type SettlementResources,
 } from "@/adventure/data/v2/settlement";
 import type { AdventurerAssociationFacilityId } from "@/adventure/data/v2/adventurerAssociation";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 
 type Upgrade = {
   level: number;
@@ -135,7 +136,8 @@ export function AssociationFacilityFund({
       {rows.map((row) => (
         <ProgressRow
           key={row.key}
-          label={`${settlementResourceIcon(row.key)} ${settlementResourceName(row.key)}`}
+          icon={<PlumpGameIcon name={settlementResourceIconName(row.key)} size={15} />}
+          label={settlementResourceName(row.key)}
           current={row.current}
           required={row.required}
         />
@@ -204,11 +206,11 @@ export function AssociationFacilityFund({
   );
 }
 
-function ProgressRow({ label, current, required, suffix = "" }: { label: string; current: number; required: number; suffix?: string }) {
+function ProgressRow({ icon, label, current, required, suffix = "" }: { icon?: ReactNode; label: string; current: number; required: number; suffix?: string }) {
   const percent = required > 0 ? Math.min(100, Math.floor((current / required) * 100)) : 100;
   return (
     <div className="text-[11px]">
-      <div className="flex justify-between gap-2"><span>{label}</span><span className="tabular-nums text-zinc-500">{current.toLocaleString()}{suffix} / {required.toLocaleString()}{suffix}</span></div>
+      <div className="flex justify-between gap-2"><span className="inline-flex items-center gap-1">{icon}{label}</span><span className="tabular-nums text-zinc-500">{current.toLocaleString()}{suffix} / {required.toLocaleString()}{suffix}</span></div>
       <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700"><div className="h-full bg-amber-500" style={{ width: `${percent}%` }} /></div>
     </div>
   );

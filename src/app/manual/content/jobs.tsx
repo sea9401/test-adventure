@@ -25,6 +25,7 @@ import {
   MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST,
   MASTERY_TOWER_MAX_FLOOR,
   MASTERY_TOWER_MILESTONES,
+  MASTERY_TOWER_REWARD_MAX_FLOOR,
   MASTERY_TOWER_REENTRY_COOLDOWN_MS,
   masteryTowerFloorReward,
   masteryTowerRequiredPower,
@@ -32,7 +33,7 @@ import {
 import { H2, P, UL, Em, Table, Note } from "./primitives";
 import { JobRoadmapScroller } from "./JobRoadmapScroller";
 
-const MASTERY_TOWER_SAMPLE_FLOORS = [10, 20, 30];
+const MASTERY_TOWER_SAMPLE_FLOORS = [10, 30, 50, 60, 80, 100];
 const TIER7_ROWS = TIER7_COMBAT_JOB_IDS.map((jobId) => [
   TIER7_COMBAT_JOB_NAMES[jobId],
   TIER7_COMBAT_JOB_PREREQS[jobId]
@@ -200,13 +201,18 @@ export function JobsContent() {
           숙련의 탑 접속 시 숙련 증서로 자동 지급됩니다.
         </li>
         <li>
+          숙련 증서 보상은 <Em>{MASTERY_TOWER_REWARD_MAX_FLOOR}층까지만</Em>
+          증가합니다. <Em>51~100층은 도전 구간</Em>이며 추가 보상 없이 역대 최고층
+          기록만 높입니다.
+        </li>
+        <li>
           주간 진행은 매주 월요일 00:00 KST에 초기화됩니다. 그 주에 10층 단위
           체크포인트를 돌파하면 새 등반을 1층 또는 최근 체크포인트의 다음 층에서
           시작할 수 있습니다. 역대 최고층과 최초 돌파 보너스 기록은 초기화되지
           않습니다.
         </li>
         <li>
-          50층을 완료한 뒤에는 같은 날 50층 수호자에게 연습 재도전할 수 있습니다.
+          100층을 완료한 뒤에는 같은 날 100층 수호자에게 연습 재도전할 수 있습니다.
           연습 승패는 최고층 기록과 보상을 바꾸지 않으며 추가 스태미나도 들지
           않습니다. 각 연습 시도 사이에는 같은 재입장 대기 시간이 적용됩니다.
         </li>

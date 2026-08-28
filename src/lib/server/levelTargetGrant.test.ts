@@ -27,6 +27,32 @@ describe("applyLevelTargetGrant", () => {
     });
   });
 
+  it("저장된 자원 성장 버전에 맞는 MP 범위로 목표 레벨까지 성장한다", () => {
+    const apply = (version: 1 | 2) =>
+      applyLevelTargetGrant(
+        { class: "mage", level: 1, exp: 0 },
+        {
+          statFloorLevels: { mage: 10_000 },
+          lifeResourceGrowth: {
+            version,
+            rolledLevel: 1,
+            baseHp: 150,
+            baseMp: 100,
+            gainedHp: 0,
+            gainedMp: 0,
+          },
+        },
+        2,
+        () => 0,
+      );
+    const version1 = apply(1);
+    const version2 = apply(2);
+
+    expect(version1.mpGain).toBeGreaterThan(version2.mpGain);
+    expect(version1.proficiency.lifeResourceGrowth?.version).toBe(1);
+    expect(version2.proficiency.lifeResourceGrowth?.version).toBe(2);
+  });
+
   it("레거시 생애는 기존 자원 증가 표시만 반환하고 기록을 만들지 않는다", () => {
     const result = applyLevelTargetGrant(
       { class: "warrior", level: 1, exp: 0 },

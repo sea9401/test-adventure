@@ -38,6 +38,7 @@ describe("생활 기록 집계", () => {
             rareHarvests: 3,
             deliveries: 4,
             reputation: 90,
+            reputationSpent: 40,
           },
         },
         woodcuttingRaw: {
@@ -82,7 +83,10 @@ describe("생활 기록 집계", () => {
     );
 
     expect(summary.activities.find((entry) => entry.id === "farming")?.records)
-      .toEqual(expect.arrayContaining([{ label: "총 수확", value: 12, suffix: "회" }]));
+      .toEqual(expect.arrayContaining([
+        { label: "총 수확", value: 12, suffix: "회" },
+        { label: "농장 증표", value: 90, suffix: "개" },
+      ]));
     expect(summary.activities.find((entry) => entry.id === "fishing")?.records)
       .toEqual(expect.arrayContaining([{ label: "등록 어종", value: 1, suffix: "/50종" }]));
     expect(summary.artisan).toMatchObject({

@@ -11,6 +11,7 @@ import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { inboxValues } from "@/lib/server/inboxPayload";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
+import { listedEquipBound } from "@/adventure/data/v2/v2EquipMint";
 import {
   isValidPrice,
   marketplaceNextBidMinimum,
@@ -121,6 +122,12 @@ export async function POST(req: Request) {
       return {
         status: 409,
         body: { ok: false as const, error: "bidding_closed" },
+      };
+    }
+    if (listing.kind === "equip" && listedEquipBound(listing.instancePayload)) {
+      return {
+        status: 409,
+        body: { ok: false as const, error: "bound" },
       };
     }
 

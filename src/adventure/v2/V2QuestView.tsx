@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { TabBar } from "@/components/ui/TabBar";
+import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 import { useRefreshGameState } from "./GameStateRefreshContext";
 import { useRewardToast } from "./RewardToastProvider";
 import {
@@ -91,6 +92,29 @@ export function QuestTabContent({
     <div data-quest-tab-content={tab} className="ui-tab-content-reveal">
       {children}
     </div>
+  );
+}
+
+export function GuideEmptyState({
+  tab,
+  groupLabel,
+}: {
+  tab: "active" | "done";
+  groupLabel: string;
+}) {
+  return (
+    <Card padding="md">
+      <p className="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+        {tab === "done" ? (
+          `아직 완료한 ${groupLabel} 항목이 없어요.`
+        ) : (
+          <>
+            <span>{`진행 중인 ${groupLabel} 항목이 없어요.`}</span>
+            <PlumpGameIcon name="celebration" size={18} />
+          </>
+        )}
+      </p>
+    </Card>
   );
 }
 
@@ -548,13 +572,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
         )}
 
         {shown.length === 0 ? (
-          <Card padding="md">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              {tab === "done"
-                ? `아직 완료한 ${groupLabel} 항목이 없어요.`
-                : `진행 중인 ${groupLabel} 항목이 없어요. 🎉`}
-            </p>
-          </Card>
+          <GuideEmptyState tab={tab} groupLabel={groupLabel} />
         ) : (
           lines
             .filter((line) => isTutorialLine(line.id) === forTutorial)

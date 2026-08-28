@@ -32,6 +32,7 @@ function codexFixture(recipeCount: number): CookingResponse {
     failedResearches: [],
     requests: cookingRequests("cook-user", cooking),
     cookingFoods: {},
+    cookingFoodDefinitions: {},
     failedCookingDishes: 0,
     cookingPrepSets: 0,
     farmItems: {},

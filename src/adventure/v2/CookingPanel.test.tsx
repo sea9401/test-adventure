@@ -8,7 +8,7 @@ import { GameStateRefreshProvider } from "./GameStateRefreshContext";
 import { COOKING_PUBLIC_RECIPES } from "./cooking/catalog";
 import { COOKING_SECRET_RECIPES } from "@/lib/server/cooking/recipes";
 import { cookingRequests } from "./cooking/delivery";
-import { cookingFoodId } from "./cooking/food";
+import { cookingFoodDefinition, cookingFoodId } from "./cooking/food";
 import { COOKING_PANTRY_ITEMS, COOKING_PROCESSING_RECIPES } from "./cooking/kitchen";
 import { cookingLevelXpThreshold, emptyCookingState } from "./cooking/state";
 import { FARM_ITEMS } from "./farm";
@@ -60,6 +60,7 @@ function fixture(effectTag: CookingEffectTag = "offense"): CookingResponse {
     failedResearches: [],
     requests,
     cookingFoods: { [foodId]: 2 },
+    cookingFoodDefinitions: { [foodId]: cookingFoodDefinition(foodId)! },
     failedCookingDishes: 1,
     cookingPrepSets: 0,
     farmItems: { wheat: 10, milk: 10, tomato: 10, pork: 10, onion: 10 },

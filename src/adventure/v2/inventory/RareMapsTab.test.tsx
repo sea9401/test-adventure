@@ -27,6 +27,7 @@ describe("RareMapsTab 이벤트 소모품", () => {
         cashItems={{ level_100_elixir: 1 }}
         onUseCashItem={() => undefined}
         cookingFoods={{}}
+        cookingFoodDefinitions={{}}
         onUseCookingFood={() => undefined}
         onUseExpTome={() => undefined}
         fishSpecimens={{}}
@@ -56,6 +57,7 @@ describe("RareMapsTab 이벤트 소모품", () => {
         cashItems={{}}
         onUseCashItem={() => undefined}
         cookingFoods={{}}
+        cookingFoodDefinitions={{}}
         onUseCookingFood={() => undefined}
         onUseExpTome={() => undefined}
         fishSpecimens={{}}
@@ -85,6 +87,7 @@ describe("RareMapsTab 이벤트 소모품", () => {
         cashItems={{ cultivation_reset_potion: 1 }}
         onUseCashItem={onUseCashItem}
         cookingFoods={{}}
+        cookingFoodDefinitions={{}}
         onUseCookingFood={() => undefined}
         onUseExpTome={() => undefined}
         fishSpecimens={{}}

@@ -22,6 +22,7 @@ import { GET } from "./route";
 import { emptyFarmState } from "@/adventure/v2/farm";
 import { emptyFishingStock } from "@/adventure/v2/fishingStock";
 import { emptyCookingState } from "@/adventure/v2/cooking/state";
+import { cookingFoodId } from "@/adventure/v2/cooking/foodShared";
 
 describe("GET /api/v2/me/inventory", () => {
   beforeEach(() => {
@@ -97,5 +98,29 @@ describe("GET /api/v2/me/inventory", () => {
         "cooking_kitchen:processed:flour": 5,
       },
     });
+  });
+
+  it("보유한 완성 음식의 표시 정보만 반환한다", async () => {
+    const foodId = cookingFoodId({
+      recipeId: "rustic_bread",
+      quality: "normal",
+      originator: false,
+      specialtyBonusPct: 0,
+    });
+    mocks.rows = [{
+      key: "inventory.v2",
+      value: { cookingFoods: { [foodId]: 2, "food2:unknown:normal:o0:s0": 9 } },
+    }];
+
+    const response = await GET();
+    const json = await response.json();
+
+    expect(json.cookingFoods).toEqual({ [foodId]: 2 });
+    expect(json.cookingFoodDefinitions[foodId]).toMatchObject({
+      name: "투박한 밀빵 (일반)",
+      recipe: { id: "rustic_bread", name: "투박한 밀빵" },
+    });
+    expect(JSON.stringify(json)).not.toContain("potato_stew");
+    expect(JSON.stringify(json)).not.toContain("감자 양파 스튜");
   });
 });

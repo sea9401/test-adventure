@@ -12,7 +12,7 @@ import {
   V2_REFORGE_ENABLED,
   isReforgeStoneMaterialId,
 } from "@/adventure/data/v2/v2EquipVariance";
-import { parseCookingFoodInventory } from "@/adventure/v2/cooking/food";
+import { cookingFoodDefinitions, parseCookingFoodInventory } from "@/adventure/v2/cooking/food";
 import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
 import { FARM_SAVE_KEY } from "@/adventure/v2/farm";
 import { FISHING_STOCK_KEY } from "@/adventure/v2/fishingStock";
@@ -106,6 +106,7 @@ export async function GET() {
     hpCharges,
     mpCharges,
     cookingFoods: parseCookingFoodInventory(invSave.cookingFoods),
+    cookingFoodDefinitions: cookingFoodDefinitions(invSave.cookingFoods),
     spFruitUsed,
     spCapBonus,
   });

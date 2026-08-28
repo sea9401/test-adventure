@@ -81,4 +81,22 @@ describe("전체 소식 과거 조회", () => {
     expect(await response.text()).toBe("invalid cursor");
     expect(mocks.select).not.toHaveBeenCalled();
   });
+
+  it("기존 요리 발견 소식도 서버에서 공개 가능한 이름으로 보강한다", async () => {
+    mocks.rows = [{
+      id: 7,
+      type: "cooking_discovery",
+      actorName: "류하린",
+      payload: { recipeId: "potato_stew" },
+      createdAt: new Date(1_700_000_000_000),
+    }];
+
+    const response = await GET(new Request("http://localhost/api/feed"));
+    const body = await response.json();
+
+    expect(body.entries[0].payload).toEqual({
+      recipeId: "potato_stew",
+      recipeName: "감자 양파 스튜",
+    });
+  });
 });

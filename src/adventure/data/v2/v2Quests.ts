@@ -28,7 +28,7 @@ import {
   ECOLOGICAL_RESEARCHER_TITLE_ID,
   FIELD_RECORDER_TITLE_ID,
 } from "../titles";
-import { COOKING_CODEX_MILESTONES } from "../../v2/cooking/catalog";
+import { COOKING_CODEX_MILESTONES } from "../../v2/cooking/catalogMeta";
 import { LIFE_HOUSING_ENABLED } from "../../v2/lifeCrafting";
 
 export type QuestLineId = string;

@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   BASIC_COOKING_RECIPE_IDS,
-  COOKING_CODEX_MILESTONES,
   COOKING_PUBLIC_RECIPES,
 } from "./catalog";
+import { COOKING_CODEX_MILESTONES } from "./catalogMeta";
 import {
   chooseCookingSpecialty,
   cookingLevelXpThreshold,

@@ -115,11 +115,11 @@ import {
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import {
-  cookingFoodDefinition,
-  isCookingFoodId,
+  isCookingFoodIdFormat as isCookingFoodId,
+  type CookingFoodDefinitionMap,
   type CookingFoodId,
   type CookingFoodInventory,
-} from "./cooking/food";
+} from "./cooking/foodShared";
 import { SURFACE_ACCENT, SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   equippedInstanceForMarketplaceItem,
@@ -410,6 +410,7 @@ export function V2MarketplaceView({
   const [rareMaps, setRareMaps] = useState<RareMapInstance[]>([]);
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
   const [cookingFoods, setCookingFoods] = useState<CookingFoodInventory>({});
+  const [cookingFoodDefinitions, setCookingFoodDefinitions] = useState<CookingFoodDefinitionMap>({});
   const [fishSpecimens, setFishSpecimens] = useState<FishSpecimenInventory["items"]>({});
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [qtys, setQtys] = useState<Record<string, string>>({});
@@ -535,9 +536,10 @@ export function V2MarketplaceView({
       fetch("/api/v2/me/fishing-specimens"),
     ]);
     if (inv.ok) {
-      const j = (await inv.json()) as { materials?: Record<string, number>; marketplaceMaterials?: Record<string, number>; cookingFoods?: CookingFoodInventory };
+      const j = (await inv.json()) as { materials?: Record<string, number>; marketplaceMaterials?: Record<string, number>; cookingFoods?: CookingFoodInventory; cookingFoodDefinitions?: CookingFoodDefinitionMap };
       setMaterials(j.marketplaceMaterials ?? j.materials ?? {});
       setCookingFoods(j.cookingFoods ?? {});
+      setCookingFoodDefinitions(j.cookingFoodDefinitions ?? {});
     }
     if (rm.ok) {
       const j = (await rm.json()) as {
@@ -1103,7 +1105,7 @@ export function V2MarketplaceView({
       setError("판매 총액은 999,999,999골드를 넘을 수 없어요.");
       return;
     }
-    const name = cookingFoodDefinition(itemId)?.name ?? "음식";
+    const name = cookingFoodDefinitions[itemId]?.name ?? "음식";
     return act(
       "/api/v2/marketplace/list",
       {
@@ -1328,7 +1330,7 @@ export function V2MarketplaceView({
       }
       for (const itemId of Object.keys(priceRef)) {
         if (!isCookingFoodId(itemId)) continue;
-        const definition = cookingFoodDefinition(itemId);
+        const definition = cookingFoodDefinitions[itemId as CookingFoodId];
         if (!definition) continue;
         groups.set(`consumable:${itemId}`, {
           key: `consumable:${itemId}`,
@@ -2209,6 +2211,7 @@ export function V2MarketplaceView({
                 rareMaps={rareMaps}
                 cashItems={cashItems}
                 cookingFoods={cookingFoods}
+                cookingFoodDefinitions={cookingFoodDefinitions}
                 fishSpecimens={fishSpecimens}
                 pager={sellRareMapPager}
                 prices={prices}

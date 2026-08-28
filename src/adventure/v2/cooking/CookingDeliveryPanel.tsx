@@ -11,7 +11,7 @@ import {
   cookingStandingDeliveryReward,
   type CookingDeliveryRequest,
 } from "./delivery";
-import { cookingFoodDefinition, cookingEffectText, type CookingFoodDefinition } from "./food";
+import { cookingEffectText, type CookingFoodDefinition } from "./foodShared";
 import type { CookingMutation, CookingResponse } from "./clientTypes";
 import { COOKING_EFFECT_TAG_NAMES } from "./types";
 
@@ -26,7 +26,7 @@ function RequestCard({ request, data, busy, mutate }: { request: CookingDelivery
     ? `${request.title} · ${COOKING_EFFECT_TAG_NAMES[request.condition.effectTag]} 효과`
     : request.title;
   const foods = Object.entries(data.cookingFoods).flatMap(([id, count]) => {
-    const food = cookingFoodDefinition(id);
+    const food = data.cookingFoodDefinitions[id as keyof typeof data.cookingFoodDefinitions];
     const score = food ? cookingDeliveryScore(food, request) : 0;
     return food && score > 0 && (count ?? 0) > 0 ? [{ food, count: count ?? 0, score }] : [];
   });
@@ -62,7 +62,7 @@ function FoodDeliveryRow({ food, count, score, quantity, setQuantity, busy, onDe
 export function CookingDeliveryPanel({ data, busy, mutate }: { data: CookingResponse; busy: boolean; mutate: CookingMutation }) {
   const [pendingSale, setPendingSale] = useState<PendingCookingSale | null>(null);
   const standingFoods = Object.entries(data.cookingFoods).flatMap(([id, count]) => {
-    const food = cookingFoodDefinition(id);
+    const food = data.cookingFoodDefinitions[id as keyof typeof data.cookingFoodDefinitions];
     return food && (count ?? 0) > 0 ? [{ food, count: count ?? 0 }] : [];
   });
   return <>

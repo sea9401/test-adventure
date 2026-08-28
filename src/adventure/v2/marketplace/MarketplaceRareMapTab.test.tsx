@@ -9,6 +9,7 @@ describe("MarketplaceRareMapTab 물고기 표본", () => {
         rareMaps={[]}
         cashItems={{}}
         cookingFoods={{}}
+        cookingFoodDefinitions={{}}
         fishSpecimens={{ carp: 3 }}
         pager={{ page: 1, pageCount: 1, pageItems: [], setPage: vi.fn() }}
         prices={{}}

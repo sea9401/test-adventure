@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
-import { cookingSpecialtyRank } from "./state";
+import { cookingSpecialtyRank } from "./specialty";
 import { COOKING_FIELD_NAMES, type CookingField } from "./types";
 import type { CookingMutation, CookingResponse } from "./clientTypes";
 

@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { Pagination } from "@/components/ui/Pagination";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { usePagination } from "@/lib/usePagination";
-import { cookingEffectText } from "./food";
+import { cookingEffectText } from "./foodShared";
 import { COOKING_FIELD_NAMES, COOKING_METHOD_NAMES } from "./types";
 import type { CookingMutation, CookingResponse } from "./clientTypes";
 import { cookingIngredientCount, cookingIngredientName } from "./clientDisplay";

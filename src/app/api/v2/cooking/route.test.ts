@@ -258,6 +258,10 @@ describe("/api/v2/cooking", () => {
       quality: "masterpiece",
       usedPrepSets: 1,
     });
+    expect(json.cookingFoodDefinitions[json.result.foodId]).toMatchObject({
+      recipe: { id: recipe.id, name: recipe.name },
+      quality: "masterpiece",
+    });
     expect(json.cookingPrepSets).toBe(1);
     expect(mocks.store.get("life-workshop.v1")).toMatchObject({
       crafting: {
@@ -401,7 +405,10 @@ describe("/api/v2/cooking", () => {
       userId: "cook-user",
       actorName: "나리",
     }));
-    expect(mocks.insertFeedEntry).toHaveBeenCalledWith("cook-user", "cooking_discovery", { recipeId: recipe.id });
+    expect(mocks.insertFeedEntry).toHaveBeenCalledWith("cook-user", "cooking_discovery", {
+      recipeId: recipe.id,
+      recipeName: recipe.name,
+    });
   });
 
   it("요구 레벨 전 정답 연구는 발견만 허용하고 제작은 잠근다", async () => {

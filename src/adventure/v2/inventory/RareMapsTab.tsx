@@ -34,11 +34,11 @@ import {
   COOP_MASTERY_TOME_MATERIAL_ID,
 } from "@/adventure/data/v2/coopRewards";
 import {
-  cookingFoodDefinition,
   cookingEffectText,
+  type CookingFoodDefinitionMap,
   type CookingFoodId,
   type CookingFoodInventory,
-} from "@/adventure/v2/cooking/food";
+} from "@/adventure/v2/cooking/foodShared";
 import {
   V2SimpleItemInfoCard,
   anchorOf,
@@ -82,6 +82,7 @@ export function RareMapsTab({
   cashItems,
   onUseCashItem,
   cookingFoods,
+  cookingFoodDefinitions,
   onUseCookingFood,
   onUseExpTome,
   fishSpecimens,
@@ -100,6 +101,7 @@ export function RareMapsTab({
   cashItems: MuseunCashItemCounts;
   onUseCashItem: (itemId: MuseunCashItemId) => void;
   cookingFoods: CookingFoodInventory;
+  cookingFoodDefinitions: CookingFoodDefinitionMap;
   onUseCookingFood: (itemId: CookingFoodId) => void;
   onUseExpTome: (map: RareMapInstance) => void;
   fishSpecimens: FishSpecimenInventory["items"];
@@ -131,6 +133,7 @@ export function RareMapsTab({
       />
       <CookingFoodSection
         cookingFoods={cookingFoods}
+        cookingFoodDefinitions={cookingFoodDefinitions}
         busy={busy}
         onUse={onUseCookingFood}
       />
@@ -196,16 +199,18 @@ export function RareMapsTab({
 
 function CookingFoodSection({
   cookingFoods,
+  cookingFoodDefinitions,
   busy,
   onUse,
 }: {
   cookingFoods: CookingFoodInventory;
+  cookingFoodDefinitions: CookingFoodDefinitionMap;
   busy: string | null;
   onUse: (itemId: CookingFoodId) => void;
 }) {
   const foods = Object.entries(cookingFoods)
     .flatMap(([itemId, count]) => {
-      const food = cookingFoodDefinition(itemId);
+      const food = cookingFoodDefinitions[itemId as CookingFoodId];
       return food && (count ?? 0) > 0 ? [{ food, count: count ?? 0 }] : [];
     })
     .sort(

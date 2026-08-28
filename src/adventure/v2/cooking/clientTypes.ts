@@ -2,7 +2,7 @@ import type { EquippedCookingBonuses } from "@/adventure/data/v2/v2Skills";
 import type { FarmItemDefinition, FarmItemInventory } from "../farm";
 import type { FishingCatchItem, FishingCatchItemId } from "../fishingStock";
 import type { CookingDeliveryRequest } from "./delivery";
-import type { CookingFoodInventory } from "./food";
+import type { CookingFoodDefinitionMap, CookingFoodInventory } from "./foodShared";
 import type { CookingPantryItem, CookingProcessingRecipe } from "./kitchen";
 import type { CookingStateV2 } from "./state";
 import type {
@@ -37,6 +37,7 @@ export type CookingResponse = {
   failedResearches: CookingFailedResearchView[];
   requests: { daily: CookingDeliveryRequest[]; weekly: CookingDeliveryRequest };
   cookingFoods: CookingFoodInventory;
+  cookingFoodDefinitions: CookingFoodDefinitionMap;
   failedCookingDishes: number;
   cookingPrepSets: number;
   farmItems: FarmItemInventory;

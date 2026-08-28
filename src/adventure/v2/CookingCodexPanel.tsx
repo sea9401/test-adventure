@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import Image from "next/image";
 import { CheckCircle, Circle, CookingPot, Trophy } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
@@ -9,33 +8,29 @@ import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { usePagination } from "@/lib/usePagination";
 import {
   COOKING_CODEX_MILESTONES,
-  COOKING_PUBLIC_RECIPES,
-} from "./cooking/catalog";
-import { cookingEffectText } from "./cooking/food";
+  type CookingCodexRecipeView,
+} from "./cooking/catalogMeta";
+import { cookingEffectText } from "./cooking/foodShared";
 
 const COOKING_CODEX_PAGE_SIZE = 20;
 
 export function CookingCodexPanel({
-  discoveredIds,
+  knownRecipes,
+  total,
 }: {
-  discoveredIds: readonly string[];
+  knownRecipes: readonly CookingCodexRecipeView[];
+  total: number;
 }) {
-  const discovered = useMemo(() => new Set(discoveredIds), [discoveredIds]);
-  const discoveredCount = COOKING_PUBLIC_RECIPES.filter((recipe) =>
-    discovered.has(recipe.id),
-  ).length;
+  const discoveredCount = knownRecipes.length;
   const progressPct =
-    COOKING_PUBLIC_RECIPES.length > 0
-      ? Math.min(100, (discoveredCount / COOKING_PUBLIC_RECIPES.length) * 100)
+    total > 0
+      ? Math.min(100, (discoveredCount / total) * 100)
       : 0;
-  const sortedRecipes = useMemo(
-    () => [
-      ...COOKING_PUBLIC_RECIPES.filter((recipe) => discovered.has(recipe.id)),
-      ...COOKING_PUBLIC_RECIPES.filter((recipe) => !discovered.has(recipe.id)),
-    ],
-    [discovered],
+  const entries = Array.from(
+    { length: total },
+    (_, index) => knownRecipes[index] ?? null,
   );
-  const pager = usePagination(sortedRecipes, COOKING_CODEX_PAGE_SIZE);
+  const pager = usePagination(entries, COOKING_CODEX_PAGE_SIZE);
 
   return (
     <div className="space-y-3">
@@ -57,7 +52,7 @@ export function CookingCodexPanel({
             </div>
           </div>
           <span className="shrink-0 text-sm font-bold tabular-nums text-amber-700 dark:text-amber-300">
-            {discoveredCount} / {COOKING_PUBLIC_RECIPES.length}
+            {discoveredCount} / {total}
           </span>
         </div>
         <div
@@ -65,7 +60,7 @@ export function CookingCodexPanel({
           role="progressbar"
           aria-label="요리 완성 도감 진행도"
           aria-valuemin={0}
-          aria-valuemax={COOKING_PUBLIC_RECIPES.length}
+          aria-valuemax={total}
           aria-valuenow={discoveredCount}
         >
           <div
@@ -134,24 +129,24 @@ export function CookingCodexPanel({
           <h2 className="text-sm font-bold">레시피 목록</h2>
           <span className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
             발견 {discoveredCount} · 미발견{" "}
-            {COOKING_PUBLIC_RECIPES.length - discoveredCount}
+            {total - discoveredCount}
           </span>
         </div>
         <ul
           aria-label="요리 레시피 목록"
           className="divide-y divide-zinc-200 dark:divide-zinc-800"
         >
-          {pager.pageItems.map((recipe) => {
-            const found = discovered.has(recipe.id);
+          {pager.pageItems.map((recipe, index) => {
+            const found = recipe !== null;
             return (
               <li
-                key={recipe.id}
+                key={recipe?.id ?? `unknown:${pager.page}:${index}`}
                 className="flex items-start gap-2.5 px-3 py-2.5"
               >
                 {found ? (
                   <Image
-                    src={recipe.imageSrc}
-                    alt={`${recipe.name} 이미지`}
+                    src={recipe!.imageSrc}
+                    alt={`${recipe!.name} 이미지`}
                     width={48}
                     height={48}
                     className="h-12 w-12 shrink-0 rounded-md object-contain"
@@ -166,7 +161,7 @@ export function CookingCodexPanel({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-sm font-semibold">
-                      {found ? recipe.name : "미발견 레시피"}
+                      {found ? recipe!.name : "미발견 레시피"}
                     </span>
                     <span
                       className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
@@ -179,10 +174,10 @@ export function CookingCodexPanel({
                     </span>
                   </div>
                   <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-                    {found ? recipe.description : "주방 연구에서 직접 발견해야 합니다."}
+                    {found ? recipe!.description : "주방 연구에서 직접 발견해야 합니다."}
                   </p>
                   <p className="mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
-                    {found ? `효과 · ${cookingEffectText(recipe.effect)}` : "효과 미확인"}
+                    {found ? `효과 · ${cookingEffectText(recipe!.effect)}` : "효과 미확인"}
                   </p>
                 </div>
               </li>

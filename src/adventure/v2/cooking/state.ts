@@ -9,14 +9,17 @@ import {
   BASIC_COOKING_RECIPE_IDS,
   COOKING_PUBLIC_RECIPE_BY_ID,
 } from "./catalog";
+export { cookingSpecialtyRank } from "./specialty";
+import { cookingSpecialtyRank } from "./specialty";
 import type { CookingField } from "./types";
+import { COOKING_STANDING_DELIVERY_DAILY_LIMIT } from "./constants";
+export { COOKING_STANDING_DELIVERY_DAILY_LIMIT } from "./constants";
 
 export const COOKING_SAVE_KEY = "cooking.v2";
 export const LEGACY_COOKING_SAVE_KEY = "cooking.v1";
 export const COOKING_LEVEL_CAP = LIFE_LEVEL_CAP;
 export const COOKING_XP_SCALE = 10;
 export const COOKING_DAILY_REQUEST_COUNT = 3;
-export const COOKING_STANDING_DELIVERY_DAILY_LIMIT = 20;
 
 export type CookingKitchenItemId =
   | "pantry:salt"
@@ -252,15 +255,6 @@ export function parseCookingState(
       ? { ingredientReductionRemainderBps }
       : {}),
   };
-}
-
-export function cookingSpecialtyRank(xp: number): 1 | 2 | 3 | 4 | 5 {
-  const safeXp = safeInt(xp);
-  if (safeXp >= 1_500) return 5;
-  if (safeXp >= 700) return 4;
-  if (safeXp >= 300) return 3;
-  if (safeXp >= 100) return 2;
-  return 1;
 }
 
 export function chooseCookingSpecialty(

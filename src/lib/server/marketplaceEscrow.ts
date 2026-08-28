@@ -18,6 +18,7 @@ import {
 } from "@/adventure/v2/cooking/food";
 import { restoreMarketplaceRareMap } from "@/lib/server/marketplaceV2";
 import { deliverFishSpecimenStack } from "@/lib/server/marketplaceV2Fulfillment";
+import { deliverMarketplaceLifeItem } from "@/lib/server/marketplaceLifeInventory";
 import { inboxValues } from "@/lib/server/inboxPayload";
 
 export type MarketplaceListingRow = typeof marketplaceListingsV2.$inferSelect;
@@ -139,6 +140,18 @@ async function restoreMarketplaceListingEscrow(
         rareMaps: [...parseRareMaps(charSave.rareMaps, now.getTime()), restored],
       });
     }
+    return;
+  }
+
+  if (
+    await deliverMarketplaceLifeItem(
+      tx,
+      listing.sellerId,
+      listing.itemId,
+      listing.quantity,
+      now.getTime(),
+    )
+  ) {
     return;
   }
 

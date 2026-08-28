@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   parseRareMaps: vi.fn(() => []),
   restoreMarketplaceRareMap: vi.fn(() => ({ iid: "preserved-map" })),
   deliverFishSpecimenStack: vi.fn(async () => false),
+  deliverMarketplaceLifeItem: vi.fn(async () => false),
 }));
 
 vi.mock("@/lib/server/savesKv", () => ({
@@ -44,6 +45,9 @@ vi.mock("@/lib/server/marketplaceV2", () => ({
 }));
 vi.mock("@/lib/server/marketplaceV2Fulfillment", () => ({
   deliverFishSpecimenStack: mocks.deliverFishSpecimenStack,
+}));
+vi.mock("@/lib/server/marketplaceLifeInventory", () => ({
+  deliverMarketplaceLifeItem: mocks.deliverMarketplaceLifeItem,
 }));
 
 import {
@@ -226,6 +230,30 @@ describe("거래소 에스크로 취소", () => {
       "character.v2",
       { materials: { iron_ore: 5 } },
     );
+  });
+
+  it("생활 재료를 판매자의 원본 생활 저장소로 복원한다", async () => {
+    const { tx } = transactionRecorder();
+    mocks.deliverMarketplaceLifeItem.mockResolvedValueOnce(true);
+
+    await cancelMarketplaceListingEscrow(
+      tx as never,
+      listing({ itemId: "farm_seed:wheat", itemName: "밀 씨앗", quantity: 1 }),
+      {
+        now,
+        refundHighestBid: false,
+        reason: "user_cancel",
+      },
+    );
+
+    expect(mocks.deliverMarketplaceLifeItem).toHaveBeenCalledWith(
+      tx,
+      "seller-1",
+      "farm_seed:wheat",
+      1,
+      now.getTime(),
+    );
+    expect(mocks.upsertSave).not.toHaveBeenCalled();
   });
 
   it("현금 아이템, 음식, 표본, 레어맵을 각각 본래 저장소로 복원한다", async () => {

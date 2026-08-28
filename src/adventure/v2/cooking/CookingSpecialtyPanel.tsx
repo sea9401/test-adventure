@@ -22,8 +22,8 @@ export function CookingSpecialtyPanel({
   mutate: CookingMutation;
 }) {
   const [pendingField, setPendingField] = useState<CookingField | null>(null);
-  const hiddenCount = data.cooking.discoveredRecipeIds.filter(
-    (id) => data.recipes.find((entry) => entry.id === id)?.discovery !== "basic",
+  const hiddenCount = data.knownRecipes.filter(
+    (recipe) => recipe.discovery !== "basic",
   ).length;
   const eligible = data.level >= 20 && hiddenCount >= 10;
   const specialty = data.cooking.specialty;

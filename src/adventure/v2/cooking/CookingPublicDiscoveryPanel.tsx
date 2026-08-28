@@ -5,29 +5,23 @@ import { useMemo, useState } from "react";
 import { Pagination } from "@/components/ui/Pagination";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { usePagination } from "@/lib/usePagination";
-import type { CookingFirstDiscoveryView } from "./clientTypes";
+import type { PublicCookingDiscovery } from "./clientTypes";
 import {
   publicCookingDiscoveries,
   type PublicCookingDiscoverySort,
 } from "./publicDiscoveries";
-import type { CookingRecipePublic } from "./types";
 
 const PUBLIC_DISCOVERY_PAGE_SIZE = 20;
 
 export function CookingPublicDiscoveryPanel({
-  recipes,
-  firstDiscoveries,
+  discoveries: sourceDiscoveries,
 }: {
-  recipes: readonly Pick<CookingRecipePublic, "id" | "name" | "imageSrc">[];
-  firstDiscoveries: readonly Pick<
-    CookingFirstDiscoveryView,
-    "recipeId" | "actorName" | "discoveredAt"
-  >[];
+  discoveries: readonly PublicCookingDiscovery[];
 }) {
   const [sort, setSort] = useState<PublicCookingDiscoverySort>("recent");
   const discoveries = useMemo(
-    () => publicCookingDiscoveries(recipes, firstDiscoveries, sort),
-    [firstDiscoveries, recipes, sort],
+    () => publicCookingDiscoveries(sourceDiscoveries, sort),
+    [sourceDiscoveries, sort],
   );
   const pager = usePagination(discoveries, PUBLIC_DISCOVERY_PAGE_SIZE, sort);
 
@@ -65,7 +59,7 @@ export function CookingPublicDiscoveryPanel({
           <div className="mt-4 grid gap-3 lg:grid-cols-2">
             {pager.pageItems.map((discovery) => (
               <article
-                key={discovery.recipeId}
+                key={`${discovery.recipeName}:${discovery.actorName}:${discovery.discoveredAt}`}
                 className={`${SURFACE_INSET} flex items-center gap-3 p-3`}
               >
                 <Image

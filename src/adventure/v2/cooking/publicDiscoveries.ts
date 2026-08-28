@@ -1,19 +1,10 @@
-import type { CookingFirstDiscoveryView } from "./clientTypes";
-import type { CookingRecipePublic } from "./types";
+import type { PublicCookingDiscovery } from "./clientTypes";
 
 export type PublicCookingDiscoverySort =
   | "recent"
   | "oldest"
   | "recipe_name"
   | "actor_name";
-
-export type PublicCookingDiscovery = {
-  recipeId: string;
-  recipeName: string;
-  imageSrc: string;
-  actorName: string;
-  discoveredAt: number;
-};
 
 const PUBLIC_DISCOVERY_SORTS = new Set<PublicCookingDiscoverySort>([
   "recent",
@@ -30,26 +21,10 @@ function normalizedSort(value: unknown): PublicCookingDiscoverySort {
 }
 
 export function publicCookingDiscoveries(
-  recipes: readonly Pick<CookingRecipePublic, "id" | "name" | "imageSrc">[],
-  firstDiscoveries: readonly Pick<
-    CookingFirstDiscoveryView,
-    "recipeId" | "actorName" | "discoveredAt"
-  >[],
+  discoveries: readonly PublicCookingDiscovery[],
   sort: unknown = "recent",
 ): PublicCookingDiscovery[] {
-  const recipeById = new Map(recipes.map((recipe) => [recipe.id, recipe]));
-  const entries = firstDiscoveries.flatMap((discovery) => {
-    const recipe = recipeById.get(discovery.recipeId);
-    return recipe
-      ? [{
-          recipeId: recipe.id,
-          recipeName: recipe.name,
-          imageSrc: recipe.imageSrc,
-          actorName: discovery.actorName,
-          discoveredAt: discovery.discoveredAt,
-        }]
-      : [];
-  });
+  const entries = discoveries.map((discovery) => ({ ...discovery }));
   const activeSort = normalizedSort(sort);
 
   return entries.sort((left, right) => {
@@ -64,7 +39,7 @@ export function publicCookingDiscoveries(
     return (
       primary ||
       left.recipeName.localeCompare(right.recipeName, "ko-KR") ||
-      left.recipeId.localeCompare(right.recipeId)
+      left.actorName.localeCompare(right.actorName, "ko-KR")
     );
   });
 }

@@ -8,15 +8,14 @@ import type { CookingStateV2 } from "./state";
 import type {
   CookingIngredientId,
   CookingMethod,
-  CookingRecipePublic,
   CookingRecipeSecret,
 } from "./types";
 
-export type CookingFirstDiscoveryView = {
-  recipeId: string;
+export type PublicCookingDiscovery = {
+  recipeName: string;
+  imageSrc: string;
   actorName: string;
   discoveredAt: number;
-  mine: boolean;
 };
 
 export type CookingFailedResearchView = {
@@ -32,9 +31,9 @@ export type CookingResponse = {
   level: number;
   currentLevelXp: number;
   nextLevelXp: number | null;
-  recipes: CookingRecipePublic[];
+  recipeTotal: number;
   knownRecipes: CookingRecipeSecret[];
-  firstDiscoveries: CookingFirstDiscoveryView[];
+  publicDiscoveries: PublicCookingDiscovery[];
   failedResearches: CookingFailedResearchView[];
   requests: { daily: CookingDeliveryRequest[]; weekly: CookingDeliveryRequest };
   cookingFoods: CookingFoodInventory;

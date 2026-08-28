@@ -74,7 +74,7 @@ function resultMessage(data: CookingResponse): string {
     const failedDishCount = Math.max(0, Math.floor(Number(result.failedDishCount) || 0));
     return `조합 연구 실패 · 선택 재료 각 1개 소비 · 요리 XP +${earnedXp.toLocaleString("ko-KR")} · 실패 음식 +${failedDishCount.toLocaleString("ko-KR")}`;
   }
-  if (result.action === "craft") return `${data.recipes.find((entry) => entry.id === result.recipeId)?.name ?? "요리"} ${Number(result.quantity) || 1}개 완성 · ${String(result.quality ?? "normal")}${Number(result.usedPrepSets) > 0 ? ` · 준비 세트 ${Number(result.usedPrepSets)}개 사용` : ""}`;
+  if (result.action === "craft") return `${data.knownRecipes.find((entry) => entry.id === result.recipeId)?.name ?? "요리"} ${Number(result.quantity) || 1}개 완성 · ${String(result.quality ?? "normal")}${Number(result.usedPrepSets) > 0 ? ` · 준비 세트 ${Number(result.usedPrepSets)}개 사용` : ""}`;
   if (result.action === "choose_specialty") return `${COOKING_FIELD_NAMES[result.field as keyof typeof COOKING_FIELD_NAMES]} 전문 분야를 영구 확정했습니다.`;
   if (result.action === "deliver") return result.completedNow ? "납품 목표를 달성해 보상을 받았습니다." : `납품 점수 +${Number(result.scoreAdded) || 0}`;
   if (result.action === "standing_delivery") return `상시 납품 완료 · ${Number(result.gold).toLocaleString()}골드`;
@@ -91,7 +91,7 @@ export function CookingWorkspace({ data, section, onSectionChange, busy, mutate 
   mutate: CookingMutation;
 }) {
   const progress = cookingLevelProgressView({ xp: data.cooking.xp, currentLevelXp: data.currentLevelXp, nextLevelXp: data.nextLevelXp });
-  const recipeTotal = data.recipes.length;
+  const recipeTotal = data.recipeTotal;
   return <div className="space-y-4">
     <section className={`${SURFACE_CARD} p-4`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -106,7 +106,7 @@ export function CookingWorkspace({ data, section, onSectionChange, busy, mutate 
     ]} active={section} onChange={onSectionChange} ariaLabel="요리 연구실 메뉴" className="justify-around" scrollable /></div>
     {section === "research" ? <CookingResearchPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "codex" ? <CookingCodexPanel data={data} busy={busy} mutate={mutate} /> : null}
-    {section === "public" ? <CookingPublicDiscoveryPanel recipes={data.recipes} firstDiscoveries={data.firstDiscoveries} /> : null}
+    {section === "public" ? <CookingPublicDiscoveryPanel discoveries={data.publicDiscoveries} /> : null}
     {section === "specialty" ? <CookingSpecialtyPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "delivery" ? <CookingDeliveryPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "processing" ? <CookingProcessingPanel data={data} busy={busy} mutate={mutate} /> : null}

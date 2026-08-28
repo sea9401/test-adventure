@@ -46,7 +46,6 @@ type InventorySave = Record<string, unknown> & {
 };
 type FirstDiscoveryRow = {
   recipeId: string;
-  userId: string;
   actorName: string;
   authoritativeActorName: string | null;
   discoveredAt: Date;
@@ -136,6 +135,21 @@ function knownRecipeDetails(discoveredIds: readonly string[]) {
   }));
 }
 
+function publicDiscoveryDetails(firstDiscoveries: readonly FirstDiscoveryRow[]) {
+  return firstDiscoveries.flatMap((row) => {
+    const recipe = COOKING_PUBLIC_RECIPE_BY_ID.get(row.recipeId);
+    if (!recipe) return [];
+    return [{
+      recipeName: recipe.name,
+      imageSrc: recipe.imageSrc,
+      actorName: row.actorName === DEFAULT_ACTOR_NAME
+        ? row.authoritativeActorName?.trim() || row.actorName
+        : row.actorName,
+      discoveredAt: row.discoveredAt.getTime(),
+    }];
+  });
+}
+
 function isRareCookingIngredient(ingredientId: CookingIngredientId): boolean {
   const [kind, id] = ingredientId.split(":");
   if (kind === "farm") return RARE_FARM_COOKING_INGREDIENT_IDS.has(id);
@@ -169,16 +183,9 @@ function cookingView(userId: string, now: number, values: {
     level,
     currentLevelXp: cookingLevelXpThreshold(level),
     nextLevelXp: level >= COOKING_LEVEL_CAP ? null : cookingLevelXpThreshold(level + 1),
-    recipes: COOKING_PUBLIC_RECIPES,
+    recipeTotal: COOKING_PUBLIC_RECIPES.length,
     knownRecipes: knownRecipeDetails(cooking.discoveredRecipeIds),
-    firstDiscoveries: values.firstDiscoveries.map((row) => ({
-      recipeId: row.recipeId,
-      actorName: row.actorName === DEFAULT_ACTOR_NAME
-        ? row.authoritativeActorName?.trim() || row.actorName
-        : row.actorName,
-      discoveredAt: row.discoveredAt.getTime(),
-      mine: row.userId === userId,
-    })),
+    publicDiscoveries: publicDiscoveryDetails(values.firstDiscoveries),
     failedResearches: values.failedResearches.map((row) => ({
       method: row.method,
       ingredientIds: [...row.ingredientIds],
@@ -208,7 +215,6 @@ async function firstDiscoveryRows(executor: DbExecutor): Promise<FirstDiscoveryR
   return executor
     .select({
       recipeId: cookingFirstDiscoveries.recipeId,
-      userId: cookingFirstDiscoveries.userId,
       actorName: cookingFirstDiscoveries.actorName,
       authoritativeActorName: sql<string | null>`coalesce(
         nullif(btrim(${users.gameName}), ''),

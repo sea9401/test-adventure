@@ -54,9 +54,9 @@ function fixture(effectTag: CookingEffectTag = "offense"): CookingResponse {
     level: 20,
     currentLevelXp: cookingLevelXpThreshold(20),
     nextLevelXp: cookingLevelXpThreshold(21),
-    recipes: [...COOKING_PUBLIC_RECIPES],
+    recipeTotal: COOKING_PUBLIC_RECIPES.length,
     knownRecipes: COOKING_SECRET_RECIPES.filter((entry) => cooking.discoveredRecipeIds.includes(entry.id)),
-    firstDiscoveries: [],
+    publicDiscoveries: [],
     failedResearches: [],
     requests,
     cookingFoods: { [foodId]: 2 },
@@ -84,7 +84,7 @@ function renderSection(section: Parameters<typeof CookingWorkspace>[0]["section"
 describe("개편 요리 연구실", () => {
   it("상단 안내와 발견 진행도를 현재 레시피 총수로 표시한다", () => {
     const data = fixture();
-    data.cooking.discoveredRecipeIds = data.recipes.slice(0, 104).map((recipe) => recipe.id);
+    data.cooking.discoveredRecipeIds = COOKING_PUBLIC_RECIPES.slice(0, 104).map((recipe) => recipe.id);
     const html = renderToStaticMarkup(
       <CookingWorkspace
         data={data}
@@ -121,12 +121,12 @@ describe("개편 요리 연구실", () => {
 
   it("공개 발견 화면은 요리 이름과 최초 발견자만 공개한다", () => {
     const data = fixture();
-    const recipe = data.recipes[10];
-    data.firstDiscoveries = [{
-      recipeId: recipe.id,
+    const recipe = COOKING_PUBLIC_RECIPES[10];
+    data.publicDiscoveries = [{
+      recipeName: recipe.name,
+      imageSrc: recipe.imageSrc,
       actorName: "류하린",
       discoveredAt: NOW,
-      mine: false,
     }];
     const html = renderToStaticMarkup(
       <CookingWorkspace

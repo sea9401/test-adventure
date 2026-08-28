@@ -6,28 +6,20 @@ import { CookingPublicDiscoveryPanel } from "./CookingPublicDiscoveryPanel";
 
 afterEach(cleanup);
 
-const recipes = Array.from({ length: 21 }, (_, index) => {
+const discoveries = Array.from({ length: 21 }, (_, index) => {
   const number = String(index + 1).padStart(2, "0");
   return {
-    id: `recipe-${number}`,
-    name: `공개 요리 ${number}`,
+    recipeName: `공개 요리 ${number}`,
     imageSrc: `/images/items/cooking/recipe-${number}.webp`,
+    actorName: `발견자 ${number}`,
+    discoveredAt: index + 1,
   };
 });
-
-const discoveries = recipes.map((recipe, index) => ({
-  recipeId: recipe.id,
-  actorName: `발견자 ${String(index + 1).padStart(2, "0")}`,
-  discoveredAt: index + 1,
-}));
 
 describe("공개 요리 발견 패널", () => {
   it("공개 정보만 최근 발견순으로 20개씩 보여준다", () => {
     const { container } = render(
-      <CookingPublicDiscoveryPanel
-        recipes={recipes}
-        firstDiscoveries={discoveries}
-      />,
+      <CookingPublicDiscoveryPanel discoveries={discoveries} />,
     );
 
     expect(
@@ -47,7 +39,7 @@ describe("공개 요리 발견 패널", () => {
 
   it("공개된 요리가 없으면 빈 상태를 보여준다", () => {
     render(
-      <CookingPublicDiscoveryPanel recipes={recipes} firstDiscoveries={[]} />,
+      <CookingPublicDiscoveryPanel discoveries={[]} />,
     );
 
     expect(screen.getByText("아직 공개된 요리가 없습니다.")).toBeTruthy();
@@ -56,10 +48,7 @@ describe("공개 요리 발견 패널", () => {
 
   it("정렬을 고르면 결과를 바꾸고 첫 페이지로 돌아간다", async () => {
     render(
-      <CookingPublicDiscoveryPanel
-        recipes={recipes}
-        firstDiscoveries={discoveries}
-      />,
+      <CookingPublicDiscoveryPanel discoveries={discoveries} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "2 페이지" }));
     expect(

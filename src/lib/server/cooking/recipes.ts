@@ -91,10 +91,13 @@ const NAMED_ANCHORS: readonly [needle: string, ingredient: CookingIngredientId][
   ["bread", "processed:flour"], ["pastry", "processed:flour"],
 ];
 
-const NAMED_RARE_ANCHORS: readonly [
+const NAMED_DISPLAY_ANCHORS: readonly [
   ingredientName: string,
   ingredient: CookingIngredientId,
 ][] = [
+  ["우유", "farm:milk"],
+  ["버터", "processed:butter"],
+  ["소금", "pantry:salt"],
   ["황금 밀", "farm:golden_wheat"],
   ["은빛잎", "farm:silverleaf"],
   ["달콤 옥수수", "farm:sweet_corn"],
@@ -124,7 +127,7 @@ function ingredientsForRecipe(
   if (explicit) return explicit;
   const pool = INGREDIENT_POOLS[recipe.field];
   const anchors = [
-    ...NAMED_RARE_ANCHORS.flatMap(([ingredientName, ingredient]) =>
+    ...NAMED_DISPLAY_ANCHORS.flatMap(([ingredientName, ingredient]) =>
       recipe.name.includes(ingredientName) ? [ingredient] : [],
     ),
     ...NAMED_ANCHORS.flatMap(([needle, ingredient]) =>

@@ -100,6 +100,12 @@ const NAMED_RARE_INGREDIENTS = [
   ["왕실 카카오", "farm:royal_cacao"],
 ] as const;
 
+const NAMED_COMMON_INGREDIENTS = [
+  ["우유", "farm:milk"],
+  ["버터", "processed:butter"],
+  ["소금", "pantry:salt"],
+] as const;
+
 describe("hidden cooking recipe catalog", () => {
   it("publishes expansion batches 01 through 38 as complete ten-recipe units", () => {
     expect(COOKING_EXPANSION_BATCHES.map((batch) => batch.id)).toEqual(
@@ -223,6 +229,20 @@ describe("hidden cooking recipe catalog", () => {
     expect(missing).toEqual([]);
   });
 
+  it("이름에 명시된 우유·버터·소금을 실제 재료로 사용한다", () => {
+    const missing = COOKING_SECRET_RECIPES.flatMap((recipe) => {
+      const actual = recipe.ingredients.map((ingredient) => ingredient.id);
+      return NAMED_COMMON_INGREDIENTS.flatMap(
+        ([ingredientName, ingredientId]) =>
+          recipe.name.includes(ingredientName) && !actual.includes(ingredientId)
+            ? [`${recipe.id}:${ingredientId}:${actual.join(",")}`]
+            : [],
+      );
+    });
+
+    expect(missing).toEqual([]);
+  });
+
   it("uses the authored metadata and answers for expansion batch 01", () => {
     for (const [id, name, field, method, tier, ingredientIds] of EXPANSION_BATCH_01) {
       const recipe = COOKING_SECRET_RECIPE_BY_ID.get(id);
@@ -253,7 +273,7 @@ describe("hidden cooking recipe catalog", () => {
 
     expect(
       createHash("sha256").update(legacyAnswers.join("\n")).digest("hex"),
-    ).toBe("e584b84774eafd7fc9898a4c1d23676dc17aec7b3269767aa8144d7ac78e4296");
+    ).toBe("83300c5574ebb68f0cbc6d465af2bdf4a2be7f9341ee3b302018012b5a0142ac");
   });
 
   it("provides optimized artwork for every simple recipe", () => {

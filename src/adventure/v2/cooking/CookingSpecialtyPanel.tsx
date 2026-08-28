@@ -27,6 +27,7 @@ export function CookingSpecialtyPanel({
   ).length;
   const eligible = data.level >= 20 && hiddenCount >= 10;
   const specialty = data.cooking.specialty;
+  const specialtyRank = specialty ? cookingSpecialtyRank(specialty.xp) : null;
   return (
     <>
       <section className={`${SURFACE_CARD} p-4`}>
@@ -41,10 +42,11 @@ export function CookingSpecialtyPanel({
           <div className={`${SURFACE_INSET} mt-4 p-4`}>
             <div className="text-lg font-bold text-amber-800 dark:text-amber-200">
               {COOKING_FIELD_NAMES[specialty.field]} 전문 · 랭크{" "}
-              {cookingSpecialtyRank(specialty.xp)}
+              {specialtyRank}
+              {specialtyRank === 5 ? " (MAX)" : ""}
             </div>
             <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-              전문 분야 음식 성능 +{cookingSpecialtyRank(specialty.xp)}% · 숙련 XP{" "}
+              전문 분야 음식 성능 +{specialtyRank}% · 숙련 XP{" "}
               {specialty.xp.toLocaleString()}
             </div>
             <div className="mt-2 text-xs text-zinc-500">

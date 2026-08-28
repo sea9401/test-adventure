@@ -9,6 +9,7 @@ import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 import { CookingResearchPanel } from "./cooking/CookingResearchPanel";
 import { CookingCodexPanel } from "./cooking/CookingCodexPanel";
+import { CookingPublicDiscoveryPanel } from "./cooking/CookingPublicDiscoveryPanel";
 import { CookingSpecialtyPanel } from "./cooking/CookingSpecialtyPanel";
 import { CookingDeliveryPanel } from "./cooking/CookingDeliveryPanel";
 import { CookingProcessingPanel } from "./cooking/CookingProcessingPanel";
@@ -17,7 +18,7 @@ import { COOKING_FIELD_NAMES } from "./cooking/types";
 
 export { SurplusCropLabel } from "./SurplusExchangePanel";
 
-type CookingSection = "research" | "codex" | "specialty" | "delivery" | "processing";
+type CookingSection = "research" | "codex" | "public" | "specialty" | "delivery" | "processing";
 
 const ERROR_TEXT: Record<string, string> = {
   duplicate_combination: "이미 실패한 조합입니다. 재료는 소비하지 않았습니다.",
@@ -101,10 +102,11 @@ export function CookingWorkspace({ data, section, onSectionChange, busy, mutate 
       <div className="mt-1 text-right text-[11px] text-zinc-500">{progress.label}</div>
     </section>
     <div className={`${SURFACE_CARD} px-1`}><TabBar tabs={[
-      { key: "research", label: "연구" }, { key: "codex", label: "도감" }, { key: "specialty", label: "전문 분야" }, { key: "delivery", label: "납품" }, { key: "processing", label: "재료 가공" },
-    ]} active={section} onChange={onSectionChange} ariaLabel="요리 연구실 메뉴" className="justify-around" /></div>
+      { key: "research", label: "연구" }, { key: "codex", label: "도감" }, { key: "public", label: "공개 발견" }, { key: "specialty", label: "전문 분야" }, { key: "delivery", label: "납품" }, { key: "processing", label: "재료 가공" },
+    ]} active={section} onChange={onSectionChange} ariaLabel="요리 연구실 메뉴" className="justify-around" scrollable /></div>
     {section === "research" ? <CookingResearchPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "codex" ? <CookingCodexPanel data={data} busy={busy} mutate={mutate} /> : null}
+    {section === "public" ? <CookingPublicDiscoveryPanel recipes={data.recipes} firstDiscoveries={data.firstDiscoveries} /> : null}
     {section === "specialty" ? <CookingSpecialtyPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "delivery" ? <CookingDeliveryPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "processing" ? <CookingProcessingPanel data={data} busy={busy} mutate={mutate} /> : null}

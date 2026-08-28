@@ -100,9 +100,9 @@ describe("개편 요리 연구실", () => {
     expect(html).not.toContain("발견 104/100");
   });
 
-  it("다섯 탭과 12시간 음식 안내를 제공한다", () => {
+  it("여섯 탭과 12시간 음식 안내를 제공한다", () => {
     const html = renderSection("research");
-    for (const label of ["연구", "도감", "전문 분야", "납품", "재료 가공"]) expect(html).toContain(label);
+    for (const label of ["연구", "도감", "공개 발견", "전문 분야", "납품", "재료 가공"]) expect(html).toContain(label);
     expect(html).toContain("12시간 음식");
     expect(html).toContain("정답 조합과 힌트는 공개되지 않습니다");
     expect(html).toContain(SURFACE_CARD.split(" ")[0]);
@@ -111,11 +111,38 @@ describe("개편 요리 연구실", () => {
   it.each([
     ["research", "레시피 연구"],
     ["codex", "요리 도감"],
+    ["public", "공개 발견 요리"],
     ["specialty", "한 번 정하면 변경하거나 초기화할 수 없습니다"],
     ["delivery", "조건 납품"],
     ["processing", "주방 상점"],
   ] as const)("%s 화면을 렌더링한다", (section, text) => {
     expect(renderSection(section)).toContain(text);
+  });
+
+  it("공개 발견 화면은 요리 이름과 최초 발견자만 공개한다", () => {
+    const data = fixture();
+    const recipe = data.recipes[10];
+    data.firstDiscoveries = [{
+      recipeId: recipe.id,
+      actorName: "류하린",
+      discoveredAt: NOW,
+      mine: false,
+    }];
+    const html = renderToStaticMarkup(
+      <CookingWorkspace
+        data={data}
+        section="public"
+        onSectionChange={vi.fn()}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+
+    expect(html).toContain(recipe.name);
+    expect(html).toContain("최초 발견자: 류하린");
+    expect(html).not.toContain("비밀 재료");
+    expect(html).not.toContain("T1");
+    expect(html).not.toContain("Lv 1");
   });
 
   it("미발견 도감 카드에 서버 전용 조합을 넣지 않는다", () => {

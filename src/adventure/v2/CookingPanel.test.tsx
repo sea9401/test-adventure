@@ -82,6 +82,24 @@ function renderSection(section: Parameters<typeof CookingWorkspace>[0]["section"
 }
 
 describe("개편 요리 연구실", () => {
+  it("상단 안내와 발견 진행도를 현재 레시피 총수로 표시한다", () => {
+    const data = fixture();
+    data.cooking.discoveredRecipeIds = data.recipes.slice(0, 104).map((recipe) => recipe.id);
+    const html = renderToStaticMarkup(
+      <CookingWorkspace
+        data={data}
+        section="research"
+        onSectionChange={vi.fn()}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+
+    expect(html).toContain("500종의 레시피 조합");
+    expect(html).toContain("발견 104/500");
+    expect(html).not.toContain("발견 104/100");
+  });
+
   it("다섯 탭과 12시간 음식 안내를 제공한다", () => {
     const html = renderSection("research");
     for (const label of ["연구", "도감", "전문 분야", "납품", "재료 가공"]) expect(html).toContain(label);

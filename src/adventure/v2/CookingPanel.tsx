@@ -90,11 +90,12 @@ export function CookingWorkspace({ data, section, onSectionChange, busy, mutate 
   mutate: CookingMutation;
 }) {
   const progress = cookingLevelProgressView({ xp: data.cooking.xp, currentLevelXp: data.currentLevelXp, nextLevelXp: data.nextLevelXp });
+  const recipeTotal = data.recipes.length;
   return <div className="space-y-4">
     <section className={`${SURFACE_CARD} p-4`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><h2 className="font-bold text-zinc-900 dark:text-zinc-100">🍳 레시피 연구실 · 요리 Lv {data.level}</h2><p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">100종의 레시피 조합을 연구하고, 거래 가능한 12시간 음식을 만듭니다.</p></div>
-        <div className="text-right text-xs text-zinc-600 dark:text-zinc-300"><div>{data.cookingJobName ?? "요리 직업 미전직"}</div><div>발견 {data.cooking.discoveredRecipeIds.length}/100 · 실패 음식 {data.failedCookingDishes}개</div><div>농장 증표 {data.farmReputation}</div></div>
+        <div><h2 className="font-bold text-zinc-900 dark:text-zinc-100">🍳 레시피 연구실 · 요리 Lv {data.level}</h2><p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">{recipeTotal}종의 레시피 조합을 연구하고, 거래 가능한 12시간 음식을 만듭니다.</p></div>
+        <div className="text-right text-xs text-zinc-600 dark:text-zinc-300"><div>{data.cookingJobName ?? "요리 직업 미전직"}</div><div>발견 {data.cooking.discoveredRecipeIds.length}/{recipeTotal} · 실패 음식 {data.failedCookingDishes}개</div><div>농장 증표 {data.farmReputation}</div></div>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700"><div className="h-full bg-amber-500" style={{ width: `${progress.percent}%` }} /></div>
       <div className="mt-1 text-right text-[11px] text-zinc-500">{progress.label}</div>

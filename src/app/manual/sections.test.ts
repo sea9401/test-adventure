@@ -39,4 +39,14 @@ describe("게임 안내서 구성", () => {
       MANUAL_SECTIONS.find((section) => section.slug === "quests")?.summary,
     ).toContain("트로피");
   });
+
+  it("전투 계산식을 독립된 전투 안내 페이지로 제공한다", () => {
+    expect(
+      MANUAL_SECTIONS.find((section) => section.slug === "combat-formulas"),
+    ).toMatchObject({
+      title: "전투 계산식",
+      group: "combat",
+    });
+    expect(MANUAL_CONTENT["combat-formulas"]).toBeTypeOf("function");
+  });
 });

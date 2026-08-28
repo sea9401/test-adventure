@@ -38,6 +38,12 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     group: "combat",
   },
   {
+    slug: "combat-formulas",
+    title: "전투 계산식",
+    summary: "공격·방어·치명타·회피·속도와 출혈·중독·연소의 실제 계산식을 정리합니다.",
+    group: "combat",
+  },
+  {
     slug: "hunting",
     title: "사냥과 사냥터",
     summary: "사냥터 선택, 스태미나 소모, 전리품과 희귀 탐사 규칙을 정리합니다.",

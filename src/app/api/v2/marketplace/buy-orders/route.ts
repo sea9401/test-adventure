@@ -12,7 +12,7 @@ import {
   equipmentBuyOrderMinimumPrice,
   isMarketKind,
   isStackableMarketplaceItem,
-  isTradableMaterial,
+  isTradableMarketplaceMaterial,
   isValidMaterialQty,
   isValidPrice,
   itemDisplayName,
@@ -258,7 +258,10 @@ export async function POST(req: Request) {
     if (!isStackableMarketplaceItem(body.kind, body.itemId)) {
       return bad("not_stackable");
     }
-    if (body.kind === "material" && !isTradableMaterial(body.itemId)) {
+    if (
+      body.kind === "material" &&
+      !isTradableMarketplaceMaterial(body.itemId)
+    ) {
       return bad("not_tradable");
     }
     if (!isValidMaterialQty(body.quantity)) return bad("bad_quantity");

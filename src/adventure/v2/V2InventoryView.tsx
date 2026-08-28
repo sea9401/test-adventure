@@ -49,7 +49,7 @@ import { EquipmentTab } from "./inventory/EquipmentTab";
 import { MaterialsTab } from "./inventory/MaterialsTab";
 import { RareMapsTab } from "./inventory/RareMapsTab";
 import { useSystemToast } from "./RewardToastProvider";
-import type { ActiveCookingBuff, CookingFoodId, CookingFoodInventory } from "./cooking/food";
+import type { ActiveCookingBuff, CookingFoodDefinitionMap, CookingFoodId, CookingFoodInventory } from "./cooking/foodShared";
 import { shopSaleBalancePatch, shopSaleBankNotice } from "./shopSaleBalance";
 import { MasteryCertificateUseModal } from "./MasteryCertificateUseModal";
 import type { FishId } from "@/adventure/data/v2/fish";
@@ -123,6 +123,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   const [rareMaps, setRareMaps] = useState<RareMapInstance[] | null>(null);
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
   const [cookingFoods, setCookingFoods] = useState<CookingFoodInventory>({});
+  const [cookingFoodDefinitions, setCookingFoodDefinitions] = useState<CookingFoodDefinitionMap>({});
   const [fishSpecimens, setFishSpecimens] = useState<FishSpecimenInventory["items"]>({});
   const [registeredFishIds, setRegisteredFishIds] = useState<string[]>([]);
   const [masteryCertificates, setMasteryCertificates] = useState(0);
@@ -231,10 +232,12 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           materials?: Partial<Record<V2MaterialId, number>>;
           spFruitUsed?: Partial<Record<SpFruitTier, number>>;
           cookingFoods?: CookingFoodInventory;
+          cookingFoodDefinitions?: CookingFoodDefinitionMap;
           masteryCertificates?: number;
         };
         setMaterials(j.materials ?? {});
         setCookingFoods(j.cookingFoods ?? {});
+        setCookingFoodDefinitions(j.cookingFoodDefinitions ?? {});
         setMasteryCertificates(
           Math.max(0, Math.floor(Number(j.masteryCertificates) || 0)),
         );
@@ -1086,6 +1089,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             cashItems={cashItems}
             onUseCashItem={useCashItem}
             cookingFoods={cookingFoods}
+            cookingFoodDefinitions={cookingFoodDefinitions}
             onUseCookingFood={useCookingFood}
             onUseExpTome={useExpTome}
             fishSpecimens={fishSpecimens}

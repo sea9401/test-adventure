@@ -23,7 +23,7 @@ import {
   type V2EquipInstance,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
-import type { ActiveCookingBuff } from "@/adventure/v2/cooking/food";
+import type { ActiveCookingBuff } from "@/adventure/v2/cooking/foodShared";
 import type { GuildDiningEffectSummary } from "@/adventure/data/v2/guildDining";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";

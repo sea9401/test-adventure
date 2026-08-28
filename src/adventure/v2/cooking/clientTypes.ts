@@ -2,21 +2,20 @@ import type { EquippedCookingBonuses } from "@/adventure/data/v2/v2Skills";
 import type { FarmItemDefinition, FarmItemInventory } from "../farm";
 import type { FishingCatchItem, FishingCatchItemId } from "../fishingStock";
 import type { CookingDeliveryRequest } from "./delivery";
-import type { CookingFoodInventory } from "./food";
+import type { CookingFoodDefinitionMap, CookingFoodInventory } from "./foodShared";
 import type { CookingPantryItem, CookingProcessingRecipe } from "./kitchen";
 import type { CookingStateV2 } from "./state";
 import type {
   CookingIngredientId,
   CookingMethod,
-  CookingRecipePublic,
   CookingRecipeSecret,
 } from "./types";
 
-export type CookingFirstDiscoveryView = {
-  recipeId: string;
+export type PublicCookingDiscovery = {
+  recipeName: string;
+  imageSrc: string;
   actorName: string;
   discoveredAt: number;
-  mine: boolean;
 };
 
 export type CookingFailedResearchView = {
@@ -32,12 +31,13 @@ export type CookingResponse = {
   level: number;
   currentLevelXp: number;
   nextLevelXp: number | null;
-  recipes: CookingRecipePublic[];
+  recipeTotal: number;
   knownRecipes: CookingRecipeSecret[];
-  firstDiscoveries: CookingFirstDiscoveryView[];
+  publicDiscoveries: PublicCookingDiscovery[];
   failedResearches: CookingFailedResearchView[];
   requests: { daily: CookingDeliveryRequest[]; weekly: CookingDeliveryRequest };
   cookingFoods: CookingFoodInventory;
+  cookingFoodDefinitions: CookingFoodDefinitionMap;
   failedCookingDishes: number;
   cookingPrepSets: number;
   farmItems: FarmItemInventory;

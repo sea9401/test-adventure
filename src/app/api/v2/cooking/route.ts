@@ -16,7 +16,7 @@ import { cookingPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
 import { LIFE_WORKSHOP_SAVE_KEY, emptyLifeWorkshopState, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
 import { COOKING_PUBLIC_RECIPES, COOKING_PUBLIC_RECIPE_BY_ID } from "@/adventure/v2/cooking/catalog";
 import { applyCookingDelivery, cookingRequests, cookingStandingDeliveryReward } from "@/adventure/v2/cooking/delivery";
-import { activeCookingBuff, addCookingFood, cookingFoodDefinition, cookingFoodId, parseCookingFoodInventory, removeCookingFood, type CookingFoodId, type CookingQuality } from "@/adventure/v2/cooking/food";
+import { activeCookingBuff, addCookingFood, cookingFoodDefinition, cookingFoodDefinitions, cookingFoodId, parseCookingFoodInventory, removeCookingFood, type CookingFoodId, type CookingQuality } from "@/adventure/v2/cooking/food";
 import { COOKING_PANTRY_ITEMS, COOKING_PROCESSING_RECIPES, buyCookingPantryItem, processCookingIngredient, type CookingPantryItem, type CookingProcessingRecipe } from "@/adventure/v2/cooking/kitchen";
 import { COOKING_LEVEL_CAP, COOKING_SAVE_KEY, COOKING_STANDING_DELIVERY_DAILY_LIMIT, chooseCookingSpecialty, cookingLevelForXp, cookingLevelXpThreshold, cookingSpecialtyRank, emptyCookingState, parseCookingState } from "@/adventure/v2/cooking/state";
 import { COOKING_METHOD_NAMES, type CookingField, type CookingIngredientId, type CookingMethod, type CookingRecipeSecret } from "@/adventure/v2/cooking/types";
@@ -46,7 +46,6 @@ type InventorySave = Record<string, unknown> & {
 };
 type FirstDiscoveryRow = {
   recipeId: string;
-  userId: string;
   actorName: string;
   authoritativeActorName: string | null;
   discoveredAt: Date;
@@ -136,6 +135,21 @@ function knownRecipeDetails(discoveredIds: readonly string[]) {
   }));
 }
 
+function publicDiscoveryDetails(firstDiscoveries: readonly FirstDiscoveryRow[]) {
+  return firstDiscoveries.flatMap((row) => {
+    const recipe = COOKING_PUBLIC_RECIPE_BY_ID.get(row.recipeId);
+    if (!recipe) return [];
+    return [{
+      recipeName: recipe.name,
+      imageSrc: recipe.imageSrc,
+      actorName: row.actorName === DEFAULT_ACTOR_NAME
+        ? row.authoritativeActorName?.trim() || row.actorName
+        : row.actorName,
+      discoveredAt: row.discoveredAt.getTime(),
+    }];
+  });
+}
+
 function isRareCookingIngredient(ingredientId: CookingIngredientId): boolean {
   const [kind, id] = ingredientId.split(":");
   if (kind === "farm") return RARE_FARM_COOKING_INGREDIENT_IDS.has(id);
@@ -169,16 +183,9 @@ function cookingView(userId: string, now: number, values: {
     level,
     currentLevelXp: cookingLevelXpThreshold(level),
     nextLevelXp: level >= COOKING_LEVEL_CAP ? null : cookingLevelXpThreshold(level + 1),
-    recipes: COOKING_PUBLIC_RECIPES,
+    recipeTotal: COOKING_PUBLIC_RECIPES.length,
     knownRecipes: knownRecipeDetails(cooking.discoveredRecipeIds),
-    firstDiscoveries: values.firstDiscoveries.map((row) => ({
-      recipeId: row.recipeId,
-      actorName: row.actorName === DEFAULT_ACTOR_NAME
-        ? row.authoritativeActorName?.trim() || row.actorName
-        : row.actorName,
-      discoveredAt: row.discoveredAt.getTime(),
-      mine: row.userId === userId,
-    })),
+    publicDiscoveries: publicDiscoveryDetails(values.firstDiscoveries),
     failedResearches: values.failedResearches.map((row) => ({
       method: row.method,
       ingredientIds: [...row.ingredientIds],
@@ -186,6 +193,7 @@ function cookingView(userId: string, now: number, values: {
     })),
     requests: cookingRequests(userId, cooking),
     cookingFoods: parseCookingFoodInventory(inventory.cookingFoods),
+    cookingFoodDefinitions: cookingFoodDefinitions(inventory.cookingFoods),
     failedCookingDishes: failedDishCount(inventory.failedCookingDishes),
     cookingPrepSets: lifeWorkshop.crafting.balances[COOKING_PREP_SET_ID] ?? 0,
     farmItems: farm.inventory,
@@ -208,7 +216,6 @@ async function firstDiscoveryRows(executor: DbExecutor): Promise<FirstDiscoveryR
   return executor
     .select({
       recipeId: cookingFirstDiscoveries.recipeId,
-      userId: cookingFirstDiscoveries.userId,
       actorName: cookingFirstDiscoveries.actorName,
       authoritativeActorName: sql<string | null>`coalesce(
         nullif(btrim(${users.gameName}), ''),
@@ -572,7 +579,15 @@ export async function POST(req: Request) {
         }),
       };
     });
-    if (transactionResult.feedRecipeId) await insertFeedEntry(userId, "cooking_discovery", { recipeId: transactionResult.feedRecipeId });
+    if (transactionResult.feedRecipeId) {
+      const feedRecipe = COOKING_PUBLIC_RECIPE_BY_ID.get(transactionResult.feedRecipeId);
+      if (feedRecipe) {
+        await insertFeedEntry(userId, "cooking_discovery", {
+          recipeId: feedRecipe.id,
+          recipeName: feedRecipe.name,
+        });
+      }
+    }
     return Response.json({ ...transactionResult.view, result: transactionResult.result });
   } catch (error) {
     const code = error instanceof Error ? error.message : "cooking_failed";

@@ -9,6 +9,7 @@ import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 import { CookingResearchPanel } from "./cooking/CookingResearchPanel";
 import { CookingCodexPanel } from "./cooking/CookingCodexPanel";
+import { CookingPublicDiscoveryPanel } from "./cooking/CookingPublicDiscoveryPanel";
 import { CookingSpecialtyPanel } from "./cooking/CookingSpecialtyPanel";
 import { CookingDeliveryPanel } from "./cooking/CookingDeliveryPanel";
 import { CookingProcessingPanel } from "./cooking/CookingProcessingPanel";
@@ -17,7 +18,7 @@ import { COOKING_FIELD_NAMES } from "./cooking/types";
 
 export { SurplusCropLabel } from "./SurplusExchangePanel";
 
-type CookingSection = "research" | "codex" | "specialty" | "delivery" | "processing";
+type CookingSection = "research" | "codex" | "public" | "specialty" | "delivery" | "processing";
 
 const ERROR_TEXT: Record<string, string> = {
   duplicate_combination: "이미 실패한 조합입니다. 재료는 소비하지 않았습니다.",
@@ -73,7 +74,7 @@ function resultMessage(data: CookingResponse): string {
     const failedDishCount = Math.max(0, Math.floor(Number(result.failedDishCount) || 0));
     return `조합 연구 실패 · 선택 재료 각 1개 소비 · 요리 XP +${earnedXp.toLocaleString("ko-KR")} · 실패 음식 +${failedDishCount.toLocaleString("ko-KR")}`;
   }
-  if (result.action === "craft") return `${data.recipes.find((entry) => entry.id === result.recipeId)?.name ?? "요리"} ${Number(result.quantity) || 1}개 완성 · ${String(result.quality ?? "normal")}${Number(result.usedPrepSets) > 0 ? ` · 준비 세트 ${Number(result.usedPrepSets)}개 사용` : ""}`;
+  if (result.action === "craft") return `${data.knownRecipes.find((entry) => entry.id === result.recipeId)?.name ?? "요리"} ${Number(result.quantity) || 1}개 완성 · ${String(result.quality ?? "normal")}${Number(result.usedPrepSets) > 0 ? ` · 준비 세트 ${Number(result.usedPrepSets)}개 사용` : ""}`;
   if (result.action === "choose_specialty") return `${COOKING_FIELD_NAMES[result.field as keyof typeof COOKING_FIELD_NAMES]} 전문 분야를 영구 확정했습니다.`;
   if (result.action === "deliver") return result.completedNow ? "납품 목표를 달성해 보상을 받았습니다." : `납품 점수 +${Number(result.scoreAdded) || 0}`;
   if (result.action === "standing_delivery") return `상시 납품 완료 · ${Number(result.gold).toLocaleString()}골드`;
@@ -90,20 +91,22 @@ export function CookingWorkspace({ data, section, onSectionChange, busy, mutate 
   mutate: CookingMutation;
 }) {
   const progress = cookingLevelProgressView({ xp: data.cooking.xp, currentLevelXp: data.currentLevelXp, nextLevelXp: data.nextLevelXp });
+  const recipeTotal = data.recipeTotal;
   return <div className="space-y-4">
     <section className={`${SURFACE_CARD} p-4`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><h2 className="font-bold text-zinc-900 dark:text-zinc-100">🍳 레시피 연구실 · 요리 Lv {data.level}</h2><p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">100종의 레시피 조합을 연구하고, 거래 가능한 12시간 음식을 만듭니다.</p></div>
-        <div className="text-right text-xs text-zinc-600 dark:text-zinc-300"><div>{data.cookingJobName ?? "요리 직업 미전직"}</div><div>발견 {data.cooking.discoveredRecipeIds.length}/100 · 실패 음식 {data.failedCookingDishes}개</div><div>농장 증표 {data.farmReputation}</div></div>
+        <div><h2 className="font-bold text-zinc-900 dark:text-zinc-100">🍳 레시피 연구실 · 요리 Lv {data.level}</h2><p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">{recipeTotal}종의 레시피 조합을 연구하고, 거래 가능한 12시간 음식을 만듭니다.</p></div>
+        <div className="text-right text-xs text-zinc-600 dark:text-zinc-300"><div>{data.cookingJobName ?? "요리 직업 미전직"}</div><div>발견 {data.cooking.discoveredRecipeIds.length}/{recipeTotal} · 실패 음식 {data.failedCookingDishes}개</div><div>농장 증표 {data.farmReputation}</div></div>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700"><div className="h-full bg-amber-500" style={{ width: `${progress.percent}%` }} /></div>
       <div className="mt-1 text-right text-[11px] text-zinc-500">{progress.label}</div>
     </section>
     <div className={`${SURFACE_CARD} px-1`}><TabBar tabs={[
-      { key: "research", label: "연구" }, { key: "codex", label: "도감" }, { key: "specialty", label: "전문 분야" }, { key: "delivery", label: "납품" }, { key: "processing", label: "재료 가공" },
-    ]} active={section} onChange={onSectionChange} ariaLabel="요리 연구실 메뉴" className="justify-around" /></div>
+      { key: "research", label: "연구" }, { key: "codex", label: "도감" }, { key: "public", label: "공개 발견" }, { key: "specialty", label: "전문 분야" }, { key: "delivery", label: "납품" }, { key: "processing", label: "재료 가공" },
+    ]} active={section} onChange={onSectionChange} ariaLabel="요리 연구실 메뉴" className="justify-around" scrollable /></div>
     {section === "research" ? <CookingResearchPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "codex" ? <CookingCodexPanel data={data} busy={busy} mutate={mutate} /> : null}
+    {section === "public" ? <CookingPublicDiscoveryPanel discoveries={data.publicDiscoveries} /> : null}
     {section === "specialty" ? <CookingSpecialtyPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "delivery" ? <CookingDeliveryPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "processing" ? <CookingProcessingPanel data={data} busy={busy} mutate={mutate} /> : null}

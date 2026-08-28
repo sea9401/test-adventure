@@ -66,7 +66,7 @@ import {
   cookingQualityName,
   cookingEffectText,
   type ActiveCookingBuff,
-} from "@/adventure/v2/cooking/food";
+} from "@/adventure/v2/cooking/foodShared";
 import type {
   ProfileMasteryTrophyDisplay,
   ProfileShowcaseSelection,

@@ -1,3 +1,5 @@
+import "server-only";
+
 import {
   V2_STAT_LABELS,
   parseV2StatKey,
@@ -16,14 +18,14 @@ import {
   extendedLifeXpThreshold,
   normalizeLifeXp,
 } from "./lifeLevelProgression";
+import { COOKING_SURPLUS_DAILY_LIMIT } from "./cookingSurplus";
+export { COOKING_SURPLUS_BATCH_SIZE, COOKING_SURPLUS_DAILY_LIMIT } from "./cookingSurplus";
 
 export const COOKING_SAVE_KEY = "cooking.v1";
 export const COOKING_LEVEL_CAP = LIFE_LEVEL_CAP;
 export const COOKING_XP_SCALE = 10;
 export const COOKING_DAILY_ORDER_COUNT = 6;
 export const COOKING_STANDING_DELIVERY_DAILY_LIMIT = 20;
-export const COOKING_SURPLUS_BATCH_SIZE = 20;
-export const COOKING_SURPLUS_DAILY_LIMIT = 5;
 export const COOKING_BUFF_MAX_HOURS = 8;
 
 export type CookingQuality = "normal" | "careful" | "masterpiece";

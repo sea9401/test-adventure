@@ -7,7 +7,7 @@ export const COOKING_EXPANSION_ANSWER_BATCH_30 = {
   { recipeId: "corn_herb_fritter", ingredientIds: ["farm:corn","farm:herb"] },
   { recipeId: "milk_salt_nutritious_steam", ingredientIds: ["farm:milk","pantry:salt"] },
   { recipeId: "pork_tomato_hotpot", ingredientIds: ["farm:pork","farm:tomato"] },
-  { recipeId: "egg_milk_aged_cream", ingredientIds: ["farm:egg","farm:milk"] },
+  { recipeId: "egg_milk_aged_cream", ingredientIds: ["farm:milk","processed:cream"] },
   { recipeId: "strawberry_pork_cream_pudding", ingredientIds: ["farm:strawberry","farm:pork","processed:cream"] },
   { recipeId: "fresh_fish_soybean_broth_seafood_pot_steam", ingredientIds: ["fishing:catch_fresh","farm:soybean","processed:broth"] },
   { recipeId: "fresh_fish_vinegar_herb_fish_soup", ingredientIds: ["fishing:catch_fresh","pantry:vinegar","farm:herb"] },

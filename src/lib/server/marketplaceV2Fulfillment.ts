@@ -20,6 +20,7 @@ import {
   fishIdFromSpecimenItemId,
   parseFishSpecimenInventory,
 } from "@/adventure/v2/fishSpecimens";
+import { deliverMarketplaceLifeItem } from "@/lib/server/marketplaceLifeInventory";
 
 export type MarketplaceListingRow = typeof marketplaceListingsV2.$inferSelect;
 
@@ -142,6 +143,16 @@ export async function deliverMarketplaceListing(
     "character.v2",
     {},
   );
+  if (
+    await deliverMarketplaceLifeItem(
+      executor,
+      userId,
+      listing.itemId,
+      listing.quantity,
+    )
+  ) {
+    return null;
+  }
   const materials = { ...(charSave.materials ?? {}) };
   materials[listing.itemId] =
     Math.max(0, Math.floor(materials[listing.itemId] ?? 0)) + listing.quantity;

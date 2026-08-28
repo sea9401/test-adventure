@@ -21,14 +21,44 @@ function eligibleSpecialtyFixture(): CookingResponse {
       discoveredRecipeIds,
       specialty: null,
     },
-    recipes: discoveredRecipeIds.map((id) => ({
+    knownRecipes: discoveredRecipeIds.map((id) => ({
       id,
       discovery: "hidden",
     })),
   } as unknown as CookingResponse;
 }
 
+function selectedSpecialtyFixture(xp: number): CookingResponse {
+  return {
+    level: 20,
+    cooking: {
+      discoveredRecipeIds: [],
+      specialty: { field: "pot", xp },
+    },
+    knownRecipes: [],
+  } as unknown as CookingResponse;
+}
+
 describe("CookingSpecialtyPanel 전문 분야 선택", () => {
+  it("최대 랭크에만 MAX를 표시한다", () => {
+    const props = {
+      busy: false,
+      mutate: vi.fn(async () => undefined),
+    };
+    const { rerender } = render(
+      <CookingSpecialtyPanel data={selectedSpecialtyFixture(1_499)} {...props} />,
+    );
+
+    expect(screen.getByText("냄비 전문 · 랭크 4")).toBeTruthy();
+    expect(screen.queryByText(/\(MAX\)/)).toBeNull();
+
+    rerender(
+      <CookingSpecialtyPanel data={selectedSpecialtyFixture(3_020)} {...props} />,
+    );
+
+    expect(screen.getByText("냄비 전문 · 랭크 5 (MAX)")).toBeTruthy();
+  });
+
   it("브라우저 확인창 대신 게임 내 영구 선택 모달을 사용한다", () => {
     const mutate = vi.fn(async () => undefined);
     const browserConfirm = vi.spyOn(window, "confirm").mockReturnValue(false);

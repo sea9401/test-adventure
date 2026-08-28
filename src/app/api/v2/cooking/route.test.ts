@@ -171,8 +171,14 @@ describe("/api/v2/cooking", () => {
     expect(response.status).toBe(401);
   });
 
-  it("GET은 공개 카탈로그와 발견한 조합만 반환한다", async () => {
-    mocks.selectResults.push([], [{
+  it("GET은 미발견 카탈로그를 숨기고 개인·공개 발견 정보만 반환한다", async () => {
+    mocks.selectResults.push([{
+      recipeId: "potato_stew",
+      userId: "other-cook",
+      actorName: "첫발견자",
+      authoritativeActorName: null,
+      discoveredAt: new Date(NOW - 10_000),
+    }], [{
       method: "stir_fry",
       ingredientIds: ["farm:wheat", "farm:milk"],
       createdAt: new Date(NOW),
@@ -191,14 +197,27 @@ describe("/api/v2/cooking", () => {
     }]);
     const response = await GET(new Request("http://localhost/api/v2/cooking"));
     const json = await response.json();
+    const hiddenRecipe = COOKING_SECRET_RECIPE_BY_ID.get("tomato_salad")!;
+    const serialized = JSON.stringify(json);
 
     expect(response.status).toBe(200);
-    expect(json.recipes.map((entry: { id: string }) => entry.id)).toEqual(
-      COOKING_PUBLIC_RECIPES.map((entry) => entry.id),
-    );
-    expect(json.recipes.find((entry: { id: string }) => entry.id === "tomato_salad")).not.toHaveProperty("ingredients");
+    expect(json).not.toHaveProperty("recipes");
+    expect(json).not.toHaveProperty("firstDiscoveries");
+    expect(json.recipeTotal).toBe(COOKING_PUBLIC_RECIPES.length);
     expect(json.knownRecipes.map((entry: { id: string }) => entry.id)).not.toContain("tomato_salad");
     expect(json.knownRecipes).toHaveLength(6);
+    expect(json.knownRecipes[0]).toHaveProperty("ingredients");
+    expect(json.publicDiscoveries).toEqual([{
+      recipeName: "감자 양파 스튜",
+      imageSrc: "/images/items/cooking/potato_stew.webp",
+      actorName: "첫발견자",
+      discoveredAt: NOW - 10_000,
+    }]);
+    expect(json.publicDiscoveries[0]).not.toHaveProperty("recipeId");
+    expect(json.publicDiscoveries[0]).not.toHaveProperty("ingredients");
+    expect(serialized).not.toContain(hiddenRecipe.id);
+    expect(serialized).not.toContain(hiddenRecipe.name);
+    expect(serialized).not.toContain(hiddenRecipe.description);
     expect(json.failedResearches).toEqual([{
       method: "stir_fry",
       ingredientIds: ["farm:wheat", "farm:milk"],
@@ -238,6 +257,10 @@ describe("/api/v2/cooking", () => {
     expect(json.result).toMatchObject({
       quality: "masterpiece",
       usedPrepSets: 1,
+    });
+    expect(json.cookingFoodDefinitions[json.result.foodId]).toMatchObject({
+      recipe: { id: recipe.id, name: recipe.name },
+      quality: "masterpiece",
     });
     expect(json.cookingPrepSets).toBe(1);
     expect(mocks.store.get("life-workshop.v1")).toMatchObject({
@@ -339,16 +362,14 @@ describe("/api/v2/cooking", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.firstDiscoveries).toEqual([
+    expect(json.publicDiscoveries).toEqual([
       expect.objectContaining({
-        recipeId: "egg_salad_sandwich",
+        recipeName: "달걀 샐러드 샌드위치",
         actorName: "나리",
-        mine: true,
       }),
       expect.objectContaining({
-        recipeId: "tomato_salad",
+        recipeName: "불향 토마토 샐러드",
         actorName: "옛 발견자",
-        mine: false,
       }),
     ]);
   });
@@ -384,7 +405,10 @@ describe("/api/v2/cooking", () => {
       userId: "cook-user",
       actorName: "나리",
     }));
-    expect(mocks.insertFeedEntry).toHaveBeenCalledWith("cook-user", "cooking_discovery", { recipeId: recipe.id });
+    expect(mocks.insertFeedEntry).toHaveBeenCalledWith("cook-user", "cooking_discovery", {
+      recipeId: recipe.id,
+      recipeName: recipe.name,
+    });
   });
 
   it("요구 레벨 전 정답 연구는 발견만 허용하고 제작은 잠근다", async () => {

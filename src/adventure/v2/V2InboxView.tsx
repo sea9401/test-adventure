@@ -38,7 +38,6 @@ import {
 } from "@/adventure/v2/RewardToastProvider";
 import { TITLES } from "@/adventure/data/titles";
 import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
-import { cookingFoodDefinition } from "@/adventure/v2/cooking/food";
 import {
   COOKING_PANTRY_ITEMS,
   COOKING_PROCESSING_RECIPES,
@@ -205,7 +204,7 @@ function rewardLinesOf(it: InboxItem): string[] {
             ? materialName(id)
             : kind === "cash"
               ? cashItemName(id)
-              : cookingFoodDefinition(id)?.name ?? id;
+              : "완성 음식";
         pushReward(lines, label, qty);
       }
       break;

@@ -266,6 +266,9 @@ describe("최신 게임 안내서 내용", () => {
     const pastimes = renderToStaticMarkup(<PastimesContent />);
 
     expect(town).toContain("농장과 별도의 생활 메뉴");
+    expect(town).toContain("공개 발견 탭");
+    expect(town).toContain("이미지·이름·최초 발견자만");
+    expect(town).toContain("재료 조합은 직접 발견하기 전까지 공개되지 않습니다");
     expect(pastimes).toContain("총 <strong");
     expect(pastimes).toContain("정확히 <strong");
     expect(pastimes).toContain("성능 +10%");

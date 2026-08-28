@@ -10,7 +10,7 @@ import {
   cookingEffectText,
   cookingQualityName,
   type ActiveCookingBuff,
-} from "./cooking/food";
+} from "./cooking/foodShared";
 import {
   formatAdventureSupportExpiry,
   formatAdventureSupportRemaining,

@@ -17,11 +17,11 @@ import {
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import {
-  cookingFoodDefinition,
   cookingEffectText,
+  type CookingFoodDefinitionMap,
   type CookingFoodId,
   type CookingFoodInventory,
-} from "@/adventure/v2/cooking/food";
+} from "@/adventure/v2/cooking/foodShared";
 import {
   FISH,
   FISH_IDS,
@@ -46,6 +46,7 @@ export function MarketplaceRareMapTab({
   rareMaps,
   cashItems,
   cookingFoods,
+  cookingFoodDefinitions,
   fishSpecimens,
   pager,
   prices,
@@ -63,6 +64,7 @@ export function MarketplaceRareMapTab({
   rareMaps: RareMapInstance[];
   cashItems: MuseunCashItemCounts;
   cookingFoods: CookingFoodInventory;
+  cookingFoodDefinitions: CookingFoodDefinitionMap;
   fishSpecimens: FishSpecimenInventory["items"];
   pager: MarketplacePager<RareMapInstance>;
   prices: Record<string, string>;
@@ -84,7 +86,7 @@ export function MarketplaceRareMapTab({
     .map(([itemId, count]) => ({
       itemId: itemId as CookingFoodId,
       count: Math.max(0, Math.floor(count ?? 0)),
-      definition: cookingFoodDefinition(itemId),
+      definition: cookingFoodDefinitions[itemId as CookingFoodId],
     }))
     .filter((entry) => entry.count > 0 && entry.definition != null);
   const heldFishSpecimens = FISH_IDS.flatMap((fishId) => {

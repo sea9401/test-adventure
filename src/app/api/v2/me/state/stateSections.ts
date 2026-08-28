@@ -92,6 +92,7 @@ import {
   registeredFishIds,
 } from "@/adventure/v2/fishingCodex";
 import { COOKING_PUBLIC_RECIPES } from "@/adventure/v2/cooking/catalog";
+import { COOKING_SECRET_RECIPES } from "@/lib/server/cooking/recipes";
 import { parseCookingState } from "@/adventure/v2/cooking/state";
 import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
 import type { derivePlayerCombatV2FromSaves } from "@/lib/server/derivePlayerCombatV2";
@@ -555,8 +556,17 @@ export function fishingCodexSection(fishingCodexRaw: unknown) {
 // 요리 완성 도감 — 첫 완성으로 등록된 요리법만 모험의 서에 전달한다.
 export function cookingCodexSection(cookingRaw: unknown) {
   const cooking = parseCookingState(cookingRaw);
+  const discovered = new Set(cooking.discoveredRecipeIds);
   return {
-    discoveredIds: cooking.discoveredRecipeIds,
+    knownRecipes: COOKING_SECRET_RECIPES
+      .filter((recipe) => discovered.has(recipe.id))
+      .map((recipe) => ({
+        id: recipe.id,
+        name: recipe.name,
+        imageSrc: recipe.imageSrc,
+        description: recipe.description,
+        effect: recipe.effect,
+      })),
     total: COOKING_PUBLIC_RECIPES.length,
   };
 }

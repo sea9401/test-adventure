@@ -15,7 +15,7 @@ import {
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
 import { TITLES } from "../titles";
-import { COOKING_CODEX_MILESTONES } from "../../v2/cooking/catalog";
+import { COOKING_CODEX_MILESTONES } from "../../v2/cooking/catalogMeta";
 
 // 테스트 기본값(1차 전사, 활동 없음). 부분 ctx 는 이걸 스프레드.
 const ZERO: QuestCtx = {

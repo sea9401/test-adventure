@@ -8,7 +8,7 @@ import { GameStateRefreshProvider } from "./GameStateRefreshContext";
 import { COOKING_PUBLIC_RECIPES } from "./cooking/catalog";
 import { COOKING_SECRET_RECIPES } from "@/lib/server/cooking/recipes";
 import { cookingRequests } from "./cooking/delivery";
-import { cookingFoodId } from "./cooking/food";
+import { cookingFoodDefinition, cookingFoodId } from "./cooking/food";
 import { COOKING_PANTRY_ITEMS, COOKING_PROCESSING_RECIPES } from "./cooking/kitchen";
 import { cookingLevelXpThreshold, emptyCookingState } from "./cooking/state";
 import { FARM_ITEMS } from "./farm";
@@ -54,12 +54,13 @@ function fixture(effectTag: CookingEffectTag = "offense"): CookingResponse {
     level: 20,
     currentLevelXp: cookingLevelXpThreshold(20),
     nextLevelXp: cookingLevelXpThreshold(21),
-    recipes: [...COOKING_PUBLIC_RECIPES],
+    recipeTotal: COOKING_PUBLIC_RECIPES.length,
     knownRecipes: COOKING_SECRET_RECIPES.filter((entry) => cooking.discoveredRecipeIds.includes(entry.id)),
-    firstDiscoveries: [],
+    publicDiscoveries: [],
     failedResearches: [],
     requests,
     cookingFoods: { [foodId]: 2 },
+    cookingFoodDefinitions: { [foodId]: cookingFoodDefinition(foodId)! },
     failedCookingDishes: 1,
     cookingPrepSets: 0,
     farmItems: { wheat: 10, milk: 10, tomato: 10, pork: 10, onion: 10 },
@@ -82,9 +83,27 @@ function renderSection(section: Parameters<typeof CookingWorkspace>[0]["section"
 }
 
 describe("개편 요리 연구실", () => {
-  it("다섯 탭과 12시간 음식 안내를 제공한다", () => {
+  it("상단 안내와 발견 진행도를 현재 레시피 총수로 표시한다", () => {
+    const data = fixture();
+    data.cooking.discoveredRecipeIds = COOKING_PUBLIC_RECIPES.slice(0, 104).map((recipe) => recipe.id);
+    const html = renderToStaticMarkup(
+      <CookingWorkspace
+        data={data}
+        section="research"
+        onSectionChange={vi.fn()}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+
+    expect(html).toContain("500종의 레시피 조합");
+    expect(html).toContain("발견 104/500");
+    expect(html).not.toContain("발견 104/100");
+  });
+
+  it("여섯 탭과 12시간 음식 안내를 제공한다", () => {
     const html = renderSection("research");
-    for (const label of ["연구", "도감", "전문 분야", "납품", "재료 가공"]) expect(html).toContain(label);
+    for (const label of ["연구", "도감", "공개 발견", "전문 분야", "납품", "재료 가공"]) expect(html).toContain(label);
     expect(html).toContain("12시간 음식");
     expect(html).toContain("정답 조합과 힌트는 공개되지 않습니다");
     expect(html).toContain(SURFACE_CARD.split(" ")[0]);
@@ -93,11 +112,38 @@ describe("개편 요리 연구실", () => {
   it.each([
     ["research", "레시피 연구"],
     ["codex", "요리 도감"],
+    ["public", "공개 발견 요리"],
     ["specialty", "한 번 정하면 변경하거나 초기화할 수 없습니다"],
     ["delivery", "조건 납품"],
     ["processing", "주방 상점"],
   ] as const)("%s 화면을 렌더링한다", (section, text) => {
     expect(renderSection(section)).toContain(text);
+  });
+
+  it("공개 발견 화면은 요리 이름과 최초 발견자만 공개한다", () => {
+    const data = fixture();
+    const recipe = COOKING_PUBLIC_RECIPES[10];
+    data.publicDiscoveries = [{
+      recipeName: recipe.name,
+      imageSrc: recipe.imageSrc,
+      actorName: "류하린",
+      discoveredAt: NOW,
+    }];
+    const html = renderToStaticMarkup(
+      <CookingWorkspace
+        data={data}
+        section="public"
+        onSectionChange={vi.fn()}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+
+    expect(html).toContain(recipe.name);
+    expect(html).toContain("최초 발견자: 류하린");
+    expect(html).not.toContain("비밀 재료");
+    expect(html).not.toContain("T1");
+    expect(html).not.toContain("Lv 1");
   });
 
   it("미발견 도감 카드에 서버 전용 조합을 넣지 않는다", () => {

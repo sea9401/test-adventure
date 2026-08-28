@@ -88,6 +88,7 @@ import type {
   CodexMasteryOverviewResponse,
   CodexMasteryPinnedGoal,
 } from "@/adventure/data/v2/codexMasteryView";
+import type { CookingCodexRecipeView } from "./cooking/catalogMeta";
 
 const JobCodexList = dynamic(() =>
   import("./V2JobCodexView").then((module) => module.JobCodexList),
@@ -637,7 +638,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     projection: FishSpecimenExtractProjection;
   } | null>(null);
   const [extractBusy, setExtractBusy] = useState(false);
-  const [cookingDiscoveredIds, setCookingDiscoveredIds] = useState<string[]>([]);
+  const [cookingCodex, setCookingCodex] = useState<{ knownRecipes: CookingCodexRecipeView[]; total: number }>({ knownRecipes: [], total: 0 });
   const [fishingCodexMeta, setFishingCodexMeta] = useState<FishingCodexMeta>(
     () => defaultFishingCodexMeta(),
   );
@@ -724,8 +725,8 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             ),
           );
         }
-        if (Array.isArray(j?.cookingCodex?.discoveredIds)) {
-          setCookingDiscoveredIds(j.cookingCodex.discoveredIds as string[]);
+        if (Array.isArray(j?.cookingCodex?.knownRecipes)) {
+          setCookingCodex({ knownRecipes: j.cookingCodex.knownRecipes as CookingCodexRecipeView[], total: Math.max(0, Math.floor(Number(j.cookingCodex.total) || 0)) });
         }
         if (typeof j?.frontierDepth === "number") {
           setFrontierDepth(j.frontierDepth);
@@ -1521,7 +1522,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         />
       )}
       {tab === "cooking" && (
-        <CookingCodexPanel discoveredIds={cookingDiscoveredIds} />
+        <CookingCodexPanel knownRecipes={cookingCodex.knownRecipes} total={cookingCodex.total} />
       )}
       {tab === "life" && <LifeFieldCodexPanel />}
       {tab === "title" && (

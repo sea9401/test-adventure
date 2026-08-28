@@ -41,7 +41,7 @@ import {
   type V2CraftQualityState,
 } from "@/adventure/data/v2/v2Equipment";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
-import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
+import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { equipmentProgressionLock } from "@/adventure/data/v2/equipmentProgression";
 import {
   RARE_MAP_KINDS,
@@ -113,11 +113,11 @@ import {
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import {
-  cookingFoodDefinition,
-  isCookingFoodId,
+  isCookingFoodIdFormat as isCookingFoodId,
+  type CookingFoodDefinitionMap,
   type CookingFoodId,
   type CookingFoodInventory,
-} from "./cooking/food";
+} from "./cooking/foodShared";
 import { SURFACE_ACCENT, SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   equippedInstanceForMarketplaceItem,
@@ -125,6 +125,9 @@ import {
 } from "./marketplace/equipmentComparison";
 import { EquipmentCodexBadge } from "./EquipmentCodexBadge";
 import { MarketplaceTradeReportButton } from "./marketplace/MarketplaceTradeReportButton";
+import { marketplaceLifeItemDefinition } from "./marketplace/lifeItemCatalog";
+import { marketplaceLifeItemPurchaseGroups } from "./marketplace/lifeItemPurchaseGroups";
+import { EquipmentBuyOrderCatalogOption, equipmentBuyOrderSetNames } from "./marketplace/EquipmentBuyOrderCatalogOption";
 import {
   MARKETPLACE_EQUIPMENT_TIER_OPTIONS,
   matchesMarketplaceEquipmentTier,
@@ -402,10 +405,11 @@ export function V2MarketplaceView({
   // 팔기 — 내 인벤(미강화·미장착·미잠금 장비 + 재료).
   const [owned, setOwned] = useState<V2EquipInstance[]>([]);
   const [equipped, setEquipped] = useState<Partial<Record<V2EquipSlot, string>>>({});
-  const [materials, setMaterials] = useState<Partial<Record<V2MaterialId, number>>>({});
+  const [materials, setMaterials] = useState<Record<string, number>>({});
   const [rareMaps, setRareMaps] = useState<RareMapInstance[]>([]);
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
   const [cookingFoods, setCookingFoods] = useState<CookingFoodInventory>({});
+  const [cookingFoodDefinitions, setCookingFoodDefinitions] = useState<CookingFoodDefinitionMap>({});
   const [fishSpecimens, setFishSpecimens] = useState<FishSpecimenInventory["items"]>({});
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [qtys, setQtys] = useState<Record<string, string>>({});
@@ -531,12 +535,10 @@ export function V2MarketplaceView({
       fetch("/api/v2/me/fishing-specimens"),
     ]);
     if (inv.ok) {
-      const j = (await inv.json()) as {
-        materials?: Partial<Record<V2MaterialId, number>>;
-        cookingFoods?: CookingFoodInventory;
-      };
-      setMaterials(j.materials ?? {});
+      const j = (await inv.json()) as { materials?: Record<string, number>; marketplaceMaterials?: Record<string, number>; cookingFoods?: CookingFoodInventory; cookingFoodDefinitions?: CookingFoodDefinitionMap };
+      setMaterials(j.marketplaceMaterials ?? j.materials ?? {});
       setCookingFoods(j.cookingFoods ?? {});
+      setCookingFoodDefinitions(j.cookingFoodDefinitions ?? {});
     }
     if (rm.ok) {
       const j = (await rm.json()) as {
@@ -1006,7 +1008,7 @@ export function V2MarketplaceView({
       loadInventory,
     );
   };
-  const listMaterial = (matId: V2MaterialId) => {
+  const listMaterial = (matId: string) => {
     const unitPrice = parseAmount(prices[matId]);
     const qty = Number(qtys[matId] ?? "1");
     if (!Number.isInteger(unitPrice) || unitPrice < 1) {
@@ -1031,7 +1033,7 @@ export function V2MarketplaceView({
         price,
         graceHours: listingMode === "fixed" ? 0 : graceHours,
       },
-      `✓ ${V2_MATERIALS[matId]?.name ?? matId} ${qty}개 · 개당 ${unitPrice.toLocaleString()}골드 등록`,
+      `✓ ${V2_MATERIALS[matId]?.name ?? marketplaceLifeItemDefinition(matId)?.name ?? matId} ${qty}개 · 개당 ${unitPrice.toLocaleString()}골드 등록`,
       loadInventory,
     );
   };
@@ -1102,7 +1104,7 @@ export function V2MarketplaceView({
       setError("판매 총액은 999,999,999골드를 넘을 수 없어요.");
       return;
     }
-    const name = cookingFoodDefinition(itemId)?.name ?? "음식";
+    const name = cookingFoodDefinitions[itemId]?.name ?? "음식";
     return act(
       "/api/v2/marketplace/list",
       {
@@ -1152,9 +1154,7 @@ export function V2MarketplaceView({
   const sellableEquip = owned.filter(
     (i) => !i.enhance && !i.locked && !equippedIids.has(i.iid),
   );
-  const sellableMats = (Object.keys(materials) as V2MaterialId[]).filter(
-    (id) => (materials[id] ?? 0) > 0,
-  );
+  const sellableMats = Object.keys(materials).filter((id) => (materials[id] ?? 0) > 0);
   const sellableMaterialItems = sellableMats.filter(
     (id) => itemTabForMaterial(id) === "material",
   );
@@ -1298,7 +1298,7 @@ export function V2MarketplaceView({
       if (
         itemId === "v2_reforge_stone" ||
         itemId === "v2_reforge_stone_high" ||
-        itemTabForMaterial(itemId as V2MaterialId) !== browseTab
+        itemTabForMaterial(itemId) !== browseTab
       ) {
         continue;
       }
@@ -1312,6 +1312,9 @@ export function V2MarketplaceView({
         listings: [],
       });
     }
+    if (browseTab === "material")
+      for (const group of marketplaceLifeItemPurchaseGroups(priceRef))
+        groups.set(group.key, group);
     if (browseTab === "consumable") {
       for (const itemId of MUSEUN_TRADEABLE_ITEM_IDS) {
         groups.set(`consumable:${itemId}`, {
@@ -1326,7 +1329,7 @@ export function V2MarketplaceView({
       }
       for (const itemId of Object.keys(priceRef)) {
         if (!isCookingFoodId(itemId)) continue;
-        const definition = cookingFoodDefinition(itemId);
+        const definition = cookingFoodDefinitions[itemId as CookingFoodId];
         if (!definition) continue;
         groups.set(`consumable:${itemId}`, {
           key: `consumable:${itemId}`,
@@ -2207,6 +2210,7 @@ export function V2MarketplaceView({
                 rareMaps={rareMaps}
                 cashItems={cashItems}
                 cookingFoods={cookingFoods}
+                cookingFoodDefinitions={cookingFoodDefinitions}
                 fishSpecimens={fishSpecimens}
                 pager={sellRareMapPager}
                 prices={prices}
@@ -2901,7 +2905,12 @@ function EquipmentBuyOrderDialog({
   const [days, setDays] = useState("3");
   const normalized = query.trim().toLowerCase();
   const filtered = items.filter(
-    (item) => !normalized || item.name.toLowerCase().includes(normalized),
+    (item) =>
+      !normalized ||
+      item.name.toLowerCase().includes(normalized) ||
+      equipmentBuyOrderSetNames(item).some((name) =>
+        name.toLowerCase().includes(normalized),
+      ),
   );
   const parsedPower = parseAmount(minPower);
   const parsedQuality = parseAmount(minQualityPct);
@@ -2972,21 +2981,12 @@ function EquipmentBuyOrderDialog({
             </div>
           ) : (
             filtered.map((item) => (
-              <button
+              <EquipmentBuyOrderCatalogOption
                 key={item.id}
-                type="button"
-                onClick={() => selectItem(item)}
-                className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs ${
-                  selectedId === item.id
-                    ? "bg-sky-100 font-semibold text-sky-900 dark:bg-sky-950 dark:text-sky-100"
-                    : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                }`}
-              >
-                <span>{item.name}</span>
-                <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
-                  기본 위력 {item.power.toLocaleString()}
-                </span>
-              </button>
+                item={item}
+                selected={selectedId === item.id}
+                onSelect={selectItem}
+              />
             ))
           )}
         </div>

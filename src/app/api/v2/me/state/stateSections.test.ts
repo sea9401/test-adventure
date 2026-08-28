@@ -174,12 +174,12 @@ describe("loadoutSection — 직업 SP 산식 전환", () => {
 });
 
 describe("cookingCodexSection", () => {
-  it("기본 6종을 자동 등록하고 알려진 발견만 중복 없이 반환한다", () => {
+  it("기본 6종의 안전한 표시 정보만 반환하고 미발견 항목은 숨긴다", () => {
     const section = cookingCodexSection({
       discoveredRecipeIds: ["rustic_bread", "rustic_bread", "unknown"],
     });
 
-    expect(section.discoveredIds).toEqual([
+    expect(section.knownRecipes.map((recipe) => recipe.id)).toEqual([
       "rustic_bread",
       "herb_tea",
       "grilled_corn",
@@ -187,7 +187,13 @@ describe("cookingCodexSection", () => {
       "herb_flatbread",
       "country_egg_bread",
     ]);
-    expect(section.total).toBeGreaterThan(section.discoveredIds.length);
+    expect(section.knownRecipes[0]).toMatchObject({
+      name: "투박한 밀빵",
+      imageSrc: "/images/items/cooking/rustic_bread.webp",
+    });
+    expect(section.total).toBeGreaterThan(section.knownRecipes.length);
+    expect(JSON.stringify(section)).not.toContain("tomato_salad");
+    expect(JSON.stringify(section)).not.toContain("불향 토마토 샐러드");
   });
 });
 

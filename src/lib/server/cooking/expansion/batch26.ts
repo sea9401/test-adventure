@@ -8,7 +8,7 @@ export const COOKING_EXPANSION_ANSWER_BATCH_26 = {
   { recipeId: "soybean_cream_nutritious_steam", ingredientIds: ["farm:soybean","processed:cream"] },
   { recipeId: "potato_salt_chowder", ingredientIds: ["farm:potato","pantry:salt"] },
   { recipeId: "flour_egg_steamed_cake", ingredientIds: ["processed:flour","farm:egg"] },
-  { recipeId: "milk_onion_fermented_bread", ingredientIds: ["farm:milk","farm:onion"] },
+  { recipeId: "milk_onion_fermented_bread", ingredientIds: ["farm:milk","processed:flour"] },
   { recipeId: "common_fish_soybean_seafood_stew", ingredientIds: ["fishing:catch_common","farm:soybean"] },
   { recipeId: "fresh_fish_vinegar_herb_fermented_seafood", ingredientIds: ["fishing:catch_fresh","pantry:vinegar","farm:herb"] },
   { recipeId: "soybean_cacao_spice_punch", ingredientIds: ["farm:soybean","farm:cacao","pantry:spice"] },

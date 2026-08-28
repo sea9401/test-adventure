@@ -41,7 +41,6 @@ import {
   type FeedEntry,
   type FeedType,
 } from "@/lib/feed-config";
-import { COOKING_PUBLIC_RECIPE_BY_ID } from "@/adventure/v2/cooking/catalog";
 
 type FeedResponse = {
   entries?: FeedEntry[];
@@ -374,9 +373,8 @@ function entryText(e: FeedEntry): React.ReactNode {
     );
   }
   if (e.type === "cooking_discovery") {
-    const p = e.payload as { recipeId: string };
-    const recipe = COOKING_PUBLIC_RECIPE_BY_ID.get(p.recipeId);
-    return <>{name} 님이 숨은 요리 <span className="font-medium text-orange-600 dark:text-orange-400">{recipe?.name ?? p.recipeId}</span>의 최초 레시피를 개발했습니다!</>;
+    const p = e.payload as { recipeName?: string };
+    return <>{name} 님이 숨은 요리 <span className="font-medium text-orange-600 dark:text-orange-400">{p.recipeName?.trim() || "이름이 공개된 요리"}</span>의 최초 레시피를 개발했습니다!</>;
   }
   if (e.type === "codex_research_result") {
     const p = e.payload as { seasonId: string; themeName: string; tier: import("@/adventure/data/v2/codexMasteryTrophies").CodexMasteryTrophyTier; finalRank: number };

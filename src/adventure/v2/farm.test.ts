@@ -705,6 +705,75 @@ describe("adventurer farm", () => {
     expect(next.plots).toHaveLength(2);
   });
 
+  it("모든 작물 씨앗을 정해진 단품 가격으로 한 개씩 판매한다", () => {
+    const singles = getFarmShopItems().filter((item) =>
+      item.id.startsWith("single-seed-"),
+    );
+    expect(singles).toHaveLength(11);
+    expect(
+      Object.fromEntries(
+        singles.map((item) => [item.id, item.costReputation]),
+      ),
+    ).toEqual({
+      "single-seed-wheat": 3,
+      "single-seed-herb": 3,
+      "single-seed-corn": 6,
+      "single-seed-tomato": 3,
+      "single-seed-strawberry": 3,
+      "single-seed-potato": 3,
+      "single-seed-onion": 3,
+      "single-seed-rice": 4,
+      "single-seed-soybean": 4,
+      "single-seed-sugarcane": 6,
+      "single-seed-cacao": 6,
+    });
+    for (const crop of Object.values(FARM_CROPS)) {
+      expect(
+        singles.find((item) => item.id === `single-seed-${crop.id}`),
+      ).toMatchObject({
+        title: `${crop.seedName} 1개`,
+        rewardSeeds: { [crop.id]: 1 },
+        requiredSkillId: crop.requiredSkillId,
+        requiredSkillName: crop.requiredSkillName,
+      });
+    }
+  });
+
+  it("밀 씨앗 단품 구매는 증표를 차감하고 씨앗 정확히 한 개를 지급한다", () => {
+    const state = {
+      ...emptyFarmState(1_000),
+      stats: { ...emptyFarmState(1_000).stats, reputation: 3 },
+      seeds: {},
+    };
+
+    const { state: next, result } = buyFarmShopItem(
+      state,
+      "single-seed-wheat",
+    );
+
+    expect(result).toMatchObject({
+      costReputation: 3,
+      rewardSeeds: { wheat: 1 },
+    });
+    expect(next.seeds).toEqual({ wheat: 1 });
+    expect(farmAvailableReputation(next)).toBe(0);
+  });
+
+  it("고급 작물 단품 씨앗은 기존 작물 해금 기술을 그대로 요구한다", () => {
+    const state = {
+      ...emptyFarmState(1_000),
+      stats: { ...emptyFarmState(1_000).stats, reputation: 10 },
+    };
+
+    expect(() => buyFarmShopItem(state, "single-seed-tomato")).toThrow(
+      "shop_item_locked",
+    );
+    const { state: next } = buyFarmShopItem(state, "single-seed-tomato", {
+      learnedSkillIds: [FARM_CROP_UNLOCK_SKILLS.horticulturist.id],
+    });
+    expect(next.seeds.tomato).toBe(1);
+  });
+
   it("unlocks two cooking-oriented crops at each advanced farmer skill", () => {
     const unlocks = [
       [FARM_CROP_UNLOCK_SKILLS.horticulturist.id, ["tomato", "strawberry"]],

@@ -24,14 +24,15 @@ function codexFixture(recipeCount: number): CookingResponse {
     level: 1,
     currentLevelXp: cookingLevelXpThreshold(1),
     nextLevelXp: cookingLevelXpThreshold(2),
-    recipes: COOKING_PUBLIC_RECIPES.slice(0, recipeCount),
+    recipeTotal: recipeCount,
     knownRecipes: COOKING_SECRET_RECIPES.filter((recipe) =>
       cooking.discoveredRecipeIds.includes(recipe.id),
-    ),
-    firstDiscoveries: [],
+    ).slice(0, recipeCount),
+    publicDiscoveries: [],
     failedResearches: [],
     requests: cookingRequests("cook-user", cooking),
     cookingFoods: {},
+    cookingFoodDefinitions: {},
     failedCookingDishes: 0,
     cookingPrepSets: 0,
     farmItems: {},
@@ -58,7 +59,6 @@ function codexFixture(recipeCount: number): CookingResponse {
 describe("요리 도감 페이지네이션", () => {
   it("기본 목록에서 발견한 레시피를 미발견 레시피보다 먼저 보여준다", () => {
     const data = codexFixture(7);
-    data.recipes = [data.recipes[6], ...data.recipes.slice(0, 6)];
 
     render(
       <CookingCodexPanel
@@ -92,7 +92,7 @@ describe("요리 도감 페이지네이션", () => {
 
   it("미발견 레시피의 숨겨진 이름은 검색으로 노출하지 않는다", () => {
     const data = codexFixture(7);
-    const hiddenName = data.recipes[6].name;
+    const hiddenName = COOKING_PUBLIC_RECIPES[6].name;
     const { container } = render(
       <CookingCodexPanel
         data={data}
@@ -112,7 +112,7 @@ describe("요리 도감 페이지네이션", () => {
 
   it("발견한 레시피를 이름순으로 정렬한다", () => {
     const data = codexFixture(3);
-    data.recipes = [data.recipes[0], data.recipes[2], data.recipes[1]];
+    data.knownRecipes = [data.knownRecipes[0], data.knownRecipes[2], data.knownRecipes[1]];
     render(
       <CookingCodexPanel
         data={data}
@@ -168,7 +168,7 @@ describe("요리 도감 페이지네이션", () => {
 
     expect(mutate).toHaveBeenCalledWith({
       action: "craft",
-      recipeId: data.recipes[0].id,
+      recipeId: data.knownRecipes[0].id,
       quantity: 1,
       usePrepSet: true,
     });

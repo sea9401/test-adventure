@@ -3,7 +3,8 @@
 import type { Dispatch, SetStateAction } from "react";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
-import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
+import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
+import { marketplaceLifeItemDefinition } from "./lifeItemCatalog";
 import {
   PriceInput,
   PriceQuickFill,
@@ -26,16 +27,16 @@ export function MarketplaceMaterialTab({
   onListMaterial,
   hideEmpty = false,
 }: {
-  items: V2MaterialId[];
-  pager: MarketplacePager<V2MaterialId>;
-  materials: Partial<Record<V2MaterialId, number>>;
+  items: string[];
+  pager: MarketplacePager<string>;
+  materials: Record<string, number>;
   prices: Record<string, string>;
   setPrices: Dispatch<SetStateAction<Record<string, string>>>;
   qtys: Record<string, string>;
   setQtys: Dispatch<SetStateAction<Record<string, string>>>;
   priceRef: Record<string, PriceStat>;
   busy: boolean;
-  onListMaterial: (matId: V2MaterialId) => void;
+  onListMaterial: (matId: string) => void;
   hideEmpty?: boolean;
 }) {
   if (items.length === 0) {
@@ -52,12 +53,16 @@ export function MarketplaceMaterialTab({
     <div className="space-y-2">
       {pager.pageItems.map((matId) => {
         const have = materials[matId] ?? 0;
+        const itemName =
+          V2_MATERIALS[matId]?.name ??
+          marketplaceLifeItemDefinition(matId)?.name ??
+          matId;
         return (
           <Card key={matId} padding="sm">
             <div className="flex items-center justify-between gap-2">
               <span className="min-w-0 text-sm font-medium">
                 <span>
-                  {V2_MATERIALS[matId]?.name ?? matId}
+                  {itemName}
                   <span className="ml-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">보유 {have}</span>
                 </span>
                 <span className="ml-1.5 block sm:inline">
@@ -76,6 +81,7 @@ export function MarketplaceMaterialTab({
               </span>
               <div className="flex shrink-0 items-center gap-1.5">
                 <input
+                  aria-label={`${itemName} 판매 수량`}
                   type="number"
                   min={1}
                   max={have}

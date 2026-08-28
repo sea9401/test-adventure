@@ -1,5 +1,6 @@
-import type { CookingFoodDefinition, CookingQuality } from "./food";
-import { COOKING_STANDING_DELIVERY_DAILY_LIMIT, type CookingStateV2 } from "./state";
+import type { CookingFoodDefinition, CookingQuality } from "./foodShared";
+import type { CookingStateV2 } from "./state";
+import { COOKING_STANDING_DELIVERY_DAILY_LIMIT } from "./constants";
 import type { CookingEffectTag, CookingField, CookingMethod } from "./types";
 import { COOKING_FIELD_NAMES, COOKING_METHOD_NAMES } from "./types";
 

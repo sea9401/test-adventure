@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 // 자바스크립트 빌드 검사기를 그대로 검증한다.
-// @ts-expect-error mjs 모듈은 별도 선언 파일 없이 Node에서 직접 실행한다.
 import { scanClientCookingSecrets } from "../../scripts/check-client-cooking-secrets.mjs";
 
 const temporaryDirectories: string[] = [];

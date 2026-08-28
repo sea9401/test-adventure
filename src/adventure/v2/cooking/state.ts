@@ -10,7 +10,6 @@ import {
   COOKING_PUBLIC_RECIPE_BY_ID,
 } from "./catalog";
 export { cookingSpecialtyRank } from "./specialty";
-import { cookingSpecialtyRank } from "./specialty";
 import type { CookingField } from "./types";
 import { COOKING_STANDING_DELIVERY_DAILY_LIMIT } from "./constants";
 export { COOKING_STANDING_DELIVERY_DAILY_LIMIT } from "./constants";

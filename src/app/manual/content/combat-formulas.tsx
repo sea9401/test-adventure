@@ -35,6 +35,13 @@ import {
 } from "@/adventure/data/v2/v2Stats";
 import { BOSS_MAX_HP_DAMAGE_MULT } from "@/adventure/v2/combat/engineState";
 import {
+  BASE_FREEZE_DELAY_PCT,
+  FREEZE_FLAT_DAMAGE,
+  FREEZE_INT_COEF,
+  FREEZE_MAX_MP_COEF,
+  FROST_CHILL_THRESHOLD,
+} from "@/adventure/v2/combat/frostChill";
+import {
   PLAYER_ACTION_SPD_CAP,
   RATE_REF_SPD,
   SPD_RATE_POW,
@@ -400,6 +407,29 @@ export function CombatFormulasContent() {
         동시에 발생하면 전체 보정을 한 뒤 원래 피해 비율대로 전투 로그에 다시 나누어
         표시합니다.
       </P>
+
+      <H3>한기와 빙결</H3>
+      <UL>
+        <li>
+          대상에게 한기 {FROST_CHILL_THRESHOLD}중첩이 쌓이면 한기{" "}
+          {FROST_CHILL_THRESHOLD}개를 소비하고 빙결이 한 번 발생합니다. 한 번에
+          임계치를 넘는 한기를 얻어도 초과분으로 빙결이 연속 발동하지 않습니다.
+        </li>
+        <li>
+          빙결 원래 피해는{" "}
+          <Code>
+            반올림((INT × {FREEZE_INT_COEF} + 최대 MP × {FREEZE_MAX_MP_COEF} +{" "}
+            {FREEZE_FLAT_DAMAGE}) × (1 + 빙결 피해 증가율 ÷ 100))
+          </Code>
+          입니다. 이후 마법 직접 피해와 같은 방어·회피·마나 실드·보호막·PvP
+          보정을 받습니다.
+        </li>
+        <li>
+          빙결은 대상의 예약된 다음 행동을 기본 <Em>{BASE_FREEZE_DELAY_PCT}%</Em>
+          늦춥니다. 빙점 지배·영구동토처럼 피해 증가율, 지연율, 발동 뒤 남길 한기가
+          따로 적힌 패시브는 그 값을 사용합니다.
+        </li>
+      </UL>
 
       <H2>피해 감소·회복·PvP 보정</H2>
       <UL>

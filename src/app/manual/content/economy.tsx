@@ -1,5 +1,17 @@
-import { MAX_STAMINA, REGEN_SECONDS_PER_POINT } from "@/adventure/v2/stamina";
+import {
+  HUNT_COST,
+  MAX_STAMINA,
+  REGEN_SECONDS_PER_POINT,
+  STAMINA_OVERCHARGE_CAP,
+} from "@/adventure/v2/stamina";
+import {
+  HP_RESTORE_MS,
+  MIN_HUNT_HP_FRACTION,
+} from "@/adventure/v2/hpRegen";
 import { H2, H3, P, UL, Em, Code, Table, Note } from "./primitives";
+
+const HP_RESTORE_MINUTES = HP_RESTORE_MS / 60_000;
+const MIN_HUNT_HP_PERCENT = MIN_HUNT_HP_FRACTION * 100;
 
 export function EconomyContent() {
   return (
@@ -40,7 +52,7 @@ export function EconomyContent() {
         rows={[
           ["최대치", <Code key="m">{MAX_STAMINA.toLocaleString()}</Code>],
           ["회복", <Code key="r">{REGEN_SECONDS_PER_POINT}초당 1</Code>],
-          ["사냥 1회", <Code key="h">−1</Code>],
+          ["사냥 1회", <Code key="h">−{HUNT_COST}</Code>],
           [
             "0 → 가득",
             <Code key="f">
@@ -50,12 +62,19 @@ export function EconomyContent() {
         ]}
         caption="스태미나는 사냥할 때 사용하며, 접속하지 않은 동안에도 회복됩니다."
       />
+      <P>
+        스태미나 회복약은 현재 최대치를 넘어 최대{" "}
+        <Em>{STAMINA_OVERCHARGE_CAP.toLocaleString("ko-KR")}</Em>까지 미리 비축할 수
+        있습니다. 시간 회복은 최대치까지만 진행되므로 최대치를 넘긴 동안에는 자연
+        회복이 쌓이지 않습니다. 캐릭터의 실제 최대치가 비축 상한보다 높아지는 특별한
+        경우에는 그 최대치까지 보관할 수 있습니다.
+      </P>
 
       <H2>HP 회복</H2>
       <UL>
         <li>
-          <Em>시간 회복</Em> — 최대 HP와 관계없이 약 5분이면 0에서 최대치까지
-          회복됩니다.
+          <Em>시간 회복</Em> — 최대 HP와 관계없이 약 {HP_RESTORE_MINUTES}분이면
+          0에서 최대치까지 회복됩니다.
         </li>
         <li>
           <Em>치료소</Em> — HP와 MP를 무료로 즉시 회복합니다.
@@ -65,7 +84,7 @@ export function EconomyContent() {
           자동으로 채웁니다.
         </li>
         <li>
-          HP가 최대치의 <Em>5% 미만</Em>이면 사냥할 수 없습니다. 자연 회복을
+          HP가 최대치의 <Em>{MIN_HUNT_HP_PERCENT}% 미만</Em>이면 사냥할 수 없습니다. 자연 회복을
           기다리거나 치료소를 이용해야 합니다.
         </li>
       </UL>

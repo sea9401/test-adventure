@@ -1,4 +1,12 @@
-import { MAX_STAMINA, REGEN_SECONDS_PER_POINT } from "@/adventure/v2/stamina";
+import {
+  HUNT_COST,
+  MAX_STAMINA,
+  REGEN_SECONDS_PER_POINT,
+} from "@/adventure/v2/stamina";
+import {
+  HP_RESTORE_MS,
+  MIN_HUNT_HP_FRACTION,
+} from "@/adventure/v2/hpRegen";
 import {
   RARE_MAP_CAP,
   RARE_MAP_KINDS,
@@ -39,6 +47,8 @@ const LOCATION_RARE_MAP_IDS = [
   "rename_map",
 ] satisfies RareMapKindId[];
 const RARE_MAP_TTL_MINUTES = Math.floor(RARE_MAP_TTL_MS / 60_000);
+const HP_RESTORE_MINUTES = HP_RESTORE_MS / 60_000;
+const MIN_HUNT_HP_PERCENT = MIN_HUNT_HP_FRACTION * 100;
 
 function percentText(pct: number) {
   return `${pct}%`;
@@ -80,7 +90,7 @@ export function HuntingContent() {
 
       <H2>사냥과 스태미나</H2>
       <P>
-        사냥 1회에는 <Em>스태미나 1</Em>을 사용하며 몬스터 한 마리와 자동으로
+        사냥 1회에는 <Em>스태미나 {HUNT_COST}</Em>을 사용하며 몬스터 한 마리와 자동으로
         전투합니다. 일괄 사냥으로 여러 전투를 묶어 진행할 수도 있습니다. 패배하면
         이번 전투 보상을 받지 못하고 마지막 패배 이후 사냥으로 번 골드 일부를
         잃습니다. 시간초과는 골드 페널티 계산에서 무승부로 처리되어 손실이
@@ -89,7 +99,7 @@ export function HuntingContent() {
       <Table
         head={["요소", "값"]}
         rows={[
-          ["사냥 1회 비용", <Code key="c">1</Code>],
+          ["사냥 1회 비용", <Code key="c">{HUNT_COST}</Code>],
           ["최대치", <Code key="m">{MAX_STAMINA.toLocaleString()}</Code>],
           ["회복 속도", <Code key="r">{REGEN_SECONDS_PER_POINT}초당 1</Code>],
         ]}
@@ -98,8 +108,9 @@ export function HuntingContent() {
 
       <H2>HP</H2>
       <P>
-        HP가 너무 낮으면 사냥할 수 없습니다. HP는 시간이 지나면 회복되며 마을
-        치료소에서 즉시 모두 채울 수 있습니다.
+        HP가 최대치의 <Em>{MIN_HUNT_HP_PERCENT}% 미만</Em>이면 사냥할 수 없습니다.
+        HP는 최대치와 관계없이 0에서 가득 차기까지 약 {HP_RESTORE_MINUTES}분의
+        속도로 회복되며, 마을 치료소에서 즉시 모두 채울 수 있습니다.
       </P>
 
       <Note>

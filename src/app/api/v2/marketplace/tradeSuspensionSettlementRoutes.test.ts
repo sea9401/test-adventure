@@ -58,6 +58,7 @@ vi.mock("@/lib/server/marketplaceV2", () => ({
     value === "equip" || value === "material" || value === "consumable"
   ),
   isStackableMarketplaceItem: vi.fn(() => true),
+  isTradableMarketplaceMaterial: vi.fn(() => true),
   isTradableMaterial: vi.fn(() => true),
   isValidMaterialQty: vi.fn((value: unknown) =>
     typeof value === "number" && Number.isSafeInteger(value) && value > 0

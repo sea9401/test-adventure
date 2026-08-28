@@ -86,6 +86,20 @@ const EXPANSION_BATCH_01 = [
   ["silverleaf_crystal_tonic", "은빛 수정 강장차", "medicinal", "brew", 4, ["farm:silverleaf", "farm:crystal_sugarcane", "farm:herb", "farm:royal_cacao", "pantry:spice"]],
 ] as const;
 
+const NAMED_RARE_INGREDIENTS = [
+  ["황금 밀", "farm:golden_wheat"],
+  ["은빛잎", "farm:silverleaf"],
+  ["달콤 옥수수", "farm:sweet_corn"],
+  ["고대종 토마토", "farm:heirloom_tomato"],
+  ["설향 딸기", "farm:white_strawberry"],
+  ["황금 감자", "farm:golden_potato"],
+  ["진주 양파", "farm:pearl_onion"],
+  ["황금 쌀", "farm:golden_rice"],
+  ["검은콩", "farm:black_soybean"],
+  ["수정 사탕수수", "farm:crystal_sugarcane"],
+  ["왕실 카카오", "farm:royal_cacao"],
+] as const;
+
 describe("hidden cooking recipe catalog", () => {
   it("publishes expansion batches 01 through 38 as complete ten-recipe units", () => {
     expect(COOKING_EXPANSION_BATCHES.map((batch) => batch.id)).toEqual(
@@ -195,6 +209,20 @@ describe("hidden cooking recipe catalog", () => {
     }
   });
 
+  it("이름에 명시된 희귀 작물을 실제 재료로 사용한다", () => {
+    const missing = COOKING_SECRET_RECIPES.flatMap((recipe) => {
+      const actual = recipe.ingredients.map((ingredient) => ingredient.id);
+      return NAMED_RARE_INGREDIENTS.flatMap(
+        ([ingredientName, ingredientId]) =>
+          recipe.name.includes(ingredientName) && !actual.includes(ingredientId)
+            ? [`${recipe.id}:${ingredientId}:${actual.join(",")}`]
+            : [],
+      );
+    });
+
+    expect(missing).toEqual([]);
+  });
+
   it("uses the authored metadata and answers for expansion batch 01", () => {
     for (const [id, name, field, method, tier, ingredientIds] of EXPANSION_BATCH_01) {
       const recipe = COOKING_SECRET_RECIPE_BY_ID.get(id);
@@ -207,7 +235,7 @@ describe("hidden cooking recipe catalog", () => {
     }
   });
 
-  it("preserves every answer from the original one hundred recipes", () => {
+  it("수정된 기존 백 개 레시피 조합이 임의로 바뀌지 않게 고정한다", () => {
     const legacyAnswers = COOKING_SECRET_RECIPES
       .filter(
         (recipe) =>
@@ -225,7 +253,7 @@ describe("hidden cooking recipe catalog", () => {
 
     expect(
       createHash("sha256").update(legacyAnswers.join("\n")).digest("hex"),
-    ).toBe("45a79d708249d9c2f82ae664a4bd72396ebff5dffc813f03c570a62003066962");
+    ).toBe("e584b84774eafd7fc9898a4c1d23676dc17aec7b3269767aa8144d7ac78e4296");
   });
 
   it("provides optimized artwork for every simple recipe", () => {

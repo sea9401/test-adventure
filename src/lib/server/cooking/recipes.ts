@@ -91,6 +91,23 @@ const NAMED_ANCHORS: readonly [needle: string, ingredient: CookingIngredientId][
   ["bread", "processed:flour"], ["pastry", "processed:flour"],
 ];
 
+const NAMED_RARE_ANCHORS: readonly [
+  ingredientName: string,
+  ingredient: CookingIngredientId,
+][] = [
+  ["황금 밀", "farm:golden_wheat"],
+  ["은빛잎", "farm:silverleaf"],
+  ["달콤 옥수수", "farm:sweet_corn"],
+  ["고대종 토마토", "farm:heirloom_tomato"],
+  ["설향 딸기", "farm:white_strawberry"],
+  ["황금 감자", "farm:golden_potato"],
+  ["진주 양파", "farm:pearl_onion"],
+  ["황금 쌀", "farm:golden_rice"],
+  ["검은콩", "farm:black_soybean"],
+  ["수정 사탕수수", "farm:crystal_sugarcane"],
+  ["왕실 카카오", "farm:royal_cacao"],
+];
+
 function slotsForTier(tier: number): number {
   if (tier <= 1) return 2;
   if (tier === 2) return 3;
@@ -106,9 +123,14 @@ function ingredientsForRecipe(
   const explicit = EXPLICIT_COMBINATIONS[recipe.id];
   if (explicit) return explicit;
   const pool = INGREDIENT_POOLS[recipe.field];
-  const anchors = NAMED_ANCHORS.flatMap(([needle, ingredient]) =>
-    recipe.id.includes(needle) ? [ingredient] : [],
-  );
+  const anchors = [
+    ...NAMED_RARE_ANCHORS.flatMap(([ingredientName, ingredient]) =>
+      recipe.name.includes(ingredientName) ? [ingredient] : [],
+    ),
+    ...NAMED_ANCHORS.flatMap(([needle, ingredient]) =>
+      recipe.id.includes(needle) ? [ingredient] : [],
+    ),
+  ];
   const wanted = slotsForTier(recipe.tier);
   for (let salt = 0; salt < pool.length * pool.length; salt += 1) {
     const selected = new Set<CookingIngredientId>(anchors.slice(0, wanted));

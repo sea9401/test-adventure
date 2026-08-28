@@ -9,7 +9,7 @@ import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   isMarketKind,
   isStackableMarketplaceItem,
-  isTradableMaterial,
+  isTradableMarketplaceMaterial,
   isValidMaterialQty,
   marketplacePartialPrice,
   marketplaceTaxRateForAdventureSupport,
@@ -81,7 +81,10 @@ export async function POST(req: Request) {
   if (!isStackableMarketplaceItem(body.kind, body.itemId)) {
     return bad("not_stackable");
   }
-  if (body.kind === "material" && !isTradableMaterial(body.itemId)) {
+  if (
+    body.kind === "material" &&
+    !isTradableMarketplaceMaterial(body.itemId)
+  ) {
     return bad("not_tradable");
   }
 

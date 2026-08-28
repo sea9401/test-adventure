@@ -73,6 +73,7 @@ vi.mock("@/lib/server/marketplaceV2", async (importActual) => {
 });
 
 import { POST } from "@/app/api/v2/marketplace/list/route";
+import { emptyFarmState } from "@/adventure/v2/farm";
 
 function listRareMapRequest(iid: string): Request {
   return new Request("http://test/api/v2/marketplace/list", {
@@ -110,6 +111,20 @@ function listDangerousCatchRequest(quantity: number): Request {
       itemId: "danger_catch_ironjaw_tuna",
       quantity,
       price: 12_000,
+      graceHours: 2,
+    }),
+  });
+}
+
+function listWheatSeedRequest(quantity: number): Request {
+  return new Request("http://test/api/v2/marketplace/list", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      kind: "material",
+      itemId: "farm_seed:wheat",
+      quantity,
+      price: 10,
       graceHours: 2,
     }),
   });
@@ -240,5 +255,43 @@ describe("거래소 레어맵 등록", () => {
         quantity: 3,
       }),
     );
+  });
+
+  it("밀 씨앗 한 개를 농장에서 에스크로로 옮겨 재료 매물로 등록한다", async () => {
+    store.set("character.v2", {});
+    store.set("farm.v2", {
+      ...emptyFarmState(),
+      seeds: { wheat: 2 },
+    });
+
+    const response = await POST(listWheatSeedRequest(1));
+
+    expect(response.status).toBe(200);
+    expect(store.get("farm.v2")).toMatchObject({ seeds: { wheat: 1 } });
+    expect(store.get("character.v2")).toEqual({});
+    expect(insertValues).toContainEqual(
+      expect.objectContaining({
+        kind: "material",
+        itemId: "farm_seed:wheat",
+        itemName: "밀 씨앗",
+        quantity: 1,
+        price: 10,
+      }),
+    );
+  });
+
+  it("보유량보다 많은 씨앗은 등록하지 않고 농장 상태를 보존한다", async () => {
+    const farm = { ...emptyFarmState(), seeds: { wheat: 1 } };
+    store.set("character.v2", {});
+    store.set("farm.v2", farm);
+
+    const response = await POST(listWheatSeedRequest(2));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "insufficient_material",
+    });
+    expect(store.get("farm.v2")).toEqual(farm);
+    expect(insertValues).toHaveLength(0);
   });
 });

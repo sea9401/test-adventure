@@ -12,7 +12,7 @@ import {
   MARKETPLACE_V2_FIXED_LISTING_HOURS,
   currentMarketplaceItemName,
   isMarketKind,
-  isTradableMaterial,
+  isTradableMarketplaceMaterial,
   marketplacePublicListing,
 } from "@/lib/server/marketplaceV2";
 
@@ -91,7 +91,8 @@ export async function GET(req: Request) {
           mine ||
           (row.kind === "equip"
             ? !listedEquipEnhance(row.instancePayload)
-            : row.kind !== "material" || isTradableMaterial(row.itemId)),
+            : row.kind !== "material" ||
+              isTradableMarketplaceMaterial(row.itemId)),
       )
       .map((row) =>
         marketplacePublicListing(

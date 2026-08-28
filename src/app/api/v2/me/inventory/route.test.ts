@@ -19,6 +19,9 @@ vi.mock("@/db", () => ({
 }));
 
 import { GET } from "./route";
+import { emptyFarmState } from "@/adventure/v2/farm";
+import { emptyFishingStock } from "@/adventure/v2/fishingStock";
+import { emptyCookingState } from "@/adventure/v2/cooking/state";
 
 describe("GET /api/v2/me/inventory", () => {
   beforeEach(() => {
@@ -50,5 +53,49 @@ describe("GET /api/v2/me/inventory", () => {
     const response = await GET();
 
     expect(await response.json()).toMatchObject({ masteryCertificates: 0 });
+  });
+
+  it("일반 재료와 네 종류 생활 저장소의 거래 가능 보유량을 함께 노출한다", async () => {
+    mocks.rows = [
+      {
+        key: "character.v2",
+        value: { materials: { v2_iron_ore: 4 } },
+      },
+      { key: "inventory.v2", value: {} },
+      {
+        key: "farm.v2",
+        value: {
+          ...emptyFarmState(),
+          seeds: { wheat: 1 },
+          inventory: { golden_wheat: 2, compound_feed: 99 },
+        },
+      },
+      {
+        key: "fishing-stock.v1",
+        value: {
+          ...emptyFishingStock(),
+          items: { catch_common: 3 },
+        },
+      },
+      {
+        key: "cooking.v2",
+        value: {
+          ...emptyCookingState(),
+          kitchenItems: { "processed:flour": 5 },
+        },
+      },
+    ];
+
+    const response = await GET();
+
+    expect(await response.json()).toMatchObject({
+      marketplaceMaterials: {
+        v2_iron_ore: 4,
+        "farm_seed:wheat": 1,
+        "farm_item:golden_wheat": 2,
+        "fishing_catch:catch_common": 3,
+        "cooking_kitchen:processed:flour": 5,
+      },
+    });
   });
 });

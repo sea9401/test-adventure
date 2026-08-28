@@ -8,7 +8,7 @@ import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { inboxValues } from "@/lib/server/inboxPayload";
 import { listedEquipEnhance } from "@/adventure/data/v2/v2EquipMint";
 import {
-  isTradableMaterial,
+  isTradableMarketplaceMaterial,
   marketplaceTaxRateForAdventureSupport,
   marketplaceListingPhase,
   restoreMarketplaceRareMap,
@@ -133,7 +133,10 @@ export async function POST(req: Request) {
       return { status: 409, body: { ok: false as const, error: "listing_expired" } };
     }
     await clearMarketplaceHighestBid(tx, listing, now, "expired");
-    if (listing.kind === "material" && !isTradableMaterial(listing.itemId)) {
+    if (
+      listing.kind === "material" &&
+      !isTradableMarketplaceMaterial(listing.itemId)
+    ) {
       return {
         status: 409,
         body: { ok: false as const, error: "not_available" },

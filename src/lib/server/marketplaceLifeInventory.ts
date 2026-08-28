@@ -19,7 +19,11 @@ import {
   parseCookingState,
   type CookingKitchenItemId,
 } from "@/adventure/v2/cooking/state";
-import { marketplaceLifeItemDefinition } from "@/adventure/v2/marketplace/lifeItemCatalog";
+import {
+  MARKETPLACE_LIFE_ITEM_IDS,
+  marketplaceLifeItemDefinition,
+  type MarketplaceLifeItemId,
+} from "@/adventure/v2/marketplace/lifeItemCatalog";
 import type { DbExecutor } from "@/lib/server/savesKv";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 
@@ -34,6 +38,37 @@ function validQuantity(quantity: number): boolean {
 
 function addCount(current: number | undefined, quantity: number): number {
   return Math.max(0, Math.floor(Number(current) || 0)) + quantity;
+}
+
+export function marketplaceLifeItemHoldings(
+  values: {
+    farmRaw: unknown;
+    fishingRaw: unknown;
+    cookingRaw: unknown;
+  },
+  now = Date.now(),
+): Partial<Record<MarketplaceLifeItemId, number>> {
+  const farm = parseFarmState(values.farmRaw, now);
+  const fishing = parseFishingStock(values.fishingRaw);
+  const cooking = parseCookingState(values.cookingRaw, now);
+  const result: Partial<Record<MarketplaceLifeItemId, number>> = {};
+  for (const itemId of MARKETPLACE_LIFE_ITEM_IDS) {
+    const definition = marketplaceLifeItemDefinition(itemId);
+    if (!definition) continue;
+    const count =
+      definition.source === "farm_seed"
+        ? farm.seeds[definition.sourceItemId as FarmCropId]
+        : definition.source === "farm_item"
+          ? farm.inventory[definition.sourceItemId as FarmItemId]
+          : definition.source === "fishing_catch"
+            ? fishing.items[definition.sourceItemId as FishingCatchItemId]
+            : cooking.kitchenItems[
+                definition.sourceItemId as CookingKitchenItemId
+              ];
+    const normalized = Math.max(0, Math.floor(Number(count) || 0));
+    if (normalized > 0) result[itemId] = normalized;
+  }
+  return result;
 }
 
 export async function withdrawMarketplaceLifeItem(

@@ -19,7 +19,7 @@ import {
 import {
   isMarketKind,
   isStackableMarketplaceItem,
-  isTradableMaterial,
+  isTradableMarketplaceMaterial,
   isValidBidGraceHours,
   isValidMaterialQty,
   isValidPrice,
@@ -31,6 +31,7 @@ import {
   resolvePlayerName,
   type MarketKind,
 } from "@/lib/server/marketplaceV2";
+import { withdrawMarketplaceLifeItem } from "@/lib/server/marketplaceLifeInventory";
 import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
 import {
   isTradeableMuseunCashItemId,
@@ -483,7 +484,10 @@ export async function POST(req: Request) {
     }
 
     // material
-    if (typeof body.itemId !== "string" || !isTradableMaterial(body.itemId)) {
+    if (
+      typeof body.itemId !== "string" ||
+      !isTradableMarketplaceMaterial(body.itemId)
+    ) {
       return { status: 400, body: { ok: false as const, error: "not_tradable" } };
     }
     if (!isValidMaterialQty(body.quantity)) {
@@ -491,16 +495,37 @@ export async function POST(req: Request) {
     }
     const itemId = body.itemId;
     const quantity = body.quantity;
-    // charSave 는 tx 시작 시 이미 잠금·읽음(seller 직렬화 겸용) — 재read 불필요.
-    const mats = { ...(charSave.materials ?? {}) };
-    const have = Math.max(0, Math.floor(mats[itemId] ?? 0));
-    if (have < quantity) {
-      return { status: 400, body: { ok: false as const, error: "insufficient_material" } };
+    const lifeWithdrawal = await withdrawMarketplaceLifeItem(
+      tx,
+      userId,
+      itemId,
+      quantity,
+      createdAt.getTime(),
+    );
+    if (lifeWithdrawal === "insufficient") {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "insufficient_material" },
+      };
     }
-    const left = have - quantity;
-    if (left > 0) mats[itemId] = left;
-    else delete mats[itemId];
-    await upsertSave(tx, userId, "character.v2", { ...charSave, materials: mats });
+    if (lifeWithdrawal === "not_life_item") {
+      // charSave 는 tx 시작 시 이미 잠금·읽음(seller 직렬화 겸용) — 재read 불필요.
+      const mats = { ...(charSave.materials ?? {}) };
+      const have = Math.max(0, Math.floor(mats[itemId] ?? 0));
+      if (have < quantity) {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "insufficient_material" },
+        };
+      }
+      const left = have - quantity;
+      if (left > 0) mats[itemId] = left;
+      else delete mats[itemId];
+      await upsertSave(tx, userId, "character.v2", {
+        ...charSave,
+        materials: mats,
+      });
+    }
 
     const [row] = await tx
       .insert(marketplaceListingsV2)

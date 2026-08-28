@@ -98,6 +98,7 @@ const NAMED_DISPLAY_ANCHORS: readonly [
   ["우유", "farm:milk"],
   ["버터", "processed:butter"],
   ["소금", "pantry:salt"],
+  ["육수", "processed:broth"],
   ["황금 밀", "farm:golden_wheat"],
   ["은빛잎", "farm:silverleaf"],
   ["달콤 옥수수", "farm:sweet_corn"],

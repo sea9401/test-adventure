@@ -8,7 +8,7 @@ export const COOKING_EXPANSION_ANSWER_BATCH_10 = {
   { recipeId: "milk_pork_nutritious_steam", ingredientIds: ["farm:milk","farm:pork"] },
   { recipeId: "pork_sauce_potage", ingredientIds: ["farm:pork","processed:sauce"] },
   { recipeId: "wheat_sugar_butter_steamed_cake", ingredientIds: ["farm:wheat","farm:sugarcane","processed:butter"] },
-  { recipeId: "milk_onion_cheese_fermented_bread", ingredientIds: ["farm:milk","farm:onion","processed:cheese"] },
+  { recipeId: "milk_onion_cheese_fermented_bread", ingredientIds: ["farm:milk","farm:onion","processed:flour"] },
   { recipeId: "fresh_fish_soybean_broth_skewer", ingredientIds: ["fishing:catch_fresh","farm:soybean","processed:broth"] },
   { recipeId: "quality_fish_broth_pearl_onion_tomato_terrine", ingredientIds: ["fishing:catch_quality","processed:broth","farm:pearl_onion","farm:tomato"] },
   { recipeId: "silverleaf_herb_soybean_tomato_golden_wheat_medicinal_porridge", ingredientIds: ["farm:silverleaf","farm:herb","farm:soybean","farm:tomato","farm:golden_wheat"] },

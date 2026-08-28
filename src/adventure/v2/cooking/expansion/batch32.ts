@@ -10,7 +10,7 @@ export const COOKING_EXPANSION_BATCH_32 = {
   ["milk_strawberry_steamed_cake", "소박한 우유 딸기 증편", "baking", "steam", "🥧", 1],
   ["cacao_flour_fermented_bread", "고소한 카카오 발효빵", "baking", "ferment", "🥧", 1],
   ["common_fish_herb_chowder", "담백한 민물생선 허브 차우더", "seafood", "boil", "🐟", 1],
-  ["common_fish_vinegar_sauce_fry", "따뜻한 민물생선 소스볶음", "seafood", "stir_fry", "🐟", 1],
+  ["common_fish_vinegar_sauce_fry", "새콤한 민물생선 볶음", "seafood", "stir_fry", "🐟", 1],
   ["herb_strawberry_fermented_drink", "바삭한 허브 딸기 발효음료", "medicinal", "ferment", "🍵", 1],
   ["sugar_spice_herb_restorative_dish", "감칠맛 나는 설탕 허브 회복식", "medicinal", "steam", "🍵", 2],
   ],

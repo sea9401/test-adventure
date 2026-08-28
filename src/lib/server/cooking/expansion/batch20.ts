@@ -7,7 +7,7 @@ export const COOKING_EXPANSION_ANSWER_BATCH_20 = {
   { recipeId: "potato_oil_skillet", ingredientIds: ["farm:potato","pantry:oil"] },
   { recipeId: "potato_milk_nutritious_steam", ingredientIds: ["farm:potato","farm:milk"] },
   { recipeId: "tomato_herb_stew", ingredientIds: ["farm:tomato","farm:herb"] },
-  { recipeId: "egg_milk_potato_aged_cream", ingredientIds: ["farm:egg","farm:milk","farm:potato"] },
+  { recipeId: "egg_milk_potato_aged_cream", ingredientIds: ["farm:egg","farm:milk","processed:cream"] },
   { recipeId: "strawberry_pork_cream_cookie", ingredientIds: ["farm:strawberry","farm:pork","processed:cream"] },
   { recipeId: "fresh_fish_soybean_broth_skillet", ingredientIds: ["fishing:catch_fresh","farm:soybean","processed:broth"] },
   { recipeId: "quality_fish_tomato_oil_soybean_charcoal_grill", ingredientIds: ["fishing:catch_quality","farm:tomato","pantry:oil","farm:soybean"] },

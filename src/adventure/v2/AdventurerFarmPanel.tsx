@@ -1182,6 +1182,9 @@ function FarmShopPanel({
           사용 가능 {availableReputation.toLocaleString("ko-KR")}
         </span>
       </div>
+      <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
+        할인된 씨앗 묶음 또는 필요한 씨앗 1개 단품을 선택합니다.
+      </p>
       <div className="grid gap-2 lg:grid-cols-3">
         {items.map((item) => {
           const affordable = availableReputation >= item.costReputation;

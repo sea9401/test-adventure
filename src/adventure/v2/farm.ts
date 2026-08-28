@@ -1031,7 +1031,7 @@ export function getFarmWeeklyDeliveryRequests(): FarmWeeklyDeliveryRequest[] {
 }
 
 export function getFarmShopItems(): FarmShopItem[] {
-  return [
+  const bundles: FarmShopItem[] = [
     {
       id: "seed-crate",
       title: "마을 씨앗 상자",
@@ -1092,6 +1092,29 @@ export function getFarmShopItems(): FarmShopItem[] {
       requiredSkillName: FARM_CROP_UNLOCK_SKILLS.earthartisan.name,
     },
   ];
+  const singleSeedCost: Record<FarmCropId, number> = {
+    wheat: 3,
+    herb: 3,
+    corn: 6,
+    tomato: 3,
+    strawberry: 3,
+    potato: 3,
+    onion: 3,
+    rice: 4,
+    soybean: 4,
+    sugarcane: 6,
+    cacao: 6,
+  };
+  const singles: FarmShopItem[] = FARM_CROP_LIST.map((crop) => ({
+    id: `single-seed-${crop.id}`,
+    title: `${crop.seedName} 1개`,
+    note: "필요한 밭 한 칸만 심을 수 있도록 씨앗을 한 개씩 구매합니다.",
+    costReputation: singleSeedCost[crop.id],
+    rewardSeeds: { [crop.id]: 1 },
+    requiredSkillId: crop.requiredSkillId,
+    requiredSkillName: crop.requiredSkillName,
+  }));
+  return [...bundles, ...singles];
 }
 
 export function normalizeFarmForDay(

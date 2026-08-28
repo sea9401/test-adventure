@@ -638,10 +638,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     projection: FishSpecimenExtractProjection;
   } | null>(null);
   const [extractBusy, setExtractBusy] = useState(false);
-  const [cookingCodex, setCookingCodex] = useState<{
-    knownRecipes: CookingCodexRecipeView[];
-    total: number;
-  }>({ knownRecipes: [], total: 0 });
+  const [cookingCodex, setCookingCodex] = useState<{ knownRecipes: CookingCodexRecipeView[]; total: number }>({ knownRecipes: [], total: 0 });
   const [fishingCodexMeta, setFishingCodexMeta] = useState<FishingCodexMeta>(
     () => defaultFishingCodexMeta(),
   );
@@ -729,10 +726,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           );
         }
         if (Array.isArray(j?.cookingCodex?.knownRecipes)) {
-          setCookingCodex({
-            knownRecipes: j.cookingCodex.knownRecipes as CookingCodexRecipeView[],
-            total: Math.max(0, Math.floor(Number(j.cookingCodex.total) || 0)),
-          });
+          setCookingCodex({ knownRecipes: j.cookingCodex.knownRecipes as CookingCodexRecipeView[], total: Math.max(0, Math.floor(Number(j.cookingCodex.total) || 0)) });
         }
         if (typeof j?.frontierDepth === "number") {
           setFrontierDepth(j.frontierDepth);
@@ -1528,10 +1522,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         />
       )}
       {tab === "cooking" && (
-        <CookingCodexPanel
-          knownRecipes={cookingCodex.knownRecipes}
-          total={cookingCodex.total}
-        />
+        <CookingCodexPanel knownRecipes={cookingCodex.knownRecipes} total={cookingCodex.total} />
       )}
       {tab === "life" && <LifeFieldCodexPanel />}
       {tab === "title" && (

@@ -192,10 +192,7 @@ type GameStateSnapshot = {
   };
   cookingCodex?: {
     knownRecipes?: Array<{
-      id: string;
-      name: string;
-      imageSrc: string;
-      description: string;
+      id: string; name: string; imageSrc: string; description: string;
       effect: Record<string, unknown>;
     }>;
     total?: number;

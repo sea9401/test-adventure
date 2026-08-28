@@ -79,11 +79,50 @@ describe("v2 생애 HP·MP 성장", () => {
     expect(result.record.baseMp + result.record.gainedMp).toBe(476);
   });
 
-  it("저장된 굴림 레벨과 실제 시작 레벨이 다르면 진행을 거부한다", () => {
+  it("레벨 초기화가 누락된 기존 기록은 Lv.1 생애로 복구한 뒤 새 레벨만 굴린다", () => {
+    const result = rollLifeResourceLevels(
+      {
+        version: 1,
+        rolledLevel: 41,
+        baseHp: 172,
+        baseMp: 81,
+        gainedHp: 873,
+        gainedMp: 390,
+      },
+      1,
+      1,
+      baseRanges,
+      () => 0,
+    );
+
+    expect(result).toEqual({
+      record: {
+        version: 1,
+        rolledLevel: 2,
+        baseHp: 172,
+        baseMp: 81,
+        gainedHp: 8,
+        gainedMp: 3,
+      },
+      hpGain: 8,
+      mpGain: 3,
+    });
+  });
+
+  it("기록 레벨이 실제 레벨보다 낮으면 빠진 레벨을 채운 뒤 새 레벨을 굴린다", () => {
     const record = rollInitialLifeResourceGrowth(baseRanges, () => 0);
-    expect(() =>
-      rollLifeResourceLevels(record, 2, 1, baseRanges, () => 0),
-    ).toThrow("life_resource_level_mismatch");
+    const result = rollLifeResourceLevels(record, 3, 1, baseRanges, () => 0);
+
+    expect(result).toEqual({
+      record: {
+        ...record,
+        rolledLevel: 4,
+        gainedHp: 24,
+        gainedMp: 9,
+      },
+      hpGain: 8,
+      mpGain: 3,
+    });
   });
 
   it("수행 초기화는 Lv.1 굴림을 보존하고 레벨 누적만 비운다", () => {

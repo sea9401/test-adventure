@@ -483,6 +483,14 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
       grown: { str: 7, dex: 3 },
       growthRespecPoints: 20,
       reincarnations: 2,
+      lifeResourceGrowth: {
+        version: 1,
+        rolledLevel: 41,
+        baseHp: 172,
+        baseMp: 81,
+        gainedHp: 873,
+        gainedMp: 390,
+      },
     });
 
     const reset = resetLevelGrowth(p);
@@ -490,6 +498,14 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(reset.grown).toEqual({});
     expect(reset.growthRespecPoints).toBe(0);
     expect(reset.reincarnations).toBe(2);
+    expect(reset.lifeResourceGrowth).toEqual({
+      version: 1,
+      rolledLevel: 1,
+      baseHp: 172,
+      baseMp: 81,
+      gainedHp: 0,
+      gainedMp: 0,
+    });
   });
 
   it("applyCultivation — 대성공·각성 이름과 특별 수행 배수를 구분한다", () => {

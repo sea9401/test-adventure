@@ -80,8 +80,30 @@ export function rollLifeResourceLevels(
   rng: () => number = Math.random,
 ): { record: V2LifeResourceGrowth; hpGain: number; mpGain: number } {
   const startLevel = Math.max(1, Math.floor(currentLevel));
-  if (record.rolledLevel !== startLevel) {
-    throw new Error("life_resource_level_mismatch");
+  // 과거 전직 경로가 레벨만 1로 내린 저장값은 같은 Lv.1 기본 굴림을 보존한 채 누적만
+  // 초기화한다. 반대로 기록이 뒤처졌다면 빠진 레벨을 먼저 채워 이후 레벨업이 막히지 않게 한다.
+  // 복구분은 이번 레벨업 표시값(hpGain/mpGain)에는 포함하지 않는다.
+  let alignedRecord =
+    record.rolledLevel > startLevel
+      ? resetLifeResourceLevels(record)
+      : record;
+  if (alignedRecord.rolledLevel < startLevel) {
+    let missingHp = 0;
+    let missingMp = 0;
+    for (
+      let level = alignedRecord.rolledLevel;
+      level < startLevel;
+      level += 1
+    ) {
+      missingHp += rollRange(ranges.hpPerLevel, rng);
+      missingMp += rollRange(ranges.mpPerLevel, rng);
+    }
+    alignedRecord = {
+      ...alignedRecord,
+      rolledLevel: startLevel,
+      gainedHp: alignedRecord.gainedHp + missingHp,
+      gainedMp: alignedRecord.gainedMp + missingMp,
+    };
   }
 
   const count = Math.max(0, Math.floor(levelsGained));
@@ -94,10 +116,10 @@ export function rollLifeResourceLevels(
 
   return {
     record: {
-      ...record,
+      ...alignedRecord,
       rolledLevel: startLevel + count,
-      gainedHp: record.gainedHp + hpGain,
-      gainedMp: record.gainedMp + mpGain,
+      gainedHp: alignedRecord.gainedHp + hpGain,
+      gainedMp: alignedRecord.gainedMp + mpGain,
     },
     hpGain,
     mpGain,

@@ -1,3 +1,14 @@
+import {
+  V2_HP_PER_LEVEL,
+  V2_MP_PER_LEVEL,
+} from "@/adventure/data/v2/v2Stats";
+import {
+  ATK_PER_STR,
+  HP_PER_STR,
+  HP_PER_VIT,
+  MAGIC_ATK_PER_INT,
+  MP_PER_INT,
+} from "@/lib/server/v2CombatCoefficients";
 import { H2, P, UL, Em, Table, Note } from "./primitives";
 
 export function StatsContent() {
@@ -43,12 +54,14 @@ export function StatsContent() {
       <H2>최대 HP·MP</H2>
       <UL>
         <li>
-          힘 1당 공격력 0.7과 최대 HP 1, 활력 1당 최대 HP 3을 얻습니다. 지능 1당
-          마법 공격력 0.7을 얻습니다.
+          힘 1당 공격력 {ATK_PER_STR}, 힘 1당 최대 HP {HP_PER_STR}, 활력 1당 최대
+          HP {HP_PER_VIT}을 얻습니다. 지능 1당 마법 공격력 {MAGIC_ATK_PER_INT},
+          지능 1당 최대 MP {MP_PER_INT}를 얻습니다.
         </li>
         <li>
           <Em>최대 HP</Em> 는 레벨·STR·VIT로, <Em>최대 MP</Em> 는 레벨과 INT로
-          늘어납니다. 힘 1당 최대 HP 1, 활력 1당 최대 HP 3이 적용됩니다.
+          늘어납니다. 레벨이 오를 때마다 최대 HP +{V2_HP_PER_LEVEL}, 최대 MP +
+          {V2_MP_PER_LEVEL}이 적용됩니다.
         </li>
         <li>
           최대 HP 증가 패시브는 캐릭터의 기본 HP와 STR·VIT로 얻은 HP에 적용되며,

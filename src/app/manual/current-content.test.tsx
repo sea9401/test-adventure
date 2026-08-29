@@ -9,6 +9,7 @@ import {
 import { dangerousRealtimeModifiers } from "@/adventure/v2/dangerousFishingRealtimeModifiers";
 import { dangerousBaitRealtimeEffectCopy } from "@/adventure/v2/dangerousFishingBaitCopy";
 import { CombatContent } from "./content/combat";
+import { CombatFormulasContent } from "./content/combat-formulas";
 import { ControlsContent } from "./content/controls";
 import { EconomyContent } from "./content/economy";
 import { EnhanceContent } from "./content/enhance";
@@ -16,6 +17,7 @@ import { EquipmentContent } from "./content/equipment";
 import { GuildContent } from "./content/guild";
 import { HuntingContent } from "./content/hunting";
 import { JobsContent } from "./content/jobs";
+import { LevelingContent } from "./content/leveling";
 import { PastimesContent } from "./content/pastimes";
 import { PlazaContent } from "./content/plaza";
 import { QuestsContent } from "./content/quests";
@@ -301,11 +303,11 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("고등급 작물일수록 발견 확률이 낮습니다");
   });
 
-  it("마을에서 생활 의뢰·조합 작업장으로 바로 이동할 수 있다고 안내한다", () => {
+  it("생활에서 생활 의뢰·조합 작업장으로 바로 이동할 수 있다고 안내한다", () => {
     const html = renderToStaticMarkup(<TownContent />);
 
     expect(html).toContain("생활 의뢰·조합 작업장");
-    expect(html).toContain("마을 탭의 독립된 시설 카드에서 바로 이동");
+    expect(html).toContain("생활 탭의 독립된 시설 카드에서 바로 이동");
   });
 
   it("최신 낚시 코인과 소비품 구매 한도를 안내한다", () => {
@@ -657,5 +659,70 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("24시간");
     expect(html).toContain("최고 입찰자에게 판매");
     expect(html).toContain("판매자가 취소할 수 없습니다");
+  });
+
+  it("현재 홈·메인 탭 구조와 홈 위젯·콘텐츠 알림 설정을 안내한다", () => {
+    const html = renderToStaticMarkup(<ControlsContent />);
+
+    expect(html).toContain("홈 아이콘과 메인 탭 5개");
+    for (const label of ["전투", "마을", "생활", "캐릭터", "길드"]) {
+      expect(html).toContain(label);
+    }
+    expect(html).toContain("홈 화면 구성");
+    expect(html).toContain("오늘의 모험 체크");
+    expect(html).toContain("콘텐츠 알림 표시");
+  });
+
+  it("마을의 모험가 협회·통합 교환소와 생활 메뉴 분리를 안내한다", () => {
+    const html = renderToStaticMarkup(<TownContent />);
+
+    expect(html).toContain("모험가 협회");
+    expect(html).toContain("길드에 가입하지 않은 모험가");
+    expect(html).toContain("통합 교환소");
+    expect(html).toContain("마을과 생활");
+  });
+
+  it("생활 현장의 일일 환경·현장 기록·흔적 조사 규칙을 안내한다", () => {
+    const pastimes = renderToStaticMarkup(<PastimesContent />);
+    const compendium = renderToStaticMarkup(<CompendiumContent />);
+
+    expect(pastimes).toContain("오늘의 현장");
+    expect(pastimes).toContain("매일 00:00 KST");
+    expect(pastimes).toContain("현장 기록");
+    expect(pastimes).toContain("같은 지역에서 3회 성공");
+    expect(pastimes).toContain("확정 발견");
+    expect(compendium).toContain("현장 기록");
+  });
+
+  it("현재 레벨 성장량·누적 EXP·신참 기준을 안내한다", () => {
+    const html = renderToStaticMarkup(<LevelingContent />);
+
+    expect(html).toContain("최대 HP가 10");
+    expect(html).toContain("최대 MP가 3");
+    expect(html).toContain("2,275,428 EXP");
+    expect(html).toContain("30,000회 이하");
+  });
+
+  it("폐지된 무기 속성 안내를 제거하고 한기·빙결·스킬 봉인을 설명한다", () => {
+    const equipment = renderToStaticMarkup(<EquipmentContent />);
+    const combat = renderToStaticMarkup(<CombatContent />);
+    const formulas = renderToStaticMarkup(<CombatFormulasContent />);
+
+    expect(equipment).toContain("무기 속성과 속성 상성은 현재 사용하지 않습니다");
+    expect(equipment).not.toContain("기본 공격의 속성을 정합니다");
+    expect(combat).toContain("한기·빙결");
+    expect(combat).toContain("스킬 봉인");
+    expect(formulas).toContain("한기 5중첩");
+    expect(formulas).toContain("INT × 0.7 + 최대 MP × 0.04 + 180");
+  });
+
+  it("지원권 거래소 혜택과 스태미나 포션 비축 상한을 안내한다", () => {
+    const controls = renderToStaticMarkup(<ControlsContent />);
+    const economy = renderToStaticMarkup(<EconomyContent />);
+
+    expect(controls).toContain("거래소 등록 +10개");
+    expect(controls).toContain("판매세 5%");
+    expect(economy).toContain("10,000");
+    expect(economy).toContain("시간 회복은 최대치까지만");
   });
 });

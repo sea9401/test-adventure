@@ -28,13 +28,19 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "controls",
     title: "화면과 조작",
-    summary: "메인 탭과 알림·이벤트·꾸미기·환경 설정의 사용법을 안내합니다.",
+    summary: "홈·메인 탭과 알림·이벤트·꾸미기·환경 설정의 사용법을 안내합니다.",
     group: "intro",
   },
   {
     slug: "combat",
     title: "전투 시스템",
     summary: "행동 순서부터 피해·방어·치명타·회피·상태이상까지 설명합니다.",
+    group: "combat",
+  },
+  {
+    slug: "combat-formulas",
+    title: "전투 계산식",
+    summary: "공격·방어·치명타·회피·속도와 출혈·중독·연소의 실제 계산식을 정리합니다.",
     group: "combat",
   },
   {
@@ -100,7 +106,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "town",
     title: "마을 시설",
-    summary: "치료소·대장간·은행·생활 작업장·농장·주방 등 마을 시설을 소개합니다.",
+    summary: "협회·치료소·은행·통합 교환소·대장간과 생활 시설을 소개합니다.",
     group: "world",
   },
   {
@@ -130,7 +136,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "pastimes",
     title: "생활 콘텐츠",
-    summary: "농장·주방·자동 벌목·자동 채광·낚시의 진행 방식과 보상을 안내합니다.",
+    summary: "현장 기록과 농장·주방·벌목·채광·낚시의 진행 방식과 보상을 안내합니다.",
     group: "world",
   },
 ];

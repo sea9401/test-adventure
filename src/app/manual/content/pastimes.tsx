@@ -43,6 +43,12 @@ import {
 } from "@/adventure/v2/autoGathering";
 import { WOODCUTTING_SPOT_IDS } from "@/adventure/data/v2/woodcuttingSpots";
 import { MINING_SPOT_IDS } from "@/adventure/data/v2/miningSpots";
+import {
+  LIFE_FIELD_BASIC_RECORD_TOTAL,
+  LIFE_FIELD_DISCOVERY_BALANCE,
+  LIFE_FIELD_RARE_RECORD_TOTAL,
+  LIFE_FIELD_TRACE_REQUIRED_SUCCESSES,
+} from "@/adventure/v2/lifeFieldRecords";
 import { COOKING_PUBLIC_RECIPES } from "@/adventure/v2/cooking/catalog";
 import { COOKING_BUFF_DURATION_MS } from "@/adventure/v2/cooking/food";
 import { COOKING_DAILY_REQUEST_COUNT, COOKING_STANDING_DELIVERY_DAILY_LIMIT } from "@/adventure/v2/cooking/state";
@@ -57,6 +63,10 @@ function fishName(id: string | undefined) {
   return id && id in FISH ? FISH[id as keyof typeof FISH].name : "없음";
 }
 
+function chanceText(value: number) {
+  return `${(value * 100).toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}%`;
+}
+
 export function PastimesContent() {
   return (
     <>
@@ -67,6 +77,51 @@ export function PastimesContent() {
         거래소에서 사용합니다. 낚시는 별도 코인과 어보, 주간 최대어 기록을
         중심으로 진행됩니다.
       </P>
+
+      <H2>오늘의 현장과 현장 기록</H2>
+      <P>
+        낚시터·벌목지·채광지에는 각각 <Em>오늘의 현장</Em> 효과가 배정됩니다.
+        희귀 어종 가중치, 경험치, 작업 시간, 추가 주 재료나 부산물 확률처럼 지역마다
+        다른 보너스가 적용되며 <Em>매일 00:00 KST</Em>에 다음 환경으로 바뀝니다. 생활
+        지도와 각 작업 화면에서 현재 효과와 다음 환경을 확인할 수 있습니다.
+      </P>
+      <UL>
+        <li>
+          정상적으로 낚시·벌목·채광에 성공하면 해당 지역과 현장 환경이 모험의 서 →
+          <Em>현장 기록</Em>에 기록됩니다. 같은 기록을 1·3·10회 관찰하면 동·은·금
+          메달로 올라갑니다.
+        </li>
+        <li>
+          현장 기록은 일반 {LIFE_FIELD_BASIC_RECORD_TOTAL}개와 희귀{" "}
+          {LIFE_FIELD_RARE_RECORD_TOTAL}개로 구성됩니다. 아직 발견하지 않은 희귀
+          기록은 이름과 조건이 가려집니다.
+        </li>
+        <li>
+          생활 성공 때 활동별 일일 한도 안에서 <Em>발견 흔적</Em>을 찾습니다.
+          흔적이 나오면 발견한 같은 지역에서 {LIFE_FIELD_TRACE_REQUIRED_SUCCESSES}회
+          성공해야 기록이 완성됩니다. 다른 지역의 성공은 흔적 진행도를 올리지
+          않습니다.
+        </li>
+        <li>
+          낚시·벌목·채광은 서로 별도의 흔적과 누적 실패 횟수를 가집니다. 흔적을
+          조사 중이거나 그날 흔적을 이미 찾은 활동은 새 흔적 탐색이 일시 정지됩니다.
+          흔적을 포기할 수 있지만 포기 전 누적 수치는 복구되지 않습니다.
+        </li>
+      </UL>
+      <Table
+        head={["활동", "기본 발견 확률", "일일 판정", "확률 상승 / 확정 발견"]}
+        rows={([
+          ["낚시", LIFE_FIELD_DISCOVERY_BALANCE.fishing],
+          ["벌목", LIFE_FIELD_DISCOVERY_BALANCE.woodcutting],
+          ["채광", LIFE_FIELD_DISCOVERY_BALANCE.mining],
+        ] as const).map(([label, rule]) => [
+          label,
+          chanceText(rule.baseChance),
+          `${rule.dailyEvaluations}회`,
+          `${rule.softPity}회부터 상승 / ${rule.hardPity}회에 확정 발견`,
+        ])}
+        caption="흔적 후보와 어울리는 오늘의 현장에서 작업하면 해당 판정의 발견 확률이 1.5배가 됩니다. 누적 실패 횟수는 날짜가 바뀌어도 유지되고, 흔적을 찾으면 0으로 초기화됩니다."
+      />
 
       <H2>농장</H2>
       <UL>

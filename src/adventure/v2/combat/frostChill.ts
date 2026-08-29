@@ -1,5 +1,8 @@
 export const FROST_CHILL_THRESHOLD = 5;
 export const BASE_FREEZE_DELAY_PCT = 30;
+export const FREEZE_INT_COEF = 0.7;
+export const FREEZE_MAX_MP_COEF = 0.04;
+export const FREEZE_FLAT_DAMAGE = 180;
 
 export type FrostChillTransition = {
   previous: number;
@@ -71,7 +74,12 @@ export function freezeRawDamage(args: {
   const damagePct = Number.isFinite(args.damagePct)
     ? Math.max(0, args.damagePct)
     : 0;
-  return Math.round((int * 0.7 + maxMp * 0.04 + 180) * (1 + damagePct / 100));
+  return Math.round(
+    (int * FREEZE_INT_COEF +
+      maxMp * FREEZE_MAX_MP_COEF +
+      FREEZE_FLAT_DAMAGE) *
+      (1 + damagePct / 100),
+  );
 }
 
 export function frostChillSnapshot(

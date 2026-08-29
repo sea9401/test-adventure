@@ -1,3 +1,4 @@
+import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 import { H2, P, UL, Em, Note } from "./primitives";
 
 export function OverviewContent() {
@@ -34,7 +35,8 @@ export function OverviewContent() {
         <li>
           <Em>생활</Em> — 농장·요리·벌목·채광·낚시로 생활 레벨을 올립니다.
           작물과 어획물로 사냥용 음식을 만들거나, 모은 생활 재료를 제작·거래와
-          길드 시설 운영에 사용합니다.
+          길드 시설 운영에 사용합니다. 매일 바뀌는 현장 환경을 살피며 관찰 기록과
+          희귀 흔적을 수집할 수도 있습니다.
         </li>
         <li>
           <Em>수집과 연구</Em> — 장비·어류·몬스터·요리·현장·직업 기록을
@@ -52,7 +54,7 @@ export function OverviewContent() {
 
       <H2>레벨과 전직</H2>
       <P>
-        최고 레벨은 <Em>100</Em>입니다. <Em>전직</Em>하면 레벨은 1로 돌아가지만
+        최고 레벨은 <Em>{V2_LEVEL_CAP}</Em>입니다. <Em>전직</Em>하면 레벨은 1로 돌아가지만
         직업 숙련도는 유지됩니다. 한 직업의 만렙이 끝이 아니라 여러 직업을
         전직하며 숙련도를 쌓는 과정이 장기 성장의 중심입니다. 자세한 내용은{" "}
         <Em>직업·숙련도·전직</Em>에서 확인할 수 있습니다.

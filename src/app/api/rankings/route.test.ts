@@ -15,6 +15,11 @@ vi.mock("@/lib/server/museunCosmetics", () => ({
 vi.mock("@/lib/server/ugcSafety", () => ({
   readBlockedUserIds: vi.fn(async () => []),
 }));
+vi.mock("@/adventure/data/v2/masteryTower", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/adventure/data/v2/masteryTower")>();
+  return { ...actual, MASTERY_TOWER_MAX_FLOOR: 100 };
+});
 
 import { GET } from "./route";
 
@@ -254,21 +259,21 @@ describe("개인 랭킹", () => {
     );
   });
 
-  it("숙련의 탑은 일일 기록이 아닌 역대 최고층으로 정렬한다", async () => {
+  it("숙련의 탑은 50층을 넘은 역대 최고층도 실제 기록대로 정렬한다", async () => {
     execute.mockResolvedValueOnce({
       rows: [
         {
           user_id: "u-me",
           name: "오늘의도전자",
           avatar: "female1",
-          tower_save: { todayBestFloor: 40, lifetimeBestFloor: 12 },
+          tower_save: { todayBestFloor: 90, lifetimeBestFloor: 61 },
           updated_at: "2026-07-20T00:00:00.000Z",
         },
         {
           user_id: "u-tower",
           name: "탑의기록자",
           avatar: "male1",
-          tower_save: { todayBestFloor: 1, lifetimeBestFloor: 35 },
+          tower_save: { todayBestFloor: 1, lifetimeBestFloor: 73 },
           updated_at: "2026-07-20T00:00:01.000Z",
         },
       ],
@@ -285,8 +290,8 @@ describe("개인 랭킹", () => {
       "오늘의도전자",
     ]);
     expect(json.list.map((entry: { masteryTowerFloor: number }) => entry.masteryTowerFloor)).toEqual([
-      35,
-      12,
+      73,
+      61,
     ]);
   });
 

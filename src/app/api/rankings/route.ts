@@ -20,7 +20,10 @@ import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
 import { MINING_LOG_KEY } from "@/adventure/v2/miningSession";
 import { WOODCUTTING_LOG_KEY } from "@/adventure/v2/woodcuttingSession";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
-import { MASTERY_TOWER_SAVE_KEY } from "@/adventure/data/v2/masteryTower";
+import {
+  MASTERY_TOWER_MAX_FLOOR,
+  MASTERY_TOWER_SAVE_KEY,
+} from "@/adventure/data/v2/masteryTower";
 import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
 import { GUIDE_QUESTS_KEY } from "@/lib/server/v2QuestContext";
 import {
@@ -629,7 +632,10 @@ async function fetchMasteryTowerRows(): Promise<RankRow[]> {
           : {};
       const masteryTowerFloor = Math.max(
         0,
-        Math.min(50, Math.floor(Number(raw.lifetimeBestFloor) || 0)),
+        Math.min(
+          MASTERY_TOWER_MAX_FLOOR,
+          Math.floor(Number(raw.lifetimeBestFloor) || 0),
+        ),
       );
       return {
         userId: String(r.user_id),

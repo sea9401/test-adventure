@@ -25,7 +25,7 @@ describe("BulletinMarkdown", () => {
     );
 
     expect(html).toContain("<h2>업데이트</h2>");
-    expect(html).toContain("<strong>중요한 변경</strong>");
+    expect(html).toMatch(/<strong[^>]*>중요한 변경<\/strong>/);
     expect(html).toContain("<ul>");
     expect(html).toContain("<table");
     expect(html).toContain("<td>2개</td>");
@@ -98,10 +98,25 @@ describe("BulletinMarkdown", () => {
     expect(html).toContain("text-sky-800");
     expect(html).toContain("text-violet-800");
     expect(html).toContain("text-amber-800");
-    expect(html).toContain("<strong>중요 변경</strong>");
+    expect(html).toContain(
+      '<strong class="font-extrabold text-zinc-950 dark:text-zinc-50">중요 변경</strong>',
+    );
     expect(html).toContain("<ul>");
     expect(html).toContain("점검 요약");
     expect(html).toContain("감사합니다.");
+  });
+
+  it("details 제목의 굵은 글씨도 일반 제목보다 분명하게 강조한다", () => {
+    const html = renderToStaticMarkup(
+      <BulletinMarkdown
+        content={[":::details **필독 사항**", "본문", ":::"].join("\n")}
+      />,
+    );
+    const summary = html.match(/<summary[\s\S]*?<\/summary>/)?.[0] ?? "";
+
+    expect(summary).toContain(
+      '<strong class="font-extrabold text-zinc-950 dark:text-zinc-50">필독 사항</strong>',
+    );
   });
 
   it("details 제목의 색상 문법을 인라인 색상으로 렌더링한다", () => {
@@ -141,7 +156,7 @@ describe("BulletinMarkdown", () => {
     expect(html).toContain("생활 현장 업데이트 내용 보기</span>");
     expect(html).toContain(">펼치기</span>");
     expect(html).toContain(">접기</span>");
-    expect(html).toContain("<strong>중요 변경</strong>");
+    expect(html).toMatch(/<strong[^>]*>중요 변경<\/strong>/);
     expect(html).toContain("<li>변경 사항</li>");
   });
 

@@ -304,7 +304,7 @@ export function DangerousFishingRealtimePanel({
         />
       </div>
 
-      {view.telegraphs.length > 0 ? (
+      {active && view.telegraphs.length > 0 ? (
         <div
           aria-label="행동 예고"
           aria-live="polite"

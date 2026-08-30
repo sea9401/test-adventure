@@ -110,6 +110,25 @@ describe("위험 해역 실시간 조우 HUD", () => {
     );
   });
 
+  it("조우가 종료되면 발광 미끼의 행동 예고를 숨긴다", () => {
+    const encounter = encounterFixture({
+      status: "line_broken",
+      phase: "active",
+      behavior: "turn",
+      behaviorCursor: 0,
+    });
+    encounter.config.modifiers = dangerousRealtimeModifiers({
+      fishingLevel: 50,
+      baitId: "luminous_bait",
+    });
+
+    render(
+      <DangerousFishingRealtimePanel {...baseProps} encounter={encounter} />,
+    );
+
+    expect(screen.queryByLabelText("행동 예고")).toBeNull();
+  });
+
   it("캔버스 밖의 불투명 DOM에 조작과 모든 판정 수치를 접근 가능하게 표시한다", () => {
     const html = renderToStaticMarkup(
       <DangerousFishingRealtimePanel

@@ -2839,9 +2839,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_ruinblade_limitstrike: {
     id: "v2c_ruinblade_limitstrike", name: "극한일격", stat: "str", category: "attack", tier: 3,
     description: "궁지에서 더 강해지는 일격이다. 잃은 체력에 따라 최종 피해가 최대 60% 증가하고 체력이 40% 이하면 검의를 두 개 얻는다. PvP 직접 피해는 조정 전 수준을 유지한다.",
-    mpCost: 65, cooldown: 0, procChance: 45, learnCost: 20000, spCost: 10, spCostDiscount: 18,
-    effects: [dmg(6.908, 1632, undefined, 20)],
-    tier7Mechanic: { kind: "intentStrike", missingHpBonusCapPct: 60, lowHpThresholdPct: 40, pvpDirectDamagePct: 22.73 },
+    mpCost: 65, cooldown: 0, procChance: 45, learnCost: 20000, spCost: 10, spCostDiscount: 12,
+    effects: [dmg(4.5, 1063, undefined, 20)],
+    tier7Mechanic: { kind: "intentStrike", missingHpBonusCapPct: 60, lowHpThresholdPct: 40, pvpDirectDamagePct: 34.89 },
   },
   v2c_ruinblade_oneintent: {
     id: "v2c_ruinblade_oneintent", name: "일념", stat: "str", category: "passive", tier: 3,
@@ -2853,7 +2853,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_ruinblade_ruinsword: {
     id: "v2c_ruinblade_ruinsword", name: "멸검", stat: "str", category: "attack", tier: 3,
     description: "검의가 정확히 3개일 때 현재 행동을 충전에 쓰고 다음 행동 기회에 자동으로 해방하는 전투당 한 번의 필살검이다. 해방 뒤 검의 1개를 되찾으며 PvP 직접 피해는 조정 전 수준을 유지한다.",
-    mpCost: 100, cooldown: 0, procChance: 100, learnCost: 20000, spCost: 24, spCostDiscount: 9,
+    mpCost: 100, cooldown: 0, procChance: 100, learnCost: 20000, spCost: 24, spCostDiscount: 8,
     defaultPattern: {
       priority: 350,
       condition: {
@@ -2864,8 +2864,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
         ],
       },
     },
-    effects: [dmg(6.993, 1653, undefined, 45)], oncePerBattle: true,
-    tier7Mechanic: { kind: "chargedFinisher", currentMissingHpCapPct: 75, chargeLostHpCapPct: 75, requiredIntentStacks: 3, pvpCapPct: 40, pvpPenetrationPct: 30, pvpDirectDamagePct: 47.62 },
+    effects: [dmg(6.5, 1537, undefined, 45)], oncePerBattle: true,
+    tier7Mechanic: { kind: "chargedFinisher", currentMissingHpCapPct: 75, chargeLostHpCapPct: 75, requiredIntentStacks: 3, pvpCapPct: 40, pvpPenetrationPct: 30, pvpDirectDamagePct: 51.23 },
   },
   v2c_skyascendant_fallingstar: {
     id: "v2c_skyascendant_fallingstar", name: "낙성", stat: "dex", category: "attack", tier: 3,

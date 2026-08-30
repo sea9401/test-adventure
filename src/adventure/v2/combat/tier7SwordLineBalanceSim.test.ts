@@ -53,13 +53,26 @@ describe("검성 계열 7차 결정적 밸런스 시뮬레이션", () => {
 
       expect(report.ratios.shadowCoreToSwordsaint).toBeGreaterThanOrEqual(1.1);
       expect(report.ratios.shadowCoreToSwordsaint).toBeLessThanOrEqual(1.2);
-      expect(report.ratios.ruinCoreToSwordsaint).toBeGreaterThanOrEqual(1.1);
-      expect(report.ratios.ruinCoreToSwordsaint).toBeLessThanOrEqual(1.2);
+      // 멸검제는 저체력에서 멸검이 열리는 조건부 직업이다. 공격하지 않는
+      // 만피 허수아비에서도 검성보다 강하도록 극한일격을 과도하게 올리지 않는다.
+      expect(report.ratios.ruinCoreToSwordsaint).toBeGreaterThanOrEqual(0.75);
+      expect(report.ratios.ruinCoreToSwordsaint).toBeLessThanOrEqual(0.85);
+      expect(report.ratios.ruinCoreLowToSwordsaint).toBeGreaterThanOrEqual(1.1);
+      expect(report.ratios.ruinCoreLowToSwordsaint).toBeLessThanOrEqual(1.2);
       expect(report.ratios.shadowInheritedToSwordsaint).toBeGreaterThanOrEqual(1.7);
       expect(report.ratios.shadowInheritedToSwordsaint).toBeLessThanOrEqual(1.9);
-      expect(report.ratios.ruinInheritedToSwordsaint).toBeGreaterThanOrEqual(2.4);
-      expect(report.ratios.ruinInheritedToSwordsaint).toBeLessThanOrEqual(2.5);
-      expect(report.ratios.longTier7Gap).toBeLessThanOrEqual(0.1);
+      expect(report.ratios.ruinInheritedToSwordsaint).toBeGreaterThanOrEqual(1.7);
+      expect(report.ratios.ruinInheritedToSwordsaint).toBeLessThanOrEqual(1.9);
+      expect(report.ratios.tier7IdentityGap).toBeLessThanOrEqual(0.1);
+      const byId = Object.fromEntries(
+        report.cases.map((entry) => [entry.id, entry]),
+      );
+      const shadowInherited = byId["shadowblade-inherited"].pveLong.mean;
+      const ruinInherited = byId["ruinblade-inherited"].pveLong.mean;
+      expect(
+        Math.abs(shadowInherited - ruinInherited) /
+          Math.max(shadowInherited, ruinInherited, 1),
+      ).toBeLessThanOrEqual(0.1);
       expect(report.identity.ruinMaxSingleHit).toBeGreaterThan(
         report.identity.shadowMaxSingleHit,
       );

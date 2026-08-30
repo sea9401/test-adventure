@@ -167,7 +167,7 @@ describe("위험 해역 낚시 상점", () => {
     expect(html).toContain("일반·희귀 어종 출현 가중치 +25%");
     expect(html).toContain("희귀·영웅 어종 출현 가중치 +40%");
     expect(html).toContain("영웅·전설 어종 출현 가중치 +65%");
-    expect(html).toContain("전설 어종 출현 가중치 +100%");
+    expect(html).toContain("전설 어종(거대어 제외) 출현 가중치 +100%");
     expect(html).toContain("추가 실시간 효과 없음");
     expect(html).toContain("급선회 중 거리 회복·장력 충격 20% 감소");
     expect(html).toContain("돌진·몸부림 중 어체력 피해 20% 증가");

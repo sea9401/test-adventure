@@ -358,9 +358,9 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("감기 효율 최대 12%");
     expect(html).toContain("장력 제어 최대 8%");
     expect(html).toContain("최대 +3");
-    expect(html).toContain("일반 어획물 6개 + 희귀 어획물 4개 + 낚시 코인 1,000");
-    expect(html).toContain("희귀 어획물 8개 + 영웅 어획물 5개 + 낚시 코인 3,000");
-    expect(html).toContain("영웅 어획물 8개 + 전설 어획물 3개 + 낚시 코인 8,000");
+    expect(html).toContain("일반 등급 위험 해역 어획물 6개 + 희귀 등급 위험 해역 어획물 4개 + 낚시 코인 1,000");
+    expect(html).toContain("희귀 등급 위험 해역 어획물 8개 + 영웅 등급 위험 해역 어획물 5개 + 낚시 코인 3,000");
+    expect(html).toContain("영웅 등급 위험 해역 어획물 8개 + 전설 등급 위험 해역 어획물 3개 + 낚시 코인 8,000");
     expect(html).toContain("낚싯대 · 레벨당 어체력 피해 +6%");
     expect(html).toContain("릴 · 레벨당 거리 회수량 +5%");
     expect(html).toContain("낚싯줄 · 레벨당 안전 구간 폭 +3%p, 화물 보호 +2%p");
@@ -370,7 +370,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("일반·희귀 어종 출현 가중치 +25%");
     expect(html).toContain("희귀·영웅 어종 출현 가중치 +40%");
     expect(html).toContain("영웅·전설 어종 출현 가중치 +65%");
-    expect(html).toContain("전설 어종 출현 가중치 +100%");
+    expect(html).toContain("전설 어종(거대어 제외) 출현 가중치 +100%");
     expect(html).toContain("급선회 중 거리 회복·장력 충격 20% 감소");
     expect(html).toContain("돌진·몸부림 중 어체력 피해 20% 증가");
     expect(html).toContain("다음 행동 1개 예고·잠수 속도 15% 감소");
@@ -474,7 +474,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("기존 세 가지 조작으로 완료");
     expect(html).toContain("제한 시간이 지나면 정상적으로 만료");
     expect(html).toContain("위험 해역 교환");
-    expect(html).toContain("일반 어획물 4개");
+    expect(html).toContain("일반 등급 위험 해역 어획물 4개");
     expect(html).toContain("레비아탄 낚싯대");
     expect(html).toContain("심해의 지배자");
     expect(html).toContain("서로 다른 어종을 섞어");

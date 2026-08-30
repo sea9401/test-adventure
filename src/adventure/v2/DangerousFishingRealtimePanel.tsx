@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
-import type { DangerousRealtimeBaitEffect } from "@/adventure/data/v2/dangerousFishing";
+import type {
+  DangerousFishBehavior,
+  DangerousRealtimeBaitEffect,
+} from "@/adventure/data/v2/dangerousFishing";
 import {
   DANGEROUS_REALTIME_LEGACY_BALANCE_REVISION,
   DANGEROUS_REALTIME_TICK_MS,
@@ -52,6 +55,13 @@ const CONNECTION_COPY = {
   verification_required: "사람 확인 후 동기화 재개",
   finished: "결과 저장 완료",
 } as const;
+
+const BEHAVIOR_COPY: Record<DangerousFishBehavior, string> = {
+  charge: "돌진",
+  thrash: "몸부림",
+  turn: "급선회",
+  dive: "잠수",
+};
 
 function localResultCopy(
   status: Exclude<
@@ -293,6 +303,28 @@ export function DangerousFishingRealtimePanel({
           reducedMotion={reducedMotion}
         />
       </div>
+
+      {active && view.telegraphs.length > 0 ? (
+        <div
+          aria-label="행동 예고"
+          aria-live="polite"
+          className={`${SURFACE_INSET} flex flex-wrap items-center gap-x-4 gap-y-1 p-3 text-xs`}
+        >
+          {view.phase === "telegraph" ? (
+            <span>
+              <strong>현재 징후</strong> · {BEHAVIOR_COPY[view.telegraphs[0]]}
+            </span>
+          ) : null}
+          {view.telegraphs.length > (view.phase === "telegraph" ? 1 : 0) ? (
+            <span>
+              <strong>다음 행동</strong> · {view.telegraphs
+                .slice(view.phase === "telegraph" ? 1 : 0)
+                .map((behavior) => BEHAVIOR_COPY[behavior])
+                .join(" → ")}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       <div data-realtime-region="hud" className={`${SURFACE_INSET} space-y-3 p-3`}>
         <Meter

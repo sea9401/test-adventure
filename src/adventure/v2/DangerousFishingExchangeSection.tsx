@@ -111,7 +111,8 @@ function enhancementCostCopy(cost: {
 }): string[] {
   return [
     ...(Object.entries(cost.materials) as [DangerousFishRarity, number][]).map(
-      ([rarity, count]) => `${RARITY_LABELS[rarity]} 어획물 ${count}개`,
+      ([rarity, count]) =>
+        `${RARITY_LABELS[rarity]} 등급 위험 해역 어획물 ${count}개`,
     ),
     `낚시 코인 ${cost.fishingCoins.toLocaleString()}`,
   ];
@@ -144,7 +145,7 @@ function materialName(materialId: string): string {
 
 function costLabel(entry: DangerousFishingExchangeEntryView): string {
   if (entry.cost.kind === "catch") {
-    return `${RARITY_LABELS[entry.cost.rarity]} 어획물 ${entry.cost.count}개`;
+    return `${RARITY_LABELS[entry.cost.rarity]} 등급 위험 해역 어획물 ${entry.cost.count}개`;
   }
   const parts = Object.entries(entry.cost.materials).map(
     ([materialId, count]) => `${materialName(materialId)} ${count}개`,
@@ -681,7 +682,7 @@ export function DangerousFishingExchangeSection({
       <div>
         <h2 className="font-bold">위험 해역 교환</h2>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          안전 귀환한 어획물과 거대어 증표를 특수 미끼, 장비, 한정 보상으로 교환합니다. 재료는 거래소에서도 계속 거래할 수 있습니다.
+          안전 귀환한 어획물과 거대어 증표를 특수 미끼, 장비, 한정 보상으로 교환합니다. 위험 해역 어획물은 일반 낚시의 요리용 어획물과는 별도 재료이며, 특수 미끼는 낚시 코인으로도 계속 구매할 수 있습니다.
         </p>
       </div>
       {message ? <p className="text-sm text-zinc-700 dark:text-zinc-200">{message}</p> : null}

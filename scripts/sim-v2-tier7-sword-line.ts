@@ -58,9 +58,11 @@ export type Tier7SwordLineBalanceReport = {
   ratios: {
     shadowCoreToSwordsaint: number;
     ruinCoreToSwordsaint: number;
+    ruinCoreLowToSwordsaint: number;
     shadowInheritedToSwordsaint: number;
     ruinInheritedToSwordsaint: number;
     longTier7Gap: number;
+    tier7IdentityGap: number;
   };
   identity: {
     shadowMaxSingleHit: number;
@@ -411,8 +413,10 @@ export function runTier7SwordLineBalance(options?: {
     Tier7SwordLineCaseReport
   >;
   const baseline = byId["swordsaint-core"].pveLong.mean;
+  const lowBaseline = byId["swordsaint-core"].pveLow.mean;
   const shadowLong = byId["shadowblade-core"].pveLong.mean;
   const ruinLong = byId["ruinblade-core"].pveLong.mean;
+  const ruinLow = byId["ruinblade-core"].pveLow.mean;
   return {
     seedBase,
     seeds,
@@ -420,6 +424,7 @@ export function runTier7SwordLineBalance(options?: {
     ratios: {
       shadowCoreToSwordsaint: ratio(shadowLong, baseline),
       ruinCoreToSwordsaint: ratio(ruinLong, baseline),
+      ruinCoreLowToSwordsaint: ratio(ruinLow, lowBaseline),
       shadowInheritedToSwordsaint: ratio(
         byId["shadowblade-inherited"].pveLong.mean,
         baseline,
@@ -430,6 +435,8 @@ export function runTier7SwordLineBalance(options?: {
       ),
       longTier7Gap:
         Math.abs(shadowLong - ruinLong) / Math.max(shadowLong, ruinLong, 1),
+      tier7IdentityGap:
+        Math.abs(shadowLong - ruinLow) / Math.max(shadowLong, ruinLow, 1),
     },
     identity: {
       shadowMaxSingleHit: byId["shadowblade-core"].pveLong.maxSingleHit,

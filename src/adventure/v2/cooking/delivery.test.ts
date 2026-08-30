@@ -3,6 +3,7 @@ import { cookingFoodDefinition, cookingFoodId } from "./food";
 import { emptyCookingState } from "./state";
 import {
   applyCookingDelivery,
+  cookingDeliveryConditionText,
   cookingDeliveryScore,
   cookingRequests,
   cookingStandingDeliveryReward,
@@ -16,6 +17,23 @@ function food(args: Parameters<typeof cookingFoodId>[0]) {
 }
 
 describe("condition cooking deliveries", () => {
+  it.each([
+    [{ field: "hearth", minimumQuality: "normal" }, "화덕 분야 · 일반 이상"],
+    [{ method: "grill", minimumQuality: "normal" }, "굽기 조리 · 일반 이상"],
+    [{ effectTag: "offense", minimumQuality: "careful" }, "공격 효과 · 정성작 이상"],
+    [
+      {
+        field: "hearth",
+        method: "grill",
+        effectTag: "offense",
+        minimumQuality: "masterpiece",
+      },
+      "화덕 분야 · 굽기 조리 · 공격 효과 · 걸작 이상",
+    ],
+  ] as const)("납품 조건 %j를 %s로 표시한다", (condition, expected) => {
+    expect(cookingDeliveryConditionText(condition)).toBe(expected);
+  });
+
   it("사용자와 날짜에 따라 일일 3건·주간 1건을 결정적으로 만든다", () => {
     const state = emptyCookingState(NOW);
     expect(cookingRequests("chef-a", state)).toEqual(cookingRequests("chef-a", state));

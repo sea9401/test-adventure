@@ -29,7 +29,7 @@
 - Consumes: `CookingDeliveryCondition`, `COOKING_FIELD_NAMES`, `COOKING_METHOD_NAMES`, `COOKING_EFFECT_TAG_NAMES`, and `cookingQualityName`.
 - Produces: `cookingDeliveryConditionText(condition: CookingDeliveryCondition): string`, rendered as `조건: ${text}` in every request card.
 
-- [ ] **Step 1: Write failing formatter and rendered-card tests**
+- [x] **Step 1: Write failing formatter and rendered-card tests**
 
 Add a table-driven unit test to `delivery.test.ts` with literal expectations:
 
@@ -52,13 +52,13 @@ expect(html).toContain("조건: 공격 효과 · 정성작 이상");
 expect(html).toContain("조건: 화덕 분야 · 정성작 이상");
 ```
 
-- [ ] **Step 2: Run the focused tests and verify RED**
+- [x] **Step 2: Run the focused tests and verify RED**
 
 Run: `npm test -- src/adventure/v2/cooking/delivery.test.ts src/adventure/v2/CookingPanel.test.tsx`
 
 Expected: FAIL because `cookingDeliveryConditionText` is not exported and request cards do not render `조건:` rows.
 
-- [ ] **Step 3: Implement the pure condition formatter**
+- [x] **Step 3: Implement the pure condition formatter**
 
 In `delivery.ts`, import `cookingQualityName` and `COOKING_EFFECT_TAG_NAMES`, then add:
 
@@ -73,7 +73,7 @@ export function cookingDeliveryConditionText(condition: CookingDeliveryCondition
 }
 ```
 
-- [ ] **Step 4: Render the formatter output in every request card**
+- [x] **Step 4: Render the formatter output in every request card**
 
 In `CookingDeliveryPanel.tsx`, remove the effect-only `requestTitle` construction and its direct `COOKING_EFFECT_TAG_NAMES` import. Render the original `request.title`, then add the condition line immediately below the title/progress header:
 
@@ -85,13 +85,13 @@ In `CookingDeliveryPanel.tsx`, remove the effect-only `requestTitle` constructio
 
 Keep the existing reward row after this new line.
 
-- [ ] **Step 5: Run focused tests and verify GREEN**
+- [x] **Step 5: Run focused tests and verify GREEN**
 
 Run: `npm test -- src/adventure/v2/cooking/delivery.test.ts src/adventure/v2/CookingPanel.test.tsx`
 
 Expected: PASS, with daily normal and weekly careful requirements both visible.
 
-- [ ] **Step 6: Run static and scoped regression verification**
+- [x] **Step 6: Run static and scoped regression verification**
 
 Run: `npm test -- src/adventure/v2/cooking src/adventure/v2/CookingPanel.test.tsx src/app/api/v2/cooking/route.test.ts`
 
@@ -101,7 +101,7 @@ Run: `npx tsc --noEmit`
 
 Expected: all commands exit successfully without new errors.
 
-- [ ] **Step 7: Review and commit only scoped files**
+- [x] **Step 7: Review and commit only scoped files**
 
 Run `git diff --check`, inspect the four cooking file diffs, and confirm unrelated dangerous-fishing/manual changes remain unstaged. Commit the four cooking files and this plan with message:
 

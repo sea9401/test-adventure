@@ -15,7 +15,8 @@ export function dangerousBaitAttractionCopy(bait: DangerousBait): string {
     return "추가 어종 출현 보정 없음";
   }
   const rarities = bait.targetRarities.map((rarity) => RARITY_LABEL[rarity]).join("·");
-  return `${rarities} 어종 출현 가중치 +${Math.round(bait.rarityBonus * 100)}%`;
+  const bossExclusion = bait.id === "abyss_bait" ? "(거대어 제외)" : "";
+  return `${rarities} 어종${bossExclusion} 출현 가중치 +${Math.round(bait.rarityBonus * 100)}%`;
 }
 
 export function dangerousBaitRealtimeEffectCopy(bait: DangerousBait): string {

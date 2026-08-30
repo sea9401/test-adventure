@@ -90,6 +90,26 @@ afterEach(() => {
 });
 
 describe("위험 해역 실시간 조우 HUD", () => {
+  it("발광 미끼가 공개한 다음 행동을 실시간 HUD에 표시한다", () => {
+    const encounter = encounterFixture({
+      phase: "active",
+      behavior: "turn",
+      behaviorCursor: 0,
+    });
+    encounter.config.modifiers = dangerousRealtimeModifiers({
+      fishingLevel: 50,
+      baitId: "luminous_bait",
+    });
+
+    render(
+      <DangerousFishingRealtimePanel {...baseProps} encounter={encounter} />,
+    );
+
+    expect(screen.getByLabelText("행동 예고").textContent).toContain(
+      "다음 행동 · 돌진",
+    );
+  });
+
   it("캔버스 밖의 불투명 DOM에 조작과 모든 판정 수치를 접근 가능하게 표시한다", () => {
     const html = renderToStaticMarkup(
       <DangerousFishingRealtimePanel

@@ -582,7 +582,7 @@ describe("위험 해역 개인 화면", () => {
     expect(html).toContain("낚시 상점의 위험 해역 교환");
     expect(html).toContain("교환 보기");
     expect(html).toContain("다른 수심을 선호하는 어종도 낮은 확률로 출현");
-    expect(html).toContain("전설 어종 출현 가중치 +100%");
+    expect(html).toContain("전설 어종(거대어 제외) 출현 가중치 +100%");
     expect(html).toContain("시작 어체력 10% 감소");
     expect(html).toContain("모든 행동 장력 충격 12% 감소");
   });

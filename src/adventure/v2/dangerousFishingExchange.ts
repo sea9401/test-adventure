@@ -48,7 +48,7 @@ const abyssTokenId = dangerousBossMaterialId("abyss_kraken");
 export const DANGEROUS_FISHING_EXCHANGE_ENTRIES: readonly DangerousFishingExchangeEntry[] = [
   {
     id: "catch_common_to_reef_bait",
-    name: "일반 어획물 납품",
+    name: "일반 위험 어획물 납품",
     description: "일반 위험 해역 어획물을 암초 향 미끼로 바꿉니다.",
     cost: { kind: "catch", rarity: "common", count: 4 },
     output: { kind: "bait", baitId: "reef_bait", count: 5 },
@@ -56,7 +56,7 @@ export const DANGEROUS_FISHING_EXCHANGE_ENTRIES: readonly DangerousFishingExchan
   },
   {
     id: "catch_rare_to_blood_bait",
-    name: "희귀 어획물 납품",
+    name: "희귀 위험 어획물 납품",
     description: "희귀 위험 해역 어획물을 핏빛 미끼로 바꿉니다.",
     cost: { kind: "catch", rarity: "rare", count: 4 },
     output: { kind: "bait", baitId: "blood_bait", count: 5 },
@@ -64,7 +64,7 @@ export const DANGEROUS_FISHING_EXCHANGE_ENTRIES: readonly DangerousFishingExchan
   },
   {
     id: "catch_epic_to_luminous_bait",
-    name: "영웅 어획물 납품",
+    name: "영웅 위험 어획물 납품",
     description: "영웅 위험 해역 어획물을 발광 미끼로 바꿉니다.",
     cost: { kind: "catch", rarity: "epic", count: 3 },
     output: { kind: "bait", baitId: "luminous_bait", count: 5 },
@@ -72,7 +72,7 @@ export const DANGEROUS_FISHING_EXCHANGE_ENTRIES: readonly DangerousFishingExchan
   },
   {
     id: "catch_legendary_to_abyss_bait",
-    name: "전설 어획물 납품",
+    name: "전설 위험 어획물 납품",
     description: "전설 위험 해역 어획물을 심연 응축 미끼로 바꿉니다.",
     cost: { kind: "catch", rarity: "legendary", count: 2 },
     output: { kind: "bait", baitId: "abyss_bait", count: 5 },

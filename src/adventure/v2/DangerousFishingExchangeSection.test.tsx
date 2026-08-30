@@ -199,14 +199,14 @@ describe("위험 해역 교환 UI", () => {
     expect(html).toContain("어체력 피해 +0%");
     expect(html).toContain("어체력 피해 +6%");
     expect(html).toContain("파도 절단 낚싯대 +1");
-    expect(html).toContain("희귀 어획물 8개");
-    expect(html).toContain("영웅 어획물 5개");
+    expect(html).toContain("희귀 등급 위험 해역 어획물 8개");
+    expect(html).toContain("영웅 등급 위험 해역 어획물 5개");
     expect(html).toContain("3,000");
     expect(html).toContain("해역 입문 릴 +2");
     expect(html).toContain("거리 회수량 +10%");
     expect(html).toContain("거리 회수량 +15%");
-    expect(html).toContain("영웅 어획물 8개");
-    expect(html).toContain("전설 어획물 3개");
+    expect(html).toContain("영웅 등급 위험 해역 어획물 8개");
+    expect(html).toContain("전설 등급 위험 해역 어획물 3개");
     expect(html).toContain("8,000");
     expect(html).toContain("삼중 합사줄 +1");
     expect(html).toContain("안전 구간 폭 +3%p");
@@ -216,6 +216,9 @@ describe("위험 해역 교환 UI", () => {
     expect(html).toContain("해역 입문 낚싯줄 +3");
     expect(html).toContain("최대 강화 완료");
     expect(html).toContain("재료 또는 코인 부족");
+    expect(html).toContain("일반 낚시의 요리용 어획물과는 별도 재료");
+    expect(html).toContain("특수 미끼는 낚시 코인으로도 계속 구매");
+    expect(html).toContain("전설 등급 위험 해역 어획물 2개");
     expect(html).not.toMatch(/bg-[^" ]+\/(40|70)/);
   });
 
@@ -259,8 +262,8 @@ describe("위험 해역 교환 UI", () => {
     expect(dialog.textContent).toContain("영구 적용");
     expect(dialog.textContent).toContain("100% 성공");
     expect(dialog.textContent).toContain("파괴·하락·초기화 없음");
-    expect(dialog.textContent).toContain("일반 어획물 6개");
-    expect(dialog.textContent).toContain("희귀 어획물 4개");
+    expect(dialog.textContent).toContain("일반 등급 위험 해역 어획물 6개");
+    expect(dialog.textContent).toContain("희귀 등급 위험 해역 어획물 4개");
     expect(dialog.textContent).toContain("낚시 코인 1,000");
 
     fireEvent.click(screen.getByRole("button", { name: "+1 강화 확정" }));
@@ -474,7 +477,7 @@ describe("위험 해역 교환 UI", () => {
         pending={{
           operationId: "4fd3980e-0d2f-4f0d-8214-0b7e51bd52f4",
           entryId: "catch_rare_to_blood_bait",
-          entryName: "희귀 어획물 납품",
+          entryName: "희귀 위험 어획물 납품",
           batches: 2,
           selectedMaterials: {
             danger_catch_thunder_ray: 5,
@@ -497,7 +500,7 @@ describe("위험 해역 교환 UI", () => {
         onClose={vi.fn()}
       />,
     );
-    expect(html).toContain("희귀 어획물 납품 2회");
+    expect(html).toContain("희귀 위험 어획물 납품 2회");
     expect(html).toContain("뇌광 가오리 5개");
     expect(html).toContain("교환 후 0개");
     expect(html).toContain("철턱 참치 3개");

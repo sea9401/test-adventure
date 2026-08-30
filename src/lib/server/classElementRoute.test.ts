@@ -140,6 +140,7 @@ describe("class-element — 코어루프 수동 로드아웃 보존", () => {
         gainedHp: 999,
         gainedMp: 999,
       },
+      liberationCycleGrowth: { hp: 240, mp: 30 },
     });
 
     const res = await POST(req("martial"));
@@ -179,6 +180,7 @@ describe("class-element — 코어루프 수동 로드아웃 보존", () => {
         gainedHp: 0,
         gainedMp: 0,
       },
+      liberationCycleGrowth: { hp: 0, mp: 0 },
     });
   });
 });

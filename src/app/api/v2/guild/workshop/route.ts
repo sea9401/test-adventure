@@ -94,6 +94,10 @@ import {
 } from "@/adventure/data/v2/blacksmithSpecialization";
 import { mintEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
+import {
+  discountedPersonalCraftGoldCost,
+  equippedPersonalCraftGoldDiscountPct,
+} from "@/lib/server/equipmentLiberationCraftDiscount";
 
 type CharacterSaveWithMaterials = {
   materials?: unknown;
@@ -362,6 +366,8 @@ export async function GET(req: Request) {
     0,
     playerSpendableGold - Math.max(0, Math.floor(access.useFeeGold)),
   );
+  const liberationDiscountPct =
+    equippedPersonalCraftGoldDiscountPct(equipment);
   return Response.json({
     ok: true,
     hasGuildSmithy: smithyLevel > 0,
@@ -371,6 +377,7 @@ export async function GET(req: Request) {
     resources,
     materials,
     spendableGold: playerSpendableGold,
+    liberationDiscountPct,
     artisan,
     blacksmithProgression,
     signatureCandidates,
@@ -518,8 +525,8 @@ export async function POST(req: Request) {
     const substitutionGoldCost = useMaterialSubstitution
       ? materialSpendPlan.extraGoldCost
       : 0;
-    const craftGoldCost = baseCraftGoldCost + substitutionGoldCost;
-    const totalGoldCost = craftGoldCost + externalUseFeeGold;
+    const undiscountedCraftGoldCost =
+      baseCraftGoldCost + substitutionGoldCost;
     const resources = association ? {} : await readGuildSettlement(tx, guildId);
     const equipSave = await lockSaveForUpdate<Record<string, unknown>>(
       tx,
@@ -527,6 +534,13 @@ export async function POST(req: Request) {
       "equipment.v2",
       {},
     );
+    const liberationDiscountPct =
+      equippedPersonalCraftGoldDiscountPct(equipSave);
+    const craftGoldCost = discountedPersonalCraftGoldCost(
+      undiscountedCraftGoldCost,
+      liberationDiscountPct,
+    );
+    const totalGoldCost = craftGoldCost + externalUseFeeGold;
     const profile = await readSave<{ name?: string } | null>(
       tx,
       userId,
@@ -761,6 +775,8 @@ export async function POST(req: Request) {
           error: "insufficient_gold" as const,
           requiredGold: totalGoldCost,
           goldCost: craftGoldCost,
+          baseGoldCost: undiscountedCraftGoldCost,
+          liberationDiscountPct,
           externalUseFeeGold,
           gold: currentGold,
           bankedGold: currentBankedGold,
@@ -1082,9 +1098,11 @@ export async function POST(req: Request) {
         materialSubstitutions: useMaterialSubstitution
           ? materialSpendPlan.substitutions
           : [],
-        baseGoldCost: baseCraftGoldCost,
+        baseGoldCost: undiscountedCraftGoldCost,
+        recipeGoldCost: baseCraftGoldCost,
         substitutionGoldCost,
         goldCost: craftGoldCost,
+        liberationDiscountPct,
         gold: craftPayment.gold,
         bankedGold: craftPayment.bankedGold,
         spendableGold: spendableGold(

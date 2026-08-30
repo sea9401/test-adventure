@@ -6,9 +6,11 @@ import {
   CaretDown,
   CaretRight,
   CookingPot,
+  ForkKnife,
   HandFist,
   Shield,
   Sneaker,
+  Sparkle,
   Sword,
   Ticket,
   User as UserIcon,
@@ -44,7 +46,10 @@ import {
   type ItemCardAnchor,
 } from "./V2ItemCard";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
-import { ADVENTURE_SUPPORT_PASS } from "@/adventure/data/v2/adventureSupport";
+import {
+  adventureSupportBenefits,
+  type AdventureSupportTier,
+} from "@/adventure/data/v2/adventureSupport";
 import { MAX_STAMINA } from "@/adventure/v2/stamina";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { ProfileDecorationMotion } from "@/components/ui/ProfileDecorationMotion";
@@ -53,6 +58,7 @@ import { useModalA11y } from "@/lib/useModalA11y";
 import {
   formatAdventureSupportExpiry,
   formatAdventureSupportRemaining,
+  queuedStandardSupportMs,
 } from "./adventureSupportDisplay";
 import {
   getProfileBorderVariant,
@@ -73,6 +79,7 @@ import type {
   ProfileShowcaseSlots,
 } from "@/adventure/profile/profileShowcase";
 import { ProfileBadgeRack } from "./ProfileBadgeRack";
+import type { GuildDiningEffectSummary } from "@/adventure/data/v2/guildDining";
 
 // v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 6슬롯 인라인 표시.
 // 장착 슬롯 클릭 시 옵션 카드(V2ItemCard) 팝업 — 장착/해제는 인벤토리에서.
@@ -167,6 +174,7 @@ export function V2CharacterCard({
   chatNameEffect = null,
   championshipBadge = null,
   activeFoodBuff = null,
+  activeGuildDiningEffect = null,
   profileShowcase = null,
   profileShowcaseSlots,
   profileMasteryTrophies,
@@ -192,13 +200,16 @@ export function V2CharacterCard({
   activePresetName?: string | null;
   adventureSupport?: {
     active: boolean;
+    tier?: AdventureSupportTier;
     activeUntil: number | null;
+    premiumUntil?: number | null;
     regenBonusPct: number;
   };
   profileBorder?: MuseunCosmeticAppearance["profileBorder"];
   chatNameEffect?: MuseunCosmeticAppearance["chatNameEffect"];
   championshipBadge?: MuseunCosmeticAppearance["championshipBadge"];
   activeFoodBuff?: ActiveCookingBuff | null;
+  activeGuildDiningEffect?: GuildDiningEffectSummary | null;
   profileShowcase?: ProfileShowcaseSelection | null;
   profileShowcaseSlots?: ProfileShowcaseSlots;
   profileMasteryTrophies?: readonly ProfileMasteryTrophyDisplay[];
@@ -230,6 +241,7 @@ export function V2CharacterCard({
     Number.isFinite(adventureSupport.activeUntil)
       ? adventureSupport.activeUntil
       : null;
+  const premiumSupportActive = adventureSupport?.tier === "premium";
   const [supportDetailsOpen, setSupportDetailsOpen] = useState(false);
   const profileDecoration = profileBorder
     ? getProfileBorderVariant(profileBorder)
@@ -368,10 +380,20 @@ export function V2CharacterCard({
                 type="button"
                 aria-haspopup="dialog"
                 onClick={() => setSupportDetailsOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-900"
+                className={
+                  premiumSupportActive
+                    ? "inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900"
+                    : "inline-flex items-center gap-1.5 rounded-full border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-900"
+                }
               >
-                <Ticket size={15} weight="duotone" aria-hidden="true" />
-                월간 모험 지원권 적용 중
+                {premiumSupportActive ? (
+                  <Sparkle size={15} weight="fill" aria-hidden="true" />
+                ) : (
+                  <Ticket size={15} weight="duotone" aria-hidden="true" />
+                )}
+                {premiumSupportActive
+                  ? "월간 모험 지원권 프리미엄 적용 중"
+                  : "월간 모험 지원권 적용 중"}
                 <CaretRight size={13} weight="bold" aria-hidden="true" />
               </button>
             )}
@@ -387,6 +409,9 @@ export function V2CharacterCard({
             )}
             {activeFoodBuff ? (
               <ActiveFoodBuffBadge buff={activeFoodBuff} />
+            ) : null}
+            {activeGuildDiningEffect ? (
+              <ActiveGuildDiningEffectBadge effect={activeGuildDiningEffect} />
             ) : null}
             <div className="space-y-1.5">
               <StatBar
@@ -548,6 +573,8 @@ export function V2CharacterCard({
       {supportDetailsOpen && supportActiveUntil != null && (
         <AdventureSupportModal
           activeUntil={supportActiveUntil}
+          premiumUntil={adventureSupport?.premiumUntil}
+          tier={adventureSupport?.tier}
           onClose={() => setSupportDetailsOpen(false)}
         />
       )}
@@ -580,6 +607,40 @@ function ActiveFoodBuffBadge({ buff }: { buff: ActiveCookingBuff }) {
   );
 }
 
+function ActiveGuildDiningEffectBadge({
+  effect,
+}: {
+  effect: GuildDiningEffectSummary;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const remaining = effect.expiresAt - now;
+  if (remaining <= 0) return null;
+  const stats =
+    effect.kind === "hunt_exp"
+      ? `사냥 경험치 +${effect.bonusPct}%`
+      : effect.kind === "life_xp"
+        ? `생활 경험치 +${effect.bonusPct}%`
+        : `사냥 경험치 +${effect.bonusPct}% · 생활 경험치 +${effect.lifeBonusPct ?? 0}%`;
+  return (
+    <div
+      title={`${effect.name} · ${stats}`}
+      className="flex min-w-0 items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-100"
+    >
+      <ForkKnife size={15} weight="duotone" className="shrink-0" aria-hidden />
+      <span className="min-w-0 truncate text-[11px]">
+        <span className="font-semibold">{effect.name}</span> · {stats}
+      </span>
+      <span className="shrink-0 text-[11px] text-emerald-700 dark:text-emerald-300">
+        {formatCookingBuffRemaining(remaining)}
+      </span>
+    </div>
+  );
+}
+
 function formatCookingBuffRemaining(ms: number): string {
   const minutes = Math.max(1, Math.ceil(ms / 60_000));
   const hours = Math.floor(minutes / 60);
@@ -590,9 +651,13 @@ function formatCookingBuffRemaining(ms: number): string {
 
 function AdventureSupportModal({
   activeUntil,
+  premiumUntil,
+  tier = "standard",
   onClose,
 }: {
   activeUntil: number;
+  premiumUntil?: number | null;
+  tier?: AdventureSupportTier;
   onClose: () => void;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -605,12 +670,28 @@ function AdventureSupportModal({
     return () => window.clearInterval(id);
   }, []);
 
+  const supportTier =
+    tier === "premium" &&
+    typeof premiumUntil === "number" &&
+    premiumUntil > now
+      ? "premium"
+      : "standard";
+  const supportConfig = adventureSupportBenefits(supportTier);
   const benefits = [
-    `에너지 회복량 ${ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct}% 증가`,
-    `최대 에너지 ${ADVENTURE_SUPPORT_PASS.staminaMaxBonus.toLocaleString()} 증가 (기본 ${MAX_STAMINA.toLocaleString()} → ${(MAX_STAMINA + ADVENTURE_SUPPORT_PASS.staminaMaxBonus).toLocaleString()})`,
-    `거래소 등록 ${ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus}개 추가`,
-    `거래소 수수료 ${ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}%로 감소`,
+    `에너지 회복량 ${supportConfig.staminaRegenBonusPct}% 증가`,
+    `최대 에너지 ${supportConfig.staminaMaxBonus.toLocaleString()} 증가 (기본 ${MAX_STAMINA.toLocaleString()} → ${(MAX_STAMINA + supportConfig.staminaMaxBonus).toLocaleString()})`,
+    `일괄 전투 최대 ${supportConfig.maxHuntBatch}회`,
+    `거래소 등록 ${supportConfig.marketplaceSlotBonus}개 추가`,
+    `거래소 수수료 ${supportConfig.marketplaceTaxRate * 100}%로 감소`,
   ];
+  const currentUntil =
+    supportTier === "premium" && typeof premiumUntil === "number"
+      ? premiumUntil
+      : activeUntil;
+  const queuedStandardMs =
+    typeof premiumUntil === "number"
+      ? queuedStandardSupportMs(activeUntil, premiumUntil, now)
+      : 0;
 
   return createPortal(
     <div
@@ -627,8 +708,14 @@ function AdventureSupportModal({
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-300">
-              <Ticket size={24} weight="duotone" aria-hidden="true" />
+            <span
+              className={`flex size-10 shrink-0 items-center justify-center rounded-full ${supportTier === "premium" ? "bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-300" : "bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-300"}`}
+            >
+              {supportTier === "premium" ? (
+                <Sparkle size={24} weight="fill" aria-hidden="true" />
+              ) : (
+                <Ticket size={24} weight="duotone" aria-hidden="true" />
+              )}
             </span>
             <div className="min-w-0">
               <p className="text-xs font-semibold text-violet-600 dark:text-violet-300">
@@ -638,7 +725,9 @@ function AdventureSupportModal({
                 id="adventure-support-title"
                 className="truncate text-lg font-bold text-zinc-900 dark:text-zinc-100"
               >
-                월간 모험 지원권
+                {supportTier === "premium"
+                  ? "월간 모험 지원권 프리미엄"
+                  : "월간 모험 지원권"}
               </h2>
             </div>
           </div>
@@ -671,10 +760,15 @@ function AdventureSupportModal({
 
         <div className={`${SURFACE_INSET} mt-3 px-3 py-3 text-center`}>
           <p className="text-base font-bold tabular-nums text-violet-700 dark:text-violet-300">
-            {formatAdventureSupportRemaining(activeUntil, now)}
+            {formatAdventureSupportRemaining(currentUntil, now)}
           </p>
+          {queuedStandardMs > 0 ? (
+            <p className="mt-1 text-sm font-semibold text-violet-700 dark:text-violet-300">
+              일반 지원권 {Math.ceil(queuedStandardMs / 86_400_000)}일 대기 중
+            </p>
+          ) : null}
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            {formatAdventureSupportExpiry(activeUntil)}까지
+            {formatAdventureSupportExpiry(currentUntil)}까지
           </p>
         </div>
 

@@ -508,6 +508,11 @@
       "source": "repository-authored-vector"
     },
     {
+      "path": "public/images/items/cash/adventure_support_premium_30d.svg",
+      "sha256": "5f01c1b14e9c94669b5302ee6bb52d47c04152116ed1dbb0cf77fd1c1fe299e2",
+      "source": "repository-authored-vector"
+    },
+    {
       "path": "public/images/items/cash/chat_badge_box.svg",
       "sha256": "5282d6b78a18934b6c6025a46b01a5202295d9b8d9512e618d25f361c02cc565",
       "source": "repository-authored-vector"

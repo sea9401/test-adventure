@@ -36,6 +36,14 @@ describe("조합소 공통 비용", () => {
 });
 
 describe("rollItemStats", () => {
+  it("사냥 최소 품질은 각 굴림 구간의 하단을 지정 품질 이상으로 remap한다", () => {
+    const item = V2_EQUIPMENT.v2_starsong_bow;
+    const unrestricted = rollItemStats(item, () => 0);
+    const limited = rollItemStats(item, () => 0, { minimumQualityPct: 10 });
+
+    expect(rollQualityPct(item, unrestricted)).toBe(0);
+    expect(rollQualityPct(item, limited)).toBeGreaterThanOrEqual(10);
+  });
   it("rng=0 → 각 스탯 최소값(별노래궁: 위력 ±편차, crit ±1, 속도 페널티 고정)", () => {
     // power spread = round(위력×0.65) → [위력−spread, 위력+spread]. crit 1→[1,3].
     // 위력값은 카탈로그 기준(다이얼 변경에 견고).
@@ -342,6 +350,7 @@ describe("selectBulkSell", () => {
   const owned: V2EquipInstance[] = [
     { iid: "eq", id: id("v2_iron_sword") }, // 장착 → 제외
     { iid: "lock", id: id("v2_iron_sword"), locked: true }, // 잠금 → 제외
+    { iid: "bound", id: id("v2_iron_sword"), bound: true }, // 귀속 → 자동 판매 제외
     { iid: "sell1", id: id("v2_iron_sword") }, // 판매(무기)
     { iid: "sell2", id: id("v2_leather_armor") }, // 판매(갑옷)
     { iid: "uniq", id: id("v2_lake_dodge_cloak") }, // 유니크도 이제 판매 가능(잠금으로만 보호)
@@ -352,6 +361,7 @@ describe("selectBulkSell", () => {
     const plan = selectBulkSell(owned, equipped, {});
     expect([...plan.iids].sort()).toEqual(["sell1", "sell2", "uniq"]);
     expect(plan.count).toBe(3);
+    expect(plan.skippedBoundCount).toBe(1);
     expect(plan.gold).toBe(
       (sellPriceOf(V2_EQUIPMENT.v2_iron_sword) ?? 0) +
         (sellPriceOf(V2_EQUIPMENT.v2_leather_armor) ?? 0) +
@@ -362,6 +372,7 @@ describe("selectBulkSell", () => {
   it("slot 필터 — weapon 만(sell1), 갑옷 sell2 제외", () => {
     const plan = selectBulkSell(owned, equipped, { slot: "weapon" });
     expect(plan.iids).toEqual(["sell1"]);
+    expect(plan.skippedBoundCount).toBe(1);
     expect(plan.gold).toBe(sellPriceOf(V2_EQUIPMENT.v2_iron_sword) ?? 0);
   });
 
@@ -394,6 +405,7 @@ describe("selectExplicitSell", () => {
     { iid: "locked", id: id("v2_iron_sword"), locked: true },
     { iid: "first", id: id("v2_iron_sword") },
     { iid: "second", id: id("v2_leather_armor") },
+    { iid: "bound", id: id("v2_iron_sword"), bound: true },
   ];
 
   it("요청한 판매 가능 개체만 입력 순서대로 계획한다", () => {
@@ -407,6 +419,14 @@ describe("selectExplicitSell", () => {
     expect(result.plan.iids).toEqual(["second", "first"]);
     expect(result.plan.count).toBe(2);
     expect(result.plan.gold).toBeGreaterThan(0);
+  });
+
+  it("명시적으로 고른 귀속 장비는 서버 확인 절차를 위해 계획에 포함한다", () => {
+    const result = selectExplicitSell(owned, {}, ["bound"]);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.plan.iids).toEqual(["bound"]);
   });
 
   it.each([

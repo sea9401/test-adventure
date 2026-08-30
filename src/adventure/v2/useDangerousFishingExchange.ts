@@ -21,7 +21,7 @@ import {
 } from "./dangerousFishingExchange";
 import { DANGEROUS_GEAR_ENHANCEMENT_COSTS } from "./dangerousFishingEnhancement";
 import type { BuyResult } from "./useFishingShop";
-import { useGameState } from "./GameStateProvider";
+import { useGameResourceState } from "./GameStateProvider";
 import { shopSaleBalancePatch } from "./shopSaleBalance";
 
 export type DangerousFishingExchangeEntryView =
@@ -441,7 +441,7 @@ function parseExchangeView(
 }
 
 export function useDangerousFishingExchange() {
-  const { applyResourcePatch } = useGameState();
+  const { applyResourcePatch } = useGameResourceState();
   const [model, setModel] =
     useState<DangerousFishingExchangeViewModel | null>(null);
   const [loading, setLoading] = useState(true);

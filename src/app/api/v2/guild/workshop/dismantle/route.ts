@@ -25,6 +25,7 @@ import {
   type V2EquipInstance,
 } from "@/adventure/data/v2/v2Equipment";
 import { associationFacilityLevel } from "@/lib/server/adventurerAssociation";
+import { boundEquipmentDisposalView } from "@/lib/server/boundEquipmentDisposal";
 
 type CharacterSaveWithMaterials = {
   materials?: unknown;
@@ -77,6 +78,8 @@ function candidateView(
     craftQualityLevel: inst.craftQuality?.level ?? 0,
     masterwork: inst.craftedBy?.masterwork === true,
     locked,
+    bound: inst.bound === true,
+    ...(inst.liberation ? { liberation: inst.liberation } : {}),
     equipped,
     rewards: plan.materials,
     artisanXp: plan.artisanXp,
@@ -139,7 +142,7 @@ export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) return bad("unauthorized", 401);
 
-  let body: { iid?: unknown };
+  let body: { iid?: unknown; confirmBound?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -205,6 +208,16 @@ export async function POST(req: Request) {
     }
     if (inst.locked) {
       return { status: 400, body: { ok: false as const, error: "locked" } };
+    }
+    if (inst.bound && body.confirmBound !== true) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "bound_confirmation_required" as const,
+          item: boundEquipmentDisposalView(inst),
+        },
+      };
     }
     const plan = guildWorkshopDismantlePlan(item, inst, blacksmithLevel);
     if (plan.blockedReason || Object.keys(plan.materials).length === 0) {

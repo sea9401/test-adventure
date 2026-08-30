@@ -2,6 +2,7 @@ import { and, asc, eq, ne, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { savesKv, pvpRatings, users } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordGrowthLeapStaminaSpendInTx } from "@/lib/server/growthLeapProgress";
 import { isCurrentUserAdmin } from "@/lib/server/isAdmin";
 import { filterArenaOpponentEligibleRows } from "@/lib/server/arenaOpponentEligibility";
 import { enforceHighCostRateLimit } from "@/lib/server/highCostRateLimit";
@@ -795,6 +796,14 @@ export async function POST(req: Request) {
       stamina: afterStamina,
     };
     await upsertSave(tx, userId, CHARACTER_STATE_KEY, nextChar);
+    if (staminaCost > 0) {
+      await recordGrowthLeapStaminaSpendInTx(
+        tx,
+        userId,
+        staminaCost,
+        now.getTime(),
+      );
+    }
 
     return {
       status: 200,

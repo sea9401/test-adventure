@@ -17,7 +17,7 @@ import {
 import { deliverMarketplaceListing } from "@/lib/server/marketplaceV2Fulfillment";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import { isMuseunCashItemId } from "@/adventure/data/v2/museunCashItems";
-import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
+import { adventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import { isCookingFoodId } from "@/adventure/v2/cooking/food";
 import { RARE_MAP_CAP, parseRareMaps } from "@/adventure/data/v2/rareMaps";
 import { fishIdFromSpecimenItemId } from "@/adventure/v2/fishSpecimens";
@@ -155,7 +155,7 @@ export async function POST(req: Request) {
       {},
     );
     const sellerTaxRate = marketplaceTaxRateForAdventureSupport(
-      adventureSupportActive(sellerCharacter.adventureSupport),
+      adventureSupportTier(sellerCharacter.adventureSupport),
     );
 
     // 1-b) 소모품(레어맵) — 실물 유효성 검증(시간 만료 폐지 2026-06-22, 판수 소진/불량

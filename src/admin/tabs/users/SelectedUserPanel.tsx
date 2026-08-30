@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { Button, Field, NumberInput, TextInput } from "../../ui/Field";
-import { initialCharacterState } from "@/adventure/character/useCharacterState";
-import type { CharacterDynamicState } from "@/adventure/character/useCharacterState";
+import {
+  initialCharacterState,
+  type CharacterDynamicState,
+} from "@/adventure/character/state";
 import { maxHpForLevel } from "@/adventure/character/defaults";
 import { MAX_LEVEL, requiredExpToNext } from "@/lib/leveling";
 import type { Profile } from "@/adventure/profile/useProfile";

@@ -7,6 +7,7 @@ import {
   stormExpeditionErrorMessage,
   stormExpeditionResultAfterResponse,
   stormExpeditionStatusAfterResponse,
+  stormExpeditionUnlockStatusText,
   stormUniqueDropPreview,
 } from "./V2StormExpeditionView";
 import type { StormExpeditionRiskEventOffer } from "@/adventure/data/v2/stormExpedition";
@@ -17,6 +18,13 @@ const rules = {
   finalCrossChance: 0.002,
   finalHeartChance: 0.0005,
 };
+
+describe("폭풍 원정 해금 진행 표시", () => {
+  it("내부 숫자 진행도 대신 현재 사냥터 단계명을 표시한다", () => {
+    expect(stormExpeditionUnlockStatusText(70)).toContain("심해 폐허 · 심부");
+    expect(stormExpeditionUnlockStatusText(70)).not.toMatch(/\d+\/\d+단계/);
+  });
+});
 
 describe("폭풍 원정 유니크 보상 미리보기", () => {
   it("수호자에서는 선택 항로 유니크 확률만 표시한다", () => {

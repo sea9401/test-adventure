@@ -9,22 +9,18 @@ export function FishingDailyCatchChecklist({
   items: readonly FishingCatchItemDailyProgress[];
 }) {
   return (
-    <section
-      aria-labelledby="fishing-daily-catch-checklist-title"
-      className={`${SURFACE_INSET} mt-2 p-2.5`}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <h2
-          id="fishing-daily-catch-checklist-title"
-          className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-200"
-        >
+    <details className={`${SURFACE_INSET} group mt-2`}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-2.5 [&::-webkit-details-marker]:hidden">
+        <span className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-200">
           요리 재료 일일 획득
-        </h2>
-        <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
-          매일 00:00 초기화
         </span>
-      </div>
-      <ul className="mt-1.5 grid gap-x-3 gap-y-1 sm:grid-cols-2">
+        <span className="flex shrink-0 items-center gap-1.5 text-[10px] text-zinc-500 dark:text-zinc-400">
+          <span>매일 00:00 초기화</span>
+          <span className="font-semibold group-open:hidden">펼치기</span>
+          <span className="hidden font-semibold group-open:inline">접기</span>
+        </span>
+      </summary>
+      <ul className="grid gap-x-3 gap-y-1 border-t border-zinc-200 px-2.5 pb-2.5 pt-1.5 sm:grid-cols-2 dark:border-zinc-700">
         {items.map((item) => {
           const completed = item.awarded >= item.cap;
           return (
@@ -52,6 +48,6 @@ export function FishingDailyCatchChecklist({
           );
         })}
       </ul>
-    </section>
+    </details>
   );
 }

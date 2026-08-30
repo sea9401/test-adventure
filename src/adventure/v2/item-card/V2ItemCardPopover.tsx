@@ -19,6 +19,7 @@ import {
   type V2EquipmentId,
   type V2EquipRoll,
 } from "@/adventure/data/v2/v2Equipment";
+import type { V2LiberationState } from "@/adventure/data/v2/equipmentLiberation";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 import { EquipmentCodexBadge } from "../EquipmentCodexBadge";
@@ -30,6 +31,8 @@ import {
   GAP,
   MARGIN,
   MasterworkBadge,
+  LiberationBadge,
+  LiberationOptionsPanel,
   QualityPctText,
   StatRow,
   UniqueBadge,
@@ -179,6 +182,8 @@ export function V2ItemCard({
   equippedIds,
   codexRegistered,
   codexRegister,
+  liberation,
+  liberationHref,
 }: {
   item: V2Equipment;
   anchor: ItemCardAnchor;
@@ -204,6 +209,10 @@ export function V2ItemCard({
   codexRegistered?: boolean;
   /** 인벤토리 보유 장비의 미등록 배지에서 즉시 등록 절차를 시작한다. */
   codexRegister?: { busy: boolean; onRegister: () => void };
+  /** 보유 장비의 해방 상태. 카탈로그 미리보기에는 주입하지 않는다. */
+  liberation?: V2LiberationState;
+  /** 인벤토리에서만 주입하는 대장간 해방 작업대 바로가기. */
+  liberationHref?: string;
 }) {
   useEscapeKey(onClose);
 
@@ -280,6 +289,7 @@ export function V2ItemCard({
                 busy={codexRegister?.busy}
               />
               <CraftQualityBadge craftQuality={craftQuality} />
+              <LiberationBadge liberation={liberation} />
               {craftedBy?.masterwork ? <MasterworkBadge /> : null}
               {item.craftOnly ? <CraftOnlyBadge /> : null}
               {pct != null && (
@@ -353,6 +363,10 @@ export function V2ItemCard({
             ))}
           </div>
         )}
+
+        {liberation ? (
+          <LiberationOptionsPanel liberation={liberation} />
+        ) : null}
 
         {/* 단품 마퀴 시그니처(세트 아닌 고유 아이템의 발동형 효과) — 장착만 하면 발동. */}
         {item.signature && (
@@ -481,6 +495,15 @@ export function V2ItemCard({
             착용 조건: {equip.disabledReason}
           </p>
         )}
+
+        {liberationHref ? (
+          <a
+            href={liberationHref}
+            className="mt-3 flex min-h-10 items-center justify-center rounded-lg border border-violet-600 bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-700 dark:border-violet-500 dark:bg-violet-500 dark:hover:bg-violet-400"
+          >
+            {liberation ? "재해방 작업대로 이동" : "해방 작업대로 이동"}
+          </a>
+        ) : null}
 
         {(compare || equip) && (
           <div

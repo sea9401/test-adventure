@@ -7,7 +7,7 @@ import {
   marketplaceEquipListError,
   marketplaceTaxRateForAdventureSupport,
 } from "@/lib/server/marketplaceV2";
-import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
+import { adventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import { clientIpFromRequest } from "@/lib/server/abuseLog";
 import {
   fillBestEquipmentBuyOrder,
@@ -104,7 +104,7 @@ export async function POST(req: Request) {
       sellerId,
       instance,
       taxRate: marketplaceTaxRateForAdventureSupport(
-        adventureSupportActive(sellerCharacter.adventureSupport),
+        adventureSupportTier(sellerCharacter.adventureSupport),
       ),
       now,
       preparedScope: saleScope,

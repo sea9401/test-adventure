@@ -131,6 +131,19 @@ describe("재배 작물 보유량", () => {
     expect(html).toContain("씨앗 0개");
     expect(html).toContain("작물 0개");
   });
+
+  it("씨앗 선택 카드에 재배 시간·수확량·실제 농사 XP를 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <AdventurerFarmPanel
+        onBack={vi.fn()}
+        onOpenKitchen={vi.fn()}
+        onOpenLifeWorkshop={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("2시간 · 3-5개 · 농사 XP 30");
+    expect(html).toContain("16시간 · 3-5개 · 농사 XP 156");
+  });
 });
 
 describe("재배 카드 작업 위치", () => {

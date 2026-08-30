@@ -15,6 +15,8 @@ export {
   CraftQualityStars,
   EquipmentTierBadge,
   EnhanceLevelBadge,
+  LiberationBadge,
+  LiberationOptionsPanel,
   MasterworkBadge,
   QualityPctText,
   UniqueBadge,

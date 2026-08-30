@@ -178,7 +178,17 @@ describe("거래소 장비 등록", () => {
   it("귀속 장비는 등록하지 않고 보유 상태를 유지한다", async () => {
     const equipmentSave = {
       owned: [
-        { iid: "bound-equipment", id: "v2_iron_sword", bound: true },
+        {
+          iid: "bound-equipment",
+          id: "v2_iron_sword",
+          bound: true,
+          liberation: {
+            rank: 3,
+            lineCount: 1,
+            revision: 1,
+            options: [{ id: "physical_attack_flat", level: 1 }],
+          },
+        },
       ],
       equipped: {},
     };

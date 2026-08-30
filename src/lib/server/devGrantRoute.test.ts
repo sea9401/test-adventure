@@ -111,4 +111,32 @@ describe("POST /api/v2/dev/grant", () => {
     expect(res.status).toBe(403);
     expect(store.get("character.v2")).toEqual(before);
   });
+
+  it("관리자 레벨 직접 지급은 장비 해방 주기 성장을 발동하지 않는다", async () => {
+    store.set("proficiency.v2", {
+      ...parseProficiency(store.get("proficiency.v2")),
+      liberationCycleGrowth: { hp: 70, mp: 12 },
+    });
+    store.set("equipment.v2", {
+      owned: [
+        {
+          iid: "growth-armor",
+          id: "v2_storm_wreckage_armor",
+          liberation: {
+            rank: 1,
+            lineCount: 1,
+            revision: 1,
+            options: [{ id: "level_up_max_hp_growth", level: 20 }],
+          },
+        },
+      ],
+      equipped: { armor: "growth-armor" },
+    });
+
+    const response = await POST(req({ level: 20 }));
+
+    expect(response.status).toBe(200);
+    expect(parseProficiency(store.get("proficiency.v2")).liberationCycleGrowth)
+      .toEqual({ hp: 70, mp: 12 });
+  });
 });

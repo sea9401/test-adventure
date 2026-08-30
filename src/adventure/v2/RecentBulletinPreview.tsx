@@ -14,7 +14,7 @@ export function RecentBulletinPreview() {
       .then((feed) => {
         if (active) {
           setPosts(
-            feed.posts.filter((post) => post.category !== "notice").slice(0, 3),
+            feed.posts.filter((post) => post.category !== "notice").slice(0, 4),
           );
         }
       })

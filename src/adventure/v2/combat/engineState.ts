@@ -504,6 +504,10 @@ export type PlayerCombat = {
   minDamage?: number;
   magicMinDamage?: number;
   healMult?: number;
+  /** 대상이 받는 모든 HP 회복 배율. 1.0=무영향. 시전자 healMult와 별도 축이다. */
+  receivedHealMult?: number;
+  /** PvE 회피 피해 감소 결과에 더하는 최종 %p. 합산 뒤 85% 상한을 적용한다. */
+  finalEvasionReductionPctAdd?: number;
   // 기존 원소술사 스킬의 연출 분기용. 전투 상성에는 사용하지 않는다.
   characterElement?: V2Element;
   // 이중 행운 — 첫 크리티컬 발동 시 회피/크리티컬 +bonus% 발동, 전투 종료까지 유지. 0 이면 미보유.

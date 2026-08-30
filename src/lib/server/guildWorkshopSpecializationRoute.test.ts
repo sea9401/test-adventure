@@ -8,6 +8,12 @@ const { recordCodexMasteryGameplayBatch, store } = vi.hoisted(() => ({
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-workshop"),
 }));
+vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/adventure/data/v2/coreLoopConfig")
+  >()),
+  V2_EQUIPMENT_LIBERATION: true,
+}));
 vi.mock("@/lib/server/codexMasteryGameplay", () => ({
   recordCodexMasteryGameplayBatch,
 }));
@@ -69,6 +75,7 @@ vi.mock("@/lib/server/guildWorkshopWeekly", async (importOriginal) => {
 import { GET, POST } from "@/app/api/v2/guild/workshop/route";
 import {
   GUILD_WORKSHOP_RECIPES,
+  guildWorkshopRecipeGoldCost,
   guildWorkshopRecipeMaterialCost,
 } from "@/adventure/data/v2/guildWorkshop";
 import { GUILD_WORKSHOP_MATERIAL_ID } from "@/adventure/data/v2/guildWorkshopMaterials";
@@ -142,6 +149,41 @@ describe("guild workshop specialization crafting", () => {
       "weapon_offense",
       "weapon_technique",
     ]);
+  });
+
+  it("착용 반지 할인으로 개인 제작 수수료만 낮춘다", async () => {
+    seed();
+    const baseGoldCost = guildWorkshopRecipeGoldCost(RECIPE);
+    store.set("character.v2", {
+      ...(store.get("character.v2") as Record<string, unknown>),
+      gold: baseGoldCost,
+    });
+    store.set("equipment.v2", {
+      owned: [
+        {
+          iid: "discount-ring",
+          id: "v2_storm_sanctuary_ring",
+          liberation: {
+            rank: 1,
+            lineCount: 1,
+            revision: 1,
+            options: [
+              { id: "personal_craft_gold_discount_pct", level: 20 },
+            ],
+          },
+        },
+      ],
+      equipped: { ring: "discount-ring" },
+    });
+
+    const response = await POST(request({}));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      baseGoldCost,
+      goldCost: Math.floor(baseGoldCost * 0.9),
+      liberationDiscountPct: 10,
+      gold: baseGoldCost - Math.floor(baseGoldCost * 0.9),
+    });
   });
 
   it("exposes only owned self-crafted specialty items as representative candidates", async () => {

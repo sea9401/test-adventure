@@ -249,9 +249,12 @@ export function parseRareMaps(v: unknown, now: number): RareMapInstance[] {
 // (카탈로그 순서 = 흔한 것 먼저라 희귀맵이 묻힐 확률은 무시 가능 수준).
 export function rollRareMapDrop(
   rand: () => number = Math.random,
+  chanceMult: number = 1,
 ): RareMapKindId | null {
+  const mult = Math.max(0, Number(chanceMult) || 0);
   for (const id of RARE_MAP_KIND_IDS) {
-    if (rand() * 100 < RARE_MAP_KINDS[id].dropPct) return id;
+    const chance = Math.min(100, RARE_MAP_KINDS[id].dropPct * mult);
+    if (rand() * 100 < chance) return id;
   }
   return null;
 }

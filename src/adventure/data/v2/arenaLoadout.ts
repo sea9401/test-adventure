@@ -90,7 +90,7 @@ const SELF_RESOURCE_LABEL = {
   ironWallReflect: "철벽 반사",
   inscription: "각인 총합",
   weight: "중량",
-  bloodlineBurstReady: "혈맥 폭발 준비",
+  bloodlineBurstReady: "혈맥 폭발 상태",
 } as const;
 
 const ENEMY_DEBUFF_LABEL: Record<V2PatternEnemyDebuff, string> = {
@@ -133,6 +133,17 @@ export function arenaPatternConditionSummary(
     case "self_buff_pct":
       return `내 ${DERIVED_BUFF_LABEL[condition.target]} 상태 효과 ${condition.active ? "있음" : "없음"}`;
     case "self_resource":
+      if (condition.resource === "bloodlineBurstReady") {
+        if (
+          condition.op === "none" ||
+          (condition.op === "atMost" && condition.value === 0)
+        ) {
+          return "내 혈맥 폭발 재사용 대기 중";
+        }
+        if (condition.op === "atLeast" && condition.value === 1) {
+          return "내 혈맥 폭발 발동 가능";
+        }
+      }
       return condition.op === "none"
         ? `내 ${SELF_RESOURCE_LABEL[condition.resource]} 없음`
         : `내 ${SELF_RESOURCE_LABEL[condition.resource]} ${condition.value} ${condition.op === "atMost" ? "이하" : "이상"}`;

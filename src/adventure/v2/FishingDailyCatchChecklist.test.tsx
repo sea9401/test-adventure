@@ -26,6 +26,11 @@ describe("FishingDailyCatchChecklist", () => {
     expect(html).toContain("12 / 50");
     expect(html).toContain("전설의 어획물");
     expect(html).toContain("0 / 3");
+    expect(html).toContain("<details");
+    expect(html).toContain("<summary");
+    expect(html).not.toContain("<details open");
+    expect(html).toContain("펼치기");
+    expect(html).toContain("접기");
     expect(html).toContain("bg-zinc-50");
     expect(html).not.toMatch(/bg-[^\s\"]+\/\d+/);
   });

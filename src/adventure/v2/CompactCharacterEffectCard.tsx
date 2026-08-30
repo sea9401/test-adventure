@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { CookingPot, ForkKnife, Sparkle, X } from "@phosphor-icons/react";
-import { ADVENTURE_SUPPORT_PASS } from "@/adventure/data/v2/adventureSupport";
+import {
+  adventureSupportBenefits,
+  type AdventureSupportTier,
+} from "@/adventure/data/v2/adventureSupport";
 import { MAX_STAMINA } from "@/adventure/v2/stamina";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
@@ -14,6 +17,7 @@ import {
 import {
   formatAdventureSupportExpiry,
   formatAdventureSupportRemaining,
+  queuedStandardSupportMs,
 } from "./adventureSupportDisplay";
 import { itemCardPosition } from "./item-card/V2ItemCardPopover";
 import type { ItemCardAnchor } from "./V2ItemCard";
@@ -39,6 +43,8 @@ export type CompactCharacterEffectDetail =
   | {
       kind: "support";
       activeUntil: number;
+      premiumUntil?: number | null;
+      tier?: AdventureSupportTier;
       regenBonusPct: number;
     }
   | {
@@ -87,17 +93,28 @@ export function CompactCharacterEffectCard({
 
   const isSupport = detail.kind === "support";
   const isFood = detail.kind === "food";
+  const supportTier =
+    isSupport &&
+    detail.tier === "premium" &&
+    typeof detail.premiumUntil === "number" &&
+    detail.premiumUntil > now
+      ? "premium"
+      : "standard";
   const title = isSupport
-    ? "모험 지원권"
+    ? supportTier === "premium"
+      ? "모험 지원권 프리미엄"
+      : "모험 지원권"
     : isFood
       ? detail.buff.recipeName
       : detail.effect.name;
+  const supportConfig = adventureSupportBenefits(supportTier);
   const supportBenefits = isSupport
     ? [
-        `에너지 회복량 ${detail.regenBonusPct}% 증가`,
-        `최대 에너지 ${ADVENTURE_SUPPORT_PASS.staminaMaxBonus.toLocaleString()} 증가 (기본 ${MAX_STAMINA.toLocaleString()} → ${(MAX_STAMINA + ADVENTURE_SUPPORT_PASS.staminaMaxBonus).toLocaleString()})`,
-        `거래소 등록 ${ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus}개 추가`,
-        `거래소 수수료 ${ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}%로 감소`,
+        `에너지 회복량 ${supportConfig.staminaRegenBonusPct}% 증가`,
+        `최대 에너지 ${supportConfig.staminaMaxBonus.toLocaleString()} 증가 (기본 ${MAX_STAMINA.toLocaleString()} → ${(MAX_STAMINA + supportConfig.staminaMaxBonus).toLocaleString()})`,
+        `일괄 전투 최대 ${supportConfig.maxHuntBatch}회`,
+        `거래소 등록 ${supportConfig.marketplaceSlotBonus}개 추가`,
+        `거래소 수수료 ${supportConfig.marketplaceTaxRate * 100}%로 감소`,
       ]
     : [];
   const activeUntil = isSupport
@@ -105,6 +122,20 @@ export function CompactCharacterEffectCard({
     : isFood
       ? detail.buff.expiresAt
       : detail.effect.expiresAt;
+  const supportCurrentUntil =
+    isSupport &&
+    supportTier === "premium" &&
+    typeof detail.premiumUntil === "number"
+      ? detail.premiumUntil
+      : activeUntil;
+  const queuedStandardMs =
+    isSupport && typeof detail.premiumUntil === "number"
+      ? queuedStandardSupportMs(
+          detail.activeUntil,
+          detail.premiumUntil,
+          now,
+        )
+      : 0;
   const guildDiningEffectText =
     detail.kind !== "guildDining"
       ? ""
@@ -121,7 +152,9 @@ export function CompactCharacterEffectCard({
         role="dialog"
         aria-label={
           isSupport
-            ? "모험 지원권 정보"
+            ? supportTier === "premium"
+              ? "프리미엄 모험 지원권 정보"
+              : "모험 지원권 정보"
             : isFood
               ? `${detail.buff.recipeName} 음식 효과`
               : `${detail.effect.name} 길드 음식 효과`
@@ -182,11 +215,16 @@ export function CompactCharacterEffectCard({
         <div className={`${SURFACE_INSET} mt-3 px-3 py-2.5 text-center`}>
           <p className="font-bold tabular-nums text-amber-700 dark:text-amber-300">
             {isSupport
-              ? formatAdventureSupportRemaining(detail.activeUntil, now)
+              ? formatAdventureSupportRemaining(supportCurrentUntil, now)
               : formatFoodRemaining(activeUntil, now)}
           </p>
+          {queuedStandardMs > 0 ? (
+            <p className="mt-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
+              일반 지원권 {Math.ceil(queuedStandardMs / 86_400_000)}일 대기 중
+            </p>
+          ) : null}
           <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-            {formatAdventureSupportExpiry(activeUntil)}까지
+            {formatAdventureSupportExpiry(supportCurrentUntil)}까지
           </p>
         </div>
       </section>

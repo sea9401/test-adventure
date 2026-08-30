@@ -11,6 +11,12 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { GameStateRefreshProvider } from "./GameStateRefreshContext";
+import { tileSettlementErrorMessage } from "./tileSettlementErrors";
+import { GameStateSliceProviders } from "./GameStateSliceProviders";
+export { useGameIdentityState } from "./GameIdentityContext";
+export { useGameResourceState } from "./GameResourceContext";
+export { useGameActivityState } from "./GameActivityContext";
+export { useGameWorldState } from "./GameWorldContext";
 import { usePresenceHeartbeat } from "@/lib/usePresenceHeartbeat";
 import type { HpBarState } from "@/adventure/v2/HpBar";
 import type { MpBarState } from "@/adventure/v2/MpBar";
@@ -56,6 +62,7 @@ import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import type { Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
+import type { AdventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import {
   correctedAutoGatheringReadyAt,
   type AutoGatheringActivity,
@@ -156,7 +163,9 @@ type GameStateSnapshot = {
   coreLoopOn?: boolean;
   adventureSupport?: {
     active?: boolean;
+    tier?: AdventureSupportTier;
     activeUntil?: number | null;
+    premiumUntil?: number | null;
     regenBonusPct?: number;
   };
   huntStaminaMode?: boolean;
@@ -212,7 +221,7 @@ type FishingCodexContextValue = {
   markDiscovered: (id: string) => void;
 };
 
-type GameStateValue = {
+export type GameStateValue = {
   // 신원/캐릭터
   viewerUserId: string | null;
   viewerGuildId: number | null;
@@ -238,7 +247,9 @@ type GameStateValue = {
   // per-user 스태미나 최대치 — 기본 + 한계의 비약 보너스(me/state 가 권위).
   staminaMax: number;
   adventureSupportActive: boolean;
+  adventureSupportTier: AdventureSupportTier;
   adventureSupportActiveUntil: number | null;
+  adventureSupportPremiumUntil: number | null;
   staminaRegenBonusPct: number;
   setStamina: React.Dispatch<React.SetStateAction<StaminaState>>;
   // 보유 스태미나 포션 수(퀘 마일스톤 보상·보관형 소비템). me/state 에서 초기화.
@@ -331,50 +342,6 @@ type GameStateValue = {
   clearTileActionError: () => void;
 };
 
-// 정착지 액션(개척/승격/철거) 실패 사유 → 사용자 안내 문구.
-//   서버 error 코드별로 "왜 안 됐는지"를 한국어로 풀어 침묵 실패를 없앤다.
-function tileSettlementErrorMessage(
-  action: "found" | "promote" | "demolish",
-  res: { error?: string; requiredGold?: number; gold?: number },
-): string {
-  const label =
-    action === "found" ? "개척" : action === "promote" ? "승격" : "철거";
-  const req = res.requiredGold ?? 0;
-  const have = res.gold ?? 0;
-  switch (res.error) {
-    case "out_of_guild_gold":
-      return `길드 골드 부족 — ${label} 비용 ${req.toLocaleString()} G 필요 (현재 길드 골드 ${have.toLocaleString()} G). 거점 금고를 회수해 길드 자금을 채우세요.`;
-    case "out_of_gold":
-      return `골드 부족 — ${label} 비용 ${req.toLocaleString()} G 필요.`;
-    case "not_guild_admin":
-      return "개척마을 건설은 길드 마스터·관리자만 가능합니다.";
-    case "need_guild":
-      return "개척마을은 길드 전용입니다 — 길드를 만들거나 가입하세요.";
-    case "not_at_tile":
-      return "개척하려면 먼저 이 칸으로 이동하세요.";
-    case "not_adjacent_to_guild_tile":
-      return "이미 보유한 거점이 있는 길드는 자기 길드 거점에 인접한 빈 땅에만 개척할 수 있습니다.";
-    case "already_settled":
-      return "이미 정착지가 있는 칸입니다.";
-    case "tile_is_outpost":
-      return "거점 칸에는 개척할 수 없습니다.";
-    case "invalid_name":
-      return "마을 이름이 올바르지 않습니다.";
-    case "not_owner":
-      return "본인 정착지가 아닙니다.";
-    case "not_found":
-      return "정착지를 찾을 수 없습니다.";
-    case "max_tier":
-      return "이미 최고 단계입니다.";
-    case "use_production_management":
-      return "승격은 거점 관리 화면(생산 시스템)에서 진행하세요.";
-    case "network":
-      return "네트워크 오류 — 잠시 후 다시 시도하세요.";
-    default:
-      return `${label}에 실패했습니다 (${res.error ?? "알 수 없는 오류"}).`;
-  }
-}
-
 const GameStateCtx = createContext<GameStateValue | null>(null);
 const EquipmentCodexCtx = createContext<EquipmentCodexContextValue | null>(
   null,
@@ -453,7 +420,11 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   // 전역 stamina — me/state mount fetch 에서 초기화. 던전 hunt 응답 시 갱신.
   const [staminaMax, setStaminaMax] = useState(MAX_STAMINA);
   const [adventureSupportActive, setAdventureSupportActive] = useState(false);
+  const [adventureSupportTier, setAdventureSupportTier] =
+    useState<AdventureSupportTier>("none");
   const [adventureSupportActiveUntil, setAdventureSupportActiveUntil] =
+    useState<number | null>(null);
+  const [adventureSupportPremiumUntil, setAdventureSupportPremiumUntil] =
     useState<number | null>(null);
   const [staminaRegenBonusPct, setStaminaRegenBonusPct] = useState(0);
   const [stamina, setStamina] = useState<StaminaState>(() =>
@@ -633,9 +604,20 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
           : null,
       );
       setAdventureSupportActive(j.adventureSupport?.active === true);
+      setAdventureSupportTier(
+        j.adventureSupport?.tier === "premium" ||
+          j.adventureSupport?.tier === "standard"
+          ? j.adventureSupport.tier
+          : "none",
+      );
       setAdventureSupportActiveUntil(
         typeof j.adventureSupport?.activeUntil === "number"
           ? j.adventureSupport.activeUntil
+          : null,
+      );
+      setAdventureSupportPremiumUntil(
+        typeof j.adventureSupport?.premiumUntil === "number"
+          ? j.adventureSupport.premiumUntil
           : null,
       );
       setStaminaRegenBonusPct(
@@ -1136,7 +1118,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       stamina,
       staminaMax,
       adventureSupportActive,
+      adventureSupportTier,
       adventureSupportActiveUntil,
+      adventureSupportPremiumUntil,
       staminaRegenBonusPct,
       setStamina,
       staminaPotions,
@@ -1209,7 +1193,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     stamina,
     staminaMax,
     adventureSupportActive,
+    adventureSupportTier,
     adventureSupportActiveUntil,
+    adventureSupportPremiumUntil,
     staminaRegenBonusPct,
     setStamina,
     staminaPotions,
@@ -1287,14 +1273,16 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <GameStateCtx.Provider value={value}>
-      <GameStateRefreshProvider refreshGameState={refreshGameState}>
-        <EquipmentCodexCtx.Provider value={equipmentCodexValue}>
-          <FishingCodexCtx.Provider value={fishingCodexValue}>
-            {children}
-          </FishingCodexCtx.Provider>
-        </EquipmentCodexCtx.Provider>
-      </GameStateRefreshProvider>
-    </GameStateCtx.Provider>
+    <GameStateSliceProviders value={value}>
+      <GameStateCtx.Provider value={value}>
+        <GameStateRefreshProvider refreshGameState={refreshGameState}>
+          <EquipmentCodexCtx.Provider value={equipmentCodexValue}>
+            <FishingCodexCtx.Provider value={fishingCodexValue}>
+              {children}
+            </FishingCodexCtx.Provider>
+          </EquipmentCodexCtx.Provider>
+        </GameStateRefreshProvider>
+      </GameStateCtx.Provider>
+    </GameStateSliceProviders>
   );
 }

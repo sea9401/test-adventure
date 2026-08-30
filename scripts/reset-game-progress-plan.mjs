@@ -52,6 +52,7 @@ export const RESET_TABLES = Object.freeze([
   "coop_boss_sessions",
   "dangerous_fishing_boss_contributions",
   "dangerous_fishing_boss_events",
+  "equipment_liberation_requests",
   "fishing_records",
   "fishing_seasons",
   "guild_activity_log",

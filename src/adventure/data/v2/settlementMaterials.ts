@@ -41,12 +41,26 @@ export const SETTLEMENT_MATERIAL_DROP_PCT: Record<string, number> = {
 //   종류별 독립 굴림(각 1 draw 소비), 통과 시 1개.
 export function rollSettlementMaterialDrops(
   rng: () => number,
+  chanceMult: number = 1,
 ): Record<string, number> {
+  const mult = Math.max(0, Number(chanceMult) || 0);
   const out: Record<string, number> = {};
-  if (rng() < SETTLEMENT_MATERIAL_DROP_PCT[SETTLEMENT_MATERIAL_ID.timber]) {
+  if (
+    rng() <
+    Math.min(
+      1,
+      SETTLEMENT_MATERIAL_DROP_PCT[SETTLEMENT_MATERIAL_ID.timber] * mult,
+    )
+  ) {
     out[SETTLEMENT_MATERIAL_ID.timber] = 1;
   }
-  if (rng() < SETTLEMENT_MATERIAL_DROP_PCT[SETTLEMENT_MATERIAL_ID.ironOre]) {
+  if (
+    rng() <
+    Math.min(
+      1,
+      SETTLEMENT_MATERIAL_DROP_PCT[SETTLEMENT_MATERIAL_ID.ironOre] * mult,
+    )
+  ) {
     out[SETTLEMENT_MATERIAL_ID.ironOre] = 1;
   }
   return out;

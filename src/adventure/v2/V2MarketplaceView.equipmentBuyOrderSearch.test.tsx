@@ -47,18 +47,18 @@ describe("거래소 장비 구매 주문 세트 검색", () => {
   it.each([
     ["반지", "질풍눈 반지"],
     ["목걸이", "항로잡이 나침반"],
-  ])("%s 목록에서 천공추적 세트명으로 장비를 찾는다", (slot, itemName) => {
+  ])("%s 목록에서 천공추적 세트명으로 장비를 찾는다", async (slot, itemName) => {
     renderMarketplace();
 
     fireEvent.click(screen.getByRole("tab", { name: slot }));
     fireEvent.click(
       screen.getByRole("button", { name: "조건을 정해 장비 구매 주문 만들기" }),
     );
-    fireEvent.change(screen.getByPlaceholderText("장비 이름 검색"), {
+    fireEvent.change(await screen.findByPlaceholderText("장비 이름 검색"), {
       target: { value: "천공추적" },
     });
 
-    expect(screen.getByText(itemName)).not.toBeNull();
-    expect(screen.getByText("천공추적 세트")).not.toBeNull();
+    expect(await screen.findByText(itemName)).not.toBeNull();
+    expect(await screen.findByText("천공추적 세트")).not.toBeNull();
   });
 });

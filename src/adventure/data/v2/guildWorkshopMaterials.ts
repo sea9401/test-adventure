@@ -156,8 +156,10 @@ export const GUILD_WORKSHOP_MATERIAL_SOURCES: Record<
 export function rollGuildWorkshopMaterialDrops(
   depthRaw: number,
   rng: () => number,
+  chanceMult: number = 1,
 ): Record<string, number> {
   const depth = Math.max(1, Math.floor(depthRaw));
+  const mult = Math.max(0, Number(chanceMult) || 0);
   const out: Record<string, number> = {};
   const candidates = GUILD_WORKSHOP_MATERIAL_DROP_RULES.filter(
     (rule) =>
@@ -166,7 +168,7 @@ export function rollGuildWorkshopMaterialDrops(
   ).map((rule) => rule.materialId);
 
   for (const id of candidates) {
-    if (rng() < GUILD_WORKSHOP_MATERIAL_DROP_PCT[id]) {
+    if (rng() < Math.min(1, GUILD_WORKSHOP_MATERIAL_DROP_PCT[id] * mult)) {
       out[id] = (out[id] ?? 0) + 1;
     }
   }

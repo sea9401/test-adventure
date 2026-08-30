@@ -50,6 +50,10 @@ import {
   persistedUniqueEquipmentAcquired,
   uniqueEquipmentAcquisitionProgress,
 } from "@/lib/server/uniqueEquipmentAchievement";
+import {
+  GROWTH_LEAP_SAVE_KEY,
+  growthLeapMissionView,
+} from "@/adventure/data/v2/growthLeap";
 
 // GET /api/v2/me/quests — 가이드 퀘스트 현황. 완료 판정은 세이브/DB 파생.
 //   현 직군에게 보이는 라인 + 각 퀘스트 status(claimed/claimable/active/locked) 반환.
@@ -79,6 +83,7 @@ export async function GET() {
     lifeWorkshopRaw,
     lifeRequestsRaw,
     lifeFieldRecordsRaw,
+    growthLeapRaw,
     lifeFieldFeatures,
     extras,
   ] = await Promise.all([
@@ -100,6 +105,7 @@ export async function GET() {
     readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
     readSave(db, userId, LIFE_REQUESTS_SAVE_KEY, {}),
     readSave(db, userId, LIFE_FIELD_RECORDS_KEY, {}),
+    readSave(db, userId, GROWTH_LEAP_SAVE_KEY, {}),
     readLifeFieldFeatureSettings(),
     assembleQuestExtras(db, userId),
   ]);
@@ -189,6 +195,7 @@ export async function GET() {
     trackedQuestId,
     achievementSummary: achievementSummary(ctx, claimed),
     monsterCodex: deriveMonsterHuntCodex(effectiveAdvLogRaw),
+    growthLeap: growthLeapMissionView(growthLeapRaw, Date.now()),
     repeat: {
       daily: repeatViews.filter((q) => q.scope === "daily"),
       weekly: repeatViews.filter((q) => q.scope === "weekly"),

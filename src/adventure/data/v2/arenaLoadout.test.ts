@@ -67,7 +67,7 @@ describe("active arena loadout", () => {
 });
 
 describe("arenaPatternActionSummary — 실제 패턴 행동만 표시", () => {
-  it("혈맥 폭발 준비 자원을 한글 조건으로 요약한다", () => {
+  it("혈맥 폭발의 발동 가능·재사용 대기 상태를 숫자 없이 요약한다", () => {
     expect(
       arenaPatternConditionSummary({
         kind: "self_resource",
@@ -75,7 +75,15 @@ describe("arenaPatternActionSummary — 실제 패턴 행동만 표시", () => {
         op: "atLeast",
         value: 1,
       }),
-    ).toBe("내 혈맥 폭발 준비 1 이상");
+    ).toBe("내 혈맥 폭발 발동 가능");
+    expect(
+      arenaPatternConditionSummary({
+        kind: "self_resource",
+        resource: "bloodlineBurstReady",
+        op: "none",
+        value: 0,
+      }),
+    ).toBe("내 혈맥 폭발 재사용 대기 중");
   });
 
   it("일반 공격 패턴을 아레나 요약에서도 보존한다", () => {

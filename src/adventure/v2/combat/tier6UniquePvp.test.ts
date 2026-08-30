@@ -242,9 +242,9 @@ describe("6T 유니크 PvP 대칭 연동", () => {
 
     const after = advanceTurnPvP(bleeding);
 
-    expect(after.outcome).toBeNull();
-    // 폭발에 사망 극복이 발동한 뒤, 보존된 출혈의 다음 틱 피해도 이어진다.
-    expect(after.p2.hp).toBe(300);
+    expect(after.outcome).toBe("p1_win");
+    // 폭발에 사망 극복이 발동한 뒤, 20%로 회복한 HP는 보존된 출혈의 다음 틱에 소진된다.
+    expect(after.p2.hp).toBe(0);
     expect(after.p2.berserker?.deathOvercomeUsed).toBe(true);
     expect(after.log.some((entry) => entry.text.includes("[사망 극복]")))
       .toBe(true);
@@ -297,6 +297,13 @@ describe("6T 유니크 PvP 대칭 연동", () => {
     expect(after.p2.hp).toBe(initial.p2.hp - 500);
     expect(after.p2.v2Dots).toEqual([{ ...bleed, turns: 5 }]);
     expect(afterLongBleed.p2.v2Dots).toEqual([longBleed]);
+    expect(
+      after.log.some((entry) =>
+        entry.text.includes(
+          "[상흔 고정] 출혈 중첩 유지 · 지속 횟수 최소 5회로 갱신",
+        ),
+      ),
+    ).toBe(true);
   });
 
   it("PvP 패턴도 혈맥 폭발 준비 때만 출혈 대상 일반 공격을 선택한다", () => {

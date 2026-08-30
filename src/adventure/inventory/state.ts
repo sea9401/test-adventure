@@ -1,6 +1,6 @@
 // 인벤토리(save key `inventory.v2`) 상태 모양 + 초기값.
 // useInventory 훅은 호출처가 없어 은퇴(2026-07) — 남은 소비자는 순수 로직뿐이라
-// 타입/초기값만 여기로 분리했다: starterSaves(시작 세이브), vaultOps·disassemble(순수 엔진).
+// 타입/초기값만 여기로 분리했다: starterSaves(시작 세이브), vaultOps(순수 엔진).
 import type { ConsumableId } from "../data/consumables";
 import type { ItemId } from "../data/items";
 import type { SkillBookId } from "../data/skillBooks";
@@ -45,10 +45,7 @@ export type InventoryState = {
   skillBooks?: Partial<Record<SkillBookId, number>>;
   // 종류별 포션 최대 보유 수의 추가 보너스. 보상으로 영구 누적.
   potionCapacityBonus?: number;
-  /**
-   * 룬 보유 — 룬 id × 등급(1~6) → 개수. 장착은 별도(CharacterDynamicState.equippedRunes),
-   * 여기는 가방. 폐기/판매 개념은 없고 합성·장착 시 소비.
-   */
+  /** 과거 세이브에 남을 수 있는 룬 보유량. 현재 런타임에서는 사용하지 않는다. */
   runes?: Partial<Record<RuneId, Partial<Record<RuneGrade, number>>>>;
   /**
    * 인스턴스 기반 장비 풀 — 별빛 재단 무구 5종(ENHANCEABLE_ITEM_IDS) 한정.

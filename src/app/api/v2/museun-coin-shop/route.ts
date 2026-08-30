@@ -21,6 +21,20 @@ import {
   PROFILE_BADGE_STAND_ITEM_ID,
   ownsProfileBadgeStand,
 } from "@/adventure/profile/profileShowcase";
+import {
+  GROWTH_LEAP_PACKAGE_ITEM_ID,
+  GROWTH_LEAP_PACKAGE_POTIONS,
+  GROWTH_LEAP_SAVE_KEY,
+  MONTHLY_STAMINA_BUNDLE_ITEM_ID,
+  MONTHLY_STAMINA_BUNDLE_POTIONS,
+  activateGrowthLeap,
+  buyMonthlyStaminaBundle,
+  growthLeapShopView,
+} from "@/adventure/data/v2/growthLeap";
+import {
+  STAMINA_POTIONS_KEY,
+  grantStaminaPotions,
+} from "@/adventure/v2/staminaPotions";
 
 type CharacterSave = {
   cashItems?: unknown;
@@ -45,9 +59,10 @@ export async function GET() {
   }
   if (!(await canAccessMuseunCoinShop(userId))) return unavailable();
 
-  const [wallet, character] = await Promise.all([
+  const [wallet, character, growthLeap] = await Promise.all([
     readSave(db, userId, MUSEUN_COIN_WALLET_KEY, {}),
     readSave<CharacterSave>(db, userId, "character.v2", {}),
+    readSave(db, userId, GROWTH_LEAP_SAVE_KEY, {}),
   ]);
   return Response.json({
     ok: true,
@@ -55,6 +70,7 @@ export async function GET() {
     cashItems: parseMuseunCashItems(character.cashItems),
     cosmetics: parseMuseunCosmetics(character.museunCosmetics),
     profileBadgeStandOwned: ownsProfileBadgeStand(character),
+    ...growthLeapShopView(growthLeap, Date.now()),
   });
 }
 
@@ -86,10 +102,14 @@ export async function POST(req: Request) {
   if (quantity === null) return bad("invalid_quantity");
   const itemId = body.itemId;
   const item = MUSEUN_CASH_ITEMS[itemId];
-  if (item.delivery === "permanent" && quantity !== 1) {
+  if (
+    (item.delivery === "permanent" || item.delivery === "bundle") &&
+    quantity !== 1
+  ) {
     return bad("invalid_quantity");
   }
   const totalPrice = item.coinPrice * quantity;
+  const now = Date.now();
 
   const result = await db.transaction(async (tx) => {
     // 게임 내 공통 잠금 순서에 맞춰 캐릭터를 먼저 잠근다.
@@ -124,6 +144,70 @@ export async function POST(req: Request) {
           error: "insufficient_coins",
           coins,
           requiredCoins: totalPrice,
+        },
+      };
+    }
+
+    if (item.delivery === "bundle") {
+      const growthLeap = await lockSaveForUpdate(
+        tx,
+        userId,
+        GROWTH_LEAP_SAVE_KEY,
+        {},
+      );
+      const purchase =
+        itemId === MONTHLY_STAMINA_BUNDLE_ITEM_ID
+          ? buyMonthlyStaminaBundle(growthLeap, now)
+          : activateGrowthLeap(growthLeap, now);
+      if (!purchase.ok) {
+        return {
+          status: 409,
+          body: { ok: false as const, error: purchase.error },
+        };
+      }
+      const currentPotions = await lockSaveForUpdate(
+        tx,
+        userId,
+        STAMINA_POTIONS_KEY,
+        { count: 0, boundCount: 0 },
+      );
+      const potionGrant =
+        itemId === MONTHLY_STAMINA_BUNDLE_ITEM_ID
+          ? MONTHLY_STAMINA_BUNDLE_POTIONS
+          : GROWTH_LEAP_PACKAGE_POTIONS;
+      const potions = grantStaminaPotions(currentPotions, potionGrant, {
+        bound: true,
+      });
+      let cashItems = currentCashItems;
+      if (itemId === GROWTH_LEAP_PACKAGE_ITEM_ID) {
+        cashItems = addMuseunCashItem(cashItems, "chroma_name_box", 1);
+        cashItems = addMuseunCashItem(cashItems, "profile_border_box", 1);
+        await upsertSave(tx, userId, "character.v2", {
+          ...character,
+          cashItems,
+        });
+      }
+      const nextCoins = coins - totalPrice;
+      await upsertSave(tx, userId, GROWTH_LEAP_SAVE_KEY, purchase.state);
+      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, potions);
+      await upsertSave(tx, userId, MUSEUN_COIN_WALLET_KEY, {
+        ...wallet,
+        coins: nextCoins,
+      });
+      return {
+        status: 200,
+        body: {
+          ok: true as const,
+          itemId,
+          itemName: item.name,
+          quantity: 1,
+          totalPrice,
+          coins: nextCoins,
+          cashItems,
+          cosmetics: parseMuseunCosmetics(character.museunCosmetics),
+          profileBadgeStandOwned: ownsProfileBadgeStand(character),
+          delivery: item.delivery,
+          ...growthLeapShopView(purchase.state, now),
         },
       };
     }

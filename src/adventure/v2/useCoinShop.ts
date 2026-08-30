@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useGameState } from "./GameStateProvider";
+import { useGameResourceState } from "./GameStateProvider";
 
 // 코인 상점 공용 코어 — 낚시/투기장 상점 훅이 같은 mount fetch + 구매 사다리
 // (성공 / insufficient_coins / already_owned)를 각자 복붙하던 것의 단일화(2026-07).
@@ -20,7 +20,7 @@ export function useCoinShop<S extends CoinShopCoreState>(opts: {
   parseState: (j: Json) => S;
   applyServer?: (s: S, j: Json) => S;
 }) {
-  const { applyResourcePatch } = useGameState();
+  const { applyResourcePatch } = useGameResourceState();
   const [state, setState] = useState<S | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

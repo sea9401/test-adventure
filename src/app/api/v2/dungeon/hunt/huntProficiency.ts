@@ -27,6 +27,8 @@ import { v2LevelGrowthHpMp } from "@/lib/server/derivePlayerCombatV2";
 import { V2_STAT_KEYS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import { equippedProfPerKillBonus } from "@/adventure/data/v2/v2Skills";
 import { rollGuildCombatProficiencyBonus } from "@/adventure/data/v2/guildCombatSupply";
+import type { EquippedLiberationEffects } from "@/adventure/data/v2/equipmentLiberationEffects";
+import { applyLiberationLevelGrowth } from "@/lib/server/equipmentLiberationLevelGrowth";
 
 export type HuntProficiencyResult = {
   /** 갱신된 proficiency — null 이면 쓰기 불필요(패배·무성장: readout 만 산출). */
@@ -64,6 +66,7 @@ export function applyHuntProficiency(params: {
   /** 압축 희귀 탐사에서 적립할 기존 승리 보상 횟수. 실제 전투 기록과는 분리한다. */
   rewardWins?: number;
   rng?: () => number;
+  liberationGrowth?: Pick<EquippedLiberationEffects, "growth">;
 }): HuntProficiencyResult {
   const {
     won,
@@ -160,6 +163,17 @@ export function applyHuntProficiency(params: {
         });
         hpGain = legacy.hp;
         mpGain = legacy.mp;
+      }
+      if (params.liberationGrowth) {
+        const liberationGrowth = applyLiberationLevelGrowth({
+          proficiency: prof,
+          levelsGained,
+          effects: params.liberationGrowth,
+          rng,
+        });
+        prof = liberationGrowth.proficiency;
+        hpGain += liberationGrowth.hpGained;
+        mpGain += liberationGrowth.mpGained;
       }
     }
     // 직업 숙련도(상시 카드 readout) — 현재 전직 중인 구체 직업 기준. none=숙련도 없음.

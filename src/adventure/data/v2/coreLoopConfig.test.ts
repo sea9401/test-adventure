@@ -23,12 +23,8 @@ import {
   spendableGoldWith,
   calcSpBudget,
   calcSpBudgetBreakdown,
-  spMilestonesForCumLevel,
-  spMilestonesCrossed,
   spMasteryProgressForCumLevel,
-  nextSpMilestoneProgressForCumLevel,
   SP_MASTERED_REQUIRED_CUMLEVEL,
-  SP_MASTERED_JOB_BONUS,
   OFFLINE_MAX_MS,
 } from "./coreLoopConfig";
 
@@ -257,21 +253,6 @@ describe("spendableGoldWith / 래퍼 — 지불가능 총액", () => {
   });
 });
 
-describe("숙련도 SP 마일스톤 — deprecated", () => {
-  it("숙련도는 더 이상 SP 를 직접 지급하지 않는다", () => {
-    expect(spMilestonesForCumLevel(0)).toBe(0);
-    expect(spMilestonesForCumLevel(10_000_000)).toBe(0);
-    expect(spMilestonesCrossed(396, 405)).toBe(0);
-    expect(spMilestonesCrossed(0, 1890)).toBe(0);
-    expect(nextSpMilestoneProgressForCumLevel(405)).toMatchObject({
-      currentMilestoneSp: 0,
-      nextMilestoneSp: 0,
-      requiredCumLevel: 0,
-      remainingCumLevel: 0,
-    });
-  });
-});
-
 describe("calcSpBudget — 스킬포인트 예산 (직업 해금 수집)", () => {
   it("기본 SP 는 40이고 숙련도 groups 는 예산에 직접 영향을 주지 않는다", () => {
     expect(calcSpBudget({})).toBe(40);
@@ -332,7 +313,7 @@ describe("spMasteryProgressForCumLevel — 직업군 정복 진행도 표시용"
       requiredCumLevel: 10000,
       mastered: true,
       remainingCumLevel: 0,
-      masteryBonusSp: SP_MASTERED_JOB_BONUS,
+      masteryBonusSp: 0,
     });
   });
 

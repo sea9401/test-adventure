@@ -20,6 +20,7 @@ import {
   type PlayerCombat,
 } from "@/adventure/v2/combat/engine";
 import type { V2SkillId } from "@/adventure/data/v2/v2Skills";
+import type { V2SkillsState } from "@/adventure/data/v2/v2Skills";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -231,6 +232,41 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
     expect(countText(res, "[검영]")).toBeGreaterThan(0);
   });
 
+  it("무영검신은 고유 잔영 70%, 계승 무심검 25%로 검영을 기록한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const enemy: Monster = {
+      name: "검영 기록 허수아비",
+      tags: [],
+      hp: 100_000,
+      atk: 1,
+      def: 0,
+      spd: 1,
+      exp: 0,
+    };
+    const combatant = { ...player, atk: 200, strStat: 200, lukStat: 200 };
+    const castOnce = (attackSkill: V2SkillId) => {
+      const skills: V2SkillsState = {
+        learned: [attackSkill, "v2c_shadowblade_swordshadow"],
+        equipped: [attackSkill, "v2c_shadowblade_swordshadow"],
+      };
+      const initial = initialBattleState(
+        combatant,
+        enemy,
+        "테스터",
+        skills,
+      );
+      return applyPlayerV2SkillCast(
+        initial,
+        combatant,
+        { selfBuffs: {}, selfDebuffs: {}, enemyDebuffs: {} },
+        "테스터",
+      ).state.stacks.tier7?.swordShadow;
+    };
+
+    expect(castOnce("v2c_shadowblade_afterimage")?.recordPct).toBe(70);
+    expect(castOnce("v2c_swordsaint_flash")?.recordPct).toBe(25);
+  });
+
   it("멸검은 한 행동을 충전에 쓰고 다음 행동 기회에 자동 해방한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const res = resolveBattle(
@@ -253,10 +289,12 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
         v2Skills: {
           learned: [
             "v2c_ruinblade_ruinsword",
+            "v2c_ruinblade_limitstrike",
             "v2c_ruinblade_oneintent",
           ],
           equipped: [
             "v2c_ruinblade_ruinsword",
+            "v2c_ruinblade_limitstrike",
             "v2c_ruinblade_oneintent",
           ],
         },
@@ -264,7 +302,7 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
     );
 
     const chargeIndex = res.finalState.log.findIndex((entry) =>
-      entry.text.includes("[멸검] 충전을 시작했다"),
+      entry.text.includes("[멸검] 검의 3개를 소모해 충전을 시작했다"),
     );
     const releaseIndex = res.finalState.log.findIndex((entry) =>
       entry.text.includes("[멸검] 충전을 해방"),
@@ -272,6 +310,44 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
     expect(chargeIndex).toBeGreaterThan(-1);
     expect(releaseIndex).toBeGreaterThan(chargeIndex);
     expect(countText(res, "멸검!")).toBeGreaterThan(0);
+  });
+
+  it.each([0, 1, 2])("검의 %i개에서는 멸검 충전을 시작하지 않는다", (intent) => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const skills = {
+      learned: ["v2c_ruinblade_ruinsword"],
+      equipped: ["v2c_ruinblade_ruinsword"],
+    } as const;
+    const initial = initialBattleState(
+      { ...player, hp: 100, maxHp: 1_000, strStat: 200 },
+      {
+        name: "멸검 게이트 허수아비",
+        tags: [],
+        hp: 100_000,
+        atk: 1,
+        def: 0,
+        spd: 1,
+        exp: 0,
+      },
+      "테스터",
+      skills as never,
+    );
+    const prepared = {
+      ...initial,
+      stacks: {
+        ...initial.stacks,
+        tier7: { ...initial.stacks.tier7, swordIntent: intent },
+      },
+    };
+    const cast = applyPlayerV2SkillCast(
+      prepared,
+      { ...player, hp: 100, maxHp: 1_000, strStat: 200 },
+      { selfBuffs: {}, selfDebuffs: {}, enemyDebuffs: {} },
+      "테스터",
+    );
+
+    expect(cast.castFired).toBe(false);
+    expect(cast.state.stacks.tier7?.ruinCharge).toBeUndefined();
   });
 
   it("비천무신은 원거리 다음 체술에 교차 추격을 발동한다", () => {

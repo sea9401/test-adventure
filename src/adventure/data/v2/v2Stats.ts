@@ -28,12 +28,12 @@ export const V2_STAT_POINTS_PER_LEVEL = 5;
 export const V2_BASE_MP = 50;
 
 // v2 베이스 HP — Lv1 vit 15 신캐 maxHp = 135 + 15 = 150 (어정쩡한 112 → 깔끔 150).
-// 라이브 baseCharacter.maxHp(97) 와 분리 — V2_BASE_MP 와 대칭. v2 만 영향.
+// 관리자 레거시 HP 계산의 Lv1 기준값(97)과 분리 — V2_BASE_MP 와 대칭. v2 만 영향.
 // 레벨 성장은 V2_HP_PER_LEVEL(=10) — Lv100 = 135 + 99×10 + vit = 1125 + vit.
 export const V2_BASE_HP = 135;
 
 // 레벨업 시 추가되는 maxHp(레벨당 고정 성장분). 여기에 STR·VIT 성장분이 더해진다.
-// v2 전용(라이브는 별도 defaults.ts:HP_PER_LEVEL). 튜닝 다이얼.
+// v2 전용(관리자 레거시 HP 계산은 별도 defaults.ts). 튜닝 다이얼.
 export const V2_HP_PER_LEVEL = 10;
 
 // 레벨업 시 추가되는 maxMp(레벨당 고정 성장분). 여기에 INT 성장분(MP_PER_INT)이 더해진다.

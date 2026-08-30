@@ -73,6 +73,119 @@ const SIMPLE_ANSWERS = [
   ["herb_pickles", "ferment", ["farm:herb", "pantry:vinegar", "pantry:salt"]],
 ] as const;
 
+const NATURALIZED_LEGACY_RECIPES = [
+  ["herb_omelet", ["farm:egg", "farm:herb", "processed:butter"]],
+  [
+    "crispy_pork_cutlet",
+    ["farm:pork", "farm:egg", "processed:flour", "pantry:oil"],
+  ],
+  [
+    "golden_corn_fritters",
+    ["farm:corn", "farm:egg", "processed:flour", "pantry:oil", "pantry:salt"],
+  ],
+  [
+    "harvest_stir_fry",
+    ["farm:corn", "farm:tomato", "farm:onion", "farm:herb", "pantry:oil"],
+  ],
+  [
+    "moonlit_cutlet",
+    ["farm:pork", "farm:egg", "processed:flour", "pantry:oil", "farm:herb"],
+  ],
+  [
+    "spicy_pork_stew",
+    ["farm:pork", "farm:potato", "farm:onion", "processed:broth", "pantry:spice"],
+  ],
+  ["strawberry_tart", ["farm:strawberry", "farm:wheat", "processed:butter"]],
+  [
+    "strawberry_milk_parfait",
+    ["farm:strawberry", "farm:milk", "processed:cream", "farm:sugarcane"],
+  ],
+  [
+    "golden_gratin",
+    ["farm:golden_potato", "farm:onion", "processed:cream", "processed:cheese"],
+  ],
+  [
+    "white_strawberry_dessert",
+    [
+      "farm:white_strawberry",
+      "farm:strawberry",
+      "processed:cream",
+      "farm:sugarcane",
+      "farm:milk",
+    ],
+  ],
+  [
+    "fish_croquettes",
+    ["fishing:catch_quality", "farm:potato", "processed:flour"],
+  ],
+  [
+    "aromatic_fish_curry",
+    ["fishing:catch_quality", "farm:rice", "processed:broth", "pantry:spice"],
+  ],
+  [
+    "golden_seafood_paella",
+    [
+      "fishing:catch_special",
+      "farm:rice",
+      "farm:tomato",
+      "farm:onion",
+      "pantry:spice",
+    ],
+  ],
+  [
+    "sunset_fish_chowder",
+    [
+      "fishing:catch_quality",
+      "farm:potato",
+      "farm:milk",
+      "processed:cream",
+      "farm:onion",
+    ],
+  ],
+  [
+    "storm_seafood_fry",
+    [
+      "fishing:catch_special",
+      "fishing:catch_legendary",
+      "processed:flour",
+      "pantry:oil",
+      "farm:onion",
+    ],
+  ],
+  [
+    "moon_tide_sashimi",
+    [
+      "fishing:catch_quality",
+      "fishing:catch_special",
+      "pantry:vinegar",
+      "pantry:salt",
+      "farm:onion",
+    ],
+  ],
+  [
+    "crystal_cacao_drink",
+    ["farm:cacao", "farm:crystal_sugarcane", "farm:milk"],
+  ],
+  [
+    "restorative_herb_porridge",
+    ["farm:rice", "farm:herb", "processed:broth", "farm:silverleaf", "farm:soybean"],
+  ],
+  [
+    "ocean_emperors_table",
+    [
+      "fishing:catch_legendary",
+      "fishing:catch_special",
+      "farm:rice",
+      "farm:herb",
+      "processed:sauce",
+    ],
+  ],
+  [
+    "midnight_cacao_banquet",
+    ["farm:cacao", "farm:royal_cacao", "farm:milk", "processed:cream", "farm:sugarcane"],
+  ],
+] as const;
+
 const EXPANSION_BATCH_01 = [
   ["pepper_pork_grill", "후추 돼지고기구이", "hearth", "grill", 1, ["farm:pork", "pantry:pepper"]],
   ["tomato_cheese_skillet", "토마토 치즈 철판볶음", "hearth", "stir_fry", 2, ["farm:tomato", "processed:cheese", "pantry:oil"]],
@@ -222,6 +335,25 @@ describe("hidden cooking recipe catalog", () => {
     }
   });
 
+  it("카카오 수플레는 카카오·달걀·우유 중심의 제과 재료로 만든다", () => {
+    expect(COOKING_SECRET_RECIPE_BY_ID.get("cacao_souffle")?.ingredients).toEqual([
+      { id: "farm:cacao", count: 6 },
+      { id: "farm:egg", count: 6 },
+      { id: "farm:milk", count: 6 },
+      { id: "farm:sugarcane", count: 6 },
+      { id: "processed:butter", count: 2 },
+    ]);
+  });
+
+  it("부자연스러운 기존 자동 조합 20개를 요리 이름에 맞는 재료로 고정한다", () => {
+    for (const [id, ingredients] of NATURALIZED_LEGACY_RECIPES) {
+      expect(
+        COOKING_SECRET_RECIPE_BY_ID.get(id)?.ingredients.map((entry) => entry.id),
+        id,
+      ).toEqual(ingredients);
+    }
+  });
+
   it("이름에 명시된 희귀 작물을 실제 재료로 사용한다", () => {
     const missing = COOKING_SECRET_RECIPES.flatMap((recipe) => {
       const actual = recipe.ingredients.map((ingredient) => ingredient.id);
@@ -294,7 +426,7 @@ describe("hidden cooking recipe catalog", () => {
 
     expect(
       createHash("sha256").update(legacyAnswers.join("\n")).digest("hex"),
-    ).toBe("696c099074986dd36b5f012e743c43f54d7bde2dcd91faab0fa1d9fe6f48c584");
+    ).toBe("43b0a2f3dab0f0e02ffb30739b01673b7fd86574a6e34b4677b4bf62d80db382");
   });
 
   it("provides optimized artwork for every simple recipe", () => {

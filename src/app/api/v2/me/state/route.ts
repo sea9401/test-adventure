@@ -3,19 +3,7 @@ import { db } from "@/db";
 import { guilds, guildMembers, savesKv, users } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { grantTitleIfMissing } from "@/lib/server/grantTitle";
-import { accountOwnedTitleIds } from "@/lib/server/titleAccess";
-import { isAdminEmail } from "@/lib/server/adminEmailAccess";
-import { stateHiddenTitleIds } from "@/lib/server/stateHiddenTitles";
-import {
-  INSOMNIA_TITLE_ID,
-  isInsomniaTitleWindow,
-} from "@/lib/server/insomniaTitle";
-import { ARENA_CHAMPION_TITLE_ID, TITLES } from "@/adventure/data/titles";
-import { hasArenaChampionshipWin } from "@/adventure/data/v2/arenaChampionshipBadges";
-import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
-import { reconcileV2EquippedSkillsWithResult } from "@/lib/server/v2Skills";
-import { ensureV2Character } from "@/lib/server/v2Character";
+import { TITLES } from "@/adventure/data/titles";
 import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { parseV2Class, jobDisplayName } from "@/adventure/data/v2/classes";
 import {
@@ -133,6 +121,8 @@ import {
   STATE_SAVE_KEYS,
   type StateSaveKey,
 } from "./stateSaveKeys";
+import { reconcileOwnedTitleIds } from "./stateTitles";
+import { reconcileStateReadDependencies } from "./stateReconciliation";
 
 // GET /api/v2/me/state — V2GameFlow 의 mount fetch (캐릭+자원+currentOutpost).
 //
@@ -177,14 +167,8 @@ export async function GET(req: Request) {
   // reconcileV2EquippedSkills 는 idempotent — 코어루프에서는 수동 SP 로드아웃을 보존하고
   // 학습분/SP예산 기준으로만 정리한다. learned 불변.
   // 길드는 더 이상 자동 생성 X — null 이면 무소속.
-  const { guildId, jobSpMigration } = await db.transaction(async (tx) => {
-    const gid = await getGuildId(tx, userId);
-    const reconciled = await reconcileV2EquippedSkillsWithResult(tx, userId, {
-      consumeJobSpNotice: !coreView,
-    });
-    await ensureV2Character(tx, userId);
-    return { guildId: gid, jobSpMigration: reconciled.migration };
-  });
+  const { guildId, jobSpMigration } =
+    await reconcileStateReadDependencies(userId, coreView);
 
   const [stateSaves, guildRow, resources, userRow] = await Promise.all([
     readStateSaveRows(
@@ -265,37 +249,13 @@ export async function GET(req: Request) {
 
   // 칭호 — 보유(adventure-log.v2.titles)·장착(character.v2.equippedTitleId). 모험의 서
   // "칭호" 탭이 소비. 보유 목록만 노출하므로 옛 V1 칭호(v2 에선 미획득)는 포함되지 않는다.
-  let ownedTitleIds = accountOwnedTitleIds(
-    adventureLogRow?.value,
-    isAdminEmail(userRow?.email),
-  );
-  if (
-    !ownedTitleIds.includes(INSOMNIA_TITLE_ID) &&
-    isInsomniaTitleWindow(new Date())
-  ) {
-    const granted = await grantTitleIfMissing(
-      userId,
-      INSOMNIA_TITLE_ID,
-      Date.now(),
-    );
-    if (granted) ownedTitleIds = [...ownedTitleIds, INSOMNIA_TITLE_ID];
-  }
-  for (const titleId of stateHiddenTitleIds({ gold: charSave.gold })) {
-    if (ownedTitleIds.includes(titleId)) continue;
-    const granted = await grantTitleIfMissing(userId, titleId, Date.now());
-    if (granted) ownedTitleIds = [...ownedTitleIds, titleId];
-  }
-  if (
-    !ownedTitleIds.includes(ARENA_CHAMPION_TITLE_ID) &&
-    hasArenaChampionshipWin(charSave.arenaChampionshipBadges)
-  ) {
-    await grantTitleIfMissing(
-      userId,
-      ARENA_CHAMPION_TITLE_ID,
-      Date.now(),
-    );
-    ownedTitleIds = [...ownedTitleIds, ARENA_CHAMPION_TITLE_ID];
-  }
+  const ownedTitleIds = await reconcileOwnedTitleIds({
+    userId,
+    adventureLogRaw: adventureLogRow?.value,
+    email: userRow?.email,
+    gold: charSave.gold,
+    arenaChampionshipBadges: charSave.arenaChampionshipBadges,
+  });
   const equippedTitleId =
     typeof charSave.equippedTitleId === "string" &&
     ownedTitleIds.includes(charSave.equippedTitleId)
@@ -516,7 +476,9 @@ export async function GET(req: Request) {
           : null,
       adventureSupport: {
         active: staminaConfig.adventureSupportActive,
+        tier: staminaConfig.adventureSupportTier,
         activeUntil: adventureSupportState?.activeUntil ?? null,
+        premiumUntil: adventureSupportState?.premiumUntil ?? null,
         regenBonusPct: staminaConfig.regenBonusPct,
       },
       huntStaminaMode: V2_CORE_LOOP_V2 && !HUNT_COOLDOWN_MODE,
@@ -601,7 +563,9 @@ export async function GET(req: Request) {
         : null,
     adventureSupport: {
       active: staminaConfig.adventureSupportActive,
+      tier: staminaConfig.adventureSupportTier,
       activeUntil: adventureSupportState?.activeUntil ?? null,
+      premiumUntil: adventureSupportState?.premiumUntil ?? null,
       regenBonusPct: staminaConfig.regenBonusPct,
     },
     cosmetics: museunCosmeticAppearance(

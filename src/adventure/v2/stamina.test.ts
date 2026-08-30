@@ -47,6 +47,7 @@ describe("스태미너 — 기본 최대치", () => {
       max: 3_200,
       regenBonusPct: 20,
       adventureSupportActive: true,
+      adventureSupportTier: "standard",
     });
 
     expect(
@@ -67,6 +68,30 @@ describe("스태미너 — 기본 최대치", () => {
       max: MAX_STAMINA,
       regenBonusPct: 0,
       adventureSupportActive: false,
+      adventureSupportTier: "none",
+    });
+  });
+
+  it("프리미엄 지원권은 일반권과 합산하지 않고 최대치를 3000 올린다", () => {
+    const now = 1_000;
+
+    expect(
+      staminaConfigForCharacter(
+        {
+          staminaCapBonus: 200,
+          adventureSupport: {
+            activatedAt: 1,
+            premiumUntil: now + 5_000,
+            activeUntil: now + 10_000,
+          },
+        },
+        now,
+      ),
+    ).toEqual({
+      max: 5_200,
+      regenBonusPct: 20,
+      adventureSupportActive: true,
+      adventureSupportTier: "premium",
     });
   });
 });

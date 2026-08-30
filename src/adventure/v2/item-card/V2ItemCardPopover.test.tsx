@@ -1,10 +1,41 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { itemCardPosition, V2ItemCard } from "./V2ItemCardPopover";
 import { V2ItemCompareCard } from "./V2ItemCompareCard";
 
+vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/adventure/data/v2/coreLoopConfig")>()),
+  V2_EQUIPMENT_LIBERATION: true,
+}));
+
 describe("V2ItemCard set information", () => {
+  it("해방 단계·줄 수와 각 옵션의 레벨·실제 수치를 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <V2ItemCard
+        item={V2_EQUIPMENT.v2_boss_catastrophe_gloves}
+        anchor={{ top: 20, bottom: 60, left: 20 }}
+        onClose={() => undefined}
+        liberation={{
+          rank: 2,
+          lineCount: 2,
+          revision: 7,
+          options: [
+            { id: "base_str_pct", level: 10 },
+            { id: "skill_crit_damage_pp", level: 8 },
+          ],
+        }}
+      />,
+    );
+
+    expect(html).toContain("해방 2");
+    expect(html).toContain("2줄");
+    expect(html).toContain("기초 STR +4.5%");
+    expect(html).toContain("스킬 치명타 피해 +16%p");
+    expect(html).toContain("Lv.10");
+    expect(html).toContain("Lv.8");
+  });
+
   it("긴 장비 카드의 상단을 고정 상단 바 아래에 유지한다", () => {
     const { pos } = itemCardPosition(
       { top: 520, bottom: 570, left: 30 },

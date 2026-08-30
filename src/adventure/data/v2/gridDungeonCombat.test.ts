@@ -149,7 +149,9 @@ const healer = () =>
     magicAtk: 82,
     def: 20,
     spd: 9,
-    healMult: 1.25,
+    // 반복형 회복기의 실효 수치를 직접 표기한 뒤에도 추천 조합에서
+    // 회복 전담 역할을 수행할 수 있는 후반 회복 배율을 사용한다.
+    healMult: 3,
     skills: ["v2c_acolyte_smite"],
     pattern: {
       blocks: [

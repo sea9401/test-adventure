@@ -132,12 +132,16 @@ const SELF_RESOURCE_OPTIONS: PatternChoiceOption<V2PatternSelfResource>[] = [
   { value: "ironWallReflect", label: "철벽 반사" },
   { value: "inscription", label: "각인 총합" },
   { value: "weight", label: "중량" },
-  { value: "bloodlineBurstReady", label: "혈맥 폭발 준비" },
+  { value: "bloodlineBurstReady", label: "혈맥 폭발 상태" },
 ];
 const SELF_RESOURCE_OP_OPTIONS = [
   { value: "none", label: "없을 때" },
   { value: "atLeast", label: "이상" },
   { value: "atMost", label: "이하" },
+] as const;
+const BLOODLINE_BURST_STATE_OPTIONS = [
+  { value: "ready", label: "발동 가능할 때" },
+  { value: "waiting", label: "재사용 대기 중일 때" },
 ] as const;
 const ENEMY_STATUS_OPTIONS = [
   { value: "bleed", label: "출혈" },
@@ -1434,28 +1438,53 @@ export function ConditionParams({
             options={SELF_RESOURCE_OPTIONS}
             label="내 전투 자원 선택"
             className="w-36"
-            onChange={(resource) => onChange({ ...c, resource })}
+            onChange={(resource) =>
+              onChange(
+                resource === "bloodlineBurstReady" ||
+                  c.resource === "bloodlineBurstReady"
+                  ? { ...c, resource, op: "atLeast", value: 1 }
+                  : { ...c, resource },
+              )
+            }
           />
-          <PatternChoiceButtons
-            value={c.op}
-            options={SELF_RESOURCE_OP_OPTIONS}
-            label="전투 자원 비교 방식"
-            onChange={(op) => onChange({ ...c, op })}
-          />
-          {c.op !== "none" && (
-            <PatternNumberInput
-              key="self-resource-value"
-              min={0}
-              max={
-                c.resource === "inscription"
-                  ? 8
-                  : c.resource === "bloodlineBurstReady"
-                    ? 1
-                    : 3
-              }
-              value={c.value}
-              onValueChange={(value) => onChange({ ...c, value })}
-            />
+          {c.resource === "bloodlineBurstReady" ? (
+            <>
+              <PatternChoiceButtons
+                value={
+                  c.op === "atLeast" && c.value >= 1 ? "ready" : "waiting"
+                }
+                options={BLOODLINE_BURST_STATE_OPTIONS}
+                label="혈맥 폭발 상태"
+                onChange={(state) =>
+                  onChange({
+                    ...c,
+                    op: state === "ready" ? "atLeast" : "none",
+                    value: state === "ready" ? 1 : 0,
+                  })
+                }
+              />
+              <span className="basis-full text-[11px] text-zinc-500 dark:text-zinc-400">
+                첫 발동 전에는 가능하며, 발동 후 다음 3행동 동안 재사용을 기다립니다.
+              </span>
+            </>
+          ) : (
+            <>
+              <PatternChoiceButtons
+                value={c.op}
+                options={SELF_RESOURCE_OP_OPTIONS}
+                label="전투 자원 비교 방식"
+                onChange={(op) => onChange({ ...c, op })}
+              />
+              {c.op !== "none" && (
+                <PatternNumberInput
+                  key="self-resource-value"
+                  min={0}
+                  max={c.resource === "inscription" ? 8 : 3}
+                  value={c.value}
+                  onValueChange={(value) => onChange({ ...c, value })}
+                />
+              )}
+            </>
           )}
         </>
       );

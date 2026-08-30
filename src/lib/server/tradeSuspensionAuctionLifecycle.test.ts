@@ -69,7 +69,7 @@ vi.mock("@/lib/server/marketplaceV2Fulfillment", () => ({
   deliverMarketplaceListing: vi.fn(async () => null),
 }));
 vi.mock("@/adventure/data/v2/adventureSupport", () => ({
-  adventureSupportActive: vi.fn(() => false),
+  adventureSupportTier: vi.fn(() => "none"),
 }));
 vi.mock("@/adventure/data/v2/museunCashItems", () => ({
   addMuseunCashItem: vi.fn((value: unknown) => value),

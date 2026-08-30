@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   Cube,
   Flask,
@@ -31,7 +32,6 @@ import {
   parseCraftedBy,
   parseInstanceCraftQuality,
   parseInstanceEnhance,
-  sellPriceOf,
   type V2Equipment,
   type V2EquipmentId,
   type V2EquipInstance,
@@ -66,10 +66,7 @@ import { useGameState } from "./GameStateProvider";
 import { TabBar } from "@/components/ui/TabBar";
 import { usePagination } from "@/lib/usePagination";
 import { useSingleFlightGuard } from "@/lib/useSingleFlight";
-import {
-  isTradeSuspensionMessagePayload,
-  tradeSuspensionMessage,
-} from "@/lib/tradeSuspension";
+import { marketplaceActionErrorLabel } from "./marketplace/marketplaceActionErrors";
 import {
   V2_ITEM_TABS,
   itemTabForMaterial,
@@ -118,7 +115,7 @@ import {
   type CookingFoodId,
   type CookingFoodInventory,
 } from "./cooking/foodShared";
-import { SURFACE_ACCENT, SURFACE_INSET } from "@/components/ui/surfaces";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   equippedInstanceForMarketplaceItem,
   equippedItemIdsForMarketplace,
@@ -127,7 +124,6 @@ import { EquipmentCodexBadge } from "./EquipmentCodexBadge";
 import { MarketplaceTradeReportButton } from "./marketplace/MarketplaceTradeReportButton";
 import { marketplaceLifeItemDefinition } from "./marketplace/lifeItemCatalog";
 import { marketplaceLifeItemPurchaseGroups } from "./marketplace/lifeItemPurchaseGroups";
-import { EquipmentBuyOrderCatalogOption, equipmentBuyOrderSetNames } from "./marketplace/EquipmentBuyOrderCatalogOption";
 import {
   MARKETPLACE_EQUIPMENT_TIER_OPTIONS,
   matchesMarketplaceEquipmentTier,
@@ -138,6 +134,12 @@ import {
   fishSpecimenItemId,
   type FishSpecimenInventory,
 } from "@/adventure/v2/fishSpecimens";
+
+const EquipmentBuyOrderDialog = dynamic(() =>
+  import("./marketplace/EquipmentBuyOrderDialog").then(
+    (module) => module.EquipmentBuyOrderDialog,
+  ),
+);
 
 // v2 거래소 — 장비 개체 + 재료 + 레어맵/캐시·음식 소모품 거래(고정가).
 // 백엔드 /api/v2/marketplace (list/buy/cancel/browse).
@@ -303,71 +305,11 @@ const STACK_BROWSE_SORT_BUTTONS: readonly BrowseSortButton[] = [
   EQUIPMENT_BROWSE_SORT_BUTTONS[4],
 ];
 
-// 서버 에러 코드 → 사용자 안내.
-const ERR_LABEL: Record<string, string> = {
-  slot_full: "활성 매물이 가득 찼어요.",
-  not_owned: "보유하지 않은 장비예요.",
-  not_tradable: "거래할 수 없는 품목이에요.",
-  secret_shop_used: "품목을 구매한 비밀상점 지도는 등록할 수 없어요.",
-  bound: "귀속된 장비는 거래할 수 없어요.",
-  locked: "잠긴 장비는 등록할 수 없어요.",
-  equipped: "장착 중인 장비는 등록할 수 없어요.",
-  insufficient_material: "재료 수량이 부족해요.",
-  insufficient_gold: "골드가 부족해요.",
-  own_listing: "내 매물은 구매할 수 없어요.",
-  not_available: "이미 팔리거나 취소된 매물이에요.",
-  not_found: "매물을 찾을 수 없어요.",
-  not_active: "이미 종료된 매물이에요.",
-  not_owner: "내 매물이 아니에요.",
-  bad_grace_hours: "판매 방식 또는 입찰 유예 시간을 확인해 주세요.",
-  bad_price: "가격은 1~999,999,999골드 사이여야 해요.",
-  insufficient_stock: "구매 가능한 수량이 부족해요.",
-  price_changed: "가격이나 재고가 바뀌었어요. 새 견적을 확인해 주세요.",
-  bad_bid: "입찰 금액을 확인해 주세요.",
-  bid_too_low: "현재 최고가보다 최소 5% 높은 금액을 입력하세요.",
-  bidding_closed: "입찰 유예가 종료됐어요.",
-  buy_pending: "입찰 유예 중에는 즉시구매할 수 없어요.",
-  auction_locked: "즉시구매가를 초과해 입찰 판매가 확정된 매물이에요.",
-  has_bids: "입찰이 시작된 매물은 취소할 수 없어요.",
-  cannot_reprice: "입찰이 시작됐거나 경매 중인 매물은 가격을 바꿀 수 없어요.",
-  order_limit: "활성 구매 주문은 최대 10개까지 등록할 수 있어요.",
-  alert_limit: "활성 가격 알림은 최대 20개까지 등록할 수 있어요.",
-  bad_days: "주문 기간은 1~7일로 설정해 주세요.",
-  bad_quantity: "주문 수량을 확인해 주세요.",
-  bad_min_power: "최소 위력은 1 이상의 정수로 입력해 주세요.",
-  bad_min_quality: "최소 품질은 0~100 사이의 정수로 입력해 주세요.",
-  no_matching_order: "이 장비 조건에 맞는 구매 주문이 없거나 이미 체결됐어요.",
-  bad_iids: "일괄 판매할 장비는 한 번에 1~10개까지 선택해 주세요.",
-};
-
-type ActionErrorPayload = {
-  error?: string;
-  reason?: string;
-  expiresAt?: string;
-  permanent?: boolean;
-  retryAfterSec?: number;
-  slotLimit?: number;
-  minimumPrice?: number;
-};
-
 export function actionErrorLabel(
-  payload: ActionErrorPayload | null,
+  payload: Parameters<typeof marketplaceActionErrorLabel>[0],
   status: number,
 ) {
-  if (isTradeSuspensionMessagePayload(payload)) {
-    return tradeSuspensionMessage(payload);
-  }
-  const error = payload?.error;
-  if (error === "rate_limited") {
-    return `요청이 많아요. ${Math.max(1, Math.floor(payload?.retryAfterSec ?? 1))}초 후 다시 시도하세요.`;
-  }
-  if (error === "slot_full" && typeof payload?.slotLimit === "number") {
-    return `활성 매물이 가득 찼어요 (최대 ${payload.slotLimit}개).`;
-  }
-  if (error === "price_below_floor" && typeof payload?.minimumPrice === "number") {
-    return `장비 구매 주문은 NPC 매입가 ${payload.minimumPrice.toLocaleString()}골드 이상이어야 해요.`;
-  }
-  return ERR_LABEL[error ?? ""] ?? error ?? `실패 (${status})`;
+  return marketplaceActionErrorLabel(payload, status);
 }
 
 export function V2MarketplaceView({
@@ -624,7 +566,6 @@ export function V2MarketplaceView({
       void loadBrowse(false).catch((e) => setError(String(e.message ?? e)));
       void loadEquipment();
       void loadPrices();
-      void loadMarketAutomation();
     } else if (tab === "recent") {
       void loadHistory(false).catch((e) => setError(String(e.message ?? e)));
     } else if (tab === "mine") {
@@ -632,7 +573,6 @@ export function V2MarketplaceView({
       void loadHistory(true).catch((e) => setError(String(e.message ?? e)));
       void loadEquipment();
       void loadPrices();
-      void loadMarketAutomation();
     } else {
       void loadInventory().catch(() => setError("인벤토리 로드 실패"));
       void loadPrices();
@@ -649,6 +589,18 @@ export function V2MarketplaceView({
     preview,
   ]);
 
+  const automationSurfaceOpen =
+    marketToolGroup != null ||
+    orderCatalogOpen ||
+    equipmentOrderOpen ||
+    (tab === "mine" && mineTab === "orders");
+
+  useEffect(() => {
+    if (preview || !automationSurfaceOpen) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 화면이 열린 뒤 비동기 응답에서 상태를 갱신한다.
+    void loadMarketAutomation();
+  }, [automationSurfaceOpen, loadMarketAutomation, preview]);
+
   useEffect(() => {
     const timer = window.setInterval(() => setClockMs(Date.now()), 30_000);
     return () => window.clearInterval(timer);
@@ -658,10 +610,9 @@ export function V2MarketplaceView({
     if (preview || (tab !== "browse" && tab !== "mine")) return;
     const refresh = () => {
       if (document.visibilityState !== "visible") return;
-      void Promise.all([
-        loadBrowse(tab === "mine"),
-        loadMarketAutomation(),
-      ]).catch(() => {
+      const requests = [loadBrowse(tab === "mine")];
+      if (automationSurfaceOpen) requests.push(loadMarketAutomation());
+      void Promise.all(requests).catch(() => {
         // 주기 갱신 실패는 현재 목록을 유지하고 다음 주기에 재시도한다.
       });
     };
@@ -671,7 +622,13 @@ export function V2MarketplaceView({
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [loadBrowse, loadMarketAutomation, preview, tab]);
+  }, [
+    automationSurfaceOpen,
+    loadBrowse,
+    loadMarketAutomation,
+    preview,
+    tab,
+  ]);
 
   useEffect(() => {
     try {
@@ -2861,186 +2818,6 @@ function BuyOrderCatalogDialog({
             ))
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function EquipmentBuyOrderDialog({
-  slot,
-  priceRef,
-  busy,
-  onCreate,
-  onClose,
-}: {
-  slot: V2EquipSlot;
-  priceRef: Record<string, PriceStat>;
-  busy: boolean;
-  onCreate: (
-    itemId: V2EquipmentId,
-    minPower: number,
-    minQualityPct: number,
-    unitPrice: number,
-    days: number,
-  ) => Promise<unknown>;
-  onClose: () => void;
-}) {
-  const items = Object.values(V2_EQUIPMENT).filter(
-    (item) => item.slot === slot && sellPriceOf(item) != null,
-  );
-  const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<V2EquipmentId | null>(
-    items[0]?.id ?? null,
-  );
-  const selected = selectedId ? V2_EQUIPMENT[selectedId] : undefined;
-  const floor = selected ? (sellPriceOf(selected) ?? 1) : 1;
-  const suggestedPrice = selected
-    ? Math.max(floor, Math.round(priceRef[selected.id]?.avg ?? floor))
-    : floor;
-  const [minPower, setMinPower] = useState(
-    selected ? String(selected.power) : "1",
-  );
-  const [minQualityPct, setMinQualityPct] = useState("0");
-  const [unitPrice, setUnitPrice] = useState(String(suggestedPrice));
-  const [days, setDays] = useState("3");
-  const normalized = query.trim().toLowerCase();
-  const filtered = items.filter(
-    (item) =>
-      !normalized ||
-      item.name.toLowerCase().includes(normalized) ||
-      equipmentBuyOrderSetNames(item).some((name) =>
-        name.toLowerCase().includes(normalized),
-      ),
-  );
-  const parsedPower = parseAmount(minPower);
-  const parsedQuality = parseAmount(minQualityPct);
-  const parsedPrice = parseAmount(unitPrice);
-  const parsedDays = parseAmount(days);
-  const valid =
-    selected != null &&
-    Number.isInteger(parsedPower) &&
-    parsedPower >= 1 &&
-    Number.isInteger(parsedQuality) &&
-    parsedQuality >= 0 &&
-    parsedQuality <= 100 &&
-    Number.isInteger(parsedPrice) &&
-    parsedPrice >= floor &&
-    Number.isInteger(parsedDays) &&
-    parsedDays >= 1 &&
-    parsedDays <= 7;
-
-  const selectItem = (item: V2Equipment) => {
-    const nextFloor = sellPriceOf(item) ?? 1;
-    const nextSuggested = Math.max(
-      nextFloor,
-      Math.round(priceRef[item.id]?.avg ?? nextFloor),
-    );
-    setSelectedId(item.id);
-    setMinPower(String(item.power));
-    setMinQualityPct("0");
-    setUnitPrice(String(nextSuggested));
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-6"
-      onClick={onClose}
-    >
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl sm:rounded-2xl dark:border-zinc-700 dark:bg-zinc-900"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold">장비 구매 주문</h2>
-            <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-              정확한 장비와 최소 위력·품질, 지불할 최대 가격을 정합니다.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="장비 이름 검색"
-          className="mt-3 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-        />
-        <div className="mt-2 max-h-40 overflow-y-auto rounded-md border border-zinc-200 p-1 dark:border-zinc-700">
-          {filtered.length === 0 ? (
-            <div className="p-4 text-center text-xs text-zinc-400">
-              조건에 맞는 장비가 없어요.
-            </div>
-          ) : (
-            filtered.map((item) => (
-              <EquipmentBuyOrderCatalogOption
-                key={item.id}
-                item={item}
-                selected={selectedId === item.id}
-                onSelect={selectItem}
-              />
-            ))
-          )}
-        </div>
-
-        {selected ? (
-          <div className={`${SURFACE_INSET} mt-3 p-3`}>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <label className="space-y-1">
-                <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">최소 위력</span>
-                <NumberInput value={minPower} onValueChange={setMinPower} min={1} className="w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-950" />
-              </label>
-              <label className="space-y-1">
-                <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">최소 품질 %</span>
-                <NumberInput value={minQualityPct} onValueChange={setMinQualityPct} min={0} max={100} className="w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-950" />
-              </label>
-              <label className="space-y-1">
-                <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">최대 가격</span>
-                <NumberInput value={unitPrice} onValueChange={setUnitPrice} min={floor} className="w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-950" />
-              </label>
-              <label className="space-y-1">
-                <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">기간</span>
-                <select value={days} onChange={(event) => setDays(event.target.value)} className="w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-950">
-                  {[1, 3, 7].map((value) => <option key={value} value={value}>{value}일</option>)}
-                </select>
-              </label>
-            </div>
-            <p className="mt-2 text-[10px] text-zinc-500 dark:text-zinc-400">
-              최저 등록가는 NPC 매입가인 {floor.toLocaleString()}G입니다. 주문 골드는 등록 즉시 보관됩니다.
-            </p>
-          </div>
-        ) : null}
-
-        <div className={`${SURFACE_ACCENT} mt-3 p-3 text-[11px] text-amber-900 dark:text-amber-100`}>
-          판매자는 구매자나 주문을 직접 고를 수 없습니다. 서버가 조건을 만족하는 주문 중 최고가, 동가에서는 먼저 등록된 주문을 자동 체결하며 모든 체결은 감사 기록에 남습니다.
-        </div>
-        <button
-          type="button"
-          disabled={busy || !valid || !selected}
-          onClick={() => {
-            if (!selected || !valid) return;
-            void onCreate(
-              selected.id,
-              parsedPower,
-              parsedQuality,
-              parsedPrice,
-              parsedDays,
-            ).then((ok) => {
-              if (ok) onClose();
-            });
-          }}
-          className="mt-3 w-full rounded-md border border-sky-700 bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-        >
-          {busy ? "등록 중…" : "장비 구매 주문 등록"}
-        </button>
       </div>
     </div>
   );

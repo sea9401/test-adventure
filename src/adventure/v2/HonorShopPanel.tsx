@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
-import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { useGameResourceState } from "@/adventure/v2/GameStateProvider";
 import { useSystemToast } from "./RewardToastProvider";
 
 // 명예상점 — 정착지 전쟁 개인 화폐(명예) 소비처. 설계: docs/v2-settlement-warfare-plan.md §2.5.
@@ -11,7 +11,7 @@ import { useSystemToast } from "./RewardToastProvider";
 type Item = { id: string; name: string; cost: number };
 
 export default function HonorShopPanel() {
-  const { applyResourcePatch } = useGameState();
+  const { applyResourcePatch } = useGameResourceState();
   const [honor, setHonor] = useState<number | null>(null);
   const [honorEarned, setHonorEarned] = useState<number | null>(null);
   const [items, setItems] = useState<Item[]>([]);

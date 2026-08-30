@@ -1249,6 +1249,49 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
     expect(r.owned.find((i) => i.iid === "d4")).not.toHaveProperty("bound");
   });
 
+  it("유효한 해방 상태만 장비 인스턴스에 보존한다", () => {
+    const parsed = parseEquipmentSave({
+      owned: [
+        {
+          iid: "valid",
+          id: "v2_storm_breaker_greatsword",
+          liberation: {
+            rank: 2,
+            lineCount: 2,
+            revision: 4,
+            options: [
+              { id: "physical_attack_flat", level: 8 },
+              { id: "all_damage_pct", level: 10 },
+            ],
+          },
+        },
+        {
+          iid: "wrong-slot",
+          id: "v2_storm_breaker_greatsword",
+          liberation: {
+            rank: 2,
+            lineCount: 1,
+            revision: 1,
+            options: [{ id: "max_hp_flat", level: 8 }],
+          },
+        },
+      ],
+    });
+
+    expect(parsed.owned.find(({ iid }) => iid === "valid")?.liberation).toEqual({
+      rank: 2,
+      lineCount: 2,
+      revision: 4,
+      options: [
+        { id: "physical_attack_flat", level: 8 },
+        { id: "all_damage_pct", level: 10 },
+      ],
+    });
+    expect(parsed.owned.find(({ iid }) => iid === "wrong-slot")).not.toHaveProperty(
+      "liberation",
+    );
+  });
+
   it("craftedBy 제작자 표식을 보존하고 정규화", () => {
     const r = parseEquipmentSave({
       owned: [
@@ -1431,7 +1474,7 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
         label: "상흔 계수",
       }),
     ).toBe(
-      "출혈 폭발 시 출혈 지속을 최소 5회로 갱신하고 현재 출혈 중첩당 방어 3% 감소",
+      "출혈 폭발 시 출혈 중첩은 유지하고 지속 횟수만 최소 5회로 갱신 · 현재 출혈 중첩당 방어 3% 감소",
     );
   });
 

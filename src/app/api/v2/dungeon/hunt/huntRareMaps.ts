@@ -16,6 +16,7 @@ export function updateRareMaps(params: {
   won: boolean;
   depth: number;
   now: number;
+  rareMapDropChanceMult?: number;
 }): {
   rareMaps: RareMapInstance[];
   rareMapDrop: RareMapKindId | null;
@@ -33,7 +34,10 @@ export function updateRareMaps(params: {
       rareMaps = rareMaps.filter((m) => m.iid !== activeRareMap.iid);
     }
   } else if (won && rareMaps.length < RARE_MAP_CAP) {
-    rareMapDrop = rollRareMapDrop(Math.random);
+    rareMapDrop = rollRareMapDrop(
+      Math.random,
+      params.rareMapDropChanceMult ?? 1,
+    );
     if (rareMapDrop) {
       rareMapDropInstance = newRareMapInstance(rareMapDrop, depth, now);
       rareMaps = [...rareMaps, rareMapDropInstance];

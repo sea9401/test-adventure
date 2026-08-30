@@ -61,6 +61,7 @@ import {
   FAILED_DISH_FEED_RECIPE,
   RANCH_FEED_RECIPE,
 } from "@/adventure/v2/ranch";
+import { equippedPersonalCraftGoldDiscountPct } from "@/lib/server/equipmentLiberationCraftDiscount";
 
 const CRAFTING_BATCH_LIMITS = [1, 5, 15, 40, 100, 100] as const;
 
@@ -114,6 +115,7 @@ function workshopPayload(args: {
   farmRaw?: unknown;
   skillsRaw?: unknown;
   inventoryRaw?: unknown;
+  equipmentRaw?: unknown;
 }) {
   const levels = lifeLevels(args.woodcuttingRaw, args.miningRaw);
   const materials = materialBalances(args.charSave.materials);
@@ -137,6 +139,9 @@ function workshopPayload(args: {
   );
   const failedDishFeedBatchLimit =
     CRAFTING_BATCH_LIMITS[failedDishFeedMasteryStage];
+  const liberationDiscountPct = equippedPersonalCraftGoldDiscountPct(
+    args.equipmentRaw,
+  );
   return {
     state: args.state,
     levels,
@@ -144,6 +149,12 @@ function workshopPayload(args: {
     failedCookingDishes,
     gold: Math.max(0, Math.floor(Number(args.charSave.gold) || 0)),
     bankedGold: Math.max(0, Math.floor(Number(args.charSave.bankedGold) || 0)),
+    liberationDiscountPct,
+    personalCraftGoldCost: {
+      baseGoldCost: 0,
+      goldCost: 0,
+      liberationDiscountPct,
+    },
     recipes: [...LIFE_PROCESSING_RECIPE_BY_ID.values()].map((recipe) => ({
       ...recipe,
       maxBatches:
@@ -218,7 +229,7 @@ function workshopPayload(args: {
 }
 
 async function readWorkshopSnapshot(userId: string) {
-  const [charSave, workshopRaw, woodcuttingRaw, miningRaw, farmRaw, skillsRaw, inventoryRaw] = await Promise.all([
+  const [charSave, workshopRaw, woodcuttingRaw, miningRaw, farmRaw, skillsRaw, inventoryRaw, equipmentRaw] = await Promise.all([
     readSave<CharacterSave>(db, userId, "character.v2", {}),
     readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
     readSave(db, userId, WOODCUTTING_LOG_KEY, {}),
@@ -226,6 +237,7 @@ async function readWorkshopSnapshot(userId: string) {
     readSave(db, userId, FARM_SAVE_KEY, emptyFarmState()),
     readSave(db, userId, "skills.v2", emptyV2SkillsState()),
     readSave(db, userId, "inventory.v2", {}),
+    readSave(db, userId, "equipment.v2", {}),
   ]);
   return {
     charSave,
@@ -235,6 +247,7 @@ async function readWorkshopSnapshot(userId: string) {
     farmRaw,
     skillsRaw,
     inventoryRaw,
+    equipmentRaw,
   };
 }
 
@@ -326,6 +339,14 @@ export async function POST(req: Request) {
       const costs = Object.fromEntries(Object.entries(recipe.costs).map(([id, amount]) => [id, amount * quantity]));
       const nextMaterials = consumeMaterials(materials, costs);
       if (!nextMaterials) return { error: "not_enough_materials" as const };
+      const equipmentRaw = await lockSaveForUpdate(
+        tx,
+        userId,
+        "equipment.v2",
+        {},
+      );
+      const liberationDiscountPct =
+        equippedPersonalCraftGoldDiscountPct(equipmentRaw);
       let nextInventory: InventorySave | null = null;
       if (recipe.failedDishCost) {
         const inventory = await lockSaveForUpdate<InventorySave>(
@@ -372,7 +393,7 @@ export async function POST(req: Request) {
       ]) {
         if (milestone.ready && await grantTitleIfMissingInTx(tx, userId, milestone.id, Date.now())) grantedTitles.push(milestone.id);
       }
-      return { ok: true as const, result: { action, recipeId: recipe.id, itemId: recipe.outputId, produced, grantedTitles }, snapshot: { state: nextState, charSave: nextCharSave, woodcuttingRaw, miningRaw } };
+      return { ok: true as const, result: { action, recipeId: recipe.id, itemId: recipe.outputId, produced, grantedTitles, baseGoldCost: 0, goldCost: 0, liberationDiscountPct }, snapshot: { state: nextState, charSave: nextCharSave, woodcuttingRaw, miningRaw, equipmentRaw } };
     }
 
     if (action === "activate_aid") {
@@ -529,14 +550,21 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, ...result }, { status });
   }
   if ("blueprintRecipeId" in result.result && result.result.blueprintRecipeId) await insertFeedEntry(userId, "life_blueprint", { recipeId: result.result.blueprintRecipeId });
-  const [farmRaw, skillsRaw, inventoryRaw] = await Promise.all([
+  const [farmRaw, skillsRaw, inventoryRaw, equipmentRaw] = await Promise.all([
     readSave(db, userId, FARM_SAVE_KEY, emptyFarmState()),
     readSave(db, userId, "skills.v2", emptyV2SkillsState()),
     readSave(db, userId, "inventory.v2", {}),
+    readSave(db, userId, "equipment.v2", {}),
   ]);
   return Response.json({
     ok: true,
     result: result.result,
-    ...workshopPayload({ ...result.snapshot, farmRaw, skillsRaw, inventoryRaw }),
+    ...workshopPayload({
+      ...result.snapshot,
+      farmRaw,
+      skillsRaw,
+      inventoryRaw,
+      equipmentRaw,
+    }),
   });
 }

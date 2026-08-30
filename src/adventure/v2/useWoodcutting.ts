@@ -19,7 +19,7 @@ import {
   type AutoGatheringActivity,
   type AutoGatheringPlanId,
 } from "./autoGathering";
-import { useGameState } from "./GameStateProvider";
+import { useGameActivityState } from "./GameStateProvider";
 import { useSystemToast } from "./RewardToastProvider";
 import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
 
@@ -82,7 +82,7 @@ function wait(ms: number): Promise<void> {
 }
 
 export function useWoodcutting(): WoodcuttingHandlers {
-  const { setAutoGathering } = useGameState();
+  const { setAutoGathering } = useGameActivityState();
   const { notifySystem } = useSystemToast();
   const { verification, verifyHuman, readJson } = useActivityVerification("woodcutting");
   const [materials, setMaterials] = useState<Record<string, number>>({});

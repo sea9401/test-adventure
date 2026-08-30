@@ -52,6 +52,14 @@ function selectedRequest(iids: string[]) {
   });
 }
 
+function confirmedSelectedRequest(iids: string[]) {
+  return new Request("http://localhost/api/v2/shop/equipment/sell-bulk", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ iids, confirmBound: true }),
+  });
+}
+
 function rawRequest(body: unknown) {
   return new Request("http://localhost/api/v2/shop/equipment/sell-bulk", {
     method: "POST",
@@ -181,5 +189,75 @@ describe("POST /api/v2/shop/equipment/sell-bulk", () => {
     const response = await POST(rawRequest(null));
 
     expect(response.status).toBe(400);
+  });
+
+  it("자동 일괄 판매는 조건에 맞는 해방 귀속 장비를 건너뛴다", async () => {
+    const current = mocks.saves.get("equipment.v2") as {
+      owned: Array<Record<string, unknown>>;
+      equipped: Record<string, string>;
+    };
+    current.owned.push({
+      iid: "bound-low",
+      id: BOW,
+      bound: true,
+      roll: { power: 27, weight: 0, options: { crit: 1 } },
+      liberation: {
+        rank: 3,
+        lineCount: 1,
+        revision: 1,
+        options: [{ id: "physical_attack_flat", level: 1 }],
+      },
+    });
+
+    const response = await POST(request(40));
+    const json = (await response.json()) as {
+      soldCount: number;
+      skippedBoundCount: number;
+      owned: Array<{ iid: string }>;
+    };
+    expect(response.status).toBe(200);
+    expect(json.soldCount).toBe(1);
+    expect(json.skippedBoundCount).toBe(1);
+    expect(json.owned.map(({ iid }) => iid)).toContain("bound-low");
+  });
+
+  it("명시적 귀속 장비 선택은 확인 전 원자적으로 거절하고 확인 후 판매한다", async () => {
+    const current = mocks.saves.get("equipment.v2") as {
+      owned: Array<Record<string, unknown>>;
+      equipped: Record<string, string>;
+    };
+    current.owned.push({
+      iid: "bound-explicit",
+      id: BOW,
+      bound: true,
+      liberation: {
+        rank: 3,
+        lineCount: 1,
+        revision: 1,
+        options: [{ id: "physical_attack_flat", level: 1 }],
+      },
+    });
+
+    const blocked = await POST(selectedRequest(["high", "bound-explicit"]));
+    expect(blocked.status).toBe(409);
+    await expect(blocked.json()).resolves.toMatchObject({
+      error: "bound_confirmation_required",
+      items: [{ iid: "bound-explicit", liberation: { rank: 3 } }],
+    });
+    expect(
+      (mocks.saves.get("equipment.v2") as { owned: unknown[] }).owned,
+    ).toHaveLength(5);
+
+    const confirmed = await POST(
+      confirmedSelectedRequest(["high", "bound-explicit"]),
+    );
+    expect(confirmed.status).toBe(200);
+    expect(
+      (
+        mocks.saves.get("equipment.v2") as {
+          owned: Array<{ iid: string }>;
+        }
+      ).owned.map(({ iid }) => iid),
+    ).not.toContain("bound-explicit");
   });
 });

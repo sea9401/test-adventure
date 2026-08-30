@@ -155,6 +155,36 @@ describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
     expect(state.log.some((entry) => entry.text.includes("[검영]"))).toBe(true);
   });
 
+  it("계승 무심검의 PvP 검영 기록률은 25%의 80%인 20%다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const skills: V2SkillsState = {
+      learned: [
+        "v2c_swordsaint_flash",
+        "v2c_shadowblade_swordshadow",
+      ],
+      equipped: [
+        "v2c_swordsaint_flash",
+        "v2c_shadowblade_swordshadow",
+      ],
+    };
+    const state = initialBattleStatePvP(
+      { ...caster, atk: 200, strStat: 200, lukStat: 200 },
+      { ...target, hp: 20_000, maxHp: 20_000 },
+      "P1",
+      "P2",
+      skills,
+      { learned: [], equipped: [] },
+      undefined,
+      undefined,
+      "p1",
+    );
+
+    expect(
+      castV2SkillOnAttackerTurnPvP(state, "p1").state.p1.stacks.tier7
+        ?.swordShadow?.recordPct,
+    ).toBe(20);
+  });
+
   it("검영 시전자가 상대 행동에 쓰러져도 검영을 실현해 동시 사망을 무승부로 만든다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const skills: V2SkillsState = {

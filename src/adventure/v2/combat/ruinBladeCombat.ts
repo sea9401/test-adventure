@@ -5,6 +5,16 @@ export type RuinChargeState = {
   intentAtStart: number;
 };
 
+export function canStartRuinCharge(
+  intent: number,
+  requiredStacks = 3,
+): boolean {
+  return (
+    Math.max(0, Math.floor(intent)) ===
+    Math.max(1, Math.floor(requiredStacks))
+  );
+}
+
 export function gainSwordIntent(
   current: number,
   amount: number,

@@ -19,6 +19,10 @@
 
 import type { V2Element } from "@/adventure/data/v2/elements";
 import type { V2BuildTagId } from "./buildTags";
+import {
+  parseLiberationState,
+  type V2LiberationState,
+} from "./equipmentLiberation";
 
 import {
   DISPLAY_TIER_6_POWER_SCALE,
@@ -553,7 +557,7 @@ export function signatureLabel(sig: SignatureEffect): string {
         gravity_reprisal: "보호막 파괴 시 충격의 35%를 저장해 다음 직접 공격으로 반격",
         gravity_feedback: "보호막 획득량의 20%를 반발로 저장하고 반발 시 최대 HP 5% 보호막",
         bleed_burst: "기본 공격 시 출혈을 소비하지 않고 남은 피해의 50%를 즉시 적용 (4행동당 1회)",
-        bleed_aftermath: "출혈 폭발 시 출혈 지속을 최소 5회로 갱신하고 현재 출혈 중첩당 방어 3% 감소",
+        bleed_aftermath: "출혈 폭발 시 출혈 중첩은 유지하고 지속 횟수만 최소 5회로 갱신 · 현재 출혈 중첩당 방어 3% 감소",
         pursuit_mark: "연속 적중 5회마다 직전 공격 피해 60%의 추적 사격",
         shadow_echo: "회피로 잔상을 쌓아 다음 치명타 피해의 45%를 복제",
         venom_burst: "스킬로 중독을 쌓고 기본 공격으로 5스택 이상 중독을 폭발",
@@ -1876,6 +1880,8 @@ export type V2EquipInstance = {
   craftedBy?: V2CraftedBy;
   /** 기존 특화 장비의 개성과 강화 상태를 유지한 채 6T 위력대로 개량했는지 여부. */
   stormRefined?: true;
+  /** 장비 해방 단계·영구 줄 수·현재 옵션. 기능 플래그와 무관하게 저장은 보존한다. */
+  liberation?: V2LiberationState;
 };
 
 // 개체 iid 생성 — 서버/클라 공용. crypto.randomUUID 우선, 없으면 폴백.
@@ -2091,6 +2097,7 @@ export function parseEquipmentSave(raw: unknown): {
       craftQuality?: unknown;
       craftedBy?: unknown;
       stormRefined?: unknown;
+      liberation?: unknown;
     };
     if (typeof e.id !== "string" || !VALID_IDS.has(e.id)) continue;
     const id = e.id as V2EquipmentId;
@@ -2118,6 +2125,8 @@ export function parseEquipmentSave(raw: unknown): {
     if (craftQuality) inst.craftQuality = craftQuality;
     if (craftedBy) inst.craftedBy = craftedBy;
     if (e.stormRefined === true) inst.stormRefined = true;
+    const liberation = parseLiberationState(e.liberation, V2_EQUIPMENT[id].slot);
+    if (liberation) inst.liberation = liberation;
     owned.push(inst);
     byIid.set(iid, inst);
   }

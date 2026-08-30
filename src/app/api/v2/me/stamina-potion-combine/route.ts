@@ -16,6 +16,10 @@ import {
   forgeCombinationTotal,
   parseForgeCombinationQuantity,
 } from "@/adventure/data/v2/forgeCombination";
+import {
+  discountedPersonalCraftGoldCost,
+  equippedPersonalCraftGoldDiscountPct,
+} from "@/lib/server/equipmentLiberationCraftDiscount";
 
 type CharSave = {
   materials?: Record<string, number>;
@@ -48,11 +52,11 @@ export async function POST(req: Request) {
     quantity == null
       ? null
       : forgeCombinationTotal(STAMINA_SHARD_COMBINE_COST, quantity);
-  const goldCost =
+  const baseGoldCost =
     quantity == null
       ? null
       : forgeCombinationTotal(COMBINE_GOLD_COST, quantity);
-  if (quantity == null || shardCost == null || goldCost == null) {
+  if (quantity == null || shardCost == null || baseGoldCost == null) {
     return Response.json(
       { ok: false, error: "invalid_quantity" },
       { status: 400 },
@@ -87,6 +91,18 @@ export async function POST(req: Request) {
       0,
       Math.floor(Number(charSave.bankedGold) || 0),
     );
+    const equipment = await lockSaveForUpdate(
+      tx,
+      userId,
+      "equipment.v2",
+      {},
+    );
+    const liberationDiscountPct =
+      equippedPersonalCraftGoldDiscountPct(equipment);
+    const goldCost = discountedPersonalCraftGoldCost(
+      baseGoldCost,
+      liberationDiscountPct,
+    );
     const spend = spendGold(gold, bankedGold, goldCost);
     if (!spend.ok) {
       return {
@@ -95,6 +111,8 @@ export async function POST(req: Request) {
           ok: false as const,
           error: "insufficient_gold" as const,
           goldCost,
+          baseGoldCost,
+          liberationDiscountPct,
         },
       };
     }
@@ -126,6 +144,8 @@ export async function POST(req: Request) {
         shardsLeft,
         staminaPotions: nextPotions.count,
         goldCost,
+        baseGoldCost,
+        liberationDiscountPct,
         gold: spend.gold,
         ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
       },

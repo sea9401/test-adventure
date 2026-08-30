@@ -8,6 +8,12 @@ vi.mock("@/lib/server/ensureUser", () => ({
 vi.mock("@/lib/server/userRateLimit", () => ({
   enforceUserAndIpRateLimit: vi.fn(() => null),
 }));
+vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/adventure/data/v2/coreLoopConfig")
+  >()),
+  V2_EQUIPMENT_LIBERATION: true,
+}));
 vi.mock("@/db", () => ({
   db: {
     transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb({})),
@@ -67,6 +73,39 @@ beforeEach(() => {
 });
 
 describe("POST /api/v2/me/scavenged-crafting", () => {
+  it("착용 반지 해방으로 개인 조합 골드만 할인한다", async () => {
+    store.set("character.v2", {
+      gold: COMBINE_GOLD_COST,
+      materials: { [ENHANCE_EMBER_MATERIAL_ID]: ENHANCE_EMBER_BLUE_COST },
+    });
+    store.set("equipment.v2", {
+      owned: [
+        {
+          iid: "discount-ring",
+          id: "v2_storm_sanctuary_ring",
+          liberation: {
+            rank: 1,
+            lineCount: 1,
+            revision: 1,
+            options: [
+              { id: "personal_craft_gold_discount_pct", level: 20 },
+            ],
+          },
+        },
+      ],
+      equipped: { ring: "discount-ring" },
+    });
+
+    const response = await POST(request("blue_enhance_stone"));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      baseGoldCost: COMBINE_GOLD_COST,
+      goldCost: COMBINE_GOLD_COST * 0.9,
+      liberationDiscountPct: 10,
+      gold: COMBINE_GOLD_COST * 0.1,
+    });
+  });
+
   it("turns eight embers into one blue enhancement stone", async () => {
     store.set("character.v2", {
       gold: COMBINE_GOLD_COST * 2,

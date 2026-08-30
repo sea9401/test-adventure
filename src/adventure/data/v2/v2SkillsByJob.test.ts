@@ -27,6 +27,13 @@ const directCoef = (skillId: V2SkillId): number =>
     0,
   );
 
+const directFlat = (skillId: V2SkillId): number =>
+  V2_SKILLS[skillId].effects.reduce(
+    (sum, effect) =>
+      sum + (effect.kind === "damage" ? (effect.baseFlat ?? 0) : 0),
+    0,
+  );
+
 describe("7차 전투 패키지", () => {
   const packages = {
     shadowblade: [
@@ -85,7 +92,15 @@ describe("7차 전투 패키지", () => {
       expect(defs.map(spCostOf).reduce((sum, cost) => sum + cost, 0)).toBe(
         jobId === "primordialsage" ? 43 : 46,
       );
-      expect(() => validateTier7Package(defs, skillPowerScore)).not.toThrow();
+      expect(() =>
+        validateTier7Package(
+          defs,
+          skillPowerScore,
+          jobId === "ruinblade"
+            ? { maxEfficiency: 0.55, maxScore: 25 }
+            : undefined,
+        ),
+      ).not.toThrow();
     }
   });
 
@@ -98,23 +113,17 @@ describe("7차 전투 패키지", () => {
     }
   });
 
-  it("preserves the approved normalized direct-damage ratios", () => {
-    expect(directCoef("v2c_shadowblade_afterimage")).toBeCloseTo(
-      directCoef("v2c_swordsaint_flash") * 0.9,
-      2,
-    );
-    expect(directCoef("v2c_shadowblade_traceless")).toBeCloseTo(
-      directCoef("v2c_blackmoon_flurry"),
-      6,
-    );
-    expect(directCoef("v2c_ruinblade_limitstrike")).toBeCloseTo(
-      directCoef("v2c_swordsaint_flash") * 0.85,
-      2,
-    );
-    expect(directCoef("v2c_ruinblade_ruinsword")).toBeCloseTo(
-      directCoef("v2c_swordsaint_flash") * 1.8,
-      6,
-    );
+  it("200시드로 확정한 검성 계열 7차 직접 피해를 고정한다", () => {
+    expect(directCoef("v2c_shadowblade_afterimage")).toBe(2.289);
+    expect(directFlat("v2c_shadowblade_afterimage")).toBe(540);
+    expect(directCoef("v2c_shadowblade_traceless")).toBeCloseTo(2.24, 6);
+    expect(directFlat("v2c_shadowblade_traceless")).toBe(745);
+    expect(directCoef("v2c_ruinblade_limitstrike")).toBe(6.91);
+    expect(directFlat("v2c_ruinblade_limitstrike")).toBe(1632);
+    expect(directCoef("v2c_ruinblade_ruinsword")).toBe(6.99);
+    expect(directFlat("v2c_ruinblade_ruinsword")).toBe(1653);
+
+    // 다른 두 7차 직업의 승인된 기준은 이번 검성 계열 조정과 무관하다.
     expect(directCoef("v2c_skyascendant_fallingstar")).toBeCloseTo(
       directCoef("v2c_swordsaint_flash"),
       6,
@@ -804,7 +813,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_archshaman_curse.passive?.enemyMagicVulnPctPerStack).toBe(8);
     expect(V2_SKILLS.v2c_archshaman_curse.passive?.enemyMagicVulnApplyChancePct).toBe(85);
     expect(V2_SKILLS.v2c_archbishop_sanctuary.effects).toEqual([
-      { kind: "heal", pctLostHp: 7, statCoef: 0.6, baseFlatByTier: [100, 100, 100], scaling: "spi" },
+      { kind: "heal", pctLostHp: 2.24, statCoef: 0.192, baseFlatByTier: [32, 32, 32], scaling: "spi" },
       { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
     ]);
     expect(V2_SKILLS.v2c_archbishop_grace.passive).toMatchObject({

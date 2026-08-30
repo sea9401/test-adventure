@@ -148,6 +148,8 @@ describe("판매세 (sink) — saleProceeds / saleTax", () => {
     expect(marketplaceSlotLimitForAdventureSupport(true)).toBe(20);
     expect(marketplaceTaxRateForAdventureSupport(false)).toBe(0.1);
     expect(marketplaceTaxRateForAdventureSupport(true)).toBe(0.05);
+    expect(marketplaceSlotLimitForAdventureSupport("premium")).toBe(30);
+    expect(marketplaceTaxRateForAdventureSupport("premium")).toBe(0.05);
     const supportRate = marketplaceTaxRateForAdventureSupport(true);
     expect(saleProceeds(100, supportRate)).toBe(95);
     expect(saleTax(100, supportRate)).toBe(5);
@@ -288,9 +290,21 @@ describe("tradable 판정 + 이름 스냅샷", () => {
         false,
       ),
     ).toBeNull();
-    expect(marketplaceEquipListError({ id, bound: true }, false)).toBe(
-      "bound",
-    );
+    expect(
+      marketplaceEquipListError(
+        {
+          id,
+          bound: true,
+          liberation: {
+            rank: 3,
+            lineCount: 1,
+            revision: 1,
+            options: [{ id: "physical_attack_flat", level: 1 }],
+          },
+        },
+        false,
+      ),
+    ).toBe("bound");
     expect(marketplaceEquipListError({ id, locked: true }, false)).toBe(
       "locked",
     );

@@ -90,8 +90,11 @@ export function applyBerserkerLethalDamage(args: {
     };
   }
 
-  const restoredHp = Math.max(1, Math.floor(Math.max(1, args.maxHp) * 0.4));
   const dominion = args.madnessRank >= 4;
+  const restoredHp = Math.max(
+    1,
+    Math.floor(Math.max(1, args.maxHp) * (dominion ? 0.4 : 0.2)),
+  );
   return {
     hp: restoredHp,
     triggered: true,

@@ -27,6 +27,7 @@ import {
   FARM_RARE_PITY_HARVESTS,
   canPlantFarmCrop,
   farmAvailableReputation,
+  farmCropMasteryGain,
   farmingLevelForState,
   farmingLevelXpThreshold,
   nextFarmPlotUpgrade,
@@ -323,7 +324,13 @@ export function AdventurerFarmPanel({
       return {
         id: notice.id,
         tone: "ok",
-        text: farmBatchOutcomeText("harvest", notice.count, null),
+        text: farmBatchOutcomeText(
+          "harvest",
+          notice.count,
+          null,
+          undefined,
+          notice.farmingXpGained,
+        ),
       };
     }
     if (notice.kind === "batchFertilizer") {
@@ -1298,10 +1305,13 @@ function CropSelector({
               <span className="min-w-0">
                 <span className="block text-sm font-bold">{crop.seedName}</span>
                 <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">
-                  {locked
-                    ? `${crop.requiredSkillName ?? "농부 패시브"} 필요`
-                    : `${formatDuration(crop.growMs)} · ${crop.yieldMin}-${crop.yieldMax}개`}
+                  {formatDuration(crop.growMs)} · {crop.yieldMin}-{crop.yieldMax}개 · 농사 XP {farmCropMasteryGain(crop.id).toLocaleString("ko-KR")}
                 </span>
+                {locked ? (
+                  <span className="mt-0.5 block text-xs font-semibold text-rose-600 dark:text-rose-300">
+                    {crop.requiredSkillName ?? "농부 패시브"} 필요
+                  </span>
+                ) : null}
                 <span
                   className={`mt-1 inline-flex max-w-full flex-wrap rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-semibold dark:bg-zinc-900 ${
                     locked

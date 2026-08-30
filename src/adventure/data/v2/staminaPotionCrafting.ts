@@ -14,6 +14,10 @@ export const STAMINA_SHARD_MATERIAL = {
 } as const;
 
 /** 모든 일반 사냥 승리에 적용되는 독립 글로벌 드롭. 희귀 지도 배율은 적용하지 않는다. */
-export function rollStaminaShardDrop(rng: () => number): number {
-  return rng() * 100 < STAMINA_SHARD_DROP_PCT ? 1 : 0;
+export function rollStaminaShardDrop(
+  rng: () => number,
+  chanceMult: number = 1,
+): number {
+  const mult = Math.max(0, Number(chanceMult) || 0);
+  return rng() * 100 < Math.min(100, STAMINA_SHARD_DROP_PCT * mult) ? 1 : 0;
 }

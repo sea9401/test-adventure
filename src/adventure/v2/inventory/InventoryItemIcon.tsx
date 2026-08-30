@@ -103,6 +103,7 @@ export function inventoryIconKind(itemId: string): InventoryIconKind {
   if (itemId === "profile_image_permit") return "camera";
   if (itemId === "rename_permit") return "identity";
   if (itemId === "adventure_support_30d") return "shield";
+  if (itemId === "adventure_support_premium_30d") return "sparkle";
   if (itemId === CULTIVATION_RESET_POTION_ITEM_ID) return "flask";
   if (itemId === LEVEL_100_ELIXIR_ITEM_ID) return "flask";
   if (itemId === "exp_tome") return "flask";

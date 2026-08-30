@@ -1115,6 +1115,8 @@ describe("엔진 통합 — on-heal 보호막 전환이 실제 회복 후 적용
       maxHp: 200,
       maxMp: 1000,
       mp: 1000,
+      // 실효 수치가 작은 기본 회복도 묵주 전환 후 1 이상의 보호막을 만들게 한다.
+      healMult: 2,
       equipSignatures: [RELIQUARY],
     };
     const state = initialBattleState(

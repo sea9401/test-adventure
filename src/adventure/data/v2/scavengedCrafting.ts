@@ -47,12 +47,20 @@ export function isScavengedCraftRecipeId(
   );
 }
 
-export function rollEnhanceEmberDrop(rng: () => number): number {
-  return rng() * 100 < ENHANCE_EMBER_DROP_PCT ? 1 : 0;
+export function rollEnhanceEmberDrop(
+  rng: () => number,
+  chanceMult: number = 1,
+): number {
+  const mult = Math.max(0, Number(chanceMult) || 0);
+  return rng() * 100 < Math.min(100, ENHANCE_EMBER_DROP_PCT * mult) ? 1 : 0;
 }
 
-export function rollTornMapFragmentDrop(rng: () => number): number {
-  return rng() * 100 < TORN_MAP_FRAGMENT_DROP_PCT ? 1 : 0;
+export function rollTornMapFragmentDrop(
+  rng: () => number,
+  chanceMult: number = 1,
+): number {
+  const mult = Math.max(0, Number(chanceMult) || 0);
+  return rng() * 100 < Math.min(100, TORN_MAP_FRAGMENT_DROP_PCT * mult) ? 1 : 0;
 }
 
 /** 희귀 지도 복원에서 고를 수 있는 정복 완료 대표 단계(2·4·6…). */

@@ -26,8 +26,9 @@ export function mintEquipInstance(
 export function mintRolledEquipInstance(
   id: V2EquipmentId,
   rng: () => number = Math.random,
+  options?: { minimumQualityPct?: number },
 ): V2EquipInstance {
-  return mintEquipInstance(id, rollItemStats(V2_EQUIPMENT[id], rng));
+  return mintEquipInstance(id, rollItemStats(V2_EQUIPMENT[id], rng, options));
 }
 
 /** 거래소의 옛 매물 payload 에 실제 강화 상태가 있는지 판정한다. */

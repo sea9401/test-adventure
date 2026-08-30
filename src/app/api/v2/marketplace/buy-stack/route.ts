@@ -16,7 +16,7 @@ import {
   saleProceeds,
 } from "@/lib/server/marketplaceV2";
 import { deliverMarketplaceListing } from "@/lib/server/marketplaceV2Fulfillment";
-import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
+import { adventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import {
   TradeSuspendedError,
@@ -204,7 +204,7 @@ export async function POST(req: Request) {
           {},
         );
         taxRate = marketplaceTaxRateForAdventureSupport(
-          adventureSupportActive(sellerCharacter.adventureSupport),
+          adventureSupportTier(sellerCharacter.adventureSupport),
         );
         sellerTaxRates.set(listing.sellerId, taxRate);
       }

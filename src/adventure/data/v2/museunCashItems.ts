@@ -1,8 +1,20 @@
-import { ADVENTURE_SUPPORT_PASS } from "./adventureSupport";
+import {
+  ADVENTURE_SUPPORT_PASS,
+  PREMIUM_ADVENTURE_SUPPORT_PASS,
+} from "./adventureSupport";
 import {
   PROFILE_BADGE_STAND_ITEM_ID,
   PROFILE_BADGE_STAND_PRICE,
 } from "@/adventure/profile/profileShowcase";
+import {
+  GROWTH_LEAP_PACKAGE_ITEM_ID,
+  GROWTH_LEAP_PACKAGE_POTIONS,
+  GROWTH_LEAP_PACKAGE_PRICE,
+  MONTHLY_STAMINA_BUNDLE_ITEM_ID,
+  MONTHLY_STAMINA_BUNDLE_LIMIT,
+  MONTHLY_STAMINA_BUNDLE_POTIONS,
+  MONTHLY_STAMINA_BUNDLE_PRICE,
+} from "./growthLeap";
 
 export const MUSEUN_COIN_WALLET_KEY = "museun-coin-wallet.v1";
 export const MUSEUN_COIN_SHOP_MAX_PURCHASE_QUANTITY = 99;
@@ -62,6 +74,19 @@ export const MUSEUN_CASH_ITEMS = {
     tags: ["이벤트"],
     effect: { kind: "level_target", level: 100 },
   },
+  adventure_support_premium_30d: {
+    id: "adventure_support_premium_30d",
+    name: "월간 모험 지원권 프리미엄 (30일)",
+    description:
+      "사용한 시점부터 프리미엄 모험 지원 혜택이 30일 적용됩니다. 일반 지원권의 남은 기간은 프리미엄 종료 뒤 이어지며, 사용할 때마다 꾸미기 30일 연장권 2개를 받습니다. 구매 후 가방에 보관되며 거래소에서 거래할 수 있습니다.",
+    coinPrice: PREMIUM_ADVENTURE_SUPPORT_PASS.coinPrice,
+    delivery: "inventory",
+    tradeable: true,
+    effect: {
+      kind: "adventure_support_premium",
+      days: PREMIUM_ADVENTURE_SUPPORT_PASS.durationDays,
+    },
+  },
   adventure_support_30d: {
     id: "adventure_support_30d",
     name: "월간 모험 지원권 (30일)",
@@ -73,6 +98,34 @@ export const MUSEUN_CASH_ITEMS = {
     effect: {
       kind: "adventure_support",
       days: ADVENTURE_SUPPORT_PASS.durationDays,
+    },
+  },
+  [MONTHLY_STAMINA_BUNDLE_ITEM_ID]: {
+    id: MONTHLY_STAMINA_BUNDLE_ITEM_ID,
+    name: "월간 스태미나 회복약 세트",
+    description:
+      "귀속 스태미나 회복약 20개를 즉시 받습니다. 계정당 한국 시간 기준 한 달에 3회까지 구매할 수 있습니다.",
+    coinPrice: MONTHLY_STAMINA_BUNDLE_PRICE,
+    delivery: "bundle",
+    tradeable: false,
+    effect: {
+      kind: "stamina_potion_bundle",
+      potions: MONTHLY_STAMINA_BUNDLE_POTIONS,
+      monthlyLimit: MONTHLY_STAMINA_BUNDLE_LIMIT,
+    },
+  },
+  [GROWTH_LEAP_PACKAGE_ITEM_ID]: {
+    id: GROWTH_LEAP_PACKAGE_ITEM_ID,
+    name: "성장 도약 패키지",
+    description:
+      "귀속 스태미나 회복약 30개와 닉네임·프로필 꾸미기 상자를 받고 30일 성장 의뢰를 시작합니다. 계정당 한 번만 구매할 수 있습니다.",
+    coinPrice: GROWTH_LEAP_PACKAGE_PRICE,
+    delivery: "bundle",
+    tradeable: false,
+    effect: {
+      kind: "growth_leap",
+      potions: GROWTH_LEAP_PACKAGE_POTIONS,
+      missionDays: 30,
     },
   },
   prismatic_profile_border: {
@@ -534,7 +587,7 @@ export const MUSEUN_CASH_ITEMS = {
     name: "프로필 꾸미기 상자",
     description:
       "미보유 프로필 꾸미기 한 종류를 등급별 확률로 해금하고 30일 사용 기간을 받습니다. 일반 등급은 테두리형이며 높은 등급일수록 상단 배경 연출이 풍부해집니다.",
-    coinPrice: 300,
+    coinPrice: 400,
     delivery: "inventory",
     tradeable: true,
     effect: { kind: "profile_border_box" },
@@ -554,7 +607,7 @@ export const MUSEUN_CASH_ITEMS = {
     name: "닉네임 꾸미기 상자",
     description:
       "미보유 닉네임 색상 또는 특수 효과 한 종류를 등급별 확률로 해금하고 30일 사용 기간을 받습니다. 중복은 나오지 않으며, 사용 전에는 거래소에 등록할 수 있습니다.",
-    coinPrice: 200,
+    coinPrice: 300,
     delivery: "inventory",
     tradeable: true,
     effect: { kind: "chroma_name_box" },
@@ -632,6 +685,8 @@ const MUSEUN_SHOP_INVENTORY_ITEM_IDS = MUSEUN_INVENTORY_ITEM_IDS.filter(
 
 export const MUSEUN_SHOP_ITEM_IDS = [
   PROFILE_BADGE_STAND_ITEM_ID,
+  MONTHLY_STAMINA_BUNDLE_ITEM_ID,
+  GROWTH_LEAP_PACKAGE_ITEM_ID,
   ...MUSEUN_SHOP_INVENTORY_ITEM_IDS,
 ] as const;
 export type MuseunShopItemId = (typeof MUSEUN_SHOP_ITEM_IDS)[number];
@@ -644,7 +699,8 @@ export function isMuseunShopItemId(value: unknown): value is MuseunShopItemId {
 }
 
 export const MUSEUN_ADMIN_GIFT_ITEM_IDS = [
-  ...MUSEUN_SHOP_ITEM_IDS,
+  PROFILE_BADGE_STAND_ITEM_ID,
+  ...MUSEUN_SHOP_INVENTORY_ITEM_IDS,
   CULTIVATION_RESET_POTION_ITEM_ID,
   LEVEL_100_ELIXIR_ITEM_ID,
 ] as const;

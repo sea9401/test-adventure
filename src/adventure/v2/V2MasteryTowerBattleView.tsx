@@ -11,7 +11,7 @@ import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { useGameResourceState } from "@/adventure/v2/GameStateProvider";
 import type { StaminaState } from "@/adventure/v2/stamina";
 
 type TowerLogEntry = {
@@ -99,7 +99,7 @@ export function V2MasteryTowerBattleView({
   initialStartFloor?: number;
 }) {
   const router = useRouter();
-  const { setStamina } = useGameState();
+  const { setStamina } = useGameResourceState();
   const [result, setResult] = useState<TowerAttemptResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState(false);

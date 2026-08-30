@@ -30,7 +30,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("./GameStateProvider", () => ({
-  useGameState: () => ({ applyResourcePatch: mocks.applyResourcePatch }),
+  useGameResourceState: () => ({ applyResourcePatch: mocks.applyResourcePatch }),
 }));
 
 beforeEach(() => {

@@ -1,6 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { V2InventoryView } from "./V2InventoryView";
+import {
+  bulkEquipmentSaleNotice,
+  equipmentLiberationSmithyHref,
+  V2InventoryView,
+} from "./V2InventoryView";
+import type { V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
 
 const mocks = vi.hoisted(() => ({
   onUseSpFruit: null as ((tier: 1 | 2 | 3 | 4) => Promise<void>) | null,
@@ -112,5 +117,28 @@ describe("SP 열매 사용 상태 동기화", () => {
     expect(mocks.onUseMasteryCertificate).toBeTypeOf("function");
     expect(mocks.masteryCertificates).toBe(0);
     expect(mocks.certificateModalOpen).toBe(false);
+  });
+});
+
+describe("인벤토리 해방 진입과 일괄 판매 안내", () => {
+  const item: V2EquipInstance = {
+    iid: "eq target/1",
+    id: "v2_boss_catastrophe_gloves",
+  };
+
+  it("플래그가 켜진 적격 장비만 대장간 해방 딥링크를 만든다", () => {
+    expect(equipmentLiberationSmithyHref(item, true)).toBe(
+      "/town/smithy?mode=liberation&item=eq%20target%2F1",
+    );
+    expect(equipmentLiberationSmithyHref(item, false)).toBeUndefined();
+    expect(
+      equipmentLiberationSmithyHref({ ...item, stormRefined: true }, true),
+    ).toBeUndefined();
+  });
+
+  it("자동 판매에서 보호된 귀속 장비 수를 결과에 알린다", () => {
+    expect(bulkEquipmentSaleNotice("3개", 12_000, 2)).toContain(
+      "귀속 장비 2개 제외",
+    );
   });
 });

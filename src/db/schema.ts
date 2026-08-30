@@ -2837,3 +2837,26 @@ export const codexResearchPublications = pgTable(
     ),
   ],
 );
+
+// 장비 해방 요청 멱등 영수증. 같은 사용자·UUID의 네트워크 재시도는 최초 응답을 재생한다.
+export const equipmentLiberationRequests = pgTable(
+  "equipment_liberation_requests",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    requestId: text("request_id").notNull(),
+    iid: text("iid").notNull(),
+    expectedRevision: integer("expected_revision").notNull(),
+    response: jsonb("response").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.requestId] }),
+    index("equipment_liberation_requests_created_idx").on(t.createdAt),
+    check(
+      "equipment_liberation_requests_revision_nonnegative",
+      sql`${t.expectedRevision} >= 0`,
+    ),
+  ],
+);

@@ -217,69 +217,79 @@ function FishingStatusStrip({
   fishingSpot?: FishingSpot;
 }) {
   return (
-    <div className={`${SURFACE_INSET} px-2.5 py-2 text-xs text-zinc-700 dark:text-zinc-200`}>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <div className="w-full min-w-0 sm:w-auto sm:flex-1">
-          <MulttaeBadge compact />
+    <details className={`${SURFACE_INSET} group text-xs text-zinc-700 dark:text-zinc-200`}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 [&::-webkit-details-marker]:hidden">
+        <span className="font-semibold">낚시 정보</span>
+        <span className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">
+          <span className="group-open:hidden">펼치기</span>
+          <span className="hidden group-open:inline">접기</span>
+        </span>
+      </summary>
+      <div className="border-t border-zinc-200 px-2.5 py-2 dark:border-zinc-700">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="w-full min-w-0 sm:w-auto sm:flex-1">
+            <MulttaeBadge compact />
+          </div>
+          {fishingSpot && (
+            <span className="shrink-0 rounded border border-sky-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:border-sky-800 dark:bg-sky-900 dark:text-sky-200">
+              {FISHING_SPOT_DIFFICULTY_LABEL[fishingSpot.difficulty]}
+            </span>
+          )}
+          {dailyCatchCoins && (
+            <span className="shrink-0 font-medium tabular-nums text-amber-700 dark:text-amber-300">
+              코인 {dailyCatchCoins.earned.toLocaleString()}/
+              {dailyCatchCoins.cap.toLocaleString()}
+            </span>
+          )}
+          {sessionCount > 0 && (
+            <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
+              이번 판{" "}
+              <b className="text-zinc-700 dark:text-zinc-200">{sessionCount}</b>
+              마리
+              {sessionBest > 0 && (
+                <>
+                  {" "}
+                  · 최대{" "}
+                  <b className="text-zinc-700 dark:text-zinc-200">
+                    {formatFishSize(sessionBest)}
+                  </b>
+                </>
+              )}
+              {streak > 1 && (
+                <b className="ml-1 text-amber-600 dark:text-amber-400">
+                  연속 {streak}
+                </b>
+              )}
+            </span>
+          )}
         </div>
         {fishingSpot && (
-          <span className="shrink-0 rounded border border-sky-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:border-sky-800 dark:bg-sky-900 dark:text-sky-200">
-            {FISHING_SPOT_DIFFICULTY_LABEL[fishingSpot.difficulty]}
-          </span>
+          <div className="mt-0.5 truncate text-[10px] text-sky-700 dark:text-sky-300">
+            {fishingSpot.description}
+          </div>
         )}
         {dailyCatchCoins && (
-          <span className="shrink-0 font-medium tabular-nums text-amber-700 dark:text-amber-300">
-            코인 {dailyCatchCoins.earned.toLocaleString()}/
-            {dailyCatchCoins.cap.toLocaleString()}
-          </span>
-        )}
-        {sessionCount > 0 && (
-          <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
-            이번 판{" "}
-            <b className="text-zinc-700 dark:text-zinc-200">{sessionCount}</b>마리
-            {sessionBest > 0 && (
-              <>
-                {" "}
-                · 최대{" "}
-                <b className="text-zinc-700 dark:text-zinc-200">
-                  {formatFishSize(sessionBest)}
-                </b>
-              </>
-            )}
-            {streak > 1 && (
-              <b className="ml-1 text-amber-600 dark:text-amber-400">
-                연속 {streak}
-              </b>
-            )}
-          </span>
+          <>
+            <div className="mt-1 flex items-center justify-between gap-3 text-[10px] text-amber-800/80 dark:text-amber-100/80">
+              <span>
+                {dailyCoinRemaining === 0
+                  ? "일일 획득 제한 도달"
+                  : dailyCoinRemaining == null
+                    ? "일일 획득 제한 확인 중"
+                    : `남은 ${dailyCoinRemaining.toLocaleString()} 코인`}
+              </span>
+              <span className="hidden sm:inline">제한 초과분 미지급</span>
+            </div>
+            <div className="mt-1 h-1 overflow-hidden rounded-full bg-amber-200/60 dark:bg-amber-950">
+              <div
+                className="h-full rounded-full bg-amber-500 transition-[width]"
+                style={{ width: `${dailyCoinPct}%` }}
+              />
+            </div>
+          </>
         )}
       </div>
-      {fishingSpot && (
-        <div className="mt-0.5 truncate text-[10px] text-sky-700 dark:text-sky-300">
-          {fishingSpot.description}
-        </div>
-      )}
-      {dailyCatchCoins && (
-        <>
-          <div className="mt-1 flex items-center justify-between gap-3 text-[10px] text-amber-800/80 dark:text-amber-100/80">
-            <span>
-              {dailyCoinRemaining === 0
-                ? "일일 획득 제한 도달"
-                : dailyCoinRemaining == null
-                  ? "일일 획득 제한 확인 중"
-                  : `남은 ${dailyCoinRemaining.toLocaleString()} 코인`}
-            </span>
-            <span className="hidden sm:inline">제한 초과분 미지급</span>
-          </div>
-          <div className="mt-1 h-1 overflow-hidden rounded-full bg-amber-200/60 dark:bg-amber-950">
-            <div
-              className="h-full rounded-full bg-amber-500 transition-[width]"
-              style={{ width: `${dailyCoinPct}%` }}
-            />
-          </div>
-        </>
-      )}
-    </div>
+    </details>
   );
 }
 

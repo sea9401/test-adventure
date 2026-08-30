@@ -143,7 +143,7 @@ describe("광전사–패황 PvE 통합", () => {
       true,
     );
 
-    expect(state.playerHp).toBe(400);
+    expect(state.playerHp).toBe(200);
     expect(state.flags.enduranceTriggered).toBe(false);
     expect(state.berserker?.deathOvercomeUsed).toBe(true);
   });
@@ -170,7 +170,7 @@ describe("광전사–패황 PvE 통합", () => {
     const state = finishEnemyAttack(castResult.state);
 
     expect(castResult.castFired).toBe(true);
-    expect(state.playerHp).toBe(400);
+    expect(state.playerHp).toBe(200);
     expect(state.flags.enduranceTriggered).toBe(false);
     expect(state.berserker).toMatchObject({
       deathOvercomeUsed: true,
@@ -199,7 +199,7 @@ describe("광전사–패황 PvE 통합", () => {
       true,
     );
     expect(state).toMatchObject({
-      playerHp: 400,
+      playerHp: 200,
       phase: "player",
       berserker: { guardUntil: "none" },
     });

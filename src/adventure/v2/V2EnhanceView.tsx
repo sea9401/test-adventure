@@ -96,6 +96,8 @@ import {
 import { sortEnhanceCandidates } from "@/adventure/v2/v2EnhanceList";
 import { EnhancePowerPreview } from "@/adventure/v2/EnhancePowerPreview";
 import { useSystemToast } from "./RewardToastProvider";
+import { V2_EQUIPMENT_LIBERATION } from "@/adventure/data/v2/coreLoopConfig";
+import { EquipmentLiberationPanel } from "@/adventure/v2/liberation/EquipmentLiberationPanel";
 
 const SLOT_TABS: { key: V2EquipSlot; label: string }[] = [
   { key: "weapon", label: "무기" },
@@ -266,7 +268,43 @@ export function StormRefinementConfirmDialog({
   );
 }
 
-type ForgeMode = "enhance" | "refine" | "reforge" | "combine";
+export type ForgeMode =
+  | "enhance"
+  | "refine"
+  | "liberation"
+  | "reforge"
+  | "combine";
+
+export function smithyForgeTabs(
+  liberationEnabled: boolean,
+  reforgeEnabled: boolean = V2_REFORGE_ENABLED,
+): { key: ForgeMode; label: string }[] {
+  return [
+    { key: "enhance", label: "강화" },
+    { key: "refine", label: "폭풍 개량" },
+    ...(liberationEnabled
+      ? [{ key: "liberation" as const, label: "해방" }]
+      : []),
+    ...(reforgeEnabled ? [{ key: "reforge" as const, label: "재련" }] : []),
+    { key: "combine", label: "조합" },
+  ];
+}
+
+export function resolveSmithyForgeMode(
+  requested: string | undefined,
+  liberationEnabled: boolean,
+  reforgeEnabled: boolean = V2_REFORGE_ENABLED,
+): ForgeMode {
+  if (requested === "liberation") {
+    return liberationEnabled ? "liberation" : "enhance";
+  }
+  if (requested === "reforge") return reforgeEnabled ? "reforge" : "enhance";
+  return requested === "refine" ||
+    requested === "combine" ||
+    requested === "enhance"
+    ? requested
+    : "enhance";
+}
 type CombineRecipeKey =
   | "reforge-stone"
   | "stamina-potion"
@@ -274,7 +312,15 @@ type CombineRecipeKey =
   | "red-enhance-stone"
   | "rare-map";
 
-export function V2EnhanceView({ onBack }: { onBack: () => void }) {
+export function V2EnhanceView({
+  onBack,
+  initialMode,
+  initialItemIid,
+}: {
+  onBack: () => void;
+  initialMode?: string;
+  initialItemIid?: string;
+}) {
   // 강화·재련·조합은 골드 sink — 보유 골드를 헤더에 노출(사용자 요청). 코어루프면 지갑+은행이
   //   결제 가능액(서버 enhance/reforge 가 spendGold 로 둘 다 차감)이라 그 합을 보여준다.
   const {
@@ -326,7 +372,9 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     kind: "success" | "fail" | "error";
     text: string;
   } | null>(null);
-  const [mode, setMode] = useState<ForgeMode>("enhance");
+  const [mode, setMode] = useState<ForgeMode>(() =>
+    resolveSmithyForgeMode(initialMode, V2_EQUIPMENT_LIBERATION),
+  );
   const [stormRefineConfirmOpen, setStormRefineConfirmOpen] = useState(false);
   const { notifySystem } = useSystemToast();
   const rareMapDepthOptions = useMemo(
@@ -886,7 +934,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         : null;
 
   return (
-    <main className="mx-auto max-w-[720px] space-y-4 p-6 pb-28 text-zinc-900 dark:text-zinc-100 sm:pb-6">
+    <main
+      className={`mx-auto space-y-4 p-6 pb-28 text-zinc-900 dark:text-zinc-100 sm:pb-6 ${
+        mode === "liberation" ? "max-w-[1080px]" : "max-w-[720px]"
+      }`}
+    >
       <SubViewHeader
         title={
           <>
@@ -938,16 +990,9 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         </div>
       )}
 
-      {/* 작업 모드 — 강화 / 재련 / 조합 */}
+      {/* 작업 모드 — 강화 / 폭풍 개량 / 해방 / 재련 / 조합 */}
       <TabBar
-        tabs={[
-          { key: "enhance" as ForgeMode, label: "강화" },
-          { key: "refine" as ForgeMode, label: "폭풍 개량" },
-          ...(V2_REFORGE_ENABLED
-            ? [{ key: "reforge" as ForgeMode, label: "재련" }]
-            : []),
-          { key: "combine" as ForgeMode, label: "조합" },
-        ]}
+        tabs={smithyForgeTabs(V2_EQUIPMENT_LIBERATION)}
         active={mode}
         onChange={(m) => {
           setMode(m);
@@ -960,6 +1005,28 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         size="sm"
         variant="highlight"
       />
+
+      {mode === "liberation" && V2_EQUIPMENT_LIBERATION ? (
+        <EquipmentLiberationPanel
+          owned={owned}
+          equipped={equipped}
+          gold={gold ?? 0}
+          bankedGold={bankedGold}
+          initialItemIid={initialItemIid}
+          onItemUpdated={(updated) => {
+            setOwned((current) =>
+              current.map((instance) =>
+                instance.iid === updated.iid ? updated : instance,
+              ),
+            );
+          }}
+          onWalletUpdated={(nextGold, nextBankedGold) => {
+            setGold(nextGold);
+            setBankedGold(nextBankedGold);
+            syncCtxBanked(nextBankedGold);
+          }}
+        />
+      ) : null}
 
       {/* 강화 패널 — 장비 선택 시 */}
       {mode === "enhance" && selected && item && (
@@ -1688,7 +1755,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       )}
 
       {/* 장비 선택 — 슬롯 탭 + 그리드(착용 우선, 이후 강화 높은 순). 조합 모드는 장비 선택이 불필요해 숨긴다. */}
-      {mode !== "combine" && (
+      {mode !== "combine" && mode !== "liberation" && (
         <Card as="section" padding="sm">
           <TabBar
             tabs={SLOT_TABS}

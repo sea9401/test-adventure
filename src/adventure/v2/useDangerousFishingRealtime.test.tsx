@@ -77,10 +77,13 @@ function pointerEvent() {
   };
 }
 
-function keyboardEvent(repeat = false) {
+function keyboardEvent(
+  input: "space" | "enter" = "space",
+  repeat = false,
+) {
   return {
-    code: "Space",
-    key: " ",
+    code: input === "space" ? "Space" : "Enter",
+    key: input === "space" ? " " : "Enter",
     repeat,
     preventDefault: vi.fn(),
   };
@@ -159,11 +162,13 @@ function renderRealtime(
   options: {
     target?: { kind: "voyage"; endpoint: "/api/v2/dangerous-fishing/encounter" };
     onFinish?: (json: Record<string, unknown>) => void;
+    serverNow?: number;
   } = {},
 ) {
-  return renderHook(() =>
-    useDangerousFishingRealtime({
+  return renderHook(() => {
+    const realtimeOptions = {
       encounter,
+      serverNow: options.serverNow ?? Date.now(),
       target: options.target ?? {
         kind: "voyage",
         endpoint: "/api/v2/dangerous-fishing/encounter",
@@ -171,8 +176,9 @@ function renderRealtime(
       readJson: jsonReader,
       verification: null,
       onFinish: options.onFinish,
-    }),
-  );
+    };
+    return useDangerousFishingRealtime(realtimeOptions);
+  });
 }
 
 beforeEach(() => {
@@ -190,6 +196,33 @@ afterEach(() => {
 });
 
 describe("useDangerousFishingRealtime", () => {
+  it("기기 시계가 1분 느려도 서버 시각 기준으로 준비를 끝내고 결과를 전송한다", async () => {
+    const encounter = encounterFixture({ maxTicks: 2 });
+    const fetcher = successfulFetch(encounter);
+    const onFinish = vi.fn();
+    vi.stubGlobal("fetch", fetcher);
+    vi.setSystemTime(STARTED_AT - 60_000);
+
+    const { result } = renderRealtime(encounter, {
+      serverNow: STARTED_AT - 1_000,
+      onFinish,
+    });
+
+    expect(result.current.startPending).toBe(true);
+
+    await act(async () => vi.advanceTimersByTimeAsync(1_100));
+
+    expect(result.current.startPending).toBe(false);
+    expect(result.current.view.status).toBe("timeout");
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/v2/dangerous-fishing/encounter",
+      expect.objectContaining({
+        body: expect.stringContaining('"action":"finish"'),
+      }),
+    );
+    expect(onFinish).toHaveBeenCalledTimes(1);
+  });
+
   it("서버가 공개한 legacy balance revision으로 catch timing을 replay한다", () => {
     const base = encounterFixture();
     const checkpoint = {
@@ -317,41 +350,46 @@ describe("useDangerousFishingRealtime", () => {
     });
   });
 
-  it("pointer와 Space 입력을 같은 reel/release 전환으로 처리하고 반복 키다운을 무시한다", () => {
-    const encounter = encounterFixture();
-    vi.stubGlobal("fetch", successfulFetch(encounter));
-    const { result } = renderRealtime(encounter);
+  it.each(["space", "enter"] as const)(
+    "pointer와 %s 입력을 같은 reel/release 전환으로 처리하고 반복 키다운을 무시한다",
+    (input) => {
+      const encounter = encounterFixture();
+      vi.stubGlobal("fetch", successfulFetch(encounter));
+      const { result } = renderRealtime(encounter);
 
-    const pointer = pointerEvent();
-    act(() => result.current.onPointerDown(pointer as never));
-    expect(result.current.holding).toBe(true);
-    expect(result.current.view.mode).toBe("reel");
-    expect(pointer.currentTarget.setPointerCapture).toHaveBeenCalledWith(7);
+      const pointer = pointerEvent();
+      act(() => result.current.onPointerDown(pointer as never));
+      expect(result.current.holding).toBe(true);
+      expect(result.current.view.mode).toBe("reel");
+      expect(pointer.currentTarget.setPointerCapture).toHaveBeenCalledWith(7);
 
-    act(() => result.current.onPointerUp(pointer as never));
-    expect(result.current.holding).toBe(false);
-    expect(result.current.view.mode).toBe("release");
+      act(() => result.current.onPointerUp(pointer as never));
+      expect(result.current.holding).toBe(false);
+      expect(result.current.view.mode).toBe("release");
 
-    const repeated = keyboardEvent(true);
-    act(() => result.current.onKeyDown(repeated as never));
-    expect(repeated.preventDefault).toHaveBeenCalledTimes(1);
-    expect(result.current.holding).toBe(false);
+      const repeated = keyboardEvent(input, true);
+      act(() => result.current.onKeyDown(repeated as never));
+      expect(repeated.preventDefault).toHaveBeenCalledTimes(1);
+      expect(result.current.holding).toBe(false);
 
-    const keyDown = keyboardEvent();
-    act(() => result.current.onKeyDown(keyDown as never));
-    expect(keyDown.preventDefault).toHaveBeenCalledTimes(1);
-    expect(result.current.holding).toBe(true);
+      const keyDown = keyboardEvent(input);
+      act(() => result.current.onKeyDown(keyDown as never));
+      expect(keyDown.preventDefault).toHaveBeenCalledTimes(1);
+      expect(result.current.holding).toBe(true);
 
-    const storedAfterRepeat = JSON.parse(
-      sessionStorage.getItem(dangerousFishingRealtimeStorageKey(encounter.id))!,
-    ) as { inputs: unknown[] };
-    expect(storedAfterRepeat.inputs).toHaveLength(1);
+      const storedAfterRepeat = JSON.parse(
+        sessionStorage.getItem(
+          dangerousFishingRealtimeStorageKey(encounter.id),
+        )!,
+      ) as { inputs: unknown[] };
+      expect(storedAfterRepeat.inputs).toHaveLength(1);
 
-    const keyUp = keyboardEvent();
-    act(() => result.current.onKeyUp(keyUp as never));
-    expect(keyUp.preventDefault).toHaveBeenCalledTimes(1);
-    expect(result.current.holding).toBe(false);
-  });
+      const keyUp = keyboardEvent(input);
+      act(() => result.current.onKeyUp(keyUp as never));
+      expect(keyUp.preventDefault).toHaveBeenCalledTimes(1);
+      expect(result.current.holding).toBe(false);
+    },
+  );
 
   it("같은 encounter의 상위 status refresh가 진행 중 hold와 loop를 재시작하지 않는다", () => {
     const encounter = encounterFixture();
@@ -364,6 +402,7 @@ describe("useDangerousFishingRealtime", () => {
       ({ current }: { current: DangerousRealtimeClientEncounter }) =>
         useDangerousFishingRealtime({
           encounter: current,
+          serverNow: Date.now(),
           target,
           readJson: jsonReader,
           verification: null,
@@ -389,6 +428,7 @@ describe("useDangerousFishingRealtime", () => {
       ({ current }: { current: DangerousRealtimeClientEncounter }) =>
         useDangerousFishingRealtime({
           encounter: current,
+          serverNow: Date.now(),
           target,
           readJson: jsonReader,
           verification: null,
@@ -425,6 +465,7 @@ describe("useDangerousFishingRealtime", () => {
       ({ current }: { current: DangerousRealtimeClientEncounter }) =>
         useDangerousFishingRealtime({
           encounter: current,
+          serverNow: Date.now(),
           target,
           readJson: jsonReader,
           verification: null,
@@ -477,6 +518,7 @@ describe("useDangerousFishingRealtime", () => {
       ({ current }: { current: DangerousRealtimeClientEncounter }) =>
         useDangerousFishingRealtime({
           encounter: current,
+          serverNow: Date.now(),
           target,
           readJson: jsonReader,
           verification: null,
@@ -1027,6 +1069,7 @@ describe("useDangerousFishingRealtime", () => {
     renderHook(() =>
       useDangerousFishingRealtime({
         encounter,
+        serverNow: Date.now(),
         target: {
           kind: "boss",
           endpoint: "/api/v2/dangerous-fishing/boss",
@@ -1090,6 +1133,7 @@ describe("useDangerousFishingRealtime", () => {
       const activity = useActivityVerification("fishing");
       const realtime = useDangerousFishingRealtime({
         encounter,
+        serverNow: Date.now(),
         target: {
           kind: "voyage",
           endpoint: "/api/v2/dangerous-fishing/encounter",

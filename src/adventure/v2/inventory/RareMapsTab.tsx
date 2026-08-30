@@ -57,6 +57,9 @@ function cashItemUseLabel(itemId: MuseunCashItemId): string {
   if (effect.kind === "adventure_support") {
     return `모험 지원 혜택 ${effect.days}일`;
   }
+  if (effect.kind === "adventure_support_premium") {
+    return `프리미엄 모험 지원 혜택 ${effect.days}일 · 꾸미기 연장권 2개`;
+  }
   if (effect.kind === "cultivation_reset") {
     return "레벨 1로 돌아가며 수행 전체 초기화";
   }

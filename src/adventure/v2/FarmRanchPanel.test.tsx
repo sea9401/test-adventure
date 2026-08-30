@@ -97,9 +97,9 @@ describe("farm ranch panel", () => {
     expect(html).toContain("부지 2 · 닭장");
     expect(html).toContain("부지 3 · 외양간");
     expect(html).toContain("부지 4 · 돼지우리");
-    expect(html).toContain("달걀 2개 / 2시간");
-    expect(html).toContain("우유 3개 / 6시간");
-    expect(html).toContain("돼지고기 4개 / 마리 · 12시간");
+    expect(html).toContain("2시간 · 달걀 2개 · 농사 XP 2");
+    expect(html).toContain("6시간 · 우유 3개 · 농사 XP 6");
+    expect(html).toContain("12시간 · 돼지고기 4개 / 마리 · 농사 XP 8");
     expect(html).toContain("최대 2마리");
     expect(html).toContain("비육 중");
   });

@@ -25,11 +25,18 @@ export type Tier7Mechanic =
       kind: "shadowStrike";
       recordPct: number;
       refinedRecordPct: number;
+      pvpDirectDamagePct: number;
     }
-  | { kind: "shadowRefine"; refinePctPoints: number; hastePct: number }
+  | {
+      kind: "shadowRefine";
+      refinePctPoints: number;
+      hastePct: number;
+      pvpDirectDamagePct: number;
+    }
   | {
       kind: "shadowCore";
       recordPct: number;
+      inheritedRecordPct: number;
       refinedRecordPct: number;
       nextSingleDamagePct: number;
       pvpScalePct: number;
@@ -38,6 +45,7 @@ export type Tier7Mechanic =
       kind: "intentStrike";
       missingHpBonusCapPct: number;
       lowHpThresholdPct: number;
+      pvpDirectDamagePct: number;
     }
   | {
       kind: "intentCore";
@@ -49,8 +57,10 @@ export type Tier7Mechanic =
       kind: "chargedFinisher";
       currentMissingHpCapPct: number;
       chargeLostHpCapPct: number;
+      requiredIntentStacks: number;
       pvpCapPct: number;
       pvpPenetrationPct: number;
+      pvpDirectDamagePct: number;
     }
   | { kind: "crossStrike"; family: "ranged" | "martial" }
   | {
@@ -82,6 +92,20 @@ export type Tier7Mechanic =
       pvpPenetrationPct: number;
       pvpHastePct: number;
     };
+
+export function tier7PvpDirectDamagePct(
+  mechanic: Tier7Mechanic | undefined,
+): number {
+  switch (mechanic?.kind) {
+    case "shadowStrike":
+    case "shadowRefine":
+    case "intentStrike":
+    case "chargedFinisher":
+      return mechanic.pvpDirectDamagePct;
+    default:
+      return 100;
+  }
+}
 
 const SCORE = {
   delayedRealization: 0.8,
@@ -171,17 +195,20 @@ export function tier7MechanicPower(mechanic: Tier7Mechanic): number {
 export function validateTier7Package<T extends { spCost?: number }>(
   defs: readonly T[],
   scoreOf: (definition: T) => number,
+  limits: { maxEfficiency?: number; maxScore?: number } = {},
 ): { sp: number; score: number; efficiency: number } {
   const sp = defs.reduce((sum, definition) => sum + (definition.spCost ?? 0), 0);
   const score = round2(defs.reduce((sum, definition) => sum + scoreOf(definition), 0));
   const rawEfficiency = sp > 0 ? score / sp : 0;
   const efficiency = round2(rawEfficiency);
   if (sp !== 46) throw new Error(`tier 7 package must cost exactly 46 SP; got ${sp}`);
-  if (rawEfficiency < 0.35 || rawEfficiency > 0.4) {
-    throw new Error(`tier 7 efficiency must stay within 0.35–0.40; got ${efficiency}`);
+  const maxEfficiency = limits.maxEfficiency ?? 0.4;
+  const maxScore = limits.maxScore ?? 18;
+  if (rawEfficiency < 0.35 || rawEfficiency > maxEfficiency) {
+    throw new Error(`tier 7 efficiency must stay within 0.35–${maxEfficiency.toFixed(2)}; got ${efficiency}`);
   }
-  if (score < 16 || score > 18) {
-    throw new Error(`tier 7 score must stay within 16–18; got ${score}`);
+  if (score < 16 || score > maxScore) {
+    throw new Error(`tier 7 score must stay within 16–${maxScore}; got ${score}`);
   }
   return { sp, score, efficiency };
 }

@@ -224,9 +224,10 @@ export function rollEnhanceStoneDrops(
   // 확률 배수 — 희귀 탐사(사냥꾼의 탐사로) 등 드랍 부스트용. 기본 1 = 무변경.
   chanceMult: number = 1,
 ): Record<string, number> {
+  const mult = Math.max(0, Number(chanceMult) || 0);
   const out: Record<string, number> = {};
   for (const stone of ["red", "blue"] as const) {
-    if (rng() * 100 < ENHANCE_STONE_DROP_PCT[stone] * chanceMult) {
+    if (rng() * 100 < Math.min(100, ENHANCE_STONE_DROP_PCT[stone] * mult)) {
       out[ENHANCE_STONE_MATERIAL_ID[stone]] = 1;
     }
   }

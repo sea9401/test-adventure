@@ -41,6 +41,7 @@ const INVENTORY_SORT_OPTIONS: ReadonlyArray<{
   { key: "tier", label: "티어 · 높은순" },
   { key: "roll", label: "품질 · 높은순" },
   { key: "power", label: "위력 · 높은순" },
+  { key: "locked", label: "잠금 우선 · 잠금부터" },
 ];
 
 // 장비 슬롯 탭(무기/갑옷/장갑/신발/반지/목걸이) — 일괄 판매 컨트롤 + 정렬 버튼 +
@@ -53,6 +54,8 @@ export function EquipmentTab({
   busy,
   sortMode,
   setSortMode,
+  lockedOnly,
+  setLockedOnly,
   sellQualityPct,
   setSellQualityPct,
   pageSize,
@@ -69,6 +72,8 @@ export function EquipmentTab({
   busy: string | null;
   sortMode: SortMode;
   setSortMode: Dispatch<SetStateAction<SortMode>>;
+  lockedOnly: boolean;
+  setLockedOnly: Dispatch<SetStateAction<boolean>>;
   sellQualityPct: number;
   setSellQualityPct: Dispatch<SetStateAction<number>>;
   pageSize: number;
@@ -84,9 +89,20 @@ export function EquipmentTab({
 }) {
   const tabLabel = V2_ITEM_TABS.find((t) => t.key === slot)?.label ?? "";
 
-  const tabInstances: V2EquipInstance[] = useMemo(
+  const sortedInstances: V2EquipInstance[] = useMemo(
     () => sortEquipInstances(instances, sortMode),
     [instances, sortMode],
+  );
+  const tabInstances = useMemo(
+    () =>
+      lockedOnly
+        ? sortedInstances.filter((instance) => instance.locked === true)
+        : sortedInstances,
+    [lockedOnly, sortedInstances],
+  );
+  const lockedCount = useMemo(
+    () => instances.filter((instance) => instance.locked === true).length,
+    [instances],
   );
 
   // 목록이 길어지면 페이지로 나눈다(한 페이지 20개). 탭(슬롯)·정렬을 바꾸면 1페이지로 리셋
@@ -94,7 +110,7 @@ export function EquipmentTab({
   const equipPager = usePagination(
     tabInstances,
     pageSize,
-    `${slot}:${sortMode}`,
+    `${slot}:${sortMode}:${lockedOnly ? "locked" : "all"}`,
   );
   const qualitySellCount = useMemo(
     () =>
@@ -108,7 +124,7 @@ export function EquipmentTab({
 
   return (
     <>
-      {tabInstances.length > 0 && (
+      {instances.length > 0 && (
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           {/* 정리(일괄 판매) — 현재 탭 슬롯, 장착·잠금만 제외(전 장비 판매 가능) */}
           <div className="flex flex-wrap items-center gap-1">
@@ -189,7 +205,17 @@ export function EquipmentTab({
               </>
             )}
           </div>
-          <div className="flex min-h-8 items-center rounded-lg border border-zinc-300 bg-white px-1 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+          <div className="flex min-h-8 items-center gap-1 rounded-lg border border-zinc-300 bg-white px-1 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <Button
+              type="button"
+              onClick={() => setLockedOnly((current) => !current)}
+              aria-pressed={lockedOnly}
+              variant={lockedOnly ? "primary" : "secondary"}
+              size="xs"
+              className="min-h-7 px-2 py-0.5 text-[11px]"
+            >
+              잠금만 보기 ({lockedCount})
+            </Button>
             <select
               aria-label="장비 정렬 기준"
               value={sortMode}
@@ -228,6 +254,15 @@ export function EquipmentTab({
           sortMode === "acquired" ? tabInstances[0]?.iid : undefined
         }
         frontierDepth={frontierDepth}
+        emptyState={
+          lockedOnly
+            ? {
+                title: "잠근 장비가 없습니다",
+                message:
+                  "장비 상세에서 잠금을 설정하면 여기에 모아 볼 수 있습니다.",
+              }
+            : undefined
+        }
       />
       {selection.active ? (
         <div

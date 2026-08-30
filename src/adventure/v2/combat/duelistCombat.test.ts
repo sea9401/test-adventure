@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AP_SKILLS } from "@/adventure/character/apSkills";
+import type { APSkill } from "@/adventure/character/apSkills";
 import {
   effectiveCombatPatternFromEquipped,
   smartDefaultPatternFromEquipped,
@@ -48,7 +48,65 @@ describe("선언 전투 상태 문구", () => {
   });
 });
 
-const ap = (id: string) => AP_SKILLS.find((skill) => skill.id === id)!;
+const AP_SKILL_FIXTURES: Record<string, APSkill> = {
+  focused_breath: {
+    id: "focused_breath",
+    name: "집중의 호흡",
+    description: "",
+    apCost: 2,
+    effect: { kind: "crit_buff_next_attack", critDmgBonusPct: 30 },
+  },
+  combo_strike: {
+    id: "combo_strike",
+    name: "연환격",
+    description: "",
+    apCost: 2,
+    effect: { kind: "extra_attack_this_turn", count: 1 },
+  },
+  frenzy: {
+    id: "frenzy",
+    name: "폭주",
+    description: "",
+    apCost: 4,
+    effect: { kind: "player_spd_mult_turns", mult: 1.5, turns: 3 },
+  },
+  storm_strike: {
+    id: "storm_strike",
+    name: "폭풍 일격",
+    description: "",
+    apCost: 3,
+    effect: { kind: "atk_plus_spd_pct_bonus", spdPct: 100 },
+  },
+  mad_slash: {
+    id: "mad_slash",
+    name: "광살참",
+    description: "",
+    apCost: 4,
+    effect: {
+      kind: "multi_hit_self_damage",
+      atkMult: 2,
+      hits: 2,
+      selfDmgPct: 15,
+    },
+  },
+  thunder_strike: {
+    id: "thunder_strike",
+    name: "천뢰 일격",
+    description: "",
+    apCost: 5,
+    effect: {
+      kind: "atk_multiplier_with_silence",
+      atkMult: 2.5,
+      silenceTurns: 1,
+    },
+  },
+};
+
+const ap = (id: string): APSkill => {
+  const skill = AP_SKILL_FIXTURES[id];
+  if (!skill) throw new Error(`Unknown AP skill fixture: ${id}`);
+  return skill;
+};
 
 describe("결투 태세 판정", () => {
   it.each([

@@ -32,7 +32,7 @@ import {
   type MarketKind,
 } from "@/lib/server/marketplaceV2";
 import { withdrawMarketplaceLifeItem } from "@/lib/server/marketplaceLifeInventory";
-import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
+import { adventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import {
   isTradeableMuseunCashItemId,
   removeMuseunCashItem,
@@ -151,7 +151,7 @@ export async function POST(req: Request) {
     //   는 buy·sell-bulk 와 일관(데드락 회피). material 경로는 이 charSave 를 그대로 씀.
     const charSave = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});
     const slotLimit = marketplaceSlotLimitForAdventureSupport(
-      adventureSupportActive(charSave.adventureSupport),
+      adventureSupportTier(charSave.adventureSupport),
     );
 
     // 슬롯 상한 — 활성 매물 수(seller 락 이후라 동시 요청 직렬화됨 = 엄격).

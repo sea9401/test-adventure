@@ -10,6 +10,7 @@ import {
   selectExplicitSell,
 } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2EquipSlot } from "@/adventure/data/v2/v2Equipment";
+import { boundEquipmentDisposalView } from "@/lib/server/boundEquipmentDisposal";
 
 // POST /api/v2/shop/equipment/sell-bulk — 보유 장비 일괄 판매 (개체 모델).
 //
@@ -67,6 +68,7 @@ export async function POST(req: Request) {
     slot?: unknown;
     belowPct?: unknown;
     iids?: unknown;
+    confirmBound?: unknown;
   };
   const hasExplicitSelection = Object.hasOwn(body, "iids");
   let selectedIids: string[] | undefined;
@@ -141,6 +143,30 @@ export async function POST(req: Request) {
         },
       };
     }
+    const boundItems = selectedIids
+      ? owned.filter(
+          (instance) =>
+            selectedIids.includes(instance.iid) && instance.bound === true,
+        )
+      : [];
+    if (
+      explicitResult?.ok &&
+      boundItems.length > 0 &&
+      body.confirmBound !== true
+    ) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "bound_confirmation_required" as const,
+          items: boundItems.map(boundEquipmentDisposalView),
+          gold: safeGold(charSave.gold),
+          bankedGold: safeGold(charSave.bankedGold),
+          owned,
+          equipped,
+        },
+      };
+    }
     const plan = explicitResult?.plan ??
       selectBulkSell(owned, equipped, { slot, belowPct });
     if (plan.count === 0) {
@@ -150,6 +176,7 @@ export async function POST(req: Request) {
           ok: true as const,
           soldCount: 0,
           soldGold: 0,
+          skippedBoundCount: plan.skippedBoundCount,
           gold: safeGold(charSave.gold),
           bankedGold: safeGold(charSave.bankedGold),
           owned,
@@ -175,6 +202,7 @@ export async function POST(req: Request) {
       log: {
         soldCount: plan.count,
         soldGold: plan.gold,
+        skippedBoundCount: plan.skippedBoundCount,
         slot,
         belowPct,
         selectionMode: selectedIids != null,
@@ -183,6 +211,7 @@ export async function POST(req: Request) {
         ok: true as const,
         soldCount: plan.count,
         soldGold: plan.gold,
+        skippedBoundCount: plan.skippedBoundCount,
         gold,
         bankedGold: newBankedGold,
         owned: nextOwned,

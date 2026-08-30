@@ -79,6 +79,15 @@ type KeyboardInputEvent = {
   preventDefault: () => void;
 };
 
+function isReelKeyboardInput(event: KeyboardInputEvent): boolean {
+  return (
+    event.code === "Space" ||
+    event.key === " " ||
+    event.code === "Enter" ||
+    event.key === "Enter"
+  );
+}
+
 type TranscriptEntry = DangerousRealtimeInput & { sequence: number };
 
 type StoredRealtimeSession = {
@@ -97,6 +106,7 @@ type StoredRealtimeSession = {
 
 export type UseDangerousFishingRealtimeOptions = {
   encounter: DangerousRealtimeClientEncounter;
+  serverNow: number;
   target: DangerousRealtimeClientTarget;
   readJson: DangerousRealtimeJsonReader;
   verification: ActivityVerificationChallenge | null;
@@ -274,18 +284,25 @@ export function dangerousFishingRealtimeStorageKey(encounterId: string) {
 
 export function useDangerousFishingRealtime({
   encounter,
+  serverNow,
   target,
   readJson,
   verification,
   onFinish,
 }: UseDangerousFishingRealtimeOptions) {
   const balanceRevision = encounter.balanceRevision;
+  const [initialServerClockOffset] = useState(() => serverNow - Date.now());
+  const serverClockOffsetRef = useRef(initialServerClockOffset);
+  const timelineNow = useCallback(
+    () => Date.now() + serverClockOffsetRef.current,
+    [],
+  );
   const [view, setView] = useState(() =>
     dangerousRealtimeView(encounter.checkpoint, encounter.config),
   );
   const [holding, setHolding] = useState(false);
   const [startPending, setStartPending] = useState(
-    () => Date.now() < encounter.startedAt,
+    () => Date.now() + initialServerClockOffset < encounter.startedAt,
   );
   const [connection, setConnection] =
     useState<DangerousRealtimeConnection>("online");
@@ -503,7 +520,7 @@ export function useDangerousFishingRealtime({
       );
       try {
         let next = replayLocal(
-          Math.max(stateRef.current.tick, wallTickAt(Date.now())),
+          Math.max(stateRef.current.tick, wallTickAt(timelineNow())),
         );
         stateRef.current = next;
         const desired = desiredMode();
@@ -518,7 +535,15 @@ export function useDangerousFishingRealtime({
       }
       persist();
     },
-    [appendMode, desiredMode, persist, publish, replayLocal, wallTickAt],
+    [
+      appendMode,
+      desiredMode,
+      persist,
+      publish,
+      replayLocal,
+      timelineNow,
+      wallTickAt,
+    ],
   );
 
   const complete = useCallback((json: Record<string, unknown>) => {
@@ -662,7 +687,7 @@ export function useDangerousFishingRealtime({
     automaticRetryBlockedRef.current = false;
     verificationBlockedRef.current = verification !== null;
     finishDeliveredRef.current = false;
-    const pendingStart = Date.now() < encounter.startedAt;
+    const pendingStart = timelineNow() < encounter.startedAt;
     startPendingRef.current = pendingStart;
     // Encounter identity is the reset boundary for every visible and ref state.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -689,7 +714,7 @@ export function useDangerousFishingRealtime({
       nextSequenceRef.current = stored.nextSequence;
       finishRequestIdRef.current = stored.finishRequestId;
       try {
-        stateRef.current = replayLocal(wallTickAt(Date.now()));
+        stateRef.current = replayLocal(wallTickAt(timelineNow()));
       } catch {
         serverRef.current = encounter;
         inputsRef.current = [];
@@ -714,7 +739,7 @@ export function useDangerousFishingRealtime({
       if (hiddenRef.current) {
         releaseAll();
       } else {
-        advanceToNow(Date.now());
+        advanceToNow(timelineNow());
         maybeSync(Date.now());
       }
     };
@@ -730,9 +755,8 @@ export function useDangerousFishingRealtime({
     document.addEventListener("visibilitychange", handleVisibility);
     const timer = window.setInterval(() => {
       if (hiddenRef.current) return;
-      const now = Date.now();
-      advanceToNow(now);
-      maybeSync(now);
+      advanceToNow(timelineNow());
+      maybeSync(Date.now());
     }, LOOP_INTERVAL_MS);
 
     return () => {
@@ -752,6 +776,10 @@ export function useDangerousFishingRealtime({
     // incorrectly release a held input and tear down an in-flight checkpoint.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [encounter.id]);
+
+  useEffect(() => {
+    serverClockOffsetRef.current = serverNow - Date.now();
+  }, [serverNow]);
 
   useEffect(() => {
     if (verification !== null) {
@@ -774,7 +802,7 @@ export function useDangerousFishingRealtime({
   const onPointerDown = useCallback(
     (event: PointerInputEvent) => {
       event.preventDefault?.();
-      if (Date.now() < encounter.startedAt) return;
+      if (timelineNow() < encounter.startedAt) return;
       try {
         event.currentTarget?.setPointerCapture?.(event.pointerId);
       } catch {
@@ -784,7 +812,7 @@ export function useDangerousFishingRealtime({
       setHolding(true);
       appendMode("reel");
     },
-    [appendMode, encounter.startedAt],
+    [appendMode, encounter.startedAt, timelineNow],
   );
 
   const onPointerUp = useCallback(
@@ -807,20 +835,20 @@ export function useDangerousFishingRealtime({
 
   const onKeyDown = useCallback(
     (event: KeyboardInputEvent) => {
-      if (event.code !== "Space" && event.key !== " ") return;
+      if (!isReelKeyboardInput(event)) return;
       event.preventDefault();
-      if (Date.now() < encounter.startedAt) return;
+      if (timelineNow() < encounter.startedAt) return;
       if (event.repeat || inputSourcesRef.current.keyboard) return;
       inputSourcesRef.current.keyboard = true;
       setHolding(true);
       appendMode("reel");
     },
-    [appendMode, encounter.startedAt],
+    [appendMode, encounter.startedAt, timelineNow],
   );
 
   const onKeyUp = useCallback(
     (event: KeyboardInputEvent) => {
-      if (event.code !== "Space" && event.key !== " ") return;
+      if (!isReelKeyboardInput(event)) return;
       event.preventDefault();
       inputSourcesRef.current.keyboard = false;
       const nextHolding = inputSourcesRef.current.pointer;

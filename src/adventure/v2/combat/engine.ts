@@ -25,6 +25,7 @@ import {
   distributeV2DotTicks,
   makeBleedDot,
   makePoisonDot,
+  healingAfterReceivedMultiplier,
   potionHealAmount,
   applyComboFinisherToHits,
   resolveV2SkillCast,
@@ -54,7 +55,6 @@ import {
   onSkillCastMpRefund,
   resolveOffensiveSignatureTriggers,
   resolveDirectSkillHitSignatures,
-  rollEvasionActionRecovery,
   resolveTrackedShieldAbsorption,
   SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
   SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
@@ -80,8 +80,20 @@ import {
   applyEvasionDamageReduction,
   cappedDefReductionPct,
   evasionDamageReductionPct,
-  pveEvasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
+import {
+  appendLog,
+  applyEvasionActionRecoveryPvE,
+  applyHealShieldIfAny,
+  playerPveEvasionReductionPct,
+} from "./engineSupport";
+export {
+  appendLog,
+  applyEvasionActionRecoveryPvE,
+  applyHealShieldIfAny,
+  playerPveEvasionReductionPct,
+  setBattleLogCollection,
+} from "./engineSupport";
 import {
   magicBarrierCombatLogEntries,
   resolveMagicBarrierDamage,
@@ -105,10 +117,12 @@ import {
   refineSwordShadow,
 } from "./shadowBladeCombat";
 import {
+  canStartRuinCharge,
   gainSwordIntent,
   ruinSwordBonuses,
   startRuinCharge,
 } from "./ruinBladeCombat";
+import { tier7CombatJobIdForSkillId } from "@/adventure/data/v2/tier7SkillMechanics";
 import { resolveCrossover, type CrossFamily } from "./skyAscendantCombat";
 import {
   formulaCompletionOverdraftSkillIds,
@@ -592,116 +606,6 @@ function appendEnemySkillMitigationLogs(
   return next;
 }
 
-// 로그는 전체 보관 — 종료 후 알림에 첨부되는 battleLog 도 같은 배열을 사용한다.
-// BattleScene 은 스크롤 컨테이너라 길이가 늘어도 UX 영향 없음.
-//
-// 자동사냥 시뮬(offlineSim)은 전투 로그를 전혀 안 읽는데, 수천 전투 × 수천 턴 동안 매
-// appendLog 가 [...log] 로 점점 커지는 배열을 복사해 O(턴²) 의 순수 낭비가 쌓인다. 시뮬은
-// setBattleLogCollection(false) 로 꺼서 appendLog 가 같은 배열 ref 를 그대로 반환(복사·증가
-// 0)하게 한다. simulateOfflineHunt 는 완전 동기라 try/finally 로 감싸면 동시 요청과 간섭하지
-// 않는다. 라이브/PvP 는 기본 on 이라 로그 동작이 byte-identical 하다.
-let battleLogCollectionEnabled = true;
-export function setBattleLogCollection(enabled: boolean): void {
-  battleLogCollectionEnabled = enabled;
-}
-
-export function appendLog(
-  log: BattleLogEntry[],
-  entry: BattleLogEntry,
-): BattleLogEntry[] {
-  return battleLogCollectionEnabled ? [...log, entry] : log;
-}
-
-export function applyHealShieldIfAny(
-  state: BattleState,
-  player: PlayerCombat,
-  actualHeal: number,
-  calculatedHeal: number = actualHeal,
-): BattleState {
-  const sig = healToShield(player.equipSignatures, {
-    actualHeal,
-    calculatedHeal,
-    maxHp: state.playerMaxHp,
-  });
-  if (!sig) return state;
-  return {
-    ...state,
-    stacks: {
-      ...state.stacks,
-      playerShield: state.stacks.playerShield + sig.amount,
-    },
-    log: appendLog(state.log, {
-      kind: "info",
-      text: `[${sig.label}] 보호막 +${sig.amount}`,
-    }),
-  };
-}
-
-export function playerPveEvasionReductionPct(
-  state: BattleState,
-  player: PlayerCombat,
-): number {
-  const luckEvadeBonus = state.flags.luckyBuffActive
-    ? player.doubleLuck?.evade ?? 0
-    : 0;
-  const temporaryEvasionIncreasePct =
-    luckEvadeBonus +
-    (player.universalLuckBonusPct ?? 0) +
-    state.buffs.cyclingChiBonus +
-    (state.stacks.skillEvasionTurns > 0 ? state.stacks.skillEvasionPct : 0);
-  const chillSlowPct =
-    state.enemy.skill?.kind === "chill"
-      ? state.stacks.chillStacks *
-        (state.enemy.skill.evasionPenaltyPerStack ?? 0)
-      : 0;
-  const accuracyDownPct =
-    state.stacks.enemyAccuracyDownTurns > 0
-      ? state.stacks.enemyAccuracyDownPct
-      : 0;
-  const enemyAccuracy = Math.max(
-    0,
-    (state.enemy.accuracy ?? 0) *
-      (1 - Math.min(100, Math.max(0, accuracyDownPct)) / 100),
-  );
-  const evasionRating = Math.max(
-    0,
-    (player.evaRating ?? player.evasionPct) *
-      (1 + Math.max(0, temporaryEvasionIncreasePct) / 100) *
-      (1 - Math.min(100, Math.max(0, chillSlowPct)) / 100),
-  );
-  return pveEvasionDamageReductionPct(evasionRating, enemyAccuracy);
-}
-
-// 소유자 행동 시작 회복 — 행동 시작 DoT 생존 확인 뒤, 스킬/평타/포션 선택 전에 한 번 호출한다.
-export function applyEvasionActionRecoveryPvE(
-  state: BattleState,
-  player: PlayerCombat,
-  playerName: string,
-  roll: () => number = Math.random,
-): BattleState {
-  const recovery = rollEvasionActionRecovery(
-    player.equipSignatures,
-    state.playerHp,
-    state.playerMaxHp,
-    playerPveEvasionReductionPct(state, player),
-    roll,
-  );
-  if (!recovery) return state;
-  const nextHp = Math.min(state.playerMaxHp, state.playerHp + recovery.amount);
-  const actual = nextHp - state.playerHp;
-  if (actual <= 0) return state;
-  const next = {
-    ...state,
-    playerHp: nextHp,
-    log: appendLog(state.log, {
-      kind: "info" as const,
-      text: `[${recovery.label}] ${playerName}의 HP +${actual}`,
-      turn: "player" as const,
-    }),
-  };
-  return applyHealShieldIfAny(next, player, actual, recovery.amount);
-}
-
 // 데미지 최소 비율(DAMAGE_FLOOR_FRACTION)·평타 데미지(damageBetween)는 combatShared 로 이전
 //   (패턴 "평타 바닥" 모델이 같은 공식을 써야 해서 더 하위 레이어로 내림). 여기선 재노출만.
 export { DAMAGE_FLOOR_FRACTION, damageBetween };
@@ -1056,7 +960,11 @@ function applyRegenIfAny(
   if (state.turn.completedPlayerTurns === 0) return state;
   if (state.turn.completedPlayerTurns % regen.interval !== 0) return state;
   if (state.playerHp >= state.playerMaxHp) return state;
-  const newHp = Math.min(state.playerMaxHp, state.playerHp + regen.amount);
+  const calculatedHeal = healingAfterReceivedMultiplier(
+    regen.amount,
+    player.receivedHealMult,
+  );
+  const newHp = Math.min(state.playerMaxHp, state.playerHp + calculatedHeal);
   const actual = newHp - state.playerHp;
   return applyHealShieldIfAny({
     ...state,
@@ -1065,7 +973,7 @@ function applyRegenIfAny(
       kind: "info",
       text: `[재생] ${playerName}의 HP +${actual}`,
     }),
-  }, player, actual, regen.amount);
+  }, player, actual, calculatedHeal);
 }
 
 // 별빛 재생(regen) — 매 플레이어 턴 종료 시 maxHp 의 %만큼 회복.
@@ -1079,7 +987,10 @@ function applyEnchantRegenIfAny(
   if (pct <= 0) return state;
   if (state.turn.completedPlayerTurns === 0) return state;
   if (state.playerHp >= state.playerMaxHp) return state;
-  const heal = Math.floor((state.playerMaxHp * pct) / 100);
+  const heal = healingAfterReceivedMultiplier(
+    Math.floor((state.playerMaxHp * pct) / 100),
+    player.receivedHealMult,
+  );
   if (heal <= 0) return state;
   const newHp = Math.min(state.playerMaxHp, state.playerHp + heal);
   const actual = newHp - state.playerHp;
@@ -1126,7 +1037,10 @@ function applyPassiveTurnHealIfAny(
   if (pct <= 0) return s;
   if (s.turn.completedPlayerTurns === 0) return s;
   if (s.playerHp >= s.playerMaxHp) return s;
-  const heal = Math.floor((s.playerMaxHp * pct) / 100);
+  const heal = healingAfterReceivedMultiplier(
+    Math.floor((s.playerMaxHp * pct) / 100),
+    player.receivedHealMult,
+  );
   if (heal <= 0) return s;
   const newHp = Math.min(s.playerMaxHp, s.playerHp + heal);
   const actual = newHp - s.playerHp;
@@ -1188,7 +1102,10 @@ function dealExtraEnemyDamage(
     state.buffs.playerLifestealTurnsLeft > 0 && state.buffs.playerLifestealPct > 0
       ? Math.floor((totalDmg * state.buffs.playerLifestealPct) / 100)
       : 0;
-  const totalHeal = luckyLifestealHeal + runeLifestealHeal + apLifestealHeal;
+  const totalHeal = healingAfterReceivedMultiplier(
+    luckyLifestealHeal + runeLifestealHeal + apLifestealHeal,
+    player.receivedHealMult,
+  );
   const newPlayerHp =
     totalHeal > 0
       ? Math.min(state.playerMaxHp, state.playerHp + totalHeal)
@@ -1300,7 +1217,10 @@ export function finishPlayerTurn(
   {
     const s = st.stacks;
     if (s.skillRegenTurns > 0 && s.skillRegenPct > 0 && st.playerHp > 0) {
-      const heal = Math.floor((st.playerMaxHp * s.skillRegenPct) / 100);
+      const heal = healingAfterReceivedMultiplier(
+        Math.floor((st.playerMaxHp * s.skillRegenPct) / 100),
+        player.receivedHealMult,
+      );
       const before = st.playerHp;
       const nextHp = Math.min(st.playerMaxHp, before + heal);
       if (nextHp > before) {
@@ -1742,10 +1662,14 @@ export function advanceTurn(
               );
             }, 0)
           : 0;
-      const bleedTickHeal =
+      const bleedTickHealBase =
         actualBleedDamage > 0 && bleedTickHealPct > 0
           ? Math.floor((state.playerMaxHp * bleedTickHealPct) / 100)
           : 0;
+      const bleedTickHeal = healingAfterReceivedMultiplier(
+        bleedTickHealBase,
+        player.receivedHealMult,
+      );
       const nextPlayerHp = Math.min(
         state.playerMaxHp,
         state.playerHp + bleedTickHeal,
@@ -1885,7 +1809,10 @@ function evadeIncomingEnemySkill(
     });
   }
 
-  const evadeHeal = player.evadeHealAmount ?? 0;
+  const evadeHeal = healingAfterReceivedMultiplier(
+    player.evadeHealAmount ?? 0,
+    player.receivedHealMult,
+  );
   const nextPlayerHp =
     evadeHeal > 0
       ? Math.min(state.playerMaxHp, state.playerHp + evadeHeal)
@@ -2431,6 +2358,8 @@ export function applyPlayerV2SkillCast(
   const shadowCoreEquipped = state.v2Skills.equipped.includes(
     "v2c_shadowblade_swordshadow",
   );
+  const shadowCoreMechanic =
+    V2_SKILLS.v2c_shadowblade_swordshadow.tier7Mechanic;
   const formulaCoreEquipped = state.v2Skills.equipped.includes(
     "v2c_primordialsage_completeformula",
   );
@@ -2569,6 +2498,28 @@ export function applyPlayerV2SkillCast(
     },
   };
   const ruinChargeAtActionStart = state.stacks.tier7?.ruinCharge;
+  const ruinSwordMechanic = V2_SKILLS.v2c_ruinblade_ruinsword.tier7Mechanic;
+  const ruinChargeReady =
+    ruinSwordMechanic?.kind === "chargedFinisher" &&
+    canStartRuinCharge(
+      state.stacks.tier7?.swordIntent ?? 0,
+      ruinSwordMechanic.requiredIntentStacks,
+    );
+  const eligibleCastInput =
+    !ruinChargeAtActionStart && !ruinChargeReady
+      ? {
+          ...castInput,
+          skills: {
+            ...castInput.skills,
+            learned: castInput.skills.learned.filter(
+              (skillId) => skillId !== "v2c_ruinblade_ruinsword",
+            ),
+            equipped: castInput.skills.equipped.filter(
+              (skillId) => skillId !== "v2c_ruinblade_ruinsword",
+            ),
+          },
+        }
+      : castInput;
   let result = ruinChargeAtActionStart
     ? resolveV2SkillCast({
         ...castInput,
@@ -2587,7 +2538,7 @@ export function applyPlayerV2SkillCast(
           mp: Math.max(castInput.attacker.mp, 100),
         },
       })
-    : resolveV2SkillCast(castInput);
+    : resolveV2SkillCast(eligibleCastInput);
   const rerunSelectedCast = (
     current: V2SkillCastResult,
     overrides: Pick<
@@ -3312,8 +3263,9 @@ export function applyPlayerV2SkillCast(
         Math.max(0, result.healFromActualDamagePct)) /
         100,
     );
-  const resolvedSelfHeal = Math.floor(
-    resolvedSelfHealBase * tier6Cast.tier6UnityMult,
+  const resolvedSelfHeal = healingAfterReceivedMultiplier(
+    Math.floor(resolvedSelfHealBase * tier6Cast.tier6UnityMult),
+    player.receivedHealMult,
   );
   if (resolvedSelfHeal > 0 && result.castSkillName) {
     const before = nextPlayerHp;
@@ -3675,7 +3627,15 @@ export function applyPlayerV2SkillCast(
     ) {
       const mechanic = V2_SKILLS[result.castSkillId]?.tier7Mechanic;
       const recordPct =
-        mechanic?.kind === "shadowStrike" ? mechanic.recordPct : 50;
+        mechanic?.kind === "shadowStrike"
+          ? mechanic.recordPct
+          : tier7CombatJobIdForSkillId(result.castSkillId) === "shadowblade"
+            ? shadowCoreMechanic?.kind === "shadowCore"
+              ? shadowCoreMechanic.recordPct
+              : 50
+            : shadowCoreMechanic?.kind === "shadowCore"
+              ? shadowCoreMechanic.inheritedRecordPct
+              : 25;
       nextTier7.swordShadow = recordSwordShadow({
         existing: nextTier7.swordShadow,
         sourceSkillId: result.castSkillId,
@@ -3733,7 +3693,7 @@ export function applyPlayerV2SkillCast(
     nextTier7.swordIntent = 0;
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[멸검] 충전을 시작했다. 다음 행동 기회에 자동 해방한다.`,
+      text: `[멸검] 검의 3개를 소모해 충전을 시작했다. 다음 행동 기회에 자동 해방한다.`,
       turn: "player",
     });
   } else if (nextTier7 && ruinChargeAtActionStart) {
@@ -4730,12 +4690,16 @@ export function applyPotionEffect(
   state: BattleState,
   potion: Potion,
   playerName: string,
+  receivedHealMult?: number,
 ): BattleState {
   if (potion.effect.kind === "heal_hp") {
-    const heal = potionHealAmount(
-      potion,
-      state.playerMaxHp,
-      state.buffs.potionHealPct ?? 0,
+    const heal = healingAfterReceivedMultiplier(
+      potionHealAmount(
+        potion,
+        state.playerMaxHp,
+        state.buffs.potionHealPct ?? 0,
+      ),
+      receivedHealMult,
     );
     const newHp = Math.min(state.playerMaxHp, state.playerHp + heal);
     const actual = newHp - state.playerHp;

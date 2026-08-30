@@ -34,7 +34,7 @@ describe("광전사–패황 사망 극복 상태", () => {
     expect(voluntary.deferToGenericEndurance).toBe(false);
   });
 
-  it("광기의 왕좌는 최대 HP 40%로 버티고 현재 적대 행동이 끝날 때까지 그 HP를 지킨다", () => {
+  it("광기의 왕좌는 최대 HP 20%로 버티고 현재 적대 행동이 끝날 때까지 그 HP를 지킨다", () => {
     const result = applyBerserkerLethalDamage({
       state: initialBerserkerCombatState(),
       madnessRank: 3,
@@ -46,16 +46,16 @@ describe("광전사–패황 사망 극복 상태", () => {
     expect(result).toMatchObject({
       triggered: true,
       deferToGenericEndurance: false,
-      hp: 400,
+      hp: 200,
       state: {
         deathOvercomeUsed: true,
         deathDamageReady: false,
-        hpFloor: 400,
+        hpFloor: 200,
         guardUntil: "current_action_end",
         annihilationUsesRemaining: 1,
       },
     });
-    expect(clampBerserkerGuardedHp(result.state, 25)).toBe(400);
+    expect(clampBerserkerGuardedHp(result.state, 25)).toBe(200);
 
     const ended = finishBerserkerCurrentActionGuard(result.state);
     expect(ended.guardUntil).toBe("none");

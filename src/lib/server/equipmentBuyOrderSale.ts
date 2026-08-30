@@ -67,6 +67,7 @@ export async function prepareEquipmentBuyOrderSaleScope(
   const orders: Array<{ id: number; buyerId: string }> = [];
   const seenOrderIds = new Set<number>();
   for (const instance of args.instances) {
+    if (instance.bound) continue;
     const snapshot = equipmentOrderSnapshot(instance);
     const minimumPrice = equipmentBuyOrderMinimumPrice(instance.id);
     if (!snapshot || minimumPrice == null) continue;
@@ -137,6 +138,7 @@ export async function fillBestEquipmentBuyOrder(
   },
 ): Promise<EquipmentBuyOrderSaleAudit | null> {
   const { sellerId, instance, taxRate, now } = args;
+  if (instance.bound) return null;
   const snapshot = equipmentOrderSnapshot(instance);
   const minimumPrice = equipmentBuyOrderMinimumPrice(instance.id);
   if (!snapshot || minimumPrice == null) return null;

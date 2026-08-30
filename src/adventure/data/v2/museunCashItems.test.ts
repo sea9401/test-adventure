@@ -81,8 +81,15 @@ describe("무슨 코인 캐시 소모품", () => {
       effect: { kind: "rename" },
     });
     expect(MUSEUN_CASH_ITEMS.adventure_support_30d).toMatchObject({
-      coinPrice: 800,
+      coinPrice: 1_000,
       effect: { kind: "adventure_support", days: 30 },
+    });
+    expect(MUSEUN_CASH_ITEMS.adventure_support_premium_30d).toMatchObject({
+      name: "월간 모험 지원권 프리미엄 (30일)",
+      coinPrice: 2_500,
+      delivery: "inventory",
+      tradeable: true,
+      effect: { kind: "adventure_support_premium", days: 30 },
     });
     expect(MUSEUN_CASH_ITEMS.prismatic_profile_border).toMatchObject({
       coinPrice: 400,
@@ -92,14 +99,14 @@ describe("무슨 코인 캐시 소모품", () => {
     expect(MUSEUN_CASH_ITEMS.starlight_chat_badge.coinPrice).toBe(300);
     expect(MUSEUN_CASH_ITEMS.chroma_name_box).toMatchObject({
       name: "닉네임 꾸미기 상자",
-      coinPrice: 200,
+      coinPrice: 300,
       delivery: "inventory",
       tradeable: true,
       effect: { kind: "chroma_name_box" },
     });
     expect(MUSEUN_CASH_ITEMS.profile_border_box).toMatchObject({
       name: "프로필 꾸미기 상자",
-      coinPrice: 300,
+      coinPrice: 400,
       delivery: "inventory",
       tradeable: true,
       effect: { kind: "profile_border_box" },
@@ -116,6 +123,24 @@ describe("무슨 코인 캐시 소모품", () => {
       tradeable: true,
       effect: { kind: "cosmetic_extension", days: 30 },
     });
+    expect(MUSEUN_CASH_ITEMS.monthly_stamina_potion_bundle).toMatchObject({
+      name: "월간 스태미나 회복약 세트",
+      coinPrice: 300,
+      delivery: "bundle",
+      tradeable: false,
+      effect: {
+        kind: "stamina_potion_bundle",
+        potions: 20,
+        monthlyLimit: 3,
+      },
+    });
+    expect(MUSEUN_CASH_ITEMS.growth_leap_package).toMatchObject({
+      name: "성장 도약 패키지",
+      coinPrice: 1_200,
+      delivery: "bundle",
+      tradeable: false,
+      effect: { kind: "growth_leap", potions: 30, missionDays: 30 },
+    });
   });
 
   it("카탈로그 id만 캐시 아이템으로 인정한다", () => {
@@ -126,10 +151,17 @@ describe("무슨 코인 캐시 소모품", () => {
     expect(isMuseunCashItemId("rename_permit")).toBe(true);
     expect(isMuseunCashItemId("profile_image_permit")).toBe(true);
     expect(isMuseunCashItemId("adventure_support_30d")).toBe(true);
+    expect(isMuseunCashItemId("adventure_support_premium_30d")).toBe(true);
     expect(isMuseunCashItemId("cultivation_reset_potion")).toBe(true);
     expect(isMuseunCashItemId("chroma_name_box")).toBe(true);
     expect(isMuseunShopItemId("profile_border_box")).toBe(true);
     expect(isMuseunShopItemId("chat_badge_box")).toBe(true);
+    expect(isMuseunShopItemId("monthly_stamina_potion_bundle")).toBe(true);
+    expect(isMuseunShopItemId("growth_leap_package")).toBe(true);
+    expect(MUSEUN_ADMIN_GIFT_ITEM_IDS).not.toContain(
+      "monthly_stamina_potion_bundle",
+    );
+    expect(MUSEUN_ADMIN_GIFT_ITEM_IDS).not.toContain("growth_leap_package");
     expect(isMuseunShopItemId("profile_badge_display_stand")).toBe(true);
     expect(isMuseunShopItemId("prismatic_profile_border")).toBe(false);
     expect(MUSEUN_SHOP_ITEM_IDS).not.toContain("starlight_chat_badge");
@@ -158,6 +190,9 @@ describe("무슨 코인 캐시 소모품", () => {
     expect(MUSEUN_UTILITY_ITEM_IDS).toContain("rename_permit");
     expect(MUSEUN_UTILITY_ITEM_IDS).toContain("profile_image_permit");
     expect(MUSEUN_UTILITY_ITEM_IDS).toContain("adventure_support_30d");
+    expect(MUSEUN_UTILITY_ITEM_IDS).toContain(
+      "adventure_support_premium_30d",
+    );
     expect(MUSEUN_UTILITY_ITEM_IDS).toContain("cultivation_reset_potion");
     expect(MUSEUN_UTILITY_ITEM_IDS).not.toContain("profile_border_box");
     expect(MUSEUN_UTILITY_ITEM_IDS).not.toContain("cosmetic_extension_30d");
@@ -170,6 +205,9 @@ describe("무슨 코인 캐시 소모품", () => {
     expect(isTradeableMuseunCashItemId("rename_permit")).toBe(true);
     expect(isTradeableMuseunCashItemId("profile_image_permit")).toBe(true);
     expect(isTradeableMuseunCashItemId("adventure_support_30d")).toBe(true);
+    expect(
+      isTradeableMuseunCashItemId("adventure_support_premium_30d"),
+    ).toBe(true);
     expect(isTradeableMuseunCashItemId("cultivation_reset_potion")).toBe(
       false,
     );

@@ -24,7 +24,7 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { PushNotificationSettings } from "@/components/PushNotificationSettings";
 import { BlockedUsersPanel } from "@/components/safety/BlockedUsersPanel";
-import { useGameState } from "./GameStateProvider";
+import { useGameIdentityState } from "./GameStateProvider";
 import { useAdventureDashboard } from "./AdventureDashboardProvider";
 import { AdventureActivitySettings } from "./AdventureActivitySettings";
 import { AdventureHomeLayoutSettings } from "./AdventureHomeLayoutSettings";
@@ -86,7 +86,7 @@ const DISPLAY_OPTIONS = [
 
 export function V2PreferencesView() {
   const router = useRouter();
-  const { accountName } = useGameState();
+  const { accountName } = useGameIdentityState();
   const { snapshot, updatePreferences } = useAdventureDashboard();
   const [theme, setTheme] = useState<Theme>("dark");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("default");

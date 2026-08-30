@@ -33,6 +33,7 @@ export type V2ProficiencyGroup = {
   // 직군 숙련도 — 사냥 승리마다 +1(전직 리셋에도 불변). 전직 게이트 입력(2026-06).
   cumLevel: number;
 };
+export type LiberationCycleGrowth = { hp: number; mp: number };
 export type V2ProficiencyState = {
   // 숙달 포인트 — 캐릭터 단일 잔액(승리당 적립, 수행·스킬학습에 소모). caps 처럼 전역(전직 무관).
   //   옛 직군별 points 는 parse 시 전부 합산해 이관(2026-06-27).
@@ -43,6 +44,8 @@ export type V2ProficiencyState = {
   statFloorLevels: Record<string, number>;
   caps: Partial<Record<V2StatKey, number>>;
   grown: Partial<Record<V2StatKey, number>>; // 랜덤 레벨 성장 누적분(1차 스탯).
+  /** 현재 재전직 주기에 장비 해방으로 영구 누적한 최대 HP·MP. 재전직 시 0으로 초기화한다. */
+  liberationCycleGrowth: LiberationCycleGrowth;
   // 폐기된 수행 재분배 저장 필드. 과거 저장 형식 호환을 위해 0으로만 유지한다.
   growthRespecPoints?: number;
   // 직업별 숙련도 — 특정 직업(예: 기사·사제)으로 쌓은 승리 수. groups(직군 숙련도)와 별개.
@@ -273,6 +276,7 @@ export function emptyProficiency(): V2ProficiencyState {
     statFloorLevels: {},
     caps: {},
     grown: {},
+    liberationCycleGrowth: { hp: 0, mp: 0 },
     growthRespecPoints: 0,
     jobCumLevel: {},
     jobHistory: [],
@@ -321,6 +325,7 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     statFloorLevels?: unknown;
     caps?: unknown;
     grown?: unknown;
+    liberationCycleGrowth?: unknown;
     growthRespecPoints?: unknown;
     jobCumLevel?: unknown;
     jobHistory?: unknown;
@@ -465,12 +470,22 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     cultivationLedgerVersion >= 1
       ? posInt(obj.cultivationPointsSpent)
       : estimateLegacyCultivationSpend(capTotal, cultivationTotal);
+  const rawLiberationGrowth =
+    obj.liberationCycleGrowth &&
+    typeof obj.liberationCycleGrowth === "object" &&
+    !Array.isArray(obj.liberationCycleGrowth)
+      ? (obj.liberationCycleGrowth as Record<string, unknown>)
+      : {};
   return {
     points: pointsTotal,
     groups,
     statFloorLevels,
     caps,
     grown,
+    liberationCycleGrowth: {
+      hp: posInt(rawLiberationGrowth.hp),
+      mp: posInt(rawLiberationGrowth.mp),
+    },
     growthRespecPoints: 0,
     jobCumLevel,
     jobHistory,
@@ -513,6 +528,7 @@ export function resetLevelGrowth(p: V2ProficiencyState): V2ProficiencyState {
     ...(p.lifeResourceGrowth
       ? { lifeResourceGrowth: resetLifeResourceLevels(p.lifeResourceGrowth) }
       : {}),
+    liberationCycleGrowth: { hp: 0, mp: 0 },
   };
 }
 

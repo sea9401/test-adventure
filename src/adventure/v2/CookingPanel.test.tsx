@@ -46,6 +46,14 @@ function fixture(effectTag: CookingEffectTag = "offense"): CookingResponse {
     condition: { effectTag, minimumQuality: "careful" },
     rewards: { gold: 60_000, reputation: 6, cookingXp: 120, specialtyXp: 60 },
   };
+  requests.weekly = {
+    id: "weekly:test:hearth",
+    kind: "weekly",
+    title: "화덕 주간 만찬",
+    targetScore: 600,
+    condition: { field: "hearth", minimumQuality: "careful" },
+    rewards: { gold: 350_000, reputation: 30, cookingXp: 700, specialtyXp: 350 },
+  };
   const foodId = cookingFoodId({ recipeId: "tomato_salad", quality: "masterpiece", originator: true, specialtyBonusPct: 5 });
   return {
     ok: true,
@@ -159,6 +167,12 @@ describe("개편 요리 연구실", () => {
     expect(html).toContain("이번 42점");
   });
 
+  it("일일과 주간 납품 카드에 서로 다른 최소 품질 조건을 표시한다", () => {
+    const html = renderSection("delivery");
+    expect(html).toContain("조건: 화덕 분야 · 일반 이상");
+    expect(html).toContain("조건: 화덕 분야 · 정성작 이상");
+  });
+
   it.each([
     ["offense", "공격 효과"],
     ["defense", "방어 효과"],
@@ -166,7 +180,7 @@ describe("개편 요리 연구실", () => {
     ["hunt_exp", "사냥 경험치 효과"],
     ["hunt_gold", "사냥 골드 효과"],
     ["life", "생활 효과"],
-  ] as const)("정성 효과식 제목에 %s 조건을 표시한다", (effectTag, label) => {
+  ] as const)("정성 효과식에 %s 조건을 표시한다", (effectTag, label) => {
     const data = fixture(effectTag);
     const html = renderToStaticMarkup(
       <CookingWorkspace
@@ -178,7 +192,7 @@ describe("개편 요리 연구실", () => {
       />,
     );
 
-    expect(html).toContain(`정성 효과식 · ${label}`);
+    expect(html).toContain(`조건: ${label} · 정성작 이상`);
   });
 
   it("상시 납품은 요리와 판매 대금을 확인한 뒤에만 실행한다", async () => {

@@ -1,8 +1,16 @@
-import type { CookingFoodDefinition, CookingQuality } from "./foodShared";
+import {
+  cookingQualityName,
+  type CookingFoodDefinition,
+  type CookingQuality,
+} from "./foodShared";
 import type { CookingStateV2 } from "./state";
 import { COOKING_STANDING_DELIVERY_DAILY_LIMIT } from "./constants";
 import type { CookingEffectTag, CookingField, CookingMethod } from "./types";
-import { COOKING_FIELD_NAMES, COOKING_METHOD_NAMES } from "./types";
+import {
+  COOKING_EFFECT_TAG_NAMES,
+  COOKING_FIELD_NAMES,
+  COOKING_METHOD_NAMES,
+} from "./types";
 
 export type CookingDeliveryCondition = {
   field?: CookingField;
@@ -26,6 +34,23 @@ export type CookingDeliveryRequest = {
   condition: CookingDeliveryCondition;
   rewards: CookingDeliveryRewards;
 };
+
+export function cookingDeliveryConditionText(
+  condition: CookingDeliveryCondition,
+): string {
+  const parts: string[] = [];
+  if (condition.field) {
+    parts.push(`${COOKING_FIELD_NAMES[condition.field]} 분야`);
+  }
+  if (condition.method) {
+    parts.push(`${COOKING_METHOD_NAMES[condition.method]} 조리`);
+  }
+  if (condition.effectTag) {
+    parts.push(`${COOKING_EFFECT_TAG_NAMES[condition.effectTag]} 효과`);
+  }
+  parts.push(`${cookingQualityName(condition.minimumQuality)} 이상`);
+  return parts.join(" · ");
+}
 
 const FIELDS: readonly CookingField[] = ["hearth", "pot", "baking", "seafood", "medicinal"];
 const METHODS: readonly CookingMethod[] = ["grill", "boil", "stir_fry", "fry", "steam", "bake", "brew", "ferment"];

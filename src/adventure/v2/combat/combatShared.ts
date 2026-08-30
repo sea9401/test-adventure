@@ -621,6 +621,16 @@ export function v2HealAmount(args: {
   return Math.floor(base * (args.healMult ?? 1));
 }
 
+/** 받는 회복량 배율을 최종 회복 산출값에 한 번만 적용한다. */
+export function healingAfterReceivedMultiplier(
+  amount: number,
+  receivedHealMult?: number,
+): number {
+  const normalized = Math.max(0, amount);
+  if (receivedHealMult == null || receivedHealMult === 1) return normalized;
+  return Math.floor(normalized * Math.max(0, receivedHealMult));
+}
+
 // MP-throttle 모델 — 전 스킬 쿨다운 폐지(데이터 cooldown:0), MP 소모량이 유일 throttle.
 // P5 — 고정 절대값(v2Skills.v2SkillMpCostValue): 기준 풀 × % × 계열 × 차수. 무료·몬스터는 리터럴.
 export function v2SkillMpCost(def: V2SkillDefinition): number {
@@ -2032,8 +2042,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   //   스킬 주피해 속성(마법/물리)·attackCount 로 산출(damageBetween — 엔진 평타와 동일 공식).
   //   hitDamages 는 비율용이라 미스케일(엔진이 enemyDamage 총합을 distributeBoostedHits 로 재분배).
   //   DoT 는 평타 등가가 없어 위 모델 대신 V2_PATTERN_DOT_POWER_MULT 로 별도 throttle(위 dot 분기).
-  //   selfHeal 도 동일 ×skillMult throttle. 단 oncePerBattle 회복은 패턴이 발동 빈도를
-  //   늘리지 않으므로 풀 위력을 유지한다. 버프/디버프/마나회복은 미적용.
+  //   직접 회복은 스킬 데이터에 실효 수치를 명시하므로 패턴에서 다시 감쇠하지 않는다.
+  //   버프/디버프/마나회복도 미적용.
   // 차수별 위력 통과율 — 고차 스킬일수록 평타 초과분을 더 많이 반영(쓸 가치). t1=중립 기본값.
   const skillMult =
     viaPattern && !selectedPatternUsesProcGate
@@ -2163,22 +2173,15 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const damageBasedHeal = Math.floor(
     (mutationBoostedEnemyDamage * healFromDamagePct) / 100,
   );
-  const directHealMult = def.oncePerBattle ? 1 : skillMult;
-  const patternScaledSelfHeal =
-    directHealMult === 1
-      ? selfHeal + damageBasedHeal
-      : Math.round(selfHeal * directHealMult) + damageBasedHeal;
-  const patternScaledSelfHealOnMiss =
-    directHealMult === 1 ? selfHeal : Math.round(selfHeal * directHealMult);
   const limitedRecoveryEffectMult =
     input.combatMode === "pvp" && isLimitedRecoverySkillId(id)
       ? PVP_LIMITED_RECOVERY_EFFECT_MULT
       : 1;
   const scaledSelfHeal = Math.floor(
-    patternScaledSelfHeal * limitedRecoveryEffectMult,
+    (selfHeal + damageBasedHeal) * limitedRecoveryEffectMult,
   );
   const scaledSelfHealOnMiss = Math.floor(
-    patternScaledSelfHealOnMiss * limitedRecoveryEffectMult,
+    selfHeal * limitedRecoveryEffectMult,
   );
   const boostedShield = shieldToApply
     ? {

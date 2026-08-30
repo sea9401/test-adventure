@@ -10,6 +10,7 @@ import {
   codexThemeDeepDepth,
   codexUniqueDropSummary,
   SKY_RIFT_CODEX_DROP_SUMMARY,
+  SKY_RIFT_WEAPON_DROP_LABEL,
   shouldShowCodexTutorial,
   shouldLoadCodexMastery,
   spCollectionSpRange,
@@ -121,6 +122,11 @@ describe("모험의 서 사냥터 표시", () => {
   it("천공 균열 장비는 난이도별 별도 풀이 아니라 전역 방어구 풀이라고 안내한다", () => {
     expect(SKY_RIFT_CODEX_DROP_SUMMARY).toContain("모든 난이도 동일 방어구 풀");
     expect(SKY_RIFT_CODEX_DROP_SUMMARY).toContain("깊이별 총 0.05~0.10%");
+  });
+
+  it("천공 균열 무기 획득처는 내부 단계 번호 대신 지역 단계명으로 표시한다", () => {
+    expect(SKY_RIFT_WEAPON_DROP_LABEL).toContain("천공 균열 최심부");
+    expect(SKY_RIFT_WEAPON_DROP_LABEL).not.toContain("78단계");
   });
 
   it("별의 무덤은 시그니처 유니크 총 드랍률을 정확히 안내한다", () => {

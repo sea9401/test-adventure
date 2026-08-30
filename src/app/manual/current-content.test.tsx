@@ -29,6 +29,22 @@ import { CoopContent } from "./content/coop";
 import { OverviewContent } from "./content/overview";
 
 describe("최신 게임 안내서 내용", () => {
+  it("월간 회복약 세트와 성장 도약 패키지의 제한·보상을 정확히 안내한다", () => {
+    const html = renderToStaticMarkup(<EconomyContent />);
+
+    expect(html).toContain("월간 스태미나 회복약 세트");
+    expect(html).toContain("귀속 회복약 20개");
+    expect(html).toContain("월 3회");
+    expect(html).toContain("1,200 무슨 코인");
+    expect(html).toContain("계정당 평생 1회");
+    expect(html).toContain("30일 진행 + 7일 수령 유예");
+    expect(html).toContain("누적 50,000");
+    expect(html).toContain("숙련 증서 총 5,000개");
+    expect(html).toContain("모험 지원권이나 장비는 포함되지 않습니다");
+    expect(html).not.toContain("성장 도약 패키지 보상: 모험 지원권");
+    expect(html).not.toContain("성장 도약 패키지 보상: 장비");
+  });
+
   it("힘·지능의 공격 환산과 힘·활력의 최대 HP 환산을 안내한다", () => {
     const stats = renderToStaticMarkup(<StatsContent />);
     const combat = renderToStaticMarkup(<CombatContent />);
@@ -39,6 +55,18 @@ describe("최신 게임 안내서 내용", () => {
     expect(stats).toContain("지능 1당 마법 공격력 0.7");
     expect(combat).toContain("힘 1당 공격력 0.7");
     expect(combat).toContain("지능 1당 마법 공격력 0.7");
+  });
+
+  it("최대 HP·MP 계산 순서와 정신의 역할을 구분해 안내한다", () => {
+    const formulas = renderToStaticMarkup(<CombatFormulasContent />);
+
+    expect(formulas).toContain("최대 HP 계산 순서");
+    expect(formulas).toContain("기초값과 레벨·힘·활력");
+    expect(formulas).toContain("마지막에 장비의 고정 HP");
+    expect(formulas).toContain("최대 MP 계산 순서");
+    expect(formulas).toContain("지능과 장비 MP");
+    expect(formulas).toContain("정신은 최대 MP를 직접 올리지 않습니다");
+    expect(formulas).toContain("회복 배율");
   });
 
   it("협동 보스 공격 비용과 단방향 전체 공개 규칙을 안내한다", () => {
@@ -539,6 +567,9 @@ describe("최신 게임 안내서 내용", () => {
     expect(skills).toContain("전투당 1회 생존");
     expect(skills).toContain("HP 비용과 보호막 우회");
     expect(skills).toContain("PvE·PvP 차이");
+    expect(skills).toContain("계승 공격은 25%");
+    expect(skills).toContain("검의가 정확히 3개");
+    expect(skills).toContain("다음 행동 기회에 자동 해방");
   });
 
   it("천공 균열·별의 무덤 장비 풀과 폭풍 원정 연습 모드를 안내한다", () => {
@@ -552,18 +583,40 @@ describe("최신 게임 안내서 내용", () => {
     expect(hunting).toContain("미리보기 후 이동을 확정");
     expect(hunting).toContain("공용 보급과 폭풍 제단");
     expect(hunting).toContain("지나온 노드로 돌아갈 수 없습니다");
-    expect(hunting).toContain("천공 균열 73~78단계");
+    expect(hunting).toContain("천공 균열의 입구·심부·최심부");
     expect(hunting).toContain("같은 6티어 전역 후보 풀");
     expect(hunting).toContain("시그니처 유니크 12종도 전 구간");
-    expect(hunting).toContain("별의 무덤 79~84단계");
+    expect(hunting).toContain("별의 무덤의 입구·심부·최심부");
     expect(hunting).toContain("총 0.0035%");
     expect(hunting).toContain("경험치와 골드");
-    expect(hunting).toContain("천공 균열 78단계와 동일");
+    expect(hunting).toContain("천공 균열 최심부와 동일");
+    expect(hunting).not.toContain("73~78단계");
+    expect(hunting).not.toContain("79~84단계");
     expect(equipment).toContain("난이도와 관계없이 같은 6티어");
+    expect(equipment).toContain("천공 균열의 입구·심부·최심부");
     expect(compendium).toContain("난이도에 따라 후보가 바뀌지 않고");
+    expect(compendium).toContain("천공 균열 최심부 전용 무기");
     expect(compendium).toContain("시그니처 유니크 12종은 천공 균열 전");
     expect(compendium).toContain("별의 무덤");
     expect(compendium).toContain("0.0035%");
+  });
+
+  it("폭풍 원정 장비와 전용 유니크의 획득 위치·기본 확률을 안내한다", () => {
+    const hunting = renderToStaticMarkup(<HuntingContent />);
+
+    expect(hunting).toContain("원정 장비와 획득 위치");
+    expect(hunting).toContain("잔해 항로의 모든 전투");
+    expect(hunting).toContain("요새핵 반지");
+    expect(hunting).toContain("칼바람 항로의 모든 전투");
+    expect(hunting).toContain("질풍눈 반지");
+    expect(hunting).toContain("뇌운 항로의 모든 전투");
+    expect(hunting).toContain("낙뢰점 반지");
+    expect(hunting).toContain("부유성채의 동력갑");
+    expect(hunting).toContain("해당 항로 수호자 0.15% · 폭풍의 심장 0.40%");
+    expect(hunting).toContain("삼상 접속장갑");
+    expect(hunting).toContain("폭풍의 심장 0.20%");
+    expect(hunting).toContain("맥동하는 폭풍심장");
+    expect(hunting).toContain("폭풍의 심장 0.05%");
   });
 
   it("숙련의 탑 100층 도전과 50층 보상 상한을 함께 안내한다", () => {

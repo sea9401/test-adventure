@@ -16,6 +16,7 @@ import {
   RANCH_ANIMAL_DEFINITIONS,
   RANCH_REBUILD_COSTS,
   RANCH_SLOT_DEFINITIONS,
+  type RanchAnimalDefinition,
   type RanchAnimalId,
   type RanchSlotId,
 } from "./ranch";
@@ -29,6 +30,10 @@ function slotNumber(slotId: RanchSlotId): number {
 function rebuildTargetText(animalId: RanchAnimalId): string {
   const buildingName = RANCH_ANIMAL_DEFINITIONS[animalId].buildingName;
   return `${buildingName}${animalId === "pig" ? "로" : "으로"}`;
+}
+
+function ranchProductionText(animal: RanchAnimalDefinition): string {
+  return `${formatDuration(animal.cycleMs)} · ${animal.outputName} ${animal.outputAmount}개${animal.mode === "shipment" ? " / 마리" : ""} · 농사 XP ${animal.xpPerCycle}`;
 }
 
 export async function confirmRanchSlotConstruction({
@@ -218,12 +223,11 @@ export function FarmRanchPanel({
                             ? [`${animal.buildingName} 농사 Lv.${animal.requiredLevel} 필요`]
                             : []),
                         ];
-                        const reason =
-                          levelReasons.length > 0
-                            ? levelReasons.join(" · ")
-                            : !canAfford
-                              ? "농장 증표 부족"
-                              : `${animal.outputName} ${animal.outputAmount}개 / ${formatDuration(animal.cycleMs)}`;
+                        const reason = levelReasons.length > 0
+                          ? levelReasons.join(" · ")
+                          : !canAfford
+                            ? "농장 증표 부족"
+                            : null;
                         return (
                           <button
                             key={animalId}
@@ -242,8 +246,13 @@ export function FarmRanchPanel({
                             <span className="font-bold text-zinc-900 dark:text-zinc-100">
                               {animal.buildingName} 건설
                             </span>
-                            <span className="text-xs text-zinc-600 dark:text-zinc-300">
-                              {busyUpgradeSlotId === slotDefinition.id ? "건설 중..." : reason}
+                            <span className="text-right text-xs text-zinc-600 dark:text-zinc-300">
+                              <span className="block">{ranchProductionText(animal)}</span>
+                              {busyUpgradeSlotId === slotDefinition.id ? (
+                                <span className="block font-semibold">건설 중...</span>
+                              ) : reason ? (
+                                <span className="block font-semibold text-rose-600 dark:text-rose-300">{reason}</span>
+                              ) : null}
                             </span>
                           </button>
                         );
@@ -328,9 +337,8 @@ export function FarmRanchPanel({
                       부지 {index + 1} · {animal.buildingName}
                     </p>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {animal.mode === "shipment"
-                        ? `${animal.outputName} ${animal.outputAmount}개 / 마리 · ${formatDuration(animal.cycleMs)} · 최대 ${shipmentCapacity}마리`
-                        : `${animal.outputName} ${animal.outputAmount}개 / ${formatDuration(animal.cycleMs)}`}
+                      {ranchProductionText(animal)}
+                      {animal.mode === "shipment" ? ` · 최대 ${shipmentCapacity}마리` : ""}
                     </p>
                     <div className="mt-2 flex items-center gap-2">
                       <FarmItemIcon itemId={animal.outputItemId} className="size-9" />

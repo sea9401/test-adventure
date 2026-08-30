@@ -517,8 +517,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_martial_chi: {
     id: "v2c_martial_chi", name: "기공 순환", stat: "vit", category: "heal", tier: 2,
-    description: "기를 돌려 잃은 활력을 일부 되찾는다.", mpCost: 0, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 5 }],
+    description: "기를 돌려 잃은 활력을 일부 되찾는다.", mpCost: 0, cooldown: 0, procChance: 100, spCost: 2,
+    effects: [{ kind: "heal", pctLostHp: 1.2 }],
   },
 
   // ═══ 마법사 (INT · 마법) — 캐스터 (마력탄 등 마법 스킬로 마법 공격) ═══
@@ -703,8 +703,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     // 사제 = 자힐 탱 — 딜 대신 힐(컬렉션 유일 회복). kind:"heal" 배선됨. id 유지(세이브 호환).
     //   잃은 체력 비례를 낮추고 마법공격 계수를 붙여 극저HP 폭발 회복을 줄인다.
     id: "v2c_acolyte_smite", name: "치유", stat: "int", category: "heal", tier: 2,
-    description: "신성한 힘으로 잃은 상처를 메운다.", mpCost: 30, fixedMpCost: 75, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 6, statCoef: 0.45, baseFlatByTier: [50, 50, 50], scaling: "magic" }],
+    description: "신성한 힘으로 잃은 상처를 메운다.", mpCost: 30, fixedMpCost: 75, cooldown: 0, procChance: 100, spCost: 4,
+    effects: [{ kind: "heal", pctLostHp: 1.44, statCoef: 0.108, baseFlatByTier: [12, 12, 12], scaling: "magic" }],
   },
   v2c_warder_barrier: {
     id: "v2c_warder_barrier", name: "결계", stat: "int", category: "buff", tier: 2,
@@ -1179,8 +1179,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_bishop_heal: {
     id: "v2c_bishop_heal", name: "대치유", stat: "int", category: "heal", tier: 3,
-    description: "성스러운 빛으로 잃은 상처를 크게 메운다.", mpCost: 40, fixedMpCost: 110, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 9, statCoef: 0.75, baseFlatByTier: [120, 120, 120], scaling: "spi" }],
+    description: "성스러운 빛으로 잃은 상처를 크게 메운다.", mpCost: 40, fixedMpCost: 110, cooldown: 0, procChance: 100, spCost: 7,
+    effects: [{ kind: "heal", pctLostHp: 2.88, statCoef: 0.24, baseFlatByTier: [38.4, 38.4, 38.4], scaling: "spi" }],
   },
   v2c_ritualist_guardingarray: {
     id: "v2c_ritualist_guardingarray", name: "호법진", stat: "int", category: "buff", tier: 3,
@@ -1757,9 +1757,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_archbishop_sanctuary: {
     id: "v2c_archbishop_sanctuary", name: "성역 선포", stat: "int", category: "heal", tier: 3,
     description: "성역을 펼쳐 상처를 조금 메우고 잠시 피해를 줄인다.",
-    mpCost: 46, fixedMpCost: 125, cooldown: 0, procChance: 100,
+    mpCost: 46, fixedMpCost: 125, cooldown: 0, procChance: 100, spCost: 7,
     effects: [
-      { kind: "heal", pctLostHp: 7, statCoef: 0.6, baseFlatByTier: [100, 100, 100], scaling: "spi" },
+      { kind: "heal", pctLostHp: 2.24, statCoef: 0.192, baseFlatByTier: [32, 32, 32], scaling: "spi" },
       { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
     ],
   },
@@ -1950,7 +1950,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_overlord_throne: {
     id: "v2c_overlord_throne", name: "광기의 왕좌", stat: "str", category: "passive", tier: 3,
-    description: "광기 II를 계승한다. 전투당 한 번, 사망할 피해를 버티고 최대 체력의 40%로 회복한다.",
+    description: "광기 II를 계승한다. 전투당 한 번, 사망할 피해를 버티고 최대 체력의 20%로 회복한다.",
     mpCost: 0, cooldown: 0, learnCost: 8000, spCost: 14,
     effects: [],
     exclusiveGroup: "berserker_madness",
@@ -2176,9 +2176,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_saint_miracle: {
     id: "v2c_saint_miracle", name: "기적", stat: "int", category: "heal", tier: 3,
     description: "기적의 빛으로 상처를 메우고 잠시 몸을 보호한다.",
-    mpCost: 54, fixedMpCost: 160, cooldown: 0, procChance: 100, learnCost: 8000,
+    mpCost: 54, fixedMpCost: 160, cooldown: 0, procChance: 100, learnCost: 8000, spCost: 9,
     effects: [
-      { kind: "heal", pctLostHp: 9, statCoef: 0.8, baseFlatByTier: [140, 140, 140], scaling: "spi" },
+      { kind: "heal", pctLostHp: 2.88, statCoef: 0.256, baseFlatByTier: [44.8, 44.8, 44.8], scaling: "spi" },
       { kind: "shield", pctMaxHp: 10, turns: 3 },
       { kind: "selfBuffPct", target: "damageReduction", pct: 10, turns: 3 },
     ],
@@ -2357,9 +2357,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_swordsaint_flash: {
     id: "v2c_swordsaint_flash", name: "무심검", stat: "str", category: "attack", tier: 3,
     description: "마음을 비운 한 검으로 적의 자세와 흐름을 동시에 끊는다.",
-    mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000, spCostDiscount: 2,
+    mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000, spCostDiscount: 1,
     effects: [
-      dmg(1.95, 460, undefined, 15, 5),
+      dmg(1.95, 460, undefined, 15, 3),
       { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 },
       { kind: "enemyHealReduce", pct: 40, turns: 2 },
       { kind: "enemyDelay", pct: 45 },
@@ -2816,32 +2816,32 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   // ═══ 내부 7차 전투 패키지 — 해금 경제/직업 보너스 확정 전 선택 불가 ═══
   v2c_shadowblade_afterimage: {
     id: "v2c_shadowblade_afterimage", name: "잔영", stat: "luk", category: "attack", tier: 3,
-    description: "찰나의 참격 뒤 검영을 남긴다. 검영을 익혔다면 최종 피해의 70%를 기록하고 무흔으로 정련한 검영은 85%를 기록한다.",
-    mpCost: 65, cooldown: 0, procChance: 45, learnCost: 20000, spCost: 14,
-    effects: [dmg(1.665, 393, "luk", 20)],
+    description: "찰나의 참격 뒤 검영을 남긴다. 검영을 익혔다면 최종 피해의 70%를 기록하고 무흔으로 정련한 검영은 85%를 기록한다. PvP 직접 피해는 조정 전 수준을 유지한다.",
+    mpCost: 65, cooldown: 0, procChance: 45, learnCost: 20000, spCost: 14, spCostDiscount: 1,
+    effects: [dmg(2.289, 540, "luk", 20)],
     skillCritChancePct: 25,
-    tier7Mechanic: { kind: "shadowStrike", recordPct: 70, refinedRecordPct: 85 },
+    tier7Mechanic: { kind: "shadowStrike", recordPct: 70, refinedRecordPct: 85, pvpDirectDamagePct: 72.73 },
   },
   v2c_shadowblade_traceless: {
     id: "v2c_shadowblade_traceless", name: "무흔", stat: "luk", category: "attack", tier: 3,
-    description: "흔적 없이 다섯 번 베어 기존 검영을 한 번 정련한다. 정련된 검영이 발동하면 다음 행동이 20% 빨라진다.",
-    mpCost: 65, cooldown: 0, procChance: 50, learnCost: 20000, spCost: 12,
-    effects: hits(5, 0.326, 108, "luk"),
-    tier7Mechanic: { kind: "shadowRefine", refinePctPoints: 15, hastePct: 20 },
+    description: "흔적 없이 다섯 번 베어 기존 검영을 한 번 정련한다. 정련된 검영이 발동하면 다음 행동이 20% 빨라진다. PvP 직접 피해는 조정 전 수준을 유지한다.",
+    mpCost: 65, cooldown: 0, procChance: 50, learnCost: 20000, spCost: 12, spCostDiscount: 1,
+    effects: hits(5, 0.448, 149, "luk"),
+    tier7Mechanic: { kind: "shadowRefine", refinePctPoints: 15, hastePct: 20, pvpDirectDamagePct: 72.73 },
   },
   v2c_shadowblade_swordshadow: {
     id: "v2c_shadowblade_swordshadow", name: "검영", stat: "luk", category: "passive", tier: 3,
-    description: "단일 물리 공격의 최종 피해를 검영으로 남겨 적의 다음 행동 뒤 실현한다. 발동 뒤 다음 단일 물리 공격이 강해진다.",
+    description: "단일 물리 공격의 최종 피해를 검영으로 남겨 적의 다음 행동 뒤 실현한다. 잔영은 70%, 그 밖의 무영검신 고유 공격은 50%, 계승 공격은 25%를 기록하며 정련하면 기록률이 15%p 오른다. 발동 뒤 다음 단일 물리 공격이 강해진다.",
     mpCost: 0, cooldown: 0, learnCost: 20000, spCost: 20,
     effects: [], passive: {},
-    tier7Mechanic: { kind: "shadowCore", recordPct: 50, refinedRecordPct: 65, nextSingleDamagePct: 15, pvpScalePct: 80 },
+    tier7Mechanic: { kind: "shadowCore", recordPct: 50, inheritedRecordPct: 25, refinedRecordPct: 65, nextSingleDamagePct: 15, pvpScalePct: 80 },
   },
   v2c_ruinblade_limitstrike: {
     id: "v2c_ruinblade_limitstrike", name: "극한일격", stat: "str", category: "attack", tier: 3,
-    description: "궁지에서 더 강해지는 일격이다. 잃은 체력에 따라 최종 피해가 최대 60% 증가하고 체력이 40% 이하면 검의를 두 개 얻는다.",
-    mpCost: 65, cooldown: 0, procChance: 45, learnCost: 20000, spCost: 10, spCostDiscount: 4,
-    effects: [dmg(1.57, 371, undefined, 20)],
-    tier7Mechanic: { kind: "intentStrike", missingHpBonusCapPct: 60, lowHpThresholdPct: 40 },
+    description: "궁지에서 더 강해지는 일격이다. 잃은 체력에 따라 최종 피해가 최대 60% 증가하고 체력이 40% 이하면 검의를 두 개 얻는다. PvP 직접 피해는 조정 전 수준을 유지한다.",
+    mpCost: 65, cooldown: 0, procChance: 45, learnCost: 20000, spCost: 10, spCostDiscount: 18,
+    effects: [dmg(6.908, 1632, undefined, 20)],
+    tier7Mechanic: { kind: "intentStrike", missingHpBonusCapPct: 60, lowHpThresholdPct: 40, pvpDirectDamagePct: 22.73 },
   },
   v2c_ruinblade_oneintent: {
     id: "v2c_ruinblade_oneintent", name: "일념", stat: "str", category: "passive", tier: 3,
@@ -2852,8 +2852,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_ruinblade_ruinsword: {
     id: "v2c_ruinblade_ruinsword", name: "멸검", stat: "str", category: "attack", tier: 3,
-    description: "현재 행동을 충전에 쓰고 다음 행동 기회에 자동으로 해방하는 전투당 한 번의 필살검이다.",
-    mpCost: 100, cooldown: 0, procChance: 100, learnCost: 20000, spCost: 24,
+    description: "검의가 정확히 3개일 때 현재 행동을 충전에 쓰고 다음 행동 기회에 자동으로 해방하는 전투당 한 번의 필살검이다. 해방 뒤 검의 1개를 되찾으며 PvP 직접 피해는 조정 전 수준을 유지한다.",
+    mpCost: 100, cooldown: 0, procChance: 100, learnCost: 20000, spCost: 24, spCostDiscount: 9,
     defaultPattern: {
       priority: 350,
       condition: {
@@ -2864,8 +2864,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
         ],
       },
     },
-    effects: [dmg(3.33, 787, undefined, 45)], oncePerBattle: true,
-    tier7Mechanic: { kind: "chargedFinisher", currentMissingHpCapPct: 75, chargeLostHpCapPct: 75, pvpCapPct: 40, pvpPenetrationPct: 30 },
+    effects: [dmg(6.993, 1653, undefined, 45)], oncePerBattle: true,
+    tier7Mechanic: { kind: "chargedFinisher", currentMissingHpCapPct: 75, chargeLostHpCapPct: 75, requiredIntentStacks: 3, pvpCapPct: 40, pvpPenetrationPct: 30, pvpDirectDamagePct: 47.62 },
   },
   v2c_skyascendant_fallingstar: {
     id: "v2c_skyascendant_fallingstar", name: "낙성", stat: "dex", category: "attack", tier: 3,

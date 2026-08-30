@@ -28,6 +28,28 @@ describe("updateRareMaps 신규 지도 응답", () => {
     expect(result.rareMaps).toEqual([result.rareMapDropInstance]);
   });
 
+  it("희귀 지도 전용 배율을 자연 드롭 확률에 곱한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.00066);
+    const base = updateRareMaps({
+      activeRareMap: null,
+      rareMaps: [],
+      won: true,
+      depth: 12,
+      now: 1_000,
+    });
+    const boosted = updateRareMaps({
+      activeRareMap: null,
+      rareMaps: [],
+      won: true,
+      depth: 12,
+      now: 1_000,
+      rareMapDropChanceMult: 1.2,
+    });
+
+    expect(base.rareMapDrop).toBeNull();
+    expect(boosted.rareMapDrop).toBe("worn_map");
+  });
+
   it("희귀 탐사 패배 시 지도와 남은 보상 횟수를 보존한다", () => {
     // Break caught: one failed compressed battle deletes or devalues the map.
     const map = {

@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { guildMembers, outpostOccupations, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordGrowthLeapStaminaSpendInTx } from "@/lib/server/growthLeapProgress";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
 import { autoDuelContext } from "@/adventure/v2/combat/duelOptions";
@@ -288,6 +289,14 @@ export async function POST(req: Request) {
       hp: attackerHpAfter,
       hpRegenSince: now,
     });
+    if (!V2_CORE_LOOP_V2) {
+      await recordGrowthLeapStaminaSpendInTx(
+        tx,
+        userId,
+        EJECT_STAMINA_COST,
+        now,
+      );
+    }
 
     if (bountyGold > 0) {
       const guildResources = await lockGuildResources(tx, occupyingGuildId);

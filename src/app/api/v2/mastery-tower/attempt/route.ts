@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
+import { recordGrowthLeapStaminaSpendInTx } from "@/lib/server/growthLeapProgress";
 import { derivePowerScore } from "@/adventure/data/v2/power";
 import { powerInputFromPlayer } from "@/lib/server/playerPowerInput";
 import {
@@ -241,6 +242,12 @@ export async function POST(req: Request) {
         ...charSave,
         stamina: afterStamina,
       });
+      await recordGrowthLeapStaminaSpendInTx(
+        tx,
+        userId,
+        entryStaminaCost,
+        now,
+      );
     }
     const claimPreview = masteryTowerClaimPreview(tower);
     const retryAfterSeconds = success

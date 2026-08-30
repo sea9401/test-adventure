@@ -28,8 +28,13 @@ export const SUMMON_SCROLL_MATERIAL_ID = "v2_boss_summon_scroll";
 export const SUMMON_SCROLL_DROP_PCT = 0.5;
 
 // 사냥 승리 시 소환서 드랍 굴림(순수). rng() ∈ [0,1). 통과 시 1장.
-export function rollSummonScrollDrop(rng: () => number): number {
-  return rng() * 100 < SUMMON_SCROLL_DROP_PCT ? 1 : 0;
+export function rollSummonScrollDrop(
+  rng: () => number,
+  chanceMult: number = 1,
+): number {
+  const mult = Math.max(0, Number(chanceMult) || 0);
+  const chance = Math.min(100, SUMMON_SCROLL_DROP_PCT * mult);
+  return chance > 0 && rng() * 100 < chance ? 1 : 0;
 }
 
 // 낚시 성공 시 초저확률로 자동 소환되는 이벤트 보스.

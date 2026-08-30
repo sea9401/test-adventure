@@ -2077,14 +2077,15 @@ function describeBerserkerLineageRules(skill: V2SkillDefinition): string[] {
       "혈전 준비로 강화된 파멸일격·멸왕일도: 치명타 피해 +30%",
     );
   }
-  if (rank >= 3) {
-    chips.push("사망 극복: 전투당 1회 치명 피해 무효 · HP 40%로 회복");
-  }
   if (rank === 3) {
-    chips.push("현재 행동 종료까지 HP 40% 아래로 내려가지 않음");
+    chips.push(
+      "사망 극복: 전투당 1회 치명 피해 무효 · HP 20%로 회복",
+      "현재 행동 종료까지 HP 20% 아래로 내려가지 않음",
+    );
   }
   if (rank >= 4) {
     chips.push(
+      "사망 극복: 전투당 1회 치명 피해 무효 · HP 40%로 회복",
       "사망 극복 발생 시: 다음 내 공격 종료까지 HP 40% 아래로 내려가지 않음",
       "사망 극복 발생 시: 다음 공격 액티브 스킬 100% 발동 · 잃은 HP 100% 취급 · 광폭 계수 ×1.5",
       "사망 극복 발생 시: 멸왕일도 1회 재충전",
@@ -2384,14 +2385,16 @@ function describeTier7Mechanic(mechanic: Tier7Mechanic): string[] {
     case "shadowStrike":
       return [
         `검영 기록 ${mechanic.recordPct}% · 정련 시 ${mechanic.refinedRecordPct}%`,
+        `PvP 직접 피해 ${mechanic.pvpDirectDamagePct}% 적용`,
       ];
     case "shadowRefine":
       return [
         `검영 정련 +${mechanic.refinePctPoints}%p · 발동 후 행동 가속 ${mechanic.hastePct}%`,
+        `PvP 직접 피해 ${mechanic.pvpDirectDamagePct}% 적용`,
       ];
     case "shadowCore":
       return [
-        `단일 물리 최종 피해 ${mechanic.recordPct}% 기록 · 정련 시 ${mechanic.refinedRecordPct}%`,
+        `고유 단일 물리 최종 피해 ${mechanic.recordPct}% 기록(잔영 70%) · 계승 공격 ${mechanic.inheritedRecordPct}% 기록 · 정련 시 +${mechanic.refinedRecordPct - mechanic.recordPct}%p`,
         `검영 발동 후 다음 단일 물리 피해 +${mechanic.nextSingleDamagePct}%`,
         `PvP 검영·후속 보너스 ${mechanic.pvpScalePct}% 적용`,
       ];
@@ -2399,6 +2402,7 @@ function describeTier7Mechanic(mechanic: Tier7Mechanic): string[] {
       return [
         `잃은 HP 비례 최종 피해 최대 +${mechanic.missingHpBonusCapPct}%`,
         `HP ${mechanic.lowHpThresholdPct}% 이하 적중 시 검의 2개`,
+        `PvP 직접 피해 ${mechanic.pvpDirectDamagePct}% 적용`,
       ];
     case "intentCore":
       return [
@@ -2407,8 +2411,10 @@ function describeTier7Mechanic(mechanic: Tier7Mechanic): string[] {
       ];
     case "chargedFinisher":
       return [
+        `검의 ${mechanic.requiredIntentStacks}개 필요 · 한 행동 충전 · 다음 행동 자동 해방`,
         `현재 잃은 HP 최대 +${mechanic.currentMissingHpCapPct}% · 충전 중 잃은 HP 최대 +${mechanic.chargeLostHpCapPct}%`,
         `PvP 각 보너스 최대 ${mechanic.pvpCapPct}% · 관통 ${mechanic.pvpPenetrationPct}%`,
+        `PvP 직접 피해 ${mechanic.pvpDirectDamagePct}% 적용`,
       ];
     case "crossStrike":
       return [`교차 계열: ${mechanic.family === "ranged" ? "원거리" : "체술"}`];

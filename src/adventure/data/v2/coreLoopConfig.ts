@@ -57,6 +57,9 @@ export const V2_SKILL_PROC_IN_PATTERN =
 export const V2_FREEFORM_TILES =
   process.env.NEXT_PUBLIC_V2_FREEFORM_TILES === "true";
 
+// 6티어 이상 장비의 장기 골드 성장 시스템. 전체 구현 완료 전까지 기본값은 off다.
+export const V2_EQUIPMENT_LIBERATION =
+  process.env.NEXT_PUBLIC_V2_EQUIPMENT_LIBERATION === "true";
 // === 사냥 페이싱 (V1식·스태미나 폐지·전투당 서버 쿨다운) =====================
 // throttle = 전투당 실시간 쿨다운(클릭 스팸/무한 그라인딩 차단·온오프 동일 속도).
 export const HUNT_COOLDOWN_MS = 5000; // 전투 1판 간격(유저 확정 — 판당 성장 체감 cadence)
@@ -238,11 +241,7 @@ export const STAT_FLOOR_DECAY_MIN = 0.45;
 // 첫 50개 +1, 이후 두 직업당 +1이며 숙련도 자체는 해금 조건을 채우는 간접 동기로만 남긴다.
 //
 export const SP_BASE = 40; // 시작 SP. 기본 조합 선택지를 넓히기 위해 28 → 40.
-export const SP_MILESTONE_BASE = 45; // deprecated: 숙련도 SP 마일스톤은 더 이상 사용하지 않는다.
-export const SP_MILESTONE_WIDEN = 25; // deprecated.
-export const SP_MASTERED_JOB_BONUS = 0; // deprecated: 직업군 정복 SP 보너스 제거.
 export const SP_MASTERED_REQUIRED_CUMLEVEL = 10_000;
-export const SP_MAX_SOFT_CAP = Number.POSITIVE_INFINITY; // deprecated: 수집형 SP 는 소프트캡 없음.
 
 export function spMasteryProgressForCumLevel(cumLevel: number): {
   cumLevel: number;
@@ -265,27 +264,6 @@ export function spMasteryProgressForCumLevel(cumLevel: number): {
       : Math.max(0, SP_MASTERED_REQUIRED_CUMLEVEL - current),
     milestoneSp: 0,
     masteryBonusSp: 0,
-  };
-}
-
-// deprecated: 숙련도는 더 이상 SP 를 직접 지급하지 않는다.
-export function spMilestonesForCumLevel(cumLevel: number): number {
-  void cumLevel;
-  return 0;
-}
-
-export function nextSpMilestoneProgressForCumLevel(cumLevel: number): {
-  currentMilestoneSp: number;
-  nextMilestoneSp: number;
-  requiredCumLevel: number;
-  remainingCumLevel: number;
-} {
-  void cumLevel;
-  return {
-    currentMilestoneSp: 0,
-    nextMilestoneSp: 0,
-    requiredCumLevel: 0,
-    remainingCumLevel: 0,
   };
 }
 
@@ -340,16 +318,6 @@ export function calcSpBudgetBreakdown(
     spFruitBonus: bonus,
     collectionBonusSp: collection,
   };
-}
-
-// deprecated: 숙련도 마일스톤 SP 지급 제거.
-export function spMilestonesCrossed(
-  oldCumLevel: number,
-  newCumLevel: number,
-): number {
-  void oldCumLevel;
-  void newCumLevel;
-  return 0;
 }
 
 // === 거점 행동 비용 (스태미나 → 골드/전투 쿨다운으로 대체) ====================

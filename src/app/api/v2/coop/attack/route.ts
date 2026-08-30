@@ -6,6 +6,7 @@ import {
   coopBossSessions,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordGrowthLeapStaminaSpendInTx } from "@/lib/server/growthLeapProgress";
 import { insertNotificationMany } from "@/lib/server/v2Notifications";
 import {
   lockSaveForUpdate,
@@ -445,6 +446,12 @@ export async function POST(req: Request) {
           }
         : {}),
     });
+    await recordGrowthLeapStaminaSpendInTx(
+      tx,
+      userId,
+      COOP_ATTACK_STAMINA_COST,
+      now,
+    );
 
     return {
       status: 200,

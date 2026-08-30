@@ -639,6 +639,100 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     expect(result.selfHeal).toBe(20);
   });
 
+  it("모든 직접 회복 스킬은 패턴 사용 여부와 관계없이 표시된 회복량을 그대로 적용한다", () => {
+    const directHealSkills = Object.values(V2_SKILLS).filter(
+      (skill) =>
+        !skill.monsterOnly &&
+        skill.effects.some((effect) => effect.kind === "heal"),
+    );
+
+    expect(directHealSkills.map((skill) => skill.id).sort()).toEqual([
+      "v2_skill_recover",
+      "v2c_acolyte_smite",
+      "v2c_archbishop_sanctuary",
+      "v2c_bishop_heal",
+      "v2c_camper_camp",
+      "v2c_crusader_judgment",
+      "v2c_extremesurvivor_struggle",
+      "v2c_fieldmedic_treatment",
+      "v2c_martial_chi",
+      "v2c_rescueexpert_rescue",
+      "v2c_returner_survive",
+      "v2c_saint_miracle",
+      "v2c_survivor_firstaid",
+      "v2c_templar_smite",
+    ]);
+
+    for (const skill of directHealSkills) {
+      const common = castInput([skill.id], {
+        procRoll: 0,
+        applyProcInPattern: true,
+        attacker: {
+          ...castInput([skill.id]).attacker,
+          mp: 10_000,
+          maxMp: 10_000,
+          maxHp: 10_000,
+          currentHp: 4_000,
+          healMult: 2,
+          magicAtk: 500,
+          spi: 500,
+        },
+        target: {
+          ...castInput([skill.id]).target,
+          def: 0,
+        },
+      });
+      const direct = resolveV2SkillCast(common);
+      const patterned = resolveV2SkillCast({
+        ...common,
+        combatPattern: {
+          blocks: [
+            {
+              condition: { kind: "always" },
+              action: { kind: "skill", skillId: skill.id },
+            },
+          ],
+        },
+      });
+
+      expect(direct.castSkillId, skill.id).toBe(skill.id);
+      expect(patterned.castSkillId, skill.id).toBe(skill.id);
+      expect(patterned.selfHeal, skill.id).toBe(direct.selfHeal);
+    }
+  });
+
+  it("기적은 스킬 데이터에 적힌 실효 회복량만으로 제보 전투 수치를 재현한다", () => {
+    const skillId = "v2c_saint_miracle";
+    const base = castInput([skillId], {
+      procRoll: 0,
+      applyProcInPattern: true,
+      attacker: {
+        ...castInput([skillId]).attacker,
+        mp: 3_000,
+        maxMp: 3_000,
+        maxHp: 16_730,
+        currentHp: 9_791,
+        healMult: 10,
+        spi: 122,
+      },
+    });
+    const direct = resolveV2SkillCast(base);
+    const patterned = resolveV2SkillCast({
+      ...base,
+      combatPattern: {
+        blocks: [
+          {
+            condition: { kind: "always" },
+            action: { kind: "skill", skillId },
+          },
+        ],
+      },
+    });
+
+    expect(direct.selfHeal).toBe(2_789);
+    expect(patterned.selfHeal).toBe(2_789);
+  });
+
   it("제한 회복기는 PvP에서 회복과 부가 보호막이 50%만 적용된다", () => {
     const skillId = "v2c_rescueexpert_rescue";
     const base = castInput([skillId], {
@@ -1368,7 +1462,7 @@ describe("resolveV2SkillCast — dex/luk 비례 딜(도적 직군)", () => {
     ]);
   });
 
-  it("회복 스킬의 스탯 계수는 기존보다 10% 높다", () => {
+  it("회복 스킬은 상세에 표시되는 실효 스탯 계수와 고정값을 적용한다", () => {
     const result = resolveV2SkillCast(
       castInput(["v2c_acolyte_smite"], {
         procRoll: 0,
@@ -1381,7 +1475,7 @@ describe("resolveV2SkillCast — dex/luk 비례 딜(도적 직군)", () => {
       }),
     );
 
-    expect(result.selfHeal).toBe(99);
+    expect(result.selfHeal).toBe(23);
   });
 });
 

@@ -38,6 +38,7 @@ type RealtimeTargetMetadata = {
 
 export type DangerousFishingRealtimePanelProps = {
   encounter: DangerousRealtimeClientEncounter;
+  serverNow: number;
   scene: RealtimeScene;
   targetMetadata: RealtimeTargetMetadata;
   endpointTarget: DangerousRealtimeClientTarget;
@@ -220,7 +221,9 @@ function Meter({
       </div>
       {safeMin !== undefined && safeMax !== undefined ? (
         <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-          안전 구간 {safeMin.toLocaleString()}–{safeMax.toLocaleString()}
+          인양 구간 {safeMin.toLocaleString()}–{safeMax.toLocaleString()}
+          {" · "}{safeMin.toLocaleString()} 미만 지속 시 바늘 빠짐
+          {" · "}{max.toLocaleString()} 초과 시 줄 끊김
         </p>
       ) : null}
     </div>
@@ -229,6 +232,7 @@ function Meter({
 
 export function DangerousFishingRealtimePanel({
   encounter,
+  serverNow,
   scene,
   targetMetadata,
   endpointTarget,
@@ -240,6 +244,7 @@ export function DangerousFishingRealtimePanel({
 }: DangerousFishingRealtimePanelProps) {
   const realtime = useDangerousFishingRealtime({
     encounter,
+    serverNow,
     target: endpointTarget,
     readJson,
     verification,

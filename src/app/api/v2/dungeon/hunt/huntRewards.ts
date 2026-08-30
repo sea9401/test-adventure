@@ -58,16 +58,51 @@ export function computeBattleRewards(params: {
   battleCount: number;
   mapExpMult: number;
   mapGoldMult: number;
+  liberationExpPct?: number;
+  liberationGoldPct?: number;
 }): { expGained: number; goldGross: number } {
   const { won, enemyMonster, battleCount, mapExpMult, mapGoldMult } = params;
+  const liberationExpMult = 1 + Math.max(0, params.liberationExpPct ?? 0) / 100;
+  const liberationGoldMult =
+    1 + Math.max(0, params.liberationGoldPct ?? 0) / 100;
   const baseExp = won
     ? applyNewbieExpBonusByBattles(enemyMonster.exp, battleCount).gained
     : 0;
-  const expGained = Math.round(baseExp * XP_RATE_MULT * mapExpMult);
+  const expGained = Math.round(
+    baseExp * XP_RATE_MULT * mapExpMult * liberationExpMult,
+  );
   const goldGross = won
-    ? Math.round(monsterGoldReward(enemyMonster) * mapGoldMult)
+    ? Math.round(
+        monsterGoldReward(enemyMonster) * mapGoldMult * liberationGoldMult,
+      )
     : 0;
   return { expGained, goldGross };
+}
+
+export function applyLiberationPostHuntRestore(params: {
+  won: boolean;
+  afterHp: number;
+  afterMp: number;
+  maxHp: number;
+  maxMp: number;
+  hpPct: number;
+  mpPct: number;
+}): { afterHp: number; afterMp: number } {
+  const afterHp = Math.max(0, Math.min(params.maxHp, params.afterHp));
+  const afterMp = Math.max(0, Math.min(params.maxMp, params.afterMp));
+  if (!params.won) return { afterHp, afterMp };
+  const hpPct = Number.isFinite(params.hpPct) ? Math.max(0, params.hpPct) : 0;
+  const mpPct = Number.isFinite(params.mpPct) ? Math.max(0, params.mpPct) : 0;
+  return {
+    afterHp: Math.min(
+      params.maxHp,
+      afterHp + Math.floor((params.maxHp * hpPct) / 100),
+    ),
+    afterMp: Math.min(
+      params.maxMp,
+      afterMp + Math.floor((params.maxMp * mpPct) / 100),
+    ),
+  };
 }
 
 // 충전식 회복약 소모 — 전투 후 HP/MP 부족분을 보유 충전량으로 채운다(1g=1충전).

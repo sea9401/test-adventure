@@ -11,12 +11,23 @@ import {
   LifeWorkshopQuantityControls,
   groupWorkshopRecipesByOutput,
   lifeWorkshopErrorText,
+  personalCraftGoldCostText,
 } from "./LifeWorkshopView";
 import { emptyLifeWorkshopState } from "./lifeWorkshop";
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+});
+
+describe("생활 제작 해방 할인 표시", () => {
+  it("서버가 준 기본 비용·할인율·실제 비용을 함께 표시한다", () => {
+    expect(personalCraftGoldCostText({
+      baseGoldCost: 1_000_000,
+      goldCost: 900_000,
+      liberationDiscountPct: 10,
+    })).toBe("기본 1,000,000G → 실제 900,000G · 해방 할인 10%");
+  });
 });
 
 describe("생활 조합 작업장 모바일 배치", () => {

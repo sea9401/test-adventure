@@ -487,6 +487,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     const p = parseProficiency({
       grown: { str: 7, dex: 3 },
       growthRespecPoints: 20,
+      liberationCycleGrowth: { hp: 321, mp: 45 },
       reincarnations: 2,
       lifeResourceGrowth: {
         version: 1,
@@ -502,6 +503,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
 
     expect(reset.grown).toEqual({});
     expect(reset.growthRespecPoints).toBe(0);
+    expect(reset.liberationCycleGrowth).toEqual({ hp: 0, mp: 0 });
     expect(reset.reincarnations).toBe(2);
     expect(reset.lifeResourceGrowth).toEqual({
       version: 1,
@@ -511,6 +513,32 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
       gainedHp: 0,
       gainedMp: 0,
     });
+  });
+
+  it("해방 주기 성장을 음이 아닌 정수로 파싱하고 신규 저장은 0에서 시작한다", () => {
+    expect(emptyProficiency().liberationCycleGrowth).toEqual({ hp: 0, mp: 0 });
+    expect(
+      parseProficiency({ liberationCycleGrowth: { hp: 123.9, mp: 7.8 } })
+        .liberationCycleGrowth,
+    ).toEqual({ hp: 123, mp: 7 });
+    expect(
+      parseProficiency({ liberationCycleGrowth: { hp: -2, mp: Number.NaN } })
+        .liberationCycleGrowth,
+    ).toEqual({ hp: 0, mp: 0 });
+  });
+
+  it("수행 초기화는 이미 누적한 해방 주기 성장을 보존한다", () => {
+    const before = parseProficiency({
+      points: 10_000,
+      groups: { warrior: { cultivations: 3, tier: 1, cumLevel: 20 } },
+      caps: { str: 6, vit: 3, dex: 3 },
+      cultivationPointsSpent: 100,
+      cultivationLedgerVersion: 1,
+      liberationCycleGrowth: { hp: 90, mp: 20 },
+    });
+    const reset = resetCultivation(before);
+    expect(reset).not.toBeNull();
+    expect(reset!.next.liberationCycleGrowth).toEqual({ hp: 90, mp: 20 });
   });
 
   it("applyCultivation — 대성공·각성 이름과 특별 수행 배수를 구분한다", () => {

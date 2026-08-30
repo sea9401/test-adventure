@@ -18,6 +18,10 @@ import {
   SURFACE_INSET,
 } from "@/components/ui/surfaces";
 import { useSystemMessageState } from "./RewardToastProvider";
+import {
+  confirmPresetDelete,
+  confirmPresetOverwrite,
+} from "./presetConfirmation";
 
 type ExcludedPresetItems = {
   skillIds: string[];
@@ -291,8 +295,15 @@ export function V2CombatLoadoutPresetsView({ onBack }: { onBack: () => void }) {
     async (slot: number) => {
       const current = presets[slot];
       if (!current) return;
-      const result = await mutate(slot, "save", current.name);
-      if (result) setMessage(`✓ '${current.name}' 프리셋을 현재 세팅으로 덮어썼어요.`);
+      await confirmPresetOverwrite({
+        name: current.name,
+        onConfirm: async () => {
+          const result = await mutate(slot, "save", current.name);
+          if (result) {
+            setMessage(`✓ '${current.name}' 프리셋을 현재 세팅으로 덮어썼어요.`);
+          }
+        },
+      });
     },
     [mutate, presets, setMessage],
   );
@@ -314,8 +325,13 @@ export function V2CombatLoadoutPresetsView({ onBack }: { onBack: () => void }) {
     async (slot: number) => {
       const current = presets[slot];
       if (!current) return;
-      const result = await mutate(slot, "delete");
-      if (result) setMessage(`✓ '${current.name}' 프리셋을 삭제했어요.`);
+      await confirmPresetDelete({
+        name: current.name,
+        onConfirm: async () => {
+          const result = await mutate(slot, "delete");
+          if (result) setMessage(`✓ '${current.name}' 프리셋을 삭제했어요.`);
+        },
+      });
     },
     [mutate, presets, setMessage],
   );

@@ -26,6 +26,7 @@ import {
   applyV2DotsToTarget,
   damageBetween,
   extractApEffect,
+  healingAfterReceivedMultiplier,
   makePoisonDot,
   v2AtkBuffMult,
   v2DefBuffMult,
@@ -420,7 +421,12 @@ export function resolvePlayerPhase(
 ): BattleState {
   if (action.kind === "use_potion") {
     const next = {
-      ...applyPotionEffect(state, action.potion, playerName),
+      ...applyPotionEffect(
+        state,
+        action.potion,
+        playerName,
+        player.receivedHealMult,
+      ),
       duelistBuff: interruptDuelistRamp(state.duelistBuff),
     };
     // 포션은 공격이 아니라 그 턴의 공격 "1회" 를 소모한다. 추가타 빌드(attackCount>1)는
@@ -627,12 +633,14 @@ export function resolvePlayerPhase(
     (player.enchantLifestealPct ?? 0) > 0
       ? Math.floor((dmg * player.enchantLifestealPct!) / 100)
       : 0;
-  const totalLifestealHeal =
+  const totalLifestealHeal = healingAfterReceivedMultiplier(
     lifestealHeal +
-    luckyLifestealHeal +
-    runeLifestealHeal +
-    apLifestealHeal +
-    enchantLifestealHeal;
+      luckyLifestealHeal +
+      runeLifestealHeal +
+      apLifestealHeal +
+      enchantLifestealHeal,
+    player.receivedHealMult,
+  );
   const newPlayerHp =
     totalLifestealHeal > 0
       ? Math.min(state.playerMaxHp, state.playerHp + totalLifestealHeal)

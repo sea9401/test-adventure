@@ -289,6 +289,13 @@ describe("6T 유니크 PvE 연동", () => {
     expect(after.enemyHp).toBe(initial.enemyHp - 500);
     expect(after.enemyV2Dots).toEqual([{ ...bleed, turns: 5 }]);
     expect(afterLongBleed.enemyV2Dots).toEqual([longBleed]);
+    expect(
+      after.log.some((entry) =>
+        entry.text.includes(
+          "[상흔 고정] 출혈 중첩 유지 · 지속 횟수 최소 5회로 갱신",
+        ),
+      ),
+    ).toBe(true);
   });
 
   it("PvE 패턴은 혈맥 폭발 준비 때만 출혈 대상 일반 공격을 선택한다", () => {

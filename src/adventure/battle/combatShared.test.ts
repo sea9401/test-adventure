@@ -510,13 +510,13 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
         target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
       });
 
-    // 본타 공격력×1.3 + 힘×5, 여기에 무심검의 15% 관통 추가 피해.
-    expect(cast(300).enemyDamage).toBe(3_376);
-    expect(cast(1_000).enemyDamage).toBe(7_768);
+    // 본타와 힘×3 직접 계수에 무심검의 15% 관통 추가 피해가 적용된다.
+    expect(cast(300).enemyDamage).toBe(2_686);
+    expect(cast(1_000).enemyDamage).toBe(5_468);
   });
 
   it("heal effect — pctMaxHp 비례", () => {
-    // recover: heal pctMaxHp=10. maxHp=200 → 20.
+    // recover: heal pctMaxHp=1.8. maxHp=200 → floor(3.6)=3.
     const result = resolveV2SkillCast({
       skills: {
         learned: ["v2_skill_recover"],
@@ -532,7 +532,7 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
-    expect(result.selfHeal).toBe(20);
+    expect(result.selfHeal).toBe(3);
     expect(result.enemyDamage).toBe(0);
   });
 
@@ -557,8 +557,8 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
-    // 치유: 잃은 HP 100의 6% + magicAtk 100×(0.45×1.1) + flat 50 = 105.
-    expect(result.selfHeal).toBe(105);
+    // 치유: 잃은 HP 100의 1.44% + magicAtk 100×(0.108×1.1) + flat 12 = 1 + 23.
+    expect(result.selfHeal).toBe(24);
   });
 
   it("유료 MP 회복 스킬은 최대 MP 비례 회복이 실제 소비량을 넘지 않는다", () => {

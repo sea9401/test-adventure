@@ -64,4 +64,30 @@ describe("접힌 캐릭터 효과 상세 카드", () => {
     fireEvent.click(screen.getByRole("button", { name: "닫기" }));
     expect(onClose).toHaveBeenCalledTimes(2);
   });
+
+  it("프리미엄 만료 경계 뒤에는 대기 중인 일반 지원권으로 표시한다", () => {
+    const now = Date.UTC(2026, 7, 30);
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    render(
+      <CompactCharacterEffectCard
+        detail={{
+          kind: "support",
+          tier: "premium",
+          premiumUntil: now,
+          activeUntil: now + 10 * 86_400_000,
+          regenBonusPct: 20,
+        }}
+        anchor={{ top: 100, bottom: 120, left: 20 }}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: "모험 지원권 정보" }),
+    ).toBeTruthy();
+    expect(screen.getByText("모험 지원권")).toBeTruthy();
+    expect(screen.queryByText("모험 지원권 프리미엄")).toBeNull();
+    vi.useRealTimers();
+  });
 });

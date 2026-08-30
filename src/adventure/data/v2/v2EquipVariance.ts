@@ -24,12 +24,25 @@ import { V2_POWER_WEIGHT } from "./power";
 export const VARIANCE_FRACTION = 0.65;
 
 // 한 스탯 굴림 — [max(floor, value−spread), value+spread] 균등. spread 0 이면 value 그대로.
-function rollStat(value: number, floor: number, rng: () => number): number {
+function rollStat(
+  value: number,
+  floor: number,
+  rng: () => number,
+  minimumQualityPct: number = 0,
+): number {
   const spread = Math.round(value * VARIANCE_FRACTION);
   if (spread <= 0) return value;
   const lo = Math.max(floor, value - spread);
   const hi = value + spread;
-  return lo + Math.floor(rng() * (hi - lo + 1));
+  const minimumPct = Math.min(
+    100,
+    Math.max(0, Number.isFinite(minimumQualityPct) ? minimumQualityPct : 0),
+  );
+  const effectiveLo = Math.min(
+    hi,
+    Math.ceil(lo + ((hi - lo) * minimumPct) / 100),
+  );
+  return effectiveLo + Math.floor(rng() * (hi - effectiveLo + 1));
 }
 
 // 카탈로그 아이템 → 개체 굴림(순수). rng() ∈ [0, 1).
@@ -37,9 +50,11 @@ function rollStat(value: number, floor: number, rng: () => number): number {
 export function rollItemStats(
   item: V2Equipment,
   rng: () => number,
+  options?: { minimumQualityPct?: number },
 ): V2EquipRoll {
+  const minimumQualityPct = options?.minimumQualityPct ?? 0;
   const roll: V2EquipRoll = {
-    power: rollStat(item.power, 1, rng),
+    power: rollStat(item.power, 1, rng, minimumQualityPct),
     weight: 0,
     ...(item.tier === 16
       ? { powerScaleVersion: TIER_6_POWER_SCALE_VERSION }
@@ -50,7 +65,7 @@ export function rollItemStats(
     for (const k of V2_EQUIP_OPTION_KEYS) {
       const v = item.options[k];
       if (v == null) continue;
-      opts[k] = rollStat(v, 1, rng);
+      opts[k] = rollStat(v, 1, rng, minimumQualityPct);
     }
     if (Object.keys(opts).length > 0) roll.options = opts;
   }
@@ -350,11 +365,12 @@ export function rollItemStatsBest(
   item: V2Equipment,
   rng: () => number,
   count: number,
+  options?: { minimumQualityPct?: number },
 ): V2EquipRoll {
-  let best = rollItemStats(item, rng);
+  let best = rollItemStats(item, rng, options);
   let bestQ = rollQualityPct(item, best) ?? -1;
   for (let i = 1; i < count; i++) {
-    const r = rollItemStats(item, rng);
+    const r = rollItemStats(item, rng, options);
     const q = rollQualityPct(item, r) ?? -1;
     if (q > bestQ) {
       best = r;
@@ -371,7 +387,12 @@ export type BulkSellOpts = {
   // 품질(굴림 품질)이 이 % 이하인 것만(미지정 = 판매 가능 전부). 굴림 없는 상점템은 belowPct 모드서 제외.
   belowPct?: number;
 };
-export type BulkSellPlan = { iids: string[]; gold: number; count: number };
+export type BulkSellPlan = {
+  iids: string[];
+  gold: number;
+  count: number;
+  skippedBoundCount: number;
+};
 export const MAX_EXPLICIT_SELL_COUNT = 100;
 export type ExplicitSellResult =
   | { ok: true; plan: BulkSellPlan }
@@ -387,6 +408,7 @@ export function selectBulkSell(
   const equippedIids = new Set(Object.values(equipped));
   const iids: string[] = [];
   let gold = 0;
+  let skippedBoundCount = 0;
   for (const inst of owned) {
     if (equippedIids.has(inst.iid)) continue;
     if (inst.locked) continue;
@@ -399,10 +421,14 @@ export function selectBulkSell(
       const q = rollQualityPct(item, inst.roll);
       if (q == null || q > opts.belowPct) continue; // 굴림 없거나 임계 초과는 유지(임계 이하만 판매)
     }
+    if (inst.bound) {
+      skippedBoundCount += 1;
+      continue;
+    }
     iids.push(inst.iid);
     gold += price;
   }
-  return { iids, gold, count: iids.length };
+  return { iids, gold, count: iids.length, skippedBoundCount };
 }
 
 // 사용자가 iid를 직접 고른 선택 판매 계획. 일괄 판매처럼 조건에 맞지 않는 개체를 조용히
@@ -443,6 +469,7 @@ export function selectExplicitSell(
       iids: [...requestedIids],
       gold,
       count: requestedIids.length,
+      skippedBoundCount: 0,
     },
   };
 }

@@ -92,6 +92,12 @@ const BOUND_EQUIPMENT = {
   ...EQUIPMENT,
   iid: "eq-warehouse-bound",
   bound: true,
+  liberation: {
+    rank: 3,
+    lineCount: 1,
+    revision: 1,
+    options: [{ id: "physical_attack_flat", level: 1 }],
+  },
 };
 const LOCKED_EQUIPMENT = {
   ...EQUIPMENT,

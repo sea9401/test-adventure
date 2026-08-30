@@ -65,6 +65,12 @@ type WorkshopPayload = {
   failedCookingDishes: number;
   gold: number;
   bankedGold: number;
+  liberationDiscountPct?: number;
+  personalCraftGoldCost?: {
+    baseGoldCost: number;
+    goldCost: number;
+    liberationDiscountPct: number;
+  };
   recipes: WorkshopRecipeView[];
   tools: Array<{
     activity: LifeWorkshopActivity;
@@ -98,8 +104,19 @@ type WorkshopPayload = {
     blueprintRecipeId?: string;
     replaced?: boolean;
     resumed?: boolean;
+    baseGoldCost?: number;
+    goldCost?: number;
+    liberationDiscountPct?: number;
   };
 };
+
+export function personalCraftGoldCostText(cost: {
+  baseGoldCost: number;
+  goldCost: number;
+  liberationDiscountPct: number;
+}): string {
+  return `기본 ${cost.baseGoldCost.toLocaleString()}G → 실제 ${cost.goldCost.toLocaleString()}G · 해방 할인 ${cost.liberationDiscountPct.toLocaleString()}%`;
+}
 
 export type WorkshopTab =
   | "requests"
@@ -992,6 +1009,19 @@ export function LifeWorkshopView({
                       {!hiddenUnknown ? (
                         <>
                           <div className="mt-2 text-[11px] text-zinc-600 dark:text-zinc-300">{requirementText(recipe.costs, data.materials, recipe.failedDishCost, data.failedCookingDishes)}</div>
+                          <div className="mt-1 text-[10px] text-amber-700 dark:text-amber-300">
+                            {personalCraftGoldCostText({
+                              baseGoldCost:
+                                data.personalCraftGoldCost?.baseGoldCost ?? 0,
+                              goldCost:
+                                data.personalCraftGoldCost?.goldCost ?? 0,
+                              liberationDiscountPct:
+                                data.personalCraftGoldCost
+                                  ?.liberationDiscountPct ??
+                                data.liberationDiscountPct ??
+                                0,
+                            })}
+                          </div>
                           <div className="mt-1 text-[10px] text-zinc-500">제작 기록 {recipe.craftCount}회 · 단계 {recipe.masteryStage}/5 · 일괄 한도 {recipe.batchLimit}</div>
                           <div className="mt-2">
                             <LifeWorkshopQuantityControls

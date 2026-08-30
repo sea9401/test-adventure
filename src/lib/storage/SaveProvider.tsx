@@ -44,9 +44,9 @@ export function SaveProvider({
   starters,
 }: {
   children: React.ReactNode;
-  // 서버에 해당 키가 없을 때 부트스트랩에서 시드. 신규 유저의 클라 default 가 서버에
-  // 박히지 않는 문제(useRemotePatch 의 first-mount skip) 차단용. localStorage 마이그레이션
-  // 값이 있으면 그쪽이 우선 — starter 는 진짜 둘 다 비었을 때만.
+  // 서버에 해당 키가 없을 때 부트스트랩에서 시드. 신규 유저의 클라이언트 기본값이
+  // 서버에 누락되지 않게 하며, localStorage 마이그레이션 값이 있으면 그쪽이 우선이다.
+  // starter 는 진짜 둘 다 비었을 때만 사용한다.
   starters?: Partial<Record<SyncedKey, unknown>>;
 }) {
   const [state, setState] = useState<ProviderState>({ status: "loading" });
@@ -126,9 +126,8 @@ export function SaveProvider({
         let final: SaveData = serverData;
         const toSeed: SaveData = {};
 
-        // starter — 서버에 없는 키만. 신규 유저의 클라 default (character.v2 의 gold 10 등)
-        // 가 useRemotePatch 의 first-mount skip 으로 영영 안 박히던 문제 차단용.
-        // 매 마운트 idempotent — 서버에 이미 있으면 skip.
+        // starter — 서버에 없는 키만. 신규 유저의 클라이언트 기본값이 누락되지 않게
+        // 부트스트랩에서 직접 시드한다. 매 마운트 idempotent — 서버에 이미 있으면 skip.
         const starterMap = startersAtMountRef.current ?? {};
         for (const [key, value] of Object.entries(starterMap)) {
           const k = key as SyncedKey;

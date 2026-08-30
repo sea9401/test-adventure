@@ -4,6 +4,9 @@ import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
 import { applyExpTomeGrant, EXP_TOME_GRANT } from "@/lib/server/expTomeGrant";
+import { V2_EQUIPMENT_LIBERATION } from "@/adventure/data/v2/coreLoopConfig";
+import { deriveEquippedLiberationEffects } from "@/adventure/data/v2/equipmentLiberationEffects";
+import { applyLiberationLevelGrowth } from "@/lib/server/equipmentLiberationLevelGrowth";
 
 // POST /api/v2/me/use-exp-tome — 「경험치의 비약」(레어맵 utility, 테스트 전용) 1회 소모.
 //   body: { map: <iid> }
@@ -59,6 +62,9 @@ export async function POST(req: Request) {
         return { status: 403, body: { ok: false as const, error: "no_map" } };
       }
 
+      const equipmentSave = V2_EQUIPMENT_LIBERATION
+        ? await lockSaveForUpdate(tx, userId, "equipment.v2", {})
+        : undefined;
       const proficiencyRaw = await lockSaveForUpdate(
         tx,
         userId,
@@ -66,6 +72,15 @@ export async function POST(req: Request) {
         {},
       );
       const grant = applyExpTomeGrant(charSave, proficiencyRaw, EXP_TOME_GRANT);
+      const liberationGrowth =
+        V2_EQUIPMENT_LIBERATION && grant.levelsGained > 0
+          ? applyLiberationLevelGrowth({
+              proficiency: grant.proficiency,
+              levelsGained: grant.levelsGained,
+              effects: deriveEquippedLiberationEffects(equipmentSave),
+              rng: Math.random,
+            })
+          : null;
 
       // 지도 1회 소모 — runsLeft 차감(0 이면 다음 read 의 parseRareMaps 가 purge).
       const nextMaps = maps.map((m) =>
@@ -77,7 +92,12 @@ export async function POST(req: Request) {
         exp: grant.exp,
         rareMaps: nextMaps,
       });
-      await upsertSave(tx, userId, "proficiency.v2", grant.proficiency);
+      await upsertSave(
+        tx,
+        userId,
+        "proficiency.v2",
+        liberationGrowth?.proficiency ?? grant.proficiency,
+      );
 
       return {
         status: 200,
@@ -88,6 +108,8 @@ export async function POST(req: Request) {
           hpGain: grant.hpGain,
           mpGain: grant.mpGain,
           grantedExp: EXP_TOME_GRANT,
+          liberationHpGained: liberationGrowth?.hpGained ?? 0,
+          liberationMpGained: liberationGrowth?.mpGained ?? 0,
           runsLeft: map.runsLeft - 1,
         },
       };

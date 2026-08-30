@@ -5,9 +5,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
-const { store, forceRareMap, recordCodexMasteryGameplayBatch } = vi.hoisted(() => ({
+const { store, forceRareMap, snapshotCalls, recordCodexMasteryGameplayBatch } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   forceRareMap: { value: false },
+  snapshotCalls: { value: 0 },
   recordCodexMasteryGameplayBatch: vi.fn(
     async (
       _executor: unknown,
@@ -24,7 +25,25 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
       typeof import("@/adventure/data/v2/coreLoopConfig")
     >();
   // HUNT_COOLDOWN_MODE 도 덮는다(오프라인 정산은 쿨다운 모드 전용 — actual 은 false 계산).
-  return { ...actual, V2_CORE_LOOP_V2: true, HUNT_COOLDOWN_MODE: true };
+  return {
+    ...actual,
+    V2_CORE_LOOP_V2: true,
+    HUNT_COOLDOWN_MODE: true,
+    V2_EQUIPMENT_LIBERATION: true,
+  };
+});
+vi.mock("@/adventure/data/v2/equipmentLiberationEffects", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("@/adventure/data/v2/equipmentLiberationEffects")
+    >();
+  return {
+    ...actual,
+    deriveLiberationHuntSnapshot: (...args: Parameters<typeof actual.deriveLiberationHuntSnapshot>) => {
+      snapshotCalls.value += 1;
+      return actual.deriveLiberationHuntSnapshot(...args);
+    },
+  };
 });
 vi.mock("@/adventure/data/v2/rareMaps", async (importOriginal) => {
   const actual =
@@ -144,6 +163,7 @@ describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on
     vi.clearAllMocks();
     resetUserRateLimitForTests();
     forceRareMap.value = false;
+    snapshotCalls.value = 0;
     vi.spyOn(Math, "random").mockReturnValue(0.5); // 확정 승리
   });
   afterEach(() => {
@@ -192,6 +212,7 @@ describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on
     // lastBattleAt 가 realNow(±) 로 전진.
     expect(char().lastBattleAt!).toBeGreaterThanOrEqual(now);
     expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledOnce();
+    expect(snapshotCalls.value).toBe(1);
     const masteryEvents = recordCodexMasteryGameplayBatch.mock.calls[0]?.[2];
     expect(masteryEvents).toHaveLength(24);
     expect(masteryEvents?.filter((event) => event.category === "monster"))

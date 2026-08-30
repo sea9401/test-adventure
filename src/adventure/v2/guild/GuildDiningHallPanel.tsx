@@ -11,7 +11,7 @@ import {
   type GuildDiningMenu,
   type GuildDiningMenuId,
 } from "@/adventure/data/v2/guildDining";
-import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { useGameResourceState } from "@/adventure/v2/GameStateProvider";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { FarmItemIcon } from "@/adventure/v2/FarmItemIcon";
 import type { FarmItemId } from "@/adventure/v2/farm";
@@ -87,7 +87,7 @@ export function GuildDiningHallPanel({
   title?: string;
   source?: DiningFacilitySource;
 } = {}) {
-  const { applyResourcePatch } = useGameState();
+  const { applyResourcePatch } = useGameResourceState();
   const [state, setState] = useState<DiningState | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);

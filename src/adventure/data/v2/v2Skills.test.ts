@@ -33,9 +33,14 @@ describe("7차 스킬 설명", () => {
       describeV2Skill(V2_SKILLS.v2c_shadowblade_swordshadow),
     ).toEqual(
       expect.arrayContaining([
-        "단일 물리 최종 피해 50% 기록 · 정련 시 65%",
+        "고유 단일 물리 최종 피해 50% 기록(잔영 70%) · 계승 공격 25% 기록 · 정련 시 +15%p",
         "검영 발동 후 다음 단일 물리 피해 +15%",
         "PvP 검영·후속 보너스 80% 적용",
+      ]),
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_ruinblade_ruinsword)).toEqual(
+      expect.arrayContaining([
+        "검의 3개 필요 · 한 행동 충전 · 다음 행동 자동 해방",
       ]),
     );
     expect(
@@ -855,6 +860,21 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     ]);
   });
 
+  it("광기의 왕좌 툴팁은 패황보다 낮은 20% 회복 수치를 설명한다", () => {
+    const skill = V2_SKILLS.v2c_overlord_throne;
+
+    expect(skill.description).toBe(
+      "광기 II를 계승한다. 전투당 한 번, 사망할 피해를 버티고 최대 체력의 20%로 회복한다.",
+    );
+    expect(describeV2Skill(skill)).toEqual([
+      "HP 50% 이하: 공격 액티브 발동률 +10%p",
+      "혈전 준비로 강화된 파멸일격·멸왕일도: 치명타 피해 +30%",
+      "사망 극복: 전투당 1회 치명 피해 무효 · HP 20%로 회복",
+      "현재 행동 종료까지 HP 20% 아래로 내려가지 않음",
+      "광기 계열 중 1개만 장착",
+    ]);
+  });
+
   it("패황의 지배 툴팁은 계승 효과와 사망 극복 규칙을 수치로 설명한다", () => {
     const skill = V2_SKILLS.v2c_hegemon_dominion;
 
@@ -889,7 +909,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 
   it("6차 순수형과 혼합형 모두 직접 스탯 계수 상향을 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_swordsaint_flash)).toContain(
-      "피해 공격력×1.3 + 힘×5",
+      "피해 공격력×1.3 + 힘×3",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_archmage_collapse)).toContain(
       "피해 마법 공격력×1.68 + 지능×0.68",
@@ -1047,7 +1067,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 
   it("회복 스킬은 계수·피해량 회복·전투당 1회를 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_acolyte_smite)).toContain(
-      "회복 잃은 체력 6% + 마법 공격력×0.5 +50~50 (회복량 보정 적용)",
+      "회복 잃은 체력 1.44% + 마법 공격력×0.12 +12~12 (회복량 보정 적용)",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_darkpriest_reap)).toContain(
       "피해량 14% 회복 (회복량 보정 미적용)",
@@ -1064,6 +1084,54 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_survivor_firstaid)).toContain(
       "원정당 1회 · 대련 효과 50%",
     );
+  });
+
+  it("반복형 확정 회복기는 숨은 차수 배율 대신 실효 수치를 스킬 데이터에 보관한다", () => {
+    const expected = {
+      v2_skill_recover: { pctMaxHp: 1.8 },
+      v2c_martial_chi: { pctLostHp: 1.2 },
+      v2c_acolyte_smite: {
+        pctLostHp: 1.44,
+        statCoef: 0.108,
+        baseFlatByTier: [12, 12, 12],
+      },
+      v2c_bishop_heal: {
+        pctLostHp: 2.88,
+        statCoef: 0.24,
+        baseFlatByTier: [38.4, 38.4, 38.4],
+      },
+      v2c_archbishop_sanctuary: {
+        pctLostHp: 2.24,
+        statCoef: 0.192,
+        baseFlatByTier: [32, 32, 32],
+      },
+      v2c_saint_miracle: {
+        pctLostHp: 2.88,
+        statCoef: 0.256,
+        baseFlatByTier: [44.8, 44.8, 44.8],
+      },
+    } as const;
+
+    for (const [skillId, effect] of Object.entries(expected)) {
+      expect(
+        V2_SKILLS[skillId as V2SkillId].effects.find(
+          (candidate) => candidate.kind === "heal",
+        ),
+        skillId,
+      ).toMatchObject(effect);
+    }
+
+    const expectedSpCosts = {
+      v2_skill_recover: 3,
+      v2c_martial_chi: 2,
+      v2c_acolyte_smite: 4,
+      v2c_bishop_heal: 7,
+      v2c_archbishop_sanctuary: 7,
+      v2c_saint_miracle: 9,
+    } as const;
+    for (const [skillId, cost] of Object.entries(expectedSpCosts)) {
+      expect(spCostOf(V2_SKILLS[skillId as V2SkillId]), skillId).toBe(cost);
+    }
   });
 
   it("혈성기사 계보 HP 소모기는 저체력 추가 피해 기준 하한을 표시한다", () => {
@@ -1169,6 +1237,7 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
       tier7Mechanic: {
         kind: "shadowCore" as const,
         recordPct: 50,
+        inheritedRecordPct: 25,
         refinedRecordPct: 65,
         nextSingleDamagePct: 15,
         pvpScalePct: 80,

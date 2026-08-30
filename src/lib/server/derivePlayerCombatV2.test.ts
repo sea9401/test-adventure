@@ -37,6 +37,7 @@ import {
 } from "@/adventure/data/v2/v2Stats";
 import { V2_EQUIPMENT, type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import { V2_JOB_CATALOG } from "@/adventure/data/v2/v2JobCatalog";
+import { emptyEquippedLiberationEffects } from "@/adventure/data/v2/equipmentLiberationEffects";
 
 describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   it("빈 장비 → 모든 키 0", () => {
@@ -1118,6 +1119,116 @@ describe("derivePlayerCombatV2Pure — 상위 직업 % 패시브(statPct/maxHpPc
   });
 });
 
+describe("derivePlayerCombatV2Pure — 장비 해방", () => {
+  it("음식%와 해방%를 패시브 계산 후 기초 능력치 기준으로 각각 절삭해 더한다", () => {
+    const liberationEffects = emptyEquippedLiberationEffects();
+    liberationEffects.baseStatPct.str = 10;
+
+    const derived = derivePlayerCombatV2Pure({
+      level: 1,
+      allocatedStats: { str: 85 },
+      jobBonus: { str: 10 },
+      statPct: { str: 100 },
+      foodPrimaryPct: { str: 10 },
+      liberationEffects,
+    });
+
+    expect(derived.baseAllocatedStats.str).toBe(100);
+    expect(derived.totalStats.str).toBe(240);
+  });
+
+  it("해방 고정 HP·MP를 최대치 비율 계산 전에 더한다", () => {
+    const liberationEffects = emptyEquippedLiberationEffects();
+    liberationEffects.flat.maxHp = 500;
+    liberationEffects.flat.maxMp = 500;
+    liberationEffects.pct.maxHp = 10;
+
+    const base = derivePlayerCombatV2Pure({ level: 1 });
+    const derived = derivePlayerCombatV2Pure({
+      level: 1,
+      maxMpPct: 10,
+      liberationEffects,
+    });
+
+    expect(derived.maxHp).toBe(Math.floor((base.maxHp + 500) * 1.1));
+    expect(derived.player.maxMp).toBe(
+      Math.floor(((base.player.maxMp ?? 0) + 500) * 1.1),
+    );
+  });
+
+  it("현재 재전직 주기에 누적된 해방 HP·MP 성장도 최대치 비율 전에 더한다", () => {
+    const base = derivePlayerCombatV2Pure({ level: 1 });
+    const derived = derivePlayerCombatV2Pure({
+      level: 1,
+      maxHpPct: 10,
+      maxMpPct: 10,
+      liberationCycleGrowth: { hp: 300, mp: 60 },
+    });
+
+    expect(derived.maxHp).toBe(Math.floor((base.maxHp + 300) * 1.1));
+    expect(derived.player.maxMp).toBe(
+      Math.floor(((base.player.maxMp ?? 0) + 60) * 1.1),
+    );
+  });
+
+  it("전투 해방 옵션을 기존 최종 전투 축에 한 번씩 반영한다", () => {
+    const liberationEffects = emptyEquippedLiberationEffects();
+    liberationEffects.flat.atk = 100;
+    liberationEffects.flat.magicAtk = 80;
+    liberationEffects.flat.physicalDef = 60;
+    liberationEffects.flat.magicDef = 40;
+    liberationEffects.flat.accuracy = 30;
+    liberationEffects.flat.evasion = 20;
+    liberationEffects.flat.speed = 10;
+    liberationEffects.pct.atk = 9;
+    liberationEffects.pct.magicAtk = 8;
+    liberationEffects.pct.physicalDef = 7;
+    liberationEffects.pct.magicDef = 6;
+    liberationEffects.pct.allDamage = 5;
+    liberationEffects.combat.critChancePp = 4;
+    liberationEffects.combat.critDamagePp = 20;
+    liberationEffects.combat.skillCritDamagePp = 12;
+    liberationEffects.combat.critResistPp = 3;
+    liberationEffects.combat.statusDamageReductionPct = 5;
+    liberationEffects.combat.physicalPenetrationPct = 6;
+    liberationEffects.combat.magicPenetrationPct = 7;
+    liberationEffects.combat.bossDamagePct = 4;
+    liberationEffects.combat.damageTakenReductionPct = 5;
+    liberationEffects.combat.shieldMaxHpPct = 8;
+    liberationEffects.combat.receivedHealingPct = 10;
+    liberationEffects.combat.healingOutputPct = 15;
+    liberationEffects.combat.skillMpCostReductionPct = 6;
+    liberationEffects.combat.finalEvasionEffectPp = 4;
+
+    const base = derivePlayerCombatV2Pure({ level: 1 }).player;
+    const player = derivePlayerCombatV2Pure({ level: 1, liberationEffects }).player;
+
+    expect(player.atk).toBe(Math.floor((base.atk + 100) * 1.09 * 1.05));
+    expect(player.magicAtk).toBe(
+      Math.floor(((base.magicAtk ?? 0) + 80) * 1.08 * 1.05),
+    );
+    expect(player.def).toBe(Math.floor((base.def + 60) * 1.07));
+    expect(player.magicDef).toBe(Math.floor(((base.magicDef ?? 0) + 40) * 1.06));
+    expect(player.accRating).toBe((base.accRating ?? 0) + 30);
+    expect(player.evaRating).toBe((base.evaRating ?? 0) + 20);
+    expect(player.spd).toBe(base.spd + 10);
+    expect(player.critChancePct).toBe((base.critChancePct ?? 0) + 4);
+    expect(player.critMult).toBeGreaterThan(base.critMult ?? 0);
+    expect(player.skillCritDmgPct).toBe(12);
+    expect(player.critResistPct).toBe((base.critResistPct ?? 0) + 3);
+    expect(player.statusDamageReductionPct).toBe(5);
+    expect(player.enemyPhysicalDefReductionPct).toBe(6);
+    expect(player.enemyMagicDefReductionPct).toBe(7);
+    expect(player.enchantBreakerBossBonusPct).toBe(4);
+    expect(player.passiveDamageTakenReductionPct).toBe(5);
+    expect(player.enchantBarrierPctMaxHp).toBe(8);
+    expect(player.receivedHealMult).toBe(1.1);
+    expect(player.healMult).toBeCloseTo((base.healMult ?? 1) * 1.15, 8);
+    expect(player.mpCostReductionPct).toBe(6);
+    expect(player.finalEvasionReductionPctAdd).toBe(4);
+  });
+});
+
 describe("derivePlayerCombatV2Pure weaponElement (무기 속성 폐지 — 항상 neutral)", () => {
   it("무기 속성 폐지 → 어떤 무기든 weaponElement = neutral", () => {
     // 속성 무기가 더는 없음 → 평타 속성은 캐릭터 선택으로(hunt/arena 가 weaponElement!==neutral 분기).
@@ -1360,7 +1471,8 @@ describe("derivePlayerCombatV2FromSaves (사냥 라우트 dedup용 — select �
     };
     const pve = derivePlayerCombatV2FromSaves(saves)!;
     const pvp = derivePlayerCombatV2FromSaves({ ...saves, includeCookingBuff: false })!;
-    expect(pve.totalStats.str).toBeGreaterThan(pvp.totalStats.str + 10);
+    // 음식 5%는 기초 STR 15 기준으로 별도 절삭되어 0, 고정 STR +10만 더해진다.
+    expect(pve.totalStats.str).toBe(pvp.totalStats.str + 10);
     expect(pve.player.atk).toBeGreaterThanOrEqual(pvp.player.atk + 100);
     expect(pve.player.def).toBe(pvp.player.def + 50);
     expect(pve.maxHp).toBe(

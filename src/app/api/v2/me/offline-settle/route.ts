@@ -18,7 +18,12 @@ import {
   OFFLINE_SETTLE_BATCH_SIZE,
   offlineBattlesAccrued,
   offlineFarmDepth,
+  V2_EQUIPMENT_LIBERATION,
 } from "@/adventure/data/v2/coreLoopConfig";
+import {
+  EMPTY_LIBERATION_HUNT_SNAPSHOT,
+  deriveLiberationHuntSnapshot,
+} from "@/adventure/data/v2/equipmentLiberationEffects";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
 import {
   runOneHunt,
@@ -123,6 +128,11 @@ export async function POST(req: Request) {
       Number(charSave.frontierDepth) || 2,
     );
     const dropFloor = Math.min(depth, DROP_FLOOR_CAP) as DungeonFloorId;
+    const liberationSnapshot = V2_EQUIPMENT_LIBERATION
+      ? deriveLiberationHuntSnapshot(
+          await lockSaveForUpdate(tx, userId, "equipment.v2", {}),
+        )
+      : EMPTY_LIBERATION_HUNT_SNAPSHOT;
 
     // 🔑오프라인 세션 = "로그아웃 HP + 판당 5초 회복". hpRegenSince 를 첫 판 기준(now − n×쿨다운)
     //   으로 리셋해, 장기 부재의 window 이전 누적 회복(거대 첫판 힐)을 차단한다. 첫 판은 정확히
@@ -161,6 +171,7 @@ export async function POST(req: Request) {
         offline: true,
         nowOverride,
         codexMasteryEvents,
+        liberationSnapshot,
       };
       const r = await runOneHunt(false, ctx);
       if (!r.ok) {

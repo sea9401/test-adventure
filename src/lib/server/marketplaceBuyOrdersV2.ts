@@ -27,7 +27,7 @@ import {
   marketplaceUnitPrice,
   saleProceeds,
 } from "@/lib/server/marketplaceV2";
-import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
+import { adventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import { isTradeableMuseunCashItemId } from "@/adventure/data/v2/museunCashItems";
 import { isCookingFoodId } from "@/adventure/v2/cooking/food";
 import { fishIdFromSpecimenItemId } from "@/adventure/v2/fishSpecimens";
@@ -374,7 +374,7 @@ export async function matchMarketplaceBuyOrder(
         {},
       );
       taxRate = marketplaceTaxRateForAdventureSupport(
-        adventureSupportActive(sellerCharacter.adventureSupport),
+        adventureSupportTier(sellerCharacter.adventureSupport),
       );
       sellerTaxRates.set(listing.sellerId, taxRate);
     }

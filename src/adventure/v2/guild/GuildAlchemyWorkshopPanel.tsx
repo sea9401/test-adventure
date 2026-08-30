@@ -5,7 +5,7 @@ import {
   type GuildAlchemyChargeTarget,
   type GuildAlchemyRecipe,
 } from "@/adventure/data/v2/guildAlchemy";
-import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { useGameResourceState } from "@/adventure/v2/GameStateProvider";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { FarmItemIcon } from "@/adventure/v2/FarmItemIcon";
 import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
@@ -62,7 +62,7 @@ export function GuildAlchemyWorkshopPanel({
   endpoint?: string;
   title?: string;
 } = {}) {
-  const { applyResourcePatch } = useGameState();
+  const { applyResourcePatch } = useGameResourceState();
   const [state, setState] = useState<WorkshopState | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyRecipeId, setBusyRecipeId] = useState<string | null>(null);

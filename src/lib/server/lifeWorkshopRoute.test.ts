@@ -8,6 +8,12 @@ const { store, grantedTitles } = vi.hoisted(() => ({
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-life-workshop"),
 }));
+vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/adventure/data/v2/coreLoopConfig")
+  >()),
+  V2_EQUIPMENT_LIBERATION: true,
+}));
 vi.mock("@/db", () => ({
   db: {
     transaction: vi.fn(async (callback: (tx: unknown) => unknown) =>
@@ -131,6 +137,23 @@ describe("life workshop route", () => {
       materials: {},
     });
     store.set(WOODCUTTING_LOG_KEY, { cuts: 1_000, xp: 1_000_000 });
+    store.set("equipment.v2", {
+      owned: [
+        {
+          iid: "discount-ring",
+          id: "v2_storm_sanctuary_ring",
+          liberation: {
+            rank: 1,
+            lineCount: 1,
+            revision: 1,
+            options: [
+              { id: "personal_craft_gold_discount_pct", level: 20 },
+            ],
+          },
+        },
+      ],
+      equipped: { ring: "discount-ring" },
+    });
 
     const first = await POST(request({
       action: "specialize",
@@ -148,6 +171,12 @@ describe("life workshop route", () => {
     const changedJson = await changed.json();
     expect(changed.status).toBe(200);
     expect(changedJson.gold).toBe(5_000);
+    expect(changedJson.liberationDiscountPct).toBe(10);
+    expect(changedJson.personalCraftGoldCost).toEqual({
+      baseGoldCost: 0,
+      goldCost: 0,
+      liberationDiscountPct: 10,
+    });
     expect(changedJson.state).toMatchObject({
       specializations: { woodcutting: "woodworker" },
       respecializations: { woodcutting: 1 },
@@ -278,6 +307,23 @@ describe("life workshop route", () => {
       failedCookingDishes: 4,
       cookingFoods: { "food:rustic_bread:normal:regular:0": 2 },
     });
+    store.set("equipment.v2", {
+      owned: [
+        {
+          iid: "discount-ring",
+          id: "v2_storm_sanctuary_ring",
+          liberation: {
+            rank: 1,
+            lineCount: 1,
+            revision: 1,
+            options: [
+              { id: "personal_craft_gold_discount_pct", level: 20 },
+            ],
+          },
+        },
+      ],
+      equipped: { ring: "discount-ring" },
+    });
 
     const response = await POST(request({
       action: "craft",
@@ -292,6 +338,9 @@ describe("life workshop route", () => {
       recipeId: "failed_dish_compost",
       itemId: "organic_fertilizer",
       produced: 1,
+      baseGoldCost: 0,
+      goldCost: 0,
+      liberationDiscountPct: 10,
     });
     expect(store.get("inventory.v2")).toEqual({
       failedCookingDishes: 1,

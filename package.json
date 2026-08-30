@@ -35,6 +35,7 @@
     "sim:coop-boss": "node --import tsx scripts/sim-v2-coop-boss.ts",
     "sim:exp-pacing": "node --env-file=.env.production --import tsx scripts/sim-v2-exp-pacing.ts",
     "sim:crit-balance": "node --import tsx scripts/sim-crit-balance.ts",
+    "simulate:equipment-liberation": "NODE_PATH=./scripts/server-only-stub node --import tsx scripts/simulate-equipment-liberation.mjs",
     "account:create": "node scripts/create-password-account.mjs",
     "coupon:issue": "node scripts/issue-beta-coupons.mjs",
     "coupon:set-cosmetic-boxes": "node scripts/set-coupon-cosmetic-boxes.mjs",

@@ -18,7 +18,7 @@ import {
 } from "@/adventure/data/v2/classes";
 import { tierLevelCap } from "@/adventure/data/v2/proficiency";
 import { respecGoldCost } from "@/adventure/data/v2/respec";
-import { useGameState } from "./GameStateProvider";
+import { useGameResourceState } from "./GameStateProvider";
 import { useSystemMessageState } from "./RewardToastProvider";
 import {
   formatLifeResourceRejobMessage,
@@ -71,7 +71,7 @@ export function V2ClassGrid({
   onChanged: () => void | Promise<void>;
 }) {
   // flag off 면 보유만(===gold, prod 무변경), on 이면 보유+은행(은행 골드로도 전직).
-  const { coreLoopOn, bankedGold } = useGameState();
+  const { coreLoopOn, bankedGold } = useGameResourceState();
   const heldGold = gold ?? 0;
   const spendable = coreLoopOn ? heldGold + bankedGold : heldGold;
   const activeGroup = tier1ClassOf(currentClass);

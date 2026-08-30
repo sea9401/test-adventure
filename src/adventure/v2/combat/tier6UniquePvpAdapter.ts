@@ -378,7 +378,9 @@ function pvpCommandText(
   if (command.kind === "mp") return `MP +${command.amount}`;
   if (command.kind === "consume_dot") return `${command.dot} ${command.stacks}스택 소비`;
   if (command.kind === "apply_dot") return `${command.dot} ${command.stacks}스택 부여`;
-  if (command.kind === "refresh_bleed") return `출혈 지속 최소 ${command.turns}회 유지`;
+  if (command.kind === "refresh_bleed") {
+    return `출혈 중첩 유지 · 지속 횟수 최소 ${command.turns}회로 갱신`;
+  }
   if (command.kind === "def_debuff") return `방어 ${command.pct}% 감소`;
   if (command.kind === "mdef_debuff") return `마법방어 ${command.pct}% 감소`;
   if (command.kind === "extra_action") return "추가 기본 공격 +1회";

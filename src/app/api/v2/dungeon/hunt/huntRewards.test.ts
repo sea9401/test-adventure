@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyLiberationPostHuntRestore,
   applyChargeRestore,
+  computeBattleRewards,
   multiplyHuntReward,
   normalizeHuntBattleCount,
   rareMapRewardRolls,
@@ -107,5 +109,59 @@ describe("applyChargeRestore", () => {
 
     expect(result.afterMp).toBe(70);
     expect(result.mpCharges).toBe(100);
+  });
+});
+
+describe("computeBattleRewards 해방 배율", () => {
+  it("기존 EXP·골드 계산 결과에 각각 해방 배율을 한 번 적용한다", () => {
+    const base = computeBattleRewards({
+      won: true,
+      enemyMonster: { exp: 100 },
+      battleCount: 100_000,
+      mapExpMult: 1,
+      mapGoldMult: 1,
+    });
+    const boosted = computeBattleRewards({
+      won: true,
+      enemyMonster: { exp: 100 },
+      battleCount: 100_000,
+      mapExpMult: 1,
+      mapGoldMult: 1,
+      liberationExpPct: 20,
+      liberationGoldPct: 10,
+    });
+
+    expect(boosted.expGained).toBe(Math.round(base.expGained * 1.2));
+    expect(boosted.goldGross).toBe(Math.round(base.goldGross * 1.1));
+  });
+});
+
+describe("applyLiberationPostHuntRestore", () => {
+  it("승리 때 최대치 비율만큼 회복하고 상한을 지킨다", () => {
+    expect(
+      applyLiberationPostHuntRestore({
+        won: true,
+        afterHp: 850,
+        afterMp: 40,
+        maxHp: 1_000,
+        maxMp: 100,
+        hpPct: 20,
+        mpPct: 10,
+      }),
+    ).toEqual({ afterHp: 1_000, afterMp: 50 });
+  });
+
+  it("패배 때는 회복하지 않는다", () => {
+    expect(
+      applyLiberationPostHuntRestore({
+        won: false,
+        afterHp: 850,
+        afterMp: 40,
+        maxHp: 1_000,
+        maxMp: 100,
+        hpPct: 20,
+        mpPct: 10,
+      }),
+    ).toEqual({ afterHp: 850, afterMp: 40 });
   });
 });

@@ -85,7 +85,7 @@ vi.mock("@/adventure/data/v2/v2EquipMint", () => ({
   ),
 }));
 vi.mock("@/adventure/data/v2/adventureSupport", () => ({
-  adventureSupportActive: vi.fn(() => false),
+  adventureSupportTier: vi.fn(() => "none"),
 }));
 vi.mock("@/adventure/data/v2/museunCashItems", () => ({
   isMuseunCashItemId: vi.fn(() => false),
@@ -273,7 +273,15 @@ describe("귀속 장비 입찰", () => {
       itemId: "v2_iron_sword",
       itemName: "철검",
       quantity: 1,
-      instancePayload: { bound: true },
+      instancePayload: {
+        bound: true,
+        liberation: {
+          rank: 3,
+          lineCount: 1,
+          revision: 1,
+          options: [{ id: "physical_attack_flat", level: 1 }],
+        },
+      },
     };
     const walletBefore = structuredClone(mocks.wallets.get("buyer-a"));
 

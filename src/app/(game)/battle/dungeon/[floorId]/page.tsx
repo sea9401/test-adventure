@@ -44,6 +44,7 @@ export default function DungeonFloorPage() {
     stamina,
     staminaMax,
     adventureSupportActive,
+    adventureSupportTier,
     setStamina,
     hpCharges,
     mpCharges,
@@ -109,6 +110,7 @@ export default function DungeonFloorPage() {
       stamina={stamina}
       staminaMax={staminaMax}
       adventureSupportActive={adventureSupportActive}
+      adventureSupportTier={adventureSupportTier}
       setStamina={setStamina}
       hp={hp}
       setHp={setHp}

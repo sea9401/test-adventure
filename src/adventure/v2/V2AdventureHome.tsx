@@ -39,6 +39,7 @@ import { Inset } from "@/components/ui/Inset";
 import { PageShell } from "@/components/ui/PageShell";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_ACCENT } from "@/components/ui/surfaces";
+import type { AdventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 
 // 모험 탭 — 캐릭터 상태 + 안내/공지.
 
@@ -48,7 +49,9 @@ type StateResponse = {
   guild?: { id: number; name: string } | null;
   adventureSupport?: {
     active: boolean;
+    tier: AdventureSupportTier;
     activeUntil: number | null;
+    premiumUntil: number | null;
     regenBonusPct: number;
   };
   cosmetics?: MuseunCosmeticAppearance;
@@ -184,6 +187,7 @@ export function V2AdventureHome() {
         chatNameEffect={state.cosmetics?.chatNameEffect ?? null}
         championshipBadge={state.cosmetics?.championshipBadge ?? null}
         activeFoodBuff={state.activeFoodBuff ?? null}
+        activeGuildDiningEffect={state.activeGuildDiningEffect ?? null}
         profileShowcase={state.profileShowcase ?? null}
         profileShowcaseSlots={state.profileShowcaseSlots}
         profileMasteryTrophies={state.profileMasteryTrophies}

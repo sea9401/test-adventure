@@ -254,5 +254,3 @@ export const SKILL_BOOKS: Record<SkillBookId, SkillBook> = {
     tradable: false,
   },
 };
-
-export const SKILL_BOOK_IDS = Object.keys(SKILL_BOOKS) as SkillBookId[];

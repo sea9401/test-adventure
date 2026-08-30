@@ -14,7 +14,7 @@ import {
   saleProceeds,
 } from "@/lib/server/marketplaceV2";
 import { deliverMarketplaceListing } from "@/lib/server/marketplaceV2Fulfillment";
-import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
+import { adventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import {
   matchMarketplaceBuyOrder,
   recordMarketplaceAutoMatchFills,
@@ -135,7 +135,7 @@ export async function POST(req: Request) {
             {},
           );
           const taxRate = marketplaceTaxRateForAdventureSupport(
-            adventureSupportActive(sellerCharacter.adventureSupport),
+            adventureSupportTier(sellerCharacter.adventureSupport),
           );
           const gross = listing.highestBid!;
           const proceeds = saleProceeds(gross, taxRate);

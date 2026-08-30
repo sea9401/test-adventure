@@ -114,4 +114,26 @@ describe("equipment list sorting", () => {
       "v2_crafted_oathblade",
     ]);
   });
+
+  it("잠근 장비를 먼저 모으고 각 그룹 안에서는 기본 순서를 유지한다", () => {
+    const instances: V2EquipInstance[] = [
+      { iid: "unlocked-greatsword", id: "v2_greatsword" },
+      { iid: "locked-greatsword", id: "v2_greatsword", locked: true },
+      { iid: "unlocked-iron", id: "v2_iron_sword" },
+      { iid: "locked-iron", id: "v2_iron_sword", locked: true },
+    ];
+
+    expect(sortEquipInstances(instances, "locked").map((item) => item.iid)).toEqual([
+      "locked-iron",
+      "locked-greatsword",
+      "unlocked-iron",
+      "unlocked-greatsword",
+    ]);
+    expect(instances.map((item) => item.iid)).toEqual([
+      "unlocked-greatsword",
+      "locked-greatsword",
+      "unlocked-iron",
+      "locked-iron",
+    ]);
+  });
 });

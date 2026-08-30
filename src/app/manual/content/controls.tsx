@@ -1,4 +1,7 @@
-import { ADVENTURE_SUPPORT_PASS } from "@/adventure/data/v2/adventureSupport";
+import {
+  ADVENTURE_SUPPORT_PASS,
+  PREMIUM_ADVENTURE_SUPPORT_PASS,
+} from "@/adventure/data/v2/adventureSupport";
 import { MUSEUN_COSMETIC_ACCESS_DAYS } from "@/adventure/data/v2/museunCosmetics";
 import { H2, H3, P, UL, Em, Table, Note } from "./primitives";
 
@@ -139,6 +142,24 @@ export function ControlsContent() {
           처음 활성화할 때는 스태미나도 최대{" "}
           {ADVENTURE_SUPPORT_PASS.staminaActivationGrant.toLocaleString("ko-KR")}{" "}
           회복합니다.
+        </li>
+        <li>
+          <Em>월간 모험 지원권 프리미엄</Em>은 최대 스태미나 +
+          {PREMIUM_ADVENTURE_SUPPORT_PASS.staminaMaxBonus.toLocaleString(
+            "ko-KR",
+          )}
+          , 스태미나 회복 속도 +
+          {PREMIUM_ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct}%, 일괄 사냥 최대{" "}
+          {PREMIUM_ADVENTURE_SUPPORT_PASS.activeMaxHuntBatch}회, 거래소 등록 +
+          {PREMIUM_ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus}개와 판매세{" "}
+          {PREMIUM_ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}% 혜택을
+          제공합니다. 사용할 때마다 스태미나{" "}
+          {PREMIUM_ADVENTURE_SUPPORT_PASS.staminaActivationGrant.toLocaleString(
+            "ko-KR",
+          )}
+          과 꾸미기 30일 연장권{" "}
+          {PREMIUM_ADVENTURE_SUPPORT_PASS.cosmeticExtensionGrant}개를 받습니다.
+          일반 지원권의 남은 기간은 프리미엄 이용 중 소모되지 않고 종료 뒤 이어집니다.
         </li>
         <li>
           꾸미기 상자가 포함된 보상은 출석판에 함께 표시되며, 받은 상자는 꾸미기

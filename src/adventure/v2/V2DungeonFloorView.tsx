@@ -65,9 +65,10 @@ import {
   useAutoHuntStopConfig,
 } from "@/adventure/v2/autoHuntStopConditions";
 import {
-  ADVENTURE_SUPPORT_PASS,
+  adventureSupportBenefits,
   huntCountsForAdventureSupport,
   normalizeHuntCount,
+  type AdventureSupportTier,
   type HuntCount,
 } from "@/adventure/data/v2/adventureSupport";
 import {
@@ -98,12 +99,12 @@ export function LevelUpTutorialTitle() {
 // 사냥 횟수 기본값을 localStorage 에 영속 — 사냥터 재진입마다 1 로 리셋되는 번거로움 제거.
 // 지원권 권한에 없는 저장값(미가입자의 옛 50회 포함)·손상값은 1 로 폴백.
 const HUNT_COUNT_STORAGE_KEY = "v2-hunt-count.v1";
-function loadHuntCount(adventureSupportActive: boolean): HuntCount {
+function loadHuntCount(adventureSupportTier: AdventureSupportTier): HuntCount {
   if (typeof window === "undefined") return 1;
   try {
     return normalizeHuntCount(
       localStorage.getItem(HUNT_COUNT_STORAGE_KEY),
-      adventureSupportActive,
+      adventureSupportTier,
     );
   } catch {
     return 1;
@@ -216,6 +217,7 @@ export function V2DungeonFloorView({
   initialExp = 0,
   initialMaxExp = 1,
   adventureSupportActive = false,
+  adventureSupportTier,
   initialHpCharges = 0,
   initialMpCharges = 0,
   stamina,
@@ -261,6 +263,7 @@ export function V2DungeonFloorView({
   initialMaxExp?: number;
   // 월간 모험 지원권 활성 여부. 서버 만료 시각이 유효한 이용자만 50회 일괄 전투 허용.
   adventureSupportActive?: boolean;
+  adventureSupportTier?: AdventureSupportTier;
   initialHpCharges?: number;
   initialMpCharges?: number;
   // 전역 stamina + setter — V2GameFlow.
@@ -504,14 +507,19 @@ export function V2DungeonFloorView({
   const statusProficiency =
     lastResult?.masteryAfter ?? batchStatus?.proficiency ?? latestProficiency;
   // 선택한 사냥 횟수 — 메인 버튼이 단판/일괄을 이 값으로 결정. 기본 1(단판).
+  const effectiveAdventureSupportTier =
+    adventureSupportTier ??
+    (adventureSupportActive ? "standard" : "none");
   const [huntCount, setHuntCount] = useState<HuntCount>(1);
-  const huntCounts = huntCountsForAdventureSupport(adventureSupportActive);
+  const huntCounts = huntCountsForAdventureSupport(
+    effectiveAdventureSupportTier,
+  );
   // 저장된 기본값 로드(마운트 1회). SSR/hydration mismatch 피하려 default 1 후 effect 에서 적용
   // (useAutoPotionConfig 와 동일 패턴 — 클라 전용 localStorage 하이드레이션).
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setHuntCount(loadHuntCount(adventureSupportActive));
-  }, [adventureSupportActive]);
+    setHuntCount(loadHuntCount(effectiveAdventureSupportTier));
+  }, [effectiveAdventureSupportTier]);
 
   // HP 게이트용 1초 틱 — 시간 재생으로 회복되면 사냥 버튼이 자동 재활성된다. (HpBar 와 같은 패턴)
   const [now, setNow] = useState(() => Date.now());
@@ -824,9 +832,9 @@ export function V2DungeonFloorView({
     : 0;
   const staminaCurrent = stamina.current;
   const staminaLastUpdatedAt = stamina.lastUpdatedAt;
-  const staminaRegenBonusPct = adventureSupportActive
-    ? ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct
-    : 0;
+  const staminaRegenBonusPct = adventureSupportBenefits(
+    effectiveAdventureSupportTier,
+  ).staminaRegenBonusPct;
   const lowStamina = !coreLoopOn && staminaCurrent < HUNT_COST;
   useEffect(() => {
     if (coreLoopOn || !onRefresh || staminaCurrent >= HUNT_COST) {

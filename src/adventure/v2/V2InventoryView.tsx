@@ -18,6 +18,7 @@ import {
 import { COOP_MASTERY_TOME_GAIN } from "@/adventure/data/v2/coopRewards";
 import { type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
 import { SP_FRUIT, type SpFruitTier } from "@/adventure/data/v2/spFruit";
+import { canLiberateEquipment } from "@/adventure/data/v2/equipmentLiberation";
 import {
   V2_EQUIPMENT,
   type V2EquipInstance,
@@ -60,6 +61,8 @@ import {
 } from "./EquipmentCodexBulkDialog";
 import { selectEquipmentCodexBulkCandidates } from "./equipmentCodexBulk";
 import { EquippedItemSummaryGrid } from "./inventory/EquippedItemSummaryGrid";
+import { V2_EQUIPMENT_LIBERATION } from "@/adventure/data/v2/coreLoopConfig";
+import { boundEquipmentDisposalConfirmation } from "./item-card/shared";
 
 // 강화/재련 등 다른 화면도 같은 장비 카드 그리드를 쓴다 — 기존 import 경로 유지를 위해
 // 분리한 컴포넌트를 여기서 재노출(re-export).
@@ -86,6 +89,28 @@ const INVENTORY_PAGE_SIZE = 20;
 
 // 일괄 판매 임계값(%) — 한 번 정하면 새로고침 후에도 유지되도록 localStorage 에 저장.
 const SELL_PCT_STORAGE_KEY = "v2-inventory-sell-pct";
+
+export function equipmentLiberationSmithyHref(
+  instance: V2EquipInstance,
+  enabled: boolean = V2_EQUIPMENT_LIBERATION,
+): string | undefined {
+  const item = V2_EQUIPMENT[instance.id];
+  if (!enabled || !item || !canLiberateEquipment(item, instance)) {
+    return undefined;
+  }
+  return `/town/smithy?mode=liberation&item=${encodeURIComponent(instance.iid)}`;
+}
+
+export function bulkEquipmentSaleNotice(
+  soldLabel: string,
+  soldGold: number,
+  skippedBoundCount: number,
+): string {
+  const sold = shopSaleBankNotice(soldLabel, soldGold);
+  return skippedBoundCount > 0
+    ? `${sold} · 귀속 장비 ${skippedBoundCount.toLocaleString()}개 제외`
+    : sold;
+}
 
 type EquipmentSaleSelectionState = {
   slot: V2EquipSlot;
@@ -119,6 +144,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     setTab(itemTabFromParam(tabParam));
   }, [tabParam]);
   const [sortMode, setSortMode] = useState<SortMode>("default");
+  const [lockedOnly, setLockedOnly] = useState(false);
   // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(판수 소모/30분 만료는 서버 권위).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[] | null>(null);
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
@@ -818,12 +844,16 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     async (opts: BulkSellOpts, label: string) => {
       const plan = selectBulkSell(owned, equipped, opts);
       if (plan.count === 0) {
-        notifySystem(`✗ ${label}: 판매할 장비가 없습니다`);
+        notifySystem(
+          plan.skippedBoundCount > 0
+            ? `✗ ${label}: 판매할 장비가 없습니다 · 귀속 장비 ${plan.skippedBoundCount.toLocaleString()}개 제외`
+            : `✗ ${label}: 판매할 장비가 없습니다`,
+        );
         return;
       }
       if (
         !(await confirmGameAction(
-          `${label}\n${plan.count}개 판매 → +${plan.gold.toLocaleString()}골드\n(장착·잠금만 제외) 진행할까요?`,
+          `${label}\n${plan.count}개 판매 → +${plan.gold.toLocaleString()}골드\n(장착·잠금·귀속 제외) 진행할까요?`,
         ))
       ) {
         return;
@@ -843,6 +873,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           soldGold?: number;
           gold?: number;
           bankedGold?: number;
+          skippedBoundCount?: number;
         } | null;
         if (!j?.ok) {
           notifySystem(`✗ ${j?.error ?? `http ${res.status}`}`);
@@ -855,7 +886,11 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           setBankedGold(balancePatch.bankedGold);
         }
         notifySystem(
-          shopSaleBankNotice(`${j.soldCount ?? 0}개`, j.soldGold ?? 0),
+          bulkEquipmentSaleNotice(
+            `${j.soldCount ?? 0}개`,
+            j.soldGold ?? 0,
+            j.skippedBoundCount ?? plan.skippedBoundCount,
+          ),
         );
       } catch (err) {
         notifySystem(`✗ ${(err as Error).message}`);
@@ -922,22 +957,44 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     }
 
     setBusy("selected-sell");
+    let confirmedBound = false;
     try {
-      const res = await fetch("/api/v2/shop/equipment/sell-bulk", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ iids: plan.iids }),
-      });
-      const j = (await res.json().catch(() => null)) as {
-        ok?: boolean;
-        error?: string;
-        owned?: V2EquipInstance[];
-        equipped?: Partial<Record<V2EquipSlot, string>>;
-        soldCount?: number;
-        soldGold?: number;
-        gold?: number;
-        bankedGold?: number;
-      } | null;
+      const requestSale = async (confirmBound: boolean) => {
+        const res = await fetch("/api/v2/shop/equipment/sell-bulk", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            iids: plan.iids,
+            ...(confirmBound ? { confirmBound: true } : {}),
+          }),
+        });
+        const body = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          items?: Array<{
+            iid: string;
+            itemName: string;
+            liberation?: V2EquipInstance["liberation"];
+          }>;
+          owned?: V2EquipInstance[];
+          equipped?: Partial<Record<V2EquipSlot, string>>;
+          soldCount?: number;
+          soldGold?: number;
+          gold?: number;
+          bankedGold?: number;
+        } | null;
+        return { res, body };
+      };
+
+      let { res, body: j } = await requestSale(false);
+      if (j?.error === "bound_confirmation_required" && j.items?.length) {
+        confirmedBound = await confirmGameAction(
+          boundEquipmentDisposalConfirmation(j.items, "판매"),
+        );
+        if (!confirmedBound) return;
+        ({ res, body: j } = await requestSale(true));
+        if (!j?.ok) await refresh();
+      }
 
       if (!j?.ok) {
         if (j?.error === "selection_changed") {
@@ -971,6 +1028,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         shopSaleBankNotice(`${j.soldCount ?? 0}개`, j.soldGold ?? 0),
       );
     } catch (err) {
+      if (confirmedBound) await refresh();
       notifySystem(`✗ ${(err as Error).message}`);
     } finally {
       setBusy(null);
@@ -979,6 +1037,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     notifySystem,
     saleSelection,
     selectedSaleResult,
+    refresh,
     setBankedGold,
     setGold,
   ]);
@@ -1106,6 +1165,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             busy={busy}
             sortMode={sortMode}
             setSortMode={setSortMode}
+            lockedOnly={lockedOnly}
+            setLockedOnly={setLockedOnly}
             sellQualityPct={sellQualityPct}
             setSellQualityPct={setSellQualityPct}
             pageSize={INVENTORY_PAGE_SIZE}
@@ -1250,6 +1311,10 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
               enhance={card.inst.enhance}
               craftQuality={card.inst.craftQuality}
               craftedBy={card.inst.craftedBy}
+              liberation={
+                V2_EQUIPMENT_LIBERATION ? card.inst.liberation : undefined
+              }
+              liberationHref={equipmentLiberationSmithyHref(card.inst)}
               anchor={card.anchor}
               onClose={() => setCard(null)}
               equippedIds={equippedItemIds}

@@ -25,6 +25,7 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import type { ActiveCookingBuff } from "@/adventure/v2/cooking/foodShared";
 import type { GuildDiningEffectSummary } from "@/adventure/data/v2/guildDining";
+import type { AdventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Inset } from "@/components/ui/Inset";
@@ -77,7 +78,9 @@ function ResourceLine({
 
 type AdventureSupportSummary = {
   active: boolean;
+  tier?: AdventureSupportTier;
   activeUntil: number | null;
+  premiumUntil?: number | null;
   regenBonusPct: number;
 };
 
@@ -156,6 +159,7 @@ export function CompactCharacterSummary({
     Number.isFinite(adventureSupport.activeUntil)
       ? adventureSupport.activeUntil
       : null;
+  const premiumSupportActive = adventureSupport?.tier === "premium";
   const visibleGuildDiningEffect =
     activeGuildDiningEffect && activeGuildDiningEffect.expiresAt > effectNow
       ? activeGuildDiningEffect
@@ -268,7 +272,11 @@ export function CompactCharacterSummary({
                 as="button"
                 type="button"
                 padding="none"
-                aria-label="모험 지원권 상세 보기"
+                aria-label={
+                  premiumSupportActive
+                    ? "프리미엄 모험 지원권 상세 보기"
+                    : "모험 지원권 상세 보기"
+                }
                 aria-haspopup="dialog"
                 onClick={(event) =>
                   setSelectedDetail({
@@ -276,10 +284,10 @@ export function CompactCharacterSummary({
                     anchor: anchorOf(event.currentTarget),
                   })
                 }
-                className="inline-flex items-center gap-1 border-0 px-2 py-1 text-[10px] text-zinc-600 shadow-none transition-colors hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:text-zinc-300 dark:hover:text-white"
+                className={`inline-flex items-center gap-1 border-0 px-2 py-1 text-[10px] shadow-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${premiumSupportActive ? "font-semibold text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100" : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"}`}
               >
                 <Sparkle size={13} className="text-amber-500" aria-hidden />
-                모험 지원권
+                {premiumSupportActive ? "프리미엄" : "모험 지원권"}
               </Inset>
             ) : null}
             {activePresetName ? (
@@ -384,6 +392,8 @@ export function CompactCharacterSummary({
           detail={{
             kind: "support",
             activeUntil: supportActiveUntil,
+            premiumUntil: adventureSupport?.premiumUntil,
+            tier: adventureSupport?.tier,
             regenBonusPct: adventureSupport?.regenBonusPct ?? 0,
           }}
           anchor={selectedDetail.anchor}

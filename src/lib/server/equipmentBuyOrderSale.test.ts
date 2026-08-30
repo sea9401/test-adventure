@@ -129,6 +129,31 @@ beforeEach(() => {
 });
 
 describe("거래 정지 장비 구매 주문 판매", () => {
+  it("해방 귀속 장비는 내부 체결 헬퍼를 직접 호출해도 이전하지 않는다", async () => {
+    const liberatedBound: V2EquipInstance = {
+      ...instance,
+      bound: true,
+      liberation: {
+        rank: 3,
+        lineCount: 1,
+        revision: 1,
+        options: [{ id: "physical_attack_flat", level: 1 }],
+      },
+    };
+
+    await expect(
+      fillBestEquipmentBuyOrder(tx as never, {
+        sellerId: "seller-z",
+        instance: liberatedBound,
+        taxRate: 0,
+        now: new Date("2026-08-20T12:00:00.000Z"),
+      }),
+    ).resolves.toBeNull();
+    expect(mocks.lockedParticipants).toEqual([]);
+    expect(mocks.inboxWrites).toEqual([]);
+    expect(mocks.orderUpdates).toEqual([]);
+  });
+
   it("강화 장비를 체결하면 강화 상태를 구매자 우편 payload에 보존한다", async () => {
     const enhanced = {
       ...instance,

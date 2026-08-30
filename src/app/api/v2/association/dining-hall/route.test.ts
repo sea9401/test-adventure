@@ -25,9 +25,6 @@ vi.mock("@/lib/server/adventurerAssociation", () => ({
   claimWeeklyFacilitySource: vi.fn(async () => ({ ok: true })),
   readWeeklyFacilitySource: vi.fn(async () => null),
 }));
-vi.mock("@/lib/server/adventurerAssociationDining", () => ({
-  saveAssociationDiningWeekly: vi.fn(async () => undefined),
-}));
 vi.mock("@/lib/server/guildDiningIngredients", () => ({
   lockGuildDiningIngredient: vi.fn(async () => ({
     owned: 1_000,
@@ -51,7 +48,6 @@ vi.mock("@/lib/server/userRateLimit", () => ({
 }));
 
 import { associationFacilityLevel } from "@/lib/server/adventurerAssociation";
-import { saveAssociationDiningWeekly } from "@/lib/server/adventurerAssociationDining";
 import { POST } from "./route";
 
 function request(body: Record<string, unknown>) {
@@ -111,7 +107,6 @@ describe("모험가 협회 식당", () => {
       available: 1,
       contributionCap: null,
     });
-    expect(saveAssociationDiningWeekly).not.toHaveBeenCalled();
   });
 
   it("기존 개인 기여 한도를 넘어서도 주간 납품을 계속 받는다", async () => {

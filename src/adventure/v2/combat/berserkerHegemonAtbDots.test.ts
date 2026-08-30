@@ -45,7 +45,7 @@ describe("광전사–패황 ATB 지속 피해", () => {
     };
 
     state = tickPlayerDotsOnAction(state, player, "광기의 왕좌");
-    expect(state.playerHp).toBe(400);
+    expect(state.playerHp).toBe(200);
     expect(state.flags.enduranceTriggered).toBe(false);
     expect(state.berserker?.deathOvercomeUsed).toBe(true);
     expect(state.phase).not.toBe("ended");

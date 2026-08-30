@@ -8,7 +8,7 @@ import {
   GUILD_CREATE_MIN_LEVEL,
   GUILD_CREATE_GOLD_COST,
 } from "@/adventure/data/guild";
-import { useGameState } from "./GameStateProvider";
+import { useGameResourceState } from "./GameStateProvider";
 
 // 새 길드 창단 카드 — 무소속일 때 길드 탭에 인라인으로 표시. 레벨·골드 게이트 + 이름 입력.
 // 성공 시 onCreated 호출(부모가 state/info refetch → 소속 화면으로 전환).
@@ -32,7 +32,7 @@ type StateResponse = {
 
 export function GuildFoundCard({ onCreated }: { onCreated: () => void }) {
   // 지불 게이트 — 코어루프 on 이면 보유+은행(은행에 든 골드로도 창단). 로컬(me/state)로 추적해 신선.
-  const { coreLoopOn } = useGameState();
+  const { coreLoopOn } = useGameResourceState();
   const [level, setLevel] = useState<number | null>(null);
   const [gold, setGold] = useState<number | null>(null);
   const [bankedGold, setBankedGold] = useState(0);

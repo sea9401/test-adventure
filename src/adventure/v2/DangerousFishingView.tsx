@@ -383,6 +383,7 @@ export function DangerousFishingView({
                 <div ref={voyageEncounterRef} className="scroll-mt-24">
                   <DangerousFishingRealtimePanel
                     encounter={realtimeEncounter}
+                    serverNow={model.now}
                     scene={{
                       encounterImageSrc:
                         model.catalogs.zones[model.state.voyage.zoneId]

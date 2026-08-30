@@ -1,6 +1,22 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { StormRefinementConfirmDialog } from "./V2EnhanceView";
+import {
+  resolveSmithyForgeMode,
+  smithyForgeTabs,
+  StormRefinementConfirmDialog,
+} from "./V2EnhanceView";
+
+describe("대장간 해방 기능 플래그", () => {
+  it("플래그가 꺼지면 탭과 URL 진입 모두 기존 강화로 돌아간다", () => {
+    expect(smithyForgeTabs(false).map(({ key }) => key)).not.toContain("liberation");
+    expect(resolveSmithyForgeMode("liberation", false)).toBe("enhance");
+  });
+
+  it("플래그가 켜지면 해방 탭과 URL 진입을 허용한다", () => {
+    expect(smithyForgeTabs(true).map(({ key }) => key)).toContain("liberation");
+    expect(resolveSmithyForgeMode("liberation", true)).toBe("liberation");
+  });
+});
 
 describe("폭풍 개량 확인 창", () => {
   it("개량 전후 위력·소모 비용·재련 불가 경고를 확정 전에 보여준다", () => {

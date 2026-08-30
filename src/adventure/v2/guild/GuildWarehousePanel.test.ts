@@ -170,6 +170,27 @@ describe("길드 창고 장비 선택 표시", () => {
     expect(html).not.toContain("<select");
   });
 
+  it("장비 요약 카드가 좁은 화면에서 그리드 최소 너비를 늘리지 않는다", () => {
+    render(
+      createElement(EquipmentTransferForm, {
+        action: "deposit",
+        candidates: [TRANSFERABLE_EQUIPMENT],
+        activeEquipmentIid: TRANSFERABLE_EQUIPMENT.iid,
+        busy: false,
+        onEquipmentChange: vi.fn(),
+        onSubmit: vi.fn(),
+      }),
+    );
+
+    const summaryButton = screen.getByRole("button", { name: /기폭 사냥화/ });
+    const summaryColumn = summaryButton.parentElement;
+    const transferGrid = summaryColumn?.parentElement;
+
+    expect(transferGrid?.className).toContain("min-w-0");
+    expect(summaryColumn?.className).toContain("min-w-0");
+    expect(summaryButton.className).toContain("min-w-0");
+  });
+
   it("전용 모달은 장비 정보를 이름·배지·옵션으로 나눠 표시한다", () => {
     const equipment: V2EquipInstance = {
       iid: "warehouse-modal-boots",

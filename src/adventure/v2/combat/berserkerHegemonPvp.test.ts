@@ -98,7 +98,7 @@ describe("광전사–패황 PvP 통합", () => {
 
     const next = castV2SkillOnAttackerTurnPvP(state, "p1").state;
 
-    expect(next.p2.hp).toBe(400);
+    expect(next.p2.hp).toBe(200);
     expect(next.p2.flags.enduranceTriggered).toBe(false);
     expect(next.p2.berserker).toMatchObject({
       deathOvercomeUsed: true,
@@ -258,7 +258,7 @@ describe("광전사–패황 PvP 통합", () => {
       "회피",
       false,
     );
-    expect(state.p1.hp).toBe(400);
+    expect(state.p1.hp).toBe(200);
     expect(state.p1.berserker?.deathOvercomeUsed).toBe(true);
     expect(state.phase).not.toBe("ended");
 
@@ -275,7 +275,7 @@ describe("광전사–패황 PvP 통합", () => {
 
     const countered = maybeApplyRuneCounter(state, "p1", "p2");
     expect(countered.attackerKilled).toBe(false);
-    expect(countered.state.p1.hp).toBe(400);
+    expect(countered.state.p1.hp).toBe(200);
     expect(countered.state.p1.berserker?.deathOvercomeUsed).toBe(true);
   });
 
@@ -358,7 +358,7 @@ describe("광전사–패황 PvP 통합", () => {
 
     state = advanceTurnPvP(state, { kind: "attack" });
 
-    expect(state.p1.hp).toBe(400);
+    expect(state.p1.hp).toBe(200);
     expect(state.p1.berserker).toMatchObject({
       deathOvercomeUsed: true,
       guardUntil: "none",
@@ -390,7 +390,7 @@ describe("광전사–패황 PvP 통합", () => {
 
     state = tickPvPSideDotsOnAction(state, "p2");
 
-    expect(state.p2.hp).toBe(400);
+    expect(state.p2.hp).toBe(200);
     expect(state.p2.flags.enduranceTriggered).toBe(false);
     expect(state.p2.berserker).toMatchObject({
       deathOvercomeUsed: true,

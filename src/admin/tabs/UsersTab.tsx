@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useAdmin } from "../AdminContext";
 import { adminGet, adminPost } from "../api";
 import { Button, TextInput } from "../ui/Field";
-import type { CharacterDynamicState } from "@/adventure/character/useCharacterState";
+import type { CharacterDynamicState } from "@/adventure/character/state";
 import type { Profile } from "@/adventure/profile/useProfile";
 import type {
   AdminUserRow,

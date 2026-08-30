@@ -59,6 +59,7 @@ import {
   applyPlayerPoisonDamageScaling,
   decrementTimedBuffs,
   distributeV2DotTicks,
+  healingAfterReceivedMultiplier,
   makeBleedDot,
   makePoisonDot,
   potionHealAmount,
@@ -126,6 +127,7 @@ import {
 } from "./duelistCombat";
 import {
   BLEED_MAX_STACKS,
+  EVASION_DAMAGE_REDUCTION_MAX_PCT,
   HEAVEN_DECREE_HP_PCT,
   LUCKY_STAR_DAMAGE_MULT,
   MAGIC_VULN_STACK_CAP,
@@ -158,11 +160,16 @@ import {
   releaseSwordShadow,
 } from "./shadowBladeCombat";
 import {
+  canStartRuinCharge,
   gainSwordIntent,
   recordChargeHpLoss,
   ruinSwordBonuses,
   startRuinCharge,
 } from "./ruinBladeCombat";
+import {
+  tier7CombatJobIdForSkillId,
+  tier7PvpDirectDamagePct,
+} from "@/adventure/data/v2/tier7SkillMechanics";
 import { resolveCrossover, type CrossFamily } from "./skyAscendantCombat";
 import {
   formulaCompletionOverdraftSkillIds,
@@ -528,9 +535,12 @@ export function playerPvpEvasionReductionPct(
       precisionMult *
       (1 + Math.max(0, temporaryEvasionIncreasePct) / 100),
   );
-  return pvpEvasionDamageReductionPct(
-    evasionRating,
-    effectivePvPAccuracyRating(opponent),
+  return Math.min(
+    EVASION_DAMAGE_REDUCTION_MAX_PCT,
+    pvpEvasionDamageReductionPct(
+      evasionRating,
+      effectivePvPAccuracyRating(opponent),
+    ) + Math.max(0, actor.player.finalEvasionReductionPctAdd ?? 0),
   );
 }
 
@@ -574,7 +584,10 @@ export function applyEvasionActionRecoveryPvP(
     roll,
   );
   if (!recovery) return state;
-  const scaled = scalePvPHealing(state, recovery.amount);
+  const scaled = healingAfterReceivedMultiplier(
+    scalePvPHealing(state, recovery.amount),
+    actor.player.receivedHealMult,
+  );
   const nextHp = Math.min(actor.maxHp, actor.hp + scaled);
   const actual = nextHp - actor.hp;
   if (actual <= 0) return state;
@@ -1093,7 +1106,10 @@ function applyRegen(state: PvPBattleState, key: "p1" | "p2"): PvPBattleState {
   const hr = side.stacks.healReduceTurns > 0 ? side.stacks.healReducePct : 0;
   const reducedAmount =
     hr > 0 ? Math.floor(r.amount * (1 - hr / 100)) : r.amount;
-  const amount = scalePvPHealing(state, reducedAmount);
+  const amount = healingAfterReceivedMultiplier(
+    scalePvPHealing(state, reducedAmount),
+    side.player.receivedHealMult,
+  );
   const newHp = Math.min(side.maxHp, side.hp + amount);
   const actual = newHp - side.hp;
   const sigShield = healToShield(side.player.equipSignatures, {
@@ -1211,9 +1227,12 @@ function dealExtraDamage(
     attacker.buffs.playerLifestealPct > 0
       ? Math.floor((rawTotalDmg * attacker.buffs.playerLifestealPct) / 100)
       : 0;
-  const totalHeal = scalePvPHealing(
-    state,
-    luckyLifestealHeal + runeLifestealHeal + apLifestealHeal,
+  const totalHeal = healingAfterReceivedMultiplier(
+    scalePvPHealing(
+      state,
+      luckyLifestealHeal + runeLifestealHeal + apLifestealHeal,
+    ),
+    player.receivedHealMult,
   );
   const newAtkHp =
     totalHeal > 0 ? Math.min(attacker.maxHp, attacker.hp + totalHeal) : attacker.hp;
@@ -1347,9 +1366,9 @@ function applyDodgeEffects(
   }
   // 곡예 — 회피 성공 시 HP +amount. 장비의 회피 경감 연동 회복은 소유자 행동 시작에 판정한다.
   const defForHeal = st[defKey];
-  const evadeHeal = scalePvPHealing(
-    st,
-    defForHeal.player.evadeHealAmount ?? 0,
+  const evadeHeal = healingAfterReceivedMultiplier(
+    scalePvPHealing(st, defForHeal.player.evadeHealAmount ?? 0),
+    defForHeal.player.receivedHealMult,
   );
   if (evadeHeal > 0 && defForHeal.hp < defForHeal.maxHp) {
     const newHp = Math.min(defForHeal.maxHp, defForHeal.hp + evadeHeal);
@@ -2147,9 +2166,12 @@ function finishAttackerTurn(
     const side = st[atkKey];
     const s = side.stacks;
     if (s.skillRegenTurns > 0 && s.skillRegenPct > 0 && side.hp > 0) {
-      const heal = scalePvPHealing(
-        st,
-        Math.floor((side.maxHp * s.skillRegenPct) / 100),
+      const heal = healingAfterReceivedMultiplier(
+        scalePvPHealing(
+          st,
+          Math.floor((side.maxHp * s.skillRegenPct) / 100),
+        ),
+        side.player.receivedHealMult,
       );
       const nextHp = Math.min(side.maxHp, side.hp + heal);
       if (nextHp > side.hp) {
@@ -2527,9 +2549,12 @@ export function applyPotionTo(
 ): PvPBattleState {
   const side = state[key];
   if (potion.effect.kind === "heal_hp") {
-    const heal = scalePvPHealing(
-      state,
-      potionHealAmount(potion, side.maxHp, side.buffs.potionHealPct ?? 0),
+    const heal = healingAfterReceivedMultiplier(
+      scalePvPHealing(
+        state,
+        potionHealAmount(potion, side.maxHp, side.buffs.potionHealPct ?? 0),
+      ),
+      side.player.receivedHealMult,
     );
     const newHp = Math.min(side.maxHp, side.hp + heal);
     const actual = newHp - side.hp;
@@ -2717,6 +2742,8 @@ export function castV2SkillOnAttackerTurnPvP(
   const shadowCoreEquipped = side.v2Skills.equipped.includes(
     "v2c_shadowblade_swordshadow",
   );
+  const shadowCoreMechanic =
+    V2_SKILLS.v2c_shadowblade_swordshadow.tier7Mechanic;
   const formulaCoreEquipped = side.v2Skills.equipped.includes(
     "v2c_primordialsage_completeformula",
   );
@@ -2862,6 +2889,28 @@ export function castV2SkillOnAttackerTurnPvP(
     },
   };
   const ruinChargeAtActionStart = side.stacks.tier7?.ruinCharge;
+  const ruinSwordMechanic = V2_SKILLS.v2c_ruinblade_ruinsword.tier7Mechanic;
+  const ruinChargeReady =
+    ruinSwordMechanic?.kind === "chargedFinisher" &&
+    canStartRuinCharge(
+      side.stacks.tier7?.swordIntent ?? 0,
+      ruinSwordMechanic.requiredIntentStacks,
+    );
+  const eligibleCastInput =
+    !ruinChargeAtActionStart && !ruinChargeReady
+      ? {
+          ...castInput,
+          skills: {
+            ...castInput.skills,
+            learned: castInput.skills.learned.filter(
+              (skillId) => skillId !== "v2c_ruinblade_ruinsword",
+            ),
+            equipped: castInput.skills.equipped.filter(
+              (skillId) => skillId !== "v2c_ruinblade_ruinsword",
+            ),
+          },
+        }
+      : castInput;
   let result = ruinChargeAtActionStart
     ? resolveV2SkillCast({
         ...castInput,
@@ -2880,7 +2929,7 @@ export function castV2SkillOnAttackerTurnPvP(
           mp: Math.max(castInput.attacker.mp, 100),
         },
       })
-    : resolveV2SkillCast(castInput);
+    : resolveV2SkillCast(eligibleCastInput);
   const rerunSelectedCast = (
     current: V2SkillCastResult,
     overrides: Pick<
@@ -3045,12 +3094,15 @@ export function castV2SkillOnAttackerTurnPvP(
         sPrecisionMult *
         (1 + Math.max(0, sTemporaryEvasionIncreasePct) / 100),
     );
-    skillEvasionReductionPct = pvpEvasionDamageReductionPct(
-      sDefenderEvaR,
-      effectivePvPAccuracyRating(side) +
-        (castDefinition?.accuracyBonusPct ?? 0) +
-        result.skillAccuracyBonusPct +
-        (potentialCrossover?.accuracyBonusPct ?? 0),
+    skillEvasionReductionPct = Math.min(
+      EVASION_DAMAGE_REDUCTION_MAX_PCT,
+      pvpEvasionDamageReductionPct(
+        sDefenderEvaR,
+        effectivePvPAccuracyRating(side) +
+          (castDefinition?.accuracyBonusPct ?? 0) +
+          result.skillAccuracyBonusPct +
+          (potentialCrossover?.accuracyBonusPct ?? 0),
+      ) + Math.max(0, opp.player.finalEvasionReductionPctAdd ?? 0),
     );
   }
   const crossover = crossCoreEquipped
@@ -3264,7 +3316,13 @@ export function castV2SkillOnAttackerTurnPvP(
       baseSingleSkillDamage * (1 + tier7FinalDamagePct / 100),
     ),
   });
-  const singleSkillDamage = shadowFollowUp.damage;
+  const castTier7Mechanic = result.castSkillId
+    ? V2_SKILLS[result.castSkillId]?.tier7Mechanic
+    : undefined;
+  const singleSkillDamage = Math.round(
+    shadowFollowUp.damage *
+      (tier7PvpDirectDamagePct(castTier7Mechanic) / 100),
+  );
   let nextComboHitCount = side.stacks.comboHitCount;
   let landedSkillHits = 0;
   let skillReflectBase = 0;
@@ -3969,8 +4027,9 @@ export function castV2SkillOnAttackerTurnPvP(
         Math.max(0, result.healFromActualDamagePct)) /
         100,
     );
-  const resolvedSelfHeal = Math.floor(
-    resolvedSelfHealBase * tier6UnityMult,
+  const resolvedSelfHeal = healingAfterReceivedMultiplier(
+    Math.floor(resolvedSelfHealBase * tier6UnityMult),
+    side.player.receivedHealMult,
   );
   if (resolvedSelfHeal > 0 && result.castSkillName) {
     const hr = side.stacks.healReduceTurns > 0 ? side.stacks.healReducePct : 0;
@@ -4103,13 +4162,24 @@ export function castV2SkillOnAttackerTurnPvP(
     ) {
       const mechanic = V2_SKILLS[result.castSkillId]?.tier7Mechanic;
       const recordPct =
-        mechanic?.kind === "shadowStrike" ? mechanic.recordPct : 50;
+        mechanic?.kind === "shadowStrike"
+          ? mechanic.recordPct
+          : tier7CombatJobIdForSkillId(result.castSkillId) === "shadowblade"
+            ? shadowCoreMechanic?.kind === "shadowCore"
+              ? shadowCoreMechanic.recordPct
+              : 50
+            : shadowCoreMechanic?.kind === "shadowCore"
+              ? shadowCoreMechanic.inheritedRecordPct
+              : 25;
       nextTier7.swordShadow = recordSwordShadow({
         existing: nextTier7.swordShadow,
         sourceSkillId: result.castSkillId,
         dealtDamage: dealtDirectSkillDamage,
         recordPct,
-        pvpScalePct: 80,
+        pvpScalePct:
+          shadowCoreMechanic?.kind === "shadowCore"
+            ? shadowCoreMechanic.pvpScalePct
+            : 80,
       });
     }
     if (
@@ -4162,7 +4232,7 @@ export function castV2SkillOnAttackerTurnPvP(
     nextTier7.swordIntent = 0;
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[멸검] 충전을 시작했다. 다음 행동 기회에 자동 해방한다.`,
+      text: `[멸검] 검의 3개를 소모해 충전을 시작했다. 다음 행동 기회에 자동 해방한다.`,
       side: who,
     });
   } else if (nextTier7 && ruinChargeAtActionStart) {

@@ -51,7 +51,7 @@ describe("6차 STR 직군 직접 피해 계수", () => {
     expect(V2_COMMON_SKILLS.v2c_swordsaint_flash.effects[0]).toMatchObject({
       kind: "damage",
       statCoef: 1.95,
-      primaryStatCoef: 5,
+      primaryStatCoef: 3,
       baseFlat: 460,
     });
     expect(

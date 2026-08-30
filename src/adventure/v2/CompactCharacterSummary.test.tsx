@@ -57,6 +57,40 @@ describe("접을 수 있는 캐릭터 요약", () => {
     expect(dialog.textContent).toContain("까지");
   });
 
+  it("프리미엄 지원권은 금색 라벨과 전용 혜택, 대기 일반 기간을 보여준다", () => {
+    const now = Date.UTC(2026, 7, 30);
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    render(
+      <CompactCharacterSummary
+        character={{ name: "젠피", level: 87, exp: 462, expToNext: 1_000, hp: 80, maxHp: 100, mp: 20, maxMp: 40, gold: 0 }}
+        guild={null}
+        adventureSupport={{
+          active: true,
+          tier: "premium",
+          premiumUntil: now + 30 * 86_400_000,
+          activeUntil: now + 40 * 86_400_000,
+          regenBonusPct: 20,
+        }}
+        expanded={false}
+        onExpandedChange={vi.fn()}
+      >
+        <div>전체 캐릭터 카드</div>
+      </CompactCharacterSummary>,
+    );
+
+    expect(screen.getByText("프리미엄")).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: "프리미엄 모험 지원권 상세 보기" }),
+    );
+    const dialog = screen.getByRole("dialog", {
+      name: "프리미엄 모험 지원권 정보",
+    });
+    expect(dialog.textContent).toContain("최대 에너지 3,000 증가");
+    expect(dialog.textContent).toContain("일괄 전투 최대 100회");
+    expect(dialog.textContent).toContain("일반 지원권 10일 대기 중");
+  });
+
   it("접힌 요약의 음식을 누르면 품질과 효과와 남은 시간을 상세 카드로 보여준다", () => {
     render(
       <CompactCharacterSummary

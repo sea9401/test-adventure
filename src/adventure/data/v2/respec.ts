@@ -9,13 +9,6 @@ import { V2_CLASS_DEFS, type V2Class } from "@/adventure/data/v2/classes";
 export const CLASS_CHANGE_GOLD_PER_LEVEL = 0;
 // 변경 후 쿨다운 — 0(제거). 자유 전직. (레벨1 리셋이 남용을 막는 commitment.)
 export const RESPEC_COOLDOWN_MS = 0;
-// PR-7 — 2차 전직(advance) 골드 = 레벨 × 계수. respec 과 별개(쿨다운 없음 = 진척).
-export const ADVANCE_GOLD_PER_LEVEL = 300;
-
-export function advanceGoldCost(level: number): number {
-  return Math.max(1, Math.floor(level)) * ADVANCE_GOLD_PER_LEVEL;
-}
-
 // 직업군 변경 여부 — none 에서의 첫 선택은 무료. 같은 직업군 내(차수 이동)는 변경 아님
 // (검사→견습 검사 같은 군 = 무변경). respec 은 직업군 단위 변경만 비용 대상.
 export function isClassChange(cur: V2Class, next: V2Class): boolean {

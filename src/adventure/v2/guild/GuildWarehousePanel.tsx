@@ -762,8 +762,8 @@ export function EquipmentTransferForm({
 
   return (
     <>
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-        <div className="space-y-1">
+      <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="min-w-0 space-y-1">
           <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
             장비
           </span>
@@ -771,7 +771,7 @@ export function EquipmentTransferForm({
             type="button"
             onClick={() => setPickerOpen(true)}
             aria-haspopup="dialog"
-            className={`${SURFACE_INSET} flex min-h-16 w-full items-center gap-3 px-3 py-2 text-left transition hover:border-blue-400 dark:hover:border-blue-700`}
+            className={`${SURFACE_INSET} flex min-h-16 w-full min-w-0 items-center gap-3 px-3 py-2 text-left transition hover:border-blue-400 dark:hover:border-blue-700`}
           >
             <InventoryItemIcon
               itemId={selectedEquipment.id}

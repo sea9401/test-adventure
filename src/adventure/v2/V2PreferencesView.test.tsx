@@ -13,7 +13,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("./GameStateProvider", () => ({
-  useGameState: () => ({ accountName: "테스터" }),
+  useGameIdentityState: () => ({ accountName: "테스터" }),
 }));
 
 vi.mock("./AdventureDashboardProvider", () => ({

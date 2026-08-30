@@ -8,24 +8,38 @@ import {
   CASH_ITEM_PURCHASE_CONFIRM_OVERLAY_CLASS,
   COSMETIC_RARITY_DISPLAY_ORDER,
   SHOP_ITEM_GROUPS,
+  bundlePurchaseUsesFixedQuantity,
+  limitedBundlePurchaseState,
+  supportBenefitsForItem,
   sortCosmeticPreviewEntries,
 } from "./MuseunCoinShopView";
 
 describe("무슨 코인 상점 상품 그룹", () => {
-  it("상점에 여덟 상품을 노출하고 기존 소모품에는 전용 SVG 이미지를 연결한다", () => {
+  it("상점에 두 한정 패키지를 포함한 열한 상품을 노출한다", () => {
     const shopItemIds = SHOP_ITEM_GROUPS.flatMap((group) => group.itemIds);
 
-    expect(shopItemIds).toHaveLength(8);
+    expect(shopItemIds).toHaveLength(11);
+    expect(shopItemIds).toContain("monthly_stamina_potion_bundle");
+    expect(shopItemIds).toContain("growth_leap_package");
     expect(shopItemIds).toContain("profile_badge_display_stand");
     expect(Object.keys(CASH_ITEM_ART_PATHS)).toEqual(
       expect.arrayContaining(
-        shopItemIds.filter(
-          (itemId) => itemId !== "profile_badge_display_stand",
+        shopItemIds.filter((itemId) =>
+          ![
+            "profile_badge_display_stand",
+            "monthly_stamina_potion_bundle",
+            "growth_leap_package",
+          ].includes(itemId),
         ),
       ),
     );
     for (const itemId of shopItemIds.filter(
-      (candidate) => candidate !== "profile_badge_display_stand",
+      (candidate) =>
+        ![
+          "profile_badge_display_stand",
+          "monthly_stamina_potion_bundle",
+          "growth_leap_package",
+        ].includes(candidate),
     )) {
       expect(CASH_ITEM_ART_PATHS[itemId]).toBe(
         `/images/items/cash/${itemId}.svg`,
@@ -33,14 +47,59 @@ describe("무슨 코인 상점 상품 그룹", () => {
     }
   });
 
-  it("이용권·소모품은 월간 모험 지원권을 먼저 표시한다", () => {
+  it("이용권·소모품은 프리미엄권을 일반권보다 먼저 표시한다", () => {
     const group = SHOP_ITEM_GROUPS.find(
       (candidate) => candidate.id === "consumable",
     );
     expect(group?.itemIds).toEqual([
+      "adventure_support_premium_30d",
       "adventure_support_30d",
+      "monthly_stamina_potion_bundle",
+      "growth_leap_package",
       "rename_permit",
       "profile_image_permit",
+    ]);
+  });
+
+  it("월간 한도와 평생 구매 여부를 구매 차단 상태로 바꾼다", () => {
+    expect(
+      limitedBundlePurchaseState("monthly_stamina_potion_bundle", {
+        monthlyStaminaBundle: { purchases: 2, remaining: 1, limit: 3 },
+        growthLeapPackage: { owned: false },
+      }),
+    ).toEqual({ label: "이번 달 2/3회 구매", blocked: false });
+    expect(
+      limitedBundlePurchaseState("monthly_stamina_potion_bundle", {
+        monthlyStaminaBundle: { purchases: 3, remaining: 0, limit: 3 },
+        growthLeapPackage: { owned: false },
+      }),
+    ).toEqual({ label: "이번 달 구매 완료 (3/3)", blocked: true });
+    expect(
+      limitedBundlePurchaseState("growth_leap_package", {
+        monthlyStaminaBundle: { purchases: 0, remaining: 3, limit: 3 },
+        growthLeapPackage: { owned: true },
+      }),
+    ).toEqual({ label: "계정 구매 완료", blocked: true });
+  });
+
+  it("두 패키지는 구매 확인에서 수량을 1개로 고정한다", () => {
+    expect(bundlePurchaseUsesFixedQuantity("monthly_stamina_potion_bundle")).toBe(true);
+    expect(bundlePurchaseUsesFixedQuantity("growth_leap_package")).toBe(true);
+    expect(bundlePurchaseUsesFixedQuantity("rename_permit")).toBe(false);
+  });
+
+  it("프리미엄 상세에는 합산하지 않은 전용 혜택과 연장권 지급을 표시한다", () => {
+    const labels = supportBenefitsForItem(
+      "adventure_support_premium_30d",
+    ).map((benefit) => benefit.label);
+
+    expect(labels).toEqual([
+      "최대 에너지 3,000 증가 (기본 2,000 → 5,000)",
+      "에너지 회복량 20% 증가",
+      "거래소 등록 20개 추가",
+      "거래소 수수료 5%로 감소",
+      "일괄 전투 최대 100회",
+      "꾸미기 30일 연장권 2개 지급",
     ]);
   });
 

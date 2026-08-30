@@ -63,7 +63,7 @@ afterEach(() => {
 });
 
 describe("RecentBulletinPreview", () => {
-  it("공지를 제외한 최신 일반 게시글 세 개만 표시한다", async () => {
+  it("공지를 제외한 최신 일반 게시글 네 개만 표시한다", async () => {
     const feed: BulletinFeed = {
       posts: [
         post(1, "notice", "서버 점검 공지"),
@@ -72,6 +72,7 @@ describe("RecentBulletinPreview", () => {
         post(4, "guide", "공략 글 2"),
         post(5, "free", "자유 글 3"),
         post(6, "free", "네 번째 일반 글"),
+        post(7, "guide", "다섯 번째 일반 글"),
       ],
       myActivity: activity,
     };
@@ -84,6 +85,7 @@ describe("RecentBulletinPreview", () => {
     expect(screen.getByText("자유 글 3")).not.toBeNull();
     expect(screen.queryByText("서버 점검 공지")).toBeNull();
     expect(screen.queryByText("이벤트 공지")).toBeNull();
-    expect(screen.queryByText("네 번째 일반 글")).toBeNull();
+    expect(screen.getByText("네 번째 일반 글")).not.toBeNull();
+    expect(screen.queryByText("다섯 번째 일반 글")).toBeNull();
   });
 });

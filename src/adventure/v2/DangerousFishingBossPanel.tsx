@@ -201,6 +201,7 @@ export function DangerousFishingBossPanel({
 
         <DangerousFishingRealtimePanel
           encounter={model.realtimeAttempt.encounter}
+          serverNow={model.now}
           scene={{
             encounterImageSrc: scene.encounterImageSrc,
             depth: "deep",

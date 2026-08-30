@@ -40,10 +40,13 @@ import {
   type ItemCardAnchor,
 } from "./V2ItemCard";
 import { sortEquipInstances } from "./v2ItemListShared";
-import { useGameState } from "./GameStateProvider";
+import { useGameResourceState } from "./GameStateProvider";
 import { useSingleFlightGuard } from "@/lib/useSingleFlight";
 import { useSystemToast } from "./RewardToastProvider";
 import { shopSaleBalancePatch, shopSaleBankNotice } from "./shopSaleBalance";
+import { confirmGameAction } from "@/components/ui/gameDialog";
+import { boundEquipmentDisposalConfirmation } from "./item-card/shared";
+import { V2_EQUIPMENT_LIBERATION } from "@/adventure/data/v2/coreLoopConfig";
 
 // v2 상점 — 상위 탭: 구매 / 판매.
 //  - 구매: 장비 카탈로그 (무기/방어구/장신구). 보유 중이어도 추가 구매 가능.
@@ -135,7 +138,7 @@ export function V2ShopView({
 }) {
   // 지불 게이트는 보유+은행(코어루프 on) — 은행 잔액은 로컬(이 화면의 me/state·구매 응답)로
   //   추적해 항상 신선하게 유지하고, 앱 전역(은행 패널 등)을 위해 컨텍스트도 함께 동기화한다.
-  const { coreLoopOn, applyResourcePatch } = useGameState();
+  const { coreLoopOn, applyResourcePatch } = useGameResourceState();
   const [gold, setGold] = useState<number>(0);
   const [bankedGold, setBankedGold] = useState<number>(0);
   // 지불 가능 총액 — flag off 면 보유만(===gold, prod 무변경), on 이면 보유+은행.
@@ -274,16 +277,26 @@ export function V2ShopView({
         return;
       }
       setBusyId(iid);
+      let confirmedBound = false;
       try {
-        const res = await fetch("/api/v2/shop/equipment/sell", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ iid }),
-        });
-        const j = (await res.json().catch(() => null)) as
-          | {
+        const requestSale = async (confirmBound: boolean) => {
+          const res = await fetch("/api/v2/shop/equipment/sell", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              iid,
+              ...(confirmBound ? { confirmBound: true } : {}),
+            }),
+          });
+          const body = (await res.json().catch(() => null)) as
+            | {
               ok?: boolean;
               error?: string;
+              item?: {
+                iid: string;
+                itemName: string;
+                liberation?: V2EquipInstance["liberation"];
+              };
               retryAfterSec?: number;
               gold?: number;
               bankedGold?: number;
@@ -291,6 +304,17 @@ export function V2ShopView({
               sellPrice?: number;
             }
           | null;
+          return { res, body };
+        };
+        let { res, body: j } = await requestSale(false);
+        if (j?.error === "bound_confirmation_required" && j.item) {
+          confirmedBound = await confirmGameAction(
+            boundEquipmentDisposalConfirmation([j.item], "판매"),
+          );
+          if (!confirmedBound) return;
+          ({ res, body: j } = await requestSale(true));
+          if (!j?.ok) await refresh();
+        }
         if (!j?.ok) {
           const reason =
             j?.error === "equipped"
@@ -314,6 +338,7 @@ export function V2ShopView({
         }
         applyResourcePatch(balancePatch);
       } catch (err) {
+        if (confirmedBound) await refresh();
         notifySystem(`✗ ${(err as Error).message}`);
       } finally {
         release();
@@ -599,6 +624,9 @@ export function V2ShopView({
           enhance={card.inst?.enhance}
           craftQuality={card.inst?.craftQuality}
           craftedBy={card.inst?.craftedBy}
+          liberation={
+            V2_EQUIPMENT_LIBERATION ? card.inst?.liberation : undefined
+          }
           equippedIds={equipped}
         />
       )}

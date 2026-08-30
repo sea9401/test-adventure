@@ -42,7 +42,7 @@ describe("runFarmPlotBatch", () => {
       },
     ]);
     expect(farmVersions).toEqual([1, 2, 3]);
-    expect(result).toEqual({ completed: 3, error: null });
+    expect(result).toEqual({ completed: 3, error: null, farmingXpGained: 0 });
   });
 
   it("중간 요청이 실패하면 이후 밭을 처리하지 않는다", async () => {
@@ -68,7 +68,35 @@ describe("runFarmPlotBatch", () => {
     });
 
     expect(requestedPlotIds).toEqual(["plot-1", "plot-2"]);
-    expect(result).toEqual({ completed: 1, error: "no_seed" });
+    expect(result).toEqual({
+      completed: 1,
+      error: "no_seed",
+      farmingXpGained: 0,
+    });
+  });
+
+  it("여러 밭 수확 응답의 농사 XP를 합산한다", async () => {
+    const xpByPlot = { "plot-1": 30, "plot-2": 45, "plot-3": 60 };
+    const request = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { plotId: keyof typeof xpByPlot };
+      return Response.json({
+        ok: true,
+        result: { farmingXpGained: xpByPlot[body.plotId] },
+      });
+    });
+
+    const result = await runFarmPlotBatch({
+      action: "harvest",
+      plotIds: ["plot-1", "plot-2", "plot-3"],
+      request,
+      onSuccess: vi.fn(),
+    });
+
+    expect(result).toEqual({
+      completed: 3,
+      error: null,
+      farmingXpGained: 135,
+    });
   });
 });
 
@@ -76,6 +104,9 @@ describe("farmBatchOutcomeText", () => {
   it("완료한 일괄 작업의 종류와 칸 수를 요약한다", () => {
     expect(farmBatchOutcomeText("harvest", 3, null)).toBe(
       "3칸을 모두 수확했습니다.",
+    );
+    expect(farmBatchOutcomeText("harvest", 3, null, undefined, 135)).toBe(
+      "3칸을 모두 수확했습니다. 농사 XP +135.",
     );
     expect(farmBatchOutcomeText("plant", 2, null, "밀")).toBe(
       "밀 2칸에 심었습니다.",

@@ -52,7 +52,8 @@ export type SortMode =
   | "acquired"
   | "tier"
   | "roll"
-  | "power";
+  | "power"
+  | "locked";
 
 // 정렬 순환 — 단일 버튼이 누를 때마다 다음으로
 // (기본 → 획득순 → 티어순 → 품질순 → 위력순 → 기본).
@@ -114,6 +115,7 @@ function compareEquipInstancesDefault(
 //   tier:   표시 티어 높은 순, 동률은 default 순서.
 //   roll:    굴림 품질 높은 순(굴림 없는 상점템은 뒤로).
 //   power:   굴림 반영 실효 위력 높은 순.
+//   locked:  잠금 장비 먼저, 각 그룹은 default 순서.
 export function sortEquipInstances(
   list: V2EquipInstance[],
   mode: SortMode,
@@ -151,6 +153,12 @@ export function sortEquipInstances(
         compareEquipInstancesDefault(a, b)
       );
     });
+  } else if (mode === "locked") {
+    sorted.sort(
+      (a, b) =>
+        Number(b.locked === true) - Number(a.locked === true) ||
+        compareEquipInstancesDefault(a, b),
+    );
   } else {
     sorted.sort(compareEquipInstancesDefault);
   }

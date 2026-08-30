@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Coin, FilmStrip, Sword, Trophy } from "@phosphor-icons/react";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
-import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { useGameIdentityState } from "@/adventure/v2/GameStateProvider";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
@@ -91,7 +91,7 @@ function formatKst(iso: string): string {
 
 export function V2ArenaReplayView({ entryId }: { entryId: string }) {
   const router = useRouter();
-  const { viewerName, viewerGender, playerSubtitle } = useGameState();
+  const { viewerName, viewerGender, playerSubtitle } = useGameIdentityState();
   const [entry, setEntry] = useState<ArenaHistoryEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);

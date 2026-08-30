@@ -178,7 +178,7 @@ describe("combat pattern choice controls", () => {
     expect(html).toContain('value="100"');
   });
 
-  it("전투 자원 조건은 혈맥 폭발 준비를 0/1 자원으로 표시한다", () => {
+  it("누적형 전투 자원 조건은 비교 방식과 기준값을 표시한다", () => {
     const html = renderToStaticMarkup(
       <ConditionParams
         condition={{
@@ -219,7 +219,21 @@ describe("combat pattern choice controls", () => {
         }}
         onChange={vi.fn()}
       />,
-    ) + renderToStaticMarkup(
+    );
+
+    expect(html).toContain("충격");
+    expect(html).toContain("철벽 반사");
+    expect(html).toContain("각인 총합");
+    expect(html).toContain("중량");
+    expect(html).not.toContain("분열체");
+    expect(html).toContain('max="8"');
+    expect(html).toContain("없을 때");
+    expect(html).toContain("이상");
+    expect(html).toContain('value="3"');
+  });
+
+  it("혈맥 폭발 상태는 숫자 대신 발동 가능·재사용 대기 두 상태로 표시한다", () => {
+    const readyHtml = renderToStaticMarkup(
       <ConditionParams
         condition={{
           kind: "self_resource",
@@ -230,18 +244,29 @@ describe("combat pattern choice controls", () => {
         onChange={vi.fn()}
       />,
     );
+    const waitingHtml = renderToStaticMarkup(
+      <ConditionParams
+        condition={{
+          kind: "self_resource",
+          resource: "bloodlineBurstReady",
+          op: "none",
+          value: 0,
+        }}
+        onChange={vi.fn()}
+      />,
+    );
 
-    expect(html).toContain("충격");
-    expect(html).toContain("철벽 반사");
-    expect(html).toContain("각인 총합");
-    expect(html).toContain("중량");
-    expect(html).toContain("혈맥 폭발 준비");
-    expect(html).not.toContain("분열체");
-    expect(html).toContain('max="8"');
-    expect(html).toContain("없을 때");
-    expect(html).toContain("이상");
-    expect(html).toContain('value="3"');
-    expect(html).toContain('max="1"');
+    for (const html of [readyHtml, waitingHtml]) {
+      expect(html).toContain("혈맥 폭발 상태");
+      expect(html).toContain("발동 가능할 때");
+      expect(html).toContain("재사용 대기 중일 때");
+      expect(html).toContain(
+        "첫 발동 전에는 가능하며, 발동 후 다음 3행동 동안 재사용을 기다립니다.",
+      );
+      expect(html).toContain('aria-label="혈맥 폭발 상태"');
+      expect(html).not.toContain('aria-label="전투 자원 비교 방식"');
+      expect(html).not.toContain('type="number"');
+    }
   });
 
   it("한기 조건은 5스택 상한을 표시한다", () => {

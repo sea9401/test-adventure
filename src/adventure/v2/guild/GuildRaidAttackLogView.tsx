@@ -7,7 +7,7 @@ import { COOP_BOSSES, type CoopBossKindId } from "@/adventure/data/v2/coopBosses
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import type { Avatar, Gender } from "@/adventure/profile/avatars";
-import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { useGameIdentityState } from "@/adventure/v2/GameStateProvider";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { Card } from "@/components/ui/Card";
 import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
@@ -50,7 +50,7 @@ export function GuildRaidAttackLogView({
   attackId: string;
 }) {
   const router = useRouter();
-  const { viewerGender, playerSubtitle } = useGameState();
+  const { viewerGender, playerSubtitle } = useGameIdentityState();
   const [data, setData] = useState<
     Extract<GuildRaidAttackLogResponse, { ok: true }> | null
   >(null);

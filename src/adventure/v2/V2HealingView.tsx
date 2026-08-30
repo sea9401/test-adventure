@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { StatBar } from "@/components/ui/StatBar";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { useGameResourceState } from "@/adventure/v2/GameStateProvider";
 import {
   affordableFullCharge,
   MAX_CHARGE,
@@ -38,7 +38,7 @@ type ChargeKind = "hp" | "mp";
 
 export function V2HealingView({ onBack }: { onBack: () => void }) {
   // 사냥터 게이트·상단 HP바가 읽는 공유 HP. 치료 직후 동기화해 stale "회복 필요" 차단 방지.
-  const { coreLoopOn, applyResourcePatch } = useGameState();
+  const { coreLoopOn, applyResourcePatch } = useGameResourceState();
   const [hp, setHp] = useState<number | null>(null);
   const [maxHp, setMaxHp] = useState<number | null>(null);
   const [mp, setMp] = useState<number | null>(null);

@@ -13,7 +13,10 @@ import {
   CraftQualityBadge,
   EnhanceLevelBadge,
   MasterworkBadge,
+  LiberationBadge,
 } from "../V2ItemCard";
+import { confirmGameAction } from "@/components/ui/gameDialog";
+import { boundEquipmentDisposalConfirmation } from "../item-card/shared";
 import {
   DISMANTLE_ERROR_TEXT,
   dismantleBlockedText,
@@ -133,17 +136,32 @@ export function WorkshopDismantlePanel({
     setDismantleBusyIid(iid);
     setDismantleMessage(null);
     setDismantleResult(null);
+    let confirmedBound = false;
     try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ iid }),
-      });
-      const json = await res.json();
+      const requestDismantle = async (confirmBound: boolean) => {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            iid,
+            ...(confirmBound ? { confirmBound: true } : {}),
+          }),
+        });
+        return { res, json: await res.json() };
+      };
+      let { json } = await requestDismantle(false);
+      if (json.error === "bound_confirmation_required" && json.item) {
+        confirmedBound = await confirmGameAction(
+          boundEquipmentDisposalConfirmation([json.item], "해체"),
+        );
+        if (!confirmedBound) return;
+        ({ json } = await requestDismantle(true));
+      }
       if (!json.ok) {
         setDismantleMessage(
           DISMANTLE_ERROR_TEXT[json.error ?? ""] ?? "해체에 실패했습니다.",
         );
+        if (confirmedBound) await loadDismantle();
         return;
       }
       const dismantled = json.dismantled as DismantleCandidateView | undefined;
@@ -168,6 +186,7 @@ export function WorkshopDismantlePanel({
       void loadDismantle();
     } catch {
       setDismantleMessage("해체에 실패했습니다.");
+      if (confirmedBound) await loadDismantle();
     } finally {
       setDismantleBusyIid(null);
     }
@@ -276,6 +295,7 @@ export function WorkshopDismantlePanel({
                 해체 완료
               </span>
               <CraftQualityBadge level={dismantleResult.craftQualityLevel} />
+              <LiberationBadge liberation={dismantleResult.liberation} />
               {dismantleResult.craftOnly ? <CraftOnlyBadge /> : null}
               {dismantleResult.masterwork ? <MasterworkBadge /> : null}
             </div>
@@ -319,6 +339,7 @@ export function WorkshopDismantlePanel({
                     <span className="truncate">{item.itemName}</span>
                     <EnhanceLevelBadge level={item.enhanceLevel} />
                     <CraftQualityBadge level={item.craftQualityLevel} />
+                    <LiberationBadge liberation={item.liberation} />
                     {item.craftOnly ? <CraftOnlyBadge /> : null}
                     {item.masterwork ? <MasterworkBadge /> : null}
                   </div>

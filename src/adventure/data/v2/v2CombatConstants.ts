@@ -13,10 +13,6 @@ export const EVASION_DAMAGE_REDUCTION_MAX_PCT = 85;
 export const EVASION_CONTEST_K = 2.5;
 export const PVP_DODGE_K = 3;
 export const PVE_DODGE_K = 2.5;
-// 이전 이름을 참조하는 시뮬레이션·표시 코드의 단계적 이행용 별칭.
-export const DODGE_MAX = EVASION_DAMAGE_REDUCTION_MAX_PCT;
-export const DODGE_K = EVASION_CONTEST_K;
-
 // 마나 실드 패시브의 INT·최대 MP 생존축. 현재 MP를 소모하지 않으며 전투 시작 시
 // 내구도·흡수율·내구도 경감률을 한 번만 결정한다.
 export const MAGIC_BARRIER_BASE_INT = 15;
@@ -220,31 +216,6 @@ export function applyEvasionDamageReduction(
     1,
     Math.floor(damage * (1 - Math.min(EVASION_DAMAGE_REDUCTION_MAX_PCT, reductionPct) / 100)),
   );
-}
-
-/** @deprecated 일반 회피도는 더 이상 완전 회피 확률을 만들지 않는다. */
-export function attackMissPct(): number {
-  return 0;
-}
-
-/** @deprecated 일반 회피도는 더 이상 PvP 완전 회피 확률을 만들지 않는다. */
-export function pvpAttackMissPct(): number {
-  return 0;
-}
-
-/** @deprecated 회피 확률이 아니라 피해 경감률이다. */
-export function dodgeChance(evaRating: number, accRating: number): number {
-  return evasionDamageReductionPct(evaRating, accRating);
-}
-
-/** @deprecated 회피 확률이 아니라 PvP 피해 경감률이다. */
-export function pvpDodgeChance(evaRating: number, accRating: number): number {
-  return pvpEvasionDamageReductionPct(evaRating, accRating);
-}
-
-/** @deprecated 회피 확률이 아니라 PvE 피해 경감률이다. */
-export function pveDodgeChance(evaRating: number, accRating: number): number {
-  return pveEvasionDamageReductionPct(evaRating, accRating);
 }
 
 export const POWER_ATTACK_TURN_INTERVAL = 3;

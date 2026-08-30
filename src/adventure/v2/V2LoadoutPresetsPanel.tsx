@@ -17,6 +17,10 @@ import {
   type LoadoutPresetSkillMeta,
 } from "./loadoutPresetDiagnostics";
 import { useSystemToast } from "./RewardToastProvider";
+import {
+  confirmPresetDelete,
+  confirmPresetOverwrite,
+} from "./presetConfirmation";
 
 // 로드아웃 프리셋 패널 — 이름 붙인 로드아웃을 저장/적용/덮어쓰기/삭제. 슬롯은 무료 고정(수집 포인트 경제
 //   폐지). 적용은 POST /api/v2/me/loadout(예산/직업고정 검증 재사용) → 부모 refresh. 저장/현황은
@@ -144,10 +148,14 @@ export function V2LoadoutPresetsPanel({
     if (!state) return;
     const preset = state.presets[idx];
     if (!preset) return;
-    await postPresets(
-      state.presets.filter((_, i) => i !== idx),
-      `'${preset.name}' 프리셋을 삭제했어요.`,
-    );
+    await confirmPresetDelete({
+      name: preset.name,
+      onConfirm: () =>
+        postPresets(
+          state.presets.filter((_, i) => i !== idx),
+          `'${preset.name}' 프리셋을 삭제했어요.`,
+        ),
+    });
   }
 
   async function overwritePreset(idx: number) {
@@ -158,12 +166,16 @@ export function V2LoadoutPresetsPanel({
     }
     const preset = state.presets[idx];
     if (!preset) return;
-    await postPresets(
-      state.presets.map((item, i) =>
-        i === idx ? { ...item, skills: [...currentEquipped] } : item,
-      ),
-      `'${preset.name}' 프리셋을 현재 스킬로 덮어썼어요.`,
-    );
+    await confirmPresetOverwrite({
+      name: preset.name,
+      onConfirm: () =>
+        postPresets(
+          state.presets.map((item, i) =>
+            i === idx ? { ...item, skills: [...currentEquipped] } : item,
+          ),
+          `'${preset.name}' 프리셋을 현재 스킬로 덮어썼어요.`,
+        ),
+    });
   }
 
   async function applyPreset(preset: PresetItem) {

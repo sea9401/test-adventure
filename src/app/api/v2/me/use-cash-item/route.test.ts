@@ -17,6 +17,11 @@ vi.mock("@/lib/server/ensureUser", () => ({
 vi.mock("@/lib/server/userRateLimit", () => ({
   enforceUserAndIpRateLimit: vi.fn(() => null),
 }));
+vi.mock("@/adventure/data/v2/coreLoopConfig", async (importActual) => {
+  const actual =
+    await importActual<typeof import("@/adventure/data/v2/coreLoopConfig")>();
+  return { ...actual, V2_EQUIPMENT_LIBERATION: true };
+});
 vi.mock("@/lib/server/savesKv", () => ({
   lockSaveForUpdate: vi.fn(
     async (_tx, _userId, key: string, fallback: unknown) =>
@@ -43,6 +48,16 @@ function request(itemId = "cultivation_reset_potion") {
     body: JSON.stringify({ itemId }),
   });
 }
+
+type SavedAdventureSupportCharacter = {
+  cashItems: Record<string, number>;
+  adventureSupport: {
+    activatedAt: number;
+    premiumUntil: number;
+    activeUntil: number;
+  };
+  stamina: { current: number; lastUpdatedAt: number };
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -71,6 +86,7 @@ beforeEach(() => {
       gainedHp: 999,
       gainedMp: 444,
     },
+    liberationCycleGrowth: { hp: 90, mp: 20 },
   } satisfies V2ProficiencyState);
 });
 
@@ -117,6 +133,7 @@ describe("POST /api/v2/me/use-cash-item — 수행 초기화 물약", () => {
         gainedHp: 0,
         gainedMp: 0,
       },
+      liberationCycleGrowth: { hp: 90, mp: 20 },
     });
   });
 
@@ -159,6 +176,22 @@ describe("POST /api/v2/me/use-cash-item — 100레벨 달성의 비약", () => {
       cashItems: { level_100_elixir: 2 },
     });
     mocks.store.set("proficiency.v2", emptyProficiency());
+    mocks.store.set("equipment.v2", {
+      owned: [
+        {
+          iid: "growth-armor",
+          id: "v2_storm_wreckage_armor",
+          liberation: {
+            rank: 1,
+            lineCount: 1,
+            revision: 1,
+            options: [{ id: "level_up_max_hp_growth", level: 20 }],
+          },
+        },
+      ],
+      equipped: { armor: "growth-armor" },
+    });
+    vi.spyOn(Math, "random").mockReturnValue(0.999999);
 
     const response = await POST(request("level_100_elixir"));
     const json = await response.json();
@@ -170,6 +203,7 @@ describe("POST /api/v2/me/use-cash-item — 100레벨 달성의 비약", () => {
       cashItems: { level_100_elixir: 1 },
       level: 100,
       levelsGained: 30,
+      liberationHpGained: 900,
     });
     expect(mocks.store.get("character.v2")).toMatchObject({
       level: 100,
@@ -179,6 +213,7 @@ describe("POST /api/v2/me/use-cash-item — 100레벨 달성의 비약", () => {
     const proficiency = mocks.store.get("proficiency.v2") as V2ProficiencyState;
     expect(proficiency.groups).toEqual({});
     expect(proficiency.jobCumLevel).toEqual({});
+    expect(proficiency.liberationCycleGrowth).toEqual({ hp: 900, mp: 0 });
     expect(
       Object.values(proficiency.grown).reduce(
         (sum, value) => sum + (value ?? 0),
@@ -229,5 +264,86 @@ describe("POST /api/v2/me/use-cash-item — 100레벨 달성의 비약", () => {
     });
     expect(mocks.store.get("character.v2")).toBe(characterBefore);
     expect(mocks.store.get("proficiency.v2")).toBe(proficiencyBefore);
+  });
+});
+
+describe("POST /api/v2/me/use-cash-item — 프리미엄 모험 지원권", () => {
+  it("사용 한 번으로 프리미엄 기간·에너지·꾸미기 연장권을 함께 지급한다", async () => {
+    const now = Date.UTC(2026, 7, 30);
+    const dateNow = vi.spyOn(Date, "now").mockReturnValue(now);
+    mocks.store.set("character.v2", {
+      class: "warrior",
+      cashItems: {
+        adventure_support_premium_30d: 1,
+        cosmetic_extension_30d: 1,
+      },
+      stamina: { current: 1_500, lastUpdatedAt: now },
+    });
+
+    const response = await POST(request("adventure_support_premium_30d"));
+    const json = await response.json();
+    const saved = mocks.store.get(
+      "character.v2",
+    ) as SavedAdventureSupportCharacter;
+
+    expect(response.status).toBe(200);
+    expect(saved.cashItems).toEqual({ cosmetic_extension_30d: 3 });
+    expect(saved.adventureSupport).toEqual({
+      activatedAt: now,
+      premiumUntil: now + 30 * 86_400_000,
+      activeUntil: now + 30 * 86_400_000,
+    });
+    expect(saved.stamina).toEqual({ current: 4_500, lastUpdatedAt: now });
+    expect(json).toMatchObject({
+      ok: true,
+      itemId: "adventure_support_premium_30d",
+      tier: "premium",
+      cashItems: { cosmetic_extension_30d: 3 },
+      stamina: { current: 4_500, lastUpdatedAt: now },
+      premiumUntil: now + 30 * 86_400_000,
+      activeUntil: now + 30 * 86_400_000,
+    });
+    dateNow.mockRestore();
+  });
+
+  it("일반 지원권 잔여 기간을 프리미엄 종료 뒤에 보존한다", async () => {
+    const now = Date.UTC(2026, 7, 30);
+    const dateNow = vi.spyOn(Date, "now").mockReturnValue(now);
+    mocks.store.set("character.v2", {
+      cashItems: { adventure_support_premium_30d: 1 },
+      adventureSupport: {
+        activatedAt: now - 20 * 86_400_000,
+        activeUntil: now + 10 * 86_400_000,
+      },
+      stamina: { current: 4_900, lastUpdatedAt: now },
+    });
+
+    const response = await POST(request("adventure_support_premium_30d"));
+    const saved = mocks.store.get(
+      "character.v2",
+    ) as SavedAdventureSupportCharacter;
+
+    expect(response.status).toBe(200);
+    expect(saved.adventureSupport.premiumUntil).toBe(now + 30 * 86_400_000);
+    expect(saved.adventureSupport.activeUntil).toBe(now + 40 * 86_400_000);
+    expect(saved.stamina.current).toBe(5_000);
+    dateNow.mockRestore();
+  });
+
+  it("아이템이 없으면 지원권 상태와 보상을 변경하지 않는다", async () => {
+    const character = {
+      cashItems: {},
+      stamina: { current: 1_500, lastUpdatedAt: 100 },
+    };
+    mocks.store.set("character.v2", character);
+
+    const response = await POST(request("adventure_support_premium_30d"));
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      error: "not_owned",
+    });
+    expect(mocks.store.get("character.v2")).toBe(character);
   });
 });

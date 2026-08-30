@@ -1,4 +1,4 @@
-import type { CharacterDynamicState } from "@/adventure/character/useCharacterState";
+import type { CharacterDynamicState } from "@/adventure/character/state";
 import type { Profile } from "@/adventure/profile/useProfile";
 
 export type AdminUserRow = {

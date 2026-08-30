@@ -936,9 +936,6 @@ export function V2LoadoutPanel({
             id="combat-equipped-skills"
             className={combatEquippedOpen ? "block" : "hidden sm:block"}
           >
-            <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-              표시 순서대로 전투에서 먼저 사용합니다.
-            </p>
             {combatEquippedSkills.length > 0 ? (
               <div className="mt-2 flex min-w-0 flex-nowrap gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible">
                 {combatEquippedSkills.map((s, idx) => (

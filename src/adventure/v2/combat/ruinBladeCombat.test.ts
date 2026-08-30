@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canStartRuinCharge,
   gainSwordIntent,
   recordChargeHpLoss,
   ruinSwordBonuses,
@@ -7,6 +8,15 @@ import {
 } from "./ruinBladeCombat";
 
 describe("멸검제 검의와 충전", () => {
+  it.each([
+    [0, false],
+    [1, false],
+    [2, false],
+    [3, true],
+  ])("검의 %i개에서 멸검 충전 가능 여부는 %s다", (intent, expected) => {
+    expect(canStartRuinCharge(intent)).toBe(expected);
+  });
+
   it("caps sword intent and supports the low-HP double gain", () => {
     expect(gainSwordIntent(0, 1)).toBe(1);
     expect(gainSwordIntent(1, 2)).toBe(3);

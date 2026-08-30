@@ -101,6 +101,7 @@ export function EquipmentCardGrid({
   saleSelection,
   recentlyAcquiredIid,
   frontierDepth,
+  emptyState,
 }: {
   cards: EquipmentCard[];
   onOpenCard: (inst: V2EquipInstance, anchor: ItemCardAnchor) => void;
@@ -117,6 +118,7 @@ export function EquipmentCardGrid({
   recentlyAcquiredIid?: string;
   // 인벤토리에서만 전달. 진행도 미달 장비는 보유·거래 가능하되 착용 잠금 배지를 표시한다.
   frontierDepth?: number;
+  emptyState?: { title: string; message: string };
 }) {
   const selectable = selectedIid !== undefined;
   const saleSelectionActive = saleSelection?.active === true;
@@ -124,8 +126,11 @@ export function EquipmentCardGrid({
     return (
       <EmptyState
         icon={<Diamond size={40} weight="duotone" />}
-        title="보유한 장비가 없습니다"
-        message="사냥터 드랍이나 거래소, 제작으로 모을 수 있습니다."
+        title={emptyState?.title ?? "보유한 장비가 없습니다"}
+        message={
+          emptyState?.message ??
+          "사냥터 드랍이나 거래소, 제작으로 모을 수 있습니다."
+        }
       />
     );
   }

@@ -19,6 +19,7 @@ import {
   upsertGuildResources,
 } from "@/lib/server/v2GuildResources";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordGrowthLeapStaminaSpendInTx } from "@/lib/server/growthLeapProgress";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
@@ -711,6 +712,9 @@ export async function POST(req: Request) {
         : {}),
     };
     await upsertSave(tx, userId, "character.v2", next);
+    if (!V2_CORE_LOOP_V2) {
+      await recordGrowthLeapStaminaSpendInTx(tx, userId, cost, now);
+    }
 
     // 길드 골드 정산 — 한 곳에서 모든 guild_resources 변경을 모아 guildId 오름차순으로 잠가
     //   적용한다. attacker = 점령 비용 차감(sink) + 금고 탈환 길드 몫. defender = 성벽 수리 차감.

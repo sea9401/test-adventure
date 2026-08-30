@@ -2,12 +2,98 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
   claimAllRewardText,
+  GrowthLeapMissionPanel,
   GuideEmptyState,
   MonsterHuntCodexCard,
   QuestTabContent,
   QuestTopTabs,
   QuestRow,
 } from "./V2QuestView";
+import type { GrowthLeapMissionView } from "@/adventure/data/v2/growthLeap";
+
+const activeGrowthLeap: GrowthLeapMissionView = {
+  status: "active",
+  purchasedAt: 1_000,
+  progressUntil: 10_000,
+  claimUntil: 20_000,
+  staminaSpent: 12_345,
+  maxStamina: 50_000,
+  milestones: [
+    {
+      id: "growth_1",
+      name: "첫걸음",
+      stamina: 3_000,
+      masteryCertificates: 300,
+      staminaPotions: 5,
+      cosmeticExtensions: 0,
+      claimed: false,
+      claimable: true,
+    },
+    {
+      id: "growth_2",
+      name: "성장 가속",
+      stamina: 10_000,
+      masteryCertificates: 1_000,
+      staminaPotions: 0,
+      cosmeticExtensions: 0,
+      claimed: true,
+      claimable: false,
+    },
+    {
+      id: "growth_5",
+      name: "도약 완료",
+      stamina: 50_000,
+      masteryCertificates: 1_700,
+      staminaPotions: 0,
+      cosmeticExtensions: 1,
+      claimed: false,
+      claimable: false,
+    },
+  ],
+};
+
+describe("성장 도약 의뢰", () => {
+  it("진행 중 누적 사용량과 정확한 단계 보상·수령 버튼을 보여준다", () => {
+    const html = renderToStaticMarkup(
+      <GrowthLeapMissionPanel
+        mission={activeGrowthLeap}
+        now={5_000}
+        busyId={null}
+        onClaim={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("성장 도약 의뢰");
+    expect(html).toContain("12,345/50,000");
+    expect(html).toContain("숙련 증서 300개 · 귀속 회복약 5개");
+    expect(html).toContain("숙련 증서 1,700개 · 꾸미기 30일 연장권 1개");
+    expect(html).toContain(">받기</");
+    expect(html).toContain("수령 완료");
+  });
+
+  it("30일 종료 뒤에는 수령 전용 상태를, 유예 종료 뒤에는 만료를 표시한다", () => {
+    const claimOnly = renderToStaticMarkup(
+      <GrowthLeapMissionPanel
+        mission={{ ...activeGrowthLeap, status: "claim_only" }}
+        now={15_000}
+        busyId={null}
+        onClaim={vi.fn()}
+      />,
+    );
+    expect(claimOnly).toContain("진행 종료 · 보상 수령만 가능");
+
+    const expired = renderToStaticMarkup(
+      <GrowthLeapMissionPanel
+        mission={{ ...activeGrowthLeap, status: "expired" }}
+        now={25_000}
+        busyId={null}
+        onClaim={vi.fn()}
+      />,
+    );
+    expect(expired).toContain("수령 기간 만료");
+    expect(expired).not.toContain(">받기</");
+  });
+});
 
 describe("퀘스트 탭 전환 경계", () => {
   it("진행 항목을 모두 마치면 자체 축하 아이콘을 표시한다", () => {

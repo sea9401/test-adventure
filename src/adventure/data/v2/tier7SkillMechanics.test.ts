@@ -4,6 +4,7 @@ import {
   TIER7_COMBAT_JOB_PREREQS,
   tier7MechanicPower,
   tier7CombatJobIdForSkillId,
+  tier7PvpDirectDamagePct,
   validateTier7Package,
   type Tier7Mechanic,
 } from "./tier7SkillMechanics";
@@ -14,6 +15,26 @@ type PackageSkill = {
 };
 
 describe("tier 7 capstone contract", () => {
+  it("keeps PvE-only sword-line coefficient increases out of PvP", () => {
+    expect(
+      tier7PvpDirectDamagePct({
+        kind: "shadowStrike",
+        recordPct: 70,
+        refinedRecordPct: 85,
+        pvpDirectDamagePct: 72.73,
+      }),
+    ).toBe(72.73);
+    expect(
+      tier7PvpDirectDamagePct({
+        kind: "intentStrike",
+        missingHpBonusCapPct: 60,
+        lowHpThresholdPct: 40,
+        pvpDirectDamagePct: 22.73,
+      }),
+    ).toBe(22.73);
+    expect(tier7PvpDirectDamagePct(undefined)).toBe(100);
+  });
+
   it("keeps the approved internal jobs and prerequisite pairs together", () => {
     expect(TIER7_COMBAT_JOB_IDS).toEqual([
       "shadowblade",
@@ -79,27 +100,30 @@ describe("tier 7 capstone contract", () => {
   });
 
   it.each<[Tier7Mechanic, number]>([
-    [{ kind: "shadowStrike", recordPct: 70, refinedRecordPct: 85 }, 1.55],
-    [{ kind: "shadowRefine", refinePctPoints: 15, hastePct: 20 }, 2],
+    [{ kind: "shadowStrike", recordPct: 70, refinedRecordPct: 85, pvpDirectDamagePct: 72.73 }, 1.55],
+    [{ kind: "shadowRefine", refinePctPoints: 15, hastePct: 20, pvpDirectDamagePct: 72.73 }, 2],
     [
       {
         kind: "shadowCore",
         recordPct: 50,
+        inheritedRecordPct: 25,
         refinedRecordPct: 65,
         nextSingleDamagePct: 15,
         pvpScalePct: 80,
       },
       8.1,
     ],
-    [{ kind: "intentStrike", missingHpBonusCapPct: 60, lowHpThresholdPct: 40 }, 3],
+    [{ kind: "intentStrike", missingHpBonusCapPct: 60, lowHpThresholdPct: 40, pvpDirectDamagePct: 22.73 }, 3],
     [{ kind: "intentCore", maxStacks: 3, damagePctPerStack: 8, finisherPctPerStack: 15 }, 2.73],
     [
       {
         kind: "chargedFinisher",
         currentMissingHpCapPct: 75,
         chargeLostHpCapPct: 75,
+        requiredIntentStacks: 3,
         pvpCapPct: 40,
         pvpPenetrationPct: 30,
+        pvpDirectDamagePct: 47.62,
       },
       4.88,
     ],

@@ -23,7 +23,11 @@ import {
   V2_REFORGE_ENABLED,
   isReforgeStoneMaterialId,
 } from "@/adventure/data/v2/v2EquipVariance";
-import { ADVENTURE_SUPPORT_PASS } from "@/adventure/data/v2/adventureSupport";
+import {
+  adventureSupportBenefits,
+  normalizeAdventureSupportTierInput,
+  type AdventureSupportTierInput,
+} from "@/adventure/data/v2/adventureSupport";
 import {
   MUSEUN_CASH_ITEMS,
   isMuseunCashItemId,
@@ -72,20 +76,22 @@ export const MARKETPLACE_V2_BUY_ORDER_ESCROW_MAX = 999_999_999;
 export type MarketKind = "equip" | "material" | "consumable";
 
 export function marketplaceSlotLimitForAdventureSupport(
-  active: boolean,
+  support: AdventureSupportTierInput,
 ): number {
   return (
     MARKETPLACE_V2_SLOT_LIMIT +
-    (active ? ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus : 0)
+    adventureSupportBenefits(normalizeAdventureSupportTierInput(support))
+      .marketplaceSlotBonus
   );
 }
 
 export function marketplaceTaxRateForAdventureSupport(
-  active: boolean,
+  support: AdventureSupportTierInput,
 ): number {
-  return active
-    ? ADVENTURE_SUPPORT_PASS.marketplaceTaxRate
-    : MARKETPLACE_V2_TAX_RATE;
+  const tier = normalizeAdventureSupportTierInput(support);
+  return tier === "none"
+    ? MARKETPLACE_V2_TAX_RATE
+    : adventureSupportBenefits(tier).marketplaceTaxRate;
 }
 
 // 판매자 수령 골드 — 대금 − 판매세(내림). proceeds + 소각분 = price (보존, 골드 신규생성 0).
@@ -299,7 +305,10 @@ export type MarketplaceEquipListError =
 
 // 장비 등록 정책의 서버 권위 판정. 강화 여부와 별개로 명시적 귀속 장비만 계정 간 이동을 막는다.
 export function marketplaceEquipListError(
-  inst: Pick<V2EquipInstance, "id" | "bound" | "locked" | "enhance">,
+  inst: Pick<
+    V2EquipInstance,
+    "id" | "bound" | "locked" | "enhance" | "liberation"
+  >,
   isEquipped: boolean,
 ): MarketplaceEquipListError | null {
   if (!isTradableEquip(inst.id)) return "not_tradable";

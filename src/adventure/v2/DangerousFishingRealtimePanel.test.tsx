@@ -50,6 +50,9 @@ function encounterFixture(
 }
 
 const baseProps = {
+  get serverNow() {
+    return Date.now();
+  },
   scene: {
     encounterImageSrc: "/images/ui/dangerous-fishing-storm-trench-encounter.webp",
     depth: "midwater" as const,
@@ -151,7 +154,9 @@ describe("위험 해역 실시간 조우 HUD", () => {
     expect(html).toContain("급선회 거리·장력 충격 20% 감소");
     expect(html).toContain('role="meter"');
     expect(html).toContain('aria-valuenow="620"');
-    expect(html).toContain("안전 구간");
+    expect(html).toContain("인양 구간 290–710");
+    expect(html).toContain("290 미만 지속 시 바늘 빠짐");
+    expect(html).toContain("1,000 초과 시 줄 끊김");
     expect(html).toContain('aria-live="polite"');
     expect(html).toContain("연결됨");
     expect(html).toContain("bg-white");
@@ -293,56 +298,64 @@ describe("위험 해역 실시간 조우 HUD", () => {
     expect(button.getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("Space의 스크롤과 repeat를 막고 keyup에서 안전하게 줄을 놓는다", () => {
-    render(
-      <DangerousFishingRealtimePanel
-        {...baseProps}
-        encounter={encounterFixture()}
-      />,
-    );
-    const button = screen.getByRole("button", { name: "누르고 감아올리기" });
-    const initialRepeat = new KeyboardEvent("keydown", {
-      bubbles: true,
-      cancelable: true,
-      code: "Space",
-      key: " ",
-      repeat: true,
-    });
-    fireEvent(button, initialRepeat);
-    expect(initialRepeat.defaultPrevented).toBe(true);
-    expect(button.getAttribute("aria-pressed")).toBe("false");
+  it.each([
+    ["Space", " "],
+    ["Enter", "Enter"],
+  ] as const)(
+    "%s의 기본 동작과 repeat를 막고 keyup에서 안전하게 줄을 놓는다",
+    (code, key) => {
+      render(
+        <DangerousFishingRealtimePanel
+          {...baseProps}
+          encounter={encounterFixture()}
+        />,
+      );
+      const button = screen.getByRole("button", {
+        name: "누르고 감아올리기",
+      });
+      const initialRepeat = new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        code,
+        key,
+        repeat: true,
+      });
+      fireEvent(button, initialRepeat);
+      expect(initialRepeat.defaultPrevented).toBe(true);
+      expect(button.getAttribute("aria-pressed")).toBe("false");
 
-    const down = new KeyboardEvent("keydown", {
-      bubbles: true,
-      cancelable: true,
-      code: "Space",
-      key: " ",
-    });
-    fireEvent(button, down);
-    expect(down.defaultPrevented).toBe(true);
-    expect(button.getAttribute("aria-pressed")).toBe("true");
+      const down = new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        code,
+        key,
+      });
+      fireEvent(button, down);
+      expect(down.defaultPrevented).toBe(true);
+      expect(button.getAttribute("aria-pressed")).toBe("true");
 
-    const repeated = new KeyboardEvent("keydown", {
-      bubbles: true,
-      cancelable: true,
-      code: "Space",
-      key: " ",
-      repeat: true,
-    });
-    fireEvent(button, repeated);
-    expect(repeated.defaultPrevented).toBe(true);
-    expect(button.getAttribute("aria-pressed")).toBe("true");
+      const repeated = new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        code,
+        key,
+        repeat: true,
+      });
+      fireEvent(button, repeated);
+      expect(repeated.defaultPrevented).toBe(true);
+      expect(button.getAttribute("aria-pressed")).toBe("true");
 
-    const up = new KeyboardEvent("keyup", {
-      bubbles: true,
-      cancelable: true,
-      code: "Space",
-      key: " ",
-    });
-    fireEvent(button, up);
-    expect(up.defaultPrevented).toBe(true);
-    expect(button.getAttribute("aria-pressed")).toBe("false");
-  });
+      const up = new KeyboardEvent("keyup", {
+        bubbles: true,
+        cancelable: true,
+        code,
+        key,
+      });
+      fireEvent(button, up);
+      expect(up.defaultPrevented).toBe(true);
+      expect(button.getAttribute("aria-pressed")).toBe("false");
+    },
+  );
 
   it.each(["pointer", "space"] as const)(
     "%s hold 중 외부 사람 확인이 도착하면 release 기록을 남기고 조작을 비활성화한다",

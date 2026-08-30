@@ -3,6 +3,7 @@ import {
   adventureSupportRemaining,
   formatAdventureSupportExpiry,
   formatAdventureSupportRemaining,
+  queuedStandardSupportMs,
 } from "./adventureSupportDisplay";
 
 describe("월간 모험 지원권 표시", () => {
@@ -29,5 +30,19 @@ describe("월간 모험 지원권 표시", () => {
     expect(formatAdventureSupportExpiry(Date.UTC(2026, 6, 20, 3, 30))).toBe(
       "2026년 7월 20일 12:30",
     );
+  });
+
+  it("프리미엄 뒤에 대기하는 일반 지원권 기간만 계산한다", () => {
+    const now = Date.UTC(2026, 7, 30);
+    const premiumUntil = now + 30 * 86_400_000;
+    const activeUntil = premiumUntil + 10 * 86_400_000;
+
+    expect(queuedStandardSupportMs(activeUntil, premiumUntil, now)).toBe(
+      10 * 86_400_000,
+    );
+    expect(
+      queuedStandardSupportMs(activeUntil, premiumUntil, premiumUntil),
+    ).toBe(0);
+    expect(queuedStandardSupportMs(premiumUntil, premiumUntil, now)).toBe(0);
   });
 });

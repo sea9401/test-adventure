@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowClockwise, CloudLightning, ShieldChevron } from "@phosphor-icons/react";
+import { CloudLightning, Question, ShieldChevron } from "@phosphor-icons/react";
+import { huntStageName } from "@/adventure/data/v2/dungeon";
 import type { Gender } from "@/adventure/profile/avatars";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import {
@@ -57,6 +58,7 @@ import {
   type StormExpeditionNodeDialogModel,
 } from "./StormExpeditionNodeDialog";
 import { runStormExpeditionAutoplay } from "./stormExpeditionAutoplay";
+import { StormExpeditionGuideDialog } from "./StormExpeditionGuideDialog";
 import {
   clearStormExpeditionAutoplayPlan,
   loadStormExpeditionAutoplayDefaults,
@@ -178,6 +180,13 @@ const ERROR_MESSAGES: Record<string, string> = {
   node_already_visited: "이미 지나온 노드로는 돌아갈 수 없습니다.",
   node_already_completed: "현재 체크포인트는 이미 완료했습니다. 지도에서 다음 노드를 선택해 주세요.",
 };
+
+export function stormExpeditionUnlockStatusText(frontierDepth: number): string {
+  return (
+    "심해 폐허 · 최심부 돌파 후 개방 · 현재 " +
+    huntStageName(Math.max(1, frontierDepth))
+  );
+}
 
 export function stormExpeditionStatusAfterResponse(
   current: ExpeditionStatus | null,
@@ -325,6 +334,7 @@ export function V2StormExpeditionView() {
   const [selectedMode, setSelectedMode] = useState<StormExpeditionMode>("normal");
   const [openNodeId, setOpenNodeId] = useState<StormExpeditionMapNodeId | null>(null);
   const [autoPlanOpen, setAutoPlanOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [autoPlan, setAutoPlan] = useState<StormExpeditionAutoplayPlan>(() =>
     typeof window === "undefined"
       ? DEFAULT_AUTOPLAY_PLAN
@@ -562,7 +572,15 @@ export function V2StormExpeditionView() {
               <h1 className="mt-1 text-xl font-bold">세 갈래 길, 아홉 개의 체크포인트</h1>
               <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">일곱 번의 전투 사이에서 회복과 축복을 선택합니다. 적을 처치한 뒤에는 언제든 전리품을 들고 귀환할 수 있습니다.</p>
             </div>
-            <button type="button" onClick={() => void refresh()} className="rounded-md border border-sky-200 p-2 text-sky-600 dark:border-sky-800" aria-label="새로고침"><ArrowClockwise size={16} /></button>
+            <button
+              type="button"
+              onClick={() => setGuideOpen(true)}
+              className="rounded-md border border-sky-200 p-2 text-sky-600 dark:border-sky-800"
+              aria-label="폭풍 원정 도움말"
+              aria-haspopup="dialog"
+            >
+              <Question size={16} weight="bold" aria-hidden />
+            </button>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center text-sm">
             <Metric label="오늘 입장" value={`${status.attemptsLeft ?? 0}회`} />
@@ -580,7 +598,9 @@ export function V2StormExpeditionView() {
       )}
 
       {status && !status.unlocked && (
-        <StatusBanner tone="warning">심해 폐허 최심부 돌파 후 개방 · 현재 진행 {Math.floor((status.frontierDepth ?? 2) / 2)}/{Math.floor((status.unlockDepth ?? 72) / 2)}단계</StatusBanner>
+        <StatusBanner tone="warning">
+          {stormExpeditionUnlockStatusText(status.frontierDepth ?? 2)}
+        </StatusBanner>
       )}
       {result?.error && <StatusBanner tone="error">{stormExpeditionErrorMessage(result)}</StatusBanner>}
       {result?.practiceCompleted && <StatusBanner tone="success">폭풍의 심장까지 연습을 마쳤습니다. 입장 횟수와 보상·완주 기록은 변하지 않았습니다.</StatusBanner>}
@@ -715,6 +735,11 @@ export function V2StormExpeditionView() {
           onClose={() => setAutoplayResult(null)}
         />
       )}
+
+      <StormExpeditionGuideDialog
+        open={guideOpen}
+        onClose={() => setGuideOpen(false)}
+      />
 
       {replay && (
         <ReplayBattleScene

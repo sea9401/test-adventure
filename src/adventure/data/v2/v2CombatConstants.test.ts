@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyEvasionDamageReduction,
-  attackMissPct,
   evasionDamageReductionPct,
-  pvpAttackMissPct,
   pvpEvasionDamageReductionPct,
   magicBarrierStats,
   magicDefenseDamageReductionPct,
@@ -32,9 +30,7 @@ describe("회피도·적중도 직접 피해 경감", () => {
     expect(pvpEvasionDamageReductionPct(2_500, 200)).toBeCloseTo(68.5484, 3);
   });
 
-  it("일반 회피는 완전 회피를 만들지 않고 양수 피해를 최소 1 남긴다", () => {
-    expect(attackMissPct()).toBe(0);
-    expect(pvpAttackMissPct()).toBe(0);
+  it("일반 회피 경감은 양수 피해를 최소 1 남긴다", () => {
     expect(applyEvasionDamageReduction(1_000, 37.7778)).toBe(622);
     expect(applyEvasionDamageReduction(1, 85)).toBe(1);
     expect(evasionDamageReductionPct(1_000_000_000, 200)).toBeLessThan(85);

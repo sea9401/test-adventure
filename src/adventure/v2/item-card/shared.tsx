@@ -18,6 +18,13 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { VARIANCE_FRACTION } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
+import {
+  formatLiberationOptionRoll,
+  type V2LiberationState,
+} from "@/adventure/data/v2/equipmentLiberation";
+import type { GameConfirmOptions } from "@/components/ui/gameDialog";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { V2_EQUIPMENT_LIBERATION } from "@/adventure/data/v2/coreLoopConfig";
 
 // 굴림 품질 % → 색. 색 기준은 위력이 아니라 같은 장비 안에서의 개체 굴림 품질이다.
 // 인벤 카드 배지와 공유 — V2InventoryView 가 여기서 import(기존 import 방향 유지).
@@ -216,6 +223,77 @@ export function MasterworkBadge({
       명장 제작품
     </span>
   );
+}
+
+export function LiberationBadge({
+  liberation,
+  className = "",
+}: {
+  liberation?: V2LiberationState;
+  className?: string;
+}) {
+  if (!V2_EQUIPMENT_LIBERATION || !liberation) return null;
+  return (
+    <span
+      className={`shrink-0 rounded bg-violet-100 px-1.5 py-px text-[10px] font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300 ${className}`}
+      title={`해방 ${liberation.rank} · ${liberation.lineCount}줄`}
+    >
+      해방 {liberation.rank} · {liberation.lineCount}줄
+    </span>
+  );
+}
+
+export function LiberationOptionsPanel({
+  liberation,
+}: {
+  liberation: V2LiberationState;
+}) {
+  if (!V2_EQUIPMENT_LIBERATION) return null;
+  return (
+    <div className={`${SURFACE_INSET} mt-3 p-2.5`}>
+      <div className="flex items-center justify-between gap-2 text-xs font-semibold text-violet-700 dark:text-violet-300">
+        <span>해방 옵션</span>
+        <span>해방 {liberation.rank} · {liberation.lineCount}줄</span>
+      </div>
+      <ul className="mt-2 space-y-1 text-xs">
+        {liberation.options.map((option) => (
+          <li key={option.id} className="flex items-start justify-between gap-2">
+            <span>{formatLiberationOptionRoll(option)}</span>
+            <span className="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">
+              Lv.{option.level}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export type BoundEquipmentDisposalItem = {
+  iid: string;
+  itemName: string;
+  liberation?: V2LiberationState;
+};
+
+export function boundEquipmentDisposalConfirmation(
+  items: readonly BoundEquipmentDisposalItem[],
+  action: "판매" | "해체",
+): GameConfirmOptions {
+  const itemLines = items.map((item) =>
+    item.liberation
+      ? `• ${item.itemName} · 해방 ${item.liberation.rank} · ${item.liberation.lineCount}줄`
+      : `• ${item.itemName} · 귀속 장비`,
+  );
+  return {
+    title: `귀속 장비 ${action} 재확인`,
+    message: [
+      ...itemLines,
+      "",
+      `${action}하면 장비 귀속 및 모든 해방 옵션이 영구 소멸하며 되돌릴 수 없습니다.`,
+    ].join("\n"),
+    confirmLabel: `영구 소멸 확인 · ${action}`,
+    tone: "danger",
+  };
 }
 
 // 세트 보너스(V2EquipOptions) → 표시 문자열. 회피도·적중도는 고정 수치다.

@@ -3,6 +3,7 @@ export type FarmBatchAction = "plant" | "harvest" | "fertilize";
 type FarmBatchResponse = {
   ok: boolean;
   error?: string;
+  result?: { farmingXpGained?: number };
 };
 
 const FARM_BATCH_ENDPOINT: Record<FarmBatchAction, string> = {
@@ -16,13 +17,19 @@ export function farmBatchOutcomeText(
   completed: number,
   error: string | null,
   cropName?: string,
+  farmingXpGained = 0,
 ): string {
   if (error) {
     return completed > 0
       ? `${completed}칸 처리 후 일괄 작업이 중단되었습니다.`
       : error;
   }
-  if (action === "harvest") return `${completed}칸을 모두 수확했습니다.`;
+  if (action === "harvest") {
+    const base = `${completed}칸을 모두 수확했습니다.`;
+    return farmingXpGained > 0
+      ? `${base} 농사 XP +${farmingXpGained.toLocaleString("ko-KR")}.`
+      : base;
+  }
   if (action === "fertilize") {
     return `유기질 거름을 ${completed}칸에 뿌렸습니다.`;
   }
@@ -41,8 +48,13 @@ export async function runFarmPlotBatch<T extends FarmBatchResponse>({
   cropId?: string;
   onSuccess: (data: T) => void;
   request?: typeof fetch;
-}): Promise<{ completed: number; error: string | null }> {
+}): Promise<{
+  completed: number;
+  error: string | null;
+  farmingXpGained: number;
+}> {
   let completed = 0;
+  let farmingXpGained = 0;
 
   for (const plotId of plotIds) {
     try {
@@ -59,17 +71,25 @@ export async function runFarmPlotBatch<T extends FarmBatchResponse>({
         return {
           completed,
           error: data.error ?? "request_failed",
+          farmingXpGained,
         };
       }
       onSuccess(data);
+      if (action === "harvest") {
+        farmingXpGained += Math.max(
+          0,
+          Math.floor(Number(data.result?.farmingXpGained) || 0),
+        );
+      }
       completed += 1;
     } catch (error) {
-      return {
-        completed,
-        error: error instanceof Error ? error.message : "request_failed",
-      };
+        return {
+          completed,
+          error: error instanceof Error ? error.message : "request_failed",
+          farmingXpGained,
+        };
     }
   }
 
-  return { completed, error: null };
+  return { completed, error: null, farmingXpGained };
 }

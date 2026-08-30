@@ -43,6 +43,7 @@ const {
   huntDropOverride: {
     equipmentId: null as string | null,
     uniqueId: null as string | null,
+    beforeRoll: null as (() => void) | null,
   },
   store: new Map<string, unknown>(),
 }));
@@ -50,6 +51,14 @@ const {
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
 }));
+vi.mock("@/adventure/data/v2/coreLoopConfig", async (importActual) => {
+  const actual =
+    await importActual<typeof import("@/adventure/data/v2/coreLoopConfig")>();
+  return {
+    ...actual,
+    V2_EQUIPMENT_LIBERATION: true,
+  };
+});
 vi.mock("@/lib/server/v2EnsureSoloGuild", () => ({
   getGuildId: vi.fn(async () => null),
 }));
@@ -90,6 +99,7 @@ vi.mock("@/app/api/v2/dungeon/hunt/huntDrops", async (importOriginal) => {
     rollHuntDropsRepeated: (
       params: Parameters<typeof actual.rollHuntDropsRepeated>[0],
     ): ReturnType<typeof actual.rollHuntDropsRepeated> => {
+      huntDropOverride.beforeRoll?.();
       const result = actual.rollHuntDropsRepeated(params);
       if (!huntDropOverride.equipmentId && !huntDropOverride.uniqueId) {
         return result;
@@ -193,6 +203,10 @@ import {
   OUTPOSTS,
   START_OUTPOST_ID,
 } from "@/adventure/data/v2/outposts";
+import {
+  GROWTH_LEAP_SAVE_KEY,
+  activateGrowthLeap,
+} from "@/adventure/data/v2/growthLeap";
 
 function seedStrongWarrior() {
   store.clear();
@@ -219,6 +233,9 @@ function seedStrongWarrior() {
   store.set("skills.v2", { learned: [], equipped: [] });
   store.set("inventory.v2", { hpCharges: 0, mpCharges: 0 });
   store.set("adventure-log.v2", { monsters: {}, battleLosses: 0 });
+  const growthLeap = activateGrowthLeap({}, Date.now() - 1_000);
+  if (!growthLeap.ok) throw new Error("expected growth leap activation");
+  store.set(GROWTH_LEAP_SAVE_KEY, growthLeap.state);
 }
 
 function overpowerSeededWarrior() {
@@ -246,6 +263,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     seedStrongWarrior();
     huntDropOverride.equipmentId = null;
     huntDropOverride.uniqueId = null;
+    huntDropOverride.beforeRoll = null;
     // 결정적 RNG — 0.5 는 명중 임계(missPct ~6) 위라 평타 적중, 크리/추가타 임계 아래라 단타.
     // 강한 무기(atk ~175) + 우호 명중 → depth1 몹 확정 1타 처치.
     vi.spyOn(Math, "random").mockReturnValue(0.5);
@@ -291,6 +309,9 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     const char = store.get("character.v2") as { exp: number; stamina: { current: number } };
     expect(char.exp).toBeGreaterThan(0);
     expect(char.stamina.current).toBe(4999); // 5000 - HUNT_COST(1)
+    expect(store.get(GROWTH_LEAP_SAVE_KEY)).toMatchObject({
+      mission: { staminaSpent: 1 },
+    });
     const prof = store.get("proficiency.v2") as {
       points: number;
       groups: { warrior?: { cumLevel?: number } };
@@ -410,7 +431,8 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(lockSavesForUpdate).toHaveBeenCalledTimes(1);
     expect(readSaves).toHaveBeenCalledTimes(1);
     expect(upsertSaves).toHaveBeenCalledTimes(1);
-    expect(upsertSave).not.toHaveBeenCalled();
+    expect(upsertSave).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(upsertSave).mock.calls[0][2]).toBe(GROWTH_LEAP_SAVE_KEY);
   });
 
   it("활성 v2 음식의 사냥 경험치와 골드 버프를 적용한다", async () => {
@@ -474,6 +496,54 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     });
   });
 
+  it("전투 시작 장비의 해방 EXP·골드 효과를 보상까지 고정한다", async () => {
+    const baselineRes = await POST(huntReq({ floor: 2 }));
+    const baseline = (await baselineRes.json()) as {
+      result: { expGained: number; goldGross: number };
+    };
+
+    seedStrongWarrior();
+    const equipment = store.get("equipment.v2") as {
+      owned: Array<Record<string, unknown>>;
+      equipped: Record<string, string>;
+    };
+    equipment.owned.push(
+      {
+        iid: "hunt-gold-armor",
+        id: "v2_storm_wreckage_armor",
+        liberation: {
+          rank: 1,
+          lineCount: 1,
+          revision: 1,
+          options: [{ id: "hunt_gold_pct", level: 20 }],
+        },
+      },
+      {
+        iid: "hunt-exp-boots",
+        id: "v2_storm_wreckage_boots",
+        liberation: {
+          rank: 1,
+          lineCount: 1,
+          revision: 1,
+          options: [{ id: "hunt_exp_pct", level: 20 }],
+        },
+      },
+    );
+    equipment.equipped.armor = "hunt-gold-armor";
+    equipment.equipped.boots = "hunt-exp-boots";
+
+    const boostedRes = await POST(huntReq({ floor: 2 }));
+    const boosted = (await boostedRes.json()) as typeof baseline;
+    expect(boosted.result.expGained).toBeCloseTo(
+      baseline.result.expGained * 1.2,
+      0,
+    );
+    expect(boosted.result.goldGross).toBeCloseTo(
+      baseline.result.goldGross * 1.1,
+      0,
+    );
+  });
+
   it("레벨업 시 레거시 totalLevels 를 새로 갱신하지 않는다", async () => {
     // beforeEach 가 강한 전사(Lv30) 시드 — 다음 레벨까지 1 EXP 부족하게 설정.
     const char0 = store.get("character.v2") as Record<string, unknown>;
@@ -491,6 +561,88 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     // 한 판 승리(EXP>0)로 최소 1 레벨업 → 31 이상.
     expect(char.level).toBeGreaterThanOrEqual(31);
     expect(char.totalLevels).toBeUndefined();
+  });
+
+  it("레벨업 시 전투 시작에 장착한 해방 성장 옵션을 현재 주기에 누적한다", async () => {
+    const char0 = store.get("character.v2") as Record<string, unknown>;
+    store.set("character.v2", {
+      ...char0,
+      exp: (requiredExpToNext(30) ?? 1) - 1,
+    });
+    store.set("equipment.v2", {
+      owned: [
+        { iid: "w1", id: "v2_cave_greatsword" },
+        {
+          iid: "growth-armor",
+          id: "v2_storm_wreckage_armor",
+          liberation: {
+            rank: 1,
+            lineCount: 1,
+            revision: 1,
+            options: [{ id: "level_up_max_hp_growth", level: 20 }],
+          },
+        },
+      ],
+      equipped: { weapon: "w1", armor: "growth-armor" },
+    });
+
+    const response = await POST(huntReq({ floor: 2 }));
+    const json = (await response.json()) as {
+      result: { levelsGained: number; hpGain: number };
+    };
+    expect(response.status).toBe(200);
+    expect(json.result.levelsGained).toBeGreaterThan(0);
+    const proficiency = store.get("proficiency.v2") as {
+      liberationCycleGrowth: { hp: number; mp: number };
+    };
+    expect(proficiency.liberationCycleGrowth.hp).toBe(
+      json.result.levelsGained * 15,
+    );
+    expect(proficiency.liberationCycleGrowth.mp).toBe(0);
+    expect(json.result.hpGain).toBeGreaterThanOrEqual(
+      proficiency.liberationCycleGrowth.hp,
+    );
+  });
+
+  it("보상 처리 중 장비 저장이 바뀌어도 시작 시 해방 성장 스냅샷을 유지한다", async () => {
+    const char0 = store.get("character.v2") as Record<string, unknown>;
+    store.set("character.v2", {
+      ...char0,
+      exp: (requiredExpToNext(30) ?? 1) - 1,
+    });
+    const equipment = {
+      owned: [
+        { iid: "w1", id: "v2_cave_greatsword" },
+        {
+          iid: "growth-armor",
+          id: "v2_storm_wreckage_armor",
+          liberation: {
+            rank: 1,
+            lineCount: 1,
+            revision: 1,
+            options: [{ id: "level_up_max_hp_growth", level: 20 }],
+          },
+        },
+      ],
+      equipped: { weapon: "w1", armor: "growth-armor" },
+    };
+    store.set("equipment.v2", equipment);
+    huntDropOverride.beforeRoll = () => {
+      equipment.owned.splice(1, 1);
+      delete (equipment.equipped as { armor?: string }).armor;
+    };
+
+    const response = await POST(huntReq({ floor: 2 }));
+    const json = (await response.json()) as {
+      result: { levelsGained: number };
+    };
+    expect(response.status).toBe(200);
+    const proficiency = store.get("proficiency.v2") as {
+      liberationCycleGrowth: { hp: number; mp: number };
+    };
+    expect(proficiency.liberationCycleGrowth.hp).toBe(
+      json.result.levelsGained * 15,
+    );
   });
 
   it("낚시 계열 직업은 사냥 승리로 직업 숙련도가 오르지 않는다", async () => {
@@ -660,6 +812,9 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       stamina: { current: number };
     };
     expect(char.stamina.current).toBe(4995);
+    expect(store.get(GROWTH_LEAP_SAVE_KEY)).toMatchObject({
+      mission: { staminaSpent: 5 },
+    });
     // EXP 도 누적(매 판 applyExpGain 결과를 세이브→다음 판 재read).
     expect(char.exp).toBe(json.batch.totalExp);
     expect(char.exp).toBeGreaterThan(0);
@@ -708,7 +863,8 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       "inventory.v2",
       "proficiency.v2",
     ]);
-    expect(upsertSave).not.toHaveBeenCalled();
+    expect(upsertSave).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(upsertSave).mock.calls[0][2]).toBe(GROWTH_LEAP_SAVE_KEY);
   });
 
   it("배치의 활성 길드 식사 효과를 판간 이월하고 마지막에 한 번 저장한다", async () => {
@@ -740,7 +896,8 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(vi.mocked(upsertSaves).mock.calls[0][2]).toHaveProperty(
       GUILD_DINING_USER_SAVE_KEY,
     );
-    expect(upsertSave).not.toHaveBeenCalled();
+    expect(upsertSave).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(upsertSave).mock.calls[0][2]).toBe(GROWTH_LEAP_SAVE_KEY);
   });
 
   it("현재 거점이 있어도 사냥세 없이 골드 전액을 지급한다", async () => {

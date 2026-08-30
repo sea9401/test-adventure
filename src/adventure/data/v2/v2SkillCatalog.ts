@@ -39,7 +39,8 @@ export const V2_BASE_SKILLS = {
     description: "전투 중 자신의 HP 를 조금 회복한다.",
     mpCost: 8,
     cooldown: 0,
-    effects: [{ kind: "heal", pctMaxHp: 10 }],
+    spCost: 3,
+    effects: [{ kind: "heal", pctMaxHp: 1.8 }],
   },
   v2_skill_dash: {
     id: "v2_skill_dash",

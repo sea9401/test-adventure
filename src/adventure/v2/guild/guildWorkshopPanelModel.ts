@@ -3,6 +3,7 @@ import {
   type SettlementResources,
 } from "@/adventure/data/v2/settlement";
 import { TITLES } from "@/adventure/data/titles";
+import type { V2LiberationState } from "@/adventure/data/v2/equipmentLiberation";
 import type {
   GuildWorkshopCraftMode,
   GuildWorkshopMaterialSubstitution,
@@ -294,6 +295,8 @@ export type DismantleCandidateView = {
   craftQualityLevel: number;
   masterwork: boolean;
   locked: boolean;
+  bound?: boolean;
+  liberation?: V2LiberationState;
   equipped: boolean;
   rewards: Record<string, number>;
   artisanXp: number;

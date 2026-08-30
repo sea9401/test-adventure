@@ -5,6 +5,7 @@ import {
   outpostOccupations,
   savesKv,
 } from "@/db/schema";
+import { GROWTH_LEAP_SAVE_KEY } from "@/adventure/data/v2/growthLeap";
 import type { DbExecutor } from "./savesKv";
 
 export type ResetCharacterResult = {
@@ -18,8 +19,9 @@ export type ResetCharacterResult = {
 // dev/reset-me(본인) 과 admin reset-character(타겟) 공용 로직. 반드시 tx 안에서 호출.
 //
 // 정리 범위:
-//   - 본인 savesKv 모든 키 삭제(character.v2 / proficiency.v2 / equipment.v2 /
-//     inventory.v2 / character-profile.v2 / 지갑·도감·퀘스트 등 전부)
+//   - 본인 savesKv 캐릭터 키 삭제(character.v2 / proficiency.v2 / equipment.v2 /
+//     inventory.v2 / character-profile.v2 / 지갑·도감·퀘스트 등). 계정당 구매 제한과
+//     진행을 보존해야 하는 성장 도약 키는 제외한다.
 //     → 다음 mount 시 자동 캐릭 생성 흐름(needsSetup)으로 깨끗한 새 캐릭 시작(무소속).
 //   - 본인 1인 길드면 길드 row 삭제 → cascade 로 guildMembers / guildResources /
 //     guildLineups / guildLodge* / guildInvites / guildJoinRequests 정리 + 점령 거점 해제.
@@ -80,7 +82,12 @@ export async function resetUserCharacterData(
   // 2. savesKv 정리 — 마지막에(길드 삭제가 succeed 한 후 정리).
   const deleted = await tx
     .delete(savesKv)
-    .where(eq(savesKv.userId, userId))
+    .where(
+      and(
+        eq(savesKv.userId, userId),
+        ne(savesKv.key, GROWTH_LEAP_SAVE_KEY),
+      ),
+    )
     .returning({ key: savesKv.key });
 
   return {

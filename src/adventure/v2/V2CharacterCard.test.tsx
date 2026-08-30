@@ -16,6 +16,44 @@ const CHARACTER = {
 };
 
 describe("V2CharacterCard profile theme", () => {
+  it("펼친 캐릭터 카드에 길드 음식 효과와 남은 시간을 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <V2CharacterCard
+        character={CHARACTER}
+        activeGuildDiningEffect={{
+          menuId: "guild_grand_feast",
+          name: "길드 대연회",
+          kind: "all_xp",
+          bonusPct: 60,
+          lifeBonusPct: 20,
+          expiresAt: Date.now() + 2 * 60 * 60 * 1000,
+        }}
+      />,
+    );
+
+    expect(html).toContain("길드 대연회");
+    expect(html).toContain("사냥 경험치 +60% · 생활 경험치 +20%");
+    expect(html).toContain("2시간");
+  });
+
+  it("프리미엄 지원권은 상세 카드 진입 배지에서 구분한다", () => {
+    const html = renderToStaticMarkup(
+      <V2CharacterCard
+        character={CHARACTER}
+        adventureSupport={{
+          active: true,
+          tier: "premium",
+          premiumUntil: Date.now() + 86_400_000,
+          activeUntil: Date.now() + 2 * 86_400_000,
+          regenBonusPct: 20,
+        }}
+      />,
+    );
+
+    expect(html).toContain("월간 모험 지원권 프리미엄 적용 중");
+    expect(html).toContain("text-amber-700");
+  });
+
   it("shows slot, equipment, and set names together for equipped items", () => {
     const html = renderToStaticMarkup(
       <V2CharacterCard

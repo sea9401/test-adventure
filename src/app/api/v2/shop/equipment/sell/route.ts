@@ -9,6 +9,7 @@ import {
   removeInstance,
   sellPriceOf,
 } from "@/adventure/data/v2/v2Equipment";
+import { boundEquipmentDisposalView } from "@/lib/server/boundEquipmentDisposal";
 
 // POST /api/v2/shop/equipment/sell — 보유 장비 개체 1개 판매 (개체 모델, iid 기준).
 //
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
-  let body: { iid?: unknown };
+  let body: { iid?: unknown; confirmBound?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -80,6 +81,16 @@ export async function POST(req: Request) {
       return {
         status: 400,
         body: { ok: false as const, error: "locked" as const },
+      };
+    }
+    if (inst.bound && body.confirmBound !== true) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "bound_confirmation_required" as const,
+          item: boundEquipmentDisposalView(inst),
+        },
       };
     }
     const sellPrice = sellPriceOf(item);

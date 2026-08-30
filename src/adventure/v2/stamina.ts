@@ -7,8 +7,9 @@
 // 는 다음 PR 에서 통합. 사냥 로직 통합도 후속.
 
 import {
-  ADVENTURE_SUPPORT_PASS,
-  adventureSupportActive,
+  adventureSupportBenefits,
+  adventureSupportTier,
+  type AdventureSupportTier,
 } from "@/adventure/data/v2/adventureSupport";
 
 // === 튜닝 다이얼 ====================================================
@@ -56,6 +57,7 @@ export type CharacterStaminaConfig = {
   max: number;
   regenBonusPct: number;
   adventureSupportActive: boolean;
+  adventureSupportTier: AdventureSupportTier;
 };
 
 export function staminaConfigForCharacter(
@@ -66,16 +68,16 @@ export function staminaConfigForCharacter(
     character && typeof character === "object"
       ? (character as Record<string, unknown>)
       : {};
-  const supportActive = adventureSupportActive(raw.adventureSupport, now);
+  const supportTier = adventureSupportTier(raw.adventureSupport, now);
+  const supportBenefits = adventureSupportBenefits(supportTier);
   return {
     max:
       MAX_STAMINA +
       staminaCapBonusOf(raw.staminaCapBonus) +
-      (supportActive ? ADVENTURE_SUPPORT_PASS.staminaMaxBonus : 0),
-    regenBonusPct: supportActive
-      ? ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct
-      : 0,
-    adventureSupportActive: supportActive,
+      supportBenefits.staminaMaxBonus,
+    regenBonusPct: supportBenefits.staminaRegenBonusPct,
+    adventureSupportActive: supportTier !== "none",
+    adventureSupportTier: supportTier,
   };
 }
 

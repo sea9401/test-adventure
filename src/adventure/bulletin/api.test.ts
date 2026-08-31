@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { postComment } from "./api";
+import { fetchNoticePreview, postComment } from "./api";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -43,5 +43,23 @@ describe("postComment", () => {
       content: "일반 댓글",
       parentId: null,
     });
+  });
+});
+
+describe("fetchNoticePreview", () => {
+  it("홈 공지용 축약 조회를 사용하고 요약 게시글 배열을 반환한다", async () => {
+    const posts = [
+      { id: 9, title: "점검 안내", createdAt: 1_786_353_600_000 },
+    ];
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({ posts }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchNoticePreview()).resolves.toEqual(posts);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/bulletin?preview=notice",
+      { cache: "no-store" },
+    );
   });
 });

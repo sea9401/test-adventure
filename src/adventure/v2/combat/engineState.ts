@@ -3,6 +3,53 @@ import type { V2Element } from "@/adventure/data/v2/elements";
 import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
 import type { Potion, PotionId } from "@/adventure/data/potions";
 import type { APSkill, APSkillCondition } from "@/adventure/character/apSkills";
+import type { Tier6UniqueRuntimeState } from "./tier6UniqueEffects";
+import type { LawInscriptionState } from "./lawInscription";
+import type { TripleWardState } from "./tripleWard";
+import type { SwordShadowState } from "./shadowBladeCombat";
+import type { RuinChargeState } from "./ruinBladeCombat";
+import type { CrossFamily } from "./skyAscendantCombat";
+import type { FormulaState } from "./primordialSageCombat";
+
+export type Tier7BattleResources = {
+  swordShadow?: SwordShadowState;
+  shadowFollowUpPct?: number;
+  shadowReleaseHastePct?: number;
+  swordIntent?: number;
+  ruinCharge?: RuinChargeState;
+  lastCrossFamily?: CrossFamily;
+  formula?: FormulaState;
+};
+
+export function mergeTier7ResourceSnapshot(
+  base: Record<string, number | string> | undefined,
+  tier7: Tier7BattleResources | undefined,
+): Record<string, number | string> | undefined {
+  if (!tier7) return base;
+  const next: Record<string, number | string> = { ...(base ?? {}) };
+  if (tier7.swordShadow) {
+    next.swordShadow = `${Math.round(
+      tier7.swordShadow.sourceFinalDamage *
+        (tier7.swordShadow.recordPct / 100),
+    )}${tier7.swordShadow.refined ? " · 정련" : ""}`;
+  }
+  if ((tier7.shadowFollowUpPct ?? 0) > 0) {
+    next.shadowFollowUp = tier7.shadowFollowUpPct!;
+  }
+  if ((tier7.swordIntent ?? 0) > 0) next.swordIntent = tier7.swordIntent!;
+  if (tier7.ruinCharge) {
+    next.ruinCharge = `충전 · HP 손실 ${Math.round(
+      tier7.ruinCharge.actualHpLost,
+    )}`;
+  }
+  if (tier7.lastCrossFamily) {
+    next.crossFamily = tier7.lastCrossFamily === "ranged" ? "원거리" : "체술";
+  }
+  if ((tier7.formula?.stages ?? 0) > 0) {
+    next.formula = `${tier7.formula!.stages}/3`;
+  }
+  return Object.keys(next).length > 0 ? next : undefined;
+}
 
 export type BattleLogEntry =
   | {
@@ -26,6 +73,11 @@ export type BattleLogEntry =
        * `turn` / `kind` 를 재매핑할 때 사용. PvE 에는 미사용.
        */
       side?: "p1" | "p2";
+      /**
+       * 다른 스킬 효과로 즉시 실행된 행동의 원인 스킬명. 전투 판정에는 관여하지 않고,
+       * UI가 일반적인 "기본 공격" 대신 강제 행동임을 설명할 때만 사용한다.
+       */
+      forcedBySkill?: string;
       /**
        * ATB 타임라인 틱(이 행동이 발생한 시각). resolveBattleAtb / resolveBattlePvPAtb 가
        * 찍는다. UI 가 일정 틱 윈도우(ATB_LOG_WINDOW_TICKS) 단위로 로그를 묶어 한 박스에
@@ -55,7 +107,29 @@ export type BattleLogEntry =
       /** 적 MP 스냅샷. 몬스터가 v2MaxMp 미정의면 0 → UI 비표시. */
       enemyMp?: number;
       enemyMaxMp?: number;
+      playerMagicBarrier?: number;
+      playerMagicBarrierMax?: number;
+      enemyMagicBarrier?: number;
+      enemyMagicBarrierMax?: number;
+      /** 6T 시그니처 전투 자원. 빈 객체/미장착은 생략한다. */
+      playerSignatureResources?: Record<string, number | string>;
+      /** 상대가 보유한 전투 자원. PvE 한기와 PvP 시그니처·한기를 표시한다. */
+      enemySignatureResources?: Record<string, number | string>;
     };
+
+export function markForcedActionMainLog(
+  entry: BattleLogEntry,
+  skillName: string,
+): BattleLogEntry {
+  if (entry.kind === "hp_bar") return entry;
+  const isMainAttack =
+    ((entry.kind === "player_attack" || entry.kind === "enemy_attack") &&
+      /^(?:\[[^\]]+\]\s*)*공격!/.test(entry.text)) ||
+    (entry.kind === "info" &&
+      entry.text.startsWith("[회피 강화]") &&
+      entry.text.includes("회피했다"));
+  return isMainAttack ? { ...entry, forcedBySkill: skillName } : entry;
+}
 
 export type BattleOutcome = "win" | "lose";
 
@@ -117,6 +191,8 @@ export type BattleFlags = {
   skillCritAfterEvadePending: boolean;
   // 장비 시그니처 — 전투당 1회 상태이상 무효 사용 여부.
   statusBlockUsed: boolean;
+  /** 빙호수호 전용 시작 보호막 소진 효과의 전투당 1회 사용 여부. */
+  trackedShieldBreakUsed?: boolean;
 };
 
 // 누적 +/- 보너스/페널티 (수치, 0 기준으로 더해짐).
@@ -150,6 +226,9 @@ export type BattleBuffs = {
   // 적 DEF -pct% (약점 노출). 곱연산으로 enemy.def 에 적용.
   enemyDefDebuffPct: number;
   enemyDefDebuffTurnsLeft: number;
+  /** 6T 부식 전용 마법방어 감소. 미장착 전투는 필드 자체를 만들지 않는다. */
+  enemyMagicDefDebuffPct?: number;
+  enemyMagicDefDebuffTurnsLeft?: number;
   // 적 SPD ×mult (둔화). 천칭 크리 계산에 영향.
   enemySpdMult: number;
   enemySpdTurnsLeft: number;
@@ -161,10 +240,24 @@ export type BattleBuffs = {
   // 룬 lifesteal/특기 흡혈과 별개 가산. 라벨은 "흡령" 으로 구분.
   playerLifestealPct: number;
   playerLifestealTurnsLeft: number;
+  /** 6T 합일의 회복·마법공격 효율. 미장착 전투는 필드 자체를 만들지 않는다. */
+  tier6UnityHealPct?: number;
+  tier6UnityTurnsLeft?: number;
 };
 
 // 가변 자원 스택 / 잔량 카운트.
 export type BattleStacks = {
+  /** 대결계사·만법수호자 전용 삼중 결계와 영역 안정 상태. */
+  tripleWard: TripleWardState;
+  // 성채기사 — 피격으로 쌓아 방패 직접 공격에 소비하는 충격, 철벽 태세의 남은 반사 횟수.
+  fortressImpact: number;
+  ironWallReflectCharges: number;
+  /** 골렘 변이 — 전투 한정 중량(0..3). */
+  mutationWeight: number;
+  /** 법칙술사 전투 한정 각인. 패시브 미보유·기존 상태에서는 생략한다. */
+  lawInscriptions?: LawInscriptionState;
+  /** 플레이어가 현재 적에게 누적한 한기. 기존 몬스터→플레이어 chillStacks와 별개다. */
+  enemyFrostChillStacks?: number;
   // 한기 (chill 스킬) — 플레이어에 누적되는 추위 스택. 적 chill 공격이 적중할 때마다 +perHit.
   // 적 페이즈 시작 시 threshold 이상이면 스택당 dmgPerStack 만큼 플레이어 HP 감소 (DEF·보호막 무시).
   // 출혈의 미러(적→플레이어). 무한 탱킹 차단용 시간압.
@@ -174,6 +267,8 @@ export type BattleStacks = {
   curseStacks: number;
   // 철벽 (4티어) — 남은 보호막. 받는 피해를 먼저 흡수. 회복 안 됨.
   playerShield: number;
+  /** 다른 보호막과 합산되지만 별도 소진을 추적하는 빙호수호 시작 보호막 잔량. */
+  trackedSetShield?: number;
   // 회피 강화로 적립된 보장 회피 잔량 — enemy phase 에서 % 회피 판정 전에 우선 소모.
   evadesRemaining: number;
   // 무피해 난무 (4티어) — 이 전투에서 플레이어가 실제로 받은 누적 HP 피해 (보호막 흡수분 제외). 0 = 무피해.
@@ -187,9 +282,17 @@ export type BattleStacks = {
   comboAtkBonus: number;
   // 절초(연환) — 전투 내 누적 적중 횟수(마무리 강타 주기 판정용).
   comboHitCount: number;
-  // 고유 시그니처 — 평타·스킬을 합친 전투 내 누적 적중 횟수(N회마다 추가 행동). every_n_hits
+  // 고유 시그니처 — 평타·스킬을 합친 전투 내 누적 적중 횟수(N회마다 추가 기본 공격). every_n_hits
   //   시그니처 미장착이면 0 고정(증가 안 함) → byte-identical.
   signatureHitCount: number;
+  // every_n_hits 로 예약된 추가 기본 공격 잔량. 이 공격은 자기 자신의 다음 주기 적중에는 포함하지 않는다.
+  signatureBonusAttacksLeft: number;
+  /** 적에게 걸린 감전 행동 상태. pending 행동을 건너뛴 뒤 immune 동안 재부여를 막는다. */
+  enemyShockAction?: import("./shockAction").ShockActionState;
+  /** 6T 시그니처를 하나라도 장착했을 때만 생성하는 전투 한정 자원. */
+  tier6Uniques?: Tier6UniqueRuntimeState;
+  /** 내부 7차 스킬을 장착했을 때만 생성하는 전투 한정 자원. */
+  tier7?: Tier7BattleResources;
   // 주문 중첩(워메이지) — 전투 내 누적 스킬 시전 횟수(시전당 스킬 데미지 가산).
   spellCastCount: number;
   // 약점 노출(마도사) — 적에 누적된 마법 취약 스택(스택당 받는 마법 피해 +%).
@@ -199,18 +302,20 @@ export type BattleStacks = {
   skillRegenTurns: number;
   skillCritPct: number; // 연환집중 — 치명률 +%
   skillCritTurns: number;
-  skillEvasionPct: number; // 선풍각 — 회피 +%(PvE 죽은축, PvP 유효)
+  skillEvasionPct: number; // 선풍각 — 회피도 +%
   skillEvasionTurns: number;
   skillDmgReducePct: number; // 철포 — 받는 피해 -%(받피감 버프, 직업 킷 재설계)
   skillDmgReduceTurns: number;
-  skillReflectBoostPct: number; // 반사 태세 — 모든 반사 피해 +%
+  skillReflectBoostPct: number; // 활성 반사 증폭 — 모든 반사 피해 +%
   skillReflectBoostTurns: number;
   enemyVulnPct: number; // 속박 — 적 받는 피해 +%(전 데미지)
   enemyVulnTurns: number;
+  enemyMagicVulnPct?: number; // 법칙술사 침식 — 적이 받는 직접 마법 피해 +%
+  enemyMagicVulnTurns?: number;
   // 원소술사 — 빛(실명: 적 회피 -%) / 어둠(암흑: 적 명중 -%). enemyVuln 미러(타겟 디버프).
-  enemyEvasionDownPct: number; // 실명 — 적 회피 -%p(플레이어 명중↑)
+  enemyEvasionDownPct: number; // 실명 — 적 회피도 -%
   enemyEvasionDownTurns: number;
-  enemyAccuracyDownPct: number; // 암흑 — 적 명중 -%p(적 헛침↑)
+  enemyAccuracyDownPct: number; // 암흑 — 적 적중도 -%
   enemyAccuracyDownTurns: number;
   enemyHealReducePct: number; // 화상 — 적 회복 효과 -%(회복 스킬·재생). 흡혈 제외.
   enemyHealReduceTurns: number;
@@ -227,11 +332,20 @@ export type BattleState = {
   enemyHp: number;
   playerHp: number;
   playerMaxHp: number;
+  /** 결투가 선언 계열이 합성한 평타 횟수형 버프. */
+  duelistBuff?: import("./duelistCombat").DuelistBuff | null;
+  /** 승자의 박자로 다음 ATB 행동 간격을 한 번만 줄이는 대기 상태. */
+  duelistCritHastePending?: boolean;
+  /** 광전사–패황의 전투 중 준비, 사망 극복, 멸왕일도 사용 횟수. */
+  berserker?: import("./berserkerCombat").BerserkerCombatState;
   // v2 마법 시스템 자원. INT 가 있는 캐릭만 > 0. 단판 전투당 풀충전 모델 —
   // 전투 시작 시 = playerMaxMp, 마법 발동 시 차감.
   // 라이브 캐릭(INT=0)은 둘 다 0 — MP 바 표시·소비 메커닉 자체 비활성.
   playerMp: number;
   playerMaxMp: number;
+  /** INT 기반 별도 내구도. 일반 보호막 뒤에 남은 직접 피해 일부를 흡수한다. */
+  playerMagicBarrier?: number;
+  playerMagicBarrierMax?: number;
   // v2 스킬 (v2_skill_*) 시스템 — PR-4a framework. 옛 spell 시스템 폐기 (PR-7a) — 모든 마법
   // 시전은 V2_SKILLS 카탈로그 + V2SkillsState 로 통합. MP 풀은 단판 풀충전 모델 (시작 = maxMp).
   // equipped 빈 배열이면 cast 분기 no-op. cooldown 맵은 키 없음 = ready.
@@ -268,14 +382,19 @@ export type BattleState = {
   flags: BattleFlags;
   buffs: BattleBuffs;
   stacks: BattleStacks;
-  /** 보스 전투 여부 — 충돌파/천명 같은 %HP 효과가 BOSS_PCT_HP_DAMAGE_MULT 로 감산. */
+  /** 보스 전투 여부 — 현재/최대 HP 비례 피해에 각각의 보스 감산 계수를 적용한다. */
   isBoss?: boolean;
+  /** 협동 보스처럼 최대 HP 비례 지속 피해 계수를 별도로 쓰는 전투의 재정의값. */
+  maxHpDamageMult?: number;
   /** ATB에서는 적 대상 디버프 지속시간을 플레이어 차례가 아닌 적 행동 횟수로 소모한다. */
   usesAtb?: boolean;
 };
 
 /** 보스에 대한 %HP 비례 추가 데미지(충돌파/천명) 감산 계수. 1.0 = 그대로, 0.1 = 1/10. */
 export const BOSS_PCT_HP_DAMAGE_MULT = 0.1;
+
+/** 보스에게 가하는 최대 HP 비례 피해 성분 감산 계수. 정액·ATK 계수 성분에는 적용하지 않는다. */
+export const BOSS_MAX_HP_DAMAGE_MULT = 0.8;
 
 // 절초 주기(COMBO_FINISHER_PERIOD)·SPELL_STACK_CAP·MAGIC_VULN_STACK_CAP 은 v2CombatConstants 로
 // 이관 — PvE/PvP 공용. 기존 import 경로 호환 재노출.
@@ -284,6 +403,8 @@ export { COMBO_FINISHER_PERIOD } from "@/adventure/data/v2/v2CombatConstants";
 export type PlayerCombat = {
   hp: number;
   maxHp: number;
+  /** 장착한 광기 배타 패시브의 최고 단계. */
+  berserkerMadnessRank?: 1 | 2 | 3 | 4;
   // v2 마법 시스템 — derive 에서 INT × MP_PER_INT + V2_BASE_MP 로 계산.
   // INT 0 인 캐릭(라이브) 은 0/undefined → 전투 메커닉·UI 자동 비활성.
   // optional 로 둠 — 라이브 PlayerCombat 객체 리터럴(테스트 다수)이 매번 안 박아도 되게.
@@ -294,6 +415,17 @@ export type PlayerCombat = {
   // v2 스킬 데미지 계산용 INT total (derive 결과 totalStats.int 그대로). v2 스킬에서 int stat
   // buff/debuff 보정 등에 사용. 0/undefined = no-op.
   intStat?: number;
+  /** 한기 임계점에서 발생하는 빙결 추가타 피해 증가율. */
+  freezeDamagePct?: number;
+  /** 한기 임계점에서 발생하는 다음 행동 지연율. */
+  freezeDelayPct?: number;
+  /** 빙결 발동 뒤 대상에게 남기는 한기 수. */
+  freezeRetainStacks?: number;
+  magicBarrierMax?: number;
+  magicBarrierAbsorbPct?: number;
+  magicBarrierPvpAbsorbPct?: number;
+  magicBarrierEfficiencyPct?: number;
+  magicBarrierPvpEfficiencyPct?: number;
   // 순수 물리 스킬의 STR 직접 계수용 최종 힘. 구 저장/테스트 호환을 위해 optional.
   strStat?: number;
   // v2 스킬 — 나한권(VIT 비례 딜) 스케일용 VIT total, 전문화 스킬 차수 flat(baseFlatByTier) 해석용 차수.
@@ -310,15 +442,18 @@ export type PlayerCombat = {
   // v2 마법 공격력(magicAtk = INT 환산). scaling="magic" 스킬이 atk 대신 이 값으로 스케일.
   // 0/undefined(라이브·STR/DEX 빌드·적) = 마법 경로 비활성, v2DamageAmount 가 atk 로 폴백.
   magicAtk?: number;
+  // 전투 카드의 대표 공격력 표시. 실제 평타 속성(passiveMagicBasicAttack)과 분리해
+  // 지팡이처럼 마공을 제공하는 무기는 마공 수치를 앞에 보여준다.
+  displayAttack?: "physical" | "magic";
   def: number;
   spd: number; // 선공 판정에 사용
-  evasionPct: number; // 0~100, 표시 전용(캡 75). 전투 회피는 evaRating 대결.
-  // 회피 대결형 — 캡 없는 raw 회피레이팅. 전투(PvE 양방향·PvP)가 공격자 명중과 dodgeChance 대결.
+  evasionPct: number; // 레거시 표시 호환용. 전투 경감은 evaRating 대결.
+  // 회피도 — PvE·PvP에서 공격자 적중도와 대결해 직접 피해 경감률을 만든다.
   //   미지정 시 evasionPct 로 폴백(레거시/일부 테스트). derive 는 항상 채움.
   evaRating?: number;
-  // v2 명중률 — 표시 전용(캡 35). 전투 명중은 accRating(대결형 Slice 2).
+  // 레거시 표시 필드. 실제 전투에서 상대 회피 경감을 누르는 수치는 accRating이다.
   accuracyPct?: number;
-  // 회피 대결형 Slice 2 — 캡 없는 raw 명중레이팅. 방어자 회피 대결을 누른다(evaRating 대칭).
+  // 캡 없는 적중도. 방어자의 회피도와 대결해 직접 피해 경감을 낮춘다.
   //   미지정 시 accuracyPct 로 폴백(레거시/일부 테스트). derive 는 항상 채움.
   accRating?: number;
   attackCount: number; // 한 턴에 가하는 공격 횟수 (>=1)
@@ -344,15 +479,35 @@ export type PlayerCombat = {
   critChancePct?: number;
   // 크리티컬 데미지 배수. undefined = CRIT_MULT_BASE 사용. luk 비례로 호출 측이 계산.
   critMult?: number;
+  /** 결투가 계보의 현재 직업 전용 평타 최종 피해 보너스. */
+  duelistStanceBonusPct?: number;
+  /** 결투 태세를 비활성화한 공격 스킬 이름. */
+  duelistStanceBlockingSkillName?: string;
+  /** 평타 전용 방어 관통 %p. */
+  basicDefPenetrationPct?: number;
+  /** 평타 치명타 뒤 다음 행동 간격 단축 %. */
+  basicCritHastePct?: number;
+  /** 평타 전용 치명타 확률 상한. */
+  basicCritChanceCap?: number;
   // PR-2 v2 전투 재설계 신규 축 — 옵셔널 (라이브 미사용, v2 경로만 읽음).
   // magicDef: scaling="magic" 데미지에서 차감(combatShared). critResistPct: 피격 시 상대 치명 확률 −%p.
-  // minDamage: 데미지 하한. healMult: heal effect 스케일(1.0=무영향).
+  // minDamage: 물리 스킬 데미지 하한. magicMinDamage: 마법 스킬 데미지 하한.
+  // healMult: heal effect 스케일(1.0=무영향).
   magicDef?: number;
   critResistPct?: number;
   /** 중독·출혈 등 status_damage 피해 감소율. 직접 피해·둔화에는 적용하지 않는다. */
   statusDamageReductionPct?: number;
+  /** 대상 출혈 스택당 직접 물리 스킬 피해 증가율. */
+  bleedPhysicalSkillDamagePctPerStack?: number;
+  /** 전투 중량 스택당 방어력 증가율. */
+  stoneskinDefPctPerWeight?: number;
   minDamage?: number;
+  magicMinDamage?: number;
   healMult?: number;
+  /** 대상이 받는 모든 HP 회복 배율. 1.0=무영향. 시전자 healMult와 별도 축이다. */
+  receivedHealMult?: number;
+  /** PvE 회피 피해 감소 결과에 더하는 최종 %p. 합산 뒤 85% 상한을 적용한다. */
+  finalEvasionReductionPctAdd?: number;
   // 기존 원소술사 스킬의 연출 분기용. 전투 상성에는 사용하지 않는다.
   characterElement?: V2Element;
   // 이중 행운 — 첫 크리티컬 발동 시 회피/크리티컬 +bonus% 발동, 전투 종료까지 유지. 0 이면 미보유.
@@ -364,7 +519,7 @@ export type PlayerCombat = {
   // 처형 — 적 HP 비율이 hpFraction 미만일 때 데미지 ×mult. mult <= 1 또는 hpFraction <= 0 = 미보유.
   executionDamageMult?: number;
   executionHpFraction?: number;
-  // 정확 — 적 evasionPct 에 곱할 배수 (0~1). undefined/1 = 미보유 (정상 회피).
+  // 정확 — 적 회피도에 곱할 배수 (0~1). undefined/1 = 미보유 (정상 회피).
   precisionEvasionMult?: number;
   // 불굴 — true 면 전투당 1회 HP 0 데미지를 HP 1 로 막아준다.
   enduranceActive?: boolean;
@@ -403,9 +558,15 @@ export type PlayerCombat = {
   skirmishNextTurnBonus?: number;
   // 반사 갑주 — 피격 시 받은 HP 피해의 N% 를 적에게 반사. 0/undefined = 미장착.
   thornsPct?: number;
-  // 수호자 반사 — 피격 시 내 방어력 기반 고정 데미지(derive 가 def×thornsDefPct% 환산).
-  //   PvE enemyPhase + PvP applyOnHitReflect 양쪽이 가산. 0/undefined = 미장착.
+  // 수호자 반사 — 피격 시 전투 시작 방어력 기반 데미지. thornsDefPct 는 구 전투 데이터의
+  //   시작 원량 복원용 계수이며, thornsFlatFromDef 가 PvE/PvP 공통 원량이다.
+  thornsDefPct?: number;
   thornsFlatFromDef?: number;
+  fortressImpactOnHit?: boolean;
+  fortressImpactDamagePctPerStack?: number;
+  fortressDefSkillStatCoefPct?: number;
+  /** 법칙술사 — 문장 해방 시 전투 한정 각인을 생성한다. */
+  lawInscription?: boolean;
   // ── 2티어 특기 (각 스탯 50 도달) ────────────────────────────────────────
   // 불굴의 일격 — 매 턴 본타에 (전투 누적 피해 × N) 추가. 0/undefined = 미장착.
   enduringStrikeMult?: number;
@@ -509,6 +670,12 @@ export type PlayerCombat = {
   extraHitDmgPct?: number;
   // 독사 부식 — 중독(출혈 스택)된 적의 DEF -pct%(playerFacingEnemyDef 곱연산). 0/undefined=미보유.
   poisonedEnemyDefReductionPct?: number;
+  // 맹독 — 중독 지속 피해 +%. 부식과 독립적으로 독 DoT 생성 시 적용. 0/undefined=미보유.
+  poisonDamagePct?: number;
+  // 상시 물리 방어 감소 — 물리 평타·스킬이 마주하는 적 DEF -pct%. 0/undefined=미보유.
+  enemyPhysicalDefReductionPct?: number;
+  // 상시 마법 방어 감소 — 마법 스킬이 마주하는 적 magicDef -pct%. 0/undefined=미보유.
+  enemyMagicDefReductionPct?: number;
   // 검투사 혈광 — 적 출혈 중이면 그 턴 공격 횟수 굴림에 추가 공격 확률 +%p(속도=연타). 0/undefined=미보유.
   extraAttackChancePctWhileEnemyBleeding?: number;
   // ── 전문화 시그니처(c) 전투내 누적형 ──
@@ -526,13 +693,19 @@ export type PlayerCombat = {
   enemyMagicVulnApplyChancePct?: number;
   // 대마도 이론 — scaling="magic" 스킬 피해 +%. 0/undefined=미보유.
   magicSkillDamagePct?: number;
+  // 일검필살 — 단일 일반 물리 damage 효과만 가진 공격 스킬 피해 +%. 0/undefined=미보유.
+  singleHitPhysicalSkillDamagePct?: number;
   // 워메이지 절제(직업 특성) — 스킬 마나 소모 -pct%(시전 시 소모분 일부 환급). 0/undefined=미보유.
   mpCostReductionPct?: number;
   // ── 고유 아이템 발동형 시그니처(Phase 2) — 장착 세트/단품의 전투내 발동 효과 ──
   // 미장착/없음 = undefined → 엔진 훅 미발화(골든 byte-identical). derive 가 활성분만 채운다.
   equipSignatures?: SignatureEffect[];
-  // 밤그림자(5차 LUK 캡스톤) — 스킬 치명에도 크리 오버플로(75% 초과분 크리뎀) 적용. 미보유 = undefined.
+  // 치명 한계 확장 — 스킬 치명에도 크리 오버플로(75% 초과분 크리뎀) 적용. 미보유 = undefined.
   skillCritOverflow?: boolean;
+  // 스킬 치명타 피해 +% — 기본 스킬 치명타 배율에 /100 가산. 미보유 = undefined.
+  skillCritDmgPct?: number;
+  // 원초 증폭 — 장비 치명타 배율에서 변환된 직접 마법 스킬 치명타 피해 +%p. 키 존재=장착.
+  equipmentMagicSkillCritDmgPct?: number;
   // 흑월지배 — 회피 성공 후 다음 직접 피해 액티브 스킬 확정 치명타. 미보유 = undefined.
   skillCritAfterEvade?: boolean;
 };

@@ -13,7 +13,7 @@ const retryDelayMs = positiveInteger(
 const maintenancePolicy = maintenancePolicyFromEnv(
   process.env.PUBLIC_RELEASE_MAINTENANCE_POLICY,
 );
-const maintenanceMarker = "서버 점검 중입니다";
+const maintenanceMarker = 'data-msmsge-maintenance="true"';
 
 const checks = [
   {
@@ -120,6 +120,26 @@ const checks = [
   {
     label: "coin shop API hidden",
     path: "/api/v2/museun-coin-shop",
+    status: 404,
+  },
+  {
+    label: "private housing page hidden",
+    path: "/character/room",
+    status: 404,
+  },
+  {
+    label: "public housing page hidden",
+    path: "/character/nonexistent/room",
+    status: 404,
+  },
+  {
+    label: "private housing API hidden",
+    path: "/api/v2/me/housing",
+    status: 404,
+  },
+  {
+    label: "public housing API hidden",
+    path: "/api/v2/player/nonexistent/housing",
     status: 404,
   },
   {

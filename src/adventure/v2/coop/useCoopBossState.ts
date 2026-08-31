@@ -32,6 +32,8 @@ export type CoopSessionSummary = {
   bossMaxMp: number;
   expiresAt: number;
   summonedByName: string | null;
+  visibility: CoopVisibility;
+  isOwner: boolean;
   participantCount: number;
   myDamage: number;
   myTier: CoopRewardTier | null;
@@ -61,6 +63,12 @@ export type CoopAttackResult = {
   defeated: boolean;
   myDamage: number;
   myTier: CoopRewardTier | null;
+  killingBlowReward: {
+    coin: number;
+    bossMaterialId: string;
+    bossMaterialName: string;
+    bossMaterialCount: number;
+  } | null;
   replay?: ReplayPayload;
 };
 
@@ -87,7 +95,6 @@ export type CoopRecentAttack = {
   isMe?: boolean;
   avatar: Avatar;
   profileBorder: ProfileBorderId | null;
-  replay?: ReplayPayload | null;
   at: number;
 };
 
@@ -128,8 +135,8 @@ export type CoopSessionDetail = {
     player: {
       accRating: number;
       evaRating: number;
-      hitPct: number;
-      evadePct: number;
+      damageRetainedPct: number;
+      evasionReductionPct: number;
     };
   } | null;
   participantCount: number;
@@ -219,10 +226,7 @@ export function useCoopListState() {
 
   // 소환 — 성공 시 새 sessionId 반환 + 안내 노티스(목록 잔류 — 연속 소환 가능, 이동 없음).
   const summon = useCallback(
-    async (
-      kind: CoopBossKindId,
-      visibility?: string,
-    ): Promise<string | null> => {
+    async (kind: CoopBossKindId): Promise<string | null> => {
       if (busy) return null;
       setBusy(true);
       setNotice(null);
@@ -230,8 +234,7 @@ export function useCoopListState() {
         const res = await fetch("/api/v2/coop/summon", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          // visibility 는 코어루프 on 일 때만 서버가 사용(off=무시·public).
-          body: JSON.stringify({ kind, ...(visibility ? { visibility } : {}) }),
+          body: JSON.stringify({ kind }),
         });
         const j = (await res.json()) as {
           ok?: boolean;
@@ -449,6 +452,8 @@ export function useCoopSessionState({
               ? "소환자만 공개 범위를 바꿀 수 있어요."
               : j.error === "not_active"
                 ? "이미 끝난 토벌은 범위를 바꿀 수 없어요."
+                : j.error === "visibility_locked"
+                  ? "전체 공개된 보스는 공개 범위를 줄일 수 없어요."
                 : `공개 범위 변경 실패 (${j.error ?? "unknown"})`,
           );
         }

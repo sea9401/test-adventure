@@ -6,7 +6,8 @@
 //  · 강화 — 장비 선택 → 돌(붉은/푸른) 선택 → 성공률·비용·미리보기 → 강화.
 // 데이터: /api/v2/me/equipment(owned/equipped) + /api/v2/me/inventory(materials).
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { fetchGameState } from "./fetchGameState";
 import { Hammer } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
@@ -17,9 +18,13 @@ import { TabBar } from "@/components/ui/TabBar";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { Pagination } from "@/components/ui/Pagination";
+import { SURFACE_ACCENT, SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { usePagination } from "@/lib/usePagination";
+import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useModalA11y } from "@/lib/useModalA11y";
 import {
   effectiveStats,
+  equipmentPowerDisplayValue,
   enhanceGoldCostForEquipment,
   isUnique,
   powerWithBonuses,
@@ -44,6 +49,7 @@ import {
   STAMINA_SHARD_COMBINE_COST,
   STAMINA_SHARD_MATERIAL_ID,
 } from "@/adventure/data/v2/staminaPotionCrafting";
+import { maxForgeCombinationQuantity } from "@/adventure/data/v2/forgeCombination";
 import {
   ENHANCE_EMBER_BLUE_COST,
   ENHANCE_EMBER_MATERIAL_ID,
@@ -55,6 +61,7 @@ import {
   type ScavengedCraftRecipeId,
 } from "@/adventure/data/v2/scavengedCrafting";
 import { huntStageName } from "@/adventure/data/v2/dungeon";
+import { RARE_MAP_CAP } from "@/adventure/data/v2/rareMaps";
 import {
   ENHANCE_STONE_MATERIAL_ID,
   ENHANCE_STONE_REQUIRED_FROM,
@@ -66,6 +73,18 @@ import {
   type V2EnhanceState,
 } from "@/adventure/data/v2/v2Enhance";
 import {
+  canStormRefine,
+  isStormRefinementCandidate,
+  STORM_REFINEMENT_GOLD_COST,
+  STORM_REFINEMENT_HEART_COST,
+  STORM_REFINEMENT_ROUTE_MATERIAL_COST,
+  stormRefinementPreview,
+} from "@/adventure/data/v2/stormEquipmentRefinement";
+import {
+  STORM_EXPEDITION_ROUTE_MATERIAL_ID,
+  STORM_HEART_FRAGMENT_MATERIAL_ID,
+} from "@/adventure/data/v2/stormExpeditionRewards";
+import {
   EquipmentCardGrid,
   type EquipmentCard,
 } from "@/adventure/v2/V2InventoryView";
@@ -75,7 +94,10 @@ import {
   powerNameClass,
 } from "@/adventure/v2/V2ItemCard";
 import { sortEnhanceCandidates } from "@/adventure/v2/v2EnhanceList";
+import { EnhancePowerPreview } from "@/adventure/v2/EnhancePowerPreview";
 import { useSystemToast } from "./RewardToastProvider";
+import { V2_EQUIPMENT_LIBERATION } from "@/adventure/data/v2/coreLoopConfig";
+import { EquipmentLiberationPanel } from "@/adventure/v2/liberation/EquipmentLiberationPanel";
 
 const SLOT_TABS: { key: V2EquipSlot; label: string }[] = [
   { key: "weapon", label: "무기" },
@@ -118,9 +140,187 @@ type ReforgeResponse = {
   improved?: boolean;
 };
 
-type ForgeMode = "enhance" | "reforge" | "combine";
+type StormRefineResponse = {
+  ok?: boolean;
+  error?: string;
+  oldPower?: number;
+  newPower?: number;
+};
 
-export function V2EnhanceView({ onBack }: { onBack: () => void }) {
+type StormRefinementConfirmMaterial = {
+  label: string;
+  have: number;
+  need: number;
+};
+
+export function StormRefinementConfirmDialog({
+  itemName,
+  enhanceLevel,
+  currentPower,
+  refinedPower,
+  goldCost,
+  materials,
+  busy,
+  onConfirm,
+  onClose,
+}: {
+  itemName: string;
+  enhanceLevel: number;
+  currentPower: number;
+  refinedPower: number;
+  goldCost: number;
+  materials: readonly StormRefinementConfirmMaterial[];
+  busy: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeIfIdle = useCallback(() => {
+    if (!busy) onClose();
+  }, [busy, onClose]);
+  useEscapeKey(closeIfIdle);
+  useModalA11y(panelRef);
+
+  return (
+    <div
+      className="ui-modal-reveal fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target) closeIfIdle();
+      }}
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="storm-refinement-confirm-title"
+        aria-describedby="storm-refinement-confirm-description"
+        className={`${SURFACE_CARD} ui-modal-panel w-full max-w-md p-5 shadow-2xl`}
+      >
+        <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">
+          폭풍 개량 작업 확인
+        </p>
+        <h2
+          id="storm-refinement-confirm-title"
+          className="mt-1 text-lg font-bold"
+        >
+          {enhanceLevel > 0 ? `+${enhanceLevel} ` : ""}
+          {itemName} 장비를 개량할까요?
+        </h2>
+        <p
+          id="storm-refinement-confirm-description"
+          className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300"
+        >
+          고유 효과·옵션·강화·제작 품질은 유지하고, 현재 위력 굴림의 품질을
+          같은 부위의 6T 기준으로 옮깁니다. 새 세트 효과는 추가되지 않습니다.
+        </p>
+
+        <div className={`${SURFACE_INSET} mt-4 space-y-2 p-3 text-sm`}>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-zinc-500 dark:text-zinc-400">위력</span>
+            <strong className="tabular-nums text-violet-700 dark:text-violet-300">
+              {currentPower.toLocaleString()} → {refinedPower.toLocaleString()}
+            </strong>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-zinc-500 dark:text-zinc-400">개량비</span>
+            <strong className="tabular-nums text-amber-700 dark:text-amber-300">
+              {goldCost.toLocaleString()} G
+            </strong>
+          </div>
+          <div className="border-t border-zinc-200 pt-2 text-xs dark:border-zinc-700">
+            {materials.map((material) => (
+              <div
+                key={material.label}
+                className="flex items-center justify-between gap-3 py-0.5"
+              >
+                <span className="text-zinc-500 dark:text-zinc-400">
+                  {material.label}
+                </span>
+                <span className="font-medium tabular-nums">
+                  {material.have.toLocaleString()}/{material.need.toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          개량은 한 번만 가능하고 되돌릴 수 없습니다. 개량한 장비는 향후에도
+          재련할 수 없으며, 현재 옵션과 품질이 그대로 확정됩니다.
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <Button size="md" disabled={busy} onClick={onClose}>
+            취소
+          </Button>
+          <Button
+            size="md"
+            variant="primary"
+            disabled={busy}
+            onClick={onConfirm}
+          >
+            {busy ? "개량 중…" : "비용 확인 · 개량 확정"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export type ForgeMode =
+  | "enhance"
+  | "refine"
+  | "liberation"
+  | "reforge"
+  | "combine";
+
+export function smithyForgeTabs(
+  liberationEnabled: boolean,
+  reforgeEnabled: boolean = V2_REFORGE_ENABLED,
+): { key: ForgeMode; label: string }[] {
+  return [
+    { key: "enhance", label: "강화" },
+    { key: "refine", label: "폭풍 개량" },
+    ...(liberationEnabled
+      ? [{ key: "liberation" as const, label: "해방" }]
+      : []),
+    ...(reforgeEnabled ? [{ key: "reforge" as const, label: "재련" }] : []),
+    { key: "combine", label: "조합" },
+  ];
+}
+
+export function resolveSmithyForgeMode(
+  requested: string | undefined,
+  liberationEnabled: boolean,
+  reforgeEnabled: boolean = V2_REFORGE_ENABLED,
+): ForgeMode {
+  if (requested === "liberation") {
+    return liberationEnabled ? "liberation" : "enhance";
+  }
+  if (requested === "reforge") return reforgeEnabled ? "reforge" : "enhance";
+  return requested === "refine" ||
+    requested === "combine" ||
+    requested === "enhance"
+    ? requested
+    : "enhance";
+}
+type CombineRecipeKey =
+  | "reforge-stone"
+  | "stamina-potion"
+  | "blue-enhance-stone"
+  | "red-enhance-stone"
+  | "rare-map";
+
+export function V2EnhanceView({
+  onBack,
+  initialMode,
+  initialItemIid,
+}: {
+  onBack: () => void;
+  initialMode?: string;
+  initialItemIid?: string;
+}) {
   // 강화·재련·조합은 골드 sink — 보유 골드를 헤더에 노출(사용자 요청). 코어루프면 지갑+은행이
   //   결제 가능액(서버 enhance/reforge 가 spendGold 로 둘 다 차감)이라 그 합을 보여준다.
   const {
@@ -143,6 +343,22 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     enhanceEmbers: 0,
     tornMapFragments: 0,
   });
+  const [rareMapCount, setRareMapCount] = useState(0);
+  const [combineQuantities, setCombineQuantities] = useState<
+    Record<CombineRecipeKey, number>
+  >({
+    "reforge-stone": 1,
+    "stamina-potion": 1,
+    "blue-enhance-stone": 1,
+    "red-enhance-stone": 1,
+    "rare-map": 1,
+  });
+  const [stormMats, setStormMats] = useState({
+    wreckage: 0,
+    gale: 0,
+    thunder: 0,
+    heart: 0,
+  });
   const [chosenRareMapDepth, setChosenRareMapDepth] = useState<number | null>(
     null,
   );
@@ -156,7 +372,10 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     kind: "success" | "fail" | "error";
     text: string;
   } | null>(null);
-  const [mode, setMode] = useState<ForgeMode>("enhance");
+  const [mode, setMode] = useState<ForgeMode>(() =>
+    resolveSmithyForgeMode(initialMode, V2_EQUIPMENT_LIBERATION),
+  );
+  const [stormRefineConfirmOpen, setStormRefineConfirmOpen] = useState(false);
   const { notifySystem } = useSystemToast();
   const rareMapDepthOptions = useMemo(
     () => craftedRareMapDepthOptions(frontierDepth),
@@ -179,11 +398,12 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
 
   const refresh = useCallback(async () => {
     try {
-      const [eqRes, invRes, stateRes] = await Promise.all([
+      const [eqRes, invRes, stateRes, rareMapRes] = await Promise.all([
         fetch("/api/v2/me/equipment"),
         fetch("/api/v2/me/inventory"),
         // 골드 표시용 보조 조회 — 거부(네트워크 끊김)돼도 장비/인벤 로드를 깨지 않게 격리.
-        fetch("/api/v2/me/state").catch(() => null),
+        fetchGameState().catch(() => null),
+        fetch("/api/v2/me/rare-maps"),
       ]);
       // 보유 골드 — 매 작업 후 핸들러가 refresh() 를 부르므로 여기서만 읽으면 자동 갱신.
       if (stateRes?.ok) {
@@ -222,6 +442,18 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           tornMapFragments:
             j.materials?.[TORN_MAP_FRAGMENT_MATERIAL_ID] ?? 0,
         });
+        setStormMats({
+          wreckage:
+            j.materials?.[STORM_EXPEDITION_ROUTE_MATERIAL_ID.wreckage] ?? 0,
+          gale: j.materials?.[STORM_EXPEDITION_ROUTE_MATERIAL_ID.gale] ?? 0,
+          thunder:
+            j.materials?.[STORM_EXPEDITION_ROUTE_MATERIAL_ID.thunder] ?? 0,
+          heart: j.materials?.[STORM_HEART_FRAGMENT_MATERIAL_ID] ?? 0,
+        });
+      }
+      if (rareMapRes.ok) {
+        const j = (await rareMapRes.json()) as { rareMaps?: unknown[] };
+        setRareMapCount(j.rareMaps?.length ?? 0);
       }
     } catch {
       /* 폴링 아님 — 조용히 */
@@ -237,10 +469,15 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const tabInstances = useMemo(
     () =>
       sortEnhanceCandidates(
-        owned.filter((o) => V2_EQUIPMENT[o.id]?.slot === tab),
+        owned.filter(
+          (o) =>
+            V2_EQUIPMENT[o.id]?.slot === tab &&
+            (mode !== "refine" ||
+              isStormRefinementCandidate(V2_EQUIPMENT[o.id])),
+        ),
         equipped[tab] ?? null,
       ),
-    [equipped, owned, tab],
+    [equipped, mode, owned, tab],
   );
   const pager = usePagination(tabInstances, 8, tab);
 
@@ -250,14 +487,18 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const uniqueMult = item && isUnique(item) ? ENHANCE_UNIQUE_COST_MULT : 1;
   const basePower =
     selected && item ? effectiveStats(item, selected.roll).power : 0;
-  const curPower = powerWithBonuses(basePower, selected?.enhance, selected?.craftQuality);
-  const nextPower = powerWithBonuses(
-    basePower,
-    {
-      level: level + 1,
-      bonusPct: enhanceBonusPct(level + 1),
-    },
-    selected?.craftQuality,
+  const curPower = equipmentPowerDisplayValue(
+    powerWithBonuses(basePower, selected?.enhance, selected?.craftQuality),
+  );
+  const nextPower = equipmentPowerDisplayValue(
+    powerWithBonuses(
+      basePower,
+      {
+        level: level + 1,
+        bonusPct: enhanceBonusPct(level + 1),
+      },
+      selected?.craftQuality,
+    ),
   );
   const stoneRequired = level >= ENHANCE_STONE_REQUIRED_FROM;
   const outcomeRow = enhanceOutcomeRow(level, stone);
@@ -284,6 +525,19 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const goldOnlyBlocked = stoneRequired && stone === "none";
   // 결제 가능 골드 — 코어루프면 지갑+은행(서버 spendGold 와 동일 기준), 아니면 지갑만.
   const spendable = coreLoopOn ? (gold ?? 0) + bankedGold : (gold ?? 0);
+
+  const setCombineQuantity = useCallback(
+    (key: CombineRecipeKey, nextValue: number, maxQuantity: number) => {
+      const normalized = Number.isFinite(nextValue)
+        ? Math.max(1, Math.floor(nextValue))
+        : 1;
+      setCombineQuantities((current) => ({
+        ...current,
+        [key]: Math.min(normalized, Math.max(1, maxQuantity)),
+      }));
+    },
+    [],
+  );
 
   const doEnhance = useCallback(async () => {
     if (!selected || busy) return;
@@ -344,6 +598,83 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     }
   }, [selected, stone, feedIid, busy, refresh, refreshGameState]);
 
+  // ── 폭풍 개량 — 특화 유니크의 옵션·강화는 유지하고 위력만 6T 밴드로 확정 이전 ──
+  const refineable = !!(
+    selected &&
+    item &&
+    canStormRefine(item, selected)
+  );
+  const refinePreview =
+    selected && item ? stormRefinementPreview(item, selected) : null;
+  const refineCurrentPower = refinePreview
+    ? equipmentPowerDisplayValue(
+        powerWithBonuses(
+          refinePreview.currentPower,
+          selected?.enhance,
+          selected?.craftQuality,
+        ),
+      )
+    : 0;
+  const refinedPower = refinePreview
+    ? equipmentPowerDisplayValue(
+        powerWithBonuses(
+          refinePreview.refinedPower,
+          selected?.enhance,
+          selected?.craftQuality,
+        ),
+      )
+    : 0;
+  const stormMaterialShort =
+    stormMats.wreckage < STORM_REFINEMENT_ROUTE_MATERIAL_COST ||
+    stormMats.gale < STORM_REFINEMENT_ROUTE_MATERIAL_COST ||
+    stormMats.thunder < STORM_REFINEMENT_ROUTE_MATERIAL_COST ||
+    stormMats.heart < STORM_REFINEMENT_HEART_COST;
+  const refineActionDisabled =
+    busy ||
+    !refineable ||
+    stormMaterialShort ||
+    spendable < STORM_REFINEMENT_GOLD_COST;
+
+  const doStormRefine = useCallback(async () => {
+    if (!selected || !item || busy || !refineable) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/me/storm-refine", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ iid: selected.iid }),
+      });
+      const json = (await res.json()) as StormRefineResponse;
+      if (!json.ok) {
+        setMsg({
+          kind: "error",
+          text:
+            json.error === "insufficient_material"
+              ? "폭풍 개량 재료가 부족합니다"
+              : json.error === "insufficient_gold"
+                ? "골드가 부족합니다"
+                : json.error === "already_refined"
+                  ? "이미 폭풍 개량을 마친 장비입니다"
+                  : json.error === "not_refineable"
+                    ? "폭풍 개량 대상이 아닌 장비입니다"
+                    : `실패: ${json.error ?? "unknown"}`,
+        });
+        return;
+      }
+      setMsg({
+        kind: "success",
+        text: `폭풍 개량 완료 — 위력 ${refineCurrentPower} → ${refinedPower}`,
+      });
+      await Promise.all([refresh(), refreshGameState()]);
+    } catch {
+      setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
+    } finally {
+      setStormRefineConfirmOpen(false);
+      setBusy(false);
+    }
+  }, [busy, item, refineCurrentPower, refineable, refinedPower, refresh, refreshGameState, selected]);
+
   // ── 재련(reforge) — 골드로 옵션 굴림 재시도(항상 적용 = 도박) ──
   const reforgeCost = item ? reforgeGoldCost(item) : 0;
   const reforgeable = !!(selected && item && canReforge(item, selected.roll, selected));
@@ -400,13 +731,15 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   }, [selected, item, busy, refresh, reforgeStone, refreshGameState]);
 
   // ── 조합(combine) — 일반 재련석 3개 → 상급 재련석 1개(결정론·무료) ──
-  const doCombine = useCallback(async () => {
+  const doCombine = useCallback(async (quantity: number) => {
     if (busy) return;
     setBusy(true);
     setMsg(null);
     try {
       const res = await fetch("/api/v2/me/reforge-stone-combine", {
         method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ quantity }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!json.ok) {
@@ -423,7 +756,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       }
       setMsg({
         kind: "success",
-        text: `재련석 ${REFORGE_COMBINE_COST}개 → 상급 재련석 1개 (−${COMBINE_GOLD_COST.toLocaleString()} G)`,
+        text: `재련석 ${(REFORGE_COMBINE_COST * quantity).toLocaleString()}개 → 상급 재련석 ${quantity.toLocaleString()}개 (−${(COMBINE_GOLD_COST * quantity).toLocaleString()} G)`,
       });
       await refresh();
     } catch {
@@ -434,13 +767,15 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   }, [busy, refresh]);
 
   // ── 조합(combine) — 활력의 파편 6개 → 스태미나 회복약 1개 ──
-  const doCombineStaminaPotion = useCallback(async () => {
+  const doCombineStaminaPotion = useCallback(async (quantity: number) => {
     if (busy) return;
     setBusy(true);
     setMsg(null);
     try {
       const res = await fetch("/api/v2/me/stamina-potion-combine", {
         method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ quantity }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!json.ok) {
@@ -448,16 +783,16 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           kind: "error",
           text:
             json.error === "insufficient_material"
-              ? `활력의 파편이 부족합니다 (${STAMINA_SHARD_COMBINE_COST}개 필요)`
+              ? `활력의 파편이 부족합니다 (${(STAMINA_SHARD_COMBINE_COST * quantity).toLocaleString()}개 필요)`
               : json.error === "insufficient_gold"
-                ? `골드가 부족합니다 (${COMBINE_GOLD_COST.toLocaleString()} G 필요)`
+                ? `골드가 부족합니다 (${(COMBINE_GOLD_COST * quantity).toLocaleString()} G 필요)`
                 : `실패: ${json.error ?? "unknown"}`,
         });
         return;
       }
       setMsg({
         kind: "success",
-        text: `활력의 파편 ${STAMINA_SHARD_COMBINE_COST}개 → 스태미나 회복약 1개 (−${COMBINE_GOLD_COST.toLocaleString()} G)`,
+        text: `활력의 파편 ${(STAMINA_SHARD_COMBINE_COST * quantity).toLocaleString()}개 → 스태미나 회복약 ${quantity.toLocaleString()}개 (−${(COMBINE_GOLD_COST * quantity).toLocaleString()} G)`,
       });
       await Promise.all([refresh(), refreshGameState()]);
     } catch {
@@ -473,6 +808,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       materialLabel: string,
       need: number,
       outputLabel: string,
+      quantity: number,
       mapDepth?: number,
     ) => {
       if (busy) return;
@@ -484,6 +820,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             recipe,
+            quantity,
             ...(recipe === "rare_map" ? { depth: mapDepth } : {}),
           }),
         });
@@ -498,9 +835,9 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
             kind: "error",
             text:
               json.error === "insufficient_material"
-                ? `${materialLabel}이 부족합니다 (${need}개 필요)`
+                ? `${materialLabel}이 부족합니다 (${(need * quantity).toLocaleString()}개 필요)`
                 : json.error === "insufficient_gold"
-                  ? `골드가 부족합니다 (${COMBINE_GOLD_COST.toLocaleString()} G 필요)`
+                  ? `골드가 부족합니다 (${(COMBINE_GOLD_COST * quantity).toLocaleString()} G 필요)`
                 : json.error === "rare_map_full"
                   ? "희귀 지도 보유 한도(5장)가 가득 찼습니다"
                   : json.error === "invalid_map_depth"
@@ -510,12 +847,14 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           return;
         }
         const craftedLabel =
-          recipe === "rare_map" && json.outputName
+          recipe === "rare_map" && quantity === 1 && json.outputName
             ? `${json.outputName} (깊이 ${json.rareMap?.depth ?? "?"})`
-            : outputLabel;
+            : outputLabel
+                .replace("1개", `${quantity.toLocaleString()}개`)
+                .replace("1장", `${quantity.toLocaleString()}장`);
         setMsg({
           kind: "success",
-          text: `${materialLabel} ${need}개 → ${craftedLabel} (−${COMBINE_GOLD_COST.toLocaleString()} G)`,
+          text: `${materialLabel} ${(need * quantity).toLocaleString()}개 → ${craftedLabel} (−${(COMBINE_GOLD_COST * quantity).toLocaleString()} G)`,
         });
         await Promise.all([refresh(), refreshGameState()]);
       } catch {
@@ -562,6 +901,25 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           variant: "warning" as const,
           onClick: () => void doEnhance(),
         }
+      : mode === "refine" && selected && item && refinePreview
+        ? {
+            title: `${selectedLevelLabel}${item.name}`,
+            subtitle: `위력 ${refineCurrentPower} → ${refinedPower} · ${STORM_REFINEMENT_GOLD_COST.toLocaleString()} G`,
+            label: selected.stormRefined
+              ? "개량 완료"
+              : !refineable
+                ? "이미 6T 기준 위력"
+              : stormMaterialShort
+                ? "재료 부족"
+                : spendable < STORM_REFINEMENT_GOLD_COST
+                  ? "골드 부족"
+                  : busy
+                    ? "개량 중…"
+                    : "폭풍 개량",
+            disabled: refineActionDisabled,
+            variant: "primary" as const,
+            onClick: () => setStormRefineConfirmOpen(true),
+          }
       : mode === "reforge" && selected && item && reforgeable
         ? {
             title: `${selectedLevelLabel}${item.name}`,
@@ -576,7 +934,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         : null;
 
   return (
-    <main className="mx-auto max-w-[720px] space-y-4 p-6 pb-28 text-zinc-900 dark:text-zinc-100 sm:pb-6">
+    <main
+      className={`mx-auto space-y-4 p-6 pb-28 text-zinc-900 dark:text-zinc-100 sm:pb-6 ${
+        mode === "liberation" ? "max-w-[1080px]" : "max-w-[720px]"
+      }`}
+    >
       <SubViewHeader
         title={
           <>
@@ -599,6 +961,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   {stones.blue}
                 </span>
               </>
+            ) : mode === "refine" ? (
+              <span className="inline-flex items-center gap-1 text-violet-500">
+                <GameIcon name="Sparkle" size={15} />
+                {stormMats.heart}
+              </span>
             ) : mode === "reforge" && V2_REFORGE_ENABLED ? (
               <>
                 <span className="inline-flex items-center gap-1 text-zinc-500 dark:text-zinc-400">
@@ -623,30 +990,49 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         </div>
       )}
 
-      {/* 작업 모드 — 강화 / 재련 / 조합 */}
+      {/* 작업 모드 — 강화 / 폭풍 개량 / 해방 / 재련 / 조합 */}
       <TabBar
-        tabs={[
-          { key: "enhance" as ForgeMode, label: "강화" },
-          ...(V2_REFORGE_ENABLED
-            ? [{ key: "reforge" as ForgeMode, label: "재련" }]
-            : []),
-          { key: "combine" as ForgeMode, label: "조합" },
-        ]}
+        tabs={smithyForgeTabs(V2_EQUIPMENT_LIBERATION)}
         active={mode}
         onChange={(m) => {
           setMode(m);
+          setSelectedIid(null);
+          setFeedIid(null);
           setMsg(null);
+          setStormRefineConfirmOpen(false);
         }}
         ariaLabel="대장간 작업"
         size="sm"
         variant="highlight"
       />
 
+      {mode === "liberation" && V2_EQUIPMENT_LIBERATION ? (
+        <EquipmentLiberationPanel
+          owned={owned}
+          equipped={equipped}
+          gold={gold ?? 0}
+          bankedGold={bankedGold}
+          initialItemIid={initialItemIid}
+          onItemUpdated={(updated) => {
+            setOwned((current) =>
+              current.map((instance) =>
+                instance.iid === updated.iid ? updated : instance,
+              ),
+            );
+          }}
+          onWalletUpdated={(nextGold, nextBankedGold) => {
+            setGold(nextGold);
+            setBankedGold(nextBankedGold);
+            syncCtxBanked(nextBankedGold);
+          }}
+        />
+      ) : null}
+
       {/* 강화 패널 — 장비 선택 시 */}
       {mode === "enhance" && selected && item && (
         <Card padding="sm" className="ui-forge-panel">
           <div className="space-y-2">
-            <div className="rounded-md border border-amber-200 bg-amber-50/70 px-3 py-2 dark:border-amber-900/70 dark:bg-amber-950/20">
+            <div className={`${SURFACE_ACCENT} px-3 py-2`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
@@ -682,17 +1068,17 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 </button>
               </div>
               <div className="mt-2 grid grid-cols-3 gap-1.5 text-center text-[11px] tabular-nums">
-                <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-900/60">
+                <div className={`${SURFACE_CARD} rounded-md px-2 py-1`}>
                   <div className="text-zinc-500 dark:text-zinc-400">현재 위력</div>
                   <div className="font-semibold">{curPower}</div>
                 </div>
-                <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-900/60">
+                <div className={`${SURFACE_CARD} rounded-md px-2 py-1`}>
                   <div className="text-zinc-500 dark:text-zinc-400">다음 위력</div>
                   <div className="font-semibold text-emerald-600 dark:text-emerald-400">
                     {nextPower}
                   </div>
                 </div>
-                <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-900/60">
+                <div className={`${SURFACE_CARD} rounded-md px-2 py-1`}>
                   <div className="text-zinc-500 dark:text-zinc-400">성공률</div>
                   <div className="font-semibold">{successPct}%</div>
                 </div>
@@ -708,6 +1094,12 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     (성공 시 +{level + 1})
                   </span>
                 </div>
+                <EnhancePowerPreview
+                  key={selected.iid}
+                  basePower={basePower}
+                  craftQuality={selected.craftQuality}
+                  currentLevel={level}
+                />
                 {/* 강화 방식 — 골드(+7까지) / 강화석. 돌 효과: 붉은=성공↑(도박)·푸른=파괴 완화 */}
                 <div className="flex gap-2">
                   {(["none", "blue", "red"] as const).map((s) => {
@@ -836,11 +1228,133 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         </Card>
       )}
 
+      {/* 폭풍 개량 — 세트가 없는 특화 유니크를 6T 조합용 단품으로 보존한다. */}
+      {mode === "refine" && selected && item && refinePreview && (
+        <Card padding="sm" className="ui-forge-panel">
+          <div className="space-y-3">
+            <div className={`${SURFACE_ACCENT} px-3 py-2`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">
+                    폭풍 개량 작업대 · {selectedSlotLabel}
+                  </div>
+                  <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-sm font-semibold">
+                    {level > 0 && (
+                      <span className="text-amber-600 dark:text-amber-300">
+                        +{level}
+                      </span>
+                    )}
+                    <CraftQualityStars
+                      craftQuality={selected.craftQuality}
+                      className="shrink-0"
+                    />
+                    <span className="truncate">{item.name}</span>
+                    {selected.stormRefined && (
+                      <span className="rounded bg-violet-600 px-1.5 py-px text-[10px] font-semibold text-white">
+                        개량 완료
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedIid(null);
+                    setMsg(null);
+                    setStormRefineConfirmOpen(false);
+                  }}
+                  className="shrink-0 text-xs text-zinc-500 hover:underline dark:text-zinc-400"
+                >
+                  선택 해제
+                </button>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-1.5 text-center text-[11px] tabular-nums">
+                <div className={`${SURFACE_CARD} rounded-md px-2 py-1`}>
+                  <div className="text-zinc-500 dark:text-zinc-400">현재 위력</div>
+                  <div className="font-semibold">{refineCurrentPower}</div>
+                </div>
+                <div className={`${SURFACE_CARD} rounded-md px-2 py-1`}>
+                  <div className="text-zinc-500 dark:text-zinc-400">개량 위력</div>
+                  <div className="font-semibold text-violet-600 dark:text-violet-400">
+                    {refinedPower}
+                  </div>
+                </div>
+                <div className={`${SURFACE_CARD} rounded-md px-2 py-1`}>
+                  <div className="text-zinc-500 dark:text-zinc-400">결과</div>
+                  <div className="font-semibold">확정</div>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+              이 장비의 고유 효과와 옵션 굴림, 강화 단계, 제작 품질은 그대로
+              유지하고 위력만 같은 부위의 6T 기준으로 올립니다. 세트 태그는 붙지
+              않아 4세트와 함께 쓰는 특화 단품으로 남습니다.
+            </p>
+
+            <div className={`${SURFACE_INSET} grid grid-cols-2 gap-2 px-3 py-2 text-xs tabular-nums sm:grid-cols-4`}>
+              {[
+                ["부유 합금핵", stormMats.wreckage, STORM_REFINEMENT_ROUTE_MATERIAL_COST],
+                ["칼바람 정수", stormMats.gale, STORM_REFINEMENT_ROUTE_MATERIAL_COST],
+                ["뇌운 결정", stormMats.thunder, STORM_REFINEMENT_ROUTE_MATERIAL_COST],
+                ["폭풍 심장 조각", stormMats.heart, STORM_REFINEMENT_HEART_COST],
+              ].map(([label, have, need]) => {
+                const enough = Number(have) >= Number(need);
+                return (
+                  <div
+                    key={String(label)}
+                    className={
+                      enough
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-rose-600 dark:text-rose-400"
+                    }
+                  >
+                    <div className="font-medium">{label}</div>
+                    <div>
+                      {have}/{need}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="text-xs text-zinc-500 dark:text-zinc-400">
+              개량비: {STORM_REFINEMENT_GOLD_COST.toLocaleString()} G · 실패 및
+              파괴 없음
+            </div>
+            <Button
+              onClick={() => setStormRefineConfirmOpen(true)}
+              disabled={refineActionDisabled}
+              variant="primary"
+              size="md"
+              fullWidth
+            >
+              {selected.stormRefined
+                ? "폭풍 개량 완료"
+                : !refineable
+                  ? "이미 6T 기준 위력"
+                : stormMaterialShort
+                  ? "개량 재료 부족"
+                  : spendable < STORM_REFINEMENT_GOLD_COST
+                    ? "골드 부족"
+                    : busy
+                      ? "개량 중…"
+                      : "폭풍 개량"}
+            </Button>
+            {msg && (
+              <StatusBanner tone={statusToneOf(msg.kind)}>
+                {msg.text}
+              </StatusBanner>
+            )}
+          </div>
+        </Card>
+      )}
+
       {/* 재련 패널 — 장비 선택 시 */}
       {mode === "reforge" && selected && item && (
         <Card padding="sm" className="ui-forge-panel">
           <div className="space-y-2">
-            <div className="rounded-md border border-indigo-200 bg-indigo-50/70 px-3 py-2 dark:border-indigo-900/70 dark:bg-indigo-950/20">
+            <div className={`${SURFACE_INSET} px-3 py-2`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300">
@@ -875,11 +1389,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 </button>
               </div>
               <div className="mt-2 grid grid-cols-3 gap-1.5 text-center text-[11px] tabular-nums">
-                <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-900/60">
+                <div className={`${SURFACE_CARD} rounded-md px-2 py-1`}>
                   <div className="text-zinc-500 dark:text-zinc-400">현재 위력</div>
                   <div className="font-semibold">{curRollPower}</div>
                 </div>
-                <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-900/60">
+                <div className={`${SURFACE_CARD} rounded-md px-2 py-1`}>
                   <div className="text-zinc-500 dark:text-zinc-400">품질</div>
                   <div className="font-semibold">
                     {curQuality != null ? (
@@ -889,7 +1403,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     )}
                   </div>
                 </div>
-                <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-900/60">
+                <div className={`${SURFACE_CARD} rounded-md px-2 py-1`}>
                   <div className="text-zinc-500 dark:text-zinc-400">강화 단계</div>
                   <div className="font-semibold">+{level}</div>
                 </div>
@@ -977,7 +1491,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
             ...(V2_REFORGE_ENABLED
               ? [
                   {
-                    key: "reforge-stone",
+                    key: "reforge-stone" as CombineRecipeKey,
                     icon: <GameIcon name="Sparkle" size={24} />,
                     output: "상급 재련석",
                     cost: COMBINE_GOLD_COST,
@@ -994,7 +1508,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 ]
               : []),
             {
-              key: "stamina-potion",
+              key: "stamina-potion" as CombineRecipeKey,
               icon: <GameIcon name="Flask" size={24} />,
               output: "스태미나 회복약",
               cost: COMBINE_GOLD_COST,
@@ -1009,7 +1523,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
               onCombine: doCombineStaminaPotion,
             },
             {
-              key: "blue-enhance-stone",
+              key: "blue-enhance-stone" as CombineRecipeKey,
               icon: <GameIcon name="Diamond" size={24} className="text-blue-500" />,
               output: "푸른 강화석",
               cost: COMBINE_GOLD_COST,
@@ -1021,16 +1535,17 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   need: ENHANCE_EMBER_BLUE_COST,
                 },
               ],
-              onCombine: () =>
+              onCombine: (quantity: number) =>
                 doCombineScavenged(
                   "blue_enhance_stone",
                   "강화의 불씨",
                   ENHANCE_EMBER_BLUE_COST,
                   "푸른 강화석 1개",
+                  quantity,
                 ),
             },
             {
-              key: "red-enhance-stone",
+              key: "red-enhance-stone" as CombineRecipeKey,
               icon: <GameIcon name="Diamond" size={24} className="text-red-500" />,
               output: "붉은 강화석",
               cost: COMBINE_GOLD_COST,
@@ -1042,16 +1557,17 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   need: ENHANCE_EMBER_RED_COST,
                 },
               ],
-              onCombine: () =>
+              onCombine: (quantity: number) =>
                 doCombineScavenged(
                   "red_enhance_stone",
                   "강화의 불씨",
                   ENHANCE_EMBER_RED_COST,
                   "붉은 강화석 1개",
+                  quantity,
                 ),
             },
             {
-              key: "rare-map",
+              key: "rare-map" as CombineRecipeKey,
               icon: <GameIcon name="MapTrifold" size={24} />,
               output: "랜덤 희귀 지도",
               cost: COMBINE_GOLD_COST,
@@ -1063,14 +1579,16 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   need: TORN_MAP_FRAGMENT_COMBINE_COST,
                 },
               ],
-              onCombine: () =>
+              onCombine: (quantity: number) =>
                 doCombineScavenged(
                   "rare_map",
                   "찢어진 지도 조각",
                   TORN_MAP_FRAGMENT_COMBINE_COST,
                   "랜덤 희귀 지도 1장",
+                  quantity,
                   rareMapDepth,
                 ),
+              capacity: Math.max(0, RARE_MAP_CAP - rareMapCount),
               extra: (
                 <label className="mt-2 block border-t border-zinc-200 pt-2 text-xs dark:border-zinc-700">
                   <span className="mb-1 block font-medium text-zinc-700 dark:text-zinc-200">
@@ -1100,7 +1618,19 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
               ),
             },
           ].map((r) => {
-            const short = r.mats.some((m) => m.have < m.need);
+            const firstMaterial = r.mats[0];
+            const maxQuantity = maxForgeCombinationQuantity({
+              materialHave: firstMaterial.have,
+              materialCost: firstMaterial.need,
+              spendableGold: spendable,
+              goldCost: r.cost,
+              ...("capacity" in r ? { capacity: r.capacity } : {}),
+            });
+            const quantity =
+              maxQuantity > 0
+                ? Math.min(combineQuantities[r.key], maxQuantity)
+                : 1;
+            const totalGoldCost = r.cost * quantity;
             return (
               <Card key={r.key} padding="sm" className="ui-lift-card">
                 <div className="flex items-center gap-3">
@@ -1109,13 +1639,20 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   </div>
                   <div className="min-w-0 shrink-0">
                     <div className="text-sm font-semibold">{r.output}</div>
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                      조합비 {r.cost.toLocaleString()} G
+                    <div
+                      className={`text-xs ${
+                        spendable >= totalGoldCost
+                          ? "text-zinc-500 dark:text-zinc-400"
+                          : "text-red-600 dark:text-red-400"
+                      }`}
+                    >
+                      조합비 {totalGoldCost.toLocaleString()} G
                     </div>
                   </div>
                   <div className="ml-auto space-y-0.5 text-xs tabular-nums">
                     {r.mats.map((m) => {
-                      const ok = m.have >= m.need;
+                      const totalNeed = m.need * quantity;
+                      const ok = m.have >= totalNeed;
                       return (
                         <div
                           key={m.label}
@@ -1128,20 +1665,81 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                           <span className="inline-flex items-center gap-1">
                             {ok ? "✓" : "✗"}
                             <GameIcon name={m.iconName} size={13} />
-                            {m.label} {m.have}/{m.need}
+                            {m.label} {m.have}/{totalNeed}
                           </span>
                         </div>
                       );
                     })}
                   </div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+                  <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                    수량
+                  </span>
+                  <div className={`${SURFACE_INSET} inline-flex min-h-10 items-stretch overflow-hidden p-0`}>
+                    <button
+                      type="button"
+                      aria-label={`${r.output} 조합 수량 줄이기`}
+                      disabled={busy || quantity <= 1 || maxQuantity < 1}
+                      onClick={() =>
+                        setCombineQuantity(r.key, quantity - 1, maxQuantity)
+                      }
+                      className="min-w-10 px-3 text-lg font-semibold text-zinc-700 disabled:text-zinc-300 dark:text-zinc-200 dark:disabled:text-zinc-600"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={Math.max(1, maxQuantity)}
+                      value={quantity}
+                      disabled={busy || maxQuantity < 1}
+                      aria-label={`${r.output} 조합 수량`}
+                      onFocus={(event) => event.currentTarget.select()}
+                      onChange={(event) =>
+                        setCombineQuantity(
+                          r.key,
+                          Number(event.currentTarget.value),
+                          maxQuantity,
+                        )
+                      }
+                      className="w-16 border-x border-zinc-200 bg-transparent px-1 text-center text-sm font-semibold tabular-nums outline-none disabled:text-zinc-400 dark:border-zinc-700"
+                    />
+                    <button
+                      type="button"
+                      aria-label={`${r.output} 조합 수량 늘리기`}
+                      disabled={
+                        busy || maxQuantity < 1 || quantity >= maxQuantity
+                      }
+                      onClick={() =>
+                        setCombineQuantity(r.key, quantity + 1, maxQuantity)
+                      }
+                      className="min-w-10 px-3 text-lg font-semibold text-zinc-700 disabled:text-zinc-300 dark:text-zinc-200 dark:disabled:text-zinc-600"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={
+                      busy || maxQuantity < 1 || quantity === maxQuantity
+                    }
+                    onClick={() =>
+                      setCombineQuantity(r.key, maxQuantity, maxQuantity)
+                    }
+                    className="min-h-10 rounded-lg border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 disabled:text-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:disabled:text-zinc-600"
+                  >
+                    최대 {maxQuantity.toLocaleString()}
+                  </button>
                   <Button
-                    onClick={() => void r.onCombine()}
-                    disabled={busy || short}
+                    onClick={() => void r.onCombine(quantity)}
+                    disabled={busy || maxQuantity < 1}
                     variant="primary"
                     size="md"
-                    className="shrink-0"
+                    className="ml-auto shrink-0"
                   >
-                    {busy ? "…" : "조합 →"}
+                    {busy ? "…" : `${quantity.toLocaleString()}개 조합 →`}
                   </Button>
                 </div>
                 {"extra" in r ? r.extra : null}
@@ -1157,7 +1755,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       )}
 
       {/* 장비 선택 — 슬롯 탭 + 그리드(착용 우선, 이후 강화 높은 순). 조합 모드는 장비 선택이 불필요해 숨긴다. */}
-      {mode !== "combine" && (
+      {mode !== "combine" && mode !== "liberation" && (
         <Card as="section" padding="sm">
           <TabBar
             tabs={SLOT_TABS}
@@ -1167,6 +1765,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
               setSelectedIid(null);
               setMsg(null);
               setFeedIid(null);
+              setStormRefineConfirmOpen(false);
             }}
             ariaLabel="강화 슬롯"
             size="sm"
@@ -1186,6 +1785,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 setSelectedIid(inst.iid);
                 setMsg(null);
                 setFeedIid(null);
+                setStormRefineConfirmOpen(false);
               }}
             />
             <Pagination
@@ -1218,6 +1818,40 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
             </Button>
           </div>
         </div>
+      ) : null}
+      {stormRefineConfirmOpen && selected && item && refinePreview ? (
+        <StormRefinementConfirmDialog
+          itemName={item.name}
+          enhanceLevel={level}
+          currentPower={refineCurrentPower}
+          refinedPower={refinedPower}
+          goldCost={STORM_REFINEMENT_GOLD_COST}
+          materials={[
+            {
+              label: "부유 합금핵",
+              have: stormMats.wreckage,
+              need: STORM_REFINEMENT_ROUTE_MATERIAL_COST,
+            },
+            {
+              label: "칼바람 정수",
+              have: stormMats.gale,
+              need: STORM_REFINEMENT_ROUTE_MATERIAL_COST,
+            },
+            {
+              label: "뇌운 결정",
+              have: stormMats.thunder,
+              need: STORM_REFINEMENT_ROUTE_MATERIAL_COST,
+            },
+            {
+              label: "폭풍 심장 조각",
+              have: stormMats.heart,
+              need: STORM_REFINEMENT_HEART_COST,
+            },
+          ]}
+          busy={busy}
+          onClose={() => setStormRefineConfirmOpen(false)}
+          onConfirm={() => void doStormRefine()}
+        />
       ) : null}
     </main>
   );

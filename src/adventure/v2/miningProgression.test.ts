@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  MINING_LEVEL_CAP,
   miningDurationForLevel,
   miningDurationWithPassive,
   miningFailureRate,
@@ -36,5 +37,12 @@ describe("채광 성장", () => {
       xp: 4_000,
       successes: 100,
     });
+  });
+
+  it("기존 50레벨 기준을 보존하고 100레벨 곡선으로 확장한다", () => {
+    expect(miningXpForLevel(50)).toBe(96_040);
+    expect(miningXpForLevel(100)).toBe(480_200);
+    expect(miningLevelForXp(miningXpForLevel(75))).toBe(75);
+    expect(miningLevelForXp(Number.MAX_SAFE_INTEGER)).toBe(MINING_LEVEL_CAP);
   });
 });

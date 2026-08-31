@@ -71,6 +71,7 @@ import {
   makeGridDungeonPartyActor,
   resolveGridDungeonPartyCombat,
 } from "@/adventure/data/v2/gridDungeonCombat";
+import { gridDungeonSoloCombatLog } from "@/adventure/data/v2/gridDungeonCombatLog";
 
 type CharSave = {
   gold?: number;
@@ -748,11 +749,7 @@ async function resolveGridDungeonCombat({
   const enemyMaxHp = partyResult ? partyResult.enemyMaxHp : enemyMonster.hp;
   const combatLog = partyResult
     ? partyResult.log
-    : (soloResult?.finalState.log ?? [])
-        .filter((entry) => entry.kind !== "hp_bar")
-        .map((entry) => entry.text)
-        .filter(Boolean)
-        .slice(-4);
+    : gridDungeonSoloCombatLog(soloResult?.finalState.log ?? [], 4);
   const hpLost = won
     ? Math.max(0, playerHpBefore - playerHpAfter)
     : playerHpBefore;

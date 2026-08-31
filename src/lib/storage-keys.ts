@@ -4,3 +4,4 @@ export const CHARACTER_STATE_KEY = "character.v2";
 export const ARENA_STATE_KEY = "arena-state.v2";
 export const ARENA_HISTORY_KEY = "arena-history.v2";
 export const ARENA_LOADOUTS_KEY = "arena-loadouts.v2";
+export const COMBAT_LOADOUT_PRESETS_KEY = "combat-loadout-presets.v1";

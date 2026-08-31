@@ -3,6 +3,7 @@ import {
   type TrainingGroundUpgradeDef,
 } from "./settlement";
 import type { V2Class } from "./classes";
+import { applyAccumulatedPercentBonus } from "@/lib/percentBonus";
 
 export type GuildTrainingDrillId =
   | "basic_stance"
@@ -32,6 +33,8 @@ export type GuildTrainingState = {
   weekKey?: string;
   weeklyClaims?: number;
   weeklyBonusClaimed?: boolean;
+  rewardBonusRemainderPct?: number;
+  hotTimeBonusRemainderPct?: number;
 };
 
 export type GuildTrainingDrillDef = {
@@ -68,6 +71,7 @@ export const GUILD_TRAINING_FOCUS_LABEL: Record<
   mage: "마법",
   rogue: "민첩",
   survivor: "회복",
+  mutant: "변이",
 };
 
 export const GUILD_TRAINING_CATEGORY_LABEL: Record<
@@ -251,6 +255,20 @@ export function parseGuildTrainingState(
     weekKey?: unknown;
     weeklyClaims?: unknown;
     weeklyBonusClaimed?: unknown;
+    rewardBonusRemainderPct?: unknown;
+    hotTimeBonusRemainderPct?: unknown;
+  };
+  const rewardBonusRemainderPct = Math.min(
+    99,
+    Math.max(0, Math.floor(Number(saved.rewardBonusRemainderPct) || 0)),
+  );
+  const hotTimeBonusRemainderPct = Math.min(
+    99,
+    Math.max(0, Math.floor(Number(saved.hotTimeBonusRemainderPct) || 0)),
+  );
+  const remainders = {
+    ...(rewardBonusRemainderPct > 0 ? { rewardBonusRemainderPct } : {}),
+    ...(hotTimeBonusRemainderPct > 0 ? { hotTimeBonusRemainderPct } : {}),
   };
   const sameWeek = weekKey != null && saved.weekKey === weekKey;
   const weeklyClaims = sameWeek
@@ -261,13 +279,20 @@ export function parseGuildTrainingState(
     : false;
   if (obj.dayKey !== dayKey) {
     return weekKey
-      ? { dayKey, claimed: [], weekKey, weeklyClaims, weeklyBonusClaimed }
-      : { dayKey, claimed: [] };
+      ? {
+          dayKey,
+          claimed: [],
+          weekKey,
+          weeklyClaims,
+          weeklyBonusClaimed,
+          ...remainders,
+        }
+      : { dayKey, claimed: [], ...remainders };
   }
   const claimed = Array.isArray(obj.claimed)
     ? obj.claimed.filter(isGuildTrainingDrillId)
     : [];
-  const base = { dayKey, claimed: Array.from(new Set(claimed)) };
+  const base = { dayKey, claimed: Array.from(new Set(claimed)), ...remainders };
   return weekKey
     ? { ...base, weekKey, weeklyClaims, weeklyBonusClaimed }
     : base;
@@ -277,13 +302,19 @@ export function guildTrainingReward(
   drill: GuildTrainingDrillDef,
   upgrade: TrainingGroundUpgradeDef,
   extraRewardBonusPct = 0,
-): { mastery: number } {
+  remainderPct = 0,
+): { mastery: number; remainderPct: number } {
   const totalBonusPct =
     Math.max(0, upgrade.trainingRewardBonusPct) +
     Math.max(0, extraRewardBonusPct);
-  const mult = 1 + totalBonusPct / 100;
+  const result = applyAccumulatedPercentBonus(
+    drill.baseMasteryReward,
+    totalBonusPct,
+    remainderPct,
+  );
   return {
-    mastery: Math.max(1, Math.floor(drill.baseMasteryReward * mult)),
+    mastery: Math.max(1, result.value),
+    remainderPct: result.remainderPct,
   };
 }
 
@@ -307,7 +338,12 @@ export function guildTrainingDrillViews({
   const claimedCount = state.claimed.length;
   const views = GUILD_TRAINING_DRILL_IDS.map((id) => {
     const drill = GUILD_TRAINING_DRILLS[id];
-    const reward = guildTrainingReward(drill, upgrade, rewardBonusPct);
+    const reward = guildTrainingReward(
+      drill,
+      upgrade,
+      rewardBonusPct,
+      state.rewardBonusRemainderPct ?? 0,
+    );
     const claimed = state.claimed.includes(id);
     let lockedReason: string | null = null;
     if (buildingLevel < drill.minBuildingLevel) {

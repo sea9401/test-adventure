@@ -11,6 +11,7 @@ import {
   capGain,
   effectiveStatCap,
   applyCultivation,
+  applyCultivationBatch,
   recommendedCultivationStats,
   setGroupTier,
   flattenGroupTiers,
@@ -19,6 +20,7 @@ import {
   tierLevelCap,
   levelCapFor,
   addCumLevel,
+  addStatFloorLevels,
   addReincarnation,
   addJobCumLevel,
   addJobHistory,
@@ -36,8 +38,27 @@ import {
   estimateLegacyCultivationSpend,
   refundableCultivationPoints,
   resetCultivation,
+  resetLevelGrowth,
   V2_CULTIVATION_RESET_GOLD_COST,
+  V2_CULTIVATE_PROFILE,
+  effectiveCultivateProfile,
 } from "./proficiency";
+
+describe("변이자 수행 프로필", () => {
+  it("활력 중심 2:1:1 비율을 사용한다", () => {
+    expect(V2_CULTIVATE_PROFILE.mutant).toEqual({ vit: 2, str: 1, int: 1 });
+  });
+
+  it.each([
+    ["beastwarrior", { str: 2, dex: 2 }],
+    ["tracker", { str: 2, dex: 2 }],
+    ["bloodtracker", { str: 2, dex: 2 }],
+    ["predator", { str: 3, dex: 2 }],
+    ["primalpredator", { str: 3, dex: 2, vit: 1 }],
+  ] as const)("%s 계보는 승인된 수행 프로필을 사용한다", (id, profile) => {
+    expect(effectiveCultivateProfile("mutant", id)).toEqual(profile);
+  });
+});
 
 describe("diminishedCumLevel (환생 누적 floor 감쇠)", () => {
   it("Infinity/NaN/음수 가드 — 0 반환(무한루프 방지)", () => {
@@ -76,6 +97,27 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(parseProficiency("x")).toEqual(emptyProficiency());
     expect(parseProficiency({ groups: "bad" })).toEqual(emptyProficiency());
     expect(parseProficiency(undefined)).toEqual(emptyProficiency());
+  });
+
+  it("parse — 두 자원 성장 버전을 보존하고 빈 저장에는 만들지 않는다", () => {
+    const lifeResourceGrowth = {
+      version: 1,
+      rolledLevel: 37,
+      baseHp: 142,
+      baseMp: 81,
+      gainedHp: 361,
+      gainedMp: 145,
+    };
+
+    expect(parseProficiency({ lifeResourceGrowth })).toMatchObject({
+      lifeResourceGrowth,
+    });
+    expect(
+      parseProficiency({ lifeResourceGrowth: { ...lifeResourceGrowth, version: 2 } }),
+    ).toMatchObject({
+      lifeResourceGrowth: { ...lifeResourceGrowth, version: 2 },
+    });
+    expect(parseProficiency({})).not.toHaveProperty("lifeResourceGrowth");
   });
 
   it("parse — points 전역 합산, 의미없는 그룹 제외, 새 포맷 보존", () => {
@@ -133,6 +175,23 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
         groups: { warrior: { cumLevel: 9 } },
       }).masteryScaleVersion,
     ).toBe(2);
+  });
+
+  it("parse — 기존 숙련도 저장값은 현재 스탯 저점 입력으로 1회 고정한다", () => {
+    const migrated = parseProficiency({
+      groups: {
+        warrior: { cumLevel: 1800 },
+        mage: { cumLevel: 1799 },
+      },
+    });
+
+    expect(migrated.statFloorLevels).toEqual({ warrior: 200, mage: 199 });
+
+    const stored = parseProficiency({
+      groups: { warrior: { cumLevel: 9000 } },
+      statFloorLevels: { warrior: 123 },
+    });
+    expect(stored.statFloorLevels).toEqual({ warrior: 123 });
   });
 
   it("parse/addJobHistory — 전직 이력을 정제하고 중복 없이 누적한다", () => {
@@ -315,16 +374,27 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(usablePoints(p)).toBe(100); // 원본 비파괴
   });
 
-  it("resetCultivation — 한계치만 비우고 사용 숙달 포인트를 전액 환급한다", () => {
+  it("resetCultivation — 한계치와 레벨 성장값 및 재분배 대기값을 모두 비운다", () => {
     const p = parseProficiency({
       points: 60,
       groups: {
         warrior: { cultivations: 2, tier: 1, cumLevel: 77 },
       },
       caps: { str: 4, vit: 2, dex: 2 },
+      grown: { str: 3, vit: 2, dex: 1 },
+      growthScaleVersion: 1,
+      growthRespecPoints: 5,
       cultivationPointsSpent: 40,
       cultivationResetCount: 0,
       cultivationLedgerVersion: 1,
+      lifeResourceGrowth: {
+        version: 2,
+        rolledLevel: 37,
+        baseHp: 142,
+        baseMp: 81,
+        gainedHp: 361,
+        gainedMp: 145,
+      },
     });
     const reset = resetCultivation(p);
     expect(reset).not.toBeNull();
@@ -334,6 +404,141 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(refundableCultivationPoints(reset!.next)).toBe(0);
     expect(reset!.next.cultivationResetCount).toBe(1);
     expect(reset!.next.groups.warrior).toEqual(p.groups.warrior);
+    expect(reset!.next.grown).toEqual({});
+    expect(reset!.next.growthRespecPoints).toBe(0);
+    expect(reset!.next.lifeResourceGrowth).toEqual({
+      version: 2,
+      rolledLevel: 1,
+      baseHp: 142,
+      baseMp: 81,
+      gainedHp: 0,
+      gainedMp: 0,
+    });
+  });
+
+  it("parseProficiency/applyCultivation — 과거 재분배 대기값을 폐기하고 수행에 적용하지 않는다", () => {
+    const p = parseProficiency({
+      points: 1_000,
+      groups: { warrior: { cultivations: 0, tier: 1, cumLevel: 0 } },
+      growthRespecPoints: 10,
+    });
+
+    const result = applyCultivation(p, "warrior");
+
+    expect(p.growthRespecPoints).toBe(0);
+    expect(result).not.toBeNull();
+    expect(result!.redistributedGrowthPoints).toBe(0);
+    expect(result!.next.grown).toEqual({});
+    expect(result!.next.growthRespecPoints).toBe(0);
+  });
+
+  it("applyCultivation — 각성 수행도 과거 재분배 대기값을 복원하지 않는다", () => {
+    const p = parseProficiency({
+      points: 10_000,
+      groups: { warrior: { cultivations: 0, tier: 1, cumLevel: 0 } },
+      growthRespecPoints: 100,
+    });
+
+    const awakened = applyCultivation(p, "warrior", () => 0);
+    expect(awakened).not.toBeNull();
+    expect(awakened!.redistributedGrowthPoints).toBe(0);
+    expect(awakened!.next.grown).toEqual({});
+    expect(awakened!.next.growthRespecPoints).toBe(0);
+
+    const reset = resetCultivation(awakened!.next);
+    expect(reset).not.toBeNull();
+    expect(reset!.next.grown).toEqual({});
+    expect(reset!.next.growthRespecPoints).toBe(0);
+  });
+
+  it("레히인 회귀 — 기존 219 성장 포인트를 초기화해도 새 직업 수행으로 옮기지 않는다", () => {
+    const before = parseProficiency({
+      points: 1_000_000,
+      groups: { rogue: { cultivations: 177, tier: 1, cumLevel: 11_503 } },
+      caps: { str: 180, vit: 90, spi: 90 },
+      grown: { str: 77, dex: 12, vit: 33, int: 5, spi: 31, luk: 61 },
+      growthScaleVersion: 1,
+      cultivationPointsSpent: 100_000,
+      cultivationLedgerVersion: 1,
+    });
+    const reset = resetCultivation(before);
+    expect(reset).not.toBeNull();
+    expect(reset!.next.grown).toEqual({});
+    expect(reset!.next.growthRespecPoints).toBe(0);
+
+    let current = reset!.next;
+    for (let i = 0; i < 55; i += 1) {
+      const cultivated = applyCultivation(
+        current,
+        "rogue",
+        undefined,
+        undefined,
+        "archer",
+      );
+      expect(cultivated).not.toBeNull();
+      current = cultivated!.next;
+    }
+
+    expect(current.grown).toEqual({});
+    expect(current.growthRespecPoints).toBe(0);
+  });
+
+  it("resetLevelGrowth — 환생·직업군 변경은 적용값과 재분배 대기값을 함께 비운다", () => {
+    const p = parseProficiency({
+      grown: { str: 7, dex: 3 },
+      growthRespecPoints: 20,
+      liberationCycleGrowth: { hp: 321, mp: 45 },
+      reincarnations: 2,
+      lifeResourceGrowth: {
+        version: 1,
+        rolledLevel: 41,
+        baseHp: 172,
+        baseMp: 81,
+        gainedHp: 873,
+        gainedMp: 390,
+      },
+    });
+
+    const reset = resetLevelGrowth(p);
+
+    expect(reset.grown).toEqual({});
+    expect(reset.growthRespecPoints).toBe(0);
+    expect(reset.liberationCycleGrowth).toEqual({ hp: 0, mp: 0 });
+    expect(reset.reincarnations).toBe(2);
+    expect(reset.lifeResourceGrowth).toEqual({
+      version: 1,
+      rolledLevel: 1,
+      baseHp: 172,
+      baseMp: 81,
+      gainedHp: 0,
+      gainedMp: 0,
+    });
+  });
+
+  it("해방 주기 성장을 음이 아닌 정수로 파싱하고 신규 저장은 0에서 시작한다", () => {
+    expect(emptyProficiency().liberationCycleGrowth).toEqual({ hp: 0, mp: 0 });
+    expect(
+      parseProficiency({ liberationCycleGrowth: { hp: 123.9, mp: 7.8 } })
+        .liberationCycleGrowth,
+    ).toEqual({ hp: 123, mp: 7 });
+    expect(
+      parseProficiency({ liberationCycleGrowth: { hp: -2, mp: Number.NaN } })
+        .liberationCycleGrowth,
+    ).toEqual({ hp: 0, mp: 0 });
+  });
+
+  it("수행 초기화는 이미 누적한 해방 주기 성장을 보존한다", () => {
+    const before = parseProficiency({
+      points: 10_000,
+      groups: { warrior: { cultivations: 3, tier: 1, cumLevel: 20 } },
+      caps: { str: 6, vit: 3, dex: 3 },
+      cultivationPointsSpent: 100,
+      cultivationLedgerVersion: 1,
+      liberationCycleGrowth: { hp: 90, mp: 20 },
+    });
+    const reset = resetCultivation(before);
+    expect(reset).not.toBeNull();
+    expect(reset!.next.liberationCycleGrowth).toEqual({ hp: 90, mp: 20 });
   });
 
   it("applyCultivation — 대성공·각성 이름과 특별 수행 배수를 구분한다", () => {
@@ -434,6 +639,40 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(result!.next.caps.dex).toBeUndefined();
   });
 
+  it.each([
+    ["mage", "caster", "int", 3, "spi", 1],
+    ["mage", "magus", "int", 3, "spi", 1],
+    ["mage", "sage", "int", 3, "spi", 1],
+    ["mage", "arcanist", "int", 4, "spi", 1],
+    ["mage", "archmage", "int", 4, "spi", 2],
+    ["rogue", "archer", "dex", 3, "luk", 1],
+    ["rogue", "ranger", "dex", 3, "luk", 1],
+    ["rogue", "chief", "dex", 3, "luk", 1],
+    ["rogue", "marksman", "dex", 4, "luk", 1],
+    ["rogue", "heavenlybow", "dex", 4, "luk", 2],
+    ["rogue", "assassin", "luk", 3, "dex", 1],
+    ["rogue", "shadow", "luk", 3, "dex", 1],
+    ["rogue", "phantom", "luk", 3, "dex", 1],
+    ["rogue", "nightshade", "luk", 4, "dex", 1],
+    ["rogue", "blackmoon", "luk", 4, "dex", 2],
+  ] as const)(
+    "applyCultivation — %s 집중 계보 %s는 주력 %s +%i · 보조 %s +%i를 올린다",
+    (group, jobId, primary, primaryGain, secondary, secondaryGain) => {
+      const p = parseProficiency({ groups: { [group]: { points: 100 } } });
+      const result = applyCultivation(
+        p,
+        group,
+        undefined,
+        undefined,
+        jobId,
+      );
+
+      expect(result!.next.caps[primary]).toBe(primaryGain);
+      expect(result!.next.caps[secondary]).toBe(secondaryGain);
+      expect(totalCapGains(result!.next)).toBe(primaryGain + secondaryGain);
+    },
+  );
+
   it("applyCultivation — 5차 초월자는 행운을 제외한 총 +5 cap을 얻는다", () => {
     const p = parseProficiency({ groups: { warrior: { points: 1000 } } });
     const r = applyCultivation(
@@ -464,6 +703,41 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
       expect(r!.next.caps[stat]).toBe(1);
     }
     expect(totalCapGains(r!.next)).toBe(6);
+  });
+
+  it("가능한 만큼 수행하며 특별 수행을 다음 비용에 반영한다", () => {
+    const rolls = [0.02, 0.5]; // 대성공 ×3, 일반 ×1
+    const result = applyCultivationBatch(
+      { ...emptyProficiency(), points: 88 },
+      "warrior",
+      () => rolls.shift() ?? 0.5,
+    );
+
+    expect(result).toMatchObject({
+      performed: 2,
+      spent: 88,
+      greatSuccesses: 1,
+      awakenings: 0,
+      hasMore: false,
+    });
+    expect(usablePoints(result!.next)).toBe(0);
+    expect(totalCapGains(result!.next)).toBe(16);
+  });
+
+  it("요청 상한에 도달하면 남은 수행 가능 여부를 알린다", () => {
+    const result = applyCultivationBatch(
+      { ...emptyProficiency(), points: 1_000 },
+      "warrior",
+      () => 0.5,
+      undefined,
+      2,
+    );
+
+    expect(result).toMatchObject({
+      performed: 2,
+      spent: 40,
+      hasMore: true,
+    });
   });
 
   it("recommendedCultivationStats — 직군 권장 스탯(앵커 먼저), none=균형 4스탯·무효는 빈 배열", () => {
@@ -585,6 +859,18 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(groupCumLevel(p0, "nonexistent")).toBe(0);
   });
 
+  it("addStatFloorLevels — 실제 레벨 상승분만 별도 누적한다", () => {
+    const p0 = parseProficiency({
+      groups: { warrior: { cumLevel: 1800 } },
+    });
+    const p1 = addStatFloorLevels(p0, "warrior", 3);
+
+    expect(p1.statFloorLevels.warrior).toBe(203);
+    expect(p0.statFloorLevels.warrior).toBe(200);
+    expect(addStatFloorLevels(p1, "none", 5)).toBe(p1);
+    expect(addStatFloorLevels(p1, "warrior", 0)).toBe(p1);
+  });
+
   it("addJobCumLevel/jobCumLevelOf — 직업별 숙련도(groups·floor 와 별개), 비파괴, none/0 무변경", () => {
     const p0 = emptyProficiency();
     expect(jobCumLevelOf(p0, "paladin")).toBe(0);
@@ -639,8 +925,8 @@ describe("levelCapFor (코어루프 단일 레벨캡)", () => {
   });
 });
 
-describe("proficiencyPerKillAtDepth (승리당 숙달 — 초반 유지, 중후반 상한)", () => {
-  it("들판~심층 동굴은 2, 잊힌 성소 이후는 3에서 클램프", () => {
+describe("proficiencyPerKillAtDepth (승리당 숙달 — 최상위 사냥터 보상 강화)", () => {
+  it("사냥터 구간에 따라 2~5를 지급한다", () => {
     // 테마당 6깊이 — 각 테마의 시작·끝 깊이에서 같은 값. 깊이당 값은 깊은 산 삭제로 불변(테마 인덱스 동일).
     expect(proficiencyPerKillAtDepth(1)).toBe(2); // 들판 1
     expect(proficiencyPerKillAtDepth(6)).toBe(2); // 들판 6
@@ -652,11 +938,19 @@ describe("proficiencyPerKillAtDepth (승리당 숙달 — 초반 유지, 중후�
     expect(proficiencyPerKillAtDepth(37)).toBe(3); // 짐승의 소굴 1
     expect(proficiencyPerKillAtDepth(48)).toBe(3); // 검은 왕도 6
     expect(proficiencyPerKillAtDepth(49)).toBe(3); // 붉은 벌판 1
+    expect(proficiencyPerKillAtDepth(54)).toBe(3); // 붉은 벌판 6
+    expect(proficiencyPerKillAtDepth(55)).toBe(3); // 백골 고원 1
     expect(proficiencyPerKillAtDepth(60)).toBe(3); // 백골 고원 6
+    expect(proficiencyPerKillAtDepth(61)).toBe(4); // 폭풍 산맥 1
+    expect(proficiencyPerKillAtDepth(66)).toBe(4); // 폭풍 산맥 6
+    expect(proficiencyPerKillAtDepth(67)).toBe(4); // 심해 폐허 1
+    expect(proficiencyPerKillAtDepth(72)).toBe(4); // 심해 폐허 6
+    expect(proficiencyPerKillAtDepth(73)).toBe(5); // 천공 균열 1
+    expect(proficiencyPerKillAtDepth(78)).toBe(5); // 천공 균열 6
   });
 
-  it("프론티어 밖 방어 입력도 3 으로 클램프", () => {
-    expect(proficiencyPerKillAtDepth(120)).toBe(3);
+  it("프론티어 밖 방어 입력은 마지막 사냥터 보상 5로 클램프", () => {
+    expect(proficiencyPerKillAtDepth(120)).toBe(5);
   });
 
   it("비정상 입력 가드 — 0 이하·소수도 들판(2)으로 처리", () => {

@@ -24,7 +24,7 @@ describe("coopShop", () => {
     }
   });
 
-  it("장비 상자는 보스명 없이 1T~5T 한 종류씩 노출된다", () => {
+  it("장비 상자는 1T~5T 공용과 신규 HARD 보스별 6T 상자를 노출한다", () => {
     const entries = COOP_SHOP_ENTRIES.filter((e) => e.category === "equipment_box");
     expect(entries.map((entry) => entry.name)).toEqual([
       "1T 장비 상자",
@@ -32,6 +32,8 @@ describe("coopShop", () => {
       "3T 장비 상자",
       "4T 장비 상자",
       "5T 장비 상자",
+      "재앙의 스콜피온 킹 6T 장비 상자",
+      "혹한의 호수 괴물 6T 장비 상자",
     ]);
     for (const bossId of [
       "mountain_chief",
@@ -51,20 +53,32 @@ describe("coopShop", () => {
       .toBe(false);
     expect(entries.some((entry) => entry.itemId === "abyssal_tyrant_equipment_box"))
       .toBe(false);
-    expect(entries.at(-1)?.output).toEqual({
+    const tier5 = entries.find((entry) => entry.itemId === "tier5_equipment_box");
+    expect(tier5?.output).toEqual({
       kind: "material",
       materialId: COOP_TIER5_EQUIPMENT_BOX.id,
       count: 1,
     });
-    expect(entries.at(-1)?.description).toBe(
+    expect(tier5?.description).toBe(
       "사용하면 흉포한 산군·심연어룡 전용 5T 장비 9종 중 1개를 무작위로 획득한다.",
     );
     expect(
-      entries.at(-1)?.cost.materials[COOP_BOSS_MATERIAL.mountain_chief_hard.id],
+      tier5?.cost.materials[COOP_BOSS_MATERIAL.mountain_chief_hard.id],
     ).toBe(15);
     expect(
-      entries.at(-1)?.cost.materials[COOP_BOSS_MATERIAL.abyssal_tyrant.id],
+      tier5?.cost.materials[COOP_BOSS_MATERIAL.abyssal_tyrant.id],
     ).toBe(15);
+    for (const boss of ["canyon_predator_hard", "lake_sovereign_hard"] as const) {
+      const box = COOP_EQUIPMENT_BOX[boss];
+      const entry = entries.find(
+        (candidate) =>
+          candidate.output.kind === "material" &&
+          candidate.output.materialId === box.id,
+      );
+      expect(entry?.cost.materials[COOP_COIN_MATERIAL_ID]).toBe(900);
+      expect(entry?.cost.materials[COOP_BOSS_MATERIAL[boss].id]).toBe(40);
+      expect(entry?.limit).toBeUndefined();
+    }
   });
 
   it("일/주간 제한은 주기 키가 바뀌면 lazy reset 된다", () => {
@@ -79,6 +93,12 @@ describe("coopShop", () => {
     const weekly = COOP_SHOP_ENTRIES.find((e) => e.itemId === "mastery_tome")!;
     expect(coopShopPurchaseCount(reset, weekly)).toBe(5);
     expect(isCoopShopLimitReached(reset, weekly)).toBe(true);
+  });
+
+  it("스태미나 회복약은 하루 5개까지 교환한다", () => {
+    const stamina = COOP_SHOP_ENTRIES.find((e) => e.itemId === "stamina_potion");
+    expect(stamina?.limit).toEqual({ scope: "daily", count: 5 });
+    expect(stamina?.description).toContain("하루 5개");
   });
 
   it("재련 비활성 중에는 재련석 교환 상품을 노출하지 않는다", () => {

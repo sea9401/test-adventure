@@ -2,6 +2,7 @@
 // 타입·생성로직(속성스킬 자동생성·V2_SKILLS merge·parse)은 v2Skills.ts 에.
 // 소비자는 v2Skills 의 V2_SKILLS 로 접근(이 카탈로그는 내부 합성용).
 import type { V2SkillId, V2SkillDefinition } from "./v2Skills";
+import { MONSTER_BLEED_ATK_COEF_PER_STACK } from "./v2CombatConstants";
 import { V2_DEBUFF_PRESETS, V2_DOT_PRESETS } from "./statusEffects";
 
 export const V2_BASE_SKILLS = {
@@ -38,7 +39,8 @@ export const V2_BASE_SKILLS = {
     description: "전투 중 자신의 HP 를 조금 회복한다.",
     mpCost: 8,
     cooldown: 0,
-    effects: [{ kind: "heal", pctMaxHp: 10 }],
+    spCost: 3,
+    effects: [{ kind: "heal", pctMaxHp: 1.8 }],
   },
   v2_skill_dash: {
     id: "v2_skill_dash",
@@ -99,6 +101,57 @@ export const V2_BASE_SKILLS = {
     monsterOnly: true,
     effects: [{ kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.둔화 }],
   },
+  mob_catastrophe_venom: {
+    id: "mob_catastrophe_venom",
+    name: "재앙독",
+    stat: "vit",
+    category: "attack",
+    tier: 3,
+    description: "짙은 독을 주입해 중독을 빠르게 누적시킨다.",
+    mpCost: 0,
+    cooldown: 3,
+    monsterOnly: true,
+    effects: [{ kind: "dot", ...V2_DOT_PRESETS.중독, stacks: 2 }],
+  },
+  mob_venom_sunder: {
+    id: "mob_venom_sunder",
+    name: "맹독 파쇄",
+    stat: "vit",
+    category: "attack",
+    tier: 3,
+    description: "맹독을 주입하고 방어를 무너뜨린다.",
+    mpCost: 0,
+    cooldown: 3,
+    monsterOnly: true,
+    effects: [
+      { kind: "dot", ...V2_DOT_PRESETS.중독, stacks: 2 },
+      { kind: "enemyDebuff", stat: "vit", pct: 12, turns: 2 },
+    ],
+  },
+  mob_deep_chill: {
+    id: "mob_deep_chill",
+    name: "심층 한기",
+    stat: "vit",
+    category: "attack",
+    tier: 3,
+    description: "깊은 냉기로 행동 속도를 크게 낮춘다.",
+    mpCost: 0,
+    cooldown: 3,
+    monsterOnly: true,
+    effects: [{ kind: "enemyDebuff", stat: "spd", pct: 22, turns: 3 }],
+  },
+  mob_glacial_chill: {
+    id: "mob_glacial_chill",
+    name: "혹한",
+    stat: "vit",
+    category: "attack",
+    tier: 3,
+    description: "혹한으로 행동 속도를 극심하게 낮춘다.",
+    mpCost: 0,
+    cooldown: 3,
+    monsterOnly: true,
+    effects: [{ kind: "enemyDebuff", stat: "spd", pct: 28, turns: 3 }],
+  },
   mob_rending_claw: {
     id: "mob_rending_claw",
     name: "살점 뜯기",
@@ -109,7 +162,13 @@ export const V2_BASE_SKILLS = {
     mpCost: 0,
     cooldown: 3,
     monsterOnly: true,
-    effects: [{ kind: "dot", ...V2_DOT_PRESETS.출혈 }],
+    effects: [
+      {
+        kind: "dot",
+        ...V2_DOT_PRESETS.출혈,
+        atkCoefPerStack: MONSTER_BLEED_ATK_COEF_PER_STACK,
+      },
+    ],
   },
   // ── 사냥터 마법몹 시전 스킬 (DungeonEnemy.castSkill) — scaling magic → 플레이어 정신(magicDef)로 경감.
   //   몹은 attackerMagicAtk 미지정 → atk 폴백(combatShared). mpCost 0(statusSkill 과 동일·자원 무관),

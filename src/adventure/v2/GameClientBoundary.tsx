@@ -11,10 +11,11 @@ import { GameStateProvider } from "./GameStateProvider";
 import { GameChrome } from "./GameChrome";
 import { RewardToastProvider } from "./RewardToastProvider";
 import { PlayerSanctionGate } from "./PlayerSanctionGate";
+import { AdventureDashboardProvider } from "./AdventureDashboardProvider";
 
 // 게임 라우트 그룹 (app/(game)) 의 클라이언트 경계.
-// SaveProvider / STARTER_SAVES 등 client hook chain (useCharacterState → useRemotePatch)
-// 을 여기 한 곳에서만 import 한다 — (game)/layout.tsx (server component) 가 이 모듈만
+// SaveProvider / STARTER_SAVES 등 클라이언트 저장소 경계를 여기 한 곳에서만 import 한다.
+// (game)/layout.tsx (server component) 가 이 모듈만
 // 들여와 children 을 통과시키면, 페이지 모듈이 server build graph 로 끌려가 Turbopack
 // 컴파일 에러 나는 것을 차단 (2026-05-28 staging 사고와 동일한 경계 규율).
 //
@@ -30,9 +31,11 @@ export function GameClientBoundary({
       <SaveProvider starters={STARTER_SAVES}>
         <OnboardingGate>
           <GameStateProvider>
-            <RewardToastProvider>
-              <GameChrome>{children}</GameChrome>
-            </RewardToastProvider>
+            <AdventureDashboardProvider>
+              <RewardToastProvider>
+                <GameChrome>{children}</GameChrome>
+              </RewardToastProvider>
+            </AdventureDashboardProvider>
           </GameStateProvider>
         </OnboardingGate>
       </SaveProvider>

@@ -3,18 +3,19 @@ import "server-only";
 import {
   V2_EQUIPMENT,
   parseCraftedBy,
-  parseEquipRoll,
+  parseEquipRollForItem,
   parseEquipmentSave,
   parseInstanceCraftQuality,
+  parseInstanceEnhance,
   type V2EquipInstance,
 } from "@/adventure/data/v2/v2Equipment";
 import { derivePowerScore } from "@/adventure/data/v2/power";
-import { parseEnhance } from "@/adventure/data/v2/v2Enhance";
 import {
   derivePlayerCombatV2FromSaves,
   type DerivedPlayerCombatV2,
   type SavedCharacterV2,
 } from "@/lib/server/derivePlayerCombatV2";
+import { powerInputFromPlayer } from "@/lib/server/playerPowerInput";
 
 export type EquipmentPowerPreviewResult =
   | {
@@ -39,14 +40,13 @@ export type EquipmentPowerPreviewCandidate =
     };
 
 function powerOf(combat: DerivedPlayerCombatV2): number {
-  return derivePowerScore({
-    atk: combat.player.atk,
-    magicAtk: combat.player.magicAtk ?? 0,
-    def: combat.player.def,
-    spd: combat.player.spd,
-    maxHp: combat.maxHp,
-    maxMp: combat.player.maxMp ?? 0,
-  });
+  return derivePowerScore(
+    powerInputFromPlayer(
+      combat.player,
+      combat.maxHp,
+      combat.player.maxMp ?? 0,
+    ),
+  );
 }
 
 /** 후보 장비를 저장하지 않고 같은 슬롯에 임시 장착해 현재·변경 후 전투력을 계산한다. */
@@ -82,10 +82,15 @@ export function previewEquipmentPowerFromSaves(input: {
     candidate = {
       iid: previewIid,
       id: itemId as keyof typeof V2_EQUIPMENT,
-      roll: parseEquipRoll(input.candidate.roll),
-      enhance: craftQuality
-        ? undefined
-        : parseEnhance(input.candidate.enhance),
+      roll: parseEquipRollForItem(
+        V2_EQUIPMENT[itemId as keyof typeof V2_EQUIPMENT],
+        input.candidate.roll,
+      ),
+      enhance: parseInstanceEnhance(
+        input.candidate.enhance,
+        input.candidate.craftQuality,
+        craftedBy,
+      ),
       craftQuality,
       craftedBy,
     };

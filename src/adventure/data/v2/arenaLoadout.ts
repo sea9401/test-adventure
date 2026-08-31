@@ -9,11 +9,13 @@ import {
   V2_SKILLS,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
+import { resolveElementalResonanceLoadout } from "@/adventure/data/v2/elementalResonance";
 import { STAT_LABELS } from "@/adventure/data/stats";
 import type { V2EquipSlot } from "@/adventure/data/v2/v2Equipment";
 import {
   parseCombatPattern,
   type V2CombatCondition,
+  type V2PatternEnemyDebuff,
   type V2CombatRole,
   type V2CombatPattern,
 } from "@/adventure/v2/combat/combatPattern";
@@ -71,19 +73,38 @@ const DERIVED_BUFF_LABEL = {
   reflectDamage: "반사 피해",
   regen: "지속 회복",
   guaranteedEvade: "확정 회피",
+  duelistDeclaration: "선언",
+  berserkerFinisher: "혈전 준비",
+  berserkerDeathOvercome: "사망 극복 공격 준비",
 } as const;
 
 const ENEMY_STATUS_LABEL = {
   bleed: "출혈",
   poison: "중독",
   vuln: "마법취약",
+  frostChill: "한기",
 } as const;
 
-const ENEMY_DEBUFF_LABEL = {
+const SELF_RESOURCE_LABEL = {
+  impact: "충격",
+  ironWallReflect: "철벽 반사",
+  inscription: "각인 총합",
+  weight: "중량",
+  bloodlineBurstReady: "혈맥 폭발 상태",
+} as const;
+
+const ENEMY_DEBUFF_LABEL: Record<V2PatternEnemyDebuff, string> = {
+  str: "힘 감소",
+  dex: "민첩 감소",
+  vit: "활력 감소",
+  spd: "속도 감소",
+  luk: "행운 감소",
+  int: "지능 감소",
   vulnerability: "받는 피해 증가(취약)",
   damageDown: "주는 피해 감소",
   skillProcDown: "스킬 발동률 감소",
-} as const;
+  healReduction: "회복 효과 감소",
+};
 
 /** 아레나 템플릿에서 저장된 전투패턴 조건을 사람이 읽는 문구로 표시한다. */
 export function arenaPatternConditionSummary(
@@ -104,17 +125,34 @@ export function arenaPatternConditionSummary(
     case "self_mp":
       return `내 MP ${condition.pct}% ${condition.op === "below" ? "이하" : "이상"}`;
     case "self_shield":
-      return `내 보호막 ${condition.active ? "있음" : "없음"}`;
+      return "active" in condition
+        ? `내 보호막 ${condition.active ? "있음" : "없음"}`
+        : `내 보호막 ${condition.value} ${condition.op === "atMost" ? "이하" : "이상"}`;
     case "self_buff":
       return `내 ${STAT_LABELS[condition.stat]} 버프 ${condition.active ? "있음" : "없음"}`;
     case "self_buff_pct":
       return `내 ${DERIVED_BUFF_LABEL[condition.target]} 상태 효과 ${condition.active ? "있음" : "없음"}`;
+    case "self_resource":
+      if (condition.resource === "bloodlineBurstReady") {
+        if (
+          condition.op === "none" ||
+          (condition.op === "atMost" && condition.value === 0)
+        ) {
+          return "내 혈맥 폭발 재사용 대기 중";
+        }
+        if (condition.op === "atLeast" && condition.value === 1) {
+          return "내 혈맥 폭발 발동 가능";
+        }
+      }
+      return condition.op === "none"
+        ? `내 ${SELF_RESOURCE_LABEL[condition.resource]} 없음`
+        : `내 ${SELF_RESOURCE_LABEL[condition.resource]} ${condition.value} ${condition.op === "atMost" ? "이하" : "이상"}`;
     case "enemy_hp":
       return `적 HP ${condition.pct}% ${condition.op === "below" ? "이하" : "이상"}`;
     case "enemy_status":
       return condition.op === "none"
         ? `적 ${ENEMY_STATUS_LABEL[condition.tag]} 없음`
-        : `적 ${ENEMY_STATUS_LABEL[condition.tag]} ${condition.stacks}스택 이상`;
+        : `적 ${ENEMY_STATUS_LABEL[condition.tag]} ${condition.stacks}스택 ${condition.op === "atMost" ? "이하" : "이상"}`;
     case "enemy_debuff":
       return `적 ${ENEMY_DEBUFF_LABEL[condition.target]} ${condition.active ? "있음" : "없음"}`;
     case "turn":
@@ -132,13 +170,20 @@ export function arenaPatternActionSummary(
   if (!pattern) return [];
   return pattern.blocks.map((block, index) => {
     const action = block.action;
-    const value = action.kind === "skill" ? action.skillId : action.role;
+    const value =
+      action.kind === "skill"
+        ? action.skillId
+        : action.kind === "role"
+          ? action.role
+          : "basic_attack";
     return {
       key: `${index}:${action.kind}:${value}`,
       name:
         action.kind === "skill"
           ? (V2_SKILLS[action.skillId as V2SkillId]?.name ?? action.skillId)
-          : ROLE_LABEL[action.role],
+          : action.kind === "role"
+            ? ROLE_LABEL[action.role]
+            : "일반 공격",
       condition: arenaPatternConditionSummary(block.condition),
     };
   });
@@ -161,7 +206,7 @@ export function arenaLoadoutIssueSummary(
   const coveredRoles = new Set<V2CombatRole>();
   for (const block of loadout.pattern?.blocks ?? []) {
     if (block.action.kind === "skill") directSkills.add(block.action.skillId);
-    else coveredRoles.add(block.action.role);
+    else if (block.action.kind === "role") coveredRoles.add(block.action.role);
   }
   const categoryRole = {
     attack: "main_attack",
@@ -169,8 +214,12 @@ export function arenaLoadoutIssueSummary(
     buff: "buff",
     debuff: "debuff",
   } as const;
+  const activeCombatSkillIds = resolveElementalResonanceLoadout({
+    learned: loadout.skills,
+    equipped: loadout.skills,
+  }).activeCombatSkillIds;
   const uncoveredActiveSkills = loadout.pattern
-    ? loadout.skills.flatMap((id) => {
+    ? activeCombatSkillIds.flatMap((id) => {
         const skill = V2_SKILLS[id];
         if (!skill || skill.passive || skill.category === "passive") return [];
         const role = categoryRole[skill.category];

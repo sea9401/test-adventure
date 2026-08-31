@@ -15,7 +15,6 @@ export type SkillRitualStep = {
   level: 1 | 2 | 3 | 4 | 5;
   goldCost: number;
   proficiencyCost: number;
-  requiredJobCumLevel: number;
   powerBonusPct: number;
   focusBonusPct: number;
 };
@@ -25,41 +24,36 @@ export const SKILL_RITUAL_MAX_LEVEL = 5;
 export const SKILL_RITUAL_STEPS: readonly SkillRitualStep[] = [
   {
     level: 1,
-    goldCost: 1_000_000,
+    goldCost: 10_000_000,
     proficiencyCost: 300,
-    requiredJobCumLevel: 0,
     powerBonusPct: 2,
     focusBonusPct: 2,
   },
   {
     level: 2,
-    goldCost: 3_000_000,
-    proficiencyCost: 800,
-    requiredJobCumLevel: 150,
+    goldCost: 30_000_000,
+    proficiencyCost: 950,
     powerBonusPct: 5,
     focusBonusPct: 4,
   },
   {
     level: 3,
-    goldCost: 8_000_000,
-    proficiencyCost: 1_800,
-    requiredJobCumLevel: 300,
+    goldCost: 80_000_000,
+    proficiencyCost: 2_100,
     powerBonusPct: 9,
     focusBonusPct: 6,
   },
   {
     level: 4,
-    goldCost: 20_000_000,
-    proficiencyCost: 4_000,
-    requiredJobCumLevel: 500,
+    goldCost: 200_000_000,
+    proficiencyCost: 4_500,
     powerBonusPct: 14,
     focusBonusPct: 8,
   },
   {
     level: 5,
-    goldCost: 50_000_000,
-    proficiencyCost: 9_000,
-    requiredJobCumLevel: 800,
+    goldCost: 500_000_000,
+    proficiencyCost: 9_800,
     powerBonusPct: 20,
     focusBonusPct: 10,
   },
@@ -136,6 +130,7 @@ function isPowerEffect(effect: V2SkillEffect): boolean {
     effect.kind === "heal" ||
     effect.kind === "shield" ||
     effect.kind === "hpCostDamage" ||
+    effect.kind === "missingHpDamage" ||
     effect.kind === "healToDamage" ||
     effect.kind === "executeDamage" ||
     effect.kind === "ambushDamage" ||

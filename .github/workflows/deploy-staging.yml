@@ -24,11 +24,11 @@ jobs:
       DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
     steps:
       - name: Checkout deployed revision
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ env.DEPLOY_SHA }}
       - name: SSH & deploy [staging]
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEPLOY_SHA: ${{ env.DEPLOY_SHA }}

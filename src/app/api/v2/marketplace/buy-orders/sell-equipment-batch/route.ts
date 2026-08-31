@@ -2,18 +2,24 @@ import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import {
   marketplaceEquipListError,
   marketplaceTaxRateForAdventureSupport,
 } from "@/lib/server/marketplaceV2";
-import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
+import { adventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import { clientIpFromRequest } from "@/lib/server/abuseLog";
 import {
   fillBestEquipmentBuyOrder,
+  prepareEquipmentBuyOrderSaleScope,
   recordEquipmentBuyOrderSale,
+  requireEquipmentBuyOrderSaleParticipants,
 } from "@/lib/server/equipmentBuyOrderSale";
+import {
+  TradeSuspendedError,
+  tradeSuspendedResponse,
+} from "@/lib/server/tradeSuspension";
 
 const BATCH_MAX = 10;
 type CharSave = { adventureSupport?: unknown; [key: string]: unknown };
@@ -54,6 +60,31 @@ export async function POST(req: Request) {
   const now = new Date();
 
   const result = await db.transaction(async (tx) => {
+    const probeEquipment = parseEquipmentSave(
+      await readSave<Record<string, unknown>>(tx, sellerId, "equipment.v2", {}),
+    );
+    const probeOwnedByIid = new Map(
+      probeEquipment.owned.map((instance) => [instance.iid, instance]),
+    );
+    const probeEquippedIids = new Set(Object.values(probeEquipment.equipped));
+    const probedInstances = iids
+      .slice()
+      .sort()
+      .flatMap((iid) => {
+        const instance = probeOwnedByIid.get(iid);
+        return instance &&
+          !marketplaceEquipListError(instance, probeEquippedIids.has(iid))
+          ? [instance]
+          : [];
+      });
+    const probedIids = new Set(probedInstances.map((instance) => instance.iid));
+    const saleScope = await prepareEquipmentBuyOrderSaleScope(tx, {
+      sellerId,
+      instances: probedInstances,
+      now,
+    });
+    requireEquipmentBuyOrderSaleParticipants(saleScope, [sellerId]);
+
     const sellerCharacter = await lockSaveForUpdate<CharSave>(
       tx,
       sellerId,
@@ -70,7 +101,7 @@ export async function POST(req: Request) {
     const ownedByIid = new Map(owned.map((instance) => [instance.iid, instance]));
     const equippedIids = new Set(Object.values(equipped));
     const taxRate = marketplaceTaxRateForAdventureSupport(
-      adventureSupportActive(sellerCharacter.adventureSupport),
+      adventureSupportTier(sellerCharacter.adventureSupport),
     );
     const audits = [];
     const skipped: Array<{ iid: string; error: string }> = [];
@@ -78,7 +109,7 @@ export async function POST(req: Request) {
     // 요청 배열 순서에 기대지 않도록 서버에서 고정 정렬한다.
     for (const iid of iids.slice().sort()) {
       const instance = ownedByIid.get(iid);
-      if (!instance) {
+      if (!instance || !probedIids.has(iid)) {
         skipped.push({ iid, error: "not_owned" });
         continue;
       }
@@ -95,6 +126,7 @@ export async function POST(req: Request) {
         instance,
         taxRate,
         now,
+        preparedScope: saleScope,
       });
       if (!audit) {
         skipped.push({ iid, error: "no_matching_order" });
@@ -126,7 +158,11 @@ export async function POST(req: Request) {
         proceedsGold: audits.reduce((sum, audit) => sum + audit.proceeds, 0),
       },
     };
+  }).catch((error) => {
+    if (error instanceof TradeSuspendedError) return tradeSuspendedResponse(error);
+    throw error;
   });
+  if (result instanceof Response) return result;
 
   const audits =
     "audits" in result && Array.isArray(result.audits) ? result.audits : [];

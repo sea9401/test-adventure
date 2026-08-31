@@ -8,10 +8,21 @@ import {
   frontierOnsetSoften,
   floorCritHpComp,
   floorAccuracy,
-  underpreparedCombatMult,
+  fixedFrontierAccuracyMult,
+  fixedFrontierAttackMult,
+  fixedFrontierDefenseMult,
+  fixedFrontierDurabilityMult,
+  fixedFrontierEvasionBonus,
+  lateAccuracyMult,
+  lateAttackMult,
+  lateDefenseMult,
+  lateDurabilityMult,
+  lateEvasionBonus,
+  lateStatusDamageReductionBonus,
 } from "./dungeonLadder";
 
-// 던전 깊이(depth)의 사다리 배율로 Monster 의 hp/atk/def/exp 만 곱한다.
+// 던전 깊이(depth)의 사다리 배율로 Monster 의 hp/atk/def/magicDef/exp/accuracy/evasion/
+// statusDamageReductionPct 를 조정한다.
 // skill/phaseTrigger/drops/태그 등은 그대로 — 동작 단순화 + 베이스 곡선 의존.
 // 결과는 새 객체 — 호출자가 mutate 해도 베이스 MONSTERS 안 깨짐.
 //
@@ -24,47 +35,67 @@ export function scaleMonsterForFloor(
   // 엔드게임 완화 적용 여부. 솔로 던전 사냥=true(기본). 협동 보스는 sharedMaxHp+anchorDepth 로
   //   난이도를 따로 튜닝하므로 false(앵커 깊이 24·42 가 완화 임계 위라 atk 가 의도치 않게 약화되는 것 방지).
   softenEndgame: boolean = true,
-  // 솔로 일반 사냥에서만 전달하는 표시 전투력. 권장치 미달 사냥터 우회 페널티에 사용한다.
-  playerPower?: number,
 ): Monster {
-  // 엔드게임·프론티어 진입·43+ 확장 완화 — hp+atk(sMult)에만 곱(def/exp/권장파워는 무관).
-  // floor 빌드 생존성 + 들판→프론티어(d7~11)·엔드 확장(d43+) 경계 절벽을 각각 완화한다.
-  const underpreparedMult = underpreparedCombatMult(depth, playerPower);
-  const sMult =
+  // 엔드게임·프론티어 진입·43+ 확장 완화는 기본 HP/ATK 성장에 적용하고, 그 뒤 상위 난도를
+  // 내구·공격·방어·명중·회피 축으로 분산한다. 권장 전투력은 표시용이며 몬스터 능력치를 바꾸지 않는다.
+  const baseCombatMult =
     floorStatMult(depth) *
-    underpreparedMult *
     (softenEndgame
       ? endgameSoften(depth) *
         frontierOnsetSoften(depth) *
         endExtensionCombatSoften(depth)
       : 1);
-  const dMult = floorDefMult(depth);
+  const hpMult =
+    baseCombatMult *
+    (softenEndgame ? fixedFrontierDurabilityMult(depth) : 1) *
+    (softenEndgame ? lateDurabilityMult(depth) : 1);
+  const atkMult =
+    baseCombatMult *
+    (softenEndgame ? fixedFrontierAttackMult(depth) : 1) *
+    (softenEndgame ? lateAttackMult(depth) : 1);
+  const dMult =
+    floorDefMult(depth) *
+    (softenEndgame ? fixedFrontierDefenseMult(depth) : 1) *
+    (softenEndgame ? lateDefenseMult(depth) : 1);
   const eMult = floorExpMult(depth);
   // 크리 HP 상쇄 — HP 에만(atk/def/exp 무관). 크리 점감 곡선의 엔드 딜 손실 보전. coop(softenEndgame=false) 제외.
   const hpComp = softenEndgame ? floorCritHpComp(depth) : 1;
-  const hp = Math.max(1, Math.round(monster.hp * sMult * hpComp));
-  const atk = Math.max(1, Math.round(monster.atk * sMult));
+  const hp = Math.max(1, Math.round(monster.hp * hpMult * hpComp));
+  const atk = Math.max(1, Math.round(monster.atk * atkMult));
   const def = Math.max(0, Math.round(monster.def * dMult));
   const magicDef =
     monster.magicDef == null
       ? undefined
       : Math.max(0, Math.round(monster.magicDef * dMult));
   const exp = Math.max(0, Math.round(monster.exp * eMult));
-  // 회피 대결형(Slice 1) — 몹 명중레이팅 = 기본 + floorAccuracy(depth). enemyPhase 가 플레이어 회피
-  //   대결에 씀. coop(softenEndgame=false)도 적용. ⚠️ 라운드 금지 — 들판(d1~6) floorAccuracy 0.3~0.39 가
-  //   Math.round 로 0 이 되면 대결 퇴화(75% 공짜 회피). floorAccuracy 는 depth≥1 항상 >0 → accuracy 항상 가산.
-  // 회피·치명 축은 표시 전투력에 직접 반영되지 않는다. 전투력 미달을 이유로 명중까지 올리면
-  // 회피 빌드가 낮은 전투력 판정과 회피 상실을 동시에 받으므로, 몬스터 명중은 깊이만 따른다.
+  // 몬스터 적중도 = 고유 적중도 + floorAccuracy(depth). 플레이어 회피 경감과 대결한다.
+  // 소수값도 의미가 있으므로 반올림하지 않는다. 회피도·적중도는 플레이어 표시 전투력에도 반영된다.
+  // 같은 깊이의 몬스터 능력치는 플레이어 표시 전투력과 관계없이 항상 같다.
   const accuracy =
-    (monster.accuracy ?? 0) +
-    floorAccuracy(depth);
+    ((monster.accuracy ?? 0) + floorAccuracy(depth)) *
+    (softenEndgame ? fixedFrontierAccuracyMult(depth) : 1) *
+    (softenEndgame ? lateAccuracyMult(depth) : 1);
+  const evasionPct =
+    (monster.evasionPct ?? 0) +
+    (softenEndgame ? fixedFrontierEvasionBonus(depth) : 0) +
+    (softenEndgame ? lateEvasionBonus(depth) : 0);
+  const statusDamageReductionPct = Math.min(
+    80,
+    Math.max(
+      0,
+      (monster.statusDamageReductionPct ?? 0) +
+        (softenEndgame ? lateStatusDamageReductionBonus(depth) : 0),
+    ),
+  );
   if (
     hp === monster.hp &&
     atk === monster.atk &&
     def === monster.def &&
     magicDef === monster.magicDef &&
     exp === monster.exp &&
-    accuracy === (monster.accuracy ?? 0)
+    accuracy === (monster.accuracy ?? 0) &&
+    evasionPct === (monster.evasionPct ?? 0) &&
+    statusDamageReductionPct === (monster.statusDamageReductionPct ?? 0)
   ) {
     return monster;
   }
@@ -76,5 +107,42 @@ export function scaleMonsterForFloor(
     ...(magicDef != null ? { magicDef } : {}),
     exp,
     accuracy,
+    ...(evasionPct > 0 ? { evasionPct } : {}),
+    ...(statusDamageReductionPct > 0 ? { statusDamageReductionPct } : {}),
   };
+}
+
+/**
+ * 일반 사냥터 전용 스케일.
+ *
+ * 상태이상 피해 감소는 협동 보스·원정 등 특수 전투의 대응 능력치로만 사용한다.
+ * 사냥터 몬스터의 베이스 저항과 깊이 보너스를 모두 제거해 중독·출혈 피해가
+ * 일반 몬스터에게 원래 수치대로 적용되도록 한다.
+ * 61층 이후에는 깊이 기본 적중도와 몬스터 고유 적중도가 중복해 생존축을 누르지 않도록
+ * 고유분의 25%만 반영하고, 산출된 최종 적중도를 추가로 10% 완화한다.
+ * 깊이 기본 성장과 몬스터별 차이는 그대로 유지한다.
+ */
+export const HUNT_HIGH_DEPTH_ACCURACY_START = 61;
+export const HUNT_HIGH_DEPTH_AUTHORED_ACCURACY_WEIGHT = 0.25;
+export const HUNT_HIGH_DEPTH_ACCURACY_MULT = 0.9;
+
+export function scaleMonsterForHunt(monster: Monster, depth: number): Monster {
+  const scaled = scaleMonsterForFloor(monster, depth, true);
+  const authoredAccuracy = Math.max(0, monster.accuracy ?? 0);
+  const softenHighDepthAccuracy = depth >= HUNT_HIGH_DEPTH_ACCURACY_START;
+  if (!softenHighDepthAccuracy && scaled.statusDamageReductionPct == null) {
+    return scaled;
+  }
+
+  const huntMonster = { ...scaled };
+  if (softenHighDepthAccuracy) {
+    huntMonster.accuracy =
+      (floorAccuracy(depth) +
+        authoredAccuracy * HUNT_HIGH_DEPTH_AUTHORED_ACCURACY_WEIGHT) *
+      fixedFrontierAccuracyMult(depth) *
+      lateAccuracyMult(depth) *
+      HUNT_HIGH_DEPTH_ACCURACY_MULT;
+  }
+  delete huntMonster.statusDamageReductionPct;
+  return huntMonster;
 }

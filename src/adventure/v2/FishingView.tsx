@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   FISH_TIERS,
   formatFishSize,
@@ -20,12 +20,16 @@ import { FishingSubTabs } from "@/adventure/v2/FishingSubTabs";
 import { FishIcon } from "@/adventure/v2/FishIcon";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { FishingCatchItemIcon } from "@/adventure/v2/FishingCatchItemIcon";
+import { FishingDailyCatchChecklist } from "@/adventure/v2/FishingDailyCatchChecklist";
 import {
+  fishingCatchItemChancePct,
   isFishingCatchItemId,
+  type FishingCatchItemDailyProgress,
 } from "@/adventure/v2/fishingStock";
 import {
   FISHING_LURES,
   FISHING_RODS,
+  formatFishingBonusPercent,
   fishingSizeBonusLabels,
   type FishingProgressionView,
 } from "@/adventure/v2/fishingProgression";
@@ -45,6 +49,7 @@ import type { AutoGatheringActivity } from "./autoGathering";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 import { fishingRewardSummaryLabels } from "./fishingRewardSummary";
 import { LifeFieldEnvironmentCard } from "./LifeFieldPanels";
+import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
 //
@@ -87,12 +92,7 @@ export type ReelOutcome =
         dailyCap: number;
       };
       catchItemStatus?: "awarded" | "roll_miss" | "daily_cap";
-      catchItemDaily?: {
-        itemId: string;
-        name: string;
-        awarded: number;
-        cap: number;
-      };
+      catchItemDaily?: FishingCatchItemDailyProgress;
       /** 오늘 챔질로 획득한 낚시 코인 진행도. */
       dailyCatchCoins?: FishingDailyCatchCoins;
       /** 낚시 레벨 상승으로 받은 별도 낚시 코인 보상. */
@@ -139,6 +139,7 @@ export type FishingHandlers = {
   cast: () => Promise<CastOutcome>;
   reel: (castId: string, reactionMs: number) => Promise<ReelOutcome>;
   dailyCatchCoins?: FishingDailyCatchCoins | null;
+  dailyCatchItems?: FishingCatchItemDailyProgress[] | null;
   progression?: FishingProgressionView | null;
   progressionLoading?: boolean;
   challengeBadgeCount?: number;
@@ -155,6 +156,15 @@ export type FishingPhase =
   | "biting"
   | "resolving"
   | "result";
+
+export function isFishingActivePhase(phase: FishingPhase): boolean {
+  return (
+    phase === "casting" ||
+    phase === "waiting" ||
+    phase === "biting" ||
+    phase === "resolving"
+  );
+}
 
 export function fishingTapAction(
   phase: FishingPhase,
@@ -207,69 +217,79 @@ function FishingStatusStrip({
   fishingSpot?: FishingSpot;
 }) {
   return (
-    <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-2.5 py-2 text-xs text-zinc-700 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-zinc-200">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <div className="w-full min-w-0 sm:w-auto sm:flex-1">
-          <MulttaeBadge compact />
+    <details className={`${SURFACE_INSET} group text-xs text-zinc-700 dark:text-zinc-200`}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 [&::-webkit-details-marker]:hidden">
+        <span className="font-semibold">낚시 정보</span>
+        <span className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">
+          <span className="group-open:hidden">펼치기</span>
+          <span className="hidden group-open:inline">접기</span>
+        </span>
+      </summary>
+      <div className="border-t border-zinc-200 px-2.5 py-2 dark:border-zinc-700">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="w-full min-w-0 sm:w-auto sm:flex-1">
+            <MulttaeBadge compact />
+          </div>
+          {fishingSpot && (
+            <span className="shrink-0 rounded border border-sky-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:border-sky-800 dark:bg-sky-900 dark:text-sky-200">
+              {FISHING_SPOT_DIFFICULTY_LABEL[fishingSpot.difficulty]}
+            </span>
+          )}
+          {dailyCatchCoins && (
+            <span className="shrink-0 font-medium tabular-nums text-amber-700 dark:text-amber-300">
+              코인 {dailyCatchCoins.earned.toLocaleString()}/
+              {dailyCatchCoins.cap.toLocaleString()}
+            </span>
+          )}
+          {sessionCount > 0 && (
+            <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
+              이번 판{" "}
+              <b className="text-zinc-700 dark:text-zinc-200">{sessionCount}</b>
+              마리
+              {sessionBest > 0 && (
+                <>
+                  {" "}
+                  · 최대{" "}
+                  <b className="text-zinc-700 dark:text-zinc-200">
+                    {formatFishSize(sessionBest)}
+                  </b>
+                </>
+              )}
+              {streak > 1 && (
+                <b className="ml-1 text-amber-600 dark:text-amber-400">
+                  연속 {streak}
+                </b>
+              )}
+            </span>
+          )}
         </div>
         {fishingSpot && (
-          <span className="shrink-0 rounded border border-sky-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:border-sky-800 dark:bg-sky-900 dark:text-sky-200">
-            {FISHING_SPOT_DIFFICULTY_LABEL[fishingSpot.difficulty]}
-          </span>
+          <div className="mt-0.5 truncate text-[10px] text-sky-700 dark:text-sky-300">
+            {fishingSpot.description}
+          </div>
         )}
         {dailyCatchCoins && (
-          <span className="shrink-0 font-medium tabular-nums text-amber-700 dark:text-amber-300">
-            코인 {dailyCatchCoins.earned.toLocaleString()}/
-            {dailyCatchCoins.cap.toLocaleString()}
-          </span>
-        )}
-        {sessionCount > 0 && (
-          <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
-            이번 판{" "}
-            <b className="text-zinc-700 dark:text-zinc-200">{sessionCount}</b>마리
-            {sessionBest > 0 && (
-              <>
-                {" "}
-                · 최대{" "}
-                <b className="text-zinc-700 dark:text-zinc-200">
-                  {formatFishSize(sessionBest)}
-                </b>
-              </>
-            )}
-            {streak > 1 && (
-              <b className="ml-1 text-amber-600 dark:text-amber-400">
-                연속 {streak}
-              </b>
-            )}
-          </span>
+          <>
+            <div className="mt-1 flex items-center justify-between gap-3 text-[10px] text-amber-800/80 dark:text-amber-100/80">
+              <span>
+                {dailyCoinRemaining === 0
+                  ? "일일 획득 제한 도달"
+                  : dailyCoinRemaining == null
+                    ? "일일 획득 제한 확인 중"
+                    : `남은 ${dailyCoinRemaining.toLocaleString()} 코인`}
+              </span>
+              <span className="hidden sm:inline">제한 초과분 미지급</span>
+            </div>
+            <div className="mt-1 h-1 overflow-hidden rounded-full bg-amber-200/60 dark:bg-amber-950">
+              <div
+                className="h-full rounded-full bg-amber-500 transition-[width]"
+                style={{ width: `${dailyCoinPct}%` }}
+              />
+            </div>
+          </>
         )}
       </div>
-      {fishingSpot && (
-        <div className="mt-0.5 truncate text-[10px] text-sky-700 dark:text-sky-300">
-          {fishingSpot.description}
-        </div>
-      )}
-      {dailyCatchCoins && (
-        <>
-          <div className="mt-1 flex items-center justify-between gap-3 text-[10px] text-amber-800/80 dark:text-amber-100/80">
-            <span>
-              {dailyCoinRemaining === 0
-                ? "일일 획득 제한 도달"
-                : dailyCoinRemaining == null
-                  ? "일일 획득 제한 확인 중"
-                  : `남은 ${dailyCoinRemaining.toLocaleString()} 코인`}
-            </span>
-            <span className="hidden sm:inline">제한 초과분 미지급</span>
-          </div>
-          <div className="mt-1 h-1 overflow-hidden rounded-full bg-amber-200/60 dark:bg-amber-950">
-            <div
-              className="h-full rounded-full bg-amber-500 transition-[width]"
-              style={{ width: `${dailyCoinPct}%` }}
-            />
-          </div>
-        </>
-      )}
-    </div>
+    </details>
   );
 }
 
@@ -1369,7 +1389,10 @@ const TIER_REVEAL: Record<FishTier, { iconCls: string; glow: boolean }> = {
 function levelBonusLabels(progression: FishingProgressionView): string[] {
   const bonuses = progression.levelBonuses;
   const labels = fishingSizeBonusLabels(bonuses);
-  labels.push(`특별 손님 +${bonuses.specialWeightPct}%`);
+  labels.push(
+    `특별 손님 +${formatFishingBonusPercent(bonuses.specialWeightPct)}%`,
+    `어획물 획득 ${fishingCatchItemChancePct(progression.level)}%`,
+  );
   return labels;
 }
 
@@ -1447,12 +1470,15 @@ export function FishingView({
   cast,
   reel,
   dailyCatchCoins,
+  dailyCatchItems,
   onBack,
   onOpenLeaderboard,
+  onOpenDangerous,
   onOpenShop,
   onOpenChallenges,
   onOpenHallOfFame,
   onOpenCoopSession,
+  onFishingActiveChange,
   progression,
   progressionLoading,
   challengeBadgeCount,
@@ -1463,10 +1489,12 @@ export function FishingView({
 }: FishingHandlers & {
   onBack?: () => void;
   onOpenLeaderboard?: () => void;
+  onOpenDangerous?: () => void;
   onOpenShop?: () => void;
   onOpenChallenges?: () => void;
   onOpenHallOfFame?: () => void;
   onOpenCoopSession?: (sessionId: string) => void;
+  onFishingActiveChange?: (active: boolean) => void;
 }) {
   const [phase, setPhase] = useState<FishingPhase>("idle");
   const [result, setResult] = useState<ReelOutcome | null>(null);
@@ -1518,6 +1546,17 @@ export function FishingView({
       clearTimers();
     };
   }, [clearTimers]);
+
+  useEffect(() => {
+    onFishingActiveChange?.(isFishingActivePhase(phase));
+  }, [onFishingActiveChange, phase]);
+
+  useEffect(
+    () => () => {
+      onFishingActiveChange?.(false);
+    },
+    [onFishingActiveChange],
+  );
 
   const resolveReel = useCallback(
     async (reactionMs: number) => {
@@ -1669,6 +1708,12 @@ export function FishingView({
         <SubViewHeader title={fishingSpot?.name ?? "낚시터"} onBack={onBack} />
 
         <ProductionJobAdvanceNotice refreshKey={progression?.catches ?? 0} />
+        {progression ? (
+          <LifeLevelMilestoneNotice
+            activity="fishing"
+            level={progression.level}
+          />
+        ) : null}
 
         {fishingSpot ? (
           <LifeFieldEnvironmentCard
@@ -1687,6 +1732,7 @@ export function FishingView({
         <FishingSubTabs
           active="fishing"
           challengeBadgeCount={challengeBadgeCount}
+          onOpenDangerous={onOpenDangerous}
           onOpenChallenges={onOpenChallenges}
           onOpenLeaderboard={onOpenLeaderboard}
           onOpenHallOfFame={onOpenHallOfFame}
@@ -1703,18 +1749,22 @@ export function FishingView({
           fishingSpot={fishingSpot}
         />
 
+        {dailyCatchItems && dailyCatchItems.length > 0 ? (
+          <FishingDailyCatchChecklist items={dailyCatchItems} />
+        ) : null}
+
         {progression ? (
           <>
             <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-2.5 py-1.5 text-[11px] dark:border-sky-900/60 dark:bg-sky-950/30 sm:hidden">
               <div className="flex items-center gap-2">
                 <span className="shrink-0 font-bold text-sky-900 dark:text-sky-100">
-                  Lv {progression.level}
+                  Lv {progression.level} / 100
                 </span>
                 <div className="h-1 flex-1 overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900">
                   <div
                     className="h-full rounded-full bg-sky-500 transition-[width]"
                     style={{
-                      width: `${Math.round(
+                      width: `${progression.xpForNext <= 0 ? 100 : Math.round(
                         (progression.xpIntoLevel / progression.xpForNext) * 100,
                       )}%`,
                     }}
@@ -1733,11 +1783,13 @@ export function FishingView({
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-sm font-bold text-sky-900 dark:text-sky-100">
-                    낚시 Lv {progression.level}
+                    낚시 Lv {progression.level} / 100
                   </div>
                   <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
                     {progression.catches.toLocaleString()}마리 ·{" "}
-                    {progression.xpIntoLevel}/{progression.xpForNext} XP
+                    {progression.xpForNext <= 0
+                      ? "최종 숙련 달성 · MAX"
+                      : `${progression.xpIntoLevel}/${progression.xpForNext} XP`}
                   </div>
                 </div>
                 <div className="min-w-0 text-right text-[11px] text-zinc-600 dark:text-zinc-300">
@@ -1753,7 +1805,7 @@ export function FishingView({
                 <div
                   className="h-full rounded-full bg-sky-500 transition-[width]"
                   style={{
-                    width: `${Math.round(
+                    width: `${progression.xpForNext <= 0 ? 100 : Math.round(
                       (progression.xpIntoLevel / progression.xpForNext) * 100,
                     )}%`,
                   }}
@@ -1866,12 +1918,6 @@ export function FishingView({
                 어보 {result.codexCount}/{FISH_TOTAL}종
               </div>
               <CatchRewardSummary result={result} />
-              {result.streak && result.streak.buffTier > 0 && (
-                <div className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                  연속 {result.streak.current} 버프 · 코인 +
-                  {result.streak.coinBonus}
-                </div>
-              )}
               {result.coopBoss && (
                 <div className="mt-3 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-left dark:border-rose-800 dark:bg-rose-950/30">
                   <div className="text-sm font-semibold text-rose-800 dark:text-rose-200">

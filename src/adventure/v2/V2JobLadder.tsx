@@ -24,8 +24,11 @@ import {
   jobCardTags,
   jobCultivationSummary,
   matchesJobExplorerFilters,
+  resolveJobAdvanceAction,
   toggleJobTagFilter,
 } from "./jobExplorer";
+import type { Tier7AdvancementStatus } from "@/adventure/data/v2/tier7Advancement";
+import { Tier7FirstUnlockNotice } from "./Tier7AdvancementRequirements";
 
 // 직업 시스템 v2 전직 화면(직업 숙련도 점진 공개).
 // 조건이 공개된 직업을 검색/태그/목표로 탐색하고, 해금된 직업과 조건 부족 직업을 현재 캐릭터 기준으로 나눈다.
@@ -56,13 +59,68 @@ export type JobLadderEntry = {
   }>;
   // 그 직업의 시그니처 스킬을 전부 배웠는가(직업 도감과 동일 기준) — "수집 완료" 배지용.
   skillsCollected?: boolean;
+  tier7Advancement?: Tier7AdvancementStatus;
 };
 
-type Pending = { id: string; name: string; current: boolean };
+type Pending = {
+  id: string;
+  name: string;
+  current: boolean;
+  tier7Advancement?: Tier7AdvancementStatus;
+};
+
+export function advanceClassErrorLabel(
+  payload: { error?: string; required?: number } | null,
+  status: number,
+): string {
+  if (payload?.error === "level_too_low") {
+    return `전투 Lv ${payload.required ?? V2_LEVEL_CAP} 도달 후 전직할 수 있어요`;
+  }
+  if (payload?.error === "tier7_prerequisite_proficiency") {
+    return "두 선행 6차 숙련도가 각각 100,000 필요해요";
+  }
+  if (payload?.error === "tier7_current_job") {
+    return "선행 6차 직업으로 Lv.100을 달성한 뒤 전직할 수 있어요";
+  }
+  if (payload?.error === "tier7_material_shortage") {
+    return `폭풍 기원의 파편 ${payload.required ?? 30}개가 필요해요`;
+  }
+  if (payload?.error === "job_locked") return "아직 해금되지 않은 직업이에요";
+  if (payload?.error === "bad_target") return "선택할 수 없는 직업이에요";
+  return payload?.error ?? `http ${status}`;
+}
+
+export type LifeResourceRejobPayload = {
+  maxHp?: unknown;
+  maxMp?: unknown;
+  hpPerLevel?: { min?: unknown; max?: unknown };
+  mpPerLevel?: { min?: unknown; max?: unknown };
+};
+
+export function formatLifeResourceRejobMessage(
+  baseMessage: string,
+  payload: LifeResourceRejobPayload | null | undefined,
+): string {
+  const values = [
+    payload?.maxHp,
+    payload?.maxMp,
+    payload?.hpPerLevel?.min,
+    payload?.hpPerLevel?.max,
+    payload?.mpPerLevel?.min,
+    payload?.mpPerLevel?.max,
+  ];
+  if (!values.every((value) => typeof value === "number" && Number.isFinite(value))) {
+    return baseMessage;
+  }
+  const [maxHp, maxMp, hpMin, hpMax, mpMin, mpMax] = values as number[];
+  return `${baseMessage} · 새 생애 HP ${maxHp} / MP ${maxMp} · 레벨업 HP +${hpMin}~${hpMax}, MP +${mpMin}~${mpMax}`;
+}
 
 export function V2JobLadder({
+  level,
   currentJobId,
   atLevelCap,
+  revisitExpedited,
   rejobRequiredLevel,
   jobs,
   onChanged,
@@ -72,6 +130,8 @@ export function V2JobLadder({
   currentJobName: string;
   currentJobId: string;
   atLevelCap: boolean;
+  /** 과거에 수련한 현 직업에서 다른 직업으로 즉시 빠져나갈 수 있는 상태. */
+  revisitExpedited: boolean;
   /** 현재 직업에서 다른 직업으로 전직할 때 필요한 캐릭터 레벨. 생산직은 1(제한 없음). */
   rejobRequiredLevel: number;
   jobs: JobLadderEntry[];
@@ -130,9 +190,26 @@ export function V2JobLadder({
   );
   const isFiltering = query.trim().length > 0 || activeTags.size > 0;
   const hasNoCharacterLevelRequirement = rejobRequiredLevel <= 1;
+  // 재방문 패스는 다른 직업으로 이동할 때만 적용한다. 같은 직업을 반복 초기화해
+  // 환생 기록 등을 우회하지 못하도록 현재 직업 재전직은 원래 레벨 조건을 요구한다.
+  const currentJobSelectable = revisitExpedited
+    ? level >= rejobRequiredLevel
+    : atLevelCap;
 
   function toggleTag(key: string) {
     setActiveTags((prev) => toggleJobTagFilter(prev, key));
+  }
+
+  function pickJob(
+    job: Pick<JobLadderEntry, "id" | "name" | "tier7Advancement">,
+  ) {
+    setMsg(null);
+    setPending({
+      id: job.id,
+      name: job.name,
+      current: job.id === currentJobId,
+      tier7Advancement: job.tier7Advancement,
+    });
   }
 
   async function confirmReJob() {
@@ -149,25 +226,20 @@ export function V2JobLadder({
         ok?: boolean;
         error?: string;
         required?: number;
+        lifeResources?: LifeResourceRejobPayload;
       } | null;
       if (!j?.ok) {
-        const label =
-          j?.error === "level_too_low"
-            ? `전투 Lv ${j.required ?? V2_LEVEL_CAP} 도달 후 전직할 수 있어요`
-            : j?.error === "job_locked"
-              ? "아직 해금되지 않은 직업이에요"
-              : j?.error === "bad_target"
-                ? "선택할 수 없는 직업이에요"
-                : (j?.error ?? `http ${res.status}`);
+        const label = advanceClassErrorLabel(j, res.status);
         setMsg(`✗ ${label}`);
         return;
       }
-      setMsg(
+      const baseMessage =
         pending.current
           ? `✓ ${pending.name} 재전직 완료. 레벨 1로 돌아왔어요`
-          : `✓ ${pending.name}(으)로 전직 완료. 레벨 1로 돌아왔어요`,
-      );
+          : `✓ ${pending.name}(으)로 전직 완료. 레벨 1로 돌아왔어요`;
+      setMsg(formatLifeResourceRejobMessage(baseMessage, j.lifeResources));
       setPending(null);
+      setRoadmapOpen(false);
       await onChanged();
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
@@ -178,7 +250,12 @@ export function V2JobLadder({
 
   return (
     <div className="space-y-3">
-      {hasNoCharacterLevelRequirement ? (
+      {revisitExpedited ? (
+        <StatusBanner tone="info">
+          <strong>이전에 수련한 직업이라 전직 레벨 제한이 없어요.</strong>{" "}
+          놓친 스킬을 배운 뒤 바로 다른 직업으로 이동할 수 있습니다.
+        </StatusBanner>
+      ) : hasNoCharacterLevelRequirement ? (
         <StatusBanner tone="info">
           <strong>생산직 전직에는 캐릭터 레벨 제한이 없어요.</strong>{" "}
           생산직 계보는 아래에 표시된 생활 숙련 조건만 충족하면 바로 전직할 수
@@ -263,30 +340,20 @@ export function V2JobLadder({
               jobs={goalJobs}
               currentJobId={currentJobId}
               atLevelCap={atLevelCap}
+              currentJobSelectable={currentJobSelectable}
               goalJobId={goalJobId}
               onSetGoal={setGoal}
-              onPick={(job) =>
-                setPending({
-                  id: job.id,
-                  name: job.name,
-                  current: job.id === currentJobId,
-                })
-              }
+              onPick={pickJob}
             />
             <JobSection
               title="현재 직업"
               jobs={currentJobs}
               currentJobId={currentJobId}
               atLevelCap={atLevelCap}
+              currentJobSelectable={currentJobSelectable}
               goalJobId={goalJobId}
               onSetGoal={setGoal}
-              onPick={(job) =>
-                setPending({
-                  id: job.id,
-                  name: job.name,
-                  current: job.id === currentJobId,
-                })
-              }
+              onPick={pickJob}
             />
             <JobSection
               title={atLevelCap ? "전직 가능" : "해금됨"}
@@ -296,15 +363,10 @@ export function V2JobLadder({
               useGrid
               currentJobId={currentJobId}
               atLevelCap={atLevelCap}
+              currentJobSelectable={currentJobSelectable}
               goalJobId={goalJobId}
               onSetGoal={setGoal}
-              onPick={(job) =>
-                setPending({
-                  id: job.id,
-                  name: job.name,
-                  current: job.id === currentJobId,
-                })
-              }
+              onPick={pickJob}
             />
             <JobSection
               title="조건 부족"
@@ -314,15 +376,10 @@ export function V2JobLadder({
               useGrid
               currentJobId={currentJobId}
               atLevelCap={atLevelCap}
+              currentJobSelectable={currentJobSelectable}
               goalJobId={goalJobId}
               onSetGoal={setGoal}
-              onPick={(job) =>
-                setPending({
-                  id: job.id,
-                  name: job.name,
-                  current: job.id === currentJobId,
-                })
-              }
+              onPick={pickJob}
             />
           </div>
         )}
@@ -339,7 +396,7 @@ export function V2JobLadder({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[160] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
         >
           <div className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900">
             <h2 className="text-lg font-semibold text-zinc-800 dark:text-zinc-100">
@@ -347,11 +404,17 @@ export function V2JobLadder({
                 ? `${pending.name} 재전직`
                 : `${pending.name}(으)로 전직`}
             </h2>
-            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-              {pending.current
-                ? "같은 직업으로 재전직해요. 레벨이 1로 돌아가고 스탯이 다시 자라기 시작하지만, 숙련도와 성장 한계치는 그대로 유지됩니다."
-                : "전직하면 레벨이 1로 돌아가고 스탯이 다시 자라기 시작해요. 숙련도와 성장 한계치는 그대로 유지됩니다."}
-            </p>
+            {pending.tier7Advancement &&
+            !pending.tier7Advancement.permanentlyUnlocked &&
+            pending.tier7Advancement.firstUnlockReady ? (
+              <Tier7FirstUnlockNotice status={pending.tier7Advancement} />
+            ) : (
+              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                {pending.current
+                  ? "같은 직업으로 재전직해요. 레벨이 1로 돌아가고 스탯이 다시 자라기 시작하지만, 숙련도와 성장 한계치는 그대로 유지됩니다."
+                  : "전직하면 레벨이 1로 돌아가고 스탯이 다시 자라기 시작해요. 숙련도와 성장 한계치는 그대로 유지됩니다."}
+              </p>
+            )}
             <div className="mt-5 flex gap-2">
               <button
                 type="button"
@@ -385,7 +448,10 @@ export function V2JobLadder({
           jobs={jobs}
           currentJobId={currentJobId}
           goalJobId={goalJobId}
+          atLevelCap={atLevelCap}
+          currentJobSelectable={currentJobSelectable}
           onSetGoal={setGoal}
+          onPickJob={pickJob}
           onClose={closeRoadmap}
         />
       ) : null}
@@ -398,6 +464,7 @@ function JobSection({
   jobs,
   currentJobId,
   atLevelCap,
+  currentJobSelectable,
   goalJobId,
   onSetGoal,
   onPick,
@@ -410,6 +477,7 @@ function JobSection({
   jobs: JobLadderEntry[];
   currentJobId: string;
   atLevelCap: boolean;
+  currentJobSelectable: boolean;
   goalJobId: string | null;
   onSetGoal: (jobId: string | null) => void;
   onPick: (job: JobLadderEntry) => void;
@@ -478,6 +546,7 @@ function JobSection({
               isCurrent={job.id === currentJobId}
               isGoal={job.id === goalJobId}
               atLevelCap={atLevelCap}
+              currentJobSelectable={currentJobSelectable}
               currentJobId={currentJobId}
               onSetGoal={() => onSetGoal(job.id === goalJobId ? null : job.id)}
               onPick={() => onPick(job)}
@@ -516,6 +585,7 @@ function JobRow({
   isCurrent,
   isGoal,
   atLevelCap,
+  currentJobSelectable,
   currentJobId,
   onSetGoal,
   onPick,
@@ -524,6 +594,7 @@ function JobRow({
   isCurrent: boolean;
   isGoal: boolean;
   atLevelCap: boolean;
+  currentJobSelectable: boolean;
   currentJobId: string;
   onSetGoal: () => void;
   onPick: () => void;
@@ -531,6 +602,12 @@ function JobRow({
   const unlocked = job.unlocked !== false;
   const tags = jobCardTags(job, { currentJobId }).slice(0, 4);
   const cultivation = jobCultivationSummary(job.id);
+  const advanceAction = resolveJobAdvanceAction({
+    job,
+    currentJobId,
+    atLevelCap,
+    currentJobSelectable,
+  });
   return (
     <li
       aria-current={isCurrent ? "true" : undefined}
@@ -579,8 +656,16 @@ function JobRow({
           </span>
         )}
         {cultivation && (
-          <span className="text-[11px] font-medium text-violet-700 dark:text-violet-300">
-            수행 스탯 · {cultivation}
+          <span
+            className={`text-[11px] font-medium ${
+              cultivation === "생활직은 수행할 수 없음"
+                ? "text-amber-700 dark:text-amber-300"
+                : "text-violet-700 dark:text-violet-300"
+            }`}
+          >
+            {cultivation === "생활직은 수행할 수 없음"
+              ? cultivation
+              : `수행 스탯 · ${cultivation}`}
           </span>
         )}
         {job.conditionRevealed !== false && (
@@ -607,10 +692,11 @@ function JobRow({
         <button
           type="button"
           onClick={onPick}
-          disabled={!atLevelCap || !unlocked}
+          disabled={!advanceAction.enabled}
+          aria-label={advanceAction.ariaLabel}
           className="rounded-md border border-emerald-600 px-2.5 py-1 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:text-zinc-400 disabled:hover:bg-transparent dark:text-emerald-400 dark:hover:bg-emerald-950 dark:disabled:border-zinc-700 dark:disabled:text-zinc-600"
         >
-          {!unlocked ? "조건 부족" : isCurrent ? "재전직" : "전직"}
+          {advanceAction.label}
         </button>
       </div>
     </li>

@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PUBLIC = path.join(ROOT, "public");
+const STORE_ASSETS = path.join(ROOT, "android", "store-assets");
 const LEDGER_PATH = path.join(ROOT, "docs", "asset-rights.json");
 const WRITE = process.argv.includes("--write");
 const STRICT = process.argv.includes("--strict");
@@ -14,7 +15,10 @@ const ASSET_RE = /\.(?:avif|gif|ico|jpe?g|m4a|mp3|mp4|ogg|otf|png|svg|ttf|wav|we
 
 const ledger = JSON.parse(await fs.readFile(LEDGER_PATH, "utf8"));
 const sourceById = new Map(ledger.sources.map((source) => [source.id, source]));
-const scanned = await scanAssets(PUBLIC);
+const scanned = [
+  ...(await scanAssets(PUBLIC)),
+  ...(await scanAssets(STORE_ASSETS, [], { optional: true })),
+];
 const current = [];
 
 for (const asset of scanned) {
@@ -71,7 +75,14 @@ if (!process.exitCode) {
   console.log(`✅ ${current.length} deployed visual assets match the rights ledger.`);
 }
 
-async function scanAssets(directory, found = []) {
+async function scanAssets(directory, found = [], { optional = false } = {}) {
+  if (optional) {
+    try {
+      await fs.access(directory);
+    } catch {
+      return found;
+    }
+  }
   for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
     const fullPath = path.join(directory, entry.name);
     if (entry.isDirectory()) await scanAssets(fullPath, found);
@@ -81,6 +92,9 @@ async function scanAssets(directory, found = []) {
 }
 
 function sourceFor(assetPath) {
+  if (/^android\/store-assets\//.test(assetPath)) {
+    return "operator-cleared-brand-art";
+  }
   if (/^public\/images\/ui\/profile-decorations\/.*\.svg$/.test(assetPath)) {
     return "repository-authored-vector";
   }

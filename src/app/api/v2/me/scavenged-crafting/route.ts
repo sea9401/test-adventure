@@ -9,6 +9,7 @@ import {
 import {
   RARE_MAP_CAP,
   RARE_MAP_KINDS,
+  genRareMapIid,
   newRareMapInstance,
   parseRareMaps,
 } from "@/adventure/data/v2/rareMaps";
@@ -25,6 +26,14 @@ import {
 import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import { COMBINE_GOLD_COST } from "@/adventure/data/v2/v2EquipVariance";
+import {
+  forgeCombinationTotal,
+  parseForgeCombinationQuantity,
+} from "@/adventure/data/v2/forgeCombination";
+import {
+  discountedPersonalCraftGoldCost,
+  equippedPersonalCraftGoldDiscountPct,
+} from "@/lib/server/equipmentLiberationCraftDiscount";
 
 type CharSave = {
   materials?: Record<string, number>;
@@ -73,12 +82,26 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as {
     recipe?: unknown;
     depth?: unknown;
+    quantity?: unknown;
   } | null;
   if (!isScavengedCraftRecipeId(body?.recipe)) {
     return Response.json({ ok: false, error: "invalid_recipe" }, { status: 400 });
   }
   const recipe = body.recipe;
   const input = recipeInput(recipe);
+  const quantity = parseForgeCombinationQuantity(body.quantity);
+  const materialCost =
+    quantity == null ? null : forgeCombinationTotal(input.need, quantity);
+  const baseGoldCost =
+    quantity == null
+      ? null
+      : forgeCombinationTotal(COMBINE_GOLD_COST, quantity);
+  if (quantity == null || materialCost == null || baseGoldCost == null) {
+    return Response.json(
+      { ok: false, error: "invalid_quantity" },
+      { status: 400 },
+    );
+  }
 
   const result = await db.transaction(async (tx) => {
     const charSave = await lockSaveForUpdate<CharSave>(
@@ -92,26 +115,30 @@ export async function POST(req: Request) {
       0,
       Math.floor(Number(materials[input.materialId]) || 0),
     );
-    if (held < input.need) {
+    if (held < materialCost) {
       return {
         status: 400,
         body: {
           ok: false as const,
           error: "insufficient_material" as const,
-          need: input.need,
+          need: materialCost,
         },
       };
     }
 
     const now = Date.now();
     const rareMaps = parseRareMaps(charSave.rareMaps, now);
-    if (recipe === "rare_map" && rareMaps.length >= RARE_MAP_CAP) {
+    if (
+      recipe === "rare_map" &&
+      rareMaps.length + quantity > RARE_MAP_CAP
+    ) {
       return {
         status: 400,
         body: {
           ok: false as const,
           error: "rare_map_full" as const,
           cap: RARE_MAP_CAP,
+          available: Math.max(0, RARE_MAP_CAP - rareMaps.length),
         },
       };
     }
@@ -141,42 +168,68 @@ export async function POST(req: Request) {
       0,
       Math.floor(Number(charSave.bankedGold) || 0),
     );
-    const spend = spendGold(gold, bankedGold, COMBINE_GOLD_COST);
+    const equipment = await lockSaveForUpdate(
+      tx,
+      userId,
+      "equipment.v2",
+      {},
+    );
+    const liberationDiscountPct =
+      equippedPersonalCraftGoldDiscountPct(equipment);
+    const goldCost = discountedPersonalCraftGoldCost(
+      baseGoldCost,
+      liberationDiscountPct,
+    );
+    const spend = spendGold(gold, bankedGold, goldCost);
     if (!spend.ok) {
       return {
         status: 400,
         body: {
           ok: false as const,
           error: "insufficient_gold" as const,
-          goldCost: COMBINE_GOLD_COST,
+          goldCost,
+          baseGoldCost,
+          liberationDiscountPct,
         },
       };
     }
 
-    const materialLeft = held - input.need;
+    const materialLeft = held - materialCost;
     if (materialLeft > 0) materials[input.materialId] = materialLeft;
     else delete materials[input.materialId];
 
     if (recipe === "rare_map") {
-      const kind = rollCraftedRareMapKind(Math.random);
       const depth = requestedMapDepth as number;
-      const rareMap = newRareMapInstance(kind, depth, now);
+      const craftedRareMaps = Array.from({ length: quantity }, (_, index) => {
+        const kind = rollCraftedRareMapKind(Math.random);
+        return newRareMapInstance(
+          kind,
+          depth,
+          now,
+          `${genRareMapIid(Math.random)}_${index.toString(36)}`,
+        );
+      });
+      const rareMap = craftedRareMaps[0];
       await upsertSave(tx, userId, "character.v2", {
         ...charSave,
         gold: spend.gold,
         bankedGold: spend.bankedGold,
         materials,
-        rareMaps: [...rareMaps, rareMap],
+        rareMaps: [...rareMaps, ...craftedRareMaps],
       });
       return {
         status: 200,
         body: {
           ok: true as const,
           recipe,
+          quantity,
           materialLeft,
           rareMap,
-          outputName: RARE_MAP_KINDS[kind].name,
-          goldCost: COMBINE_GOLD_COST,
+          rareMaps: craftedRareMaps,
+          outputName: RARE_MAP_KINDS[rareMap.kind].name,
+          goldCost,
+          baseGoldCost,
+          liberationDiscountPct,
           gold: spend.gold,
           ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
         },
@@ -188,7 +241,7 @@ export async function POST(req: Request) {
         ? ENHANCE_STONE_MATERIAL_ID.blue
         : ENHANCE_STONE_MATERIAL_ID.red;
     materials[stoneId] =
-      Math.max(0, Math.floor(Number(materials[stoneId]) || 0)) + 1;
+      Math.max(0, Math.floor(Number(materials[stoneId]) || 0)) + quantity;
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       gold: spend.gold,
@@ -201,10 +254,13 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         recipe,
+        quantity,
         materialLeft,
         outputMaterialId: stoneId,
         outputCount: materials[stoneId],
-        goldCost: COMBINE_GOLD_COST,
+        goldCost,
+        baseGoldCost,
+        liberationDiscountPct,
         gold: spend.gold,
         ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
       },

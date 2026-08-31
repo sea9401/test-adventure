@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import {
-  GUILD_FACILITY_UNLOCK_GOLD_COST,
-  PLACEABLE_SETTLEMENT_BUILDING_IDS,
   SETTLEMENT_BUILDINGS,
   nextSettlementBuildingUpgrade,
+  type AnySettlementBuildingUpgradeDef,
   type SettlementBuildingId,
 } from "@/adventure/data/v2/settlement";
 import type { GuildInfoResponse, Notice } from "./guildShared";
@@ -17,6 +16,9 @@ import { GuildFacilityUpgradeFund } from "./GuildFacilityUpgradeFund";
 import { GuildAlchemyWorkshopPanel } from "./GuildAlchemyWorkshopPanel";
 import { GuildDiningHallPanel } from "./GuildDiningHallPanel";
 import { GuildTradePostPanel } from "./GuildTradePostPanel";
+import { GuildWarehousePanel } from "./GuildWarehousePanel";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { confirmGameAction, type ConfirmGameAction } from "@/components/ui/gameDialog";
 import {
   GUILD_FACILITY_IDS,
   GUILD_FACILITY_ICON_COLORS,
@@ -30,7 +32,33 @@ const FACILITY_DESC: Partial<Record<SettlementBuildingId, string>> = {
   alchemy_workshop: "허브와 은빛잎으로 HP·MP 충전액을 조제하는 시설입니다.",
   dining_hall: "농장과 낚시 식재료를 함께 준비해 주간 식사를 제공하는 시설입니다.",
   trade_post: "채집품 주간 계약을 함께 완수하고 교역 토큰을 교환하는 시설입니다.",
+  guild_warehouse: "길드 재료를 함께 보관하고 운영진이 필요한 곳에 배분하는 시설입니다.",
 };
+
+export async function confirmGuildFacilityUpgrade({
+  buildingId,
+  next,
+  onUpgrade,
+  confirm = confirmGameAction,
+}: {
+  buildingId: SettlementBuildingId;
+  next: AnySettlementBuildingUpgradeDef;
+  onUpgrade: (buildingId: SettlementBuildingId) => void;
+  confirm?: ConfirmGameAction;
+}): Promise<boolean> {
+  const goldCost = Math.max(0, Math.floor(next.cost.gold ?? 0));
+  const fameCost = Math.max(0, Math.floor(next.cost.fame ?? 0));
+  const fameText = fameCost > 0 ? ` · 명성 ${fameCost.toLocaleString()}` : "";
+  if (
+    !(await confirm(
+      `${SETTLEMENT_BUILDINGS[buildingId].name}을(를) Lv.${next.level}(으)로 업그레이드할까요?\n기부 완료 재료와 길드 자금 ${goldCost.toLocaleString()} G${fameText}이(가) 사용됩니다.`,
+    ))
+  ) {
+    return false;
+  }
+  onUpgrade(buildingId);
+  return true;
+}
 
 // 기존 영지 건축물 카운트를 길드 화면의 공용 시설로만 표시한다.
 export function GuildFacilitiesPanel({
@@ -50,9 +78,6 @@ export function GuildFacilitiesPanel({
   onChanged?: () => void;
   onNotice?: (notice: Notice) => void;
 }) {
-  const [unlockingId, setUnlockingId] = useState<SettlementBuildingId | null>(
-    null,
-  );
   const [upgradingId, setUpgradingId] = useState<SettlementBuildingId | null>(
     null,
   );
@@ -77,41 +102,10 @@ export function GuildFacilitiesPanel({
       name: def.name,
       desc: FACILITY_DESC[id] ?? def.desc.replaceAll("영지 ", ""),
       actionLabel: id === "exploration_hq" ? "현황" : "열기",
-      cost: GUILD_FACILITY_UNLOCK_GOLD_COST[id] ?? 0,
     };
   });
-  const hasAny = rows.some((row) => row.count > 0);
   const guildGold = info?.guildGold ?? 0;
   const guildFame = info?.guild?.fameAvailable ?? 0;
-
-  async function unlockFacility(id: SettlementBuildingId) {
-    if (!canManage || unlockingId) return;
-    setUnlockingId(id);
-    try {
-      const res = await fetch("/api/v2/guild/facilities/unlock", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ buildingId: id }),
-      });
-      const json = (await res.json().catch(() => null)) as {
-        ok?: boolean;
-        error?: string;
-      } | null;
-      if (!res.ok || !json?.ok) {
-        onNotice?.({ kind: "err", text: facilityUnlockErrorText(json?.error) });
-        return;
-      }
-      onNotice?.({
-        kind: "ok",
-        text: `${SETTLEMENT_BUILDINGS[id].name} 개발 완료`,
-      });
-      onChanged?.();
-    } catch {
-      onNotice?.({ kind: "err", text: "시설 개발에 실패했습니다." });
-    } finally {
-      setUnlockingId(null);
-    }
-  }
 
   async function upgradeFacility(id: SettlementBuildingId) {
     if (!canManage || upgradingId) return;
@@ -198,6 +192,15 @@ export function GuildFacilitiesPanel({
     );
   }
 
+  if (activeFacility === "guild_warehouse") {
+    return (
+      <div className="space-y-3">
+        <FacilityBackButton onClick={() => onFacilityChange(null)} />
+        <GuildWarehousePanel />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
       <section className="space-y-2">
@@ -206,7 +209,6 @@ export function GuildFacilitiesPanel({
         </h3>
         <div className="grid gap-2 md:grid-cols-2">
           {rows.map((row) => {
-            const canUnlock = PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(row.id);
             const next =
               row.count > 0
                 ? nextSettlementBuildingUpgrade(row.id, row.level)
@@ -214,104 +216,89 @@ export function GuildFacilitiesPanel({
             return (
               <div
                 key={row.id}
-                className="flex min-h-[96px] flex-col justify-between rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-900"
+                className={`${SURFACE_INSET} px-3 py-2.5`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <GameIcon
-                        name={row.iconName}
-                        size={18}
-                        className={GUILD_FACILITY_ICON_COLORS[row.id]}
-                      />
-                      <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-                        {row.name}
-                      </span>
+                <div
+                  role="group"
+                  aria-label={`${row.name} 요약`}
+                  className="flex min-h-[8rem] flex-col"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <GameIcon
+                          name={row.iconName}
+                          size={18}
+                          className={GUILD_FACILITY_ICON_COLORS[row.id]}
+                        />
+                        <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                          {row.name}
+                        </span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 h-10 overflow-hidden text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                        {row.desc}
+                      </p>
                     </div>
-                    <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                      {row.desc}
-                    </p>
+                    {row.count > 0 ? (
+                      <div className="shrink-0 text-right">
+                        <span className="inline-flex rounded bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                          Lv {row.level}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="shrink-0 text-right">
+                        <span className="inline-flex rounded bg-zinc-200 px-2 py-1 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                          준비 중
+                        </span>
+                      </div>
+                    )}
                   </div>
                   {row.count > 0 ? (
-                    <div className="shrink-0 text-right">
-                      <span className="inline-flex rounded bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                        Lv {row.level}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="shrink-0 text-right">
-                      <span className="inline-flex rounded bg-zinc-200 px-2 py-1 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                        미개방
-                      </span>
-                      {row.cost > 0 && (
-                        <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                          {row.cost.toLocaleString()}G
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {row.count > 0 && (
-                  <div className="mt-2 space-y-2">
-                    {next &&
-                      PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(row.id) && (
-                        <GuildFacilityUpgradeFund
-                          buildingId={row.id}
-                          next={next}
-                          progress={info?.facilityUpgradeDonations?.[row.id]}
-                          guildGold={guildGold}
-                          guildFame={guildFame}
-                          canComplete={canManage}
-                          completing={upgradingId === row.id}
-                          onComplete={() => void upgradeFacility(row.id)}
-                          onChanged={onChanged}
-                        />
-                      )}
-                    {!next &&
-                      PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(row.id) && (
-                        <p className="text-center text-xs font-medium text-emerald-600 dark:text-emerald-300">
-                          최대 레벨에 도달했습니다.
-                        </p>
-                      )}
                     <button
                       type="button"
                       onClick={() => onFacilityChange(row.id)}
-                      className="mx-auto block w-[70%] rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+                      className="mx-auto mt-auto block h-8 w-[70%] rounded-md border border-emerald-600 bg-emerald-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
                     >
                       {row.name} {row.actionLabel}
                     </button>
-                  </div>
-                )}
-                {row.count <= 0 && (
-                  <div className="mt-2 space-y-1.5 text-center">
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {canUnlock
-                        ? `길드 금고 ${guildGold.toLocaleString()}G`
-                        : "아직 개방할 수 없는 시설입니다."}
+                  ) : (
+                    <p className="mt-auto line-clamp-2 h-8 overflow-hidden text-center text-xs leading-4 text-zinc-500 dark:text-zinc-400">
+                      시설 정보를 준비하고 있습니다. 잠시 후 다시 확인해 주세요.
                     </p>
-                    {canUnlock && row.cost > 0 && canManage && (
-                      <button
-                        type="button"
-                        onClick={() => void unlockFacility(row.id)}
-                        disabled={unlockingId != null || guildGold < row.cost}
-                        className="mx-auto block w-[70%] rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {unlockingId === row.id ? "개발 중" : "새 시설 개발"}
-                      </button>
-                    )}
-                  </div>
-                )}
+                  )}
+                </div>
+
+                {row.count > 0 && next ? (
+                  <GuildFacilityUpgradeFund
+                    buildingId={row.id}
+                    next={next}
+                    progress={info?.facilityUpgradeDonations?.[row.id]}
+                    guildGold={guildGold}
+                    guildFame={guildFame}
+                    canComplete={canManage}
+                    completing={upgradingId === row.id}
+                    onComplete={() =>
+                      void confirmGuildFacilityUpgrade({
+                        buildingId: row.id,
+                        next,
+                        onUpgrade: (buildingId) =>
+                          void upgradeFacility(buildingId),
+                      })
+                    }
+                    onChanged={onChanged}
+                  />
+                ) : null}
+                {row.count > 0 && !next ? (
+                  <p className="mt-2 text-center text-xs font-medium text-emerald-600 dark:text-emerald-300">
+                    최대 레벨에 도달했습니다.
+                  </p>
+                ) : null}
               </div>
             );
           })}
         </div>
       </section>
 
-      {!hasAny && (
-        <p className="rounded-md border border-zinc-200 bg-white px-3 py-3 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
-          아직 개방된 길드 시설이 없습니다.
-        </p>
-      )}
     </div>
   );
 }
@@ -328,24 +315,6 @@ function FacilityBackButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-function facilityUnlockErrorText(error?: string): string {
-  switch (error) {
-    case "no_guild":
-      return "소속 길드가 없습니다.";
-    case "not_authorized":
-      return "시설 개방 권한이 없습니다.";
-    case "already_unlocked":
-      return "이미 개방된 시설입니다.";
-    case "insufficient_gold":
-      return "길드 금고 골드가 부족합니다.";
-    case "invalid_building":
-    case "building_unavailable":
-      return "아직 개방할 수 없는 시설입니다.";
-    default:
-      return "시설 개방에 실패했습니다.";
-  }
-}
-
 function facilityUpgradeErrorText(error?: string): string {
   switch (error) {
     case "no_guild":
@@ -354,7 +323,7 @@ function facilityUpgradeErrorText(error?: string): string {
       return "시설 업그레이드 권한이 없습니다.";
     case "smithy_required":
     case "building_required":
-      return "먼저 해당 시설을 개방해야 합니다.";
+      return "길드 시설 정보를 찾을 수 없습니다. 잠시 후 다시 시도해 주세요.";
     case "invalid_building":
       return "업그레이드할 수 없는 시설입니다.";
     case "max_level":

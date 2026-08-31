@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, Compass, Hammer, MapPin, Sparkle } from "@phosphor-icons/react";
 import {
   FISH,
@@ -18,11 +18,13 @@ import {
 } from "@/adventure/data/v2/fishingSpots";
 import { MULTTAE_BY_ID } from "@/adventure/data/v2/multtae";
 import {
+  WOODCUTTING_MATERIALS,
   WOODCUTTING_SPOTS,
   isWoodcuttingSpotId,
   woodcuttingTreeForSpot,
 } from "@/adventure/data/v2/woodcuttingSpots";
 import {
+  MINING_MATERIALS,
   MINING_SPOTS,
   isMiningSpotId,
   miningNodeForSpot,
@@ -42,7 +44,7 @@ import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useFishingCodexContext } from "@/adventure/v2/GameStateProvider";
 import {
   LifeFieldEnvironmentCard,
-  useLifeFieldStatus,
+  useFullLifeFieldStatus,
 } from "@/adventure/v2/LifeFieldPanels";
 import { lifeFieldRegionRecordId } from "@/adventure/v2/lifeFieldRecords";
 import {
@@ -118,6 +120,7 @@ const DIFFICULTY_TONE: Record<string, string> = {
 };
 
 type RegionFilter = WorldActivityKind;
+type MaterialBalances = Readonly<Record<string, number>>;
 
 const REGION_FILTERS: readonly { id: RegionFilter; label: string }[] = [
   { id: "fishing", label: "낚시터" },
@@ -293,10 +296,20 @@ function FishingSpotMeta({
   );
 }
 
-function WoodcuttingSpotMeta({ id }: { id: string }) {
+function WoodcuttingSpotMeta({
+  id,
+  materialBalances,
+}: {
+  id: string;
+  materialBalances: MaterialBalances | null;
+}) {
   if (!isWoodcuttingSpotId(id)) return null;
   const spot = WOODCUTTING_SPOTS[id];
   const tree = woodcuttingTreeForSpot(spot);
+  const material = WOODCUTTING_MATERIALS[tree.materialId];
+  const owned = materialBalances
+    ? (materialBalances[tree.materialId] ?? 0)
+    : null;
   return (
     <div className={`${SURFACE_INSET} space-y-1.5 p-2`}>
       <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
@@ -307,6 +320,11 @@ function WoodcuttingSpotMeta({ id }: { id: string }) {
           {tree.name}
         </span>
       </div>
+      {owned != null ? (
+        <div className="text-xs font-medium tabular-nums text-zinc-700 dark:text-zinc-200">
+          {material.name} · 보유 {owned.toLocaleString("ko-KR")}개
+        </div>
+      ) : null}
       <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
         {tree.grade}등급 · Lv.1 성공률 {((1 - woodcuttingFailureRate(tree.baseFailureRate, 1)) * 100).toFixed(1)}%
         {" · "}기본 {(tree.durationMs / 1_000).toFixed(1)}초 · XP +{tree.xp}
@@ -315,10 +333,20 @@ function WoodcuttingSpotMeta({ id }: { id: string }) {
   );
 }
 
-function MiningSpotMeta({ id }: { id: string }) {
+function MiningSpotMeta({
+  id,
+  materialBalances,
+}: {
+  id: string;
+  materialBalances: MaterialBalances | null;
+}) {
   if (!isMiningSpotId(id)) return null;
   const spot = MINING_SPOTS[id];
   const node = miningNodeForSpot(spot);
+  const material = MINING_MATERIALS[node.materialId];
+  const owned = materialBalances
+    ? (materialBalances[node.materialId] ?? 0)
+    : null;
   return (
     <div className={`${SURFACE_INSET} space-y-1.5 p-2`}>
       <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
@@ -329,6 +357,11 @@ function MiningSpotMeta({ id }: { id: string }) {
           {node.name}
         </span>
       </div>
+      {owned != null ? (
+        <div className="text-xs font-medium tabular-nums text-zinc-700 dark:text-zinc-200">
+          {material.name} · 보유 {owned.toLocaleString("ko-KR")}개
+        </div>
+      ) : null}
       <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
         {node.grade}등급 · Lv.1 성공률{" "}
         {((1 - miningFailureRate(node.baseFailureRate, 1)) * 100).toFixed(1)}%
@@ -347,10 +380,12 @@ export function WorldRumorMapView({
   fishCodexDiscoveredIds?: ReadonlySet<FishId>;
 }) {
   const fishingCodex = useFishingCodexContext();
-  const { data: lifeFieldStatus } = useLifeFieldStatus();
+  const { data: lifeFieldStatus } = useFullLifeFieldStatus();
   const discoveredFishIds =
     fishCodexDiscoveredIds ??
     (fishingCodex?.loaded ? fishingCodex.discoveredIds : null);
+  const [materialBalances, setMaterialBalances] =
+    useState<MaterialBalances | null>(null);
   const [regionFilter, setRegionFilter] = useState<RegionFilter>("fishing");
   const [environmentFilter, setEnvironmentFilter] = useState<string | null>(null);
   const [selectedId, setSelectedId] =
@@ -367,6 +402,26 @@ export function WorldRumorMapView({
     filteredRegions[0] ??
     null;
   const selectedStyle = selected ? KIND_STYLE[selected.kind] : null;
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/v2/me/inventory")
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return (await response.json().catch(() => null)) as {
+          materials?: Record<string, number>;
+        } | null;
+      })
+      .then((inventory) => {
+        if (active && inventory) {
+          setMaterialBalances(inventory.materials ?? {});
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <PageShell spacing="normal">
@@ -631,8 +686,14 @@ export function WorldRumorMapView({
                   id={selected.id}
                   discoveredIds={discoveredFishIds}
                 />
-                <WoodcuttingSpotMeta id={selected.id} />
-                <MiningSpotMeta id={selected.id} />
+                <WoodcuttingSpotMeta
+                  id={selected.id}
+                  materialBalances={materialBalances}
+                />
+                <MiningSpotMeta
+                  id={selected.id}
+                  materialBalances={materialBalances}
+                />
                 <LifeFieldEnvironmentCard
                   activity={selected.kind}
                   spotId={selected.id}

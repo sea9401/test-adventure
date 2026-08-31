@@ -4,6 +4,7 @@ import { eq, inArray } from "drizzle-orm";
 import webPush from "web-push";
 import { db } from "@/db";
 import { pushSubscriptions } from "@/db/schema";
+import { feedbackReplyHref } from "@/lib/feedbackNavigation";
 import type { GamePushMessage } from "@/lib/push-notifications";
 import type {
   V2NotificationPayload,
@@ -158,25 +159,13 @@ export function pushMessageForNotification(
         tag: "coop-defeated",
       };
     }
-    case "feedback_replied":
+    case "feedback_replied": {
+      const value = payload as { feedbackId: number };
       return {
         title: "문의 답변 도착",
         body: "등록한 문의에 운영자 답변이 도착했습니다.",
-        url: "/feedback",
+        url: feedbackReplyHref(value.feedbackId),
         tag: "feedback-replied",
-      };
-    case "lottery_won": {
-      const value = payload as {
-        roundId: number;
-        ranks: number[];
-        prizeAmount: number;
-      };
-      const bestRank = Math.min(...value.ranks);
-      return {
-        title: `🎫 복권 ${bestRank}등 당첨!`,
-        body: `제 ${value.roundId}회 복권에서 ${value.prizeAmount.toLocaleString()}G에 당첨되었습니다.`,
-        url: "/notifications",
-        tag: `lottery-won-${value.roundId}`,
       };
     }
     default:

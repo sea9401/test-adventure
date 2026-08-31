@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { guildMembers, guildTradeWeekly } from "@/db/schema";
 import {
+  GUILD_TRADE_SHOP_ITEMS,
   guildTradeContractTarget,
   guildTradeItem,
   guildTradeItemsForWeek,
@@ -19,6 +20,10 @@ export type GuildTradeWeeklyState = {
   target: number;
   /** 주차가 바뀌어도 유지되는 길드 공동 교역 토큰. */
   tokens: number;
+  /** 이번 주 길드 전체의 교역소 품목별 구매 횟수. */
+  purchases: Record<string, number>;
+  /** 이전 구매 권한 정책 호환용. 신규 로직에서는 사용하지 않는다. */
+  memberPurchasesEnabled: boolean;
 };
 
 function stringList(raw: unknown): string[] {
@@ -66,6 +71,8 @@ function freshState(args: {
     eligibleUserIds: args.eligibleUserIds,
     target: guildTradeContractTarget(args.eligibleUserIds.length),
     tokens: 0,
+    purchases: {},
+    memberPurchasesEnabled: true,
   };
 }
 
@@ -77,6 +84,8 @@ function rowState(
     completedIds: unknown;
     eligibleUserIds: unknown;
     tokens: unknown;
+    purchases: unknown;
+    memberPurchasesEnabled: unknown;
   },
   guildId: number,
 ): GuildTradeWeeklyState | null {
@@ -92,6 +101,8 @@ function rowState(
     eligibleUserIds,
     target: guildTradeContractTarget(eligibleUserIds.length),
     tokens: nonNegativeInt(row.tokens),
+    purchases: progressRecord(row.purchases, GUILD_TRADE_SHOP_ITEMS.map((item) => item.id)),
+    memberPurchasesEnabled: row.memberPurchasesEnabled !== false,
   };
 }
 
@@ -125,7 +136,12 @@ export async function lockGuildTradeWeekly(
   )[0];
   const parsed = row ? rowState(row, guildId) : null;
   if (!parsed || row.weekKey !== weekKey) {
-    const reset = { ...fresh, tokens: nonNegativeInt(row?.tokens) };
+    const reset = {
+      ...fresh,
+      tokens: nonNegativeInt(row?.tokens),
+      purchases: {},
+      memberPurchasesEnabled: row?.memberPurchasesEnabled !== false,
+    };
     await saveGuildTradeWeekly(tx, reset);
     return reset;
   }
@@ -146,6 +162,8 @@ export async function saveGuildTradeWeekly(
       completedIds: state.completedIds,
       eligibleUserIds: state.eligibleUserIds,
       tokens: state.tokens,
+      purchases: state.purchases,
+      memberPurchasesEnabled: state.memberPurchasesEnabled,
       updatedAt: new Date(),
     })
     .onConflictDoUpdate({
@@ -157,6 +175,8 @@ export async function saveGuildTradeWeekly(
         completedIds: state.completedIds,
         eligibleUserIds: state.eligibleUserIds,
         tokens: state.tokens,
+        purchases: state.purchases,
+        memberPurchasesEnabled: state.memberPurchasesEnabled,
         updatedAt: new Date(),
       },
     });

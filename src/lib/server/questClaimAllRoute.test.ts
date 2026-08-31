@@ -83,6 +83,7 @@ vi.mock("@/adventure/data/v2/v2Quests", () => ({
       check: () => true,
     },
   ],
+  claimedUniqueEquipmentAcquisitionFloor: vi.fn(() => 0),
   isTutorialLine: vi.fn((line: string) => line === "tutorial"),
   isQuestClaimable: vi.fn(
     (
@@ -156,7 +157,10 @@ describe("POST /api/v2/me/quests/claim-all", () => {
       owned: [expect.objectContaining({ id: "v2_chain_mail" })],
       equipped: {},
     });
-    expect(store.get("stamina-potions.v1")).toEqual({ count: 5 });
+    expect(store.get("stamina-potions.v1")).toEqual({
+      count: 5,
+      boundCount: 0,
+    });
     expect(store.get("guide-quests.v2")).toEqual({
       claimed: ["tutorial_reward", "tutorial_empty"],
     });

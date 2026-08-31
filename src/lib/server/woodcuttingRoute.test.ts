@@ -1,17 +1,41 @@
 // 자동 벌목 start/chop/status route 통합 테스트 — savesKv/db 경계만 in-memory/mock 처리.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
-const { store, incrementGuildExplorationProgressForUser } = vi.hoisted(() => ({
-  store: new Map<string, unknown>(),
+const { store, incrementGuildExplorationProgressForUser, rewardReferralTutorialTasks, recordCodexMasteryGameplayBatch, upsertSaves } = vi.hoisted(() => {
+  const store = new Map<string, unknown>();
+  return {
+  store,
   incrementGuildExplorationProgressForUser: vi.fn(async () => null),
-}));
+  rewardReferralTutorialTasks: vi.fn(async () => ({
+    staminaPotions: 0,
+    newlyCompletedTaskIds: [] as string[],
+    completedTaskIds: [] as string[],
+  })),
+  recordCodexMasteryGameplayBatch: vi.fn(
+    async (
+      _executor: unknown,
+      _userId: string,
+      _events: readonly CodexMasteryGameplayEvent[],
+      _now: Date,
+    ) => [],
+  ),
+  upsertSaves: vi.fn(async (_tx, _uid, entries: Record<string, unknown>) => {
+    for (const [key, value] of Object.entries(entries)) store.set(key, value);
+  }),
+  };
+});
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
 }));
 vi.mock("@/lib/server/guildExplorationWeekly", () => ({
   incrementGuildExplorationProgressForUser,
+}));
+vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
+vi.mock("@/lib/server/codexMasteryGameplay", () => ({
+  recordCodexMasteryGameplayBatch,
 }));
 vi.mock("@/db", () => ({
   db: {
@@ -26,15 +50,28 @@ vi.mock("@/db", () => ({
   },
 }));
 vi.mock("@/lib/server/savesKv", () => ({
+  lockSavesForUpdate: vi.fn(async (_tx, _uid, fallbacks: Record<string, unknown>) =>
+    Object.fromEntries(Object.entries(fallbacks).map(([key, fallback]) => [
+      key,
+      store.has(key) ? store.get(key) : fallback,
+    ]))
+  ),
   lockSaveForUpdate: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
   readSave: vi.fn(async (_dbOrTx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
+  readSaves: vi.fn(async (_dbOrTx, _uid, fallbacks: Record<string, unknown>) =>
+    Object.fromEntries(Object.entries(fallbacks).map(([key, fallback]) => [
+      key,
+      store.has(key) ? store.get(key) : fallback,
+    ]))
+  ),
   upsertSave: vi.fn(async (_tx, _uid, key: string, value: unknown) => {
     store.set(key, value);
   }),
+  upsertSaves,
 }));
 
 import { POST as START } from "@/app/api/v2/woodcutting/start/route";
@@ -65,6 +102,7 @@ import {
   WOODCUTTING_AUTO_KEY,
 } from "@/adventure/v2/autoGathering";
 import { FISHING_SESSION_KEY } from "@/adventure/v2/fishingSession";
+import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
 
 const NOW = 1_700_000_000_000;
 const TIMBER = SETTLEMENT_MATERIAL_ID.timber;
@@ -97,6 +135,9 @@ beforeEach(() => {
 afterEach(() => {
   store.clear();
   incrementGuildExplorationProgressForUser.mockClear();
+  rewardReferralTutorialTasks.mockClear();
+  recordCodexMasteryGameplayBatch.mockClear();
+  upsertSaves.mockClear();
   resetUserRateLimitForTests();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
@@ -119,6 +160,7 @@ describe("woodcutting routes", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
+    expect(json.serverNow).toBe(NOW);
     expect(json.autoSession).toMatchObject({
       planId: "extended",
       readyAt: NOW + 2 * 60 * 60_000,
@@ -192,7 +234,15 @@ describe("woodcutting routes", () => {
         mastery: 0.4,
       },
     });
-    store.set("character.v2", { materials: { [OAK]: 3 } });
+    store.set("character.v2", {
+      class: "survivor",
+      specChoice: "lumberjack",
+      materials: { [OAK]: 3 },
+    });
+    store.set("proficiency.v2", {
+      groups: { survivor: { tier: 1, cumLevel: 900 } },
+      jobCumLevel: { lumberjack: 10 },
+    });
 
     const response = await AUTO(
       new Request("http://test.local/api/v2/woodcutting/auto", {
@@ -209,6 +259,7 @@ describe("woodcutting routes", () => {
       successes: 90,
       materialsGained: 72,
       xpGained: 630,
+      masteryGained: 63,
     });
     expect(store.get(WOODCUTTING_AUTO_KEY)).toMatchObject({
       session: null,
@@ -227,6 +278,116 @@ describe("woodcutting routes", () => {
       cuts: 90,
       xp: 630,
       timberEarned: 72,
+    });
+    expect(upsertSaves).toHaveBeenCalledTimes(1);
+    expect(Object.keys(upsertSaves.mock.calls[0]?.[2] ?? {}).sort()).toEqual([
+      LIFE_WORKSHOP_SAVE_KEY,
+      WOODCUTTING_AUTO_KEY,
+      WOODCUTTING_LOG_KEY,
+      "character.v2",
+      "proficiency.v2",
+    ].sort());
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      [{
+        category: "job",
+        entryId: "lumberjack",
+        amount: 63,
+        source: "job.activity",
+      }],
+      new Date(NOW + 15 * 60_000),
+    );
+  });
+
+  it("자동 정산은 구 초과 XP를 한 번 환산하고 버전을 함께 저장한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 15 * 60_000);
+    store.set(WOODCUTTING_AUTO_KEY, {
+      session: {
+        sessionId: "wood-migration",
+        sourceId: "oak",
+        sourceName: "참나무",
+        materialId: OAK,
+        startedAt: NOW,
+        readyAt: NOW + 30 * 60_000,
+        cycleDurationMs: 9_000,
+        attempts: 200,
+        successRate: 0.9,
+        bonusMaterialRate: 0,
+        baseXp: 10,
+      },
+    });
+    store.set(WOODCUTTING_LOG_KEY, { cuts: 999_999, xp: 999_999 });
+    store.set("character.v2", { materials: {} });
+
+    const response = await AUTO(
+      new Request("http://test.local/api/v2/woodcutting/auto", {
+        method: "POST",
+        body: JSON.stringify({ action: "cancel" }),
+      }),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.levelCurveMigrated).toBe(true);
+    expect(store.get(WOODCUTTING_LOG_KEY)).toMatchObject({
+      levelCurveVersion: 2,
+      xp: 136_623,
+    });
+  });
+
+  it("자동 벌목 보조품의 추가 원목은 작업 효율로 감산하지 않는다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 15 * 60_000);
+    store.set(WOODCUTTING_AUTO_KEY, {
+      session: {
+        sessionId: "wood-aid-auto",
+        planId: "extended",
+        sourceId: "pine",
+        sourceName: "소나무",
+        materialId: TIMBER,
+        startedAt: NOW,
+        readyAt: NOW + 2 * 60 * 60_000,
+        cycleDurationMs: 9_000,
+        attempts: 800,
+        successRate: 1,
+        materialEfficiency: 0.6,
+        xpEfficiency: 0.7,
+        bonusMaterialRate: 0,
+        baseXp: 5,
+        aidItemId: "logging_wedge_basic",
+        aidBonusMaterialRate: 0.1,
+      },
+    });
+    store.set(LIFE_WORKSHOP_SAVE_KEY, {
+      crafting: {
+        activeAids: {
+          woodcutting: {
+            itemId: "logging_wedge_basic",
+            remainingUses: 600,
+            enabled: true,
+          },
+        },
+      },
+    });
+
+    const response = await AUTO(
+      new Request("http://test.local/api/v2/woodcutting/auto", {
+        method: "POST",
+        body: JSON.stringify({ action: "cancel" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      successes: 100,
+      materialsGained: 70,
+    });
+    expect(store.get(LIFE_WORKSHOP_SAVE_KEY)).toMatchObject({
+      crafting: {
+        activeAids: {
+          woodcutting: { remainingUses: 500 },
+        },
+      },
     });
   });
 
@@ -290,11 +451,11 @@ describe("woodcutting routes", () => {
     vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");
     vi.stubEnv("TURNSTILE_EXPECTED_HOSTNAMES", "test.local");
     store.set(ACTIVITY_GUARD_KEY, {
-      version: 1,
+      version: 5,
       activities: {
         woodcutting: {
           verificationRequiredAt: NOW,
-          completedSinceVerification: 100,
+          completedSinceVerification: 500,
         },
       },
     });
@@ -459,6 +620,29 @@ describe("woodcutting routes", () => {
     );
   });
 
+  it("chop — 벌목 레벨 5에 도달하면 홍보 생활 단계를 확인한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 4_600);
+    store.set(WOODCUTTING_SESSION_KEY, {
+      sessionId: "cut-life-5",
+      spotId: "oak_grove",
+      treeId: "oak",
+      readyAt: NOW + 4_500,
+      expiresAt: NOW + 34_500,
+    });
+    store.set(WOODCUTTING_LOG_KEY, { cuts: 63, xp: 630 });
+    store.set("character.v2", { materials: {} });
+
+    const response = await CHOP(chopReq("cut-life-5"));
+
+    expect(response.status).toBe(200);
+    expect(rewardReferralTutorialTasks).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      "새 모험가",
+      ["life_level_5"],
+    );
+  });
+
   it("chop — 성공 시 매우 낮은 확률로 농장 씨앗 1개를 지급한다", async () => {
     vi.mocked(Math.random).mockReturnValueOnce(0.99).mockReturnValueOnce(0);
     vi.spyOn(Date, "now").mockReturnValue(NOW + 4_600);
@@ -600,6 +784,26 @@ describe("woodcutting routes", () => {
       groups: { survivor: { cumLevel: 901 } },
       jobCumLevel: { lumberjack: 13 },
     });
+    expect(upsertSaves).toHaveBeenCalledTimes(1);
+    expect(Object.keys(upsertSaves.mock.calls[0]?.[2] ?? {}).sort()).toEqual([
+      ACTIVITY_GUARD_KEY,
+      LIFE_WORKSHOP_SAVE_KEY,
+      WOODCUTTING_LOG_KEY,
+      WOODCUTTING_SESSION_KEY,
+      "character.v2",
+      "proficiency.v2",
+    ].sort());
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      [{
+        category: "job",
+        entryId: "lumberjack",
+        amount: 1,
+        source: "job.activity",
+      }],
+      new Date(NOW + 4_600),
+    );
   });
 
   it("chop — 벌목 명인 패시브가 실패를 20% 확률로 성공 처리한다", async () => {
@@ -648,6 +852,7 @@ describe("woodcutting routes", () => {
   });
 
   it("status — 통나무와 누적 기록을 반환한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
     store.set("character.v2", { materials: { [TIMBER]: 11 } });
     store.set(WOODCUTTING_LOG_KEY, { cuts: 3, timberEarned: 12 });
     store.set("skills.v2", {
@@ -657,6 +862,7 @@ describe("woodcutting routes", () => {
     const response = await STATUS();
     const json = await response.json();
     expect(json.ok).toBe(true);
+    expect(json.serverNow).toBe(NOW);
     expect(json.timber).toBe(11);
     expect(json.log.cuts).toBe(3);
     expect(json.log.xp).toBe(30);

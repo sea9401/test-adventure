@@ -20,6 +20,9 @@ export type GuildActivityType =
   | "dining_ingredient_donation"
   | "trade_delivery"
   | "trade_shop_purchase"
+  | "warehouse_deposit"
+  | "warehouse_withdraw"
+  | "warehouse_permission_change"
   | "workshop_weekly_claim"
   | "exploration_weekly_claim"
   | "exploration_expedition_dispatch"
@@ -32,6 +35,7 @@ export type GuildActivityType =
   | "building_upgrade"
   | "guild_level_upgrade"
   | "combat_supply_upgrade"
+  | "combat_supply_funding"
   | "training_drill_claim"
   | "alchemy_craft"
   | "emblem_change"
@@ -50,8 +54,20 @@ export type GuildActivityMeta = {
   questTitle?: string; // workshop_weekly_claim | exploration_weekly_claim
   deliveryTitle?: string; // workshop_delivery
   itemName?: string; // workshop_delivery | workshop_craft_only | alchemy_craft | dining_meal | trade_contract_complete
+  materialId?: string; // warehouse_deposit | warehouse_withdraw
+  equipmentIid?: string; // warehouse_deposit | warehouse_withdraw
+  itemKind?: "material" | "equipment"; // warehouse_deposit | warehouse_withdraw
+  permissionEnabled?: boolean; // warehouse_permission_change
   tokenCost?: number; // trade_shop_purchase
   remainingTokens?: number; // trade_shop_purchase
+  recipientCount?: number; // trade_shop_purchase
+  facilitySupport?: {
+    buildingId: string;
+    buildingName: string;
+    targetLevel: number;
+    crop: number;
+    ore: number;
+  }; // trade_shop_purchase
   smithyLevel?: number; // smithy_upgrade
   buildingName?: string; // building_upgrade
   buildingLevel?: number; // building_upgrade
@@ -60,10 +76,14 @@ export type GuildActivityMeta = {
   supplyName?: string; // combat_supply_upgrade
   supplyLevel?: number; // combat_supply_upgrade
   fameCost?: number; // combat_supply_upgrade
+  operationsTier?: number; // combat_supply_funding
   drillTitle?: string; // training_drill_claim
   rewardMastery?: number; // training_drill_claim
   chargeTarget?: GuildAlchemyChargeTarget; // alchemy_craft
   chargeAmount?: number; // alchemy_craft
+  staminaPotions?: number; // alchemy_craft
+  alchemyRewardName?: string; // alchemy_craft
+  alchemyRewardAmount?: number; // alchemy_craft
   artisanXp?: number; // workshop_delivery
   artisanRank?: number; // artisan_rank_reward
   titleName?: string; // artisan_rank_reward

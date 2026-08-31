@@ -11,8 +11,19 @@
 //    타입 전용 import 만 사용하므로 런타임 의존성은 0.
 
 import type { V2StatKey } from "./v2StatKeys";
+import {
+  jobUnlockSpForCount,
+  type JobSpRebalanceState,
+} from "./jobSpPolicy";
 import type { V2ProficiencyState } from "./proficiency";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
+import {
+  TIER7_COMBAT_JOB_NAMES,
+  TIER7_COMBAT_JOB_PREREQS,
+  isTier7CombatJobId,
+  type Tier7CombatJobId,
+} from "./tier7Jobs";
+import { TIER7_PREREQUISITE_MASTERY } from "./tier7Advancement";
 
 /**
  * 추가 해금 조건(cumLevel prereqs 외). isJobUnlocked 가 평가(#818 배선). 현 카탈로그 직업은
@@ -41,12 +52,14 @@ export type JobUnlockContext = {
   killCounts?: Readonly<Record<string, number>>;
   /** 농장 콘텐츠 전체 숙련 레벨(farm.v2 stats.farmingXp 에서 파생). */
   farmingLevel?: number;
-  /** 개인 요리 콘텐츠 숙련 레벨(cooking.v1 xp 에서 파생). */
+  /** 개인 요리 콘텐츠 숙련 레벨(cooking.v2 xp 에서 파생). */
   cookingLevel?: number;
   /** 벌목 콘텐츠 레벨(woodcutting-log.v1 XP에서 파생). */
   woodcuttingLevel?: number;
   /** 채광 콘텐츠 레벨(mining-log.v1 XP에서 파생). */
   miningLevel?: number;
+  /** 직업 SP 산식 전환 유예 상태(서버 ops 설정에서 파생). */
+  jobSpRebalance?: JobSpRebalanceState;
 };
 
 /** 직업 해금 조건. */
@@ -61,8 +74,8 @@ export type V2JobUnlock = {
 export type V2JobDefinition = {
   id: string;
   name: string;
-  /** 0=모험가, 1=기본, 2=상위, 3=고차, 4=심화, 5=상급 심화, 6=초월 심화. */
-  tier: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  /** 0=모험가, 1=기본, 2=상위, 3=고차, 4=심화, 5=상급 심화, 6=초월 심화, 7=최상위. */
+  tier: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
   cultivateProfile: Partial<Record<V2StatKey, number>>;
   jobBonus: Partial<Record<V2StatKey, number>>;
   unlock: V2JobUnlock;
@@ -74,6 +87,9 @@ export type V2JobDefinition = {
  * 숙련도는 사냥 승리당 +1 이므로, 초반 체감은 살리되 즉시 전직 속도는 늦춘다.
  */
 export const TIER2_UNLOCK_CUMLEVEL = 1000;
+
+/** 변이자 루트의 세 1차 변이가 동시에 열리는 직군 숙련도. */
+export const MUTANT_TIER1_UNLOCK_CUMLEVEL = 1000;
 
 /**
  * 고차(Tier 3) 해금 임계 — 🔑 2026-06-21 계보 게이팅 전환: 직군(base) 숙련도가 아니라 "그 직업의 바로
@@ -145,6 +161,16 @@ export const TIER5_UNLOCK_CUMLEVEL = 18000;
  */
 export const TIER6_UNLOCK_CUMLEVEL = 35000;
 
+function tier7Prerequisites(
+  jobId: Tier7CombatJobId,
+): Record<string, number> {
+  const [first, second] = TIER7_COMBAT_JOB_PREREQS[jobId];
+  return {
+    [first]: TIER7_PREREQUISITE_MASTERY,
+    [second]: TIER7_PREREQUISITE_MASTERY,
+  };
+}
+
 // 모험가의 HP +10% 패시브는 플랫 스탯이 아니라 별도(전투 derive)에서 적용되므로 jobBonus 에 담지 않는다.
 // 기본 직업(tier 1)의 cultivateProfile 은 V2_CULTIVATE_PROFILE(proficiency.ts)과 동일해야 하며,
 // 동기화 여부는 v2JobCatalog.test.ts 가 deep-equal 로 보증한다.
@@ -166,8 +192,32 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: {}, // HP/회복 정체성은 착용형 패시브로 제공
     unlock: { prereqs: {} },
   },
+  mutant: {
+    id: "mutant",
+    name: "변이자",
+    tier: 0,
+    cultivateProfile: { vit: 2, str: 1, int: 1 },
+    jobBonus: {},
+    unlock: { prereqs: {} },
+  },
 
   // ─── Tier 1: 기본 직업(견습) — 모험가/생존자 루트가 레벨 한계에 도달하면 전직 패널에 노출 ───
+  beastkin: {
+    id: "beastkin",
+    name: "수인",
+    tier: 1,
+    cultivateProfile: { str: 2, dex: 1, vit: 1 },
+    jobBonus: { str: 5 },
+    unlock: { prereqs: { mutant: MUTANT_TIER1_UNLOCK_CUMLEVEL } },
+  },
+  golem: {
+    id: "golem",
+    name: "골렘",
+    tier: 1,
+    cultivateProfile: { vit: 2, str: 1, spi: 1 },
+    jobBonus: { vit: 5 },
+    unlock: { prereqs: { mutant: MUTANT_TIER1_UNLOCK_CUMLEVEL } },
+  },
   warrior: {
     id: "warrior",
     name: "견습 병사",
@@ -310,7 +360,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "caster",
     name: "마법사",
     tier: 2,
-    cultivateProfile: { int: 2, spi: 2 },
+    cultivateProfile: { int: 3, spi: 1 },
     jobBonus: { int: 14, spi: 4 }, // 버스트 원소 (← 옛 arcane)
     unlock: { prereqs: { mage: TIER2_UNLOCK_CUMLEVEL } },
   },
@@ -335,7 +385,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "assassin",
     name: "자객",
     tier: 2,
-    cultivateProfile: { dex: 2, luk: 2 },
+    cultivateProfile: { luk: 3, dex: 1 },
     jobBonus: { dex: 10, luk: 10 }, // 크리 폭발 (id 유지)
     unlock: { prereqs: { rogue: TIER2_UNLOCK_CUMLEVEL } },
   },
@@ -343,7 +393,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "archer",
     name: "궁수",
     tier: 2,
-    cultivateProfile: { dex: 2, luk: 2 },
+    cultivateProfile: { dex: 3, luk: 1 },
     jobBonus: { dex: 12, str: 5 }, // 다단 물량 (← 옛 archery)
     unlock: { prereqs: { rogue: TIER2_UNLOCK_CUMLEVEL } },
   },
@@ -354,6 +404,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { dex: 2, luk: 2 },
     jobBonus: { luk: 12, dex: 8 }, // 중독 누적·부식 특화
     unlock: { prereqs: { rogue: TIER2_UNLOCK_CUMLEVEL } },
+  },
+  beastwarrior: {
+    id: "beastwarrior",
+    name: "야수전사",
+    tier: 2,
+    cultivateProfile: { str: 2, dex: 2 },
+    jobBonus: { str: 12, dex: 6 },
+    unlock: { prereqs: { beastkin: TIER2_UNLOCK_CUMLEVEL } },
   },
 
   // ─── Tier 3: 고차 직업 — 🔑 계보 게이팅: 바로 아래 2차 직업의 jobCumLevel ≥ TIER3_UNLOCK_CUMLEVEL ───
@@ -367,6 +425,19 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { str: 10, vit: 10 }, // 전사 고차 — 힘·활력 균형
     unlock: { prereqs: { squire: TIER3_UNLOCK_CUMLEVEL } }, // 견습 기사 계보
   },
+  duelist: {
+    id: "duelist",
+    name: "결투가",
+    tier: 3,
+    cultivateProfile: { str: 2, luk: 1, dex: 1 },
+    jobBonus: { str: 8, luk: 7, dex: 5 },
+    unlock: {
+      prereqs: {
+        paladin: TIER3_UNLOCK_CUMLEVEL,
+        assassin: TIER3_UNLOCK_CUMLEVEL,
+      },
+    },
+  },
   brawler: {
     id: "brawler",
     name: "격투가",
@@ -379,7 +450,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "magus",
     name: "마도사",
     tier: 3,
-    cultivateProfile: { int: 2, spi: 2 },
+    cultivateProfile: { int: 3, spi: 1 },
     jobBonus: { int: 13, spi: 7 }, // 마법 고차 — 지능 중심
     unlock: { prereqs: { caster: TIER3_UNLOCK_CUMLEVEL } }, // 마법사 계보
   },
@@ -395,7 +466,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "ranger",
     name: "궁사",
     tier: 3,
-    cultivateProfile: { dex: 2, luk: 2 },
+    cultivateProfile: { dex: 3, luk: 1 },
     jobBonus: { dex: 13, luk: 7 }, // 도적 고차 — 민첩 중심
     unlock: { prereqs: { archer: TIER3_UNLOCK_CUMLEVEL } }, // 궁수 계보
   },
@@ -445,7 +516,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "shadow",
     name: "그림자",
     tier: 3,
-    cultivateProfile: { luk: 2, dex: 2 },
+    cultivateProfile: { luk: 3, dex: 1 },
     jobBonus: { luk: 15, dex: 5 }, // 도적 고차(자객 계승) — 행운/치명
     unlock: { prereqs: { assassin: TIER3_UNLOCK_CUMLEVEL } }, // 자객 계보
   },
@@ -613,6 +684,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
       },
     },
   },
+  tracker: {
+    id: "tracker",
+    name: "추적자",
+    tier: 3,
+    cultivateProfile: { str: 2, dex: 2 },
+    jobBonus: { str: 13, dex: 7 },
+    unlock: { prereqs: { beastwarrior: TIER3_UNLOCK_CUMLEVEL } },
+  },
 
   // ─── Tier 4: 심화 직업 — 🔑 계보 게이팅: 바로 아래 3차 직업의 jobCumLevel ≥ TIER4_UNLOCK_CUMLEVEL ───
   //   (기사→정예 기사·마도사→대마법사/원소별 마법사·궁사→신궁 …).
@@ -624,6 +703,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { str: 2, vit: 1, dex: 1 },
     jobBonus: { str: 11, vit: 11 }, // 전사 심화(기사 라인 정점)
     unlock: { prereqs: { paladin: TIER4_UNLOCK_CUMLEVEL } }, // 기사 계보
+  },
+  bloodtracker: {
+    id: "bloodtracker",
+    name: "혈흔추적자",
+    tier: 4,
+    cultivateProfile: { str: 2, dex: 2 },
+    jobBonus: { str: 14, dex: 8 },
+    unlock: { prereqs: { tracker: TIER4_UNLOCK_CUMLEVEL } },
   },
   sensei: {
     id: "sensei",
@@ -637,7 +724,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "sage",
     name: "대마법사",
     tier: 4,
-    cultivateProfile: { int: 2, spi: 2 },
+    cultivateProfile: { int: 3, spi: 1 },
     jobBonus: { int: 15, spi: 7 }, // 마법 심화(마도사 라인 정점)
     unlock: { prereqs: { magus: TIER4_UNLOCK_CUMLEVEL } }, // 마도사 계보
   },
@@ -718,12 +805,12 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "chief",
     name: "신궁",
     tier: 4,
-    cultivateProfile: { dex: 2, luk: 2 },
+    cultivateProfile: { dex: 3, luk: 1 },
     jobBonus: { dex: 15, luk: 7 }, // 도적 심화(궁술 라인 정점)
     unlock: { prereqs: { ranger: TIER4_UNLOCK_CUMLEVEL } }, // 궁사 계보
   },
   // 전사 직군 4차 두 번째 갈래 — 가디언(전사 3차 두 번째 갈래) 계승. 방어 탱 정점.
-  //   액티브=보호막(생존), 패시브=피격 시 방어력만큼 반사(방어=딜 전환). 가디언 jobCumLevel TIER4 해금.
+  //   액티브=도발(공격 유도), 패시브=HP 피해 시 방어력만큼 반사(방어=딜 전환). 가디언 jobCumLevel TIER4 해금.
   warden: {
     id: "warden",
     name: "수호자",
@@ -747,7 +834,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "phantom",
     name: "암살자",
     tier: 4,
-    cultivateProfile: { luk: 2, dex: 2 },
+    cultivateProfile: { luk: 3, dex: 1 },
     jobBonus: { luk: 15, dex: 7 }, // 도적 심화(암살 라인 정점) — 행운 중심(신궁의 DEX 거울상)
     unlock: { prereqs: { shadow: TIER4_UNLOCK_CUMLEVEL } }, // 그림자 계보
   },
@@ -886,6 +973,15 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     unlock: { prereqs: { bloodtemplar: TIER4_UNLOCK_CUMLEVEL } },
   },
 
+  contender: {
+    id: "contender",
+    name: "승부사",
+    tier: 4,
+    cultivateProfile: { str: 2, luk: 1, dex: 1 },
+    jobBonus: { str: 10, luk: 8, dex: 6 },
+    unlock: { prereqs: { duelist: TIER4_UNLOCK_CUMLEVEL } },
+  },
+
   // ─── Tier 5: 상급 심화 직업 — 4차 직업 숙련도 TIER5_UNLOCK_CUMLEVEL + 도감 요건으로 여는 장기 목표 ───
   swordmaster: {
     id: "swordmaster",
@@ -894,6 +990,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { str: 3, vit: 1, dex: 1 },
     jobBonus: { str: 18, vit: 8 },
     unlock: { prereqs: { veteran: TIER5_UNLOCK_CUMLEVEL } },
+  },
+  undefeated: {
+    id: "undefeated",
+    name: "무패자",
+    tier: 5,
+    cultivateProfile: { str: 2, luk: 2, dex: 1 },
+    jobBonus: { str: 11, luk: 9, dex: 6 },
+    unlock: { prereqs: { contender: TIER5_UNLOCK_CUMLEVEL } },
   },
   ironknight: {
     id: "ironknight",
@@ -915,7 +1019,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "arcanist",
     name: "비전술사",
     tier: 5,
-    cultivateProfile: { int: 3, spi: 2 },
+    cultivateProfile: { int: 4, spi: 1 },
     jobBonus: { int: 18, spi: 8 },
     unlock: { prereqs: { sage: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -935,6 +1039,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
       },
     },
   },
+  cryomancer: {
+    id: "cryomancer",
+    name: "빙결술사",
+    tier: 5,
+    cultivateProfile: { int: 3, spi: 2 },
+    jobBonus: { int: 18, spi: 8 },
+    unlock: { prereqs: { frostmage: TIER5_UNLOCK_CUMLEVEL } },
+  },
   inscriber: {
     id: "inscriber",
     name: "각인술사",
@@ -947,7 +1059,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "marksman",
     name: "명궁",
     tier: 5,
-    cultivateProfile: { dex: 3, luk: 2 },
+    cultivateProfile: { dex: 4, luk: 1 },
     jobBonus: { dex: 18, luk: 8 },
     unlock: { prereqs: { chief: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -955,7 +1067,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "nightshade",
     name: "밤그림자",
     tier: 5,
-    cultivateProfile: { luk: 3, dex: 2 },
+    cultivateProfile: { luk: 4, dex: 1 },
     jobBonus: { luk: 18, dex: 8 },
     unlock: { prereqs: { phantom: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -966,6 +1078,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { spi: 3, int: 1, vit: 1 },
     jobBonus: { spi: 18, vit: 6, int: 2 },
     unlock: { prereqs: { archbishop: TIER5_UNLOCK_CUMLEVEL } },
+  },
+  grandwarder: {
+    id: "grandwarder",
+    name: "대결계사",
+    tier: 5,
+    cultivateProfile: { spi: 3, vit: 2 },
+    jobBonus: { spi: 20, vit: 8 },
+    unlock: { prereqs: { spellsealer: TIER5_UNLOCK_CUMLEVEL } },
   },
   plaguebringer: {
     id: "plaguebringer",
@@ -1103,6 +1223,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { int: 18, spi: 6, luk: 4 },
     unlock: { prereqs: { archshaman: TIER5_UNLOCK_CUMLEVEL } },
   },
+  predator: {
+    id: "predator",
+    name: "포식자",
+    tier: 5,
+    cultivateProfile: { str: 3, dex: 2 },
+    jobBonus: { str: 17, dex: 9 },
+    unlock: { prereqs: { bloodtracker: TIER5_UNLOCK_CUMLEVEL } },
+  },
 
   // ─── Tier 6: 초월 심화 직업 — 5차 직업 숙련도 기반 엔드 성장 ───
   fortressknight: {
@@ -1121,6 +1249,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { str: 28, dex: 8 },
     unlock: { prereqs: { swordmaster: TIER6_UNLOCK_CUMLEVEL } },
   },
+  grandchampion: {
+    id: "grandchampion",
+    name: "그랜드 챔피언",
+    tier: 6,
+    cultivateProfile: { str: 2, luk: 2, dex: 2 },
+    jobBonus: { str: 16, luk: 14, dex: 10 },
+    unlock: { prereqs: { undefeated: TIER6_UNLOCK_CUMLEVEL } },
+  },
   hegemon: {
     id: "hegemon",
     name: "패황",
@@ -1133,7 +1269,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "archmage",
     name: "대마도사",
     tier: 6,
-    cultivateProfile: { int: 3, spi: 3 },
+    cultivateProfile: { int: 4, spi: 2 },
     jobBonus: { int: 28, spi: 12 },
     unlock: { prereqs: { arcanist: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1145,6 +1281,22 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { int: 32, spi: 14 },
     unlock: { prereqs: { elementallord: TIER6_UNLOCK_CUMLEVEL } },
   },
+  frostsovereign: {
+    id: "frostsovereign",
+    name: "빙천제",
+    tier: 6,
+    cultivateProfile: { int: 3, spi: 3 },
+    jobBonus: { int: 28, spi: 12 },
+    unlock: { prereqs: { cryomancer: TIER6_UNLOCK_CUMLEVEL } },
+  },
+  lawweaver: {
+    id: "lawweaver",
+    name: "법칙술사",
+    tier: 6,
+    cultivateProfile: { int: 3, spi: 3 },
+    jobBonus: { int: 28, spi: 12 },
+    unlock: { prereqs: { inscriber: TIER6_UNLOCK_CUMLEVEL } },
+  },
   savior: {
     id: "savior",
     name: "구원자",
@@ -1152,6 +1304,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { spi: 3, int: 2, vit: 1 },
     jobBonus: { spi: 28, vit: 10, int: 4 },
     unlock: { prereqs: { saint: TIER6_UNLOCK_CUMLEVEL } },
+  },
+  lawguardian: {
+    id: "lawguardian",
+    name: "만법수호자",
+    tier: 6,
+    cultivateProfile: { spi: 3, vit: 2, int: 1 },
+    jobBonus: { spi: 30, vit: 12 },
+    unlock: { prereqs: { grandwarder: TIER6_UNLOCK_CUMLEVEL } },
   },
   doomprophet: {
     id: "doomprophet",
@@ -1165,7 +1325,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "heavenlybow",
     name: "천궁",
     tier: 6,
-    cultivateProfile: { dex: 3, luk: 3 },
+    cultivateProfile: { dex: 4, luk: 2 },
     jobBonus: { dex: 28, luk: 12 },
     unlock: { prereqs: { marksman: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1173,7 +1333,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "blackmoon",
     name: "흑월",
     tier: 6,
-    cultivateProfile: { luk: 3, dex: 3 },
+    cultivateProfile: { luk: 4, dex: 2 },
     jobBonus: { luk: 28, dex: 12 },
     unlock: { prereqs: { nightshade: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1292,6 +1452,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { str: 22, vit: 14, spi: 6 },
     unlock: { prereqs: { bloodlord: TIER6_UNLOCK_CUMLEVEL } },
   },
+  primalpredator: {
+    id: "primalpredator",
+    name: "원시 포식자",
+    tier: 6,
+    cultivateProfile: { str: 3, dex: 2, vit: 1 },
+    jobBonus: { str: 26, dex: 10, vit: 4 },
+    unlock: { prereqs: { predator: TIER6_UNLOCK_CUMLEVEL } },
+  },
   absolute: {
     id: "absolute",
     name: "절대자",
@@ -1299,6 +1467,40 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { str: 1, vit: 1, dex: 1, int: 1, spi: 1, luk: 1 },
     jobBonus: { str: 6, vit: 6, dex: 6, int: 6, spi: 6, luk: 6 },
     unlock: { prereqs: { transcendent: TIER6_UNLOCK_CUMLEVEL } },
+  },
+
+  // ─── Tier 7: 두 6차 계보를 결합한 최상위 전투 직업 ───
+  shadowblade: {
+    id: "shadowblade",
+    name: TIER7_COMBAT_JOB_NAMES.shadowblade,
+    tier: 7,
+    cultivateProfile: { luk: 4, dex: 2, str: 1 },
+    jobBonus: { luk: 32, dex: 10, str: 6 },
+    unlock: { prereqs: tier7Prerequisites("shadowblade") },
+  },
+  ruinblade: {
+    id: "ruinblade",
+    name: TIER7_COMBAT_JOB_NAMES.ruinblade,
+    tier: 7,
+    cultivateProfile: { str: 4, vit: 2, luk: 1 },
+    jobBonus: { str: 34, vit: 10, luk: 4 },
+    unlock: { prereqs: tier7Prerequisites("ruinblade") },
+  },
+  skyascendant: {
+    id: "skyascendant",
+    name: TIER7_COMBAT_JOB_NAMES.skyascendant,
+    tier: 7,
+    cultivateProfile: { dex: 4, str: 2, luk: 1 },
+    jobBonus: { dex: 32, str: 10, luk: 6 },
+    unlock: { prereqs: tier7Prerequisites("skyascendant") },
+  },
+  primordialsage: {
+    id: "primordialsage",
+    name: TIER7_COMBAT_JOB_NAMES.primordialsage,
+    tier: 7,
+    cultivateProfile: { int: 4, spi: 3 },
+    jobBonus: { int: 32, spi: 16 },
+    unlock: { prereqs: tier7Prerequisites("primordialsage") },
   },
 };
 
@@ -1388,6 +1590,22 @@ export function isJobUnlocked(
   return isJobUnlockedInternal(job, proficiency, ctx, new Set([job.id]));
 }
 
+/**
+ * 해금된 직업에 영구 보상이나 반복 콘텐츠 권한을 부여해도 되는지 판정한다.
+ * 7차는 선행 숙련도 충족과 최초 전직 성공이 분리되어 있으므로 jobHistory를
+ * 진실 출처로 사용한다. 0~6차는 기존 해금 판정을 그대로 유지한다.
+ */
+export function isJobContentUnlocked(
+  job: V2JobDefinition,
+  proficiency: V2ProficiencyState,
+  ctx?: JobUnlockContext,
+): boolean {
+  if (isTier7CombatJobId(job.id)) {
+    return (proficiency.jobHistory ?? []).includes(job.id);
+  }
+  return isJobUnlocked(job, proficiency, ctx);
+}
+
 function isJobUnlockedInternal(
   job: V2JobDefinition,
   proficiency: V2ProficiencyState,
@@ -1395,13 +1613,10 @@ function isJobUnlockedInternal(
   seen: ReadonlySet<string>,
 ): boolean {
   for (const [prereqJobId, minCumLevel] of Object.entries(job.unlock.prereqs)) {
-    // 직군 키(tier-1 직업 id, 예: warrior)=직군 숙련도(groups.cumLevel). 특정 상위 직업
-    //   키(예: paladin·acolyte)=직업별 숙련도(jobCumLevel·하이브리드 게이트). prereq 키의 tier 로 분기.
-    const prereqTier = V2_JOB_CATALOG[prereqJobId]?.tier ?? 1;
-    const actual =
-      prereqTier <= 1
-        ? (proficiency.groups[prereqJobId]?.cumLevel ?? 0)
-        : (proficiency.jobCumLevel?.[prereqJobId] ?? 0);
+    const prerequisite = V2_JOB_CATALOG[prereqJobId];
+    const actual = prerequisite
+      ? cumLevelForJob(proficiency, prerequisite)
+      : (proficiency.groups[prereqJobId]?.cumLevel ?? 0);
     if (actual < (minCumLevel ?? 0)) return false;
   }
   // 추가 조건(quest/stat/kill/farming/jobUnlocked).
@@ -1411,13 +1626,20 @@ function isJobUnlockedInternal(
   return true;
 }
 
-export function jobUnlockSpBonus(
+export function unlockedJobCount(
   proficiency: V2ProficiencyState,
   ctx?: JobUnlockContext,
 ): number {
   return V2_JOB_LIST.filter(
-    (job) => job.tier > 0 && isJobUnlocked(job, proficiency, ctx),
+    (job) => job.tier > 0 && isJobContentUnlocked(job, proficiency, ctx),
   ).length;
+}
+
+export function jobUnlockSpBonus(
+  proficiency: V2ProficiencyState,
+  ctx?: JobUnlockContext,
+): number {
+  return jobUnlockSpForCount(unlockedJobCount(proficiency, ctx));
 }
 
 // 직업 해금 조건 텍스트(공유 — 전직 화면·직업 도감). 기본 직업=Lv 캡 달성, 상위/하이브리드=부모 숙련도 임계.
@@ -1486,13 +1708,16 @@ export function isJobUnlockConditionRevealed(
   });
 }
 
-// 그 직업에 쌓은 숙련도(표시용) — tier1 직업=직군 숙련도(groups), tier2+=직업별 숙련도(jobCumLevel).
-//   isJobUnlocked 의 prereq 분기와 같은 기준. 미적립=0.
+// 그 직업에 쌓은 숙련도(표시용) — 직군 자체인 기본 직업은 groups, 직군 아래 별도 전문 직업은
+// jobCumLevel. 대부분 tier1=groups/tier2+=jobCumLevel 이지만 수인·골렘은 tier1 이면서
+// mutant 직군의 전문 직업이므로 jobCumLevel 을 사용한다. 미적립=0.
 export function cumLevelForJob(
   prof: V2ProficiencyState,
   job: V2JobDefinition,
 ): number {
-  return job.tier <= 1
+  const legacyMapping = LEGACY_CLASS_SPEC_BY_JOB[job.id];
+  const usesGroupMastery = job.tier <= 1 && legacyMapping?.spec == null;
+  return usesGroupMastery
     ? (prof.groups[job.id]?.cumLevel ?? 0)
     : (prof.jobCumLevel?.[job.id] ?? 0);
 }
@@ -1598,7 +1823,12 @@ export function rejobRequiredLevel(jobId: string): number {
 }
 
 export function isRootJobSelectable(job: V2JobDefinition): boolean {
-  return job.tier > 0 || job.id === "none" || job.id === "survivor";
+  return (
+    job.tier > 0 ||
+    job.id === "none" ||
+    job.id === "survivor" ||
+    job.id === "mutant"
+  );
 }
 
 /** 현재 숙련도로 전직 가능한 직업 목록(전직 UI 용). */
@@ -1607,7 +1837,9 @@ export function unlockedJobs(
   ctx?: JobUnlockContext,
 ): V2JobDefinition[] {
   return V2_JOB_LIST.filter(
-    (job) => isRootJobSelectable(job) && isJobUnlocked(job, proficiency, ctx),
+    (job) =>
+      isRootJobSelectable(job) &&
+      isJobContentUnlocked(job, proficiency, ctx),
   );
 }
 
@@ -1629,6 +1861,14 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   mage: { class: "mage", spec: null },
   rogue: { class: "rogue", spec: null },
   survivor: { class: "survivor", spec: null },
+  mutant: { class: "mutant", spec: null },
+  beastkin: { class: "mutant", spec: "beastkin" },
+  golem: { class: "mutant", spec: "golem" },
+  beastwarrior: { class: "mutant", spec: "beastwarrior" },
+  tracker: { class: "mutant", spec: "tracker" },
+  bloodtracker: { class: "mutant", spec: "bloodtracker" },
+  predator: { class: "mutant", spec: "predator" },
+  primalpredator: { class: "mutant", spec: "primalpredator" },
   camper: { class: "survivor", spec: "camper" },
   ironman: { class: "survivor", spec: "ironman" },
   fisher: { class: "survivor", spec: "fisher" },
@@ -1657,6 +1897,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   venomist: { class: "rogue", spec: "venomist" },
   // tier 3 — 새 spec id(옛 계파 아님, 식별 전용). jobIdFromLegacy 가 (class,spec)→jobId 로 왕복.
   paladin: { class: "warrior", spec: "paladin" },
+  duelist: { class: "warrior", spec: "duelist" },
   brawler: { class: "martial", spec: "brawler" },
   magus: { class: "mage", spec: "magus" },
   shaman: { class: "mage", spec: "shaman" },
@@ -1707,16 +1948,20 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   crusader: { class: "warrior", spec: "crusader" }, // 성기사 4차 — 저장 class=전사, spec=고유 id
   runeknight: { class: "warrior", spec: "runeknight" }, // 마검사 4차 — 저장 class=전사, spec=고유 id
   crimsontemplar: { class: "warrior", spec: "crimsontemplar" }, // 혈성기사 4차 — 방어와 회복 억제의 탱딜
+  contender: { class: "warrior", spec: "contender" },
   // tier 5 — 핵심 5개 상급 심화 직업.
   swordmaster: { class: "warrior", spec: "swordmaster" },
+  undefeated: { class: "warrior", spec: "undefeated" },
   ironknight: { class: "warrior", spec: "ironknight" },
   overlord: { class: "warrior", spec: "overlord" },
   arcanist: { class: "mage", spec: "arcanist" },
   elementallord: { class: "mage", spec: "elementallord" },
+  cryomancer: { class: "mage", spec: "cryomancer" },
   inscriber: { class: "mage", spec: "inscriber" },
   marksman: { class: "rogue", spec: "marksman" },
   nightshade: { class: "rogue", spec: "nightshade" },
   saint: { class: "mage", spec: "saint" },
+  grandwarder: { class: "mage", spec: "grandwarder" },
   plaguebringer: { class: "rogue", spec: "plaguebringer" },
   dragonfist: { class: "martial", spec: "dragonfist" },
   adamantmonk: { class: "martial", spec: "adamantmonk" },
@@ -1733,10 +1978,14 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   // tier 6 — 5차 직업 계승.
   fortressknight: { class: "warrior", spec: "fortressknight" },
   swordsaint: { class: "warrior", spec: "swordsaint" },
+  grandchampion: { class: "warrior", spec: "grandchampion" },
   hegemon: { class: "warrior", spec: "hegemon" },
   archmage: { class: "mage", spec: "archmage" },
   primordialmage: { class: "mage", spec: "primordialmage" },
+  frostsovereign: { class: "mage", spec: "frostsovereign" },
+  lawweaver: { class: "mage", spec: "lawweaver" },
   savior: { class: "mage", spec: "savior" },
+  lawguardian: { class: "mage", spec: "lawguardian" },
   doomprophet: { class: "mage", spec: "doomprophet" },
   heavenlybow: { class: "rogue", spec: "heavenlybow" },
   blackmoon: { class: "rogue", spec: "blackmoon" },
@@ -1752,6 +2001,11 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   legendaryminer: { class: "survivor", spec: "legendaryminer" },
   blooddemon: { class: "warrior", spec: "blooddemon" },
   absolute: { class: "warrior", spec: "absolute" },
+  // tier 7 — 첫 선행 계보 직군을 저장 class로 사용하고 고유 spec으로 왕복한다.
+  shadowblade: { class: "warrior", spec: "shadowblade" },
+  ruinblade: { class: "warrior", spec: "ruinblade" },
+  skyascendant: { class: "rogue", spec: "skyascendant" },
+  primordialsage: { class: "mage", spec: "primordialsage" },
 };
 
 /**
@@ -1780,4 +2034,29 @@ export function jobIdFromLegacy(cls: string, spec: string | null): string {
     if (m.class === cls && m.spec === normSpec) return jobId;
   }
   return cls; // 폴백 — 기본 직업 id(또는 none)
+}
+
+/**
+ * 수행 프로필을 선택할 수 있는 실제 방문 직업인지 판정한다.
+ * jobHistory 도입 전 저장은 해당 직업 숙련도를 방문 증거로 소급 인정한다.
+ */
+export function isVisitedJob(
+  proficiency: V2ProficiencyState,
+  currentJobId: string | null | undefined,
+  jobId: string,
+): boolean {
+  const job = V2_JOB_CATALOG[jobId];
+  if (!job || !isRootJobSelectable(job)) return false;
+  return (
+    jobId === currentJobId ||
+    (proficiency.jobHistory ?? []).includes(jobId) ||
+    cumLevelForJob(proficiency, job) > 0
+  );
+}
+
+/** 선택 직업의 수행 횟수·숙련도 회계에 사용할 레거시 직군 키. */
+export function cultivationGroupForJob(jobId: string): string | null {
+  if (!V2_JOB_CATALOG[jobId]) return null;
+  if (jobId === "none") return "none";
+  return LEGACY_CLASS_SPEC_BY_JOB[jobId]?.class ?? null;
 }

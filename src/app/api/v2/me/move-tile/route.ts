@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordGrowthLeapStaminaSpendInTx } from "@/lib/server/growthLeapProgress";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   OUTPOST_MOVE_COST,
@@ -153,6 +154,9 @@ export async function POST(req: Request) {
       stamina: nextStamina,
       ...(V2_CORE_LOOP_V2 ? { gold: nextGold, bankedGold: nextBankedGold } : {}),
     });
+    if (!same && !V2_CORE_LOOP_V2) {
+      await recordGrowthLeapStaminaSpendInTx(tx, userId, OUTPOST_MOVE_COST, now);
+    }
     return {
       kind: "ok",
       stamina: nextStamina,

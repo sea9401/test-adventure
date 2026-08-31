@@ -84,6 +84,47 @@ function skilledMainActor() {
   });
 }
 
+const PRIMORDIAL_MATERIALS = [
+  "v2c_firemage_inferno",
+  "v2c_frostmage_glacier",
+  "v2c_lightningmage_thunderbolt",
+  "v2c_windmage_tempest",
+  "v2c_earthmage_tectonic",
+] as const;
+
+function primordialMainActor(catalyst: boolean) {
+  const skills = [
+    "v2c_primordialmage_return",
+    "v2c_primordialmage_resonance",
+    ...PRIMORDIAL_MATERIALS,
+    ...(catalyst ? (["v2c_elementallord_surge"] as const) : []),
+  ];
+  return makeGridDungeonPartyActor({
+    id: "me",
+    name: "태초술사",
+    maxHp: 10_000,
+    maxMp: 10_000,
+    mp: 10_000,
+    atk: 100,
+    magicAtk: 1_000,
+    int: 1_000,
+    def: 0,
+    spd: 10,
+    isMain: true,
+    skills,
+    pattern: smartDefaultPatternFromEquipped(skills),
+  });
+}
+
+function oneActionPrimordialResult(catalyst: boolean) {
+  return resolveGridDungeonPartyCombat({
+    main: primordialMainActor(catalyst),
+    supporters: [],
+    enemy: monster("주문식 허수아비", 1_000_000_000, 1_000_000, 0, 1_000),
+    scaling: { hpPerSupporter: 0, atkPerSupporter: 0 },
+  });
+}
+
 const dps = () =>
   supporter({
     userId: "dps",
@@ -108,7 +149,9 @@ const healer = () =>
     magicAtk: 82,
     def: 20,
     spd: 9,
-    healMult: 1.25,
+    // 반복형 회복기의 실효 수치를 직접 표기한 뒤에도 추천 조합에서
+    // 회복 전담 역할을 수행할 수 있는 후반 회복 배율을 사용한다.
+    healMult: 3,
     skills: ["v2c_acolyte_smite"],
     pattern: {
       blocks: [
@@ -189,10 +232,10 @@ describe("gridDungeon party combat simulations", () => {
     expect(result.party.find((member) => member.id === "me")?.damageTaken).toBeGreaterThan(0);
   });
 
-  it("single dps support can clear the boss but still takes pressure", () => {
+  it("single dps support cannot clear the boss after MP pressure rises", () => {
     const result = runRoom("boss", [dps()], "me");
-    expect(result.outcome).toBe("win");
-    expect(result.playerHpAfter).toBeGreaterThan(0);
+    expect(result.outcome).toBe("lose");
+    expect(result.enemyHp).toBeGreaterThan(0);
     expect(result.party.find((member) => member.id === "me")?.damageTaken).toBeGreaterThan(0);
   });
 
@@ -238,6 +281,22 @@ describe("gridDungeon party combat simulations", () => {
     const main = result.party.find((member) => member.id === "me");
     expect(main?.skillUses).toMatchObject({ 강타: expect.any(Number) });
     expect(main?.damageDealt ?? 0).toBeGreaterThan(0);
+  });
+
+  it("party combat records the equipped five-element cast variant", () => {
+    const result = oneActionPrimordialResult(true);
+    const main = result.party.find((member) => member.id === "me");
+
+    expect(main?.skillUses).toEqual({ "개벽·오원소 회귀": 1 });
+  });
+
+  it("party combat applies the equipped primordial catalyst damage", () => {
+    const withoutCatalyst = oneActionPrimordialResult(false);
+    const withCatalyst = oneActionPrimordialResult(true);
+    const damage = (result: typeof withCatalyst) =>
+      result.party.find((member) => member.id === "me")?.damageDealt ?? 0;
+
+    expect(damage(withCatalyst)).toBeGreaterThan(damage(withoutCatalyst));
   });
 
   it("defensive frontline draws pressure away from the healer", () => {

@@ -6,16 +6,23 @@ import { V2_CORE_LOOP_V2, V2_LEVEL_CAP } from "./coreLoopConfig";
 // 저장: proficiency.v2 = {
 //   points: number,                                                // 숙달 포인트(캐릭터 단일 잔액)
 //   groups: { [tier1classId]: { cultivations, tier, cumLevel } },
+//   statFloorLevels: { [tier1classId]: number },                  // 실제 레벨 상승 누적분
 //   caps:   { [stat]: number },                                    // 수행으로 올린 stat cap
 // }
-//   - points = 숙달 포인트(사용가능 잔액). 승리당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~3),
+//   - points = 숙달 포인트(사용가능 잔액). 승리당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~5),
 //     수행·스킬학습에 소모. 🔑 caps/grown 처럼 캐릭터 전역(직군 무관) — 전직해도 유지.
 //     (2026-06 통합: 옛 earned 누적/spent 분리 폐지 → 단일 잔액. 2026-06-27: 옛 직군별 points 를
 //      전역으로 승격 — 재전직 시 잔액이 0 으로 보이던 문제 해소. parse 가 옛 직군별을 합산 이관.)
-//   - cultivations(수행 횟수) · tier(레거시 차수/평탄화값) · cumLevel(직군 숙련도, floor·전직 입력)은 직군별.
+//   - cultivations(수행 횟수) · tier(레거시 차수/평탄화값) · cumLevel(직군 숙련도, 전직 입력)은 직군별.
+//   - statFloorLevels 는 실제 레벨 상승으로만 오르는 직군별 저점 성장 입력이다.
 //   - cap 미지정 = V2_STAT_CAP_BASE.
 
 import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
+import {
+  parseLifeResourceGrowth,
+  resetLifeResourceLevels,
+  type V2LifeResourceGrowth,
+} from "./lifeResourceGrowth";
 import { parseV2Class } from "./classes";
 import { themeIndexForDepth } from "./dungeon";
 import { V2_JOB_CATALOG } from "./v2JobCatalog";
@@ -23,16 +30,24 @@ import { V2_JOB_CATALOG } from "./v2JobCatalog";
 export type V2ProficiencyGroup = {
   cultivations: number;
   tier: number; // 그 직업군에서 도달한 최고 차수(1~4). floor tierMult 에 사용.
-  // 직군 숙련도 — 사냥 승리마다 +1(전직 리셋에도 불변). floor·전직 게이트 입력(2026-06).
+  // 직군 숙련도 — 사냥 승리마다 +1(전직 리셋에도 불변). 전직 게이트 입력(2026-06).
   cumLevel: number;
 };
+export type LiberationCycleGrowth = { hp: number; mp: number };
 export type V2ProficiencyState = {
   // 숙달 포인트 — 캐릭터 단일 잔액(승리당 적립, 수행·스킬학습에 소모). caps 처럼 전역(전직 무관).
   //   옛 직군별 points 는 parse 시 전부 합산해 이관(2026-06-27).
   points: number;
   groups: Record<string, V2ProficiencyGroup>;
+  // 직군별 실제 레벨 상승 누적분. 스탯 저점은 승리 숙련도(cumLevel)가 아니라 이 값만 사용한다.
+  // 필드 도입 전 저장값은 parse 시 당시 floor 입력(balanceCumLevel(cumLevel))으로 1회 고정한다.
+  statFloorLevels: Record<string, number>;
   caps: Partial<Record<V2StatKey, number>>;
   grown: Partial<Record<V2StatKey, number>>; // 랜덤 레벨 성장 누적분(1차 스탯).
+  /** 현재 재전직 주기에 장비 해방으로 영구 누적한 최대 HP·MP. 재전직 시 0으로 초기화한다. */
+  liberationCycleGrowth: LiberationCycleGrowth;
+  // 폐기된 수행 재분배 저장 필드. 과거 저장 형식 호환을 위해 0으로만 유지한다.
+  growthRespecPoints?: number;
   // 직업별 숙련도 — 특정 직업(예: 기사·사제)으로 쌓은 승리 수. groups(직군 숙련도)와 별개.
   //   하이브리드 직업 해금 게이트 입력(직군이 아니라 특정 상위 직업의 깊이를 요구). 승리당 +1.
   //   ⚠️ 소급 없음(도입 후부터 적립). totalCumLevel/floor 는 groups 만 보므로 이중계산 없음.
@@ -46,6 +61,8 @@ export type V2ProficiencyState = {
   // 성장 규칙 마이그레이션 버전.
   // 1 = 레벨업 성장량 5→3 및 기존 grown 75% 압축 적용.
   growthScaleVersion?: number;
+  /** 현재 전투 생애의 확정 HP·MP 굴림. 미지정이면 다음 전투 재전직까지 레거시 자원 공식을 쓴다. */
+  lifeResourceGrowth?: V2LifeResourceGrowth;
   // 환생(재전직) 횟수 — 만렙을 요구하는 전투직에서 출발한 advance-class 환생마다 +1.
   // Lv.1에서 반복 가능한 생활직 전환은 업적 악용을 막기 위해 기록하지 않는다. cumLevel 과 별개의 "행동" 신호:
   //   윤회의 길 첫 퀘스트("다시 태어나다")가 cumLevel 임계(레벨캡+1) 대신 이 카운터로 "환생 1회"를
@@ -59,18 +76,19 @@ export type V2ProficiencyState = {
 };
 
 // §10 다이얼.
-// 승리당 숙달 포인트 — 초반은 유지, 중후반 수행/스킬 경제 인플레는 억제.
-// 들판~심층 동굴 2 / 잊힌 성소 이후 3. 직업 숙련도(+1/승리)는 그대로 두고
-// 수행 재화만 낮춰, 초반 고통 없이 중후반 성장 폭주를 늦춘다.
+// 승리당 숙달 포인트 — 초반은 유지하고 최상위 사냥터의 성장 보상을 강화한다.
+// 들판~심층 동굴 2 / 잊힌 성소~백골 고원 3 / 폭풍 산맥~심해 폐허 4 /
+// 천공 균열 이후 5. 직업 숙련도(+1/승리)는 사냥터와 관계없이 그대로 유지한다.
 export const V2_PROFICIENCY_PER_KILL_BASE = 2;
 export function proficiencyPerKillAtDepth(depth: number): number {
-  return Math.min(
-    3,
-    V2_PROFICIENCY_PER_KILL_BASE + Math.floor(themeIndexForDepth(depth) / 4),
-  );
+  const themeIndex = themeIndexForDepth(depth);
+  if (themeIndex >= 12) return 5; // 천공 균열·별의 무덤
+  if (themeIndex >= 10) return 4; // 폭풍 산맥~심해 폐허
+  if (themeIndex >= 4) return 3; // 잊힌 성소~백골 고원
+  return V2_PROFICIENCY_PER_KILL_BASE;
 }
 // 스탯 한계치는 저점(floor)과 독립적인 절대치다. 신규 캐릭터는 60에서 시작하고,
-// 수행으로 올린 이득만 더해진다. 직업 숙련도로 저점이 올라가더라도 한계치는 올라가지
+// 수행으로 올린 이득만 더해진다. 레벨 누적으로 저점이 올라가더라도 한계치는 올라가지
 // 않으며, 실제 스탯은 floor + grown 결과를 이 한계치로 클램프한다.
 export const V2_STAT_CAP_BASE = 60;
 
@@ -87,6 +105,7 @@ export const V2_CULTIVATE_PROFILE: Record<
   mage: { int: 2, spi: 2 }, // 마법사 — 공격마법(int)·신성(spi)
   rogue: { dex: 2, luk: 2 }, // 도적 — 궁수(dex)·암살(luk)
   survivor: { vit: 2, spi: 1, str: 1 }, // 생존자 — 최대 HP·회복·버티기
+  mutant: { vit: 2, str: 1, int: 1 }, // 변이자 — 신체 적응과 물리·마법 변이 기반
   // 모험가(none) — 전직 전에도 균형 수행 가능(STR/VIT/DEX/INT 각 1, SPI/LUK 제외). cap 은 전역이라
   //   전직 후에도 유지. 전직은 별개(advance-class)·none 은 직군 정복/도감엔 미포함(cumLevel 미적립).
   none: { str: 1, vit: 1, dex: 1, int: 1 },
@@ -118,7 +137,8 @@ export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   fortressknight: { vit: 4, str: 2 }, // 성채기사 — 철벽기사 최종형, 방어 중심
   swordsaint: { str: 3, dex: 2, vit: 1 }, // 검성 — 검호 최종형, 힘과 정밀 중심
   hegemon: { str: 3, vit: 2, luk: 1 }, // 패황 — 패왕 최종형, 힘·광기·치명 중심
-  archmage: { int: 3, spi: 3 }, // 대마도사 — 비전술사 최종형, 순수 마법 중심
+  archmage: { int: 4, spi: 2 }, // 대마도사 — 비전술사 최종형, 지능 집중 마법
+  lawweaver: { int: 3, spi: 3 }, // 법칙술사 — 각인술사 최종형, 문장 조합과 해방 중심
   savior: { spi: 3, int: 2, vit: 1 }, // 구원자 — 성자 최종형, 치유와 생존 보조 중심
   calamitycaller: { int: 3, spi: 1, luk: 1 }, // 재앙술사 — 대주술사 심화, 저주·재앙 디버프 중심
   doomprophet: { int: 3, spi: 2, luk: 1 }, // 종말예언자 — 재앙술사 최종형, 종말 선고와 침식 중심
@@ -128,7 +148,7 @@ export const V2_HYBRID_CULTIVATE_PROFILE: Record<
 };
 
 // 단일 직군 안에서도 공용 프로필과 역할 축이 크게 다른 전문 계보의 수행 오버라이드.
-// 방패 계보는 방어력 기반 공격·방벽·보호막·반사가 핵심이라 전사 공용 DEX 대신 VIT에 집중한다.
+// 방패는 VIT, 공격 마법은 INT, 궁술은 DEX, 암살은 LUK에 집중해 공용 균등 프로필과 구분한다.
 // 값은 V2_JOB_CATALOG[id].cultivateProfile 과 동일해야 하며 차수별 총 성장량은 유지한다.
 export const V2_SPECIALIZED_CULTIVATE_PROFILE: Record<
   string,
@@ -139,6 +159,26 @@ export const V2_SPECIALIZED_CULTIVATE_PROFILE: Record<
   warden: { vit: 3, str: 1 },
   ironknight: { vit: 4, str: 1 },
   fortressknight: { vit: 4, str: 2 },
+  caster: { int: 3, spi: 1 },
+  magus: { int: 3, spi: 1 },
+  sage: { int: 3, spi: 1 },
+  arcanist: { int: 4, spi: 1 },
+  archmage: { int: 4, spi: 2 },
+  archer: { dex: 3, luk: 1 },
+  ranger: { dex: 3, luk: 1 },
+  chief: { dex: 3, luk: 1 },
+  marksman: { dex: 4, luk: 1 },
+  heavenlybow: { dex: 4, luk: 2 },
+  assassin: { luk: 3, dex: 1 },
+  shadow: { luk: 3, dex: 1 },
+  phantom: { luk: 3, dex: 1 },
+  nightshade: { luk: 4, dex: 1 },
+  blackmoon: { luk: 4, dex: 2 },
+  beastwarrior: { str: 2, dex: 2 },
+  tracker: { str: 2, dex: 2 },
+  bloodtracker: { str: 2, dex: 2 },
+  predator: { str: 3, dex: 2 },
+  primalpredator: { str: 3, dex: 2, vit: 1 },
 };
 
 // 캐릭터의 실효 수행 프로필 — 전문 계보, 고차 직업, 하이브리드 순으로 직업 전용값을 사용한다.
@@ -152,7 +192,10 @@ export function effectiveCultivateProfile(
   if (jobId && V2_SPECIALIZED_CULTIVATE_PROFILE[jobId]) {
     return V2_SPECIALIZED_CULTIVATE_PROFILE[jobId];
   }
-  if (job?.tier === 5 || job?.tier === 6) {
+  if (group === "mutant" && job?.tier === 1) {
+    return job.cultivateProfile;
+  }
+  if (job && job.tier >= 5) {
     return job.cultivateProfile;
   }
   if (jobId && V2_HYBRID_CULTIVATE_PROFILE[jobId]) {
@@ -230,8 +273,11 @@ export function emptyProficiency(): V2ProficiencyState {
   return {
     points: 0,
     groups: {},
+    statFloorLevels: {},
     caps: {},
     grown: {},
+    liberationCycleGrowth: { hp: 0, mp: 0 },
+    growthRespecPoints: 0,
     jobCumLevel: {},
     jobHistory: [],
     masteryScaleVersion: 2,
@@ -276,12 +322,16 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
   const obj = raw as {
     points?: unknown;
     groups?: unknown;
+    statFloorLevels?: unknown;
     caps?: unknown;
     grown?: unknown;
+    liberationCycleGrowth?: unknown;
+    growthRespecPoints?: unknown;
     jobCumLevel?: unknown;
     jobHistory?: unknown;
     masteryScaleVersion?: unknown;
     growthScaleVersion?: unknown;
+    lifeResourceGrowth?: unknown;
     reincarnations?: unknown;
     cultivationPointsSpent?: unknown;
     cultivationResetCount?: unknown;
@@ -298,6 +348,7 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
         : 2;
   const growthScaleVersion =
     obj.growthScaleVersion != null ? posInt(obj.growthScaleVersion) : 0;
+  const lifeResourceGrowth = parseLifeResourceGrowth(obj.lifeResourceGrowth);
   // 숙달 포인트(캐릭터 전역 잔액) — 신포맷=top-level points. 옛 포맷=직군별 points 라, 아래 루프에서
   //   각 직군의 points 를 전부 여기 합산해 이관한다(2026-06-27 전역 승격). 신포맷 그룹엔 points 가
   //   없어 posInt→0 이므로 이중계산 없음.
@@ -340,6 +391,26 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
             }
           : { cultivations, tier, cumLevel };
       }
+    }
+  }
+  // 스탯 저점 입력 — 승리 기반 숙련도와 분리한다. 기존 저장값은 현재 적용 중이던
+  // balanceCumLevel(cumLevel)을 기준값으로 고정해 배포 직후 스탯 하락 없이 이관한다.
+  const statFloorLevels: Record<string, number> = {};
+  if (obj.statFloorLevels && typeof obj.statFloorLevels === "object") {
+    for (const [k, v] of Object.entries(
+      obj.statFloorLevels as Record<string, unknown>,
+    )) {
+      const key = parseV2Class(k);
+      if (key === "none") continue;
+      const levels = posInt(v);
+      if (levels > 0) {
+        statFloorLevels[key] = Math.max(statFloorLevels[key] ?? 0, levels);
+      }
+    }
+  } else {
+    for (const [group, value] of Object.entries(groups)) {
+      const levels = balanceCumLevel(value.cumLevel);
+      if (levels > 0) statFloorLevels[group] = levels;
     }
   }
   // caps[stat] = 수행으로 올린 cap 헤드룸 이득(floor+base 위 추가분). 양수·유한만 저장.
@@ -399,15 +470,28 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     cultivationLedgerVersion >= 1
       ? posInt(obj.cultivationPointsSpent)
       : estimateLegacyCultivationSpend(capTotal, cultivationTotal);
+  const rawLiberationGrowth =
+    obj.liberationCycleGrowth &&
+    typeof obj.liberationCycleGrowth === "object" &&
+    !Array.isArray(obj.liberationCycleGrowth)
+      ? (obj.liberationCycleGrowth as Record<string, unknown>)
+      : {};
   return {
     points: pointsTotal,
     groups,
+    statFloorLevels,
     caps,
     grown,
+    liberationCycleGrowth: {
+      hp: posInt(rawLiberationGrowth.hp),
+      mp: posInt(rawLiberationGrowth.mp),
+    },
+    growthRespecPoints: 0,
     jobCumLevel,
     jobHistory,
     masteryScaleVersion,
     growthScaleVersion: 1,
+    ...(lifeResourceGrowth ? { lifeResourceGrowth } : {}),
     reincarnations: posInt(obj.reincarnations),
     cultivationPointsSpent,
     cultivationResetCount: posInt(obj.cultivationResetCount),
@@ -431,6 +515,21 @@ export function setGrown(
   grown: Partial<Record<V2StatKey, number>>,
 ): V2ProficiencyState {
   return { ...p, grown };
+}
+
+// 레벨 1로 돌아가는 환생·직업군 변경은 그 생애의 성장값을 끝낸다. 수행 초기화의 재분배
+// 대기값과 HP·MP 레벨 누적도 같은 성장 총량에서 나온 값이므로 함께 비워 다음 생애로
+// 넘기는 악용과 character.level/rolledLevel 불일치를 막는다. Lv.1 기본 굴림은 보존한다.
+export function resetLevelGrowth(p: V2ProficiencyState): V2ProficiencyState {
+  return {
+    ...p,
+    grown: {},
+    growthRespecPoints: 0,
+    ...(p.lifeResourceGrowth
+      ? { lifeResourceGrowth: resetLifeResourceLevels(p.lifeResourceGrowth) }
+      : {}),
+    liberationCycleGrowth: { hp: 0, mp: 0 },
+  };
 }
 
 // 레거시 차수 전직용 최고 차수 갱신. 코어루프 on 경로는 flattenGroupTiers 로 1차 정규화한다.
@@ -469,15 +568,15 @@ export function flattenGroupTiers(
   return { ...p, groups };
 }
 
-// floor(저점) 다이얼 — docs §5. 입력은 직군 숙련도(cumLevel). 해금용 원본 숙련도는
-// 승리 기반 스케일이고, floor 는 balanceCumLevel 로 정규화한 값을 사용한다.
+// floor(저점) 다이얼 — docs §5. 현재 입력은 실제 레벨 누적(statFloorLevels)이다.
+// balanceCumLevel 은 필드 도입 전 승리 숙련도를 동일한 현재 저점으로 이관할 때만 사용한다.
 // 승리 기반 숙련도 전환 뒤 한 계보 4단계만 진행해도 옛 계수에서는 주력 저점이 수행 한계치의
 // 약 98%까지 차올랐다. 저점은 환생 안전망이지 별도 한계치가 아니므로, 4단계 표준 진행에서
 // 수행 한계치의 30~50%에 머물도록 영구 성장 기울기를 낮춘다.
-export const V2_FLOOR_GLOBAL = 0.005; // 총 밸런스 숙련도 → 전 스탯 베이스.
-export const V2_FLOOR_PER_PROF = 0.02; // 직군 밸런스 숙련도 → 프로필 스탯 floor.
+export const V2_FLOOR_GLOBAL = 0.005; // 총 누적 레벨 → 전 스탯 베이스.
+export const V2_FLOOR_PER_PROF = 0.02; // 직군 누적 레벨 → 프로필 스탯 floor.
 // 숙련도는 해금 보존을 위해 기존 cumLevel 대비 9배 스케일로 마이그레이션했다.
-// 해금 조건은 원본 값을 쓰지만, 스탯 floor·SP 같은 성장 보너스는 기존 체감을 유지하도록 1/9 정규화한다.
+// 기존 저장값의 floor 기준을 보존하는 1회성 이관에서 1/9 정규화한다.
 export const V2_MASTERY_BALANCE_SCALE = 9;
 export function balanceCumLevel(cumLevel: number): number {
   if (!Number.isFinite(cumLevel) || cumLevel <= 0) return 0;
@@ -495,12 +594,12 @@ export const V2_TIER_FLOOR_MULT: Record<number, number> = {
 // 규칙. 옛 앵커-이진(1.0/0.4)은 mage {int:2,spi:2} 의 spi 를 0.4 로 홀대 → 값 비례로 통일.
 export const V2_FLOOR_ANCHOR_WEIGHT = 1.0; // 프로필 최댓값 스탯(직군 주력)의 floor 가중.
 
-// 환생 누적 성장 완화(2026-06-07) — 숙련도 floor 가 선형 무한이라 환생할수록 스탯이 끝없이.
-// 천장은 두지 않되 증가율을 ~10환생(cumLevel BAND)마다 한 단계씩 낮춘다(밴드 b: ×max(MIN,1−DECAY×b)).
+// 환생 누적 성장 완화(2026-06-07) — 누적 레벨 floor 가 선형 무한이라 환생할수록 스탯이 끝없이.
+// 천장은 두지 않되 증가율을 ~10환생(level BAND)마다 한 단계씩 낮춘다(밴드 b: ×max(MIN,1−DECAY×b)).
 // MIN 에서 멈춰 무한 유지(천장 X). 첫 밴드(b=0, ~0~10환생)는 ×1.0 = 현행 동일.
-//   diminishedCumLevel = 선형 밸런스 숙련도를 밴드별 감쇠율로 적분한 "유효 숙련도" — floor 식의
-//   cumLevel/total 자리에 대입하면 piecewise-concave(증가율↓, 천장 없음).
-export const V2_FLOOR_DECAY_BAND = 3000; // 밸런스 숙련도 기준 ≈ 10환생(캠페인당 291 × ~10).
+//   diminishedCumLevel = 선형 누적 레벨을 밴드별 감쇠율로 적분한 "유효 누적 레벨" — floor 식의
+//   직군별/총 누적 레벨 자리에 대입하면 piecewise-concave(증가율↓, 천장 없음).
+export const V2_FLOOR_DECAY_BAND = 3000; // 누적 레벨 기준 ≈ 10환생(캠페인당 291 × ~10).
 export const V2_FLOOR_DECAY_PER_BAND = 0.12; // 밴드당 증가율 −12%.
 export const V2_FLOOR_DECAY_MIN = 0.4; // 최소 증가율(천장 방지). 50환생+ 부터 이 비율 무한 유지.
 export function diminishedCumLevel(cumLevel: number): number {
@@ -556,7 +655,7 @@ export function effectiveLevelCap(tier: number): number {
   return levelCapFor(tier, V2_CORE_LOOP_V2);
 }
 
-// 직군 숙련도 합계 — floor·직업 해금·랭킹 입력. 사냥 승리당 +1, 재전직 리셋에도 불변.
+// 직군 숙련도 합계 — 직업 해금·랭킹 입력. 사냥 승리당 +1, 재전직 리셋에도 불변.
 export function totalCumLevel(p: V2ProficiencyState): number {
   let t = 0;
   for (const v of Object.values(p.groups)) t += v.cumLevel;
@@ -582,7 +681,7 @@ export function capGain(p: V2ProficiencyState, stat: V2StatKey): number {
   return p.caps[stat] ?? 0;
 }
 
-// 유효 cap = 기본 절대 한계치 + 수행 이득. 저점/숙련도와는 독립적이다.
+// 유효 cap = 기본 절대 한계치 + 수행 이득. 저점/레벨 누적과는 독립적이다.
 export function effectiveStatCap(gain: number): number {
   return Math.floor(V2_STAT_CAP_BASE + Math.max(0, gain));
 }
@@ -609,6 +708,11 @@ export function resetCultivation(
       ...p,
       points: usablePoints(p) + refundedPoints,
       caps: {},
+      grown: {},
+      growthRespecPoints: 0,
+      ...(p.lifeResourceGrowth
+        ? { lifeResourceGrowth: resetLifeResourceLevels(p.lifeResourceGrowth) }
+        : {}),
       cultivationPointsSpent: 0,
       cultivationResetCount:
         Math.max(0, Math.floor(Number(p.cultivationResetCount) || 0)) + 1,
@@ -650,6 +754,26 @@ export function addCumLevel(
   };
 }
 
+// 스탯 저점 성장 입력 적립 — 실제 레벨 상승분만 기록한다. 승리 숙련도(cumLevel)와 분리해
+// 만렙 사냥이 전직 숙련도는 올리되 캐릭터 스탯을 무한히 올리지 않도록 한다.
+export function addStatFloorLevels(
+  p: V2ProficiencyState,
+  group: string,
+  amount: number,
+): V2ProficiencyState {
+  if (!group || group === "none") return p;
+  const levels = Number.isFinite(amount) ? Math.max(0, Math.floor(amount)) : 0;
+  if (levels <= 0) return p;
+  const current = p.statFloorLevels ?? {};
+  return {
+    ...p,
+    statFloorLevels: {
+      ...current,
+      [group]: (current[group] ?? 0) + levels,
+    },
+  };
+}
+
 // 환생(재전직) 1회 기록 — reincarnations += 1. 호출부가 만렙을 요구하는 전투직 재전직인지 판정한다.
 // 비파괴. cumLevel 과 독립(환생은 cumLevel 을 보존만 하고 더하지 않으므로, "환생했다"는 별도 신호 필요).
 export function addReincarnation(p: V2ProficiencyState): V2ProficiencyState {
@@ -658,7 +782,7 @@ export function addReincarnation(p: V2ProficiencyState): V2ProficiencyState {
 
 // 직업별 숙련도 적립 — jobId 의 jobCumLevel += amount(사냥 승리 수). 비파괴. none/빈 jobId/0이하 무변경.
 //   직군 숙련도(addCumLevel)와 짝지어 호출 — 같은 승리를 직군(groups.cumLevel)과 구체 직업
-//   (jobCumLevel) 양쪽에 적립한다. totalCumLevel/floor 는 groups 만 보므로 이중계산 없음
+//   (jobCumLevel) 양쪽에 적립한다. stat floor 는 별도 statFloorLevels 만 보므로 이중계산 없음
 //   (jobCumLevel 은 하이브리드 해금 게이트 전용).
 export function addJobCumLevel(
   p: V2ProficiencyState,
@@ -710,7 +834,12 @@ export function applyCultivation(
   // 현재 직업 id — 하이브리드(마검사·성기사)는 직군 대신 직업 정체성 프로필로 cap 을 올린다.
   // 미지정/비하이브리드면 직군(group) 프로필. 회계(group)는 그대로.
   jobId?: string | null,
-): { next: V2ProficiencyState; cost: number; mult: number } | null {
+): {
+  next: V2ProficiencyState;
+  cost: number;
+  mult: number;
+  redistributedGrowthPoints: number;
+} | null {
   const profile = effectiveCultivateProfile(group, jobId);
   if (!profile) return null; // none/무효 직업군
   const cost = cultivationCost(totalCapGains(p));
@@ -726,16 +855,21 @@ export function applyCultivation(
     // 선택 스탯 한 곳 — 프로필 분산과 동일 총량(합 × mult)이라 비용/economy 불변.
     const profileSum = V2_STAT_KEYS.reduce((s, k) => s + (profile[k] ?? 0), 0);
     const gain = profileSum * mult;
-    if (gain > 0) nextCaps[targetStat] = (nextCaps[targetStat] ?? 0) + gain;
+    if (gain > 0) {
+      nextCaps[targetStat] = (nextCaps[targetStat] ?? 0) + gain;
+    }
   } else {
     for (const stat of V2_STAT_KEYS) {
       const gain = (profile[stat] ?? 0) * mult;
-      if (gain > 0) nextCaps[stat] = (nextCaps[stat] ?? 0) + gain;
+      if (gain > 0) {
+        nextCaps[stat] = (nextCaps[stat] ?? 0) + gain;
+      }
     }
   }
   return {
     cost,
     mult,
+    redistributedGrowthPoints: 0,
     next: {
       ...p,
       points: p.points - cost, // 전역 잔액에서 차감
@@ -746,7 +880,66 @@ export function applyCultivation(
         [group]: { ...cur, cultivations: cur.cultivations + 1 },
       },
       caps: nextCaps,
+      grown: { ...p.grown },
+      growthRespecPoints: 0,
     },
+  };
+}
+
+export const V2_CULTIVATION_BATCH_LIMIT = 10_000;
+
+export type CultivationBatchResult = {
+  next: V2ProficiencyState;
+  performed: number;
+  spent: number;
+  greatSuccesses: number;
+  awakenings: number;
+  redistributedGrowthPoints: number;
+  lastMult: number;
+  hasMore: boolean;
+};
+
+export function applyCultivationBatch(
+  p: V2ProficiencyState,
+  group: string,
+  rng: () => number,
+  jobId?: string | null,
+  maxIterations = V2_CULTIVATION_BATCH_LIMIT,
+): CultivationBatchResult | null {
+  const limit = Math.max(
+    1,
+    Math.min(V2_CULTIVATION_BATCH_LIMIT, Math.floor(maxIterations)),
+  );
+  let next = p;
+  let performed = 0;
+  let spent = 0;
+  let greatSuccesses = 0;
+  let awakenings = 0;
+  let redistributedGrowthPoints = 0;
+  let lastMult = 1;
+
+  while (performed < limit) {
+    const applied = applyCultivation(next, group, rng, undefined, jobId);
+    if (!applied) break;
+    next = applied.next;
+    performed += 1;
+    spent += applied.cost;
+    redistributedGrowthPoints += applied.redistributedGrowthPoints;
+    lastMult = applied.mult;
+    if (applied.mult === 3) greatSuccesses += 1;
+    if (applied.mult === 5) awakenings += 1;
+  }
+  if (performed === 0) return null;
+
+  return {
+    next,
+    performed,
+    spent,
+    greatSuccesses,
+    awakenings,
+    redistributedGrowthPoints,
+    lastMult,
+    hasMore: usablePoints(next) >= cultivationCost(totalCapGains(next)),
   };
 }
 

@@ -1,7 +1,11 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import {
+  lockSaveForUpdate,
+  upsertSave,
+  upsertSaves,
+} from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
   activityGuardView,
@@ -24,7 +28,7 @@ import {
   WOODCUTTING_SESSION_KEY,
   WOODCUTTING_MATERIAL_REWARD,
   WOODCUTTING_TREES,
-  parseWoodcuttingLog,
+  parseWoodcuttingLogWithLevelMigration,
   parseWoodcuttingSession,
   recordWoodcuttingSuccess,
   woodcuttingAttemptSucceeds,
@@ -40,6 +44,7 @@ import {
   addJobCumLevel,
   parseProficiencyForChar,
 } from "@/adventure/data/v2/proficiency";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 import {
   V2_JOB_CATALOG,
   isWoodcuttingJobId,
@@ -58,8 +63,9 @@ import {
   parseFarmState,
 } from "@/adventure/v2/farm";
 import { rollWoodcuttingSeedDrop } from "@/adventure/v2/woodcuttingSeedDrops";
+import { woodcuttingPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
 import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
-import { rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
+import { consumeLifeAidUses, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
   LIFE_FIELD_DISCOVERIES,
@@ -75,6 +81,8 @@ import {
   recordLifeFieldSuccessInTx,
 } from "@/lib/server/lifeFieldProgress";
 import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
+import { referralLifeTaskIds } from "@/adventure/data/v2/referralTutorial";
+import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
 
 type CharSave = {
   class?: unknown;
@@ -155,7 +163,9 @@ export async function POST(req: Request) {
       return { success: false as const, reason: "expired" as const };
     }
 
-    await upsertSave(tx, userId, WOODCUTTING_SESSION_KEY, {});
+    const dirtySaves: Record<string, unknown> = {
+      [WOODCUTTING_SESSION_KEY]: {},
+    };
     const guardUpdate = recordActivityCompletion(
       parseActivityGuardState(
         await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
@@ -163,15 +173,17 @@ export async function POST(req: Request) {
       "woodcutting",
       now,
     );
-    await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, guardUpdate.state);
+    dirtySaves[ACTIVITY_GUARD_KEY] = guardUpdate.state;
     const nextActionAt = activityGuardView(
       guardUpdate.state,
       "woodcutting",
     ).nextActionAt;
     const tree = WOODCUTTING_TREES[session.treeId];
     const logRaw = await lockSaveForUpdate(tx, userId, WOODCUTTING_LOG_KEY, {});
-    const currentLog = parseWoodcuttingLog(logRaw);
+    const parsedLog = parseWoodcuttingLogWithLevelMigration(logRaw);
+    const currentLog = parsedLog.log;
     const progression = woodcuttingProgressionView(currentLog.cuts, currentLog.xp);
+    const levelBonuses = woodcuttingPost50Bonuses(progression.level);
     const failureRate =
       session.failureRate ??
       woodcuttingFailureRate(tree.baseFailureRate, progression.level);
@@ -181,6 +193,7 @@ export async function POST(req: Request) {
       (session.failureRecoveryRate ?? 0) > 0 &&
       Math.random() < (session.failureRecoveryRate ?? 0);
     if (!initiallySucceeded && !recovered) {
+      await upsertSaves(tx, userId, dirtySaves);
       return {
         success: false as const,
         reason: "failed" as const,
@@ -245,8 +258,11 @@ export async function POST(req: Request) {
     const materials = mergeDrops(charSave.materials, {
       [materialId]: materialGained,
     });
-    await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
-    const seedDrop = rollWoodcuttingSeedDrop();
+    dirtySaves["character.v2"] = { ...charSave, materials };
+    const seedDrop = rollWoodcuttingSeedDrop(
+      Math.random,
+      levelBonuses.seedChancePct,
+    );
     if (seedDrop) {
       const farm = parseFarmState(
         await lockSaveForUpdate(
@@ -256,25 +272,22 @@ export async function POST(req: Request) {
           emptyFarmState(now),
         ),
       );
-      await upsertSave(
-        tx,
-        userId,
-        FARM_SAVE_KEY,
-        grantFarmSeeds(farm, { [seedDrop.cropId]: seedDrop.quantity }),
-      );
+      dirtySaves[FARM_SAVE_KEY] = grantFarmSeeds(farm, {
+        [seedDrop.cropId]: seedDrop.quantity,
+      });
     }
     let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
     let crafting = workshop.crafting;
-    const activeAid = crafting.activeAids.woodcutting;
-    if (session.aidItemId && activeAid?.itemId === session.aidItemId && activeAid.remainingUses > 0) {
-      const activeAids = { ...crafting.activeAids };
-      if (activeAid.remainingUses <= 1) delete activeAids.woodcutting;
-      else activeAids.woodcutting = { ...activeAid, remainingUses: activeAid.remainingUses - 1 };
-      crafting = { ...crafting, activeAids, aidsUsed: crafting.aidsUsed + 1 };
-    }
-    const blueprint = rollHiddenBlueprint(crafting, "woodcutting");
+    crafting = consumeLifeAidUses(crafting, "woodcutting", session.aidItemId, 1).state;
+    const blueprint = rollHiddenBlueprint(
+      crafting,
+      "woodcutting",
+      1,
+      Math.random,
+      levelBonuses.rareResultChancePct,
+    );
     workshop = { ...workshop, crafting: blueprint.state };
-    await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);
+    dirtySaves[LIFE_WORKSHOP_SAVE_KEY] = workshop;
 
     const diningXp = await consumeGuildDiningEffect(
       tx,
@@ -297,7 +310,13 @@ export async function POST(req: Request) {
       timber: materialGained,
       xp: xpGained,
     });
-    await upsertSave(tx, userId, WOODCUTTING_LOG_KEY, log);
+    dirtySaves[WOODCUTTING_LOG_KEY] = log;
+    await rewardReferralTutorialTasks(
+      tx,
+      userId,
+      "새 모험가",
+      referralLifeTaskIds(woodcuttingProgressionView(log.cuts, log.xp).level),
+    );
 
     const playerClass = parseV2Class(charSave.class);
     const group = tier1ClassOf(playerClass);
@@ -316,7 +335,20 @@ export async function POST(req: Request) {
       prof = addJobCumLevel(prof, jobId, 1);
       masteryGained = 1;
       masteryAfter = prof.jobCumLevel?.[jobId] ?? 0;
-      await upsertSave(tx, userId, "proficiency.v2", prof);
+      dirtySaves["proficiency.v2"] = prof;
+      if (masteryGained > 0) {
+        await recordCodexMasteryGameplayBatch(
+          tx,
+          userId,
+          [{
+            category: "job",
+            entryId: jobId,
+            amount: masteryGained,
+            source: "job.activity",
+          }],
+          new Date(now),
+        );
+      }
     }
 
     await incrementGuildExplorationProgressForUser(
@@ -326,6 +358,7 @@ export async function POST(req: Request) {
       1,
       new Date(now),
     );
+    await upsertSaves(tx, userId, dirtySaves);
     return {
       success: true as const,
       tree,
@@ -351,6 +384,9 @@ export async function POST(req: Request) {
       materials: woodcuttingMaterialBalances(materials),
       // 구버전 클라이언트가 배포 중 응답을 받아도 깨지지 않도록 한동안 유지한다.
       timberGained: materialGained,
+      ...(parsedLog.levelCurveMigrated
+        ? { levelCurveMigrated: true as const }
+        : {}),
       timber: materials[SETTLEMENT_MATERIAL_ID.timber] ?? 0,
       log,
       blueprintRecipeId: blueprint.recipe?.id ?? null,

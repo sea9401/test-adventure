@@ -6,6 +6,7 @@ import {
   coopBossSessions,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordGrowthLeapStaminaSpendInTx } from "@/lib/server/growthLeapProgress";
 import { insertNotificationMany } from "@/lib/server/v2Notifications";
 import {
   lockSaveForUpdate,
@@ -14,7 +15,7 @@ import {
 } from "@/lib/server/savesKv";
 import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
-import { resolveBattle } from "@/adventure/v2/combat/engine";
+import { appendLog, resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import {
   COOP_ATTACK_STAMINA_COST,
@@ -33,7 +34,6 @@ import {
   coopBossMpPressureDamage,
   withCoopBossMp,
 } from "@/adventure/data/v2/coopBosses";
-import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
   applyRegen,
@@ -43,6 +43,13 @@ import {
 } from "@/adventure/v2/stamina";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
+import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
+import {
+  COOP_COIN_MATERIAL_ID,
+  coopKillingBlowReward,
+} from "@/adventure/data/v2/coopRewards";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
+import { COOP_BOSS_MAX_HP_DAMAGE_MULT } from "@/adventure/data/v2/v2CombatConstants";
 
 // POST /api/v2/coop/attack — 협동 보스 1회 공격.
 //
@@ -50,19 +57,20 @@ import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 // 서버 권위 흐름(hunt 라우트와 같은 골격 — 단일 트랜잭션):
 //   1. character.v2 잠금(전 라우트 공통 첫 락) → 스태미너 차감 가능 검사.
 //   2. equipment/skills/proficiency lock-read → derive(왕복 0).
-//   3. 세션 조기 검증(비잠금) → resolveBattle 시뮬(COOP_ATTACK_TURNS 턴 캡, 전역 잔여
+//   3. 세션 조기 검증(비잠금) → resolveBattle 시뮬(일반 PvE와 같은 3,000 ATB 틱, 전역 잔여
 //      HP 시작 + 발악 스테이지 적용 — 플레이어는 현재 HP/MP와 무관하게 만전으로 시작).
 //   4. session FOR UPDATE → 재검증(처치/만료) + 쿨다운 → hp 차감 + 처치 CAS(락 보유로
 //      1명만 defeated 분기 — v1 attack.ts 의 C1/C2 race fix 승계).
 //   5. contributor UPSERT + 공격 로그 1줄.
-//   6. character.v2 에 스태미너만 기록 — 협동 보스는 현재 HP/MP 를 소모하지 않는 별도 전투.
+//   6. character.v2 에 스태미너와 처치 확정타 보상을 기록 — 협동 보스는 현재 HP/MP 를 소모하지 않는 별도 전투.
 //      세션 검증을 통과한 뒤에만 쓰므로 쿨다운/만료 거부 시 스태미너 미소모.
-// 처치 확정자(킬 CAS)는 tx 후 coop_kill 피드 발행. 보상은 별도 claim(본인 세이브만 —
-// 교차 유저 락 0 원칙).
+// 처치 확정자(킬 CAS)는 트랜잭션 안에서 소액 막타 보상을 즉시 받고, tx 후 coop_kill 피드를
+// 발행한다. 기여 보상은 별도 claim(본인 세이브만 — 교차 유저 락 0 원칙).
 
 type CharSave = {
   stamina?: unknown;
   staminaCapBonus?: unknown;
+  materials?: unknown;
   [k: string]: unknown;
 };
 
@@ -163,17 +171,12 @@ export async function POST(req: Request) {
     }
     // 코어루프 — 가시성/공격 권한(공개/길드원만/소환자만). 소환자가 소환 "후" 범위를 바꿀 수 있어
     //   (코드 부재 시 race) peek 는 빠른 거절용이고, 아래 FOR UPDATE 잠금 후 한 번 더 재검증한다.
-    let viewerGuildId: number | null = null;
-    if (V2_CORE_LOOP_V2) {
-      viewerGuildId = await getGuildId(tx, userId);
-      if (
-        !canAccessCoopBoss(sessionPeek, { userId, guildId: viewerGuildId })
-      ) {
-        return {
-          status: 403,
-          body: { ok: false as const, error: "no_permission" as const },
-        };
-      }
+    const viewerGuildId = await getGuildId(tx, userId);
+    if (!canAccessCoopBoss(sessionPeek, { userId, guildId: viewerGuildId })) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "no_permission" as const },
+      };
     }
     const kindId = parseCoopBossKindId(sessionPeek.regionId);
     if (!kindId) {
@@ -231,13 +234,14 @@ export async function POST(req: Request) {
       potions: {},
       v2Skills,
       isBoss: true, // %HP 효과 감산 + breaker 보너스.
+      maxHpDamageMult: COOP_BOSS_MAX_HP_DAMAGE_MULT,
       // 발악 상태 안내 — 전투 로그 첫머리(현재 전역 HP 기준 적용 중인 스테이지).
       ...(enrageNotes.length > 0
         ? { openingNote: enrageNotes.join(" ") }
         : {}),
-      // 1회 공격 = 플레이어 행동 N회. ATB 경로의 maxTurns 는 플레이어 행동 카운터라
-      // 레거시 페이즈 보정(*2)을 적용하면 코어루프에서 공격권이 두 배 길어진다.
-      // 도달 시 종료(타임아웃 lose 는 협동에선 정상 흐름 — 데미지만 누적).
+      // 라이브 ATB는 공통 3,000틱 제한이 먼저 끝낸다. maxTurns는 같은 수치의 안전 가드로만
+      // 남겨 20행동 조기 종료 없이 생존·지속형 빌드도 전투 시간 전체를 활용하게 한다.
+      // 타임아웃 lose 는 협동에선 정상 흐름이며 그때까지 준 데미지만 누적한다.
       maxTurns: COOP_ATTACK_TURNS,
       initialEnemyHp: bossStartHp,
     });
@@ -261,8 +265,6 @@ export async function POST(req: Request) {
       bossBattleStartMp - simulatedBossMpAfter,
     );
     const diedEarly = battleResult.finalState.playerHp <= 0;
-    const replay = toReplayPayload(battleResult.finalState, 200);
-
     // === 4. session FOR UPDATE — 재검증 + 쿨다운 + 차감 + 처치 CAS ===
     const [s] = await tx
       .select()
@@ -281,11 +283,8 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "expired" as const },
       };
     }
-    // 가시성 race 가드 — 시뮬 도중 소환자가 범위를 좁혔으면(예: 공개→나만) 잠금 후 거절(데미지 미반영).
-    if (
-      V2_CORE_LOOP_V2 &&
-      !canAccessCoopBoss(s, { userId, guildId: viewerGuildId })
-    ) {
+    // 가시성 race 가드 — 시뮬 도중 전체 공개 전의 범위를 좁혔으면 잠금 후 거절(데미지 미반영).
+    if (!canAccessCoopBoss(s, { userId, guildId: viewerGuildId })) {
       return {
         status: 403,
         body: { ok: false as const, error: "no_permission" as const },
@@ -367,6 +366,8 @@ export async function POST(req: Request) {
       .where(eq(coopBossSessions.id, s.id))
       .returning({ hp: coopBossSessions.hp });
     const bossHp = updated?.hp ?? s.hp;
+    const killingBlowReward =
+      bossHp === 0 ? coopKillingBlowReward(kindId) : null;
     if (bossHp === 0) {
       // 처치 — 락 보유로 이 분기는 정확히 1명(킬 CAS). nextSpawnAt 없음(소환형).
       await tx
@@ -374,6 +375,20 @@ export async function POST(req: Request) {
         .set({ defeatedAt: nowDate })
         .where(eq(coopBossSessions.id, s.id));
     }
+
+    const replay = toReplayPayload(
+      killingBlowReward
+        ? {
+            ...battleResult.finalState,
+            log: appendLog(battleResult.finalState.log, {
+              kind: "info",
+              turn: "player",
+              text: `[처치 확정타] 협동 주화 ×${killingBlowReward.coin} · ${killingBlowReward.bossMaterialName} ×${killingBlowReward.bossMaterialCount} 획득`,
+            }),
+          }
+        : battleResult.finalState,
+      { playerCombat: playerForBattle },
+    );
 
     // === 5. contributor UPSERT + 공격 로그 ===
     await tx
@@ -417,11 +432,26 @@ export async function POST(req: Request) {
       })
       .returning({ id: coopBossAttackLog.id });
 
-    // === 6. character.v2 스태미너만 기록 — HP/MP·회복약은 협동 보스 전투와 분리 ===
+    // === 6. character.v2 스태미너 + 처치 확정타 보상 기록 — HP/MP·회복약은 협동 보스 전투와 분리 ===
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       stamina: afterStamina,
+      ...(killingBlowReward
+        ? {
+            materials: mergeDrops(charSave.materials, {
+              [COOP_COIN_MATERIAL_ID]: killingBlowReward.coin,
+              [killingBlowReward.bossMaterialId]:
+                killingBlowReward.bossMaterialCount,
+            }),
+          }
+        : {}),
     });
+    await recordGrowthLeapStaminaSpendInTx(
+      tx,
+      userId,
+      COOP_ATTACK_STAMINA_COST,
+      now,
+    );
 
     return {
       status: 200,
@@ -444,6 +474,7 @@ export async function POST(req: Request) {
           defeated: bossHp === 0,
           myDamage,
           myTier: coopTierForRatio(myDamage / Math.max(1, s.maxHp), kindId),
+          killingBlowReward,
           replay,
         },
       },
@@ -455,6 +486,22 @@ export async function POST(req: Request) {
     result.status === 200 && result.body.ok ? result.body.result : null;
   if (defeatedResult?.defeated) {
     const defeatedKind = defeatedResult.kind as CoopBossKindId;
+    if (defeatedResult.killingBlowReward) {
+      recordEconomyEventSoon({
+        userId,
+        eventType: "reward.coop.killing_blow",
+        itemKind: "coop_killing_blow_bundle",
+        quantity: 1,
+        detail: {
+          sessionId,
+          kind: defeatedKind,
+          coopCoin: defeatedResult.killingBlowReward.coin,
+          bossMaterialId: defeatedResult.killingBlowReward.bossMaterialId,
+          bossMaterialCount:
+            defeatedResult.killingBlowReward.bossMaterialCount,
+        },
+      });
+    }
     await insertFeedEntry(userId, "coop_kill", {
       kind: defeatedKind,
       sessionId,

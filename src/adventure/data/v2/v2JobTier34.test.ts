@@ -261,17 +261,26 @@ describe("심화(tier-4) 주요 직업 — 해금 구조 + 킷 id 실재", () =>
     expect(TIER3_UNLOCK_CUMLEVEL).toBeLessThan(TIER4_UNLOCK_CUMLEVEL);
   });
 
-  it("각 직업 킷 = 액티브 1 + 패시브 1, 모든 id 가 V2_SKILLS 에 실재", () => {
+  it("각 직업 킷 = 액티브 1 + 패시브 1~2, 모든 id 가 V2_SKILLS 에 실재", () => {
+    const jobsWithDefenseReduction = new Set([
+      "veteran",
+      "sensei",
+      "sage",
+      "phantom",
+    ]);
     for (const jobId of TIER4_JOB_IDS) {
       const kit = skillsForJob(jobId);
-      expect(kit.length, jobId).toBe(2);
+      expect(kit.length, jobId).toBe(jobsWithDefenseReduction.has(jobId) ? 3 : 2);
       for (const id of kit) {
         expect(id in V2_SKILLS, `${jobId} 킷 id ${id} 가 전투 카탈로그에 실재해야`).toBe(true);
       }
-      const [active, passive] = kit;
-      // 권룡(sensei)도 무인 재설계(2026-06-22)로 액티브(권룡연파)를 가짐 — 모든 tier-4 = 액티브 1 + 패시브 1.
+      const [active, ...passives] = kit;
+      // 권룡(sensei)도 무인 재설계(2026-06-22)로 액티브(권룡연파)를 가진다.
+      // 방어 감소 선택지가 배치된 네 계보만 독립 패시브가 하나 더 있다.
       expect(V2_SKILLS[active].category, active).toBe("attack");
-      expect(V2_SKILLS[passive].category, passive).toBe("passive");
+      for (const passive of passives) {
+        expect(V2_SKILLS[passive].category, passive).toBe("passive");
+      }
     }
   });
 
@@ -378,8 +387,11 @@ describe("심화(tier-4) 패시브 derive — 고유 % 가 실제 전투 레버�
     const plain = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
     const ch = deriveWithEquippedKit(skillsForJob("chief")).player;
     const accPct = V2_SKILLS.v2c_chief_afterimage.passive!.accuracyPct!;
-    // accRating 은 캡 없는 raw(passiveAccuracyPct 선형 가산) — 회피 대결형 Slice 2 의 전투 명중 레버.
-    expect((ch.accRating ?? 0) - (plain.accRating ?? 0)).toBeCloseTo(accPct, 5);
+    // 적중 패시브는 장비·스탯에서 얻은 기본 적중도 전체를 증폭한다.
+    expect(ch.accRating ?? 0).toBeCloseTo(
+      (plain.accRating ?? 0) * (1 + accPct / 100),
+      5,
+    );
   });
 
   it("천룡권성(celestialdragon) 천룡의 호흡 → 4타째 추가 피해가 전투 레버에 적용", () => {

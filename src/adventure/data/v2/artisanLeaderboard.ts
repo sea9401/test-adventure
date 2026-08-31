@@ -5,6 +5,7 @@ export type ArtisanWeeklyWorkshopStats = {
   totalCrafts: number;
   qualityCrafts: number;
   xp: number;
+  score: number;
   claimedRewardWeekKey?: string | null;
 };
 
@@ -12,7 +13,7 @@ export type ArtisanLeaderboardRankInput = {
   userId: string;
   totalCrafts: number;
   qualityCrafts: number;
-  weeklyXp: number;
+  score: number;
 };
 
 export type ArtisanLeaderboardReward = {
@@ -103,15 +104,15 @@ export function rankArtisanLeaderboardEntries<T extends ArtisanLeaderboardRankIn
       (entry) =>
         entry.totalCrafts > 0 ||
         entry.qualityCrafts > 0 ||
-        entry.weeklyXp > 0,
+        entry.score > 0,
     )
     .slice()
     .sort((a, b) => {
-      if (b.totalCrafts !== a.totalCrafts) return b.totalCrafts - a.totalCrafts;
+      if (b.score !== a.score) return b.score - a.score;
       if (b.qualityCrafts !== a.qualityCrafts) {
         return b.qualityCrafts - a.qualityCrafts;
       }
-      if (b.weeklyXp !== a.weeklyXp) return b.weeklyXp - a.weeklyXp;
+      if (b.totalCrafts !== a.totalCrafts) return b.totalCrafts - a.totalCrafts;
       return a.userId.localeCompare(b.userId);
     });
 }
@@ -144,29 +145,35 @@ export function parseArtisanWeeklyWorkshopStats(
       ? (raw as Record<string, unknown>)
       : {};
   if (obj.weekKey !== weekKey) {
-    return { weekKey, totalCrafts: 0, qualityCrafts: 0, xp: 0 };
+    return { weekKey, totalCrafts: 0, qualityCrafts: 0, xp: 0, score: 0 };
   }
   const claimedRewardWeekKey =
     typeof obj.claimedRewardWeekKey === "string"
       ? obj.claimedRewardWeekKey
       : null;
+  const xp = Math.max(0, Math.floor(Number(obj.xp) || 0));
   return {
     weekKey,
     totalCrafts: Math.max(0, Math.floor(Number(obj.totalCrafts) || 0)),
     qualityCrafts: Math.max(0, Math.floor(Number(obj.qualityCrafts) || 0)),
-    xp: Math.max(0, Math.floor(Number(obj.xp) || 0)),
+    xp,
+    // score 도입 전 주간 기록은 XP와 같은 값으로 이어받는다.
+    score: Math.max(0, Math.floor(Number(obj.score) || xp)),
     ...(claimedRewardWeekKey ? { claimedRewardWeekKey } : {}),
   };
 }
 
 export function addArtisanWeeklyWorkshopCraft(
   stats: ArtisanWeeklyWorkshopStats,
-  opts: { qualityCrafted: boolean; xp: number },
+  opts: { qualityCrafted: boolean; xp: number; scoreMultiplier?: number },
 ): ArtisanWeeklyWorkshopStats {
+  const xp = Math.max(0, Math.floor(opts.xp));
+  const scoreMultiplier = Math.max(1, Math.floor(opts.scoreMultiplier ?? 1));
   return {
     ...stats,
     totalCrafts: stats.totalCrafts + 1,
     qualityCrafts: stats.qualityCrafts + (opts.qualityCrafted ? 1 : 0),
-    xp: stats.xp + Math.max(0, Math.floor(opts.xp)),
+    xp: stats.xp + xp,
+    score: stats.score + xp * scoreMultiplier,
   };
 }

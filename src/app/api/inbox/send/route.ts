@@ -16,6 +16,15 @@ import {
   getKnownArr,
   getShareableArr,
 } from "@/lib/server/marketplace";
+import {
+  requireCurrentUgcConsent,
+  usersCannotInteract,
+} from "@/lib/server/ugcSafety";
+import {
+  TradeSuspendedError,
+  requireTradeParticipants,
+  tradeSuspendedResponse,
+} from "@/lib/server/tradeSuspension";
 
 const SAVES_CRAFTING = "crafting.v2";
 
@@ -152,46 +161,53 @@ export async function POST(req: Request) {
   if (recipient.id === senderId) {
     return new Response("self_send", { status: 400 });
   }
-
-  // rate limit — 마지막 발송 시각 + 24h 누적. recipe_gift 도 같은 한도에 포함.
-  const since = new Date(Date.now() - USER_MESSAGE_RATE_LIMIT_MS);
-  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const senderKinds = ["user_message", "recipe_gift"];
-
-  const [last] = await db
-    .select({ createdAt: marketplaceInbox.createdAt })
-    .from(marketplaceInbox)
-    .where(
-      and(
-        eq(marketplaceInbox.fromUserId, senderId),
-        inArray(marketplaceInbox.kind, senderKinds),
-      ),
-    )
-    .orderBy(desc(marketplaceInbox.createdAt))
-    .limit(1);
-  if (last && last.createdAt > since) {
-    return new Response("rate limited", { status: 429 });
+  if (await usersCannotInteract(senderId, recipient.id)) {
+    return new Response("user_blocked", { status: 403 });
   }
+  const consentFailure = await requireCurrentUgcConsent(senderId);
+  if (consentFailure) return consentFailure;
 
-  const [{ value: dailyCount }] = await db
-    .select({ value: count() })
-    .from(marketplaceInbox)
-    .where(
-      and(
-        eq(marketplaceInbox.fromUserId, senderId),
-        inArray(marketplaceInbox.kind, senderKinds),
-        gt(marketplaceInbox.createdAt, dayAgo),
-      ),
-    );
-  if (dailyCount >= USER_MESSAGE_DAILY_CAP) {
-    return new Response("daily_cap", { status: 429 });
-  }
+  const now = new Date();
+  try {
+    const txResult = await db.transaction(async (tx) => {
+      await requireTradeParticipants(tx, [senderId, recipient.id], now);
 
-  if (attachedRecipeId && recipeName) {
-    // recipe_gift — known/shareable 검증 + 토큰 소비 + 인박스 INSERT 를 한 트랜잭션.
-    // 같은 토큰을 이중으로 못 쓰게 FOR UPDATE.
-    try {
-      const txResult = await db.transaction(async (tx) => {
+      // 참가자 잠금 뒤 rate limit 을 다시 읽어, 판정과 INSERT 사이 경쟁을 막는다.
+      // recipe_gift 도 같은 마지막 발송/24시간 누적 한도에 포함된다.
+      const since = new Date(now.getTime() - USER_MESSAGE_RATE_LIMIT_MS);
+      const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const senderKinds = ["user_message", "recipe_gift"];
+      const [last] = await tx
+        .select({ createdAt: marketplaceInbox.createdAt })
+        .from(marketplaceInbox)
+        .where(
+          and(
+            eq(marketplaceInbox.fromUserId, senderId),
+            inArray(marketplaceInbox.kind, senderKinds),
+          ),
+        )
+        .orderBy(desc(marketplaceInbox.createdAt))
+        .limit(1);
+      if (last && last.createdAt > since) {
+        return { error: "rate limited", status: 429 as const };
+      }
+
+      const [{ value: dailyCount }] = await tx
+        .select({ value: count() })
+        .from(marketplaceInbox)
+        .where(
+          and(
+            eq(marketplaceInbox.fromUserId, senderId),
+            inArray(marketplaceInbox.kind, senderKinds),
+            gt(marketplaceInbox.createdAt, dayAgo),
+          ),
+        );
+      if (dailyCount >= USER_MESSAGE_DAILY_CAP) {
+        return { error: "daily_cap", status: 429 as const };
+      }
+
+      if (attachedRecipeId && recipeName) {
+        // 같은 토큰을 이중으로 못 쓰게 FOR UPDATE.
         const craftRows = await tx
           .select()
           .from(savesKv)
@@ -224,24 +240,25 @@ export async function POST(req: Request) {
             fromName: senderName,
           }),
         );
-        return { ok: true as const };
-      });
-      if ("error" in txResult) {
-        return new Response(txResult.error, { status: txResult.status });
+      } else {
+        await tx.insert(marketplaceInbox).values(
+          inboxValues({
+            userId: recipient.id,
+            payload: { kind: "user_message", text },
+            fromUserId: senderId,
+            fromName: senderName,
+          }),
+        );
       }
-    } catch (e) {
-      console.error("[inbox.send.recipe_gift] ", e);
-      return new Response("internal error", { status: 500 });
+      return { ok: true as const };
+    });
+    if ("error" in txResult) {
+      return new Response(txResult.error, { status: txResult.status });
     }
-  } else {
-    await db.insert(marketplaceInbox).values(
-      inboxValues({
-        userId: recipient.id,
-        payload: { kind: "user_message", text },
-        fromUserId: senderId,
-        fromName: senderName,
-      }),
-    );
+  } catch (e) {
+    if (e instanceof TradeSuspendedError) return tradeSuspendedResponse(e);
+    console.error("[inbox.send] ", e);
+    return new Response("internal error", { status: 500 });
   }
 
   return Response.json({ ok: true, recipientName: recipient.name });

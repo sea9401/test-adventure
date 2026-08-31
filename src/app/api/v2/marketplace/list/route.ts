@@ -5,6 +5,11 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import {
+  TradeSuspendedError,
+  requireTradeParticipants,
+  tradeSuspendedResponse,
+} from "@/lib/server/tradeSuspension";
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import { huntStageName } from "@/adventure/data/v2/dungeon";
 import {
@@ -13,7 +18,8 @@ import {
 } from "@/adventure/data/v2/rareMaps";
 import {
   isMarketKind,
-  isTradableMaterial,
+  isStackableMarketplaceItem,
+  isTradableMarketplaceMaterial,
   isValidBidGraceHours,
   isValidMaterialQty,
   isValidPrice,
@@ -25,7 +31,8 @@ import {
   resolvePlayerName,
   type MarketKind,
 } from "@/lib/server/marketplaceV2";
-import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
+import { withdrawMarketplaceLifeItem } from "@/lib/server/marketplaceLifeInventory";
+import { adventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import {
   isTradeableMuseunCashItemId,
   removeMuseunCashItem,
@@ -33,10 +40,18 @@ import {
 import {
   isCookingFoodId,
   removeCookingFood,
-} from "@/adventure/v2/cooking";
+} from "@/adventure/v2/cooking/food";
+import {
+  FISH_SPECIMEN_SAVE_KEY,
+  fishIdFromSpecimenItemId,
+  parseFishSpecimenInventory,
+  removeFishSpecimen,
+} from "@/adventure/v2/fishSpecimens";
 import {
   matchMarketplaceBuyOrdersForItem,
+  prepareMarketplaceMatchScope,
   recordMarketplaceAutoMatchFills,
+  requireMarketplaceMatchParticipants,
   triggerMarketplacePriceAlertsForListing,
 } from "@/lib/server/marketplaceBuyOrdersV2";
 
@@ -99,12 +114,44 @@ export async function POST(req: Request) {
   const listingWindow = { createdAt, ...listingTimes };
 
   const result = await db.transaction(async (tx) => {
+    const matchItemId =
+      body.graceHours === 0 &&
+      kind !== "equip" &&
+      typeof body.itemId === "string" &&
+      isStackableMarketplaceItem(kind, body.itemId)
+        ? body.itemId
+        : null;
+    const matchScope = matchItemId
+      ? await prepareMarketplaceMatchScope(tx, {
+          kind,
+          itemId: matchItemId,
+          now: createdAt,
+          participantIds: [userId],
+        })
+      : null;
+    if (matchScope) requireMarketplaceMatchParticipants(matchScope, [userId]);
+    else await requireTradeParticipants(tx, [userId], createdAt);
+    const matchNewListing = async (
+      listingId: number,
+      itemKind: string,
+      itemId: string,
+    ) => {
+      if (!matchScope) return [];
+      matchScope.listingIds.add(listingId);
+      return matchMarketplaceBuyOrdersForItem(
+        tx,
+        itemKind,
+        itemId,
+        createdAt,
+        matchScope,
+      );
+    };
     // 판매자 직렬화 — character.v2 를 먼저 잠가 동시 list 요청이 슬롯 상한을 우회하지 못하게 한다
     //   (같은 seller 의 모든 list 가 이 단일 행으로 순서화). 잠금 순서 character.v2 → equipment.v2
     //   는 buy·sell-bulk 와 일관(데드락 회피). material 경로는 이 charSave 를 그대로 씀.
     const charSave = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});
     const slotLimit = marketplaceSlotLimitForAdventureSupport(
-      adventureSupportActive(charSave.adventureSupport),
+      adventureSupportTier(charSave.adventureSupport),
     );
 
     // 슬롯 상한 — 활성 매물 수(seller 락 이후라 동시 요청 직렬화됨 = 엄격).
@@ -159,14 +206,20 @@ export async function POST(req: Request) {
           itemName: itemDisplayName("equip", inst.id) ?? inst.id,
           quantity: 1,
           price,
-          // roll 스냅샷(iid 제외) — 구매 시 새 개체로 복원. roll 없으면 null.
-          // 굴림 + 제작품질 + 제작자 표식을 한 payload 에 — 옛 행은 raw roll 객체(권위 파스가 양형 흡수).
+          // 개체 스냅샷(iid 제외) — 구매 시 새 개체로 복원. 메타데이터가 없으면 null.
+          // 굴림 + 강화 + 제작품질 + 제작자 표식을 한 payload 에 — 옛 행은 raw roll 객체도 흡수한다.
           instancePayload:
-            inst.roll || inst.craftQuality || inst.craftedBy
+            inst.roll ||
+            inst.enhance ||
+            inst.craftQuality ||
+            inst.craftedBy ||
+            inst.stormRefined
               ? {
                   ...(inst.roll ?? {}),
+                  ...(inst.enhance ? { enhance: inst.enhance } : {}),
                   ...(inst.craftQuality ? { craftQuality: inst.craftQuality } : {}),
                   ...(inst.craftedBy ? { craftedBy: inst.craftedBy } : {}),
+                  ...(inst.stormRefined ? { stormRefined: true } : {}),
                 }
               : null,
         })
@@ -185,6 +238,80 @@ export async function POST(req: Request) {
     }
 
     if (kind === "consumable") {
+      const specimenFishId =
+        typeof body.itemId === "string"
+          ? fishIdFromSpecimenItemId(body.itemId)
+          : null;
+      if (specimenFishId) {
+        if (!isValidMaterialQty(body.quantity)) {
+          return {
+            status: 400,
+            body: { ok: false as const, error: "bad_quantity" },
+          };
+        }
+        const itemId = body.itemId as string;
+        const quantity = body.quantity;
+        const specimens = parseFishSpecimenInventory(
+          await lockSaveForUpdate(
+            tx,
+            userId,
+            FISH_SPECIMEN_SAVE_KEY,
+            {},
+          ),
+        );
+        const nextSpecimens = removeFishSpecimen(
+          specimens,
+          specimenFishId,
+          quantity,
+        );
+        if (!nextSpecimens) {
+          return {
+            status: 400,
+            body: { ok: false as const, error: "not_owned" },
+          };
+        }
+        await upsertSave(
+          tx,
+          userId,
+          FISH_SPECIMEN_SAVE_KEY,
+          nextSpecimens,
+        );
+        const [row] = await tx
+          .insert(marketplaceListingsV2)
+          .values({
+            ...listingWindow,
+            sellerId: userId,
+            sellerName,
+            kind: "consumable",
+            itemId,
+            itemName: itemDisplayName("consumable", itemId) ?? itemId,
+            quantity,
+            price,
+            instancePayload: { kind: "fish_specimen", fishId: specimenFishId },
+          })
+          .returning({ id: marketplaceListingsV2.id });
+        const autoMatchFills = await matchNewListing(
+          row.id,
+          "consumable",
+          itemId,
+        );
+        if (body.graceHours === 0) {
+          await triggerMarketplacePriceAlertsForListing(tx, row.id, createdAt);
+        }
+        return {
+          status: 200,
+          autoMatchFills,
+          log: {
+            listingId: row.id,
+            itemKind: "consumable",
+            itemId,
+            quantity,
+            price,
+          },
+          body: { ok: true as const, listingId: row.id },
+        };
+      }
+
       if (isTradeableMuseunCashItemId(body.itemId)) {
         if (!isValidMaterialQty(body.quantity)) {
           return {
@@ -223,15 +350,11 @@ export async function POST(req: Request) {
             instancePayload: { kind: "museun_cash_item" },
           })
           .returning({ id: marketplaceListingsV2.id });
-        const autoMatchFills =
-          body.graceHours === 0
-            ? await matchMarketplaceBuyOrdersForItem(
-                tx,
-                "consumable",
-                itemId,
-                createdAt,
-              )
-            : [];
+        const autoMatchFills = await matchNewListing(
+          row.id,
+          "consumable",
+          itemId,
+        );
         if (body.graceHours === 0) {
           await triggerMarketplacePriceAlertsForListing(tx, row.id, createdAt);
         }
@@ -293,15 +416,11 @@ export async function POST(req: Request) {
             instancePayload: { kind: "cooking_food" },
           })
           .returning({ id: marketplaceListingsV2.id });
-        const autoMatchFills =
-          body.graceHours === 0
-            ? await matchMarketplaceBuyOrdersForItem(
-                tx,
-                "consumable",
-                itemId,
-                createdAt,
-              )
-            : [];
+        const autoMatchFills = await matchNewListing(
+          row.id,
+          "consumable",
+          itemId,
+        );
         if (body.graceHours === 0) {
           await triggerMarketplacePriceAlertsForListing(tx, row.id, createdAt);
         }
@@ -329,6 +448,12 @@ export async function POST(req: Request) {
       const inst = maps.find((m) => m.iid === iid);
       if (!inst) {
         return { status: 400, body: { ok: false as const, error: "not_owned" } };
+      }
+      if (inst.kind === "secret_shop_map" || inst.kind === "rename_map") {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "not_tradable" },
+        };
       }
       await upsertSave(tx, userId, "character.v2", {
         ...charSave,
@@ -364,7 +489,10 @@ export async function POST(req: Request) {
     }
 
     // material
-    if (typeof body.itemId !== "string" || !isTradableMaterial(body.itemId)) {
+    if (
+      typeof body.itemId !== "string" ||
+      !isTradableMarketplaceMaterial(body.itemId)
+    ) {
       return { status: 400, body: { ok: false as const, error: "not_tradable" } };
     }
     if (!isValidMaterialQty(body.quantity)) {
@@ -372,16 +500,37 @@ export async function POST(req: Request) {
     }
     const itemId = body.itemId;
     const quantity = body.quantity;
-    // charSave 는 tx 시작 시 이미 잠금·읽음(seller 직렬화 겸용) — 재read 불필요.
-    const mats = { ...(charSave.materials ?? {}) };
-    const have = Math.max(0, Math.floor(mats[itemId] ?? 0));
-    if (have < quantity) {
-      return { status: 400, body: { ok: false as const, error: "insufficient_material" } };
+    const lifeWithdrawal = await withdrawMarketplaceLifeItem(
+      tx,
+      userId,
+      itemId,
+      quantity,
+      createdAt.getTime(),
+    );
+    if (lifeWithdrawal === "insufficient") {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "insufficient_material" },
+      };
     }
-    const left = have - quantity;
-    if (left > 0) mats[itemId] = left;
-    else delete mats[itemId];
-    await upsertSave(tx, userId, "character.v2", { ...charSave, materials: mats });
+    if (lifeWithdrawal === "not_life_item") {
+      // charSave 는 tx 시작 시 이미 잠금·읽음(seller 직렬화 겸용) — 재read 불필요.
+      const mats = { ...(charSave.materials ?? {}) };
+      const have = Math.max(0, Math.floor(mats[itemId] ?? 0));
+      if (have < quantity) {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "insufficient_material" },
+        };
+      }
+      const left = have - quantity;
+      if (left > 0) mats[itemId] = left;
+      else delete mats[itemId];
+      await upsertSave(tx, userId, "character.v2", {
+        ...charSave,
+        materials: mats,
+      });
+    }
 
     const [row] = await tx
       .insert(marketplaceListingsV2)
@@ -397,15 +546,7 @@ export async function POST(req: Request) {
         instancePayload: null,
       })
       .returning({ id: marketplaceListingsV2.id });
-    const autoMatchFills =
-      body.graceHours === 0
-        ? await matchMarketplaceBuyOrdersForItem(
-            tx,
-            "material",
-            itemId,
-            createdAt,
-          )
-        : [];
+    const autoMatchFills = await matchNewListing(row.id, "material", itemId);
     if (body.graceHours === 0) {
       await triggerMarketplacePriceAlertsForListing(tx, row.id, createdAt);
     }
@@ -421,7 +562,11 @@ export async function POST(req: Request) {
       },
       body: { ok: true as const, listingId: row.id },
     };
+  }).catch((error) => {
+    if (error instanceof TradeSuspendedError) return tradeSuspendedResponse(error);
+    throw error;
   });
+  if (result instanceof Response) return result;
 
   const economyLog = result.status === 200 && "log" in result ? result.log : null;
   if (economyLog) {

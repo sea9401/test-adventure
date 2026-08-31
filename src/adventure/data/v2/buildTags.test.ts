@@ -60,6 +60,22 @@ describe("v2 build tags", () => {
       buildTagsForEquipment(V2_EQUIPMENT.v2_crafted_venom_gland_dagger),
       ["physical", "crit", "speed", "poison", "dot", "signature"],
     );
+    expectTags(
+      buildTagsForEquipment(V2_EQUIPMENT.v2_sanctum_sig_sealed_ring),
+      ["evasion", "heal", "signature"],
+    );
+    expectTags(
+      buildTagsForEquipment(V2_EQUIPMENT.v2_sky_sig_collapse_armor),
+      ["tank", "shield", "signature"],
+    );
+    expectTags(
+      buildTagsForEquipment(V2_EQUIPMENT.v2_sky_sig_overload_staff),
+      ["magic", "resource", "signature"],
+    );
+    expectTags(
+      buildTagsForEquipment(V2_EQUIPMENT.v2_sky_sig_venom_dagger),
+      ["physical", "poison", "dot", "signature"],
+    );
   });
 
   it("세트 정의 태그는 조각 장비에 상속된다", () => {
@@ -121,6 +137,18 @@ describe("v2 build tags", () => {
       "str",
       "tank",
     ]);
+    expectTags(buildTagsForSkill(V2_SKILLS.v2c_ironknight_guard), [
+      "vit",
+      "tank",
+    ]);
+    expectTags(buildTagsForSkill(V2_SKILLS.v2c_warden_aegis), [
+      "vit",
+      "tank",
+    ]);
+    expectTags(
+      buildTagsForSkill(V2_SKILLS.v2c_primordialmage_amplification),
+      ["int", "magic", "crit"],
+    );
   });
 
   it("명시 buildTags 는 추론 태그와 함께 유지된다", () => {

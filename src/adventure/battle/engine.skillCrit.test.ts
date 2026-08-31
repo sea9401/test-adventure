@@ -5,6 +5,7 @@ import {
   resolveBattle,
   type PlayerCombat,
 } from "../v2/combat/engine";
+import { resolvePlayerPhase } from "../v2/combat/engine.playerPhase";
 import { pickAutoAction } from "../v2/combat/pickAutoAction";
 import { emptyV2SkillsState } from "../data/v2/v2Skills";
 import { SKILL_CRIT_MULT } from "../data/v2/v2CombatConstants";
@@ -45,10 +46,14 @@ function dummy(hp: number): Monster {
 
 // Math.random 을 0 으로 고정 → 두 런이 완전히 동일한 RNG 스트림. critChancePct 만 다르게 두면
 //   유일한 차이가 "스킬 크리 발동 여부"라 그 효과를 순수 분리 측정할 수 있다.
-function battle(critChancePct: number, enemyHp = 3000) {
+function battle(
+  critChancePct: number,
+  enemyHp = 3000,
+  playerBonus: Partial<PlayerCombat> = {},
+) {
   vi.spyOn(Math, "random").mockReturnValue(0);
   const r = resolveBattle(
-    { ...MAGE, critChancePct, hp: MAGE.maxHp },
+    { ...MAGE, critChancePct, hp: MAGE.maxHp, ...playerBonus },
     dummy(enemyHp),
     "마법사",
     {
@@ -87,6 +92,25 @@ describe("스킬 치명타 (SKILL_CRIT_MULT)", () => {
     );
   });
 
+  it("스킬 치명타 피해 패시브는 고정 스킬 치명 배율에 가산된다", () => {
+    const noCrit = battle(0);
+    const heavenlyBowCrit = battle(100, 3000, { skillCritDmgPct: 30 });
+    expect(heavenlyBowCrit.firstCastDamage).toBe(
+      Math.floor(noCrit.firstCastDamage * 2),
+    );
+  });
+
+  it("원초 증폭은 치명타가 발생한 직접 마법 스킬 피해에만 변환 배율을 더한다", () => {
+    const noCrit = battle(0);
+    const ordinaryCrit = battle(100);
+    const amplifiedCrit = battle(100, 3000, {
+      equipmentMagicSkillCritDmgPct: 30,
+    });
+    expect(amplifiedCrit.firstCastDamage).toBe(
+      ordinaryCrit.firstCastDamage + Math.floor(noCrit.firstCastDamage * 0.3),
+    );
+  });
+
   it("치명타 발동 시 로그에 [치명타] 표기", () => {
     const crit = battle(100);
     expect(crit.firstCastTexts.every((t) => t.includes("[치명타]"))).toBe(true);
@@ -104,7 +128,7 @@ describe("스킬 치명타 (SKILL_CRIT_MULT)", () => {
     expect(battle(100).turns).toBeLessThan(battle(0).turns);
   });
 
-  it("스킬 치명타도 치명타 시 속도 증가 고유 효과를 발동하고 표시한다", () => {
+  it("스킬 치명타도 치명타 시 장비 효과를 모두 발동한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const player: PlayerCombat = {
       ...MAGE,
@@ -114,6 +138,23 @@ describe("스킬 치명타 (SKILL_CRIT_MULT)", () => {
           trigger: "on_crit",
           label: "유성우",
           spdBuffPct: 20,
+          buffActions: 2,
+        },
+        {
+          trigger: "on_crit",
+          label: "독니",
+          poisonOnCrit: true,
+        },
+        {
+          trigger: "on_crit",
+          label: "한기",
+          chillSlowPct: 30,
+          buffActions: 2,
+        },
+        {
+          trigger: "on_crit",
+          label: "갑주부식",
+          enemyDefDebuffPct: 10,
           buffActions: 2,
         },
       ],
@@ -134,19 +175,83 @@ describe("스킬 치명타 (SKILL_CRIT_MULT)", () => {
     expect(cast.state.buffs.playerSpdMult).toBe(1.2);
     expect(cast.state.buffs.playerSpdTurnsLeft).toBe(2);
     expect(
+      cast.state.enemyV2Dots.find((dot) => dot.tag === "poison")?.stacks,
+    ).toBe(1);
+    expect(cast.state.buffs.enemySpdMult).toBe(0.7);
+    expect(cast.state.buffs.enemySpdTurnsLeft).toBe(2);
+    expect(cast.state.buffs.enemyDefDebuffPct).toBe(10);
+    expect(cast.state.buffs.enemyDefDebuffTurnsLeft).toBe(2);
+    expect(
       cast.state.log.some((entry) => entry.text.includes("[유성우]")),
     ).toBe(true);
+    expect(cast.state.log.some((entry) => entry.text.includes("[독니]"))).toBe(
+      true,
+    );
+    expect(
+      cast.state.log.some((entry) => entry.text.includes("[갑주부식]")),
+    ).toBe(true);
+  });
+
+  it("다단 스킬도 적중 시 중독·출혈·감전을 시전당 한 번 발동한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const player: PlayerCombat = {
+      ...MAGE,
+      critChancePct: 0,
+      equipSignatures: [
+        {
+          trigger: "on_hit",
+          label: "독무응축",
+          poisonChancePct: 100,
+          poisonStacks: 1,
+        },
+        {
+          trigger: "on_hit",
+          label: "골절",
+          bleedChancePct: 100,
+          bleedStacks: 1,
+        },
+        {
+          trigger: "on_hit",
+          label: "뇌침",
+          shockChancePct: 100,
+        },
+      ],
+    };
+    const state = initialBattleState(player, dummy(3000), "마법사", skills);
+
+    const cast = applyPlayerV2SkillCast(state, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    });
+
+    expect(
+      cast.state.enemyV2Dots.find((dot) => dot.tag === "poison")?.stacks,
+    ).toBe(1);
+    expect(
+      cast.state.enemyV2Dots.find((dot) => dot.tag === "bleed")?.stacks,
+    ).toBe(1);
+    expect(cast.state.stacks.enemyShockAction).toBe("pending");
+    expect(
+      cast.state.log.filter((entry) => entry.text.includes("[독무응축]")),
+    ).toHaveLength(1);
+    expect(
+      cast.state.log.filter((entry) => entry.text.includes("[골절]")),
+    ).toHaveLength(1);
+    expect(
+      cast.state.log.filter((entry) => entry.text.includes("[뇌침]")),
+    ).toHaveLength(1);
   });
 });
 
-describe("스킬 적중 every-N 추가 행동", () => {
+describe("스킬 적중 every-N 추가 기본 공격", () => {
   const everyThree = {
     trigger: "every_n_hits" as const,
     label: "분쇄",
     everyNHits: 3,
   };
 
-  it("3타 스킬은 각 타격을 모두 세어 추가 행동 1회를 만든다", () => {
+  it("3타 스킬은 각 타격을 모두 세어 추가 기본 공격 1회를 만든다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     const player: PlayerCombat = {
       ...MAGE,
@@ -162,12 +267,36 @@ describe("스킬 적중 every-N 추가 행동", () => {
 
     expect(cast.state.stacks.signatureHitCount).toBe(3);
     expect(cast.signatureExtraActions).toBe(1);
-    expect(cast.state.log.some((entry) => entry.text.includes("추가 행동 1회"))).toBe(
+    expect(cast.state.log.some((entry) => entry.text.includes("추가 기본 공격 1회"))).toBe(
       true,
     );
   });
 
-  it("추가 공격 횟수로 3타 스킬이 2묶음 적중하면 추가 행동도 2회다", () => {
+  it("every-N 효과가 만든 추가 기본 공격은 다음 주기 적중으로 집계하지 않는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const player: PlayerCombat = {
+      ...MAGE,
+      equipSignatures: [everyThree],
+    };
+    const state = initialBattleState(player, dummy(10_000), "마법사", skills);
+    const cast = applyPlayerV2SkillCast(state, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    });
+
+    const afterBonusAttack = resolvePlayerPhase(
+      cast.state,
+      player,
+      "마법사",
+      { kind: "attack" },
+    );
+
+    expect(cast.state.stacks.signatureHitCount).toBe(3);
+    expect(afterBonusAttack.stacks.signatureHitCount).toBe(3);
+  });
+
+  it("추가 공격 횟수로 3타 스킬이 2묶음 적중하면 추가 기본 공격도 2회다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     const player: PlayerCombat = {
       ...MAGE,
@@ -203,7 +332,7 @@ describe("스킬 적중 every-N 추가 행동", () => {
     expect(
       result.finalState.log.some(
         (entry) =>
-          entry.kind === "info" && entry.text.includes("추가 행동 1회"),
+          entry.kind === "info" && entry.text.includes("추가 기본 공격 1회"),
       ),
     ).toBe(true);
     expect(

@@ -2,21 +2,25 @@ import { logAdminAction } from "@/lib/server/adminAudit";
 import {
   currentAdminEmail,
   requireAdmin,
+  requireAdminRole,
 } from "@/lib/server/isAdmin";
 import {
   ALERT_THRESHOLDS_KEY,
+  CODEX_MASTERY_FEATURES_KEY,
   HOT_TIME_KEY,
   HOT_TIME_SCHEDULES_KEY,
   LIFE_FIELD_FEATURES_KEY,
   OPS_NOTE_TEMPLATES_KEY,
   REWARD_COMPENSATION_PRESETS_KEY,
   parseAlertThresholds,
+  parseCodexMasteryFeatureSettings,
   parseHotTime,
   parseHotTimeSchedules,
   parseLifeFieldFeatureSettings,
   parseOpsNoteTemplates,
   parseRewardCompensationPresets,
   readAlertThresholdSettings,
+  readCodexMasteryFeatureSettings,
   readHotTimeSettings,
   readHotTimeSchedules,
   readLifeFieldFeatureSettings,
@@ -48,6 +52,7 @@ export async function GET() {
       updatedAt: opsNoteTemplatesUpdatedAt,
     },
     lifeFieldFeatures,
+    codexMasteryFeatures,
   ] = await Promise.all([
     readHotTimeSettings(),
     readHotTimeSchedules(),
@@ -55,6 +60,7 @@ export async function GET() {
     readRewardCompensationPresets(),
     readOpsNoteTemplates(),
     readLifeFieldFeatureSettings(),
+    readCodexMasteryFeatureSettings(),
   ]);
 
   return Response.json({
@@ -76,11 +82,12 @@ export async function GET() {
     opsNoteTemplatesUpdatedByEmail,
     opsNoteTemplatesUpdatedAt: opsNoteTemplatesUpdatedAt?.toISOString() ?? null,
     lifeFieldFeatures,
+    codexMasteryFeatures,
   });
 }
 
 export async function POST(req: Request) {
-  const gate = await requireAdmin();
+  const gate = await requireAdminRole("super");
   if (gate) return gate;
 
   const body = (await req.json().catch(() => null)) as
@@ -91,6 +98,7 @@ export async function POST(req: Request) {
         rewardCompensationPresets?: unknown;
         opsNoteTemplates?: unknown;
         lifeFieldFeatures?: unknown;
+        codexMasteryFeatures?: unknown;
       }
     | null;
   if (!body || typeof body !== "object") {
@@ -178,6 +186,24 @@ export async function POST(req: Request) {
       detail: lifeFieldFeatures,
     });
     updated.lifeFieldFeatures = lifeFieldFeatures;
+  }
+
+  if (Object.hasOwn(body, "codexMasteryFeatures")) {
+    const codexMasteryFeatures = parseCodexMasteryFeatureSettings(
+      body.codexMasteryFeatures,
+    );
+    await upsertOpsSetting(
+      CODEX_MASTERY_FEATURES_KEY,
+      codexMasteryFeatures,
+      adminEmail,
+      now,
+    );
+    await logAdminAction({
+      adminEmail,
+      action: "ops-settings.codex-mastery-features.update",
+      detail: codexMasteryFeatures,
+    });
+    updated.codexMasteryFeatures = codexMasteryFeatures;
   }
 
   if (Object.keys(updated).length === 0) {

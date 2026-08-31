@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
+import { fetchGameState } from "./fetchGameState";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
-  Mountains,
+  CheckCircle,
   Package,
   Question,
   Sword,
@@ -12,25 +14,10 @@ import {
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
-import {
-  V2_MATERIALS,
-  V2_MATERIAL_SELL_PRICE,
-  MATERIAL_DROP_SOURCES,
-  type V2MaterialId,
-  type MaterialDropSource,
-} from "@/adventure/data/v2/dungeonDrops";
-import {
-  MAIN_DUNGEON,
-  MAX_FRONTIER_DEPTH,
-  dungeonThemeCatalog,
-} from "@/adventure/data/v2/dungeon";
-import type { DungeonFloorId } from "@/adventure/data/v2/types";
+import { dungeonThemeCatalog } from "@/adventure/data/v2/dungeon";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
-import {
-  floorPowerGate,
-  underpreparedCombatMult,
-} from "@/adventure/data/v2/dungeonLadder";
+import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
 import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
 import {
   dropPoolForDepth,
@@ -38,12 +25,14 @@ import {
 } from "@/adventure/data/v2/dungeonEquipDrops";
 import {
   uniqueIdsForDepthRange,
-  bandCommonPoolForDepth,
+  bandUniquePoolForDepth,
   bandCommonChanceForDepth,
+  commonIdsForDepthRange,
+  SKY_RIFT_WEAPON_DROP_CHANCE,
+  SKY_RIFT_WEAPON_IDS,
 } from "@/adventure/data/v2/dungeonUniqueDrops";
 import {
   V2_EQUIPMENT,
-  isUnique,
   type V2Equipment,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
@@ -52,7 +41,6 @@ import {
   anchorOf,
   type ItemCardAnchor,
 } from "./V2ItemCard";
-import { FishIcon } from "@/adventure/v2/FishIcon";
 import {
   FISHING_CODEX_SP_MILESTONES,
   fishCodexSpBonusForCount,
@@ -61,12 +49,8 @@ import {
 import {
   FISH,
   FISH_IDS,
-  FISH_TIERS,
-  FISH_TIER_ORDER,
-  formatFishSize,
-  type FishTier,
+  type FishId,
 } from "@/adventure/data/v2/fish";
-import { JobCodexList } from "./V2JobCodexView";
 import type { JobCodex } from "@/adventure/data/v2/v2JobCodex";
 import type { V2LoadoutSpBreakdown } from "./V2LoadoutPanel";
 import {
@@ -75,51 +59,118 @@ import {
   parseSpFruitUsed,
   type SpFruitTier,
 } from "@/adventure/data/v2/spFruit";
-import { COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
-import { CodexEquipmentPanel } from "./CodexEquipmentPanel";
-import { CodexTitlePanel } from "./CodexTitlePanel";
+import {
+  classifyCodexEquipmentIds,
+  codexEquipmentProgress,
+  codexThemeDeepDepth,
+  spCollectionSpRange,
+  spEligibleJobProgress,
+  spFruitCodexSource,
+  starterGridIds,
+} from "./codexProgress";
+export {
+  classifyCodexEquipmentIds,
+  codexEquipmentProgress,
+  codexThemeDeepDepth,
+  spCollectionSpRange,
+  spEligibleJobProgress,
+  spFruitCodexSource,
+} from "./codexProgress";
 import { TutorialOverlayInner } from "@/adventure/tutorial/TutorialOverlay";
 import { TUTORIAL_CODEX_INTRO } from "@/adventure/tutorial/flags";
-import { LifeFieldCodexPanel } from "@/adventure/v2/LifeFieldPanels";
 import { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
+import {
+  commonHuntMaterialDrops,
+  formatHuntMaterialDropChance,
+  regionalHuntMaterialDrops,
+  type HuntMaterialDropCatalogEntry,
+} from "@/adventure/data/v2/huntMaterialCatalog";
+import {
+  FishSpecimenExtractModal,
+  type FishSpecimenExtractProjection,
+} from "./FishSpecimenExtractModal";
+import { useRefreshGameState } from "./GameStateRefreshContext";
+import { useEquipmentCodexContext } from "./GameStateProvider";
+import { useSystemToast } from "./RewardToastProvider";
+import type { CodexMasteryPanelState } from "./CodexMasteryPanel";
+import { useCodexResearchRanking } from "@/adventure/rankings/useCodexResearchRanking";
+import type {
+  CodexMasteryOverviewResponse,
+  CodexMasteryPinnedGoal,
+} from "@/adventure/data/v2/codexMasteryView";
+import type { CookingCodexRecipeView } from "./cooking/catalogMeta";
 
-// v2 모험의 서 — 사냥터 + 재료 도감 + 어보(어종) + 직업(거쳐온 직업/스킬 수집) 탭.
+const JobCodexList = dynamic(() =>
+  import("./V2JobCodexView").then((module) => module.JobCodexList),
+);
+const CodexEquipmentPanel = dynamic(() =>
+  import("./CodexEquipmentPanel").then(
+    (module) => module.CodexEquipmentPanel,
+  ),
+);
+const CodexTitlePanel = dynamic(() =>
+  import("./CodexTitlePanel").then((module) => module.CodexTitlePanel),
+);
+const LifeFieldCodexPanel = dynamic(() =>
+  import("./LifeFieldPanels").then((module) => module.LifeFieldCodexPanel),
+);
+const CookingCodexPanel = dynamic(() =>
+  import("./CookingCodexPanel").then((module) => module.CookingCodexPanel),
+);
+const FishingCodexPanel = dynamic(() =>
+  import("./FishingCodexPanel").then((module) => module.FishingCodexPanel),
+);
+const CodexMasteryPanel = dynamic(() =>
+  import("./CodexMasteryPanel").then((module) => module.CodexMasteryPanel),
+);
+
+// v2 모험의 서 — 사냥터(장비·재료 드랍) + 어보(어종) + 직업(거쳐온 직업/스킬 수집) 탭.
 // 정적 카탈로그(전종 공개)는 /me/state 가 발견 여부 권위. 직업 도감만 별도(/api/v2/me/job-codex, lazy).
 
-// floor id → "들판 (Lv 1~5)" 식 표시명. MAIN_DUNGEON 이 단일 출처.
-const FLOOR_LABEL: Record<DungeonFloorId, string> = (() => {
-  const out = {} as Record<DungeonFloorId, string>;
-  for (const f of MAIN_DUNGEON.floors) {
-    const req =
-      f.requirement.kind === "power"
-        ? ` (난이도 지표 ${f.requirement.min})`
-        : "";
-    out[f.id] = `${f.name}${req}`;
-  }
-  return out;
-})();
+export const SKY_RIFT_CODEX_DROP_SUMMARY =
+  "모든 난이도 동일 방어구 풀 · 깊이별 총 0.05~0.10%";
+export const SKY_RIFT_WEAPON_DROP_LABEL =
+  "천공 균열 최심부 무기 완제품 " +
+  (SKY_RIFT_WEAPON_DROP_CHANCE * 100).toFixed(2) +
+  "% · 길드 공방 확정 제작 가능";
 
-function formatChance(chance: number): string {
-  return `${(chance * 100).toFixed(chance < 0.01 ? 2 : 1)}%`;
+export function codexUniqueDropSummary(depthStart: number): string {
+  const pool = bandUniquePoolForDepth(depthStart);
+  if (pool?.minDepth !== 79) return "매우 낮은 확률";
+  return `처치당 총 ${(pool.chance * 100).toFixed(4)}% · 무작위 1종`;
 }
 
-function formatAmount(s: MaterialDropSource): string {
-  return s.amountMin === s.amountMax
-    ? `×${s.amountMin}`
-    : `×${s.amountMin}~${s.amountMax}`;
-}
-
-// 도감 티어 배지 색 — 어보 티어.
-const TIER_BADGE: Record<FishTier, string> = {
-  common:
-    "bg-zinc-200/70 text-zinc-600 dark:bg-zinc-700/60 dark:text-zinc-300",
-  uncommon:
-    "bg-emerald-200/70 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200",
-  rare: "bg-sky-200/70 text-sky-800 dark:bg-sky-900/60 dark:text-sky-200",
-  epic: "bg-violet-200/70 text-violet-800 dark:bg-violet-900/60 dark:text-violet-200",
-  legendary:
-    "bg-amber-200/80 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200",
+type FishSpecimenExtractResponse = Partial<FishSpecimenExtractProjection> & {
+  ok?: boolean;
+  error?: string;
+  registeredIds?: string[];
 };
+
+function projectionFromExtractResponse(
+  response: FishSpecimenExtractResponse | null,
+): FishSpecimenExtractProjection | null {
+  if (
+    !response ||
+    typeof response.fishSpBefore !== "number" ||
+    typeof response.fishSpAfter !== "number" ||
+    typeof response.totalSpBefore !== "number" ||
+    typeof response.totalSpAfter !== "number" ||
+    typeof response.spLoss !== "number" ||
+    typeof response.equippedSpUsed !== "number" ||
+    typeof response.overBudget !== "boolean"
+  ) {
+    return null;
+  }
+  return {
+    fishSpBefore: response.fishSpBefore,
+    fishSpAfter: response.fishSpAfter,
+    totalSpBefore: response.totalSpBefore,
+    totalSpAfter: response.totalSpAfter,
+    spLoss: response.spLoss,
+    equippedSpUsed: response.equippedSpUsed,
+    overBudget: response.overBudget,
+  };
+}
 const CODEX_PANEL_SURFACE = `${SURFACE_INSET} p-2.5 sm:p-3`;
 
 type FishingCodexMeta = {
@@ -138,20 +189,22 @@ const defaultFishingCodexMeta = (discoveredCount = 0): FishingCodexMeta => ({
 
 export type CodexTab =
   | "huntground"
-  | "materials"
   | "equipment"
   | "spFruit"
+  | "mastery"
   | "fish"
+  | "cooking"
   | "life"
   | "title"
   | "job";
 
 const CODEX_TABS: readonly CodexTab[] = [
   "huntground",
-  "materials",
   "equipment",
   "spFruit",
+  "mastery",
   "fish",
+  "cooking",
   "life",
   "title",
   "job",
@@ -161,6 +214,27 @@ export function codexTabFromParam(value: string | null): CodexTab {
   return CODEX_TABS.some((tab) => tab === value)
     ? (value as CodexTab)
     : "spFruit";
+}
+
+export const CODEX_TAB_ITEMS = [
+  ["spFruit", "SP 수집"],
+  ["mastery", "숙련"],
+  ["job", "직업"],
+  ["equipment", "장비"],
+  ["huntground", "사냥터"],
+  ["fish", "어보"],
+  ["cooking", "요리"],
+  ["life", "현장 기록"],
+  ["title", "칭호"],
+] as const satisfies ReadonlyArray<readonly [CodexTab, string]>;
+
+type CodexMasteryLoadStatus = "idle" | CodexMasteryPanelState["status"];
+
+export function shouldLoadCodexMastery(
+  tab: CodexTab,
+  status: CodexMasteryLoadStatus,
+): boolean {
+  return tab === "mastery" && status === "idle";
 }
 
 export function shouldShowCodexTutorial(
@@ -174,15 +248,31 @@ function equipPoolChance(pool: FloorEquipDropPool): number {
   return pool.chance;
 }
 
+function EquipmentRegistrationMark({
+  registered,
+}: {
+  registered: boolean | undefined;
+}) {
+  if (registered === undefined) return null;
+  return (
+    <span className="ml-1 inline-flex items-center gap-0.5 rounded bg-white px-1 py-px text-[9px] font-semibold text-zinc-700 dark:bg-zinc-950 dark:text-zinc-200">
+      {registered && <CheckCircle size={10} weight="fill" aria-hidden />}
+      {registered ? "등록" : "미등록"}
+    </span>
+  );
+}
+
 // 드랍 목록의 아이템 칩 — 클릭하면 옵션 팝오버(V2ItemCard, 인벤과 동일)를 띄운다.
 //   카탈로그 id 가 V2_EQUIPMENT 에 없으면(방어) 클릭 불가 라벨로만.
-function DropChip({
+export function DropChip({
   id,
   kind,
+  registered,
   onOpen,
 }: {
   id: V2EquipmentId;
   kind: "common" | "set" | "unique";
+  registered?: boolean;
   onOpen: (item: V2Equipment, anchor: ItemCardAnchor) => void;
 }) {
   const item = V2_EQUIPMENT[id];
@@ -194,7 +284,17 @@ function DropChip({
         : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200";
   if (!item) {
     return (
-      <span className={`rounded px-1.5 py-0.5 text-[11px] ${tone}`}>{id}</span>
+      <span
+        aria-label={
+          registered === undefined
+            ? undefined
+            : `${id} · 장비 도감 ${registered ? "등록" : "미등록"}`
+        }
+        className={`rounded px-1.5 py-0.5 text-[11px] ${tone}`}
+      >
+        {id}
+        <EquipmentRegistrationMark registered={registered} />
+      </span>
     );
   }
   const hover =
@@ -207,6 +307,11 @@ function DropChip({
     <button
       type="button"
       onClick={(e) => onOpen(item, anchorOf(e.currentTarget))}
+      aria-label={
+        registered === undefined
+          ? undefined
+          : `${item.name} · 장비 도감 ${registered ? "등록" : "미등록"}`
+      }
       className={`rounded px-1.5 py-0.5 text-[11px] transition-colors ${tone} ${hover}`}
     >
       {item.name}
@@ -215,51 +320,93 @@ function DropChip({
           세트
         </span>
       )}
+      <EquipmentRegistrationMark registered={registered} />
     </button>
   );
 }
 
-// 스타터 풀(깊이 1~6)이 떨어뜨릴 수 있는 정규 그리드 장비 id — 카탈로그 티어 가중 후
-//   무작위 슬롯·컨셉으로 뽑히므로 해당 카탈로그 티어들의 그리드 전 종류가 후보.
-//   유니크·제작전용·전문화스타터·밴드흔한(noDrop) 제외.
-function starterGridIds(pool: FloorEquipDropPool): V2EquipmentId[] {
-  const catalogTiers = new Set(
-    Object.entries(pool.catalogTierWeights)
-      .filter(([, w]) => (w ?? 0) > 0)
-      .map(([t]) => Number(t)),
+const COMMON_HUNT_MATERIAL_DROPS = commonHuntMaterialDrops();
+
+function MaterialDropGrid({
+  entries,
+}: {
+  entries: readonly HuntMaterialDropCatalogEntry[];
+}) {
+  return (
+    <div className="grid gap-1.5 sm:grid-cols-2">
+      {entries.map((entry) => (
+        <div
+          key={`${entry.id}:${entry.source}`}
+          className={`${SURFACE_INSET} flex min-h-[72px] items-start gap-2.5 p-2.5`}
+        >
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+            <Package size={18} weight="duotone" aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-xs font-bold leading-5 text-zinc-900 dark:text-zinc-100">
+                {entry.name}
+              </span>
+              <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                {formatHuntMaterialDropChance(entry.chancePct)}
+              </span>
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+              <span>{entry.source} · 승리 시 1개</span>
+              {entry.boost && (
+                <span className="rounded border border-sky-200 bg-sky-50 px-1 py-px font-medium text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300">
+                  희귀 지도 보정
+                </span>
+              )}
+            </div>
+            <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+              {entry.description}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
   );
-  return (Object.keys(V2_EQUIPMENT) as V2EquipmentId[]).filter((id) => {
-    const it = V2_EQUIPMENT[id];
-    return (
-      catalogTiers.has(it.tier) &&
-      !isUnique(it) &&
-      !it.craftOnly &&
-      !it.starterOnly &&
-      !it.noDrop
-    );
-  });
 }
 
-export function codexThemeDeepDepth(depthStart: number): number {
-  return Math.min(MAX_FRONTIER_DEPTH, Math.max(1, depthStart + 5));
-}
-
-export function classifyCodexEquipmentIds(ids: V2EquipmentId[]): {
-  common: V2EquipmentId[];
-  set: V2EquipmentId[];
-} {
-  const common: V2EquipmentId[] = [];
-  const set: V2EquipmentId[] = [];
-  for (const id of ids) {
-    if (V2_EQUIPMENT[id]?.setId) set.push(id);
-    else common.push(id);
-  }
-  return { common, set };
+function CommonMaterialDropsCard() {
+  if (COMMON_HUNT_MATERIAL_DROPS.length === 0) return null;
+  return (
+    <Card padding="md">
+      <div className="mb-2.5 flex flex-wrap items-start justify-between gap-2 border-b border-zinc-200 pb-2 dark:border-zinc-800">
+        <div>
+          <h2 className="flex items-center gap-1.5 text-sm font-bold">
+            <Package
+              size={18}
+              weight="duotone"
+              className="text-amber-600 dark:text-amber-300"
+              aria-hidden
+            />
+            전 지역 공통 재료
+          </h2>
+          <p className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+            일반 사냥 승리마다 서로 독립적으로 판정되는 기본 확률입니다.
+          </p>
+        </div>
+        <span className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-[10px] font-medium text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+          기본 확률 기준
+        </span>
+      </div>
+      <MaterialDropGrid entries={COMMON_HUNT_MATERIAL_DROPS} />
+    </Card>
+  );
 }
 
 export function V2CodexView({ onBack }: { onBack: () => void }) {
   const tabParam = useSearchParams().get("tab");
   const { has: hasStoryFlag, set: setStoryFlag } = useStoryFlags();
+  const refreshGameState = useRefreshGameState();
+  const equipmentCodexContext = useEquipmentCodexContext();
+  const registeredEquipmentIds =
+    equipmentCodexContext?.loaded === true
+      ? equipmentCodexContext.registeredIds
+      : null;
+  const { notifySystem } = useSystemToast();
   const [tutorialReplayRequested, setTutorialReplayRequested] = useState(false);
   const showTutorial = shouldShowCodexTutorial(
     hasStoryFlag(TUTORIAL_CODEX_INTRO),
@@ -276,16 +423,122 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 제작 결과 등 외부 링크의 URL 탭 변경을 로컬 탭에 반영
     setTab(codexTabFromParam(tabParam));
   }, [tabParam]);
+  const [masteryState, setMasteryState] = useState<
+    { status: "idle" } | CodexMasteryPanelState
+  >({ status: "idle" });
+  const [masteryRetryVersion, setMasteryRetryVersion] = useState(0);
+  const masteryViewMounted = useRef(true);
+  useEffect(() => {
+    masteryViewMounted.current = true;
+    return () => {
+      masteryViewMounted.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!shouldLoadCodexMastery(tab, masteryState.status)) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 숙련 탭 최초 진입 또는 명시적 재시도에서 lazy fetch 상태 시작
+    setMasteryState({ status: "loading" });
+    fetch("/api/v2/me/codex-mastery")
+      .then(async (response) => ({
+        response,
+        json: (await response.json().catch(() => null)) as
+          | CodexMasteryOverviewResponse
+          | null,
+      }))
+      .then(({ response, json }) => {
+        if (!masteryViewMounted.current) return;
+        if (!response.ok || !json?.ok) {
+          setMasteryState({
+            status: "error",
+            message: json && !json.ok ? json.error : `http ${response.status}`,
+          });
+          return;
+        }
+        setMasteryState(
+          json.enabled
+            ? { status: "ready", snapshot: json.snapshot }
+            : { status: "disabled" },
+        );
+      })
+      .catch((error: unknown) => {
+        if (masteryViewMounted.current) {
+          setMasteryState({
+            status: "error",
+            message: error instanceof Error ? error.message : "network_error",
+          });
+        }
+      });
+    // masteryState.status intentionally stays outside the dependency list: changing idle to loading
+    // must not cancel the request that caused that transition. Tab changes also keep the request alive;
+    // only unmounting the entire codex view makes its response irrelevant.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, masteryRetryVersion]);
+
+  const retryCodexMastery = () => {
+    setMasteryState({ status: "idle" });
+    setMasteryRetryVersion((version) => version + 1);
+  };
+  const monthlyRanking = useCodexResearchRanking(
+    tab === "mastery" &&
+      masteryState.status === "ready" &&
+      masteryState.snapshot.features.monthlyProgressEnabled,
+  );
+
+  const replaceCodexMasteryPins = async (
+    pinnedGoals: CodexMasteryPinnedGoal[],
+  ) => {
+    const response = await fetch("/api/v2/me/codex-mastery", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ pinnedGoals }),
+    });
+    const json = (await response.json().catch(() => null)) as {
+      ok?: boolean;
+      error?: string;
+      pinnedGoals?: CodexMasteryPinnedGoal[];
+    } | null;
+    if (!response.ok || !json?.ok || !Array.isArray(json.pinnedGoals)) {
+      throw new Error(json?.error ?? `http ${response.status}`);
+    }
+    const savedPins = json.pinnedGoals;
+    const savedKeys = new Set(
+      savedPins.map((goal) => `${goal.category}:${goal.entryId}`),
+    );
+    setMasteryState((current) => {
+      if (current.status !== "ready") return current;
+      return {
+        status: "ready",
+        snapshot: {
+          ...current.snapshot,
+          pinnedGoals: savedPins,
+          entries: current.snapshot.entries.map((entry) => ({
+            ...entry,
+            pinned: savedKeys.has(entry.key),
+          })),
+          nearGoals: current.snapshot.nearGoals.map((goal) => ({
+            ...goal,
+            pinned: savedKeys.has(goal.key),
+          })),
+        },
+      };
+    });
+  };
   // 드랍 칩 클릭 시 뜨는 옵션 팝오버(읽기전용 카탈로그 미리보기 — 굴림 없음).
   const [card, setCard] = useState<{
     item: V2Equipment;
     anchor: ItemCardAnchor;
   } | null>(null);
 
-  // 내 도감 진척 — /me/state 가 권위. 재료: 수집한 id 집합. 어보: 발견 id + 종별 최대어.
-  const [discovered, setDiscovered] = useState<Set<string>>(new Set());
+  // 내 도감 진척 — /me/state 가 권위. 어보: 발견 id + 종별 최대어.
   const [fishDiscovered, setFishDiscovered] = useState<Set<string>>(new Set());
+  const [fishCaught, setFishCaught] = useState<Set<string>>(new Set());
   const [fishBest, setFishBest] = useState<Record<string, number>>({});
+  const [extractSelection, setExtractSelection] = useState<{
+    fishId: FishId;
+    projection: FishSpecimenExtractProjection;
+  } | null>(null);
+  const [extractBusy, setExtractBusy] = useState(false);
+  const [cookingCodex, setCookingCodex] = useState<{ knownRecipes: CookingCodexRecipeView[]; total: number }>({ knownRecipes: [], total: 0 });
   const [fishingCodexMeta, setFishingCodexMeta] = useState<FishingCodexMeta>(
     () => defaultFishingCodexMeta(),
   );
@@ -311,19 +564,23 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   const [equippedTitleId, setEquippedTitleId] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
-    fetch("/api/v2/me/state")
+    fetchGameState()
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (!alive || !j) return;
-        if (Array.isArray(j?.codex?.discoveredIds)) {
-          setDiscovered(new Set(j.codex.discoveredIds as string[]));
-        }
         // 어보 진척은 PR-2 에서 라우트가 채운다. 없으면 빈 상태(전종 미발견).
         let fishingDiscoveredCount = 0;
-        if (Array.isArray(j?.fishingCodex?.discoveredIds)) {
-          const ids = j.fishingCodex.discoveredIds as string[];
+        const registeredIds = Array.isArray(j?.fishingCodex?.registeredIds)
+          ? (j.fishingCodex.registeredIds as string[])
+          : Array.isArray(j?.fishingCodex?.discoveredIds)
+            ? (j.fishingCodex.discoveredIds as string[])
+            : [];
+        if (registeredIds.length > 0) {
+          const ids = registeredIds;
           fishingDiscoveredCount = ids.length;
           setFishDiscovered(new Set(ids));
+        } else {
+          setFishDiscovered(new Set());
         }
         const fallbackFishingMeta =
           defaultFishingCodexMeta(fishingDiscoveredCount);
@@ -349,7 +606,27 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
               : fallbackFishingMeta.nextMilestone,
         });
         if (j?.fishingCodex?.best && typeof j.fishingCodex.best === "object") {
-          setFishBest(j.fishingCodex.best as Record<string, number>);
+          const best = j.fishingCodex.best as Record<string, number>;
+          setFishBest(best);
+          setFishCaught(
+            new Set(
+              Array.isArray(j?.fishingCodex?.caughtIds)
+                ? (j.fishingCodex.caughtIds as string[])
+                : Object.keys(best),
+            ),
+          );
+        } else {
+          setFishBest({});
+          setFishCaught(
+            new Set(
+              Array.isArray(j?.fishingCodex?.caughtIds)
+                ? (j.fishingCodex.caughtIds as string[])
+                : [],
+            ),
+          );
+        }
+        if (Array.isArray(j?.cookingCodex?.knownRecipes)) {
+          setCookingCodex({ knownRecipes: j.cookingCodex.knownRecipes as CookingCodexRecipeView[], total: Math.max(0, Math.floor(Number(j.cookingCodex.total) || 0)) });
         }
         if (typeof j?.frontierDepth === "number") {
           setFrontierDepth(j.frontierDepth);
@@ -370,11 +647,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           setSpBreakdown(j.loadout.spBreakdown as V2LoadoutSpBreakdown);
         }
         if (Array.isArray(j?.jobsV2?.jobs)) {
-          const jobs = j.jobsV2.jobs as Array<{ unlocked?: unknown }>;
-          setJobUnlockProgress({
-            current: jobs.filter((job) => job.unlocked === true).length,
-            total: jobs.length,
-          });
+          const jobs = j.jobsV2.jobs as Array<{
+            tier?: unknown;
+            unlocked?: unknown;
+          }>;
+          setJobUnlockProgress(spEligibleJobProgress(jobs));
         }
         if (j?.equipmentCodex && typeof j.equipmentCodex === "object") {
           const codex = j.equipmentCodex as {
@@ -426,17 +703,104 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     };
   }, [tab, jobCodex]);
 
+  const previewFishExtraction = async (fishId: FishId) => {
+    setExtractBusy(true);
+    try {
+      const response = await fetch("/api/v2/me/fishing-specimens/extract", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ fishId, preview: true }),
+      });
+      const json = (await response.json().catch(() => null)) as
+        | FishSpecimenExtractResponse
+        | null;
+      const projection = projectionFromExtractResponse(json);
+      if (
+        projection &&
+        [
+          "confirmation_required",
+          "sp_confirmation_required",
+          "loadout_over_budget",
+        ].includes(json?.error ?? "")
+      ) {
+        setExtractSelection({ fishId, projection });
+        return;
+      }
+      notifySystem(
+        `✗ ${
+          json?.error === "not_registered"
+            ? "이미 미등록 상태인 어종입니다"
+            : (json?.error ?? `http ${response.status}`)
+        }`,
+      );
+    } catch (error) {
+      notifySystem(`✗ ${(error as Error).message}`);
+    } finally {
+      setExtractBusy(false);
+    }
+  };
 
-  // 드랍 출처가 하나라도 있는 재료만 — 출처 없는 재료(미배치)는 숨긴다.
-  const materialEntries = (Object.keys(V2_MATERIALS) as V2MaterialId[])
-    .map((id) => ({
-      id,
-      material: V2_MATERIALS[id],
-      sources: MATERIAL_DROP_SOURCES[id],
-      sellPrice: V2_MATERIAL_SELL_PRICE[id],
-    }))
-    .filter((e) => e.sources.length > 0)
-    .sort((a, b) => a.material.name.localeCompare(b.material.name));
+  const confirmFishExtraction = async () => {
+    if (!extractSelection || extractSelection.projection.overBudget) return;
+    const { fishId, projection } = extractSelection;
+    setExtractBusy(true);
+    try {
+      const response = await fetch("/api/v2/me/fishing-specimens/extract", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          fishId,
+          confirmed: {
+            fishSpBefore: projection.fishSpBefore,
+            fishSpAfter: projection.fishSpAfter,
+            totalSpBefore: projection.totalSpBefore,
+            totalSpAfter: projection.totalSpAfter,
+          },
+        }),
+      });
+      const json = (await response.json().catch(() => null)) as
+        | FishSpecimenExtractResponse
+        | null;
+      if (!response.ok || !json?.ok) {
+        const latest = projectionFromExtractResponse(json);
+        if (
+          latest &&
+          (json?.error === "stale_confirmation" ||
+            json?.error === "loadout_over_budget")
+        ) {
+          setExtractSelection({ fishId, projection: latest });
+          notifySystem(
+            json.error === "stale_confirmation"
+              ? "도감 SP 상태가 달라져 새 값으로 다시 확인해 주세요"
+              : "장착 스킬을 새 SP 한도 안으로 조정해 주세요",
+          );
+          return;
+        }
+        notifySystem(`✗ ${json?.error ?? `http ${response.status}`}`);
+        return;
+      }
+
+      const nextRegistered = new Set(fishDiscovered);
+      nextRegistered.delete(fishId);
+      setFishDiscovered(nextRegistered);
+      setFishingCodexMeta((current) => ({
+        ...current,
+        spBonus:
+          typeof json.fishSpAfter === "number"
+            ? json.fishSpAfter
+            : fishCodexSpBonusForCount(nextRegistered.size),
+        nextMilestone: nextFishCodexMilestone(nextRegistered.size),
+      }));
+      setExtractSelection(null);
+      await refreshGameState();
+      notifySystem("✓ 표본 추출 완료 · 개인 어획 기록은 유지됩니다");
+    } catch (error) {
+      notifySystem(`✗ ${(error as Error).message}`);
+    } finally {
+      setExtractBusy(false);
+    }
+  };
+
   const spFruitUseCap = SP_FRUIT_TIERS.reduce(
     (sum, tier) => sum + SP_FRUIT[tier].useCap,
     0,
@@ -463,7 +827,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     {
       label: "기본 SP",
       value: spBreakdown?.base ?? 0,
-      detail: "캐릭터 기본 예산",
     },
     {
       label: "직업 해금",
@@ -539,10 +902,14 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
       progress.total > 0
         ? Math.min(100, (progress.current / progress.total) * 100)
         : 0;
-    return { ...row, progress, progressPct };
+    const spRange = spCollectionSpRange({
+      label: row.label,
+      value: row.value,
+      jobUnlockTotal:
+        jobUnlockProgress.total || Math.max(spJobUnlockBonus, 1),
+    });
+    return { ...row, progress, progressPct, spRange };
   });
-  const fishDiscoveredCount = fishDiscovered.size;
-
   // 도달한 깊이까지의 사냥터 테마(들판/마른 협곡/…) — 테마당 1개.
   const themes = dungeonThemeCatalog(frontierDepth);
 
@@ -564,17 +931,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         }
       />
       <div className="flex flex-wrap gap-1.5">
-        {(
-          [
-            ["spFruit", "SP 수집"],
-            ["job", "직업"],
-            ["equipment", "장비"],
-            ["huntground", "사냥터"],
-            ["fish", "어보"],
-            ["life", "현장 기록"],
-            ["title", "칭호"],
-          ] as const
-        ).map(([key, label]) => (
+        {CODEX_TAB_ITEMS.map(([key, label]) => (
           <button
             key={key}
             type="button"
@@ -599,28 +956,46 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           />
         ) : (
           <div className="space-y-3">
+            <CommonMaterialDropsCard />
             {themes.map((theme) => {
               const deepDepth = codexThemeDeepDepth(theme.depthStart);
               const recommendedPower = floorPowerGate(deepDepth);
-              const preparationMult = underpreparedCombatMult(
-                deepDepth,
-                combatPower ?? undefined,
-              );
               const pool = dropPoolForDepth(theme.depthStart);
-              const band = bandCommonPoolForDepth(theme.depthStart);
+              const bandIds = commonIdsForDepthRange(
+                theme.depthStart,
+                deepDepth,
+              );
+              const skyRiftWeaponIds =
+                theme.depthStart <= 78 && deepDepth >= 78
+                  ? [...SKY_RIFT_WEAPON_IDS]
+                  : [];
               const uniqueIds = uniqueIdsForDepthRange(
                 theme.depthStart,
                 deepDepth,
               );
-              // 일반 장비 드랍 목록 — 프론티어 밴드 풀(7~72) 또는 들판 스타터 그리드(1~6). + 처치당 확률 라벨.
-              const regularIds: V2EquipmentId[] = band
-                ? band.ids
+              const materialDrops = regionalHuntMaterialDrops({
+                areaName: theme.name,
+                depthStart: theme.depthStart,
+                depthEnd: deepDepth,
+                monsterKeys: theme.enemies.map((enemy) => enemy.key),
+              });
+              // 일반 장비 드랍 목록 — 프론티어 밴드 풀(7~84) 또는 들판 스타터 그리드(1~6).
+              const regularIds: V2EquipmentId[] = bandIds.length > 0
+                ? [...bandIds, ...skyRiftWeaponIds]
                 : pool
                   ? starterGridIds(pool)
                   : [];
               const classified = classifyCodexEquipmentIds(regularIds);
-              const regularChance = band
-                ? `처치당 ${(bandCommonChanceForDepth(deepDepth) * 100).toFixed(3)}% · 무작위 1종`
+              const huntgroundCodexProgress = registeredEquipmentIds
+                ? codexEquipmentProgress(
+                    [...regularIds, ...uniqueIds],
+                    registeredEquipmentIds,
+                  )
+                : null;
+              const regularChance = bandIds.length > 0
+                ? theme.depthStart >= 73
+                  ? SKY_RIFT_CODEX_DROP_SUMMARY
+                  : `처치당 ${(bandCommonChanceForDepth(deepDepth) * 100).toFixed(3)}% · 무작위 1종`
                 : pool
                   ? `처치당 ${(equipPoolChance(pool) * 100).toFixed(0)}% · 무작위 1종`
                   : "";
@@ -635,28 +1010,19 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
 
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <span className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300">
-                      심부 · 깊이 {deepDepth}
+                      최심부 · 깊이 {deepDepth}
                     </span>
                     <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
                       {combatPower == null
                         ? `권장 전투력 ${recommendedPower.toLocaleString()} 기준`
-                        : `내 전투력 ${combatPower.toLocaleString()} · 권장 ${recommendedPower.toLocaleString()}${
-                            preparationMult > 1
-                              ? ` · 미달 보정 ×${preparationMult.toFixed(2)}`
-                              : ""
-                          }`}
+                        : `내 전투력 ${combatPower.toLocaleString()} · 권장 ${recommendedPower.toLocaleString()}`}
                     </p>
                   </div>
                   <div className="space-y-1.5">
                     {theme.enemies.map((e) => {
                       const base = V2_MONSTERS[e.key];
                       if (!base) return null;
-                      const m = scaleMonsterForFloor(
-                        base,
-                        deepDepth,
-                        true,
-                        combatPower ?? undefined,
-                      );
+                      const m = scaleMonsterForFloor(base, deepDepth, true);
                       const status = e.statusSkill
                         ? (V2_SKILLS[e.statusSkill as V2SkillId]?.name ?? null)
                         : null;
@@ -699,11 +1065,60 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                     })}
                   </div>
 
+                  {materialDrops.length > 0 && (
+                    <section className="mt-2.5 space-y-1.5 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <h3 className="flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-300">
+                          <Package size={15} weight="duotone" aria-hidden />
+                          지역 재료 드랍
+                        </h3>
+                        <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                          지역 공통 · 몬스터 전용
+                        </span>
+                      </div>
+                      <MaterialDropGrid entries={materialDrops} />
+                    </section>
+                  )}
+
                   {/* 드랍 — 일반·세트·유니크를 표시 속성으로 분리. 유니크 세트는 유니크 우선. */}
                   <div className="mt-2.5 space-y-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <h3 className="flex items-center gap-1.5 text-xs font-bold text-zinc-700 dark:text-zinc-200">
+                        <Sword size={15} weight="duotone" aria-hidden />
+                        장비 드랍
+                      </h3>
+                      <div className="flex flex-wrap items-center justify-end gap-1.5">
+                        {huntgroundCodexProgress &&
+                          huntgroundCodexProgress.totalCount > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
+                              {huntgroundCodexProgress.complete && (
+                                <CheckCircle
+                                  size={11}
+                                  weight="fill"
+                                  className="text-emerald-600 dark:text-emerald-300"
+                                  aria-hidden
+                                />
+                              )}
+                              {huntgroundCodexProgress.complete
+                                ? "도감 완료"
+                                : "도감 등록"}{" "}
+                              {huntgroundCodexProgress.registeredCount}/
+                              {huntgroundCodexProgress.totalCount}
+                            </span>
+                          )}
+                        <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                          일반 · 세트 · 유니크
+                        </span>
+                      </div>
+                    </div>
                     {regularIds.length > 0 && (
                       <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
                         일반·세트 장비 {regularChance}
+                      </p>
+                    )}
+                    {skyRiftWeaponIds.length > 0 && (
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                        {SKY_RIFT_WEAPON_DROP_LABEL}
                       </p>
                     )}
                     <div>
@@ -717,6 +1132,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                               key={id}
                               id={id}
                               kind="common"
+                              registered={
+                                registeredEquipmentIds
+                                  ? registeredEquipmentIds.has(id)
+                                  : undefined
+                              }
                               onOpen={(item, anchor) =>
                                 setCard({ item, anchor })
                               }
@@ -740,6 +1160,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                               key={id}
                               id={id}
                               kind="set"
+                              registered={
+                                registeredEquipmentIds
+                                  ? registeredEquipmentIds.has(id)
+                                  : undefined
+                              }
                               onOpen={(item, anchor) =>
                                 setCard({ item, anchor })
                               }
@@ -759,7 +1184,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                         </span>
                         {uniqueIds.length > 0 && (
                           <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
-                            매우 낮은 확률
+                            {codexUniqueDropSummary(theme.depthStart)}
                           </span>
                         )}
                       </div>
@@ -770,6 +1195,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                               key={id}
                               id={id}
                               kind="unique"
+                              registered={
+                                registeredEquipmentIds
+                                  ? registeredEquipmentIds.has(id)
+                                  : undefined
+                              }
                               onOpen={(item, anchor) =>
                                 setCard({ item, anchor })
                               }
@@ -791,6 +1221,15 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
 
 
       {tab === "equipment" && <CodexEquipmentPanel onShowCard={setCard} />}
+
+      {tab === "mastery" && (
+        <CodexMasteryPanel
+          state={masteryState.status === "idle" ? { status: "loading" } : masteryState}
+          onRetry={retryCodexMastery}
+          onReplacePinnedGoals={replaceCodexMasteryPins}
+          monthlyRanking={monthlyRanking.state}
+        />
+      )}
 
       {tab === "spFruit" && (
         <div className={`${CODEX_PANEL_SURFACE} space-y-3`}>
@@ -828,9 +1267,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                       {row.value}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                    {row.detail}
-                  </p>
+                  {row.detail && (
+                    <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {row.detail}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -852,15 +1293,17 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   row.value > 0 || row.label === "기본 SP" || row.value < 0;
                 return (
                   <Card key={row.label} padding="md">
-                    <div className="flex min-h-[8.75rem] flex-col">
+                    <div className="flex flex-col">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <h3 className="truncate text-sm font-bold">
                             {row.label}
                           </h3>
-                          <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                            {row.detail}
-                          </p>
+                          {row.detail && (
+                            <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                              {row.detail}
+                            </p>
+                          )}
                         </div>
                         <span
                           className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
@@ -881,8 +1324,10 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                             : "text-zinc-900 dark:text-zinc-100"
                         }`}
                       >
-                        {row.value > 0 && row.signed ? "+" : ""}
-                        {row.value}
+                        {row.spRange.current}
+                        <span className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+                          /{row.spRange.maximum}
+                        </span>
                       </div>
                       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
                         <div
@@ -895,11 +1340,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                       <div className="mt-1.5 text-[11px] font-medium tabular-nums text-zinc-600 dark:text-zinc-300">
                         {row.progress.label}
                       </div>
-                      <div className="mt-auto pt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-                        {row.label === "상한 조정"
-                          ? "SP 최대치 계산에서 차감"
-                          : "현재 SP 최대치에 반영"}
-                      </div>
+                      {row.label === "상한 조정" && (
+                        <div className="mt-auto pt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                          SP 최대치 계산에서 차감
+                        </div>
+                      )}
                     </div>
                   </Card>
                 );
@@ -911,25 +1356,25 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             <div className="flex items-baseline justify-between gap-2 px-1">
               <h3 className="text-sm font-bold">SP 열매 상세</h3>
               <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                협동 보스 보상
+                협동 보스 · 폭풍 원정 보상
               </span>
             </div>
             <div className="grid gap-2 sm:grid-cols-3">
               {SP_FRUIT_TIERS.map((tier) => {
                 const def = SP_FRUIT[tier];
                 const used = spFruitUsed[tier] ?? 0;
-                const source = COOP_BOSSES[def.bossKind]?.name ?? "협동 보스";
+                const source = spFruitCodexSource(tier);
                 const complete = used >= def.useCap;
                 return (
                   <Card key={tier} padding="md">
-                    <div className="flex min-h-[8.75rem] flex-col">
+                    <div className="flex flex-col">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <h3 className="truncate text-sm font-bold">
                             {def.name}
                           </h3>
                           <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                            {source} 보상
+                            {source}
                           </p>
                         </div>
                         <span
@@ -957,10 +1402,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                           }}
                         />
                       </div>
-                      <div className="mt-auto pt-3 text-[11px] text-zinc-500 dark:text-zinc-400">
-                        현재 SP +{used * def.spPerUse} · 1개당 SP +
-                        {def.spPerUse}
-                      </div>
                     </div>
                   </Card>
                 );
@@ -970,184 +1411,18 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         </div>
       )}
 
-      {tab === "materials" && (
-        materialEntries.length === 0 ? (
-          <EmptyState
-            icon={<Package size={40} weight="duotone" />}
-            title="아직 기록된 재료가 없습니다"
-            message="사냥터에서 재료를 얻으면 여기에 출처가 표시됩니다."
-          />
-        ) : (
-          <Card padding="none" className="overflow-hidden">
-            <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-              {materialEntries.map(({ id, material, sources, sellPrice }) => {
-                const found = discovered.has(id);
-                return (
-                  <li
-                    key={id}
-                    className={`ui-codex-card px-3 py-2.5 ${found ? "is-registered" : "text-zinc-500 dark:text-zinc-400"}`}
-                  >
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                        <Package size={16} weight="duotone" />
-                        {material.name}
-                        {found ? (
-                          <span className="rounded bg-emerald-200/70 px-1 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
-                            등재
-                          </span>
-                        ) : (
-                          <span className="rounded bg-zinc-200/70 px-1 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-700/60 dark:text-zinc-300">
-                            미발견
-                          </span>
-                        )}
-                      </span>
-                      <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
-                        판매 {sellPrice}골드
-                      </span>
-                    </div>
-                    {material.description && (
-                      <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-                        {material.description}
-                      </p>
-                    )}
-                    <ul className="mt-2 space-y-0.5 border-t border-dashed border-zinc-200 pt-1.5 text-[11px] dark:border-zinc-700">
-                      {sources.map((s) => (
-                        <li
-                          key={s.floorId}
-                          className="flex items-center justify-between gap-2 py-0.5"
-                        >
-                          <span className="flex items-center gap-1.5 text-zinc-800 dark:text-zinc-200">
-                            <Mountains
-                              size={15}
-                              weight="duotone"
-                              className="text-zinc-400 dark:text-zinc-500"
-                            />
-                            {FLOOR_LABEL[s.floorId]}
-                            <span className="text-zinc-500 dark:text-zinc-400">
-                              {formatAmount(s)}
-                            </span>
-                          </span>
-                          <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
-                            {formatChance(s.chance)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
-        )
-      )}
       {tab === "fish" && (
-        <div className="space-y-3">
-          <Card padding="md">
-            <div className="flex flex-wrap items-end justify-between gap-2">
-              <div>
-                <h2 className="text-sm font-bold">어보</h2>
-                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  발견 {fishDiscoveredCount} / {fishingCodexMeta.total}종 · SP +
-                  {fishingCodexMeta.spBonus}
-                </p>
-              </div>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                다음 보상{" "}
-                {fishingCodexMeta.nextMilestone
-                  ? `${fishingCodexMeta.nextMilestone}종`
-                  : "신규 어종 추가 시 확장"}
-              </span>
-            </div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-              <div
-                className="h-full rounded-full bg-sky-500 transition-[width]"
-                style={{
-                  width: `${
-                    fishingCodexMeta.total > 0
-                      ? Math.min(
-                          100,
-                          (fishDiscoveredCount / fishingCodexMeta.total) * 100,
-                        )
-                      : 0
-                  }%`,
-                }}
-              />
-            </div>
-            {fishingCodexMeta.milestones.length > 0 && (
-              <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-                SP 보상: {fishingCodexMeta.milestones.join(" / ")}종
-              </p>
-            )}
-          </Card>
-          {FISH_TIER_ORDER.map((tier) => {
-            const meta = FISH_TIERS[tier];
-            const species = FISH_IDS.filter((id) => FISH[id].tier === tier);
-            const discoveredCount = species.filter((id) =>
-              fishDiscovered.has(id),
-            ).length;
-            return (
-              <Card key={tier} padding="none" className="overflow-hidden">
-                <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40">
-                  <span
-                    className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${TIER_BADGE[tier]}`}
-                  >
-                    {meta.label}
-                  </span>
-                  <div className="flex flex-wrap justify-end gap-x-2 gap-y-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                    <span>
-                      {discoveredCount}/{species.length}
-                    </span>
-                    <span>1등 보상 {meta.recordCoins.rank1}코인</span>
-                  </div>
-                </div>
-                <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                  {species.map((id) => {
-                    const fish = FISH[id];
-                    const found = fishDiscovered.has(id);
-                    const best = fishBest[id];
-                    return (
-                      <li
-                        key={id}
-                        className={`px-3 py-2.5 ${found ? "" : "text-zinc-500 dark:text-zinc-400"}`}
-                      >
-                        <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                            <FishIcon
-                              fishId={id}
-                              name={found ? fish.name : undefined}
-                              decorative={!found}
-                              className={`h-6 w-6 ${found ? "" : "grayscale"}`}
-                            />
-                            {found ? fish.name : "???"}
-                            {found ? (
-                              <span className="rounded bg-emerald-200/70 px-1 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
-                                등재
-                              </span>
-                            ) : (
-                              <span className="rounded bg-zinc-200/70 px-1 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-700/60 dark:text-zinc-300">
-                                미발견
-                              </span>
-                            )}
-                          </span>
-                          {found && typeof best === "number" && best > 0 && (
-                            <span className="shrink-0 text-[11px] font-medium tabular-nums text-amber-600 dark:text-amber-400">
-                              최대어 {formatFishSize(best)}
-                            </span>
-                          )}
-                        </div>
-                        {found && fish.description && (
-                          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-                            {fish.description}
-                          </p>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </Card>
-            );
-          })}
-        </div>
+        <FishingCodexPanel
+          registeredIds={fishDiscovered}
+          caughtIds={fishCaught}
+          best={fishBest}
+          meta={fishingCodexMeta}
+          extractBusy={extractBusy}
+          onPreviewExtraction={(fishId) => void previewFishExtraction(fishId)}
+        />
+      )}
+      {tab === "cooking" && (
+        <CookingCodexPanel knownRecipes={cookingCodex.knownRecipes} total={cookingCodex.total} />
       )}
       {tab === "life" && <LifeFieldCodexPanel />}
       {tab === "title" && (
@@ -1179,6 +1454,16 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         />
       )}
 
+      {extractSelection && (
+        <FishSpecimenExtractModal
+          fish={FISH[extractSelection.fishId]}
+          projection={extractSelection.projection}
+          busy={extractBusy}
+          onConfirm={() => void confirmFishExtraction()}
+          onClose={() => setExtractSelection(null)}
+        />
+      )}
+
       {showTutorial && (
         <TutorialOverlayInner
           title="모험의 서 이용 안내"
@@ -1195,8 +1480,8 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   </span>
                   <span>
                     <strong>플레이하면 기록이 열립니다.</strong> 사냥터를 개척하고,
-                    직업을 해금하고, 물고기를 낚으면 해당 정보가 자동으로
-                    추가됩니다.
+                    직업을 해금하고, 물고기를 낚거나 요리를 처음 완성하면 해당
+                    정보가 자동으로 추가됩니다.
                   </span>
                 </li>
                 <li className="flex gap-2.5">

@@ -69,6 +69,10 @@ html {
 body {
   background: transparent;
   color: var(--foreground);
+  /* 한국어 문장은 음절 중간이 아니라 어절 경계에서 우선 줄바꿈한다.
+     URL·식별자처럼 공백 없는 긴 문자열만 컨테이너 안에서 안전하게 끊는다. */
+  word-break: keep-all;
+  overflow-wrap: break-word;
   /* iOS 의 가로 바운스(상하좌우 rubber-band) 중 좌우 방향만 차단 — 세로 스크롤은 유지. */
   overscroll-behavior-x: none;
 }
@@ -85,36 +89,45 @@ body {
 
 /* ── 게임 콘텐츠 공통 폭 ─────────────────────────────────────────
    기존 화면들이 공유하는 720px 제한은 모바일·작은 태블릿에서 그대로 유지한다.
-   md 이상은 864px까지만 넓혀 PC에서도 지나치게 퍼지지 않게 하며,
+   md 이상은 960px까지만 넓혀 전체 폭 헤더 아래 본문이 지나치게 좁아 보이지 않게 하며,
    각 화면의 기존 padding·grid·overflow 규칙은 건드리지 않는다. */
 @media (min-width: 48rem) {
   .max-w-\[720px\]:not(.game-content-readable) {
-    max-width: 54rem;
+    max-width: 60rem;
+  }
+}
+
+/* 생활 작업장은 일부 Android 브라우저의 데스크톱 보기에서 화면 폭이 크게
+   보고되어 다열 카드가 휴대폰 안에 억지로 들어가는 경우가 있다. 터치 기기에서는
+   실제 조작 폭을 우선해 선택 칸과 의뢰 카드를 한 열로 유지한다. */
+@media (hover: none) and (pointer: coarse) {
+  .life-workshop-touch-tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .life-workshop-touch-stack {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
 /* ── 게임 드롭다운·도킹 패널 등장 모션 ────────────────────────────
-   메뉴는 즉시 조작할 수 있을 만큼 짧게 열되, 위에서 풀리며 항목이 연달아 보이는 감각을 준다.
-   채팅은 화면 아래에 붙으므로 같은 속도로 아래에서 살짝 올라온다. */
+   반복해서 여는 메뉴는 위치·크기를 바꾸지 않고 짧은 투명도 변화만 사용한다.
+   채팅처럼 화면에 새 표면이 생기는 패널은 별도의 짧은 등장 모션을 유지한다. */
 @keyframes ui-dropdown-reveal {
   from {
     opacity: 0;
-    transform: translate3d(0, -7px, 0) scaleY(0.94);
   }
   to {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scaleY(1);
   }
 }
 
-@keyframes ui-dropdown-item-reveal {
+@keyframes ui-tab-content-reveal {
   from {
     opacity: 0;
-    transform: translateY(-4px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -174,33 +187,13 @@ body {
 }
 
 .ui-dropdown-reveal {
-  transform-origin: top center;
-  animation: ui-dropdown-reveal 170ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  will-change: transform, opacity;
+  animation: ui-dropdown-reveal 120ms ease-out both;
+  will-change: opacity;
 }
 
-.ui-dropdown-reveal > * {
-  animation: ui-dropdown-item-reveal 115ms ease-out both;
-}
-
-.ui-dropdown-reveal > :nth-child(2) {
-  animation-delay: 14ms;
-}
-
-.ui-dropdown-reveal > :nth-child(3) {
-  animation-delay: 28ms;
-}
-
-.ui-dropdown-reveal > :nth-child(4) {
-  animation-delay: 42ms;
-}
-
-.ui-dropdown-reveal > :nth-child(5) {
-  animation-delay: 56ms;
-}
-
-.ui-dropdown-reveal > :nth-child(n + 6) {
-  animation-delay: 70ms;
+.ui-tab-content-reveal {
+  animation: ui-tab-content-reveal 120ms ease-out both;
+  will-change: opacity;
 }
 
 .ui-popover-reveal {
@@ -271,7 +264,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .ui-dropdown-reveal,
-  .ui-dropdown-reveal > *,
+  .ui-tab-content-reveal,
   .ui-popover-reveal,
   .ui-modal-reveal,
   .ui-modal-panel,
@@ -283,6 +276,92 @@ body {
   .ui-expand-grid,
   .ui-expand-grid[data-open="true"] {
     transition: none !important;
+  }
+}
+
+/* ── 장소 배경 교차 페이드 ───────────────────────────────────────
+   새 이미지를 다 받은 뒤에만 기존 배경과 교대한다. 두 레이어는 opacity 만 바꿔
+   모바일에서도 레이아웃 계산 없이 짧게 장소 전환을 전달한다. */
+@keyframes ui-game-background-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes ui-game-background-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ui-game-background-current[data-transitioning="true"],
+.ui-game-background-incoming[data-transitioning="true"] {
+  animation-duration: 180ms;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+  will-change: opacity;
+}
+
+.ui-game-background-incoming {
+  opacity: 0;
+}
+
+.ui-game-background-current[data-transitioning="true"] {
+  animation-name: ui-game-background-fade-out;
+}
+
+.ui-game-background-incoming[data-transitioning="true"] {
+  animation-name: ui-game-background-fade-in;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-game-background-current[data-transitioning="true"] {
+    animation: none !important;
+    opacity: 0;
+  }
+
+  .ui-game-background-incoming[data-transitioning="true"] {
+    animation: none !important;
+    opacity: 1;
+  }
+}
+
+/* 사냥터 목록에서 층 전투로 한 단계 들어갈 때만 본문에 방향을 준다.
+   영속 상단바·메뉴·스태미나 바는 이 래퍼 밖이라 움직이지 않는다. */
+@keyframes ui-route-content-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ui-hunt-floor-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(8px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.ui-route-content-enter {
+  /* 완료 뒤 stacking context를 남기면 이 래퍼 안의 fixed 오버레이가
+     영속 상단바 아래로 내려가 클릭을 받을 수 없다. */
+  animation: ui-route-content-enter 120ms ease-out;
+}
+
+.ui-hunt-floor-enter {
+  /* 완료 프레임의 transform을 유지하면 90% zoom 아래 작은 글자가
+     합성 레이어에 남아 흐릿하게 보일 수 있으므로 전환 뒤 즉시 해제한다. */
+  animation: ui-hunt-floor-enter 160ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-route-content-enter,
+  .ui-hunt-floor-enter {
+    animation: none !important;
   }
 }
 
@@ -718,26 +797,6 @@ body {
   }
 }
 
-@keyframes lottery-confetti-fall {
-  0% { transform: translate3d(0, -8vh, 0) rotate(0deg); opacity: 0; }
-  10% { opacity: 1; }
-  100% { transform: translate3d(30px, 110vh, 0) rotate(720deg); opacity: 0.9; }
-}
-
-@keyframes lottery-ticket-shine {
-  0%, 100% { filter: brightness(1); }
-  50% { filter: brightness(1.16); }
-}
-
-@keyframes lottery-golden-halo {
-  0%, 100% { transform: scale(0.9); opacity: 0.45; }
-  50% { transform: scale(1.08); opacity: 0.75; }
-}
-
-.lottery-confetti { animation: lottery-confetti-fall 2.8s linear infinite; }
-.lottery-ticket-shine { animation: lottery-ticket-shine 1.8s ease-in-out infinite; }
-.lottery-golden-halo { animation: lottery-golden-halo 2.2s ease-in-out infinite; }
-
 @keyframes ui-toast-slide-in {
   0% {
     transform: translateY(8px);
@@ -781,22 +840,21 @@ body {
 .ui-game-card {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.62),
-    0 1px 2px rgba(15, 23, 42, 0.06),
-    0 10px 24px rgba(15, 23, 42, 0.04);
+    0 1px 2px rgba(15, 23, 42, 0.08),
+    0 6px 16px rgba(15, 23, 42, 0.04);
 }
 
 .dark .ui-game-card {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 1px 2px rgba(0, 0, 0, 0.32),
-    0 12px 28px rgba(0, 0, 0, 0.18);
+    0 1px 2px rgba(0, 0, 0, 0.34),
+    0 8px 18px rgba(0, 0, 0, 0.16);
 }
 
 .ui-game-button {
   position: relative;
   touch-action: manipulation;
   transition:
-    transform 120ms ease,
     box-shadow 120ms ease,
     border-color 140ms ease,
     background-color 140ms ease,
@@ -804,22 +862,17 @@ body {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
     0 2px 0 rgba(15, 23, 42, 0.2),
-    0 8px 16px rgba(15, 23, 42, 0.1);
+    0 5px 12px rgba(15, 23, 42, 0.09);
 }
 
 .dark .ui-game-button {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 2px 0 rgba(0, 0, 0, 0.38),
-    0 8px 18px rgba(0, 0, 0, 0.24);
-}
-
-.ui-game-button:not(:disabled):hover {
-  transform: translateY(-1px);
+    0 6px 14px rgba(0, 0, 0, 0.22);
 }
 
 .ui-game-button:not(:disabled):active {
-  transform: translateY(2px);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
     0 0 0 rgba(15, 23, 42, 0),
@@ -863,25 +916,23 @@ body {
 
 .ui-lift-card {
   transition:
-    transform 140ms ease,
     border-color 140ms ease,
     box-shadow 140ms ease,
     background-color 140ms ease;
 }
 
 .ui-lift-card:hover {
-  transform: translateY(-1px);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
 }
 
 .ui-lift-card:active {
-  transform: translateY(1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
 }
 
 .ui-equipment-card {
   position: relative;
   overflow: hidden;
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
 }
 
 .ui-equipment-card::after {
@@ -2155,6 +2206,25 @@ body {
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/oceanic.svg");
   --profile-avatar-decoration-opacity: 0.34;
   --profile-decoration-animation: none;
+}
+
+.ui-profile-frame-abyssal_master {
+  --profile-frame-rgb: 45 212 191;
+  --profile-frame-gradient: linear-gradient(110deg, #020617, #0f766e, #5eead4, #1d4ed8, #312e81, #020617);
+  --profile-theme-background:
+    radial-gradient(circle at 82% 28%, rgb(94 234 212 / 0.36), transparent 18%),
+    radial-gradient(ellipse at 68% 88%, rgb(29 78 216 / 0.58), transparent 42%),
+    linear-gradient(125deg, #020617, #083344 48%, #172554);
+  --profile-theme-pattern:
+    repeating-radial-gradient(ellipse at 78% 70%, transparent 0 12px, rgb(94 234 212 / 0.18) 13px 15px, transparent 16px 29px),
+    radial-gradient(ellipse at 84% 48%, rgb(255 255 255 / 0.24) 0 2%, transparent 3% 100%);
+  --profile-theme-pattern-size: 120px 76px, 180px 92px;
+  --profile-theme-pattern-opacity: 0.72;
+  --profile-avatar-decoration-background:
+    repeating-radial-gradient(circle at 50% 58%, transparent 0 8px, rgb(94 234 212 / 0.25) 9px 10px, transparent 11px 18px);
+  --profile-avatar-decoration-size: 150% 120%;
+  --profile-avatar-decoration-opacity: 0.54;
+  --profile-decoration-animation: profile-decoration-drift 8s ease-in-out infinite;
 }
 
 .ui-profile-frame-verdant {

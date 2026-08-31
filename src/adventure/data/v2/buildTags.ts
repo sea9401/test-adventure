@@ -160,7 +160,7 @@ export function buildTagsForEquipment(item: V2Equipment): V2BuildTagId[] {
   }
   if (
     (options.healPowerPct ?? 0) > 0 ||
-    (item.signature?.healPct ?? 0) > 0 ||
+    (item.signature?.lostHpHealPct ?? 0) > 0 ||
     (item.signature?.healToShieldPct ?? 0) > 0
   ) {
     tags.add("heal");
@@ -184,6 +184,53 @@ export function buildTagsForEquipment(item: V2Equipment): V2BuildTagId[] {
     tags.add("speed");
   }
   if (item.signature?.statusBlockOnce) tags.add("tank");
+  if (item.signature?.trigger === "tier6_unique") {
+    const mechanic = item.signature.mechanic;
+    if (mechanic?.startsWith("gravity_") || mechanic === "shield_conversion") {
+      tags.add("tank");
+      tags.add("shield");
+    }
+    if (mechanic?.startsWith("bleed_")) {
+      tags.add("physical");
+      tags.add("bleed");
+      tags.add("dot");
+      tags.add("vulnerability");
+    }
+    if (mechanic === "pursuit_mark") {
+      tags.add("physical");
+      tags.add("crit");
+    }
+    if (mechanic === "shadow_echo" || mechanic === "gale_circuit") {
+      tags.add("evasion");
+      tags.add("speed");
+      tags.add("crit");
+    }
+    if (mechanic?.startsWith("venom_")) {
+      tags.add("physical");
+      tags.add("poison");
+      tags.add("dot");
+      tags.add("vulnerability");
+    }
+    if (
+      mechanic?.startsWith("arcane_") ||
+      mechanic === "status_mana_return"
+    ) {
+      tags.add("magic");
+      tags.add("resource");
+    }
+    if (mechanic === "sanctuary_reserve") {
+      tags.add("heal");
+      tags.add("tank");
+    }
+    if (
+      mechanic === "triphase_link" ||
+      mechanic === "storm_confluence" ||
+      mechanic === "dominant_heart" ||
+      mechanic === "mechanic_unity"
+    ) {
+      tags.add("resource");
+    }
+  }
   if (item.signature) tags.add("signature");
   if (item.setId) {
     tags.add("set");
@@ -215,6 +262,8 @@ export function buildTagsForSkill(skill: V2SkillDefinition): V2BuildTagId[] {
   addStatTag(tags, skill.stat);
   if (skill.stat === "int") tags.add("magic");
   if (skill.category === "heal") tags.add("heal");
+  if (skill.provokeImmediateBasicAttacks) tags.add("tank");
+  if (skill.ironWallReflect) tags.add("tank");
   if (skill.category === "passive" && skill.passive) {
     addPassiveTags(tags, skill.passive);
   }
@@ -260,9 +309,19 @@ function addPassiveTags(
     tags.add("poison");
     tags.add("vulnerability");
   }
+  if ((passive.enemyPhysicalDefReductionPct ?? 0) > 0) {
+    tags.add("vulnerability");
+  }
+  if ((passive.enemyMagicDefReductionPct ?? 0) > 0) {
+    tags.add("magic");
+    tags.add("vulnerability");
+  }
   if ((passive.berserkAtkPctPerLostHpPct ?? 0) > 0) tags.add("low_hp");
   if ((passive.enemyMagicVulnPctPerStack ?? 0) > 0) tags.add("vulnerability");
   if ((passive.magicSkillDamagePct ?? 0) > 0) tags.add("magic");
+  if ((passive.singleHitPhysicalSkillDamagePct ?? 0) > 0) {
+    tags.add("physical");
+  }
   if ((passive.fishingSizeBonusPct ?? 0) > 0) tags.add("fishing");
   if ((passive.fishingSpecialWeightPct ?? 0) > 0) tags.add("fishing");
   if ((passive.fishingRareSizeBonusPct ?? 0) > 0) tags.add("fishing");
@@ -270,6 +329,11 @@ function addPassiveTags(
   if ((passive.guildTrainingRewardBonusPct ?? 0) > 0) tags.add("guild");
   if ((passive.guildTrainingWeeklyBonusMastery ?? 0) > 0) tags.add("guild");
   if (passive.skillCritOverflow) tags.add("crit");
+  if ((passive.skillCritDmgPct ?? 0) > 0) tags.add("crit");
+  if (passive.equipmentMagicSkillCritConversion) {
+    tags.add("magic");
+    tags.add("crit");
+  }
   if (passive.skillCritAfterEvade) {
     tags.add("crit");
     tags.add("evasion");
@@ -330,6 +394,10 @@ function addEffectTags(
     case "hpCostDamage":
       tags.add("low_hp");
       tags.add(effect.scaling === "magic" || effect.scaling === "spi" ? "magic" : "physical");
+      break;
+    case "missingHpDamage":
+      tags.add("low_hp");
+      tags.add("physical");
       break;
     case "executeDamage":
     case "ambushDamage":

@@ -18,6 +18,7 @@ import {
 
 type CharSave = {
   gold?: number;
+  bankedGold?: number;
   materials?: Record<string, unknown>;
   [k: string]: unknown;
 };
@@ -26,12 +27,32 @@ function parseMaterials(raw: unknown): Record<string, number> {
   const out: Record<string, number> = {};
   if (raw && typeof raw === "object") {
     for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-      if (typeof v === "number" && Number.isFinite(v) && v > 0) {
-        out[k] = Math.floor(v);
+      if (typeof v === "number" && Number.isSafeInteger(v) && v > 0) {
+        out[k] = v;
       }
     }
   }
   return out;
+}
+
+function storedBalance(value: unknown): number | null {
+  if (value === undefined) return 0;
+  return typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value >= 0
+    ? value
+    : null;
+}
+
+function hasSafeMaterialBalances(raw: unknown): boolean {
+  if (raw === undefined) return true;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
+  return Object.values(raw as Record<string, unknown>).every(
+    (value) =>
+      typeof value === "number" &&
+      Number.isSafeInteger(value) &&
+      value >= 0,
+  );
 }
 
 export async function POST(req: Request) {
@@ -67,12 +88,21 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
+  if (!Number.isSafeInteger(unitPrice) || unitPrice <= 0) {
+    return Response.json(
+      { ok: false, error: "invalid_sale_price" },
+      { status: 500 },
+    );
+  }
   // 요청 수량 — 양의 정수만. 미지정이면 전량 (아래에서 보유량으로 clamp).
   const reqAmount =
     typeof body.amount === "number" && Number.isFinite(body.amount)
       ? Math.floor(body.amount)
       : null;
-  if (reqAmount != null && reqAmount <= 0) {
+  if (
+    reqAmount != null &&
+    (!Number.isSafeInteger(reqAmount) || reqAmount <= 0)
+  ) {
     return Response.json(
       { ok: false, error: "invalid_amount" },
       { status: 400 },
@@ -86,6 +116,12 @@ export async function POST(req: Request) {
       "character.v2",
       {},
     );
+    if (!hasSafeMaterialBalances(charSave.materials)) {
+      return {
+        status: 409,
+        body: { ok: false as const, error: "unsafe_material_balance" as const },
+      };
+    }
     const materials = parseMaterials(charSave.materials);
     const owned = materials[id] ?? 0;
     if (owned <= 0) {
@@ -95,27 +131,43 @@ export async function POST(req: Request) {
       };
     }
     const sellCount = reqAmount == null ? owned : Math.min(reqAmount, owned);
-    const gain = sellCount * unitPrice;
+    const gold = storedBalance(charSave.gold);
+    const bankedGold = storedBalance(charSave.bankedGold);
+    if (gold == null || bankedGold == null) {
+      return {
+        status: 409,
+        body: { ok: false as const, error: "unsafe_balance" as const },
+      };
+    }
+    const gainBigInt = BigInt(sellCount) * BigInt(unitPrice);
+    const newBankedGoldBigInt = BigInt(bankedGold) + gainBigInt;
+    if (
+      gainBigInt > BigInt(Number.MAX_SAFE_INTEGER) ||
+      newBankedGoldBigInt > BigInt(Number.MAX_SAFE_INTEGER)
+    ) {
+      return {
+        status: 409,
+        body: { ok: false as const, error: "sale_overflow" as const },
+      };
+    }
+    const gain = Number(gainBigInt);
+    const newBankedGold = Number(newBankedGoldBigInt);
     const nextMaterials = { ...materials };
     const remaining = owned - sellCount;
     if (remaining > 0) nextMaterials[id] = remaining;
     else delete nextMaterials[id];
-    // 저장값이 손상(NaN/비숫자)이어도 0 으로 안전화 — NaN 전파 방지.
-    const gold =
-      typeof charSave.gold === "number" && Number.isFinite(charSave.gold)
-        ? Math.max(0, charSave.gold)
-        : 0;
-    const newGold = gold + gain;
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       materials: nextMaterials,
-      gold: newGold,
+      gold,
+      bankedGold: newBankedGold,
     });
     return {
       status: 200,
       body: {
         ok: true as const,
-        gold: newGold,
+        gold,
+        bankedGold: newBankedGold,
         materials: nextMaterials,
         sold: { id, count: sellCount, gold: gain },
       },

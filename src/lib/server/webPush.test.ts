@@ -18,22 +18,9 @@ describe("시스템 푸시 이벤트 매핑", () => {
     ).toMatchObject({ title: "협동 보스 처치", url: "/battle/coop" });
     expect(
       pushMessageForNotification("feedback_replied", { feedbackId: 7 }),
-    ).toMatchObject({ title: "문의 답변 도착", url: "/feedback" });
-  });
-
-  it("복권 당첨 알림에 최고 등수와 총 당첨금을 보여준다", () => {
-    expect(
-      pushMessageForNotification("lottery_won", {
-        roundId: 22,
-        ranks: [3, 1],
-        ticketNumbers: [22, 7],
-        prizeAmount: 800_000,
-      }),
-    ).toEqual({
-      title: "🎫 복권 1등 당첨!",
-      body: "제 22회 복권에서 800,000G에 당첨되었습니다.",
-      url: "/notifications",
-      tag: "lottery-won-22",
+    ).toMatchObject({
+      title: "문의 답변 도착",
+      url: "/feedback#feedback-7",
     });
   });
 

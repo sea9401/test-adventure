@@ -1,5 +1,7 @@
-import { ADVENTURE_SUPPORT_PASS } from "@/adventure/data/v2/adventureSupport";
-import { MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS } from "@/adventure/data/v2/monthlyAttendance";
+import {
+  ADVENTURE_SUPPORT_PASS,
+  PREMIUM_ADVENTURE_SUPPORT_PASS,
+} from "@/adventure/data/v2/adventureSupport";
 import { MUSEUN_COSMETIC_ACCESS_DAYS } from "@/adventure/data/v2/museunCosmetics";
 import { H2, H3, P, UL, Em, Table, Note } from "./primitives";
 
@@ -8,18 +10,25 @@ export function ControlsContent() {
     <>
       <H2>화면 구성</H2>
       <P>
-        화면은 <Em>상단바·메인 탭·본문</Em>으로 나뉩니다. 상단바와 메인 탭은
-        화면에 남아 있으며, 탭이나 카드를 누르면 본문이 바뀝니다.
+        화면은 <Em>상단바·메인 탭·본문</Em>으로 나뉩니다. 왼쪽 위 홈 아이콘과
+        메인 탭은 화면에 남아 있으며, 탭이나 카드를 누르면 본문이 바뀝니다.
       </P>
 
-      <H2>메인 탭 5개</H2>
+      <H2>홈 아이콘과 메인 탭 5개</H2>
       <Table
-        head={["탭", "역할"]}
+        head={["메뉴", "역할"]}
         rows={[
-          [<Em key="a">모험</Em>, "캐릭터 요약, 퀘스트 안내, 공지와 랭킹 미리보기."],
+          [
+            <Em key="a">홈 아이콘</Em>,
+            "캐릭터 요약, 오늘의 모험 체크, 퀘스트 보상, 핫타임·공지·게시판·랭킹 위젯.",
+          ],
           [<Em key="b">전투</Em>, "사냥터·협동 보스·아레나·대련장·숙련의 탑·원정."],
-          [<Em key="c">마을</Em>, "치료소·은행·상점·대장간·생활 지도·농장·주방."],
-          [<Em key="d">캐릭터</Em>, "내 정보·인벤토리·스킬·퀘스트·성장의 신전·모험의 서."],
+          [<Em key="c">마을</Em>, "모험가 협회·치료소·은행·통합 교환소·대장간."],
+          [<Em key="l">생활</Em>, "생활 지도·생활 의뢰·조합 작업장·농장·낚시·주방."],
+          [
+            <Em key="d">캐릭터</Em>,
+            "내 정보·인벤토리·스킬·전투 프리셋·퀘스트·성장의 신전·모험의 서·트로피 전시대.",
+          ],
           [<Em key="e">길드</Em>, "길드 창단·가입과 길드원·연구·공동 시설 운영."],
         ]}
       />
@@ -31,19 +40,26 @@ export function ControlsContent() {
       <H2>상단바</H2>
       <UL>
         <li>
-          <Em>게임 아이콘 (좌측)</Em> — 무슨무슨게임 아이콘입니다. 누르면 모험
-          탭으로 돌아갑니다.
+          <Em>홈 아이콘 (좌측)</Em> — 누르면 홈 화면으로 돌아갑니다.
+        </li>
+        <li>
+          <Em>생활 상태</Em> — 진행 중인 벌목·채광 또는 낚시 상태를 보여 주며,
+          누르면 해당 작업 화면으로 이동합니다.
+        </li>
+        <li>
+          <Em>스태미나</Em> — 현재치와 최대치를 보여 줍니다. 누르면 스태미나
+          회복약을 여러 개 선택해 사용할 수 있습니다.
         </li>
         <li>
           <Em>알림</Em> — 일반 알림과 아직 수령하지 않은 우편을 합쳐 보여줍니다.
           종을 누르면 최근 항목을 확인하거나 전체 알림·우편함으로 이동할 수 있습니다.
         </li>
         <li>
-          <Em>채팅</Em> — 전체·길드·사용자 채팅방, 복권방과 시스템 알림.
+          <Em>채팅</Em> — 전체·길드·사용자 채팅방과 시스템 알림.
         </li>
         <li>
-          <Em>메뉴 (☰)</Em> — 광장, 이벤트, 꾸미기, 게임 안내서, 환경 설정,
-          건의사항과 로그아웃.
+          <Em>메뉴 (☰)</Em> — 게시판·우편함·거래소·랭킹·전체 소식, 이벤트,
+          꾸미기, 게임 안내서, 환경 설정, 건의사항과 로그아웃.
         </li>
       </UL>
 
@@ -52,6 +68,19 @@ export function ControlsContent() {
         메인 탭의 카드를 누르면 세부 화면으로 들어갑니다. 왼쪽 위{" "}
         <Em>← 뒤로</Em> 또는 브라우저의 뒤로가기를 사용하면 이전 화면으로
         돌아옵니다.
+      </P>
+
+      <H2>홈 화면 구성과 알림</H2>
+      <P>
+        <Em>메뉴(☰) → 환경 설정 → 홈 화면 구성</Em>에서 홈 위젯의 순서를
+        바꾸거나 쓰지 않는 항목을 숨길 수 있습니다. 캐릭터·스태미나·오늘의 모험
+        체크·퀘스트·핫타임·공지·최근 게시글·랭킹 위젯을 조정하며, 기본 배치로
+        되돌릴 수도 있습니다.
+      </P>
+      <P>
+        같은 화면의 <Em>콘텐츠 알림 표시</Em>를 끄면 전투·마을·생활 메뉴와 하위
+        콘텐츠의 노란 알림 점이 숨겨집니다. 활동 자체나 보상 진행이 중단되는 것은
+        아니며, 표시만 바뀝니다.
       </P>
 
       <H2>화면 모드</H2>
@@ -96,35 +125,60 @@ export function ControlsContent() {
       </P>
       <UL>
         <li>
-          1일차에는{" "}
-          <Em>
-            월간 모험 지원권 {MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS}일
-          </Em>
-          이 즉시 적용됩니다. 이용 중이라면 남은 기간 뒤에 이어집니다.
+          보상 구성과 수량은 해당 월의 <Em>월별 출석판</Em>에서 확인할 수
+          있습니다.
+        </li>
+        <li>
+          <Em>월간 모험 지원권 보상이 표시된 날</Em> 수령하면 이용 기간이
+          즉시 적용됩니다. 이미 이용 중이라면 남은 기간 뒤에 이어집니다.
         </li>
         <li>
           지원권 적용 중에는 최대 스태미나 +
           {ADVENTURE_SUPPORT_PASS.staminaMaxBonus.toLocaleString("ko-KR")},
           스태미나 회복 속도 +{ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct}%,
-          일괄 사냥 최대 {ADVENTURE_SUPPORT_PASS.activeMaxHuntBatch}회와 거래소
-          혜택을 받습니다. 지원권을 처음 활성화할 때는 스태미나도 최대{" "}
+          일괄 사냥 최대 {ADVENTURE_SUPPORT_PASS.activeMaxHuntBatch}회, 거래소 등록 +
+          {ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus}개와 판매세{" "}
+          {ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}% 혜택을 받습니다. 지원권을
+          처음 활성화할 때는 스태미나도 최대{" "}
           {ADVENTURE_SUPPORT_PASS.staminaActivationGrant.toLocaleString("ko-KR")}{" "}
           회복합니다.
         </li>
         <li>
-          7·14·28일차에는 각각 닉네임 꾸미기·채팅 배지·프로필 꾸미기 상자를
-          추가로 받고, 꾸미기 화면에서 열 수 있습니다.
+          <Em>월간 모험 지원권 프리미엄</Em>은 최대 스태미나 +
+          {PREMIUM_ADVENTURE_SUPPORT_PASS.staminaMaxBonus.toLocaleString(
+            "ko-KR",
+          )}
+          , 스태미나 회복 속도 +
+          {PREMIUM_ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct}%, 일괄 사냥 최대{" "}
+          {PREMIUM_ADVENTURE_SUPPORT_PASS.activeMaxHuntBatch}회, 거래소 등록 +
+          {PREMIUM_ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus}개와 판매세{" "}
+          {PREMIUM_ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}% 혜택을
+          제공합니다. 사용할 때마다 스태미나{" "}
+          {PREMIUM_ADVENTURE_SUPPORT_PASS.staminaActivationGrant.toLocaleString(
+            "ko-KR",
+          )}
+          과 꾸미기 30일 연장권{" "}
+          {PREMIUM_ADVENTURE_SUPPORT_PASS.cosmeticExtensionGrant}개를 받습니다.
+          일반 지원권의 남은 기간은 프리미엄 이용 중 소모되지 않고 종료 뒤 이어집니다.
+        </li>
+        <li>
+          꾸미기 상자가 포함된 보상은 출석판에 함께 표시되며, 받은 상자는 꾸미기
+          화면에서 열 수 있습니다.
         </li>
       </UL>
 
       <H3>게임 홍보와 쿠폰</H3>
       <P>
         게임 홍보 탭에서는 내 홍보 링크와 보상 실적을 관리합니다. 링크로 합류한
-        신규 모험가와 홍보자는 가입 완료 시 각각 스태미나 회복약 2개를 받습니다.
-        이후 친구가 지정된 사냥터의 최심부를 돌파할 때마다 홍보자의 우편함에
-        스태미나 회복약 2개가 추가로 도착합니다. 합류한 모험가의 현재
-        사냥터와 보상 진척도도 이 탭에서 확인할 수 있습니다. 쿠폰 등록 탭에서는
-        쿠폰 코드를 입력해 보상을 우편함으로 받을 수 있습니다.
+        친구는 가입 완료, 사냥터 깊이 24·36, 길드 가입 또는 창단, 최고 생활 레벨
+        5·10으로 이어지는 여섯 단계 튜토리얼을 진행합니다. 단계마다 양쪽에
+        스태미나 회복약 2개가 우편으로 지급되어, 신규 모험가와 홍보자는 각자 최대
+        12개를 받을 수 있습니다. 합류한 모험가의 전체 단계별 보상 진척도도 이
+        탭에서 확인할 수 있습니다. 홍보 링크 없이 가입했더라도 가입 후에도 이
+        탭에서 추천인의 홍보 링크나 코드를 등록할 수 있습니다. 추천인은 계정당 한
+        번만 등록할 수 있고 이후 변경하거나 취소할 수 없으며, 이미 완료한 단계의
+        보상도 양쪽에 즉시 지급됩니다. 쿠폰 등록 탭에서는 쿠폰 코드를 입력해
+        보상을 우편함으로 받을 수 있습니다.
       </P>
 
       <H2>꾸미기</H2>

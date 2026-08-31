@@ -17,8 +17,12 @@ import {
   COOP_BOSSES,
 } from "@/adventure/data/v2/coopBosses";
 import { FISH, formatFishSize } from "@/adventure/data/v2/fish";
+import { CODEX_MASTERY_TROPHY_TIER_LABELS } from "@/adventure/data/v2/codexMasteryTrophies";
 import { formatRelative } from "@/lib/notifications";
-import { LIFE_CRAFTING_RECIPE_BY_ID } from "@/adventure/v2/lifeCrafting";
+import {
+  LIFE_CRAFTING_RECIPE_BY_ID,
+  isLifeCraftingRecipeAvailable,
+} from "@/adventure/v2/lifeCrafting";
 import { LIFE_FIELD_DISCOVERIES } from "@/adventure/v2/lifeFieldRecords";
 import {
   FEED_POLL_MS,
@@ -150,7 +154,9 @@ export function warTickerText(
   }
   if (e.type === "life_blueprint") {
     const p = e.payload as { recipeId: string };
-    return `${e.actorName} 님이 숨겨진 도안 ${LIFE_CRAFTING_RECIPE_BY_ID.get(p.recipeId)?.name ?? p.recipeId} 발견!`;
+    const recipe = LIFE_CRAFTING_RECIPE_BY_ID.get(p.recipeId);
+    if (recipe && !isLifeCraftingRecipeAvailable(recipe)) return null;
+    return `${e.actorName} 님이 숨겨진 도안 ${recipe?.name ?? p.recipeId} 발견!`;
   }
   if (e.type === "life_discovery") {
     const p = e.payload as { discoveryId: string };
@@ -159,6 +165,19 @@ export function warTickerText(
         p.discoveryId as keyof typeof LIFE_FIELD_DISCOVERIES
       ];
     return `${e.actorName} 님이 희귀 현장 기록 ${discovery?.label ?? p.discoveryId} 완성!`;
+  }
+  if (e.type === "cooking_discovery") {
+    const p = e.payload as { recipeName?: string };
+    return `${e.actorName} 님이 숨은 요리 ${p.recipeName?.trim() || "이름이 공개된 요리"} 최초 개발!`;
+  }
+  if (e.type === "codex_research_result") {
+    const p = e.payload as {
+      seasonId: string;
+      themeName: string;
+      tier: keyof typeof CODEX_MASTERY_TROPHY_TIER_LABELS;
+      finalRank: number;
+    };
+    return `${e.actorName} 님, ${p.seasonId} ${p.themeName} 확정 ${p.finalRank}위 · ${CODEX_MASTERY_TROPHY_TIER_LABELS[p.tier]} 트로피!`;
   }
   return null;
 }

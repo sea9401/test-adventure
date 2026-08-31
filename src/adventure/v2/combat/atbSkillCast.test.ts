@@ -11,11 +11,16 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
 });
 
 import type { Monster } from "@/adventure/data/monsters";
+import { actionInterval } from "./combatTimeline";
 import {
+  applyPlayerV2SkillCast,
+  initialBattleState,
   resolveBattle,
   type BattleResolution,
   type PlayerCombat,
 } from "@/adventure/v2/combat/engine";
+import type { V2SkillId } from "@/adventure/data/v2/v2Skills";
+import type { V2SkillsState } from "@/adventure/data/v2/v2Skills";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -55,6 +60,526 @@ function countText(res: BattleResolution, needle: string): number {
 }
 
 describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
+  it("완전식은 PvE에서 현재 주기의 미환급 MP까지만 회복한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const skills = {
+      learned: [
+        "v2c_archmage_collapse",
+        "v2c_primordialsage_optimization",
+        "v2c_primordialsage_completeformula",
+      ],
+      equipped: [
+        "v2c_archmage_collapse",
+        "v2c_primordialsage_optimization",
+        "v2c_primordialsage_completeformula",
+      ],
+    } as const;
+    const combatant: PlayerCombat = {
+      ...player,
+      hp: 1_000,
+      maxHp: 1_000,
+      maxMp: 1_000,
+      mp: 0,
+      magicAtk: 200,
+      intStat: 200,
+    };
+    const enemy: Monster = {
+      name: "완전식 허수아비",
+      tags: [],
+      hp: 20_000,
+      atk: 1,
+      def: 0,
+      magicDef: 0,
+      spd: 1,
+      exp: 0,
+      evasionPct: 0,
+    };
+    const initial = initialBattleState(
+      combatant,
+      enemy,
+      "테스터",
+      skills as never,
+    );
+    const prepared = {
+      ...initial,
+      playerMp: 0,
+      stacks: {
+        ...initial.stacks,
+        tier7: {
+          formula: {
+            stages: 2,
+            seenSkillIds: ["v2c_mage_fireball"] as V2SkillId[],
+            mpSpent: 80,
+            mpRestored: 20,
+          },
+        },
+      },
+    };
+
+    const cast = applyPlayerV2SkillCast(
+      prepared,
+      combatant,
+      { selfBuffs: {}, selfDebuffs: {}, enemyDebuffs: {} },
+      "테스터",
+    );
+
+    expect(cast.castFired).toBe(true);
+    expect(cast.state.playerMp).toBe(60);
+    expect(
+      cast.state.log.some(
+        (entry) => entry.text === "[마력 최적화] 마나 60 회복",
+      ),
+    ).toBe(true);
+  });
+
+  it("빙하진 빙결은 적의 예약된 다음 행동을 정확히 30% 미룬다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const speed = 30;
+    const res = resolveBattle(
+      {
+        ...player,
+        hp: 100_000,
+        maxHp: 100_000,
+        atk: 100,
+        magicAtk: 100,
+        intStat: 100,
+        maxMp: 1_000,
+        mp: 100_000,
+        spd: speed,
+      },
+      {
+        name: "한기 허수아비",
+        tags: [],
+        hp: 100_000,
+        atk: 1,
+        def: 0,
+        magicDef: 0,
+        spd: speed,
+        exp: 0,
+        evasionPct: 0,
+      },
+      "테스터",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        maxTurns: 8,
+        v2Skills: {
+          learned: ["v2c_frostmage_glacier"],
+          equipped: ["v2c_frostmage_glacier"],
+        },
+      } as never,
+    );
+    const freezeTick = res.finalState.log.find(
+      (entry) => entry.text === "한기 5스택을 소비해 빙결이 발생했다.",
+    )?.t;
+    const enemyTicks = res.finalState.log
+      .filter((entry) => entry.kind === "enemy_attack")
+      .map((entry) => entry.t)
+      .filter((tick): tick is number => typeof tick === "number");
+    const interval = actionInterval(10 + speed * 6);
+    const unshiftedNextTick =
+      Math.ceil(((freezeTick ?? 0) + Number.EPSILON) / interval) * interval;
+    const firstEnemyAfterFreeze = enemyTicks.find(
+      (tick) => freezeTick != null && tick > freezeTick,
+    );
+
+    expect(freezeTick).toBeTypeOf("number");
+    expect(firstEnemyAfterFreeze).toBe(
+      unshiftedNextTick + interval * 0.3,
+    );
+    expect(
+      res.finalState.log.some(
+        (entry) =>
+          entry.kind === "hp_bar" &&
+          entry.enemySignatureResources?.frostChill === "한기 2/5",
+      ),
+    ).toBe(true);
+  });
+
+  it("무영검신은 단일 피해를 기록해 적의 다음 행동 뒤 검영으로 실현한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const res = resolveBattle(
+      { ...player, atk: 120, lukStat: 200, hp: 5_000, maxHp: 5_000 },
+      {
+        name: "검영 허수아비",
+        tags: [],
+        hp: 100_000,
+        atk: 1,
+        def: 10,
+        spd: 30,
+        exp: 0,
+        evasionPct: 0,
+      },
+      "테스터",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        maxTurns: 4,
+        v2Skills: {
+          learned: [
+            "v2c_shadowblade_afterimage",
+            "v2c_shadowblade_swordshadow",
+          ],
+          equipped: [
+            "v2c_shadowblade_afterimage",
+            "v2c_shadowblade_swordshadow",
+          ],
+        },
+      } as never,
+    );
+
+    expect(countText(res, "잔영!")).toBeGreaterThan(0);
+    expect(countText(res, "[검영]")).toBeGreaterThan(0);
+  });
+
+  it("무영검신은 고유 잔영 70%, 계승 무심검 25%로 검영을 기록한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const enemy: Monster = {
+      name: "검영 기록 허수아비",
+      tags: [],
+      hp: 100_000,
+      atk: 1,
+      def: 0,
+      spd: 1,
+      exp: 0,
+    };
+    const combatant = { ...player, atk: 200, strStat: 200, lukStat: 200 };
+    const castOnce = (attackSkill: V2SkillId) => {
+      const skills: V2SkillsState = {
+        learned: [attackSkill, "v2c_shadowblade_swordshadow"],
+        equipped: [attackSkill, "v2c_shadowblade_swordshadow"],
+      };
+      const initial = initialBattleState(
+        combatant,
+        enemy,
+        "테스터",
+        skills,
+      );
+      return applyPlayerV2SkillCast(
+        initial,
+        combatant,
+        { selfBuffs: {}, selfDebuffs: {}, enemyDebuffs: {} },
+        "테스터",
+      ).state.stacks.tier7?.swordShadow;
+    };
+
+    expect(castOnce("v2c_shadowblade_afterimage")?.recordPct).toBe(70);
+    expect(castOnce("v2c_swordsaint_flash")?.recordPct).toBe(25);
+  });
+
+  it("멸검은 한 행동을 충전에 쓰고 다음 행동 기회에 자동 해방한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const res = resolveBattle(
+      { ...player, atk: 200, strStat: 200, hp: 2_500, maxHp: 5_000 },
+      {
+        name: "멸검 허수아비",
+        tags: [],
+        hp: 100_000,
+        atk: 1,
+        def: 10,
+        spd: 20,
+        exp: 0,
+        evasionPct: 0,
+      },
+      "테스터",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        maxTurns: 5,
+        v2Skills: {
+          learned: [
+            "v2c_ruinblade_ruinsword",
+            "v2c_ruinblade_limitstrike",
+            "v2c_ruinblade_oneintent",
+          ],
+          equipped: [
+            "v2c_ruinblade_ruinsword",
+            "v2c_ruinblade_limitstrike",
+            "v2c_ruinblade_oneintent",
+          ],
+        },
+      } as never,
+    );
+
+    const chargeIndex = res.finalState.log.findIndex((entry) =>
+      entry.text.includes("[멸검] 검의 3개를 소모해 충전을 시작했다"),
+    );
+    const releaseIndex = res.finalState.log.findIndex((entry) =>
+      entry.text.includes("[멸검] 충전을 해방"),
+    );
+    expect(chargeIndex).toBeGreaterThan(-1);
+    expect(releaseIndex).toBeGreaterThan(chargeIndex);
+    expect(countText(res, "멸검!")).toBeGreaterThan(0);
+  });
+
+  it.each([0, 1, 2])("검의 %i개에서는 멸검 충전을 시작하지 않는다", (intent) => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const skills = {
+      learned: ["v2c_ruinblade_ruinsword"],
+      equipped: ["v2c_ruinblade_ruinsword"],
+    } as const;
+    const initial = initialBattleState(
+      { ...player, hp: 100, maxHp: 1_000, strStat: 200 },
+      {
+        name: "멸검 게이트 허수아비",
+        tags: [],
+        hp: 100_000,
+        atk: 1,
+        def: 0,
+        spd: 1,
+        exp: 0,
+      },
+      "테스터",
+      skills as never,
+    );
+    const prepared = {
+      ...initial,
+      stacks: {
+        ...initial.stacks,
+        tier7: { ...initial.stacks.tier7, swordIntent: intent },
+      },
+    };
+    const cast = applyPlayerV2SkillCast(
+      prepared,
+      { ...player, hp: 100, maxHp: 1_000, strStat: 200 },
+      { selfBuffs: {}, selfDebuffs: {}, enemyDebuffs: {} },
+      "테스터",
+    );
+
+    expect(cast.castFired).toBe(false);
+    expect(cast.state.stacks.tier7?.ruinCharge).toBeUndefined();
+  });
+
+  it("비천무신은 원거리 다음 체술에 교차 추격을 발동한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const res = resolveBattle(
+      { ...player, atk: 150, dexStat: 200, hp: 5_000, maxHp: 5_000 },
+      {
+        name: "교차 허수아비",
+        tags: [],
+        hp: 100_000,
+        atk: 1,
+        def: 10,
+        spd: 20,
+        exp: 0,
+        evasionPct: 0,
+      },
+      "테스터",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        maxTurns: 5,
+        v2Skills: {
+          learned: [
+            "v2c_skyascendant_fallingstar",
+            "v2c_skyascendant_voidbreak",
+            "v2c_skyascendant_crossover",
+          ],
+          equipped: [
+            "v2c_skyascendant_fallingstar",
+            "v2c_skyascendant_voidbreak",
+            "v2c_skyascendant_crossover",
+          ],
+          pattern: {
+            blocks: [
+              {
+                condition: { kind: "turn", op: "atMost", value: 1 },
+                action: {
+                  kind: "skill",
+                  skillId: "v2c_skyascendant_fallingstar",
+                },
+              },
+              {
+                condition: { kind: "always" },
+                action: {
+                  kind: "skill",
+                  skillId: "v2c_skyascendant_voidbreak",
+                },
+              },
+            ],
+          },
+        },
+      } as never,
+    );
+
+    expect(countText(res, "낙성!")).toBeGreaterThan(0);
+    expect(countText(res, "파공!")).toBeGreaterThan(0);
+    expect(countText(res, "[교차·추격]")).toBeGreaterThan(0);
+  });
+
+  it("태초현자는 서로 다른 직접 마법 세 번째 시전에 완전식을 발동한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const res = resolveBattle(
+      {
+        ...player,
+        atk: 100,
+        magicAtk: 220,
+        intStat: 220,
+        hp: 5_000,
+        maxHp: 5_000,
+      },
+      {
+        name: "완전식 허수아비",
+        tags: [],
+        hp: 100_000,
+        atk: 1,
+        def: 10,
+        magicDef: 10,
+        spd: 20,
+        exp: 0,
+        evasionPct: 0,
+      },
+      "테스터",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        maxTurns: 6,
+        v2Skills: {
+          learned: [
+            "v2c_mage_fireball",
+            "v2c_archmage_collapse",
+            "v2c_primordialsage_greatorb",
+            "v2c_primordialsage_optimization",
+            "v2c_primordialsage_completeformula",
+          ],
+          equipped: [
+            "v2c_mage_fireball",
+            "v2c_archmage_collapse",
+            "v2c_primordialsage_greatorb",
+            "v2c_primordialsage_optimization",
+            "v2c_primordialsage_completeformula",
+          ],
+          pattern: {
+            blocks: [
+              {
+                condition: { kind: "turn", op: "atMost", value: 1 },
+                action: { kind: "skill", skillId: "v2c_mage_fireball" },
+              },
+              {
+                condition: { kind: "turn", op: "every", value: 2 },
+                action: {
+                  kind: "skill",
+                  skillId: "v2c_archmage_collapse",
+                },
+              },
+              {
+                condition: { kind: "always" },
+                action: {
+                  kind: "skill",
+                  skillId: "v2c_primordialsage_greatorb",
+                },
+              },
+            ],
+          },
+        },
+      } as never,
+    );
+
+    expect(countText(res, "[완전식]")).toBeGreaterThan(0);
+    expect(countText(res, "대마력구!")).toBeGreaterThan(0);
+  });
+
+
+
+
+  it("감전은 적의 다음 행동 묶음만 건너뛰고 그 다음 행동은 보장한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const shockPlayer: PlayerCombat = {
+      ...player,
+      hp: 10_000,
+      maxHp: 10_000,
+      atk: 1,
+      def: 100,
+      spd: 30,
+      equipSignatures: [
+        {
+          trigger: "on_hit",
+          label: "시험 감전",
+          shockChancePct: 100,
+        },
+      ],
+    };
+    const enemy: Monster = {
+      name: "감전 허수아비",
+      tags: [],
+      hp: 100_000,
+      atk: 1,
+      def: 100,
+      spd: 30,
+      exp: 0,
+      evasionPct: 0,
+      accuracy: 100,
+    };
+
+    const res = resolveBattle(shockPlayer, enemy, "테스터", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+      maxTurns: 6,
+    });
+
+    const firstSkip = res.finalState.log.findIndex((entry) =>
+      entry.text.includes("[감전] 감전 허수아비이(가) 움직이지 못했다."),
+    );
+    const secondSkip = res.finalState.log.findIndex(
+      (entry, index) =>
+        index > firstSkip &&
+        entry.text.includes("[감전] 감전 허수아비이(가) 움직이지 못했다."),
+    );
+    expect(firstSkip).toBeGreaterThan(-1);
+    expect(secondSkip).toBeGreaterThan(firstSkip);
+    expect(
+      res.finalState.log
+        .slice(firstSkip + 1, secondSkip)
+        .some((entry) => entry.kind === "enemy_attack"),
+    ).toBe(true);
+  });
+
+  it("회피 회복 장비는 스킬 행동 시작에도 한 번 발동한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const recoveringPlayer: PlayerCombat = {
+      ...player,
+      hp: 200,
+      maxHp: 400,
+      evaRating: 100,
+      evasionPct: 100,
+      equipSignatures: [
+        {
+          trigger: "on_action_evasion",
+          label: "봉인",
+          lostHpHealPct: 4,
+        },
+      ],
+    };
+    const enemy: Monster = {
+      name: "허수아비",
+      tags: [],
+      hp: 120,
+      atk: 1,
+      def: 3,
+      spd: 6,
+      exp: 0,
+      evasionPct: 0,
+      accuracy: 0,
+    };
+
+    const res = resolveBattle(recoveringPlayer, enemy, "테스터", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+      v2Skills: { learned: [SKILL], equipped: [SKILL] },
+    } as never);
+
+    const recoveryTicks = new Set(
+      res.finalState.log
+        .filter((entry) => entry.text.includes("[봉인]"))
+        .map((entry) => entry.t),
+    );
+    const skillTicks = res.finalState.log
+      .filter((entry) => entry.text.includes("난격"))
+      .map((entry) => entry.t);
+    expect(recoveryTicks.size).toBeGreaterThan(0);
+    expect(skillTicks.some((tick) => recoveryTicks.has(tick))).toBe(true);
+  });
+
   it("난격이 ATB 전투에서 시전된다 (라이브 PvE 액티브 활성화)", () => {
     // 항상 proc(0.1×100=10 < 40) → 매 플레이어 행동이 시전. 적 HP 충분히 커서 여러 번 시전.
     const enemy: Monster = {
@@ -138,5 +663,202 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
     expect(countText(res, "적 주는 피해 −12%")).toBeGreaterThan(1);
     expect(countText(res, "공격!")).toBeGreaterThan(0);
     expect(countText(res, "적 행동 3회")).toBeGreaterThan(0);
+  });
+
+  it("수호의 도발은 사냥에서 적의 다음 행동을 소모하지 않고 즉시 기본 공격 2회를 유도한다", () => {
+    const enemy: Monster = {
+      name: "도발 허수아비",
+      tags: [],
+      hp: 2_000,
+      atk: 10,
+      def: 0,
+      spd: 10,
+      exp: 0,
+      evasionPct: 0,
+      v2Skills: {
+        learned: ["mob_venom_bite"],
+        equipped: ["mob_venom_bite"],
+      },
+    };
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const res = resolveBattle(
+      {
+        ...player,
+        hp: 5_000,
+        maxHp: 5_000,
+        atk: 1,
+        def: 100,
+        fortressImpactOnHit: true,
+        fortressImpactDamagePctPerStack: 15,
+      },
+      enemy,
+      "수호자",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        v2Skills: {
+          learned: ["v2c_ironknight_guard", "v2c_warden_aegis"],
+          equipped: ["v2c_ironknight_guard", "v2c_warden_aegis"],
+        },
+      } as never,
+    );
+    vi.restoreAllMocks();
+
+    expect(countText(res, "즉시 기본 공격 2회")).toBeGreaterThan(0);
+    const provokeIndex = res.finalState.log.findIndex((entry) =>
+      entry.text.includes("즉시 기본 공격 2회"),
+    );
+    const provokeTick = res.finalState.log[provokeIndex]?.t;
+    const immediateEnemyAttacks = res.finalState.log
+      .slice(provokeIndex + 1)
+      .filter(
+        (entry) => entry.kind === "enemy_attack" && entry.t === provokeTick,
+      );
+    expect(immediateEnemyAttacks).toHaveLength(2);
+    expect(
+      immediateEnemyAttacks.every((entry) => entry.text.startsWith("공격!")),
+    ).toBe(true);
+    expect(
+      immediateEnemyAttacks.every(
+        (entry) =>
+          entry.kind !== "hp_bar" &&
+          entry.forcedBySkill === "수호의 도발",
+      ),
+    ).toBe(true);
+    expect(
+      res.finalState.log
+        .slice(provokeIndex + 1)
+        .filter(
+          (entry) =>
+            entry.t === provokeTick && entry.text.includes("[철벽 반사]"),
+        ),
+    ).toHaveLength(2);
+    expect(
+      res.finalState.log.some(
+        (entry) => entry.t !== provokeTick && entry.text.includes("독니"),
+      ),
+    ).toBe(true);
+  });
+
+  it("철벽 태세는 3회 반사하고 충격 3스택 성채 충각은 적중 후 충격을 소비한다", () => {
+    const enemy: Monster = {
+      name: "성채 허수아비",
+      tags: [],
+      hp: 20_000,
+      atk: 120,
+      def: 20,
+      spd: 25,
+      exp: 0,
+      evasionPct: 0,
+    };
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const res = resolveBattle(
+      {
+        ...player,
+        hp: 10_000,
+        maxHp: 10_000,
+        atk: 10,
+        def: 200,
+        spd: 35,
+        fortressImpactOnHit: true,
+        fortressImpactDamagePctPerStack: 20,
+        fortressDefSkillStatCoefPct: 15,
+      },
+      enemy,
+      "성채기사",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        v2Skills: {
+          learned: ["v2c_ironknight_guard", "v2c_fortressknight_ram"],
+          equipped: ["v2c_ironknight_guard", "v2c_fortressknight_ram"],
+        },
+      } as never,
+    );
+    vi.restoreAllMocks();
+
+    expect(
+      res.finalState.log.some(
+        (entry) =>
+          entry.kind === "player_attack" &&
+          entry.text === "철벽 태세! 철벽 반사 3회 준비",
+      ),
+    ).toBe(true);
+    expect(countText(res, "철벽 반사 3회")).toBeGreaterThan(0);
+    expect(countText(res, "[철벽 반사]")).toBeGreaterThanOrEqual(3);
+    expect(countText(res, "충격 3스택 소비")).toBeGreaterThan(0);
+  });
+
+  it("법칙술사는 문장 시전으로 네 각인을 쌓고 다음 행동에 완성 해방한다", () => {
+    const enemy: Monster = {
+      name: "각인 허수아비",
+      tags: [],
+      hp: 100_000,
+      atk: 1,
+      def: 0,
+      spd: 5,
+      exp: 0,
+      evasionPct: 0,
+    };
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const res = resolveBattle(
+      {
+        ...player,
+        hp: 10_000,
+        maxHp: 10_000,
+        atk: 100,
+        magicAtk: 100,
+        intStat: 100,
+        spd: 100,
+        lawInscription: true,
+      },
+      enemy,
+      "법칙술사",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        maxTurns: 4,
+        v2Skills: {
+          learned: [
+            "v2c_lawweaver_release",
+            "v2c_inscriber_release",
+            "v2c_lawweaver_inscription",
+            "v2c_mage_acumen",
+            "v2c_caster_acumen",
+            "v2c_magus_acumen3",
+            "v2c_runecaster_circuit",
+          ],
+          equipped: [
+            "v2c_lawweaver_release",
+            "v2c_inscriber_release",
+            "v2c_lawweaver_inscription",
+            "v2c_mage_acumen",
+            "v2c_caster_acumen",
+            "v2c_magus_acumen3",
+            "v2c_runecaster_circuit",
+          ],
+        },
+      } as never,
+    );
+    vi.restoreAllMocks();
+
+    expect(countText(res, "법칙 각인: 공격 +1 · 환류 +1 · 침식 +1 · 수호 +1 (총 4/8)")).toBeGreaterThan(0);
+    expect(countText(res, "만상각인 해방: 공격 1 · 환류 1 · 침식 1 · 수호 1 소비")).toBeGreaterThan(0);
+    expect(countText(res, "공격·환류·침식·수호가 하나로 이어져 완성 각인이 발동했다.")).toBeGreaterThan(0);
+    expect(countText(res, "적이 받는 마법 피해 +7%")).toBeGreaterThan(0);
+    expect(res.finalState.stacks.lawInscriptions).toEqual({
+      assault: 0,
+      reflux: 0,
+      erosion: 0,
+      ward: 0,
+    });
+    expect(
+      res.finalState.log.some(
+        (entry) =>
+          entry.kind === "hp_bar" &&
+          entry.playerSignatureResources?.lawInscriptions ===
+            "4/8 · 공격 1 · 환류 1 · 침식 1 · 수호 1",
+      ),
+    ).toBe(true);
   });
 });

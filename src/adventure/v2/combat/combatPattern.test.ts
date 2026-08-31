@@ -5,6 +5,7 @@ import {
   defaultPatternFromEquipped,
   parseCombatPattern,
   parseCombatPresets,
+  v2PureSkillFormulaCoefficients,
   V2_COMBAT_PATTERN_MAX_BLOCKS,
   V2_COMBAT_PATTERN_MAX_PRESETS,
   V2_COMBAT_PRESET_NAME_MAXLEN,
@@ -17,13 +18,18 @@ function ctx(over: Partial<V2PatternCtx> = {}): V2PatternCtx {
   return {
     selfHpPct: 100,
     selfMpPct: 100,
+    selfShield: 0,
     selfShieldActive: false,
     selfBuffStats: new Set<StatKey>(),
     selfBuffPctTargets: new Set<"evasion" | "crit" | "damageReduction" | "reflectDamage">(),
+    selfResources: { impact: 0, ironWallReflect: 0 },
     enemyHpPct: 100,
     enemyBleed: 0,
+    enemyBleedTurns: 0,
     enemyPoison: 0,
+    enemyPoisonTurns: 0,
     enemyVuln: 0,
+    enemyFrostChill: 0,
     turn: 1,
     ...over,
   };
@@ -91,6 +97,34 @@ describe("conditionPasses", () => {
     ).toBe(true);
   });
 
+  it("self_shield atMost/atLeast — 현재 보호막 수치를 경계 포함 비교", () => {
+    const shielded = ctx({ selfShield: 120, selfShieldActive: true });
+    expect(
+      conditionPasses(
+        { kind: "self_shield", op: "atMost", value: 120 },
+        shielded,
+      ),
+    ).toBe(true);
+    expect(
+      conditionPasses(
+        { kind: "self_shield", op: "atLeast", value: 120 },
+        shielded,
+      ),
+    ).toBe(true);
+    expect(
+      conditionPasses(
+        { kind: "self_shield", op: "atMost", value: 119 },
+        shielded,
+      ),
+    ).toBe(false);
+    expect(
+      conditionPasses(
+        { kind: "self_shield", op: "atLeast", value: 121 },
+        shielded,
+      ),
+    ).toBe(false);
+  });
+
   it("self_buff active/inactive — 재버프 방지 패턴", () => {
     const buffed = ctx({ selfBuffStats: new Set<StatKey>(["str"]) });
     // "str 버프 없을 때만" → 버프 중이면 false(재시전 안 함).
@@ -132,12 +166,191 @@ describe("conditionPasses", () => {
     expect(conditionPasses({ kind: "enemy_hp", op: "below", pct: 30 }, ctx({ enemyHpPct: 80 }))).toBe(false);
   });
 
-  it("enemy_status atLeast/none — 스택 폭발 패턴", () => {
+  it("enemy_status atLeast/atMost/none — 스택 조건 패턴", () => {
     const c = ctx({ enemyBleed: 3 });
     expect(conditionPasses({ kind: "enemy_status", tag: "bleed", op: "atLeast", stacks: 3 }, c)).toBe(true);
     expect(conditionPasses({ kind: "enemy_status", tag: "bleed", op: "atLeast", stacks: 4 }, c)).toBe(false);
+    expect(conditionPasses({ kind: "enemy_status", tag: "bleed", op: "atMost", stacks: 3 }, c)).toBe(true);
+    expect(conditionPasses({ kind: "enemy_status", tag: "bleed", op: "atMost", stacks: 2 }, c)).toBe(false);
     expect(conditionPasses({ kind: "enemy_status", tag: "poison", op: "none", stacks: 0 }, c)).toBe(true);
     expect(conditionPasses({ kind: "enemy_status", tag: "bleed", op: "none", stacks: 0 }, c)).toBe(false);
+  });
+
+  it("enemy_status 남은 횟수 — 중독과 출혈의 미래 피해 횟수를 비교한다", () => {
+    const active = ctx({
+      enemyPoison: 6,
+      enemyPoisonTurns: 2,
+      enemyBleed: 4,
+      enemyBleedTurns: 3,
+    });
+    expect(
+      conditionPasses(
+        {
+          kind: "enemy_status",
+          tag: "poison",
+          metric: "remainingTurns",
+          op: "atMost",
+          stacks: 2,
+        },
+        active,
+      ),
+    ).toBe(true);
+    expect(
+      conditionPasses(
+        {
+          kind: "enemy_status",
+          tag: "poison",
+          op: "atMost",
+          stacks: 2,
+        },
+        active,
+      ),
+    ).toBe(false);
+    expect(
+      conditionPasses(
+        {
+          kind: "enemy_status",
+          tag: "bleed",
+          metric: "remainingTurns",
+          op: "atLeast",
+          stacks: 3,
+        },
+        active,
+      ),
+    ).toBe(true);
+    expect(
+      conditionPasses(
+        {
+          kind: "enemy_status",
+          tag: "poison",
+          metric: "remainingTurns",
+          op: "none",
+          stacks: 0,
+        },
+        ctx(),
+      ),
+    ).toBe(true);
+  });
+
+  it("enemy_status 한기 — 현재 대상의 한기 스택을 경계 포함 비교한다", () => {
+    const chilled = ctx({ enemyFrostChill: 4 });
+    expect(
+      conditionPasses(
+        { kind: "enemy_status", tag: "frostChill", op: "atLeast", stacks: 4 },
+        chilled,
+      ),
+    ).toBe(true);
+    expect(
+      conditionPasses(
+        { kind: "enemy_status", tag: "frostChill", op: "atMost", stacks: 3 },
+        chilled,
+      ),
+    ).toBe(false);
+    expect(
+      conditionPasses(
+        { kind: "enemy_status", tag: "frostChill", op: "none", stacks: 0 },
+        ctx(),
+      ),
+    ).toBe(true);
+  });
+
+  it("self_resource none/atLeast/atMost — 내 전투 자원을 경계 포함 비교", () => {
+    const charged = ctx({
+      selfResources: { impact: 3, ironWallReflect: 2 },
+    });
+    expect(
+      conditionPasses(
+        { kind: "self_resource", resource: "impact", op: "atLeast", value: 3 },
+        charged,
+      ),
+    ).toBe(true);
+    expect(
+      conditionPasses(
+        { kind: "self_resource", resource: "impact", op: "atMost", value: 2 },
+        charged,
+      ),
+    ).toBe(false);
+    expect(
+      conditionPasses(
+        { kind: "self_resource", resource: "ironWallReflect", op: "none", value: 99 },
+        ctx(),
+      ),
+    ).toBe(true);
+    expect(
+      conditionPasses(
+        { kind: "self_resource", resource: "ironWallReflect", op: "none", value: 0 },
+        charged,
+      ),
+    ).toBe(false);
+  });
+
+  it("중량 자원을 다른 직업 스킬의 패턴에서도 판정한다", () => {
+    const mutation = ctx({
+      selfResources: { weight: 3 },
+    });
+
+    expect(
+      conditionPasses(
+        { kind: "self_resource", resource: "weight", op: "atLeast", value: 3 },
+        mutation,
+      ),
+    ).toBe(true);
+  });
+
+  it("법칙 각인 총합 자원을 파싱하고 누락된 옛 컨텍스트는 0으로 판정한다", () => {
+    const condition = {
+      kind: "self_resource" as const,
+      resource: "inscription" as const,
+      op: "atLeast" as const,
+      value: 4,
+    };
+    expect(
+      conditionPasses(
+        condition,
+        ctx({ selfResources: { inscription: 4 } }),
+      ),
+    ).toBe(true);
+    expect(conditionPasses(condition, ctx())).toBe(false);
+    expect(
+      parseCombatPattern({
+        blocks: [
+          {
+            condition,
+            action: { kind: "skill", skillId: "v2c_lawweaver_release" },
+          },
+        ],
+      }),
+    ).toEqual({
+      blocks: [
+        {
+          condition,
+          action: { kind: "skill", skillId: "v2c_lawweaver_release" },
+        },
+      ],
+    });
+  });
+
+  it("혈맥 폭발 준비 자원을 파싱하고 0/1 상태로 일반 공격을 게이트한다", () => {
+    const condition = {
+      kind: "self_resource" as const,
+      resource: "bloodlineBurstReady" as const,
+      op: "atLeast" as const,
+      value: 1,
+    };
+    const pattern = parseCombatPattern({
+      blocks: [{ condition, action: { kind: "basic_attack" } }],
+    });
+
+    expect(pattern.blocks).toEqual([
+      { condition, action: { kind: "basic_attack" } },
+    ]);
+    expect(
+      conditionPasses(
+        condition,
+        ctx({ selfResources: { bloodlineBurstReady: 1 } }),
+      ),
+    ).toBe(true);
+    expect(conditionPasses(condition, ctx())).toBe(false);
   });
 
   it("enemy_debuff — 봉쇄 효과가 없을 때만 재시전한다", () => {
@@ -153,6 +366,45 @@ describe("conditionPasses", () => {
         ctx({ enemyDamageDownActive: true }),
       ),
     ).toBe(false);
+  });
+
+  it("enemy_debuff — 상대 회복 감소 활성 여부를 판정한다", () => {
+    const condition = {
+      kind: "enemy_debuff" as const,
+      target: "healReduction" as const,
+      active: true,
+    };
+    expect(conditionPasses(condition, ctx())).toBe(false);
+    expect(
+      conditionPasses(
+        condition,
+        ctx({ enemyHealReductionActive: true }),
+      ),
+    ).toBe(true);
+  });
+
+  it("enemy_debuff — 상대 능력치 감소 활성 여부를 판정하고 저장한다", () => {
+    const condition = {
+      kind: "enemy_debuff",
+      target: "vit",
+      active: true,
+    } satisfies V2CombatPattern["blocks"][number]["condition"];
+    const debuffed = Object.assign(ctx(), {
+      enemyStatDebuffs: new Set<StatKey>(["vit"]),
+    });
+
+    expect(conditionPasses(condition, debuffed)).toBe(true);
+    expect(conditionPasses(condition, ctx())).toBe(false);
+    expect(
+      parseCombatPattern({
+        blocks: [
+          {
+            condition,
+            action: { kind: "skill", skillId: "v2c_swordsaint_flash" },
+          },
+        ],
+      }).blocks[0]?.condition,
+    ).toEqual({ kind: "enemy_debuff", target: "vit", active: true });
   });
 
   it("turn atMost/atLeast/every — 오프너/주기", () => {
@@ -216,9 +468,86 @@ describe("evaluateCombatPattern", () => {
     };
     expect(evaluateCombatPattern(noFallback, ctx(), all)).toBeNull();
   });
+
+  it("명시한 일반 공격은 조건이 맞으면 아래 스킬 후보를 중단한다", () => {
+    const explicitBasicAttack = parseCombatPattern({
+      blocks: [
+        {
+          condition: { kind: "always" },
+          action: { kind: "basic_attack" },
+        },
+        {
+          condition: { kind: "always" },
+          action: { kind: "skill", skillId: "strike" },
+        },
+      ],
+    });
+
+    expect(explicitBasicAttack.blocks[0]?.action).toEqual({
+      kind: "basic_attack",
+    });
+    expect(evaluateCombatPattern(explicitBasicAttack, ctx(), all)).toBeNull();
+  });
 });
 
 describe("parseCombatPattern (저장 검증)", () => {
+  it("중량 조건은 보존하고 제거된 분열체 조건은 버린다", () => {
+    const parsed = parseCombatPattern({
+      blocks: [
+        {
+          condition: { kind: "self_resource", resource: "weight", op: "atLeast", value: 3 },
+          action: { kind: "skill", skillId: "v2c_golem_tectoniccollapse" },
+        },
+        {
+          condition: { kind: "self_resource", resource: "split", op: "atMost", value: 1 },
+          action: { kind: "skill", skillId: "v2c_slime_split" },
+        },
+      ],
+    });
+
+    expect(parsed.blocks).toHaveLength(1);
+    expect(parsed.blocks.map((block) => block.condition)).toEqual([
+      { kind: "self_resource", resource: "weight", op: "atLeast", value: 3 },
+    ]);
+  });
+
+  it("self_resource 조건을 정규화하고 알 수 없는 자원은 블록째 버린다", () => {
+    const parsed = parseCombatPattern({
+      blocks: [
+        {
+          condition: {
+            kind: "self_resource",
+            resource: "impact",
+            op: "atLeast",
+            value: 3.9,
+          },
+          action: { kind: "skill", skillId: "ram" },
+        },
+        {
+          condition: {
+            kind: "self_resource",
+            resource: "unknown",
+            op: "none",
+            value: 0,
+          },
+          action: { kind: "skill", skillId: "guard" },
+        },
+      ],
+    });
+
+    expect(parsed.blocks).toEqual([
+      {
+        condition: {
+          kind: "self_resource",
+          resource: "impact",
+          op: "atLeast",
+          value: 3,
+        },
+        action: { kind: "skill", skillId: "ram" },
+      },
+    ]);
+  });
+
   it("유효 블록만 통과, 잘못된 블록은 drop", () => {
     const raw = {
       blocks: [
@@ -260,9 +589,13 @@ describe("parseCombatPattern (저장 검증)", () => {
 
   it("pct/stacks 클램프 + 블록 상한", () => {
     const p = parseCombatPattern({
-      blocks: [{ condition: { kind: "enemy_hp", op: "below", pct: 999 }, action: { kind: "skill", skillId: "a" } }],
+      blocks: [
+        { condition: { kind: "enemy_hp", op: "below", pct: 999 }, action: { kind: "skill", skillId: "a" } },
+        { condition: { kind: "enemy_status", tag: "poison", op: "atMost", stacks: 4.9 }, action: { kind: "skill", skillId: "b" } },
+      ],
     });
     expect(p.blocks[0].condition).toEqual({ kind: "enemy_hp", op: "below", pct: 100 });
+    expect(p.blocks[1].condition).toEqual({ kind: "enemy_status", tag: "poison", op: "atMost", stacks: 4 });
     // 상한 초과 → 잘림.
     const many = parseCombatPattern({
       blocks: Array.from({ length: V2_COMBAT_PATTERN_MAX_BLOCKS + 5 }, () => ({
@@ -273,9 +606,131 @@ describe("parseCombatPattern (저장 검증)", () => {
     expect(many.blocks).toHaveLength(V2_COMBAT_PATTERN_MAX_BLOCKS);
   });
 
-  it("봉쇄 디버프 조건만 안전하게 파싱한다", () => {
+  it("남은 횟수 기준은 중독·출혈만 보존하고 기존 조건은 스택 형태를 유지한다", () => {
     const parsed = parseCombatPattern({
       blocks: [
+        {
+          condition: {
+            kind: "enemy_status",
+            tag: "poison",
+            metric: "remainingTurns",
+            op: "atMost",
+            stacks: 2.9,
+          },
+          action: { kind: "skill", skillId: "poison-refresh" },
+        },
+        {
+          condition: {
+            kind: "enemy_status",
+            tag: "vuln",
+            metric: "remainingTurns",
+            op: "atLeast",
+            stacks: 3,
+          },
+          action: { kind: "skill", skillId: "vuln-skill" },
+        },
+        {
+          condition: {
+            kind: "enemy_status",
+            tag: "bleed",
+            op: "atLeast",
+            stacks: 4,
+          },
+          action: { kind: "skill", skillId: "legacy" },
+        },
+      ],
+    });
+
+    expect(parsed.blocks[0].condition).toEqual({
+      kind: "enemy_status",
+      tag: "poison",
+      metric: "remainingTurns",
+      op: "atMost",
+      stacks: 2,
+    });
+    expect(parsed.blocks[1].condition).toEqual({
+      kind: "enemy_status",
+      tag: "vuln",
+      op: "atLeast",
+      stacks: 3,
+    });
+    expect(parsed.blocks[2].condition).toEqual({
+      kind: "enemy_status",
+      tag: "bleed",
+      op: "atLeast",
+      stacks: 4,
+    });
+  });
+
+  it("한기 조건을 저장 데이터에서 안전하게 파싱한다", () => {
+    const parsed = parseCombatPattern({
+      blocks: [
+        {
+          condition: {
+            kind: "enemy_status",
+            tag: "frostChill",
+            op: "atLeast",
+            stacks: 4,
+          },
+          action: { kind: "skill", skillId: "v2c_cryomancer_absolutezero" },
+        },
+      ],
+    });
+
+    expect(parsed.blocks[0]?.condition).toEqual({
+      kind: "enemy_status",
+      tag: "frostChill",
+      op: "atLeast",
+      stacks: 4,
+    });
+  });
+
+  it("보호막 수치 조건은 0 이상의 정수로 정규화하고 잘못된 값은 버린다", () => {
+    const parsed = parseCombatPattern({
+      blocks: [
+        {
+          condition: { kind: "self_shield", op: "atLeast", value: 12.9 },
+          action: { kind: "skill", skillId: "shield-up" },
+        },
+        {
+          condition: { kind: "self_shield", op: "atMost", value: -3 },
+          action: { kind: "skill", skillId: "shield-zero" },
+        },
+        {
+          condition: { kind: "self_shield", op: "equal", value: 10 },
+          action: { kind: "skill", skillId: "bad-op" },
+        },
+        {
+          condition: { kind: "self_shield", op: "atLeast" },
+          action: { kind: "skill", skillId: "missing-value" },
+        },
+      ],
+    });
+
+    expect(parsed.blocks).toHaveLength(2);
+    expect(parsed.blocks[0].condition).toEqual({
+      kind: "self_shield",
+      op: "atLeast",
+      value: 12,
+    });
+    expect(parsed.blocks[1].condition).toEqual({
+      kind: "self_shield",
+      op: "atMost",
+      value: 0,
+    });
+  });
+
+  it("상대 디버프 조건만 안전하게 파싱한다", () => {
+    const parsed = parseCombatPattern({
+      blocks: [
+        {
+          condition: {
+            kind: "enemy_debuff",
+            target: "healReduction",
+            active: true,
+          },
+          action: { kind: "skill", skillId: "anti-heal" },
+        },
         {
           condition: {
             kind: "enemy_debuff",
@@ -287,6 +742,14 @@ describe("parseCombatPattern (저장 검증)", () => {
         {
           condition: {
             kind: "enemy_debuff",
+            target: "str",
+            active: true,
+          },
+          action: { kind: "skill", skillId: "weaken" },
+        },
+        {
+          condition: {
+            kind: "enemy_debuff",
             target: "unknown",
             active: false,
           },
@@ -294,11 +757,21 @@ describe("parseCombatPattern (저장 검증)", () => {
         },
       ],
     });
-    expect(parsed.blocks).toHaveLength(1);
+    expect(parsed.blocks).toHaveLength(3);
     expect(parsed.blocks[0].condition).toEqual({
+      kind: "enemy_debuff",
+      target: "healReduction",
+      active: true,
+    });
+    expect(parsed.blocks[1].condition).toEqual({
       kind: "enemy_debuff",
       target: "skillProcDown",
       active: false,
+    });
+    expect(parsed.blocks[2].condition).toEqual({
+      kind: "enemy_debuff",
+      target: "str",
+      active: true,
     });
   });
 
@@ -312,6 +785,19 @@ describe("parseCombatPattern (저장 검증)", () => {
     expect(parsed.blocks.map((block) => block.condition)).toEqual([
       { kind: "self_buff_pct", target: "regen", active: false },
       { kind: "self_buff_pct", target: "guaranteedEvade", active: false },
+    ]);
+  });
+
+  it("광전사 내부 준비 상태를 조건으로 안전하게 파싱한다", () => {
+    const parsed = parseCombatPattern({
+      blocks: ["berserkerFinisher", "berserkerDeathOvercome"].map((target) => ({
+        condition: { kind: "self_buff_pct", target, active: true },
+        action: { kind: "skill", skillId: target },
+      })),
+    });
+    expect(parsed.blocks.map((block) => block.condition)).toEqual([
+      { kind: "self_buff_pct", target: "berserkerFinisher", active: true },
+      { kind: "self_buff_pct", target: "berserkerDeathOvercome", active: true },
     ]);
   });
 });
@@ -379,5 +865,59 @@ describe("parseCombatPresets (C4 저장 검증)", () => {
       })),
     );
     expect(many).toHaveLength(V2_COMBAT_PATTERN_MAX_PRESETS);
+  });
+});
+
+describe("v2PureSkillFormulaCoefficients 주스탯 공격력 환산 보정", () => {
+  it("물리·마법 1~3차는 공격력 환산 0.7에서도 기존 주스탯 피해 기울기를 보존한다", () => {
+    const cases = [
+      { scaling: "physical" as const, tier: 1 as const, attack: 1.08, primary: 0.197 },
+      { scaling: "physical" as const, tier: 2 as const, attack: 1.12, primary: 0.643 },
+      { scaling: "physical" as const, tier: 3 as const, attack: 1.2, primary: 1.075 },
+      { scaling: "magic" as const, tier: 1 as const, attack: 1.05, primary: 0.035 },
+      { scaling: "magic" as const, tier: 2 as const, attack: 1.08, primary: 0.3695 },
+      { scaling: "magic" as const, tier: 3 as const, attack: 1.1, primary: 0.88 },
+    ];
+
+    for (const testCase of cases) {
+      const actual = v2PureSkillFormulaCoefficients({
+        tier: testCase.tier,
+        scaling: testCase.scaling,
+        directDamageEffectCount: 1,
+        resolvedAttackCoef: testCase.tier === 1 ? 1.3 : testCase.tier === 2 ? 1.5 : 1.75,
+      });
+      expect(actual.attackCoef, `${testCase.scaling} tier ${testCase.tier}`).toBeCloseTo(
+        testCase.attack,
+        6,
+      );
+      expect(
+        actual.primaryStatCoef,
+        `${testCase.scaling} tier ${testCase.tier}`,
+      ).toBeCloseTo(testCase.primary, 6);
+    }
+  });
+
+  it("다단 스킬도 타격별 공격력 환산 증가분을 직접 계수에서 차감한다", () => {
+    const actual = v2PureSkillFormulaCoefficients({
+      tier: 2,
+      scaling: "physical",
+      directDamageEffectCount: 3,
+      resolvedAttackCoef: 0.5,
+    });
+
+    expect(actual.attackCoef).toBeCloseTo(0.373333, 6);
+    expect(actual.primaryStatCoef).toBeCloseTo(0.214333, 6);
+  });
+
+  it("공격력 계수가 높은 스킬의 보정 직접 계수는 0 아래로 내려가지 않는다", () => {
+    const actual = v2PureSkillFormulaCoefficients({
+      tier: 1,
+      scaling: "magic",
+      directDamageEffectCount: 1,
+      resolvedAttackCoef: 4,
+    });
+
+    expect(actual.attackCoef).toBe(3.75);
+    expect(actual.primaryStatCoef).toBe(0);
   });
 });

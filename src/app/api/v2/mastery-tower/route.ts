@@ -4,6 +4,7 @@ import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { derivePowerScore } from "@/adventure/data/v2/power";
+import { powerInputFromPlayer } from "@/lib/server/playerPowerInput";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { settleMasteryTowerRollover } from "@/lib/server/masteryTowerRollover";
 import {
@@ -16,7 +17,9 @@ import {
   masteryTowerEntryStaminaCost,
   masteryTowerFloorReward,
   masteryTowerGuardianPreview,
+  masteryTowerNextFloor,
   masteryTowerRequiredPower,
+  masteryTowerStartFloors,
   parseMasteryTowerState,
 } from "@/adventure/data/v2/masteryTower";
 import {
@@ -24,13 +27,7 @@ import {
   parseStaminaFromSave,
   staminaConfigForCharacter,
 } from "@/adventure/v2/stamina";
-import {
-  LEGACY_CLASS_SPEC_BY_JOB,
-  V2_JOB_LIST,
-  isLifestyleMasteryJobId,
-  isJobUnlocked,
-  isRootJobSelectable,
-} from "@/adventure/data/v2/v2JobCatalog";
+import { masteryCertificateJobs } from "@/lib/server/masteryCertificateStatus";
 import { parseProficiencyForChar } from "@/adventure/data/v2/proficiency";
 
 const STATUS_KEYS = [
@@ -107,31 +104,22 @@ export async function GET() {
     staminaConfig.regenBonusPct,
   );
   const prof = parseProficiencyForChar(map.get("proficiency.v2"), charSave);
-  const power = derivePowerScore({
-    atk: derived.player.atk,
-    magicAtk: derived.player.magicAtk ?? 0,
-    def: derived.player.def,
-    spd: derived.player.spd,
-    maxHp: derived.maxHp,
-    maxMp: derived.player.maxMp ?? 0,
-  });
+  const power = derivePowerScore(
+    powerInputFromPlayer(
+      derived.player,
+      derived.maxHp,
+      derived.player.maxMp ?? 0,
+    ),
+  );
 
-  const jobs = V2_JOB_LIST.filter(
-    (job) =>
-      job.id !== "none" &&
-      !isLifestyleMasteryJobId(job.id) &&
-      isRootJobSelectable(job) &&
-      isJobUnlocked(job, prof),
-  ).map((job) => ({
-    id: job.id,
-    name: job.name,
-    tier: job.tier,
-    group: LEGACY_CLASS_SPEC_BY_JOB[job.id]?.class ?? job.id,
-    mastery:
-      job.tier <= 1
-        ? (prof.groups[job.id]?.cumLevel ?? 0)
-        : (prof.jobCumLevel?.[job.id] ?? 0),
+  const jobs = masteryCertificateJobs(prof);
+  const startOptions = masteryTowerStartFloors(tower).map((floor) => ({
+    floor,
+    checkpointFloor: floor === 1 ? null : floor - 1,
+    requiredPower: masteryTowerRequiredPower(floor),
+    guardian: masteryTowerGuardianPreview(floor),
   }));
+  const nextFloor = masteryTowerNextFloor(tower);
 
   return Response.json({
     ok: true,
@@ -143,16 +131,10 @@ export async function GET() {
     claimPreview: preview,
     power,
     retryAfterSeconds,
-    nextFloor:
-      tower.runFloor >= MASTERY_TOWER_MAX_FLOOR ? null : tower.runFloor + 1,
-    nextRequiredPower:
-      tower.runFloor >= MASTERY_TOWER_MAX_FLOOR
-        ? null
-        : masteryTowerRequiredPower(tower.runFloor + 1),
-    nextGuardian:
-      tower.runFloor >= MASTERY_TOWER_MAX_FLOOR
-        ? null
-        : masteryTowerGuardianPreview(tower.runFloor + 1),
+    nextFloor,
+    nextRequiredPower: masteryTowerRequiredPower(nextFloor),
+    nextGuardian: masteryTowerGuardianPreview(nextFloor),
+    startOptions,
     rewards: {
       maxFloor: MASTERY_TOWER_MAX_FLOOR,
       milestones: MASTERY_TOWER_MILESTONES,

@@ -1,0 +1,2 @@
+export const COOKING_SURPLUS_BATCH_SIZE = 20;
+export const COOKING_SURPLUS_DAILY_LIMIT = 5;

@@ -2,6 +2,7 @@
 
 import { GUILD_MAX_LEVEL } from "@/adventure/data/guild";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import type { GuildInfoResponse, Notice } from "./guildShared";
 
 const ERROR_LABELS: Record<string, string> = {
@@ -36,9 +37,9 @@ export function GuildLevelUpgradePanel({
   const upgrade = async () => {
     if (!guild || !cost || acting) return;
     if (
-      !window.confirm(
+      !(await confirmGameAction(
         `길드를 Lv.${cost.nextLevel}(으)로 올릴까요? 사용 가능 명성 ${cost.fame.toLocaleString()}과 길드 자금 ${cost.gold.toLocaleString()} G가 사용됩니다.`,
-      )
+      ))
     ) {
       return;
     }

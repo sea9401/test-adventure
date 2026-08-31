@@ -18,8 +18,12 @@ import {
 } from "@/adventure/data/v2/classes";
 import { tierLevelCap } from "@/adventure/data/v2/proficiency";
 import { respecGoldCost } from "@/adventure/data/v2/respec";
-import { useGameState } from "./GameStateProvider";
+import { useGameResourceState } from "./GameStateProvider";
 import { useSystemMessageState } from "./RewardToastProvider";
+import {
+  formatLifeResourceRejobMessage,
+  type LifeResourceRejobPayload,
+} from "./V2JobLadder";
 
 // 성장의 신전 "직업" 탭 레거시 폴백 — 직군 아이콘 그리드.
 // 코어루프 on 에서는 V2JobLadder 가 렌더되고, 이 컴포넌트는 jobsV2 가 없는 off 모드에서만 쓴다.
@@ -67,7 +71,7 @@ export function V2ClassGrid({
   onChanged: () => void | Promise<void>;
 }) {
   // flag off 면 보유만(===gold, prod 무변경), on 이면 보유+은행(은행 골드로도 전직).
-  const { coreLoopOn, bankedGold } = useGameState();
+  const { coreLoopOn, bankedGold } = useGameResourceState();
   const heldGold = gold ?? 0;
   const spendable = coreLoopOn ? heldGold + bankedGold : heldGold;
   const activeGroup = tier1ClassOf(currentClass);
@@ -102,6 +106,7 @@ export function V2ClassGrid({
         have?: number;
         reincarnated?: boolean;
         tier?: number;
+        lifeResources?: LifeResourceRejobPayload;
       } | null;
       if (!j?.ok) {
         const label =
@@ -117,10 +122,11 @@ export function V2ClassGrid({
         setMsg(`✗ ${label}`);
         return;
       }
-      setMsg(
-        j.reincarnated
+      const baseMessage = j.reincarnated
           ? "✓ 환생 완료 — 1차 Lv1로 돌아왔습니다"
-          : `✓ ${j.tier ?? activeTier + 1}차 전직 완료`,
+          : `✓ ${j.tier ?? activeTier + 1}차 전직 완료`;
+      setMsg(
+        formatLifeResourceRejobMessage(baseMessage, j.lifeResources),
       );
       await onChanged();
     } catch (e) {
@@ -149,6 +155,7 @@ export function V2ClassGrid({
           requiredLevel?: number;
           haveTier?: number;
           haveLevel?: number;
+          lifeResources?: LifeResourceRejobPayload;
         } | null;
         if (!j?.ok) {
           const label =
@@ -166,7 +173,9 @@ export function V2ClassGrid({
           setMsg(`✗ ${label}`);
           return;
         }
-        setMsg("✓ 전환 완료");
+        setMsg(
+          formatLifeResourceRejobMessage("✓ 전환 완료", j.lifeResources),
+        );
         await onChanged();
       } catch (e) {
         setMsg(`✗ ${(e as Error).message}`);

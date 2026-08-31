@@ -16,6 +16,7 @@ type ArtisanLeaderboardEntry = {
   xpForNext: number;
   totalCrafts: number;
   qualityCrafts: number;
+  score: number;
   weeklyXp: number;
   cumulativeCrafts: number;
   isMe: boolean;
@@ -53,7 +54,7 @@ type ArtisanPreviousSeason = {
   rank: number;
   totalCrafts: number;
   qualityCrafts: number;
-  weeklyXp: number;
+  score: number;
   rewardClaimedAt: string | null;
 };
 
@@ -217,7 +218,8 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
             전체 장인 랭킹
           </h3>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            제작 횟수 기준. 동률은 품질 제작, 숙련도 순입니다.
+            레시피 숙련도만큼 장인 점수를 얻고, 명장 제작은 2배를 얻습니다.
+            동률은 품질 제작, 제작 횟수 순입니다.
           </p>
         </div>
         <button
@@ -252,9 +254,9 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
             </div>
           </div>
           <div className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
-            <div className="text-zinc-500 dark:text-zinc-400">이번 주 XP</div>
+            <div className="text-zinc-500 dark:text-zinc-400">장인 점수</div>
             <div className="mt-1 font-semibold tabular-nums">
-              {myEntry ? myEntry.weeklyXp.toLocaleString() : "0"}
+              {myEntry ? myEntry.score.toLocaleString() : "0"}
             </div>
           </div>
         </div>
@@ -278,8 +280,8 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
           <div className="mt-1">
             {data.previousSeason.weekKey} · {data.previousSeason.rank}위 · 제작{" "}
             {data.previousSeason.totalCrafts.toLocaleString()}회 · 품질{" "}
-            {data.previousSeason.qualityCrafts.toLocaleString()}회 · XP{" "}
-            {data.previousSeason.weeklyXp.toLocaleString()}
+            {data.previousSeason.qualityCrafts.toLocaleString()}회 · 장인 점수{" "}
+            {data.previousSeason.score.toLocaleString()}
           </div>
           {data.previousSeason.rewardClaimedAt ? (
             <div className="mt-1 text-sky-800/80 dark:text-sky-200/80">
@@ -404,7 +406,8 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
                   {entry.xpForNext.toLocaleString()}
                 </div>
                 <div className="mt-0.5 truncate text-[11px] text-zinc-400 dark:text-zinc-500">
-                  시즌 XP {entry.weeklyXp.toLocaleString()} · 누적 제작{" "}
+                  장인 점수 {entry.score.toLocaleString()} · 시즌 XP{" "}
+                  {entry.weeklyXp.toLocaleString()} · 누적 제작{" "}
                   {entry.cumulativeCrafts.toLocaleString()}회
                 </div>
               </div>

@@ -11,7 +11,7 @@ import {
 import {
   COOKING_SURPLUS_BATCH_SIZE,
   COOKING_SURPLUS_DAILY_LIMIT,
-} from "./cooking";
+} from "./cookingSurplus";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";

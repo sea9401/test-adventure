@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
+import {
+  lockSaveForUpdate,
+  readSave,
+  upsertSave,
+  upsertSaves,
+} from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
   parseActivityGuardState,
@@ -19,6 +24,7 @@ import {
   WOODCUTTING_LOG_KEY,
   isWoodcuttingTreeId,
   parseWoodcuttingLog,
+  parseWoodcuttingLogWithLevelMigration,
   pickWoodcuttingTreeId,
   woodcuttingMaterialBalances,
 } from "@/adventure/v2/woodcuttingSession";
@@ -26,7 +32,10 @@ import {
   woodcuttingDurationWithPassive,
   woodcuttingFailureRate,
   woodcuttingProgressionView,
+  woodcuttingXpForLevel,
 } from "@/adventure/v2/woodcuttingProgression";
+import { applyLifeXpGain } from "@/adventure/v2/lifeLevelProgression";
+import { woodcuttingPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
 import {
   autoGatheringCompletedAttempts,
   beginAutoGathering,
@@ -59,6 +68,7 @@ import {
   addJobCumLevel,
   parseProficiencyForChar,
 } from "@/adventure/data/v2/proficiency";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 import {
   V2_JOB_CATALOG,
   isWoodcuttingJobId,
@@ -74,7 +84,7 @@ import {
   lifeGatheringBonusPct,
   parseLifeWorkshopState,
 } from "@/adventure/v2/lifeWorkshop";
-import { lifeAidSpec, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
+import { consumeLifeAidUses, lifeAidSpec, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
   applyLifeFieldDurationReduction,
@@ -139,6 +149,7 @@ export async function POST(req: Request) {
       parseWoodcuttingLog(logRaw).cuts,
       parseWoodcuttingLog(logRaw).xp,
     );
+    const levelBonuses = woodcuttingPost50Bonuses(progression.level);
     const bonuses = equippedWoodcuttingBonuses(
       parseV2SkillsState(skillsRaw).equipped,
     );
@@ -153,7 +164,8 @@ export async function POST(req: Request) {
       1,
       (bonuses.bonusLogChancePct +
         LIFE_TOOL_BONUS_MATERIAL_PCT[toolTier] +
-        lifeGatheringBonusPct("woodcutting", workshop, progression.level)) /
+        lifeGatheringBonusPct("woodcutting", workshop, progression.level) +
+        levelBonuses.bonusLogChancePct) /
         100,
     );
     const baseCycleDurationMs = woodcuttingDurationWithPassive(
@@ -220,6 +232,7 @@ export async function POST(req: Request) {
     }
     return Response.json({
       ok: true,
+      serverNow: Date.now(),
       autoSession: startResult.session,
       materialName: WOODCUTTING_MATERIALS[tree.materialId].name,
       lifeEnvironment,
@@ -298,21 +311,34 @@ export async function POST(req: Request) {
     const discoveryRewardXp = discoveryReward?.xp ?? 0;
     settlement.materialsGained += discoveryRewardGained;
     settlement.xpGained += discoveryRewardXp;
+    const parsedLog = parseWoodcuttingLogWithLevelMigration(
+      await lockSaveForUpdate(tx, userId, WOODCUTTING_LOG_KEY, {}),
+    );
+    const currentLog = parsedLog.log;
+    const dirtySaves: Record<string, unknown> = {};
+    const levelBonuses = woodcuttingPost50Bonuses(
+      woodcuttingProgressionView(currentLog.cuts, currentLog.xp).level,
+    );
     let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
     let crafting = workshop.crafting;
-    const activeAid = crafting.activeAids.woodcutting;
     let aidSuccesses = 0;
-    if (session.aidItemId && activeAid?.itemId === session.aidItemId) {
-      aidSuccesses = Math.min(settlement.successes, activeAid.remainingUses);
-      settlement.materialsGained += Math.floor(aidSuccesses * (session.aidBonusMaterialRate ?? 0) * session.materialEfficiency);
-      const activeAids = { ...crafting.activeAids };
-      if (aidSuccesses >= activeAid.remainingUses) delete activeAids.woodcutting;
-      else activeAids.woodcutting = { ...activeAid, remainingUses: activeAid.remainingUses - aidSuccesses };
-      crafting = { ...crafting, activeAids, aidsUsed: crafting.aidsUsed + aidSuccesses };
+    if (session.aidItemId) {
+      const aidConsumption = consumeLifeAidUses(crafting, "woodcutting", session.aidItemId, settlement.successes);
+      aidSuccesses = aidConsumption.consumed;
+      settlement.materialsGained += Math.floor(
+        aidSuccesses * (session.aidBonusMaterialRate ?? 0),
+      );
+      crafting = aidConsumption.state;
     }
-    const blueprint = rollHiddenBlueprint(crafting, "woodcutting", settlement.successes);
+    const blueprint = rollHiddenBlueprint(
+      crafting,
+      "woodcutting",
+      settlement.successes,
+      Math.random,
+      levelBonuses.rareResultChancePct,
+    );
     workshop = { ...workshop, crafting: blueprint.state };
-    await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);
+    dirtySaves[LIFE_WORKSHOP_SAVE_KEY] = workshop;
     const charSave = await lockSaveForUpdate<CharSave>(
       tx,
       userId,
@@ -322,7 +348,7 @@ export async function POST(req: Request) {
     const materials = mergeDrops(charSave.materials, {
       [tree.materialId]: settlement.materialsGained,
     });
-    await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
+    dirtySaves["character.v2"] = { ...charSave, materials };
 
     const environmentXpGained = lifeFeatures.environmentEnabled
       ? Math.floor(
@@ -343,34 +369,39 @@ export async function POST(req: Request) {
       new Date(now),
     );
     const xpGained = settlement.xpGained + diningXp.bonus;
-    const currentLog = parseWoodcuttingLog(
-      await lockSaveForUpdate(tx, userId, WOODCUTTING_LOG_KEY, {}),
-    );
+    const appliedXp = applyLifeXpGain({
+      xp: currentLog.xp,
+      gainedXp: xpGained,
+      legacyThreshold: woodcuttingXpForLevel,
+    });
     const log = {
       ...currentLog,
       cuts: currentLog.cuts + settlement.successes,
-      xp: currentLog.xp + xpGained,
+      xp: appliedXp.xp,
       timberEarned: currentLog.timberEarned + settlement.materialsGained,
       trees: {
         ...currentLog.trees,
         [tree.id]: (currentLog.trees[tree.id] ?? 0) + settlement.successes,
       },
     };
-    await upsertSave(tx, userId, WOODCUTTING_LOG_KEY, log);
+    dirtySaves[WOODCUTTING_LOG_KEY] = log;
 
     const seedDrops: Record<string, number> = {};
     const seedRolls = Math.floor(
       settlement.successes * session.materialEfficiency + 1e-9,
     );
     for (let index = 0; index < seedRolls; index += 1) {
-      const drop = rollWoodcuttingSeedDrop();
+      const drop = rollWoodcuttingSeedDrop(
+        Math.random,
+        levelBonuses.seedChancePct,
+      );
       if (drop) seedDrops[drop.cropId] = (seedDrops[drop.cropId] ?? 0) + drop.quantity;
     }
     if (Object.keys(seedDrops).length > 0) {
       const farm = parseFarmState(
         await lockSaveForUpdate(tx, userId, FARM_SAVE_KEY, emptyFarmState(now)),
       );
-      await upsertSave(tx, userId, FARM_SAVE_KEY, grantFarmSeeds(farm, seedDrops));
+      dirtySaves[FARM_SAVE_KEY] = grantFarmSeeds(farm, seedDrops);
     }
 
     const playerClass = parseV2Class(charSave.class);
@@ -390,7 +421,20 @@ export async function POST(req: Request) {
       proficiency = addJobCumLevel(proficiency, jobId, settlement.masteryGained);
       masteryGained = settlement.masteryGained;
       masteryAfter = proficiency.jobCumLevel?.[jobId] ?? 0;
-      await upsertSave(tx, userId, "proficiency.v2", proficiency);
+      dirtySaves["proficiency.v2"] = proficiency;
+      if (masteryGained > 0) {
+        await recordCodexMasteryGameplayBatch(
+          tx,
+          userId,
+          [{
+            category: "job",
+            entryId: jobId,
+            amount: masteryGained,
+            source: "job.activity",
+          }],
+          new Date(now),
+        );
+      }
     }
     await incrementGuildExplorationProgressForUser(
       tx,
@@ -399,7 +443,8 @@ export async function POST(req: Request) {
       settlement.masteryGained,
       new Date(now),
     );
-    await upsertSave(tx, userId, WOODCUTTING_AUTO_KEY, settlement.state);
+    dirtySaves[WOODCUTTING_AUTO_KEY] = settlement.state;
+    await upsertSaves(tx, userId, dirtySaves);
     return {
       settlement,
       tree,
@@ -427,6 +472,7 @@ export async function POST(req: Request) {
           }
         : null,
       lifeFieldFeedEnabled: lifeFeatures.feedEnabled,
+      levelCurveMigrated: parsedLog.levelCurveMigrated,
     };
   });
 
@@ -483,5 +529,6 @@ export async function POST(req: Request) {
     log: result.log,
     autoSession: null,
     activeAutoActivity: result.activeAutoActivity,
+    ...(result.levelCurveMigrated ? { levelCurveMigrated: true } : {}),
   });
 }

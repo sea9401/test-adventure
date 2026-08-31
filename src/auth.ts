@@ -12,6 +12,7 @@ import {
   verificationTokens,
 } from "@/db/schema";
 import { authConfig } from "@/auth.config";
+import { AUTH_LOGOUT_GUARD_COOKIE } from "@/lib/authSessionConfig";
 import { DEVICE_SESSION_TAKEOVER_COOKIE } from "@/lib/deviceSessionConfig";
 import {
   matchesReviewLoginCredentials,
@@ -27,6 +28,10 @@ import {
 import { mapKakaoOAuthProfile } from "@/lib/server/kakaoOAuthProfile";
 import { recoverOrphanedKakaoAccount } from "@/lib/server/orphanedKakaoAccount";
 import { authenticatePasswordAccount } from "@/lib/server/passwordAccount";
+import {
+  authenticateLocalDevAccount,
+  readLocalDevAutoLoginConfig,
+} from "@/lib/server/localDevAutoLogin";
 
 declare module "next-auth" {
   interface Session {
@@ -62,6 +67,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
       // kakao_<id>@kakao.oauth 형태 — 같은 카카오 계정이면 항상 동일 이메일 생성.
       profile: mapKakaoOAuthProfile,
     }),
+    ...(readLocalDevAutoLoginConfig()
+      ? [
+          Credentials({
+            id: "local-dev",
+            name: "로컬 개발 자동 로그인",
+            credentials: {},
+            async authorize(_credentials, request) {
+              return authenticateLocalDevAccount(request);
+            },
+          }),
+        ]
+      : []),
     Credentials({
       id: "review-credentials",
       name: "아이디·비밀번호",
@@ -140,11 +157,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
       cookieStore.set("link_user_id", "", { maxAge: 0, path: "/" });
 
       // Credentials provider 는 운영자 발급 계정 또는 기존 심사용 사용자를 JWT 로만
-      // 인증한다. OAuth 계정 연동 테이블을 건드리면 안 되므로 아래 분기에는 진입시키지 않는다.
+      // 인증한다. 올바른 비밀번호로 다시 로그인한 경우 심사 담당자가 다른 기기에서도
+      // 단일 기기 세션을 인계할 수 있게 일회성 takeover 표식을 발급한다.
+      // OAuth 계정 연동 테이블을 건드리면 안 되므로 아래 분기에는 진입시키지 않는다.
       if (account.type === "credentials") {
+        cookieStore.set(AUTH_LOGOUT_GUARD_COOKIE, "", {
+          maxAge: 0,
+          path: "/",
+        });
         cookieStore.set(ACCOUNT_LINK_INTENT_COOKIE, "", {
           maxAge: 0,
           path: "/api/auth",
+        });
+        cookieStore.set(DEVICE_SESSION_TAKEOVER_COOKIE, "1", {
+          httpOnly: true,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+          path: "/",
+          maxAge: 5 * 60,
+          priority: "high",
         });
         return true;
       }
@@ -176,6 +207,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
           maxAge: 5 * 60,
           priority: "high",
         });
+        cookieStore.set(AUTH_LOGOUT_GUARD_COOKIE, "", {
+          maxAge: 0,
+          path: "/",
+        });
 
         return true;
       }
@@ -204,7 +239,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
       // 경쟁 요청이나 DB 오류도 일반 로그인/가입으로 폴백하지 않는다.
       return "/?linkError=failed";
     },
-    jwt({ token, user }) {
+    async jwt({ token, user, account }) {
+      if (
+        !account &&
+        (await cookies()).has(AUTH_LOGOUT_GUARD_COOKIE)
+      ) {
+        return null;
+      }
       if (user?.id) token.sub = user.id;
       return token;
     },

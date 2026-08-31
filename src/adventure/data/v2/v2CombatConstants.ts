@@ -2,71 +2,219 @@
 // v1 25스킬 카탈로그는 v2 전투에서 미사용(死) → skills.ts 는 Stage 4 에서 삭제 예정.
 // 여기 값들은 skills.ts 에서 verbatim 복사 — 동작 불변(골든 마스터 가드).
 
-// 기본 명중 — 평타는 기본 90% 적중(= 10% 빗나감). 명중(accuracyPct)이 빗나감을 줄이고(상한 100%
-//   적중 = 빗나감 0 도달 가능), 적 회피가 늘린다. 하한(빗나감 상한) 없음 — 고회피(PvP)는 그대로
-//   유효(강제 회피 보존). 스킬 패치로 캐릭터 강해진 만큼 모드한 파워 다운 + 죽어있던 명중/DEX 축
-//   부활(2026-06-06). 두 엔진은 combatShared 재노출로, UI(StatsPanel)는 여기서 직접 읽는다.
-export const V2_BASE_MISS_PCT = 10;
+// 일반 공격과 직접 피해 스킬은 기본적으로 빗나가지 않는다. 완전 회피는 보장 회피처럼
+// 명시된 기믹만 담당하고, 일반 회피도는 아래의 직접 피해 경감으로 작동한다.
+export const V2_BASE_MISS_PCT = 0;
 
-// 회피 대결형(2026-06-21) — 절대%+하드캡(75) 폐기. 방어자 evaRating(캡 없는 raw)을 공격자
-//   명중레이팅과 비율로 겨뤄 회피확률 산출. 점근선(절대 도달X)이라 포화·DEX 더블딥(공짜 4× EHP) 해소.
-//   회피확률 = DODGE_MAX × evaR / (evaR + accR × K).
-//   Slice 1 = PvE 몹→플레이어(enemyPhase·몹명중=floorAccuracy+몹 accuracy). Slice 2(2026-06-22) =
-//   플레이어→몹(attackMissPct)·PvP 양방향(pvpAttackMissPct). docs/v2-evasion-rating-plan.md.
-export const DODGE_MAX = 75; // 소프트 점근 천장(제거 금지 = 무적 꼬리)
-export const DODGE_K = 8; // 플레이어→PvE 적: 명중이 회피 누르는 강도(클수록 회피↓)
-export const PVP_DODGE_K = 7; // PvP 전용 — 동레이팅 회피 75/(1+7)=9.375%
-// PvE 생존 전용 — 낮은 HP·방어를 감수하는 DEX/LUK 빌드가 사냥터 명중 증가에도 생존축을
-// 유지하도록 PvP보다 완만하게 둔다. PvP는 별도 PVP_DODGE_K=7을 사용한다.
-export const PVE_DODGE_K = 6;
+// 회피도와 적중도를 겨뤄 직접 피해 경감률을 계산한다.
+// 경감률 = 85% × 회피도 / (회피도 + 적중도 × 대항 계수).
+// 85%는 하드캡이 아니라 도달하지 않는 점근 상한이다.
+export const EVASION_DAMAGE_REDUCTION_MAX_PCT = 85;
+export const EVASION_CONTEST_K = 2.5;
+export const PVP_DODGE_K = 3;
+export const PVE_DODGE_K = 2.5;
+// 마나 실드 패시브의 INT·최대 MP 생존축. 현재 MP를 소모하지 않으며 전투 시작 시
+// 내구도·흡수율·내구도 경감률을 한 번만 결정한다.
+export const MAGIC_BARRIER_BASE_INT = 15;
+export const MAGIC_BARRIER_MAX_MP_PCT = 60;
+export const MAGIC_BARRIER_DURABILITY_PER_INT = 2;
+export const MAGIC_BARRIER_ABSORB_SCALE = 250;
+export const MAGIC_BARRIER_EFFICIENCY_SCALE = 1_500;
+export const MAGIC_BARRIER_PVE_MAX_ABSORB_PCT = 45;
+export const MAGIC_BARRIER_PVP_MAX_ABSORB_PCT = 30;
+export const MAGIC_BARRIER_PVE_MAX_EFFICIENCY_PCT = 30;
+export const MAGIC_BARRIER_PVP_MAX_EFFICIENCY_PCT = 20;
 
-function dodgeChanceWithK(
+// 적→플레이어 물리 피격 방어 점감식. 전투 엔진과 UI가 같은 수치로 설명하도록
+// 가벼운 공용 상수 파일에 둔다. 85%는 도달하지 않는 점근 상한이며 피해 하한도 15%다.
+export const PHYSICAL_DEF_MITIGATION_MAX_PCT = 85;
+export const PHYSICAL_DEF_MITIGATION_SCALE = 500;
+
+export function physicalDefenseDamageReductionPct(defense: number): number {
+  const value = Math.max(0, defense);
+  return value > 0
+    ? (PHYSICAL_DEF_MITIGATION_MAX_PCT * value) /
+        (value + PHYSICAL_DEF_MITIGATION_SCALE)
+    : 0;
+}
+
+// 마법 방어는 적 공격력과 대결하는 기존 비율식을 유지한다. 표시에서는 실제 전투의
+// 최소 피해 15%까지 반영해 현재 상대 기준 경감률을 계산한다.
+export const MAGIC_DEF_MITIGATION_K = 3;
+export function magicDefenseDamageReductionPct(
+  incomingAttack: number,
+  magicDefense: number,
+): number {
+  const attack = Math.max(0, incomingAttack);
+  const defense = Math.max(0, magicDefense);
+  if (attack <= 0 || defense <= 0) return 0;
+  return Math.min(
+    PHYSICAL_DEF_MITIGATION_MAX_PCT,
+    (100 * MAGIC_DEF_MITIGATION_K * defense) /
+      (attack + MAGIC_DEF_MITIGATION_K * defense),
+  );
+}
+
+export type MagicBarrierStats = {
+  maxDurability: number;
+  pveAbsorbPct: number;
+  pvpAbsorbPct: number;
+  pveEfficiencyPct: number;
+  pvpEfficiencyPct: number;
+};
+
+export function magicBarrierStats(intStat: number, maxMp: number): MagicBarrierStats {
+  const effectiveInt = Math.max(0, Math.floor(intStat) - MAGIC_BARRIER_BASE_INT);
+  if (effectiveInt <= 0 || maxMp <= 0) {
+    return {
+      maxDurability: 0,
+      pveAbsorbPct: 0,
+      pvpAbsorbPct: 0,
+      pveEfficiencyPct: 0,
+      pvpEfficiencyPct: 0,
+    };
+  }
+  const maxDurability = Math.max(
+    1,
+    Math.floor(
+      (maxMp * MAGIC_BARRIER_MAX_MP_PCT) / 100 +
+        effectiveInt * MAGIC_BARRIER_DURABILITY_PER_INT,
+    ),
+  );
+  const absorbRatio = effectiveInt / (effectiveInt + MAGIC_BARRIER_ABSORB_SCALE);
+  const efficiencyRatio =
+    maxDurability / (maxDurability + MAGIC_BARRIER_EFFICIENCY_SCALE);
+  return {
+    maxDurability,
+    pveAbsorbPct: MAGIC_BARRIER_PVE_MAX_ABSORB_PCT * absorbRatio,
+    pvpAbsorbPct: MAGIC_BARRIER_PVP_MAX_ABSORB_PCT * absorbRatio,
+    pveEfficiencyPct:
+      MAGIC_BARRIER_PVE_MAX_EFFICIENCY_PCT * efficiencyRatio,
+    pvpEfficiencyPct:
+      MAGIC_BARRIER_PVP_MAX_EFFICIENCY_PCT * efficiencyRatio,
+  };
+}
+
+export type MagicBarrierPartition = {
+  bodyRawDamage: number;
+  absorbedDamage: number;
+  spillDamage: number;
+  durabilitySpent: number;
+  durabilityLeft: number;
+  destroyed: boolean;
+};
+
+export function partitionWithMagicBarrier(
+  rawDamage: number,
+  durability: number,
+  absorbPct: number,
+  efficiencyPct: number,
+): MagicBarrierPartition {
+  const incoming = Number.isFinite(rawDamage)
+    ? Math.max(0, Math.floor(rawDamage))
+    : 0;
+  const available = Number.isFinite(durability)
+    ? Math.max(0, Math.floor(durability))
+    : 0;
+  const safeAbsorbPct = Number.isFinite(absorbPct)
+    ? Math.min(100, Math.max(0, absorbPct))
+    : 0;
+  const safeEfficiencyPct = Number.isFinite(efficiencyPct)
+    ? Math.min(100, Math.max(0, efficiencyPct))
+    : 0;
+  const targetShielded = Math.floor((incoming * safeAbsorbPct) / 100);
+
+  if (incoming <= 0 || available <= 0 || targetShielded <= 0) {
+    return {
+      bodyRawDamage: incoming,
+      absorbedDamage: 0,
+      spillDamage: 0,
+      durabilitySpent: 0,
+      durabilityLeft: available,
+      destroyed: false,
+    };
+  }
+
+  const bodyRawDamage = incoming - targetShielded;
+  const costRatio = 1 - safeEfficiencyPct / 100;
+  const fullCost = Math.ceil(targetShielded * costRatio);
+  if (fullCost <= available) {
+    const durabilityLeft = available - fullCost;
+    return {
+      bodyRawDamage,
+      absorbedDamage: targetShielded,
+      spillDamage: 0,
+      durabilitySpent: fullCost,
+      durabilityLeft,
+      destroyed: durabilityLeft === 0,
+    };
+  }
+
+  const affordableDamage =
+    costRatio <= 0
+      ? targetShielded
+      : Math.min(targetShielded, Math.floor(available / costRatio));
+  const durabilitySpent = Math.min(
+    available,
+    Math.ceil(affordableDamage * costRatio),
+  );
+  return {
+    bodyRawDamage,
+    absorbedDamage: affordableDamage,
+    spillDamage: targetShielded - affordableDamage,
+    durabilitySpent,
+    durabilityLeft: 0,
+    destroyed: true,
+  };
+}
+
+function evasionDamageReductionWithK(
   evaRating: number,
   accRating: number,
   contestK: number,
 ): number {
   const e = Math.max(0, evaRating);
   if (e <= 0) return 0;
-  return (DODGE_MAX * e) / (e + Math.max(0, accRating) * contestK);
-}
-
-export function dodgeChance(evaRating: number, accRating: number): number {
-  return dodgeChanceWithK(evaRating, accRating, DODGE_K);
-}
-
-/** PvP 양방향 회피 확률. PvE 공격·생존 다이얼과 분리한다. */
-export function pvpDodgeChance(evaRating: number, accRating: number): number {
-  return dodgeChanceWithK(evaRating, accRating, PVP_DODGE_K);
-}
-
-/** 몬스터 공격을 플레이어가 피할 확률. PvP·플레이어 명중 판정과 분리된 생존 다이얼. */
-export function pveDodgeChance(evaRating: number, accRating: number): number {
-  return dodgeChanceWithK(evaRating, accRating, PVE_DODGE_K);
-}
-
-// PvE 플레이어 공격 미스 확률(Slice 2) — 평타·스킬 공용. 두 항의 합:
-//   ① 베이스미스 = max(0, V2_BASE_MISS_PCT − 명중레이팅) — 옛 모델(10+−명중)의 베이스 부분 보존.
-//      명중 투자가 베이스를 깎아 0 까지(투자/엔드 빌드는 일반몹 미스 0% — 옛 느낌 유지·필드 무회귀).
-//   ② 회피 대결 = dodgeChance(회피레이팅, 명중레이팅) — 회피몹을 점근선 DODGE_MAX 로 완화.
-//   방어자 evaRating 0(일반몹)이면 ②=0 → 미스=①(투자 0 이면 10%·투자하면 ↓). 명중레이팅은 derive 가
-//   ACC_BASE_RATING 을 포함해 ② 의 퇴화(acc0→75%)를 막는다. apIgnoresEvasion 은 호출처에서 굴림 스킵.
-//   🔑 2026-06-22 정정: 순수 플랫(명중 불가감) B안은 엔드 빌드(옛 명중→미스 0%)를 ~10% 너프해 필드
-//   승률 −6~19pp·DEX 상대독주 악화(sim) → 명중이 베이스도 깎도록 환원(현 느낌·DEX아크 보존).
-export function attackMissPct(defenderEvaRating: number, attackerAccRating: number): number {
   return (
-    Math.max(0, V2_BASE_MISS_PCT - Math.max(0, attackerAccRating)) +
-    dodgeChance(defenderEvaRating, attackerAccRating)
+    (EVASION_DAMAGE_REDUCTION_MAX_PCT * e) /
+    (e + Math.max(0, accRating) * contestK)
   );
 }
 
-/** PvP 공격 미스 확률 — 베이스 미스는 같고 회피 대결만 PvP 전용 K를 사용한다. */
-export function pvpAttackMissPct(
-  defenderEvaRating: number,
-  attackerAccRating: number,
+/** PvE에서 방어자의 회피도가 공격자의 적중도에 맞서 줄이는 직접 피해 비율. */
+export function evasionDamageReductionPct(
+  evaRating: number,
+  accRating: number,
 ): number {
-  return (
-    Math.max(0, V2_BASE_MISS_PCT - Math.max(0, attackerAccRating)) +
-    pvpDodgeChance(defenderEvaRating, attackerAccRating)
+  return evasionDamageReductionWithK(evaRating, accRating, EVASION_CONTEST_K);
+}
+
+/** PvP에서 방어자의 회피도가 줄이는 직접 피해 비율. */
+export function pvpEvasionDamageReductionPct(
+  evaRating: number,
+  accRating: number,
+): number {
+  return evasionDamageReductionWithK(evaRating, accRating, PVP_DODGE_K);
+}
+
+/** PvE 피격에서 플레이어 회피도가 줄이는 직접 피해 비율. */
+export function pveEvasionDamageReductionPct(
+  evaRating: number,
+  accRating: number,
+): number {
+  return evasionDamageReductionWithK(evaRating, accRating, PVE_DODGE_K);
+}
+
+/** 경감률을 정수 직접 피해에 적용한다. 양수 피해는 최소 1을 남긴다. */
+export function applyEvasionDamageReduction(
+  damage: number,
+  reductionPct: number,
+): number {
+  if (damage <= 0) return 0;
+  if (reductionPct <= 0) return damage;
+  return Math.max(
+    1,
+    Math.floor(damage * (1 - Math.min(EVASION_DAMAGE_REDUCTION_MAX_PCT, reductionPct) / 100)),
   );
 }
 
@@ -87,17 +235,18 @@ export const POISON_MAX_STACKS = 10;
 // 약점 노출(마도사) 마법취약 / 주문 중첩(워메이지) 누적 상한 — 무한 인플레 방지. PvE/PvP 공용.
 export const MAGIC_VULN_STACK_CAP = 10;
 export const SPELL_STACK_CAP = 10;
-export const BLEED_ATK_COEF_PER_STACK = 0.12;
+export const PLAYER_BLEED_ATK_COEF_PER_STACK = 0.25;
+export const MONSTER_BLEED_ATK_COEF_PER_STACK = 0.12;
 export const POISON_PCT_PER_POINT = 0.0005;
 // 절초 — 누적 적중 N타째마다 마무리 강타. 구조적 주기(위력은 데이터 comboFinisherBonusPct).
 // engine.ts 에서 이관(2026-06-12).
 export const COMBO_FINISHER_PERIOD = 4;
 export const POISON_CAP_ATK_COEF = 0.9;
-
-// 부식의 방어 감소율을 중독 피해 증폭으로 환산하는 배율.
-// 완성 계보(부식 약 67.87%) 기준 중독 피해 약 2.02배로, 10스택의 최대 체력 피해는
-// 공격력/LUK 상한 적용 전 약 8.07%가 된다. PvE/PvP 엔진이 같은 값을 공유한다.
-export const CORROSION_POISON_DAMAGE_SCALE = 1.5;
+// 맹독 I~IV + 만독지배의 완성 세팅(+122.4%)을 중독 최종 피해의 기준점으로 삼는다.
+// 고체력 대상에서도 이 기준 피해는 기존과 같고, 실제 패시브 배율은 최종 피해에 선형 적용된다.
+export const POISON_FULL_BUILD_DAMAGE_MULT = 2.224;
+// 일반 보스는 기존 80%를 유지하고, 공유 체력을 가진 협동 보스만 더 강하게 감산한다.
+export const COOP_BOSS_MAX_HP_DAMAGE_MULT = 0.5;
 
 // 여러 방어 감소 효과는 남은 방어력에 차례로 적용한다.
 // 예: 20%와 30%를 함께 쓰면 50%가 아니라 44%(남은 방어 0.8×0.7=0.56).
@@ -110,6 +259,10 @@ export function combineDefReductionPcts(...values: number[]): number {
     remaining *= 1 - pct / 100;
   }
   return Math.round((1 - remaining) * 100 * 1_000_000) / 1_000_000;
+}
+export const DEF_REDUCTION_PCT_CAP = 60;
+export function cappedDefReductionPct(...values: number[]): number {
+  return Math.min(DEF_REDUCTION_PCT_CAP, combineDefReductionPcts(...values));
 }
 export const HEAVEN_DECREE_HP_PCT = 5;
 export const RAMPAGE_START_TURN = 3;

@@ -9,6 +9,7 @@ import {
   spCostOf,
   orderedLearnedSkills,
 } from "@/adventure/data/v2/v2Skills";
+import { resolveElementalResonanceLoadout } from "@/adventure/data/v2/elementalResonance";
 import {
   isSkillRitualFocusEligible,
   isSkillRitualPowerEligible,
@@ -55,9 +56,12 @@ import {
   effectiveLevelCap,
   refundableCultivationPoints,
   cultivationResetGoldCost,
+  type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import { V2_STAT_KEYS, V2_STAT_LABELS } from "@/adventure/data/v2/v2StatKeys";
+import { lifeResourceRangesForProficiency } from "@/adventure/data/v2/statGrowth";
+import { LIFE_RESOURCE_GROWTH_VERSION } from "@/adventure/data/v2/lifeResourceGrowth";
 import {
   V2_JOB_LIST,
   V2_JOB_CATALOG,
@@ -73,6 +77,7 @@ import {
 } from "@/adventure/data/v2/v2JobCatalog";
 import { skillsForJob } from "@/adventure/data/v2/v2SkillsByJob";
 import { derivePowerScore } from "@/adventure/data/v2/power";
+import { powerInputFromPlayer } from "@/lib/server/playerPowerInput";
 import {
   V2_CODEX_TOTAL,
   discoveredMaterialIds,
@@ -81,19 +86,29 @@ import {
 import { FISH_TOTAL } from "@/adventure/data/v2/fish";
 import {
   FISHING_CODEX_SP_MILESTONES,
-  discoveredFishIds,
+  caughtFishIds,
   fishCodexSpBonus,
   nextFishCodexMilestone,
   parseFishCodex,
+  registeredFishIds,
 } from "@/adventure/v2/fishingCodex";
+import { COOKING_PUBLIC_RECIPES } from "@/adventure/v2/cooking/catalog";
+import { COOKING_SECRET_RECIPES } from "@/lib/server/cooking/recipes";
+import { parseCookingState } from "@/adventure/v2/cooking/state";
 import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
 import type { derivePlayerCombatV2FromSaves } from "@/lib/server/derivePlayerCombatV2";
+import type { JobSpLoadoutMigration } from "@/lib/server/v2Skills";
+import {
+  tier7AdvancementStatus,
+  type Tier7AdvancementStatus,
+} from "@/adventure/data/v2/tier7Advancement";
 
 // 라우트가 cast 해 들고 있는 character.v2 의 느슨한 모양 — 섹션이 읽는 키만 선언.
 type StateCharSave = {
   level?: number;
   class?: unknown;
   specChoice?: unknown;
+  revisitJobId?: unknown;
   materials?: unknown;
   frontierDepth?: unknown;
   spFruitUsed?: unknown;
@@ -124,6 +139,12 @@ export function combatStatsSection(
         magicAtk: combat.player.magicAtk ?? 0,
         // 마법 방어력 — SPI(+INT 약간)+장신구 환산. 마법 데미지를 막는 별개 방어 스탯.
         magicDef: combat.player.magicDef ?? 0,
+        // 최종 회복량 배율 — SPI·VIT 파생값과 장비·장착 패시브 회복 옵션을 모두 반영한다.
+        healMult: combat.player.healMult ?? 1,
+        magicBarrierMax: combat.player.magicBarrierMax ?? 0,
+        magicBarrierAbsorbPct: combat.player.magicBarrierAbsorbPct ?? 0,
+        magicBarrierEfficiencyPct:
+          combat.player.magicBarrierEfficiencyPct ?? 0,
         // 숨은 전투 축 — 회피/명중/치명타/다중공격.
         evasionPct: combat.player.evasionPct,
         // 회피 대결형(Slice 1b) — 캡 없는 raw 회피레이팅.
@@ -134,20 +155,35 @@ export function combatStatsSection(
         critChancePct: combat.player.critChancePct,
         critMult: combat.player.critMult,
         skillCritOverflow: combat.player.skillCritOverflow === true,
+        skillCritDmgPct: combat.player.skillCritDmgPct,
+        equipmentMagicSkillCritDmgPct:
+          combat.player.equipmentMagicSkillCritDmgPct,
         // 콘텐츠 파워(docs §8) — 던전 층 권장 파워와 비교용 합성 지표(PR-7).
-        power: derivePowerScore({
-          atk: combat.player.atk,
-          magicAtk: combat.player.magicAtk ?? 0,
-          def: combat.player.def,
-          spd: combat.player.spd,
-          maxHp,
-          maxMp,
-        }),
+        power: derivePowerScore(
+          powerInputFromPlayer(combat.player, maxHp, maxMp),
+        ),
       }
     : null;
 }
 
 // 코어루프 직업 트리(전직 UI) — off 면 null. 해금/조건/보너스/스킬수집까지 카탈로그 파생.
+export function tier7AdvancementViewForJob(args: {
+  jobId: string;
+  currentJobId: string;
+  level: number;
+  proficiency: V2ProficiencyState;
+  materials: unknown;
+}): Tier7AdvancementStatus | null {
+  return tier7AdvancementStatus({
+    targetJobId: args.jobId,
+    currentJobId: args.currentJobId,
+    currentLevel: args.level,
+    jobCumLevel: args.proficiency.jobCumLevel ?? {},
+    jobHistory: args.proficiency.jobHistory ?? [],
+    materials: args.materials,
+  });
+}
+
 export function jobsV2Section(params: {
   charSave: StateCharSave;
   proficiencyRaw: unknown;
@@ -168,6 +204,9 @@ export function jobsV2Section(params: {
     V2_JOB_CATALOG[currentJobId]?.name ??
     (cls === "none" ? "모험가" : (V2_CLASS_DEFS[cls]?.name ?? "모험가"));
   const currentJobTier = V2_JOB_CATALOG[currentJobId]?.tier ?? 0;
+  // 이미 수련했던 직업으로 돌아온 경우에는 놓친 스킬만 익히고 곧바로 다른
+  // 직업으로 이동할 수 있다. 같은 직업 재전직은 여전히 원래 레벨 조건을 쓴다.
+  const revisitExpedited = charSave.revisitJobId === currentJobId;
   const currentJobLevelCap = rejobRequiredLevel(currentJobId);
   const jobHistory = new Set(prof.jobHistory ?? []);
   // 스킬 수집 완료 판정용 — 학습한 스킬 집합(직업 도감과 동일 기준).
@@ -177,12 +216,23 @@ export function jobsV2Section(params: {
     currentJobName,
     currentJobTier,
     currentJobLevelCap,
-    atLevelCap: level >= currentJobLevelCap,
+    atLevelCap: revisitExpedited || level >= currentJobLevelCap,
+    revisitExpedited,
     jobs: V2_JOB_LIST.filter(
       // 루트 직업도 전직 대상에 포함 — 모험가/생존자 킷을 배우려면 되돌아갈 수 있어야 한다.
       (job) => isRootJobSelectable(job),
     ).map((job) => {
-      const unlocked = isJobUnlocked(job, prof, jobUnlockCtx);
+      const tier7Advancement = tier7AdvancementViewForJob({
+        jobId: job.id,
+        currentJobId,
+        level,
+        proficiency: prof,
+        materials: charSave.materials,
+      });
+      const unlocked = tier7Advancement
+        ? tier7Advancement.permanentlyUnlocked ||
+          tier7Advancement.nonLevelRequirementsMet
+        : isJobUnlocked(job, prof, jobUnlockCtx);
       const cumLevel = cumLevelForJob(prof, job);
       const conditionRevealed = isJobUnlockConditionRevealed(
         job,
@@ -226,6 +276,7 @@ export function jobsV2Section(params: {
         bonus,
         signatureSkills,
         skillsCollected,
+        ...(tier7Advancement ? { tier7Advancement } : {}),
       };
     }),
   };
@@ -338,6 +389,8 @@ export function loadoutSection(params: {
   fishingCodexRaw: unknown;
   equipmentCodexSpBonus: number;
   jobUnlockCtx?: JobUnlockContext;
+  jobSpMigration?: JobSpLoadoutMigration | null;
+  now?: number;
 }) {
   const {
     charSave,
@@ -346,10 +399,17 @@ export function loadoutSection(params: {
     fishingCodexRaw,
     equipmentCodexSpBonus: equipmentCodexBonus,
     jobUnlockCtx,
+    jobSpMigration,
+    now = Date.now(),
   } = params;
   const prof = parseProficiencyForChar(proficiencyRaw, charSave);
   const skillsState = parseV2SkillsState(skillsRaw);
   const equippedSet = new Set<string>(skillsState.equipped);
+  const resonance = resolveElementalResonanceLoadout({
+    learned: skillsState.learned,
+    equipped: skillsState.equipped,
+  });
+  const absorbedSet = new Set(resonance.absorbedSkillIds);
   const collectionBonus = codexSpBonusFromRaw(fishingCodexRaw);
   const spFruitBonus = spCapBonusFromRaw(charSave.spFruitUsed);
   const spBudgetGroups = Object.fromEntries(
@@ -377,7 +437,7 @@ export function loadoutSection(params: {
   });
   const milestoneSp = groups.reduce((sum, g) => sum + g.milestoneSp, 0);
   const masteryBonusSp = groups.reduce((sum, g) => sum + g.masteryBonusSp, 0);
-  let spUsed = 0;
+  const spUsed = resonance.spUsed;
   const favoriteSet = new Set<string>(skillsState.favoriteSkills ?? []);
   const library = orderedLearnedSkills(
     skillsState.learned,
@@ -389,11 +449,25 @@ export function loadoutSection(params: {
       const equipped = equippedSet.has(id);
       const ritualLevel = skillRitualLevel(skillsState.enhancements, id);
       const ritualMode = skillRitualMode(skillsState.enhancements, id);
-      if (equipped) spUsed += spCostOf(def);
+      const baseSpCost = spCostOf(def);
+      const effectiveSpCost = equipped
+        ? resonance.effectiveSpCosts.get(id)
+        : undefined;
+      const resonanceRole = equipped
+        ? resonance.catalystActive && id === "v2c_elementallord_surge"
+          ? "catalyst"
+          : absorbedSet.has(id)
+            ? "material"
+            : "inactive"
+        : undefined;
       return {
         skillId: id,
         name: def.name,
-        spCost: spCostOf(def),
+        spCost: baseSpCost,
+        ...(effectiveSpCost !== undefined && effectiveSpCost !== baseSpCost
+          ? { effectiveSpCost }
+          : {}),
+        ...(resonanceRole ? { resonanceRole } : {}),
         category: def.category,
         equipped,
         favorite: favoriteSet.has(id),
@@ -420,6 +494,17 @@ export function loadoutSection(params: {
     spUsed,
     equipped,
     library,
+    ...(jobSpMigration
+      ? {
+          spMigration: {
+            graceActive: jobSpMigration.graceActive,
+            graceEndsAt: jobSpMigration.graceEndsAt,
+            serverNow: now,
+            overBudgetBy: Math.max(0, spUsed - spBudget),
+            removedSkillIds: jobSpMigration.removedSkillIds,
+          },
+        }
+      : {}),
     spBreakdown: {
       base: spBreakdownBase.base,
       milestoneSp,
@@ -452,17 +537,38 @@ export function materialCodexSection(materialsRaw: unknown) {
 // 어보(낚시 도감) 진척 — V2CodexView 어보 탭 표시용. 종별 개인 최대어 동봉.
 export function fishingCodexSection(fishingCodexRaw: unknown) {
   const codex = parseFishCodex(fishingCodexRaw);
-  const ids = discoveredFishIds(codex);
+  const registeredIds = registeredFishIds(codex);
+  const caughtIds = caughtFishIds(codex);
   const best: Record<string, number> = {};
-  for (const id of ids) best[id] = codex.fish[id].bestSize;
+  for (const id of caughtIds) best[id] = codex.fish[id].bestSize;
   return {
-    discoveredIds: ids,
+    registeredIds,
+    caughtIds,
+    discoveredIds: registeredIds,
     total: FISH_TOTAL,
     best,
     spBonus: fishCodexSpBonus(codex),
     milestones: [...FISHING_CODEX_SP_MILESTONES],
-    nextMilestone: nextFishCodexMilestone(ids.length),
+    nextMilestone: nextFishCodexMilestone(registeredIds.length),
     tierCompletions: codexSpBonusFromRaw(fishingCodexRaw).fishTiers,
+  };
+}
+
+// 요리 완성 도감 — 첫 완성으로 등록된 요리법만 모험의 서에 전달한다.
+export function cookingCodexSection(cookingRaw: unknown) {
+  const cooking = parseCookingState(cookingRaw);
+  const discovered = new Set(cooking.discoveredRecipeIds);
+  return {
+    knownRecipes: COOKING_SECRET_RECIPES
+      .filter((recipe) => discovered.has(recipe.id))
+      .map((recipe) => ({
+        id: recipe.id,
+        name: recipe.name,
+        imageSrc: recipe.imageSrc,
+        description: recipe.description,
+        effect: recipe.effect,
+      })),
+    total: COOKING_PUBLIC_RECIPES.length,
   };
 }
 
@@ -505,9 +611,24 @@ export function proficiencySection(
   for (const k of V2_STAT_KEYS) {
     effectiveCaps[k] = effectiveStatCap(capGain(prof, k));
   }
+  const resourceGrowthVersion = prof.lifeResourceGrowth?.version;
+  const currentResourceRanges = lifeResourceRangesForProficiency(
+    prof,
+    resourceGrowthVersion ?? LIFE_RESOURCE_GROWTH_VERSION,
+  );
+  const nextRejobResourceRanges =
+    resourceGrowthVersion === 1
+      ? lifeResourceRangesForProficiency(prof, LIFE_RESOURCE_GROWTH_VERSION)
+      : null;
   return {
     groups: prof.groups,
     caps: effectiveCaps,
+    lifeResourceGrowth: {
+      mode: prof.lifeResourceGrowth ? ("rolled" as const) : ("legacy" as const),
+      currentRanges: currentResourceRanges,
+      nextRejobRanges: nextRejobResourceRanges,
+      appliesAfterRejob: !prof.lifeResourceGrowth,
+    },
     current: {
       group,
       // 직업 숙련도 — tier1 은 직군 숙련도, tier2+ 는 jobCumLevel.
@@ -520,6 +641,7 @@ export function proficiencySection(
       capGains: totalCapGains(prof),
       nextCost: cultivationCost(totalCapGains(prof)),
       cultivationPointsSpent: refundableCultivationPoints(prof),
+      growthRespecPoints: prof.growthRespecPoints ?? 0,
       cultivationResetCount: prof.cultivationResetCount ?? 0,
       cultivationResetGoldCost: cultivationResetGoldCost(
         prof.cultivationResetCount ?? 0,

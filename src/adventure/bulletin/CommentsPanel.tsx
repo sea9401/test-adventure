@@ -17,6 +17,8 @@ import {
   groupBulletinCommentThreads,
   removeBulletinCommentThread,
 } from "./commentThreads";
+import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 
 // 댓글 패널 — 상세 페이지 하단에 항상 펼쳐진 상태로 노출. 마운트 시 목록 fetch,
 // 작성/삭제 시 부모로 카운트 변화 통보. (옛 PostCard 인라인 펼침에서 분리)
@@ -96,7 +98,7 @@ export function CommentsPanel({
       replyCount > 0
         ? `이 댓글과 답글 ${replyCount}개를 함께 삭제할까요?`
         : "이 댓글을 삭제할까요?";
-    if (!confirm(message)) return;
+    if (!(await confirmGameAction(message))) return;
     try {
       await deleteComment(postId, commentId);
       setComments((prev) => {
@@ -116,6 +118,22 @@ export function CommentsPanel({
     setReplyTo({ id: comment.id, name: comment.name });
     setErr(null);
     requestAnimationFrame(() => textareaRef.current?.focus());
+  };
+
+  const hideBlockedComments = (blockedUserId: string) => {
+    setComments((previous) => {
+      if (!previous) return previous;
+      const withoutAuthor = previous.filter(
+        (comment) => comment.authorUserId !== blockedUserId,
+      );
+      const remainingIds = new Set(withoutAuthor.map((comment) => comment.id));
+      const next = withoutAuthor.filter(
+        (comment) =>
+          comment.parentId === null || remainingIds.has(comment.parentId),
+      );
+      onCountChange(postId, next.length);
+      return next;
+    });
   };
 
   const renderComment = (comment: BulletinComment, isReply: boolean) => (
@@ -172,6 +190,14 @@ export function CommentsPanel({
           >
             <Trash size={12} weight="bold" />
           </button>
+        )}
+        {!comment.mine && (
+          <ContentSafetyActions
+            sourceType="bulletin_comment"
+            sourceId={comment.id}
+            targetName={comment.name}
+            onBlocked={hideBlockedComments}
+          />
         )}
       </div>
     </div>

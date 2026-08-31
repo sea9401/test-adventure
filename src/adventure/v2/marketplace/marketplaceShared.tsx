@@ -5,8 +5,9 @@ import {
   V2_EQUIPMENT,
   effectiveStats,
   parseCraftedBy,
-  parseEquipRoll,
+  parseEquipRollForItem,
   parseInstanceCraftQuality,
+  parseInstanceEnhance,
   powerWithBonuses,
   v2EquipStatRows,
   type V2Equipment,
@@ -14,10 +15,7 @@ import {
   type V2EquipRoll,
 } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
-import {
-  parseEnhance,
-  type V2EnhanceState,
-} from "@/adventure/data/v2/v2Enhance";
+import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 export {
   marketplaceCraftPriceKey,
   marketplacePriceKeyForEquipInstance,
@@ -110,7 +108,7 @@ function listingCraftMetadata(payload: unknown) {
   return {
     craftedBy,
     craftQuality,
-    enhance: craftQuality ? undefined : parseEnhance(raw?.enhance),
+    enhance: parseInstanceEnhance(raw?.enhance, raw?.craftQuality, craftedBy),
   };
 }
 
@@ -121,7 +119,7 @@ export function marketplaceListingPower(listing: Listing): number | null {
   if (!item) return null;
   const metadata = listingCraftMetadata(listing.instancePayload);
   return powerWithBonuses(
-    effectiveStats(item, listingEquipRoll(listing.instancePayload)).power,
+    effectiveStats(item, listingEquipRoll(item, listing.instancePayload)).power,
     metadata.enhance,
     metadata.craftQuality,
   );
@@ -143,8 +141,12 @@ export function compareMarketplaceListings(
     b.kind === "equip"
       ? V2_EQUIPMENT[b.itemId as keyof typeof V2_EQUIPMENT]
       : undefined;
-  const aRoll = aItem ? listingEquipRoll(a.instancePayload) : undefined;
-  const bRoll = bItem ? listingEquipRoll(b.instancePayload) : undefined;
+  const aRoll = aItem
+    ? listingEquipRoll(aItem, a.instancePayload)
+    : undefined;
+  const bRoll = bItem
+    ? listingEquipRoll(bItem, b.instancePayload)
+    : undefined;
   const aPrice = listingUnitPrice(a);
   const bPrice = listingUnitPrice(b);
   let compared = 0;
@@ -234,6 +236,18 @@ export function groupMarketplaceStackListings(
   return [...groups.values()];
 }
 
+export function individualMarketplaceListings(
+  listings: Listing[],
+  browseMode: "fixed" | "auction",
+): Listing[] {
+  return listings.filter(
+    (listing) =>
+      browseMode === "auction" ||
+      !isStackableMarketplaceListing(listing) ||
+      listing.isMine,
+  );
+}
+
 export function marketplaceStackQuote(
   listings: Listing[],
   requestedQuantity: number,
@@ -276,8 +290,11 @@ export type MarketplacePager<T> = {
 
 // 매물 payload 는 옛 raw roll 또는 { power, weight, options, enhance, craftQuality, craftedBy } 혼합형이다.
 // craftedBy/enhance/craftQuality 만 있는 제작품은 roll 이 없으므로 undefined 로 정규화해야 카탈로그 스탯을 쓴다.
-export function listingEquipRoll(payload: unknown): V2EquipRoll | undefined {
-  return parseEquipRoll(payload);
+export function listingEquipRoll(
+  item: V2Equipment,
+  payload: unknown,
+): V2EquipRoll | undefined {
+  return parseEquipRollForItem(item, payload);
 }
 
 export function priceStatForKey(

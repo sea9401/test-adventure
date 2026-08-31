@@ -5,12 +5,25 @@ import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   MUSEUN_CASH_ITEMS,
+  addMuseunCashItem,
   isMuseunCashItemId,
   removeMuseunCashItem,
 } from "@/adventure/data/v2/museunCashItems";
 import {
+  cultivationResetGoldCost,
+  emptyProficiency,
+  parseProficiencyForChar,
+  resetCultivation,
+  totalCapGains,
+  usablePoints,
+  type V2ProficiencyState,
+} from "@/adventure/data/v2/proficiency";
+import {
   ADVENTURE_SUPPORT_PASS,
+  PREMIUM_ADVENTURE_SUPPORT_PASS,
+  adventureSupportTier,
   grantAdventureSupport,
+  grantPremiumAdventureSupport,
 } from "@/adventure/data/v2/adventureSupport";
 import {
   applyRegen,
@@ -36,8 +49,14 @@ import {
   unownedChromaNames,
   unownedProfileBorders,
 } from "@/adventure/data/v2/museunCosmetics";
+import { applyLevelTargetGrant } from "@/lib/server/levelTargetGrant";
+import { V2_EQUIPMENT_LIBERATION } from "@/adventure/data/v2/coreLoopConfig";
+import { deriveEquippedLiberationEffects } from "@/adventure/data/v2/equipmentLiberationEffects";
+import { applyLiberationLevelGrowth } from "@/lib/server/equipmentLiberationLevelGrowth";
 
 type CharacterSave = {
+  class?: unknown;
+  level?: unknown;
   cashItems?: unknown;
   adventureSupport?: unknown;
   stamina?: unknown;
@@ -282,9 +301,159 @@ export async function POST(req: Request) {
     });
     return Response.json(result.body, { status: result.status });
   }
-  if (item.effect.kind !== "adventure_support") {
+  if (item.effect.kind === "level_target") {
+    const targetLevel = item.effect.level;
+    const result = await db.transaction(async (tx) => {
+      const character = await lockSaveForUpdate<CharacterSave>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
+      const cashItems = removeMuseunCashItem(character.cashItems, itemId, 1);
+      if (!cashItems) {
+        return {
+          status: 403,
+          body: { ok: false as const, error: "not_owned" as const },
+        };
+      }
+      const currentLevel = Math.max(
+        1,
+        Math.floor(Number(character.level) || 1),
+      );
+      if (currentLevel >= targetLevel) {
+        return {
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "already_max_level" as const,
+          },
+        };
+      }
+
+      const equipmentSave = V2_EQUIPMENT_LIBERATION
+        ? await lockSaveForUpdate(tx, userId, "equipment.v2", {})
+        : undefined;
+      const proficiency = await lockSaveForUpdate(
+        tx,
+        userId,
+        "proficiency.v2",
+        {},
+      );
+      const grant = applyLevelTargetGrant(
+        character,
+        proficiency,
+        targetLevel,
+      );
+      const liberationGrowth =
+        V2_EQUIPMENT_LIBERATION && grant.levelsGained > 0
+          ? applyLiberationLevelGrowth({
+              proficiency: grant.proficiency,
+              levelsGained: grant.levelsGained,
+              effects: deriveEquippedLiberationEffects(equipmentSave),
+              rng: Math.random,
+            })
+          : null;
+      await upsertSave(tx, userId, "character.v2", {
+        ...character,
+        cashItems,
+        level: grant.level,
+        exp: grant.exp,
+      });
+      await upsertSave(
+        tx,
+        userId,
+        "proficiency.v2",
+        liberationGrowth?.proficiency ?? grant.proficiency,
+      );
+
+      return {
+        status: 200,
+        body: {
+          ok: true as const,
+          itemId,
+          cashItems,
+          level: grant.level,
+          levelsGained: grant.levelsGained,
+          hpGain: grant.hpGain + (liberationGrowth?.hpGained ?? 0),
+          mpGain: grant.mpGain + (liberationGrowth?.mpGained ?? 0),
+          liberationHpGained: liberationGrowth?.hpGained ?? 0,
+          liberationMpGained: liberationGrowth?.mpGained ?? 0,
+        },
+      };
+    });
+    return Response.json(result.body, { status: result.status });
+  }
+  if (item.effect.kind === "cultivation_reset") {
+    const result = await db.transaction(async (tx) => {
+      const character = await lockSaveForUpdate<CharacterSave>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
+      const cashItems = removeMuseunCashItem(character.cashItems, itemId, 1);
+      if (!cashItems) {
+        return {
+          status: 403,
+          body: { ok: false as const, error: "not_owned" as const },
+        };
+      }
+
+      const proficiency = parseProficiencyForChar(
+        await lockSaveForUpdate<V2ProficiencyState>(
+          tx,
+          userId,
+          "proficiency.v2",
+          emptyProficiency(),
+        ),
+        character,
+      );
+      const reset = resetCultivation(proficiency);
+      if (!reset) {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "nothing_to_reset" as const },
+        };
+      }
+
+      await upsertSave(tx, userId, "character.v2", {
+        ...character,
+        level: 1,
+        exp: 0,
+        cashItems,
+      });
+      await upsertSave(tx, userId, "proficiency.v2", reset.next);
+
+      const resetCount = reset.next.cultivationResetCount ?? 0;
+      return {
+        status: 200,
+        body: {
+          ok: true as const,
+          itemId,
+          cashItems,
+          spentGold: 0,
+          refundedPoints: reset.refundedPoints,
+          points: usablePoints(reset.next),
+          capGains: totalCapGains(reset.next),
+          caps: {},
+          growthRespecPoints: reset.next.growthRespecPoints ?? 0,
+          level: 1,
+          exp: 0,
+          resetCount,
+          nextResetGoldCost: cultivationResetGoldCost(resetCount),
+        },
+      };
+    });
+    return Response.json(result.body, { status: result.status });
+  }
+  if (
+    item.effect.kind !== "adventure_support" &&
+    item.effect.kind !== "adventure_support_premium"
+  ) {
     return bad("use_elsewhere");
   }
+  const premium = item.effect.kind === "adventure_support_premium";
   const supportDays = item.effect.days;
 
   const result = await db.transaction(async (tx) => {
@@ -295,18 +464,24 @@ export async function POST(req: Request) {
       "character.v2",
       {},
     );
-    const cashItems = removeMuseunCashItem(character.cashItems, itemId, 1);
-    if (!cashItems) {
+    const remainingCashItems = removeMuseunCashItem(
+      character.cashItems,
+      itemId,
+      1,
+    );
+    if (!remainingCashItems) {
       return {
         status: 403,
         body: { ok: false as const, error: "not_owned" },
       };
     }
-    const grant = grantAdventureSupport(
-      character.adventureSupport,
-      supportDays,
-      now,
-    );
+    const grant = premium
+      ? grantPremiumAdventureSupport(
+          character.adventureSupport,
+          supportDays,
+          now,
+        )
+      : grantAdventureSupport(character.adventureSupport, supportDays, now);
     if (!grant) {
       return {
         status: 400,
@@ -314,12 +489,21 @@ export async function POST(req: Request) {
       };
     }
 
+    const cashItems = premium
+      ? addMuseunCashItem(
+          remainingCashItems,
+          "cosmetic_extension_30d",
+          PREMIUM_ADVENTURE_SUPPORT_PASS.cosmeticExtensionGrant,
+        )
+      : remainingCashItems;
     let nextCharacter: CharacterSave = {
       ...character,
       cashItems,
       adventureSupport: grant.state,
     };
-    if (grant.firstActivation) {
+    let grantedStamina: { current: number; lastUpdatedAt: number } | null =
+      null;
+    if (premium || grant.firstActivation) {
       const previousConfig = staminaConfigForCharacter(character, now);
       const nextConfig = staminaConfigForCharacter(nextCharacter, now);
       const current = applyRegen(
@@ -328,15 +512,22 @@ export async function POST(req: Request) {
         previousConfig.max,
         previousConfig.regenBonusPct,
       );
+      grantedStamina = {
+        current: premium
+          ? Math.min(
+              nextConfig.max,
+              current.current +
+                PREMIUM_ADVENTURE_SUPPORT_PASS.staminaActivationGrant,
+            )
+          : Math.min(
+              staminaOverchargeCap(nextConfig.max),
+              current.current + ADVENTURE_SUPPORT_PASS.staminaActivationGrant,
+            ),
+        lastUpdatedAt: current.lastUpdatedAt,
+      };
       nextCharacter = {
         ...nextCharacter,
-        stamina: {
-          current: Math.min(
-            staminaOverchargeCap(nextConfig.max),
-            current.current + ADVENTURE_SUPPORT_PASS.staminaActivationGrant,
-          ),
-          lastUpdatedAt: current.lastUpdatedAt,
-        },
+        stamina: grantedStamina,
       };
     }
 
@@ -347,9 +538,12 @@ export async function POST(req: Request) {
         ok: true as const,
         itemId,
         cashItems,
+        tier: adventureSupportTier(grant.state, now),
         activeUntil: grant.state.activeUntil,
+        premiumUntil: grant.state.premiumUntil ?? null,
         daysAdded: grant.days,
         firstActivation: grant.firstActivation,
+        ...(grantedStamina ? { stamina: grantedStamina } : {}),
       },
     };
   });

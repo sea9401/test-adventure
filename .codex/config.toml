@@ -1,0 +1,7 @@
+[mcp_servers.poe_data]
+command = "uvx"
+args = ["--with", "mcp<2", "poe-data-mcp"]
+startup_timeout_sec = 30
+tool_timeout_sec = 60
+default_tools_approval_mode = "approve"
+enabled = true

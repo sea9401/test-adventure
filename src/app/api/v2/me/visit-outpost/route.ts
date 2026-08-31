@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordGrowthLeapStaminaSpendInTx } from "@/lib/server/growthLeapProgress";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import {
@@ -145,6 +146,14 @@ export async function POST(req: Request) {
         discoveredOutpostIds: discovered,
         ...(coreLoop ? { gold: nextGold, bankedGold: nextBankedGold } : {}),
       });
+      if (isMove && !coreLoop) {
+        await recordGrowthLeapStaminaSpendInTx(
+          tx,
+          userId,
+          OUTPOST_MOVE_COST,
+          now,
+        );
+      }
       return {
         kind: "ok",
         stamina: nextStamina,

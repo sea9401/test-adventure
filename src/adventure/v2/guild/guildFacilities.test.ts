@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   GUILD_FACILITY_ICON_COLORS,
   GUILD_FACILITY_IDS,
+  availableGuildFacilityIds,
   isGuildFacilityId,
-  unlockedGuildFacilityIds,
 } from "./guildFacilities";
 
 describe("guildFacilities", () => {
-  it("길드 드롭다운에 개방된 시설만 반환한다", () => {
+  it("길드 드롭다운에 준비된 시설만 반환한다", () => {
     expect(
-      unlockedGuildFacilityIds({
+      availableGuildFacilityIds({
         guild_smithy: 1,
         training_ground: 0,
         dining_hall: 2,

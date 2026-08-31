@@ -32,6 +32,7 @@ const mocks = vi.hoisted(() => {
     tx,
     ensureUser: vi.fn(async () => "u-master"),
     rateLimit: vi.fn(() => null),
+    requireConsent: vi.fn(async (): Promise<Response | null> => null),
   };
 });
 
@@ -47,6 +48,9 @@ vi.mock("@/lib/server/ensureUser", () => ({
 }));
 vi.mock("@/lib/server/userRateLimit", () => ({
   enforceUserAndIpRateLimit: mocks.rateLimit,
+}));
+vi.mock("@/lib/server/ugcSafety", () => ({
+  requireCurrentUgcConsent: mocks.requireConsent,
 }));
 
 import { POST } from "./route";
@@ -65,6 +69,7 @@ beforeEach(() => {
   mocks.state.selectRows = [[{ guildId: 7 }], [{ masterId: "u-master" }]];
   mocks.ensureUser.mockResolvedValue("u-master");
   mocks.rateLimit.mockReturnValue(null);
+  mocks.requireConsent.mockResolvedValue(null);
 });
 
 describe("길드 소개 저장", () => {
@@ -101,6 +106,17 @@ describe("길드 소개 저장", () => {
 
     expect(response.status).toBe(400);
     expect((await response.json()).error).toBe("description_too_long");
+    expect(mocks.state.updatedGuild).toBeNull();
+  });
+
+  it("현재 커뮤니티 운영정책에 동의하지 않으면 저장을 거부한다", async () => {
+    mocks.requireConsent.mockResolvedValue(
+      new Response("ugc consent required", { status: 403 }),
+    );
+
+    const response = await POST(request("변경 시도"));
+
+    expect(response.status).toBe(403);
     expect(mocks.state.updatedGuild).toBeNull();
   });
 });

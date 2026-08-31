@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 
 type Status = {
   enabled: boolean;
@@ -51,9 +52,9 @@ export function UserImpersonationSection({
   async function start() {
     if (busy || !status?.enabled || status.active) return;
     if (
-      !window.confirm(
+      !(await confirmGameAction(
         `${gameName} 계정으로 접속할까요?\n\n이후 게임 행동은 대상 유저의 실제 데이터에 저장됩니다.`,
-      )
+      ))
     ) {
       return;
     }

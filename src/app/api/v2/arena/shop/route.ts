@@ -27,6 +27,7 @@ import {
   arenaShopPriceFor,
 } from "@/adventure/v2/arenaShop";
 import {
+  grantStaminaPotions,
   STAMINA_POTIONS_KEY,
   staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
@@ -150,8 +151,9 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
       STAMINA_POTIONS_KEY,
       { count: 0 },
     );
-    const staminaPotions = staminaPotionCount(potionSave) + 1;
-    await upsertSave(tx, userId, STAMINA_POTIONS_KEY, { count: staminaPotions });
+    const nextPotions = grantStaminaPotions(potionSave, 1, { bound: true });
+    const staminaPotions = nextPotions.count;
+    await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextPotions);
 
     const coinBalance = coins - price;
     await upsertSave(tx, userId, PVP_WALLET_KEY, { coins: coinBalance });

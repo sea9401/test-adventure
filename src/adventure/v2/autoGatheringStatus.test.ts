@@ -1,7 +1,47 @@
 import { describe, expect, it } from "vitest";
-import { autoGatheringStatusText } from "./autoGathering";
+import {
+  autoGatheringStatusText,
+  correctedAutoGatheringReadyAt,
+  parseAutoGatheringSessionView,
+} from "./autoGathering";
 
-describe("autoGatheringStatusText", () => {
+describe("자동 생활 작업 상태와 시각 보정", () => {
+  it("서버와 기기 시계가 달라도 서버에 남은 작업 시간을 유지한다", () => {
+    expect(correctedAutoGatheringReadyAt(1_120_000, 1_000_000, 9_000_000)).toBe(
+      9_120_000,
+    );
+    expect(correctedAutoGatheringReadyAt(9_120_000, 9_000_000, 1_000_000)).toBe(
+      1_120_000,
+    );
+  });
+
+  it("서버 기준 자동 작업 세션을 기기 시각 기준으로 파싱한다", () => {
+    expect(
+      parseAutoGatheringSessionView(
+        {
+          sessionId: "auto-1",
+          planId: "standard",
+          sourceId: "pine",
+          sourceName: "소나무",
+          materialId: "v2_pine_log",
+          startedAt: 980_000,
+          readyAt: 1_120_000,
+          attempts: 20,
+        },
+        { serverNow: 1_000_000, clientNow: 9_000_000 },
+      ),
+    ).toEqual({
+      sessionId: "auto-1",
+      planId: "standard",
+      sourceId: "pine",
+      sourceName: "소나무",
+      materialId: "v2_pine_log",
+      startedAt: 8_980_000,
+      readyAt: 9_120_000,
+      attempts: 20,
+    });
+  });
+
   it("shows rest when no automatic gathering is active", () => {
     expect(autoGatheringStatusText(null, 1_000)).toBe("휴식 중");
   });

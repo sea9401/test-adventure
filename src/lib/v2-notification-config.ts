@@ -27,16 +27,9 @@ export const V2_NOTIFICATION_TYPES = [
   "coop_defeated",
   "feedback_replied",
   "farm_ready",
-  "lottery_won",
+  "codex_research_trophy",
 ] as const;
 export type V2NotificationType = (typeof V2_NOTIFICATION_TYPES)[number];
-
-export type LotteryWonNotificationPayload = {
-  roundId: number;
-  ranks: number[];
-  ticketNumbers: number[];
-  prizeAmount: number;
-};
 
 // type 별 payload — 거점 이름은 클라에서 OUTPOST_BY_ID 해석, 라벨은 시점 스냅샷.
 export type V2NotificationPayload =
@@ -92,8 +85,13 @@ export type V2NotificationPayload =
   | {
       readyCount: number;
     }
-  // lottery_won — 한 회차에 같은 유저가 복수 등수에 당첨될 수 있어 한 알림으로 묶는다.
-  | LotteryWonNotificationPayload;
+  | {
+      seasonId: string;
+      themeName: string;
+      tier: import("@/adventure/data/v2/codexMasteryTrophies").CodexMasteryTrophyTier;
+      finalRank: number;
+      score: number;
+    };
 
 // 클라/서버가 주고받는 한 항목.
 export type V2NotificationEntry = {

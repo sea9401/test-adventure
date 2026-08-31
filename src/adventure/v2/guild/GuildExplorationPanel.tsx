@@ -18,7 +18,9 @@ import {
   GUILD_EXPLORATION_EXPEDITIONS,
   GUILD_EXPLORATION_EXPEDITION_IDS,
   GUILD_EXPLORATION_MAP_FRAGMENT_TARGET,
+  type GuildExplorationActiveExpedition,
   type GuildExplorationContentState,
+  type GuildExplorationEventChoice,
   type GuildExplorationEventChoiceId,
   type GuildExplorationEventDef,
   type GuildExplorationExpeditionDef,
@@ -30,6 +32,63 @@ import {
   guildExplorationMissionUnlockLevel,
   nextGuildExplorationUnlock,
 } from "./guildExplorationUnlocks";
+
+export function guildExplorationEventRewardText(
+  choice: Pick<GuildExplorationEventChoice, "rewardGold" | "rewardFame">,
+): string {
+  return [
+    choice.rewardGold
+      ? `길드 금고 +${choice.rewardGold.toLocaleString("ko-KR")}G`
+      : null,
+    choice.rewardFame
+      ? `길드 명성 +${choice.rewardFame.toLocaleString("ko-KR")}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+const GUILD_EXPLORATION_KST_FORMAT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Seoul",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+function formatGuildExplorationDateTimeKst(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "확인 중";
+  const parts = Object.fromEntries(
+    GUILD_EXPLORATION_KST_FORMAT.formatToParts(date).map((part) => [
+      part.type,
+      part.value,
+    ]),
+  );
+  return `${parts.month}.${parts.day} ${parts.hour}:${parts.minute} KST`;
+}
+
+function formatGuildExplorationDuration(durationMinutes: number): string {
+  const minutes = Math.max(0, Math.floor(Number(durationMinutes) || 0));
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours <= 0) return `${remainingMinutes}분`;
+  return remainingMinutes > 0
+    ? `${hours}시간 ${remainingMinutes}분`
+    : `${hours}시간`;
+}
+
+export function guildExplorationExpeditionScheduleText(
+  active: GuildExplorationActiveExpedition,
+  durationMinutes: number,
+): string {
+  return [
+    `파견 ${formatGuildExplorationDateTimeKst(active.startedAt)}`,
+    `완료 ${formatGuildExplorationDateTimeKst(active.endsAt)}`,
+    `소요 ${formatGuildExplorationDuration(durationMinutes)}`,
+  ].join(" · ");
+}
 
 type ExplorationMissionView = {
   id: GuildExplorationWeeklyMissionId;
@@ -351,8 +410,11 @@ export function GuildExplorationPanel({
               <div className="font-semibold text-cyan-900 dark:text-cyan-100">
                 {activeExpeditionDef.name}
               </div>
-              <div className="mt-1 text-xs text-cyan-700 dark:text-cyan-200">
-                완료 {formatDateTime(activeExpedition.endsAt)}
+              <div className="mt-1 text-xs leading-relaxed text-cyan-700 dark:text-cyan-200">
+                {guildExplorationExpeditionScheduleText(
+                  activeExpedition,
+                  activeExpeditionDef.durationMinutes,
+                )}
               </div>
               <button
                 type="button"
@@ -476,7 +538,12 @@ export function GuildExplorationPanel({
                     onClick={() => void resolveEvent(choice.id)}
                     className="rounded-md border border-violet-700 bg-violet-700 px-3 py-1.5 text-left text-xs font-semibold text-white hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    <span className="block">{choice.label}</span>
+                    <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
+                      <span>{choice.label}</span>
+                      <span className="font-bold text-violet-100">
+                        {guildExplorationEventRewardText(choice)}
+                      </span>
+                    </span>
                     <span className="mt-0.5 block font-normal opacity-80">
                       {choice.desc}
                     </span>
@@ -487,7 +554,7 @@ export function GuildExplorationPanel({
           ) : (
             <div className="mt-3 flex items-center justify-between gap-2">
               <p className="min-w-0 text-xs text-zinc-500 dark:text-zinc-400">
-                원정과 주간 탐사 의뢰 보상으로 지도 조각을 모아 사건 카드를 엽니다.
+                {`원정과 주간 탐사 의뢰로 지도 조각을 모아 ${mapFragmentTarget.toLocaleString()}개를 사용하면 보상을 고르는 사건 카드가 열립니다.`}
               </p>
               <button
                 type="button"
@@ -640,15 +707,4 @@ export function GuildExplorationPanel({
       </div>
     </section>
   );
-}
-
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "확인 중";
-  return date.toLocaleString("ko-KR", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }

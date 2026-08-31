@@ -16,6 +16,7 @@ export default function FarmPage() {
     <AdventurerFarmPanel
       onBack={() => router.push("/town")}
       onOpenKitchen={() => router.push("/town/kitchen")}
+      onOpenLifeWorkshop={() => router.push("/town/life-workshop/craft")}
     />
   );
 }

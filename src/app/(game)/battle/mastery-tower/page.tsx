@@ -1,16 +1,22 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { useRefreshGameState } from "@/adventure/v2/GameStateRefreshContext";
 import { V2MasteryTowerView } from "@/adventure/v2/V2MasteryTowerView";
 
 export default function MasteryTowerPage() {
   const router = useRouter();
-  const { refreshGameState } = useGameState();
+  const refreshGameState = useRefreshGameState();
   return (
     <V2MasteryTowerView
       onBack={() => router.push("/battle")}
-      onEnterBattle={() => router.push("/battle/mastery-tower/battle")}
+      onEnterBattle={(startFloor) =>
+        router.push(
+          startFloor == null
+            ? "/battle/mastery-tower/battle"
+            : `/battle/mastery-tower/battle?startFloor=${startFloor}`,
+        )
+      }
       onRefreshGameState={refreshGameState}
     />
   );

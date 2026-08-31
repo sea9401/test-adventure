@@ -24,6 +24,8 @@ import {
   GUILD_WORKSHOP_MATERIALS,
   GUILD_WORKSHOP_MATERIAL_ID,
   GUILD_WORKSHOP_MATERIAL_IDS,
+  GUILD_WORKSHOP_MATERIAL_SUBSTITUTE,
+  GUILD_WORKSHOP_MATERIAL_SUBSTITUTE_GOLD,
   type GuildWorkshopMaterialId,
 } from "./guildWorkshopMaterials";
 import { SETTLEMENT_MATERIALS } from "./settlementMaterials";
@@ -134,24 +136,12 @@ export type GuildWorkshopRecipeId =
   | "crafted_oblivion_ring"
   | "crafted_painless_relic"
   | "storm_wreckage_greatsword"
-  | "storm_wreckage_armor"
-  | "storm_wreckage_gloves"
-  | "storm_wreckage_boots"
-  | "storm_wreckage_ring"
-  | "storm_wreckage_necklace"
   | "storm_gale_bow"
   | "storm_gale_dagger"
-  | "storm_gale_armor"
-  | "storm_gale_gloves"
-  | "storm_gale_boots"
-  | "storm_gale_ring"
-  | "storm_gale_necklace"
   | "storm_thunder_staff"
-  | "storm_thunder_armor"
-  | "storm_thunder_gloves"
-  | "storm_thunder_boots"
-  | "storm_thunder_ring"
-  | "storm_thunder_necklace";
+  | "storm_breaker_greatsword"
+  | "storm_venom_dagger"
+  | "storm_sanctuary_staff";
 
 export type GuildWorkshopRecipe = {
   id: GuildWorkshopRecipeId;
@@ -1198,46 +1188,6 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     28,
     "폭풍 원정 6T · 힘/활력 대검",
   ),
-  storm_wreckage_armor: stormExpeditionRecipe(
-    "storm_wreckage_armor",
-    "v2_storm_wreckage_armor",
-    "wreckage",
-    "guard",
-    24,
-    "폭풍 원정 6T · 힘/활력 갑옷",
-  ),
-  storm_wreckage_gloves: stormExpeditionRecipe(
-    "storm_wreckage_gloves",
-    "v2_storm_wreckage_gloves",
-    "wreckage",
-    "guard",
-    18,
-    "폭풍 원정 6T · 힘/활력 장갑",
-  ),
-  storm_wreckage_boots: stormExpeditionRecipe(
-    "storm_wreckage_boots",
-    "v2_storm_wreckage_boots",
-    "wreckage",
-    "guard",
-    18,
-    "폭풍 원정 6T · 힘/활력 장화",
-  ),
-  storm_wreckage_ring: stormExpeditionRecipe(
-    "storm_wreckage_ring",
-    "v2_storm_wreckage_ring",
-    "wreckage",
-    "guard",
-    18,
-    "폭풍 원정 6T · 힘/활력 반지",
-  ),
-  storm_wreckage_necklace: stormExpeditionRecipe(
-    "storm_wreckage_necklace",
-    "v2_storm_wreckage_necklace",
-    "wreckage",
-    "guard",
-    18,
-    "폭풍 원정 6T · 힘/활력 목걸이",
-  ),
   storm_gale_bow: stormExpeditionRecipe(
     "storm_gale_bow",
     "v2_storm_gale_bow",
@@ -1254,46 +1204,6 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     28,
     "폭풍 원정 6T · 민첩/행운 단검",
   ),
-  storm_gale_armor: stormExpeditionRecipe(
-    "storm_gale_armor",
-    "v2_storm_gale_armor",
-    "gale",
-    "pursuit",
-    24,
-    "폭풍 원정 6T · 민첩/행운 갑옷",
-  ),
-  storm_gale_gloves: stormExpeditionRecipe(
-    "storm_gale_gloves",
-    "v2_storm_gale_gloves",
-    "gale",
-    "pursuit",
-    18,
-    "폭풍 원정 6T · 민첩/행운 장갑",
-  ),
-  storm_gale_boots: stormExpeditionRecipe(
-    "storm_gale_boots",
-    "v2_storm_gale_boots",
-    "gale",
-    "pursuit",
-    18,
-    "폭풍 원정 6T · 민첩/행운 장화",
-  ),
-  storm_gale_ring: stormExpeditionRecipe(
-    "storm_gale_ring",
-    "v2_storm_gale_ring",
-    "gale",
-    "combo",
-    18,
-    "폭풍 원정 6T · 민첩/행운 반지",
-  ),
-  storm_gale_necklace: stormExpeditionRecipe(
-    "storm_gale_necklace",
-    "v2_storm_gale_necklace",
-    "gale",
-    "pursuit",
-    18,
-    "폭풍 원정 6T · 민첩/행운 목걸이",
-  ),
   storm_thunder_staff: stormExpeditionRecipe(
     "storm_thunder_staff",
     "v2_storm_thunder_staff",
@@ -1302,45 +1212,29 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     28,
     "폭풍 원정 6T · 지능/정신 지팡이",
   ),
-  storm_thunder_armor: stormExpeditionRecipe(
-    "storm_thunder_armor",
-    "v2_storm_thunder_armor",
-    "thunder",
-    "focus",
-    24,
-    "폭풍 원정 6T · 지능/정신 갑옷",
+  storm_breaker_greatsword: stormExpeditionRecipe(
+    "storm_breaker_greatsword",
+    "v2_storm_breaker_greatsword",
+    "wreckage",
+    "fury",
+    28,
+    "폭풍 원정 6T · 붕괴의 선봉 대검",
   ),
-  storm_thunder_gloves: stormExpeditionRecipe(
-    "storm_thunder_gloves",
-    "v2_storm_thunder_gloves",
-    "thunder",
-    "focus",
-    18,
-    "폭풍 원정 6T · 지능/정신 장갑",
+  storm_venom_dagger: stormExpeditionRecipe(
+    "storm_venom_dagger",
+    "v2_storm_venom_dagger",
+    "gale",
+    "corrosion",
+    28,
+    "폭풍 원정 6T · 만독침식 단검",
   ),
-  storm_thunder_boots: stormExpeditionRecipe(
-    "storm_thunder_boots",
-    "v2_storm_thunder_boots",
+  storm_sanctuary_staff: stormExpeditionRecipe(
+    "storm_sanctuary_staff",
+    "v2_storm_sanctuary_staff",
     "thunder",
     "focus",
-    18,
-    "폭풍 원정 6T · 지능/정신 장화",
-  ),
-  storm_thunder_ring: stormExpeditionRecipe(
-    "storm_thunder_ring",
-    "v2_storm_thunder_ring",
-    "thunder",
-    "focus",
-    18,
-    "폭풍 원정 6T · 지능/정신 반지",
-  ),
-  storm_thunder_necklace: stormExpeditionRecipe(
-    "storm_thunder_necklace",
-    "v2_storm_thunder_necklace",
-    "thunder",
-    "focus",
-    18,
-    "폭풍 원정 6T · 지능/정신 목걸이",
+    28,
+    "폭풍 원정 6T · 성역공명 지팡이",
   ),
 };
 
@@ -1355,6 +1249,13 @@ export function isGuildWorkshopRecipeId(
     typeof v === "string" &&
     Object.prototype.hasOwnProperty.call(GUILD_WORKSHOP_RECIPES, v)
   );
+}
+
+export function parseGuildWorkshopFavoriteRecipeIds(
+  raw: unknown,
+): GuildWorkshopRecipeId[] {
+  if (!Array.isArray(raw)) return [];
+  return Array.from(new Set(raw.filter(isGuildWorkshopRecipeId)));
 }
 
 export function parseGuildWorkshopStats(raw: unknown): GuildWorkshopStats {
@@ -1828,6 +1729,106 @@ export function hasGuildWorkshopRecipeMaterials(
   });
 }
 
+export type GuildWorkshopMaterialSubstitution = {
+  requiredMaterialId: GuildWorkshopMaterialId;
+  requiredMaterialName: string;
+  substituteMaterialId: GuildWorkshopMaterialId;
+  substituteMaterialName: string;
+  count: number;
+  goldCost: number;
+};
+
+export type GuildWorkshopMaterialSpendPlan = {
+  ok: boolean;
+  spend: Record<string, number>;
+  substitutions: GuildWorkshopMaterialSubstitution[];
+  extraGoldCost: number;
+};
+
+/**
+ * 레시피의 각 재료를 먼저 제 용도에 예약한 뒤, 부족한 제작소 전용 재료만
+ * 인벤토리에 실제로 있는 바로 윗단계 재료로 1:1 대체한다.
+ */
+export function guildWorkshopRecipeMaterialSpendPlan(
+  materials: Record<string, number>,
+  recipe: GuildWorkshopRecipe,
+  mode: GuildWorkshopCraftMode = "normal",
+): GuildWorkshopMaterialSpendPlan {
+  const materialCost = guildWorkshopRecipeMaterialCost(recipe, mode);
+  const spend: Record<string, number> = {};
+  const remaining: Record<string, number> = {};
+  const shortages: Array<{ id: string; count: number }> = [];
+
+  for (const [id, amountRaw] of Object.entries(materialCost)) {
+    const required = Math.max(0, Math.floor(amountRaw ?? 0));
+    const owned = Math.max(0, Math.floor(materials[id] ?? 0));
+    const exact = Math.min(required, owned);
+    if (exact > 0) spend[id] = exact;
+    remaining[id] = Math.max(0, owned - exact);
+    if (exact < required) shortages.push({ id, count: required - exact });
+  }
+  for (const [id, amountRaw] of Object.entries(materials)) {
+    if (id in remaining) continue;
+    remaining[id] = Math.max(0, Math.floor(amountRaw ?? 0));
+  }
+
+  const substitutions: GuildWorkshopMaterialSubstitution[] = [];
+  for (const shortage of shortages) {
+    if (!GUILD_WORKSHOP_MATERIAL_IDS.includes(shortage.id as GuildWorkshopMaterialId)) {
+      return { ok: false, spend: {}, substitutions: [], extraGoldCost: 0 };
+    }
+    const requiredMaterialId = shortage.id as GuildWorkshopMaterialId;
+    const substituteMaterialId =
+      GUILD_WORKSHOP_MATERIAL_SUBSTITUTE[requiredMaterialId];
+    if (!substituteMaterialId) {
+      return { ok: false, spend: {}, substitutions: [], extraGoldCost: 0 };
+    }
+    const available = Math.max(0, remaining[substituteMaterialId] ?? 0);
+    if (available < shortage.count) {
+      return { ok: false, spend: {}, substitutions: [], extraGoldCost: 0 };
+    }
+    remaining[substituteMaterialId] = available - shortage.count;
+    spend[substituteMaterialId] =
+      (spend[substituteMaterialId] ?? 0) + shortage.count;
+    const unitGoldCost = Math.max(
+      0,
+      GUILD_WORKSHOP_MATERIAL_SUBSTITUTE_GOLD[requiredMaterialId] ?? 0,
+    );
+    substitutions.push({
+      requiredMaterialId,
+      requiredMaterialName: guildWorkshopMaterialName(requiredMaterialId),
+      substituteMaterialId,
+      substituteMaterialName: guildWorkshopMaterialName(substituteMaterialId),
+      count: shortage.count,
+      goldCost: unitGoldCost * shortage.count,
+    });
+  }
+
+  return {
+    ok: true,
+    spend,
+    substitutions,
+    extraGoldCost: substitutions.reduce(
+      (sum, substitution) => sum + substitution.goldCost,
+      0,
+    ),
+  };
+}
+
+export function spendGuildWorkshopMaterialsFromPlan(
+  materials: Record<string, number>,
+  plan: GuildWorkshopMaterialSpendPlan,
+): Record<string, number> {
+  if (!plan.ok) return { ...materials };
+  const next: Record<string, number> = { ...materials };
+  for (const [id, amount] of Object.entries(plan.spend)) {
+    const left = Math.max(0, Math.floor((next[id] ?? 0) - amount));
+    if (left > 0) next[id] = left;
+    else delete next[id];
+  }
+  return next;
+}
+
 export function hasGuildWorkshopRecipeResourceMaterials(
   materials: Record<string, number>,
   recipe: GuildWorkshopRecipe,
@@ -2071,12 +2072,21 @@ export function guildWorkshopRecipeView(
     !recipe.baseEquipmentId || baseEquipmentEligibleCount >= 1;
   const resourceOk = hasGuildWorkshopRecipeResourceMaterials(materials, recipe);
   const materialOk = hasGuildWorkshopRecipeMaterials(materials, recipe);
+  const materialSpendPlan = guildWorkshopRecipeMaterialSpendPlan(
+    materials,
+    recipe,
+  );
   const masterworkResourceOk = hasGuildWorkshopRecipeResourceMaterials(
     materials,
     recipe,
     "masterwork",
   );
   const masterworkMaterialOk = hasGuildWorkshopRecipeMaterials(
+    materials,
+    recipe,
+    "masterwork",
+  );
+  const masterworkMaterialSpendPlan = guildWorkshopRecipeMaterialSpendPlan(
     materials,
     recipe,
     "masterwork",
@@ -2103,8 +2113,14 @@ export function guildWorkshopRecipeView(
   const spendableGold = Math.max(0, Math.floor(Number(spendableGoldRaw) || 0));
   const goldCost = guildWorkshopRecipeGoldCost(recipe);
   const goldOk = spendableGold >= goldCost;
+  const substitutionGoldCost = materialSpendPlan.extraGoldCost;
+  const substitutionGoldOk = spendableGold >= goldCost + substitutionGoldCost;
   const masterworkGoldCost = guildWorkshopRecipeGoldCost(recipe, "masterwork");
   const masterworkGoldOk = spendableGold >= masterworkGoldCost;
+  const masterworkSubstitutionGoldCost =
+    masterworkMaterialSpendPlan.extraGoldCost;
+  const masterworkSubstitutionGoldOk =
+    spendableGold >= masterworkGoldCost + masterworkSubstitutionGoldCost;
   return {
     id: recipe.id,
     equipmentId: recipe.equipmentId,
@@ -2138,6 +2154,22 @@ export function guildWorkshopRecipeView(
     resourceOk,
     canCraft:
       levelOk && smithyLevelOk && materialOk && baseEquipmentOk && goldOk,
+    materialSubstitution:
+      !materialOk &&
+      materialSpendPlan.ok &&
+      materialSpendPlan.substitutions.length > 0
+        ? {
+            replacements: materialSpendPlan.substitutions,
+            extraGoldCost: substitutionGoldCost,
+            totalGoldCost: goldCost + substitutionGoldCost,
+            goldOk: substitutionGoldOk,
+            canCraft:
+              levelOk &&
+              smithyLevelOk &&
+              baseEquipmentOk &&
+              substitutionGoldOk,
+          }
+        : null,
     masterwork: {
       requiredArtisanLevel: BLACKSMITH_MASTERWORK_LEVEL,
       levelOk: masterworkLevelOk,
@@ -2158,6 +2190,24 @@ export function guildWorkshopRecipeView(
       goldCost: masterworkGoldCost,
       goldOk: masterworkGoldOk,
       plus2Unlocked: artisanProfessionLevel >= BLACKSMITH_PLUS2_QUALITY_LEVEL,
+      materialSubstitution:
+        !masterworkMaterialOk &&
+        masterworkMaterialSpendPlan.ok &&
+        masterworkMaterialSpendPlan.substitutions.length > 0
+          ? {
+              replacements: masterworkMaterialSpendPlan.substitutions,
+              extraGoldCost: masterworkSubstitutionGoldCost,
+              totalGoldCost:
+                masterworkGoldCost + masterworkSubstitutionGoldCost,
+              goldOk: masterworkSubstitutionGoldOk,
+              canCraft:
+                levelOk &&
+                masterworkLevelOk &&
+                smithyLevelOk &&
+                baseEquipmentOk &&
+                masterworkSubstitutionGoldOk,
+            }
+          : null,
     },
   };
 }

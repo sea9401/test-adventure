@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { V2NotificationsView } from "@/adventure/v2/V2NotificationsView";
 import { coopBossSessionHref } from "@/adventure/v2/coop/coopRoutes";
+import { feedbackReplyHref } from "@/lib/feedbackNavigation";
 
 // /plaza/inbox — 기존 북마크/광장 진입을 유지하되 통합 알림 센터의 우편 탭으로 착지.
 export default function InboxPage() {
@@ -13,7 +14,7 @@ export default function InboxPage() {
       onBack={() => router.push("/plaza")}
       onOpenOutpost={() => router.push("/guild")}
       onOpenFeedback={(feedbackId) =>
-        router.push(`/feedback#feedback-${feedbackId}`)
+        router.push(feedbackReplyHref(feedbackId))
       }
       onOpenFarm={() => router.push("/town/farm")}
       onOpenCoopSession={(sessionId) =>

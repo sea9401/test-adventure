@@ -8,6 +8,12 @@ const { store, grantedTitles } = vi.hoisted(() => ({
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-life-workshop"),
 }));
+vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/adventure/data/v2/coreLoopConfig")
+  >()),
+  V2_EQUIPMENT_LIBERATION: true,
+}));
 vi.mock("@/db", () => ({
   db: {
     transaction: vi.fn(async (callback: (tx: unknown) => unknown) =>
@@ -38,12 +44,18 @@ vi.mock("@/lib/server/grantTitle", () => ({
 import { GET, POST } from "@/app/api/v2/life-workshop/route";
 import {
   LIFE_PROCESSED_MATERIAL_ID,
+  LIFE_RESPECIALIZATION_BASE_COST,
   LIFE_WORKSHOP_SAVE_KEY,
 } from "@/adventure/v2/lifeWorkshop";
 import { WOODCUTTING_MATERIAL_ID } from "@/adventure/data/v2/woodcuttingSpots";
 import { MINING_MATERIAL_ID } from "@/adventure/data/v2/miningSpots";
 import { WOODCUTTING_LOG_KEY } from "@/adventure/v2/woodcuttingSession";
 import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
+import {
+  FARM_CROP_REQUIRED_SKILL_ID,
+  FARM_SAVE_KEY,
+  emptyFarmState,
+} from "@/adventure/v2/farm";
 
 function request(body: unknown) {
   return new Request("http://test.local/api/v2/life-workshop", {
@@ -119,8 +131,29 @@ describe("life workshop route", () => {
   });
 
   it("첫 전문화는 무료이고 변경부터 골드를 사용한다", async () => {
-    store.set("character.v2", { gold: 30_000, bankedGold: 0, materials: {} });
+    store.set("character.v2", {
+      gold: 10_005_000,
+      bankedGold: 0,
+      materials: {},
+    });
     store.set(WOODCUTTING_LOG_KEY, { cuts: 1_000, xp: 1_000_000 });
+    store.set("equipment.v2", {
+      owned: [
+        {
+          iid: "discount-ring",
+          id: "v2_storm_sanctuary_ring",
+          liberation: {
+            rank: 1,
+            lineCount: 1,
+            revision: 1,
+            options: [
+              { id: "personal_craft_gold_discount_pct", level: 20 },
+            ],
+          },
+        },
+      ],
+      equipped: { ring: "discount-ring" },
+    });
 
     const first = await POST(request({
       action: "specialize",
@@ -128,7 +161,7 @@ describe("life workshop route", () => {
       specializationId: "logger",
     }));
     expect(first.status).toBe(200);
-    expect((await first.json()).gold).toBe(30_000);
+    expect((await first.json()).gold).toBe(10_005_000);
 
     const changed = await POST(request({
       action: "specialize",
@@ -138,9 +171,48 @@ describe("life workshop route", () => {
     const changedJson = await changed.json();
     expect(changed.status).toBe(200);
     expect(changedJson.gold).toBe(5_000);
+    expect(changedJson.liberationDiscountPct).toBe(10);
+    expect(changedJson.personalCraftGoldCost).toEqual({
+      baseGoldCost: 0,
+      goldCost: 0,
+      liberationDiscountPct: 10,
+    });
     expect(changedJson.state).toMatchObject({
       specializations: { woodcutting: "woodworker" },
       respecializations: { woodcutting: 1 },
+    });
+  });
+
+  it("전문화 변경 비용이 1천만 골드보다 부족하면 상태와 골드를 보존한다", async () => {
+    store.set("character.v2", {
+      gold: LIFE_RESPECIALIZATION_BASE_COST - 1,
+      bankedGold: 0,
+      materials: {},
+    });
+    store.set(LIFE_WORKSHOP_SAVE_KEY, {
+      specializations: { woodcutting: "logger" },
+    });
+    store.set(WOODCUTTING_LOG_KEY, { cuts: 1_000, xp: 1_000_000 });
+
+    const response = await POST(
+      request({
+        action: "specialize",
+        activity: "woodcutting",
+        specializationId: "woodworker",
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      error: "not_enough_gold",
+      cost: LIFE_RESPECIALIZATION_BASE_COST,
+    });
+    expect(store.get("character.v2")).toMatchObject({
+      gold: LIFE_RESPECIALIZATION_BASE_COST - 1,
+    });
+    expect(store.get(LIFE_WORKSHOP_SAVE_KEY)).toEqual({
+      specializations: { woodcutting: "logger" },
     });
   });
 
@@ -165,6 +237,177 @@ describe("life workshop route", () => {
       gold: 123,
       materials: { [LIFE_PROCESSED_MATERIAL_ID.arcaneAlloy]: 4 },
       state: { tools: { woodcutting: 0, mining: 2 }, processing: { batches: 7 } },
+    });
+    expect(json.craftingRecipes.every((recipe: { kind: string }) => recipe.kind === "aid")).toBe(true);
+    expect(json.craftingRecipes.some((recipe: { id: string }) => recipe.id === "fishing_trophy_wall")).toBe(false);
+  });
+
+  it("GET은 모든 농장 작물 수량과 제작 숙련도로 배합 사료 제작 가능량을 계산한다", async () => {
+    store.set(FARM_SAVE_KEY, {
+      ...emptyFarmState(1_000),
+      inventory: {
+        wheat: 4,
+        tomato: 5,
+        golden_wheat: 6,
+        egg: 99,
+        compound_feed: 7,
+      },
+    });
+    store.set("skills.v2", { learned: [FARM_CROP_REQUIRED_SKILL_ID] });
+    store.set(LIFE_WORKSHOP_SAVE_KEY, {
+      crafting: { craftCounts: { compound_feed: 1 } },
+    });
+
+    const response = await GET();
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.ranchCraftingRecipe).toMatchObject({
+      id: "compound_feed",
+      outputAmount: 5,
+      unlocked: true,
+      craftCount: 1,
+      masteryStage: 1,
+      batchLimit: 5,
+      maxCraftable: 3,
+      ownedFeed: 7,
+      ingredientAmount: 5,
+      availableCropCount: 15,
+    });
+  });
+
+  it("GET은 실패 음식 보유량으로 재활용 사료 제작 가능량을 계산한다", async () => {
+    store.set(FARM_SAVE_KEY, {
+      ...emptyFarmState(1_000),
+      inventory: { compound_feed: 7 },
+    });
+    store.set("inventory.v2", { failedCookingDishes: 74 });
+    store.set(LIFE_WORKSHOP_SAVE_KEY, {
+      crafting: { craftCounts: { failed_dish_feed: 1 } },
+    });
+
+    const response = await GET();
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.failedDishFeedRecipe).toMatchObject({
+      id: "failed_dish_feed",
+      outputAmount: 5,
+      failedDishCost: 25,
+      craftCount: 1,
+      masteryStage: 1,
+      batchLimit: 5,
+      maxCraftable: 2,
+      ownedFeed: 7,
+    });
+  });
+
+  it("실패 음식 3개를 유기질 거름 1개로 재활용한다", async () => {
+    store.set("inventory.v2", {
+      failedCookingDishes: 4,
+      cookingFoods: { "food:rustic_bread:normal:regular:0": 2 },
+    });
+    store.set("equipment.v2", {
+      owned: [
+        {
+          iid: "discount-ring",
+          id: "v2_storm_sanctuary_ring",
+          liberation: {
+            rank: 1,
+            lineCount: 1,
+            revision: 1,
+            options: [
+              { id: "personal_craft_gold_discount_pct", level: 20 },
+            ],
+          },
+        },
+      ],
+      equipped: { ring: "discount-ring" },
+    });
+
+    const response = await POST(request({
+      action: "craft",
+      recipeId: "failed_dish_compost",
+      quantity: 1,
+    }));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.result).toMatchObject({
+      action: "craft",
+      recipeId: "failed_dish_compost",
+      itemId: "organic_fertilizer",
+      produced: 1,
+      baseGoldCost: 0,
+      goldCost: 0,
+      liberationDiscountPct: 10,
+    });
+    expect(store.get("inventory.v2")).toEqual({
+      failedCookingDishes: 1,
+      cookingFoods: { "food:rustic_bread:normal:regular:0": 2 },
+    });
+    expect(store.get(LIFE_WORKSHOP_SAVE_KEY)).toMatchObject({
+      crafting: {
+        balances: { organic_fertilizer: 1 },
+        craftCounts: { failed_dish_compost: 1 },
+        discoveredRecipeIds: ["failed_dish_compost"],
+        totalCrafts: 1,
+      },
+    });
+  });
+
+  it("실패 음식이 부족하면 퇴비 제작 상태를 변경하지 않는다", async () => {
+    const inventory = { failedCookingDishes: 2, cookingFoods: {} };
+    store.set("inventory.v2", inventory);
+
+    const response = await POST(request({
+      action: "craft",
+      recipeId: "failed_dish_compost",
+      quantity: 1,
+    }));
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      error: "not_enough_failed_dishes",
+    });
+    expect(store.get("inventory.v2")).toEqual(inventory);
+    expect(store.has(LIFE_WORKSHOP_SAVE_KEY)).toBe(false);
+  });
+
+  it("GET은 실패 음식 보유량으로 퇴비 최대 제작 가능량을 계산한다", async () => {
+    store.set("inventory.v2", { failedCookingDishes: 8 });
+    store.set(LIFE_WORKSHOP_SAVE_KEY, {
+      crafting: { craftCounts: { failed_dish_compost: 1 } },
+    });
+
+    const response = await GET();
+    const json = await response.json();
+    const recipe = json.craftingRecipes.find(
+      (entry: { id: string }) => entry.id === "failed_dish_compost",
+    );
+
+    expect(response.status).toBe(200);
+    expect(json.failedCookingDishes).toBe(8);
+    expect(recipe).toMatchObject({
+      failedDishCost: 3,
+      craftCount: 1,
+      batchLimit: 5,
+      maxCraftable: 2,
+    });
+  });
+
+  it("비공개 숙소 가구는 직접 제작 요청도 거절한다", async () => {
+    const response = await POST(request({
+      action: "craft",
+      recipeId: "pine_work_shelf",
+      quantity: 1,
+    }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      error: "bad_craft_recipe",
     });
   });
 });

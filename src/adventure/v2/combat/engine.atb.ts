@@ -1,14 +1,18 @@
 import type { Monster } from "@/adventure/data/monsters";
 import type { PotionId } from "@/adventure/data/potions";
 import {
+  ATB_TIMELINE_TICK_CAP,
   actionInterval,
   depthSpdCorrection,
-  effectiveMonsterSpd,
+  monsterActionSpd,
   nextActor1v1,
 } from "./combatTimeline";
 import {
+  BOSS_MAX_HP_DAMAGE_MULT,
   appendLog,
+  applyBerserkerHostileDamage,
   applyEnemyV2SkillCast,
+  applyEvasionActionRecoveryPvE,
   applyPhaseTriggerIfAny,
   applyPlayerV2SkillCast,
   finishEnemyAttack,
@@ -22,7 +26,11 @@ import {
   initialBattleState,
   rollPlayerAttackCountWithBleed,
 } from "./engine";
-import { resolveEnemyPhase } from "./engine.enemyPhase";
+import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
+import {
+  releaseSwordShadowAfterEnemyAction,
+  resolveEnemyPhase,
+} from "./engine.enemyPhase";
 import { resolvePlayerPhase } from "./engine.playerPhase";
 import {
   decrementTimedBuffs,
@@ -33,13 +41,40 @@ import {
   v2DotLogCause,
 } from "./combatShared";
 import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
+import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
+import { BLEED_MAX_STACKS } from "@/adventure/data/v2/v2CombatConstants";
+import {
+  magicBarrierCombatLogEntries,
+  resolveMagicBarrierDamage,
+} from "./magicBarrier";
+import { activeTier6ResourceSnapshot } from "./tier6UniqueEffects";
+import { consumeDuelistCritHaste } from "./duelistCombat";
+import { enterShockAction } from "./shockAction";
+import { mergeTripleWardResourceSnapshot } from "./tripleWard";
+import { mergeLawInscriptionSnapshot } from "./lawInscription";
+import { mergeTier7ResourceSnapshot } from "./engineState";
+import { mergeFrostChillSnapshot } from "./frostChill";
+import { weightSpeedMultiplier } from "./mutationCombat";
+import { recordChargeHpLoss } from "./ruinBladeCombat";
 
-// PvE 장기전 상한. 기준 속도(actionInterval≈100)에서 플레이어 행동 약 30회분으로,
-// 최대 MP·회복·DoT 같은 지속형 빌드가 작동할 여지를 준다. 일찍 끝나는 전투에는 영향 없음.
-export const ATB_TICK_CAP = 50 * 60;
+export const ATB_TICK_CAP = ATB_TIMELINE_TICK_CAP;
 export const ATB_ACTION_GUARD = 1000;
 
 function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {
+  const playerResources = mergeLawInscriptionSnapshot(
+    mergeTripleWardResourceSnapshot(
+      mergeTier7ResourceSnapshot(
+        activeTier6ResourceSnapshot(state.stacks.tier6Uniques),
+        state.stacks.tier7,
+      ),
+      state.stacks.tripleWard,
+    ),
+    state.stacks.lawInscriptions,
+  );
+  const enemyResources = mergeFrostChillSnapshot(
+    undefined,
+    state.stacks.enemyFrostChillStacks,
+  );
   return {
     kind: "hp_bar",
     text: "",
@@ -53,6 +88,18 @@ function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {
     playerMaxMp: state.playerMaxMp,
     enemyMp: state.enemyMp,
     enemyMaxMp: state.enemyMaxMp,
+    playerMagicBarrier: state.playerMagicBarrier,
+    playerMagicBarrierMax: state.playerMagicBarrierMax,
+    ...(playerResources
+      ? {
+          playerSignatureResources: playerResources,
+        }
+      : {}),
+    ...(enemyResources
+      ? {
+          enemySignatureResources: enemyResources,
+        }
+      : {}),
   };
 }
 
@@ -64,17 +111,21 @@ function rollEnemyAttackCount(enemy: Monster): number {
   return 1 + guaranteed + (Math.random() * 100 < remainder ? 1 : 0);
 }
 
-function effectivePlayerSpd(player: PlayerCombat, state: BattleState): number {
-  return state.buffs.playerSpdTurnsLeft > 0
+export function effectivePlayerSpd(
+  player: PlayerCombat,
+  state: BattleState,
+): number {
+  const buffed = state.buffs.playerSpdTurnsLeft > 0
     ? player.spd * state.buffs.playerSpdMult
     : player.spd;
+  return buffed * weightSpeedMultiplier(state.stacks.mutationWeight);
 }
 
 function effectiveEnemyTimelineSpd(
   state: BattleState,
   depthCorr: number,
 ): number {
-  const base = effectiveMonsterSpd(state.enemy.spd, depthCorr);
+  const base = monsterActionSpd(state.enemy, depthCorr);
   return state.buffs.enemySpdTurnsLeft > 0
     ? base * state.buffs.enemySpdMult
     : base;
@@ -146,6 +197,10 @@ function tickEnemyTargetDebuffs(state: BattleState): BattleState {
     stacks: {
       ...s,
       enemyVulnTurns: Math.max(0, s.enemyVulnTurns - 1),
+      enemyMagicVulnTurns: Math.max(
+        0,
+        (s.enemyMagicVulnTurns ?? 0) - 1,
+      ),
       enemyEvasionDownTurns: Math.max(0, s.enemyEvasionDownTurns - 1),
       enemyAccuracyDownTurns: Math.max(0, s.enemyAccuracyDownTurns - 1),
       enemyHealReduceTurns: Math.max(0, s.enemyHealReduceTurns - 1),
@@ -156,19 +211,31 @@ function tickEnemyTargetDebuffs(state: BattleState): BattleState {
   };
 }
 
-// 플레이어 행동 시작 — 플레이어에게 걸린 DoT 가 먼저 틱한다. 로그는 플레이어 행동 묶음(tick)에 붙인다.
-function tickPlayerDotsOnAction(
+// 플레이어 행동 시작 — 플레이어에게 걸린 DoT 가 DEF/보호막을 무시하고 먼저 틱한다.
+// 로그는 플레이어 행동 묶음(tick)에 붙인다.
+export function tickPlayerDotsOnAction(
   state: BattleState,
+  player: PlayerCombat,
   playerName: string,
-  statusDamageReductionPct?: number,
 ): BattleState {
   const pTick = tickV2Dots(state.playerV2Dots, state.playerMaxHp);
-  const damage = statusDamageAfterReduction(
-    pTick.totalDmg,
-    statusDamageReductionPct,
-  );
-  if (damage <= 0) return { ...state, playerV2Dots: pTick.nextDots };
-  const dotLog = distributeV2DotTicks(pTick.ticks, damage).reduce(
+  const barrier = resolveMagicBarrierDamage({
+    rawDamage: pTick.totalDmg,
+    durability: state.playerMagicBarrier ?? 0,
+    absorbPct: player.magicBarrierAbsorbPct,
+    efficiencyPct: player.magicBarrierEfficiencyPct,
+    eligible: true,
+    mitigateBody: (bodyRawDamage) =>
+      statusDamageAfterReduction(
+        bodyRawDamage,
+        player.statusDamageReductionPct,
+      ),
+  });
+  const damage = barrier.hpBoundDamage;
+  if (damage <= 0 && barrier.absorbedDamage <= 0) {
+    return { ...state, playerV2Dots: pTick.nextDots };
+  }
+  let dotLog = distributeV2DotTicks(pTick.ticks, damage).reduce(
     (log, tick) =>
       appendLog(log, {
         kind: "info",
@@ -178,12 +245,64 @@ function tickPlayerDotsOnAction(
       }),
     state.log,
   );
-  const next: BattleState = {
+  for (const entry of magicBarrierCombatLogEntries(barrier)) {
+    dotLog = appendLog(dotLog, { ...entry, turn: "player" });
+  }
+  let next: BattleState = {
     ...state,
+    playerMagicBarrier: barrier.durabilityLeft,
     playerV2Dots: pTick.nextDots,
-    playerHp: Math.max(0, state.playerHp - damage),
     log: dotLog,
   };
+  const survival = applyBerserkerHostileDamage(
+    next,
+    player,
+    state.playerHp - damage,
+    "player",
+  );
+  next = survival.state;
+  if (survival.triggered && next.berserker) {
+    next = {
+      ...next,
+      berserker: finishBerserkerCurrentActionGuard(next.berserker),
+    };
+  }
+  const enduranceFires =
+    next.playerHp <= 0 &&
+    !!player.enduranceActive &&
+    !next.flags.enduranceTriggered;
+  if (enduranceFires) {
+    next = {
+      ...next,
+      playerHp: 1,
+      flags: { ...next.flags, enduranceTriggered: true },
+      log: appendLog(next.log, {
+        kind: "info",
+        text: `[불굴] 마지막 한 숨 — HP 1 로 버텼다!`,
+        turn: "player",
+      }),
+    };
+  }
+  if (next.stacks.tier7?.ruinCharge) {
+    next = {
+      ...next,
+      stacks: {
+        ...next.stacks,
+        tier7: {
+          ...next.stacks.tier7,
+          ruinCharge: {
+            ...recordChargeHpLoss(
+              next.stacks.tier7.ruinCharge,
+              Math.min(state.playerHp, damage),
+            ),
+            deathBypassTriggered:
+              next.stacks.tier7.ruinCharge.deathBypassTriggered ||
+              survival.triggered,
+          },
+        },
+      },
+    };
+  }
   if (next.playerHp > 0) return next;
   return {
     ...next,
@@ -199,9 +318,32 @@ function tickPlayerDotsOnAction(
 
 // 적 행동 시작 — 적에게 걸린 DoT 가 먼저 틱한다. 로그는 적 행동 묶음(tick)에 붙인다.
 function tickEnemyDotsOnAction(state: BattleState): BattleState {
-  const eTick = tickV2Dots(state.enemyV2Dots, state.enemy.hp);
-  if (eTick.totalDmg <= 0) return { ...state, enemyV2Dots: eTick.nextDots };
-  const dotLog = distributeV2DotTicks(eTick.ticks, eTick.totalDmg).reduce(
+  const bleedBeforeTick = state.enemyV2Dots.find(
+    (dot) => dot.tag === "bleed" && dot.turns > 0,
+  );
+  const eTick = tickV2Dots(
+    state.enemyV2Dots,
+    state.enemy.hp,
+    state.maxHpDamageMult ??
+      (state.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1),
+  );
+  const damageBeforeReduction =
+    eTick.totalDmg > 0 && state.stacks.enemyDotVulnTurns > 0
+      ? Math.floor(
+          eTick.totalDmg * (1 + state.stacks.enemyDotVulnPct / 100),
+        )
+      : eTick.totalDmg;
+  const damage = statusDamageAfterReduction(
+    damageBeforeReduction,
+    state.enemy.statusDamageReductionPct,
+  );
+  if (damage <= 0) return { ...state, enemyV2Dots: eTick.nextDots };
+  const actualEnemyDotDamage = Math.min(state.enemyHp, damage);
+  const actualBleedDamage =
+    distributeV2DotTicks(eTick.ticks, actualEnemyDotDamage).find(
+      (tick) => tick.tag === "bleed",
+    )?.damage ?? 0;
+  let dotLog = distributeV2DotTicks(eTick.ticks, damage).reduce(
     (log, tick) =>
       appendLog(log, {
         kind: "info",
@@ -211,10 +353,36 @@ function tickEnemyDotsOnAction(state: BattleState): BattleState {
       }),
     state.log,
   );
+  const bleedTickHealPct =
+    bleedBeforeTick && bleedBeforeTick.stacks >= BLEED_MAX_STACKS
+      ? state.v2Skills.equipped.reduce((sum, skillId) => {
+          const mechanic = V2_SKILLS[skillId]?.passive
+            ? V2_SKILLS[skillId]?.bleedHunt
+            : undefined;
+          return sum + Math.max(0, mechanic?.bleedTickHealMaxHpPct ?? 0);
+        }, 0)
+      : 0;
+  const bleedTickHeal =
+    actualBleedDamage > 0 && bleedTickHealPct > 0
+      ? Math.floor((state.playerMaxHp * bleedTickHealPct) / 100)
+      : 0;
+  const nextPlayerHp = Math.min(
+    state.playerMaxHp,
+    state.playerHp + bleedTickHeal,
+  );
+  const actualBleedTickHeal = nextPlayerHp - state.playerHp;
+  if (actualBleedTickHeal > 0) {
+    dotLog = appendLog(dotLog, {
+      kind: "info",
+      text: `[피의 양식] HP ${actualBleedTickHeal} 회복했다.`,
+      turn: "enemy",
+    });
+  }
   const next = applyPhaseTriggerIfAny({
     ...state,
+    playerHp: nextPlayerHp,
     enemyV2Dots: eTick.nextDots,
-    enemyHp: Math.max(0, state.enemyHp - eTick.totalDmg),
+    enemyHp: Math.max(0, state.enemyHp - damage),
     log: dotLog,
   });
   if (next.enemyHp > 0) return next;
@@ -237,6 +405,7 @@ function forceAtbLoss(
 ): BattleResolution {
   return {
     outcome: "lose",
+    endReason: "timeout",
     finalState: {
       ...state,
       log: appendLog(
@@ -276,6 +445,12 @@ export function resolveBattleAtb(
   );
   state = { ...state, usesAtb: true };
   if (ctx.isBoss) state = { ...state, isBoss: true };
+  if (ctx.maxHpDamageMult != null) {
+    state = {
+      ...state,
+      maxHpDamageMult: Math.max(0, ctx.maxHpDamageMult),
+    };
+  }
   const openingExtra: BattleLogEntry[] = ctx.openingNote
     ? [{ kind: "info", text: ctx.openingNote, turn: "player" }]
     : [];
@@ -323,14 +498,15 @@ export function resolveBattleAtb(
       const playerBundleStart = state.log.length;
       state = tickPlayerDotsOnAction(
         state,
+        atbPlayer,
         playerName,
-        atbPlayer.statusDamageReductionPct,
       );
       state = tagNewLogEntries(state, playerBundleStart, "player", nextTick);
       if (state.phase === "ended") {
         turns += 1;
         break;
       }
+      state = applyEvasionActionRecoveryPvE(state, atbPlayer, playerName);
       state = tickPlayerBundleEntry(state);
       // 번들 진입 로그가 t 없이 남으면 최종 hp_bar 만 t 를 가져 외톨이 박스가 생긴다.
       // 여기서 같은 nextTick 으로 채워 같은 윈도우에 묶음.
@@ -343,13 +519,13 @@ export function resolveBattleAtb(
         //   tickPlayerBundleEntry 가 self 측을 이미 했으므로(enemyV2Debuffs 는 적 번들 소유)
         //   헬퍼엔 현재 맵을 그대로 넘긴다 — 헬퍼는 tick 없이 cast+적용만 한다(이중 tick 방지).
         let castFired = false;
-        if (V2_ATB_SKILLS) {
+        if (V2_ATB_SKILLS || ctx.forceAtbSkills) {
           const prevLogLen = state.log.length;
           const cast = applyPlayerV2SkillCast(state, atbPlayer, {
             selfBuffs: state.v2SelfBuffs,
             selfDebuffs: state.v2SelfDebuffs,
             enemyDebuffs: state.enemyV2Debuffs,
-          });
+          }, playerName);
           state = cast.state;
           castFired = cast.castFired;
           castSelfHastePct = cast.selfHastePct;
@@ -359,7 +535,9 @@ export function resolveBattleAtb(
               actionInterval(effectiveEnemyTimelineSpd(state, depthCorr)) *
               (cast.enemyDelayPct / 100);
           }
-          if (state.enemyHp <= 0) {
+          if (state.phase === "ended") {
+            // 도발 직후 강제 기본 공격 또는 그 반사로 끝난 전투 상태를 보존한다.
+          } else if (state.enemyHp <= 0) {
             // 시전으로 적 처치 — 플레이어 관점 승리(ATB 평타 처치 로그와 동형).
             state = {
               ...state,
@@ -433,9 +611,14 @@ export function resolveBattleAtb(
         }
       }
       // 바람 — 이번 행동 후 내 다음 행동 틱을 가속(pct% 만큼 단축). 미시전이면 0 → 무변.
-      playerNextTick +=
+      const duelistHaste = consumeDuelistCritHaste(
         actionInterval(effectivePlayerSpd(atbPlayer, state)) *
-        (1 - castSelfHastePct / 100);
+          (1 - castSelfHastePct / 100),
+        atbPlayer.basicCritHastePct ?? 0,
+        state.duelistCritHastePending === true,
+      );
+      playerNextTick += duelistHaste.interval;
+      state = { ...state, duelistCritHastePending: duelistHaste.pending };
       turns += 1;
     } else {
       state = {
@@ -455,12 +638,51 @@ export function resolveBattleAtb(
       state = tickEnemyBundleEntry(state);
       // 적 번들 진입 로그도 동일 — t 미스탬프 외톨이 박스 방지(같은 nextTick 윈도우).
       state = stampTick(state, enemyBundleStart, nextTick);
-      if (state.phase !== "ended") {
+      const shockEntry = enterShockAction(state.stacks.enemyShockAction);
+      if (state.stacks.enemyShockAction !== shockEntry.next) {
+        state = {
+          ...state,
+          stacks: { ...state.stacks, enemyShockAction: shockEntry.next },
+        };
+      }
+      if (shockEntry.skip) {
+        state = {
+          ...state,
+          phase: "player",
+          turn: {
+            ...state.turn,
+            enemyAttacksLeft: 0,
+            enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
+          },
+          log: appendLog(state.log, {
+            kind: "info",
+            text: `[감전] ${state.enemy.name}이(가) 움직이지 못했다.`,
+            turn: "enemy",
+            t: nextTick,
+          }),
+        };
+        state = releaseSwordShadowAfterEnemyAction(state);
+        if (state.enemyHp <= 0) {
+          state = {
+            ...state,
+            enemyHp: 0,
+            phase: "ended",
+            outcome: "win",
+            log: appendLog(state.log, {
+              kind: "info",
+              text: `${state.enemy.name}을(를) 쓰러뜨렸다!`,
+              turn: "player",
+              t: nextTick,
+            }),
+          };
+        }
+      }
+      if (state.phase !== "ended" && !shockEntry.skip) {
         // 적 v2 스킬 시전(V2_ATB_SKILLS) — cast 발동이면 이 틱은 시전으로 소진, 평타 생략(player ATB
         //   cast 미러·더블어택 방지). v2Skills 미장착 몹은 헬퍼가 즉시 no-op → 기존 전투 byte-identical.
         //   버프/디버프 tick 은 위 tickEnemyBundleEntry 가 이미 했으므로 헬퍼는 tick 없이 cast+적용만.
         let enemyCastFired = false;
-        if (V2_ATB_SKILLS) {
+        if (V2_ATB_SKILLS || ctx.forceAtbSkills) {
           const prevLogLen = state.log.length;
           const cast = applyEnemyV2SkillCast(state, atbPlayer);
           state = cast.state;
@@ -492,6 +714,26 @@ export function resolveBattleAtb(
         }
       }
       if (state.phase !== "ended") state = tickEnemyTargetDebuffs(state);
+      const shadowReleaseHastePct =
+        state.stacks.tier7?.shadowReleaseHastePct ?? 0;
+      if (shadowReleaseHastePct > 0) {
+        playerNextTick = Math.max(
+          nextTick + 1,
+          playerNextTick -
+            actionInterval(effectivePlayerSpd(atbPlayer, state)) *
+              (shadowReleaseHastePct / 100),
+        );
+        state = {
+          ...state,
+          stacks: {
+            ...state.stacks,
+            tier7: {
+              ...state.stacks.tier7,
+              shadowReleaseHastePct: 0,
+            },
+          },
+        };
+      }
       enemyNextTick += actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));
     }
 

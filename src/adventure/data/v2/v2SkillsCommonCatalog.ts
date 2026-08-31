@@ -96,12 +96,13 @@ export type V2CommonSkillId =
   | "v2c_squire_might" // 근력 II (힘 +15%)
   | "v2c_boxer_fortitude" // 보법 (회피 +8%·권사)
   | "v2c_monk_spirit" // 강건 II (활력 +20%·수도승)
-  | "v2c_caster_acumen" // 총명 II (지능 +20%)
+  | "v2c_caster_acumen" // 마나 실드 (지능 +20%·마력 장벽 활성화)
   | "v2c_acolyte_mana" // 회복 (회복량 +20%·healPowerPct, 옛 마나에서 리스킨)
   | "v2c_warder_ward" // 결계술 (마법 방어력 + 초반 마법 피해 감소)
   | "v2c_assassin_fortune" // 행운 (행운 +10%)
   | "v2c_archer_agility" // 민첩 (민첩 +10%)
   | "v2c_venomist_corrosion" // 부식 (중독된 적 방어 감소)
+  | "v2c_venomist_virulence" // 맹독 I (중독 피해 증가)
   | "v2c_camper_ration" // 비상식량 (회복 + 최대 HP)
   | "v2c_camper_tidereading" // 물때 읽기 (물때 한정 어종 가중치)
   | "v2c_ironman_body" // 단련된 몸 (최대 HP)
@@ -113,6 +114,14 @@ export type V2CommonSkillId =
   | "v2c_ranger_ambush" // 연사 (DEX 비례 3연사)
   // 고차 패시브(다양성 2차: paladin 만 효과 리스킨[공방], brawler/magus/ranger 는 직군 축 % 유지)
   | "v2c_paladin_might3" // 기사도 (힘 +10% & 방어 +10%)
+  | "v2c_duelist_declaration"
+  | "v2c_duelist_balance"
+  | "v2c_contender_insight"
+  | "v2c_contender_precision"
+  | "v2c_undefeated_momentum"
+  | "v2c_undefeated_rhythm"
+  | "v2c_grandchampion_hour"
+  | "v2c_grandchampion_instinct"
   | "v2c_brawler_fortitude3" // 보법 II (회피 +12%·격투가)
   | "v2c_magus_acumen3" // 총명 III (지능 +30%)
   | "v2c_ranger_finesse3" // 민첩 II (DEX +20%·궁수 민첩의 상위판)
@@ -138,6 +147,7 @@ export type V2CommonSkillId =
   | "v2c_ritualist_wardcraft" // 진법술 (마법 방어력 + 초반 마법 피해 감소)
   | "v2c_shadow_lethality3" // 필살 (치명 피해 +25%)
   | "v2c_venomancer_corrosion3" // 부식 II (중독된 적 방어 감소)
+  | "v2c_venomancer_virulence2" // 맹독 II (중독 피해 증가)
   | "v2c_fieldmedic_training" // 구급 숙련 (회복 + 최대 HP)
   | "v2c_extremesurvivor_adaptation" // 극한 적응 (최대 HP + 받피감)
   // ── 하이브리드 킷(tier 3·전사×마법) ──
@@ -161,17 +171,22 @@ export type V2CommonSkillId =
   | "v2c_sage_bolt" // 마력 폭사 (마법 단일)
   | "v2c_chief_strike" // 관통사 (DEX 비례 단일·관통 20% 방어무시 추가타)
   | "v2c_veteran_lethal" // 필살 II (치명 피해 +30%)
+  | "v2c_veteran_armorinsight" // 갑주 간파 I (적 물리 방어 -9%)
   | "v2c_sensei_ironbody" // 근력 III (힘 +20%·권룡)
+  | "v2c_sensei_formationbreak" // 파진경 I (적 물리 방어 -8%)
   | "v2c_sage_insight" // 치명 II (치명 확률 +10%)
+  | "v2c_sage_magicdismantle" // 마력 해체 I (적 마법 방어 -9%)
   | "v2c_runecaster_grandsigil" // 대문장 해방 (저차 마법 패시브 장착 시 추가 효과)
   | "v2c_runecaster_circuit" // 문장 회로 (최대 MP + 치명)
-  | "v2c_chief_afterimage" // 매의 눈 (명중 +20)
+  | "v2c_chief_afterimage" // 매의 눈 (명중 +30%)
   // ── 도적 4차 두 번째 갈래(암살자·그림자 계보) ──
   | "v2c_phantom_ambush" // 기습 (풀피 적에게 큰 오프너 — ambushDamage·LUK 비례)
   | "v2c_phantom_stealth" // 은신 (회피 +16%)
+  | "v2c_phantom_weakpoint" // 급소 노출 I (적 물리 방어 -8%)
   // ── 도적 4차 세 번째 갈래(독왕·독술 계보) ──
   | "v2c_venomlord_plague" // 독왕진 (중독 폭발·LUK 비례)
   | "v2c_venomlord_sovereign" // 부식 III (중독된 적 방어 감소)
+  | "v2c_venomlord_virulence3" // 맹독 III (중독 피해 증가)
   // ── 마법 4차 두 번째 갈래(원소술사) ──
   | "v2c_elementalist_magic" // 속성 마법 (캐릭 속성별 효과 분기)
   | "v2c_elementalist_mastery" // 원소 통달 (상성 유리/불리 +15%p 양방향)
@@ -194,9 +209,11 @@ export type V2CommonSkillId =
   | "v2c_archbishop_grace" // 성직 권위 (회복 + 최대 HP)
   | "v2c_spellsealer_sealingfield" // 봉마진 (적 공격·스킬 발동 봉쇄)
   | "v2c_spellsealer_greatward" // 봉마대법 (최상위 마법 방어)
+  | "v2c_grandwarder_eightgate" // 팔문금쇄진 (보호막 + 받는 피해 감소)
+  | "v2c_grandwarder_tripleward" // 삼중결계 (금강·봉마·정화 결계)
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) ──
-  | "v2c_warden_aegis" // 수호의 방벽 (보호막 — 최대HP 10%)
-  | "v2c_warden_thorns" // 가시 방벽 (피격 시 방어력만큼 반사)
+  | "v2c_warden_aegis" // 수호의 도발 (상대의 즉시 기본 공격 2회 유도)
+  | "v2c_warden_thorns" // 충격 방벽 (직접 공격 피격 시 충격 축적)
   // ── 전사 4차 세 번째 갈래(광왕·광전사 계승) ──
   | "v2c_warlord_bloodbath" // 혈전 (HP 소모 강타)
   | "v2c_warlord_slaughter" // 광기 II (광기 상위)
@@ -211,26 +228,33 @@ export type V2CommonSkillId =
   // ── 5차 직업 ──
   | "v2c_swordmaster_cut" // 검격 (안정 물리 피해 + 방깎)
   | "v2c_swordmaster_focus" // 검의 집중 (힘 + 치명피해)
-  | "v2c_ironknight_guard" // 반사 태세 (보호막 + 반사 증폭)
-  | "v2c_ironknight_wall" // 장벽술 (방어 + 반사)
+  | "v2c_swordmaster_armorinsight2" // 갑주 간파 II (적 물리 방어 -11%)
+  | "v2c_ironknight_guard" // 철벽 태세 (다음 직접 공격 3회 경감 + 반사)
+  | "v2c_ironknight_wall" // 장벽술 (방어 + 방어력 기반 직접 공격 강화)
   | "v2c_overlord_ruin" // 파멸 난무 (HP 소모 + 처형)
   | "v2c_overlord_throne" // 광기의 왕좌 (광전 + 치명피해)
   | "v2c_arcanist_burst" // 비전 폭발 (순수 마법 피해)
   | "v2c_arcanist_theory" // 비전 이론 (지능 + 치명확률)
+  | "v2c_arcanist_magicdismantle2" // 마력 해체 II (적 마법 방어 -11%)
   | "v2c_elementallord_surge" // 원소 폭주 (속성별 강화 마법)
   | "v2c_elementallord_resonance" // 원소 공명 (원소 폭주 보조 효과 강화)
+  | "v2c_cryomancer_absolutezero" // 빙결술사: 절대영도
+  | "v2c_cryomancer_freezingpoint" // 빙결술사: 빙점 지배
   | "v2c_inscriber_release" // 각인 해방 (장착 문장 조합형 마법)
   | "v2c_inscriber_amplification" // 각인 증폭 (각인 해방 시너지 강화)
   | "v2c_marksman_shot" // 정밀 사격 (DEX 관통 다단)
   | "v2c_marksman_aim" // 조준 (민첩 + 명중)
   | "v2c_nightshade_eclipse" // 월식 (오프너 + 처형)
-  | "v2c_nightshade_cloak" // 은신 II (회피 + 치명피해)
+  | "v2c_nightshade_cloak" // 은신 II (회피 + 치명확률·피해 + 명중)
+  | "v2c_nightshade_weakpoint2" // 급소 노출 II (적 물리 방어 -10%)
   | "v2c_saint_miracle" // 기적 (회복 + 방벽)
   | "v2c_saint_benediction" // 축복 (회복 + 내구)
   | "v2c_plaguebringer_outbreak" // 역병 창궐 (중독 폭발)
   | "v2c_plaguebringer_decay" // 부식 IV (부식 심화)
+  | "v2c_plaguebringer_virulence4" // 맹독 IV (중독 피해 증가)
   | "v2c_dragonfist_rupture" // 용린파쇄 (관통 연격 + 무력 + 보법)
   | "v2c_dragonfist_footwork" // 무극보법 (힘 + 회피 + 명중)
+  | "v2c_dragonfist_formationbreak2" // 파진경 II (적 물리 방어 -10%)
   | "v2c_adamantmonk_stance" // 금강 자세 (피해 감소 + 반격)
   | "v2c_adamantmonk_body" // 금강불괴 (최대 HP + 반격)
   | "v2c_immortal_lifestrike" // 생명 강타 (최대 HP 비례)
@@ -242,28 +266,39 @@ export type V2CommonSkillId =
   | "v2c_calamitycaller_brand" // 재앙의 낙인 (마법 피해 + 쇠약 + 금제)
   | "v2c_calamitycaller_omen" // 흉조 III (마법취약 심화)
   // ── 6차 직업 ──
-  | "v2c_fortressknight_ram" // 성채 충각 (방어력 비례 피해 + ATB 지연)
-  | "v2c_fortressknight_citadel" // 움직이는 성채 (방어 + 받피감 + 반사)
+  | "v2c_fortressknight_ram" // 성채 충각 (방어력 비례 피해 + 주는 피해 감소)
+  | "v2c_fortressknight_citadel" // 움직이는 성채 (방어 + 받피감 + 충격 소비 공격 강화)
   | "v2c_swordsaint_flash" // 무심검 (강한 일격 + 무력 + ATB 지연)
-  | "v2c_swordsaint_transcendence" // 검성의 경지 (힘 + 치명피해 + 속도초과 전환)
-  | "v2c_hegemon_annihilation" // 멸왕난무 (HP 소모 + 처형 + 취약)
-  | "v2c_hegemon_dominion" // 패황의 지배 (광전 + 치명피해 + 최대 HP)
+  | "v2c_swordsaint_transcendence" // 일검필살 (힘 + 치명피해 + 단일 타격 물리 스킬 피해 + 명중)
+  | "v2c_swordsaint_armorinsight3" // 갑주 간파 III (적 물리 방어 -13%)
+  | "v2c_hegemon_annihilation" // 멸왕일도 (잃은 HP 비례 + 혈전·사망 극복 강화)
+  | "v2c_hegemon_dominion" // 패황의 지배 (광기 계승 + 사망 극복 + 멸왕일도 재충전)
   | "v2c_archmage_collapse" // 비전 붕괴 (순수 마법 피해 + ATB 지연)
   | "v2c_archmage_theory" // 대마도 이론 (지능 + 마법 스킬 피해)
+  | "v2c_archmage_magicdismantle3" // 마력 해체 III (적 마법 방어 -13%)
   | "v2c_primordialmage_return" // 태초회귀 (근원 마법 피해 + 취약 + 지연)
   | "v2c_primordialmage_resonance" // 근원공명 (지능 + 정신 + 마법 운용)
+  | "v2c_primordialmage_amplification" // 원초 증폭 (장비 치명타 배율 → 마법 스킬 치명타 배율)
+  | "v2c_frostsovereign_eternalprison" // 빙천제: 영겁빙옥 (강한 마법 피해 + 한기 4)
+  | "v2c_frostsovereign_permafrost" // 빙천제: 영구동토 (빙결 강화 + 한기 잔류)
+  | "v2c_lawweaver_release" // 만상각인 해방 (전투 중 각인 전량 소비)
+  | "v2c_lawweaver_inscription" // 법칙 각인 (문장 해방 시 각인 생성)
   | "v2c_savior_judgment" // 구원의 심판 (마법 피해 + 취약)
   | "v2c_savior_grace" // 구원의 은총 (회복 + 내구)
+  | "v2c_lawguardian_inviolable" // 만법불침 (삼중 결계 갱신)
+  | "v2c_lawguardian_domain" // 만법수호영역 (강화 삼중 결계)
   | "v2c_doomprophet_sentence" // 종말 선고 (마법취약 폭발 + 침식)
   | "v2c_doomprophet_revelation" // 불길한 계시 (마법취약 + 저주 디버프 강화)
   | "v2c_heavenlybow_orbit" // 천궁궤적 (관통 연사 + 취약 + 궤도 마무리)
-  | "v2c_heavenlybow_starpath" // 성도 조준 (민첩 + 명중 + 치명 한계 초과)
+  | "v2c_heavenlybow_starpath" // 성도 조준 (민첩 + 명중 + 스킬 치명타 피해 + 속도초과 전환)
   | "v2c_blackmoon_flurry" // 암월난무 (연격 + 명중 교란 + 회피)
   | "v2c_blackmoon_dominion" // 흑월지배 (행운 + 민첩 + 회피)
+  | "v2c_blackmoon_weakpoint3" // 급소 노출 III (적 물리 방어 -12%)
   | "v2c_myriadvenom_mutation" // 만독개화 (중독 + 침식 + 중독 폭발)
   | "v2c_myriadvenom_body" // 만독지배 (부식 + 체력 + 회피)
   | "v2c_celestialdragon_combo" // 천룡난무 (연격 + 취약 + 보법 + ATB 지연)
   | "v2c_celestialdragon_breath" // 천룡의 호흡 (힘 + 민첩 + 회피)
+  | "v2c_celestialdragon_formationbreak3" // 파진경 III (적 물리 방어 -12%)
   | "v2c_vajraarhat_seal" // 금강인 (보호막 + 받피감 + 반격 태세)
   | "v2c_vajraarhat_body" // 나한금신 (최대 HP + 받피감 + 반격)
   | "v2c_eternal_cycle" // 영겁 순환 (지속 재생 + 활력 증폭)
@@ -271,7 +306,39 @@ export type V2CommonSkillId =
   | "v2c_blooddemon_reign" // 혈마군림 (HP 소모 + 처형 + 피해 회복)
   | "v2c_blooddemon_immortalblood" // 불사마혈 (최대 HP + 흡혈 + 방어)
   | "v2c_absolute_unity" // 만상귀일 (올스탯 피해 + 취약 + 행동 가속)
-  | "v2c_absolute_harmony"; // 절대 조화 (올스탯 + HP·MP)
+  | "v2c_absolute_harmony" // 절대 조화 (올스탯 + HP·MP)
+  // ── 변이자 수집형 킷 ──
+  | "v2c_mutant_morphstrike"
+  | "v2c_mutant_adaptation"
+  | "v2c_beastkin_rend"
+  | "v2c_beastkin_clawflurry"
+  | "v2c_beastkin_bloodscent"
+  | "v2c_beastwarrior_reopen"
+  | "v2c_beastwarrior_keenscent"
+  | "v2c_tracker_pounce"
+  | "v2c_tracker_instinct"
+  | "v2c_bloodtracker_trailslash"
+  | "v2c_bloodtracker_reading"
+  | "v2c_predator_devour"
+  | "v2c_predator_bloodnourishment"
+  | "v2c_primalpredator_primalfeast"
+  | "v2c_primalpredator_apex"
+  | "v2c_golem_rocksmash"
+  | "v2c_golem_tectoniccollapse"
+  | "v2c_golem_stoneskin"
+  // ── 내부 7차 전투 패키지 — 직업 카탈로그 공개 전 전투 검증용 ──
+  | "v2c_shadowblade_afterimage"
+  | "v2c_shadowblade_traceless"
+  | "v2c_shadowblade_swordshadow"
+  | "v2c_ruinblade_limitstrike"
+  | "v2c_ruinblade_oneintent"
+  | "v2c_ruinblade_ruinsword"
+  | "v2c_skyascendant_fallingstar"
+  | "v2c_skyascendant_voidbreak"
+  | "v2c_skyascendant_crossover"
+  | "v2c_primordialsage_greatorb"
+  | "v2c_primordialsage_optimization"
+  | "v2c_primordialsage_completeformula";
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -279,26 +346,147 @@ const hits = (
   statCoef: number,
   baseFlat: number,
   scaling?: V2DamageScaling,
+  primaryStatCoef?: number,
 ): V2SkillEffect[] =>
   Array.from({ length: n }, () => ({
     kind: "damage" as const,
     statCoef,
     baseFlat,
     ...(scaling ? { scaling } : {}),
+    ...(primaryStatCoef != null ? { primaryStatCoef } : {}),
   }));
 
 const dmg = (
   statCoef: number,
   baseFlat: number,
   scaling?: V2DamageScaling,
+  pierceDamagePct?: number,
+  primaryStatCoef?: number,
 ): V2SkillEffect => ({
   kind: "damage",
   statCoef,
   baseFlat,
   ...(scaling ? { scaling } : {}),
+  ...(pierceDamagePct ? { pierceDamagePct } : {}),
+  ...(primaryStatCoef != null ? { primaryStatCoef } : {}),
 });
 
 export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
+  // ═══ 변이자 — 배운 뒤 어느 직업에서도 장착하는 수집형 변이 ═══
+  v2c_mutant_morphstrike: {
+    id: "v2c_mutant_morphstrike", name: "불완전 변형", stat: "vit", category: "attack", tier: 1,
+    description: "불안정하게 신체를 바꾸어 활력으로 적을 들이받는다.", mpCost: 24, cooldown: 0, procChance: 40,
+    effects: [dmg(0.8, 100, "vit")],
+  },
+  v2c_mutant_adaptation: {
+    id: "v2c_mutant_adaptation", name: "변이 적응", stat: "vit", category: "passive", tier: 1,
+    description: "변화에 적응해 출혈·중독 같은 상태 피해를 줄인다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { statusDamageReductionPct: 8 },
+  },
+  v2c_beastkin_rend: {
+    id: "v2c_beastkin_rend", name: "찢어발기기", stat: "str", category: "attack", tier: 1,
+    description: "날카로운 발톱으로 상처를 벌려 출혈을 겹친다.", mpCost: 28, cooldown: 0, procChance: 40,
+    effects: [
+      dmg(0.9, 110),
+      { kind: "dot", ...V2_DOT_PRESETS.출혈, stacks: 1 },
+    ],
+  },
+  v2c_beastkin_clawflurry: {
+    id: "v2c_beastkin_clawflurry", name: "연속 할퀴기", stat: "str", category: "attack", tier: 1,
+    description: "세 번 연달아 할퀴고 깊은 출혈을 남긴다.", mpCost: 32, cooldown: 0, procChance: 38,
+    effects: [
+      ...hits(3, 0.36, 42),
+      { kind: "dot", ...V2_DOT_PRESETS.출혈, stacks: 2 },
+    ],
+  },
+  v2c_beastkin_bloodscent: {
+    id: "v2c_beastkin_bloodscent", name: "피 냄새", stat: "str", category: "passive", tier: 1,
+    description: "대상의 출혈이 짙을수록 직접 물리 스킬이 강해진다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { bleedPhysicalSkillDamagePctPerStack: 2 },
+  },
+  v2c_beastwarrior_reopen: {
+    id: "v2c_beastwarrior_reopen", name: "상처 덧내기", stat: "str", category: "attack", tier: 2,
+    description: "벌어진 상처를 다시 헤집어 출혈이 끊기지 않게 만든다.", mpCost: 34, cooldown: 0, procChance: 35, tempo: "control",
+    effects: [dmg(2.65, 190)],
+    bleedHunt: { minStacks: 5, hitBleedStacks: 1, hitBleedSetTurns: 4 },
+  },
+  v2c_beastwarrior_keenscent: {
+    id: "v2c_beastwarrior_keenscent", name: "예민한 후각", stat: "dex", category: "passive", tier: 2,
+    description: "짙어진 피 냄새를 놓치지 않고 상처 난 적을 정확히 노린다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: {},
+    bleedHunt: { minStacks: 5, directPhysicalAccuracyPct: 8 },
+  },
+  v2c_tracker_pounce: {
+    id: "v2c_tracker_pounce", name: "추격 도약", stat: "str", category: "attack", tier: 3,
+    description: "피 냄새를 따라 단숨에 뛰어들어 적의 다음 움직임을 늦춘다.", mpCost: 46, cooldown: 0, procChance: 35, tempo: "control",
+    effects: [dmg(1.45, 230)],
+    bleedHunt: { minStacks: 5, skillAccuracyPct: 15, hitEnemyDelayPct: 20 },
+  },
+  v2c_tracker_instinct: {
+    id: "v2c_tracker_instinct", name: "추격 본능", stat: "dex", category: "passive", tier: 3,
+    description: "사냥감의 흔적을 읽어 몸을 앞당기고 추격의 흐름을 이어 간다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { statPct: { dex: 12 } },
+    bleedHunt: { minStacks: 5, directPhysicalHastePct: 6 },
+  },
+  v2c_bloodtracker_trailslash: {
+    id: "v2c_bloodtracker_trailslash", name: "혈흔 가르기", stat: "str", category: "attack", tier: 3,
+    description: "완성된 혈흔을 깊게 갈라 최대 중첩의 출혈을 붙잡아 둔다.", mpCost: 50, cooldown: 0, procChance: 35, tempo: "payoff",
+    effects: [dmg(2.82, 260)],
+    bleedHunt: { minStacks: 10, hitBleedSetTurns: 4 },
+  },
+  v2c_bloodtracker_reading: {
+    id: "v2c_bloodtracker_reading", name: "혈흔 감식", stat: "str", category: "passive", tier: 3,
+    description: "피가 흐르는 결을 읽어 힘을 싣고 방어의 틈으로 파고든다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { statPct: { str: 18 } },
+    bleedHunt: { minStacks: 10, directPhysicalPenetrationPct: 8 },
+  },
+  v2c_predator_devour: {
+    id: "v2c_predator_devour", name: "포식", stat: "str", category: "attack", tier: 3,
+    description: "피 흘리는 사냥감을 물어뜯어 실제로 앗은 생명만큼 상처를 메운다.", mpCost: 54, cooldown: 0, procChance: 35, tempo: "payoff",
+    effects: [dmg(2.62, 320)],
+    bleedHunt: { minStacks: 10, skillActualDamageHealPct: 14 },
+  },
+  v2c_predator_bloodnourishment: {
+    id: "v2c_predator_bloodnourishment", name: "피의 양식", stat: "str", category: "passive", tier: 3,
+    description: "최대 중첩의 출혈이 사냥감의 생명을 깎을 때마다 육신을 회복한다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { statPct: { str: 12 }, maxHpPct: 12 },
+    bleedHunt: { minStacks: 10, bleedTickHealMaxHpPct: 1 },
+  },
+  v2c_primalpredator_primalfeast: {
+    id: "v2c_primalpredator_primalfeast", name: "원시 포식", stat: "str", category: "attack", tier: 3,
+    description: "본능만으로 약점을 꿰뚫고 사냥감의 생명을 빼앗아 다음 도약을 앞당긴다.", mpCost: 60, cooldown: 0, procChance: 35, tempo: "payoff",
+    effects: [dmg(2.89, 380)],
+    bleedHunt: { minStacks: 10, skillPenetrationPct: 12, skillActualDamageHealPct: 18, castHastePct: 15 },
+  },
+  v2c_primalpredator_apex: {
+    id: "v2c_primalpredator_apex", name: "야수의 정점", stat: "str", category: "passive", tier: 3,
+    description: "극대화된 본능으로 피 흘리는 사냥감을 몰아붙이고 혈흔을 놓치지 않는다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { statPct: { str: 24, dex: 18 }, maxHpPct: 16 },
+    bleedHunt: {
+      minStacks: 10,
+      directPhysicalDamagePct: 12,
+      directPhysicalHitBleedExtend: { chancePct: 30, turns: 1, maxTurns: 4 },
+    },
+  },
+  v2c_golem_rocksmash: {
+    id: "v2c_golem_rocksmash", name: "암석 강타", stat: "vit", category: "attack", tier: 1,
+    description: "몸을 무겁게 굳혀 방어력으로 내리치고 중량을 얻는다.", mpCost: 28, cooldown: 0, procChance: 40,
+    effects: [dmg(1.05, 110, "def")], mutationWeightGain: 1,
+  },
+  v2c_golem_tectoniccollapse: {
+    id: "v2c_golem_tectoniccollapse", name: "지각 붕괴", stat: "vit", category: "attack", tier: 1,
+    description: "쌓인 중량을 모두 소모해 지면과 함께 적을 무너뜨린다.", mpCost: 38, cooldown: 0, procChance: 34,
+    effects: [dmg(1.35, 150, "def")], mutationWeightConsumePctPerStack: 20,
+    defaultPattern: {
+      priority: 500,
+      condition: { kind: "self_resource", resource: "weight", op: "atLeast", value: 3 },
+    },
+  },
+  v2c_golem_stoneskin: {
+    id: "v2c_golem_stoneskin", name: "돌가죽", stat: "vit", category: "passive", tier: 1,
+    description: "중량이 쌓일수록 몸이 단단해져 방어력이 오른다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { stoneskinDefPctPerWeight: 6 },
+  },
   // ═══ 전사 (STR · 물리) — 정직한 파워 ═══
   v2c_warrior_strike: {
     id: "v2c_warrior_strike", name: "강타", stat: "str", category: "attack", tier: 1,
@@ -329,8 +517,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_martial_chi: {
     id: "v2c_martial_chi", name: "기공 순환", stat: "vit", category: "heal", tier: 2,
-    description: "기를 돌려 잃은 활력을 일부 되찾는다.", mpCost: 0, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 5 }],
+    description: "기를 돌려 잃은 활력을 일부 되찾는다.", mpCost: 0, cooldown: 0, procChance: 100, spCost: 2,
+    effects: [{ kind: "heal", pctLostHp: 1.2 }],
   },
 
   // ═══ 마법사 (INT · 마법) — 캐스터 (마력탄 등 마법 스킬로 마법 공격) ═══
@@ -377,6 +565,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_mage_boltcast: {
     id: "v2c_mage_boltcast", name: "마력탄", stat: "int", category: "attack", tier: 1,
     description: "마력을 뭉쳐 쏜다.", mpCost: 0, cooldown: 0, procChance: 100,
+    spCostDiscount: 1,
     effects: [dmg(1.15, 150, "magic")],
   },
 
@@ -482,7 +671,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     //   단단할수록 강타. DEF_PER_VIT(0.1)<ATK_PER_STR(0.15)라 계수를 높여 보정. PvE/PvP 공용.
     id: "v2c_shieldman_bash", name: "방패 타격", stat: "vit", category: "attack", tier: 2,
     description: "방어로 다져진 몸으로 들이받는다. 방어력이 높을수록 강하다.", mpCost: 30, cooldown: 0, procChance: 30,
-    effects: [dmg(1.8, 140, "def")],
+    effects: [dmg(2.02, 167, "def")],
+    consumesFortressImpact: true,
   },
   v2c_squire_cleave: {
     // 견습 기사 = 기사 라인 입문. 베기→돌격 리스킨(id 유지). 단숨에 파고드는 첫 기사 기술.
@@ -513,8 +703,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     // 사제 = 자힐 탱 — 딜 대신 힐(컬렉션 유일 회복). kind:"heal" 배선됨. id 유지(세이브 호환).
     //   잃은 체력 비례를 낮추고 마법공격 계수를 붙여 극저HP 폭발 회복을 줄인다.
     id: "v2c_acolyte_smite", name: "치유", stat: "int", category: "heal", tier: 2,
-    description: "신성한 힘으로 잃은 상처를 메운다.", mpCost: 30, fixedMpCost: 75, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 6, statCoef: 0.45, baseFlatByTier: [50, 50, 50], scaling: "magic" }],
+    description: "신성한 힘으로 잃은 상처를 메운다.", mpCost: 30, fixedMpCost: 75, cooldown: 0, procChance: 100, spCost: 4,
+    effects: [{ kind: "heal", pctLostHp: 1.44, statCoef: 0.108, baseFlatByTier: [12, 12, 12], scaling: "magic" }],
   },
   v2c_warder_barrier: {
     id: "v2c_warder_barrier", name: "결계", stat: "int", category: "buff", tier: 2,
@@ -573,14 +763,14 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     // 방패병 = 방어 탱(방패 타격이 방어기반 딜) — 방벽 진행의 1차(2026-06-22, 사용자 지정).
     //   진행: 방패병 방벽 +10% → 가디언(계승) 방벽 II +20%. 옛 "체력"(HP+12%)에서 방어%로 전환.
     id: "v2c_shieldman_vitality", name: "방벽", stat: "vit", category: "passive", tier: 2,
-    description: "방패로 받아낸다. 물리 방어력이 오른다.", mpCost: 0, cooldown: 0,
+    description: "방패로 받아낸다. 물리·마법 방어력이 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { defPct: 10 },
   },
   v2c_squire_might: {
     id: "v2c_squire_might", name: "근력 II", stat: "str", category: "passive", tier: 2,
     description: "거듭된 단련. 힘이 비례해 오른다.", mpCost: 0, cooldown: 0,
-    effects: [],
+    effects: [], spCost: 3,
     passive: { statPct: { str: 15 } },
   },
   v2c_boxer_fortitude: {
@@ -601,12 +791,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { statPct: { vit: 20 } },
   },
   v2c_caster_acumen: {
-    // 마법 라인 총명 진행(2026-06-22): 견습 총명 +10% → 마법사 총명 II +20% → 마도사 총명 III +30%.
-    //   순수 INT 스케일로 통일(옛 "맹공"=치명피해 크리축에서 전환 — 라인 정합). 크리축은 그림자/정예/현자가 담당.
-    id: "v2c_caster_acumen", name: "총명 II", stat: "int", category: "passive", tier: 2,
-    description: "통찰이 깊어져 지능이 더 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
+    // 2차 마법사 생존 패시브. 기존 id와 INT +20%는 세이브·선행 조건 호환을 위해 유지하고,
+    //   전 캐릭터에게 열려 있던 INT 마력 장벽을 이 패시브 장착 효과로 이동한다.
+    id: "v2c_caster_acumen", name: "마나 실드", stat: "int", category: "passive", tier: 2,
+    description: "지능이 크게 비례해 오른다. 전투 시작 시 INT와 최대 MP로 내구도·흡수율·경감률을 정해 마나 실드를 전개한다. 방어 전 적대 피해 일부를 막으며 현재 MP는 소모하지 않는다. DoT·반사·반격·일반 상태 피해에도 적용되지만 고정·처형·보호막 무시·자해·HP 비용은 막지 않는다. 일반 보호막은 HP에 들어오기 직전에 별도로 적용된다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { statPct: { int: 20 } },
+    passive: { statPct: { int: 20 }, magicBarrier: true },
   },
   v2c_acolyte_mana: {
     // SPI 부활 PR-4 — 사제 = 힐러. 마나(maxMP%)→회복강화(healPowerPct)로 리스킨(id 유지=세이브 호환).
@@ -642,11 +832,17 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { statPct: { dex: 10 } },
   },
   v2c_venomist_corrosion: {
-    id: "v2c_venomist_corrosion", name: "부식", stat: "luk", category: "passive", tier: 2,
-    description: "행운을 높이고, 독이 스며든 적의 방어를 무르게 해 중독 피해를 깊게 침투시킨다.",
-    mpCost: 0, cooldown: 0,
+    id: "v2c_venomist_corrosion", name: "부식 I", stat: "luk", category: "passive", tier: 2,
+    description: "행운을 높이고, 독이 스며든 적의 방어를 무르게 한다.",
+    mpCost: 0, cooldown: 0, spCost: 4,
     effects: [],
-    passive: { statPct: { luk: 10 }, poisonedEnemyDefReductionPct: 10 },
+    passive: { statPct: { luk: 10 }, poisonedEnemyDefReductionPct: 6 },
+  },
+  v2c_venomist_virulence: {
+    id: "v2c_venomist_virulence", name: "맹독 I", stat: "luk", category: "passive", tier: 2,
+    description: "독의 농도를 높여 중독 피해를 증폭한다.",
+    mpCost: 0, cooldown: 0, spCost: 4, effects: [],
+    passive: { poisonDamagePct: 12 },
   },
   v2c_camper_ration: {
     id: "v2c_camper_ration", name: "비상식량", stat: "vit", category: "passive", tier: 2,
@@ -852,6 +1048,46 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "정의의 검이 죄를 내리친다. 적의 기세를 꺾는다.", mpCost: 38, cooldown: 0, procChance: 30,
     effects: [dmg(1.3, 230), { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 }],
   },
+  v2c_duelist_declaration: {
+    id: "v2c_duelist_declaration", name: "결투 선언", stat: "str", category: "buff", tier: 3,
+    description: "다음 평타 3회의 피해와 치명타 확률을 높인다.", mpCost: 32, cooldown: 5, procChance: 100, spCost: 7,
+    effects: [], duelistDeclaration: { rank: 1, hits: 3, basicDamagePct: 15, basicCritChancePct: 15 },
+  },
+  v2c_duelist_balance: {
+    id: "v2c_duelist_balance", name: "검의 균형", stat: "str", category: "passive", tier: 3,
+    description: "힘·행운·민첩이 각각 8% 오른다.", mpCost: 0, cooldown: 0, spCost: 5,
+    effects: [], passive: { statPct: { str: 8, luk: 8, dex: 8 } },
+  },
+  v2c_contender_insight: {
+    id: "v2c_contender_insight", name: "빈틈 간파", stat: "luk", category: "buff", tier: 3,
+    description: "다음 평타 3회가 대상 방어력을 추가로 관통한다.", mpCost: 36, cooldown: 5, procChance: 100, spCost: 8,
+    effects: [], duelistDeclaration: { rank: 2, hits: 3, basicDefPenetrationPct: 15 },
+  },
+  v2c_contender_precision: {
+    id: "v2c_contender_precision", name: "정밀한 일격", stat: "dex", category: "passive", tier: 3,
+    description: "평타가 대상 방어력을 10% 추가 관통한다.", mpCost: 0, cooldown: 0, spCost: 6,
+    effects: [], passive: { basicDefPenetrationPct: 10 },
+  },
+  v2c_undefeated_momentum: {
+    id: "v2c_undefeated_momentum", name: "무패의 기세", stat: "str", category: "buff", tier: 3,
+    description: "다음 평타 4회가 이어질수록 피해가 5%씩 오른다.", mpCost: 40, cooldown: 6, procChance: 100, spCost: 11,
+    effects: [], duelistDeclaration: { rank: 3, hits: 4, rampPctPerPriorHit: 5 },
+  },
+  v2c_undefeated_rhythm: {
+    id: "v2c_undefeated_rhythm", name: "승자의 박자", stat: "dex", category: "passive", tier: 3,
+    description: "평타 치명타 발생 시 다음 행동 간격이 8% 짧아진다.", mpCost: 0, cooldown: 0, spCost: 6,
+    effects: [], passive: { basicCritHastePct: 8 },
+  },
+  v2c_grandchampion_hour: {
+    id: "v2c_grandchampion_hour", name: "챔피언의 시간", stat: "luk", category: "buff", tier: 3,
+    description: "다음 평타 5회의 치명타 배율과 치명타 확률 상한을 높인다.", mpCost: 44, cooldown: 7, procChance: 100, spCost: 13,
+    effects: [], duelistDeclaration: { rank: 4, hits: 5, basicCritMultAdd: 0.25, basicCritChanceCap: 95 },
+  },
+  v2c_grandchampion_instinct: {
+    id: "v2c_grandchampion_instinct", name: "정점의 감각", stat: "luk", category: "passive", tier: 3,
+    description: "평타 치명타 확률 상한이 85%로 오른다.", mpCost: 0, cooldown: 0, spCost: 8,
+    effects: [], passive: { basicCritChanceCap: 85 },
+  },
   v2c_brawler_combo: {
     // 격투가 = 권사 연타의 심화. 단타 강공격에서 "연격으로 빈틈을 만든다"로 전환해 권사→격투가→권룡
     //   계열 정체성을 통일한다. 취약은 낮게 짧게, 다음 연격/파티 딜을 살리는 정도.
@@ -878,7 +1114,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     // 기사 = 균형형 — 공격(힘%)·방어(방어%) 동시 향상, 각 수치는 낮게. id 유지(세이브 호환).
     //   순수 방어는 가디언(방어 20%)이, 공격 힘%는 견습기사가 더 높게. 기사는 둘을 겸비.
     id: "v2c_paladin_might3", name: "기사도", stat: "str", category: "passive", tier: 3,
-    description: "공방 균형의 기사도. 힘과 방어력이 함께 오른다.", mpCost: 0, cooldown: 0,
+    description: "공방 균형의 기사도. 힘과 물리·마법 방어력이 함께 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { statPct: { str: 10 }, defPct: 10 },
   },
@@ -912,15 +1148,19 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     //   방패병 방패 타격과 같은 def 경로·tier-3 라 base 상향. DEF_PER_VIT<ATK_PER_STR 보정 계수 1.8.
     id: "v2c_guardian_bash", name: "방패 강타", stat: "vit", category: "attack", tier: 3,
     description: "방패를 앞세워 묵직하게 후려친다. 방어력이 높을수록 강하다.", mpCost: 36, cooldown: 0, procChance: 30,
-    effects: [dmg(1.8, 220, "def")],
+    effects: [dmg(2.12, 256, "def")],
+    consumesFortressImpact: true,
   },
   v2c_berserker_bloodslash: {
-    // 광전사 = 견습 기사에서 갈라지는 유리대포 라인. 현재 HP를 일부 태워 그 소모량까지 피해로 돌린다.
-    //   저HP 패시브(광기)와 자연스럽게 맞물리지만, 자동전투 눈덩이를 막기 위해 현재 HP 기준 소모로 둔다.
     id: "v2c_berserker_bloodslash", name: "사혈격", stat: "str", category: "attack", tier: 3,
-    description: "제 피를 뿌리듯 베어낸다. 현재 체력을 일부 소모해 피해를 키운다.", mpCost: 38, cooldown: 0, procChance: 30,
+    description: "제 피를 뿌리듯 베어낸다. 명중하면 현재 체력을 10% 소모하고, 잃은 체력이 많을수록 강해진다.",
+    mpCost: 38, cooldown: 0, procChance: 30, spCost: 6,
+    defaultPattern: {
+      priority: 100,
+      condition: { kind: "self_hp", op: "above", pct: 70 },
+    },
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 8, statCoef: 1.25, baseFlatByTier: [220, 220, 220], soakRatio: 1.4 },
+      { kind: "missingHpDamage", attackCoef: 1, statCoef: 1, missingHpCoef: 0.4, selfCurrentHpCostPct: 10, scaling: "physical" },
     ],
   },
   v2c_shaman_hex: {
@@ -939,8 +1179,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_bishop_heal: {
     id: "v2c_bishop_heal", name: "대치유", stat: "int", category: "heal", tier: 3,
-    description: "성스러운 빛으로 잃은 상처를 크게 메운다.", mpCost: 40, fixedMpCost: 110, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 9, statCoef: 0.75, baseFlatByTier: [120, 120, 120], scaling: "spi" }],
+    description: "성스러운 빛으로 잃은 상처를 크게 메운다.", mpCost: 40, fixedMpCost: 110, cooldown: 0, procChance: 100, spCost: 7,
+    effects: [{ kind: "heal", pctLostHp: 2.88, statCoef: 0.24, baseFlatByTier: [38.4, 38.4, 38.4], scaling: "spi" }],
   },
   v2c_ritualist_guardingarray: {
     id: "v2c_ritualist_guardingarray", name: "호법진", stat: "int", category: "buff", tier: 3,
@@ -994,20 +1234,22 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     //   견습기사(힘%)와 다른 축. defPct 는 PvE/PvP 양쪽(def=damageBetween 공용).
     //   방벽 진행의 2차(방패병 방벽 +10% → 가디언 방벽 II +20%, 2026-06-22).
     id: "v2c_guardian_bulwark3", name: "방벽 II", stat: "vit", category: "passive", tier: 3,
-    description: "온몸으로 받아낸다. 물리 방어력이 크게 오른다.", mpCost: 0, cooldown: 0,
+    description: "온몸으로 받아낸다. 물리·마법 방어력이 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { defPct: 20 },
   },
   v2c_berserker_madness3: {
     id: "v2c_berserker_madness3", name: "광기", stat: "str", category: "passive", tier: 3,
-    description: "상처가 깊을수록 더 사납게 몰아친다. 잃은 체력 비율에 따라 공격력이 오른다.",
-    mpCost: 0, cooldown: 0,
+    description: "체력이 절반 이하일 때 공격 스킬 발동률이 10%p 오른다.",
+    mpCost: 0, cooldown: 0, spCost: 5,
     effects: [],
-    passive: { berserkAtkPctPerLostHpPct: 0.45 },
+    exclusiveGroup: "berserker_madness",
+    exclusiveRank: 1,
+    passive: {},
   },
   v2c_shaman_omen3: {
     id: "v2c_shaman_omen3", name: "흉조", stat: "int", category: "passive", tier: 3,
-    description: "주문이 적의 혼을 흐트러뜨린다. 스킬 적중 시 마법취약을 누적시킨다.",
+    description: "장착 중 직접 피해 스킬 적중 시 70% 확률로 마법취약 +1스택(최대 10). 스택당 대상이 받는 스킬 피해 +5%.",
     mpCost: 0, cooldown: 0,
     effects: [],
     passive: { enemyMagicVulnPctPerStack: 5, enemyMagicVulnApplyChancePct: 70 },
@@ -1047,9 +1289,15 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_venomancer_corrosion3: {
     id: "v2c_venomancer_corrosion3", name: "부식 II", stat: "luk", category: "passive", tier: 3,
     description: "맹독이 갑옷 틈을 파고든다. 중독된 적의 방어와 중독 피해를 더 크게 흔든다.",
-    mpCost: 0, cooldown: 0,
+    mpCost: 0, cooldown: 0, spCost: 4,
     effects: [],
-    passive: { poisonedEnemyDefReductionPct: 15 },
+    passive: { poisonedEnemyDefReductionPct: 7 },
+  },
+  v2c_venomancer_virulence2: {
+    id: "v2c_venomancer_virulence2", name: "맹독 II", stat: "luk", category: "passive", tier: 3,
+    description: "정제한 맹독으로 중독 피해를 한층 증폭한다.",
+    mpCost: 0, cooldown: 0, spCost: 4, effects: [],
+    passive: { poisonDamagePct: 18 },
   },
   v2c_fieldmedic_training: {
     id: "v2c_fieldmedic_training", name: "구급 숙련", stat: "vit", category: "passive", tier: 3,
@@ -1106,7 +1354,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "피를 성흔처럼 새겨 적을 베고, 맹세의 방벽으로 반격을 버틴다.",
     mpCost: 44, cooldown: 0, procChance: 30,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 8, statCoef: 1.05, baseFlatByTier: [180, 180, 180], soakRatio: 1.0 },
+      { kind: "hpCostDamage", pctCurrentHp: 8, soakCurrentHpFloorPct: 50, statCoef: 1.05, baseFlatByTier: [180, 180, 180], soakRatio: 1.14 },
       { kind: "enemyDamageDown", pct: 10, turns: 3 },
       { kind: "shield", pctMaxHp: 6, turns: 3 },
     ],
@@ -1123,7 +1371,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "진홍빛 심판으로 적을 짓누르고, 회복의 흐름과 반격의 기세를 끊는다.",
     mpCost: 48, cooldown: 0, procChance: 30,
     effects: [
-      dmg(1.35, 260, "def"),
+      dmg(1.8, 260, "def"),
       { kind: "enemyHealReduce", pct: 45, turns: 3 },
       { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
     ],
@@ -1164,7 +1412,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_crusader_oath: {
     id: "v2c_crusader_oath", name: "불굴의 맹세", stat: "vit", category: "passive", tier: 3,
-    description: "성전사의 맹세가 방어와 회복을 함께 끌어올리고 피해를 조금 누른다.",
+    description: "성전사의 맹세가 물리·마법 방어력과 회복을 함께 끌어올리고 피해를 조금 누른다.",
     mpCost: 0, cooldown: 0,
     effects: [],
     passive: { defPct: 14, healPowerPct: 14, damageTakenReductionPct: 4 },
@@ -1230,16 +1478,28 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     // 전사 심화 — 치명 피해(중장갑 라인의 딜 마무리). str% 는 견습기사·방어%는 기사가 유지.
     id: "v2c_veteran_lethal", name: "필살 II", stat: "str", category: "passive", tier: 3,
     description: "한 방에 모든 것을 싣는다. 치명타 피해가 오른다.", mpCost: 0, cooldown: 0,
-    effects: [],
+    effects: [], spCost: 5,
     passive: { critDmgPct: 30 }, // 크리축 차수 단조 — 정예 기사=4차 최상(2차20<3차25<4차30·25→30).
+  },
+  v2c_veteran_armorinsight: {
+    id: "v2c_veteran_armorinsight", name: "갑주 간파 I", stat: "str", category: "passive", tier: 3,
+    description: "갑주의 결을 읽어 물리 공격이 적의 방어를 더 깊이 파고들게 한다.",
+    mpCost: 0, cooldown: 0, spCost: 5, effects: [],
+    passive: { enemyPhysicalDefReductionPct: 9 },
   },
   v2c_sensei_ironbody: {
     // 근력 III(권룡 4차 패시브) — 무인 재설계(2026-06-22): 옛 철신(최대 HP%)에서 힘%로 교체. 격투가 라인
     //   (STR딜·회피) 정점의 공격 정체성. t4 STR% 는 유일 축(고유성 유지). 최대 HP%(철신)는 투승으로 이전. id 유지.
     id: "v2c_sensei_ironbody", name: "근력 III", stat: "str", category: "passive", tier: 3,
     description: "극한의 단련. 힘이 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
-    effects: [],
+    effects: [], spCost: 4,
     passive: { statPct: { str: 20 } },
+  },
+  v2c_sensei_formationbreak: {
+    id: "v2c_sensei_formationbreak", name: "파진경 I", stat: "str", category: "passive", tier: 3,
+    description: "힘의 흐름을 비틀어 물리 공격이 적의 방어를 흔들게 한다.",
+    mpCost: 0, cooldown: 0, spCost: 3, effects: [],
+    passive: { enemyPhysicalDefReductionPct: 8 },
   },
   v2c_sage_insight: {
     // 마법 심화 — 치명 확률(술사 치명피해와 시너지). int 라인에 crit 확률 추가.
@@ -1248,6 +1508,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     // 크리축 차수 단조(2026-06-22): 치명확률 4차 대마법사 > 2차 자객(8). 자객(크리 테마)은 8 유지·sage 8→10.
     passive: { critPct: 10 },
+  },
+  v2c_sage_magicdismantle: {
+    id: "v2c_sage_magicdismantle", name: "마력 해체 I", stat: "int", category: "passive", tier: 3,
+    description: "마법 방어의 술식을 해석해 주문이 저항을 뚫게 한다.",
+    mpCost: 0, cooldown: 0, spCost: 5, effects: [],
+    passive: { enemyMagicDefReductionPct: 9 },
   },
   v2c_runecaster_grandsigil: {
     // 문장술사 — 저차 총명 패시브를 "문장"으로 해석하는 마도사 4차 갈래.
@@ -1285,7 +1551,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_chief_afterimage", name: "매의 눈", stat: "dex", category: "passive", tier: 3,
     description: "매처럼 날카로운 눈. 명중이 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { accuracyPct: 20 },
+    passive: { accuracyPct: 30 },
   },
 
   // ── 도적 4차 두 번째 갈래(암살자·그림자 계보) 킷 — 기습(오프너 액티브) + 은신(회피 패시브) ──
@@ -1309,6 +1575,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     passive: { evasionPct: 16 },
   },
+  v2c_phantom_weakpoint: {
+    id: "v2c_phantom_weakpoint", name: "급소 노출 I", stat: "luk", category: "passive", tier: 3,
+    description: "숨겨진 이음새를 찾아 물리 공격이 방어의 빈틈을 파고들게 한다.",
+    mpCost: 0, cooldown: 0, spCost: 3, effects: [],
+    passive: { enemyPhysicalDefReductionPct: 8 },
+  },
   v2c_venomlord_plague: {
     // 독왕 = 독술 계보 정점. 4차지만 스킬 tier 는 기존 심화 스킬과 같이 3으로 둔다.
     //   스택 페이오프가 커서 단독보다 독침/독무/맹독 확산 이후의 누적 상황에서 강하다.
@@ -1323,9 +1595,15 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_venomlord_sovereign: {
     id: "v2c_venomlord_sovereign", name: "부식 III", stat: "luk", category: "passive", tier: 3,
     description: "독을 다스리는 정점. 중독된 적의 방어와 독 피해 저항을 크게 무너뜨린다.",
-    mpCost: 0, cooldown: 0,
+    mpCost: 0, cooldown: 0, spCost: 4,
     effects: [],
-    passive: { poisonedEnemyDefReductionPct: 20 },
+    passive: { poisonedEnemyDefReductionPct: 9 },
+  },
+  v2c_venomlord_virulence3: {
+    id: "v2c_venomlord_virulence3", name: "맹독 III", stat: "luk", category: "passive", tier: 3,
+    description: "독왕의 맹독으로 중독 피해를 크게 증폭한다.",
+    mpCost: 0, cooldown: 0, spCost: 4, effects: [],
+    passive: { poisonDamagePct: 26 },
   },
 
   // ── 마법 4차 두 번째 갈래(원소술사) — 속성 마법(캐릭속성 분기) + 원소 통달 ──
@@ -1386,13 +1664,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_frostmage_glacier: {
     id: "v2c_frostmage_glacier", name: "빙하진", stat: "int", category: "attack", tier: 3,
-    description: "빙하의 마력을 폭발시켜 적의 행동을 늦추고 자신을 얼음 장벽으로 감싼다.",
+    description: "빙하의 마력을 폭발시켜 적에게 한기를 2중첩 쌓는다.",
     mpCost: 46, fixedMpCost: 120, cooldown: 0, procChance: 30,
-    effects: [
-      dmg(1.5, 290, "magic"),
-      { kind: "shield", pctMaxHp: 8, pctMaxMp: 4, turns: 3 },
-      { kind: "enemyDelay", pct: 25 },
-    ],
+    spCost: 7,
+    effects: [dmg(1.5, 290, "magic")],
+    frostChillGain: 2,
   },
   v2c_frostmage_frozenheart: {
     id: "v2c_frostmage_frozenheart", name: "얼어붙은 심장", stat: "int", category: "passive", tier: 3,
@@ -1425,7 +1701,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_windmage_flow", name: "바람의 흐름", stat: "int", category: "passive", tier: 3,
     description: "전장의 기류를 읽어 공격을 흘리고 주문의 궤도를 바로잡는다.",
     mpCost: 0, cooldown: 0, effects: [],
-    passive: { evasionPct: 10, accuracyPct: 8 },
+    passive: { evasionPct: 10, accuracyPct: 12 },
   },
   v2c_earthmage_tectonic: {
     id: "v2c_earthmage_tectonic", name: "지각진", stat: "int", category: "attack", tier: 3,
@@ -1439,7 +1715,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_earthmage_bedrock: {
     id: "v2c_earthmage_bedrock", name: "기반암", stat: "int", category: "passive", tier: 3,
-    description: "기반암처럼 흔들리지 않는 몸과 방어를 갖춘다.",
+    description: "기반암처럼 흔들리지 않는 몸과 물리·마법 방어력을 갖춘다.",
     mpCost: 0, cooldown: 0, effects: [],
     passive: { maxHpPct: 10, defPct: 14 },
   },
@@ -1447,7 +1723,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   // ── 마법 4차 세 번째 갈래(대주술사·주술사 계승) — 마법취약 누적과 폭발 ──
   v2c_archshaman_rite: {
     id: "v2c_archshaman_rite", name: "금단 의식", stat: "int", category: "attack", tier: 3,
-    description: "금단의 의식으로 적의 혼을 찢는다. 누적된 마법취약이 많을수록 더 깊게 파고든다.",
+    description: "직접 마법 피해를 주고, 누적된 마법취약 스택 수에 따라 추가 피해를 준다.",
     mpCost: 46, fixedMpCost: 125, cooldown: 0, procChance: 30,
     effects: [
       dmg(1.45, 300, "magic"),
@@ -1456,7 +1732,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_archshaman_curse: {
     id: "v2c_archshaman_curse", name: "흉조 II", stat: "int", category: "passive", tier: 3,
-    description: "금기를 새긴 주문이 적의 혼을 더 크게 흔든다. 마법취약 효과가 깊어진다.",
+    description: "장착 중 직접 피해 스킬 적중 시 85% 확률로 마법취약 +1스택(최대 10). 스택당 대상이 받는 스킬 피해 +8%.",
     mpCost: 0, cooldown: 0,
     effects: [],
     passive: { enemyMagicVulnPctPerStack: 8, enemyMagicVulnApplyChancePct: 85 },
@@ -1473,7 +1749,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_calamitycaller_omen: {
     id: "v2c_calamitycaller_omen", name: "흉조 III", stat: "int", category: "passive", tier: 3,
-    description: "흉조가 재앙으로 번진다. 마법취약이 더 안정적으로 쌓이고 더 깊게 파고든다.",
+    description: "장착 중 직접 피해 스킬 적중 시 95% 확률로 마법취약 +1스택(최대 10). 스택당 대상이 받는 스킬 피해 +10%.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { enemyMagicVulnPctPerStack: 10, enemyMagicVulnApplyChancePct: 95 },
@@ -1481,9 +1757,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_archbishop_sanctuary: {
     id: "v2c_archbishop_sanctuary", name: "성역 선포", stat: "int", category: "heal", tier: 3,
     description: "성역을 펼쳐 상처를 조금 메우고 잠시 피해를 줄인다.",
-    mpCost: 46, fixedMpCost: 125, cooldown: 0, procChance: 100,
+    mpCost: 46, fixedMpCost: 125, cooldown: 0, procChance: 100, spCost: 7,
     effects: [
-      { kind: "heal", pctLostHp: 7, statCoef: 0.6, baseFlatByTier: [100, 100, 100], scaling: "spi" },
+      { kind: "heal", pctLostHp: 2.24, statCoef: 0.192, baseFlatByTier: [32, 32, 32], scaling: "spi" },
       { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
     ],
   },
@@ -1515,39 +1791,53 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     },
   },
 
-  // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) — 액티브 보호막 + 반사 패시브 ──
+  // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) — 도발 액티브 + 반사 패시브 ──
   v2c_warden_aegis: {
-    // 수호의 방벽 — 최대 HP 10% 보호막(기존 shield effect 재사용·마나 보호막 패턴). 방어 탱의
-    //   생존기. tier 필드 3(비용 클램프). 보호막은 enemyPhase 가 dmg 흡수.
-    id: "v2c_warden_aegis", name: "수호의 방벽", stat: "vit", category: "buff", tier: 3,
-    description: "체력을 끌어모아 방벽을 두른다. 한동안 피해를 흡수한다.", mpCost: 40, cooldown: 0, procChance: 100,
-    effects: [{ kind: "shield", pctMaxHp: 10, turns: 3 }],
+    id: "v2c_warden_aegis", name: "수호의 도발", stat: "vit", category: "buff", tier: 3,
+    description: "적의 시선을 끌어 즉시 자신을 두 번 공격하게 한다. 상대의 원래 다음 행동은 소모하지 않는다.",
+    mpCost: 40, cooldown: 3, procChance: 100, spCost: 10,
+    effects: [],
+    provokeImmediateBasicAttacks: 2,
   },
   v2c_warden_thorns: {
-    // 가시 방벽(패시브) — 피격(적중) 시 내 방어력의 100%를 적에게 고정 반사("방어 계수만큼").
-    //   엔진 thornsFlatFromDef 훅(derive 가 def×thornsDefPct% 환산·enemyPhase[PvE]·applyOnHitReflect[PvP]
-    //   양쪽 가산). 방어=딜로 전환되는 탱딜 시너지(방벽 방어%와 결합).
-    id: "v2c_warden_thorns", name: "가시 방벽", stat: "vit", category: "passive", tier: 3,
-    description: "방벽에 돋은 가시. 공격을 받을 때마다 방어력만큼 되받아친다.", mpCost: 0, cooldown: 0,
+    // 충격 방벽(패시브) — 적중한 직접 공격을 받을 때 충격 1스택(최대 3)을 축적한다.
+    // 방패 직접 공격이 모든 스택을 소비하며, 움직이는 성채가 스택당 보너스를 강화한다.
+    id: "v2c_warden_thorns", name: "충격 방벽", stat: "vit", category: "passive", tier: 3,
+    description: "공격을 방벽으로 받아 충격을 축적한다. 모은 충격은 방패 계열 직접 공격을 강화한다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { thornsDefPct: 100 },
+    passive: {
+      fortressImpactOnHit: true,
+      fortressImpactDamagePctPerStack: 15,
+    },
   },
 
   // ── 전사 4차 세 번째 갈래(광왕·광전사 계승) — HP를 걸고 화력을 끌어올리는 순수 공격 라인 ──
   v2c_warlord_bloodbath: {
     id: "v2c_warlord_bloodbath", name: "혈전", stat: "str", category: "attack", tier: 3,
-    description: "피로 길을 열듯 내리친다. 더 큰 체력을 걸고 더 크게 베어낸다.",
-    mpCost: 42, cooldown: 0, procChance: 30,
+    description: "피로 길을 연다. 명중하면 현재 체력을 15% 소모하고, 다음 파멸일격 또는 멸왕일도를 준비한다.",
+    mpCost: 42, cooldown: 0, procChance: 30, spCost: 7,
+    defaultPattern: {
+      priority: 200,
+      condition: {
+        kind: "all",
+        conditions: [
+          { kind: "self_hp", op: "below", pct: 70 },
+          { kind: "self_buff_pct", target: "berserkerFinisher", active: false },
+        ],
+      },
+    },
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 10, statCoef: 1.45, baseFlatByTier: [280, 280, 280], soakRatio: 1.8 },
+      { kind: "missingHpDamage", attackCoef: 1.1, statCoef: 1.2, missingHpCoef: 0.7, selfCurrentHpCostPct: 15, scaling: "physical" },
     ],
   },
   v2c_warlord_slaughter: {
     id: "v2c_warlord_slaughter", name: "광기 II", stat: "str", category: "passive", tier: 3,
-    description: "죽음에 가까울수록 전장이 선명해진다. 광기보다 더 크게 공격력이 오른다.",
-    mpCost: 0, cooldown: 0,
+    description: "광기의 효과를 계승한다. 혈전으로 준비한 필살기의 치명타 피해가 30% 오른다.",
+    mpCost: 0, cooldown: 0, spCost: 7,
     effects: [],
-    passive: { berserkAtkPctPerLostHpPct: 0.65 },
+    exclusiveGroup: "berserker_madness",
+    exclusiveRank: 2,
+    passive: {},
   },
 
   // ── 무도 4차 두 번째 갈래(투승·무승 계승) 킷 — 반격(피격 카운터) + 철신(최대 HP) ──
@@ -1606,42 +1896,66 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_swordmaster_focus: {
     id: "v2c_swordmaster_focus", name: "검의 집중", stat: "str", category: "passive", tier: 3,
-    description: "칼끝을 흐트러뜨리지 않는다. 힘과 치명타 피해가 오르고, 한계를 넘어선 속도가 공격력이 된다.",
+    description: "칼끝을 흐트러뜨리지 않는다. 힘과 치명타 피해가 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
-    passive: { statPct: { str: 18 }, critDmgPct: 25, spdOverflowToAtkPct: 25 },
+    passive: { statPct: { str: 18 }, critDmgPct: 25 },
+  },
+  v2c_swordmaster_armorinsight2: {
+    id: "v2c_swordmaster_armorinsight2", name: "갑주 간파 II", stat: "str", category: "passive", tier: 3,
+    description: "숙련된 검로로 갑주의 결을 갈라 물리 방어를 더 크게 우회한다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000, spCost: 7, effects: [],
+    passive: { enemyPhysicalDefReductionPct: 11 },
   },
   v2c_ironknight_guard: {
-    id: "v2c_ironknight_guard", name: "반사 태세", stat: "vit", category: "buff", tier: 3,
-    description: "방패를 고정해 보호막을 세우고, 잠시 모든 반사 피해를 증폭한다.",
-    mpCost: 48, cooldown: 0, procChance: 100, learnCost: 8000,
-    effects: [
-      { kind: "shield", pctMaxHp: 10, turns: 3 },
-      { kind: "selfBuffPct", target: "reflectDamage", pct: 60, turns: 3 },
-    ],
+    id: "v2c_ironknight_guard", name: "철벽 태세", stat: "vit", category: "buff", tier: 3,
+    description: "철벽을 세워 다음 세 번의 직접 공격을 줄여 받고, 방어력에 비례한 피해를 되돌려준다.",
+    mpCost: 48, cooldown: 3, procChance: 100, spCost: 10, learnCost: 8000,
+    effects: [],
+    ironWallReflect: { charges: 3, damageReductionPct: 30, reflectDefPct: 180 },
+    defaultPattern: {
+      priority: 400,
+      condition: {
+        kind: "self_resource",
+        resource: "ironWallReflect",
+        op: "none",
+        value: 0,
+      },
+    },
   },
   v2c_ironknight_wall: {
     id: "v2c_ironknight_wall", name: "장벽술", stat: "vit", category: "passive", tier: 3,
-    description: "단단한 장벽 운용에 익숙해진다. 방어와 반사가 오른다.",
+    description: "단단한 장벽 운용에 익숙해진다. 물리·마법 방어력과 방어력 기반 직접 공격이 강해진다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
-    passive: { defPct: 18, thornsDefPct: 80 },
+    passive: { defPct: 18, fortressDefSkillStatCoefPct: 15 },
   },
   v2c_overlord_ruin: {
-    id: "v2c_overlord_ruin", name: "파멸 난무", stat: "str", category: "attack", tier: 3,
-    description: "체력을 깎아 광폭한 연격을 퍼붓는다. 위태로운 적은 그대로 무너진다.",
-    mpCost: 54, cooldown: 0, procChance: 30, learnCost: 8000,
+    id: "v2c_overlord_ruin", name: "파멸일격", stat: "str", category: "attack", tier: 3,
+    description: "모든 힘을 한 번에 내리꽂는다. 잃은 체력이 많을수록 파괴력이 폭증한다.",
+    mpCost: 54, cooldown: 0, procChance: 30, learnCost: 8000, spCost: 10,
+    defaultPattern: {
+      priority: 300,
+      condition: {
+        kind: "all",
+        conditions: [
+          { kind: "self_hp", op: "below", pct: 50 },
+          { kind: "self_buff_pct", target: "berserkerFinisher", active: true },
+        ],
+      },
+    },
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 12, statCoef: 1.75, baseFlatByTier: [360, 360, 360], soakRatio: 2.4 },
-      { kind: "executeDamage", statCoef: 0.35, baseFlatByTier: [180, 180, 180], hpThresholdPct: 25, bonusMult: 2.3 },
+      { kind: "missingHpDamage", attackCoef: 1.5, statCoef: 1.8, missingHpCoef: 1.4, scaling: "physical" },
     ],
   },
   v2c_overlord_throne: {
     id: "v2c_overlord_throne", name: "광기의 왕좌", stat: "str", category: "passive", tier: 3,
-    description: "피가 마를수록 전장이 선명해진다. 낮은 체력에서 공격성과 치명성이 크게 오른다.",
-    mpCost: 0, cooldown: 0, learnCost: 8000,
+    description: "광기 II를 계승한다. 전투당 한 번, 사망할 피해를 버티고 최대 체력의 20%로 회복한다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000, spCost: 14,
     effects: [],
-    passive: { berserkAtkPctPerLostHpPct: 0.8, critDmgPct: 30, maxHpPct: 8 },
+    exclusiveGroup: "berserker_madness",
+    exclusiveRank: 3,
+    passive: {},
   },
   v2c_arcanist_burst: {
     id: "v2c_arcanist_burst", name: "비전 폭발", stat: "int", category: "attack", tier: 3,
@@ -1656,6 +1970,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     passive: { statPct: { int: 18 }, critPct: 8 },
   },
+  v2c_arcanist_magicdismantle2: {
+    id: "v2c_arcanist_magicdismantle2", name: "마력 해체 II", stat: "int", category: "passive", tier: 3,
+    description: "비전 구조를 분해해 주문이 마법 방어를 더 깊이 무너뜨리게 한다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000, spCost: 7, effects: [],
+    passive: { enemyMagicDefReductionPct: 11 },
+  },
   v2c_elementallord_surge: {
     id: "v2c_elementallord_surge", name: "오원소 폭주", stat: "int", category: "attack", tier: 3,
     description: "보유한 하위 원소 주문으로 술식을 해금하고, 함께 장착한 주문을 공명시켜 폭주의 이름과 효과를 바꾼다.",
@@ -1667,7 +1987,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
         requiredLearnedSkillIds: ["v2c_firemage_inferno", "v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt", "v2c_windmage_tempest", "v2c_earthmage_tectonic"],
         requiredEquippedSkillIds: ["v2c_firemage_inferno", "v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt", "v2c_windmage_tempest", "v2c_earthmage_tectonic"],
         effects: [
-          dmg(2.75, 700, "magic"),
+          dmg(3.1, 780, "magic"),
           { kind: "dot", ...V2_DOT_PRESETS.연소 },
           { kind: "enemyHealReduce", pct: 55, turns: 3 },
           { kind: "shield", pctMaxHp: 12, pctMaxMp: 6, turns: 3 },
@@ -1751,6 +2071,20 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     passive: { elementResonance: true },
   },
+  v2c_cryomancer_absolutezero: {
+    id: "v2c_cryomancer_absolutezero", name: "절대영도", stat: "int", category: "attack", tier: 3,
+    description: "극한의 냉기를 응축해 적에게 큰 마법 피해를 주고 한기를 3중첩 쌓는다.",
+    mpCost: 0, fixedMpCost: 155, cooldown: 0, procChance: 30,
+    learnCost: 8000, spCost: 7,
+    effects: [dmg(2.2, 540, "magic")],
+    frostChillGain: 3,
+  },
+  v2c_cryomancer_freezingpoint: {
+    id: "v2c_cryomancer_freezingpoint", name: "빙점 지배", stat: "int", category: "passive", tier: 3,
+    description: "빙점을 지배해 마나를 늘리고 한기에서 발생하는 빙결을 강화한다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000, spCost: 6, effects: [],
+    passive: { maxMpPct: 12, freezeDamagePct: 50, freezeDelayPct: 40 },
+  },
   v2c_inscriber_release: {
     id: "v2c_inscriber_release", name: "각인 해방", stat: "int", category: "attack", tier: 3,
     description: "마력에 새긴 각인을 해방한다. 장착한 문장 재료에 따라 추가 효과가 열린다.",
@@ -1812,30 +2146,39 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "흔들림 없는 조준으로 민첩과 명중이 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
-    passive: { statPct: { dex: 18 }, accuracyPct: 16 },
+    passive: { statPct: { dex: 18 }, accuracyPct: 24 },
   },
   v2c_nightshade_eclipse: {
     id: "v2c_nightshade_eclipse", name: "월식", stat: "luk", category: "attack", tier: 3,
-    description: "어둠이 덮이는 순간 파고든다. 첫 일격과 마무리에 모두 강하다.",
-    mpCost: 52, cooldown: 0, procChance: 100, learnCost: 8000,
+    description: "두 번 연속 공격한다. 1타는 적 HP 90% 이상일 때 PvE 5배·PvP 4배, 2타는 35% 이하일 때 3배 피해를 준다.",
+    // 기습·암살을 한 슬롯에 묶은 5차 상위기. 절충형 저가 스킬이 아니라 각 조건에서 하위기를
+    // 확실히 넘도록 SP를 10으로 올리고 오프너·처형 배수를 강화한다. 오프너는 PvP에서 공격 횟수·
+    // 스킬 치명타와 중첩되므로 PvE 5배와 달리 기존 4배를 유지한다.
+    mpCost: 52, cooldown: 0, procChance: 100, learnCost: 8000, spCost: 10,
     effects: [
-      { kind: "ambushDamage", statCoef: 0.22, baseFlatByTier: [180, 180, 180], hpThresholdPct: 90, bonusMult: 4.0, scaling: "luk" },
-      { kind: "executeDamage", statCoef: 0.26, baseFlatByTier: [180, 180, 180], hpThresholdPct: 35, bonusMult: 2.0, scaling: "luk" },
+      { kind: "ambushDamage", statCoef: 0.22, baseFlatByTier: [180, 180, 180], hpThresholdPct: 90, bonusMult: 5.0, pvpBonusMult: 4.0, scaling: "luk" },
+      { kind: "executeDamage", statCoef: 0.26, baseFlatByTier: [180, 180, 180], hpThresholdPct: 35, bonusMult: 3.0, scaling: "luk" },
     ],
   },
   v2c_nightshade_cloak: {
     id: "v2c_nightshade_cloak", name: "은신 II", stat: "luk", category: "passive", tier: 3,
-    description: "어둠 속에서 몸을 숨기고 급소를 더 깊게 찌른다. 치명타 한계 초과분이 스킬에도 실린다.",
+    description: "어둠 속에서 몸을 숨기고 급소를 정확히 찌른다. 회피와 치명타 확률·피해, 명중이 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
-    passive: { evasionPct: 18, critDmgPct: 20, skillCritOverflow: true },
+    passive: { evasionPct: 18, critPct: 8, critDmgPct: 20, accuracyPct: 15 },
+  },
+  v2c_nightshade_weakpoint2: {
+    id: "v2c_nightshade_weakpoint2", name: "급소 노출 II", stat: "luk", category: "passive", tier: 3,
+    description: "어둠 속에서 방어의 접합부를 드러내 물리 공격이 더 깊이 파고들게 한다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000, spCost: 5, effects: [],
+    passive: { enemyPhysicalDefReductionPct: 10 },
   },
   v2c_saint_miracle: {
     id: "v2c_saint_miracle", name: "기적", stat: "int", category: "heal", tier: 3,
     description: "기적의 빛으로 상처를 메우고 잠시 몸을 보호한다.",
-    mpCost: 54, fixedMpCost: 160, cooldown: 0, procChance: 100, learnCost: 8000,
+    mpCost: 54, fixedMpCost: 160, cooldown: 0, procChance: 100, learnCost: 8000, spCost: 9,
     effects: [
-      { kind: "heal", pctLostHp: 9, statCoef: 0.8, baseFlatByTier: [140, 140, 140], scaling: "spi" },
+      { kind: "heal", pctLostHp: 2.88, statCoef: 0.256, baseFlatByTier: [44.8, 44.8, 44.8], scaling: "spi" },
       { kind: "shield", pctMaxHp: 10, turns: 3 },
       { kind: "selfBuffPct", target: "damageReduction", pct: 10, turns: 3 },
     ],
@@ -1847,21 +2190,47 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     passive: { healPowerPct: 25, maxHpPct: 12, damageTakenReductionPct: 5 },
   },
+  v2c_grandwarder_eightgate: {
+    id: "v2c_grandwarder_eightgate", name: "팔문금쇄진", stat: "int", category: "buff", tier: 3,
+    description: "여덟 방위의 문을 잠가 보호막을 두르고, 3행동 동안 받는 피해를 줄인다.",
+    mpCost: 56, fixedMpCost: 160, cooldown: 0, procChance: 100, learnCost: 8000,
+    effects: [
+      { kind: "shield", pctMaxHp: 18, turns: 3 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 14, turns: 3 },
+    ],
+  },
+  v2c_grandwarder_tripleward: {
+    id: "v2c_grandwarder_tripleward", name: "삼중결계", stat: "int", category: "passive", tier: 3,
+    description: "전투 시작 시 직접 물리 피해를 막는 금강결계, 직접 마법 피해를 막는 봉마결계, 새 상태이상을 막는 정화결계를 각각 1회 전개한다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000,
+    effects: [],
+    exclusiveGroup: "triple_ward",
+    exclusiveRank: 1,
+    passive: { tripleWardRank: 1 },
+  },
   v2c_plaguebringer_outbreak: {
     id: "v2c_plaguebringer_outbreak", name: "역병 창궐", stat: "luk", category: "attack", tier: 3,
     description: "역병을 퍼뜨려 중독을 깊게 쌓고 한꺼번에 터뜨린다.",
     mpCost: 52, cooldown: 0, procChance: 35, learnCost: 8000,
     effects: [
       { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 26, stacks: 5 },
-      { kind: "stackPayoffDamage", tag: "poison", statCoef: 0.24, baseFlatByTier: [220, 220, 220], perStackFlat: 40, scaling: "luk" },
+      { kind: "stackPayoffDamage", tag: "poison", statCoef: 0.24, baseFlatByTier: [220, 220, 220], perStackFlat: 55, spCostPerStackFlat: 40, scaling: "luk" },
     ],
   },
   v2c_plaguebringer_decay: {
     id: "v2c_plaguebringer_decay", name: "부식 IV", stat: "luk", category: "passive", tier: 3,
     description: "독이 갑옷과 살을 함께 무너뜨려 중독 피해를 더 깊게 남긴다.",
-    mpCost: 0, cooldown: 0, learnCost: 8000,
+    mpCost: 0, cooldown: 0, learnCost: 8000, spCost: 6,
     effects: [],
-    passive: { poisonedEnemyDefReductionPct: 25, critDmgPct: 10 },
+    passive: { poisonedEnemyDefReductionPct: 12, critDmgPct: 10 },
+  },
+  v2c_plaguebringer_virulence4: {
+    id: "v2c_plaguebringer_virulence4", name: "맹독 IV", stat: "luk", category: "passive", tier: 3,
+    description: "역병의 독성을 극대화해 중독 피해를 크게 증폭한다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000, spCost: 6, effects: [],
+    // I~IV 합산은 기존 97.6%와 거의 같은 98%로 유지하면서, SP 6인 최종 단계가
+    // SP 4인 하위 단계보다 단일 효과와 SP 효율 모두 확실히 높게 한다.
+    passive: { poisonDamagePct: 42 },
   },
   v2c_dragonfist_rupture: {
     id: "v2c_dragonfist_rupture", name: "용린파쇄", stat: "str", category: "attack", tier: 3,
@@ -1881,7 +2250,13 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "힘을 실으면서도 발이 멈추지 않는다. 힘, 회피, 명중이 함께 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
-    passive: { statPct: { str: 18 }, evasionPct: 16, accuracyPct: 8 },
+    passive: { statPct: { str: 18 }, evasionPct: 16, accuracyPct: 12 },
+  },
+  v2c_dragonfist_formationbreak2: {
+    id: "v2c_dragonfist_formationbreak2", name: "파진경 II", stat: "str", category: "passive", tier: 3,
+    description: "응축한 경력을 흘려보내 물리 공격이 적의 방어를 더 크게 뒤튼다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000, spCost: 5, effects: [],
+    passive: { enemyPhysicalDefReductionPct: 10 },
   },
   v2c_adamantmonk_stance: {
     id: "v2c_adamantmonk_stance", name: "금강 자세", stat: "vit", category: "buff", tier: 3,
@@ -1903,7 +2278,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_immortal_lifestrike", name: "생명 강타", stat: "vit", category: "attack", tier: 3,
     description: "불멸의 생명력을 힘으로 바꾸어 적을 짓누른다.",
     mpCost: 54, cooldown: 0, procChance: 30, learnCost: 8000,
-    effects: [dmg(0.035, 260, "maxHp")],
+    effects: [dmg(0.04, 260, "maxHp")],
   },
   v2c_immortal_heart: {
     id: "v2c_immortal_heart", name: "불멸의 심장", stat: "vit", category: "passive", tier: 3,
@@ -1935,7 +2310,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "군주의 피로 낙인을 찍는다. 상처를 대가로 약해진 적에게 최후를 선고한다.",
     mpCost: 56, cooldown: 0, procChance: 30, learnCost: 8000,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 10, statCoef: 1.35, baseFlatByTier: [310, 310, 310], soakRatio: 1.6 },
+      { kind: "hpCostDamage", pctCurrentHp: 10, soakCurrentHpFloorPct: 50, statCoef: 1.35, baseFlatByTier: [310, 310, 310], soakRatio: 1.82 },
       { kind: "executeDamage", statCoef: 0.22, baseFlatByTier: [160, 160, 160], hpThresholdPct: 30, bonusMult: 2.2 },
     ],
   },
@@ -1946,7 +2321,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     passive: {
       maxHpPct: 20,
-      lifestealPct: 8,
+      lifestealPct: 2,
       damageTakenReductionPct: 8,
     },
   },
@@ -1954,61 +2329,103 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   // ── 6차 직업 — 직업 숙련도 기반 엔드 성장 ──
   v2c_fortressknight_ram: {
     id: "v2c_fortressknight_ram", name: "성채 충각", stat: "vit", category: "attack", tier: 3,
-    description: "성채처럼 밀고 들어가 방어력으로 적을 짓누르고 다음 행동을 늦춘다.",
+    description: "성채처럼 밀고 들어가 방어력으로 적을 짓누르고, 충격으로 적이 주는 피해를 감소시킨다.",
     mpCost: 58, cooldown: 0, procChance: 35, learnCost: 12000,
-    effects: [dmg(1.8, 420, "def"), { kind: "enemyDelay", pct: 60 }],
+    effects: [dmg(2.16, 474, "def"), { kind: "enemyDamageDown", pct: 15, turns: 2 }],
+    consumesFortressImpact: true,
+    defaultPattern: {
+      priority: 500,
+      condition: {
+        kind: "self_resource",
+        resource: "impact",
+        op: "atLeast",
+        value: 3,
+      },
+    },
   },
   v2c_fortressknight_citadel: {
     id: "v2c_fortressknight_citadel", name: "움직이는 성채", stat: "vit", category: "passive", tier: 3,
-    description: "갑옷과 방패가 하나의 성채가 된다. 방어와 피해 저항, 방어력 기반 반사가 오른다.",
+    description: "갑옷과 방패가 하나의 성채가 된다. 방어와 피해 저항이 오르고, 충격을 소비하는 직접 공격이 더욱 강해진다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { defPct: 30, damageTakenReductionPct: 8, thornsDefPct: 120 },
+    passive: {
+      defPct: 30,
+      damageTakenReductionPct: 8,
+      fortressImpactDamagePctPerStack: 20,
+    },
   },
   v2c_swordsaint_flash: {
     id: "v2c_swordsaint_flash", name: "무심검", stat: "str", category: "attack", tier: 3,
     description: "마음을 비운 한 검으로 적의 자세와 흐름을 동시에 끊는다.",
-    mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000,
+    mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000, spCostDiscount: 1,
     effects: [
-      dmg(1.95, 460),
+      dmg(1.95, 460, undefined, 15, 3),
       { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 },
+      { kind: "enemyHealReduce", pct: 40, turns: 2 },
       { kind: "enemyDelay", pct: 45 },
     ],
   },
   v2c_swordsaint_transcendence: {
-    id: "v2c_swordsaint_transcendence", name: "검성의 경지", stat: "str", category: "passive", tier: 3,
-    description: "검로가 완성된다. 힘과 치명타 피해가 오르고, 한계를 넘어선 속도가 더 큰 공격력으로 돌아온다.",
-    mpCost: 0, cooldown: 0, learnCost: 12000,
+    id: "v2c_swordsaint_transcendence", name: "일검필살", stat: "str", category: "passive", tier: 3,
+    description: "모든 기운을 한 검에 모은다. 힘과 치명타 피해가 오르고, 단 한 번의 물리 타격으로 끝내는 공격 스킬이 강해진다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 11,
     effects: [],
-    passive: { statPct: { str: 24 }, critDmgPct: 35, accuracyPct: 10, spdOverflowToAtkPct: 35 },
+    passive: {
+      statPct: { str: 24 },
+      skillCritDmgPct: 35,
+      singleHitPhysicalSkillDamagePct: 30,
+      accuracyPct: 15,
+    },
+  },
+  v2c_swordsaint_armorinsight3: {
+    id: "v2c_swordsaint_armorinsight3", name: "갑주 간파 III", stat: "str", category: "passive", tier: 3,
+    description: "완성된 검로로 모든 갑주의 결을 꿰뚫어 물리 방어를 크게 우회한다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 9, effects: [],
+    passive: { enemyPhysicalDefReductionPct: 13 },
   },
   v2c_hegemon_annihilation: {
-    id: "v2c_hegemon_annihilation", name: "멸왕난무", stat: "str", category: "attack", tier: 3,
-    description: "왕좌까지 피로 물들이는 연격. 생명을 태워 몰아붙이고 약해진 적을 짓밟는다.",
-    mpCost: 62, cooldown: 0, procChance: 30, learnCost: 12000,
+    id: "v2c_hegemon_annihilation", name: "멸왕일도", stat: "str", category: "attack", tier: 3,
+    description: "잃은 HP가 많을수록 강해지는 패황의 최종 일격. 혈전과 사망 극복으로 더욱 강해진다.",
+    mpCost: 62, cooldown: 0, procChance: 30, learnCost: 12000, spCost: 13,
+    oncePerBattle: true,
+    defaultPattern: {
+      priority: 400,
+      condition: {
+        kind: "any",
+        conditions: [
+          { kind: "self_buff_pct", target: "berserkerDeathOvercome", active: true },
+          { kind: "self_hp", op: "below", pct: 25 },
+        ],
+      },
+    },
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 14, statCoef: 1.95, baseFlatByTier: [430, 430, 430], soakRatio: 2.6 },
-      { kind: "executeDamage", statCoef: 0.42, baseFlatByTier: [220, 220, 220], hpThresholdPct: 28, bonusMult: 2.5 },
-      { kind: "enemyVuln", pct: 12, turns: 3 },
+      { kind: "missingHpDamage", attackCoef: 2.2, statCoef: 2.64, missingHpCoef: 2, scaling: "physical" },
     ],
   },
   v2c_hegemon_dominion: {
     id: "v2c_hegemon_dominion", name: "패황의 지배", stat: "str", category: "passive", tier: 3,
-    description: "상처가 깊을수록 지배력이 강해진다. 잃은 체력에 따른 공격력과 치명타 피해가 오른다.",
-    mpCost: 0, cooldown: 0, learnCost: 12000,
+    description: "광기 계열의 모든 하위 효과를 계승한다. 치명 피해를 한 번 극복한 뒤 다음 공격을 강화하고 멸왕일도를 재충전한다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 15,
     effects: [],
-    passive: { berserkAtkPctPerLostHpPct: 1.0, critDmgPct: 40, maxHpPct: 12 },
+    exclusiveGroup: "berserker_madness",
+    exclusiveRank: 4,
+    passive: {},
   },
   v2c_archmage_collapse: {
     id: "v2c_archmage_collapse", name: "비전 붕괴", stat: "int", category: "attack", tier: 3,
     description: "고도로 압축한 마력을 무너뜨려 순수한 마법 피해를 준다.",
     mpCost: 58, fixedMpCost: 190, cooldown: 0, procChance: 32, learnCost: 12000,
-    effects: [dmg(2.45, 620, "magic"), { kind: "enemyDelay", pct: 35 }],
+    effects: [
+      dmg(2.45, 620, "magic", 12),
+      { kind: "enemyHealReduce", pct: 40, turns: 2 },
+      { kind: "enemyDelay", pct: 35 },
+    ],
   },
   v2c_archmage_theory: {
     id: "v2c_archmage_theory", name: "대마도 이론", stat: "int", category: "passive", tier: 3,
     description: "마법식의 근본을 꿰뚫는다. 지능과 마법 스킬 피해가 오르고 마력 방벽으로 피해를 흘린다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
+    spCostDiscount: 1,
     effects: [],
     passive: {
       statPct: { int: 22 },
@@ -2017,9 +2434,15 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       damageTakenReductionPct: 8,
     },
   },
+  v2c_archmage_magicdismantle3: {
+    id: "v2c_archmage_magicdismantle3", name: "마력 해체 III", stat: "int", category: "passive", tier: 3,
+    description: "마법식의 근원을 해체해 주문이 마법 방어를 크게 무너뜨리게 한다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 9, effects: [],
+    passive: { enemyMagicDefReductionPct: 13 },
+  },
   v2c_primordialmage_return: {
     id: "v2c_primordialmage_return", name: "태초회귀", stat: "int", category: "attack", tier: 3,
-    description: "하위 원소 주문의 보유·장착 조합을 태초의 술식으로 승격시켜 이름과 권능을 다시 쓴다.",
+    description: "하위 원소 주문의 보유·장착 조합을 태초의 술식으로 승격시켜 이름과 권능을 다시 쓴다. 근원공명과 함께 장착하면 추가 마법 피해를 주고 최대 MP의 8%를 실제 소비 MP 이하로 회복하며 선택된 주문식 재료를 공명시킨다. 오원소 폭주는 태초회귀를 강화하는 촉매가 된다.",
     mpCost: 82, fixedMpCost: 180, cooldown: 0, procChance: 32, learnCost: 12000,
     effects: [dmg(2.45, 650, "magic"), { kind: "enemyVuln", pct: 14, turns: 3 }, { kind: "enemyDelay", pct: 30 }],
     castVariants: [
@@ -2028,7 +2451,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
         requiredLearnedSkillIds: ["v2c_firemage_inferno", "v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt", "v2c_windmage_tempest", "v2c_earthmage_tectonic"],
         requiredEquippedSkillIds: ["v2c_firemage_inferno", "v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt", "v2c_windmage_tempest", "v2c_earthmage_tectonic"],
         effects: [
-          dmg(3.05, 820, "magic"),
+          dmg(3.5, 925, "magic"),
           { kind: "dot", ...V2_DOT_PRESETS.연소 },
           { kind: "enemyHealReduce", pct: 65, turns: 3 },
           { kind: "shield", pctMaxHp: 16, pctMaxMp: 8, turns: 3 },
@@ -2098,14 +2521,64 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
         requiredSkillId: "v2c_primordialmage_resonance",
         effects: [dmg(0.28, 110, "magic"), { kind: "manaRestore", pctMaxMp: 8 }],
       },
+      {
+        requiredSkillIds: ["v2c_primordialmage_resonance", "v2c_elementallord_surge"],
+        // 6차 액티브 정규화(×0.95) 뒤 실제 촉매 증가량을 정확히 +0.28/+110으로 맞춘다.
+        effects: [dmg(0.28 / 0.95, 110 / 0.95, "magic")],
+      },
     ],
   },
   v2c_primordialmage_resonance: {
     id: "v2c_primordialmage_resonance", name: "근원공명", stat: "int", category: "passive", tier: 3,
-    description: "원소의 근원을 몸에 새긴다. 마법 위력과 마나의 그릇, 정신력을 함께 끌어올린다.",
+    description: "원소의 근원을 몸에 새긴다. 지능 +24%, 정신 +12%, 마법 스킬 피해 +16%, 최대 MP +20%. 태초회귀와 함께 장착하면 추가 마법 피해를 주고 최대 MP의 8%를 실제 소비 MP 이하로 회복하며 선택된 주문식 재료가 공명한다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    spCostDiscount: 4,
+    effects: [],
+    passive: { statPct: { int: 24, spi: 12 }, magicSkillDamagePct: 16, maxMpPct: 20 },
+  },
+  v2c_primordialmage_amplification: {
+    id: "v2c_primordialmage_amplification", name: "원초 증폭", stat: "int", category: "passive", tier: 3,
+    description: "장비에서 얻은 치명타 배율을 모든 직접 마법 스킬 피해의 치명타 배율로 변환한다. 투자량이 커질수록 효율이 완만해지며 최대 +0.75배에 가까워진다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { statPct: { int: 20, spi: 8 }, magicSkillDamagePct: 10, maxMpPct: 14 },
+    passive: { equipmentMagicSkillCritConversion: true },
+  },
+  v2c_frostsovereign_eternalprison: {
+    id: "v2c_frostsovereign_eternalprison", name: "영겁빙옥", stat: "int", category: "attack", tier: 3,
+    description: "영겁의 얼음 감옥을 닫아 큰 마법 피해를 주고 적에게 한기를 4중첩 쌓는다.",
+    mpCost: 84, fixedMpCost: 195, cooldown: 0, procChance: 32, learnCost: 12000, spCost: 9,
+    effects: [dmg(3, 760, "magic")],
+    frostChillGain: 4,
+  },
+  v2c_frostsovereign_permafrost: {
+    id: "v2c_frostsovereign_permafrost", name: "영구동토", stat: "int", category: "passive", tier: 3,
+    description: "빙결 뒤에도 녹지 않는 한기를 남겨 다음 빙결을 앞당기고 그 위력과 지연을 강화한다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 10,
+    effects: [],
+    passive: {
+      maxMpPct: 16,
+      freezeDamagePct: 35,
+      freezeDelayPct: 50,
+      freezeRetainStacks: 1,
+    },
+  },
+  v2c_lawweaver_release: {
+    id: "v2c_lawweaver_release", name: "만상각인 해방", stat: "int", category: "attack", tier: 3,
+    description: "전투 중 쌓은 공격·환류·침식·수호 각인을 모두 해방해 개수와 조합에 따른 효과를 일으킨다.",
+    mpCost: 86, fixedMpCost: 200, cooldown: 0, procChance: 100, learnCost: 12000, spCost: 13,
+    effects: [],
+    consumesLawInscriptions: true,
+    defaultPattern: {
+      priority: 600,
+      condition: { kind: "self_resource", resource: "inscription", op: "atLeast", value: 4 },
+    },
+  },
+  v2c_lawweaver_inscription: {
+    id: "v2c_lawweaver_inscription", name: "법칙 각인", stat: "int", category: "passive", tier: 3,
+    description: "대문장 해방과 각인 해방을 정상 시전하면 장착한 문장 재료에 대응하는 법칙 각인을 얻는다. 지능 +18%, 정신 +8%, 최대 MP +16%.",
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 13,
+    effects: [],
+    passive: { statPct: { int: 18, spi: 8 }, maxMpPct: 16, lawInscription: true },
   },
   v2c_savior_judgment: {
     id: "v2c_savior_judgment", name: "구원의 심판", stat: "int", category: "attack", tier: 3,
@@ -2123,6 +2596,26 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     passive: { healPowerPct: 35, maxHpPct: 18, damageTakenReductionPct: 8 },
   },
+  v2c_lawguardian_inviolable: {
+    id: "v2c_lawguardian_inviolable", name: "만법불침", stat: "int", category: "buff", tier: 3,
+    description: "전투당 한 번, 모든 결계를 다시 세우고 강한 보호막과 피해 저항을 3행동 동안 얻는다.",
+    mpCost: 84, fixedMpCost: 210, cooldown: 0, procChance: 100, learnCost: 12000,
+    oncePerBattle: true,
+    refreshTripleWards: true,
+    effects: [
+      { kind: "shield", pctMaxHp: 24, turns: 3 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 18, turns: 3 },
+    ],
+  },
+  v2c_lawguardian_domain: {
+    id: "v2c_lawguardian_domain", name: "만법수호영역", stat: "int", category: "passive", tier: 3,
+    description: "삼중 결계를 각각 3회 전개한다. 결계가 소모될 때마다 전투 동안 영역 안정이 쌓여 받는 피해가 감소한다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    effects: [],
+    exclusiveGroup: "triple_ward",
+    exclusiveRank: 2,
+    passive: { tripleWardRank: 2 },
+  },
   v2c_doomprophet_sentence: {
     id: "v2c_doomprophet_sentence", name: "종말 선고", stat: "int", category: "attack", tier: 3,
     description: "종말을 예언해 적의 영혼을 침식시키고 쌓인 마법취약을 터뜨린다.",
@@ -2135,7 +2628,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_doomprophet_revelation: {
     id: "v2c_doomprophet_revelation", name: "불길한 계시", stat: "int", category: "passive", tier: 3,
-    description: "종말의 계시가 모든 주문에 스민다. 마법취약과 저주 디버프가 한층 깊어진다.",
+    description: "장착 중 직접 피해 스킬 적중 시 100% 확률로 마법취약 +1스택(최대 10). 스택당 대상이 받는 스킬 피해 +12%.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { enemyMagicVulnPctPerStack: 12, enemyMagicVulnApplyChancePct: 100 },
@@ -2153,10 +2646,16 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_heavenlybow_starpath: {
     id: "v2c_heavenlybow_starpath", name: "성도 조준", stat: "dex", category: "passive", tier: 3,
-    description: "화살이 별자리처럼 이어진다. 민첩과 명중이 오르고, 치명타 한계를 넘긴 조준이 스킬에도 실린다.",
-    mpCost: 0, cooldown: 0, learnCost: 12000,
+    description: "화살이 별자리처럼 이어진다. 민첩과 명중, 스킬 치명타의 위력이 오르고, 속도에 비례해 공격력이 증가한다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 11,
     effects: [],
-    passive: { statPct: { dex: 22, luk: 8 }, accuracyPct: 20, critPct: 8, skillCritOverflow: true },
+    passive: {
+      statPct: { dex: 22, luk: 8 },
+      accuracyPct: 30,
+      critPct: 8,
+      skillCritDmgPct: 30,
+      spdToAtkMaxPct: 30,
+    },
   },
   v2c_blackmoon_flurry: {
     id: "v2c_blackmoon_flurry", name: "암월난무", stat: "luk", category: "attack", tier: 3,
@@ -2164,7 +2663,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000,
     effects: [
       { kind: "damage", statCoef: 0.55, baseFlat: 185, scaling: "luk", pierceDamagePct: 12 },
-      { kind: "damage", statCoef: 0.46, baseFlat: 170, scaling: "dex", pierceDamagePct: 12 },
+      { kind: "damage", statCoef: 0.46, baseFlat: 170, scaling: "luk", pierceDamagePct: 12 },
       { kind: "damage", statCoef: 0.62, baseFlat: 210, scaling: "luk", pierceDamagePct: 18 },
       { kind: "enemyAccuracyDown", pct: 28, turns: 3 },
       { kind: "selfBuffPct", target: "evasion", pct: 14, turns: 3 },
@@ -2172,10 +2671,25 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_blackmoon_dominion: {
     id: "v2c_blackmoon_dominion", name: "흑월지배", stat: "luk", category: "passive", tier: 3,
-    description: "달빛조차 숨기는 보법. 행운과 민첩, 회피가 오르고 공격을 피하면 다음 공격 스킬이 반드시 치명타가 된다.",
-    mpCost: 0, cooldown: 0, learnCost: 12000,
+    description: "달빛조차 숨기는 보법. 행운을 공격력과 속도로 바꾸고, 치명타 한계를 넘어 급소를 파고든다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 13,
     effects: [],
-    passive: { statPct: { luk: 22, dex: 8 }, evasionPct: 22, critDmgPct: 24, skillCritAfterEvade: true },
+    passive: {
+      statPct: { luk: 22, dex: 8 },
+      evasionPct: 22,
+      critDmgPct: 24,
+      spdPerLukCoef: 0.75,
+      atkPerLukCoef: 0.95,
+      accuracyPct: 15,
+      skillCritOverflow: true,
+      skillCritAfterEvade: true,
+    },
+  },
+  v2c_blackmoon_weakpoint3: {
+    id: "v2c_blackmoon_weakpoint3", name: "급소 노출 III", stat: "luk", category: "passive", tier: 3,
+    description: "흑월 아래 모든 빈틈을 드러내 물리 공격이 방어를 크게 우회하게 한다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 7, effects: [],
+    passive: { enemyPhysicalDefReductionPct: 12 },
   },
   v2c_myriadvenom_mutation: {
     id: "v2c_myriadvenom_mutation", name: "만독개화", stat: "luk", category: "attack", tier: 3,
@@ -2184,22 +2698,22 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [
       { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 30, stacks: 6 },
       { kind: "enemyDotVuln", pct: 28, turns: 3 },
-      { kind: "stackPayoffDamage", tag: "poison", statCoef: 0.3, baseFlatByTier: [260, 260, 260], perStackFlat: 48, scaling: "luk" },
+      { kind: "stackPayoffDamage", tag: "poison", statCoef: 0.3, baseFlatByTier: [260, 260, 260], perStackFlat: 65, spCostPerStackFlat: 48, scaling: "luk" },
     ],
   },
   v2c_myriadvenom_body: {
     id: "v2c_myriadvenom_body", name: "만독지배", stat: "luk", category: "passive", tier: 3,
     description: "행운과 모든 독의 흐름을 장악한다. 중독된 적의 방어를 무너뜨리고, 독성 순환으로 버티며 빈틈을 피한다.",
-    mpCost: 0, cooldown: 0, learnCost: 12000,
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 11,
     effects: [],
-    passive: { statPct: { luk: 22 }, poisonedEnemyDefReductionPct: 30, maxHpPct: 12, evasionPct: 12, critDmgPct: 15 },
+    passive: { statPct: { luk: 22 }, poisonedEnemyDefReductionPct: 14, poisonDamagePct: 24.4, maxHpPct: 12, evasionPct: 12, critDmgPct: 15 },
   },
   v2c_celestialdragon_combo: {
     id: "v2c_celestialdragon_combo", name: "천룡난무", stat: "str", category: "attack", tier: 3,
     description: "하늘로 솟구친 뒤 다섯 번 내리꽂아 적의 흐름을 끊고 전장을 장악한다.",
-    mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000,
+    mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000, spCostDiscount: 4,
     effects: [
-      ...hits(5, 0.36, 150),
+      ...hits(5, 0.36, 150, undefined, 1.2),
       { kind: "enemyVuln", pct: 20, turns: 3 },
       { kind: "selfBuffPct", target: "evasion", pct: 12, turns: 3 },
       { kind: "enemyDelay", pct: 40 },
@@ -2213,13 +2727,19 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: {
       statPct: { str: 22, dex: 10 },
       evasionPct: 20,
-      accuracyPct: 12,
+      accuracyPct: 18,
       comboFinisherBonusPct: 30,
     },
   },
+  v2c_celestialdragon_formationbreak3: {
+    id: "v2c_celestialdragon_formationbreak3", name: "파진경 III", stat: "str", category: "passive", tier: 3,
+    description: "천룡의 경력으로 방어의 흐름을 끊어 물리 공격이 크게 파고들게 한다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 7, effects: [],
+    passive: { enemyPhysicalDefReductionPct: 12 },
+  },
   v2c_vajraarhat_seal: {
     id: "v2c_vajraarhat_seal", name: "금강인", stat: "vit", category: "buff", tier: 3,
-    description: "금강의 인을 맺어 보호막을 얻고 받는 피해를 줄인다. 지속 중 모든 반사 피해와 나한금신의 반격 피해가 증가한다.",
+    description: "금강의 인을 맺어 보호막을 얻고 받는 피해를 줄인다. 지속 중 이미 발동한 반사 피해와 나한금신의 반격 피해가 증가하며, 반사 원량을 새로 만들지는 않는다.",
     mpCost: 58, cooldown: 0, procChance: 100, learnCost: 12000,
     effects: [
       { kind: "shield", pctMaxHp: 18, turns: 3 },
@@ -2257,20 +2777,20 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_blooddemon_reign: {
     id: "v2c_blooddemon_reign", name: "혈마군림", stat: "str", category: "attack", tier: 3,
-    description: "피를 태워 마성을 해방한다. 약해진 적을 짓밟고 빼앗은 생명으로 상처를 되메운다.",
+    description: "명중 시 현재 HP 14%를 소모한다. 보호막과 HP에 실제로 준 피해의 20%를 회복한다.",
     mpCost: 62, cooldown: 0, procChance: 35, learnCost: 12000,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 14, statCoef: 1.85, baseFlatByTier: [430, 430, 430], soakRatio: 2.3 },
+      { kind: "hpCostDamage", pctCurrentHp: 14, soakCurrentHpFloorPct: 50, statCoef: 1.85, baseFlatByTier: [430, 430, 430], soakRatio: 2.62 },
       { kind: "executeDamage", statCoef: 0.32, baseFlatByTier: [220, 220, 220], hpThresholdPct: 35, bonusMult: 2.3 },
-      { kind: "healFromDamage", pct: 20 },
+      { kind: "healFromDamage", pct: 20, basis: "actual" },
     ],
   },
   v2c_blooddemon_immortalblood: {
     id: "v2c_blooddemon_immortalblood", name: "불사마혈", stat: "vit", category: "passive", tier: 3,
-    description: "마혈이 상처를 삼키고 육신을 다시 일으킨다. 생명력과 방어, 피해 저항과 흡혈이 오른다.",
+    description: "마혈이 상처를 삼키고 육신을 다시 일으킨다. 생명력과 물리·마법 방어력, 피해 저항과 흡혈이 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { maxHpPct: 28, lifestealPct: 5, damageTakenReductionPct: 9, defPct: 12 },
+    passive: { maxHpPct: 28, lifestealPct: 4, damageTakenReductionPct: 9, defPct: 12 },
   },
   v2c_absolute_unity: {
     id: "v2c_absolute_unity", name: "만상귀일", stat: "str", category: "attack", tier: 3,
@@ -2292,6 +2812,111 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       maxHpPct: 10,
       maxMpPct: 10,
     },
+  },
+  // ═══ 내부 7차 전투 패키지 — 해금 경제/직업 보너스 확정 전 선택 불가 ═══
+  v2c_shadowblade_afterimage: {
+    id: "v2c_shadowblade_afterimage", name: "잔영", stat: "luk", category: "attack", tier: 3,
+    description: "찰나의 참격 뒤 검영을 남긴다. 검영을 익혔다면 최종 피해의 70%를 기록하고 무흔으로 정련한 검영은 85%를 기록한다. PvP 직접 피해는 조정 전 수준을 유지한다.",
+    mpCost: 65, cooldown: 0, procChance: 45, learnCost: 20000, spCost: 14, spCostDiscount: 1,
+    effects: [dmg(2.289, 540, "luk", 20)],
+    skillCritChancePct: 25,
+    tier7Mechanic: { kind: "shadowStrike", recordPct: 70, refinedRecordPct: 85, pvpDirectDamagePct: 72.73 },
+  },
+  v2c_shadowblade_traceless: {
+    id: "v2c_shadowblade_traceless", name: "무흔", stat: "luk", category: "attack", tier: 3,
+    description: "흔적 없이 다섯 번 베어 기존 검영을 한 번 정련한다. 정련된 검영이 발동하면 다음 행동이 20% 빨라진다. PvP 직접 피해는 조정 전 수준을 유지한다.",
+    mpCost: 65, cooldown: 0, procChance: 50, learnCost: 20000, spCost: 12, spCostDiscount: 1,
+    effects: hits(5, 0.448, 149, "luk"),
+    tier7Mechanic: { kind: "shadowRefine", refinePctPoints: 15, hastePct: 20, pvpDirectDamagePct: 72.73 },
+  },
+  v2c_shadowblade_swordshadow: {
+    id: "v2c_shadowblade_swordshadow", name: "검영", stat: "luk", category: "passive", tier: 3,
+    description: "단일 물리 공격의 최종 피해를 검영으로 남겨 적의 다음 행동 뒤 실현한다. 잔영은 70%, 그 밖의 무영검신 고유 공격은 50%, 계승 공격은 25%를 기록하며 정련하면 기록률이 15%p 오른다. 발동 뒤 다음 단일 물리 공격이 강해진다.",
+    mpCost: 0, cooldown: 0, learnCost: 20000, spCost: 20,
+    effects: [], passive: {},
+    tier7Mechanic: { kind: "shadowCore", recordPct: 50, inheritedRecordPct: 25, refinedRecordPct: 65, nextSingleDamagePct: 15, pvpScalePct: 80 },
+  },
+  v2c_ruinblade_limitstrike: {
+    id: "v2c_ruinblade_limitstrike", name: "극한일격", stat: "str", category: "attack", tier: 3,
+    description: "궁지에서 더 강해지는 일격이다. 잃은 체력에 따라 최종 피해가 최대 60% 증가하고 체력이 40% 이하면 검의를 두 개 얻는다. PvP 직접 피해는 조정 전 수준을 유지한다.",
+    mpCost: 65, cooldown: 0, procChance: 45, learnCost: 20000, spCost: 10, spCostDiscount: 12,
+    effects: [dmg(4.5, 1063, undefined, 20)],
+    tier7Mechanic: { kind: "intentStrike", missingHpBonusCapPct: 60, lowHpThresholdPct: 40, pvpDirectDamagePct: 34.89 },
+  },
+  v2c_ruinblade_oneintent: {
+    id: "v2c_ruinblade_oneintent", name: "일념", stat: "str", category: "passive", tier: 3,
+    description: "단일 물리 공격으로 검의를 최대 세 개 모은다. 검의마다 단일 물리 피해가 8% 오르고 멸검은 검의마다 15% 강해진다.",
+    mpCost: 0, cooldown: 0, learnCost: 20000, spCost: 12,
+    effects: [], passive: { statPct: { str: 18 }, accuracyPct: 15 },
+    tier7Mechanic: { kind: "intentCore", maxStacks: 3, damagePctPerStack: 8, finisherPctPerStack: 15 },
+  },
+  v2c_ruinblade_ruinsword: {
+    id: "v2c_ruinblade_ruinsword", name: "멸검", stat: "str", category: "attack", tier: 3,
+    description: "검의가 정확히 3개일 때 현재 행동을 충전에 쓰고 다음 행동 기회에 자동으로 해방하는 전투당 한 번의 필살검이다. 해방 뒤 검의 1개를 되찾으며 PvP 직접 피해는 조정 전 수준을 유지한다.",
+    mpCost: 100, cooldown: 0, procChance: 100, learnCost: 20000, spCost: 24, spCostDiscount: 8,
+    defaultPattern: {
+      priority: 350,
+      condition: {
+        kind: "all",
+        conditions: [
+          { kind: "self_hp", op: "below", pct: 60 },
+          { kind: "enemy_hp", op: "above", pct: 25 },
+        ],
+      },
+    },
+    effects: [dmg(6.5, 1537, undefined, 45)], oncePerBattle: true,
+    tier7Mechanic: { kind: "chargedFinisher", currentMissingHpCapPct: 75, chargeLostHpCapPct: 75, requiredIntentStacks: 3, pvpCapPct: 40, pvpPenetrationPct: 30, pvpDirectDamagePct: 51.23 },
+  },
+  v2c_skyascendant_fallingstar: {
+    id: "v2c_skyascendant_fallingstar", name: "낙성", stat: "dex", category: "attack", tier: 3,
+    description: "별처럼 떨어지는 화살로 적을 꿰뚫는다. 체술 뒤 사용하면 포획이 발동해 피해·명중·관통이 강화된다.",
+    mpCost: 65, cooldown: 0, procChance: 50, learnCost: 20000, spCost: 13, spCostDiscount: 3,
+    effects: [dmg(1.85, 437, "dex", 30)],
+    accuracyBonusPct: 25, skillCritChancePct: 15,
+    tier7Mechanic: { kind: "crossStrike", family: "ranged" },
+  },
+  v2c_skyascendant_voidbreak: {
+    id: "v2c_skyascendant_voidbreak", name: "파공", stat: "dex", category: "attack", tier: 3,
+    description: "세 번의 연타 뒤 두 배 위력의 마지막 타격으로 허공을 깨뜨린다. 원거리 기술 뒤 사용하면 추격이 발동한다.",
+    mpCost: 65, cooldown: 0, procChance: 50, learnCost: 20000, spCost: 13,
+    effects: [
+      dmg(0.357, 150, "dex"), dmg(0.357, 150, "dex"),
+      dmg(0.357, 150, "dex"), dmg(0.714, 300, "dex"),
+    ],
+    tier7Mechanic: { kind: "crossStrike", family: "martial" },
+  },
+  v2c_skyascendant_crossover: {
+    id: "v2c_skyascendant_crossover", name: "교차", stat: "dex", category: "passive", tier: 3,
+    description: "원거리와 체술을 번갈아 적중시키면 포획 또는 추격이 발동하고 다음 행동이 빨라진다.",
+    mpCost: 0, cooldown: 0, learnCost: 20000, spCost: 20,
+    effects: [], passive: { statPct: { dex: 20, str: 12 }, critPct: 8, accuracyPct: 20 },
+    tier7Mechanic: {
+      kind: "crossCore", captureDamagePct: 20, captureAccuracyPct: 25, capturePenetrationPct: 45,
+      pursuitDamagePct: 40, pursuitEnemyDelayPct: 20, hastePct: 15,
+      pvpCaptureDamagePct: 12, pvpCapturePenetrationPct: 10,
+      pvpPursuitDamagePct: 25, pvpPursuitEnemyDelayPct: 10, pvpHastePct: 10,
+    },
+  },
+  v2c_primordialsage_greatorb: {
+    id: "v2c_primordialsage_greatorb", name: "대마력구", stat: "int", category: "attack", tier: 3,
+    description: "거대한 마력구를 압축해 던진다. 새로운 주문식 한 단계를 쌓고 완전식을 완성하면 다음 행동이 15% 빨라진다.",
+    mpCost: 41, fixedMpCost: 133, cooldown: 0, procChance: 60, learnCost: 20000, spCost: 12, spCostDiscount: 3,
+    effects: [dmg(1.98, 501, "magic", 15)],
+    tier7Mechanic: { kind: "formulaStrike", stages: 1, completionHastePct: 15 },
+  },
+  v2c_primordialsage_optimization: {
+    id: "v2c_primordialsage_optimization", name: "마력 최적화", stat: "int", category: "passive", tier: 3,
+    description: "최대 마력이 20% 늘고 모든 액티브 스킬의 MP 소모가 20% 줄어든다. 완전식은 MP가 부족해도 시전하고 최대 MP의 10%를 이번 주기의 미환급 소비 MP 이하로 회복한다.",
+    mpCost: 0, cooldown: 0, learnCost: 20000, spCost: 12,
+    effects: [], passive: { maxMpPct: 20, mpCostReductionPct: 20 },
+    tier7Mechanic: { kind: "manaOptimization", restoreMaxMpPct: 10, allowCompletionOverdraft: true },
+  },
+  v2c_primordialsage_completeformula: {
+    id: "v2c_primordialsage_completeformula", name: "완전식", stat: "int", category: "passive", tier: 3,
+    description: "서로 다른 직접 마법으로 세 단계를 완성한 현재 주문을 강화한다. 직접 피해·관통·다음 행동 속도가 오른다.",
+    mpCost: 0, cooldown: 0, learnCost: 20000, spCost: 22,
+    effects: [], passive: { statPct: { int: 20, spi: 10 }, magicSkillDamagePct: 24 },
+    tier7Mechanic: { kind: "completeFormula", directDamagePct: 50, penetrationPct: 35, hastePct: 20, pvpDamagePct: 30, pvpPenetrationPct: 20, pvpHastePct: 12 },
   },
 };
 

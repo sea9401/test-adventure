@@ -11,16 +11,32 @@ import {
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import {
+  exclusiveSkillConflicts,
   isLifestyleSkill,
   V2_SKILLS,
   v2SkillSearchText,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
+import { resolveElementalResonanceLoadout } from "@/adventure/data/v2/elementalResonance";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import {
+  DUELIST_STANCE_BONUS_PCT,
+  composeDuelistDeclaration,
+  duelistDeclarationSummary,
+  duelistStanceSnapshot,
+  highestEquippedDeclaration,
+} from "./combat/duelistCombat";
 import { SkillEffectChips } from "./SkillEffectChips";
 import { useSystemMessageState } from "./RewardToastProvider";
+import {
+  matchesSkillLibraryClassification,
+  SKILL_JOB_TIER_OPTIONS,
+  SKILL_LINEAGE_OPTIONS,
+  type SkillJobTierFilter,
+  type SkillLineageFilter,
+} from "./skillLibraryFilters";
 
-// SP 로드아웃 패널 — 배운 스킬 라이브러리에서 SP 예산 안으로 장착/해제(코어루프 전용).
+// SP 로드아웃 패널 — 배운 전투 스킬은 SP 예산 안으로 장착/해제하고, 생활 패시브는 항상 적용한다.
 //   공용/기본기는 직업 무관 장착(오픈믹스), 시그니처는 현 직업 체인 밖이면 잠김(locked).
 //   장착 변경은 POST /api/v2/me/loadout 로 전체 equipped(우선순위 순서)를 재전송 — 서버가
 //   validateLoadout 으로 재검증(예산/학습/직업고정). 거부 시 직전 상태로 롤백.
@@ -29,6 +45,8 @@ export type V2LoadoutSkill = {
   skillId: string;
   name: string;
   spCost: number;
+  effectiveSpCost?: number;
+  resonanceRole?: "material" | "catalyst" | "inactive";
   equipped: boolean;
   favorite?: boolean;
   category?: V2LoadoutSkillCategory;
@@ -74,7 +92,28 @@ export type V2LoadoutData = {
   equipped: string[]; // 장착 우선순위 순서(갬빗 fallback).
   library: V2LoadoutSkill[];
   spBreakdown?: V2LoadoutSpBreakdown;
+  spMigration?: {
+    graceActive: boolean;
+    graceEndsAt: number | null;
+    serverNow: number;
+    overBudgetBy: number;
+    removedSkillIds: string[];
+  };
 };
+
+export function formatJobSpGraceRemaining(endsAt: number, now: number): string {
+  const remainingMs = Math.max(0, endsAt - now);
+  const totalMinutes = Math.ceil(remainingMs / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours > 0 ? `${hours}시간 ${minutes}분` : `${minutes}분`;
+}
+
+export async function waitForLoadoutRefresh(
+  onChanged?: () => void | Promise<void>,
+): Promise<void> {
+  await onChanged?.();
+}
 
 type DropTarget = {
   kind: "library" | "equipped";
@@ -104,20 +143,69 @@ type SkillDomain = "combat" | "lifestyle";
 const AUTO_SCROLL_EDGE_PX = 80;
 const AUTO_SCROLL_MAX_STEP = 18;
 
+export const V2_SKILL_VISIBILITY_STORAGE_KEY =
+  "adventure.v2.loadoutHiddenSkillIds";
+
 function isLifestyleSkillId(skillId: string): boolean {
   const skill = V2_SKILLS[skillId as V2SkillId];
   return !!skill && isLifestyleSkill(skill);
+}
+
+function knownV2SkillIds(skillIds: readonly string[]): V2SkillId[] {
+  return skillIds.filter(
+    (skillId): skillId is V2SkillId => skillId in V2_SKILLS,
+  );
+}
+
+function localLoadoutResolution(
+  order: readonly string[],
+  learned: readonly V2SkillId[],
+  meta: ReadonlyMap<string, V2LoadoutSkill>,
+) {
+  const resonance = resolveElementalResonanceLoadout({
+    learned,
+    equipped: knownV2SkillIds(order),
+  });
+  const absorbedSet = new Set<string>(resonance.absorbedSkillIds);
+  const spUsed = order.reduce(
+    (sum, skillId) =>
+      sum +
+      (absorbedSet.has(skillId)
+        ? (resonance.effectiveSpCosts.get(skillId as V2SkillId) ??
+          meta.get(skillId)?.spCost ??
+          0)
+        : (meta.get(skillId)?.spCost ?? 0)),
+    0,
+  );
+  return { resonance, absorbedSet, spUsed };
+}
+
+export function loadoutExclusiveConflictMessage(
+  skillIds: readonly string[],
+): string | null {
+  const knownIds = skillIds.filter(
+    (skillId): skillId is V2SkillId => skillId in V2_SKILLS,
+  );
+  const conflicts = exclusiveSkillConflicts(knownIds);
+  if (conflicts.some((conflict) => conflict.group === "berserker_madness")) {
+    return "광기 계열은 하나만 장착할 수 있습니다.";
+  }
+  return conflicts.length > 0
+    ? "같은 계열 스킬은 하나만 장착할 수 있습니다."
+    : null;
 }
 
 export function V2LoadoutPanel({
   loadout,
   onChanged,
   previewMode = false,
+  currentJobId,
 }: {
   loadout: V2LoadoutData;
-  onChanged?: () => void;
+  onChanged?: () => void | Promise<void>;
   /** 로그인·DB 없는 /dev 미리보기에서 저장 요청 없이 로컬 상호작용만 확인한다. */
   previewMode?: boolean;
+  currentJobId?: string;
 }) {
   // 단일 진실원천 = order(장착된 id 우선순위 리스트). 메타(코스트/잠금/시그)는 library 에서.
   const [order, setOrder] = useState<string[]>(loadout.equipped);
@@ -131,14 +219,36 @@ export function V2LoadoutPanel({
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<SkillFilter>("all");
+  const [skillTierFilter, setSkillTierFilter] =
+    useState<SkillJobTierFilter>("all");
+  const [skillLineageFilter, setSkillLineageFilter] =
+    useState<SkillLineageFilter>("all");
   const [domain, setDomain] = useState<SkillDomain>("combat");
   const [compact, setCompact] = useState(false);
+  const [combatEquippedOpen, setCombatEquippedOpen] = useState(false);
+  const [visibilitySettingsOpen, setVisibilitySettingsOpen] = useState(false);
+  const [hiddenSkillIds, setHiddenSkillIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [showSpDetails, setShowSpDetails] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useSystemMessageState();
+  const [migrationNow, setMigrationNow] = useState(
+    () => loadout.spMigration?.serverNow ?? Date.now(),
+  );
   const dragSessionRef = useRef<DragSession | null>(null);
   const pointerRef = useRef<{ x: number; y: number } | null>(null);
   const autoScrollFrameRef = useRef<number | null>(null);
+
+  const duelistPreview = useMemo(() => {
+    if (!currentJobId || !(currentJobId in DUELIST_STANCE_BONUS_PCT)) return null;
+    const stance = duelistStanceSnapshot(currentJobId, order, []);
+    const highest = highestEquippedDeclaration(order);
+    const declaration = highest
+      ? composeDuelistDeclaration(order, highest)
+      : null;
+    return { stance, declaration };
+  }, [currentJobId, order]);
 
   // 부모가 /me/state 를 다시 불러(예: 스킬 학습 후) loadout 이 갱신되면 서버 진실로 동기화.
   //   토글은 같은 prop 참조라 effect 미발화 → 낙관적 로컬 상태 유지. 학습 등 refresh 시에만 리셋.
@@ -164,12 +274,42 @@ export function V2LoadoutPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [libraryKey]);
 
+  useEffect(() => {
+    const migration = loadout.spMigration;
+    if (!migration?.graceActive || migration.graceEndsAt == null) return;
+    const timer = window.setInterval(() => setMigrationNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, [loadout.spMigration]);
+
+  // 사냥터 표시 설정과 같은 로컬 저장 방식. 서버 렌더 결과와 첫 화면을 맞춘 뒤
+  // 브라우저에서만 저장값을 불러온다.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const raw = localStorage.getItem(V2_SKILL_VISIBILITY_STORAGE_KEY);
+        setHiddenSkillIds(parseHiddenSkillIds(raw));
+      } catch {}
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const meta = useMemo(
     () => new Map(loadout.library.map((s) => [s.skillId, s])),
     [loadout.library],
   );
+  const learnedSkillIds = useMemo(
+    () => knownV2SkillIds(loadout.library.map((skill) => skill.skillId)),
+    [loadout.library],
+  );
+  const localResolution = useMemo(
+    () => localLoadoutResolution(order, learnedSkillIds, meta),
+    [learnedSkillIds, meta, order],
+  );
   const equippedSet = useMemo(() => new Set(order), [order]);
   const favoriteSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
+  const removedSkillNames = (loadout.spMigration?.removedSkillIds ?? []).map(
+    (skillId) => meta.get(skillId)?.name ?? skillId,
+  );
   const orderedLibrary = useMemo(() => {
     const byId = new Map(loadout.library.map((s) => [s.skillId, s]));
     const seen = new Set<string>();
@@ -187,7 +327,7 @@ export function V2LoadoutPanel({
     }
     return out;
   }, [libraryOrder, loadout.library]);
-  const spUsed = order.reduce((a, id) => a + (meta.get(id)?.spCost ?? 0), 0);
+  const spUsed = localResolution.spUsed;
   const { spBudget } = loadout;
   const pct = spBudget > 0 ? Math.min(100, (spUsed / spBudget) * 100) : 0;
   const spBreakdown = loadout.spBreakdown;
@@ -197,10 +337,6 @@ export function V2LoadoutPanel({
   );
   const combatEquippedSkills = useMemo(
     () => equippedSkills.filter((skill) => !isLifestyleSkillId(skill.skillId)),
-    [equippedSkills],
-  );
-  const lifestyleEquippedSkills = useMemo(
-    () => equippedSkills.filter((skill) => isLifestyleSkillId(skill.skillId)),
     [equippedSkills],
   );
   const searchIndex = useMemo(
@@ -233,17 +369,36 @@ export function V2LoadoutPanel({
       ),
     [domain, orderedLibrary],
   );
+  const displayedDomainLibrary = useMemo(
+    () =>
+      domainLibrary.filter(
+        (skill) => isSkillDisplayed(skill.skillId, hiddenSkillIds, equippedSet),
+      ),
+    [domainLibrary, equippedSet, hiddenSkillIds],
+  );
+  const hiddenDomainCount = domainLibrary.length - displayedDomainLibrary.length;
   const visibleLibrary = useMemo(
     () =>
-      domainLibrary.filter((s) => {
+      displayedDomainLibrary.filter((s) => {
         const equipped = equippedSet.has(s.skillId);
         const favorite = favoriteSet.has(s.skillId);
-        const wouldFit = spUsed + s.spCost <= spBudget;
+        const wouldFit =
+          localLoadoutResolution([...order, s.skillId], learnedSkillIds, meta)
+            .spUsed <= spBudget;
         const searchText = searchIndex.get(s.skillId) ?? "";
         const matchesQuery =
           queryTerms.length === 0 ||
           queryTerms.every((term) => searchText.includes(term));
         if (!matchesQuery) return false;
+        if (
+          !matchesSkillLibraryClassification(
+            s.skillId,
+            skillTierFilter,
+            skillLineageFilter,
+          )
+        ) {
+          return false;
+        }
         if (filter === "favorite") return favorite;
         if (filter === "equipped") return equipped;
         if (filter === "available") return !equipped && wouldFit;
@@ -255,11 +410,15 @@ export function V2LoadoutPanel({
       equippedSet,
       favoriteSet,
       filter,
-      domainLibrary,
+      displayedDomainLibrary,
       queryTerms,
       searchIndex,
+      skillLineageFilter,
+      skillTierFilter,
+      learnedSkillIds,
+      meta,
+      order,
       spBudget,
-      spUsed,
     ],
   );
   const allFilterDefs: Array<{ id: SkillFilter; label: string }> = [
@@ -277,9 +436,7 @@ export function V2LoadoutPanel({
   const filterDefs =
     domain === "lifestyle"
       ? allFilterDefs.filter((item) =>
-          ["all", "favorite", "equipped", "available", "passive"].includes(
-            item.id,
-          ),
+          ["all", "favorite", "equipped", "passive"].includes(item.id),
         )
       : allFilterDefs;
 
@@ -294,7 +451,7 @@ export function V2LoadoutPanel({
   async function commit(nextOrder: string[]) {
     if (previewMode) {
       setOrder(nextOrder);
-      onChanged?.();
+      await waitForLoadoutRefresh(onChanged);
       return;
     }
     const prev = order;
@@ -310,14 +467,21 @@ export function V2LoadoutPanel({
       const j = (await res.json().catch(() => null)) as {
         ok?: boolean;
         overBudget?: boolean;
+        exclusiveConflicts?: Array<{ group?: string }>;
       } | null;
       if (!j?.ok) {
         setOrder(prev); // 롤백.
         setMsg(
-          j?.overBudget ? "스킬포인트가 부족해요" : "장착을 변경할 수 없어요",
+          j?.exclusiveConflicts?.some(
+            (conflict) => conflict.group === "berserker_madness",
+          )
+            ? "광기 계열은 하나만 장착할 수 있습니다."
+            : j?.overBudget
+              ? "스킬포인트가 부족해요"
+              : "장착을 변경할 수 없어요",
         );
       } else {
-        onChanged?.();
+        await waitForLoadoutRefresh(onChanged);
       }
     } catch {
       setOrder(prev);
@@ -368,17 +532,49 @@ export function V2LoadoutPanel({
   }
 
   function toggle(skillId: string) {
+    if (isLifestyleSkillId(skillId)) return;
     if (equippedSet.has(skillId)) {
       commit(order.filter((x) => x !== skillId));
     } else {
-      commit([...order, skillId]);
+      const nextOrder = [...order, skillId];
+      const exclusiveMessage = loadoutExclusiveConflictMessage(nextOrder);
+      if (exclusiveMessage) {
+        setMsg(exclusiveMessage);
+        return;
+      }
+      commit(nextOrder);
     }
   }
 
-  function clearEquippedDomain(targetDomain: SkillDomain) {
-    const next = order.filter(
-      (id) => isLifestyleSkillId(id) !== (targetDomain === "lifestyle"),
+  function setHiddenSkills(next: Set<string>) {
+    setHiddenSkillIds(next);
+    try {
+      if (next.size === 0) {
+        localStorage.removeItem(V2_SKILL_VISIBILITY_STORAGE_KEY);
+      } else {
+        localStorage.setItem(
+          V2_SKILL_VISIBILITY_STORAGE_KEY,
+          JSON.stringify([...next].sort()),
+        );
+      }
+    } catch {}
+  }
+
+  function toggleSkillVisibility(skillId: string) {
+    // 전투에 쓰는 스킬이 목록에서 사라져 해제 경로를 잃지 않도록 보호한다.
+    if (equippedSet.has(skillId)) return;
+    setHiddenSkills(toggleHiddenSkill(hiddenSkillIds, skillId));
+  }
+
+  function showAllSkillsInDomain() {
+    const domainIds = new Set(domainLibrary.map((skill) => skill.skillId));
+    setHiddenSkills(
+      new Set([...hiddenSkillIds].filter((skillId) => !domainIds.has(skillId))),
     );
+  }
+
+  function clearCombatSkills() {
+    const next = order.filter((id) => isLifestyleSkillId(id));
     if (busy || next.length === order.length) return;
     commit(next);
   }
@@ -573,7 +769,7 @@ export function V2LoadoutPanel({
 
   if (loadout.library.length === 0) {
     return (
-      <Card padding="md">
+      <Card padding="md" className="w-full min-w-0 max-w-full">
         <h2 className="text-sm font-semibold">스킬</h2>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           아직 배운 스킬이 없어요. 아래에서 스킬을 먼저 배우세요.
@@ -583,7 +779,7 @@ export function V2LoadoutPanel({
   }
 
   return (
-    <Card padding="md">
+    <Card padding="md" className="w-full min-w-0 max-w-full">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold">스킬</h2>
         <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
@@ -613,6 +809,49 @@ export function V2LoadoutPanel({
           style={{ width: `${pct}%` }}
         />
       </div>
+      {localResolution.resonance.circuit === "primordial" &&
+        equippedSet.has("v2c_elementallord_surge") &&
+        equippedSet.has("v2c_elementallord_resonance") && (
+          <div className={`mt-2 px-3 py-2 text-xs font-medium ${SURFACE_INSET}`}>
+            근원공명 우선 · 원소군주 회로 비활성
+          </div>
+        )}
+      {loadout.spMigration?.graceActive &&
+        loadout.spMigration.graceEndsAt != null && (
+          <div className={`mt-3 p-3 text-xs ${SURFACE_INSET}`}>
+            <div className="font-semibold text-violet-700 dark:text-violet-300">
+              직업 SP 조정 유예 중
+            </div>
+            <div className="mt-1 text-zinc-700 dark:text-zinc-200">
+              현재 {spUsed} / 새 한도 {spBudget}
+              {loadout.spMigration.overBudgetBy > 0
+                ? ` · ${loadout.spMigration.overBudgetBy} SP 초과`
+                : ""}
+            </div>
+            <div className="mt-1 text-zinc-500 dark:text-zinc-400">
+              남은 시간 {formatJobSpGraceRemaining(
+                loadout.spMigration.graceEndsAt,
+                migrationNow,
+              )}
+              {loadout.spMigration.overBudgetBy > 0
+                ? " · 현재 구성을 수정하면 새 한도가 적용됩니다."
+                : ""}
+            </div>
+          </div>
+        )}
+      {!loadout.spMigration?.graceActive && removedSkillNames.length > 0 && (
+        <div className={`mt-3 p-3 text-xs ${SURFACE_INSET}`}>
+          <div className="font-semibold text-violet-700 dark:text-violet-300">
+            직업 SP 조정 완료
+          </div>
+          <div className="mt-1 text-zinc-700 dark:text-zinc-200">
+            새 한도에 맞춰 {removedSkillNames.join(", ")} 스킬을 장착 해제했습니다.
+          </div>
+          <div className="mt-1 text-zinc-500 dark:text-zinc-400">
+            저장된 프리셋은 유지되며 적용할 때 새 한도에 맞게 정리됩니다.
+          </div>
+        </div>
+      )}
       {spBreakdown && showSpDetails && (
         <div className={`mt-2 px-3 py-2 ${SURFACE_INSET}`}>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-600 dark:text-zinc-300">
@@ -628,153 +867,154 @@ export function V2LoadoutPanel({
         </div>
       )}
       <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-        배운 전투 스킬을 스킬포인트 예산 안에서 장착하세요. 생활 스킬은 SP를
-        사용하지 않으며 별도 목록에서 관리합니다.
+        배운 전투 스킬을 스킬포인트 예산 안에서 장착하세요. 생활 패시브는 SP를
+        사용하지 않으며 배우면 자동으로 항상 적용됩니다.
       </p>
-      <div className="mt-4 grid gap-2 border-t border-zinc-200 pt-3 sm:grid-cols-2 dark:border-zinc-800">
+      {duelistPreview && (
+        <div className={`mt-3 space-y-1.5 p-3 text-xs ${SURFACE_INSET}`}>
+          <div className="font-semibold text-zinc-800 dark:text-zinc-100">
+            {duelistPreview.stance.active
+              ? `결투 태세 활성 · 평타 피해 +${duelistPreview.stance.bonusPct}%`
+              : `결투 태세 비활성 · ${duelistPreview.stance.blockingSkillName ?? "현재 직업 조건 불충족"}${duelistPreview.stance.blockingSkillName ? " 장착 중" : ""}`}
+          </div>
+          {duelistPreview.declaration ? (
+            <>
+              <div className="font-medium text-violet-700 dark:text-violet-300">
+                {duelistPreview.declaration.declarationName}에 하위 선언{" "}
+                {Math.max(0, duelistPreview.declaration.chainCount - 1)}개 연계
+              </div>
+              <div className="text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-300">
+                {duelistDeclarationSummary(duelistPreview.declaration)}
+              </div>
+            </>
+          ) : (
+            <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              선언을 장착하면 가장 높은 차수의 선언에 하위 효과가 합쳐집니다.
+            </div>
+          )}
+        </div>
+      )}
+      <div className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">
         <section className={`${SURFACE_INSET} p-3`} aria-labelledby="combat-equipped-heading">
           <div className="flex items-center justify-between gap-2">
             <div
               id="combat-equipped-heading"
               className="text-xs font-semibold text-zinc-700 dark:text-zinc-200"
             >
-              전투 스킬 장착
+              <span className="hidden sm:inline">전투 스킬 장착</span>
+              <span className="shrink-0 sm:hidden">
+                <span className="sr-only">
+                  전투 스킬 {combatEquippedSkills.length}개 장착
+                </span>
+                <span aria-hidden="true">
+                  전투 · {combatEquippedSkills.length}개
+                </span>
+              </span>
             </div>
-            <button
-              type="button"
-              onClick={() => clearEquippedDomain("combat")}
-              disabled={busy || combatEquippedSkills.length === 0}
-              className="rounded px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              전부 해제
-            </button>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setCombatEquippedOpen((open) => !open)}
+                aria-expanded={combatEquippedOpen}
+                aria-controls="combat-equipped-skills"
+                aria-label={`전투 스킬 ${combatEquippedOpen ? "접기" : "펼쳐보기"}`}
+                className="inline-flex h-11 shrink-0 items-center whitespace-nowrap rounded px-2 text-[11px] font-medium text-violet-700 hover:bg-violet-100 sm:hidden dark:text-violet-300 dark:hover:bg-violet-900"
+              >
+                {combatEquippedOpen ? "접기" : "펼쳐보기"}
+              </button>
+              <button
+                type="button"
+                onClick={clearCombatSkills}
+                disabled={busy || combatEquippedSkills.length === 0}
+                className="inline-flex h-11 shrink-0 items-center whitespace-nowrap rounded px-1.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 sm:h-auto sm:py-0.5 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                전부 해제
+              </button>
+            </div>
           </div>
-          <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-            표시 순서대로 전투에서 먼저 사용합니다.
-          </p>
-          {combatEquippedSkills.length > 0 ? (
-            <div className="mt-2 flex min-w-0 flex-wrap gap-1.5 pb-1">
-              {combatEquippedSkills.map((s, idx) => (
-                <div
-                  key={s.skillId}
-                  data-equipped-drop-id={s.skillId}
-                  className={`ui-lift-card relative inline-flex h-8 max-w-full shrink-0 items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-1.5 text-xs font-medium text-violet-800 sm:max-w-44 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200 ${
-                    draggingId === s.skillId ? "opacity-55" : ""
-                  }`}
-                >
-                  {dropTarget?.kind === "equipped" &&
-                    dropTarget.skillId === s.skillId && (
-                      <span
-                        aria-hidden="true"
-                        className={`pointer-events-none absolute bottom-1 top-1 w-1 rounded-full bg-sky-400 shadow-[0_0_0_2px_rgba(14,165,233,0.16)] dark:bg-sky-500 ${
-                          dropTarget.edge === "before" ? "-left-1" : "-right-1"
-                        }`}
-                      />
-                    )}
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`${s.name} 장착 순서 이동`}
-                    title="드래그해서 장착 순서 변경"
-                    onPointerDown={(e) => {
-                      if (busy || e.button !== 0) return;
-                      e.preventDefault();
-                      e.currentTarget.setPointerCapture(e.pointerId);
-                      startPointerDrag(
-                        "equipped",
-                        s.skillId,
-                        e.pointerId,
-                        e.clientX,
-                        e.clientY,
-                      );
-                    }}
-                    onPointerMove={(e) => {
-                      if (dragSessionRef.current?.pointerId !== e.pointerId) return;
-                      e.preventDefault();
-                      updatePointerDrag(e.clientX, e.clientY);
-                    }}
-                    onPointerUp={(e) => {
-                      if (dragSessionRef.current?.pointerId !== e.pointerId) return;
-                      e.preventDefault();
-                      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-                        e.currentTarget.releasePointerCapture(e.pointerId);
-                      }
-                      finishPointerDrag(e.clientX, e.clientY);
-                    }}
-                    onPointerCancel={(e) => cancelPointerDrag(e.pointerId)}
-                    className={`flex h-6 w-5 touch-none cursor-grab items-center justify-center rounded text-violet-500 active:cursor-grabbing dark:text-violet-300 ${
-                      busy
-                        ? "pointer-events-none opacity-40"
-                        : "hover:bg-violet-100 dark:hover:bg-violet-900"
+          <div
+            id="combat-equipped-skills"
+            className={combatEquippedOpen ? "block" : "hidden sm:block"}
+          >
+            {combatEquippedSkills.length > 0 ? (
+              <div className="mt-2 flex min-w-0 flex-nowrap gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible">
+                {combatEquippedSkills.map((s, idx) => (
+                  <div
+                    key={s.skillId}
+                    data-equipped-drop-id={s.skillId}
+                    className={`ui-lift-card relative inline-flex min-h-11 sm:h-8 max-w-full shrink-0 items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-1.5 text-xs font-medium text-violet-800 sm:max-w-44 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200 ${
+                      draggingId === s.skillId ? "opacity-55" : ""
                     }`}
                   >
-                    <DotsSixVertical size={14} weight="bold" />
-                  </span>
-                  <span className="tabular-nums text-violet-500 dark:text-violet-400">
-                    {idx + 1}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => toggle(s.skillId)}
-                    disabled={busy}
-                    title={`${s.name} 해제`}
-                    className="min-w-0 truncate rounded px-1 py-0.5 text-left disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {s.name}
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-              장착한 전투 스킬이 없어요.
-            </p>
-          )}
-        </section>
-
-        <section className={`${SURFACE_INSET} p-3`} aria-labelledby="lifestyle-equipped-heading">
-          <div className="flex items-center justify-between gap-2">
-            <div
-              id="lifestyle-equipped-heading"
-              className="text-xs font-semibold text-emerald-700 dark:text-emerald-300"
-            >
-              생활 스킬 장착 <span className="font-normal">· SP 0</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => clearEquippedDomain("lifestyle")}
-              disabled={busy || lifestyleEquippedSkills.length === 0}
-              className="rounded px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              전부 해제
-            </button>
+                    {dropTarget?.kind === "equipped" &&
+                      dropTarget.skillId === s.skillId && (
+                        <span
+                          aria-hidden="true"
+                          className={`pointer-events-none absolute bottom-1 top-1 w-1 rounded-full bg-sky-400 shadow-[0_0_0_2px_rgba(14,165,233,0.16)] dark:bg-sky-500 ${
+                            dropTarget.edge === "before" ? "-left-1" : "-right-1"
+                          }`}
+                        />
+                      )}
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${s.name} 장착 순서 이동`}
+                      title="드래그해서 장착 순서 변경"
+                      onPointerDown={(e) => {
+                        if (busy || e.button !== 0) return;
+                        e.preventDefault();
+                        e.currentTarget.setPointerCapture(e.pointerId);
+                        startPointerDrag(
+                          "equipped",
+                          s.skillId,
+                          e.pointerId,
+                          e.clientX,
+                          e.clientY,
+                        );
+                      }}
+                      onPointerMove={(e) => {
+                        if (dragSessionRef.current?.pointerId !== e.pointerId) return;
+                        e.preventDefault();
+                        updatePointerDrag(e.clientX, e.clientY);
+                      }}
+                      onPointerUp={(e) => {
+                        if (dragSessionRef.current?.pointerId !== e.pointerId) return;
+                        e.preventDefault();
+                        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+                          e.currentTarget.releasePointerCapture(e.pointerId);
+                        }
+                        finishPointerDrag(e.clientX, e.clientY);
+                      }}
+                      onPointerCancel={(e) => cancelPointerDrag(e.pointerId)}
+                      className={`flex h-11 w-11 sm:h-6 sm:w-5 touch-none cursor-grab items-center justify-center rounded text-violet-500 active:cursor-grabbing dark:text-violet-300 ${
+                        busy
+                          ? "pointer-events-none opacity-40"
+                          : "hover:bg-violet-100 dark:hover:bg-violet-900"
+                      }`}
+                    >
+                      <DotsSixVertical size={14} weight="bold" />
+                    </span>
+                    <span className="tabular-nums text-violet-500 dark:text-violet-400">
+                      {idx + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggle(s.skillId)}
+                      disabled={busy}
+                      title={`${s.name} 해제`}
+                      className="min-w-0 truncate rounded px-1 py-0.5 text-left disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {s.name}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                장착한 전투 스킬이 없어요.
+              </p>
+            )}
           </div>
-          <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-            전투 우선순위와 별도로 관리합니다.
-          </p>
-          {lifestyleEquippedSkills.length > 0 ? (
-            <div className="mt-2 flex min-w-0 flex-wrap gap-1.5 pb-1">
-              {lifestyleEquippedSkills.map((s) => (
-                <button
-                  key={s.skillId}
-                  type="button"
-                  onClick={() => toggle(s.skillId)}
-                  disabled={busy}
-                  title={`${s.name} 해제`}
-                  className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-2 text-xs font-medium text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
-                >
-                  <span className="truncate">{s.name}</span>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
-                    SP 0
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-              장착한 생활 스킬이 없어요.
-            </p>
-          )}
         </section>
       </div>
       <div className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">
@@ -807,15 +1047,77 @@ export function V2LoadoutPanel({
         </div>
         {domain === "lifestyle" && (
           <p className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
-            생활 스킬은 SP를 사용하지 않습니다. 장착한 효과가 적용되며, 학습 즉시 적용되는
-            훈련 효과와 작물 해금은 장착 여부와 무관합니다.
+            생활 패시브는 SP를 사용하지 않으며, 배우는 즉시 항상 적용됩니다.
           </p>
+        )}
+        <div className="mt-3 flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+          <span className="font-medium text-zinc-600 dark:text-zinc-300">
+            표시 스킬 {displayedDomainLibrary.length}/{domainLibrary.length}
+          </span>
+          <button
+            type="button"
+            onClick={() => setVisibilitySettingsOpen((open) => !open)}
+            aria-expanded={visibilitySettingsOpen}
+            className="rounded-md border border-zinc-300 px-2 py-1 font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            표시 설정
+          </button>
+        </div>
+        {visibilitySettingsOpen && (
+          <Card padding="sm" className="mt-2 space-y-2">
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              체크를 끈 스킬은 보유 목록에서만 숨겨집니다. 장착 중인 스킬은 항상
+              표시됩니다.
+            </p>
+            <div className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
+              {domainLibrary.map((skill) => {
+                const equipped = equippedSet.has(skill.skillId);
+                const checked = equipped || !hiddenSkillIds.has(skill.skillId);
+                return (
+                  <label
+                    key={skill.skillId}
+                    className={`flex items-center justify-between gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800 ${
+                      equipped
+                        ? "cursor-not-allowed text-zinc-500 dark:text-zinc-400"
+                        : "cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                    }`}
+                  >
+                    <span className="min-w-0 truncate font-medium">
+                      {skill.name}
+                      {equipped && (
+                        <span className="ml-1.5 text-[11px] font-normal text-violet-600 dark:text-violet-400">
+                          장착 중
+                        </span>
+                      )}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={equipped}
+                      onChange={() => toggleSkillVisibility(skill.skillId)}
+                      aria-label={`${skill.name} 목록에 표시`}
+                      className="h-4 w-4 shrink-0 accent-rose-600"
+                    />
+                  </label>
+                );
+              })}
+            </div>
+            {hiddenDomainCount > 0 && (
+              <button
+                type="button"
+                onClick={showAllSkillsInDomain}
+                className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                {domain === "combat" ? "전투 스킬" : "생활 스킬"} 전체 표시
+              </button>
+            )}
+          </Card>
         )}
         <div className="mt-3 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
           {domain === "combat" ? "전투 스킬 목록" : "생활 스킬 목록"}
         </div>
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          <label className="relative min-w-52 flex-1 sm:max-w-xs">
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <label className="relative min-w-0 flex-1 sm:min-w-52 sm:max-w-xs">
             <MagnifyingGlass
               size={14}
               className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400"
@@ -827,11 +1129,11 @@ export function V2LoadoutPanel({
               className="h-8 w-full rounded-md border border-zinc-300 bg-white py-1 pl-8 pr-2 text-xs text-zinc-800 outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             />
           </label>
-          <div className="flex items-center gap-1.5">
+          <div className="flex w-full items-center gap-1.5 sm:w-auto">
             <button
               type="button"
               onClick={() => setCompact((v) => !v)}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 sm:flex-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
             >
               {compact ? (
                 <Rows size={14} weight="bold" />
@@ -844,14 +1146,54 @@ export function V2LoadoutPanel({
               type="button"
               onClick={sortPinnedFirst}
               disabled={busy || (order.length === 0 && favoriteIds.length === 0)}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
             >
               <ArrowsDownUp size={14} weight="bold" />
               즐겨찾기 우선
             </button>
           </div>
         </div>
-        <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:max-w-md">
+          <label className="space-y-1">
+            <span className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+              스킬 차수
+            </span>
+            <select
+              value={skillTierFilter}
+              onChange={(event) =>
+                setSkillTierFilter(event.target.value as SkillJobTierFilter)
+              }
+              className="h-8 w-full rounded-md border border-zinc-300 bg-white px-2 text-xs text-zinc-800 outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            >
+              {SKILL_JOB_TIER_OPTIONS.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1">
+            <span className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+              직업 계열
+            </span>
+            <select
+              value={skillLineageFilter}
+              onChange={(event) =>
+                setSkillLineageFilter(
+                  event.target.value as SkillLineageFilter,
+                )
+              }
+              className="h-8 w-full rounded-md border border-zinc-300 bg-white px-2 text-xs text-zinc-800 outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            >
+              {SKILL_LINEAGE_OPTIONS.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="mt-2 flex min-w-0 max-w-full overflow-x-auto gap-1.5 pb-1">
           {filterDefs.map((f) => (
             <button
               key={f.id}
@@ -869,15 +1211,22 @@ export function V2LoadoutPanel({
         </div>
         <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
           <span>
-            표시 {visibleLibrary.length} / {domainLibrary.length}
+            검색 결과 {visibleLibrary.length} / {displayedDomainLibrary.length}
           </span>
           <button
             type="button"
             onClick={() => {
               setQuery("");
               setFilter("all");
+              setSkillTierFilter("all");
+              setSkillLineageFilter("all");
             }}
-            disabled={query.length === 0 && filter === "all"}
+            disabled={
+              query.length === 0 &&
+              filter === "all" &&
+              skillTierFilter === "all" &&
+              skillLineageFilter === "all"
+            }
             className="rounded px-1.5 py-0.5 font-medium text-zinc-600 hover:bg-zinc-100 disabled:pointer-events-none disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
             검색 초기화
@@ -887,13 +1236,30 @@ export function V2LoadoutPanel({
         <ul className="mt-3 space-y-1.5">
           {visibleLibrary.map((s) => {
           const equipped = equippedSet.has(s.skillId);
+          const lifestyle = isLifestyleSkillId(s.skillId);
           const favorite = favoriteSet.has(s.skillId);
-          const wouldFit = spUsed + s.spCost <= spBudget;
+          const wouldFit =
+            localLoadoutResolution([...order, s.skillId], learnedSkillIds, meta)
+              .spUsed <= spBudget;
+          const skillDef = V2_SKILLS[s.skillId as V2SkillId];
+          const resonanceRole = equipped
+            ? localResolution.resonance.catalystActive &&
+              s.skillId === "v2c_elementallord_surge"
+              ? "catalyst"
+              : localResolution.absorbedSet.has(s.skillId)
+                ? "material"
+                : undefined
+            : undefined;
+          const effectiveSpCost = resonanceRole
+            ? localResolution.resonance.effectiveSpCosts.get(
+                s.skillId as V2SkillId,
+              ) ?? s.spCost
+            : s.spCost;
           return (
             <li
               key={s.skillId}
               data-skill-drop-id={s.skillId}
-              className={`ui-skill-card relative flex items-start gap-2 rounded-md border px-2 py-2 transition-colors sm:px-3 ${
+              className={`ui-skill-card relative flex flex-col sm:flex-row gap-2 rounded-md border px-2 py-2 transition-colors sm:items-start sm:px-3 ${
                 equipped
                   ? "border-violet-300 bg-violet-50 dark:border-violet-800 dark:bg-violet-950"
                   : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
@@ -910,6 +1276,7 @@ export function V2LoadoutPanel({
                   }`}
                 />
               )}
+              <div className="flex w-full min-w-0 items-start gap-2 sm:contents">
               <span
                 role="button"
                 tabIndex={0}
@@ -947,7 +1314,7 @@ export function V2LoadoutPanel({
                   setDropTarget(null);
                   stopAutoScroll();
                 }}
-                className={`flex h-9 w-8 shrink-0 touch-none cursor-grab items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-500 active:cursor-grabbing dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 ${
+                className={`flex h-11 w-11 sm:h-9 sm:w-8 shrink-0 touch-none cursor-grab items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-500 active:cursor-grabbing dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 ${
                   busy ? "pointer-events-none opacity-40" : "hover:bg-zinc-50 dark:hover:bg-zinc-800"
                 }`}
               >
@@ -966,13 +1333,34 @@ export function V2LoadoutPanel({
                     {s.name}
                   </span>
                   <span className="shrink-0 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] tabular-nums text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
-                    SP {s.spCost}
+                    SP {effectiveSpCost}
                   </span>
+                  {effectiveSpCost !== s.spCost && (
+                    <span className="shrink-0 text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                      기본 {s.spCost} SP
+                    </span>
+                  )}
                 </div>
                 {/* 간단한 효과 설명 — 패시브면 "지능 +10%" 등, 액티브면 피해/회복 + MP·쿨다운. */}
                 {!compact && <SkillEffectChips skillId={s.skillId} />}
+                {skillDef?.exclusiveGroup && (
+                  <span className="mt-1 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                    같은 계열 1개만 장착
+                  </span>
+                )}
+                {resonanceRole === "material" && (
+                  <span className="mt-1 text-[10px] font-medium text-violet-700 dark:text-violet-300">
+                    공명 재료 · {effectiveSpCost} SP
+                  </span>
+                )}
+                {resonanceRole === "catalyst" && (
+                  <span className="mt-1 text-[10px] font-medium text-violet-700 dark:text-violet-300">
+                    근원 촉매 · {effectiveSpCost} SP · 태초회귀 강화
+                  </span>
+                )}
               </div>
-              <div className="grid w-[6.25rem] shrink-0 grid-cols-[2rem_minmax(0,1fr)] items-start gap-1.5">
+              </div>
+              <div className="grid w-full sm:w-[6.25rem] shrink-0 grid-cols-[2.75rem_minmax(0,1fr)] sm:grid-cols-[2rem_minmax(0,1fr)] items-start gap-1.5">
                 <button
                   type="button"
                   onClick={() => toggleFavorite(s.skillId)}
@@ -981,7 +1369,7 @@ export function V2LoadoutPanel({
                     favorite ? `${s.name} 즐겨찾기 해제` : `${s.name} 즐겨찾기`
                   }
                   title={favorite ? "즐겨찾기 해제" : "즐겨찾기"}
-                  className={`flex h-8 w-8 items-center justify-center rounded-md border disabled:cursor-not-allowed disabled:opacity-50 ${
+                  className={`flex h-11 w-11 sm:h-8 sm:w-8 items-center justify-center rounded-md border disabled:cursor-not-allowed disabled:opacity-50 ${
                     favorite
                       ? "border-amber-400 bg-amber-50 text-amber-600 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
                       : "border-zinc-300 bg-white text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
@@ -989,7 +1377,14 @@ export function V2LoadoutPanel({
                 >
                   <Star size={15} weight={favorite ? "fill" : "regular"} />
                 </button>
-                {equipped ? (
+                {lifestyle ? (
+                  <span
+                    aria-label={`${s.name} 적용 중`}
+                    className="inline-flex h-8 w-full items-center justify-center whitespace-nowrap rounded-md border border-emerald-500 bg-emerald-50 px-2 text-xs font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                  >
+                    적용 중
+                  </span>
+                ) : equipped ? (
                   <button
                     type="button"
                     onClick={() => toggle(s.skillId)}
@@ -1033,4 +1428,38 @@ export function V2LoadoutPanel({
       )}
     </Card>
   );
+}
+
+export function toggleHiddenSkill(
+  hidden: ReadonlySet<string>,
+  skillId: string,
+): Set<string> {
+  const next = new Set(hidden);
+  if (next.has(skillId)) next.delete(skillId);
+  else next.add(skillId);
+  return next;
+}
+
+export function parseHiddenSkillIds(raw: string | null): Set<string> {
+  try {
+    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    if (!Array.isArray(parsed)) return new Set();
+    const next = new Set<string>();
+    for (const value of parsed) {
+      if (typeof value !== "string") continue;
+      const skillId = value.trim();
+      if (skillId.length > 0 && skillId.length <= 128) next.add(skillId);
+    }
+    return next;
+  } catch {
+    return new Set();
+  }
+}
+
+export function isSkillDisplayed(
+  skillId: string,
+  hidden: ReadonlySet<string>,
+  equipped: ReadonlySet<string>,
+): boolean {
+  return equipped.has(skillId) || !hidden.has(skillId);
 }

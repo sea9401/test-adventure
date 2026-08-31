@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull, notInArray } from "drizzle-orm";
 import { db } from "@/db";
 import { chatRoomMembers, chatRooms, messages, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -23,18 +23,187 @@ import {
   chatEquipmentLinkForOwnedIid,
   parseChatEquipmentLink,
 } from "@/lib/chat-item-link";
+import {
+  readBlockedUserIds,
+  requireCurrentUgcConsent,
+} from "@/lib/server/ugcSafety";
 
-type ChatChannel = "global" | "guild" | "room";
+type ChatChannel = "global" | "trade" | "guild" | "room";
+
+type ChatRow = {
+  id: number;
+  channel: string;
+  roomId: number | null;
+  name: string;
+  className: string;
+  title: string | null;
+  content: string;
+  itemLink: unknown;
+  createdAt: Date;
+  mine: string;
+};
 
 function parseChannel(value: string | null): ChatChannel {
-  if (value === "guild" || value === "room") return value;
+  if (value === "trade" || value === "guild" || value === "room") return value;
   return "global";
+}
+
+function parseAfterId(searchParams: URLSearchParams, key: string): number | null | undefined {
+  const raw = searchParams.get(key);
+  if (raw == null) return null;
+  const value = Number(raw);
+  return Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
+function channelWhere(
+  channel: Exclude<ChatChannel, "room">,
+  guildId: number | null,
+  blockedUserIds: string[],
+) {
+  const baseWhere =
+    channel === "guild"
+      ? and(eq(messages.channel, "guild"), eq(messages.guildId, guildId ?? -1))
+      : channel === "trade"
+        ? and(
+            eq(messages.channel, "trade"),
+            isNull(messages.guildId),
+            isNull(messages.roomId),
+          )
+        : and(
+            eq(messages.channel, "global"),
+            isNull(messages.guildId),
+            isNull(messages.roomId),
+          );
+  return blockedUserIds.length > 0
+    ? and(baseWhere, notInArray(messages.userId, blockedUserIds))
+    : baseWhere;
+}
+
+async function readChannelRows(input: {
+  channel: Exclude<ChatChannel, "room">;
+  afterId: number | null;
+  guildId: number | null;
+  blockedUserIds: string[];
+}): Promise<ChatRow[]> {
+  const visibleWhere = channelWhere(
+    input.channel,
+    input.guildId,
+    input.blockedUserIds,
+  );
+  return db
+    .select({
+      id: messages.id,
+      channel: messages.channel,
+      roomId: messages.roomId,
+      name: messages.name,
+      className: messages.className,
+      title: messages.title,
+      content: messages.content,
+      itemLink: messages.itemLink,
+      createdAt: messages.createdAt,
+      mine: messages.userId,
+    })
+    .from(messages)
+    .where(
+      input.afterId == null
+        ? visibleWhere
+        : and(visibleWhere, gt(messages.id, input.afterId)),
+    )
+    .orderBy(
+      ...(input.afterId == null
+        ? [desc(messages.createdAt), desc(messages.id)]
+        : [asc(messages.createdAt), asc(messages.id)]),
+    )
+    .limit(CHAT_FETCH_LIMIT);
+}
+
+function serializeRows(
+  rows: ChatRow[],
+  userId: string,
+  cosmeticByUser: Awaited<ReturnType<typeof readMuseunCosmeticAppearanceMap>>,
+) {
+  const result = rows.map((row) => ({
+    id: row.id,
+    channel:
+      row.channel === "trade"
+        ? "trade"
+        : row.channel === "guild"
+          ? "guild"
+          : row.channel === "room"
+            ? "room"
+            : "global",
+    roomId: row.roomId,
+    name: row.name,
+    className: row.className,
+    title: row.title,
+    content: row.content,
+    itemLink: parseChatEquipmentLink(row.itemLink),
+    createdAt: row.createdAt.getTime(),
+    mine: row.mine === userId,
+    cosmetics: cosmeticByUser.get(row.mine) ?? null,
+  }));
+  return result;
+}
+
+async function readMainChannels(searchParams: URLSearchParams, userId: string) {
+  const globalAfterId = parseAfterId(searchParams, "globalAfterId");
+  const tradeAfterId = parseAfterId(searchParams, "tradeAfterId");
+  const guildAfterId = parseAfterId(searchParams, "guildAfterId");
+  if (
+    globalAfterId === undefined ||
+    tradeAfterId === undefined ||
+    guildAfterId === undefined
+  ) {
+    return new Response("invalid after id", { status: 400 });
+  }
+
+  const includeGuild = searchParams.get("includeGuild") === "1";
+  const viewerGuild = includeGuild ? await getViewerGuild(db, userId) : null;
+  const blockedUserIds = await readBlockedUserIds(userId);
+  const [globalRows, tradeRows, guildRows] = await Promise.all([
+    readChannelRows({
+      channel: "global",
+      afterId: globalAfterId,
+      guildId: null,
+      blockedUserIds,
+    }),
+    readChannelRows({
+      channel: "trade",
+      afterId: tradeAfterId,
+      guildId: null,
+      blockedUserIds,
+    }),
+    includeGuild && viewerGuild
+      ? readChannelRows({
+          channel: "guild",
+          afterId: guildAfterId,
+          guildId: viewerGuild.guildId,
+          blockedUserIds,
+        })
+      : [],
+  ]);
+  if (globalAfterId == null) globalRows.reverse();
+  if (tradeAfterId == null) tradeRows.reverse();
+  if (guildAfterId == null) guildRows.reverse();
+
+  const allRows = [...globalRows, ...tradeRows, ...guildRows];
+  const cosmeticByUser = await readMuseunCosmeticAppearanceMap(
+    allRows.map((message) => message.mine),
+  );
+  return Response.json({
+    global: serializeRows(globalRows, userId, cosmeticByUser),
+    trade: serializeRows(tradeRows, userId, cosmeticByUser),
+    guild: serializeRows(guildRows, userId, cosmeticByUser),
+  });
 }
 
 export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) return new Response("unauthorized", { status: 401 });
   const searchParams = new URL(req.url).searchParams;
+  if (searchParams.get("channels") === "main") {
+    return readMainChannels(searchParams, userId);
+  }
   const channel = parseChannel(searchParams.get("channel"));
   const afterIdRaw = searchParams.get("afterId");
   const afterId = afterIdRaw == null ? null : Number(afterIdRaw);
@@ -78,11 +247,22 @@ export async function GET(req: Request) {
             eq(messages.channel, "guild"),
             eq(messages.guildId, viewerGuild?.guildId ?? -1),
           )
+        : channel === "trade"
+          ? and(
+              eq(messages.channel, "trade"),
+              isNull(messages.guildId),
+              isNull(messages.roomId),
+            )
         : and(
             eq(messages.channel, "global"),
             isNull(messages.guildId),
             isNull(messages.roomId),
           );
+  const blockedUserIds = await readBlockedUserIds(userId);
+  const visibleChannelWhere =
+    blockedUserIds.length > 0
+      ? and(channelWhere, notInArray(messages.userId, blockedUserIds))
+      : channelWhere;
   const rows = await db
     .select({
       id: messages.id,
@@ -99,10 +279,10 @@ export async function GET(req: Request) {
     .from(messages)
     .where(
       afterId == null
-        ? channelWhere
-        : and(channelWhere, gt(messages.id, afterId)),
+        ? visibleChannelWhere
+        : and(visibleChannelWhere, gt(messages.id, afterId)),
     )
-    // 최초 조회는 최신 50개를 가져온 뒤 시간순으로 뒤집는다. 증분 조회는
+    // 최초 조회는 최신 100개를 가져온 뒤 시간순으로 뒤집는다. 증분 조회는
     // afterId 이후를 오래된 순서로 보내 누락 없이 기존 목록 뒤에 합칠 수 있게 한다.
     .orderBy(
       ...(afterId == null
@@ -115,7 +295,13 @@ export async function GET(req: Request) {
     .map((r) => ({
       id: r.id,
       channel:
-        r.channel === "guild" ? "guild" : r.channel === "room" ? "room" : "global",
+        r.channel === "trade"
+          ? "trade"
+          : r.channel === "guild"
+            ? "guild"
+            : r.channel === "room"
+              ? "room"
+              : "global",
       roomId: r.roomId,
       name: r.name,
       className: r.className,
@@ -124,18 +310,18 @@ export async function GET(req: Request) {
       itemLink: parseChatEquipmentLink(r.itemLink),
       createdAt: r.createdAt.getTime(),
       mine: r.mine === userId,
-      userId: r.mine,
-    }))
+      authorUserId: r.mine,
+    }));
   if (afterId == null) result.reverse();
 
   const cosmeticByUser = await readMuseunCosmeticAppearanceMap(
-    result.map((message) => message.userId),
+    result.map((message) => message.authorUserId),
   );
 
   return Response.json(
-    result.map(({ userId: messageUserId, ...message }) => ({
+    result.map((message) => ({
       ...message,
-      cosmetics: cosmeticByUser.get(messageUserId) ?? null,
+      cosmetics: cosmeticByUser.get(message.authorUserId) ?? null,
     })),
   );
 }
@@ -158,7 +344,13 @@ export async function POST(req: Request) {
     return new Response("invalid json", { status: 400 });
   }
   const channel: ChatChannel =
-    body.channel === "guild" ? "guild" : body.channel === "room" ? "room" : "global";
+    body.channel === "trade"
+      ? "trade"
+      : body.channel === "guild"
+        ? "guild"
+        : body.channel === "room"
+          ? "room"
+          : "global";
   const roomId = channel === "room" ? Number(body.roomId) : null;
   if (channel === "room" && (!Number.isInteger(roomId) || Number(roomId) <= 0)) {
     return new Response("invalid room id", { status: 400 });
@@ -198,6 +390,9 @@ export async function POST(req: Request) {
     });
     return new Response(CHAT_INAPPROPRIATE_CONTENT_ERROR, { status: 400 });
   }
+
+  const consentFailure = await requireCurrentUgcConsent(userId);
+  if (consentFailure) return consentFailure;
 
   const { name, className, title, cosmetics } = await resolveActor(userId);
 
@@ -276,6 +471,7 @@ export async function POST(req: Request) {
 
   return Response.json({
     id: inserted.id,
+    authorUserId: userId,
     channel,
     roomId,
     name,

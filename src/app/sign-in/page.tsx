@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { shouldStartLocalDevAutoLogin } from "@/lib/server/localDevAutoLogin";
 import { hasCompletedOnboarding } from "@/lib/server/profile";
 import { LandingContent } from "./LandingContent";
 
@@ -33,7 +35,6 @@ export default async function SignInPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    referral?: string | string[];
     error?: string | string[];
   }>;
 }) {
@@ -43,14 +44,24 @@ export default async function SignInPage({
   //  · 로그인 + 캐릭터 있음 → 게임 홈(/)으로. (이미 만든 유저가 대문에 머무를 이유 없음.)
   // 캐릭터 유무 판정은 OnboardingGate(클라)의 needsOnboarding 과 같은 기준
   // (hasCompletedOnboarding)이라야 / ↔ /sign-in 무한 리다이렉트가 안 생긴다.
+  const params = await searchParams;
+  const error = Array.isArray(params.error) ? params.error[0] : params.error;
   const session = await auth();
   if (session?.user && (await hasCompletedOnboarding(session.user.id))) {
     redirect("/");
   }
 
-  const params = await searchParams;
-  const referral = params.referral;
-  const error = Array.isArray(params.error) ? params.error[0] : params.error;
+  const requestHeaders = await headers();
+  if (
+    shouldStartLocalDevAutoLogin({
+      request: { headers: requestHeaders },
+      hasSession: !!session?.user,
+      authError: error ?? null,
+    })
+  ) {
+    redirect("/api/auth/local-dev");
+  }
+
   return (
     <LandingContent
       authed={!!session?.user}
@@ -59,13 +70,6 @@ export default async function SignInPage({
           ? "account-not-linked"
           : error
             ? "login-failed"
-            : null
-      }
-      referralStatus={
-        referral === "accepted"
-          ? "accepted"
-          : referral === "invalid"
-            ? "invalid"
             : null
       }
     />

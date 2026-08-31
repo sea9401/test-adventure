@@ -6,6 +6,7 @@ import {
   type SavedCharacterV2,
 } from "@/lib/server/derivePlayerCombatV2";
 import { derivePowerScore } from "@/adventure/data/v2/power";
+import { powerInputFromPlayer } from "@/lib/server/playerPowerInput";
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import { parseV2Class } from "@/adventure/data/v2/classes";
 import { artisanLevel, parseArtisanState } from "@/adventure/data/v2/artisan";
@@ -213,14 +214,13 @@ export async function GET(req: Request) {
       crafting.delivery,
       todayDeliveryKey(),
     );
-    const power = derivePowerScore({
-      atk: derived.player.atk,
-      magicAtk: derived.player.magicAtk ?? 0,
-      def: derived.player.def,
-      spd: derived.player.spd,
-      maxHp: derived.maxHp,
-      maxMp: derived.player.maxMp ?? 0,
-    });
+    const power = derivePowerScore(
+      powerInputFromPlayer(
+        derived.player,
+        derived.maxHp,
+        derived.player.maxMp ?? 0,
+      ),
+    );
 
     // 장착 6슬롯의 장비 id(사용률).
     let equippedIds: string[] = [];

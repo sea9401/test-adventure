@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSystemMessageState } from "@/adventure/v2/RewardToastProvider";
+import { confirmGameAction, type ConfirmGameAction } from "@/components/ui/gameDialog";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 
 type Supply = {
   id: string;
@@ -16,15 +18,70 @@ type Supply = {
   maxed: boolean;
 };
 
+type CombatOperations = {
+  weekKey: string;
+  tier: number;
+  maxTier: number;
+  nextCost: number | null;
+  goldPct: number;
+  expPct: number;
+  proficiencyChancePct: number;
+};
+
 type CombatSupplyResponse = {
   ok: true;
   fameTotal: number;
   fameAvailable: number;
+  guildGold: number;
   canUpgrade: boolean;
   supplies: Supply[];
+  operations: CombatOperations;
 };
 
 type ErrorResponse = { ok: false; error: string };
+
+export async function confirmCombatSupplyUpgrade({
+  supply,
+  onUpgrade,
+  confirm = confirmGameAction,
+}: {
+  supply: Pick<Supply, "id" | "name" | "level" | "nextEffect" | "nextCost">;
+  onUpgrade: (supplyId: string) => void;
+  confirm?: ConfirmGameAction;
+}): Promise<boolean> {
+  if (supply.nextCost == null || supply.nextEffect == null) return false;
+  if (
+    !(await confirm(
+      `${supply.name}을(를) Lv.${supply.level + 1}(으)로 올릴까요?\n${supply.nextCost.toLocaleString()} 명성이 사용되며, ${supply.nextEffect} 효과가 적용됩니다.`,
+    ))
+  ) {
+    return false;
+  }
+  onUpgrade(supply.id);
+  return true;
+}
+
+export async function confirmCombatOperationsFunding({
+  operations,
+  onFund,
+  confirm = confirmGameAction,
+}: {
+  operations: Pick<CombatOperations, "tier" | "nextCost">;
+  onFund: () => void;
+  confirm?: ConfirmGameAction;
+}): Promise<boolean> {
+  if (operations.nextCost == null) return false;
+  const nextTier = operations.tier + 1;
+  if (
+    !(await confirm(
+      `주간 전투보급 운용을 Lv.${nextTier}(으)로 강화할까요?\n길드 자금 ${operations.nextCost.toLocaleString()} G가 사용되며, 이번 주 사냥 골드·EXP +${nextTier}%p와 추가 숙달 확률 +${nextTier * 5}%p가 적용됩니다.\n운용 단계는 월요일 00:00 KST에 초기화됩니다.`,
+    ))
+  ) {
+    return false;
+  }
+  onFund();
+  return true;
+}
 
 const SUPPLY_ACCENT: Record<
   string,
@@ -58,10 +115,14 @@ function errorLabel(error: string): string {
   switch (error) {
     case "insufficient_fame":
       return "길드 명성이 부족합니다.";
+    case "insufficient_gold":
+      return "길드 자금이 부족합니다.";
     case "not_allowed":
       return "관리 권한이 필요합니다.";
     case "maxed":
       return "이미 최대 단계입니다.";
+    case "operations_maxed":
+      return "이번 주 전투보급 운용이 이미 최대 단계입니다.";
     case "no_guild":
       return "길드 소속이 필요합니다.";
     default:
@@ -113,9 +174,16 @@ export function GuildCombatSupplySummary() {
         <div>
           <h2 className="text-sm font-semibold">길드 버프</h2>
         </div>
-        <span className="text-xs font-medium tabular-nums text-amber-700 dark:text-amber-400">
-          명성 {(data?.fameAvailable ?? 0).toLocaleString()}
-        </span>
+        <div className="flex items-center gap-2 text-xs font-medium tabular-nums">
+          {(data?.operations.tier ?? 0) > 0 && (
+            <span className="text-emerald-700 dark:text-emerald-400">
+              주간 운용 Lv.{data?.operations.tier}
+            </span>
+          )}
+          <span className="text-amber-700 dark:text-amber-400">
+            명성 {(data?.fameAvailable ?? 0).toLocaleString()}
+          </span>
+        </div>
       </div>
 
       {loading && supplies.length === 0 ? (
@@ -200,6 +268,32 @@ export function GuildCombatSupplyPanel() {
     [setData, setMessage],
   );
 
+  const fundOperations = useCallback(async () => {
+    setBusyId("operations");
+    setMessage(null);
+    try {
+      const res = await fetch("/api/v2/guild/combat-supply", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "fund_operations" }),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | CombatSupplyResponse
+        | ErrorResponse
+        | null;
+      if (json?.ok) {
+        setData(json);
+        setMessage(`주간 전투보급 운용을 Lv.${json.operations.tier}로 강화했습니다.`);
+      } else {
+        setMessage(errorLabel(json?.error ?? "unknown"));
+      }
+    } catch {
+      setMessage("처리하지 못했습니다.");
+    } finally {
+      setBusyId(null);
+    }
+  }, [setData, setMessage]);
+
   if (loading && !data) {
     return (
       <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-4 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
@@ -210,6 +304,91 @@ export function GuildCombatSupplyPanel() {
 
   return (
     <div className="space-y-3">
+      {data && (
+        <section className={`${SURFACE_CARD} overflow-hidden text-sm`}>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-3 py-3 dark:border-zinc-700">
+            <div>
+              <h2 className="font-semibold">주간 전투보급 운용</h2>
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                길드 자금으로 영구 전투보급 효과를 이번 주 동안 강화합니다.
+              </p>
+            </div>
+            <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+              Lv.{data.operations.tier} / {data.operations.maxTier}
+            </span>
+          </div>
+
+          <div className="grid gap-2 p-3 sm:grid-cols-3">
+            <div className={`${SURFACE_INSET} px-3 py-2`}>
+              <div className="text-xs text-zinc-500 dark:text-zinc-400">적용 주차</div>
+              <div className="mt-1 font-semibold tabular-nums">
+                {data.operations.weekKey}
+              </div>
+            </div>
+            <div className={`${SURFACE_INSET} px-3 py-2`}>
+              <div className="text-xs text-zinc-500 dark:text-zinc-400">현재 추가 효과</div>
+              <div className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                골드·EXP +{data.operations.goldPct}%p · 숙달 +
+                {data.operations.proficiencyChancePct}%p
+              </div>
+            </div>
+            <div className={`${SURFACE_INSET} px-3 py-2`}>
+              <div className="text-xs text-zinc-500 dark:text-zinc-400">길드 자금</div>
+              <div className="mt-1 font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+                {data.guildGold.toLocaleString()} G
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 px-3 py-3 dark:border-zinc-700">
+            <div className="text-xs text-zinc-500 dark:text-zinc-400">
+              {data.operations.nextCost == null ? (
+                "이번 주 최대 운용 단계입니다. 월요일 00:00 KST에 초기화됩니다."
+              ) : (
+                <>
+                  다음 단계 비용 {data.operations.nextCost.toLocaleString()} G ·
+                  월요일 00:00 KST 초기화
+                </>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                void confirmCombatOperationsFunding({
+                  operations: data.operations,
+                  onFund: () => void fundOperations(),
+                })
+              }
+              disabled={
+                busyId !== null ||
+                !data.canUpgrade ||
+                data.operations.nextCost == null ||
+                data.guildGold < (data.operations.nextCost ?? 0)
+              }
+              className="ui-game-button min-h-10 rounded-md border border-amber-700 bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 disabled:opacity-70 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+            >
+              {data.operations.nextCost == null
+                ? "이번 주 최대"
+                : busyId === "operations"
+                  ? "처리 중…"
+                  : `${data.operations.nextCost.toLocaleString()} G 결제`}
+            </button>
+          </div>
+          {!data.canUpgrade && (
+            <p className="border-t border-zinc-200 px-3 py-2 text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+              마스터와 관리자만 운용비를 결제할 수 있습니다.
+            </p>
+          )}
+          {data.canUpgrade &&
+            data.operations.nextCost != null &&
+            data.guildGold < data.operations.nextCost && (
+              <p className="border-t border-zinc-200 px-3 py-2 text-xs text-rose-600 dark:border-zinc-700 dark:text-rose-400">
+                다음 단계에 필요한 길드 자금이 부족합니다.
+              </p>
+            )}
+        </section>
+      )}
+
       <div className="overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
         <div className="border-b border-zinc-200 bg-zinc-50 px-3 py-3 dark:border-zinc-700 dark:bg-zinc-900">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -259,7 +438,12 @@ export function GuildCombatSupplyPanel() {
 
                   <button
                     type="button"
-                    onClick={() => void upgrade(supply.id)}
+                    onClick={() =>
+                      void confirmCombatSupplyUpgrade({
+                        supply,
+                        onUpgrade: (supplyId) => void upgrade(supplyId),
+                      })
+                    }
                     disabled={disabled}
                     className="ui-game-button min-h-10 rounded-md border border-zinc-300 bg-zinc-900 px-3 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-500 disabled:opacity-70 dark:border-zinc-700 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-white dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
                   >

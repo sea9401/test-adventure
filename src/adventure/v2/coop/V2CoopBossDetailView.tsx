@@ -7,10 +7,10 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useState } from "react";
-import { FilmStrip } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
+import { confirmGameAction, type ConfirmGameAction } from "@/components/ui/gameDialog";
 import { applyRegen, type StaminaState } from "@/adventure/v2/stamina";
 import {
   COOP_ATTACK_STAMINA_COST,
@@ -21,7 +21,7 @@ import {
   coopAttackCooldownMs,
   coopEnrageStatus,
 } from "@/adventure/data/v2/coopBosses";
-import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import { coopKillingBlowReward } from "@/adventure/data/v2/coopRewards";
 import {
   fmtCoopRemain,
   useCoopSessionState,
@@ -33,9 +33,25 @@ import {
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { CombatMatchupSummary } from "@/adventure/battle/CombatMatchupSummary";
+import { CoopRecentAttackList } from "./CoopRecentAttackList";
 
 function fmtPreviewNumber(value: number): string {
   return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1);
+}
+
+export const COOP_BOSS_PUBLICATION_CONFIRMATION =
+  "전체 공개하면 모든 모험가가 이 보스를 볼 수 있습니다. 공개 후에는 나만 또는 길드원만으로 되돌릴 수 없습니다. 전체 공개할까요?";
+
+export async function confirmCoopBossPublication({
+  confirm,
+  onPublish,
+}: {
+  confirm: ConfirmGameAction;
+  onPublish: () => void;
+}): Promise<boolean> {
+  if (!(await confirm(COOP_BOSS_PUBLICATION_CONFIRMATION))) return false;
+  onPublish();
+  return true;
 }
 
 export function V2CoopBossDetailView({
@@ -108,6 +124,7 @@ export function V2CoopBossDetailView({
 
   const { session, my } = detail;
   const def = COOP_BOSSES[session.kind];
+  const killingBlowReward = coopKillingBlowReward(session.kind);
   // 활성 판정 — 서버 sweep 전이라도 시간상 만료면 비활성 취급(공격 버튼 숨김).
   const ended =
     session.defeated || session.expired || session.expiresAt <= now;
@@ -133,9 +150,10 @@ export function V2CoopBossDetailView({
   );
   const lowStamina = liveStamina.current < COOP_ATTACK_STAMINA_COST;
   const claimable = session.defeated && !my.claimed && my.damage > 0;
-  // 공개 범위 — 소환자(활성)는 변경 컨트롤, 그 외 모두(비참여자 포함)는 읽기 전용 배지로 현재 범위 노출.
-  const showScopeControl = V2_CORE_LOOP_V2 && session.isOwner && active;
-  const showScopeBadge = V2_CORE_LOOP_V2 && !showScopeControl;
+  // 전체 공개 전의 활성 보스만 소환자가 범위를 바꿀 수 있다. public 은 영구 잠금이다.
+  const showScopeControl =
+    session.isOwner && active && session.visibility !== "public";
+  const showScopeBadge = !showScopeControl;
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 px-4 py-5 text-zinc-900 sm:p-6 dark:text-zinc-100">
@@ -263,20 +281,27 @@ export function V2CoopBossDetailView({
         )}
 
         {active && (
-          <button
-            type="button"
-            disabled={busy || onCooldown || lowStamina}
-            onClick={() => void handleAttack()}
-            className="ui-game-button ui-lift-card mx-auto min-h-11 w-full max-w-xs rounded-md border border-rose-600 bg-rose-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
-          >
-            {busy
-              ? "전투 중…"
-              : onCooldown
-                ? `재공격 ${Math.ceil(cooldownLeft / 1000)}초 후`
-                : lowStamina
-                  ? `스태미너 부족 (${COOP_ATTACK_STAMINA_COST} 필요)`
-                  : `공격 (스태미너 ${COOP_ATTACK_STAMINA_COST})`}
-          </button>
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              disabled={busy || onCooldown || lowStamina}
+              onClick={() => void handleAttack()}
+              className="ui-game-button ui-lift-card mx-auto min-h-11 w-full max-w-xs rounded-md border border-rose-600 bg-rose-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+            >
+              {busy
+                ? "전투 중…"
+                : onCooldown
+                  ? `재공격 ${Math.ceil(cooldownLeft / 1000)}초 후`
+                  : lowStamina
+                    ? `스태미너 부족 (${COOP_ATTACK_STAMINA_COST} 필요)`
+                    : `공격 (스태미너 ${COOP_ATTACK_STAMINA_COST})`}
+            </button>
+            <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+              처치 확정타 보너스 · 협동 주화 ×{killingBlowReward.coin} +{" "}
+              {killingBlowReward.bossMaterialName} ×
+              {killingBlowReward.bossMaterialCount}
+            </p>
+          </div>
         )}
         {session.defeated && (
           <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
@@ -371,8 +396,8 @@ export function V2CoopBossDetailView({
             </span>
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            기여 보상을 충분히 쌓은 뒤 공개로 바꿔 다른 모험가들과 함께 잡을 수
-            있어요.
+            전체 공개 전에는 나만 또는 길드원과 준비할 수 있어요. 전체 공개 후에는
+            범위를 다시 줄일 수 없습니다.
           </p>
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
             {COOP_VISIBILITY_OPTIONS.map(([val, label]) => {
@@ -382,7 +407,16 @@ export function V2CoopBossDetailView({
                   key={val}
                   type="button"
                   disabled={busy || cur}
-                  onClick={() => void setVisibility(val)}
+                  onClick={() => {
+                    if (val === "public") {
+                      void confirmCoopBossPublication({
+                        confirm: confirmGameAction,
+                        onPublish: () => void setVisibility(val),
+                      });
+                      return;
+                    }
+                    void setVisibility(val);
+                  }}
                   aria-pressed={cur}
                   className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition disabled:cursor-default ${
                     cur
@@ -542,58 +576,10 @@ export function V2CoopBossDetailView({
 
       {/* 최근 공격 활동 */}
       {detail.recentAttacks.length > 0 && (
-        <Card padding="md" className="space-y-1">
-          <div className="flex items-baseline justify-between gap-2">
-            <div className="text-sm font-semibold">전투 기록</div>
-            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-              최근 10회
-            </span>
-          </div>
-          {detail.recentAttacks.map((a, i) => (
-            <button
-              key={a.id || `${a.at}-${i}`}
-              type="button"
-              disabled={!a.replay}
-              onClick={() => a.replay && onOpenAttackLog(a.id)}
-              className={`flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs transition ${
-                a.replay
-                  ? "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                  : "cursor-default text-zinc-400 dark:text-zinc-500"
-              }`}
-            >
-              <span className="flex min-w-0 items-center gap-2 truncate">
-                <CosmeticAvatar
-                  avatar={a.avatar}
-                  name={a.name}
-                  profileBorder={a.profileBorder}
-                  width={26}
-                  height={26}
-                  sizes="26px"
-                  className="h-[26px] w-[26px] rounded-md"
-                />
-                <span className="min-w-0 truncate">
-                  {a.name}
-                  {a.isMe && (
-                    <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400">
-                      나
-                    </span>
-                  )}
-                  {a.diedEarly && (
-                    <span className="ml-1 text-[10px] text-rose-500">
-                      전투불능
-                    </span>
-                  )}
-                </span>
-              </span>
-              <span className="flex shrink-0 items-center gap-2">
-                <span className="font-mono">
-                  -{a.damageDealt.toLocaleString()}
-                </span>
-                {a.replay && <FilmStrip size={14} className="text-zinc-400" />}
-              </span>
-            </button>
-          ))}
-        </Card>
+        <CoopRecentAttackList
+          attacks={detail.recentAttacks}
+          onOpenAttackLog={onOpenAttackLog}
+        />
       )}
     </main>
   );

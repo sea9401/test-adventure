@@ -9,6 +9,7 @@ import {
   V2_EQUIPMENT,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 
 // ⚠️ DEV 전용 도구 UI. /api/v2/dev/grant + /api/v2/dev/grant-equipment 로 지급,
 //    /api/v2/dev/reset-me 로 본인 캐릭터 초기화.
@@ -72,10 +73,10 @@ export function V2DevToolsContents() {
 
   async function resetMe() {
     if (
-      !window.confirm(
+      !(await confirmGameAction(
         "정말로 본인 캐릭터 데이터를 전부 초기화할까요?\n" +
           "레벨·EXP·골드·장비·재료·길드 자원이 모두 삭제되며 되돌릴 수 없습니다.",
-      )
+      ))
     ) {
       return;
     }

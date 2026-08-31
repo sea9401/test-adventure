@@ -4,6 +4,7 @@ import {
   guildActivityRollups,
   guildContributionEvents,
   guildMembers,
+  users,
 } from "@/db/schema";
 import {
   GUILD_CONTRIBUTION_CATEGORIES,
@@ -12,6 +13,7 @@ import {
 } from "@/adventure/data/v2/guildContribution";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { kstWeekMondayKey } from "@/lib/kst";
+import { filterRankingEligibleRows } from "@/lib/server/rankingEligibility";
 
 function emptyCategoryPoints(): Record<GuildContributionCategory, number> {
   return Object.fromEntries(
@@ -52,8 +54,12 @@ export async function GET() {
   const weekKey = kstWeekMondayKey();
   const weekStartsAt = new Date(`${weekKey}T00:00:00+09:00`);
   const members = await db
-    .select({ userId: guildMembers.userId })
+    .select({
+      userId: guildMembers.userId,
+      bannedUntil: users.bannedUntil,
+    })
     .from(guildMembers)
+    .innerJoin(users, eq(users.id, guildMembers.userId))
     .where(eq(guildMembers.guildId, member.guildId));
 
   // 과거에 이미 적립된 공동 의뢰 수령 이벤트도 개인 순위에서 소급 제외한다.
@@ -155,7 +161,7 @@ export async function GET() {
     categoryByUser.set(archivedUserId, values);
   }
 
-  const rows = members
+  const rows = filterRankingEligibleRows(members)
     .map(({ userId: memberUserId }) => {
       const total = totalByUser.get(memberUserId);
       const byCategory = categoryByUser.get(memberUserId) ?? {

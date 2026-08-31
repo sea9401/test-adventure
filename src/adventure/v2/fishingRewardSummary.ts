@@ -14,6 +14,12 @@ export type FishingRewardSummaryInput = {
     catchBonus: number;
     levelBonus: number;
   } | null;
+  streak?: {
+    current: number;
+    best: number;
+    buffTier: number;
+    coinBonus: number;
+  };
   fishingXpGained?: number;
   fishingLevel?: number;
   fishingLevelUp?: boolean;
@@ -25,6 +31,11 @@ export function fishingRewardSummaryLabels(
   result: FishingRewardSummaryInput,
 ): string[] {
   const labels: string[] = [];
+  const reachedDailyCoinCap =
+    result.coinsGained === 0 &&
+    result.dailyCatchCoins != null &&
+    result.dailyCatchCoins.cap > 0 &&
+    result.dailyCatchCoins.earned >= result.dailyCatchCoins.cap;
   if (
     !result.catchItem &&
     result.catchItemStatus === "daily_cap" &&
@@ -36,13 +47,15 @@ export function fishingRewardSummaryLabels(
   }
   if (result.coinsGained != null && result.coinsGained > 0) {
     labels.push(`코인 +${result.coinsGained}`);
-  } else if (
-    result.coinsGained === 0 &&
-    result.dailyCatchCoins &&
-    result.dailyCatchCoins.cap > 0 &&
-    result.dailyCatchCoins.earned >= result.dailyCatchCoins.cap
-  ) {
+  } else if (reachedDailyCoinCap) {
     labels.push("일일 낚시 코인 제한 도달 · 추가 코인 +0");
+  }
+  if (result.streak && result.streak.buffTier > 0) {
+    labels.push(
+      reachedDailyCoinCap
+        ? `연속 ${result.streak.current}회 · 코인 보너스 +${result.streak.coinBonus} 활성 (일일 제한으로 이번 지급 0)`
+        : `연속 ${result.streak.current}회 · 코인 보너스 +${result.streak.coinBonus} 적용 (위 코인 획득량에 포함)`,
+    );
   }
   if (result.levelRewardCoins != null && result.levelRewardCoins > 0) {
     labels.push(`레벨업 보상 +${result.levelRewardCoins}`);

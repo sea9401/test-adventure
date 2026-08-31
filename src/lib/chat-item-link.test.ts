@@ -38,4 +38,24 @@ describe("chat equipment links", () => {
     ).toBeNull();
     expect(parseChatEquipmentLink("v2_iron_sword")).toBeNull();
   });
+
+  it("제작 품질과 강화가 함께 있는 장비 링크를 그대로 복원한다", () => {
+    expect(
+      parseChatEquipmentLink({
+        kind: "equipment",
+        itemId: "v2_crafted_fury_necklace",
+        craftQuality: { level: 2, bonusPct: 999 },
+        enhance: { level: 4, bonusPct: 999 },
+        craftedBy: {
+          userId: "u1",
+          profession: "blacksmith",
+          level: 6,
+          craftedAt: "2026-08-09T00:00:00.000Z",
+        },
+      }),
+    ).toMatchObject({
+      craftQuality: { level: 2, bonusPct: 10 },
+      enhance: { level: 4, bonusPct: 6 },
+    });
+  });
 });

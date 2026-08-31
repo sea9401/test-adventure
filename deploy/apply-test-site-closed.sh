@@ -35,7 +35,7 @@ restore_previous_config() {
 
 $SUDO_CMD install -d -m 0755 "$HTML_DIR"
 $SUDO_CMD install -m 0644 deploy/staging-closed.html "$HTML_DIR/staging-closed.html"
-$SUDO_CMD install -m 0644 deploy/nginx-adventure-rpg-test.conf "$CONF_TARGET"
+$SUDO_CMD install -m 0644 deploy/nginx-adventure-rpg-test-closed.conf "$CONF_TARGET"
 
 if ! $SUDO_CMD nginx -t; then
   echo "ERROR: nginx 설정 검증 실패 — 기존 테스트 도메인 설정을 복원합니다." >&2

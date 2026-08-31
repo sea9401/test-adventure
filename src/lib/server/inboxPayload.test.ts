@@ -1,9 +1,58 @@
 import { describe, expect, it } from "vitest";
 import {
+  inboxClaimState,
   inboxValues,
   isInboxPayloadKind,
   parseInboxPayload,
 } from "./inboxPayload";
+
+describe("inboxClaimState", () => {
+  it("읽는 것으로 끝나는 쪽지·시세 알림과 별도 행동인 길드 초대를 구분한다", () => {
+    expect(inboxClaimState("user_message", { text: "안녕" })).toBe("none");
+    expect(inboxClaimState("price_alert", { text: "목표가 도달" })).toBe("none");
+    expect(
+      inboxClaimState("guild_invite", {
+        invite_id: 7,
+        guild_id: 42,
+        guild_name: "철의장막",
+        expires_at: "2026-08-20T00:00:00.000Z",
+      }),
+    ).toBe("action");
+  });
+
+  it("실제 내용물이 있는 우편만 수령 대상으로 분류한다", () => {
+    expect(inboxClaimState("admin_gift", { gold: 100 })).toBe("claimable");
+    expect(
+      inboxClaimState("admin_gift", {
+        cookingIngredients: [{ ingredientId: "pantry:salt", count: 1 }],
+      }),
+    ).toBe("claimable");
+    expect(inboxClaimState("admin_gift", {})).toBe("none");
+    expect(
+      inboxClaimState("guild_quest_reward", {
+        quest_id: "q1",
+        quest_name: "의뢰",
+        gold: 0,
+        materials: [],
+        items: [],
+      }),
+    ).toBe("none");
+    expect(
+      inboxClaimState("guild_quest_reward", {
+        quest_id: "q1",
+        quest_name: "의뢰",
+        materials: [{ materialId: "iron_ore", count: 1 }],
+      }),
+    ).toBe("claimable");
+  });
+
+  it("손상된 payload는 자동 완료하거나 수령하지 않도록 invalid로 남긴다", () => {
+    expect(
+      inboxClaimState("season_reward", { season: "broken", coins: 100 }),
+    ).toBe("invalid");
+    expect(inboxClaimState("unknown", {})).toBe("invalid");
+  });
+});
 
 describe("isInboxPayloadKind", () => {
   it("승인된 우편 종류 모두 true", () => {
@@ -66,6 +115,18 @@ describe("parseInboxPayload — happy path", () => {
   });
 
   it("구매 주문 체결 물품의 종류와 수량을 검증한다", () => {
+    expect(
+      parseInboxPayload("buy_order_item", {
+        item_kind: "specimen",
+        item_id: "fish_specimen_carp",
+        quantity: 2,
+      }),
+    ).toEqual({
+      kind: "buy_order_item",
+      item_kind: "specimen",
+      item_id: "fish_specimen_carp",
+      quantity: 2,
+    });
     expect(
       parseInboxPayload("buy_order_item", {
         item_kind: "equip",
@@ -218,6 +279,7 @@ describe("parseInboxPayload — happy path", () => {
       kind: "admin_gift",
       gold: 5000,
       materials: [],
+      cookingIngredients: [],
       items: [],
       staminaPotions: 0,
       museunCoins: 0,
@@ -233,13 +295,48 @@ describe("parseInboxPayload — happy path", () => {
         materials: [{ materialId: "iron_ore", count: 3 }],
         items: [{ itemId: "iron_sword", count: 2 }],
         staminaPotions: 4,
+        staminaPotionsBound: true,
       }),
     ).toEqual({
       kind: "admin_gift",
       gold: 1000,
       materials: [{ materialId: "iron_ore", count: 3 }],
+      cookingIngredients: [],
       items: [{ itemId: "iron_sword", count: 2 }],
       staminaPotions: 4,
+      staminaPotionsBound: true,
+      museunCoins: 0,
+      cashItems: [],
+      adventureSupportDays: 0,
+    });
+  });
+
+  it("admin_gift (농장·낚시·상점·가공 요리 재료만 양의 정수로 보존)", () => {
+    expect(
+      parseInboxPayload("admin_gift", {
+        cookingIngredients: [
+          { ingredientId: "farm:wheat", count: 5 },
+          { ingredientId: "fishing:catch_legendary", count: 1 },
+          { ingredientId: "pantry:salt", count: 4 },
+          { ingredientId: "processed:flour", count: 2 },
+          { ingredientId: "farm:compound_feed", count: 99 },
+          { ingredientId: "fishing:unknown", count: 99 },
+          { ingredientId: "pantry:unknown", count: 99 },
+          { ingredientId: "processed:butter", count: 0 },
+        ],
+      }),
+    ).toEqual({
+      kind: "admin_gift",
+      gold: 0,
+      materials: [],
+      cookingIngredients: [
+        { ingredientId: "farm:wheat", count: 5 },
+        { ingredientId: "fishing:catch_legendary", count: 1 },
+        { ingredientId: "pantry:salt", count: 4 },
+        { ingredientId: "processed:flour", count: 2 },
+      ],
+      items: [],
+      staminaPotions: 0,
       museunCoins: 0,
       cashItems: [],
       adventureSupportDays: 0,
@@ -255,6 +352,7 @@ describe("parseInboxPayload — happy path", () => {
       kind: "admin_gift",
       gold: 0,
       materials: [],
+      cookingIngredients: [],
       items: [{ itemId: "iron_sword", count: 1 }],
       staminaPotions: 0,
       museunCoins: 0,
@@ -269,6 +367,7 @@ describe("parseInboxPayload — happy path", () => {
       kind: "admin_gift",
       gold: 0,
       materials: [],
+      cookingIngredients: [],
       items: [],
       staminaPotions: 0,
       museunCoins: 0,
@@ -279,6 +378,7 @@ describe("parseInboxPayload — happy path", () => {
       kind: "admin_gift",
       gold: 0,
       materials: [],
+      cookingIngredients: [],
       items: [],
       staminaPotions: 0,
       museunCoins: 0,
@@ -295,6 +395,7 @@ describe("parseInboxPayload — happy path", () => {
       kind: "admin_gift",
       gold: 0,
       materials: [],
+      cookingIngredients: [],
       items: [],
       staminaPotions: 0,
       museunCoins: 0,
@@ -310,6 +411,7 @@ describe("parseInboxPayload — happy path", () => {
         cashItems: [
           { itemId: "rename_permit", count: 2 },
           { itemId: "adventure_support_30d", count: 1 },
+          { itemId: "cultivation_reset_potion", count: 1 },
           { itemId: "not_a_shop_item", count: 99 },
         ],
       }),
@@ -317,12 +419,14 @@ describe("parseInboxPayload — happy path", () => {
       kind: "admin_gift",
       gold: 0,
       materials: [],
+      cookingIngredients: [],
       items: [],
       staminaPotions: 0,
       museunCoins: 800,
       cashItems: [
         { itemId: "rename_permit", count: 2 },
         { itemId: "adventure_support_30d", count: 1 },
+        { itemId: "cultivation_reset_potion", count: 1 },
       ],
       adventureSupportDays: 0,
     });
@@ -335,6 +439,7 @@ describe("parseInboxPayload — happy path", () => {
       kind: "admin_gift",
       gold: 0,
       materials: [],
+      cookingIngredients: [],
       items: [],
       staminaPotions: 0,
       museunCoins: 0,
@@ -352,6 +457,7 @@ describe("parseInboxPayload — happy path", () => {
       kind: "admin_gift",
       gold: 0,
       materials: [],
+      cookingIngredients: [],
       items: [],
       staminaPotions: 0,
       museunCoins: 0,

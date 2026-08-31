@@ -31,6 +31,7 @@ import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import { readJobUnlockContext } from "@/lib/server/jobUnlockContext";
 import { excludeArenaOperatorAccounts } from "@/lib/server/arenaOperatorEligibility";
+import { filterRankingEligibleRows } from "@/lib/server/rankingEligibility";
 import {
   derivePlayerCombatV2,
   type DerivedPlayerCombatV2,
@@ -40,11 +41,13 @@ import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
 import { toPvpReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { readProfileValue } from "@/adventure/profile/profileValue";
 import { autoDuelContext } from "@/adventure/v2/combat/duelOptions";
-import { ARENA_DAMAGE_MULTIPLIER } from "@/lib/server/arena";
+import {
+  ARENA_DAMAGE_MULTIPLIER,
+  ARENA_SUSTAIN_MULTIPLIER,
+} from "@/lib/server/arena";
 import { inboxValues } from "@/lib/server/inboxPayload";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { getOrCreateCurrentSeason } from "./season";
-import { spendArenaTournamentBetGold } from "./arenaTournamentBetGold";
 import {
   arenaChampionshipBadgeForPlacement,
   grantArenaChampionshipBadge,
@@ -53,14 +56,9 @@ import {
 import { ARENA_CHAMPION_TITLE_ID } from "@/adventure/data/titles";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import {
-  ARENA_TOURNAMENT_BET_CLOSE_MS,
-  ARENA_TOURNAMENT_BET_MAX_GOLD,
-  ARENA_TOURNAMENT_BET_MIN_GOLD,
-  ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD,
   ARENA_TOURNAMENT_MIN_MATCHES,
   arenaRankedEndsAt,
   arenaSeasonPhase,
-  arenaTournamentBetPayouts,
   arenaTournamentSnapshotsAt,
   arenaTournamentStartsAt,
   arenaTournamentMatchNoticeText,
@@ -78,7 +76,6 @@ import {
 
 const PROFILE_KEY = "character-profile.v2";
 const SYSTEM_USER_ID = "system";
-const TOURNAMENT_REPLAY_LOG_CAP = 150;
 const TOURNAMENT_SAVE_KEYS = [
   CHARACTER_STATE_KEY,
   "equipment.v2",
@@ -111,46 +108,6 @@ export type ArenaTournamentEnsureResult =
       rankedEndsAt: Date;
       endAt: Date;
     };
-
-export type ArenaTournamentBetResult =
-  | { kind: "ok"; amount: number; gold: number; bankedGold: number }
-  | {
-      kind:
-        | "not_open"
-        | "tournament_missing"
-        | "match_missing"
-        | "match_not_ready"
-        | "betting_closed"
-        | "invalid_choice"
-        | "own_match"
-        | "invalid_amount"
-        | "already_bet"
-        | "season_limit"
-        | "insufficient_gold";
-      remainingGold?: number;
-    };
-
-export type ArenaTournamentBetView = {
-  pools: Array<{
-    matchId: string;
-    total: number;
-    choices: Record<string, number>;
-  }>;
-  myBets: Array<{
-    matchId: string;
-    chosenUserId: string;
-    amount: number;
-    status: string;
-    payout: number;
-  }>;
-  limits: {
-    minimum: number;
-    maximum: number;
-    seasonMaximum: number;
-    closeBeforeSeconds: number;
-    feePercent: number;
-  };
-};
 
 function equipmentSaveForArena(
   equipmentRaw: unknown,
@@ -359,6 +316,7 @@ function fightTournamentMatch(
     {
       ...autoDuelContext(),
       damageMultiplier: ARENA_DAMAGE_MULTIPLIER,
+      sustainMultiplier: ARENA_SUSTAIN_MULTIPLIER,
       v2Skills: { p1: p1.payload.skills, p2: p2.payload.skills },
     },
   );
@@ -367,11 +325,7 @@ function fightTournamentMatch(
     turns: battle.turns,
     p1HpRatio: battle.finalState.p1.hp / Math.max(1, battle.finalState.p1.maxHp),
     p2HpRatio: battle.finalState.p2.hp / Math.max(1, battle.finalState.p2.maxHp),
-    replay: toPvpReplayPayload(
-      battle.finalState,
-      p2.participant.name,
-      TOURNAMENT_REPLAY_LOG_CAP,
-    ),
+    replay: toPvpReplayPayload(battle.finalState, p2.participant.name),
   };
 }
 
@@ -402,11 +356,10 @@ async function broadcastTournamentMatchResult(
   });
 }
 
-async function settleMatchBets(
+async function refundRetiredMatchBets(
   tx: Tx,
   seasonId: string,
   matchId: string,
-  winnerUserId: string,
   now: Date,
 ): Promise<void> {
   const bets = await tx
@@ -421,50 +374,97 @@ async function settleMatchBets(
     )
     .orderBy(asc(pvpTournamentBets.userId))
     .for("update");
-  const settlement = arenaTournamentBetPayouts({
-    winnerUserId,
-    bets: bets.map((bet) => ({
+  for (const bet of bets) {
+    const character = await lockSaveForUpdate<Record<string, unknown>>(
+      tx,
+      bet.userId,
+      CHARACTER_STATE_KEY,
+      {},
+    );
+    await upsertSave(tx, bet.userId, CHARACTER_STATE_KEY, {
+      ...character,
+      gold: characterGold(character) + bet.amount,
+    });
+    await tx.insert(economyEvents).values({
       userId: bet.userId,
-      chosenUserId: bet.chosenUserId,
-      amount: bet.amount,
-    })),
-  });
-  for (const payout of settlement.payouts) {
-    if (payout.amount > 0) {
-      const character = await lockSaveForUpdate<Record<string, unknown>>(
-        tx,
-        payout.userId,
-        CHARACTER_STATE_KEY,
-        {},
-      );
-      await upsertSave(tx, payout.userId, CHARACTER_STATE_KEY, {
-        ...character,
-        gold: characterGold(character) + payout.amount,
-      });
-      await tx.insert(economyEvents).values({
-        userId: payout.userId,
-        eventType:
-          payout.status === "refunded"
-            ? "refund.arena_tournament_bet"
-            : "source.arena_tournament_bet",
-        goldDelta: payout.amount,
-        itemKind: "arena_tournament_bet",
-        itemId: matchId,
-        quantity: 1,
-        detail: { seasonId, matchId, status: payout.status },
-      });
-    }
+      eventType: "refund.arena_tournament_bet.retired",
+      goldDelta: bet.amount,
+      itemKind: "arena_tournament_bet",
+      itemId: matchId,
+      quantity: 1,
+      detail: { seasonId, matchId, reason: "feature_retired" },
+    });
     await tx
       .update(pvpTournamentBets)
-      .set({ status: payout.status, payout: payout.amount, settledAt: now })
+      .set({ status: "refunded", payout: bet.amount, settledAt: now })
       .where(
         and(
           eq(pvpTournamentBets.seasonId, seasonId),
           eq(pvpTournamentBets.matchId, matchId),
-          eq(pvpTournamentBets.userId, payout.userId),
+          eq(pvpTournamentBets.userId, bet.userId),
         ),
       );
   }
+}
+
+/** 남아 있는 모든 미정산 베팅을 기능 종료 환불로 전환한다. */
+export async function refundRetiredArenaTournamentBets(now = new Date()) {
+  return db.transaction(async (tx) => {
+    const bets = await tx
+      .select()
+      .from(pvpTournamentBets)
+      .where(eq(pvpTournamentBets.status, "pending"))
+      .orderBy(
+        asc(pvpTournamentBets.seasonId),
+        asc(pvpTournamentBets.matchId),
+        asc(pvpTournamentBets.userId),
+      )
+      .for("update");
+    const credits = new Map<string, number>();
+    for (const bet of bets) {
+      credits.set(bet.userId, (credits.get(bet.userId) ?? 0) + bet.amount);
+    }
+    for (const userId of [...credits.keys()].sort()) {
+      const amount = credits.get(userId) ?? 0;
+      const character = await lockSaveForUpdate<Record<string, unknown>>(
+        tx,
+        userId,
+        CHARACTER_STATE_KEY,
+        {},
+      );
+      await upsertSave(tx, userId, CHARACTER_STATE_KEY, {
+        ...character,
+        gold: characterGold(character) + amount,
+      });
+      await tx.insert(economyEvents).values({
+        userId,
+        eventType: "refund.arena_tournament_bet.retired",
+        goldDelta: amount,
+        itemKind: "arena_tournament_bet",
+        itemId: "feature_retired",
+        quantity: bets.filter((bet) => bet.userId === userId).length,
+        detail: { reason: "feature_retired", actualGoldDelta: amount },
+      });
+    }
+    for (const bet of bets) {
+      await tx
+        .update(pvpTournamentBets)
+        .set({ status: "refunded", payout: bet.amount, settledAt: now })
+        .where(
+          and(
+            eq(pvpTournamentBets.seasonId, bet.seasonId),
+            eq(pvpTournamentBets.matchId, bet.matchId),
+            eq(pvpTournamentBets.userId, bet.userId),
+            eq(pvpTournamentBets.status, "pending"),
+          ),
+        );
+    }
+    return {
+      refundedBets: bets.length,
+      refundedUsers: credits.size,
+      refundedGold: [...credits.values()].reduce((sum, amount) => sum + amount, 0),
+    };
+  });
 }
 
 async function advanceTournament(
@@ -498,7 +498,7 @@ async function advanceTournament(
       fight: fightTournamentMatch,
     });
     const resolved = bracket.matches.find((match) => match.id === due.id)!;
-    await settleMatchBets(tx, row.seasonId, due.id, resolved.winnerUserId!, now);
+    await refundRetiredMatchBets(tx, row.seasonId, due.id, now);
     await broadcastTournamentMatchResult(tx, bracket, resolved, now);
     processedMatches += 1;
   }
@@ -596,6 +596,7 @@ export async function ensureArenaTournament(
         .select({
           userId: pvpRatings.userId,
           email: users.email,
+          bannedUntil: users.bannedUntil,
           rating: pvpRatings.rating,
           wins: pvpRatings.wins,
           losses: pvpRatings.losses,
@@ -618,7 +619,9 @@ export async function ensureArenaTournament(
           asc(pvpRatings.updatedAt),
           asc(pvpRatings.userId),
         );
-      const ranked = excludeArenaOperatorAccounts(rankedRows);
+      const ranked = excludeArenaOperatorAccounts(
+        filterRankingEligibleRows(rankedRows, now),
+      );
       const entrants = await buildCombatEntrants(tx, ranked);
       const bracket = createArenaTournamentSchedule({
         seasonId: season.id,
@@ -655,170 +658,6 @@ export async function ensureArenaTournament(
       bracket: advanced.bracket,
     };
   });
-}
-
-export async function placeArenaTournamentBet(args: {
-  userId: string;
-  matchId: string;
-  chosenUserId: string;
-  amount: number;
-  now?: Date;
-}): Promise<ArenaTournamentBetResult> {
-  const now = args.now ?? new Date();
-  const amount = Math.floor(args.amount);
-  if (
-    !Number.isSafeInteger(args.amount) ||
-    amount < ARENA_TOURNAMENT_BET_MIN_GOLD ||
-    amount > ARENA_TOURNAMENT_BET_MAX_GOLD
-  ) {
-    return { kind: "invalid_amount" };
-  }
-  const season = await getOrCreateCurrentSeason(now);
-  if (arenaSeasonPhase(season.endAt, now) !== "tournament") {
-    return { kind: "not_open" };
-  }
-
-  return db.transaction(async (tx) => {
-    const row = await tx
-      .select()
-      .from(pvpTournaments)
-      .where(eq(pvpTournaments.seasonId, season.id))
-      .for("update")
-      .limit(1)
-      .then((rows) => rows[0]);
-    if (!row) return { kind: "tournament_missing" as const };
-    const bracket = bracketFromRow(row);
-    const match = bracket.matches.find((candidate) => candidate.id === args.matchId);
-    if (!match) return { kind: "match_missing" as const };
-    if (!match.p1UserId || !match.p2UserId || match.status !== "scheduled") {
-      return { kind: "match_not_ready" as const };
-    }
-    if (
-      now.getTime() >=
-      new Date(match.scheduledAt).getTime() - ARENA_TOURNAMENT_BET_CLOSE_MS
-    ) {
-      return { kind: "betting_closed" as const };
-    }
-    if (![match.p1UserId, match.p2UserId].includes(args.chosenUserId)) {
-      return { kind: "invalid_choice" as const };
-    }
-    if ([match.p1UserId, match.p2UserId].includes(args.userId)) {
-      return { kind: "own_match" as const };
-    }
-    const existing = await tx
-      .select({ userId: pvpTournamentBets.userId })
-      .from(pvpTournamentBets)
-      .where(
-        and(
-          eq(pvpTournamentBets.seasonId, season.id),
-          eq(pvpTournamentBets.matchId, args.matchId),
-          eq(pvpTournamentBets.userId, args.userId),
-        ),
-      )
-      .limit(1);
-    if (existing[0]) return { kind: "already_bet" as const };
-    const seasonBets = await tx
-      .select({ amount: pvpTournamentBets.amount })
-      .from(pvpTournamentBets)
-      .where(
-        and(
-          eq(pvpTournamentBets.seasonId, season.id),
-          eq(pvpTournamentBets.userId, args.userId),
-        ),
-      );
-    const used = seasonBets.reduce((sum, bet) => sum + bet.amount, 0);
-    if (used + amount > ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD) {
-      return {
-        kind: "season_limit" as const,
-        remainingGold: Math.max(0, ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD - used),
-      };
-    }
-    const character = await lockSaveForUpdate<Record<string, unknown>>(
-      tx,
-      args.userId,
-      CHARACTER_STATE_KEY,
-      {},
-    );
-    const spent = spendArenaTournamentBetGold(character, amount);
-    if (!spent.ok) {
-      return {
-        kind: "insufficient_gold" as const,
-        remainingGold: spent.availableGold,
-      };
-    }
-    await upsertSave(tx, args.userId, CHARACTER_STATE_KEY, {
-      ...character,
-      gold: spent.gold,
-      bankedGold: spent.bankedGold,
-    });
-    await tx.insert(pvpTournamentBets).values({
-      seasonId: season.id,
-      matchId: args.matchId,
-      userId: args.userId,
-      chosenUserId: args.chosenUserId,
-      amount,
-      createdAt: now,
-    });
-    await tx.insert(economyEvents).values({
-      userId: args.userId,
-      eventType: "sink.arena_tournament_bet",
-      goldDelta: -amount,
-      itemKind: "arena_tournament_bet",
-      itemId: args.matchId,
-      quantity: 1,
-      detail: {
-        seasonId: season.id,
-        matchId: args.matchId,
-        chosenUserId: args.chosenUserId,
-      },
-    });
-    return {
-      kind: "ok" as const,
-      amount,
-      gold: spent.gold,
-      bankedGold: spent.bankedGold,
-    };
-  });
-}
-
-export async function arenaTournamentBetView(
-  seasonId: string,
-  userId: string,
-): Promise<ArenaTournamentBetView> {
-  const bets = await db
-    .select()
-    .from(pvpTournamentBets)
-    .where(eq(pvpTournamentBets.seasonId, seasonId))
-    .orderBy(asc(pvpTournamentBets.createdAt));
-  const poolsByMatch = new Map<string, Map<string, number>>();
-  for (const bet of bets) {
-    const choices = poolsByMatch.get(bet.matchId) ?? new Map<string, number>();
-    choices.set(bet.chosenUserId, (choices.get(bet.chosenUserId) ?? 0) + bet.amount);
-    poolsByMatch.set(bet.matchId, choices);
-  }
-  return {
-    pools: [...poolsByMatch].map(([matchId, choices]) => ({
-      matchId,
-      total: [...choices.values()].reduce((sum, amount) => sum + amount, 0),
-      choices: Object.fromEntries(choices),
-    })),
-    myBets: bets
-      .filter((bet) => bet.userId === userId)
-      .map((bet) => ({
-        matchId: bet.matchId,
-        chosenUserId: bet.chosenUserId,
-        amount: bet.amount,
-        status: bet.status,
-        payout: bet.payout,
-      })),
-    limits: {
-      minimum: ARENA_TOURNAMENT_BET_MIN_GOLD,
-      maximum: ARENA_TOURNAMENT_BET_MAX_GOLD,
-      seasonMaximum: ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD,
-      closeBeforeSeconds: ARENA_TOURNAMENT_BET_CLOSE_MS / 1000,
-      feePercent: 5,
-    },
-  };
 }
 
 export async function latestArenaTournament(): Promise<{

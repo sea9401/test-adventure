@@ -41,7 +41,7 @@ const prices: MarketplacePreviewData["prices"] = Object.fromEntries(
   ]),
 );
 
-const preview: MarketplacePreviewData = {
+export const marketplacePreview: MarketplacePreviewData = {
   viewerGold: 12_340_000,
   bidGraceMinHours: 2,
   bidGraceMaxHours: 24,
@@ -55,7 +55,7 @@ export function MarketplaceHarness() {
   return (
     <GameStateProvider>
       <RewardToastProvider>
-        <V2MarketplaceView onBack={() => {}} preview={preview} />
+        <V2MarketplaceView onBack={() => {}} preview={marketplacePreview} />
       </RewardToastProvider>
     </GameStateProvider>
   );

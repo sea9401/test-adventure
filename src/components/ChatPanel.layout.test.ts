@@ -4,7 +4,8 @@ import {
   CHAT_HEADER_CLASS,
   CHAT_OVERLAY_CLASS,
   CHAT_PANEL_CLASS,
-} from "./ChatPanel";
+  CHAT_RESIZE_HANDLE_CLASS,
+} from "./chat/chatPanelStyles";
 
 describe("ChatPanel responsive layout", () => {
   it("모바일에서는 전체 화면 최상위 레이어로 메뉴 입력을 차단한다", () => {
@@ -28,5 +29,10 @@ describe("ChatPanel responsive layout", () => {
     expect(CHAT_PANEL_CLASS).toContain("sm:max-h-[90vh]");
     expect(CHAT_PANEL_CLASS).toContain("sm:max-w-xl");
     expect(CHAT_PANEL_CLASS).toContain("sm:rounded-xl");
+  });
+
+  it("데스크톱 크기 조절 핸들은 헤더보다 높은 레이어에서 포인터 입력을 받는다", () => {
+    expect(CHAT_RESIZE_HANDLE_CLASS).toContain("z-30");
+    expect(CHAT_HEADER_CLASS).toContain("z-20");
   });
 });

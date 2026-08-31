@@ -23,8 +23,8 @@ function at(current: number, lastUpdatedAt: number): StaminaState {
 }
 
 describe("스태미너 — 기본 최대치", () => {
-  it("신규/기본 최대 스태미나는 1500", () => {
-    expect(MAX_STAMINA).toBe(1500);
+  it("신규/기본 최대 스태미나는 2000", () => {
+    expect(MAX_STAMINA).toBe(2000);
   });
 
   it("일반은 2분당 10, 지원권은 2분당 12를 회복한다", () => {
@@ -44,10 +44,18 @@ describe("스태미너 — 기본 최대치", () => {
         now,
       ),
     ).toEqual({
-      max: 2_700,
+      max: 3_200,
       regenBonusPct: 20,
       adventureSupportActive: true,
+      adventureSupportTier: "standard",
     });
+
+    expect(
+      staminaConfigForCharacter(
+        { adventureSupport: { activatedAt: 1, activeUntil: now + 10_000 } },
+        now,
+      ).max,
+    ).toBe(3_000);
   });
 
   it("만료된 지원권은 최대치와 회복 속도에 영향을 주지 않는다", () => {
@@ -60,6 +68,30 @@ describe("스태미너 — 기본 최대치", () => {
       max: MAX_STAMINA,
       regenBonusPct: 0,
       adventureSupportActive: false,
+      adventureSupportTier: "none",
+    });
+  });
+
+  it("프리미엄 지원권은 일반권과 합산하지 않고 최대치를 3000 올린다", () => {
+    const now = 1_000;
+
+    expect(
+      staminaConfigForCharacter(
+        {
+          staminaCapBonus: 200,
+          adventureSupport: {
+            activatedAt: 1,
+            premiumUntil: now + 5_000,
+            activeUntil: now + 10_000,
+          },
+        },
+        now,
+      ),
+    ).toEqual({
+      max: 5_200,
+      regenBonusPct: 20,
+      adventureSupportActive: true,
+      adventureSupportTier: "premium",
     });
   });
 });
@@ -268,7 +300,7 @@ describe("스태미너 — 최대치 초과 비축(overcharge)", () => {
   });
 
   it("staminaOverchargeCap — 고정 상한(10,000), max 가 넘으면 max 까지", () => {
-    // 기본 max(1500) → 고정 상한 10,000.
+    // 기본 max(2000) → 고정 상한 10,000.
     expect(staminaOverchargeCap(MAX_STAMINA)).toBe(STAMINA_OVERCHARGE_CAP);
     // max 가 상한 아래면 여전히 고정 상한.
     expect(staminaOverchargeCap(6000)).toBe(STAMINA_OVERCHARGE_CAP);

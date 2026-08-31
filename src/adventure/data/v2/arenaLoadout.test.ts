@@ -3,6 +3,7 @@ import {
   ARENA_LOADOUT_MAX,
   arenaLoadoutIssueSummary,
   arenaPatternActionSummary,
+  arenaPatternConditionSummary,
   parseArenaLoadouts,
   parseActiveArenaLoadout,
   serializeActiveArenaLoadout,
@@ -66,6 +67,49 @@ describe("active arena loadout", () => {
 });
 
 describe("arenaPatternActionSummary — 실제 패턴 행동만 표시", () => {
+  it("혈맥 폭발의 발동 가능·재사용 대기 상태를 숫자 없이 요약한다", () => {
+    expect(
+      arenaPatternConditionSummary({
+        kind: "self_resource",
+        resource: "bloodlineBurstReady",
+        op: "atLeast",
+        value: 1,
+      }),
+    ).toBe("내 혈맥 폭발 발동 가능");
+    expect(
+      arenaPatternConditionSummary({
+        kind: "self_resource",
+        resource: "bloodlineBurstReady",
+        op: "none",
+        value: 0,
+      }),
+    ).toBe("내 혈맥 폭발 재사용 대기 중");
+  });
+
+  it("일반 공격 패턴을 아레나 요약에서도 보존한다", () => {
+    const [loadout] = parseArenaLoadouts([
+      {
+        ...mk("basic-attack-summary"),
+        pattern: {
+          blocks: [
+            {
+              condition: { kind: "always" },
+              action: { kind: "basic_attack" },
+            },
+          ],
+        },
+      },
+    ]);
+
+    expect(arenaPatternActionSummary(loadout!)).toEqual([
+      {
+        key: "0:basic_attack:basic_attack",
+        name: "일반 공격",
+        condition: "항상",
+      },
+    ]);
+  });
+
   it("장착 액티브 목록 대신 스킬·역할 패턴을 우선순위대로 요약한다", () => {
     const pattern = {
       blocks: [
@@ -137,6 +181,27 @@ describe("arenaPatternActionSummary — 실제 패턴 행동만 표시", () => {
     });
   });
 
+  it("상대 능력치 감소 조건을 사용자 문구로 표시한다", () => {
+    const loadout = mk("enemy-stat-debuff-summary", {
+      pattern: {
+        blocks: [
+          {
+            condition: {
+              kind: "enemy_debuff",
+              target: "vit",
+              active: true,
+            },
+            action: { kind: "skill", skillId: "v2c_swordsaint_flash" },
+          },
+        ],
+      },
+    });
+
+    expect(arenaPatternActionSummary(loadout)[0]?.condition).toBe(
+      "적 활력 감소 있음",
+    );
+  });
+
   it("지속 회복과 확정 회피를 내 상태 효과 조건으로 표시한다", () => {
     const loadout = mk("status-effect-summary", {
       pattern: {
@@ -165,6 +230,92 @@ describe("arenaPatternActionSummary — 실제 패턴 행동만 표시", () => {
       "내 지속 회복 상태 효과 없음",
       "내 확정 회피 상태 효과 있음",
     ]);
+  });
+
+  it("적 상태의 N스택 이하 조건을 표시한다", () => {
+    const loadout = mk("enemy-status-at-most", {
+      pattern: {
+        blocks: [
+          {
+            condition: {
+              kind: "enemy_status",
+              tag: "poison",
+              op: "atMost",
+              stacks: 4,
+            },
+            action: { kind: "role", role: "debuff" },
+          },
+        ],
+      },
+    });
+
+    expect(arenaPatternActionSummary(loadout)[0]?.condition).toBe(
+      "적 중독 4스택 이하",
+    );
+  });
+
+  it("한기 스택 조건을 사용자 문구로 표시한다", () => {
+    const loadout = mk("frost-chill-status", {
+      pattern: {
+        blocks: [
+          {
+            condition: {
+              kind: "enemy_status",
+              tag: "frostChill",
+              op: "atLeast",
+              stacks: 4,
+            },
+            action: { kind: "role", role: "main_attack" },
+          },
+        ],
+      },
+    });
+
+    expect(arenaPatternActionSummary(loadout)[0]?.condition).toBe(
+      "적 한기 4스택 이상",
+    );
+  });
+
+  it("내 보호막 수치의 이하 조건을 표시한다", () => {
+    const loadout = mk("self-shield-at-most", {
+      pattern: {
+        blocks: [
+          {
+            condition: {
+              kind: "self_shield",
+              op: "atMost",
+              value: 100,
+            },
+            action: { kind: "role", role: "buff" },
+          },
+        ],
+      },
+    });
+
+    expect(arenaPatternActionSummary(loadout)[0]?.condition).toBe(
+      "내 보호막 100 이하",
+    );
+  });
+
+  it("상대 회복 감소 조건을 표시한다", () => {
+    const loadout = mk("enemy-heal-reduction", {
+      pattern: {
+        blocks: [
+          {
+            condition: {
+              kind: "enemy_debuff",
+              target: "healReduction",
+              active: false,
+            },
+            action: { kind: "role", role: "debuff" },
+          },
+        ],
+      },
+    });
+
+    expect(arenaPatternActionSummary(loadout)[0]?.condition).toBe(
+      "적 회복 효과 감소 없음",
+    );
   });
 
   it("패턴 미설정은 빈 목록으로 표시한다", () => {
@@ -211,6 +362,82 @@ describe("arenaLoadoutIssueSummary — 전투 적용 누락 경고", () => {
       arenaLoadoutIssueSummary(loadout, new Set(["w1", "a1"]))
         .uncoveredActiveSkills,
     ).toEqual([]);
+  });
+
+  it.each([
+    [
+      "오원소 폭주",
+      [
+        "v2c_elementallord_surge",
+        "v2c_elementallord_resonance",
+        "v2c_firemage_inferno",
+        "v2c_frostmage_glacier",
+        "v2c_lightningmage_thunderbolt",
+        "v2c_windmage_tempest",
+        "v2c_earthmage_tectonic",
+      ],
+      "v2c_elementallord_surge",
+    ],
+    [
+      "태초회귀",
+      [
+        "v2c_primordialmage_return",
+        "v2c_primordialmage_resonance",
+        "v2c_elementallord_surge",
+        "v2c_firemage_inferno",
+        "v2c_frostmage_glacier",
+        "v2c_lightningmage_thunderbolt",
+        "v2c_windmage_tempest",
+        "v2c_earthmage_tectonic",
+      ],
+      "v2c_primordialmage_return",
+    ],
+  ] as const)(
+    "%s에 흡수된 주문식 재료와 촉매는 패턴 누락 경고에서 제외한다",
+    (_name, skills, signatureSkillId) => {
+      const loadout = mk("resonance-materials", {
+        skills: [...skills],
+        pattern: {
+          blocks: [
+            {
+              condition: { kind: "always" },
+              action: { kind: "skill", skillId: signatureSkillId },
+            },
+          ],
+        },
+      });
+
+      expect(
+        arenaLoadoutIssueSummary(loadout, new Set()).uncoveredActiveSkills,
+      ).toEqual([]);
+    },
+  );
+
+  it("공명 주문식에 흡수되지 않은 원소 스킬은 패턴 누락 경고를 유지한다", () => {
+    const loadout = mk("remaining-element", {
+      skills: [
+        "v2c_elementallord_surge",
+        "v2c_elementallord_resonance",
+        "v2c_firemage_inferno",
+        "v2c_windmage_tempest",
+        "v2c_frostmage_glacier",
+      ],
+      pattern: {
+        blocks: [
+          {
+            condition: { kind: "always" },
+            action: {
+              kind: "skill",
+              skillId: "v2c_elementallord_surge",
+            },
+          },
+        ],
+      },
+    });
+
+    expect(
+      arenaLoadoutIssueSummary(loadout, new Set()).uncoveredActiveSkills,
+    ).toEqual([{ id: "v2c_frostmage_glacier", name: "빙하진" }]);
   });
 });
 

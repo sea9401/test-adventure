@@ -61,7 +61,7 @@ describe("production security surface", () => {
     }
   });
 
-  it("개발 UI와 출시 전 코인 상점이 운영 설정에서 닫혀 있다", () => {
+  it("개발 UI와 출시 전 코인 상점이 일반 이용자에게 닫혀 있다", () => {
     const devLayout = source(join(ROOT, "src/app/dev/layout.tsx"));
     expect(devLayout).toContain('process.env.NODE_ENV === "production"');
     expect(devLayout).toContain('process.env.IS_STAGING !== "true"');
@@ -71,13 +71,87 @@ describe("production security surface", () => {
     expect(productionEnv).toMatch(
       /^NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN=false$/m,
     );
+    expect(productionEnv).toMatch(
+      /^MUSEUN_COIN_SHOP_REVIEW_LOGIN_IDS=gcrb-review-01,gcrb-review-02,gcrb-review-03$/m,
+    );
+    expect(productionEnv).toMatch(
+      /^MUSEUN_COIN_SHOP_REVIEW_USER_IDS=[0-9a-f-]+,[0-9a-f-]+,[0-9a-f-]+$/m,
+    );
+
+    const coinShopPage = source(
+      join(ROOT, "src/app/(game)/settings/coin-shop/page.tsx"),
+    );
+    const coinShopApi = source(
+      join(ROOT, "src/app/api/v2/museun-coin-shop/route.ts"),
+    );
+    const coinShopAccess = source(
+      join(ROOT, "src/lib/server/museunCoinShopAccess.ts"),
+    );
+    expect(coinShopPage).toContain("canAccessMuseunCoinShop");
+    expect(coinShopPage).toContain("notFound()");
+    expect(coinShopApi).toContain("canAccessMuseunCoinShop");
+    expect(coinShopApi).toContain("unavailable()");
+    expect(coinShopAccess).toContain("DEFAULT_REVIEW_LOGIN_IDS");
+    expect(coinShopAccess).toContain("ADMIN_EMAILS");
 
     const proxy = source(join(ROOT, "src/proxy.ts"));
+    const maintenancePage = source(join(ROOT, "deploy/maintenance.html"));
+    const authConfig = source(join(ROOT, "src/auth.config.ts"));
+    expect(authConfig).toContain("session.user.id = token.sub");
+    expect(proxy).toContain("canPassMuseunCoinShopProxy");
     expect(proxy).toContain('req.nextUrl.pathname === "/settings/coin-shop"');
     expect(proxy).toContain(
       'req.nextUrl.pathname === "/api/v2/museun-coin-shop"',
     );
     expect(proxy).toMatch(/status:\s*404/);
+
+    expect(proxy).toContain("LIFE_HOUSING_ROUTES_ENABLED = false");
+    for (const path of [
+      'pathname === "/character/room"',
+      'pathname === "/api/v2/me/housing"',
+      "\\/character\\/[^/]+\\/room",
+      "\\/api\\/v2\\/player\\/[^/]+\\/housing",
+    ]) {
+      expect(proxy).toContain(path);
+    }
+    for (const maintenance of [proxy, maintenancePage]) {
+      expect(maintenance).toContain("서버 점검 안내");
+      expect(maintenance).toContain("서버 점검");
+      expect(maintenance).toContain(
+        "안정적인 서비스 제공을 위해 아래와 같이 서버 점검을 진행합니다.",
+      );
+      expect(maintenance).toContain("점검 시간:");
+      expect(maintenance).toContain(
+        "8월 29일(토) 오전 4:00 ~ 오전 5:00 (약 1시간)",
+      );
+      expect(maintenance).not.toContain("점검 내용:");
+      expect(maintenance).toContain(
+        "점검 중에는 게임 접속 및 이용이 불가합니다.",
+      );
+      expect(maintenance).toContain(
+        "점검은 진행 상황에 따라 조기에 종료되거나 연장될 수 있습니다.",
+      );
+      expect(maintenance).toContain(
+        "이용에 불편을 드려 죄송하며, 더욱 안정적인 서비스를 제공할 수 있도록 최선을 다하겠습니다.",
+      );
+      expect(maintenance).toContain("감사합니다.");
+      expect(maintenance).not.toContain("오류 수정 패치 점검 안내");
+      expect(maintenance).not.toContain("08:30 ~ 08:45 (약 15분)");
+      expect(maintenance).not.toContain("약 1시간 30분");
+      expect(maintenance).not.toContain("게임에 접속할 수 없습니다.");
+    }
+  });
+
+  it("심의용 비밀번호 재로그인은 다른 기기로 단일 세션을 안전하게 인계한다", () => {
+    const auth = source(join(ROOT, "src/auth.ts"));
+    const credentialsBranch = auth.slice(
+      auth.indexOf('if (account.type === "credentials")'),
+      auth.indexOf("if (account.provider !== \"kakao\")"),
+    );
+
+    expect(credentialsBranch).toContain("DEVICE_SESSION_TAKEOVER_COOKIE");
+    expect(credentialsBranch).toContain('cookieStore.set(DEVICE_SESSION_TAKEOVER_COOKIE, "1"');
+    expect(credentialsBranch).toContain("maxAge: 5 * 60");
   });
 
   it("배포가 최신 크론 목록을 설치하고 개인정보 정리 작업을 확인한다", () => {
@@ -90,11 +164,29 @@ describe("production security surface", () => {
     }
     for (const marker of [
       "crontab deploy/crontab.txt",
+      "/api/v2/cron/battle-replay-retention",
       "/api/v2/cron/ops-retention",
       "/api/v2/cron/ops-daily-report",
     ]) {
       expect(release).toContain(marker);
     }
+  });
+
+  it("일일 DB 백업은 실패 알림 래퍼를 통해 실행한다", () => {
+    const crontab = source(join(ROOT, "deploy/crontab.txt"));
+
+    expect(crontab).toContain(
+      "0 17 * * * cd ~/adventure-rpg && bash deploy/run-backup.sh",
+    );
+    expect(crontab).not.toMatch(
+      /^0 17 \* \* \* .*bash deploy\/backup-db\.sh/m,
+    );
+  });
+
+  it("운영 배포가 journald 용량 제한을 적용한다", () => {
+    const release = source(join(ROOT, "deploy/release-production.sh"));
+
+    expect(release).toContain("bash deploy/configure-log-retention.sh");
   });
 
   it("배포 뒤 점검 화면을 유지하고 해제 뒤에는 전체 공개 표면을 검사한다", () => {
@@ -119,6 +211,10 @@ describe("production security surface", () => {
       "/dev",
       "/settings/coin-shop",
       "/api/v2/museun-coin-shop",
+      "/character/room",
+      "/character/nonexistent/room",
+      "/api/v2/me/housing",
+      "/api/v2/player/nonexistent/housing",
       "/api/v2/dev/grant",
     ]) {
       expect(smoke, `public release smoke is missing ${path}`).toContain(
@@ -158,12 +254,12 @@ describe("production security surface", () => {
     expect(ci).toContain("scripts/prepare-production-artifact.mjs");
     expect(ci).toContain("production-next-${{ github.sha }}");
     expect(ci).toContain("sha256sum production-next.tar.gz");
-    expect(ci).toContain("actions/upload-artifact@v7");
+    expect(ci).toMatch(/actions\/upload-artifact@[0-9a-f]{40} # v7/);
 
     expect(deploy).toContain("actions/workflows/ci.yml/runs");
     expect(deploy).toContain("head_sha=$DEPLOY_SHA");
-    expect(deploy).toContain("actions/download-artifact@v8");
-    expect(deploy).toContain("appleboy/scp-action@v1.0.0");
+    expect(deploy).toMatch(/actions\/download-artifact@[0-9a-f]{40} # v8/);
+    expect(deploy).toMatch(/appleboy\/scp-action@[0-9a-f]{40} # v1\.0\.0/);
     expect(deploy).toContain("PRODUCTION_BUILD_ARCHIVE");
     expect(deploy).not.toContain("- run: npm run build");
 
@@ -173,6 +269,26 @@ describe("production security surface", () => {
     expect(install).toContain("artifact SHA");
     expect(install).toContain('PREVIOUS_BUILD=".next.previous"');
     expect(install).toContain("previous Next build restored");
+  });
+
+  it("일반 단위 테스트는 병렬 실행하고 결정적 시뮬레이션만 단일 worker로 격리한다", () => {
+    const workflow = source(join(ROOT, ".github/workflows/ci.yml"));
+
+    expect(workflow).toContain(
+      "run: npx vitest run --exclude src/adventure/data/v2/levelDesignSim.test.ts",
+    );
+    expect(workflow).toMatch(
+      /level-design-sim-tests:[\s\S]*?run: npx vitest run src\/adventure\/data\/v2\/levelDesignSim\.test\.ts --maxWorkers=1/,
+    );
+    expect(workflow).toContain(
+      "needs: [static-checks, unit-tests, level-design-sim-tests, production-build, browser-e2e]",
+    );
+    expect(workflow).toContain(
+      "LEVEL_DESIGN_SIM_TESTS_RESULT: ${{ needs.level-design-sim-tests.result }}",
+    );
+    expect(workflow).toContain(
+      'test "$LEVEL_DESIGN_SIM_TESTS_RESULT" = "success"',
+    );
   });
 
   it("운영 빌드 동안 두 Next 런타임을 멈추고 실패 시 복구한다", () => {
@@ -192,6 +308,44 @@ describe("production security surface", () => {
     expect(release.match(/^sync_production_env$/gm)).toHaveLength(2);
     expect(stagingService).toContain("MemoryMax=768M");
     expect(stagingService).toContain("MemorySwapMax=256M");
+  });
+
+  it("일반 배포는 main 산출물 준비 뒤 실제 교체 직전에 점검을 시작한다", () => {
+    const instructions = source(join(ROOT, "AGENTS.md"));
+    const workflow = source(join(ROOT, ".github/workflows/deploy.yml"));
+    const release = source(join(ROOT, "deploy/release-production.sh"));
+    const normalizedInstructions = instructions.replace(/\s+/g, " ");
+
+    expect(normalizedInstructions).toContain(
+      "정확한 main SHA의 CI와 production-next-<SHA> 산출물이 준비되기 전에는",
+    );
+    expect(normalizedInstructions).toContain(
+      '사용자가 점검 모드를 "지금 바로" 켜라고 명시하거나',
+    );
+    expect(normalizedInstructions).toContain(
+      '일반적인 "점검 모드를 켜고 배포" 요청은 즉시 활성화 지시로 해석하지 않는다.',
+    );
+
+    const locateArtifact = workflow.indexOf(
+      "Locate successful main CI artifact",
+    );
+    const transferArtifact = workflow.indexOf(
+      "Transfer production build to EC2",
+    );
+    const deployRuntime = workflow.indexOf("SSH & deploy [prod]");
+    expect(locateArtifact).toBeGreaterThan(-1);
+    expect(transferArtifact).toBeGreaterThan(locateArtifact);
+    expect(deployRuntime).toBeGreaterThan(transferArtifact);
+
+    const productionPreflight = release.indexOf("production env preflight");
+    const maintenanceOn = release.indexOf("bash deploy/maintenance.sh on");
+    const productionStop = release.indexOf(
+      'sudo systemctl stop "$PRODUCTION_SERVICE"',
+      maintenanceOn,
+    );
+    expect(productionPreflight).toBeGreaterThan(-1);
+    expect(maintenanceOn).toBeGreaterThan(productionPreflight);
+    expect(productionStop).toBeGreaterThan(maintenanceOn);
   });
 
   it("배포와 롤백은 명시적 승인 전까지 점검 모드를 해제하지 않는다", () => {

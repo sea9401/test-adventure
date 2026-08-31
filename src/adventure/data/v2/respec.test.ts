@@ -1,8 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  ADVANCE_GOLD_PER_LEVEL,
   CLASS_CHANGE_GOLD_PER_LEVEL,
-  advanceGoldCost,
   isClassChange,
   isPaidRespec,
   respecGoldCost,
@@ -36,11 +34,5 @@ describe("v2 비용 전직 (PR-6)", () => {
     expect(isPaidRespec("none", "warrior")).toBe(false);
     expect(isPaidRespec("warrior", "warrior")).toBe(false);
     expect(isPaidRespec("warrior", "mage")).toBe(true);
-  });
-
-  it("advanceGoldCost (PR-7 2차 전직) — 레벨 비례, level 최소 1", () => {
-    expect(advanceGoldCost(30)).toBe(30 * ADVANCE_GOLD_PER_LEVEL);
-    expect(advanceGoldCost(1)).toBe(ADVANCE_GOLD_PER_LEVEL);
-    expect(advanceGoldCost(0)).toBe(ADVANCE_GOLD_PER_LEVEL); // 클램프
   });
 });

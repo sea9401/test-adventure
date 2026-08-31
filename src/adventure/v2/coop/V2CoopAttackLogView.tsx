@@ -1,16 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FilmStrip, Sword } from "@phosphor-icons/react";
+import { ArrowLeft, FilmStrip, Sword } from "@phosphor-icons/react";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import type { Avatar, Gender } from "@/adventure/profile/avatars";
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import { COOP_BOSSES, type CoopBossKindId } from "@/adventure/data/v2/coopBosses";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
+import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 
 type CoopAttackLog = {
   id: number;
@@ -146,7 +149,16 @@ export function V2CoopAttackLogView({
                 <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                   <FilmStrip size={14} /> {bossName} 공격 기록
                 </div>
-                <div className="mt-1 truncate text-lg font-bold">{attack.name}</div>
+                <div className="mt-1 truncate text-lg font-bold">
+                  {attack.isMe ? (
+                    attack.name
+                  ) : (
+                    <PlayerNameLink
+                      name={attack.name}
+                      className="text-amber-700 underline decoration-dotted underline-offset-2 dark:text-amber-300"
+                    />
+                  )}
+                </div>
                 {attack.isMe && (
                   <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
                     내 공격
@@ -159,19 +171,19 @@ export function V2CoopAttackLogView({
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
-              <div className="rounded-md bg-zinc-50 p-3 dark:bg-zinc-800/70">
+              <div className={`${SURFACE_INSET} p-3`}>
                 <div className="text-xs text-zinc-500">준 피해</div>
                 <div className="mt-0.5 font-semibold tabular-nums text-rose-600 dark:text-rose-400">
                   {attack.damageDealt.toLocaleString()}
                 </div>
               </div>
-              <div className="rounded-md bg-zinc-50 p-3 dark:bg-zinc-800/70">
+              <div className={`${SURFACE_INSET} p-3`}>
                 <div className="text-xs text-zinc-500">받은 피해</div>
                 <div className="mt-0.5 font-semibold tabular-nums">
                   {attack.damageTaken.toLocaleString()}
                 </div>
               </div>
-              <div className="col-span-2 rounded-md bg-zinc-50 p-3 sm:col-span-1 dark:bg-zinc-800/70">
+              <div className={`${SURFACE_INSET} col-span-2 p-3 sm:col-span-1`}>
                 <div className="text-xs text-zinc-500">전투 결과</div>
                 <div className="mt-0.5 font-semibold">
                   {attack.diedEarly ? "전투불능" : "공격 완료"}
@@ -181,6 +193,7 @@ export function V2CoopAttackLogView({
           </Card>
 
           <ReplayBattleScene
+            presentation="page"
             payload={attack.replay}
             playerName={attack.name}
             gender={attack.avatar ?? (attack.isMe ? viewerGender : "male1")}
@@ -189,6 +202,11 @@ export function V2CoopAttackLogView({
             maxExp={1}
             playerSubtitle={attack.isMe ? playerSubtitle : undefined}
           />
+
+          <Button onClick={onBack} variant="secondary" size="md" fullWidth>
+            <ArrowLeft size={18} weight="bold" />
+            토벌 화면으로 돌아가기
+          </Button>
         </>
       )}
     </main>

@@ -33,7 +33,7 @@ describe("marketplacePriceKeys", () => {
     ).toBe("v2_iron_sword#quality1");
     expect(
       marketplacePriceKeyForPayload("v2_iron_sword", {
-        craftedBy: { ...craftedBy, masterwork: true },
+        craftedBy: { ...craftedBy, masterwork: true, specialty: "weapon" },
         craftQuality: { level: 2, bonusPct: 10 },
       }),
     ).toBe("v2_iron_sword#masterwork");

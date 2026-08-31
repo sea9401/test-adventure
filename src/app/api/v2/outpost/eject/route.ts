@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { guildMembers, outpostOccupations, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordGrowthLeapStaminaSpendInTx } from "@/lib/server/growthLeapProgress";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
 import { autoDuelContext } from "@/adventure/v2/combat/duelOptions";
@@ -255,7 +256,7 @@ export async function POST(req: Request) {
     );
     const won = battleResult.outcome === "p1_win";
     // 토벌 전투 리플레이 — 토벌자(=나) p1 시점. 결과 카드 아래 BattleScene 표시용.
-    const replay = toPvpReplayPayload(battleResult.finalState, defenderName, 200);
+    const replay = toPvpReplayPayload(battleResult.finalState, defenderName);
     const attackerHpAfter = Math.max(0, battleResult.finalState.p1.hp);
     const defenderHpAfter = Math.max(0, battleResult.finalState.p2.hp);
     const defenderMaxMp = defenderCombat.player.maxMp ?? 0;
@@ -288,6 +289,14 @@ export async function POST(req: Request) {
       hp: attackerHpAfter,
       hpRegenSince: now,
     });
+    if (!V2_CORE_LOOP_V2) {
+      await recordGrowthLeapStaminaSpendInTx(
+        tx,
+        userId,
+        EJECT_STAMINA_COST,
+        now,
+      );
+    }
 
     if (bountyGold > 0) {
       const guildResources = await lockGuildResources(tx, occupyingGuildId);

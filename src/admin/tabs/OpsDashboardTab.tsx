@@ -23,6 +23,7 @@ import {
   type AdminUserIdentity,
 } from "../useAdminUserDirectory";
 import { useAsyncData } from "@/lib/useAsyncData";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 
 type CountRow = { key: string; count: number };
 
@@ -1164,7 +1165,7 @@ function SanctionRecommendationPanel({
     const label = action === "warn" ? "경고" : `${days}일 정지`;
     const identity = userDirectory[userId];
     const target = identity?.gameName || identity?.email || `유저 ${userId.slice(0, 8)}`;
-    if (!window.confirm(`${target} 계정에 ${label}를 적용할까요?`)) return;
+    if (!(await confirmGameAction(`${target} 계정에 ${label}를 적용할까요?`))) return;
     setSavingUserId(userId);
     try {
       const userFacingReason =

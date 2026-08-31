@@ -21,6 +21,7 @@ import {
   type CoopShopState,
 } from "@/adventure/v2/coop/coopShop";
 import {
+  grantStaminaPotions,
   STAMINA_POTIONS_KEY,
   staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
@@ -230,10 +231,11 @@ export async function POST(req: Request) {
         STAMINA_POTIONS_KEY,
         { count: 0 },
       );
-      staminaPotions = staminaPotionCount(potSave) + entry.output.count;
-      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
-        count: staminaPotions,
+      const nextPotions = grantStaminaPotions(potSave, entry.output.count, {
+        bound: true,
       });
+      staminaPotions = nextPotions.count;
+      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextPotions);
     }
 
     const nextShop = recordCoopShopPurchase(shop, entry);

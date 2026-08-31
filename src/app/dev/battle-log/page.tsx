@@ -54,7 +54,12 @@ export default function BattleLogPreview() {
           {compact ? "일반" : "compact"}
         </button>
       </div>
-      <BattleLogList entries={sampleEntries(stance)} compact={compact} />
+      <BattleLogList
+        entries={sampleEntries(stance)}
+        compact={compact}
+        playerName="모험가"
+        enemyName="사나운 늑대"
+      />
     </div>
   );
 }

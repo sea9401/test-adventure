@@ -15,10 +15,11 @@ import {
   ShieldWarning,
   Skull,
   Sword,
-  Ticket,
+  Trophy,
   UsersThree,
 } from "@phosphor-icons/react";
 import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
+import { unreadInboxItems } from "@/adventure/v2/inboxViewState";
 import { acknowledgeFarmReadyNotification } from "@/adventure/v2/farmReadyNotificationClient";
 import { acknowledgeV2Notification } from "@/adventure/v2/notificationReadClient";
 import { V2InboxView } from "@/adventure/v2/V2InboxView";
@@ -104,12 +105,8 @@ const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
       className="shrink-0 text-emerald-600 dark:text-emerald-400"
     />
   ),
-  lottery_won: (
-    <Ticket
-      size={16}
-      weight="fill"
-      className="shrink-0 text-amber-600 dark:text-amber-300"
-    />
+  codex_research_trophy: (
+    <Trophy size={16} weight="duotone" className="shrink-0 text-violet-500 dark:text-violet-400" />
   ),
 };
 
@@ -242,21 +239,10 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
       </>
     );
   }
-  if (n.type === "lottery_won") {
-    const p = n.payload as {
-      roundId: number;
-      ranks: number[];
-      prizeAmount: number;
-    };
-    return (
-      <>
-        제 {p.roundId}회 복권에서{" "}
-        <span className="font-bold text-amber-700 dark:text-amber-300">
-          {Math.min(...p.ranks)}등 · {p.prizeAmount.toLocaleString()}G
-        </span>
-        에 당첨되었습니다
-      </>
-    );
+  if (n.type === "codex_research_trophy") {
+    const p = n.payload as { seasonId: string; themeName: string; tier: import("@/adventure/data/v2/codexMasteryTrophies").CodexMasteryTrophyTier; finalRank: number };
+    const labels = { bronze: "동", silver: "은", gold: "금", platinum: "백금", diamond: "다이아", legendary: "전설" } as const;
+    return <>{p.seasonId} {p.themeName} 최종 <span className="font-medium">{p.finalRank}위 · {labels[p.tier]} 트로피</span></>;
   }
   const p = n.payload as { byName?: string; gold?: number };
   return (
@@ -295,9 +281,8 @@ function NotificationRow({
     item.type === "coop_defeated"
       ? (item.payload as { sessionId: string }).sessionId
       : null;
-  const lotteryWon = item.type === "lottery_won";
   const actionable = Boolean(
-    outpostId || feedbackId || farmReady || coopSessionId || lotteryWon,
+    outpostId || feedbackId || farmReady || coopSessionId,
   );
 
   return (
@@ -312,10 +297,6 @@ function NotificationRow({
         } else if (coopSessionId) {
           void acknowledgeV2Notification(item.id);
           onOpenCoopSession(coopSessionId);
-        } else if (lotteryWon) {
-          window.dispatchEvent(
-            new CustomEvent("lottery:celebrate", { detail: item }),
-          );
         }
       }}
       disabled={!actionable}
@@ -415,7 +396,7 @@ export function V2NotificationsView({
   const loadMail = useCallback(async () => {
     try {
       const result = await fetchInbox();
-      setMail(result.items);
+      setMail(unreadInboxItems(result.items));
     } catch {
       setMail([]);
     }
@@ -450,7 +431,6 @@ export function V2NotificationsView({
         setNotifications((current) =>
           current?.map((item) =>
             item.readAt === null &&
-            item.type !== "lottery_won" &&
             (item.type !== "farm_ready" || farmReadyRead)
               ? { ...item, readAt }
               : item,
@@ -586,7 +566,7 @@ export function V2NotificationsView({
                         {mailBody(entry.item)}
                       </span>
                       <span className="mt-0.5 block text-[11px] text-zinc-400 dark:text-zinc-500">
-                        {formatRelative(entry.timestamp)} · 미수령
+                        {formatRelative(entry.timestamp)} · 미확인
                       </span>
                     </span>
                   </button>

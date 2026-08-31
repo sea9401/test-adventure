@@ -3,6 +3,7 @@ import { TabBar } from "@/components/ui/TabBar";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import {
   acceptJoinRequest,
   declineJoinRequest,
@@ -153,9 +154,9 @@ export function GuildManagePanel({
       if (acting) return;
       if (
         file !== null &&
-        !window.confirm(
+        !(await confirmGameAction(
           `직접 등록한 이미지로 변경할까요? 개인 무슨 코인 ${GUILD_CUSTOM_EMBLEM_COIN_COST.toLocaleString()}개가 사용됩니다.`,
-        )
+        ))
       ) {
         return;
       }
@@ -340,7 +341,7 @@ export function GuildManagePanel({
   const handleKick = useCallback(
     async (targetUserId: string, name: string) => {
       if (acting) return;
-      if (!window.confirm(`${name} 님을 길드에서 추방할까요?`)) return;
+      if (!(await confirmGameAction(`${name} 님을 길드에서 추방할까요?`))) return;
       setActing(true);
       setNotice(null);
       try {
@@ -376,9 +377,9 @@ export function GuildManagePanel({
     async (targetUserId: string, name: string) => {
       if (acting) return;
       if (
-        !window.confirm(
+        !(await confirmGameAction(
           `${name} 님에게 길드 마스터를 양도할까요? 되돌릴 수 없어요.`,
-        )
+        ))
       ) {
         return;
       }

@@ -5,48 +5,39 @@ import {
   marketplaceInbox,
   marketplaceListingsV2,
 } from "@/db/schema";
-import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
-import { appendEquipInstances } from "@/lib/server/equipGrant";
-import { type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
-import { mintListedEquipInstance } from "@/adventure/data/v2/v2EquipMint";
-import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
+import { readSave } from "@/lib/server/savesKv";
 import { requireCronAuth } from "@/lib/server/cronAuth";
 import { inboxValues } from "@/lib/server/inboxPayload";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import {
   marketplaceTaxRateForAdventureSupport,
-  restoreMarketplaceRareMap,
   saleProceeds,
 } from "@/lib/server/marketplaceV2";
 import { deliverMarketplaceListing } from "@/lib/server/marketplaceV2Fulfillment";
-import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
-import {
-  addMuseunCashItem,
-  isMuseunCashItemId,
-} from "@/adventure/data/v2/museunCashItems";
-import {
-  addCookingFood,
-  isCookingFoodId,
-} from "@/adventure/v2/cooking";
+import { adventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import {
   matchMarketplaceBuyOrder,
   recordMarketplaceAutoMatchFills,
   triggerMarketplacePriceAlertsForListing,
 } from "@/lib/server/marketplaceBuyOrdersV2";
+import { lockTradeParticipantStatuses } from "@/lib/server/tradeSuspension";
+import {
+  cancelMarketplaceBuyOrderEscrow,
+  cancelMarketplaceListingEscrow,
+  clearMarketplaceHighestBid,
+  unresolvedMarketplaceHighestBidderId,
+} from "@/lib/server/marketplaceEscrow";
 
 type CharSave = {
-  materials?: Record<string, number>;
-  rareMaps?: unknown;
-  cashItems?: unknown;
   adventureSupport?: unknown;
   [key: string]: unknown;
 };
-type InventorySave = Record<string, unknown> & { cookingFoods?: unknown };
 
 const BATCH = 200;
 
 // 공개 입찰 유예 종료와 고정가 등록 만료를 함께 정산한다. cron은 5분마다 호출하며,
-// per-listing FOR UPDATE로 buy/bid/cancel과 직렬화해 중복 지급·환불을 막는다.
+// 참여자 user 행을 먼저 잠근 뒤 per-listing FOR UPDATE로 buy/bid/cancel과 직렬화해
+// 중복 지급·환불을 막는다.
 export async function POST(req: Request) {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
@@ -72,14 +63,57 @@ export async function POST(req: Request) {
   let auctionsSold = 0;
   let bidsRefunded = 0;
   let expired = 0;
+  let restrictedCancelled = 0;
   for (const { id } of due) {
     const result = await db.transaction(async (tx) => {
+      const [probe] = await tx
+        .select({
+          sellerId: marketplaceListingsV2.sellerId,
+          highestBidderId: marketplaceListingsV2.highestBidderId,
+          highestBid: marketplaceListingsV2.highestBid,
+          bidResolvedAt: marketplaceListingsV2.bidResolvedAt,
+        })
+        .from(marketplaceListingsV2)
+        .where(eq(marketplaceListingsV2.id, id))
+        .limit(1);
+      if (!probe) return { action: "skip" as const };
+      const probeBidderId = unresolvedMarketplaceHighestBidderId(probe);
+      const participantIds = [
+        probe.sellerId,
+        ...(probeBidderId ? [probeBidderId] : []),
+      ];
+      const participantStatuses = await lockTradeParticipantStatuses(
+        tx,
+        participantIds,
+        now,
+      );
       const [listing] = await tx
         .select()
         .from(marketplaceListingsV2)
         .where(eq(marketplaceListingsV2.id, id))
         .for("update");
       if (!listing || listing.status !== "active") return { action: "skip" as const };
+      const bidderId = unresolvedMarketplaceHighestBidderId(listing);
+      if (
+        listing.sellerId !== probe.sellerId ||
+        (bidderId != null && !participantIds.includes(bidderId))
+      ) {
+        return { action: "skip" as const };
+      }
+      if (
+        participantStatuses.get(listing.sellerId) ||
+        (bidderId && participantStatuses.get(bidderId))
+      ) {
+        const cancellation = await cancelMarketplaceListingEscrow(tx, listing, {
+          now,
+          refundHighestBid: true,
+          reason: "trade_suspension",
+        });
+        return {
+          action: "restricted_cancelled" as const,
+          refundedGold: cancellation.refundedBidGold,
+        };
+      }
 
       if (listing.bidEndsAt <= now && !listing.bidResolvedAt) {
         if (
@@ -101,7 +135,7 @@ export async function POST(req: Request) {
             {},
           );
           const taxRate = marketplaceTaxRateForAdventureSupport(
-            adventureSupportActive(sellerCharacter.adventureSupport),
+            adventureSupportTier(sellerCharacter.adventureSupport),
           );
           const gross = listing.highestBid!;
           const proceeds = saleProceeds(gross, taxRate);
@@ -137,23 +171,16 @@ export async function POST(req: Request) {
           };
         }
 
-        if (listing.highestBidderId && (listing.highestBid ?? 0) > 0) {
-          await tx.insert(marketplaceInbox).values(
-            inboxValues({
-              userId: listing.highestBidderId,
-              payload: { kind: "bid_refund", gold: listing.highestBid! },
-              message: `${listing.itemName} 유예 종료 · ${listing.highestBid!.toLocaleString()}골드 반환`,
-            }),
-          );
-        }
-        await tx
-          .update(marketplaceListingsV2)
-          .set({ bidResolvedAt: now })
-          .where(eq(marketplaceListingsV2.id, id));
+        const clearedBid = await clearMarketplaceHighestBid(
+          tx,
+          listing,
+          now,
+          "expired",
+        );
         if (listing.expiresAt > now) {
           await triggerMarketplacePriceAlertsForListing(tx, id, now);
           return {
-            action: listing.highestBidderId
+            action: clearedBid.cleared
               ? ("bid_refunded" as const)
               : ("resolved" as const),
           };
@@ -161,11 +188,11 @@ export async function POST(req: Request) {
       }
 
       if (listing.expiresAt > now) return { action: "skip" as const };
-      await returnListing(tx, listing);
-      await tx
-        .update(marketplaceListingsV2)
-        .set({ status: "expired", closedAt: now })
-        .where(eq(marketplaceListingsV2.id, id));
+      await cancelMarketplaceListingEscrow(tx, listing, {
+        now,
+        refundHighestBid: true,
+        reason: "expired",
+      });
       return { action: "expired" as const };
     });
 
@@ -185,6 +212,9 @@ export async function POST(req: Request) {
       bidsRefunded++;
     } else if (result.action === "expired") {
       expired++;
+    } else if (result.action === "restricted_cancelled") {
+      restrictedCancelled++;
+      if (result.refundedGold > 0) bidsRefunded++;
     }
   }
 
@@ -201,28 +231,35 @@ export async function POST(req: Request) {
   let ordersExpired = 0;
   for (const { id } of dueOrders) {
     const result = await db.transaction(async (tx) => {
+      const [probe] = await tx
+        .select({ buyerId: marketplaceBuyOrdersV2.buyerId })
+        .from(marketplaceBuyOrdersV2)
+        .where(eq(marketplaceBuyOrdersV2.id, id))
+        .limit(1);
+      if (!probe) return null;
+      // Expiry/refund is allowed for suspended buyers. Locking the user first
+      // only keeps this path compatible with the shared cleanup protocol.
+      await lockTradeParticipantStatuses(tx, [probe.buyerId], now);
       const [order] = await tx
         .select()
         .from(marketplaceBuyOrdersV2)
         .where(eq(marketplaceBuyOrdersV2.id, id))
         .for("update");
-      if (!order || order.status !== "active" || order.expiresAt > now) {
+      if (
+        !order ||
+        order.buyerId !== probe.buyerId ||
+        order.status !== "active" ||
+        order.expiresAt > now
+      ) {
         return null;
       }
-      if (order.goldEscrow > 0) {
-        await tx.insert(marketplaceInbox).values(
-          inboxValues({
-            userId: order.buyerId,
-            payload: { kind: "buy_order_refund", gold: order.goldEscrow },
-            message: `${order.itemName} 구매 주문 만료 · ${order.goldEscrow.toLocaleString()}골드 반환`,
-          }),
-        );
-      }
-      await tx
-        .update(marketplaceBuyOrdersV2)
-        .set({ status: "expired", goldEscrow: 0, closedAt: now })
-        .where(eq(marketplaceBuyOrdersV2.id, order.id));
-      return { buyerId: order.buyerId, refund: order.goldEscrow };
+      const cancellation = await cancelMarketplaceBuyOrderEscrow(
+        tx,
+        order,
+        now,
+        "expired",
+      );
+      return { buyerId: order.buyerId, refund: cancellation.refundedGold };
     });
     if (result) {
       ordersExpired++;
@@ -259,75 +296,8 @@ export async function POST(req: Request) {
     auctionsSold,
     bidsRefunded,
     expired,
+    restrictedCancelled,
     ordersExpired,
     ordersMatched,
-  });
-}
-
-async function returnListing(
-  tx: Parameters<typeof deliverMarketplaceListing>[0],
-  listing: Parameters<typeof deliverMarketplaceListing>[2],
-) {
-  if (listing.kind === "equip") {
-    await appendEquipInstances(tx, listing.sellerId, [
-      mintListedEquipInstance(
-        listing.itemId as V2EquipmentId,
-        listing.instancePayload,
-      ),
-    ]);
-    return;
-  }
-  const charSave = await lockSaveForUpdate<CharSave>(
-    tx,
-    listing.sellerId,
-    "character.v2",
-    {},
-  );
-  if (listing.kind === "consumable") {
-    if (isMuseunCashItemId(listing.itemId)) {
-      await upsertSave(tx, listing.sellerId, "character.v2", {
-        ...charSave,
-        cashItems: addMuseunCashItem(
-          charSave.cashItems,
-          listing.itemId,
-          listing.quantity,
-        ),
-      });
-    } else if (isCookingFoodId(listing.itemId)) {
-      const inventory = await lockSaveForUpdate<InventorySave>(
-        tx,
-        listing.sellerId,
-        "inventory.v2",
-        {},
-      );
-      await upsertSave(tx, listing.sellerId, "inventory.v2", {
-        ...inventory,
-        cookingFoods: addCookingFood(
-          inventory.cookingFoods,
-          listing.itemId,
-          listing.quantity,
-        ),
-      });
-    } else {
-      const restored = restoreMarketplaceRareMap(
-        listing.instancePayload,
-        Date.now(),
-        { preserveIid: true },
-      );
-      if (restored) {
-        await upsertSave(tx, listing.sellerId, "character.v2", {
-          ...charSave,
-          rareMaps: [...parseRareMaps(charSave.rareMaps, Date.now()), restored],
-        });
-      }
-    }
-    return;
-  }
-  const materials = { ...(charSave.materials ?? {}) };
-  materials[listing.itemId] =
-    Math.max(0, Math.floor(materials[listing.itemId] ?? 0)) + listing.quantity;
-  await upsertSave(tx, listing.sellerId, "character.v2", {
-    ...charSave,
-    materials,
   });
 }

@@ -61,6 +61,7 @@ export function DungeonHunt({
 
       {lastResult?.replay && (
         <ReplayBattleScene
+          presentation="embedded"
           payload={lastResult.replay}
           startPlayerHp={lastResult.startPlayerHp}
           playerName={playerName}

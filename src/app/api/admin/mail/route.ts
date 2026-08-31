@@ -6,18 +6,22 @@ import { logAdminAction } from "@/lib/server/adminAudit";
 import {
   inboxValues,
   type AdminGiftCashItem,
+  type AdminGiftCookingIngredient,
   type GuildQuestRewardItem,
   type GuildQuestRewardMaterial,
 } from "@/lib/server/inboxPayload";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { normalizeAdventureSupportGrantDays } from "@/adventure/data/v2/adventureSupport";
-import { isMuseunShopItemId } from "@/adventure/data/v2/museunCashItems";
+import { isMuseunAdminGiftItemId } from "@/adventure/data/v2/museunCashItems";
+import { isCookingStoredIngredientId } from "@/adventure/v2/cooking/storedIngredients";
 
-// POST /api/admin/mail — 운영자 대량 우편(골드/재료/장비/소비템/무슨 코인 + 메시지)을
+// POST /api/admin/mail — 운영자 대량 우편(골드/재료/요리 재료/장비/소비템/무슨 코인 + 메시지)을
 // 한 유저 또는 전체 유저에게 발송.
 //   body: { target: "user" | "all", userId?, gold,
-//           materials?: { materialId, count }[], items?: { itemId, count }[], staminaPotions?,
+//           materials?: { materialId, count }[],
+//           cookingIngredients?: { ingredientId, count }[],
+//           items?: { itemId, count }[], staminaPotions?,
 //           museunCoins?, cashItems?: { itemId, count }[], message? }
 // 우편함(marketplace_inbox)에 kind='admin_gift' 행으로 적재 → 수신자가 우편함에서 수령(claim)
 // 시 각 전용 세이브에 지급(장비는 base 등급). fromName="운영자". 모든 발송은 감사 로그에 기록.
@@ -67,6 +71,28 @@ function parseAttachItems(v: unknown): GuildQuestRewardItem[] {
   return out;
 }
 
+function parseAttachCookingIngredients(
+  v: unknown,
+): AdminGiftCookingIngredient[] {
+  if (!Array.isArray(v)) return [];
+  const out: AdminGiftCookingIngredient[] = [];
+  for (const entry of v) {
+    if (out.length >= MAX_ATTACHMENT_ENTRIES) break;
+    if (typeof entry !== "object" || entry === null) continue;
+    const row = entry as Record<string, unknown>;
+    const ingredientId =
+      typeof row.ingredientId === "string" ? row.ingredientId : "";
+    const count =
+      typeof row.count === "number" && Number.isFinite(row.count)
+        ? Math.trunc(row.count)
+        : 0;
+    if (isCookingStoredIngredientId(ingredientId) && count > 0) {
+      out.push({ ingredientId, count: Math.min(count, MAX_COUNT) });
+    }
+  }
+  return out;
+}
+
 function parseAttachCashItems(v: unknown): AdminGiftCashItem[] {
   if (!Array.isArray(v)) return [];
   const out: AdminGiftCashItem[] = [];
@@ -79,7 +105,7 @@ function parseAttachCashItems(v: unknown): AdminGiftCashItem[] {
       typeof row.count === "number" && Number.isFinite(row.count)
         ? Math.trunc(row.count)
         : 0;
-    if (isMuseunShopItemId(itemId) && count > 0) {
+    if (isMuseunAdminGiftItemId(itemId) && count > 0) {
       out.push({ itemId, count: Math.min(count, MAX_COUNT) });
     }
   }
@@ -96,6 +122,7 @@ export async function POST(req: Request) {
     userId?: unknown;
     gold?: unknown;
     materials?: unknown;
+    cookingIngredients?: unknown;
     items?: unknown;
     staminaPotions?: unknown;
     museunCoins?: unknown;
@@ -115,6 +142,9 @@ export async function POST(req: Request) {
       ? Math.max(0, Math.trunc(body.gold))
       : 0;
   const materials = parseAttachMaterials(body.materials);
+  const cookingIngredients = parseAttachCookingIngredients(
+    body.cookingIngredients,
+  );
   const items = parseAttachItems(body.items);
   const staminaPotions =
     typeof body.staminaPotions === "number" && Number.isFinite(body.staminaPotions)
@@ -135,6 +165,7 @@ export async function POST(req: Request) {
   if (
     gold <= 0 &&
     materials.length === 0 &&
+    cookingIngredients.length === 0 &&
     items.length === 0 &&
     staminaPotions <= 0 &&
     museunCoins <= 0 &&
@@ -145,7 +176,7 @@ export async function POST(req: Request) {
       {
         ok: false,
         error:
-          "nothing to send (gold/materials/items/staminaPotions/museunCoins/cashItems/adventureSupportDays all empty)",
+          "nothing to send (gold/materials/cookingIngredients/items/staminaPotions/museunCoins/cashItems/adventureSupportDays all empty)",
       },
       { status: 400 },
     );
@@ -155,8 +186,10 @@ export async function POST(req: Request) {
     kind: "admin_gift" as const,
     gold,
     materials,
+    cookingIngredients,
     items,
     staminaPotions,
+    staminaPotionsBound: true,
     museunCoins,
     cashItems,
     adventureSupportDays,
@@ -199,6 +232,7 @@ export async function POST(req: Request) {
         recipients: 0,
         gold,
         materials,
+        cookingIngredients,
         items,
         staminaPotions,
         museunCoins,
@@ -219,6 +253,8 @@ export async function POST(req: Request) {
       recipients,
       message: message || undefined,
       materials: materials.length > 0 ? materials : undefined,
+      cookingIngredients:
+        cookingIngredients.length > 0 ? cookingIngredients : undefined,
       items: items.length > 0 ? items : undefined,
       staminaPotions: staminaPotions > 0 ? staminaPotions : undefined,
       museunCoins: museunCoins > 0 ? museunCoins : undefined,
@@ -234,6 +270,7 @@ export async function POST(req: Request) {
     recipients,
     gold,
     materials,
+    cookingIngredients,
     items,
     staminaPotions,
     museunCoins,

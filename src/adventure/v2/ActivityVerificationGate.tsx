@@ -1,8 +1,12 @@
 "use client";
 
 import Script from "next/script";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import {
+  activityVerificationGateReducer,
+  initialActivityVerificationGateState,
+} from "./activityVerificationGateState";
 import type {
   ActivityVerificationChallenge,
   ActivityVerificationSubmission,
@@ -62,14 +66,18 @@ export function ActivityVerificationGate({
   const [turnstileReady, setTurnstileReady] = useState(false);
   const [captchaReady, setCaptchaReady] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [status, setStatus] = useState<"ready" | "checking" | "error">("ready");
+  const [gateState, dispatchGate] = useReducer(
+    activityVerificationGateReducer,
+    initialActivityVerificationGateState,
+  );
+  const { status, widgetGeneration } = gateState;
 
-  const resetWidgets = useCallback(() => {
-    setTurnstileToken(null);
+  const removeWidgets = useCallback(() => {
     const turnstileWidget = turnstileWidgetRef.current;
     if (turnstileWidget && window.turnstile) {
-      window.turnstile.reset(turnstileWidget);
+      window.turnstile.remove(turnstileWidget);
     }
+    turnstileWidgetRef.current = null;
     const captchaWidget = captchaWidgetRef.current;
     if (captchaWidget && window.hcaptcha) {
       window.hcaptcha.remove(captchaWidget);
@@ -79,20 +87,23 @@ export function ActivityVerificationGate({
 
   const submit = useCallback(
     (submission: ActivityVerificationSubmission) => {
-      setStatus("checking");
+      dispatchGate({ type: "submit" });
       void onVerify(submission)
         .then((ok) => {
           if (ok) return;
-          setStatus("error");
-          resetWidgets();
+          dispatchGate({ type: "failure" });
         })
         .catch(() => {
-          setStatus("error");
-          resetWidgets();
+          dispatchGate({ type: "failure" });
         });
     },
-    [onVerify, resetWidgets],
+    [onVerify],
   );
+
+  const retry = useCallback(() => {
+    setTurnstileToken(null);
+    dispatchGate({ type: "retry" });
+  }, []);
 
   const renderTurnstile = useCallback(() => {
     const container = turnstileContainerRef.current;
@@ -104,17 +115,16 @@ export function ActivityVerificationGate({
       theme: "auto",
       size: "flexible",
       callback: (token) => {
-        setStatus("ready");
         if (challenge.captchaSiteKey) {
           setTurnstileToken(token);
           return;
         }
         submit({ turnstileToken: token });
       },
-      "error-callback": () => setStatus("error"),
+      "error-callback": () => dispatchGate({ type: "failure" }),
       "expired-callback": () => {
         setTurnstileToken(null);
-        setStatus("ready");
+        dispatchGate({ type: "failure" });
       },
     });
   }, [challenge.activity, challenge.captchaSiteKey, challenge.siteKey, submit]);
@@ -138,19 +148,17 @@ export function ActivityVerificationGate({
       callback: (captchaToken) => {
         submit({ turnstileToken, captchaToken });
       },
-      "error-callback": () => setStatus("error"),
-      "expired-callback": () => setStatus("ready"),
+      "error-callback": () => dispatchGate({ type: "failure" }),
+      "expired-callback": () => dispatchGate({ type: "failure" }),
     });
   }, [challenge.captchaSiteKey, submit, turnstileToken]);
 
   useEffect(() => {
     if (turnstileReady) renderTurnstile();
     return () => {
-      const widgetId = turnstileWidgetRef.current;
-      if (widgetId && window.turnstile) window.turnstile.remove(widgetId);
-      turnstileWidgetRef.current = null;
+      removeWidgets();
     };
-  }, [renderTurnstile, turnstileReady]);
+  }, [removeWidgets, renderTurnstile, turnstileReady, widgetGeneration]);
 
   useEffect(() => {
     if (captchaReady && turnstileToken) renderCaptcha();
@@ -159,7 +167,7 @@ export function ActivityVerificationGate({
       if (widgetId && window.hcaptcha) window.hcaptcha.remove(widgetId);
       captchaWidgetRef.current = null;
     };
-  }, [captchaReady, renderCaptcha, turnstileToken]);
+  }, [captchaReady, renderCaptcha, turnstileToken, widgetGeneration]);
 
   return (
     <div className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-center dark:border-amber-800 dark:bg-amber-950/40">
@@ -168,7 +176,7 @@ export function ActivityVerificationGate({
         src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
         strategy="afterInteractive"
         onReady={() => setTurnstileReady(true)}
-        onError={() => setStatus("error")}
+        onError={() => dispatchGate({ type: "failure" })}
       />
       {challenge.captchaSiteKey ? (
         <Script
@@ -176,7 +184,7 @@ export function ActivityVerificationGate({
           src="https://js.hcaptcha.com/1/api.js?render=explicit&recaptchacompat=off"
           strategy="afterInteractive"
           onReady={() => setCaptchaReady(true)}
-          onError={() => setStatus("error")}
+          onError={() => dispatchGate({ type: "failure" })}
         />
       ) : null}
       <div>
@@ -184,7 +192,11 @@ export function ActivityVerificationGate({
           잠시 사람 확인이 필요합니다
         </div>
         <p className="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-200">
-          {challenge.captchaSiteKey
+          {challenge.manualTest
+            ? challenge.captchaSiteKey
+              ? "보안 확인을 위해 2단계 사람 확인을 진행합니다. 완료하면 바로 계속할 수 있습니다."
+              : "보안 확인을 위해 사람 확인을 진행합니다. 완료하면 바로 계속할 수 있습니다."
+            : challenge.captchaSiteKey
             ? "자동화 의심 신호가 반복되어 2단계 확인을 진행합니다. 완료하면 바로 계속할 수 있습니다."
             : "장시간 반복 활동을 보호하기 위한 확인입니다. 완료하면 바로 계속할 수 있습니다."}
         </p>
@@ -203,9 +215,15 @@ export function ActivityVerificationGate({
           확인 중…
         </Button>
       ) : status === "error" ? (
-        <p className="text-xs font-medium text-rose-600 dark:text-rose-300">
-          확인을 완료하지 못했습니다. 위젯을 다시 시도해 주세요.
-        </p>
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-rose-600 dark:text-rose-300">
+            확인 시간이 초과되었거나 인증 정보가 만료되었습니다. 자동으로 다시
+            시도하지 않으니 아래 버튼을 눌러 새 확인을 시작해 주세요.
+          </p>
+          <Button type="button" size="sm" fullWidth onClick={retry}>
+            사람 확인 다시 시도
+          </Button>
+        </div>
       ) : null}
     </div>
   );

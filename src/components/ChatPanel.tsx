@@ -10,19 +10,19 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import {
   ArrowLeft,
   BellRinging,
   CaretRight,
   ChatCircle,
   ChatsCircle,
+  DotsSixVertical,
   GlobeHemisphereWest,
   LockSimple,
   Plus,
   ShieldChevron,
-  SignOut,
-  Ticket,
-  UserPlus,
+  Storefront,
   X,
 } from "@phosphor-icons/react";
 import { isNoticeMessage } from "@/lib/chat-config";
@@ -39,12 +39,21 @@ import {
   chatNameClass,
 } from "./chat/ChatCosmetics";
 import { ChatRoomManager } from "./chat/ChatRoomManager";
+import { ChatCustomRoomActions } from "./chat/ChatCustomRoomActions";
+import {
+  CHAT_CLOSE_BUTTON_CLASS,
+  CHAT_HEADER_CLASS,
+  CHAT_OVERLAY_CLASS,
+  CHAT_PANEL_CLASS,
+  CHAT_RESIZE_HANDLE_CLASS,
+} from "./chat/chatPanelStyles";
 import {
   fetchCustomRoomMessages,
   fetchJoinedChatRooms,
   inviteToChatRoom,
   translateChatRoomError,
   updateChatRoomMembership,
+  updateChatRoomOrder,
   type CustomChatRoom,
   type CustomChatRoomInvite,
 } from "./chat/chatRoomsApi";
@@ -52,7 +61,6 @@ import {
   latestChatMessageId,
   mergeChatMessages,
 } from "./chat/chatMessagesApi";
-import { LotteryRoom } from "./chat/LotteryRoom";
 import { ChatEquipmentPicker } from "./chat/ChatEquipmentPicker";
 import { useMobileChatHistory } from "./chat/useMobileChatHistory";
 import type { V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
@@ -61,12 +69,19 @@ import {
   chatEquipmentLinkLabel,
   type ChatEquipmentLink,
 } from "@/lib/chat-item-link";
+import {
+  moveChatRoomOrder,
+  reconcileChatRoomOrder,
+  visibleChatRoomOrder,
+  type ChatRoomOrderId,
+} from "@/lib/chat-rooms";
 
-export type ChatChannel = "global" | "guild" | "room";
-type ChatRoomKey = "chat" | "guild" | "notice" | "lottery";
+export type ChatChannel = "global" | "trade" | "guild" | "room";
+type ChatRoomKey = "chat" | "trade" | "guild" | "notice";
 
 export type ChatMessage = {
   id: number;
+  authorUserId?: string | null;
   channel: ChatChannel;
   roomId?: number | null;
   name: string;
@@ -89,15 +104,6 @@ const CUSTOM_ROOM_MESSAGE_POLL_MS = 1500;
 // 모바일 채팅은 독립된 전체 화면으로 동작한다. 전역 상단바(z-60)보다 위에서
 // 배경 터치를 막아, 상단바가 채팅 헤더의 방 목록 버튼을 가로채지 않게 한다.
 // 데스크톱(sm+)에서는 기존 비모달 도킹을 유지해 게임 화면과 채팅을 함께 조작할 수 있다.
-export const CHAT_OVERLAY_CLASS =
-  "pointer-events-auto fixed inset-0 z-[65] flex items-end justify-end sm:pointer-events-none sm:z-[45] sm:p-4";
-export const CHAT_PANEL_CLASS =
-  "ui-chat-panel ui-popover-reveal pointer-events-auto relative flex h-full max-h-full w-full max-w-none flex-col rounded-none bg-white shadow-2xl dark:bg-zinc-900 sm:h-[680px] sm:max-h-[90vh] sm:max-w-xl sm:rounded-xl";
-export const CHAT_HEADER_CLASS =
-  "relative z-20 flex shrink-0 items-center justify-between gap-2 border-b border-zinc-200 pb-3.5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(0.875rem,env(safe-area-inset-top))] sm:px-4 sm:py-3.5 dark:border-zinc-700";
-export const CHAT_CLOSE_BUTTON_CLASS =
-  "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-zinc-600 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700";
-
 const clampInt = (v: number, min: number, max: number) =>
   Math.round(Math.max(min, Math.min(max, v)));
 const customRoomSeenKey = (roomId: number) => `chat:lastSeenRoom:${roomId}`;
@@ -147,9 +153,9 @@ function startVisiblePolling(task: () => Promise<unknown>, intervalMs: number) {
 
 const CHAT_ROOM_LABELS: Record<ChatRoomKey, string> = {
   chat: "전체 채팅방",
+  trade: "거래 채팅방",
   guild: "길드 채팅방",
   notice: "시스템 알림",
-  lottery: "복권방",
 };
 
 function ChatRoomIcon({ room, size = 22 }: { room: ChatRoomKey; size?: number }) {
@@ -159,8 +165,8 @@ function ChatRoomIcon({ room, size = 22 }: { room: ChatRoomKey; size?: number })
   if (room === "notice") {
     return <BellRinging size={size} weight="duotone" />;
   }
-  if (room === "lottery") {
-    return <Ticket size={size} weight="duotone" />;
+  if (room === "trade") {
+    return <Storefront size={size} weight="duotone" />;
   }
   return <GlobeHemisphereWest size={size} weight="duotone" />;
 }
@@ -196,6 +202,7 @@ function chatMessagePreview(message: ChatMessage): string {
 function ChatRoomList({
   rooms,
   onEnter,
+  onReorder,
 }: {
   rooms: Array<{
     id: string;
@@ -211,7 +218,56 @@ function ChatRoomList({
     builtin: ChatRoomKey | null;
     custom: CustomChatRoom | null;
   }) => void;
+  onReorder: (sourceId: ChatRoomOrderId, targetId: ChatRoomOrderId) => void;
 }) {
+  const [draggedRoomId, setDraggedRoomId] = useState<ChatRoomOrderId | null>(
+    null,
+  );
+  const touchDragCleanupRef = useRef<(() => void) | null>(null);
+  useEffect(
+    () => () => {
+      touchDragCleanupRef.current?.();
+    },
+    [],
+  );
+
+  const startTouchDrag = (
+    event: ReactPointerEvent<HTMLButtonElement>,
+    sourceId: ChatRoomOrderId,
+  ) => {
+    if (event.pointerType === "mouse") return;
+    event.preventDefault();
+    touchDragCleanupRef.current?.();
+    setDraggedRoomId(sourceId);
+    let targetId = sourceId;
+
+    const onMove = (pointerEvent: PointerEvent) => {
+      pointerEvent.preventDefault();
+      const target = document
+        .elementFromPoint(pointerEvent.clientX, pointerEvent.clientY)
+        ?.closest<HTMLElement>("[data-chat-room-id]")
+        ?.dataset.chatRoomId as ChatRoomOrderId | undefined;
+      if (target) targetId = target;
+    };
+    const cleanup = () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onEnd);
+      document.removeEventListener("pointercancel", onCancel);
+      touchDragCleanupRef.current = null;
+      setDraggedRoomId(null);
+    };
+    const onEnd = () => {
+      cleanup();
+      if (sourceId !== targetId) onReorder(sourceId, targetId);
+    };
+    const onCancel = () => cleanup();
+
+    document.addEventListener("pointermove", onMove, { passive: false });
+    document.addEventListener("pointerup", onEnd);
+    document.addEventListener("pointercancel", onCancel);
+    touchDragCleanupRef.current = cleanup;
+  };
+
   return (
     <div className="no-scrollbar flex-1 overflow-y-auto py-2">
       {rooms.map((room) => {
@@ -222,92 +278,128 @@ function ChatRoomList({
             ? "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300"
             : room.builtin === "chat"
             ? "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300"
+            : room.builtin === "trade"
+              ? "bg-orange-50 text-orange-600 dark:bg-orange-950 dark:text-orange-300"
             : room.builtin === "guild"
               ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300"
-              : room.builtin === "lottery"
-                ? "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300"
-              : "bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-300";
+            : "bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-300";
 
         return (
-          <button
+          <div
             key={room.id}
-            type="button"
-            disabled={!room.available}
-            onClick={() => onEnter(room)}
-            className="group flex w-full items-center gap-3 border-b border-zinc-100 px-5 py-4 text-left transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed dark:border-zinc-800 dark:hover:bg-zinc-800"
+            data-chat-room-id={room.id}
+            onDragOver={(event) => {
+              if (draggedRoomId) event.preventDefault();
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              if (draggedRoomId && draggedRoomId !== room.id) {
+                onReorder(draggedRoomId, room.id as ChatRoomOrderId);
+              }
+              setDraggedRoomId(null);
+            }}
+            className={`group flex w-full items-center border-b border-zinc-100 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800 ${
+              draggedRoomId === room.id ? "opacity-60" : ""
+            }`}
           >
-            <span
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconClass}`}
+            <button
+              type="button"
+              disabled={!room.available}
+              onClick={() => onEnter(room)}
+              className="flex min-w-0 flex-1 items-center gap-3 px-5 py-4 text-left disabled:cursor-not-allowed"
             >
-              {room.custom ? (
-                <ChatsCircle size={22} weight="duotone" />
-              ) : (
-                <ChatRoomIcon room={room.builtin ?? "chat"} />
-              )}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-2">
-                <span className="truncate text-sm font-semibold text-zinc-800 group-disabled:text-zinc-400 dark:text-zinc-100 dark:group-disabled:text-zinc-500">
-                  {room.label}
+              <span
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconClass}`}
+              >
+                {room.custom ? (
+                  <ChatsCircle size={22} weight="duotone" />
+                ) : (
+                  <ChatRoomIcon room={room.builtin ?? "chat"} />
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2">
+                  <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                    {room.label}
+                  </span>
+                  {room.custom && (
+                    <span
+                      title={
+                        room.custom.visibility === "private" ? "비공개" : "공개"
+                      }
+                      className="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-zinc-400 dark:text-zinc-500"
+                    >
+                      {room.custom.visibility === "private" ? (
+                        <LockSimple size={11} weight="bold" />
+                      ) : (
+                        <GlobeHemisphereWest size={11} weight="bold" />
+                      )}
+                      {room.custom.memberCount}명
+                    </span>
+                  )}
+                  {room.unread && room.available && (
+                    <span
+                      aria-label="읽지 않은 메시지"
+                      className="h-2 w-2 shrink-0 rounded-full bg-rose-500"
+                    />
+                  )}
                 </span>
-                {room.custom && (
-                  <span
-                    title={room.custom.visibility === "private" ? "비공개" : "공개"}
-                    className="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-zinc-400 dark:text-zinc-500"
-                  >
-                    {room.custom.visibility === "private" ? (
-                      <LockSimple size={11} weight="bold" />
+                <span className="mt-1 block truncate text-xs text-zinc-500 dark:text-zinc-400">
+                  {latest ? (
+                    room.builtin === "notice" ? (
+                      chatMessagePreview(latest)
                     ) : (
-                      <GlobeHemisphereWest size={11} weight="bold" />
-                    )}
-                    {room.custom.memberCount}명
+                      <>
+                        <EquippedCosmeticBadge cosmetics={latest.cosmetics} />
+                        <span
+                          className={chatNameClass(
+                            latest.cosmetics?.chatNameEffect,
+                            "font-medium text-zinc-600 dark:text-zinc-300",
+                          )}
+                        >
+                          {latest.name}
+                        </span>
+                        {`: ${chatMessagePreview(latest)}`}
+                      </>
+                    )
+                  ) : (
+                    room.description ?? "메시지가 없습니다."
+                  )}
+                </span>
+              </span>
+              <span className="flex shrink-0 items-center gap-2 self-start pt-0.5">
+                {latest && room.available && (
+                  <span className="text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500">
+                    {formatRoomTime(latest.createdAt)}
                   </span>
                 )}
-                {room.unread && room.available && (
-                  <span
-                    aria-label="읽지 않은 메시지"
-                    className="h-2 w-2 shrink-0 rounded-full bg-rose-500"
-                  />
-                )}
+                <CaretRight
+                  size={16}
+                  weight="bold"
+                  className="mt-0.5 text-zinc-300 transition-transform group-hover:translate-x-0.5 dark:text-zinc-600"
+                />
               </span>
-              <span className="mt-1 block truncate text-xs text-zinc-500 dark:text-zinc-400">
-                {!room.available ? (
-                  "길드에 가입하면 이용할 수 있습니다."
-                ) : latest ? (
-                  room.builtin === "notice" ? (
-                    chatMessagePreview(latest)
-                  ) : (
-                    <>
-                      <EquippedCosmeticBadge cosmetics={latest.cosmetics} />
-                      <span
-                        className={chatNameClass(
-                          latest.cosmetics?.chatNameEffect,
-                          "font-medium text-zinc-600 dark:text-zinc-300",
-                        )}
-                      >
-                        {latest.name}
-                      </span>
-                      {`: ${chatMessagePreview(latest)}`}
-                    </>
-                  )
-                ) : (
-                  room.description ?? "메시지가 없습니다."
-                )}
-              </span>
-            </span>
-            <span className="flex shrink-0 items-center gap-2 self-start pt-0.5">
-              {latest && room.available && (
-                <span className="text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500">
-                  {formatRoomTime(latest.createdAt)}
-                </span>
-              )}
-              <CaretRight
-                size={16}
-                weight="bold"
-                className="mt-0.5 text-zinc-300 transition-transform group-hover:translate-x-0.5 group-disabled:hidden dark:text-zinc-600"
-              />
-            </span>
-          </button>
+            </button>
+            <button
+              type="button"
+              draggable
+              onPointerDown={(event) =>
+                startTouchDrag(event, room.id as ChatRoomOrderId)
+              }
+              onDragStart={(event) => {
+                const roomId = room.id as ChatRoomOrderId;
+                setDraggedRoomId(roomId);
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", roomId);
+              }}
+              onDragEnd={() => setDraggedRoomId(null)}
+              aria-label={`${room.label} 순서 옮기기`}
+              title="드래그해서 채팅방 순서 변경"
+              className="mr-2 inline-flex h-11 w-9 shrink-0 touch-none cursor-grab items-center justify-center rounded-md text-zinc-300 hover:bg-zinc-100 hover:text-zinc-600 active:cursor-grabbing dark:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-300"
+            >
+              <DotsSixVertical size={20} weight="bold" />
+            </button>
+          </div>
         );
       })}
     </div>
@@ -321,10 +413,12 @@ export function ChatPanel({
   className,
   title,
   messages,
+  tradeMessages,
   guildMessages,
   guildAvailable,
   onMessageSent,
   unreadChat = false,
+  unreadTrade = false,
   unreadGuild = false,
   unreadNotice = false,
   onSeen,
@@ -335,15 +429,20 @@ export function ChatPanel({
   className: string;
   title: string | null;
   messages: ChatMessage[];
+  tradeMessages: ChatMessage[];
   guildMessages: ChatMessage[];
   guildAvailable: boolean;
   onMessageSent: (m: ChatMessage) => void;
   /** 채팅방별 안 읽은 메시지 유무 — 목록에 점 표시. */
   unreadChat?: boolean;
+  unreadTrade?: boolean;
   unreadGuild?: boolean;
   unreadNotice?: boolean;
   /** 해당 채팅방의 최신 메시지를 본 것으로 처리. */
-  onSeen?: (kind: "chat" | "guild" | "notice", lastId: number) => void;
+  onSeen?: (
+    kind: "chat" | "trade" | "guild" | "notice",
+    lastId: number,
+  ) => void;
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState("");
@@ -359,6 +458,9 @@ export function ChatPanel({
     useState<CustomChatRoom | null>(null);
   const [roomManagerOpen, setRoomManagerOpen] = useState(false);
   const [customRooms, setCustomRooms] = useState<CustomChatRoom[]>([]);
+  const [roomOrder, setRoomOrder] = useState<ChatRoomOrderId[]>(() =>
+    reconcileChatRoomOrder([], []),
+  );
   const [roomInvites, setRoomInvites] = useState<CustomChatRoomInvite[]>([]);
   const [customMessages, setCustomMessages] = useState<ChatMessage[]>([]);
   const [customLastSeen, setCustomLastSeen] = useState<Record<number, number>>({});
@@ -371,19 +473,15 @@ export function ChatPanel({
   const [pending, setPending] = useState<ChatMessage[]>([]);
   const tempIdRef = useRef(0);
 
-  useEffect(() => {
-    const openLottery = () => {
-      setActiveRoom("lottery");
-      setActiveCustomRoom(null);
-      setRoomManagerOpen(false);
-    };
-    window.addEventListener("chat:open-lottery", openLottery);
-    return () => window.removeEventListener("chat:open-lottery", openLottery);
-  }, []);
-
   const refreshCustomRooms = useCallback(async () => {
     const result = await fetchJoinedChatRooms();
     setCustomRooms(result.rooms);
+    setRoomOrder(
+      reconcileChatRoomOrder(
+        result.roomOrder,
+        result.rooms.map((room) => room.id),
+      ),
+    );
     setRoomInvites(result.invites);
     setCustomLastSeen((previous) => {
       const next = { ...previous };
@@ -405,6 +503,17 @@ export function ChatPanel({
     );
     return result.rooms;
   }, []);
+
+  const reorderRooms = useCallback(
+    (sourceId: ChatRoomOrderId, targetId: ChatRoomOrderId) => {
+      const next = moveChatRoomOrder(roomOrder, sourceId, targetId);
+      setRoomOrder(next);
+      void updateChatRoomOrder(next).catch(() => {
+        setError("채팅방 순서를 저장하지 못했습니다. 잠시 후 다시 시도해주세요.");
+      });
+    },
+    [roomOrder],
+  );
 
   const markCustomRoomSeen = useCallback((roomId: number, lastId: number) => {
     if (lastId <= 0) return;
@@ -562,6 +671,10 @@ export function ChatPanel({
     () => visibleMessagesFor(messages, "global"),
     [messages, visibleMessagesFor],
   );
+  const visibleTradeMessages = useMemo(
+    () => visibleMessagesFor(tradeMessages, "trade"),
+    [tradeMessages, visibleMessagesFor],
+  );
   const visibleGuildMessages = useMemo(
     () => visibleMessagesFor(guildMessages, "guild"),
     [guildMessages, visibleMessagesFor],
@@ -587,6 +700,8 @@ export function ChatPanel({
     ? visibleCustomMessages
     : tab === "chat"
       ? chatMessages
+      : tab === "trade"
+        ? visibleTradeMessages
       : tab === "guild"
         ? visibleGuildMessages
         : noticeMessages;
@@ -600,12 +715,16 @@ export function ChatPanel({
     () => messages.reduce((mx, m) => (isNoticeMessage(m) && m.id > mx ? m.id : mx), 0),
     [messages],
   );
+  const lastTradeId = useMemo(
+    () => tradeMessages.reduce((mx, m) => (m.id > mx ? m.id : mx), 0),
+    [tradeMessages],
+  );
   const lastGuildId = useMemo(
     () => guildMessages.reduce((mx, m) => (m.id > mx ? m.id : mx), 0),
     [guildMessages],
   );
-  const roomEntries = useMemo(
-    () => [
+  const roomEntries = useMemo(() => {
+    const entries = [
       {
         id: "chat",
         builtin: "chat" as const,
@@ -616,13 +735,13 @@ export function ChatPanel({
         available: true,
       },
       {
-        id: "guild",
-        builtin: "guild" as const,
+        id: "trade",
+        builtin: "trade" as const,
         custom: null,
-        label: CHAT_ROOM_LABELS.guild,
-        latest: visibleGuildMessages.at(-1) ?? null,
-        unread: unreadGuild,
-        available: guildAvailable,
+        label: CHAT_ROOM_LABELS.trade,
+        latest: visibleTradeMessages.at(-1) ?? null,
+        unread: unreadTrade,
+        available: true,
       },
       {
         id: "notice",
@@ -633,16 +752,17 @@ export function ChatPanel({
         unread: unreadNotice,
         available: true,
       },
-      {
-        id: "lottery",
-        builtin: "lottery" as const,
-        custom: null,
-        label: CHAT_ROOM_LABELS.lottery,
-        latest: null,
-        description: "4시간마다 추첨 · /복권 1~10",
-        unread: false,
-        available: true,
-      },
+      ...(guildAvailable
+        ? [{
+            id: "guild",
+            builtin: "guild" as const,
+            custom: null,
+            label: CHAT_ROOM_LABELS.guild,
+            latest: visibleGuildMessages.at(-1) ?? null,
+            unread: unreadGuild,
+            available: true,
+          }]
+        : []),
       ...customRooms.map((room) => ({
         id: `room:${room.id}`,
         builtin: null,
@@ -655,27 +775,43 @@ export function ChatPanel({
           room.latestMessage.id > (customLastSeen[room.id] ?? 0),
         available: true,
       })),
-    ],
-    [
+    ];
+    const byId = new Map(entries.map((entry) => [entry.id, entry]));
+    return visibleChatRoomOrder(roomOrder, guildAvailable).flatMap((id) => {
+      const entry = byId.get(id);
+      return entry ? [entry] : [];
+    });
+  }, [
       chatMessages,
       guildAvailable,
       noticeMessages,
+      roomOrder,
       unreadChat,
       unreadGuild,
       unreadNotice,
+      unreadTrade,
       visibleGuildMessages,
+      visibleTradeMessages,
       customRooms,
       customLastSeen,
-    ],
-  );
+    ]);
 
   // 실제로 들어간 채팅방의 최신 메시지만 읽은 것으로 보고한다.
   useEffect(() => {
     if (!open || !activeRoom || !onSeen) return;
     if (activeRoom === "chat" && lastChatId > 0) onSeen("chat", lastChatId);
+    if (activeRoom === "trade" && lastTradeId > 0) onSeen("trade", lastTradeId);
     if (activeRoom === "guild" && lastGuildId > 0) onSeen("guild", lastGuildId);
     if (activeRoom === "notice" && lastNoticeId > 0) onSeen("notice", lastNoticeId);
-  }, [open, activeRoom, lastChatId, lastGuildId, lastNoticeId, onSeen]);
+  }, [
+    open,
+    activeRoom,
+    lastChatId,
+    lastTradeId,
+    lastGuildId,
+    lastNoticeId,
+    onSeen,
+  ]);
 
   const clearRoomView = useCallback(() => {
     setActiveRoom(null);
@@ -769,7 +905,7 @@ export function ChatPanel({
           ? `${activeCustomRoom.name} 채팅방에서 나갈까요?\n\n방장 권한은 가장 먼저 참여한 멤버에게 넘어갑니다.`
           : `${activeCustomRoom.name} 채팅방에서 나갈까요?\n\n마지막 참여자이므로 채팅방과 대화 내용이 삭제됩니다.`
         : `${activeCustomRoom.name} 채팅방에서 나갈까요?`;
-    if (!window.confirm(confirmation)) return;
+    if (!(await confirmGameAction(confirmation))) return;
     setRoomActionBusy(true);
     try {
       await updateChatRoomMembership(activeCustomRoom.id, "leave");
@@ -797,6 +933,8 @@ export function ChatPanel({
       ? "room"
       : tab === "guild"
         ? "guild"
+        : tab === "trade"
+          ? "trade"
         : "global";
     const temp: ChatMessage = {
       id: tempId,
@@ -949,7 +1087,7 @@ export function ChatPanel({
             role="separator"
             aria-label="채팅창 크기 조절"
             title="드래그해서 크기 조절"
-            className="absolute left-0 top-0 z-20 flex h-5 w-5 cursor-nwse-resize touch-none items-start justify-start rounded-tl-xl p-1 text-zinc-300 hover:text-zinc-500 dark:text-zinc-600 dark:hover:text-zinc-400"
+            className={CHAT_RESIZE_HANDLE_CLASS}
           >
             <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
               <path
@@ -981,11 +1119,11 @@ export function ChatPanel({
                       ? "text-amber-600 dark:text-amber-300"
                       : activeRoom === "chat"
                         ? "text-blue-600 dark:text-blue-300"
+                        : activeRoom === "trade"
+                          ? "text-orange-600 dark:text-orange-300"
                         : activeRoom === "guild"
                           ? "text-emerald-600 dark:text-emerald-300"
-                          : activeRoom === "lottery"
-                            ? "text-amber-600 dark:text-amber-300"
-                          : "text-violet-600 dark:text-violet-300"
+                        : "text-violet-600 dark:text-violet-300"
                   }`}
                 >
                   {activeCustomRoom ? (
@@ -1023,32 +1161,21 @@ export function ChatPanel({
                 )}
               </button>
             )}
-            {activeCustomRoom?.role === "owner" && (
-              <button
-                type="button"
-                onClick={() => {
+            {activeCustomRoom && (
+              <ChatCustomRoomActions
+                key={activeCustomRoom.id}
+                room={activeCustomRoom}
+                inviteOpen={inviteOpen}
+                roomActionBusy={roomActionBusy}
+                onToggleInvite={() => {
                   setInviteOpen((value) => !value);
                   setInviteFeedback(null);
                 }}
-                aria-expanded={inviteOpen}
-                aria-label="사용자 초대"
-                title="사용자 초대"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                <UserPlus size={19} weight="duotone" />
-              </button>
-            )}
-            {activeCustomRoom && (
-              <button
-                type="button"
-                disabled={roomActionBusy}
-                onClick={leaveCustomRoom}
-                aria-label="채팅방 나가기"
-                title="채팅방 나가기"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed dark:text-zinc-300 dark:hover:bg-rose-950 dark:hover:text-rose-300"
-              >
-                <SignOut size={19} weight="duotone" />
-              </button>
+                onLeave={leaveCustomRoom}
+                onSelectName={(memberName) =>
+                  router.push(`/profile/${encodeURIComponent(memberName)}`)
+                }
+              />
             )}
             <button
               type="button"
@@ -1097,8 +1224,6 @@ export function ChatPanel({
             refreshRooms={refreshCustomRooms}
             onOpenRoom={enterCustomRoom}
           />
-        ) : activeRoom === "lottery" ? (
-          <LotteryRoom />
         ) : activeRoom || activeCustomRoom ? (
           <>
             <MessageList
@@ -1132,7 +1257,11 @@ export function ChatPanel({
             )}
           </>
         ) : (
-          <ChatRoomList rooms={roomEntries} onEnter={enterRoom} />
+          <ChatRoomList
+            rooms={roomEntries}
+            onEnter={enterRoom}
+            onReorder={reorderRooms}
+          />
         )}
         <ChatEquipmentPicker
           open={equipmentPickerOpen}

@@ -11,7 +11,10 @@ import {
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { FISHING_WALLET_KEY, fishingWalletWithCoins, walletCoins as fishingCoins } from "@/lib/server/fishing/coins";
 import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
-import { STAMINA_POTIONS_KEY, staminaPotionCount } from "@/adventure/v2/staminaPotions";
+import {
+  grantStaminaPotions,
+  STAMINA_POTIONS_KEY,
+} from "@/adventure/v2/staminaPotions";
 
 const ITEM_KINDS = [
   "gold",
@@ -165,12 +168,18 @@ export async function POST(req: Request) {
       return { beforeBalance, balance: certificates };
     }
     if (itemKind === "stamina_potion") {
-      const current = staminaPotionCount(
-        await lockSaveForUpdate(tx, userId, STAMINA_POTIONS_KEY, { count: 0 }),
+      const current = await lockSaveForUpdate(
+        tx,
+        userId,
+        STAMINA_POTIONS_KEY,
+        { count: 0 },
       );
-      const count = current + quantity;
-      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, { count });
-      return { beforeBalance: current, balance: count };
+      const next = grantStaminaPotions(current, quantity, { bound: true });
+      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, next);
+      return {
+        beforeBalance: next.count - quantity,
+        balance: next.count,
+      };
     }
 
     const char = await lockSaveForUpdate<Record<string, unknown>>(

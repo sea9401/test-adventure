@@ -27,8 +27,14 @@ const base: PlayerCombat = {
 
 describe("PvP 반격(maybeApplyMartialCounter) — 유닛", () => {
   it("방어자 passiveCounterChancePct 100 → 공격자가 ATK 반격 피해를 받는다", () => {
+    const barrierAttacker = {
+      ...base,
+      magicBarrierMax: 100,
+      magicBarrierPvpAbsorbPct: 25,
+      magicBarrierPvpEfficiencyPct: 20,
+    };
     const state = initialBattleStatePvP(
-      base, // p1 = 공격자
+      barrierAttacker, // p1 = 공격자
       { ...base, passiveCounterChancePct: 100 }, // p2 = 방어자(반격 100%)
       "P1", "P2",
     );
@@ -37,6 +43,7 @@ describe("PvP 반격(maybeApplyMartialCounter) — 유닛", () => {
     vi.restoreAllMocks();
     type S = { p1: { hp: number }; log: { text?: string }[] };
     expect((out.state as never as S).p1.hp).toBeLessThan(base.hp); // 공격자(p1) HP 감소
+    expect(out.state.p1.magicBarrier).toBeLessThan(100);
     expect(
       (out.state as never as S).log.some((e) => typeof e.text === "string" && e.text.includes("[반격]")),
     ).toBe(true);

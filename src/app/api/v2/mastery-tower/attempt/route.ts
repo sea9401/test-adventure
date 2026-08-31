@@ -1,7 +1,9 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
+import { recordGrowthLeapStaminaSpendInTx } from "@/lib/server/growthLeapProgress";
 import { derivePowerScore } from "@/adventure/data/v2/power";
+import { powerInputFromPlayer } from "@/lib/server/playerPowerInput";
 import {
   lockSaveForUpdate,
   readSave,
@@ -27,6 +29,7 @@ import {
   masteryTowerGuardianForFloor,
   masteryTowerGuardianPreview,
   masteryTowerRequiredPower,
+  resolveMasteryTowerAttemptFloor,
 } from "@/adventure/data/v2/masteryTower";
 import {
   applyRegen,
@@ -34,6 +37,7 @@ import {
   staminaConfigForCharacter,
   tryConsume,
 } from "@/adventure/v2/stamina";
+import { parseMasteryTowerAttemptRequest } from "./request";
 
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -48,6 +52,16 @@ export async function POST(req: Request) {
     windowMs: 60_000,
   });
   if (limited) return limited;
+
+  const attemptRequest = parseMasteryTowerAttemptRequest(
+    await req.json().catch(() => ({})),
+  );
+  if (!attemptRequest.ok) {
+    return Response.json(
+      { ok: false, error: attemptRequest.error },
+      { status: 400 },
+    );
+  }
 
   const result = await db.transaction(async (tx) => {
     const charSave = await lockSaveForUpdate<Record<string, unknown>>(
@@ -69,14 +83,13 @@ export async function POST(req: Request) {
       };
     }
     const { player, skills: v2Skills } = prepared;
-    const power = derivePowerScore({
-      atk: player.player.atk,
-      magicAtk: player.player.magicAtk ?? 0,
-      def: player.player.def,
-      spd: player.player.spd,
-      maxHp: player.maxHp,
-      maxMp: player.player.maxMp ?? 0,
-    });
+    const power = derivePowerScore(
+      powerInputFromPlayer(
+        player.player,
+        player.maxHp,
+        player.player.maxMp ?? 0,
+      ),
+    );
     const rollover = await settleMasteryTowerRollover(
       tx,
       userId,
@@ -84,6 +97,7 @@ export async function POST(req: Request) {
     );
     const now = Date.now();
     let tower = rollover.tower;
+    const completedTower = tower.runFloor >= MASTERY_TOWER_MAX_FLOOR;
     if (tower.cooldownUntil && tower.cooldownUntil > now) {
       const retryAfterSeconds = Math.ceil((tower.cooldownUntil - now) / 1000);
       return {
@@ -91,10 +105,13 @@ export async function POST(req: Request) {
         body: {
           ok: true as const,
           success: false,
+          practice: completedTower,
           error: "cooldown" as const,
           tower,
           power,
-          floor: tower.runFloor + 1,
+          floor: completedTower
+            ? MASTERY_TOWER_MAX_FLOOR
+            : tower.runFloor + 1,
           requiredPower: null,
           guardian: null,
           retryAfterSeconds,
@@ -103,14 +120,27 @@ export async function POST(req: Request) {
           log: [
             {
               kind: "fail" as const,
-              text: `재입장 대기 중입니다. ${retryAfterSeconds}초 후 1층부터 다시 시작할 수 있습니다.`,
+              text: completedTower
+                ? `재입장 대기 중입니다. ${retryAfterSeconds}초 후 ${MASTERY_TOWER_MAX_FLOOR}층 연습에 다시 도전할 수 있습니다.`
+                : `재입장 대기 중입니다. ${retryAfterSeconds}초 후 시작 위치를 다시 선택할 수 있습니다.`,
             },
           ],
         },
       };
     }
 
-    const floor = tower.runFloor + 1;
+    const resolvedFloor = resolveMasteryTowerAttemptFloor(
+      tower,
+      attemptRequest.startFloor,
+    );
+    if (!resolvedFloor.ok) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: resolvedFloor.error },
+      };
+    }
+    const floor = resolvedFloor.floor;
+    const practice = completedTower && floor === MASTERY_TOWER_MAX_FLOOR;
     if (floor > MASTERY_TOWER_MAX_FLOOR) {
       const claimPreview = masteryTowerClaimPreview(tower);
       return {
@@ -118,6 +148,7 @@ export async function POST(req: Request) {
         body: {
           ok: true as const,
           success: false,
+          practice,
           error: "max_floor" as const,
           tower,
           power,
@@ -211,6 +242,12 @@ export async function POST(req: Request) {
         ...charSave,
         stamina: afterStamina,
       });
+      await recordGrowthLeapStaminaSpendInTx(
+        tx,
+        userId,
+        entryStaminaCost,
+        now,
+      );
     }
     const claimPreview = masteryTowerClaimPreview(tower);
     const retryAfterSeconds = success
@@ -222,6 +259,7 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         success,
+        practice,
         stamina: afterStamina,
         staminaCost: entryStaminaCost,
         nextEntryStaminaCost: masteryTowerEntryStaminaCost(tower),
@@ -236,11 +274,12 @@ export async function POST(req: Request) {
         startPlayerHp: player.maxHp,
         playerName,
         gender: typeof profile?.gender === "string" ? profile.gender : "male1",
-        replay: toReplayPayload(battle.finalState, 220),
+        replay: toReplayPayload(battle.finalState),
         claimPreview,
         log: masteryTowerAttemptLog({
           floor,
           success,
+          practice,
           tower,
           claimPreview,
           turns: battle.turns,

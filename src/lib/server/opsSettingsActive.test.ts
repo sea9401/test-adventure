@@ -1,11 +1,22 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DbExecutor } from "./savesKv";
 import {
+  CODEX_MASTERY_FEATURES_KEY,
   HOT_TIME_KEY,
   HOT_TIME_SCHEDULES_KEY,
+  applyPctBonus,
   readActiveHotTime,
+  readCodexMasteryFeatureSettings,
+  parseCodexMasteryFeatureSettings,
   parseLifeFieldFeatureSettings,
 } from "./opsSettings";
+
+describe("applyPctBonus", () => {
+  it("작은 핫타임 보너스도 소수 확률만큼 지급한다", () => {
+    expect(applyPctBonus(3, 20, () => 0.59)).toBe(4);
+    expect(applyPctBonus(3, 20, () => 0.6)).toBe(3);
+  });
+});
 
 function executorReturning(rows: Array<{ key: string; value: unknown }>) {
   const limit = vi.fn(async () => rows);
@@ -90,5 +101,57 @@ describe("life field feature settings", () => {
       feedEnabled: true,
       milestonesEnabled: true,
     });
+  });
+});
+
+describe("codex mastery feature settings", () => {
+  it("defaults every new feature off and preserves explicit switches", () => {
+    expect(parseCodexMasteryFeatureSettings({
+      recordingEnabled: true,
+      overviewVisible: true,
+    })).toEqual({
+      recordingEnabled: true,
+      overviewVisible: true,
+      rankingVisible: false,
+      sealsEnabled: false,
+      trophiesEnabled: false,
+      monthlyProgressEnabled: false,
+      monthlyRankingVisible: false,
+      settlementEnabled: false,
+      feedEnabled: false,
+    });
+  });
+
+  it("ignores inherited switches while preserving own boolean siblings", () => {
+    const inherited = Object.create({ recordingEnabled: true }) as {
+      rankingVisible?: unknown;
+    };
+    inherited.rankingVisible = true;
+
+    expect(parseCodexMasteryFeatureSettings(inherited)).toEqual({
+      recordingEnabled: false,
+      overviewVisible: false,
+      rankingVisible: true,
+      sealsEnabled: false,
+      trophiesEnabled: false,
+      monthlyProgressEnabled: false,
+      monthlyRankingVisible: false,
+      settlementEnabled: false,
+      feedEnabled: false,
+    });
+  });
+
+  it("reads through the supplied executor", async () => {
+    const { executor, select } = executorReturning([
+      {
+        key: CODEX_MASTERY_FEATURES_KEY,
+        value: { recordingEnabled: true },
+      },
+    ]);
+
+    const settings = await readCodexMasteryFeatureSettings(executor);
+
+    expect(select).toHaveBeenCalledTimes(1);
+    expect(settings).toMatchObject({ recordingEnabled: true });
   });
 });

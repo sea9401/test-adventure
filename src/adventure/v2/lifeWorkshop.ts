@@ -244,12 +244,15 @@ export function nextLifeToolUpgrade(
   ) ?? null;
 }
 
+export const LIFE_RESPECIALIZATION_BASE_COST = 10_000_000;
+
 export function lifeRespecializationCost(
   state: LifeWorkshopState,
   activity: LifeWorkshopActivity,
 ): number {
   return state.specializations[activity]
-    ? 25_000 * (1 + (state.respecializations[activity] ?? 0))
+    ? LIFE_RESPECIALIZATION_BASE_COST *
+        (1 + (state.respecializations[activity] ?? 0))
     : 0;
 }
 

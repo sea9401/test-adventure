@@ -1,0 +1,98 @@
+// @vitest-environment jsdom
+
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
+import { CookingCodexPanel } from "./CookingCodexPanel";
+import type { CookingCodexRecipeView } from "./cooking/catalogMeta";
+
+afterEach(cleanup);
+
+const TOTAL_RECIPES = 500;
+const rusticBread: CookingCodexRecipeView = {
+  id: "rustic_bread",
+  name: "투박한 밀빵",
+  imageSrc: "/images/items/cooking/rustic_bread.webp",
+  description: "요리 경험치를 안정적으로 쌓는 기본 조리법입니다.",
+  effect: { combatFlat: { magicAtk: 50 } },
+};
+const herbPickles: CookingCodexRecipeView = {
+  id: "herb_pickles",
+  name: "새콤한 허브 절임",
+  imageSrc: "/images/items/cooking/herb_pickles.webp",
+  description: "직접 발견한 조리법입니다.",
+  effect: { huntExpPct: 4 },
+};
+
+describe("모험의 서 요리 완성 도감", () => {
+  it("등록 수, 업적 효과 안내, 등록 여부를 함께 보여준다", () => {
+    render(<CookingCodexPanel knownRecipes={[rusticBread]} total={TOTAL_RECIPES} />);
+
+    expect(screen.getByText("요리 완성 도감")).toBeTruthy();
+    expect(
+      screen.getByText(`1 / ${TOTAL_RECIPES}`),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/별도의 능력치나 SP를 직접 지급하지는 않습니다/),
+    ).toBeTruthy();
+    expect(screen.getByText("첫 조리 연구")).toBeTruthy();
+    expect(screen.getByText("투박한 밀빵")).toBeTruthy();
+    expect(screen.getByText("도감 등록")).toBeTruthy();
+    expect(screen.getAllByText("미등록").length).toBeGreaterThan(0);
+  });
+
+  it("요리 레벨 구간 없이 발견한 레시피를 미발견 레시피보다 먼저 보여준다", () => {
+    render(<CookingCodexPanel knownRecipes={[herbPickles]} total={TOTAL_RECIPES} />);
+
+    const list = screen.getByRole("list", { name: "요리 레시피 목록" });
+    const recipes = within(list).getAllByRole("listitem");
+
+    expect(recipes[0].textContent).toContain("새콤한 허브 절임");
+    expect(screen.queryByRole("heading", { name: /^요리 Lv/ })).toBeNull();
+  });
+
+  it("레시피를 20개씩 보여주고 다음 페이지로 이동한다", () => {
+    render(<CookingCodexPanel knownRecipes={[]} total={TOTAL_RECIPES} />);
+
+    const list = screen.getByRole("list", { name: "요리 레시피 목록" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(20);
+    expect(
+      screen.getByRole("navigation", { name: "페이지 네비게이션" }),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "다음 페이지" }));
+
+    expect(within(list).getAllByRole("listitem")).toHaveLength(20);
+    expect(
+      screen
+        .getByRole("button", { name: "2 페이지" })
+        .getAttribute("aria-current"),
+    ).toBe("page");
+  });
+
+  it("발견한 레시피는 실제 요리 이미지를 보여준다", () => {
+    render(<CookingCodexPanel knownRecipes={[rusticBread]} total={TOTAL_RECIPES} />);
+
+    const image = screen.getByRole("img", {
+      name: "투박한 밀빵 이미지",
+    });
+    expect(image.getAttribute("src")).toContain("rustic_bread.webp");
+  });
+
+  it("미발견 레시피는 이미지를 불러오지 않고 검정 칸으로 완전히 가린다", () => {
+    const { container } = render(
+      <CookingCodexPanel knownRecipes={[]} total={TOTAL_RECIPES} />,
+    );
+
+    const hiddenImage = container.querySelector(
+      '[data-cooking-codex-hidden-image="true"]',
+    );
+    expect(hiddenImage?.classList.contains("bg-black")).toBe(true);
+    expect(container.innerHTML).not.toContain("rustic_bread.webp");
+  });
+});

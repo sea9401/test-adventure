@@ -52,4 +52,24 @@ describe("채광 장소 카탈로그", () => {
     expect(drops).toEqual({ v2_mining_stone: 1 });
     expect(rng).toHaveBeenCalledTimes(2);
   });
+
+  it("후반 보너스는 일반 부산물 0.5%p와 거친 원석 1%p를 따로 더한다", () => {
+    const baseRolls = vi.fn().mockReturnValue(0.084);
+    expect(rollMiningByproducts(MINING_NODES.silver, baseRolls)).toEqual({});
+
+    const bonusRolls = vi
+      .fn()
+      .mockReturnValueOnce(0.09)
+      .mockReturnValueOnce(0.054)
+      .mockReturnValueOnce(0.024);
+    expect(
+      rollMiningByproducts(MINING_NODES.silver, bonusRolls, 1, {
+        byproductChancePct: 0.5,
+        rareByproductChancePct: 1,
+      }),
+    ).toEqual({
+      v2_coal: 1,
+      v2_rough_gem: 1,
+    });
+  });
 });

@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { GuildOrgChart } from "../GuildOrgChart";
 import { NoticeBanner } from "./NoticeBanner";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import type { GuildInfoResponse, Notice } from "./guildShared";
 
 // 길드원 탭 — 조직도 + 본인 탈퇴(마스터 아님). (V2GuildHome 에서 추출, 거동 불변)
@@ -28,7 +29,7 @@ export function GuildMembersPanel({
   // 길드 탈퇴(본인). 마스터는 서버가 transfer_required/disband_required 로 막는다.
   const handleLeave = useCallback(async () => {
     if (acting) return;
-    if (!window.confirm("정말 길드를 탈퇴할까요? 재가입은 하루 뒤부터 가능해요.")) {
+    if (!(await confirmGameAction("정말 길드를 탈퇴할까요? 재가입은 하루 뒤부터 가능해요."))) {
       return;
     }
     setActing(true);

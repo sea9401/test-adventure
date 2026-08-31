@@ -1,23 +1,26 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-type ButtonVariant =
+export type ButtonVariant =
   | "primary"
   | "secondary"
+  | "soft"
   | "success"
   | "warning"
   | "danger"
   | "info"
   | "ghost";
-type ButtonSize = "xs" | "sm" | "md";
+export type ButtonSize = "xs" | "sm" | "md" | "lg" | "icon";
 
 const BASE =
-  "inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+  "relative inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:focus-visible:ring-violet-400 dark:focus-visible:ring-offset-zinc-950";
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary:
-    "border border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700 dark:border-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400",
+    "border border-violet-600 bg-violet-600 text-white hover:bg-violet-700 dark:border-violet-500 dark:bg-violet-500 dark:hover:bg-violet-400",
   secondary:
     "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800",
+  soft:
+    "border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200 dark:hover:bg-violet-900",
   success:
     "border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 dark:border-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500",
   warning:
@@ -31,15 +34,44 @@ const VARIANT: Record<ButtonVariant, string> = {
 };
 
 const SIZE: Record<ButtonSize, string> = {
-  xs: "min-h-7 px-2 py-1 text-xs",
-  sm: "min-h-8 px-3 py-1.5 text-sm",
-  md: "min-h-10 px-4 py-2 text-sm",
+  xs: "min-h-10 sm:min-h-7 px-2 py-1 text-xs",
+  sm: "min-h-10 sm:min-h-8 px-3 py-1.5 text-sm",
+  md: "min-h-11 sm:min-h-10 px-4 py-2 text-sm",
+  lg: "min-h-11 px-5 py-2.5 text-base sm:min-h-12",
+  icon: "size-11 shrink-0 p-0",
 };
+
+export type ButtonStyleOptions = {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  fullWidth?: boolean;
+  className?: string;
+};
+
+export function buttonClassName({
+  variant = "secondary",
+  size = "sm",
+  fullWidth = false,
+  className,
+}: ButtonStyleOptions = {}) {
+  return [
+    BASE,
+    variant !== "ghost" ? "ui-game-button" : "",
+    VARIANT[variant],
+    SIZE[size],
+    fullWidth ? "w-full" : "",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
   fullWidth?: boolean;
+  loading?: boolean;
+  loadingLabel?: string;
   children: ReactNode;
 };
 
@@ -50,22 +82,43 @@ export function Button({
   className,
   children,
   type = "button",
+  disabled,
+  loading = false,
+  loadingLabel,
+  "aria-label": ariaLabel,
   ...rest
 }: ButtonProps) {
-  const cls = [
-    BASE,
-    variant !== "ghost" ? "ui-game-button" : "",
-    VARIANT[variant],
-    SIZE[size],
-    fullWidth ? "w-full" : "",
-    className,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const cls = buttonClassName({ variant, size, fullWidth, className });
+  const accessibleLoadingLabel =
+    loadingLabel ??
+    (typeof children === "string"
+      ? `${children} 처리 중`
+      : ariaLabel ?? "처리 중");
 
   return (
-    <button type={type} className={cls} {...rest}>
-      {children}
+    <button
+      type={type}
+      className={cls}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      aria-label={loading ? accessibleLoadingLabel : ariaLabel}
+      {...rest}
+    >
+      <span
+        data-button-content="true"
+        className={`inline-flex items-center justify-center gap-1.5 ${loading ? "invisible" : ""}`}
+      >
+        {children}
+      </span>
+      {loading && (
+        <span
+          data-button-spinner="true"
+          aria-hidden="true"
+          className="absolute inset-0 inline-flex items-center justify-center"
+        >
+          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-r-transparent" />
+        </span>
+      )}
     </button>
   );
 }

@@ -6,7 +6,7 @@ import {
   type CharacterAction,
 } from "@/adventure/v2/V2CharacterMenu";
 
-// /character — 캐릭터 탭 home. 내 정보/인벤토리/스킬(로드아웃·전투패턴 탭)/성장의 신전/모험의 서 진입.
+// /character — 캐릭터 탭 home. 생활 기록은 내 정보 요약에서 진입하고, 이 메뉴에는 별도로 두지 않는다.
 export default function CharacterPage() {
   const router = useRouter();
   return (
@@ -16,14 +16,14 @@ export default function CharacterPage() {
           case "open-info":
             router.push("/character/info");
             break;
-          case "open-life":
-            router.push("/character/life");
-            break;
           case "open-inventory":
             router.push("/character/inventory");
             break;
           case "open-skills":
             router.push("/character/skills");
+            break;
+          case "open-presets":
+            router.push("/character/presets");
             break;
           case "open-shrine":
             router.push("/character/shrine");

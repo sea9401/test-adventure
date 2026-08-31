@@ -1,21 +1,43 @@
 import { describe, expect, it } from "vitest";
 import {
+  MASTERY_TOWER_MAX_FLOOR,
+  MASTERY_TOWER_REWARD_MAX_FLOOR,
   clearMasteryTowerFloor,
   failMasteryTowerRun,
   markMasteryTowerEntryStaminaPaid,
   masteryTowerAttemptLog,
   masteryTowerClaimPreview,
+  masteryTowerCheckpointStartFloor,
   masteryTowerEntryStaminaCost,
   masteryTowerFloorReward,
   masteryTowerGuardianForFloor,
   masteryTowerGuardianPreview,
   masteryTowerRequiredPower,
+  masteryTowerStartFloors,
   parseMasteryTowerState,
   resetMasteryTowerDailyProgress,
+  resolveMasteryTowerAttemptFloor,
   rolloverMasteryTowerState,
 } from "./masteryTower";
 
 describe("masteryTower", () => {
+  it("50층 보상을 유지한 채 도전 상한을 100층으로 확장한다", () => {
+    expect(MASTERY_TOWER_MAX_FLOOR).toBe(100);
+    expect(MASTERY_TOWER_REWARD_MAX_FLOOR).toBe(50);
+    expect(masteryTowerFloorReward(51)).toBe(2_400);
+    expect(masteryTowerFloorReward(100)).toBe(2_400);
+  });
+
+  it("51층부터 100층까지 미래 성장용 지수 난이도를 적용한다", () => {
+    expect(masteryTowerRequiredPower(50)).toBe(5_100);
+    expect(masteryTowerRequiredPower(51)).toBe(5_420);
+    expect(masteryTowerRequiredPower(60)).toBe(9_340);
+    expect(masteryTowerRequiredPower(70)).toBe(17_100);
+    expect(masteryTowerRequiredPower(80)).toBe(31_310);
+    expect(masteryTowerRequiredPower(90)).toBe(57_340);
+    expect(masteryTowerRequiredPower(100)).toBe(105_000);
+  });
+
   it("층별 일일 보상은 뒤쪽 층일수록 더 크게 늘고 50층은 2400이다", () => {
     expect(masteryTowerFloorReward(5)).toBe(100);
     expect(masteryTowerFloorReward(10)).toBe(200);
@@ -63,6 +85,8 @@ describe("masteryTower", () => {
       claimed: false,
       lifetimeBestFloor: 22,
       firstClearRewardsClaimed: [10, 20],
+      weekStartedAt: "2026-06-29",
+      weekBestFloor: 0,
       entryStaminaPaid: false,
     });
   });
@@ -98,6 +122,8 @@ describe("masteryTower", () => {
         claimed: false,
         lifetimeBestFloor: 22,
         firstClearRewardsClaimed: [10],
+        weekStartedAt: "2026-06-29",
+        weekBestFloor: 0,
         entryStaminaPaid: false,
       },
     });
@@ -218,10 +244,49 @@ describe("masteryTower", () => {
     });
   });
 
+  it("60층부터 100층까지 10층마다 고정 도전 보스를 배치한다", () => {
+    expect(masteryTowerGuardianPreview(60)).toMatchObject({
+      name: "심연의 처형자",
+      atkType: "physical",
+      skills: ["mob_crushing_blow", "mob_savage_roar", "mob_rending_claw"],
+    });
+    expect(masteryTowerGuardianPreview(70)).toMatchObject({
+      name: "비전 재판관",
+      atkType: "magic",
+      skills: ["mob_arcane_nova", "mob_chilling_touch", "mob_venom_bite"],
+    });
+    expect(masteryTowerGuardianPreview(80)).toMatchObject({
+      name: "추격의 환영",
+      skills: ["mob_savage_roar", "mob_crushing_blow", "mob_chilling_touch"],
+    });
+    expect(masteryTowerGuardianPreview(90)).toMatchObject({
+      name: "불멸의 문지기",
+      skills: ["mob_crushing_blow", "mob_rending_claw", "mob_savage_roar"],
+    });
+    expect(masteryTowerGuardianPreview(100)).toMatchObject({
+      name: "탑의 초월자",
+      atkType: "magic",
+      bonusAttackChancePct: 500,
+      skills: [
+        "mob_arcane_nova",
+        "mob_savage_roar",
+        "mob_crushing_blow",
+        "mob_chilling_touch",
+      ],
+    });
+    expect(masteryTowerGuardianPreview(80).spd).toBeGreaterThan(
+      masteryTowerGuardianPreview(70).spd,
+    );
+    expect(masteryTowerGuardianPreview(90).def).toBeGreaterThan(
+      masteryTowerGuardianPreview(80).def,
+    );
+  });
+
   it("수호자 전투 몬스터는 드랍/경험치 없이 생성된다", () => {
     const guardian = masteryTowerGuardianForFloor(25);
     expect(guardian.exp).toBe(0);
     expect(guardian.drops).toEqual([]);
+    expect(guardian.directActionSpd).toBe(true);
     expect(guardian.v2Skills?.equipped.length).toBeGreaterThan(0);
   });
 
@@ -302,6 +367,34 @@ describe("masteryTower", () => {
     expect(log.some((entry) => entry.text.includes("850"))).toBe(true);
   });
 
+  it("50층 연습 로그는 추가 보상 없이 기록 유지 전투임을 표시한다", () => {
+    const log = masteryTowerAttemptLog({
+      floor: 50,
+      success: true,
+      practice: true,
+      tower: {
+        date: "2026-08-09",
+        todayBestFloor: 50,
+        runFloor: 50,
+        claimed: false,
+        lifetimeBestFloor: 50,
+        firstClearRewardsClaimed: [],
+      },
+      claimPreview: {
+        base: 2_400,
+        firstClearBonus: 1_500,
+        total: 3_900,
+        newlyClaimedMilestones: [10, 20, 30, 40, 50],
+      },
+    });
+
+    expect(log.some((entry) => entry.text.includes("연습 승리"))).toBe(true);
+    expect(log.some((entry) => entry.text.includes("기록 및 보상 변동 없음"))).toBe(
+      true,
+    );
+    expect(log.some((entry) => entry.kind === "reward")).toBe(false);
+  });
+
   it("패배하면 오늘 최고 기록은 유지하고 현재 등반만 초기화한다", () => {
     const cleared = clearMasteryTowerFloor(
       {
@@ -311,6 +404,8 @@ describe("masteryTower", () => {
         claimed: false,
         lifetimeBestFloor: 12,
         firstClearRewardsClaimed: [10],
+        weekStartedAt: "2026-06-29",
+        weekBestFloor: 7,
       },
       8,
     );
@@ -322,6 +417,8 @@ describe("masteryTower", () => {
       claimed: false,
       lifetimeBestFloor: 12,
       firstClearRewardsClaimed: [10],
+      weekStartedAt: "2026-06-29",
+      weekBestFloor: 8,
     });
 
     expect(failMasteryTowerRun(cleared, 1000)).toEqual({
@@ -331,7 +428,168 @@ describe("masteryTower", () => {
       claimed: false,
       lifetimeBestFloor: 12,
       firstClearRewardsClaimed: [10],
+      weekStartedAt: "2026-06-29",
+      weekBestFloor: 8,
       cooldownUntil: 31_000,
     });
+  });
+
+  it("이번 주 최고층으로 최근 10층 체크포인트의 다음 층을 계산한다", () => {
+    for (const [weekBestFloor, expected] of [
+      [0, null],
+      [9, null],
+      [10, 11],
+      [37, 31],
+      [50, 51],
+      [90, 91],
+      [100, 91],
+    ] as const) {
+      const state = parseMasteryTowerState(
+        {
+          date: "2026-08-09",
+          weekStartedAt: "2026-08-03",
+          weekBestFloor,
+        },
+        "2026-08-09",
+        "2026-08-03",
+      );
+      expect(masteryTowerCheckpointStartFloor(state)).toBe(expected);
+    }
+  });
+
+  it("새 등반은 1층과 최근 주간 체크포인트만 시작할 수 있다", () => {
+    const state = parseMasteryTowerState(
+      {
+        date: "2026-08-09",
+        weekStartedAt: "2026-08-03",
+        weekBestFloor: 37,
+      },
+      "2026-08-09",
+      "2026-08-03",
+    );
+
+    expect(masteryTowerStartFloors(state)).toEqual([1, 31]);
+    expect(resolveMasteryTowerAttemptFloor(state, 1)).toEqual({ ok: true, floor: 1 });
+    expect(resolveMasteryTowerAttemptFloor(state, 31)).toEqual({ ok: true, floor: 31 });
+    expect(resolveMasteryTowerAttemptFloor(state, 27)).toEqual({
+      ok: false,
+      error: "invalid_start_floor",
+    });
+    expect(resolveMasteryTowerAttemptFloor(state, 31.5)).toEqual({
+      ok: false,
+      error: "invalid_start_floor",
+    });
+  });
+
+  it("진행 중인 등반은 시작 층 변경 없이 다음 층만 이어간다", () => {
+    const state = parseMasteryTowerState(
+      {
+        date: "2026-08-09",
+        runFloor: 12,
+        weekStartedAt: "2026-08-03",
+        weekBestFloor: 37,
+      },
+      "2026-08-09",
+      "2026-08-03",
+    );
+
+    expect(masteryTowerStartFloors(state)).toEqual([]);
+    expect(resolveMasteryTowerAttemptFloor(state)).toEqual({ ok: true, floor: 13 });
+    expect(resolveMasteryTowerAttemptFloor(state, 1)).toEqual({
+      ok: false,
+      error: "invalid_start_floor",
+    });
+  });
+
+  it("기존 50층 완료 기록은 51층 도전으로 이어진다", () => {
+    const state = parseMasteryTowerState(
+      {
+        date: "2026-08-09",
+        todayBestFloor: 50,
+        runFloor: 50,
+        lifetimeBestFloor: 50,
+        weekStartedAt: "2026-08-03",
+        weekBestFloor: 50,
+      },
+      "2026-08-09",
+      "2026-08-03",
+    );
+
+    expect(resolveMasteryTowerAttemptFloor(state)).toEqual({
+      ok: true,
+      floor: 51,
+    });
+    expect(resolveMasteryTowerAttemptFloor(state, 50)).toEqual({
+      ok: false,
+      error: "invalid_start_floor",
+    });
+  });
+
+  it("50층 이후 일반 도전 패배도 이번 등반만 초기화한다", () => {
+    const completed = parseMasteryTowerState(
+      {
+        date: "2026-08-09",
+        todayBestFloor: 50,
+        runFloor: 50,
+        claimed: true,
+        lifetimeBestFloor: 50,
+        firstClearRewardsClaimed: [10, 20, 30, 40, 50],
+        weekStartedAt: "2026-08-03",
+        weekBestFloor: 50,
+        entryStaminaPaid: true,
+      },
+      "2026-08-09",
+      "2026-08-03",
+    );
+
+    expect(failMasteryTowerRun(completed, 1_000)).toEqual({
+      ...completed,
+      runFloor: 0,
+      cooldownUntil: 31_000,
+    });
+  });
+
+  it("월요일이 되면 주간 진행만 초기화하고 영구 기록은 유지한다", () => {
+    const monday = parseMasteryTowerState(
+      {
+        date: "2026-08-09",
+        todayBestFloor: 37,
+        runFloor: 37,
+        claimed: true,
+        lifetimeBestFloor: 44,
+        firstClearRewardsClaimed: [10, 20, 30, 40],
+        weekStartedAt: "2026-08-03",
+        weekBestFloor: 37,
+      },
+      "2026-08-10",
+      "2026-08-10",
+    );
+
+    expect(monday).toMatchObject({
+      date: "2026-08-10",
+      todayBestFloor: 0,
+      runFloor: 0,
+      claimed: false,
+      lifetimeBestFloor: 44,
+      firstClearRewardsClaimed: [10, 20, 30, 40],
+      weekStartedAt: "2026-08-10",
+      weekBestFloor: 0,
+    });
+  });
+
+  it("승리하면 주간 최고층을 올리고 패배해도 유지한다", () => {
+    const state = parseMasteryTowerState(
+      {
+        date: "2026-08-09",
+        weekStartedAt: "2026-08-03",
+        weekBestFloor: 20,
+      },
+      "2026-08-09",
+      "2026-08-03",
+    );
+    const cleared = clearMasteryTowerFloor(state, 21);
+
+    expect(cleared.weekBestFloor).toBe(21);
+    expect(failMasteryTowerRun(cleared, 1_000).weekBestFloor).toBe(21);
   });
 });

@@ -1,6 +1,8 @@
-import { and, eq } from "drizzle-orm";
 import { savesKv } from "@/db/schema";
-import { upsertSave, type DbExecutor } from "./savesKv";
+import { emptyProficiency, parseProficiency } from "@/adventure/data/v2/proficiency";
+import { rollInitialLifeResourceGrowth } from "@/adventure/data/v2/lifeResourceGrowth";
+import { lifeResourceRangesForProficiency } from "@/adventure/data/v2/statGrowth";
+import { lockSaveForUpdate, upsertSave, type DbExecutor } from "./savesKv";
 
 // character.v2 idempotent 시드 — row 없으면 빈 obj 로 만든다. 이미 있으면 noop.
 // reset-me 후 또는 첫 me/state 진입 시 derive 가 null 반환하지 않게 (V2_BASE_MP / 기본
@@ -11,12 +13,34 @@ import { upsertSave, type DbExecutor } from "./savesKv";
 export async function ensureV2Character(
   executor: DbExecutor,
   userId: string,
+  rng: () => number = Math.random,
 ): Promise<void> {
-  const rows = await executor
-    .select({ key: savesKv.key })
-    .from(savesKv)
-    .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "character.v2")))
-    .limit(1);
-  if (rows[0]) return; // 이미 있음 → noop.
-  await upsertSave(executor, userId, "character.v2", {});
+  const inserted = await executor
+    .insert(savesKv)
+    .values({
+      userId,
+      key: "character.v2",
+      value: {},
+      version: 1,
+      updatedAt: new Date(),
+    })
+    .onConflictDoNothing({ target: [savesKv.userId, savesKv.key] })
+    .returning({ key: savesKv.key });
+  if (!inserted[0]) return; // 이미 있음 → noop. 동시 최초 진입도 선점한 트랜잭션만 진행.
+  const proficiency = parseProficiency(
+    await lockSaveForUpdate(
+      executor,
+      userId,
+      "proficiency.v2",
+      emptyProficiency(),
+    ),
+  );
+  const lifeResourceGrowth = rollInitialLifeResourceGrowth(
+    lifeResourceRangesForProficiency(proficiency),
+    rng,
+  );
+  await upsertSave(executor, userId, "proficiency.v2", {
+    ...proficiency,
+    lifeResourceGrowth,
+  });
 }

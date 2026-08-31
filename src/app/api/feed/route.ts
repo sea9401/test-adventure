@@ -28,6 +28,18 @@ import {
   type FeedEntry,
 } from "@/lib/feed-config";
 import { ITEMS, isLuckyFind } from "@/adventure/data/items";
+import { COOKING_PUBLIC_RECIPE_BY_ID } from "@/adventure/v2/cooking/catalog";
+
+function publicFeedPayload(type: FeedEntry["type"], payload: FeedEntry["payload"]) {
+  if (type !== "cooking_discovery") return payload;
+  const recipeId = (payload as { recipeId?: unknown }).recipeId;
+  const recipe = typeof recipeId === "string"
+    ? COOKING_PUBLIC_RECIPE_BY_ID.get(recipeId)
+    : null;
+  return recipe
+    ? { recipeId: recipe.id, recipeName: recipe.name }
+    : { recipeId: "", recipeName: "이름이 공개된 요리" };
+}
 
 export async function GET(req: Request) {
   const userId = await ensureUser();
@@ -83,7 +95,10 @@ export async function GET(req: Request) {
       id: r.id,
       type: r.type as FeedEntry["type"],
       actorName: r.actorName,
-      payload: r.payload as FeedEntry["payload"],
+      payload: publicFeedPayload(
+        r.type as FeedEntry["type"],
+        r.payload as FeedEntry["payload"],
+      ),
       createdAt: r.createdAt.getTime(),
     }))
     .reverse();

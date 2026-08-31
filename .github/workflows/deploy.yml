@@ -8,8 +8,9 @@ name: Deploy to EC2
 #   EC2_SSH_KEY — EC2 접속용 private key 전체 (msmsge-key.pem 의 내용)
 #   OPS_ALERT_WEBHOOK_URL — 외부 공개 표면 검사 실패 알림 전용(선택)
 #   WEB_PUSH_VAPID_PUBLIC_KEY, WEB_PUSH_VAPID_PRIVATE_KEY, WEB_PUSH_SUBJECT
-# 앱 런타임 비밀값은 EC2에서 SSM을 읽고, 푸시 전용 키는 배포 환경 비밀값에서
-# 서버의 접근 제한 파일로 설치한다.
+#   REFERRAL_IDENTITY_SECRET — 탈퇴·재가입 홍보 보상 중복 방지 HMAC 키
+# 일반 앱 런타임 비밀값은 EC2에서 SSM을 읽고, 위 배포 전용 키는 GitHub 환경
+# 비밀값에서 서버의 접근 제한 파일로 설치한다.
 on:
   workflow_dispatch:
     inputs:
@@ -33,7 +34,7 @@ jobs:
     outputs:
       ci_run_id: ${{ steps.ci-run.outputs.ci_run_id }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ env.DEPLOY_SHA }}
           fetch-depth: 0
@@ -79,14 +80,14 @@ jobs:
       contents: read
     steps:
       - name: Checkout deployed revision
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ env.DEPLOY_SHA }}
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 20
       - name: Download exact CI production build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: production-next-${{ env.DEPLOY_SHA }}
           path: production-release
@@ -99,7 +100,7 @@ jobs:
           sha256sum --check production-next.tar.gz.sha256
       # 전송과 체크섬 검증은 운영 점검 모드를 켜기 전에 끝낸다.
       - name: Transfer production build to EC2
-        uses: appleboy/scp-action@v1.0.0
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
@@ -108,17 +109,18 @@ jobs:
           target: "/home/ec2-user/adventure-release-artifacts/${{ env.DEPLOY_SHA }}"
           strip_components: 1
       - name: SSH & deploy [prod]
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WEB_PUSH_VAPID_PUBLIC_KEY: ${{ secrets.WEB_PUSH_VAPID_PUBLIC_KEY }}
           WEB_PUSH_VAPID_PRIVATE_KEY: ${{ secrets.WEB_PUSH_VAPID_PRIVATE_KEY }}
           WEB_PUSH_SUBJECT: ${{ secrets.WEB_PUSH_SUBJECT }}
+          REFERRAL_IDENTITY_SECRET: ${{ secrets.REFERRAL_IDENTITY_SECRET }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: GH_TOKEN,DEPLOY_SHA,WEB_PUSH_VAPID_PUBLIC_KEY,WEB_PUSH_VAPID_PRIVATE_KEY,WEB_PUSH_SUBJECT
+          envs: GH_TOKEN,DEPLOY_SHA,WEB_PUSH_VAPID_PUBLIC_KEY,WEB_PUSH_VAPID_PRIVATE_KEY,WEB_PUSH_SUBJECT,REFERRAL_IDENTITY_SECRET
           script_stop: true
           command_timeout: 30m
           script: |
@@ -145,13 +147,15 @@ jobs:
             test -n "$WEB_PUSH_VAPID_PUBLIC_KEY"
             test -n "$WEB_PUSH_VAPID_PRIVATE_KEY"
             test -n "$WEB_PUSH_SUBJECT"
+            test -n "$REFERRAL_IDENTITY_SECRET"
             sudo install -d -o root -g ec2-user -m 0750 /etc/adventure-rpg
             push_env_file="$(mktemp)"
             chmod 0600 "$push_env_file"
-            printf 'WEB_PUSH_VAPID_PUBLIC_KEY=%s\nWEB_PUSH_VAPID_PRIVATE_KEY=%s\nWEB_PUSH_SUBJECT=%s\n' \
+            printf 'WEB_PUSH_VAPID_PUBLIC_KEY=%s\nWEB_PUSH_VAPID_PRIVATE_KEY=%s\nWEB_PUSH_SUBJECT=%s\nREFERRAL_IDENTITY_SECRET=%s\n' \
               "$WEB_PUSH_VAPID_PUBLIC_KEY" \
               "$WEB_PUSH_VAPID_PRIVATE_KEY" \
-              "$WEB_PUSH_SUBJECT" > "$push_env_file"
+              "$WEB_PUSH_SUBJECT" \
+              "$REFERRAL_IDENTITY_SECRET" > "$push_env_file"
             sudo install -o root -g ec2-user -m 0640 "$push_env_file" \
               /etc/adventure-rpg/web-push.env
             rm -f "$push_env_file"

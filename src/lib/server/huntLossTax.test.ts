@@ -4,11 +4,14 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store, treasuryInserts, battleOutcome } = vi.hoisted(() => ({
-  store: new Map<string, unknown>(),
-  treasuryInserts: [] as unknown[],
-  battleOutcome: { value: "win" as "win" | "lose" },
-}));
+const { store, treasuryInserts, battleOutcome, battleTimedOut } = vi.hoisted(
+  () => ({
+    store: new Map<string, unknown>(),
+    treasuryInserts: [] as unknown[],
+    battleOutcome: { value: "win" as "win" | "lose" },
+    battleTimedOut: { value: false },
+  }),
+);
 
 vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
   const actual =
@@ -32,7 +35,8 @@ vi.mock("@/db", () => {
   const chain: Record<string, unknown> = {};
   chain.from = () => chain;
   chain.where = () => chain;
-  chain.for = () => chain;
+  chain.orderBy = () => chain;
+  chain.for = async () => [];
   chain.limit = async () => [];
   const tx = {
     select: () => chain,
@@ -54,11 +58,20 @@ vi.mock("@/lib/server/savesKv", () => ({
   lockSaveForUpdate: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
+  lockSavesForUpdate: vi.fn(async (_tx, _uid, fallbacks: Record<string, unknown>) =>
+    Object.fromEntries(Object.entries(fallbacks).map(([key, fallback]) => [key, store.has(key) ? store.get(key) : fallback])),
+  ),
   readSave: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
+  readSaves: vi.fn(async (_tx, _uid, fallbacks: Record<string, unknown>) =>
+    Object.fromEntries(Object.entries(fallbacks).map(([key, fallback]) => [key, store.has(key) ? store.get(key) : fallback])),
+  ),
   upsertSave: vi.fn(async (_tx, _uid, key: string, value: unknown) => {
     store.set(key, value);
+  }),
+  upsertSaves: vi.fn(async (_tx, _uid, entries: Record<string, unknown>) => {
+    for (const [key, value] of Object.entries(entries)) store.set(key, value);
   }),
 }));
 vi.mock("@/adventure/v2/combat/engine", async (importOriginal) => {
@@ -73,6 +86,7 @@ vi.mock("@/adventure/v2/combat/engine", async (importOriginal) => {
       const playerMp = Math.max(0, Number(player.mp) || playerMaxMp);
       return {
         outcome,
+        ...(battleTimedOut.value ? { endReason: "timeout" as const } : {}),
         finalState: {
           enemy,
           enemyHp: outcome === "win" ? 0 : Math.max(1, Number(enemy.hp) || 1),
@@ -138,6 +152,7 @@ describe("POST /api/v2/dungeon/hunt — 패배 페널티 카운터(코어루프 
     seedStrongWarrior();
     treasuryInserts.length = 0;
     battleOutcome.value = "win";
+    battleTimedOut.value = false;
     vi.spyOn(Math, "random").mockReturnValue(0.5); // 확정 승리
   });
   afterEach(() => {
@@ -206,5 +221,38 @@ describe("POST /api/v2/dungeon/hunt — 패배 페널티 카운터(코어루프 
     expect(char().gold).toBe(900);
     expect(char().atRiskGold).toBe(0);
     expect(treasuryInserts).toEqual([]);
+  });
+
+  it("시간초과 무승부 패배는 골드를 잃지 않고 위험 골드도 유지한다", async () => {
+    store.set("character.v2", {
+      ...char(),
+      atRiskGold: 200,
+      gold: 1000,
+      lastBattleAt: Date.now() - HUNT_COOLDOWN_MS - 1000,
+    });
+    battleOutcome.value = "lose";
+    battleTimedOut.value = true;
+
+    const res = await POST(huntReq({ floor: 2 }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      result: {
+        won: boolean;
+        timedOut: boolean;
+        goldAfter: number;
+        lossTax: number;
+        atRiskGold: number;
+      };
+    };
+
+    expect(json.result).toMatchObject({
+      won: false,
+      timedOut: true,
+      lossTax: 0,
+      goldAfter: 1000,
+      atRiskGold: 200,
+    });
+    expect(char().gold).toBe(1000);
+    expect(char().atRiskGold).toBe(200);
   });
 });

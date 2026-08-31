@@ -1,14 +1,12 @@
-// 회피 대결형(contested rating) 모델 캘리브 — 설계 프로토타입(라이브 엔진 미변경).
-//   현재: 회피% = (dex×0.1 + luk×0.08 + 장비 + 패시브) 합연산 → 75% 하드캡. 몹 명중을 캡 뒤 뺄셈.
-//   문제: 이진 캡(d20쯤 75% 포화)·콘텐츠 미추종(절대값)·DEX 더블딥(공짜 4× EHP).
-//   제안: 회피/명중을 raw 레이팅으로(같은 계수, 캡 제거) + 비율 대결:
-//     회피확률 = MAX_DODGE × evaRating / (evaRating + 몹명중레이팅 × K)
-//   몹 명중 = ACC_BASE × floorStatMult(depth) → 깊이 따라 자동 스케일(회피 self-following).
+// 라이브 회피도·적중도 경감 모델 캘리브.
+//   직접 피해 경감률 = MAX_REDUCTION × evaRating / (evaRating + 상대 accRating × K)
+//   몬스터 적중도 = ACC_BASE × floorStatMult(depth).
 //
 // 실행: node --import tsx scripts/sim-v2-evasion-rating.ts
 // 목표 프로파일: 권장레벨 회피몰빵(DEX/LUK) ~50%·균형(BAL) ~30%·비회피(STR/VIT) ~10%, 전 깊이 안정.
 
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
+import { powerInputFromPlayer } from "../src/lib/server/playerPowerInput";
 import { derivePowerScore } from "../src/adventure/data/v2/power";
 import {
   floorPowerGate,
@@ -16,24 +14,17 @@ import {
   MOB_ACC_BASE,
 } from "../src/adventure/data/v2/dungeonLadder";
 import {
-  DODGE_MAX as LIVE_DODGE_MAX,
+  EVASION_DAMAGE_REDUCTION_MAX_PCT,
   PVE_DODGE_K,
 } from "../src/adventure/data/v2/v2CombatConstants";
 import { V2_STAT_POINTS_PER_LEVEL } from "../src/adventure/data/v2/v2Stats";
 import type { V2StatKey } from "../src/adventure/data/v2/v2StatKeys";
 
-// ── 라이브 계수(derivePlayerCombatV2 — 그대로 레이팅화) ────────────────────────
-const EVA_PER_DEX = 0.1;
-const EVA_PER_LUK = 0.08;
-const ACC_PER_DEX = 0.05;
-const ACC_PER_STR = 0.02;
-const ACC_PER_INT = 0.02;
-const ACC_PER_SPI = 0.015;
-const EVASION_PCT_CAP = 75; // 현 모델 캡(비교용)
-
 // ── 대결형 다이얼(캘리브 대상) — env 로 스윕 가능 ───────────────────────────
-const MAX_DODGE = Number(process.env.MAX_DODGE ?? LIVE_DODGE_MAX); // 점근 천장(소프트·절대 도달X). 캡 제거 금지=무적꼬리.
-const K = Number(process.env.K ?? PVE_DODGE_K); // PvE 생존 계수. PvP PVP_DODGE_K=7과 분리.
+const MAX_REDUCTION = Number(
+  process.env.MAX_REDUCTION ?? EVASION_DAMAGE_REDUCTION_MAX_PCT,
+); // 점근 천장(도달하지 않음).
+const K = Number(process.env.K ?? PVE_DODGE_K);
 const ACC_BASE = Number(process.env.ACC_BASE ?? MOB_ACC_BASE); // 몹 명중레이팅 = ACC_BASE × floorStatMult(depth)
 
 type Arch = "DEX" | "LUK" | "STR" | "VIT" | "BAL";
@@ -60,9 +51,12 @@ function allocate(arch: Arch, level: number): Record<V2StatKey, number> {
   return a;
 }
 
-function statsAt(arch: Arch, level: number): Record<V2StatKey, number> {
-  const d = derivePlayerCombatV2Pure({ level, allocatedStats: allocate(arch, level), v2Equipped: {} });
-  return d.totalStats as Record<V2StatKey, number>;
+function playerAt(arch: Arch, level: number) {
+  return derivePlayerCombatV2Pure({
+    level,
+    allocatedStats: allocate(arch, level),
+    v2Equipped: {},
+  }).player;
 }
 
 // 깊이 권장 파워 매칭 레벨(BAL 파워 ≥ gate 최소 레벨) — sim-v2-progression 미러.
@@ -70,42 +64,38 @@ function levelForDepth(depth: number): number {
   const target = floorPowerGate(depth);
   for (let lv = 1; lv <= 2000; lv++) {
     const p = derivePlayerCombatV2Pure({ level: lv, allocatedStats: allocate("BAL", lv), v2Equipped: {} }).player;
-    const pw = derivePowerScore({ atk: p.atk, magicAtk: p.magicAtk, def: p.def, spd: p.spd, maxHp: p.maxHp, maxMp: p.maxMp });
+    const pw = derivePowerScore(
+      powerInputFromPlayer(p, p.maxHp, p.maxMp),
+    );
     if (pw >= target) return lv;
   }
   return 2000;
 }
 
-const evaRating = (s: Record<V2StatKey, number>) => s.dex * EVA_PER_DEX + s.luk * EVA_PER_LUK;
-const _accRating = (s: Record<V2StatKey, number>) =>
-  s.dex * ACC_PER_DEX + s.str * ACC_PER_STR + s.int * ACC_PER_INT + s.spi * ACC_PER_SPI;
-
-// 대결형 회피확률.
-const dodgeNew = (eva: number, mobAcc: number) => (MAX_DODGE * eva) / (eva + mobAcc * K);
-// 현 모델(참고) — 몹 명중 0 가정이라 그냥 min(eva,75).
-const dodgeOld = (eva: number) => Math.min(eva, EVASION_PCT_CAP);
+const reductionPct = (eva: number, mobAcc: number) =>
+  (MAX_REDUCTION * eva) / (eva + mobAcc * K);
 
 const DEPTHS = [8, 14, 20, 30, 42, 50];
 
-const ehp = (dodgePct: number) => 1 / (1 - dodgePct / 100); // 회피→유효체력 배수
-const parityDodge = MAX_DODGE / (1 + K); // evaR == 몹명중 일 때(균등 매칭) 회피
+const ehp = (reduction: number) => 1 / (1 - reduction / 100);
+const parityReduction = MAX_REDUCTION / (1 + K);
 
-console.log(`회피 대결형 캘리브 — MAX_DODGE=${MAX_DODGE} K=${K} ACC_BASE=${ACC_BASE}`);
-console.log(`파리티 회피(evaR=몹명중) = MAX/(1+K) = ${parityDodge.toFixed(0)}%  (균등 매칭 시 기본 회피)\n`);
+console.log(`회피 경감 캘리브 — MAX_REDUCTION=${MAX_REDUCTION} K=${K} ACC_BASE=${ACC_BASE}`);
+console.log(`동일 수치(evaR=accR) 경감률 = ${parityReduction.toFixed(0)}%\n`);
 
 for (const depth of DEPTHS) {
   const lv = levelForDepth(depth);
   const mobAcc = ACC_BASE * floorStatMult(depth);
   console.log(`━━ 깊이 ${depth} (권장 Lv${lv}, 몹명중레이팅 ${mobAcc.toFixed(0)}) ━━`);
-  console.log("Arch │ evaR │ 회피(현,캡75) → 회피(대결형) · EHP배수");
+  console.log("Arch │ evaR │ accR │ 직접 피해 경감 · EHP배수");
   for (const arch of ARCHES) {
-    const s = statsAt(arch, lv);
-    const eva = evaRating(s);
-    const dOld = dodgeOld(eva);
-    const dNew = dodgeNew(eva, mobAcc);
+    const player = playerAt(arch, lv);
+    const eva = player.evaRating ?? 0;
+    const acc = player.accRating ?? 0;
+    const reduction = reductionPct(eva, mobAcc);
     console.log(
-      `${arch.padEnd(4)} │ ${eva.toFixed(0).padStart(4)} │ ` +
-        `${dOld.toFixed(0).padStart(3)}% → ${dNew.toFixed(0).padStart(3)}% · ×${ehp(dNew).toFixed(2)}`,
+      `${arch.padEnd(4)} │ ${eva.toFixed(0).padStart(4)} │ ${acc.toFixed(0).padStart(4)} │ ` +
+        `${reduction.toFixed(0).padStart(3)}% · ×${ehp(reduction).toFixed(2)}`,
     );
   }
   console.log("");

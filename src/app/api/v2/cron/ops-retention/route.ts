@@ -14,6 +14,7 @@ import { db } from "@/db";
 import {
   abuseEvents,
   adminAuditLog,
+  battleReplays,
   coopBossAttackLog,
   dbStorageMetrics,
   economyEvents,
@@ -24,12 +25,14 @@ import {
   pushDeliveries,
   pvpTournaments,
   serverFeed,
+  ugcReports,
   userSanctions,
 } from "@/db/schema";
 import { requireCronAuth } from "@/lib/server/cronAuth";
 import { sendOpsAlert } from "@/lib/server/opsAlert";
 import {
   RETENTION_POLICY,
+  drainRetentionBatches,
   retentionCutoff,
 } from "@/lib/server/retentionPolicy";
 import { processStorageDeletionQueue } from "@/lib/server/storageDeletionQueue";
@@ -445,7 +448,7 @@ export async function POST(req: Request) {
   if (unauthorized) return unauthorized;
 
   const now = new Date();
-  const [abuse, economy, adminAudit, serverFeedResult, pushDelivery, tournament] =
+  const [abuse, economy, adminAudit, serverFeedResult, pushDelivery, safetyReports, tournament] =
     await Promise.all([
       deleteSimpleRows(
         abuseEvents,
@@ -455,13 +458,17 @@ export async function POST(req: Request) {
           retentionCutoff(RETENTION_POLICY.abuseDays, now),
         ),
       ),
-      deleteSimpleRows(
-        economyEvents,
-        economyEvents.id,
-        lt(
-          economyEvents.createdAt,
-          retentionCutoff(RETENTION_POLICY.economyDays, now),
-        ),
+      drainRetentionBatches(
+        () =>
+          deleteSimpleRows(
+            economyEvents,
+            economyEvents.id,
+            lt(
+              economyEvents.createdAt,
+              retentionCutoff(RETENTION_POLICY.economyDays, now),
+            ),
+          ),
+        RETENTION_POLICY.backlogDeleteMaxBatches,
       ),
       deleteSimpleRows(
         adminAuditLog,
@@ -485,6 +492,18 @@ export async function POST(req: Request) {
         lt(
           pushDeliveries.createdAt,
           retentionCutoff(RETENTION_POLICY.pushDeliveryDays, now),
+        ),
+      ),
+      deleteSimpleRows(
+        ugcReports,
+        ugcReports.id,
+        and(
+          inArray(ugcReports.status, ["resolved", "dismissed"]),
+          isNotNull(ugcReports.resolvedAt),
+          lt(
+            ugcReports.resolvedAt,
+            retentionCutoff(RETENTION_POLICY.resolvedUgcReportDays, now),
+          ),
         ),
       ),
       trimArenaTournamentReplays(now),
@@ -515,11 +534,21 @@ export async function POST(req: Request) {
     ),
   );
 
-  const [coopReplay, guildActivity, marketplace] = await Promise.all([
-    trimCoopReplays(now),
-    archiveAndTrimGuildActivities(),
-    archiveAndTrimMarketplace(now),
-  ]);
+  const [battleReplay, coopReplay, guildActivity, marketplace] =
+    await Promise.all([
+      drainRetentionBatches(
+        () =>
+          deleteSimpleRows(
+            battleReplays,
+            battleReplays.id,
+            lt(battleReplays.expiresAt, now),
+          ),
+        RETENTION_POLICY.backlogDeleteMaxBatches,
+      ),
+      trimCoopReplays(now),
+      archiveAndTrimGuildActivities(),
+      archiveAndTrimMarketplace(now),
+    ]);
   const marketplaceCutoff = retentionCutoff(
     RETENTION_POLICY.marketplaceClosedDays,
     now,
@@ -572,7 +601,9 @@ export async function POST(req: Request) {
     sanctions,
     serverFeed: serverFeedResult,
     pushDelivery,
+    safetyReports,
     arenaTournament: tournament,
+    battleReplay,
     coopReplay,
     guildActivity,
     marketplace,

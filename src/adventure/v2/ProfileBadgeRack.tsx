@@ -21,6 +21,7 @@ import {
   type AchievementBadgeTier,
 } from "@/adventure/data/v2/v2Quests";
 import {
+  type ProfileMasteryTrophyDisplay,
   type ProfileShowcaseSelection,
   type ProfileShowcaseSlots,
 } from "@/adventure/profile/profileShowcase";
@@ -42,7 +43,15 @@ type ShowcaseOptionsResponse = {
   achievementOptions?: AchievementOption[];
 };
 
-type BadgeTone = "bronze" | "silver" | "gold" | "legendary" | "rose" | "violet";
+type BadgeTone =
+  | "bronze"
+  | "silver"
+  | "gold"
+  | "platinum"
+  | "diamond"
+  | "legendary"
+  | "rose"
+  | "violet";
 
 type BadgeContent = {
   title: string;
@@ -71,6 +80,16 @@ const BADGE_TONE: Record<
     inner: "border-amber-100 bg-amber-50 dark:border-amber-700 dark:bg-amber-950",
     icon: "text-amber-700 dark:text-amber-300",
   },
+  platinum: {
+    outer: "border-sky-500 bg-sky-200 dark:border-sky-300 dark:bg-sky-800",
+    inner: "border-sky-100 bg-white dark:border-sky-600 dark:bg-sky-950",
+    icon: "text-sky-700 dark:text-sky-200",
+  },
+  diamond: {
+    outer: "border-teal-500 bg-teal-200 dark:border-teal-300 dark:bg-teal-800",
+    inner: "border-teal-100 bg-teal-50 dark:border-teal-600 dark:bg-teal-950",
+    icon: "text-teal-700 dark:text-teal-200",
+  },
   legendary: {
     outer: "border-violet-600 bg-violet-300 dark:border-violet-400 dark:bg-violet-800",
     inner: "border-fuchsia-100 bg-violet-50 dark:border-violet-700 dark:bg-violet-950",
@@ -94,6 +113,7 @@ export function ProfileBadgeRack({
   initialVisible,
   owned,
   editable,
+  masteryTrophies = [],
   onOpenCabinet,
 }: {
   initialSlots: ProfileShowcaseSlots;
@@ -101,6 +121,7 @@ export function ProfileBadgeRack({
   initialVisible: boolean;
   owned: V2EquipInstance[];
   editable: boolean;
+  masteryTrophies?: readonly ProfileMasteryTrophyDisplay[];
   onOpenCabinet?: () => void;
 }) {
   const [slots, setSlots] = useState<ProfileShowcaseSlots>(initialSlots);
@@ -111,7 +132,12 @@ export function ProfileBadgeRack({
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [optionsFailed, setOptionsFailed] = useState(false);
   const [achievementOptions, setAchievementOptions] = useState<AchievementOption[]>([]);
-  const contents = slots.map((selection) => resolveBadgeContent(selection, owned));
+  const masteryById = new Map(
+    masteryTrophies.map((trophy) => [trophy.trophyId, trophy]),
+  );
+  const contents = slots.map((selection) =>
+    resolveBadgeContent(selection, owned, masteryById)
+  );
 
   const updateVisibility = async (nextVisible: boolean) => {
     if (visibilitySaving) return;
@@ -338,7 +364,7 @@ function BadgeMedallion({
         <button
           type="button"
           onClick={onClick}
-          title={`${content.title} · ${content.description}`}
+          title={`${content.title} · ${content.detail} · ${content.description}`}
           aria-label={`${content.title} 배지 편집`}
           className="relative flex items-center justify-center rounded-full transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
         >
@@ -346,7 +372,7 @@ function BadgeMedallion({
         </button>
       ) : (
         <div
-          title={`${content.title} · ${content.description}`}
+          title={`${content.title} · ${content.detail} · ${content.description}`}
           className="relative flex items-center justify-center"
         >
           {medal}
@@ -577,6 +603,7 @@ function BadgeEditor({
 function resolveBadgeContent(
   selection: ProfileShowcaseSelection | null,
   owned: V2EquipInstance[],
+  masteryById: ReadonlyMap<string, ProfileMasteryTrophyDisplay>,
 ): BadgeContent | null {
   if (selection?.kind === "achievement") {
     const achievement = questById(selection.achievementId);
@@ -611,6 +638,27 @@ function resolveBadgeContent(
       detail: "칭호",
       icon: <Crown size={23} weight="duotone" aria-hidden="true" />,
       tone: "violet",
+    };
+  }
+  if (selection?.kind === "masteryTrophy") {
+    const trophy = masteryById.get(selection.trophyId);
+    if (!trophy) return null;
+    const tierLabel: Record<ProfileMasteryTrophyDisplay["currentTier"], string> = {
+      bronze: "동",
+      silver: "은",
+      gold: "금",
+      platinum: "백금",
+      diamond: "다이아",
+      legendary: "전설",
+    };
+    return {
+      title: trophy.title,
+      description: trophy.kind === "research"
+        ? "월간 도감 연구전의 최종 성적으로 획득한 시즌 트로피입니다."
+        : "도감 숙련의 누적 기록으로 획득한 성장형 트로피입니다.",
+      detail: `${tierLabel[trophy.currentTier]} · ${trophy.kind === "research" ? "월간 연구" : "도감 숙련"}`,
+      icon: <Trophy size={23} weight="duotone" aria-hidden="true" />,
+      tone: trophy.currentTier,
     };
   }
   return null;

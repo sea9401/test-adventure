@@ -22,11 +22,13 @@ import { readGuildSettlement } from "@/lib/server/v2Settlement";
 import {
   GUILD_WORKSHOP_RECIPE_IDS,
   GUILD_WORKSHOP_RECIPES,
+  GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
   addGuildWorkshopCraftRecord,
   addGuildWorkshopCraftStat,
   guildWorkshopCraftRecordTitleIds,
   guildWorkshopBonusFromTotalCrafts,
   guildWorkshopBaseEquipmentCandidates,
+  guildWorkshopRecipeMaterialSpendPlan,
   guildWorkshopRecipeGoldCost,
   guildWorkshopRecipeView,
   hasGuildWorkshopRecipeMaterials,
@@ -35,10 +37,12 @@ import {
   meetsGuildWorkshopRecipeLevel,
   parseGuildWorkshopMaterialInventory,
   parseGuildWorkshopCraftRecords,
+  parseGuildWorkshopFavoriteRecipeIds,
   parseGuildWorkshopStats,
   rollGuildWorkshopEnhance,
   shouldLogGuildWorkshopCraftActivity,
   spendGuildWorkshopBaseEquipment,
+  spendGuildWorkshopMaterialsFromPlan,
   spendGuildWorkshopRecipeMaterials,
   type GuildWorkshopBonus,
 } from "@/adventure/data/v2/guildWorkshop";
@@ -61,11 +65,39 @@ import {
 } from "@/adventure/data/v2/artisanLeaderboard";
 import {
   V2_EQUIPMENT,
+  isUnique,
   parseEquipmentSave,
 } from "@/adventure/data/v2/v2Equipment";
 import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import { getGuildIdByUser } from "@/lib/server/v2EnsureSoloGuild";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
+import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
+import { recordUniqueEquipmentAcquisitions } from "@/lib/server/uniqueEquipmentAchievement";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
+import {
+  associationFacilityLevel,
+  canUseAdventurerAssociation,
+  claimWeeklyFacilitySource,
+} from "@/lib/server/adventurerAssociation";
+import {
+  applyBlacksmithCraftControl,
+  blacksmithCatalystMaterialForItem,
+  blacksmithSpecialtyForSlot,
+  blacksmithTechniqueView,
+  isBlacksmithOptionFocusId,
+  isBlacksmithStructureId,
+  parseBlacksmithProgressionState,
+  rollBlacksmithCatalystPreserved,
+  rollBlacksmithInspectionCandidates,
+  type BlacksmithOptionFocusId,
+  type BlacksmithStructureId,
+} from "@/adventure/data/v2/blacksmithSpecialization";
+import { mintEquipInstance } from "@/adventure/data/v2/v2EquipMint";
+import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
+import {
+  discountedPersonalCraftGoldCost,
+  equippedPersonalCraftGoldDiscountPct,
+} from "@/lib/server/equipmentLiberationCraftDiscount";
 
 type CharacterSaveWithMaterials = {
   materials?: unknown;
@@ -105,10 +137,33 @@ async function readGuildWorkshopBonus(
 async function resolveWorkshopAccess(
   userId: string,
   outpostId: string | null,
+  association: boolean,
 ): Promise<
   | { ok: true; access: SettlementBuildingAccess }
   | { ok: false; status: number; body: Record<string, unknown> }
 > {
+  if (association) {
+    if (!(await canUseAdventurerAssociation(db, userId))) {
+      return {
+        ok: false,
+        status: 403,
+        body: { ok: false, error: "association_for_solo_only" },
+      };
+    }
+    const level = await associationFacilityLevel(db, "guild_smithy");
+    return {
+      ok: true,
+      access: {
+        outpostId: "association",
+        guildId: 0,
+        buildingId: "guild_smithy",
+        level,
+        kind: "member",
+        taxRate: 0,
+        useFeeGold: 0,
+      },
+    };
+  }
   if (outpostId) {
     const result = await db.transaction((tx) =>
       resolveOutpostBuildingAccess(tx, userId, outpostId, "guild_smithy"),
@@ -214,15 +269,19 @@ export async function GET(req: Request) {
   const resolved = await resolveWorkshopAccess(
     userId,
     outpostIdFromRequest(req),
+    new URL(req.url).searchParams.get("scope") === "association",
   );
   if (!resolved.ok) {
     return Response.json(resolved.body, { status: resolved.status });
   }
   const { access } = resolved;
   const guildId = access.guildId;
+  const association = access.outpostId === "association";
   const smithyLevel = access.level;
 
-  const baseGuildBonus = await readGuildWorkshopBonus(guildId);
+  const baseGuildBonus = association
+    ? guildWorkshopBonusFromTotalCrafts(0)
+    : await readGuildWorkshopBonus(guildId);
   const smithyBonus = guildSmithyUpgradeForLevel(Math.max(1, smithyLevel));
   const guildBonus = {
     ...baseGuildBonus,
@@ -235,11 +294,13 @@ export async function GET(req: Request) {
     equipment,
     artisan,
     artisanState,
+    blacksmithProgression,
     workshopStats,
     workshopRecords,
+    favoriteRecipeIds,
     playerSpendableGold,
   } = await db.transaction(async (tx) => {
-    const resources = await readGuildSettlement(tx, guildId);
+    const resources = association ? {} : await readGuildSettlement(tx, guildId);
     const charRaw = await readSave<CharacterSaveWithMaterials>(
       tx,
       userId,
@@ -264,18 +325,49 @@ export async function GET(req: Request) {
       equipment: parseEquipmentSave(equipmentRaw),
       artisan: artisanView(craftingRaw),
       artisanState: parseArtisanState(craftingRaw.artisan),
+      blacksmithProgression: parseBlacksmithProgressionState(
+        craftingRaw.blacksmithProgression,
+      ),
       workshopStats: workshopStatsView(craftingRaw),
       workshopRecords: workshopRecordsView(craftingRaw),
+      favoriteRecipeIds: parseGuildWorkshopFavoriteRecipeIds(
+        craftingRaw.workshopFavoriteRecipeIds,
+      ),
       playerSpendableGold: spendableGold(
         Math.max(0, Math.floor(Number(charRaw.gold) || 0)),
         Math.max(0, Math.floor(Number(charRaw.bankedGold) || 0)),
       ),
     };
   });
+  const signatureCandidates =
+    artisan.blacksmith.level >= 28 && blacksmithProgression.specialty
+      ? equipment.owned.flatMap((instance) => {
+          const item = V2_EQUIPMENT[instance.id];
+          if (
+            instance.craftedBy?.userId !== userId ||
+            blacksmithSpecialtyForSlot(item.slot) !==
+              blacksmithProgression.specialty
+          ) {
+            return [];
+          }
+          return [
+            {
+              iid: instance.iid,
+              equipmentId: instance.id,
+              itemName: item.name,
+              slot: item.slot,
+              masterwork: instance.craftedBy.masterwork === true,
+              craftQualityLevel: instance.craftQuality?.level ?? 0,
+            },
+          ];
+        })
+      : [];
   const craftSpendableGold = Math.max(
     0,
     playerSpendableGold - Math.max(0, Math.floor(access.useFeeGold)),
   );
+  const liberationDiscountPct =
+    equippedPersonalCraftGoldDiscountPct(equipment);
   return Response.json({
     ok: true,
     hasGuildSmithy: smithyLevel > 0,
@@ -285,26 +377,50 @@ export async function GET(req: Request) {
     resources,
     materials,
     spendableGold: playerSpendableGold,
+    liberationDiscountPct,
     artisan,
+    blacksmithProgression,
+    signatureCandidates,
     workshopStats,
     workshopRecords,
+    favoriteRecipeIds,
     externalAccess: externalAccessView(access),
-    recipes: GUILD_WORKSHOP_RECIPE_IDS.map((id) =>
-      guildWorkshopRecipeView(
-        GUILD_WORKSHOP_RECIPES[id],
-        resources,
-        artisanState,
-        guildBonus,
-        smithyLevel,
-        materials,
-        guildWorkshopBaseEquipmentCandidates(
-          equipment.owned,
-          equipment.equipped,
-          GUILD_WORKSHOP_RECIPES[id],
-        ).length,
-        craftSpendableGold,
-      ),
-    ),
+    recipes: GUILD_WORKSHOP_RECIPE_IDS.map((id) => {
+      const recipe = GUILD_WORKSHOP_RECIPES[id];
+      const item = V2_EQUIPMENT[recipe.equipmentId];
+      const techniques = blacksmithTechniqueView({
+        level: artisan.blacksmith.level,
+        specialty: blacksmithProgression.specialty,
+        item,
+      });
+      const catalystMaterialId = blacksmithCatalystMaterialForItem(item);
+      return {
+        ...guildWorkshopRecipeView(
+          recipe,
+          resources,
+          artisanState,
+          guildBonus,
+          smithyLevel,
+          materials,
+          guildWorkshopBaseEquipmentCandidates(
+            equipment.owned,
+            equipment.equipped,
+            recipe,
+          ).length,
+          craftSpendableGold,
+        ),
+        techniques: {
+          ...techniques,
+          catalyst: techniques.catalystUnlocked
+            ? {
+                materialId: catalystMaterialId,
+                required: 1,
+                owned: materials[catalystMaterialId] ?? 0,
+              }
+            : null,
+        },
+      };
+    }),
   });
 }
 
@@ -314,7 +430,15 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { recipeId?: unknown; mode?: unknown; outpostId?: unknown };
+  let body: {
+    recipeId?: unknown;
+    mode?: unknown;
+    outpostId?: unknown;
+    useMaterialSubstitution?: unknown;
+    optionFocus?: unknown;
+    structure?: unknown;
+    useCatalyst?: unknown;
+  };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -328,16 +452,34 @@ export async function POST(req: Request) {
   }
   const recipe = GUILD_WORKSHOP_RECIPES[body.recipeId];
   const craftMode = isGuildWorkshopCraftMode(body.mode) ? body.mode : "normal";
+  const useMaterialSubstitution = body.useMaterialSubstitution === true;
+  if (body.optionFocus != null && !isBlacksmithOptionFocusId(body.optionFocus)) {
+    return Response.json(
+      { ok: false, error: "invalid_option_focus" },
+      { status: 400 },
+    );
+  }
+  if (body.structure != null && !isBlacksmithStructureId(body.structure)) {
+    return Response.json(
+      { ok: false, error: "invalid_structure" },
+      { status: 400 },
+    );
+  }
+  const optionFocus = body.optionFocus as BlacksmithOptionFocusId | undefined;
+  const structure = body.structure as BlacksmithStructureId | undefined;
+  const useCatalyst = body.useCatalyst === true;
 
   const resolved = await resolveWorkshopAccess(
     userId,
     outpostIdFromRequest(req, body.outpostId),
+    new URL(req.url).searchParams.get("scope") === "association",
   );
   if (!resolved.ok) {
     return Response.json(resolved.body, { status: resolved.status });
   }
   const { access } = resolved;
   const guildId = access.guildId;
+  const association = access.outpostId === "association";
   const smithyLevel = access.level;
   if (smithyLevel <= 0) {
     return Response.json(
@@ -345,7 +487,9 @@ export async function POST(req: Request) {
       { status: 403 },
     );
   }
-  const baseGuildBonus = await readGuildWorkshopBonus(guildId);
+  const baseGuildBonus = association
+    ? guildWorkshopBonusFromTotalCrafts(0)
+    : await readGuildWorkshopBonus(guildId);
   const smithyBonus = guildSmithyUpgradeForLevel(smithyLevel);
   const guildBonus = {
     ...baseGuildBonus,
@@ -367,20 +511,36 @@ export async function POST(req: Request) {
       0,
       Math.floor(Number(charRaw.bankedGold) || 0),
     );
-    const craftGoldCost = guildWorkshopRecipeGoldCost(recipe, craftMode);
     const externalUseFeeGold = Math.max(
       0,
       Math.floor(Number(access.useFeeGold) || 0),
     );
-    const totalGoldCost = craftGoldCost + externalUseFeeGold;
     const materials = parseGuildWorkshopMaterialInventory(charRaw.materials);
-    const resources = await readGuildSettlement(tx, guildId);
+    const materialSpendPlan = guildWorkshopRecipeMaterialSpendPlan(
+      materials,
+      recipe,
+      craftMode,
+    );
+    const baseCraftGoldCost = guildWorkshopRecipeGoldCost(recipe, craftMode);
+    const substitutionGoldCost = useMaterialSubstitution
+      ? materialSpendPlan.extraGoldCost
+      : 0;
+    const undiscountedCraftGoldCost =
+      baseCraftGoldCost + substitutionGoldCost;
+    const resources = association ? {} : await readGuildSettlement(tx, guildId);
     const equipSave = await lockSaveForUpdate<Record<string, unknown>>(
       tx,
       userId,
       "equipment.v2",
       {},
     );
+    const liberationDiscountPct =
+      equippedPersonalCraftGoldDiscountPct(equipSave);
+    const craftGoldCost = discountedPersonalCraftGoldCost(
+      undiscountedCraftGoldCost,
+      liberationDiscountPct,
+    );
+    const totalGoldCost = craftGoldCost + externalUseFeeGold;
     const profile = await readSave<{ name?: string } | null>(
       tx,
       userId,
@@ -396,6 +556,84 @@ export async function POST(req: Request) {
     const parsed = parseEquipmentSave(equipSave);
     const currentArtisan = parseArtisanState(craftingRaw.artisan);
     const currentBlacksmithLevel = artisanLevel(currentArtisan.blacksmith);
+    const item = V2_EQUIPMENT[recipe.equipmentId];
+    const blacksmithProgression = parseBlacksmithProgressionState(
+      craftingRaw.blacksmithProgression,
+    );
+    if (blacksmithProgression.pendingInspection) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "pending_inspection" as const,
+          blacksmithProgression,
+        },
+      };
+    }
+    const techniqueView = blacksmithTechniqueView({
+      level: currentBlacksmithLevel,
+      specialty: blacksmithProgression.specialty,
+      item,
+    });
+    const requestedControl = optionFocus != null || structure != null || useCatalyst;
+    if (requestedControl && !techniqueView.eligible) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "technique_locked" as const },
+      };
+    }
+    if (
+      optionFocus &&
+      !techniqueView.optionFocuses.some((focus) => focus.id === optionFocus)
+    ) {
+      return {
+        status: currentBlacksmithLevel < 15 ? 403 : 400,
+        body: {
+          ok: false as const,
+          error:
+            currentBlacksmithLevel < 15
+              ? ("technique_locked" as const)
+              : ("invalid_option_focus" as const),
+        },
+      };
+    }
+    if (
+      structure &&
+      !techniqueView.structures.some((entry) => entry.id === structure)
+    ) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "technique_locked" as const },
+      };
+    }
+    if (structure === "option" && !optionFocus) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "option_focus_required" as const },
+      };
+    }
+    if (useCatalyst && (!optionFocus || !techniqueView.catalystUnlocked)) {
+      return {
+        status: currentBlacksmithLevel < 17 ? 403 : 400,
+        body: {
+          ok: false as const,
+          error:
+            currentBlacksmithLevel < 17
+              ? ("technique_locked" as const)
+              : ("option_focus_required" as const),
+        },
+      };
+    }
+    if (
+      requestedControl &&
+      craftMode === "masterwork" &&
+      !techniqueView.masterworkTechniquesUnlocked
+    ) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "technique_locked" as const },
+      };
+    }
     if (!meetsGuildWorkshopRecipeLevel(currentArtisan, recipe)) {
       return {
         status: 403,
@@ -464,7 +702,15 @@ export async function POST(req: Request) {
         },
       };
     }
-    if (!hasGuildWorkshopRecipeMaterials(materials, recipe, craftMode)) {
+    const exactMaterialsOk = hasGuildWorkshopRecipeMaterials(
+      materials,
+      recipe,
+      craftMode,
+    );
+    const selectedMaterialsOk = useMaterialSubstitution
+      ? materialSpendPlan.ok
+      : exactMaterialsOk;
+    if (!selectedMaterialsOk) {
       return {
         status: 409,
         body: {
@@ -491,6 +737,23 @@ export async function POST(req: Request) {
         },
       };
     }
+    const materialsAfterRecipe = useMaterialSubstitution
+      ? spendGuildWorkshopMaterialsFromPlan(materials, materialSpendPlan)
+      : spendGuildWorkshopRecipeMaterials(materials, recipe, craftMode);
+    const catalystMaterialId = blacksmithCatalystMaterialForItem(item);
+    if (
+      useCatalyst &&
+      Math.max(0, materialsAfterRecipe[catalystMaterialId] ?? 0) < 1
+    ) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "insufficient_catalyst" as const,
+          catalystMaterialId,
+        },
+      };
+    }
     const goldPreflight = spendGold(
       currentGold,
       currentBankedGold,
@@ -512,6 +775,8 @@ export async function POST(req: Request) {
           error: "insufficient_gold" as const,
           requiredGold: totalGoldCost,
           goldCost: craftGoldCost,
+          baseGoldCost: undiscountedCraftGoldCost,
+          liberationDiscountPct,
           externalUseFeeGold,
           gold: currentGold,
           bankedGold: currentBankedGold,
@@ -555,6 +820,24 @@ export async function POST(req: Request) {
     if (!craftPayment.ok) {
       throw new Error("guild workshop gold preflight drifted");
     }
+    const weeklySource = await claimWeeklyFacilitySource(
+      tx,
+      userId,
+      "guild_smithy",
+      association ? "association" : "guild",
+      week.key,
+      association ? undefined : guildId,
+    );
+    if (!weeklySource.ok) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "weekly_source_conflict" as const,
+          selectedSource: weeklySource.selected,
+        },
+      };
+    }
     const paidCharRaw = {
       ...(fee.charSave as CharacterSaveWithMaterials),
       gold: craftPayment.gold,
@@ -565,11 +848,19 @@ export async function POST(req: Request) {
       recipe.profession,
       recipe.artisanXp,
     );
-    const nextMaterials = spendGuildWorkshopRecipeMaterials(
-      materials,
-      recipe,
-      craftMode,
-    );
+    const catalystPreserved =
+      useCatalyst &&
+      rollBlacksmithCatalystPreserved(currentBlacksmithLevel, Math.random);
+    const nextMaterials =
+      useCatalyst && !catalystPreserved
+        ? {
+            ...materialsAfterRecipe,
+            [catalystMaterialId]: Math.max(
+              0,
+              (materialsAfterRecipe[catalystMaterialId] ?? 0) - 1,
+            ),
+          }
+        : materialsAfterRecipe;
     const craftQuality = rollGuildWorkshopEnhance(
       currentArtisan,
       recipe,
@@ -587,31 +878,86 @@ export async function POST(req: Request) {
       {
         qualityCrafted: Boolean(craftQuality),
         xp: recipe.artisanXp,
+        scoreMultiplier:
+          craftMode === "masterwork"
+            ? GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT
+            : 1,
       },
     );
-    const item = V2_EQUIPMENT[recipe.equipmentId];
     const craftedAt = new Date().toISOString();
-    const nextWeekly = await incrementGuildWorkshopWeeklyProgress(tx, guildId, {
-      qualityCrafted: Boolean(craftQuality),
-      slot: item.slot,
-      craftOnly: item.craftOnly === true,
-      masterwork: craftMode === "masterwork",
-      tier: item.tier,
-    });
+    const nextWeekly = association
+      ? null
+      : await incrementGuildWorkshopWeeklyProgress(tx, guildId, {
+          qualityCrafted: Boolean(craftQuality),
+          slot: item.slot,
+          craftOnly: item.craftOnly === true,
+          masterwork: craftMode === "masterwork",
+          tier: item.tier,
+        });
     const crafterName = profile?.name?.trim() || undefined;
-    const craftedItem = {
-      ...mintRolledEquipInstance(recipe.equipmentId),
-      ...(craftQuality ? { craftQuality } : {}),
-      craftedBy: {
-        userId,
-        ...(crafterName ? { name: crafterName } : {}),
-        profession: recipe.profession,
-        level: currentBlacksmithLevel,
-        craftedAt,
-        ...(craftMode === "masterwork" ? { masterwork: true } : {}),
-      },
+    const shouldCreateInspection =
+      craftMode === "masterwork" &&
+      currentBlacksmithLevel >= 30 &&
+      techniqueView.eligible;
+    const inspectionCandidates = shouldCreateInspection
+      ? rollBlacksmithInspectionCandidates(
+          item,
+          { optionFocus, structure, useCatalyst },
+          Math.random,
+        )
+      : null;
+    const controlledRoll = !shouldCreateInspection && requestedControl
+      ? applyBlacksmithCraftControl(
+          item,
+          rollItemStats(item, Math.random),
+          { optionFocus, structure, useCatalyst },
+          Math.random,
+        )
+      : null;
+    const craftedBy = {
+      userId,
+      ...(crafterName ? { name: crafterName } : {}),
+      profession: recipe.profession,
+      level: currentBlacksmithLevel,
+      craftedAt,
+      ...(craftMode === "masterwork" ? { masterwork: true as const } : {}),
+      ...(currentBlacksmithLevel >= 28 && techniqueView.eligible
+        ? { specialty: blacksmithProgression.specialty }
+        : {}),
     };
-    const nextOwned = [...baseEquipmentSpend.owned, craftedItem];
+    if (shouldCreateInspection && (!craftQuality || !inspectionCandidates)) {
+      throw new Error("masterwork inspection requires quality and candidates");
+    }
+    const pendingInspection =
+      shouldCreateInspection && craftQuality && inspectionCandidates
+        ? {
+            inspectionId: `inspection_${crypto.randomUUID()}`,
+            recipeId: recipe.id,
+            equipmentId: recipe.equipmentId,
+            craftQuality,
+            candidates: [
+              inspectionCandidates[0].roll,
+              inspectionCandidates[1].roll,
+            ] as const,
+            craftedBy,
+            createdAt: craftedAt,
+          }
+        : null;
+    const craftedItem = pendingInspection
+      ? null
+      : {
+          ...(controlledRoll
+            ? mintEquipInstance(recipe.equipmentId, controlledRoll.roll)
+            : mintRolledEquipInstance(recipe.equipmentId)),
+          ...(craftQuality ? { craftQuality } : {}),
+          craftedBy,
+        };
+    const nextOwned = craftedItem
+      ? [...baseEquipmentSpend.owned, craftedItem]
+      : baseEquipmentSpend.owned;
+    const nextBlacksmithProgression = pendingInspection
+      ? { ...blacksmithProgression, pendingInspection }
+      : blacksmithProgression;
 
     await upsertSave(tx, userId, "character.v2", {
       ...paidCharRaw,
@@ -621,6 +967,22 @@ export async function POST(req: Request) {
       owned: nextOwned,
       equipped: parsed.equipped,
     });
+    if (craftedItem && isUnique(item)) {
+      await recordUniqueEquipmentAcquisitions({
+        executor: tx,
+        userId,
+        evidence: {
+          equipmentOwnedAfter: nextOwned,
+          equipmentCodexRaw: await readSave(
+            tx,
+            userId,
+            EQUIPMENT_CODEX_KEY,
+            {},
+          ),
+          acquiredIds: [recipe.equipmentId],
+        },
+      });
+    }
     const nextWorkshopRecords = addGuildWorkshopCraftRecord(
       parseGuildWorkshopCraftRecords(craftingRaw.workshopRecords),
       {
@@ -638,8 +1000,9 @@ export async function POST(req: Request) {
       workshopStats: nextWorkshopStats,
       workshopRecords: nextWorkshopRecords,
       weeklyWorkshopStats: nextWeeklyWorkshopStats,
+      blacksmithProgression: nextBlacksmithProgression,
     });
-    if (shouldLogGuildWorkshopCraftActivity(item)) {
+    if (!association && shouldLogGuildWorkshopCraftActivity(item)) {
       await logGuildActivity(tx, {
         guildId,
         type: "workshop_craft_only",
@@ -649,6 +1012,17 @@ export async function POST(req: Request) {
         },
       });
     }
+    await recordCodexMasteryGameplayBatch(
+      tx,
+      userId,
+      [{
+        category: "equipment",
+        entryId: recipe.equipmentId,
+        amount: 1,
+        source: "equipment.craft",
+      }],
+      new Date(craftedAt),
+    );
 
     const obtainedAt = Date.now();
     const grantedTitles: string[] = [];
@@ -710,7 +1084,7 @@ export async function POST(req: Request) {
         recipeId: recipe.id,
         craftMode,
         equipmentId: recipe.equipmentId,
-        iid: craftedItem.iid,
+        iid: craftedItem?.iid ?? null,
         craftQuality: craftQuality ?? null,
         artisanXpGained: recipe.artisanXp,
         artisan: artisanView({ ...craftingRaw, artisan: nextArtisan }),
@@ -719,7 +1093,16 @@ export async function POST(req: Request) {
         weeklyState: nextWeekly,
         externalAccess: externalAccessView(access),
         externalUseFeeGold: fee.feeGold,
+        usedMaterialSubstitution:
+          useMaterialSubstitution && materialSpendPlan.substitutions.length > 0,
+        materialSubstitutions: useMaterialSubstitution
+          ? materialSpendPlan.substitutions
+          : [],
+        baseGoldCost: undiscountedCraftGoldCost,
+        recipeGoldCost: baseCraftGoldCost,
+        substitutionGoldCost,
         goldCost: craftGoldCost,
+        liberationDiscountPct,
         gold: craftPayment.gold,
         bankedGold: craftPayment.bankedGold,
         spendableGold: spendableGold(
@@ -728,6 +1111,18 @@ export async function POST(req: Request) {
         ),
         smithyLevel,
         smithyBonus,
+        blacksmithProgression: nextBlacksmithProgression,
+        pendingInspection,
+        blacksmithControl: requestedControl
+          ? {
+              optionFocus: optionFocus ?? null,
+              structure: structure ?? null,
+              focusApplied: controlledRoll?.focusApplied ?? false,
+              catalystUsed: useCatalyst,
+              catalystMaterialId: useCatalyst ? catalystMaterialId : null,
+              catalystPreserved,
+            }
+          : null,
         guildBonus: nextGuildBonus,
         recipes: GUILD_WORKSHOP_RECIPE_IDS.map((id) =>
           guildWorkshopRecipeView(
@@ -769,6 +1164,8 @@ export async function POST(req: Request) {
         recipeId: result.body.recipeId,
         craftMode: result.body.craftMode,
         externalUseFeeGold: result.body.externalUseFeeGold,
+        substitutionGoldCost: result.body.substitutionGoldCost,
+        usedMaterialSubstitution: result.body.usedMaterialSubstitution,
       },
     });
   }

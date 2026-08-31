@@ -2,7 +2,15 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { BattleState } from "../v2/combat/engine";
-import { BattleLogList } from "./BattleLogList";
+import {
+  BattleLogList,
+  battleLogGroupFirstTick,
+} from "./BattleLogList";
+import {
+  BattleLogTickIndicator,
+  useBattleLogCurrentTick,
+} from "./BattleLogTickIndicator";
+import { ATB_TIMELINE_TICK_CAP } from "../v2/combat/combatTimeline";
 import { MONSTERS } from "../data/monsters";
 import {
   formatRelative,
@@ -10,6 +18,7 @@ import {
   type NotificationKind,
 } from "@/lib/notifications";
 import { Card } from "@/components/ui/Card";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import type { Gender } from "@/adventure/profile/avatars";
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import type { GameIconName } from "@/adventure/data/v2/gameIcon";
@@ -17,8 +26,24 @@ import { GameIcon } from "@/adventure/v2/GameIcon";
 import { BattleOutcomeBadge } from "@/adventure/v2/BattleOutcomeBadge";
 import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 import { CombatMatchupSummary } from "./CombatMatchupSummary";
+import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
+import {
+  bleedHuntStage,
+  bleedHuntStageLabel,
+} from "@/adventure/data/v2/bleedHunt";
 
 export { actionFrequencyLabel } from "./CombatMatchupSummary";
+
+function BleedHuntStageBadge({ label }: { label: string | null }) {
+  if (!label) return null;
+  return (
+    <div
+      className={`px-2 py-1 text-center text-[11px] font-medium text-rose-700 dark:text-rose-300 ${SURFACE_INSET}`}
+    >
+      출혈 사냥 · {label}
+    </div>
+  );
+}
 
 export type BattlePlayerStatus = {
   gender: Gender;
@@ -186,27 +211,35 @@ export function RecoveryReadout({
   );
 }
 
-// 전투 스탯 표시용 — 공/방/속 기본 + 상세(명중/회피/치명/마공). 적·플레이어 공용 shape.
+// 전투 스탯 표시용 — 공/방/마방/속 기본 + 상세(명중/회피/치명/마공). 적·플레이어 공용 shape.
 export type BattleStats = {
   atk: number;
   def: number;
+  magicDef?: number;
   spd: number;
-  actionSpd?: number; // 몬스터 ATB 행동속도 — raw spd 를 플레이어 속도 스케일로 환산한 값
+  actionSpd?: number; // 몬스터 ATB 행동속도 — 일반 몬스터는 환산값, 직접 속도 몬스터는 데이터값
   accuracy?: number; // 명중(rating) — 적=Monster.accuracy, 플레이어=accRating
-  evasionPct?: number; // 레거시 표시값·몬스터 회피 능력. 플레이어 raw 는 evaRating 우선.
+  evasionPct?: number; // 레거시 표시값·몬스터 회피도. 플레이어 raw 는 evaRating 우선.
   evaRating?: number; // 플레이어 회피 레이팅(raw). 없으면 evasionPct 폴백.
   critChancePct?: number; // 치명 % (플레이어)
   magicAtk?: number; // 마법 공격력(>0 일 때만 상세에)
+  magicBarrierMax?: number;
+  magicBarrierAbsorbPct?: number;
+  magicBarrierEfficiencyPct?: number;
   bonusAttackChancePct?: number; // 몬스터 행동 1회당 추가타 성향
+  statusDamageReductionPct?: number; // 중독·출혈 등 상태 피해 감소율
   primaryAttack?: "physical" | "magic";
+  displayAttack?: "physical" | "magic";
 };
 
 // 상세 스탯 칩 — 항목별 은은한 색 강조(명중/회피/치명/마공).
 const DETAIL_COLOR: Record<string, string> = {
-  "명중 능력": "text-sky-600 dark:text-sky-400",
-  "회피 능력": "text-cyan-600 dark:text-cyan-400",
+  적중도: "text-sky-600 dark:text-sky-400",
+  회피도: "text-cyan-600 dark:text-cyan-400",
   치명타: "text-amber-600 dark:text-amber-400",
   마공: "text-violet-600 dark:text-violet-400",
+  마방: "text-fuchsia-600 dark:text-fuchsia-400",
+  "상태 피해 감소": "text-emerald-600 dark:text-emerald-400",
   "연타 보정": "text-orange-600 dark:text-orange-400",
 };
 
@@ -214,7 +247,7 @@ function pct(n: number): string {
   return `${Math.max(0, Math.min(100, Math.round(n)))}%`;
 }
 
-// 전투 스탯 한 줄 — 공/방/속 기본, 누르면 상세(명중/회피/치명/마공) 칩 펼침. 플레이어 카드·적 칸 공용.
+// 전투 스탯 한 줄 — 공/방/마방/속 기본, 누르면 상세(명중/회피/치명/마공) 칩 펼침. 플레이어 카드·적 칸 공용.
 export function BattleStatStrip({
   stats,
   center = false,
@@ -225,15 +258,16 @@ export function BattleStatStrip({
   variant?: "player" | "enemy";
 }) {
   const [open, setOpen] = useState(false);
-  const usesMagicAttack = stats.primaryAttack === "magic";
+  const usesMagicAttack =
+    (stats.displayAttack ?? stats.primaryAttack) === "magic";
   const primaryAttackLabel = usesMagicAttack ? "마공" : "공";
   const primaryAttackValue = usesMagicAttack
     ? (stats.magicAtk ?? stats.atk ?? 0)
     : (stats.atk ?? 0);
   const details: { label: string; value: string }[] = [
-    { label: "명중 능력", value: String(Math.round(stats.accuracy ?? 0)) },
+    { label: "적중도", value: String(Math.round(stats.accuracy ?? 0)) },
     {
-      label: "회피 능력",
+      label: "회피도",
       value: String(Math.round(stats.evaRating ?? stats.evasionPct ?? 0)),
     },
     ...(stats.critChancePct && stats.critChancePct > 0
@@ -244,6 +278,14 @@ export function BattleStatStrip({
           {
             label: "연타 보정",
             value: `+${Math.round(stats.bonusAttackChancePct)}%`,
+          },
+        ]
+      : []),
+    ...(stats.statusDamageReductionPct && stats.statusDamageReductionPct > 0
+      ? [
+          {
+            label: "상태 피해 감소",
+            value: pct(stats.statusDamageReductionPct),
           },
         ]
       : []),
@@ -279,6 +321,12 @@ export function BattleStatStrip({
         <span>
           <span className={dim}>방</span> {(stats.def ?? 0).toLocaleString()}
         </span>
+        {stats.magicDef != null && (
+          <span>
+            <span className={dim}>마방</span>{" "}
+            {Math.round(stats.magicDef).toLocaleString()}
+          </span>
+        )}
         <span>
           <span className={dim}>{speedLabel}</span>{" "}
           {Math.round(speedValue ?? 0).toLocaleString()}
@@ -421,6 +469,9 @@ export function BattleScene({
   outcome,
   outcomeAction,
   profileBorder,
+  logViewport = "contained",
+  ruleset = "pve",
+  maxHpDamageMult,
 }: {
   state: BattleState;
   playerName: string;
@@ -442,14 +493,43 @@ export function BattleScene({
   // 결과 배너 안에 붙일 후속 액션. 아레나처럼 결과 직후 다음 전투로 이어지는 화면에서만 사용.
   outcomeAction?: BattleOutcomeAction;
   profileBorder?: ProfileBorderId | null;
+  // 결과 화면 안에서는 높이가 제한된 로그, 전용 로그 페이지에서는 문서 흐름에 전체 로그를 표시한다.
+  logViewport?: "contained" | "page";
+  // 회피 대결 계수와 지속 피해 콘텐츠 보정을 전투 시점 규칙으로 표시한다.
+  ruleset?: "pve" | "pvp";
+  maxHpDamageMult?: number;
 }) {
   const hasMp = state.playerMaxMp > 0;
+  const hasMagicBarrier = (state.playerMagicBarrierMax ?? 0) > 0;
+  const equippedSkillIds = state.v2Skills?.equipped ?? [];
+  const hasBleedHunt = equippedSkillIds.some(
+    (skillId) => V2_SKILLS[skillId]?.bleedHunt != null,
+  );
+  const activeEnemyBleedStacks = (state.enemyV2Dots ?? []).reduce(
+    (sum, dot) =>
+      dot.tag === "bleed" && dot.turns > 0 ? sum + dot.stacks : sum,
+    0,
+  );
+  const bleedHuntLabel = hasBleedHunt
+    ? bleedHuntStageLabel(bleedHuntStage(activeEnemyBleedStacks))
+    : null;
+  const showMutationWeight = equippedSkillIds.includes(
+    "v2c_golem_rocksmash",
+  );
   const logRef = useRef<HTMLDivElement>(null);
+  const initialLogTick = battleLogGroupFirstTick(state.log);
+  const currentLogTick = useBattleLogCurrentTick(
+    logRef,
+    initialLogTick,
+    logViewport === "page" && initialLogTick != null,
+    state.log,
+  );
 
   useEffect(() => {
+    if (logViewport === "page") return;
     const el = logRef.current;
     if (el) el.scrollTop = logAnchor === "top" ? 0 : el.scrollHeight;
-  }, [state.log, logAnchor]);
+  }, [state.log, logAnchor, logViewport]);
 
   const recents = (recentNotifications ?? []).slice(
     0,
@@ -457,20 +537,28 @@ export function BattleScene({
   );
   const enemyDisplay = state.enemy as typeof state.enemy & {
     actionSpd?: number;
+    magicAtk?: number;
+    displayAttack?: "physical" | "magic";
   };
   const enemyCombat: BattleStats | null =
     typeof state.enemy.atk === "number"
       ? {
           atk: state.enemy.atk,
           def: state.enemy.def,
+          magicDef: state.enemy.magicDef,
           spd: state.enemy.spd,
           actionSpd: enemyDisplay.actionSpd,
           accuracy: state.enemy.accuracy,
           evasionPct: state.enemy.evasionPct,
           critChancePct: state.enemy.critPct,
           magicAtk:
-            state.enemy.atkType === "magic" ? state.enemy.atk : undefined,
+            enemyDisplay.magicAtk ??
+            (state.enemy.atkType === "magic" ? state.enemy.atk : undefined),
           bonusAttackChancePct: state.enemy.bonusAttackChancePct,
+          statusDamageReductionPct: state.enemy.statusDamageReductionPct,
+          primaryAttack:
+            state.enemy.atkType === "magic" ? "magic" : "physical",
+          displayAttack: enemyDisplay.displayAttack,
         }
       : null;
 
@@ -545,6 +633,15 @@ export function BattleScene({
                   max={state.playerMaxHp}
                   color="bg-rose-500"
                 />
+                {hasMagicBarrier && (
+                  <HpBar
+                    compact
+                    label="장벽"
+                    value={state.playerMagicBarrier ?? 0}
+                    max={state.playerMagicBarrierMax ?? 0}
+                    color="bg-violet-500"
+                  />
+                )}
                 {hasMp && (
                   <HpBar
                     compact
@@ -554,7 +651,7 @@ export function BattleScene({
                     color="bg-blue-500"
                   />
                 )}
-                {/* 공/방/속 — 적 칸과 대칭. 누르면 명중/회피/치명 펼침. EXP 바는 이 패널에서 제거
+                {/* 공/방/마방/속 — 적 칸과 대칭. 누르면 명중/회피/치명 펼침. EXP 바는 이 패널에서 제거
                     (전투 결과/캐릭터 카드에 노출). */}
                 {playerCombat && <BattleStatStrip center stats={playerCombat} />}
               </div>
@@ -589,6 +686,10 @@ export function BattleScene({
                   max={state.enemy.hp}
                   color="bg-rose-500"
                 />
+                <BleedHuntStageBadge label={bleedHuntLabel} />
+                {hasMagicBarrier && (
+                  <div aria-hidden="true" className="h-[1.125rem]" />
+                )}
                 {/* MP — 플레이어와 좌우 위치 맞춤(플레이어가 MP 보유 시 또는 적이 MP 풀 보유 시). */}
                 {(hasMp || state.enemyMaxMp > 0) && (
                   <HpBar
@@ -599,7 +700,7 @@ export function BattleScene({
                     color="bg-blue-500"
                   />
                 )}
-                {/* 공/방/속 — 누르면 명중/회피 펼침. 리플레이/PvP enemy 는 스탯이 없을 수
+                {/* 공/방/마방/속 — 누르면 명중/회피 펼침. 리플레이/PvP enemy 는 스탯이 없을 수
                     있어(payload 부분 객체) atk 숫자일 때만 렌더 — 없으면 표시 생략(크래시 방지). */}
                 {enemyCombat && (
                   <BattleStatStrip
@@ -619,12 +720,32 @@ export function BattleScene({
                     evasionRating:
                       playerCombat.evaRating ?? playerCombat.evasionPct ?? 0,
                     speed: playerCombat.spd,
+                    physicalDefense: playerCombat.def,
+                    magicDefense: playerCombat.magicDef ?? 0,
+                    magicBarrierAbsorbPct:
+                      playerCombat.magicBarrierAbsorbPct ?? 0,
+                    magicBarrierEfficiencyPct:
+                      playerCombat.magicBarrierEfficiencyPct ?? 0,
+                    magicBarrierDurability:
+                      state.playerMagicBarrier ??
+                      playerCombat.magicBarrierMax ??
+                      0,
                   }}
                   enemy={{
                     accuracyRating: enemyCombat.accuracy ?? 0,
                     evasionRating: enemyCombat.evasionPct ?? 0,
                     speed: enemyCombat.actionSpd ?? enemyCombat.spd,
+                    incomingAttack:
+                      enemyCombat.primaryAttack === "magic"
+                        ? (enemyCombat.magicAtk ?? enemyCombat.atk)
+                        : enemyCombat.atk,
+                    incomingAttackType:
+                      enemyCombat.primaryAttack ?? "physical",
+                    maxHpDamageMult,
+                    statusDamageReductionPct:
+                      enemyCombat.statusDamageReductionPct,
                   }}
+                  ruleset={ruleset}
                 />
               </div>
             )}
@@ -645,6 +766,11 @@ export function BattleScene({
                   max={state.enemy.hp}
                   color="bg-rose-500"
                 />
+                {bleedHuntLabel && (
+                  <div className="mt-1.5">
+                    <BleedHuntStageBadge label={bleedHuntLabel} />
+                  </div>
+                )}
               </div>
             </div>
             <div className="mt-4 flex items-start gap-4">
@@ -661,6 +787,14 @@ export function BattleScene({
                   max={state.playerMaxHp}
                   color="bg-rose-500"
                 />
+                {hasMagicBarrier && (
+                  <HpBar
+                    label="마나 실드"
+                    value={state.playerMagicBarrier ?? 0}
+                    max={state.playerMagicBarrierMax ?? 0}
+                    color="bg-violet-500"
+                  />
+                )}
                 {hasMp && (
                   <HpBar
                     label="MP"
@@ -680,13 +814,67 @@ export function BattleScene({
             </div>
           </>
         )}
+        {state.duelistBuff && (
+          <div className={`mt-3 px-3 py-2 text-xs ${SURFACE_INSET}`}>
+            <div className="font-semibold text-violet-700 dark:text-violet-300">
+              {state.duelistBuff.declarationName}
+            </div>
+            <div className="mt-0.5 text-[11px] text-zinc-600 dark:text-zinc-300">
+              남은 평타 {state.duelistBuff.remainingBasicHits}회 · 현재 기세 +
+              {state.duelistBuff.rampPctPerPriorHit * state.duelistBuff.landedBasicHits}%
+            </div>
+          </div>
+        )}
+        {showMutationWeight && (
+          <div
+            aria-label="변이 전투 자원"
+            className={`mt-3 flex flex-wrap gap-2 px-3 py-2 text-xs ${SURFACE_INSET}`}
+          >
+            {showMutationWeight && (
+              <span className="font-semibold tabular-nums text-stone-700 dark:text-stone-200">
+                중량 {state.stacks.mutationWeight}/3
+              </span>
+            )}
+          </div>
+        )}
       </Card>
 
-      <div
-        ref={logRef}
-        className="no-scrollbar h-[50svh] min-h-[18rem] overflow-y-auto rounded-lg border border-zinc-200 bg-white/90 p-3 dark:border-zinc-800 dark:bg-zinc-950/90 sm:h-[34rem] sm:min-h-0"
-      >
-        <BattleLogList entries={state.log} />
+      <div className="relative mb-6 sm:mb-8">
+        <div
+          ref={logRef}
+          data-battle-log-viewport={logViewport}
+          className={`${SURFACE_CARD} p-3 ${
+            logViewport === "page"
+              ? ""
+              : "no-scrollbar h-[58svh] min-h-[22rem] overflow-y-auto sm:h-[40rem] sm:min-h-0"
+          }`}
+        >
+          {currentLogTick != null && (
+            <div className="sticky top-20 z-20 mb-2 flex justify-end xl:hidden">
+              <BattleLogTickIndicator
+                currentTick={currentLogTick}
+                maxTick={ATB_TIMELINE_TICK_CAP}
+                compact
+              />
+            </div>
+          )}
+          <BattleLogList
+            entries={state.log}
+            playerName={playerName}
+            enemyName={state.enemy.name}
+          />
+        </div>
+
+        {currentLogTick != null && (
+          <aside className="absolute inset-y-0 left-full ml-4 hidden w-36 xl:block">
+            <div className="sticky top-20">
+              <BattleLogTickIndicator
+                currentTick={currentLogTick}
+                maxTick={ATB_TIMELINE_TICK_CAP}
+              />
+            </div>
+          </aside>
+        )}
       </div>
 
       {recents.length > 0 && (

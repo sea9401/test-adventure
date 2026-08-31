@@ -7,6 +7,7 @@ import {
   arenaCooldownRemainingMs,
   arenaDailyMatchCount,
   arenaNextStaminaCost,
+  arenaStaminaCostForPhase,
   applyScoreDelta,
   computeGoldReward,
   computeScoreDelta,
@@ -14,6 +15,8 @@ import {
   oppositeArenaOutcome,
   parseArenaState,
   recordArenaDailyMatch,
+  selectArenaCandidatePool,
+  selectPreferredArenaCandidatePool,
   pushRecentOpponent,
   settleArenaElo,
   weightForCandidate,
@@ -37,7 +40,12 @@ const histEntry = (id: string): ArenaHistoryEntry => ({
   scoreDelta: 20,
   goldGained: 1500,
   turns: 12,
-  replay: { enemy: { name: "상대", hp: 450 }, playerMaxHp: 600, playerMaxMp: 100, log: [] },
+  replay: {
+    enemy: { name: "상대", hp: 450 },
+    playerMaxHp: 600,
+    playerMaxMp: 100,
+    log: [{ kind: "info", text: "전투 시작" }],
+  },
 });
 
 describe("전투 기록 — parseArenaHistory / pushArenaHistory", () => {
@@ -51,6 +59,20 @@ describe("전투 기록 — parseArenaHistory / pushArenaHistory", () => {
       { outcome: "loss", opponent: { name: "x", level: 1 }, replay: { log: "nope" } }, // log 배열 아님 → 제거
     ];
     expect(parseArenaHistory(mixed)).toHaveLength(1);
+  });
+
+  it("전체 로그를 별도 저장한 replayId 기록은 빈 미리보기 로그여도 유지한다", () => {
+    const deferred = {
+      ...histEntry("deferred"),
+      replay: {
+        ...histEntry("deferred").replay,
+        replayId: "01987654-3210-4abc-8def-0123456789ab",
+        log: [],
+      },
+    };
+    expect(parseArenaHistory([deferred])).toMatchObject([
+      { id: "deferred", replay: { replayId: deferred.replay.replayId, log: [] } },
+    ]);
   });
 
   it("pushArenaHistory — 최근순 prepend + MAX 로 cap", () => {
@@ -214,6 +236,29 @@ describe("아레나 일일 스태미나 비용", () => {
     expect(arenaNextStaminaCost(state, new Date("2026-07-20T14:59:59Z"))).toBe(2);
     expect(arenaNextStaminaCost(state, new Date("2026-07-20T15:00:00Z"))).toBe(1);
   });
+
+  it("일요일 토너먼트 단계의 연습전은 누적 경기 수와 무관하게 무료다", () => {
+    const state = {
+      ...defaultArenaState(),
+      dailyMatchDate: "2026-07-20",
+      dailyMatchCount: 99,
+    };
+
+    expect(arenaStaminaCostForPhase(state, "tournament", now)).toBe(0);
+  });
+
+  it.each(["ranked", "closed"] as const)(
+    "%s 단계는 기존 누적 스태미나 비용을 유지한다",
+    (phase) => {
+      const state = {
+        ...defaultArenaState(),
+        dailyMatchDate: "2026-07-20",
+        dailyMatchCount: 20,
+      };
+
+      expect(arenaStaminaCostForPhase(state, phase, now)).toBe(3);
+    },
+  );
 });
 
 describe("arenaCooldownRemainingMs", () => {
@@ -341,11 +386,21 @@ describe("weightForCandidate", () => {
     expect(w).toBeCloseTo(1.0, 5);
   });
 
-  it("점수 차 크면 가중치 감소하지만 0.3 floor", () => {
-    const w = weightForCandidate(100, 50, { ...baseCand, score: 500 }, []);
-    // 점수 차 400 > SCORE_WEIGHT_SPAN(200) → 점수 가중치는 floor 0.3
-    // 레벨 동일 → 레벨 가중치 1.0 → 결과 0.3
-    expect(w).toBeCloseTo(0.3, 5);
+  it("점수 차 50마다 가중치가 절반으로 감소한다", () => {
+    expect(
+      weightForCandidate(1000, 50, { ...baseCand, score: 1050 }, []),
+    ).toBeCloseTo(0.5, 5);
+    expect(
+      weightForCandidate(1000, 50, { ...baseCand, score: 1100 }, []),
+    ).toBeCloseTo(0.25, 5);
+    expect(
+      weightForCandidate(1000, 50, { ...baseCand, score: 1200 }, []),
+    ).toBeCloseTo(0.0625, 5);
+  });
+
+  it("아주 먼 점수도 저인구 폴백을 위해 최소 가중치는 남긴다", () => {
+    const w = weightForCandidate(1000, 50, { ...baseCand, score: 2000 }, []);
+    expect(w).toBeCloseTo(0.02, 5);
   });
 
   it("최근 매치 상대는 가중치 ×0.2", () => {
@@ -359,6 +414,130 @@ describe("weightForCandidate", () => {
     // 직접 0 이 나오는 경우는 없지만 안전망 확인
     const w = weightForCandidate(100, 50, baseCand, []);
     expect(w).toBeGreaterThan(0);
+  });
+});
+
+describe("selectArenaCandidatePool", () => {
+  const candidate = (score: number, index: number): ArenaCandidate => ({
+    userId: `u${index}`,
+    name: `상대${index}`,
+    level: 50,
+    score,
+  });
+
+  it("±50 안에 목표 인원이 있으면 가장 가까운 구간만 사용한다", () => {
+    const candidates = [
+      candidate(995, 1),
+      candidate(1010, 2),
+      candidate(1020, 3),
+      candidate(1030, 4),
+      candidate(1050, 5),
+      candidate(1060, 6),
+      candidate(1300, 7),
+    ];
+    expect(selectArenaCandidatePool(1000, candidates).map((c) => c.score)).toEqual([
+      995,
+      1010,
+      1020,
+      1030,
+      1050,
+    ]);
+  });
+
+  it("후보가 부족하면 ±100까지 확장한다", () => {
+    const candidates = [
+      candidate(990, 1),
+      candidate(1020, 2),
+      candidate(1040, 3),
+      candidate(1070, 4),
+      candidate(1090, 5),
+      candidate(1250, 6),
+    ];
+    expect(selectArenaCandidatePool(1000, candidates).map((c) => c.score)).toEqual([
+      990,
+      1020,
+      1040,
+      1070,
+      1090,
+    ]);
+  });
+
+  it("±200에도 부족하면 전체에서 가장 가까운 목표 인원만 고른다", () => {
+    const candidates = [
+      candidate(980, 1),
+      candidate(1150, 2),
+      candidate(1300, 3),
+      candidate(1400, 4),
+      candidate(1500, 5),
+      candidate(1700, 6),
+    ];
+    expect(selectArenaCandidatePool(1000, candidates).map((c) => c.score)).toEqual([
+      980,
+      1150,
+      1300,
+      1400,
+      1500,
+    ]);
+  });
+
+  it("동일 점수·레벨 후보가 많아도 항상 같은 일부만 고정하지 않는다", () => {
+    const candidates = Array.from({ length: 10 }, (_, index) =>
+      candidate(1000, index),
+    );
+    let ascending = 0;
+    let descending = candidates.length;
+    const first = selectArenaCandidatePool(1000, candidates, {
+      target: 5,
+      max: 5,
+      rng: () => ascending++ / candidates.length,
+    });
+    const second = selectArenaCandidatePool(1000, candidates, {
+      target: 5,
+      max: 5,
+      rng: () => descending-- / candidates.length,
+    });
+    expect(first.map((c) => c.userId)).not.toEqual(
+      second.map((c) => c.userId),
+    );
+  });
+});
+
+describe("selectPreferredArenaCandidatePool", () => {
+  const candidate = (score: number, id: string): ArenaCandidate => ({
+    userId: id,
+    name: id,
+    level: 50,
+    score,
+  });
+
+  it("현재 시즌 참가자가 충분하면 더 가까운 미참가자도 후보에 넣지 않는다", () => {
+    const participants = Array.from({ length: 5 }, (_, index) =>
+      candidate(1100 + index, `p${index}`),
+    );
+    const pool = selectPreferredArenaCandidatePool(
+      1000,
+      participants,
+      [candidate(1000, "unranked")],
+      { rng: () => 0.5 },
+    );
+    expect(pool.map((entry) => entry.userId)).not.toContain("unranked");
+  });
+
+  it("현재 시즌 참가자가 부족하면 목표 인원까지만 미참가자로 보충한다", () => {
+    const pool = selectPreferredArenaCandidatePool(
+      1000,
+      [candidate(990, "p1"), candidate(1010, "p2")],
+      [
+        candidate(1000, "u1"),
+        candidate(1020, "u2"),
+        candidate(1030, "u3"),
+        candidate(1040, "u4"),
+      ],
+      { rng: () => 0.5 },
+    );
+    expect(pool).toHaveLength(5);
+    expect(pool.filter((entry) => entry.userId?.startsWith("p"))).toHaveLength(2);
+    expect(pool.filter((entry) => entry.userId?.startsWith("u"))).toHaveLength(3);
   });
 });
 

@@ -5,6 +5,7 @@ import { getAdminEmailsList } from "@/lib/server/isAdmin";
 import { kstWeekStartKey } from "@/adventure/tower/weeklyTypes";
 import { pointsFromExp } from "@/lib/paragon";
 import { derivePowerScore } from "@/adventure/data/v2/power";
+import { powerInputFromPlayer } from "@/lib/server/playerPowerInput";
 import { isStoredAvatarId, type Avatar } from "@/adventure/profile/avatars";
 import {
   derivePlayerCombatV2FromSaves,
@@ -14,25 +15,33 @@ import {
   FISHING_CODEX_KEY,
 } from "@/adventure/v2/fishingCodex";
 import { FARM_SAVE_KEY } from "@/adventure/v2/farm";
-import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking";
+import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking/state";
 import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
 import { MINING_LOG_KEY } from "@/adventure/v2/miningSession";
 import { WOODCUTTING_LOG_KEY } from "@/adventure/v2/woodcuttingSession";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
-import { MASTERY_TOWER_SAVE_KEY } from "@/adventure/data/v2/masteryTower";
+import {
+  MASTERY_TOWER_MAX_FLOOR,
+  MASTERY_TOWER_SAVE_KEY,
+} from "@/adventure/data/v2/masteryTower";
 import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
 import { GUIDE_QUESTS_KEY } from "@/lib/server/v2QuestContext";
 import {
   buildQuestCtx,
   parseClaimed,
 } from "@/lib/server/v2QuestContext";
-import { achievementSummary } from "@/adventure/data/v2/v2Quests";
+import {
+  achievementSummary,
+  claimedUniqueEquipmentAcquisitionFloor,
+} from "@/adventure/data/v2/v2Quests";
 import { parseFishCodex } from "@/adventure/v2/fishingCodex";
 import {
   codexCompletionRankingFromSaves,
   lifeMasteryRankingFromSaves,
 } from "@/lib/server/rankingMetrics";
 import { readMuseunCosmeticAppearanceMap } from "@/lib/server/museunCosmetics";
+import { readBlockedUserIds } from "@/lib/server/ugcSafety";
+import { filterRankingEligibleRows } from "@/lib/server/rankingEligibility";
 
 // 관리자 계정을 랭킹에서 제외하는 SQL 필터. ADMIN_EMAILS 가 비어 있으면 빈 fragment.
 // 호출처는 stats CTE 의 WHERE 절에 그대로 합성한다.
@@ -141,6 +150,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
     WITH stats AS (
       SELECT
         u.id AS user_id,
+        u.banned_until AS "bannedUntil",
         COALESCE(u.game_name, p.value->>'name') AS name,
         p.value->>'gender' AS avatar,
         COALESCE((c.value->>'level')::int, 1) AS level,
@@ -170,13 +180,14 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
       SELECT *, ROW_NUMBER() OVER (ORDER BY ${orderBy})::int AS rank
       FROM stats
     )
-    SELECT user_id, name, avatar, level, cum_level, paragon_exp, fame, rank
+    SELECT user_id, "bannedUntil", name, avatar, level, cum_level, paragon_exp, fame, rank
     FROM ranked
     ORDER BY rank
   `);
 
   type DbRow = {
     user_id: string;
+    bannedUntil: Date | string | null;
     name: string;
     avatar: string | null;
     level: number;
@@ -186,7 +197,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
     fame: number;
     rank: number;
   };
-  return (result.rows as unknown as DbRow[]).map((r) => ({
+  return filterRankingEligibleRows(result.rows as unknown as DbRow[]).map((r, index) => ({
     userId: String(r.user_id),
     name: String(r.name),
     avatar: rankingAvatar(r.avatar),
@@ -198,7 +209,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
     ...EMPTY_NEW_METRICS,
     weekHighest: 0,
     challengeHighest: 0,
-    rank: Number(r.rank),
+    rank: index + 1,
   }));
 }
 
@@ -206,6 +217,7 @@ async function fetchLifeMasteryRows(): Promise<RankRow[]> {
   const result = await db.execute(sql`
     SELECT
       u.id AS user_id,
+      u.banned_until AS "bannedUntil",
       COALESCE(u.game_name, p.value->>'name') AS name,
       p.value->>'gender' AS avatar,
       farm.value AS farm_save,
@@ -232,6 +244,7 @@ async function fetchLifeMasteryRows(): Promise<RankRow[]> {
   `);
   type DbRow = {
     user_id: string;
+    bannedUntil: Date | string | null;
     name: string;
     avatar: string | null;
     farm_save: unknown;
@@ -241,7 +254,7 @@ async function fetchLifeMasteryRows(): Promise<RankRow[]> {
     cooking_save: unknown;
     updated_at: Date | string;
   };
-  return (result.rows as unknown as DbRow[])
+  return filterRankingEligibleRows(result.rows as unknown as DbRow[])
     .map((r) => {
       const mastery = lifeMasteryRankingFromSaves({
         farmRaw: r.farm_save,
@@ -300,6 +313,7 @@ async function fetchCodexCompletionRows(): Promise<RankRow[]> {
   const result = await db.execute(sql`
     SELECT
       u.id AS user_id,
+      u.banned_until AS "bannedUntil",
       COALESCE(u.game_name, p.value->>'name') AS name,
       p.value->>'gender' AS avatar,
       c.value AS character_save,
@@ -338,6 +352,7 @@ async function fetchCodexCompletionRows(): Promise<RankRow[]> {
   `);
   type DbRow = {
     user_id: string;
+    bannedUntil: Date | string | null;
     name: string;
     avatar: string | null;
     character_save: unknown;
@@ -351,7 +366,7 @@ async function fetchCodexCompletionRows(): Promise<RankRow[]> {
     fishing_codex_save: unknown;
     updated_at: Date | string;
   };
-  return (result.rows as unknown as DbRow[])
+  return filterRankingEligibleRows(result.rows as unknown as DbRow[])
     .map((r) => {
       const codex = codexCompletionRankingFromSaves({
         characterRaw: r.character_save,
@@ -437,9 +452,14 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
       FROM guild_activity_rollups
       WHERE period_key = 'lifetime'
       GROUP BY user_id
+    ), referrals AS (
+      SELECT referrer_user_id AS user_id, COUNT(*)::bigint AS referral_count
+      FROM referral_conversions
+      GROUP BY referrer_user_id
     )
     SELECT
       u.id AS user_id,
+      u.banned_until AS "bannedUntil",
       COALESCE(u.game_name, profile.value->>'name') AS name,
       profile.value->>'gender' AS avatar,
       character.value AS character_save,
@@ -460,6 +480,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
       fishing_codex.value AS fishing_codex_save,
       COALESCE(pvp.wins, 0)::bigint AS arena_wins,
       COALESCE(pvp.matches, 0)::bigint AS arena_matches,
+      COALESCE(referrals.referral_count, 0)::bigint AS referral_count,
       (COALESCE(guild_activity.dining_meals, 0) + COALESCE(guild_activity_archived.dining_meals, 0))::bigint AS guild_dining_meals,
       (COALESCE(guild_activity.training_drills, 0) + COALESCE(guild_activity_archived.training_drills, 0))::bigint AS guild_training_drills,
       (COALESCE(guild_activity.expeditions, 0) + COALESCE(guild_activity_archived.expeditions, 0))::bigint AS guild_expeditions,
@@ -494,6 +515,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
     LEFT JOIN saves_kv quests ON quests.user_id = u.id AND quests.key = ${GUIDE_QUESTS_KEY}
     LEFT JOIN saves_kv fishing_codex ON fishing_codex.user_id = u.id AND fishing_codex.key = ${FISHING_CODEX_KEY}
     LEFT JOIN pvp ON pvp.user_id = u.id
+    LEFT JOIN referrals ON referrals.user_id = u.id
     LEFT JOIN guild_activity ON guild_activity.user_id = u.id
     LEFT JOIN guild_activity_archived ON guild_activity_archived.user_id = u.id
     WHERE COALESCE(u.game_name, profile.value->>'name') IS NOT NULL
@@ -501,12 +523,14 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
   `);
   type DbRow = {
     user_id: string; name: string; avatar: string | null;
+    bannedUntil: Date | string | null;
     character_save: unknown; proficiency_save: unknown; adventure_save: unknown;
     equipment_save: unknown; skills_save: unknown; crafting_save: unknown;
     farm_save: unknown; woodcutting_save: unknown; mining_save: unknown;
     fishing_save: unknown; equipment_codex_save: unknown; tower_save: unknown;
     cooking_save: unknown; life_workshop_save: unknown; quests_save: unknown; fishing_codex_save: unknown;
     arena_wins: number | string; arena_matches: number | string;
+    referral_count: number | string;
     guild_dining_meals: number | string;
     guild_training_drills: number | string;
     guild_expeditions: number | string;
@@ -516,9 +540,10 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
     has_guild: boolean; has_traded: boolean;
     updated_at: Date | string;
   };
-  return (result.rows as unknown as DbRow[])
+  return filterRankingEligibleRows(result.rows as unknown as DbRow[])
     .map((r) => {
       const fishCodex = parseFishCodex(r.fishing_codex_save);
+      const claimed = parseClaimed(r.quests_save);
       const fishCaught = Object.values(fishCodex.fish).reduce(
         (sum, entry) => sum + Math.max(0, entry.totalCaught ?? 0),
         0,
@@ -535,6 +560,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
         miningRaw: r.mining_save,
         fishingProgressRaw: r.fishing_save,
         equipmentCodexRaw: r.equipment_codex_save,
+        uniqueAcquiredFloor: claimedUniqueEquipmentAcquisitionFloor(claimed),
         masteryTowerRaw: r.tower_save,
         cookingRaw: r.cooking_save,
         lifeWorkshopRaw: r.life_workshop_save,
@@ -543,6 +569,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
           hasTraded: r.has_traded,
           arenaPlayed: Number(r.arena_matches) > 0,
           arenaWins: Number(r.arena_wins),
+          referralCount: Number(r.referral_count ?? 0),
           fishSpecies: Object.keys(fishCodex.fish).length,
           fishCaught,
           arenaTimes: [],
@@ -554,7 +581,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
           guildTradeContracts: Number(r.guild_trade_contracts ?? 0),
         },
       });
-      const summary = achievementSummary(ctx, parseClaimed(r.quests_save));
+      const summary = achievementSummary(ctx, claimed);
       return {
         userId: String(r.user_id), name: String(r.name), avatar: rankingAvatar(r.avatar),
         level: 1, cumLevel: 0, paragonLevel: 0, fame: 0, combatPower: 0,
@@ -578,6 +605,7 @@ async function fetchMasteryTowerRows(): Promise<RankRow[]> {
   const result = await db.execute(sql`
     SELECT
       u.id AS user_id,
+      u.banned_until AS "bannedUntil",
       COALESCE(u.game_name, p.value->>'name') AS name,
       p.value->>'gender' AS avatar,
       tower.value AS tower_save,
@@ -590,12 +618,13 @@ async function fetchMasteryTowerRows(): Promise<RankRow[]> {
   `);
   type DbRow = {
     user_id: string;
+    bannedUntil: Date | string | null;
     name: string;
     avatar: string | null;
     tower_save: unknown;
     updated_at: Date | string;
   };
-  return (result.rows as unknown as DbRow[])
+  return filterRankingEligibleRows(result.rows as unknown as DbRow[])
     .map((r) => {
       const raw =
         r.tower_save && typeof r.tower_save === "object"
@@ -603,7 +632,10 @@ async function fetchMasteryTowerRows(): Promise<RankRow[]> {
           : {};
       const masteryTowerFloor = Math.max(
         0,
-        Math.min(50, Math.floor(Number(raw.lifetimeBestFloor) || 0)),
+        Math.min(
+          MASTERY_TOWER_MAX_FLOOR,
+          Math.floor(Number(raw.lifetimeBestFloor) || 0),
+        ),
       );
       return {
         userId: String(r.user_id),
@@ -654,6 +686,7 @@ async function fetchCombatPowerRows(): Promise<RankRow[]> {
   const result = await db.execute(sql`
     SELECT
       u.id AS user_id,
+      u.banned_until AS "bannedUntil",
       COALESCE(u.game_name, p.value->>'name') AS name,
       p.value->>'gender' AS avatar,
       c.value AS character_save,
@@ -677,6 +710,7 @@ async function fetchCombatPowerRows(): Promise<RankRow[]> {
   `);
   type DbRow = {
     user_id: string;
+    bannedUntil: Date | string | null;
     name: string;
     avatar: string | null;
     character_save: unknown;
@@ -685,7 +719,7 @@ async function fetchCombatPowerRows(): Promise<RankRow[]> {
     skills_save: unknown;
     updated_at: Date | string;
   };
-  return (result.rows as unknown as DbRow[])
+  return filterRankingEligibleRows(result.rows as unknown as DbRow[])
     .flatMap((r) => {
       const combat = derivePlayerCombatV2FromSaves({
         character: r.character_save as SavedCharacterV2 | undefined,
@@ -695,14 +729,13 @@ async function fetchCombatPowerRows(): Promise<RankRow[]> {
         includeCookingBuff: false,
       });
       if (!combat) return [];
-      const combatPower = derivePowerScore({
-        atk: combat.player.atk,
-        magicAtk: combat.player.magicAtk ?? 0,
-        def: combat.player.def,
-        spd: combat.player.spd,
-        maxHp: combat.maxHp,
-        maxMp: combat.player.maxMp ?? 0,
-      });
+      const combatPower = derivePowerScore(
+        powerInputFromPlayer(
+          combat.player,
+          combat.maxHp,
+          combat.player.maxMp ?? 0,
+        ),
+      );
       const character = r.character_save as SavedCharacterV2;
       return [{
         userId: String(r.user_id),
@@ -753,6 +786,7 @@ async function fetchTowerWeekRows(): Promise<RankRow[]> {
     WITH stats AS (
       SELECT
         u.id AS user_id,
+        u.banned_until AS "bannedUntil",
         COALESCE(u.game_name, p.value->>'name') AS name,
         p.value->>'gender' AS avatar,
         COALESCE((c.value->>'level')::int, 1) AS level,
@@ -772,12 +806,13 @@ async function fetchTowerWeekRows(): Promise<RankRow[]> {
       SELECT *, ROW_NUMBER() OVER (ORDER BY week_highest DESC, updated_at ASC)::int AS rank
       FROM stats
     )
-    SELECT user_id, name, avatar, level, fame, week_highest, rank
+    SELECT user_id, "bannedUntil", name, avatar, level, fame, week_highest, rank
     FROM ranked
     ORDER BY rank
   `);
   type DbRow = {
     user_id: string;
+    bannedUntil: Date | string | null;
     name: string;
     avatar: string | null;
     level: number;
@@ -785,7 +820,7 @@ async function fetchTowerWeekRows(): Promise<RankRow[]> {
     week_highest: number;
     rank: number;
   };
-  return (result.rows as unknown as DbRow[]).map((r) => ({
+  return filterRankingEligibleRows(result.rows as unknown as DbRow[]).map((r, index) => ({
     userId: String(r.user_id),
     name: String(r.name),
     avatar: rankingAvatar(r.avatar),
@@ -797,7 +832,7 @@ async function fetchTowerWeekRows(): Promise<RankRow[]> {
     ...EMPTY_NEW_METRICS,
     weekHighest: Number(r.week_highest),
     challengeHighest: 0,
-    rank: Number(r.rank),
+    rank: index + 1,
   }));
 }
 
@@ -808,6 +843,7 @@ async function fetchTowerChallengeRows(): Promise<RankRow[]> {
     WITH stats AS (
       SELECT
         u.id AS user_id,
+        u.banned_until AS "bannedUntil",
         COALESCE(u.game_name, p.value->>'name') AS name,
         p.value->>'gender' AS avatar,
         COALESCE((c.value->>'level')::int, 1) AS level,
@@ -826,12 +862,13 @@ async function fetchTowerChallengeRows(): Promise<RankRow[]> {
       SELECT *, ROW_NUMBER() OVER (ORDER BY challenge_highest DESC, updated_at ASC)::int AS rank
       FROM stats
     )
-    SELECT user_id, name, avatar, level, fame, challenge_highest, rank
+    SELECT user_id, "bannedUntil", name, avatar, level, fame, challenge_highest, rank
     FROM ranked
     ORDER BY rank
   `);
   type DbRow = {
     user_id: string;
+    bannedUntil: Date | string | null;
     name: string;
     avatar: string | null;
     level: number;
@@ -839,7 +876,7 @@ async function fetchTowerChallengeRows(): Promise<RankRow[]> {
     challenge_highest: number;
     rank: number;
   };
-  return (result.rows as unknown as DbRow[]).map((r) => ({
+  return filterRankingEligibleRows(result.rows as unknown as DbRow[]).map((r, index) => ({
     userId: String(r.user_id),
     name: String(r.name),
     avatar: rankingAvatar(r.avatar),
@@ -851,7 +888,7 @@ async function fetchTowerChallengeRows(): Promise<RankRow[]> {
     ...EMPTY_NEW_METRICS,
     weekHighest: 0,
     challengeHighest: Number(r.challenge_highest),
-    rank: Number(r.rank),
+    rank: index + 1,
   }));
 }
 
@@ -900,7 +937,10 @@ export async function GET(req: Request) {
   }
 
   const rows = await getRows(metric);
-  const visibleRows = rows.slice(0, LIST_LIMIT);
+  const blockedUserIds = new Set(await readBlockedUserIds(userId));
+  const visibleRows = rows
+    .filter((row) => row.userId === userId || !blockedUserIds.has(row.userId))
+    .slice(0, LIST_LIMIT);
   const myRow = rows.find((r) => r.userId === userId);
   const cosmeticByUser = await readMuseunCosmeticAppearanceMap([
     ...visibleRows.map((r) => r.userId),

@@ -20,8 +20,10 @@ export const FISHING_CODEX_KEY = "fishing-codex.v1";
 export const FISHING_CODEX_SP_MILESTONES = [5, 10, 20, 30, 40, 46, 50] as const;
 
 export type FishCodexEntry = {
-  /** 한 번이라도 잡음. */
-  discovered: boolean;
+  /** 현재 도감 등록 SP 권리를 보유함. */
+  registered: boolean;
+  /** 직접 한 번이라도 잡은 개인 기록이 있음. */
+  caughtEver: boolean;
   /** 개인 역대 최대어(cm) — 영구 박제. */
   bestSize: number;
   /** 누적 낚은 마리 수. */
@@ -55,16 +57,26 @@ function parseEntry(raw: unknown): FishCodexEntry | null {
     typeof r.totalCaught === "number" && Number.isFinite(r.totalCaught)
       ? Math.max(0, Math.floor(r.totalCaught))
       : 0;
-  // discovered 가 누락된 옛 데이터는 기록이 있으면(>0) 발견으로 간주.
-  const discovered = r.discovered === true || bestSize > 0 || totalCaught > 0;
-  if (!discovered) return null;
+  const hasCatchHistory = bestSize > 0 || totalCaught > 0;
+  // 새 축이 없는 레거시 데이터는 discovered 또는 기록 존재 여부를 양쪽 축으로 이관한다.
+  const legacyDiscovered = r.discovered === true || hasCatchHistory;
+  const registered = typeof r.registered === "boolean" ? r.registered : legacyDiscovered;
+  const caughtEver = typeof r.caughtEver === "boolean" ? r.caughtEver : legacyDiscovered;
+  if (!registered && !caughtEver) return null;
   const firstCaughtAt =
     typeof r.firstCaughtAt === "number" && Number.isFinite(r.firstCaughtAt) ? r.firstCaughtAt : 0;
   const bestCaughtAt =
     typeof r.bestCaughtAt === "number" && Number.isFinite(r.bestCaughtAt)
       ? r.bestCaughtAt
       : firstCaughtAt;
-  return { discovered: true, bestSize, totalCaught, firstCaughtAt, bestCaughtAt };
+  return {
+    registered,
+    caughtEver,
+    bestSize: caughtEver ? bestSize : 0,
+    totalCaught: caughtEver ? totalCaught : 0,
+    firstCaughtAt: caughtEver ? firstCaughtAt : 0,
+    bestCaughtAt: caughtEver ? bestCaughtAt : 0,
+  };
 }
 
 // 손상된 입력(객체 아님 등)은 빈 도감. 알 수 없는 어종 id 항목은 버린다(어종은 카탈로그가 권위).
@@ -95,14 +107,16 @@ export function recordCatch(
   const prev = codex.fish[fishId];
   const next: FishCodexEntry = prev
     ? {
-        discovered: true,
+        registered: true,
+        caughtEver: true,
         bestSize: Math.max(prev.bestSize, size),
         totalCaught: prev.totalCaught + 1,
         firstCaughtAt: prev.firstCaughtAt || now,
         bestCaughtAt: size > prev.bestSize ? now : prev.bestCaughtAt,
       }
     : {
-        discovered: true,
+        registered: true,
+        caughtEver: true,
         bestSize: size,
         totalCaught: 1,
         firstCaughtAt: now,
@@ -111,9 +125,17 @@ export function recordCatch(
   return { fish: { ...codex.fish, [fishId]: next } };
 }
 
-// 발견한(알려진) 어종 id 들 — 카탈로그에 존재하고 discovered 인 것만.
+export function registeredFishIds(codex: FishCodex): FishId[] {
+  return FISH_IDS.filter((id) => codex.fish[id]?.registered === true);
+}
+
+export function caughtFishIds(codex: FishCodex): FishId[] {
+  return FISH_IDS.filter((id) => codex.fish[id]?.caughtEver === true);
+}
+
+// 기존 호출부 호환 별칭. 도감 발견 수는 현재 등록권 수를 뜻한다.
 export function discoveredFishIds(codex: FishCodex): FishId[] {
-  return FISH_IDS.filter((id) => codex.fish[id]?.discovered === true);
+  return registeredFishIds(codex);
 }
 
 export function countDiscoveredFish(codex: FishCodex): number {
@@ -123,7 +145,7 @@ export function countDiscoveredFish(codex: FishCodex): number {
 export function fishCodexTotalCaught(codex: FishCodex): number {
   return FISH_IDS.reduce((sum, id) => {
     const entry = codex.fish[id];
-    if (!entry?.discovered) return sum;
+    if (!entry?.caughtEver) return sum;
     return sum + Math.max(1, Math.floor(entry.totalCaught));
   }, 0);
 }
@@ -138,7 +160,7 @@ export function fishBestSizeScoreBonus(fishId: FishId, bestSize: number): number
 export function fishCodexScore(codex: FishCodex): number {
   return FISH_IDS.reduce((sum, id) => {
     const entry = codex.fish[id];
-    if (!entry?.discovered) return sum;
+    if (!entry?.caughtEver) return sum;
     const catchCount = Math.max(1, Math.floor(entry.totalCaught));
     const catchScore = catchCount * FISHING_SCORE_BY_TIER[FISH[id].tier];
     return sum + catchScore + fishBestSizeScoreBonus(id, entry.bestSize);
@@ -182,4 +204,43 @@ export function nextFishCodexMilestone(count: number): number | null {
 
 export function fishCodexSpBonus(codex: FishCodex): number {
   return fishCodexSpBonusForCount(countDiscoveredFish(codex));
+}
+
+export function extractFishRegistration(
+  codex: FishCodex,
+  fishId: FishId,
+): { codex: FishCodex; extracted: boolean } {
+  const prev = codex.fish[fishId];
+  if (!prev?.registered) return { codex, extracted: false };
+
+  const fish = { ...codex.fish };
+  if (prev.caughtEver) {
+    fish[fishId] = { ...prev, registered: false };
+  } else {
+    delete fish[fishId];
+  }
+  return { codex: { fish }, extracted: true };
+}
+
+export function registerFishSpecimen(
+  codex: FishCodex,
+  fishId: FishId,
+): { codex: FishCodex; registered: boolean } {
+  const prev = codex.fish[fishId];
+  if (prev?.registered) return { codex, registered: false };
+
+  const next: FishCodexEntry = prev
+    ? { ...prev, registered: true }
+    : {
+        registered: true,
+        caughtEver: false,
+        bestSize: 0,
+        totalCaught: 0,
+        firstCaughtAt: 0,
+        bestCaughtAt: 0,
+      };
+  return {
+    codex: { fish: { ...codex.fish, [fishId]: next } },
+    registered: true,
+  };
 }

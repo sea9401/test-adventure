@@ -16,7 +16,7 @@ export function BackButton({
       aria-label="뒤로"
       variant="secondary"
       size="sm"
-      className={className}
+      className={`min-h-11 sm:min-h-8 ${className ?? ""}`}
     >
       <ArrowLeft size={16} weight="bold" />
       뒤로

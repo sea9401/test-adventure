@@ -1,0 +1,1 @@
+ALTER TABLE "guild_trade_weekly" ADD COLUMN "purchases" jsonb DEFAULT '{}'::jsonb NOT NULL;

@@ -12,14 +12,16 @@ import {
   equipmentBuyOrderMinimumPrice,
   isMarketKind,
   isStackableMarketplaceItem,
-  isTradableMaterial,
+  isTradableMarketplaceMaterial,
   isValidMaterialQty,
   isValidPrice,
   itemDisplayName,
 } from "@/lib/server/marketplaceV2";
 import {
   matchMarketplaceBuyOrder,
+  prepareMarketplaceMatchScope,
   recordMarketplaceAutoMatchFills,
+  requireMarketplaceMatchParticipants,
 } from "@/lib/server/marketplaceBuyOrdersV2";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { marketplaceBuyOrderEdit } from "@/lib/server/marketplaceBuyOrderEdit";
@@ -28,6 +30,11 @@ import {
   clientIpFromRequest,
   recordAbuseEventSoon,
 } from "@/lib/server/abuseLog";
+import {
+  TradeSuspendedError,
+  requireTradeParticipants,
+  tradeSuspendedResponse,
+} from "@/lib/server/tradeSuspension";
 
 type CharSave = {
   gold?: number;
@@ -251,7 +258,10 @@ export async function POST(req: Request) {
     if (!isStackableMarketplaceItem(body.kind, body.itemId)) {
       return bad("not_stackable");
     }
-    if (body.kind === "material" && !isTradableMaterial(body.itemId)) {
+    if (
+      body.kind === "material" &&
+      !isTradableMarketplaceMaterial(body.itemId)
+    ) {
       return bad("not_tradable");
     }
     if (!isValidMaterialQty(body.quantity)) return bad("bad_quantity");
@@ -280,6 +290,16 @@ export async function POST(req: Request) {
   const expiresAt = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
   const result = await db.transaction(async (tx) => {
+    const matchScope = equipOrder
+      ? null
+      : await prepareMarketplaceMatchScope(tx, {
+          kind,
+          itemId,
+          now,
+          participantIds: [userId],
+        });
+    if (matchScope) requireMarketplaceMatchParticipants(matchScope, [userId]);
+    else await requireTradeParticipants(tx, [userId], now);
     const character = await lockSaveForUpdate<CharSave>(
       tx,
       userId,
@@ -329,9 +349,10 @@ export async function POST(req: Request) {
         expiresAt,
       })
       .returning({ id: marketplaceBuyOrdersV2.id });
+    matchScope?.orderIds.add(order.id);
     const fills = equipOrder
       ? []
-      : await matchMarketplaceBuyOrder(tx, order.id, now);
+      : await matchMarketplaceBuyOrder(tx, order.id, now, matchScope!);
     return {
       status: 200,
       fills,
@@ -343,7 +364,11 @@ export async function POST(req: Request) {
         ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
       },
     };
+  }).catch((error) => {
+    if (error instanceof TradeSuspendedError) return tradeSuspendedResponse(error);
+    throw error;
   });
+  if (result instanceof Response) return result;
 
   if (result.status === 200 && "fills" in result && result.body.ok) {
     recordEconomyEventSoon({
@@ -422,6 +447,31 @@ export async function PATCH(req: Request) {
   const now = new Date();
 
   const result = await db.transaction(async (tx) => {
+    const [probe] = await tx
+      .select({
+        id: marketplaceBuyOrdersV2.id,
+        buyerId: marketplaceBuyOrdersV2.buyerId,
+        kind: marketplaceBuyOrdersV2.kind,
+        itemId: marketplaceBuyOrdersV2.itemId,
+      })
+      .from(marketplaceBuyOrdersV2)
+      .where(eq(marketplaceBuyOrdersV2.id, body.orderId as number))
+      .limit(1);
+    if (!probe) {
+      await requireTradeParticipants(tx, [userId], now);
+      return { status: 404, body: { ok: false as const, error: "not_found" } };
+    }
+    const matchScope =
+      probe.kind === "equip"
+        ? null
+        : await prepareMarketplaceMatchScope(tx, {
+            kind: probe.kind,
+            itemId: probe.itemId,
+            now,
+            participantIds: [userId, probe.buyerId],
+          });
+    if (matchScope) requireMarketplaceMatchParticipants(matchScope, [userId]);
+    else await requireTradeParticipants(tx, [userId], now);
     const [order] = await tx
       .select()
       .from(marketplaceBuyOrdersV2)
@@ -430,12 +480,22 @@ export async function PATCH(req: Request) {
     if (!order) {
       return { status: 404, body: { ok: false as const, error: "not_found" } };
     }
+    if (
+      order.buyerId !== probe.buyerId ||
+      order.kind !== probe.kind ||
+      order.itemId !== probe.itemId
+    ) {
+      return { status: 409, body: { ok: false as const, error: "not_active" } };
+    }
     if (order.buyerId !== userId) {
       return { status: 403, body: { ok: false as const, error: "not_owner" } };
     }
     if (order.status !== "active" || order.expiresAt <= now) {
       return { status: 409, body: { ok: false as const, error: "not_active" } };
     }
+    // PATCH 대상은 비잠금 probe와 구매자 잠금을 이미 거쳤다. 일반 상위 50개 scope에서
+    // 빠진 주문도 수정 직후의 기존 자동 매칭 의미를 보존하도록 명시 대상만 추가한다.
+    matchScope?.orderIds.add(order.id);
     const equipOrder = order.kind === "equip";
     if (equipOrder && requestedQuantity !== 1) {
       return { status: 400, body: { ok: false as const, error: "bad_quantity" } };
@@ -547,7 +607,7 @@ export async function PATCH(req: Request) {
       .where(eq(marketplaceBuyOrdersV2.id, order.id));
     const fills = equipOrder
       ? []
-      : await matchMarketplaceBuyOrder(tx, order.id, now);
+      : await matchMarketplaceBuyOrder(tx, order.id, now, matchScope!);
     return {
       status: 200,
       fills,
@@ -562,7 +622,11 @@ export async function PATCH(req: Request) {
           : {}),
       },
     };
+  }).catch((error) => {
+    if (error instanceof TradeSuspendedError) return tradeSuspendedResponse(error);
+    throw error;
   });
+  if (result instanceof Response) return result;
 
   if (result.status === 200 && "fills" in result && result.body.ok) {
     recordEconomyEventSoon({

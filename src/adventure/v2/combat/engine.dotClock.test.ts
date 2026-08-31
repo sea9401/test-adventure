@@ -8,12 +8,16 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
   return { ...actual, V2_CORE_LOOP_V2: true, V2_ATB_SKILLS: true };
 });
 
-import { resolveBattle, type PlayerCombat } from "./engine";
+import { initialBattleState, resolveBattle, type PlayerCombat } from "./engine";
+import { tickPlayerDotsOnAction } from "./engine.atb";
 import { pickAutoAction } from "./pickAutoAction";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
-import { emptyV2SkillsState } from "@/adventure/data/v2/v2Skills";
+import {
+  emptyV2SkillsState,
+  V2_SKILLS,
+} from "@/adventure/data/v2/v2Skills";
 import { derivePlayerCombatV2Pure } from "@/lib/server/derivePlayerCombatV2";
-import { BLEED_ATK_COEF_PER_STACK } from "@/adventure/data/v2/v2CombatConstants";
+import { PLAYER_BLEED_ATK_COEF_PER_STACK } from "@/adventure/data/v2/v2CombatConstants";
 import type { Monster } from "@/adventure/data/monsters";
 import { actionInterval, effectiveMonsterSpd } from "./combatTimeline";
 
@@ -47,13 +51,67 @@ function bleedTicks(log: { text: string; t?: number; turn?: "player" | "enemy" }
   );
 }
 
+function firstBleedDamage(
+  log: { text: string; t?: number; turn?: "player" | "enemy" }[],
+): number {
+  const match = bleedTicks(log)[0]?.text.match(/출혈로 (\d+) 피해/);
+  return Number(match?.[1] ?? 0);
+}
+
+function firstPoisonDamage(
+  log: { text: string; t?: number; turn?: "player" | "enemy" }[],
+): number {
+  const match = log
+    .find((entry) => entry.text.includes("중독으로"))
+    ?.text.match(/중독으로 (\d+) 피해/);
+  return Number(match?.[1] ?? 0);
+}
+
 describe("DoT 행동 틱 (ATB) — 대상 행동 시작 시 틱", () => {
+  it("플레이어에게 걸린 DoT를 마나 실드가 막되 일반 보호막은 소모하지 않는다", () => {
+    const player = derive({
+      hp: 5_000,
+      maxHp: 5_000,
+      bulwarkShield: 100,
+      magicBarrierMax: 1_500,
+      magicBarrierAbsorbPct: 25,
+      magicBarrierEfficiencyPct: 20,
+      statusDamageReductionPct: 50,
+    });
+    const initial = initialBattleState(player, m("부서진 골렘"), "마도사");
+    const dotted = {
+      ...initial,
+      playerV2Dots: [
+        {
+          tag: "bleed" as const,
+          label: "출혈",
+          stacks: 1,
+          maxStacks: 10,
+          turns: 1,
+          flatPerStack: 1_000,
+          atkCoefPerStack: 0,
+          pctMaxHpPerStack: 0,
+          sourceAtk: 0,
+        },
+      ],
+    };
+
+    const next = tickPlayerDotsOnAction(dotted, player, "마도사");
+
+    expect(next.playerHp).toBe(4_625);
+    expect(next.playerMagicBarrier).toBe(1_300);
+    expect(next.stacks.playerShield).toBe(100);
+    expect(next.log.some((entry) => entry.text.includes("피해 250 차단"))).toBe(true);
+  });
+
   it("적에게 걸린 출혈은 적 행동 tick 에 붙는다", () => {
     vi.spyOn(Math, "random").mockImplementation(mulberry32(1));
     const bleeder = derive({
+      // 출혈의 적 행동 틱을 관찰하기 전에 전역 STR 상향 평타로 적을 처치하지 않게 한다.
+      atk: 1,
       bleedOnHit: {
         flatPerStack: 10,
-        atkCoefPerStack: BLEED_ATK_COEF_PER_STACK,
+        atkCoefPerStack: PLAYER_BLEED_ATK_COEF_PER_STACK,
       },
     });
     const enemy = m("부서진 골렘");
@@ -73,6 +131,43 @@ describe("DoT 행동 틱 (ATB) — 대상 행동 시작 시 틱", () => {
     }
   });
 
+  it("피의 양식은 ATB 적 행동의 두 번째 10중첩 출혈 틱에서 회복한다", () => {
+    vi.spyOn(Math, "random").mockImplementation(mulberry32(11));
+    const predator = derive({
+      hp: 5_000,
+      maxHp: 5_000,
+      atk: 1,
+      spd: 50,
+      attackCount: 10,
+      bleedOnHit: { flatPerStack: 100, atkCoefPerStack: 0 },
+    });
+    const enemy = {
+      ...m("부서진 골렘"),
+      hp: 100_000,
+      atk: 1_000,
+      def: 100_000,
+      spd: 50,
+      accuracy: 100,
+    };
+
+    const res = resolveBattle(predator, enemy, "포식자", {
+      pickAction: (state) =>
+        pickAutoAction(state, { rules: [], potions: {} }),
+      potions: {},
+      v2Skills: {
+        learned: ["v2c_predator_bloodnourishment"],
+        equipped: ["v2c_predator_bloodnourishment"],
+      },
+      maxTurns: 4,
+    });
+
+    expect(
+      res.finalState.log.some((entry) =>
+        entry.text.includes("[피의 양식] HP 50 회복했다."),
+      ),
+    ).toBe(true);
+  });
+
   it("DoT 미보유 빌드는 출혈 틱이 없다 (누출 가드)", () => {
     vi.spyOn(Math, "random").mockImplementation(mulberry32(1));
     const plain = derive();
@@ -82,5 +177,148 @@ describe("DoT 행동 틱 (ATB) — 대상 행동 시작 시 틱", () => {
       v2Skills: emptyV2SkillsState(),
     });
     expect(bleedTicks(res.finalState.log).length).toBe(0);
+  });
+
+  it("몬스터의 상태 피해 감소가 실제 적 DoT 틱에 적용된다", () => {
+    const bleeder = derive({
+      bleedOnHit: { flatPerStack: 100, atkCoefPerStack: 0 },
+    });
+    const baseEnemy = { ...m("부서진 골렘"), hp: 10_000, atk: 1 };
+    const run = (statusDamageReductionPct?: number) => {
+      vi.spyOn(Math, "random").mockImplementation(mulberry32(7));
+      return resolveBattle(
+        bleeder,
+        { ...baseEnemy, statusDamageReductionPct },
+        "용사",
+        {
+          pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
+          potions: {},
+          v2Skills: emptyV2SkillsState(),
+        },
+      );
+    };
+
+    const normalDamage = firstBleedDamage(run().finalState.log);
+    const reducedDamage = firstBleedDamage(run(50).finalState.log);
+    expect(normalDamage).toBeGreaterThan(0);
+    expect(reducedDamage).toBe(Math.floor(normalDamage * 0.5));
+  });
+
+  it("만독개화의 침식은 ATB 사냥에서 중독 피해를 28% 증폭한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const venomer: PlayerCombat = {
+      hp: 10_000,
+      maxHp: 10_000,
+      atk: 100,
+      def: 100,
+      spd: 100,
+      evasionPct: 0,
+      attackCount: 1,
+      accuracyPct: 100,
+      maxMp: 100_000,
+      mp: 100_000,
+    };
+    const enemy: Monster = {
+      name: "침식 허수아비",
+      tags: [],
+      hp: 100_000,
+      atk: 1,
+      def: 1_000,
+      spd: 10,
+      exp: 0,
+      evasionPct: 0,
+    };
+    const skill = V2_SKILLS.v2c_myriadvenom_mutation;
+    const erosion = skill.effects.find(
+      (effect) => effect.kind === "enemyDotVuln",
+    );
+    expect(erosion).toBeDefined();
+    const mutableErosion = erosion as { pct: number };
+    const originalPct = mutableErosion.pct;
+    const run = () =>
+      resolveBattle(venomer, enemy, "테스터", {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        v2Skills: {
+          learned: ["v2c_myriadvenom_mutation"],
+          equipped: ["v2c_myriadvenom_mutation"],
+        },
+        maxTurns: 5,
+      });
+
+    try {
+      mutableErosion.pct = 0;
+      const baseDamage = firstPoisonDamage(run().finalState.log);
+      mutableErosion.pct = originalPct;
+      const amplifiedDamage = firstPoisonDamage(run().finalState.log);
+
+      expect(baseDamage).toBeGreaterThan(0);
+      expect(amplifiedDamage).toBe(Math.floor(baseDamage * 1.28));
+    } finally {
+      mutableErosion.pct = originalPct;
+    }
+  });
+
+  it("ATB 보스는 중독의 최대 HP 비례 피해를 20% 감소해 받는다", () => {
+    const venomer = derive({
+      atk: 100,
+      spd: 10,
+      poisonOnHit: { pctMaxHpPerStack: 0.0005 },
+    });
+    const enemy: Monster = {
+      ...m("부서진 골렘"),
+      hp: 100_000,
+      atk: 1,
+      def: 0,
+      spd: 10,
+    };
+    const run = (isBoss: boolean) => {
+      vi.spyOn(Math, "random").mockImplementation(mulberry32(11));
+      return resolveBattle(venomer, enemy, "용사", {
+        pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
+        potions: {},
+        v2Skills: emptyV2SkillsState(),
+        isBoss,
+        maxTurns: 3,
+      });
+    };
+
+    const normalDamage = firstPoisonDamage(run(false).finalState.log);
+    const bossDamage = firstPoisonDamage(run(true).finalState.log);
+    // 고체력 대상의 패시브 없는 중독은 완성 세팅 기준점 조정으로 40,
+    // 일반 보스는 그 최대 HP 비례 성분의 80%를 받는다.
+    expect(normalDamage).toBe(40);
+    expect(bossDamage).toBe(32);
+  });
+
+  it("ATB 협동 보스는 전용 보정으로 중독의 최대 HP 비례 피해를 50% 감소해 받는다", () => {
+    const venomer = derive({
+      atk: 100,
+      spd: 10,
+      poisonOnHit: { pctMaxHpPerStack: 0.0005 },
+    });
+    const enemy: Monster = {
+      ...m("부서진 골렘"),
+      hp: 100_000,
+      atk: 1,
+      def: 0,
+      spd: 10,
+    };
+    vi.spyOn(Math, "random").mockImplementation(mulberry32(11));
+    const context = {
+      pickAction: (state: Parameters<typeof pickAutoAction>[0]) =>
+        pickAutoAction(state, { rules: [], potions: {} }),
+      potions: {},
+      v2Skills: emptyV2SkillsState(),
+      isBoss: true,
+      maxHpDamageMult: 0.5,
+      maxTurns: 3,
+    };
+
+    const damage = firstPoisonDamage(
+      resolveBattle(venomer, enemy, "용사", context).finalState.log,
+    );
+    // 같은 기준 피해 40에서 협동 보스 전용 50% 적용 → 20.
+    expect(damage).toBe(20);
   });
 });

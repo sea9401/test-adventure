@@ -9,6 +9,7 @@ import {
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import { appendEquipInstances } from "@/lib/server/equipGrant";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 
 type CharSave = { materials?: unknown; [k: string]: unknown };
 
@@ -84,6 +85,17 @@ export async function POST(req: Request) {
     });
     // 잠금 순서 character(위에서 lock)→equipment 유지 — append 헬퍼가 equipment 만 잠근다.
     await appendEquipInstances(tx, userId, [inst]);
+    await recordCodexMasteryGameplayBatch(
+      tx,
+      userId,
+      [{
+        category: "equipment",
+        entryId: equipmentId,
+        amount: 1,
+        source: "equipment.drop",
+      }],
+      new Date(),
+    );
 
     return {
       status: 200,

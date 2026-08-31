@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, notInArray } from "drizzle-orm";
 import { db } from "@/db";
 import { bulletinComments } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -13,6 +13,10 @@ import {
   readBulletinActivityMap,
 } from "@/lib/server/bulletinActivity";
 import { syncBulletinActivityTitlesBestEffort } from "@/lib/server/bulletinActivityTitles";
+import {
+  readBlockedUserIds,
+  requireCurrentUgcConsent,
+} from "@/lib/server/ugcSafety";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -30,7 +34,8 @@ export async function GET(_req: Request, ctx: Ctx) {
     return new Response("not found", { status: 404 });
   }
 
-  const rows = await db
+  const blockedUserIds = await readBlockedUserIds(userId);
+  const visibleRows = await db
     .select({
       id: bulletinComments.id,
       parentId: bulletinComments.parentId,
@@ -41,14 +46,27 @@ export async function GET(_req: Request, ctx: Ctx) {
       createdAt: bulletinComments.createdAt,
     })
     .from(bulletinComments)
-    .where(eq(bulletinComments.postId, postId))
+    .where(
+      blockedUserIds.length > 0
+        ? and(
+            eq(bulletinComments.postId, postId),
+            notInArray(bulletinComments.userId, blockedUserIds),
+          )
+        : eq(bulletinComments.postId, postId),
+    )
     .orderBy(asc(bulletinComments.createdAt), asc(bulletinComments.id));
+  // 차단된 원댓글 아래의 답글은 작성자가 달라도 문맥 전체를 함께 숨긴다.
+  const visibleIds = new Set(visibleRows.map((row) => row.id));
+  const rows = visibleRows.filter(
+    (row) => row.parentId === null || visibleIds.has(row.parentId),
+  );
   const activityByUser = await readBulletinActivityMap(
     rows.map((row) => row.userId),
   );
 
   const result = rows.map((r) => ({
     id: r.id,
+    authorUserId: r.userId,
     parentId: r.parentId,
     name: r.name,
     className: r.className,
@@ -124,6 +142,9 @@ export async function POST(req: Request, ctx: Ctx) {
     }
   }
 
+  const consentFailure = await requireCurrentUgcConsent(userId);
+  if (consentFailure) return consentFailure;
+
   // rate limit — 본인 마지막 댓글 시각 기준. 글 작성보다 짧은 10초.
   const since = new Date(Date.now() - BULLETIN_COMMENT_RATE_LIMIT_MS);
   const [lastRow] = await db
@@ -150,6 +171,7 @@ export async function POST(req: Request, ctx: Ctx) {
 
   return Response.json({
     id: inserted.id,
+    authorUserId: userId,
     parentId,
     name,
     className,

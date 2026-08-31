@@ -17,6 +17,7 @@ import {
   ShieldChevron,
   Sparkle,
   Sword,
+  Trophy,
   Trash,
   type Icon,
 } from "@phosphor-icons/react";
@@ -28,6 +29,9 @@ import {
   defaultHousingState,
   housingDisplayKey,
   housingDisplayKindFor,
+  housingMasteryTrophyCategoriesFor,
+  housingMasteryTrophyIsEligible,
+  housingMasteryTrophyKey,
   housingOptionKey,
   housingOwnedCount,
   housingPlacementSize,
@@ -38,6 +42,7 @@ import {
   type HousingPlacement,
   type HousingState,
 } from "@/adventure/data/v2/housing";
+import type { CodexMasteryTrophyTier } from "@/adventure/data/v2/codexMasteryTrophies";
 import { Card } from "@/components/ui/Card";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -52,6 +57,11 @@ type HousingResponse = {
   displayOptions?: HousingDisplayOption[];
   ownedCounts?: Partial<Record<HousingFurnitureId, number>>;
 };
+
+type HousingArtifactDisplayOption = Exclude<
+  HousingDisplayOption,
+  { kind: "masteryTrophy" }
+>;
 
 export type HousingPreviewData = {
   ownerName: string;
@@ -89,6 +99,36 @@ const DISPLAY_KIND_LABEL: Record<HousingDisplayKind, string> = {
   boss: "토벌 기록",
 };
 
+const MASTERY_TROPHY_TIER_STYLE: Record<
+  CodexMasteryTrophyTier,
+  { label: string; className: string }
+> = {
+  bronze: {
+    label: "동",
+    className: "border-orange-700 bg-orange-100 text-orange-800 dark:border-orange-500 dark:bg-orange-950 dark:text-orange-200",
+  },
+  silver: {
+    label: "은",
+    className: "border-zinc-500 bg-zinc-100 text-zinc-700 dark:border-zinc-400 dark:bg-zinc-900 dark:text-zinc-100",
+  },
+  gold: {
+    label: "금",
+    className: "border-amber-600 bg-amber-100 text-amber-800 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200",
+  },
+  platinum: {
+    label: "백금",
+    className: "border-sky-500 bg-sky-50 text-sky-800 dark:border-sky-300 dark:bg-sky-950 dark:text-sky-100",
+  },
+  diamond: {
+    label: "다이아",
+    className: "border-teal-500 bg-teal-50 text-teal-800 dark:border-teal-300 dark:bg-teal-950 dark:text-teal-100",
+  },
+  legendary: {
+    label: "전설",
+    className: "border-violet-600 bg-violet-100 text-violet-800 dark:border-violet-400 dark:bg-violet-950 dark:text-violet-100",
+  },
+};
+
 const HOUSING_ROOM_BACKGROUND = "/images/housing/room_background.webp";
 
 const SAVE_ERROR: Record<string, string> = {
@@ -99,6 +139,8 @@ const SAVE_ERROR: Record<string, string> = {
   items_overlap: "서로 겹친 가구가 있습니다.",
   invalid_display: "가구에 맞지 않는 전시품이 지정되어 있습니다.",
   display_not_owned: "더 이상 보유하지 않은 전시품이 포함되어 있습니다.",
+  invalid_mastery_trophy: "이 가구에는 해당 도감 숙련 트로피를 전시할 수 없습니다.",
+  mastery_trophy_not_owned: "아직 획득하지 않은 도감 숙련 트로피가 포함되어 있습니다.",
 };
 
 function roomSnapshot(room: HousingState): string {
@@ -136,7 +178,7 @@ function placementFits(
   return placementCells(candidate).every((cell) => !occupied.has(cell));
 }
 
-function optionDisplayRef(option: HousingDisplayOption): HousingDisplayRef {
+function optionDisplayRef(option: HousingArtifactDisplayOption): HousingDisplayRef {
   if (option.kind === "equipment") {
     return { kind: "equipment", iid: option.iid };
   }
@@ -151,6 +193,18 @@ function optionForDisplay(
   if (!display) return undefined;
   const key = housingDisplayKey(display);
   return options.find((option) => housingOptionKey(option) === key);
+}
+
+function optionForMasteryTrophy(
+  masteryTrophy: HousingPlacement["masteryTrophy"],
+  options: readonly HousingDisplayOption[],
+): HousingDisplayOption | undefined {
+  if (!masteryTrophy) return undefined;
+  const key = housingMasteryTrophyKey(masteryTrophy);
+  return options.find(
+    (option) =>
+      option.kind === "masteryTrophy" && housingOptionKey(option) === key,
+  );
 }
 
 function nextPlacementUid(counter: number): string {
@@ -189,6 +243,7 @@ export function V2HousingView({
   const [selectedFurnitureId, setSelectedFurnitureId] =
     useState<HousingFurnitureId | null>(null);
   const [selectedPlacementUid, setSelectedPlacementUid] = useState<string | null>(null);
+  const [roomZoomed, setRoomZoomed] = useState(false);
   const uidCounter = useRef(1);
 
   const fetchRoom = useCallback(async () => {
@@ -320,7 +375,9 @@ export function V2HousingView({
   function setSelectedDisplay(value: string) {
     if (!selectedPlacement) return;
     const option = displayOptions.find(
-      (candidate) => housingOptionKey(candidate) === value,
+      (candidate): candidate is HousingArtifactDisplayOption =>
+        candidate.kind !== "masteryTrophy" &&
+        housingOptionKey(candidate) === value,
     );
     setRoom((current) => ({
       ...current,
@@ -331,6 +388,30 @@ export function V2HousingView({
           return withoutDisplay;
         }
         return { ...placement, display: optionDisplayRef(option) };
+      }),
+    }));
+  }
+
+  function setSelectedMasteryTrophy(value: string) {
+    if (!selectedPlacement) return;
+    const option = displayOptions.find(
+      (candidate) =>
+        candidate.kind === "masteryTrophy" &&
+        housingOptionKey(candidate) === value,
+    );
+    setRoom((current) => ({
+      ...current,
+      layout: current.layout.map((placement) => {
+        if (placement.uid !== selectedPlacement.uid) return placement;
+        if (!option || option.kind !== "masteryTrophy") {
+          const { masteryTrophy: _masteryTrophy, ...withoutMasteryTrophy } =
+            placement;
+          return withoutMasteryTrophy;
+        }
+        return {
+          ...placement,
+          masteryTrophy: { trophyId: option.trophyId },
+        };
       }),
     }));
   }
@@ -396,7 +477,12 @@ export function V2HousingView({
     );
   }
 
-  const displayCount = room.layout.filter((placement) => placement.display).length;
+  const displayCount = room.layout.reduce(
+    (count, placement) =>
+      count + Number(Boolean(placement.display)) +
+      Number(Boolean(placement.masteryTrophy)),
+    0,
+  );
 
   return (
     <PageShell spacing="tight">
@@ -456,19 +542,54 @@ export function V2HousingView({
           ) : null}
         </div>
 
-        <RoomCanvas
-          room={room}
-          editable={editable}
-          selectedFurnitureId={selectedFurnitureId}
-          selectedPlacementUid={selectedPlacementUid}
-          optionMap={optionMap}
-          onCellClick={placeFurniture}
-          onPlacementClick={(uid) => {
-            if (!editable) return;
-            setSelectedFurnitureId(null);
-            setSelectedPlacementUid(uid);
-          }}
-        />
+        {editable ? (
+          <div className="space-y-2">
+            <button
+              type="button"
+              aria-pressed={roomZoomed}
+              onClick={() => setRoomZoomed((current) => !current)}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 sm:hidden dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              {roomZoomed ? "전체 보기" : "방 확대"}
+            </button>
+            <div
+              data-testid="housing-room-scroll"
+              className={`max-w-full max-sm:-mx-4 max-sm:w-[calc(100%+2rem)] ${
+                roomZoomed
+                  ? "max-h-[70vh] overflow-auto overscroll-contain touch-pan-x touch-pan-y"
+                  : "overflow-hidden"
+              }`}
+            >
+              <div
+                data-testid="housing-room-canvas"
+                className={roomZoomed ? "w-[200%] max-w-none sm:w-full" : "w-full"}
+              >
+                <RoomCanvas
+                  room={room}
+                  editable
+                  selectedFurnitureId={selectedFurnitureId}
+                  selectedPlacementUid={selectedPlacementUid}
+                  optionMap={optionMap}
+                  onCellClick={placeFurniture}
+                  onPlacementClick={(uid) => {
+                    setSelectedFurnitureId(null);
+                    setSelectedPlacementUid(uid);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <RoomCanvas
+            room={room}
+            editable={false}
+            selectedFurnitureId={selectedFurnitureId}
+            selectedPlacementUid={selectedPlacementUid}
+            optionMap={optionMap}
+            onCellClick={placeFurniture}
+            onPlacementClick={() => {}}
+          />
+        )}
 
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className={`${SURFACE_INSET} px-2 py-2`}>
@@ -563,6 +684,7 @@ export function V2HousingView({
             selectedFurnitureId={selectedFurnitureId}
             displayOptions={displayOptions}
             onDisplayChange={setSelectedDisplay}
+            onMasteryTrophyChange={setSelectedMasteryTrophy}
             onRotate={rotateSelected}
             onRemove={removeSelected}
           />
@@ -638,6 +760,15 @@ function RoomCanvas({
             const option = placement.display
               ? optionMap.get(housingDisplayKey(placement.display))
               : undefined;
+            const masteryOption = placement.masteryTrophy
+              ? optionMap.get(housingMasteryTrophyKey(placement.masteryTrophy))
+              : undefined;
+            const masteryTrophy = masteryOption?.kind === "masteryTrophy"
+              ? masteryOption
+              : undefined;
+            const displayedLabels = [option?.label, masteryTrophy?.label].filter(
+              (label): label is string => Boolean(label),
+            );
             const selected = editable && selectedPlacementUid === placement.uid;
             const depthScale = 1.02 + ((placement.y + height) / HOUSING_GRID_ROWS) * 0.2;
             return (
@@ -645,12 +776,16 @@ function RoomCanvas({
                 key={placement.uid}
                 type="button"
                 disabled={!editable}
-                aria-label={`${def.name}${option ? `: ${option.label}` : ""}`}
+                aria-label={`${def.name}${
+                  displayedLabels.length > 0
+                    ? `: ${displayedLabels.join(" · ")}`
+                    : ""
+                }`}
                 onClick={(event) => {
                   event.stopPropagation();
                   onPlacementClick(placement.uid);
                 }}
-                title={option?.label ?? def.name}
+                title={displayedLabels.join(" · ") || def.name}
                 className={`group relative m-0.5 flex min-w-0 flex-col items-center justify-end overflow-visible rounded-md border border-transparent px-0.5 transition-colors sm:m-1 ${
                   editable ? "hover:border-white/20 hover:bg-black/5" : "cursor-default"
                 } ${selected ? "border-amber-300/80 bg-amber-200/10 ring-2 ring-amber-400" : ""}`}
@@ -697,12 +832,25 @@ function RoomCanvas({
                     className="mb-4 shrink-0 text-amber-300 drop-shadow-md"
                   />
                 )}
+                {masteryTrophy ? (
+                  <span
+                    className={`pointer-events-none absolute -right-1 -top-1 z-30 inline-flex max-w-[92%] items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[8px] font-bold shadow-sm ${
+                      MASTERY_TROPHY_TIER_STYLE[masteryTrophy.currentTier].className
+                    }`}
+                  >
+                    <Trophy size={10} weight="fill" aria-hidden="true" />
+                    <span className="truncate">{masteryTrophy.label}</span>
+                    <span className="shrink-0">
+                      {MASTERY_TROPHY_TIER_STYLE[masteryTrophy.currentTier].label}
+                    </span>
+                  </span>
+                ) : null}
                 <span
-                  className={`pointer-events-none relative z-20 mb-0.5 max-w-full shrink-0 truncate rounded px-1 py-0.5 text-[7px] font-semibold leading-tight text-white opacity-0 shadow transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 sm:text-[9px] ${
+                  className={`pointer-events-none relative z-20 mb-0.5 max-w-full shrink-0 truncate rounded px-1 py-0.5 text-xs font-semibold leading-tight text-white opacity-0 shadow transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 sm:text-[9px] ${
                     def.category === "display" ? "bg-sky-950" : "bg-zinc-950"
                   } ${selected ? "opacity-100" : ""}`}
                 >
-                  {option?.label ?? def.name}
+                  {displayedLabels.join(" · ") || def.name}
                 </span>
               </button>
             );
@@ -710,7 +858,7 @@ function RoomCanvas({
         </div>
       </div>
       {editable && selectedFurnitureId ? (
-        <div className="pointer-events-none absolute bottom-3 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-full bg-zinc-950 px-3 py-1.5 text-[10px] font-semibold text-white shadow-lg ring-1 ring-amber-300/50">
+        <div className="pointer-events-none absolute bottom-3 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-full bg-zinc-950 px-3 py-1.5 text-xs font-semibold text-white shadow-lg ring-1 ring-amber-300/50">
           배치할 바닥 칸을 선택하세요
         </div>
       ) : null}
@@ -723,6 +871,7 @@ function HousingSelectionPanel({
   selectedFurnitureId,
   displayOptions,
   onDisplayChange,
+  onMasteryTrophyChange,
   onRotate,
   onRemove,
 }: {
@@ -730,6 +879,7 @@ function HousingSelectionPanel({
   selectedFurnitureId: HousingFurnitureId | null;
   displayOptions: HousingDisplayOption[];
   onDisplayChange: (value: string) => void;
+  onMasteryTrophyChange: (value: string) => void;
   onRotate: () => void;
   onRemove: () => void;
 }) {
@@ -744,6 +894,22 @@ function HousingSelectionPanel({
   const selectedDisplayKey = placement?.display
     ? housingDisplayKey(placement.display)
     : "";
+  const masteryTrophyOptions = placement
+    ? displayOptions.filter(
+        (option) =>
+          option.kind === "masteryTrophy" &&
+          housingMasteryTrophyIsEligible(
+            placement.furnitureId,
+            option.category,
+          ),
+      )
+    : [];
+  const selectedMasteryTrophyKey = placement?.masteryTrophy
+    ? housingMasteryTrophyKey(placement.masteryTrophy)
+    : "";
+  const supportsMasteryTrophy = placement
+    ? housingMasteryTrophyCategoriesFor(placement.furnitureId).length > 0
+    : false;
 
   return (
     <Card padding="md" className="space-y-3">
@@ -788,6 +954,32 @@ function HousingSelectionPanel({
         </label>
       ) : null}
 
+      {placement && supportsMasteryTrophy ? (
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-semibold">
+            도감 숙련 트로피
+          </span>
+          <select
+            aria-label="도감 숙련 트로피"
+            value={selectedMasteryTrophyKey}
+            onChange={(event) => onMasteryTrophyChange(event.target.value)}
+            className="min-h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+          >
+            <option value="">전시하지 않음</option>
+            {masteryTrophyOptions.map((option) => (
+              <option key={housingOptionKey(option)} value={housingOptionKey(option)}>
+                {option.label} · {option.detail}
+              </option>
+            ))}
+          </select>
+          {masteryTrophyOptions.length === 0 ? (
+            <span className="mt-1.5 block text-[11px] text-zinc-500 dark:text-zinc-400">
+              이 가구에 어울리는 도감 숙련 트로피를 획득하면 표시됩니다.
+            </span>
+          ) : null}
+        </label>
+      ) : null}
+
       {placement ? (
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -823,14 +1015,20 @@ function VisitorDisplays({
 }) {
   const displays = room.layout.flatMap((placement) => {
     const option = optionForDisplay(placement.display, displayOptions);
-    return option ? [option] : [];
+    const masteryTrophy = optionForMasteryTrophy(
+      placement.masteryTrophy,
+      displayOptions,
+    );
+    return [option, masteryTrophy].filter(
+      (item): item is HousingDisplayOption => item !== undefined,
+    );
   });
   return (
     <Card padding="md" className="space-y-3">
       <div>
         <h2 className="text-sm font-semibold">대표 전시 기록</h2>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          숙소 주인이 직접 선택한 장비와 모험 기록입니다.
+          숙소 주인이 직접 선택한 장비, 모험 기록과 도감 숙련 트로피입니다.
         </p>
       </div>
       {displays.length === 0 ? (

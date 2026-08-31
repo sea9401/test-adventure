@@ -23,6 +23,7 @@ const post: BulletinPost = {
   commentCount: 2,
   viewCount: 10,
   likedByMe: false,
+  viewedByMe: false,
   authorActivity: deriveBulletinActivity({
     creditedPosts: 100,
     creditedComments: 100,
@@ -59,5 +60,24 @@ describe("게시판 모바일 작성자 레이아웃", () => {
       "max-w-full shrink-0 break-all rounded text-sm font-semibold",
     );
     expect(html).not.toContain("min-w-0 truncate rounded text-sm font-semibold");
+  });
+
+  it("읽지 않은 공지 목록 행에 신규 점을 표시하고 열람 후 숨긴다", () => {
+    const unread = renderToStaticMarkup(
+      <PostListRow
+        post={{ ...post, category: "notice", viewedByMe: false }}
+        onOpen={vi.fn()}
+      />,
+    );
+    const read = renderToStaticMarkup(
+      <PostListRow
+        post={{ ...post, category: "notice", viewedByMe: true }}
+        onOpen={vi.fn()}
+      />,
+    );
+
+    expect(unread).toContain("읽지 않은 공지");
+    expect(unread).toContain("bg-rose-500");
+    expect(read).not.toContain("읽지 않은 공지");
   });
 });

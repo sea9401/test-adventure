@@ -4,10 +4,10 @@ import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
-import { SparringFullLogDialog } from "@/adventure/v2/SparringFullLogDialog";
 import type { BattleStats } from "@/adventure/battle/BattleScene";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { useSparring } from "@/adventure/v2/useSparring";
+import { FriendlySparringPanel } from "@/adventure/v2/FriendlySparringPanel";
 import type { Gender } from "@/adventure/profile/avatars";
 import {
   DEFAULT_SPAR_DUMMY_CONFIG,
@@ -46,6 +46,8 @@ export function V2SparringView({
   onBack,
   playerSubtitle,
   playerCombat,
+  initialMode = "dummy",
+  initialTargetName,
 }: {
   playerName: string;
   gender: Gender;
@@ -53,10 +55,12 @@ export function V2SparringView({
   // 전투 장면 플레이어 부제(레벨·직업·속성).
   playerSubtitle?: string;
   playerCombat?: BattleStats;
+  initialMode?: "dummy" | "friendly";
+  initialTargetName?: string;
 }) {
   const { busy, lastResult, error, spar } = useSparring();
+  const [mode, setMode] = useState<"dummy" | "friendly">(initialMode);
   const [round, setRound] = useState(0);
-  const [fullLogOpen, setFullLogOpen] = useState(false);
   const [preset, setPreset] = useState<SparringDummyPresetId | "custom">(
     "sandbag",
   );
@@ -66,7 +70,6 @@ export function V2SparringView({
   const currentDummy = sanitizeSparringDummyConfig(dummyDraft);
 
   const handleSpar = async () => {
-    setFullLogOpen(false);
     const r = await spar(currentDummy);
     if (r) setRound((n) => n + 1);
   };
@@ -90,7 +93,31 @@ export function V2SparringView({
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="대련장" onBack={onBack} />
-      <Card padding="md">
+      <nav className="grid grid-cols-2 gap-1 rounded-lg border border-zinc-200 bg-white p-1 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        {([
+          ["dummy", "허수아비 연습"],
+          ["friendly", "유저 친선전"],
+        ] as const).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setMode(id)}
+            aria-pressed={mode === id}
+            className={
+              "rounded-md px-3 py-2 text-sm font-semibold transition " +
+              (mode === id
+                ? "bg-sky-600 text-white shadow-sm"
+                : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800")
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {mode === "dummy" ? (
+        <>
+          <Card padding="md">
         <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
           {SPARRING_DUMMY_PRESETS.map((p) => (
             <button
@@ -163,50 +190,31 @@ export function V2SparringView({
             )}`}
           </p>
         )}
-      </Card>
-
-      {lastResult?.replay && (
-        <>
-          <Card
-            padding="sm"
-            className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <div>
-              <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
-                전투 시작부터 종료까지 기록했어요.
-              </p>
-              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                초반 MP 스킬의 피해량도 전체 로그에서 다시 확인할 수 있습니다.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setFullLogOpen(true)}
-              aria-haspopup="dialog"
-              className="shrink-0 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:ring-offset-zinc-900"
-            >
-              전체 로그 보기
-            </button>
           </Card>
-          <ReplayBattleScene
-            key={round}
-            payload={lastResult.replay}
-            startPlayerHp={lastResult.startPlayerHp}
-            playerName={playerName}
-            gender={gender}
-            exp={0}
-            maxExp={1}
-            playerSubtitle={playerSubtitle}
-            playerCombat={playerCombat}
-          />
-          {fullLogOpen && (
-            <SparringFullLogDialog
-              entries={lastResult.replay.log}
-              enemyName={lastResult.enemyName}
-              onClose={() => setFullLogOpen(false)}
+
+          {lastResult?.replay && (
+            <ReplayBattleScene
+              key={round}
+              payload={lastResult.replay}
+              startPlayerHp={lastResult.startPlayerHp}
+              playerName={playerName}
+              gender={gender}
+              exp={0}
+              maxExp={1}
+              playerSubtitle={playerSubtitle}
+              playerCombat={playerCombat}
+              logTitle="허수아비 전체 전투 로그"
             />
           )}
         </>
+      ) : (
+        <FriendlySparringPanel
+          initialTargetName={initialTargetName}
+          playerName={playerName}
+          gender={gender}
+          playerSubtitle={playerSubtitle}
+          playerCombat={playerCombat}
+        />
       )}
     </main>
   );

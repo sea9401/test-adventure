@@ -1,17 +1,18 @@
 import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { artisanLeaderboardSnapshots, savesKv } from "@/db/schema";
+import { artisanLeaderboardSnapshots, savesKv, users } from "@/db/schema";
 import {
   parseArtisanWeeklyWorkshopStats,
   rankArtisanLeaderboardEntries,
 } from "@/adventure/data/v2/artisanLeaderboard";
+import { filterRankingEligibleRows } from "@/lib/server/rankingEligibility";
 
 type SnapshotCandidate = {
   userId: string;
   weekKey: string;
   totalCrafts: number;
   qualityCrafts: number;
-  weeklyXp: number;
+  score: number;
 };
 
 function candidateFromSave(row: {
@@ -29,7 +30,7 @@ function candidateFromSave(row: {
       : "";
   if (!weekKey) return null;
   const stats = parseArtisanWeeklyWorkshopStats(raw, weekKey);
-  if (stats.totalCrafts <= 0 && stats.qualityCrafts <= 0 && stats.xp <= 0) {
+  if (stats.totalCrafts <= 0 && stats.qualityCrafts <= 0 && stats.score <= 0) {
     return null;
   }
   return {
@@ -37,7 +38,7 @@ function candidateFromSave(row: {
     weekKey,
     totalCrafts: stats.totalCrafts,
     qualityCrafts: stats.qualityCrafts,
-    weeklyXp: stats.xp,
+    score: stats.score,
   };
 }
 
@@ -45,10 +46,15 @@ export async function snapshotStaleArtisanLeaderboards(
   currentWeekKey: string,
 ): Promise<number> {
   const rows = await db
-    .select({ userId: savesKv.userId, value: savesKv.value })
+    .select({
+      userId: savesKv.userId,
+      value: savesKv.value,
+      bannedUntil: users.bannedUntil,
+    })
     .from(savesKv)
+    .innerJoin(users, eq(users.id, savesKv.userId))
     .where(eq(savesKv.key, "crafting.v2"));
-  const candidates = rows
+  const candidates = filterRankingEligibleRows(rows)
     .map(candidateFromSave)
     .filter((row): row is SnapshotCandidate => row != null)
     .filter((row) => row.weekKey !== currentWeekKey);
@@ -73,7 +79,8 @@ export async function snapshotStaleArtisanLeaderboards(
       rank: index + 1,
       totalCrafts: entry.totalCrafts,
       qualityCrafts: entry.qualityCrafts,
-      weeklyXp: entry.weeklyXp,
+      // 기존 DB 컬럼명은 호환성을 위해 유지하되 값은 장인 점수다.
+      weeklyXp: entry.score,
     }));
     const result = await db
       .insert(artisanLeaderboardSnapshots)
@@ -92,7 +99,7 @@ export async function latestArtisanLeaderboardSnapshotForUser(userId: string) {
       rank: artisanLeaderboardSnapshots.rank,
       totalCrafts: artisanLeaderboardSnapshots.totalCrafts,
       qualityCrafts: artisanLeaderboardSnapshots.qualityCrafts,
-      weeklyXp: artisanLeaderboardSnapshots.weeklyXp,
+      score: artisanLeaderboardSnapshots.weeklyXp,
       rewardClaimedAt: artisanLeaderboardSnapshots.rewardClaimedAt,
     })
     .from(artisanLeaderboardSnapshots)

@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import { authConfig } from "@/auth.config";
 import { isApiRequestBodyTooLarge } from "@/lib/apiRequestBodyLimit";
+import { canPassMuseunCoinShopProxy } from "@/lib/museunCoinShopGate";
 import { NextResponse } from "next/server";
 
 const { auth } = NextAuth(authConfig);
@@ -17,6 +18,20 @@ const STAGING_ALLOW = new Set<string>(["/api/health"]);
 //   deploy/maintenance.sh off 가 legacy 값을 false 로 정리한 뒤 nginx 플래그를 해제한다.
 const MAINTENANCE_ALLOW = new Set<string>(["/api/health"]);
 
+// 숙소 콘텐츠를 다시 공개할 때 lifeCrafting.ts의 LIFE_HOUSING_ENABLED와 함께 연다.
+// 페이지 내부 notFound()는 스트리밍 응답에서 HTTP 200 소프트 404가 될 수 있으므로,
+// 비공개 기간에는 Proxy에서 페이지와 API 모두 실제 404로 먼저 차단한다.
+const LIFE_HOUSING_ROUTES_ENABLED = false;
+
+function isLifeHousingRoute(pathname: string): boolean {
+  return (
+    pathname === "/character/room" ||
+    pathname === "/api/v2/me/housing" ||
+    /^\/character\/[^/]+\/room\/?$/.test(pathname) ||
+    /^\/api\/v2\/player\/[^/]+\/housing\/?$/.test(pathname)
+  );
+}
+
 // 점검 중 보일 HTML. CLOSED_HTML 과 동일 톤(니어블랙·미니멀·이모지 없음). 앱 의존 없이 인라인.
 const MAINTENANCE_HTML = `<!DOCTYPE html>
 <html lang="ko">
@@ -24,44 +39,34 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex,nofollow" />
-<title>잠시만 기다려 주세요</title>
+<title>서버 점검 안내 — 무슨무슨게임</title>
 <style>
   html,body{margin:0;padding:0;height:100%;background:#09090b;color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
   main{min-height:100%;display:flex;align-items:center;justify-content:center;padding:1.5rem;box-sizing:border-box}
-  .box{width:min(100%,32rem);box-sizing:border-box;padding:2.75rem 2rem;text-align:center;background:#18181b;border:1px solid #3f3f46;border-radius:1rem;box-shadow:0 1.5rem 4rem rgba(0,0,0,.4)}
+  .box{width:min(100%,36rem);box-sizing:border-box;padding:2.5rem 2rem;text-align:center;background:#18181b;border:1px solid #3f3f46;border-radius:1rem;box-shadow:0 1.5rem 4rem rgba(0,0,0,.4)}
   .status{display:inline-flex;align-items:center;gap:.5rem;margin-bottom:1.25rem;padding:.4rem .75rem;border:1px solid #3f3f46;border-radius:999px;color:#d4d4d8;font-size:.75rem;font-weight:700;letter-spacing:.04em}
   .status::before{content:"";width:.45rem;height:.45rem;border-radius:50%;background:#f59e0b;box-shadow:0 0 0 .2rem rgba(245,158,11,.14)}
   h1{font-size:clamp(1.6rem,6vw,2rem);font-weight:800;letter-spacing:-.035em;margin:0}
-  .lead{margin:1rem 0 0;color:#d4d4d8;font-size:1rem;font-weight:600;line-height:1.7}
-  .schedule{margin:1.5rem 0 0;padding:1rem;background:#27272a;border:1px solid #3f3f46;border-radius:.75rem}
-  .schedule-label{margin:0 0 .55rem;color:#fbbf24;font-size:.75rem;font-weight:800;letter-spacing:.06em}
-  .schedule-time{display:block;color:#fafafa;font-size:1rem;font-weight:800;line-height:1.6}
-  .duration{display:block;margin-top:.2rem;color:#d4d4d8;font-size:.825rem;font-weight:600}
-  .divider{width:3rem;height:1px;margin:1.5rem auto;background:#3f3f46}
-  .note{margin:0;color:#a1a1aa;font-size:.875rem;line-height:1.75}
-  @media (max-width:30rem){main{padding:1rem}.box{padding:2.25rem 1.35rem;border-radius:.875rem}}
+  .lead{margin:1rem 0 0;color:#d4d4d8;font-size:.95rem;line-height:1.75}
+  .details{display:grid;gap:.75rem;margin:1.5rem 0 0;padding:1rem;text-align:left;background:#09090b;border:1px solid #3f3f46;border-radius:.75rem}
+  .row{display:grid;grid-template-columns:6.25rem 1fr;gap:.75rem;margin:0;font-size:.9rem;line-height:1.55}
+  .row dt{color:#a1a1aa;font-weight:700}.row dd{margin:0;color:#f4f4f5;font-weight:600}
+  .notice{margin:1.25rem 0 0;color:#d4d4d8;font-size:.9rem;line-height:1.65}
+  .note{margin:.75rem 0 0;color:#a1a1aa;font-size:.8rem;line-height:1.6}
+  @media (max-width:30rem){main{padding:1rem}.box{padding:2rem 1.25rem;border-radius:.875rem}.row{grid-template-columns:1fr;gap:.2rem}}
 </style>
 </head>
 <body>
 <main>
   <div class="box" role="status" aria-live="polite">
     <div class="status">서버 점검</div>
-    <h1>서버 점검 중입니다</h1>
-    <p class="lead">업데이트 적용 및 서비스 안정화를 위해<br />점검을 진행하고 있습니다.</p>
-    <div class="schedule" aria-label="점검 일정">
-      <p class="schedule-label">점검 일정</p>
-      <span class="schedule-time">
-        <time datetime="2026-08-06T07:30:00+09:00">8월 6일(목) 오전 7시 30분</time>
-        ~
-        <time datetime="2026-08-06T08:00:00+09:00">오전 8시</time>
-      </span>
-      <span class="duration">예상 소요 시간 · 약 30분</span>
-    </div>
-    <div class="divider" aria-hidden="true"></div>
-    <p class="note">
-      점검 진행 상황에 따라 종료 시각이<br />앞당겨지거나 연장될 수 있습니다.<br />
-      안정적인 서비스 제공을 위해 최선을 다하겠습니다.
-    </p>
+    <h1>서버 점검 안내</h1>
+    <p class="lead">안정적인 서비스 제공을 위해 아래와 같이 서버 점검을 진행합니다.</p>
+    <dl class="details">
+      <div class="row"><dt>점검 시간:</dt><dd>8월 29일(토) 오전 4:00 ~ 오전 5:00 (약 1시간)</dd></div>
+    </dl>
+    <p class="notice">점검 중에는 게임 접속 및 이용이 불가합니다.</p>
+    <p class="note">점검은 진행 상황에 따라 조기에 종료되거나 연장될 수 있습니다.<br />이용에 불편을 드려 죄송하며, 더욱 안정적인 서비스를 제공할 수 있도록 최선을 다하겠습니다.<br />감사합니다.</p>
   </div>
 </main>
 </body>
@@ -104,17 +109,27 @@ const CLOSED_HTML = `<!DOCTYPE html>
 </html>`;
 
 export default auth((req) => {
-  // 유료 서비스 출시 승인 전에는 인증/정적 렌더보다 앞에서 코인 상점의 존재 자체를 숨긴다.
-  // page의 notFound()만으로는 정적 App Router 셸이 HTTP 200으로 응답할 수 있어 Proxy에서도
-  // 동일한 fail-closed 게이트를 둔다. Route Handler에도 별도 404 검사가 남아 있다.
   if (
-    process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN !== "true" &&
-    (req.nextUrl.pathname === "/settings/coin-shop" ||
-      req.nextUrl.pathname === "/api/v2/museun-coin-shop")
+    !LIFE_HOUSING_ROUTES_ENABLED &&
+    isLifeHousingRoute(req.nextUrl.pathname)
   ) {
     return new NextResponse(null, {
       status: 404,
       headers: { "cache-control": "no-store" },
+    });
+  }
+
+  const isCoinShopRoute =
+    req.nextUrl.pathname === "/settings/coin-shop" ||
+    req.nextUrl.pathname === "/api/v2/museun-coin-shop" ||
+    req.nextUrl.pathname.startsWith("/api/v2/museun-coin-shop/");
+  if (
+    isCoinShopRoute &&
+    !canPassMuseunCoinShopProxy(req.auth?.user, process.env)
+  ) {
+    return new NextResponse(null, {
+      status: 404,
+      headers: { "cache-control": "private, no-store" },
     });
   }
 

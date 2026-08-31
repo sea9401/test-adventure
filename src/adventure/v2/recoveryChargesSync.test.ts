@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  experienceProgressUpdate,
   recoveryChargesUpdate,
   type RecoveryChargesUpdate,
 } from "./recoveryChargesSync";
@@ -39,5 +40,15 @@ describe("recoveryChargesUpdate", () => {
       hpCharges: 8_000,
       mpCharges: 4_000,
     });
+  });
+});
+
+describe("experienceProgressUpdate", () => {
+  it("사냥 후 경험치를 공용 상태에 반영해 화면 재진입 초기값을 최신값으로 유지한다", () => {
+    let sharedProgress = { exp: 120, expToNext: 1_000 };
+    const update = experienceProgressUpdate(460, 1_000);
+    if (update) sharedProgress = { ...sharedProgress, ...update };
+
+    expect(sharedProgress).toEqual({ exp: 460, expToNext: 1_000 });
   });
 });

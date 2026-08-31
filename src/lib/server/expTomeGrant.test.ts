@@ -3,6 +3,71 @@ import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import { applyExpTomeGrant, EXP_TOME_GRANT } from "./expTomeGrant";
 
 describe("applyExpTomeGrant", () => {
+  it("신형 생애의 모든 상승 레벨에 자원 굴림을 누적한다", () => {
+    const result = applyExpTomeGrant(
+      { class: "warrior", level: 1, exp: 0 },
+      {
+        lifeResourceGrowth: {
+          version: 1,
+          rolledLevel: 1,
+          baseHp: 120,
+          baseMp: 65,
+          gainedHp: 0,
+          gainedMp: 0,
+        },
+      },
+      100,
+      () => 0,
+    );
+
+    expect(result.hpGain).toBe(result.levelsGained * 8);
+    expect(result.mpGain).toBe(result.levelsGained * 3);
+    expect(result.proficiency.lifeResourceGrowth).toMatchObject({
+      rolledLevel: result.level,
+      gainedHp: result.hpGain,
+      gainedMp: result.mpGain,
+    });
+  });
+
+  it("저장된 자원 성장 버전에 맞는 MP 범위로 레벨업한다", () => {
+    const apply = (version: 1 | 2) =>
+      applyExpTomeGrant(
+        { class: "mage", level: 1, exp: 0 },
+        {
+          statFloorLevels: { mage: 10_000 },
+          lifeResourceGrowth: {
+            version,
+            rolledLevel: 1,
+            baseHp: 150,
+            baseMp: 100,
+            gainedHp: 0,
+            gainedMp: 0,
+          },
+        },
+        100,
+        () => 0,
+      );
+    const version1 = apply(1);
+    const version2 = apply(2);
+
+    expect(version1.mpGain).toBeGreaterThan(version2.mpGain);
+    expect(version1.proficiency.lifeResourceGrowth?.version).toBe(1);
+    expect(version2.proficiency.lifeResourceGrowth?.version).toBe(2);
+  });
+
+  it("레거시 생애에는 자원 기록을 추가하지 않는다", () => {
+    const result = applyExpTomeGrant(
+      { class: "warrior", level: 1, exp: 0 },
+      {},
+      100,
+      () => 0,
+    );
+
+    expect(result.proficiency.lifeResourceGrowth).toBeUndefined();
+    expect(result.hpGain).toBeGreaterThan(0);
+    expect(result.mpGain).toBeGreaterThan(0);
+  });
+
   it("100만 EXP 는 캐릭터를 크게 성장시킨다(Lv50 누적 ~22만이라 최소 50+)", () => {
     const cap = effectiveLevelCap(4); // 무직 = 4차 캡
     const r = applyExpTomeGrant({ level: 1, exp: 0 }, {}, EXP_TOME_GRANT);
@@ -41,6 +106,7 @@ describe("applyExpTomeGrant", () => {
     expect(r.levelsGained).toBeGreaterThan(0);
     expect(r.proficiency.groups.warrior?.cumLevel ?? 0).toBe(0);
     expect(r.proficiency.jobCumLevel?.warrior ?? 0).toBe(0);
+    expect(r.proficiency.statFloorLevels.warrior).toBe(r.levelsGained);
   });
 
   it("레거시 totalLevels 입력이 있어도 결과 모델에는 포함하지 않는다", () => {

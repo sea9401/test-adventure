@@ -17,6 +17,13 @@ import type {
 import { useActivityVerification } from "./useActivityVerification";
 import type { AutoGatheringActivity } from "./autoGathering";
 import { useFishingCodexContext } from "./GameStateProvider";
+import { useSystemToast } from "./RewardToastProvider";
+import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
+import {
+  parseFishingCatchItemDailyProgress,
+  replaceFishingCatchItemDailyProgress,
+  type FishingCatchItemDailyProgress,
+} from "./fishingStock";
 
 function parseAutoActivity(value: unknown): AutoGatheringActivity | null {
   return value === "woodcutting" || value === "mining" ? value : null;
@@ -44,9 +51,12 @@ function parseNextActionAt(value: unknown): number | null {
 // 실게임용 cast/reel — /api/v2/fishing/* 권위 라우트 래퍼. FishingView 에 주입한다.
 export function useFishing(spotId?: FishingSpotId): FishingHandlers {
   const { verification, verifyHuman, readJson } = useActivityVerification("fishing");
+  const { notifySystem } = useSystemToast();
   const fishingCodex = useFishingCodexContext();
   const [dailyCatchCoins, setDailyCatchCoins] =
     useState<FishingDailyCatchCoins | null>(null);
+  const [dailyCatchItems, setDailyCatchItems] =
+    useState<FishingCatchItemDailyProgress[] | null>(null);
   const [progression, setProgression] =
     useState<FishingProgressionView | null>(null);
   const [progressionLoading, setProgressionLoading] = useState(true);
@@ -91,6 +101,8 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
         if (!mounted.current || !j?.ok) return;
         const next = parseDailyCatchCoins(j.dailyCatchCoins);
         if (next) setDailyCatchCoins(next);
+        const nextItems = parseFishingCatchItemDailyProgress(j.dailyCatchItems);
+        if (nextItems.length > 0) setDailyCatchItems(nextItems);
         setActiveAutoActivity(parseAutoActivity(j.activeAutoActivity));
       })
       .catch(() => {
@@ -155,9 +167,22 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
           throw new Error(j?.error === "auto_active" ? "auto_active" : "reel_failed");
         }
         if (!j?.ok) throw new Error("reel_failed");
+        if (j.levelCurveMigrated) {
+          notifySystem(LIFE_LEVEL_MIGRATION_NOTICE, "info");
+        }
         const nextDailyCatchCoins = parseDailyCatchCoins(j.dailyCatchCoins);
         if (nextDailyCatchCoins) setDailyCatchCoins(nextDailyCatchCoins);
         if (j.caught) {
+          const [catchItemDaily] = parseFishingCatchItemDailyProgress([
+            j.catchItemDaily,
+          ]);
+          if (catchItemDaily) {
+            setDailyCatchItems((current) =>
+              current
+                ? replaceFishingCatchItemDailyProgress(current, catchItemDaily)
+                : current,
+            );
+          }
           fishingCodex?.markDiscovered(String(j.fishId));
           if (j.progression && typeof j.progression === "object") {
             setProgression(j.progression as FishingProgressionView);
@@ -201,21 +226,7 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
               j.catchItemStatus === "daily_cap"
                 ? j.catchItemStatus
                 : undefined,
-            catchItemDaily:
-              j.catchItemDaily && typeof j.catchItemDaily === "object"
-                ? {
-                    itemId: String(j.catchItemDaily.itemId),
-                    name: String(j.catchItemDaily.name),
-                    awarded: Math.max(
-                      0,
-                      Math.floor(Number(j.catchItemDaily.awarded) || 0),
-                    ),
-                    cap: Math.max(
-                      0,
-                      Math.floor(Number(j.catchItemDaily.cap) || 0),
-                    ),
-                  }
-                : undefined,
+            catchItemDaily,
             coinsGained: Number(j.coinsGained ?? 0),
             dailyCatchCoins: nextDailyCatchCoins,
             levelRewardCoins: Number(j.levelRewardCoins ?? 0),
@@ -281,13 +292,14 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
         release();
       }
     },
-    [beginReel, fishingCodex, readJson],
+    [beginReel, fishingCodex, notifySystem, readJson],
   );
 
   return {
     cast,
     reel,
     dailyCatchCoins,
+    dailyCatchItems,
     progression,
     progressionLoading,
     challengeBadgeCount,

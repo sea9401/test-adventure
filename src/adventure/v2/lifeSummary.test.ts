@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { cookingLevelXpThreshold } from "./cooking/state";
+import { farmingLevelXpThreshold } from "./farm";
+import { fishingLevelXpThreshold } from "./fishingProgression";
 import { lifeSummaryFromSaves } from "./lifeSummary";
+import { miningXpForLevel } from "./miningProgression";
+import { woodcuttingXpForLevel } from "./woodcuttingProgression";
 
 describe("생활 기록 집계", () => {
   it("랭킹과 같은 다섯 생활 레벨을 숙련도로 합산한다", () => {
@@ -17,8 +22,10 @@ describe("생활 기록 집계", () => {
     expect(summary.activities.map((activity) => activity.level)).toEqual([
       10, 10, 10, 10, 10,
     ]);
-    expect(summary.lifeMastery).toEqual({ level: 50, maxLevel: 250 });
+    expect(summary.lifeMastery).toEqual({ level: 50, maxLevel: 500 });
     expect(summary.artisan.id).toBe("blacksmith");
+    expect(summary.activities.find((activity) => activity.id === "fishing")?.effects)
+      .toContain("어획물 획득 확률 30%");
   });
 
   it("누적 생활 기록과 대장장이 성장을 함께 정규화한다", () => {
@@ -31,6 +38,7 @@ describe("생활 기록 집계", () => {
             rareHarvests: 3,
             deliveries: 4,
             reputation: 90,
+            reputationSpent: 40,
           },
         },
         woodcuttingRaw: {
@@ -75,7 +83,10 @@ describe("생활 기록 집계", () => {
     );
 
     expect(summary.activities.find((entry) => entry.id === "farming")?.records)
-      .toEqual(expect.arrayContaining([{ label: "총 수확", value: 12, suffix: "회" }]));
+      .toEqual(expect.arrayContaining([
+        { label: "총 수확", value: 12, suffix: "회" },
+        { label: "농장 증표", value: 90, suffix: "개" },
+      ]));
     expect(summary.activities.find((entry) => entry.id === "fishing")?.records)
       .toEqual(expect.arrayContaining([{ label: "등록 어종", value: 1, suffix: "/50종" }]));
     expect(summary.artisan).toMatchObject({
@@ -102,8 +113,51 @@ describe("생활 기록 집계", () => {
       0,
     );
 
-    expect(summary.lifeMastery).toEqual({ level: 5, maxLevel: 250 });
+    expect(summary.lifeMastery).toEqual({ level: 5, maxLevel: 500 });
     expect(summary.activities.every((activity) => activity.level === 1)).toBe(true);
     expect(summary.artisan).toMatchObject({ level: 1, xp: 0 });
+  });
+
+  it("50레벨 이후에는 다음 확장 마일스톤을 안내한다", () => {
+    const summary = lifeSummaryFromSaves({
+      farmRaw: {
+        levelCurveVersion: 2,
+        stats: { farmingXp: farmingLevelXpThreshold(55) },
+      },
+    });
+
+    expect(summary.activities.find((activity) => activity.id === "farming"))
+      .toMatchObject({ level: 55, levelCap: 100, nextGoal: "다음 숙련 마일스톤 · Lv.60" });
+  });
+
+  it("다섯 생활 모두 100레벨이면 숙련도 500과 최종 상태를 반환한다", () => {
+    const summary = lifeSummaryFromSaves({
+      farmRaw: {
+        levelCurveVersion: 2,
+        stats: { farmingXp: farmingLevelXpThreshold(100) },
+      },
+      woodcuttingRaw: {
+        levelCurveVersion: 2,
+        xp: woodcuttingXpForLevel(100),
+      },
+      miningRaw: {
+        levelCurveVersion: 2,
+        xp: miningXpForLevel(100),
+      },
+      fishingRaw: {
+        levelCurveVersion: 2,
+        xp: fishingLevelXpThreshold(100),
+      },
+      cookingRaw: {
+        levelCurveVersion: 2,
+        xp: cookingLevelXpThreshold(100),
+      },
+    });
+
+    expect(summary.lifeMastery).toEqual({ level: 500, maxLevel: 500 });
+    expect(summary.activities).toHaveLength(5);
+    expect(summary.activities.every((activity) =>
+      activity.level === 100 && activity.levelCap === 100 && activity.nextGoal === null
+    )).toBe(true);
   });
 });

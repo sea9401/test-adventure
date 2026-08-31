@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { v2Notifications } from "@/db/schema";
 import {
@@ -36,6 +36,7 @@ export async function GET(req: Request) {
           and(
             eq(v2Notifications.userId, userId),
             isNull(v2Notifications.readAt),
+            ne(v2Notifications.type, "lottery_won"),
           ),
         ),
       readSave(db, userId, FARM_SAVE_KEY, emptyFarmState(now)),
@@ -59,7 +60,12 @@ export async function GET(req: Request) {
   const rows = await db
     .select()
     .from(v2Notifications)
-    .where(eq(v2Notifications.userId, userId))
+    .where(
+      and(
+        eq(v2Notifications.userId, userId),
+        ne(v2Notifications.type, "lottery_won"),
+      ),
+    )
     .orderBy(desc(v2Notifications.id))
     .limit(NOTIF_FETCH_LIMIT - (farmReadyNotification ? 1 : 0));
 

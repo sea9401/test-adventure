@@ -69,38 +69,52 @@ describe("artisanLeaderboardRewardTitleIds", () => {
         { weekKey: "2026-W01", totalCrafts: 3.9, qualityCrafts: 1, xp: 20 },
         "2026-W01",
       ),
-    ).toMatchObject({ totalCrafts: 3, qualityCrafts: 1, xp: 20 });
+    ).toMatchObject({ totalCrafts: 3, qualityCrafts: 1, xp: 20, score: 20 });
     expect(
       parseArtisanWeeklyWorkshopStats(
         { weekKey: "2026-W01", totalCrafts: 3, qualityCrafts: 1, xp: 20 },
         "2026-W02",
       ),
-    ).toEqual({ weekKey: "2026-W02", totalCrafts: 0, qualityCrafts: 0, xp: 0 });
+    ).toEqual({
+      weekKey: "2026-W02",
+      totalCrafts: 0,
+      qualityCrafts: 0,
+      xp: 0,
+      score: 0,
+    });
   });
 
   it("increments weekly workshop stats", () => {
     expect(
       addArtisanWeeklyWorkshopCraft(
-        { weekKey: "2026-W01", totalCrafts: 1, qualityCrafts: 0, xp: 10 },
-        { qualityCrafted: true, xp: 12 },
+        {
+          weekKey: "2026-W01",
+          totalCrafts: 1,
+          qualityCrafts: 0,
+          xp: 10,
+          score: 10,
+        },
+        { qualityCrafted: true, xp: 12, scoreMultiplier: 2 },
       ),
     ).toEqual({
       weekKey: "2026-W01",
       totalCrafts: 2,
       qualityCrafts: 1,
       xp: 22,
+      score: 34,
     });
   });
 
-  it("ranks weekly leaderboard by crafts, quality crafts, then weekly xp", () => {
+  it("ranks weekly leaderboard by score, quality crafts, then craft count", () => {
     expect(
       rankArtisanLeaderboardEntries([
-        { userId: "no-week", totalCrafts: 0, qualityCrafts: 0, weeklyXp: 0 },
-        { userId: "b", totalCrafts: 3, qualityCrafts: 0, weeklyXp: 200 },
-        { userId: "a", totalCrafts: 3, qualityCrafts: 1, weeklyXp: 10 },
-        { userId: "c", totalCrafts: 2, qualityCrafts: 2, weeklyXp: 999 },
+        { userId: "no-week", totalCrafts: 0, qualityCrafts: 0, score: 0 },
+        { userId: "b", totalCrafts: 8, qualityCrafts: 0, score: 280 },
+        { userId: "a", totalCrafts: 1, qualityCrafts: 0, score: 280 },
+        { userId: "c", totalCrafts: 2, qualityCrafts: 2, score: 280 },
+        { userId: "high-tier", totalCrafts: 1, qualityCrafts: 0, score: 281 },
       ]).map((entry) => entry.userId),
-    ).toEqual(["a", "b", "c"]);
+    ).toEqual(["high-tier", "c", "b", "a"]);
   });
 
   it("marks leaderboard rewards claimable by owned title and season claim state", () => {

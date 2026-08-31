@@ -3,7 +3,49 @@ import type { BattleLogEntry } from "../v2/combat/engine";
 import { ATB_LOG_WINDOW_TICKS } from "../v2/combat/combatTimeline";
 import { v2StatusPillColor } from "@/adventure/data/v2/statusEffects";
 import { GameIcon } from "@/adventure/v2/GameIcon";
-import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+
+export function battleLogPillColor(label: string): string {
+  const status = v2StatusPillColor(label);
+  if (status) return status;
+  if (label.startsWith("회피 경감")) {
+    return "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-200";
+  }
+  if (label === "완전 회피" || label.includes("확정 회피")) {
+    return "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200";
+  }
+  if (label.startsWith("마나 실드")) {
+    return "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200";
+  }
+  if (label === "철벽" || label === "가드" || label === "인내") {
+    return "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200";
+  }
+  if (/중력|반중력|부유성채|보호막/.test(label)) {
+    return "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200";
+  }
+  if (/혈맥|상흔|출혈/.test(label)) {
+    return "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200";
+  }
+  if (/추적|질풍|칼바람/.test(label)) {
+    return "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200";
+  }
+  if (/그림자|잔상|삼상/.test(label)) {
+    return "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200";
+  }
+  if (/만독|중독|부식|양면침/.test(label)) {
+    return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200";
+  }
+  if (/과부하|뇌명|낙뢰|역류/.test(label)) {
+    return "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200";
+  }
+  if (/성역|새벽|합일/.test(label)) {
+    return "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-200";
+  }
+  if (/폭풍 합류|폭풍심장|지배/.test(label)) {
+    return "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-950 dark:text-fuchsia-200";
+  }
+  return "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200";
+}
 
 // 전투 로그 공용 렌더러 — BattleScene / RecentLogView / CoopBossCard 가 같은 UI 로 통일.
 // 라벨 pill + 데미지 강조 + 양쪽 레인 버블 + 턴 구분선 + 페이즈 트리거 배너.
@@ -16,6 +58,9 @@ type Sizes = {
   bubble: string;
   info: string;
   label: string;
+  actionBubble: string;
+  actionInfo: string;
+  actionLabel: string;
   banner: string;
   turnMarker: string;
   hpBar: string;
@@ -26,29 +71,349 @@ const SIZES: Record<"normal" | "compact", Sizes> = {
   normal: {
     bubble: "text-[15px]",
     info: "text-[13px]",
-    label: "text-[11px]",
+    label: "text-xs sm:text-[11px]",
+    actionBubble: "text-[13px] sm:text-[15px]",
+    actionInfo: "text-xs sm:text-[13px]",
+    actionLabel: "text-xs sm:text-[11px]",
     banner: "text-base",
     turnMarker: "text-[12px]",
-    hpBar: "text-[10px]",
+    hpBar: "text-xs sm:text-[10px]",
     spacing: "space-y-1.5",
   },
   compact: {
     bubble: "text-[13px]",
-    info: "text-[11px]",
-    label: "text-[10px]",
+    info: "text-xs sm:text-[11px]",
+    label: "text-xs sm:text-[10px]",
+    actionBubble: "text-[12px] sm:text-[13px]",
+    actionInfo: "text-xs sm:text-[11px]",
+    actionLabel: "text-xs sm:text-[10px]",
     banner: "text-[13px]",
-    turnMarker: "text-[10px]",
-    hpBar: "text-[9px]",
+    turnMarker: "text-xs sm:text-[10px]",
+    hpBar: "text-xs sm:text-[9px]",
     spacing: "space-y-1",
   },
 };
 
+export type BattleLogDisplayItem =
+  | {
+      kind: "action";
+      main: BattleLogEntry;
+      hits: BattleLogEntry[];
+      calculations: BattleLogEntry[];
+      effects: BattleLogEntry[];
+    }
+  | { kind: "entry"; entry: BattleLogEntry };
+
+const DAMAGE_CALCULATION_LABELS = [
+  "회피 경감",
+  "받피감",
+  "결의",
+  "인내",
+  "가드",
+  "굳건한 의지",
+] as const;
+
+const ACTION_RECOVERY_LABELS = ["봉인", "그림자", "해연"] as const;
+const ACTION_OPENING_DEFENSE_LABELS = ["철벽", "마나 실드"] as const;
+
+// 2026-08-10 이전 PvP 리플레이는 치명타 등 수식어가 붙은 기본 공격에서 `공격!`을
+// 빠뜨렸다. 반사·추가타까지 행동으로 오인하지 않도록 기본 공격 자체를 만들 수 있는
+// 수식어가 있으면서 본문이 순수 피해 결과인 경우만 옛 기본 공격으로 복원한다.
+const LEGACY_BASIC_ATTACK_LABELS = [
+  "강공격",
+  "분쇄",
+  "처형",
+  "치명타",
+  "행운의 별",
+  "암살",
+  "천명",
+  "충돌파",
+  "불굴의 일격",
+  "약점 적중",
+  "연쇄 운명",
+] as const;
+
+function battleLogDisplayLabel(label: string): string {
+  return label === "해연" ? "해연추적" : label;
+}
+
+function isLegacyBasicAttackEntry(entry: BattleLogEntry): boolean {
+  if (entry.kind !== "player_attack" && entry.kind !== "enemy_attack") {
+    return false;
+  }
+  const { labels, body } = parseBattleLogText(entry.text);
+  return (
+    labels.some((label) =>
+      LEGACY_BASIC_ATTACK_LABELS.some((attackLabel) => label === attackLabel),
+    ) && /^\d[\d,]*\s*피해를 입혔다\.?$/.test(body)
+  );
+}
+
+function isDirectActionEntry(entry: BattleLogEntry): boolean {
+  if (entry.kind !== "player_attack" && entry.kind !== "enemy_attack") {
+    return false;
+  }
+  return (
+    /^[^!]+!/.test(parseBattleLogText(entry.text).body) ||
+    isLegacyBasicAttackEntry(entry)
+  );
+}
+
+function legacyStandaloneActionMain(
+  entry: BattleLogEntry,
+): BattleLogEntry | null {
+  if (entry.kind !== "info") return null;
+  const { labels, body } = parseBattleLogText(entry.text);
+  if (
+    !labels.includes("그림자 도약") ||
+    !/다음 공격 \d+회를 반드시 회피한다\.?$/.test(body)
+  ) {
+    return null;
+  }
+  return {
+    ...entry,
+    kind: entry.turn === "enemy" ? "enemy_attack" : "player_attack",
+    text: "그림자 도약! 확정 회피를 준비했다.",
+  };
+}
+
+function guaranteedDodgeActionMain(
+  entry: BattleLogEntry,
+): BattleLogEntry | null {
+  if (entry.kind !== "info" || entry.turn == null) return null;
+  const { labels, body } = parseBattleLogText(entry.text);
+  if (!labels.includes("회피 강화") || !/회피했다[.!]?$/.test(body)) {
+    return null;
+  }
+  return {
+    ...entry,
+    kind: entry.turn === "player" ? "player_attack" : "enemy_attack",
+  };
+}
+
+function isDamageCalculationEntry(entry: BattleLogEntry): boolean {
+  if (entry.kind === "hp_bar") return false;
+  const { labels } = parseBattleLogText(entry.text);
+  return labels.some((label) =>
+    DAMAGE_CALCULATION_LABELS.some(
+      (calculation) =>
+        label === calculation || label.startsWith(`${calculation} `),
+    ),
+  );
+}
+
+function isActionOpeningEffect(entry: BattleLogEntry): boolean {
+  if (entry.kind === "hp_bar") return false;
+  const { labels, body } = parseBattleLogText(entry.text);
+  return (
+    labels.some((label) =>
+      ACTION_OPENING_DEFENSE_LABELS.some((defense) => label === defense),
+    ) ||
+    (labels.some((label) =>
+      ACTION_RECOVERY_LABELS.some((recovery) => label === recovery),
+    ) &&
+      /HP\s*\+\d/.test(body)) ||
+    (entry.kind === "info" &&
+      /^[^!]+!\s+(?:.+?\s+)?생명력\s+\d+\s+소모$/.test(body))
+  );
+}
+
+function isActionStartStatusDamage(entry: BattleLogEntry): boolean {
+  return "effect" in entry && entry.effect === "status_damage";
+}
+
+function isActionBoundaryEntry(entry: BattleLogEntry): boolean {
+  return (
+    entry.kind === "hp_bar" ||
+    entry.kind === "turn_marker" ||
+    entry.kind === "phase_trigger"
+  );
+}
+
+function damageActionHeadline(entry: BattleLogEntry): {
+  title: string;
+  damage: number;
+} | null {
+  const { title, result } = actionHeadline(entry.text);
+  const match = result.match(/^([\d,]+)\s*피해$/);
+  if (!match) return null;
+  return {
+    title,
+    damage: Number(match[1].replaceAll(",", "")),
+  };
+}
+
+function canMergeActionHit(
+  current: Extract<BattleLogDisplayItem, { kind: "action" }>,
+  entry: BattleLogEntry,
+): boolean {
+  if (
+    current.effects.some(
+      (effect) =>
+        !isActionOpeningEffect(effect) && !isActionStartStatusDamage(effect),
+    )
+  ) {
+    return false;
+  }
+  const previous = current.hits.at(-1) ?? current.main;
+  const previousHeadline = damageActionHeadline(previous);
+  const nextHeadline = damageActionHeadline(entry);
+  if (!previousHeadline || !nextHeadline) return false;
+  if (
+    previousHeadline.title === "기본 공격" ||
+    previousHeadline.title !== nextHeadline.title ||
+    entryTurnSide(previous) !== entryTurnSide(entry)
+  ) {
+    return false;
+  }
+  return previous.t == null || entry.t == null || previous.t === entry.t;
+}
+
+export function groupBattleLogActions(
+  entries: BattleLogEntry[],
+): BattleLogDisplayItem[] {
+  const items: BattleLogDisplayItem[] = [];
+  let current: Extract<BattleLogDisplayItem, { kind: "action" }> | null = null;
+  let pendingCalculations: BattleLogEntry[] = [];
+  let pendingEffects: BattleLogEntry[] = [];
+
+  const flushCurrent = () => {
+    if (!current) return;
+    items.push(current);
+    current = null;
+  };
+  const flushPendingCalculations = () => {
+    for (const entry of pendingCalculations) {
+      items.push({ kind: "entry", entry });
+    }
+    pendingCalculations = [];
+  };
+  const flushPendingEffects = () => {
+    for (const entry of pendingEffects) {
+      items.push({ kind: "entry", entry });
+    }
+    pendingEffects = [];
+  };
+
+  for (const entry of entries) {
+    if (isActionBoundaryEntry(entry)) {
+      flushCurrent();
+      flushPendingCalculations();
+      flushPendingEffects();
+      items.push({ kind: "entry", entry });
+      continue;
+    }
+    const legacyStandaloneMain = legacyStandaloneActionMain(entry);
+    if (legacyStandaloneMain) {
+      if (
+        current != null &&
+        parseBattleLogText(current.main.text).body.startsWith("그림자 도약!") &&
+        entryTurnSide(current.main) === entryTurnSide(entry)
+      ) {
+        current.effects.push(entry);
+        continue;
+      }
+      flushCurrent();
+      current = {
+        kind: "action",
+        main: legacyStandaloneMain,
+        hits: [legacyStandaloneMain],
+        calculations: pendingCalculations,
+        effects: [...pendingEffects, entry],
+      };
+      pendingCalculations = [];
+      pendingEffects = [];
+      continue;
+    }
+    const dodgeActionMain = guaranteedDodgeActionMain(entry);
+    if (dodgeActionMain) {
+      flushCurrent();
+      current = {
+        kind: "action",
+        main: dodgeActionMain,
+        hits: [dodgeActionMain],
+        calculations: pendingCalculations,
+        effects: pendingEffects,
+      };
+      pendingCalculations = [];
+      pendingEffects = [];
+      continue;
+    }
+    if (isDamageCalculationEntry(entry)) {
+      flushCurrent();
+      pendingCalculations.push(entry);
+      continue;
+    }
+    if (isActionOpeningEffect(entry)) {
+      flushCurrent();
+      pendingEffects.push(entry);
+      continue;
+    }
+    if (isActionStartStatusDamage(entry)) {
+      flushCurrent();
+      pendingEffects.push(entry);
+      continue;
+    }
+    if (isDirectActionEntry(entry)) {
+      if (current && canMergeActionHit(current, entry)) {
+        current.hits.push(entry);
+        continue;
+      }
+      flushCurrent();
+      const actionSide = entryTurnSide(entry);
+      const actionEffects: BattleLogEntry[] = [];
+      for (const pending of pendingEffects) {
+        const pendingSide = entryTurnSide(pending);
+        if (
+          isActionStartStatusDamage(pending) &&
+          pendingSide != null &&
+          pendingSide !== actionSide
+        ) {
+          items.push({ kind: "entry", entry: pending });
+        } else {
+          actionEffects.push(pending);
+        }
+      }
+      current = {
+        kind: "action",
+        main: entry,
+        hits: [entry],
+        calculations: pendingCalculations,
+        effects: actionEffects,
+      };
+      pendingCalculations = [];
+      pendingEffects = [];
+      continue;
+    }
+    if (current) {
+      current.effects.push(entry);
+      continue;
+    }
+    if (pendingCalculations.length > 0 || pendingEffects.length > 0) {
+      pendingEffects.push(entry);
+      continue;
+    }
+    flushPendingCalculations();
+    flushPendingEffects();
+    items.push({ kind: "entry", entry });
+  }
+
+  flushCurrent();
+  flushPendingCalculations();
+  flushPendingEffects();
+  return items;
+}
+
 export function BattleLogList({
   entries,
   compact = false,
+  playerName = "나",
+  enemyName = "상대",
 }: {
   entries: BattleLogEntry[];
   compact?: boolean;
+  playerName?: string;
+  enemyName?: string;
 }) {
   const s = compact ? SIZES.compact : SIZES.normal;
   const groups = groupBattleLogEntries(entries);
@@ -72,6 +437,12 @@ export function BattleLogList({
           playerMaxMp={entry.playerMaxMp}
           enemyMp={entry.enemyMp}
           enemyMaxMp={entry.enemyMaxMp}
+          playerMagicBarrier={entry.playerMagicBarrier}
+          playerMagicBarrierMax={entry.playerMagicBarrierMax}
+          enemyMagicBarrier={entry.enemyMagicBarrier}
+          enemyMagicBarrierMax={entry.enemyMagicBarrierMax}
+          playerSignatureResources={entry.playerSignatureResources}
+          enemySignatureResources={entry.enemySignatureResources}
           sizes={s}
         />
       );
@@ -117,15 +488,32 @@ export function BattleLogList({
         // 한 박스 안 HP/MP 바는 마지막 1개만 렌더 — 매 행동 뒤 바가 붙어 너무 많아 보이던 것을,
         //   그 윈도우의 "최종 상태" 한 줄로 축약(중간 스냅샷 생략). 표시 단 처리(로그 데이터 불변).
         const lastHpIdx = lastHpBarIndex(group);
+        const visibleGroup = group.filter(
+          (entry, index) => entry.kind !== "hp_bar" || index === lastHpIdx,
+        );
+        const displayItems = groupBattleLogActions(visibleGroup);
+        const groupTick = battleLogGroupFirstTick(group);
         return (
           <div
             key={gi}
+            data-battle-log-group-tick={groupTick ?? undefined}
             className={`${SURFACE_INSET} ${s.spacing} p-2`}
           >
-            {group.map((entry, i) =>
-              entry.kind === "hp_bar" && i !== lastHpIdx
-                ? null
-                : renderEntry(entry, i),
+            {displayItems.map((item, index) =>
+              item.kind === "action" ? (
+                <ActionCard
+                  key={`action-${index}`}
+                  item={item}
+                  side={
+                    item.main.kind === "player_attack" ? "left" : "right"
+                  }
+                  playerName={playerName}
+                  enemyName={enemyName}
+                  sizes={s}
+                />
+              ) : (
+                renderEntry(item.entry, index)
+              ),
             )}
           </div>
         );
@@ -135,6 +523,15 @@ export function BattleLogList({
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────
+
+export function battleLogGroupFirstTick(
+  group: BattleLogEntry[],
+): number | null {
+  for (const entry of group) {
+    if (entry.t != null && Number.isFinite(entry.t)) return entry.t;
+  }
+  return null;
+}
 
 function isReceivedDamageEffect(entry: BattleLogEntry): boolean {
   return (
@@ -246,7 +643,7 @@ function groupByTickWindow(entries: BattleLogEntry[]): BattleLogEntry[][] {
 // 데미지·회복·스탯 수치를 강조. 피해량(N 피해) 은 빨강 + 굵게, 나머지는 굵게.
 function emphasizeNumbers(text: string): ReactNode[] {
   const re =
-    /(\d+)\s*피해|HP\s*[+-]\s*\d+|ATK\s*[+-]\s*\d+|DEF\s*[+-]\s*\d+|SPD\s*[+-]\s*\d+|[+-]\s*\d+%?/g;
+    /(\d[\d,]*)\s*피해|HP\s*[+-]\s*\d[\d,]*|ATK\s*[+-]\s*\d[\d,]*|DEF\s*[+-]\s*\d[\d,]*|SPD\s*[+-]\s*\d[\d,]*|[+-]\s*\d+(?:\.\d+)?%?/g;
   const parts: ReactNode[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
@@ -327,6 +724,254 @@ function isClimaxInfo(text: string): boolean {
 
 // ── components ──────────────────────────────────────────────────────────
 
+type BattleLogActionItem = Extract<
+  BattleLogDisplayItem,
+  { kind: "action" }
+>;
+
+function actionHeadline(text: string): {
+  labels: string[];
+  title: string;
+  result: string;
+} {
+  const { labels, body } = parseBattleLogText(text);
+  const match = body.match(/^([^!]+)!\s*(.*)$/);
+  const legacyBasicAttack =
+    !match &&
+    labels.some((label) =>
+      LEGACY_BASIC_ATTACK_LABELS.some((attackLabel) => label === attackLabel),
+    ) &&
+    /^\d[\d,]*\s*피해를 입혔다\.?$/.test(body);
+  const rawTitle = match?.[1]?.trim() || (legacyBasicAttack ? "공격" : "행동");
+  const rawResult = match?.[2]?.trim() || body;
+  const damage = rawResult.match(/^(\d+)\s*피해를 입혔다\.?$/);
+  return {
+    labels,
+    title: rawTitle === "공격" ? "기본 공격" : rawTitle,
+    result: damage
+      ? `${Number(damage[1]).toLocaleString("ko-KR")} 피해`
+      : rawResult,
+  };
+}
+
+function actionEffectContent(
+  entry: BattleLogEntry,
+  actionTitle: string,
+  sizes: Sizes,
+  ownerName?: string,
+): ReactNode {
+  const { labels, body } = parseBattleLogText(entry.text);
+  const visibleLabels = labels.filter((label) => label !== actionTitle);
+  const actionPrefix = `${actionTitle}!`;
+  const visibleBody = body.startsWith(actionPrefix)
+    ? body.slice(actionPrefix.length).trim()
+    : body;
+  if (visibleLabels.length === 0 && visibleBody.length === 0) return null;
+  return (
+    <div className={`flex flex-wrap items-center gap-1 ${sizes.actionInfo}`}>
+      {visibleLabels.map((label, index) => (
+        <span
+          key={`${label}-${index}`}
+          className={`rounded px-1 py-0.5 sm:px-1.5 ${sizes.actionLabel} font-semibold tracking-wide ${battleLogPillColor(label)}`}
+        >
+          {ownerName && index === 0
+            ? `${ownerName}의 ${battleLogDisplayLabel(label)}`
+            : battleLogDisplayLabel(label)}
+        </span>
+      ))}
+      {visibleBody ? (
+        <span className="text-zinc-600 dark:text-zinc-300">
+          {emphasizeNumbers(visibleBody)}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function ActionCard({
+  item,
+  side,
+  playerName,
+  enemyName,
+  sizes,
+}: {
+  item: BattleLogActionItem;
+  side: "left" | "right";
+  playerName: string;
+  enemyName: string;
+  sizes: Sizes;
+}) {
+  const { labels, title: rawTitle, result } = actionHeadline(item.main.text);
+  const forcedBySkill =
+    item.main.kind === "hp_bar" ? undefined : item.main.forcedBySkill;
+  const title = forcedBySkill
+    ? `${forcedBySkill} 강제 공격`
+    : rawTitle;
+  const hitDamages = item.hits
+    .map((entry) => damageActionHeadline(entry)?.damage ?? null)
+    .filter((damage): damage is number => damage != null);
+  const isMultiHit =
+    hitDamages.length > 1 && hitDamages.length === item.hits.length;
+  const totalHitDamage = hitDamages.reduce((sum, damage) => sum + damage, 0);
+  const displayedResult = isMultiHit
+    ? `${hitDamages.length}타 · 총 ${totalHitDamage.toLocaleString("ko-KR")} 피해`
+    : result;
+  const actorName = side === "left" ? playerName : enemyName;
+  const actorLabel = side === "left" ? "내 행동" : "상대 행동";
+  const damageTargetLabel = side === "left" ? "상대가 받음" : "내가 받음";
+  const hasDamageResult = /\d[\d,]*\s*피해/.test(displayedResult);
+  const effects = item.effects
+    .map((entry, index) => {
+      const effectSide = effectBattleLogSide(entry);
+      const { labels: effectLabels } = parseBattleLogText(entry.text);
+      const isReaction =
+        effectSide != null &&
+        effectSide !== side &&
+        effectLabels.some(
+          (label) => label.includes("반사") || label.includes("반격"),
+        );
+      const ownerName = isReaction
+        ? effectSide === "left"
+          ? playerName
+          : enemyName
+        : undefined;
+      return {
+        content: actionEffectContent(entry, rawTitle, sizes, ownerName),
+        key: index,
+      };
+    })
+    .filter((effect) => effect.content != null);
+  const align = side === "left" ? "justify-start" : "justify-end";
+  const accent =
+    side === "left"
+      ? "border-l-4 border-l-blue-500"
+      : "border-r-4 border-r-violet-500";
+  const headerGrid =
+    side === "left"
+      ? "grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto]"
+      : "grid-cols-1 sm:grid-cols-[auto_minmax(0,1fr)]";
+  const identityAlign = side === "left" ? "" : "justify-end text-right";
+  const resultAlign =
+    side === "left"
+      ? "text-left sm:text-right"
+      : "text-right sm:text-left";
+  const labelAlign =
+    side === "left"
+      ? "justify-start sm:justify-end"
+      : "justify-end sm:justify-start";
+  const identityContent = (
+    <div className={`order-1 min-w-0 sm:order-none ${identityAlign}`}>
+      <div className={`mb-0.5 flex min-w-0 items-center gap-1 ${side === "right" ? "justify-end" : ""}`}>
+        <span
+          className={`${sizes.actionLabel} shrink-0 rounded border px-1 py-0.5 font-bold ${
+            side === "left"
+              ? "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300"
+              : "border-violet-300 text-violet-700 dark:border-violet-700 dark:text-violet-300"
+          }`}
+        >
+          {actorLabel}
+        </span>
+        <span className={`${sizes.actionLabel} min-w-0 truncate font-semibold text-zinc-500 dark:text-zinc-400`}>
+          {actorName}
+        </span>
+      </div>
+      <div className={`${sizes.actionBubble} min-w-0 whitespace-normal break-words sm:truncate font-semibold text-zinc-900 dark:text-zinc-100`}>
+        {title}
+      </div>
+    </div>
+  );
+  const resultContent = (
+    <div className={`order-2 min-w-0 sm:order-none ${resultAlign}`}>
+      {hasDamageResult ? (
+        <div className={`${sizes.actionLabel} mb-0.5 font-semibold text-zinc-500 dark:text-zinc-400`}>
+          {damageTargetLabel}
+        </div>
+      ) : null}
+      {labels.length > 0 ? (
+        <div className={`mb-0.5 flex flex-wrap gap-1 sm:mb-1 ${labelAlign}`}>
+          {labels.map((label, index) => (
+            <span
+              key={`${label}-${index}`}
+              className={`rounded px-1 py-0.5 sm:px-1.5 ${sizes.actionLabel} font-semibold tracking-wide ${battleLogPillColor(label)}`}
+            >
+              {battleLogDisplayLabel(label)}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <div
+        className={`${sizes.actionBubble} whitespace-normal break-words sm:whitespace-nowrap text-zinc-700 dark:text-zinc-200`}
+        aria-label={isMultiHit ? displayedResult : undefined}
+      >
+        {emphasizeNumbers(displayedResult)}
+      </div>
+    </div>
+  );
+  return (
+    <div className={`flex ${align}`} data-battle-action={side}>
+      <section className={`${SURFACE_CARD} ${accent} w-full sm:w-[70%] overflow-hidden`}>
+        <div className={`grid ${headerGrid} items-center gap-2 px-2 py-1.5 sm:gap-3 sm:px-3 sm:py-2.5`}>
+          {side === "left" ? (
+            <>
+              {identityContent}
+              {resultContent}
+            </>
+          ) : (
+            <>
+              {resultContent}
+              {identityContent}
+            </>
+          )}
+        </div>
+
+        {isMultiHit || effects.length > 0 ? (
+          <div className={`${SURFACE_INSET} mx-1.5 mb-1.5 space-y-1 px-2 py-1.5 sm:mx-2 sm:mb-2 sm:space-y-1.5 sm:px-2.5 sm:py-2`}>
+            {isMultiHit ? (
+              <div
+                className={`flex flex-wrap items-center gap-1 ${sizes.actionInfo}`}
+                aria-label="타격별 피해"
+              >
+                {hitDamages.map((damage, index) => (
+                  <span
+                    key={`${index}-${damage}`}
+                    className="rounded bg-rose-50 px-1.5 py-0.5 font-semibold text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                  >
+                    {index + 1}타 {damage.toLocaleString("ko-KR")} 피해
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            {effects.map(({ content, key }) => (
+              <div key={key}>{content}</div>
+            ))}
+          </div>
+        ) : null}
+
+        {item.calculations.length > 0 ? (
+          <details
+            name="battle-log-action-details"
+            className="border-t border-zinc-200 dark:border-zinc-700"
+          >
+            <summary className={`${sizes.actionLabel} cursor-pointer list-none px-2 py-1.5 text-right font-semibold text-zinc-500 marker:hidden hover:text-zinc-800 sm:px-3 sm:py-2 dark:text-zinc-400 dark:hover:text-zinc-100`}>
+              계산 상세
+            </summary>
+            <div className={`${SURFACE_INSET} mx-1.5 mb-1.5 space-y-1 px-2 py-1.5 sm:mx-2 sm:mb-2 sm:space-y-1.5 sm:px-2.5 sm:py-2`}>
+              <div className={`${sizes.actionLabel} font-semibold text-zinc-700 dark:text-zinc-200`}>
+                방어 계산
+              </div>
+              {item.calculations.map((entry, index) => (
+                <div key={index}>
+                  {actionEffectContent(entry, title, sizes)}
+                </div>
+              ))}
+            </div>
+          </details>
+        ) : null}
+      </section>
+    </div>
+  );
+}
+
 function AttackBubble({
   side,
   text,
@@ -364,11 +1009,10 @@ function AttackBubble({
               <span
                 key={idx}
                 className={`rounded px-1.5 py-0.5 ${sizes.label} font-semibold uppercase tracking-wider ${
-                  v2StatusPillColor(l) ??
-                  "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200"
+                  battleLogPillColor(l)
                 }`}
               >
-                {l}
+                {battleLogDisplayLabel(l)}
               </span>
             ))}
           </div>
@@ -408,11 +1052,10 @@ function InfoLine({
         <span
           key={idx}
           className={`rounded px-1.5 py-0.5 ${sizes.label} font-semibold uppercase tracking-wider ${
-            v2StatusPillColor(l) ??
-            "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+            battleLogPillColor(l)
           }`}
         >
-          {l}
+          {battleLogDisplayLabel(l)}
         </span>
       ))}
       <span className={climax ? "" : "italic"}>
@@ -466,11 +1109,10 @@ function EffectLine({
             <span
               key={`${label}-${index}`}
               className={`rounded px-1.5 py-0.5 ${sizes.label} font-semibold tracking-wide ${
-                v2StatusPillColor(label) ??
-                "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                battleLogPillColor(label)
               }`}
             >
-              {label}
+              {battleLogDisplayLabel(label)}
             </span>
           ))}
           <span>
@@ -488,6 +1130,7 @@ function TurnMarker({ text, sizes }: { text: string; sizes: Sizes }) {
     <div className="flex items-center gap-2 text-zinc-400 dark:text-zinc-600">
       <div className="h-px flex-1 bg-zinc-300 dark:bg-zinc-700" />
       <span
+        data-battle-log-metadata="turn-marker"
         className={`rounded-full bg-zinc-100 px-2 py-0.5 ${sizes.turnMarker} font-semibold uppercase tracking-wider text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300`}
       >
         {text}
@@ -506,6 +1149,12 @@ function HpBar({
   playerMaxMp,
   enemyMp,
   enemyMaxMp,
+  playerMagicBarrier,
+  playerMagicBarrierMax,
+  enemyMagicBarrier,
+  enemyMagicBarrierMax,
+  playerSignatureResources,
+  enemySignatureResources,
   sizes,
 }: {
   playerHp: number;
@@ -516,15 +1165,26 @@ function HpBar({
   playerMaxMp?: number;
   enemyMp?: number;
   enemyMaxMp?: number;
+  playerMagicBarrier?: number;
+  playerMagicBarrierMax?: number;
+  enemyMagicBarrier?: number;
+  enemyMagicBarrierMax?: number;
+  playerSignatureResources?: Record<string, number | string>;
+  enemySignatureResources?: Record<string, number | string>;
   sizes: Sizes;
 }) {
   const showPlayerMp =
     playerMaxMp != null && playerMaxMp > 0 && playerMp != null;
   const showEnemyMp =
     enemyMaxMp != null && enemyMaxMp > 0 && enemyMp != null;
+  const showPlayerMagicBarrier =
+    playerMagicBarrierMax != null && playerMagicBarrierMax > 0 && playerMagicBarrier != null;
+  const showEnemyMagicBarrier =
+    enemyMagicBarrierMax != null && enemyMagicBarrierMax > 0 && enemyMagicBarrier != null;
   return (
     <div
-      className={`rounded border border-zinc-200 bg-zinc-50/70 px-2 py-1.5 ${sizes.hpBar} text-zinc-700 dark:border-zinc-700/60 dark:bg-zinc-900/40 dark:text-zinc-300`}
+      data-battle-log-metadata="hp-bar"
+      className={`${SURFACE_INSET} px-2 py-1.5 ${sizes.hpBar} text-zinc-700 dark:text-zinc-300`}
     >
       <div className="grid grid-cols-2 gap-3">
         <InlineBar
@@ -541,6 +1201,31 @@ function HpBar({
           align="right"
         />
       </div>
+      {(showPlayerMagicBarrier || showEnemyMagicBarrier) && (
+        <div className="mt-1 grid grid-cols-2 gap-3">
+          {showPlayerMagicBarrier ? (
+            <InlineBar
+              label="장벽"
+              value={playerMagicBarrier!}
+              max={playerMagicBarrierMax!}
+              color="bg-violet-500"
+            />
+          ) : (
+            <span />
+          )}
+          {showEnemyMagicBarrier ? (
+            <InlineBar
+              label="장벽"
+              value={enemyMagicBarrier!}
+              max={enemyMagicBarrierMax!}
+              color="bg-violet-500"
+              align="right"
+            />
+          ) : (
+            <span />
+          )}
+        </div>
+      )}
       {(showPlayerMp || showEnemyMp) && (
         <div className="mt-1 grid grid-cols-2 gap-3">
           {showPlayerMp ? (
@@ -566,6 +1251,95 @@ function HpBar({
           )}
         </div>
       )}
+      {(Object.keys(playerSignatureResources ?? {}).length > 0 ||
+        Object.keys(enemySignatureResources ?? {}).length > 0) && (
+        <div className="mt-1 grid grid-cols-2 gap-3">
+          <SignatureResourceChips resources={playerSignatureResources} />
+          <SignatureResourceChips
+            resources={enemySignatureResources}
+            align="right"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+const SIGNATURE_RESOURCE_LABELS: Record<string, string> = {
+  gravityReprisal: "중력",
+  pursuitMarks: "추적",
+  shadowEchoes: "잔상",
+  arcaneOverload: "과부하",
+  sanctuaryReserve: "성역",
+  unity: "합일",
+  gale: "질풍",
+  dominant: "지배",
+  nextDamagePct: "다음 피해",
+  nextHealPct: "다음 회복",
+  nextShieldPct: "다음 보호막",
+  physicalWard: "금강결계",
+  magicWard: "봉마결계",
+  purificationWard: "정화결계",
+  domainStability: "영역 안정",
+  lawInscriptions: "각인",
+  frostChill: "한기",
+};
+
+const TRIPLE_WARD_RESOURCE_KEYS = new Set([
+  "physicalWard",
+  "magicWard",
+  "purificationWard",
+]);
+
+const DOMINANT_LABELS: Record<string, string> = {
+  gravity: "중력",
+  bleed: "출혈",
+  pursuit: "추적",
+  shadow: "잔상",
+  venom: "중독",
+  overload: "과부하",
+  sanctuary: "성역",
+};
+
+function SignatureResourceChips({
+  resources,
+  align = "left",
+}: {
+  resources?: Record<string, number | string>;
+  align?: "left" | "right";
+}) {
+  const entries = Object.entries(resources ?? {});
+  if (entries.length === 0) return <span />;
+  return (
+    <div
+      className={`flex flex-wrap gap-1 ${align === "right" ? "justify-end" : "justify-start"}`}
+    >
+      {entries.map(([key, value]) => {
+        const isTripleWard = TRIPLE_WARD_RESOURCE_KEYS.has(key);
+        const active = !isTripleWard || Number(value) > 0;
+        const displayedValue =
+          key === "dominant"
+            ? DOMINANT_LABELS[String(value)] ?? value
+            : value;
+        const displayedText =
+          key === "frostChill"
+            ? String(value)
+            : `${SIGNATURE_RESOURCE_LABELS[key] ?? key} ${displayedValue}`;
+        return (
+          <span
+            key={key}
+            aria-label={displayedText}
+            data-active={isTripleWard ? active : undefined}
+            className={`rounded-full px-1.5 py-0.5 text-xs font-semibold sm:text-[10px] ${
+              active
+                ? "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200"
+                : "bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+            }`}
+          >
+            {displayedText}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -591,7 +1365,7 @@ function InlineBar({
         align === "right" ? "justify-end" : "justify-start"
       }`}
     >
-      <span className="w-4 shrink-0 text-[9px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+      <span className="w-4 shrink-0 text-xs font-semibold uppercase tracking-wider text-zinc-500 sm:text-[9px] dark:text-zinc-400">
         {label}
       </span>
       <div className="h-2 min-w-0 max-w-[104px] flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">

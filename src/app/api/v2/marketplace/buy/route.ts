@@ -6,9 +6,9 @@ import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { inboxValues } from "@/lib/server/inboxPayload";
-import { listedEquipEnhance } from "@/adventure/data/v2/v2EquipMint";
+import { listedEquipBound } from "@/adventure/data/v2/v2EquipMint";
 import {
-  isTradableMaterial,
+  isTradableMarketplaceMaterial,
   marketplaceTaxRateForAdventureSupport,
   marketplaceListingPhase,
   restoreMarketplaceRareMap,
@@ -17,16 +17,28 @@ import {
 import { deliverMarketplaceListing } from "@/lib/server/marketplaceV2Fulfillment";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import { isMuseunCashItemId } from "@/adventure/data/v2/museunCashItems";
-import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
-import { isCookingFoodId } from "@/adventure/v2/cooking";
+import { adventureSupportTier } from "@/adventure/data/v2/adventureSupport";
+import { isCookingFoodId } from "@/adventure/v2/cooking/food";
 import { RARE_MAP_CAP, parseRareMaps } from "@/adventure/data/v2/rareMaps";
+import { fishIdFromSpecimenItemId } from "@/adventure/v2/fishSpecimens";
+import {
+  TradeSuspendedError,
+  requireTradeParticipants,
+  tradeSuspendedResponse,
+} from "@/lib/server/tradeSuspension";
+import {
+  clearMarketplaceHighestBid,
+  unresolvedMarketplaceHighestBidderId,
+} from "@/lib/server/marketplaceEscrow";
 
 // POST /api/v2/marketplace/buy — 매물 구매(원자적).
 //   body: { listingId:int }
-// 흐름: listing 행 FOR UPDATE 잠금 → status active 재확인 → 본인 매물 금지 → 구매자 골드 차감
+// 흐름: 참여자 user 행 잠금 → listing 행 FOR UPDATE 잠금 → status active 재확인
+//   → 본인 매물 금지 → 구매자 골드 차감
 //   → 아이템을 구매자 save 합류(장비=새 개체, 재료=수량 가산) → listing sold 마킹
 //   → 판매자에게 sale_proceeds 우편(대금−판매세; 세금분 소각). 판매자 save 는 잠그지 않음(우편 정산).
-// 잠금 순서: listing → 구매자 character.v2 → 구매자 equipment.v2 (교차 유저 save 락 없음 = 데드락 회피).
+// 잠금 순서: 참여자 users(ID 오름차순) → listing → 구매자 character.v2
+//   → 구매자 equipment.v2 (교차 유저 save 락 없음 = 데드락 회피).
 
 type CharSave = {
   gold?: number;
@@ -62,22 +74,52 @@ export async function POST(req: Request) {
     return bad("bad_listingId");
   }
   const listingId = body.listingId;
+  const now = new Date();
 
   const result = await db.transaction(async (tx) => {
-    // 1) listing 행 잠금 + 활성 재확인(동시 구매 직렬화).
+    const [probe] = await tx
+      .select({
+        sellerId: marketplaceListingsV2.sellerId,
+        highestBidderId: marketplaceListingsV2.highestBidderId,
+        highestBid: marketplaceListingsV2.highestBid,
+        bidResolvedAt: marketplaceListingsV2.bidResolvedAt,
+      })
+      .from(marketplaceListingsV2)
+      .where(eq(marketplaceListingsV2.id, listingId))
+      .limit(1);
+    if (!probe) {
+      await requireTradeParticipants(tx, [userId], now);
+      return { status: 404, body: { ok: false as const, error: "not_found" } };
+    }
+    const probeBidderId = unresolvedMarketplaceHighestBidderId(probe);
+    const participantIds = [
+      userId,
+      probe.sellerId,
+      ...(probeBidderId ? [probeBidderId] : []),
+    ];
+    await requireTradeParticipants(tx, participantIds, now);
+
+    // 1) 참여자 잠금 뒤 listing 행 잠금 + 활성/상대 재확인(동시 구매 직렬화).
     const [listing] = await tx
       .select()
       .from(marketplaceListingsV2)
       .where(eq(marketplaceListingsV2.id, listingId))
       .for("update");
     if (!listing) return { status: 404, body: { ok: false as const, error: "not_found" } };
+    const bidderId = unresolvedMarketplaceHighestBidderId(listing);
+    if (
+      listing.sellerId !== probe.sellerId ||
+      (bidderId != null && !participantIds.includes(bidderId))
+    ) {
+      return { status: 409, body: { ok: false as const, error: "not_available" } };
+    }
     if (listing.status !== "active") {
       return { status: 409, body: { ok: false as const, error: "not_available" } };
     }
     if (listing.sellerId === userId) {
       return { status: 400, body: { ok: false as const, error: "own_listing" } };
     }
-    const phase = marketplaceListingPhase(listing, new Date());
+    const phase = marketplaceListingPhase(listing, now);
     if (phase === "bidding") {
       return { status: 409, body: { ok: false as const, error: "buy_pending" } };
     }
@@ -90,33 +132,20 @@ export async function POST(req: Request) {
     if (phase !== "fixed") {
       return { status: 409, body: { ok: false as const, error: "listing_expired" } };
     }
+    await clearMarketplaceHighestBid(tx, listing, now, "expired");
     if (
-      !listing.bidResolvedAt &&
-      listing.highestBidderId &&
-      (listing.highestBid ?? 0) > 0
+      listing.kind === "material" &&
+      !isTradableMarketplaceMaterial(listing.itemId)
     ) {
-      await tx.insert(marketplaceInbox).values(
-        inboxValues({
-          userId: listing.highestBidderId,
-          payload: { kind: "bid_refund", gold: listing.highestBid! },
-          message: `${listing.itemName} 유예 종료 · ${listing.highestBid!.toLocaleString()}골드 반환`,
-        }),
-      );
-      await tx
-        .update(marketplaceListingsV2)
-        .set({ bidResolvedAt: new Date() })
-        .where(eq(marketplaceListingsV2.id, listingId));
-    }
-    if (listing.kind === "material" && !isTradableMaterial(listing.itemId)) {
       return {
         status: 409,
         body: { ok: false as const, error: "not_available" },
       };
     }
-    // 정책 변경 전에 등록된 강화 매물도 새 구매는 막는다. 판매자는 취소하거나 만료 시
+    // 방어적으로 귀속 payload가 남은 옛 매물은 구매를 막는다. 판매자는 취소하거나 만료 시
     // 원형 그대로 돌려받을 수 있으므로 여기서 매물을 소멸시키지는 않는다.
-    if (listing.kind === "equip" && listedEquipEnhance(listing.instancePayload)) {
-      return { status: 409, body: { ok: false as const, error: "enhanced" } };
+    if (listing.kind === "equip" && listedEquipBound(listing.instancePayload)) {
+      return { status: 409, body: { ok: false as const, error: "bound" } };
     }
 
     const sellerCharacter = await readSave<CharSave>(
@@ -126,7 +155,7 @@ export async function POST(req: Request) {
       {},
     );
     const sellerTaxRate = marketplaceTaxRateForAdventureSupport(
-      adventureSupportActive(sellerCharacter.adventureSupport),
+      adventureSupportTier(sellerCharacter.adventureSupport),
     );
 
     // 1-b) 소모품(레어맵) — 실물 유효성 검증(시간 만료 폐지 2026-06-22, 판수 소진/불량
@@ -134,13 +163,14 @@ export async function POST(req: Request) {
     if (
       listing.kind === "consumable" &&
       !isMuseunCashItemId(listing.itemId) &&
-      !isCookingFoodId(listing.itemId)
+      !isCookingFoodId(listing.itemId) &&
+      fishIdFromSpecimenItemId(listing.itemId) === null
     ) {
       const inst = restoreMarketplaceRareMap(listing.instancePayload, Date.now());
       if (!inst) {
         await tx
           .update(marketplaceListingsV2)
-          .set({ status: "expired", closedAt: new Date() })
+          .set({ status: "expired", closedAt: now })
           .where(eq(marketplaceListingsV2.id, listingId));
         return {
           status: 409,
@@ -161,6 +191,7 @@ export async function POST(req: Request) {
       listing.kind === "consumable" &&
       !isMuseunCashItemId(listing.itemId) &&
       !isCookingFoodId(listing.itemId) &&
+      fishIdFromSpecimenItemId(listing.itemId) === null &&
       parseRareMaps(charSave.rareMaps, Date.now()).length >= RARE_MAP_CAP
     ) {
       return {
@@ -182,7 +213,7 @@ export async function POST(req: Request) {
     // 4) listing sold 마킹.
     await tx
       .update(marketplaceListingsV2)
-      .set({ status: "sold", buyerId: userId, closedAt: new Date() })
+      .set({ status: "sold", buyerId: userId, closedAt: now })
       .where(eq(marketplaceListingsV2.id, listingId));
 
     // 5) 판매자 정산 우편 — 대금 − 판매세(세금분 소각). 판매자 오프라인이어도 우편으로 수령.
@@ -223,7 +254,11 @@ export async function POST(req: Request) {
         ...(V2_CORE_LOOP_V2 ? { bankedGold: nextChar.bankedGold } : {}),
       },
     };
+  }).catch((error) => {
+    if (error instanceof TradeSuspendedError) return tradeSuspendedResponse(error);
+    throw error;
   });
+  if (result instanceof Response) return result;
 
   const economyLog = result.status === 200 && "log" in result ? result.log : null;
   if (economyLog) {

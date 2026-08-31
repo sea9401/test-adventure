@@ -9,8 +9,10 @@ import {
   House,
   Leaf,
   Package,
+  PawPrint,
   PottedPlant,
   Sparkle,
+  X,
 } from "@phosphor-icons/react";
 import { PageShell } from "@/components/ui/PageShell";
 import { FarmItemIcon } from "@/adventure/v2/FarmItemIcon";
@@ -25,6 +27,7 @@ import {
   FARM_RARE_PITY_HARVESTS,
   canPlantFarmCrop,
   farmAvailableReputation,
+  farmCropMasteryGain,
   farmingLevelForState,
   farmingLevelXpThreshold,
   nextFarmPlotUpgrade,
@@ -40,10 +43,19 @@ import {
   type FarmState,
   type FarmWeeklyDeliveryRequest,
 } from "./farm";
+import { RANCH_ANIMAL_DEFINITIONS, ranchReadySlotCount } from "./ranch";
+import {
+  farmBatchOutcomeText,
+  type FarmBatchAction,
+} from "./farmBatchActions";
+import { FarmRanchPanel } from "./FarmRanchPanel";
+import { FarmEndgameShopPanel } from "./FarmEndgameShopPanel";
 import { useFarm } from "./useFarm";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
+import { LIFE_LEVEL_CAP } from "./lifeLevelProgression";
+import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 
-type FarmSectionKey = "home" | "grow" | "delivery" | "shop";
+type FarmSectionKey = "home" | "grow" | "ranch" | "delivery" | "shop";
 
 type FarmToast = {
   id: number;
@@ -78,18 +90,26 @@ export function prioritizeDeliverable<T>(
 export function AdventurerFarmPanel({
   onBack,
   onOpenKitchen,
+  onOpenLifeWorkshop,
 }: {
   onBack: () => void;
   onOpenKitchen: () => void;
+  onOpenLifeWorkshop: () => void;
 }) {
   const {
     loading,
     busyPlotId,
+    busyPlotAction,
     busyDeliveryId,
     busySpecialDeliveryId,
     busyWeeklyDeliveryId,
     busyShopItemId,
+    busyEndgameShopItemId,
     busyPlotUpgrade,
+    busyRanchFeedSlotId,
+    busyRanchCollect,
+    busyRanchUpgradeSlotId,
+    busyRanchRebuildSlotId,
     fertilizerBalance,
     notice,
     now,
@@ -100,16 +120,26 @@ export function AdventurerFarmPanel({
     specialDeliveries,
     weeklyDeliveries,
     shopItems,
+    endgameShop,
     clearNotice,
     refresh,
     plant,
     harvest,
     fertilize,
+    uproot,
+    plantAll,
+    harvestAll,
+    fertilizeAll,
     deliver,
     deliverSpecial,
     deliverWeekly,
     buyShopItem,
+    buyEndgameShopItem,
     buyPlotUpgrade,
+    feedRanchSlot,
+    collectRanch,
+    buyRanchSlot,
+    rebuildRanchSlot,
   } = useFarm();
   const [selectedCropId, setSelectedCropId] = useState<FarmCropId>("wheat");
   const [activeSection, setActiveSection] = useState<FarmSectionKey>(
@@ -120,14 +150,42 @@ export function AdventurerFarmPanel({
     [crops],
   );
   const selectedCrop = cropById.get(selectedCropId) ?? crops[0];
+  const selectedCropLocked = selectedCrop
+    ? !canPlantFarmCrop(selectedCrop.id, learnedSkillIds)
+    : false;
   const dailyDeliveryCount = farm?.deliveries.claimedIds.length ?? 0;
   const deliveryLimitReached = dailyDeliveryCount >= FARM_DAILY_DELIVERY_LIMIT;
-  const readyPlotCount = useMemo(
+  const readyPlotIds = useMemo(
     () =>
-      farm?.plots.filter((plot) => plot.cropId && plot.readyAt && plot.readyAt <= now)
-        .length ?? 0,
+      farm?.plots
+        .filter((plot) => plot.cropId && plot.readyAt && plot.readyAt <= now)
+        .map((plot) => plot.id) ?? [],
     [farm?.plots, now],
   );
+  const plantablePlotIds = useMemo(() => {
+    if (!farm || !selectedCrop || selectedCropLocked) return [];
+    const seedCount = Math.max(0, farm.seeds[selectedCrop.id] ?? 0);
+    return farm.plots
+      .filter((plot) => !plot.cropId)
+      .slice(0, seedCount)
+      .map((plot) => plot.id);
+  }, [farm, selectedCrop, selectedCropLocked]);
+  const fertilizablePlotIds = useMemo(
+    () =>
+      farm?.plots
+        .filter(
+          (plot) =>
+            plot.cropId &&
+            plot.readyAt &&
+            plot.readyAt > now &&
+            !plot.fertilized,
+        )
+        .slice(0, Math.max(0, fertilizerBalance))
+        .map((plot) => plot.id) ?? [],
+    [farm?.plots, fertilizerBalance, now],
+  );
+  const readyPlotCount = readyPlotIds.length;
+  const readyRanchSlotCount = farm ? ranchReadySlotCount(farm.ranch) : 0;
   const deliverableCount = useMemo(
     () =>
       farm
@@ -170,6 +228,12 @@ export function AdventurerFarmPanel({
           badge: readyPlotCount > 0 ? readyPlotCount : undefined,
         },
         {
+          key: "ranch",
+          label: "목장",
+          icon: <PawPrint size={16} weight="duotone" />,
+          badge: readyRanchSlotCount > 0 ? readyRanchSlotCount : undefined,
+        },
+        {
           key: "delivery",
           label: "납품",
           icon: <Package size={16} weight="duotone" />,
@@ -187,7 +251,7 @@ export function AdventurerFarmPanel({
         icon: ReactNode;
         badge?: number;
       }>,
-    [affordableShopCount, deliverableCount, readyPlotCount],
+    [affordableShopCount, deliverableCount, readyPlotCount, readyRanchSlotCount],
   );
   const selectFarmSection = (next: FarmSectionKey) => {
     lastFarmSection = next;
@@ -222,6 +286,14 @@ export function AdventurerFarmPanel({
         }`,
       };
     }
+    if (notice.kind === "endgameShop") {
+      const { result } = notice;
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: `${result.title} 구매 완료. 농장 증표 ${result.costReputation.toLocaleString("ko-KR")}개를 사용해 ${result.rewardText}를 받았습니다.`,
+      };
+    }
     if (notice.kind === "plotUpgrade") {
       const { result } = notice;
       return {
@@ -232,6 +304,75 @@ export function AdventurerFarmPanel({
     }
     if (notice.kind === "fertilizer") {
       return { id: notice.id, tone: "ok", text: `유기질 거름을 사용해 수확 시간을 ${Math.max(1, Math.round(notice.reducedMs / 60_000))}분 줄였습니다.` };
+    }
+    if (notice.kind === "uproot") {
+      return { id: notice.id, tone: "ok", text: "작물을 파내고 밭을 비웠습니다." };
+    }
+    if (notice.kind === "batchPlant") {
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: farmBatchOutcomeText(
+          "plant",
+          notice.count,
+          null,
+          notice.cropName,
+        ),
+      };
+    }
+    if (notice.kind === "batchHarvest") {
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: farmBatchOutcomeText(
+          "harvest",
+          notice.count,
+          null,
+          undefined,
+          notice.farmingXpGained,
+        ),
+      };
+    }
+    if (notice.kind === "batchFertilizer") {
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: farmBatchOutcomeText("fertilize", notice.count, null),
+      };
+    }
+    if (notice.kind === "ranchFeed") {
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: `배합 사료 ${notice.result.amount}개를 넣었습니다. 남은 사료 ${notice.result.feedRemaining}개.`,
+      };
+    }
+    if (notice.kind === "ranchCollect") {
+      const rewards = Object.entries(notice.result.items)
+        .filter(([, amount]) => (amount ?? 0) > 0)
+        .map(([itemId, amount]) => `${ITEM_LABELS[itemId as FarmItemId]} ${amount}개`)
+        .join(", ");
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: `${rewards}를 수확했습니다. 농사 XP +${notice.result.farmingXpGained}.`,
+      };
+    }
+    if (notice.kind === "ranchUpgrade") {
+      const animal = RANCH_ANIMAL_DEFINITIONS[notice.result.animalId];
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: `${animal.buildingName}을(를) 건설했습니다. 농장 증표 ${notice.result.costReputation.toLocaleString("ko-KR")}개를 사용했습니다.`,
+      };
+    }
+    if (notice.kind === "ranchRebuild") {
+      const animal = RANCH_ANIMAL_DEFINITIONS[notice.result.animalId];
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: `${animal.buildingName}으로 재건축했습니다. 농장 증표 ${notice.result.costReputation.toLocaleString("ko-KR")}개를 사용했습니다.`,
+      };
     }
     const { result } = notice;
     return {
@@ -270,6 +411,12 @@ export function AdventurerFarmPanel({
       <ProductionJobAdvanceNotice
         refreshKey={farm ? farmingLevelForState(farm) : 0}
       />
+      {farm ? (
+        <LifeLevelMilestoneNotice
+          activity="farming"
+          level={farmingLevelForState(farm)}
+        />
+      ) : null}
 
       <section className={`${SURFACE_CARD} overflow-clip`}>
         {loading ? (
@@ -294,6 +441,7 @@ export function AdventurerFarmPanel({
                   farm={farm}
                   busyPlotUpgrade={busyPlotUpgrade}
                   readyPlotCount={readyPlotCount}
+                  readyRanchSlotCount={readyRanchSlotCount}
                   deliverableCount={deliverableCount}
                   affordableShopCount={affordableShopCount}
                   onBuyPlotUpgrade={buyPlotUpgrade}
@@ -308,37 +456,70 @@ export function AdventurerFarmPanel({
                 <CropSelector
                   crops={crops}
                   seeds={farm.seeds}
+                  inventory={farm.inventory}
                   learnedSkillIds={learnedSkillIds}
                   selectedCropId={selectedCrop?.id ?? selectedCropId}
                   onSelect={setSelectedCropId}
                 />
 
-                <div className="grid gap-3 sm:grid-cols-3">
+                <FarmBatchActionPanel
+                  cropName={selectedCrop?.name ?? "선택한 작물"}
+                  harvestCount={readyPlotIds.length}
+                  plantCount={plantablePlotIds.length}
+                  fertilizerCount={fertilizablePlotIds.length}
+                  busyAction={busyPlotAction}
+                  onHarvestAll={() => void harvestAll(readyPlotIds)}
+                  onPlantAll={() =>
+                    selectedCrop &&
+                    void plantAll(plantablePlotIds, selectedCrop.id)
+                  }
+                  onFertilizeAll={() =>
+                    void fertilizeAll(fertilizablePlotIds)
+                  }
+                />
+
+                <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-4">
                   {farm.plots.map((plot) => (
-                    <PlotCard
+                    <FarmPlotCard
                       key={plot.id}
                       plot={plot}
                       now={now}
                       crop={plot.cropId ? cropById.get(plot.cropId) : null}
                       selectedCrop={selectedCrop}
-                      selectedCropLocked={
-                        selectedCrop
-                          ? !canPlantFarmCrop(selectedCrop.id, learnedSkillIds)
-                          : false
-                      }
+                      selectedCropLocked={selectedCropLocked}
                       selectedSeedCount={
                         selectedCrop ? (farm.seeds[selectedCrop.id] ?? 0) : 0
                       }
-                      busy={busyPlotId === plot.id}
+                      busy={
+                        busyPlotAction !== null || busyPlotId === plot.id
+                      }
                       fertilizerBalance={fertilizerBalance}
                       onPlant={() =>
                         selectedCrop && plant(plot.id, selectedCrop.id)
                       }
                       onHarvest={() => harvest(plot.id)}
                       onFertilize={() => fertilize(plot.id)}
+                      onUproot={() => uproot(plot.id)}
                     />
                   ))}
                 </div>
+              </div>
+
+              <div className={activeSection === "ranch" ? "space-y-4" : "hidden"}>
+                <FarmRanchPanel
+                  farm={farm}
+                  now={now}
+                  learnedSkillIds={learnedSkillIds}
+                  busyFeedSlotId={busyRanchFeedSlotId}
+                  busyCollect={busyRanchCollect}
+                  busyUpgradeSlotId={busyRanchUpgradeSlotId}
+                  busyRebuildSlotId={busyRanchRebuildSlotId}
+                  onFeed={(slotId, amount) => void feedRanchSlot(slotId, amount)}
+                  onCollect={() => void collectRanch()}
+                  onUpgrade={(slotId, animalId) => void buyRanchSlot(slotId, animalId)}
+                  onRebuild={(slotId, animalId) => void rebuildRanchSlot(slotId, animalId)}
+                  onOpenLifeWorkshop={onOpenLifeWorkshop}
+                />
               </div>
 
               <div
@@ -384,6 +565,14 @@ export function AdventurerFarmPanel({
                   busyShopItemId={busyShopItemId}
                   onBuy={buyShopItem}
                 />
+                {endgameShop ? (
+                  <FarmEndgameShopPanel
+                    view={endgameShop}
+                    availableReputation={availableReputation}
+                    busyItemId={busyEndgameShopItemId}
+                    onBuy={(itemId) => void buyEndgameShopItem(itemId)}
+                  />
+                ) : null}
               </div>
             </div>
           </div>
@@ -393,7 +582,7 @@ export function AdventurerFarmPanel({
           </div>
         )}
       </section>
-      {toast ? <FarmToastMessage toast={toast} /> : null}
+      {toast ? <FarmToastMessage toast={toast} onDismiss={clearNotice} /> : null}
     </PageShell>
   );
 }
@@ -407,15 +596,20 @@ export function FarmExchangeShopPanel() {
     farm,
     learnedSkillIds,
     shopItems,
+    endgameShop,
     busyShopItemId,
+    busyEndgameShopItemId,
     clearNotice,
     refresh,
     buyShopItem,
+    buyEndgameShopItem,
   } = useFarm();
   const availableReputation = farm ? farmAvailableReputation(farm) : 0;
   const shopNotice =
     notice?.kind === "shop"
       ? `${notice.result.title} 구매 완료. 농장 증표 ${notice.result.costReputation}개를 사용했습니다.`
+      : notice?.kind === "endgameShop"
+        ? `${notice.result.title} 구매 완료. 농장 증표 ${notice.result.costReputation.toLocaleString("ko-KR")}개를 사용해 ${notice.result.rewardText}를 받았습니다.`
       : notice?.kind === "error"
         ? notice.text
         : null;
@@ -459,13 +653,23 @@ export function FarmExchangeShopPanel() {
           농장 상점을 불러오는 중...
         </div>
       ) : farm ? (
-        <FarmShopPanel
-          items={shopItems}
-          availableReputation={availableReputation}
-          learnedSkillIds={learnedSkillIds}
-          busyShopItemId={busyShopItemId}
-          onBuy={(itemId) => void buyShopItem(itemId)}
-        />
+        <div className="space-y-3">
+          <FarmShopPanel
+            items={shopItems}
+            availableReputation={availableReputation}
+            learnedSkillIds={learnedSkillIds}
+            busyShopItemId={busyShopItemId}
+            onBuy={(itemId) => void buyShopItem(itemId)}
+          />
+          {endgameShop ? (
+            <FarmEndgameShopPanel
+              view={endgameShop}
+              availableReputation={availableReputation}
+              busyItemId={busyEndgameShopItemId}
+              onBuy={(itemId) => void buyEndgameShopItem(itemId)}
+            />
+          ) : null}
+        </div>
       ) : (
         <div className={`${SURFACE_CARD} space-y-3 px-4 py-6 text-center text-sm`}>
           <p className="text-rose-600 dark:text-rose-300">
@@ -488,6 +692,7 @@ function FarmHome({
   farm,
   busyPlotUpgrade,
   readyPlotCount,
+  readyRanchSlotCount,
   deliverableCount,
   affordableShopCount,
   onBuyPlotUpgrade,
@@ -497,6 +702,7 @@ function FarmHome({
   farm: FarmState;
   busyPlotUpgrade: boolean;
   readyPlotCount: number;
+  readyRanchSlotCount: number;
   deliverableCount: number;
   affordableShopCount: number;
   onBuyPlotUpgrade: () => void;
@@ -527,12 +733,18 @@ function FarmHome({
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-2" aria-label="농장 바로가기">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="농장 바로가기">
         <FarmHomeShortcut
           icon={<FlowerTulip size={18} weight="duotone" />}
           label="재배"
           status={readyPlotCount > 0 ? `${readyPlotCount}칸 수확` : "밭 확인"}
           onClick={() => onNavigate("grow")}
+        />
+        <FarmHomeShortcut
+          icon={<PawPrint size={18} weight="duotone" />}
+          label="목장"
+          status={readyRanchSlotCount > 0 ? `${readyRanchSlotCount}칸 수확` : "축사 확인"}
+          onClick={() => onNavigate("ranch")}
         />
         <FarmHomeShortcut
           icon={<Package size={18} weight="duotone" />}
@@ -590,40 +802,57 @@ function FarmHomeShortcut({
   );
 }
 
-function FarmToastMessage({ toast }: { toast: FarmToast }) {
+function FarmToastMessage({
+  toast,
+  onDismiss,
+}: {
+  toast: FarmToast;
+  onDismiss: () => void;
+}) {
   const ok = toast.tone === "ok";
   return (
     <div
       key={toast.id}
       role="status"
       aria-live="polite"
-      className={`fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-4 z-50 max-w-[min(24rem,calc(100vw-2rem))] rounded-md border px-4 py-3 text-base font-semibold leading-relaxed shadow-xl sm:left-6 ${
+      className={`fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-4 z-50 flex max-w-[min(24rem,calc(100vw-2rem))] items-start gap-2 rounded-md border px-4 py-3 text-base font-semibold leading-relaxed shadow-xl sm:left-6 ${
         ok
           ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-100"
           : "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-100"
       }`}
     >
-      {toast.text}
+      <span className="min-w-0 flex-1">{toast.text}</span>
+      <button
+        type="button"
+        aria-label="알림 닫기"
+        onClick={onDismiss}
+        className="-mr-2 -mt-1 flex size-8 shrink-0 items-center justify-center rounded-md opacity-60 transition hover:bg-black/5 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 dark:hover:bg-white/10"
+      >
+        <X size={17} weight="bold" aria-hidden />
+      </button>
     </div>
   );
 }
 
 function FarmSummary({ farm }: { farm: FarmState }) {
   const farmingLevel = farmingLevelForState(farm);
+  const maxLevel = farmingLevel >= LIFE_LEVEL_CAP;
   const levelStartXp = farmingLevelXpThreshold(farmingLevel);
   const nextLevelXp = farmingLevelXpThreshold(farmingLevel + 1);
-  const farmingLevelProgress = Math.max(0, farm.stats.farmingXp - levelStartXp);
+  const farmingLevelProgress = maxLevel
+    ? 1
+    : Math.max(0, farm.stats.farmingXp - levelStartXp);
   const farmingLevelRequired = Math.max(1, nextLevelXp - levelStartXp);
-  const farmingLevelProgressText = `${farmingLevelProgress.toLocaleString(
-    "ko-KR",
-  )} / ${farmingLevelRequired.toLocaleString("ko-KR")}`;
+  const farmingLevelProgressText = maxLevel
+    ? "최종 숙련 달성 · MAX"
+    : `${farmingLevelProgress.toLocaleString("ko-KR")} / ${farmingLevelRequired.toLocaleString("ko-KR")}`;
 
   return (
     <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
       <SummaryTile
         icon={<Sparkle size={17} weight="duotone" />}
         label="농사 레벨"
-        value={`Lv ${farmingLevel.toLocaleString("ko-KR")}`}
+        value={`Lv ${farmingLevel.toLocaleString("ko-KR")} / ${LIFE_LEVEL_CAP}`}
       />
       <SummaryTile
         icon={<Leaf size={17} weight="duotone" />}
@@ -960,6 +1189,9 @@ function FarmShopPanel({
           사용 가능 {availableReputation.toLocaleString("ko-KR")}
         </span>
       </div>
+      <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
+        할인된 씨앗 묶음 또는 필요한 씨앗 1개 단품을 선택합니다.
+      </p>
       <div className="grid gap-2 lg:grid-cols-3">
         {items.map((item) => {
           const affordable = availableReputation >= item.costReputation;
@@ -1031,12 +1263,14 @@ function FarmShopPanel({
 function CropSelector({
   crops,
   seeds,
+  inventory,
   learnedSkillIds,
   selectedCropId,
   onSelect,
 }: {
   crops: FarmCrop[];
   seeds: FarmSeedInventory;
+  inventory: FarmItemInventory;
   learnedSkillIds: readonly string[];
   selectedCropId: FarmCropId;
   onSelect: (id: FarmCropId) => void;
@@ -1061,9 +1295,9 @@ function CropSelector({
               disabled={locked}
               className={`flex min-h-[6.25rem] items-center gap-3 rounded-md border px-3 py-2 text-left transition ${
                 active
-                  ? "border-emerald-500 bg-emerald-50 text-emerald-950 shadow-sm dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-100"
+                  ? "border-emerald-500 bg-emerald-50 text-emerald-950 shadow-sm dark:border-emerald-500 dark:bg-emerald-950 dark:text-emerald-100"
                   : locked
-                    ? "cursor-not-allowed border-zinc-200 bg-zinc-50 text-zinc-400 opacity-75 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-500"
+                    ? "cursor-not-allowed border-zinc-200 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-500"
                     : "border-zinc-200 bg-white text-zinc-700 hover:border-emerald-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-emerald-700 dark:hover:bg-zinc-900"
               }`}
             >
@@ -1071,12 +1305,22 @@ function CropSelector({
               <span className="min-w-0">
                 <span className="block text-sm font-bold">{crop.seedName}</span>
                 <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">
-                  {locked
-                    ? `${crop.requiredSkillName ?? "농부 패시브"} 필요`
-                    : `${formatDuration(crop.growMs)} · ${crop.yieldMin}-${crop.yieldMax}개`}
+                  {formatDuration(crop.growMs)} · {crop.yieldMin}-{crop.yieldMax}개 · 농사 XP {farmCropMasteryGain(crop.id).toLocaleString("ko-KR")}
                 </span>
-                <span className="mt-1 inline-flex rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-zinc-900 dark:text-emerald-300">
-                  보유 {seeds[crop.id] ?? 0}개
+                {locked ? (
+                  <span className="mt-0.5 block text-xs font-semibold text-rose-600 dark:text-rose-300">
+                    {crop.requiredSkillName ?? "농부 패시브"} 필요
+                  </span>
+                ) : null}
+                <span
+                  className={`mt-1 inline-flex max-w-full flex-wrap rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-semibold dark:bg-zinc-900 ${
+                    locked
+                      ? "text-zinc-500 dark:text-zinc-400"
+                      : "text-emerald-700 dark:text-emerald-300"
+                  }`}
+                >
+                  씨앗 {(seeds[crop.id] ?? 0).toLocaleString("ko-KR")}개 · 작물{" "}
+                  {(inventory[crop.itemId] ?? 0).toLocaleString("ko-KR")}개
                 </span>
               </span>
             </button>
@@ -1087,7 +1331,71 @@ function CropSelector({
   );
 }
 
-function PlotCard({
+export function FarmBatchActionPanel({
+  cropName,
+  harvestCount,
+  plantCount,
+  fertilizerCount,
+  busyAction,
+  onHarvestAll,
+  onPlantAll,
+  onFertilizeAll,
+}: {
+  cropName: string;
+  harvestCount: number;
+  plantCount: number;
+  fertilizerCount: number;
+  busyAction: FarmBatchAction | null;
+  onHarvestAll: () => void;
+  onPlantAll: () => void;
+  onFertilizeAll: () => void;
+}) {
+  const busy = busyAction !== null;
+  const buttonClass =
+    "h-10 rounded-md border border-emerald-300 bg-white px-3 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-100 disabled:text-zinc-400 dark:border-emerald-800 dark:bg-zinc-900 dark:text-emerald-300 dark:hover:bg-emerald-950 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-900 dark:disabled:text-zinc-500";
+
+  return (
+    <div
+      role="group"
+      aria-label="농장 일괄 작업"
+      aria-busy={busy}
+      className={`${SURFACE_INSET} grid gap-2 p-3 sm:grid-cols-3`}
+    >
+      <button
+        type="button"
+        disabled={busy || harvestCount < 1}
+        onClick={onHarvestAll}
+        className={buttonClass}
+      >
+        {busyAction === "harvest"
+          ? "모두 수확 중..."
+          : `모두 수확 · ${harvestCount}칸`}
+      </button>
+      <button
+        type="button"
+        disabled={busy || plantCount < 1}
+        onClick={onPlantAll}
+        className={buttonClass}
+      >
+        {busyAction === "plant"
+          ? `${cropName} 모두 심는 중...`
+          : `${cropName} 모두 심기 · ${plantCount}칸`}
+      </button>
+      <button
+        type="button"
+        disabled={busy || fertilizerCount < 1}
+        onClick={onFertilizeAll}
+        className={buttonClass}
+      >
+        {busyAction === "fertilize"
+          ? "모두 비료 뿌리는 중..."
+          : `모두 비료 뿌리기 · ${fertilizerCount}칸`}
+      </button>
+    </div>
+  );
+}
+
+export function FarmPlotCard({
   plot,
   now,
   crop,
@@ -1099,6 +1407,7 @@ function PlotCard({
   onPlant,
   onHarvest,
   onFertilize,
+  onUproot,
 }: {
   plot: FarmPlot;
   now: number;
@@ -1111,6 +1420,7 @@ function PlotCard({
   onPlant: () => void;
   onHarvest: () => void;
   onFertilize: () => void;
+  onUproot: () => void;
 }) {
   const ready = !!crop && !!plot.readyAt && plot.readyAt <= now;
   const progress =
@@ -1122,7 +1432,7 @@ function PlotCard({
       : 0;
 
   return (
-    <div className="flex min-h-[13rem] flex-col rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+    <div className={`${SURFACE_CARD} flex min-h-[18rem] flex-col p-3`}>
       <div className="flex items-center justify-between gap-2">
         <div className="text-sm font-bold text-stone-900 dark:text-stone-100">
           {plotLabel(plot.id)}
@@ -1156,27 +1466,9 @@ function PlotCard({
               style={{ width: `${ready ? 100 : progress}%` }}
             />
           </div>
-          <p className="mt-3 min-h-[2.5rem] text-xs leading-relaxed text-stone-600 dark:text-stone-300">
+          <p className="mt-3 line-clamp-2 h-10 overflow-hidden text-xs leading-relaxed text-stone-600 dark:text-stone-300">
             {crop.note}
           </p>
-          <button
-            type="button"
-            onClick={onHarvest}
-            disabled={!ready || busy}
-            className="mt-auto rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
-          >
-            {busy ? "처리 중..." : ready ? "수확하기" : "재배 중"}
-          </button>
-          {!ready ? (
-            <button
-              type="button"
-              onClick={onFertilize}
-              disabled={busy || plot.fertilized || fertilizerBalance < 1}
-              className="mt-2 rounded-md border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-700 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 dark:bg-zinc-900"
-            >
-              {plot.fertilized ? "거름 사용 완료" : `유기질 거름 사용 · 보유 ${fertilizerBalance}`}
-            </button>
-          ) : null}
         </>
       ) : (
         <>
@@ -1197,24 +1489,76 @@ function PlotCard({
               </div>
             </div>
           </div>
+        </>
+      )}
+
+      <div
+        role="group"
+        aria-label={`${plotLabel(plot.id)} 작업`}
+        className="mt-auto grid min-h-[4.75rem] grid-rows-[2.25rem_2rem] gap-2"
+      >
+        {crop ? (
+          <button
+            type="button"
+            onClick={onHarvest}
+            disabled={!ready || busy}
+            className="h-9 rounded-md bg-emerald-600 px-3 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
+          >
+            {busy ? "처리 중..." : ready ? "수확하기" : "재배 중"}
+          </button>
+        ) : (
           <button
             type="button"
             onClick={onPlant}
             disabled={
               !selectedCrop || selectedCropLocked || selectedSeedCount <= 0 || busy
             }
-            className="mt-auto rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
+            className="h-9 rounded-md bg-emerald-600 px-3 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
           >
             {busy
               ? "심는 중..."
               : selectedCropLocked
                 ? `${selectedCrop?.requiredSkillName ?? "농부 패시브"} 필요`
                 : selectedSeedCount <= 0
-                ? "씨앗 부족"
-                : `${selectedCrop?.name ?? "작물"} 심기`}
+                  ? "씨앗 부족"
+                  : `${selectedCrop?.name ?? "작물"} 심기`}
           </button>
-        </>
-      )}
+        )}
+
+        {crop && !ready ? (
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              onClick={onFertilize}
+              disabled={busy || plot.fertilized || fertilizerBalance < 1}
+              className="h-8 rounded-md border border-emerald-300 bg-white px-2 text-[0.6875rem] font-bold text-emerald-700 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 dark:bg-zinc-900"
+            >
+              {plot.fertilized
+                ? "거름 사용 완료"
+                : `유기질 거름 사용 · ${fertilizerBalance}`}
+            </button>
+            <button
+              type="button"
+              title="씨앗·수확물·비료는 반환되지 않습니다"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `${crop.name}을(를) 파내시겠습니까?\n씨앗·수확물·비료는 반환되지 않습니다.`,
+                  )
+                ) {
+                  onUproot();
+                }
+              }}
+              disabled={busy}
+              className="h-8 rounded-md border border-rose-300 bg-white px-2 text-[0.6875rem] font-bold text-rose-700 disabled:cursor-not-allowed disabled:text-zinc-400 dark:bg-zinc-900 dark:text-rose-300"
+            >
+              작물 파내기
+            </button>
+          </div>
+        ) : (
+          <span aria-hidden="true" className="h-8" />
+        )}
+      </div>
     </div>
   );
 }

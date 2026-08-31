@@ -16,6 +16,44 @@ const CHARACTER = {
 };
 
 describe("V2CharacterCard profile theme", () => {
+  it("펼친 캐릭터 카드에 길드 음식 효과와 남은 시간을 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <V2CharacterCard
+        character={CHARACTER}
+        activeGuildDiningEffect={{
+          menuId: "guild_grand_feast",
+          name: "길드 대연회",
+          kind: "all_xp",
+          bonusPct: 60,
+          lifeBonusPct: 20,
+          expiresAt: Date.now() + 2 * 60 * 60 * 1000,
+        }}
+      />,
+    );
+
+    expect(html).toContain("길드 대연회");
+    expect(html).toContain("사냥 경험치 +60% · 생활 경험치 +20%");
+    expect(html).toContain("2시간");
+  });
+
+  it("프리미엄 지원권은 상세 카드 진입 배지에서 구분한다", () => {
+    const html = renderToStaticMarkup(
+      <V2CharacterCard
+        character={CHARACTER}
+        adventureSupport={{
+          active: true,
+          tier: "premium",
+          premiumUntil: Date.now() + 86_400_000,
+          activeUntil: Date.now() + 2 * 86_400_000,
+          regenBonusPct: 20,
+        }}
+      />,
+    );
+
+    expect(html).toContain("월간 모험 지원권 프리미엄 적용 중");
+    expect(html).toContain("text-amber-700");
+  });
+
   it("shows slot, equipment, and set names together for equipped items", () => {
     const html = renderToStaticMarkup(
       <V2CharacterCard
@@ -52,6 +90,23 @@ describe("V2CharacterCard profile theme", () => {
     expect(html).toContain("전투 Lv 42 / 100");
     expect(html).toContain("전직 레벨 제한 없음");
     expect(html).not.toContain(">전투 Lv 42 / 1<");
+  });
+
+  it("keeps level-cap guidance out of the regular character card", () => {
+    for (const rejobRequiredLevel of [1, 100]) {
+      const html = renderToStaticMarkup(
+        <V2CharacterCard
+          character={{ ...CHARACTER, level: 100 }}
+          levelCap={100}
+          rejobRequiredLevel={rejobRequiredLevel}
+        />,
+      );
+
+      expect(html).toContain("전투 Lv 100 / 100");
+      expect(html).not.toContain("전투 레벨이 한계에 도달했어요");
+      expect(html).not.toContain("직업 숙련도를 쌓으면 새 직업이 열려요");
+      expect(html).not.toContain("생활 숙련 조건만 충족하면");
+    }
   });
 
   it("keeps the header shadow off chroma nicknames", () => {
@@ -115,6 +170,29 @@ describe("V2CharacterCard profile theme", () => {
     expect(html).toContain("size-8");
     expect(html).not.toContain("잠김");
     expect(html).not.toContain("대표 배지 편집");
+  });
+
+  it("resolves a mastery family selection to its earned platinum medal", () => {
+    const html = renderToStaticMarkup(
+      <V2CharacterCard
+        character={CHARACTER}
+        profileBadgeStandOwned
+        profileShowcaseSlots={[
+          { kind: "masteryTrophy", trophyId: "mastery:fish" },
+          null,
+          null,
+        ]}
+        profileMasteryTrophies={[{
+          trophyId: "mastery:fish",
+          title: "만경의 어탁",
+          currentTier: "platinum",
+        }]}
+      />,
+    );
+
+    expect(html).toContain("만경의 어탁");
+    expect(html).toContain("백금 · 도감 숙련");
+    expect(html).toContain("border-sky-500");
   });
 
   it("does not show or reserve the badge stand before purchase", () => {

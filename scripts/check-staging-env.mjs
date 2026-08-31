@@ -46,21 +46,8 @@ if (sharedProductionKeys.length > 0) {
   );
 }
 
-const r2Keys = [
-  "R2_ACCOUNT_ID",
-  "R2_ACCESS_KEY_ID",
-  "R2_SECRET_ACCESS_KEY",
-  "R2_BUCKET_NAME",
-];
-const configuredR2Keys = r2Keys.filter((name) => process.env[name]?.trim());
-if (configuredR2Keys.length > 0 && configuredR2Keys.length < r2Keys.length) {
-  throw new Error("staging R2 configuration must be complete or fully absent");
-}
-if (
-  process.env.R2_BUCKET_NAME &&
-  !process.env.R2_BUCKET_NAME.endsWith("-staging")
-) {
-  throw new Error("R2_BUCKET_NAME must be a staging-only bucket");
+if (process.env.R2_BUCKET && !process.env.R2_BUCKET.endsWith("-staging")) {
+  throw new Error("R2_BUCKET must be a staging-only bucket");
 }
 
 console.log("staging env isolation: OK");

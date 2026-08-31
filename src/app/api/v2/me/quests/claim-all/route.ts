@@ -15,6 +15,7 @@ import {
 } from "@/lib/server/v2QuestContext";
 import {
   V2_QUESTS,
+  claimedUniqueEquipmentAcquisitionFloor,
   isQuestClaimable,
   isTutorialLine,
 } from "@/adventure/data/v2/v2Quests";
@@ -24,8 +25,8 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { mintEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import {
+  grantStaminaPotions,
   STAMINA_POTIONS_KEY,
-  staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import { FARM_SAVE_KEY } from "@/adventure/v2/farm";
@@ -34,7 +35,7 @@ import { MINING_LOG_KEY } from "@/adventure/v2/miningSession";
 import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import { MASTERY_TOWER_SAVE_KEY } from "@/adventure/data/v2/masteryTower";
-import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking";
+import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking/state";
 import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
 import { LIFE_REQUESTS_SAVE_KEY } from "@/adventure/v2/lifeRequests";
 import { LIFE_FIELD_RECORDS_KEY } from "@/adventure/v2/lifeFieldRecords";
@@ -124,6 +125,8 @@ export async function POST(req: Request) {
     const lifeFieldRecordsRaw = await readSave(tx, userId, LIFE_FIELD_RECORDS_KEY, {});
     const lifeFieldFeatures = await readLifeFieldFeatureSettings(tx);
     const extras = await assembleQuestExtras(tx, userId);
+    const claimed = parseClaimed(guideSave);
+    const uniqueAcquiredFloor = claimedUniqueEquipmentAcquisitionFloor(claimed);
 
     const ctx = buildQuestCtx({
       charRaw: charSave,
@@ -143,9 +146,9 @@ export async function POST(req: Request) {
       lifeRequestsRaw,
       lifeFieldRecordsRaw,
       lifeFieldMilestonesEnabled: lifeFieldFeatures.milestonesEnabled,
+      uniqueAcquiredFloor,
       extras,
     });
-    const claimed = parseClaimed(guideSave);
     const trackedQuestId = parseTrackedQuestId(guideSave);
     const tutorial = scope === "tutorial";
     const claimable: (typeof V2_QUESTS)[number][] = [];
@@ -216,12 +219,18 @@ export async function POST(req: Request) {
       0,
     );
     if (staminaPotions > 0) {
-      const count = staminaPotionCount(
-        await lockSaveForUpdate(tx, userId, STAMINA_POTIONS_KEY, { count: 0 }),
+      const current = await lockSaveForUpdate(
+        tx,
+        userId,
+        STAMINA_POTIONS_KEY,
+        { count: 0 },
       );
-      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
-        count: count + staminaPotions,
-      });
+      await upsertSave(
+        tx,
+        userId,
+        STAMINA_POTIONS_KEY,
+        grantStaminaPotions(current, staminaPotions),
+      );
     }
 
     for (const quest of claimable) claimed.add(quest.id);

@@ -1,14 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { fetchGameState } from "./fetchGameState";
+import { CheckCircle, X } from "@phosphor-icons/react";
 import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
+  SURFACE_ACCENT,
+  SURFACE_CARD,
+  SURFACE_INSET,
+} from "@/components/ui/surfaces";
+import {
   V2_SKILLS,
   describeV2Skill,
-  smartDefaultPatternFromEquipped,
-  v2SkillSelectLabel,
+  effectiveCombatPatternFromEquipped,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 import { STAT_LABELS, type StatKey } from "@/adventure/data/stats";
@@ -21,12 +28,18 @@ import {
   type V2CombatCondition,
   type V2CombatPreset,
   type V2CombatRole,
+  type V2PatternEnemyDebuff,
+  type V2PatternEnemyStatus,
+  type V2PatternSelfResource,
   type V2PatternSelfStatus,
 } from "@/adventure/v2/combat/combatPattern";
+import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useModalA11y } from "@/lib/useModalA11y";
 import { useSystemMessageState } from "./RewardToastProvider";
 
 // "전투 패턴"(갬빗) 에디터 — 우선순위 {조건→행동} 블록을 배열하면 전투에서 위에서부터 조건 맞는
-// 첫 스킬을 발동(procChance 은퇴=확정). 조건 어휘는 1:1 자동전투 기준(내HP/MP/버프·적HP/상태·턴).
+// 스킬 후보를 검사한다. 운영에서는 procChance 실패 시 다음 후보로 넘어간다. 조건 어휘는 1:1
+// 자동전투 기준(내HP/MP/버프·적HP/상태·턴).
 // 행동은 학습한 스킬 사용(캐릭터>스킬 탭에서 학습). 저장 버튼은 없다 — 편집하면 짧은 디바운스
 // 뒤 자동으로 POST /api/v2/me/combat-pattern 한다.
 
@@ -34,23 +47,42 @@ const STAT_KEYS: StatKey[] = ["str", "dex", "vit", "spd", "luk", "int"];
 
 type CondKind = V2CombatCondition["kind"];
 type SimpleCondKind = Exclude<CondKind, "all" | "any">;
-const COND_KINDS: { value: CondKind; label: string }[] = [
-  { value: "always", label: "항상" },
-  { value: "all", label: "모두 만족" },
-  { value: "any", label: "하나 만족" },
-  { value: "self_hp", label: "내 HP" },
-  { value: "self_mp", label: "내 MP" },
-  { value: "self_shield", label: "내 보호막" },
-  { value: "self_buff", label: "내 능력치 버프" },
-  { value: "self_buff_pct", label: "내 상태 효과" },
-  { value: "enemy_hp", label: "적 HP" },
-  { value: "enemy_status", label: "적 상태" },
-  { value: "enemy_debuff", label: "적 디버프" },
-  { value: "turn", label: "내 공격 차례" },
+type PatternChoiceOption<T extends string> = {
+  value: T;
+  label: string;
+  group?: string;
+  detail?: string;
+};
+
+export const COMBAT_PATTERN_CONDITION_OPTIONS: PatternChoiceOption<CondKind>[] = [
+  { value: "always", label: "항상", group: "기본" },
+  { value: "self_hp", label: "내 HP", group: "내 상태" },
+  { value: "self_mp", label: "내 MP", group: "내 상태" },
+  { value: "self_shield", label: "내 보호막", group: "내 상태" },
+  { value: "self_buff", label: "내 능력치 버프", group: "내 상태" },
+  { value: "self_buff_pct", label: "내 상태 효과", group: "내 상태" },
+  { value: "self_resource", label: "내 전투 자원", group: "내 상태" },
+  { value: "enemy_hp", label: "적 HP", group: "적 상태" },
+  { value: "enemy_status", label: "적 상태", group: "적 상태" },
+  { value: "enemy_debuff", label: "적 디버프", group: "적 상태" },
+  { value: "turn", label: "내 공격 차례", group: "타이밍" },
+  {
+    value: "all",
+    label: "AND (모두 만족)",
+    group: "복합 조건",
+    detail: "모든 하위 조건을 만족할 때",
+  },
+  {
+    value: "any",
+    label: "OR (하나 만족)",
+    group: "복합 조건",
+    detail: "하위 조건을 하나 이상 만족할 때",
+  },
 ];
-const SIMPLE_COND_KINDS: { value: SimpleCondKind; label: string }[] =
-  COND_KINDS.filter((c): c is { value: SimpleCondKind; label: string } =>
-    c.value !== "all" && c.value !== "any",
+const SIMPLE_COND_KINDS: PatternChoiceOption<SimpleCondKind>[] =
+  COMBAT_PATTERN_CONDITION_OPTIONS.filter(
+    (c): c is PatternChoiceOption<SimpleCondKind> =>
+      c.value !== "all" && c.value !== "any",
   );
 
 const ROLE_OPTIONS: { value: V2CombatRole; label: string }[] = [
@@ -59,6 +91,631 @@ const ROLE_OPTIONS: { value: V2CombatRole; label: string }[] = [
   { value: "buff", label: "버프" },
   { value: "debuff", label: "디버프" },
 ];
+
+const ABOVE_BELOW_OPTIONS = [
+  { value: "below", label: "이하" },
+  { value: "above", label: "이상" },
+] as const;
+const ACTIVE_OPTIONS = [
+  { value: "n", label: "없을 때" },
+  { value: "y", label: "있을 때" },
+] as const;
+type ShieldConditionMode = "inactive" | "active" | "atMost" | "atLeast";
+const SHIELD_CONDITION_MODE_OPTIONS = [
+  { value: "inactive", label: "없을 때" },
+  { value: "active", label: "있을 때" },
+  { value: "atMost", label: "이하" },
+  { value: "atLeast", label: "이상" },
+] as const;
+export const ACTION_KIND_OPTIONS = [
+  { value: "basic_attack", label: "일반 공격" },
+  { value: "role", label: "역할 사용" },
+  { value: "skill", label: "특정 스킬" },
+] as const;
+const STAT_OPTIONS: PatternChoiceOption<StatKey>[] = STAT_KEYS.map((value) => ({
+  value,
+  label: STAT_LABELS[value],
+}));
+const SELF_STATUS_OPTIONS: PatternChoiceOption<V2PatternSelfStatus>[] = [
+  { value: "evasion", label: "회피 증가" },
+  { value: "crit", label: "치명타 확률 증가" },
+  { value: "damageReduction", label: "받는 피해 감소" },
+  { value: "reflectDamage", label: "반사 피해" },
+  { value: "regen", label: "지속 회복" },
+  { value: "guaranteedEvade", label: "확정 회피" },
+  { value: "duelistDeclaration", label: "결투가 선언" },
+  { value: "berserkerFinisher", label: "혈전 준비" },
+  { value: "berserkerDeathOvercome", label: "사망 극복 공격 준비" },
+];
+const SELF_RESOURCE_OPTIONS: PatternChoiceOption<V2PatternSelfResource>[] = [
+  { value: "impact", label: "충격" },
+  { value: "ironWallReflect", label: "철벽 반사" },
+  { value: "inscription", label: "각인 총합" },
+  { value: "weight", label: "중량" },
+  { value: "bloodlineBurstReady", label: "혈맥 폭발 상태" },
+];
+const SELF_RESOURCE_OP_OPTIONS = [
+  { value: "none", label: "없을 때" },
+  { value: "atLeast", label: "이상" },
+  { value: "atMost", label: "이하" },
+] as const;
+const BLOODLINE_BURST_STATE_OPTIONS = [
+  { value: "ready", label: "발동 가능할 때" },
+  { value: "waiting", label: "재사용 대기 중일 때" },
+] as const;
+const ENEMY_STATUS_OPTIONS = [
+  { value: "bleed", label: "출혈" },
+  { value: "poison", label: "중독" },
+  { value: "vuln", label: "마법취약" },
+  { value: "frostChill", label: "한기" },
+] as const;
+type EnemyStatusCondition = Extract<
+  V2CombatCondition,
+  { kind: "enemy_status" }
+>;
+export type EnemyStatusConditionMode =
+  | "stacksAtLeast"
+  | "stacksAtMost"
+  | "stacksNone"
+  | "turnsAtLeast"
+  | "turnsAtMost"
+  | "turnsNone";
+const ENEMY_STATUS_STACK_OPTIONS: PatternChoiceOption<EnemyStatusConditionMode>[] = [
+  { value: "stacksAtLeast", label: "스택 이상" },
+  { value: "stacksAtMost", label: "스택 이하" },
+  { value: "stacksNone", label: "스택 없을 때" },
+];
+const ENEMY_STATUS_TURN_OPTIONS: PatternChoiceOption<EnemyStatusConditionMode>[] = [
+  { value: "turnsAtLeast", label: "횟수 이상" },
+  { value: "turnsAtMost", label: "횟수 이하" },
+  { value: "turnsNone", label: "횟수 없을 때" },
+];
+
+export function enemyStatusConditionOptions(
+  tag: V2PatternEnemyStatus,
+): PatternChoiceOption<EnemyStatusConditionMode>[] {
+  return tag === "poison" || tag === "bleed"
+    ? [...ENEMY_STATUS_STACK_OPTIONS, ...ENEMY_STATUS_TURN_OPTIONS]
+    : [...ENEMY_STATUS_STACK_OPTIONS];
+}
+
+function enemyStatusConditionMode(
+  condition: EnemyStatusCondition,
+): EnemyStatusConditionMode {
+  const prefix =
+    condition.metric === "remainingTurns" ? "turns" : "stacks";
+  const suffix =
+    condition.op === "atLeast"
+      ? "AtLeast"
+      : condition.op === "atMost"
+        ? "AtMost"
+        : "None";
+  return `${prefix}${suffix}` as EnemyStatusConditionMode;
+}
+
+export function withEnemyStatusConditionMode(
+  condition: EnemyStatusCondition,
+  mode: EnemyStatusConditionMode,
+): EnemyStatusCondition {
+  const op = mode.endsWith("AtLeast")
+    ? "atLeast"
+    : mode.endsWith("AtMost")
+      ? "atMost"
+      : "none";
+  const remainingTurns =
+    mode.startsWith("turns") &&
+    (condition.tag === "poison" || condition.tag === "bleed");
+  return {
+    kind: "enemy_status",
+    tag: condition.tag,
+    ...(remainingTurns ? { metric: "remainingTurns" as const } : {}),
+    op,
+    stacks: condition.stacks,
+  };
+}
+export const ENEMY_DEBUFF_OPTIONS: PatternChoiceOption<V2PatternEnemyDebuff>[] = [
+  { value: "vulnerability", label: "받는 피해 증가(취약)" },
+  { value: "damageDown", label: "주는 피해 감소" },
+  { value: "skillProcDown", label: "스킬 발동률 감소" },
+  { value: "healReduction", label: "회복 효과 감소" },
+  ...STAT_KEYS.map((value) => ({
+    value,
+    label: `${STAT_LABELS[value]} 감소`,
+  })),
+];
+const TURN_OP_OPTIONS = [
+  { value: "atMost", label: "이하" },
+  { value: "atLeast", label: "이상" },
+  { value: "every", label: "매 배수" },
+] as const;
+
+export function filterPatternChoiceOptions<T extends string>(
+  options: readonly PatternChoiceOption<T>[],
+  queryRaw: string,
+): PatternChoiceOption<T>[] {
+  const query = queryRaw.trim().toLocaleLowerCase();
+  if (!query) return [...options];
+  return options.filter((option) =>
+    `${option.label} ${option.group ?? ""} ${option.detail ?? ""}`
+      .toLocaleLowerCase()
+      .includes(query),
+  );
+}
+
+export function PatternChoicePicker<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+  placeholder = "선택하세요",
+  searchable = options.length >= 6,
+  disabled = false,
+  className = "",
+}: {
+  value: T;
+  options: readonly PatternChoiceOption<T>[];
+  onChange: (value: T) => void;
+  label: string;
+  placeholder?: string;
+  searchable?: boolean;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const selected = options.find((option) => option.value === value);
+  const visibleOptions = filterPatternChoiceOptions(options, query);
+  const groupedOptions = visibleOptions.reduce<
+    Array<{ group: string; options: PatternChoiceOption<T>[] }>
+  >((groups, option) => {
+    const group = option.group ?? "선택지";
+    const previous = groups.at(-1);
+    if (previous?.group === group) previous.options.push(option);
+    else groups.push({ group, options: [option] });
+    return groups;
+  }, []);
+
+  const close = useCallback(() => {
+    setOpen(false);
+    setQuery("");
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) close();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [close, open]);
+
+  const choose = (next: T) => {
+    onChange(next);
+    close();
+  };
+
+  const choiceList = (surface: "mobile" | "desktop") => (
+    <>
+      {searchable ? (
+        <div className="sticky top-0 z-10 bg-white p-3 dark:bg-zinc-900">
+          <label className="sr-only" htmlFor={`${titleId}-${surface}-search`}>
+            {label} 검색
+          </label>
+          <input
+            id={`${titleId}-${surface}-search`}
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={`${label} 검색`}
+            className="h-11 w-full rounded-lg border border-zinc-300 bg-zinc-50 px-3 text-base outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-indigo-400 dark:focus:ring-indigo-950"
+          />
+        </div>
+      ) : null}
+      <div className="space-y-3 px-3 pb-4" role="listbox" aria-label={label}>
+        {groupedOptions.map((group) => (
+          <div key={group.group} role="group" aria-label={group.group}>
+            {(groupedOptions.length > 1 || group.group !== "선택지") && (
+              <div className="mb-1 px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                {group.group}
+              </div>
+            )}
+            <div className="grid gap-1 sm:grid-cols-2">
+              {group.options.map((option) => {
+                const active = option.value === value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    onClick={() => choose(option.value)}
+                    className={`min-h-11 rounded-lg border px-3 py-2 text-left transition ${
+                      active
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-800 dark:border-indigo-400 dark:bg-indigo-950 dark:text-indigo-200"
+                        : "border-zinc-200 bg-white text-zinc-800 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-zinc-500 dark:hover:bg-zinc-800"
+                    }`}
+                  >
+                    <span className="flex items-center justify-between gap-2 text-sm font-medium">
+                      {option.label}
+                      {active ? <span aria-hidden>✓</span> : null}
+                    </span>
+                    {option.detail ? (
+                      <span className="mt-0.5 block text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {option.detail}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        {visibleOptions.length === 0 ? (
+          <div className="py-8 text-center text-sm text-zinc-500">
+            일치하는 선택지가 없습니다.
+          </div>
+        ) : null}
+      </div>
+    </>
+  );
+
+  return (
+    <div ref={rootRef} className={`relative min-w-0 ${className}`}>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={() => setOpen((current) => !current)}
+        className="flex min-h-9 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-left text-sm font-medium text-zinc-800 shadow-sm transition hover:border-indigo-400 disabled:cursor-not-allowed disabled:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-indigo-500 dark:disabled:text-zinc-500"
+      >
+        <span className="truncate">{selected?.label ?? placeholder}</span>
+        <span aria-hidden className="shrink-0 text-zinc-400">
+          {open ? "▴" : "▾"}
+        </span>
+      </button>
+      {open ? (
+        <>
+          <div className="fixed inset-0 z-50 flex items-end bg-black/45 sm:hidden">
+            <button
+              type="button"
+              aria-label={`${label} 선택 닫기`}
+              onClick={close}
+              className="absolute inset-0"
+            />
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={`${titleId}-mobile`}
+              className={`${SURFACE_CARD} relative z-10 max-h-[78dvh] w-full overflow-y-auto rounded-b-none p-0`}
+            >
+              <div className="sticky top-0 z-20 flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
+                <h3 id={`${titleId}-mobile`} className="font-semibold">
+                  {label}
+                </h3>
+                <button
+                  type="button"
+                  onClick={close}
+                  className="min-h-9 rounded-md px-2 text-sm text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                >
+                  닫기
+                </button>
+              </div>
+              {choiceList("mobile")}
+            </section>
+          </div>
+          <section
+            role="dialog"
+            aria-label={label}
+            className={`${SURFACE_CARD} absolute left-0 top-full z-40 mt-1 hidden max-h-96 min-w-80 overflow-y-auto p-0 sm:block`}
+          >
+            {choiceList("desktop")}
+          </section>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+export function PatternChoiceButtons<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: T;
+  options: readonly PatternChoiceOption<T>[];
+  onChange: (value: T) => void;
+  label: string;
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1">
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(option.value)}
+            className={`min-h-8 rounded-md border px-2.5 py-1 text-xs font-medium transition ${
+              active
+                ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400 dark:bg-indigo-500 dark:text-zinc-950"
+                : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-500 dark:hover:bg-zinc-800"
+            }`}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+type SkillPatternChoice = {
+  value: string;
+  unavailable?: boolean;
+  resonanceMaterial?: boolean;
+};
+
+export function combatPatternSkillChoices({
+  castableEquipped,
+  currentSkillId,
+  resonanceMaterialIds,
+}: {
+  castableEquipped: readonly string[];
+  currentSkillId: string;
+  resonanceMaterialIds: ReadonlySet<string>;
+}): SkillPatternChoice[] {
+  const activeSkillIds = castableEquipped.filter(
+    (id) => !resonanceMaterialIds.has(id),
+  );
+  const currentChoice = currentSkillId
+    ? resonanceMaterialIds.has(currentSkillId)
+      ? { value: currentSkillId, resonanceMaterial: true as const }
+      : !castableEquipped.includes(currentSkillId)
+        ? { value: currentSkillId, unavailable: true as const }
+        : null
+    : null;
+  return [
+    ...(currentChoice ? [currentChoice] : []),
+    ...activeSkillIds.map((value) => ({ value })),
+  ];
+}
+
+const SKILL_CATEGORY_LABEL = {
+  attack: "공격",
+  heal: "회복",
+  buff: "버프",
+  debuff: "디버프",
+  passive: "패시브",
+} as const;
+
+export function SkillPatternChoiceList({
+  choices,
+  value,
+  onSelect,
+}: {
+  choices: readonly SkillPatternChoice[];
+  value: string;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <div role="listbox" aria-label="사용 가능한 스킬" className="space-y-2">
+      {choices.map((choice) => {
+        const skill = V2_SKILLS[choice.value as V2SkillId];
+        if (!skill) return null;
+        const active = choice.value === value;
+        return (
+          <button
+            key={choice.value}
+            type="button"
+            role="option"
+            aria-selected={active}
+            disabled={choice.resonanceMaterial}
+            onClick={() => onSelect(choice.value)}
+            className={`${active ? SURFACE_ACCENT : SURFACE_INSET} w-full p-3 text-left transition hover:border-indigo-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed`}
+          >
+            <span className="flex items-start justify-between gap-3">
+              <span className="min-w-0">
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <strong className="text-sm text-zinc-900 dark:text-zinc-100">
+                    {skill.name}
+                  </strong>
+                  <span className="rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                    {SKILL_CATEGORY_LABEL[skill.category]}
+                  </span>
+                  {choice.unavailable ? (
+                    <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                      미장착
+                    </span>
+                  ) : null}
+                  {choice.resonanceMaterial ? (
+                    <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+                      공명 재료
+                    </span>
+                  ) : null}
+                </span>
+                <span className="mt-1 block text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                  {skill.description}
+                </span>
+              </span>
+              {active ? (
+                <CheckCircle
+                  size={20}
+                  weight="fill"
+                  aria-label="현재 선택"
+                  className="shrink-0 text-indigo-600 dark:text-indigo-300"
+                />
+              ) : null}
+            </span>
+            <span className="mt-2 flex flex-wrap gap-1">
+              {describeV2Skill(skill).map((detail) => (
+                <span
+                  key={detail}
+                  className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] text-zinc-600 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300"
+                >
+                  {detail}
+                </span>
+              ))}
+            </span>
+            {choice.unavailable ? (
+              <span className="mt-2 block text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                현재 장착되지 않아 전투에서는 발동하지 않습니다.
+              </span>
+            ) : null}
+            {choice.resonanceMaterial ? (
+              <span className="mt-2 block text-[11px] font-medium text-violet-700 dark:text-violet-300">
+                상위 원소 스킬에 흡수되어 개별 발동하지 않습니다.
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function SkillPatternDialog({
+  choices,
+  value,
+  onSelect,
+  onClose,
+}: {
+  choices: readonly SkillPatternChoice[];
+  value: string;
+  onSelect: (value: string) => void;
+  onClose: () => void;
+}) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  useEscapeKey(onClose);
+  useModalA11y(contentRef);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[140] flex items-end justify-center bg-black/60 sm:items-center sm:p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={contentRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="skill-pattern-dialog-title"
+        className={`${SURFACE_CARD} flex max-h-[88dvh] w-full max-w-2xl flex-col overflow-hidden rounded-b-none sm:rounded-lg`}
+      >
+        <header className="flex shrink-0 items-start justify-between gap-3 border-b border-zinc-200 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] dark:border-zinc-700 sm:pt-4">
+          <div>
+            <h2
+              id="skill-pattern-dialog-title"
+              className="font-semibold text-zinc-900 dark:text-zinc-100"
+            >
+              사용할 스킬 선택
+            </h2>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              장착한 액티브 스킬의 효과와 발동 정보를 비교한 뒤 선택하세요.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="사용할 스킬 선택 닫기"
+            className="flex size-9 shrink-0 items-center justify-center rounded-md border border-zinc-300 text-zinc-500 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            <X size={18} />
+          </button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+          <SkillPatternChoiceList
+            choices={choices}
+            value={value}
+            onSelect={onSelect}
+          />
+        </div>
+        <footer className="shrink-0 border-t border-zinc-200 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 text-[11px] text-zinc-500 dark:border-zinc-700 dark:text-zinc-400 sm:pb-3">
+          선택하면 이 패턴 블록에 즉시 반영되고 자동 저장됩니다.
+        </footer>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+export function SkillPatternPicker({
+  value,
+  choices,
+  onChange,
+  placeholder = "장착한 스킬 없음",
+  disabled = false,
+  className = "",
+}: {
+  value: string;
+  choices: readonly SkillPatternChoice[];
+  onChange: (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = V2_SKILLS[value as V2SkillId];
+  const selectedChoice = choices.find((choice) => choice.value === value);
+  const close = useCallback(() => setOpen(false), []);
+  const choose = useCallback(
+    (next: string) => {
+      onChange(next);
+      setOpen(false);
+    },
+    [onChange],
+  );
+
+  return (
+    <div className={`min-w-0 ${className}`}>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={() => setOpen(true)}
+        className="flex min-h-10 w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-left shadow-sm transition hover:border-indigo-400 disabled:cursor-not-allowed disabled:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-indigo-500 dark:disabled:text-zinc-500"
+      >
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-semibold">
+            {selected?.name ?? placeholder}
+          </span>
+          {selected ? (
+            <span className="mt-0.5 block truncate text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
+              {selectedChoice?.resonanceMaterial
+                ? "공명 재료 · 개별 발동 불가"
+                : describeV2Skill(selected).slice(0, 3).join(" · ")}
+            </span>
+          ) : null}
+        </span>
+        <span className="shrink-0 text-xs font-semibold text-indigo-600 dark:text-indigo-300">
+          {selected ? "변경" : "선택"}
+        </span>
+      </button>
+      {open ? (
+        <SkillPatternDialog
+          choices={choices}
+          value={value}
+          onSelect={choose}
+          onClose={close}
+        />
+      ) : null}
+    </div>
+  );
+}
 
 // kind 변경 시 기본 파라미터.
 function defaultCondition(kind: CondKind): V2CombatCondition {
@@ -91,6 +748,13 @@ function defaultCondition(kind: CondKind): V2CombatCondition {
       return { kind: "self_buff", stat: "str", active: false };
     case "self_buff_pct":
       return { kind: "self_buff_pct", target: "evasion", active: false };
+    case "self_resource":
+      return {
+        kind: "self_resource",
+        resource: "impact",
+        op: "atLeast",
+        value: 3,
+      };
     case "enemy_hp":
       return { kind: "enemy_hp", op: "below", pct: 30 };
     case "enemy_status":
@@ -106,13 +770,31 @@ type StateShape = {
   ok?: boolean;
   skills?: {
     equipped?: string[];
+    library?: Array<{
+      skillId?: string;
+      resonanceRole?: "catalyst" | "material" | "inactive";
+    }>;
     pattern?: { blocks?: V2CombatBlock[] } | null;
     presets?: V2CombatPreset[] | null;
   };
 };
 
-const sel =
-  "min-w-0 max-w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900";
+export function resonanceMaterialSkillIds(
+  library: ReadonlyArray<{
+    skillId?: string;
+    resonanceRole?: "catalyst" | "material" | "inactive";
+  }>,
+): Set<string> {
+  return new Set(
+    library
+      .filter(
+        (entry): entry is typeof entry & { skillId: string } =>
+          entry.resonanceRole === "material" && !!entry.skillId,
+      )
+      .map((entry) => entry.skillId),
+  );
+}
+
 const num =
   "w-16 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm tabular-nums dark:border-zinc-700 dark:bg-zinc-900";
 
@@ -152,6 +834,9 @@ export function V2CombatPatternView({
 }) {
   const [blocks, setBlocks] = useState<V2CombatBlock[]>([]);
   const [equipped, setEquipped] = useState<string[]>([]);
+  const [resonanceMaterialIds, setResonanceMaterialIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [presets, setPresets] = useState<V2CombatPreset[]>([]);
   const [presetName, setPresetName] = useState("");
   const [loading, setLoading] = useState(true);
@@ -165,44 +850,44 @@ export function V2CombatPatternView({
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/v2/me/state");
+        const res = await fetchGameState();
         const j = (await res.json().catch(() => null)) as StateShape | null;
         const eq = j?.skills?.equipped ?? [];
         setEquipped(eq);
+        setResonanceMaterialIds(
+          resonanceMaterialSkillIds(j?.skills?.library ?? []),
+        );
         setPresets(j?.skills?.presets ?? []);
         const saved = j?.skills?.pattern?.blocks;
-        if (saved && saved.length > 0) {
-          setBlocks(saved);
-        } else {
-          // 기본 — 학습한 스킬 종류별 스마트 조건(엔진과 동일 소스). 유틸은 매 턴 스팸 안 함.
-          setBlocks(smartDefaultPatternFromEquipped(eq).blocks);
-        }
+        // 저장 패턴은 보존하되 그림자 도약 같은 필수 오프너는 엔진과 같은 규칙으로 첫 블록에 보완한다.
+        setBlocks(
+          effectiveCombatPatternFromEquipped(
+            eq,
+            saved ? { blocks: saved } : null,
+          ).blocks,
+        );
       } catch {}
       setLoading(false);
     })();
   }, []);
 
   const skillName = (id: string) => V2_SKILLS[id as V2SkillId]?.name ?? id;
-  const skillSelectLabel = (id: string) => {
-    const skill = V2_SKILLS[id as V2SkillId];
-    return skill ? v2SkillSelectLabel(skill) : id;
-  };
   // 패시브 스킬은 캐스트 대상 아님(상시 효과) — 전투패턴 슬롯 후보에서 제외.
   const castableEquipped = equipped.filter(
     (id) => V2_SKILLS[id as V2SkillId]?.category !== "passive",
   );
-  const roleCandidate = useCallback(
-    (role: V2CombatRole): string | null => {
-      for (const id of castableEquipped) {
-        const def = V2_SKILLS[id as V2SkillId];
-        if (!def) continue;
-        if (role === "main_attack" && def.category === "attack") return id;
-        if (role !== "main_attack" && def.category === role) return id;
-      }
-      return null;
-    },
-    [castableEquipped],
+  const activeCastableEquipped = castableEquipped.filter(
+    (id) => !resonanceMaterialIds.has(id),
   );
+  const roleCandidate = (role: V2CombatRole): string | null => {
+    for (const id of activeCastableEquipped) {
+      const def = V2_SKILLS[id as V2SkillId];
+      if (!def) continue;
+      if (role === "main_attack" && def.category === "attack") return id;
+      if (role !== "main_attack" && def.category === role) return id;
+    }
+    return null;
+  };
 
   // 사용자가 패턴을 편집할 때마다 호출 — 자동 저장 디바운스를 깨운다(아래 useEffect 가 처리).
   const markEdited = useCallback(() => {
@@ -390,8 +1075,11 @@ export function V2CombatPatternView({
     >
       {!embedded && <SubViewHeader title="스킬 패턴" onBack={onBack} />}
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        위에서부터 조건이 맞는 첫 블록의 스킬을 발동합니다. 맨 아래에 「항상」 블록을 두면
-        다른 조건이 안 맞을 때의 기본기로 쓰입니다. 「스킬」 탭에서 스킬을 배우고 장착하세요.
+        위에서부터 조건과 사용 가능 여부를 확인합니다. 스킬 발동률 판정에 실패하면 다음
+        블록을 확인하고, 모두 실패하면 기본 공격을 사용합니다. 서로 다른 스킬은 독립적으로
+        판정하며, 같은 스킬을 중복 배치해도 발동률을 따로 다시 굴리지는 않습니다.
+        여러 조건은 AND (모두 만족) 또는 OR (하나 만족)으로 묶습니다. 예: 내 HP 50% 이상
+        AND 혈전 준비 없음 → 혈전, 혈전 준비 있음 → 필살기.
       </p>
 
       {loading ? (
@@ -441,9 +1129,17 @@ export function V2CombatPatternView({
             </div>
           </section>
 
-          {castableEquipped.length === 0 && (
+          {resonanceMaterialIds.size > 0 && (
+            <div className={`${SURFACE_ACCENT} p-3 text-sm text-violet-800 dark:text-violet-200`}>
+              <strong>공명 재료 {resonanceMaterialIds.size}개</strong>는 상위 원소
+              스킬에 흡수되어 개별 발동하지 않습니다. 기존 패턴 블록은 보존되지만
+              전투에서는 건너뜁니다.
+            </div>
+          )}
+
+          {activeCastableEquipped.length === 0 && (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
-              장착한 스킬이 없어 새 역할 블록은 전투에서 발동하지 않습니다.
+              개별 발동 가능한 장착 스킬이 없어 새 역할 블록은 전투에서 발동하지 않습니다.
               <br />
               <span className="text-amber-600/80 dark:text-amber-400/80">
                 기존 특정 스킬 블록은 보존되며, 스킬을 다시 장착하면 그대로 발동합니다.
@@ -473,17 +1169,15 @@ export function V2CombatPatternView({
 
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="w-8 text-zinc-500 dark:text-zinc-400">조건</span>
-                  <select
-                    className={sel}
+                  <PatternChoicePicker
                     value={b.condition.kind}
-                    onChange={(e) =>
-                      update(i, { condition: defaultCondition(e.target.value as CondKind) })
+                    options={COMBAT_PATTERN_CONDITION_OPTIONS}
+                    label="행동 조건 선택"
+                    className="w-40"
+                    onChange={(kind) =>
+                      update(i, { condition: defaultCondition(kind) })
                     }
-                  >
-                    {COND_KINDS.map((c) => (
-                      <option key={c.value} value={c.value}>{c.label}</option>
-                    ))}
-                  </select>
+                  />
                   <ConditionParams
                     condition={b.condition}
                     onChange={(condition) => update(i, { condition })}
@@ -492,61 +1186,64 @@ export function V2CombatPatternView({
 
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                   <span className="w-8 text-zinc-500 dark:text-zinc-400">행동</span>
-                  <select
-                    className={sel}
+                  <PatternChoiceButtons
                     value={b.action.kind}
-                    onChange={(e) => {
-                      const kind = e.target.value as V2CombatAction["kind"];
+                    options={ACTION_KIND_OPTIONS}
+                    label="행동 방식"
+                    onChange={(kind) => {
                       update(i, {
                         action:
-                          kind === "role"
+                          kind === "basic_attack"
+                            ? { kind: "basic_attack" }
+                            : kind === "role"
                             ? { kind: "role", role: "main_attack" }
-                            : { kind: "skill", skillId: castableEquipped[0] ?? "" },
+                            : { kind: "skill", skillId: activeCastableEquipped[0] ?? "" },
                       });
                     }}
-                  >
-                    <option value="role">역할 사용</option>
-                    <option value="skill">특정 스킬</option>
-                  </select>
-                  {b.action.kind === "role" ? (
-                    <select
-                      className={sel}
+                  />
+                  {b.action.kind === "basic_attack" ? (
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                      장착 스킬 대신 일반 공격을 사용합니다.
+                    </span>
+                  ) : b.action.kind === "role" ? (
+                    <PatternChoiceButtons
                       value={b.action.role}
-                      onChange={(e) =>
+                      options={ROLE_OPTIONS}
+                      label="사용할 역할"
+                      onChange={(role) =>
                         update(i, {
-                          action: { kind: "role", role: e.target.value as V2CombatRole },
+                          action: { kind: "role", role },
                         })
                       }
-                    >
-                      {ROLE_OPTIONS.map((r) => (
-                        <option key={r.value} value={r.value}>{r.label}</option>
-                      ))}
-                    </select>
+                    />
                   ) : (
-                  <select
-                    className={`${sel} w-full sm:w-auto`}
-                    value={b.action.skillId}
-                    onChange={(e) =>
-                      update(i, { action: { kind: "skill", skillId: e.target.value } })
-                    }
-                  >
-                    {castableEquipped.length === 0 && <option value="">(장착한 스킬 없음)</option>}
-                    {b.action.skillId && !castableEquipped.includes(b.action.skillId) && (
-                      <option value={b.action.skillId}>
-                        {skillSelectLabel(b.action.skillId)} · 미장착
-                      </option>
-                    )}
-                    {castableEquipped.map((id) => (
-                      <option key={id} value={id}>{skillSelectLabel(id)}</option>
-                    ))}
-                  </select>
+                    <SkillPatternPicker
+                      value={b.action.skillId}
+                      choices={combatPatternSkillChoices({
+                        castableEquipped,
+                        currentSkillId: b.action.skillId,
+                        resonanceMaterialIds,
+                      })}
+                      placeholder="장착한 스킬 없음"
+                      disabled={
+                        activeCastableEquipped.length === 0 && !b.action.skillId
+                      }
+                      className="w-full sm:w-64"
+                      onChange={(skillId) =>
+                        update(i, { action: { kind: "skill", skillId } })
+                      }
+                    />
                   )}
                 </div>
 
                 {/* 선택 스킬 정보 칩(MP·피해·효과) — 무엇을 발동하는지 한눈에. */}
                 {(() => {
                   const selectedSkillId =
-                    b.action.kind === "skill" ? b.action.skillId : roleCandidate(b.action.role);
+                    b.action.kind === "skill"
+                      ? b.action.skillId
+                      : b.action.kind === "role"
+                        ? roleCandidate(b.action.role)
+                        : null;
                   const def = selectedSkillId ? V2_SKILLS[selectedSkillId as V2SkillId] : undefined;
                   if (!def) return null;
                   return (
@@ -569,6 +1266,11 @@ export function V2CombatPatternView({
                 {actionSkillId(b.action) && !equipped.includes(actionSkillId(b.action)!) && (
                   <p className="mt-1 pl-10 text-[11px] text-amber-600 dark:text-amber-400">
                     미장착 스킬 — 이 블록은 전투에서 발동하지 않습니다
+                  </p>
+                )}
+                {actionSkillId(b.action) && resonanceMaterialIds.has(actionSkillId(b.action)!) && (
+                  <p className="mt-1 pl-10 text-[11px] font-medium text-violet-700 dark:text-violet-300">
+                    공명 재료 — 상위 원소 스킬에 흡수되어 이 블록은 개별 발동하지 않습니다
                   </p>
                 )}
               </li>
@@ -618,7 +1320,7 @@ export function V2CombatPatternView({
 }
 
 // 조건 kind 별 파라미터 입력. 변경 시 같은 kind 유지하며 파라미터만 갱신.
-function ConditionParams({
+export function ConditionParams({
   condition: c,
   onChange,
 }: {
@@ -641,11 +1343,12 @@ function ConditionParams({
     case "enemy_hp":
       return (
         <>
-          <select className={sel} value={c.op}
-            onChange={(e) => onChange({ ...c, op: e.target.value as "below" | "above" })}>
-            <option value="below">이하</option>
-            <option value="above">이상</option>
-          </select>
+          <PatternChoiceButtons
+            value={c.op}
+            options={ABOVE_BELOW_OPTIONS}
+            label="수치 비교 방식"
+            onChange={(op) => onChange({ ...c, op })}
+          />
           <PatternNumberInput
             key={`${c.kind}-pct`}
             min={0}
@@ -656,67 +1359,166 @@ function ConditionParams({
           <span className="text-zinc-400">%</span>
         </>
       );
-    case "self_shield":
+    case "self_shield": {
+      const mode: ShieldConditionMode =
+        "active" in c ? (c.active ? "active" : "inactive") : c.op;
       return (
-        <select className={sel} value={c.active ? "y" : "n"}
-          onChange={(e) => onChange({ ...c, active: e.target.value === "y" })}>
-          <option value="n">없을 때</option>
-          <option value="y">있을 때</option>
-        </select>
+        <>
+          <PatternChoiceButtons
+            value={mode}
+            options={SHIELD_CONDITION_MODE_OPTIONS}
+            label="보호막 비교 방식"
+            onChange={(nextMode) => {
+              if (nextMode === "inactive" || nextMode === "active") {
+                onChange({
+                  kind: "self_shield",
+                  active: nextMode === "active",
+                });
+                return;
+              }
+              onChange({
+                kind: "self_shield",
+                op: nextMode,
+                value: "active" in c ? 0 : c.value,
+              });
+            }}
+          />
+          {"active" in c ? null : (
+            <PatternNumberInput
+              key="self-shield-value"
+              min={0}
+              value={c.value}
+              onValueChange={(value) => onChange({ ...c, value })}
+            />
+          )}
+        </>
       );
+    }
     case "self_buff":
       return (
         <>
-          <select className={sel} value={c.stat}
-            onChange={(e) => onChange({ ...c, stat: e.target.value as StatKey })}>
-            {STAT_KEYS.map((s) => (
-              <option key={s} value={s}>{STAT_LABELS[s]}</option>
-            ))}
-          </select>
-          <select className={sel} value={c.active ? "y" : "n"}
-            onChange={(e) => onChange({ ...c, active: e.target.value === "y" })}>
-            <option value="n">없을 때</option>
-            <option value="y">있을 때</option>
-          </select>
+          <PatternChoicePicker
+            value={c.stat}
+            options={STAT_OPTIONS}
+            label="능력치 선택"
+            className="w-28"
+            onChange={(stat) => onChange({ ...c, stat })}
+          />
+          <PatternChoiceButtons
+            value={c.active ? "y" : "n"}
+            options={ACTIVE_OPTIONS}
+            label="능력치 버프 상태"
+            onChange={(active) => onChange({ ...c, active: active === "y" })}
+          />
         </>
       );
     case "self_buff_pct":
       return (
         <>
-          <select className={sel} value={c.target}
-            onChange={(e) => onChange({ ...c, target: e.target.value as V2PatternSelfStatus })}>
-            <option value="evasion">회피 증가</option>
-            <option value="crit">치명타 확률 증가</option>
-            <option value="damageReduction">받는 피해 감소</option>
-            <option value="reflectDamage">반사 피해</option>
-            <option value="regen">지속 회복</option>
-            <option value="guaranteedEvade">확정 회피</option>
-          </select>
-          <select className={sel} value={c.active ? "y" : "n"}
-            onChange={(e) => onChange({ ...c, active: e.target.value === "y" })}>
-            <option value="n">없을 때</option>
-            <option value="y">있을 때</option>
-          </select>
+          <PatternChoicePicker
+            value={c.target}
+            options={SELF_STATUS_OPTIONS}
+            label="내 상태 효과 선택"
+            className="w-48"
+            onChange={(target) => onChange({ ...c, target })}
+          />
+          <PatternChoiceButtons
+            value={c.active ? "y" : "n"}
+            options={ACTIVE_OPTIONS}
+            label="내 상태 효과 유무"
+            onChange={(active) => onChange({ ...c, active: active === "y" })}
+          />
+        </>
+      );
+    case "self_resource":
+      return (
+        <>
+          <PatternChoicePicker
+            value={c.resource}
+            options={SELF_RESOURCE_OPTIONS}
+            label="내 전투 자원 선택"
+            className="w-36"
+            onChange={(resource) =>
+              onChange(
+                resource === "bloodlineBurstReady" ||
+                  c.resource === "bloodlineBurstReady"
+                  ? { ...c, resource, op: "atLeast", value: 1 }
+                  : { ...c, resource },
+              )
+            }
+          />
+          {c.resource === "bloodlineBurstReady" ? (
+            <>
+              <PatternChoiceButtons
+                value={
+                  c.op === "atLeast" && c.value >= 1 ? "ready" : "waiting"
+                }
+                options={BLOODLINE_BURST_STATE_OPTIONS}
+                label="혈맥 폭발 상태"
+                onChange={(state) =>
+                  onChange({
+                    ...c,
+                    op: state === "ready" ? "atLeast" : "none",
+                    value: state === "ready" ? 1 : 0,
+                  })
+                }
+              />
+              <span className="basis-full text-[11px] text-zinc-500 dark:text-zinc-400">
+                첫 발동 전에는 가능하며, 발동 후 다음 3행동 동안 재사용을 기다립니다.
+              </span>
+            </>
+          ) : (
+            <>
+              <PatternChoiceButtons
+                value={c.op}
+                options={SELF_RESOURCE_OP_OPTIONS}
+                label="전투 자원 비교 방식"
+                onChange={(op) => onChange({ ...c, op })}
+              />
+              {c.op !== "none" && (
+                <PatternNumberInput
+                  key="self-resource-value"
+                  min={0}
+                  max={c.resource === "inscription" ? 8 : 3}
+                  value={c.value}
+                  onValueChange={(value) => onChange({ ...c, value })}
+                />
+              )}
+            </>
+          )}
         </>
       );
     case "enemy_status":
       return (
         <>
-          <select className={sel} value={c.tag}
-            onChange={(e) => onChange({ ...c, tag: e.target.value as "bleed" | "poison" | "vuln" })}>
-            <option value="bleed">출혈</option>
-            <option value="poison">중독</option>
-            <option value="vuln">마법취약</option>
-          </select>
-          <select className={sel} value={c.op}
-            onChange={(e) => onChange({ ...c, op: e.target.value as "atLeast" | "none" })}>
-            <option value="atLeast">스택 이상</option>
-            <option value="none">없을 때</option>
-          </select>
-          {c.op === "atLeast" && (
+          <PatternChoiceButtons
+            value={c.tag}
+            options={ENEMY_STATUS_OPTIONS}
+            label="적 상태 종류"
+            onChange={(tag) => {
+              const currentMode = enemyStatusConditionMode(c);
+              const nextMode =
+                tag !== "poison" &&
+                tag !== "bleed" &&
+                currentMode.startsWith("turns")
+                  ? (`stacks${currentMode.slice(5)}` as EnemyStatusConditionMode)
+                  : currentMode;
+              onChange(withEnemyStatusConditionMode({ ...c, tag }, nextMode));
+            }}
+          />
+          <PatternChoiceButtons
+            value={enemyStatusConditionMode(c)}
+            options={enemyStatusConditionOptions(c.tag)}
+            label="적 상태 비교 방식"
+            onChange={(mode) =>
+              onChange(withEnemyStatusConditionMode(c, mode))
+            }
+          />
+          {c.op !== "none" && (
             <PatternNumberInput
-              key="enemy-status-stacks"
-              min={1}
+              key={`enemy-status-${c.metric ?? "stacks"}`}
+              min={c.op === "atLeast" ? 1 : 0}
+              max={c.tag === "frostChill" ? 5 : undefined}
               value={c.stacks}
               onValueChange={(stacks) => onChange({ ...c, stacks })}
             />
@@ -726,28 +1528,30 @@ function ConditionParams({
     case "enemy_debuff":
       return (
         <>
-          <select className={sel} value={c.target}
-            onChange={(e) => onChange({ ...c, target: e.target.value as "vulnerability" | "damageDown" | "skillProcDown" })}>
-            <option value="vulnerability">받는 피해 증가(취약)</option>
-            <option value="damageDown">주는 피해 감소</option>
-            <option value="skillProcDown">스킬 발동률 감소</option>
-          </select>
-          <select className={sel} value={c.active ? "y" : "n"}
-            onChange={(e) => onChange({ ...c, active: e.target.value === "y" })}>
-            <option value="n">없을 때</option>
-            <option value="y">있을 때</option>
-          </select>
+          <PatternChoicePicker
+            value={c.target}
+            options={ENEMY_DEBUFF_OPTIONS}
+            label="적 디버프 선택"
+            className="w-52"
+            onChange={(target) => onChange({ ...c, target })}
+          />
+          <PatternChoiceButtons
+            value={c.active ? "y" : "n"}
+            options={ACTIVE_OPTIONS}
+            label="적 디버프 유무"
+            onChange={(active) => onChange({ ...c, active: active === "y" })}
+          />
         </>
       );
     case "turn":
       return (
         <>
-          <select className={sel} value={c.op}
-            onChange={(e) => onChange({ ...c, op: e.target.value as "atMost" | "atLeast" | "every" })}>
-            <option value="atMost">이하</option>
-            <option value="atLeast">이상</option>
-            <option value="every">매 (배수)</option>
-          </select>
+          <PatternChoiceButtons
+            value={c.op}
+            options={TURN_OP_OPTIONS}
+            label="공격 차례 비교 방식"
+            onChange={(op) => onChange({ ...c, op })}
+          />
           <PatternNumberInput
             key="turn-value"
             min={1}
@@ -787,23 +1591,26 @@ function CompoundConditionParams({
 
   return (
     <div className="flex min-w-[240px] flex-1 flex-col gap-1.5">
+      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+        {c.kind === "all"
+          ? "AND는 모든 하위 조건을 만족해야 합니다."
+          : "OR는 하위 조건을 하나 이상 만족하면 됩니다."}
+      </p>
       {c.conditions.map((child, idx) => (
         <div
           key={idx}
-          className="flex flex-wrap items-center gap-1 rounded-md border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
+          className={`${SURFACE_INSET} flex flex-wrap items-center gap-1 px-2 py-1`}
         >
           <span className="w-10 text-[11px] text-zinc-400">
             {c.kind === "all" ? "AND" : "OR"} {idx + 1}
           </span>
-          <select
-            className={sel}
+          <PatternChoicePicker
             value={child.kind === "all" || child.kind === "any" ? "always" : child.kind}
-            onChange={(e) => updateChild(idx, defaultCondition(e.target.value as SimpleCondKind))}
-          >
-            {SIMPLE_COND_KINDS.map((kind) => (
-              <option key={kind.value} value={kind.value}>{kind.label}</option>
-            ))}
-          </select>
+            options={SIMPLE_COND_KINDS}
+            label={`하위 조건 ${idx + 1} 선택`}
+            className="w-36"
+            onChange={(kind) => updateChild(idx, defaultCondition(kind))}
+          />
           <ConditionParams condition={child} onChange={(next) => updateChild(idx, next)} />
           {c.conditions.length > 1 && (
             <button

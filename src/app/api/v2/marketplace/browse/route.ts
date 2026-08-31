@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { marketplaceListingsV2, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { listedEquipEnhance } from "@/adventure/data/v2/v2EquipMint";
+import { listedEquipBound } from "@/adventure/data/v2/v2EquipMint";
 import {
   MARKETPLACE_V2_BROWSE_LIMIT,
   MARKETPLACE_V2_BID_GRACE_MAX_HOURS,
@@ -12,7 +12,7 @@ import {
   MARKETPLACE_V2_FIXED_LISTING_HOURS,
   currentMarketplaceItemName,
   isMarketKind,
-  isTradableMaterial,
+  isTradableMarketplaceMaterial,
   marketplacePublicListing,
 } from "@/lib/server/marketplaceV2";
 
@@ -90,8 +90,9 @@ export async function GET(req: Request) {
         (row) =>
           mine ||
           (row.kind === "equip"
-            ? !listedEquipEnhance(row.instancePayload)
-            : row.kind !== "material" || isTradableMaterial(row.itemId)),
+            ? !listedEquipBound(row.instancePayload)
+            : row.kind !== "material" ||
+              isTradableMarketplaceMaterial(row.itemId)),
       )
       .map((row) =>
         marketplacePublicListing(

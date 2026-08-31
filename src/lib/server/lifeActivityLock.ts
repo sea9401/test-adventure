@@ -20,8 +20,8 @@ import {
   parseWoodcuttingSession,
 } from "@/adventure/v2/woodcuttingSession";
 import {
-  lockSaveForUpdate,
-  readSave,
+  lockSavesForUpdate,
+  readSaves,
   type DbExecutor,
 } from "@/lib/server/savesKv";
 
@@ -34,7 +34,7 @@ export type ManualLifeActivity = "fishing" | AutoGatheringActivity;
 
 // users 행은 ensureUser 가 항상 보장한다. savesKv 신규 키는 행이 없어 FOR UPDATE 로
 // 직렬화할 수 없으므로, 생활 활동 요청은 이 사용자 행을 첫 잠금으로 잡아 경쟁 요청을 막는다.
-async function lockLifeActivityUser(
+export async function lockLifeActivityUserForUpdate(
   tx: DbExecutor,
   userId: string,
 ): Promise<void> {
@@ -60,13 +60,17 @@ export async function lockAutoGatheringStatesForUpdate(
   tx: DbExecutor,
   userId: string,
 ): Promise<LockedAutoGatheringStates> {
-  await lockLifeActivityUser(tx, userId);
-  // 모든 호출처에서 고정 순서로 잠가 교차 벌목/채광 요청의 데드락을 피한다.
+  await lockLifeActivityUserForUpdate(tx, userId);
+  // 모든 호출처에서 키 정렬 한 번으로 잠가 교차 벌목/채광 요청의 데드락을 피한다.
+  const saves = await lockSavesForUpdate(tx, userId, {
+    [WOODCUTTING_AUTO_KEY]: {},
+    [MINING_AUTO_KEY]: {},
+  });
   const woodcutting = parseAutoGatheringState(
-    await lockSaveForUpdate(tx, userId, WOODCUTTING_AUTO_KEY, {}),
+    saves[WOODCUTTING_AUTO_KEY],
   );
   const mining = parseAutoGatheringState(
-    await lockSaveForUpdate(tx, userId, MINING_AUTO_KEY, {}),
+    saves[MINING_AUTO_KEY],
   );
   return { woodcutting, mining };
 }
@@ -75,16 +79,13 @@ export async function readActiveAutoGatheringActivity(
   executor: DbExecutor,
   userId: string,
 ): Promise<AutoGatheringActivity | null> {
-  const woodcuttingRaw = await readSave(
-    executor,
-    userId,
-    WOODCUTTING_AUTO_KEY,
-    {},
-  );
-  const miningRaw = await readSave(executor, userId, MINING_AUTO_KEY, {});
+  const saves = await readSaves(executor, userId, {
+    [WOODCUTTING_AUTO_KEY]: {},
+    [MINING_AUTO_KEY]: {},
+  });
   return activeAutoGatheringActivity({
-    woodcutting: parseAutoGatheringState(woodcuttingRaw),
-    mining: parseAutoGatheringState(miningRaw),
+    woodcutting: parseAutoGatheringState(saves[WOODCUTTING_AUTO_KEY]),
+    mining: parseAutoGatheringState(saves[MINING_AUTO_KEY]),
   });
 }
 
@@ -95,15 +96,14 @@ export async function lockActiveManualLifeActivity(
   userId: string,
   now: number,
 ): Promise<ManualLifeActivity | null> {
-  const fishing = parseFishingSession(
-    await lockSaveForUpdate(tx, userId, FISHING_SESSION_KEY, {}),
-  );
-  const woodcutting = parseWoodcuttingSession(
-    await lockSaveForUpdate(tx, userId, WOODCUTTING_SESSION_KEY, {}),
-  );
-  const mining = parseMiningSession(
-    await lockSaveForUpdate(tx, userId, MINING_SESSION_KEY, {}),
-  );
+  const saves = await lockSavesForUpdate(tx, userId, {
+    [FISHING_SESSION_KEY]: {},
+    [WOODCUTTING_SESSION_KEY]: {},
+    [MINING_SESSION_KEY]: {},
+  });
+  const fishing = parseFishingSession(saves[FISHING_SESSION_KEY]);
+  const woodcutting = parseWoodcuttingSession(saves[WOODCUTTING_SESSION_KEY]);
+  const mining = parseMiningSession(saves[MINING_SESSION_KEY]);
   if (fishing && now <= fishing.expiresAt) return "fishing";
   if (woodcutting && now <= woodcutting.expiresAt) return "woodcutting";
   if (mining && now <= mining.expiresAt) return "mining";

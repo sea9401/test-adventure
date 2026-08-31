@@ -7,12 +7,40 @@ const {
   upsertFishingRecord,
   incrementGuildExplorationProgressForUser,
   grantTitleIfMissingInTx,
-} = vi.hoisted(() => ({
-    store: new Map<string, unknown>(),
+  rewardReferralTutorialTasks,
+  recordCodexMasteryGameplayBatch,
+  lockSavesForUpdate,
+  upsertSaves,
+} = vi.hoisted(() => {
+  const store = new Map<string, unknown>();
+  return {
+    store,
     upsertFishingRecord: vi.fn(async () => {}),
     incrementGuildExplorationProgressForUser: vi.fn(async () => null),
-    grantTitleIfMissingInTx: vi.fn(async () => true),
-  }));
+  grantTitleIfMissingInTx: vi.fn(async () => true),
+  rewardReferralTutorialTasks: vi.fn(async () => ({
+    staminaPotions: 0,
+    newlyCompletedTaskIds: [] as string[],
+    completedTaskIds: [] as string[],
+  })),
+  recordCodexMasteryGameplayBatch: vi.fn(async () => []),
+    lockSavesForUpdate: vi.fn(async (
+      _tx,
+      _uid,
+      fallbacks: Record<string, unknown>,
+    ) => Object.fromEntries(Object.entries(fallbacks).map(([key, fallback]) => [
+      key,
+      store.has(key) ? store.get(key) : fallback,
+    ]))),
+    upsertSaves: vi.fn(async (
+      _tx,
+      _uid,
+      entries: Record<string, unknown>,
+    ) => {
+      for (const [key, value] of Object.entries(entries)) store.set(key, value);
+    }),
+  };
+});
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
@@ -29,6 +57,10 @@ vi.mock("@/lib/server/guildExplorationWeekly", () => ({
 vi.mock("@/lib/server/grantTitle", () => ({
   grantTitleIfMissingInTx,
 }));
+vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
+vi.mock("@/lib/server/codexMasteryGameplay", () => ({
+  recordCodexMasteryGameplayBatch,
+}));
 vi.mock("@/db", () => ({
   db: {
     transaction: vi.fn(async (cb: (tx: unknown) => unknown) => {
@@ -44,6 +76,7 @@ vi.mock("@/db", () => ({
   },
 }));
 vi.mock("@/lib/server/savesKv", () => ({
+  lockSavesForUpdate,
   lockSaveForUpdate: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
@@ -53,6 +86,7 @@ vi.mock("@/lib/server/savesKv", () => ({
   upsertSave: vi.fn(async (_tx, _uid, key: string, value: unknown) => {
     store.set(key, value);
   }),
+  upsertSaves,
 }));
 
 import { POST } from "@/app/api/v2/fishing/reel/route";
@@ -63,9 +97,12 @@ import { FISHING_CODEX_KEY } from "@/adventure/v2/fishingCodex";
 import { FISHING_STREAK_KEY } from "@/adventure/v2/fishingStreak";
 import { FISHING_STOCK_KEY } from "@/adventure/v2/fishingStock";
 import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
+import { FISHING_DAILY_KEY } from "@/adventure/data/v2/fishingDailyChallenges";
+import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
 import {
   FISHING_PROGRESS_KEY,
   emptyFishingProgression,
+  fishingLevelXpThreshold,
 } from "@/adventure/v2/fishingProgression";
 import {
   ACTIVITY_GUARD_KEY,
@@ -91,6 +128,10 @@ function seedFisherSession(now: number) {
   store.clear();
   upsertFishingRecord.mockClear();
   incrementGuildExplorationProgressForUser.mockClear();
+  rewardReferralTutorialTasks.mockClear();
+  recordCodexMasteryGameplayBatch.mockClear();
+  lockSavesForUpdate.mockClear();
+  upsertSaves.mockClear();
   store.set("character.v2", {
     class: "survivor",
     specChoice: "fisher",
@@ -179,6 +220,7 @@ describe("POST /api/v2/fishing/reel", () => {
       activeAutoActivity: "mining",
     });
     expect(store.get(FISHING_SESSION_KEY)).toMatchObject({ castId: "cast-1" });
+    expect(recordCodexMasteryGameplayBatch).not.toHaveBeenCalled();
   });
 
   it("낚시 계열 직업은 성공한 챔질로 직업 숙련도가 오른다", async () => {
@@ -205,6 +247,27 @@ describe("POST /api/v2/fishing/reel", () => {
     expect(json.fishingCatches).toBe(1);
     expect(json.masteryGained).toBe(1);
     expect(json.masteryAfter).toBe(6);
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledTimes(2);
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      [
+        {
+          category: "fish",
+          entryId: "carp",
+          amount: 1,
+          bestValue: 42,
+          source: "fishing.catch",
+        },
+        {
+          category: "job",
+          entryId: "fisher",
+          amount: 1,
+          source: "job.activity",
+        },
+      ],
+      new Date(now),
+    );
     expect(json.catchItem).toEqual({
       id: "catch_fresh",
       name: "신선한 어획물",
@@ -212,7 +275,7 @@ describe("POST /api/v2/fishing/reel", () => {
       quantity: 1,
       balance: 1,
       dailyAwarded: 1,
-      dailyCap: 30,
+      dailyCap: 35,
     });
 
     const prof = store.get("proficiency.v2") as {
@@ -240,6 +303,20 @@ describe("POST /api/v2/fishing/reel", () => {
         awarded: { catch_fresh: 1 },
       },
     });
+    expect(upsertSaves).toHaveBeenCalledTimes(1);
+    expect(Object.keys(upsertSaves.mock.calls[0]?.[2] ?? {}).sort()).toEqual([
+      ACTIVITY_GUARD_KEY,
+      FISHING_ANTI_MACRO_KEY,
+      FISHING_CODEX_KEY,
+      FISHING_DAILY_KEY,
+      FISHING_PROGRESS_KEY,
+      FISHING_SESSION_KEY,
+      FISHING_STOCK_KEY,
+      FISHING_STREAK_KEY,
+      FISHING_WALLET_KEY,
+      LIFE_WORKSHOP_SAVE_KEY,
+      "proficiency.v2",
+    ].sort());
     expect(upsertFishingRecord).toHaveBeenCalledOnce();
     expect(
       activityGuardView(
@@ -247,6 +324,109 @@ describe("POST /api/v2/fishing/reel", () => {
         "fishing",
       ).completedSinceVerification,
     ).toBe(1);
+  });
+
+  it("등록권을 추출했던 어종을 다시 낚으면 기록을 이어 쓰며 등록을 복구한다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set(FISHING_CODEX_KEY, {
+      fish: {
+        carp: {
+          registered: false,
+          caughtEver: true,
+          bestSize: 50,
+          totalCaught: 7,
+          firstCaughtAt: now - 100_000,
+          bestCaughtAt: now - 100_000,
+        },
+      },
+    });
+
+    const response = await POST(reelReq({ castId: "cast-1", reactionMs: 200 }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      caught: true,
+      isNewSpecies: false,
+      registrationRestored: true,
+    });
+    expect(store.get(FISHING_CODEX_KEY)).toMatchObject({
+      fish: {
+        carp: {
+          registered: true,
+          caughtEver: true,
+          bestSize: 50,
+          totalCaught: 8,
+        },
+      },
+    });
+  });
+
+  it("잔잔한 수면에서 8% 확률 판정에 성공하면 낚시 경험치 2를 추가로 얻는다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set(FISHING_SESSION_KEY, {
+      castId: "calm-26",
+      biteAt: now - 100,
+      expiresAt: now + 10_000,
+      fishId: "carp",
+      size: 42,
+      lifeEnvironmentId: "fishing_calm_water",
+    });
+
+    const res = await POST(reelReq({ castId: "calm-26", reactionMs: 200 }));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      caught: true,
+      fishingXpGained: 6,
+      environmentXpGained: 2,
+      lifeEnvironment: {
+        id: "fishing_calm_water",
+        effectLabel: "8% 확률로 낚시 경험치 +2",
+      },
+    });
+  });
+
+  it("잔잔한 수면에서 8% 확률 판정에 실패하면 추가 낚시 경험치를 주지 않는다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set(FISHING_SESSION_KEY, {
+      castId: "calm-0",
+      biteAt: now - 100,
+      expiresAt: now + 10_000,
+      fishId: "carp",
+      size: 42,
+      lifeEnvironmentId: "fishing_calm_water",
+    });
+
+    const res = await POST(reelReq({ castId: "calm-0", reactionMs: 200 }));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      caught: true,
+      fishingXpGained: 4,
+      environmentXpGained: 0,
+    });
+  });
+
+  it("낚시 레벨 5에 도달하면 홍보 생활 단계를 확인한다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set(FISHING_PROGRESS_KEY, {
+      ...emptyFishingProgression(),
+      xp: 556,
+    });
+
+    const res = await POST(reelReq({ castId: "cast-1", reactionMs: 200 }));
+
+    expect(res.status).toBe(200);
+    expect(rewardReferralTutorialTasks).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      "새 모험가",
+      ["life_level_5"],
+    );
   });
 
   it("어종별 크기 하위 25% 물고기를 낚으면 잔챙이 전문 히든 칭호를 지급한다", async () => {
@@ -494,6 +674,27 @@ describe("POST /api/v2/fishing/reel", () => {
     });
   });
 
+  it("구 초과 XP 환산 레벨은 이번 챔질의 레벨업 보상으로 세지 않는다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set(FISHING_PROGRESS_KEY, {
+      ...emptyFishingProgression(),
+      levelCurveVersion: undefined,
+      xp: 999_999,
+    });
+
+    const res = await POST(reelReq({ castId: "cast-1", reactionMs: 200 }));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.levelCurveMigrated).toBe(true);
+    expect(json.levelRewardCoins).toBe(0);
+    expect(store.get(FISHING_PROGRESS_KEY)).toMatchObject({
+      levelCurveVersion: 2,
+      xp: fishingLevelXpThreshold(60) + 4,
+    });
+  });
+
   it("성공 판정 실패는 연속 기록을 끊는다", async () => {
     const now = Date.now();
     seedFisherSession(now);
@@ -513,6 +714,13 @@ describe("POST /api/v2/fishing/reel", () => {
       nextActionAt: null,
     });
     expect(store.get(FISHING_STREAK_KEY)).toEqual({ current: 0, best: 9 });
+    expect(upsertSaves).toHaveBeenCalledTimes(1);
+    expect(Object.keys(upsertSaves.mock.calls[0]?.[2] ?? {}).sort()).toEqual([
+      ACTIVITY_GUARD_KEY,
+      FISHING_ANTI_MACRO_KEY,
+      FISHING_SESSION_KEY,
+      FISHING_STREAK_KEY,
+    ].sort());
   });
 
   it("입질보다 300ms 이상 빠른 입력은 최근 다섯 번째부터 강신호로 승격한다", async () => {

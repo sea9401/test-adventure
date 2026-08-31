@@ -16,7 +16,7 @@ describe("v2 상태이상 카탈로그 (PR-9)", () => {
     // 중독 = 약하고 길게 / 출혈 = 강하고 짧게 (정체성).
     expect(V2_DOT_PRESETS.중독.turns).toBeGreaterThan(V2_DOT_PRESETS.출혈.turns);
     expect(V2_DOT_PRESETS.중독.pctMaxHpPerStack).toBeGreaterThan(0);
-    expect(V2_DOT_PRESETS.출혈.atkCoefPerStack).toBeGreaterThan(0);
+    expect(V2_DOT_PRESETS.출혈.atkCoefPerStack).toBe(0.25);
   });
 
   it("디버프 프리셋 — pct·turns > 0, 유효 stat (행동불가 없음)", () => {

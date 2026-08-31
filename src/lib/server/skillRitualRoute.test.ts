@@ -47,7 +47,7 @@ describe("skill-ritual route", () => {
     store.clear();
     store.set("character.v2", {
       class: "warrior",
-      gold: 1_050_000,
+      gold: 10_050_000,
       bankedGold: 1_000_000,
     });
     store.set("skills.v2", {
@@ -84,11 +84,11 @@ describe("skill-ritual route", () => {
     expect(usablePoints(parseProficiency(store.get("proficiency.v2")))).toBe(200);
   });
 
-  it("다음 단계의 직업 숙련도 조건을 검사한다", async () => {
+  it("직업 숙련도와 무관하게 숙달 포인트만 사용해 다음 단계로 강화한다", async () => {
     store.clear();
     store.set("character.v2", {
       class: "warrior",
-      gold: 10_000_000,
+      gold: 30_000_000,
       bankedGold: 0,
     });
     store.set("skills.v2", {
@@ -106,24 +106,27 @@ describe("skill-ritual route", () => {
     const res = await POST(req({ skillId: "v2_skill_strike" }));
     const json = (await res.json()) as {
       ok?: boolean;
-      error?: string;
-      requiredJobCumLevel?: number;
+      level?: number;
+      points?: number;
     };
 
-    expect(res.status).toBe(400);
-    expect(json.ok).toBe(false);
-    expect(json.error).toBe("insufficient_mastery");
-    expect(json.requiredJobCumLevel).toBe(150);
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(json.level).toBe(2);
+    expect(json.points).toBe(1_050);
     expect(
       parseV2SkillsState(store.get("skills.v2")).enhancements?.v2_skill_strike,
-    ).toEqual({ mode: "power", level: 1 });
+    ).toEqual({ mode: "power", level: 2 });
+    expect(
+      parseProficiency(store.get("proficiency.v2")).groups.warrior?.cumLevel,
+    ).toBe(149);
   });
 
   it("발동 확률 스킬은 집중 의식으로 강화한다", async () => {
     store.clear();
     store.set("character.v2", {
       class: "warrior",
-      gold: 1_050_000,
+      gold: 10_050_000,
       bankedGold: 0,
     });
     store.set("skills.v2", {
@@ -221,10 +224,10 @@ describe("skill-ritual route", () => {
 
     expect(res.status).toBe(200);
     expect(json.ok).toBe(true);
-    expect(json.refundedGold).toBe(6_000_000);
-    expect(json.refundedProficiency).toBe(1_450);
-    expect(json.gold).toBe(6_000_100);
-    expect(json.points).toBe(1_460);
+    expect(json.refundedGold).toBe(60_000_000);
+    expect(json.refundedProficiency).toBe(1_675);
+    expect(json.gold).toBe(60_000_100);
+    expect(json.points).toBe(1_685);
     expect(
       parseV2SkillsState(store.get("skills.v2")).enhancements?.v2_skill_strike,
     ).toBeUndefined();

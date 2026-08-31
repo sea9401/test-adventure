@@ -3,10 +3,20 @@
 // 판수를 정산하고, lastBattleAt 을 realNow 로 전진(멱등)하는지 검증.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
-const { store, forceRareMap } = vi.hoisted(() => ({
+const { store, forceRareMap, snapshotCalls, recordCodexMasteryGameplayBatch } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   forceRareMap: { value: false },
+  snapshotCalls: { value: 0 },
+  recordCodexMasteryGameplayBatch: vi.fn(
+    async (
+      _executor: unknown,
+      _userId: string,
+      _events: readonly CodexMasteryGameplayEvent[],
+      _now: Date,
+    ) => [],
+  ),
 }));
 
 vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
@@ -15,7 +25,25 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
       typeof import("@/adventure/data/v2/coreLoopConfig")
     >();
   // HUNT_COOLDOWN_MODE 도 덮는다(오프라인 정산은 쿨다운 모드 전용 — actual 은 false 계산).
-  return { ...actual, V2_CORE_LOOP_V2: true, HUNT_COOLDOWN_MODE: true };
+  return {
+    ...actual,
+    V2_CORE_LOOP_V2: true,
+    HUNT_COOLDOWN_MODE: true,
+    V2_EQUIPMENT_LIBERATION: true,
+  };
+});
+vi.mock("@/adventure/data/v2/equipmentLiberationEffects", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("@/adventure/data/v2/equipmentLiberationEffects")
+    >();
+  return {
+    ...actual,
+    deriveLiberationHuntSnapshot: (...args: Parameters<typeof actual.deriveLiberationHuntSnapshot>) => {
+      snapshotCalls.value += 1;
+      return actual.deriveLiberationHuntSnapshot(...args);
+    },
+  };
 });
 vi.mock("@/adventure/data/v2/rareMaps", async (importOriginal) => {
   const actual =
@@ -29,6 +57,9 @@ vi.mock("@/adventure/data/v2/rareMaps", async (importOriginal) => {
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
+}));
+vi.mock("@/lib/server/codexMasteryGameplay", () => ({
+  recordCodexMasteryGameplayBatch,
 }));
 vi.mock("@/lib/server/v2EnsureSoloGuild", () => ({
   getGuildId: vi.fn(async () => null),
@@ -62,6 +93,9 @@ vi.mock("@/lib/server/savesKv", () => ({
   ),
   readSave: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
+  ),
+  readSaves: vi.fn(async (_tx, _uid, fallbacks: Record<string, unknown>) =>
+    Object.fromEntries(Object.entries(fallbacks).map(([key, fallback]) => [key, store.has(key) ? store.get(key) : fallback])),
   ),
   upsertSave: vi.fn(async (_tx, _uid, key: string, value: unknown) => {
     store.set(key, value);
@@ -126,8 +160,10 @@ function setOfflineStopConfig(config: Record<string, unknown>) {
 
 describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on)", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     resetUserRateLimitForTests();
     forceRareMap.value = false;
+    snapshotCalls.value = 0;
     vi.spyOn(Math, "random").mockReturnValue(0.5); // 확정 승리
   });
   afterEach(() => {
@@ -175,6 +211,14 @@ describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on
     expect(prof.jobCumLevel?.warrior).toBe(json.totalMastery);
     // lastBattleAt 가 realNow(±) 로 전진.
     expect(char().lastBattleAt!).toBeGreaterThanOrEqual(now);
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledOnce();
+    expect(snapshotCalls.value).toBe(1);
+    const masteryEvents = recordCodexMasteryGameplayBatch.mock.calls[0]?.[2];
+    expect(masteryEvents).toHaveLength(24);
+    expect(masteryEvents?.filter((event) => event.category === "monster"))
+      .toHaveLength(12);
+    expect(masteryEvents?.filter((event) => event.category === "job"))
+      .toHaveLength(12);
   });
 
   it("멱등 — 정산 직후 재호출은 battles 0(누적 0)", async () => {
@@ -185,6 +229,7 @@ describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on
     const second = await POST(settleRequest());
     const j2 = (await second.json()) as { battles: number };
     expect(j2.battles).toBe(0); // lastBattleAt 이 now 로 전진 → 누적 0
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledOnce();
   });
 
   it("충전약 잔량 조건에 도달한 첫 판에서 세션을 종료한다", async () => {

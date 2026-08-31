@@ -1,10 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useRouter } from "next/navigation";
-import { V2ShopView } from "@/adventure/v2/V2ShopView";
-
-// /town/shop — 상점(물약 구매·재료/장비 거래).
+// 일반 상점은 인벤토리의 장비 정리 기능으로 통합되었다.
+// 저장된 북마크와 옛 튜토리얼 링크는 인벤토리로 안전하게 보낸다.
 export default function ShopPage() {
-  const router = useRouter();
-  return <V2ShopView onBack={() => router.push("/town")} />;
+  redirect("/character/inventory");
 }

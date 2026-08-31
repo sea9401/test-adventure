@@ -1,9 +1,10 @@
-import type { CharacterDynamicState } from "@/adventure/character/useCharacterState";
+import type { CharacterDynamicState } from "@/adventure/character/state";
 import type { Profile } from "@/adventure/profile/useProfile";
 
 export type AdminUserRow = {
   id: string;
   email: string | null;
+  isSuperAdmin: boolean;
   gameName: string | null;
   className: string | null;
   lastSeenAt: string | null;

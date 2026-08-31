@@ -1,0 +1,47 @@
+{
+  "rules": [
+    {
+      "key": "cron:coop-respawn",
+      "label": "협동 보스 부활 처리",
+      "maxAgeSeconds": 600
+    },
+    {
+      "key": "cron:push-notifications",
+      "label": "푸시 알림 처리",
+      "maxAgeSeconds": 600
+    },
+    {
+      "key": "cron:marketplace-expire",
+      "label": "만료 매물 정리",
+      "maxAgeSeconds": 900
+    },
+    {
+      "key": "cron:battle-replay-retention",
+      "label": "전투 기록 보존 정리",
+      "maxAgeSeconds": 600
+    },
+    {
+      "key": "cron:npc-attacks",
+      "label": "NPC 공격 처리",
+      "maxAgeSeconds": 7200
+    },
+    {
+      "key": "cron:ops-retention",
+      "label": "운영 로그 보존 정리",
+      "maxAgeSeconds": 108000,
+      "missingGraceSeconds": 108000
+    },
+    {
+      "key": "cron:ops-daily-report",
+      "label": "일일 운영 리포트",
+      "maxAgeSeconds": 108000,
+      "missingGraceSeconds": 108000
+    },
+    {
+      "key": "backup:database",
+      "label": "운영 DB 백업",
+      "maxAgeSeconds": 108000,
+      "missingGraceSeconds": 108000
+    }
+  ]
+}

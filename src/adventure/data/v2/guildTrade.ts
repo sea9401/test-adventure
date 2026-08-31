@@ -10,6 +10,7 @@ import {
 } from "./woodcuttingSpots";
 import { GUILD_WORKSHOP_MATERIAL_ID } from "./guildWorkshopMaterials";
 import { MASTERY_CERTIFICATE_KEY } from "./masteryTower";
+import type { SettlementBuildingId } from "./settlement";
 import {
   FARM_ITEMS,
   type FarmItemId,
@@ -80,6 +81,23 @@ const FARM_TRADE_ITEM_IDS = [
   "cacao",
 ] as const satisfies readonly FarmItemId[];
 
+const FARM_TRADE_BATCH: Record<
+  (typeof FARM_TRADE_ITEM_IDS)[number],
+  { batchSize: number; pointValue: number }
+> = {
+  wheat: { batchSize: 5, pointValue: 1 },
+  herb: { batchSize: 4, pointValue: 1 },
+  corn: { batchSize: 3, pointValue: 1 },
+  tomato: { batchSize: 3, pointValue: 1 },
+  strawberry: { batchSize: 2, pointValue: 1 },
+  potato: { batchSize: 2, pointValue: 1 },
+  onion: { batchSize: 1, pointValue: 1 },
+  rice: { batchSize: 1, pointValue: 1 },
+  soybean: { batchSize: 1, pointValue: 1 },
+  sugarcane: { batchSize: 1, pointValue: 2 },
+  cacao: { batchSize: 1, pointValue: 2 },
+};
+
 const FISH_TRADE_BATCH: Record<
   FishingCatchItemId,
   { batchSize: number; pointValue: number }
@@ -138,8 +156,7 @@ const farmItems = FARM_TRADE_ITEM_IDS.map((itemId) => ({
   name: FARM_ITEMS[itemId].name,
   icon: FARM_ITEMS[itemId].icon,
   iconName: "Plant" as const,
-  batchSize: 5,
-  pointValue: 1,
+  ...FARM_TRADE_BATCH[itemId],
 }));
 
 const fishItems = Object.values(FISHING_CATCH_ITEMS).map((item) => ({
@@ -257,7 +274,10 @@ export type GuildTradeShopItemId =
   | "stamina_potion"
   | "mastery_certificate"
   | "mithril_shard"
-  | "sunstone";
+  | "sunstone"
+  | "settlement_supplies"
+  | "trade_support_fund"
+  | "guild_fame_document";
 
 export type GuildTradeShopItem = {
   id: GuildTradeShopItemId;
@@ -268,10 +288,29 @@ export type GuildTradeShopItem = {
   tokenCost: number;
   weeklyLimit: number;
   minFacilityLevel: number;
+  target: "members" | "guild";
   output:
     | { kind: "material"; materialId: string; count: number }
     | { kind: "stamina_potion"; count: number }
-    | { kind: "mastery_certificate"; itemKey: string; count: number };
+    | { kind: "mastery_certificate"; itemKey: string; count: number }
+    | { kind: "guild_facility_support"; count: number }
+    | { kind: "guild_gold"; count: number }
+    | { kind: "guild_fame"; count: number };
+};
+
+export type GuildFacilitySupportTarget = {
+  buildingId: SettlementBuildingId;
+  buildingName: string;
+  currentLevel: number;
+  targetLevel: number | null;
+  eligible: boolean;
+  reason:
+    | "max_level"
+    | "materials_not_required"
+    | "remaining_below_200"
+    | null;
+  crop: { current: number; required: number; grant: number; after: number };
+  ore: { current: number; required: number; grant: number; after: number };
 };
 
 export const GUILD_TRADE_SHOP_ITEMS: readonly GuildTradeShopItem[] = [
@@ -282,8 +321,9 @@ export const GUILD_TRADE_SHOP_ITEMS: readonly GuildTradeShopItem[] = [
     icon: "🔩",
     iconName: "Gear",
     tokenCost: 20,
-    weeklyLimit: 3,
+    weeklyLimit: 7,
     minFacilityLevel: 1,
+    target: "members",
     output: {
       kind: "material",
       materialId: GUILD_WORKSHOP_MATERIAL_ID.refinedIron,
@@ -297,8 +337,9 @@ export const GUILD_TRADE_SHOP_ITEMS: readonly GuildTradeShopItem[] = [
     icon: "🧪",
     iconName: "Flask",
     tokenCost: 40,
-    weeklyLimit: 2,
+    weeklyLimit: 3,
     minFacilityLevel: 2,
+    target: "members",
     output: { kind: "stamina_potion", count: 1 },
   },
   {
@@ -308,8 +349,9 @@ export const GUILD_TRADE_SHOP_ITEMS: readonly GuildTradeShopItem[] = [
     icon: "📜",
     iconName: "Scroll",
     tokenCost: 30,
-    weeklyLimit: 3,
+    weeklyLimit: 6,
     minFacilityLevel: 3,
+    target: "members",
     output: {
       kind: "mastery_certificate",
       itemKey: MASTERY_CERTIFICATE_KEY,
@@ -323,8 +365,9 @@ export const GUILD_TRADE_SHOP_ITEMS: readonly GuildTradeShopItem[] = [
     icon: "🔹",
     iconName: "Diamond",
     tokenCost: 60,
-    weeklyLimit: 2,
+    weeklyLimit: 3,
     minFacilityLevel: 4,
+    target: "members",
     output: {
       kind: "material",
       materialId: GUILD_WORKSHOP_MATERIAL_ID.mithrilShard,
@@ -338,19 +381,65 @@ export const GUILD_TRADE_SHOP_ITEMS: readonly GuildTradeShopItem[] = [
     icon: "☀️",
     iconName: "Sun",
     tokenCost: 100,
-    weeklyLimit: 1,
+    weeklyLimit: 2,
     minFacilityLevel: 5,
+    target: "members",
     output: {
       kind: "material",
       materialId: GUILD_WORKSHOP_MATERIAL_ID.sunstone,
       count: 1,
     },
   },
+  {
+    id: "settlement_supplies",
+    name: "길드 시설 지원 물자",
+    description:
+      "선택한 길드 시설의 통나무·철광석 기부 진행도에 총 200개를 즉시 지원합니다.",
+    icon: "📦",
+    iconName: "House",
+    tokenCost: 120,
+    weeklyLimit: 3,
+    minFacilityLevel: 1,
+    target: "guild",
+    output: { kind: "guild_facility_support", count: 200 },
+  },
+  {
+    id: "trade_support_fund",
+    name: "교역 지원금",
+    description: "길드 공용 자금에 3,000,000G를 추가합니다.",
+    icon: "🪙",
+    iconName: "Coins",
+    tokenCost: 180,
+    weeklyLimit: 2,
+    minFacilityLevel: 2,
+    target: "guild",
+    output: { kind: "guild_gold", count: 3_000_000 },
+  },
+  {
+    id: "guild_fame_document",
+    name: "길드 명성 문서",
+    description: "길드 누적 명성과 사용 가능 명성을 100 올립니다.",
+    icon: "🏆",
+    iconName: "Trophy",
+    tokenCost: 200,
+    weeklyLimit: 2,
+    minFacilityLevel: 3,
+    target: "guild",
+    output: { kind: "guild_fame", count: 100 },
+  },
 ];
+
+export const ASSOCIATION_TRADE_SHOP_ITEMS: readonly GuildTradeShopItem[] =
+  GUILD_TRADE_SHOP_ITEMS.filter((item) => item.target === "members");
 
 export function guildTradeShopItem(raw: unknown): GuildTradeShopItem | null {
   if (typeof raw !== "string") return null;
   return GUILD_TRADE_SHOP_ITEMS.find((item) => item.id === raw) ?? null;
+}
+
+export function associationTradeShopItem(raw: unknown): GuildTradeShopItem | null {
+  if (typeof raw !== "string") return null;
+  return ASSOCIATION_TRADE_SHOP_ITEMS.find((item) => item.id === raw) ?? null;
 }
 
 export type GuildTradeUserState = {

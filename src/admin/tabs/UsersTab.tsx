@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useAdmin } from "../AdminContext";
 import { adminGet, adminPost } from "../api";
 import { Button, TextInput } from "../ui/Field";
-import type { CharacterDynamicState } from "@/adventure/character/useCharacterState";
+import type { CharacterDynamicState } from "@/adventure/character/state";
 import type { Profile } from "@/adventure/profile/useProfile";
 import type {
   AdminUserRow,
@@ -13,6 +13,7 @@ import type {
   V2GrantPayload,
 } from "./users/types";
 import { SelectedUserPanel } from "./users/SelectedUserPanel";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 
 function formatLastSeen(iso: string | null): string {
   if (!iso) return "—";
@@ -26,7 +27,7 @@ function formatLastSeen(iso: string | null): string {
 }
 
 export function UsersTab() {
-  const { readOnly, showToast } = useAdmin();
+  const { adminMe, readOnly, showToast } = useAdmin();
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q") ?? "";
 
@@ -39,6 +40,9 @@ export function UsersTab() {
   const [saves, setSaves] = useState<SavesMap | null>(null);
   const [savesLoading, setSavesLoading] = useState(false);
   const [savesError, setSavesError] = useState<string | null>(null);
+  const [stormExpeditionResetting, setStormExpeditionResetting] =
+    useState(false);
+  const [reviewOpPresetApplying, setReviewOpPresetApplying] = useState(false);
 
   const runSearch = useCallback(async (q: string) => {
     setSearchLoading(true);
@@ -202,7 +206,7 @@ export function UsersTab() {
   const resetMasteryTowerDaily = async () => {
     if (!selected || readOnly) return;
     const name = selected.gameName?.trim() || selected.email || selected.id;
-    const ok = window.confirm(
+    const ok = await confirmGameAction(
       `「${name}」 님의 숙련의 탑 오늘 진행을 0층으로 초기화합니다.\n` +
         "영구 최고층과 최초 돌파 보상 기록은 유지됩니다.\n" +
         "미수령 보상이 있으면 초기화와 함께 사라집니다.",
@@ -224,6 +228,71 @@ export function UsersTab() {
       await loadSaves(selected.id);
     } catch (e) {
       showToast(`숙련의 탑 초기화 실패: ${e instanceof Error ? e.message : "오류"}`);
+    }
+  };
+
+  const applyReviewOpPreset = async () => {
+    if (!selected || readOnly || !adminMe?.capabilities.super) return;
+    const label = selected.gameName?.trim() || selected.email || selected.id;
+    const ok = await confirmGameAction(
+      `「${label}」 캐릭터를 심의용 OP 상태로 상향할까요?\n` +
+        "생활 레벨 5종도 Lv.100으로 상향합니다. 직업·장비·퀘스트는 유지되지만 진행도와 성장 수치는 자동으로 되돌아가지 않습니다.",
+    );
+    if (!ok) return;
+
+    setReviewOpPresetApplying(true);
+    try {
+      const result = await adminPost<{
+        level: number;
+        frontierDepth: number;
+        gold: number;
+        lifeLevels: Record<string, number>;
+      }>("/api/admin/users/review-op-preset", { userId: selected.id });
+      showToast(
+        `심의용 OP 세팅 완료: Lv.${result.level}, 사냥터 깊이 ${result.frontierDepth}, 생활 5종 Lv.100. 대상 유저 새로고침 필요.`,
+      );
+      await loadSaves(selected.id);
+    } catch (e) {
+      showToast(
+        `심의용 OP 세팅 실패: ${e instanceof Error ? e.message : "오류"}`,
+      );
+    } finally {
+      setReviewOpPresetApplying(false);
+    }
+  };
+
+  const resetStormExpeditionDailyAttempts = async () => {
+    if (!selected || readOnly || !adminMe?.capabilities.reward) return;
+    const name = selected.gameName?.trim() || selected.email || selected.id;
+    const ok = await confirmGameAction(
+      `「${name}」 님의 오늘 폭풍 원정 입장 사용 횟수를 0회로 초기화합니다.\n` +
+        "진행 중 원정과 누적 완주·SP 열매 기록은 유지됩니다.",
+    );
+    if (!ok) return;
+
+    setStormExpeditionResetting(true);
+    try {
+      const result = await adminPost<{
+        previousAttemptsUsed?: number;
+        attemptsUsed?: number;
+        attemptsLeft?: number;
+        activePreserved?: boolean;
+      }>("/api/admin/storm-expedition/reset", { userId: selected.id });
+      showToast(
+        `폭풍 원정 횟수 초기화 완료: ${result.previousAttemptsUsed ?? 0}회 → ${
+          result.attemptsUsed ?? 0
+        }회, 오늘 ${result.attemptsLeft ?? 3}회 입장 가능${
+          result.activePreserved ? " (진행 중 원정 유지)" : ""
+        }.`,
+      );
+    } catch (e) {
+      showToast(
+        `폭풍 원정 횟수 초기화 실패: ${
+          e instanceof Error ? e.message : "오류"
+        }`,
+      );
+    } finally {
+      setStormExpeditionResetting(false);
     }
   };
 
@@ -309,6 +378,17 @@ export function UsersTab() {
             onGrantV2={grantV2}
             onResetCharacter={resetCharacter}
             onResetMasteryTowerDaily={resetMasteryTowerDaily}
+            onResetStormExpeditionDailyAttempts={
+              resetStormExpeditionDailyAttempts
+            }
+            canResetStormExpedition={Boolean(adminMe?.capabilities.reward)}
+            canTestActivityVerification={Boolean(adminMe?.capabilities.super)}
+            canApplyReviewOpPreset={Boolean(
+              adminMe?.capabilities.super && selected.isSuperAdmin,
+            )}
+            reviewOpPresetApplying={reviewOpPresetApplying}
+            onApplyReviewOpPreset={applyReviewOpPreset}
+            stormExpeditionResetting={stormExpeditionResetting}
             onReload={() => loadSaves(selected.id)}
           />
         )}

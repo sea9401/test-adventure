@@ -34,6 +34,9 @@ const { ensureUserMock } = vi.hoisted(() => ({
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: ensureUserMock,
 }));
+vi.mock("@/lib/server/ugcSafety", () => ({
+  requireCurrentUgcConsent: vi.fn(async () => null),
+}));
 
 vi.mock("@/db", () => {
   // select 사슬 — from(tbl) 시점의 테이블로 rows 결정, where/for/limit 는 통과(thenable).

@@ -27,7 +27,7 @@ const ctx = {
   params: Promise.resolve({ seasonId: "2026-W31", matchId: "match-1" }),
 };
 
-function bracket(replay: unknown) {
+function bracket(replay: unknown, dishonoredUserIds: string[] = []) {
   return {
     version: 2,
     seasonId: "2026-W31",
@@ -36,6 +36,7 @@ function bracket(replay: unknown) {
     generatedAt: new Date(0).toISOString(),
     startsAt: new Date(0).toISOString(),
     status: "in_progress",
+    dishonoredUserIds,
     participants: [
       {
         userId: "p1",
@@ -129,5 +130,35 @@ describe("GET arena tournament match replay", () => {
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({ error: "no_replay" });
+  });
+
+  it("불명예 참가자의 이름은 참가자 정보와 저장 리플레이에서 모두 가린다", async () => {
+    const replay = {
+      enemy: { name: "모험가B", hp: 100 },
+      playerMaxHp: 100,
+      playerMaxMp: 0,
+      log: [
+        { kind: "info", text: "모험가A와 모험가B의 전투가 시작되었다." },
+        { kind: "enemy_attack", text: "모험가B의 공격!" },
+      ],
+    };
+    mocks.rows = [{ bracket: bracket(replay, ["p2"]) }];
+
+    const response = await GET(new Request("http://test"), ctx);
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.match.p2).toMatchObject({
+      userId: "p2",
+      name: "불명예 처리된 참가자",
+      dishonored: true,
+    });
+    expect(json.match.p2.avatar).toBeUndefined();
+    expect(JSON.stringify(json)).not.toContain("모험가B");
+    expect(json.match).toMatchObject({
+      p1Wins: 2,
+      p2Wins: 0,
+      winnerUserId: "p1",
+    });
   });
 });

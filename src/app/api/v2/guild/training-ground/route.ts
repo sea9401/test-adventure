@@ -2,9 +2,16 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { outpostVillages } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 import { recordEconomyEventSoon, recordRewardFailureSoon } from "@/lib/server/economyLog";
+import {
+  associationFacilityLevel,
+  canUseAdventurerAssociation,
+  claimWeeklyFacilitySource,
+} from "@/lib/server/adventurerAssociation";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
-import { applyPctBonus, bonusDelta, readActiveHotTime } from "@/lib/server/opsSettings";
+import { bonusDelta, readActiveHotTime } from "@/lib/server/opsSettings";
+import { applyAccumulatedPercentBonus } from "@/lib/percentBonus";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { getGuildIdByUser } from "@/lib/server/v2EnsureSoloGuild";
@@ -47,10 +54,12 @@ import {
 } from "@/lib/server/settlementBuildingAccess";
 import {
   claimGuildTrainingDrill,
+  GUILD_TRAINING_DRILLS,
   GUILD_TRAINING_WEEKLY_BONUS_MASTERY,
   GUILD_TRAINING_WEEKLY_BONUS_TARGET,
   guildTrainingDayWindow,
   guildTrainingDrillViews,
+  guildTrainingReward,
   isGuildTrainingDrillId,
   parseGuildTrainingState,
   recommendedGuildTrainingDrill,
@@ -68,10 +77,33 @@ type CharacterSave = Record<string, unknown> & {
 async function resolveTrainingAccess(
   userId: string,
   outpostId: string | null,
+  association: boolean,
 ): Promise<
   | { ok: true; access: SettlementBuildingAccess }
   | { ok: false; status: number; body: Record<string, unknown> }
 > {
+  if (association) {
+    if (!(await canUseAdventurerAssociation(db, userId))) {
+      return {
+        ok: false,
+        status: 403,
+        body: { ok: false, error: "association_for_solo_only" },
+      };
+    }
+    const level = await associationFacilityLevel(db, "training_ground");
+    return {
+      ok: true,
+      access: {
+        outpostId: "association",
+        guildId: 0,
+        buildingId: "training_ground",
+        level,
+        kind: "member",
+        taxRate: 0,
+        useFeeGold: 0,
+      },
+    };
+  }
   if (outpostId) {
     const result = await db.transaction((tx) =>
       resolveOutpostBuildingAccess(tx, userId, outpostId, "training_ground"),
@@ -202,6 +234,7 @@ export async function GET(req: Request) {
   const resolved = await resolveTrainingAccess(
     userId,
     outpostIdFromRequest(req),
+    new URL(req.url).searchParams.get("scope") === "association",
   );
   if (!resolved.ok) {
     return Response.json(resolved.body, { status: resolved.status });
@@ -319,11 +352,13 @@ export async function POST(req: Request) {
   const resolved = await resolveTrainingAccess(
     userId,
     outpostIdFromRequest(req, body.outpostId),
+    new URL(req.url).searchParams.get("scope") === "association",
   );
   if (!resolved.ok) {
     return Response.json(resolved.body, { status: resolved.status });
   }
   const { access } = resolved;
+  const association = access.outpostId === "association";
   const guildId = access.guildId;
   const trainingGroundLevel = access.level;
   if (trainingGroundLevel <= 0) {
@@ -405,17 +440,50 @@ export async function POST(req: Request) {
         },
       };
     }
+    const weeklySource = await claimWeeklyFacilitySource(
+      tx,
+      userId,
+      "training_ground",
+      association ? "association" : "guild",
+      weekKey,
+      association ? undefined : access.guildId,
+    );
+    if (!weeklySource.ok) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "weekly_source_conflict",
+          selectedSource: weeklySource.selected,
+        },
+      };
+    }
 
+    const reward = guildTrainingReward(
+      GUILD_TRAINING_DRILLS[drillId],
+      trainingGroundUpgradeForLevel(Math.max(1, trainingGroundLevel)),
+      trainingBonuses.rewardBonusPct,
+      state.rewardBonusRemainderPct ?? 0,
+    );
     const claim = claimGuildTrainingDrill(state, drillId);
     const weeklyBonusMastery =
       claim.weeklyBonusMastery > 0
         ? claim.weeklyBonusMastery + trainingBonuses.weeklyBonusMastery
         : 0;
     const hotTime = await readActiveHotTime(Date.now(), tx);
-    const beforeHotTimeMastery = drill.rewardMastery + weeklyBonusMastery;
-    const totalRewardMastery = hotTime.active
-      ? applyPctBonus(beforeHotTimeMastery, hotTime.bonuses.masteryPct)
-      : beforeHotTimeMastery;
+    const beforeHotTimeMastery = reward.mastery + weeklyBonusMastery;
+    const hotTimeReward = hotTime.active
+      ? applyAccumulatedPercentBonus(
+          beforeHotTimeMastery,
+          hotTime.bonuses.masteryPct,
+          state.hotTimeBonusRemainderPct ?? 0,
+        )
+      : {
+          value: beforeHotTimeMastery,
+          bonus: 0,
+          remainderPct: state.hotTimeBonusRemainderPct ?? 0,
+        };
+    const totalRewardMastery = hotTimeReward.value;
     const hotTimeMasteryBonus = bonusDelta(beforeHotTimeMastery, totalRewardMastery);
     let prof = current.prof;
     prof = addCumLevel(prof, current.group, totalRewardMastery);
@@ -424,19 +492,38 @@ export async function POST(req: Request) {
       current.job != null
         ? cumLevelForJob(prof, current.job)
         : groupCumLevel(prof, current.group);
-    const nextState = claim.state;
+    const nextState = {
+      ...claim.state,
+      rewardBonusRemainderPct: reward.remainderPct,
+      hotTimeBonusRemainderPct: hotTimeReward.remainderPct,
+    };
 
     await upsertSave(tx, userId, "proficiency.v2", prof);
     await upsertSave(tx, userId, TRAINING_SAVE_KEY, nextState);
-    await logGuildActivity(tx, {
-      guildId,
-      type: "training_drill_claim",
-      actorUserId: userId,
-      meta: {
-        drillTitle: drill.title,
-        rewardMastery: totalRewardMastery,
-      },
-    });
+    if (totalRewardMastery > 0) {
+      await recordCodexMasteryGameplayBatch(
+        tx,
+        userId,
+        [{
+          category: "job",
+          entryId: current.jobId,
+          amount: totalRewardMastery,
+          source: "job.training",
+        }],
+        new Date(),
+      );
+    }
+    if (!association) {
+      await logGuildActivity(tx, {
+        guildId,
+        type: "training_drill_claim",
+        actorUserId: userId,
+        meta: {
+          drillTitle: drill.title,
+          rewardMastery: totalRewardMastery,
+        },
+      });
+    }
 
     return {
       status: 200,

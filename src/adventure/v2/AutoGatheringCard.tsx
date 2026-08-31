@@ -4,23 +4,16 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import {
   AUTO_GATHERING_PLAN_LIST,
   autoGatheringPlan,
   type AutoGatheringActivity,
   type AutoGatheringPlanId,
+  type AutoGatheringSessionView,
 } from "./autoGathering";
 
-export type AutoGatheringSessionView = {
-  sessionId: string;
-  planId: AutoGatheringPlanId;
-  sourceId: string;
-  sourceName: string;
-  materialId: string;
-  startedAt: number;
-  readyAt: number;
-  attempts: number;
-};
+export type { AutoGatheringSessionView } from "./autoGathering";
 
 export type AutoGatheringResultView = {
   attempts: number;
@@ -28,6 +21,11 @@ export type AutoGatheringResultView = {
   materialName: string;
   materialsGained: number;
   xpGained: number;
+  byproducts?: Array<{
+    materialId: string;
+    name: string;
+    amount: number;
+  }>;
 };
 
 function remainingLabel(readyAt: number, now: number): string {
@@ -132,9 +130,17 @@ export function AutoGatheringCard({
 
       {session ? (
         <div className={`${SURFACE_INSET} p-3 text-xs`}>
-          <div className="flex items-center justify-between gap-3">
-            <span className="font-semibold">{session.sourceName}</span>
-            <span className="font-bold tabular-nums">
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <span
+              title={session.sourceName}
+              className="min-w-0 truncate font-semibold"
+            >
+              {session.sourceName}
+            </span>
+            <span
+              data-auto-gathering-time={ready ? "ready" : "remaining"}
+              className="shrink-0 whitespace-nowrap font-bold tabular-nums"
+            >
               {ready ? "정산 가능" : `남은 시간 ${remainingLabel(session.readyAt, now)}`}
             </span>
           </div>
@@ -149,6 +155,17 @@ export function AutoGatheringCard({
             {result.materialName} +{result.materialsGained.toLocaleString()} · XP +
             {result.xpGained.toLocaleString()}
           </div>
+          {result.byproducts && result.byproducts.length > 0 ? (
+            <div className="mt-1 font-semibold text-amber-700 dark:text-amber-300">
+              부산물 ·{" "}
+              {result.byproducts
+                .map(
+                  (drop) =>
+                    `${drop.name} +${drop.amount.toLocaleString()}`,
+                )
+                .join(" · ")}
+            </div>
+          ) : null}
           <div className="mt-1 text-zinc-500 dark:text-zinc-400">
             {result.attempts.toLocaleString()}회 중 {result.successes.toLocaleString()}회 성공
           </div>
@@ -190,12 +207,12 @@ export function AutoGatheringCard({
           {!ready ? (
             <Button
               disabled={loading}
-              onClick={() => {
+              onClick={async () => {
                 setError(null);
                 if (
-                  !window.confirm(
+                  !(await confirmGameAction(
                     `자동 ${activityName}을 중단할까요? 지금까지 완료된 작업은 정산됩니다.`,
-                  )
+                  ))
                 ) {
                   return;
                 }

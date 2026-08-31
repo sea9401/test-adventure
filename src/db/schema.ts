@@ -1,4 +1,15 @@
 import { sql } from "drizzle-orm";
+import type { CodexMasteryStage } from "@/adventure/data/v2/codexMasteryTypes";
+import type {
+  CodexMasteryTrophyTier,
+  CodexTrophyKind,
+} from "@/adventure/data/v2/codexMasteryTrophies";
+import type {
+  CodexResearchDefinitionSnapshot,
+  CodexResearchProgressState,
+  CodexResearchRepresentativeRecord,
+  CodexResearchSeasonStatus,
+} from "@/adventure/data/v2/codexResearch";
 import {
   pgTable,
   text,
@@ -10,9 +21,11 @@ import {
   index,
   uniqueIndex,
   boolean,
+  bigint,
   check,
   numeric,
   doublePrecision,
+  foreignKey,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
@@ -57,6 +70,9 @@ export const users = pgTable(
     // ensureUser 가 매 API 호출에서 PK 읽기로 검사 → 차단 시 null 반환(=401).
     bannedUntil: timestamp("banned_until"),
     banReason: text("ban_reason"),
+    // 거래 제재는 계정 제재와 독립적으로 경제 활동만 제한한다.
+    tradeSuspendedUntil: timestamp("trade_suspended_until"),
+    tradeSuspensionReason: text("trade_suspension_reason"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -161,6 +177,17 @@ export const accountLinkIntents = pgTable(
 
 // 개인 홍보 링크. 코드는 URL에 노출되는 임의 64-bit hex 값이며 사용자당 하나만 발급한다.
 // disabledAt 이 박히면 기존 링크 유입만 중단되고 이미 완료된 홍보 실적은 보존된다.
+// 홍보 보상 중복 방지용 로그인 주체 원장. OAuth provider account ID 또는 운영자 계정
+// login ID의 원문은 저장하지 않고, 별도 운영 비밀키로 만든 HMAC-SHA-256만 보존한다.
+// users FK를 두지 않아 탈퇴·재가입으로 user id가 바뀌어도 같은 로그인 주체를 식별한다.
+export const referralRewardIdentities = pgTable(
+  "referral_reward_identities",
+  {
+    identityHash: text("identity_hash").primaryKey(),
+    claimedAt: timestamp("claimed_at").defaultNow().notNull(),
+  },
+);
+
 export const referralCodes = pgTable(
   "referral_codes",
   {
@@ -174,26 +201,36 @@ export const referralCodes = pgTable(
   (t) => [uniqueIndex("referral_codes_user_idx").on(t.userId)],
 );
 
-// 홍보 링크를 통해 신규 캐릭터가 귀속된 기록. referredUserId PK가 한 계정의 중복
-// 귀속을 막는다. rewardGold/rewardedDepth는 과거 골드 보상 감사 기록으로 보존하고,
-// 현재 회복약 보상은 referrerSignupRewardedAt과 rewardedStaminaDepth로 지급 여부를
-// 기록한다. 가입 보상은 귀속 트랜잭션에서 함께 지급하며, 과거 귀속은 NULL로 남긴다.
+// 홍보 링크를 통해 신규 캐릭터가 귀속된 기록. 활성 referredUserId UNIQUE가 한 사용자
+// ID의 중복 귀속을 막고, 별도 로그인 주체 원장이 탈퇴·재가입 중복을 막는다. 탈퇴 시
+// referredUserId는 NULL로 분리하고 이름을 익명화해 추천인의 실적·보상 이력은 보존한다.
+// rewardGold/rewardedDepth는 과거 골드 보상 감사 기록으로 보존하고,
+// 현재 회복약 보상은 referrerSignupRewardedAt과 completedTutorialTaskIds로 지급 여부를
+// 기록한다. rewardedStaminaDepth는 과거 깊이 보상 감사값으로만 보존한다.
+// 가입 보상은 귀속 트랜잭션에서 함께 지급하며, 과거 귀속은 NULL로 남긴다.
 export const referralConversions = pgTable(
   "referral_conversions",
   {
+    id: serial("id").primaryKey(),
     referredUserId: text("referred_user_id")
-      .primaryKey()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .unique()
+      .references(() => users.id, { onDelete: "set null" }),
     referrerUserId: text("referrer_user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     referralCode: text("referral_code")
       .notNull()
       .references(() => referralCodes.code, { onDelete: "cascade" }),
+    referredName: text("referred_name").notNull(),
+    referredDeletedAt: timestamp("referred_deleted_at"),
     rewardGold: integer("reward_gold").default(0).notNull(),
     rewardedDepth: integer("rewarded_depth").default(0).notNull(),
     referrerSignupRewardedAt: timestamp("referrer_signup_rewarded_at"),
     rewardedStaminaDepth: integer("rewarded_stamina_depth").default(0).notNull(),
+    completedTutorialTaskIds: text("completed_tutorial_task_ids")
+      .array()
+      .default(sql`ARRAY[]::text[]`)
+      .notNull(),
     convertedAt: timestamp("converted_at").defaultNow().notNull(),
   },
   (t) => [
@@ -213,6 +250,10 @@ export const referralConversions = pgTable(
     check(
       "referral_conversions_rewarded_stamina_depth_check",
       sql`${t.rewardedStaminaDepth} in (0, 6, 12, 18, 24, 36)`,
+    ),
+    check(
+      "referral_conversions_tutorial_tasks_check",
+      sql`${t.completedTutorialTaskIds} <@ ARRAY['hunt_depth_24', 'join_guild', 'life_level_5', 'hunt_depth_36', 'life_level_10']::text[] AND cardinality(${t.completedTutorialTaskIds}) <= 5`,
     ),
   ],
 );
@@ -236,6 +277,26 @@ export const savesKv = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.key] })],
+);
+
+// 묶음 전투 결과(일괄 사냥·아레나 기록)의 전체 리플레이를 본문 세이브와 분리해 보관한다.
+// 목록/결과 응답에는 id가 포함된 가벼운 ReplayPayload만 싣고, 사용자가 실제로 다시보기를
+// 열 때 단건 조회한다. expiresAt 이후 행은 ops-retention cron이 삭제한다.
+export const battleReplays = pgTable(
+  "battle_replays",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    payload: jsonb("payload").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("battle_replays_user_created_idx").on(t.userId, t.createdAt),
+    index("battle_replays_expires_idx").on(t.expiresAt),
+  ],
 );
 
 // 광장 게시판 글. 영구 보관 — cleanup cron 없음 (자동 삭제 정책 제거됨).
@@ -421,8 +482,8 @@ export const chatRoomInvites = pgTable(
   ],
 );
 
-// 채팅 메시지. channel='global' 은 전체 채팅, channel='guild' 는 guildId 길드원 전용,
-// channel='room' 은 roomId 채팅방 참여자 전용이다.
+// 채팅 메시지. channel='global' 은 전체 채팅, channel='trade' 는 거래 채팅,
+// channel='guild' 는 guildId 길드원 전용, channel='room' 은 roomId 참여자 전용이다.
 // 3일 후 cron 으로 일괄 삭제.
 // name/className/title 은 전송 시점 스냅샷 — 이후 사용자가 바뀌어도 과거 메시지는 그대로.
 // title 은 미장착 시 NULL.
@@ -457,7 +518,7 @@ export const messages = pgTable(
     index("messages_user_created_at_idx").on(t.userId, t.createdAt),
     check(
       "messages_channel_scope_check",
-      sql`(${t.channel} = 'global' AND ${t.guildId} IS NULL AND ${t.roomId} IS NULL) OR (${t.channel} = 'guild' AND ${t.guildId} IS NOT NULL AND ${t.roomId} IS NULL) OR (${t.channel} = 'room' AND ${t.guildId} IS NULL AND ${t.roomId} IS NOT NULL)`,
+      sql`(${t.channel} IN ('global', 'trade') AND ${t.guildId} IS NULL AND ${t.roomId} IS NULL) OR (${t.channel} = 'guild' AND ${t.guildId} IS NOT NULL AND ${t.roomId} IS NULL) OR (${t.channel} = 'room' AND ${t.guildId} IS NULL AND ${t.roomId} IS NOT NULL)`,
     ),
   ],
 );
@@ -488,6 +549,117 @@ export const feedbackReports = pgTable(
     index("feedback_reports_user_created_idx").on(t.userId, t.createdAt),
     index("feedback_reports_status_created_idx").on(t.status, sql`${t.id} DESC`),
   ],
+);
+
+// 사용자 제작 콘텐츠(게시글·댓글·채팅) 신고. 원본 콘텐츠는 삭제되거나 채팅 보존
+// 기간이 지나도 운영자가 판단할 수 있도록 접수 시점의 표시 이름과 내용을 보존한다.
+// 계정 삭제 시 신고자/대상 UUID만 익명화하고 신고 기록 자체는 운영 감사용으로 남긴다.
+export const ugcReports = pgTable(
+  "ugc_reports",
+  {
+    id: serial("id").primaryKey(),
+    reporterUserId: text("reporter_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reporterName: text("reporter_name").notNull(),
+    // content = 해당 콘텐츠 자체 신고, user = 콘텐츠 작성자 신고.
+    subjectType: text("subject_type").notNull(),
+    sourceType: text("source_type").notNull(),
+    // 숫자 PK 콘텐츠와 UUID/이름 기반 프로필을 같은 신고 흐름에서 참조한다.
+    sourceId: text("source_id").notNull(),
+    targetUserId: text("target_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    targetName: text("target_name").notNull(),
+    reason: text("reason").notNull(),
+    details: text("details"),
+    contentSnapshot: text("content_snapshot").notNull(),
+    contextSnapshot: jsonb("context_snapshot")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    status: text("status").notNull().default("open"),
+    adminNote: text("admin_note"),
+    resolvedByUserId: text("resolved_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reviewedAt: timestamp("reviewed_at"),
+    resolvedAt: timestamp("resolved_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("ugc_reports_status_created_idx").on(t.status, t.createdAt),
+    index("ugc_reports_target_user_created_idx").on(
+      t.targetUserId,
+      t.createdAt,
+    ),
+    index("ugc_reports_reporter_created_idx").on(
+      t.reporterUserId,
+      t.createdAt,
+    ),
+    uniqueIndex("ugc_reports_active_duplicate_idx")
+      .on(t.reporterUserId, t.subjectType, t.sourceType, t.sourceId)
+      .where(sql`${t.status} IN ('open', 'reviewing')`),
+    check(
+      "ugc_reports_subject_type_check",
+      sql`${t.subjectType} IN ('content', 'user')`,
+    ),
+    check(
+      "ugc_reports_source_type_check",
+      sql`${t.sourceType} IN ('bulletin_post', 'bulletin_comment', 'chat_message', 'inbox_message', 'profile', 'guild_profile', 'chat_room', 'marketplace_trade')`,
+    ),
+    check(
+      "ugc_reports_reason_check",
+      sql`${t.reason} IN ('harassment', 'hate', 'sexual', 'violence', 'spam', 'fraud', 'personal_info', 'abnormal_price', 'market_manipulation', 'real_money_trade', 'other')`,
+    ),
+    check(
+      "ugc_reports_status_check",
+      sql`${t.status} IN ('open', 'reviewing', 'resolved', 'dismissed')`,
+    ),
+    check(
+      "ugc_reports_details_length_check",
+      sql`${t.details} IS NULL OR char_length(${t.details}) <= 500`,
+    ),
+  ],
+);
+
+// 사용자 차단은 단방향이다. blocker가 보는 UGC에서 blocked 작성자의 콘텐츠를 숨기고,
+// 두 사용자 사이의 새 쪽지와 채팅방 초대도 서버에서 거절한다.
+export const userBlocks = pgTable(
+  "user_blocks",
+  {
+    blockerUserId: text("blocker_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    blockedUserId: text("blocked_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    blockedName: text("blocked_name").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.blockerUserId, t.blockedUserId] }),
+    index("user_blocks_blocked_user_idx").on(t.blockedUserId, t.createdAt),
+    check(
+      "user_blocks_not_self_check",
+      sql`${t.blockerUserId} <> ${t.blockedUserId}`,
+    ),
+  ],
+);
+
+// UGC 약관은 버전별로 명시적 동의를 보존한다. 정책 내용이 실질적으로 바뀌면
+// 애플리케이션의 UGC_POLICY_VERSION을 올려 기존 사용자에게 다시 동의를 받는다.
+export const ugcPolicyConsents = pgTable(
+  "ugc_policy_consents",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    version: text("version").notNull(),
+    acceptedAt: timestamp("accepted_at").defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.version] })],
 );
 
 // R2 객체 삭제 재시도 큐. 회원 탈퇴처럼 DB 행이 먼저 사라지는 흐름에서 외부 저장소가
@@ -524,7 +696,7 @@ export const storageDeletionQueue = pgTable(
 
 // 전체 소식 (서버 피드) — 서버 전체에 흘러가는 "자랑거리" 한 줄 (유실된 명품 획득, 걸작 제작 성공 등).
 // 글로벌 채팅과 분리 — 대화용 vs 전광판용. 모험탭 하단 패널에서 최근 N개만 노출.
-// append-only — insert 시 보관기간(FEED_RETENTION_MS=약 6개월) 지난 행을 잘라낸다 (cron 없음).
+// append-only — insert와 운영 보존 cron이 30일 지난 행을 잘라낸다.
 // actorName 은 발생 시점 닉네임 스냅샷 (이후 닉네임이 바뀌어도 과거 항목은 그대로).
 // type: 'unique_drop' | 'masterpiece' (v2 에서 'milestone' 등 추가). payload 는 type 별 형태.
 export const serverFeed = pgTable(
@@ -641,9 +813,14 @@ export const marketplaceInbox = pgTable(
     }),
     fromName: text("from_name"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    readAt: timestamp("read_at"),
     claimedAt: timestamp("claimed_at"),
   },
   (t) => [
+    // 미확인 우편 — 상단 배지와 받은 우편 강조 조회.
+    index("inbox_unread_idx")
+      .on(t.userId, t.createdAt)
+      .where(sql`${t.readAt} IS NULL`),
     // 미수령 우편 — 가장 빈번한 쿼리.
     index("inbox_unclaimed_idx")
       .on(t.userId, t.createdAt)
@@ -760,6 +937,10 @@ export const marketplaceListingsV2 = pgTable(
     index("listings_v2_sold_idx")
       .on(t.closedAt)
       .where(sql`${t.status} = 'sold'`),
+    // 활성 최고 입찰의 입찰자별 정리와 잠금 조회.
+    index("listings_v2_active_highest_bidder_idx")
+      .on(t.highestBidderId, t.id)
+      .where(sql`${t.status} = 'active' AND ${t.highestBidderId} IS NOT NULL`),
     check(
       "listings_v2_kind_valid",
       sql`${t.kind} IN ('equip','material','consumable')`,
@@ -1044,6 +1225,27 @@ export const guildMembers = pgTable(
   (t) => [
     primaryKey({ columns: [t.guildId, t.userId] }),
     uniqueIndex("guild_members_user_unique_idx").on(t.userId),
+  ],
+);
+
+// 길드 창고 입출고 권한. 마스터·관리자는 이 표와 무관하게 항상 허용하고,
+// 일반 길드원만 관리자가 명시적으로 권한을 부여한다. 길드 탈퇴 시 멤버 FK cascade로 자동 회수.
+export const guildWarehousePermissions = pgTable(
+  "guild_warehouse_permissions",
+  {
+    guildId: integer("guild_id").notNull(),
+    userId: text("user_id").notNull(),
+    grantedBy: text("granted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    grantedAt: timestamp("granted_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.guildId, t.userId] }),
+    foreignKey({
+      columns: [t.guildId, t.userId],
+      foreignColumns: [guildMembers.guildId, guildMembers.userId],
+    }).onDelete("cascade"),
   ],
 );
 
@@ -1367,6 +1569,136 @@ export const coopBossAttackLog = pgTable(
   ],
 );
 
+// 길드 토벌전 — 모든 길드가 한 주 동안 같은 단계형 보스를 공격하는 전역 이벤트.
+// 일반 협동 보스의 소환/공개/기여 보상 수명주기와 분리하고 전투 엔진·리플레이만 공유한다.
+export const guildRaidEvents = pgTable(
+  "guild_raid_events",
+  {
+    id: text("id").primaryKey(),
+    weekKey: text("week_key").notNull(),
+    bossKind: text("boss_kind").notNull(),
+    startsAt: timestamp("starts_at").notNull(),
+    endsAt: timestamp("ends_at").notNull(),
+    status: text("status").notNull().default("active"),
+    stage: integer("stage").notNull().default(1),
+    hp: bigint("hp", { mode: "number" }).notNull(),
+    maxHp: bigint("max_hp", { mode: "number" }).notNull(),
+    mechanicState: jsonb("mechanic_state")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    settledAt: timestamp("settled_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("guild_raid_events_week_unique_idx").on(t.weekKey),
+    index("guild_raid_events_status_end_idx").on(t.status, t.endsAt),
+    check("guild_raid_events_stage_positive", sql`${t.stage} > 0`),
+    check("guild_raid_events_hp_positive", sql`${t.hp} > 0`),
+    check("guild_raid_events_max_hp_positive", sql`${t.maxHp} > 0`),
+    check(
+      "guild_raid_events_status_valid",
+      sql`${t.status} IN ('active','settled')`,
+    ),
+  ],
+);
+
+// 이벤트별 길드 누적 피해. 길드가 해산돼도 과거 순위를 남기기 위해 guildId 는 스냅샷이며
+// guilds FK 를 두지 않는다.
+export const guildRaidGuildScores = pgTable(
+  "guild_raid_guild_scores",
+  {
+    eventId: text("event_id")
+      .notNull()
+      .references(() => guildRaidEvents.id, { onDelete: "cascade" }),
+    guildId: integer("guild_id").notNull(),
+    guildNameSnapshot: text("guild_name_snapshot").notNull(),
+    guildEmblemSnapshot: text("guild_emblem_snapshot"),
+    damage: bigint("damage", { mode: "number" }).notNull().default(0),
+    finalRank: integer("final_rank"),
+    settledAt: timestamp("settled_at"),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.eventId, t.guildId] }),
+    index("guild_raid_guild_scores_rank_idx").on(
+      t.eventId,
+      sql`${t.damage} DESC`,
+    ),
+    check("guild_raid_guild_scores_damage_nonnegative", sql`${t.damage} >= 0`),
+  ],
+);
+
+// 첫 유효 공격 시 길드가 고정되는 개인 주간 상태 + KST 일일 공격 횟수.
+export const guildRaidParticipants = pgTable(
+  "guild_raid_participants",
+  {
+    eventId: text("event_id")
+      .notNull()
+      .references(() => guildRaidEvents.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    guildId: integer("guild_id").notNull(),
+    nameSnapshot: text("name_snapshot").notNull(),
+    damage: bigint("damage", { mode: "number" }).notNull().default(0),
+    attackCount: integer("attack_count").notNull().default(0),
+    dayKey: text("day_key").notNull(),
+    dailyAttackCount: integer("daily_attack_count").notNull().default(0),
+    eligibleAtSettlement: boolean("eligible_at_settlement"),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.eventId, t.userId] }),
+    index("guild_raid_participants_guild_damage_idx").on(
+      t.eventId,
+      t.guildId,
+      sql`${t.damage} DESC`,
+    ),
+    check("guild_raid_participants_damage_nonnegative", sql`${t.damage} >= 0`),
+    check("guild_raid_participants_attacks_nonnegative", sql`${t.attackCount} >= 0`),
+    check(
+      "guild_raid_participants_daily_attacks_nonnegative",
+      sql`${t.dailyAttackCount} >= 0`,
+    ),
+  ],
+);
+
+// 공격 1회당 전투 결과. requestId 고유 제약으로 네트워크 재시도 시 같은 결과를 반환한다.
+export const guildRaidAttackLogs = pgTable(
+  "guild_raid_attack_logs",
+  {
+    id: serial("id").primaryKey(),
+    eventId: text("event_id")
+      .notNull()
+      .references(() => guildRaidEvents.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    guildId: integer("guild_id").notNull(),
+    requestId: text("request_id").notNull(),
+    name: text("name").notNull(),
+    damageDealt: bigint("damage_dealt", { mode: "number" }).notNull(),
+    damageTaken: bigint("damage_taken", { mode: "number" }).notNull(),
+    diedEarly: boolean("died_early").notNull().default(false),
+    stageBefore: integer("stage_before").notNull(),
+    stageAfter: integer("stage_after").notNull(),
+    hpBefore: bigint("hp_before", { mode: "number" }).notNull(),
+    hpAfter: bigint("hp_after", { mode: "number" }).notNull(),
+    replay: jsonb("replay").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("guild_raid_attack_logs_request_unique_idx").on(
+      t.eventId,
+      t.userId,
+      t.requestId,
+    ),
+    index("guild_raid_attack_logs_recent_idx").on(t.eventId, t.createdAt),
+    check("guild_raid_attack_logs_damage_nonnegative", sql`${t.damageDealt} >= 0`),
+    check("guild_raid_attack_logs_damage_taken_nonnegative", sql`${t.damageTaken} >= 0`),
+  ],
+);
+
 // PvP 시즌 — 주간 (월요일 00:00 KST 시작). id 는 ISO 주차 키 (예: "2026-W20").
 // status: 'active' | 'closed'. closedAt 은 cron 이 다음 시즌 시작할 때 셋.
 // 보상 지급은 시즌 종료 시점에 cron 이 일괄 (rewardsGrantedAt 으로 idempotent).
@@ -1598,10 +1930,13 @@ export const v2GuildResources = pgTable("v2_guild_resources", {
     .primaryKey()
     .references(() => guilds.id, { onDelete: "cascade" }),
   // 거점 세금 회수 시 90% 가 누적되는 길드 공용 골드 풀. 회수자 본인 10% 와 별개.
-  gold: integer("gold").notNull().default(0),
+  gold: bigint("gold", { mode: "number" }).notNull().default(0),
   // 길드 정착지 재화 풀 — 기초 목재/광석은 crop/ore, 상위 생활 재료는 재료 ID 키로 저장한다.
   // 길드원이 전환한 재료가 누적되고 마을·영지 건축물 업그레이드에 소비된다. 종류 추가 시 마이그 불요(jsonb).
   settlement: jsonb("settlement").notNull().default({}),
+  // 길드 창고 상태({ materials, equipment }). 정착지 업그레이드 재화와 분리해
+  // 입출고만으로 시설 비용이 바뀌지 않는다. 구버전 flat 재료 맵은 서버에서 호환 파싱한다.
+  warehouse: jsonb("warehouse").notNull().default({}),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -1657,8 +1992,8 @@ export const guildDiningWeekly = pgTable("guild_dining_weekly", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// 길드 교역소 공동 상태. tokens 는 주차가 바뀌어도 유지되는 길드 공동 잔고이며,
-// 계약 품목·진척·완료 목록과 참여 가능 길드원 스냅샷만 첫 조회에서 교체한다.
+// 길드 교역소 공동 상태. tokens 는 주차가 바뀌어도 유지되는 길드 공동 잔고다.
+// purchases 와 계약 품목·진척·완료 목록, 참여 가능 길드원 스냅샷은 주차마다 교체한다.
 // 품목 추가에 마이그레이션이 필요 없도록 계약 데이터는 JSONB로 보관한다.
 export const guildTradeWeekly = pgTable("guild_trade_weekly", {
   guildId: integer("guild_id")
@@ -1682,6 +2017,14 @@ export const guildTradeWeekly = pgTable("guild_trade_weekly", {
     .notNull()
     .default(sql`'[]'::jsonb`),
   tokens: integer("tokens").notNull().default(0),
+  purchases: jsonb("purchases")
+    .$type<Record<string, number>>()
+    .notNull()
+    .default(sql`'{}'::jsonb`),
+  // 이전 구매 권한 정책 호환용. 신규 로직에서는 사용하지 않는다.
+  memberPurchasesEnabled: boolean("member_purchases_enabled")
+    .notNull()
+    .default(true),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -1715,6 +2058,77 @@ export const guildFacilityUpgradeDonations = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => [primaryKey({ columns: [t.guildId, t.buildingId] })],
+);
+
+// 마을 공공기관인 모험가 협회의 시설 진행도. 협회 시설은 처음부터 Lv.1로
+// 열려 있고 모든 이용자가 개인 생활 재료와 골드를 기부한다. 목표를 모두
+// 채우면 별도 관리자 승인 없이 기부 트랜잭션 안에서 즉시 다음 레벨이 된다.
+// 길드 창고는 공공시설 대상이 아니므로 이 테이블에 저장하지 않는다.
+export const adventurerAssociationFacilities = pgTable(
+  "adventurer_association_facilities",
+  {
+    buildingId: text("building_id").primaryKey(),
+    level: integer("level").notNull().default(1),
+    targetLevel: integer("target_level").notNull().default(2),
+    materials: jsonb("materials").notNull().default({}),
+    gold: integer("gold").notNull().default(0),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    check(
+      "adventurer_association_facilities_level_check",
+      sql`${t.level} BETWEEN 1 AND 5`,
+    ),
+    check(
+      "adventurer_association_facilities_target_level_check",
+      sql`${t.targetLevel} BETWEEN 2 AND 5`,
+    ),
+    check("adventurer_association_facilities_gold_check", sql`${t.gold} >= 0`),
+  ],
+);
+
+// 협회 식당의 서버 공용 주간 식재료 준비 상태. 식권·기여도·식사 효과는
+// 개인 세이브에 두고, 여기에는 메뉴와 공용 준비도만 둔다.
+export const adventurerAssociationDiningWeekly = pgTable(
+  "adventurer_association_dining_weekly",
+  {
+    id: text("id").primaryKey().default("global"),
+    weekKey: text("week_key").notNull(),
+    selectedMenuIds: jsonb("selected_menu_ids")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'["hearty_stew"]'::jsonb`),
+    pantryPoints: integer("pantry_points").notNull().default(0),
+    targetPoints: integer("target_points").notNull().default(400),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    check(
+      "adventurer_association_dining_weekly_points_check",
+      sql`${t.pantryPoints} >= 0 AND ${t.targetPoints} > 0`,
+    ),
+  ],
+);
+
+// 협회 교역소의 서버 공용 주간 계약 진행도. 토큰과 상품 구매 횟수는
+// 이용자 개인 세이브에 두어 선착순 공동 잔고 소진을 원천 차단한다.
+export const adventurerAssociationTradeWeekly = pgTable(
+  "adventurer_association_trade_weekly",
+  {
+    id: text("id").primaryKey().default("global"),
+    weekKey: text("week_key").notNull(),
+    contractIds: jsonb("contract_ids").$type<string[]>().notNull().default([]),
+    progress: jsonb("progress").notNull().default({}),
+    completedIds: jsonb("completed_ids").$type<string[]>().notNull().default([]),
+    target: integer("target").notNull().default(400),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    check(
+      "adventurer_association_trade_weekly_target_check",
+      sql`${t.target} > 0`,
+    ),
+  ],
 );
 
 export const artisanLeaderboardSnapshots = pgTable(
@@ -1866,6 +2280,63 @@ export const fishingSeasons = pgTable("fishing_seasons", {
   winners: integer("winners").notNull().default(0),
   totalCoins: integer("total_coins").notNull().default(0),
 });
+
+// 위험 해역 거대어 — 6시간 동안 서버 전체가 비동기로 체력을 누적해서 깎는다.
+// status: active | defeated | expired. 활성 partial unique 로 동시 발견 중복 생성을 막는다.
+export const dangerousFishingBossEvents = pgTable(
+  "dangerous_fishing_boss_events",
+  {
+    id: text("id").primaryKey(),
+    bossId: text("boss_id").notNull(),
+    discovererId: text("discoverer_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    maxStamina: integer("max_stamina").notNull(),
+    stamina: integer("stamina").notNull(),
+    status: text("status").notNull().default("active"),
+    spawnedAt: timestamp("spawned_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    defeatedAt: timestamp("defeated_at"),
+    lastHaulUserId: text("last_haul_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [
+    uniqueIndex("dangerous_fishing_boss_one_active_idx")
+      .on(t.status)
+      .where(sql`${t.status} = 'active'`),
+    index("dangerous_fishing_boss_active_expiry_idx").on(
+      t.status,
+      t.expiresAt,
+    ),
+  ],
+);
+
+// 거대어 이벤트별 개인 누적 기여와 보상 수령 멱등 마커. 순위 노출 용도가 아니므로
+// 기여량 내림차순 인덱스는 두지 않고 본인 조회용 user 인덱스만 둔다.
+export const dangerousFishingBossContributions = pgTable(
+  "dangerous_fishing_boss_contributions",
+  {
+    eventId: text("event_id")
+      .notNull()
+      .references(() => dangerousFishingBossEvents.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    totalContribution: integer("total_contribution").notNull().default(0),
+    successfulAttempts: integer("successful_attempts").notNull().default(0),
+    firstContributedAt: timestamp("first_contributed_at").notNull(),
+    lastContributedAt: timestamp("last_contributed_at").notNull(),
+    rewardClaimedAt: timestamp("reward_claimed_at"),
+  },
+  (t) => [
+    primaryKey({ columns: [t.eventId, t.userId] }),
+    index("dangerous_fishing_boss_contribution_user_idx").on(
+      t.userId,
+      t.lastContributedAt,
+    ),
+  ],
+);
 
 // v2 전용 알림 — 전쟁(거점 피격/함락/토벌당함) 등 개인 타겟 사건. 우편함(아이템·정산
 // 첨부)과 분리된 "읽고 끝" 채널 — docs/v2-war-visibility-plan.md PR-5. 타입은 범용이라
@@ -2043,5 +2514,349 @@ export const adminAuditLog = pgTable(
     index("admin_audit_log_admin_created_idx").on(t.adminEmail, sql`${t.id} DESC`),
     index("admin_audit_log_action_created_idx").on(t.action, sql`${t.id} DESC`),
     index("admin_audit_log_target_created_idx").on(t.targetUserId, sql`${t.id} DESC`),
+  ],
+);
+
+// 도감 숙련도 항목별 진행 — 사용자/분야/항목 복합키로 한 항목의 단조 진행을 보관한다.
+export const codexMasteryProgress = pgTable(
+  "codex_mastery_progress",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    category: text("category").notNull(),
+    entryId: text("entry_id").notNull(),
+    count: bigint("count", { mode: "number" }).notNull().default(0),
+    bestValue: doublePrecision("best_value"),
+    currentTier: text("current_tier").notNull().default("none"),
+    sealIds: jsonb("seal_ids").$type<string[]>().notNull().default([]),
+    tierAchievedAt: jsonb("tier_achieved_at")
+      .$type<Partial<Record<CodexMasteryStage, string>>>()
+      .notNull()
+      .default({}),
+    scoreMilli: bigint("score_milli", { mode: "number" }).notNull().default(0),
+    firstRecordedAt: timestamp("first_recorded_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.category, t.entryId] }),
+    index("codex_mastery_progress_user_category_tier_idx").on(
+      t.userId,
+      t.category,
+      t.currentTier,
+    ),
+    check("codex_mastery_progress_count_nonnegative", sql`${t.count} >= 0`),
+    check("codex_mastery_progress_score_nonnegative", sql`${t.scoreMilli} >= 0`),
+  ],
+);
+
+// 도감 숙련도 요약 — 공개 랭킹과 사용자별 총점 조회를 위한 사용자당 한 행이다.
+export const codexMasterySummary = pgTable(
+  "codex_mastery_summary",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    totalScoreMilli: bigint("total_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    equipmentScoreMilli: bigint("equipment_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    fishScoreMilli: bigint("fish_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    monsterScoreMilli: bigint("monster_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    cookingScoreMilli: bigint("cooking_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    lifeScoreMilli: bigint("life_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    jobScoreMilli: bigint("job_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    bronzeCount: integer("bronze_count").notNull().default(0),
+    silverCount: integer("silver_count").notNull().default(0),
+    goldCount: integer("gold_count").notNull().default(0),
+    platinumCount: integer("platinum_count").notNull().default(0),
+    diamondCount: integer("diamond_count").notNull().default(0),
+    legendaryCount: integer("legendary_count").notNull().default(0),
+    sealCount: integer("seal_count").notNull().default(0),
+    scoredCategoryCount: integer("scored_category_count").notNull().default(0),
+    scoreReachedAt: timestamp("score_reached_at"),
+    equipmentScoreReachedAt: timestamp("equipment_score_reached_at"),
+    fishScoreReachedAt: timestamp("fish_score_reached_at"),
+    monsterScoreReachedAt: timestamp("monster_score_reached_at"),
+    cookingScoreReachedAt: timestamp("cooking_score_reached_at"),
+    lifeScoreReachedAt: timestamp("life_score_reached_at"),
+    jobScoreReachedAt: timestamp("job_score_reached_at"),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("codex_mastery_summary_total_score_rank_idx").on(
+      t.totalScoreMilli.desc(),
+      t.goldCount.desc(),
+      t.sealCount.desc(),
+      t.scoredCategoryCount.desc(),
+      t.scoreReachedAt.asc().nullsLast(),
+      t.userId.asc(),
+    ),
+    index("codex_mastery_summary_equipment_score_rank_idx").on(
+      t.equipmentScoreMilli.desc(),
+      t.goldCount.desc(),
+      t.sealCount.desc(),
+      t.scoredCategoryCount.desc(),
+      t.equipmentScoreReachedAt.asc().nullsLast(),
+      t.userId.asc(),
+    ),
+    index("codex_mastery_summary_fish_score_rank_idx").on(
+      t.fishScoreMilli.desc(),
+      t.goldCount.desc(),
+      t.sealCount.desc(),
+      t.scoredCategoryCount.desc(),
+      t.fishScoreReachedAt.asc().nullsLast(),
+      t.userId.asc(),
+    ),
+    index("codex_mastery_summary_monster_score_rank_idx").on(
+      t.monsterScoreMilli.desc(),
+      t.goldCount.desc(),
+      t.sealCount.desc(),
+      t.scoredCategoryCount.desc(),
+      t.monsterScoreReachedAt.asc().nullsLast(),
+      t.userId.asc(),
+    ),
+    index("codex_mastery_summary_cooking_score_rank_idx").on(
+      t.cookingScoreMilli.desc(),
+      t.goldCount.desc(),
+      t.sealCount.desc(),
+      t.scoredCategoryCount.desc(),
+      t.cookingScoreReachedAt.asc().nullsLast(),
+      t.userId.asc(),
+    ),
+    index("codex_mastery_summary_life_score_rank_idx").on(
+      t.lifeScoreMilli.desc(),
+      t.goldCount.desc(),
+      t.sealCount.desc(),
+      t.scoredCategoryCount.desc(),
+      t.lifeScoreReachedAt.asc().nullsLast(),
+      t.userId.asc(),
+    ),
+    index("codex_mastery_summary_job_score_rank_idx").on(
+      t.jobScoreMilli.desc(),
+      t.goldCount.desc(),
+      t.sealCount.desc(),
+      t.scoredCategoryCount.desc(),
+      t.jobScoreReachedAt.asc().nullsLast(),
+      t.userId.asc(),
+    ),
+  ],
+);
+
+// 도감·월간 트로피 연혁 — 가족 ID별 최고 등급과 모든 승급일을 단조 증가로 보존한다.
+export const codexTrophyHistory = pgTable(
+  "codex_trophy_history",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    trophyId: text("trophy_id").notNull(),
+    trophyKind: text("trophy_kind").$type<CodexTrophyKind>().notNull(),
+    currentTier: text("current_tier").$type<CodexMasteryTrophyTier>().notNull(),
+    tierAchievedAt: jsonb("tier_achieved_at")
+      .$type<Partial<Record<CodexMasteryTrophyTier, string>>>()
+      .notNull()
+      .default({}),
+    catalogVersion: integer("catalog_version").notNull().default(1),
+    seasonMetadata: jsonb("season_metadata").$type<Record<string, unknown>>(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.trophyId] }),
+    index("codex_trophy_history_user_kind_tier_idx").on(
+      t.userId,
+      t.trophyKind,
+      t.currentTier,
+    ),
+    check(
+      "codex_trophy_history_kind_valid",
+      sql`${t.trophyKind} IN ('mastery_category', 'mastery_overall', 'research_season')`,
+    ),
+    check(
+      "codex_trophy_history_tier_valid",
+      sql`${t.currentTier} IN ('bronze', 'silver', 'gold', 'platinum', 'diamond', 'legendary')`,
+    ),
+    check(
+      "codex_trophy_history_catalog_version_positive",
+      sql`${t.catalogVersion} >= 1`,
+    ),
+  ],
+);
+
+// 월간 도감 연구 시즌 — 운영자가 검토해 예약한 불변 정의만 저장한다.
+export const codexResearchSeasons = pgTable(
+  "codex_research_seasons",
+  {
+    seasonId: text("season_id").primaryKey(),
+    themeId: text("theme_id").notNull(),
+    definitionSnapshot: jsonb("definition_snapshot")
+      .$type<CodexResearchDefinitionSnapshot>()
+      .notNull(),
+    startAt: timestamp("start_at").notNull(),
+    endAt: timestamp("end_at").notNull(),
+    status: text("status")
+      .$type<CodexResearchSeasonStatus>()
+      .notNull()
+      .default("scheduled"),
+    settledAt: timestamp("settled_at"),
+    publishedAt: timestamp("published_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("codex_research_seasons_window_idx").on(
+      t.status,
+      t.startAt,
+      t.endAt,
+    ),
+    check(
+      "codex_research_seasons_status_valid",
+      sql`${t.status} IN ('scheduled', 'active', 'settling', 'closed')`,
+    ),
+    check(
+      "codex_research_seasons_window_valid",
+      sql`${t.endAt} > ${t.startAt}`,
+    ),
+  ],
+);
+
+// 월간 도감 연구 개인 진행 — 사용자/시즌당 한 행을 잠가 점수를 단조 갱신한다.
+export const codexResearchProgress = pgTable(
+  "codex_research_progress",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    seasonId: text("season_id")
+      .notNull()
+      .references(() => codexResearchSeasons.seasonId, { onDelete: "cascade" }),
+    score: integer("score").notNull().default(0),
+    objectiveProgress: jsonb("objective_progress")
+      .$type<CodexResearchProgressState>()
+      .notNull()
+      .default({ objectives: {}, diversityEntries: {}, recordValues: {} }),
+    objectiveCompletedCount: integer("objective_completed_count")
+      .notNull()
+      .default(0),
+    diversityScore: integer("diversity_score").notNull().default(0),
+    recordScore: integer("record_score").notNull().default(0),
+    scoreReachedAt: timestamp("score_reached_at"),
+    finalRank: integer("final_rank"),
+    finalTier: text("final_tier").$type<CodexMasteryTrophyTier>(),
+    representativeRecord: jsonb("representative_record")
+      .$type<CodexResearchRepresentativeRecord>(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.seasonId] }),
+    index("codex_research_progress_season_score_rank_idx").on(
+      t.seasonId,
+      t.score.desc(),
+      t.objectiveCompletedCount.desc(),
+      t.diversityScore.desc(),
+      t.recordScore.desc(),
+      t.scoreReachedAt.asc().nullsLast(),
+      t.userId.asc(),
+    ),
+    uniqueIndex("codex_research_progress_season_final_rank_unique")
+      .on(t.seasonId, t.finalRank)
+      .where(sql`${t.finalRank} IS NOT NULL`),
+    check(
+      "codex_research_progress_score_valid",
+      sql`${t.score} >= 0 AND ${t.score} <= 20000`,
+    ),
+    check(
+      "codex_research_progress_objectives_valid",
+      sql`${t.objectiveCompletedCount} >= 0 AND ${t.objectiveCompletedCount} <= 18`,
+    ),
+    check(
+      "codex_research_progress_diversity_valid",
+      sql`${t.diversityScore} >= 0 AND ${t.diversityScore} <= 5000`,
+    ),
+    check(
+      "codex_research_progress_record_valid",
+      sql`${t.recordScore} >= 0 AND ${t.recordScore} <= 3000`,
+    ),
+    check(
+      "codex_research_progress_components_valid",
+      sql`${t.score} >= ${t.diversityScore} + ${t.recordScore}
+        AND ${t.score} <= ${t.diversityScore} + ${t.recordScore} + 12000`,
+    ),
+    check(
+      "codex_research_progress_reached_at_valid",
+      sql`(${t.score} = 0 AND ${t.scoreReachedAt} IS NULL)
+        OR (${t.score} > 0 AND ${t.scoreReachedAt} IS NOT NULL)`,
+    ),
+    check(
+      "codex_research_progress_final_rank_valid",
+      sql`${t.finalRank} IS NULL OR ${t.finalRank} >= 1`,
+    ),
+    check(
+      "codex_research_progress_final_tier_valid",
+      sql`${t.finalTier} IS NULL OR ${t.finalTier} IN ('bronze', 'silver', 'gold', 'platinum', 'diamond', 'legendary')`,
+    ),
+  ],
+);
+
+export type CodexResearchPublicationChannel = "notification" | "feed";
+
+// 월간 도감 연구 공개 원장 — 사용자/시즌/채널별 발행을 멱등하게 보장한다.
+export const codexResearchPublications = pgTable(
+  "codex_research_publications",
+  {
+    seasonId: text("season_id")
+      .notNull()
+      .references(() => codexResearchSeasons.seasonId, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    channel: text("channel").$type<CodexResearchPublicationChannel>().notNull(),
+    publishedAt: timestamp("published_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.seasonId, t.userId, t.channel] }),
+    index("codex_research_publications_user_published_idx").on(
+      t.userId,
+      t.publishedAt,
+    ),
+    check(
+      "codex_research_publications_channel_valid",
+      sql`${t.channel} IN ('notification', 'feed')`,
+    ),
+  ],
+);
+
+// 장비 해방 요청 멱등 영수증. 같은 사용자·UUID의 네트워크 재시도는 최초 응답을 재생한다.
+export const equipmentLiberationRequests = pgTable(
+  "equipment_liberation_requests",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    requestId: text("request_id").notNull(),
+    iid: text("iid").notNull(),
+    expectedRevision: integer("expected_revision").notNull(),
+    response: jsonb("response").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.requestId] }),
+    index("equipment_liberation_requests_created_idx").on(t.createdAt),
+    check(
+      "equipment_liberation_requests_revision_nonnegative",
+      sql`${t.expectedRevision} >= 0`,
+    ),
   ],
 );

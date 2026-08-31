@@ -43,7 +43,17 @@ function activeCultivation(
       warrior: { cultivations: 2, tier: 1, cumLevel: 77 },
     },
     caps: { str: 4, vit: 2, dex: 2 },
+    grown: { str: 3, vit: 2, dex: 1 },
+    growthRespecPoints: 5,
     cultivationPointsSpent: 40,
+    lifeResourceGrowth: {
+      version: 1,
+      rolledLevel: 100,
+      baseHp: 142,
+      baseMp: 81,
+      gainedHp: 999,
+      gainedMp: 444,
+    },
     ...overrides,
   };
 }
@@ -54,6 +64,7 @@ beforeEach(() => {
   mocks.store.set("character.v2", {
     class: "warrior",
     level: 100,
+    exp: 777,
     gold: 20_000_000,
     bankedGold: 0,
   });
@@ -61,7 +72,7 @@ beforeEach(() => {
 });
 
 describe("POST /api/v2/me/cultivate/reset", () => {
-  it("첫 초기화는 무료이며 수행 숙달 포인트를 전액 환급한다", async () => {
+  it("첫 초기화는 무료이며 숙달 포인트를 환급하고 레벨 1로 되돌린다", async () => {
     const response = await POST();
     const json = await response.json();
 
@@ -72,6 +83,16 @@ describe("POST /api/v2/me/cultivate/reset", () => {
     expect(json.resetCount).toBe(1);
     expect(json.nextResetGoldCost).toBe(V2_CULTIVATION_RESET_GOLD_COST);
     expect(json.gold).toBe(20_000_000);
+    expect(json.growthRespecPoints).toBe(0);
+    expect(json.level).toBe(1);
+    expect(json.exp).toBe(0);
+
+    expect(mocks.store.get("character.v2")).toMatchObject({
+      level: 1,
+      exp: 0,
+      gold: 20_000_000,
+      bankedGold: 0,
+    });
 
     const saved = mocks.store.get("proficiency.v2") as V2ProficiencyState;
     expect(saved.caps).toEqual({});
@@ -81,6 +102,16 @@ describe("POST /api/v2/me/cultivate/reset", () => {
       cumLevel: 77,
     });
     expect(saved.cultivationPointsSpent).toBe(0);
+    expect(saved.grown).toEqual({});
+    expect(saved.growthRespecPoints).toBe(0);
+    expect(saved.lifeResourceGrowth).toEqual({
+      version: 1,
+      rolledLevel: 1,
+      baseHp: 142,
+      baseMp: 81,
+      gainedHp: 0,
+      gainedMp: 0,
+    });
   });
 
   it("두 번째부터는 1,500만 골드를 차감한다", async () => {

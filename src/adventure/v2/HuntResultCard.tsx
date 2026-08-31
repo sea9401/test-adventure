@@ -31,6 +31,7 @@ import { DiscoveryNotice } from "@/adventure/v2/DiscoveryNotice";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { BattleOutcomeBadge } from "@/adventure/v2/BattleOutcomeBadge";
 import { RewardNotice } from "@/adventure/v2/RewardNotice";
+import { RareMapCountdownText } from "@/adventure/v2/RareMapCountdownText";
 
 export type HuntResult = {
   floor: number;
@@ -38,7 +39,7 @@ export type HuntResult = {
   won: boolean;
   expGained: number;
   expAfter?: number; // 사냥 후 현재 레벨의 경험치 잔액.
-  proficiencyGained?: number; // 숙달 포인트 획득(승리·깊이별 +2~3).
+  proficiencyGained?: number; // 숙달 포인트 획득(승리·깊이별 +2~5).
   proficiencyPointsAfter?: number; // 사냥 후 사용 가능한 숙달 포인트 잔액.
   masteryGained?: number; // 직업 숙련도 획득(승리당 +1).
   masteryAfter?: number | null; // 사냥 후 현재 직업 숙련도.
@@ -51,6 +52,11 @@ export type HuntResult = {
     goldBonus: number;
     expPct: number;
     goldPct: number;
+  } | null;
+  foodExpBuff?: {
+    name: string;
+    expPct: number;
+    expBonus: number;
   } | null;
   goldTaxed?: number;
   // 세금 수취자 표기 — 점령 길드명/솔로 점령자/거점 금고. goldTaxed>0 일 때만 서버가 채움.
@@ -70,6 +76,10 @@ export type HuntResult = {
   drops?: Partial<Record<V2MaterialId, number>>;
   droppedEquipment?: V2EquipmentId | null;
   droppedUnique?: V2EquipmentId | null;
+  // 압축 희귀 탐사는 기존 여러 회차의 모든 장비 결과를 배열로 함께 돌려준다.
+  droppedEquipments?: V2EquipmentId[];
+  droppedUniques?: V2EquipmentId[];
+  rewardRolls?: number;
   ejected?: { outpostId: string; byGuildId: number; at: number } | null;
   // 희귀 탐사 — 새 탐사 개방(kind id) / 입장 중 남은 판수.
   rareMapDrop?: RareMapKindId | null;
@@ -84,14 +94,14 @@ export type HuntResult = {
 // "돌멩이 ×2를 획득했다!" / "돌멩이 ×2, 철광석 ×1, 철검을 획득했다!"
 function formatDropBanner(
   drops: Array<[string, number]>,
-  equipName: string | null,
+  equipNames: string[],
 ): string | null {
   const parts: string[] = [];
   for (const [id, amount] of drops) {
     const mat = V2_MATERIALS[id as V2MaterialId];
     parts.push(`${mat?.name ?? id} ×${amount}`);
   }
-  if (equipName) parts.push(equipName);
+  parts.push(...equipNames);
   if (parts.length === 0) return null;
   return `${parts.join(", ")}을(를) 획득했다!`;
 }
@@ -235,18 +245,25 @@ export function HuntResultCard({
   const drops = result.drops
     ? Object.entries(result.drops).filter(([, n]) => (n ?? 0) > 0)
     : [];
-  const droppedEquip = result.droppedEquipment
-    ? V2_EQUIPMENT[result.droppedEquipment]
-    : null;
-  const droppedUniq = result.droppedUnique
-    ? V2_EQUIPMENT[result.droppedUnique]
-    : null;
-  const droppedSet = droppedEquip?.setId ? droppedEquip : null;
+  const droppedEquipments = (
+    result.droppedEquipments ??
+    (result.droppedEquipment ? [result.droppedEquipment] : [])
+  )
+    .map((id) => V2_EQUIPMENT[id])
+    .filter((item) => item != null);
+  const droppedUniques = (
+    result.droppedUniques ??
+    (result.droppedUnique ? [result.droppedUnique] : [])
+  )
+    .map((id) => V2_EQUIPMENT[id])
+    .filter((item) => item != null);
+  const droppedSets = droppedEquipments.filter((item) => item.setId);
+  const droppedRegulars = droppedEquipments.filter((item) => !item.setId);
   // 드랍 알림 배너 — 매 사냥마다 (드랍 있을 때만). 1회성 storyFlags 폐기 (사용자
   // 요청 2026-05-28): 매번 어떤 아이템 받았는지 명시적 알림이 후크에 더 효과적.
   const dropBannerText = formatDropBanner(
     drops as Array<[string, number]>,
-    droppedSet ? null : (droppedEquip?.name ?? null),
+    droppedRegulars.map((item) => item.name),
   );
   const rareMapDropDef = result.rareMapDrop
     ? RARE_MAP_KINDS[result.rareMapDrop]
@@ -291,6 +308,11 @@ export function HuntResultCard({
       // 패배 카드는 붉은 링으로 승리 카드와 확연히 구분 — "졌는지 모르고 계속 사냥" 방지.
       className={won ? undefined : "ring-2 ring-rose-400 dark:ring-rose-600"}
     >
+      {(result.rewardRolls ?? 1) > 1 && (
+        <StatusBanner tone="info" className="mb-2 py-1.5 text-center">
+          보상 {result.rewardRolls}회분 일괄 정산
+        </StatusBanner>
+      )}
       {rareMapDropDef && (
         <DiscoveryNotice
           kind={rareMapDropDef.category}
@@ -309,27 +331,63 @@ export function HuntResultCard({
             ) : undefined
           }
         >
-          {rareMapDropDef.category === "hunt"
-            ? `희귀 탐사 「${rareMapDropDef.name}」 개방!${result.rareMapDropInstance ? "" : " — 전투 탭 > 사냥터에서 입장"}`
-            : rareMapDropDef.category === "location"
-              ? `희귀 장소 「${rareMapDropDef.name}」 개방!${result.rareMapDropInstance ? "" : " — 전투 탭 > 사냥터에서 입장"}`
-              : `「${rareMapDropDef.name}」 획득! — 가방 소모품에서 사용`}
+          {rareMapDropDef.category === "hunt" ? (
+            <>
+              희귀 탐사 「{rareMapDropDef.name}」 개방! · 30분 동안 개방
+              {result.rareMapDropInstance ? (
+                <>
+                  {" · "}
+                  <RareMapCountdownText
+                    key={result.rareMapDropInstance.iid}
+                    foundAt={result.rareMapDropInstance.foundAt}
+                    serverNow={result.rareMapDropInstance.foundAt}
+                  />
+                </>
+              ) : (
+                " — 전투 탭 > 사냥터에서 입장"
+              )}
+            </>
+          ) : rareMapDropDef.category === "location" ? (
+            `희귀 장소 「${rareMapDropDef.name}」 개방!${result.rareMapDropInstance ? "" : " — 전투 탭 > 사냥터에서 입장"}`
+          ) : (
+            `「${rareMapDropDef.name}」 획득! — 가방 소모품에서 사용`
+          )}
         </DiscoveryNotice>
       )}
-      {droppedUniq && (
+      {droppedUniques.length > 0 && (
         <div className="ui-reward-flash mb-2 flex items-center justify-center gap-1.5 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
           <GameIcon name="Sparkle" size={15} className="shrink-0" />
           <span>
-            {droppedUniq.setId ? "유니크 세트 「" : "유니크 「"}
-            <span className={itemNameClass(droppedUniq)}>{droppedUniq.name}</span>
-            」 획득!
+            {droppedUniques.length === 1 ? (
+              <>
+                {droppedUniques[0].setId ? "유니크 세트 「" : "유니크 「"}
+                <span className={itemNameClass(droppedUniques[0])}>
+                  {droppedUniques[0].name}
+                </span>
+                」 획득!
+              </>
+            ) : (
+              <>
+                유니크 획득 ·{" "}
+                {droppedUniques.map((item, index) => (
+                  <span key={`${item.id}-${index}`}>
+                    {index > 0 && ", "}
+                    <span className={itemNameClass(item)}>{item.name}</span>
+                  </span>
+                ))}
+              </>
+            )}
           </span>
         </div>
       )}
-      {droppedSet && (
+      {droppedSets.length > 0 && (
         <div className="ui-reward-flash mb-2 flex items-center justify-center gap-1.5 rounded-md border border-emerald-400 bg-emerald-50 px-2 py-1.5 text-center text-xs font-semibold text-emerald-800 dark:border-emerald-600 dark:bg-emerald-950 dark:text-emerald-200">
           <GameIcon name="Sparkle" size={15} className="shrink-0" />
-          <span>세트 「{droppedSet.name}」 획득!</span>
+          <span>
+            {droppedSets.length === 1
+              ? `세트 「${droppedSets[0].name}」 획득!`
+              : `세트 획득 · ${droppedSets.map((item) => item.name).join(", ")}`}
+          </span>
         </div>
       )}
       {dropBannerText && (
@@ -367,6 +425,12 @@ export function HuntResultCard({
           <div className="text-[11px] font-medium tabular-nums text-amber-600 dark:text-amber-300">
             핫타임 {result.hotTime.title || "이벤트"} · EXP +
             {result.hotTime.expBonus} · 골드 +{result.hotTime.goldBonus}
+          </div>
+        )}
+        {result.foodExpBuff && result.foodExpBuff.expBonus > 0 && (
+          <div className="text-[11px] font-medium tabular-nums text-emerald-600 dark:text-emerald-300">
+            {result.foodExpBuff.name} · 사냥 경험치 +{result.foodExpBuff.expPct}%
+            (EXP +{result.foodExpBuff.expBonus})
           </div>
         )}
         {(result.goldTaxed ?? 0) > 0 && (

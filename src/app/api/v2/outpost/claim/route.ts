@@ -19,6 +19,7 @@ import {
   upsertGuildResources,
 } from "@/lib/server/v2GuildResources";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordGrowthLeapStaminaSpendInTx } from "@/lib/server/growthLeapProgress";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
@@ -37,6 +38,7 @@ import { treasuryShares } from "@/adventure/data/v2/outposts";
 import { resolveOutpostMeta } from "@/adventure/data/v2/tileWarfare";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { derivePowerScore } from "@/adventure/data/v2/power";
+import { powerInputFromPlayer } from "@/lib/server/playerPowerInput";
 import {
   FORT_MAX_HP,
   fortMaxHpForTier,
@@ -397,14 +399,13 @@ export async function POST(req: Request) {
     //   return 이라 스태미나 미소모. 중립·분쟁지대(defense 0)는 게이트 없음 — 기존 난이도.
     const outpostDefense = outpostDefensePower(outpost);
     // 내 합성 전투력 — 수비 게이트 + 공성 데미지(전투력 비율) 양쪽에서 사용(화면 "내 전투력"과 동일 입력).
-    const myPower = derivePowerScore({
-      atk: player.player.atk,
-      magicAtk: player.player.magicAtk ?? 0,
-      def: player.player.def,
-      spd: player.player.spd,
-      maxHp: player.maxHp,
-      maxMp: player.player.maxMp,
-    });
+    const myPower = derivePowerScore(
+      powerInputFromPlayer(
+        player.player,
+        player.maxHp,
+        player.player.maxMp,
+      ),
+    );
     if (outpostDefense > 0) {
       if (myPower < outpostDefense) {
         return {
@@ -518,7 +519,7 @@ export async function POST(req: Request) {
         turns = pvp.turns;
         battleFinalPlayerHp = pvp.finalState.p1.hp;
         // PvP 일기토 리플레이(나=p1·상대=수비자). 승패 무관 — 전투 진행을 로그로 표시.
-        replay = toPvpReplayPayload(pvp.finalState, defenderLabel, 200);
+        replay = toPvpReplayPayload(pvp.finalState, defenderLabel);
 
         // PR-7: 본 병사 전쟁 폐기 — 점령권은 영웅 일기토 결과로 결정.
         won = duelWonByAttacker;
@@ -544,7 +545,7 @@ export async function POST(req: Request) {
       won = battle.outcome === "win";
       turns = battle.turns;
       battleFinalPlayerHp = battle.finalState.playerHp;
-      replay = toReplayPayload(battle.finalState, 200);
+      replay = toReplayPayload(battle.finalState);
     }
 
     // log attempt — replay 봉투는 공격자(=나) 시점 스냅샷.
@@ -711,6 +712,9 @@ export async function POST(req: Request) {
         : {}),
     };
     await upsertSave(tx, userId, "character.v2", next);
+    if (!V2_CORE_LOOP_V2) {
+      await recordGrowthLeapStaminaSpendInTx(tx, userId, cost, now);
+    }
 
     // 길드 골드 정산 — 한 곳에서 모든 guild_resources 변경을 모아 guildId 오름차순으로 잠가
     //   적용한다. attacker = 점령 비용 차감(sink) + 금고 탈환 길드 몫. defender = 성벽 수리 차감.

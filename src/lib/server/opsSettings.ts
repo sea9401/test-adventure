@@ -1,7 +1,9 @@
 import { eq, inArray } from "drizzle-orm";
+import { applyStochasticPercentBonus } from "@/lib/percentBonus";
 import { db } from "@/db";
 import { opsSettings } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
+import { ShortTtlCache } from "@/lib/server/shortTtlCache";
 
 export const HOT_TIME_KEY = "hot-time.v1";
 export const HOT_TIME_SCHEDULES_KEY = "hot-time-schedules.v1";
@@ -11,6 +13,11 @@ export const REWARD_FAILURE_STATUS_KEY = "reward-failure-status.v1";
 export const REWARD_COMPENSATION_PRESETS_KEY = "reward-compensation-presets.v1";
 export const OPS_NOTE_TEMPLATES_KEY = "ops-note-templates.v1";
 export const LIFE_FIELD_FEATURES_KEY = "life-field-features.v1";
+export const CODEX_MASTERY_FEATURES_KEY = "codex-mastery-features.v1";
+
+const OPS_SETTINGS_CACHE_TTL_MS = 1_000;
+const ACTIVE_HOT_TIME_INPUTS_CACHE_KEY = "active-hot-time-inputs";
+const opsSettingsCache = new ShortTtlCache(OPS_SETTINGS_CACHE_TTL_MS);
 
 export type LifeFieldFeatureSettings = {
   environmentEnabled: boolean;
@@ -26,6 +33,30 @@ export const DEFAULT_LIFE_FIELD_FEATURES: LifeFieldFeatureSettings = {
   discoveryRewardsEnabled: true,
   feedEnabled: true,
   milestonesEnabled: true,
+};
+
+export type CodexMasteryFeatureSettings = {
+  recordingEnabled: boolean;
+  overviewVisible: boolean;
+  rankingVisible: boolean;
+  sealsEnabled: boolean;
+  trophiesEnabled: boolean;
+  monthlyProgressEnabled: boolean;
+  monthlyRankingVisible: boolean;
+  settlementEnabled: boolean;
+  feedEnabled: boolean;
+};
+
+export const DEFAULT_CODEX_MASTERY_FEATURES: CodexMasteryFeatureSettings = {
+  recordingEnabled: false,
+  overviewVisible: false,
+  rankingVisible: false,
+  sealsEnabled: false,
+  trophiesEnabled: false,
+  monthlyProgressEnabled: false,
+  monthlyRankingVisible: false,
+  settlementEnabled: false,
+  feedEnabled: false,
 };
 
 export type HotTimeSettings = {
@@ -202,21 +233,7 @@ export async function readHotTimeSettings(): Promise<{
   updatedByEmail: string | null;
   updatedAt: Date | null;
 }> {
-  if (typeof (db as { select?: unknown }).select !== "function") {
-    return defaultHotTimeRead();
-  }
-
-  const row = (
-    await db
-      .select({
-        value: opsSettings.value,
-        updatedByEmail: opsSettings.updatedByEmail,
-        updatedAt: opsSettings.updatedAt,
-      })
-      .from(opsSettings)
-      .where(eq(opsSettings.key, HOT_TIME_KEY))
-      .limit(1)
-  )[0];
+  const row = await readSettingRow(HOT_TIME_KEY);
   return {
     hotTime: parseHotTime(row?.value),
     updatedByEmail: row?.updatedByEmail ?? null,
@@ -336,14 +353,91 @@ export async function readLifeFieldFeatureSettings(
   if (typeof (executor as { select?: unknown }).select !== "function") {
     return DEFAULT_LIFE_FIELD_FEATURES;
   }
-  const row = (
-    await executor
-      .select({ value: opsSettings.value })
-      .from(opsSettings)
-      .where(eq(opsSettings.key, LIFE_FIELD_FEATURES_KEY))
-      .limit(1)
-  )[0];
+  const row =
+    executor === db
+      ? await readSettingRow(LIFE_FIELD_FEATURES_KEY)
+      : (
+          await executor
+            .select({ value: opsSettings.value })
+            .from(opsSettings)
+            .where(eq(opsSettings.key, LIFE_FIELD_FEATURES_KEY))
+            .limit(1)
+        )[0];
   return parseLifeFieldFeatureSettings(row?.value);
+}
+
+export function parseCodexMasteryFeatureSettings(
+  raw: unknown,
+): CodexMasteryFeatureSettings {
+  const value =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+  return {
+    recordingEnabled:
+      Object.hasOwn(value, "recordingEnabled") &&
+      typeof value.recordingEnabled === "boolean"
+        ? value.recordingEnabled
+        : DEFAULT_CODEX_MASTERY_FEATURES.recordingEnabled,
+    overviewVisible:
+      Object.hasOwn(value, "overviewVisible") &&
+      typeof value.overviewVisible === "boolean"
+        ? value.overviewVisible
+        : DEFAULT_CODEX_MASTERY_FEATURES.overviewVisible,
+    rankingVisible:
+      Object.hasOwn(value, "rankingVisible") &&
+      typeof value.rankingVisible === "boolean"
+        ? value.rankingVisible
+        : DEFAULT_CODEX_MASTERY_FEATURES.rankingVisible,
+    sealsEnabled:
+      Object.hasOwn(value, "sealsEnabled") &&
+      typeof value.sealsEnabled === "boolean"
+        ? value.sealsEnabled
+        : DEFAULT_CODEX_MASTERY_FEATURES.sealsEnabled,
+    trophiesEnabled:
+      Object.hasOwn(value, "trophiesEnabled") &&
+      typeof value.trophiesEnabled === "boolean"
+        ? value.trophiesEnabled
+        : DEFAULT_CODEX_MASTERY_FEATURES.trophiesEnabled,
+    monthlyProgressEnabled:
+      Object.hasOwn(value, "monthlyProgressEnabled") &&
+      typeof value.monthlyProgressEnabled === "boolean"
+        ? value.monthlyProgressEnabled
+        : DEFAULT_CODEX_MASTERY_FEATURES.monthlyProgressEnabled,
+    monthlyRankingVisible:
+      Object.hasOwn(value, "monthlyRankingVisible") &&
+      typeof value.monthlyRankingVisible === "boolean"
+        ? value.monthlyRankingVisible
+        : DEFAULT_CODEX_MASTERY_FEATURES.monthlyRankingVisible,
+    settlementEnabled:
+      Object.hasOwn(value, "settlementEnabled") &&
+      typeof value.settlementEnabled === "boolean"
+        ? value.settlementEnabled
+        : DEFAULT_CODEX_MASTERY_FEATURES.settlementEnabled,
+    feedEnabled:
+      Object.hasOwn(value, "feedEnabled") && typeof value.feedEnabled === "boolean"
+        ? value.feedEnabled
+        : DEFAULT_CODEX_MASTERY_FEATURES.feedEnabled,
+  };
+}
+
+export async function readCodexMasteryFeatureSettings(
+  executor: DbExecutor = db,
+): Promise<CodexMasteryFeatureSettings> {
+  if (typeof (executor as { select?: unknown }).select !== "function") {
+    return DEFAULT_CODEX_MASTERY_FEATURES;
+  }
+  const row =
+    executor === db
+      ? await readSettingRow(CODEX_MASTERY_FEATURES_KEY)
+      : (
+          await executor
+            .select({ value: opsSettings.value })
+            .from(opsSettings)
+            .where(eq(opsSettings.key, CODEX_MASTERY_FEATURES_KEY))
+            .limit(1)
+        )[0];
+  return parseCodexMasteryFeatureSettings(row?.value);
 }
 
 export async function upsertOpsSetting(
@@ -364,6 +458,10 @@ export async function upsertOpsSetting(
       target: opsSettings.key,
       set: { value, updatedByEmail, updatedAt },
     });
+  opsSettingsCache.invalidate(settingCacheKey(key));
+  if (key === HOT_TIME_KEY || key === HOT_TIME_SCHEDULES_KEY) {
+    opsSettingsCache.invalidate(ACTIVE_HOT_TIME_INPUTS_CACHE_KEY);
+  }
 }
 
 async function readSettingRow(key: string): Promise<{
@@ -371,28 +469,26 @@ async function readSettingRow(key: string): Promise<{
   updatedByEmail: string | null;
   updatedAt: Date | null;
 } | null> {
-  if (typeof (db as { select?: unknown }).select !== "function") {
-    return null;
-  }
-  return (
-    await db
-      .select({
-        value: opsSettings.value,
-        updatedByEmail: opsSettings.updatedByEmail,
-        updatedAt: opsSettings.updatedAt,
-      })
-      .from(opsSettings)
-      .where(eq(opsSettings.key, key))
-      .limit(1)
-  )[0] ?? null;
+  return opsSettingsCache.get(settingCacheKey(key), async () => {
+    if (typeof (db as { select?: unknown }).select !== "function") {
+      return null;
+    }
+    return (
+      await db
+        .select({
+          value: opsSettings.value,
+          updatedByEmail: opsSettings.updatedByEmail,
+          updatedAt: opsSettings.updatedAt,
+        })
+        .from(opsSettings)
+        .where(eq(opsSettings.key, key))
+        .limit(1)
+    )[0] ?? null;
+  });
 }
 
-function defaultHotTimeRead() {
-  return {
-    hotTime: DEFAULT_HOT_TIME,
-    updatedByEmail: null,
-    updatedAt: null,
-  };
+function settingCacheKey(key: string) {
+  return `setting:${key}`;
 }
 
 export async function readActiveHotTime(
@@ -406,11 +502,16 @@ export async function readActiveHotTime(
   if (typeof (executor as { select?: unknown }).select !== "function") {
     return { ...DEFAULT_HOT_TIME, active: false, source: null };
   }
-  const rows = await executor
-    .select({ key: opsSettings.key, value: opsSettings.value })
-    .from(opsSettings)
-    .where(inArray(opsSettings.key, [HOT_TIME_KEY, HOT_TIME_SCHEDULES_KEY]))
-    .limit(2);
+  const loadRows = () =>
+    executor
+      .select({ key: opsSettings.key, value: opsSettings.value })
+      .from(opsSettings)
+      .where(inArray(opsSettings.key, [HOT_TIME_KEY, HOT_TIME_SCHEDULES_KEY]))
+      .limit(2);
+  const rows =
+    executor === db
+      ? await opsSettingsCache.get(ACTIVE_HOT_TIME_INPUTS_CACHE_KEY, loadRows)
+      : await loadRows();
   const values = new Map(rows.map((row) => [row.key, row.value]));
   const hotTime = parseHotTime(values.get(HOT_TIME_KEY));
   const schedules = parseHotTimeSchedules(values.get(HOT_TIME_SCHEDULES_KEY));
@@ -444,9 +545,12 @@ export function isHotTimeActive(hotTime: HotTimeSettings, now = Date.now()) {
   return start <= now && now < end;
 }
 
-export function applyPctBonus(value: number, pct: number) {
-  if (value <= 0 || pct <= 0) return Math.max(0, Math.floor(value));
-  return Math.max(0, Math.floor(value * (100 + pct) / 100));
+export function applyPctBonus(
+  value: number,
+  pct: number,
+  rng: () => number = Math.random,
+) {
+  return applyStochasticPercentBonus(value, pct, rng);
 }
 
 export function bonusDelta(before: number, after: number) {

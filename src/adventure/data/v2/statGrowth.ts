@@ -7,9 +7,14 @@ import { V2_BASE_STATS } from "./v2Stats";
 import type { V2Class } from "./classes";
 import { V2_JOB_CATALOG } from "./v2JobCatalog";
 import {
+  LIFE_RESOURCE_GROWTH_VERSION,
+  lifeResourceRanges,
+  type V2LifeResourceRanges,
+  type V2LifeResourceGrowthVersion,
+} from "./lifeResourceGrowth";
+import {
   capGain,
   effectiveStatCap,
-  balanceCumLevel,
   diminishedCumLevel,
   V2_CULTIVATE_PROFILE,
   V2_FLOOR_GLOBAL,
@@ -126,32 +131,29 @@ function growthWeight(
   return 1 + focusBonus + masteryGrowthBonus(masteryTotals[stat] ?? 0);
 }
 
-// 스탯 floor(저점) — base + 총 숙련도(일반) + 직군 숙련도(프로필 가중, off 모드는 차수 보정). docs §5.
-// 해금용 숙련도는 승리 기반 9배 스케일이므로, floor 는 balanceCumLevel 로 기존 성장 체감에 맞춘다.
-// 전직 시 레벨/grown 리셋돼도 스탯은 이 floor 부터 → prestige 루프(cumLevel 은 리셋 안 됨).
+// 스탯 floor(저점) — base + 실제 레벨 상승 누적분(일반·직군 프로필 가중, off 모드는 차수 보정).
+// 승리 기반 해금 숙련도(cumLevel)와 분리해 만렙 사냥만으로 스탯이 오르지 않게 한다.
+// 전직 시 레벨/grown 이 리셋돼도 스탯은 이 floor 부터 시작한다.
 export function computeStatFloors(
   prof: V2ProficiencyState,
 ): Record<V2StatKey, number> {
-  // 환생 누적 완화 — 총 숙련도 기준 밴드 감쇠율(decayMult)을 global·profile 양쪽에 균일 적용
+  // 환생 누적 완화 — 총 누적 레벨 기준 밴드 감쇠율(decayMult)을 global·profile 양쪽에 균일 적용
   // (천장 없이 증가율↓). 단일 직군은 선형과 동일, 다직군(respec)도 총량 기준이라 일관.
   // rawTotal×decayMult = diminishedCumLevel(rawTotal).
-  const balancedByGroup: Record<string, number> = {};
   let rawTotal = 0;
-  for (const [group, g] of Object.entries(prof.groups)) {
-    const balanced = balanceCumLevel(g.cumLevel);
-    balancedByGroup[group] = balanced;
-    rawTotal += balanced;
+  for (const levels of Object.values(prof.statFloorLevels)) {
+    rawTotal += Math.max(0, Math.floor(Number(levels) || 0));
   }
   const decayMult = rawTotal > 0 ? diminishedCumLevel(rawTotal) / rawTotal : 1;
   const floors = {} as Record<V2StatKey, number>;
   for (const stat of V2_STAT_KEYS) {
     floors[stat] = (V2_BASE_STATS[stat] ?? 0) + rawTotal * decayMult * V2_FLOOR_GLOBAL;
   }
-  for (const [group, g] of Object.entries(prof.groups)) {
+  for (const [group, rawLevels] of Object.entries(prof.statFloorLevels)) {
     const profile = V2_CULTIVATE_PROFILE[group];
-    const balancedCum = balancedByGroup[group] ?? 0;
-    if (!profile || balancedCum <= 0) continue;
-    const tierMult = V2_TIER_FLOOR_MULT[g.tier] ?? 1;
+    const floorLevels = Math.max(0, Math.floor(Number(rawLevels) || 0));
+    if (!profile || floorLevels <= 0) continue;
+    const tierMult = V2_TIER_FLOOR_MULT[prof.groups[group]?.tier ?? 1] ?? 1;
     // 프로필 값 비례 가중 — 최댓값 스탯(직군 주력)=1.0, 나머지는 값 비율. cap(수행)과 동일 규칙.
     // 앵커-이진 폐기: mage {int:2,spi:2} 의 spi 가 int 와 동급 floor 를 받는다(spi/luk 고향 부여).
     const maxVal = Math.max(...V2_STAT_KEYS.map((s) => profile[s] ?? 0));
@@ -160,11 +162,27 @@ export function computeStatFloors(
       if (pv <= 0) continue;
       const weight = (pv / maxVal) * V2_FLOOR_ANCHOR_WEIGHT;
       floors[stat] +=
-        balancedCum * decayMult * V2_FLOOR_PER_PROF * tierMult * weight;
+        floorLevels * decayMult * V2_FLOOR_PER_PROF * tierMult * weight;
     }
   }
   for (const stat of V2_STAT_KEYS) floors[stat] = Math.floor(floors[stat]);
   return floors;
+}
+
+export function lifeResourceRangesForProficiency(
+  prof: V2ProficiencyState,
+  version: V2LifeResourceGrowthVersion = LIFE_RESOURCE_GROWTH_VERSION,
+): V2LifeResourceRanges {
+  const floors = computeStatFloors(prof);
+  return lifeResourceRanges(
+    {
+      strFloor: floors.str,
+      vitCap: effectiveStatCap(capGain(prof, "vit")),
+      spiFloor: floors.spi,
+      intCap: effectiveStatCap(capGain(prof, "int")),
+    },
+    version,
+  );
 }
 
 // 레벨 1회 성장 — 앵커 가중(앵커 3 : 그 외 1)으로 POINTS 만큼 +1씩, cap 미달 스탯에만.

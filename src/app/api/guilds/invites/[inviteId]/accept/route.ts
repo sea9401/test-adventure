@@ -14,6 +14,7 @@ import { SAVES_CHARACTER } from "@/lib/server/guildAffiliation";
 import { cancelPendingJoinRequestsInTx } from "@/lib/server/guildJoinRequests";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { convertSoloTilesToGuild } from "@/lib/server/tileOccupation";
+import { addGuildMemberWithFacilityReconciliation } from "@/lib/server/guildFacilityMembership";
 import { guildMemberCap } from "@/adventure/data/guild";
 
 export async function POST(
@@ -97,11 +98,11 @@ export async function POST(
         return { error: "guild_full", status: 409 as const };
       }
 
-      await tx.insert(guildMembers).values({
-        guildId: invite.guildId,
+      await addGuildMemberWithFacilityReconciliation(
+        tx,
         userId,
-        role: "member",
-      });
+        invite.guildId,
+      );
       // 가입 — 그 유저의 솔로 타일 점령행을 길드로 전환(소유자 길드 동기화).
       await convertSoloTilesToGuild(tx, userId, invite.guildId);
       await logGuildActivity(tx, {
@@ -132,9 +133,10 @@ export async function POST(
         });
       }
 
+      const completedAt = new Date();
       await tx
         .update(marketplaceInbox)
-        .set({ claimedAt: new Date() })
+        .set({ claimedAt: completedAt, readAt: completedAt })
         .where(
           and(
             eq(marketplaceInbox.userId, userId),

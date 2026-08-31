@@ -46,6 +46,8 @@ export type V2EquipRarity = "common" | "unique";
 export type V2EquipOptions = {
   crit?: number;
   eva?: number;
+  /** 회피형 적을 상대하는 명중 보정 수치. */
+  accuracy?: number;
   mp?: number;
   hp?: number;
   critMult?: number;
@@ -63,32 +65,59 @@ export type SignatureTrigger =
   | "low_hp"
   | "on_heal"
   | "on_dodge"
+  | "on_action_evasion"
   | "on_crit"
   | "on_hit"
   | "on_hit_taken"
   | "on_skill_cast"
+  | "direct_skill_hit"
+  | "tracked_shield_break"
   | "status_block_once"
-  | "every_n_hits";
+  | "every_n_hits"
+  | "tier6_unique";
+
+export type Tier6UniqueMechanic =
+  | "gravity_reprisal"
+  | "gravity_feedback"
+  | "bleed_burst"
+  | "bleed_aftermath"
+  | "pursuit_mark"
+  | "shadow_echo"
+  | "venom_burst"
+  | "venom_balance"
+  | "arcane_overload"
+  | "arcane_feedback"
+  | "sanctuary_reserve"
+  | "mechanic_unity"
+  | "shield_conversion"
+  | "gale_circuit"
+  | "status_mana_return"
+  | "triphase_link"
+  | "storm_confluence"
+  | "dominant_heart";
 
 export type SignatureEffect = {
   trigger: SignatureTrigger;
   label: string;
+  mechanic?: Tier6UniqueMechanic;
   hpThresholdPct?: number;
   damageTakenReductionPct?: number;
   spdBuffPct?: number;
   buffActions?: number;
-  healPct?: number;
+  lostHpHealPct?: number;
   poisonOnCrit?: boolean;
   chillSlowPct?: number;
   poisonChancePct?: number;
   poisonStacks?: number;
+  poisonedTargetDamagePct?: number;
   bleedChancePct?: number;
   bleedStacks?: number;
   shockChancePct?: number;
-  shockSlowPct?: number;
   enemyDefDebuffPct?: number;
   defGainOnHitPct?: number;
   battleStartShieldPctMaxHp?: number;
+  trackedShieldPctMaxHp?: number;
+  cleanseHarmfulStatuses?: boolean;
   mpRefundPctOfCost?: number;
   healToShieldPct?: number;
   statusBlockOnce?: boolean;

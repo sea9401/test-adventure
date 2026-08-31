@@ -8,12 +8,20 @@ export type ActivityVerificationChallenge = {
   siteKey: string;
   captchaSiteKey: string | null;
   reason: "volume" | "strong_signal";
+  manualTest: boolean;
 };
 
 export type ActivityVerificationSubmission = {
   turnstileToken: string;
   captchaToken?: string;
 };
+
+export const ACTIVITY_VERIFICATION_REQUEST_TIMEOUT_MS = 12_000;
+
+type ActivityVerificationFetch = (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) => Promise<Response>;
 
 export class ActivityVerificationRequiredError extends Error {
   constructor() {
@@ -55,7 +63,7 @@ function cooldownUntil(
   return Date.now() + retryAfterSec * 1_000;
 }
 
-function parseChallenge(
+export function parseActivityVerificationChallenge(
   raw: unknown,
   activity: GuardedActivity,
 ): ActivityVerificationChallenge | null {
@@ -77,7 +85,41 @@ function parseChallenge(
         ? value.captchaSiteKey
         : null,
     reason: value.reason === "strong_signal" ? "strong_signal" : "volume",
+    manualTest: value.manualTest === true,
   };
+}
+
+export async function submitActivityVerification(
+  activity: GuardedActivity,
+  submission: ActivityVerificationSubmission,
+  fetcher: ActivityVerificationFetch = fetch,
+): Promise<boolean> {
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    ACTIVITY_VERIFICATION_REQUEST_TIMEOUT_MS,
+  );
+  try {
+    const response = await fetcher("/api/v2/activity-verification", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        activity,
+        token: submission.turnstileToken,
+        captchaToken: submission.captchaToken,
+      }),
+      signal: controller.signal,
+    });
+    const json = await response.json().catch(() => null);
+    return Boolean(
+      (response.ok && json?.ok) ||
+        (response.status === 409 && json?.error === "verification_not_required"),
+    );
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export function useActivityVerification(activity: GuardedActivity) {
@@ -91,7 +133,7 @@ export function useActivityVerification(activity: GuardedActivity) {
       if (response.status === 429 && nextActionAt !== null) {
         throw new ActivityCooldownError(nextActionAt);
       }
-      const challenge = parseChallenge(json, activity);
+      const challenge = parseActivityVerificationChallenge(json, activity);
       if (response.status === 403 && challenge) {
         setVerification(challenge);
         throw new ActivityVerificationRequiredError();
@@ -103,17 +145,8 @@ export function useActivityVerification(activity: GuardedActivity) {
 
   const verifyHuman = useCallback(
     async (submission: ActivityVerificationSubmission): Promise<boolean> => {
-      const response = await fetch("/api/v2/activity-verification", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          activity,
-          token: submission.turnstileToken,
-          captchaToken: submission.captchaToken,
-        }),
-      });
-      const json = await response.json().catch(() => null);
-      if (!response.ok || !json?.ok) return false;
+      const verified = await submitActivityVerification(activity, submission);
+      if (!verified) return false;
       setVerification(null);
       return true;
     },

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  LIMITED_RECOVERY_SKILL_IDS,
   V2_SKILLS,
   V2_STARTER_SKILL_IDS,
   parseV2SkillsState,
@@ -20,8 +21,59 @@ import {
   isLifestyleSkill,
   spCostOf,
   rubricSpCost,
+  skillPowerScore,
+  v2SkillMpCostValue,
+  type V2SkillEffect,
   type V2SkillId,
 } from "./v2Skills";
+
+describe("7차 스킬 설명", () => {
+  it("전용 전투 규칙을 수치 칩으로 모두 표시한다", () => {
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_shadowblade_swordshadow),
+    ).toEqual(
+      expect.arrayContaining([
+        "고유 단일 물리 최종 피해 50% 기록(잔영 70%) · 계승 공격 25% 기록 · 정련 시 +15%p",
+        "검영 발동 후 다음 단일 물리 피해 +15%",
+        "PvP 검영·후속 보너스 80% 적용",
+      ]),
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_ruinblade_ruinsword)).toEqual(
+      expect.arrayContaining([
+        "검의 3개 필요 · 한 행동 충전 · 다음 행동 자동 해방",
+      ]),
+    );
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_skyascendant_crossover),
+    ).toEqual(
+      expect.arrayContaining([
+        "포획: 최종 피해 +20% · 적중 +25% · 관통 45%",
+        "추격: 추가 피해 40% · 적 행동 지연 20%",
+      ]),
+    );
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_primordialsage_optimization),
+    ).toEqual(
+      expect.arrayContaining([
+        "마법 MP 소모 -20%",
+        "완전식 MP 부족 시 현재 MP 전부 소비 · 최대 MP 10% 회복 (주기 미환급 소비 MP 이하)",
+      ]),
+    );
+  });
+
+  it("멸검 스마트 기본 패턴은 저체력에서 마무리 직전이 아닌 적에게만 충전한다", () => {
+    expect(V2_SKILLS.v2c_ruinblade_ruinsword.defaultPattern).toEqual({
+      priority: 350,
+      condition: {
+        kind: "all",
+        conditions: [
+          { kind: "self_hp", op: "below", pct: 60 },
+          { kind: "enemy_hp", op: "above", pct: 25 },
+        ],
+      },
+    });
+  });
+});
 
 describe("트레이너 상시 패시브", () => {
   it("학습 목록만으로 훈련장 보너스를 합산하고 중복은 한 번만 적용한다", () => {
@@ -39,6 +91,24 @@ describe("트레이너 상시 패시브", () => {
       rewardBonusPct: 0,
       weeklyBonusMastery: 0,
     });
+    expect(describeV2Skill(V2_SKILLS.v2c_healthtrainer_routine)).toContain(
+      "훈련장 보상 +3% (누적 지급)",
+    );
+  });
+});
+
+describe("HP 소모 공격 툴팁", () => {
+  it("공통 명중 조건과 혈마군림의 보호막 포함 회복 기준을 안내한다", () => {
+    const bloodDemon = V2_SKILLS.v2c_blooddemon_reign;
+    expect(bloodDemon.description).toContain("명중 시 현재 HP 14%");
+    expect(bloodDemon.description).toContain("보호막과 HP");
+    expect(bloodDemon.description).toContain("실제로 준 피해의 20%");
+    expect(describeV2Skill(bloodDemon)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("명중 시 HP 14% 소모"),
+        expect.stringContaining("피해량 20% 회복"),
+      ]),
+    );
   });
 });
 
@@ -68,6 +138,12 @@ describe("결계사 마법 방어 패시브", () => {
       openingMagicDamageReductionPct: 10,
       openingMagicDamageReductionPhases: 3,
     });
+    expect(describeV2Skill(V2_SKILLS.v2c_warder_ward)).toEqual(
+      expect.arrayContaining([
+        "전투 초반 적 공격 3회 동안 받는 마법 피해 -10% (회피한 공격 포함)",
+        "초반 마법 피해 감소 중첩 시 감소율 합산 · 횟수는 최댓값",
+      ]),
+    );
   });
 
   it("결계사·진법사·봉마사 액티브는 보호막·받피감·봉쇄로 역할이 겹치지 않는다", () => {
@@ -126,9 +202,17 @@ describe("흑월지배 회피 연계 패시브", () => {
   it("장착 집계와 상세 설명이 회피 후 다음 스킬 확정 치명타를 노출한다", () => {
     const passive = aggregateEquippedPassives(["v2c_blackmoon_dominion"]);
     expect(passive.skillCritAfterEvade).toBe(true);
-    expect(passive.skillCritOverflow).toBe(false);
+    expect(passive.skillCritOverflow).toBe(true);
+    expect(passive.spdPerLukCoef).toBe(0.75);
+    expect(passive.atkPerLukCoef).toBe(0.95);
     expect(describeV2Skill(V2_SKILLS.v2c_blackmoon_dominion)).toContain(
       "회피 후 다음 직접 피해 스킬 확정 치명타",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_blackmoon_dominion)).toContain(
+      "행운 ×0.75만큼 속도 증가",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_blackmoon_dominion)).toContain(
+      "행운 ×0.95만큼 공격력 증가",
     );
   });
 });
@@ -140,8 +224,31 @@ describe("가디언 방벽 패시브 (방어% — 방패 강타 방어기반과 
       V2_SKILLS.v2c_guardian_bulwark3?.passive?.damageTakenReductionPct,
     ).toBeUndefined();
   });
+  it("공용 방어와 결계사의 마법 전용 방어를 상세 표기에서 구분한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_guardian_bulwark3)).toContain(
+      "물리·마법 방어력 +20%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_warder_ward)).toContain(
+      "마법 방어력 +15%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_warder_ward)).not.toContain(
+      "물리·마법 방어력 +15%",
+    );
+  });
   it("damageTakenReductionPct 어휘는 배선 보존(현재 미사용·aggregate 기본 0)", () => {
     expect(aggregateEquippedPassives([]).damageTakenReductionPct).toBe(0);
+  });
+});
+
+describe("일검필살 공격 전념", () => {
+  it("반사 피해 감소를 제거하고 상세 설명에서도 노출하지 않는다", () => {
+    const passive = aggregateEquippedPassives([
+      "v2c_swordsaint_transcendence",
+    ]);
+    expect(passive).not.toHaveProperty("reflectDamageTakenReductionPct");
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_swordsaint_transcendence),
+    ).not.toContain("받는 반사 피해 -20%");
   });
 });
 
@@ -223,7 +330,7 @@ describe("농부 생활 패시브", () => {
 
   it("describeV2Skill 가 농장 효과 칩을 낸다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_farmer_seedselection)).toContain(
-      "농장 수확량 +10%",
+      "농장 수확량 +10% (누적 지급)",
     );
     expect(
       describeV2Skill(V2_SKILLS.v2c_horticulturist_soilreading),
@@ -234,14 +341,14 @@ describe("농부 생활 패시브", () => {
 describe("요리사 생활 패시브", () => {
   it("describeV2Skill 가 요리 효과 칩을 낸다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_cook_prepwork)).toContain(
-      "요리 경험치 +5%",
+      "요리 경험치 +5% (평균 적용)",
     );
     expect(
       describeV2Skill(V2_SKILLS.v2c_professionalcook_seasoning),
     ).toContain("정성작 확률 +8%");
     expect(
       describeV2Skill(V2_SKILLS.v2c_headchef_batchcooking),
-    ).toContain("묶음 조리 일반 재료 -10%");
+    ).toContain("묶음 조리 일반 재료 -10% (누적 절약)");
     expect(
       describeV2Skill(V2_SKILLS.v2c_masterchef_heatcontrol),
     ).toContain("걸작 확률 +5%");
@@ -324,6 +431,15 @@ describe("광부 생활 패시브", () => {
 });
 
 describe("v2Skills 카탈로그", () => {
+  it("부식과 맹독 패시브는 방어 감소와 중독 피해를 분리해 표시한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_venomist_corrosion)).toContain(
+      "중독 적 방어 -6%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_venomist_virulence)).toContain(
+      "중독 피해 +12%",
+    );
+  });
+
   it("모바일 선택창용 라벨에 스킬 이름과 모든 효과 정보를 포함한다", () => {
     const skill = V2_SKILLS.v2_skill_strike;
     const label = v2SkillSelectLabel(skill);
@@ -339,8 +455,9 @@ describe("v2Skills 카탈로그", () => {
     expect(corrosion).toContain("독");
     expect(corrosion).toContain("중독 적 방어");
 
-    const guard = v2SkillSearchText(V2_SKILLS.v2c_ironknight_guard);
-    expect(guard).toContain("보호막");
+    const provoke = v2SkillSearchText(V2_SKILLS.v2c_warden_aegis);
+    expect(provoke).toContain("도발");
+    expect(provoke).toContain("즉시 시전자를 기본 공격 2회");
   });
 
   it("스타터 6종 모두 카탈로그에 정의되어 있다", () => {
@@ -405,6 +522,18 @@ describe("parseV2SkillsState", () => {
       equipped: ["v2_skill_strike", "v2_skill_dash"],
     });
     expect(r.equipped).toEqual(["v2_skill_strike"]);
+  });
+
+  it("배운 생활 패시브가 저장된 장착 목록에서 빠져도 자동 장착한다", () => {
+    const r = parseV2SkillsState({
+      learned: ["v2_skill_strike", "v2c_farmer_seedselection"],
+      equipped: ["v2_skill_strike"],
+    });
+
+    expect(r.equipped).toEqual([
+      "v2_skill_strike",
+      "v2c_farmer_seedselection",
+    ]);
   });
 
   it("equipped 순서 보존 (자동 발동 우선순위)", () => {
@@ -555,6 +684,24 @@ describe("스마트 기본 패턴 (유틸 스팸 방지)", () => {
     expect(p.blocks[1].condition).toEqual({ kind: "always" });
   });
 
+  it("그림자 도약은 장착 순서와 무관하게 기본 패턴의 첫 독립 행동이다", () => {
+    const p = smartDefaultPatternFromEquipped([
+      "v2c_shadow_assassinate",
+      "v2c_shadow_shadowstep",
+      "v2c_shadow_lethality3",
+    ]);
+
+    expect(p.blocks).toHaveLength(2);
+    expect(p.blocks[0]).toEqual({
+      condition: { kind: "turn", op: "atMost", value: 1 },
+      action: { kind: "skill", skillId: "v2c_shadow_shadowstep" },
+    });
+    expect(p.blocks[1]).toEqual({
+      condition: { kind: "always" },
+      action: { kind: "skill", skillId: "v2c_shadow_assassinate" },
+    });
+  });
+
   it("순수 DoT 공격 스킬(출혈·중독)도 '항상' — 첫 턴만 발동하는 회귀 방지", () => {
     // dot 효과만 있고 직접 데미지 없는 공격기. damage 버킷에서 빠지면 opener(turn atMost 1)로
     //   잘못 분류돼 첫 턴 후 안 나간다(Codex BLOCK). dot 도 "적 피해"라 항상 발동.
@@ -573,9 +720,13 @@ describe("몬스터 상태이상 스킬 (PR-9)", () => {
     "mob_venom_bite",
     "mob_chilling_touch",
     "mob_rending_claw",
+    "mob_catastrophe_venom",
+    "mob_venom_sunder",
+    "mob_deep_chill",
+    "mob_glacial_chill",
   ] as const;
 
-  it("3종 monsterOnly + learn 없음(플레이어 미학습) + mpCost 0", () => {
+  it("7종 monsterOnly + learn 없음(플레이어 미학습) + mpCost 0", () => {
     for (const id of MOB_SKILLS) {
       const s = V2_SKILLS[id];
       expect(s.monsterOnly, `${id} monsterOnly`).toBe(true);
@@ -585,6 +736,39 @@ describe("몬스터 상태이상 스킬 (PR-9)", () => {
       for (const e of s.effects) {
         expect(["dot", "enemyDebuff"]).toContain(e.kind);
       }
+    }
+  });
+
+  it("6T HARD 페이즈 상태 스킬은 중독·한기 압박을 단계적으로 높인다", () => {
+    expect(V2_SKILLS.mob_catastrophe_venom.effects).toEqual([
+      expect.objectContaining({ kind: "dot", tag: "poison", stacks: 2 }),
+    ]);
+    expect(V2_SKILLS.mob_venom_sunder.effects).toEqual([
+      expect.objectContaining({ kind: "dot", tag: "poison", stacks: 2 }),
+      { kind: "enemyDebuff", stat: "vit", pct: 12, turns: 2 },
+    ]);
+    expect(V2_SKILLS.mob_deep_chill.effects).toEqual([
+      { kind: "enemyDebuff", stat: "spd", pct: 22, turns: 3 },
+    ]);
+    expect(V2_SKILLS.mob_glacial_chill.effects).toEqual([
+      { kind: "enemyDebuff", stat: "spd", pct: 28, turns: 3 },
+    ]);
+  });
+
+  it("모든 몬스터 전용 출혈은 플레이어 상향과 분리된 ATK 계수 0.12를 사용한다", () => {
+    const monsterBleedEffects = Object.values(V2_SKILLS)
+      .filter((skill) => skill.monsterOnly)
+      .flatMap((skill) => skill.effects)
+      .filter(
+        (
+          effect,
+        ): effect is Extract<V2SkillEffect, { kind: "dot" }> =>
+          effect.kind === "dot" && effect.tag === "bleed",
+      );
+
+    expect(monsterBleedEffects).not.toHaveLength(0);
+    for (const effect of monsterBleedEffects) {
+      expect(effect.atkCoefPerStack).toBe(0.12);
     }
   });
 
@@ -631,6 +815,83 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     }
   });
 
+  it("광전 계열 패시브는 기존 잃은 HP 비례 공격력 칩을 제거한다", () => {
+    for (const id of [
+      "v2c_berserker_madness3",
+      "v2c_warlord_slaughter",
+      "v2c_overlord_throne",
+      "v2c_hegemon_dominion",
+    ] as const) {
+      expect(
+        describeV2Skill(V2_SKILLS[id]).some((chip) =>
+          chip.includes("잃은 HP 1%당 공격력"),
+        ),
+        id,
+      ).toBe(false);
+    }
+  });
+
+  it("혈전 툴팁은 정확한 피해 공식과 혈전 준비 획득을 함께 설명한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_warlord_bloodbath)).toEqual([
+      "명중 시 현재 HP 15% 소모 (소모 후 HP로 피해 계산)",
+      "기본 피해 공격력×1.1 + 힘×1.2",
+      "잃은 HP 1%당 피해 +0.7% (최대 ×1.7 · 대련 추가분 60%)",
+      "명중 시 혈전 준비 획득",
+      "발동 50%",
+      "MP 102",
+    ]);
+  });
+
+  it("멸왕일도 툴팁은 혈전과 사망 극복 효과를 조건별로 설명한다", () => {
+    const skill = V2_SKILLS.v2c_hegemon_annihilation;
+
+    expect(skill.description).toBe(
+      "잃은 HP가 많을수록 강해지는 패황의 최종 일격. 혈전과 사망 극복으로 더욱 강해진다.",
+    );
+    expect(describeV2Skill(skill)).toEqual([
+      "기본 피해 공격력×2.2 + 힘×2.64",
+      "잃은 HP 1%당 피해 +2% (최대 ×3 · 대련 추가분 60%)",
+      "혈전 준비 시 광폭 계수 +25% · 확정 치명타",
+      "사망 극복 시 1회 재충전 (전투당 최대 2회)",
+      "사망 극복 발동 시: 잃은 HP 100% 취급 · 광폭 계수 ×1.5",
+      "발동 40%",
+      "MP 132",
+      "전투당 1회",
+    ]);
+  });
+
+  it("광기의 왕좌 툴팁은 패황보다 낮은 20% 회복 수치를 설명한다", () => {
+    const skill = V2_SKILLS.v2c_overlord_throne;
+
+    expect(skill.description).toBe(
+      "광기 II를 계승한다. 전투당 한 번, 사망할 피해를 버티고 최대 체력의 20%로 회복한다.",
+    );
+    expect(describeV2Skill(skill)).toEqual([
+      "HP 50% 이하: 공격 액티브 발동률 +10%p",
+      "혈전 준비로 강화된 파멸일격·멸왕일도: 치명타 피해 +30%",
+      "사망 극복: 전투당 1회 치명 피해 무효 · HP 20%로 회복",
+      "현재 행동 종료까지 HP 20% 아래로 내려가지 않음",
+      "광기 계열 중 1개만 장착",
+    ]);
+  });
+
+  it("패황의 지배 툴팁은 계승 효과와 사망 극복 규칙을 수치로 설명한다", () => {
+    const skill = V2_SKILLS.v2c_hegemon_dominion;
+
+    expect(skill.description).toBe(
+      "광기 계열의 모든 하위 효과를 계승한다. 치명 피해를 한 번 극복한 뒤 다음 공격을 강화하고 멸왕일도를 재충전한다.",
+    );
+    expect(describeV2Skill(skill)).toEqual([
+      "HP 50% 이하: 공격 액티브 발동률 +10%p",
+      "혈전 준비로 강화된 파멸일격·멸왕일도: 치명타 피해 +30%",
+      "사망 극복: 전투당 1회 치명 피해 무효 · HP 40%로 회복",
+      "사망 극복 발생 시: 다음 내 공격 종료까지 HP 40% 아래로 내려가지 않음",
+      "사망 극복 발생 시: 다음 공격 액티브 스킬 100% 발동 · 잃은 HP 100% 취급 · 광폭 계수 ×1.5",
+      "사망 극복 발생 시: 멸왕일도 1회 재충전",
+      "광기 계열 중 1개만 장착",
+    ]);
+  });
+
   it("공격 스킬은 피해 배율 칩 + 속성 칩(무속성 제외)을 포함", () => {
     const chips = describeV2Skill(V2_SKILLS.v2_skill_strike); // 강타: 대지, coef 1.0
     expect(chips.some((c) => c.includes("공격력×1"))).toBe(true);
@@ -639,34 +900,34 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 
   it("피해 계수는 공격 기반선과 특화 스탯을 구분해 명시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_mage_boltcast)).toContain(
-      "피해 마법 공격력×1.12 + 지능×0.07",
+      "피해 마법 공격력×1.05 + 지능×0.04",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_shieldman_bash)).toContain(
-      "피해 공격력×1.05 + 방어력×1.3",
+      "피해 공격력×1.05 + 방어력×1.67",
     );
   });
 
-  it("6차 순수형만 주스탯 계수를 받고 혼합형 계수는 유지한다", () => {
+  it("6차 순수형과 혼합형 모두 직접 스탯 계수 상향을 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_swordsaint_flash)).toContain(
-      "피해 공격력×1.65 + 힘×0.2",
+      "피해 공격력×1.3 + 힘×3",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_archmage_collapse)).toContain(
-      "피해 마법 공격력×1.98 + 지능×0.14",
+      "피해 마법 공격력×1.68 + 지능×0.68",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_heavenlybow_orbit)).toEqual(
       expect.arrayContaining([
-        "피해 공격력×0.4 + 민첩×0.5",
-        "피해 공격력×0.4 + 민첩×0.62",
+        "피해 공격력×0.4 + 민첩×0.58",
+        "피해 공격력×0.4 + 민첩×0.71",
       ]),
     );
   });
 
   it("다단 스킬의 공격 계수는 소수 둘째 자리까지 반올림해 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_warrior_flurry)).toContain(
-      "피해 공격력×0.4 + 힘×0.03",
+      "피해 공격력×0.36 + 힘×0.07",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_ranger_ambush)).toContain(
-      "피해 공격력×0.4 + 민첩×0.1",
+      "피해 공격력×0.4 + 민첩×0.12",
     );
 
     for (const skill of Object.values(V2_SKILLS)) {
@@ -674,6 +935,30 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
         expect(chip, `${skill.id}: ${chip}`).not.toMatch(/\d\.\d{3,}/);
       }
     }
+  });
+
+  it("다단 스킬은 툴팁 첫 칩에 기본 공격 횟수를 명시한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_nightshade_eclipse)[0]).toBe(
+      "2회 공격",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_heavenlybow_orbit)[0]).toBe(
+      "3회 공격",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_mage_boltcast)).not.toContain(
+      "1회 공격",
+    );
+  });
+
+  it("월식 설명은 두 타격과 각 HP 조건을 구분한다", () => {
+    expect(V2_SKILLS.v2c_nightshade_eclipse.description).toBe(
+      "두 번 연속 공격한다. 1타는 적 HP 90% 이상일 때 PvE 5배·PvP 4배, 2타는 35% 이하일 때 3배 피해를 준다.",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_nightshade_eclipse)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("적 HP 90%↑ 시 PvE ×5 · PvP ×4"),
+        expect.stringContaining("적 HP 35%↓ 시 ×3"),
+      ]),
+    );
   });
 
   it("발동률 상향 보정이 DEX·LUK 특화 계수를 이중으로 낮추지 않는다", () => {
@@ -717,12 +1002,12 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     );
     expect(
       describeV2Skill(V2_SKILLS.v2c_warrior_strike).some((chip) =>
-        chip.includes("공격력×1.2 + 힘×0.1"),
+        chip.includes("공격력×1.08 + 힘×0.2"),
       ),
     ).toBe(true);
     expect(
       describeV2Skill(V2_SKILLS.v2c_fortressknight_ram).some((chip) =>
-        chip.includes("공격력×1.2 + 방어력×1.71"),
+        chip.includes("공격력×1.2 + 방어력×2.36"),
       ),
     ).toBe(true);
 
@@ -754,27 +1039,125 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
   });
 
   it("디버프 스킬은 적 스탯 감소 칩 + MP 칩", () => {
-    // 파쇄 = 병사 계열(×1.0) tier 2 → 기준풀 600 × 7% × 1.4 = 58.8 → "MP 59".
+    // 파쇄 = 병사 tier 2 차등 비용 59 × 최종 압박 1.5 → "MP 89".
     const chips = describeV2Skill(V2_SKILLS.v2c_warrior_sunder);
     expect(chips.some((c) => c.startsWith("적 활력 −"))).toBe(true);
-    expect(chips).toContain("MP 59");
+    expect(chips).toContain("MP 89");
   });
 
   it("액티브 스킬은 100% 발동도 확률 칩으로 표시", () => {
     const chips = describeV2Skill(V2_SKILLS.v2c_ironknight_guard);
     expect(chips).toContain("발동 100%");
+    expect(chips).toContain(
+      "철벽 반사 3회 · 해당 공격 피해 30% 감소 · 반사 원량: 방어력의 180%",
+    );
+  });
+
+  it("반사 피해 증폭은 받은 피해 비율 반사로 오해하지 않게 표시한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_vajraarhat_seal)).toContain(
+      "기존 반사 피해 +45% (3행동)",
+    );
+  });
+
+  it("반격 패시브는 30%가 피해 비율이 아니라 발동 확률임을 표시한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_vajraarhat_body)).toContain(
+      "HP 피해 시 30% 확률로 공격력 기반 반격",
+    );
   });
 
   it("회복 스킬은 계수·피해량 회복·전투당 1회를 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_acolyte_smite)).toContain(
-      "회복 잃은 체력 6% + 마법 공격력×0.45 +50~50",
+      "회복 잃은 체력 1.44% + 마법 공격력×0.12 +12~12 (회복량 보정 적용)",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_darkpriest_reap)).toContain(
-      "피해량 14% 회복",
+      "피해량 14% 회복 (회복량 보정 미적용)",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_blooddemon_reign)).toContain(
+      "피해량 20% 회복 (회복량 보정 미적용)",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_survivor_firstaid)).toContain(
+      "회복 잃은 체력 20% (회복량 보정 적용)",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_survivor_firstaid)).toContain(
       "전투당 1회",
     );
+    expect(describeV2Skill(V2_SKILLS.v2c_survivor_firstaid)).toContain(
+      "원정당 1회 · 대련 효과 50%",
+    );
+  });
+
+  it("반복형 확정 회복기는 숨은 차수 배율 대신 실효 수치를 스킬 데이터에 보관한다", () => {
+    const expected = {
+      v2_skill_recover: { pctMaxHp: 1.8 },
+      v2c_martial_chi: { pctLostHp: 1.2 },
+      v2c_acolyte_smite: {
+        pctLostHp: 1.44,
+        statCoef: 0.108,
+        baseFlatByTier: [12, 12, 12],
+      },
+      v2c_bishop_heal: {
+        pctLostHp: 2.88,
+        statCoef: 0.24,
+        baseFlatByTier: [38.4, 38.4, 38.4],
+      },
+      v2c_archbishop_sanctuary: {
+        pctLostHp: 2.24,
+        statCoef: 0.192,
+        baseFlatByTier: [32, 32, 32],
+      },
+      v2c_saint_miracle: {
+        pctLostHp: 2.88,
+        statCoef: 0.256,
+        baseFlatByTier: [44.8, 44.8, 44.8],
+      },
+    } as const;
+
+    for (const [skillId, effect] of Object.entries(expected)) {
+      expect(
+        V2_SKILLS[skillId as V2SkillId].effects.find(
+          (candidate) => candidate.kind === "heal",
+        ),
+        skillId,
+      ).toMatchObject(effect);
+    }
+
+    const expectedSpCosts = {
+      v2_skill_recover: 3,
+      v2c_martial_chi: 2,
+      v2c_acolyte_smite: 4,
+      v2c_bishop_heal: 7,
+      v2c_archbishop_sanctuary: 7,
+      v2c_saint_miracle: 9,
+    } as const;
+    for (const [skillId, cost] of Object.entries(expectedSpCosts)) {
+      expect(spCostOf(V2_SKILLS[skillId as V2SkillId]), skillId).toBe(cost);
+    }
+  });
+
+  it("혈성기사 계보 HP 소모기는 저체력 추가 피해 기준 하한을 표시한다", () => {
+    for (const id of [
+      "v2c_bloodtemplar_stigma",
+      "v2c_bloodlord_brand",
+      "v2c_blooddemon_reign",
+    ] as const) {
+      expect(describeV2Skill(V2_SKILLS[id])).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining("추가 피해 기준 현재 HP 최소 50%"),
+        ]),
+      );
+    }
+  });
+
+  it("원정 제한 회복기 목록은 무자원·전투당 1회 회복기만 포함한다", () => {
+    for (const skillId of LIMITED_RECOVERY_SKILL_IDS) {
+      const skill = V2_SKILLS[skillId];
+      expect(skill.mpCost, skillId).toBe(0);
+      expect(skill.oncePerBattle, skillId).toBe(true);
+      expect(
+        skill.effects.some((effect) => effect.kind === "heal"),
+        skillId,
+      ).toBe(true);
+    }
   });
 
   it("DoT/쿨다운 — 몹 독니는 지속피해 + 쿨 칩", () => {
@@ -813,19 +1196,215 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     expect(chips.some((c) => c.startsWith("속성"))).toBe(false);
   });
 
-  it("MP 칩 = 고정 절대값 — 계열 차등 + 차수 스케일", () => {
-    // fixedMpCost 가 있으면 절대값을 우선 사용하고, 없으면 기존 공식 비용을 사용한다.
-    expect(describeV2Skill(V2_SKILLS.v2c_mage_fireball)).toContain("MP 90"); // 고비용 주문
-    expect(describeV2Skill(V2_SKILLS.v2c_warrior_strike)).toContain("MP 42"); // 병사 t1
-    // 같은 병사 계열에서 차수 스케일 t1(42) < t2(600×7%×1.4=58.8→59):
-    expect(describeV2Skill(V2_SKILLS.v2c_warrior_sunder)).toContain("MP 59");
-    // 같은 t2 에서 도적(×0.7·41) < 병사(59) — 계열 차등 재확인:
-    expect(describeV2Skill(V2_SKILLS.v2c_assassin_ambush)).toContain("MP 41");
+  it("MP 칩 = 계열·차수·스킬 편차와 최종 자원 압박", () => {
+    // fixedMpCost 를 우선한 뒤에도 캐스터 압박 배율을 적용한다.
+    expect(describeV2Skill(V2_SKILLS.v2c_mage_fireball)).toContain("MP 113");
+    expect(describeV2Skill(V2_SKILLS.v2c_warrior_strike)).toContain("MP 63");
+    // 같은 병사 계열에서 차수 기준과 원본 편차, 비캐스터 압박을 함께 반영한다.
+    expect(describeV2Skill(V2_SKILLS.v2c_warrior_sunder)).toContain("MP 89");
+    // 같은 t2 에서 도적 계열 할인 후 비캐스터 압박을 적용한다.
+    expect(describeV2Skill(V2_SKILLS.v2c_assassin_ambush)).toContain("MP 71");
     expect(describeV2Skill(V2_SKILLS.v2c_mage_boltcast)).not.toContain("MP 40");
+  });
+
+  it("같은 계열·차수에서도 스킬별 원본 MP 비용 차이를 보존한다", () => {
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_guardian_bash)).toBe(93);
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_swordmaster_cut)).toBe(114);
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_skyascendant_fallingstar)).toBe(119);
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_ruinblade_ruinsword)).toBe(189);
+
+    expect(describeV2Skill(V2_SKILLS.v2c_guardian_bash)).toContain("MP 93");
+    expect(describeV2Skill(V2_SKILLS.v2c_ruinblade_ruinsword)).toContain("MP 189");
+  });
+
+  it("최종 MP 압박을 높이고 모든 마법사 후속 계보에 캐스터 배율을 적용한다", () => {
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_warrior_strike)).toBe(63);
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_guardian_bash)).toBe(93);
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_hegemon_annihilation)).toBe(132);
+
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_mage_fireball)).toBe(113);
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_shaman_hex)).toBe(131);
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_ritualist_guardingarray)).toBe(105);
+    expect(v2SkillMpCostValue(V2_SKILLS.v2c_lawweaver_release)).toBe(250);
   });
 });
 
 describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
+  it("tier 7 mechanic power is added to the ordinary skill score", () => {
+    const ordinary = V2_SKILLS.v2c_swordsaint_transcendence;
+    const capstone = {
+      ...ordinary,
+      tier7Mechanic: {
+        kind: "shadowCore" as const,
+        recordPct: 50,
+        inheritedRecordPct: 25,
+        refinedRecordPct: 65,
+        nextSingleDamagePct: 15,
+        pvpScalePct: 80,
+      },
+    };
+
+    expect(skillPowerScore(capstone) - skillPowerScore(ordinary)).toBeCloseTo(
+      8.1,
+      8,
+    );
+  });
+
+  it("명시 할인은 루브릭 산정 뒤 정수만 적용하고 최소 1 SP를 보장한다", () => {
+    const strike = V2_SKILLS.v2_skill_strike;
+    const oneCost = V2_SKILLS.v2c_none_diligence;
+
+    expect(spCostOf({ ...strike, spCostDiscount: 1 })).toBe(3);
+    expect(spCostOf({ ...strike, spCostDiscount: -5 })).toBe(4);
+    expect(spCostOf({ ...strike, spCostDiscount: 0.9 })).toBe(4);
+    expect(spCostOf({ ...oneCost, spCostDiscount: 99 })).toBe(1);
+  });
+
+  it("광전사–패황 계보는 단발 필살 역할과 광기 배타 단계를 데이터로 선언한다", () => {
+    expect(V2_SKILLS.v2c_berserker_bloodslash.effects).toEqual([
+      {
+        kind: "missingHpDamage",
+        attackCoef: 1,
+        statCoef: 1,
+        missingHpCoef: 0.4,
+        selfCurrentHpCostPct: 10,
+        scaling: "physical",
+      },
+    ]);
+    expect(V2_SKILLS.v2c_warlord_bloodbath.effects).toEqual([
+      {
+        kind: "missingHpDamage",
+        attackCoef: 1.1,
+        statCoef: 1.2,
+        missingHpCoef: 0.7,
+        selfCurrentHpCostPct: 15,
+        scaling: "physical",
+      },
+    ]);
+    expect(V2_SKILLS.v2c_overlord_ruin).toMatchObject({
+      name: "파멸일격",
+      effects: [
+        {
+          kind: "missingHpDamage",
+          attackCoef: 1.5,
+          statCoef: 1.8,
+          missingHpCoef: 1.4,
+          scaling: "physical",
+        },
+      ],
+    });
+    expect(V2_SKILLS.v2c_hegemon_annihilation).toMatchObject({
+      name: "멸왕일도",
+      oncePerBattle: true,
+      effects: [
+        {
+          kind: "missingHpDamage",
+          attackCoef: 2.2,
+          statCoef: 2.64,
+          missingHpCoef: 2,
+          scaling: "physical",
+        },
+      ],
+    });
+    expect(V2_SKILLS.v2c_berserker_bloodslash.defaultPattern).toEqual({
+      priority: 100,
+      condition: { kind: "self_hp", op: "above", pct: 70 },
+    });
+    expect(V2_SKILLS.v2c_warlord_bloodbath.defaultPattern).toEqual({
+      priority: 200,
+      condition: {
+        kind: "all",
+        conditions: [
+          { kind: "self_hp", op: "below", pct: 70 },
+          { kind: "self_buff_pct", target: "berserkerFinisher", active: false },
+        ],
+      },
+    });
+    expect(V2_SKILLS.v2c_overlord_ruin.defaultPattern).toEqual({
+      priority: 300,
+      condition: {
+        kind: "all",
+        conditions: [
+          { kind: "self_hp", op: "below", pct: 50 },
+          { kind: "self_buff_pct", target: "berserkerFinisher", active: true },
+        ],
+      },
+    });
+    expect(V2_SKILLS.v2c_hegemon_annihilation.defaultPattern).toEqual({
+      priority: 400,
+      condition: {
+        kind: "any",
+        conditions: [
+          { kind: "self_buff_pct", target: "berserkerDeathOvercome", active: true },
+          { kind: "self_hp", op: "below", pct: 25 },
+        ],
+      },
+    });
+
+    expect(V2_SKILLS.v2c_overlord_ruin.effects).toHaveLength(1);
+    expect(V2_SKILLS.v2c_hegemon_annihilation.effects).toHaveLength(1);
+    expect(V2_SKILLS.v2c_overlord_throne.passive).toEqual({});
+    expect(V2_SKILLS.v2c_hegemon_dominion.passive).toEqual({});
+
+    const madnessRanks = [
+      ["v2c_berserker_madness3", 1],
+      ["v2c_warlord_slaughter", 2],
+      ["v2c_overlord_throne", 3],
+      ["v2c_hegemon_dominion", 4],
+    ] as const;
+    for (const [skillId, exclusiveRank] of madnessRanks) {
+      expect(V2_SKILLS[skillId]).toMatchObject({
+        exclusiveGroup: "berserker_madness",
+        exclusiveRank,
+      });
+    }
+
+    expect(spCostOf(V2_SKILLS.v2c_berserker_bloodslash)).toBe(6);
+    expect(spCostOf(V2_SKILLS.v2c_warlord_bloodbath)).toBe(7);
+    expect(spCostOf(V2_SKILLS.v2c_overlord_ruin)).toBe(10);
+    expect(spCostOf(V2_SKILLS.v2c_hegemon_annihilation)).toBe(13);
+    expect(spCostOf(V2_SKILLS.v2c_berserker_madness3)).toBe(5);
+    expect(spCostOf(V2_SKILLS.v2c_warlord_slaughter)).toBe(7);
+    expect(spCostOf(V2_SKILLS.v2c_overlord_throne)).toBe(14);
+    expect(spCostOf(V2_SKILLS.v2c_hegemon_dominion)).toBe(15);
+    expect(spCostOf(V2_SKILLS.v2c_archmage_theory)).toBe(15);
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_hegemon_dominion).join(" "),
+    ).not.toContain("받는 반사 피해");
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_archmage_theory).join(" "),
+    ).not.toContain("받는 반사 피해");
+    expect(
+      [
+        "v2c_berserker_bloodslash",
+        "v2c_warlord_bloodbath",
+        "v2c_overlord_ruin",
+        "v2c_hegemon_annihilation",
+      ].map((skillId) => ({
+        mp: v2SkillMpCostValue(V2_SKILLS[skillId as V2SkillId]),
+        proc: V2_SKILLS[skillId as V2SkillId].procChance,
+      })),
+    ).toEqual([
+      { mp: 96, proc: 56 },
+      { mp: 102, proc: 50 },
+      { mp: 120, proc: 44 },
+      { mp: 132, proc: 40 },
+    ]);
+    expect(
+      [
+        "v2c_berserker_bloodslash",
+        "v2c_warlord_bloodbath",
+        "v2c_overlord_ruin",
+        "v2c_hegemon_annihilation",
+        "v2c_hegemon_dominion",
+      ].reduce(
+        (sum, skillId) =>
+          sum + spCostOf(V2_SKILLS[skillId as V2SkillId]),
+        0,
+      ),
+    ).toBe(51);
+  });
+
   it("코스트는 성능(power)에 비례 — 강타 스타터(dmg 1.0)=4", () => {
     // 강타(attack, dmg 1.0·proc100) = 루브릭 4. 차수가 아니라 effects power 로 도출.
     expect(spCostOf(V2_SKILLS.v2_skill_strike)).toBe(4);
@@ -835,6 +1414,78 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     // 회복(heal 1회) = 3, 함성(짧은 버프) = 2 — 강타(4)보다 싼 예산 옵션.
     expect(spCostOf(V2_SKILLS.v2_skill_recover)).toBe(3);
     expect(spCostOf(V2_SKILLS.v2c_warrior_warcry)).toBe(2);
+  });
+
+  it("단계형 근력과 필살은 효과가 오를 때 SP도 함께 오른다", () => {
+    expect(
+      [
+        "v2c_warrior_might",
+        "v2c_squire_might",
+        "v2c_sensei_ironbody",
+      ].map((id) => spCostOf(V2_SKILLS[id as V2SkillId])),
+    ).toEqual([2, 3, 4]);
+    expect(spCostOf(V2_SKILLS.v2c_shadow_lethality3)).toBe(4); // 치명타 피해 +25%
+    expect(spCostOf(V2_SKILLS.v2c_veteran_lethal)).toBe(5); // 치명타 피해 +30%
+  });
+
+  it("치명타 피해는 회피보다 비싸게, 회피 단계는 완만하게 책정한다", () => {
+    expect(spCostOf(V2_SKILLS.v2c_shadow_lethality3)).toBe(4); // 치명타 피해 +25%
+    expect(spCostOf(V2_SKILLS.v2c_veteran_lethal)).toBe(5); // 치명타 피해 +30%
+    expect(spCostOf(V2_SKILLS.v2c_boxer_fortitude)).toBe(2); // 회피도 +8%
+    expect(spCostOf(V2_SKILLS.v2c_brawler_fortitude3)).toBe(3); // 회피 +12%
+    expect(spCostOf(V2_SKILLS.v2c_phantom_stealth)).toBe(3); // 회피도 +16%
+  });
+
+  it("조건부 대항축인 명중과 속도 전환을 성능에 맞게 SP로 청구한다", () => {
+    expect(V2_SKILLS.v2c_chief_afterimage.passive?.accuracyPct).toBe(30);
+    expect(spCostOf(V2_SKILLS.v2c_chief_afterimage)).toBe(3);
+    expect(V2_SKILLS.v2c_marksman_aim.passive?.accuracyPct).toBe(24);
+    expect(V2_SKILLS.v2c_marksman_aim.passive?.spdToAtkMaxPct).toBeUndefined();
+    expect(spCostOf(V2_SKILLS.v2c_marksman_aim)).toBe(5);
+    expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.accuracyPct).toBe(30);
+    expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.skillCritDmgPct).toBe(30);
+    expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.spdToAtkMaxPct).toBe(30);
+    expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.skillCritOverflow).toBeUndefined();
+    expect(spCostOf(V2_SKILLS.v2c_heavenlybow_starpath)).toBe(14);
+  });
+
+  it("속도 비례 공격력 전환은 검 계보가 아니라 6차 천궁에만 있다", () => {
+    const sword = aggregateEquippedPassives([
+      "v2c_swordmaster_focus",
+      "v2c_swordsaint_transcendence",
+    ]);
+    const bow = aggregateEquippedPassives([
+      "v2c_marksman_aim",
+      "v2c_heavenlybow_starpath",
+    ]);
+
+    expect(sword.spdToAtkMaxPct).toBe(0);
+    expect(bow.spdToAtkMaxPct).toBe(30);
+  });
+
+  it("일검필살은 방어 효과 없이 검성의 공격 능력을 모두 강화한다", () => {
+    const skill = V2_SKILLS.v2c_swordsaint_transcendence;
+    const passive = aggregateEquippedPassives([skill.id]);
+
+    expect(skill.name).toBe("일검필살");
+    expect(skill.passive?.statPct).toEqual({ str: 24 });
+    expect(skill.passive?.critDmgPct).toBeUndefined();
+    expect(skill.passive?.skillCritDmgPct).toBe(35);
+    expect(passive.singleHitPhysicalSkillDamagePct).toBe(30);
+    expect(passive.accuracyPct).toBe(15);
+    expect(passive).not.toHaveProperty("reflectDamageTakenReductionPct");
+    expect(spCostOf(skill)).toBe(13);
+    expect(describeV2Skill(skill)).toContain("단일 타격 물리 스킬 피해 +30%");
+    expect(describeV2Skill(skill)).toContain("스킬 치명타 피해 +35%");
+  });
+
+  it("성도 조준은 흑월의 치명 오버플로 대신 고정 스킬 치명 피해를 제공한다", () => {
+    const passive = aggregateEquippedPassives(["v2c_heavenlybow_starpath"]);
+    expect(passive.skillCritDmgPct).toBe(30);
+    expect(passive.skillCritOverflow).toBe(false);
+    expect(describeV2Skill(V2_SKILLS.v2c_heavenlybow_starpath)).toContain(
+      "스킬 치명타 피해 +30%",
+    );
   });
 
   it("액티브 효율 보정 — 높은 발동률·낮은 MP 비용일수록 같은 효과의 SP가 높다", () => {
@@ -889,13 +1540,34 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(isLifestyleSkill(V2_SKILLS.v2c_none_diligence)).toBe(false);
   });
 
-  it("5 SP 이하는 유지하고 중·고성능 스킬의 초과 비용은 완만하게 오른다", () => {
+  it("저비용·1~4차 압축은 유지하고 5·6·7차 고성능 스킬은 원시 비용을 쓴다", () => {
     expect(spCostOf(V2_SKILLS.v2_skill_strike)).toBe(4);
-    expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(10);
-    expect(spCostOf(V2_SKILLS.v2c_celestialdragon_combo)).toBe(13);
+    expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(8);
+    expect(spCostOf(V2_SKILLS.v2c_celestialdragon_combo)).toBe(11);
     expect(
       Math.max(...Object.values(V2_SKILLS).map((def) => spCostOf(def))),
-    ).toBe(16);
+    ).toBe(24);
+  });
+
+  it("5·6·7차만 고가 SP 압축을 제거하고 1~4차·조합형 상한은 유지한다", () => {
+    expect(spCostOf(V2_SKILLS.v2c_spellsealer_greatward)).toBe(10);
+    expect(spCostOf(V2_SKILLS.v2c_elementallord_surge)).toBe(16);
+    expect(spCostOf(V2_SKILLS.v2c_blackmoon_dominion)).toBe(17);
+    expect(spCostOf(V2_SKILLS.v2c_hegemon_dominion)).toBe(15);
+    expect(spCostOf(V2_SKILLS.v2c_primordialmage_return)).toBe(16);
+    expect(spCostOf(V2_SKILLS.v2c_primordialmage_amplification)).toBe(9);
+  });
+
+  it("🔑 트립와이어 — 자원·발동률까지 우월한 스킬이 더 싸지는 가격 역전을 막는다", () => {
+    expect(spCostOf(V2_SKILLS.v2c_ranger_ambush)).toBeGreaterThanOrEqual(
+      spCostOf(V2_SKILLS.v2c_warrior_flurry),
+    );
+    expect(spCostOf(V2_SKILLS.v2c_mage_boltcast)).toBe(4);
+    expect(spCostOf(V2_SKILLS.v2c_primordialsage_greatorb)).toBe(9);
+    expect(spCostOf(V2_SKILLS.v2c_warder_barrier)).toBeLessThan(
+      spCostOf(V2_SKILLS.v2c_ironman_brace),
+    );
+    expect(spCostOf(V2_SKILLS.v2c_mage_meditate)).toBe(2);
   });
 
   it("다단기는 전투에서 제거된 legacy 고정 피해를 타수만큼 SP로 중복 청구하지 않는다", () => {
@@ -904,18 +1576,168 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
       spCostOf(V2_SKILLS.v2c_nightshade_eclipse),
       spCostOf(V2_SKILLS.v2c_heavenlybow_orbit),
       spCostOf(V2_SKILLS.v2c_blackmoon_flurry),
-    ]).toEqual([7, 8, 10, 12]);
+    ]).toEqual([5, 10, 10, 12]);
   });
 
-  it("🔑 트립와이어 — 전투 스킬은 루브릭 미만으로 underprice 금지", () => {
-    // override 는 루브릭 "위로만"(아웃라이어 너프) 허용. 아래로 깎으면 값싼+강한 공용으로
-    // 직업 무관 유틸 스택 길이 열린다(PR-5 잔여 리스크). 새 스킬/override 가 바닥을 뚫으면 실패.
+  it("플레이어 피해에서 사용하지 않는 legacy 고정 피해는 SP를 올리지 않는다", () => {
+    const base = V2_SKILLS.v2_skill_strike;
+    const zeroFlat = {
+      ...base,
+      effects: [{ kind: "damage" as const, statCoef: 1, baseFlat: 0 }],
+    };
+    const ghostFlat = {
+      ...zeroFlat,
+      effects: [{ kind: "damage" as const, statCoef: 1, baseFlat: 999_999 }],
+    };
+
+    expect(skillPowerScore(ghostFlat)).toBe(skillPowerScore(zeroFlat));
+    expect(rubricSpCost(ghostFlat)).toBe(rubricSpCost(zeroFlat));
+  });
+
+  it("몬스터 고정 피해는 실제 전투에서 쓰이므로 SP power에도 남긴다", () => {
+    const base = {
+      ...V2_SKILLS.v2_skill_strike,
+      monsterOnly: true,
+      effects: [{ kind: "damage" as const, statCoef: 1, baseFlat: 0 }],
+    };
+    const stronger = {
+      ...base,
+      effects: [{ kind: "damage" as const, statCoef: 1, baseFlat: 280 }],
+    };
+
+    expect(skillPowerScore(stronger)).toBeGreaterThan(skillPowerScore(base));
+  });
+
+  it("보호막 turns는 만료되지 않는 엔진 동작에 맞춰 과금하지 않는다", () => {
+    const base = V2_SKILLS.v2c_warder_barrier;
+    const short = {
+      ...base,
+      effects: [{ kind: "shield" as const, pctMaxHp: 8, turns: 1 }],
+    };
+    const long = {
+      ...base,
+      effects: [{ kind: "shield" as const, pctMaxHp: 8, turns: 99 }],
+    };
+    const larger = {
+      ...base,
+      effects: [{ kind: "shield" as const, pctMaxHp: 16, turns: 1 }],
+    };
+
+    expect(skillPowerScore(long)).toBe(skillPowerScore(short));
+    expect(skillPowerScore(larger)).toBeGreaterThan(skillPowerScore(short));
+  });
+
+  it("관통 피해와 누락됐던 고유 패시브는 SP power에 반영한다", () => {
+    const attack = V2_SKILLS.v2c_chief_strike;
+    const withoutPierce = {
+      ...attack,
+      effects: attack.effects.map((effect) =>
+        effect.kind === "damage"
+          ? { ...effect, pierceDamagePct: 0 }
+          : effect,
+      ),
+    };
+    const blackmoon = V2_SKILLS.v2c_blackmoon_dominion;
+    const withoutHooks = {
+      ...blackmoon,
+      passive: {
+        ...blackmoon.passive,
+        atkPerLukCoef: 0,
+        spdPerLukCoef: 0,
+        skillCritOverflow: false,
+        skillCritAfterEvade: false,
+      },
+    };
+
+    expect(skillPowerScore(attack)).toBeGreaterThan(
+      skillPowerScore(withoutPierce),
+    );
+    expect(skillPowerScore(blackmoon)).toBeGreaterThan(
+      skillPowerScore(withoutHooks),
+    );
+  });
+
+  it("초반 마법 피해 감소의 지속 구간과 마법취약 발동률을 반영한다", () => {
+    const ward = V2_SKILLS.v2c_warder_ward;
+    const shortWard = {
+      ...ward,
+      passive: { ...ward.passive, openingMagicDamageReductionPhases: 1 },
+    };
+    const omen = V2_SKILLS.v2c_shaman_omen3;
+    const lowChance = {
+      ...omen,
+      passive: { ...omen.passive, enemyMagicVulnApplyChancePct: 50 },
+    };
+
+    expect(skillPowerScore(ward)).toBeGreaterThan(skillPowerScore(shortWard));
+    expect(skillPowerScore(omen)).toBeGreaterThan(skillPowerScore(lowChance));
+  });
+
+  it("선행 스킬이 필요한 장착 시너지는 본체에 추가 효과의 절반만 청구한다", () => {
+    const base = V2_SKILLS.v2_skill_strike;
+    const utilityEffect = {
+      kind: "enemyVuln" as const,
+      pct: 10,
+      turns: 3,
+    };
+    const direct = {
+      ...base,
+      effects: [...base.effects, utilityEffect],
+    };
+    const conditional = {
+      ...base,
+      equippedSynergies: [
+        {
+          requiredSkillId: "v2c_warrior_might" as const,
+          effects: [utilityEffect],
+        },
+      ],
+    };
+    const directDelta = skillPowerScore(direct) - skillPowerScore(base);
+    const conditionalDelta = skillPowerScore(conditional) - skillPowerScore(base);
+
+    expect(conditionalDelta).toBeCloseTo(directDelta * 0.5, 8);
+  });
+
+  it("선행 패시브가 필요한 속성 강화도 기본 변형 대비 증분의 절반만 청구한다", () => {
+    const base = V2_SKILLS.v2_skill_strike;
+    const utilityEffect = {
+      kind: "enemyVuln" as const,
+      pct: 10,
+      turns: 3,
+    };
+    const direct = {
+      ...base,
+      effects: [...base.effects, utilityEffect],
+    };
+    const conditional = {
+      ...base,
+      elementEffectSynergies: [
+        {
+          requiredSkillId: "v2c_warrior_might" as const,
+          elementEffects: {
+            fire: [...base.effects, utilityEffect],
+          },
+        },
+      ],
+    };
+    const directDelta = skillPowerScore(direct) - skillPowerScore(base);
+    const conditionalDelta = skillPowerScore(conditional) - skillPowerScore(base);
+
+    expect(conditionalDelta).toBeCloseTo(directDelta * 0.5, 8);
+  });
+
+  it("🔑 트립와이어 — 전투 스킬은 명시 할인 이상으로 underprice 금지", () => {
+    // override 는 루브릭 "위로만"(아웃라이어 너프) 허용하고, 합의된 소량의
+    // 명시 할인만 예외로 허용한다. 새 스킬/오버라이드가 그 바닥을 뚫으면 실패한다.
     for (const def of Object.values(V2_SKILLS)) {
       if (isLifestyleSkill(def)) continue;
+      const discount = Math.max(0, Math.floor(def.spCostDiscount ?? 0));
+      const floor = Math.max(1, rubricSpCost(def) - discount);
       expect(
         spCostOf(def),
-        `${def.id} 가 루브릭(${rubricSpCost(def)}) 미만으로 underprice 됨`,
-      ).toBeGreaterThanOrEqual(rubricSpCost(def));
+        `${def.id} 가 할인 반영 루브릭(${floor}) 미만으로 underprice 됨`,
+      ).toBeGreaterThanOrEqual(floor);
     }
   });
 });
@@ -939,5 +1761,94 @@ describe("레거시 시그니처 id 제거 (P4 은퇴 + 카탈로그 청소)", (
     const valid = "v2c_mage_fireball";
     const parsed = parseV2SkillsState({ learned: [valid], equipped: [valid] });
     expect(parsed.equipped).toEqual([valid]);
+  });
+});
+
+describe("태초술사 공명 개편", () => {
+  it("근원공명은 강화된 지능·정신·마법 운용 효과를 9 SP에 제공한다", () => {
+    const resonance = V2_SKILLS.v2c_primordialmage_resonance;
+
+    expect(resonance.passive).toMatchObject({
+      statPct: { int: 24, spi: 12 },
+      magicSkillDamagePct: 16,
+      maxMpPct: 20,
+    });
+    expect(spCostOf(resonance)).toBe(9);
+  });
+
+  it("MP 회복 패시브는 실제 소비량 상한을 안내한다", () => {
+    expect(
+      V2_SKILLS.v2c_primordialmage_resonance.description,
+    ).toContain("실제 소비 MP");
+    expect(
+      V2_SKILLS.v2c_primordialsage_optimization.description,
+    ).toContain("미환급 소비 MP");
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_primordialsage_optimization),
+    ).toContain(
+      "완전식 MP 부족 시 현재 MP 전부 소비 · 최대 MP 10% 회복 (주기 미환급 소비 MP 이하)",
+    );
+  });
+
+  it("원초 증폭은 기존 효과를 유지하면서 9 SP를 사용한다", () => {
+    const amplification = V2_SKILLS.v2c_primordialmage_amplification;
+
+    expect(amplification.passive).toEqual({
+      equipmentMagicSkillCritConversion: true,
+    });
+    expect(spCostOf(amplification)).toBe(9);
+  });
+
+  it("태초회귀는 근원공명과 오원소 폭주를 함께 요구하는 직접 피해 촉매를 가진다", () => {
+    const catalyst = V2_SKILLS.v2c_primordialmage_return.equippedSynergies?.find(
+      (synergy) =>
+        synergy.requiredSkillIds?.includes("v2c_primordialmage_resonance") &&
+        synergy.requiredSkillIds.includes("v2c_elementallord_surge"),
+    );
+
+    expect(catalyst?.effects).toEqual([
+      { kind: "damage", statCoef: 0.28, baseFlat: 110, scaling: "magic" },
+    ]);
+  });
+});
+
+describe("삼중 결계 스킬 안내", () => {
+  it("패시브 단계별 충전량·감소율과 만법불침 재전개를 상세 칩에 표시한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_grandwarder_tripleward)).toContain(
+      "삼중 결계 각 1회 · 직접 피해 PvE -45% / PvP -30%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_lawguardian_domain)).toEqual(
+      expect.arrayContaining([
+        "삼중 결계 각 3회 · 직접 피해 PvE -60% / PvP -40%",
+        "결계 소모 시 영역 안정 +1 (받는 피해 -4%, 최대 3중첩)",
+      ]),
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_lawguardian_inviolable)).toContain(
+      "삼중 결계 전부 재전개",
+    );
+  });
+});
+
+describe("변이 자원 스킬 안내와 기본 패턴", () => {
+  it("중량의 생성·증폭·소모 규칙만 상세 칩에 표시한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_golem_rocksmash)).toContain(
+      "중량 +1 (최대 3)",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_golem_tectoniccollapse)).toContain(
+      "중량 전부 소모 · 스택당 최종 피해 +20%",
+    );
+
+    const legacySplitMetadata = {
+      ...V2_SKILLS.v2c_golem_rocksmash,
+      splitGain: 1,
+    };
+    expect(describeV2Skill(legacySplitMetadata).join(" ")).not.toContain("분열체");
+  });
+
+  it("스마트 기본 패턴은 중량 3에 지각 붕괴를 사용한다", () => {
+    expect(V2_SKILLS.v2c_golem_tectoniccollapse.defaultPattern).toEqual({
+      priority: 500,
+      condition: { kind: "self_resource", resource: "weight", op: "atLeast", value: 3 },
+    });
   });
 });

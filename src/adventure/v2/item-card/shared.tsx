@@ -2,6 +2,7 @@
 
 import {
   craftQualityStars,
+  equipmentPowerDisplayValue,
   powerWithBonuses,
   scaledEquipWeight,
   v2EquipCatalogTierToDisplayTier,
@@ -17,9 +18,13 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { VARIANCE_FRACTION } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
-
-const QUALITY_PRISM_TEXT_GRADIENT =
-  "linear-gradient(100deg,#a8648b,#bc884a,#7f9a67,#5f9aac,#8874ad,#b16d94)";
+import {
+  formatLiberationOptionRoll,
+  type V2LiberationState,
+} from "@/adventure/data/v2/equipmentLiberation";
+import type { GameConfirmOptions } from "@/components/ui/gameDialog";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { V2_EQUIPMENT_LIBERATION } from "@/adventure/data/v2/coreLoopConfig";
 
 // 굴림 품질 % → 색. 색 기준은 위력이 아니라 같은 장비 안에서의 개체 굴림 품질이다.
 // 인벤 카드 배지와 공유 — V2InventoryView 가 여기서 import(기존 import 방향 유지).
@@ -106,17 +111,9 @@ export function QualityPctText({
     <span
       className={`${className} ${
         perfect
-          ? "bg-clip-text font-semibold text-transparent"
+          ? "font-extrabold text-fuchsia-600 dark:text-fuchsia-300"
           : rollPctClass(pct)
       }`}
-      style={
-        perfect
-          ? {
-              backgroundImage: QUALITY_PRISM_TEXT_GRADIENT,
-              filter: "saturate(0.78)",
-            }
-          : undefined
-      }
     >
       {pct}%
     </span>
@@ -129,6 +126,16 @@ export function CraftOnlyBadge({ className = "" }: { className?: string }) {
       className={`shrink-0 rounded bg-emerald-100 px-1.5 py-px text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 ${className}`}
     >
       제작 전용
+    </span>
+  );
+}
+
+export function UniqueBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`shrink-0 rounded bg-purple-100 px-1.5 py-px text-[10px] font-semibold text-purple-700 dark:bg-purple-950 dark:text-purple-300 ${className}`}
+    >
+      유니크
     </span>
   );
 }
@@ -218,15 +225,87 @@ export function MasterworkBadge({
   );
 }
 
-// 세트 보너스(V2EquipOptions) → 표시 문자열. crit/eva = %, mp/hp = flat.
+export function LiberationBadge({
+  liberation,
+  className = "",
+}: {
+  liberation?: V2LiberationState;
+  className?: string;
+}) {
+  if (!V2_EQUIPMENT_LIBERATION || !liberation) return null;
+  return (
+    <span
+      className={`shrink-0 rounded bg-violet-100 px-1.5 py-px text-[10px] font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300 ${className}`}
+      title={`해방 ${liberation.rank} · ${liberation.lineCount}줄`}
+    >
+      해방 {liberation.rank} · {liberation.lineCount}줄
+    </span>
+  );
+}
+
+export function LiberationOptionsPanel({
+  liberation,
+}: {
+  liberation: V2LiberationState;
+}) {
+  if (!V2_EQUIPMENT_LIBERATION) return null;
+  return (
+    <div className={`${SURFACE_INSET} mt-3 p-2.5`}>
+      <div className="flex items-center justify-between gap-2 text-xs font-semibold text-violet-700 dark:text-violet-300">
+        <span>해방 옵션</span>
+        <span>해방 {liberation.rank} · {liberation.lineCount}줄</span>
+      </div>
+      <ul className="mt-2 space-y-1 text-xs">
+        {liberation.options.map((option) => (
+          <li key={option.id} className="flex items-start justify-between gap-2">
+            <span>{formatLiberationOptionRoll(option)}</span>
+            <span className="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">
+              Lv.{option.level}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export type BoundEquipmentDisposalItem = {
+  iid: string;
+  itemName: string;
+  liberation?: V2LiberationState;
+};
+
+export function boundEquipmentDisposalConfirmation(
+  items: readonly BoundEquipmentDisposalItem[],
+  action: "판매" | "해체",
+): GameConfirmOptions {
+  const itemLines = items.map((item) =>
+    item.liberation
+      ? `• ${item.itemName} · 해방 ${item.liberation.rank} · ${item.liberation.lineCount}줄`
+      : `• ${item.itemName} · 귀속 장비`,
+  );
+  return {
+    title: `귀속 장비 ${action} 재확인`,
+    message: [
+      ...itemLines,
+      "",
+      `${action}하면 장비 귀속 및 모든 해방 옵션이 영구 소멸하며 되돌릴 수 없습니다.`,
+    ].join("\n"),
+    confirmLabel: `영구 소멸 확인 · ${action}`,
+    tone: "danger",
+  };
+}
+
+// 세트 보너스(V2EquipOptions) → 표시 문자열. 회피도·적중도는 고정 수치다.
 const SET_BONUS_LABEL: Record<keyof V2EquipOptions, string> = {
   crit: "치명타",
-  eva: "회피",
+  eva: "회피도",
+  accuracy: "적중도",
   mp: "MP",
   hp: "HP",
   critMult: "치명타 피해",
   spd: "속도",
-  def: "방어",
+  def: "추가 방어력",
   magicDef: "마법방어",
   healPowerPct: "회복",
   critResist: "치명타 저항",
@@ -236,12 +315,11 @@ export function formatSetBonus(bonus: Readonly<V2EquipOptions>): string {
   return (Object.keys(SET_BONUS_LABEL) as (keyof V2EquipOptions)[])
     .filter((k) => bonus[k])
     .map((k) => {
-      // critMult 은 백분의 일 정수(30=+0.30×). crit/eva/healPowerPct = %, 그 외 flat.
+      // critMult 은 백분의 일 정수(30=+0.30×). crit/healPowerPct = %, 그 외 flat.
       if (k === "critMult")
         return `${SET_BONUS_LABEL[k]} +${((bonus[k] ?? 0) / 100).toFixed(2)}×`;
       const unit =
         k === "crit" ||
-        k === "eva" ||
         k === "healPowerPct" ||
         k === "critResist" ||
         k === "statusDamageReductionPct"
@@ -276,12 +354,13 @@ export function StatRow({ row }: { row: V2EquipStatRow }) {
 const RANGE_OPTION_LABEL_TO_KEY: Partial<Record<string, keyof V2EquipOptions>> =
   {
     치명타: "crit",
-    회피: "eva",
+    "추가 회피도": "eva",
+    "추가 적중도": "accuracy",
     MP: "mp",
     HP: "hp",
     속도: "spd",
     "치명타 피해": "critMult",
-    방어: "def",
+    "추가 방어력": "def",
     마법방어: "magicDef",
     회복: "healPowerPct",
     "치명타 저항": "critResist",
@@ -328,10 +407,14 @@ export function statRowWithRollRange(
       ...row,
       value: `${row.value} (${formatRangeValue(
         row.label,
-        powerWithBonuses(range.lo, enhance, craftQuality),
+        equipmentPowerDisplayValue(
+          powerWithBonuses(range.lo, enhance, craftQuality),
+        ),
       )} - ${formatRangeValue(
         row.label,
-        powerWithBonuses(range.hi, enhance, craftQuality),
+        equipmentPowerDisplayValue(
+          powerWithBonuses(range.hi, enhance, craftQuality),
+        ),
       )})`,
     };
   }

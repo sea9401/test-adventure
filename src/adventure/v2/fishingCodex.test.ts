@@ -3,8 +3,10 @@ import { FISH, FISH_IDS } from "@/adventure/data/v2/fish";
 import {
   FISHING_CODEX_SP_MILESTONES,
   countDiscoveredFish,
+  caughtFishIds,
   discoveredFishIds,
   emptyFishCodex,
+  extractFishRegistration,
   fishBestSizeScoreBonus,
   fishCodexSpBonus,
   fishCodexSpBonusForCount,
@@ -14,13 +16,16 @@ import {
   nextFishCodexMilestone,
   parseFishCodex,
   recordCatch,
+  registerFishSpecimen,
+  registeredFishIds,
 } from "./fishingCodex";
 
 describe("낚시 도감 — recordCatch", () => {
   it("신규 어종을 등록", () => {
     const codex = recordCatch(emptyFishCodex(), "crucian_carp", 22.5, 1000);
     const e = codex.fish.crucian_carp;
-    expect(e.discovered).toBe(true);
+    expect(e.registered).toBe(true);
+    expect(e.caughtEver).toBe(true);
     expect(e.bestSize).toBe(22.5);
     expect(e.totalCaught).toBe(1);
     expect(e.firstCaughtAt).toBe(1000);
@@ -80,7 +85,83 @@ describe("낚시 도감 — parse / count", () => {
 
   it("discovered 누락 옛 데이터도 기록(>0)이면 발견 처리", () => {
     const parsed = parseFishCodex({ fish: { pike: { bestSize: 120, totalCaught: 2 } } });
-    expect(parsed.fish.pike?.discovered).toBe(true);
+    expect(parsed.fish.pike).toMatchObject({ registered: true, caughtEver: true });
+  });
+
+  it("레거시 발견 엔트리를 등록권과 포획 기록으로 이관한다", () => {
+    const parsed = parseFishCodex({
+      fish: {
+        carp: {
+          discovered: true,
+          bestSize: 42,
+          totalCaught: 7,
+          firstCaughtAt: 10,
+          bestCaughtAt: 20,
+        },
+      },
+    });
+
+    expect(parsed.fish.carp).toMatchObject({
+      registered: true,
+      caughtEver: true,
+      bestSize: 42,
+      totalCaught: 7,
+    });
+  });
+
+  it("등록권을 추출해도 개인 포획 기록은 보존한다", () => {
+    let codex = emptyFishCodex();
+    for (const [index, id] of FISH_IDS.slice(0, 5).entries()) {
+      codex = recordCatch(codex, id, 10 + index, 100 + index);
+    }
+
+    const fishId = FISH_IDS[0];
+    const before = codex.fish[fishId];
+    const result = extractFishRegistration(codex, fishId);
+
+    expect(result.extracted).toBe(true);
+    expect(result.codex.fish[fishId]).toMatchObject({
+      registered: false,
+      caughtEver: true,
+      bestSize: before.bestSize,
+      totalCaught: before.totalCaught,
+      firstCaughtAt: before.firstCaughtAt,
+      bestCaughtAt: before.bestCaughtAt,
+    });
+    expect(fishCodexSpBonus(result.codex)).toBe(0);
+    expect(registeredFishIds(result.codex)).not.toContain(fishId);
+    expect(caughtFishIds(result.codex)).toContain(fishId);
+  });
+
+  it("표본 등록만 한 어종은 포획 점수와 기록을 만들지 않는다", () => {
+    const result = registerFishSpecimen(emptyFishCodex(), "carp");
+
+    expect(result.registered).toBe(true);
+    expect(result.codex.fish.carp).toMatchObject({
+      registered: true,
+      caughtEver: false,
+      bestSize: 0,
+      totalCaught: 0,
+    });
+    expect(fishCodexScore(result.codex)).toBe(0);
+    expect(fishCodexTotalCaught(result.codex)).toBe(0);
+    expect(registeredFishIds(result.codex)).toContain("carp");
+    expect(caughtFishIds(result.codex)).not.toContain("carp");
+  });
+
+  it("추출한 어종을 다시 낚으면 등록권을 회복하고 기록을 이어 쓴다", () => {
+    const caught = recordCatch(emptyFishCodex(), "carp", 42, 10);
+    const extracted = extractFishRegistration(caught, "carp").codex;
+    const reacquired = recordCatch(extracted, "carp", 30, 20);
+
+    expect(reacquired.fish.carp).toMatchObject({
+      registered: true,
+      caughtEver: true,
+      bestSize: 42,
+      totalCaught: 2,
+      firstCaughtAt: 10,
+      bestCaughtAt: 10,
+    });
   });
 
   it("기록 없는 미발견 엔트리는 버린다", () => {

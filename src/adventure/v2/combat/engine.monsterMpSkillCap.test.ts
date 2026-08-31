@@ -185,4 +185,222 @@ describe("몬스터 MP 시전 횟수 제한 (ATB applyEnemyV2SkillCast)", () => 
       ),
     ).toBe(false);
   });
+
+  it("ATB 몬스터 직접 피해 스킬에도 일반 받는 피해 감소를 적용한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const enemy: Monster = {
+      name: "정예 경감 시험체",
+      tags: [],
+      hp: 10_000,
+      atk: 100,
+      def: 0,
+      spd: 30,
+      exp: 0,
+      evasionPct: 0,
+      v2Skills: {
+        learned: ["mob_crushing_blow"],
+        equipped: ["mob_crushing_blow"],
+      },
+      v2MaxMp: 30,
+    };
+    const plainPlayer: PlayerCombat = {
+      ...player,
+      hp: 1_000,
+      maxHp: 1_000,
+    };
+    const reducedPlayer: PlayerCombat = {
+      ...plainPlayer,
+      passiveDamageTakenReductionPct: 20,
+    };
+    const plainState = initialBattleState(plainPlayer, enemy, "일반");
+    const reducedState = initialBattleState(reducedPlayer, enemy, "경감");
+
+    const plainAfter = applyEnemyV2SkillCast(plainState, plainPlayer).state;
+    const reducedAfter = applyEnemyV2SkillCast(
+      reducedState,
+      reducedPlayer,
+    ).state;
+    const plainDamage = plainState.playerHp - plainAfter.playerHp;
+    const reducedDamage = reducedState.playerHp - reducedAfter.playerHp;
+
+    expect(reducedDamage).toBe(Math.floor(plainDamage * 0.8));
+    expect(
+      reducedAfter.log.some((entry) =>
+        entry.text.includes(`[받피감] 피해 -${plainDamage - reducedDamage}`),
+      ),
+    ).toBe(true);
+  });
+
+  it("ATB 몬스터 직접 피해 스킬에도 회피 경감을 적용하고 기록한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const enemy: Monster = {
+      name: "정예 회피 경감 시험체",
+      tags: [],
+      hp: 10_000,
+      atk: 100,
+      def: 0,
+      spd: 30,
+      exp: 0,
+      accuracy: 0,
+      evasionPct: 0,
+      v2Skills: {
+        learned: ["mob_crushing_blow"],
+        equipped: ["mob_crushing_blow"],
+      },
+      v2MaxMp: 30,
+    };
+    const plainPlayer: PlayerCombat = {
+      ...player,
+      hp: 1_000,
+      maxHp: 1_000,
+      evaRating: 0,
+    };
+    const evasivePlayer: PlayerCombat = {
+      ...plainPlayer,
+      evaRating: 100,
+    };
+    const plainState = initialBattleState(plainPlayer, enemy, "일반");
+    const evasiveState = initialBattleState(evasivePlayer, enemy, "회피");
+
+    const plainAfter = applyEnemyV2SkillCast(plainState, plainPlayer).state;
+    const evasiveAfter = applyEnemyV2SkillCast(
+      evasiveState,
+      evasivePlayer,
+    ).state;
+    const plainDamage = plainState.playerHp - plainAfter.playerHp;
+    const evasiveDamage = evasiveState.playerHp - evasiveAfter.playerHp;
+
+    expect(evasiveDamage).toBe(Math.floor(plainDamage * 0.15));
+    expect(
+      evasiveAfter.log.some((entry) =>
+        entry.text.includes("[회피 경감 85.0%]"),
+      ),
+    ).toBe(true);
+  });
+
+  it("ATB 몬스터 마법 스킬에도 초반 마법 피해 감소를 적용한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const enemy: Monster = {
+      name: "정예 마법 경감 시험체",
+      tags: [],
+      hp: 10_000,
+      atk: 100,
+      def: 0,
+      spd: 30,
+      exp: 0,
+      evasionPct: 0,
+      atkType: "magic",
+      v2Skills: {
+        learned: ["mob_arcane_bolt"],
+        equipped: ["mob_arcane_bolt"],
+      },
+      v2MaxMp: 999,
+    };
+    const plainPlayer: PlayerCombat = {
+      ...player,
+      hp: 1_000,
+      maxHp: 1_000,
+      magicDef: 0,
+    };
+    const wardedPlayer: PlayerCombat = {
+      ...plainPlayer,
+      passiveOpeningMagicDamageReductionPct: 50,
+      passiveOpeningMagicDamageReductionPhases: 3,
+    };
+    const plainState = initialBattleState(plainPlayer, enemy, "일반");
+    const wardedState = initialBattleState(wardedPlayer, enemy, "결계");
+
+    const plainAfter = applyEnemyV2SkillCast(plainState, plainPlayer).state;
+    const wardedAfter = applyEnemyV2SkillCast(
+      wardedState,
+      wardedPlayer,
+    ).state;
+    const plainDamage = plainState.playerHp - plainAfter.playerHp;
+    const wardedDamage = wardedState.playerHp - wardedAfter.playerHp;
+
+    expect(wardedDamage).toBe(Math.floor(plainDamage * 0.5));
+    expect(
+      wardedAfter.log.some((entry) => entry.text.includes("[받피감] 피해 -")),
+    ).toBe(true);
+  });
+
+  it("ATB 몬스터 직접 피해 스킬에도 가드와 굳건한 의지를 적용한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const enemy: Monster = {
+      name: "정예 평탄 경감 시험체",
+      tags: [],
+      hp: 10_000,
+      atk: 100,
+      def: 0,
+      spd: 30,
+      exp: 0,
+      evasionPct: 0,
+      v2Skills: {
+        learned: ["mob_crushing_blow"],
+        equipped: ["mob_crushing_blow"],
+      },
+      v2MaxMp: 30,
+    };
+    const plainPlayer: PlayerCombat = {
+      ...player,
+      hp: 1_000,
+      maxHp: 1_000,
+    };
+    const guardedPlayer: PlayerCombat = {
+      ...plainPlayer,
+      guard: { turns: 3, reduction: 10 },
+      steadfastWillFlat: 5,
+    };
+    const plainState = initialBattleState(plainPlayer, enemy, "일반");
+    const guardedState = initialBattleState(guardedPlayer, enemy, "방어");
+
+    const plainAfter = applyEnemyV2SkillCast(plainState, plainPlayer).state;
+    const guardedAfter = applyEnemyV2SkillCast(
+      guardedState,
+      guardedPlayer,
+    ).state;
+    const plainDamage = plainState.playerHp - plainAfter.playerHp;
+    const guardedDamage = guardedState.playerHp - guardedAfter.playerHp;
+
+    expect(guardedDamage).toBe(plainDamage - 15);
+    expect(
+      guardedAfter.log.some((entry) => entry.text === "[가드] 피해 -10"),
+    ).toBe(true);
+    expect(
+      guardedAfter.log.some(
+        (entry) => entry.text === "[굳건한 의지] 피해 -5",
+      ),
+    ).toBe(true);
+  });
+
+  it("받는 피해 감소가 있어도 몬스터의 비피해 스킬은 피해를 주지 않는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const defender: PlayerCombat = {
+      ...player,
+      hp: 1_000,
+      maxHp: 1_000,
+      passiveDamageTakenReductionPct: 20,
+    };
+    const enemy: Monster = {
+      name: "포효 시험체",
+      tags: [],
+      hp: 10_000,
+      atk: 100,
+      def: 0,
+      spd: 30,
+      exp: 0,
+      evasionPct: 0,
+      v2Skills: {
+        learned: ["mob_savage_roar"],
+        equipped: ["mob_savage_roar"],
+      },
+      v2MaxMp: 25,
+    };
+    const state = initialBattleState(defender, enemy, "경감");
+
+    const cast = applyEnemyV2SkillCast(state, defender);
+
+    expect(cast.castFired).toBe(true);
+    expect(cast.state.playerHp).toBe(state.playerHp);
+  });
 });

@@ -138,7 +138,7 @@ function formatRegenTime(ms: number): string {
 //   사용 상한 = min(보유, 비축 상한까지 필요 개수). 최대치를 넘겨 비축 가능하되
 //   staminaOverchargeCap(고정 10,000)까지. 기본 제안 = 만피까지. "한 번에 많이 먹어두고
 //   길게 사냥" 의도 → 초과분은 회복 없이 사냥/이동으로만 소모.
-function StaminaPotionModal({
+export function StaminaPotionModal({
   potions,
   current,
   max,
@@ -156,7 +156,9 @@ function StaminaPotionModal({
   const cap = staminaOverchargeCap(max);
   const toCapFill = Math.max(0, Math.ceil((cap - current) / restore));
   const usableMax = Math.min(potions, toCapFill);
-  const atCap = usableMax <= 0; // 이미 비축 상한 도달 → 사용 불가
+  const noPotions = potions <= 0;
+  const atCap = toCapFill <= 0;
+  const unavailable = noPotions || atCap;
   // 기본 제안 개수 = 만피까지 필요한 만큼(그 이상은 사용자가 비축 선택).
   const fillToMax = Math.max(0, Math.ceil((max - current) / restore));
   const defaultQty = Math.max(1, Math.min(usableMax, fillToMax || 1));
@@ -180,7 +182,7 @@ function StaminaPotionModal({
   };
 
   const handleUse = async () => {
-    if (atCap || busy || !hasQty) return;
+    if (unavailable || busy || !hasQty) return;
     setBusy(true);
     try {
       await onUse(effQty);
@@ -228,9 +230,11 @@ function StaminaPotionModal({
           </div>
         </div>
 
-        {atCap ? (
+        {unavailable ? (
           <p className="mt-4 rounded-md bg-zinc-100 px-3 py-2 text-center text-sm text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-            비축 상한({cap.toLocaleString()})에 도달했어요.
+            {noPotions
+              ? "보유한 스태미나 포션이 없어요."
+              : `비축 상한(${cap.toLocaleString()})에 도달했어요.`}
           </p>
         ) : (
           <>
@@ -308,7 +312,7 @@ function StaminaPotionModal({
           <button
             type="button"
             onClick={handleUse}
-            disabled={atCap || busy || !hasQty}
+            disabled={unavailable || busy || !hasQty}
             className="flex-1 rounded-md border border-amber-600 bg-amber-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? "사용 중…" : hasQty ? `${effQty}개 사용` : "개수 입력"}

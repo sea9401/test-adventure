@@ -7,6 +7,7 @@ import {
   GUILD_MAX_LEVEL,
 } from "@/adventure/data/guild";
 import {
+  GUILD_COMBAT_OPERATIONS_TIER_COSTS,
   GUILD_COMBAT_SUPPLY_DEFS,
   GUILD_COMBAT_SUPPLY_IDS,
   GUILD_COMBAT_SUPPLY_MAX_LEVEL,
@@ -30,9 +31,13 @@ import {
 } from "@/adventure/data/v2/settlement";
 import { GUILD_ALCHEMY_RECIPES } from "@/adventure/data/v2/guildAlchemy";
 import {
+  ASSOCIATION_DINING_POINTS_PER_TICKET,
+  GUILD_DINING_BASE_WEEKLY_TICKETS,
+  GUILD_DINING_EFFECT_DURATION_HOURS,
   GUILD_DINING_INGREDIENTS,
   GUILD_DINING_MENUS,
   GUILD_DINING_POINTS_PER_TICKET,
+  guildDiningMenusForFacilityLevel,
 } from "@/adventure/data/v2/guildDining";
 import {
   GUILD_TRADE_BASE_REWARD_FAME,
@@ -42,9 +47,10 @@ import {
   GUILD_TRADE_TARGET_PER_EXTRA_MEMBER,
 } from "@/adventure/data/v2/guildTrade";
 import {
-  FISHING_CATCH_ITEM_CHANCE_PCT,
+  FISHING_CATCH_ITEM_BASE_CHANCE_PCT,
   FISHING_CATCH_ITEM_DAILY_CAP,
   FISHING_CATCH_ITEM_LIST,
+  FISHING_CATCH_ITEM_MAX_CHANCE_PCT,
 } from "@/adventure/v2/fishingStock";
 import {
   GUILD_TRAINING_DRILLS,
@@ -62,6 +68,10 @@ import {
   GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER,
 } from "@/adventure/data/v2/guildWorkshop";
 import { GUILD_WORKSHOP_MASTER_MARK_DELIVERY_BONUS_PCT } from "@/adventure/data/v2/guildWorkshopDelivery";
+import {
+  GUILD_RAID_DAILY_ATTACKS,
+  GUILD_RAID_ELIGIBLE_ATTACKS,
+} from "@/adventure/data/v2/guildRaid";
 import { H2, P, UL, Em, Note, Table } from "./primitives";
 
 export function GuildContent() {
@@ -113,26 +123,52 @@ export function GuildContent() {
 
       <H2>길드 운영</H2>
       <P>
-        길드 탭은 <Em>길드 정보·길드원·길드 목록·시설</Em>로 나뉩니다. 길드
-        정보에서는 소개와 명성, 길드 자금과 활동 내역을 확인합니다. 길드 목록에서는
-        가입 후에도 다른 길드의 이름·레벨·인원·명성·길드장과 소개를 검색해서 볼 수
-        있습니다. 마스터·관리자에게는 <Em>관리</Em> 탭이 추가되며, 초대·가입
-        신청·직책·길드 연구와 설정을 관리할 수 있습니다.
+        길드 탭은 <Em>길드 정보·길드원·토벌전·길드 목록·시설</Em>로 나뉩니다.
+        길드 정보에서는 소개와 명성, 길드 자금과 활동 내역을 확인합니다. 길드
+        목록에서는 가입 후에도 다른 길드의 이름·레벨·인원·명성·길드장과 소개를
+        검색해서 볼 수 있습니다. 마스터·관리자에게는 <Em>관리</Em> 탭이 추가되며,
+        초대·가입 신청·직책·길드 연구와 설정을 관리할 수 있습니다.
       </P>
+
+      <H2>길드 토벌전</H2>
+      <P>
+        토벌전은 모든 길드가 한 주 동안 같은 단계형 보스를 공격하고, 길드원 전원의
+        누적 피해 합계로 순위를 겨루는 경쟁 콘텐츠입니다. 보스의 현재 단계와 HP는
+        모든 길드가 공유하며, 한 단계를 쓰러뜨리면 남은 피해가 다음 단계로 이어집니다.
+        토벌전 주간 기록은 매주 <Em>월요일 00:00 KST</Em>를 기준으로 바뀝니다.
+      </P>
+      <UL>
+        <li>
+          길드원마다 하루 <Em>{GUILD_RAID_DAILY_ATTACKS}회</Em> 공격할 수 있습니다.
+          사용하지 않은 횟수는 다음 날로 이월되지 않으며, 별도의 스태미너나 소환서를
+          소비하지 않습니다.
+        </li>
+        <li>
+          첫 유효 공격을 한 길드에 그 주의 참여가 고정됩니다. 주중에 다른 길드로
+          옮기면 새 길드에서는 공격할 수 없고, 이미 기록한 피해와 공격 횟수는 그대로
+          유지됩니다.
+        </li>
+        <li>
+          개인 참여 조건은 주간 유효 공격 <Em>{GUILD_RAID_ELIGIBLE_ATTACKS}회 이상</Em>과
+          누적 피해 1 이상입니다. 순위별 보상 내용과 지급 방식은 아직 준비 중이며,
+          현재 토벌전에서는 보상이 지급되지 않습니다.
+        </li>
+      </UL>
 
       <H2>길드 금고</H2>
       <P>
         길드원은 길드 정보 화면에서 개인 골드를 <Em>길드 금고</Em>에 입금할 수
         있습니다. 주간 탐사와 교역 계약 보상도 길드 자금에 더해집니다. 길드
-        금고는 길드 레벨과 시설을 개방하거나 업그레이드할 때 사용합니다.
+        금고는 길드 레벨과 시설을 업그레이드할 때 사용합니다.
       </P>
 
-      <H2>길드 시설 업그레이드</H2>
+      <H2>길드 시설</H2>
       <P>
-        개방된 시설이 Lv.5 미만이면 다음 레벨의 재료 기부가 항상 열려 있습니다.
-        길드원 누구나 생활에서 얻은 <Em>모든 등급의 원목·광석</Em>을 원하는
-        만큼 보탤 수 있으며, 시설 단계가 오를수록 상위 원목과 광석도 함께
-        요구합니다.
+        길드를 창단하면 제작소·훈련장·탐사 본부·연금 공방·길드 식당·교역소·길드
+        창고가 모두 <Em>Lv.1</Em>로 기본 지급됩니다. 별도의 개방 비용은 없습니다.
+        시설이 Lv.5 미만이면 다음 레벨의 재료 기부가 항상 열려 있으며, 길드원
+        누구나 생활에서 얻은 <Em>모든 등급의 원목·광석</Em>을 원하는 만큼 보탤
+        수 있습니다. 시설 단계가 오를수록 상위 원목과 광석도 함께 요구합니다.
       </P>
       <Table
         head={["목표 레벨", "공통 생활 재료 요구량"]}
@@ -182,6 +218,28 @@ export function GuildContent() {
           ];
         })}
         caption="단계가 오를수록 다음 연구 비용이 증가합니다. 골드 보급과 EXP 보급은 사냥 보상을 올리고, 숙달 보급은 사냥 승리 시 추가 숙달 포인트를 확률로 줍니다."
+      />
+      <P>
+        마스터와 관리자는 길드 자금으로 <Em>주간 전투보급 운용</Em>을 최대
+        3단계까지 강화할 수 있습니다. 운용 단계마다 기존 연구 효과와 별도로 사냥
+        골드·EXP가 1%p, 추가 숙달 확률이 5%p씩 오릅니다. 운용 단계는 매주{" "}
+        <Em>월요일 00:00 KST</Em>에 초기화됩니다.
+      </P>
+      <Table
+        head={["운용 단계", "해당 단계 비용", "주간 누적 비용", "추가 효과"]}
+        rows={GUILD_COMBAT_OPERATIONS_TIER_COSTS.map((cost, index, costs) => {
+          const tier = index + 1;
+          const cumulative = costs
+            .slice(0, tier)
+            .reduce((sum, amount) => sum + amount, 0);
+          return [
+            `Lv.${tier}`,
+            `${cost.toLocaleString("ko-KR")} G`,
+            `${cumulative.toLocaleString("ko-KR")} G`,
+            `사냥 골드·EXP +${tier}%p · 추가 숙달 확률 +${tier * 5}%p`,
+          ];
+        })}
+        caption="운용비는 단계별로 결제하며 자동 차감되지 않습니다. 최고 단계 길드와 전투보급 연구를 모두 마친 길드도 매주 이용할 수 있습니다."
       />
 
       <H2>길드 훈련장</H2>
@@ -277,20 +335,26 @@ export function GuildContent() {
       <H2>연금 공방</H2>
       <P>
         연금 공방은 개인 농장에서 수확한 <Em>허브·은빛잎</Em>을 HP 또는 MP
-        충전량으로 조제하는 길드 시설입니다. 결과는 즉시 개인 충전약에 더해지며
-        거래할 수 없습니다. 연성력은 계정 단위로 매주 월요일 00:00 KST에
-        초기화되고, 길드를 옮겨도 같은 주의 사용량은 유지됩니다.
+        충전량, <Em>강화석</Em>, <Em>보스 소환서</Em>로 바꾸는 길드 시설입니다.
+        공방 Lv.4부터는 연성력을 집중해 <Em>스태미나 회복약</Em>도 만들 수
+        있습니다. 결과는 즉시 개인 보유량에 더해집니다. 연성력은 계정 단위로
+        매주 월요일 00:00 KST에 초기화되고, 길드를 옮겨도 같은 주의 사용량은
+        유지됩니다.
       </P>
       <Table
-        head={["레시피", "시설", "재료", "연성력", "충전량"]}
+        head={["레시피", "시설", "재료", "연성력", "결과"]}
         rows={GUILD_ALCHEMY_RECIPES.map((recipe) => [
           <Em key={recipe.id}>{recipe.name}</Em>,
           `Lv.${recipe.minFacilityLevel}`,
           `허브 ${recipe.ingredients.herb}${recipe.ingredients.silverleaf > 0 ? ` · 은빛잎 ${recipe.ingredients.silverleaf}` : ""}`,
           recipe.energyCost.toLocaleString("ko-KR"),
-          `+${recipe.chargeAmount.toLocaleString("ko-KR")}`,
+          recipe.output === "stamina_potion"
+            ? `스태미나 회복약 ${recipe.staminaPotionAmount ?? 0}개`
+            : recipe.output === "material"
+              ? `${recipe.outputMaterialName ?? "연성 재료"} ${recipe.outputMaterialAmount ?? 0}개`
+            : `충전 +${recipe.chargeAmount.toLocaleString("ko-KR")}`,
         ])}
-        caption="조제할 때 HP·MP·반반 충전 중 하나를 선택합니다. HP와 MP 충전량은 각각 최대 10,000,000을 넘을 수 없습니다."
+        caption="충전액은 조제할 때 HP·MP·반반 충전 중 하나를 선택합니다. 강화 촉매·소환의 잉크·활력 영약은 분배 설정과 무관합니다. HP와 MP 충전량은 각각 최대 10,000,000을 넘을 수 없습니다."
       />
 
       <H2>길드 식당</H2>
@@ -298,32 +362,39 @@ export function GuildContent() {
         길드 식당은 농장과 낚시에서 얻은 식재료를 길드원이 함께 준비하고 주간
         식권으로 식사하는 시설입니다. 낚은 어종과 크기는 어보·기록에 남고,
         식재료 보관함에는 물고기 등급에 맞는 어획물 한 종류가 자동으로 쌓입니다.
-        성공한 낚시마다 서버에서 <Em>{FISHING_CATCH_ITEM_CHANCE_PCT}%</Em>
-        확률을 판정하며, 어획물은 현재 공동 식재료 기부에만 사용합니다.
+        성공한 낚시마다 서버에서 낚시 레벨에 따라{" "}
+        <Em>{FISHING_CATCH_ITEM_BASE_CHANCE_PCT}~{FISHING_CATCH_ITEM_MAX_CHANCE_PCT}%</Em>
+        확률을 판정하며, 어획물은 요리와 공동 식재료 기부에 사용합니다.
       </P>
       <UL>
         <li>
-          이번 주 참여 대상 길드원은 식재료 기부 여부와 관계없이 기본 식권 1장을
-          받습니다. 식재료 <Em>{GUILD_DINING_POINTS_PER_TICKET}점</Em>을 기부할 때마다
-          시설 레벨별 한도까지 식권을 추가로 받습니다.
+          이번 주 참여 대상 길드원이 함께 공동 준비 목표를 달성하면 각자 기본 식권 {GUILD_DINING_BASE_WEEKLY_TICKETS}장을
+          사용할 수 있습니다. 개인이 식재료 <Em>{GUILD_DINING_POINTS_PER_TICKET}점</Em>을 기부할 때마다
+          시설 레벨별 한도까지 추가 식권이 발급됩니다.
         </li>
         <li>
-          관리자는 식재료 기부가 시작되기 전에 이번 주 메뉴를 정합니다. 식당
-          레벨이 오를 때마다 동시에 운영할 수 있는 메뉴가 한 종류씩 늘어납니다.
+          메뉴는 관리자가 미리 정하지 않습니다. 공동 준비가 끝나면 각 길드원이
+          현재 식당 레벨에서 해금된 메뉴 중 원하는 메뉴를 직접 골라 먹습니다.
         </li>
         <li>
-          식권·기여도·메뉴는 월요일 00:00 KST에 초기화됩니다. 길드를 옮겨도
+          공동 준비·식권·기여도·효과는 월요일 00:00 KST에 초기화됩니다. 길드를 옮겨도
           같은 주에 이미 사용한 식권과 적용 중인 음식 효과는 유지됩니다.
         </li>
       </UL>
+      <P>
+        협회 식당은 개인이 식재료 <Em>{ASSOCIATION_DINING_POINTS_PER_TICKET}점</Em>을
+        기여할 때마다 식권 1장을 즉시 얻습니다. 공동 준비 목표를 기다리지 않으며,
+        주간 개인 납품 한도는 없습니다. 개인 기여·식권·효과는 매주 월요일 00:00
+        KST에 초기화됩니다.
+      </P>
       <Table
-        head={["시설 레벨", "기여 식권", "동시 운영 메뉴"]}
+        head={["시설 레벨", "기여 식권", "이용 가능 메뉴"]}
         rows={DINING_HALL_UPGRADES.map((upgrade) => [
           `Lv.${upgrade.level}`,
           `최대 ${upgrade.weeklyMealTickets}장`,
-          `${upgrade.weeklyMenuSlots}종`,
+          `${guildDiningMenusForFacilityLevel(upgrade.level).length}종`,
         ])}
-        caption="모든 주간 참여 길드원은 기본 식권 1장을 받습니다. 시설 레벨이 오를 때마다 동시에 운영할 수 있는 메뉴가 한 종류씩 늘어납니다."
+        caption={`공동 준비 목표를 달성하면 모든 주간 참여 길드원이 기본 식권 ${GUILD_DINING_BASE_WEEKLY_TICKETS}장을 사용할 수 있습니다. 시설 레벨에서 해금된 메뉴는 누구나 개인별로 선택할 수 있습니다.`}
       />
       <Table
         head={["낚시 식재료", "기부 단위", "공동 준비", "일일 획득"]}
@@ -348,7 +419,7 @@ export function GuildContent() {
           `Lv.${menu.minFacilityLevel}`,
           menu.description,
         ])}
-        caption="지속 효과 메뉴는 식권 1장당 12시간 적용됩니다. 같은 메뉴는 남은 시간에 12시간을 더하고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. 길드 대연회는 사냥과 생활 경험치에 모두 적용됩니다. 효과식은 한 번에 하나만 적용되며 월요일 00:00 KST에 초기화됩니다."
+        caption={`지속 효과 메뉴는 식권 1장당 ${GUILD_DINING_EFFECT_DURATION_HOURS}시간 적용됩니다. 같은 메뉴는 남은 시간에 ${GUILD_DINING_EFFECT_DURATION_HOURS}시간을 더하고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. 길드 대연회는 사냥과 생활 경험치에 모두 적용됩니다. 효과식은 한 번에 하나만 적용되며 월요일 00:00 KST에 초기화됩니다.`}
       />
 
       <H2>길드 교역소</H2>
@@ -369,13 +440,24 @@ export function GuildContent() {
           보상이 증가합니다. 주간 계약 수도 3건에서 5건까지 늘어납니다.
         </li>
         <li>
-          계약·개인 납품·개인 구매 횟수는 월요일 00:00 KST에 초기화됩니다.
-          공동 교역 토큰은 모든 길드원이 함께 사용하며 다음 주에도 유지됩니다.
+          계약·개인 납품·길드 전체 구매 횟수는 월요일 00:00 KST에 초기화됩니다.
+          공동 교역 토큰은 다음 주에도 유지됩니다.
         </li>
         <li>
-          상점 품목은 공동 토큰으로 개인 구매하며 보상은 구매자에게 즉시 지급됩니다.
-          구매 한도는 길드원이 각자 적용받고, 구매자·품목·수량·사용 토큰과 남은
-          공동 토큰은 길드 활동 내역에 기록됩니다.
+          상점 품목은 길드장과 관리자만 선택할 수 있습니다. 길드원 지급 상품은
+          현재 길드원 전원에게 같은 수량으로 지급되며, 시설 지원 상품은 선택한
+          시설의 다음 업그레이드 공동 기부 진행도에 즉시 적용됩니다. 구매 한도는
+          길드 전체에 적용됩니다.
+        </li>
+        <li>
+          길드 시설 지원 물자는 통나무와 철광석만 합계 200개 지원합니다. 각
+          재료를 최대 100개씩 우선 배분하고, 한쪽의 남은 요구량이 100개보다
+          적으면 남는 수량을 다른 재료에 더합니다. 두 재료의 남은 요구량이
+          합계 200개 이상인 시설만 선택할 수 있습니다.
+        </li>
+        <li>
+          선택한 관리자·품목·인원·사용 토큰과 남은 공동 토큰은 길드 활동 내역에
+          기록됩니다.
         </li>
       </UL>
       <Table
@@ -394,14 +476,16 @@ export function GuildContent() {
         caption="토큰 보너스는 작은 묶음을 여러 번 납품해도 개인의 주간 누적 납품 점수를 기준으로 소수점 손실 없이 계산됩니다."
       />
       <Table
-        head={["교환 품목", "필요 시설", "비용", "개인 주간 한도"]}
+        head={["교환 품목", "필요 시설", "비용", "길드 주간 한도", "지급 대상", "효과"]}
         rows={GUILD_TRADE_SHOP_ITEMS.map((item) => [
           <Em key={item.id}>{item.name}</Em>,
           `Lv.${item.minFacilityLevel}`,
           `${item.tokenCost} 토큰`,
           `${item.weeklyLimit}회`,
+          item.target === "guild" ? "길드 공용 자원" : "현재 길드원 전원",
+          item.description,
         ])}
-        caption={`계약 기본 완료 보상은 길드 금고 ${GUILD_TRADE_BASE_REWARD_GOLD.toLocaleString("ko-KR")}G와 명성 ${GUILD_TRADE_BASE_REWARD_FAME.toLocaleString("ko-KR")}이며, 교역소 레벨 보너스가 적용됩니다.`}
+        caption={`시설 지원 물자는 개인 인벤토리나 별도 길드 재화로 보관되지 않고 선택한 시설에 바로 적용됩니다. 계약 기본 완료 보상은 길드 금고 ${GUILD_TRADE_BASE_REWARD_GOLD.toLocaleString("ko-KR")}G와 명성 ${GUILD_TRADE_BASE_REWARD_FAME.toLocaleString("ko-KR")}이며, 교역소 레벨 보너스가 적용됩니다.`}
       />
 
       <H2>길드 제작소</H2>
@@ -431,7 +515,8 @@ export function GuildContent() {
         <li>
           기본 제작 목록은 <Em>수호 · 격노 · 질풍 · 룬 · 연격 · 부식각인</Em>{" "}
           제작 세트 장비를 중심으로 표시됩니다. 드랍 장비와 같은 일반 레시피는
-          초반 숙련도 보강용 수련 제작으로 분리됩니다.
+          초반 숙련도 보강용 수련 제작으로 분리됩니다. 자주 만드는 레시피는
+          별표로 즐겨찾기에 저장하고 즐겨찾기 필터로 모아 볼 수 있습니다.
         </li>
         <li>
           같은 티어는 부위와 관계없이 원목·광석 총량이 같습니다. 수호는 광석
@@ -459,6 +544,27 @@ export function GuildContent() {
           추가로 받습니다.
         </li>
       </UL>
+      <P>
+        대장장이 Lv.13부터는 무기 단조·방어구 단조·장신구 세공 중 하나를
+        전문 분야로 정합니다. 전문 분야는 한 번 정하면 변경하거나 초기화할 수
+        없습니다. 다른 분야 장비도 계속 만들 수 있지만, 아래 전문 제작 기술은
+        선택한 분야의 장비에만 적용됩니다.
+      </P>
+      <Table
+        head={["대장장이 레벨", "전문 제작 해금"]}
+        rows={[
+          ["Lv.13 영구 전문 분야", "무기·방어구·장신구 중 하나를 영구 선택"],
+          ["Lv.15 옵션 성향", "원하는 옵션군이 우선될 기본 확률 75%"],
+          ["Lv.17 집중 촉매", "티어별 제작 재료 1개를 더 써서 성향 확률을 90%로 강화"],
+          ["Lv.20 구조 제작술", "같은 총 옵션량 안에서 주력·옵션·극한 배분 선택"],
+          ["Lv.22 안정 제작", "옵션 편차를 중앙으로 모으는 구조 해금"],
+          ["Lv.24 촉매 회수", "사용한 촉매를 20% 확률로 보존"],
+          ["Lv.26 명장 전문 제작", "성향과 구조 제작술을 명장 제작에도 적용"],
+          ["Lv.28 전문 각인·대표작", "전문 분야 표식을 남기고 보유 제작품을 대표작으로 전시"],
+          ["Lv.30 최종 검수", "명장 전문 제작 시 같은 총 옵션량의 두 배분안 중 하나를 확정"],
+        ]}
+        caption="옵션 성향과 구조 제작술은 새로운 스탯 상한을 추가하지 않고 기존 굴림 총량의 배분만 조절합니다. 최종 검수를 확정하기 전에는 다음 장비를 제작할 수 없습니다."
+      />
       <Table
         head={["장비 티어", "원목·광석", "기본 총량", "촉매 총량"]}
         rows={[

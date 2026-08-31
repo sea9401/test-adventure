@@ -15,9 +15,9 @@ type TabBadgeVariant = "solid" | "subtle" | "alert";
 type TabVariant = "underline" | "highlight";
 
 const SIZE: Record<TabSize, string> = {
-  sm: "px-3 py-2 text-sm font-medium",
-  md: "px-4 py-2 text-base font-semibold",
-  lg: "px-5 py-2.5 text-lg font-semibold",
+  sm: "min-h-10 sm:min-h-0 px-3 py-2 text-sm font-medium",
+  md: "min-h-10 sm:min-h-0 px-4 py-2 text-base font-semibold",
+  lg: "min-h-10 sm:min-h-0 px-5 py-2.5 text-lg font-semibold",
 };
 
 const CONTAINER: Record<TabVariant, string> = {
@@ -27,20 +27,20 @@ const CONTAINER: Record<TabVariant, string> = {
 
 const TAB_BASE: Record<TabVariant, string> = {
   underline: "-mb-px border-b-2",
-  highlight: "",
+  highlight: "-mb-px border-b-2",
 };
 
 const TAB_STATE: Record<TabVariant, { active: string; inactive: string }> = {
   underline: {
-    active: "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100",
+    active: "border-violet-600 text-violet-700 dark:border-violet-400 dark:text-violet-300",
     inactive:
       "border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100",
   },
   // 박스(테두리·배경) 없이 글자 색만 — 선택은 진한 인디고, 호버는 옅은 인디고, 기본은 중립 회색.
   highlight: {
-    active: "text-indigo-700 dark:text-indigo-300",
+    active: "border-violet-600 text-violet-700 dark:border-violet-400 dark:text-violet-300",
     inactive:
-      "text-zinc-500 hover:text-indigo-500 dark:text-zinc-400 dark:hover:text-indigo-400",
+      "border-transparent text-zinc-500 hover:text-violet-600 dark:text-zinc-400 dark:hover:text-violet-300",
   },
 };
 
@@ -112,7 +112,9 @@ export function TabBar<K extends string>({
 
   const cls = [
     CONTAINER[variant],
-    scrollable ? "no-scrollbar flex-nowrap overflow-x-auto" : "",
+    scrollable
+      ? "no-scrollbar w-full min-w-0 max-w-full flex-nowrap overflow-x-auto"
+      : "",
     className,
   ]
     .filter(Boolean)

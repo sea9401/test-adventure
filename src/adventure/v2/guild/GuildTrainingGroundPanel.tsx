@@ -31,17 +31,20 @@ const ERROR_TEXT: Record<string, string> = {
   locked: "아직 이용할 수 없는 훈련이에요.",
   invalid: "잘못된 요청이에요.",
   invalid_json: "잘못된 요청이에요.",
+  weekly_source_conflict: "이번 주 훈련장 보상처를 이미 다른 곳으로 선택했어요.",
 };
 
 export function GuildTrainingGroundPanel({
   info,
   localTrainingGround = false,
   outpostId,
+  endpoint: endpointOverride,
   onChanged,
 }: {
   info: GuildInfoResponse | null;
   localTrainingGround?: boolean;
   outpostId?: string;
+  endpoint?: string;
   onChanged?: () => void | Promise<void>;
 }) {
   const { notifyReward } = useRewardToast();
@@ -55,9 +58,11 @@ export function GuildTrainingGroundPanel({
     null,
   );
   const [message, setMessage] = useSystemMessageState();
-  const endpoint = outpostId
-    ? `/api/v2/guild/training-ground?outpostId=${encodeURIComponent(outpostId)}`
-    : "/api/v2/guild/training-ground";
+  const endpoint =
+    endpointOverride ??
+    (outpostId
+      ? `/api/v2/guild/training-ground?outpostId=${encodeURIComponent(outpostId)}`
+      : "/api/v2/guild/training-ground");
 
   const load = useCallback(async (alive: () => boolean = () => true) => {
     setLoading(true);
@@ -96,7 +101,7 @@ export function GuildTrainingGroundPanel({
     setClaimingId(drillId);
     setMessage(null);
     try {
-      const res = await fetch("/api/v2/guild/training-ground", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ drillId, outpostId }),

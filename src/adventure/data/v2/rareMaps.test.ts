@@ -118,4 +118,12 @@ describe("rareMaps", () => {
     expect(rollRareMapDrop(() => 0)).toBe(RARE_MAP_KIND_IDS[0]);
     expect(rollRareMapDrop(() => 0.9999)).toBeNull();
   });
+
+  it("희귀 지도 드롭 배율은 기존 확률에 곱하고 0% 지도는 활성화하지 않는다", () => {
+    const first = RARE_MAP_KIND_IDS[0];
+    const boundary = RARE_MAP_KINDS[first].dropPct / 100;
+    expect(rollRareMapDrop(() => boundary * 1.1, 1)).toBeNull();
+    expect(rollRareMapDrop(() => boundary * 1.1, 1.2)).toBe(first);
+    expect(RARE_MAP_KINDS.exp_tome.dropPct).toBe(0);
+  });
 });

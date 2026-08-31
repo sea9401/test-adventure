@@ -25,11 +25,24 @@ import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { kstWeekMondayKey } from "@/lib/kst";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
+import {
+  grantStaminaPotions,
+  STAMINA_POTIONS_KEY,
+  staminaPotionCount,
+} from "@/adventure/v2/staminaPotions";
+import {
+  associationFacilityLevel,
+  claimWeeklyFacilitySource,
+} from "@/lib/server/adventurerAssociation";
 
 type InventorySave = Record<string, unknown> & {
   hpCharges?: unknown;
   mpCharges?: unknown;
   guildAlchemyWeekly?: unknown;
+};
+
+type CharacterSave = Record<string, unknown> & {
+  materials?: unknown;
 };
 
 type CraftBody = {
@@ -61,10 +74,12 @@ async function alchemyWorkshopLevel(
 function workshopView(params: {
   level: number;
   farm: FarmState;
+  character: CharacterSave;
   inventory: InventorySave;
+  staminaPotions: number;
   weekKey: string;
 }) {
-  const { level, farm, inventory, weekKey } = params;
+  const { level, farm, character, inventory, staminaPotions, weekKey } = params;
   const weekly = parseGuildAlchemyWeeklyState(
     inventory.guildAlchemyWeekly,
     weekKey,
@@ -89,6 +104,26 @@ function workshopView(params: {
       mp: safeCharge(inventory.mpCharges),
       max: MAX_CHARGE,
     },
+    staminaPotions,
+    craftedMaterials: Object.fromEntries(
+      GUILD_ALCHEMY_RECIPES.flatMap((recipe) =>
+        recipe.outputMaterialId
+          ? [[
+              recipe.outputMaterialId,
+              Math.max(
+                0,
+                Math.floor(
+                  Number(
+                    character.materials && typeof character.materials === "object"
+                      ? (character.materials as Record<string, unknown>)[recipe.outputMaterialId]
+                      : 0,
+                  ) || 0,
+                ),
+              ),
+            ] as const]
+          : [],
+      ),
+    ),
     recipes: GUILD_ALCHEMY_RECIPES.map((recipe) => ({
       ...recipe,
       unlocked: level >= recipe.minFacilityLevel,
@@ -96,18 +131,28 @@ function workshopView(params: {
   };
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
+  const association = new URL(req.url).searchParams.get("scope") === "association";
   const result = await db.transaction(async (tx) => {
-    const guildId = await getGuildId(tx, userId);
-    if (guildId == null) {
+    const memberGuildId = await getGuildId(tx, userId);
+    if (association && memberGuildId != null) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "association_for_solo_only" },
+      };
+    }
+    const guildId = association ? 0 : memberGuildId;
+    if (!association && guildId == null) {
       return { status: 403, body: { ok: false as const, error: "no_guild" } };
     }
-    const level = await alchemyWorkshopLevel(tx, guildId);
+    const level = association
+      ? await associationFacilityLevel(tx, "alchemy_workshop")
+      : await alchemyWorkshopLevel(tx, guildId!);
     if (level <= 0) {
       return {
         status: 403,
@@ -115,9 +160,11 @@ export async function GET() {
       };
     }
     const now = new Date();
-    const [farmRaw, inventory] = await Promise.all([
+    const [farmRaw, character, inventory, staminaPotionsRaw] = await Promise.all([
       readSave(tx, userId, FARM_SAVE_KEY, emptyFarmState(now.getTime())),
+      readSave<CharacterSave>(tx, userId, "character.v2", {}),
       readSave<InventorySave>(tx, userId, "inventory.v2", {}),
+      readSave(tx, userId, STAMINA_POTIONS_KEY, { count: 0 }),
     ]);
     return {
       status: 200,
@@ -126,7 +173,9 @@ export async function GET() {
         ...workshopView({
           level,
           farm: parseFarmState(farmRaw),
+          character,
           inventory,
+          staminaPotions: staminaPotionCount(staminaPotionsRaw),
           weekKey: kstWeekMondayKey(now),
         }),
       },
@@ -164,12 +213,22 @@ export async function POST(req: Request) {
 
   const now = new Date();
   const weekKey = kstWeekMondayKey(now);
+  const association = new URL(req.url).searchParams.get("scope") === "association";
   const result = await db.transaction(async (tx) => {
-    const guildId = await getGuildId(tx, userId);
-    if (guildId == null) {
+    const memberGuildId = await getGuildId(tx, userId);
+    if (association && memberGuildId != null) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "association_for_solo_only" },
+      };
+    }
+    const guildId = association ? 0 : memberGuildId;
+    if (!association && guildId == null) {
       return { status: 403, body: { ok: false as const, error: "no_guild" } };
     }
-    const level = await alchemyWorkshopLevel(tx, guildId);
+    const level = association
+      ? await associationFacilityLevel(tx, "alchemy_workshop")
+      : await alchemyWorkshopLevel(tx, guildId!);
     if (level <= 0) {
       return {
         status: 403,
@@ -180,13 +239,27 @@ export async function POST(req: Request) {
       return { status: 409, body: { ok: false as const, error: "recipe_locked" } };
     }
 
-    // 락 순서: farm.v2 → inventory.v2. 재료 차감과 충전 지급을 한 트랜잭션으로 묶는다.
+    // 락 순서: character.v2 → farm.v2 → stamina-potions.v1 → inventory.v2.
+    // 재료 차감과 결과 지급을 한 트랜잭션으로 묶는다.
+    const character = await lockSaveForUpdate<CharacterSave>(
+      tx,
+      userId,
+      "character.v2",
+      {},
+    );
     const farmRaw = await lockSaveForUpdate(
       tx,
       userId,
       FARM_SAVE_KEY,
       emptyFarmState(now.getTime()),
     );
+    const staminaPotionSave = await lockSaveForUpdate(
+      tx,
+      userId,
+      STAMINA_POTIONS_KEY,
+      { count: 0 },
+    );
+    const staminaPotions = staminaPotionCount(staminaPotionSave);
     const inventory = await lockSaveForUpdate<InventorySave>(
       tx,
       userId,
@@ -230,13 +303,34 @@ export async function POST(req: Request) {
     const gain = guildAlchemyChargeGain(recipe, target, quantity);
     const hpCharges = safeCharge(inventory.hpCharges);
     const mpCharges = safeCharge(inventory.mpCharges);
-    if (hpCharges + gain.hp > MAX_CHARGE || mpCharges + gain.mp > MAX_CHARGE) {
+    if (
+      recipe.output === "charge" &&
+      (hpCharges + gain.hp > MAX_CHARGE || mpCharges + gain.mp > MAX_CHARGE)
+    ) {
       return {
         status: 409,
         body: {
           ok: false as const,
           error: "charge_capacity",
           room: { hp: MAX_CHARGE - hpCharges, mp: MAX_CHARGE - mpCharges },
+        },
+      };
+    }
+    const weeklySource = await claimWeeklyFacilitySource(
+      tx,
+      userId,
+      "alchemy_workshop",
+      association ? "association" : "guild",
+      weekKey,
+      association ? undefined : guildId!,
+    );
+    if (!weeklySource.ok) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "weekly_source_conflict",
+          selectedSource: weeklySource.selected,
         },
       };
     }
@@ -262,19 +356,58 @@ export async function POST(req: Request) {
       mpCharges: mpCharges + gain.mp,
       guildAlchemyWeekly: nextWeekly,
     };
+    const staminaPotionsGranted =
+      recipe.output === "stamina_potion"
+        ? (recipe.staminaPotionAmount ?? 0) * quantity
+        : 0;
+    const nextStaminaPotions = staminaPotions + staminaPotionsGranted;
+    const nextStaminaPotionSave = grantStaminaPotions(
+      staminaPotionSave,
+      staminaPotionsGranted,
+    );
+    const materialId = recipe.output === "material" ? recipe.outputMaterialId : undefined;
+    const materialGranted =
+      materialId == null ? 0 : (recipe.outputMaterialAmount ?? 0) * quantity;
+    const characterMaterials =
+      character.materials && typeof character.materials === "object"
+        ? { ...(character.materials as Record<string, number>) }
+        : {};
+    if (materialId && materialGranted > 0) {
+      characterMaterials[materialId] =
+        Math.max(0, Math.floor(Number(characterMaterials[materialId]) || 0)) +
+        materialGranted;
+    }
+    const nextCharacter: CharacterSave = {
+      ...character,
+      materials: characterMaterials,
+    };
     await upsertSave(tx, userId, FARM_SAVE_KEY, nextFarm);
+    if (materialGranted > 0) {
+      await upsertSave(tx, userId, "character.v2", nextCharacter);
+    }
     await upsertSave(tx, userId, "inventory.v2", nextInventory);
-    await logGuildActivity(tx, {
-      guildId,
-      type: "alchemy_craft",
-      actorUserId: userId,
-      meta: {
-        itemName: recipe.name,
-        chargeTarget: target,
-        chargeAmount: gain.total,
-        contributionPoints: energyCost * 10,
-      },
-    });
+    if (staminaPotionsGranted > 0) {
+      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextStaminaPotionSave);
+    }
+    if (!association) {
+      await logGuildActivity(tx, {
+        guildId: guildId!,
+        type: "alchemy_craft",
+        actorUserId: userId,
+        meta: {
+          itemName: recipe.name,
+          ...(recipe.output === "charge"
+            ? { chargeTarget: target, chargeAmount: gain.total }
+            : recipe.output === "stamina_potion"
+              ? { staminaPotions: staminaPotionsGranted }
+              : {
+                  alchemyRewardName: recipe.outputMaterialName,
+                  alchemyRewardAmount: materialGranted,
+                }),
+          contributionPoints: energyCost * 10,
+        },
+      });
+    }
 
     return {
       status: 200,
@@ -283,34 +416,77 @@ export async function POST(req: Request) {
         crafted: {
           recipeId: recipe.id,
           recipeName: recipe.name,
+          output: recipe.output,
           target,
           quantity,
           hpCharged: gain.hp,
           mpCharged: gain.mp,
           totalCharged: gain.total,
+          staminaPotionsGranted,
+          staminaPotions: nextStaminaPotions,
+          materialId: materialId ?? null,
+          materialName: recipe.outputMaterialName ?? null,
+          materialGranted,
+          materialBalance:
+            materialId == null ? 0 : (characterMaterials[materialId] ?? 0),
         },
-        ...workshopView({ level, farm: nextFarm, inventory: nextInventory, weekKey }),
+        ...workshopView({
+          level,
+          farm: nextFarm,
+          character: nextCharacter,
+          inventory: nextInventory,
+          staminaPotions: nextStaminaPotions,
+          weekKey,
+        }),
       },
-      guildId,
+      guildId: guildId ?? 0,
     };
   });
 
   if (result.status === 200 && result.body.ok) {
     const crafted = result.body.crafted;
-    recordEconomyEventSoon({
-      userId,
-      eventType: "reward.guild_alchemy_charge",
-      itemKind: "recovery_charge",
-      itemId: crafted.target,
-      quantity: crafted.totalCharged,
-      detail: {
-        guildId: result.guildId,
-        recipeId: crafted.recipeId,
-        quantity: crafted.quantity,
-        hpCharged: crafted.hpCharged,
-        mpCharged: crafted.mpCharged,
-      },
-    });
+    recordEconomyEventSoon(
+      crafted.output === "stamina_potion"
+        ? {
+            userId,
+            eventType: "reward.guild_alchemy_stamina_potion",
+            itemKind: "stamina_potion",
+            itemId: "stamina_potion",
+            quantity: crafted.staminaPotionsGranted,
+            detail: {
+              guildId: result.guildId,
+              recipeId: crafted.recipeId,
+              quantity: crafted.quantity,
+            },
+          }
+        : crafted.output === "material"
+          ? {
+              userId,
+              eventType: "reward.guild_alchemy_material",
+              itemKind: "material",
+              itemId: crafted.materialId ?? "unknown",
+              quantity: crafted.materialGranted,
+              detail: {
+                guildId: result.guildId,
+                recipeId: crafted.recipeId,
+                quantity: crafted.quantity,
+              },
+            }
+          : {
+            userId,
+            eventType: "reward.guild_alchemy_charge",
+            itemKind: "recovery_charge",
+            itemId: crafted.target,
+            quantity: crafted.totalCharged,
+            detail: {
+              guildId: result.guildId,
+              recipeId: crafted.recipeId,
+              quantity: crafted.quantity,
+              hpCharged: crafted.hpCharged,
+              mpCharged: crafted.mpCharged,
+            },
+          },
+    );
   } else if (!result.body.ok) {
     recordRewardFailureSoon({
       userId,

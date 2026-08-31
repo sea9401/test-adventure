@@ -13,15 +13,16 @@ import {
 import { FISH_TOTAL } from "@/adventure/data/v2/fish";
 import {
   COOKING_LEVEL_CAP,
-  COOKING_RECIPES,
   cookingLevelForXp,
   cookingLevelXpThreshold,
   parseCookingState,
-} from "./cooking";
+} from "./cooking/state";
+import { COOKING_PUBLIC_RECIPES } from "./cooking/catalog";
 import {
   countDiscoveredFish,
   parseFishCodex,
 } from "./fishingCodex";
+import { fishingCatchItemChancePct } from "./fishingStock";
 import {
   FISHING_LEVEL_CAP,
   fishingLevelBonuses,
@@ -45,8 +46,9 @@ import {
   woodcuttingTimeReduction,
 } from "./woodcuttingProgression";
 import { parseWoodcuttingLog } from "./woodcuttingSession";
+import { LIFE_LEVEL_CAP } from "./lifeLevelProgression";
 
-export const LIFE_MASTERY_ACTIVITY_LEVEL_CAP = 50;
+export const LIFE_MASTERY_ACTIVITY_LEVEL_CAP = LIFE_LEVEL_CAP;
 export const LIFE_MASTERY_MAX_LEVEL = LIFE_MASTERY_ACTIVITY_LEVEL_CAP * 5;
 
 export type LifeActivityId =
@@ -122,12 +124,23 @@ const LIFE_JOB_MILESTONES = {
   ],
 } as const;
 
+const LIFE_EXTENSION_MILESTONES = [60, 75, 90, 100] as const;
+
+function nextLifeExtensionGoal(level: number): string | null {
+  const nextLevel = LIFE_EXTENSION_MILESTONES.find(
+    (milestoneLevel) => milestoneLevel > level,
+  );
+  return nextLevel ? `다음 숙련 마일스톤 · Lv.${nextLevel}` : null;
+}
+
 function nextLifeJobGoal(
   milestones: readonly { level: number; name: string }[],
   level: number,
 ): string | null {
   const next = milestones.find((milestone) => milestone.level > level);
-  return next ? `${next.name} 생활 레벨 조건 · Lv.${next.level}` : null;
+  return next
+    ? `${next.name} 생활 레벨 조건 · Lv.${next.level}`
+    : nextLifeExtensionGoal(level);
 }
 
 function cappedProgress(args: {
@@ -232,7 +245,7 @@ export function lifeSummaryFromSaves(
         { label: "총 수확", value: farm.stats.harvests, suffix: "회" },
         { label: "희귀 수확", value: farm.stats.rareHarvests, suffix: "회" },
         { label: "납품", value: farm.stats.deliveries, suffix: "회" },
-        { label: "농장 평판", value: farm.stats.reputation },
+        { label: "농장 증표", value: farm.stats.reputation, suffix: "개" },
       ],
       effects: ["생산직 계열 전직 조건에 반영"],
       nextGoal: nextLifeJobGoal(LIFE_JOB_MILESTONES.farming, farming.level),
@@ -298,8 +311,12 @@ export function lifeSummaryFromSaves(
       effects: [
         `물고기 크기 +${fishing.levelBonuses.sizeBonusPct}%`,
         `특별 손님 가중치 +${fishing.levelBonuses.specialWeightPct}%`,
+        `어획물 획득 확률 ${fishingCatchItemChancePct(fishing.level)}%`,
       ],
-      nextGoal: nextFishingBonusGoal(fishing.level),
+      nextGoal:
+        fishing.level >= 50
+          ? nextLifeExtensionGoal(fishing.level)
+          : nextFishingBonusGoal(fishing.level),
     },
     {
       id: "cooking",
@@ -311,15 +328,15 @@ export function lifeSummaryFromSaves(
       records: [
         { label: "조리한 요리", value: cookingState.stats.dishesCooked, suffix: "개" },
         { label: "걸작 요리", value: cookingState.stats.masterpiecesCooked, suffix: "개" },
-        { label: "주문 완료", value: cookingState.stats.ordersCompleted, suffix: "회" },
+        { label: "납품 완료", value: cookingState.stats.deliveriesCompleted, suffix: "회" },
         {
           label: "발견 조리법",
           value: cookingState.discoveredRecipeIds.length,
-          suffix: `/${COOKING_RECIPES.length}개`,
+          suffix: `/${COOKING_PUBLIC_RECIPES.length}개`,
         },
       ],
       effects: [
-        `현재 레벨 조리법 ${COOKING_RECIPES.filter((recipe) => recipe.requiredLevel <= cooking.level).length}/${COOKING_RECIPES.length}개 이용 가능`,
+        `현재 레벨 연구 대상 ${COOKING_PUBLIC_RECIPES.filter((recipe) => recipe.requiredLevel <= cooking.level).length}/${COOKING_PUBLIC_RECIPES.length}개`,
       ],
       nextGoal: nextLifeJobGoal(LIFE_JOB_MILESTONES.cooking, cooking.level),
     },

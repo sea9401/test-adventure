@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { RETENTION_POLICY, retentionCutoff } from "./retentionPolicy";
+import {
+  RETENTION_POLICY,
+  drainRetentionBatches,
+  retentionCutoff,
+} from "./retentionPolicy";
 
 describe("운영 로그 보관 정책", () => {
   it("고빈도 로그와 운영 기록의 확정 보관 기간을 유지한다", () => {
@@ -18,5 +22,31 @@ describe("운영 로그 보관 정책", () => {
     expect(retentionCutoff(7, now).toISOString()).toBe(
       "2026-07-29T04:20:00.000Z",
     );
+  });
+
+  it("적체 배치를 제한 횟수까지만 합산하고 남은 적체를 표시한다", async () => {
+    const batches = [
+      { deleted: 5_000, more: true },
+      { deleted: 5_000, more: true },
+      { deleted: 2_000, more: false },
+    ];
+    let calls = 0;
+
+    await expect(
+      drainRetentionBatches(async () => batches[calls++], 6),
+    ).resolves.toEqual({ deleted: 12_000, more: false });
+    expect(calls).toBe(3);
+  });
+
+  it("모든 배치가 가득 차도 실행 상한을 넘지 않는다", async () => {
+    let calls = 0;
+
+    await expect(
+      drainRetentionBatches(async () => {
+        calls += 1;
+        return { deleted: 5_000, more: true };
+      }, 3),
+    ).resolves.toEqual({ deleted: 15_000, more: true });
+    expect(calls).toBe(3);
   });
 });

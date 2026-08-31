@@ -35,7 +35,7 @@ export async function GET(req: Request) {
     const ids = expiredInvites.map((r) => String(r.id));
     await db
       .update(marketplaceInbox)
-      .set({ claimedAt: now })
+      .set({ claimedAt: now, readAt: now })
       .where(
         and(
           eq(marketplaceInbox.kind, "guild_invite"),

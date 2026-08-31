@@ -12,7 +12,6 @@ import { Card } from "@/components/ui/Card";
 import {
   COOP_BOSSES,
   COOP_TIER_LABEL,
-  COOP_VISIBILITY_OPTIONS,
   MAX_ACTIVE_PER_KIND,
   SCROLL_SUMMONABLE_COOP_BOSS_KIND_IDS,
   coopBossDurationLabel,
@@ -20,13 +19,15 @@ import {
 } from "@/adventure/data/v2/coopBosses";
 import {
   fmtCoopRemain,
+  type CoopSessionSummary,
   useCoopListState,
 } from "@/adventure/v2/coop/useCoopBossState";
 import { CoopRewardTable } from "@/adventure/v2/coop/CoopRewardTable";
-import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { V2CoopTabs } from "@/adventure/v2/coop/V2CoopTabs";
-
-// 소환 공개 범위 선택지는 coopBosses.COOP_VISIBILITY_OPTIONS(상세 변경 UI 와 공용).
+import {
+  COOP_LIST_VISIBILITY_LABEL,
+  coopSessionListSections,
+} from "@/adventure/v2/coop/coopListSections";
 
 type CoopBossSummonVariant = {
   kind: CoopBossKindId;
@@ -39,9 +40,13 @@ type CoopBossSummonGroup = {
   variants: readonly CoopBossSummonVariant[];
 };
 
-const SANGOON_KIND_IDS = new Set<CoopBossKindId>([
+const DIFFICULTY_VARIANT_KIND_IDS = new Set<CoopBossKindId>([
   "mountain_chief",
   "mountain_chief_hard",
+  "canyon_predator",
+  "canyon_predator_hard",
+  "lake_sovereign",
+  "lake_sovereign_hard",
 ]);
 
 const COOP_SUMMON_GROUPS: readonly CoopBossSummonGroup[] = [
@@ -53,8 +58,24 @@ const COOP_SUMMON_GROUPS: readonly CoopBossSummonGroup[] = [
       { kind: "mountain_chief_hard", label: "HARD" },
     ],
   },
+  {
+    id: "canyon_predator",
+    baseKind: "canyon_predator",
+    variants: [
+      { kind: "canyon_predator", label: "NORMAL" },
+      { kind: "canyon_predator_hard", label: "HARD" },
+    ],
+  },
+  {
+    id: "lake_sovereign",
+    baseKind: "lake_sovereign",
+    variants: [
+      { kind: "lake_sovereign", label: "NORMAL" },
+      { kind: "lake_sovereign_hard", label: "HARD" },
+    ],
+  },
   ...SCROLL_SUMMONABLE_COOP_BOSS_KIND_IDS.filter(
-    (kindId) => !SANGOON_KIND_IDS.has(kindId),
+    (kindId) => !DIFFICULTY_VARIANT_KIND_IDS.has(kindId),
   ).map((kindId) => ({
       id: kindId,
       baseKind: kindId,
@@ -63,14 +84,137 @@ const COOP_SUMMON_GROUPS: readonly CoopBossSummonGroup[] = [
 ];
 
 function coopBossListName(kindId: CoopBossKindId): string {
-  return kindId === "mountain_chief_hard"
-    ? COOP_BOSSES.mountain_chief.name
-    : COOP_BOSSES[kindId].name;
+  const baseKind =
+    kindId === "mountain_chief_hard"
+      ? "mountain_chief"
+      : kindId === "canyon_predator_hard"
+        ? "canyon_predator"
+        : kindId === "lake_sovereign_hard"
+          ? "lake_sovereign"
+          : kindId;
+  return COOP_BOSSES[baseKind].name;
 }
 
 function coopBossDifficultyBadge(kindId: CoopBossKindId): string | null {
-  if (!SANGOON_KIND_IDS.has(kindId)) return null;
+  if (!DIFFICULTY_VARIANT_KIND_IDS.has(kindId)) return null;
   return COOP_BOSSES[kindId].difficulty === "hard" ? "HARD" : "NORMAL";
+}
+
+function CoopSessionCard({
+  session,
+  now,
+  onOpenSession,
+}: {
+  session: CoopSessionSummary;
+  now: number;
+  onOpenSession: (sessionId: string) => void;
+}) {
+  const def = COOP_BOSSES[session.kind];
+  const displayName = coopBossListName(session.kind);
+  const difficultyBadge = coopBossDifficultyBadge(session.kind);
+  const hpPct = Math.max(
+    0,
+    Math.min(100, (session.hp / session.maxHp) * 100),
+  );
+  const bossMpMax = Math.max(0, session.bossMaxMp);
+  const bossMp = Math.max(0, Math.min(bossMpMax, session.bossMp));
+  const mpPct = bossMpMax > 0 ? (bossMp / bossMpMax) * 100 : 0;
+  const visibilityLabel = COOP_LIST_VISIBILITY_LABEL[session.visibility];
+  const visibilityClass =
+    session.visibility === "summoner_only"
+      ? "border-zinc-300 bg-zinc-100 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+      : session.visibility === "guild_only"
+        ? "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300"
+        : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300";
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpenSession(session.id)}
+      className="group block w-full text-left"
+    >
+      <Card
+        padding="md"
+        className="ui-coop-card ui-lift-card is-active flex items-center gap-3 border-rose-300 transition-all duration-150 hover:-translate-y-0.5 hover:border-rose-400 hover:shadow-md active:translate-y-0 dark:border-rose-800 dark:hover:border-rose-600"
+      >
+        <img
+          src={def.base.image}
+          alt={displayName}
+          className="ui-boss-portrait h-14 w-14 shrink-0 rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
+        />
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-baseline justify-between gap-1">
+            <span className="text-sm font-semibold">
+              {displayName}
+              {difficultyBadge && (
+                <span className="ml-1.5 rounded border border-rose-300 px-1 py-0.5 align-middle text-[10px] font-semibold text-rose-700 dark:border-rose-800 dark:text-rose-300">
+                  {difficultyBadge}
+                </span>
+              )}
+              <span
+                className={`ml-1.5 rounded border px-1.5 py-0.5 align-middle text-[10px] font-semibold ${visibilityClass}`}
+              >
+                {visibilityLabel}
+              </span>
+              {session.isOwner && (
+                <span className="ml-1.5 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 align-middle text-[10px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                  내 소환
+                </span>
+              )}
+              {session.summonedByName && (
+                <span className="ml-1.5 text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
+                  {session.summonedByName} 님이 소환
+                </span>
+              )}
+            </span>
+            <span className="text-[11px] font-medium text-rose-600 dark:text-rose-400">
+              {fmtCoopRemain(session.expiresAt - now)}
+            </span>
+          </span>
+          <span className="mt-1.5 block space-y-1">
+            <span className="war-meter-track block h-2 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
+              <span
+                className="war-meter-fill block h-full rounded bg-rose-500 transition-[width]"
+                style={{ width: `${hpPct}%` }}
+              />
+            </span>
+            {bossMpMax > 0 && (
+              <span className="block space-y-0.5">
+                <span className="block h-1.5 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
+                  <span
+                    className={`block h-full rounded transition-[width] ${
+                      bossMp === 0 ? "bg-zinc-400" : "bg-sky-500"
+                    }`}
+                    style={{ width: `${mpPct}%` }}
+                  />
+                </span>
+                <span className="flex justify-between text-[10px] text-zinc-500 dark:text-zinc-400">
+                  <span>MP {bossMp.toLocaleString()}</span>
+                  {bossMp === 0 && <span>탈진</span>}
+                </span>
+              </span>
+            )}
+            <span className="flex justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
+              <span>
+                {session.hp.toLocaleString()} / {session.maxHp.toLocaleString()}
+              </span>
+              <span>
+                참전 {session.participantCount}명
+                {session.myDamage > 0 &&
+                  ` · 내 기여 ${session.myDamage.toLocaleString()}`}
+                {session.myTier && ` (${COOP_TIER_LABEL[session.myTier]})`}
+              </span>
+            </span>
+          </span>
+        </span>
+        <CaretRight
+          size={16}
+          weight="bold"
+          className="shrink-0 text-zinc-400 transition-colors group-hover:text-zinc-600 dark:group-hover:text-zinc-300"
+        />
+      </Card>
+    </button>
+  );
 }
 
 export function V2CoopBossListView({
@@ -94,8 +238,6 @@ export function V2CoopBossListView({
     claim,
   } = useCoopListState();
   const [now, setNow] = useState(() => Date.now());
-  // 코어루프 소환 공개 범위(flag-on만 사용). 모든 종류 소환에 공통 적용.
-  const [visibility, setVisibility] = useState<string>("public");
   // 소환하기 카드의 정보(특성·보상 테이블) 펼침 — UI 그룹 단위 토글.
   const [infoOpen, setInfoOpen] = useState<string | null>(null);
   const [selectedKindByGroup, setSelectedKindByGroup] = useState<
@@ -112,10 +254,11 @@ export function V2CoopBossListView({
   for (const s of sessions) {
     activeCountByKind.set(s.kind, (activeCountByKind.get(s.kind) ?? 0) + 1);
   }
+  const sessionSections = coopSessionListSections(sessions);
 
   // 소환 후에도 목록에 머문다 — 여러 마리 연속 소환 흐름(이동은 보스 카드 클릭으로).
   const handleSummon = async (kind: CoopBossKindId) => {
-    await summon(kind, V2_CORE_LOOP_V2 ? visibility : undefined);
+    await summon(kind);
   };
 
   return (
@@ -204,7 +347,7 @@ export function V2CoopBossListView({
       )}
 
       {/* 소환된 보스 — 인스턴스 단위(같은 종류 여러 마리 가능) */}
-      <div className="space-y-1.5">
+      <div className="space-y-3">
         <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
           진행 중인 협동 보스{loaded && ` (${sessions.length})`}
         </div>
@@ -216,97 +359,43 @@ export function V2CoopBossListView({
             </p>
           </Card>
         )}
-        {sessions.map((s) => {
-          const def = COOP_BOSSES[s.kind];
-          const displayName = coopBossListName(s.kind);
-          const difficultyBadge = coopBossDifficultyBadge(s.kind);
-          const hpPct = Math.max(
-            0,
-            Math.min(100, (s.hp / s.maxHp) * 100),
-          );
-          const bossMpMax = Math.max(0, s.bossMaxMp);
-          const bossMp = Math.max(0, Math.min(bossMpMax, s.bossMp));
-          const mpPct = bossMpMax > 0 ? (bossMp / bossMpMax) * 100 : 0;
-          return (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => onOpenSession(s.id)}
-              className="group block w-full text-left"
-            >
-              <Card
-                padding="md"
-                className="ui-coop-card ui-lift-card is-active flex items-center gap-3 border-rose-300 transition-all duration-150 hover:-translate-y-0.5 hover:border-rose-400 hover:shadow-md active:translate-y-0 dark:border-rose-800 dark:hover:border-rose-600"
-              >
-                <img
-                  src={def.base.image}
-                  alt={displayName}
-                  className="ui-boss-portrait h-14 w-14 shrink-0 rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="flex flex-wrap items-baseline justify-between gap-1">
-                    <span className="text-sm font-semibold">
-                      {displayName}
-                      {difficultyBadge && (
-                        <span className="ml-1.5 rounded border border-rose-300 px-1 py-0.5 align-middle text-[10px] font-semibold text-rose-700 dark:border-rose-800 dark:text-rose-300">
-                          {difficultyBadge}
-                        </span>
-                      )}
-                      {s.summonedByName && (
-                        <span className="ml-1.5 text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
-                          {s.summonedByName} 님이 소환
-                        </span>
-                      )}
+        {loaded &&
+          sessions.length > 0 &&
+          sessionSections.map((section) => (
+            <section key={section.id} className="space-y-1.5">
+              <div className="flex flex-wrap items-end justify-between gap-2 px-0.5">
+                <div>
+                  <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                    {section.title}
+                    <span className="ml-1.5 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                      {section.sessions.length}
                     </span>
-                    <span className="text-[11px] font-medium text-rose-600 dark:text-rose-400">
-                      {fmtCoopRemain(s.expiresAt - now)}
-                    </span>
-                  </span>
-                  <span className="mt-1.5 block space-y-1">
-                    <span className="war-meter-track block h-2 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
-                      <span
-                        className="war-meter-fill block h-full rounded bg-rose-500 transition-[width]"
-                        style={{ width: `${hpPct}%` }}
-                      />
-                    </span>
-                    {bossMpMax > 0 && (
-                      <span className="block space-y-0.5">
-                        <span className="block h-1.5 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
-                          <span
-                            className={`block h-full rounded transition-[width] ${
-                              bossMp === 0 ? "bg-zinc-400" : "bg-sky-500"
-                            }`}
-                            style={{ width: `${mpPct}%` }}
-                          />
-                        </span>
-                        <span className="flex justify-between text-[10px] text-zinc-500 dark:text-zinc-400">
-                          <span>MP {bossMp.toLocaleString()}</span>
-                          {bossMp === 0 && <span>탈진</span>}
-                        </span>
-                      </span>
-                    )}
-                    <span className="flex justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
-                      <span>
-                        {s.hp.toLocaleString()} / {s.maxHp.toLocaleString()}
-                      </span>
-                      <span>
-                        참전 {s.participantCount}명
-                        {s.myDamage > 0 &&
-                          ` · 내 기여 ${s.myDamage.toLocaleString()}`}
-                        {s.myTier && ` (${COOP_TIER_LABEL[s.myTier]})`}
-                      </span>
-                    </span>
-                  </span>
-                </span>
-                <CaretRight
-                  size={16}
-                  weight="bold"
-                  className="shrink-0 text-zinc-400 transition-colors group-hover:text-zinc-600 dark:group-hover:text-zinc-300"
-                />
-              </Card>
-            </button>
-          );
-        })}
+                  </h2>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {section.description}
+                  </p>
+                </div>
+              </div>
+              {section.sessions.length === 0 ? (
+                <Card padding="sm">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {section.emptyLabel}
+                  </p>
+                </Card>
+              ) : (
+                <div className="space-y-1.5">
+                  {section.sessions.map((session) => (
+                    <CoopSessionCard
+                      key={session.id}
+                      session={session}
+                      now={now}
+                      onOpenSession={onOpenSession}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          ))}
         {!loaded && (
           <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
             불러오는 중…
@@ -322,43 +411,14 @@ export function V2CoopBossListView({
               새 보스 소환
             </div>
             <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-              소환 설정을 선택한 뒤 원하는 보스의 소환 버튼을 누르세요.
+              새 보스는 먼저 나만 볼 수 있습니다. 필요할 때 상세 화면에서 길드 또는
+              전체에 공개하세요.
             </p>
           </div>
           <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
             보스 소환서 {scrolls.toLocaleString()}장 보유
           </span>
         </div>
-
-        {/* 코어루프 — 아래 소환 버튼에 적용되는 공개 범위. flag off 면 항상 공개. */}
-        {V2_CORE_LOOP_V2 && (
-          <Card padding="sm" className="border-amber-200 dark:border-amber-900/70">
-            <p className="text-xs font-medium text-zinc-700 dark:text-zinc-200">
-              소환 후 공개 범위
-            </p>
-            <div className="mt-1.5 flex gap-2">
-              {COOP_VISIBILITY_OPTIONS.map(([v, label]) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setVisibility(v)}
-                  aria-pressed={visibility === v}
-                  className={`flex-1 rounded-md border px-3 py-1.5 text-sm transition-colors ${
-                    visibility === v
-                      ? "border-emerald-500 bg-emerald-100 font-medium text-emerald-900 dark:border-emerald-500 dark:bg-emerald-900 dark:text-emerald-100"
-                      : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-              이 설정은 아래에서 새로 소환하는 보스에 적용됩니다. 공개 범위 안의
-              모험가는 무료로 함께 공격할 수 있습니다.
-            </p>
-          </Card>
-        )}
 
         {COOP_SUMMON_GROUPS.map((group) => {
           const selectedKind =

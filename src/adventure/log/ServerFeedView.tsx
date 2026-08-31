@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Fish,
+  Crown,
   Flag,
   HandWaving,
   Hammer,
@@ -26,7 +27,10 @@ import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
 import { parseCoopBossKindId, COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
 import { FISH, formatFishSize } from "@/adventure/data/v2/fish";
 import { formatDateTime, formatRelative } from "@/lib/notifications";
-import { LIFE_CRAFTING_RECIPE_BY_ID } from "@/adventure/v2/lifeCrafting";
+import {
+  LIFE_CRAFTING_RECIPE_BY_ID,
+  isLifeCraftingRecipeAvailable,
+} from "@/adventure/v2/lifeCrafting";
 import { LIFE_FIELD_DISCOVERIES } from "@/adventure/v2/lifeFieldRecords";
 import {
   FEED_CATEGORIES,
@@ -147,6 +151,12 @@ const TYPE_ICON: Record<FeedType, React.ReactNode> = {
   ),
   life_discovery: (
     <Sparkle size={14} weight="fill" className="shrink-0 text-violet-500 dark:text-violet-400" />
+  ),
+  cooking_discovery: (
+    <Sparkle size={14} weight="fill" className="shrink-0 text-orange-500 dark:text-orange-400" />
+  ),
+  codex_research_result: (
+    <Crown size={14} weight="fill" className="shrink-0 text-violet-500 dark:text-violet-400" />
   ),
 };
 
@@ -362,6 +372,15 @@ function entryText(e: FeedEntry): React.ReactNode {
       </>
     );
   }
+  if (e.type === "cooking_discovery") {
+    const p = e.payload as { recipeName?: string };
+    return <>{name} 님이 숨은 요리 <span className="font-medium text-orange-600 dark:text-orange-400">{p.recipeName?.trim() || "이름이 공개된 요리"}</span>의 최초 레시피를 개발했습니다!</>;
+  }
+  if (e.type === "codex_research_result") {
+    const p = e.payload as { seasonId: string; themeName: string; tier: import("@/adventure/data/v2/codexMasteryTrophies").CodexMasteryTrophyTier; finalRank: number };
+    const labels = { bronze: "동", silver: "은", gold: "금", platinum: "백금", diamond: "다이아", legendary: "전설" } as const;
+    return <>{name} 님이 {p.seasonId} {p.themeName} <span className="font-medium text-violet-600 dark:text-violet-400">확정 {p.finalRank}위 · {labels[p.tier]} 트로피</span>를 기록했습니다!</>;
+  }
   // masterpiece
   const p = e.payload as { itemId: string };
   return (
@@ -389,6 +408,15 @@ function FeedRow({ e }: { e: FeedEntry }) {
       </span>
     </li>
   );
+}
+
+function isFeedEntryAvailable(e: FeedEntry): boolean {
+  if (e.type !== "life_blueprint") return true;
+  const recipeId = (e.payload as { recipeId?: unknown }).recipeId;
+  const recipe = typeof recipeId === "string"
+    ? LIFE_CRAFTING_RECIPE_BY_ID.get(recipeId)
+    : undefined;
+  return !recipe || isLifeCraftingRecipeAvailable(recipe);
 }
 
 export function ServerFeedView() {
@@ -517,7 +545,7 @@ export function ServerFeedView() {
 
   if (!loaded) return null;
 
-  const shown = entries.slice().reverse();
+  const shown = entries.filter(isFeedEntryAvailable).reverse();
 
   return (
     <Card as="section" padding="none" className="mt-4 overflow-hidden">
@@ -557,7 +585,7 @@ export function ServerFeedView() {
         })}
       </div>
 
-      {entries.length === 0 ? (
+      {shown.length === 0 ? (
         <div className="px-3 pb-3 pt-1 text-xs text-zinc-400 dark:text-zinc-500">
           {loading
             ? "소식을 불러오는 중입니다."

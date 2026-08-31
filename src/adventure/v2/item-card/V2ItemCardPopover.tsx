@@ -19,19 +19,23 @@ import {
   type V2EquipmentId,
   type V2EquipRoll,
 } from "@/adventure/data/v2/v2Equipment";
+import type { V2LiberationState } from "@/adventure/data/v2/equipmentLiberation";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 import { EquipmentCodexBadge } from "../EquipmentCodexBadge";
+import { Tier6CoreMechanicDisclosure } from "./Tier6CoreMechanicDisclosure";
 import {
   CraftOnlyBadge,
   CraftQualityBadge,
   EquipmentTierBadge,
-  EnhanceLevelBadge,
   GAP,
   MARGIN,
   MasterworkBadge,
+  LiberationBadge,
+  LiberationOptionsPanel,
   QualityPctText,
   StatRow,
+  UniqueBadge,
   WIDTH,
   formatSetBonus,
   powerNameClass,
@@ -51,6 +55,60 @@ const SLOT_ORDER = [
   "ring",
   "necklace",
 ] as const;
+
+type ItemCardViewport = {
+  width: number;
+  height: number;
+  top: number;
+};
+
+export function itemCardPosition(
+  anchor: ItemCardAnchor,
+  viewport: ItemCardViewport,
+): { width: number; left: number; pos: CSSProperties } {
+  const { width: vw, height: vh } = viewport;
+  const viewportTop = Math.min(
+    Math.max(MARGIN, viewport.top),
+    Math.max(MARGIN, vh - MARGIN),
+  );
+  // 초협소 뷰포트(vw < WIDTH + 여백)에서도 화면 안에 들어오도록 폭을 줄인다.
+  const width = Math.min(WIDTH, Math.max(0, vw - MARGIN * 2));
+  const left = Math.min(
+    Math.max(MARGIN, anchor.left),
+    Math.max(MARGIN, vw - width - MARGIN),
+  );
+  const belowTop = Math.max(viewportTop, anchor.bottom + GAP);
+  const availableAbove = Math.max(0, anchor.top - GAP - viewportTop);
+  const availableBelow = Math.max(0, vh - MARGIN - belowTop);
+  const usableHeight = Math.max(0, vh - viewportTop - MARGIN);
+  const placeAbove =
+    anchor.bottom > viewportTop + usableHeight * 0.6
+      ? availableAbove > 0
+      : availableBelow <= 0 && availableAbove > 0;
+  const pos: CSSProperties = placeAbove
+    ? { bottom: vh - anchor.top + GAP, maxHeight: availableAbove }
+    : { top: belowTop, maxHeight: availableBelow };
+
+  return { width, left, pos };
+}
+
+function visibleViewport(): ItemCardViewport {
+  if (typeof window === "undefined") {
+    return { width: 360, height: 640, top: MARGIN };
+  }
+
+  const stickyHeader =
+    document.querySelector<HTMLElement>("[data-game-header]") ??
+    document.querySelector<HTMLElement>("[data-game-top-bar]");
+  const stickyHeaderRect = stickyHeader?.getBoundingClientRect();
+  const top =
+    stickyHeaderRect &&
+    stickyHeaderRect.bottom > 0 &&
+    stickyHeaderRect.top < window.innerHeight
+      ? stickyHeaderRect.bottom + MARGIN
+      : MARGIN;
+  return { width: window.innerWidth, height: window.innerHeight, top };
+}
 
 function tagSetPieceIds(tagSetId: string): V2EquipmentId[] {
   return Object.values(V2_EQUIPMENT)
@@ -124,6 +182,8 @@ export function V2ItemCard({
   equippedIds,
   codexRegistered,
   codexRegister,
+  liberation,
+  liberationHref,
 }: {
   item: V2Equipment;
   anchor: ItemCardAnchor;
@@ -149,6 +209,10 @@ export function V2ItemCard({
   codexRegistered?: boolean;
   /** 인벤토리 보유 장비의 미등록 배지에서 즉시 등록 절차를 시작한다. */
   codexRegister?: { busy: boolean; onRegister: () => void };
+  /** 보유 장비의 해방 상태. 카탈로그 미리보기에는 주입하지 않는다. */
+  liberation?: V2LiberationState;
+  /** 인벤토리에서만 주입하는 대장간 해방 작업대 바로가기. */
+  liberationHref?: string;
 }) {
   useEscapeKey(onClose);
 
@@ -164,6 +228,10 @@ export function V2ItemCard({
   }, [onClose]);
 
   // 강화 수치는 이름 옆 "+N" 으로만 표기하고, 모든 스탯/옵션은 한 패널에 모은다.
+  const enhanceLevel = Math.max(
+    0,
+    Math.floor(Number(enhance?.level ?? 0) || 0),
+  );
   const statRows = v2EquipStatRows(item, roll, enhance, craftQuality).map((row) =>
     statRowWithRollRange(item, row, roll, enhance, craftQuality),
   );
@@ -188,16 +256,9 @@ export function V2ItemCard({
     : 0;
   const setActive = set != null && equippedSetCount === set.pieces.length;
 
-  // 앵커 기준 위치 계산 — 좌측은 뷰포트 안으로 clamp, 화면 하단에 가까우면 위로 띄움.
-  const vw = typeof window !== "undefined" ? window.innerWidth : 360;
-  const vh = typeof window !== "undefined" ? window.innerHeight : 640;
-  // 초협소 뷰포트(vw < WIDTH + 여백)에서도 화면 안에 들어오도록 폭을 줄인다.
-  const width = Math.min(WIDTH, vw - MARGIN * 2);
-  const left = Math.min(Math.max(MARGIN, anchor.left), vw - width - MARGIN);
-  const placeAbove = anchor.bottom > vh * 0.6;
-  const pos: CSSProperties = placeAbove
-    ? { bottom: vh - anchor.top + GAP, maxHeight: anchor.top - GAP - MARGIN }
-    : { top: anchor.bottom + GAP, maxHeight: vh - anchor.bottom - GAP - MARGIN };
+  // 앵커 기준 위치 계산. 긴 카드는 상단 고정 바 아래에서만 스크롤되게 해
+  // 제목·강화 배지가 고정 바 뒤로 숨지 않도록 한다.
+  const { width, left, pos } = itemCardPosition(anchor, visibleViewport());
 
   return (
     <>
@@ -215,9 +276,11 @@ export function V2ItemCard({
               className={`truncate text-base font-semibold leading-tight ${powerNameClass(item, roll, enhance, craftQuality)}`}
             >
               {item.name}
+              {enhanceLevel > 0 ? ` +${enhanceLevel}` : ""}
             </h2>
             <div className="flex flex-wrap items-center gap-1.5">
               <EquipmentTierBadge tier={item.tier} />
+              {item.rarity === "unique" ? <UniqueBadge /> : null}
               <ItemTypeChip item={item} />
               <EquipmentCodexBadge
                 itemId={item.id}
@@ -225,8 +288,8 @@ export function V2ItemCard({
                 onRegister={codexRegister?.onRegister}
                 busy={codexRegister?.busy}
               />
-              <EnhanceLevelBadge enhance={enhance} />
               <CraftQualityBadge craftQuality={craftQuality} />
+              <LiberationBadge liberation={liberation} />
               {craftedBy?.masterwork ? <MasterworkBadge /> : null}
               {item.craftOnly ? <CraftOnlyBadge /> : null}
               {pct != null && (
@@ -301,11 +364,20 @@ export function V2ItemCard({
           </div>
         )}
 
+        {liberation ? (
+          <LiberationOptionsPanel liberation={liberation} />
+        ) : null}
+
         {/* 단품 마퀴 시그니처(세트 아닌 고유 아이템의 발동형 효과) — 장착만 하면 발동. */}
         {item.signature && (
-          <div className="mt-2 border-t border-zinc-200 pt-2 text-[11px] font-medium text-amber-600 dark:border-zinc-700 dark:text-amber-400">
-            ★ {signatureLabel(item.signature)}
-          </div>
+          <>
+            <div className="mt-2 border-t border-zinc-200 pt-2 text-[11px] font-medium text-amber-600 dark:border-zinc-700 dark:text-amber-400">
+              ★ {signatureLabel(item.signature)}
+            </div>
+            {item.signature.mechanic === "mechanic_unity" ? (
+              <Tier6CoreMechanicDisclosure />
+            ) : null}
+          </>
         )}
 
         {set && (
@@ -423,6 +495,15 @@ export function V2ItemCard({
             착용 조건: {equip.disabledReason}
           </p>
         )}
+
+        {liberationHref ? (
+          <a
+            href={liberationHref}
+            className="mt-3 flex min-h-10 items-center justify-center rounded-lg border border-violet-600 bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-700 dark:border-violet-500 dark:bg-violet-500 dark:hover:bg-violet-400"
+          >
+            {liberation ? "재해방 작업대로 이동" : "해방 작업대로 이동"}
+          </a>
+        ) : null}
 
         {(compare || equip) && (
           <div

@@ -10,6 +10,7 @@ import {
   VILLAGE_TIER_NAME,
   type VillageTier,
 } from "@/adventure/data/v2/settlement";
+import { requireCurrentUgcConsent } from "@/lib/server/ugcSafety";
 
 // POST /api/v2/guild/nation/declare — 국가 선포 (마스터 전용, 1회).
 //
@@ -28,6 +29,8 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const consentFailure = await requireCurrentUgcConsent(userId);
+  if (consentFailure) return consentFailure;
 
   let body: { name?: unknown };
   try {

@@ -1,3 +1,5 @@
+import type { CodexMasteryTrophyTier } from "@/adventure/data/v2/codexMasteryTrophies";
+
 export const PROFILE_SHOWCASE_SAVE_KEY = "profile-showcase.v1";
 export const PROFILE_BADGE_STAND_ITEM_ID = "profile_badge_display_stand";
 export const PROFILE_BADGE_STAND_PRICE = 600;
@@ -6,6 +8,7 @@ export const PROFILE_BADGE_STAND_SLOT_COUNT = 3;
 export type ProfileShowcaseSelection =
   | { kind: "equipment"; iid: string }
   | { kind: "achievement"; achievementId: string }
+  | { kind: "masteryTrophy"; trophyId: string }
   | { kind: "title"; titleId: string };
 
 export type ProfileShowcaseSlots = [
@@ -13,6 +16,13 @@ export type ProfileShowcaseSlots = [
   ProfileShowcaseSelection | null,
   ProfileShowcaseSelection | null,
 ];
+
+export type ProfileMasteryTrophyDisplay = {
+  trophyId: string;
+  title: string;
+  currentTier: CodexMasteryTrophyTier;
+  kind?: "mastery" | "research";
+};
 
 const MAX_SHOWCASE_ID_LENGTH = 160;
 
@@ -42,6 +52,9 @@ export function parseProfileShowcaseSelection(
   }
   if (candidate.kind === "title" && validId(candidate.titleId)) {
     return { kind: "title", titleId: candidate.titleId };
+  }
+  if (candidate.kind === "masteryTrophy" && validId(candidate.trophyId)) {
+    return { kind: "masteryTrophy", trophyId: candidate.trophyId };
   }
   return null;
 }

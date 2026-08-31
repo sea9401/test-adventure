@@ -4,12 +4,23 @@ import {
   isSkillRitualFocusEligible,
   isSkillRitualPowerEligible,
   normalizeSkillEnhancements,
+  SKILL_RITUAL_STEPS,
   skillRitualBonusPct,
   skillRitualRefund,
 } from "./skillRitual";
 import { V2_SKILLS } from "./v2Skills";
 
 describe("skillRitual", () => {
+  it("강화 의식 골드 비용은 1,000만부터 기존 비율로 증가한다", () => {
+    expect(SKILL_RITUAL_STEPS.map((step) => step.goldCost)).toEqual([
+      10_000_000,
+      30_000_000,
+      80_000_000,
+      200_000_000,
+      500_000_000,
+    ]);
+  });
+
   it("비용 단계의 누적 위력 보너스를 반환한다", () => {
     expect(skillRitualBonusPct(0)).toBe(0);
     expect(skillRitualBonusPct(1)).toBe(2);
@@ -56,8 +67,8 @@ describe("skillRitual", () => {
 
   it("초기화 환급은 누적 비용의 50%다", () => {
     expect(skillRitualRefund(3)).toEqual({
-      gold: 6_000_000,
-      proficiency: 1_450,
+      gold: 60_000_000,
+      proficiency: 1_675,
     });
   });
 });

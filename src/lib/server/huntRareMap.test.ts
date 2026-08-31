@@ -1,10 +1,5 @@
-// 레어맵 판수 차감 "영속" 회귀 테스트 — 사냥 입장 시 runsLeft 가 차감되어
-// character.v2 저장에 반영되는지 검증한다.
-//
-// 🐛 과거 버그(2026-06-12~): 레어맵 갱신 블록(판수 차감 + 신규 드랍)이
-//   upsertSave("character.v2", next) "뒤"에 있어, 차감된 rareMaps 가 저장되지 않았다.
-//   응답에는 줄어든 값이 실렸지만 DB(save)는 원복 → "횟수 차감이 안 됨".
-//   수정: 갱신 블록을 next 빌드 전으로 이동. 이 테스트가 그 회귀를 막는다.
+// 희귀 탐사 1회 압축 정산 통합 테스트 — 승리하면 runsLeft만큼 보상을 정산하고
+// character.v2 저장에서 지도를 제거하는지 실제 POST 핸들러로 검증한다.
 //
 // 스태미나 모드(라이브 .env.production = V2_HUNT_USE_STAMINA) 하니스 —
 // huntStaminaMode.test.ts 와 동일한 in-memory savesKv 위에서 REAL POST 핸들러를 돌린다.
@@ -36,7 +31,8 @@ vi.mock("@/db", () => {
   const chain: Record<string, unknown> = {};
   chain.from = () => chain;
   chain.where = () => chain;
-  chain.for = () => chain;
+  chain.orderBy = () => chain;
+  chain.for = async () => [];
   chain.limit = async () => [];
   const tx = {
     select: () => chain,
@@ -55,11 +51,20 @@ vi.mock("@/lib/server/savesKv", () => ({
   lockSaveForUpdate: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
+  lockSavesForUpdate: vi.fn(async (_tx, _uid, fallbacks: Record<string, unknown>) =>
+    Object.fromEntries(Object.entries(fallbacks).map(([key, fallback]) => [key, store.has(key) ? store.get(key) : fallback])),
+  ),
   readSave: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
+  readSaves: vi.fn(async (_tx, _uid, fallbacks: Record<string, unknown>) =>
+    Object.fromEntries(Object.entries(fallbacks).map(([key, fallback]) => [key, store.has(key) ? store.get(key) : fallback])),
+  ),
   upsertSave: vi.fn(async (_tx, _uid, key: string, value: unknown) => {
     store.set(key, value);
+  }),
+  upsertSaves: vi.fn(async (_tx, _uid, entries: Record<string, unknown>) => {
+    for (const [key, value] of Object.entries(entries)) store.set(key, value);
   }),
 }));
 
@@ -115,7 +120,7 @@ function savedMaps(): RareMapInstance[] {
   );
 }
 
-describe("POST /api/v2/dungeon/hunt — 레어맵 판수 차감 영속(회귀)", () => {
+describe("POST /api/v2/dungeon/hunt — 희귀 탐사 1회 압축 정산", () => {
   beforeEach(() => {
     // 0.5 = 강한 전사 승리(승패 무관하게 차감되지만 200 확정용).
     vi.spyOn(Math, "random").mockReturnValue(0.5);
@@ -124,14 +129,16 @@ describe("POST /api/v2/dungeon/hunt — 레어맵 판수 차감 영속(회귀)",
     vi.restoreAllMocks();
   });
 
-  it("레어맵 입장 시 runsLeft 가 1 차감되어 '저장'에 영속된다", async () => {
+  it("승리 시 남은 보상 횟수를 한 번에 정산하고 지도를 저장에서 제거한다", async () => {
     seedWithMap(3, 2);
     const res = await POST(huntReq({ floor: 2, rareMap: "rm1" }));
     expect(res.status).toBe(200);
-    // 🔑 회귀 핵심: 응답뿐 아니라 저장된 character.v2 에 차감이 반영돼야 한다.
-    //   (버그 시절엔 save 가 차감 전 값이라 여기서 3 이 나와 실패했다.)
-    const m = savedMaps().find((x) => x.iid === "rm1");
-    expect(m?.runsLeft).toBe(2);
+    const json = (await res.json()) as {
+      result?: { rewardRolls?: number; rareMapRunsLeft?: number };
+    };
+    expect(json.result?.rewardRolls).toBe(3);
+    expect(json.result?.rareMapRunsLeft).toBe(0);
+    expect(savedMaps().find((x) => x.iid === "rm1")).toBeUndefined();
   });
 
   it("마지막 판수 소진 시 레어맵이 저장에서 제거된다(runsLeft>0 필터)", async () => {
@@ -145,7 +152,11 @@ describe("POST /api/v2/dungeon/hunt — 레어맵 판수 차감 영속(회귀)",
     seedWithMap(2, 3);
     const res = await POST(huntReq({ floor: 3, rareMap: "rm1" }));
     expect(res.status).toBe(200);
-    expect(savedMaps().find((x) => x.iid === "rm1")?.runsLeft).toBe(1);
+    const json = (await res.json()) as {
+      result?: { rewardRolls?: number };
+    };
+    expect(json.result?.rewardRolls).toBe(2);
+    expect(savedMaps().find((x) => x.iid === "rm1")).toBeUndefined();
   });
 
   it("깊이 불일치 레어맵은 입장 거부(400)이고 차감되지 않는다", async () => {

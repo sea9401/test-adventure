@@ -16,9 +16,39 @@ export const ARTISAN_PROFESSION_NAME: Record<ArtisanProfessionId, string> = {
 // 누적 XP 기준. 저가 제작(10~14xp) 반복만으로 고레벨이 너무 빨리 열리지 않게
 // 초반은 완만하게, 제작 전용 레시피 구간부터는 길드 단위 장기 목표가 되도록 올린다.
 export const ARTISAN_XP_LEVEL_THRESHOLDS: readonly number[] = [
-  0, 250, 650, 1200, 2000, 3100, 4600, 6600, 9200, 12500,
+  0,
+  250,
+  650,
+  1200,
+  2000,
+  3100,
+  4600,
+  6600,
+  9200,
+  12500,
+  17500,
+  22500,
+  27500,
+  32500,
+  37500,
+  42500,
+  47500,
+  52500,
+  60000,
+  70000,
+  82500,
+  97500,
+  115000,
+  135000,
+  157500,
+  182500,
+  210000,
+  240000,
+  272500,
+  307500,
 ];
-export const ARTISAN_XP_AFTER_TABLE_STEP = 5000;
+export const ARTISAN_HONOR_FIRST_STEP = 37500;
+export const ARTISAN_HONOR_STEP_GROWTH = 2500;
 
 export type ArtisanRewardMilestone = {
   level: number;
@@ -56,7 +86,16 @@ export type ArtisanSkillId =
   | "blacksmith_signature_craft"
   | "blacksmith_masterwork"
   | "blacksmith_high_quality"
-  | "blacksmith_master_mark";
+  | "blacksmith_master_mark"
+  | "blacksmith_specialty"
+  | "blacksmith_option_focus"
+  | "blacksmith_catalyst"
+  | "blacksmith_structure"
+  | "blacksmith_stable_structure"
+  | "blacksmith_catalyst_preserve"
+  | "blacksmith_masterwork_technique"
+  | "blacksmith_signature"
+  | "blacksmith_final_inspection";
 
 export type ArtisanSkillKind = "passive" | "craftMode" | "craftAction";
 
@@ -204,6 +243,96 @@ export const BLACKSMITH_ARTISAN_SKILLS: readonly ArtisanSkillDefinition[] = [
     description: "Lv 10 이상에 만든 명장 제작품의 납품 보너스 추가 강화",
     implemented: true,
   },
+  {
+    id: "blacksmith_specialty",
+    jobId: "master_blacksmith",
+    effectScope: "crafting",
+    level: 13,
+    kind: "passive",
+    name: "전문 분야",
+    description: "무기·방어구·장신구 중 영구 전문 분야 하나 선택",
+    implemented: true,
+  },
+  {
+    id: "blacksmith_option_focus",
+    jobId: "master_blacksmith",
+    effectScope: "crafting",
+    level: 15,
+    kind: "craftMode",
+    name: "옵션 성향",
+    description: "전문 분야 장비의 원하는 옵션군이 우선될 확률 부여",
+    implemented: true,
+  },
+  {
+    id: "blacksmith_catalyst",
+    jobId: "master_blacksmith",
+    effectScope: "crafting",
+    level: 17,
+    kind: "craftMode",
+    name: "집중 촉매",
+    description: "추가 재료로 옵션 성향 적용 확률을 90%까지 강화",
+    implemented: true,
+  },
+  {
+    id: "blacksmith_structure",
+    jobId: "master_blacksmith",
+    effectScope: "crafting",
+    level: 20,
+    kind: "craftMode",
+    name: "구조 제작술",
+    description: "같은 총 옵션량 안에서 주력·옵션·극한 배분 선택",
+    implemented: true,
+  },
+  {
+    id: "blacksmith_stable_structure",
+    jobId: "master_blacksmith",
+    effectScope: "crafting",
+    level: 22,
+    kind: "craftMode",
+    name: "안정 제작",
+    description: "옵션 편차를 중앙으로 모으는 안정 구조 해금",
+    implemented: true,
+  },
+  {
+    id: "blacksmith_catalyst_preserve",
+    jobId: "master_blacksmith",
+    effectScope: "crafting",
+    level: 24,
+    kind: "passive",
+    name: "촉매 회수",
+    description: "전문 제작에 사용한 촉매를 20% 확률로 보존",
+    implemented: true,
+  },
+  {
+    id: "blacksmith_masterwork_technique",
+    jobId: "master_blacksmith",
+    effectScope: "crafting",
+    level: 26,
+    kind: "craftMode",
+    name: "명장 전문 제작",
+    description: "옵션 성향과 구조 제작술을 명장 제작에도 적용",
+    implemented: true,
+  },
+  {
+    id: "blacksmith_signature",
+    jobId: "master_blacksmith",
+    effectScope: "crafting",
+    level: 28,
+    kind: "passive",
+    name: "전문 각인과 대표작",
+    description: "전문 제작품에 분야 각인을 남기고 대표작 지정",
+    implemented: true,
+  },
+  {
+    id: "blacksmith_final_inspection",
+    jobId: "master_blacksmith",
+    effectScope: "crafting",
+    level: 30,
+    kind: "craftAction",
+    name: "최종 검수",
+    description: "명장 전문 제작 시 총량이 같은 두 결과 중 하나 확정",
+    implemented: true,
+  },
 ];
 
 export const BLACKSMITH_REWARD_MILESTONES: readonly ArtisanRewardMilestone[] = [
@@ -257,6 +386,51 @@ export const BLACKSMITH_REWARD_MILESTONES: readonly ArtisanRewardMilestone[] = [
     title: "왕도 명장",
     description: "Lv 10 이상 명장 제작품의 납품 보너스 추가 강화",
   },
+  {
+    level: 13,
+    title: "영구 전문 분야",
+    description: "무기·방어구·장신구 중 하나를 영구 선택",
+  },
+  {
+    level: 15,
+    title: "옵션 성향",
+    description: "전문 분야 장비의 옵션군 우선 제작",
+  },
+  {
+    level: 17,
+    title: "집중 촉매",
+    description: "촉매를 소모해 성향 적용 확률 강화",
+  },
+  {
+    level: 20,
+    title: "구조 제작술",
+    description: "총량을 유지하며 장비 옵션 배분 조절",
+  },
+  {
+    level: 22,
+    title: "안정 제작",
+    description: "옵션 편차를 줄이는 안정 구조 해금",
+  },
+  {
+    level: 24,
+    title: "촉매 회수",
+    description: "사용한 촉매를 20% 확률로 보존",
+  },
+  {
+    level: 26,
+    title: "명장 전문 제작",
+    description: "전문 제작 기술을 명장 제작에 적용",
+  },
+  {
+    level: 28,
+    title: "전문 각인",
+    description: "전문 제작품 각인과 대표작 지정",
+  },
+  {
+    level: 30,
+    title: "최종 검수",
+    description: "같은 총량의 두 명장 결과 중 하나 선택",
+  },
 ];
 
 export function parseArtisanState(raw: unknown): ArtisanState {
@@ -291,9 +465,14 @@ export function artisanLevel(state: ArtisanProfessionState | undefined): number 
   const lastThreshold =
     ARTISAN_XP_LEVEL_THRESHOLDS[ARTISAN_XP_LEVEL_THRESHOLDS.length - 1];
   if (xp >= lastThreshold) {
-    level =
-      ARTISAN_XP_LEVEL_THRESHOLDS.length +
-      Math.floor((xp - lastThreshold) / ARTISAN_XP_AFTER_TABLE_STEP);
+    level = ARTISAN_XP_LEVEL_THRESHOLDS.length;
+    let threshold = lastThreshold;
+    let step = ARTISAN_HONOR_FIRST_STEP;
+    while (xp >= threshold + step) {
+      threshold += step;
+      step += ARTISAN_HONOR_STEP_GROWTH;
+      level += 1;
+    }
   }
   return level;
 }
@@ -306,11 +485,17 @@ export function artisanXpForLevel(levelRaw: number): number {
   }
   const lastThreshold =
     ARTISAN_XP_LEVEL_THRESHOLDS[ARTISAN_XP_LEVEL_THRESHOLDS.length - 1];
-  return (
-    lastThreshold +
-    (idx - ARTISAN_XP_LEVEL_THRESHOLDS.length + 1) *
-      ARTISAN_XP_AFTER_TABLE_STEP
-  );
+  let threshold = lastThreshold;
+  let step = ARTISAN_HONOR_FIRST_STEP;
+  for (
+    let honorLevel = ARTISAN_XP_LEVEL_THRESHOLDS.length + 1;
+    honorLevel <= level;
+    honorLevel += 1
+  ) {
+    threshold += step;
+    step += ARTISAN_HONOR_STEP_GROWTH;
+  }
+  return threshold;
 }
 
 export function artisanXpIntoLevel(

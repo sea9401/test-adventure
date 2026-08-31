@@ -2,13 +2,14 @@
 
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { fishingRecords, savesKv } from "@/db/schema";
+import { fishingRecords, savesKv, users } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
 import {
   reduceAllTimeBest,
   shapeLeaderboard,
   type LeaderboardRow,
 } from "@/adventure/v2/fishingLeaderboard";
+import { filterRankingEligibleRows } from "@/lib/server/rankingEligibility";
 
 const CACHE_TTL_MS = 30_000;
 
@@ -122,8 +123,10 @@ export async function getFishingLeaderboard(
         userId: fishingRecords.userId,
         size: fishingRecords.bestSize,
         name: sql<string | null>`${savesKv.value} ->> 'name'`,
+        bannedUntil: users.bannedUntil,
       })
       .from(fishingRecords)
+      .innerJoin(users, eq(users.id, fishingRecords.userId))
       .leftJoin(
         savesKv,
         and(
@@ -134,7 +137,7 @@ export async function getFishingLeaderboard(
       .where(eq(fishingRecords.seasonId, seasonId))
       .orderBy(fishingRecords.fishId, desc(fishingRecords.bestSize));
 
-    return freshRows.map((r) => ({
+    return filterRankingEligibleRows(freshRows).map((r) => ({
       fishId: r.fishId,
       userId: r.userId,
       name: r.name,
@@ -158,8 +161,10 @@ export async function getAllTimeFishingRecords(
         userId: fishingRecords.userId,
         size: fishingRecords.bestSize,
         name: sql<string | null>`${savesKv.value} ->> 'name'`,
+        bannedUntil: users.bannedUntil,
       })
       .from(fishingRecords)
+      .innerJoin(users, eq(users.id, fishingRecords.userId))
       .leftJoin(
         savesKv,
         and(
@@ -170,7 +175,7 @@ export async function getAllTimeFishingRecords(
       .orderBy(fishingRecords.fishId, desc(fishingRecords.bestSize));
 
     return reduceAllTimeBest(
-      freshRows.map((r) => ({
+      filterRankingEligibleRows(freshRows).map((r) => ({
         fishId: r.fishId,
         userId: r.userId,
         name: r.name,

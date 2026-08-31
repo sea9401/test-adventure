@@ -86,6 +86,32 @@ export type BandPool = {
   ids: V2EquipmentId[];
 };
 
+// 천공 균열(73~78) 전역 방어구 풀. 어느 난이도에서든 6T 방어구 21종 전체가
+// 동일한 확률로 후보가 되며, 난이도는 풀을 제한하지 않고 총 드랍률만 높인다.
+export const SKY_RIFT_ARMOR_IDS: V2EquipmentId[] = [
+  "v2_storm_wreckage_armor",
+  "v2_storm_wreckage_gloves",
+  "v2_storm_wreckage_boots",
+  "v2_storm_breaker_armor",
+  "v2_storm_breaker_gloves",
+  "v2_storm_breaker_boots",
+  "v2_storm_gale_armor",
+  "v2_storm_gale_gloves",
+  "v2_storm_gale_boots",
+  "v2_storm_shadow_armor",
+  "v2_storm_shadow_gloves",
+  "v2_storm_shadow_boots",
+  "v2_storm_venom_armor",
+  "v2_storm_venom_gloves",
+  "v2_storm_venom_boots",
+  "v2_storm_thunder_armor",
+  "v2_storm_thunder_gloves",
+  "v2_storm_thunder_boots",
+  "v2_storm_sanctuary_armor",
+  "v2_storm_sanctuary_gloves",
+  "v2_storm_sanctuary_boots",
+];
+
 // 흔한 밴드 장비 풀(noDrop normal). 무기 4 + 갑주세트 3 + 장신구 2 = 밴드당 9종.
 export const BAND_COMMON_POOLS: readonly BandPool[] = [
   {
@@ -301,6 +327,40 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
       "v2_abyssruin_sentinel_necklace",
     ],
   },
+  {
+    // 천공 균열 초입(73~74) — 전역 6T 방어구 풀, 총 드랍률 0.05%.
+    minDepth: 73,
+    maxDepth: 74,
+    ids: SKY_RIFT_ARMOR_IDS,
+  },
+  {
+    // 천공 균열 중층(75~76) — 같은 전역 풀, 총 드랍률만 0.075%로 상승.
+    minDepth: 75,
+    maxDepth: 76,
+    ids: SKY_RIFT_ARMOR_IDS,
+  },
+  {
+    // 천공 균열 심층(77~78) — 같은 전역 풀, 총 드랍률만 0.10%로 상승.
+    minDepth: 77,
+    maxDepth: 78,
+    ids: SKY_RIFT_ARMOR_IDS,
+  },
+  {
+    // 별의 무덤 초입(79~80) — 천공 균열 전역 6T 방어구 풀과 확률을 그대로 재사용.
+    minDepth: 79,
+    maxDepth: 80,
+    ids: SKY_RIFT_ARMOR_IDS,
+  },
+  {
+    minDepth: 81,
+    maxDepth: 82,
+    ids: SKY_RIFT_ARMOR_IDS,
+  },
+  {
+    minDepth: 83,
+    maxDepth: 84,
+    ids: SKY_RIFT_ARMOR_IDS,
+  },
 ];
 
 // 흔한 밴드 장비 드랍률 — 모든 테마에서 로컬 깊이 기준으로 통일한다.
@@ -320,10 +380,20 @@ function endgameBandCommonChance(localDepth: number): number {
   return 0.00075;
 }
 
+// 천공 균열은 6T 전환의 핵심 파밍 지역이다. 입구는 5T 최종 세팅으로 진입할 수 있게 두고,
+// 더 깊은 구간을 돌파할수록 목표 방어구 획득 속도가 크게 오르도록 구간별 확률을 높인다.
+export function skyRiftCommonChance(depth: number): number {
+  if (depth <= 74) return 0.0005;
+  if (depth <= 76) return 0.00075;
+  return 0.001;
+}
+
 export function bandCommonChanceForDepth(depth: number): number {
   const pool = bandCommonPoolForDepth(depth);
   if (!pool) return 0;
   const localDepth = depth - pool.minDepth + 1;
+  if (depth >= 79) return skyRiftCommonChance(depth - 6);
+  if (depth >= 73) return skyRiftCommonChance(depth);
   return depth >= 55
     ? endgameBandCommonChance(localDepth)
     : bandCommonChance(localDepth);
@@ -334,6 +404,43 @@ export function bandCommonPoolForDepth(depth: number): BandPool | null {
     if (depth >= p.minDepth && depth <= p.maxDepth) return p;
   }
   return null;
+}
+
+// 코덱스 표시용 — 한 테마 안에서 깊이별로 갈라진 모든 정규 장비 풀의 합집합.
+export function commonIdsForDepthRange(
+  start: number,
+  end: number,
+): V2EquipmentId[] {
+  const ids = new Set<V2EquipmentId>();
+  for (const pool of BAND_COMMON_POOLS) {
+    if (pool.maxDepth >= start && pool.minDepth <= end) {
+      for (const id of pool.ids) ids.add(id);
+    }
+  }
+  return [...ids];
+}
+
+export const SKY_RIFT_WEAPON_DROP_CHANCE = 0.0005;
+export const SKY_RIFT_WEAPON_IDS: readonly V2EquipmentId[] = [
+  "v2_storm_wreckage_greatsword",
+  "v2_storm_breaker_greatsword",
+  "v2_storm_gale_bow",
+  "v2_storm_gale_dagger",
+  "v2_storm_venom_dagger",
+  "v2_storm_thunder_staff",
+  "v2_storm_sanctuary_staff",
+];
+
+// 무기는 길드 공방의 확정 제작이 본 경로다. 길드가 없는 유저도 막히지 않도록 78단계에서만
+// 극저확률 완제품 대체 경로를 제공한다. 밴드 밖에서는 RNG를 소비하지 않는다.
+export function rollSkyRiftWeaponDrop(
+  depth: number,
+  rng: () => number,
+  chanceMult: number = 1,
+): V2EquipmentId | null {
+  if (depth !== 78) return null;
+  if (rng() >= Math.min(1, SKY_RIFT_WEAPON_DROP_CHANCE * chanceMult)) return null;
+  return SKY_RIFT_WEAPON_IDS[Math.floor(rng() * SKY_RIFT_WEAPON_IDS.length)];
 }
 
 export type BandUniquePool = {
@@ -355,6 +462,22 @@ export type BandUniquePool = {
 //   7~24 밴드는 빈 풀(유니크 없음·정규/흔한만). 25~72 = 밴드당 고유 5종, chance 0.0005(밴드유니크보다
 //   희귀). droppedUnique 슬롯 → 바이올렛 배너 + unique_drop 전광판 방송(기존 인프라 그대로·강등 후 고유템만).
 export const SIGNATURE_UNIQUE_CHANCE = 0.0005; // 고유 아이템 총 드랍률(밴드당)·다이얼. 2026-08-01: 0.00015→0.0005.
+export const SKY_RIFT_SIGNATURE_UNIQUE_CHANCE = 0.000025;
+export const STAR_GRAVE_SIGNATURE_UNIQUE_CHANCE = 0.000035;
+export const SKY_RIFT_SIGNATURE_UNIQUE_IDS: readonly V2EquipmentId[] = [
+  "v2_sky_sig_collapse_armor",
+  "v2_sky_sig_antigravity_ring",
+  "v2_sky_sig_bloodline_greatsword",
+  "v2_sky_sig_scar_counter_gloves",
+  "v2_sky_sig_horizon_bow",
+  "v2_sky_sig_windless_boots",
+  "v2_sky_sig_venom_dagger",
+  "v2_sky_sig_corrosion_ring",
+  "v2_sky_sig_overload_staff",
+  "v2_sky_sig_reverse_gloves",
+  "v2_sky_sig_dawn_chalice",
+  "v2_sky_sig_unity_cloak",
+];
 export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
   // 마른 협곡(7~12)·얼음 호수(13~18)·심층 동굴(19~24) = 게이트 전 → 유니크 없음(빈 풀).
   { minDepth: 7, maxDepth: 12, chance: 0, ids: [] },
@@ -463,6 +586,21 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_abyssruin_sig_apostle_staff",
       "v2_abyssruin_sig_sentinel_plate",
     ],
+  },
+  {
+    // 천공 균열은 입구·심부·최심부 어디서든 신규 6T 시그니처 12종 전체를
+    // 추격한다. 다음 사냥터에서 완화할 여지를 두고 현재 총 확률은 낮게 유지한다.
+    minDepth: 73,
+    maxDepth: 78,
+    chance: SKY_RIFT_SIGNATURE_UNIQUE_CHANCE,
+    ids: [...SKY_RIFT_SIGNATURE_UNIQUE_IDS],
+  },
+  {
+    // 별의 무덤은 같은 6T 시그니처 12종을 조금 높은 총 확률로 추격한다.
+    minDepth: 79,
+    maxDepth: 84,
+    chance: STAR_GRAVE_SIGNATURE_UNIQUE_CHANCE,
+    ids: [...SKY_RIFT_SIGNATURE_UNIQUE_IDS],
   },
 ];
 

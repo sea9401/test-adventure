@@ -1,0 +1,12 @@
+[Unit]
+Description=Verify Adventure RPG database backup restore every week
+
+[Timer]
+OnCalendar=Sun *-*-* 18:30:00 UTC
+AccuracySec=10min
+RandomizedDelaySec=20min
+Persistent=true
+Unit=adventure-backup-restore-test.service
+
+[Install]
+WantedBy=timers.target

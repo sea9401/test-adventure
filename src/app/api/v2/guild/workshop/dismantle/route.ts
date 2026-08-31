@@ -24,6 +24,8 @@ import {
   removeInstance,
   type V2EquipInstance,
 } from "@/adventure/data/v2/v2Equipment";
+import { associationFacilityLevel } from "@/lib/server/adventurerAssociation";
+import { boundEquipmentDisposalView } from "@/lib/server/boundEquipmentDisposal";
 
 type CharacterSaveWithMaterials = {
   materials?: unknown;
@@ -76,6 +78,8 @@ function candidateView(
     craftQualityLevel: inst.craftQuality?.level ?? 0,
     masterwork: inst.craftedBy?.masterwork === true,
     locked,
+    bound: inst.bound === true,
+    ...(inst.liberation ? { liberation: inst.liberation } : {}),
     equipped,
     rewards: plan.materials,
     artisanXp: plan.artisanXp,
@@ -88,13 +92,20 @@ function bad(error: string, status = 400) {
   return Response.json({ ok: false, error }, { status });
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) return bad("unauthorized", 401);
 
-  const guildId = await getGuildIdByUser(userId);
-  if (guildId == null) return bad("no_guild", 403);
-  const smithyLevel = await readGuildSmithyLevel(db, guildId);
+  const association = new URL(req.url).searchParams.get("scope") === "association";
+  const memberGuildId = await getGuildIdByUser(userId);
+  if (association && memberGuildId != null) {
+    return bad("association_for_solo_only", 403);
+  }
+  const guildId = association ? 0 : memberGuildId;
+  if (!association && guildId == null) return bad("no_guild", 403);
+  const smithyLevel = association
+    ? await associationFacilityLevel(db, "guild_smithy")
+    : await readGuildSmithyLevel(db, guildId!);
   if (smithyLevel <= 0) return bad("smithy_required", 403);
   const smithyBonus = guildSmithyUpgradeForLevel(Math.max(1, smithyLevel));
 
@@ -131,7 +142,7 @@ export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) return bad("unauthorized", 401);
 
-  let body: { iid?: unknown };
+  let body: { iid?: unknown; confirmBound?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -141,9 +152,16 @@ export async function POST(req: Request) {
     typeof body.iid === "string" && body.iid.length > 0 ? body.iid : null;
   if (!iid) return bad("invalid_iid");
 
-  const guildId = await getGuildIdByUser(userId);
-  if (guildId == null) return bad("no_guild", 403);
-  const smithyLevel = await readGuildSmithyLevel(db, guildId);
+  const association = new URL(req.url).searchParams.get("scope") === "association";
+  const memberGuildId = await getGuildIdByUser(userId);
+  if (association && memberGuildId != null) {
+    return bad("association_for_solo_only", 403);
+  }
+  const guildId = association ? 0 : memberGuildId;
+  if (!association && guildId == null) return bad("no_guild", 403);
+  const smithyLevel = association
+    ? await associationFacilityLevel(db, "guild_smithy")
+    : await readGuildSmithyLevel(db, guildId!);
   if (smithyLevel <= 0) return bad("smithy_required", 403);
 
   const result = await db.transaction(async (tx) => {
@@ -190,6 +208,16 @@ export async function POST(req: Request) {
     }
     if (inst.locked) {
       return { status: 400, body: { ok: false as const, error: "locked" } };
+    }
+    if (inst.bound && body.confirmBound !== true) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "bound_confirmation_required" as const,
+          item: boundEquipmentDisposalView(inst),
+        },
+      };
     }
     const plan = guildWorkshopDismantlePlan(item, inst, blacksmithLevel);
     if (plan.blockedReason || Object.keys(plan.materials).length === 0) {

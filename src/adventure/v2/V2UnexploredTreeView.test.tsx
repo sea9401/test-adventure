@@ -72,6 +72,12 @@ const SNAPSHOT: UnexploredClientSnapshot = {
   },
 };
 
+function openUnexploredTab(
+  name: "탐사망" | "탐사 업적" | "흔적 보관함" | "우두머리 핵 제작소",
+) {
+  fireEvent.click(screen.getByRole("tab", { name }));
+}
+
 describe("V2UnexploredTreeView", () => {
   it("renders the 160-node graph, point progress and opaque panels", () => {
     const html = renderToStaticMarkup(
@@ -89,6 +95,31 @@ describe("V2UnexploredTreeView", () => {
       .flatMap((match) => match[1].split(/\s+/))
       .filter((className) => className.startsWith("opacity-"));
     expect(bareOpacityClasses).toEqual([]);
+  });
+
+  it("탐사망·탐사 업적·흔적 보관함·우두머리 핵 제작소를 독립 탭으로 표시한다", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    render(<V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />);
+
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "탐사망",
+      "탐사 업적",
+      "흔적 보관함",
+      "우두머리 핵 제작소",
+    ]);
+    expect(
+      screen.getByRole("tab", { name: "탐사망" }).getAttribute("aria-selected"),
+    ).toBe("true");
+    expect(screen.getByRole("tabpanel", { name: "탐사망" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "초기화" })).toBeTruthy();
+
+    openUnexploredTab("탐사 업적");
+
+    expect(screen.getByRole("tabpanel", { name: "탐사 업적" })).toBeTruthy();
+    expect(document.getElementById("unexplored-panel-tree")?.hidden).toBe(true);
+    expect(screen.queryByRole("button", { name: "초기화" })).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("keeps progress visible but disables editing below level 100", () => {
@@ -133,6 +164,8 @@ describe("V2UnexploredTreeView", () => {
         onBack={vi.fn()}
       />,
     );
+
+    openUnexploredTab("탐사 업적");
 
     const list = screen.getByRole("list", { name: "탐사 업적" });
     expect(within(list).getAllByRole("listitem")).toHaveLength(10);
@@ -274,6 +307,8 @@ describe("V2UnexploredTreeView", () => {
     vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "craft-request-1") });
     render(<V2UnexploredTreeView initialSnapshot={ready} onBack={vi.fn()} />);
 
+    openUnexploredTab("흔적 보관함");
+
     const craftButton = screen.getByRole("button", {
       name: "추적 병기 소환석 제작",
     });
@@ -319,6 +354,8 @@ describe("V2UnexploredTreeView", () => {
         onOpenSession={onOpenSession}
       />,
     );
+
+    openUnexploredTab("흔적 보관함");
 
     const craftButton = screen.getByRole("button", {
       name: "추적 병기 소환석 제작",
@@ -384,6 +421,8 @@ describe("V2UnexploredTreeView", () => {
       />,
     );
 
+    openUnexploredTab("우두머리 핵 제작소");
+
     expect(
       screen.getByRole("button", { name: "추적날 단검 확정 제작" })
         .hasAttribute("disabled"),
@@ -407,6 +446,8 @@ describe("V2UnexploredTreeView", () => {
         onBack={vi.fn()}
       />,
     );
+
+    openUnexploredTab("우두머리 핵 제작소");
 
     fireEvent.click(
       screen.getByRole("button", { name: "추적날 단검 확정 제작" }),
@@ -446,6 +487,8 @@ describe("V2UnexploredTreeView", () => {
         onBack={vi.fn()}
       />,
     );
+
+    openUnexploredTab("우두머리 핵 제작소");
 
     fireEvent.click(
       screen.getByRole("button", { name: "추적날 단검 확정 제작" }),
@@ -510,6 +553,8 @@ describe("V2UnexploredTreeView", () => {
         onBack={vi.fn()}
       />,
     );
+
+    openUnexploredTab("우두머리 핵 제작소");
 
     const button = screen.getByRole("button", {
       name: "추적날 단검 확정 제작",
@@ -576,6 +621,8 @@ describe("V2UnexploredTreeView", () => {
         onBack={vi.fn()}
       />,
     );
+
+    openUnexploredTab("우두머리 핵 제작소");
 
     const button = screen.getByRole("button", {
       name: "추적날 단검 확정 제작",

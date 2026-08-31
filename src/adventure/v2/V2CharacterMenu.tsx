@@ -97,7 +97,7 @@ export function V2CharacterMenu({
                 className="text-violet-500"
               />
             }
-            title="미개척지"
+            title="개척 노드"
             description="탐사망을 조율하고 전용 사냥터를 강화"
             onClick={() => onAction({ kind: "open-unexplored" })}
           />

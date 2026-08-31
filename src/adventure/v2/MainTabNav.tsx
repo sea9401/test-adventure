@@ -233,7 +233,7 @@ export const CHARACTER_MENU_ITEMS = [
   { label: "모험의 서", href: "/character/codex", Icon: BookOpen, color: "text-sky-500" },
   ...(V2_UNEXPLORED
     ? [{
-        label: "미개척지",
+        label: "개척 노드",
         href: "/character/unexplored",
         Icon: Binoculars,
         color: "text-cyan-600 dark:text-cyan-400",

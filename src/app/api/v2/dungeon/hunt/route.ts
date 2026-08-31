@@ -1146,7 +1146,9 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     }
   }
   const codexMasteryEvents: CodexMasteryGameplayEvent[] = [];
-  if (won) {
+  // 미개척지 몬스터는 아직 공개된 v1 모험의 서 카탈로그 대상이 아니다.
+  // 미등록 entry를 전송하면 숙련도 기록이 사냥 트랜잭션 전체를 중단한다.
+  if (won && !unexploredMode) {
     codexMasteryEvents.push({
       category: "monster",
       entryId: enemyKey,

@@ -1,5 +1,8 @@
 import { V2_UNEXPLORED } from "@/adventure/data/v2/coreLoopConfig";
-import { parseUnexploredBossId } from "@/adventure/data/v2/unexploredBosses";
+import {
+  UNEXPLORED_SUMMON_STONE_GOLD_COST,
+  parseUnexploredBossId,
+} from "@/adventure/data/v2/unexploredBosses";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
@@ -7,6 +10,9 @@ import {
   applyUnexploredBossCraft,
   type UnexploredBossCraftCharacter,
 } from "@/lib/server/unexploredBossCraft";
+import {
+  equippedPersonalCraftGoldDiscountPct,
+} from "@/lib/server/equipmentLiberationCraftDiscount";
 
 function unavailable() {
   return Response.json({ ok: false, error: "not_found" }, { status: 404 });
@@ -40,11 +46,20 @@ export async function POST(req: Request) {
       "character.v2",
       {},
     );
+    const equipment = await lockSaveForUpdate(
+      tx,
+      userId,
+      "equipment.v2",
+      {},
+    );
+    const liberationDiscountPct =
+      equippedPersonalCraftGoldDiscountPct(equipment);
     const crafted = applyUnexploredBossCraft(
       character,
       bossId,
       requestId,
       Date.now(),
+      liberationDiscountPct,
     );
     if (!crafted.ok) {
       return {
@@ -62,6 +77,12 @@ export async function POST(req: Request) {
         idempotent: crafted.idempotent,
         bossId,
         receipt: crafted.receipt,
+        baseGoldCost:
+          crafted.receipt.baseGoldCost ?? UNEXPLORED_SUMMON_STONE_GOLD_COST,
+        goldCost:
+          crafted.receipt.goldCost ?? UNEXPLORED_SUMMON_STONE_GOLD_COST,
+        liberationDiscountPct:
+          crafted.receipt.liberationDiscountPct ?? 0,
         gold: crafted.character.gold,
         bankedGold: crafted.character.bankedGold,
         materials: crafted.character.materials,

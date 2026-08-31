@@ -11,6 +11,7 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importActual) => {
     await importActual<typeof import("@/adventure/data/v2/coreLoopConfig")>();
   return {
     ...actual,
+    V2_EQUIPMENT_LIBERATION: true,
     get V2_UNEXPLORED() {
       return mocks.featureEnabled;
     },

@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   character: {} as Record<string, unknown>,
   writes: 0,
   transactionTail: Promise.resolve(),
+  equipment: {} as Record<string, unknown>,
 }));
 
 vi.mock("@/adventure/data/v2/coreLoopConfig", async (importActual) => {
@@ -16,6 +17,7 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importActual) => {
     get V2_UNEXPLORED() {
       return mocks.featureEnabled;
     },
+    V2_EQUIPMENT_LIBERATION: true,
   };
 });
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -31,7 +33,9 @@ vi.mock("@/db", () => ({
   },
 }));
 vi.mock("@/lib/server/savesKv", () => ({
-  lockSaveForUpdate: vi.fn(async () => structuredClone(mocks.character)),
+  lockSaveForUpdate: vi.fn(async (_tx, _userId, key: string) =>
+    structuredClone(key === "equipment.v2" ? mocks.equipment : mocks.character),
+  ),
   upsertSave: vi.fn(async (_tx, _userId, _key, value: unknown) => {
     mocks.character = structuredClone(value as Record<string, unknown>);
     mocks.writes += 1;
@@ -78,9 +82,41 @@ beforeEach(() => {
   mocks.character = readyCharacter();
   mocks.writes = 0;
   mocks.transactionTail = Promise.resolve();
+  mocks.equipment = {};
 });
 
 describe("POST /api/v2/unexplored/craft", () => {
+  it("현재 착용 반지 할인과 실제 지불 비용을 응답·영수증에 고정한다", async () => {
+    mocks.equipment = {
+      owned: [
+        {
+          iid: "discount-ring",
+          id: "v2_storm_sanctuary_ring",
+          liberation: {
+            rank: 1,
+            lineCount: 1,
+            revision: 1,
+            options: [
+              { id: "personal_craft_gold_discount_pct", level: 20 },
+            ],
+          },
+        },
+      ],
+      equipped: { ring: "discount-ring" },
+    };
+
+    const response = await POST(
+      request({ bossId: "tracking_weapon", requestId: "discounted" }),
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      baseGoldCost: UNEXPLORED_SUMMON_STONE_GOLD_COST,
+      goldCost: UNEXPLORED_SUMMON_STONE_GOLD_COST * 0.9,
+      liberationDiscountPct: 10,
+      receipt: { goldCost: UNEXPLORED_SUMMON_STONE_GOLD_COST * 0.9 },
+    });
+  });
+
   it("인증·기능 플래그·본문을 검증한다", async () => {
     mocks.userId = null;
     expect((await POST(request({}))).status).toBe(401);

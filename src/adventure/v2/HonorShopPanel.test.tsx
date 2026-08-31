@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/adventure/v2/GameStateProvider", () => ({
-  useGameState: () => ({ applyResourcePatch: mocks.applyResourcePatch }),
+  useGameResourceState: () => ({ applyResourcePatch: mocks.applyResourcePatch }),
 }));
 vi.mock("./RewardToastProvider", () => ({
   useSystemToast: () => ({ notifySystem: mocks.notifySystem }),

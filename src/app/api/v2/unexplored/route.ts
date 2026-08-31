@@ -13,6 +13,24 @@ import {
   type UnexploredMutation,
   type UnexploredMutationError,
 } from "@/lib/server/unexploredService";
+import {
+  discountedPersonalCraftGoldCost,
+  equippedPersonalCraftGoldDiscountPct,
+} from "@/lib/server/equipmentLiberationCraftDiscount";
+import { UNEXPLORED_SUMMON_STONE_GOLD_COST } from "@/adventure/data/v2/unexploredBosses";
+
+function summonStoneCraftCost(equipment: unknown) {
+  const liberationDiscountPct =
+    equippedPersonalCraftGoldDiscountPct(equipment);
+  return {
+    baseGoldCost: UNEXPLORED_SUMMON_STONE_GOLD_COST,
+    goldCost: discountedPersonalCraftGoldCost(
+      UNEXPLORED_SUMMON_STONE_GOLD_COST,
+      liberationDiscountPct,
+    ),
+    liberationDiscountPct,
+  };
+}
 
 function unavailable() {
   return Response.json({ ok: false, error: "not_found" }, { status: 404 });
@@ -24,13 +42,17 @@ export async function GET() {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
   if (!V2_UNEXPLORED) return unavailable();
-  const character = await readSave<UnexploredCharacterSave>(
-    db,
-    userId,
-    "character.v2",
-    {},
-  );
-  return Response.json({ ok: true, snapshot: unexploredSnapshot(character) });
+  const [character, equipment] = await Promise.all([
+    readSave<UnexploredCharacterSave>(db, userId, "character.v2", {}),
+    readSave<unknown>(db, userId, "equipment.v2", {}),
+  ]);
+  return Response.json({
+    ok: true,
+    snapshot: {
+      ...unexploredSnapshot(character),
+      summonStoneCraftCost: summonStoneCraftCost(equipment),
+    },
+  });
 }
 
 function parseMutation(raw: unknown): UnexploredMutation | null {
@@ -85,5 +107,23 @@ export async function POST(req: Request) {
       body: { ok: true as const, snapshot: applied.snapshot },
     };
   });
+  if ("snapshot" in result.body) {
+    const equipment = await readSave<unknown>(
+      db,
+      userId,
+      "equipment.v2",
+      {},
+    );
+    return Response.json(
+      {
+        ...result.body,
+        snapshot: {
+          ...result.body.snapshot,
+          summonStoneCraftCost: summonStoneCraftCost(equipment),
+        },
+      },
+      { status: result.status },
+    );
+  }
   return Response.json(result.body, { status: result.status });
 }

@@ -5,11 +5,13 @@ import {
   BookOpen,
   Compass,
   Lightning,
+  MapTrifold,
   SlidersHorizontal,
   Sparkle,
   Trophy,
   UserCircle,
 } from "@phosphor-icons/react";
+import { V2_UNEXPLORED } from "@/adventure/data/v2/coreLoopConfig";
 import { EntryCard } from "@/components/ui/EntryCard";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -25,12 +27,15 @@ export type CharacterAction =
   | { kind: "open-shrine" }
   | { kind: "open-quests" }
   | { kind: "open-trophies" }
-  | { kind: "open-codex" };
+  | { kind: "open-codex" }
+  | { kind: "open-unexplored" };
 
 export function V2CharacterMenu({
   onAction,
+  unexploredEnabled = V2_UNEXPLORED,
 }: {
   onAction: (action: CharacterAction) => void;
+  unexploredEnabled?: boolean;
 }) {
   return (
     <PageShell spacing="tight">
@@ -83,6 +88,20 @@ export function V2CharacterMenu({
           title="성장의 신전"
           onClick={() => onAction({ kind: "open-shrine" })}
         />
+        {unexploredEnabled && (
+          <EntryCard
+            icon={
+              <MapTrifold
+                size={28}
+                weight="duotone"
+                className="text-violet-500"
+              />
+            }
+            title="미개척지"
+            description="탐사망을 조율하고 전용 사냥터를 강화"
+            onClick={() => onAction({ kind: "open-unexplored" })}
+          />
+        )}
         <EntryCard
           icon={
             <Trophy size={28} weight="duotone" className="text-amber-600" />

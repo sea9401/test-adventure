@@ -88,6 +88,12 @@ export type UnexploredMonsterPool = {
   focusDescription: string;
   rewardCategories: readonly UnexploredRewardCategory[];
   slowKillRewardBonusPctRange?: readonly [10, 15];
+  launchMonster: UnexploredMonsterDefinition;
+  expansionCandidates: readonly [
+    UnexploredMonsterDefinition,
+    UnexploredMonsterDefinition,
+  ];
+  /** 전체 설계 카탈로그. 출시 조우는 launchMonster만 사용한다. */
   monsters: readonly [
     UnexploredMonsterDefinition,
     UnexploredMonsterDefinition,
@@ -95,8 +101,19 @@ export type UnexploredMonsterPool = {
   ];
 };
 
-function definePool<const T extends UnexploredMonsterPool>(pool: T): T {
-  return pool;
+type UnexploredMonsterPoolSeed = Omit<
+  UnexploredMonsterPool,
+  "launchMonster" | "expansionCandidates"
+>;
+
+function definePool<const T extends UnexploredMonsterPoolSeed>(
+  pool: T,
+): T & Pick<UnexploredMonsterPool, "launchMonster" | "expansionCandidates"> {
+  return {
+    ...pool,
+    launchMonster: pool.monsters[0],
+    expansionCandidates: [pool.monsters[1], pool.monsters[2]],
+  };
 }
 
 export const UNEXPLORED_MONSTER_POOLS = [

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { V2_MATERIALS } from "./dungeonDrops";
 import { UNEXPLORED_MONSTER_POOLS } from "./unexploredMonsterPools";
 import {
+  UNEXPLORED_BASE_DROP_MATERIALS,
   UNEXPLORED_POOL_MATERIALS,
   grantUnexploredTrace,
   parseUnexploredTraces,
@@ -22,6 +23,21 @@ describe("unexplored rewards", () => {
   it("registers every pool material in the shared V2 catalog", () => {
     for (const [id, material] of Object.entries(
       UNEXPLORED_POOL_MATERIALS,
+    )) {
+      expect(V2_MATERIALS[id]).toEqual(material);
+    }
+  });
+
+  it("registers five base monster material pairs in the shared V2 catalog", () => {
+    expect(Object.keys(UNEXPLORED_BASE_DROP_MATERIALS)).toHaveLength(10);
+    expect(
+      UNEXPLORED_BASE_DROP_MATERIALS.v2_unexplored_star_sea_shell.name,
+    ).toBe("성해 갑각");
+    expect(
+      UNEXPLORED_BASE_DROP_MATERIALS.v2_unexplored_dead_star_eye.name,
+    ).toBe("죽은 별의 눈");
+    for (const [id, material] of Object.entries(
+      UNEXPLORED_BASE_DROP_MATERIALS,
     )) {
       expect(V2_MATERIALS[id]).toEqual(material);
     }
@@ -65,10 +81,17 @@ describe("unexplored rewards", () => {
     expect(
       rollUnexploredTraceAmount({
         defeatedSpecial: true,
-        extraChancePct: 999,
-        rng: () => 0.999999,
+        extraChancePct: 95,
+        rng: () => 0.949999,
       }),
     ).toBe(2);
+    expect(
+      rollUnexploredTraceAmount({
+        defeatedSpecial: true,
+        extraChancePct: 95,
+        rng: () => 0.95,
+      }),
+    ).toBe(1);
     expect(
       rollUnexploredTraceAmount({
         defeatedSpecial: false,

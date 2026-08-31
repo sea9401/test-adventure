@@ -62,7 +62,7 @@ describe("unexplored encounter shares", () => {
     expect(result).toEqual({
       source: "special",
       poolId: "iron_legion",
-      monsterId: "armored_crusher",
+      monsterId: "armored_shieldman",
     });
   });
 

@@ -6,7 +6,7 @@ import {
 } from "./unexploredMonsterPools";
 
 describe("unexplored monster pool catalog", () => {
-  it("contains 12 pools, three roles per pool, and 36 unique monsters", () => {
+  it("contains 12 launch monsters and keeps two expansion candidates per pool", () => {
     expect(UNEXPLORED_MONSTER_POOLS).toHaveLength(12);
     expect(Object.keys(UNEXPLORED_POOL_BY_ID)).toHaveLength(12);
     expect(Object.keys(UNEXPLORED_MONSTER_BY_ID)).toHaveLength(36);
@@ -17,6 +17,13 @@ describe("unexplored monster pool catalog", () => {
         "variant",
       ]);
       expect(pool.monsters).toHaveLength(3);
+      expect(pool.launchMonster).toBe(pool.monsters[0]);
+      expect(pool.launchMonster.role).toBe("base");
+      expect(pool.expansionCandidates).toEqual(pool.monsters.slice(1));
+      expect(pool.expansionCandidates.map((monster) => monster.role)).toEqual([
+        "attack",
+        "variant",
+      ]);
       expect(new Set(pool.monsters.map((monster) => monster.id)).size).toBe(3);
       expect(pool.materialId).toBe(`v2_unexplored_${pool.id}_material`);
     }

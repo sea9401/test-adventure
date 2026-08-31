@@ -8,14 +8,22 @@ import {
   rollDrops,
   type V2MaterialId,
 } from "./dungeonDrops";
+import { UNEXPLORED_BASE_DROP_MATERIALS } from "./unexploredRewards";
 
 // 2026-06-08: 재료 콘텐츠 제거 — 전 층 드랍 풀 빈 상태(rollDrops 게이트 유지).
 // 2026-06-11: 강화석 2종 입주(장비 강화 PR-2) — 카탈로그 등재만으로 인벤/거래소/NPC 판매가
 // 동작하고, 드랍은 hunt 의 독립 롤(rollEnhanceStoneDrops — 플래그 무관).
 
 describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
+  it("keeps unexplored base monster materials trade-only", () => {
+    for (const id of Object.keys(UNEXPLORED_BASE_DROP_MATERIALS)) {
+      expect(V2_MATERIALS[id]).toBeDefined();
+      expect(materialSellPriceOf(id)).toBeUndefined();
+    }
+  });
+
   it("채광·생활 등 비매 재료는 위험 어획물 판매가 등록 뒤에도 비등재한다", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(105);
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(115);
     expect(V2_MATERIALS.v2_reforge_stone).toBeDefined();
     expect(V2_MATERIALS.v2_reforge_stone_high).toBeDefined();
     expect(V2_MATERIALS.v2_timber).toBeDefined();

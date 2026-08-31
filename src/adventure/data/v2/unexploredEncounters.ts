@@ -115,9 +115,7 @@ export function pickUnexploredMonster(params: {
   const ids =
     group.kind === "base"
       ? params.baseMonsterIds
-      : UNEXPLORED_POOL_BY_ID[group.poolId].monsters.map(
-          (monster) => monster.id,
-        );
+      : [UNEXPLORED_POOL_BY_ID[group.poolId].launchMonster.id];
   if (ids.length === 0) return null;
   const roll = normalizedUnitRoll(params.monsterRng());
   const monsterId =

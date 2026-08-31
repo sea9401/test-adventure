@@ -54,11 +54,16 @@ import {
 } from "@/adventure/v2/stamina";
 import {
   V2_CORE_LOOP_V2,
+  V2_UNEXPLORED,
   HUNT_COOLDOWN_MODE,
   HUNT_COOLDOWN_MS,
   V2_EQUIPMENT_LIBERATION,
   combatCooldownRemainingMs,
 } from "@/adventure/data/v2/coreLoopConfig";
+import { parseUnexploredSave } from "@/adventure/data/v2/unexploredState";
+import {
+  grantExplorationXp,
+} from "@/adventure/data/v2/unexploredProgression";
 import {
   EMPTY_LIBERATION_HUNT_SNAPSHOT,
   deriveLiberationHuntSnapshot,
@@ -836,6 +841,13 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
 
   const curExp = Math.max(0, charSave.exp ?? 0);
   const expResult = applyExpGain(curLevel, curExp, expGained, levelCap);
+  const explorationGrant =
+    V2_UNEXPLORED && won && expResult.level >= 100
+      ? grantExplorationXp(
+          parseUnexploredSave(charSave.unexplored),
+          expResult.overflowExp,
+        )
+      : null;
 
   const newGold = Math.max(0, (charSave.gold ?? 0) + goldNet - lossTax);
 
@@ -924,6 +936,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     hpRegenSince: now,
     level: expResult.level,
     exp: expResult.exp,
+    ...(explorationGrant ? { unexplored: explorationGrant.save } : {}),
     gold: newGold,
     materials: nextMaterials,
     rareMaps,
@@ -1132,6 +1145,16 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
           ? { lossTax, atRiskGold: nextAtRisk, spMilestonesGained }
           : {}),
         levelsGained: expResult.levelsGained,
+        ...(explorationGrant
+          ? {
+              exploration: {
+                xpGained: explorationGrant.acceptedXp,
+                xpAfter: explorationGrant.save.explorationXp,
+                xpPoints: explorationGrant.save.xpPoints,
+                pointsGained: explorationGrant.pointsGained,
+              },
+            }
+          : {}),
         statGains, // 레벨업 랜덤 성장으로 오른 1차 스탯 ({} = 레벨업 없음).
         hpGain, // 레벨업으로 오른 maxHp (레벨 고정분 + VIT).
         mpGain, // 레벨업으로 오른 maxMp (레벨 고정분 + INT).
@@ -1263,6 +1286,12 @@ async function handleHunt(req: Request, userId: string) {
     let losses = 0;
     let referralRewardEarned = false;
     let totalExp = 0;
+    let explorationXpGained = 0;
+    let explorationPointsGained = 0;
+    let explorationAfter: {
+      xpAfter: number;
+      xpPoints: number;
+    } | null = null;
     let totalProficiency = 0;
     let totalGold = 0;
     let totalLossTax = 0;
@@ -1340,6 +1369,14 @@ async function handleHunt(req: Request, userId: string) {
       else losses++;
       referralRewardEarned ||= res.referralRewardEarned;
       totalExp += res.expGained;
+      if (res.exploration) {
+        explorationXpGained += res.exploration.xpGained;
+        explorationPointsGained += res.exploration.pointsGained;
+        explorationAfter = {
+          xpAfter: res.exploration.xpAfter,
+          xpPoints: res.exploration.xpPoints,
+        };
+      }
       totalProficiency += res.proficiencyGained;
       totalMastery += res.masteryGained ?? 0;
       proficiencyPointsAfter = res.proficiencyPointsAfter;
@@ -1482,6 +1519,16 @@ async function handleHunt(req: Request, userId: string) {
           losses,
           referralRewardEarned,
           totalExp,
+          ...(explorationAfter
+            ? {
+                exploration: {
+                  xpGained: explorationXpGained,
+                  xpAfter: explorationAfter.xpAfter,
+                  xpPoints: explorationAfter.xpPoints,
+                  pointsGained: explorationPointsGained,
+                },
+              }
+            : {}),
           totalProficiency,
           totalMastery,
           proficiencyAfter,

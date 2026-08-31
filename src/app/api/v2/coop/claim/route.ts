@@ -36,6 +36,12 @@ import { incrementGuildExplorationCoopProgress } from "@/lib/server/guildExplora
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import { applyUniqueEquipmentAcquisitions } from "@/lib/server/uniqueEquipmentAchievement";
 import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
+import { V2_UNEXPLORED } from "@/adventure/data/v2/coreLoopConfig";
+import { parseUnexploredSave } from "@/adventure/data/v2/unexploredState";
+import {
+  grantUnexploredAchievements,
+  unexploredAchievementCandidates,
+} from "@/adventure/data/v2/unexploredProgression";
 
 // POST /api/v2/coop/claim — 처치된 협동 보스의 기여 보상 수령.
 //
@@ -199,11 +205,6 @@ export async function POST(req: Request) {
     }
     const nextMaterials = mergeDrops(charSave.materials, materialDrops);
 
-    await upsertSave(tx, userId, "character.v2", {
-      ...charSave,
-      materials: nextMaterials,
-    });
-
     // 보스 전용 시그니처 유니크 — SP 열매와 별개의 희귀 트로피. EPIC+ 단일 굴림(GOLD 이하 0).
     //   보스가 여러 종 보유 시 보유 풀에서 랜덤 1개(보스당 2종 — 산군/스콜피온/호수 각 2).
     const kind = COOP_BOSSES[kindId];
@@ -229,6 +230,19 @@ export async function POST(req: Request) {
     const nextKinds = priorKinds.includes(kindId)
       ? priorKinds
       : [...priorKinds, kindId];
+    const nextUnexplored = V2_UNEXPLORED
+      ? grantUnexploredAchievements(
+          parseUnexploredSave(charSave.unexplored),
+          unexploredAchievementCandidates({
+            coopBossKindCount: new Set(nextKinds).size,
+          }),
+        ).save
+      : null;
+    await upsertSave(tx, userId, "character.v2", {
+      ...charSave,
+      materials: nextMaterials,
+      ...(nextUnexplored ? { unexplored: nextUnexplored } : {}),
+    });
     const nextLog = uniqueId && equipmentOwnedAfter
       ? applyUniqueEquipmentAcquisitions({
           adventureLogRaw: logSave,

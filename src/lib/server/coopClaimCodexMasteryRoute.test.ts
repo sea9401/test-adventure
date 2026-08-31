@@ -25,6 +25,11 @@ const {
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-coop-claim"),
 }));
+vi.mock("@/adventure/data/v2/coreLoopConfig", async (importActual) => {
+  const actual =
+    await importActual<typeof import("@/adventure/data/v2/coreLoopConfig")>();
+  return { ...actual, V2_UNEXPLORED: true };
+});
 vi.mock("@/lib/server/codexMasteryGameplay", () => ({
   recordCodexMasteryGameplayBatch,
 }));
@@ -164,5 +169,22 @@ describe("coop claim codex mastery", () => {
 
     expect(noUnique.status).toBe(200);
     expect(recordCodexMasteryGameplayBatch).not.toHaveBeenCalled();
+  });
+
+  it("records exploration achievements from the authoritative unique boss count", async () => {
+    seedClaim();
+    store.set("adventure-log.v2", {
+      coopBossKinds: ["canyon_predator", "lake_sovereign"],
+    });
+    limitResults.push([]);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    expect(store.get("character.v2")).toMatchObject({
+      unexplored: {
+        achievementIds: ["boss_kinds_1", "boss_kinds_3"],
+      },
+    });
   });
 });

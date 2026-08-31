@@ -60,6 +60,11 @@ export const V2_FREEFORM_TILES =
 // 6티어 이상 장비의 장기 골드 성장 시스템. 전체 구현 완료 전까지 기본값은 off다.
 export const V2_EQUIPMENT_LIBERATION =
   process.env.NEXT_PUBLIC_V2_EQUIPMENT_LIBERATION === "true";
+
+// 미개척지 탐사망과 전용 사냥터. 전체 구현이 완료될 때까지 기본값은 off다.
+export const V2_UNEXPLORED =
+  process.env.NEXT_PUBLIC_V2_UNEXPLORED === "true";
+
 // === 사냥 페이싱 (V1식·스태미나 폐지·전투당 서버 쿨다운) =====================
 // throttle = 전투당 실시간 쿨다운(클릭 스팸/무한 그라인딩 차단·온오프 동일 속도).
 export const HUNT_COOLDOWN_MS = 5000; // 전투 1판 간격(유저 확정 — 판당 성장 체감 cadence)

@@ -15,7 +15,7 @@ import {
 
 describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
   it("채광·생활 등 비매 재료는 위험 어획물 판매가 등록 뒤에도 비등재한다", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(93);
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(105);
     expect(V2_MATERIALS.v2_reforge_stone).toBeDefined();
     expect(V2_MATERIALS.v2_reforge_stone_high).toBeDefined();
     expect(V2_MATERIALS.v2_timber).toBeDefined();
@@ -55,6 +55,12 @@ describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
       V2_MATERIALS.v2_monster_lightning_oracle_thunder_runestone,
     ).toBeDefined();
     expect(V2_MATERIALS.v2_monster_trench_apostle_prayer_core).toBeDefined();
+    expect(V2_MATERIALS.v2_unexplored_iron_legion_material?.name).toBe(
+      "강화 철편",
+    );
+    expect(V2_MATERIALS.v2_unexplored_crushing_colossi_material?.name).toBe(
+      "거수 골편",
+    );
     expect(V2_MATERIALS.sp_fruit_1).toBeDefined();
     expect(V2_MATERIALS.sp_fruit_2).toBeDefined();
     expect(V2_MATERIALS.sp_fruit_3).toBeDefined();

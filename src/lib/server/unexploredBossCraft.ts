@@ -18,6 +18,7 @@ import {
   type UnexploredCraftReceipt,
   type UnexploredSave,
 } from "@/adventure/data/v2/unexploredState";
+import { discountedPersonalCraftGoldCost } from "@/lib/server/equipmentLiberationCraftDiscount";
 
 export {
   UNEXPLORED_SUMMON_STONE_GOLD_COST,
@@ -80,6 +81,7 @@ export function applyUnexploredBossCraft(
   bossId: UnexploredBossId,
   requestId: string,
   craftedAt: number,
+  liberationDiscountPct: number = 0,
 ):
   | UnexploredBossCraftSuccess
   | { ok: false; error: UnexploredBossCraftError } {
@@ -136,10 +138,15 @@ export function applyUnexploredBossCraft(
   ) {
     return { ok: false, error: "insufficient_scrolls" };
   }
+  const baseGoldCost = UNEXPLORED_SUMMON_STONE_GOLD_COST;
+  const goldCost = discountedPersonalCraftGoldCost(
+    baseGoldCost,
+    liberationDiscountPct,
+  );
   const payment = spendGold(
     Number(character.gold) || 0,
     Number(character.bankedGold) || 0,
-    UNEXPLORED_SUMMON_STONE_GOLD_COST,
+    goldCost,
   );
   if (!payment.ok) return { ok: false, error: "insufficient_gold" };
 
@@ -171,6 +178,12 @@ export function applyUnexploredBossCraft(
     requestId,
     bossId,
     craftedAt: Math.max(0, Math.floor(craftedAt)),
+    baseGoldCost,
+    goldCost,
+    liberationDiscountPct: Math.min(
+      100,
+      Math.max(0, liberationDiscountPct),
+    ),
   };
   const achievement = grantUnexploredAchievements(
     { ...save, traces: nextTraces },

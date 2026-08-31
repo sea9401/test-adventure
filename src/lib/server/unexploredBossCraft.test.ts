@@ -99,7 +99,41 @@ describe("applyUnexploredBossCraft", () => {
       requestId: "req-success",
       bossId: "tracking_weapon",
       craftedAt: 123_456,
+      baseGoldCost: UNEXPLORED_SUMMON_STONE_GOLD_COST,
+      goldCost: UNEXPLORED_SUMMON_STONE_GOLD_COST,
+      liberationDiscountPct: 0,
     });
+  });
+
+  it("할인된 실제 골드 비용을 영수증에 고정해 재시도에도 보존한다", () => {
+    const first = applyUnexploredBossCraft(
+      readyCharacter(),
+      "tracking_weapon",
+      "req-discount",
+      100,
+      10,
+    );
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.character.gold).toBe(
+      UNEXPLORED_SUMMON_STONE_GOLD_COST * 0.1,
+    );
+    expect(first.receipt).toMatchObject({
+      baseGoldCost: UNEXPLORED_SUMMON_STONE_GOLD_COST,
+      goldCost: UNEXPLORED_SUMMON_STONE_GOLD_COST * 0.9,
+      liberationDiscountPct: 10,
+    });
+
+    const retry = applyUnexploredBossCraft(
+      first.character,
+      "tracking_weapon",
+      "req-discount",
+      999,
+      0,
+    );
+    expect(retry.ok).toBe(true);
+    if (!retry.ok) return;
+    expect(retry.receipt).toEqual(first.receipt);
   });
 
   it("같은 requestId 재시도는 최초 영수증을 반환하고 다시 차감하지 않는다", () => {

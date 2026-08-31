@@ -639,8 +639,18 @@ export function V2UnexploredTreeView({
             {model.poolSummary.length > 0 ? (
               <ul className="space-y-2 text-sm">
                 {model.poolSummary.slice(0, 3).map((pool) => (
-                  <li key={pool.poolId} className={`${SURFACE_INSET} flex justify-between px-3 py-2`}>
-                    <span>{pool.name}</span><strong>{pool.share}%</strong>
+                  <li key={pool.poolId} className={`${SURFACE_INSET} space-y-1 px-3 py-2`}>
+                    <div className="flex justify-between gap-2">
+                      <span>{pool.name}</span><strong>{pool.share}%</strong>
+                    </div>
+                    <p className="text-xs text-zinc-600 dark:text-zinc-300">
+                      {pool.materialName} · 재료 {pool.materialRateText}
+                    </p>
+                    {pool.weaponName && pool.weaponRateText ? (
+                      <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                        {pool.weaponName} · 무기 {pool.weaponRateText}
+                      </p>
+                    ) : null}
                   </li>
                 ))}
               </ul>

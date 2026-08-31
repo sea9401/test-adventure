@@ -76,7 +76,7 @@
 - Produces: `coopBossTrackingThreat(kind, stateRaw): number`, `coopBossTrackingThreatMax(kind): number`, `withCoopBossTrackingThreat(kind, stateRaw, threat): CoopMechanicState`.
 - Consumes: `UnexploredBossDefinition`, `CoopBossKind`, 기존 `CoopMechanicState.bossMp` 병합 계약.
 
-- [ ] **Step 1: 순수 산식의 실패 테스트 작성**
+- [x] **Step 1: 순수 산식의 실패 테스트 작성**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -111,13 +111,13 @@ describe("tracking weapon threat", () => {
 });
 ```
 
-- [ ] **Step 2: 실패를 확인**
+- [x] **Step 2: 실패를 확인**
 
 Run: `npm test -- src/adventure/v2/combat/trackingWeaponMechanic.test.ts`
 
 Expected: FAIL because `trackingWeaponMechanic.ts` does not exist.
 
-- [ ] **Step 3: 최소 순수 구현 작성**
+- [x] **Step 3: 최소 순수 구현 작성**
 
 ```ts
 export const TRACKING_THREAT_MAX = 100;
@@ -170,7 +170,7 @@ export function resolveTrackingThreatAfterPlayerAction(input: {
 }
 ```
 
-- [ ] **Step 4: 세션 파서와 보스 카탈로그 실패 테스트 추가**
+- [x] **Step 4: 세션 파서와 보스 카탈로그 실패 테스트 추가**
 
 ```ts
 it("추적 게이지만 0~100으로 보정하며 bossMp를 보존한다", () => {
@@ -205,7 +205,7 @@ it("추적 병기는 확정 연타 대신 낮은 회피와 관통을 사용한�
 });
 ```
 
-- [ ] **Step 5: 세션 상태와 카탈로그 구현 후 집중 테스트 실행**
+- [x] **Step 5: 세션 상태와 카탈로그 구현 후 집중 테스트 실행**
 
 `CoopMechanicState`와 파서에 `trackingThreat?: number`를 추가한다. `coopBossTrackingThreatMax()`는 `kind.id === "tracking_weapon"`일 때만 100을 반환하고, 조회·병합 헬퍼는 다른 보스에서 0을 반환하되 기존 `bossMp`를 보존한다. `unexploredBosses.ts`의 추적 병기 수치와 특성은 Global Constraints의 정확한 값으로 바꾼다.
 
@@ -213,7 +213,7 @@ Run: `npm test -- src/adventure/v2/combat/trackingWeaponMechanic.test.ts src/adv
 
 Expected: PASS.
 
-- [ ] **Step 6: Task 1 커밋**
+- [x] **Step 6: Task 1 커밋**
 
 ```bash
 git add src/adventure/v2/combat/trackingWeaponMechanic.ts src/adventure/v2/combat/trackingWeaponMechanic.test.ts src/adventure/data/v2/unexploredBosses.ts src/adventure/data/v2/coopBosses.ts src/adventure/data/v2/coopBosses.test.ts
@@ -240,7 +240,7 @@ git commit -m "feat: add tracking weapon threat state"
 - Produces: `BattleLogEntry.directHits?: number` on non-`hp_bar` entries.
 - Produces: `resolveForcedEnemyPhysicalHit(state, player, playerName, options)` returning `{ state, damageToHp }` without advancing the enemy ATB clock.
 
-- [ ] **Step 1: 엔진 실패 테스트 작성**
+- [x] **Step 1: 엔진 실패 테스트 작성**
 
 `trackingWeaponAtb.test.ts`에 고정된 플레이어·몬스터 픽스처와 `Math.random` 스파이를 사용한다. 최소한 다음 네 테스트를 작성한다.
 
@@ -279,13 +279,13 @@ it("추적 설정이 없으면 동일 시드의 기존 ATB 결과와 로그가 �
 
 방어 회귀는 같은 보스·시드에서 `def`, `damageTakenReductionPct`, `magicBarrierAbsorbPct`를 높인 플레이어가 더 적은 HP 피해를 받는지, HP가 낮은 픽스처에서는 첫 타 사망 뒤 두 번째 `추적 섬멸!` 로그가 없는지 검사한다. 직접 다단 스킬은 로그의 `directHits` 합계가 실제 `hitDamages.length`와 같은지도 검사한다.
 
-- [ ] **Step 2: 실패를 확인**
+- [x] **Step 2: 실패를 확인**
 
 Run: `npm test -- src/adventure/v2/combat/trackingWeaponAtb.test.ts`
 
 Expected: FAIL because `ResolveContext.bossMechanic`, engine state and counter behavior do not exist.
 
-- [ ] **Step 3: 정형 타격 수와 선택적 전투 상태 타입 추가**
+- [x] **Step 3: 정형 타격 수와 선택적 전투 상태 타입 추가**
 
 ```ts
 export type BossMechanicContext = {
@@ -303,7 +303,7 @@ export type BossMechanicBattleState = {
 
 `BattleLogEntry`의 일반 variant에 `directHits?: number`, `BattleState`에 `bossMechanic?: BossMechanicBattleState`, `ResolveContext`에 `bossMechanic?: BossMechanicContext`를 추가한다. 기본 공격의 `player_attack` 로그에는 `directHits: apHits`, 스킬의 각 실제 타격 로그에는 `directHits: 1`을 넣는다. 행동 묶음 집계에서는 `player_attack`의 `directHits`가 없으면 기존 로그 호환값 1을 사용한다. 적 행동 묶음은 로그 종류와 무관하게 직접 타격 가산을 적용하지 않으므로 반사·지속 피해가 타격 수를 올리지 않는다.
 
-- [ ] **Step 4: 기존 물리 판정에서 강제타 헬퍼 추출**
+- [x] **Step 4: 기존 물리 판정에서 강제타 헬퍼 추출**
 
 `engine.enemyPhase.ts`의 기존 적 물리 공격 판정에서 다음 인터페이스를 추출한다. 일반 적 공격 호출은 기존 값으로 이 헬퍼를 사용해 바이트 수준의 동작을 유지한다.
 
@@ -327,7 +327,7 @@ export function resolveForcedEnemyPhysicalHit(
 
 추적 섬멸 호출값은 `{ attackName: "추적 섬멸", multiplier: 1, armorPierce: 0, allowCritical: false, applyStatus: false, consumeEnemyAction: false }`다. 헬퍼는 기존 물리 피해 순서인 방어력 → PvE 회피 경감 → 일반·활성 피해 감소 → 보호막 → 마법 방벽 → 사망 방지를 적용하고, 플레이어 피격 반사·반격도 기존과 같이 처리한다. `consumeEnemyAction: false`이면 `enemyAttacksLeft`, `enemyPhasesCompleted`와 ATB 예약값을 바꾸지 않는다.
 
-- [ ] **Step 5: ATB 행동 경계에 추적 정산과 2연타 삽입**
+- [x] **Step 5: ATB 행동 경계에 추적 정산과 2연타 삽입**
 
 플레이어 분기 시작에서 `enemyHp`와 로그 길이를 기록한다. 스킬·기본 공격·같은 ATB 시점 후속타가 모두 끝난 다음 실제 HP 차감량과 새 로그의 `directHits` 합계를 Task 1 함수에 넘긴다. 보스가 살아 있고 `triggered`이면 다음 순서로 처리한다.
 
@@ -361,13 +361,13 @@ const trackingResource = state.bossMechanic?.kind === "tracking_weapon"
   : undefined;
 ```
 
-- [ ] **Step 6: 엔진·기존 다단 로그 회귀 실행**
+- [x] **Step 6: 엔진·기존 다단 로그 회귀 실행**
 
 Run: `npm test -- src/adventure/v2/combat/trackingWeaponAtb.test.ts src/adventure/v2/combat/multiHitLog.test.ts src/adventure/v2/combat/combatAtb.test.ts src/adventure/v2/combat/engine.dotClock.test.ts src/adventure/v2/combat/magicBarrier.test.ts src/adventure/v2/combat/berserkerCombat.test.ts`
 
 Expected: PASS, and a tracking context without a boss death leaves a `0~100` threat value.
 
-- [ ] **Step 7: Task 2 커밋**
+- [x] **Step 7: Task 2 커밋**
 
 ```bash
 git add src/adventure/v2/combat/trackingWeaponAtb.test.ts src/adventure/v2/combat/engineState.ts src/adventure/v2/combat/engine.playerPhase.ts src/adventure/v2/combat/engine.ts src/adventure/v2/combat/engine.enemyPhase.ts src/adventure/v2/combat/engine.atb.ts src/adventure/v2/combat/trackingWeaponMechanic.ts
@@ -393,13 +393,13 @@ git commit -m "feat: add tracking elimination counterattack"
 - Produces: 목록·상세 `trackingThreat`, `trackingThreatMax`, `trackingReady`.
 - Produces: 공격 결과의 위 세 필드와 `trackingCounterCount`, `trackingCounterDamage`.
 
-- [ ] **Step 1: 현재 Next.js route handler 지침 확인**
+- [x] **Step 1: 현재 Next.js route handler 지침 확인**
 
 Run: `sed -n '1,260p' node_modules/next/dist/docs/01-app/01-getting-started/15-route-handlers.md`
 
 Expected: route handler의 Web `Request`/`Response`, 동적 `params` Promise와 캐시 기본값을 확인한다. 새 API 파일이나 Server Action은 만들지 않는다.
 
-- [ ] **Step 2: 목록·상세 응답 실패 테스트 작성**
+- [x] **Step 2: 목록·상세 응답 실패 테스트 작성**
 
 기존 개인 세션 픽스처의 `mechanicState`를 `{ trackingThreat: 73 }`으로 바꾸고 소환자 조회 성공 케이스를 추가한다.
 
@@ -421,7 +421,7 @@ expect(body.session).toMatchObject({
 
 독혈 군주 또는 일반 협동 보스 응답에는 `{ trackingThreat: 0, trackingThreatMax: 0, trackingReady: false }`가 들어가는 케이스도 고정한다.
 
-- [ ] **Step 3: 공격 저장 실패 테스트 작성**
+- [x] **Step 3: 공격 저장 실패 테스트 작성**
 
 성공 경로용 트랜잭션 빌더에 `for`, `returning`, `insert`, `values`, `onConflictDoUpdate`, `update`, `set`을 추가하고 `resolveBattle`을 고정 결과로 모킹한다. 다음 세 경우를 각각 검증한다.
 
@@ -452,13 +452,13 @@ expect(body.result).toMatchObject({
 
 `v2Coop.test.ts`에는 `createCoopBossSession()`으로 만든 추적 병기 세션의 `mechanicState`가 `{ bossMp: 0, trackingThreat: 0 }`인지 검사한다. `expireStaleCoopSessions()` 테스트는 update의 `set` 인수가 `{ defeatedAt: now, mechanicState: null }`인지 검사해 만료 시 저장 게이지가 남지 않게 한다.
 
-- [ ] **Step 4: 실패를 확인**
+- [x] **Step 4: 실패를 확인**
 
 Run: `npm test -- src/app/api/v2/coop/route.test.ts src/app/api/v2/coop/[sessionId]/route.test.ts src/app/api/v2/coop/attack/route.test.ts`
 
 Expected: FAIL because tracking fields and engine context are absent.
 
-- [ ] **Step 5: API 연결 구현**
+- [x] **Step 5: API 연결 구현**
 
 목록·상세는 세션별로 다음 서버 권위 필드를 만든다.
 
@@ -472,7 +472,7 @@ const trackingReady = trackingThreatMax > 0 && trackingThreat >= trackingThreatM
 
 `createCoopBossSession()`은 `withCoopBossTrackingThreat(kind, { bossMp: coopBossMaxMp(kind) }, 0)`으로 초기 상태를 만들고, 만료 sweep은 `defeatedAt`과 함께 `mechanicState: null`을 기록한다. 만료된 세션은 보상 대상이 아니며 기존 보스의 종료 후 MP를 소비하지 않으므로 전체 메커니즘 상태를 비우는 것으로 통일한다.
 
-- [ ] **Step 6: API 집중 테스트와 타입 검사**
+- [x] **Step 6: API 집중 테스트와 타입 검사**
 
 Run: `npm test -- src/app/api/v2/coop/route.test.ts src/app/api/v2/coop/[sessionId]/route.test.ts src/app/api/v2/coop/attack/route.test.ts src/lib/server/v2Coop.test.ts`
 
@@ -482,7 +482,7 @@ Run: `npx tsc --noEmit`
 
 Expected: exit 0.
 
-- [ ] **Step 7: Task 3 커밋**
+- [x] **Step 7: Task 3 커밋**
 
 ```bash
 git add src/app/api/v2/coop/route.ts src/app/api/v2/coop/route.test.ts src/app/api/v2/coop/[sessionId]/route.ts src/app/api/v2/coop/[sessionId]/route.test.ts src/app/api/v2/coop/attack/route.ts src/app/api/v2/coop/attack/route.test.ts src/lib/server/v2Coop.ts src/lib/server/v2Coop.test.ts
@@ -510,13 +510,13 @@ git commit -m "feat: persist tracking weapon threat"
 - Produces: `TrackingThreatMeter({ value, max, compact? })`.
 - Produces: 리플레이 자원 키 `trackingThreat`의 한글 라벨 `추적`.
 
-- [ ] **Step 1: 현재 Next.js client component 지침 확인**
+- [x] **Step 1: 현재 Next.js client component 지침 확인**
 
 Run: `sed -n '1,240p' node_modules/next/dist/docs/01-app/01-getting-started/05-server-and-client-components.md`
 
 Expected: 상호작용 훅이 있는 기존 `"use client"` 경계를 유지하고 새 미터는 직렬화 가능한 숫자·불리언 props만 받는다.
 
-- [ ] **Step 2: 공용 미터 실패 테스트 작성**
+- [x] **Step 2: 공용 미터 실패 테스트 작성**
 
 ```tsx
 it("70 미만·임박·준비 상태를 서로 다른 문구로 표시한다", () => {
@@ -535,7 +535,7 @@ it("max가 0이면 아무것도 렌더하지 않는다", () => {
 });
 ```
 
-- [ ] **Step 3: 공용 미터 최소 구현**
+- [x] **Step 3: 공용 미터 최소 구현**
 
 `TrackingThreatMeter`는 값을 `0~max`로 보정하고 70%·100% 경계를 계산한다. 기본 상태는 violet, 임박은 amber, 준비는 rose 색을 사용한다. 새 카드 래퍼를 만들지 않고 부모의 불투명 `Card` 안에서 텍스트와 막대만 렌더한다. `compact`는 글자 크기와 막대 높이만 줄이며 컨테이너 전체 opacity를 바꾸지 않는다.
 
@@ -570,7 +570,7 @@ export function TrackingThreatMeter({
 }
 ```
 
-- [ ] **Step 4: 클라이언트 타입·화면 실패 테스트 추가**
+- [x] **Step 4: 클라이언트 타입·화면 실패 테스트 추가**
 
 `CoopSessionSummary`, `CoopSessionDetail.session`, `CoopAttackResult`에 Task 3 필드를 정확히 추가한다. 목록 개인 보스 픽스처에는 `trackingThreat: 73`, `trackingThreatMax: 100`, `trackingReady: false`를 넣고 `추적 섬멸 임박`이 출력되는지 검사한다. 일반 보스 픽스처는 `trackingThreatMax: 0`으로 두고 `추적 게이지`가 출력되지 않는지 검사한다.
 
@@ -589,7 +589,7 @@ expect(result.current.detail?.session).toMatchObject({
 
 `BattleLogList.test.tsx`에는 `enemySignatureResources: { trackingThreat: "73/100" }`를 주고 `추적 73/100`이 한 번 표시되는지 검사한다.
 
-- [ ] **Step 5: 목록·상세·낙관적 상태·리플레이 구현**
+- [x] **Step 5: 목록·상세·낙관적 상태·리플레이 구현**
 
 - `useCoopBossState.ts`의 응답 타입과 `attack()` 낙관적 `session` 갱신에 게이지 세 필드를 넣는다.
 - `V2CoopBossListView.tsx`의 HP/MP 영역 아래에 `<TrackingThreatMeter value={session.trackingThreat} max={session.trackingThreatMax} compact />`를 넣는다.
@@ -597,7 +597,7 @@ expect(result.current.detail?.session).toMatchObject({
 - `BattleLogList.tsx`의 `SIGNATURE_RESOURCE_LABELS`에 `trackingThreat: "추적"`을 추가한다.
 - 전투 로그의 `추적 +N`, 임박, 발동, 각 타격, 총피해와 잔여 게이지 문구는 Task 2 엔진 로그를 그대로 표시하고 UI에서 재구성하지 않는다.
 
-- [ ] **Step 6: UI 집중 테스트와 타입 검사**
+- [x] **Step 6: UI 집중 테스트와 타입 검사**
 
 Run: `npm test -- src/adventure/v2/coop/TrackingThreatMeter.test.tsx src/adventure/v2/coop/V2CoopBossListView.test.tsx src/adventure/v2/coop/V2CoopBossDetailView.test.tsx src/adventure/v2/coop/useCoopBossState.test.ts src/adventure/battle/BattleLogList.test.tsx`
 
@@ -607,7 +607,7 @@ Run: `npx tsc --noEmit`
 
 Expected: exit 0.
 
-- [ ] **Step 7: Task 4 커밋**
+- [x] **Step 7: Task 4 커밋**
 
 ```bash
 git add src/adventure/v2/coop/TrackingThreatMeter.tsx src/adventure/v2/coop/TrackingThreatMeter.test.tsx src/adventure/v2/coop/useCoopBossState.ts src/adventure/v2/coop/useCoopBossState.test.ts src/adventure/v2/coop/V2CoopBossListView.tsx src/adventure/v2/coop/V2CoopBossListView.test.tsx src/adventure/v2/coop/V2CoopBossDetailView.tsx src/adventure/v2/coop/V2CoopBossDetailView.test.tsx src/adventure/battle/BattleLogList.tsx src/adventure/battle/BattleLogList.test.tsx
@@ -628,7 +628,7 @@ git commit -m "feat: show tracking weapon threat meter"
 - Produces: `CoopBossTrialAudit.trackingCounterCount`, `trackingCounterDamageRatioPerTrigger`.
 - Produces: CLI `--boss=tracking_weapon` 필터와 JSON 집계.
 
-- [ ] **Step 1: 시뮬레이터 실패 테스트 작성**
+- [x] **Step 1: 시뮬레이터 실패 테스트 작성**
 
 ```ts
 it("추적 병기 보고서는 반격 횟수와 최대 HP 대비 반격 피해를 결정적으로 집계한다", () => {
@@ -649,13 +649,13 @@ it("추적 병기 보고서는 반격 횟수와 최대 HP 대비 반격 피해�
 });
 ```
 
-- [ ] **Step 2: 실패를 확인**
+- [x] **Step 2: 실패를 확인**
 
 Run: `npm test -- src/adventure/data/v2/coopBossBalance.test.ts`
 
 Expected: FAIL because tracking metrics are not returned.
 
-- [ ] **Step 3: 시뮬레이터 확장 구현**
+- [x] **Step 3: 시뮬레이터 확장 구현**
 
 `auditCoopBossForPlayer()`가 `tracking_weapon`에만 다음 컨텍스트를 넘기고, 최종 전투 상태에서 반격 값을 읽도록 한다.
 
@@ -674,7 +674,7 @@ const trackingCounterDamageRatioPerTrigger = trackingCounterCount > 0
 
 빌드 집계에는 두 값의 중앙값을 추가한다. CLI 옵션 타입에 `bossIds?: CoopBossKindId[]`를 추가하고 `--boss=tracking_weapon`을 파싱해 `buildCoopBossBalanceReport()`로 넘긴다. 텍스트 출력에는 `반격 횟수`, `반격/HP` 열을 추가하고 JSON에도 같은 필드를 유지한다.
 
-- [ ] **Step 4: 고정 시드 캘리브레이션 실행**
+- [x] **Step 4: 고정 시드 캘리브레이션 실행**
 
 Run: `npm run sim:coop-boss -- --trials=50 --seed=20260830 --boss=tracking_weapon --json`
 
@@ -686,7 +686,7 @@ Expected:
 
 범위를 벗어나면 `TRACKING_ELIMINATION_HIT_MULTIPLIER`만 먼저 조정한다. 반격 빈도가 극단이면 그다음 `TRACKING_DAMAGE_THREAT_SCALE`, 마지막으로 `TRACKING_DIRECT_HIT_THREAT`를 조정한다. 각 변경 후 동일 명령과 Task 1·2 테스트를 다시 실행한다.
 
-- [ ] **Step 5: 확정 수치와 결과 기록**
+- [x] **Step 5: 확정 수치와 결과 기록**
 
 명세의 `밸런스 검증 기준` 뒤에 `출시 캘리브레이션 기록 · 2026-08-30` 절을 추가하고 다음을 숫자로 기록한다.
 
@@ -695,13 +695,13 @@ Expected:
 - STR·DEX·INT·LUK, BAL, VIT의 중앙 반격 횟수와 중앙 반격/최대 HP 비율
 - 표본은 로컬 결정론적 진행 픽스처이며 운영 DB를 읽거나 쓰지 않았다는 사실
 
-- [ ] **Step 6: 전체 관련 테스트 실행**
+- [x] **Step 6: 전체 관련 테스트 실행**
 
 Run: `npm test -- src/adventure/v2/combat/trackingWeaponMechanic.test.ts src/adventure/v2/combat/trackingWeaponAtb.test.ts src/adventure/data/v2/coopBosses.test.ts src/adventure/data/v2/coopBossBalance.test.ts src/app/api/v2/coop/route.test.ts src/app/api/v2/coop/[sessionId]/route.test.ts src/app/api/v2/coop/attack/route.test.ts src/lib/server/v2Coop.test.ts src/adventure/v2/coop/TrackingThreatMeter.test.tsx src/adventure/v2/coop/V2CoopBossListView.test.tsx src/adventure/v2/coop/V2CoopBossDetailView.test.tsx src/adventure/v2/coop/useCoopBossState.test.ts src/adventure/battle/BattleLogList.test.tsx`
 
 Expected: PASS.
 
-- [ ] **Step 7: 정적 검증과 전체 회귀 실행**
+- [x] **Step 7: 정적 검증과 전체 회귀 실행**
 
 Run: `npx tsc --noEmit`
 
@@ -715,7 +715,7 @@ Run: `npm test`
 
 Expected: all test files pass, with only the repository's pre-existing documented skips.
 
-- [ ] **Step 8: 작업 트리 검토와 최종 커밋**
+- [x] **Step 8: 작업 트리 검토와 최종 커밋**
 
 Run: `git diff --check && git status --short`
 

@@ -43,7 +43,7 @@
 - Consumes: `enemiesForDepth`, `V2_MONSTERS`, `scaleMonsterForHunt`, `UNEXPLORED_MONSTER_POOLS`, and the existing `Monster` type.
 - Produces: `UnexploredSimulationMode`, `UnexploredSimulationMonster`, `unexploredBaseProxyMonsters(difficulty)`, `unexploredCommonBaseline(difficulty)`, `unexploredSpecialMonsters(difficulty, mode)`, and `unexploredSimulationMonsters(difficulty, mode)`.
 
-- [ ] **Step 1: Write failing baseline tests**
+- [x] **Step 1: Write failing baseline tests**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -74,13 +74,13 @@ describe("unexplored simulation monsters", () => {
 });
 ```
 
-- [ ] **Step 2: Run the new test and verify module-resolution failure**
+- [x] **Step 2: Run the new test and verify module-resolution failure**
 
 Run: `npm test -- src/adventure/data/v2/unexploredSimulationMonsters.test.ts`
 
 Expected: FAIL because `./unexploredSimulationMonsters` does not exist.
 
-- [ ] **Step 3: Implement Star Grave baselines and stat-only conversion**
+- [x] **Step 3: Implement Star Grave baselines and stat-only conversion**
 
 Use depth 84 only to identify the five Star Grave entries, but call `scaleMonsterForHunt(base, difficulty)` so 90, 95, and 100 extend the current curve. Preserve each proxy's authored `skill`, `atkType`, `critPct`, `evasionPct`, and entry status/cast skills. Compute a median for `hp`, `atk`, `def`, `magicDef`, `spd`, and `accuracy`; round all final integer stats, clamp HP/ATK to at least 1 and defenses to at least 0, set `exp: 0`, and omit drops and images.
 
@@ -96,13 +96,13 @@ type UnexploredSimulationMonster = {
 };
 ```
 
-- [ ] **Step 4: Run the baseline tests and verify they pass**
+- [x] **Step 4: Run the baseline tests and verify they pass**
 
 Run: `npm test -- src/adventure/data/v2/unexploredSimulationMonsters.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 5: Add failing mechanics-adapter tests**
+- [x] **Step 5: Add failing mechanics-adapter tests**
 
 Assert that mechanics mode produces exactly 36 special monsters, every approved ability ID is consumed, stat-only mode has no added mechanics, and these edge mappings hold:
 
@@ -120,13 +120,13 @@ expect(byId.frozen_sentinel.monster.v2Skills?.equipped).toEqual(
 expect(byId.crust_destroyer.monster.v2MaxMp).toBe(60);
 ```
 
-- [ ] **Step 6: Run the mechanics test and verify expected assertion failures**
+- [x] **Step 6: Run the mechanics test and verify expected assertion failures**
 
 Run: `npm test -- src/adventure/data/v2/unexploredSimulationMonsters.test.ts`
 
 Expected: FAIL because mechanics mode has not applied ability fields.
 
-- [ ] **Step 7: Implement the conservative ability adapter**
+- [x] **Step 7: Implement the conservative ability adapter**
 
 Use only existing engine vocabulary and these fixed sensitivity values:
 
@@ -145,7 +145,7 @@ Use only existing engine vocabulary and these fixed sensitivity values:
 
 Where a monster needs both a legacy `skill` and V2 skills, preserve both fields. Deduplicate V2 skill IDs while retaining priority order in both `learned` and `equipped`.
 
-- [ ] **Step 8: Run the monster tests and commit**
+- [x] **Step 8: Run the monster tests and commit**
 
 Run: `npm test -- src/adventure/data/v2/unexploredSimulationMonsters.test.ts`
 
@@ -170,21 +170,21 @@ git commit -m "feat: build unexplored simulation monsters"
 - Consumes: `PlayerCombat`, `V2SkillsState`, `V2_SKILLS`, `UnexploredPoolId`, and trial rows emitted by the CLI.
 - Produces: `rankUnexploredCandidates`, `classifyUnexploredBuild`, `summarizeUnexploredRates`, `groupUnexploredRates`, `anonymousUnexploredRankLabel`, and their input/result types.
 
-- [ ] **Step 1: Write failing ranking and anonymization tests**
+- [x] **Step 1: Write failing ranking and anonymization tests**
 
 Create candidates that prove ordering by total proficiency, current level, and updated time. Assert the returned first 30 contain no projected name, email, or ID fields, and that `anonymousUnexploredRankLabel(0)` is `01위` while rank 29 is `30위`.
 
-- [ ] **Step 2: Run the tests and verify module-resolution failure**
+- [x] **Step 2: Run the tests and verify module-resolution failure**
 
 Run: `npm test -- src/adventure/data/v2/unexploredSimulationAnalysis.test.ts`
 
 Expected: FAIL because `./unexploredSimulationAnalysis` does not exist.
 
-- [ ] **Step 3: Implement ranking and anonymized projection**
+- [x] **Step 3: Implement ranking and anonymized projection**
 
 Accept already eligibility-filtered candidates with `{ opaqueKey, totalCumLevel, level, updatedAtMs }`, return a sorted/sliced array that keeps `opaqueKey` only for in-process joins, and expose no function that formats it. The CLI must use the ordinal label for all output.
 
-- [ ] **Step 4: Add failing build-classification tests**
+- [x] **Step 4: Add failing build-classification tests**
 
 Cover:
 
@@ -197,17 +197,17 @@ Cover:
 - balanced otherwise;
 - poison, bleed, slow, multiple-status, or no-status tags by scanning equipped skill effects rather than matching job names.
 
-- [ ] **Step 5: Run the tests and verify classification failures**
+- [x] **Step 5: Run the tests and verify classification failures**
 
 Run: `npm test -- src/adventure/data/v2/unexploredSimulationAnalysis.test.ts`
 
 Expected: FAIL because classification is not implemented.
 
-- [ ] **Step 6: Implement classification and aggregate summaries**
+- [x] **Step 6: Implement classification and aggregate summaries**
 
 Use explicit `wins` and `total` counters. Summaries must include rate percent, minimum, p25, median, p75, maximum, and counts at or above 20%, 40%, and 70%. Group rows by difficulty, mode, pool, job, and combined build label without treating a one-person group as a population average; every grouped result includes `samplePlayers`.
 
-- [ ] **Step 7: Add and pass aggregation edge tests**
+- [x] **Step 7: Add and pass aggregation edge tests**
 
 Test empty input, all-loss, all-win, percentile ordering, uneven trial totals, and a one-player group. Verify rates are weighted by trials while player percentiles use individual player rates.
 
@@ -215,7 +215,7 @@ Run: `npm test -- src/adventure/data/v2/unexploredSimulationAnalysis.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit the analysis helpers**
+- [x] **Step 8: Commit the analysis helpers**
 
 ```bash
 git add src/adventure/data/v2/unexploredSimulationAnalysis.ts src/adventure/data/v2/unexploredSimulationAnalysis.test.ts
@@ -233,7 +233,7 @@ git commit -m "feat: analyze unexplored simulation results"
 - Consumes: the two pure modules from Tasks 1 and 2, existing save-derived combat helpers, `resolveBattle`, `pickAutoAction`, `totalCumLevel`, and `createDatabaseConnectionOptions`.
 - Produces: a standalone command whose standard output contains no account identifiers.
 
-- [ ] **Step 1: Implement snapshot loading and candidate preparation**
+- [x] **Step 1: Implement snapshot loading and candidate preparation**
 
 Issue one SQL statement that selects users, `banned_until`, relevant `saves_kv` values, and the `character.v2` update time. Load these save keys exactly:
 
@@ -256,13 +256,13 @@ const SAVE_KEYS = [
 
 Filter active bans and administrator emails before sorting. Parse proficiency with the existing parser and `totalCumLevel`. Prepare skills through `sanitizeCombatLoadout`, then derive combat through `derivePlayerCombatV2FromSaves`. Keep loading and output read-only.
 
-- [ ] **Step 2: Implement deterministic battle execution**
+- [x] **Step 2: Implement deterministic battle execution**
 
 For each of 30 players, three difficulties, and both `stats` and `mechanics` modes, run 30 trials against all 36 special monsters. Run the five base proxies once per difficulty because they are identical across special modes. Reset the player to full HP and MP for each battle, use the existing automatic action picker with no potions, and pass the difficulty as the battle depth.
 
 Wrap the global seeded RNG replacement in `try/finally`. If a battle throws, rethrow with only anonymous rank, difficulty, mode, and monster ID.
 
-- [ ] **Step 3: Print the anonymized Korean report**
+- [x] **Step 3: Print the anonymized Korean report**
 
 Print in this order:
 
@@ -274,7 +274,7 @@ Print in this order:
 6. job and build groups with sample size;
 7. automatic flags for stable farmers at 70%+, pools that block at least 80% of players below 5%, and wins concentrated at least 70% in one job or build group.
 
-- [ ] **Step 4: Verify static checks and commit**
+- [x] **Step 4: Verify static checks and commit**
 
 Run:
 
@@ -304,7 +304,7 @@ git commit -m "feat: simulate unexplored live top players"
 - Consumes: production `DATABASE_URL` and the completed CLI.
 - Produces: an anonymized evidence-backed recommendation for difficulty 90, 95, and 100.
 
-- [ ] **Step 1: Run the simulator against the production snapshot**
+- [x] **Step 1: Run the simulator against the production snapshot**
 
 Run:
 
@@ -314,10 +314,10 @@ node --env-file=/run/adventure-rpg/production.env --env-file=.env.production --i
 
 If the host-only environment file is unavailable locally, retry with `.env.production` only. If sandbox networking blocks the database, request narrowly scoped approval for this read-only command.
 
-- [ ] **Step 2: Interpret the output using the approved criteria**
+- [x] **Step 2: Interpret the output using the approved criteria**
 
 Report whether difficulty 90 produces intermittent wins across multiple jobs/builds without any 70% stable farmer, whether 95 leaves only exceptional matchup wins, and whether 100 preserves future headroom. Identify pool hard counters and separate stat-shape effects from mechanics effects.
 
-- [ ] **Step 3: Recommend a baseline without changing gameplay data**
+- [x] **Step 3: Recommend a baseline without changing gameplay data**
 
 If the raw curve is too easy or too hard, calculate a candidate unexplored-only common HP/ATK multiplier and state which axis needs adjustment. Do not edit dungeon scaling, monster catalogs, or live content in this task.

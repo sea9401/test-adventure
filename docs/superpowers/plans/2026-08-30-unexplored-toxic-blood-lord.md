@@ -62,7 +62,7 @@
 - Produces: `toxicBloodRawDotDamage(maxHp, stacks): number`, `toxicBloodRawExplosionDamage(maxHp): number`.
 - Produces: `toxicBloodRecoveryMultiplier(input): number`, `consumeToxicRecoveryAction(actions): number`.
 
-- [ ] **Step 1: 순수 산식 실패 테스트 작성**
+- [x] **Step 1: 순수 산식 실패 테스트 작성**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -95,13 +95,13 @@ describe("toxic blood lord mechanic", () => {
 });
 ```
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
 
 Run: `npm test -- src/adventure/v2/combat/toxicBloodLordMechanic.test.ts`
 
 Expected: FAIL because `toxicBloodLordMechanic.ts` does not exist.
 
-- [ ] **Step 3: 최소 순수 구현 작성**
+- [x] **Step 3: 최소 순수 구현 작성**
 
 ```ts
 export const TOXIC_BLOOD_MAX_STACKS = 10;
@@ -141,7 +141,7 @@ export function consumeToxicRecoveryAction(actions: number): number {
 }
 ```
 
-- [ ] **Step 4: 보스 데이터 실패 테스트 추가 후 구현**
+- [x] **Step 4: 보스 데이터 실패 테스트 추가 후 구현**
 
 `coopBosses.test.ts`에서 `COOP_BOSSES.toxic_blood_lord`의 기술명, 빈 `enrageStages`와 정확한 세 특성을 검사한다. `unexploredBosses.ts`의 기존 일반 중독 설명을 확정 문구로 교체하고 HP 구간 격노는 추가하지 않는다.
 
@@ -149,7 +149,7 @@ Run: `npm test -- src/adventure/v2/combat/toxicBloodLordMechanic.test.ts src/adv
 
 Expected: PASS.
 
-- [ ] **Step 5: Task 1 커밋**
+- [x] **Step 5: Task 1 커밋**
 
 ```bash
 git add src/adventure/v2/combat/toxicBloodLordMechanic.ts src/adventure/v2/combat/toxicBloodLordMechanic.test.ts src/adventure/data/v2/unexploredBosses.ts src/adventure/data/v2/coopBosses.test.ts
@@ -173,7 +173,7 @@ git commit -m "feat: add toxic blood mechanic rules"
 - Produces: `ToxicBloodBattleState` with `toxicBloodStacks`, `toxicRecoveryLockActions`, `toxicExplosionCount`, `toxicDamageTaken`.
 - Produces: `BattleLogEntry.enemyHpDamage?: number`, `BattleLogEntry.heavyBlowFired?: boolean`.
 
-- [ ] **Step 1: ATB 실패 테스트 작성**
+- [x] **Step 1: ATB 실패 테스트 작성**
 
 고정 난수와 저공격·고체력 플레이어, `everyPhases: 1` 독혈 파열 몬스터를 사용해 다음을 검사한다.
 
@@ -200,13 +200,13 @@ it("독혈 설정이 없는 같은 전투에는 독혈 상태와 로그가 없�
 
 보호막 전량 흡수는 중첩 없음, 7중첩 경고 1회, 지속 피해가 행동 시작 회복보다 먼저 적용됨, 상태 피해 감소·마법 장벽·사망 방지 적용, 일반 보호막 우회도 별도 테스트한다.
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
 
 Run: `npm test -- src/adventure/v2/combat/toxicBloodLordAtb.test.ts`
 
 Expected: FAIL because toxic boss context and state do not exist.
 
-- [ ] **Step 3: 상태 union과 정형 적 공격 메타데이터 추가**
+- [x] **Step 3: 상태 union과 정형 적 공격 메타데이터 추가**
 
 ```ts
 export type BossMechanicContext =
@@ -224,7 +224,7 @@ export type ToxicBloodBattleState = {
 
 `BossMechanicBattleState`를 추적 상태와 독혈 상태의 union으로 바꾼다. 일반 적 공격 로그에는 `enemyHpDamage: dmgToHp`, `heavyBlowFired`, v2 적 공격 로그에는 `enemyHpDamage: enemySkillDamageToHp`를 기록한다. ATB는 문자열이 아니라 새 로그의 정형 메타데이터를 합산하고, 한 적 행동 묶음에서 한 번만 독혈을 부여한다.
 
-- [ ] **Step 4: 독혈 상태 피해와 공격 행동 정산 구현**
+- [x] **Step 4: 독혈 상태 피해와 공격 행동 정산 구현**
 
 `engine.atb.ts`에 다음 경계를 둔다.
 
@@ -250,13 +250,13 @@ function tickToxicBloodOnPlayerAction(
 
 플레이어 행동 시작에는 일반 DoT와 회복보다 먼저 독혈 지속 피해를 처리한다. 사망하면 그 행동을 중단한다. `hpBarEntry()`는 독혈 중첩이 있으면 `{ toxicBlood: "X/10" }`, 중첩이 0이고 회복 억제가 남으면 `{ toxicRecoveryLock: "X/2" }`를 기존 적 자원과 병합한다.
 
-- [ ] **Step 5: 집중 테스트 통과**
+- [x] **Step 5: 집중 테스트 통과**
 
 Run: `npm test -- src/adventure/v2/combat/toxicBloodLordMechanic.test.ts src/adventure/v2/combat/toxicBloodLordAtb.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 6: Task 2 커밋**
+- [x] **Step 6: Task 2 커밋**
 
 ```bash
 git add src/adventure/v2/combat/toxicBloodLordAtb.test.ts src/adventure/v2/combat/engineState.ts src/adventure/v2/combat/engine.enemyPhase.ts src/adventure/v2/combat/engine.ts src/adventure/v2/combat/engine.atb.ts
@@ -276,7 +276,7 @@ git commit -m "feat: add toxic blood combat cycle"
 - Consumes: `toxicBloodRecoveryMultiplier()` and `ToxicBloodBattleState`.
 - Produces: `playerWithToxicRecoveryMultiplier(state, player): PlayerCombat` 내부 헬퍼.
 
-- [ ] **Step 1: 회복 억제 실패 테스트 추가**
+- [x] **Step 1: 회복 억제 실패 테스트 추가**
 
 ```ts
 it("9중첩에서는 기존 받는 회복 배율과 73%를 한 번씩 곱한다", () => {
@@ -293,13 +293,13 @@ it("폭발 후 정확히 두 플레이어 행동은 50% 회복만 받고 세 번
 
 회복 스킬/물약 또는 재생 하나, 공격 흡혈, 피격 회복, 회피 회복을 대표 픽스처로 검사한다. 직접 보호막 값은 동일한지 확인한다.
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
 
 Run: `npm test -- src/adventure/v2/combat/toxicBloodLordAtb.test.ts`
 
 Expected: FAIL because recovery paths still use the unmodified player multiplier.
 
-- [ ] **Step 3: 행동별 유효 플레이어 뷰 연결**
+- [x] **Step 3: 행동별 유효 플레이어 뷰 연결**
 
 ```ts
 function playerWithToxicRecoveryMultiplier(
@@ -319,11 +319,11 @@ function playerWithToxicRecoveryMultiplier(
 
 `engine.enemyPhase.ts`의 곡예와 흡혈 갑옷 원시 회복은 `healingAfterReceivedMultiplier(raw, player.receivedHealMult)`를 한 번 사용한다. 직접 보호막 수치는 이 배율에 넣지 않는다.
 
-- [ ] **Step 4: 회복 억제 행동 수 차감**
+- [x] **Step 4: 회복 억제 행동 수 차감**
 
 플레이어 행동 진입 시 회복 억제 잔여 수를 캡처한다. 행동이 실제로 시작됐으면 행동 종료 후 1 차감하고 0이 되는 순간 해제 로그를 기록한다. 지속 피해로 행동 전에 사망하면 차감하지 않는다. 추적 반격 등 플레이어 행동이 아닌 사건에는 차감하지 않는다.
 
-- [ ] **Step 5: 집중 회귀 실행 및 커밋**
+- [x] **Step 5: 집중 회귀 실행 및 커밋**
 
 Run: `npm test -- src/adventure/v2/combat/toxicBloodLordAtb.test.ts src/adventure/v2/combat/atbSkillHealReduce.test.ts src/adventure/v2/combat/signatureEffects.test.ts`
 
@@ -349,17 +349,17 @@ git commit -m "feat: apply toxic blood recovery suppression"
 - Consumes: `BattleResolution.finalState.bossMechanic` toxic variant.
 - Produces: `CoopAttackResult.toxicBloodStacks`, `toxicRecoveryLockActions`, `toxicExplosionCount`, `toxicDamageTaken`.
 
-- [ ] **Step 1: API 실패 테스트 작성**
+- [x] **Step 1: API 실패 테스트 작성**
 
 독혈군주 공격에서 `resolveBattle` 입력이 `{ bossMechanic: { kind: "toxic_blood_lord" } }`인지 확인하고 성공 응답의 네 독혈 필드를 검사한다. 업데이트된 `mechanicState`에는 기존 `bossMp`/추적 값 외 독혈 필드가 생기지 않는지 확인한다. 추적 병기 요청에는 독혈 컨텍스트를 넣지 않는 격리 테스트도 둔다.
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
 
 Run: `npm test -- src/app/api/v2/coop/attack/route.test.ts`
 
 Expected: FAIL because toxic context and response fields are absent.
 
-- [ ] **Step 3: Route Handler와 클라이언트 타입 구현**
+- [x] **Step 3: Route Handler와 클라이언트 타입 구현**
 
 `kindId === "toxic_blood_lord"`일 때만 `bossMechanic` 입력을 만든다. 추적 병기 분기와 상호 배타적인 함수로 구성해 context를 두 번 넣지 않는다. 최종 상태가 독혈 variant면 네 요약값을 읽고, 아니면 모두 0을 반환한다. DB `mechanicState` 병합에는 독혈 값을 넘기지 않는다.
 
@@ -372,7 +372,7 @@ toxicDamageTaken: battleToxicState?.toxicDamageTaken ?? 0,
 
 `CoopAttackResult`에도 같은 네 `number` 필드를 추가한다.
 
-- [ ] **Step 4: 리플레이 라벨 실패 테스트와 구현**
+- [x] **Step 4: 리플레이 라벨 실패 테스트와 구현**
 
 ```tsx
 enemySignatureResources={{ toxicBlood: "7/10", toxicRecoveryLock: "2/2" }}
@@ -380,7 +380,7 @@ enemySignatureResources={{ toxicBlood: "7/10", toxicRecoveryLock: "2/2" }}
 
 렌더 결과에 `독혈 7/10`, `회복 억제 2/2`가 있고 원시 키가 없는지 검사한다. `RESOURCE_LABELS`에 `toxicBlood: "독혈"`, `toxicRecoveryLock: "회복 억제"`를 추가한다.
 
-- [ ] **Step 5: API·UI 테스트와 커밋**
+- [x] **Step 5: API·UI 테스트와 커밋**
 
 Run: `npm test -- src/app/api/v2/coop/attack/route.test.ts src/adventure/battle/BattleLogList.test.tsx`
 
@@ -405,23 +405,23 @@ git commit -m "feat: expose toxic blood battle state"
 - Consumes: 공격 결과의 `toxicExplosionCount`, `toxicDamageTaken`.
 - Produces: 독혈군주 빌드별 생존·폭발 횟수·독혈 피해 지표.
 
-- [ ] **Step 1: 시뮬레이터 실패 테스트 추가**
+- [x] **Step 1: 시뮬레이터 실패 테스트 추가**
 
 독혈군주를 선택한 고정 시드 실행이 각 빌드에 대해 중앙 생존 시간, 중앙 폭발 횟수, 중앙 독혈 피해/최대 HP 비율을 내고 같은 시드에서 동일 JSON을 만드는지 검사한다.
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
 
 Run: `npm test -- src/adventure/data/v2/coopBossBalance.test.ts`
 
 Expected: FAIL because toxic metrics are absent.
 
-- [ ] **Step 3: 시뮬레이터 지표 구현과 캘리브레이션 실행**
+- [x] **Step 3: 시뮬레이터 지표 구현과 캘리브레이션 실행**
 
 Run: `npm run sim:coop-boss -- --trials=50 --seed=20260830 --boss=toxic_blood_lord --json`
 
 고방어 회복형이 긴 시도에서 폭발을 최소 한 번 겪고 균형형이 첫 폭발을 견디는지 확인한다. 시작 상수 `0.003`, `0.03`, `0.20`, `0.50`, `2`를 먼저 유지하고, 실패할 때만 네 피해/회복 수치를 조절한다. 다른 보스 상수는 바꾸지 않는다. 명령, 시드, 최종 상수와 빌드별 결과를 설계 문서의 캘리브레이션 기록에 남긴다.
 
-- [ ] **Step 4: 집중·타입·린트·전체 회귀 검증**
+- [x] **Step 4: 집중·타입·린트·전체 회귀 검증**
 
 Run:
 
@@ -434,7 +434,7 @@ npm test
 
 Expected: focused tests, typecheck, lint and full suite PASS. 이미 알려진 독립 기준선 실패가 있으면 독혈 변경을 제외한 깨끗한 기준선에서 재현하고 정확한 테스트명을 기록한다.
 
-- [ ] **Step 5: 최종 캘리브레이션 커밋**
+- [x] **Step 5: 최종 캘리브레이션 커밋**
 
 ```bash
 git add scripts/sim-v2-coop-boss.ts src/adventure/data/v2/coopBossBalance.test.ts docs/superpowers/specs/2026-08-30-unexplored-toxic-blood-lord-design.md

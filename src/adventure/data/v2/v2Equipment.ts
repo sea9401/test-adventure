@@ -807,6 +807,129 @@ export const CRAFTED_EQUIP_TAG_SET_IDS = [
 
 export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
+    id: "unexplored_pioneer",
+    name: "개척자 장비",
+    buildTags: ["physical", "magic", "tank", "heal", "resource", "crit", "speed"],
+    thresholds: [
+      { count: 2, bonus: { hp: 300, mp: 180, accuracy: 8 } },
+      { count: 3, bonus: { def: 45, magicDef: 40, critResist: 7 } },
+      {
+        count: 5,
+        bonus: {
+          hp: 420,
+          mp: 260,
+          crit: 5,
+          spd: 8,
+          healPowerPct: 6,
+          statusDamageReductionPct: 7,
+        },
+      },
+    ],
+  },
+  {
+    id: "unexplored_tracking",
+    name: "추적 병기",
+    buildTags: ["physical", "crit", "evasion", "speed"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { crit: 4, eva: 5, spd: 5 },
+        signature: {
+          trigger: "on_crit",
+          label: "암영 가속",
+          spdBuffPct: 20,
+          buffActions: 2,
+        },
+      },
+      {
+        count: 3,
+        bonus: { accuracy: 12, critMult: 15 },
+        signature: {
+          trigger: "every_n_hits",
+          label: "추적 연쇄",
+          everyNHits: 6,
+        },
+      },
+    ],
+  },
+  {
+    id: "unexplored_toxic_blood",
+    name: "독혈 군주",
+    buildTags: ["physical", "poison", "bleed", "dot"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { hp: 200, crit: 3, statusDamageReductionPct: 5 },
+        signature: {
+          trigger: "on_hit",
+          label: "군락독",
+          poisonChancePct: 5,
+          poisonStacks: 1,
+        },
+      },
+      {
+        count: 3,
+        bonus: { crit: 4, critMult: 35, spd: 5 },
+        signature: {
+          trigger: "on_hit",
+          label: "혈흔 개방",
+          bleedChancePct: 5,
+          bleedStacks: 1,
+        },
+      },
+    ],
+  },
+  {
+    id: "unexplored_glacial_guard",
+    name: "빙하 거수",
+    buildTags: ["tank", "shield"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { hp: 125, mp: 200, magicDef: 10 },
+        signature: {
+          trigger: "battle_start",
+          label: "빙벽 전개",
+          battleStartShieldPctMaxHp: 1,
+        },
+      },
+      {
+        count: 3,
+        bonus: { hp: 175, mp: 300, magicDef: 10, spd: 30, crit: 20, critMult: 80 },
+        signature: {
+          trigger: "on_hit_taken",
+          label: "거수 압축",
+          defGainOnHitPct: 1,
+        },
+      },
+    ],
+  },
+  {
+    id: "unexplored_deep_arcane",
+    name: "심층 마도",
+    buildTags: ["magic", "crit", "speed", "resource"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { mp: 180 },
+        signature: {
+          trigger: "on_skill_cast",
+          label: "마력 재순환",
+          mpRefundPctOfCost: 15,
+        },
+      },
+      {
+        count: 3,
+        bonus: { hp: 300, mp: 260, magicDef: 25 },
+        signature: {
+          trigger: "on_hit",
+          label: "심층 방전",
+          shockChancePct: 8,
+        },
+      },
+    ],
+  },
+  {
     id: "artisan_bulwark",
     name: "수호각인 장비",
     buildTags: ["tank"],

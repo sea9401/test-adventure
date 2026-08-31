@@ -44,6 +44,11 @@ function snapshot(
     achievementIds: [],
     refundGoldCost: 50_000,
     ...overrides,
+    summonStoneCraftCost: overrides.summonStoneCraftCost ?? {
+      baseGoldCost: 1_000_000,
+      goldCost: 1_000_000,
+      liberationDiscountPct: 0,
+    },
   };
 }
 
@@ -96,8 +101,24 @@ describe("unexplored tree model", () => {
     );
 
     expect(model.poolSummary).toEqual([
-      { poolId: "iron_legion", name: "철갑 군단", share: 30 },
-      { poolId: "mana_barrier", name: "마력 방벽체", share: 30 },
+      {
+        poolId: "iron_legion",
+        name: "철갑 군단",
+        share: 30,
+        materialName: "강화 철편",
+        materialRateText: "1% · 집중 1.5%",
+        weaponName: "철성 파쇄검",
+        weaponRateText: "0.1% · 집중 0.2%",
+      },
+      {
+        poolId: "mana_barrier",
+        name: "마력 방벽체",
+        share: 30,
+        materialName: "방벽 결정",
+        materialRateText: "1% · 집중 1.5%",
+        weaponName: "결계 증폭봉",
+        weaponRateText: "0.1% · 집중 0.2%",
+      },
     ]);
     expect(model.selected?.categoryLabel).toBe("보상 전환");
   });

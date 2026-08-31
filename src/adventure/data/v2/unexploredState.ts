@@ -29,6 +29,9 @@ export type UnexploredCraftReceipt = {
   requestId: string;
   bossId: string;
   craftedAt: number;
+  baseGoldCost?: number;
+  goldCost?: number;
+  liberationDiscountPct?: number;
 };
 
 export type UnexploredEquipmentCraftReceipt = {
@@ -88,8 +91,23 @@ function parseCraftReceipts(raw: unknown): UnexploredCraftReceipt[] {
       : "";
     const bossId = typeof source.bossId === "string" ? source.bossId.trim() : "";
     const craftedAt = Number(source.craftedAt);
+    const baseGoldCost = nonNegativeInteger(source.baseGoldCost);
+    const goldCost = nonNegativeInteger(source.goldCost);
+    const liberationDiscountPct = Math.min(
+      100,
+      nonNegativeInteger(source.liberationDiscountPct),
+    );
     return requestId && bossId && Number.isFinite(craftedAt) && craftedAt >= 0
-      ? [{ requestId, bossId, craftedAt: Math.floor(craftedAt) }]
+      ? [{
+          requestId,
+          bossId,
+          craftedAt: Math.floor(craftedAt),
+          ...(source.baseGoldCost != null ? { baseGoldCost } : {}),
+          ...(source.goldCost != null ? { goldCost } : {}),
+          ...(source.liberationDiscountPct != null
+            ? { liberationDiscountPct }
+            : {}),
+        }]
       : [];
   });
 

@@ -49,12 +49,12 @@ describe("장비 이름 식별성", () => {
     expect(duplicates).toEqual([]);
   });
 
-  it("무관한 장비 이름에 반복되던 '성벽'은 대표 고유 장비 하나에만 남긴다", () => {
+  it("'성벽' 명칭은 백골·철갑 개척자·거수 방어 장비에만 쓴다", () => {
     const names = Object.values(V2_EQUIPMENT)
       .map((item) => item.name)
       .filter((name) => name.includes("성벽"));
 
-    expect(names).toEqual(["백골성벽"]);
+    expect(names).toEqual(["백골성벽", "철군 성벽갑", "거수 성벽갑"]);
   });
 });
 
@@ -356,7 +356,8 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     //   전문화 스타터 3 · noDrop 213 · 유니크 81(미개척지 개인 보스 9종 포함)
     //     (고유 아이템 30 + 보스 8). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
     //     신규 고유 아이템 30 → unique. 검은 왕도 이후 보스 유니크 2종 추가.
-    //     총 337 = 기존 328 + 미개척지 개인 보스 고유 9.
+    //   제작 전용 91 = 기존 79 + 미개척지 상위 특화 12.
+    //     총 349 = 기존 328 + 미개척지 개인 보스 고유 9 + 상위 특화 제작 12.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -364,13 +365,209 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       ),
       "정규 그리드",
     ).toHaveLength(29);
-    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(81);
-    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(67);
+    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(87);
+    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(91);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
     expect(
       all.filter((i) => i.noDrop),
       "noDrop(밴드흔한+하드 보스+폭풍 원정+강등 필드유니크)",
-    ).toHaveLength(213);
+    ).toHaveLength(219);
+  });
+
+  it("미개척지 개척자 장비 18종은 승인된 6.5T 카탈로그와 획득 경계를 가진다", () => {
+    const expected = {
+      v2_pioneer_iron_wall_armor: ["armor", "heavy", 270, { hp: 1_250, def: 130, magicDef: 55, critResist: 13, spd: -8 }],
+      v2_pioneer_iron_guard_gloves: ["gloves", "light", 84, { hp: 320, def: 60, accuracy: 14, critResist: 8 }],
+      v2_pioneer_mana_barrier_core: ["necklace", "mana", 148, { hp: 400, mp: 360, magicDef: 105, critResist: 10, statusDamageReductionPct: 10 }],
+      v2_pioneer_barrier_woven_armor: ["armor", "light", 250, { hp: 820, mp: 280, magicDef: 130, statusDamageReductionPct: 16 }],
+      v2_pioneer_regrowth_ring: ["ring", "luck", 132, { hp: 400, mp: 180, magicDef: 45, healPowerPct: 12, statusDamageReductionPct: 8 }],
+      v2_pioneer_pulsing_bio_armor: ["armor", "light", 248, { hp: 1_050, mp: 220, eva: 14, magicDef: 70, healPowerPct: 15 }],
+      v2_pioneer_bloodlight_gauntlets: ["gloves", "light", 85, { hp: 220, crit: 18, critMult: 70, spd: 8 }],
+      v2_pioneer_berserk_boots: ["boots", "light", 78, { hp: 180, crit: 10, critMult: 45, eva: 10, spd: 18 }],
+      v2_pioneer_refraction_core: ["necklace", "mana", 150, { hp: 220, mp: 420, magicDef: 75, crit: 10, accuracy: 14 }],
+      v2_pioneer_focused_crystal_ring: ["ring", "luck", 134, { mp: 240, magicDef: 30, crit: 14, critMult: 75, accuracy: 18 }],
+      v2_pioneer_tracefree_boots: ["boots", "light", 76, { hp: 200, crit: 8, eva: 16, spd: 26, accuracy: 18 }],
+      v2_pioneer_flawless_aim_gloves: ["gloves", "light", 84, { hp: 160, crit: 18, critMult: 55, spd: 10, accuracy: 22 }],
+      v2_pioneer_ironstar_greatsword: ["weapon", "str", 660, { hp: 650, def: 80, magicDef: 30, critResist: 12, spd: -5 }, "greatsword"],
+      v2_pioneer_barrier_amplifier_staff: ["weapon", "int", 645, { mp: 430, magicDef: 50, healPowerPct: 10, statusDamageReductionPct: 10 }, "staff"],
+      v2_pioneer_pulsing_devourer_dagger: ["weapon", "dex", 620, { hp: 300, eva: 10, spd: 18, healPowerPct: 10 }, "dagger"],
+      v2_pioneer_bloodstar_greatsword: ["weapon", "str", 710, { hp: 280, crit: 12, critMult: 100, spd: -3 }, "greatsword"],
+      v2_pioneer_refracting_crystal_staff: ["weapon", "int", 695, { mp: 420, crit: 12, critMult: 45, accuracy: 12 }, "staff"],
+      v2_pioneer_flawless_longbow: ["weapon", "dex", 660, { crit: 15, critMult: 55, spd: 18, accuracy: 24 }, "bow"],
+    } as const;
+
+    const ids = Object.keys(expected) as (keyof typeof expected)[];
+    expect(ids).toHaveLength(18);
+    for (const id of ids) {
+      const [slot, concept, power, options, weaponType] = expected[id];
+      const item = V2_EQUIPMENT[id];
+      expect(item, id).toMatchObject({
+        id,
+        slot,
+        concept,
+        tier: 16,
+        power,
+        options,
+        setTags: ["unexplored_pioneer"],
+      });
+      expect(item.weaponType, id).toBe(weaponType);
+      expect(item.signature, id).toBeUndefined();
+      if (slot === "weapon") {
+        expect(item).toMatchObject({ rarity: "unique", noDrop: true });
+        expect(item.craftOnly).toBeUndefined();
+      } else {
+        expect(item.craftOnly).toBe(true);
+        expect(item.rarity).toBeUndefined();
+      }
+    }
+
+    const basicIds = [
+      "v2_pioneer_iron_wall_armor",
+      "v2_pioneer_mana_barrier_core",
+      "v2_pioneer_regrowth_ring",
+      "v2_pioneer_bloodlight_gauntlets",
+      "v2_pioneer_refraction_core",
+      "v2_pioneer_tracefree_boots",
+    ] as const;
+    expect(new Set(basicIds.map((id) => V2_EQUIPMENT[id].slot))).toEqual(
+      new Set(["armor", "gloves", "boots", "ring", "necklace"]),
+    );
+
+    const pioneerSet = V2_EQUIP_TAG_SETS.find(({ id }) => id === "unexplored_pioneer");
+    expect(pioneerSet).toEqual({
+      id: "unexplored_pioneer",
+      name: "개척자 장비",
+      buildTags: ["physical", "magic", "tank", "heal", "resource", "crit", "speed"],
+      thresholds: [
+        { count: 2, bonus: { hp: 300, mp: 180, accuracy: 8 } },
+        { count: 3, bonus: { def: 45, magicDef: 40, critResist: 7 } },
+        { count: 5, bonus: { hp: 420, mp: 260, crit: 5, spd: 8, healPowerPct: 6, statusDamageReductionPct: 7 } },
+      ],
+    });
+    expect(pioneerSet?.thresholds.some(({ count }) => count === 6)).toBe(false);
+  });
+
+  it("미개척지 상위 특화 제작 세트 4종은 6.5T 장비 3부위와 2·3세트 효과를 가진다", () => {
+    const expectedItems = {
+      v2_unexplored_overheat_tracking_gloves: {
+        slot: "gloves", concept: "light", power: 86,
+        options: { hp: 180, crit: 17, critMult: 65, eva: 10, spd: 10, accuracy: 12 },
+        setTag: "unexplored_tracking",
+      },
+      v2_unexplored_shadow_leap_boots: {
+        slot: "boots", concept: "light", power: 80,
+        options: { hp: 180, crit: 8, eva: 20, spd: 28, accuracy: 12 },
+        setTag: "unexplored_tracking",
+      },
+      v2_unexplored_orbit_calculation_ring: {
+        slot: "ring", concept: "luck", power: 136,
+        options: { hp: 160, crit: 13, critMult: 85, eva: 8, spd: 10, accuracy: 16 },
+        setTag: "unexplored_tracking",
+      },
+      v2_unexplored_toxic_blood_erosion_armor: {
+        slot: "armor", concept: "light", power: 255,
+        options: { hp: 850, magicDef: 55, statusDamageReductionPct: 15 },
+        setTag: "unexplored_toxic_blood",
+      },
+      v2_unexplored_coagulated_gauntlets: {
+        slot: "gloves", concept: "light", power: 86,
+        options: { hp: 220, crit: 14, critMult: 50, spd: 8, accuracy: 10 },
+        setTag: "unexplored_toxic_blood",
+      },
+      v2_unexplored_lord_pulse_ring: {
+        slot: "ring", concept: "luck", power: 136,
+        options: { hp: 300, crit: 12, critMult: 65, magicDef: 30, spd: 6, statusDamageReductionPct: 8 },
+        setTag: "unexplored_toxic_blood",
+      },
+      v2_unexplored_colossus_wall_armor: {
+        slot: "armor", concept: "heavy", power: 280,
+        options: { hp: 1_250, def: 55, magicDef: 50, critResist: 10, spd: -10 },
+        setTag: "unexplored_glacial_guard",
+      },
+      v2_unexplored_frostbreaker_boots: {
+        slot: "boots", concept: "light", power: 88,
+        options: { hp: 350, def: 25, magicDef: 20, critResist: 5 },
+        setTag: "unexplored_glacial_guard",
+      },
+      v2_unexplored_icewall_core_necklace: {
+        slot: "necklace", concept: "mana", power: 160,
+        options: { hp: 450, mp: 160, magicDef: 105, critResist: 8, statusDamageReductionPct: 10 },
+        setTag: "unexplored_glacial_guard",
+      },
+      v2_unexplored_deep_alchemy_staff: {
+        slot: "weapon", concept: "int", power: 665,
+        options: { mp: 460, crit: 12, critMult: 50, accuracy: 14 },
+        setTag: "unexplored_deep_arcane", weaponType: "staff",
+      },
+      v2_unexplored_mana_cycle_robe: {
+        slot: "armor", concept: "light", power: 255,
+        options: { hp: 700, mp: 400, magicDef: 115, statusDamageReductionPct: 10 },
+        setTag: "unexplored_deep_arcane",
+      },
+      v2_unexplored_abyss_catalyst_ring: {
+        slot: "ring", concept: "luck", power: 138,
+        options: { mp: 300, magicDef: 40, crit: 14, critMult: 70, accuracy: 8 },
+        setTag: "unexplored_deep_arcane",
+      },
+    } as const;
+
+    expect(Object.keys(expectedItems)).toHaveLength(12);
+    for (const [id, expected] of Object.entries(expectedItems)) {
+      const item = V2_EQUIPMENT[id as keyof typeof V2_EQUIPMENT];
+      expect(item, id).toMatchObject({
+        id,
+        slot: expected.slot,
+        concept: expected.concept,
+        tier: 16,
+        power: expected.power,
+        options: expected.options,
+        craftOnly: true,
+        setTags: [expected.setTag],
+      });
+      expect(item?.signature, id).toBeUndefined();
+      expect(item?.weaponType, id).toBe("weaponType" in expected ? expected.weaponType : undefined);
+    }
+
+    const expectedSets = {
+      unexplored_tracking: {
+        buildTags: ["physical", "crit", "evasion", "speed"],
+        thresholds: [
+          { count: 2, bonus: { crit: 4, eva: 5, spd: 5 }, signature: { trigger: "on_crit", label: "암영 가속", spdBuffPct: 20, buffActions: 2 } },
+          { count: 3, bonus: { accuracy: 12, critMult: 15 }, signature: { trigger: "every_n_hits", label: "추적 연쇄", everyNHits: 6 } },
+        ],
+      },
+      unexplored_toxic_blood: {
+        buildTags: ["physical", "poison", "bleed", "dot"],
+        thresholds: [
+          { count: 2, bonus: { hp: 200, crit: 3, statusDamageReductionPct: 5 }, signature: { trigger: "on_hit", label: "군락독", poisonChancePct: 5, poisonStacks: 1 } },
+          { count: 3, bonus: { crit: 4, critMult: 35, spd: 5 }, signature: { trigger: "on_hit", label: "혈흔 개방", bleedChancePct: 5, bleedStacks: 1 } },
+        ],
+      },
+      unexplored_glacial_guard: {
+        buildTags: ["tank", "shield"],
+        thresholds: [
+          { count: 2, bonus: { hp: 125, mp: 200, magicDef: 10 }, signature: { trigger: "battle_start", label: "빙벽 전개", battleStartShieldPctMaxHp: 1 } },
+          { count: 3, bonus: { hp: 175, mp: 300, magicDef: 10, spd: 30, crit: 20, critMult: 80 }, signature: { trigger: "on_hit_taken", label: "거수 압축", defGainOnHitPct: 1 } },
+        ],
+      },
+      unexplored_deep_arcane: {
+        buildTags: ["magic", "crit", "speed", "resource"],
+        thresholds: [
+          { count: 2, bonus: { mp: 180 }, signature: { trigger: "on_skill_cast", label: "마력 재순환", mpRefundPctOfCost: 15 } },
+          { count: 3, bonus: { hp: 300, mp: 260, magicDef: 25 }, signature: { trigger: "on_hit", label: "심층 방전", shockChancePct: 8 } },
+        ],
+      },
+    } as const;
+
+    for (const [id, expected] of Object.entries(expectedSets)) {
+      const set = V2_EQUIP_TAG_SETS.find((candidate) => candidate.id === id);
+      expect(set, id).toMatchObject(expected);
+      const pieces = Object.values(V2_EQUIPMENT).filter((item) =>
+        item.setTags?.includes(id),
+      );
+      expect(pieces, id).toHaveLength(3);
+      expect(new Set(pieces.map((item) => item.slot)).size, id).toBe(3);
+    }
   });
 
   it("상점 구매=스타터(T1)만, 판매는 전 티어 — shopPriceOf vs shopPriceForSell", () => {
@@ -493,6 +690,30 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       "v2_crafted_ward_plate",
       "v2_crafted_white_night_grimoire",
       "v2_crafted_windstep_boots",
+      "v2_pioneer_barrier_woven_armor",
+      "v2_pioneer_berserk_boots",
+      "v2_pioneer_bloodlight_gauntlets",
+      "v2_pioneer_flawless_aim_gloves",
+      "v2_pioneer_focused_crystal_ring",
+      "v2_pioneer_iron_guard_gloves",
+      "v2_pioneer_iron_wall_armor",
+      "v2_pioneer_mana_barrier_core",
+      "v2_pioneer_pulsing_bio_armor",
+      "v2_pioneer_refraction_core",
+      "v2_pioneer_regrowth_ring",
+      "v2_pioneer_tracefree_boots",
+      "v2_unexplored_abyss_catalyst_ring",
+      "v2_unexplored_coagulated_gauntlets",
+      "v2_unexplored_colossus_wall_armor",
+      "v2_unexplored_deep_alchemy_staff",
+      "v2_unexplored_frostbreaker_boots",
+      "v2_unexplored_icewall_core_necklace",
+      "v2_unexplored_lord_pulse_ring",
+      "v2_unexplored_mana_cycle_robe",
+      "v2_unexplored_orbit_calculation_ring",
+      "v2_unexplored_overheat_tracking_gloves",
+      "v2_unexplored_shadow_leap_boots",
+      "v2_unexplored_toxic_blood_erosion_armor",
     ]);
     for (const item of crafted) {
       expect(shopPriceOf(item), `${item.id} 구매불가`).toBeUndefined();
@@ -680,7 +901,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     const craftedSetPieces = crafted.filter((item) =>
       item.setTags?.some((tag) => craftedSetIds.has(tag)),
     );
-    expect(crafted).toHaveLength(67);
+    expect(crafted).toHaveLength(91);
     expect(craftedSetPieces).toHaveLength(40);
     expect(
       craftedSetPieces.every((item) =>

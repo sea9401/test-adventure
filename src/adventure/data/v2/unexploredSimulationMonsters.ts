@@ -97,7 +97,7 @@ function enrage(monster: Monster): Monster {
       kind: "enrage",
       name: "저체력 격노",
       hpFraction: 0.4,
-      atkBonus: 12,
+      atkBonus: Math.max(1, Math.round(monster.atk * 0.2)),
     },
   };
 }

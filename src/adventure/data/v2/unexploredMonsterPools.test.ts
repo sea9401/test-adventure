@@ -6,37 +6,29 @@ import {
 } from "./unexploredMonsterPools";
 
 describe("unexplored monster pool catalog", () => {
-  it("expands only iron legion while keeping every other pool at launch", () => {
+  it("activates every designed monster", () => {
     expect(UNEXPLORED_MONSTER_POOLS).toHaveLength(12);
     expect(Object.keys(UNEXPLORED_POOL_BY_ID)).toHaveLength(12);
     expect(Object.keys(UNEXPLORED_MONSTER_BY_ID)).toHaveLength(36);
     for (const pool of UNEXPLORED_MONSTER_POOLS) {
-      expect(pool.monsters.map((monster) => monster.role).sort()).toEqual([
-        "attack",
-        "base",
-        "variant",
-      ]);
       expect(pool.monsters).toHaveLength(3);
-      expect(pool.launchMonster).toBe(pool.monsters[0]);
-      expect(pool.launchMonster.role).toBe("base");
+      expect(pool.activeMonsters).toEqual(pool.monsters);
       expect(new Set(pool.monsters.map((monster) => monster.id)).size).toBe(3);
       expect(pool.materialId).toBe(`v2_unexplored_${pool.id}_material`);
     }
+  });
 
-    expect(UNEXPLORED_POOL_BY_ID.iron_legion.releaseStage).toBe("expanded");
-    expect(
-      UNEXPLORED_POOL_BY_ID.iron_legion.activeMonsters.map(({ id }) => id),
-    ).toEqual([
-      "armored_shieldman",
-      "armored_spearman",
-      "armored_crusher",
-    ]);
-    expect(UNEXPLORED_POOL_BY_ID.iron_legion.expansionCandidates).toEqual([]);
+  it("does not expose retired rollout and reward-design metadata", () => {
+    for (const pool of UNEXPLORED_MONSTER_POOLS) {
+      expect(pool, pool.id).not.toHaveProperty("releaseStage");
+      expect(pool, pool.id).not.toHaveProperty("launchMonster");
+      expect(pool, pool.id).not.toHaveProperty("expansionCandidates");
+      expect(pool, pool.id).not.toHaveProperty("rewardCategories");
+      expect(pool, pool.id).not.toHaveProperty("slowKillRewardBonusPctRange");
 
-    for (const pool of UNEXPLORED_MONSTER_POOLS.slice(1)) {
-      expect(pool.releaseStage, pool.id).toBe("launch");
-      expect(pool.activeMonsters, pool.id).toEqual([pool.launchMonster]);
-      expect(pool.expansionCandidates, pool.id).toEqual(pool.monsters.slice(1));
+      for (const monster of pool.monsters) {
+        expect(monster, monster.id).not.toHaveProperty("role");
+      }
     }
   });
 
@@ -77,8 +69,5 @@ describe("unexplored monster pool catalog", () => {
       def: 1.25,
       magicDef: 0.9,
     });
-    expect(
-      UNEXPLORED_POOL_BY_ID.crushing_colossi.slowKillRewardBonusPctRange,
-    ).toEqual([10, 15]);
   });
 });

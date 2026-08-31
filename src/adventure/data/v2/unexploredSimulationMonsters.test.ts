@@ -228,25 +228,116 @@ describe("unexplored simulation monsters", () => {
       "v2_skill_recover",
     );
     expect(byId.proliferating_core.monster.v2MaxMp).toBe(32);
+    expect(byId.red_berserker.monster.skill).toMatchObject({
+      kind: "enrage",
+      hpFraction: 0.4,
+      atkBonus: Math.round(byId.red_berserker.monster.atk * 0.2),
+    });
+    expect(byId.blood_duelist.monster.critPct).toBe(38);
+    expect(byId.red_executioner.monster.skill).toMatchObject({
+      kind: "heavy_blow",
+      everyPhases: 3,
+      multiplier: 2,
+    });
+    expect(byId.crystal_mage.monster).toMatchObject({ atkType: "magic" });
+    expect(byId.crystal_mage.monster.v2Skills?.equipped).toContain(
+      "mob_arcane_bolt",
+    );
+    expect(byId.refraction_artillery.monster).toMatchObject({
+      atkType: "magic",
+    });
+    expect(byId.refraction_artillery.monster.v2Skills?.equipped).toContain(
+      "mob_arcane_burst",
+    );
+    expect(byId.crystal_sentinel.monster).toMatchObject({
+      atkType: "magic",
+      v2MaxMp: 70,
+    });
+    expect(byId.crystal_sentinel.monster.v2Skills?.equipped).toContain(
+      "mob_arcane_nova",
+    );
+    const accuracy = unexploredCommonBaseline(90).accuracy;
+    expect(byId.precision_scout.monster.accuracy).toBe(accuracy + 20);
+    expect(byId.lethal_sniper.monster).toMatchObject({
+      accuracy: accuracy + 30,
+      critPct: 38,
+    });
+    expect(byId.armor_hunter.monster.accuracy).toBe(accuracy + 30);
+    expect(byId.armor_hunter.monster.skill).toMatchObject({
+      kind: "pierce",
+      armorPierce: 11,
+    });
     expect(byId.barrier_guardian.monster.statusDamageReductionPct).toBe(20);
     expect(byId.seal_watcher.monster.statusDamageReductionPct).toBe(40);
+    expect(byId.rushing_machine.monster.bonusAttackChancePct).toBeUndefined();
     expect(byId.combo_automaton.monster.bonusAttackChancePct).toBe(50);
+    expect(byId.overheated_enforcer.monster.bonusAttackChancePct).toBe(50);
+    expect(byId.overheated_enforcer.monster.skill).toMatchObject({
+      kind: "enrage",
+      hpFraction: 0.4,
+      atkBonus: Math.round(byId.overheated_enforcer.monster.atk * 0.2),
+    });
     expect(byId.shadow_scout.monster.evasionPct).toBe(35);
-    expect(byId.night_assassin.monster.evasionPct).toBe(45);
+    expect(byId.night_assassin.monster).toMatchObject({
+      evasionPct: 45,
+      critPct: 38,
+    });
     expect(byId.phantom_stalker.monster.evasionPct).toBe(50);
-    expect(byId.venom_sprayer.monster.v2Skills?.equipped).toContain(
+    expect(byId.phantom_stalker.monster.skill).toMatchObject({
+      kind: "pierce",
+      armorPierce: 11,
+    });
+    expect(byId.venom_fang_devourer.monster.v2Skills?.equipped).toEqual([
+      "mob_venom_bite",
+    ]);
+    expect(byId.venom_sprayer.monster.v2Skills?.equipped).toEqual([
       "mob_catastrophe_venom",
-    );
-    expect(byId.corrosive_colony.monster.v2Skills?.equipped).toContain(
+    ]);
+    expect(byId.corrosive_colony.monster.v2Skills?.equipped).toEqual([
       "mob_venom_sunder",
-    );
-    expect(byId.frozen_sentinel.monster.v2Skills?.equipped).toEqual(
-      expect.arrayContaining(["mob_glacial_chill", "mob_arcane_nova"]),
-    );
-    expect(byId.frozen_sentinel.monster.v2MaxMp).toBe(70);
-    expect(byId.crust_destroyer.monster.v2Skills?.equipped).toContain(
+    ]);
+    expect(byId.hooked_dead.monster.v2Skills?.equipped).toEqual([
+      "mob_rending_claw",
+    ]);
+    expect(byId.bloodtrail_pursuer.monster.v2Skills?.equipped).toEqual([
+      "mob_rending_claw",
+    ]);
+    expect(byId.severing_executioner.monster.v2Skills?.equipped).toEqual([
+      "mob_rending_claw",
+    ]);
+    expect(byId.severing_executioner.monster.skill).toMatchObject({
+      kind: "heavy_blow",
+      everyPhases: 3,
+      multiplier: 2,
+    });
+    expect(byId.frost_toucher.monster.v2Skills?.equipped).toEqual([
+      "mob_chilling_touch",
+    ]);
+    expect(byId.freezing_mage.monster).toMatchObject({ atkType: "magic" });
+    expect(byId.freezing_mage.monster.v2Skills?.equipped).toEqual([
+      "mob_deep_chill",
+      "mob_arcane_bolt",
+    ]);
+    expect(byId.frozen_sentinel.monster).toMatchObject({
+      atkType: "magic",
+      v2MaxMp: 70,
+    });
+    expect(byId.frozen_sentinel.monster.v2Skills?.equipped).toEqual([
+      "mob_glacial_chill",
+      "mob_arcane_nova",
+    ]);
+    expect(byId.bedrock_colossus.monster.skill).toMatchObject({
+      kind: "heavy_blow",
+      everyPhases: 3,
+      multiplier: 2,
+    });
+    expect(byId.ironwall_crusher.monster.skill).toMatchObject({
+      kind: "pierce",
+      armorPierce: 11,
+    });
+    expect(byId.crust_destroyer.monster.v2Skills?.equipped).toEqual([
       "mob_crushing_blow",
-    );
+    ]);
     expect(byId.crust_destroyer.monster.v2MaxMp).toBe(60);
   });
 });

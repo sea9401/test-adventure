@@ -44,7 +44,7 @@
 - Produces: `UNEXPLORED_POOL_IDS`, `UnexploredPoolId`, `UnexploredMonsterRole`, `UnexploredRelativeStats`, `UnexploredAbilityId`, `UnexploredMonsterDefinition`, `UnexploredMonsterPool`, `UNEXPLORED_MONSTER_POOLS`, `UNEXPLORED_POOL_BY_ID`, and `UNEXPLORED_MONSTER_BY_ID`.
 - Consumes: `MonsterTag` from `@/adventure/data/monsters/types` only for existing combat-family classification.
 
-- [ ] **Step 1: Write a failing catalog integrity test**
+- [x] **Step 1: Write a failing catalog integrity test**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -82,13 +82,13 @@ describe("unexplored monster pool catalog", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify that the module is missing**
+- [x] **Step 2: Run the test and verify that the module is missing**
 
 Run: `npm test -- src/adventure/data/v2/unexploredMonsterPools.test.ts`
 
 Expected: FAIL because `./unexploredMonsterPools` cannot be resolved.
 
-- [ ] **Step 3: Add the typed catalog shell and lookup construction**
+- [x] **Step 3: Add the typed catalog shell and lookup construction**
 
 ```ts
 import type { MonsterTag } from "@/adventure/data/monsters/types";
@@ -191,7 +191,7 @@ export const UNEXPLORED_MONSTER_BY_ID = Object.fromEntries(
 ) as Record<string, UnexploredMonsterDefinition>;
 ```
 
-- [ ] **Step 4: Replace the empty array with all approved catalog rows**
+- [x] **Step 4: Replace the empty array with all approved catalog rows**
 
 Use these pool rows and stat tuples in order; each tuple is `[HP, 공격, 물리 방어, 마법 방어, 속도]` and the monster order is `base`, `attack`, `variant`:
 
@@ -246,7 +246,7 @@ Store these exact focus and reward categories so UI readers do not recreate them
 
 Set `slowKillRewardBonusPctRange: [10, 15]` on `crushing_colossi`; omit it from the other pools. This records the approved compensation without selecting a final percentage before combat simulation.
 
-- [ ] **Step 5: Add exact-value regression assertions**
+- [x] **Step 5: Add exact-value regression assertions**
 
 ```ts
 it("preserves the approved edge profiles", () => {
@@ -267,13 +267,13 @@ it("preserves the approved edge profiles", () => {
 });
 ```
 
-- [ ] **Step 6: Run the catalog tests**
+- [x] **Step 6: Run the catalog tests**
 
 Run: `npm test -- src/adventure/data/v2/unexploredMonsterPools.test.ts`
 
 Expected: PASS with all pool counts, roles, IDs, and representative edge values preserved.
 
-- [ ] **Step 7: Commit the catalog**
+- [x] **Step 7: Commit the catalog**
 
 ```bash
 git add src/adventure/data/v2/unexploredMonsterPools.ts src/adventure/data/v2/unexploredMonsterPools.test.ts
@@ -292,7 +292,7 @@ git commit -m "feat: add unexplored monster pool catalog"
 - Consumes: `UnexploredPoolId` and `UNEXPLORED_POOL_IDS` from Task 1.
 - Produces: `UNEXPLORED_BASE_MIN_SHARE`, `UNEXPLORED_SPECIAL_MAX_SHARE`, `UnexploredPoolSelection`, `UnexploredEncounterShare`, `unexploredEncounterShares(selections)`, and `pickUnexploredEncounterGroup(shares, rng)`.
 
-- [ ] **Step 1: Write failing share-normalization tests**
+- [x] **Step 1: Write failing share-normalization tests**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -343,13 +343,13 @@ describe("unexplored encounter shares", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify that the module is missing**
+- [x] **Step 2: Run the test and verify that the module is missing**
 
 Run: `npm test -- src/adventure/data/v2/unexploredEncounters.test.ts`
 
 Expected: FAIL because `./unexploredEncounters` cannot be resolved.
 
-- [ ] **Step 3: Implement share calculation with deterministic largest-remainder rounding**
+- [x] **Step 3: Implement share calculation with deterministic largest-remainder rounding**
 
 ```ts
 import {
@@ -442,13 +442,13 @@ export function pickUnexploredEncounterGroup(
 }
 ```
 
-- [ ] **Step 4: Run the encounter tests**
+- [x] **Step 4: Run the encounter tests**
 
 Run: `npm test -- src/adventure/data/v2/unexploredEncounters.test.ts`
 
 Expected: PASS, including exact `30 + 24 + 23 + 23 = 100` behavior.
 
-- [ ] **Step 5: Commit the encounter resolver**
+- [x] **Step 5: Commit the encounter resolver**
 
 ```bash
 git add src/adventure/data/v2/unexploredEncounters.ts src/adventure/data/v2/unexploredEncounters.test.ts
@@ -467,7 +467,7 @@ git commit -m "feat: add unexplored encounter share resolver"
 - Consumes: `UNEXPLORED_POOL_BY_ID` from Task 1 and `UnexploredEncounterShare` from Task 2.
 - Produces: `pickUnexploredMonster({ baseMonsterIds, shares, groupRng, monsterRng })`, returning `{ source: "base"; monsterId: string } | { source: "special"; poolId: UnexploredPoolId; monsterId: string } | null`.
 
-- [ ] **Step 1: Write failing selection tests**
+- [x] **Step 1: Write failing selection tests**
 
 ```ts
 it("selects uniformly inside the chosen special pool", () => {
@@ -498,13 +498,13 @@ it("returns null only when the selected base pool is empty", () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused test and verify that the export is missing**
+- [x] **Step 2: Run the focused test and verify that the export is missing**
 
 Run: `npm test -- src/adventure/data/v2/unexploredEncounters.test.ts`
 
 Expected: FAIL because `pickUnexploredMonster` is not exported.
 
-- [ ] **Step 3: Implement two-stage deterministic selection**
+- [x] **Step 3: Implement two-stage deterministic selection**
 
 ```ts
 export type UnexploredMonsterPick =
@@ -537,13 +537,13 @@ export function pickUnexploredMonster(params: {
 
 Use the same private `normalizedUnitRoll` helper as group selection so `NaN`, negative values, and `1` cannot produce an out-of-range array index.
 
-- [ ] **Step 4: Run the complete encounter suite**
+- [x] **Step 4: Run the complete encounter suite**
 
 Run: `npm test -- src/adventure/data/v2/unexploredEncounters.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit two-stage selection**
+- [x] **Step 5: Commit two-stage selection**
 
 ```bash
 git add src/adventure/data/v2/unexploredEncounters.ts src/adventure/data/v2/unexploredEncounters.test.ts
@@ -564,7 +564,7 @@ git commit -m "feat: select unexplored encounter monsters"
 - Produces: `UNEXPLORED_TRACE_CAP`, `UNEXPLORED_POOL_MATERIALS`, `UnexploredTraceState`, `parseUnexploredTraces(raw)`, `rollUnexploredTraceAmount(params)`, and `grantUnexploredTrace(traces, poolId, amount)`.
 - Makes the 12 material IDs readable through existing `V2_MATERIALS` consumers.
 
-- [ ] **Step 1: Write failing reward-state tests**
+- [x] **Step 1: Write failing reward-state tests**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -639,13 +639,13 @@ describe("unexplored rewards", () => {
 });
 ```
 
-- [ ] **Step 2: Run the reward tests and verify that the module is missing**
+- [x] **Step 2: Run the reward tests and verify that the module is missing**
 
 Run: `npm test -- src/adventure/data/v2/unexploredRewards.test.ts`
 
 Expected: FAIL because `./unexploredRewards` cannot be resolved.
 
-- [ ] **Step 3: Implement material projection and trace helpers**
+- [x] **Step 3: Implement material projection and trace helpers**
 
 ```ts
 import {
@@ -709,7 +709,7 @@ export function grantUnexploredTrace(
 }
 ```
 
-- [ ] **Step 4: Register the materials in the existing catalog**
+- [x] **Step 4: Register the materials in the existing catalog**
 
 Add this import to `dungeonDrops.ts`:
 
@@ -725,13 +725,13 @@ Then add this spread inside `V2_MATERIALS`, adjacent to other hunting materials:
 
 Keep `unexploredRewards.ts` independent of `dungeonDrops.ts`; the reward module owns the simple `{ id, name, description }` shape and `dungeonDrops.ts` only consumes it. This prevents a runtime import cycle.
 
-- [ ] **Step 5: Run reward and material-catalog tests**
+- [x] **Step 5: Run reward and material-catalog tests**
 
 Run: `npm test -- src/adventure/data/v2/unexploredRewards.test.ts src/adventure/data/v2/huntMaterialCatalog.test.ts src/adventure/data/v2/dungeonDrops.test.ts`
 
 Expected: PASS. Existing material behavior remains unchanged, and the new material records are resolvable by ID.
 
-- [ ] **Step 6: Commit the reward foundation**
+- [x] **Step 6: Commit the reward foundation**
 
 ```bash
 git add src/adventure/data/v2/unexploredRewards.ts src/adventure/data/v2/unexploredRewards.test.ts src/adventure/data/v2/dungeonDrops.ts
@@ -751,7 +751,7 @@ git commit -m "feat: add unexplored pool reward resources"
 - Consumes all exports from Tasks 1–4.
 - Produces no new runtime API; it locks cross-module invariants before later route integration.
 
-- [ ] **Step 1: Add cross-module invariant tests**
+- [x] **Step 1: Add cross-module invariant tests**
 
 ```ts
 it("keeps pool, material, and trace identifiers aligned", () => {
@@ -775,13 +775,13 @@ it("never emits a distribution below the base floor", () => {
 
 Put each assertion in the test file that owns the runtime behavior and import only the neighboring catalog needed for the invariant.
 
-- [ ] **Step 2: Run all unexplored foundation tests**
+- [x] **Step 2: Run all unexplored foundation tests**
 
 Run: `npm test -- src/adventure/data/v2/unexploredMonsterPools.test.ts src/adventure/data/v2/unexploredEncounters.test.ts src/adventure/data/v2/unexploredRewards.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 3: Run TypeScript and formatting checks**
+- [x] **Step 3: Run TypeScript and formatting checks**
 
 Run: `npx tsc --noEmit`
 
@@ -791,13 +791,13 @@ Run: `git diff --check`
 
 Expected: no output and exit code 0.
 
-- [ ] **Step 4: Review scope before the final commit**
+- [x] **Step 4: Review scope before the final commit**
 
 Run: `git status --short`
 
 Expected: only the six unexplored foundation files and the intentional `dungeonDrops.ts` edit are staged for this feature; unrelated fishing or manual changes remain unstaged.
 
-- [ ] **Step 5: Commit the invariant tests**
+- [x] **Step 5: Commit the invariant tests**
 
 ```bash
 git add src/adventure/data/v2/unexploredMonsterPools.test.ts src/adventure/data/v2/unexploredEncounters.test.ts src/adventure/data/v2/unexploredRewards.test.ts

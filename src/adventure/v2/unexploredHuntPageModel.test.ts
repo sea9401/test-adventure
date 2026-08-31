@@ -38,6 +38,11 @@ describe("미개척지 전투 화면 모델", () => {
       materials: {},
       achievementIds: [],
       refundGoldCost: 50_000,
+      summonStoneCraftCost: {
+        baseGoldCost: 1_000_000,
+        goldCost: 1_000_000,
+        liberationDiscountPct: 0,
+      },
     });
 
     expect(summary).toEqual({

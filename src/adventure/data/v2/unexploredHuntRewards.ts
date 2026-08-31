@@ -1,6 +1,9 @@
 import type { DropResult } from "./dungeonDrops";
 import type { UnexploredBaseMonsterId, UnexploredRuntimeMonster } from "./unexploredMonsters";
-import type { UnexploredPoolId } from "./unexploredMonsterPools";
+import {
+  UNEXPLORED_POOL_BY_ID,
+  type UnexploredPoolId,
+} from "./unexploredMonsterPools";
 import {
   grantUnexploredTrace,
   parseUnexploredTraces,
@@ -11,6 +14,7 @@ import {
   type UnexploredEffects,
 } from "./unexploredTree";
 import type { V2EquipmentId } from "./v2Equipment";
+import type { LiberationHuntEffects } from "./equipmentLiberationEffects";
 
 export type UnexploredDropTag =
   | "base"
@@ -39,6 +43,10 @@ export type UnexploredRewardPlan = {
   };
   specialMaterialBonusPct: number;
   rareCopyChance: number;
+  rareWeapon: null | {
+    id: V2EquipmentId;
+    chance: number;
+  };
   trace: null | {
     poolId: UnexploredPoolId;
     extraChance: number;
@@ -133,7 +141,17 @@ function addDrop(drops: DropResult, id: string, amount: number): void {
 export function buildUnexploredRewardPlan(
   monster: UnexploredRuntimeMonster,
   effects: UnexploredEffects,
+  liberationEffects?: LiberationHuntEffects,
 ): UnexploredRewardPlan {
+  const normalMaterialMult = percentMultiplier(
+    liberationEffects?.normalMaterialDropPct ?? 0,
+  );
+  const specialMaterialMult = percentMultiplier(
+    liberationEffects?.specialMaterialDropPct ?? 0,
+  );
+  const rareMaterialMult = percentMultiplier(
+    liberationEffects?.rareMaterialDropPct ?? 0,
+  );
   const basePoolBonus = monster.kind === "base" ? effects.basePoolRewardPct : 0;
   const poolLootBonus = monster.poolId
     ? (effects.poolLootPctByPool[monster.poolId] ?? 0)
@@ -153,14 +171,16 @@ export function buildUnexploredRewardPlan(
         ...material,
         chance: clampChance(
           material.chance *
-            percentMultiplier(effects.rewardPct.baseMaterial + basePoolBonus),
+            percentMultiplier(effects.rewardPct.baseMaterial + basePoolBonus) *
+            normalMaterialMult,
         ),
       },
       {
         ...rare,
         chance: clampChance(
           rare.chance *
-            percentMultiplier(effects.rewardPct.rare + basePoolBonus),
+            percentMultiplier(effects.rewardPct.rare + basePoolBonus) *
+            rareMaterialMult,
         ),
       },
     ];
@@ -173,7 +193,8 @@ export function buildUnexploredRewardPlan(
         tag: "special",
         chance: clampChance(
           (monster.focused ? 0.015 : 0.01) *
-            percentMultiplier(specialMaterialBonusPct),
+            percentMultiplier(specialMaterialBonusPct) *
+            specialMaterialMult,
         ),
         amount: 1,
       },
@@ -187,6 +208,10 @@ export function buildUnexploredRewardPlan(
     BOSS_POOL_IDS.has(monster.poolId)
       ? monster.poolId
       : null;
+  const rareWeaponId =
+    monster.kind === "special" && monster.poolId
+      ? UNEXPLORED_POOL_BY_ID[monster.poolId].weaponEquipmentId
+      : undefined;
 
   return {
     monsterKind: monster.kind,
@@ -201,6 +226,12 @@ export function buildUnexploredRewardPlan(
     },
     specialMaterialBonusPct,
     rareCopyChance: clampChance(effects.rareCopyChancePct / 100),
+    rareWeapon: rareWeaponId
+      ? {
+          id: rareWeaponId,
+          chance: monster.focused ? 0.002 : 0.001,
+        }
+      : null,
     trace: tracePoolId
       ? {
           poolId: tracePoolId,
@@ -232,6 +263,7 @@ export function rollUnexploredHuntRewards(
   };
   const grants: UnexploredRewardGrant[] = [];
   const drops: DropResult = {};
+  const rareWeaponDrops: V2EquipmentId[] = [];
 
   // 몬스터 고유 슬롯을 먼저 굴린다. 희귀 추가 복사는 성공한 희귀 슬롯에만
   // 이어서 판정해 특화 재료와 중복 분류되지 않게 한다.
@@ -254,6 +286,29 @@ export function rollUnexploredHuntRewards(
         kind: "material",
         id: rule.id,
         amount: rule.amount,
+        tag: "rare",
+        source: "unexplored_node_bonus",
+      });
+    }
+  }
+
+  // 개척자 무기는 별도 희귀 슬롯이다. 일반 장비/풀 전리품 배율을 거치지 않고,
+  // 성공한 슬롯에만 희귀 추가 복사를 한 번 판정한다.
+  if (plan.rareWeapon && normalizedRoll(rng) < plan.rareWeapon.chance) {
+    rareWeaponDrops.push(plan.rareWeapon.id);
+    grants.push({
+      kind: "unique",
+      id: plan.rareWeapon.id,
+      amount: 1,
+      tag: "rare",
+      source: "unexplored_monster_drop",
+    });
+    if (normalizedRoll(rng) < plan.rareCopyChance) {
+      rareWeaponDrops.push(plan.rareWeapon.id);
+      grants.push({
+        kind: "unique",
+        id: plan.rareWeapon.id,
+        amount: 1,
         tag: "rare",
         source: "unexplored_node_bonus",
       });
@@ -307,7 +362,7 @@ export function rollUnexploredHuntRewards(
     }
   }
 
-  const droppedUniques: V2EquipmentId[] = [];
+  const droppedUniques: V2EquipmentId[] = [...rareWeaponDrops];
   for (const id of common.droppedUniques) {
     const copies = adjustedCopies(1, plan.commonBonusPct.rare, rng);
     for (let count = 0; count < copies; count += 1) droppedUniques.push(id);

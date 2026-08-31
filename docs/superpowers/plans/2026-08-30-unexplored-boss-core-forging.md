@@ -36,7 +36,7 @@
 - Produces: `UnexploredEquipmentCraftReceipt` and `UnexploredSave.equipmentCraftReceipts`.
 - Recipe entries expose `bossId`, `equipmentId`, `equipmentName`, `chancePct`, `bossCoreCost`, and two `{ poolId, materialId, materialName, count }` costs.
 
-- [ ] **Step 1: Write failing catalog tests**
+- [x] **Step 1: Write failing catalog tests**
 
 Add assertions that the recipe equipment IDs are exactly the first two drops of each boss in boss order, their costs are `[8, 25, 25]` for 30% and `[25, 75, 75]` for 10%, their names match `V2_EQUIPMENT`, and the three 0.5% IDs are absent.
 
@@ -47,13 +47,13 @@ expect([recipe.bossCoreCost, ...recipe.materialCosts.map((cost) => cost.count)])
 expect(unexploredBossEquipmentCraftRecipe(ultraRareId)).toBeNull();
 ```
 
-- [ ] **Step 2: Run the catalog test and verify RED**
+- [x] **Step 2: Run the catalog test and verify RED**
 
 Run: `npx vitest run src/adventure/data/v2/unexploredBosses.test.ts`
 
 Expected: FAIL because the recipe catalog exports do not exist.
 
-- [ ] **Step 3: Implement the derived recipe catalog**
+- [x] **Step 3: Implement the derived recipe catalog**
 
 Add `equipmentName` to all nine `UnexploredBossUniqueDrop` records, validate it against `V2_EQUIPMENT` in the test, and derive only `chancePct !== 0.5` entries. Resolve linked material metadata through `UNEXPLORED_POOL_BY_ID`. Export a parser that returns the matching recipe or `null` for any other value.
 
@@ -81,7 +81,7 @@ export const UNEXPLORED_BOSS_EQUIPMENT_CRAFT_RECIPES =
   });
 ```
 
-- [ ] **Step 4: Write failing receipt parser tests**
+- [x] **Step 4: Write failing receipt parser tests**
 
 Extend the malformed-save expectation with `equipmentCraftReceipts: {}`. Add a test with 55 valid records, a malformed record, an ultra-rare equipment ID, and duplicate request IDs. Assert that only craftable IDs survive, the last duplicate wins, and the latest 50 remain.
 
@@ -94,13 +94,13 @@ expect(parsed.equipmentCraftReceipts.at(-1)).toMatchObject({
 });
 ```
 
-- [ ] **Step 5: Run the receipt test and verify RED**
+- [x] **Step 5: Run the receipt test and verify RED**
 
 Run: `npx vitest run src/adventure/data/v2/unexploredState.test.ts`
 
 Expected: FAIL because `equipmentCraftReceipts` is not part of the normalized save.
 
-- [ ] **Step 6: Implement receipt parsing**
+- [x] **Step 6: Implement receipt parsing**
 
 Add the typed field to `UnexploredSave` and `emptyUnexploredSave()`. Parse non-empty `requestId`, a craftable `equipmentId`, non-empty `equipmentIid`, and finite non-negative `craftedAt`; deduplicate with a `Map` and retain the final 50 records.
 
@@ -113,7 +113,7 @@ export type UnexploredEquipmentCraftReceipt = {
 };
 ```
 
-- [ ] **Step 7: Run both data tests and commit**
+- [x] **Step 7: Run both data tests and commit**
 
 Run: `npx vitest run src/adventure/data/v2/unexploredBosses.test.ts src/adventure/data/v2/unexploredState.test.ts`
 
@@ -136,7 +136,7 @@ git commit -m "feat: define unexplored boss equipment recipes"
 - Success returns `{ ok: true, idempotent, character, receipt, equipment }`, where `equipment` is `null` on retry and a `V2EquipInstance` on first application.
 - Failure returns `{ ok: false, error: "not_craftable" | "insufficient_boss_cores" | "insufficient_pool_material" | "request_conflict" }`.
 
-- [ ] **Step 1: Write failing service tests**
+- [x] **Step 1: Write failing service tests**
 
 Use a ready character with 25 cores and 75 of both tracking materials and an injected mint function returning a fixed instance. Cover:
 
@@ -155,13 +155,13 @@ const mint = vi.fn((id: V2EquipmentId) => ({
 - same request and equipment returns the original receipt with `equipment: null`, without minting or deducting again.
 - same request with another equipment returns `request_conflict`.
 
-- [ ] **Step 2: Run the service test and verify RED**
+- [x] **Step 2: Run the service test and verify RED**
 
 Run: `npx vitest run src/lib/server/unexploredBossEquipmentCraft.test.ts`
 
 Expected: FAIL because the module does not exist.
 
-- [ ] **Step 3: Implement minimal immutable validation and deduction**
+- [x] **Step 3: Implement minimal immutable validation and deduction**
 
 Normalize positive material counts, check an existing receipt before cost validation, resolve the recipe, validate every cost, call `mint(recipe.equipmentId)` only after validation, remove zero balances, and return a parsed save with the appended receipt.
 
@@ -174,7 +174,7 @@ const receipt: UnexploredEquipmentCraftReceipt = {
 };
 ```
 
-- [ ] **Step 4: Run the service test and commit**
+- [x] **Step 4: Run the service test and commit**
 
 Run: `npx vitest run src/lib/server/unexploredBossEquipmentCraft.test.ts`
 
@@ -195,11 +195,11 @@ git commit -m "feat: add boss core equipment craft service"
 - Consumes: `{ equipmentId, requestId }`, `applyUnexploredBossEquipmentCraft`, `appendEquipInstances`, `recordUniqueEquipmentAcquisitions`, and `recordCodexMasteryGameplayBatch`.
 - Produces: status 200 `{ ok, idempotent, equipmentId, equipmentIid, materials }` or the documented JSON error.
 
-- [ ] **Step 1: Read the installed Next.js guides completely**
+- [x] **Step 1: Read the installed Next.js guides completely**
 
 Read `node_modules/next/dist/docs/01-app/01-getting-started/15-route-handlers.md` and `node_modules/next/dist/docs/01-app/01-getting-started/05-server-and-client-components.md` before creating the route or changing the client component. Apply the installed Next 16.2 conventions rather than remembered APIs.
 
-- [ ] **Step 2: Write failing route tests**
+- [x] **Step 2: Write failing route tests**
 
 Hoist mocks for authentication, feature flag, transaction, save locks/writes, minting, equipment append, equipment-codex read, unique acquisition, and mastery recording. Assert:
 
@@ -223,19 +223,19 @@ expect(mocks.recordMastery).toHaveBeenCalledWith(
 );
 ```
 
-- [ ] **Step 3: Run the route test and verify RED**
+- [x] **Step 3: Run the route test and verify RED**
 
 Run: `npx vitest run src/app/api/v2/unexplored/equipment-craft/route.test.ts`
 
 Expected: FAIL because the Route Handler does not exist.
 
-- [ ] **Step 4: Implement the Route Handler**
+- [x] **Step 4: Implement the Route Handler**
 
 Follow the existing unexplored craft route: `ensureUser()`, `V2_UNEXPLORED`, JSON parsing, recipe/request validation, then `db.transaction`. Lock `character.v2` first. On first application, append the returned instance (which locks `equipment.v2`), save the character, read `equipment-codex.v2` as evidence, record unique acquisition, and record mastery. On retry, return receipt data without any secondary write.
 
 Map `not_craftable`/invalid body to 400 and all resource/conflict errors to 409. Let thrown persistence errors abort the transaction.
 
-- [ ] **Step 5: Run route and related server tests, then commit**
+- [x] **Step 5: Run route and related server tests, then commit**
 
 Run: `npx vitest run src/app/api/v2/unexplored/equipment-craft/route.test.ts src/lib/server/unexploredBossEquipmentCraft.test.ts src/lib/server/uniqueEquipmentAchievement.test.ts src/lib/server/codexMasteryGameplay.test.ts`
 
@@ -257,7 +257,7 @@ git commit -m "feat: add unexplored equipment forge route"
 - Sends: `POST /api/v2/unexplored/equipment-craft` with `{ equipmentId, requestId }`.
 - Applies: returned `materials`; the equipment inventory is loaded through its own existing state path and is not duplicated in this snapshot.
 
-- [ ] **Step 1: Write failing render and interaction tests**
+- [x] **Step 1: Write failing render and interaction tests**
 
 Mock `confirmGameAction` as a resolved boolean. Add tests that:
 
@@ -284,19 +284,19 @@ expect(fetchMock).toHaveBeenCalledWith(
 );
 ```
 
-- [ ] **Step 2: Run the component test and verify RED**
+- [x] **Step 2: Run the component test and verify RED**
 
 Run: `npx vitest run src/adventure/v2/V2UnexploredTreeView.test.tsx`
 
 Expected: FAIL because the forge section and request handler are absent.
 
-- [ ] **Step 3: Implement the UI with existing surfaces/dialogs**
+- [x] **Step 3: Implement the UI with existing surfaces/dialogs**
 
 Add a separate `${SURFACE_CARD}` section below the trace vault. Render three boss groups using `${SURFACE_INSET}`, each with two recipe rows and one drop-only row. Track busy state by `V2EquipmentId` and pending IDs by equipment ID. Build the confirmation text from the recipe catalog, then apply `body.materials` to the local snapshot and toast the returned item name.
 
 Use `confirmGameAction({ title, message, confirmLabel: "확정 제작", tone: "warning" })`; do not use `window.confirm` or add another modal implementation.
 
-- [ ] **Step 4: Run UI and unexplored regression tests, then commit**
+- [x] **Step 4: Run UI and unexplored regression tests, then commit**
 
 Run: `npx vitest run src/adventure/v2/V2UnexploredTreeView.test.tsx src/adventure/v2/unexploredTreeModel.test.ts src/adventure/data/v2/unexploredBosses.test.ts`
 
@@ -315,13 +315,13 @@ git commit -m "feat: add unexplored boss core forge UI"
 **Interfaces:**
 - Produces: a clean, committed working tree containing the complete local feature with no deployment action.
 
-- [ ] **Step 1: Run focused feature tests**
+- [x] **Step 1: Run focused feature tests**
 
 Run: `npx vitest run src/adventure/data/v2/unexploredBosses.test.ts src/adventure/data/v2/unexploredState.test.ts src/lib/server/unexploredBossEquipmentCraft.test.ts src/app/api/v2/unexplored/equipment-craft/route.test.ts src/adventure/v2/V2UnexploredTreeView.test.tsx`
 
 Expected: all files PASS.
 
-- [ ] **Step 2: Run static checks**
+- [x] **Step 2: Run static checks**
 
 Run: `npx tsc --noEmit`
 
@@ -329,7 +329,7 @@ Run: `npx eslint src/adventure/data/v2/unexploredBosses.ts src/adventure/data/v2
 
 Expected: both commands exit 0.
 
-- [ ] **Step 3: Run the full test suite and production build**
+- [x] **Step 3: Run the full test suite and production build**
 
 Run: `npm test`
 
@@ -337,7 +337,7 @@ Run: `V2_UNEXPLORED=true npm run build`
 
 Expected: the full suite and build exit 0; image optimization/check hooks report no missing references.
 
-- [ ] **Step 4: Inspect the final diff and commits**
+- [x] **Step 4: Inspect the final diff and commits**
 
 Run: `git diff --check`
 

@@ -75,7 +75,7 @@ git merge --no-ff feat/toxic-blood-lord
 - Produces: `glacialChillSpeedMultiplier(stacks): number`.
 - Produces: `rescaleReservedPlayerTick(input): number`.
 
-- [ ] **Step 1: 순수 산식 실패 테스트 작성**
+- [x] **Step 1: 순수 산식 실패 테스트 작성**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -120,13 +120,13 @@ describe("glacial colossus mechanic", () => {
 });
 ```
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
 
 Run: `npm test -- src/adventure/v2/combat/glacialColossusMechanic.test.ts`
 
 Expected: FAIL because `glacialColossusMechanic.ts` does not exist.
 
-- [ ] **Step 3: 최소 순수 구현 작성**
+- [x] **Step 3: 최소 순수 구현 작성**
 
 ```ts
 export const GLACIAL_CHILL_THRESHOLD = 10;
@@ -188,7 +188,7 @@ export function rescaleReservedPlayerTick(input: {
 }
 ```
 
-- [ ] **Step 4: 보스 데이터 실패 테스트 추가**
+- [x] **Step 4: 보스 데이터 실패 테스트 추가**
 
 `coopBosses.test.ts`에 다음 계약을 추가한다.
 
@@ -204,13 +204,13 @@ expect(COOP_BOSSES.glacial_colossus.enrageStages).toEqual([]);
 
 `unexploredBosses.ts`에서 빙하 거수의 기존 `{ kind: "chill", ... }` 스킬을 제거하고 세 특성을 위 문구로 교체한다. `atkType: "magic"`과 나머지 원본 수치는 유지한다.
 
-- [ ] **Step 5: Task 1 통과 확인**
+- [x] **Step 5: Task 1 통과 확인**
 
 Run: `npm test -- src/adventure/v2/combat/glacialColossusMechanic.test.ts src/adventure/data/v2/coopBosses.test.ts src/adventure/data/v2/frostSovereignCatalog.test.ts src/adventure/v2/combat/frostChill.test.ts`
 
 Expected: PASS; 얼음 마법사 한기 테스트도 기존 값으로 통과.
 
-- [ ] **Step 6: Task 1 커밋**
+- [x] **Step 6: Task 1 커밋**
 
 ```bash
 git add src/adventure/v2/combat/glacialColossusMechanic.ts src/adventure/v2/combat/glacialColossusMechanic.test.ts src/adventure/data/v2/unexploredBosses.ts src/adventure/data/v2/coopBosses.test.ts
@@ -232,7 +232,7 @@ git commit -m "feat: add glacial colossus mechanic rules"
 - Produces: `BossMechanicContext`의 `{ kind: "glacial_colossus" }`.
 - Produces: `GlacialColossusBattleState`와 ATB 한기·빙결 순환.
 
-- [ ] **Step 1: ATB 실패 픽스처와 누적 테스트 작성**
+- [x] **Step 1: ATB 실패 픽스처와 누적 테스트 작성**
 
 고정 난수, 높은 HP와 낮은 공격력 플레이어, 빠른 빙하 거수 픽스처를 사용한다.
 
@@ -255,7 +255,7 @@ it("일반 보호막이 HP 피해를 전부 막으면 냉기장 한기만 쌓는
 });
 ```
 
-- [ ] **Step 2: 즉시 예약 감속 실패 테스트 작성**
+- [x] **Step 2: 즉시 예약 감속 실패 테스트 작성**
 
 플레이어와 보스의 첫 행동 틱을 고정하고, 한기 정산 뒤 다음 플레이어 공격 로그 틱이 한기 없는 대조군보다 늦는지 검사한다. 계산 기대값은 `rescaleReservedPlayerTick`으로 만들지 말고 독립 리터럴 값으로 고정해 같은 버그를 공유하지 않게 한다.
 
@@ -266,7 +266,7 @@ expect(glacial.finalState.log.some((entry) =>
 )).toBe(true);
 ```
 
-- [ ] **Step 3: 10중첩과 행동 취소 실패 테스트 작성**
+- [x] **Step 3: 10중첩과 행동 취소 실패 테스트 작성**
 
 ```ts
 it("10중첩 빙결은 다음 플레이어 행동을 정확히 한 번 취소한다", () => {
@@ -287,13 +287,13 @@ it("10중첩 빙결은 다음 플레이어 행동을 정확히 한 번 취소한
 
 빙결 예약 중 보스가 여러 번 행동해도 두 번째 빙결이 발생하지 않는 테스트와, 취소 시 재생·플레이어 DoT·버프 시간·물약·MP가 변하지 않는 테스트를 각각 추가한다.
 
-- [ ] **Step 4: 실패 확인**
+- [x] **Step 4: 실패 확인**
 
 Run: `npm test -- src/adventure/v2/combat/glacialColossusAtb.test.ts`
 
 Expected: FAIL because glacial boss context/state and ATB handling do not exist.
 
-- [ ] **Step 5: 상태 union과 초기 상태 구현**
+- [x] **Step 5: 상태 union과 초기 상태 구현**
 
 `engineState.ts`에 다음 타입을 추가한다.
 
@@ -309,7 +309,7 @@ export type GlacialColossusBattleState = {
 
 `BossMechanicContext`에 `{ kind: "glacial_colossus" }`를 추가하고 `BossMechanicBattleState` union에 새 상태를 포함한다. `resolveBattleAtb` 초기화에서 네 값을 모두 0으로 만든다.
 
-- [ ] **Step 6: 적 행동 한기 정산 구현**
+- [x] **Step 6: 적 행동 한기 정산 구현**
 
 `engine.atb.ts`에 문자열을 파싱하지 않는 다음 경계를 만든다.
 
@@ -328,7 +328,7 @@ function settleGlacialChillAfterEnemyAction(args: {
 
 적 행동 묶음 시작에 `previousStacks`를 캡처하고, 감전 건너뛰기와 일반·스킬 공격 처리가 끝난 뒤 정산 함수를 정확히 한 번 호출한다.
 
-- [ ] **Step 7: 플레이어 행동 취소 구현**
+- [x] **Step 7: 플레이어 행동 취소 구현**
 
 플레이어 actor 분기에서 독혈 지속 피해와 다른 행동 시작 처리를 실행하기 전에 다음 분기를 둔다.
 
@@ -345,7 +345,7 @@ if (state.bossMechanic?.kind === "glacial_colossus" &&
 
 `effectivePlayerSpd`는 빙하 거수 상태에서만 기존 결과에 `glacialChillSpeedMultiplier`를 마지막으로 곱한다.
 
-- [ ] **Step 8: 재생 자원과 집중 테스트 통과**
+- [x] **Step 8: 재생 자원과 집중 테스트 통과**
 
 HP 바의 보스 자원 분기에서 한기가 있으면 `glacialChill: "X/10"`, 한기 0이고 예약이 있으면 `glacialFreeze: "1/1"`를 넣는다. 둘을 동시에 넣지 않는다.
 
@@ -353,7 +353,7 @@ Run: `npm test -- src/adventure/v2/combat/glacialColossusAtb.test.ts src/adventu
 
 Expected: PASS.
 
-- [ ] **Step 9: 타입 검사와 Task 2 커밋**
+- [x] **Step 9: 타입 검사와 Task 2 커밋**
 
 Run: `env NODE_OPTIONS=--max-old-space-size=4096 npx tsc --noEmit`
 
@@ -376,7 +376,7 @@ git commit -m "feat: add glacial colossus combat cycle"
 - Consumes: Task 2의 `GlacialColossusBattleState`와 적 행동 정산 함수.
 - Produces: 상태이상 1회 방어·정화 결계·일반 정화가 보스 전용 한기에 적용되는 경계.
 
-- [ ] **Step 1: 상태 방어 실패 테스트 작성**
+- [x] **Step 1: 상태 방어 실패 테스트 작성**
 
 상태 방어 시그니처와 삼중 결계 픽스처를 사용해 각각 첫 실제 HP 피격에서 `+2`가 아니라 냉기장 `+1`만 남고, 정확한 방어 횟수와 로그가 한 번 소비되는지 검사한다. 두 방어를 함께 둔 테스트는 상태이상 1회 방어만 먼저 소비되는지 확인한다.
 
@@ -388,21 +388,21 @@ expect(first.finalState.log.some((entry) => entry.text.includes("상태이상을
 
 9중첩에서 냉기장만으로 빙결이 발생하는 픽스처는 상태 방어 횟수를 소비하지 않는지 별도로 검사한다.
 
-- [ ] **Step 2: 정화 실패 테스트 작성**
+- [x] **Step 2: 정화 실패 테스트 작성**
 
 플레이어 정화 스킬과 보호막 파괴 정화 각각에서 보스 전용 한기가 0이 되는지 검사한다. 적 행동 도중 정화가 발생하는 픽스처는 정화 전 중첩보다 다음 플레이어 행동 틱이 앞당겨지는지 확인한다. 빙결 예약 뒤 정화를 시도한 경우에는 예약 1과 행동 취소가 유지되어야 한다.
 
-- [ ] **Step 3: 실패 확인**
+- [x] **Step 3: 실패 확인**
 
 Run: `npm test -- src/adventure/v2/combat/glacialColossusAtb.test.ts`
 
 Expected: FAIL on status defense consumption and glacial-specific cleanse assertions.
 
-- [ ] **Step 4: 피격 추가량 방어 구현**
+- [x] **Step 4: 피격 추가량 방어 구현**
 
 `settleGlacialChillAfterEnemyAction`에서 냉기장 전이가 빙결하지 않았고 실제 HP 피해가 있을 때만 기존 `statusBlockOnce`와 삼중 결계 정화 횟수를 검사한다. 상태이상 1회 방어를 우선하고, 없을 때만 `consumePurificationWard`를 호출한다. 차단 시 피격 추가량을 0으로 만들고 기존 형식의 방어 로그를 남긴다. 냉기장으로 이미 빙결했으면 어느 방어도 조회·소비하지 않는다.
 
-- [ ] **Step 5: 정화 연결 구현**
+- [x] **Step 5: 정화 연결 구현**
 
 `engine.playerPhase.ts`의 `shouldCleanseDebuffs` 상태 갱신과 `engine.enemyPhase.ts`의 `trackedShieldEffect?.cleanse` 상태 갱신에 다음 선택적 변환을 추가한다.
 
@@ -415,7 +415,7 @@ bossMechanic:
 
 빙결 예약과 횟수는 보존한다. 적 행동 묶음의 `previousStacks`는 정화 전 값을 유지해 최종 정산 함수가 정화 후 냉기장 중첩까지 포함한 속도 회복 비율을 계산하게 한다.
 
-- [ ] **Step 6: 종료·격리 회귀 추가 후 통과 확인**
+- [x] **Step 6: 종료·격리 회귀 추가 후 통과 확인**
 
 플레이어 사망, 보스 반사 사망, 메커니즘 미지정 대조군을 추가한다. 메커니즘 미지정 대조군은 로그·틱·최종 HP·MP가 기존 결과와 동일해야 한다.
 
@@ -423,7 +423,7 @@ Run: `npm test -- src/adventure/v2/combat/glacialColossusAtb.test.ts src/adventu
 
 Expected: PASS.
 
-- [ ] **Step 7: 타입 검사와 Task 3 커밋**
+- [x] **Step 7: 타입 검사와 Task 3 커밋**
 
 Run: `env NODE_OPTIONS=--max-old-space-size=4096 npx tsc --noEmit`
 
@@ -447,7 +447,7 @@ git commit -m "feat: apply glacial chill defenses"
 - Consumes: Task 2의 `{ kind: "glacial_colossus" }` 컨텍스트와 최종 전투 상태.
 - Produces: 공격 응답의 네 빙하 거수 요약 필드와 한글 재생 자원 라벨.
 
-- [ ] **Step 1: 현재 Next.js Route Handler 문서 읽기**
+- [x] **Step 1: 현재 Next.js Route Handler 문서 읽기**
 
 Run:
 
@@ -456,7 +456,7 @@ cat node_modules/next/dist/docs/01-app/01-getting-started/15-route-handlers.md
 cat node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/route.md
 ```
 
-- [ ] **Step 2: 공격 API 실패 테스트 작성**
+- [x] **Step 2: 공격 API 실패 테스트 작성**
 
 `route.test.ts`에 빙하 거수 세션을 추가하고 `resolveBattle` 호출이 다음 컨텍스트를 받는지 검사한다.
 
@@ -471,17 +471,17 @@ expect(mocks.resolveBattle).toHaveBeenCalledWith(
 
 모의 최종 상태는 `glacialChillStacks: 7`, `glacialFreezePending: 1`, `glacialFreezeCount: 2`, `glacialSkippedActionCount: 1`을 반환한다. 응답의 네 값이 일치하고 DB에 기록한 `mechanicState`에는 네 키가 전혀 없는지 검사한다.
 
-- [ ] **Step 3: 재생 표시 실패 테스트 작성**
+- [x] **Step 3: 재생 표시 실패 테스트 작성**
 
 `BattleLogList.test.tsx`에서 적 자원 `glacialChill: "7/10"`, `glacialFreeze: "1/1"`를 각각 렌더링한다. 화면에 `한기 7/10`, `빙결 1/1`이 있고 원시 키 문자열이 없는지 검사한다.
 
-- [ ] **Step 4: 실패 확인**
+- [x] **Step 4: 실패 확인**
 
 Run: `npm test -- src/app/api/v2/coop/attack/route.test.ts src/adventure/battle/BattleLogList.test.tsx`
 
 Expected: FAIL because route context/result fields and labels are absent.
 
-- [ ] **Step 5: API와 타입 구현**
+- [x] **Step 5: API와 타입 구현**
 
 공격 라우트의 보스 컨텍스트 선택을 추적 병기, 독혈 군주, 빙하 거수의 명시적 분기로 확장한다. 최종 상태가 빙하 거수일 때 네 값을 추출해 JSON 결과에 넣고, 세션 `mechanic_state` 갱신에는 포함하지 않는다.
 
@@ -496,7 +496,7 @@ glacialSkippedActionCount: number;
 
 다른 보스 응답은 네 값을 0으로 반환한다.
 
-- [ ] **Step 6: 재생 라벨 구현**
+- [x] **Step 6: 재생 라벨 구현**
 
 `BattleLogList.tsx`의 자원 라벨에 다음 두 항목을 추가한다.
 
@@ -505,7 +505,7 @@ glacialChill: "한기",
 glacialFreeze: "빙결",
 ```
 
-- [ ] **Step 7: 집중·타입 검사와 Task 4 커밋**
+- [x] **Step 7: 집중·타입 검사와 Task 4 커밋**
 
 Run:
 
@@ -535,7 +535,7 @@ git commit -m "feat: expose glacial colossus battle state"
 - Consumes: 빙하 거수 최종 상태의 빙결 발동·행동 취소 횟수와 `BattleResolution.turns`.
 - Produces: 계보별 생존 틱, 완료 행동 수, 기여도, 빙결 횟수와 취소 횟수 보고서.
 
-- [ ] **Step 1: 시뮬레이터 실패 테스트 작성**
+- [x] **Step 1: 시뮬레이터 실패 테스트 작성**
 
 ```ts
 it("빙하 거수 보고서는 완료 행동과 빙결·취소 횟수를 결정적으로 집계한다", () => {
@@ -561,17 +561,17 @@ it("빙하 거수 보고서는 완료 행동과 빙결·취소 횟수를 결정�
 });
 ```
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
 
 Run: `npm test -- src/adventure/data/v2/coopBossBalance.test.ts`
 
 Expected: FAIL because glacial context and report metrics are absent.
 
-- [ ] **Step 3: 시뮬레이터 지표 구현**
+- [x] **Step 3: 시뮬레이터 지표 구현**
 
 `glacial_colossus` 시뮬레이션에 `{ kind: "glacial_colossus" }`를 전달하고 로그 수집을 켠다. 각 trial에 `completedPlayerActions: result.turns`, `glacialFreezeCount`, `glacialSkippedActionCount`를 저장한다. build와 boss 집계에 각 중앙값 필드를 추가하고 JSON·텍스트 보고서에 출력한다. 정상 종료 표본에서는 `freezeCount - skippedCount`가 `0` 또는 종료 시 남은 예약 `1`인지 검증한다.
 
-- [ ] **Step 4: 고정 시드 캘리브레이션 실행**
+- [x] **Step 4: 고정 시드 캘리브레이션 실행**
 
 Run:
 
@@ -583,7 +583,7 @@ npm run sim:coop-boss -- --trials=50 --seed=20260830 --boss=glacial_colossus --j
 
 최종 명령, 시드, 상수와 계보별 결과를 설계 문서의 `구현 캘리브레이션 기록` 절에 표로 추가한다.
 
-- [ ] **Step 5: 집중 회귀·타입·린트 검증**
+- [x] **Step 5: 집중 회귀·타입·린트 검증**
 
 Run:
 
@@ -595,13 +595,13 @@ npx eslint src/adventure/v2/combat/glacialColossusMechanic.ts src/adventure/v2/c
 
 Expected: PASS.
 
-- [ ] **Step 6: 전체 회귀와 골든 판단**
+- [x] **Step 6: 전체 회귀와 골든 판단**
 
 Run: `npm test`
 
 Expected: PASS. `combatGolden.test.ts`가 정형 로그 필드 때문에 `logSha`만 달라지고 HP·MP·턴·승패가 동일할 때만 `npm test -- src/adventure/v2/combatGolden.test.ts -u`로 스냅샷을 갱신한다. 다른 값이 달라지면 의도된 빙하 거수 전용 변화인지 먼저 조사하고 일반 전투 결과 변화는 수정한다.
 
-- [ ] **Step 7: 최종 캘리브레이션 커밋**
+- [x] **Step 7: 최종 캘리브레이션 커밋**
 
 ```bash
 git add scripts/sim-v2-coop-boss.ts src/adventure/data/v2/coopBossBalance.test.ts docs/superpowers/specs/2026-08-30-unexplored-glacial-colossus-design.md src/adventure/v2/__snapshots__/combatGolden.test.ts.snap

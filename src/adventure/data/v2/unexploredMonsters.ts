@@ -47,19 +47,47 @@ const SPECIAL_IMAGE_PATHS: Record<string, string> = {
   armored_spearman: "/images/monster/v2/unexplored-armored-spearman.webp",
   armored_crusher: "/images/monster/v2/unexplored-armored-crusher.webp",
   barrier_guardian: "/images/monster/v2/unexplored-barrier-guardian.webp",
+  rune_executor: "/images/monster/v2/unexplored-rune-executor.webp",
+  seal_watcher: "/images/monster/v2/unexplored-seal-watcher.webp",
   regenerating_spore:
     "/images/monster/v2/unexplored-regenerating-spore.webp",
+  devouring_regenerator:
+    "/images/monster/v2/unexplored-devouring-regenerator.webp",
+  proliferating_core:
+    "/images/monster/v2/unexplored-proliferating-core.webp",
   red_berserker: "/images/monster/v2/unexplored-red-berserker.webp",
+  blood_duelist: "/images/monster/v2/unexplored-blood-duelist.webp",
+  red_executioner: "/images/monster/v2/unexplored-red-executioner.webp",
   crystal_mage: "/images/monster/v2/unexplored-crystal-mage.webp",
+  refraction_artillery:
+    "/images/monster/v2/unexplored-refraction-artillery.webp",
+  crystal_sentinel: "/images/monster/v2/unexplored-crystal-sentinel.webp",
   precision_scout:
     "/images/monster/v2/unexplored-precision-scout.webp",
+  lethal_sniper: "/images/monster/v2/unexplored-lethal-sniper.webp",
+  armor_hunter: "/images/monster/v2/unexplored-armor-hunter.webp",
   rushing_machine: "/images/monster/v2/unexplored-rushing-machine.webp",
+  combo_automaton: "/images/monster/v2/unexplored-combo-automaton.webp",
+  overheated_enforcer:
+    "/images/monster/v2/unexplored-overheated-enforcer.webp",
   shadow_scout: "/images/monster/v2/unexplored-shadow-scout.webp",
+  night_assassin: "/images/monster/v2/unexplored-night-assassin.webp",
+  phantom_stalker: "/images/monster/v2/unexplored-phantom-stalker.webp",
   venom_fang_devourer:
     "/images/monster/v2/unexplored-venom-fang-devourer.webp",
+  venom_sprayer: "/images/monster/v2/unexplored-venom-sprayer.webp",
+  corrosive_colony: "/images/monster/v2/unexplored-corrosive-colony.webp",
   hooked_dead: "/images/monster/v2/unexplored-hooked-dead.webp",
+  bloodtrail_pursuer:
+    "/images/monster/v2/unexplored-bloodtrail-pursuer.webp",
+  severing_executioner:
+    "/images/monster/v2/unexplored-severing-executioner.webp",
   frost_toucher: "/images/monster/v2/unexplored-frost-toucher.webp",
+  freezing_mage: "/images/monster/v2/unexplored-freezing-mage.webp",
+  frozen_sentinel: "/images/monster/v2/unexplored-frozen-sentinel.webp",
   bedrock_colossus: "/images/monster/v2/unexplored-bedrock-colossus.webp",
+  ironwall_crusher: "/images/monster/v2/unexplored-ironwall-crusher.webp",
+  crust_destroyer: "/images/monster/v2/unexplored-crust-destroyer.webp",
 };
 
 export type UnexploredRuntimeMonster = {
@@ -71,6 +99,22 @@ export type UnexploredRuntimeMonster = {
   focused: boolean;
   monster: Monster;
 };
+
+type UnexploredMonsterAtDifficultyParams = {
+  focused: boolean;
+  difficulty: number;
+} & (
+  | {
+      source: "base";
+      poolId: null;
+      monsterId?: UnexploredBaseMonsterId;
+    }
+  | {
+      source: "special";
+      poolId: UnexploredPoolId;
+      monsterId?: string;
+    }
+);
 
 function validateDifficulty(difficulty: number): number {
   if (!Number.isInteger(difficulty) || difficulty < 95 || difficulty > 120) {
@@ -187,17 +231,12 @@ function focusedMonster(poolId: UnexploredPoolId, monster: Monster): Monster {
   }
 }
 
-export function unexploredMonsterAtDifficulty(params: {
-  source: "base" | "special";
-  poolId: UnexploredPoolId | null;
-  monsterId?: string;
-  focused: boolean;
-  difficulty: number;
-}): UnexploredRuntimeMonster {
+export function unexploredMonsterAtDifficulty(
+  params: UnexploredMonsterAtDifficultyParams,
+): UnexploredRuntimeMonster {
   const difficulty = validateDifficulty(params.difficulty);
   if (params.source === "base") {
-    const monsterId = (params.monsterId ??
-      UNEXPLORED_BASE_MONSTER_IDS[0]) as UnexploredBaseMonsterId;
+    const monsterId = params.monsterId ?? UNEXPLORED_BASE_MONSTER_IDS[0];
     const sourceName = BASE_SOURCE_NAMES[monsterId];
     const proxy = unexploredBaseProxyMonsters(
       difficulty as UnexploredSimulationDifficulty,
@@ -221,7 +260,7 @@ export function unexploredMonsterAtDifficulty(params: {
 
   if (!params.poolId) throw new Error("Special unexplored monster requires poolId");
   const pool = UNEXPLORED_POOL_BY_ID[params.poolId];
-  const monsterId = params.monsterId ?? pool.launchMonster.id;
+  const monsterId = params.monsterId ?? pool.activeMonsters[0].id;
   if (!pool.activeMonsters.some((monster) => monster.id === monsterId)) {
     throw new Error(
       `Unexplored special monster is not active: ${params.poolId}/${monsterId}`,

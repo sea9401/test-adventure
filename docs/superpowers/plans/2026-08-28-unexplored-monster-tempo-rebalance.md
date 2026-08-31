@@ -28,7 +28,7 @@
 - Consumes: `actionInterval`, `actionRate`, `depthSpdCorrection`, and `effectiveMonsterSpd` from `@/adventure/v2/combat/combatTimeline`.
 - Produces: `UnexploredSpeedBand`, `unexploredRawSpd(difficulty, band)`, `unexploredCalibratedActionRatio(difficulty, band)`, and `unexploredAttackCompensation(difficulty, band)`.
 
-- [ ] **Step 1: Write failing literal calibration tests**
+- [x] **Step 1: Write failing literal calibration tests**
 
 ```ts
 expect(unexploredRawSpd(90, "slow")).toBe(10);
@@ -42,13 +42,13 @@ expect(unexploredAttackCompensation(100, "extreme")).toBeCloseTo(1.15 * Math.sqr
 
 Also assert every band becomes strictly faster from 90 to 95 to 100.
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run: `npx vitest run src/adventure/data/v2/unexploredSimulationBalance.test.ts`
 
 Expected: FAIL because the module and exports do not exist.
 
-- [ ] **Step 3: Implement the pure calibration module**
+- [x] **Step 3: Implement the pure calibration module**
 
 Use the literal raw-speed table:
 
@@ -64,13 +64,13 @@ const PRESSURE = { 90: 1.05, 95: 1.1, 100: 1.15 } as const;
 
 Use player SPD 930 only to report the calibration ratio. For attack compensation, compare the normal converted monster action rate at source raw SPD 9 against the selected band at the same capped depth correction, then multiply by `PRESSURE[difficulty]`.
 
-- [ ] **Step 4: Run the focused test and verify GREEN**
+- [x] **Step 4: Run the focused test and verify GREEN**
 
 Run: `npx vitest run src/adventure/data/v2/unexploredSimulationBalance.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit the pure calibration**
+- [x] **Step 5: Commit the pure calibration**
 
 ```bash
 git add src/adventure/data/v2/unexploredSimulationBalance.ts src/adventure/data/v2/unexploredSimulationBalance.test.ts
@@ -87,7 +87,7 @@ git commit -m "feat: calibrate unexplored monster tempo"
 - Consumes: `UnexploredSpeedBand` from `./unexploredSimulationBalance` as a type-only import.
 - Produces: every `UnexploredMonsterDefinition` with `speedBand` plus relative HP/ATK/DEF/MDEF values; renamed `bonus_attack_50` ability.
 
-- [ ] **Step 1: Write failing catalog behavior tests**
+- [x] **Step 1: Write failing catalog behavior tests**
 
 Assert literal representative profiles that catch wrong role assignment or a softened identity:
 
@@ -107,13 +107,13 @@ expect(UNEXPLORED_MONSTER_BY_ID.crust_destroyer).toMatchObject({
 
 Loop over all definitions to assert `speedBand` is one of the four approved values and `stats` contains only positive HP/ATK/DEF/MDEF multipliers.
 
-- [ ] **Step 2: Run the pool test and verify RED**
+- [x] **Step 2: Run the pool test and verify RED**
 
 Run: `npx vitest run src/adventure/data/v2/unexploredMonsterPools.test.ts`
 
 Expected: FAIL because `speedBand` and `bonus_attack_50` do not exist and old profiles are weaker.
 
-- [ ] **Step 3: Replace relative speed multipliers with approved bands**
+- [x] **Step 3: Replace relative speed multipliers with approved bands**
 
 Remove `spd` from `UnexploredRelativeStats`, add `speedBand` to `UnexploredMonsterDefinition`, and encode the approved 12×3 table. Use these profile changes:
 
@@ -126,13 +126,13 @@ Remove `spd` from `UnexploredRelativeStats`, add `speedBand` to `UnexploredMonst
 
 Keep the remaining approved relative profiles unless they fall outside the design ranges. Rename `guaranteed_bonus_attack` to `bonus_attack_50`.
 
-- [ ] **Step 4: Run catalog tests and verify GREEN**
+- [x] **Step 4: Run catalog tests and verify GREEN**
 
 Run: `npx vitest run src/adventure/data/v2/unexploredMonsterPools.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit the catalog changes**
+- [x] **Step 5: Commit the catalog changes**
 
 ```bash
 git add src/adventure/data/v2/unexploredMonsterPools.ts src/adventure/data/v2/unexploredMonsterPools.test.ts
@@ -149,7 +149,7 @@ git commit -m "feat: sharpen unexplored monster identities"
 - Consumes: balance helpers from Task 1 and `speedBand` catalog data from Task 2.
 - Produces: moderated base proxy monsters, compensated special monsters, and existing `unexploredCommonBaseline` behavior based on unprofiled Star Grave source proxies.
 
-- [ ] **Step 1: Write failing generator tests**
+- [x] **Step 1: Write failing generator tests**
 
 At difficulties 90/95/100, assert the five base proxies have raw speed bands `[slow, fast, normal, normal, normal]`, which yields:
 
@@ -162,17 +162,17 @@ Assert the base warden is no longer the unmoderated source profile and matches t
 
 Update mechanics assertions to require bonus attack 50%, shadow evasion `35 / 45 / 50`, and mana status resistance `20 / 40`.
 
-- [ ] **Step 2: Run generator tests and verify RED**
+- [x] **Step 2: Run generator tests and verify RED**
 
 Run: `npx vitest run src/adventure/data/v2/unexploredSimulationMonsters.test.ts`
 
 Expected: FAIL on base proxy speeds, moderated profiles, compensated attacks, and revised mechanics.
 
-- [ ] **Step 3: Split source baseline construction from base profiling**
+- [x] **Step 3: Split source baseline construction from base profiling**
 
 Create an internal source-proxy builder that extends the five Star Grave monsters only for median calculation. Build public base proxies from the median with the exact design profiles and copy each source monster's semantic combat fields and attached dungeon skills. Override the comet's evasion and crit to 30.
 
-- [ ] **Step 4: Apply band speed and pressure compensation to special monsters**
+- [x] **Step 4: Apply band speed and pressure compensation to special monsters**
 
 Set `spd` using `unexploredRawSpd(difficulty, definition.speedBand)`. Set ATK to:
 
@@ -186,13 +186,13 @@ Math.round(
 
 Change semantic adapters to 20/40% mana status resistance, 35/45/50% shadow evasion, and 50% combo-automaton bonus attacks.
 
-- [ ] **Step 5: Run generator and catalog tests and verify GREEN**
+- [x] **Step 5: Run generator and catalog tests and verify GREEN**
 
 Run: `npx vitest run src/adventure/data/v2/unexploredSimulationMonsters.test.ts src/adventure/data/v2/unexploredMonsterPools.test.ts src/adventure/data/v2/unexploredSimulationBalance.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit generated monster behavior**
+- [x] **Step 6: Commit generated monster behavior**
 
 ```bash
 git add src/adventure/data/v2/unexploredSimulationMonsters.ts src/adventure/data/v2/unexploredSimulationMonsters.test.ts
@@ -209,21 +209,21 @@ git commit -m "feat: reprofile unexplored simulation monsters"
 - Consumes: `unexploredRawSpd` and `unexploredCalibratedActionRatio`.
 - Produces: an anonymous, non-database tempo table before combat results.
 
-- [ ] **Step 1: Extend the balance test with report-row behavior**
+- [x] **Step 1: Extend the balance test with report-row behavior**
 
 Add a pure `unexploredTempoRows()` export that returns 12 literal rows ordered by difficulty then `slow / normal / fast / extreme`. Assert the first and last rows exactly, including raw SPD and rounded action ratio.
 
-- [ ] **Step 2: Run the balance test and verify RED**
+- [x] **Step 2: Run the balance test and verify RED**
 
 Run: `npx vitest run src/adventure/data/v2/unexploredSimulationBalance.test.ts`
 
 Expected: FAIL because `unexploredTempoRows` is missing.
 
-- [ ] **Step 3: Implement rows and print them from the live script**
+- [x] **Step 3: Implement rows and print them from the live script**
 
 Keep formatting in the CLI and computation in the pure module. Print difficulty, band, raw SPD, and `player actions : monster action` before the existing top-30 table. Do not print identifiers or database fields.
 
-- [ ] **Step 4: Run focused tests and static checks**
+- [x] **Step 4: Run focused tests and static checks**
 
 Run:
 
@@ -235,7 +235,7 @@ env NODE_OPTIONS=--max-old-space-size=4096 npx tsc --noEmit
 
 Expected: all commands exit 0 with no warnings.
 
-- [ ] **Step 5: Commit tempo reporting**
+- [x] **Step 5: Commit tempo reporting**
 
 ```bash
 git add scripts/sim-unexplored-live-top.ts src/adventure/data/v2/unexploredSimulationBalance.ts src/adventure/data/v2/unexploredSimulationBalance.test.ts
@@ -251,22 +251,22 @@ git commit -m "feat: report unexplored monster tempo"
 - Consumes: the existing `scripts/sim-unexplored-live-top.ts` read-only live runner.
 - Produces: reproducible anonymous difficulty, pool, job, and build summaries.
 
-- [ ] **Step 1: Run the anonymous live simulation once**
+- [x] **Step 1: Run the anonymous live simulation once**
 
 Use the same audited read-only environment and command path as the prior top-30 run. Confirm only one database connection is opened, SQL remains `SELECT`-only, and no persisted state changes.
 
-- [ ] **Step 2: Check exact acceptance gates**
+- [x] **Step 2: Check exact acceptance gates**
 
 - Difficulty 100 mechanics overall win rate is 20–40%.
 - No one job or combined build label owns at least 70% of all wins when at least two alternatives win.
 - No pool leaves at least 24 of 30 players below 5% unless at least three distinct build labels exceed 20% against it.
 - Generated action ratios match the four approved bands at all three difficulties.
 
-- [ ] **Step 3: Apply bounded evidence-driven tuning only when a gate fails**
+- [x] **Step 3: Apply bounded evidence-driven tuning only when a gate fails**
 
 For a global difficulty-100 miss, change only the difficulty-100 pressure multiplier in `0.05` increments within `1.00–1.30`, add/update the literal compensation test first, and rerun. For a single-pool wall, change only that pool's primary specialty or compensating weakness by at most `0.10` per iteration, update its literal catalog test first, and rerun. Do not alter speed bands, existing hunting data, or the combat engine.
 
-- [ ] **Step 4: Run the full non-destructive verification suite**
+- [x] **Step 4: Run the full non-destructive verification suite**
 
 Run:
 
@@ -279,7 +279,7 @@ git diff --check
 
 Expected: all commands exit 0.
 
-- [ ] **Step 5: Commit any evidence-driven calibration**
+- [x] **Step 5: Commit any evidence-driven calibration**
 
 If Step 3 changed files:
 

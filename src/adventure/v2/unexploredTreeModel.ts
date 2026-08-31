@@ -1,5 +1,9 @@
 import type { UnexploredTraceState } from "@/adventure/data/v2/unexploredRewards";
-import type { UnexploredPoolId } from "@/adventure/data/v2/unexploredMonsterPools";
+import {
+  UNEXPLORED_POOL_BY_ID,
+  type UnexploredPoolId,
+} from "@/adventure/data/v2/unexploredMonsterPools";
+import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import {
   UNEXPLORED_EDGES,
   UNEXPLORED_NODES,
@@ -46,6 +50,11 @@ export type UnexploredClientSnapshot = {
   materials: Record<string, number>;
   achievementIds: UnexploredAchievementId[];
   refundGoldCost: number;
+  summonStoneCraftCost: {
+    baseGoldCost: number;
+    goldCost: number;
+    liberationDiscountPct: number;
+  };
 };
 
 export type UnexploredNodeState = "active" | "available" | "locked";
@@ -127,11 +136,22 @@ export function buildUnexploredTreeModel(
   }));
   const poolSummary = snapshot.encounterShares.flatMap((share) =>
     share.kind === "pool"
-      ? [{
-          poolId: share.poolId as UnexploredPoolId,
-          name: unexploredPoolName(share.poolId),
-          share: share.share,
-        }]
+      ? (() => {
+          const poolId = share.poolId as UnexploredPoolId;
+          const pool = UNEXPLORED_POOL_BY_ID[poolId];
+          const weapon = pool.weaponEquipmentId
+            ? V2_EQUIPMENT[pool.weaponEquipmentId]
+            : null;
+          return [{
+            poolId,
+            name: unexploredPoolName(poolId),
+            share: share.share,
+            materialName: pool.materialName,
+            materialRateText: "1% · 집중 1.5%",
+            weaponName: weapon?.name ?? null,
+            weaponRateText: weapon ? "0.1% · 집중 0.2%" : null,
+          }];
+        })()
       : [],
   );
 

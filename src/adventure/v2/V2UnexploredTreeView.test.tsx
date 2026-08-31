@@ -98,6 +98,26 @@ describe("V2UnexploredTreeView", () => {
     expect(html).toContain("2 / 3");
   });
 
+  it("활성 공용 풀 카드에 공유 재료와 개척자 무기의 일반·집중 드랍률을 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <V2UnexploredTreeView
+        initialSnapshot={{
+          ...SNAPSHOT,
+          encounterShares: [
+            { kind: "base", share: 70 },
+            { kind: "pool", poolId: "iron_legion", share: 30 },
+          ],
+        }}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("강화 철편");
+    expect(html).toContain("재료 1% · 집중 1.5%");
+    expect(html).toContain("철성 파쇄검");
+    expect(html).toContain("무기 0.1% · 집중 0.2%");
+  });
+
   it("shows all ten exploration achievements with their completion state and reward", () => {
     render(
       <V2UnexploredTreeView

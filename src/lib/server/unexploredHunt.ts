@@ -162,6 +162,7 @@ export function mintUnexploredRewardEquipment(
   id: V2EquipmentId,
   qualityBonusPct: number,
   rng: () => number = Math.random,
+  minimumQualityPct: number = 0,
 ): V2EquipInstance {
   const chance = Math.min(
     1,
@@ -171,7 +172,10 @@ export function mintUnexploredRewardEquipment(
     chance <= 0 ||
     Math.min(1 - Number.EPSILON, Math.max(0, rng())) >= chance
   ) {
-    return mintRolledEquipInstance(id, rng);
+    return mintRolledEquipInstance(id, rng, { minimumQualityPct });
   }
-  return mintEquipInstance(id, rollItemStatsBest(V2_EQUIPMENT[id], rng, 2));
+  return mintEquipInstance(
+    id,
+    rollItemStatsBest(V2_EQUIPMENT[id], rng, 2, { minimumQualityPct }),
+  );
 }

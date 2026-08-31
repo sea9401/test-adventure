@@ -283,7 +283,7 @@ export function smithyForgeTabs(
     { key: "enhance", label: "강화" },
     { key: "refine", label: "폭풍 개량" },
     ...(liberationEnabled
-      ? [{ key: "liberation" as const, label: "해방" }]
+      ? [{ key: "liberation" as const, label: "마법부여" }]
       : []),
     ...(reforgeEnabled ? [{ key: "reforge" as const, label: "재련" }] : []),
     { key: "combine", label: "조합" },
@@ -936,7 +936,7 @@ export function V2EnhanceView({
   return (
     <main
       className={`mx-auto space-y-4 p-6 pb-28 text-zinc-900 dark:text-zinc-100 sm:pb-6 ${
-        mode === "liberation" ? "max-w-[1080px]" : "max-w-[720px]"
+        mode === "liberation" ? "max-w-[820px]" : "max-w-[720px]"
       }`}
     >
       <SubViewHeader
@@ -990,7 +990,7 @@ export function V2EnhanceView({
         </div>
       )}
 
-      {/* 작업 모드 — 강화 / 폭풍 개량 / 해방 / 재련 / 조합 */}
+      {/* 작업 모드 — 강화 / 폭풍 개량 / 마법부여 / 재련 / 조합 */}
       <TabBar
         tabs={smithyForgeTabs(V2_EQUIPMENT_LIBERATION)}
         active={mode}

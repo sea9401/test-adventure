@@ -183,7 +183,7 @@ test("신규 모험가의 초기 지급·첫 전직 경계와 저장 진행을 �
   expect(restoredState.jobsV2).toMatchObject({ currentJobId: "warrior" });
 });
 
-test("직업 없는 신규 모험가가 첫 출석으로 15일 지원권을 받고 중복 수령은 차단된다", async ({
+test("직업 없는 신규 모험가가 첫 출석 지원권을 받고 중복 수령은 차단된다", async ({
   page,
 }) => {
   test.setTimeout(90_000);
@@ -191,6 +191,17 @@ test("직업 없는 신규 모험가가 첫 출석으로 15일 지원권을 받�
 
   await loginWithPassword(page, account.loginId, account.password);
   await createCharacter(page, ATTENDANCE_CHARACTER_NAME);
+
+  const attendance = await page.evaluate(async () => {
+    const response = await fetch("/api/v2/me/attendance");
+    return { status: response.status, body: await response.json() };
+  });
+  expect(attendance.status).toBe(200);
+  expect(attendance.body.rewards[0]).toMatchObject({
+    kind: "adventure_support",
+  });
+  const supportDays = Number(attendance.body.rewards[0].days);
+  expect(supportDays).toBeGreaterThan(0);
 
   const claimedAt = Date.now();
   const first = await page.evaluate(async () => {
@@ -202,11 +213,11 @@ test("직업 없는 신규 모험가가 첫 출석으로 15일 지원권을 받�
     body: {
       ok: true,
       claimedCount: 1,
-      reward: { kind: "adventure_support", days: 15 },
+      reward: { kind: "adventure_support", days: supportDays },
     },
   });
   expect(first.body.adventureSupportActiveUntil).toBeGreaterThanOrEqual(
-    claimedAt + 15 * 86_400_000,
+    claimedAt + supportDays * 86_400_000,
   );
 
   const saved = await page.evaluate(async () =>

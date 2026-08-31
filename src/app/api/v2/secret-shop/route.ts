@@ -200,6 +200,9 @@ export async function POST(req: Request) {
     }
 
     // 충전약 완충 — inventory.v2 (락 순서 character → inventory, dev grant 와 동일).
+    // 구매 직후 클라이언트 자원 상태도 같은 값으로 맞출 수 있도록 실제 충전량을 응답한다.
+    let hpCharges: number | undefined;
+    let mpCharges: number | undefined;
     if (item.id === "hp_charge_pack" || item.id === "mp_charge_pack") {
       const inv = await lockSaveForUpdate<{
         hpCharges?: number;
@@ -207,6 +210,8 @@ export async function POST(req: Request) {
         [k: string]: unknown;
       }>(tx, userId, "inventory.v2", {});
       const key = item.id === "hp_charge_pack" ? "hpCharges" : "mpCharges";
+      if (key === "hpCharges") hpCharges = MAX_CHARGE;
+      if (key === "mpCharges") mpCharges = MAX_CHARGE;
       await upsertSave(tx, userId, "inventory.v2", {
         ...inv,
         [key]: MAX_CHARGE,
@@ -224,6 +229,8 @@ export async function POST(req: Request) {
           ? { bankedGold: nextChar.bankedGold as number }
           : {}),
         ...(staminaPotions !== undefined ? { staminaPotions } : {}),
+        ...(hpCharges !== undefined ? { hpCharges } : {}),
+        ...(mpCharges !== undefined ? { mpCharges } : {}),
         mapCompleted: allBought,
       },
     };

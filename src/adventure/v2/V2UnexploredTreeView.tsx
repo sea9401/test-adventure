@@ -68,6 +68,18 @@ const ERROR_TEXT: Record<string, string> = {
   too_many_active: "같은 우두머리의 활성 세션이 너무 많습니다.",
 };
 
+type UnexploredTab = "tree" | "achievements" | "traces" | "forge";
+
+const UNEXPLORED_TABS: ReadonlyArray<{
+  id: UnexploredTab;
+  label: string;
+}> = [
+  { id: "tree", label: "탐사망" },
+  { id: "achievements", label: "탐사 업적" },
+  { id: "traces", label: "흔적 보관함" },
+  { id: "forge", label: "우두머리 핵 제작소" },
+];
+
 function nodeGlyph(node: UnexploredTreeNodeModel): string {
   if (node.kind === "start") return "🧭";
   if (node.kind === "pool") return "👹";
@@ -118,6 +130,7 @@ export function V2UnexploredTreeView({
   );
   const [loading, setLoading] = useState(initialSnapshot === null);
   const [busy, setBusy] = useState(false);
+  const [activeTab, setActiveTab] = useState<UnexploredTab>("tree");
   const [bossBusy, setBossBusy] = useState<UnexploredBossId | null>(null);
   const [equipmentCraftBusy, setEquipmentCraftBusy] =
     useState<V2EquipmentId | null>(null);
@@ -393,7 +406,7 @@ export function V2UnexploredTreeView({
       <SubViewHeader
         title="미개척지 탐사망"
         onBack={onBack}
-        right={
+        right={activeTab === "tree" ? (
           <Button
             size="xs"
             variant="secondary"
@@ -402,7 +415,7 @@ export function V2UnexploredTreeView({
           >
             <ArrowClockwise size={15} /> 초기화
           </Button>
-        }
+        ) : undefined}
       />
 
       <section className={`${SURFACE_ACCENT} grid gap-3 p-4 sm:grid-cols-3`}>
@@ -431,6 +444,41 @@ export function V2UnexploredTreeView({
         </div>
       )}
 
+      <div
+        role="tablist"
+        aria-label="개척 노드 콘텐츠"
+        className={`${SURFACE_CARD} grid grid-cols-2 gap-1 p-1 sm:grid-cols-4`}
+      >
+        {UNEXPLORED_TABS.map((tab) => {
+          const selected = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              id={`unexplored-tab-${tab.id}`}
+              role="tab"
+              aria-selected={selected}
+              aria-controls={`unexplored-panel-${tab.id}`}
+              className={`min-h-11 rounded-lg px-2 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                selected
+                  ? "bg-violet-600 text-white dark:bg-violet-500 dark:text-white"
+                  : "bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              }`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div
+        id="unexplored-panel-achievements"
+        role="tabpanel"
+        aria-labelledby="unexplored-tab-achievements"
+        aria-label="탐사 업적"
+        hidden={activeTab !== "achievements"}
+      >
       <section className={`${SURFACE_CARD} space-y-3 p-4`}>
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -492,8 +540,16 @@ export function V2UnexploredTreeView({
           })}
         </ul>
       </section>
+      </div>
 
-      <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div
+        id="unexplored-panel-tree"
+        role="tabpanel"
+        aria-labelledby="unexplored-tab-tree"
+        aria-label="탐사망"
+        hidden={activeTab !== "tree"}
+        className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_20rem]"
+      >
         <section className={`${SURFACE_CARD} min-w-0 p-2 sm:p-3`}>
           <div className={`${SURFACE_INSET} aspect-square w-full min-w-0 overflow-hidden`}>
             <svg
@@ -683,6 +739,13 @@ export function V2UnexploredTreeView({
         </aside>
       </div>
 
+      <div
+        id="unexplored-panel-traces"
+        role="tabpanel"
+        aria-labelledby="unexplored-tab-traces"
+        aria-label="흔적 보관함"
+        hidden={activeTab !== "traces"}
+      >
       <section className={`${SURFACE_CARD} space-y-3 p-4`}>
         <div className="flex items-start gap-2">
           <Hammer size={22} className="mt-0.5 shrink-0 text-amber-600" />
@@ -784,7 +847,15 @@ export function V2UnexploredTreeView({
           })}
         </div>
       </section>
+      </div>
 
+      <div
+        id="unexplored-panel-forge"
+        role="tabpanel"
+        aria-labelledby="unexplored-tab-forge"
+        aria-label="우두머리 핵 제작소"
+        hidden={activeTab !== "forge"}
+      >
       <section className={`${SURFACE_CARD} space-y-3 p-4`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-2">
@@ -896,6 +967,7 @@ export function V2UnexploredTreeView({
           })}
         </div>
       </section>
+      </div>
     </PageShell>
   );
 }

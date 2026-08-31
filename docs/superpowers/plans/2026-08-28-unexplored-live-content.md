@@ -8,6 +8,14 @@
 
 **Tech Stack:** Next.js App Router Route Handlers, React 19 client components, TypeScript, Drizzle/PostgreSQL, Vitest, 기존 ATB 전투 엔진, `saves_kv`, SVG 탐사망, Tailwind와 공용 불투명 surface 토큰.
 
+## Resume Audit — 2026-08-29
+
+- Task 1~14 구현 커밋과 Task 15 최종 검증 기록을 대조해 전체 계획 완료를 확인했다.
+- 현재 기준 집중 회귀는 미개척지 16개 파일 102개 테스트와 사냥·협동·거래소 경계 24개 파일 87개 테스트가 모두 통과했다.
+- 고정 시드 보상 시뮬레이션은 난이도별 목표 범위를 유지했고 최대 보상 구성은 179.6%였다.
+- TypeScript 검사, 이미지 참조 검사, Next.js 16.2.11 프로덕션 빌드(451개 정적 페이지)가 통과했다.
+- 운영 기능 플래그 전환, 운영 경제 스냅샷 조회, 배포는 이 감사에서 수행하지 않았다.
+
 ## Global Constraints
 
 - 배포하지 않는다. `NEXT_PUBLIC_V2_UNEXPLORED` 기본값은 `false`이며 마지막 검증 뒤에도 자동으로 켜지 않는다.
@@ -35,7 +43,7 @@
 - Create: `src/adventure/data/v2/unexploredState.ts`
 - Create: `src/adventure/data/v2/unexploredState.test.ts`
 
-- [ ] **Step 1: 저장 파서와 게이트의 실패 테스트를 먼저 작성한다.**
+- [x] **Step 1: 저장 파서와 게이트의 실패 테스트를 먼저 작성한다.**
 
 다음을 단언한다.
 
@@ -69,7 +77,7 @@ Run: `npm test -- src/adventure/data/v2/unexploredState.test.ts`
 
 Expected: FAIL because the module does not exist.
 
-- [ ] **Step 2: 플래그와 방어적 파서를 구현한다.**
+- [x] **Step 2: 플래그와 방어적 파서를 구현한다.**
 
 `coreLoopConfig.ts`에 다음을 추가한다.
 
@@ -80,13 +88,13 @@ export const V2_UNEXPLORED =
 
 파서는 알 수 없는 노드/업적 ID를 제거하고 숫자는 음이 아닌 정수로 제한한다. 흔적은 기존 `parseUnexploredTraces`를 사용해 풀당 2,500으로 제한한다. 플래그가 꺼졌을 때 기존 사냥·캐릭터 메뉴 응답은 바뀌지 않아야 한다.
 
-- [ ] **Step 3: 단위 테스트를 통과시킨다.**
+- [x] **Step 3: 단위 테스트를 통과시킨다.**
 
 Run: `npm test -- src/adventure/data/v2/unexploredState.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 4: 기반 계약을 커밋한다.**
+- [x] **Step 4: 기반 계약을 커밋한다.**
 
 ```bash
 git add src/adventure/data/v2/coreLoopConfig.ts src/adventure/data/v2/unexploredState.ts src/adventure/data/v2/unexploredState.test.ts
@@ -102,7 +110,7 @@ git commit -m "feat: add unexplored save contract"
 - Modify: `src/adventure/data/v2/unexploredEncounters.test.ts`
 - Reference: `docs/superpowers/unexplored-region-160-node-mockup.html`
 
-- [ ] **Step 1: 구조·선택 규칙·효과 합산 실패 테스트를 작성한다.**
+- [x] **Step 1: 구조·선택 규칙·효과 합산 실패 테스트를 작성한다.**
 
 카탈로그 타입은 다음 계약을 사용한다.
 
@@ -147,7 +155,7 @@ Run: `npm test -- src/adventure/data/v2/unexploredTree.test.ts src/adventure/dat
 
 Expected: FAIL.
 
-- [ ] **Step 2: 목업의 좌표와 단순화된 연결을 타입스크립트 정적 카탈로그로 옮긴다.**
+- [x] **Step 2: 목업의 좌표와 단순화된 연결을 타입스크립트 정적 카탈로그로 옮긴다.**
 
 런타임에 난수로 배치하지 않는다. `nodes`, `edges`, `UNEXPLORED_NODE_BY_ID`를 모듈 로드 시 결정적으로 만들고 `deriveUnexploredEffects(selectedNodeIds)`가 아래 값을 한 번에 반환하게 한다.
 
@@ -173,13 +181,13 @@ export type UnexploredEffects = {
 
 양수·음수 보정은 원래 기대값 기준 합연산하고 최종 배율만 0 이상으로 제한한다. `위험한 계약`의 +5 난이도도 120 상한 검사에 포함한다. `집중 추적`이 있으면 `unexploredEncounterShares`에 기본 최소 25를 전달하고 없으면 30을 사용하도록 기존 고정 상수를 매개변수로 바꾼다.
 
-- [ ] **Step 3: 카탈로그와 파생 효과 테스트를 통과시킨다.**
+- [x] **Step 3: 카탈로그와 파생 효과 테스트를 통과시킨다.**
 
 Run: `npm test -- src/adventure/data/v2/unexploredTree.test.ts src/adventure/data/v2/unexploredEncounters.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 4: 카탈로그를 커밋한다.**
+- [x] **Step 4: 카탈로그를 커밋한다.**
 
 ```bash
 git add src/adventure/data/v2/unexploredTree.ts src/adventure/data/v2/unexploredTree.test.ts src/adventure/data/v2/unexploredEncounters.ts src/adventure/data/v2/unexploredEncounters.test.ts
@@ -198,7 +206,7 @@ git commit -m "feat: define unexplored exploration network"
 - Modify: `src/app/api/v2/me/advance-class/route.ts`
 - Create: `src/app/api/v2/me/advance-class/route.test.ts`
 
-- [ ] **Step 1: 탐사 포인트 진척 테스트를 작성한다.**
+- [x] **Step 1: 탐사 포인트 진척 테스트를 작성한다.**
 
 경험치 포인트는 100레벨 최초 도달 시 1점을 얻고, 이후 만렙 사냥에서 `applyExpGain(...).overflowExp`를 탐사 경험치로 보낸다. 2~30번째 포인트 비용은 선형 증가하며 30포인트 누적 비용은 현재 1→100 총 필요 경험치의 정확히 5배다. 재전직 API는 레벨을 1로 내리기 전에 `xpPoints >= 1`을 같은 `character.v2` 저장에 남겨, 탐사망을 한 번도 열지 않고 바로 재전직해도 첫 포인트를 잃지 않게 한다.
 
@@ -230,21 +238,21 @@ Run: `npm test -- src/adventure/data/v2/unexploredProgression.test.ts src/app/ap
 
 Expected: FAIL.
 
-- [ ] **Step 2: 순수 진척 함수와 사냥 overflow 배선을 구현한다.**
+- [x] **Step 2: 순수 진척 함수와 사냥 overflow 배선을 구현한다.**
 
 일반 사냥 저장 직전에 `expResult.overflowExp`를 `grantExplorationXp`에 전달한다. 기존 `level`, `exp`, 보상 응답은 그대로 두고 `exploration` 응답 조각만 플래그가 켜진 경우 추가한다. 자동/압축 사냥은 판별 가능한 실제 승리별 overflow 합계를 같은 함수에 한 번 전달한다.
 
-- [ ] **Step 3: 업적 평가를 이벤트별로 연결한다.**
+- [x] **Step 3: 업적 평가를 이벤트별로 연결한다.**
 
 사냥은 첫 미개척지 승리와 첫 특화 처치만 기록한다. 노드 API는 2·3풀 동시 활성 업적을 기록한다. 제작 API는 첫 제작을 기록한다. 보스 수 업적은 보상 claim의 기존 `coopBossKinds` 갱신 뒤 고유 종류 수로 평가한다.
 
-- [ ] **Step 4: 진행 테스트를 통과시킨다.**
+- [x] **Step 4: 진행 테스트를 통과시킨다.**
 
 Run: `npm test -- src/adventure/data/v2/unexploredProgression.test.ts src/app/api/v2/dungeon/hunt/route.test.ts src/app/api/v2/coop/claim/route.test.ts src/app/api/v2/me/advance-class/route.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 5: 진행도를 커밋한다.**
+- [x] **Step 5: 진행도를 커밋한다.**
 
 ```bash
 git add src/adventure/data/v2/unexploredProgression.ts src/adventure/data/v2/unexploredProgression.test.ts src/app/api/v2/dungeon/hunt/route.ts src/app/api/v2/dungeon/hunt/route.test.ts src/app/api/v2/coop/claim/route.ts src/app/api/v2/coop/claim/route.test.ts src/app/api/v2/me/advance-class/route.ts src/app/api/v2/me/advance-class/route.test.ts
@@ -259,7 +267,7 @@ git commit -m "feat: earn unexplored exploration points"
 - Create: `src/app/api/v2/unexplored/route.ts`
 - Create: `src/app/api/v2/unexplored/route.test.ts`
 
-- [ ] **Step 1: Route Handler 실패 테스트를 작성한다.**
+- [x] **Step 1: Route Handler 실패 테스트를 작성한다.**
 
 `GET`은 `level`, `eligible`, `earnedPoints`, `spentPoints`, `explorationXp`, 다음 포인트 비용, 선택 ID, 현재 난이도, 풀 비중, 보상 요약과 흔적을 반환한다. `POST` 계약은 다음 하나로 통일한다.
 
@@ -278,17 +286,17 @@ Run: `npm test -- src/lib/server/unexploredService.test.ts src/app/api/v2/unexpl
 
 Expected: FAIL.
 
-- [ ] **Step 2: 서버 서비스와 GET/POST를 구현한다.**
+- [x] **Step 2: 서버 서비스와 GET/POST를 구현한다.**
 
 `POST`는 `character.v2`를 먼저 잠그고 레벨·포인트·그래프·상호 배타·난이도·골드를 전부 검증한 뒤 한 번 저장한다. 골드 차감은 기존 `spendGold`를 사용한다. 응답은 저장 후 `unexploredSnapshot`을 반환해 클라이언트가 낙관적 계산 없이 교체한다.
 
-- [ ] **Step 3: API 테스트를 통과시킨다.**
+- [x] **Step 3: API 테스트를 통과시킨다.**
 
 Run: `npm test -- src/lib/server/unexploredService.test.ts src/app/api/v2/unexplored/route.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 4: API를 커밋한다.**
+- [x] **Step 4: API를 커밋한다.**
 
 ```bash
 git add src/lib/server/unexploredService.ts src/lib/server/unexploredService.test.ts src/app/api/v2/unexplored/route.ts src/app/api/v2/unexplored/route.test.ts
@@ -307,7 +315,7 @@ git commit -m "feat: manage unexplored nodes"
 - Create: `src/adventure/v2/unexploredTreeModel.ts`
 - Create: `src/adventure/v2/unexploredTreeModel.test.ts`
 
-- [ ] **Step 1: 메뉴·모델·SSR 가독성 테스트를 작성한다.**
+- [x] **Step 1: 메뉴·모델·SSR 가독성 테스트를 작성한다.**
 
 플래그 on일 때만 캐릭터 메뉴에 `미개척지` 카드와 `open-unexplored` 액션이 나타나고 `/character/unexplored`로 이동해야 한다. 탐사망은 160노드, 활성/구매 가능/잠김 상태, 현재→선택 후 난이도, 풀 2~3개 요약, 보상 전환 노드, 포인트/XP를 표시해야 한다.
 
@@ -317,19 +325,19 @@ Run: `npm test -- src/adventure/v2/V2CharacterMenu.test.tsx src/adventure/v2/une
 
 Expected: FAIL.
 
-- [ ] **Step 2: SVG 그래프와 우측 상세 패널을 구현한다.**
+- [x] **Step 2: SVG 그래프와 우측 상세 패널을 구현한다.**
 
 목업의 단순화된 동심원 배치와 비교 경로를 사용한다. 작은 노드는 아이콘만, 중형·풀·심부는 이름을 표시한다. 비활성 선은 낮은 대비, 선택 경로는 보라색, 실제 활성 연결은 주황색으로 구분한다. PC는 그래프+고정 상세 패널, 모바일은 그래프 아래 상세 패널로 바꾸되 페이지 가로 넘침이 없어야 한다.
 
 선택/환불 후에는 POST 응답 스냅샷으로 전체 상태를 교체하고 실패 메시지를 시스템 토스트로 보여준다. 레벨 100 미만은 진행도 요약을 보여주되 조작 버튼을 막고 `100레벨 달성 후 다시 입장할 수 있습니다`를 표시한다.
 
-- [ ] **Step 3: UI 테스트를 통과시킨다.**
+- [x] **Step 3: UI 테스트를 통과시킨다.**
 
 Run: `npm test -- src/adventure/v2/V2CharacterMenu.test.tsx src/adventure/v2/unexploredTreeModel.test.ts src/adventure/v2/V2UnexploredTreeView.test.tsx`
 
 Expected: PASS.
 
-- [ ] **Step 4: 탐사망 UI를 커밋한다.**
+- [x] **Step 4: 탐사망 UI를 커밋한다.**
 
 ```bash
 git add src/adventure/v2/V2CharacterMenu.tsx src/adventure/v2/V2CharacterMenu.test.tsx src/app/\(game\)/character/page.tsx src/app/\(game\)/character/unexplored/page.tsx src/adventure/v2/V2UnexploredTreeView.tsx src/adventure/v2/V2UnexploredTreeView.test.tsx src/adventure/v2/unexploredTreeModel.ts src/adventure/v2/unexploredTreeModel.test.ts
@@ -351,7 +359,7 @@ git commit -m "feat: add unexplored exploration screen"
 - Modify: `src/adventure/data/v2/unexploredSimulationMonsters.test.ts`
 - Add: `public/images/monster/v2/unexplored-*.png` (prebuild converts these to `.webp` and removes PNG originals)
 
-- [ ] **Step 1: 12종 출시 범위와 연속 난이도 테스트를 작성한다.**
+- [x] **Step 1: 12종 출시 범위와 연속 난이도 테스트를 작성한다.**
 
 각 풀은 `launchMonster` 하나와 `expansionCandidates` 둘을 가진다. `pickUnexploredMonster`는 출시 런타임에서 `launchMonster`만 반환한다. 기본 풀은 시뮬레이션에서 검증한 별의 무덤 기반 역할 5종을 독립 ID·이름·이미지로 등록한다.
 
@@ -361,7 +369,7 @@ Run: `npm test -- src/adventure/data/v2/unexploredMonsterPools.test.ts src/adven
 
 Expected: FAIL.
 
-- [ ] **Step 2: 시뮬레이션 수치를 런타임 몬스터 팩토리로 승격한다.**
+- [x] **Step 2: 시뮬레이션 수치를 런타임 몬스터 팩토리로 승격한다.**
 
 `unexploredMonsters.ts`가 `unexploredMonsterAtDifficulty({ source, poolId, focused, difficulty })`를 제공한다. 기본형 12종은 기존 후보의 첫 정의만 사용한다. 집중 강화는 숨은 공통 배율을 넣지 않고 풀별 `focusDescription`에 해당하는 기존 능력만 강화하며, 변경 전·후 몬스터를 같은 시뮬레이션 테스트에 넣어 확정 즉사나 면역이 생기지 않게 한다.
 
@@ -382,11 +390,11 @@ Expected: FAIL.
 
 `unexploredSimulationMonsters.ts`는 같은 팩토리를 호출해 라이브와 분석의 수치 이중화를 없앤다. `exp`는 보상 계산용 기준값을 넣되 일반 사냥 경험치와 동일한 방식으로 지급한다.
 
-- [ ] **Step 3: 몬스터 이미지 17개를 추가한다.**
+- [x] **Step 3: 몬스터 이미지 17개를 추가한다.**
 
 기본 5종과 특화 12종을 기존 v2 몬스터 카드 비율에 맞춰 생성한다. 파일명은 `Monster.image`의 영문 short-name과 일치시킨다. 새로운 카테고리 폴더는 만들지 않고 `public/images/monster/v2/`를 사용한다.
 
-- [ ] **Step 4: 데이터와 이미지 검증을 통과시킨다.**
+- [x] **Step 4: 데이터와 이미지 검증을 통과시킨다.**
 
 Run: `npm test -- src/adventure/data/v2/unexploredMonsterPools.test.ts src/adventure/data/v2/unexploredMonsters.test.ts src/adventure/data/v2/unexploredSimulationMonsters.test.ts`
 
@@ -396,7 +404,7 @@ Run: `npm run check-images`
 
 Expected: missing reference 0, unexplored orphan 0.
 
-- [ ] **Step 5: 몬스터 런타임을 커밋한다.**
+- [x] **Step 5: 몬스터 런타임을 커밋한다.**
 
 ```bash
 git add src/adventure/data/v2/unexploredMonsterPools.ts src/adventure/data/v2/unexploredMonsterPools.test.ts src/adventure/data/v2/unexploredMonsters.ts src/adventure/data/v2/unexploredMonsters.test.ts src/adventure/data/v2/unexploredSimulationMonsters.ts src/adventure/data/v2/unexploredSimulationMonsters.test.ts public/images/monster/v2
@@ -412,7 +420,7 @@ git commit -m "feat: add unexplored hunt monsters"
 - Create: `src/adventure/data/v2/unexploredHuntRewards.test.ts`
 - Modify: `src/adventure/data/v2/dungeonDrops.test.ts`
 
-- [ ] **Step 1: 고정 RNG 보상 테스트를 작성한다.**
+- [x] **Step 1: 고정 RNG 보상 테스트를 작성한다.**
 
 각 드롭은 정확히 하나의 태그를 가진다.
 
@@ -438,17 +446,17 @@ Run: `npm test -- src/adventure/data/v2/unexploredRewards.test.ts src/adventure/
 
 Expected: FAIL.
 
-- [ ] **Step 2: 보상 계획과 실제 굴림을 분리해 구현한다.**
+- [x] **Step 2: 보상 계획과 실제 굴림을 분리해 구현한다.**
 
 `buildUnexploredRewardPlan(monster, effects)`는 확률·수량·태그만 만들고 `rollUnexploredHuntRewards(plan, rng)`가 원본 굴림 뒤 추가 굴림을 수행한다. 특화 재료가 희귀해 보여도 `special` 하나만 붙여 희귀 복사와 중복 적용하지 않는다. 기본 사냥 공용 장비·골드는 기존 `rollHuntDropsRepeated` 결과를 입력으로 받아 조절하고, 미개척지 전용 굴림은 `V2_MATERIALS_ENABLED`와 무관하게 작동한다.
 
-- [ ] **Step 3: 보상 테스트를 통과시킨다.**
+- [x] **Step 3: 보상 테스트를 통과시킨다.**
 
 Run: `npm test -- src/adventure/data/v2/unexploredRewards.test.ts src/adventure/data/v2/unexploredHuntRewards.test.ts src/adventure/data/v2/dungeonDrops.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 4: 보상 해석기를 커밋한다.**
+- [x] **Step 4: 보상 해석기를 커밋한다.**
 
 ```bash
 git add src/adventure/data/v2/unexploredRewards.ts src/adventure/data/v2/unexploredRewards.test.ts src/adventure/data/v2/unexploredHuntRewards.ts src/adventure/data/v2/unexploredHuntRewards.test.ts src/adventure/data/v2/dungeonDrops.test.ts
@@ -467,7 +475,7 @@ git commit -m "feat: resolve unexplored hunt rewards"
 - Modify: `src/adventure/v2/V2DungeonFloorView.tsx`
 - Modify: `src/adventure/v2/V2DungeonFloorView.test.tsx`
 
-- [ ] **Step 1: 서버 권위 모드 테스트를 작성한다.**
+- [x] **Step 1: 서버 권위 모드 테스트를 작성한다.**
 
 요청은 기존 body에 `mode?: "normal" | "unexplored"`만 추가한다. 미개척지 모드에서 클라이언트가 보내는 depth는 무시하고 서버가 선택 노드로 난이도를 계산한다.
 
@@ -477,7 +485,7 @@ Run: `npm test -- src/lib/server/unexploredHunt.test.ts src/app/api/v2/dungeon/h
 
 Expected: FAIL.
 
-- [ ] **Step 2: 기존 라우트의 세 지점만 모드화한다.**
+- [x] **Step 2: 기존 라우트의 세 지점만 모드화한다.**
 
 1. 적 선택: normal은 `enemiesForDepth`, unexplored는 서버가 파싱한 노드→비중→몬스터 팩토리.
 2. 보상 선택: normal은 기존 `rollHuntDropsRepeated`, unexplored는 기존 공용 드롭을 입력으로 `rollUnexploredHuntRewards` 적용.
@@ -485,17 +493,17 @@ Expected: FAIL.
 
 전투 해결, 스태미나, 인벤토리 충전, 장비 저장, 패배 세금 코드는 분기 밖에 둔다. 미개척지에서는 프론티어 해금, 레어맵 발견/소모, 거점 추적, 오프라인 사냥 목적지를 갱신하지 않는다.
 
-- [ ] **Step 3: 클라이언트 훅과 전투 화면을 모드 prop으로 일반화한다.**
+- [x] **Step 3: 클라이언트 훅과 전투 화면을 모드 prop으로 일반화한다.**
 
 `V2DungeonFloorView`에 `huntMode?: "normal" | "unexplored"`와 `unexploredSummary?`를 추가한다. 미개척지 측면 패널은 난이도, 풀 비중, 보상 효과, 흔적 활성 여부만 표시하며 조작 방식과 주 사냥 버튼은 일반 사냥과 동일하게 유지한다. 레어맵·오프라인 버튼은 미개척지에서 숨긴다.
 
-- [ ] **Step 4: 회귀 테스트를 통과시킨다.**
+- [x] **Step 4: 회귀 테스트를 통과시킨다.**
 
 Run: `npm test -- src/lib/server/unexploredHunt.test.ts src/app/api/v2/dungeon/hunt/route.test.ts src/adventure/v2/useDungeonHunt.test.ts src/adventure/v2/V2DungeonFloorView.test.tsx`
 
 Expected: PASS.
 
-- [ ] **Step 5: 사냥 배선을 커밋한다.**
+- [x] **Step 5: 사냥 배선을 커밋한다.**
 
 ```bash
 git add src/lib/server/unexploredHunt.ts src/lib/server/unexploredHunt.test.ts src/app/api/v2/dungeon/hunt/route.ts src/app/api/v2/dungeon/hunt/route.test.ts src/adventure/v2/useDungeonHunt.ts src/adventure/v2/useDungeonHunt.test.ts src/adventure/v2/V2DungeonFloorView.tsx src/adventure/v2/V2DungeonFloorView.test.tsx
@@ -513,7 +521,7 @@ git commit -m "feat: connect unexplored hunting"
 - Create: `src/adventure/v2/V2UnexploredHuntPage.tsx`
 - Create: `src/adventure/v2/V2UnexploredHuntPage.test.tsx`
 
-- [ ] **Step 1: 목록·페이지 테스트를 작성한다.**
+- [x] **Step 1: 목록·페이지 테스트를 작성한다.**
 
 플래그 on이면 사냥터 목록 상단에 `미개척지 · 난이도 N` 카드가 나타나고 활성 풀 2~3개만 요약한다. 100 미만은 카드가 잠기며 진입해도 서버 상태를 확인한 뒤 안내만 표시한다. 카드 선택은 숫자 `[floorId]`가 아닌 `/battle/dungeon/unexplored`로 이동한다.
 
@@ -521,17 +529,17 @@ Run: `npm test -- src/adventure/v2/V2DungeonList.test.ts src/adventure/v2/V2Dung
 
 Expected: FAIL.
 
-- [ ] **Step 2: 목록 카드와 전용 페이지를 구현한다.**
+- [x] **Step 2: 목록 카드와 전용 페이지를 구현한다.**
 
 페이지는 `/api/v2/unexplored`을 읽고 기존 `V2DungeonFloorView`에 `huntMode="unexplored"`를 전달한다. 로딩·실패·잠김 카드도 불투명 surface를 사용한다. 탐사망 편집 링크는 캐릭터의 `/character/unexplored`로 연결한다.
 
-- [ ] **Step 3: UI 테스트를 통과시킨다.**
+- [x] **Step 3: UI 테스트를 통과시킨다.**
 
 Run: `npm test -- src/adventure/v2/V2DungeonList.test.ts src/adventure/v2/V2DungeonList.render.test.tsx src/adventure/v2/V2UnexploredHuntPage.test.tsx`
 
 Expected: PASS.
 
-- [ ] **Step 4: 사냥터 UI를 커밋한다.**
+- [x] **Step 4: 사냥터 UI를 커밋한다.**
 
 ```bash
 git add src/adventure/v2/V2DungeonList.tsx src/adventure/v2/V2DungeonList.test.ts src/adventure/v2/V2DungeonList.render.test.tsx src/app/\(game\)/battle/dungeon/page.tsx src/app/\(game\)/battle/dungeon/unexplored/page.tsx src/adventure/v2/V2UnexploredHuntPage.tsx src/adventure/v2/V2UnexploredHuntPage.test.tsx
@@ -558,7 +566,7 @@ git commit -m "feat: add unexplored hunting screen"
 - Add: `public/images/monster/v2/unexplored-boss-*.png`
 - Add: `public/images/equipment/unexplored-*.png`
 
-- [ ] **Step 1: 카탈로그 불변 테스트를 작성한다.**
+- [x] **Step 1: 카탈로그 불변 테스트를 작성한다.**
 
 보스는 정확히 3종이다.
 
@@ -584,7 +592,7 @@ Run: `npm test -- src/adventure/data/v2/unexploredBosses.test.ts src/adventure/d
 
 Expected: FAIL.
 
-- [ ] **Step 2: 세 보스와 거래 가능 보상을 구현한다.**
+- [x] **Step 2: 세 보스와 거래 가능 보상을 구현한다.**
 
 개인 보스의 공격 스태미나, 쿨다운, 제한시간은 기존 협동 보스 상수를 그대로 사용한다. `visibilityLocked` 보스는 생성 시 `summoner_only`이며 끝까지 변경할 수 없다. 일반 협동 소환서 목록에서는 제외한다.
 
@@ -596,7 +604,7 @@ Expected: FAIL.
 | 독혈 군주 | `독혈 발톱` · 단검 · 치명/상태 공격 | `응고독 반지` · 반지 · 치명/적중 | `부패하지 않는 심장` · 경갑 갑옷 · HP/회피/상태 저항 |
 | 빙하 거수 | `빙하 파쇄망치` · 대검 · 위력/방어 | `얼어붙은 거갑` · 중갑 갑옷 · HP/물마방 | `절대영도의 핵` · 목걸이 · HP/MP/물마방 |
 
-- [ ] **Step 3: 이미지와 카탈로그 검증을 통과시킨다.**
+- [x] **Step 3: 이미지와 카탈로그 검증을 통과시킨다.**
 
 Run: `npm test -- src/adventure/data/v2/unexploredBosses.test.ts src/adventure/data/v2/unexploredRewards.test.ts src/adventure/data/v2/dungeonDrops.test.ts src/adventure/data/v2/v2Equipment.test.ts src/adventure/data/v2/coopBosses.test.ts`
 
@@ -606,7 +614,7 @@ Run: `npm run check-images`
 
 Expected: missing reference 0, new unexplored orphan 0.
 
-- [ ] **Step 4: 카탈로그를 커밋한다.**
+- [x] **Step 4: 카탈로그를 커밋한다.**
 
 ```bash
 git add src/adventure/data/v2/unexploredBosses.ts src/adventure/data/v2/unexploredBosses.test.ts src/adventure/data/v2/unexploredRewards.ts src/adventure/data/v2/unexploredRewards.test.ts src/adventure/data/v2/dungeonDrops.ts src/adventure/data/v2/dungeonDrops.test.ts src/adventure/data/v2/v2EquipmentCatalog.ts src/adventure/data/v2/v2Equipment.test.ts src/adventure/data/v2/coopBosses.ts src/adventure/data/v2/coopBosses.test.ts public/images/monster/v2 public/images/equipment
@@ -623,9 +631,9 @@ git commit -m "feat: define unexplored personal bosses"
 - Create: `src/app/api/v2/unexplored/summon/route.ts`
 - Create: `src/app/api/v2/unexplored/summon/route.test.ts`
 
-- [ ] **Step 1: 제작·소환 트랜잭션 실패 테스트를 작성한다.**
+- [x] **Step 1: 제작·소환 트랜잭션 실패 테스트를 작성한다.**
 
-제작 body는 `{ bossId, requestId }`, 소환 body는 `{ bossId }`다. 제작식은 풀 A 흔적 500, 풀 B 흔적 500, 각 전용 재료 10, `v2_boss_summon_scroll` 10, 고정 골드다. 고정 골드는 출시 스냅샷에서 확정된 상수 `UNEXPLORED_SUMMON_STONE_GOLD_COST` 하나로만 읽으며 런타임 시세를 조회하지 않는다.
+제작 body는 `{ bossId, requestId }`, 소환 body는 `{ bossId }`다. 제작식은 풀 A 흔적 500, 풀 B 흔적 500, 각 전용 재료 10, `v2_boss_summon_scroll` 30, 고정 골드다. 고정 골드는 출시 스냅샷과 운영 결정을 반영한 상수 `UNEXPLORED_SUMMON_STONE_GOLD_COST` 하나로만 읽으며 런타임 시세를 조회하지 않는다.
 
 테스트는 각 재료 하나씩 부족, 골드 부족, 흔적 노드 비활성, 같은 requestId 재시도, 동시 두 요청에서 한 요청만 성공, 성공 시 전부 차감·소환석 1개 추가를 검증한다. 중복 requestId는 `craftReceipts`에서 보스 ID와 제작 시각을 찾아 추가 차감 없이 최초 성공 스냅샷을 반환한다. 같은 requestId를 다른 bossId로 재사용하면 409 `request_conflict`를 반환한다.
 
@@ -635,21 +643,21 @@ Run: `npm test -- src/lib/server/unexploredBossCraft.test.ts src/app/api/v2/unex
 
 Expected: FAIL.
 
-- [ ] **Step 2: character.v2 한 행 잠금으로 제작을 구현한다.**
+- [x] **Step 2: character.v2 한 행 잠금으로 제작을 구현한다.**
 
 흔적·재료·골드·멱등 키가 모두 같은 저장 행에 있으므로 별도 저장 키를 만들지 않는다. `spendGold`로 결제하고 검증이 모두 끝난 뒤 한 번 `upsertSave`한다. 제작 성공 시 `first_summon_stone_craft` 업적을 함께 기록한다.
 
-- [ ] **Step 3: 기존 세션 생성 헬퍼로 개인 소환을 구현한다.**
+- [x] **Step 3: 기존 세션 생성 헬퍼로 개인 소환을 구현한다.**
 
 `v2Coop.ts`에 공개/개인 공통 세션 생성 헬퍼를 추출하고 기존 `/coop/summon`과 새 라우트가 함께 사용하게 한다. 새 라우트는 소환서가 아니라 보스별 소환석만 소비한다.
 
-- [ ] **Step 4: 제작·소환 테스트를 통과시킨다.**
+- [x] **Step 4: 제작·소환 테스트를 통과시킨다.**
 
 Run: `npm test -- src/lib/server/unexploredBossCraft.test.ts src/app/api/v2/unexplored/craft/route.test.ts src/app/api/v2/unexplored/summon/route.test.ts src/app/api/v2/coop/summon/route.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 5: 제작과 소환을 커밋한다.**
+- [x] **Step 5: 제작과 소환을 커밋한다.**
 
 ```bash
 git add src/lib/server/unexploredBossCraft.ts src/lib/server/unexploredBossCraft.test.ts src/lib/server/v2Coop.ts src/app/api/v2/unexplored/craft/route.ts src/app/api/v2/unexplored/craft/route.test.ts src/app/api/v2/unexplored/summon/route.ts src/app/api/v2/unexplored/summon/route.test.ts src/app/api/v2/coop/summon/route.ts src/app/api/v2/coop/summon/route.test.ts
@@ -670,7 +678,7 @@ git commit -m "feat: craft and summon unexplored bosses"
 - Modify: `src/app/api/v2/coop/[sessionId]/visibility/route.ts`
 - Modify: `src/app/api/v2/coop/[sessionId]/visibility/route.test.ts`
 
-- [ ] **Step 1: 개인 접근·보상 실패 테스트를 작성한다.**
+- [x] **Step 1: 개인 접근·보상 실패 테스트를 작성한다.**
 
 개인 보스는 소환자만 목록 조회·상세 조회·공격·claim할 수 있다. 전체/길드 전환은 `visibility_locked` 409를 반환한다. 공격 비용·쿨다운·전투 방식은 기존 협동 보스와 동일해야 한다.
 
@@ -691,17 +699,17 @@ Run: `npm test -- src/adventure/data/v2/unexploredBossRewards.test.ts src/app/ap
 
 Expected: FAIL.
 
-- [ ] **Step 2: 보스 rewardMode 분기를 구현한다.**
+- [x] **Step 2: 보스 rewardMode 분기를 구현한다.**
 
 일반 협동 보스는 기존 티어/SP열매/추가 보상을 그대로 사용한다. `unexplored_personal`만 기여 티어를 사용하지 않고 소환자 처치 claim에서 전용 스냅샷을 만든다. 장비 지급은 기존 `mintRolledEquipInstance`, `appendEquipInstances`, 고유 장비 업적/도감 기록을 재사용한다. 최초 처치 기록과 칭호만 귀속한다.
 
-- [ ] **Step 3: 접근과 보상 회귀 테스트를 통과시킨다.**
+- [x] **Step 3: 접근과 보상 회귀 테스트를 통과시킨다.**
 
 Run: `npm test -- src/adventure/data/v2/unexploredBossRewards.test.ts src/app/api/v2/coop/route.test.ts src/app/api/v2/coop/attack/route.test.ts src/app/api/v2/coop/claim/route.test.ts src/app/api/v2/coop/\[sessionId\]/visibility/route.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 4: 개인 보스 런타임을 커밋한다.**
+- [x] **Step 4: 개인 보스 런타임을 커밋한다.**
 
 ```bash
 git add src/adventure/data/v2/unexploredBossRewards.ts src/adventure/data/v2/unexploredBossRewards.test.ts src/app/api/v2/coop/route.ts src/app/api/v2/coop/route.test.ts src/app/api/v2/coop/attack/route.ts src/app/api/v2/coop/attack/route.test.ts src/app/api/v2/coop/claim/route.ts src/app/api/v2/coop/claim/route.test.ts src/app/api/v2/coop/\[sessionId\]/visibility/route.ts src/app/api/v2/coop/\[sessionId\]/visibility/route.test.ts
@@ -718,9 +726,9 @@ git commit -m "feat: reward unexplored personal bosses"
 - Modify: `src/adventure/v2/coop/useCoopBossState.ts`
 - Create: `src/adventure/v2/coop/useCoopBossState.test.ts`
 
-- [ ] **Step 1: 정보 공개와 개인 세션 UI 테스트를 작성한다.**
+- [x] **Step 1: 정보 공개와 개인 세션 UI 테스트를 작성한다.**
 
-흔적 보관함은 보스별 A/B 흔적 `현재/500`, A/B 전용 재료 `현재/10`, 소환서 `현재/10`, 고정 골드를 한 카드에 표시한다. 제작 버튼은 `우두머리의 흔적` 활성 중에만 켜고 제작된 소환석 사용은 노드 비활성 상태에서도 가능하게 한다.
+흔적 보관함은 보스별 A/B 흔적 `현재/500`, A/B 전용 재료 `현재/10`, 소환서 `현재/30`, 고정 골드를 한 카드에 표시한다. 제작 버튼은 `우두머리의 흔적` 활성 중에만 켜고 제작된 소환석 사용은 노드 비활성 상태에서도 가능하게 한다.
 
 개인 보스 카드에는 고유 3종의 정확한 `30%`, `10%`, `0.5%`와 `각각 독립적으로 등장` 문구를 표시한다. 개인 카드에는 전체/길드 공개 컨트롤이 없어야 하고 `나만 전투`를 표시한다.
 
@@ -728,17 +736,17 @@ Run: `npm test -- src/adventure/v2/V2UnexploredTreeView.test.tsx src/adventure/v
 
 Expected: FAIL.
 
-- [ ] **Step 2: 제작과 소환 UI를 구현한다.**
+- [x] **Step 2: 제작과 소환 UI를 구현한다.**
 
 제작 클릭마다 `crypto.randomUUID()` requestId를 만들고 네트워크 재시도 동안 같은 ID를 유지한다. 성공 응답으로 재료·골드·흔적 스냅샷을 교체한다. 소환 성공 뒤 기존 협동 보스 상세 화면으로 이동한다.
 
-- [ ] **Step 3: UI 테스트를 통과시킨다.**
+- [x] **Step 3: UI 테스트를 통과시킨다.**
 
 Run: `npm test -- src/adventure/v2/V2UnexploredTreeView.test.tsx src/adventure/v2/coop/V2CoopBossListView.test.tsx src/adventure/v2/coop/useCoopBossState.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 4: 보스 UI를 커밋한다.**
+- [x] **Step 4: 보스 UI를 커밋한다.**
 
 ```bash
 git add src/adventure/v2/V2UnexploredTreeView.tsx src/adventure/v2/V2UnexploredTreeView.test.tsx src/adventure/v2/coop/V2CoopBossListView.tsx src/adventure/v2/coop/V2CoopBossListView.test.tsx src/adventure/v2/coop/useCoopBossState.ts src/adventure/v2/coop/useCoopBossState.test.ts
@@ -757,7 +765,7 @@ git commit -m "feat: add unexplored boss crafting ui"
 - Create: `src/adventure/data/v2/unexploredRewardSimulation.test.ts`
 - Modify: `package.json`
 
-- [ ] **Step 1: 계산 기준 테스트를 작성한다.**
+- [x] **Step 1: 계산 기준 테스트를 작성한다.**
 
 fixture 캐릭터별 승률, 평균 전투시간, 실패 스태미나, HP/MP 충전, 손실세를 받아 `per100StaminaNet`과 `perHourNet`을 계산한다. 승률 70% 미만은 안정 파밍 집계에서 제외한다. 골드는 액면, 장비는 NPC 처분가, 재료는 입력된 중앙값을 쓰고 0.5% 초희귀 고유와 미사용 우두머리 핵 가치는 제외한다.
 
@@ -765,13 +773,13 @@ Run: `npm test -- src/adventure/data/v2/unexploredRewardSimulation.test.ts`
 
 Expected: FAIL.
 
-- [ ] **Step 2: 고정 fixture 시뮬레이터를 구현한다.**
+- [x] **Step 2: 고정 fixture 시뮬레이터를 구현한다.**
 
 명령은 `npm run sim:v2:unexplored-rewards -- --seed 20260828 --runs 10000`으로 실행한다. 기본 95와 보상 집중 95/100/105/110/115/120, 2풀 집중, 3풀 혼합, 세 보상 전환형, 집중 추적 구성을 모두 출력한다.
 
 허용 범위는 각 목표 `110/122/136/150/165/180`의 ±5%p, 최대 보상 구성 170~185%다. 벗어나면 테스트가 실패하도록 하되 골드보다 일반·특화 재료의 낮은 공급을 먼저 보존한다.
 
-- [ ] **Step 3: 테스트와 시뮬레이션을 통과시킨다.**
+- [x] **Step 3: 테스트와 시뮬레이션을 통과시킨다.**
 
 Run: `npm test -- src/adventure/data/v2/unexploredRewardSimulation.test.ts`
 
@@ -781,7 +789,7 @@ Run: `npm run sim:v2:unexplored-rewards -- --seed 20260828 --runs 10000`
 
 Expected: 모든 목표 행이 허용 범위, 최대 보상 170~185%, 초희귀 가치 제외가 출력된다.
 
-- [ ] **Step 4: 캘리브레이션 도구를 커밋한다.**
+- [x] **Step 4: 캘리브레이션 도구를 커밋한다.**
 
 ```bash
 git add scripts/sim-v2-unexplored-rewards.ts src/adventure/data/v2/unexploredRewardSimulation.ts src/adventure/data/v2/unexploredRewardSimulation.test.ts package.json
@@ -793,7 +801,7 @@ git commit -m "test: simulate unexplored reward economy"
 **Files:**
 - Modify only if a verification failure reveals an in-scope defect.
 
-- [ ] **Step 1: 미개척지 집중 테스트를 실행한다.**
+- [x] **Step 1: 미개척지 집중 테스트를 실행한다.**
 
 Run:
 
@@ -819,13 +827,13 @@ npm test -- \
 
 Expected: PASS.
 
-- [ ] **Step 2: 영향받은 사냥·협동·거래소 회귀를 실행한다.**
+- [x] **Step 2: 영향받은 사냥·협동·거래소 회귀를 실행한다.**
 
 Run: `npm test -- src/app/api/v2/dungeon/hunt src/app/api/v2/coop src/app/api/v2/marketplace src/adventure/v2/V2DungeonList.test.ts src/adventure/v2/V2DungeonList.render.test.tsx src/adventure/v2/V2DungeonFloorView.test.tsx src/adventure/v2/coop/V2CoopBossListView.test.tsx`
 
 Expected: PASS.
 
-- [ ] **Step 3: 타입·이미지·포맷 검증을 실행한다.**
+- [x] **Step 3: 타입·이미지·포맷 검증을 실행한다.**
 
 Run: `npx tsc --noEmit`
 
@@ -839,7 +847,7 @@ Run: `git diff --check`
 
 Expected: no output.
 
-- [ ] **Step 4: 기능 플래그 on 개발 서버에서 브라우저를 확인한다.**
+- [x] **Step 4: 기능 플래그 on 개발 서버에서 브라우저를 확인한다.**
 
 `NEXT_PUBLIC_V2_UNEXPLORED=true npm run dev`로 로컬 서버만 실행한다. 1440×900과 390×844에서 다음을 확인한다.
 
@@ -851,7 +859,7 @@ Expected: no output.
 - 흔적 보관함 → 제작 → 소환 → 개인 보스 전투 → 독립 드롭 표시.
 - 플래그 off 재시작 시 기존 메뉴·사냥·협동 화면이 이전과 동일.
 
-- [ ] **Step 5: 최종 상태를 감사한다.**
+- [x] **Step 5: 최종 상태를 감사한다.**
 
 Run: `git status --short`
 

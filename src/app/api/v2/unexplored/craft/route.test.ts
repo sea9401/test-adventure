@@ -40,7 +40,10 @@ vi.mock("@/lib/server/savesKv", () => ({
 
 import { POST } from "./route";
 import { SUMMON_SCROLL_MATERIAL_ID } from "@/adventure/data/v2/coopBosses";
-import { UNEXPLORED_BOSSES } from "@/adventure/data/v2/unexploredBosses";
+import {
+  UNEXPLORED_BOSSES,
+  UNEXPLORED_SUMMON_STONE_SCROLL_COST,
+} from "@/adventure/data/v2/unexploredBosses";
 import { UNEXPLORED_SUMMON_STONE_GOLD_COST } from "@/lib/server/unexploredBossCraft";
 
 function readyCharacter() {
@@ -50,7 +53,8 @@ function readyCharacter() {
     materials: {
       v2_unexplored_runaway_machines_material: 20,
       v2_unexplored_shadow_stalkers_material: 20,
-      [SUMMON_SCROLL_MATERIAL_ID]: 20,
+      [SUMMON_SCROLL_MATERIAL_ID]:
+        UNEXPLORED_SUMMON_STONE_SCROLL_COST * 2,
     },
     unexplored: {
       selectedNodeIds: ["start", "deep-boss"],
@@ -114,7 +118,8 @@ describe("POST /api/v2/unexplored/craft", () => {
     const materials = (mocks.character as { materials: Record<string, number> }).materials;
     materials.v2_unexplored_runaway_machines_material = 10;
     materials.v2_unexplored_shadow_stalkers_material = 10;
-    materials[SUMMON_SCROLL_MATERIAL_ID] = 10;
+    materials[SUMMON_SCROLL_MATERIAL_ID] =
+      UNEXPLORED_SUMMON_STONE_SCROLL_COST;
     const unexplored = mocks.character.unexplored as {
       traces: Record<string, number>;
     };

@@ -10,6 +10,7 @@ import { shortestUnexploredPath } from "@/adventure/data/v2/unexploredTree";
 import {
   UNEXPLORED_BOSSES,
   UNEXPLORED_SUMMON_STONE_GOLD_COST,
+  UNEXPLORED_SUMMON_STONE_SCROLL_COST,
 } from "@/adventure/data/v2/unexploredBosses";
 
 const mocks = vi.hoisted(() => ({ notifySystem: vi.fn() }));
@@ -139,7 +140,7 @@ describe("V2UnexploredTreeView", () => {
           materials: {
             v2_unexplored_runaway_machines_material: 10,
             v2_unexplored_shadow_stalkers_material: 10,
-            [SUMMON_SCROLL_MATERIAL_ID]: 10,
+            [SUMMON_SCROLL_MATERIAL_ID]: UNEXPLORED_SUMMON_STONE_SCROLL_COST,
             [tracking.summonMaterialId]: 1,
           },
         }}
@@ -153,6 +154,7 @@ describe("V2UnexploredTreeView", () => {
     expect(html).toContain("그림자 추적자 흔적");
     expect(html).toContain("500 / 500");
     expect(html).toContain("10 / 10");
+    expect(html).toContain("30 / 30");
     expect(html).toContain(
       `${UNEXPLORED_SUMMON_STONE_GOLD_COST.toLocaleString()} / ${UNEXPLORED_SUMMON_STONE_GOLD_COST.toLocaleString()}G`,
     );
@@ -169,7 +171,7 @@ describe("V2UnexploredTreeView", () => {
       materials: {
         v2_unexplored_runaway_machines_material: 10,
         v2_unexplored_shadow_stalkers_material: 10,
-        [SUMMON_SCROLL_MATERIAL_ID]: 10,
+        [SUMMON_SCROLL_MATERIAL_ID]: UNEXPLORED_SUMMON_STONE_SCROLL_COST,
       },
     } satisfies UnexploredClientSnapshot;
     const fetchMock = vi

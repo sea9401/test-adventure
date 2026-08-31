@@ -7,10 +7,17 @@ import {
   UNEXPLORED_BOSS_CORE_MATERIAL,
   UNEXPLORED_BOSSES,
   UNEXPLORED_BOSS_IDS,
+  UNEXPLORED_SUMMON_STONE_GOLD_COST,
   UNEXPLORED_SUMMON_STONE_MATERIALS,
+  UNEXPLORED_SUMMON_STONE_SCROLL_COST,
 } from "./unexploredBosses";
 
 describe("미개척지 개인 보스 카탈로그", () => {
+  it("운영 결정으로 확정한 소환석 골드·소환서 비용을 고정한다", () => {
+    expect(UNEXPLORED_SUMMON_STONE_GOLD_COST).toBe(5_000_000);
+    expect(UNEXPLORED_SUMMON_STONE_SCROLL_COST).toBe(30);
+  });
+
   it("출시 보스 3종과 연결된 상위 풀 조합을 고정한다", () => {
     expect(UNEXPLORED_BOSS_IDS).toEqual([
       "tracking_weapon",

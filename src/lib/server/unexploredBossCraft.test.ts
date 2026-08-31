@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { SUMMON_SCROLL_MATERIAL_ID } from "@/adventure/data/v2/coopBosses";
-import { UNEXPLORED_BOSSES } from "@/adventure/data/v2/unexploredBosses";
+import {
+  UNEXPLORED_BOSSES,
+  UNEXPLORED_SUMMON_STONE_SCROLL_COST,
+} from "@/adventure/data/v2/unexploredBosses";
 import {
   UNEXPLORED_SUMMON_STONE_GOLD_COST,
   applyUnexploredBossCraft,
@@ -17,7 +20,7 @@ function readyCharacter() {
     materials: {
       [MATERIAL_A]: 10,
       [MATERIAL_B]: 10,
-      [SUMMON_SCROLL_MATERIAL_ID]: 10,
+      [SUMMON_SCROLL_MATERIAL_ID]: UNEXPLORED_SUMMON_STONE_SCROLL_COST,
     },
     unexplored: {
       selectedNodeIds: ["start", "deep-boss"],
@@ -44,7 +47,8 @@ describe("applyUnexploredBossCraft", () => {
       save.materials[MATERIAL_B] = 9;
     }, "insufficient_material"],
     ["scroll", (save: ReturnType<typeof readyCharacter>) => {
-      save.materials[SUMMON_SCROLL_MATERIAL_ID] = 9;
+      save.materials[SUMMON_SCROLL_MATERIAL_ID] =
+        UNEXPLORED_SUMMON_STONE_SCROLL_COST - 1;
     }, "insufficient_scrolls"],
     ["gold", (save: ReturnType<typeof readyCharacter>) => {
       save.gold = UNEXPLORED_SUMMON_STONE_GOLD_COST - 1;

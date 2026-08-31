@@ -10,9 +10,11 @@ export const UNEXPLORED_BOSS_CORE_MATERIAL = {
 
 export const UNEXPLORED_SUMMON_STONE_TRACE_COST = 500;
 export const UNEXPLORED_SUMMON_STONE_POOL_MATERIAL_COST = 10;
-export const UNEXPLORED_SUMMON_STONE_SCROLL_COST = 10;
-// 출시 직전 경제 스냅샷에서 1일 자연 회복 순수익의 25%로 교체할 단일 캘리브 다이얼.
-export const UNEXPLORED_SUMMON_STONE_GOLD_COST = 1_000_000;
+export const UNEXPLORED_SUMMON_STONE_SCROLL_COST = 30;
+// 2026-08-29 운영 경제 스냅샷: 최상위 안정 파밍 표본의 자연 회복 1일 순가치
+// 중앙 25,508,328G × 25% = 6,377,082G를 참고하되, 보스 소환서 소모를 30장으로
+// 높이는 운영 결정을 함께 반영해 골드 싱크는 5,000,000G로 낮춰 확정했다.
+export const UNEXPLORED_SUMMON_STONE_GOLD_COST = 5_000_000;
 
 export const UNEXPLORED_SUMMON_STONE_MATERIALS = {
   v2_unexplored_tracking_weapon_summon_stone: {

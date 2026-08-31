@@ -37,6 +37,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 }));
 
 import { GET, POST } from "./route";
+import { UNEXPLORED_SUMMON_STONE_GOLD_COST } from "@/adventure/data/v2/unexploredBosses";
 import { upsertSave } from "@/lib/server/savesKv";
 
 function request(body: unknown): Request {
@@ -81,6 +82,33 @@ describe("/api/v2/unexplored", () => {
         earnedPoints: 3,
         spentPoints: 0,
         difficulty: 95,
+      },
+    });
+  });
+
+  it("returns the server-authoritative summon stone cost after the equipped ring discount", async () => {
+    mocks.saves.set("equipment.v2", {
+      owned: [{
+        iid: "discount-ring",
+        id: "v2_boss_catastrophe_ring",
+        liberation: {
+          rank: 1,
+          lineCount: 1,
+          revision: 1,
+          options: [{ id: "personal_craft_gold_discount_pct", level: 20 }],
+        },
+      }],
+      equipped: { ring: "discount-ring" },
+    });
+
+    const response = await GET();
+    await expect(response.json()).resolves.toMatchObject({
+      snapshot: {
+        summonStoneCraftCost: {
+          baseGoldCost: UNEXPLORED_SUMMON_STONE_GOLD_COST,
+          goldCost: UNEXPLORED_SUMMON_STONE_GOLD_COST * 0.9,
+          liberationDiscountPct: 10,
+        },
       },
     });
   });

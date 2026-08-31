@@ -37,6 +37,7 @@ export function V2UnexploredHuntPage() {
     stamina,
     staminaMax,
     adventureSupportActive,
+    adventureSupportTier,
     setStamina,
     hpCharges,
     mpCharges,
@@ -127,6 +128,7 @@ export function V2UnexploredHuntPage() {
       stamina={stamina}
       staminaMax={staminaMax}
       adventureSupportActive={adventureSupportActive}
+      adventureSupportTier={adventureSupportTier}
       setStamina={setStamina}
       hp={hp}
       setHp={setHp}

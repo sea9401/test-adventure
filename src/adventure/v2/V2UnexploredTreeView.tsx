@@ -28,7 +28,6 @@ import {
   UNEXPLORED_BOSS_EQUIPMENT_CRAFT_RECIPES,
   UNEXPLORED_BOSSES,
   UNEXPLORED_BOSS_IDS,
-  UNEXPLORED_SUMMON_STONE_GOLD_COST,
   UNEXPLORED_SUMMON_STONE_POOL_MATERIAL_COST,
   UNEXPLORED_SUMMON_STONE_SCROLL_COST,
   UNEXPLORED_SUMMON_STONE_TRACE_COST,
@@ -225,6 +224,9 @@ export function V2UnexploredTreeView({
         materials?: Record<string, number>;
         traces?: UnexploredClientSnapshot["traces"];
         achievementIds?: UnexploredClientSnapshot["achievementIds"];
+        baseGoldCost?: number;
+        goldCost?: number;
+        liberationDiscountPct?: number;
       };
       if (
         !response.ok ||
@@ -246,6 +248,16 @@ export function V2UnexploredTreeView({
               materials: body.materials!,
               traces: body.traces!,
               achievementIds: body.achievementIds!,
+              summonStoneCraftCost:
+                body.baseGoldCost != null &&
+                body.goldCost != null &&
+                body.liberationDiscountPct != null
+                  ? {
+                      baseGoldCost: body.baseGoldCost,
+                      goldCost: body.goldCost,
+                      liberationDiscountPct: body.liberationDiscountPct,
+                    }
+                  : current.summonStoneCraftCost,
             }
           : current,
       );
@@ -695,13 +707,14 @@ export function V2UnexploredTreeView({
             const scrolls = snapshot.materials[SUMMON_SCROLL_MATERIAL_ID] ?? 0;
             const summonStones = snapshot.materials[boss.summonMaterialId] ?? 0;
             const spendableGold = snapshot.gold + snapshot.bankedGold;
+            const craftCost = snapshot.summonStoneCraftCost;
             const hasRecipe =
               traceA >= UNEXPLORED_SUMMON_STONE_TRACE_COST &&
               traceB >= UNEXPLORED_SUMMON_STONE_TRACE_COST &&
               materialA >= UNEXPLORED_SUMMON_STONE_POOL_MATERIAL_COST &&
               materialB >= UNEXPLORED_SUMMON_STONE_POOL_MATERIAL_COST &&
               scrolls >= UNEXPLORED_SUMMON_STONE_SCROLL_COST &&
-              spendableGold >= UNEXPLORED_SUMMON_STONE_GOLD_COST;
+              spendableGold >= craftCost.goldCost;
             const craftingUnlocked = snapshot.effects?.traceEnabled === true;
             return (
               <article key={bossId} className={`${SURFACE_INSET} space-y-3 p-3`}>
@@ -731,9 +744,14 @@ export function V2UnexploredTreeView({
                   <dd className="text-right font-mono">{scrolls.toLocaleString()} / {UNEXPLORED_SUMMON_STONE_SCROLL_COST}</dd>
                   <dt>사용 가능 골드</dt>
                   <dd className="text-right font-mono">
-                    {spendableGold.toLocaleString()} / {UNEXPLORED_SUMMON_STONE_GOLD_COST.toLocaleString()}G
+                    {spendableGold.toLocaleString()} / {craftCost.goldCost.toLocaleString()}G
                   </dd>
                 </dl>
+                <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                  기본 {craftCost.baseGoldCost.toLocaleString()}G → 실제{" "}
+                  {craftCost.goldCost.toLocaleString()}G · 해방 할인{" "}
+                  {craftCost.liberationDiscountPct.toLocaleString()}%
+                </p>
                 {!craftingUnlocked && (
                   <p className="text-[11px] text-amber-700 dark:text-amber-300">
                     우두머리의 흔적 노드를 활성화하면 제작할 수 있습니다.

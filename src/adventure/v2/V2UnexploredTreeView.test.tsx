@@ -65,6 +65,11 @@ const SNAPSHOT: UnexploredClientSnapshot = {
   materials: {},
   achievementIds: [],
   refundGoldCost: 50_000,
+  summonStoneCraftCost: {
+    baseGoldCost: UNEXPLORED_SUMMON_STONE_GOLD_COST,
+    goldCost: UNEXPLORED_SUMMON_STONE_GOLD_COST,
+    liberationDiscountPct: 0,
+  },
 };
 
 describe("V2UnexploredTreeView", () => {
@@ -212,6 +217,26 @@ describe("V2UnexploredTreeView", () => {
     expect(html).toContain(
       `${UNEXPLORED_SUMMON_STONE_GOLD_COST.toLocaleString()} / ${UNEXPLORED_SUMMON_STONE_GOLD_COST.toLocaleString()}G`,
     );
+  });
+
+  it("소환석 제작의 기본 비용·해방 할인·실제 비용을 서버 값으로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <V2UnexploredTreeView
+        initialSnapshot={{
+          ...SNAPSHOT,
+          summonStoneCraftCost: {
+            baseGoldCost: UNEXPLORED_SUMMON_STONE_GOLD_COST,
+            goldCost: UNEXPLORED_SUMMON_STONE_GOLD_COST * 0.9,
+            liberationDiscountPct: 10,
+          },
+        }}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain(`기본 ${UNEXPLORED_SUMMON_STONE_GOLD_COST.toLocaleString()}G`);
+    expect(html).toContain(`실제 ${(UNEXPLORED_SUMMON_STONE_GOLD_COST * 0.9).toLocaleString()}G`);
+    expect(html).toContain("해방 할인 10%");
   });
 
   it("네트워크 오류 뒤 제작 재시도에 같은 requestId를 사용한다", async () => {

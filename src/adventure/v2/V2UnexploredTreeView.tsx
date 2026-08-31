@@ -42,6 +42,7 @@ import {
   type UnexploredClientSnapshot,
   type UnexploredTreeNodeModel,
 } from "./unexploredTreeModel";
+import { UnexploredTreeViewport } from "./UnexploredTreeViewport";
 
 const ERROR_TEXT: Record<string, string> = {
   level_required: "100레벨 달성 후 탐사망을 변경할 수 있습니다.",
@@ -551,12 +552,7 @@ export function V2UnexploredTreeView({
         className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_20rem]"
       >
         <section className={`${SURFACE_CARD} min-w-0 p-2 sm:p-3`}>
-          <div className={`${SURFACE_INSET} aspect-square w-full min-w-0 overflow-hidden`}>
-            <svg
-              viewBox="-80 -80 1960 1960"
-              className="block h-full w-full"
-              aria-label="미개척지 160노드 탐사망"
-            >
+          <UnexploredTreeViewport ariaLabel="미개척지 160노드 탐사망">
               {model.edges.map((edge) => {
                 const left = positions.get(edge.left);
                 const right = positions.get(edge.right);
@@ -630,8 +626,7 @@ export function V2UnexploredTreeView({
                   </g>
                 );
               })}
-            </svg>
-          </div>
+          </UnexploredTreeViewport>
         </section>
 
         <aside className="min-w-0 space-y-3 lg:sticky lg:top-4 lg:self-start">

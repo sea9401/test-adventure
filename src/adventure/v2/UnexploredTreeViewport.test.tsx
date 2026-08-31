@@ -1,15 +1,17 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { UnexploredTreeViewport } from "./UnexploredTreeViewport";
 
 afterEach(cleanup);
 
-function renderViewport() {
+function renderViewport(
+  children = <circle cx={100} cy={100} r={20} />,
+) {
   render(
     <UnexploredTreeViewport ariaLabel="테스트 탐사망">
-      <circle cx={100} cy={100} r={20} />
+      {children}
     </UnexploredTreeViewport>,
   );
   const viewport = screen.getByLabelText("탐사망 지도 조작 영역");
@@ -31,6 +33,54 @@ function renderViewport() {
 }
 
 describe("UnexploredTreeViewport", () => {
+  it("단순 노드 누르기를 지도 컨테이너로 재대상화하지 않는다", () => {
+    const onSelect = vi.fn();
+    const viewport = renderViewport(
+      <g data-testid="test-node" onClick={onSelect}>
+        <circle cx={100} cy={100} r={20} />
+      </g>,
+    );
+    const node = screen.getByTestId("test-node");
+    let capturedTarget: Element | null = null;
+    Object.defineProperties(viewport, {
+      setPointerCapture: {
+        configurable: true,
+        value: () => {
+          capturedTarget = viewport;
+        },
+      },
+      hasPointerCapture: {
+        configurable: true,
+        value: () => capturedTarget === viewport,
+      },
+      releasePointerCapture: {
+        configurable: true,
+        value: () => {
+          capturedTarget = null;
+        },
+      },
+    });
+
+    fireEvent.pointerDown(node, {
+      pointerId: 1,
+      pointerType: "mouse",
+      button: 0,
+      clientX: 100,
+      clientY: 100,
+    });
+    const pointerUpTarget = capturedTarget ?? node;
+    fireEvent.pointerUp(pointerUpTarget, {
+      pointerId: 1,
+      pointerType: "mouse",
+      button: 0,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.click(pointerUpTarget);
+
+    expect(onSelect).toHaveBeenCalledOnce();
+  });
+
   it("버튼으로 25%씩 확대하고 화면 맞춤으로 초기화한다", () => {
     renderViewport();
 

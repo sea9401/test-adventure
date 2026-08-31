@@ -79,7 +79,7 @@ describe("상단 캐릭터 하위 메뉴", () => {
     );
   });
 
-  it("기능 플래그가 켜지면 미개척지 화면으로 이동할 수 있다", () => {
+  it("기능 플래그가 켜지면 개척 노드 화면으로 이동할 수 있다", () => {
     const onNavigate = vi.fn();
     render(
       <MainTabNav
@@ -91,7 +91,7 @@ describe("상단 캐릭터 하위 메뉴", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "캐릭터" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "미개척지" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "개척 노드" }));
 
     expect(onNavigate).toHaveBeenCalledWith("/character/unexplored");
   });

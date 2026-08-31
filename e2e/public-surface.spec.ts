@@ -86,6 +86,25 @@ test("로그인 대문의 정책 링크를 키보드로 이동할 수 있다", a
   ).toBeVisible();
 });
 
+test("로그인 대문의 게임 이미지 슬라이드를 직접 전환할 수 있다", async ({
+  page,
+}) => {
+  await preparePublicPage(page);
+  await page.goto("/sign-in");
+  const slideshow = page.getByRole("region", {
+    name: "게임 이미지 슬라이드",
+  });
+
+  await expect(slideshow.getByText("시작 마을")).toBeVisible();
+  const fishingSlideButton = slideshow.getByRole("button", {
+    name: "낚시터 이미지 보기",
+  });
+  await fishingSlideButton.click();
+
+  await expect(slideshow.getByText("낚시터")).toBeVisible();
+  await expect(fishingSlideButton).toHaveAttribute("aria-current", "true");
+});
+
 test("출시 전 비공개 화면과 API는 로그인 화면으로 새지 않고 404다", async ({
   request,
 }) => {

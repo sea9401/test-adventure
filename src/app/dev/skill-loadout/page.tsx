@@ -43,7 +43,7 @@ export default function SkillLoadoutPreviewPage() {
   );
 
   return (
-    <main className="mx-auto max-w-3xl space-y-4 p-4">
+    <main className="mx-auto w-full min-w-0 max-w-3xl space-y-4 p-4">
       <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
         <strong>DEV 미리보기</strong> — 로그인·DB 없이 전투/생활 탭 전환과
         장착·해제·즐겨찾기를 확인할 수 있습니다.

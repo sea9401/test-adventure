@@ -9,6 +9,8 @@ import {
   V2_EQUIP_SETS,
   V2_EQUIP_TAG_SETS,
   V2_EQUIP_CATALOG_TIER_ORDER,
+  ENHANCE_DISPLAY_TIER_6_COST_PREMIUM,
+  TIER_6_POWER_SCALE_VERSION,
   enhanceGoldCostForEquipment,
   enhancePowerForCost,
   signatureLabel,
@@ -102,6 +104,15 @@ describe("powerBandOf — 레거시 절대 위력 구간(부위별 step)", () =>
 });
 
 describe("enhanceGoldCostForEquipment — 표시 티어 비용 바닥", () => {
+  const hardSangoonBySlot = {
+    weapon: V2_EQUIPMENT.v2_hard_sangoon_cleaver,
+    armor: V2_EQUIPMENT.v2_hard_sangoon_hide,
+    gloves: V2_EQUIPMENT.v2_hard_sangoon_claws,
+    boots: V2_EQUIPMENT.v2_hard_sangoon_stride,
+    ring: V2_EQUIPMENT.v2_hard_sangoon_ring,
+    necklace: V2_EQUIPMENT.v2_hard_sangoon_amulet,
+  } satisfies Record<V2EquipSlot, V2Equipment>;
+
   it("하드 보스 5티어 장비는 같은 슬롯 4티어 최고 장비보다 강화비가 낮지 않다", () => {
     const hardSangoonIds = [
       "v2_hard_sangoon_cleaver",
@@ -139,6 +150,40 @@ describe("enhanceGoldCostForEquipment — 표시 티어 비용 바닥", () => {
           strongestDisplay4.power,
           9,
         ),
+      );
+    }
+  });
+
+  it("6티어 기본 위력은 같은 부위의 표준 산군 5티어보다 높다", () => {
+    const displayTier6 = Object.values(V2_EQUIPMENT).filter(
+      (item) => v2EquipCatalogTierToDisplayTier(item.tier) === 6,
+    );
+
+    for (const item of displayTier6) {
+      expect(item.power, item.id).toBeGreaterThan(
+        hardSangoonBySlot[item.slot].power,
+      );
+    }
+  });
+
+  it("6티어 저품질 굴림도 5티어 부위별 기준보다 강화비가 20% 높다", () => {
+    const displayTier6 = Object.values(V2_EQUIPMENT).filter(
+      (item) => v2EquipCatalogTierToDisplayTier(item.tier) === 6,
+    );
+
+    for (const item of displayTier6) {
+      const displayTier5 = hardSangoonBySlot[item.slot];
+      const displayTier5Floor = enhancePowerForCost(displayTier5, 1);
+      const expectedTier6Floor = Math.ceil(
+        displayTier5Floor * ENHANCE_DISPLAY_TIER_6_COST_PREMIUM,
+      );
+
+      expect(enhancePowerForCost(item, 1), item.id).toBe(expectedTier6Floor);
+      expect(
+        enhanceGoldCostForEquipment(item, 1, 9),
+        item.id,
+      ).toBeGreaterThan(
+        enhanceGoldCostForEquipment(displayTier5, 1, 9),
       );
     }
   });
@@ -278,15 +323,14 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipCatalogTier[] {
 }
 
 describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
-  it("기존 카탈로그에 폭풍 원정 전용 6T 19종을 더한다", () => {
-    // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기 · 들판 유니크 6 삭제) 후 카탈로그 189:
+  it("기존 카탈로그에 폭풍 원정과 HARD 협동 보스 6T 장비를 더한다", () => {
+    // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기 · 들판 유니크 6 삭제):
     //   정규 그리드 29 = 비무기 18(갑옷 6 + 장갑 3 + 신발 3 + 반지 3 + 목걸이 3) + 무기 11
     //     (대검 3·지팡이 3·활 3 + 단검 정규 2). 장갑/신발 중갑 정규 6자루 제거(경갑 단일).
-    //   전문화 스타터 3 · noDrop 157(기존 138 + 폭풍 원정 6T 19종,
-    //     강등된 옛 필드 유니크 포함) · 유니크 48
+    //   전문화 스타터 3 · noDrop 198(기존 180 + 6T 시그니처 유니크 18종) · 유니크 66
     //     (고유 아이템 30 + 보스 8). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
     //     신규 고유 아이템 30 → unique. 검은 왕도 이후 보스 유니크 2종 추가.
-    //     총 304 = 정규 29 + 유니크 48 + 제작전용 67 + 전문화 스타터 3 + noDrop 157.
+    //     총 328 = 기존 304 + 6T 시그니처 유니크 18 + HARD 협동 보스 6.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -294,13 +338,13 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       ),
       "정규 그리드",
     ).toHaveLength(29);
-    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(48);
+    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(72);
     expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(67);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
     expect(
       all.filter((i) => i.noDrop),
       "noDrop(밴드흔한+하드 보스+폭풍 원정+강등 필드유니크)",
-    ).toHaveLength(157);
+    ).toHaveLength(204);
   });
 
   it("상점 구매=스타터(T1)만, 판매는 전 티어 — shopPriceOf vs shopPriceForSell", () => {
@@ -481,10 +525,127 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
         expect(threshold.count, `${set.id} threshold reachable`).toBeLessThanOrEqual(
           pieces.length,
         );
-        expect(Object.keys(threshold.bonus).length, `${set.id} bonus`).toBeGreaterThan(0);
+        expect(
+          Object.keys(threshold.bonus).length > 0 || threshold.signature != null,
+          `${set.id} bonus or signature`,
+        ).toBe(true);
         prev = threshold.count;
       }
     }
+  });
+
+  it("6T HARD 협동 보스 장비 6종은 설계된 슬롯·수치·세트 태그를 가진다", () => {
+    expect(V2_EQUIPMENT.v2_boss_catastrophe_gloves).toMatchObject({
+      slot: "gloves",
+      tier: 16,
+      name: "재앙독 완갑",
+      power: 74,
+      noDrop: true,
+      setTags: ["catastrophe_venom"],
+      options: { hp: 180, crit: 13, spd: 10, accuracy: 12, statusDamageReductionPct: 4 },
+    });
+    expect(V2_EQUIPMENT.v2_boss_catastrophe_boots).toMatchObject({
+      slot: "boots",
+      tier: 16,
+      name: "사막잠행 장화",
+      power: 68,
+      noDrop: true,
+      setTags: ["catastrophe_venom"],
+      options: { hp: 180, eva: 12, spd: 20, accuracy: 10, statusDamageReductionPct: 6 },
+    });
+    expect(V2_EQUIPMENT.v2_boss_catastrophe_ring).toMatchObject({
+      slot: "ring",
+      tier: 16,
+      name: "독왕의 침환",
+      power: 124,
+      noDrop: true,
+      setTags: ["catastrophe_venom"],
+      options: { hp: 220, crit: 11, critMult: 65, spd: 8, accuracy: 10 },
+    });
+    expect(V2_EQUIPMENT.v2_boss_frozen_lake_armor).toMatchObject({
+      slot: "armor",
+      tier: 16,
+      name: "빙호 갑주",
+      power: 235,
+      noDrop: true,
+      setTags: ["frozen_lake_guard"],
+      options: { hp: 760, mp: 120, def: 65, magicDef: 55, statusDamageReductionPct: 12 },
+    });
+    expect(V2_EQUIPMENT.v2_boss_frozen_lake_boots).toMatchObject({
+      slot: "boots",
+      tier: 16,
+      name: "동결수면 장화",
+      power: 68,
+      noDrop: true,
+      setTags: ["frozen_lake_guard"],
+      options: { hp: 260, def: 30, magicDef: 25, spd: 4, statusDamageReductionPct: 10 },
+    });
+    expect(V2_EQUIPMENT.v2_boss_frozen_lake_necklace).toMatchObject({
+      slot: "necklace",
+      tier: 16,
+      name: "혹한의 심장",
+      power: 132,
+      noDrop: true,
+      setTags: ["frozen_lake_guard"],
+      options: { hp: 320, mp: 220, magicDef: 55, healPowerPct: 6, statusDamageReductionPct: 10 },
+    });
+
+    const catastrophe = V2_EQUIP_TAG_SETS.find((set) => set.id === "catastrophe_venom");
+    expect(catastrophe?.thresholds).toEqual([
+      {
+        count: 2,
+        bonus: {},
+        signature: {
+          trigger: "direct_skill_hit",
+          label: "재앙독 주입",
+          poisonChancePct: 25,
+          poisonStacks: 1,
+        },
+      },
+      {
+        count: 3,
+        bonus: { spd: 8 },
+        signature: {
+          trigger: "direct_skill_hit",
+          label: "맹독 추격",
+          poisonedTargetDamagePct: 10,
+        },
+      },
+    ]);
+    const frozen = V2_EQUIP_TAG_SETS.find((set) => set.id === "frozen_lake_guard");
+    expect(frozen?.thresholds).toEqual([
+      {
+        count: 2,
+        bonus: { statusDamageReductionPct: 10 },
+        signature: {
+          trigger: "battle_start",
+          label: "빙호수호",
+          battleStartShieldPctMaxHp: 8,
+        },
+      },
+      {
+        count: 3,
+        bonus: {},
+        signature: {
+          trigger: "tracked_shield_break",
+          label: "빙호 해방",
+          trackedShieldPctMaxHp: 8,
+          cleanseHarmfulStatuses: true,
+          damageTakenReductionPct: 15,
+          buffActions: 2,
+        },
+      },
+    ]);
+
+    const allSix = [
+      "v2_boss_catastrophe_gloves",
+      "v2_boss_catastrophe_boots",
+      "v2_boss_catastrophe_ring",
+      "v2_boss_frozen_lake_armor",
+      "v2_boss_frozen_lake_boots",
+      "v2_boss_frozen_lake_necklace",
+    ].map((id) => V2_EQUIPMENT[id as keyof typeof V2_EQUIPMENT]);
+    expect(allSix.filter((item) => item.slot === "boots")).toHaveLength(2);
   });
 
   it("기존 제작 세트와 세트 없는 5T 키카드를 함께 구성한다", () => {
@@ -692,7 +853,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     });
     expect(V2_EQUIPMENT.v2_crafted_thundercoil_gloves.signature).toMatchObject({
       trigger: "on_hit",
-      shockChancePct: 20,
+      shockChancePct: 10,
     });
     expect(V2_EQUIPMENT.v2_crafted_veinbreaker_bow.signature).toMatchObject({
       trigger: "on_crit",
@@ -719,6 +880,23 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     expect(V2_EQUIPMENT.v2_crafted_trench_hymn_necklace.signature).toMatchObject({
       trigger: "on_heal",
       healToShieldPct: 24,
+    });
+  });
+
+  it("감전 장비와 세트는 행동 차단에 맞춘 낮은 발동 확률을 사용한다", () => {
+    expect(V2_EQUIPMENT.v2_stormpeak_sig_wolf_dagger.signature).toMatchObject({
+      shockChancePct: 5,
+    });
+    expect(V2_EQUIPMENT.v2_crafted_thundercoil_gloves.signature).toMatchObject({
+      shockChancePct: 10,
+    });
+    expect(
+      V2_EQUIP_TAG_SETS.find(({ id }) => id === "storm_arcane")?.thresholds.find(
+        ({ count }) => count === 4,
+      )?.signature,
+    ).toMatchObject({ shockChancePct: 10 });
+    expect(V2_EQUIPMENT.v2_crafted_thunder_lock_bow.signature).toMatchObject({
+      shockChancePct: 15,
     });
   });
 
@@ -862,13 +1040,13 @@ describe("v2EquipStatRows (표시 행)", () => {
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_mana_essence);
     expect(rows).toEqual([
       { label: "마법 방어력", value: "+7" },
-      { label: "회피", value: "+3%" },
+      { label: "추가 회피도", value: "+3" },
       { label: "MP", value: "+48" },
       { label: "회복", value: "+8%" },
     ]);
   });
 
-  it("def 옵션(신설) — 방어 라벨 + flat 표기(+N), 키 등록", () => {
+  it("def 옵션(신설) — 추가 방어력 라벨 + flat 표기(+N), 키 등록", () => {
     expect(V2_EQUIP_OPTION_KEYS).toContain("def");
     // 카탈로그 def 아이템은 PR2 에서 추가 — 여기선 표시/키만(임의 옵션 주입).
     const fake = {
@@ -876,7 +1054,7 @@ describe("v2EquipStatRows (표시 행)", () => {
       options: { def: 20, hp: 40 },
     };
     const rows = v2EquipStatRows(fake);
-    expect(rows).toContainEqual({ label: "방어", value: "+20" });
+    expect(rows).toContainEqual({ label: "추가 방어력", value: "+20" });
     expect(rows).toContainEqual({ label: "HP", value: "+40" });
   });
 
@@ -906,6 +1084,24 @@ describe("v2EquipStatRows (표시 행)", () => {
       detail: "기본 +100 · 강화 +8",
     });
   });
+
+  it("소수 강화 위력과 증가분은 화면 표시용 정수로 반올림한다", () => {
+    const rows = v2EquipStatRows(
+      V2_EQUIPMENT.v2_storm_sanctuary_armor,
+      {
+        power: 255,
+        weight: 0,
+        options: { hp: 1_178, mp: 330, magicDef: 156, healPowerPct: 18 },
+      },
+      { level: 7, bonusPct: 12 },
+    );
+
+    expect(rows[0]).toEqual({
+      label: "회피도",
+      value: "+286",
+      detail: "기본 +255 · 강화 +31",
+    });
+  });
 });
 
 describe("parseEquipmentSave (개체 instance 모델)", () => {
@@ -924,6 +1120,25 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
       ],
     });
     expect(r.owned.map((i) => i.id)).toEqual(["v2_iron_sword"]);
+  });
+
+  it("기존 6티어 굴림 위력을 한 번만 10% 상향한다", () => {
+    const first = parseEquipmentSave({
+      owned: [
+        {
+          iid: "storm_old",
+          id: "v2_storm_gale_bow",
+          roll: { power: 500, weight: 0 },
+        },
+      ],
+    });
+    expect(first.owned[0].roll).toMatchObject({
+      power: 550,
+      powerScaleVersion: TIER_6_POWER_SCALE_VERSION,
+    });
+
+    const second = parseEquipmentSave({ owned: first.owned });
+    expect(second.owned[0].roll).toEqual(first.owned[0].roll);
   });
 
   it("equipped 가 slot→id(방어적 폴백)면 보유 개체 iid 로 해석, 미보유는 제외", () => {
@@ -1018,6 +1233,65 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
     expect(r.owned.find((i) => i.iid === "d4")).not.toHaveProperty("locked");
   });
 
+  it("bound:true 는 보존하고 false/누락/비boolean 은 귀속하지 않는다", () => {
+    const r = parseEquipmentSave({
+      owned: [
+        { iid: "a1", id: "v2_iron_sword", bound: true },
+        { iid: "b2", id: "v2_iron_sword", bound: false },
+        { iid: "c3", id: "v2_iron_sword" },
+        { iid: "d4", id: "v2_iron_sword", bound: "yes" },
+      ],
+    });
+
+    expect(r.owned.find((i) => i.iid === "a1")?.bound).toBe(true);
+    expect(r.owned.find((i) => i.iid === "b2")).not.toHaveProperty("bound");
+    expect(r.owned.find((i) => i.iid === "c3")).not.toHaveProperty("bound");
+    expect(r.owned.find((i) => i.iid === "d4")).not.toHaveProperty("bound");
+  });
+
+  it("유효한 해방 상태만 장비 인스턴스에 보존한다", () => {
+    const parsed = parseEquipmentSave({
+      owned: [
+        {
+          iid: "valid",
+          id: "v2_storm_breaker_greatsword",
+          liberation: {
+            rank: 2,
+            lineCount: 2,
+            revision: 4,
+            options: [
+              { id: "physical_attack_flat", level: 8 },
+              { id: "all_damage_pct", level: 10 },
+            ],
+          },
+        },
+        {
+          iid: "wrong-slot",
+          id: "v2_storm_breaker_greatsword",
+          liberation: {
+            rank: 2,
+            lineCount: 1,
+            revision: 1,
+            options: [{ id: "max_hp_flat", level: 8 }],
+          },
+        },
+      ],
+    });
+
+    expect(parsed.owned.find(({ iid }) => iid === "valid")?.liberation).toEqual({
+      rank: 2,
+      lineCount: 2,
+      revision: 4,
+      options: [
+        { id: "physical_attack_flat", level: 8 },
+        { id: "all_damage_pct", level: 10 },
+      ],
+    });
+    expect(parsed.owned.find(({ iid }) => iid === "wrong-slot")).not.toHaveProperty(
+      "liberation",
+    );
+  });
+
   it("craftedBy 제작자 표식을 보존하고 정규화", () => {
     const r = parseEquipmentSave({
       owned: [
@@ -1031,6 +1305,7 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
             level: 2.9,
             craftedAt: "2026-06-29T00:00:00.000Z",
             masterwork: true,
+            specialty: "weapon",
           },
         },
         {
@@ -1047,8 +1322,29 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
       level: 2,
       craftedAt: "2026-06-29T00:00:00.000Z",
       masterwork: true,
+      specialty: "weapon",
     });
     expect(r.owned[1].craftedBy).toBeUndefined();
+  });
+
+  it("drops an invalid blacksmith specialty mark", () => {
+    const r = parseEquipmentSave({
+      owned: [
+        {
+          iid: "a1",
+          id: "v2_iron_sword",
+          craftedBy: {
+            userId: "u1",
+            profession: "blacksmith",
+            level: 28,
+            craftedAt: "2026-06-29T00:00:00.000Z",
+            specialty: "invalid",
+          },
+        },
+      ],
+    });
+
+    expect(r.owned[0].craftedBy).not.toHaveProperty("specialty");
   });
 
   it("legacy crafted quality enhance is migrated to craftQuality", () => {
@@ -1082,6 +1378,28 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
       level: 1,
       bonusPct: 1,
     });
+  });
+
+  it("명시적 제작 품질과 실제 강화 상태를 함께 보존한다", () => {
+    const r = parseEquipmentSave({
+      owned: [
+        {
+          iid: "quality-crafted-necklace",
+          id: "v2_crafted_fury_necklace",
+          craftQuality: { level: 1, bonusPct: 999 },
+          enhance: { level: 3, bonusPct: 999 },
+          craftedBy: {
+            userId: "u1",
+            profession: "blacksmith",
+            level: 6,
+            craftedAt: "2026-08-09T00:00:00.000Z",
+          },
+        },
+      ],
+    });
+
+    expect(r.owned[0].craftQuality).toEqual({ level: 1, bonusPct: 5 });
+    expect(r.owned[0].enhance).toEqual({ level: 3, bonusPct: 4 });
   });
 
 });
@@ -1141,6 +1459,86 @@ describe("무기 종류 게이트 (weaponType / weaponTypeOf / weaponGateOpen)",
 });
 
 describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
+  it("혈맥 폭발 계열은 출혈 비소모·50%·4행동 제한과 현재 중첩 기준을 안내한다", () => {
+    expect(
+      signatureLabel({
+        trigger: "tier6_unique",
+        mechanic: "bleed_burst",
+        label: "상처 파열",
+      }),
+    ).toBe("기본 공격 시 출혈을 소비하지 않고 남은 피해의 50%를 즉시 적용 (4행동당 1회)");
+    expect(
+      signatureLabel({
+        trigger: "tier6_unique",
+        mechanic: "bleed_aftermath",
+        label: "상흔 계수",
+      }),
+    ).toBe(
+      "출혈 폭발 시 출혈 중첩은 유지하고 지속 횟수만 최소 5회로 갱신 · 현재 출혈 중첩당 방어 3% 감소",
+    );
+  });
+
+  it("과부하 낙뢰를 마법 피해로 명시한다", () => {
+    const signature = V2_EQUIPMENT.v2_sky_sig_overload_staff.signature;
+
+    expect(signature).toBeDefined();
+    expect(signatureLabel(signature!)).toBe(
+      "MP 100 소모마다 마법공격력 140%의 마법 피해를 주는 과부하 낙뢰",
+    );
+  });
+
+  it("6티어 시그니처 유니크 18종은 세트에 속하지 않고 기준 장비 능력치를 복사한다", () => {
+    const pairs = [
+      ["v2_sky_sig_collapse_armor", "v2_storm_wreckage_armor", "gravity_reprisal"],
+      ["v2_sky_sig_antigravity_ring", "v2_storm_wreckage_ring", "gravity_feedback"],
+      ["v2_sky_sig_bloodline_greatsword", "v2_storm_breaker_greatsword", "bleed_burst"],
+      ["v2_sky_sig_scar_counter_gloves", "v2_storm_breaker_gloves", "bleed_aftermath"],
+      ["v2_sky_sig_horizon_bow", "v2_storm_gale_bow", "pursuit_mark"],
+      ["v2_sky_sig_windless_boots", "v2_storm_shadow_boots", "shadow_echo"],
+      ["v2_sky_sig_venom_dagger", "v2_storm_venom_dagger", "venom_burst"],
+      ["v2_sky_sig_corrosion_ring", "v2_storm_venom_ring", "venom_balance"],
+      ["v2_sky_sig_overload_staff", "v2_storm_thunder_staff", "arcane_overload"],
+      ["v2_sky_sig_reverse_gloves", "v2_storm_thunder_gloves", "arcane_feedback"],
+      ["v2_sky_sig_dawn_chalice", "v2_storm_sanctuary_necklace", "sanctuary_reserve"],
+      ["v2_sky_sig_unity_cloak", "v2_storm_sanctuary_armor", "mechanic_unity"],
+      ["v2_storm_sig_wreckage_power_armor", "v2_storm_wreckage_armor", "shield_conversion"],
+      ["v2_storm_sig_gale_orbit_boots", "v2_storm_gale_boots", "gale_circuit"],
+      ["v2_storm_sig_thunder_return_ring", "v2_storm_thunder_ring", "status_mana_return"],
+      ["v2_storm_sig_triphase_gloves", "v2_storm_shadow_gloves", "triphase_link"],
+      ["v2_storm_sig_confluence_necklace", "v2_storm_sanctuary_necklace", "storm_confluence"],
+      ["v2_storm_sig_heart_necklace", "v2_storm_sanctuary_necklace", "dominant_heart"],
+    ] as const;
+
+    expect(pairs).toHaveLength(18);
+    for (const [id, baseId, mechanic] of pairs) {
+      const item = V2_EQUIPMENT[id];
+      const base = V2_EQUIPMENT[baseId];
+      expect(item).toMatchObject({
+        tier: 16,
+        rarity: "unique",
+        noDrop: true,
+        slot: base.slot,
+        concept: base.concept,
+        power: base.power,
+        weight: base.weight,
+        options: base.options,
+        signature: { trigger: "tier6_unique", mechanic },
+      });
+      expect(item.weaponType).toBe(base.weaponType);
+      expect(item.setId).toBeUndefined();
+      expect(item.setTags).toBeUndefined();
+    }
+  });
+
+  it("6티어 시그니처 유니크 효과는 모두 고유한 한국어 설명을 가진다", () => {
+    const descriptions = Object.values(V2_EQUIPMENT)
+      .filter((item) => item.signature?.trigger === "tier6_unique")
+      .map((item) => signatureLabel(item.signature!));
+    expect(descriptions).toHaveLength(18);
+    expect(new Set(descriptions)).toHaveLength(18);
+    expect(descriptions.every((description) => description.length >= 10)).toBe(true);
+  });
+
   it("트리거별 한국어 한 줄 — 15 효과", () => {
     expect(
       signatureLabel({
@@ -1156,13 +1554,13 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
         hpThresholdPct: 30,
         damageTakenReductionPct: 25,
       }),
-    ).toBe("체력 30% 이하일 때 받는 피해 −25%");
+    ).toBe("피격 직전 체력 30% 이하일 때 받는 피해 −25%");
     expect(
       signatureLabel({ trigger: "on_heal", label: "묵주", healToShieldPct: 25 }),
     ).toBe("회복 시 회복량의 25% 보호막");
     expect(
       signatureLabel({ trigger: "every_n_hits", label: "포식자", everyNHits: 3 }),
-    ).toBe("3회 공격 적중마다 추가 행동 1회");
+    ).toBe("3회 공격 적중마다 추가 기본 공격 1회");
     expect(
       signatureLabel({
         trigger: "on_dodge",
@@ -1172,8 +1570,12 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
       }),
     ).toBe("회피 시 속도 +25% (3행동)");
     expect(
-      signatureLabel({ trigger: "on_dodge", label: "봉인", healPct: 8 }),
-    ).toBe("회피 시 HP +8% 회복");
+      signatureLabel({
+        trigger: "on_action_evasion",
+        label: "봉인",
+        lostHpHealPct: 4,
+      }),
+    ).toBe("행동 시 회피 경감률의 절반 확률로 잃은 HP의 4% 회복");
     expect(
       signatureLabel({ trigger: "on_crit", label: "독니", poisonOnCrit: true }),
     ).toBe("치명타 시 대상 중독(독)");
@@ -1213,11 +1615,9 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
       signatureLabel({
         trigger: "on_hit",
         label: "뇌운",
-        shockChancePct: 15,
-        shockSlowPct: 50,
-        buffActions: 1,
+        shockChancePct: 5,
       }),
-    ).toBe("공격 적중 시 15% 확률로 감전 — 속도 −50% (1행동)");
+    ).toBe("공격 적중 시 5% 확률로 감전 — 다음 행동 1회 불가");
     expect(
       signatureLabel({
         trigger: "on_hit_taken",
@@ -1239,6 +1639,24 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
         statusBlockOnce: true,
       }),
     ).toBe("전투당 1회 상태이상 무효");
+  });
+
+  it("회피 회복 장비 3종은 행동 발동과 잃은 HP 4%/3%/3%를 사용", () => {
+    expect(V2_EQUIPMENT.v2_sanctum_sig_sealed_ring.signature).toEqual({
+      trigger: "on_action_evasion",
+      label: "봉인",
+      lostHpHealPct: 4,
+    });
+    expect(V2_EQUIPMENT.v2_throne_sig_shadow_ring.signature).toEqual({
+      trigger: "on_action_evasion",
+      label: "그림자",
+      lostHpHealPct: 3,
+    });
+    expect(V2_EQUIPMENT.v2_abyssruin_sig_pursuer_bow.signature).toEqual({
+      trigger: "on_action_evasion",
+      label: "해연",
+      lostHpHealPct: 3,
+    });
   });
 
   it("세트/단품 카탈로그 시그니처 전부 비어있지 않은 표기", () => {

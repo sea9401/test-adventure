@@ -107,8 +107,48 @@ describe("중독 스택 회수", () => {
   it("스킬 상세에 대상 행동 기준 지속시간·최대 스택·이번 시전 회수를 알린다", () => {
     const chips = describeV2Skill(V2_SKILLS[SKILL_ID]);
 
-    expect(chips).toContain("중독 지속피해 +3스택 (대상 행동 5회, 최대 10스택)");
+    expect(chips).toContain(
+      "중독 지속피해 +3스택 (대상 행동 5회, 최대 10스택, 보스 최대 HP 비례분 50%)",
+    );
     expect(chips.some((chip) => chip.includes("스택당 방어 무시"))).toBe(true);
     expect(chips).toContain("중첩 폭발에 이번 시전 스택 포함");
+  });
+});
+
+describe("상위 독술 액티브 중첩 보상", () => {
+  function castUpperSkill(skillId: V2SkillId, poisonStacks: number) {
+    return resolveV2SkillCast({
+      skills: { learned: [skillId], equipped: [skillId] },
+      cooldowns: {},
+      procRoll: 0,
+      applyProcInPattern: true,
+      attacker: {
+        mp: 999,
+        atk: 500,
+        luk: 500,
+        maxHp: 5_000,
+        currentHp: 5_000,
+        maxMp: 999,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: {
+        def: 300,
+        maxHp: 10_000,
+        currentHp: 10_000,
+        poisonStacks,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+    }).enemyDamage;
+  }
+
+  it.each([
+    ["v2c_plaguebringer_outbreak", 50],
+    ["v2c_myriadvenom_mutation", 62],
+  ] as const)("%s는 기존 중독 1스택당 보상 피해를 높인다", (skillId, expected) => {
+    expect(castUpperSkill(skillId, 1) - castUpperSkill(skillId, 0)).toBe(
+      expected,
+    );
   });
 });

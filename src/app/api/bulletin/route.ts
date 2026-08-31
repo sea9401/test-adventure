@@ -5,6 +5,7 @@ import {
   ilike,
   inArray,
   isNull,
+  notInArray,
   or,
   sql,
   type SQL,
@@ -44,6 +45,11 @@ import {
 } from "@/lib/server/bulletinActivity";
 import { syncBulletinActivityTitlesBestEffort } from "@/lib/server/bulletinActivityTitles";
 import { sendWebPushToAll } from "@/lib/server/webPush";
+import {
+  readBlockedUserIds,
+  requireCurrentUgcConsent,
+} from "@/lib/server/ugcSafety";
+import { readNoticePreview } from "./preview";
 
 // GET /api/bulletin?category=<cat>&q=<search>
 //   category 미지정 — 전체 (탭 "전체" 용도, 클라가 안 쓰면 그대로 둠)
@@ -54,10 +60,17 @@ export async function GET(req: Request) {
   if (!userId) return new Response("unauthorized", { status: 401 });
 
   const url = new URL(req.url);
+  if (url.searchParams.get("preview") === "notice") {
+    const preview = await readNoticePreview(db);
+    return Response.json(preview, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  }
   const categoryParam = url.searchParams.get("category");
   const scopeParam = url.searchParams.get("scope");
   const q = (url.searchParams.get("q") ?? "").trim();
   const viewerGuild = await getViewerGuild(db, userId);
+  const blockedUserIds = await readBlockedUserIds(userId);
 
   if (scopeParam === "guild" && viewerGuild == null) {
     return Response.json([]);
@@ -71,6 +84,9 @@ export async function GET(req: Request) {
         : [visibleBulletinWhere(viewerGuild?.guildId ?? null)];
   if (categoryParam && isBulletinCategory(categoryParam)) {
     filters.push(eq(bulletinPosts.category, categoryParam));
+  }
+  if (blockedUserIds.length > 0) {
+    filters.push(notInArray(bulletinPosts.userId, blockedUserIds));
   }
   if (q) {
     // PG `ILIKE` 는 대소문자 무시. % 와 _ 는 사용자 입력 그대로 패턴 메타가 되므로
@@ -139,6 +155,7 @@ export async function GET(req: Request) {
     commentCountRows,
     viewCountRows,
     likedByMeRows,
+    viewedByMeRows,
     cosmeticByUser,
     activityByUser,
   ] =
@@ -157,7 +174,14 @@ export async function GET(req: Request) {
           count: sql<number>`COUNT(*)::int`,
         })
         .from(bulletinComments)
-        .where(inArray(bulletinComments.postId, postIds))
+        .where(
+          blockedUserIds.length > 0
+            ? and(
+                inArray(bulletinComments.postId, postIds),
+                notInArray(bulletinComments.userId, blockedUserIds),
+              )
+            : inArray(bulletinComments.postId, postIds),
+        )
         .groupBy(bulletinComments.postId),
       db
         .select({
@@ -176,6 +200,15 @@ export async function GET(req: Request) {
             inArray(bulletinLikes.postId, postIds),
           ),
         ),
+      db
+        .select({ postId: bulletinViews.postId })
+        .from(bulletinViews)
+        .where(
+          and(
+            eq(bulletinViews.userId, userId),
+            inArray(bulletinViews.postId, postIds),
+          ),
+        ),
       readMuseunCosmeticAppearanceMap(posts.map((post) => post.mine)),
       readBulletinActivityMap([
         userId,
@@ -189,11 +222,13 @@ export async function GET(req: Request) {
   );
   const viewCountMap = new Map(viewCountRows.map((r) => [r.postId, r.count]));
   const likedSet = new Set(likedByMeRows.map((r) => r.postId));
+  const viewedSet = new Set(viewedByMeRows.map((r) => r.postId));
   const myActivity = bulletinActivityFromMap(activityByUser, userId);
   await syncBulletinActivityTitlesBestEffort(userId, myActivity);
 
   const result = posts.map((r) => ({
     id: r.id,
+    authorUserId: r.category === "notice" ? null : r.mine,
     // 공지(notice)는 작성자를 항상 "운영자" 로 노출 — 실제 작성 admin 닉을 가린다.
     name: r.category === "notice" ? "운영자" : r.name,
     avatar:
@@ -217,6 +252,7 @@ export async function GET(req: Request) {
     commentCount: commentCountMap.get(r.id) ?? 0,
     viewCount: viewCountMap.get(r.id) ?? 0,
     likedByMe: likedSet.has(r.id),
+    viewedByMe: viewedSet.has(r.id),
     authorActivity:
       r.category === "notice"
         ? null
@@ -284,6 +320,9 @@ export async function POST(req: Request) {
   }
   const title = rawTitle;
 
+  const consentFailure = await requireCurrentUgcConsent(userId);
+  if (consentFailure) return consentFailure;
+
   const { name, avatar, className, cosmetics } = await resolveActor(userId);
   const viewerGuild = scope === "guild" ? await getViewerGuild(db, userId) : null;
   if (scope === "guild" && viewerGuild == null) {
@@ -325,13 +364,14 @@ export async function POST(req: Request) {
     await sendWebPushToAll({
       title: "새 공지사항",
       body: title,
-      url: "/plaza/bulletin",
+      url: "/plaza/notices",
       tag: `notice-${inserted.id}`,
     });
   }
 
   return Response.json({
     id: inserted.id,
+    authorUserId: category === "notice" ? null : userId,
     name,
     avatar: category === "notice" ? null : avatar,
     profileBorder:
@@ -349,6 +389,7 @@ export async function POST(req: Request) {
     commentCount: 0,
     viewCount: 0,
     likedByMe: false,
+    viewedByMe: false,
     authorActivity:
       category === "notice"
         ? null
@@ -404,6 +445,9 @@ export async function PATCH(req: Request) {
       status: 400,
     });
   }
+
+  const consentFailure = await requireCurrentUgcConsent(userId);
+  if (consentFailure) return consentFailure;
 
   const updatedAt = new Date();
   const result = await db

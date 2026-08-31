@@ -15,11 +15,13 @@ import type {
   AutoGatheringSessionView,
 } from "./AutoGatheringCard";
 import {
-  autoGatheringPlan,
+  parseAutoGatheringSessionView,
   type AutoGatheringActivity,
   type AutoGatheringPlanId,
 } from "./autoGathering";
-import { useGameState } from "./GameStateProvider";
+import { useGameActivityState } from "./GameStateProvider";
+import { useSystemToast } from "./RewardToastProvider";
+import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
 
 function parseAutoActivity(value: unknown): AutoGatheringActivity | null {
   return value === "woodcutting" || value === "mining" ? value : null;
@@ -68,33 +70,27 @@ function parseNextActionAt(value: unknown): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
 }
 
-function parseAutoSession(value: unknown): AutoGatheringSessionView | null {
-  if (!value || typeof value !== "object") return null;
-  const item = value as Record<string, unknown>;
-  if (typeof item.sessionId !== "string" || typeof item.sourceId !== "string") return null;
-  const readyAt = Number(item.readyAt);
-  const startedAt = Number(item.startedAt);
-  if (!Number.isFinite(readyAt) || !Number.isFinite(startedAt)) return null;
-  return {
-    sessionId: item.sessionId,
-    planId: autoGatheringPlan(item.planId).id,
-    sourceId: item.sourceId,
-    sourceName: String(item.sourceName ?? "광맥"),
-    materialId: String(item.materialId ?? ""),
-    startedAt: Math.floor(startedAt),
-    readyAt: Math.floor(readyAt),
-    attempts: Math.max(1, Math.floor(Number(item.attempts) || 1)),
-  };
-}
-
 function parseAutoResult(value: unknown): AutoGatheringResultView {
   const item = (value ?? {}) as Record<string, unknown>;
+  const byproducts = Array.isArray(item.byproducts)
+    ? item.byproducts
+        .map((value) => {
+          const drop = (value ?? {}) as Record<string, unknown>;
+          return {
+            materialId: String(drop.materialId ?? ""),
+            name: String(drop.name ?? "부산물"),
+            amount: Math.max(0, Math.floor(Number(drop.amount) || 0)),
+          };
+        })
+        .filter((drop) => drop.amount > 0)
+    : [];
   return {
     attempts: Math.max(0, Math.floor(Number(item.attempts) || 0)),
     successes: Math.max(0, Math.floor(Number(item.successes) || 0)),
     materialName: String(item.materialName ?? "광석"),
     materialsGained: Math.max(0, Math.floor(Number(item.materialsGained) || 0)),
     xpGained: Math.max(0, Math.floor(Number(item.xpGained) || 0)),
+    byproducts,
   };
 }
 
@@ -103,7 +99,8 @@ function wait(ms: number): Promise<void> {
 }
 
 export function useMining(): MiningHandlers {
-  const { setAutoGathering } = useGameState();
+  const { setAutoGathering } = useGameActivityState();
+  const { notifySystem } = useSystemToast();
   const { verification, verifyHuman, readJson } = useActivityVerification("mining");
   const [materials, setMaterials] = useState<Record<string, number>>({});
   const [log, setLog] = useState<MiningLogView>({
@@ -128,7 +125,12 @@ export function useMining(): MiningHandlers {
         if (!alive || !json?.ok) return;
         setMaterials(parseMaterials(json.materials));
         setLog(parseLog(json.log));
-        setAutoSession(parseAutoSession(json.autoSession));
+        setAutoSession(
+          parseAutoGatheringSessionView(json.autoSession, {
+            serverNow: json.serverNow,
+            fallbackSourceName: "광맥",
+          }),
+        );
         setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
       } catch {
         // 표시용 상태라 실패해도 화면 진입은 유지한다.
@@ -196,6 +198,9 @@ export function useMining(): MiningHandlers {
             nextActionAt: parseNextActionAt(json.nextActionAt),
           };
         }
+        if (json.levelCurveMigrated) {
+          notifySystem(LIFE_LEVEL_MIGRATION_NOTICE, "info");
+        }
         const nextMaterials = parseMaterials(json.materials);
         const nextLog = parseLog(json.log);
         setMaterials(nextMaterials);
@@ -222,7 +227,7 @@ export function useMining(): MiningHandlers {
       }
       throw new Error("mining_finish_failed");
     },
-    [readJson],
+    [notifySystem, readJson],
   );
 
   const startAuto = useCallback(async (
@@ -242,7 +247,10 @@ export function useMining(): MiningHandlers {
         if (active) setActiveAutoActivity(active);
         throw new Error("mining_auto_start_failed");
       }
-      const session = parseAutoSession(json.autoSession);
+      const session = parseAutoGatheringSessionView(json.autoSession, {
+        serverNow: json.serverNow,
+        fallbackSourceName: "광맥",
+      });
       setAutoSession(session);
       setActiveAutoActivity("mining");
       setAutoResult(null);
@@ -271,6 +279,9 @@ export function useMining(): MiningHandlers {
       });
       const json = await readJson(response);
       if (!response.ok || !json?.ok) throw new Error("mining_auto_claim_failed");
+      if (json.levelCurveMigrated) {
+        notifySystem(LIFE_LEVEL_MIGRATION_NOTICE, "info");
+      }
       setMaterials(parseMaterials(json.materials));
       setLog(parseLog(json.log));
       setAutoSession(null);
@@ -280,7 +291,7 @@ export function useMining(): MiningHandlers {
     } finally {
       setAutoLoading(false);
     }
-  }, [readJson, setAutoGathering]);
+  }, [notifySystem, readJson, setAutoGathering]);
 
   const cancelAuto = useCallback(async (): Promise<void> => {
     setAutoLoading(true);

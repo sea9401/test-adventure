@@ -1,6 +1,8 @@
 import {
   appendLog,
+  applyBerserkerHostileDamage,
   applyCounterIfAny,
+  playerPveEvasionReductionPct,
   finishEnemyAttack,
   playerFacingEnemyDef,
   type BattleLogEntry,
@@ -9,23 +11,76 @@ import {
 } from "./engine";
 import {
   damageBetween,
+  damageToMagicDefender,
   damageToDefender,
   v2AtkBuffMult,
   v2DefBuffMult,
 } from "./combatShared";
+import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
 import {
   lowHpDamageReductionPct,
   healToShield,
-  onDodgeHealAmount,
   onDodgeSpeedBuff,
   onHitTakenDefGain,
+  resolveTrackedShieldAbsorption,
   statusBlockOnce,
+  trackedShieldBreakEffect,
 } from "./signatureEffects";
-import { pveDodgeChance } from "@/adventure/data/v2/v2CombatConstants";
+import {
+  applyEvasionDamageReduction,
+} from "@/adventure/data/v2/v2CombatConstants";
+import {
+  magicBarrierCombatLogEntries,
+  resolveMagicBarrierDamage,
+} from "./magicBarrier";
+import { applyTier6UniquePveEvent } from "./tier6UniquePveAdapter";
+import {
+  consumeReactiveDefenseCharges,
+  ironWallDamageReductionPct,
+  resolveFortressReaction,
+} from "./fortressKnight";
+import { releaseSwordShadow } from "./shadowBladeCombat";
+import { recordChargeHpLoss } from "./ruinBladeCombat";
+import {
+  consumePurificationWard,
+  resolveTripleWardDamage,
+  TRIPLE_WARD_LABELS,
+  tripleWardStabilityReductionPct,
+} from "./tripleWard";
+import { effectiveMutationDef } from "./mutationCombat";
 
 // 치명형 몹(SPI PR-3b) 기본 치명 배수 — Monster.critMult 미지정 시. 플레이어 CRIT_MULT_BASE(1.4)
 //   보다 약간 높게 둬 "치명 위협" 체감(잡몹은 critPct 0 이라 무관).
 const MONSTER_CRIT_MULT_DEFAULT = 1.5;
+
+export function releaseSwordShadowAfterEnemyAction(
+  state: BattleState,
+): BattleState {
+  const swordShadow = state.stacks.tier7?.swordShadow;
+  if (!swordShadow) return state;
+  const released = releaseSwordShadow(swordShadow, {
+    nextSingleDamagePct: 15,
+  });
+  const shadowDamage = Math.min(state.enemyHp, released.damage);
+  return {
+    ...state,
+    enemyHp: Math.max(0, state.enemyHp - released.damage),
+    stacks: {
+      ...state.stacks,
+      tier7: {
+        ...state.stacks.tier7,
+        swordShadow: undefined,
+        shadowFollowUpPct: released.followUpPct,
+        shadowReleaseHastePct: swordShadow.refined ? 20 : 0,
+      },
+    },
+    log: appendLog(state.log, {
+      kind: "player_attack",
+      effect: "extra_damage",
+      text: `[검영] ${state.enemy.name}에게 ${shadowDamage} 지연 피해.`,
+    }),
+  };
+}
 
 // 적 페이즈 전체 — advanceTurn 에서 플레이어 페이즈(평타·스킬)와 분량을 가르기 위해 분리한다.
 // 한기 틱 → 잔상(AP 블록) → 회피 캐스케이드(그림자보법·보장회피·%회피·별빛가드·흘려막기·
@@ -34,12 +89,33 @@ const MONSTER_CRIT_MULT_DEFAULT = 1.5;
 // 동작은 advanceTurn 인라인이던 시절과 1비트도 다르지 않다(combatGolden 적 페이즈 매트릭스 가드).
 export function resolveEnemyPhase(
   state: BattleState,
-  player: PlayerCombat,
+  basePlayer: PlayerCombat,
   playerName: string,
   enteringEnemyPhase: boolean,
   // 몹이 이 턴 스킬을 시전했으면 평타 생략(스킬이 평타 대체 — 플레이어 대칭). 한기 틱 뒤 분기.
   skipBasicAttack: boolean = false,
+  // 도발로 즉시 발생한 공격은 몬스터 고유 스킬 없이 기본 공격 판정만 수행한다.
+  forceBasicAttack: boolean = false,
 ): BattleState {
+  const effectiveDef = effectiveMutationDef(
+    basePlayer.def,
+    state.stacks.mutationWeight,
+    basePlayer.stoneskinDefPctPerWeight ?? 0,
+  );
+  const player =
+    effectiveDef === basePlayer.def
+      ? basePlayer
+      : { ...basePlayer, def: effectiveDef };
+  const applyTier6Dodge = (next: BattleState): BattleState =>
+    next.stacks.tier6Uniques
+      ? applyTier6UniquePveEvent(next, player, {
+          kind: "dodge",
+          origin: {
+            actionId: next.turn.enemyPhasesCompleted + 1,
+            eventId: next.log.length,
+          },
+        })
+      : next;
   // ── 한기 (chill) — 적 페이즈 시작 시 한기 스택당 고정 피해 (DEF·보호막 무시) ──────
   // 출혈의 미러. threshold 이상부터 발동. 스택은 적 chill 공격 적중 시 누적(아래 적 공격부).
   // 이미 몸에 스민 추위는 천뢰 일격 silence 와 무관하게 틱한다.
@@ -53,39 +129,71 @@ export function resolveEnemyPhase(
   ) {
     // DEF 부분감산 — defMitigationFraction 만큼 플레이어 DEF 를 깎아낸다(미지정/0 = DEF 무시, 기존
     // 동작). 하한 1 — 아무리 DEF 가 높아도 한기는 최소 1 은 들어가 시간압 취지가 죽지 않는다.
-    const chillDefCut = Math.round(
-      player.def * (chillSkill.defMitigationFraction ?? 0),
-    );
-    const chillDmgRaw = Math.max(
+    const chillSourceDamage = Math.max(
       1,
-      state.stacks.chillStacks * chillSkill.dmgPerStack - chillDefCut,
+      state.stacks.chillStacks * chillSkill.dmgPerStack,
     );
-    const chillDmgAfterResolve =
-      state.buffs.playerDmgReductionTurnsLeft > 0 &&
-      state.buffs.playerDmgReductionPct > 0
-        ? Math.floor(chillDmgRaw * (1 - state.buffs.playerDmgReductionPct / 100))
-        : chillDmgRaw;
-    const endurePct = player.enchantEndurePct ?? 0;
-    const chillDmgAfterEndure =
-      endurePct > 0
-        ? Math.floor(chillDmgAfterResolve * (1 - endurePct / 100))
-        : chillDmgAfterResolve;
-    const chillDmg = Math.max(1, chillDmgAfterEndure);
+    const chillBarrier = resolveMagicBarrierDamage({
+      rawDamage: chillSourceDamage,
+      durability: state.playerMagicBarrier ?? 0,
+      absorbPct: player.magicBarrierAbsorbPct,
+      efficiencyPct: player.magicBarrierEfficiencyPct,
+      eligible: true,
+      mitigateBody: (bodyRawDamage) => {
+        if (bodyRawDamage <= 0) return 0;
+        const chillDefCut = Math.round(
+          player.def * (chillSkill.defMitigationFraction ?? 0),
+        );
+        const chillDmgRaw = Math.max(1, bodyRawDamage - chillDefCut);
+        const chillDmgAfterResolve =
+          state.buffs.playerDmgReductionTurnsLeft > 0 &&
+          state.buffs.playerDmgReductionPct > 0
+            ? Math.floor(
+                chillDmgRaw *
+                  (1 - state.buffs.playerDmgReductionPct / 100),
+              )
+            : chillDmgRaw;
+        const endurePct = player.enchantEndurePct ?? 0;
+        return Math.max(
+          1,
+          endurePct > 0
+            ? Math.floor(chillDmgAfterResolve * (1 - endurePct / 100))
+            : chillDmgAfterResolve,
+        );
+      },
+    });
+    const chillDmg = chillBarrier.hpBoundDamage;
     const afterChillHp = Math.max(0, state.playerHp - chillDmg);
-    const chilled: BattleState = {
+    let chillLog = appendLog(state.log, {
+      kind: "info",
+      text: `[한기] ${chillSkill.name} — 추위가 ${chillDmg} 피해 (스택 ${state.stacks.chillStacks})`,
+    });
+    for (const entry of magicBarrierCombatLogEntries(chillBarrier)) {
+      chillLog = appendLog(chillLog, entry);
+    }
+    let chilled: BattleState = {
       ...state,
-      playerHp: afterChillHp,
+      playerMagicBarrier: chillBarrier.durabilityLeft,
       stacks: {
         ...state.stacks,
         damageTakenThisCombat:
           state.stacks.damageTakenThisCombat + (state.playerHp - afterChillHp),
       },
-      log: appendLog(state.log, {
-        kind: "info",
-        text: `[한기] ${chillSkill.name} — 추위가 ${chillDmg} 피해 (스택 ${state.stacks.chillStacks})`,
-      }),
+      log: chillLog,
     };
-    if (afterChillHp <= 0) {
+    const survival = applyBerserkerHostileDamage(
+      chilled,
+      player,
+      afterChillHp,
+    );
+    chilled = survival.state;
+    if (survival.triggered && chilled.berserker) {
+      chilled = {
+        ...chilled,
+        berserker: finishBerserkerCurrentActionGuard(chilled.berserker),
+      };
+    }
+    if (chilled.playerHp <= 0) {
       return {
         ...chilled,
         log: appendLog(chilled.log, {
@@ -134,9 +242,8 @@ export function resolveEnemyPhase(
       0,
       curseStacksBefore - curseSkill.threshold,
     );
-    const cursed: BattleState = {
+    let cursed: BattleState = {
       ...state,
-      playerHp: afterCurseHp,
       stacks: {
         ...state.stacks,
         curseStacks: curseStacksAfter,
@@ -148,7 +255,19 @@ export function resolveEnemyPhase(
         text: `[저주] ${curseSkill.name} — 저주가 폭발해 ${curseDmg} 피해 (스택 ${curseStacksBefore}→${curseStacksAfter})`,
       }),
     };
-    if (afterCurseHp <= 0) {
+    const survival = applyBerserkerHostileDamage(
+      cursed,
+      player,
+      afterCurseHp,
+    );
+    cursed = survival.state;
+    if (survival.triggered && cursed.berserker) {
+      cursed = {
+        ...cursed,
+        berserker: finishBerserkerCurrentActionGuard(cursed.berserker),
+      };
+    }
+    if (cursed.playerHp <= 0) {
       return {
         ...cursed,
         log: appendLog(cursed.log, {
@@ -214,14 +333,12 @@ export function resolveEnemyPhase(
 
   // enemy phase — 그림자 보법 → 보장 회피 → % 회피 → 행운의 방패 → 데미지 (가드 적용) 순.
   // enemy phase 종료 시 enemyPhasesCompleted +1 (가드 카운터 진행).
-  // 회피/방패 성공 시 곡예(특기) 장착이면 HP +evadeHealAmount. + 봉인 on-dodge 회복(Phase 2·
-  //   미장착=0 → byte-identical). healOnDodge 가 4개 회피 분기 공통이라 한 곳에 합산하면 전파.
-  const evadeHeal =
-    (player.evadeHealAmount ?? 0) +
-    onDodgeHealAmount(player.equipSignatures, state.playerMaxHp);
+  // 회피/방패 성공 시 곡예(특기) 장착이면 HP +evadeHealAmount.
+  // 장비의 회피 경감 연동 회복은 소유자 행동 시작에 별도로 판정한다.
+  const evadeHeal = player.evadeHealAmount ?? 0;
   const healOnDodge = (hp: number): number =>
     evadeHeal > 0 ? Math.min(state.playerMaxHp, hp + evadeHeal) : hp;
-  // 독왕 on-dodge 속도 버프(Phase 2) — 회피 성공 분기들이 next.buffs 로 쓸 값. 미발동=state.buffs
+  // on-dodge 속도 버프(Phase 2) — 회피 성공 분기들이 next.buffs 로 쓸 값. 미발동=state.buffs
   //   그대로(Math.max 로 기존 버프 미감소) → byte-identical.
   const sigDodgeSpd = onDodgeSpeedBuff(player.equipSignatures);
   const dodgeSpdActiveMult =
@@ -236,6 +353,13 @@ export function resolveEnemyPhase(
         ),
       }
     : state.buffs;
+  const appendDodgeSpeedBuffLog = (log: BattleLogEntry[]): BattleLogEntry[] =>
+    sigDodgeSpd
+      ? appendLog(log, {
+          kind: "info",
+          text: `[${sigDodgeSpd.label}] ${playerName}의 속도 +${Math.round((sigDodgeSpd.mult - 1) * 100)}% (${sigDodgeSpd.turns}행동)`,
+        })
+      : log;
   const dodgeFlags = player.skillCritAfterEvade
     ? { ...state.flags, skillCritAfterEvadePending: true }
     : state.flags;
@@ -314,6 +438,7 @@ export function resolveEnemyPhase(
       kind: "info",
       text: `[그림자 보법] ${playerName}이(가) 모든 공격을 그림자처럼 흘려보냈다!`,
     });
+    log = appendDodgeSpeedBuffLog(log);
     if (player.skillCritAfterEvade && !state.flags.skillCritAfterEvadePending) {
       log = appendLog(log, {
         kind: "info",
@@ -351,7 +476,7 @@ export function resolveEnemyPhase(
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
       flags: dodgeFlags,
-      buffs: dodgeBuffs, // 독왕 on-dodge 속도 버프(미발동=state.buffs → byte-identical)
+      buffs: dodgeBuffs, // on-dodge 속도 버프(미발동=state.buffs → byte-identical)
       turn: {
         ...state.turn,
         enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
@@ -361,6 +486,7 @@ export function resolveEnemyPhase(
         state.playerAttacksLeft + (player.skirmishNextTurnBonus ?? 0),
       log: reflect.log,
     };
+    next = applyTier6Dodge(next);
     const counter = applyCounterIfAny(next, player);
     if (counter.ended) return counter.state;
     next = counter.state;
@@ -372,6 +498,7 @@ export function resolveEnemyPhase(
       kind: "info",
       text: `[회피 강화] ${state.enemy.name}의 공격을 회피했다!`,
     });
+    log = appendDodgeSpeedBuffLog(log);
     if (player.skillCritAfterEvade && !state.flags.skillCritAfterEvadePending) {
       log = appendLog(log, {
         kind: "info",
@@ -407,12 +534,12 @@ export function resolveEnemyPhase(
         outcome: "win",
       };
     }
-    const next: BattleState = {
+    let next: BattleState = {
       ...state,
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
       flags: dodgeFlags,
-      buffs: dodgeBuffs, // 독왕 on-dodge 속도 버프(미발동=state.buffs → byte-identical)
+      buffs: dodgeBuffs, // on-dodge 속도 버프(미발동=state.buffs → byte-identical)
       stacks: {
         ...state.stacks,
         evadesRemaining: state.stacks.evadesRemaining - 1,
@@ -426,104 +553,14 @@ export function resolveEnemyPhase(
         state.playerAttacksLeft + (player.skirmishNextTurnBonus ?? 0),
       log: reflect.log,
     };
+    next = applyTier6Dodge(next);
     const counter = applyCounterIfAny(next, player);
     if (counter.ended) return counter.state;
     return finishEnemyAttack(counter.state);
   }
-  // 이중 행운 — 활성 시 회피 확률 +bonus%.
-  const luckEvadeBonus = state.flags.luckyBuffActive
-    ? player.doubleLuck?.evade ?? 0
-    : 0;
-  // 만물 행운 (6티어) — 회피 확률에도 +N%.
-  const universalLuckEvadeBonus = player.universalLuckBonusPct ?? 0;
-  // 회전 운기 (2티어 특기) — 누적 보너스 회피에도 적용.
-  // 회피 캡 EVASION_PCT_CAP — 100% 회피 무적 빌드 차단.
-  // 보장 회피 (소모형 적립) 는 위쪽 분기에서 별도 처리되어 캡 무관 100% 회피 유지.
-  // 한기 슬로우 — chill 스택당 회피율 감소(굼떠짐). 미지정/0 = 효과 없음. 회피는 0 미만 안 됨.
-  const chillSlowPct =
-    state.enemy.skill?.kind === "chill"
-      ? state.stacks.chillStacks *
-        (state.enemy.skill.evasionPenaltyPerStack ?? 0)
-      : 0;
-  // 적 명중(accuracy) — 유효 회피에서 %p 차감. 0/undefined = 차감 없음(기존 동작).
-  // chillSlowPct 와 같은 자리에서 빼 회피 캡 적용 후 감산. 고탑 보스가 층 비례로 보유.
-  // 암흑(원소술사 어둠) — 적 명중 -%p(적 헛침↑). 디버프 없으면 0 → 기존 동작(byte-identical).
-  const accDown =
-    state.stacks.enemyAccuracyDownTurns > 0
-      ? state.stacks.enemyAccuracyDownPct
-      : 0;
-  // 회피 대결형 Slice 1 — 몹 명중레이팅(floorAccuracy(depth)+몹 accuracy, scaleMonsterForFloor 가 합산) − 암흑.
-  const enemyAccuracy = Math.max(0, (state.enemy.accuracy ?? 0) - accDown);
-  // 플레이어 회피레이팅(캡 없는 raw) + temp 버프(행운/운기/선풍각) − 한기슬로우. 버프는 이제 레이팅 가산(점감).
-  const evaRatingTotal = Math.max(
-    0,
-    (player.evaRating ?? player.evasionPct) +
-      luckEvadeBonus +
-      universalLuckEvadeBonus +
-      state.buffs.cyclingChiBonus +
-      // PR2-B-2c 선풍각 — 회피 temp 버프.
-      (state.stacks.skillEvasionTurns > 0 ? state.stacks.skillEvasionPct : 0) -
-      chillSlowPct,
-  );
-  // PvE 대결 → 완화된 생존 계수·점근 천장 DODGE_MAX(절대 도달X).
-  // 보장회피(소모형 100%)는 위 분기에서 별도.
-  const effectiveEvadePct = pveDodgeChance(evaRatingTotal, enemyAccuracy);
-  if (Math.random() * 100 < effectiveEvadePct) {
-    const healedHp = healOnDodge(state.playerHp);
-    let log = appendLog(state.log, {
-      kind: "info",
-      text: `${playerName}이(가) ${state.enemy.name}의 공격을 회피했다!`,
-    });
-    if (player.skillCritAfterEvade && !state.flags.skillCritAfterEvadePending) {
-      log = appendLog(log, {
-        kind: "info",
-        text: `[흑월지배] 다음 직접 피해 스킬 치명타 준비.`,
-      });
-    }
-    if (healedHp > state.playerHp) {
-      log = appendLog(log, {
-        kind: "info",
-        text: `[곡예] ${playerName}의 HP +${healedHp - state.playerHp}`,
-      });
-    }
-    const reflect = applyDodgeReflect(log, state.enemyHp);
-    if (reflect.killed) {
-      return {
-        ...state,
-        playerHp: healedHp,
-        enemyHp: 0,
-        flags: dodgeFlags,
-        turn: {
-          ...state.turn,
-          enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
-        },
-        log: appendLog(reflect.log, {
-          kind: "info",
-          text: `${state.enemy.name}을(를) 쓰러뜨렸다!`,
-        }),
-        phase: "ended",
-        outcome: "win",
-      };
-    }
-    const next: BattleState = {
-      ...state,
-      playerHp: healedHp,
-      enemyHp: reflect.enemyHp,
-      flags: dodgeFlags,
-      buffs: dodgeBuffs, // 독왕 on-dodge 속도 버프(미발동=state.buffs → byte-identical)
-      turn: {
-        ...state.turn,
-        enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
-      },
-      // 유격 (특기) — 회피 성공 시 다음 플레이어 턴 공격 횟수 +N (현재 playerAttacksLeft 는 다음 턴 선롤분).
-      playerAttacksLeft:
-        state.playerAttacksLeft + (player.skirmishNextTurnBonus ?? 0),
-      log: reflect.log,
-    };
-    const counter = applyCounterIfAny(next, player);
-    if (counter.ended) return counter.state;
-    return finishEnemyAttack(counter.state);
-  }
+  // 일반 회피도는 완전 회피 굴림을 만들지 않고 직접 피해 경감률로 작동한다.
+  // 보장 회피·그림자 보법 등 명시적 완전 회피는 위쪽 분기에서 별도로 처리한다.
+  const evasionReductionPct = playerPveEvasionReductionPct(state, player);
   // 별빛 가드(enchant guard) — 회피/럭키 방패 전에 굴리는 % 블록. 슬롯당 5~20% 누적.
   // 회피와 별개 라벨 — 회피는 비켜서고, 가드는 받아낸 다음 흩어 낸다.
   const enchantGuardPct = player.enchantGuardBlockPct ?? 0;
@@ -566,6 +603,7 @@ export function resolveEnemyPhase(
       kind: "info",
       text: `[행운의 방패] ${playerName}이(가) ${state.enemy.name}의 공격을 흘려보냈다!`,
     });
+    log = appendDodgeSpeedBuffLog(log);
     if (healedHp > state.playerHp) {
       log = appendLog(log, {
         kind: "info",
@@ -590,11 +628,11 @@ export function resolveEnemyPhase(
         outcome: "win",
       };
     }
-    const next: BattleState = {
+    let next: BattleState = {
       ...state,
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
-      buffs: dodgeBuffs, // 독왕 on-dodge 속도 버프(미발동=state.buffs → byte-identical)
+      buffs: dodgeBuffs, // on-dodge 속도 버프(미발동=state.buffs → byte-identical)
       turn: {
         ...state.turn,
         enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
@@ -604,6 +642,7 @@ export function resolveEnemyPhase(
         state.playerAttacksLeft + (player.skirmishNextTurnBonus ?? 0),
       log: reflect.log,
     };
+    next = applyTier6Dodge(next);
     const counter = applyCounterIfAny(next, player);
     if (counter.ended) return counter.state;
     return finishEnemyAttack(counter.state);
@@ -612,7 +651,9 @@ export function resolveEnemyPhase(
   // ── 잡몹 스킬 (적 공격에 영향) ──────────────────────────────────────────
   // 천뢰 일격 (AP) — silence 활성 중엔 enemy.skill 전체 효과 비활성.
   const skill =
-    state.buffs.enemySilenceTurnsLeft > 0 ? undefined : state.enemy.skill;
+    forceBasicAttack || state.buffs.enemySilenceTurnsLeft > 0
+      ? undefined
+      : state.enemy.skill;
   // 한기 누적 — chill 공격이 적중하면 perHit 만큼 스택. 적 HP 가 deepHpFraction 미만이면 2배(깊은 한기).
   // silence 중엔 누적 안 됨(skill 이 undefined). 실제 DoT 는 다음 적 페이즈 시작에 틱.
   const chillAdd =
@@ -632,8 +673,18 @@ export function resolveEnemyPhase(
     chillAdd > 0 && !!sigStatusBlock && !state.flags.statusBlockUsed;
   const statusBlockCurse =
     curseAdd > 0 && !!sigStatusBlock && !state.flags.statusBlockUsed;
-  const effectiveChillAdd = statusBlockChill ? 0 : chillAdd;
-  const effectiveCurseAdd = statusBlockCurse ? 0 : curseAdd;
+  const purificationBlockChill =
+    chillAdd > 0 &&
+    !statusBlockChill &&
+    state.stacks.tripleWard.purification > 0;
+  const purificationBlockCurse =
+    curseAdd > 0 &&
+    !statusBlockCurse &&
+    state.stacks.tripleWard.purification > 0;
+  const effectiveChillAdd =
+    statusBlockChill || purificationBlockChill ? 0 : chillAdd;
+  const effectiveCurseAdd =
+    statusBlockCurse || purificationBlockCurse ? 0 : curseAdd;
   // maxStacks 지정 시 상한 클램프 — 무한 누적 폭주 방지.
   const chillStacksNext =
     skill?.kind === "chill" && skill.maxStacks !== undefined
@@ -697,7 +748,6 @@ export function resolveEnemyPhase(
   const defenseForAttack = magicAttack
     ? Math.max(0, player.magicDef ?? 0)
     : v2EffectivePlayerDef;
-  const baseEnemyDmg = damageToDefender(v2EffectiveEnemyAtk, defenseForAttack);
   // 치명형 몹(SPI PR-3b) — critPct 굴려(플레이어 critResistPct=정신 차감) 적중 시 피해 ×critMult.
   //   heavy_blow 와 곱연산. 🔑 critPct 0(잡몹)이면 굴림 자체를 스킵 → RNG 스트림 불변(기존 전투
   //   byte-identical). 이 지점은 회피/가드/무효 분기를 모두 통과(=명중 확정)한 뒤라 헛굴림 없음.
@@ -711,10 +761,23 @@ export function resolveEnemyPhase(
     ? (state.enemy.critMult ?? MONSTER_CRIT_MULT_DEFAULT)
     : 1;
   const preMitMult = heavyBlowMult * monsterCritMult;
-  const rawDmgBeforeCurse =
+  const barrierActive =
+    (state.playerMagicBarrier ?? 0) > 0 &&
+    (player.magicBarrierAbsorbPct ?? 0) > 0;
+  const baseEnemyDmg = magicAttack
+    ? damageToMagicDefender(v2EffectiveEnemyAtk, defenseForAttack)
+    : damageToDefender(v2EffectiveEnemyAtk, defenseForAttack);
+  const damageBeforeCurse =
     preMitMult !== 1
-      ? Math.max(1, Math.floor(baseEnemyDmg * preMitMult))
-      : baseEnemyDmg;
+      ? Math.max(
+          1,
+          Math.floor(
+            (barrierActive ? v2EffectiveEnemyAtk : baseEnemyDmg) * preMitMult,
+          ),
+        )
+      : barrierActive
+        ? v2EffectiveEnemyAtk
+        : baseEnemyDmg;
   const curseDamageTakenPctRaw =
     skill?.kind === "curse"
       ? state.stacks.curseStacks * (skill.damageTakenPctPerStack ?? 0)
@@ -723,47 +786,34 @@ export function resolveEnemyPhase(
     skill?.kind === "curse" && skill.maxDamageTakenPct !== undefined
       ? Math.min(skill.maxDamageTakenPct, curseDamageTakenPctRaw)
       : curseDamageTakenPctRaw;
-  const rawDmgBeforeReduction =
+  const preDefenseDamage =
     curseDamageTakenPct > 0
       ? Math.max(
           1,
-          Math.floor(rawDmgBeforeCurse * (1 + curseDamageTakenPct / 100)),
+          Math.floor(damageBeforeCurse * (1 + curseDamageTakenPct / 100)),
         )
-      : rawDmgBeforeCurse;
-  const rawDmgAfterEnemyDamageDown =
-    state.stacks.enemyDamageDownTurns > 0 && state.stacks.enemyDamageDownPct > 0
-      ? Math.max(
-          1,
-          Math.floor(
-            rawDmgBeforeReduction *
-              (1 - state.stacks.enemyDamageDownPct / 100),
-          ),
-        )
-      : rawDmgBeforeReduction;
-  // 결의 (AP) — 받는 피해 -pct%. 가드/굳건/철벽 전에 곱연산으로 먼저 깎이도록.
-  const rawDmg =
-    state.buffs.playerDmgReductionTurnsLeft > 0 &&
-    state.buffs.playerDmgReductionPct > 0
-      ? Math.max(
-          1,
-          Math.floor(
-            rawDmgAfterEnemyDamageDown *
-              (1 - state.buffs.playerDmgReductionPct / 100),
-          ),
-        )
-      : rawDmgAfterEnemyDamageDown;
-  // 별빛 인내(enchant endure) — 받는 피해 -pct%. 결의 다음, 가드/굳건/철벽 전에 곱연산.
-  // 항상 활성(시한부 X). 최소 1 클램프.
+      : damageBeforeCurse;
+  let rawDmgBeforeEvasion = 0;
+  let rawDmgBeforeReduction = 0;
+  let rawDmgAfterEnemyDamageDown = 0;
+  let rawDmg = 0;
+  let enduredDmg = 0;
+  let passiveReduced = 0;
+  let stabilityReduced = 0;
+  let wardReduced = 0;
+  let guarded = 0;
+  let bodyDamage = 0;
+  let nextTripleWard = state.stacks.tripleWard;
+  let wardDamageReductionPct = 0;
+  let wardDamageRemaining = state.stacks.tripleWard[
+    magicAttack ? "magic" : "physical"
+  ];
   const endurePct = player.enchantEndurePct ?? 0;
-  const enduredDmg =
-    endurePct > 0
-      ? Math.max(1, Math.floor(rawDmg * (1 - endurePct / 100)))
-      : rawDmg;
-  const enduredApplied = enduredDmg < rawDmg;
-  // 받피감 — 패시브(passiveDamageTakenReductionPct, 철벽검류 등) + 철포 버프(skillDmgReduce,
-  //   직업 킷 재설계). 합산 %로 곱연산. 인내(endure) 다음·가드 전. 최소 1 클램프. 0=무변.
   const buffReducePct =
     state.stacks.skillDmgReduceTurns > 0 ? state.stacks.skillDmgReducePct : 0;
+  const ironWallReducePct = ironWallDamageReductionPct(
+    state.stacks.ironWallReflectCharges,
+  );
   // 고유 시그니처(성물·Phase 2) — 저체력(HP≤임계%) 시 받피감 추가. 미장착/조건미충족=0 → byte-identical.
   const sigReducePct = lowHpDamageReductionPct(
     player.equipSignatures,
@@ -780,38 +830,151 @@ export function resolveEnemyPhase(
     (player.passiveDamageTakenReductionPct ?? 0) +
     openingMagicReducePct +
     buffReducePct +
+    ironWallReducePct +
     sigReducePct;
-  const passiveReduced =
-    passiveReducePct > 0
-      ? Math.max(1, Math.floor(enduredDmg * (1 - passiveReducePct / 100)))
-      : enduredDmg;
   // 가드 — 첫 N번의 적 페이즈 동안 받는 피해 -reduction. 선공자에 무관하게
   // enemyPhasesCompleted 가 N 미만이면 이번 페이즈가 그 N 중 하나.
   const guard = player.guard;
-  const guarded =
-    guard && guard.turns > 0 && state.turn.enemyPhasesCompleted < guard.turns
-      ? Math.max(0, passiveReduced - guard.reduction)
-      : passiveReduced;
-  // 굳건한 의지 (2티어 특기) — 받은 피해 평탄 -(N) 감소. 가드 뒤에 적용.
   const steadfastFlat = player.steadfastWillFlat ?? 0;
-  const dmg = steadfastFlat > 0 ? Math.max(0, guarded - steadfastFlat) : guarded;
-  const guardApplied = guarded < passiveReduced;
-  const steadfastApplied = dmg < guarded;
-  // 철벽 (4티어) — 보호막이 데미지를 먼저 흡수, 남은 만큼만 HP 에 적용. 무피해 난무는 dmgToHp 로 누적.
-  const shieldAbsorbed = Math.min(state.stacks.playerShield, dmg);
-  const dmgToHp = dmg - shieldAbsorbed;
+  const magicBarrier = resolveMagicBarrierDamage({
+    rawDamage: preDefenseDamage,
+    durability: state.playerMagicBarrier ?? 0,
+    absorbPct: player.magicBarrierAbsorbPct,
+    efficiencyPct: player.magicBarrierEfficiencyPct,
+    eligible: true,
+    mitigateBody: (bodyRawDamage) => {
+      if (bodyRawDamage <= 0) return 0;
+      rawDmgBeforeEvasion = barrierActive
+        ? magicAttack
+          ? damageToMagicDefender(bodyRawDamage, defenseForAttack)
+          : damageToDefender(bodyRawDamage, defenseForAttack)
+        : bodyRawDamage;
+      rawDmgBeforeReduction = applyEvasionDamageReduction(
+        rawDmgBeforeEvasion,
+        evasionReductionPct,
+      );
+      rawDmgAfterEnemyDamageDown =
+        state.stacks.enemyDamageDownTurns > 0 &&
+        state.stacks.enemyDamageDownPct > 0
+          ? Math.max(
+              1,
+              Math.floor(
+                rawDmgBeforeReduction *
+                  (1 - state.stacks.enemyDamageDownPct / 100),
+              ),
+            )
+          : rawDmgBeforeReduction;
+      rawDmg =
+        state.buffs.playerDmgReductionTurnsLeft > 0 &&
+        state.buffs.playerDmgReductionPct > 0
+          ? Math.max(
+              1,
+              Math.floor(
+                rawDmgAfterEnemyDamageDown *
+                  (1 - state.buffs.playerDmgReductionPct / 100),
+              ),
+            )
+          : rawDmgAfterEnemyDamageDown;
+      enduredDmg =
+        endurePct > 0
+          ? Math.max(1, Math.floor(rawDmg * (1 - endurePct / 100)))
+          : rawDmg;
+      passiveReduced =
+        passiveReducePct > 0
+          ? Math.max(
+              1,
+              Math.floor(enduredDmg * (1 - passiveReducePct / 100)),
+            )
+          : enduredDmg;
+      const stabilityPct = tripleWardStabilityReductionPct(nextTripleWard);
+      stabilityReduced =
+        stabilityPct > 0
+          ? Math.max(
+              1,
+              Math.floor(passiveReduced * (1 - stabilityPct / 100)),
+            )
+          : passiveReduced;
+      const ward = resolveTripleWardDamage(
+        nextTripleWard,
+        magicAttack ? "magic" : "physical",
+        "pve",
+        [stabilityReduced],
+      );
+      nextTripleWard = ward.state;
+      wardReduced = ward.totalDamage;
+      wardDamageReductionPct = ward.reductionPct;
+      wardDamageRemaining = ward.remaining;
+      guarded =
+        guard &&
+        guard.turns > 0 &&
+        state.turn.enemyPhasesCompleted < guard.turns
+          ? Math.max(0, wardReduced - guard.reduction)
+          : wardReduced;
+      bodyDamage =
+        steadfastFlat > 0 ? Math.max(0, guarded - steadfastFlat) : guarded;
+      return bodyDamage;
+    },
+  });
+  const enduredApplied = enduredDmg < rawDmg;
+  const passiveReduceApplied = passiveReduced < enduredDmg;
+  const guardApplied = guarded < wardReduced;
+  const steadfastApplied = bodyDamage < guarded;
+  // 마나 채널과 경감된 몸통 피해를 합친 뒤 일반 보호막이 HP 직전에서 직접 피해를 흡수한다.
+  const shieldAbsorbed = Math.min(
+    state.stacks.playerShield,
+    magicBarrier.hpBoundDamage,
+  );
+  const dmgToHp = magicBarrier.hpBoundDamage - shieldAbsorbed;
   const newShield = state.stacks.playerShield - shieldAbsorbed;
+  const trackedShieldResolution = resolveTrackedShieldAbsorption({
+    remaining: state.stacks.trackedSetShield ?? 0,
+    totalShieldBefore: state.stacks.playerShield,
+    shieldAbsorbed,
+    alreadyTriggered: state.flags.trackedShieldBreakUsed ?? false,
+  });
+  const trackedShieldEffect = trackedShieldResolution.triggered
+    ? trackedShieldBreakEffect(player.equipSignatures)
+    : null;
+  if (
+    state.stacks.tier6Uniques &&
+    state.stacks.playerShield > 0 &&
+    newShield <= 0 &&
+    shieldAbsorbed > 0
+  ) {
+    state = applyTier6UniquePveEvent(state, player, {
+      kind: "shield_broken",
+      shieldBefore: state.stacks.playerShield,
+      overflowDamage: dmgToHp,
+      maxHp: state.playerMaxHp,
+      origin: {
+        actionId: state.turn.enemyPhasesCompleted + 1,
+        eventId: state.log.length,
+      },
+    });
+  }
+  // 보호막이 이번 공격을 전부 받아냈다면 피격 반사·반격은 발동하지 않는다.
+  // 일부만 흡수해 HP 피해가 남은 경우에는 기존처럼 정상 발동한다.
+  const hitStoppedByShield = shieldAbsorbed > 0 && dmgToHp <= 0;
   // 불굴 — HP 0 이 되는 데미지를 HP 1 로 막는다. 전투당 1회 (enduranceTriggered).
-  const wouldKill = state.playerHp - dmgToHp <= 0;
+  const berserkerSurvival = applyBerserkerHostileDamage(
+    state,
+    player,
+    state.playerHp - dmgToHp,
+  );
+  state = berserkerSurvival.state;
+  const wouldKill = state.playerHp <= 0;
   const enduranceFires =
     wouldKill && !!player.enduranceActive && !state.flags.enduranceTriggered;
   const playerHpAfterDmg = enduranceFires
     ? 1
-    : Math.max(0, state.playerHp - dmgToHp);
+    : state.playerHp;
   // 흡혈 갑옷 (6티어) — 받은 HP 피해의 N% HP 회복. HP 0 으로 죽은 후엔 미발동, 불굴로 버틴 후엔 발동.
   const bloodfeastPct = player.bloodfeastPct ?? 0;
   const bloodfeastHeal =
-    bloodfeastPct > 0 && dmgToHp > 0 && playerHpAfterDmg > 0
+    bloodfeastPct > 0 &&
+    dmgToHp > 0 &&
+    playerHpAfterDmg > 0 &&
+    !berserkerSurvival.triggered
       ? Math.floor((dmgToHp * bloodfeastPct) / 100)
       : 0;
   const playerHp =
@@ -821,12 +984,19 @@ export function resolveEnemyPhase(
   const bloodfeastActualHeal = playerHp - playerHpAfterDmg;
   const sigHealShield = healToShield(
     player.equipSignatures,
-    bloodfeastActualHeal,
+    {
+      actualHeal: bloodfeastActualHeal,
+      calculatedHeal: bloodfeastHeal,
+      maxHp: state.playerMaxHp,
+    },
   );
   const nextPlayerShield = newShield + (sigHealShield?.amount ?? 0);
   const enduranceTriggered = state.flags.enduranceTriggered || enduranceFires;
   const statusBlockUsed =
     state.flags.statusBlockUsed || statusBlockChill || statusBlockCurse;
+  if (purificationBlockChill || purificationBlockCurse) {
+    nextTripleWard = consumePurificationWard(nextTripleWard).state;
+  }
   // 강체 (금강 시그니처) + 장비 on_hit_taken — 이번에 받은 HP 피해의 % 만큼 DEF 보너스 누적
   // (상한 = 기본 DEF). 받은 만큼 단단해지는 탱커. dmgToHp(보호막 흡수 후 실제 HP 피해) 기준.
   const sigDefGain = onHitTakenDefGain(player.equipSignatures);
@@ -860,22 +1030,53 @@ export function resolveEnemyPhase(
       text: `[${sigStatusBlock.label}] 상태이상을 막았다.`,
     });
   }
+  if (purificationBlockChill || purificationBlockCurse) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${TRIPLE_WARD_LABELS.purification}] 상태이상을 막았다. (${nextTripleWard.purification}회 남음)`,
+    });
+  }
+  if (rawDmgBeforeReduction < rawDmgBeforeEvasion) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[회피 경감 ${evasionReductionPct.toFixed(1)}%] 피해 -${rawDmgBeforeEvasion - rawDmgBeforeReduction}`,
+    });
+  }
   if (enduredApplied) {
     log = appendLog(log, {
       kind: "info",
       text: `[인내] 피해 -${rawDmg - enduredDmg}`,
     });
   }
+  if (passiveReduceApplied) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[받피감] 피해 -${enduredDmg - passiveReduced}`,
+    });
+  }
+  if (stabilityReduced < passiveReduced) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[영역 안정 ${state.stacks.tripleWard.stabilityStacks}중첩] 피해 -${passiveReduced - stabilityReduced}`,
+    });
+  }
+  if (wardDamageReductionPct > 0) {
+    const wardKind = magicAttack ? "magic" : "physical";
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${TRIPLE_WARD_LABELS[wardKind]}] 직접 ${magicAttack ? "마법" : "물리"} 피해 ${wardDamageReductionPct}% 감소 (${wardDamageRemaining}회 남음)`,
+    });
+  }
   if (guardApplied) {
     log = appendLog(log, {
       kind: "info",
-      text: `[가드] 피해 -${enduredDmg - guarded}`,
+      text: `[가드] 피해 -${passiveReduced - guarded}`,
     });
   }
   if (steadfastApplied) {
     log = appendLog(log, {
       kind: "info",
-      text: `[굳건한 의지] 피해 -${guarded - dmg}`,
+      text: `[굳건한 의지] 피해 -${guarded - bodyDamage}`,
     });
   }
   if (shieldAbsorbed > 0) {
@@ -883,6 +1084,15 @@ export function resolveEnemyPhase(
       kind: "info",
       text: `[철벽] 보호막이 ${shieldAbsorbed} 흡수 (남은 ${newShield})`,
     });
+  }
+  if (trackedShieldEffect) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${trackedShieldEffect.label}] 해로운 상태를 정화하고 ${trackedShieldEffect.actions}행동 동안 받는 피해가 ${trackedShieldEffect.damageReductionPct}% 감소한다.`,
+    });
+  }
+  for (const entry of magicBarrierCombatLogEntries(magicBarrier)) {
+    log = appendLog(log, entry);
   }
   const atkPrefix =
     (heavyBlowFired && skill?.kind === "heavy_blow" ? `[${skill.name}] ` : "") +
@@ -924,15 +1134,29 @@ export function resolveEnemyPhase(
       text: `[${sigDefGain.label}] 방어 +${braceDefDelta}`,
     });
   }
-  // 반사 갑주 (특기) + 가시 갑옷 (5티어) — 적이 넣은 피해(가드/굳건/철벽 감산 전, heavyBlow 반영)의
+  const fortressReaction = resolveFortressReaction({
+    landed: preDefenseDamage > 0,
+    defenderDef: player.def,
+    impact: state.stacks.fortressImpact,
+    impactOnHit: player.fortressImpactOnHit ?? false,
+    ironWallReflectCharges: state.stacks.ironWallReflectCharges,
+  });
+  if (fortressReaction.impact > state.stacks.fortressImpact) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[충격 방벽] 충격 +1 (현재 ${fortressReaction.impact}/3)`,
+    });
+  }
+  // 반사 갑주 (특기) + 가시 갑옷 (5티어) — 보호막을 뚫고 적이 넣은 피해가 있을 때,
+  // 가드/굳건/철벽 감산 전 원량(heavyBlow 반영)의
   // N% 를 적에게 반사. 둘 다 있으면 합산. 베이스가 pre-mit 이라 탱커 빌드여도 반사가 살아남는다.
   // 무한 가시 (2티어 특기) — 피격분과 별개로 적 ATK 의 N% 를 추가 반사 (회피/피격 무관).
   const thornsDmg =
-    (player.thornsPct ?? 0) > 0
+    !hitStoppedByShield && (player.thornsPct ?? 0) > 0
       ? Math.floor((rawDmgBeforeReduction * player.thornsPct!) / 100)
       : 0;
   const brambleDmg =
-    (player.bramblePct ?? 0) > 0
+    !hitStoppedByShield && (player.bramblePct ?? 0) > 0
       ? Math.floor((rawDmgBeforeReduction * player.bramblePct!) / 100)
       : 0;
   // 별빛 반사(enchant reflect) — 실제 HP 로 들어간 피해의 N% 만 반사 (회피·가드 무효
@@ -944,13 +1168,15 @@ export function resolveEnemyPhase(
   // 수호자 반사 — 피격(공격 적중) 시 방어력 기반 고정 데미지. 피해량과 무관하게 "방어 계수만큼".
   //   rawDmgBeforeReduction > 0 = 적 공격이 적중(회피·무효 아님)했을 때만 발동.
   const wardenReflectDmg =
-    (player.thornsFlatFromDef ?? 0) > 0 && rawDmgBeforeReduction > 0
+    !hitStoppedByShield &&
+    (player.thornsFlatFromDef ?? 0) > 0 &&
+    rawDmgBeforeReduction > 0
       ? player.thornsFlatFromDef!
       : 0;
   const baseReflectDmg =
     thornsDmg +
     brambleDmg +
-    infiniteThornsDmg +
+    (hitStoppedByShield ? 0 : infiniteThornsDmg) +
     enchantReflectDmg +
     wardenReflectDmg;
   const reflectBoostPct =
@@ -959,15 +1185,17 @@ export function resolveEnemyPhase(
     reflectBoostPct > 0
       ? Math.floor(baseReflectDmg * (1 + reflectBoostPct / 100))
       : baseReflectDmg;
+  const totalRawReflectDmg =
+    rawReflectDmg + fortressReaction.rawReflectDamage;
   const reflectTargetDef = playerFacingEnemyDef(state, player);
   const reflectTargetDefMult = v2DefBuffMult(
     state.enemyV2SelfBuffs,
     state.enemyV2Debuffs,
   );
   const reflectDmg =
-    rawReflectDmg > 0
+    totalRawReflectDmg > 0
       ? damageBetween(
-          rawReflectDmg,
+          totalRawReflectDmg,
           reflectTargetDefMult !== 1
             ? Math.floor(reflectTargetDef * reflectTargetDefMult)
             : reflectTargetDef,
@@ -978,13 +1206,20 @@ export function resolveEnemyPhase(
     const reflectLabels: string[] = [];
     if (thornsDmg > 0) reflectLabels.push("반사 갑주");
     if (brambleDmg > 0) reflectLabels.push("가시 갑옷");
-    if (infiniteThornsDmg > 0) reflectLabels.push("무한 가시");
+    if (!hitStoppedByShield && infiniteThornsDmg > 0) reflectLabels.push("무한 가시");
     if (enchantReflectDmg > 0) reflectLabels.push("별빛 반사");
     if (wardenReflectDmg > 0) reflectLabels.push("수호 반사");
     if (reflectBoostPct > 0) reflectLabels.push("반사 증폭");
+    if (fortressReaction.ironWallReflected) reflectLabels.push("철벽 반사");
     log = appendLog(log, {
       kind: "player_attack",
       text: `[${reflectLabels.join(" + ")}] ${state.enemy.name}에게 ${reflectDmg} 반사 피해.`,
+    });
+  }
+  if (fortressReaction.ironWallReflected) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[철벽 태세] 철벽 반사 ${fortressReaction.ironWallReflectCharges}회 남음`,
     });
   }
   // 반격의 룬 — 피격 시 일정 확률로 적에게 ATK 데미지로 반격. 살아남았을 때만 발동.
@@ -993,6 +1228,7 @@ export function resolveEnemyPhase(
   let enemyHpAfterRuneCounter = enemyHpAfterThorns;
   if (
     runeCounterPct > 0 &&
+    !hitStoppedByShield &&
     playerHp > 0 &&
     enemyHpAfterThorns > 0 &&
     Math.random() * 100 < runeCounterPct
@@ -1016,6 +1252,7 @@ export function resolveEnemyPhase(
   let enemyHpAfterMartialCounter = enemyHpAfterRuneCounter;
   if (
     martialCounterPct > 0 &&
+    !hitStoppedByShield &&
     playerHp > 0 &&
     enemyHpAfterRuneCounter > 0 &&
     Math.random() * 100 < martialCounterPct
@@ -1023,44 +1260,131 @@ export function resolveEnemyPhase(
     const v2AtkMultM = v2AtkBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
     const v2DefMultM = v2DefBuffMult(state.enemyV2SelfBuffs, state.enemyV2Debuffs);
     const counterDefM = playerFacingEnemyDef(state, player);
+    const counterBoostPct =
+      player.passiveCounterDamageUsesReflectBoost &&
+      state.stacks.skillReflectBoostTurns > 0
+        ? state.stacks.skillReflectBoostPct
+        : 0;
+    const counterAtkM =
+      v2AtkMultM !== 1 ? Math.floor(player.atk * v2AtkMultM) : player.atk;
+    const boostedCounterAtkM =
+      counterBoostPct > 0
+        ? Math.floor(counterAtkM * (1 + counterBoostPct / 100))
+        : counterAtkM;
     const counterDmgM = damageBetween(
-      v2AtkMultM !== 1 ? Math.floor(player.atk * v2AtkMultM) : player.atk,
+      boostedCounterAtkM,
       v2DefMultM !== 1 ? Math.floor(counterDefM * v2DefMultM) : counterDefM,
     );
     enemyHpAfterMartialCounter = Math.max(0, enemyHpAfterRuneCounter - counterDmgM);
     log = appendLog(log, {
       kind: "player_attack",
-      text: `[반격] ${state.enemy.name}에게 ${counterDmgM} 반격 피해.`,
+      text: `[${counterBoostPct > 0 ? "반격 + 금강인" : "반격"}] ${state.enemy.name}에게 ${counterDmgM} 반격 피해.`,
     });
   }
-  if (playerHp <= 0) {
-    return {
-      ...state,
-      playerHp,
-      enemyHp: enemyHpAfterMartialCounter,
-      flags: {
-        ...state.flags,
-        enduranceTriggered,
-        enrageTriggered,
-        statusBlockUsed,
-      },
-      buffs: {
-        ...state.buffs,
-        enemyAtkBonus,
-      },
+  const reactiveDefenseCharges = consumeReactiveDefenseCharges(
+    {
+      evasion: state.stacks.skillEvasionTurns,
+      damageReduction: state.stacks.skillDmgReduceTurns,
+      reflect: state.stacks.skillReflectBoostTurns,
+    },
+    {
+      evasionUsed: state.stacks.skillEvasionTurns > 0,
+      landed: preDefenseDamage > 0,
+      reflectEligible: baseReflectDmg > 0,
+    },
+  );
+  let resolvedState: BattleState = {
+    ...state,
+    playerHp,
+    playerMagicBarrier: magicBarrier.durabilityLeft,
+    enemyHp: enemyHpAfterMartialCounter,
+    flags: {
+      ...state.flags,
+      enduranceTriggered,
+      enrageTriggered,
+      statusBlockUsed,
+      ...(trackedShieldEffect ? { trackedShieldBreakUsed: true } : {}),
+    },
+    buffs: {
+      ...state.buffs,
+      enemyAtkBonus,
+      ...(trackedShieldEffect
+        ? {
+            playerDmgReductionPct: Math.max(
+              state.buffs.playerDmgReductionTurnsLeft > 0
+                ? state.buffs.playerDmgReductionPct
+                : 0,
+              trackedShieldEffect.damageReductionPct,
+            ),
+            playerDmgReductionTurnsLeft: Math.max(
+              state.buffs.playerDmgReductionTurnsLeft,
+              trackedShieldEffect.actions,
+            ),
+          }
+        : {}),
+    },
+    stacks: {
+      ...state.stacks,
+      tripleWard: nextTripleWard,
+      skillEvasionTurns: reactiveDefenseCharges.evasion,
+      skillDmgReduceTurns: reactiveDefenseCharges.damageReduction,
+      skillReflectBoostTurns: reactiveDefenseCharges.reflect,
+      playerShield: nextPlayerShield,
+      ...(state.stacks.trackedSetShield != null
+        ? { trackedSetShield: trackedShieldResolution.remaining }
+        : {}),
+      fortressImpact: fortressReaction.impact,
+      ironWallReflectCharges: fortressReaction.ironWallReflectCharges,
+      chillStacks: trackedShieldEffect?.cleanse ? 0 : chillStacksNext,
+      curseStacks: trackedShieldEffect?.cleanse ? 0 : curseStacksNext,
+      damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
+      braceDefBonus: nextBraceDefBonus,
+    },
+    ...(trackedShieldEffect?.cleanse
+      ? { playerV2Dots: [], v2SelfDebuffs: {} }
+      : {}),
+    turn: {
+      ...state.turn,
+      enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
+    },
+    log,
+  };
+  if (resolvedState.stacks.tier7?.ruinCharge) {
+    resolvedState = {
+      ...resolvedState,
       stacks: {
-        ...state.stacks,
-        playerShield: nextPlayerShield,
-        chillStacks: chillStacksNext,
-        curseStacks: curseStacksNext,
-        damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
-        braceDefBonus: nextBraceDefBonus,
+        ...resolvedState.stacks,
+        tier7: {
+          ...resolvedState.stacks.tier7,
+          ruinCharge: {
+            ...recordChargeHpLoss(
+              resolvedState.stacks.tier7.ruinCharge,
+              Math.min(state.playerHp, dmgToHp),
+            ),
+            deathBypassTriggered:
+              resolvedState.stacks.tier7.ruinCharge.deathBypassTriggered ||
+              berserkerSurvival.triggered,
+          },
+        },
       },
-      turn: {
-        ...state.turn,
-        enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
+    };
+  }
+  if (resolvedState.stacks.tier6Uniques) {
+    resolvedState = applyTier6UniquePveEvent(resolvedState, player, {
+      kind: "hp_threshold",
+      currentHp: resolvedState.playerHp,
+      maxHp: resolvedState.playerMaxHp,
+      origin: {
+        actionId: resolvedState.turn.enemyPhasesCompleted,
+        eventId: resolvedState.log.length,
       },
-      log: appendLog(log, {
+    });
+  }
+  resolvedState = releaseSwordShadowAfterEnemyAction(resolvedState);
+  if (resolvedState.playerHp <= 0) {
+    return {
+      ...resolvedState,
+      log: appendLog(resolvedState.log, {
         kind: "info",
         text: `${playerName}이(가) 쓰러졌다...`,
       }),
@@ -1068,35 +1392,12 @@ export function resolveEnemyPhase(
       outcome: "lose",
     };
   }
-  if (enemyHpAfterMartialCounter <= 0) {
+  if (resolvedState.enemyHp <= 0) {
     // 반사 / 반격 피해로 적이 쓰러짐 — 플레이어는 생존.
     return {
-      ...state,
-      playerHp,
+      ...resolvedState,
       enemyHp: 0,
-      flags: {
-        ...state.flags,
-        enduranceTriggered,
-        enrageTriggered,
-        statusBlockUsed,
-      },
-      buffs: {
-        ...state.buffs,
-        enemyAtkBonus,
-      },
-      stacks: {
-        ...state.stacks,
-        playerShield: nextPlayerShield,
-        chillStacks: chillStacksNext,
-        curseStacks: curseStacksNext,
-        damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
-        braceDefBonus: nextBraceDefBonus,
-      },
-      turn: {
-        ...state.turn,
-        enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
-      },
-      log: appendLog(log, {
+      log: appendLog(resolvedState.log, {
         kind: "info",
         text: `${state.enemy.name}을(를) 쓰러뜨렸다!`,
       }),
@@ -1104,32 +1405,5 @@ export function resolveEnemyPhase(
       outcome: "win",
     };
   }
-  return finishEnemyAttack({
-    ...state,
-    playerHp,
-    enemyHp: enemyHpAfterMartialCounter,
-    flags: {
-      ...state.flags,
-      enduranceTriggered,
-      enrageTriggered,
-      statusBlockUsed,
-    },
-    buffs: {
-      ...state.buffs,
-      enemyAtkBonus,
-    },
-    stacks: {
-      ...state.stacks,
-      playerShield: nextPlayerShield,
-      chillStacks: chillStacksNext,
-      curseStacks: curseStacksNext,
-      damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
-      braceDefBonus: nextBraceDefBonus,
-    },
-    turn: {
-      ...state.turn,
-      enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
-    },
-    log,
-  });
+  return finishEnemyAttack(resolvedState);
 }

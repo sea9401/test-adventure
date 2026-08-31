@@ -8,7 +8,7 @@
 // 이라 안전하게 재캘리브 가능.
 //
 // 레퍼런스 빌드(전사, 보통 수행): 숙련도가 다이얼.
-//   - 스탯: computeStatFloors(cumLevel) + Lv100 성장(rollLevelGrowth 99회, caps=보통 수행)
+//   - 스탯: 기존 경력의 이관 floor + Lv100 성장(rollLevelGrowth 99회, caps=보통 수행)
 //   - 장비: 그 깊이 밴드의 드랍 BiS(슬롯별 최고 위력, 대검). 깊이<13 = 상점 미스릴 라인.
 //   - 스킬 0(베이스라인 — 스킬 빌드는 더 강하므로 게이트는 보수측).
 //
@@ -18,8 +18,12 @@
 import { resolveBattle } from "../src/adventure/v2/combat/engine";
 import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
+import { powerInputFromPlayer } from "../src/lib/server/playerPowerInput";
 import { computeStatFloors, rollLevelGrowth } from "../src/adventure/data/v2/statGrowth";
-import { emptyProficiency } from "../src/adventure/data/v2/proficiency";
+import {
+  balanceCumLevel,
+  emptyProficiency,
+} from "../src/adventure/data/v2/proficiency";
 import { derivePowerScore } from "../src/adventure/data/v2/power";
 import { floorPowerGate, floorStatMult } from "../src/adventure/data/v2/dungeonLadder";
 import { V2_MONSTERS } from "../src/adventure/data/v2/v2Monsters";
@@ -98,6 +102,8 @@ function makeRef(depth: number, cumLevel: number) {
   const firstLife = cumLevel <= 100;
   const level = firstLife ? Math.max(1, cumLevel) : 100;
   prof.groups["warrior"] = { tier: 1, points: 0, cumLevel } as never;
+  // 기존 경력 스냅샷은 운영 지연 이관과 동일한 floor 기준을 보존한다.
+  prof.statFloorLevels.warrior = balanceCumLevel(cumLevel);
   // 보통 수행 — 주력 위주 cap 이득(파밍 동반 가정). 첫 생애엔 비례 축소.
   const capScale = firstLife ? level / 100 : 1;
   (prof as { caps: Partial<Record<V2StatKey, number>> }).caps = {
@@ -120,14 +126,9 @@ function makeRef(depth: number, cumLevel: number) {
     hp: undefined,
   });
   const p = d.player;
-  const power = derivePowerScore({
-    atk: p.atk,
-    magicAtk: p.magicAtk ?? 0,
-    def: p.def,
-    spd: p.spd,
-    maxHp: d.maxHp,
-    maxMp: p.maxMp ?? 0,
-  });
+  const power = derivePowerScore(
+    powerInputFromPlayer(p, d.maxHp, p.maxMp),
+  );
   return { d, power };
 }
 

@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store, account } = vi.hoisted(() => ({
+const { store, account, mastery } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   account: { email: "player@example.com" },
+  mastery: {
+    trophiesEnabled: false,
+    progressRows: [] as unknown[],
+    history: [] as unknown[],
+    researchHistory: [] as unknown[],
+  },
 }));
 const keyOf = (userId: string, key: string) => `${userId}::${key}`;
 
@@ -11,6 +17,28 @@ vi.mock("@/lib/server/ensureUser", () => ({
 }));
 vi.mock("@/lib/server/userRateLimit", () => ({
   enforceUserAndIpRateLimit: vi.fn(() => null),
+}));
+vi.mock("@/lib/server/opsSettings", () => ({
+  readCodexMasteryFeatureSettings: vi.fn(async () => ({
+    recordingEnabled: false,
+    overviewVisible: false,
+    rankingVisible: false,
+    sealsEnabled: false,
+    trophiesEnabled: mastery.trophiesEnabled,
+    monthlyProgressEnabled: false,
+    monthlyRankingVisible: false,
+    settlementEnabled: false,
+    feedEnabled: false,
+  })),
+}));
+vi.mock("@/lib/server/codexMasteryRepository", () => ({
+  readCodexMasteryProgressRows: vi.fn(async () => mastery.progressRows),
+}));
+vi.mock("@/lib/server/codexMasteryTrophyRepository", () => ({
+  readCodexMasteryTrophyHistory: vi.fn(async () => mastery.history),
+}));
+vi.mock("@/lib/server/codexResearchTrophies", () => ({
+  readCodexResearchTrophyHistory: vi.fn(async () => mastery.researchHistory),
 }));
 vi.mock("@/db", () => ({
   db: {
@@ -71,6 +99,10 @@ describe("profile showcase route", () => {
   beforeEach(() => {
     store.clear();
     account.email = "player@example.com";
+    mastery.trophiesEnabled = false;
+    mastery.progressRows = [];
+    mastery.history = [];
+    mastery.researchHistory = [];
     vi.mocked(ensureUser).mockResolvedValue("u1");
     store.set(keyOf("u1", "character.v2"), {
       profileBadgeStandOwned: true,
@@ -266,5 +298,119 @@ describe("profile showcase route", () => {
     expect(body.achievementOptions.map((option) => option.id)).toEqual([
       ACHIEVEMENT?.id,
     ]);
+  });
+
+  it("keeps mastery trophies out of the legacy response while the flag is off", async () => {
+    const response = await GET(new Request("http://t/api/v2/me/profile-showcase"));
+    const body = (await response.json()) as {
+      trophyOptions: Array<{ kind?: string }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.trophyOptions.every((option) => option.kind !== "mastery")).toBe(true);
+  });
+
+  it("offers earned and locked mastery families and saves an earned family", async () => {
+    mastery.trophiesEnabled = true;
+    mastery.history = [{
+      trophyId: "mastery:fish",
+      kind: "mastery_category",
+      currentTier: "bronze",
+      tierAchievedAt: { bronze: "2026-08-20T00:00:00.000Z" },
+      catalogVersion: 1,
+    }];
+
+    const getResponse = await GET(
+      new Request("http://t/api/v2/me/profile-showcase"),
+    );
+    const getBody = (await getResponse.json()) as {
+      trophyOptions: Array<{ id: string; kind?: string; unlocked: boolean }>;
+    };
+    const masteryOptions = getBody.trophyOptions.filter(
+      (option) => option.kind === "mastery",
+    );
+    expect(masteryOptions).toHaveLength(7);
+    expect(masteryOptions.find((option) => option.id === "mastery:fish")?.unlocked)
+      .toBe(true);
+    expect(masteryOptions.find((option) => option.id === "mastery:overall")?.unlocked)
+      .toBe(false);
+
+    const saved = await post({
+      kind: "masteryTrophy",
+      trophyId: "mastery:fish",
+    });
+    expect(saved.status).toBe(200);
+    expect(store.get(keyOf("u1", PROFILE_SHOWCASE_SAVE_KEY))).toEqual({
+      slots: [{ kind: "masteryTrophy", trophyId: "mastery:fish" }, null, null],
+      visible: true,
+    });
+  });
+
+  it("offers and saves an earned monthly research trophy", async () => {
+    mastery.trophiesEnabled = true;
+    mastery.researchHistory = [{
+      trophyId: "research:2026-08",
+      kind: "research_season",
+      currentTier: "legendary",
+      tierAchievedAt: { legendary: "2026-08-31T15:00:01.000Z" },
+      catalogVersion: 1,
+      seasonMetadata: {
+        seasonId: "2026-08",
+        themeId: "rivers-and-lakes",
+        themeName: "강과 호수의 달",
+        finalRank: 1,
+        score: 19_000,
+        objectiveCompletedCount: 18,
+        objectiveScore: 12_000,
+        diversityScore: 4_000,
+        recordScore: 3_000,
+        representativeRecord: null,
+        settledAt: "2026-08-31T15:00:01.000Z",
+        firstPlaceEngraving: true,
+      },
+    }];
+
+    const body = await GET(new Request("http://t/api/v2/me/profile-showcase"))
+      .then((response) => response.json()) as {
+        trophyOptions: Array<{ id: string; kind?: string }>;
+      };
+    expect(body.trophyOptions).toContainEqual(expect.objectContaining({
+      id: "research:2026-08",
+      kind: "research",
+    }));
+
+    const saved = await post({
+      kind: "masteryTrophy",
+      trophyId: "research:2026-08",
+    });
+    expect(saved.status).toBe(200);
+  });
+
+  it("rejects disabled, unknown, and unearned mastery selections without deleting stored ones", async () => {
+    const selection = { kind: "masteryTrophy", trophyId: "mastery:fish" };
+    store.set(keyOf("u1", PROFILE_SHOWCASE_SAVE_KEY), {
+      slots: [selection, null, null],
+      visible: true,
+    });
+
+    expect((await post(selection)).status).toBe(409);
+    const visibility = await POST(
+      new Request("http://t/api/v2/me/profile-showcase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visible: false }),
+      }),
+    );
+    expect(visibility.status).toBe(200);
+    expect(store.get(keyOf("u1", PROFILE_SHOWCASE_SAVE_KEY))).toEqual({
+      slots: [selection, null, null],
+      visible: false,
+    });
+
+    mastery.trophiesEnabled = true;
+    mastery.history = [];
+    expect((await post(selection)).status).toBe(400);
+    expect((await post({ kind: "masteryTrophy", trophyId: "mastery:missing" })).status)
+      .toBe(400);
   });
 });

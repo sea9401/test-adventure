@@ -6,7 +6,7 @@ import {
   SETTLEMENT_RESOURCE_TO_MATERIAL,
   settlementBuildingMaterialsComplete,
   settlementDonationMaterialName,
-  settlementResourceIcon,
+  settlementResourceIconName,
   settlementResourceName,
   type AnySettlementBuildingUpgradeDef,
   type GuildFacilityDonationProgress,
@@ -14,6 +14,7 @@ import {
   type SettlementDonationMaterialId,
   type SettlementResources,
 } from "@/adventure/data/v2/settlement";
+import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 
 export function GuildFacilityUpgradeFund({
   buildingId,
@@ -181,8 +182,9 @@ export function GuildFacilityUpgradeFund({
           return (
             <div key={row.key} className="text-[11px]">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-zinc-600 dark:text-zinc-300">
-                  {settlementResourceIcon(row.key)} {settlementResourceName(row.key)}
+                <span className="inline-flex items-center gap-1 text-zinc-600 dark:text-zinc-300">
+                  <PlumpGameIcon name={settlementResourceIconName(row.key)} size={15} />
+                  {settlementResourceName(row.key)}
                 </span>
                 <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
                   {row.current.toLocaleString()} / {row.required.toLocaleString()}
@@ -386,7 +388,7 @@ function donationErrorText(error?: string): string {
     case "no_guild":
       return "소속 길드가 없습니다.";
     case "building_required":
-      return "먼저 해당 시설을 개방해야 합니다.";
+      return "길드 시설 정보를 찾을 수 없습니다. 잠시 후 다시 시도해 주세요.";
     case "max_level":
       return "이미 최고 레벨입니다.";
     case "material_not_required":

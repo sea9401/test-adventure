@@ -1,17 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
   claimGuildTrainingDrill,
+  GUILD_TRAINING_DRILLS,
   GUILD_TRAINING_DRILL_IDS,
   GUILD_TRAINING_WEEKLY_BONUS_MASTERY,
   GUILD_TRAINING_WEEKLY_BONUS_TARGET,
   guildTrainingDayWindow,
   guildTrainingDrillViews,
+  guildTrainingReward,
   parseGuildTrainingState,
   recommendedGuildTrainingDrill,
   todayGuildTrainingKey,
   todayGuildTrainingWeekKey,
   type GuildTrainingState,
 } from "./guildTrainingGround";
+import { trainingGroundUpgradeForLevel } from "./settlement";
 
 describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
   it("일일 키는 한국 시간 자정 기준으로 바뀐다", () => {
@@ -49,6 +52,47 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
         "2026-07-01",
       ),
     ).toEqual({ dayKey: "2026-07-01", claimed: [] });
+  });
+
+  it("훈련 보너스 나머지는 일일·주간 초기화와 무관하게 보존한다", () => {
+    expect(
+      parseGuildTrainingState(
+        {
+          dayKey: "2026-06-30",
+          claimed: ["basic_stance"],
+          rewardBonusRemainderPct: 72,
+          hotTimeBonusRemainderPct: 25,
+        },
+        "2026-07-01",
+        "2026-06-29",
+      ),
+    ).toMatchObject({
+      dayKey: "2026-07-01",
+      claimed: [],
+      rewardBonusRemainderPct: 72,
+      hotTimeBonusRemainderPct: 25,
+    });
+  });
+
+  it("낮은 훈련 보너스도 여러 날에 걸쳐 누적 지급한다", () => {
+    const drill = GUILD_TRAINING_DRILLS.basic_stance;
+    const upgrade = trainingGroundUpgradeForLevel(1);
+    const first = guildTrainingReward(drill, upgrade, 3, 0);
+    const second = guildTrainingReward(
+      drill,
+      upgrade,
+      3,
+      first.remainderPct,
+    );
+    const third = guildTrainingReward(
+      drill,
+      upgrade,
+      3,
+      second.remainderPct,
+    );
+
+    expect([first.mastery, second.mastery, third.mastery]).toEqual([12, 12, 13]);
+    expect(third.remainderPct).toBe(8);
   });
 
   it("주가 같으면 주간 완료 수를 보존하고, 주가 바뀌면 초기화한다", () => {

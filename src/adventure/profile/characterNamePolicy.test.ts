@@ -47,7 +47,18 @@ describe("character name policy", () => {
     });
   });
 
-  it.each(["운영자", "관리자123", "SuperAdmin", "SYSTEM7"])(
+  it("9자 닉네임은 허용하고 10자 닉네임은 거부한다", () => {
+    expect(validateCharacterName("가나다라마바사아자")).toEqual({
+      ok: true,
+      name: "가나다라마바사아자",
+    });
+    expect(validateCharacterName("가나다라마바사아자차")).toEqual({
+      ok: false,
+      reason: "length",
+    });
+  });
+
+  it.each(["운영자", "관리자123", "HeroAdmin", "SYSTEM7"])(
     "운영 사칭 가능성이 있는 예약어를 대소문자 구분 없이 거부한다: %s",
     (raw) => {
       expect(validateCharacterName(raw)).toEqual({

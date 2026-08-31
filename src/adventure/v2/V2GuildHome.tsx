@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { fetchGameState } from "./fetchGameState";
 import { useSearchParams } from "next/navigation";
 import { TabBar } from "@/components/ui/TabBar";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
@@ -13,6 +14,7 @@ import { GuildInfoPanel } from "./guild/GuildInfoPanel";
 import { GuildMembersPanel } from "./guild/GuildMembersPanel";
 import { GuildManagePanel } from "./guild/GuildManagePanel";
 import { GuildFacilitiesPanel } from "./guild/GuildOutpostsPanel";
+import { GuildRaidPanel } from "./guild/GuildRaidPanel";
 import { isGuildFacilityId } from "./guild/guildFacilities";
 import {
   type GuildInfoResponse,
@@ -32,6 +34,7 @@ import { useSystemToast } from "./RewardToastProvider";
 const BASE_SUB_TABS: { key: GuildSubTab; label: string }[] = [
   { key: "info", label: "길드 정보" },
   { key: "members", label: "길드원" },
+  { key: "raid", label: "토벌전" },
   { key: "browse", label: "길드 목록" },
   { key: "facilities", label: "시설" },
 ];
@@ -96,7 +99,7 @@ export function V2GuildHome({
     setLoading(true);
     try {
       const [stateRes, infoRes, actRes, contributionRes] = await Promise.all([
-        fetch("/api/v2/me/state").then((r) => (r.ok ? r.json() : null)),
+        fetchGameState().then((r) => (r.ok ? r.json() : null)),
         fetch("/api/v2/me/guild/info").then((r) => (r.ok ? r.json() : null)),
         fetch("/api/v2/guild/activity").then((r) => (r.ok ? r.json() : null)),
         fetch("/api/v2/guild/contributions").then((r) =>
@@ -236,6 +239,8 @@ export function V2GuildHome({
         />
       )}
 
+      {activeTab === "raid" && <GuildRaidPanel />}
+
       {activeTab === "browse" && (
         <GuildBrowsePanel
           busy={false}
@@ -284,6 +289,7 @@ export function V2GuildHome({
 function guildSubTabFromParam(value: string | null): GuildSubTab {
   if (
     value === "members" ||
+    value === "raid" ||
     value === "browse" ||
     value === "facilities" ||
     value === "manage"

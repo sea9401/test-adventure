@@ -28,6 +28,7 @@ const required = [
   "AUTH_URL",
   "AUTH_KAKAO_ID",
   "AUTH_KAKAO_SECRET",
+  "REFERRAL_IDENTITY_SECRET",
   "DATABASE_URL",
   "DATABASE_CA_CERT_PATH",
   "ADMIN_EMAILS",
@@ -50,7 +51,7 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-for (const key of ["AUTH_SECRET", "CRON_SECRET"]) {
+for (const key of ["AUTH_SECRET", "CRON_SECRET", "REFERRAL_IDENTITY_SECRET"]) {
   if (process.env[key].trim().length < 32) {
     console.error(`✗ production ${key} must be at least 32 characters`);
     process.exit(1);

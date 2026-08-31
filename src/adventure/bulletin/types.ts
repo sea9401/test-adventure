@@ -4,9 +4,10 @@ import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import type { BulletinActivitySummary } from "@/lib/bulletinActivity";
 
 // 게시판 글 — 서버 응답 + 클라 표시용 공용 모델.
-// likeCount/commentCount/likedByMe 는 GET /api/bulletin 의 서브쿼리로 함께 옴.
+// likeCount/commentCount/likedByMe/viewedByMe 는 GET /api/bulletin 의 묶음 쿼리로 함께 옴.
 export type BulletinPost = {
   id: number;
+  authorUserId?: string | null;
   name: string;
   avatar: Avatar | null;
   profileBorder: ProfileBorderId | null;
@@ -24,6 +25,7 @@ export type BulletinPost = {
   commentCount: number;
   viewCount: number;
   likedByMe: boolean;
+  viewedByMe: boolean;
   authorActivity: BulletinActivitySummary | null;
 };
 
@@ -35,6 +37,7 @@ export type BulletinFeed = {
 // 댓글 — 서버 응답 그대로. mine 은 본인 작성 여부 (삭제 버튼 노출 조건).
 export type BulletinComment = {
   id: number;
+  authorUserId?: string;
   /** null이면 일반 댓글, 숫자면 해당 최상위 댓글에 달린 한 단계 답글. */
   parentId: number | null;
   name: string;

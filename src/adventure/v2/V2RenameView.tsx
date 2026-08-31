@@ -73,7 +73,7 @@ export function V2RenameView({
               : j?.error === "no_ticket"
                 ? "유효한 개명 사용권이 필요합니다"
                 : j?.error === "invalid"
-                  ? "한글, 영문, 숫자로 된 1~16자 이름만 사용할 수 있습니다"
+                  ? CHARACTER_NAME_RULE_TEXT
                   : (j?.error ?? `http ${res.status}`);
         setMsg(`✗ ${label}`);
       }
@@ -103,7 +103,7 @@ export function V2RenameView({
             <TextInput
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="새 이름 (1~16자)"
+              placeholder={`새 이름 (1~${CHARACTER_NAME_MAX}자)`}
               maxLength={CHARACTER_NAME_MAX}
               autoComplete="off"
               disabled={busy}

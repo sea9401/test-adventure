@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { FeedbackForm } from "./FeedbackForm";
 import { FeedbackHistory } from "./FeedbackHistory";
 import { SURFACE_CARD } from "./ui/surfaces";
+import { feedbackIdFromHash } from "@/lib/feedbackNavigation";
 
 type FeedbackTab = "write" | "history";
 
@@ -13,7 +14,7 @@ export function FeedbackCenter() {
 
   useEffect(() => {
     const selectHashTab = () => {
-      if (window.location.hash.startsWith("#feedback-")) {
+      if (feedbackIdFromHash(window.location.hash) !== null) {
         setActiveTab("history");
       }
     };

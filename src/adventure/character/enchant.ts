@@ -204,7 +204,7 @@ export const ENCHANT_AFFIXES: Record<EnchantAffixId, EnchantAffix> = {
     materialId: "enchant_venom",
     name: "독공",
     description:
-      "공격 시 일정 확률로 적에게 지속 피해를 준다. 적 최대 체력이 높을수록 피해가 커져 고체력 보스에 강하다.",
+      "공격 시 일정 확률로 적에게 지속 피해를 준다. 보스에게는 최대 HP 비례 피해가 80%만 적용된다.",
     range: [5, 15],
     unit: "percent",
   },

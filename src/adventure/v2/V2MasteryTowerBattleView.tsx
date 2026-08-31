@@ -1,16 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CastleTurret } from "@phosphor-icons/react";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import { MASTERY_TOWER_MAX_FLOOR } from "@/adventure/data/v2/masteryTower";
 import type { Gender } from "@/adventure/profile/avatars";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { useGameResourceState } from "@/adventure/v2/GameStateProvider";
 import type { StaminaState } from "@/adventure/v2/stamina";
 
 type TowerLogEntry = {
@@ -21,6 +22,7 @@ type TowerLogEntry = {
 type TowerAttemptResult = {
   ok?: boolean;
   success?: boolean;
+  practice?: boolean;
   error?: string;
   tower?: {
     runFloor?: number;
@@ -45,18 +47,41 @@ type TowerAttemptResult = {
   } | null;
 };
 
-function resultMessage(
+export function masteryTowerResultMessage(
   result: TowerAttemptResult,
   cooldownSeconds: number,
 ): string {
   if (result.error === "max_floor") return "오늘 가능한 최고층에 도달했습니다.";
   if (result.error === "cooldown") {
-    return `재입장 대기 중 · ${cooldownSeconds}초 후 1층부터 재입장`;
+    return result.practice
+      ? `재입장 대기 중 · ${cooldownSeconds}초 후 ${MASTERY_TOWER_MAX_FLOOR}층 연습 재도전 가능`
+      : `재입장 대기 중 · ${cooldownSeconds}초 후 시작 위치 선택 가능`;
+  }
+  if (result.practice && result.success) {
+    return `${MASTERY_TOWER_MAX_FLOOR}층 연습 승리`;
   }
   if (result.success) return `${result.floor ?? "-"}층 돌파`;
   const retry =
-    cooldownSeconds > 0 ? ` · ${cooldownSeconds}초 후 1층부터 재입장` : "";
-  return `${result.floor ?? "-"}층 실패 · 전투력 ${(result.power ?? 0).toLocaleString("ko-KR")}/${(result.requiredPower ?? 0).toLocaleString("ko-KR")}${retry}`;
+    cooldownSeconds > 0
+      ? result.practice
+        ? ` · ${cooldownSeconds}초 후 연습 재도전 가능`
+        : ` · ${cooldownSeconds}초 후 시작 위치 선택 가능`
+      : "";
+  const attemptLabel = result.practice
+    ? `${result.floor ?? "-"}층 연습 실패`
+    : `${result.floor ?? "-"}층 실패`;
+  return `${attemptLabel} · 전투력 ${(result.power ?? 0).toLocaleString("ko-KR")}/${(result.requiredPower ?? 0).toLocaleString("ko-KR")}${retry}`;
+}
+
+export function canContinueMasteryTowerAttempt(
+  result: TowerAttemptResult | null,
+  busy: boolean,
+  cooldownSeconds: number,
+): boolean {
+  if (!result?.ok || busy || result.error === "max_floor") return false;
+  return Boolean(
+    result.success || (result.practice === true && cooldownSeconds <= 0),
+  );
 }
 
 function errorMessage(error: string | undefined): string {
@@ -64,16 +89,22 @@ function errorMessage(error: string | undefined): string {
   if (error === "no_character") return "캐릭터가 없어 입장할 수 없습니다.";
   if (error === "fishing_job") return "낚시 계열 직업은 숙련의 탑에 입장할 수 없습니다.";
   if (error === "out_of_stamina") return "스태미나가 부족해 오늘 첫 입장을 진행할 수 없습니다.";
+  if (error === "invalid_start_floor") return "선택한 시작 위치를 사용할 수 없습니다. 탑에서 다시 선택해 주세요.";
   return "입장을 진행할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 }
 
-export function V2MasteryTowerBattleView() {
+export function V2MasteryTowerBattleView({
+  initialStartFloor,
+}: {
+  initialStartFloor?: number;
+}) {
   const router = useRouter();
-  const { setStamina } = useGameState();
+  const { setStamina } = useGameResourceState();
   const [result, setResult] = useState<TowerAttemptResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const initialStartFloorRef = useRef(initialStartFloor);
 
   const enterTower = useCallback(async () => {
     setBusy(true);
@@ -81,6 +112,12 @@ export function V2MasteryTowerBattleView() {
     try {
       const res = await fetch("/api/v2/mastery-tower/attempt", {
         method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(
+          initialStartFloorRef.current == null
+            ? {}
+            : { startFloor: initialStartFloorRef.current },
+        ),
       });
       const json = (await res.json().catch(() => null)) as TowerAttemptResult | null;
       if (!json) {
@@ -88,6 +125,7 @@ export function V2MasteryTowerBattleView() {
         setLoadError(true);
         return;
       }
+      initialStartFloorRef.current = undefined;
       if (json.stamina) setStamina(json.stamina);
       setResult(json);
       setLoadError(!json.ok);
@@ -119,6 +157,7 @@ export function V2MasteryTowerBattleView() {
   }, [result]);
 
   const isMaxFloor = result?.error === "max_floor";
+  const isPractice = result?.practice === true;
   const cooldownUntil =
     typeof result?.tower?.cooldownUntil === "number"
       ? result.tower.cooldownUntil
@@ -129,9 +168,17 @@ export function V2MasteryTowerBattleView() {
       : cooldownUntil
         ? 0
         : Math.max(0, Math.ceil(result?.retryAfterSeconds ?? 0));
-  const isCooldown = result?.error === "cooldown" || cooldownSeconds > 0;
-  const canContinue = Boolean(
-    result?.ok && !busy && !isMaxFloor && cooldownSeconds <= 0,
+  const isCooldown = cooldownSeconds > 0;
+  const nextAttemptIsPractice = Boolean(
+    isPractice ||
+      (result?.success &&
+        result.floor === MASTERY_TOWER_MAX_FLOOR &&
+        result.tower?.runFloor === MASTERY_TOWER_MAX_FLOOR),
+  );
+  const canContinue = canContinueMasteryTowerAttempt(
+    result,
+    busy,
+    cooldownSeconds,
   );
 
   useEffect(() => {
@@ -178,14 +225,15 @@ export function V2MasteryTowerBattleView() {
 
       {result?.ok && (
         <StatusBanner tone={result.success || isMaxFloor ? "success" : "error"}>
-          {resultMessage(result, cooldownSeconds)}
+          {masteryTowerResultMessage(result, cooldownSeconds)}
         </StatusBanner>
       )}
 
       {isCooldown && (
         <StatusBanner tone="warning">
-          패배하면 현재 등반은 초기화됩니다. {cooldownSeconds}초 후 1층부터 다시
-          시작할 수 있습니다.
+          {isPractice
+            ? `${MASTERY_TOWER_MAX_FLOOR}층 클리어 기록과 보상은 유지됩니다. 대기시간 뒤 같은 상대에게 다시 도전할 수 있습니다.`
+            : "패배하면 현재 등반은 초기화됩니다. 탑으로 돌아가 시작 위치를 다시 선택할 수 있습니다."}
         </StatusBanner>
       )}
 
@@ -193,7 +241,7 @@ export function V2MasteryTowerBattleView() {
         <Card padding="md" className="space-y-3">
           <div className="flex items-center gap-2">
             <CastleTurret size={18} weight="duotone" className="text-emerald-500" />
-            <h2 className="text-base font-semibold">전투 로그</h2>
+            <h2 className="text-base font-semibold">도전 요약</h2>
           </div>
           <ol className="space-y-1.5">
             {result.log.map((entry, index) => (
@@ -221,15 +269,23 @@ export function V2MasteryTowerBattleView() {
           outcome={replay.outcome}
           outcomeAction={{
             label:
-              replay.outcome === "win"
+              nextAttemptIsPractice
+                ? `${MASTERY_TOWER_MAX_FLOOR}층 연습 재도전`
+                : replay.outcome === "win"
                 ? "다음 층 입장"
-                : cooldownSeconds > 0
-                  ? `재입장 대기 ${cooldownSeconds}초`
-                  : "재입장",
+                : "시작 위치 선택",
             busyLabel: "입장 중...",
             busy,
-            disabled: !canContinue,
-            onClick: enterTower,
+            disabled:
+              nextAttemptIsPractice || replay.outcome === "win"
+                ? !canContinue
+                : false,
+            onClick:
+              nextAttemptIsPractice
+                ? enterTower
+                : replay.outcome === "win"
+                  ? enterTower
+                  : () => router.push("/battle/mastery-tower"),
           }}
         />
       )}
@@ -245,11 +301,21 @@ export function V2MasteryTowerBattleView() {
           </button>
           <button
             type="button"
-            onClick={() => void enterTower()}
-            disabled={!canContinue}
+            onClick={() =>
+              nextAttemptIsPractice || result.success
+                ? void enterTower()
+                : router.push("/battle/mastery-tower")
+            }
+            disabled={
+              nextAttemptIsPractice || result.success ? !canContinue : false
+            }
             className="h-10 rounded-md border border-zinc-200 px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
           >
-            {cooldownSeconds > 0 ? `재입장 대기 ${cooldownSeconds}초` : "다시 입장"}
+            {nextAttemptIsPractice
+              ? `${MASTERY_TOWER_MAX_FLOOR}층 연습 재도전`
+              : result.success
+                ? "다음 층 입장"
+                : "시작 위치 선택"}
           </button>
         </Card>
       )}

@@ -1,8 +1,29 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
-const { store, resolveBattleMock } = vi.hoisted(() => ({
+const {
+  store,
+  resolveBattleMock,
+  prepareBattleActorMock,
+  recordCodexMasteryGameplayBatch,
+  toReplayPayloadMock,
+} = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   resolveBattleMock: vi.fn(),
+  prepareBattleActorMock: vi.fn(),
+  recordCodexMasteryGameplayBatch: vi.fn(
+    async (
+      _executor: unknown,
+      _userId: string,
+      _events: readonly CodexMasteryGameplayEvent[],
+      _now: Date,
+    ) => [],
+  ),
+  toReplayPayloadMock: vi.fn(() => ({
+    log: [],
+    playerMaxHp: 1_000,
+    enemy: { hp: 1 },
+  })),
 }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -14,24 +35,7 @@ vi.mock("@/lib/server/userRateLimit", () => ({
 }));
 
 vi.mock("@/lib/server/v2BattlePrep", () => ({
-  prepareV2BattleActor: vi.fn(async () => ({
-    player: {
-      maxHp: 1_000,
-      player: {
-        hp: 1_000,
-        maxHp: 1_000,
-        mp: 500,
-        maxMp: 500,
-        atk: 100,
-        magicAtk: 100,
-        def: 50,
-        spd: 50,
-        evasionPct: 0,
-        attackCount: 1,
-      },
-    },
-    skills: { learned: [], equipped: [] },
-  })),
+  prepareV2BattleActor: prepareBattleActorMock,
 }));
 
 vi.mock("@/adventure/v2/combat/engine", () => ({
@@ -39,7 +43,11 @@ vi.mock("@/adventure/v2/combat/engine", () => ({
 }));
 
 vi.mock("@/adventure/data/v2/replayPayload", () => ({
-  toReplayPayload: vi.fn(() => ({ log: [], playerMaxHp: 1_000, enemy: { hp: 1 } })),
+  toReplayPayload: toReplayPayloadMock,
+}));
+
+vi.mock("@/lib/server/codexMasteryGameplay", () => ({
+  recordCodexMasteryGameplayBatch,
 }));
 
 vi.mock("@/db", () => ({
@@ -74,6 +82,7 @@ import {
 } from "@/adventure/data/v2/stormExpedition";
 import {
   STORM_EXPEDITION_ROUTE_MATERIAL_ID,
+  STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID,
   STORM_ORIGIN_FRAGMENT_MATERIAL_ID,
 } from "@/adventure/data/v2/stormExpeditionRewards";
 
@@ -85,9 +94,41 @@ function request(body: unknown): Request {
   });
 }
 
+function activeV3(overrides: Record<string, unknown> = {}) {
+  return {
+    version: 3,
+    mode: "normal",
+    routeId: "gale",
+    currentNodeId: "gale_outer",
+    visitedNodeIds: ["gale_outer"],
+    completedNodeIds: [],
+    encounterIndex: 0,
+    hp: 800,
+    mp: 300,
+    maxHp: 1_000,
+    maxMp: 500,
+    defeatedCount: 0,
+    pendingGold: 0,
+    pendingMaterials: {},
+    pendingEquipment: [],
+    boons: [],
+    nextBattleEffects: [],
+    usedRecoverySkillIds: [],
+    altarOffers: ["tempest_might", "storm_guard", "deep_mana"],
+    chosenChoices: {},
+    riskEvent: null,
+    ...overrides,
+  };
+}
+
 describe("POST /api/v2/storm-expedition", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   beforeEach(() => {
     store.clear();
+    recordCodexMasteryGameplayBatch.mockClear();
     store.set("character.v2", {
       frontierDepth: 72,
       gold: 1_000,
@@ -127,7 +168,494 @@ describe("POST /api/v2/storm-expedition", () => {
     resolveBattleMock.mockReturnValue({
       outcome: "win",
       turns: 1,
-      finalState: { playerHp: 700, playerMp: 300 },
+      finalState: {
+        playerHp: 700,
+        playerMp: 300,
+        v2SkillCooldowns: {},
+      },
+    });
+    prepareBattleActorMock.mockReset();
+    toReplayPayloadMock.mockClear();
+    prepareBattleActorMock.mockResolvedValue({
+      player: {
+        maxHp: 1_000,
+        player: {
+          hp: 1_000,
+          maxHp: 1_000,
+          mp: 500,
+          maxMp: 500,
+          atk: 100,
+          magicAtk: 100,
+          def: 50,
+          spd: 50,
+          evasionPct: 0,
+          attackCount: 1,
+        },
+      },
+      skills: { learned: [], equipped: [] },
+    });
+  });
+
+  it("지도 외곽 노드를 확정해야 원정을 시작한다", async () => {
+    store.set(STORM_EXPEDITION_SAVE_KEY, { date: stormExpeditionDateKey(), attemptsUsed: 0, active: null });
+
+    const invalid = await POST(request({ action: "start", mode: "normal", targetNodeId: "supply" }));
+    expect(invalid.status).toBe(400);
+    expect(await invalid.json()).toMatchObject({ error: "invalid_node", attemptsLeft: 3 });
+
+    const response = await POST(request({ action: "start", mode: "normal", targetNodeId: "thunder_outer" }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      attemptsLeft: 2,
+      state: { active: { version: 3, routeId: "thunder", currentNodeId: "thunder_outer", visitedNodeIds: ["thunder_outer"] } },
+    });
+  });
+
+  it("불안정한 축복과 겹치지 않는 제단 선택지 세 개를 시작할 때 고정한다", async () => {
+    store.set(STORM_EXPEDITION_SAVE_KEY, {
+      date: stormExpeditionDateKey(),
+      attemptsUsed: 0,
+      clears: 0,
+      active: null,
+    });
+    const randomValues = [0.51, 0.51, 0.51, 0.51, 0.51, 0, 0.51];
+    let randomIndex = 0;
+    vi.spyOn(Math, "random").mockImplementation(
+      () => randomValues[randomIndex++] ?? 0.51,
+    );
+
+    const response = await POST(request({
+      action: "start",
+      mode: "normal",
+      targetNodeId: "thunder_outer",
+    }));
+    const json = await response.json() as {
+      state: {
+        active: {
+          altarOffers: string[];
+          riskEvent: { id: string; boonId: string | null };
+        };
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.state.active.riskEvent.id).toBe("unstable_blessing");
+    expect(json.state.active.altarOffers).toHaveLength(3);
+    expect(new Set(json.state.active.altarOffers)).toHaveLength(3);
+    expect(json.state.active.altarOffers).not.toContain(
+      json.state.active.riskEvent.boonId,
+    );
+  });
+
+  it("완료한 현재 노드에서 연결된 미방문 노드로만 이동한다", async () => {
+    store.set(STORM_EXPEDITION_SAVE_KEY, {
+      date: stormExpeditionDateKey(), attemptsUsed: 1,
+      active: activeV3({ completedNodeIds: ["gale_outer"] }),
+    });
+
+    const response = await POST(request({
+      action: "move",
+      targetNodeId: "supply",
+      expectedCurrentNodeId: "gale_outer",
+      expectedEncounterIndex: 0,
+    }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      availableNextNodeIds: [],
+      state: { active: { currentNodeId: "supply", visitedNodeIds: ["gale_outer", "supply"], routeId: "gale" } },
+    });
+  });
+
+  it.each([
+    [activeV3(), "supply", "node_not_completed"],
+    [activeV3({ completedNodeIds: ["gale_outer"] }), "gale_middle", "node_not_reachable"],
+    [activeV3({ completedNodeIds: ["gale_outer"], visitedNodeIds: ["supply", "gale_outer"] }), "supply", "node_already_visited"],
+  ])("잘못된 지도 이동을 거절한다 %#", async (active, targetNodeId, error) => {
+    store.set(STORM_EXPEDITION_SAVE_KEY, { date: stormExpeditionDateKey(), attemptsUsed: 1, active });
+    const response = await POST(request({ action: "move", targetNodeId, expectedCurrentNodeId: "gale_outer", expectedEncounterIndex: 0 }));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ error });
+  });
+
+  it("입장 횟수가 없어도 연습을 시작하고 횟수를 소비하지 않는다", async () => {
+    store.set(STORM_EXPEDITION_SAVE_KEY, {
+      date: stormExpeditionDateKey(),
+      attemptsUsed: 3,
+      clears: 4,
+      spFruitProgressVersion: 2,
+      spFruitPity: 7,
+      spFruitObtained: 1,
+      active: null,
+    });
+
+    const response = await POST(request({
+      action: "start",
+      routeId: "thunder",
+      mode: "practice",
+    }));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({
+      attemptsLeft: 0,
+      state: {
+        attemptsUsed: 3,
+        clears: 4,
+        spFruitPity: 7,
+        spFruitObtained: 1,
+        active: { mode: "practice", routeId: "thunder", currentNodeId: "thunder_outer" },
+      },
+    });
+    expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({
+      attemptsUsed: 3,
+      active: { mode: "practice", routeId: "thunder" },
+    });
+  });
+
+  it("모드를 생략한 기존 실전 시작은 입장 횟수를 소비한다", async () => {
+    store.set(STORM_EXPEDITION_SAVE_KEY, {
+      date: stormExpeditionDateKey(),
+      attemptsUsed: 1,
+      clears: 0,
+      active: null,
+    });
+
+    const response = await POST(request({
+      action: "start",
+      routeId: "gale",
+    }));
+
+    expect(response.status).toBe(200);
+    expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({
+      attemptsUsed: 2,
+      active: { mode: "normal", routeId: "gale" },
+    });
+  });
+
+  it("알 수 없는 원정 모드는 시작 전에 거절한다", async () => {
+    store.set(STORM_EXPEDITION_SAVE_KEY, {
+      date: stormExpeditionDateKey(),
+      attemptsUsed: 0,
+      clears: 0,
+      active: null,
+    });
+
+    const response = await POST(request({
+      action: "start",
+      routeId: "gale",
+      mode: "sandbox",
+    }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: "invalid_mode" });
+    expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({ active: null });
+  });
+
+  it("연습 전투는 보상 난수를 호출하지 않고 자원 상태만 이어간다", async () => {
+    store.set(STORM_EXPEDITION_SAVE_KEY, {
+      date: stormExpeditionDateKey(),
+      attemptsUsed: 3,
+      clears: 2,
+      spFruitProgressVersion: 2,
+      spFruitPity: 5,
+      spFruitObtained: 1,
+      active: {
+        version: 2,
+        mode: "practice",
+        routeId: "gale",
+        nodeIndex: 0,
+        encounterIndex: 0,
+        hp: 800,
+        mp: 300,
+        maxHp: 1_000,
+        maxMp: 500,
+        defeatedCount: 0,
+        pendingGold: 0,
+        pendingMaterials: {},
+        pendingEquipment: [],
+        boons: [],
+        nextBattleEffects: [],
+        usedRecoverySkillIds: [],
+        altarOffers: ["tempest_might", "storm_guard", "deep_mana"],
+        chosenChoices: {},
+        riskEvent: null,
+      },
+    });
+    vi.spyOn(Math, "random").mockImplementation(() => {
+      throw new Error("practice must not roll rewards");
+    });
+
+    const response = await POST(request({
+      action: "fight",
+      expectedNodeIndex: 0,
+      expectedEncounterIndex: 0,
+    }));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({
+      success: true,
+      practice: true,
+      droppedMaterials: {},
+      droppedEquipment: null,
+    });
+    expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({
+      attemptsUsed: 3,
+      clears: 2,
+      spFruitPity: 5,
+      spFruitObtained: 1,
+      active: {
+        mode: "practice",
+        encounterIndex: 1,
+        hp: 700,
+        mp: 300,
+        pendingGold: 0,
+        pendingMaterials: {},
+        pendingEquipment: [],
+      },
+    });
+    expect(store.get("character.v2")).toMatchObject({ gold: 1_000 });
+    expect(store.get("equipment.v2")).toMatchObject({
+      owned: [{ iid: "old", id: "v2_iron_sword" }],
+    });
+    expect(toReplayPayloadMock).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        playerCombat: expect.objectContaining({
+          hp: 800,
+          maxHp: 1_000,
+          maxMp: 500,
+          atk: 100,
+        }),
+      },
+    );
+    vi.restoreAllMocks();
+  });
+
+  it("연습 균열 상자는 전투 페널티만 적용하고 재료를 만들지 않는다", async () => {
+    store.set(STORM_EXPEDITION_SAVE_KEY, {
+      date: stormExpeditionDateKey(),
+      attemptsUsed: 1,
+      clears: 0,
+      active: {
+        version: 2,
+        mode: "practice",
+        routeId: "gale",
+        nodeIndex: 1,
+        encounterIndex: 0,
+        hp: 800,
+        mp: 300,
+        maxHp: 1_000,
+        maxMp: 500,
+        defeatedCount: 2,
+        pendingGold: 0,
+        pendingMaterials: {},
+        pendingEquipment: [],
+        boons: [],
+        nextBattleEffects: [],
+        usedRecoverySkillIds: [],
+        altarOffers: ["tempest_might", "storm_guard", "deep_mana"],
+        chosenChoices: {},
+        riskEvent: {
+          id: "rift_cache",
+          nodeIndex: 1,
+          status: "offered",
+          boonId: null,
+          curseId: null,
+        },
+      },
+    });
+
+    const response = await POST(request({
+      action: "risk_event",
+      decision: "accept",
+      expectedNodeIndex: 1,
+      expectedEncounterIndex: 0,
+    }));
+
+    expect(response.status).toBe(200);
+    expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({
+      active: {
+        mode: "practice",
+        pendingMaterials: {},
+        nextBattleEffects: ["risk_enemy_fury"],
+        riskEvent: { id: "rift_cache", status: "accepted" },
+      },
+    });
+  });
+
+  it("연습 보급 금고는 골드를 만들지 않고 다음 구간으로 이동한다", async () => {
+    store.set(STORM_EXPEDITION_SAVE_KEY, {
+      date: stormExpeditionDateKey(),
+      attemptsUsed: 1,
+      clears: 0,
+      active: {
+        version: 2,
+        mode: "practice",
+        routeId: "gale",
+        nodeIndex: 1,
+        encounterIndex: 0,
+        hp: 800,
+        mp: 300,
+        maxHp: 1_000,
+        maxMp: 500,
+        defeatedCount: 2,
+        pendingGold: 0,
+        pendingMaterials: {},
+        pendingEquipment: [],
+        boons: [],
+        nextBattleEffects: [],
+        usedRecoverySkillIds: [],
+        altarOffers: ["tempest_might", "storm_guard", "deep_mana"],
+        chosenChoices: {},
+        riskEvent: null,
+      },
+    });
+
+    const response = await POST(request({
+      action: "choose",
+      choiceId: "scavenged_coffer",
+      expectedNodeIndex: 1,
+      expectedEncounterIndex: 0,
+    }));
+
+    expect(response.status).toBe(200);
+    expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({
+      active: {
+        mode: "practice",
+        currentNodeId: "supply",
+        completedNodeIds: expect.arrayContaining(["supply"]),
+        pendingGold: 0,
+        chosenChoices: { supply: "scavenged_coffer" },
+      },
+    });
+  });
+
+  it("연습은 첫 처치 전과 위험 페널티 중에도 보상 없이 즉시 종료한다", async () => {
+    store.set(STORM_EXPEDITION_SAVE_KEY, {
+      date: stormExpeditionDateKey(),
+      attemptsUsed: 2,
+      clears: 6,
+      spFruitProgressVersion: 2,
+      spFruitPity: 8,
+      spFruitObtained: 1,
+      active: {
+        version: 2,
+        mode: "practice",
+        routeId: "wreckage",
+        nodeIndex: 0,
+        encounterIndex: 0,
+        hp: 1_000,
+        mp: 500,
+        maxHp: 1_000,
+        maxMp: 500,
+        defeatedCount: 0,
+        pendingGold: 99_999,
+        pendingMaterials: { [STORM_ORIGIN_FRAGMENT_MATERIAL_ID]: 9 },
+        pendingEquipment: [{ iid: "should-not-claim", id: "v2_storm_gale_bow" }],
+        boons: [],
+        nextBattleEffects: ["risk_enemy_fury"],
+        usedRecoverySkillIds: [],
+        altarOffers: ["tempest_might", "storm_guard", "deep_mana"],
+        chosenChoices: {},
+        riskEvent: null,
+      },
+    });
+
+    const response = await POST(request({
+      action: "withdraw",
+      expectedNodeIndex: 0,
+      expectedEncounterIndex: 0,
+    }));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({
+      practice: true,
+      practiceEnded: true,
+      claimedRewards: false,
+      state: {
+        attemptsUsed: 2,
+        clears: 6,
+        spFruitPity: 8,
+        spFruitObtained: 1,
+        active: null,
+      },
+    });
+    expect(store.get("character.v2")).toMatchObject({
+      gold: 1_000,
+      materials: {
+        [STORM_EXPEDITION_ROUTE_MATERIAL_ID.gale]: 2,
+        [STORM_ORIGIN_FRAGMENT_MATERIAL_ID]: 3,
+      },
+    });
+    expect(store.get("equipment.v2")).toMatchObject({
+      owned: [{ iid: "old", id: "v2_iron_sword" }],
+    });
+  });
+
+  it("연습 완주는 보상·완주·SP 열매 천장을 바꾸지 않는다", async () => {
+    store.set(STORM_EXPEDITION_SAVE_KEY, {
+      date: stormExpeditionDateKey(),
+      attemptsUsed: 3,
+      clears: 24,
+      spFruitProgressVersion: 2,
+      spFruitPity: 24,
+      spFruitObtained: 1,
+      active: {
+        version: 2,
+        mode: "practice",
+        routeId: "thunder",
+        nodeIndex: 8,
+        encounterIndex: 0,
+        hp: 900,
+        mp: 400,
+        maxHp: 1_000,
+        maxMp: 500,
+        defeatedCount: 6,
+        pendingGold: 0,
+        pendingMaterials: {},
+        pendingEquipment: [],
+        boons: ["storm_guard"],
+        nextBattleEffects: [],
+        usedRecoverySkillIds: [],
+        altarOffers: ["tempest_might", "storm_guard", "deep_mana"],
+        chosenChoices: {},
+        riskEvent: null,
+      },
+    });
+    vi.spyOn(Math, "random").mockImplementation(() => {
+      throw new Error("practice completion must not roll rewards");
+    });
+
+    const response = await POST(request({
+      action: "fight",
+      expectedNodeIndex: 8,
+      expectedEncounterIndex: 0,
+    }));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({
+      practice: true,
+      bossClear: true,
+      practiceCompleted: true,
+      claimedRewards: false,
+      spFruitDropped: false,
+      gainedGold: 0,
+      gainedMaterials: {},
+      gainedEquipment: [],
+      state: {
+        attemptsUsed: 3,
+        clears: 24,
+        spFruitPity: 24,
+        spFruitObtained: 1,
+        active: null,
+      },
+    });
+    expect(store.get("character.v2")).toMatchObject({ gold: 1_000 });
+    expect(store.get("equipment.v2")).toMatchObject({
+      owned: [{ iid: "old", id: "v2_iron_sword" }],
     });
   });
 
@@ -160,13 +688,24 @@ describe("POST /api/v2/storm-expedition", () => {
       ],
       equipped: { weapon: "old" },
     });
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      [{
+        category: "equipment",
+        entryId: "v2_storm_gale_bow",
+        amount: 1,
+        source: "equipment.drop",
+      }],
+      expect.any(Date),
+    );
     expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({
       active: null,
       attemptsUsed: 1,
     });
   });
 
-  it("보급품 선택은 한 번만 적용하고 다음 전투 노드로 이동한다", async () => {
+  it("보급품 선택은 한 번만 적용하고 이동 가능한 중층을 연다", async () => {
     store.set(STORM_EXPEDITION_SAVE_KEY, {
       date: stormExpeditionDateKey(),
       attemptsUsed: 1,
@@ -200,7 +739,8 @@ describe("POST /api/v2/storm-expedition", () => {
     expect(response.status).toBe(200);
     expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({
       active: {
-        nodeIndex: 2,
+        currentNodeId: "supply",
+        completedNodeIds: expect.arrayContaining(["supply"]),
         nextBattleEffects: ["next_guard"],
         chosenChoices: { supply: "wind_barrier" },
       },
@@ -209,12 +749,12 @@ describe("POST /api/v2/storm-expedition", () => {
     const repeated = await POST(request({
       action: "choose",
       choiceId: "wind_barrier",
-      expectedNodeIndex: 1,
+      expectedCurrentNodeId: "supply",
       expectedEncounterIndex: 0,
     }));
     expect(repeated.status).toBe(409);
     expect((await repeated.json()) as Record<string, unknown>).toMatchObject({
-      error: "stale_state",
+      error: "node_already_completed",
     });
   });
 
@@ -247,7 +787,8 @@ describe("POST /api/v2/storm-expedition", () => {
     expect(response.status).toBe(200);
     expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({
       active: {
-        nodeIndex: 6,
+        currentNodeId: "altar",
+        completedNodeIds: expect.arrayContaining(["altar"]),
         maxMp: 600,
         mp: 200,
         boons: ["deep_mana"],
@@ -255,6 +796,87 @@ describe("POST /api/v2/storm-expedition", () => {
       },
     });
 
+  });
+
+  it("제한 회복기는 원정에서 사용한 뒤 다음 전투부터 장착 목록에서 제외한다", async () => {
+    const treatment = "v2c_fieldmedic_treatment";
+    const shadowStep = "v2c_shadow_shadowstep";
+    prepareBattleActorMock.mockResolvedValue({
+      player: {
+        maxHp: 1_000,
+        player: {
+          hp: 1_000,
+          maxHp: 1_000,
+          mp: 500,
+          maxMp: 500,
+          atk: 100,
+          magicAtk: 100,
+          def: 50,
+          spd: 50,
+          evasionPct: 0,
+          attackCount: 1,
+        },
+      },
+      skills: {
+        learned: [treatment, shadowStep],
+        equipped: [treatment, shadowStep],
+      },
+    });
+    store.set(STORM_EXPEDITION_SAVE_KEY, {
+      date: stormExpeditionDateKey(),
+      attemptsUsed: 1,
+      clears: 0,
+      active: {
+        version: 2,
+        routeId: "gale",
+        nodeIndex: 0,
+        encounterIndex: 0,
+        hp: 600,
+        mp: 300,
+        maxHp: 1_000,
+        maxMp: 500,
+        defeatedCount: 0,
+        pendingGold: 0,
+        pendingMaterials: {},
+        pendingEquipment: [],
+        boons: [],
+        nextBattleEffects: [],
+        usedRecoverySkillIds: [],
+        altarOffers: ["tempest_might", "storm_guard", "deep_mana"],
+        chosenChoices: {},
+      },
+    });
+    resolveBattleMock.mockReturnValue({
+      outcome: "win",
+      turns: 1,
+      finalState: {
+        playerHp: 700,
+        playerMp: 300,
+        v2SkillCooldowns: {
+          [treatment]: 999_999,
+          [shadowStep]: 999_999,
+        },
+      },
+    });
+
+    const first = await POST(request({ action: "fight" }));
+    expect(first.status).toBe(200);
+    expect(resolveBattleMock.mock.calls[0]?.[3].v2Skills.equipped).toEqual([
+      treatment,
+      shadowStep,
+    ]);
+    expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({
+      active: {
+        encounterIndex: 1,
+        usedRecoverySkillIds: [treatment],
+      },
+    });
+
+    const second = await POST(request({ action: "fight" }));
+    expect(second.status).toBe(200);
+    expect(resolveBattleMock.mock.calls[1]?.[3].v2Skills.equipped).toEqual([
+      shadowStep,
+    ]);
   });
 
   it("공통 최종 보스 처치 시 7전투 누적 보상과 확정 재료를 정산한다", async () => {
@@ -310,8 +932,131 @@ describe("POST /api/v2/storm-expedition", () => {
     expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({
       clears: 1,
       active: null,
+      spFruitPity: 1,
+      spFruitObtained: 0,
     });
     vi.restoreAllMocks();
+  });
+
+  it("모든 항로가 공유하는 25회 천장에서 SP 열매를 지급하고 누적 횟수를 초기화한다", async () => {
+    store.set(STORM_EXPEDITION_SAVE_KEY, {
+      date: stormExpeditionDateKey(),
+      attemptsUsed: 1,
+      clears: 24,
+      spFruitProgressVersion: 2,
+      spFruitPity: 24,
+      spFruitObtained: 1,
+      active: {
+        version: 2,
+        routeId: "thunder",
+        nodeIndex: 8,
+        encounterIndex: 0,
+        hp: 800,
+        mp: 400,
+        maxHp: 1_000,
+        maxMp: 500,
+        defeatedCount: 6,
+        pendingGold: 167_000,
+        pendingMaterials: {},
+        pendingEquipment: [],
+        boons: [],
+        nextBattleEffects: [],
+        altarOffers: ["tempest_might", "storm_guard", "deep_mana"],
+        chosenChoices: {},
+      },
+    });
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+
+    const response = await POST(request({ action: "fight" }));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({
+      bossClear: true,
+      spFruitDropped: true,
+      gainedMaterials: { [STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID]: 1 },
+      state: {
+        clears: 25,
+        spFruitPity: 0,
+        spFruitObtained: 2,
+      },
+    });
+    expect(store.get("character.v2")).toMatchObject({
+      materials: { [STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID]: 1 },
+    });
+    expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({
+      active: null,
+      spFruitPity: 0,
+      spFruitObtained: 2,
+    });
+    vi.restoreAllMocks();
+  });
+
+  it("패치 전 IV 1개와 패치 후 V 2개가 합산된 저장값에서도 V를 한 개 더 획득한다", async () => {
+    store.set("character.v2", {
+      frontierDepth: 72,
+      gold: 1_000,
+      materials: { [STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID]: 2 },
+      spFruitUsed: {},
+    });
+    store.set(STORM_EXPEDITION_SAVE_KEY, {
+      date: stormExpeditionDateKey(),
+      attemptsUsed: 1,
+      clears: 24,
+      spFruitPity: 24,
+      spFruitObtained: 3,
+      active: activeV3({
+        routeId: "thunder",
+        currentNodeId: "storm_heart",
+        visitedNodeIds: [
+          "thunder_outer",
+          "supply",
+          "thunder_middle",
+          "thunder_camp",
+          "thunder_elite",
+          "altar",
+          "thunder_guardian",
+          "final_prep",
+          "storm_heart",
+        ],
+        completedNodeIds: [
+          "thunder_outer",
+          "supply",
+          "thunder_middle",
+          "thunder_camp",
+          "thunder_elite",
+          "altar",
+          "thunder_guardian",
+          "final_prep",
+        ],
+        hp: 800,
+        mp: 400,
+        defeatedCount: 6,
+      }),
+    });
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+
+    const response = await POST(request({
+      action: "fight",
+      expectedCurrentNodeId: "storm_heart",
+      expectedEncounterIndex: 0,
+    }));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({
+      bossClear: true,
+      spFruitDropped: true,
+      gainedMaterials: { [STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID]: 1 },
+      state: {
+        spFruitProgressVersion: 2,
+        spFruitPity: 0,
+        spFruitObtained: 3,
+      },
+    });
+    expect(store.get("character.v2")).toMatchObject({
+      materials: { [STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID]: 3 },
+    });
   });
 
   it("균열 상자를 수락하면 재료 2개와 다음 전투 공격력 위험을 함께 저장한다", async () => {
@@ -320,9 +1065,11 @@ describe("POST /api/v2/storm-expedition", () => {
       attemptsUsed: 1,
       clears: 0,
       active: {
-        version: 2,
+        version: 3,
         routeId: "gale",
-        nodeIndex: 1,
+        currentNodeId: "supply",
+        visitedNodeIds: ["gale_outer", "supply"],
+        completedNodeIds: ["gale_outer"],
         encounterIndex: 0,
         hp: 800,
         mp: 300,
@@ -359,7 +1106,7 @@ describe("POST /api/v2/storm-expedition", () => {
     expect(response.status).toBe(200);
     expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({
       active: {
-        nodeIndex: 1,
+        currentNodeId: "supply",
         pendingMaterials: { [STORM_EXPEDITION_ROUTE_MATERIAL_ID.gale]: 2 },
         nextBattleEffects: ["risk_enemy_fury"],
         riskEvent: { id: "rift_cache", status: "accepted" },
@@ -371,7 +1118,8 @@ describe("POST /api/v2/storm-expedition", () => {
     expect(await earlyWithdraw.json()).toMatchObject({ error: "risk_debt_pending" });
 
     await POST(request({ action: "choose", choiceId: "field_rations" }));
-    await POST(request({ action: "fight" }));
+    await POST(request({ action: "move", targetNodeId: "gale_middle", expectedCurrentNodeId: "supply", expectedEncounterIndex: 0 }));
+    await POST(request({ action: "fight", expectedCurrentNodeId: "gale_middle", expectedEncounterIndex: 0 }));
     const foughtEnemy = resolveBattleMock.mock.calls.at(-1)?.[1] as { atk: number };
     expect(foughtEnemy.atk).toBe(
       Math.floor(stormExpeditionEnemy("gale", "late_trash", 0).atk * 1.2),
@@ -381,7 +1129,7 @@ describe("POST /api/v2/storm-expedition", () => {
     });
   });
 
-  it("황금 나침반을 수락하면 야영 회복 없이 정예 노드로 이동한다", async () => {
+  it("황금 나침반을 수락하면 야영 회복 없이 정예 노드를 연다", async () => {
     store.set(STORM_EXPEDITION_SAVE_KEY, {
       date: stormExpeditionDateKey(),
       attemptsUsed: 1,
@@ -417,7 +1165,8 @@ describe("POST /api/v2/storm-expedition", () => {
     expect(response.status).toBe(200);
     expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({
       active: {
-        nodeIndex: 4,
+        currentNodeId: "wreckage_camp",
+        completedNodeIds: expect.arrayContaining(["wreckage_camp"]),
         hp: 400,
         mp: 100,
         chosenChoices: { camp: "golden_compass" },
@@ -425,15 +1174,23 @@ describe("POST /api/v2/storm-expedition", () => {
       },
     });
 
+    const moved = await POST(request({
+      action: "move",
+      targetNodeId: "wreckage_elite",
+      expectedCurrentNodeId: "wreckage_camp",
+      expectedEncounterIndex: 0,
+    }));
+    expect(moved.status).toBe(200);
     const fight = await POST(request({
       action: "fight",
-      expectedNodeIndex: 4,
+      expectedCurrentNodeId: "wreckage_elite",
       expectedEncounterIndex: 0,
     }));
     expect(fight.status).toBe(200);
     expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({
       active: {
-        nodeIndex: 5,
+        currentNodeId: "wreckage_elite",
+        completedNodeIds: expect.arrayContaining(["wreckage_elite"]),
         pendingGold: 115_300,
       },
     });

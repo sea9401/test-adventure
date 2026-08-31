@@ -78,4 +78,49 @@ describe("PR-E2 PvP: 불 시전 → 상대에게 회복감소 디버프 부착",
     expect((state as never as S).p2.stacks.healReducePct).toBe(50); // pct 는 보존, turns 만 0
     vi.restoreAllMocks();
   });
+
+  it("상대 회복 감소를 PvP 전투 패턴 조건으로 인식한다", () => {
+    const strike = "v2c_warrior_strike";
+    const state = initialBattleStatePvP(
+      fireMage,
+      target,
+      "P1",
+      "P2",
+      {
+        learned: [strike],
+        equipped: [strike],
+        pattern: {
+          blocks: [
+            {
+              condition: {
+                kind: "enemy_debuff",
+                target: "healReduction",
+                active: true,
+              },
+              action: { kind: "skill", skillId: strike },
+            },
+          ],
+        },
+      },
+      { learned: [], equipped: [] },
+    );
+    const withHealReduction = {
+      ...state,
+      p2: {
+        ...state.p2,
+        stacks: {
+          ...state.p2.stacks,
+          healReducePct: 50,
+          healReduceTurns: 3,
+        },
+      },
+    };
+
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const out = castV2SkillOnAttackerTurnPvP(withHealReduction, "p1");
+    expect(out.castFired).toBe(true);
+    expect(out.state.log.some((entry) => entry.text.includes("강타"))).toBe(
+      true,
+    );
+  });
 });

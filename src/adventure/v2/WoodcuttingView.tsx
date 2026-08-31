@@ -39,6 +39,8 @@ import {
 } from "./useActivityVerification";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 import { LifeFieldEnvironmentCard } from "./LifeFieldPanels";
+import { GatheringResourceStockCard } from "./GatheringResourceStockCard";
+import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 
 export type WoodcuttingLogView = {
   cuts: number;
@@ -1165,6 +1167,10 @@ export function WoodcuttingView({
       />
 
       <ProductionJobAdvanceNotice refreshKey={progression.level} />
+      <LifeLevelMilestoneNotice
+        activity="woodcutting"
+        level={progression.level}
+      />
 
       <LifeFieldEnvironmentCard activity="woodcutting" spotId={spotId} />
 
@@ -1181,15 +1187,15 @@ export function WoodcuttingView({
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-sm font-extrabold text-emerald-900 dark:text-emerald-100">
-              벌목 Lv {progression.level}
+              벌목 Lv {progression.level} / 100
             </div>
             <div className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
-              시간 단축 {timeReductionPct.toFixed(1)}% · 최대 Lv 50
+              시간 단축 {timeReductionPct.toFixed(1)}% · 최대 Lv 100
             </div>
           </div>
           <span className="text-xs font-bold tabular-nums text-emerald-700 dark:text-emerald-300">
             {progression.maxLevel
-              ? "최고 레벨"
+              ? "최종 숙련 달성 · MAX"
               : `${progression.xpIntoLevel}/${progression.xpForNext} XP`}
           </span>
         </div>
@@ -1201,23 +1207,11 @@ export function WoodcuttingView({
         </div>
       </div>
 
-      <Card padding="sm">
-        <div className="flex items-center justify-between gap-3">
-          <span className="inline-flex shrink-0 items-center gap-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-            <span
-              aria-hidden="true"
-              className="h-2 w-2 rounded-full bg-emerald-500"
-            />
-            보유 재료
-          </span>
-          <span className="min-w-0 truncate text-right text-sm font-bold text-zinc-800 dark:text-zinc-100">
-            {selectedMaterial.name}
-            <span className="ml-2 tabular-nums text-emerald-700 dark:text-emerald-300">
-              {selectedMaterialCount.toLocaleString()}개
-            </span>
-          </span>
-        </div>
-      </Card>
+      <GatheringResourceStockCard
+        resourceName={selectedMaterial.name}
+        count={selectedMaterialCount}
+        tone="woodcutting"
+      />
 
       {!verification ? (
         <AutoGatheringCard
@@ -1270,6 +1264,12 @@ export function WoodcuttingView({
         </>
       ) : (
         <>
+
+      <GatheringResourceStockCard
+        resourceName={selectedMaterial.name}
+        count={selectedMaterialCount}
+        tone="woodcutting"
+      />
 
       {(phase === "idle" || phase === "result") && !verification && (
         <Button

@@ -38,6 +38,11 @@ const char = () => store.get(k("u1", "character.v2")) as {
 };
 const potCount = () =>
   (store.get(k("u1", STAMINA_POTIONS_KEY)) as { count: number }).count;
+const potState = () =>
+  store.get(k("u1", STAMINA_POTIONS_KEY)) as {
+    count: number;
+    boundCount: number;
+  };
 
 // body { count } 를 담은 POST Request. 인자 없으면 본문 없음 → 라우트가 count=1 폴백.
 const req = (body?: unknown) =>
@@ -91,13 +96,14 @@ describe("POST /api/v2/me/use-stamina-potion", () => {
     store.set(k("u1", "character.v2"), {
       stamina: { current: 100, lastUpdatedAt: t },
     });
-    store.set(k("u1", STAMINA_POTIONS_KEY), { count: 5 });
+    store.set(k("u1", STAMINA_POTIONS_KEY), { count: 5, boundCount: 2 });
     const res = await POST(req({ count: 3 }));
     const j = (await res.json()) as { count: number; used: number };
     expect(res.status).toBe(200);
     expect(j.used).toBe(3);
     expect(j.count).toBe(2);
     expect(potCount()).toBe(2);
+    expect(potState()).toEqual({ count: 2, boundCount: 0 });
     expect(char().stamina.current).toBe(100 + STAMINA_POTION_RESTORE * 3);
   });
 

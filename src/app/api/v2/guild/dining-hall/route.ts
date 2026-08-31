@@ -11,12 +11,10 @@ import {
   guildDiningMenu,
   guildDiningTicketProgress,
   parseGuildDiningUserState,
-  type GuildDiningMenuId,
   type GuildDiningUserState,
 } from "@/adventure/data/v2/guildDining";
 import { diningHallUpgradeForLevel } from "@/adventure/data/v2/settlement";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { isGuildAdmin } from "@/lib/server/guildAdmin";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import {
   lockGuildDiningWeekly,
@@ -34,6 +32,10 @@ import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { kstWeekMondayKey } from "@/lib/kst";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
 import { guildExistingActivityContributionPoints } from "@/adventure/data/v2/guildContribution";
+import {
+  claimWeeklyFacilitySource,
+  readWeeklyFacilitySource,
+} from "@/lib/server/adventurerAssociation";
 
 type InventorySave = Record<string, unknown> & {
   hpCharges?: unknown;
@@ -45,7 +47,6 @@ type DiningBody = {
   ingredientId?: unknown;
   quantity?: unknown;
   menuId?: unknown;
-  menuIds?: unknown;
 };
 
 function safeCharge(value: unknown): number {
@@ -78,7 +79,7 @@ async function diningView(args: {
   inventory?: InventorySave;
 }) {
   const { tx, userId, guildId, level, weekly } = args;
-  const [ingredientBalances, inventoryRaw, diningRaw, canManage] = await Promise.all([
+  const [ingredientBalances, inventoryRaw, diningRaw, weeklySource] = await Promise.all([
     readGuildDiningIngredientBalances(tx, userId),
     args.inventory
       ? Promise.resolve(args.inventory)
@@ -91,7 +92,7 @@ async function diningView(args: {
           GUILD_DINING_USER_SAVE_KEY,
           {},
         ),
-    isGuildAdmin(tx, guildId, userId),
+    readWeeklyFacilitySource(tx, userId, "dining_hall", weekly.weekKey),
   ]);
   const inventory = inventoryRaw as InventorySave;
   const userState =
@@ -106,7 +107,6 @@ async function diningView(args: {
     userState,
     upgrade.weeklyMealTickets,
   );
-  const selected = new Set(weekly.selectedMenuIds);
   const activeMenu = userState.activeEffect
     ? guildDiningMenu(userState.activeEffect.menuId)
     : null;
@@ -114,8 +114,8 @@ async function diningView(args: {
     level,
     stageLabel: upgrade.label,
     weekKey: weekly.weekKey,
-    canManage,
-    eligible: weekly.eligibleUserIds.includes(userId),
+    eligible: true,
+    weeklySource,
     pantry: {
       points: weekly.pantryPoints,
       target: weekly.targetPoints,
@@ -124,7 +124,6 @@ async function diningView(args: {
     },
     tickets,
     contributionPoints: userState.contributionPoints,
-    menuSlots: upgrade.weeklyMenuSlots,
     ingredients: GUILD_DINING_INGREDIENTS.map((ingredient) => ({
       ...ingredient,
       owned: ingredientBalances[ingredient.id] ?? 0,
@@ -132,7 +131,6 @@ async function diningView(args: {
     menus: GUILD_DINING_MENUS.map((menu) => ({
       ...menu,
       unlocked: level >= menu.minFacilityLevel,
-      selected: selected.has(menu.id),
     })),
     activeEffect: userState.activeEffect
       ? {
@@ -199,7 +197,7 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
-  if (body.action !== "select_menus" && body.action !== "donate" && body.action !== "order") {
+  if (body.action !== "donate" && body.action !== "order") {
     return Response.json({ ok: false, error: "invalid_body" }, { status: 400 });
   }
 
@@ -219,47 +217,6 @@ export async function POST(req: Request) {
     }
     const weekly = await lockGuildDiningWeekly(tx, guildId, weekKey);
     const upgrade = diningHallUpgradeForLevel(level);
-
-    if (body.action === "select_menus") {
-      if (!(await isGuildAdmin(tx, guildId, userId))) {
-        return { status: 403, body: { ok: false as const, error: "not_authorized" } };
-      }
-      if (weekly.pantryPoints > 0) {
-        return { status: 409, body: { ok: false as const, error: "menu_locked" } };
-      }
-      const rawIds = Array.isArray(body.menuIds) ? body.menuIds : [];
-      const menuIds = [...new Set(rawIds)].filter(
-        (id): id is GuildDiningMenuId => typeof id === "string",
-      );
-      const menus = menuIds.map(guildDiningMenu);
-      if (
-        menuIds.length < 1 ||
-        menuIds.length > upgrade.weeklyMenuSlots ||
-        menus.some((menu) => !menu || menu.minFacilityLevel > level)
-      ) {
-        return { status: 400, body: { ok: false as const, error: "invalid_menus" } };
-      }
-      const nextWeekly = { ...weekly, selectedMenuIds: menuIds };
-      await updateGuildDiningWeekly(tx, nextWeekly);
-      return {
-        status: 200,
-        body: {
-          ok: true as const,
-          ...(await diningView({
-            tx,
-            userId,
-            guildId,
-            level,
-            weekly: nextWeekly,
-            now,
-          })),
-        },
-      };
-    }
-
-    if (!weekly.eligibleUserIds.includes(userId)) {
-      return { status: 403, body: { ok: false as const, error: "not_eligible" } };
-    }
 
     if (body.action === "donate") {
       const ingredient = guildDiningIngredient(body.ingredientId);
@@ -299,6 +256,24 @@ export async function POST(req: Request) {
       }
       if (sourceInventory.owned < quantity) {
         return { status: 409, body: { ok: false as const, error: "insufficient_ingredients" } };
+      }
+      const weeklySource = await claimWeeklyFacilitySource(
+        tx,
+        userId,
+        "dining_hall",
+        "guild",
+        weekKey,
+        guildId,
+      );
+      if (!weeklySource.ok) {
+        return {
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "weekly_source_conflict",
+            selectedSource: weeklySource.selected,
+          },
+        };
       }
       const nextUserState = {
         ...userState,
@@ -346,7 +321,7 @@ export async function POST(req: Request) {
     }
 
     const menu = guildDiningMenu(body.menuId);
-    if (!menu || !weekly.selectedMenuIds.includes(menu.id) || menu.minFacilityLevel > level) {
+    if (!menu || menu.minFacilityLevel > level) {
       return { status: 400, body: { ok: false as const, error: "menu_unavailable" } };
     }
     if (weekly.pantryPoints < weekly.targetPoints) {
@@ -373,6 +348,24 @@ export async function POST(req: Request) {
     const tickets = guildDiningTicketProgress(userState, upgrade.weeklyMealTickets);
     if (tickets.available <= 0) {
       return { status: 409, body: { ok: false as const, error: "no_meal_ticket" } };
+    }
+    const weeklySource = await claimWeeklyFacilitySource(
+      tx,
+      userId,
+      "dining_hall",
+      "guild",
+      weekKey,
+      guildId,
+    );
+    if (!weeklySource.ok) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "weekly_source_conflict",
+          selectedSource: weeklySource.selected,
+        },
+      };
     }
 
     const nextInventory = { ...inventory };

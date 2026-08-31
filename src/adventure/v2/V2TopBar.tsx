@@ -3,17 +3,20 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Coins, Lightning } from "@phosphor-icons/react";
+import { applyRegen, type StaminaState } from "./stamina";
+import { StaminaPotionModal } from "./StaminaBar";
 import {
   autoGatheringActivityHref,
-  autoGatheringStatusText,
+  autoGatheringStatusDisplay,
   type AutoGatheringStatus,
 } from "./autoGathering";
 import { NotificationBell } from "./NotificationBell";
+import { V2NoticeLink } from "./V2NoticeLink";
 import { V2SettingsMenu } from "./V2SettingsMenu";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 
-// v2 메인 화면 타이틀 줄.
-// 좌측: 게임 아이콘(홈) + 자동 생활 작업 상태(진행 중인 생활 화면) 독립 링크.
-// 우측: 통합 알림(일반 알림+우편) 미리보기·광장/설정 메뉴.
+const numberFormatter = new Intl.NumberFormat("ko-KR");
 
 function LifeActivityStatus({
   status,
@@ -28,12 +31,12 @@ function LifeActivityStatus({
     return () => window.clearInterval(timer);
   }, [status]);
 
-  const text = autoGatheringStatusText(status, now);
+  const display = autoGatheringStatusDisplay(status, now);
   const ready = status != null && now >= status.readyAt;
   return (
     <span
-      title={text}
-      className={`min-w-0 max-w-[142px] truncate text-left text-[10px] tabular-nums sm:max-w-[320px] sm:text-[11px] ${
+      title={display.text}
+      className={`flex min-w-0 max-w-[142px] items-center gap-1 text-left text-[10px] tabular-nums sm:max-w-[320px] sm:text-[11px] ${
         status == null
           ? "text-zinc-500 dark:text-zinc-400"
           : ready
@@ -41,56 +44,144 @@ function LifeActivityStatus({
             : "font-medium text-emerald-700 dark:text-emerald-300"
       }`}
     >
-      {text}
+      <span className="min-w-0 truncate">{display.contextLabel}</span>
+      {display.stateLabel ? (
+        <span
+          data-auto-gathering-status-detail
+          className="shrink-0 whitespace-nowrap"
+        >
+          {display.stateLabel}
+        </span>
+      ) : null}
     </span>
   );
 }
 
 export function V2TopBar({
+  stamina,
+  staminaMax,
+  staminaRegenBonusPct,
+  staminaPotions,
+  onUsePotion,
+  spendableGold,
   autoGathering,
+  fishingActive,
 }: {
+  stamina: StaminaState;
+  staminaMax: number;
+  staminaRegenBonusPct: number;
+  staminaPotions: number;
+  onUsePotion: (count: number) => Promise<void> | void;
+  spendableGold: number;
   autoGathering: AutoGatheringStatus | null;
+  fishingActive: boolean;
 }) {
+  const [now, setNow] = useState(() => Date.now());
+  const [potionModalOpen, setPotionModalOpen] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const displayStamina = applyRegen(
+    stamina,
+    now,
+    staminaMax,
+    staminaRegenBonusPct,
+  );
   const activityHref = autoGatheringActivityHref(autoGathering);
 
   return (
-    <header className="sticky top-0 z-[60] flex items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-6 dark:border-zinc-700 dark:bg-zinc-900/90">
-      <div className="flex min-w-0 items-center gap-2">
-        <Link
-          href="/"
-          aria-label="무슨무슨게임 홈으로 이동"
-          title="홈"
-          className="game-brand-mark inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+    <div
+      data-game-top-bar
+      className="border-b border-zinc-200 px-3 py-1 sm:px-4 md:contents dark:border-zinc-700"
+    >
+      <div className="flex w-full items-center justify-between gap-2 sm:gap-3 md:contents">
+        <div
+          data-topbar-left-status
+          className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2 md:col-start-1 md:row-start-1 md:h-16"
         >
-          <Image
-            src="/icon-192.png"
-            alt=""
-            width={32}
-            height={32}
-            className="game-brand-image size-8 shrink-0 rounded-md"
-          />
-        </Link>
-        {activityHref ? (
           <Link
-            href={activityHref}
-            aria-label={`${autoGathering?.activity === "woodcutting" ? "벌목" : "채광"} 화면으로 이동`}
-            className="flex h-10 min-w-0 items-center rounded-lg border border-zinc-200 bg-white px-3 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+            href="/"
+            aria-label="무슨무슨게임 홈으로 이동"
+            title="홈"
+            className={`${SURFACE_INSET} inline-flex size-10 shrink-0 items-center justify-center border-0 shadow-none transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 md:size-12 dark:hover:bg-zinc-800`}
           >
-            <LifeActivityStatus
-              key={autoGathering?.readyAt}
-              status={autoGathering}
+            <Image
+              src="/icon-192.png"
+              alt=""
+              width={32}
+              height={32}
+              unoptimized
+              className="size-8 shrink-0 rounded-md md:size-9"
             />
           </Link>
-        ) : (
-          <div className="flex h-10 min-w-0 items-center rounded-lg border border-zinc-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-900">
-            <LifeActivityStatus key="rest" status={null} />
-          </div>
-        )}
+          {activityHref ? (
+            <Link
+              href={activityHref}
+              aria-label={`${autoGathering?.activity === "woodcutting" ? "벌목" : "채광"} 화면으로 이동`}
+              className={`${SURFACE_INSET} flex h-10 min-w-0 items-center border-0 px-2 shadow-none transition-colors hover:bg-zinc-100 sm:px-3 md:h-12 dark:hover:bg-zinc-800`}
+            >
+              <LifeActivityStatus
+                key={autoGathering?.readyAt}
+                status={autoGathering}
+              />
+            </Link>
+          ) : fishingActive ? (
+            <Link
+              href="/town/fishing"
+              aria-label="낚시 화면으로 이동"
+              className={`${SURFACE_INSET} flex h-10 min-w-0 items-center border-0 px-2 shadow-none transition-colors hover:bg-zinc-100 sm:px-3 md:h-12 dark:hover:bg-zinc-800`}
+            >
+              <span className="truncate text-[10px] font-medium text-emerald-700 sm:text-[11px] dark:text-emerald-300">
+                낚시 중
+              </span>
+            </Link>
+          ) : (
+            <div
+              className={`${SURFACE_INSET} flex h-10 min-w-0 items-center border-0 px-2 shadow-none sm:px-3 md:h-12`}
+            >
+              <LifeActivityStatus key="rest" status={null} />
+            </div>
+          )}
+          <button
+            type="button"
+            aria-label={`스태미나 ${displayStamina.current} / ${staminaMax}`}
+            title="스태미나 포션 사용"
+            onClick={() => setPotionModalOpen(true)}
+            className={`${SURFACE_INSET} ml-auto inline-flex min-h-8 shrink-0 items-center gap-1 border-0 px-2 py-1 text-[11px] font-semibold tabular-nums text-zinc-600 shadow-none transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 md:ml-0 md:min-h-10 md:px-3 md:text-xs dark:text-zinc-300 dark:hover:bg-zinc-800`}
+          >
+            <Lightning size={12} weight="fill" className="text-orange-500" aria-hidden />
+            {numberFormatter.format(displayStamina.current)} / {numberFormatter.format(staminaMax)}
+          </button>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1.5 md:col-start-3 md:row-start-1">
+          <span
+            data-topbar-gold
+            aria-label={`사용 가능 골드 ${numberFormatter.format(spendableGold)}`}
+            className={`${SURFACE_INSET} hidden min-h-8 items-center gap-1 border-0 px-2 py-1 text-[11px] font-semibold tabular-nums text-zinc-600 shadow-none sm:inline-flex md:hidden dark:text-zinc-300`}
+          >
+            <Coins size={12} weight="fill" className="text-amber-500" aria-hidden />
+            {numberFormatter.format(spendableGold)}
+          </span>
+          <nav className="relative z-[61] flex items-center gap-0.5" aria-label="빠른 메뉴">
+            <V2NoticeLink />
+            <NotificationBell />
+            <V2SettingsMenu />
+          </nav>
+        </div>
       </div>
-      <nav className="relative z-[61] flex shrink-0 items-center gap-1">
-        <NotificationBell />
-        <V2SettingsMenu />
-      </nav>
-    </header>
+      {potionModalOpen && (
+        <StaminaPotionModal
+          potions={staminaPotions}
+          current={displayStamina.current}
+          max={staminaMax}
+          onUse={onUsePotion}
+          onClose={() => setPotionModalOpen(false)}
+        />
+      )}
+    </div>
   );
 }

@@ -201,6 +201,7 @@ export function CharacterPreviewSection({
           <div className="overflow-hidden rounded border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
             <ReplayBattleScene
               key={round}
+              presentation="embedded"
               payload={result.replay}
               startPlayerHp={result.startPlayerHp}
               playerName={result.profile.name}

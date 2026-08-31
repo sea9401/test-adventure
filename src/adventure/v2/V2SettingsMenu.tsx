@@ -17,7 +17,6 @@ import {
   SignOut,
   Storefront,
 } from "@phosphor-icons/react";
-import { signOut } from "next-auth/react";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { useAttendanceReminder } from "./useAttendanceReminder";
 
@@ -27,8 +26,25 @@ import { useAttendanceReminder } from "./useAttendanceReminder";
 // 화면 모드·정책·회원 탈퇴는 /settings/preferences 한곳에서 관리한다.
 export function V2SettingsMenu() {
   const [open, setOpen] = useState(false);
+  const [coinShopAccessible, setCoinShopAccessible] = useState(
+    process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN === "true",
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const attendancePending = useAttendanceReminder();
+
+  useEffect(() => {
+    if (coinShopAccessible) return;
+    const controller = new AbortController();
+    void fetch("/api/v2/museun-coin-shop/access", {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then((response) => {
+        if (response.ok) setCoinShopAccessible(true);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [coinShopAccessible]);
 
   useEffect(() => {
     if (!open) return;
@@ -44,9 +60,14 @@ export function V2SettingsMenu() {
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [open]);
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     setOpen(false);
-    signOut({ redirectTo: "/sign-in" });
+    const response = await fetch("/api/auth/logout", { method: "POST" });
+    if (!response.ok) {
+      setOpen(true);
+      return;
+    }
+    window.location.replace("/sign-in");
   };
 
   return (
@@ -127,7 +148,7 @@ export function V2SettingsMenu() {
                 )}
               </Link>
             </li>
-            {process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN === "true" && (
+            {coinShopAccessible && (
               <li>
                 <Link
                   href="/settings/coin-shop"
@@ -174,7 +195,7 @@ export function V2SettingsMenu() {
             <li>
               <button
                 type="button"
-                onClick={handleSignOut}
+                onClick={() => void handleSignOut()}
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
               >
                 <SignOut size={18} weight="duotone" />

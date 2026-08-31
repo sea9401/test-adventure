@@ -12,8 +12,15 @@ export const metadata: Metadata = {
 // 상태(HP·스태미나·거점 등)와 단발 fetch 가 페이지 전환에도 유지된다.
 export default function GameLayout({
   children,
+  battleLog,
 }: {
   children: React.ReactNode;
+  battleLog?: React.ReactNode;
 }) {
-  return <GameClientBoundary>{children}</GameClientBoundary>;
+  return (
+    <GameClientBoundary>
+      {children}
+      {battleLog}
+    </GameClientBoundary>
+  );
 }

@@ -9,8 +9,8 @@ import {
 } from "@/adventure/data/v2/settlementWarfareConfig";
 import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
 import {
+  grantStaminaPotions,
   STAMINA_POTIONS_KEY,
-  parseStaminaPotions,
 } from "@/adventure/v2/staminaPotions";
 
 // 명성상점 — 정착지 전쟁 개인 화폐(명성/honor) 소비처. 설계: docs/v2-settlement-warfare-plan.md §2.5.
@@ -101,12 +101,9 @@ export async function POST(req: Request) {
       STAMINA_POTIONS_KEY,
       {},
     );
-    const count = parseStaminaPotions(potSave).count;
-    const staminaPotions = count + 1;
-    await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
-      ...potSave,
-      count: staminaPotions,
-    });
+    const nextPotions = grantStaminaPotions(potSave, 1, { bound: true });
+    const staminaPotions = nextPotions.count;
+    await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextPotions);
     return {
       status: 200,
       body: {

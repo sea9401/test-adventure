@@ -8,8 +8,8 @@
 #     echo "0 3,7,11,15,19,23 * * * $C GET /api/cron/lottery-settle";
 #     echo "*/5 * * * * $C POST /api/v2/cron/marketplace-expire";
 #     echo "0 15 * * 6 $C GET /api/cron/pvp-tournament";
-#     echo "0 9 * * 0 $C GET /api/cron/pvp-tournament";
-#     echo "*/15 10-11 * * 0 $C GET /api/cron/pvp-tournament";
+#     echo "0 3 * * 0 $C GET /api/cron/pvp-tournament";
+#     echo "*/5 4 * * 0 $C GET /api/cron/pvp-tournament";
 #     echo "1 15 * * 0 $C GET /api/cron/tower-weekly-cycle";
 #     echo "2 15 * * 0 $C GET /api/cron/pvp-season-rollover";
 #     echo "5 15 * * 0 $C GET /api/cron/pvp-season-rewards";
@@ -17,9 +17,10 @@
 #     echo "* * * * * $C GET /api/cron/coop-respawn";
 #     echo "* * * * * $C GET /api/cron/push-notifications";
 #     echo "0 * * * * $C POST /api/v2/cron/npc-attacks";
+#     echo "* * * * * $C POST /api/v2/cron/battle-replay-retention";
 #     echo "20 4 * * * $C POST /api/v2/cron/ops-retention";
 #     echo "25 4 * * * $C POST /api/v2/cron/ops-daily-report";
-#     echo "0 17 * * * cd ~/adventure-rpg && bash deploy/backup-db.sh >> ~/backups/backup.log 2>&1"; } | crontab -
+#     echo "0 17 * * * cd ~/adventure-rpg && bash deploy/run-backup.sh"; } | crontab -
 #
 # 시간대는 UTC. run-cron.sh가 HTTP 오류·타임아웃을 운영 webhook으로 알린다.
 # crond 가 동작하려면: sudo dnf install -y cronie && sudo systemctl enable --now crond
@@ -32,8 +33,8 @@ CRON_TZ=UTC
 0 3,7,11,15,19,23 * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/lottery-settle
 */5 * * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh POST /api/v2/cron/marketplace-expire
 0 15 * * 6 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/pvp-tournament
-0 9 * * 0 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/pvp-tournament
-*/15 10-11 * * 0 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/pvp-tournament
+0 3 * * 0 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/pvp-tournament
+*/5 4 * * 0 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/pvp-tournament
 1 15 * * 0 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/tower-weekly-cycle
 2 15 * * 0 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/pvp-season-rollover
 5 15 * * 0 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/pvp-season-rewards
@@ -41,6 +42,7 @@ CRON_TZ=UTC
 * * * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/coop-respawn
 * * * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/push-notifications
 0 * * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh POST /api/v2/cron/npc-attacks
+* * * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh POST /api/v2/cron/battle-replay-retention
 20 4 * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh POST /api/v2/cron/ops-retention
 25 4 * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh POST /api/v2/cron/ops-daily-report
-0 17 * * * cd ~/adventure-rpg && bash deploy/backup-db.sh >> ~/backups/backup.log 2>&1
+0 17 * * * cd ~/adventure-rpg && bash deploy/run-backup.sh

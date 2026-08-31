@@ -4,10 +4,15 @@ import { useMemo, useState } from "react";
 import { useAdmin } from "../AdminContext";
 import { adminGet, adminPost } from "../api";
 import {
+  cookingIngredientOptions,
   v2EquipmentOptions,
   v2MaterialOptions,
-  type CatalogOption,
 } from "../adminCatalogOptions";
+import {
+  adminMailCashItemOptions,
+  adminMailConsumableOptions,
+  splitAdminMailConsumables,
+} from "../broadcastMailAttachments";
 import {
   exactMailRecipient,
   mailRecipientMatches,
@@ -20,15 +25,11 @@ import {
 import { DangerAction } from "../ui/DangerAction";
 import { BULLETIN_NOTICE_MAX_LENGTH } from "@/lib/bulletin-config";
 import { ADVENTURE_SUPPORT_MAX_GRANT_DAYS } from "@/adventure/data/v2/adventureSupport";
-import {
-  MUSEUN_CASH_ITEMS,
-  MUSEUN_SHOP_ITEM_IDS,
-} from "@/adventure/data/v2/museunCashItems";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import type { AdminUserRow } from "./users/types";
 
 // 공지/방송 + 대량 우편.
-//   공지: 기존 게시판 notice 카테고리(admin 전용) 재사용 — POST /api/bulletin. 본문 최대 9000자.
+//   공지: 기존 게시판 notice 카테고리(admin 전용) 재사용 — POST /api/bulletin. 본문 최대 20000자.
 //   우편: POST /api/admin/mail — 골드 + 재료/장비/소비템/무슨 코인 + 메시지를 발송.
 export function BroadcastTab() {
   const { readOnly, showToast } = useAdmin();
@@ -52,8 +53,11 @@ export function BroadcastTab() {
   const [mailMsg, setMailMsg] = useState("");
   const [sending, setSending] = useState(false);
 
-  // 우편 첨부 — 재료/장비/소비템/코인샵 아이템 목록.
+  // 우편 첨부 — 재료/요리 재료/장비/소비템/코인샵 아이템 목록.
   const [attachMaterials, setAttachMaterials] = useState<AttachmentEntry[]>([]);
+  const [attachCookingIngredients, setAttachCookingIngredients] = useState<
+    AttachmentEntry[]
+  >([]);
   const [attachItems, setAttachItems] = useState<AttachmentEntry[]>([]);
   const [attachConsumables, setAttachConsumables] = useState<AttachmentEntry[]>(
     [],
@@ -62,26 +66,10 @@ export function BroadcastTab() {
 
   // 카탈로그 옵션 (V2GrantSection 과 공용 — adminCatalogOptions).
   const materialOptions = useMemo(() => v2MaterialOptions(), []);
+  const cookingOptions = useMemo(() => cookingIngredientOptions(), []);
   const equipOptions = useMemo(() => v2EquipmentOptions(), []);
-  const consumableOptions = useMemo<CatalogOption[]>(
-    () => [
-      {
-        id: "stamina_potion",
-        name: "스태미나 회복약",
-        label: "스태미나 회복약",
-      },
-    ],
-    [],
-  );
-  const cashItemOptions = useMemo<CatalogOption[]>(
-    () =>
-      MUSEUN_SHOP_ITEM_IDS.map((id) => ({
-        id,
-        name: MUSEUN_CASH_ITEMS[id].name,
-        label: `${MUSEUN_CASH_ITEMS[id].name} (${MUSEUN_CASH_ITEMS[id].coinPrice.toLocaleString()}코인 상품)`,
-      })),
-    [],
-  );
+  const consumableOptions = useMemo(() => adminMailConsumableOptions(), []);
+  const cashItemOptions = useMemo(() => adminMailCashItemOptions(), []);
 
   const noticeDisabled = readOnly || posting;
   const mailDisabled = readOnly || sending;
@@ -89,6 +77,7 @@ export function BroadcastTab() {
     gold > 0 ||
     museunCoins > 0 ||
     attachMaterials.length > 0 ||
+    attachCookingIngredients.length > 0 ||
     attachItems.length > 0 ||
     attachConsumables.length > 0 ||
     attachCashItems.length > 0 ||
@@ -167,9 +156,14 @@ export function BroadcastTab() {
   const sendMail = async () => {
     setSending(true);
     try {
+      const consumables = splitAdminMailConsumables(
+        attachConsumables,
+        attachCashItems,
+      );
       const j = await adminPost<{
         recipients?: number;
         materials?: unknown[];
+        cookingIngredients?: unknown[];
         items?: unknown[];
         staminaPotions?: number;
         museunCoins?: number;
@@ -183,22 +177,26 @@ export function BroadcastTab() {
           materialId: e.id,
           count: e.count,
         })),
-        items: attachItems.map((e) => ({ itemId: e.id, count: e.count })),
-        staminaPotions:
-          attachConsumables.find((e) => e.id === "stamina_potion")?.count ?? 0,
-        museunCoins,
-        cashItems: attachCashItems.map((e) => ({
-          itemId: e.id,
-          count: e.count,
+        cookingIngredients: attachCookingIngredients.map((entry) => ({
+          ingredientId: entry.id,
+          count: entry.count,
         })),
+        items: attachItems.map((e) => ({ itemId: e.id, count: e.count })),
+        staminaPotions: consumables.staminaPotions,
+        museunCoins,
+        cashItems: consumables.cashItems,
         adventureSupportDays,
         message: mailMsg,
       });
       const parts: string[] = [];
       if (gold > 0) parts.push(`${gold.toLocaleString()} 골드`);
       const matCount = j.materials?.length ?? 0;
+      const cookingIngredientCount = j.cookingIngredients?.length ?? 0;
       const itemCount = j.items?.length ?? 0;
       if (matCount > 0) parts.push(`재료 ${matCount}종`);
+      if (cookingIngredientCount > 0) {
+        parts.push(`요리 재료 ${cookingIngredientCount}종`);
+      }
       if (itemCount > 0) parts.push(`장비 ${itemCount}종`);
       if ((j.staminaPotions ?? 0) > 0) {
         parts.push(`스태미나 회복약 ${j.staminaPotions}개`);
@@ -221,6 +219,7 @@ export function BroadcastTab() {
       );
       setMailMsg("");
       setAttachMaterials([]);
+      setAttachCookingIngredients([]);
       setAttachItems([]);
       setAttachConsumables([]);
       setAttachCashItems([]);
@@ -262,6 +261,11 @@ export function BroadcastTab() {
               className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             />
           </Field>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            접기: <code>:::details 제목</code>으로 시작하고 접을 내용 아래에{" "}
+            <code>:::</code>만 입력해 닫습니다. 내부 마크다운도 적용되며, 문단
+            사이는 빈 줄로 구분합니다.
+          </p>
           <div className="flex items-center justify-between">
             <Button
               variant="primary"
@@ -286,10 +290,10 @@ export function BroadcastTab() {
       {/* 대량 우편 */}
       <div className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
         <h3 className="text-sm font-semibold">
-          대량 우편 (골드·재료·장비·소비템·무슨 코인·지원권)
+          대량 우편 (골드·재료·요리 재료·장비·소비템·무슨 코인·지원권)
         </h3>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          골드 + 재료/장비/소비템/무슨 코인 + 메시지를 우편함으로 발송합니다(수신자가 수령).
+          골드 + 재료/요리 재료/장비/소비템/무슨 코인 + 메시지를 우편함으로 발송합니다(수신자가 수령).
           보정금·이벤트 보상용. 장비는 기본 등급으로 지급됩니다.
           <strong> 전체 발송</strong>은 모든 유저에게 자원을 지급하는 강력한 작업입니다.
         </p>
@@ -442,6 +446,13 @@ export function BroadcastTab() {
           disabled={mailDisabled}
         />
         <AttachmentPicker
+          label="요리 재료 첨부"
+          options={cookingOptions}
+          entries={attachCookingIngredients}
+          onChange={setAttachCookingIngredients}
+          disabled={mailDisabled}
+        />
+        <AttachmentPicker
           label="장비 첨부 (기본 등급)"
           options={equipOptions}
           entries={attachItems}
@@ -481,6 +492,10 @@ export function BroadcastTab() {
               description={`모든 유저에게 ${gold.toLocaleString()} 골드${
                 attachMaterials.length > 0
                   ? ` · 재료 ${attachMaterials.length}종`
+                  : ""
+              }${
+                attachCookingIngredients.length > 0
+                  ? ` · 요리 재료 ${attachCookingIngredients.length}종`
                   : ""
               }${
                 attachItems.length > 0 ? ` · 장비 ${attachItems.length}종` : ""

@@ -4,6 +4,11 @@ import Image from "next/image";
 import { CaretDown, CaretUp, ImageSquare } from "@phosphor-icons/react";
 import { Fragment, useEffect, useState } from "react";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import {
+  feedbackHistoryApiHref,
+  feedbackSelectionFromHash,
+  isFeedbackTargetMissing,
+} from "@/lib/feedbackNavigation";
 import { useAsyncData } from "@/lib/useAsyncData";
 
 type FeedbackHistoryEntry = {
@@ -38,20 +43,37 @@ function feedbackTitle(content: string) {
 }
 
 export function FeedbackHistory({ refreshToken }: { refreshToken: number }) {
-  const [expandedId, setExpandedId] = useState<number | null>(() => {
-    if (typeof window === "undefined") return null;
-    const match = window.location.hash.match(/^#feedback-([1-9][0-9]*)$/);
-    return match ? Number(match[1]) : null;
-  });
+  const initialSelection =
+    typeof window === "undefined"
+      ? { targetId: null, expandedId: null }
+      : feedbackSelectionFromHash(window.location.hash);
+  const [targetId, setTargetId] = useState<number | null>(
+    initialSelection.targetId,
+  );
+  const [expandedId, setExpandedId] = useState<number | null>(
+    initialSelection.expandedId,
+  );
   const { data, loading, error } = useAsyncData<{ entries: FeedbackHistoryEntry[] }>(
     async (signal) => {
-      const response = await fetch("/api/feedback", { signal });
+      const response = await fetch(feedbackHistoryApiHref(targetId), { signal });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return (await response.json()) as { entries: FeedbackHistoryEntry[] };
     },
-    [refreshToken],
+    [refreshToken, targetId],
   );
   const entries = data?.entries ?? EMPTY_ENTRIES;
+  const targetMissing = isFeedbackTargetMissing(targetId, entries);
+
+  useEffect(() => {
+    const syncHash = () => {
+      const next = feedbackSelectionFromHash(window.location.hash);
+      setTargetId(next.targetId);
+      setExpandedId(next.expandedId);
+    };
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, []);
 
   useEffect(() => {
     if (!data || !expandedId) return;
@@ -66,6 +88,7 @@ export function FeedbackHistory({ refreshToken }: { refreshToken: number }) {
 
   function toggleEntry(id: number) {
     const nextId = expandedId === id ? null : id;
+    setTargetId(null);
     setExpandedId(nextId);
     const url = new URL(window.location.href);
     url.hash = nextId ? `feedback-${nextId}` : "";
@@ -98,13 +121,17 @@ export function FeedbackHistory({ refreshToken }: { refreshToken: number }) {
         <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-6 text-center text-sm text-rose-700 shadow-sm dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
           건의 내역을 불러오지 못했습니다.
         </p>
+      ) : targetMissing ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-6 text-center text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+          해당 건의를 찾을 수 없습니다.
+        </p>
       ) : entries.length === 0 ? (
         <p className={`${SURFACE_CARD} px-3 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400`}>
           아직 접수한 건의가 없습니다.
         </p>
       ) : (
         <div className={`${SURFACE_CARD} overflow-x-auto`}>
-          <table className="w-full min-w-[620px] table-fixed border-collapse text-sm">
+            <table className="w-full min-w-[620px] table-fixed border-collapse text-sm">
             <caption className="sr-only">내 건의사항 게시판 목록</caption>
             <colgroup>
               <col className="w-16" />
@@ -232,7 +259,7 @@ export function FeedbackHistory({ refreshToken }: { refreshToken: number }) {
                 );
               })}
             </tbody>
-          </table>
+            </table>
         </div>
       )}
     </section>

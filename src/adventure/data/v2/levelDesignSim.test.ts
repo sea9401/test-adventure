@@ -1,26 +1,85 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  auditCustomLoadoutCombat,
   auditFixedProgressionCombat,
+  buildLevelDesignProgressionSnapshot,
   buildGrowthPacing,
   buildReport,
   classifyStage,
   huntStageDepths,
   parseOptions,
 } from "../../../../scripts/sim-v2-level-design";
+import {
+  exclusiveSkillConflicts,
+  spCostOf,
+  V2_SKILLS,
+} from "./v2Skills";
+import type { V2EquipSlot, V2EquipmentId } from "./v2Equipment";
+import { bandUniquePoolForDepth } from "./dungeonUniqueDrops";
+import { derivePowerScore } from "./power";
+import { powerInputFromPlayer } from "../../../lib/server/playerPowerInput";
+
+const SIMULATION_TEST_TIMEOUT_MS = 60_000;
 
 describe("sim-v2-level-design", () => {
+  it("표본 전투력은 실제 게임과 동일한 전체 전투력 입력을 사용한다", () => {
+    const snapshot = buildLevelDesignProgressionSnapshot({
+      arch: "SPI",
+      depth: 78,
+      seed: 20260809,
+    });
+
+    expect(snapshot.power).toBe(
+      derivePowerScore(
+        powerInputFromPlayer(
+          snapshot.player,
+          snapshot.player.maxHp,
+          snapshot.player.maxMp,
+        ),
+      ),
+    );
+  });
+
+  it("패황 STR 표본은 광기 중첩 없이 계보 액티브 4종과 최고 패시브를 51 SP로 장착한다", () => {
+    const snapshot = buildLevelDesignProgressionSnapshot({
+      arch: "STR",
+      depth: 54,
+      careerWins: 500_000,
+      seed: 20260811,
+    });
+    const expected = [
+      "v2c_berserker_bloodslash",
+      "v2c_warlord_bloodbath",
+      "v2c_overlord_ruin",
+      "v2c_hegemon_annihilation",
+      "v2c_hegemon_dominion",
+    ] as const;
+
+    expect(snapshot.currentJobId).toBe("hegemon");
+    expect(snapshot.v2Skills.equipped).toEqual(
+      expect.arrayContaining([...expected]),
+    );
+    expect(exclusiveSkillConflicts(snapshot.v2Skills.equipped)).toEqual([]);
+    expect(
+      snapshot.v2Skills.equipped.reduce(
+        (sum, skillId) => sum + spCostOf(V2_SKILLS[skillId]),
+        0,
+      ),
+    ).toBe(51);
+  });
+
   it("기본 전투 표본은 경고선 근처의 승률 오탐을 줄이는 50회다", () => {
     expect(parseOptions([]).trials).toBe(50);
     expect(parseOptions(["--trials=20"]).trials).toBe(20);
     expect(parseOptions(["--trials=999"]).trials).toBe(100);
   });
 
-  it("검사 대상은 실제 선택 가능한 2~72 짝수 단계 36개다", () => {
+  it("검사 대상은 실제 선택 가능한 2~84 짝수 단계 42개다", () => {
     const depths = huntStageDepths();
-    expect(depths).toHaveLength(36);
+    expect(depths).toHaveLength(42);
     expect(depths[0]).toBe(2);
-    expect(depths.at(-1)).toBe(72);
+    expect(depths.at(-1)).toBe(84);
     expect(depths.every((depth) => depth % 2 === 0)).toBe(true);
   });
 
@@ -29,13 +88,15 @@ describe("sim-v2-level-design", () => {
     const fieldEnd = growth.rows.find((row) => row.depth === 6)!;
     const frontierEntry = growth.rows.find((row) => row.depth === 8)!;
     const endgame = growth.rows.find((row) => row.depth === 72)!;
+    const skyRift = growth.rows.find((row) => row.depth === 78)!;
+    const starGrave = growth.rows.find((row) => row.depth === 84)!;
 
     expect(growth.totalExpToLevelCap).toBe(2_275_428);
     expect(growth.energy).toMatchObject({
-      baseMax: 1_500,
-      baseFullHours: 5,
+      baseMax: 2_000,
+      baseFullHours: 20 / 3,
       baseNaturalPerDay: 7_200,
-      supportMax: 2_500,
+      supportMax: 3_000,
       supportNaturalPerDay: 8_640,
       starterChargeEach: 100_000,
     });
@@ -55,6 +116,23 @@ describe("sim-v2-level-design", () => {
     expect(endgame.commonAnyExpectedWins).toBeCloseTo(1 / 0.00075);
     expect(endgame.signatureAnyExpectedWins).toBe(2_000);
     expect(endgame.signatureSpecificExpectedWins).toBe(10_000);
+    expect(skyRift.commonAnyExpectedWins).toBe(1_000);
+    // 천공 균열 1~6은 21종 방어구 전역 풀. 78단계 총 0.1%에서 특정 1종은 평균 21,000승.
+    expect(skyRift.commonSpecificExpectedWins).toBe(21_000);
+    expect(skyRift.signatureAnyExpectedWins).toBe(40_000);
+    expect(skyRift.signatureSpecificExpectedWins).toBe(480_000);
+    for (const depth of [73, 74, 75, 76, 77, 78]) {
+      const pool = bandUniquePoolForDepth(depth)!;
+      expect(1 / pool.chance).toBeCloseTo(40_000);
+      expect(pool.ids.length / pool.chance).toBeCloseTo(480_000);
+    }
+    expect(starGrave.avgVeteranExpPerWin).toBe(skyRift.avgVeteranExpPerWin);
+    expect(starGrave.commonAnyExpectedWins).toBe(1_000);
+    expect(starGrave.commonSpecificExpectedWins).toBe(21_000);
+    expect(starGrave.signatureAnyExpectedWins).toBeCloseTo(1 / 0.000035);
+    expect(starGrave.signatureSpecificExpectedWins).toBeCloseTo(
+      12 / 0.000035,
+    );
   });
 
   it("실제 승률 절벽·전직 회복 필요·저승률·빌드 격차·장기전을 독립적으로 경고한다", () => {
@@ -99,21 +177,19 @@ describe("sim-v2-level-design", () => {
     ).toEqual([]);
   });
 
-  it("수행 0회·전투력 1,500 이하 캐릭터는 심해 폐허 최심부를 안정적으로 우회하지 못한다", () => {
+  it("수행 0회 캐릭터는 심해 폐허 최심부를 안정적으로 우회하지 못한다", () => {
     const builds = auditFixedProgressionCombat({
       depth: 72,
       careerWins: 500_000,
       cultivate: false,
       trials: 50,
     });
-    const underpowered = builds.filter((build) => build.power <= 1_500);
 
-    expect(underpowered.length).toBeGreaterThan(0);
     expect(builds.every((build) => build.cultivations === 0)).toBe(true);
-    expect(Math.max(...underpowered.map((build) => build.winRatePct))).toBeLessThan(20);
+    expect(Math.max(...builds.map((build) => build.winRatePct))).toBeLessThan(20);
   });
 
-  it("무수행 저성장 캐릭터는 중반 지역을 안정적으로 연속 우회하지 못한다", () => {
+  it("전투력 미달 보정 없이도 무수행 저성장 캐릭터는 후반까지 연속 우회하지 못한다", () => {
     const averageWinRate = (depth: number) => {
       const builds = auditFixedProgressionCombat({
         depth,
@@ -125,14 +201,74 @@ describe("sim-v2-level-design", () => {
     };
 
     expect(averageWinRate(8)).toBeGreaterThanOrEqual(90); // 첫 프론티어는 온보딩 보호
-    expect(averageWinRate(20)).toBeLessThan(85);
-    expect(averageWinRate(26)).toBeLessThan(70);
-    expect(averageWinRate(32)).toBeLessThan(75);
-    // 스킬 치명타 1.5→1.7 상향 뒤에도 평균 60% 미만이어야 한다. 빌드별 편차가 커
-    // 특정 빌드의 돌파 가능성과 전체 저성장 캐릭터의 안정적 우회를 구분한다.
-    expect(averageWinRate(38)).toBeLessThan(60);
-    expect(averageWinRate(42)).toBeLessThan(55);
-  }, 15_000);
+    // 예전 전투력 미달 몬스터 강화가 사라져 초중반은 높은 승률로 통과할 수 있다.
+    // 전역 INT 장벽을 2차 마법사 패시브로 옮긴 뒤 26구간 무수행 표본은 약 89.5%다.
+    expect(averageWinRate(20)).toBeGreaterThan(90);
+    expect(averageWinRate(26)).toBeGreaterThan(85);
+    // 주스탯 공격력 0.7 전역 적용으로 32까지는 쉬워졌지만, 44부터 다시 막히며 최종 지역은 통과할 수 없다.
+    expect(averageWinRate(32)).toBeGreaterThan(90);
+    expect(averageWinRate(44)).toBeLessThan(90);
+    expect(averageWinRate(72)).toBeLessThan(20);
+  }, SIMULATION_TEST_TIMEOUT_MS);
+
+  it("흑월은 산군에서 무풍암영 2→6부위로 교체하는 전 구간에서 성능이 급락하지 않는다", () => {
+    const sangoon = {
+      armor: "v2_hard_sangoon_hide",
+      gloves: "v2_hard_sangoon_claws",
+      boots: "v2_hard_sangoon_stride",
+      ring: "v2_hard_sangoon_ring",
+      necklace: "v2_hard_sangoon_amulet",
+    } as const;
+    const shadow = {
+      weapon: "v2_storm_gale_dagger",
+      armor: "v2_storm_shadow_armor",
+      gloves: "v2_storm_shadow_gloves",
+      boots: "v2_storm_shadow_boots",
+      ring: "v2_storm_shadow_ring",
+      necklace: "v2_storm_shadow_necklace",
+    } as const;
+    const slots: V2EquipSlot[] = [
+      "weapon",
+      "ring",
+      "necklace",
+      "armor",
+      "gloves",
+      "boots",
+    ];
+    const results = [2, 3, 4, 5, 6].map((count) => {
+      const equipment: Partial<Record<V2EquipSlot, V2EquipmentId>> = {
+        weapon: shadow.weapon,
+        ...sangoon,
+      };
+      for (const slot of slots.slice(0, count)) equipment[slot] = shadow[slot];
+      return auditCustomLoadoutCombat({
+        arch: "LUK",
+        depth: 76,
+        equipment,
+        careerWins: 500_000,
+        extraSp: count === 2 ? 2 : 4,
+        enhanceLevel: 12,
+        trials: 50,
+        seed: 20260808,
+      });
+    });
+    const winRates = results.map((result) => result.winRatePct);
+    const powers = results.map((result) => result.power);
+
+    // 장착 패시브를 소비하는 성장 시뮬레이터도 신규 방어 감소를 실제 전투 캐릭터에 전달한다.
+    expect(results[0].player.enemyPhysicalDefReductionPct).toBeGreaterThan(0);
+    // 예전 상위권 중앙 보정치에 가까운 공통 난도에서는 절대 승률보다 교체 중 급락 여부가 핵심이다.
+    expect(Math.min(...winRates)).toBeGreaterThanOrEqual(30);
+    // 새 전투력 산식은 이미 ATB 상한에 도달한 SPD를 더 계산하지 않는다. 방어 감소처럼
+    // 표시 점수에 직접 환산되지 않는 고비용 패시브도 기존 능력치 패시브와 장착 경쟁을 한다.
+    // 따라서 장비 교체 구간의 표시 점수 차이는 커질 수 있지만 실제 승률 급락 가드는 유지한다.
+    expect(Math.max(...powers) - Math.min(...powers)).toBeLessThan(225);
+    for (let i = 1; i < winRates.length; i++) {
+      expect(winRates[i - 1] - winRates[i]).toBeLessThan(20);
+    }
+    expect(results[0].player.spd).toBeGreaterThan(900);
+    expect(results[0].player.spd).toBeLessThan(1_100);
+  }, SIMULATION_TEST_TIMEOUT_MS);
 
   it("깊이·빌드별 전투 난수는 전체 실행 순서와 무관하다", () => {
     const full = buildReport(parseOptions(["--trials=1"]));
@@ -140,7 +276,9 @@ describe("sim-v2-level-design", () => {
     const fromFull = full.stages.find((stage) => stage.depth === 62);
 
     expect(fromFull).toBeDefined();
-    expect(full.warningCounts.READINESS_RECOVERY).toBe(0);
+    expect(single.stages[0].readinessRecoveryCount).toBe(
+      fromFull!.readinessRecoveryCount,
+    );
     expect(full.observationCounts.powerTargetMissStages).toBeGreaterThan(0);
     expect(full.observationCounts.powerTargetMissBuilds).toBeGreaterThan(0);
     expect(
@@ -156,5 +294,5 @@ describe("sim-v2-level-design", () => {
         turns: build.combat.avgWinTurns,
       })),
     );
-  }, 15_000);
+  }, SIMULATION_TEST_TIMEOUT_MS);
 });

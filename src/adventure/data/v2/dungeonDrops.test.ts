@@ -14,8 +14,8 @@ import {
 // 동작하고, 드랍은 hunt 의 독립 롤(rollEnhanceStoneDrops — 플래그 무관).
 
 describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
-  it("채광 광석·부산물과 생활 가공품까지 등재하며 NPC 판매가는 비등재한다", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(68);
+  it("채광·생활 등 비매 재료는 위험 어획물 판매가 등록 뒤에도 비등재한다", () => {
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(93);
     expect(V2_MATERIALS.v2_reforge_stone).toBeDefined();
     expect(V2_MATERIALS.v2_reforge_stone_high).toBeDefined();
     expect(V2_MATERIALS.v2_timber).toBeDefined();
@@ -59,6 +59,7 @@ describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
     expect(V2_MATERIALS.sp_fruit_2).toBeDefined();
     expect(V2_MATERIALS.sp_fruit_3).toBeDefined();
     expect(V2_MATERIALS.sp_fruit_4).toBeDefined();
+    expect(V2_MATERIALS.sp_fruit_5).toBeDefined();
     expect(V2_MATERIALS.v2_coop_coin).toBeDefined();
     expect(V2_MATERIALS.v2_coop_mountain_claw).toBeDefined();
     expect(V2_MATERIALS.v2_coop_canyon_chitin).toBeDefined();
@@ -70,12 +71,19 @@ describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
     expect(V2_MATERIALS.v2_coop_mountain_trace).toBeDefined();
     expect(V2_MATERIALS.v2_coop_mountain_equipment_box).toBeDefined();
     expect(V2_MATERIALS.v2_coop_mountain_hard_equipment_box).toBeDefined();
+    expect(V2_MATERIALS.v2_coop_catastrophe_stinger).toBeDefined();
+    expect(V2_MATERIALS.v2_coop_catastrophe_equipment_box).toBeDefined();
+    expect(V2_MATERIALS.v2_coop_frozen_lake_core).toBeDefined();
+    expect(V2_MATERIALS.v2_coop_frozen_lake_equipment_box).toBeDefined();
     expect(V2_MATERIALS.v2_coop_canyon_equipment_box).toBeDefined();
     expect(V2_MATERIALS.v2_coop_lake_equipment_box).toBeDefined();
     expect(V2_MATERIALS.v2_coop_void_equipment_box).toBeDefined();
     expect(V2_MATERIALS.v2_coop_mastery_tome).toBeDefined();
+    const npcSellableIds = new Set(Object.keys(V2_MATERIAL_SELL_PRICE));
+    expect(npcSellableIds.size).toBe(18);
     for (const id of Object.keys(V2_MATERIALS)) {
       expect(V2_MATERIALS[id].name.length).toBeGreaterThan(0);
+      if (npcSellableIds.has(id)) continue;
       expect(V2_MATERIAL_SELL_PRICE[id]).toBeUndefined();
       expect(materialSellPriceOf(id)).toBeUndefined();
     }

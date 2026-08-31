@@ -25,7 +25,7 @@ import {
   V2_DOT_PRESETS,
   V2_DEBUFF_PRESETS,
 } from "../data/v2/statusEffects";
-import { V2_SKILLS } from "../data/v2/v2Skills";
+import { V2_SKILLS, type V2SkillId } from "../data/v2/v2Skills";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -353,6 +353,7 @@ describe("resolveV2SkillCast (PR-4a — framework: cd/MP/슬롯 픽)", () => {
 
 describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 시스템)", () => {
   const fireballMp = v2SkillMpCost(V2_SKILLS["v2c_mage_fireball"]);
+  const sufficientFireballMp = 1_000;
 
   it("화염구 procChance=72 — 롤 < 72 이면 발동 (MP 차감 + 피해)", () => {
     const r = resolveV2SkillCast({
@@ -362,11 +363,11 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
       },
       cooldowns: {},
       procRoll: 20,
-      attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+      attacker: { mp: sufficientFireballMp, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(r.castSkillId).toBe("v2c_mage_fireball");
-    expect(r.nextMp).toBe(100 - fireballMp);
+    expect(r.nextMp).toBe(sufficientFireballMp - fireballMp);
     expect(r.enemyDamage).toBeGreaterThan(0);
   });
 
@@ -378,11 +379,11 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
       },
       cooldowns: {},
       procRoll: 75,
-      attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+      attacker: { mp: sufficientFireballMp, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(r.castSkillId).toBeNull();
-    expect(r.nextMp).toBe(100); // MP 미소모
+    expect(r.nextMp).toBe(sufficientFireballMp); // MP 미소모
     expect(r.enemyDamage).toBe(0);
   });
 
@@ -394,7 +395,7 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
       },
       cooldowns: {},
       procRoll: 72,
-      attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+      attacker: { mp: sufficientFireballMp, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(r.castSkillId).toBeNull();
@@ -407,7 +408,7 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
         equipped: ["v2c_mage_fireball"],
       },
       cooldowns: {},
-      attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+      attacker: { mp: sufficientFireballMp, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(r.castSkillId).toBe("v2c_mage_fireball");
@@ -434,7 +435,7 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
         cooldowns: {},
         procRoll: 75,
         procChanceBonus: bonus,
-        attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+        attacker: { mp: sufficientFireballMp, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
         target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
       });
     // 보너스 0: 72 → 75>=72 미발동. 보너스 10: 82 → 75<82 발동.
@@ -475,7 +476,8 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       cooldowns: {},
       attacker: {
         mp: 1000,
-        atk: 100,
+        // 기존 공격력 100에 STR 환산 증가분 200×0.35를 반영한다.
+        atk: 170,
         str: 200,
         maxHp: 200,
         selfBuffs: {},
@@ -483,12 +485,38 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       },
       target: { def: 20, selfBuffs: {}, selfDebuffs: {} },
     });
-    // t1 순수 물리: 공격력×1.2 + 힘×0.1 - 방어력 20.
-    expect(result.enemyDamage).toBe(120);
+    // t1 순수 물리: 공격력×1.08 + 힘×0.197 - 방어력 20. 반올림 오차만 1 발생한다.
+    expect(result.enemyDamage).toBe(202);
+  });
+
+  it("무심검은 힘 직접 계수로 주 스탯 투자에 크게 보상한다", () => {
+    const cast = (str: number) =>
+      resolveV2SkillCast({
+        skills: {
+          learned: ["v2c_swordsaint_flash"],
+          equipped: ["v2c_swordsaint_flash"],
+        },
+        cooldowns: {},
+        procRoll: 0,
+        attacker: {
+          mp: 10_000,
+          // 기존 공격력 1,000에 STR 환산 증가분을 더한다.
+          atk: 1_000 + Math.floor(str * 0.35),
+          str,
+          maxHp: 10_000,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+        target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+      });
+
+    // 본타와 힘×3 직접 계수에 무심검의 15% 관통 추가 피해가 적용된다.
+    expect(cast(300).enemyDamage).toBe(2_686);
+    expect(cast(1_000).enemyDamage).toBe(5_468);
   });
 
   it("heal effect — pctMaxHp 비례", () => {
-    // recover: heal pctMaxHp=10. maxHp=200 → 20.
+    // recover: heal pctMaxHp=1.8. maxHp=200 → floor(3.6)=3.
     const result = resolveV2SkillCast({
       skills: {
         learned: ["v2_skill_recover"],
@@ -504,7 +532,7 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
-    expect(result.selfHeal).toBe(20);
+    expect(result.selfHeal).toBe(3);
     expect(result.enemyDamage).toBe(0);
   });
 
@@ -529,8 +557,73 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
-    // 치유: 잃은 HP 100의 6% + magicAtk 100×0.45 + flat 50 = 101.
-    expect(result.selfHeal).toBe(101);
+    // 치유: 잃은 HP 100의 1.44% + magicAtk 100×(0.108×1.1) + flat 12 = 1 + 23.
+    expect(result.selfHeal).toBe(24);
+  });
+
+  it("유료 MP 회복 스킬은 최대 MP 비례 회복이 실제 소비량을 넘지 않는다", () => {
+    const expectedCost = v2SkillMpCost(
+      V2_SKILLS.v2c_primordialmage_return,
+    );
+    const startingMp = expectedCost * 2;
+    const result = resolveV2SkillCast({
+      skills: {
+        learned: [
+          "v2c_primordialmage_return",
+          "v2c_primordialmage_resonance",
+        ],
+        equipped: [
+          "v2c_primordialmage_return",
+          "v2c_primordialmage_resonance",
+        ],
+      },
+      cooldowns: {},
+      procRoll: 0,
+      attacker: {
+        mp: startingMp,
+        atk: 100,
+        magicAtk: 100,
+        maxHp: 1_000,
+        maxMp: expectedCost * 100,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: {
+        def: 0,
+        magicDef: 0,
+        maxHp: 10_000,
+        currentHp: 10_000,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+    });
+
+    expect(result.mpSpent).toBe(expectedCost);
+    expect(result.manaRestored).toBe(expectedCost);
+    expect(result.nextMp).toBe(startingMp);
+  });
+
+  it("비용이 없는 명상은 실제 소비량 상한 없이 기존 비율만큼 회복한다", () => {
+    const result = resolveV2SkillCast({
+      skills: {
+        learned: ["v2c_mage_meditate"],
+        equipped: ["v2c_mage_meditate"],
+      },
+      cooldowns: {},
+      attacker: {
+        mp: 0,
+        atk: 0,
+        maxHp: 1_000,
+        maxMp: 10_000,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+
+    expect(result.mpSpent).toBe(0);
+    expect(result.manaRestored).toBe(600);
+    expect(result.nextMp).toBe(600);
   });
 
   it("oncePerBattle 스킬은 시전 뒤 전투 내 재사용 불가 쿨다운으로 잠긴다", () => {
@@ -614,7 +707,7 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
     expect(second.guaranteedEvadesToAdd).toBe(0);
   });
 
-  it("healFromDamage effect — 스킬 피해량의 %를 회복한다", () => {
+  it("healFromDamage effect — 스킬 피해량의 %를 회복하되 회복량 증가 보정은 받지 않는다", () => {
     const result = resolveV2SkillCast({
       skills: {
         learned: ["v2c_darkpriest_reap"],
@@ -627,6 +720,36 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
         luk: 100,
         maxHp: 200,
         currentHp: 100,
+        healMult: 3,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: {
+        def: 0,
+        currentHp: 1000,
+        maxHp: 1000,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+    });
+    // atk 0 이어도 상향된 LUK 계수(0.42×1.15)는 유지되며, 옛 고정 기본 피해는 더하지 않는다.
+    expect(result.enemyDamage).toBe(47);
+    expect(result.selfHeal).toBe(Math.floor(47 * 0.14));
+  });
+
+  it("healFromDamage effect — 공격이 빗나가면 회복하지 않는다", () => {
+    const result = resolveV2SkillCast({
+      skills: {
+        learned: ["v2c_blooddemon_reign"],
+        equipped: ["v2c_blooddemon_reign"],
+      },
+      cooldowns: {},
+      attacker: {
+        mp: 1000,
+        atk: 100,
+        str: 100,
+        maxHp: 1000,
+        currentHp: 500,
         healMult: 1,
         selfBuffs: {},
         selfDebuffs: {},
@@ -639,9 +762,73 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
         selfDebuffs: {},
       },
     });
-    // atk 0 이어도 원본 LUK 계수(0.42)는 유지되며, 옛 고정 기본 피해는 더하지 않는다.
-    expect(result.enemyDamage).toBe(42);
-    expect(result.selfHeal).toBe(Math.floor(42 * 0.14));
+
+    expect(result.selfHeal).toBe(0);
+    expect(result.healFromActualDamagePct).toBe(20);
+    expect(result.selfHpCost).toBeGreaterThan(0);
+    const missed = removeMissedV2SkillTargetEffects(result);
+    expect(missed.selfHeal).toBe(0);
+    expect(missed.healFromActualDamagePct).toBe(0);
+    expect(missed.selfHpCost).toBe(0);
+  });
+
+  it("혈성기사 HP 소모기는 저체력에서도 최대 HP 50% 기준 추가 피해를 보장한다", () => {
+    const castAt = (currentHp: number) =>
+      resolveV2SkillCast({
+        skills: {
+          learned: ["v2c_bloodtemplar_stigma"],
+          equipped: ["v2c_bloodtemplar_stigma"],
+        },
+        cooldowns: {},
+        attacker: {
+          mp: 1000,
+          atk: 100,
+          str: 100,
+          maxHp: 1000,
+          currentHp,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+        target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+      });
+
+    const atFloor = castAt(500);
+    const belowFloor = castAt(250);
+    expect(atFloor.selfHpCost).toBe(40);
+    expect(belowFloor.selfHpCost).toBe(20);
+    expect(belowFloor.enemyDamage).toBe(atFloor.enemyDamage);
+  });
+
+  it("독립 자가 회복은 공격이 빗나가도 유지한다", () => {
+    const result = resolveV2SkillCast({
+      skills: {
+        learned: ["v2c_crusader_judgment"],
+        equipped: ["v2c_crusader_judgment"],
+      },
+      cooldowns: {},
+      attacker: {
+        mp: 1000,
+        atk: 100,
+        str: 100,
+        maxHp: 1000,
+        currentHp: 500,
+        healMult: 1,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: {
+        def: 0,
+        currentHp: 1000,
+        maxHp: 1000,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+    });
+
+    expect(result.selfHeal).toBeGreaterThan(0);
+    expect(removeMissedV2SkillTargetEffects(result).selfHeal).toBe(
+      result.selfHeal,
+    );
   });
 
   it("selfBuff effect — buff 목록 반환 (stat/pct/turns)", () => {
@@ -894,6 +1081,33 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     ).toBe(85);
   });
 
+  it("v2DamageAmount는 물리·마법 스킬에 각 계열 최소 피해를 적용한다", () => {
+    const common = {
+      attackerAtk: 10,
+      attackerMagicAtk: 10,
+      attackerMinDamage: 23,
+      attackerMagicMinDamage: 41,
+      targetDef: 999,
+      targetMagicDef: 999,
+      statCoef: 1,
+      baseFlat: 0,
+      attackerSelfBuffs: {},
+      attackerSelfDebuffs: {},
+      targetSelfBuffs: {},
+      targetSelfDebuffs: {},
+    };
+
+    expect(v2DamageAmount(common)).toBe(23);
+    expect(v2DamageAmount({ ...common, scaling: "magic" })).toBe(41);
+    expect(
+      v2DamageAmount({
+        ...common,
+        attackerMagicMinDamage: undefined,
+        scaling: "magic",
+      }),
+    ).toBe(23);
+  });
+
   it("v2DamageAmount scaling='magic' 인데 magicAtk 미지정 → atk 폴백 (적·구 호출 무영향)", () => {
     // magicAtk 없으면 attackerAtk 로 폴백: 40 × 1.5 + 0 = 60.
     expect(
@@ -1012,6 +1226,74 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     expect(high.magicEnemyDamage).toBe(high.enemyDamage);
   });
 
+  describe("일검필살 — 단일 타격 물리 공격 스킬만 강화", () => {
+    const cast = (
+      skillId: V2SkillId,
+      bonusPct?: number,
+      viaPattern = false,
+    ) =>
+      resolveV2SkillCast({
+        skills: { learned: [skillId], equipped: [skillId] },
+        cooldowns: {},
+        combatPattern: viaPattern
+          ? {
+              blocks: [
+                {
+                  condition: { kind: "always" },
+                  action: { kind: "skill", skillId },
+                },
+              ],
+            }
+          : undefined,
+        attacker: {
+          mp: 9_999,
+          atk: 500,
+          magicAtk: 500,
+          str: 1_000,
+          int: 1_000,
+          maxHp: 10_000,
+          currentHp: 10_000,
+          singleHitPhysicalSkillDamagePct: bonusPct,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+        target: {
+          def: 200,
+          magicDef: 200,
+          currentHp: 10_000,
+          maxHp: 10_000,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+      });
+
+    it("무심검의 직접 피해와 타격 로그를 30% 강화한다", () => {
+      const plain = cast("v2c_swordsaint_flash");
+      const boosted = cast("v2c_swordsaint_flash", 30);
+      expect(boosted.enemyDamage).toBe(Math.floor(plain.enemyDamage * 1.3));
+      expect(boosted.hitDamages.reduce((sum, damage) => sum + damage, 0)).toBe(
+        boosted.enemyDamage,
+      );
+    });
+
+    it("연타·마법·특수 피해 스킬에는 적용하지 않는다", () => {
+      for (const skillId of [
+        "v2c_warrior_flurry",
+        "v2c_archmage_collapse",
+        "v2c_assassin_ambush",
+        "v2c_hegemon_annihilation",
+      ] as const) {
+        expect(cast(skillId, 30).enemyDamage).toBe(cast(skillId).enemyDamage);
+      }
+    });
+
+    it("전투 패턴의 위력 보정 이후 최종 피해도 30% 강화한다", () => {
+      const plain = cast("v2c_swordsaint_flash", undefined, true);
+      const boosted = cast("v2c_swordsaint_flash", 30, true);
+      expect(boosted.enemyDamage).toBe(Math.floor(plain.enemyDamage * 1.3));
+    });
+  });
+
   it("resolveV2SkillCast — 성직 계보 회복기는 SPI가 높을수록 더 회복", () => {
     const cast = (spi: number) =>
       resolveV2SkillCast({
@@ -1049,8 +1331,8 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(result.castSkillName).toBe("생명 강타");
-    // t3 공격 기반선(5×1.2) + maxHp 계수(2000×0.03), 고정 피해 없음.
-    expect(result.enemyDamage).toBe(66);
+    // t3 공격 기반선(5×1.2) + maxHp 계수(2000×0.04), 고정 피해 없음.
+    expect(result.enemyDamage).toBe(86);
   });
 
   it("resolveV2SkillCast — 만상검(scaling all)은 올스탯 합계로 스케일", () => {
@@ -1068,8 +1350,8 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(result.castSkillName).toBe("만상검");
-    // t3 공격 기반선(5×1.2) + 올스탯 계수(700×0.14), 고정 피해 없음.
-    expect(result.enemyDamage).toBe(104);
+    // t3 공격 기반선(5×1.2) + 올스탯 계수(700×0.14×1.15), 고정 피해 없음.
+    expect(result.enemyDamage).toBe(118);
   });
 
   it("resolveV2SkillCast — 만상귀일은 올스탯 피해와 취약·행동 가속을 함께 적용", () => {
@@ -1088,7 +1370,7 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     });
 
     expect(result.castSkillName).toBe("만상귀일");
-    expect(result.enemyDamage).toBe(153);
+    expect(result.enemyDamage).toBe(175);
     expect(result.enemyVulnToApply).toEqual({ pct: 14, turns: 3 });
     expect(result.selfHasteToApply).toEqual({ pct: 25 });
   });
@@ -1110,10 +1392,17 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     });
     expect(result.castSkillName).toBe("살점 뜯기");
     // DoT 는 별도 경로로 적용 대기 목록에 실린다(프리셋 + 시전자 atk).
-    expect(result.dotsToApplyToTarget).toContainEqual({
-      ...V2_DOT_PRESETS.출혈,
-      sourceAtk: 5,
-    });
+    expect(result.dotsToApplyToTarget).toContainEqual(
+      expect.objectContaining({
+        tag: "bleed",
+        label: "출혈",
+        stacks: 1,
+        turns: 3,
+        flatPerStack: 10,
+        atkCoefPerStack: 0.12,
+        sourceAtk: 5,
+      }),
+    );
   });
 });
 

@@ -15,6 +15,7 @@ import {
 import {
   MUSEUN_CASH_ITEMS,
   MUSEUN_UTILITY_ITEM_IDS,
+  museunCashItemTags,
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
@@ -33,17 +34,21 @@ import {
   COOP_MASTERY_TOME_MATERIAL_ID,
 } from "@/adventure/data/v2/coopRewards";
 import {
-  cookingFoodDefinition,
-  cookingStatText,
+  cookingEffectText,
+  type CookingFoodDefinitionMap,
   type CookingFoodId,
   type CookingFoodInventory,
-} from "@/adventure/v2/cooking";
+} from "@/adventure/v2/cooking/foodShared";
 import {
   V2SimpleItemInfoCard,
   anchorOf,
   type ItemCardAnchor,
 } from "../V2ItemCard";
 import { InventoryItemIcon } from "./InventoryItemIcon";
+import { MasteryCertificateEntryCard } from "../MasteryCertificateUseModal";
+import type { FishId } from "@/adventure/data/v2/fish";
+import type { FishSpecimenInventory } from "@/adventure/v2/fishSpecimens";
+import { FishSpecimenSection } from "./FishSpecimenSection";
 
 function cashItemUseLabel(itemId: MuseunCashItemId): string {
   const effect = MUSEUN_CASH_ITEMS[itemId].effect;
@@ -51,6 +56,15 @@ function cashItemUseLabel(itemId: MuseunCashItemId): string {
   if (effect.kind === "rename") return "캐릭터 이름 1회 변경";
   if (effect.kind === "adventure_support") {
     return `모험 지원 혜택 ${effect.days}일`;
+  }
+  if (effect.kind === "adventure_support_premium") {
+    return `프리미엄 모험 지원 혜택 ${effect.days}일 · 꾸미기 연장권 2개`;
+  }
+  if (effect.kind === "cultivation_reset") {
+    return "레벨 1로 돌아가며 수행 전체 초기화";
+  }
+  if (effect.kind === "level_target") {
+    return `사용 즉시 ${effect.level}레벨 달성`;
   }
   if (effect.kind === "profile_border_box") return "미보유 프로필 꾸미기 1종 확정";
   if (effect.kind === "chat_badge_box") return "미보유 채팅 배지 1종 확정";
@@ -65,12 +79,18 @@ export function RareMapsTab({
   onUseSpFruit,
   onUseEquipmentBox,
   onUseMasteryTome,
+  masteryCertificates,
+  onUseMasteryCertificate,
   rareMaps,
   cashItems,
   onUseCashItem,
   cookingFoods,
+  cookingFoodDefinitions,
   onUseCookingFood,
   onUseExpTome,
+  fishSpecimens,
+  registeredFishIds,
+  onUseFishSpecimen,
 }: {
   materials: Partial<Record<V2MaterialId, number>>;
   spFruitUsed: Record<SpFruitTier, number>;
@@ -78,12 +98,18 @@ export function RareMapsTab({
   onUseSpFruit: (tier: SpFruitTier) => void;
   onUseEquipmentBox: (boxId: string) => void;
   onUseMasteryTome: () => void;
+  masteryCertificates: number;
+  onUseMasteryCertificate: () => void;
   rareMaps: RareMapInstance[] | null;
   cashItems: MuseunCashItemCounts;
   onUseCashItem: (itemId: MuseunCashItemId) => void;
   cookingFoods: CookingFoodInventory;
+  cookingFoodDefinitions: CookingFoodDefinitionMap;
   onUseCookingFood: (itemId: CookingFoodId) => void;
   onUseExpTome: (map: RareMapInstance) => void;
+  fishSpecimens: FishSpecimenInventory["items"];
+  registeredFishIds: readonly string[];
+  onUseFishSpecimen: (fishId: FishId) => void;
 }) {
   const router = useRouter();
   const hasSpFruit = SP_FRUIT_TIERS.some(
@@ -93,6 +119,7 @@ export function RareMapsTab({
     (box) => (materials[box.id] ?? 0) > 0,
   );
   const hasMasteryTome = (materials[COOP_MASTERY_TOME_MATERIAL_ID] ?? 0) > 0;
+  const hasMasteryCertificate = masteryCertificates > 0;
   const hasCashItem = MUSEUN_UTILITY_ITEM_IDS.some(
     (id) => (cashItems[id] ?? 0) > 0,
   );
@@ -101,8 +128,15 @@ export function RareMapsTab({
   );
   return (
     <div className="space-y-4">
+      <FishSpecimenSection
+        specimens={fishSpecimens}
+        registeredIds={registeredFishIds}
+        busyFishId={busy?.startsWith("fish_specimen_") ? (busy.slice(14) as FishId) : null}
+        onUse={onUseFishSpecimen}
+      />
       <CookingFoodSection
         cookingFoods={cookingFoods}
+        cookingFoodDefinitions={cookingFoodDefinitions}
         busy={busy}
         onUse={onUseCookingFood}
       />
@@ -137,6 +171,17 @@ export function RareMapsTab({
         busy={busy}
         onUse={onUseMasteryTome}
       />
+      {hasMasteryCertificate && (
+        <div>
+          <div className="mb-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+            숙련 증서 · 직업 성장
+          </div>
+          <MasteryCertificateEntryCard
+            certificates={masteryCertificates}
+            onUse={onUseMasteryCertificate}
+          />
+        </div>
+      )}
       <ConsumableList
         maps={rareMaps}
         busy={busy}
@@ -145,7 +190,9 @@ export function RareMapsTab({
           hasCashItem ||
           hasSpFruit ||
           hasEquipmentBox ||
-          hasMasteryTome
+          hasMasteryTome ||
+          hasMasteryCertificate ||
+          Object.values(fishSpecimens).some((count) => (count ?? 0) > 0)
         }
         onUse={onUseExpTome}
       />
@@ -155,16 +202,18 @@ export function RareMapsTab({
 
 function CookingFoodSection({
   cookingFoods,
+  cookingFoodDefinitions,
   busy,
   onUse,
 }: {
   cookingFoods: CookingFoodInventory;
+  cookingFoodDefinitions: CookingFoodDefinitionMap;
   busy: string | null;
   onUse: (itemId: CookingFoodId) => void;
 }) {
   const foods = Object.entries(cookingFoods)
     .flatMap(([itemId, count]) => {
-      const food = cookingFoodDefinition(itemId);
+      const food = cookingFoodDefinitions[itemId as CookingFoodId];
       return food && (count ?? 0) > 0 ? [{ food, count: count ?? 0 }] : [];
     })
     .sort(
@@ -177,7 +226,7 @@ function CookingFoodSection({
   return (
     <div>
       <div className="mb-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
-        음식 · 거래 가능 · 사용 시 PvE 능력치 효과
+        음식 · 거래 가능 · 사용 시 PvE 버프
       </div>
       <ul className="space-y-1.5">
         {foods.map(({ food, count }) => {
@@ -201,7 +250,7 @@ function CookingFoodSection({
                     </span>
                   </div>
                   <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                    {cookingStatText(food.statPct)} · {formatFoodDuration(food.durationMs)}
+                    {cookingEffectText(food.effect)} · {formatFoodDuration(food.durationMs)}
                   </div>
                 </div>
                 <Button
@@ -242,6 +291,7 @@ function CashItemSection({
     itemId: MuseunCashItemId;
     anchor: ItemCardAnchor;
   } | null>(null);
+  const [resetConfirming, setResetConfirming] = useState(false);
   const heldItems = MUSEUN_UTILITY_ITEM_IDS.filter(
     (itemId) => (cashItems[itemId] ?? 0) > 0,
   );
@@ -255,6 +305,7 @@ function CashItemSection({
       <ul className="space-y-1.5">
         {heldItems.map((itemId) => {
           const item = MUSEUN_CASH_ITEMS[itemId];
+          const tags = museunCashItemTags(itemId);
           const held = cashItems[itemId] ?? 0;
           const isBusy = busy === `cash_${itemId}`;
           return (
@@ -277,6 +328,14 @@ function CashItemSection({
                       className="shrink-0"
                     />
                     <span className="truncate">{item.name}</span>
+                    {tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="shrink-0 rounded border border-amber-300 bg-amber-100 px-1 py-0.5 text-[10px] font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                      >
+                        {tag}
+                      </span>
+                    ))}
                     <span className="shrink-0 text-xs font-normal text-zinc-500 dark:text-zinc-400">
                       ×{held}
                     </span>
@@ -287,7 +346,13 @@ function CashItemSection({
                 </button>
                 <Button
                   disabled={isBusy}
-                  onClick={() => onUse(itemId)}
+                  onClick={() => {
+                    if (itemId === "cultivation_reset_potion") {
+                      setResetConfirming(true);
+                      return;
+                    }
+                    onUse(itemId);
+                  }}
                   variant="warning"
                   size="xs"
                   className="shrink-0"
@@ -302,11 +367,14 @@ function CashItemSection({
       {infoCard ? (
         (() => {
           const item = MUSEUN_CASH_ITEMS[infoCard.itemId];
+          const isEvent = museunCashItemTags(infoCard.itemId).includes("이벤트");
           return (
             <V2SimpleItemInfoCard
               title={item.name}
               subtitle={
-                item.tradeable
+                isEvent
+                  ? "이벤트 소모품"
+                  : item.tradeable
                   ? "거래 가능한 캐시 소모품"
                   : "계정 귀속 캐시 소모품"
               }
@@ -328,6 +396,50 @@ function CashItemSection({
             />
           );
         })()
+      ) : null}
+      {resetConfirming ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cultivation-reset-potion-title"
+          className="fixed inset-0 z-[120] flex items-end justify-center bg-black/60 p-3 sm:items-center"
+        >
+          <div className={`${SURFACE_CARD} w-full max-w-md p-4 shadow-xl`}>
+            <h2
+              id="cultivation-reset-potion-title"
+              className="text-base font-semibold text-rose-700 dark:text-rose-300"
+            >
+              수행 초기화 물약을 사용할까요?
+            </h2>
+            <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-200">
+              캐릭터가 레벨 1·경험치 0으로 돌아갑니다. 수행 한계치와 현재
+              레벨 성장값은 사라집니다. 사용한 숙달 포인트는 돌려받으며 수행
+              횟수와 직업 숙련도는 유지됩니다.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                onClick={() => setResetConfirming(false)}
+                disabled={busy === "cash_cultivation_reset_potion"}
+                variant="secondary"
+                size="sm"
+              >
+                취소
+              </Button>
+              <Button
+                aria-label="수행 초기화 물약 사용 확정"
+                onClick={() => {
+                  setResetConfirming(false);
+                  onUse("cultivation_reset_potion");
+                }}
+                disabled={busy === "cash_cultivation_reset_potion"}
+                variant="danger"
+                size="sm"
+              >
+                물약 사용
+              </Button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

@@ -4,36 +4,13 @@ import { marketplaceListingsV2 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
-import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
-import { restoreMarketplaceRareMap } from "@/lib/server/marketplaceV2";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { appendEquipInstances } from "@/lib/server/equipGrant";
-import { type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
-import { mintListedEquipInstance } from "@/adventure/data/v2/v2EquipMint";
-import {
-  addMuseunCashItem,
-  isMuseunCashItemId,
-} from "@/adventure/data/v2/museunCashItems";
-import {
-  addCookingFood,
-  isCookingFoodId,
-} from "@/adventure/v2/cooking";
+import { cancelMarketplaceListingEscrow } from "@/lib/server/marketplaceEscrow";
+import { lockTradeParticipantStatuses } from "@/lib/server/tradeSuspension";
 
 // POST /api/v2/marketplace/cancel — 내 활성 매물 취소(에스크로 반환).
 //   body: { listingId:int }
 // listing FOR UPDATE → 본인·활성 확인 → 아이템을 판매자 save 로 반환(장비=새 개체, 재료=수량 복원)
 //   → cancelled 마킹. (판매자 본인이 온라인이라 직접 save 반환 — 우편 불필요.)
-
-type CharSave = {
-  rareMaps?: unknown;
-  cashItems?: unknown;
-  materials?: Record<string, number>;
-  [k: string]: unknown;
-};
-
-type InventorySave = Record<string, unknown> & {
-  cookingFoods?: unknown;
-};
 
 function bad(error: string, status = 400) {
   return Response.json({ ok: false, error }, { status });
@@ -63,6 +40,10 @@ export async function POST(req: Request) {
   const listingId = body.listingId;
 
   const result = await db.transaction(async (tx) => {
+    const now = new Date();
+    // Cancellation is always allowed, including while suspended. The user
+    // lock only establishes the canonical users-before-assets order.
+    await lockTradeParticipantStatuses(tx, [userId], now);
     const [listing] = await tx
       .select()
       .from(marketplaceListingsV2)
@@ -79,64 +60,11 @@ export async function POST(req: Request) {
       return { status: 409, body: { ok: false as const, error: "has_bids" } };
     }
 
-    if (listing.kind === "equip") {
-      // payload = 굴림(+강화+제작품질) — 옛 행은 raw roll. 방어 파스는 mintListedEquipInstance 공용.
-      await appendEquipInstances(tx, userId, [
-        mintListedEquipInstance(
-          listing.itemId as V2EquipmentId,
-          listing.instancePayload,
-        ),
-      ]);
-    } else if (listing.kind === "consumable") {
-      const charSave = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});
-      if (isMuseunCashItemId(listing.itemId)) {
-        await upsertSave(tx, userId, "character.v2", {
-          ...charSave,
-          cashItems: addMuseunCashItem(
-            charSave.cashItems,
-            listing.itemId,
-            listing.quantity,
-          ),
-        });
-      } else if (isCookingFoodId(listing.itemId)) {
-        const inventory = await lockSaveForUpdate<InventorySave>(
-          tx,
-          userId,
-          "inventory.v2",
-          {},
-        );
-        await upsertSave(tx, userId, "inventory.v2", {
-          ...inventory,
-          cookingFoods: addCookingFood(
-            inventory.cookingFoods,
-            listing.itemId,
-            listing.quantity,
-          ),
-        });
-      } else {
-        const inst = restoreMarketplaceRareMap(
-          listing.instancePayload,
-          Date.now(),
-          { preserveIid: true },
-        );
-        if (inst) {
-          await upsertSave(tx, userId, "character.v2", {
-            ...charSave,
-            rareMaps: [...parseRareMaps(charSave.rareMaps, Date.now()), inst],
-          });
-        }
-      }
-    } else {
-      const charSave = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});
-      const mats = { ...(charSave.materials ?? {}) };
-      mats[listing.itemId] = Math.max(0, Math.floor(mats[listing.itemId] ?? 0)) + listing.quantity;
-      await upsertSave(tx, userId, "character.v2", { ...charSave, materials: mats });
-    }
-
-    await tx
-      .update(marketplaceListingsV2)
-      .set({ status: "cancelled", closedAt: new Date() })
-      .where(eq(marketplaceListingsV2.id, listingId));
+    await cancelMarketplaceListingEscrow(tx, listing, {
+      now,
+      refundHighestBid: false,
+      reason: "user_cancel",
+    });
 
     return {
       status: 200,

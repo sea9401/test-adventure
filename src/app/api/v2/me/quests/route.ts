@@ -15,6 +15,7 @@ import {
   currentGuideQuest,
   questLinesFor,
   achievementSummary,
+  claimedUniqueEquipmentAcquisitionFloor,
 } from "@/adventure/data/v2/v2Quests";
 import {
   addTitlesToAdventureLog,
@@ -38,15 +39,25 @@ import { MINING_LOG_KEY } from "@/adventure/v2/miningSession";
 import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import { MASTERY_TOWER_SAVE_KEY } from "@/adventure/data/v2/masteryTower";
-import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking";
+import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking/state";
 import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
 import { LIFE_REQUESTS_SAVE_KEY } from "@/adventure/v2/lifeRequests";
 import { LIFE_FIELD_RECORDS_KEY } from "@/adventure/v2/lifeFieldRecords";
 import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
 import { deriveMonsterHuntCodex } from "@/adventure/data/v2/monsterHuntCodex";
+import {
+  ensureUniqueEquipmentAcquisitionBaseline,
+  persistedUniqueEquipmentAcquired,
+  uniqueEquipmentAcquisitionProgress,
+} from "@/lib/server/uniqueEquipmentAchievement";
+import {
+  GROWTH_LEAP_SAVE_KEY,
+  growthLeapMissionView,
+} from "@/adventure/data/v2/growthLeap";
 
-// GET /api/v2/me/quests — 가이드 퀘스트 현황. 완료 판정은 세이브/DB 파생(읽기 전용, 락 없음).
+// GET /api/v2/me/quests — 가이드 퀘스트 현황. 완료 판정은 세이브/DB 파생.
 //   현 직군에게 보이는 라인 + 각 퀘스트 status(claimed/claimable/active/locked) 반환.
+//   레거시 이관·반복 퀘스트 롤오버처럼 멱등인 lazy 보정만 필요할 때 저장한다.
 export async function GET() {
   const userId = await ensureUser();
   if (!userId) {
@@ -72,6 +83,7 @@ export async function GET() {
     lifeWorkshopRaw,
     lifeRequestsRaw,
     lifeFieldRecordsRaw,
+    growthLeapRaw,
     lifeFieldFeatures,
     extras,
   ] = await Promise.all([
@@ -93,11 +105,13 @@ export async function GET() {
     readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
     readSave(db, userId, LIFE_REQUESTS_SAVE_KEY, {}),
     readSave(db, userId, LIFE_FIELD_RECORDS_KEY, {}),
+    readSave(db, userId, GROWTH_LEAP_SAVE_KEY, {}),
     readLifeFieldFeatureSettings(),
     assembleQuestExtras(db, userId),
   ]);
 
   const claimed = parseClaimed(guideRaw);
+  const uniqueAcquiredFloor = claimedUniqueEquipmentAcquisitionFloor(claimed);
   const savedTrackedQuestId = parseTrackedQuestId(guideRaw);
   const retroactiveObtainedAt = Date.now();
   const retroactiveTitleIds = await backfillClaimedQuestTitleRewards(
@@ -106,7 +120,7 @@ export async function GET() {
     advLogRaw,
     retroactiveObtainedAt,
   );
-  const effectiveAdvLogRaw =
+  let effectiveAdvLogRaw =
     retroactiveTitleIds.length > 0
       ? addTitlesToAdventureLog(
           advLogRaw,
@@ -114,6 +128,24 @@ export async function GET() {
           retroactiveObtainedAt,
         )
       : advLogRaw;
+
+  // 보유량 기반이던 레거시 진행도를 누적 획득 시작값으로 한 번만 이관한다. 현재 인벤토리,
+  // 유니크 도감, 이미 수령한 단계 중 가장 높은 증거를 사용해 판매·분해 후에도 내려가지 않는다.
+  const uniqueBaseline = uniqueEquipmentAcquisitionProgress({
+    adventureLogRaw: effectiveAdvLogRaw,
+    equipmentRaw,
+    equipmentCodexRaw,
+    minimum: uniqueAcquiredFloor,
+  });
+  if (uniqueBaseline > persistedUniqueEquipmentAcquired(effectiveAdvLogRaw)) {
+    effectiveAdvLogRaw = await ensureUniqueEquipmentAcquisitionBaseline({
+      executor: db,
+      userId,
+      equipmentRaw,
+      equipmentCodexRaw,
+      minimum: uniqueAcquiredFloor,
+    });
+  }
 
   const ctx = buildQuestCtx({
     charRaw,
@@ -133,6 +165,7 @@ export async function GET() {
     lifeRequestsRaw,
     lifeFieldRecordsRaw,
     lifeFieldMilestonesEnabled: lifeFieldFeatures.milestonesEnabled,
+    uniqueAcquiredFloor,
     extras,
   });
   const quests = deriveQuestViews(ctx, claimed);
@@ -162,6 +195,7 @@ export async function GET() {
     trackedQuestId,
     achievementSummary: achievementSummary(ctx, claimed),
     monsterCodex: deriveMonsterHuntCodex(effectiveAdvLogRaw),
+    growthLeap: growthLeapMissionView(growthLeapRaw, Date.now()),
     repeat: {
       daily: repeatViews.filter((q) => q.scope === "daily"),
       weekly: repeatViews.filter((q) => q.scope === "weekly"),

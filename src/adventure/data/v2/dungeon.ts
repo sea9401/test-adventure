@@ -91,7 +91,7 @@ const BAND_G_BLACK_THRONE_ENEMIES: DungeonEnemy[] = [
   { key: "심연 집행자", name: "심연 집행자", image: "/images/monster/v2/throne-abyss-executor.webp", element: "void", statusSkill: "mob_chilling_touch", castSkill: "mob_arcane_burst" },
 ];
 
-// 붉은 벌판 — 전쟁터·화염·쇳가루. 49~54 권장 전투력 2000~2300, 물리 압박+화염/출혈.
+// 붉은 벌판 — 전쟁터·화염·쇳가루. 49~54 권장 전투력 1400~1650, 물리 압박+화염/출혈.
 const BAND_H_RED_FIELD_ENEMIES: DungeonEnemy[] = [
   { key: "잿빛 창병", name: "잿빛 창병", image: "/images/monster/v2/ash-spearman.webp", element: "earth", statusSkill: "mob_rending_claw" },
   { key: "화약 투척병", name: "화약 투척병", image: "/images/monster/v2/powder-thrower.webp", element: "fire", castSkill: "mob_arcane_bolt" },
@@ -100,7 +100,7 @@ const BAND_H_RED_FIELD_ENEMIES: DungeonEnemy[] = [
   { key: "폭풍 깃발수", name: "폭풍 깃발수", image: "/images/monster/v2/storm-standard-bearer.webp", element: "lightning", statusSkill: "mob_chilling_touch" },
 ];
 
-// 백골 고원 — 오래된 전쟁의 고지대. 55~60 권장 전투력 2800~3300, 고피해·출혈·치명·탱커 혼합.
+// 백골 고원 — 오래된 전쟁의 고지대. 55~60 권장 전투력 1700~2000, 고피해·출혈·치명·탱커 혼합.
 const BAND_I_BONE_PLATEAU_ENEMIES: DungeonEnemy[] = [
   { key: "해골 기수", name: "해골 기수", image: "/images/monster/v2/skeleton-rider.webp", element: "wind", statusSkill: "mob_rending_claw" },
   { key: "고원 학살자", name: "고원 학살자", image: "/images/monster/v2/plateau-slayer.webp", element: "fire", statusSkill: "mob_rending_claw" },
@@ -109,7 +109,7 @@ const BAND_I_BONE_PLATEAU_ENEMIES: DungeonEnemy[] = [
   { key: "백골 군주", name: "백골 군주", image: "/images/monster/v2/bone-lord.webp", element: "earth", statusSkill: "mob_rending_claw" },
 ];
 
-// 폭풍 산맥 — 고산 폭풍지대. 61~66 권장 전투력 3400~3900, 고회피·감전·돌진 압박.
+// 폭풍 산맥 — 고산 폭풍지대. 61~66 권장 전투력 2050~2250, 고회피·감전·돌진 압박.
 const BAND_J_STORM_MOUNTAIN_ENEMIES: DungeonEnemy[] = [
   { key: "뇌운 절벽늑대", name: "뇌운 절벽늑대", image: "/images/monster/v2/stormcloud-cliff-wolf.webp", element: "wind", statusSkill: "mob_rending_claw" },
   { key: "폭풍뿔 거수", name: "폭풍뿔 거수", image: "/images/monster/v2/stormhorn-behemoth.webp", element: "lightning", statusSkill: "mob_chilling_touch" },
@@ -118,13 +118,58 @@ const BAND_J_STORM_MOUNTAIN_ENEMIES: DungeonEnemy[] = [
   { key: "낙뢰 예언자", name: "낙뢰 예언자", image: "/images/monster/v2/lightning-oracle.webp", element: "lightning", statusSkill: "mob_chilling_touch", castSkill: "mob_arcane_burst" },
 ];
 
-// 심해 폐허 — 잠긴 고대 폐허. 67~72 권장 전투력 4000~4500, 물·공허·별빛 마법 압박.
+// 심해 폐허 — 잠긴 고대 폐허. 67~72 권장 전투력 2300~2500, 물·공허·별빛 마법 압박.
 const BAND_K_ABYSS_RUINS_ENEMIES: DungeonEnemy[] = [
   { key: "해연 추적자", name: "해연 추적자", image: "/images/monster/v2/abyssal-pursuer.webp", element: "water", statusSkill: "mob_chilling_touch" },
   { key: "청독 집게왕", name: "청독 집게왕", image: "/images/monster/v2/blue-venom-pincer-king.webp", element: "earth", statusSkill: "mob_venom_bite" },
   { key: "침몰한 원혼", name: "침몰한 원혼", image: "/images/monster/v2/sunken-wraith.webp", element: "void", statusSkill: "mob_rending_claw", castSkill: "mob_arcane_burst" },
   { key: "해구의 사도", name: "해구의 사도", image: "/images/monster/v2/trench-apostle.webp", element: "starlight", castSkill: "mob_arcane_burst" },
   { key: "암류 파수병", name: "암류 파수병", image: "/images/monster/v2/undertow-sentinel.webp", element: "void", statusSkill: "mob_rending_claw" },
+];
+
+// 천공 균열 — 폭풍 원정 이후 열린 부유 대륙의 단층. 73~78 권장 전투력 4650~5500,
+// 물리 관통·고회피·중독·마법 폭발을 함께 배치해 6T 빌드별 강점을 시험한다.
+const BAND_L_SKY_RIFT_ENEMIES: DungeonEnemy[] = [
+  { key: "중력핵 골렘", name: "중력핵 골렘", image: "/images/monster/v2/rockback-guardian-beast.webp", element: "earth" },
+  { key: "붕괴의 선봉장", name: "붕괴의 선봉장", image: "/images/monster/v2/storm-standard-bearer.webp", element: "fire", statusSkill: "mob_rending_claw" },
+  { key: "무풍 추적귀", name: "무풍 추적귀", image: "/images/monster/v2/coldwind-raider-captain.webp", element: "wind", statusSkill: "mob_rending_claw" },
+  { key: "만독 비룡", name: "만독 비룡", image: "/images/monster/v2/blue-venom-pincer-king.webp", element: "earth", statusSkill: "mob_venom_bite" },
+  { key: "뇌정 성역지기", name: "뇌정 성역지기", image: "/images/monster/v2/lightning-oracle.webp", element: "lightning", statusSkill: "mob_chilling_touch", castSkill: "mob_arcane_burst" },
+];
+
+// 별의 무덤 — 천공 균열 너머의 성좌 잔해. 속성 상성 없이 물리/마법 방어 성향과
+// 강타·관통·출혈·중독·둔화·마법 폭발 역할을 나눠 6T 완성 빌드를 시험한다.
+const BAND_M_STAR_GRAVE_ENEMIES: DungeonEnemy[] = [
+  {
+    key: "성해의 파수꾼",
+    name: "성해의 파수꾼",
+    image: "/images/monster/v2/star-sea-warden.webp",
+  },
+  {
+    key: "혜성꼬리 추적자",
+    name: "혜성꼬리 추적자",
+    image: "/images/monster/v2/comet-tail-stalker.webp",
+    statusSkill: "mob_rending_claw",
+  },
+  {
+    key: "적색거성의 사제",
+    name: "적색거성의 사제",
+    image: "/images/monster/v2/red-giant-priest.webp",
+    castSkill: "mob_arcane_burst",
+  },
+  {
+    key: "공허를 먹는 짐승",
+    name: "공허를 먹는 짐승",
+    image: "/images/monster/v2/void-devouring-beast.webp",
+    statusSkill: "mob_venom_bite",
+  },
+  {
+    key: "죽은 별의 관측자",
+    name: "죽은 별의 관측자",
+    image: "/images/monster/v2/dead-star-observer.webp",
+    statusSkill: "mob_chilling_touch",
+    castSkill: "mob_arcane_burst",
+  },
 ];
 
 // 들판 = 깊이 1~6 의 고유(authored) 풀. element 분포 게이트·온보딩 보호.
@@ -142,13 +187,15 @@ export const MAIN_DUNGEON: Dungeon = {
 };
 
 // 사냥터 테마 순서 — 테마당 THEME_DEPTH_SPAN(6) 깊이씩. 들판 onboarding 풀도 6깊이.
-// 마지막 테마(심해 폐허)에서 프론티어가 끝난다(MAX_FRONTIER_DEPTH·무한 반복 안 함). 표시는
+// 마지막 테마(별의 무덤)에서 프론티어가 끝난다(MAX_FRONTIER_DEPTH·무한 반복 안 함). 표시는
 // "테마명 + 테마 내 로컬 번호(1~6)". 난이도는 테마 무관, 전역 깊이당 상승(dungeonLadder).
 // 단일 소스 — enemiesForDepth/depthName 이 themeForDepth 에서 도출(경계 드리프트 방지).
 // 2026-06-19: "깊은 산"(옛 7~12) 삭제 → 마른 협곡부터 6깊이씩 앞으로 당겨짐.
-// 2026-06-28: 검은 왕도(43~48) 추가. 43+ 는 dungeonLadder 의 엔드 확장 램프로 권장 전투력 1500대.
+// 2026-06-28: 검은 왕도(43~48) 추가. 43+ 권장치는 실제 난이도에 맞춘 별도 표시 곡선을 쓴다.
 // 2026-06-30: 붉은 벌판(49~54)·백골 고원(55~60) 추가.
 // 2026-07-04: 폭풍 산맥(61~66)·심해 폐허(67~72) 추가.
+// 2026-08-07: 천공 균열(73~78) 추가. 6T 장비의 방어구 목표 파밍 지역.
+// 2026-08-14: 별의 무덤(79~84) 추가. 6T 시그니처 유니크 추격 지역.
 export const THEME_DEPTH_SPAN = 6;
 const DUNGEON_THEMES: { name: string; enemies: DungeonEnemy[] }[] = [
   { name: "들판", enemies: FLOOR1_ENEMIES }, // 깊이 1~6
@@ -162,7 +209,9 @@ const DUNGEON_THEMES: { name: string; enemies: DungeonEnemy[] }[] = [
   { name: "붉은 벌판", enemies: BAND_H_RED_FIELD_ENEMIES }, // 49~54
   { name: "백골 고원", enemies: BAND_I_BONE_PLATEAU_ENEMIES }, // 55~60
   { name: "폭풍 산맥", enemies: BAND_J_STORM_MOUNTAIN_ENEMIES }, // 61~66
-  { name: "심해 폐허", enemies: BAND_K_ABYSS_RUINS_ENEMIES }, // 67~72 (마지막 테마 = 프론티어 끝)
+  { name: "심해 폐허", enemies: BAND_K_ABYSS_RUINS_ENEMIES }, // 67~72
+  { name: "천공 균열", enemies: BAND_L_SKY_RIFT_ENEMIES }, // 73~78
+  { name: "별의 무덤", enemies: BAND_M_STAR_GRAVE_ENEMIES }, // 79~84 (마지막 테마 = 프론티어 끝)
 ];
 
 export type HuntMonsterCodexDefinition = {
@@ -200,7 +249,7 @@ export const HUNT_MONSTER_SPECIES_COUNT = HUNT_MONSTER_CODEX.length;
 // DUNGEON_THEMES 에 추가 → 이 캡이 자동으로 늘어난다. 깊이 게이트(hunt route)·UI 가 이 값으로 캡.
 export const MAX_FRONTIER_DEPTH = DUNGEON_THEMES.length * THEME_DEPTH_SPAN;
 
-// 플레이어가 선택하는 사냥 단계. 내부 깊이 1~72와 난이도·보상 테이블은 그대로 두고,
+// 플레이어가 선택하는 사냥 단계. 내부 깊이 1~84와 난이도·보상 테이블은 그대로 두고,
 // 각 테마의 두 깊이를 한 단계로 묶어 뒤쪽 깊이(2·4·6)를 대표 전투 깊이로 사용한다.
 // 레거시 깊이와 희귀 지도는 같은 쌍의 단계명으로 표시할 수 있다.
 export const HUNT_STAGE_LABELS = ["입구", "심부", "최심부"] as const;

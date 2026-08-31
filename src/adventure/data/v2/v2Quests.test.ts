@@ -9,12 +9,13 @@ import {
   currentGuideQuest,
   isTutorialLine,
   achievementSummary,
+  claimedUniqueEquipmentAcquisitionFloor,
   type QuestCtx,
 } from "./v2Quests";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
 import { TITLES } from "../titles";
-import { COOKING_RECIPES } from "../../v2/cooking";
+import { COOKING_CODEX_MILESTONES } from "../../v2/cooking/catalogMeta";
 
 // 테스트 기본값(1차 전사, 활동 없음). 부분 ctx 는 이걸 스프레드.
 const ZERO: QuestCtx = {
@@ -26,7 +27,7 @@ const ZERO: QuestCtx = {
   equippedCount: 0,
   hasManuallyEquippedGear: false,
   hasBattledAfterEquippingGear: false,
-  uniqueOwned: 0,
+  uniqueAcquired: 0,
   cultivations: 0,
   bossKills: 0,
   hasGuild: false,
@@ -84,6 +85,7 @@ const ZERO: QuestCtx = {
   guildWorkshopDeliveries: 0,
   guildAlchemyCrafts: 0,
   guildTradeContracts: 0,
+  referralCount: 0,
 };
 
 const NEWCOMER: QuestCtx = { ...ZERO, class: "none", tier: 0 };
@@ -91,6 +93,89 @@ const NEWCOMER: QuestCtx = { ...ZERO, class: "none", tier: 0 };
 const none = new Set<string>();
 
 describe("v2Quests 카탈로그 무결성", () => {
+  it("대표 성장·생활·경제·수집 업적이 합의한 칭호를 지급한다", () => {
+    const rewards = [
+      ["growth_tier6", "ach_transcendent", "초월자"],
+      ["life_request100", "ach_town_helper", "마을 해결사"],
+      ["gold_1m", "ach_millionaire", "백만장자"],
+      ["titles_10", "ach_title_collector", "칭호 수집가"],
+    ] as const;
+
+    for (const [questId, titleId, titleName] of rewards) {
+      expect(questById(questId)?.reward.titleId).toBe(titleId);
+      expect(TITLES[titleId]?.name).toBe(titleName);
+    }
+    expect(questById("x_titles")?.title).toBe("칭호 수집 입문");
+    expect(questById("titles_10")?.title).toBe("칭호 수집가");
+  });
+
+  it("홍보 50명과 100명 업적이 각각 홍보사원·홍보왕 칭호를 지급한다", () => {
+    expect(questById("promotion_referrals50")).toMatchObject({
+      line: "promotion",
+      goal: 50,
+      points: 50,
+      reward: { titleId: "ach_promotion_staff" },
+    });
+    expect(questById("promotion_referrals100")).toMatchObject({
+      line: "promotion",
+      goal: 100,
+      points: 80,
+      reward: { titleId: "ach_promotion_king" },
+    });
+    expect(TITLES.ach_promotion_staff?.name).toBe("홍보사원");
+    expect(TITLES.ach_promotion_king?.name).toBe("홍보왕");
+  });
+
+  it("장비 도감·투기장·숙련의 탑 종착 업적도 고유 칭호를 지급한다", () => {
+    const rewards = [
+      ["codex_240", "ach_equipment_archivist", "장비 기록관"],
+      ["arena_win250", "ach_arena_conqueror", "투기장 정복자"],
+      ["tower_50", "ach_mastery_tower_peak", "탑 정복자"],
+    ] as const;
+
+    for (const [questId, titleId, titleName] of rewards) {
+      expect(questById(questId)?.reward.titleId).toBe(titleId);
+      expect(TITLES[titleId]?.name).toBe(titleName);
+    }
+  });
+
+  it("홍보 실적은 50명과 100명 경계에서 단계별로 완료된다", () => {
+    const staff = questById("promotion_referrals50")!;
+    const king = questById("promotion_referrals100")!;
+
+    expect(staff.check({ ...ZERO, referralCount: 49 })).toBe(false);
+    expect(staff.check({ ...ZERO, referralCount: 50 })).toBe(true);
+    expect(king.check({ ...ZERO, referralCount: 99 })).toBe(false);
+    expect(king.check({ ...ZERO, referralCount: 100 })).toBe(true);
+  });
+
+  it("다섯 생활 레벨 업적을 60·75·90·100까지 확장하고 100 칭호를 지급한다", () => {
+    const activities = [
+      ["farm", "ach_farming_transcendent", "대지의 초월자"],
+      ["wood", "ach_worldtree_touch", "세계수의 손길"],
+      ["mine", "ach_deep_mine_ruler", "심층의 지배자"],
+      ["fish", "ach_boundless_angler", "만경창파의 강태공"],
+      ["cooking", "ach_celestial_banquet", "천상의 대연회"],
+    ] as const;
+
+    for (const [prefix, titleId, titleName] of activities) {
+      expect(
+        [10, 25, 50, 60, 75, 90, 100].map(
+          (level) => questById(`${prefix}_level${level}`)?.goal,
+        ),
+      ).toEqual([10, 25, 50, 60, 75, 90, 100]);
+      expect(questById(`${prefix}_level60`)?.points).toBe(20);
+      expect(questById(`${prefix}_level75`)?.points).toBe(30);
+      expect(questById(`${prefix}_level90`)?.points).toBe(40);
+      expect(questById(`${prefix}_level100`)).toMatchObject({
+        goal: 100,
+        points: 60,
+        reward: { titleId },
+      });
+      expect(TITLES[titleId]?.name).toBe(titleName);
+    }
+  });
+
   it("id 중복 없음 + 라인 id 가 정의된 라인", () => {
     const ids = new Set(V2_QUESTS.map((q) => q.id));
     expect(ids.size).toBe(V2_QUESTS.length);
@@ -106,6 +191,18 @@ describe("v2Quests 카탈로그 무결성", () => {
     );
     expect(questById("marathon_farm_reputation_10000")?.title).toBe(
       "농장 증표 10,000",
+    );
+  });
+
+  it("생활 도구 업적은 승급 횟수가 아니라 도달 단계를 안내한다", () => {
+    expect(questById("life_tool_tier1")?.desc).toBe(
+      "벌목 또는 채광 생활 도구를 1단계로 승급하세요.",
+    );
+    expect(questById("life_tool_tier2")?.desc).toBe(
+      "벌목 또는 채광 생활 도구를 2단계로 승급하세요.",
+    );
+    expect(questById("life_tool_tier3")?.desc).toBe(
+      "벌목 또는 채광 생활 도구를 3단계로 승급하세요.",
     );
   });
 
@@ -220,6 +317,8 @@ describe("v2Quests 카탈로그 무결성", () => {
   it("기초 튜토리얼(basics) 보상 = 스태미나 회복약 2개", () => {
     const basics = V2_QUESTS.filter((q) => q.line === "basics");
     expect(basics.length).toBeGreaterThan(0);
+    expect(basics.some((q) => q.id === "b_shop")).toBe(false);
+    expect(basics.some((q) => q.href === "/town/shop")).toBe(false);
     for (const q of basics) {
       expect(q.reward.staminaPotions, q.id).toBe(2);
       expect(q.reward.gold, q.id).toBeUndefined();
@@ -372,13 +471,9 @@ describe("성장의 길 (순차 라인)", () => {
     ).toBe(true);
   });
 
-  it("기초 튜토리얼 — 상점/치료/학습 신호로 충족", () => {
-    expect(questStatus(questById("b_shop")!, ZERO, none)).toBe("active");
+  it("기초 튜토리얼 — 치료/학습 신호로 충족", () => {
     expect(questStatus(questById("b_heal")!, ZERO, none)).toBe("active");
     expect(questStatus(questById("b_learn")!, ZERO, none)).toBe("active");
-    expect(
-      isQuestClaimable(questById("b_shop")!, { ...ZERO, hasShopped: true }, none),
-    ).toBe(true);
     expect(
       isQuestClaimable(questById("b_heal")!, { ...ZERO, hasHealed: true }, none),
     ).toBe(true);
@@ -553,9 +648,17 @@ describe("모험가의 길 (콘텐츠·사회, 비순차)", () => {
 });
 
 describe("정점을 향해 (확장 마일스톤)", () => {
+  it("유니크를 처분해 현재 보유량이 0이어도 누적 획득 업적은 유지된다", () => {
+    const accumulated: QuestCtx = { ...ZERO, uniqueAcquired: 1 };
+
+    expect(
+      isQuestClaimable(questById("a_unique")!, accumulated, none),
+    ).toBe(true);
+  });
+
   it("유니크 수집 / 깊이 40(체인 — 앞 단계 수령 후) / 보스 / 고차수", () => {
     expect(
-      isQuestClaimable(questById("a_unique")!, { ...ZERO, uniqueOwned: 1 }, none),
+      isQuestClaimable(questById("a_unique")!, { ...ZERO, uniqueAcquired: 1 }, none),
     ).toBe(true);
     // 체인 중간 단계는 앞 목표를 전부 수령하기 전에는 건너뛸 수 없다.
     expect(
@@ -618,7 +721,7 @@ describe("정점을 향해 (확장 마일스톤)", () => {
     expect(
       isQuestClaimable(
         questById("a_unique5")!,
-        { ...ZERO, uniqueOwned: 5 },
+        { ...ZERO, uniqueAcquired: 5 },
         new Set(["a_unique"]),
       ),
     ).toBe(true);
@@ -647,10 +750,35 @@ describe("정점을 향해 (확장 마일스톤)", () => {
         beforeFrontierEnd,
       ),
     ).toBe(true);
+    expect(
+      isQuestClaimable(
+        questById("frontier_78")!,
+        { ...ZERO, frontierDepth: 77 },
+        new Set([...beforeFrontierEnd, "a_depth48"]),
+      ),
+    ).toBe(false);
+    expect(
+      isQuestClaimable(
+        questById("frontier_78")!,
+        { ...ZERO, frontierDepth: 78 },
+        new Set([...beforeFrontierEnd, "a_depth48"]),
+      ),
+    ).toBe(true);
   });
 });
 
 describe("장비·수집·교류 업적", () => {
+  it("유니크 업적은 보유가 아니라 누적 획득으로 안내하고 수령 단계는 이관 하한이 된다", () => {
+    expect(questById("marathon_unique_50")?.desc).toBe(
+      "유니크 장비를 누적 50개 획득하세요.",
+    );
+    expect(
+      claimedUniqueEquipmentAcquisitionFloor(
+        new Set(["a_unique", "a_unique5", "equipment_unique10"]),
+      ),
+    ).toBe(10);
+  });
+
   it("완전 무장 / 장비 도감 / 지갑+은행 골드 / 칭호", () => {
     expect(isQuestClaimable(questById("x_full_gear")!, { ...ZERO, equippedCount: 6 }, none)).toBe(true);
     expect(questStatus(questById("x_full_gear")!, { ...ZERO, equippedCount: 5 }, none)).toBe("active");
@@ -735,13 +863,14 @@ describe("currentGuideQuest (홈 배너)", () => {
       equippedCount: 6,
       hasManuallyEquippedGear: true,
       hasBattledAfterEquippingGear: true,
-      uniqueOwned: 5,
+      uniqueAcquired: 5,
       cultivations: 9,
       bossKills: 4,
       hasGuild: true,
       hasTraded: true,
       arenaPlayed: true,
       arenaWins: 3,
+      referralCount: 100,
       gold: 20000,
       outpostsDiscovered: 20,
       titleCount: 5,
@@ -854,6 +983,7 @@ describe("deriveQuestViews", () => {
     // 직군 가시 퀘 중, 체인은 첫 단계만 보임(미수령 상태 기준).
     const seenChains = new Set<string>();
     const visibleCount = V2_QUESTS.filter((q) => {
+      if (q.contentEnabled === false && !q.check(ZERO)) return false;
       if (q.hiddenUntilComplete && !q.check(ZERO)) return false;
       if (!q.chain) return true;
       if (seenChains.has(q.chain)) return false;
@@ -878,6 +1008,27 @@ describe("deriveQuestViews", () => {
     expect(ids).not.toContain("l_fish25");
     expect(after.find((v) => v.id === "l_fish1")!.status).toBe("claimed");
     expect(after.find((v) => v.id === "l_fish10")!.status).toBe("claimable");
+  });
+
+  it("비공개 숙소 업적은 숨기되 과거 달성·수령 권리는 보존한다", () => {
+    const fresh = deriveQuestViews(ZERO, none).map((view) => view.id);
+    expect(fresh).not.toContain("life_furniture_type1");
+    expect(fresh).not.toContain("life_blueprint_all");
+    expect(fresh).toContain("life_blueprint1");
+
+    const completed = deriveQuestViews(
+      { ...ZERO, lifeFurnitureTypes: 1, lifeHiddenBlueprints: 6 },
+      new Set(["life_blueprint1"]),
+    );
+    expect(completed.find((view) => view.id === "life_furniture_type1")?.status).toBe("claimable");
+    expect(completed.find((view) => view.id === "life_blueprint_all")?.status).toBe("claimable");
+
+    const claimed = deriveQuestViews(
+      ZERO,
+      new Set(["life_furniture_type1", "life_blueprint1", "life_blueprint_all"]),
+    );
+    expect(claimed.find((view) => view.id === "life_furniture_type1")?.status).toBe("claimed");
+    expect(claimed.find((view) => view.id === "life_blueprint_all")?.status).toBe("claimed");
   });
 
   it("작물 수확 50회 수령 뒤 다음 단계인 계절을 일구다만 공개", () => {
@@ -937,18 +1088,20 @@ describe("확장 라인(재전직/생활/도감) 판정", () => {
 
 describe("오늘 추가된 요리·길드 시설 업적", () => {
   it("요리 레벨과 발견한 요리법 마일스톤", () => {
+    const finalCookingMilestone = COOKING_CODEX_MILESTONES.at(-1)!.goal;
+
     expect(questById("cooking_level10")!.check({ ...ZERO, cookingLevel: 9 })).toBe(false);
     expect(questById("cooking_level10")!.check({ ...ZERO, cookingLevel: 10 })).toBe(true);
     expect(
       questById("cooking_recipe18")!.check({
         ...ZERO,
-        cookingRecipesDiscovered: COOKING_RECIPES.length - 1,
+        cookingRecipesDiscovered: finalCookingMilestone - 1,
       }),
     ).toBe(false);
     expect(
       questById("cooking_recipe18")!.check({
         ...ZERO,
-        cookingRecipesDiscovered: COOKING_RECIPES.length,
+        cookingRecipesDiscovered: finalCookingMilestone,
       }),
     ).toBe(true);
   });

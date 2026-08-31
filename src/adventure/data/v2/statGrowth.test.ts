@@ -5,6 +5,7 @@ import {
   V2_GROWTH_POINTS_PER_LEVEL,
   statGrowthMasteryTotals,
   masteryGrowthBonus,
+  lifeResourceRangesForProficiency,
 } from "./statGrowth";
 import {
   effectiveStatCap,
@@ -109,7 +110,57 @@ describe("v2 랜덤 레벨 성장", () => {
 
 });
 
+describe("v2 생애 자원 영구 범위", () => {
+  it("숙련 저점과 수행 한계치가 대응하는 HP·MP 성장 범위를 높인다", () => {
+    const base = lifeResourceRangesForProficiency(emptyProficiency());
+    const progressed = lifeResourceRangesForProficiency({
+      ...emptyProficiency(),
+      statFloorLevels: { warrior: 10_000, mage: 10_000 },
+      caps: { vit: 10, int: 10 },
+    });
+
+    expect(progressed.hpPerLevel.min).toBeGreaterThan(base.hpPerLevel.min);
+    expect(progressed.hpPerLevel.max).toBeGreaterThan(base.hpPerLevel.max);
+    expect(progressed.mpPerLevel.min).toBeGreaterThan(base.mpPerLevel.min);
+    expect(progressed.mpPerLevel.max).toBeGreaterThan(base.mpPerLevel.max);
+  });
+
+  it("기존 기록은 종전 MP 성장 범위를, 새 기록은 완화된 범위를 사용한다", () => {
+    const progressed = {
+      ...emptyProficiency(),
+      statFloorLevels: { mage: 10_000 },
+      caps: { int: 10 },
+    };
+    const version1 = lifeResourceRangesForProficiency(progressed, 1);
+    const version2 = lifeResourceRangesForProficiency(progressed, 2);
+
+    expect(version1.mpPerLevel.min).toBeGreaterThan(version2.mpPerLevel.min);
+    expect(version1.mpPerLevel.max).toBeGreaterThan(version2.mpPerLevel.max);
+    expect(version1.baseMp).toEqual(version2.baseMp);
+    expect(version1.baseHp).toEqual(version2.baseHp);
+    expect(version1.hpPerLevel).toEqual(version2.hpPerLevel);
+  });
+});
+
 describe("v2 스탯 floor", () => {
+  it("computeStatFloors — 승리 숙련도가 늘어도 고정된 레벨 성장 입력만 사용한다", () => {
+    const prof = parseProficiency({
+      groups: {
+        mage: { cultivations: 0, tier: 1, cumLevel: 1800 },
+      },
+      statFloorLevels: { mage: 37 },
+    });
+    const moreMastery = {
+      ...prof,
+      groups: {
+        ...prof.groups,
+        mage: { ...prof.groups.mage, cumLevel: 90_000 },
+      },
+    };
+
+    expect(computeStatFloors(moreMastery)).toEqual(computeStatFloors(prof));
+  });
+
   it("computeStatFloors — 총(전 스탯) + 직군 숙련도(프로필·차수 가중)", () => {
     // 전사(warrior {str:2,vit:1,dex:1}) 숙련도 1800(밸런스 입력 200), tier1. 총=200×0.005=1.
     // 프로필 값 비례: str(2/2=1.0)·vit/dex(1/2=0.5). FLOOR_GLOBAL 0.005·FLOOR_PER_PROF 0.02.

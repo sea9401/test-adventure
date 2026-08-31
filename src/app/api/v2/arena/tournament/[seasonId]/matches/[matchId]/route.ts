@@ -2,7 +2,11 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { pvpTournaments } from "@/db/schema";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
-import type { ArenaTournamentBracket } from "@/lib/server/pvp/arenaTournament";
+import {
+  arenaTournamentParticipantForPublic,
+  arenaTournamentReplayForPublic,
+  type ArenaTournamentBracket,
+} from "@/lib/server/pvp/arenaTournament";
 import { ensureUser } from "@/lib/server/ensureUser";
 
 type Ctx = {
@@ -56,7 +60,15 @@ export async function GET(_req: Request, { params }: Ctx) {
   }
   const games = match.games.flatMap((game) => {
     const replay = replayPayload(game.replay);
-    return replay ? [{ ...game, replay, hasReplay: true }] : [];
+    return replay
+      ? [
+          {
+            ...game,
+            replay: arenaTournamentReplayForPublic(bracket, replay),
+            hasReplay: true,
+          },
+        ]
+      : [];
   });
   if (games.length === 0) {
     return Response.json({ ok: false, error: "no_replay" }, { status: 404 });
@@ -71,8 +83,8 @@ export async function GET(_req: Request, { params }: Ctx) {
       roundName: match.roundName,
       sequence: match.sequence,
       scheduledAt: match.scheduledAt,
-      p1,
-      p2,
+      p1: arenaTournamentParticipantForPublic(bracket, p1),
+      p2: arenaTournamentParticipantForPublic(bracket, p2),
       p1Wins: match.p1Wins,
       p2Wins: match.p2Wins,
       winnerUserId: match.winnerUserId,

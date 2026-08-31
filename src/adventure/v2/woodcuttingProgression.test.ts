@@ -61,7 +61,13 @@ describe("벌목 진행도", () => {
     expect(woodcuttingFailureRate(-1, 1)).toBe(0);
   });
 
-  it("50레벨에서 멈추고 다음 경험치를 요구하지 않는다", () => {
+  it("기존 50레벨 기준을 보존하고 100레벨 곡선으로 확장한다", () => {
+    expect(woodcuttingXpForLevel(50)).toBe(96_040);
+    expect(woodcuttingXpForLevel(100)).toBe(480_200);
+    expect(woodcuttingLevelForXp(woodcuttingXpForLevel(75))).toBe(75);
+  });
+
+  it("100레벨에서 멈추고 다음 경험치를 요구하지 않는다", () => {
     const view = woodcuttingProgressionView(999_999);
     expect(view.level).toBe(WOODCUTTING_LEVEL_CAP);
     expect(view.maxLevel).toBe(true);

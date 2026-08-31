@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
   V2_EQUIPMENT,
+  equipmentPowerDisplayValue,
   effectiveStats,
   powerWithBonuses,
   v2EquipPowerLabel,
@@ -38,6 +39,7 @@ import {
   MasterworkBadge,
   powerNameClass,
   QualityPctText,
+  UniqueBadge,
   type ItemCardAnchor,
 } from "../V2ItemCard";
 import { EquipmentCodexBadge } from "../EquipmentCodexBadge";
@@ -62,7 +64,11 @@ function cardStatLine(
 ): string {
   const eff = effectiveStats(item, roll);
   const powerLabel = v2EquipPowerLabel(item);
-  const parts = [`${powerLabel} ${powerWithBonuses(eff.power, enhance, craftQuality)}`];
+  const parts = [
+    `${powerLabel} ${equipmentPowerDisplayValue(
+      powerWithBonuses(eff.power, enhance, craftQuality),
+    )}`,
+  ];
   if (item.slot === "weapon" && item.element && item.element !== "neutral") {
     parts.push(V2_ELEMENT_LABEL[item.element]);
   }
@@ -78,6 +84,12 @@ export type EquipmentCard = {
   isEquipped: boolean;
 };
 
+export type EquipmentSaleCardSelection = {
+  active: boolean;
+  selectedIids: ReadonlySet<string>;
+  onToggle: (inst: V2EquipInstance) => void;
+};
+
 // 보유 장비 2열 카드 그리드 — 개체(instance) 단위. 슬롯 아이콘 + 장착 배지(✓/잠금) +
 // 표시 위력색 이름 + 굴림 반영 스탯줄. 카드 탭 → 옵션/장착 팝오버(V2ItemCard).
 export function EquipmentCardGrid({
@@ -86,7 +98,10 @@ export function EquipmentCardGrid({
   onRegisterCodex,
   codexBusyIid,
   selectedIid,
+  saleSelection,
+  recentlyAcquiredIid,
   frontierDepth,
+  emptyState,
 }: {
   cards: EquipmentCard[];
   onOpenCard: (inst: V2EquipInstance, anchor: ItemCardAnchor) => void;
@@ -97,27 +112,47 @@ export function EquipmentCardGrid({
   // 착용 장비는 우상단 "착용중" 배지로만 표시한다. 미전달 시(인벤토리)는 착용 장비를
   // 에메랄드 하이라이트 + 체크로 강조하는 기존 동작을 유지한다.
   selectedIid?: string | null;
+  // 인벤토리 선택 판매 모드. 장착·잠금 카드는 서버 규칙과 동일하게 선택할 수 없다.
+  saleSelection?: EquipmentSaleCardSelection;
+  // 획득순에서 첫 카드가 최신임을 즉시 알아볼 수 있도록 표시한다.
+  recentlyAcquiredIid?: string;
   // 인벤토리에서만 전달. 진행도 미달 장비는 보유·거래 가능하되 착용 잠금 배지를 표시한다.
   frontierDepth?: number;
+  emptyState?: { title: string; message: string };
 }) {
   const selectable = selectedIid !== undefined;
+  const saleSelectionActive = saleSelection?.active === true;
   if (cards.length === 0) {
     return (
       <EmptyState
         icon={<Diamond size={40} weight="duotone" />}
-        title="보유한 장비가 없습니다"
-        message="상점에서 구매하거나 사냥터 드랍으로 모입니다."
+        title={emptyState?.title ?? "보유한 장비가 없습니다"}
+        message={
+          emptyState?.message ??
+          "사냥터 드랍이나 거래소, 제작으로 모을 수 있습니다."
+        }
       />
     );
   }
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div className="grid grid-cols-2 gap-2">
       {cards.map(({ inst, isEquipped }) => {
         const item = V2_EQUIPMENT[inst.id];
         const { Icon, color } = SLOT_ICON[item.slot];
         const pct = rollQualityPct(item, inst.roll);
         const isSelected = selectable && inst.iid === selectedIid;
-        const highlighted = selectable ? isSelected : isEquipped;
+        const isSaleSelected =
+          saleSelectionActive && saleSelection.selectedIids.has(inst.iid);
+        const saleBlockedReason = isEquipped
+          ? "장착 중"
+          : inst.locked
+            ? "잠금됨"
+            : null;
+        const highlighted = saleSelectionActive
+          ? isSaleSelected
+          : selectable
+            ? isSelected
+            : isEquipped;
         const progressionLock =
           frontierDepth == null
             ? null
@@ -125,17 +160,31 @@ export function EquipmentCardGrid({
         return (
           <div
             key={inst.iid}
-            className={`ui-equipment-card ui-item-rarity-t${item.tier} ui-lift-card relative flex min-h-[7.5rem] flex-col gap-1 rounded-lg border p-3 text-left shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-zinc-950 ${
-              highlighted
+            className={`ui-equipment-card ui-item-rarity-t${item.tier} ui-game-card ui-lift-card relative flex min-h-11 flex-col gap-0.5 rounded-xl border p-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-violet-400 dark:focus-visible:ring-offset-zinc-950 ${
+              isSaleSelected
+                ? "is-active border-rose-400 bg-rose-50 ring-1 ring-rose-200 dark:border-rose-500 dark:bg-rose-950 dark:ring-rose-900/70"
+                : highlighted
                 ? "is-active border-emerald-400 bg-emerald-50 ring-1 ring-emerald-200 dark:border-emerald-500 dark:bg-emerald-950 dark:ring-emerald-900/70"
                 : "border-zinc-300 bg-zinc-50 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-900"
             }`}
           >
             <button
               type="button"
-              onClick={(event) => onOpenCard(inst, anchorOf(event.currentTarget))}
-              aria-label={`${item.name} 정보`}
-              className="absolute inset-0 z-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400"
+              onClick={(event) =>
+                saleSelectionActive
+                  ? saleSelection.onToggle(inst)
+                  : onOpenCard(inst, anchorOf(event.currentTarget))
+              }
+              disabled={saleSelectionActive && saleBlockedReason !== null}
+              aria-label={
+                saleSelectionActive
+                  ? saleBlockedReason
+                    ? `${item.name} 판매 선택 불가: ${saleBlockedReason}`
+                    : `${item.name} 판매 ${isSaleSelected ? "선택됨" : "선택 안 됨"}`
+                  : `${item.name} 정보`
+              }
+              aria-pressed={saleSelectionActive ? isSaleSelected : undefined}
+              className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500 dark:focus-visible:ring-violet-400"
             />
             <div className="pointer-events-none relative z-10 flex items-start justify-between gap-1">
               <span className="flex items-center gap-1">
@@ -148,8 +197,24 @@ export function EquipmentCardGrid({
                     aria-label="잠금됨"
                   />
                 )}
+                {inst.iid === recentlyAcquiredIid ? (
+                  <span
+                    aria-label="가장 최근에 획득한 장비"
+                    className="rounded-md border border-violet-300 bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-200"
+                  >
+                    최신 획득
+                  </span>
+                ) : null}
               </span>
               <span className="flex shrink-0 items-center gap-1">
+                {isSaleSelected ? (
+                  <CheckCircle
+                    size={18}
+                    weight="fill"
+                    className="text-rose-500"
+                    aria-hidden
+                  />
+                ) : null}
                 {pct != null && (
                   <span
                     className="inline-flex items-center gap-1 text-[11px] font-semibold tabular-nums"
@@ -158,7 +223,7 @@ export function EquipmentCardGrid({
                     <QualityPctText pct={pct} />
                   </span>
                 )}
-                {isEquipped && selectable ? (
+                {isEquipped && (selectable || saleSelectionActive) ? (
                   <span className="rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
                     착용중
                   </span>
@@ -182,6 +247,7 @@ export function EquipmentCardGrid({
             </div>
             <div className="pointer-events-none relative z-10 flex min-w-0 flex-wrap items-center gap-1">
               <EquipmentTierBadge tier={item.tier} compact />
+              {item.rarity === "unique" ? <UniqueBadge /> : null}
               <EquipmentCodexBadge
                 itemId={item.id}
                 onRegister={
@@ -192,17 +258,25 @@ export function EquipmentCardGrid({
               <EnhanceLevelBadge enhance={inst.enhance} />
               <CraftQualityBadge craftQuality={inst.craftQuality} />
               {inst.craftedBy?.masterwork ? <MasterworkBadge /> : null}
+              {inst.stormRefined ? (
+                <span
+                  className="rounded bg-violet-600 px-1.5 py-px text-[10px] font-semibold text-white"
+                  title="특화 효과와 굴림 품질을 유지한 6T 위력 개량 장비"
+                >
+                  폭풍 개량
+                </span>
+              ) : null}
               {item.craftOnly ? <CraftOnlyBadge /> : null}
               {progressionLock ? (
                 <span
-                  className="rounded border border-amber-300 bg-amber-50 px-1.5 py-px text-[10px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                  className="rounded border border-amber-300 bg-amber-50 px-1.5 py-px text-[10px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300"
                   title={`착용 조건: ${progressionLock.label}`}
                 >
                   진행 잠금
                 </span>
               ) : null}
             </div>
-            <div className="pointer-events-none relative z-10 line-clamp-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+            <div className="pointer-events-none relative z-10 line-clamp-1 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
               {cardStatLine(item, inst.roll, inst.enhance, inst.craftQuality)}
             </div>
           </div>

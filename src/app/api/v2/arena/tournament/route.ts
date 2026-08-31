@@ -5,9 +5,9 @@ import {
   arenaRankedEndsAt,
   arenaSeasonPhase,
   arenaTournamentSnapshotsAt,
+  arenaTournamentStartsAt,
 } from "@/lib/server/pvp/arenaTournament";
 import {
-  arenaTournamentBetView,
   ensureArenaTournament,
   latestArenaTournament,
 } from "@/lib/server/pvp/arenaTournamentService";
@@ -31,9 +31,6 @@ export async function GET() {
   const myReward = latest?.bracket.rewards.find(
     (reward) => reward.userId === userId,
   );
-  const betting = latest
-    ? await arenaTournamentBetView(latest.seasonId, userId)
-    : null;
   const overviewBracket = latest
     ? arenaTournamentBracketOverview(latest.bracket)
     : null;
@@ -45,6 +42,7 @@ export async function GET() {
       id: season.id,
       rankedEndsAt: arenaRankedEndsAt(season.endAt).toISOString(),
       snapshotsAt: arenaTournamentSnapshotsAt(season.endAt).toISOString(),
+      startsAt: arenaTournamentStartsAt(season.endAt).toISOString(),
       endAt: season.endAt.toISOString(),
     },
     tournament: latest
@@ -53,7 +51,6 @@ export async function GET() {
           isCurrent: latest.seasonId === season.id,
           bracket: overviewBracket,
           myReward: myReward ?? null,
-          betting,
         }
       : null,
   });

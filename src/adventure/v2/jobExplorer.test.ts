@@ -18,9 +18,11 @@ import {
   jobCultivationSummary,
   jobTags,
   matchesJobExplorerFilters,
+  resolveJobAdvanceAction,
   toggleJobTagFilter,
   type JobExplorerJob,
 } from "./jobExplorer";
+import { tier7AdvancementStatus } from "@/adventure/data/v2/tier7Advancement";
 
 const job = (id: string, extra: Partial<JobExplorerJob> = {}): JobExplorerJob => ({
   id,
@@ -89,7 +91,7 @@ describe("jobExplorer tags", () => {
     // 궁수는 힘 직업 보너스가 있지만 수행으로는 민첩과 행운만 올린다.
     expect(matchesJobExplorerFilters(job("archer"), "", strTag)).toBe(false);
     expect(matchesJobExplorerFilters(job("archer"), "", dexTag)).toBe(true);
-    expect(jobCultivationSummary("archer")).toBe("민첩 +2 · 행운 +2");
+    expect(jobCultivationSummary("archer")).toBe("민첩 +3 · 행운 +1");
   });
 
   it("모험가는 실제 수행과 같이 네 스탯만 표시한다", () => {
@@ -104,18 +106,20 @@ describe("jobExplorer tags", () => {
     );
   });
 
-  it("일반 상위 직업과 생활 직업은 저장 직군의 실제 수행 프로필을 표시한다", () => {
+  it("일반 상위 직업은 실제 수행 프로필을 표시하고 생활직은 수행 불가로 안내한다", () => {
     expect(jobCultivationSummary("shieldman")).toBe("활력 +3 · 힘 +1");
     expect(jobCultivationSummary("guardian")).toBe("활력 +3 · 힘 +1");
     expect(jobCultivationSummary("warden")).toBe("활력 +3 · 힘 +1");
     expect(jobCultivationSummary("ironknight")).toBe("활력 +4 · 힘 +1");
     expect(jobCultivationSummary("fortressknight")).toBe("활력 +4 · 힘 +2");
-    expect(jobCultivationSummary("fisher")).toBe(
-      "활력 +2 · 힘 +1 · 정신 +1",
-    );
+    expect(jobCultivationProfile("fisher")).toBeUndefined();
+    expect(jobCultivationSummary("fisher")).toBe("생활직은 수행할 수 없음");
     expect(jobCultivationSummary("templar")).toBe(
       "힘 +2 · 활력 +1 · 정신 +1",
     );
+    expect(jobCultivationSummary("archmage")).toBe("지능 +4 · 정신 +2");
+    expect(jobCultivationSummary("heavenlybow")).toBe("민첩 +4 · 행운 +2");
+    expect(jobCultivationSummary("blackmoon")).toBe("행운 +4 · 민첩 +2");
   });
 
   it("모든 직업의 수행 설명과 스탯 필터가 실제 적용 프로필과 일치한다", () => {
@@ -123,19 +127,24 @@ describe("jobExplorer tags", () => {
       const group =
         LEGACY_CLASS_SPEC_BY_JOB[definition.id]?.class ?? definition.id;
       const actual = effectiveCultivateProfile(group, definition.id);
-      const expectedSummary = [...V2_STAT_KEYS]
-        .filter((stat) => (actual?.[stat] ?? 0) > 0)
-        .sort((a, b) => (actual?.[b] ?? 0) - (actual?.[a] ?? 0))
-        .map((stat) => `${V2_STAT_LABELS[stat]} +${actual?.[stat]}`)
-        .join(" · ");
+      const lifestyle = isLifestyleMasteryJobId(definition.id);
+      const expectedSummary = lifestyle
+        ? "생활직은 수행할 수 없음"
+        : [...V2_STAT_KEYS]
+            .filter((stat) => (actual?.[stat] ?? 0) > 0)
+            .sort((a, b) => (actual?.[b] ?? 0) - (actual?.[a] ?? 0))
+            .map((stat) => `${V2_STAT_LABELS[stat]} +${actual?.[stat]}`)
+            .join(" · ");
 
-      expect(jobCultivationProfile(definition.id)).toEqual(actual);
+      expect(jobCultivationProfile(definition.id)).toEqual(
+        lifestyle ? undefined : actual,
+      );
       expect(jobCultivationSummary(definition.id)).toBe(expectedSummary);
 
       for (const stat of V2_STAT_KEYS) {
         expect(
           matchesJobExplorerFilters(job(definition.id), "", new Set([stat])),
-        ).toBe((actual?.[stat] ?? 0) > 0);
+        ).toBe(!lifestyle && (actual?.[stat] ?? 0) > 0);
       }
     }
   });
@@ -238,6 +247,14 @@ describe("jobExplorer tags", () => {
       "guardian",
       "survivor",
       "camper",
+      "mutant",
+      "beastkin",
+      "beastwarrior",
+      "tracker",
+      "bloodtracker",
+      "predator",
+      "primalpredator",
+      "golem",
     ];
 
     expect(
@@ -255,6 +272,161 @@ describe("jobExplorer tags", () => {
       "caster",
       "survivor",
       "camper",
+      "mutant",
+      "beastkin",
+      "beastwarrior",
+      "tracker",
+      "bloodtracker",
+      "predator",
+      "primalpredator",
+      "golem",
     ]);
+  });
+});
+
+describe("job advancement action", () => {
+  const incompleteTier7 = tier7AdvancementStatus({
+    targetJobId: "shadowblade",
+    currentJobId: "swordsaint",
+    currentLevel: 100,
+    jobCumLevel: { swordsaint: 100_000, blackmoon: 99_999 },
+    jobHistory: [],
+    materials: { v2_storm_origin_fragment: 30 },
+  })!;
+  const levelBlockedTier7 = tier7AdvancementStatus({
+    targetJobId: "shadowblade",
+    currentJobId: "swordsaint",
+    currentLevel: 99,
+    jobCumLevel: { swordsaint: 100_000, blackmoon: 100_000 },
+    jobHistory: [],
+    materials: { v2_storm_origin_fragment: 30 },
+  })!;
+  const permanentTier7 = tier7AdvancementStatus({
+    targetJobId: "shadowblade",
+    currentJobId: "warrior",
+    currentLevel: 100,
+    jobCumLevel: {},
+    jobHistory: ["shadowblade"],
+    materials: {},
+  })!;
+
+  it.each([
+    {
+      label: "eligible unlocked job",
+      params: {
+        job: job("squire", { name: "견습 기사", unlocked: true }),
+        currentJobId: "warrior",
+        atLevelCap: true,
+        currentJobSelectable: false,
+      },
+      expected: {
+        enabled: true,
+        label: "전직",
+        ariaLabel: "견습 기사(으)로 전직",
+      },
+    },
+    {
+      label: "eligible current job",
+      params: {
+        job: job("squire", { name: "견습 기사", unlocked: true }),
+        currentJobId: "squire",
+        atLevelCap: true,
+        currentJobSelectable: true,
+      },
+      expected: {
+        enabled: true,
+        label: "재전직",
+        ariaLabel: "견습 기사 재전직",
+      },
+    },
+    {
+      label: "locked job",
+      params: {
+        job: job("squire", { name: "견습 기사", unlocked: false }),
+        currentJobId: "warrior",
+        atLevelCap: true,
+        currentJobSelectable: false,
+      },
+      expected: {
+        enabled: false,
+        label: "조건 부족",
+        ariaLabel: "견습 기사 전직: 조건 부족",
+      },
+    },
+    {
+      label: "level-blocked job",
+      params: {
+        job: job("squire", { name: "견습 기사", unlocked: true }),
+        currentJobId: "warrior",
+        atLevelCap: false,
+        currentJobSelectable: false,
+      },
+      expected: {
+        enabled: false,
+        label: "Lv 100 필요",
+        ariaLabel: "견습 기사 전직: Lv 100 필요",
+      },
+    },
+    {
+      label: "current job below its repeat gate",
+      params: {
+        job: job("squire", { name: "견습 기사", unlocked: true }),
+        currentJobId: "squire",
+        atLevelCap: true,
+        currentJobSelectable: false,
+      },
+      expected: {
+        enabled: false,
+        label: "Lv 100 필요",
+        ariaLabel: "견습 기사 재전직: Lv 100 필요",
+      },
+    },
+  ])("resolves $label consistently", ({ params, expected }) => {
+    expect(resolveJobAdvanceAction(params)).toEqual(expected);
+  });
+
+  it("blocks an incomplete tier-7 first unlock even when the row is visible", () => {
+    expect(
+      resolveJobAdvanceAction({
+        job: job("shadowblade", {
+          name: "무영검신",
+          unlocked: true,
+          tier7Advancement: incompleteTier7,
+        }),
+        currentJobId: "swordsaint",
+        atLevelCap: true,
+        currentJobSelectable: true,
+      }),
+    ).toMatchObject({ enabled: false, label: "조건 부족" });
+  });
+
+  it("labels the actual level requirement separately for a tier-7 first unlock", () => {
+    expect(
+      resolveJobAdvanceAction({
+        job: job("shadowblade", {
+          name: "무영검신",
+          unlocked: true,
+          tier7Advancement: levelBlockedTier7,
+        }),
+        currentJobId: "swordsaint",
+        atLevelCap: false,
+        currentJobSelectable: false,
+      }),
+    ).toMatchObject({ enabled: false, label: "Lv 100 필요" });
+  });
+
+  it("uses ordinary rejob availability after permanent tier-7 unlock", () => {
+    expect(
+      resolveJobAdvanceAction({
+        job: job("shadowblade", {
+          name: "무영검신",
+          unlocked: true,
+          tier7Advancement: permanentTier7,
+        }),
+        currentJobId: "warrior",
+        atLevelCap: true,
+        currentJobSelectable: false,
+      }),
+    ).toMatchObject({ enabled: true, label: "전직" });
   });
 });

@@ -3,12 +3,19 @@ import { V2_MATERIALS } from "./dungeonDrops";
 import { parseStormExpeditionState } from "./stormExpedition";
 import {
   STORM_EXPEDITION_EQUIPMENT_IDS,
+  STORM_EXPEDITION_UNIQUE_LOOT,
   STORM_HEART_FRAGMENT_MATERIAL_ID,
   STORM_EXPEDITION_MATERIALS,
   STORM_EXPEDITION_ROUTE_MATERIAL_ID,
+  STORM_EXPEDITION_SP_FRUIT_CAP,
+  STORM_EXPEDITION_SP_FRUIT_CHANCE,
+  STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID,
+  STORM_EXPEDITION_SP_FRUIT_PITY_CLEARS,
   STORM_ORIGIN_FRAGMENT_MATERIAL_ID,
   mergeStormExpeditionMaterials,
   rollStormExpeditionLoot,
+  rollStormExpeditionUniqueLoot,
+  rollStormExpeditionSpFruit,
 } from "./stormExpeditionRewards";
 import { V2_EQUIPMENT, v2EquipCatalogTierToDisplayTier } from "./v2Equipment";
 
@@ -18,6 +25,100 @@ function sequence(...values: number[]): () => number {
 }
 
 describe("폭풍 원정 보상", () => {
+  it("6T 원정 유니크 확률은 수호자·최종 경로·교차·심장을 독립 규칙으로 둔다", () => {
+    expect(STORM_EXPEDITION_UNIQUE_LOOT).toEqual({
+      guardianRouteChance: 0.0015,
+      finalRouteChance: 0.004,
+      finalCrossChance: 0.002,
+      finalHeartChance: 0.0005,
+    });
+  });
+
+  it("수호자는 선택 항로 유니크만 0.15%로 굴린다", () => {
+    expect(
+      rollStormExpeditionUniqueLoot("gale", "guardian", sequence(0.001499)),
+    ).toEqual({
+      routeUniqueId: "v2_storm_sig_gale_orbit_boots",
+      crossUniqueId: null,
+      heartUniqueId: null,
+      uniqueIds: ["v2_storm_sig_gale_orbit_boots"],
+    });
+    expect(
+      rollStormExpeditionUniqueLoot("gale", "guardian", sequence(0.0015))
+        .uniqueIds,
+    ).toEqual([]);
+  });
+
+  it("최종 보스는 경로 0.4%·교차 0.2%·심장 0.05%를 각각 굴린다", () => {
+    expect(
+      rollStormExpeditionUniqueLoot(
+        "thunder",
+        "final_boss",
+        sequence(0.003999, 0.001999, 0.999, 0.000499),
+      ),
+    ).toEqual({
+      routeUniqueId: "v2_storm_sig_thunder_return_ring",
+      crossUniqueId: "v2_storm_sig_confluence_necklace",
+      heartUniqueId: "v2_storm_sig_heart_necklace",
+      uniqueIds: [
+        "v2_storm_sig_thunder_return_ring",
+        "v2_storm_sig_confluence_necklace",
+        "v2_storm_sig_heart_necklace",
+      ],
+    });
+  });
+
+  it("교차 유니크 성공 시 두 후보를 균등 선택한다", () => {
+    const first = rollStormExpeditionUniqueLoot(
+      "wreckage",
+      "final_boss",
+      sequence(1, 0, 0, 1),
+    );
+    const second = rollStormExpeditionUniqueLoot(
+      "wreckage",
+      "final_boss",
+      sequence(1, 0, 0.999, 1),
+    );
+    expect(first.crossUniqueId).toBe("v2_storm_sig_triphase_gloves");
+    expect(second.crossUniqueId).toBe("v2_storm_sig_confluence_necklace");
+  });
+
+  it("일반·정예 전투는 원정 유니크 RNG를 소비하지 않는다", () => {
+    for (const kind of ["early_trash", "late_trash", "elite"] as const) {
+      let calls = 0;
+      expect(
+        rollStormExpeditionUniqueLoot("wreckage", kind, () => (calls++, 0)),
+      ).toMatchObject({ uniqueIds: [] });
+      expect(calls).toBe(0);
+    }
+  });
+
+  it("폭풍 계약 2배는 경로·교차에만 적용하고 심장 확률은 유지한다", () => {
+    const guardian = rollStormExpeditionUniqueLoot(
+      "wreckage",
+      "guardian",
+      sequence(0.002),
+      { uniqueChanceMultiplier: 2 },
+    );
+    const final = rollStormExpeditionUniqueLoot(
+      "wreckage",
+      "final_boss",
+      sequence(0.007, 0.003, 0, 0.0007),
+      { uniqueChanceMultiplier: 2 },
+    );
+    expect(guardian.routeUniqueId).toBe("v2_storm_sig_wreckage_power_armor");
+    expect(final.routeUniqueId).toBe("v2_storm_sig_wreckage_power_armor");
+    expect(final.crossUniqueId).toBe("v2_storm_sig_triphase_gloves");
+    expect(final.heartUniqueId).toBeNull();
+  });
+
+  it("원정 전용 SP 열매 V를 지급한다", () => {
+    expect(STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID).toBe("sp_fruit_5");
+    expect(V2_MATERIALS[STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID]?.name).toBe(
+      "SP 열매 V",
+    );
+  });
+
   it("항로 재료 3종·7차 선행 파편·최종 보스 조각을 카탈로그에 등록한다", () => {
     expect(Object.keys(STORM_EXPEDITION_MATERIALS)).toHaveLength(5);
     for (const id of Object.keys(STORM_EXPEDITION_MATERIALS)) {
@@ -28,14 +129,15 @@ describe("폭풍 원정 보상", () => {
     );
   });
 
-  it("각 항로 장비 풀은 일반 사냥에서 빠진 표시 6티어 장비만 담는다", () => {
+  it("각 항로 장비 풀은 표시 6티어 장신구만 담는다", () => {
     for (const ids of Object.values(STORM_EXPEDITION_EQUIPMENT_IDS)) {
-      expect(ids.length).toBeGreaterThanOrEqual(6);
+      expect(ids.length).toBeGreaterThanOrEqual(4);
       for (const id of ids) {
         const item = V2_EQUIPMENT[id];
         expect(item).toBeDefined();
         expect(v2EquipCatalogTierToDisplayTier(item.tier)).toBe(6);
         expect(item.noDrop).toBe(true);
+        expect(["ring", "necklace"]).toContain(item.slot);
       }
     }
   });
@@ -119,6 +221,45 @@ describe("폭풍 원정 보상", () => {
       [STORM_ORIGIN_FRAGMENT_MATERIAL_ID]: 1,
     });
   });
+
+  it("SP 열매는 4% 굴림에 실패하면 항로 공용 천장을 한 번 누적한다", () => {
+    expect(STORM_EXPEDITION_SP_FRUIT_CHANCE).toBe(0.04);
+    expect(
+      rollStormExpeditionSpFruit({ pity: 7, obtained: 0 }, () => 0.04),
+    ).toEqual({
+      dropped: false,
+      next: { pity: 8, obtained: 0 },
+    });
+  });
+
+  it("SP 열매 확률 굴림에 성공하면 획득 수를 올리고 기존 천장을 초기화한다", () => {
+    expect(
+      rollStormExpeditionSpFruit({ pity: 7, obtained: 0 }, () => 0.039999),
+    ).toEqual({
+      dropped: true,
+      next: { pity: 0, obtained: 1 },
+    });
+  });
+
+  it("25번째 미획득 완주에서는 확률과 관계없이 SP 열매를 지급하고 천장을 초기화한다", () => {
+    expect(STORM_EXPEDITION_SP_FRUIT_PITY_CLEARS).toBe(25);
+    expect(
+      rollStormExpeditionSpFruit({ pity: 24, obtained: 1 }, () => 0.999999),
+    ).toEqual({
+      dropped: true,
+      next: { pity: 0, obtained: 2 },
+    });
+  });
+
+  it("원정에서 SP 열매 3개를 얻은 뒤에는 추가 굴림과 천장 누적을 막는다", () => {
+    expect(STORM_EXPEDITION_SP_FRUIT_CAP).toBe(3);
+    expect(
+      rollStormExpeditionSpFruit({ pity: 24, obtained: 3 }, () => 0),
+    ).toEqual({
+      dropped: false,
+      next: { pity: 0, obtained: 3 },
+    });
+  });
 });
 
 describe("폭풍 원정 V1 진행 상태 호환", () => {
@@ -139,14 +280,20 @@ describe("폭풍 원정 V1 진행 상태 호환", () => {
       "2026-08-05",
     );
     expect(state.active).toMatchObject({
-      version: 2,
+      version: 3,
       routeId: "gale",
-      nodeIndex: 4,
+      currentNodeId: "gale_elite",
+      visitedNodeIds: ["gale_outer", "supply", "gale_middle", "gale_camp", "gale_elite"],
+      completedNodeIds: ["gale_outer", "supply", "gale_middle", "gale_camp"],
       encounterIndex: 0,
       defeatedCount: 2,
       pendingGold: 46000,
       pendingMaterials: {},
       pendingEquipment: [],
+    });
+    expect(state).toMatchObject({
+      spFruitPity: 0,
+      spFruitObtained: 0,
     });
   });
 });

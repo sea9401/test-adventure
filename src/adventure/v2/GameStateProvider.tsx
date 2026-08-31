@@ -10,6 +10,13 @@ import {
   useState,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { GameStateRefreshProvider } from "./GameStateRefreshContext";
+import { tileSettlementErrorMessage } from "./tileSettlementErrors";
+import { GameStateSliceProviders } from "./GameStateSliceProviders";
+export { useGameIdentityState } from "./GameIdentityContext";
+export { useGameResourceState } from "./GameResourceContext";
+export { useGameActivityState } from "./GameActivityContext";
+export { useGameWorldState } from "./GameWorldContext";
 import { usePresenceHeartbeat } from "@/lib/usePresenceHeartbeat";
 import type { HpBarState } from "@/adventure/v2/HpBar";
 import type { MpBarState } from "@/adventure/v2/MpBar";
@@ -55,9 +62,11 @@ import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import type { Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
-import type {
-  AutoGatheringActivity,
-  AutoGatheringStatus,
+import type { AdventureSupportTier } from "@/adventure/data/v2/adventureSupport";
+import {
+  correctedAutoGatheringReadyAt,
+  type AutoGatheringActivity,
+  type AutoGatheringStatus,
 } from "@/adventure/v2/autoGathering";
 import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import { parseEquipmentCodex } from "@/adventure/data/v2/equipmentCodex";
@@ -92,6 +101,8 @@ export type Occupation = {
 export type GameResourcePatch = {
   gold?: number;
   bankedGold?: number;
+  exp?: number;
+  expToNext?: number;
   hp?: number;
   maxHp?: number;
   mp?: number;
@@ -136,6 +147,7 @@ type GameStateSnapshot = {
   tilePos?: { col: number; row: number; at?: number } | null;
   tileSettlements?: TileSettlement[];
   accountName?: string | null;
+  guild?: { id?: number } | null;
   frontierDepth?: number;
   proficiency?: {
     groups?: Record<string, { tier?: number }>;
@@ -146,11 +158,14 @@ type GameStateSnapshot = {
     currentJobName?: string;
     currentJobTier?: number;
     currentJobLevelCap?: number;
+    revisitExpedited?: boolean;
   } | null;
   coreLoopOn?: boolean;
   adventureSupport?: {
     active?: boolean;
+    tier?: AdventureSupportTier;
     activeUntil?: number | null;
+    premiumUntil?: number | null;
     regenBonusPct?: number;
   };
   huntStaminaMode?: boolean;
@@ -179,7 +194,17 @@ type GameStateSnapshot = {
     registeredIds?: string[];
   };
   fishingCodex?: {
+    registeredIds?: string[];
+    caughtIds?: string[];
     discoveredIds?: string[];
+    best?: Record<string, number>;
+  };
+  cookingCodex?: {
+    knownRecipes?: Array<{
+      id: string; name: string; imageSrc: string; description: string;
+      effect: Record<string, unknown>;
+    }>;
+    total?: number;
   };
 } | null;
 
@@ -196,7 +221,7 @@ type FishingCodexContextValue = {
   markDiscovered: (id: string) => void;
 };
 
-type GameStateValue = {
+export type GameStateValue = {
   // 신원/캐릭터
   viewerUserId: string | null;
   viewerGuildId: number | null;
@@ -222,7 +247,9 @@ type GameStateValue = {
   // per-user 스태미나 최대치 — 기본 + 한계의 비약 보너스(me/state 가 권위).
   staminaMax: number;
   adventureSupportActive: boolean;
+  adventureSupportTier: AdventureSupportTier;
   adventureSupportActiveUntil: number | null;
+  adventureSupportPremiumUntil: number | null;
   staminaRegenBonusPct: number;
   setStamina: React.Dispatch<React.SetStateAction<StaminaState>>;
   // 보유 스태미나 포션 수(퀘 마일스톤 보상·보관형 소비템). me/state 에서 초기화.
@@ -268,6 +295,9 @@ type GameStateValue = {
   setAutoGathering: React.Dispatch<
     React.SetStateAction<AutoGatheringStatus | null>
   >;
+  // 수동 낚시 미니게임 진행 여부 — 헤더의 생활 상태 표시에 사용.
+  fishingActive: boolean;
+  setFishingActive: React.Dispatch<React.SetStateAction<boolean>>;
   // 위험 골드 — 마지막 패배 이후 번 골드(패배 시 절반 압류). 사냥 응답으로 갱신.
   atRiskGold: number | null;
   setAtRiskGold: React.Dispatch<React.SetStateAction<number | null>>;
@@ -311,50 +341,6 @@ type GameStateValue = {
   tileActionError: string | null;
   clearTileActionError: () => void;
 };
-
-// 정착지 액션(개척/승격/철거) 실패 사유 → 사용자 안내 문구.
-//   서버 error 코드별로 "왜 안 됐는지"를 한국어로 풀어 침묵 실패를 없앤다.
-function tileSettlementErrorMessage(
-  action: "found" | "promote" | "demolish",
-  res: { error?: string; requiredGold?: number; gold?: number },
-): string {
-  const label =
-    action === "found" ? "개척" : action === "promote" ? "승격" : "철거";
-  const req = res.requiredGold ?? 0;
-  const have = res.gold ?? 0;
-  switch (res.error) {
-    case "out_of_guild_gold":
-      return `길드 골드 부족 — ${label} 비용 ${req.toLocaleString()} G 필요 (현재 길드 골드 ${have.toLocaleString()} G). 거점 금고를 회수해 길드 자금을 채우세요.`;
-    case "out_of_gold":
-      return `골드 부족 — ${label} 비용 ${req.toLocaleString()} G 필요.`;
-    case "not_guild_admin":
-      return "개척마을 건설은 길드 마스터·관리자만 가능합니다.";
-    case "need_guild":
-      return "개척마을은 길드 전용입니다 — 길드를 만들거나 가입하세요.";
-    case "not_at_tile":
-      return "개척하려면 먼저 이 칸으로 이동하세요.";
-    case "not_adjacent_to_guild_tile":
-      return "이미 보유한 거점이 있는 길드는 자기 길드 거점에 인접한 빈 땅에만 개척할 수 있습니다.";
-    case "already_settled":
-      return "이미 정착지가 있는 칸입니다.";
-    case "tile_is_outpost":
-      return "거점 칸에는 개척할 수 없습니다.";
-    case "invalid_name":
-      return "마을 이름이 올바르지 않습니다.";
-    case "not_owner":
-      return "본인 정착지가 아닙니다.";
-    case "not_found":
-      return "정착지를 찾을 수 없습니다.";
-    case "max_tier":
-      return "이미 최고 단계입니다.";
-    case "use_production_management":
-      return "승격은 거점 관리 화면(생산 시스템)에서 진행하세요.";
-    case "network":
-      return "네트워크 오류 — 잠시 후 다시 시도하세요.";
-    default:
-      return `${label}에 실패했습니다 (${res.error ?? "알 수 없는 오류"}).`;
-  }
-}
 
 const GameStateCtx = createContext<GameStateValue | null>(null);
 const EquipmentCodexCtx = createContext<EquipmentCodexContextValue | null>(
@@ -434,7 +420,11 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   // 전역 stamina — me/state mount fetch 에서 초기화. 던전 hunt 응답 시 갱신.
   const [staminaMax, setStaminaMax] = useState(MAX_STAMINA);
   const [adventureSupportActive, setAdventureSupportActive] = useState(false);
+  const [adventureSupportTier, setAdventureSupportTier] =
+    useState<AdventureSupportTier>("none");
   const [adventureSupportActiveUntil, setAdventureSupportActiveUntil] =
+    useState<number | null>(null);
+  const [adventureSupportPremiumUntil, setAdventureSupportPremiumUntil] =
     useState<number | null>(null);
   const [staminaRegenBonusPct, setStaminaRegenBonusPct] = useState(0);
   const [stamina, setStamina] = useState<StaminaState>(() =>
@@ -477,6 +467,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   } | null>(null);
   const [autoGathering, setAutoGathering] =
     useState<AutoGatheringStatus | null>(null);
+  const [fishingActive, setFishingActive] = useState(false);
   const [atRiskGold, setAtRiskGold] = useState<number | null>(null);
   const [registeredEquipmentIds, setRegisteredEquipmentIds] = useState<
     Set<V2EquipmentId>
@@ -545,6 +536,12 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     if (typeof patch.bankedGold === "number") {
       setBankedGold(Math.max(0, patch.bankedGold));
     }
+    if (typeof patch.exp === "number") {
+      setViewerExp(Math.max(0, patch.exp));
+    }
+    if (typeof patch.expToNext === "number") {
+      setViewerExpToNext(Math.max(1, patch.expToNext));
+    }
     if (typeof patch.staminaMax === "number") {
       setStaminaMax(Math.max(1, patch.staminaMax));
     }
@@ -585,6 +582,11 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       if (!j) return;
       if (j.character?.name) setViewerName(j.character.name);
       setAccountName(j.accountName ?? null);
+      if ("guild" in j) {
+        setViewerGuildId(
+          typeof j.guild?.id === "number" ? j.guild.id : null,
+        );
+      }
       if (j.character?.gender) setViewerGender(j.character.gender as Gender);
       if (typeof j.character?.level === "number") {
         setViewerLevel(j.character.level);
@@ -602,9 +604,20 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
           : null,
       );
       setAdventureSupportActive(j.adventureSupport?.active === true);
+      setAdventureSupportTier(
+        j.adventureSupport?.tier === "premium" ||
+          j.adventureSupport?.tier === "standard"
+          ? j.adventureSupport.tier
+          : "none",
+      );
       setAdventureSupportActiveUntil(
         typeof j.adventureSupport?.activeUntil === "number"
           ? j.adventureSupport.activeUntil
+          : null,
+      );
+      setAdventureSupportPremiumUntil(
+        typeof j.adventureSupport?.premiumUntil === "number"
+          ? j.adventureSupport.premiumUntil
           : null,
       );
       setStaminaRegenBonusPct(
@@ -745,7 +758,11 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
           activity: auto.activity,
           sourceId: auto.sourceId,
           sourceName: auto.sourceName,
-          readyAt: Date.now() + (auto.readyAt - auto.serverNow),
+          readyAt: correctedAutoGatheringReadyAt(
+            auto.readyAt,
+            auto.serverNow,
+            Date.now(),
+          ),
         });
       } else {
         setAutoGathering(null);
@@ -773,7 +790,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
 
   const refreshGameState = useCallback(async () => {
     try {
-      const res = await fetch("/api/v2/me/state");
+      const res = await fetch("/api/v2/me/state?view=core");
       if (res.ok) {
         applyGameStateSnapshot((await res.json()) as GameStateSnapshot);
       }
@@ -790,7 +807,6 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     // 보고 발화(ServerFeedView 동일 패턴).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshOccupations();
-    refreshGuildId();
     (async () => {
       try {
         const res = await fetch("/api/auth/session");
@@ -801,7 +817,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       } catch {}
     })();
     void refreshGameState();
-  }, [refreshOccupations, refreshGuildId, refreshGameState]);
+  }, [refreshOccupations, refreshGameState]);
 
   // 이동 요청 직렬화 — 직전 visit 이 끝나기 전 두 번째 이동을 막는다. 낙관적 위치와
   // 서버에 저장된 위치가 어긋나 두 번째 이동이 400 나는 레이스를 차단.
@@ -1102,7 +1118,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       stamina,
       staminaMax,
       adventureSupportActive,
+      adventureSupportTier,
       adventureSupportActiveUntil,
+      adventureSupportPremiumUntil,
       staminaRegenBonusPct,
       setStamina,
       staminaPotions,
@@ -1125,6 +1143,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       setOfflineHunt,
       autoGathering,
       setAutoGathering,
+      fishingActive,
+      setFishingActive,
       atRiskGold,
       setAtRiskGold,
       mp,
@@ -1173,7 +1193,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     stamina,
     staminaMax,
     adventureSupportActive,
+    adventureSupportTier,
     adventureSupportActiveUntil,
+    adventureSupportPremiumUntil,
     staminaRegenBonusPct,
     setStamina,
     staminaPotions,
@@ -1195,6 +1217,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     setOfflineHunt,
     autoGathering,
     setAutoGathering,
+    fishingActive,
+    setFishingActive,
     atRiskGold,
     setAtRiskGold,
     mp,
@@ -1249,12 +1273,16 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <GameStateCtx.Provider value={value}>
-      <EquipmentCodexCtx.Provider value={equipmentCodexValue}>
-        <FishingCodexCtx.Provider value={fishingCodexValue}>
-          {children}
-        </FishingCodexCtx.Provider>
-      </EquipmentCodexCtx.Provider>
-    </GameStateCtx.Provider>
+    <GameStateSliceProviders value={value}>
+      <GameStateCtx.Provider value={value}>
+        <GameStateRefreshProvider refreshGameState={refreshGameState}>
+          <EquipmentCodexCtx.Provider value={equipmentCodexValue}>
+            <FishingCodexCtx.Provider value={fishingCodexValue}>
+              {children}
+            </FishingCodexCtx.Provider>
+          </EquipmentCodexCtx.Provider>
+        </GameStateRefreshProvider>
+      </GameStateCtx.Provider>
+    </GameStateSliceProviders>
   );
 }

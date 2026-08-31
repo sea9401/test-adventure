@@ -28,13 +28,19 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "controls",
     title: "화면과 조작",
-    summary: "메인 탭과 알림·이벤트·꾸미기·환경 설정의 사용법을 안내합니다.",
+    summary: "홈·메인 탭과 알림·이벤트·꾸미기·환경 설정의 사용법을 안내합니다.",
     group: "intro",
   },
   {
     slug: "combat",
     title: "전투 시스템",
     summary: "행동 순서부터 피해·방어·치명타·회피·상태이상까지 설명합니다.",
+    group: "combat",
+  },
+  {
+    slug: "combat-formulas",
+    title: "전투 계산식",
+    summary: "공격·방어·치명타·회피·속도와 출혈·중독·연소의 실제 계산식을 정리합니다.",
     group: "combat",
   },
   {
@@ -70,7 +76,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "quests",
     title: "퀘스트와 업적",
-    summary: "튜토리얼·일일·주간 퀘스트와 업적 보상 수령 방법을 설명합니다.",
+    summary: "퀘스트·업적 보상과 트로피 수집·대표 전시 방법을 설명합니다.",
     group: "growth",
   },
   {
@@ -88,7 +94,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "enhance",
     title: "장비 강화",
-    summary: "강화 결과와 단계별 재료, 장비 파괴 위험을 정리합니다.",
+    summary: "강화 결과와 단계별 재료, 장비 파괴 위험, 폭풍 개량을 정리합니다.",
     group: "growth",
   },
   {
@@ -100,7 +106,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "town",
     title: "마을 시설",
-    summary: "치료소·상점·대장간·은행·농장·주방 등 마을 시설을 소개합니다.",
+    summary: "협회·치료소·은행·통합 교환소·대장간과 생활 시설을 소개합니다.",
     group: "world",
   },
   {
@@ -112,25 +118,25 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "plaza",
     title: "광장과 소통",
-    summary: "게시판·거래소·우편함·채팅방·복권의 이용 방법을 안내합니다.",
+    summary: "게시판 활동·거래소·우편함·채팅방·랭킹의 이용 방법을 안내합니다.",
     group: "world",
   },
   {
     slug: "compendium",
     title: "모험의 서",
-    summary: "수집 기록과 칭호, 직업 계보를 확인하는 방법을 설명합니다.",
+    summary: "수집 기록과 도감 숙련·월간 연구, 칭호와 직업 계보를 설명합니다.",
     group: "world",
   },
   {
     slug: "arena",
     title: "투기장과 대련",
-    summary: "투기장 대전·일요일 챔피언십·베팅과 대련장을 안내합니다.",
+    summary: "투기장 대전·일요일 챔피언십과 대련장을 안내합니다.",
     group: "versus",
   },
   {
     slug: "pastimes",
     title: "생활 콘텐츠",
-    summary: "농장·주방·자동 벌목·자동 채광·낚시의 진행 방식과 보상을 안내합니다.",
+    summary: "현장 기록과 농장·주방·벌목·채광·낚시의 진행 방식과 보상을 안내합니다.",
     group: "world",
   },
 ];

@@ -1,10 +1,12 @@
 import type { Monster } from "@/adventure/data/monsters/types";
+import { kstWeekMondayKey } from "@/lib/kst";
 import type { V2SkillId } from "./v2Skills";
 
 export const MASTERY_TOWER_SAVE_KEY = "mastery-tower.v1";
 export const MASTERY_CERTIFICATE_KEY = "masteryCertificates";
 
-export const MASTERY_TOWER_MAX_FLOOR = 50;
+export const MASTERY_TOWER_MAX_FLOOR = 100;
+export const MASTERY_TOWER_REWARD_MAX_FLOOR = 50;
 export const MASTERY_TOWER_REENTRY_COOLDOWN_MS = 30_000;
 export const MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST = 200;
 
@@ -23,6 +25,8 @@ export type MasteryTowerState = {
   claimed: boolean;
   lifetimeBestFloor: number;
   firstClearRewardsClaimed: number[];
+  weekStartedAt?: string;
+  weekBestFloor?: number;
   /** 오늘 첫 실제 전투에서 입장 스태미나를 이미 지불했는지 여부. */
   entryStaminaPaid?: boolean;
   cooldownUntil?: number;
@@ -50,7 +54,7 @@ export function kstDateKey(now: number = Date.now()): string {
 }
 
 export function masteryTowerFloorReward(floor: number): number {
-  const f = clampFloor(floor);
+  const f = Math.min(clampFloor(floor), MASTERY_TOWER_REWARD_MAX_FLOOR);
   if (f <= 10) return f * 20;
   if (f <= 20) return 200 + (f - 10) * 30;
   if (f <= 30) return 500 + (f - 20) * 45;
@@ -63,7 +67,12 @@ export function masteryTowerRequiredPower(floor: number): number {
   if (f <= 0) return 0;
   if (f <= 10) return 90 + f * 30;
   if (f <= 20) return 390 + (f - 10) * 81;
-  return 1200 + (f - 20) * 130;
+  if (f <= 50) return 1200 + (f - 20) * 130;
+  return (
+    Math.round(
+      (5_100 * Math.pow(105_000 / 5_100, (f - 50) / 50)) / 10,
+    ) * 10
+  );
 }
 
 export type MasteryTowerGuardianPreview = {
@@ -97,6 +106,7 @@ export function masteryTowerGuardianForFloor(floor: number): Monster {
     atk: Math.round((18 + power * 0.72 + f * 2) * (boss?.atkMult ?? 1)),
     def: Math.round((8 + power * 0.42 + f * 1.4) * (boss?.defMult ?? 1)),
     spd: Math.round((55 + f * 7) * (boss?.spdMult ?? 1)),
+    directActionSpd: true,
     accuracy: Math.min(
       92,
       Math.round(f * 2 + (f >= 16 ? 15 : 0) + (boss?.accuracyBonus ?? 0)),
@@ -155,13 +165,25 @@ export function masteryTowerGuardianPreview(
 function towerGuardianSkills(floor: number): V2SkillId[] {
   const f = clampFloor(floor);
   if (f < 8) return [];
-  if (f === 50) {
+  if (f === 50 || f === 100) {
     return [
       "mob_arcane_nova",
       "mob_savage_roar",
       "mob_crushing_blow",
       "mob_chilling_touch",
     ];
+  }
+  if (f === 90) {
+    return ["mob_crushing_blow", "mob_rending_claw", "mob_savage_roar"];
+  }
+  if (f === 80) {
+    return ["mob_savage_roar", "mob_crushing_blow", "mob_chilling_touch"];
+  }
+  if (f === 70) {
+    return ["mob_arcane_nova", "mob_chilling_touch", "mob_venom_bite"];
+  }
+  if (f === 60) {
+    return ["mob_crushing_blow", "mob_savage_roar", "mob_rending_claw"];
   }
   if (f === 40) {
     return ["mob_arcane_burst", "mob_chilling_touch", "mob_venom_bite"];
@@ -210,6 +232,81 @@ function towerGuardianBossGimmick(floor: number):
     }
   | null {
   const f = clampFloor(floor);
+  if (f === 100) {
+    return {
+      name: "탑의 초월자",
+      gimmickName: "초월의 시험",
+      gimmickDescription:
+        "물리와 마법, 상태 이상과 연속 공격을 모두 견뎌야 하는 탑의 최종 시험입니다.",
+      hpMult: 1.8,
+      atkMult: 1.55,
+      defMult: 1.35,
+      spdMult: 1.4,
+      accuracyBonus: 30,
+      critBonus: 22,
+      bonusAttackChancePct: 500,
+      v2MaxMp: 600,
+    };
+  }
+  if (f === 90) {
+    return {
+      name: "불멸의 문지기",
+      gimmickName: "불멸의 성벽",
+      gimmickDescription:
+        "압도적인 체력과 방어를 80턴 안에 돌파해야 하는 지속 화력 시험입니다.",
+      hpMult: 1.75,
+      atkMult: 1.15,
+      defMult: 1.65,
+      accuracyBonus: 15,
+      critBonus: 8,
+      bonusAttackChancePct: 180,
+    };
+  }
+  if (f === 80) {
+    return {
+      name: "추격의 환영",
+      gimmickName: "끝없는 추격",
+      gimmickDescription:
+        "높은 속도와 명중, 반복 행동으로 느리거나 명중이 낮은 도전자를 압박합니다.",
+      hpMult: 1.3,
+      atkMult: 1.3,
+      defMult: 1.1,
+      spdMult: 1.35,
+      accuracyBonus: 22,
+      critBonus: 15,
+      bonusAttackChancePct: 320,
+    };
+  }
+  if (f === 70) {
+    return {
+      name: "비전 재판관",
+      gimmickName: "비전 판결",
+      gimmickDescription:
+        "비전 폭발과 한기, 독으로 장기전의 마법 방어와 상태 대응을 시험합니다.",
+      hpMult: 1.25,
+      atkMult: 1.25,
+      defMult: 1.1,
+      spdMult: 1.15,
+      accuracyBonus: 14,
+      critBonus: 10,
+      bonusAttackChancePct: 240,
+    };
+  }
+  if (f === 60) {
+    return {
+      name: "심연의 처형자",
+      gimmickName: "처형 연격",
+      gimmickDescription:
+        "강한 물리 공격과 치명타, 출혈 연격으로 단기 생존력을 시험합니다.",
+      hpMult: 1.2,
+      atkMult: 1.3,
+      defMult: 1.05,
+      spdMult: 1.1,
+      accuracyBonus: 10,
+      critBonus: 12,
+      bonusAttackChancePct: 200,
+    };
+  }
   if (f === 30) {
     return {
       name: "탑의 숙련자",
@@ -261,6 +358,7 @@ function towerGuardianBossGimmick(floor: number):
 export function parseMasteryTowerState(
   raw: unknown,
   date: string = kstDateKey(),
+  weekStartedAt: string = masteryTowerWeekStartKey(date),
 ): MasteryTowerState {
   const obj =
     raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
@@ -279,6 +377,9 @@ export function parseMasteryTowerState(
     claimed: obj.claimed === true,
     lifetimeBestFloor: clampFloor(obj.lifetimeBestFloor),
     firstClearRewardsClaimed: [...new Set(claimedFloors)].sort((a, b) => a - b),
+    weekStartedAt,
+    weekBestFloor:
+      obj.weekStartedAt === weekStartedAt ? clampFloor(obj.weekBestFloor) : 0,
     entryStaminaPaid: obj.entryStaminaPaid === true,
     ...(typeof obj.cooldownUntil === "number" && Number.isFinite(obj.cooldownUntil)
       ? { cooldownUntil: Math.max(0, Math.floor(obj.cooldownUntil)) }
@@ -292,6 +393,8 @@ export function parseMasteryTowerState(
       claimed: false,
       lifetimeBestFloor: base.lifetimeBestFloor,
       firstClearRewardsClaimed: base.firstClearRewardsClaimed,
+      weekStartedAt: base.weekStartedAt,
+      weekBestFloor: base.weekBestFloor,
       entryStaminaPaid: false,
     };
   }
@@ -340,6 +443,7 @@ export function masteryTowerClaimPreview(
 export function rolloverMasteryTowerState(
   raw: unknown,
   date: string = kstDateKey(),
+  weekStartedAt: string = masteryTowerWeekStartKey(date),
 ): {
   tower: MasteryTowerState;
   rolledOver: boolean;
@@ -348,12 +452,16 @@ export function rolloverMasteryTowerState(
   const obj =
     raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const savedDate = typeof obj.date === "string" ? obj.date : date;
-  const previous = parseMasteryTowerState(raw, savedDate);
-  if (previous.date === date) {
+  const dateChanged = savedDate !== date;
+  const weekChanged = obj.weekStartedAt !== weekStartedAt;
+  const previous = parseMasteryTowerState(raw, savedDate, weekStartedAt);
+  if (!dateChanged && !weekChanged) {
     return { tower: previous, rolledOver: false, reward: null };
   }
 
-  const preview = masteryTowerClaimPreview(previous);
+  const preview = dateChanged
+    ? masteryTowerClaimPreview(previous)
+    : { base: 0, firstClearBonus: 0, total: 0, newlyClaimedMilestones: [] };
   const reward =
     preview.total > 0
       ? {
@@ -372,10 +480,12 @@ export function rolloverMasteryTowerState(
     : previous.firstClearRewardsClaimed;
 
   return {
-    tower: resetMasteryTowerDailyProgress(
-      { ...previous, firstClearRewardsClaimed },
-      date,
-    ),
+    tower: dateChanged
+      ? resetMasteryTowerDailyProgress(
+          { ...previous, firstClearRewardsClaimed },
+          date,
+        )
+      : { ...previous, firstClearRewardsClaimed },
     rolledOver: true,
     reward,
   };
@@ -391,7 +501,48 @@ export function clearMasteryTowerFloor(
     runFloor: Math.max(state.runFloor, cleared),
     todayBestFloor: Math.max(state.todayBestFloor, cleared),
     lifetimeBestFloor: Math.max(state.lifetimeBestFloor, cleared),
+    weekBestFloor: Math.max(state.weekBestFloor ?? 0, cleared),
   };
+}
+
+export function masteryTowerCheckpointStartFloor(
+  state: MasteryTowerState,
+): number | null {
+  const checkpointFloor = Math.min(
+    Math.floor(clampFloor(state.weekBestFloor ?? 0) / 10) * 10,
+    MASTERY_TOWER_MAX_FLOOR - 10,
+  );
+  return checkpointFloor >= 10 ? checkpointFloor + 1 : null;
+}
+
+export function masteryTowerStartFloors(state: MasteryTowerState): number[] {
+  if (state.runFloor > 0) return [];
+  const checkpointStartFloor = masteryTowerCheckpointStartFloor(state);
+  return checkpointStartFloor === null ? [1] : [1, checkpointStartFloor];
+}
+
+export function masteryTowerNextFloor(state: MasteryTowerState): number {
+  return Math.min(state.runFloor + 1, MASTERY_TOWER_MAX_FLOOR);
+}
+
+export function resolveMasteryTowerAttemptFloor(
+  state: MasteryTowerState,
+  requestedStartFloor?: number,
+):
+  | { ok: true; floor: number }
+  | { ok: false; error: "invalid_start_floor" } {
+  if (state.runFloor > 0) {
+    return requestedStartFloor === undefined
+      ? {
+          ok: true,
+          floor: masteryTowerNextFloor(state),
+        }
+      : { ok: false, error: "invalid_start_floor" };
+  }
+  const floor = requestedStartFloor ?? 1;
+  return Number.isInteger(floor) && masteryTowerStartFloors(state).includes(floor)
+    ? { ok: true, floor }
+    : { ok: false, error: "invalid_start_floor" };
 }
 
 export function resetMasteryTowerDailyProgress(
@@ -414,7 +565,10 @@ export function failMasteryTowerRun(
 ): MasteryTowerState {
   return {
     ...state,
-    runFloor: 0,
+    runFloor:
+      state.runFloor >= MASTERY_TOWER_MAX_FLOOR
+        ? MASTERY_TOWER_MAX_FLOOR
+        : 0,
     cooldownUntil: now + MASTERY_TOWER_REENTRY_COOLDOWN_MS,
   };
 }
@@ -422,6 +576,7 @@ export function failMasteryTowerRun(
 export function masteryTowerAttemptLog({
   floor,
   success,
+  practice = false,
   tower,
   claimPreview,
   turns,
@@ -432,6 +587,7 @@ export function masteryTowerAttemptLog({
 }: {
   floor: number | null;
   success: boolean;
+  practice?: boolean;
   tower: MasteryTowerState;
   claimPreview: ReturnType<typeof masteryTowerClaimPreview>;
   turns?: number;
@@ -473,10 +629,12 @@ export function masteryTowerAttemptLog({
       },
       {
         kind: "success",
-        text: `${floor}층 돌파 · 오늘 최고층 ${tower.todayBestFloor}층`,
+        text: practice
+          ? `${floor}층 연습 승리 · 최고층 기록 및 보상 변동 없음`
+          : `${floor}층 돌파 · 오늘 최고층 ${tower.todayBestFloor}층`,
       },
     );
-    if (claimPreview.total > 0) {
+    if (!practice && claimPreview.total > 0) {
       lines.push({
         kind: "reward",
         text: `[보상] 현재 수령 가능 숙련 증서 ${fmt(claimPreview.total)}`,
@@ -488,7 +646,12 @@ export function masteryTowerAttemptLog({
         kind: "enemy",
         text: `수호자 잔여 HP ${enemyHpText}`,
       },
-      { kind: "fail", text: `${floor}층 실패` },
+      {
+        kind: "fail",
+        text: practice
+          ? `${floor}층 연습 실패 · 최고층 기록 유지`
+          : `${floor}층 실패`,
+      },
     );
   }
 
@@ -499,6 +662,13 @@ function clampFloor(raw: unknown): number {
   const n = Math.floor(Number(raw));
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.min(MASTERY_TOWER_MAX_FLOOR, n));
+}
+
+function masteryTowerWeekStartKey(date: string): string {
+  const atKstMidnight = new Date(`${date}T00:00:00+09:00`);
+  return Number.isNaN(atKstMidnight.getTime())
+    ? kstWeekMondayKey()
+    : kstWeekMondayKey(atKstMidnight);
 }
 
 function withoutMasteryTowerCooldown(

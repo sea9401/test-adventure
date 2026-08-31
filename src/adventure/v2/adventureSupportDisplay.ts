@@ -46,3 +46,20 @@ export function formatAdventureSupportExpiry(activeUntil: number): string {
     hourCycle: "h23",
   }).format(new Date(activeUntil));
 }
+
+export function queuedStandardSupportMs(
+  activeUntil: number,
+  premiumUntil: number,
+  now: number,
+): number {
+  if (
+    !Number.isFinite(activeUntil) ||
+    !Number.isFinite(premiumUntil) ||
+    !Number.isFinite(now) ||
+    premiumUntil <= now ||
+    activeUntil <= premiumUntil
+  ) {
+    return 0;
+  }
+  return activeUntil - premiumUntil;
+}

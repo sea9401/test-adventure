@@ -51,7 +51,7 @@
 - **on-kill**: 처치 시 N초/N행동 속도↑(또는 버프 스택)
 - **low-hp**: 체력 X% 이하일 때 치명↑ / 받피감
 - **on-crit**: 크리 시 회복 / 추가타 확률
-- **every-N-hits**: 평타·스킬의 실제 적중 N회마다 추가 행동 / 소규모 광역
+- **every-N-hits**: 평타·스킬의 실제 적중 N회마다 추가 기본 공격 / 소규모 광역
 - **개편(`V2Equipment.signature?: SignatureEffect`)** + 전투엔진(ATB·damage apply) 평가 훅.
   🔑 시그니처 없는 기존 장비는 훅 미발화 → **골든 byte-identical**. PvP 미러 필수. 보수적 시작.
 
@@ -142,20 +142,22 @@ Phase 2 시그니처 효과(괄호)는 *컨셉*(later).
 불가). §9 로스터의 "처치 시 회복/공속↑" 컨셉 **폐기** → **전투 중 발동 트리거**로 재설계.
 
 ### 10.1 유효 트리거 (단일전투에서 의미 있는 것만)
-크리 시(on-crit) · 회피 시(on-dodge) · 저체력 HP≤X%(low-hp·조건부 패시브) · N타마다(every-N-hits).
+크리 시(on-crit) · 회피 시(on-dodge) · 행동 시 회피 회복(on-action-evasion) ·
+저체력 HP≤X%(low-hp·조건부 패시브) · N타마다(every-N-hits).
 (on-kill / battle-start 후 지속버프 = 무용. on-hit = 너무 잦아 약효 희석.)
 
 ### 10.2 3 세트 시그니처 (세트 완성 시 발동·정체성 매칭)
 - **성물(회복·버팀)** = **저체력(HP≤30%) 시 받는 피해 −25%** (low-hp → `damageTakenReductionPct` 조건부).
 - **독왕(회피·기동)** = **회피 성공 시 3행동 동안 속도 +25%** (on-dodge → `playerSpdMult` 버프+turnsLeft).
-- **포식자(폭딜)** = **평타·스킬 합산 3회 적중마다 추가 행동 1회**. 다단 스킬은 각 타격을 모두 센다.
+- **포식자(폭딜)** = **평타·스킬 합산 3회 적중마다 추가 기본 공격 1회**. 다단 스킬은 각 타격을 모두 센다.
 (전부 보수적 시작값·다이얼. 강도는 sim 후 캘리브.)
 
 ### 10.2b 단품 마퀴 시그니처 3개 (오너: 세트3+단품2~3) — 밴드당 1개·트리거 안 겹치게
-- **봉인된 반지**(성소·ring) = **회피 성공 시 HP 소량 회복** (on-dodge → heal). 회피탱 sustain.
+- **봉인된 반지**(성소·ring) = **행동마다 회피 경감률의 절반 확률로 잃은 HP 4% 회복**
+  (on-action-evasion → missing-HP heal). 회피탱 sustain.
 - **독니 단검**(늪지·dagger·무기) = **크리 시 대상 중독(독 DoT) 부여** (on-crit → poison·`makePoisonDot`). 독왕 테마.
 - **알파의 군림목걸이**(소굴·necklace) = **크리 시 2행동 동안 속도 +20%** (on-crit → `playerSpdMult`). 크리 스노볼.
-> 합계 6 효과·트리거 분포: low-hp 1 / on-dodge 2(속도·회복) / every-N 1 / on-crit 2(독·속도). 나머지 단품 6종은 Phase 1 스탯조합만(무 시그니처).
+> 회피 회복 아이템은 이후 왕도의 그림자(3%)와 해연추적(3%)까지 같은 트리거로 확장됐다.
 
 ### 10.3 데이터 모델
 - `V2EquipSet.signature?: { trigger, params }`(세트-귀속·2피스 완성 시) **+** `V2Equipment.signature?`(단품-귀속).

@@ -98,3 +98,38 @@ describe("WarTicker 수행 각성", () => {
     );
   });
 });
+
+describe("WarTicker 생활 도안", () => {
+  it("비공개 숙소 가구 도안의 과거 알림을 숨긴다", () => {
+    const housingBlueprint = entry(
+      6,
+      "life_blueprint",
+      { recipeId: "fishing_trophy_wall" },
+      NOW,
+    );
+    const activeAidBlueprint = entry(
+      7,
+      "life_blueprint",
+      { recipeId: "logging_wedge_master" },
+      NOW,
+    );
+
+    expect(warTickerText(housingBlueprint, NOW)).toBeNull();
+    expect(warTickerText(activeAidBlueprint, NOW)).toContain("명인의 벌목 쐐기");
+  });
+});
+
+describe("WarTicker 도감 연구 명예", () => {
+  it("확정 시즌·순위·트로피를 표시한다", () => {
+    const honor = entry(8, "codex_research_result", {
+      seasonId: "2026-08",
+      themeName: "강과 호수의 달",
+      tier: "legendary",
+      finalRank: 1,
+      score: 19_000,
+    }, NOW);
+    expect(warTickerText(honor, NOW)).toBe(
+      "모험가8 님, 2026-08 강과 호수의 달 확정 1위 · 전설 트로피!",
+    );
+  });
+});

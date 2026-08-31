@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  listedEquipBound,
   listedEquipEnhance,
   mintEquipInstance,
   mintListedEquipInstance,
@@ -34,6 +35,11 @@ describe("mintRolledEquipInstance", () => {
     expect(a.roll).toEqual(b.roll);
     expect(a.iid).not.toBe(b.iid);
   });
+
+  it("새 6티어 굴림에는 현재 위력 보정 버전을 기록한다", () => {
+    const inst = mintRolledEquipInstance("v2_storm_gale_bow", () => 0.5);
+    expect(inst.roll?.powerScaleVersion).toBe(1);
+  });
 });
 
 describe("mintListedEquipInstance (거래소 payload 복원)", () => {
@@ -51,6 +57,21 @@ describe("mintListedEquipInstance (거래소 payload 복원)", () => {
     expect(inst.roll).toEqual(roll);
   });
 
+  it("옛 폭풍 개량 매물의 위력을 상향하고 개량 표식을 보존한다", () => {
+    const inst = mintListedEquipInstance(ANY_ID, {
+      power: 620,
+      weight: 0,
+      powerBase: 550,
+      stormRefined: true,
+    });
+    expect(inst.roll).toMatchObject({
+      power: 682,
+      powerBase: 605,
+      powerScaleVersion: 1,
+    });
+    expect(inst.stormRefined).toBe(true);
+  });
+
   it("강화 상태를 보존한다 — 만료 회수(expire)도 강화가 소실되면 안 된다", () => {
     const payloadEnhance = { level: 7, bonusPct: 21 };
     const inst = mintListedEquipInstance(ANY_ID, {
@@ -64,15 +85,15 @@ describe("mintListedEquipInstance (거래소 payload 복원)", () => {
     expect(listedEquipEnhance({ ...roll, enhance: payloadEnhance })?.level).toBe(7);
   });
 
-  it("craftQuality 가 있으면 enhance 는 무시(동시 부착 금지 규약)", () => {
+  it("명시적 craftQuality 와 enhance 를 함께 복원한다", () => {
     const inst = mintListedEquipInstance(ANY_ID, {
       ...roll,
       craftQuality: { level: 1, bonusPct: 6 },
       enhance: { level: 3, bonusPct: 9 },
       craftedBy: { userId: "u1", profession: "blacksmith" },
     });
-    expect(inst.craftQuality).toBeDefined();
-    expect("enhance" in inst).toBe(false);
+    expect(inst.craftQuality).toEqual({ level: 1, bonusPct: 5 });
+    expect(inst.enhance).toEqual({ level: 3, bonusPct: 4 });
     expect(inst.craftedBy).toMatchObject({ userId: "u1" });
     expect(
       listedEquipEnhance({
@@ -81,6 +102,38 @@ describe("mintListedEquipInstance (거래소 payload 복원)", () => {
         enhance: { level: 3, bonusPct: 9 },
         craftedBy: { userId: "u1", profession: "blacksmith" },
       }),
-    ).toBeUndefined();
+    ).toEqual({ level: 3, bonusPct: 4 });
+  });
+
+  it("명시적으로 true 인 귀속 상태만 복원한다", () => {
+    expect(
+      mintListedEquipInstance(ANY_ID, { ...roll, bound: true }),
+    ).toMatchObject({ bound: true });
+    expect(listedEquipBound({ bound: true })).toBe(true);
+    expect(listedEquipBound({ bound: false })).toBe(false);
+    expect(listedEquipBound({ bound: "true" })).toBe(false);
+    expect(listedEquipBound({ enhance: { level: 9 } })).toBe(false);
+    expect(
+      mintListedEquipInstance(ANY_ID, { ...roll, bound: false }),
+    ).not.toHaveProperty("bound");
+  });
+
+  it("restores a traded blacksmith specialty mark", () => {
+    const inst = mintListedEquipInstance(ANY_ID, {
+      ...roll,
+      craftedBy: {
+        userId: "u1",
+        profession: "blacksmith",
+        level: 28,
+        craftedAt: "2026-08-22T00:00:00.000Z",
+        specialty: "jewelry",
+        masterwork: true,
+      },
+    });
+
+    expect(inst.craftedBy).toMatchObject({
+      specialty: "jewelry",
+      masterwork: true,
+    });
   });
 });

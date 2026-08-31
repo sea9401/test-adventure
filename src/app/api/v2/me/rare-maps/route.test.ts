@@ -31,7 +31,7 @@ vi.mock("@/lib/server/savesKv", () => ({
   ),
 }));
 
-import { DELETE } from "./route";
+import { DELETE, GET } from "./route";
 import { newRareMapInstance } from "@/adventure/data/v2/rareMaps";
 
 function request(iid: unknown) {
@@ -45,6 +45,29 @@ function request(iid: unknown) {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.saves.clear();
+});
+
+describe("GET /api/v2/me/rare-maps", () => {
+  it("만료 필터링에 사용한 서버 시각을 지도 목록과 함께 반환한다", async () => {
+    const now = 1_800_000_000_000;
+    const fresh = newRareMapInstance("worn_map", 12, now - 10 * 60_000, "rm-fresh");
+    mocks.saves.set("character.v2", { rareMaps: [fresh] });
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(now);
+
+    try {
+      const response = await GET();
+      const json = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(json).toMatchObject({
+        ok: true,
+        serverNow: now,
+        rareMaps: [fresh],
+      });
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
 });
 
 describe("DELETE /api/v2/me/rare-maps", () => {

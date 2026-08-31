@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
@@ -109,6 +110,17 @@ export async function POST(req: Request) {
       materials: nextMaterials,
     });
     await upsertSave(tx, userId, "proficiency.v2", prof);
+    await recordCodexMasteryGameplayBatch(
+      tx,
+      userId,
+      [{
+        category: "job",
+        entryId: jobId,
+        amount: COOP_MASTERY_TOME_GAIN,
+        source: "job.consumable",
+      }],
+      new Date(),
+    );
 
     return {
       status: 200,

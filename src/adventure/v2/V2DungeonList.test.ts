@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseHiddenThemeStarts,
   rareMapUnavailable,
+  removeExpiredRareMap,
   stageRangeLabel,
   toggleHiddenTheme,
 } from "./V2DungeonList";
@@ -52,5 +53,18 @@ describe("rareMapUnavailable", () => {
     expect(
       rareMapUnavailable(newRareMapInstance("rename_map", 99, now), 10),
     ).toBeNull();
+  });
+});
+
+describe("removeExpiredRareMap", () => {
+  it("만료된 iid 한 장만 열린 지도 목록에서 제거한다", () => {
+    const first = newRareMapInstance("worn_map", 10, 1, "rm-first");
+    const expired = newRareMapInstance("gilded_map", 12, 1, "rm-expired");
+    const last = newRareMapInstance("rename_map", 14, 1, "rm-last");
+
+    expect(removeExpiredRareMap([first, expired, last], expired.iid)).toEqual([
+      first,
+      last,
+    ]);
   });
 });

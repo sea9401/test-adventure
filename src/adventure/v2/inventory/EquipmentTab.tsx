@@ -3,6 +3,7 @@
 import { useMemo, type Dispatch, type SetStateAction } from "react";
 import { Pagination } from "@/components/ui/Pagination";
 import { Button } from "@/components/ui/Button";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { usePagination } from "@/lib/usePagination";
 import {
   type V2EquipInstance,
@@ -15,12 +16,33 @@ import {
 import { type ItemCardAnchor } from "../V2ItemCard";
 import {
   V2_ITEM_TABS,
-  nextSortMode,
-  sortModeLabel,
   sortEquipInstances,
   type SortMode,
 } from "../v2ItemListShared";
 import { EquipmentCardGrid } from "./EquipmentCardGrid";
+
+export type EquipmentSaleSelection = {
+  active: boolean;
+  selectedIids: ReadonlySet<string>;
+  selectedCount: number;
+  selectedGold: number;
+  onStart: () => void;
+  onCancel: () => void;
+  onToggle: (inst: V2EquipInstance) => void;
+  onConfirm: () => void;
+};
+
+const INVENTORY_SORT_OPTIONS: ReadonlyArray<{
+  key: SortMode;
+  label: string;
+}> = [
+  { key: "default", label: "기본 · 종류별" },
+  { key: "acquired", label: "최근 획득 · 최신부터" },
+  { key: "tier", label: "티어 · 높은순" },
+  { key: "roll", label: "품질 · 높은순" },
+  { key: "power", label: "위력 · 높은순" },
+  { key: "locked", label: "잠금 우선 · 잠금부터" },
+];
 
 // 장비 슬롯 탭(무기/갑옷/장갑/신발/반지/목걸이) — 일괄 판매 컨트롤 + 정렬 버튼 +
 // 보유 장비 카드 그리드 + 페이지네이션. 정렬·일괄판매 임계값 상태는 코디네이터(부모)가
@@ -32,6 +54,8 @@ export function EquipmentTab({
   busy,
   sortMode,
   setSortMode,
+  lockedOnly,
+  setLockedOnly,
   sellQualityPct,
   setSellQualityPct,
   pageSize,
@@ -39,6 +63,8 @@ export function EquipmentTab({
   onBulkSell,
   onOpenCard,
   onRegisterCodex,
+  codexBulk,
+  selection,
 }: {
   slot: V2EquipSlot;
   instances: V2EquipInstance[];
@@ -46,6 +72,8 @@ export function EquipmentTab({
   busy: string | null;
   sortMode: SortMode;
   setSortMode: Dispatch<SetStateAction<SortMode>>;
+  lockedOnly: boolean;
+  setLockedOnly: Dispatch<SetStateAction<boolean>>;
   sellQualityPct: number;
   setSellQualityPct: Dispatch<SetStateAction<number>>;
   pageSize: number;
@@ -53,12 +81,28 @@ export function EquipmentTab({
   onBulkSell: (opts: BulkSellOpts, label: string) => void;
   onOpenCard: (inst: V2EquipInstance, anchor: ItemCardAnchor) => void;
   onRegisterCodex: (inst: V2EquipInstance) => void;
+  codexBulk?: {
+    registerableCount: number;
+    onStart: () => void;
+  };
+  selection: EquipmentSaleSelection;
 }) {
   const tabLabel = V2_ITEM_TABS.find((t) => t.key === slot)?.label ?? "";
 
-  const tabInstances: V2EquipInstance[] = useMemo(
+  const sortedInstances: V2EquipInstance[] = useMemo(
     () => sortEquipInstances(instances, sortMode),
     [instances, sortMode],
+  );
+  const tabInstances = useMemo(
+    () =>
+      lockedOnly
+        ? sortedInstances.filter((instance) => instance.locked === true)
+        : sortedInstances,
+    [lockedOnly, sortedInstances],
+  );
+  const lockedCount = useMemo(
+    () => instances.filter((instance) => instance.locked === true).length,
+    [instances],
   );
 
   // 목록이 길어지면 페이지로 나눈다(한 페이지 20개). 탭(슬롯)·정렬을 바꾸면 1페이지로 리셋
@@ -66,7 +110,7 @@ export function EquipmentTab({
   const equipPager = usePagination(
     tabInstances,
     pageSize,
-    `${slot}:${sortMode}`,
+    `${slot}:${sortMode}:${lockedOnly ? "locked" : "all"}`,
   );
   const qualitySellCount = useMemo(
     () =>
@@ -80,70 +124,117 @@ export function EquipmentTab({
 
   return (
     <>
-      {tabInstances.length > 0 && (
+      {instances.length > 0 && (
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           {/* 정리(일괄 판매) — 현재 탭 슬롯, 장착·잠금만 제외(전 장비 판매 가능) */}
           <div className="flex flex-wrap items-center gap-1">
-            <span className="mr-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
-              정리
-            </span>
-            {/* 품질 임계값 직접 설정(0~100). 이 값 이하 품질만 일괄 판매. */}
-            <label className="flex items-center gap-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-              품질
-              <input
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={100}
-                value={sellQualityPct}
-                onFocus={(event) => event.currentTarget.select()}
-                onChange={(event) => {
-                  const value = Number(event.currentTarget.value);
-                  setSellQualityPct(
-                    Number.isFinite(value)
-                      ? Math.max(0, Math.min(100, Math.floor(value)))
-                      : 0,
-                  );
-                }}
-                aria-label="일괄 판매 품질 임계값(%)"
-                className="w-11 rounded border border-zinc-300 bg-white px-1 py-0.5 text-right tabular-nums text-zinc-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
-              />
-              %
-            </label>
-            <Button
-              onClick={() =>
-                onBulkSell(
-                  { slot, belowPct: sellQualityPct },
-                  `${tabLabel} 품질 ${sellQualityPct}% 이하`,
-                )
-              }
-              disabled={busy !== null || qualitySellCount === 0}
-              variant="warning"
-              size="xs"
-              className="min-h-0 px-2 py-0.5 text-[11px]"
-            >
-              이하 판매 ({qualitySellCount})
-            </Button>
-            <Button
-              onClick={() => onBulkSell({ slot }, `${tabLabel} 미장착 전부`)}
-              disabled={busy !== null}
-              variant="danger"
-              size="xs"
-              className="min-h-0 px-2 py-0.5 text-[11px]"
-            >
-              미장착 전부 판매
-            </Button>
+            {!selection.active && codexBulk ? (
+              <Button
+                onClick={codexBulk.onStart}
+                disabled={busy !== null || codexBulk.registerableCount === 0}
+                variant="success"
+                size="xs"
+                className="mr-1 min-h-0 px-2 py-0.5 text-[11px]"
+              >
+                도감 일괄 등록 ({codexBulk.registerableCount})
+              </Button>
+            ) : null}
+            {selection.active ? (
+              <span className="text-xs font-medium text-rose-600 dark:text-rose-300">
+                판매할 장비를 선택하세요
+              </span>
+            ) : (
+              <>
+                {/* 품질 임계값 직접 설정(0~100). 이 값 이하 품질만 일괄 판매. */}
+                <label className="flex items-center gap-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  품질
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={100}
+                    value={sellQualityPct}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) => {
+                      const value = Number(event.currentTarget.value);
+                      setSellQualityPct(
+                        Number.isFinite(value)
+                          ? Math.max(0, Math.min(100, Math.floor(value)))
+                          : 0,
+                      );
+                    }}
+                    aria-label="일괄 판매 품질 임계값(%)"
+                    className="w-11 rounded border border-zinc-300 bg-white px-1 py-0.5 text-right tabular-nums text-zinc-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
+                  />
+                  %
+                </label>
+                <Button
+                  onClick={() =>
+                    onBulkSell(
+                      { slot, belowPct: sellQualityPct },
+                      `${tabLabel} 품질 ${sellQualityPct}% 이하`,
+                    )
+                  }
+                  disabled={busy !== null || qualitySellCount === 0}
+                  variant="warning"
+                  size="xs"
+                  className="min-h-0 px-2 py-0.5 text-[11px]"
+                >
+                  이하 판매 ({qualitySellCount})
+                </Button>
+                <Button
+                  onClick={() =>
+                    onBulkSell({ slot }, `${tabLabel} 미장착 전부`)
+                  }
+                  disabled={busy !== null}
+                  variant="danger"
+                  size="xs"
+                  className="min-h-0 px-2 py-0.5 text-[11px]"
+                >
+                  미장착 전부 판매
+                </Button>
+                <Button
+                  onClick={selection.onStart}
+                  disabled={busy !== null}
+                  variant="secondary"
+                  size="xs"
+                  className="min-h-0 px-2 py-0.5 text-[11px]"
+                >
+                  선택 판매
+                </Button>
+              </>
+            )}
           </div>
-          {/* 정렬 — 단일 버튼, 누를 때마다 순환(기본 → 품질순 → 위력순). */}
-          <Button
-            title="누를 때마다 정렬 전환 (기본 → 품질순 → 위력순)"
-            onClick={() => setSortMode((m) => nextSortMode(m))}
-            variant="secondary"
-            size="xs"
-            className="min-h-0 px-2.5 py-0.5 text-[11px]"
-          >
-            정렬 ⇅ {sortModeLabel(sortMode)}
-          </Button>
+          <div className="flex min-h-8 items-center gap-1 rounded-lg border border-zinc-300 bg-white px-1 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <Button
+              type="button"
+              onClick={() => setLockedOnly((current) => !current)}
+              aria-pressed={lockedOnly}
+              variant={lockedOnly ? "primary" : "secondary"}
+              size="xs"
+              className="min-h-7 px-2 py-0.5 text-[11px]"
+            >
+              잠금만 보기 ({lockedCount})
+            </Button>
+            <select
+              aria-label="장비 정렬 기준"
+              value={sortMode}
+              onChange={(event) =>
+                setSortMode(event.currentTarget.value as SortMode)
+              }
+              className="min-h-7 rounded-md border-0 bg-white py-0.5 pl-1 pr-6 text-xs font-semibold text-zinc-800 [color-scheme:light] outline-none focus:ring-2 focus:ring-violet-500 dark:bg-zinc-900 dark:text-zinc-100 dark:[color-scheme:dark]"
+            >
+              {INVENTORY_SORT_OPTIONS.map((option) => (
+                <option
+                  key={option.key}
+                  value={option.key}
+                  className="bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100"
+                >
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
       <EquipmentCardGrid
@@ -154,8 +245,55 @@ export function EquipmentTab({
         onOpenCard={onOpenCard}
         onRegisterCodex={onRegisterCodex}
         codexBusyIid={busy}
+        saleSelection={{
+          active: selection.active,
+          selectedIids: selection.selectedIids,
+          onToggle: selection.onToggle,
+        }}
+        recentlyAcquiredIid={
+          sortMode === "acquired" ? tabInstances[0]?.iid : undefined
+        }
         frontierDepth={frontierDepth}
+        emptyState={
+          lockedOnly
+            ? {
+                title: "잠근 장비가 없습니다",
+                message:
+                  "장비 상세에서 잠금을 설정하면 여기에 모아 볼 수 있습니다.",
+              }
+            : undefined
+        }
       />
+      {selection.active ? (
+        <div
+          className={`${SURFACE_CARD} sticky bottom-2 z-20 flex flex-wrap items-center justify-between gap-2 p-2.5`}
+          aria-live="polite"
+        >
+          <div className="text-sm text-zinc-700 dark:text-zinc-200">
+            <span className="font-semibold">선택 {selection.selectedCount}개</span>
+            <span className="mx-1.5 text-zinc-400">·</span>
+            예상 <span className="font-semibold tabular-nums">{selection.selectedGold.toLocaleString()}골드</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button
+              onClick={selection.onCancel}
+              disabled={busy !== null}
+              variant="secondary"
+              size="sm"
+            >
+              취소
+            </Button>
+            <Button
+              onClick={selection.onConfirm}
+              disabled={busy !== null || selection.selectedCount === 0}
+              variant="danger"
+              size="sm"
+            >
+              {busy === "selected-sell" ? "판매 중…" : "선택 판매"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
       <Pagination
         page={equipPager.page}
         pageCount={equipPager.pageCount}

@@ -42,7 +42,7 @@ vi.mock("@/lib/server/v2QuestContext", () => ({
     battleCount: 0,
     frontierDepth: 2,
     equippedCount: 0,
-    uniqueOwned: 0,
+    uniqueAcquired: 0,
     cultivations: 0,
     bossKills: 0,
     hasGuild: false,

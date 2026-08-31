@@ -7,12 +7,14 @@ import { useFishingHallOfFame } from "./useFishingHallOfFame";
 export function FishingHallOfFamePanel({
   onBack,
   onOpenFishing,
+  onOpenDangerous,
   onOpenChallenges,
   onOpenLeaderboard,
   onOpenShop,
 }: {
   onBack: () => void;
   onOpenFishing?: () => void;
+  onOpenDangerous?: () => void;
   onOpenChallenges?: () => void;
   onOpenLeaderboard?: () => void;
   onOpenShop?: () => void;
@@ -25,6 +27,7 @@ export function FishingHallOfFamePanel({
       error={error}
       onBack={onBack}
       onOpenFishing={onOpenFishing}
+      onOpenDangerous={onOpenDangerous}
       onOpenChallenges={onOpenChallenges}
       onOpenLeaderboard={onOpenLeaderboard}
       onOpenShop={onOpenShop}

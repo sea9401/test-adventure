@@ -5,21 +5,41 @@ import {
   TIER4_UNLOCK_CUMLEVEL,
   TIER5_UNLOCK_CUMLEVEL,
   TIER6_UNLOCK_CUMLEVEL,
+  jobById,
 } from "@/adventure/data/v2/v2JobCatalog";
+import {
+  TIER7_COMBAT_JOB_IDS,
+  TIER7_COMBAT_JOB_NAMES,
+  TIER7_COMBAT_JOB_PREREQS,
+} from "@/adventure/data/v2/tier7Jobs";
+import {
+  TIER7_FIRST_UNLOCK_LEVEL,
+  TIER7_FIRST_UNLOCK_MATERIAL_COST,
+  TIER7_PREREQUISITE_MASTERY,
+} from "@/adventure/data/v2/tier7Advancement";
 import {
   buildJobRoadmap,
   type JobRoadmapNode as RoadmapNode,
 } from "@/adventure/v2/jobRoadmapModel";
 import {
+  MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST,
   MASTERY_TOWER_MAX_FLOOR,
   MASTERY_TOWER_MILESTONES,
+  MASTERY_TOWER_REWARD_MAX_FLOOR,
+  MASTERY_TOWER_REENTRY_COOLDOWN_MS,
   masteryTowerFloorReward,
   masteryTowerRequiredPower,
 } from "@/adventure/data/v2/masteryTower";
 import { H2, P, UL, Em, Table, Note } from "./primitives";
 import { JobRoadmapScroller } from "./JobRoadmapScroller";
 
-const MASTERY_TOWER_SAMPLE_FLOORS = [10, 20, 30];
+const MASTERY_TOWER_SAMPLE_FLOORS = [10, 30, 50, 60, 80, 100];
+const TIER7_ROWS = TIER7_COMBAT_JOB_IDS.map((jobId) => [
+  TIER7_COMBAT_JOB_NAMES[jobId],
+  TIER7_COMBAT_JOB_PREREQS[jobId]
+    .map((prerequisiteId) => jobById(prerequisiteId)?.name ?? prerequisiteId)
+    .join(" + "),
+]);
 
 export function JobsContent() {
   return (
@@ -54,10 +74,9 @@ export function JobsContent() {
           있습니다. 자세한 내용은 <Em>스킬</Em>에서 확인할 수 있습니다.
         </li>
         <li>
-          <Em>최상위 직업의 고유 특성</Em> — 최상위 직업에는 계열의 전투 방식을
-          강화하는 고유 특성이 있습니다. 검성·천궁은 주력 공격을 강화하고,
-          태초술사는 원소 효과를 조율합니다. 흑월은 치명타 한계 초과분을 스킬에도
-          반영합니다.
+          <Em>고차 직업의 고유 특성</Em> — 6차와 7차 전투 직업에는 계열의 전투
+          방식을 강화하는 고유 특성이 있습니다. 정확한 발동 조건과 PvE·PvP 차이는
+          각 직업과 스킬 상세에서 확인합니다.
         </li>
       </UL>
       <P>
@@ -70,8 +89,8 @@ export function JobsContent() {
         <Em>수행 화면</Em>(캐릭터 → 성장의 신전)의 직업 사다리에서 전직합니다.
         전투 직업은 전투 레벨 {V2_LEVEL_CAP}이 필요하지만,
         <Em>낚시·농사·요리·벌목·채광 계열</Em>은 캐릭터 레벨 제한 없이 생활 숙련
-        조건을 갖추면 상위 직업으로 전직할 수 있습니다. 전직에 골드는 들지
-        않습니다.
+        조건을 갖추면 상위 직업으로 전직할 수 있습니다. 전직에 골드는 들지 않지만,
+        7차 최초 해금에는 별도 재료가 필요합니다.
       </P>
       <P>
         상위 직업은 <Em>바로 아래 직업의 숙련도</Em>가 게이트를 넘으면 열립니다.
@@ -80,6 +99,24 @@ export function JobsContent() {
         {TIER5_UNLOCK_CUMLEVEL} → {TIER6_UNLOCK_CUMLEVEL}). 일부 상위 직업은
         두 계보를 합친 <Em>하이브리드</Em>라 양쪽을 모두 키워야 열립니다(예:
         성기사 = 기사 + 사제).
+      </P>
+      <H2>7차 전직</H2>
+      <P>
+        현재 공개된 7차 전투 직업은 두 6차 계보를 결합합니다. 최초 해금하려면 두
+        선행 직업의 숙련도가 <Em>각각 {TIER7_PREREQUISITE_MASTERY.toLocaleString("ko-KR")}</Em>
+        이상이어야 하며, 두
+        선행 직업 중 하나로 레벨 <Em>{TIER7_FIRST_UNLOCK_LEVEL}</Em>에 도달해야 합니다.
+      </P>
+      <Table
+        head={["7차 직업", "선행 6차 직업"]}
+        rows={TIER7_ROWS}
+        caption="현재 선공개된 네 직업만 표시합니다. 전직 로드맵에서도 같은 계보와 진행 상태를 확인할 수 있습니다."
+      />
+      <P>
+        조건을 모두 갖춘 뒤 <Em>폭풍 기원의 파편 {TIER7_FIRST_UNLOCK_MATERIAL_COST}개</Em>를
+        사용하면 처음 해금됩니다. 한 번
+        해금한 7차 직업은 <Em>영구 해금</Em>되어 이후에는 파편과 두 선행 숙련 조건을
+        다시 요구하지 않으며, 일반 전직의 레벨 초기화 규칙은 그대로 적용됩니다.
       </P>
       <UL>
         <li>
@@ -90,6 +127,12 @@ export function JobsContent() {
         <li>
           <Em>현재 직업으로 다시 전직</Em>(재전직)해 같은 직업을 계속 키우는 환생
           루프도 가능합니다.
+        </li>
+        <li>
+          <Em>예전에 수련했던 직업</Em>으로 돌아온 경우에는 놓친 스킬을 배운 뒤
+          다시 레벨 {V2_LEVEL_CAP}을 올리지 않고 다른 직업으로 바로 이동할 수
+          있습니다. 같은 직업을 다시 초기화하려면 원래대로 레벨 {V2_LEVEL_CAP}이
+          필요합니다.
         </li>
         <li>
           <Em>모험가</Em>는 시작 상태이자 기본 킷입니다. 언제든 돌아가
@@ -137,6 +180,13 @@ export function JobsContent() {
       </P>
       <UL>
         <li>
+          하루 첫 실제 전투에만 스태미나{" "}
+          <Em>{MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST}</Em>을 사용합니다. 이후 층 진행과
+          재도전은 무료이며, 한 번 시도한 뒤에는{" "}
+          <Em>{MASTERY_TOWER_REENTRY_COOLDOWN_MS / 1_000}초</Em>가 지나면 다시
+          입장할 수 있습니다.
+        </li>
+        <li>
           탑은 총 <Em>{MASTERY_TOWER_MAX_FLOOR}층</Em>이고, 층마다 요구 전투력이
           있습니다. 전투력이 요구치를 넘으면 다음 층으로 올라갑니다.
         </li>
@@ -149,6 +199,22 @@ export function JobsContent() {
           10·20·30·40·50층은 처음 도달했을 때 추가 보너스가 붙습니다. 일일 보상은 KST
           기준 하루 한 번만 수령합니다. 날짜가 바뀔 때까지 받지 않은 보상은 다음
           숙련의 탑 접속 시 숙련 증서로 자동 지급됩니다.
+        </li>
+        <li>
+          숙련 증서 보상은 <Em>{MASTERY_TOWER_REWARD_MAX_FLOOR}층까지만</Em>
+          증가합니다. <Em>51~100층은 도전 구간</Em>이며 추가 보상 없이 역대 최고층
+          기록만 높입니다.
+        </li>
+        <li>
+          주간 진행은 매주 월요일 00:00 KST에 초기화됩니다. 그 주에 10층 단위
+          체크포인트를 돌파하면 새 등반을 1층 또는 최근 체크포인트의 다음 층에서
+          시작할 수 있습니다. 역대 최고층과 최초 돌파 보너스 기록은 초기화되지
+          않습니다.
+        </li>
+        <li>
+          100층을 완료한 뒤에는 같은 날 100층 수호자에게 연습 재도전할 수 있습니다.
+          연습 승패는 최고층 기록과 보상을 바꾸지 않으며 추가 스태미나도 들지
+          않습니다. 각 연습 시도 사이에는 같은 재입장 대기 시간이 적용됩니다.
         </li>
       </UL>
       <Table
@@ -169,13 +235,15 @@ export function JobsContent() {
 
       <H2>수행 (한계 올리기)</H2>
       <P>
-        성장의 신전 <Em>수행</Em> 탭에서 숙달 포인트를 써 현재 직업군 주력 스탯의{" "}
-        <Em>한계치</Em>를 올립니다(스탯 자체가 아니라 천장을 올리는 것). 직업군마다
-        오르는 스탯이 다르며, 한계를 높일수록 비용이 증가합니다. <Em>하이브리드</Em>(성기사·
-        마검사)는 직군 대신 합쳐진 두 정체성에 맞는 스탯의 한계가 오릅니다.
+        성장의 신전 <Em>수행</Em> 탭에서 숙달 포인트를 쓰면 먼저 <Em>수행 성장 직업</Em>을
+        고릅니다. <Em>전직 이력이 있는 전투 직업</Em>이라면 현재 직업과 달라도 선택할
+        수 있고, 목록에서 직업별 1회 성장 수치를 비교한 뒤 확정합니다. 생활 직업은
+        수행 대상으로 고를 수 없습니다.
       </P>
       <P>
-        수행으로 한계를 넓히면 이후 레벨업에서 스탯이 새 한계까지 성장합니다.
+        수행 결과는 선택한 직업의 성장 프로필에 따라 해당 스탯의 <Em>한계치</Em>를
+        올립니다(스탯 자체가 아니라 천장을 올리는 것). 한계를 높일수록 비용이
+        증가하며, 넓어진 범위는 이후 레벨업 성장에 반영됩니다.
       </P>
     </>
   );

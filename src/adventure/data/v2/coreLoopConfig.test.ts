@@ -16,17 +16,15 @@ import {
   offlineBattlesAccrued,
   offlineFarmDepth,
   spendGold,
+  spendGoldWalletFirstWithBank,
+  spendTreatmentGold,
   spendGoldWith,
   spendableGold,
   spendableGoldWith,
   calcSpBudget,
   calcSpBudgetBreakdown,
-  spMilestonesForCumLevel,
-  spMilestonesCrossed,
   spMasteryProgressForCumLevel,
-  nextSpMilestoneProgressForCumLevel,
   SP_MASTERED_REQUIRED_CUMLEVEL,
-  SP_MASTERED_JOB_BONUS,
   OFFLINE_MAX_MS,
 } from "./coreLoopConfig";
 
@@ -206,6 +204,42 @@ describe("spendGoldWith — bankFirst=true (코어루프, 은행 우선)", () =>
   });
 });
 
+describe("spendGoldWalletFirstWithBank — 치료소 지갑 우선", () => {
+  it("지갑으로 전액 충당하면 은행을 보존한다", () => {
+    expect(spendGoldWalletFirstWithBank(100, 500, 30)).toEqual({
+      ok: true,
+      gold: 70,
+      bankedGold: 500,
+    });
+  });
+
+  it("지갑이 부족하면 지갑을 먼저 소진하고 부족분만 은행에서 차감한다", () => {
+    expect(spendGoldWalletFirstWithBank(20, 500, 30)).toEqual({
+      ok: true,
+      gold: 0,
+      bankedGold: 490,
+    });
+  });
+
+  it("총합이 부족하면 두 잔액을 보존한다", () => {
+    expect(spendGoldWalletFirstWithBank(20, 5, 30)).toEqual({
+      ok: false,
+      gold: 20,
+      bankedGold: 5,
+    });
+  });
+});
+
+describe("spendTreatmentGold — 코어루프 플래그 호환", () => {
+  it("플래그가 꺼져 있으면 은행을 쓰지 않는 기존 동작을 유지한다", () => {
+    expect(spendTreatmentGold(20, 500, 30)).toEqual({
+      ok: false,
+      gold: 20,
+      bankedGold: 500,
+    });
+  });
+});
+
 describe("spendableGoldWith / 래퍼 — 지불가능 총액", () => {
   it("bankFirst=true → 보유+은행", () => {
     expect(spendableGoldWith(100, 500, true)).toBe(600);
@@ -219,21 +253,6 @@ describe("spendableGoldWith / 래퍼 — 지불가능 총액", () => {
   });
 });
 
-describe("숙련도 SP 마일스톤 — deprecated", () => {
-  it("숙련도는 더 이상 SP 를 직접 지급하지 않는다", () => {
-    expect(spMilestonesForCumLevel(0)).toBe(0);
-    expect(spMilestonesForCumLevel(10_000_000)).toBe(0);
-    expect(spMilestonesCrossed(396, 405)).toBe(0);
-    expect(spMilestonesCrossed(0, 1890)).toBe(0);
-    expect(nextSpMilestoneProgressForCumLevel(405)).toMatchObject({
-      currentMilestoneSp: 0,
-      nextMilestoneSp: 0,
-      requiredCumLevel: 0,
-      remainingCumLevel: 0,
-    });
-  });
-});
-
 describe("calcSpBudget — 스킬포인트 예산 (직업 해금 수집)", () => {
   it("기본 SP 는 40이고 숙련도 groups 는 예산에 직접 영향을 주지 않는다", () => {
     expect(calcSpBudget({})).toBe(40);
@@ -241,7 +260,7 @@ describe("calcSpBudget — 스킬포인트 예산 (직업 해금 수집)", () =>
     expect(calcSpBudget({ warrior: { cumLevel: 100_000 } })).toBe(40);
   });
 
-  it("해금 직업 수집 보너스는 직업 하나당 SP +1", () => {
+  it("환산된 해금 직업 SP를 예산에 그대로 더한다", () => {
     expect(calcSpBudget({}, 0, 0, 4)).toBe(44);
     expect(calcSpBudget({ a: { cumLevel: 100_000, tier: 4 } }, 0, 0, 76)).toBe(
       116,
@@ -294,7 +313,7 @@ describe("spMasteryProgressForCumLevel — 직업군 정복 진행도 표시용"
       requiredCumLevel: 10000,
       mastered: true,
       remainingCumLevel: 0,
-      masteryBonusSp: SP_MASTERED_JOB_BONUS,
+      masteryBonusSp: 0,
     });
   });
 

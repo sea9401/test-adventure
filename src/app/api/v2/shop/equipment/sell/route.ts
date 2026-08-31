@@ -9,6 +9,7 @@ import {
   removeInstance,
   sellPriceOf,
 } from "@/adventure/data/v2/v2Equipment";
+import { boundEquipmentDisposalView } from "@/lib/server/boundEquipmentDisposal";
 
 // POST /api/v2/shop/equipment/sell — 보유 장비 개체 1개 판매 (개체 모델, iid 기준).
 //
@@ -17,7 +18,7 @@ import {
 //   수련용 포함, 인벤 클러터 정리). 구매 불가 아이템도 판매는 됨(구매=상점 비치 여부와 별개).
 // 장착 중인 개체는 판매 불가(#426) — 해제 후 판매. 잠금 개체도 판매 불가(실수 방지). 스페어는 가능.
 
-type CharSave = { gold?: number; [k: string]: unknown };
+type CharSave = { gold?: number; bankedGold?: number; [k: string]: unknown };
 
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
-  let body: { iid?: unknown };
+  let body: { iid?: unknown; confirmBound?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -82,6 +83,16 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "locked" as const },
       };
     }
+    if (inst.bound && body.confirmBound !== true) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "bound_confirmation_required" as const,
+          item: boundEquipmentDisposalView(inst),
+        },
+      };
+    }
     const sellPrice = sellPriceOf(item);
     if (sellPrice == null) {
       return {
@@ -91,15 +102,24 @@ export async function POST(req: Request) {
     }
     const { owned: nextOwned } = removeInstance(parsed.owned, iid);
     // 장착 중이 아니므로 equipped 는 불변.
-    const gold = Math.max(0, charSave.gold ?? 0);
-    const newGold = gold + sellPrice;
+    const gold =
+      typeof charSave.gold === "number" && Number.isFinite(charSave.gold)
+        ? Math.max(0, charSave.gold)
+        : 0;
+    const bankedGold =
+      typeof charSave.bankedGold === "number" &&
+      Number.isFinite(charSave.bankedGold)
+        ? Math.max(0, charSave.bankedGold)
+        : 0;
+    const newBankedGold = bankedGold + sellPrice;
     await upsertSave(tx, userId, "equipment.v2", {
       owned: nextOwned,
       equipped: parsed.equipped,
     });
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
-      gold: newGold,
+      gold,
+      bankedGold: newBankedGold,
     });
     return {
       status: 200,
@@ -109,7 +129,8 @@ export async function POST(req: Request) {
       },
       body: {
         ok: true as const,
-        gold: newGold,
+        gold,
+        bankedGold: newBankedGold,
         owned: nextOwned,
         equipped: parsed.equipped,
         sellPrice,

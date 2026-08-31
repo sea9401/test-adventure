@@ -6,11 +6,34 @@
 
 import type { BattleLogEntry, BattleState } from "@/adventure/v2/combat/engine";
 import {
+  BOSS_MAX_HP_DAMAGE_MULT,
+  type PlayerCombat,
+} from "@/adventure/v2/combat/engineState";
+import {
   depthSpdCorrection,
-  effectiveMonsterSpd,
+  monsterActionSpd,
 } from "@/adventure/v2/combat/combatTimeline";
 import type { Monster } from "@/adventure/data/monsters/types";
 import type { V2Element } from "@/adventure/data/v2/elements";
+
+export type ReplayCombatStats = {
+  atk: number;
+  def: number;
+  magicDef?: number;
+  spd: number;
+  accuracy?: number;
+  evasionPct?: number;
+  evaRating?: number;
+  critChancePct?: number;
+  magicAtk?: number;
+  magicBarrierMax?: number;
+  magicBarrierAbsorbPct?: number;
+  magicBarrierEfficiencyPct?: number;
+  bonusAttackChancePct?: number;
+  statusDamageReductionPct?: number;
+  primaryAttack?: "physical" | "magic";
+  displayAttack?: "physical" | "magic";
+};
 
 // enemy.image = v2 사냥터 전용 초상화 경로. BattleScene 이 이걸 우선 쓰고, 없으면
 // 클라 MONSTERS 카탈로그(`MONSTERS[name]?.image`)로 폴백한다.
@@ -24,7 +47,9 @@ export type ReplayPayload = {
     // 전투 스탯 — 전투창 적 칸 공/방/속(+상세) 표기용. 옛 payload(이전 배포본·PvP)엔
     //   없을 수 있어 optional — 없으면 BattleScene 이 스탯 줄을 생략(크래시 방지).
     atk?: number;
+    magicAtk?: number;
     def?: number;
+    magicDef?: number;
     spd?: number;
     actionSpd?: number;
     accuracy?: number;
@@ -32,7 +57,13 @@ export type ReplayPayload = {
     atkType?: Monster["atkType"];
     critPct?: number;
     bonusAttackChancePct?: number;
+    statusDamageReductionPct?: number;
+    displayAttack?: "physical" | "magic";
   };
+  playerCombat?: ReplayCombatStats;
+  ruleset?: "pve" | "pvp";
+  /** 중독처럼 최대 HP 비례인 지속 피해 성분에만 적용하는 콘텐츠 배율. */
+  maxHpDamageMult?: number;
   playerMaxHp: number;
   // v2 마법 시스템 풀 max (INT 0 이면 0).
   playerMaxMp: number;
@@ -43,6 +74,9 @@ export type ReplayPayload = {
   // 복원할 때는 로그의 마지막 HP/MP 스냅샷으로 폴백한다.
   enemyMp?: number;
   enemyMaxMp?: number;
+  // 묶음 결과는 전체 로그를 별도 저장한다. log=[]이고 replayId가 있으면 클라이언트가
+  // /api/v2/battle-replays/[replayId]에서 전체 payload를 지연 조회한다.
+  replayId?: string;
   log: BattleLogEntry[];
 };
 
@@ -56,25 +90,41 @@ export type StoredReplayEnvelope = {
   gender?: string;
 };
 
-// 로그를 마지막 logCap 개로 자르되, 잘렸으면 깔끔하게 — 첫 turn_marker 앞의 잘린-턴 잔여
-// entry 를 떼어내(머리 없는 그룹 방지) 첫 그룹이 항상 "N턴" 헤더로 시작하게 하고, "앞선 턴 생략"
-// 안내를 맨 앞에 끼운다(전투가 끊긴 게 아니라 긴 전투의 뒷부분임을 명시). cap 이하면 원본 그대로.
-// 참고: 자른 경우 생략 안내는 의도적으로 *항상* 맨 앞에 붙인다 — tail 이 이미 turn_marker 로
-// 깔끔히 시작(firstMarker===0)하더라도 "앞이 생략됐다"는 신호 자체가 목적이라 그대로 붙인다.
-export function clampReplayLog(
-  log: BattleLogEntry[],
-  cap: number,
-): BattleLogEntry[] {
-  if (log.length <= cap) return log;
-  let tail = log.slice(-cap);
-  const firstMarker = tail.findIndex((e) => e.kind === "turn_marker");
-  if (firstMarker > 0) tail = tail.slice(firstMarker);
-  return [{ kind: "info", text: "앞선 턴 기록 생략 (긴 전투)" }, ...tail];
-}
-
 type ReplayPayloadOptions = {
   depth?: number;
+  playerCombat?: PlayerCombat;
 };
+
+function replayPlayerCombat(
+  player: PlayerCombat,
+  ruleset: "pve" | "pvp" = "pve",
+): ReplayCombatStats {
+  return {
+    atk: player.atk,
+    def: player.def,
+    magicDef: player.magicDef,
+    spd: player.spd,
+    accuracy: player.accRating ?? player.accuracyPct,
+    evasionPct: player.evasionPct,
+    evaRating: player.evaRating ?? player.evasionPct,
+    critChancePct: player.critChancePct,
+    magicAtk: player.magicAtk,
+    magicBarrierMax: player.magicBarrierMax,
+    magicBarrierAbsorbPct:
+      ruleset === "pvp"
+        ? player.magicBarrierPvpAbsorbPct
+        : player.magicBarrierAbsorbPct,
+    magicBarrierEfficiencyPct:
+      ruleset === "pvp"
+        ? player.magicBarrierPvpEfficiencyPct
+        : player.magicBarrierEfficiencyPct,
+    statusDamageReductionPct: player.statusDamageReductionPct,
+    primaryAttack: player.passiveMagicBasicAttack ? "magic" : "physical",
+    ...(player.displayAttack
+      ? { displayAttack: player.displayAttack }
+      : {}),
+  };
+}
 
 function replayEnemy(
   enemy: BattleState["enemy"],
@@ -89,48 +139,96 @@ function replayEnemy(
     element: enemy.element,
     atk: enemy.atk,
     def: enemy.def,
+    magicDef: enemy.magicDef,
     spd: enemy.spd,
-    actionSpd: effectiveMonsterSpd(enemy.spd, depthCorr),
+    actionSpd: monsterActionSpd(enemy, depthCorr),
     accuracy: enemy.accuracy,
     evasionPct: enemy.evasionPct,
     atkType: enemy.atkType,
     critPct: enemy.critPct,
     bonusAttackChancePct: enemy.bonusAttackChancePct,
+    statusDamageReductionPct: enemy.statusDamageReductionPct ?? 0,
   };
 }
 
 // 서버 — finalState 에서 필요 필드만 추출.
 export function toReplayPayload(
   finalState: BattleState,
-  logCap: number,
   options?: ReplayPayloadOptions,
 ): ReplayPayload {
   return {
     enemy: replayEnemy(finalState.enemy, options),
+    ...(options?.playerCombat
+      ? { playerCombat: replayPlayerCombat(options.playerCombat) }
+      : {}),
+    ruleset: "pve",
+    maxHpDamageMult:
+      finalState.maxHpDamageMult ??
+      (finalState.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1),
     playerMaxHp: finalState.playerMaxHp,
     playerMaxMp: finalState.playerMaxMp,
     playerMp: finalState.playerMp,
     enemyMp: finalState.enemyMp,
     enemyMaxMp: finalState.enemyMaxMp,
-    log: clampReplayLog(finalState.log, logCap),
+    log: finalState.log,
   };
 }
 
-// 허수아비처럼 전투 횟수가 서버에서 짧게 제한된 연습전용 전체 로그 payload.
-// 일반 사냥/PvP의 저장·응답 크기 cap은 그대로 두고, 호출한 모의전 한 판의 첫 기록부터
-// 마지막 기록까지 보존한다.
+// 기존 연습전 호출부용 명시적 별칭. 모든 사용자 다시보기가 이제 전체 로그를 보존하므로
+// 일반 변환과 결과는 같다.
 export function toFullReplayPayload(
   finalState: BattleState,
   options?: ReplayPayloadOptions,
 ): ReplayPayload {
-  return toReplayPayload(finalState, finalState.log.length, options);
+  return toReplayPayload(finalState, options);
+}
+
+// 전체 payload를 별도 저장한 뒤 목록/묶음 응답에 넣는 가벼운 참조형. 전투 메타는 그대로라
+// 결과 카드가 즉시 그려지고, 로그만 사용자가 열 때 내려받는다.
+export function toDeferredReplayPayload(
+  payload: ReplayPayload,
+  replayId: string,
+): ReplayPayload {
+  return { ...payload, replayId, log: [] };
 }
 
 // PvP(아레나) 배틀 → ReplayPayload 변환. resolveBattlePvP 의 finalState 는 p1/p2 두 사이드 +
 // actor-relative 로그(모든 공격이 kind:"player_attack" + side 태그)를 들고 있다. 기본 호출은
 // "나=p1" 관점이지만, 방어자 전적 저장에는 p2 관점도 필요하므로 로그 레인과 hp_bar 를 선택한
 // 사이드 기준으로 재매핑한다.
-type PvpReplaySide = { maxHp: number; maxMp: number; mp: number };
+type PvpReplaySide = {
+  maxHp: number;
+  maxMp: number;
+  mp: number;
+  player?: PlayerCombat;
+};
+
+function replayPvpEnemy(
+  name: string,
+  side: PvpReplaySide,
+): ReplayPayload["enemy"] {
+  if (!side.player) return { name, hp: side.maxHp };
+  const combat = replayPlayerCombat(side.player, "pvp");
+  return {
+    name,
+    hp: side.maxHp,
+    atk: combat.atk,
+    magicAtk: combat.magicAtk,
+    def: combat.def,
+    magicDef: combat.magicDef,
+    spd: combat.spd,
+    actionSpd: combat.spd,
+    accuracy: combat.accuracy,
+    evasionPct: combat.evaRating ?? combat.evasionPct,
+    atkType: combat.primaryAttack,
+    critPct: combat.critChancePct,
+    bonusAttackChancePct: combat.bonusAttackChancePct,
+    statusDamageReductionPct: combat.statusDamageReductionPct ?? 0,
+    ...(combat.displayAttack
+      ? { displayAttack: combat.displayAttack }
+      : {}),
+  };
+}
 export function toPvpReplayPayloadForSide(
   finalState: {
     p1: PvpReplaySide;
@@ -139,7 +237,6 @@ export function toPvpReplayPayloadForSide(
   },
   perspective: "p1" | "p2",
   opponentName: string,
-  logCap: number,
 ): ReplayPayload {
   const opponentSide = perspective === "p1" ? "p2" : "p1";
   const remapped: BattleLogEntry[] = finalState.log.map((e) => {
@@ -156,6 +253,12 @@ export function toPvpReplayPayloadForSide(
         playerMaxMp: e.enemyMaxMp,
         enemyMp: e.playerMp,
         enemyMaxMp: e.playerMaxMp,
+        playerMagicBarrier: e.enemyMagicBarrier,
+        playerMagicBarrierMax: e.enemyMagicBarrierMax,
+        enemyMagicBarrier: e.playerMagicBarrier,
+        enemyMagicBarrierMax: e.playerMagicBarrierMax,
+        playerSignatureResources: e.enemySignatureResources,
+        enemySignatureResources: e.playerSignatureResources,
       };
     }
     if (e.kind === "turn_marker") return e;
@@ -178,13 +281,18 @@ export function toPvpReplayPayloadForSide(
   const me = finalState[perspective];
   const opponent = finalState[opponentSide];
   return {
-    enemy: { name: opponentName, hp: opponent.maxHp },
+    enemy: replayPvpEnemy(opponentName, opponent),
+    ...(me.player
+      ? { playerCombat: replayPlayerCombat(me.player, "pvp") }
+      : {}),
+    ruleset: "pvp",
+    maxHpDamageMult: 1,
     playerMaxHp: me.maxHp,
     playerMaxMp: me.maxMp,
     playerMp: me.mp,
     enemyMp: opponent.mp,
     enemyMaxMp: opponent.maxMp,
-    log: clampReplayLog(remapped, logCap),
+    log: remapped,
   };
 }
 
@@ -195,20 +303,25 @@ export function toPvpReplayPayload(
     log: BattleLogEntry[];
   },
   opponentName: string,
-  logCap: number,
 ): ReplayPayload {
-  return toPvpReplayPayloadForSide(finalState, "p1", opponentName, logCap);
+  return toPvpReplayPayloadForSide(finalState, "p1", opponentName);
 }
 
-// 일괄(batch) 사냥용 경량 payload — 클라 배치 집계는 playerMaxMp 만 읽고 log/enemy 는 버린다.
-//   full toReplayPayload 의 clampReplayLog(최대 200 entry slice + scan)을 건너뛰어 판마다 발생하던
-//   로그 복사/할당을 없앤다. log 는 [](미사용). 단판(count===1)은 full payload 그대로 — 무변경.
+// 로그가 필요 없는 서버 내부 시뮬레이션용 경량 payload. 전투 메타만 유지하고 log는 비운다.
+// 사용자에게 제공하는 단판·묶음 다시보기는 모두 toReplayPayload의 전체 로그를 사용한다.
 export function toReplayPayloadLite(
   finalState: BattleState,
   options?: ReplayPayloadOptions,
 ): ReplayPayload {
   return {
     enemy: replayEnemy(finalState.enemy, options),
+    ...(options?.playerCombat
+      ? { playerCombat: replayPlayerCombat(options.playerCombat) }
+      : {}),
+    ruleset: "pve",
+    maxHpDamageMult:
+      finalState.maxHpDamageMult ??
+      (finalState.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1),
     playerMaxHp: finalState.playerMaxHp,
     playerMaxMp: finalState.playerMaxMp,
     playerMp: finalState.playerMp,

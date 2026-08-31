@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRemoteSave } from "./storage/SaveProvider";
 import { APP_BUILD_VERSION } from "./clientVersion";
 
-const HEARTBEAT_INTERVAL_MS = 15_000;
+const HEARTBEAT_INTERVAL_MS = 30_000;
 // buildVersion 불일치 감지 후 reload 까지 대기 시간. PATCH 디바운스(500ms) +
 // 네트워크 RTT + 안전 마진. 그 사이 status idle 이 관찰되면 즉시 reload.
 const RELOAD_GRACE_MS = 2_000;
@@ -77,8 +77,6 @@ export function usePresenceHeartbeat({
       try {
         const res = await fetch("/api/presence", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, className, title: title ?? null }),
           keepalive: true,
         });
         if (res.status === 410) {

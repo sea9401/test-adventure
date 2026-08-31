@@ -15,6 +15,7 @@ import { StaleBuildAutoReload } from "@/components/StaleBuildAutoReload";
 import { VersionCheck } from "@/components/VersionCheck";
 import { AdminImpersonationBanner } from "@/components/AdminImpersonationBanner";
 import { AppLaunchSplash } from "@/components/AppLaunchSplash";
+import { GameDialogHost } from "@/components/ui/GameDialogHost";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -110,6 +111,7 @@ export default function RootLayout({
           <ServiceWorkerRegistrar />
           <VersionCheck />
           {children}
+          <GameDialogHost />
         </body>
       </html>
     </SessionProvider>

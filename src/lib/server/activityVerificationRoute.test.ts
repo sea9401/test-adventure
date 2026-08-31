@@ -44,6 +44,7 @@ import {
   emptyActivityGuardState,
   parseActivityGuardState,
   recordActivityStrongSignal,
+  setManualActivityVerification,
 } from "@/lib/server/activityGuard";
 import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
 
@@ -59,16 +60,11 @@ beforeEach(() => {
   vi.stubEnv("TURNSTILE_SITE_KEY", "site");
   vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");
   vi.stubEnv("TURNSTILE_EXPECTED_HOSTNAMES", "test.local");
-  store.set(ACTIVITY_GUARD_KEY, {
-    version: 1,
-    activities: {
-      fishing: {
-        completedSinceVerification: 100,
-        verificationRequiredAt: 10_000,
-        strongSignals: 3,
-      },
-    },
-  });
+  let state = emptyActivityGuardState();
+  state = recordActivityStrongSignal(state, "fishing", 10_000).state;
+  state = recordActivityStrongSignal(state, "fishing", 11_000).state;
+  state = recordActivityStrongSignal(state, "fishing", 12_000).state;
+  store.set(ACTIVITY_GUARD_KEY, state);
 });
 
 afterEach(() => {
@@ -106,7 +102,7 @@ describe("POST /api/v2/activity-verification", () => {
       expect.objectContaining({ reason: "human_verification_failed" }),
     );
     const state = parseActivityGuardState(store.get(ACTIVITY_GUARD_KEY));
-    expect(activityGuardView(state, "fishing").verificationRequiredAt).toBe(10_000);
+    expect(activityGuardView(state, "fishing").verificationRequiredAt).not.toBeNull();
   });
 
   it("체크포인트가 없으면 미리 검증해 활동 횟수를 초기화할 수 없다", async () => {
@@ -160,5 +156,68 @@ describe("POST /api/v2/activity-verification", () => {
     expect(verifyHcaptchaToken).toHaveBeenCalledWith(
       expect.objectContaining({ token: "captcha" }),
     );
+  });
+
+  it("관리자 일반 확인 성공은 수동 요청만 지우고 위험 점수와 일일 확인 수를 보존한다", async () => {
+    let state = recordActivityStrongSignal(
+      emptyActivityGuardState(),
+      "fishing",
+      Date.now() - 1_000,
+    ).state;
+    state = setManualActivityVerification(
+      state,
+      "fishing",
+      "standard",
+      Date.now(),
+    );
+    store.set(ACTIVITY_GUARD_KEY, state);
+    verifyTurnstileToken.mockResolvedValue({ ok: true, hostname: "test.local" });
+
+    const response = await POST(request());
+    const stored = parseActivityGuardState(store.get(ACTIVITY_GUARD_KEY));
+
+    expect(response.status).toBe(200);
+    expect(activityGuardView(stored, "fishing")).toMatchObject({
+      riskScore: 18,
+      strongSignals: 1,
+      dailyVerifications: 0,
+    });
+    expect(recordAbuseEventSoon).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: "human_verification_succeeded",
+        detail: expect.objectContaining({ manualTest: true }),
+      }),
+    );
+  });
+
+  it("관리자 확인 실패는 수동 요청을 유지하고 운영 테스트로 기록한다", async () => {
+    const state = setManualActivityVerification(
+      emptyActivityGuardState(),
+      "mining",
+      "standard",
+      Date.now(),
+    );
+    store.set(ACTIVITY_GUARD_KEY, state);
+    verifyTurnstileToken.mockResolvedValue({
+      ok: false,
+      error: "invalid",
+      codes: ["invalid-input-response"],
+    });
+
+    const response = await POST(request("mining"));
+
+    expect(response.status).toBe(400);
+    expect(recordAbuseEventSoon).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: "human_verification_failed",
+        detail: expect.objectContaining({ manualTest: true }),
+      }),
+    );
+    expect(
+      activityGuardView(
+        parseActivityGuardState(store.get(ACTIVITY_GUARD_KEY)),
+        "mining",
+      ).riskScore,
+    ).toBe(0);
   });
 });

@@ -1,0 +1,329 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Adventure RPG production operations alarms and optional independent public
+  health canary. This stack does not modify the EC2 instance or RDS database.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: production
+    AllowedPattern: "[a-z0-9-]+"
+  Ec2InstanceId:
+    Type: AWS::EC2::Instance::Id
+    Description: Production application EC2 instance ID
+  RdsDbInstanceIdentifier:
+    Type: String
+    Description: Production RDS DB instance identifier
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9-]+"
+  AlertEmail:
+    Type: String
+    Default: ""
+    Description: Optional email endpoint. Subscription confirmation is required.
+  EnableExternalHealthCanary:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: >-
+      Creates a recurring CloudWatch Synthetics canary and its artifact storage.
+      Enabling this option incurs AWS usage charges.
+  ExternalHealthCanaryName:
+    Type: String
+    Default: adv-prod-api-health
+    AllowedPattern: "[0-9a-z-_]+"
+    MinLength: 1
+    MaxLength: 21
+  ExternalHealthUrl:
+    Type: String
+    Default: https://msmsge.com/api/health
+    AllowedPattern: "https://.*"
+  RdsFreeableMemoryThresholdBytes:
+    Type: Number
+    Default: 201326592
+    MinValue: 67108864
+  RdsFreeStorageThresholdBytes:
+    Type: Number
+    Default: 10737418240
+    MinValue: 1073741824
+
+Conditions:
+  HasAlertEmail: !Not [!Equals [!Ref AlertEmail, ""]]
+  HasExternalHealthCanary: !Equals [!Ref EnableExternalHealthCanary, "true"]
+
+Resources:
+  OperationsAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Sub "${EnvironmentName} game operations"
+      TopicName: !Sub "adventure-rpg-${EnvironmentName}-operations"
+      KmsMasterKeyId: alias/aws/sns
+      Tags:
+        - Key: service
+          Value: adventure-rpg
+        - Key: environment
+          Value: !Ref EnvironmentName
+
+  OperationsAlertsEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlertEmail
+    Properties:
+      TopicArn: !Ref OperationsAlertsTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  ExternalHealthCanaryArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Condition: HasExternalHealthCanary
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-canary-artifacts
+            Status: Enabled
+            ExpirationInDays: 14
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: service
+          Value: adventure-rpg
+        - Key: environment
+          Value: !Ref EnvironmentName
+
+  ExternalHealthCanaryRole:
+    Type: AWS::IAM::Role
+    Condition: HasExternalHealthCanary
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: external-health-canary
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WriteArtifacts
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub "${ExternalHealthCanaryArtifactsBucket.Arn}/canary/*"
+              - Sid: LocateArtifactBucket
+                Effect: Allow
+                Action: s3:GetBucketLocation
+                Resource: !GetAtt ExternalHealthCanaryArtifactsBucket.Arn
+              - Sid: DiscoverArtifactBuckets
+                Effect: Allow
+                Action: s3:ListAllMyBuckets
+                Resource: "*"
+              - Sid: PublishCanaryMetrics
+                Effect: Allow
+                Action: cloudwatch:PutMetricData
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    cloudwatch:namespace: CloudWatchSynthetics
+              - Sid: WriteCanaryLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub >-
+                  arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/cwsyn-*
+
+  ExternalHealthCanary:
+    Type: AWS::Synthetics::Canary
+    Condition: HasExternalHealthCanary
+    Properties:
+      Name: !Ref ExternalHealthCanaryName
+      ArtifactS3Location: !Sub "s3://${ExternalHealthCanaryArtifactsBucket}/canary/"
+      ExecutionRoleArn: !GetAtt ExternalHealthCanaryRole.Arn
+      RuntimeVersion: syn-nodejs-puppeteer-16.1
+      StartCanaryAfterCreation: true
+      SuccessRetentionPeriod: 7
+      FailureRetentionPeriod: 14
+      Schedule:
+        Expression: rate(5 minutes)
+        DurationInSeconds: 0
+      RunConfig:
+        ActiveTracing: false
+        MemoryInMB: 960
+        TimeoutInSeconds: 30
+        EnvironmentVariables:
+          HEALTH_URL: !Ref ExternalHealthUrl
+      Code:
+        Handler: index.handler
+        Script: |
+          exports.handler = async () => {
+            const target = process.env.HEALTH_URL;
+            const response = await fetch(target, {
+              cache: "no-store",
+              redirect: "error",
+              signal: AbortSignal.timeout(10000),
+              headers: { "user-agent": "msmsge-cloudwatch-canary/1.0" },
+            });
+
+            if (response.status !== 200) {
+              throw new Error(`health endpoint returned HTTP ${response.status}`);
+            }
+
+            const body = await response.json();
+            if (body?.ok !== true || body?.db !== "ok") {
+              throw new Error("health endpoint did not confirm application and database health");
+            }
+          };
+
+  ExternalHealthCanaryFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: HasExternalHealthCanary
+    Properties:
+      AlarmName: !Sub "adventure-rpg-${EnvironmentName}-external-health"
+      AlarmDescription: >-
+        Independent public health canary failed or stopped publishing results.
+      Namespace: CloudWatchSynthetics
+      MetricName: SuccessPercent
+      Dimensions:
+        - Name: CanaryName
+          Value: !Ref ExternalHealthCanary
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 100
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref OperationsAlertsTopic]
+      OKActions: [!Ref OperationsAlertsTopic]
+
+  Ec2StatusCheckFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "adventure-rpg-${EnvironmentName}-ec2-status-check"
+      AlarmDescription: EC2 instance or system status check failed.
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref Ec2InstanceId
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref OperationsAlertsTopic]
+      OKActions: [!Ref OperationsAlertsTopic]
+
+  Ec2HighCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "adventure-rpg-${EnvironmentName}-ec2-high-cpu"
+      AlarmDescription: EC2 average CPU is at least 90 percent for 15 minutes.
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref Ec2InstanceId
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 90
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: missing
+      AlarmActions: [!Ref OperationsAlertsTopic]
+      OKActions: [!Ref OperationsAlertsTopic]
+
+  RdsHighCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "adventure-rpg-${EnvironmentName}-rds-high-cpu"
+      AlarmDescription: RDS average CPU is at least 85 percent for 15 minutes.
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RdsDbInstanceIdentifier
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 85
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: missing
+      AlarmActions: [!Ref OperationsAlertsTopic]
+      OKActions: [!Ref OperationsAlertsTopic]
+
+  RdsLowFreeableMemoryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "adventure-rpg-${EnvironmentName}-rds-low-memory"
+      AlarmDescription: RDS freeable memory is below the configured floor.
+      Namespace: AWS/RDS
+      MetricName: FreeableMemory
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RdsDbInstanceIdentifier
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: !Ref RdsFreeableMemoryThresholdBytes
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref OperationsAlertsTopic]
+      OKActions: [!Ref OperationsAlertsTopic]
+
+  RdsLowFreeStorageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "adventure-rpg-${EnvironmentName}-rds-low-storage"
+      AlarmDescription: RDS free storage is below the configured floor.
+      Namespace: AWS/RDS
+      MetricName: FreeStorageSpace
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RdsDbInstanceIdentifier
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: !Ref RdsFreeStorageThresholdBytes
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref OperationsAlertsTopic]
+      OKActions: [!Ref OperationsAlertsTopic]
+
+Outputs:
+  OperationsAlertsTopicArn:
+    Description: SNS topic for CloudWatch alarm and recovery notifications
+    Value: !Ref OperationsAlertsTopic
+  ExternalHealthCanaryId:
+    Condition: HasExternalHealthCanary
+    Description: Independent public health canary ID
+    Value: !Ref ExternalHealthCanary
+  ExternalHealthArtifactsBucket:
+    Condition: HasExternalHealthCanary
+    Description: Retained bucket containing fourteen days of canary artifacts
+    Value: !Ref ExternalHealthCanaryArtifactsBucket
+  RestoreTestServiceUnit:
+    Description: Unit to install separately after restore-test approval
+    Value: adventure-backup-restore-test.service
+  RestoreTestTimerUnit:
+    Description: Timer to enable separately after restore-test approval
+    Value: adventure-backup-restore-test.timer

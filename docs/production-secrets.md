@@ -1,9 +1,9 @@
 # 운영 비밀값 — AWS SSM Parameter Store
 
 운영 앱의 일반 환경변수 원본은 서울 리전의 단일 표준 `SecureString`
-파라미터다. Web Push VAPID 키는 GitHub의 `msmsge.com` 배포 환경 비밀값에
-분리 보관하고, 배포 중 서버의 접근 제한 파일로 설치한다. 비밀값 자체를 이
-문서·PR·채팅·쉘 명령 인자에 적지 않는다.
+파라미터다. Web Push VAPID 키와 홍보 보상 중복 방지 HMAC 키는 GitHub의
+`msmsge.com` 배포 환경 비밀값에 분리 보관하고, 배포 중 서버의 접근 제한
+파일로 설치한다. 비밀값 자체를 이 문서·PR·채팅·쉘 명령 인자에 적지 않는다.
 
 | 항목        | 값                                                                              |
 | ----------- | ------------------------------------------------------------------------------- |
@@ -14,7 +14,7 @@
 | EC2 역할    | `MsmsgeProdDbBackupEc2Role`                                                     |
 | EC2 권한    | 위 파라미터에 대한 `ssm:GetParameter`만                                         |
 | 런타임 캐시 | `/run/adventure-rpg/production.env` · 디렉터리 `700`, 파일 `600`                |
-| Web Push 키 | GitHub 환경 비밀값 → `/etc/adventure-rpg/web-push.env` · `root:ec2-user`, `640` |
+| 배포 비밀값 | GitHub 환경 비밀값 → `/etc/adventure-rpg/web-push.env` · `root:ec2-user`, `640` |
 
 표준 파라미터 한도는 4KB다. 현재 운영 env는 이보다 작으며, 동기화 도구도
 1~4096바이트·env 문법·중복 키를 검사한 뒤에만 원자적으로 런타임 캐시를
@@ -31,9 +31,24 @@
 5. 프로젝트 디렉터리에는 `.env.production.local`을 남기지 않는다.
 
 Web Push 키 3개(`WEB_PUSH_VAPID_PUBLIC_KEY`,
-`WEB_PUSH_VAPID_PRIVATE_KEY`, `WEB_PUSH_SUBJECT`)는 배포 워크플로가 값을
-출력하지 않은 채 `/etc/adventure-rpg/web-push.env`에 설치한다.
-systemd는 SSM 런타임 파일과 이 파일을 함께 읽는다.
+`WEB_PUSH_VAPID_PRIVATE_KEY`, `WEB_PUSH_SUBJECT`)와 홍보 보상 중복 방지 키
+`REFERRAL_IDENTITY_SECRET`은 배포 워크플로가 값을 출력하지 않은 채
+`/etc/adventure-rpg/web-push.env`에 설치한다. systemd는 SSM 런타임 파일과
+이 파일을 함께 읽는다.
+
+## OIDC·Systems Manager 배포 전환 조건
+
+2026-08-13 기준 EC2의 SSM Agent 프로세스는 실행 중이지만 인스턴스 역할에 관리 노드
+권한이 없어 `ssm:UpdateInstanceInformation` 단계에서 등록이 거부된다. 따라서 현재 배포를
+SSM Run Command로 바꾸지 않는다. AWS 관리자 자격으로
+`infra/operations/enable-ssm-managed-instance.sh`를 적용하고 Fleet Manager에서 인스턴스가
+`Online`인지 확인해야 한다.
+
+그 뒤 GitHub OIDC 역할은 `repo:sea9401/test-adventure:environment:msmsge.com` subject와 운영
+인스턴스 하나로 제한한다. Web Push 세 값과 `REFERRAL_IDENTITY_SECRET`을 명령 인자에
+실어 SSM으로 보내지 않는다. 먼저 이 네 값을 기존 SecureString 원본으로 옮기고 4KB 한도와
+사전 검사를 통과시킨 다음, 두 번의 정상 배포와 break-glass 접속 검증이 끝났을 때만
+`EC2_SSH_KEY`를 폐기한다.
 
 ## 최초 구성
 
@@ -67,5 +82,8 @@ aws ssm get-parameter \
    직전 버전 값을 새 버전으로 다시 올려 롤백한다.
 
 `AUTH_SECRET` 회전은 모든 세션을 로그아웃시키며, `CRON_SECRET`은 앱 재시작과
-동시에 반영해야 한다. Kakao·RDS 비밀번호는 공급자에서 먼저/같이 바꾸는 별도
-순서를 `docs/credential-rotation.md`에서 따른다.
+동시에 반영해야 한다. `REFERRAL_IDENTITY_SECRET`은 GitHub `msmsge.com` 환경
+비밀값에서 관리하며, 홍보 보상 중복 방지 원장을 보유하는 동안 임의로 회전하지
+않는다. 회전이 필요하면 기존 키로 만든 원장의 안전한 재키잉 절차를 먼저 마련한다.
+Kakao·RDS 비밀번호는 공급자에서 먼저/같이 바꾸는 별도 순서를
+`docs/credential-rotation.md`에서 따른다.

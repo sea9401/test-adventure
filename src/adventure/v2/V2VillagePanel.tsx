@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useGameState } from "./GameStateProvider";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { confirmGameAction, type ConfirmGameAction } from "@/components/ui/gameDialog";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { GameIcon } from "@/adventure/v2/GameIcon";
+import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 import { terrainTraitOf } from "@/adventure/data/v2/outposts";
 import {
   isTileOutpostId,
@@ -19,7 +21,6 @@ import {
   VILLAGE_TIER_NAME,
   TERRAIN_TRAIT_NAME,
   SETTLEMENT_RESOURCE_NAME,
-  PRODUCTION_KIND_ICON,
   PRODUCTION_KINDS,
   SETTLEMENT_VILLAGE_DONATION_MATERIAL_IDS,
   SETTLEMENT_VILLAGE_DONATION_VALUE,
@@ -40,8 +41,9 @@ import {
   settlementBuildingLevelOf,
   settlementBuildingUpgradeSummary,
   settlementBuildingUpgradeCostText,
-  settlementResourceIcon,
+  settlementResourceIconName,
   settlementResourceName,
+  type AnySettlementBuildingUpgradeDef,
   type SettlementBuildingId,
   type SettlementBuildingSlot,
   type VillageTier,
@@ -64,6 +66,28 @@ type Village = {
 };
 type Resources = SettlementResources;
 
+export async function confirmVillageBuildingUpgrade({
+  buildingId,
+  next,
+  onUpgrade,
+  confirm = confirmGameAction,
+}: {
+  buildingId: SettlementBuildingId;
+  next: AnySettlementBuildingUpgradeDef;
+  onUpgrade: () => void;
+  confirm?: ConfirmGameAction;
+}): Promise<boolean> {
+  if (
+    !(await confirm(
+      `${SETTLEMENT_BUILDINGS[buildingId].name}을(를) Lv.${next.level}(으)로 업그레이드할까요?\n${settlementBuildingUpgradeCostText(next.cost)}이(가) 사용됩니다.`,
+    ))
+  ) {
+    return false;
+  }
+  onUpgrade();
+  return true;
+}
+
 // 큰 골드는 억/만 단위로 — 5,000만 → "5,000만", 1억 → "1억", 1억 5,000만 → "1억 5,000만".
 function fmtGold(n: number): string {
   const EOK = 100_000_000;
@@ -81,10 +105,7 @@ function fmtGold(n: number): string {
 
 function costLabel(cost: Resources): string {
   return PRODUCTION_KINDS.filter((k) => (cost[k] ?? 0) > 0)
-    .map(
-      (k) =>
-        `${PRODUCTION_KIND_ICON[k]} ${SETTLEMENT_RESOURCE_NAME[k]} ${cost[k]}`,
-    )
+    .map((k) => `${SETTLEMENT_RESOURCE_NAME[k]} ${cost[k]}`)
     .join(" · ");
 }
 
@@ -344,9 +365,9 @@ export function V2VillagePanel({
       {SETTLEMENT_RESOURCE_KEYS.filter(
         (key) => key === "crop" || key === "ore" || (resources[key] ?? 0) > 0,
       ).map((key) => (
-        <span key={key} className="war-resource-pill tabular-nums">
-          {settlementResourceIcon(key)} {settlementResourceName(key)}{" "}
-          {resources[key] ?? 0}
+        <span key={key} className="war-resource-pill inline-flex items-center gap-1 tabular-nums">
+          <PlumpGameIcon name={settlementResourceIconName(key)} size={16} />
+          {settlementResourceName(key)} {resources[key] ?? 0}
         </span>
       ))}
     </div>
@@ -360,7 +381,7 @@ export function V2VillagePanel({
       id,
       label: settlementDonationMaterialName(id),
       target: settlementResourceName(resourceKey),
-      icon: settlementResourceIcon(resourceKey),
+      iconName: settlementResourceIconName(resourceKey),
       value,
       own: inv[id] ?? 0,
       val: donationDraft[id] ?? "",
@@ -394,7 +415,10 @@ export function V2VillagePanel({
               <span className="w-24 shrink-0">{row.label}</span>
               <span className="shrink-0 text-zinc-400">→</span>
               <span className="w-20 shrink-0 text-zinc-600 dark:text-zinc-300">
-                {row.icon} {row.target}
+                <span className="inline-flex items-center gap-1">
+                  <PlumpGameIcon name={row.iconName} size={15} />
+                  {row.target}
+                </span>
                 {row.value > 1 ? ` +${row.value}` : ""}
               </span>
               <input
@@ -704,7 +728,12 @@ export function V2VillagePanel({
                                 !canAffordBuildingUpgrade
                               }
                               onClick={() =>
-                                void act("building/upgrade", { slot: 0 })
+                                void confirmVillageBuildingUpgrade({
+                                  buildingId: id,
+                                  next: nextUpgrade,
+                                  onUpgrade: () =>
+                                    void act("building/upgrade", { slot: 0 }),
+                                })
                               }
                               className="mt-2 w-full rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
                             >
@@ -719,9 +748,9 @@ export function V2VillagePanel({
                         <button
                           type="button"
                           disabled={busy || !canManageActions}
-                          onClick={() => {
+                          onClick={async () => {
                             if (
-                              window.confirm(
+                              await confirmGameAction(
                                 `${def.name}을 폐기할까요? 같은 길드가 다시 배치하면 현재 레벨이 복구됩니다.`,
                               )
                             ) {

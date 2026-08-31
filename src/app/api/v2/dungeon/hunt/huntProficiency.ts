@@ -6,6 +6,7 @@ import {
   addCumLevel,
   addJobCumLevel,
   addPoints,
+  addStatFloorLevels,
   groupCumLevel,
   parseProficiencyForChar,
   proficiencyPerKillAtDepth,
@@ -17,10 +18,17 @@ import {
   isLifestyleMasteryJobId,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
-import { rollLevelGrowth } from "@/adventure/data/v2/statGrowth";
+import {
+  lifeResourceRangesForProficiency,
+  rollLevelGrowth,
+} from "@/adventure/data/v2/statGrowth";
+import { rollLifeResourceLevels } from "@/adventure/data/v2/lifeResourceGrowth";
+import { v2LevelGrowthHpMp } from "@/lib/server/derivePlayerCombatV2";
 import { V2_STAT_KEYS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import { equippedProfPerKillBonus } from "@/adventure/data/v2/v2Skills";
 import { rollGuildCombatProficiencyBonus } from "@/adventure/data/v2/guildCombatSupply";
+import type { EquippedLiberationEffects } from "@/adventure/data/v2/equipmentLiberationEffects";
+import { applyLiberationLevelGrowth } from "@/lib/server/equipmentLiberationLevelGrowth";
 
 export type HuntProficiencyResult = {
   /** 갱신된 proficiency — null 이면 쓰기 불필요(패배·무성장: readout 만 산출). */
@@ -31,12 +39,18 @@ export type HuntProficiencyResult = {
   proficiencyPointsAfter: number;
   /** 승리 시 현재 직업 숙련도(+1). 전직/스킬포인트 게이트 입력. */
   masteryGained: number;
+  /** 이번 승리에서 jobCumLevel이 오르고 도감 숙련도에도 기록할 직업 ID. */
+  masteryJobId: string | null;
   /** 상시 카드 readout — 이 사냥 후 현재 직업 숙련도(none=null). */
   masteryAfter: number | null;
   /** deprecated — 숙련도 마일스톤 SP 지급 제거로 항상 0. */
   spMilestonesGained: number;
   /** 레벨업 랜덤 성장으로 오른 1차 스탯 — 결과 카드 표시용. */
   statGains: Partial<Record<V2StatKey, number>>;
+  /** 이번 레벨업으로 실제 증가한 최대 HP. */
+  hpGain: number;
+  /** 이번 레벨업으로 실제 증가한 최대 MP. */
+  mpGain: number;
 };
 
 export function applyHuntProficiency(params: {
@@ -49,7 +63,10 @@ export function applyHuntProficiency(params: {
   /** 길드 전투 보급 — 숙련도 보너스 확률(%). */
   proficiencyChancePct: number;
   levelsGained: number;
+  /** 압축 희귀 탐사에서 적립할 기존 승리 보상 횟수. 실제 전투 기록과는 분리한다. */
+  rewardWins?: number;
   rng?: () => number;
+  liberationGrowth?: Pick<EquippedLiberationEffects, "growth">;
 }): HuntProficiencyResult {
   const {
     won,
@@ -59,14 +76,18 @@ export function applyHuntProficiency(params: {
     equippedSkills,
     proficiencyChancePct,
     levelsGained,
+    rewardWins = 1,
     rng = Math.random,
   } = params;
 
   let proficiencyGained = 0;
   let masteryGained = 0;
+  let masteryJobId: string | null = null;
   let masteryAfter: number | null = null;
   const spMilestonesGained = 0;
   const statGains: Partial<Record<V2StatKey, number>> = {};
+  let hpGain = 0;
+  let mpGain = 0;
 
   if (won || levelsGained > 0) {
     const playerClass = parseV2Class(charSave.class);
@@ -76,27 +97,35 @@ export function applyHuntProficiency(params: {
       typeof charSave.specChoice === "string" ? charSave.specChoice : null,
     );
     let prof = parseProficiencyForChar(proficiencyRaw, charSave);
-    // 적립 — 승리 시. 숙달 포인트는 깊이 밴드 비례(2~3), 직업 숙련도는 승리당 +1.
+    // 적립 — 승리 시. 숙달 포인트는 깊이 밴드 비례(2~5), 직업 숙련도는 승리당 +1.
     //   none(모험가)은 숙달 포인트만 적립하고, 직업 숙련도/정복 게이트는 제외한다.
     if (won) {
-      // 승리당 숙달 포인트 = 깊이 밴드(2~3) + 착용 패시브 보너스(수련 = +1).
-      const perKill =
-        proficiencyPerKillAtDepth(depth) +
-        equippedProfPerKillBonus(equippedSkills) +
-        rollGuildCombatProficiencyBonus(proficiencyChancePct, rng);
-      const nextProf = addPoints(prof, group, perKill);
-      if (nextProf !== prof) {
-        prof = nextProf;
-        proficiencyGained = perKill;
-      }
-      if (group !== "none" && !isLifestyleMasteryJobId(v2JobId)) {
-        prof = addCumLevel(prof, group, 1);
-        prof = addJobCumLevel(prof, v2JobId, 1);
-        masteryGained = 1;
+      const wins = Number.isFinite(rewardWins)
+        ? Math.max(1, Math.floor(rewardWins))
+        : 1;
+      for (let i = 0; i < wins; i += 1) {
+        // 승리당 숙달 포인트 = 깊이 밴드(2~5) + 착용 패시브 보너스(수련 = +1).
+        const perKill =
+          proficiencyPerKillAtDepth(depth) +
+          equippedProfPerKillBonus(equippedSkills) +
+          rollGuildCombatProficiencyBonus(proficiencyChancePct, rng);
+        const nextProf = addPoints(prof, group, perKill);
+        if (nextProf !== prof) {
+          prof = nextProf;
+          proficiencyGained += perKill;
+        }
+        if (group !== "none" && !isLifestyleMasteryJobId(v2JobId)) {
+          prof = addCumLevel(prof, group, 1);
+          prof = addJobCumLevel(prof, v2JobId, 1);
+          masteryGained += 1;
+          masteryJobId =
+            (V2_JOB_CATALOG[v2JobId]?.tier ?? 0) > 0 ? v2JobId : null;
+        }
       }
     }
     // 레벨업 시 — 랜덤 스탯 성장. 직업 숙련도는 레벨업이 아니라 사냥 승리에서 적립한다.
     if (levelsGained > 0) {
+      prof = addStatFloorLevels(prof, group, levelsGained);
       // 랜덤 레벨 성장 — 레벨업 수만큼 굴린다(cap 은 prof.caps, 수행 전 기본 60).
       const grownBefore = prof.grown; // rollLevelGrowth 는 비파괴 — 시작 맵 보존 안전.
       let grown = grownBefore;
@@ -110,6 +139,41 @@ export function applyHuntProficiency(params: {
       for (const k of V2_STAT_KEYS) {
         const d = (grown[k] ?? 0) - (grownBefore[k] ?? 0);
         if (d > 0) statGains[k] = d;
+      }
+      if (prof.lifeResourceGrowth) {
+        const rolled = rollLifeResourceLevels(
+          prof.lifeResourceGrowth,
+          Math.max(1, Math.floor(Number(charSave.level) || 1)),
+          levelsGained,
+          lifeResourceRangesForProficiency(
+            prof,
+            prof.lifeResourceGrowth.version,
+          ),
+          rng,
+        );
+        prof = { ...prof, lifeResourceGrowth: rolled.record };
+        hpGain = rolled.hpGain;
+        mpGain = rolled.mpGain;
+      } else {
+        const legacy = v2LevelGrowthHpMp({
+          levelsGained,
+          strGained: statGains.str ?? 0,
+          vitGained: statGains.vit ?? 0,
+          intGained: statGains.int ?? 0,
+        });
+        hpGain = legacy.hp;
+        mpGain = legacy.mp;
+      }
+      if (params.liberationGrowth) {
+        const liberationGrowth = applyLiberationLevelGrowth({
+          proficiency: prof,
+          levelsGained,
+          effects: params.liberationGrowth,
+          rng,
+        });
+        prof = liberationGrowth.proficiency;
+        hpGain += liberationGrowth.hpGained;
+        mpGain += liberationGrowth.mpGained;
       }
     }
     // 직업 숙련도(상시 카드 readout) — 현재 전직 중인 구체 직업 기준. none=숙련도 없음.
@@ -125,9 +189,12 @@ export function applyHuntProficiency(params: {
       proficiencyGained,
       proficiencyPointsAfter: prof.points,
       masteryGained,
+      masteryJobId,
       masteryAfter,
       spMilestonesGained,
       statGains,
+      hpGain,
+      mpGain,
     };
   }
 
@@ -151,8 +218,11 @@ export function applyHuntProficiency(params: {
     proficiencyPointsAfter: parseProficiencyForChar(proficiencyRaw, charSave)
       .points,
     masteryGained,
+    masteryJobId,
     masteryAfter,
     spMilestonesGained,
     statGains,
+    hpGain,
+    mpGain,
   };
 }

@@ -13,6 +13,7 @@ import {
 } from "./v2Enhance";
 import {
   parseEquipmentSave,
+  powerWithBonuses,
   resolveEquippedForAggregate,
   type V2EquipmentId,
 } from "./v2Equipment";
@@ -47,10 +48,18 @@ describe("parseEnhance (방어 파스 + 레벨 정규화)", () => {
 });
 
 describe("enhancedPower", () => {
-  it("미강화 passthrough + 곱연산 내림", () => {
+  it("미강화는 그대로 두고 강화 위력은 0.01 단위까지 보존한다", () => {
     expect(enhancedPower(322, undefined)).toBe(322);
-    expect(enhancedPower(322, { level: 12, bonusPct: 34 })).toBe(431); // 322×1.34
+    expect(enhancedPower(322, { level: 12, bonusPct: 34 })).toBe(431.48);
     expect(enhancedPower(100, { level: 1, bonusPct: 1 })).toBe(101);
+    expect(enhancedPower(1, { level: 20, bonusPct: 69 })).toBe(1.69);
+    expect(
+      powerWithBonuses(
+        5,
+        { level: 1, bonusPct: 1 },
+        { level: 1, bonusPct: 5 },
+      ),
+    ).toBe(5.3);
   });
 });
 
@@ -133,6 +142,21 @@ describe("세이브 왕복 + resolve 반영", () => {
     });
     const { statRolls } = resolveEquippedForAggregate(owned, equipped);
     expect(statRolls[WEAPON]!.power).toBe(402); // 300×1.34
+  });
+  it("resolve — 낮은 위력의 1% 강화도 전투 합산값에 보존", () => {
+    const { owned, equipped } = parseEquipmentSave({
+      owned: [
+        {
+          iid: "a",
+          id: WEAPON,
+          roll: { power: 5, weight: 5 },
+          enhance: { level: 1, bonusPct: 1 },
+        },
+      ],
+      equipped: { weapon: "a" },
+    });
+    const { statRolls } = resolveEquippedForAggregate(owned, equipped);
+    expect(statRolls[WEAPON]!.power).toBe(5.05);
   });
   it("미강화는 기존과 byte-동일", () => {
     const { owned, equipped } = parseEquipmentSave({

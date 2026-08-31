@@ -1,13 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { fetchGameState } from "./fetchGameState";
 import { FirstAid } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { StatBar } from "@/components/ui/StatBar";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { useGameState } from "@/adventure/v2/GameStateProvider";
-import { MAX_CHARGE } from "@/lib/v2-charge-config";
+import { useGameResourceState } from "@/adventure/v2/GameStateProvider";
+import {
+  affordableFullCharge,
+  MAX_CHARGE,
+} from "@/lib/v2-charge-config";
 import { useSystemToast } from "./RewardToastProvider";
 
 // v2 치료소 — 만피 회복(무료) + HP/MP 충전약 구매.
@@ -34,7 +38,7 @@ type ChargeKind = "hp" | "mp";
 
 export function V2HealingView({ onBack }: { onBack: () => void }) {
   // 사냥터 게이트·상단 HP바가 읽는 공유 HP. 치료 직후 동기화해 stale "회복 필요" 차단 방지.
-  const { coreLoopOn, applyResourcePatch } = useGameState();
+  const { coreLoopOn, applyResourcePatch } = useGameResourceState();
   const [hp, setHp] = useState<number | null>(null);
   const [maxHp, setMaxHp] = useState<number | null>(null);
   const [mp, setMp] = useState<number | null>(null);
@@ -51,7 +55,7 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
     setLoadError(false);
     try {
       const [stateRes, invRes] = await Promise.all([
-        fetch("/api/v2/me/state"),
+        fetchGameState(),
         fetch("/api/v2/me/inventory"),
       ]);
       const j = (await stateRes.json().catch(() => null)) as StateResponse | null;
@@ -323,16 +327,41 @@ function ChargeRow({
         >
           충전 ({actual.toLocaleString()}g)
         </button>
-        <button
-          type="button"
-          onClick={() => onBuy(kind, room)}
-          disabled={busy || full || gold < room}
-          className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-700"
-        >
-          가득 ({room.toLocaleString()}g)
-        </button>
+        <FullChargeButton
+          kind={kind}
+          current={current}
+          gold={gold}
+          busy={busy}
+          onBuy={onBuy}
+        />
       </div>
       {full && <p className="text-xs text-zinc-500 dark:text-zinc-400">최대치.</p>}
     </section>
+  );
+}
+
+export function FullChargeButton({
+  kind,
+  current,
+  gold,
+  busy,
+  onBuy,
+}: {
+  kind: ChargeKind;
+  current: number;
+  gold: number;
+  busy: boolean;
+  onBuy: (kind: ChargeKind, amount: number) => void;
+}) {
+  const fullChargeAmount = affordableFullCharge(current, gold);
+  return (
+    <button
+      type="button"
+      onClick={() => onBuy(kind, fullChargeAmount)}
+      disabled={busy || fullChargeAmount <= 0}
+      className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-700"
+    >
+      {`가득 (${fullChargeAmount.toLocaleString()}g)`}
+    </button>
   );
 }

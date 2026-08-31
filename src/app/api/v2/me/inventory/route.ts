@@ -12,7 +12,12 @@ import {
   V2_REFORGE_ENABLED,
   isReforgeStoneMaterialId,
 } from "@/adventure/data/v2/v2EquipVariance";
-import { parseCookingFoodInventory } from "@/adventure/v2/cooking";
+import { cookingFoodDefinitions, parseCookingFoodInventory } from "@/adventure/v2/cooking/food";
+import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
+import { FARM_SAVE_KEY } from "@/adventure/v2/farm";
+import { FISHING_STOCK_KEY } from "@/adventure/v2/fishingStock";
+import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking/state";
+import { marketplaceLifeItemHoldings } from "@/lib/server/marketplaceLifeInventory";
 
 // GET /api/v2/me/inventory — V2InventoryView + V2ShopView 자체 fetch.
 //
@@ -32,7 +37,13 @@ export async function GET() {
     .where(
       and(
         eq(savesKv.userId, userId),
-        inArray(savesKv.key, ["character.v2", "inventory.v2"]),
+        inArray(savesKv.key, [
+          "character.v2",
+          "inventory.v2",
+          FARM_SAVE_KEY,
+          FISHING_STOCK_KEY,
+          COOKING_SAVE_KEY,
+        ]),
       ),
     );
 
@@ -42,12 +53,19 @@ export async function GET() {
     hpCharges?: number;
     mpCharges?: number;
     cookingFoods?: unknown;
+    [MASTERY_CERTIFICATE_KEY]?: unknown;
   } = {};
+  let farmRaw: unknown;
+  let fishingRaw: unknown;
+  let cookingRaw: unknown;
   for (const r of rows) {
     if (r.key === "character.v2")
       charSave = (r.value ?? {}) as typeof charSave;
     else if (r.key === "inventory.v2")
       invSave = (r.value ?? {}) as typeof invSave;
+    else if (r.key === FARM_SAVE_KEY) farmRaw = r.value;
+    else if (r.key === FISHING_STOCK_KEY) fishingRaw = r.value;
+    else if (r.key === COOKING_SAVE_KEY) cookingRaw = r.value;
   }
 
   // materials — V2_MATERIALS catalog 키만 surface.
@@ -71,13 +89,24 @@ export async function GET() {
   // SP 열매 사용 현황 — 소모품 탭이 등급별 "사용 N/캡"·캡 도달 차단을 그린다.
   const spFruitUsed = parseSpFruitUsed(charSave.spFruitUsed);
   const spCapBonus = spCapBonusFromRaw(charSave.spFruitUsed);
+  const masteryCertificates = Math.max(
+    0,
+    Math.floor(Number(invSave[MASTERY_CERTIFICATE_KEY]) || 0),
+  );
+  const marketplaceMaterials = {
+    ...materials,
+    ...marketplaceLifeItemHoldings({ farmRaw, fishingRaw, cookingRaw }),
+  };
 
   return Response.json({
     ok: true,
     materials,
+    marketplaceMaterials,
+    masteryCertificates,
     hpCharges,
     mpCharges,
     cookingFoods: parseCookingFoodInventory(invSave.cookingFoods),
+    cookingFoodDefinitions: cookingFoodDefinitions(invSave.cookingFoods),
     spFruitUsed,
     spCapBonus,
   });

@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { V2_EQUIPMENT, sellPriceOf } from "@/adventure/data/v2/v2Equipment";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { MUSEUN_CASH_ITEMS } from "@/adventure/data/v2/museunCashItems";
-import { cookingFoodId } from "@/adventure/v2/cooking";
+import { cookingFoodId } from "@/adventure/v2/cooking/food";
+import {
+  DANGEROUS_BOSSES,
+  DANGEROUS_FISH,
+  dangerousBossMaterialId,
+  dangerousCatchMaterialId,
+} from "@/adventure/data/v2/dangerousFishing";
 import {
   MARKETPLACE_V2_BID_GRACE_MAX_HOURS,
   MARKETPLACE_V2_BID_GRACE_MIN_HOURS,
@@ -15,7 +21,9 @@ import {
   MARKETPLACE_V2_PRICE_MAX,
   MARKETPLACE_V2_TAX_RATE,
   isMarketKind,
+  isStackableMarketplaceItem,
   isTradableEquip,
+  isTradableMarketplaceMaterial,
   isTradableMaterial,
   isValidBidGraceHours,
   isValidMaterialQty,
@@ -140,6 +148,8 @@ describe("판매세 (sink) — saleProceeds / saleTax", () => {
     expect(marketplaceSlotLimitForAdventureSupport(true)).toBe(20);
     expect(marketplaceTaxRateForAdventureSupport(false)).toBe(0.1);
     expect(marketplaceTaxRateForAdventureSupport(true)).toBe(0.05);
+    expect(marketplaceSlotLimitForAdventureSupport("premium")).toBe(30);
+    expect(marketplaceTaxRateForAdventureSupport("premium")).toBe(0.05);
     const supportRate = marketplaceTaxRateForAdventureSupport(true);
     expect(saleProceeds(100, supportRate)).toBe(95);
     expect(saleTax(100, supportRate)).toBe(5);
@@ -176,6 +186,50 @@ describe("isValidMaterialQty", () => {
     expect(isValidMaterialQty(0)).toBe(false);
     expect(isValidMaterialQty(MARKETPLACE_V2_MATERIAL_QTY_MAX + 1)).toBe(false);
     expect(isValidMaterialQty(2.5)).toBe(false);
+  });
+});
+
+describe("물고기 표본 거래 분류", () => {
+  it("카탈로그에 있는 표본만 수량형 소비 아이템으로 허용하고 이름을 파생한다", () => {
+    expect(isStackableMarketplaceItem("consumable", "fish_specimen_carp")).toBe(true);
+    expect(itemDisplayName("consumable", "fish_specimen_carp")).toBe("잉어 표본");
+    expect(isStackableMarketplaceItem("consumable", "fish_specimen_fake")).toBe(false);
+    expect(itemDisplayName("consumable", "fish_specimen_fake")).toBeNull();
+    expect(
+      currentMarketplaceItemName(
+        "consumable",
+        "fish_specimen_carp",
+        "오래된 이름",
+      ),
+    ).toBe("잉어 표본");
+  });
+});
+
+describe("위험 해역 귀환 어획물 거래 분류", () => {
+  it("확정된 철턱 참치는 표시명 있는 수량형 재료로 거래한다", () => {
+    expect(isTradableMaterial("danger_catch_ironjaw_tuna")).toBe(true);
+    expect(isStackableMarketplaceItem("material", "danger_catch_ironjaw_tuna")).toBe(
+      true,
+    );
+    expect(itemDisplayName("material", "danger_catch_ironjaw_tuna")).toBe(
+      "철턱 참치",
+    );
+  });
+});
+
+describe("생활 재료 거래 분류", () => {
+  it("생활 재료는 수량형 재료로 거래하고 현재 카탈로그 이름을 사용한다", () => {
+    expect(isTradableMarketplaceMaterial("farm_seed:wheat")).toBe(true);
+    expect(isTradableMarketplaceMaterial("farm_item:golden_wheat")).toBe(true);
+    expect(isTradableMarketplaceMaterial("cooking_kitchen:processed:flour")).toBe(
+      true,
+    );
+    expect(isTradableMarketplaceMaterial("farm_item:compound_feed")).toBe(false);
+    expect(isStackableMarketplaceItem("material", "farm_seed:wheat")).toBe(true);
+    expect(itemDisplayName("material", "farm_seed:wheat")).toBe("밀 씨앗");
+    expect(
+      currentMarketplaceItemName("material", "farm_seed:wheat", "옛 씨앗 이름"),
+    ).toBe("밀 씨앗");
   });
 });
 
@@ -227,7 +281,7 @@ describe("tradable 판정 + 이름 스냅샷", () => {
     expect(isTradableEquip("constructor")).toBe(false);
   });
 
-  it("장비 등록은 미강화·미잠금·미장착 개체만 허용한다", () => {
+  it("장비 등록은 강화 여부와 무관하고 미귀속·미잠금·미장착 개체만 허용한다", () => {
     const id = Object.keys(V2_EQUIPMENT)[0] as keyof typeof V2_EQUIPMENT;
     expect(marketplaceEquipListError({ id }, false)).toBeNull();
     expect(
@@ -235,7 +289,22 @@ describe("tradable 판정 + 이름 스냅샷", () => {
         { id, enhance: { level: 1, bonusPct: 1 } },
         false,
       ),
-    ).toBe("enhanced");
+    ).toBeNull();
+    expect(
+      marketplaceEquipListError(
+        {
+          id,
+          bound: true,
+          liberation: {
+            rank: 3,
+            lineCount: 1,
+            revision: 1,
+            options: [{ id: "physical_attack_flat", level: 1 }],
+          },
+        },
+        false,
+      ),
+    ).toBe("bound");
     expect(marketplaceEquipListError({ id, locked: true }, false)).toBe(
       "locked",
     );
@@ -243,7 +312,7 @@ describe("tradable 판정 + 이름 스냅샷", () => {
   });
 
   it("채광·생활 가공 재료를 포함한 등재 재료 중 비활성 재련석을 제외해 tradable", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(68);
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(93);
     for (const id of Object.keys(V2_MATERIALS)) {
       expect(isTradableMaterial(id)).toBe(
         id !== "v2_reforge_stone" && id !== "v2_reforge_stone_high",
@@ -260,17 +329,27 @@ describe("tradable 판정 + 이름 스냅샷", () => {
     const matId = Object.keys(V2_MATERIALS)[0];
     expect(itemDisplayName("material", matId)).toBe(V2_MATERIALS[matId].name);
     expect(itemDisplayName("material", "nope")).toBeNull();
+    for (const fish of Object.values(DANGEROUS_FISH)) {
+      expect(itemDisplayName("material", dangerousCatchMaterialId(fish.id))).toBe(
+        fish.name,
+      );
+    }
+    for (const boss of Object.values(DANGEROUS_BOSSES)) {
+      expect(itemDisplayName("material", dangerousBossMaterialId(boss.id))).toBe(
+        `${boss.name}의 증표`,
+      );
+    }
     expect(itemDisplayName("consumable", "rename_permit")).toBe(
       MUSEUN_CASH_ITEMS.rename_permit.name,
     );
     const foodId = cookingFoodId({
       recipeId: "rustic_bread",
       quality: "careful",
-      usedRare: true,
-      extended: true,
+      originator: true,
+      specialtyBonusPct: 5,
     });
     expect(itemDisplayName("consumable", foodId)).toBe(
-      "투박한 밀빵 (정성작 · 희귀 특선 · 장시간)",
+      "투박한 밀빵 (정성작 · 원조 · 전문 +5%)",
     );
     expect(itemDisplayName("consumable", "nope")).toBeNull();
   });
@@ -297,8 +376,8 @@ describe("tradable 판정 + 이름 스냅샷", () => {
     const foodId = cookingFoodId({
       recipeId: "rustic_bread",
       quality: "normal",
-      usedRare: false,
-      extended: false,
+      originator: false,
+      specialtyBonusPct: 0,
     });
     expect(
       currentMarketplaceItemName("consumable", foodId, "옛 음식 이름"),

@@ -201,7 +201,7 @@ export function V2ArenaLoadoutTab() {
         <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
           현재 장착된 스킬, 전투패턴, 장비를 아레나 전투용 템플릿으로 저장합니다. 아레나에서는
           공격할 때도, 다른 모험가가 나를 상대할 때도 이 템플릿이 사용됩니다. 본선 전투 세팅은
-          일요일 18:00에 최종 확정되므로 그 전까지 다시 저장할 수 있습니다.
+          일요일 12:00에 최종 확정되므로 그 전까지 다시 저장할 수 있습니다.
         </p>
 
         <div className="flex flex-wrap gap-2">

@@ -2,10 +2,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   isRoadmapDragGesture,
+  centeredRoadmapScrollLeft,
   JobRoadmapDetails,
   ROADMAP_DRAG_THRESHOLD_PX,
   RoadmapScroller,
 } from "./JobRoadmapDialog";
+import { tier7AdvancementStatus } from "@/adventure/data/v2/tier7Advancement";
 
 describe("RoadmapScroller", () => {
   it("distinguishes a job-card click from an intentional drag", () => {
@@ -35,32 +37,182 @@ describe("RoadmapScroller", () => {
     expect(html).toContain("로드맵 오른쪽으로 이동");
     expect(html).toContain("shrine-job-roadmap-canvas");
   });
+
+  it("provides edge, root-job, and current-job jump controls", () => {
+    const html = renderToStaticMarkup(
+      <RoadmapScroller
+        jumpTargets={[
+          { id: "none", label: "모험가" },
+          { id: "survivor", label: "생존자" },
+        ]}
+        currentJobId="warrior"
+        onSelectJob={() => {}}
+      >
+        <button data-roadmap-job-id="warrior">견습 병사</button>
+      </RoadmapScroller>,
+    );
+
+    expect(html).toContain("로드맵 처음으로 이동");
+    expect(html).toContain("로드맵 끝으로 이동");
+    expect(html).toContain("모험가로 이동");
+    expect(html).toContain("생존자로 이동");
+    expect(html).toContain("현재 직업으로 이동");
+  });
+
+  it("centers a target node in the current viewport", () => {
+    expect(
+      centeredRoadmapScrollLeft({
+        scrollLeft: 300,
+        viewportLeft: 100,
+        viewportWidth: 600,
+        targetLeft: 700,
+        targetWidth: 120,
+      }),
+    ).toBe(660);
+  });
 });
 
 describe("JobRoadmapDetails", () => {
-  it("shows a selected job's tier, growth direction, bonus, and signature skills", () => {
+  const squireJob = {
+    id: "squire",
+    name: "견습 기사",
+    tier: 2,
+    condition: "견습 병사 숙련도 1,000",
+    cumLevel: 320,
+    bonus: "힘 +5 · 민첩 +2",
+    signatureSkills: [
+      {
+        id: "v2c_squire_cleave",
+        name: "돌격",
+        kind: "active" as const,
+      },
+      {
+        id: "v2c_squire_might",
+        name: "근력 II",
+        kind: "passive" as const,
+      },
+    ],
+  };
+
+  it("shows tier-7 first-unlock progress in job details", () => {
+    const tier7Advancement = tier7AdvancementStatus({
+      targetJobId: "shadowblade",
+      currentJobId: "swordsaint",
+      currentLevel: 100,
+      jobCumLevel: { swordsaint: 99_999, blackmoon: 100_000 },
+      jobHistory: [],
+      materials: { v2_storm_origin_fragment: 29 },
+    })!;
     const html = renderToStaticMarkup(
       <JobRoadmapDetails
         job={{
-          id: "squire",
-          name: "견습 기사",
-          tier: 2,
+          id: "shadowblade",
+          name: "무영검신",
+          tier: 7,
           unlocked: false,
-          condition: "견습 병사 숙련도 1,000",
-          cumLevel: 320,
-          bonus: "힘 +5 · 민첩 +2",
-          signatureSkills: [
-            {
-              id: "v2c_squire_cleave",
-              name: "돌격",
-              kind: "active",
-            },
-            {
-              id: "v2c_squire_might",
-              name: "근력 II",
-              kind: "passive",
-            },
-          ],
+          condition: "7차 최초 전직 조건",
+          tier7Advancement,
+        }}
+        currentJobId="swordsaint"
+        goalJobId={null}
+        atLevelCap
+        currentJobSelectable
+        onSetGoal={() => {}}
+      />,
+    );
+
+    expect(html).toContain("검성 숙련도");
+    expect(html).toContain("99,999 / 100,000");
+    expect(html).toContain("폭풍 기원의 파편");
+    expect(html).toContain("29 / 30");
+  });
+
+  it("offers advancement for an eligible unlocked job", () => {
+    const html = renderToStaticMarkup(
+      <JobRoadmapDetails
+        job={{ ...squireJob, unlocked: true }}
+        currentJobId="warrior"
+        goalJobId={null}
+        atLevelCap
+        currentJobSelectable={false}
+        onSetGoal={() => {}}
+        onPickJob={() => {}}
+      />,
+    );
+
+    const button = html.match(
+      /<button[^>]*aria-label="견습 기사\(으\)로 전직"[^>]*>/,
+    )?.[0];
+    expect(button).toBeDefined();
+    expect(button).not.toMatch(/\sdisabled(?:=|>)/);
+    expect(html).toContain(">전직</button>");
+  });
+
+  it("offers re-advancement for the current job when its level gate is met", () => {
+    const html = renderToStaticMarkup(
+      <JobRoadmapDetails
+        job={{ ...squireJob, unlocked: true }}
+        currentJobId="squire"
+        goalJobId={null}
+        atLevelCap
+        currentJobSelectable
+        onSetGoal={() => {}}
+        onPickJob={() => {}}
+      />,
+    );
+
+    const button = html.match(
+      /<button[^>]*aria-label="견습 기사 재전직"[^>]*>/,
+    )?.[0];
+    expect(button).toBeDefined();
+    expect(button).not.toMatch(/\sdisabled(?:=|>)/);
+    expect(html).toContain(">재전직</button>");
+  });
+
+  it.each([
+    {
+      label: "locked",
+      job: { ...squireJob, unlocked: false },
+      atLevelCap: true,
+      expectedReason: "조건 부족",
+    },
+    {
+      label: "below the advancement level",
+      job: { ...squireJob, unlocked: true },
+      atLevelCap: false,
+      expectedReason: "Lv 100 필요",
+    },
+  ])(
+    "disables advancement when the selected job is $label",
+    ({ job, atLevelCap, expectedReason }) => {
+      const html = renderToStaticMarkup(
+        <JobRoadmapDetails
+          job={job}
+          currentJobId="warrior"
+          goalJobId={null}
+          atLevelCap={atLevelCap}
+          currentJobSelectable={false}
+          onSetGoal={() => {}}
+          onPickJob={() => {}}
+        />,
+      );
+
+      const button = html.match(
+        new RegExp(
+          `<button[^>]*aria-label="견습 기사 전직: ${expectedReason}"[^>]*>`,
+        ),
+      )?.[0];
+      expect(button).toMatch(/\sdisabled(?:=|>)/);
+      expect(html).toContain(`>${expectedReason}</button>`);
+    },
+  );
+
+  it("shows expandable skill details for an unlocked job", () => {
+    const html = renderToStaticMarkup(
+      <JobRoadmapDetails
+        job={{
+          ...squireJob,
+          unlocked: true,
         }}
         currentJobId="warrior"
         goalJobId={null}
@@ -74,10 +226,59 @@ describe("JobRoadmapDetails", () => {
     expect(html).toContain("수행 성장");
     expect(html).toContain("힘 +2");
     expect(html).toContain("직업 보너스");
+    expect(html).toContain("<details");
+    expect(html).toContain("<summary");
     expect(html).toContain("돌격");
     expect(html).toContain("액티브");
+    expect(html).toContain("말을 몰듯 단숨에 파고들어 베어낸다.");
     expect(html).toContain("근력 II");
     expect(html).toContain("패시브");
+    expect(html).toContain("거듭된 단련. 힘이 비례해 오른다.");
+    expect(html).toContain("SP 5");
+    expect(html).toContain("SP 3");
+  });
+
+  it.each([
+    {
+      label: "a previously visited job",
+      job: { ...squireJob, unlocked: false, visited: true },
+      currentJobId: "warrior",
+    },
+    {
+      label: "the current job",
+      job: { ...squireJob, unlocked: false, visited: false },
+      currentJobId: "squire",
+    },
+  ])("shows skill details for $label", ({ job, currentJobId }) => {
+    const html = renderToStaticMarkup(
+      <JobRoadmapDetails
+        job={job}
+        currentJobId={currentJobId}
+        goalJobId={null}
+        onSetGoal={() => {}}
+      />,
+    );
+
+    expect(html).toContain("돌격");
+    expect(html).toContain("말을 몰듯 단숨에 파고들어 베어낸다.");
+  });
+
+  it("hides skill names and effects for a locked, unvisited job", () => {
+    const html = renderToStaticMarkup(
+      <JobRoadmapDetails
+        job={{ ...squireJob, unlocked: false, visited: false }}
+        currentJobId="warrior"
+        goalJobId={null}
+        onSetGoal={() => {}}
+      />,
+    );
+
+    expect(html).toContain("직업을 해금하면 스킬 정보를 확인할 수 있습니다.");
+    expect(html).not.toContain("돌격");
+    expect(html).not.toContain("근력 II");
+    expect(html).not.toContain("말을 몰듯 단숨에 파고들어 베어낸다.");
+    expect(html).not.toContain("SP 5");
+    expect(html).not.toContain("SP 3");
   });
 
   it("keeps unrevealed unlock conditions hidden in the preview", () => {

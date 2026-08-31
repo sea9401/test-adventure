@@ -5,6 +5,8 @@ const PORT = 3212;
 // 하나의 로컬 호스트명만 사용해 127.0.0.1 ↔ localhost 전환을 막는다.
 const BASE_URL = `http://localhost:${PORT}`;
 const AUTHENTICATED_SPEC = /authenticated-flow\.spec\.ts/;
+const MOBILE_UI_SPEC = /mobile-ui\.spec\.ts/;
+const GENERIC_SPEC_IGNORES = [AUTHENTICATED_SPEC, MOBILE_UI_SPEC];
 
 export default defineConfig({
   testDir: "./e2e",
@@ -25,12 +27,12 @@ export default defineConfig({
   projects: [
     {
       name: "desktop-chromium",
-      testIgnore: AUTHENTICATED_SPEC,
+      testIgnore: GENERIC_SPEC_IGNORES,
       use: { ...devices["Desktop Chrome"] },
     },
     {
       name: "mobile-webkit",
-      testIgnore: AUTHENTICATED_SPEC,
+      testIgnore: GENERIC_SPEC_IGNORES,
       use: { ...devices["iPhone 13"] },
     },
     {

@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>전투 로그 시인성 비교 시안</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --page: #f4f4f5;
+        --panel: #ffffff;
+        --inset: #fafafa;
+        --line: #e4e4e7;
+        --text: #27272a;
+        --muted: #71717a;
+        --faint: #a1a1aa;
+        --damage: #e11d48;
+        --heal: #047857;
+        --left-accent: #2563eb;
+        --right-accent: #7c3aed;
+        --tag: #f4f4f5;
+        --tag-text: #52525b;
+        --crit-bg: #fff1f2;
+        --crit-text: #be123c;
+        --shadow: 0 12px 30px rgb(24 24 27 / 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--page);
+        color: var(--text);
+        font-family:
+          Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .page {
+        width: min(100%, 980px);
+        margin: 0 auto;
+        padding: 32px 18px 56px;
+      }
+
+      .intro {
+        margin: 0 auto 24px;
+        text-align: center;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(22px, 4vw, 30px);
+        letter-spacing: -0.04em;
+      }
+
+      .intro p,
+      .caption {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.6;
+      }
+
+      .comparison {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 390px));
+        justify-content: center;
+        gap: 22px;
+      }
+
+      .column-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 0 4px 9px;
+      }
+
+      .column-title strong {
+        font-size: 15px;
+      }
+
+      .column-title span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .phone {
+        overflow: hidden;
+        min-height: 720px;
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+      }
+
+      .status {
+        display: flex;
+        justify-content: space-between;
+        padding: 15px 22px 10px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .combatants {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        padding: 13px 18px 17px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .combatant:last-child {
+        text-align: right;
+      }
+
+      .name {
+        margin-bottom: 7px;
+        font-size: 15px;
+        font-weight: 800;
+      }
+
+      .hp-label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 4px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .bar {
+        height: 7px;
+        overflow: hidden;
+        border-radius: 99px;
+        background: #e4e4e7;
+      }
+
+      .bar > i {
+        display: block;
+        height: 100%;
+        background: #f43f5e;
+      }
+
+      .feed {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px 14px 22px;
+      }
+
+      .old-box {
+        padding: 14px 12px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--inset);
+      }
+
+      .old-line {
+        margin: 0 0 10px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .old-line:last-child {
+        margin-bottom: 0;
+      }
+
+      .old-line.left {
+        text-align: left;
+      }
+
+      .old-line.right {
+        text-align: right;
+      }
+
+      .old-main {
+        color: var(--text);
+        font-size: 16px;
+      }
+
+      .branch {
+        color: var(--faint);
+      }
+
+      .pill {
+        display: inline-block;
+        margin-right: 4px;
+        padding: 2px 6px;
+        border-radius: 5px;
+        background: var(--tag);
+        color: var(--tag-text);
+        font-size: 11px;
+        font-style: normal;
+        font-weight: 700;
+      }
+
+      .damage {
+        color: var(--damage);
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .action {
+        width: 89%;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        background: var(--panel);
+      }
+
+      .action.left {
+        align-self: flex-start;
+        border-left: 3px solid var(--left-accent);
+      }
+
+      .action.right {
+        align-self: flex-end;
+        border-right: 3px solid var(--right-accent);
+      }
+
+      .action-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 12px 9px;
+      }
+
+      .actor {
+        min-width: 0;
+      }
+
+      .actor-name {
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .skill {
+        overflow: hidden;
+        margin-top: 1px;
+        font-size: 15px;
+        font-weight: 800;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .result {
+        text-align: right;
+      }
+
+      .result .crit {
+        display: block;
+        width: max-content;
+        margin: 0 0 3px auto;
+        padding: 1px 5px;
+        border-radius: 5px;
+        background: var(--crit-bg);
+        color: var(--crit-text);
+        font-size: 10px;
+        font-weight: 800;
+      }
+
+      .result strong {
+        color: var(--damage);
+        font-size: 18px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .result small {
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .effects {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px 8px;
+        padding: 8px 12px 10px;
+        border-top: 1px solid var(--line);
+        background: var(--inset);
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.4;
+      }
+
+      .effects b {
+        color: var(--text);
+        font-weight: 700;
+      }
+
+      .effects .heal {
+        color: var(--heal);
+      }
+
+      .reaction-line {
+        flex-basis: 100%;
+        margin-top: 2px;
+        padding-top: 7px;
+        border-top: 1px solid var(--line);
+        color: var(--text);
+      }
+
+      .reaction-line strong {
+        color: var(--right-accent);
+      }
+
+      .mock-details {
+        border-top: 1px solid var(--line);
+      }
+
+      .mock-details summary {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 5px;
+        padding: 8px 12px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        list-style: none;
+        user-select: none;
+      }
+
+      .mock-details summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .mock-details summary::after {
+        content: "▾";
+        color: var(--faint);
+        font-size: 10px;
+      }
+
+      .mock-details[open] summary::after {
+        content: "▴";
+      }
+
+      .mock-details[open] summary {
+        border-bottom: 1px solid var(--line);
+        color: var(--text);
+      }
+
+      .detail-body {
+        padding: 11px 12px 13px;
+        background: var(--inset);
+      }
+
+      .detail-section + .detail-section {
+        margin-top: 13px;
+        padding-top: 11px;
+        border-top: 1px solid var(--line);
+      }
+
+      .detail-title {
+        margin: 0 0 7px;
+        color: var(--text);
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .calc-list {
+        display: grid;
+        gap: 5px;
+        margin: 0;
+      }
+
+      .calc-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: baseline;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .calc-row span:first-child {
+        min-width: 0;
+      }
+
+      .calc-row strong {
+        color: var(--text);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .calc-row.final {
+        margin-top: 3px;
+        padding-top: 6px;
+        border-top: 1px dashed var(--line);
+      }
+
+      .calc-row.final strong {
+        color: var(--damage);
+        font-size: 13px;
+      }
+
+      .detail-sentence {
+        margin: 0;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.55;
+      }
+
+      .detail-sentence strong {
+        color: var(--text);
+      }
+
+      .example-label {
+        align-self: center;
+        margin: 2px 0 -3px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .note {
+        max-width: 802px;
+        margin: 22px auto 0;
+        padding: 13px 15px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--panel);
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .note strong {
+        color: var(--text);
+      }
+
+      @media (max-width: 760px) {
+        .page {
+          padding-inline: 12px;
+        }
+
+        .comparison {
+          grid-template-columns: minmax(0, 390px);
+        }
+
+        .phone {
+          min-height: 0;
+        }
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --page: #09090b;
+          --panel: #18181b;
+          --inset: #27272a;
+          --line: #3f3f46;
+          --text: #f4f4f5;
+          --muted: #a1a1aa;
+          --faint: #71717a;
+          --damage: #fb7185;
+          --heal: #34d399;
+          --tag: #3f3f46;
+          --tag-text: #e4e4e7;
+          --crit-bg: #4c0519;
+          --crit-text: #fda4af;
+          --shadow: 0 12px 30px rgb(0 0 0 / 0.3);
+        }
+
+        .bar {
+          background: #3f3f46;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header class="intro">
+        <h1>전투 로그 시인성 비교</h1>
+        <p>같은 전투 내용을 현재 방식과 행동 묶음 방식으로 비교한 모바일 시안입니다.</p>
+      </header>
+
+      <section class="comparison" aria-label="전투 로그 비교">
+        <article>
+          <div class="column-title">
+            <strong>현재 방식</strong>
+            <span>계산 상세가 행동 사이에 분산</span>
+          </div>
+          <div class="phone">
+            <div class="status"><span>ARENA</span><span>전투 로그</span></div>
+            <div class="combatants">
+              <div class="combatant">
+                <div class="name">Allure</div>
+                <div class="hp-label"><span>HP</span><span>3104 / 5675</span></div>
+                <div class="bar"><i style="width: 54.7%"></i></div>
+              </div>
+              <div class="combatant">
+                <div class="name">동키오</div>
+                <div class="hp-label"><span>HP</span><span>0 / 6772</span></div>
+                <div class="bar"><i style="width: 0%"></i></div>
+              </div>
+            </div>
+            <div class="feed">
+              <div class="old-box">
+                <p class="old-line right old-main">성전의 심판! <span class="damage">24 피해</span></p>
+                <p class="old-line right">성전의 심판! 동키오 HP +1779</p>
+                <p class="old-line right">성전의 심판 받는 피해 -6% (3행동) <span class="branch">┘</span></p>
+                <p class="old-line right"><span class="pill">회피 경감 18.4%</span> 동키오 피해 -673 <span class="branch">┘</span></p>
+                <p class="old-line right"><span class="pill">받피감</span> 동키오 피해 -446 <span class="branch">┘</span></p>
+                <p class="old-line left old-main"><span class="pill">치명타</span><br />만독개화! <span class="damage">1491 피해</span></p>
+                <p class="old-line left"><span class="branch">└</span> 만독개화</p>
+                <p class="old-line left">동키오 지속/저주 피해 +28% (3행동)</p>
+                <p class="old-line left"><span class="branch">└</span> 만독개화 +6스택 (5회)</p>
+                <p class="old-line left"><span class="branch">└</span> 수호 반사 Allure에게 101 반사 피해</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article>
+          <div class="column-title">
+            <strong>행동 묶음 방식</strong>
+            <span>행동 주체 기준 좌우 정렬</span>
+          </div>
+          <div class="phone">
+            <div class="status"><span>ARENA</span><span>전투 로그</span></div>
+            <div class="combatants">
+              <div class="combatant">
+                <div class="name">Allure</div>
+                <div class="hp-label"><span>HP</span><span>3104 / 5675</span></div>
+                <div class="bar"><i style="width: 54.7%"></i></div>
+              </div>
+              <div class="combatant">
+                <div class="name">동키오</div>
+                <div class="hp-label"><span>HP</span><span>0 / 6772</span></div>
+                <div class="bar"><i style="width: 0%"></i></div>
+              </div>
+            </div>
+            <div class="feed">
+              <section class="action right" aria-label="동키오 성전의 심판">
+                <div class="action-head">
+                  <div class="actor">
+                    <div class="actor-name">동키오</div>
+                    <div class="skill">성전의 심판</div>
+                  </div>
+                  <div class="result">
+                    <strong>24</strong> <small>피해</small>
+                  </div>
+                </div>
+                <div class="effects">
+                  <span class="heal"><b>HP +1,779</b></span>
+                  <span>받는 피해 <b>-6%</b> · 3행동</span>
+                </div>
+                <details class="mock-details">
+                  <summary>효과 상세</summary>
+                  <div class="detail-body">
+                    <div class="detail-section">
+                      <h3 class="detail-title">행동 결과</h3>
+                      <div class="calc-list">
+                        <div class="calc-row"><span>대상</span><strong>Allure</strong></div>
+                        <div class="calc-row"><span>직접 피해</span><strong>24</strong></div>
+                        <div class="calc-row"><span>동키오 HP 회복</span><strong>+1,779</strong></div>
+                        <div class="calc-row"><span>받는 피해 감소</span><strong>6% · 3행동</strong></div>
+                      </div>
+                    </div>
+                  </div>
+                </details>
+              </section>
+
+              <section class="action left" aria-label="Allure 만독개화">
+                <div class="action-head">
+                  <div class="actor">
+                    <div class="actor-name">Allure</div>
+                    <div class="skill">만독개화</div>
+                  </div>
+                  <div class="result">
+                    <span class="crit">치명타</span>
+                    <strong>1,491</strong> <small>피해</small>
+                  </div>
+                </div>
+                <div class="effects">
+                  <span>동키오 <b>중독 +6</b></span>
+                  <span>지속피해 <b>+28%</b> · 3행동</span>
+                  <span class="reaction-line"><strong>동키오의 수호 반사</strong> → Allure에게 <b>101 피해</b></span>
+                </div>
+                <details class="mock-details">
+                  <summary>계산 상세</summary>
+                  <div class="detail-body">
+                    <div class="detail-section">
+                      <h3 class="detail-title">피해 계산</h3>
+                      <div class="calc-list">
+                        <div class="calc-row"><span>기본 피해</span><strong>3,654</strong></div>
+                        <div class="calc-row"><span>회피 경감 18.4% 적용</span><strong>2,981</strong></div>
+                        <div class="calc-row"><span>받는 피해 감소 23% 적용</span><strong>2,295</strong></div>
+                        <div class="calc-row final"><span>아레나 보정 65% 적용</span><strong>1,491</strong></div>
+                      </div>
+                    </div>
+                    <div class="detail-section">
+                      <h3 class="detail-title">적용 효과</h3>
+                      <div class="calc-list">
+                        <div class="calc-row"><span>중독</span><strong>+6스택 · 5회</strong></div>
+                        <div class="calc-row"><span>지속/저주 피해 증가</span><strong>+28% · 3행동</strong></div>
+                      </div>
+                    </div>
+                    <div class="detail-section">
+                      <h3 class="detail-title">연결된 반응</h3>
+                      <p class="detail-sentence"><strong>동키오의 수호 반사</strong>가 발동해 Allure에게 101 피해를 돌려줬습니다.</p>
+                    </div>
+                  </div>
+                </details>
+              </section>
+
+              <div class="example-label">완전 회피가 발생한 경우</div>
+
+              <section class="action left" aria-label="Allure의 공격을 동키오가 완전 회피">
+                <div class="action-head">
+                  <div class="actor">
+                    <div class="actor-name">Allure</div>
+                    <div class="skill">기본 공격</div>
+                  </div>
+                  <div class="result">
+                    <strong style="color: var(--right-accent)">완전 회피</strong>
+                  </div>
+                </div>
+                <div class="effects">
+                  <span class="reaction-line"><strong>동키오가</strong> Allure의 공격을 완전 회피</span>
+                  <span class="heal"><b>해연추적 발동</b> → 동키오 HP +263</span>
+                </div>
+                <details class="mock-details">
+                  <summary>회피 상세</summary>
+                  <div class="detail-body">
+                    <div class="detail-section">
+                      <h3 class="detail-title">회피 결과</h3>
+                      <div class="calc-list">
+                        <div class="calc-row"><span>회피한 대상</span><strong>동키오</strong></div>
+                        <div class="calc-row"><span>무효화한 공격</span><strong>Allure의 기본 공격</strong></div>
+                        <div class="calc-row"><span>받은 피해</span><strong>0</strong></div>
+                      </div>
+                    </div>
+                    <div class="detail-section">
+                      <h3 class="detail-title">해연추적 회복 계산</h3>
+                      <div class="calc-list">
+                        <div class="calc-row"><span>최대 HP 6,772 × 6%</span><strong>406</strong></div>
+                        <div class="calc-row final"><span>아레나 회복 보정 65%</span><strong style="color: var(--heal)">HP +263</strong></div>
+                      </div>
+                    </div>
+                  </div>
+                </details>
+              </section>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <p class="note">
+        <strong>시안 원칙:</strong> 상시 계산인 회피 경감·받피감은 숨기고, 기술·최종 피해·상태 변화만 한 묶음에 표시합니다.
+        반사나 완전 회피는 별도 ‘반응’ 카드로 떼지 않고, 원래 공격 아래에 주체와 대상을 모두 적어 연결합니다.
+      </p>
+    </main>
+    <script>
+      const actionDetails = document.querySelectorAll(".mock-details");
+      actionDetails.forEach((current) => {
+        current.addEventListener("toggle", () => {
+          if (!current.open) return;
+          actionDetails.forEach((other) => {
+            if (other !== current) other.open = false;
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

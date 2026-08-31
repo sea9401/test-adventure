@@ -138,6 +138,7 @@ export function FishingDailyChallengeView({
   onClaim,
   onBack,
   onOpenFishing,
+  onOpenDangerous,
   onOpenLeaderboard,
   onOpenHallOfFame,
   onOpenShop,
@@ -150,6 +151,7 @@ export function FishingDailyChallengeView({
   onBack?: () => void;
   // 낚시터 서브 탭바 — 미전달(dev 하니스)이면 그 탭 숨김.
   onOpenFishing?: () => void;
+  onOpenDangerous?: () => void;
   onOpenLeaderboard?: () => void;
   onOpenHallOfFame?: () => void;
   onOpenShop?: () => void;
@@ -189,6 +191,7 @@ export function FishingDailyChallengeView({
         active="challenges"
         challengeBadgeCount={claimableCount}
         onOpenFishing={onOpenFishing}
+        onOpenDangerous={onOpenDangerous}
         onOpenLeaderboard={onOpenLeaderboard}
         onOpenHallOfFame={onOpenHallOfFame}
         onOpenShop={onOpenShop}

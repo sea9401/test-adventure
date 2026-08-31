@@ -24,6 +24,7 @@ export async function settleMasteryTowerRollover(
   tx: DbExecutor,
   userId: string,
   date: string,
+  weekStartedAt?: string,
 ): Promise<MasteryTowerRolloverSettlement> {
   const rawTower = await lockSaveForUpdate<unknown>(
     tx,
@@ -31,7 +32,7 @@ export async function settleMasteryTowerRollover(
     MASTERY_TOWER_SAVE_KEY,
     {},
   );
-  const rollover = rolloverMasteryTowerState(rawTower, date);
+  const rollover = rolloverMasteryTowerState(rawTower, date, weekStartedAt);
   if (!rollover.rolledOver) {
     return {
       tower: rollover.tower,

@@ -1,7 +1,11 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import {
+  lockSaveForUpdate,
+  upsertSave,
+  upsertSaves,
+} from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
   activityGuardView,
@@ -28,7 +32,7 @@ import {
   MINING_SESSION_KEY,
   miningAttemptSucceeds,
   miningMaterialBalances,
-  parseMiningLog,
+  parseMiningLogWithLevelMigration,
   parseMiningSession,
   recordMiningSuccess,
 } from "@/adventure/v2/miningSession";
@@ -48,13 +52,14 @@ import {
   addJobCumLevel,
   parseProficiencyForChar,
 } from "@/adventure/data/v2/proficiency";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 import {
   V2_JOB_CATALOG,
   isMiningJobId,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
 import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
-import { lifeAidSpec, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
+import { consumeLifeAidUses, lifeAidSpec, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
   LIFE_FIELD_DISCOVERIES,
@@ -70,6 +75,9 @@ import {
   recordLifeFieldSuccessInTx,
 } from "@/lib/server/lifeFieldProgress";
 import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
+import { referralLifeTaskIds } from "@/adventure/data/v2/referralTutorial";
+import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
+import { miningPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
 
 type CharSave = {
   class?: unknown;
@@ -145,7 +153,9 @@ export async function POST(req: Request) {
       return { success: false as const, reason: "expired" as const };
     }
 
-    await upsertSave(tx, userId, MINING_SESSION_KEY, {});
+    const dirtySaves: Record<string, unknown> = {
+      [MINING_SESSION_KEY]: {},
+    };
     const guardUpdate = recordActivityCompletion(
       parseActivityGuardState(
         await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
@@ -153,7 +163,7 @@ export async function POST(req: Request) {
       "mining",
       now,
     );
-    await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, guardUpdate.state);
+    dirtySaves[ACTIVITY_GUARD_KEY] = guardUpdate.state;
     const nextActionAt = activityGuardView(
       guardUpdate.state,
       "mining",
@@ -161,11 +171,13 @@ export async function POST(req: Request) {
 
     const node = MINING_NODES[session.nodeId];
     const logRaw = await lockSaveForUpdate(tx, userId, MINING_LOG_KEY, {});
-    const currentLog = parseMiningLog(logRaw);
+    const parsedLog = parseMiningLogWithLevelMigration(logRaw);
+    const currentLog = parsedLog.log;
     const progression = miningProgressionView(
       currentLog.successes,
       currentLog.xp,
     );
+    const levelBonuses = miningPost50Bonuses(progression.level);
     const failureRate =
       session.failureRate ??
       miningFailureRate(node.baseFailureRate, progression.level);
@@ -175,6 +187,7 @@ export async function POST(req: Request) {
       (session.failureRecoveryRate ?? 0) > 0 &&
       Math.random() < (session.failureRecoveryRate ?? 0);
     if (!initiallySucceeded && !recovered) {
+      await upsertSaves(tx, userId, dirtySaves);
       return {
         success: false as const,
         reason: "failed" as const,
@@ -237,6 +250,7 @@ export async function POST(req: Request) {
       node,
       Math.random,
       (aidSpec?.byproductMultiplier ?? 1) * environmentByproductMultiplier,
+      levelBonuses,
     );
     const materialGained =
       MINING_ORE_REWARD +
@@ -251,19 +265,13 @@ export async function POST(req: Request) {
       [node.materialId]: materialGained,
       ...byproductDrops,
     });
-    await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
+    dirtySaves["character.v2"] = { ...charSave, materials };
     let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
     let crafting = workshop.crafting;
-    const activeAid = crafting.activeAids.mining;
-    if (session.aidItemId && activeAid?.itemId === session.aidItemId && activeAid.remainingUses > 0) {
-      const activeAids = { ...crafting.activeAids };
-      if (activeAid.remainingUses <= 1) delete activeAids.mining;
-      else activeAids.mining = { ...activeAid, remainingUses: activeAid.remainingUses - 1 };
-      crafting = { ...crafting, activeAids, aidsUsed: crafting.aidsUsed + 1 };
-    }
+    crafting = consumeLifeAidUses(crafting, "mining", session.aidItemId, 1).state;
     const blueprint = rollHiddenBlueprint(crafting, "mining");
     workshop = { ...workshop, crafting: blueprint.state };
-    await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);
+    dirtySaves[LIFE_WORKSHOP_SAVE_KEY] = workshop;
 
     const diningXp = await consumeGuildDiningEffect(
       tx,
@@ -287,7 +295,13 @@ export async function POST(req: Request) {
       byproducts: byproductTotal,
       xp: xpGained,
     });
-    await upsertSave(tx, userId, MINING_LOG_KEY, log);
+    dirtySaves[MINING_LOG_KEY] = log;
+    await rewardReferralTutorialTasks(
+      tx,
+      userId,
+      "새 모험가",
+      referralLifeTaskIds(miningProgressionView(log.successes, log.xp).level),
+    );
 
     const playerClass = parseV2Class(charSave.class);
     const group = tier1ClassOf(playerClass);
@@ -306,8 +320,23 @@ export async function POST(req: Request) {
       prof = addJobCumLevel(prof, jobId, 1);
       masteryGained = 1;
       masteryAfter = prof.jobCumLevel?.[jobId] ?? 0;
-      await upsertSave(tx, userId, "proficiency.v2", prof);
+      dirtySaves["proficiency.v2"] = prof;
+      if (masteryGained > 0) {
+        await recordCodexMasteryGameplayBatch(
+          tx,
+          userId,
+          [{
+            category: "job",
+            entryId: jobId,
+            amount: masteryGained,
+            source: "job.activity",
+          }],
+          new Date(now),
+        );
+      }
     }
+
+    await upsertSaves(tx, userId, dirtySaves);
 
     return {
       success: true as const,
@@ -341,6 +370,9 @@ export async function POST(req: Request) {
       log,
       blueprintRecipeId: blueprint.recipe?.id ?? null,
       lifeEnvironment: lifeFeatures.environmentEnabled ? lifeEnvironment : null,
+      ...(parsedLog.levelCurveMigrated
+        ? { levelCurveMigrated: true as const }
+        : {}),
       lifeField: {
         newRecordIds: lifeField.newRecordIds,
         foundTrace: lifeField.foundTrace,

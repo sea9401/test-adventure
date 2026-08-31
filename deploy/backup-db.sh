@@ -22,6 +22,18 @@ DIR="${BACKUP_DIR:-$HOME/backups}"
 KEEP_DAYS="${BACKUP_KEEP_DAYS:-14}"
 mkdir -p "$DIR"
 
+S3_URI="${BACKUP_S3_URI:-$(grep '^BACKUP_S3_URI=' "$ENV_PATH" | cut -d= -f2- | tr -d '"' || true)}"
+if [ -n "$S3_URI" ]; then
+  command -v aws >/dev/null 2>&1 || {
+    echo "BACKUP FAIL: BACKUP_S3_URI가 있지만 aws CLI가 없음" >&2
+    exit 1
+  }
+  # 새 덤프가 자랄 공간을 먼저 확보한다. S3에서 같은 객체가 확인되지 않은 파일은
+  # helper가 보존하므로 오프사이트 복제 없이 로컬 백업이 사라지지 않는다.
+  BACKUP_DIR="$DIR" BACKUP_S3_URI="$S3_URI" \
+    bash deploy/prune-offsite-backups.sh
+fi
+
 TS=$(date +%F_%H%M%S)
 OUT="$DIR/auto_${TS}.sql.gz"
 
@@ -41,12 +53,7 @@ fi
 
 echo "$(date -u +%FT%TZ) BACKUP OK: $OUT ($(du -h "$OUT" | cut -f1))"
 
-S3_URI="${BACKUP_S3_URI:-$(grep '^BACKUP_S3_URI=' "$ENV_PATH" | cut -d= -f2- | tr -d '"' || true)}"
 if [ -n "$S3_URI" ]; then
-  command -v aws >/dev/null 2>&1 || {
-    echo "BACKUP FAIL: BACKUP_S3_URI가 있지만 aws CLI가 없음" >&2
-    exit 1
-  }
   aws s3 cp "$OUT" "${S3_URI%/}/$(basename "$OUT")" --sse AES256 --only-show-errors
   echo "$(date -u +%FT%TZ) OFFSITE BACKUP OK: ${S3_URI%/}/$(basename "$OUT")"
 else

@@ -23,11 +23,13 @@ import {
 import {
   ADVENTURE_SUPPORT_PASS,
   MUSEUN_COIN_PACKAGES,
+  PREMIUM_ADVENTURE_SUPPORT_PASS,
 } from "@/adventure/data/v2/adventureSupport";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { PageShell } from "@/components/ui/PageShell";
 import { ProfileDecorationMotion } from "@/components/ui/ProfileDecorationMotion";
+import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
@@ -63,6 +65,55 @@ import {
 } from "@/adventure/data/v2/museunCosmetics";
 import { useSystemToast } from "./RewardToastProvider";
 import { PROFILE_BADGE_STAND_ITEM_ID } from "@/adventure/profile/profileShowcase";
+import {
+  GROWTH_LEAP_PACKAGE_ITEM_ID,
+  MONTHLY_STAMINA_BUNDLE_ITEM_ID,
+} from "@/adventure/data/v2/growthLeap";
+
+export type LimitedBundleShopState = {
+  monthlyStaminaBundle: {
+    purchases: number;
+    remaining: number;
+    limit: number;
+  };
+  growthLeapPackage: { owned: boolean };
+};
+
+const INITIAL_LIMITED_BUNDLE_STATE: LimitedBundleShopState = {
+  monthlyStaminaBundle: { purchases: 0, remaining: 3, limit: 3 },
+  growthLeapPackage: { owned: false },
+};
+
+export function bundlePurchaseUsesFixedQuantity(
+  itemId: MuseunCashItemId,
+): boolean {
+  return MUSEUN_CASH_ITEMS[itemId].delivery === "bundle";
+}
+
+export function limitedBundlePurchaseState(
+  itemId: MuseunCashItemId,
+  state: LimitedBundleShopState,
+): { label: string; blocked: boolean } | null {
+  if (itemId === MONTHLY_STAMINA_BUNDLE_ITEM_ID) {
+    const { purchases, remaining, limit } = state.monthlyStaminaBundle;
+    return {
+      label:
+        remaining <= 0
+          ? `이번 달 구매 완료 (${purchases}/${limit})`
+          : `이번 달 ${purchases}/${limit}회 구매`,
+      blocked: remaining <= 0,
+    };
+  }
+  if (itemId === GROWTH_LEAP_PACKAGE_ITEM_ID) {
+    return {
+      label: state.growthLeapPackage.owned
+        ? "계정 구매 완료"
+        : "계정당 평생 1회",
+      blocked: state.growthLeapPackage.owned,
+    };
+  }
+  return null;
+}
 
 const COSMETIC_RARITY_BADGE_CLASS: Record<
   ChromaNameRarity | CosmeticItemRarity,
@@ -94,6 +145,8 @@ export const CASH_ITEM_DETAIL_BODY_CLASS =
 export const CASH_ITEM_PURCHASE_CONFIRM_OVERLAY_CLASS =
   "fixed inset-0 z-[110] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center";
 export const CASH_ITEM_ART_PATHS: Partial<Record<MuseunCashItemId, string>> = {
+  adventure_support_premium_30d:
+    "/images/items/cash/adventure_support_premium_30d.svg",
   adventure_support_30d: "/images/items/cash/adventure_support_30d.svg",
   rename_permit: "/images/items/cash/rename_permit.svg",
   profile_image_permit: "/images/items/cash/profile_image_permit.svg",
@@ -105,7 +158,10 @@ export const CASH_ITEM_ART_PATHS: Partial<Record<MuseunCashItemId, string>> = {
 
 function itemSummary(itemId: MuseunCashItemId): string {
   const item = MUSEUN_CASH_ITEMS[itemId];
-  if (item.effect.kind === "adventure_support") {
+  if (
+    item.effect.kind === "adventure_support" ||
+    item.effect.kind === "adventure_support_premium"
+  ) {
     return `${item.effect.days}일간 모험 편의 혜택을 활성화합니다.`;
   }
   if (item.effect.kind === "rename") return "캐릭터 이름을 한 번 변경합니다.";
@@ -127,6 +183,18 @@ function itemSummary(itemId: MuseunCashItemId): string {
   if (item.effect.kind === "profile_badge_stand") {
     return "프로필에 업적 배지 3개를 전시하는 전시대를 영구 해금합니다.";
   }
+  if (item.effect.kind === "cultivation_reset") {
+    return "골드 소모 없이 수행 한계치를 초기화하고 숙달 포인트를 돌려받으며, 레벨 1·경험치 0으로 돌아갑니다.";
+  }
+  if (item.effect.kind === "level_target") {
+    return `사용 즉시 ${item.effect.level}레벨을 달성합니다.`;
+  }
+  if (item.effect.kind === "stamina_potion_bundle") {
+    return `귀속 스태미나 회복약 ${item.effect.potions}개를 받습니다.`;
+  }
+  if (item.effect.kind === "growth_leap") {
+    return `귀속 회복약 ${item.effect.potions}개와 ${item.effect.missionDays}일 성장 의뢰를 받습니다.`;
+  }
   return item.effect.slot === "profile_border"
     ? "프로필 바깥 테두리와 상단 배경 꾸미기를 해금하고 30일간 사용합니다."
     : "채팅 닉네임 앞에 표시할 배지를 해금하고 30일간 사용합니다.";
@@ -137,7 +205,14 @@ export const SHOP_ITEM_GROUPS = [
     id: "consumable",
     title: "이용권·소모품",
     description: "구매 후 가방에서 사용하는 기능성 상품입니다.",
-    itemIds: ["adventure_support_30d", "rename_permit", "profile_image_permit"],
+    itemIds: [
+      "adventure_support_premium_30d",
+      "adventure_support_30d",
+      MONTHLY_STAMINA_BUNDLE_ITEM_ID,
+      GROWTH_LEAP_PACKAGE_ITEM_ID,
+      "rename_permit",
+      "profile_image_permit",
+    ],
   },
   {
     id: "cosmetic",
@@ -151,28 +226,46 @@ export const SHOP_ITEM_GROUPS = [
   },
 ] as const;
 
-const SUPPORT_BENEFITS = [
-  {
-    Icon: Gauge,
-    label: `최대 에너지 ${ADVENTURE_SUPPORT_PASS.staminaMaxBonus.toLocaleString()} 증가 (기본 ${MAX_STAMINA.toLocaleString()} → ${(MAX_STAMINA + ADVENTURE_SUPPORT_PASS.staminaMaxBonus).toLocaleString()})`,
-  },
-  {
-    Icon: Lightning,
-    label: `에너지 회복량 ${ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct}% 증가`,
-  },
-  {
-    Icon: Storefront,
-    label: `거래소 등록 ${ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus}개 추가`,
-  },
-  {
-    Icon: Percent,
-    label: `거래소 수수료 ${ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}%로 감소`,
-  },
-  {
-    Icon: Sword,
-    label: `일괄 전투 최대 ${ADVENTURE_SUPPORT_PASS.activeMaxHuntBatch}회`,
-  },
-] as const;
+export function supportBenefitsForItem(
+  itemId:
+    | "adventure_support_30d"
+    | "adventure_support_premium_30d",
+) {
+  const premium = itemId === "adventure_support_premium_30d";
+  const pass = premium
+    ? PREMIUM_ADVENTURE_SUPPORT_PASS
+    : ADVENTURE_SUPPORT_PASS;
+  return [
+    {
+      Icon: Gauge,
+      label: `최대 에너지 ${pass.staminaMaxBonus.toLocaleString()} 증가 (기본 ${MAX_STAMINA.toLocaleString()} → ${(MAX_STAMINA + pass.staminaMaxBonus).toLocaleString()})`,
+    },
+    {
+      Icon: Lightning,
+      label: `에너지 회복량 ${pass.staminaRegenBonusPct}% 증가`,
+    },
+    {
+      Icon: Storefront,
+      label: `거래소 등록 ${pass.marketplaceSlotBonus}개 추가`,
+    },
+    {
+      Icon: Percent,
+      label: `거래소 수수료 ${pass.marketplaceTaxRate * 100}%로 감소`,
+    },
+    {
+      Icon: Sword,
+      label: `일괄 전투 최대 ${pass.activeMaxHuntBatch}회`,
+    },
+    ...(premium
+      ? [
+          {
+            Icon: Palette,
+            label: `꾸미기 30일 연장권 ${PREMIUM_ADVENTURE_SUPPORT_PASS.cosmeticExtensionGrant}개 지급`,
+          },
+        ]
+      : []),
+  ];
+}
 
 function MuseunCoinMark({ size = "md" }: { size?: "sm" | "md" }) {
   const box = size === "sm" ? "size-8" : "size-12";
@@ -202,6 +295,8 @@ export function MuseunCoinShopView({ embedded = false }: { embedded?: boolean })
     parseMuseunCosmetics(null),
   );
   const [profileBadgeStandOwned, setProfileBadgeStandOwned] = useState(false);
+  const [limitedBundles, setLimitedBundles] =
+    useState<LimitedBundleShopState>(INITIAL_LIMITED_BUNDLE_STATE);
   const [buying, setBuying] = useState<MuseunCashItemId | null>(null);
   const { notifySystem } = useSystemToast();
 
@@ -215,12 +310,22 @@ export function MuseunCoinShopView({ embedded = false }: { embedded?: boolean })
           cashItems?: MuseunCashItemCounts;
           cosmetics?: MuseunCosmeticsState;
           profileBadgeStandOwned?: boolean;
+          monthlyStaminaBundle?: LimitedBundleShopState["monthlyStaminaBundle"];
+          growthLeapPackage?: LimitedBundleShopState["growthLeapPackage"];
         } | null) => {
           if (!alive || !data) return;
           setCoins(Math.max(0, Math.floor(data.coins ?? 0)));
           setCashItems(data.cashItems ?? {});
           setCosmetics(parseMuseunCosmetics(data.cosmetics));
           setProfileBadgeStandOwned(data.profileBadgeStandOwned === true);
+          setLimitedBundles({
+            monthlyStaminaBundle:
+              data.monthlyStaminaBundle ??
+              INITIAL_LIMITED_BUNDLE_STATE.monthlyStaminaBundle,
+            growthLeapPackage:
+              data.growthLeapPackage ??
+              INITIAL_LIMITED_BUNDLE_STATE.growthLeapPackage,
+          });
         },
       )
       .catch(() => {});
@@ -247,14 +352,20 @@ export function MuseunCoinShopView({ embedded = false }: { embedded?: boolean })
         cashItems?: MuseunCashItemCounts;
         cosmetics?: MuseunCosmeticsState;
         profileBadgeStandOwned?: boolean;
-        delivery?: "inventory" | "entitlement" | "permanent";
+        monthlyStaminaBundle?: LimitedBundleShopState["monthlyStaminaBundle"];
+        growthLeapPackage?: LimitedBundleShopState["growthLeapPackage"];
+        delivery?: "inventory" | "entitlement" | "permanent" | "bundle";
       } | null;
       if (!res.ok || !data?.ok) {
         const errorMessage =
           data?.error === "insufficient_coins"
             ? "무슨 코인이 부족합니다."
             : data?.error === "already_owned"
-              ? "이미 해금한 꾸미기 상품입니다."
+              ? itemId === GROWTH_LEAP_PACKAGE_ITEM_ID
+                ? "계정당 한 번만 구매할 수 있는 상품입니다."
+                : "이미 해금한 꾸미기 상품입니다."
+              : data?.error === "monthly_limit"
+                ? "이번 달 구매 한도를 모두 사용했습니다."
               : "상품을 구매하지 못했습니다.";
         notifySystem(`✗ ${errorMessage}`);
         return;
@@ -263,8 +374,16 @@ export function MuseunCoinShopView({ embedded = false }: { embedded?: boolean })
       setCashItems(data.cashItems ?? {});
       setCosmetics(parseMuseunCosmetics(data.cosmetics));
       setProfileBadgeStandOwned(data.profileBadgeStandOwned === true);
+      if (data.monthlyStaminaBundle && data.growthLeapPackage) {
+        setLimitedBundles({
+          monthlyStaminaBundle: data.monthlyStaminaBundle,
+          growthLeapPackage: data.growthLeapPackage,
+        });
+      }
       notifySystem(
-        data.delivery === "permanent"
+        data.delivery === "bundle"
+          ? `✓ 구매 완료 — ${data.itemName ?? "패키지"}의 구성품을 지급했습니다.`
+          : data.delivery === "permanent"
           ? `✓ 구매 완료 — ${data.itemName ?? "영구 상품"}을 영구 해금했습니다.`
           : data.delivery === "entitlement"
           ? `✓ 구매 완료 — ${data.itemName ?? "꾸미기 상품"}을 해금하고 30일 사용 기간을 적용했습니다.`
@@ -350,6 +469,7 @@ export function MuseunCoinShopView({ embedded = false }: { embedded?: boolean })
                         ? profileBadgeStandOwned
                         : false
                     }
+                    limitedState={limitedBundles}
                     onClick={() => setDetailItemId(itemId)}
                   />
                 ))}
@@ -387,6 +507,7 @@ export function MuseunCoinShopView({ embedded = false }: { embedded?: boolean })
           cosmetics={cosmetics}
           buying={buying === detailItemId}
           purchaseBlocked={buying !== null}
+          limitedState={limitedBundles}
           onPurchase={() => setConfirmItemId(detailItemId)}
           onClose={() => setDetailItemId(null)}
         />
@@ -426,14 +547,15 @@ function CashItemPurchaseConfirmDialog({
 
   const item = MUSEUN_CASH_ITEMS[itemId];
   const permanent = item.delivery === "permanent";
-  const maxQuantity = permanent
+  const fixedQuantity = permanent || bundlePurchaseUsesFixedQuantity(itemId);
+  const maxQuantity = fixedQuantity
     ? coins >= item.coinPrice
       ? 1
       : 0
     : maxMuseunCoinShopPurchaseQuantity(coins, item.coinPrice);
   const [quantityInput, setQuantityInput] = useState("1");
   const parsedQuantity = Number(quantityInput);
-  const quantity = permanent
+  const quantity = fixedQuantity
     ? maxQuantity
     : Number.isInteger(parsedQuantity) &&
         parsedQuantity >= 1 &&
@@ -499,7 +621,7 @@ function CashItemPurchaseConfirmDialog({
         </p>
 
         <div className={`${SURFACE_INSET} mt-4 space-y-2 p-3 text-sm`}>
-          {!permanent ? (
+          {!fixedQuantity ? (
             <>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-zinc-500 dark:text-zinc-400">상품 가격</span>
@@ -585,6 +707,10 @@ function CashItemPurchaseConfirmDialog({
           <p className="mt-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
             계정에 영구 귀속되며 한 번만 구매할 수 있습니다.
           </p>
+        ) : fixedQuantity ? (
+          <p className="mt-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+            구성품이 묶인 한정 상품으로 구매 수량은 1개로 고정됩니다.
+          </p>
         ) : (
           <p className="mt-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
             보유 코인으로 최대 {maxQuantity.toLocaleString()}개, 한 번에 최대{" "}
@@ -648,7 +774,8 @@ function CashItemIcon({
   const iconClass =
     effect.kind === "profile_badge_stand"
       ? "bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-300"
-      : effect.kind === "adventure_support"
+      : effect.kind === "adventure_support" ||
+          effect.kind === "adventure_support_premium"
       ? "bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-300"
       : effect.kind === "rename" || effect.kind === "profile_image"
         ? "bg-sky-100 text-sky-600 dark:bg-sky-950 dark:text-sky-300"
@@ -660,9 +787,14 @@ function CashItemIcon({
             : "bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-950 dark:text-fuchsia-300";
   return (
     <span className={`inline-flex shrink-0 rounded-full p-2 ${iconClass}`}>
-      {effect.kind === "profile_badge_stand" ? (
+      {effect.kind === "stamina_potion_bundle" ? (
+        <PlumpGameIcon name="stamina_potion" size={size} />
+      ) : effect.kind === "growth_leap" ? (
+        <PlumpGameIcon name="celebration" size={size} />
+      ) : effect.kind === "profile_badge_stand" ? (
         <Trophy size={size} weight="duotone" aria-hidden />
-      ) : effect.kind === "adventure_support" ? (
+      ) : effect.kind === "adventure_support" ||
+        effect.kind === "adventure_support_premium" ? (
         <Sword size={size} weight="duotone" aria-hidden />
       ) : effect.kind === "rename" || effect.kind === "profile_image" ? (
         <IdentificationCard size={size} weight="duotone" aria-hidden />
@@ -682,15 +814,18 @@ function CashItemCard({
   itemId,
   owned,
   permanentOwned,
+  limitedState,
   onClick,
 }: {
   itemId: MuseunCashItemId;
   owned: number;
   permanentOwned: boolean;
+  limitedState: LimitedBundleShopState;
   onClick: () => void;
 }) {
   const item = MUSEUN_CASH_ITEMS[itemId];
   const summary = itemSummary(itemId);
+  const limited = limitedBundlePurchaseState(itemId, limitedState);
   return (
     <Card
       as="button"
@@ -713,7 +848,11 @@ function CashItemCard({
           <p className="font-bold tabular-nums text-amber-600 dark:text-amber-300">
             {item.coinPrice.toLocaleString()}코인
           </p>
-          {(owned > 0 || permanentOwned) && (
+          {limited ? (
+            <p className={`mt-0.5 text-[11px] ${limited.blocked ? "font-semibold text-emerald-600 dark:text-emerald-400" : "text-zinc-500 dark:text-zinc-400"}`}>
+              {limited.label}
+            </p>
+          ) : (owned > 0 || permanentOwned) && (
             <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
               {item.delivery === "permanent"
                 ? "영구 보유 중"
@@ -740,6 +879,7 @@ function CashItemDetailDialog({
   cosmetics,
   buying,
   purchaseBlocked,
+  limitedState,
   onPurchase,
   onClose,
 }: {
@@ -750,6 +890,7 @@ function CashItemDetailDialog({
   cosmetics: MuseunCosmeticsState;
   buying: boolean;
   purchaseBlocked: boolean;
+  limitedState: LimitedBundleShopState;
   onPurchase: () => void;
   onClose: () => void;
 }) {
@@ -758,6 +899,7 @@ function CashItemDetailDialog({
   useModalA11y(contentRef);
   const item = MUSEUN_CASH_ITEMS[itemId];
   const insufficient = coins < item.coinPrice;
+  const limited = limitedBundlePurchaseState(itemId, limitedState);
 
   return createPortal(
     <div
@@ -797,10 +939,11 @@ function CashItemDetailDialog({
         </div>
 
         <div className={CASH_ITEM_DETAIL_BODY_CLASS}>
-          {itemId === "adventure_support_30d" ? (
+          {itemId === "adventure_support_30d" ||
+          itemId === "adventure_support_premium_30d" ? (
             <>
               <div className={`${SURFACE_INSET} grid gap-2 p-3 sm:grid-cols-2`}>
-                {SUPPORT_BENEFITS.map(({ Icon, label }) => (
+                {supportBenefitsForItem(itemId).map(({ Icon, label }) => (
                   <div
                     key={label}
                     className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-200"
@@ -820,12 +963,26 @@ function CashItemDetailDialog({
                 ))}
               </div>
               <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-                구매하면 가방에 들어오며, 사용한 시점부터 30일이 적용됩니다. 거래소에서
-                다른 모험가와 거래할 수도 있습니다. 지원권이 없으면 일괄 전투는 최대{" "}
-                {ADVENTURE_SUPPORT_PASS.freeMaxHuntBatch}회까지 이용할 수 있습니다. 최초
-                활성화 시 에너지{" "}
-                {ADVENTURE_SUPPORT_PASS.staminaActivationGrant.toLocaleString()}이 즉시
-                지급됩니다.
+                {itemId === "adventure_support_premium_30d" ? (
+                  <>
+                    구매하면 가방에 들어오며 거래소에서 다른 모험가와 거래할 수 있습니다.
+                    사용할 때마다 프리미엄 혜택이 30일 적용되고 에너지{" "}
+                    {PREMIUM_ADVENTURE_SUPPORT_PASS.staminaActivationGrant.toLocaleString()}
+                    과 꾸미기 30일 연장권{" "}
+                    {PREMIUM_ADVENTURE_SUPPORT_PASS.cosmeticExtensionGrant}개를 받습니다.
+                    남아 있는 일반 지원권 기간은 프리미엄 이용 중 소모되지 않고 종료 뒤
+                    이어집니다.
+                  </>
+                ) : (
+                  <>
+                    구매하면 가방에 들어오며, 사용한 시점부터 30일이 적용됩니다. 거래소에서
+                    다른 모험가와 거래할 수도 있습니다. 지원권이 없으면 일괄 전투는 최대{" "}
+                    {ADVENTURE_SUPPORT_PASS.freeMaxHuntBatch}회까지 이용할 수 있습니다. 최초
+                    활성화 시 에너지{" "}
+                    {ADVENTURE_SUPPORT_PASS.staminaActivationGrant.toLocaleString()}이 즉시
+                    지급됩니다.
+                  </>
+                )}
               </p>
             </>
           ) : itemId === "rename_permit" ? (
@@ -839,6 +996,33 @@ function CashItemDetailDialog({
               있습니다. 변경권은 사용하기 전에 거래소에 등록해 다른 모험가와 거래할 수
               있습니다.
             </p>
+          ) : itemId === MONTHLY_STAMINA_BUNDLE_ITEM_ID ? (
+            <div className="space-y-3">
+              <div className={`${SURFACE_INSET} space-y-2 p-3 text-sm`}>
+                <p className="font-semibold">귀속 스태미나 회복약 20개</p>
+                <p className="text-zinc-600 dark:text-zinc-300">
+                  개당 200, 총 4,000 스태미나를 회복할 수 있습니다.
+                </p>
+              </div>
+              <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+                구매 즉시 귀속 회복약으로 지급되며 거래할 수 없습니다. 한국 시간 기준
+                매월 1일에 구매 횟수가 초기화됩니다.
+              </p>
+            </div>
+          ) : itemId === GROWTH_LEAP_PACKAGE_ITEM_ID ? (
+            <div className="space-y-3">
+              <div className={`${SURFACE_INSET} space-y-1.5 p-3 text-sm`}>
+                <p>귀속 스태미나 회복약 30개</p>
+                <p>닉네임 꾸미기 상자 1개 · 프로필 꾸미기 상자 1개</p>
+                <p>30일 성장 의뢰 · 숙련 증서 최대 5,000개</p>
+                <p>의뢰 보상: 귀속 회복약 10개 · 꾸미기 30일 연장권 1개</p>
+              </div>
+              <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+                계정당 평생 한 번만 구매할 수 있습니다. 구매 즉시 의뢰가 시작되며,
+                30일 동안 실제 사용한 스태미나가 누적됩니다. 종료 후 7일 동안은 달성한
+                보상만 수령할 수 있습니다. 모험 지원권은 포함되지 않습니다.
+              </p>
+            </div>
           ) : itemId === PROFILE_BADGE_STAND_ITEM_ID ? (
             <div className="space-y-3">
               <div className={`${SURFACE_INSET} flex items-center justify-center gap-3 p-4`}>
@@ -893,7 +1077,9 @@ function CashItemDetailDialog({
           <div className="mt-4 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
             <span>보유 코인 {coins.toLocaleString()}</span>
             <span>
-              {item.delivery === "permanent"
+              {limited
+                ? limited.label
+                : item.delivery === "permanent"
                 ? permanentOwned
                   ? "영구 보유 중"
                   : "계정 귀속 · 영구 사용"
@@ -907,11 +1093,18 @@ function CashItemDetailDialog({
           <button
             type="button"
             onClick={onPurchase}
-            disabled={purchaseBlocked || insufficient || permanentOwned}
+            disabled={
+              purchaseBlocked ||
+              insufficient ||
+              permanentOwned ||
+              limited?.blocked === true
+            }
             className="ui-game-button mt-3 w-full rounded-md border border-amber-500 bg-amber-500 px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-300 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-700"
           >
             {buying
               ? "구매 중…"
+              : limited?.blocked
+                ? "구매 완료"
               : permanentOwned
                 ? "보유 중"
                 : insufficient

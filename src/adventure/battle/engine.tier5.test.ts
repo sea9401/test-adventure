@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { advanceTurn, initialBattleState, type PlayerCombat } from "../v2/combat/engine";
+import {
+  advanceTurn,
+  finishPlayerTurn,
+  initialBattleState,
+  type PlayerCombat,
+} from "../v2/combat/engine";
 import type { Monster } from "../data/monsters";
 
 // 기본 PLAYER: atk 10, def 5, spd 10 — 적(atk 8, def 3, spd 5)보다 빠르므로 항상 선공.
@@ -93,28 +98,28 @@ describe("5티어 — 약점 분석", () => {
 
 describe("5티어 — 가시 갑옷", () => {
   it("받은 피해의 N% 를 적에게 반사", () => {
-    // 적 atk 100 → damageToDefender(100,5)=87 → 반사 원량 26 → 적 DEF 3 적용 후 23.
+    // 적 atk 100 → 물리 방어 적용 피해 99 → 반사 원량 29 → 적 DEF 3 적용 후 26.
     const p: PlayerCombat = { ...PLAYER, bramblePct: 30 };
     let s = initialBattleState(p, enemy(1000, { atk: 100 }), "용사");
     s = advanceTurn(s, p, "용사"); // 본타 7 → 993
     expect(s.enemyHp).toBe(993);
-    s = advanceTurn(s, p, "용사"); // 적 본타 87 피해 + 방어 적용 반사 23
-    expect(s.playerHp).toBe(9999 - 87);
-    expect(s.enemyHp).toBe(993 - 23);
+    s = advanceTurn(s, p, "용사");
+    expect(s.playerHp).toBe(9999 - 99);
+    expect(s.enemyHp).toBe(993 - 26);
   });
 
   it("반사 갑주(특기) 와 누적된다", () => {
-    // thorns 17 + bramble 26 = 반사 원량 43 → 적 DEF 3 적용 후 40.
+    // thorns 19 + bramble 29 = 반사 원량 48 → 적 DEF 3 적용 후 45.
     const p: PlayerCombat = { ...PLAYER, thornsPct: 20, bramblePct: 30 };
     let s = initialBattleState(p, enemy(1000, { atk: 100 }), "용사");
     s = advanceTurn(s, p, "용사"); // 본타
     const before = s.enemyHp;
     s = advanceTurn(s, p, "용사"); // 적 본타 + 합산 반사
-    expect(before - s.enemyHp).toBe(40);
+    expect(before - s.enemyHp).toBe(45);
   });
 
-  it("반사 태세 버프가 반사 피해 합산값을 증폭한다", () => {
-    // bramble 26, 반사 증폭 50% → 원량 39 → 적 DEF 3 적용 후 36.
+  it("반사 증폭 버프가 반사 피해 합산값을 증폭한다", () => {
+    // bramble 29, 반사 증폭 50% → 원량 43 → 적 DEF 3 적용 후 40.
     const p: PlayerCombat = { ...PLAYER, bramblePct: 30 };
     let s = initialBattleState(p, enemy(1000, { atk: 100 }), "용사");
     s = advanceTurn(s, p, "용사"); // 본타
@@ -128,8 +133,34 @@ describe("5티어 — 가시 갑옷", () => {
       },
     };
     s = advanceTurn(s, p, "용사"); // 적 본타 + 증폭 반사
-    expect(before - s.enemyHp).toBe(36);
+    expect(before - s.enemyHp).toBe(40);
     expect(s.log.some((e) => e.text.includes("반사 증폭"))).toBe(true);
+  });
+});
+
+describe("반응형 버프 횟수제", () => {
+  it("플레이어 행동 종료는 회피·피해 감소·반사 증가 횟수를 줄이지 않는다", () => {
+    const state = initialBattleState(PLAYER, enemy(9_999), "용사");
+    const next = finishPlayerTurn(
+      {
+        ...state,
+        stacks: {
+          ...state.stacks,
+          skillEvasionPct: 20,
+          skillEvasionTurns: 2,
+          skillDmgReducePct: 30,
+          skillDmgReduceTurns: 2,
+          skillReflectBoostPct: 50,
+          skillReflectBoostTurns: 2,
+        },
+      },
+      PLAYER,
+      "용사",
+    );
+
+    expect(next.stacks.skillEvasionTurns).toBe(2);
+    expect(next.stacks.skillDmgReduceTurns).toBe(2);
+    expect(next.stacks.skillReflectBoostTurns).toBe(2);
   });
 });
 

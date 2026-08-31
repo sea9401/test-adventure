@@ -1,7 +1,8 @@
 import type { FishTier } from "@/adventure/data/v2/fish";
 
 export const FISHING_STOCK_KEY = "fishing-stock.v1";
-export const FISHING_CATCH_ITEM_CHANCE_PCT = 10;
+export const FISHING_CATCH_ITEM_BASE_CHANCE_PCT = 25;
+export const FISHING_CATCH_ITEM_MAX_CHANCE_PCT = 40;
 
 export type FishingCatchItemId =
   | "catch_common"
@@ -56,17 +57,99 @@ export const FISHING_CATCH_ITEMS: Record<
 export const FISHING_CATCH_ITEM_LIST = Object.values(FISHING_CATCH_ITEMS);
 
 // 낮은 등급이 일일 총량을 먼저 채워 고등급 획득을 막지 않도록 등급별로 독립 집계한다.
-// 현재 출현 가중치(40/28/20/9/3)에 맞춰 합계 최대 100개/일로 배분했다.
+// 현재 출현 가중치(40/28/20/9/3)를 따르되 합계 최대 123개/일로 조금 완화했다.
 export const FISHING_CATCH_ITEM_DAILY_CAP: Record<
   FishingCatchItemId,
   number
 > = {
-  catch_common: 40,
-  catch_fresh: 30,
-  catch_quality: 20,
-  catch_special: 8,
-  catch_legendary: 2,
+  catch_common: 50,
+  catch_fresh: 35,
+  catch_quality: 25,
+  catch_special: 10,
+  catch_legendary: 3,
 };
+
+/** 기본 25%에 낚시 레벨 2당 1%p를 더하되 Lv.30부터 40%로 제한한다. */
+export function fishingCatchItemChancePct(fishingLevel: number): number {
+  const safeLevel = Math.max(
+    1,
+    Math.min(100, Math.floor(Number(fishingLevel) || 1)),
+  );
+  return Math.min(
+    FISHING_CATCH_ITEM_MAX_CHANCE_PCT,
+    FISHING_CATCH_ITEM_BASE_CHANCE_PCT + Math.floor(safeLevel / 2),
+  );
+}
+
+export type FishingCatchItemDailyProgress = {
+  itemId: FishingCatchItemId;
+  name: string;
+  awarded: number;
+  cap: number;
+};
+
+export function fishingCatchItemDailyProgress(
+  stock: FishingStock,
+  dayKey: string,
+): FishingCatchItemDailyProgress[] {
+  const awarded = stock.daily?.date === dayKey ? stock.daily.awarded : {};
+  return FISHING_CATCH_ITEM_LIST.map((item) => ({
+    itemId: item.id,
+    name: item.name,
+    awarded: Math.min(
+      FISHING_CATCH_ITEM_DAILY_CAP[item.id],
+      awarded[item.id] ?? 0,
+    ),
+    cap: FISHING_CATCH_ITEM_DAILY_CAP[item.id],
+  }));
+}
+
+export function parseFishingCatchItemDailyProgress(
+  raw: unknown,
+): FishingCatchItemDailyProgress[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((entry): FishingCatchItemDailyProgress[] => {
+    if (!entry || typeof entry !== "object") return [];
+    const value = entry as Record<string, unknown>;
+    if (
+      typeof value.itemId !== "string" ||
+      !isFishingCatchItemId(value.itemId)
+    ) {
+      return [];
+    }
+    if (
+      typeof value.awarded !== "number" ||
+      typeof value.cap !== "number" ||
+      !Number.isFinite(value.awarded) ||
+      !Number.isFinite(value.cap)
+    ) {
+      return [];
+    }
+    const normalizedCap = Math.floor(value.cap);
+    if (normalizedCap <= 0) return [];
+    return [
+      {
+        itemId: value.itemId,
+        name: FISHING_CATCH_ITEMS[value.itemId].name,
+        awarded: Math.min(normalizedCap, nonNegativeInt(value.awarded)),
+        cap: normalizedCap,
+      },
+    ];
+  });
+}
+
+export function replaceFishingCatchItemDailyProgress(
+  rows: readonly FishingCatchItemDailyProgress[],
+  raw: unknown,
+): FishingCatchItemDailyProgress[] {
+  const [replacement] = parseFishingCatchItemDailyProgress([raw]);
+  if (!replacement || !rows.some((row) => row.itemId === replacement.itemId)) {
+    return rows.slice();
+  }
+  return rows.map((row) =>
+    row.itemId === replacement.itemId ? replacement : row,
+  );
+}
 
 const CATCH_ITEM_BY_TIER = Object.fromEntries(
   FISHING_CATCH_ITEM_LIST.map((item) => [item.tier, item]),
@@ -149,6 +232,7 @@ export function rollFishingCatchToStock(
   tier: FishTier,
   dayKey: string,
   rng: () => number = Math.random,
+  fishingLevel = 1,
 ): FishingCatchStockRoll {
   const item = fishingCatchItemForTier(tier);
   const dailyAwarded =
@@ -164,7 +248,7 @@ export function rollFishingCatchToStock(
   if (dailyAwarded >= dailyCap) {
     return { ...base, awarded: false, reason: "daily_cap" };
   }
-  if (rng() >= FISHING_CATCH_ITEM_CHANCE_PCT / 100) {
+  if (rng() >= fishingCatchItemChancePct(fishingLevel) / 100) {
     return { ...base, awarded: false, reason: "roll_miss" };
   }
   const balance = (stock.items[item.id] ?? 0) + 1;

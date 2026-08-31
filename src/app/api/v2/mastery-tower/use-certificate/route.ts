@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 import {
   recordEconomyEventSoon,
   recordRewardFailureSoon,
@@ -9,9 +10,10 @@ import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
 import {
   LEGACY_CLASS_SPEC_BY_JOB,
   V2_JOB_CATALOG,
+  cumLevelForJob,
   isFarmingJobId,
   isFishingJobId,
-  isJobUnlocked,
+  isJobContentUnlocked,
   isRootJobSelectable,
 } from "@/adventure/data/v2/v2JobCatalog";
 import {
@@ -126,7 +128,7 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "farming_job" },
       };
     }
-    if (!isJobUnlocked(job, prof)) {
+    if (!isJobContentUnlocked(job, prof)) {
       return { status: 400, body: { ok: false as const, error: "job_locked" } };
     }
 
@@ -140,6 +142,17 @@ export async function POST(req: Request) {
       ...inventory,
       [MASTERY_CERTIFICATE_KEY]: remaining,
     });
+    await recordCodexMasteryGameplayBatch(
+      tx,
+      userId,
+      [{
+        category: "job",
+        entryId: job.id,
+        amount,
+        source: "job.consumable",
+      }],
+      new Date(),
+    );
 
     return {
       status: 200,
@@ -152,10 +165,7 @@ export async function POST(req: Request) {
         used: amount,
         remaining,
         groupMastery: prof.groups[group]?.cumLevel ?? 0,
-        jobMastery:
-          job.tier <= 1
-            ? (prof.groups[job.id]?.cumLevel ?? 0)
-            : (prof.jobCumLevel?.[job.id] ?? 0),
+        jobMastery: cumLevelForJob(prof, job),
       },
     };
   });

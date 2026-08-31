@@ -6,15 +6,29 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlayerCombat } from "../v2/combat/engine";
 import {
   advanceTurnPvP,
+  applyEvasionActionRecoveryPvP,
+  applyShadowStepDodge,
+  attackerFacingDef,
   castV2SkillOnAttackerTurnPvP,
   initialBattleStatePvP,
   resolveBattlePvP,
   type PvPResolveContext,
 } from "../v2/combat/engine-pvp";
-import { CRIT_MULT_BASE, RAMPAGE_START_TURN } from "../data/v2/v2CombatConstants";
+import {
+  CRIT_MULT_BASE,
+  PLAYER_BLEED_ATK_COEF_PER_STACK,
+  RAMPAGE_START_TURN,
+} from "../data/v2/v2CombatConstants";
 import type { Potion } from "../data/potions";
-import { V2_SKILLS } from "../data/v2/v2Skills";
-import { v2SkillMpCost } from "../v2/combat/combatShared";
+import {
+  V2_SKILLS,
+  type V2SkillsState,
+} from "../data/v2/v2Skills";
+import {
+  makePoisonDot,
+  resolveV2SkillCast,
+  v2SkillMpCost,
+} from "../v2/combat/combatShared";
 
 function makePlayer(over: Partial<PlayerCombat> = {}): PlayerCombat {
   return {
@@ -41,6 +55,130 @@ const HEAL_POTION: Potion = {
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+describe("PvP 직업 패시브 물리·마법 방어 감소", () => {
+  const castDamage = (
+    skillId: "v2_skill_strike" | "v2c_mage_fireball",
+    attackerOver: Partial<PlayerCombat> = {},
+    defenderOver: Partial<PlayerCombat> = {},
+    poisoned = false,
+  ) => {
+    const attacker = makePlayer({
+      spd: 100,
+      atk: 100,
+      magicAtk: 100,
+      maxMp: 1000,
+      mp: 1000,
+      accRating: 1000,
+      ...attackerOver,
+    });
+    const defender = makePlayer({
+      spd: 1,
+      hp: 5000,
+      maxHp: 5000,
+      def: 80,
+      magicDef: 80,
+      evasionPct: 0,
+      ...defenderOver,
+    });
+    const initial = initialBattleStatePvP(
+      attacker,
+      defender,
+      "P1",
+      "P2",
+      { learned: [skillId], equipped: [skillId] },
+    );
+    const state = poisoned
+      ? {
+          ...initial,
+          p2: {
+            ...initial.p2,
+            v2Dots: [
+              makePoisonDot({
+                stacks: 1,
+                pctMaxHpPerStack: 0,
+                sourceAtk: 0,
+              }),
+            ],
+          },
+        }
+      : initial;
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+    return state.p2.hp - cast.p2.hp;
+  };
+
+  it("물리와 마법 방어 감소는 각각 대응하는 PvP 스킬에만 적용된다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const physicalBase = castDamage("v2_skill_strike");
+    const magicBase = castDamage("v2c_mage_fireball");
+
+    expect(
+      castDamage("v2_skill_strike", {
+        enemyPhysicalDefReductionPct: 50,
+      }),
+    ).toBeGreaterThan(physicalBase);
+    expect(
+      castDamage("v2_skill_strike", { enemyMagicDefReductionPct: 50 }),
+    ).toBe(physicalBase);
+    expect(
+      castDamage("v2c_mage_fireball", {
+        enemyMagicDefReductionPct: 50,
+      }),
+    ).toBeGreaterThan(magicBase);
+    expect(
+      castDamage("v2c_mage_fireball", {
+        enemyPhysicalDefReductionPct: 50,
+      }),
+    ).toBe(magicBase);
+  });
+
+  it("물리 스킬은 중독 부식을 한 번만 적용한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const corroded = castDamage(
+      "v2_skill_strike",
+      { poisonedEnemyDefReductionPct: 50 },
+      {},
+      true,
+    );
+    const fortyDefenseControl = castDamage(
+      "v2_skill_strike",
+      {},
+      { def: 40 },
+      false,
+    );
+
+    expect(corroded).toBe(fortyDefenseControl);
+  });
+
+  it("물리 방어 감소와 부식은 합쳐 60%에서 멈추고 관통은 별도로 적용한다", () => {
+    const attacker = makePlayer({
+      spd: 100,
+      armorPierceFraction: 0.5,
+      enemyPhysicalDefReductionPct: 50,
+      poisonedEnemyDefReductionPct: 40,
+    });
+    const defender = makePlayer({ spd: 1, def: 1_000 });
+    const initial = initialBattleStatePvP(attacker, defender, "P1", "P2");
+    const poisonedDefender = {
+      ...initial.p2,
+      v2Dots: [
+        makePoisonDot({ stacks: 1, pctMaxHpPerStack: 0, sourceAtk: 0 }),
+      ],
+    };
+
+    expect(attackerFacingDef(initial.p1, poisonedDefender)).toBe(200);
+  });
+
+  it("마법 방어 감소도 60% 상한을 넘기면 피해가 더 오르지 않는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    expect(
+      castDamage("v2c_mage_fireball", { enemyMagicDefReductionPct: 90 }),
+    ).toBe(
+      castDamage("v2c_mage_fireball", { enemyMagicDefReductionPct: 60 }),
+    );
+  });
 });
 
 // ── 초기 상태 ───────────────────────────────────────────────────────────────
@@ -78,6 +216,26 @@ describe("initialBattleStatePvP — 초기 상태", () => {
     expect(s.phase).toBe("p2");
     expect(s.p2.attacksLeft).toBeGreaterThanOrEqual(1);
     expect(s.p1.attacksLeft).toBe(0);
+  });
+
+  it("레거시 결판도 주입한 속도 가중 추첨 결과로 선공자를 정한다", () => {
+    const oneHit = makePlayer({ hp: 100, maxHp: 100, atk: 1_000, spd: 60 });
+    const result = resolveBattlePvP(oneHit, oneHit, "P1", "P2", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: { p1: {}, p2: {} },
+      initiativeRoll: 0.75,
+    });
+
+    expect(result.outcome).toBe("p2_win");
+    expect(
+      result.finalState.log.find((entry) => entry.kind === "player_attack")
+        ?.side,
+    ).toBe("p2");
+    expect(
+      result.finalState.log.some((entry) =>
+        entry.text.includes("속도 가중 추첨 결과 — P2의 선공"),
+      ),
+    ).toBe(true);
   });
 
   it("HP/maxHp 가 양쪽에 시드", () => {
@@ -138,6 +296,82 @@ describe("initialBattleStatePvP — 초기 상태", () => {
   });
 });
 
+describe("행동 회피 회복", () => {
+  const recovery = {
+    trigger: "on_action_evasion" as const,
+    label: "봉인",
+    lostHpHealPct: 4,
+  };
+
+  it("현재 상대 기준 회피 경감률과 PvP 회복 배율을 적용한다", () => {
+    const state = initialBattleStatePvP(
+      makePlayer({
+        spd: 20,
+        hp: 500,
+        maxHp: 1000,
+        evaRating: 100,
+        equipSignatures: [recovery],
+      }),
+      makePlayer({ spd: 10, accRating: 0, accuracyPct: 0 }),
+      "P1",
+      "P2",
+      undefined,
+      undefined,
+      undefined,
+      0.5,
+    );
+
+    const after = applyEvasionActionRecoveryPvP(state, "p1", () => 0);
+
+    expect(after.p1.hp).toBe(510);
+    expect(after.log.some((entry) => entry.text.includes("[봉인]") && entry.text.includes("HP +10"))).toBe(true);
+  });
+
+  it("적을 처치하는 행동도 시작 시 한 번 회복한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const result = resolveBattlePvP(
+      makePlayer({
+        spd: 20,
+        hp: 500,
+        maxHp: 1000,
+        atk: 10_000,
+        evaRating: 100,
+        equipSignatures: [recovery],
+      }),
+      makePlayer({ spd: 10, hp: 10, maxHp: 10, accRating: 0, accuracyPct: 0 }),
+      "P1",
+      "P2",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: { p1: {}, p2: {} },
+      },
+    );
+
+    expect(result.outcome).toBe("p1_win");
+    expect(result.finalState.p1.hp).toBe(520);
+    expect(result.finalState.log.filter((entry) => entry.text.includes("[봉인]")).length).toBe(1);
+  });
+
+  it("완전 회피 자체로는 행동 회복 장비가 발동하지 않는다", () => {
+    const state = initialBattleStatePvP(
+      makePlayer({ spd: 20 }),
+      makePlayer({
+        spd: 10,
+        hp: 500,
+        maxHp: 1000,
+        equipSignatures: [recovery],
+      }),
+      "P1",
+      "P2",
+    );
+
+    const after = applyShadowStepDodge(state, "p1", "p2");
+
+    expect(after.p2.hp).toBe(500);
+    expect(after.log.some((entry) => entry.text.includes("[봉인]"))).toBe(false);
+  });
+});
+
 // ── 기본 흐름 ───────────────────────────────────────────────────────────────
 
 describe("advanceTurnPvP — 기본 흐름", () => {
@@ -195,6 +429,32 @@ describe("advanceTurnPvP — 기본 흐름", () => {
 // ── 공격자 측 능력 ──────────────────────────────────────────────────────────
 
 describe("공격자 측 능력 — 대칭 적용", () => {
+  it("정신 우세 마법 평타는 magicAtk로 공격하고 상대 magicDef로 경감된다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({
+        spd: 15,
+        atk: 1,
+        magicAtk: 50,
+        passiveMagicBasicAttack: true,
+        hp: 1000,
+        maxHp: 1000,
+      }),
+      makePlayer({
+        spd: 5,
+        atk: 1,
+        def: 100,
+        magicDef: 10,
+        hp: 1000,
+        maxHp: 1000,
+      }),
+      "P1",
+      "P2",
+    );
+    const s1 = advanceTurnPvP(s0);
+    expect(s0.p2.hp - s1.p2.hp).toBe(40);
+  });
+
   it("막다른 격노 (rampage) — 양쪽 사이드가 각자 ATK 누적", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(
@@ -255,7 +515,17 @@ describe("공격자 측 능력 — 대칭 적용", () => {
   it("출혈 도트 — p2 페이즈 진입 시 p2.hp 가 tagged bleed 만큼 추가 감소", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(
-      makePlayer({ spd: 15, atk: 20, def: 0, bleedOnHit: { flatPerStack: 5, atkCoefPerStack: 0.12 }, hp: 1000, maxHp: 1000 }),
+      makePlayer({
+        spd: 15,
+        atk: 20,
+        def: 0,
+        bleedOnHit: {
+          flatPerStack: 10,
+          atkCoefPerStack: PLAYER_BLEED_ATK_COEF_PER_STACK,
+        },
+        hp: 1000,
+        maxHp: 1000,
+      }),
       makePlayer({ spd: 5, atk: 1, def: 0, hp: 500, maxHp: 500 }),
       "P1",
       "P2",
@@ -263,11 +533,48 @@ describe("공격자 측 능력 — 대칭 적용", () => {
     // p1 공격 1회 — 본타 20 (def 0) + 출혈 스택 1, p2 턴 진입 시 출혈 tick.
     const s1 = advanceTurnPvP(s0);
     expect(s1.phase).toBe("p2");
-    expect(s1.p2.hp).toBe(500 - 20 - Math.floor(5 + 20 * 0.12)); // 출혈 floor(7.4)=7
+    expect(s1.p2.hp).toBe(
+      500 - 20 - Math.floor(10 + 20 * PLAYER_BLEED_ATK_COEF_PER_STACK),
+    );
     expect(s1.log.find((e) => e.text.includes("출혈"))).toMatchObject({
       effect: "status_damage",
       side: "p2",
     });
+  });
+
+  it("상태이상 피해는 보호막을 무시하고 HP에 직접 적용한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({
+        spd: 15,
+        atk: 20,
+        def: 0,
+        bleedOnHit: { flatPerStack: 5, atkCoefPerStack: 0.12 },
+        hp: 1000,
+        maxHp: 1000,
+      }),
+      makePlayer({
+        spd: 5,
+        atk: 1,
+        def: 0,
+        bulwarkShield: 50,
+        hp: 500,
+        maxHp: 500,
+      }),
+      "P1",
+      "P2",
+    );
+
+    const s1 = advanceTurnPvP(s0);
+
+    // 본타 20은 보호막에서 차감되지만 출혈 7은 남은 보호막 30을 건너뛴다.
+    expect(s1.p2.stacks.playerShield).toBe(30);
+    expect(s1.p2.hp).toBe(500 - Math.floor(5 + 20 * 0.12));
+    expect(
+      s1.log.find(
+        (e) => "effect" in e && e.effect === "status_damage",
+      ),
+    ).toMatchObject({ side: "p2" });
   });
 
   it("그림자 분신 (shadowClone) — p1 턴 종료 시 분신 추가 데미지", () => {
@@ -608,6 +915,42 @@ describe("방어자 측 dodge cascade", () => {
     expect(s1.log.some((e) => e.text.includes("회피 강화"))).toBe(true);
   });
 
+  it("밤기수 — 회피 시 속도 +25% 버프와 발동 로그", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({ spd: 15, atk: 30, def: 0, hp: 1000, maxHp: 1000 }),
+      makePlayer({
+        spd: 5,
+        atk: 1,
+        def: 0,
+        guaranteedEvades: 1,
+        hp: 500,
+        maxHp: 500,
+        equipSignatures: [
+          {
+            trigger: "on_dodge",
+            label: "밤기수",
+            spdBuffPct: 25,
+            buffActions: 2,
+          },
+        ],
+      }),
+      "P1",
+      "P2",
+    );
+
+    const s1 = advanceTurnPvP(s0);
+
+    expect(s1.p2.buffs.playerSpdMult).toBe(1.25);
+    expect(s1.p2.buffs.playerSpdTurnsLeft).toBe(2);
+    expect(
+      s1.log.some(
+        (entry) =>
+          entry.text.includes("[밤기수]") && entry.text.includes("속도 +25%"),
+      ),
+    ).toBe(true);
+  });
+
   it("행운의 방패 — 발동 시 공격 회피", () => {
     // Math.random=0 으로 모든 확률 발동. 단 shadowStep, evasion 등은 luckyShield 보다 먼저 굴려 적중하지 않게 — 그래서 그 능력들은 없게 설정.
     vi.spyOn(Math, "random").mockReturnValue(0);
@@ -802,6 +1145,74 @@ describe("방어자 측 on-hit reflect / counter", () => {
     expect(s1.log.some((e) => e.text.includes("25 반사 피해"))).toBe(true);
   });
 
+  it("반사 피해를 공격자의 보호막이 전부 흡수한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({
+        spd: 15,
+        atk: 50,
+        def: 0,
+        bulwarkShield: 30,
+        hp: 500,
+        maxHp: 500,
+      }),
+      makePlayer({
+        spd: 5,
+        atk: 1,
+        def: 0,
+        thornsPct: 50,
+        hp: 500,
+        maxHp: 500,
+      }),
+      "P1",
+      "P2",
+    );
+
+    const s1 = advanceTurnPvP(s0);
+
+    // 반사 25를 보호막 30이 전부 흡수한다.
+    expect(s1.p1.hp).toBe(500);
+    expect(s1.p1.stacks.playerShield).toBe(5);
+    expect(
+      s1.log.some((e) => e.text.includes("보호막이 반사 피해 25 흡수")),
+    ).toBe(true);
+    expect(s1.log.some((e) => e.text.includes("0 반사 피해"))).toBe(true);
+  });
+
+  it("보호막을 초과한 반사 피해만 공격자의 HP에 적용한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({
+        spd: 15,
+        atk: 50,
+        def: 0,
+        bulwarkShield: 10,
+        hp: 500,
+        maxHp: 500,
+      }),
+      makePlayer({
+        spd: 5,
+        atk: 1,
+        def: 0,
+        thornsPct: 50,
+        hp: 500,
+        maxHp: 500,
+      }),
+      "P1",
+      "P2",
+    );
+
+    const s1 = advanceTurnPvP(s0);
+
+    // 반사 25 중 보호막이 10을 흡수하고 나머지 15만 HP에 적용한다.
+    expect(s1.p1.hp).toBe(485);
+    expect(s1.p1.stacks.playerShield).toBe(0);
+    expect(
+      s1.log.some((e) => e.text.includes("보호막이 반사 피해 10 흡수")),
+    ).toBe(true);
+    expect(s1.log.some((e) => e.text.includes("15 반사 피해"))).toBe(true);
+  });
+
   it("가시 갑옷 (bramblePct, 5tier) — 받은 HP 피해의 N% 추가 반사 (반사 갑주와 별개)", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(
@@ -816,7 +1227,7 @@ describe("방어자 측 on-hit reflect / counter", () => {
     expect(s1.log.some((e) => e.text.includes("가시 갑옷"))).toBe(true);
   });
 
-  it("반사 태세 버프가 PvP 반사 피해도 증폭한다", () => {
+  it("반사 증폭 버프가 PvP 반사 피해도 증폭한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(
       makePlayer({ spd: 15, atk: 100, def: 0, hp: 500, maxHp: 500 }),
@@ -839,6 +1250,42 @@ describe("방어자 측 on-hit reflect / counter", () => {
     // p2 takes 100 dmg → thorns 20% = 20. 반사 증폭 50% = 30.
     expect(s1.p1.hp).toBe(470);
     expect(s1.log.some((e) => e.text.includes("반사 증폭"))).toBe(true);
+  });
+
+  it("방어력 기반 반사는 피격 누적 방어와 무관하게 전투 시작 원량을 사용한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({ spd: 15, atk: 200, def: 0, hp: 500, maxHp: 500 }),
+      makePlayer({
+        spd: 5,
+        atk: 1,
+        def: 100,
+        hp: 1000,
+        maxHp: 1000,
+        thornsDefPct: 100,
+        thornsFlatFromDef: 100,
+        equipSignatures: [
+          {
+            trigger: "on_hit_taken",
+            label: "맥동석",
+            defGainOnHitPct: 50,
+          },
+        ],
+      }),
+      "P1",
+      "P2",
+    );
+
+    const s1 = advanceTurnPvP(s0);
+
+    // 본타 100 피해로 방어 +50이 누적돼도 반사 원량은 전투 시작 시 계산한 100을 유지한다.
+    expect(s1.p2.stacks.braceDefBonus).toBe(50);
+    expect(s1.p1.hp).toBe(400);
+    expect(
+      s1.log.some(
+        (e) => e.text.includes("수호 반사") && e.text.includes("100 반사 피해"),
+      ),
+    ).toBe(true);
   });
 
   it("무한 가시 (on-hit 분기) — 공격자 ATK 의 N% 반사", () => {
@@ -998,7 +1445,7 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     expect(s.p2.v2Skills.equipped).toEqual([]);
   });
 
-  it("3타 스킬은 PvP에서도 3회 모두 세어 추가 행동 1회를 만든다", () => {
+  it("3타 스킬은 PvP에서도 3회 모두 세어 추가 기본 공격 1회를 만든다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     const state = initialBattleStatePvP(
       makePlayer({
@@ -1022,13 +1469,146 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
 
     expect(cast.p1.stacks.signatureHitCount).toBe(3);
-    expect(cast.p1.attacksLeft).toBe(attacksBefore + 1);
-    expect(cast.log.some((entry) => entry.text.includes("추가 행동 1회"))).toBe(
+    expect(attacksBefore).toBeGreaterThanOrEqual(1);
+    expect(cast.p1.attacksLeft).toBe(1);
+    expect(cast.log.some((entry) => entry.text.includes("추가 기본 공격 1회"))).toBe(
       true,
     );
   });
 
-  it("직접 피해 없는 상태이상 스킬도 회피되면 상대에게 남지 않는다", () => {
+  it("PvP에서도 every-N 효과가 만든 추가 기본 공격은 다음 주기 적중으로 집계하지 않는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const state = initialBattleStatePvP(
+      makePlayer({
+        spd: 15,
+        magicAtk: 300,
+        maxMp: 10_000,
+        equipSignatures: [
+          { trigger: "every_n_hits", label: "분쇄", everyNHits: 3 },
+        ],
+      }),
+      makePlayer({ spd: 5, hp: 10_000, maxHp: 10_000, def: 0 }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2c_mage_barrage"],
+        equipped: ["v2c_mage_barrage"],
+      },
+    );
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+
+    const afterBonusAttack = advanceTurnPvP(cast, { kind: "attack" });
+
+    expect(cast.p1.stacks.signatureHitCount).toBe(3);
+    expect(afterBonusAttack.p1.stacks.signatureHitCount).toBe(3);
+  });
+
+  it("직접 피해 스킬 피격에도 방어력 기반 반사가 발동한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const state = initialBattleStatePvP(
+      makePlayer({
+        spd: 15,
+        atk: 100,
+        def: 0,
+        hp: 500,
+        maxHp: 500,
+        maxMp: 1000,
+      }),
+      makePlayer({
+        spd: 5,
+        def: 40,
+        hp: 1000,
+        maxHp: 1000,
+        thornsDefPct: 100,
+        thornsFlatFromDef: 40,
+      }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+      },
+    );
+
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1");
+
+    expect(cast.castFired).toBe(true);
+    expect(cast.state.p1.hp).toBe(460);
+    expect(
+      cast.state.log.some(
+        (entry) =>
+          entry.text.includes("수호 반사") &&
+          entry.text.includes("40 반사 피해"),
+      ),
+    ).toBe(true);
+  });
+
+  it("월식 오프너는 PvE 5배 대신 PvP 전용 4배를 적용한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const skills: V2SkillsState = {
+      learned: ["v2c_nightshade_eclipse"],
+      equipped: ["v2c_nightshade_eclipse"],
+    };
+    const attacker = makePlayer({
+      hp: 10_000,
+      maxHp: 10_000,
+      mp: 1_000,
+      maxMp: 1_000,
+      atk: 1_000,
+      def: 500,
+      spd: 100,
+      attackCount: 1,
+      classTier: 3,
+      lukStat: 700,
+      critChancePct: 0,
+    });
+    const defender = makePlayer({
+      hp: 10_000,
+      maxHp: 10_000,
+      def: 500,
+      spd: 50,
+    });
+    const state = initialBattleStatePvP(
+      attacker,
+      defender,
+      "P1",
+      "P2",
+      skills,
+      { learned: [], equipped: [] },
+    );
+
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+    const actualPvPDamage = defender.maxHp - cast.p2.hp;
+    const resolve = (combatMode?: "pve" | "pvp") =>
+      resolveV2SkillCast({
+        skills,
+        cooldowns: {},
+        combatMode,
+        attacker: {
+          mp: 1_000,
+          atk: 1_000,
+          luk: 700,
+          maxHp: 10_000,
+          currentHp: 10_000,
+          classTier: 3,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+        target: {
+          def: 500,
+          currentHp: 10_000,
+          maxHp: 10_000,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+      }).enemyDamage;
+
+    expect(actualPvPDamage).toBe(resolve("pvp"));
+    expect(actualPvPDamage).toBe(2_667);
+    expect(resolve("pve")).toBe(3_194);
+  });
+
+  it("일반 회피도는 직접 피해 없는 상태이상 스킬을 막지 않는다", () => {
     const state = initialBattleStatePvP(
       makePlayer({ spd: 15, accuracyPct: 0, accRating: 0 }),
       makePlayer({ spd: 5, evasionPct: 100, evaRating: 100 }),
@@ -1043,10 +1623,105 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
 
     const cast = castV2SkillOnAttackerTurnPvP(state, "p1");
 
-    expect(cast.state.p2.v2Dots).toEqual([]);
-    expect(cast.state.log.some((entry) => entry.text.includes("빗나갔다"))).toBe(
-      true,
+    expect(cast.state.p2.v2Dots).toHaveLength(1);
+    expect(cast.state.log.some((entry) => entry.text.includes("빗나갔다"))).toBe(false);
+  });
+
+  it("피해 연동 회복은 회피 경감 후 실제 피해를 기준으로 발동한다", () => {
+    const state = initialBattleStatePvP(
+      makePlayer({
+        hp: 500,
+        maxHp: 1000,
+        mp: 1000,
+        maxMp: 1000,
+        spd: 15,
+        strStat: 100,
+        accuracyPct: 0,
+        accRating: 0,
+      }),
+      makePlayer({ spd: 5, evasionPct: 100, evaRating: 100 }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2c_blooddemon_reign"],
+        equipped: ["v2c_blooddemon_reign"],
+      },
     );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+
+    expect(cast.log.some((entry) => entry.text.includes("빗나갔다"))).toBe(false);
+    expect(cast.log.some((entry) => entry.text.includes("회피 경감"))).toBe(true);
+    expect(
+      cast.log.some(
+        (entry) => entry.text.includes("혈마군림") && entry.text.includes("회복했다"),
+      ),
+    ).toBe(true);
+    expect(cast.p2.hp).toBeLessThan(cast.p2.maxHp);
+  });
+
+  it("혈마군림은 HP 소모 후 보호막 포함 실제 피해의 20%를 회복한다", () => {
+    const state = initialBattleStatePvP(
+      makePlayer({
+        hp: 1000,
+        maxHp: 1000,
+        mp: 1000,
+        maxMp: 1000,
+        atk: 100,
+        strStat: 100,
+        spd: 15,
+      }),
+      makePlayer({ hp: 1000, maxHp: 1000, def: 0, spd: 5, bulwarkShield: 5000 }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2c_blooddemon_reign"],
+        equipped: ["v2c_blooddemon_reign"],
+      },
+    );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+    const shieldDamage = 5000 - cast.p2.stacks.playerShield;
+
+    expect(shieldDamage).toBeGreaterThan(0);
+    expect(cast.p2.hp).toBe(1000);
+    expect(cast.p1.hp).toBe(1000 - 140 + Math.floor(shieldDamage * 0.2));
+    expect(
+      cast.log.some(
+        (entry) => entry.text.includes("혈마군림") && entry.text.includes("회복했다"),
+      ),
+    ).toBe(true);
+  });
+
+  it("다른 HP 소모 공격기는 보호막을 먼저 깎되 회복하지 않는다", () => {
+    const state = initialBattleStatePvP(
+      makePlayer({
+        hp: 1000,
+        maxHp: 1000,
+        mp: 1000,
+        maxMp: 1000,
+        atk: 100,
+        strStat: 100,
+        spd: 15,
+      }),
+      makePlayer({ hp: 1000, maxHp: 1000, def: 0, spd: 5, bulwarkShield: 5000 }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2c_berserker_bloodslash"],
+        equipped: ["v2c_berserker_bloodslash"],
+      },
+    );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+
+    expect(cast.p1.hp).toBe(900);
+    expect(cast.p2.hp).toBe(1000);
+    expect(cast.p2.stacks.playerShield).toBeLessThan(5000);
+    expect(cast.log.some((entry) => entry.text.includes("회복했다"))).toBe(false);
   });
 
   it("그림자 도약 시전은 PvP에서도 보장 회피 1회를 충전한다", () => {
@@ -1127,7 +1802,13 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
         guaranteedEvades: 1,
         skillCritAfterEvade: true,
       }),
-      makePlayer({ hp: 1000, maxHp: 1000, atk: 100, spd: 99 }),
+      makePlayer({
+        hp: 1000,
+        maxHp: 1000,
+        atk: 100,
+        spd: 99,
+        critResistPct: 100,
+      }),
       "P1",
       "P2",
       {
@@ -1153,7 +1834,126 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     ).toBe(true);
   });
 
-  it("PvP 스킬 치명타도 치명타 시 속도 증가 고유 효과를 발동하고 표시한다", () => {
+  it("성도 조준의 스킬 치명타 피해는 PvP 스킬 치명 배율에도 적용된다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const castDamage = (critChancePct: number, skillCritDmgPct = 0) => {
+      const state = initialBattleStatePvP(
+        makePlayer({
+          hp: 500,
+          maxHp: 500,
+          maxMp: 500,
+          mp: 500,
+          atk: 100,
+          spd: 99,
+          critChancePct,
+          skillCritDmgPct,
+        }),
+        makePlayer({ hp: 10_000, maxHp: 10_000, def: 0, spd: 1 }),
+        "천궁",
+        "대상",
+        {
+          learned: ["v2_skill_strike"],
+          equipped: ["v2_skill_strike"],
+        },
+      );
+      const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+      return state.p2.hp - cast.p2.hp;
+    };
+
+    const noCritDamage = castDamage(0);
+    expect(castDamage(100, 30)).toBe(Math.floor(noCritDamage * 2));
+  });
+
+  it("PvP 확률 스킬 치명타는 대상의 치명타 저항만큼 발생 확률이 감소한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const castDamage = (critChancePct: number, critResistPct: number) => {
+      const state = initialBattleStatePvP(
+        makePlayer({
+          hp: 500,
+          maxHp: 500,
+          maxMp: 500,
+          mp: 500,
+          atk: 100,
+          spd: 99,
+          critChancePct,
+        }),
+        makePlayer({
+          hp: 10_000,
+          maxHp: 10_000,
+          def: 0,
+          spd: 1,
+          critResistPct,
+        }),
+        "공격자",
+        "대상",
+        {
+          learned: ["v2_skill_strike"],
+          equipped: ["v2_skill_strike"],
+        },
+      );
+      const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+      return state.p2.hp - cast.p2.hp;
+    };
+
+    const noCritDamage = castDamage(0, 0);
+    expect(castDamage(100, 75)).toBe(noCritDamage);
+    expect(castDamage(100, 74)).toBeGreaterThan(noCritDamage);
+  });
+
+  it("원초 증폭은 PvP에서도 직접 마법 스킬 치명타에만 적용된다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const castDamage = (
+      skillId:
+        | "v2c_mage_boltcast"
+        | "v2c_savior_judgment"
+        | "v2_skill_strike",
+      critChancePct: number,
+      equipmentMagicSkillCritDmgPct?: number,
+    ) => {
+      const state = initialBattleStatePvP(
+        makePlayer({
+          hp: 500,
+          maxHp: 500,
+          maxMp: 500,
+          mp: 500,
+          atk: 100,
+          magicAtk: 300,
+          spiStat: 300,
+          spd: 99,
+          critChancePct,
+          equipmentMagicSkillCritDmgPct,
+        }),
+        makePlayer({
+          hp: 10_000,
+          maxHp: 10_000,
+          def: 0,
+          magicDef: 0,
+          spd: 1,
+        }),
+        "태초술사",
+        "대상",
+        { learned: [skillId], equipped: [skillId] },
+      );
+      const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+      return state.p2.hp - cast.p2.hp;
+    };
+
+    const magicNoCrit = castDamage("v2c_mage_boltcast", 0);
+    const magicCrit = castDamage("v2c_mage_boltcast", 100);
+    expect(castDamage("v2c_mage_boltcast", 100, 30)).toBe(
+      magicCrit + Math.floor(magicNoCrit * 0.3),
+    );
+    const spiNoCrit = castDamage("v2c_savior_judgment", 0);
+    const spiCrit = castDamage("v2c_savior_judgment", 100);
+    expect(castDamage("v2c_savior_judgment", 100, 30)).toBe(
+      spiCrit + Math.floor(spiNoCrit * 0.3),
+    );
+    expect(castDamage("v2_skill_strike", 100, 30)).toBe(
+      castDamage("v2_skill_strike", 100),
+    );
+  });
+
+  it("PvP 스킬 치명타도 치명타 시 장비 효과를 모두 발동한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const s0 = initialBattleStatePvP(
       makePlayer({
@@ -1168,6 +1968,23 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
             trigger: "on_crit",
             label: "낙뢰",
             spdBuffPct: 20,
+            buffActions: 2,
+          },
+          {
+            trigger: "on_crit",
+            label: "독니",
+            poisonOnCrit: true,
+          },
+          {
+            trigger: "on_crit",
+            label: "한기",
+            chillSlowPct: 30,
+            buffActions: 2,
+          },
+          {
+            trigger: "on_crit",
+            label: "갑주부식",
+            enemyDefDebuffPct: 10,
             buffActions: 2,
           },
         ],
@@ -1186,7 +2003,148 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     expect(cast.state.p1.buffs.playerSpdMult).toBe(1.2);
     expect(cast.state.p1.buffs.playerSpdTurnsLeft).toBe(2);
     expect(
+      cast.state.p2.v2Dots.find((dot) => dot.tag === "poison")?.stacks,
+    ).toBe(1);
+    expect(cast.state.p1.buffs.enemySpdMult).toBe(0.7);
+    expect(cast.state.p1.buffs.enemySpdTurnsLeft).toBe(2);
+    expect(cast.state.p1.buffs.enemyDefDebuffPct).toBe(10);
+    expect(cast.state.p1.buffs.enemyDefDebuffTurnsLeft).toBe(2);
+    expect(
       cast.state.log.some((entry) => entry.text.includes("[낙뢰]")),
+    ).toBe(true);
+    expect(cast.state.log.some((entry) => entry.text.includes("[독니]"))).toBe(
+      true,
+    );
+    expect(
+      cast.state.log.some((entry) => entry.text.includes("[갑주부식]")),
+    ).toBe(true);
+  });
+
+  it("PvP 다단 스킬도 적중 시 중독·출혈·감전을 시전당 한 번 발동한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const s0 = initialBattleStatePvP(
+      makePlayer({
+        hp: 500,
+        maxHp: 500,
+        maxMp: 500,
+        atk: 100,
+        spd: 15,
+        critChancePct: 0,
+        equipSignatures: [
+          {
+            trigger: "on_hit",
+            label: "독무응축",
+            poisonChancePct: 100,
+            poisonStacks: 1,
+          },
+          {
+            trigger: "on_hit",
+            label: "골절",
+            bleedChancePct: 100,
+            bleedStacks: 1,
+          },
+          {
+            trigger: "on_hit",
+            label: "뇌침",
+            shockChancePct: 100,
+          },
+        ],
+      }),
+      makePlayer({ hp: 1000, maxHp: 1000, spd: 5 }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2c_mage_barrage"],
+        equipped: ["v2c_mage_barrage"],
+      },
+    );
+
+    const cast = castV2SkillOnAttackerTurnPvP(s0, "p1");
+
+    expect(
+      cast.state.p2.v2Dots.find((dot) => dot.tag === "poison")?.stacks,
+    ).toBe(1);
+    expect(
+      cast.state.p2.v2Dots.find((dot) => dot.tag === "bleed")?.stacks,
+    ).toBe(1);
+    expect(cast.state.p2.stacks.shockAction).toBe("pending");
+    expect(
+      cast.state.log.filter((entry) => entry.text.includes("[독무응축]")),
+    ).toHaveLength(1);
+    expect(
+      cast.state.log.filter((entry) => entry.text.includes("[골절]")),
+    ).toHaveLength(1);
+    expect(
+      cast.state.log.filter((entry) => entry.text.includes("[뇌침]")),
+    ).toHaveLength(1);
+  });
+
+  it("PvP 상태 차단은 스킬과 장비가 한번에 거는 적 상태이상을 모두 막는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const s0 = initialBattleStatePvP(
+      makePlayer({
+        hp: 500,
+        maxHp: 500,
+        maxMp: 500,
+        atk: 100,
+        spd: 15,
+        critChancePct: 100,
+        equipSignatures: [
+          {
+            trigger: "on_crit",
+            label: "낙뢰",
+            spdBuffPct: 20,
+            buffActions: 2,
+          },
+          {
+            trigger: "on_crit",
+            label: "갑주부식",
+            enemyDefDebuffPct: 10,
+            buffActions: 2,
+          },
+          {
+            trigger: "on_hit",
+            label: "독무응축",
+            poisonChancePct: 100,
+            poisonStacks: 1,
+          },
+          {
+            trigger: "on_hit",
+            label: "뇌침",
+            shockChancePct: 100,
+          },
+        ],
+      }),
+      makePlayer({
+        hp: 1000,
+        maxHp: 1000,
+        spd: 5,
+        equipSignatures: [
+          {
+            trigger: "status_block_once",
+            label: "결계",
+            statusBlockOnce: true,
+          },
+        ],
+      }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2c_rogue_poison"],
+        equipped: ["v2c_rogue_poison"],
+      },
+    );
+
+    const cast = castV2SkillOnAttackerTurnPvP(s0, "p1");
+
+    expect(cast.state.p1.buffs.playerSpdMult).toBe(1.2);
+    expect(cast.state.p2.v2Dots).toEqual([]);
+    expect(cast.state.p1.buffs.enemySpdMult).toBe(1);
+    expect(cast.state.p1.buffs.enemyDefDebuffPct).toBe(0);
+    expect(cast.state.p2.stacks.shockAction).toBeUndefined();
+    expect(cast.state.p2.flags.statusBlockUsed).toBe(true);
+    expect(
+      cast.state.log.some((entry) => entry.text.includes("[결계]")),
     ).toBe(true);
   });
 
@@ -1312,7 +2270,7 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
         (e) =>
           e.kind === "info" &&
           e.text.includes("속박 사격") &&
-          e.text.includes("가하는 피해 +20%"),
+          e.text.includes("적 받는 피해 +20%"),
       ),
     ).toBe(true);
   });
@@ -1345,6 +2303,67 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     // 시전자 패시브로 상대(p2)에 마법취약 누적(>0), 상한 10 클램프.
     expect(r.finalState.p2.stacks.magicVulnStacks).toBeGreaterThan(0);
     expect(r.finalState.p2.stacks.magicVulnStacks).toBeLessThanOrEqual(10);
+  });
+
+  it("흉조는 PvP에서도 마법취약 스택이 실제 증가할 때 누적 수치를 기록한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const state = initialBattleStatePvP(
+      makePlayer({
+        spd: 100,
+        atk: 100,
+        maxMp: 1000,
+        mp: 1000,
+        enemyMagicVulnPctPerStack: 5,
+        enemyMagicVulnApplyChancePct: 100,
+      }),
+      makePlayer({ spd: 1, def: 0, hp: 5000, maxHp: 5000 }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+      },
+    );
+
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+
+    expect(cast.p2.stacks.magicVulnStacks).toBe(1);
+    expect(cast.log.some((entry) =>
+      entry.text.includes("[흉조] P2에게 마법취약 +1 (1/10)"),
+    )).toBe(true);
+  });
+
+  it("PvP 흉조는 이미 최대 스택이면 추가 로그를 남기지 않는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const state = initialBattleStatePvP(
+      makePlayer({
+        spd: 100,
+        atk: 100,
+        maxMp: 1000,
+        mp: 1000,
+        enemyMagicVulnPctPerStack: 5,
+        enemyMagicVulnApplyChancePct: 100,
+      }),
+      makePlayer({ spd: 1, def: 0, hp: 5000, maxHp: 5000 }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+      },
+    );
+    const capped = {
+      ...state,
+      p2: {
+        ...state.p2,
+        stacks: { ...state.p2.stacks, magicVulnStacks: 10 },
+      },
+    };
+
+    const cast = castV2SkillOnAttackerTurnPvP(capped, "p1").state;
+
+    expect(cast.p2.stacks.magicVulnStacks).toBe(10);
+    expect(cast.log.some((entry) => entry.text.includes("[흉조]"))).toBe(false);
   });
 
   it("PR2-B — 주문 중첩(워메이지)이 PvP 스킬 시전마다 누적된다", () => {
@@ -1406,6 +2425,17 @@ describe("PvE 효과 PvP 미러 — 흡혈/받피감/별빛 인내", () => {
       {},
     );
     expect(heal.p1.hp).toBe(200); // 199 + 큰 회복 → 200 클램프
+  });
+
+  it("별빛 흡혈 — 보호막에 전량 흡수된 0 피해 공격은 회복 없음", () => {
+    const blocked = firstAttack(
+      { hp: 50, maxHp: 200, enchantLifestealPct: 50 },
+      { bulwarkShield: 100 },
+    );
+
+    expect(blocked.p1.hp).toBe(50);
+    expect(blocked.p2.hp).toBe(300);
+    expect(blocked.log.some((l) => l.text.includes("별빛 흡혈"))).toBe(false);
   });
 
   it("받피감(passiveDamageTakenReductionPct) — PvP 에서 받는 피해 감소(이전엔 inert)", () => {

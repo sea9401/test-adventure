@@ -4,7 +4,8 @@
 //   → 골든 byte-identical.
 //
 // 🔑 라이브 사냥=단일 적 1v1 → on-kill 무용(처치=전투 종료) → 전투 중 트리거만(battle_start/
-//   low_hp/on_heal/on_dodge/on_crit/on_hit/on_hit_taken/on_skill_cast/status_block_once/every_n_hits).
+//   low_hp/on_heal/on_dodge/on_action_evasion/on_crit/on_hit/on_hit_taken/on_skill_cast/
+//   status_block_once/every_n_hits).
 //   PR-2a = low_hp(성물) PvE+PvP. 나머지 트리거는 PR-2b.
 
 import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
@@ -43,19 +44,139 @@ export function battleStartShield(
   return { amount, label: labels.join(" + ") };
 }
 
-// on_heal 보호막 전환 — 실제 HP 회복량의 %만큼 playerShield 에 더한다.
+export function trackedBattleStartShield(
+  signatures: SignatureEffect[] | undefined,
+  maxHp: number,
+): { amount: number; label: string } | null {
+  if (!signatures || maxHp <= 0) return null;
+  const tracked = signatures.filter(
+    (signature) =>
+      signature.trigger === "tracked_shield_break" &&
+      (signature.trackedShieldPctMaxHp ?? 0) > 0,
+  );
+  const amount = tracked.reduce(
+    (sum, signature) =>
+      sum + Math.floor((maxHp * (signature.trackedShieldPctMaxHp ?? 0)) / 100),
+    0,
+  );
+  if (amount <= 0) return null;
+  return { amount, label: tracked.map((signature) => signature.label).join(" + ") };
+}
+
+export function resolveTrackedShieldAbsorption(input: {
+  remaining: number;
+  totalShieldBefore: number;
+  shieldAbsorbed: number;
+  alreadyTriggered: boolean;
+}): { remaining: number; triggered: boolean } {
+  const before = Math.max(0, input.remaining);
+  if (before <= 0 || input.alreadyTriggered) {
+    return { remaining: before, triggered: false };
+  }
+  const untrackedShieldBefore = Math.max(
+    0,
+    Math.max(0, input.totalShieldBefore) - before,
+  );
+  const trackedAbsorbed = Math.max(
+    0,
+    Math.max(0, input.shieldAbsorbed) - untrackedShieldBefore,
+  );
+  const remaining = Math.max(0, before - trackedAbsorbed);
+  return { remaining, triggered: remaining === 0 };
+}
+
+export function trackedShieldBreakEffect(
+  signatures: SignatureEffect[] | undefined,
+): {
+  label: string;
+  cleanse: boolean;
+  damageReductionPct: number;
+  actions: number;
+} | null {
+  const effects = (signatures ?? []).filter(
+    (signature) => signature.trigger === "tracked_shield_break",
+  );
+  if (effects.length === 0) return null;
+  return {
+    label: effects.map((effect) => effect.label).join(" + "),
+    cleanse: effects.some((effect) => effect.cleanseHarmfulStatuses),
+    damageReductionPct: effects.reduce(
+      (sum, effect) => sum + Math.max(0, effect.damageTakenReductionPct ?? 0),
+      0,
+    ),
+    actions: Math.max(1, ...effects.map((effect) => effect.buffActions ?? 1)),
+  };
+}
+
+export function resolveDirectSkillHitSignatures(
+  signatures: SignatureEffect[] | undefined,
+  input: { dealtDamage: boolean; targetPoisoned: boolean },
+  roll: () => number = Math.random,
+): {
+  damageMult: number;
+  poison: { stacks: number; label: string } | null;
+} {
+  if (!signatures || !input.dealtDamage) {
+    return { damageMult: 1, poison: null };
+  }
+  let damagePct = 0;
+  let poisonStacks = 0;
+  const poisonLabels: string[] = [];
+  for (const signature of signatures) {
+    if (signature.trigger !== "direct_skill_hit") continue;
+    if (input.targetPoisoned) {
+      damagePct += Math.max(0, signature.poisonedTargetDamagePct ?? 0);
+    }
+    if (
+      (signature.poisonChancePct ?? 0) > 0 &&
+      roll() * 100 < (signature.poisonChancePct ?? 0)
+    ) {
+      poisonStacks += Math.max(1, signature.poisonStacks ?? 1);
+      poisonLabels.push(signature.label);
+    }
+  }
+  return {
+    damageMult: 1 + damagePct / 100,
+    poison:
+      poisonStacks > 0
+        ? { stacks: poisonStacks, label: poisonLabels.join(" + ") }
+        : null,
+  };
+}
+
+export const HEAL_TO_SHIELD_MAX_PCT_MAX_HP = 30;
+
+export type HealToShieldInput = {
+  /** 최대 HP 적용 뒤 실제로 회복된 양. 0이면 치유가 성립하지 않아 발동하지 않는다. */
+  actualHeal: number;
+  /** 최대 HP 적용 전 산출 회복량. 회복 투자가 보호막에 보존되는 기준값. */
+  calculatedHeal: number;
+  maxHp: number;
+};
+
+// on_heal 보호막 전환 — 실제 치유가 발생했을 때 산출 회복량의 %만큼 playerShield 에 더한다.
+// 초과 회복을 보호막으로 보존하되 한 번에 maxHp 30%까지만 허용한다.
 export function healToShield(
   signatures: SignatureEffect[] | undefined,
-  actualHeal: number,
+  input: HealToShieldInput,
 ): { amount: number; label: string } | null {
-  if (!signatures || actualHeal <= 0) return null;
+  const actualHeal = Math.max(0, input.actualHeal);
+  const calculatedHeal = Math.max(0, input.calculatedHeal);
+  const maxHp = Math.max(0, input.maxHp);
+  if (!signatures || actualHeal <= 0 || calculatedHeal <= 0 || maxHp <= 0) {
+    return null;
+  }
   let amount = 0;
   const labels: string[] = [];
   for (const s of signatures) {
     if (s.trigger !== "on_heal" || !s.healToShieldPct) continue;
-    amount += Math.floor((actualHeal * s.healToShieldPct) / 100);
+    amount += Math.floor((calculatedHeal * s.healToShieldPct) / 100);
     labels.push(s.label);
   }
+  amount = Math.min(
+    amount,
+    Math.floor((maxHp * HEAL_TO_SHIELD_MAX_PCT_MAX_HP) / 100),
+  );
   if (amount <= 0) return null;
   return { amount, label: labels.join(" + ") };
 }
@@ -228,42 +349,113 @@ export function rollOnHitShock(
   signatures: SignatureEffect[] | undefined,
   dealtDamage: boolean,
   roll: () => number = Math.random,
-): { mult: number; turns: number; label: string } | null {
+): { label: string } | null {
   if (!dealtDamage || !signatures) return null;
-  let best: { mult: number; turns: number } | null = null;
   const labels: string[] = [];
   for (const s of signatures) {
-    if (s.trigger !== "on_hit" || !s.shockChancePct || !s.shockSlowPct) continue;
+    if (s.trigger !== "on_hit" || !s.shockChancePct) continue;
     if (roll() * 100 >= s.shockChancePct) continue;
-    const mult = Math.max(0.1, 1 - s.shockSlowPct / 100);
-    const turns = Math.max(1, s.buffActions ?? 1);
     labels.push(s.label);
-    if (!best || mult < best.mult) best = { mult, turns };
   }
-  if (!best) return null;
-  return { ...best, label: labels.join(" + ") };
+  if (labels.length === 0) return null;
+  return { label: labels.join(" + ") };
 }
 
-export function formatShockSlowLog(
-  targetName: string,
-  shock: { mult: number; turns: number; label: string },
-): string {
-  const slowPct = Math.max(0, Math.round((1 - shock.mult) * 100));
-  return `[${shock.label}] ${targetName}이(가) 감전되어 움직임이 끊긴다. (속도 ${slowPct}% 감소, ${shock.turns}행동)`;
-}
+export type OffensiveSignatureTriggers = {
+  critSpeed: ReturnType<typeof onCritSpeedBuff>;
+  critPoison: boolean;
+  hitPoison: ReturnType<typeof rollOnHitPoison>;
+  hitBleed: ReturnType<typeof rollOnHitBleed>;
+  critChill: ReturnType<typeof onCritEnemyChill>;
+  critDefDebuff: ReturnType<typeof onCritEnemyDefDebuff>;
+  hitShock: ReturnType<typeof rollOnHitShock>;
+};
 
-// on_dodge 회복(봉인된 반지) — 회피 성공 시 maxHp 의 healPct% 회복량 합산. 없으면 0.
-export function onDodgeHealAmount(
+/** 한 번의 실제 피해 공격에서 발동할 적중·치명타 장비 시그니처를 함께 판정한다. */
+export function resolveOffensiveSignatureTriggers(
   signatures: SignatureEffect[] | undefined,
+  input: {
+    critical: boolean;
+    dealtDamage: boolean;
+    allowShock: boolean;
+  },
+  roll: () => number = Math.random,
+): OffensiveSignatureTriggers {
+  const critSpeed = onCritSpeedBuff(
+    signatures,
+    input.critical,
+    input.dealtDamage,
+  );
+  const critPoison = firesOnCritPoison(
+    signatures,
+    input.critical,
+    input.dealtDamage,
+  );
+  const hitPoison = rollOnHitPoison(signatures, input.dealtDamage, roll);
+  const hitBleed = rollOnHitBleed(signatures, input.dealtDamage, roll);
+  const critChill = onCritEnemyChill(
+    signatures,
+    input.critical,
+    input.dealtDamage,
+  );
+  const critDefDebuff = onCritEnemyDefDebuff(
+    signatures,
+    input.critical,
+    input.dealtDamage,
+  );
+  const hitShock = input.allowShock
+    ? rollOnHitShock(signatures, input.dealtDamage, roll)
+    : null;
+  return {
+    critSpeed,
+    critPoison,
+    hitPoison,
+    hitBleed,
+    critChill,
+    critDefDebuff,
+    hitShock,
+  };
+}
+
+export function formatShockAppliedLog(
+  targetName: string,
+  shock: { label: string },
+): string {
+  return `[${shock.label}] ${targetName}의 다음 행동이 감전으로 끊긴다.`;
+}
+
+// on_action_evasion 회복 — 행동마다 현재 상대 기준 회피 경감률의 절반 확률로
+// 잃은 HP 의 lostHpHealPct%를 회복한다. 여러 장비는 한 번 판정하고 회복률을 합산한다.
+export function rollEvasionActionRecovery(
+  signatures: SignatureEffect[] | undefined,
+  currentHp: number,
   maxHp: number,
-): number {
-  if (!signatures || maxHp <= 0) return 0;
-  let amt = 0;
-  for (const s of signatures) {
-    if (s.trigger !== "on_dodge" || !s.healPct) continue;
-    amt += Math.floor((s.healPct / 100) * maxHp);
+  evasionReductionPct: number,
+  roll: () => number = Math.random,
+): { amount: number; label: string } | null {
+  if (
+    !signatures ||
+    maxHp <= 0 ||
+    currentHp <= 0 ||
+    currentHp >= maxHp ||
+    evasionReductionPct <= 0
+  ) {
+    return null;
   }
-  return amt;
+  let lostHpHealPct = 0;
+  const labels: string[] = [];
+  for (const s of signatures) {
+    if (s.trigger !== "on_action_evasion" || !s.lostHpHealPct) continue;
+    lostHpHealPct += s.lostHpHealPct;
+    labels.push(s.label);
+  }
+  const amount = Math.floor(
+    ((maxHp - Math.max(0, currentHp)) * lostHpHealPct) / 100,
+  );
+  if (amount <= 0 || labels.length === 0) return null;
+  const procChancePct = Math.max(0, evasionReductionPct) / 2;
+  if (roll() * 100 >= procChancePct) return null;
+  return { amount, label: labels.join(" + ") };
 }
 
 // every_n_hits — 평타·스킬 공용 실제 적중 주기 N(가장 작은 N = 가장 자주)과 발동 라벨.
@@ -288,18 +480,18 @@ export function everyNHitsValue(
   return everyNHitsEffect(signatures)?.hits ?? 0;
 }
 
-// on_dodge 속도 버프(독왕 세트) — 회피 성공 시 발동할 속도 버프 {배수, 지속행동}(가장 강한).
+// on_dodge 속도 버프 — 회피 성공 시 발동할 속도 버프 {배수, 지속행동, 라벨}(가장 강한).
 //   미장착/미발동 = null.
 export function onDodgeSpeedBuff(
   signatures: SignatureEffect[] | undefined,
-): { mult: number; turns: number } | null {
+): { mult: number; turns: number; label: string } | null {
   if (!signatures) return null;
-  let best: { mult: number; turns: number } | null = null;
+  let best: { mult: number; turns: number; label: string } | null = null;
   for (const s of signatures) {
     if (s.trigger !== "on_dodge" || !s.spdBuffPct) continue;
     const mult = 1 + s.spdBuffPct / 100;
     const turns = Math.max(1, s.buffActions ?? 1);
-    if (!best || mult > best.mult) best = { mult, turns };
+    if (!best || mult > best.mult) best = { mult, turns, label: s.label };
   }
   return best;
 }

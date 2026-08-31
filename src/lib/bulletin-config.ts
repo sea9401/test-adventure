@@ -3,7 +3,7 @@ export const BULLETIN_MAX_LENGTH = 4000;
 // 공지(notice)는 운영자 전용 안내라 본문을 더 길게 허용(점검·업데이트 안내가 길어짐).
 // 일반 유저 글(free/guide)은 BULLETIN_MAX_LENGTH 유지 — bulletinMaxLength() 로 분기.
 // 항상 BULLETIN_MAX_LENGTH 이상으로 유지(공지가 일반 글보다 짧으면 안 됨).
-export const BULLETIN_NOTICE_MAX_LENGTH = 9000;
+export const BULLETIN_NOTICE_MAX_LENGTH = 20_000;
 export const BULLETIN_TITLE_MAX_LENGTH = 50;
 export const BULLETIN_RATE_LIMIT_MS = 60_000; // 1분에 1개
 export const BULLETIN_FETCH_LIMIT = 50;

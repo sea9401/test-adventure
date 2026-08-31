@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
+import {
+  lockSaveForUpdate,
+  readSave,
+  upsertSave,
+  upsertSaves,
+} from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
   parseActivityGuardState,
@@ -21,13 +26,17 @@ import {
   isMiningNodeId,
   miningMaterialBalances,
   parseMiningLog,
+  parseMiningLogWithLevelMigration,
   pickMiningNodeId,
 } from "@/adventure/v2/miningSession";
 import {
   miningDurationWithPassive,
   miningFailureRate,
   miningProgressionView,
+  miningXpForLevel,
 } from "@/adventure/v2/miningProgression";
+import { applyLifeXpGain } from "@/adventure/v2/lifeLevelProgression";
+import { miningPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
 import {
   MINING_AUTO_KEY,
   autoGatheringCompletedAttempts,
@@ -53,6 +62,7 @@ import {
   addJobCumLevel,
   parseProficiencyForChar,
 } from "@/adventure/data/v2/proficiency";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 import {
   V2_JOB_CATALOG,
   isMiningJobId,
@@ -67,7 +77,7 @@ import {
   lifeGatheringBonusPct,
   parseLifeWorkshopState,
 } from "@/adventure/v2/lifeWorkshop";
-import { lifeAidSpec, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
+import { consumeLifeAidUses, lifeAidSpec, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
   applyLifeFieldDurationReduction,
@@ -129,6 +139,7 @@ export async function POST(req: Request) {
     const node = MINING_NODES[nodeId];
     const parsedLog = parseMiningLog(logRaw);
     const progression = miningProgressionView(parsedLog.successes, parsedLog.xp);
+    const levelBonuses = miningPost50Bonuses(progression.level);
     const bonuses = equippedMiningBonuses(parseV2SkillsState(skillsRaw).equipped);
     const workshop = parseLifeWorkshopState(workshopRaw);
     const toolTier = workshop.tools.mining;
@@ -141,7 +152,8 @@ export async function POST(req: Request) {
       1,
       (bonuses.bonusOreChancePct +
         LIFE_TOOL_BONUS_MATERIAL_PCT[toolTier] +
-        lifeGatheringBonusPct("mining", workshop, progression.level)) /
+        lifeGatheringBonusPct("mining", workshop, progression.level) +
+        levelBonuses.bonusOreChancePct) /
         100,
     );
     const baseCycleDurationMs = miningDurationWithPassive(
@@ -211,6 +223,7 @@ export async function POST(req: Request) {
     }
     return Response.json({
       ok: true,
+      serverNow: Date.now(),
       autoSession: startResult.session,
       materialName: MINING_MATERIALS[node.materialId].name,
       lifeEnvironment,
@@ -290,21 +303,28 @@ export async function POST(req: Request) {
     const discoveryRewardXp = discoveryReward?.xp ?? 0;
     settlement.materialsGained += discoveryRewardGained;
     settlement.xpGained += discoveryRewardXp;
+    const parsedLog = parseMiningLogWithLevelMigration(
+      await lockSaveForUpdate(tx, userId, MINING_LOG_KEY, {}),
+    );
+    const currentLog = parsedLog.log;
+    const dirtySaves: Record<string, unknown> = {};
+    const levelBonuses = miningPost50Bonuses(
+      miningProgressionView(currentLog.successes, currentLog.xp).level,
+    );
     let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
     let crafting = workshop.crafting;
-    const activeAid = crafting.activeAids.mining;
     let aidSuccesses = 0;
-    if (session.aidItemId && activeAid?.itemId === session.aidItemId) {
-      aidSuccesses = Math.min(settlement.successes, activeAid.remainingUses);
-      settlement.materialsGained += Math.floor(aidSuccesses * (session.aidBonusMaterialRate ?? 0) * session.materialEfficiency);
-      const activeAids = { ...crafting.activeAids };
-      if (aidSuccesses >= activeAid.remainingUses) delete activeAids.mining;
-      else activeAids.mining = { ...activeAid, remainingUses: activeAid.remainingUses - aidSuccesses };
-      crafting = { ...crafting, activeAids, aidsUsed: crafting.aidsUsed + aidSuccesses };
+    if (session.aidItemId) {
+      const aidConsumption = consumeLifeAidUses(crafting, "mining", session.aidItemId, settlement.successes);
+      aidSuccesses = aidConsumption.consumed;
+      settlement.materialsGained += Math.floor(
+        aidSuccesses * (session.aidBonusMaterialRate ?? 0),
+      );
+      crafting = aidConsumption.state;
     }
     const blueprint = rollHiddenBlueprint(crafting, "mining", settlement.successes);
     workshop = { ...workshop, crafting: blueprint.state };
-    await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);
+    dirtySaves[LIFE_WORKSHOP_SAVE_KEY] = workshop;
     const byproductDrops: Record<string, number> = {};
     for (let index = 0; index < settlement.successes; index += 1) {
       for (const [materialId, amount] of Object.entries(
@@ -315,6 +335,7 @@ export async function POST(req: Request) {
             (lifeFeatures.environmentEnabled
               ? session.environmentByproductMultiplier ?? 1
               : 1),
+          levelBonuses,
         ),
       )) {
         byproductDrops[materialId] =
@@ -335,7 +356,7 @@ export async function POST(req: Request) {
       [node.materialId]: settlement.materialsGained,
       ...byproductDrops,
     });
-    await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
+    dirtySaves["character.v2"] = { ...charSave, materials };
 
     const environmentXpGained = lifeFeatures.environmentEnabled
       ? Math.floor(
@@ -356,13 +377,15 @@ export async function POST(req: Request) {
       new Date(now),
     );
     const xpGained = settlement.xpGained + diningXp.bonus;
-    const currentLog = parseMiningLog(
-      await lockSaveForUpdate(tx, userId, MINING_LOG_KEY, {}),
-    );
+    const appliedXp = applyLifeXpGain({
+      xp: currentLog.xp,
+      gainedXp: xpGained,
+      legacyThreshold: miningXpForLevel,
+    });
     const log = {
       ...currentLog,
       successes: currentLog.successes + settlement.successes,
-      xp: currentLog.xp + xpGained,
+      xp: appliedXp.xp,
       oreEarned: currentLog.oreEarned + settlement.materialsGained,
       byproductsEarned: currentLog.byproductsEarned + byproductTotal,
       nodes: {
@@ -370,7 +393,7 @@ export async function POST(req: Request) {
         [node.id]: (currentLog.nodes[node.id] ?? 0) + settlement.successes,
       },
     };
-    await upsertSave(tx, userId, MINING_LOG_KEY, log);
+    dirtySaves[MINING_LOG_KEY] = log;
 
     const playerClass = parseV2Class(charSave.class);
     const group = tier1ClassOf(playerClass);
@@ -389,9 +412,23 @@ export async function POST(req: Request) {
       proficiency = addJobCumLevel(proficiency, jobId, settlement.masteryGained);
       masteryGained = settlement.masteryGained;
       masteryAfter = proficiency.jobCumLevel?.[jobId] ?? 0;
-      await upsertSave(tx, userId, "proficiency.v2", proficiency);
+      dirtySaves["proficiency.v2"] = proficiency;
+      if (masteryGained > 0) {
+        await recordCodexMasteryGameplayBatch(
+          tx,
+          userId,
+          [{
+            category: "job",
+            entryId: jobId,
+            amount: masteryGained,
+            source: "job.activity",
+          }],
+          new Date(now),
+        );
+      }
     }
-    await upsertSave(tx, userId, MINING_AUTO_KEY, settlement.state);
+    dirtySaves[MINING_AUTO_KEY] = settlement.state;
+    await upsertSaves(tx, userId, dirtySaves);
     return {
       settlement,
       node,
@@ -425,6 +462,7 @@ export async function POST(req: Request) {
           }
         : null,
       lifeFieldFeedEnabled: lifeFeatures.feedEnabled,
+      levelCurveMigrated: parsedLog.levelCurveMigrated,
     };
   });
 
@@ -486,5 +524,6 @@ export async function POST(req: Request) {
     log: result.log,
     autoSession: null,
     activeAutoActivity: result.activeAutoActivity,
+    ...(result.levelCurveMigrated ? { levelCurveMigrated: true } : {}),
   });
 }

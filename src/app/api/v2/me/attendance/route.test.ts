@@ -38,7 +38,7 @@ vi.mock("@/lib/server/economyLog", () => ({
   recordRewardFailureSoon: mocks.recordRewardFailureSoon,
 }));
 
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 const JULY_20 = new Date("2026-07-20T03:00:00Z");
 const DAY_MS = 86_400_000;
@@ -47,6 +47,13 @@ function julyDayKeys(count: number): string[] {
   return Array.from(
     { length: count },
     (_, index) => `2026-07-${String(index + 1).padStart(2, "0")}`,
+  );
+}
+
+function septemberDayKeys(count: number): string[] {
+  return Array.from(
+    { length: count },
+    (_, index) => `2026-09-${String(index + 1).padStart(2, "0")}`,
   );
 }
 
@@ -63,6 +70,36 @@ beforeEach(() => {
 });
 
 describe("월간 출석 보상 수령", () => {
+  it("2026년 9월에는 확정된 전용 보상표를 안내한다", async () => {
+    vi.setSystemTime(new Date("2026-09-01T03:00:00Z"));
+
+    const response = await GET();
+    const json = (await response.json()) as {
+      monthKey: string;
+      rewards: Array<Record<string, unknown>>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.monthKey).toBe("2026-09");
+    expect(json.rewards).toHaveLength(28);
+    expect(
+      [1, 7, 8, 11, 14, 17, 19, 21, 24, 28].map(
+        (day) => json.rewards[day - 1],
+      ),
+    ).toEqual([
+      { kind: "adventure_support", days: 7 },
+      { kind: "stamina_potion", count: 2 },
+      { kind: "boss_summon_scroll", count: 10 },
+      { kind: "torn_map_fragment", count: 5 },
+      { kind: "stamina_potion", count: 3 },
+      { kind: "boss_summon_scroll", count: 15 },
+      { kind: "torn_map_fragment", count: 10 },
+      { kind: "mastery_certificate", count: 500 },
+      { kind: "boss_summon_scroll", count: 20 },
+      { kind: "mastery_certificate", count: 1_500 },
+    ]);
+  });
+
   it("직업 없는 신규 모험가도 1일차 지원권 15일을 계정에 직접 적용한다", async () => {
     const response = await POST();
     const json = (await response.json()) as {
@@ -115,7 +152,12 @@ describe("월간 출석 보상 수령", () => {
     expect(mocks.saves.get("character.v2")).toEqual(characterAfterFirst);
   });
 
-  it("다음 날에는 다음 칸의 푸른 강화석을 지급한다", async () => {
+  it("다음 날에는 다음 칸의 찢어진 지도 조각을 기존 재료에 누적한다", async () => {
+    mocks.saves.set("character.v2", {
+      gold: 1_000,
+      stamina: { current: 500, lastUpdatedAt: JULY_20.getTime() },
+      materials: { v2_torn_map_fragment: 3 },
+    });
     expect((await POST()).status).toBe(200);
     vi.setSystemTime(new Date(JULY_20.getTime() + DAY_MS));
 
@@ -128,15 +170,52 @@ describe("월간 출석 보상 수령", () => {
 
     expect(response.status).toBe(200);
     expect(json.reward).toEqual({
-      kind: "enhancement_stone",
-      color: "blue",
-      count: 1,
+      kind: "torn_map_fragment",
+      count: 2,
     });
     expect(json.claimedCount).toBe(2);
-    expect(json.grantedMaterials).toEqual({ v2_blue_enhance_stone: 1 });
+    expect(json.grantedMaterials).toEqual({ v2_torn_map_fragment: 2 });
     expect(mocks.saves.get("character.v2")).toMatchObject({
       gold: 1_000,
-      materials: { v2_blue_enhance_stone: 1 },
+      materials: { v2_torn_map_fragment: 5 },
+    });
+    expect(mocks.recordEconomyEventSoon).toHaveBeenCalledWith({
+      userId: "u-attendance",
+      eventType: "reward.monthly_attendance",
+      itemKind: "material",
+      itemId: "v2_torn_map_fragment",
+      quantity: 2,
+    });
+  });
+
+  it("6일차에는 협동 주화를 기존 재료에 누적한다", async () => {
+    mocks.saves.set("monthly-attendance.v1", {
+      monthKey: "2026-07",
+      claimedDayKeys: julyDayKeys(5),
+    });
+    mocks.saves.set("character.v2", {
+      class: "warrior",
+      materials: { v2_coop_coin: 7 },
+    });
+
+    const response = await POST();
+    const json = (await response.json()) as {
+      reward: { kind: string; count: number };
+      grantedMaterials: Record<string, number>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.reward).toEqual({ kind: "coop_coin", count: 20 });
+    expect(json.grantedMaterials).toEqual({ v2_coop_coin: 20 });
+    expect(mocks.saves.get("character.v2")).toMatchObject({
+      materials: { v2_coop_coin: 27 },
+    });
+    expect(mocks.recordEconomyEventSoon).toHaveBeenCalledWith({
+      userId: "u-attendance",
+      eventType: "reward.monthly_attendance",
+      itemKind: "material",
+      itemId: "v2_coop_coin",
+      quantity: 20,
     });
   });
 
@@ -156,7 +235,10 @@ describe("월간 출석 보상 수령", () => {
     expect(response.status).toBe(200);
     expect(json.reward).toEqual({ kind: "stamina_potion", count: 2 });
     expect(json.staminaPotions).toBe(7);
-    expect(mocks.saves.get("stamina-potions.v1")).toEqual({ count: 7 });
+    expect(mocks.saves.get("stamina-potions.v1")).toEqual({
+      count: 7,
+      boundCount: 0,
+    });
     expect(mocks.recordEconomyEventSoon).toHaveBeenCalledWith(
       expect.objectContaining({
         itemId: "stamina_potion",
@@ -202,85 +284,146 @@ describe("월간 출석 보상 수령", () => {
     );
   });
 
-  it("14일차에는 보스 소환서와 채팅 배지 상자를 함께 지급한다", async () => {
+  it("14일차에는 지원권 7일과 채팅 배지 상자를 함께 지급한다", async () => {
     mocks.saves.set("monthly-attendance.v1", {
       monthKey: "2026-07",
       claimedDayKeys: julyDayKeys(13),
     });
+    const previousActiveUntil = JULY_20.getTime() + 10 * DAY_MS;
+    mocks.saves.set("character.v2", {
+      class: "warrior",
+      adventureSupport: { activeUntil: previousActiveUntil },
+      stamina: { current: 500, lastUpdatedAt: JULY_20.getTime() },
+    });
 
     const response = await POST();
     const json = (await response.json()) as {
-      reward: { kind: string; count: number };
+      reward: { kind: string; days: number; cosmeticBox: string };
+      adventureSupportActiveUntil: number;
     };
 
     expect(response.status).toBe(200);
     expect(json.reward).toEqual({
-      kind: "boss_summon_scroll",
-      count: 3,
+      kind: "adventure_support",
+      days: 7,
       cosmeticBox: "chat_badge_box",
     });
+    expect(json.adventureSupportActiveUntil).toBe(
+      previousActiveUntil + 7 * DAY_MS,
+    );
     expect(mocks.saves.get("character.v2")).toMatchObject({
-      materials: { v2_boss_summon_scroll: 3 },
+      adventureSupport: { activeUntil: previousActiveUntil + 7 * DAY_MS },
+      stamina: { current: 500 },
       cashItems: { chat_badge_box: 1 },
     });
   });
 
-  it("21일차에는 숙련의 증표를 전용 인벤토리에 누적한다", async () => {
+  it("21일차에는 숙련의 증표와 지원권 7일을 함께 지급한다", async () => {
     vi.setSystemTime(new Date("2026-07-25T03:00:00Z"));
     mocks.saves.set("monthly-attendance.v1", {
       monthKey: "2026-07",
       claimedDayKeys: julyDayKeys(20),
     });
+    const previousActiveUntil = JULY_20.getTime() + 10 * DAY_MS;
+    mocks.saves.set("character.v2", {
+      class: "warrior",
+      adventureSupport: { activeUntil: previousActiveUntil },
+      stamina: { current: 500, lastUpdatedAt: JULY_20.getTime() },
+    });
     mocks.saves.set("inventory.v2", { masteryCertificates: 50 });
 
     const response = await POST();
     const json = (await response.json()) as {
-      reward: { kind: string; count: number };
+      reward: { kind: string; count: number; adventureSupportDays: number };
       masteryCertificates: number;
+      adventureSupportActiveUntil: number;
     };
 
     expect(response.status).toBe(200);
-    expect(json.reward).toEqual({ kind: "mastery_certificate", count: 300 });
+    expect(json.reward).toEqual({
+      kind: "mastery_certificate",
+      count: 300,
+      adventureSupportDays: 7,
+    });
     expect(json.masteryCertificates).toBe(350);
+    expect(json.adventureSupportActiveUntil).toBe(
+      previousActiveUntil + 7 * DAY_MS,
+    );
     expect(mocks.saves.get("inventory.v2")).toEqual({
       masteryCertificates: 350,
     });
+    expect(mocks.saves.get("character.v2")).toMatchObject({
+      adventureSupport: { activeUntil: previousActiveUntil + 7 * DAY_MS },
+      stamina: { current: 500 },
+    });
+    expect(mocks.recordEconomyEventSoon).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemId: "monthly_adventure_support",
+        quantity: 7,
+      }),
+    );
   });
 
-  it("28일차에는 강화석 묶음과 프로필 꾸미기 상자를 함께 지급한다", async () => {
+  it("28일차에는 숙련의 증표 500개와 프로필 꾸미기 상자를 함께 지급한다", async () => {
     vi.setSystemTime(new Date("2026-07-28T03:00:00Z"));
     mocks.saves.set("monthly-attendance.v1", {
       monthKey: "2026-07",
       claimedDayKeys: julyDayKeys(27),
     });
-    mocks.saves.set("character.v2", {
-      class: "warrior",
-      materials: {
-        v2_red_enhance_stone: 5,
-        v2_blue_enhance_stone: 7,
-      },
-    });
+    mocks.saves.set("character.v2", { class: "warrior" });
+    mocks.saves.set("inventory.v2", { masteryCertificates: 50 });
 
     const response = await POST();
     const json = (await response.json()) as {
-      reward: { kind: string; red: number; blue: number };
+      reward: { kind: string; count: number; cosmeticBox: string };
+      masteryCertificates: number;
       complete: boolean;
     };
 
     expect(response.status).toBe(200);
     expect(json.reward).toEqual({
-      kind: "enhancement_stone_bundle",
-      red: 2,
-      blue: 2,
+      kind: "mastery_certificate",
+      count: 500,
       cosmeticBox: "profile_border_box",
     });
+    expect(json.masteryCertificates).toBe(550);
     expect(json.complete).toBe(true);
+    expect(mocks.saves.get("inventory.v2")).toEqual({
+      masteryCertificates: 550,
+    });
     expect(mocks.saves.get("character.v2")).toMatchObject({
-      materials: {
-        v2_red_enhance_stone: 7,
-        v2_blue_enhance_stone: 9,
-      },
       cashItems: { profile_border_box: 1 },
     });
+  });
+
+  it("2026년 9월 28일차에는 꾸미기 상자 없이 숙련의 증표 1,500개를 지급한다", async () => {
+    vi.setSystemTime(new Date("2026-09-28T03:00:00Z"));
+    mocks.saves.set("monthly-attendance.v1", {
+      monthKey: "2026-09",
+      claimedDayKeys: septemberDayKeys(27),
+    });
+    mocks.saves.set("character.v2", { class: "warrior" });
+    mocks.saves.set("inventory.v2", { masteryCertificates: 50 });
+
+    const response = await POST();
+    const json = (await response.json()) as {
+      reward: { kind: string; count: number; cosmeticBox?: string };
+      masteryCertificates: number;
+      grantedCosmeticBox: string | null;
+      complete: boolean;
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.reward).toEqual({
+      kind: "mastery_certificate",
+      count: 1_500,
+    });
+    expect(json.masteryCertificates).toBe(1_550);
+    expect(json.grantedCosmeticBox).toBeNull();
+    expect(json.complete).toBe(true);
+    expect(mocks.saves.get("inventory.v2")).toEqual({
+      masteryCertificates: 1_550,
+    });
+    expect(mocks.saves.get("character.v2")).toEqual({ class: "warrior" });
   });
 });

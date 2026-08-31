@@ -18,6 +18,7 @@ import {
 } from "@/adventure/data/v2/fish";
 import type { FishingLeaderboardData } from "./fishingLeaderboard";
 import { CoinAmount } from "./CoinAmount";
+import { FishingRankIcon } from "./FishingRankIcon";
 
 // 주간 종별 리더보드 표시. 데이터는 주입(useFishingLeaderboard 실 API / dev mock).
 // 설계: docs/fishing-content-plan.md §5
@@ -32,19 +33,13 @@ const TIER_BADGE: Record<FishTier, string> = {
     "bg-amber-200/80 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200",
 };
 
-const MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
-
-function rankLabel(rank: number): string {
-  return MEDAL[rank] ?? `${rank}위`;
-}
-
-
 export function FishingLeaderboardView({
   data,
   loading,
   error,
   onBack,
   onOpenFishing,
+  onOpenDangerous,
   onOpenChallenges,
   onOpenHallOfFame,
   onOpenShop,
@@ -55,6 +50,7 @@ export function FishingLeaderboardView({
   onBack?: () => void;
   // 낚시터 서브 탭바 — 미전달(dev 하니스)이면 그 탭 숨김.
   onOpenFishing?: () => void;
+  onOpenDangerous?: () => void;
   onOpenChallenges?: () => void;
   onOpenHallOfFame?: () => void;
   onOpenShop?: () => void;
@@ -92,6 +88,7 @@ export function FishingLeaderboardView({
       <FishingSubTabs
         active="leaderboard"
         onOpenFishing={onOpenFishing}
+        onOpenDangerous={onOpenDangerous}
         onOpenChallenges={onOpenChallenges}
         onOpenHallOfFame={onOpenHallOfFame}
         onOpenShop={onOpenShop}
@@ -162,9 +159,7 @@ export function FishingLeaderboardView({
                             }`}
                           >
                             <span className="flex items-center gap-1.5">
-                              <span className="inline-block w-7 shrink-0 tabular-nums">
-                                {rankLabel(e.rank)}
-                              </span>
+                              <FishingRankIcon rank={e.rank} />
                               <PlayerNameLink name={e.name} />
                               {e.isMe && (
                                 <span className="rounded bg-sky-200/80 px-1 text-[10px] text-sky-800 dark:bg-sky-800/70 dark:text-sky-100">

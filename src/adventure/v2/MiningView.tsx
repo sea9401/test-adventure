@@ -36,6 +36,8 @@ import {
 } from "./useActivityVerification";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 import { LifeFieldEnvironmentCard } from "./LifeFieldPanels";
+import { GatheringResourceStockCard } from "./GatheringResourceStockCard";
+import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 
 export type MiningLogView = {
   successes: number;
@@ -605,6 +607,7 @@ export function MiningView({
       />
 
       <ProductionJobAdvanceNotice refreshKey={progression.level} />
+      <LifeLevelMilestoneNotice activity="mining" level={progression.level} />
 
       <LifeFieldEnvironmentCard activity="mining" spotId={spotId} />
 
@@ -618,15 +621,15 @@ export function MiningView({
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-sm font-extrabold text-amber-900 dark:text-amber-100">
-              채광 Lv {progression.level}
+              채광 Lv {progression.level} / 100
             </div>
             <div className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
-              시간 단축 {timeReductionPct.toFixed(1)}% · 최대 Lv 50
+              시간 단축 {timeReductionPct.toFixed(1)}% · 최대 Lv 100
             </div>
           </div>
           <span className="text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300">
             {progression.maxLevel
-              ? "최고 레벨"
+              ? "최종 숙련 달성 · MAX"
               : `${progression.xpIntoLevel}/${progression.xpForNext} XP`}
           </span>
         </div>
@@ -638,23 +641,11 @@ export function MiningView({
         </div>
       </div>
 
-      <Card padding="sm">
-        <div className="flex items-center justify-between gap-3">
-          <span className="inline-flex shrink-0 items-center gap-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-            <span
-              aria-hidden="true"
-              className="h-2 w-2 rounded-full bg-amber-500"
-            />
-            보유 재료
-          </span>
-          <span className="min-w-0 truncate text-right text-sm font-bold text-zinc-800 dark:text-zinc-100">
-            {selectedMaterial.name}
-            <span className="ml-2 tabular-nums text-amber-700 dark:text-amber-300">
-              {selectedMaterialCount.toLocaleString()}개
-            </span>
-          </span>
-        </div>
-      </Card>
+      <GatheringResourceStockCard
+        resourceName={selectedMaterial.name}
+        count={selectedMaterialCount}
+        tone="mining"
+      />
 
       {!verification ? (
         <AutoGatheringCard
@@ -707,6 +698,12 @@ export function MiningView({
         </>
       ) : (
         <>
+
+      <GatheringResourceStockCard
+        resourceName={selectedMaterial.name}
+        count={selectedMaterialCount}
+        tone="mining"
+      />
 
       {(phase === "idle" || phase === "result") && !verification && (
         <Button
@@ -774,6 +771,17 @@ export function MiningView({
                   <div className="ui-result-highlight text-sm font-bold text-amber-600 dark:text-amber-400">
                     {result.materialName} +{result.materialGained}
                   </div>
+                  {result.byproducts.length > 0 ? (
+                    <div className="text-xs font-semibold text-stone-600 dark:text-stone-300">
+                      부산물 ·{" "}
+                      {result.byproducts
+                        .map(
+                          (drop) =>
+                            `${drop.name} +${drop.amount.toLocaleString()}`,
+                        )
+                        .join(" · ")}
+                    </div>
+                  ) : null}
                   <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">
                     채광 XP +{result.xpGained}
                   </div>

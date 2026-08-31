@@ -1,10 +1,12 @@
 import {
   and,
+  asc,
   desc,
   eq,
   gt,
   inArray,
   notExists,
+  notInArray,
   sql,
 } from "drizzle-orm";
 import { db } from "@/db";
@@ -17,14 +19,22 @@ import {
 } from "@/db/schema";
 import {
   CHAT_ROOM_JOINED_MAX,
+  CHAT_ROOM_ORDER_SAVE_KEY,
   CHAT_ROOM_OWNED_MAX,
+  isValidChatRoomOrderInput,
   isChatRoomVisibility,
   normalizeChatRoomName,
+  parseChatRoomOrder,
 } from "@/lib/chat-rooms";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { readMuseunCosmeticAppearanceMap } from "@/lib/server/museunCosmetics";
 import { parseChatEquipmentLink } from "@/lib/chat-item-link";
 import { resolveActor } from "@/lib/server/resolveActor";
+import { readSave, upsertSave } from "@/lib/server/savesKv";
+import {
+  readBlockedUserIds,
+  requireCurrentUgcConsent,
+} from "@/lib/server/ugcSafety";
 
 async function memberCountMap(roomIds: number[]) {
   const result = new Map<number, number>();
@@ -45,6 +55,7 @@ async function latestMessageMap(roomIds: number[], viewerId: string) {
   const result = new Map<number, Record<string, unknown>>();
   if (roomIds.length === 0) return result;
 
+  const blockedUserIds = await readBlockedUserIds(viewerId);
   const latestIds = await db
     .select({
       roomId: messages.roomId,
@@ -55,6 +66,9 @@ async function latestMessageMap(roomIds: number[], viewerId: string) {
       and(
         eq(messages.channel, "room"),
         inArray(messages.roomId, roomIds),
+        ...(blockedUserIds.length > 0
+          ? [notInArray(messages.userId, blockedUserIds)]
+          : []),
       ),
     )
     .groupBy(messages.roomId);
@@ -82,6 +96,7 @@ async function latestMessageMap(roomIds: number[], viewerId: string) {
     if (row.roomId == null) continue;
     result.set(row.roomId, {
       id: row.id,
+      authorUserId: row.userId,
       channel: "room",
       roomId: row.roomId,
       name: row.name,
@@ -101,6 +116,7 @@ export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) return new Response("unauthorized", { status: 401 });
   const scope = new URL(req.url).searchParams.get("scope");
+  const blockedUserIds = await readBlockedUserIds(userId);
 
   if (scope === "public") {
     const rows = await db
@@ -118,6 +134,9 @@ export async function GET(req: Request) {
       .where(
         and(
           eq(chatRooms.visibility, "public"),
+          ...(blockedUserIds.length > 0
+            ? [notInArray(chatRooms.ownerId, blockedUserIds)]
+            : []),
           notExists(
             db
               .select({ one: sql`1` })
@@ -148,7 +167,7 @@ export async function GET(req: Request) {
     });
   }
 
-  const [rows, inviteRows] = await Promise.all([
+  const [rows, inviteRows, orderSave] = await Promise.all([
     db
       .select({
         id: chatRooms.id,
@@ -164,7 +183,10 @@ export async function GET(req: Request) {
       .innerJoin(chatRooms, eq(chatRooms.id, chatRoomMembers.roomId))
       .leftJoin(users, eq(users.id, chatRooms.ownerId))
       .where(eq(chatRoomMembers.userId, userId))
-      .orderBy(desc(chatRooms.updatedAt)),
+      .orderBy(
+        asc(chatRoomMembers.joinedAt),
+        asc(chatRoomMembers.roomId),
+      ),
     db
       .select({
         id: chatRoomInvites.id,
@@ -181,9 +203,18 @@ export async function GET(req: Request) {
           eq(chatRoomInvites.toUserId, userId),
           eq(chatRoomInvites.status, "pending"),
           gt(chatRoomInvites.expiresAt, new Date()),
+          ...(blockedUserIds.length > 0
+            ? [notInArray(chatRoomInvites.fromUserId, blockedUserIds)]
+            : []),
         ),
       )
       .orderBy(desc(chatRoomInvites.createdAt)),
+    readSave<Record<string, unknown>>(
+      db,
+      userId,
+      CHAT_ROOM_ORDER_SAVE_KEY,
+      {},
+    ),
   ]);
   const roomIds = rows.map((row) => row.id);
   const [counts, latest] = await Promise.all([
@@ -205,7 +236,29 @@ export async function GET(req: Request) {
       inviterName: row.inviterName ?? "모험가",
       expiresAt: row.expiresAt.getTime(),
     })),
+    roomOrder: parseChatRoomOrder(orderSave),
   });
+}
+
+export async function PATCH(req: Request) {
+  const userId = await ensureUser();
+  if (!userId) return new Response("unauthorized", { status: 401 });
+
+  let body: { roomOrder?: unknown };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return new Response("invalid json", { status: 400 });
+  }
+  if (!isValidChatRoomOrderInput(body.roomOrder)) {
+    return new Response("invalid room order", { status: 400 });
+  }
+  const roomOrder = parseChatRoomOrder(body.roomOrder);
+  await upsertSave(db, userId, CHAT_ROOM_ORDER_SAVE_KEY, {
+    version: 1,
+    roomOrder,
+  });
+  return Response.json({ ok: true, roomOrder });
 }
 
 export async function POST(req: Request) {
@@ -224,6 +277,8 @@ export async function POST(req: Request) {
   if (!isChatRoomVisibility(visibility)) {
     return new Response("invalid visibility", { status: 400 });
   }
+  const consentFailure = await requireCurrentUgcConsent(userId);
+  if (consentFailure) return consentFailure;
 
   const actor = await resolveActor(userId);
   const result = await db.transaction(async (tx) => {

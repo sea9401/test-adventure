@@ -3,6 +3,9 @@ import { COOP_BOSS_KIND_IDS, COOP_TIER_ORDER } from "./coopBosses";
 import {
   COOP_BOSS_MATERIAL,
   COOP_COIN_MATERIAL_ID,
+  COOP_KILLING_BLOW_HARD_COIN,
+  COOP_KILLING_BLOW_MATERIAL_COUNT,
+  COOP_KILLING_BLOW_NORMAL_COIN,
   COOP_EQUIPMENT_BOX,
   COOP_EQUIPMENT_BOX_ID,
   COOP_EXTRA_REWARD_RULES,
@@ -17,6 +20,7 @@ import {
   rollCoopEquipmentBoxDefItem,
   rollCoopEquipmentBoxItem,
   rollCoopExtraRewards,
+  coopKillingBlowReward,
 } from "./coopRewards";
 import { V2_EQUIPMENT, isUnique } from "./v2Equipment";
 
@@ -37,6 +41,20 @@ describe("coopRewards", () => {
     expect(coopEquipmentBoxById(COOP_TIER5_EQUIPMENT_BOX.id)).toBe(
       COOP_TIER5_EQUIPMENT_BOX,
     );
+  });
+
+  it("처치 확정타 보상은 일반/하드 주화를 구분하고 보스 재료를 확정 지급한다", () => {
+    expect(coopKillingBlowReward("mountain_chief")).toEqual({
+      coin: COOP_KILLING_BLOW_NORMAL_COIN,
+      bossMaterialId: COOP_BOSS_MATERIAL.mountain_chief.id,
+      bossMaterialName: COOP_BOSS_MATERIAL.mountain_chief.name,
+      bossMaterialCount: COOP_KILLING_BLOW_MATERIAL_COUNT,
+    });
+    expect(coopKillingBlowReward("abyssal_tyrant")).toMatchObject({
+      coin: COOP_KILLING_BLOW_HARD_COIN,
+      bossMaterialId: COOP_BOSS_MATERIAL.abyssal_tyrant.id,
+      bossMaterialCount: COOP_KILLING_BLOW_MATERIAL_COUNT,
+    });
   });
 
   it("공용 5T 상자는 산군·어룡 5T 장비 풀을 합쳐서 굴린다", () => {
@@ -108,6 +126,40 @@ describe("coopRewards", () => {
       .toBe(1);
   });
 
+  it("신규 HARD 6T 보스는 산군과 같은 주화·재료·상자 확률과 전용 3종 상자를 사용한다", () => {
+    expect(COOP_BOSS_MATERIAL.canyon_predator_hard.name).toBe("재앙의 꼬리침");
+    expect(COOP_BOSS_MATERIAL.lake_sovereign_hard.name).toBe("혹한의 심핵");
+    expect(COOP_EQUIPMENT_BOX.canyon_predator_hard).toMatchObject({
+      name: "재앙의 스콜피온 킹 6T 장비 상자",
+      displayTier: 6,
+      catalogTiers: [16],
+      itemIds: [
+        "v2_boss_catastrophe_gloves",
+        "v2_boss_catastrophe_boots",
+        "v2_boss_catastrophe_ring",
+      ],
+    });
+    expect(COOP_EQUIPMENT_BOX.lake_sovereign_hard).toMatchObject({
+      name: "혹한의 호수 괴물 6T 장비 상자",
+      displayTier: 6,
+      catalogTiers: [16],
+      itemIds: [
+        "v2_boss_frozen_lake_armor",
+        "v2_boss_frozen_lake_boots",
+        "v2_boss_frozen_lake_necklace",
+      ],
+    });
+    for (const boss of ["canyon_predator_hard", "lake_sovereign_hard"] as const) {
+      expect(coopExtraRewardRuleFor(boss, "bronze")).toEqual(
+        COOP_HARD_EXTRA_REWARD_RULES.bronze,
+      );
+      expect(coopExtraRewardRuleFor(boss, "legend")).toEqual(
+        COOP_HARD_EXTRA_REWARD_RULES.legend,
+      );
+      expect(coopKillingBlowReward(boss).coin).toBe(COOP_KILLING_BLOW_HARD_COIN);
+    }
+  });
+
   it("rollCoopExtraRewards — 확정 보상 + 상자 확률 경계", () => {
     const noBox = rollCoopExtraRewards("mountain_chief", "silver", () => 0.99);
     expect(noBox.coin).toBe(COOP_EXTRA_REWARD_RULES.silver.coin);
@@ -140,10 +192,25 @@ describe("coopRewards", () => {
       const got = rollCoopEquipmentBoxItem(boss, () => 0);
       expect(got).toBeTruthy();
       const item = V2_EQUIPMENT[got!];
-      if (boss === "mountain_chief_hard" || boss === "abyssal_tyrant") {
-        expect(item.tier).toBe(13);
+      if (
+        boss === "mountain_chief_hard" ||
+        boss === "abyssal_tyrant" ||
+        boss === "canyon_predator_hard" ||
+        boss === "lake_sovereign_hard"
+      ) {
+        expect(item.tier).toBe(
+          boss === "canyon_predator_hard" || boss === "lake_sovereign_hard"
+            ? 16
+            : 13,
+        );
         expect(item.setTags).toContain(
-          boss === "abyssal_tyrant" ? "abyssal_current" : "hard_sangoon",
+          boss === "abyssal_tyrant"
+            ? "abyssal_current"
+            : boss === "canyon_predator_hard"
+              ? "catastrophe_venom"
+              : boss === "lake_sovereign_hard"
+                ? "frozen_lake_guard"
+                : "hard_sangoon",
         );
         expect(COOP_EQUIPMENT_BOX[boss].itemIds).toContain(got);
         continue;

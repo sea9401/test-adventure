@@ -1,4 +1,4 @@
-import { COOKING_RECIPES } from "@/adventure/v2/cooking";
+import { COOKING_PUBLIC_RECIPES } from "@/adventure/v2/cooking/catalog";
 import { FISH_IDS } from "@/adventure/data/v2/fish";
 import { lifeSummaryFromSaves } from "@/adventure/v2/lifeSummary";
 import { V2LifeRecordView } from "@/adventure/v2/V2LifeRecordView";
@@ -50,12 +50,12 @@ const PREVIEW_SUMMARY = lifeSummaryFromSaves(
     },
     cookingRaw: {
       xp: 3_100,
-      discoveredRecipeIds: COOKING_RECIPES.slice(0, 14).map(
+      discoveredRecipeIds: COOKING_PUBLIC_RECIPES.slice(0, 14).map(
         (recipe) => recipe.id,
       ),
       stats: {
         dishesCooked: 214,
-        ordersCompleted: 63,
+        deliveriesCompleted: 63,
         masterpiecesCooked: 19,
         rareIngredientDishes: 31,
       },

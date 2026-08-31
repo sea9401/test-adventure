@@ -13,6 +13,33 @@ export const GUILD_WORKSHOP_MATERIAL_IDS = Object.values(
   GUILD_WORKSHOP_MATERIAL_ID,
 ) as GuildWorkshopMaterialId[];
 
+/**
+ * 하위 지역 제작 재료가 부족할 때 한 단계 위 재료로만 대체한다.
+ * 재료를 인벤토리에서 교환하는 기능이 아니라, 해당 제작 1회에 한해 1:1로 소모한다.
+ */
+export const GUILD_WORKSHOP_MATERIAL_SUBSTITUTE: Partial<
+  Record<GuildWorkshopMaterialId, GuildWorkshopMaterialId>
+> = {
+  [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]:
+    GUILD_WORKSHOP_MATERIAL_ID.mithrilShard,
+  [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]:
+    GUILD_WORKSHOP_MATERIAL_ID.sunstone,
+  [GUILD_WORKSHOP_MATERIAL_ID.sunstone]:
+    GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal,
+  [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]:
+    GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel,
+};
+
+/** 상위 재료 1개를 대체 소모할 때 붙는 추가 제작 수수료. */
+export const GUILD_WORKSHOP_MATERIAL_SUBSTITUTE_GOLD: Partial<
+  Record<GuildWorkshopMaterialId, number>
+> = {
+  [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2_000,
+  [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 5_000,
+  [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 10_000,
+  [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 20_000,
+};
+
 export const GUILD_WORKSHOP_MATERIALS = {
   [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: {
     id: GUILD_WORKSHOP_MATERIAL_ID.refinedIron,
@@ -57,6 +84,40 @@ export const GUILD_WORKSHOP_MATERIAL_DROP_PCT: Record<
   [GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel]: 0.0017,
 };
 
+export type GuildWorkshopMaterialDropRule = {
+  materialId: GuildWorkshopMaterialId;
+  minDepth: number;
+  maxDepth?: number;
+};
+
+// 실제 드랍과 모험의 서가 같은 깊이 구간을 사용하도록 규칙을 데이터로 공유한다.
+// 오로라 결정과 심해성철은 65단계부터 서로 독립적으로 함께 드랍될 수 있다.
+export const GUILD_WORKSHOP_MATERIAL_DROP_RULES: readonly GuildWorkshopMaterialDropRule[] = [
+  {
+    materialId: GUILD_WORKSHOP_MATERIAL_ID.refinedIron,
+    minDepth: 7,
+    maxDepth: 18,
+  },
+  {
+    materialId: GUILD_WORKSHOP_MATERIAL_ID.mithrilShard,
+    minDepth: 19,
+    maxDepth: 30,
+  },
+  {
+    materialId: GUILD_WORKSHOP_MATERIAL_ID.sunstone,
+    minDepth: 31,
+    maxDepth: 42,
+  },
+  {
+    materialId: GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal,
+    minDepth: 43,
+  },
+  {
+    materialId: GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel,
+    minDepth: 65,
+  },
+];
+
 export const GUILD_WORKSHOP_MATERIAL_SOURCES: Record<
   GuildWorkshopMaterialId,
   {
@@ -95,29 +156,19 @@ export const GUILD_WORKSHOP_MATERIAL_SOURCES: Record<
 export function rollGuildWorkshopMaterialDrops(
   depthRaw: number,
   rng: () => number,
+  chanceMult: number = 1,
 ): Record<string, number> {
   const depth = Math.max(1, Math.floor(depthRaw));
+  const mult = Math.max(0, Number(chanceMult) || 0);
   const out: Record<string, number> = {};
-  const candidates: GuildWorkshopMaterialId[] = [];
-  if (depth >= 7 && depth <= 18) {
-    candidates.push(GUILD_WORKSHOP_MATERIAL_ID.refinedIron);
-  }
-  if (depth >= 19 && depth <= 30) {
-    candidates.push(GUILD_WORKSHOP_MATERIAL_ID.mithrilShard);
-  }
-  if (depth >= 31 && depth <= 42) {
-    candidates.push(GUILD_WORKSHOP_MATERIAL_ID.sunstone);
-  }
-  if (depth >= 43) {
-    candidates.push(GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal);
-  }
-  // 폭풍 산맥의 최심부 쌍(65~66)과 심해 폐허 전 구간(67~72).
-  if (depth >= 65) {
-    candidates.push(GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel);
-  }
+  const candidates = GUILD_WORKSHOP_MATERIAL_DROP_RULES.filter(
+    (rule) =>
+      depth >= rule.minDepth &&
+      (rule.maxDepth == null || depth <= rule.maxDepth),
+  ).map((rule) => rule.materialId);
 
   for (const id of candidates) {
-    if (rng() < GUILD_WORKSHOP_MATERIAL_DROP_PCT[id]) {
+    if (rng() < Math.min(1, GUILD_WORKSHOP_MATERIAL_DROP_PCT[id] * mult)) {
       out[id] = (out[id] ?? 0) + 1;
     }
   }

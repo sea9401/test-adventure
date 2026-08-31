@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildJobRoadmap, type JobRoadmapNode } from "./jobRoadmapModel";
+import {
+  buildJobRoadmap,
+  roadmapRootJumpTargets,
+  type JobRoadmapNode,
+} from "./jobRoadmapModel";
 
 function flatten(node: JobRoadmapNode): JobRoadmapNode[] {
   return [node, ...node.children.flatMap(flatten)];
@@ -12,6 +16,18 @@ describe("job roadmap model", () => {
 
     expect(root.name).toBe("시작");
     expect(root.children.map((node) => node.id)).toContain("none");
+    const mutant = root.children.find((node) => node.id === "mutant");
+    expect(mutant?.children.map((node) => node.id)).toEqual([
+      "beastkin",
+      "golem",
+    ]);
+    const beastkin = mutant?.children.find((node) => node.id === "beastkin");
+    expect(beastkin?.children[0]?.id).toBe("beastwarrior");
+    expect(beastkin?.children[0]?.prereqText).toBe("수인 숙련도 1000");
+    expect(
+      beastkin?.children[0]?.children[0]?.children[0]?.children[0]?.children[0]
+        ?.id,
+    ).toBe("primalpredator");
     expect(nodes.find((node) => node.id === "squire")?.prereqText).toContain(
       "숙련도",
     );
@@ -28,5 +44,40 @@ describe("job roadmap model", () => {
     expect(byId.get("healthtrainer")?.production).toBe(false);
     expect(byId.get("mastertrainer")?.production).toBe(false);
     expect(byId.get("survivor")?.production).toBe(false);
+  });
+
+  it("1차 직업 위의 루트 직업을 빠른 이동 대상으로 만든다", () => {
+    expect(roadmapRootJumpTargets(buildJobRoadmap())).toEqual([
+      { id: "none", label: "모험가" },
+      { id: "survivor", label: "생존자" },
+      { id: "mutant", label: "변이자" },
+    ]);
+  });
+
+  it("공개된 네 7차를 실제 로드맵에 한 번씩 배치하고 두 선행 계보를 보존한다", () => {
+    const nodes = flatten(buildJobRoadmap());
+    const tier7Ids = nodes
+      .filter((node) => node.tier === 7)
+      .map((node) => node.id)
+      .sort();
+    expect(tier7Ids).toEqual([
+      "primordialsage",
+      "ruinblade",
+      "shadowblade",
+      "skyascendant",
+    ]);
+
+    const node = nodes.find(
+      (candidate) => candidate.id === "shadowblade",
+    );
+
+    expect(node).toMatchObject({
+      id: "shadowblade",
+      tier: 7,
+      hybrid: true,
+      prerequisiteJobIds: ["swordsaint", "blackmoon"],
+    });
+    expect(node?.prereqText).toContain("검성 숙련도 100000");
+    expect(node?.prereqText).toContain("흑월 숙련도 100000");
   });
 });

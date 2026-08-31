@@ -3,16 +3,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { CalendarCheck, Check, Gift } from "@phosphor-icons/react";
 import {
-  MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS,
-  MONTHLY_ATTENDANCE_REWARDS,
+  monthlyAttendanceMonthKey,
   monthlyAttendanceRewardLabel,
+  monthlyAttendanceRewardsForMonth,
   type MonthlyAttendanceReward,
 } from "@/adventure/data/v2/monthlyAttendance";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_ACCENT, SURFACE_INSET } from "@/components/ui/surfaces";
-import { useGameState } from "./GameStateProvider";
+import {
+  PlumpGameIcon,
+  type PlumpGameIconName,
+} from "@/components/icons/PlumpGameIcon";
+import { useRefreshGameState } from "./GameStateRefreshContext";
 import { setAttendanceReminder } from "./useAttendanceReminder";
 
 type AttendanceResponse = {
@@ -34,19 +38,18 @@ const ERROR_MESSAGES: Record<string, string> = {
   no_character: "캐릭터를 만든 뒤 출석할 수 있습니다.",
 };
 
-function rewardMark(reward: MonthlyAttendanceReward): string {
-  if (reward.cosmeticBox === "chroma_name_box") return "🎨";
-  if (reward.cosmeticBox === "chat_badge_box") return "🏷️";
-  if (reward.cosmeticBox === "profile_border_box") return "🖼️";
-  if (reward.kind === "adventure_support") return "🎫";
-  if (reward.kind === "stamina_potion") return "🧪";
-  if (reward.kind === "boss_summon_scroll") return "📜";
-  if (reward.kind === "mastery_certificate") return "🏅";
-  return reward.kind === "enhancement_stone" && reward.color === "blue"
-    ? "🔷"
-    : reward.kind === "enhancement_stone" && reward.color === "red"
-      ? "🔶"
-      : "💎";
+export function rewardIconName(
+  reward: MonthlyAttendanceReward,
+): PlumpGameIconName {
+  if (reward.cosmeticBox === "chroma_name_box") return "chroma_box";
+  if (reward.cosmeticBox === "chat_badge_box") return "chat_badge_box";
+  if (reward.cosmeticBox === "profile_border_box") return "profile_frame_box";
+  if (reward.kind === "adventure_support") return "adventure_support_ticket";
+  if (reward.kind === "stamina_potion") return "stamina_potion";
+  if (reward.kind === "boss_summon_scroll") return "boss_summon_scroll";
+  if (reward.kind === "mastery_certificate") return "mastery_token";
+  if (reward.kind === "torn_map_fragment") return "map_fragment";
+  return "currency_stack";
 }
 
 function monthLabel(monthKey: string): string {
@@ -55,7 +58,7 @@ function monthLabel(monthKey: string): string {
 }
 
 export function V2AttendanceView() {
-  const { refreshGameState } = useGameState();
+  const refreshGameState = useRefreshGameState();
   const [status, setStatus] = useState<AttendanceResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
@@ -132,7 +135,9 @@ export function V2AttendanceView() {
     }
   };
 
-  const rewards = status?.rewards ?? MONTHLY_ATTENDANCE_REWARDS;
+  const rewards =
+    status?.rewards ??
+    monthlyAttendanceRewardsForMonth(monthlyAttendanceMonthKey());
   const nextReward =
     status?.nextDay != null ? rewards[status.nextDay - 1] : null;
 
@@ -155,13 +160,11 @@ export function V2AttendanceView() {
 
         <StatusBanner tone="info" className="py-2 text-sm">
           <span className="block">
-            1일차에는 월간 모험 지원권 {MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS}일이
-            계정에 즉시 적용됩니다. 이미 이용 중이면 남은 기간 뒤에{" "}
-            {MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS}일이 이어집니다.
+            각 일차의 보상과 수량은 아래 출석판에서 확인할 수 있습니다.
           </span>
           <span className="mt-1 block">
-            7·14·28일차에는 닉네임·채팅 배지·프로필 꾸미기 상자를 추가로 받고,
-            설정의 꾸미기 화면에서 열 수 있습니다.
+            월간 모험 지원권은 수령 즉시 적용되며, 이미 이용 중이면 남은 기간
+            뒤에 이어집니다.
           </span>
         </StatusBanner>
 
@@ -250,8 +253,8 @@ export function V2AttendanceView() {
                 >
                   {day}일차
                 </div>
-                <div className="my-1 text-xl" aria-hidden="true">
-                  {rewardMark(reward)}
+                <div className="my-1 flex justify-center" aria-hidden="true">
+                  <PlumpGameIcon name={rewardIconName(reward)} size={24} />
                 </div>
                 <div className="break-keep text-[10px] leading-4 text-zinc-700 dark:text-zinc-300">
                   {monthlyAttendanceRewardLabel(reward)}

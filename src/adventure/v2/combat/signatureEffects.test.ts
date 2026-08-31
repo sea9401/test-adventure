@@ -3,25 +3,31 @@ import {
   battleStartShield,
   formatChillSlowLog,
   formatDefDebuffLog,
-  formatShockSlowLog,
+  formatShockAppliedLog,
   healToShield,
   lowHpDamageReductionPct,
   onCritSpeedBuff,
   onCritEnemyDefDebuff,
   onCritEnemyChill,
   firesOnCritPoison,
-  onDodgeHealAmount,
   onDodgeSpeedBuff,
   onHitTakenDefGain,
   onSkillCastMpRefund,
   rollOnHitBleed,
   rollOnHitPoison,
   rollOnHitShock,
+  resolveOffensiveSignatureTriggers,
+  rollEvasionActionRecovery,
   statusBlockOnce,
   everyNHitsValue,
+  resolveDirectSkillHitSignatures,
+  trackedBattleStartShield,
+  resolveTrackedShieldAbsorption,
+  trackedShieldBreakEffect,
 } from "./signatureEffects";
 import {
   advanceTurn,
+  applyEvasionActionRecoveryPvE,
   applyPlayerV2SkillCast,
   initialBattleState,
   resolveBattle,
@@ -29,8 +35,12 @@ import {
 import { pickAutoAction } from "./pickAutoAction";
 import { derivePlayerCombatV2Pure } from "@/lib/server/derivePlayerCombatV2";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
-import { emptyV2SkillsState } from "@/adventure/data/v2/v2Skills";
+import {
+  emptyV2SkillsState,
+  type V2SkillsState,
+} from "@/adventure/data/v2/v2Skills";
 import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
+import { makePoisonDot } from "./combatShared";
 
 const CROWN: SignatureEffect = {
   trigger: "on_crit",
@@ -62,8 +72,6 @@ const THUNDER_FANG: SignatureEffect = {
   trigger: "on_hit",
   label: "뇌운",
   shockChancePct: 15,
-  shockSlowPct: 50,
-  buffActions: 1,
 };
 
 const BLUE_VENOM: SignatureEffect = {
@@ -116,6 +124,116 @@ const VOID_CROWN: SignatureEffect = {
   label: "공허왕관",
   statusBlockOnce: true,
 };
+
+const CATASTROPHE_POISON: SignatureEffect = {
+  trigger: "direct_skill_hit",
+  label: "재앙독 주입",
+  poisonChancePct: 25,
+  poisonStacks: 1,
+};
+
+const CATASTROPHE_PURSUIT: SignatureEffect = {
+  trigger: "direct_skill_hit",
+  label: "맹독 추격",
+  poisonedTargetDamagePct: 10,
+};
+
+const FROZEN_RELEASE: SignatureEffect = {
+  trigger: "tracked_shield_break",
+  label: "빙호 해방",
+  trackedShieldPctMaxHp: 8,
+  cleanseHarmfulStatuses: true,
+  damageTakenReductionPct: 15,
+  buffActions: 2,
+};
+
+describe("6T HARD 세트 공용 시그니처", () => {
+  it("직접 액티브 적중은 시전당 한 번 중독을 판정하고 중독 대상 피해 배율을 반환한다", () => {
+    expect(
+      resolveDirectSkillHitSignatures(
+        [CATASTROPHE_POISON, CATASTROPHE_PURSUIT],
+        { dealtDamage: true, targetPoisoned: true },
+        () => 0.249,
+      ),
+    ).toEqual({
+      damageMult: 1.1,
+      poison: { stacks: 1, label: "재앙독 주입" },
+    });
+    expect(
+      resolveDirectSkillHitSignatures(
+        [CATASTROPHE_POISON, CATASTROPHE_PURSUIT],
+        { dealtDamage: true, targetPoisoned: false },
+        () => 0.25,
+      ),
+    ).toEqual({ damageMult: 1, poison: null });
+  });
+
+  it("피해 없는 액티브와 일반 on_hit 시그니처는 직접 액티브 세트 판정에서 제외한다", () => {
+    expect(
+      resolveDirectSkillHitSignatures(
+        [CATASTROPHE_POISON, BLUE_VENOM],
+        { dealtDamage: false, targetPoisoned: true },
+        () => 0,
+      ),
+    ).toEqual({ damageMult: 1, poison: null });
+  });
+
+  it("빙호수호는 최대 HP 8%를 별도 추적하고 그 잔량이 처음 0이 될 때만 발동한다", () => {
+    expect(trackedBattleStartShield([FROZEN_RELEASE], 1_000)).toEqual({
+      amount: 80,
+      label: "빙호 해방",
+    });
+    expect(
+      resolveTrackedShieldAbsorption({
+        remaining: 80,
+        shieldAbsorbed: 50,
+        totalShieldBefore: 80,
+        alreadyTriggered: false,
+      }),
+    ).toEqual({ remaining: 30, triggered: false });
+    expect(
+      resolveTrackedShieldAbsorption({
+        remaining: 30,
+        shieldAbsorbed: 40,
+        totalShieldBefore: 30,
+        alreadyTriggered: false,
+      }),
+    ).toEqual({ remaining: 0, triggered: true });
+    expect(
+      resolveTrackedShieldAbsorption({
+        remaining: 0,
+        shieldAbsorbed: 999,
+        totalShieldBefore: 999,
+        alreadyTriggered: true,
+      }),
+    ).toEqual({ remaining: 0, triggered: false });
+    expect(trackedShieldBreakEffect([FROZEN_RELEASE])).toEqual({
+      label: "빙호 해방",
+      cleanse: true,
+      damageReductionPct: 15,
+      actions: 2,
+    });
+  });
+
+  it("다른 출처 보호막은 먼저 소모되며 빙호수호 전용 잔량이나 해방을 건드리지 않는다", () => {
+    expect(
+      resolveTrackedShieldAbsorption({
+        remaining: 80,
+        totalShieldBefore: 180,
+        shieldAbsorbed: 100,
+        alreadyTriggered: false,
+      }),
+    ).toEqual({ remaining: 80, triggered: false });
+    expect(
+      resolveTrackedShieldAbsorption({
+        remaining: 80,
+        totalShieldBefore: 180,
+        shieldAbsorbed: 140,
+        alreadyTriggered: false,
+      }),
+    ).toEqual({ remaining: 40, triggered: false });
+  });
+});
 
 describe("onCritEnemyChill (동결의 갑주 한기 — 크리 시 적 둔화)", () => {
   it("시그니처 없음/빈 배열/미장착 → null (골든 byte-identical 가드)", () => {
@@ -264,19 +382,43 @@ describe("battleStartShield (검은 왕좌 전투 시작 보호막)", () => {
 
 describe("healToShield (묵주 회복 보호막 전환)", () => {
   it("시그니처 없음/다른 트리거/회복 0 → null", () => {
-    expect(healToShield(undefined, 20)).toBeNull();
-    expect(healToShield([RELIC], 20)).toBeNull();
-    expect(healToShield([RELIQUARY], 0)).toBeNull();
+    const heal = { actualHeal: 20, calculatedHeal: 20, maxHp: 100 };
+    expect(healToShield(undefined, heal)).toBeNull();
+    expect(healToShield([RELIC], heal)).toBeNull();
+    expect(
+      healToShield([RELIQUARY], { ...heal, actualHeal: 0 }),
+    ).toBeNull();
   });
 
-  it("실제 회복량 비율 보호막을 합산하고 라벨을 보존", () => {
+  it("HP 상한 적용 전 산출 회복량 비율로 보호막을 합산한다", () => {
+    const chalice: SignatureEffect = {
+      trigger: "on_heal",
+      label: "정지된 성배",
+      healToShieldPct: 35,
+    };
+    expect(
+      healToShield([chalice], {
+        actualHeal: 1_000,
+        calculatedHeal: 3_000,
+        maxHp: 4_000,
+      }),
+    ).toEqual({ amount: 1_050, label: "정지된 성배" });
+  });
+
+  it("여러 효과를 합산하되 1회 최대 HP의 30%로 제한한다", () => {
     const other: SignatureEffect = {
       trigger: "on_heal",
       label: "성흔",
       healToShieldPct: 15,
     };
-    expect(healToShield([RELIQUARY, other], 40)).toEqual({
-      amount: 16,
+    expect(
+      healToShield([RELIQUARY, other], {
+        actualHeal: 40,
+        calculatedHeal: 400,
+        maxHp: 500,
+      }),
+    ).toEqual({
+      amount: 150,
       label: "묵주 + 성흔",
     });
   });
@@ -424,76 +566,303 @@ describe("rollOnHitBleed (공격 적중 시 확률 출혈)", () => {
   });
 });
 
-describe("rollOnHitShock (공격 적중 시 감전 둔화)", () => {
+describe("rollOnHitShock (공격 적중 시 다음 행동 감전)", () => {
   it("피해 없음/미장착/확률 실패 → null", () => {
     expect(rollOnHitShock([THUNDER_FANG], false, () => 0)).toBeNull();
     expect(rollOnHitShock(undefined, true, () => 0)).toBeNull();
     expect(rollOnHitShock([THUNDER_FANG], true, () => 0.99)).toBeNull();
   });
 
-  it("확률 성공 시 슬로우 배수와 지속행동을 반환", () => {
+  it("확률 성공 시 라벨을 반환", () => {
     expect(rollOnHitShock([THUNDER_FANG], true, () => 0)).toEqual({
-      mult: 0.5,
-      turns: 1,
       label: "뇌운",
     });
   });
 
-  it("여러 개면 가장 강한 슬로우를 사용하고 라벨은 보존", () => {
-    const weaker: SignatureEffect = {
+  it("여러 감전 효과가 성공하면 라벨을 보존", () => {
+    const other: SignatureEffect = {
       trigger: "on_hit",
       label: "잔전",
       shockChancePct: 100,
-      shockSlowPct: 20,
-      buffActions: 3,
     };
-    expect(rollOnHitShock([weaker, THUNDER_FANG], true, () => 0)).toEqual({
-      mult: 0.5,
-      turns: 1,
+    expect(rollOnHitShock([other, THUNDER_FANG], true, () => 0)).toEqual({
       label: "잔전 + 뇌운",
     });
   });
 
-  it("전투 로그는 감전 라벨과 둔화량을 표시", () => {
-    expect(formatShockSlowLog("허수아비", { mult: 0.5, turns: 1, label: "뇌운" })).toBe(
-      "[뇌운] 허수아비이(가) 감전되어 움직임이 끊긴다. (속도 50% 감소, 1행동)",
+  it("한기와 감전은 같은 공격에서 함께 발동할 수 있다", () => {
+    const result = resolveOffensiveSignatureTriggers(
+      [FROST, THUNDER_FANG],
+      { critical: true, dealtDamage: true, allowShock: true },
+      () => 0,
+    );
+    expect(result.critChill).not.toBeNull();
+    expect(result.hitShock).toEqual({ label: "뇌운" });
+  });
+
+  it("전투 로그는 다음 행동이 끊긴다는 점을 표시", () => {
+    expect(formatShockAppliedLog("허수아비", { label: "뇌운" })).toBe(
+      "[뇌운] 허수아비의 다음 행동이 감전으로 끊긴다.",
     );
   });
 });
 
-describe("onDodgeHealAmount (봉인 회피 회복)", () => {
+describe("rollEvasionActionRecovery (행동 회피 회복)", () => {
   const SEAL: SignatureEffect = {
-    trigger: "on_dodge",
+    trigger: "on_action_evasion",
     label: "봉인",
-    healPct: 8,
+    lostHpHealPct: 4,
   };
-  it("on_dodge healPct → maxHp 의 % 회복량(내림)", () => {
-    expect(onDodgeHealAmount([SEAL], 100)).toBe(8); // 8% of 100
-    expect(onDodgeHealAmount([SEAL], 250)).toBe(20); // floor(0.08*250)
+
+  it("회피 경감률의 절반 확률로 잃은 HP 비례 회복량을 반환한다", () => {
+    expect(
+      rollEvasionActionRecovery([SEAL], 500, 1000, 50, () => 0.249),
+    ).toEqual({ amount: 20, label: "봉인" });
+    expect(
+      rollEvasionActionRecovery([SEAL], 500, 1000, 50, () => 0.25),
+    ).toBeNull();
   });
-  it("미장착/다른 트리거/maxHp 0 → 0", () => {
-    expect(onDodgeHealAmount(undefined, 100)).toBe(0);
-    expect(onDodgeHealAmount([CROWN], 100)).toBe(0); // on_crit
-    expect(onDodgeHealAmount([SEAL], 0)).toBe(0);
+
+  it("여러 장비는 한 번 판정해 잃은 HP 회복률과 라벨을 합산한다", () => {
+    const SHADOW: SignatureEffect = {
+      trigger: "on_action_evasion",
+      label: "그림자",
+      lostHpHealPct: 3,
+    };
+    expect(
+      rollEvasionActionRecovery([SEAL, SHADOW], 500, 1000, 50, () => 0),
+    ).toEqual({ amount: 35, label: "봉인 + 그림자" });
+  });
+
+  it("미장착·다른 트리거·만피·0 회복량·0 경감률이면 난수를 소비하지 않는다", () => {
+    const roll = vi.fn(() => 0);
+    expect(rollEvasionActionRecovery(undefined, 500, 1000, 50, roll)).toBeNull();
+    expect(rollEvasionActionRecovery([CROWN], 500, 1000, 50, roll)).toBeNull();
+    expect(rollEvasionActionRecovery([SEAL], 1000, 1000, 50, roll)).toBeNull();
+    expect(rollEvasionActionRecovery([SEAL], 0, 1000, 50, roll)).toBeNull();
+    expect(rollEvasionActionRecovery([SEAL], 999, 1000, 50, roll)).toBeNull();
+    expect(rollEvasionActionRecovery([SEAL], 500, 1000, 0, roll)).toBeNull();
+    expect(roll).not.toHaveBeenCalled();
   });
 });
 
-describe("onDodgeSpeedBuff (독왕 회피 속도)", () => {
+describe("엔진 통합 — PvE 행동 회피 회복", () => {
+  const RECOVERY: SignatureEffect = {
+    trigger: "on_action_evasion",
+    label: "봉인",
+    lostHpHealPct: 4,
+  };
+
+  it("현재 상대 기준 회피 경감률로 판정해 잃은 HP를 회복한다", () => {
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const player = {
+      ...base,
+      hp: 500,
+      maxHp: 1000,
+      evaRating: 100,
+      evasionPct: 100,
+      equipSignatures: [RECOVERY],
+    };
+    const enemy = {
+      ...V2_MONSTERS["훈련용 허수아비"],
+      accuracy: 0,
+    };
+    const state = initialBattleState(player, enemy, "용사");
+
+    const after = applyEvasionActionRecoveryPvE(state, player, "용사", () => 0);
+
+    expect(after.playerHp).toBe(520);
+    expect(after.log.some((entry) => entry.text.includes("[봉인]") && entry.text.includes("HP +20"))).toBe(true);
+  });
+
+  it("실제 회복량은 on_heal 보호막으로 이어진다", () => {
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const player = {
+      ...base,
+      hp: 500,
+      maxHp: 1000,
+      evaRating: 100,
+      evasionPct: 100,
+      equipSignatures: [
+        RECOVERY,
+        { trigger: "on_heal" as const, label: "성광", healToShieldPct: 50 },
+      ],
+    };
+    const enemy = { ...V2_MONSTERS["훈련용 허수아비"], accuracy: 0 };
+
+    const after = applyEvasionActionRecoveryPvE(
+      initialBattleState(player, enemy, "용사"),
+      player,
+      "용사",
+      () => 0,
+    );
+
+    expect(after.playerHp).toBe(520);
+    expect(after.stacks.playerShield).toBe(10);
+  });
+
+  it("적을 처치하는 행동도 시작 시 한 번 회복한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const player = {
+      ...base,
+      hp: 500,
+      maxHp: 1000,
+      atk: 10_000,
+      spd: 100,
+      evaRating: 100,
+      evasionPct: 100,
+      attackCount: 3,
+      equipSignatures: [RECOVERY],
+    };
+    const enemy = {
+      ...V2_MONSTERS["훈련용 허수아비"],
+      hp: 10,
+      spd: 1,
+      accuracy: 0,
+    };
+
+    const result = resolveBattle(player, enemy, "용사", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+      v2Skills: emptyV2SkillsState(),
+    });
+
+    expect(result.outcome).toBe("win");
+    expect(result.finalState.playerHp).toBe(520);
+    expect(result.finalState.log.filter((entry) => entry.text.includes("[봉인]")).length).toBe(1);
+  });
+
+  it("다중 공격도 한 행동에서 한 번만 회복한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const player = {
+      ...base,
+      hp: 500,
+      maxHp: 1000,
+      atk: 1,
+      spd: 100,
+      evaRating: 100,
+      evasionPct: 100,
+      attackCount: 3,
+      equipSignatures: [RECOVERY],
+    };
+    const enemy = {
+      ...V2_MONSTERS["훈련용 허수아비"],
+      hp: 100_000,
+      atk: 1,
+      def: 100,
+      spd: 1,
+      accuracy: 0,
+    };
+
+    const result = resolveBattle(player, enemy, "용사", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+      v2Skills: emptyV2SkillsState(),
+      maxTurns: 1,
+    });
+
+    expect(result.finalState.log.filter((entry) => entry.text.includes("[봉인]")).length).toBe(1);
+  });
+
+  it("포션 사용도 한 행동으로 세어 회복한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const player = {
+      ...base,
+      hp: 500,
+      maxHp: 1000,
+      spd: 100,
+      evaRating: 100,
+      evasionPct: 100,
+      equipSignatures: [RECOVERY],
+    };
+    const enemy = {
+      ...V2_MONSTERS["훈련용 허수아비"],
+      hp: 100_000,
+      atk: 1,
+      spd: 1,
+      accuracy: 0,
+    };
+    const potion = {
+      id: "potion_mp_s" as const,
+      name: "시험 마나 물약",
+      description: "",
+      effect: { kind: "heal_mp" as const, flat: 1 },
+      price: 0,
+    };
+
+    const result = resolveBattle(player, enemy, "용사", {
+      pickAction: () => ({ kind: "use_potion", potionId: potion.id, potion }),
+      potions: { [potion.id]: 1 },
+      v2Skills: emptyV2SkillsState(),
+      maxTurns: 1,
+    });
+
+    expect(result.potionsConsumed[potion.id]).toBe(1);
+    expect(result.finalState.log.filter((entry) => entry.text.includes("[봉인]")).length).toBe(1);
+  });
+});
+
+describe("onDodgeSpeedBuff (회피 속도 시그니처)", () => {
   const VENOM: SignatureEffect = {
     trigger: "on_dodge",
     label: "독왕",
     spdBuffPct: 25,
     buffActions: 3,
   };
-  it("on_dodge spdBuffPct → {배수, 지속}", () => {
-    expect(onDodgeSpeedBuff([VENOM])).toEqual({ mult: 1.25, turns: 3 });
+  it("on_dodge spdBuffPct → {배수, 지속, 라벨}", () => {
+    expect(onDodgeSpeedBuff([VENOM])).toEqual({
+      mult: 1.25,
+      turns: 3,
+      label: "독왕",
+    });
   });
-  it("미장착/회복전용(봉인)/on_crit → null", () => {
+  it("미장착/행동 회복전용(봉인)/on_crit → null", () => {
     expect(onDodgeSpeedBuff(undefined)).toBeNull();
     expect(
-      onDodgeSpeedBuff([{ trigger: "on_dodge", label: "봉인", healPct: 8 }]),
+      onDodgeSpeedBuff([
+        {
+          trigger: "on_action_evasion",
+          label: "봉인",
+          lostHpHealPct: 4,
+        },
+      ]),
     ).toBeNull(); // spdBuffPct 없음
     expect(onDodgeSpeedBuff([CROWN])).toBeNull(); // on_crit
+  });
+});
+
+describe("엔진 통합 — 밤기수 완전 회피 속도", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("밤기수를 장착하고 보장 회피하면 속도 버프와 발동 로그가 남는다", () => {
+    const player = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: { boots: "v2_plateau_sig_rider_boots" },
+    }).player;
+    const enemy = V2_MONSTERS["훈련용 허수아비"];
+    const state = {
+      ...initialBattleState(player, enemy, "용사"),
+      phase: "enemy" as const,
+      stacks: {
+        ...initialBattleState(player, enemy, "용사").stacks,
+        evadesRemaining: 1,
+      },
+    };
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const after = advanceTurn(state, player, "용사");
+
+    expect(after.buffs.playerSpdMult).toBe(1.25);
+    expect(after.buffs.playerSpdTurnsLeft).toBe(2);
+    expect(
+      after.log.some(
+        (entry) =>
+          entry.text.includes("[밤기수]") && entry.text.includes("속도 +25%"),
+      ),
+    ).toBe(true);
   });
 });
 
@@ -695,6 +1064,43 @@ describe("엔진 통합 — on-skill-cast MP 환급이 스킬 시전 후 적용�
       ),
     ).toBe(true);
   });
+
+  it("스킬 자체 MP 회복과 별개로 실제 지불 비용을 기준으로 환급한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const player = skillCaster([
+      {
+        trigger: "on_skill_cast",
+        label: "마력 순환",
+        mpRefundPctOfCost: 15,
+      },
+    ]);
+    const skills: V2SkillsState = {
+      learned: [
+        "v2c_primordialmage_return",
+        "v2c_primordialmage_resonance",
+      ],
+      equipped: [
+        "v2c_primordialmage_return",
+        "v2c_primordialmage_resonance",
+      ],
+    };
+    const state = initialBattleState(
+      player,
+      { ...V2_MONSTERS["훈련용 허수아비"], hp: 999_999, def: 0, spd: 1 },
+      "용사",
+      skills,
+    );
+
+    const result = applyPlayerV2SkillCast(state, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    }).state;
+
+    expect(result.playerMp).toBe(888);
+    expect(result.log.some((entry) => entry.text === "태초회귀! 마나 80 회복했다.")).toBe(true);
+    expect(result.log.some((entry) => entry.text === "[마력 순환] 마나 33 환급")).toBe(true);
+  });
 });
 
 describe("엔진 통합 — on-heal 보호막 전환이 실제 회복 후 적용된다 (PvE)", () => {
@@ -709,6 +1115,8 @@ describe("엔진 통합 — on-heal 보호막 전환이 실제 회복 후 적용
       maxHp: 200,
       maxMp: 1000,
       mp: 1000,
+      // 실효 수치가 작은 기본 회복도 묵주 전환 후 1 이상의 보호막을 만들게 한다.
+      healMult: 2,
       equipSignatures: [RELIQUARY],
     };
     const state = initialBattleState(
@@ -732,6 +1140,182 @@ describe("엔진 통합 — on-heal 보호막 전환이 실제 회복 후 적용
         (e) => typeof e.text === "string" && e.text.includes("[묵주]"),
       ),
     ).toBe(true);
+  });
+
+  it("초과 회복은 산출 회복량으로 보호막을 만들고 두 값을 로그에 구분한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const player = {
+      ...base,
+      hp: 50,
+      maxHp: 200,
+      maxMp: 1000,
+      mp: 1000,
+      healMult: 100,
+      equipSignatures: [RELIQUARY],
+    };
+    const state = initialBattleState(
+      player,
+      { ...V2_MONSTERS["훈련용 허수아비"], hp: 999, atk: 0, def: 0, spd: 1 },
+      "용사",
+      {
+        learned: ["v2_skill_recover"],
+        equipped: ["v2_skill_recover"],
+      },
+    );
+
+    const result = applyPlayerV2SkillCast(state, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    }).state;
+
+    expect(result.playerHp).toBe(200);
+    expect(result.stacks.playerShield).toBe(60);
+    expect(
+      result.log.some(
+        (entry) =>
+          entry.text.includes("HP 150 회복") && entry.text.includes("산출"),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("엔진 통합 — 재앙독갑 직접 액티브 효과 (PvE)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function castWith(
+    signatures: SignatureEffect[],
+    poisoned: boolean,
+    skillId = "v2_skill_strike",
+  ) {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const basePlayer = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const player = {
+      ...basePlayer,
+      hp: 500,
+      maxHp: 500,
+      atk: 100,
+      maxMp: 1_000,
+      mp: 1_000,
+      critChancePct: 0,
+      attackCount: 1,
+      equipSignatures: signatures,
+    };
+    const initial = initialBattleState(
+      player,
+      { ...V2_MONSTERS["훈련용 허수아비"], hp: 10_000, def: 0, spd: 1 },
+      "용사",
+      { learned: [skillId], equipped: [skillId] } as never,
+    );
+    const state = poisoned
+      ? {
+          ...initial,
+          enemyV2Dots: [
+            makePoisonDot({
+              stacks: 1,
+              pctMaxHpPerStack: 0.001,
+              sourceAtk: 100,
+            }),
+          ],
+        }
+      : initial;
+    return applyPlayerV2SkillCast(state, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    }).state;
+  }
+
+  it("중독 대상 직접 액티브 최종 피해를 10% 높인다", () => {
+    const plain = castWith([], true);
+    vi.restoreAllMocks();
+    const boosted = castWith([CATASTROPHE_PURSUIT], true);
+    expect(10_000 - boosted.enemyHp).toBe(
+      Math.floor((10_000 - plain.enemyHp) * 1.1),
+    );
+  });
+
+  it("다단 액티브도 시전당 중독 1스택만 추가하고 회복 스킬에는 발동하지 않는다", () => {
+    const multihit = castWith([CATASTROPHE_POISON], false, "v2c_warrior_flurry");
+    expect(multihit.enemyV2Dots.find((dot) => dot.tag === "poison")?.stacks).toBe(1);
+    vi.restoreAllMocks();
+    const recovery = castWith([CATASTROPHE_POISON], false, "v2_skill_recover");
+    expect(recovery.enemyV2Dots.some((dot) => dot.tag === "poison")).toBe(false);
+  });
+});
+
+describe("엔진 통합 — 빙호수호 전용 보호막 (PvE)", () => {
+  it("3세트 장착 시 합산 보호막과 별도로 최대 HP 8%를 추적한다", () => {
+    const player = {
+      ...derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player,
+      hp: 1_000,
+      maxHp: 1_000,
+      equipSignatures: [
+        {
+          trigger: "battle_start" as const,
+          label: "빙호수호",
+          battleStartShieldPctMaxHp: 8,
+        },
+        FROZEN_RELEASE,
+      ],
+    };
+    const state = initialBattleState(player, V2_MONSTERS["훈련용 허수아비"], "용사");
+    expect(state.stacks.playerShield).toBe(80);
+    expect(state.stacks.trackedSetShield).toBe(80);
+    expect(state.flags.trackedShieldBreakUsed).toBe(false);
+  });
+
+  it("전용 보호막 첫 소진은 해로운 상태를 정화하고 2행동 피해 감소를 부여한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const player = {
+      ...derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player,
+      hp: 1_000,
+      maxHp: 1_000,
+      def: 0,
+      evaRating: 0,
+      evasionPct: 0,
+      equipSignatures: [
+        {
+          trigger: "battle_start" as const,
+          label: "빙호수호",
+          battleStartShieldPctMaxHp: 8,
+        },
+        FROZEN_RELEASE,
+      ],
+    };
+    const enemy = {
+      ...V2_MONSTERS["훈련용 허수아비"],
+      hp: 10_000,
+      atk: 300,
+      def: 0,
+      spd: 100,
+      accuracy: 100,
+    };
+    const initial = initialBattleState(player, enemy, "용사");
+    const poisoned = makePoisonDot({
+      stacks: 2,
+      pctMaxHpPerStack: 0.001,
+      sourceAtk: 100,
+    });
+    const state = {
+      ...initial,
+      phase: "enemy" as const,
+      playerV2Dots: [poisoned],
+      v2SelfDebuffs: { spd: { pct: 20, turns: 3 } },
+      stacks: { ...initial.stacks, chillStacks: 4, curseStacks: 3 },
+    };
+
+    const after = advanceTurn(state, player, "용사");
+    expect(after.stacks.trackedSetShield).toBe(0);
+    expect(after.flags.trackedShieldBreakUsed).toBe(true);
+    expect(after.playerV2Dots).toEqual([]);
+    expect(after.v2SelfDebuffs).toEqual({});
+    expect(after.stacks.chillStacks).toBe(0);
+    expect(after.stacks.curseStacks).toBe(0);
+    expect(after.buffs.playerDmgReductionPct).toBe(15);
+    expect(after.buffs.playerDmgReductionTurnsLeft).toBe(2);
+    expect(after.log.filter((entry) => entry.text.includes("[빙호 해방]")).length).toBe(1);
   });
 });
 

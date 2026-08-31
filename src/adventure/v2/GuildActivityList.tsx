@@ -20,8 +20,20 @@ export type GuildActivity = {
     questTitle?: string;
     deliveryTitle?: string;
     itemName?: string;
+    materialId?: string;
+    equipmentIid?: string;
+    itemKind?: "material" | "equipment";
+    permissionEnabled?: boolean;
     tokenCost?: number;
     remainingTokens?: number;
+    recipientCount?: number;
+    facilitySupport?: {
+      buildingId: string;
+      buildingName: string;
+      targetLevel: number;
+      crop: number;
+      ore: number;
+    };
     smithyLevel?: number;
     buildingName?: string;
     buildingLevel?: number;
@@ -30,6 +42,7 @@ export type GuildActivity = {
     supplyName?: string;
     supplyLevel?: number;
     fameCost?: number;
+    operationsTier?: number;
     drillTitle?: string;
     rewardMastery?: number;
     artisanXp?: number;
@@ -40,6 +53,9 @@ export type GuildActivity = {
     mapFragments?: number;
     chargeTarget?: "hp" | "mp" | "balanced";
     chargeAmount?: number;
+    staminaPotions?: number;
+    alchemyRewardName?: string;
+    alchemyRewardAmount?: number;
   } | null;
   createdAt: string;
 };
@@ -86,7 +102,21 @@ function describe(a: GuildActivity): string {
     case "trade_delivery":
       return `${actor} 님이 교역소에 ${a.meta?.itemName ?? "물품"} ${(a.meta?.quantity ?? 0).toLocaleString()}개를 납품했어요${contributionText(a)}`;
     case "trade_shop_purchase":
-      return `${actor} 님이 교역소에서 ${a.meta?.itemName ?? "품목"} ${(a.meta?.quantity ?? 0).toLocaleString()}개를 구매했어요 · 공동 토큰 -${(a.meta?.tokenCost ?? 0).toLocaleString()} · 잔액 ${(a.meta?.remainingTokens ?? 0).toLocaleString()}`;
+      return a.meta?.facilitySupport
+        ? `${actor} 님이 교역소에서 ${a.meta.itemName ?? "시설 지원 물자"}을 선택해 ${a.meta.facilitySupport.buildingName} Lv.${a.meta.facilitySupport.targetLevel}에 통나무 ${a.meta.facilitySupport.crop.toLocaleString()}개·철광석 ${a.meta.facilitySupport.ore.toLocaleString()}개를 지원했어요 · 공동 토큰 -${(a.meta.tokenCost ?? 0).toLocaleString()} · 잔액 ${(a.meta.remainingTokens ?? 0).toLocaleString()}`
+        : a.meta?.recipientCount != null
+        ? `${actor} 님이 교역소에서 ${a.meta?.itemName ?? "품목"}을 선택해 길드원 ${a.meta.recipientCount.toLocaleString()}명에게 ${(a.meta?.quantity ?? 0).toLocaleString()}개씩 지급했어요 · 공동 토큰 -${(a.meta?.tokenCost ?? 0).toLocaleString()} · 잔액 ${(a.meta?.remainingTokens ?? 0).toLocaleString()}`
+        : `${actor} 님이 교역소에서 ${a.meta?.itemName ?? "품목"}을 선택해 길드 공용 보상으로 적용했어요 · 공동 토큰 -${(a.meta?.tokenCost ?? 0).toLocaleString()} · 잔액 ${(a.meta?.remainingTokens ?? 0).toLocaleString()}`;
+    case "warehouse_deposit":
+      return a.meta?.itemKind === "equipment"
+        ? `${actor} 님이 길드 창고에 ${a.meta?.itemName ?? "장비"} 입고를 완료했어요`
+        : `${actor} 님이 길드 창고에 ${a.meta?.itemName ?? "재료"} ${(a.meta?.quantity ?? 0).toLocaleString()}개를 입고했어요`;
+    case "warehouse_withdraw":
+      return a.meta?.itemKind === "equipment"
+        ? `${actor} 님이 길드 창고에서 ${a.meta?.itemName ?? "장비"} 출고를 완료했어요`
+        : `${actor} 님이 길드 창고에서 ${a.meta?.itemName ?? "재료"} ${(a.meta?.quantity ?? 0).toLocaleString()}개를 출고했어요`;
+    case "warehouse_permission_change":
+      return `${actor} 님이 ${target} 님의 창고 입출고 권한을 ${a.meta?.permissionEnabled ? "부여" : "회수"}했어요`;
     case "workshop_weekly_claim":
       return `${actor} 님이 ${a.meta?.questTitle ?? "제작 의뢰"} 보상을 수령했어요`;
     case "exploration_weekly_claim":
@@ -123,6 +153,8 @@ function describe(a: GuildActivity): string {
       return `${actor} 님이 ${a.meta?.supplyName ?? "전투보급"}을 Lv ${a.meta?.supplyLevel ?? "?"}로 업그레이드했어요${
         a.meta?.fameCost ? ` · 명성 -${a.meta.fameCost.toLocaleString()}` : ""
       }`;
+    case "combat_supply_funding":
+      return `${actor} 님이 주간 전투보급 운용을 Lv ${a.meta?.operationsTier ?? "?"}로 강화했어요 · 길드 자금 -${(a.meta?.goldCost ?? 0).toLocaleString()} G`;
     case "training_drill_claim":
       return `${actor} 님이 ${a.meta?.drillTitle ?? "훈련"}을 완료했어요${
         a.meta?.rewardMastery
@@ -130,7 +162,11 @@ function describe(a: GuildActivity): string {
           : ""
       }`;
     case "alchemy_craft":
-      return `${actor} 님이 ${a.meta?.itemName ?? "충전액"}을 조제했어요 · ${alchemyTargetLabel(a.meta?.chargeTarget)} +${(a.meta?.chargeAmount ?? 0).toLocaleString()}`;
+      return a.meta?.staminaPotions
+        ? `${actor} 님이 ${a.meta?.itemName ?? "활력 영약"}을 조제했어요 · 스태미나 회복약 +${a.meta.staminaPotions.toLocaleString()}개`
+        : a.meta?.alchemyRewardAmount
+          ? `${actor} 님이 ${a.meta?.itemName ?? "연성 재료"}을 조제했어요 · ${a.meta.alchemyRewardName ?? "연성 재료"} +${a.meta.alchemyRewardAmount.toLocaleString()}개`
+        : `${actor} 님이 ${a.meta?.itemName ?? "충전액"}을 조제했어요 · ${alchemyTargetLabel(a.meta?.chargeTarget)} +${(a.meta?.chargeAmount ?? 0).toLocaleString()}`;
     case "emblem_change":
       return a.meta?.amount
         ? `${actor} 님이 길드 엠블럼을 변경했어요 · 길드 자금 -${a.meta.amount.toLocaleString()} G`
@@ -179,6 +215,9 @@ const DOT_CLASS: Record<string, string> = {
   dining_ingredient_donation: "bg-amber-500",
   trade_delivery: "bg-cyan-500",
   trade_shop_purchase: "bg-cyan-500",
+  warehouse_deposit: "bg-blue-500",
+  warehouse_withdraw: "bg-indigo-500",
+  warehouse_permission_change: "bg-sky-500",
   workshop_weekly_claim: "bg-emerald-500",
   exploration_weekly_claim: "bg-cyan-500",
   exploration_expedition_dispatch: "bg-cyan-500",
@@ -191,6 +230,7 @@ const DOT_CLASS: Record<string, string> = {
   building_upgrade: "bg-orange-500",
   guild_level_upgrade: "bg-sky-500",
   combat_supply_upgrade: "bg-rose-500",
+  combat_supply_funding: "bg-amber-500",
   training_drill_claim: "bg-emerald-500",
   emblem_change: "bg-fuchsia-500",
   nation_declare: "bg-indigo-500",

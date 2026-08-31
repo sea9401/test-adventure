@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { normalizeGuildLevel } from "@/adventure/data/guild";
+import { readBlockedUserIds } from "@/lib/server/ugcSafety";
 
 const LIST_LIMIT = 100;
 // 메모리 캐시 TTL — 길드 명성/멤버수는 매우 빨리 변하지 않으니 30초 staleness OK.
@@ -10,6 +11,7 @@ const CACHE_TTL_MS = 30_000;
 
 type GuildRow = {
   guildId: number;
+  masterId: string;
   name: string;
   emblem: string | null;
   description: string | null;
@@ -29,6 +31,7 @@ async function fetchRows(): Promise<GuildRow[]> {
     WITH stats AS (
       SELECT
         g.id AS guild_id,
+        g.master_id AS master_id,
         g.name AS name,
         g.emblem AS emblem,
         g.description AS description,
@@ -50,13 +53,14 @@ async function fetchRows(): Promise<GuildRow[]> {
         ROW_NUMBER() OVER (ORDER BY fame_total DESC, created_at ASC)::int AS rank
       FROM stats
     )
-    SELECT guild_id, name, emblem, description, nation_name, level, fame_total, member_count, rank
+    SELECT guild_id, master_id, name, emblem, description, nation_name, level, fame_total, member_count, rank
     FROM ranked
     ORDER BY rank
   `);
 
   type DbRow = {
     guild_id: number;
+    master_id: string;
     name: string;
     emblem: string | null;
     description: string | null;
@@ -68,6 +72,7 @@ async function fetchRows(): Promise<GuildRow[]> {
   };
   return (result.rows as unknown as DbRow[]).map((r) => ({
     guildId: Number(r.guild_id),
+    masterId: String(r.master_id),
     name: String(r.name),
     emblem: typeof r.emblem === "string" ? r.emblem : null,
     description: typeof r.description === "string" ? r.description : null,
@@ -121,8 +126,12 @@ export async function GET() {
     myMembership.rows.length > 0
       ? Number((myMembership.rows[0] as { guild_id: number }).guild_id)
       : null;
+  const blockedUserIds = new Set(await readBlockedUserIds(userId));
 
-  const list = rows.slice(0, LIST_LIMIT).map((r) => ({
+  const list = rows
+    .filter((row) => row.guildId === myGuildId || !blockedUserIds.has(row.masterId))
+    .slice(0, LIST_LIMIT)
+    .map((r) => ({
     guildId: r.guildId,
     rank: r.rank,
     name: r.name,
@@ -133,7 +142,7 @@ export async function GET() {
     level: r.level,
     memberCount: r.memberCount,
     mine: r.guildId === myGuildId,
-  }));
+    }));
 
   const myRow =
     myGuildId !== null ? rows.find((r) => r.guildId === myGuildId) : undefined;

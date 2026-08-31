@@ -11,10 +11,20 @@ import {
   derivePlayerCombatV2FromSaves,
   derivePlayerCombatV2Pure,
   MAGIC_ATK_PER_INT,
+  stackedDefenseIncreasePct,
+  stackedDamageReductionPct,
+  stackedMaxHpIncreasePct,
+  stackedVitalityIncreasePct,
+  v2LevelGrowthHpMp,
   V2_BASE_COMBAT_BONUS,
   VIT_ATK_COEF,
 } from "./derivePlayerCombatV2";
 import {
+  ATK_PER_STR,
+  BOW_ACCURACY_TO_ATK_COEF,
+  BOW_HIT_THRESHOLD,
+  diminishingExtraAttackChancePct,
+  HP_PER_VIT,
   MAGIC_DEF_PER_INT,
   MAGIC_DEF_PER_SPI,
 } from "./v2CombatCoefficients";
@@ -27,6 +37,7 @@ import {
 } from "@/adventure/data/v2/v2Stats";
 import { V2_EQUIPMENT, type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import { V2_JOB_CATALOG } from "@/adventure/data/v2/v2JobCatalog";
+import { emptyEquippedLiberationEffects } from "@/adventure/data/v2/equipmentLiberationEffects";
 
 describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   it("빈 장비 → 모든 키 0", () => {
@@ -39,6 +50,7 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       crit: 0,
       mp: 0,
       eva: 0,
+      accuracy: 0,
       hp: 0,
       critMult: 0,
       spd: 0,
@@ -99,6 +111,94 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.magicAtk).toBe(staffPow);
   });
 
+  it("지팡이는 대표 공격력을 마공으로 표시하고 다른 무기는 기존 물공 표시에 폴백한다", () => {
+    const staff = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: { weapon: "v2_oak_staff" },
+    }).player;
+    const sword = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: { weapon: "v2_iron_sword" },
+    }).player;
+
+    expect(staff.displayAttack).toBe("magic");
+    expect(sword.displayAttack).toBeUndefined();
+  });
+
+  it("6T 추적 장비의 명중 옵션이 PvE/PvP 공용 accRating에 반영된다", () => {
+    const id = "v2_storm_gale_bow" as const;
+    const optionAccuracy = V2_EQUIPMENT[id].options?.accuracy ?? 0;
+    expect(aggregateV2Equipment({ weapon: id }).accuracy).toBe(optionAccuracy);
+    const plain = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const geared = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: { weapon: id },
+    }).player;
+    expect((geared.accRating ?? 0) - (plain.accRating ?? 0)).toBe(
+      optionAccuracy,
+    );
+  });
+
+  it("활은 임계 초과 적중도를 공격력으로 환원해 저회피 상대에서도 명중 투자를 보전한다", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: { weapon: "v2_storm_gale_bow" },
+    }).player;
+    const aimed = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: { weapon: "v2_storm_gale_bow" },
+      passiveAccuracyPct: 30,
+    }).player;
+    const bowAttackBonus = (accuracy: number) =>
+      Math.floor(
+        Math.max(0, accuracy - BOW_HIT_THRESHOLD) * BOW_ACCURACY_TO_ATK_COEF,
+      );
+    expect(aimed.atk - base.atk).toBe(
+      bowAttackBonus(aimed.accRating ?? 0) - bowAttackBonus(base.accRating ?? 0),
+    );
+    expect(aimed.atk).toBeGreaterThan(base.atk);
+  });
+
+  it("속도 비례 공격력 전환은 1,024 아래부터 작동하고 고속에서 점감한다", () => {
+    const derive = (allocatedDex: number, maxPct = 0) =>
+      derivePlayerCombatV2Pure({
+        level: 100,
+        allocatedStats: { str: 1_000, dex: allocatedDex },
+        v2Equipped: {},
+        passiveSpdToAtkMaxPct: maxPct,
+      }).player;
+
+    const cases = [
+      { allocatedDex: 300, spd: 299.25, expectedAtk: 797 },
+      { allocatedDex: 511, spd: 499.7, expectedAtk: 824 },
+      { allocatedDex: 1_062, spd: 1_023.15, expectedAtk: 861 },
+      { allocatedDex: 2_000, spd: 1_914.25, expectedAtk: 887 },
+    ];
+    for (const testCase of cases) {
+      const base = derive(testCase.allocatedDex);
+      const converted = derive(testCase.allocatedDex, 30);
+      expect(base.spd).toBe(testCase.spd);
+      expect(base.atk).toBe(717);
+      expect(converted.atk).toBe(testCase.expectedAtk);
+    }
+  });
+
+  it("6T 4세트와 다른 2세트를 동시에 조합할 수 있다", () => {
+    const signatures = collectEquipSignatures({
+      weapon: "v2_storm_wreckage_greatsword",
+      armor: "v2_storm_wreckage_armor",
+      gloves: "v2_storm_wreckage_gloves",
+      boots: "v2_storm_wreckage_boots",
+      ring: "v2_storm_sanctuary_ring",
+      necklace: "v2_storm_sanctuary_necklace",
+    });
+    expect(signatures.map((signature) => signature.label)).toEqual([
+      "성채 전개",
+      "중력 고정",
+      "치유 공명",
+    ]);
+  });
+
   it("개체 굴림(statRolls) 있으면 카탈로그 대신 굴림값 — 위력·옵션", () => {
     // 철검(무기)에 굴림 {power:10, weight:5} → atk=10, weight 는 무시.
     const sword = aggregateV2Equipment(
@@ -146,16 +246,15 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.spd).toBe(-4);
   });
 
-  it("장갑·신발 위력 → 물방 (+ 슬롯 축 crit·eva·spd)", () => {
-    // 슬롯 고유 축(C): 바람결 장갑 T3 위력 4 crit 12 / 바람결 신 T3 위력 4 eva 12 spd 14.
+  it("경갑 장갑·신발 위력 → 회피도 (+ 옵션 crit·eva·spd)", () => {
     const a = aggregateV2Equipment({
       gloves: "v2_windweave_gloves",
       boots: "v2_windweave_boots",
     });
-    expect(a.def).toBe(4 + 4);
+    expect(a.def).toBe(0);
     expect(a.magicDef).toBe(0);
     expect(a.crit).toBe(12);
-    expect(a.eva).toBe(12);
+    expect(a.eva).toBe(4 + 4 + 12);
     expect(a.spd).toBe(14);
   });
 
@@ -170,13 +269,13 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     });
     expect(a.atk).toBe(V2_EQUIPMENT.v2_starsong_bow.power);
     expect(a.magicAtk).toBe(0);
-    expect(a.def).toBe(6); // 갑옷만
+    expect(a.def).toBe(0);
     expect(a.magicDef).toBe(7 + 14); // 목걸이 위력 7 + 바람망토 magicDef 옵션 14(SPI gear PR-2)
     expect(a.healPowerPct).toBe(8); // 마나의 정수 healPowerPct 옵션(SPI gear PR-2)
     expect(a.weight).toBe(0);
     expect(a.spd).toBe(-4);
     expect(a.crit).toBe(2);
-    expect(a.eva).toBe(6); // 바람망토 3 + 마나의 정수 3
+    expect(a.eva).toBe(12); // 망토 위력 6 + 옵션 3 + 목걸이 옵션 3
     expect(a.hp).toBe(80);
     expect(a.mp).toBe(48);
   });
@@ -272,8 +371,259 @@ describe("derivePlayerCombatV2Pure maxMp (V2_BASE_MP 가산)", () => {
   });
 });
 
+describe("derivePlayerCombatV2Pure 생애 자원 굴림", () => {
+  const lifeResourceGrowth = {
+    version: 1 as const,
+    rolledLevel: 100,
+    baseHp: 140,
+    baseMp: 80,
+    gainedHp: 900,
+    gainedMp: 400,
+  };
+
+  const storedLevel100 = {
+    rolledLevel: 100,
+    baseHp: 150,
+    baseMp: 100,
+    gainedHp: 1_000,
+    gainedMp: 1_188,
+  };
+
+  it("버전 2만 훈련한 지능·정신을 MP에 더하고 버전 1과 HP는 보존한다", () => {
+    const common = {
+      level: 100,
+      statFloors: { int: 60, spi: 60 },
+      statCaps: {},
+      v2Equipped: {},
+    } as const;
+    const version1 = derivePlayerCombatV2Pure({
+      ...common,
+      lifeResourceGrowth: { version: 1, ...storedLevel100 },
+    });
+    const version2 = derivePlayerCombatV2Pure({
+      ...common,
+      lifeResourceGrowth: { version: 2, ...storedLevel100 },
+    });
+
+    expect(version1.player.maxMp).toBe(1_288);
+    expect(version2.player.maxMp).toBe(1_378);
+    expect(version2.maxHp).toBe(version1.maxHp);
+  });
+
+  it("직업·플랫·퍼센트로 불어난 지능·정신은 버전 2 MP를 바꾸지 않는다", () => {
+    const common = {
+      level: 100,
+      lifeResourceGrowth: { version: 2 as const, ...storedLevel100 },
+      statFloors: { int: 60, spi: 60 },
+      statCaps: {},
+      v2Equipped: {},
+    };
+    const trainedOnly = derivePlayerCombatV2Pure(common);
+    const amplified = derivePlayerCombatV2Pure({
+      ...common,
+      playerClass: "mage",
+      classTier: 4,
+      jobBonus: { int: 100, spi: 100 },
+      statPct: { int: 100, spi: 100 },
+    });
+
+    expect(trainedOnly.player.maxMp).toBe(1_378);
+    expect(amplified.totalStats.int).toBeGreaterThan(trainedOnly.totalStats.int);
+    expect(amplified.totalStats.spi).toBeGreaterThan(trainedOnly.totalStats.spi);
+    expect(amplified.player.maxMp).toBe(trainedOnly.player.maxMp);
+  });
+
+  it("버전 2도 장비 MP를 더한 뒤 maxMpPct를 적용한다", () => {
+    const derived = derivePlayerCombatV2Pure({
+      level: 100,
+      lifeResourceGrowth: { version: 2, ...storedLevel100 },
+      statFloors: { int: 60, spi: 60 },
+      statCaps: {},
+      v2Equipped: { necklace: "v2_mana_essence" },
+      maxMpPct: 10,
+    });
+
+    expect(derived.player.maxMp).toBe(Math.floor((1_378 + 48) * 1.1));
+  });
+
+  it("기록된 MP는 레벨과 최종 INT·INT% 변화에 재계산되지 않는다", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 100,
+      lifeResourceGrowth,
+      v2Equipped: {},
+    });
+    const amplifiedInt = derivePlayerCombatV2Pure({
+      level: 100,
+      lifeResourceGrowth,
+      allocatedStats: { int: 100 },
+      statPct: { int: 100 },
+      v2Equipped: {},
+    });
+
+    expect(base.player.maxMp).toBe(480);
+    expect(amplifiedInt.player.maxMp).toBe(base.player.maxMp);
+  });
+
+  it("장비 MP와 maxMpPct는 신형 생애 MP에도 기존 순서로 적용한다", () => {
+    const equipped = derivePlayerCombatV2Pure({
+      level: 100,
+      lifeResourceGrowth,
+      v2Equipped: { necklace: "v2_mana_essence" },
+      maxMpPct: 10,
+    });
+
+    expect(equipped.player.maxMp).toBe(Math.floor((480 + 48) * 1.1));
+  });
+
+  it("신형 HP는 확정 생애 HP 위에 최종 STR·VIT 효과를 계속 더한다", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 100,
+      lifeResourceGrowth,
+      v2Equipped: {},
+    });
+    const statPct = derivePlayerCombatV2Pure({
+      level: 100,
+      lifeResourceGrowth,
+      statPct: { str: 100, vit: 100 },
+      v2Equipped: {},
+    });
+
+    expect(base.maxHp).toBe(1_100);
+    expect(statPct.maxHp).toBeGreaterThan(base.maxHp);
+  });
+
+  it("신형 HP에도 maxHpPct를 적용하고 장비 고정 HP는 증폭하지 않는다", () => {
+    const plain = derivePlayerCombatV2Pure({
+      level: 100,
+      lifeResourceGrowth,
+      v2Equipped: {},
+      maxHpPct: 20,
+    });
+    const geared = derivePlayerCombatV2Pure({
+      level: 100,
+      lifeResourceGrowth,
+      v2Equipped: { armor: "v2_windweave_cloak" },
+      maxHpPct: 20,
+    });
+
+    expect(plain.maxHp).toBe(Math.floor(1_100 * 1.2));
+    expect(geared.maxHp - plain.maxHp).toBe(80);
+  });
+
+  it("현재 HP·MP는 신형 최대치로 클램프한다", () => {
+    const derived = derivePlayerCombatV2Pure({
+      level: 100,
+      lifeResourceGrowth,
+      hp: 999_999,
+      mp: 999_999,
+      v2Equipped: {},
+    });
+
+    expect(derived.player.hp).toBe(derived.maxHp);
+    expect(derived.player.mp).toBe(derived.player.maxMp);
+  });
+
+  it("저장 래퍼가 proficiency의 생애 기록을 순수 파생식에 전달한다", () => {
+    const derived = derivePlayerCombatV2FromSaves({
+      character: { level: 100 },
+      equipmentSave: {},
+      proficiencyRaw: { lifeResourceGrowth },
+      skillsRaw: {},
+    });
+
+    expect(derived?.player.maxMp).toBe(480);
+    expect(derived?.maxHp).toBe(1_100);
+  });
+
+  it("음식의 고정 HP·MP는 신형 생애 자원 위에도 그대로 가산한다", () => {
+    const derived = derivePlayerCombatV2FromSaves({
+      character: {
+        level: 100,
+        activeFoodBuff: {
+          recipeId: "flame_corn_stew",
+          recipeName: "불꽃 옥수수 스튜",
+          effect: { combatFlat: { maxHp: 300, maxMp: 70 } },
+          quality: "normal",
+          expiresAt: Date.now() + 60_000,
+        },
+      },
+      equipmentSave: {},
+      proficiencyRaw: { lifeResourceGrowth },
+      skillsRaw: {},
+    });
+
+    expect(derived?.maxHp).toBe(1_400);
+    expect(derived?.player.maxMp).toBe(550);
+  });
+
+  it("음식의 지능·정신 플랫과 퍼센트는 버전 2 훈련 MP에 포함하지 않는다", () => {
+    const saves = {
+      character: {
+        level: 100,
+        activeFoodBuff: {
+          recipeId: "flame_corn_stew",
+          recipeName: "불꽃 옥수수 스튜",
+          effect: {
+            primaryFlat: { int: 100, spi: 100 },
+            primaryPct: { int: 100, spi: 100 },
+          },
+          quality: "normal",
+          expiresAt: Date.now() + 60_000,
+        },
+      },
+      equipmentSave: {},
+      proficiencyRaw: {
+        growthScaleVersion: 1,
+        grown: { int: 45, spi: 45 },
+        lifeResourceGrowth: { version: 2, ...storedLevel100 },
+      },
+      skillsRaw: {},
+    } as const;
+    const withFood = derivePlayerCombatV2FromSaves(saves);
+    const withoutFood = derivePlayerCombatV2FromSaves({
+      ...saves,
+      includeCookingBuff: false,
+    });
+
+    expect(withoutFood?.player.maxMp).toBe(1_378);
+    expect(withFood?.totalStats.int).toBeGreaterThan(
+      withoutFood?.totalStats.int ?? 0,
+    );
+    expect(withFood?.totalStats.spi).toBeGreaterThan(
+      withoutFood?.totalStats.spi ?? 0,
+    );
+    expect(withFood?.player.maxMp).toBe(withoutFood?.player.maxMp);
+  });
+});
+
+describe("derivePlayerCombatV2Pure 마나 실드", () => {
+  it("INT만 투자해서는 생기지 않고 마나 실드 패시브 장착 시 내구도·흡수율을 만든다", () => {
+    const base = derivePlayerCombatV2Pure({ level: 1, v2Equipped: {} }).player;
+    const invested = derivePlayerCombatV2Pure({
+      level: 1,
+      allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 300 },
+      v2Equipped: {},
+    }).player;
+    const shielded = derivePlayerCombatV2Pure({
+      level: 1,
+      allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 300 },
+      v2Equipped: {},
+      passiveMagicBarrier: true,
+    }).player;
+
+    expect(base.magicBarrierMax).toBeUndefined();
+    expect(invested.magicBarrierMax).toBeUndefined();
+    expect(shielded.magicBarrierMax).toBe(1_008);
+    expect(shielded.magicBarrierAbsorbPct).toBeCloseTo(24.5455, 3);
+    expect(shielded.magicBarrierPvpAbsorbPct).toBeCloseTo(16.3636, 3);
+    expect(shielded.magicBarrierEfficiencyPct).toBeCloseTo(12.0574, 3);
+    expect(shielded.magicBarrierPvpEfficiencyPct).toBeCloseTo(8.0383, 3);
+    expect(shielded.mp).toBe(shielded.maxMp);
+  });
+});
+
 describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공격력)", () => {
-  it("기본 int 15 → magicAtk = floor(15×MAGIC_ATK_PER_INT) (마법 베이스라인)", () => {
+  it("기본 INT와 SPI가 함께 마법 공격력 베이스라인을 만든다", () => {
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: { str: 245, dex: 0, vit: 0, luk: 0, int: 0 },
@@ -281,7 +631,8 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     });
     expect(d.totalStats.int).toBe(15); // 기본 int 15 (할당 0)
     expect(d.player.magicAtk).toBe(
-      Math.floor(15 * MAGIC_ATK_PER_INT) + V2_BASE_COMBAT_BONUS,
+      Math.floor(15 * MAGIC_ATK_PER_INT + 15 * 0.1) +
+        V2_BASE_COMBAT_BONUS,
     );
   });
 
@@ -294,7 +645,8 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     });
     expect(d.totalStats.int).toBe(115);
     expect(d.player.magicAtk).toBe(
-      Math.floor(115 * MAGIC_ATK_PER_INT) + V2_BASE_COMBAT_BONUS,
+      Math.floor(115 * MAGIC_ATK_PER_INT + 15 * 0.1) +
+        V2_BASE_COMBAT_BONUS,
     );
   });
 
@@ -307,11 +659,29 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     });
     expect(d.totalStats.int).toBe(15); // 기본 int (장비 token 없음)
     expect(d.player.magicAtk).toBe(
-      Math.floor(15 * MAGIC_ATK_PER_INT) + staffPow + V2_BASE_COMBAT_BONUS,
+      Math.floor(15 * MAGIC_ATK_PER_INT + 15 * 0.1) +
+        staffPow +
+        V2_BASE_COMBAT_BONUS,
     );
     expect(d.player.atk).toBe(
-      Math.floor(15 * 0.15 + 15 * VIT_ATK_COEF) + V2_BASE_COMBAT_BONUS,
+      Math.floor(15 * ATK_PER_STR + 15 * VIT_ATK_COEF) + V2_BASE_COMBAT_BONUS,
     );
+  });
+
+  it("같은 100포인트 투자에서 활력은 공격력 10과 방어력 35를 더한다", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+    }).player;
+    const invested = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { vit: 100 },
+      v2Equipped: {},
+    }).player;
+
+    expect(invested.atk - base.atk).toBe(10);
+    expect(invested.def - base.def).toBe(35);
+    expect(invested.maxHp - base.maxHp).toBe(300);
   });
 
   it("기본 int 물리빌드도 지팡이 위력만큼 magicAtk — 마법스킬 없으면 무용", () => {
@@ -323,8 +693,208 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
       v2Equipped: { weapon: "v2_oak_staff" },
     });
     expect(d.player.magicAtk).toBe(
-      Math.floor(15 * MAGIC_ATK_PER_INT) + staffPow + V2_BASE_COMBAT_BONUS,
+      Math.floor(15 * MAGIC_ATK_PER_INT + 15 * 0.1) +
+        staffPow +
+        V2_BASE_COMBAT_BONUS,
     );
+  });
+
+  it("SPI 전체와 INT를 초과한 SPI가 마공으로 전환되고, 유리할 때 평타도 마법으로 전환된다", () => {
+    const d = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 0, spi: 200 },
+      v2Equipped: {},
+    });
+    const excessSpi = Math.max(0, d.totalStats.spi - d.totalStats.int);
+    expect(d.player.magicAtk).toBe(
+      Math.floor(
+        d.totalStats.int * MAGIC_ATK_PER_INT +
+          d.totalStats.spi * 0.1 +
+          excessSpi * 0.6,
+      ) + V2_BASE_COMBAT_BONUS,
+    );
+    expect(d.player.magicAtk).toBeGreaterThan(d.player.atk);
+    expect(d.player.passiveMagicBasicAttack).toBe(true);
+  });
+
+  it("SPI가 INT 이하이어도 정신 1당 마법 공격력 0.1을 제공한다", () => {
+    const d = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { int: 200, spi: 100 },
+      v2Equipped: {},
+    });
+    expect(d.player.magicAtk).toBe(
+      Math.floor(
+        d.totalStats.int * MAGIC_ATK_PER_INT + d.totalStats.spi * 0.1,
+      ) + V2_BASE_COMBAT_BONUS,
+    );
+    expect(d.player.passiveMagicBasicAttack).toBeUndefined();
+  });
+
+  it("SPI가 INT를 넘은 뒤에는 정신 100당 마법 공격력 70을 유지한다", () => {
+    const boundary = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { int: 100, spi: 100 },
+      v2Equipped: {},
+    }).player;
+    const excess = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { int: 100, spi: 200 },
+      v2Equipped: {},
+    }).player;
+
+    expect(excess.magicAtk! - boundary.magicAtk!).toBe(70);
+  });
+
+  it("물리·마법 스킬 최소 피해는 담당 스탯만 반영한다", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+    }).player;
+    const strBuild = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { str: 100 },
+      v2Equipped: {},
+    }).player;
+    const vitBuild = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { vit: 100 },
+      v2Equipped: {},
+    }).player;
+    const intBuild = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { int: 100 },
+      v2Equipped: {},
+    }).player;
+    const spiBuild = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { spi: 100 },
+      v2Equipped: {},
+    }).player;
+
+    expect(strBuild.minDamage! - base.minDamage!).toBe(15);
+    expect(vitBuild.minDamage! - base.minDamage!).toBe(5);
+    expect(intBuild.minDamage).toBe(base.minDamage);
+    expect(spiBuild.minDamage).toBe(base.minDamage);
+
+    expect(strBuild.magicMinDamage).toBe(base.magicMinDamage);
+    expect(vitBuild.magicMinDamage).toBe(base.magicMinDamage);
+    expect(intBuild.magicMinDamage! - base.magicMinDamage!).toBe(15);
+    expect(spiBuild.magicMinDamage! - base.magicMinDamage!).toBe(8);
+  });
+});
+
+describe("derivePlayerCombatV2Pure 힘·지능 파생 효율", () => {
+  it("힘 100 투자는 공격력 70과 최대 HP 100을 더한다", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { str: 0 },
+      v2Equipped: {},
+    });
+    const invested = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { str: 100 },
+      v2Equipped: {},
+    });
+
+    expect(invested.player.atk - base.player.atk).toBe(70);
+    expect(invested.maxHp - base.maxHp).toBe(100);
+  });
+
+  it("지능 100 투자는 마법 공격력 70을 더한다", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { int: 0 },
+      v2Equipped: {},
+    });
+    const invested = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { int: 100 },
+      v2Equipped: {},
+    });
+
+    expect(invested.player.magicAtk! - base.player.magicAtk!).toBe(70);
+  });
+
+  it("레벨업 결과 HP는 레벨·힘·활력 성장분을 모두 합산한다", () => {
+    expect(
+      v2LevelGrowthHpMp({
+        levelsGained: 2,
+        strGained: 4,
+        vitGained: 3,
+        intGained: 2,
+      }),
+    ).toEqual({ hp: 33, mp: 10 });
+  });
+});
+
+describe("속도 기반 추가 공격 점감", () => {
+  it("100%까지는 선형이고 이후 증가분은 200% 미만으로 점근한다", () => {
+    expect(diminishingExtraAttackChancePct(80)).toBe(80);
+    expect(diminishingExtraAttackChancePct(100)).toBe(100);
+    expect(diminishingExtraAttackChancePct(300)).toBeCloseTo(163.212, 3);
+    expect(diminishingExtraAttackChancePct(1_000)).toBeLessThan(200);
+  });
+});
+
+describe("받는 피해 감소 중첩 점감", () => {
+  it("20%까지는 보존하고 이후 증가분만 40% 반영한다", () => {
+    expect(stackedDamageReductionPct(15)).toBe(15);
+    expect(stackedDamageReductionPct(20)).toBe(20);
+    expect(stackedDamageReductionPct(25)).toBe(22);
+    expect(stackedDamageReductionPct(100)).toBe(30);
+  });
+});
+
+describe("생존 패시브 중첩 점감", () => {
+  it("단일 패시브 구간은 보존하고 다중 중첩분만 완만하게 반영한다", () => {
+    expect(stackedVitalityIncreasePct(30)).toBe(30);
+    expect(stackedVitalityIncreasePct(72)).toBeCloseTo(52.8, 5);
+    expect(stackedMaxHpIncreasePct(66)).toBeCloseTo(42.6, 5);
+    expect(stackedDefenseIncreasePct(58)).toBeCloseTo(41.2, 5);
+  });
+
+  it("최대 HP 비율은 소프트캡 뒤에도 하드캡 없이 계속 증가한다", () => {
+    expect(stackedMaxHpIncreasePct(30)).toBe(30);
+    expect(stackedMaxHpIncreasePct(124)).toBeCloseTo(62.9, 5);
+  });
+
+  it("방어력 비율도 소프트캡 뒤에 계속 증가한다", () => {
+    expect(stackedDefenseIncreasePct(30)).toBe(30);
+    expect(stackedDefenseIncreasePct(86)).toBeCloseTo(52.4, 5);
+    expect(stackedDefenseIncreasePct(136)).toBeCloseTo(72.4, 5);
+  });
+
+  it("고중첩 최대 HP 패시브를 해제하면 실제 최대 HP도 감소한다", () => {
+    const full = derivePlayerCombatV2Pure({
+      level: 100,
+      v2Equipped: {},
+      maxHpPct: 124,
+    });
+    const reduced = derivePlayerCombatV2Pure({
+      level: 100,
+      v2Equipped: {},
+      maxHpPct: 90,
+    });
+
+    expect(full.maxHp).toBeGreaterThan(reduced.maxHp);
+  });
+
+  it("고중첩 방어력 패시브를 더 장착하면 실제 방어력도 증가한다", () => {
+    const full = derivePlayerCombatV2Pure({
+      level: 100,
+      allocatedStats: { vit: 1_000 },
+      v2Equipped: {},
+      passiveDefPct: 136,
+    });
+    const reduced = derivePlayerCombatV2Pure({
+      level: 100,
+      allocatedStats: { vit: 1_000 },
+      v2Equipped: {},
+      passiveDefPct: 86,
+    });
+
+    expect(full.player.def).toBeGreaterThan(reduced.player.def);
   });
 });
 
@@ -422,15 +992,14 @@ describe("derivePlayerCombatV2Pure critResistPct (SPI PR-3b — 정신 치명저
   });
 });
 
-describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", () => {
-  it("Lv1 신캐 (빈 장비, vit 15) → maxHp = V2_BASE_HP + vit = 135 + 15 = 150", () => {
+describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + str + vit)", () => {
+  it("Lv1 신캐는 STR 1당 HP 1과 VIT 1당 HP 3을 얻는다", () => {
     const d = derivePlayerCombatV2Pure({
       level: 1,
       v2Equipped: {},
     });
     expect(d.totalStats.vit).toBe(15);
-    expect(d.maxHp).toBe(V2_BASE_HP + 15);
-    expect(d.maxHp).toBe(150);
+    expect(d.maxHp).toBe(V2_BASE_HP + 15 + 15 * HP_PER_VIT);
   });
 
   it("레벨 성장 — Lv100 = V2_BASE_HP + 99×10 + vit", () => {
@@ -438,23 +1007,31 @@ describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", ()
       level: 100,
       v2Equipped: {},
     });
-    expect(d.maxHp).toBe(V2_BASE_HP + 99 * V2_HP_PER_LEVEL + 15);
-    expect(d.maxHp).toBe(135 + 990 + 15); // 1140
+    expect(d.maxHp).toBe(
+      V2_BASE_HP + 99 * V2_HP_PER_LEVEL + 15 + 15 * HP_PER_VIT,
+    );
   });
 
-  it("vit 투자 시 추가 (HP_PER_VIT 1)", () => {
+  it("VIT 투자분에도 HP_PER_VIT를 적용한다", () => {
     const d = derivePlayerCombatV2Pure({
       level: 1,
       allocatedStats: { str: 0, dex: 0, vit: 50, luk: 0, int: 0 },
       v2Equipped: {},
     });
-    // 베이스 vit 15 + 할당 50 = 65. maxHp = 135 + 65 = 200.
     expect(d.totalStats.vit).toBe(65);
-    expect(d.maxHp).toBe(V2_BASE_HP + 65);
+    expect(d.maxHp).toBe(V2_BASE_HP + 15 + 65 * HP_PER_VIT);
   });
 });
 
 describe("derivePlayerCombatV2Pure — 상위 직업 % 패시브(statPct/maxHpPct/maxMpPct)", () => {
+  it("passes passive MP cost reduction into combat", () => {
+    const { player } = derivePlayerCombatV2Pure({
+      level: 1,
+      passiveMpCostReductionPct: 20,
+    });
+    expect(player.mpCostReductionPct).toBe(20);
+  });
+
   it("statPct — 플랫 가산 뒤 곱 적용(근력 II 힘 +15%)", () => {
     const base = derivePlayerCombatV2Pure({
       level: 1,
@@ -499,6 +1076,24 @@ describe("derivePlayerCombatV2Pure — 상위 직업 % 패시브(statPct/maxHpPc
     expect(withPct.maxHp).toBe(Math.floor(base.maxHp * 1.12));
   });
 
+  it("maxHpPct는 장비 고정 HP를 다시 증폭하지 않는다", () => {
+    const equipment = { armor: "v2_windweave_cloak" } as const;
+    const plain = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} });
+    const geared = derivePlayerCombatV2Pure({ level: 50, v2Equipped: equipment });
+    const plainPct = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+      maxHpPct: 20,
+    });
+    const gearedPct = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: equipment,
+      maxHpPct: 20,
+    });
+    expect(geared.maxHp - plain.maxHp).toBe(80);
+    expect(gearedPct.maxHp - plainPct.maxHp).toBe(80);
+  });
+
   it("maxMpPct — 최대 MP 비례 증가(마나 +12%)", () => {
     const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} });
     const withPct = derivePlayerCombatV2Pure({
@@ -521,6 +1116,116 @@ describe("derivePlayerCombatV2Pure — 상위 직업 % 패시브(statPct/maxHpPc
     expect(same.maxHp).toBe(base.maxHp);
     expect(same.player.maxMp).toBe(base.player.maxMp);
     expect(same.totalStats).toEqual(base.totalStats);
+  });
+});
+
+describe("derivePlayerCombatV2Pure — 장비 해방", () => {
+  it("음식%와 해방%를 패시브 계산 후 기초 능력치 기준으로 각각 절삭해 더한다", () => {
+    const liberationEffects = emptyEquippedLiberationEffects();
+    liberationEffects.baseStatPct.str = 10;
+
+    const derived = derivePlayerCombatV2Pure({
+      level: 1,
+      allocatedStats: { str: 85 },
+      jobBonus: { str: 10 },
+      statPct: { str: 100 },
+      foodPrimaryPct: { str: 10 },
+      liberationEffects,
+    });
+
+    expect(derived.baseAllocatedStats.str).toBe(100);
+    expect(derived.totalStats.str).toBe(240);
+  });
+
+  it("해방 고정 HP·MP를 최대치 비율 계산 전에 더한다", () => {
+    const liberationEffects = emptyEquippedLiberationEffects();
+    liberationEffects.flat.maxHp = 500;
+    liberationEffects.flat.maxMp = 500;
+    liberationEffects.pct.maxHp = 10;
+
+    const base = derivePlayerCombatV2Pure({ level: 1 });
+    const derived = derivePlayerCombatV2Pure({
+      level: 1,
+      maxMpPct: 10,
+      liberationEffects,
+    });
+
+    expect(derived.maxHp).toBe(Math.floor((base.maxHp + 500) * 1.1));
+    expect(derived.player.maxMp).toBe(
+      Math.floor(((base.player.maxMp ?? 0) + 500) * 1.1),
+    );
+  });
+
+  it("현재 재전직 주기에 누적된 해방 HP·MP 성장도 최대치 비율 전에 더한다", () => {
+    const base = derivePlayerCombatV2Pure({ level: 1 });
+    const derived = derivePlayerCombatV2Pure({
+      level: 1,
+      maxHpPct: 10,
+      maxMpPct: 10,
+      liberationCycleGrowth: { hp: 300, mp: 60 },
+    });
+
+    expect(derived.maxHp).toBe(Math.floor((base.maxHp + 300) * 1.1));
+    expect(derived.player.maxMp).toBe(
+      Math.floor(((base.player.maxMp ?? 0) + 60) * 1.1),
+    );
+  });
+
+  it("전투 해방 옵션을 기존 최종 전투 축에 한 번씩 반영한다", () => {
+    const liberationEffects = emptyEquippedLiberationEffects();
+    liberationEffects.flat.atk = 100;
+    liberationEffects.flat.magicAtk = 80;
+    liberationEffects.flat.physicalDef = 60;
+    liberationEffects.flat.magicDef = 40;
+    liberationEffects.flat.accuracy = 30;
+    liberationEffects.flat.evasion = 20;
+    liberationEffects.flat.speed = 10;
+    liberationEffects.pct.atk = 9;
+    liberationEffects.pct.magicAtk = 8;
+    liberationEffects.pct.physicalDef = 7;
+    liberationEffects.pct.magicDef = 6;
+    liberationEffects.pct.allDamage = 5;
+    liberationEffects.combat.critChancePp = 4;
+    liberationEffects.combat.critDamagePp = 20;
+    liberationEffects.combat.skillCritDamagePp = 12;
+    liberationEffects.combat.critResistPp = 3;
+    liberationEffects.combat.statusDamageReductionPct = 5;
+    liberationEffects.combat.physicalPenetrationPct = 6;
+    liberationEffects.combat.magicPenetrationPct = 7;
+    liberationEffects.combat.bossDamagePct = 4;
+    liberationEffects.combat.damageTakenReductionPct = 5;
+    liberationEffects.combat.shieldMaxHpPct = 8;
+    liberationEffects.combat.receivedHealingPct = 10;
+    liberationEffects.combat.healingOutputPct = 15;
+    liberationEffects.combat.skillMpCostReductionPct = 6;
+    liberationEffects.combat.finalEvasionEffectPp = 4;
+
+    const base = derivePlayerCombatV2Pure({ level: 1 }).player;
+    const player = derivePlayerCombatV2Pure({ level: 1, liberationEffects }).player;
+
+    expect(player.atk).toBe(Math.floor((base.atk + 100) * 1.09 * 1.05));
+    expect(player.magicAtk).toBe(
+      Math.floor(((base.magicAtk ?? 0) + 80) * 1.08 * 1.05),
+    );
+    expect(player.def).toBe(Math.floor((base.def + 60) * 1.07));
+    expect(player.magicDef).toBe(Math.floor(((base.magicDef ?? 0) + 40) * 1.06));
+    expect(player.accRating).toBe((base.accRating ?? 0) + 30);
+    expect(player.evaRating).toBe((base.evaRating ?? 0) + 20);
+    expect(player.spd).toBe(base.spd + 10);
+    expect(player.critChancePct).toBe((base.critChancePct ?? 0) + 4);
+    expect(player.critMult).toBeGreaterThan(base.critMult ?? 0);
+    expect(player.skillCritDmgPct).toBe(12);
+    expect(player.critResistPct).toBe((base.critResistPct ?? 0) + 3);
+    expect(player.statusDamageReductionPct).toBe(5);
+    expect(player.enemyPhysicalDefReductionPct).toBe(6);
+    expect(player.enemyMagicDefReductionPct).toBe(7);
+    expect(player.enchantBreakerBossBonusPct).toBe(4);
+    expect(player.passiveDamageTakenReductionPct).toBe(5);
+    expect(player.enchantBarrierPctMaxHp).toBe(8);
+    expect(player.receivedHealMult).toBe(1.1);
+    expect(player.healMult).toBeCloseTo((base.healMult ?? 1) * 1.15, 8);
+    expect(player.mpCostReductionPct).toBe(6);
+    expect(player.finalEvasionReductionPctAdd).toBe(4);
   });
 });
 
@@ -687,6 +1392,38 @@ describe("derivePlayerCombatV2FromSaves (사냥 라우트 dedup용 — select �
     ).toBeNull();
   });
 
+  it("광기 배타 패시브의 최고 단계를 전투 상태로 파생하고 제거된 범용 보너스는 되살리지 않는다", () => {
+    const ranks = [
+      ["v2c_berserker_madness3", 1],
+      ["v2c_warlord_slaughter", 2],
+      ["v2c_overlord_throne", 3],
+      ["v2c_hegemon_dominion", 4],
+    ] as const;
+
+    for (const [skillId, rank] of ranks) {
+      const derived = derivePlayerCombatV2FromSaves({
+        character,
+        equipmentSave: { owned: [], equipped: {} },
+        proficiencyRaw: {},
+        skillsRaw: { learned: [skillId], equipped: [skillId] },
+      })!;
+      expect(derived.player.berserkerMadnessRank, skillId).toBe(rank);
+      expect(derived.player.berserkAtkPctPerLostHpPct, skillId).toBeUndefined();
+      expect(derived.player, skillId).not.toHaveProperty(
+        "reflectDamageTakenReductionPct",
+      );
+    }
+
+    const corrupted = ranks.map(([skillId]) => skillId);
+    const highest = derivePlayerCombatV2FromSaves({
+      character,
+      equipmentSave: { owned: [], equipped: {} },
+      proficiencyRaw: {},
+      skillsRaw: { learned: corrupted, equipped: corrupted },
+    })!;
+    expect(highest.player.berserkerMadnessRank).toBe(4);
+  });
+
   it("4 save → derive: select 래퍼(derivePlayerCombatV2)와 byte-동일 결과", async () => {
     const saves = {
       character,
@@ -712,14 +1449,18 @@ describe("derivePlayerCombatV2FromSaves (사냥 라우트 dedup용 — select �
     expect(viaSaves!.player.atk).toBeGreaterThan(0);
   });
 
-  it("applies active food stats in PvE and excludes them when requested for PvP", () => {
+  it("applies v2 food primary and flat combat effects only in PvE", () => {
     const saves = {
       character: {
         ...character,
         activeFoodBuff: {
           recipeId: "flame_corn_stew",
           recipeName: "불꽃 옥수수 스튜",
-          statPct: { str: 20, vit: 10 },
+          effect: {
+            primaryFlat: { str: 10 },
+            primaryPct: { str: 5 },
+            combatFlat: { atk: 100, def: 50, maxHp: 300 },
+          },
           quality: "normal",
           expiresAt: Date.now() + 60_000,
         },
@@ -730,8 +1471,102 @@ describe("derivePlayerCombatV2FromSaves (사냥 라우트 dedup용 — select �
     };
     const pve = derivePlayerCombatV2FromSaves(saves)!;
     const pvp = derivePlayerCombatV2FromSaves({ ...saves, includeCookingBuff: false })!;
-    expect(pve.totalStats.str).toBeGreaterThan(pvp.totalStats.str);
-    expect(pve.totalStats.vit).toBeGreaterThan(pvp.totalStats.vit);
+    // 음식 5%는 기초 STR 15 기준으로 별도 절삭되어 0, 고정 STR +10만 더해진다.
+    expect(pve.totalStats.str).toBe(pvp.totalStats.str + 10);
+    expect(pve.player.atk).toBeGreaterThanOrEqual(pvp.player.atk + 100);
+    expect(pve.player.def).toBe(pvp.player.def + 50);
+    expect(pve.maxHp).toBe(
+      pvp.maxHp + 300 + (pve.totalStats.str - pvp.totalStats.str),
+    );
+  });
+
+  it("2차 마법사는 마나 실드를 장착한 경우에만 장벽을 전개한다", () => {
+    const saves = {
+      character: {
+        ...character,
+        class: "mage",
+        specChoice: "arcane",
+      },
+      equipmentSave: { owned: [], equipped: {} },
+      proficiencyRaw: {},
+      skillsRaw: {
+        learned: ["v2c_caster_acumen"],
+        equipped: ["v2c_caster_acumen"],
+      },
+    };
+
+    const equipped = derivePlayerCombatV2FromSaves(saves)!;
+    const unequipped = derivePlayerCombatV2FromSaves({
+      ...saves,
+      skillsRaw: { ...saves.skillsRaw, equipped: [] },
+    })!;
+
+    expect(equipped.player.magicBarrierMax).toBeGreaterThan(0);
+    expect(equipped.player.magicBarrierAbsorbPct).toBeGreaterThan(0);
+    expect(unequipped.player.magicBarrierMax).toBeUndefined();
+  });
+
+  it("원초 증폭 장착 여부를 save 집계에서 전투 상태까지 전달한다", () => {
+    const skillsRaw = {
+      learned: ["v2c_primordialmage_amplification"],
+      equipped: ["v2c_primordialmage_amplification"],
+    };
+    const equipped = derivePlayerCombatV2FromSaves({
+      character: { ...character, class: "mage", specChoice: "primordialmage" },
+      equipmentSave: { owned: [], equipped: {} },
+      proficiencyRaw: {},
+      skillsRaw,
+    })!;
+    const unequipped = derivePlayerCombatV2FromSaves({
+      character: { ...character, class: "mage", specChoice: "primordialmage" },
+      equipmentSave: { owned: [], equipped: {} },
+      proficiencyRaw: {},
+      skillsRaw: { ...skillsRaw, equipped: [] },
+    })!;
+
+    expect(equipped.player).toHaveProperty("equipmentMagicSkillCritDmgPct", 0);
+    expect(unequipped.player).not.toHaveProperty(
+      "equipmentMagicSkillCritDmgPct",
+    );
+  });
+
+  it("맹독 네 단계와 만독지배를 장착하면 중독 피해 증폭 122.4%를 전투 캐릭터에 전달한다", () => {
+    const poisonSkills = [
+      "v2c_venomist_virulence",
+      "v2c_venomancer_virulence2",
+      "v2c_venomlord_virulence3",
+      "v2c_plaguebringer_virulence4",
+      "v2c_myriadvenom_body",
+    ];
+    const derived = derivePlayerCombatV2FromSaves({
+      character: { ...character, class: "rogue", specChoice: "myriadvenom" },
+      equipmentSave: { owned: [], equipped: {} },
+      proficiencyRaw: {},
+      skillsRaw: { learned: poisonSkills, equipped: poisonSkills },
+    })!;
+
+    expect(derived.player.poisonDamagePct).toBeCloseTo(122.4);
+  });
+
+  it("마법사도 장착한 변이 패시브를 그대로 전투 캐릭터에 전달한다", () => {
+    const mutationPassives = [
+      "v2c_mutant_adaptation",
+      "v2c_beastkin_bloodscent",
+      "v2c_golem_stoneskin",
+    ];
+    const derived = derivePlayerCombatV2FromSaves({
+      character: { ...character, class: "mage", specChoice: null },
+      equipmentSave: { owned: [], equipped: {} },
+      proficiencyRaw: {},
+      skillsRaw: {
+        learned: mutationPassives,
+        equipped: mutationPassives,
+      },
+    })!;
+
+    expect(derived.player.statusDamageReductionPct).toBe(8);
+    expect(derived.player.bleedPhysicalSkillDamagePctPerStack).toBe(2);
+    expect(derived.player.stoneskinDefPctPerWeight).toBe(6);
   });
 });
 
@@ -936,7 +1771,18 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
       30 / 100,
       5,
     );
-    expect((buffed.evasionPct ?? 0) - (plain.evasionPct ?? 0)).toBeCloseTo(10, 5);
+    expect(plain.evaRating).toBe(0);
+    const invested = derivePlayerCombatV2Pure({
+      ...base,
+      allocatedStats: { dex: 20 },
+    }).player;
+    const investedBuffed = derivePlayerCombatV2Pure({
+      ...base,
+      allocatedStats: { dex: 20 },
+      passiveEvasionPct: 10,
+    }).player;
+    expect(invested.evaRating).toBeCloseTo(10, 5);
+    expect(investedBuffed.evaRating).toBeCloseTo((invested.evaRating ?? 0) * 1.1, 5);
     // 흡혈 — 미장착 시 미설정(undefined), 장착 시 enchantLifestealPct 훅으로 노출.
     expect(plain.enchantLifestealPct ?? 0).toBe(0);
     expect(buffed.enchantLifestealPct).toBe(4);
@@ -952,11 +1798,7 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     // 방어% — def/magicDef 곱연산(철벽·결계 공통 방어축).
     expect(buffed.def).toBe(Math.floor(plain.def * 1.2));
     expect(buffed.magicDef).toBe(Math.floor((plain.magicDef ?? 0) * 1.2));
-    // 명중 — accuracyPct 가산(정밀). 저레벨 베이스라 캡(35) 미도달 → +12.
-    expect((buffed.accuracyPct ?? 0) - (plain.accuracyPct ?? 0)).toBeCloseTo(
-      12,
-      5,
-    );
+    expect(buffed.accRating).toBeCloseTo((plain.accRating ?? 0) * 1.12, 5);
   });
 
   it("광전 패시브는 잃은 HP 비례 공격력 레버로 노출된다", () => {
@@ -992,6 +1834,113 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     expect(archmage.magicSkillDamagePct).toBe(12);
   });
 
+  it("일검필살 패시브는 단일 타격 물리 스킬 피해 레버로 노출된다", () => {
+    const plain = derivePlayerCombatV2Pure({ ...base }).player;
+    const swordSaint = derivePlayerCombatV2Pure({
+      ...base,
+      passiveSingleHitPhysicalSkillDamagePct: 30,
+    }).player;
+    expect(plain.singleHitPhysicalSkillDamagePct).toBeUndefined();
+    expect(swordSaint.singleHitPhysicalSkillDamagePct).toBe(30);
+  });
+
+  it("성도 조준의 스킬 치명타 피해는 별도 전투 레버로 노출된다", () => {
+    const plain = derivePlayerCombatV2Pure({ ...base }).player;
+    const heavenlyBow = derivePlayerCombatV2Pure({
+      ...base,
+      passiveSkillCritDmgPct: 30,
+    }).player;
+    expect(plain.skillCritDmgPct).toBeUndefined();
+    expect(heavenlyBow.skillCritDmgPct).toBe(30);
+  });
+
+  it("원초 증폭은 장비 치명타 배율만 마법 스킬 치명타 배율로 변환한다", () => {
+    const withoutPassive = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { ring: "v2_silver_ring" },
+      v2StatRolls: {
+        v2_silver_ring: {
+          power: 4,
+          weight: 0,
+          options: { critMult: 100 },
+        },
+      },
+    }).player;
+    const amplified = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { ring: "v2_silver_ring" },
+      v2StatRolls: {
+        v2_silver_ring: {
+          power: 4,
+          weight: 0,
+          options: { critMult: 100 },
+        },
+      },
+      passiveEquipmentMagicSkillCritConversion: true,
+    }).player;
+    const withNonEquipmentCritDamage = derivePlayerCombatV2Pure({
+      ...base,
+      allocatedStats: { luk: 500 },
+      v2Equipped: { ring: "v2_silver_ring" },
+      v2StatRolls: {
+        v2_silver_ring: {
+          power: 4,
+          weight: 0,
+          options: { critMult: 100 },
+        },
+      },
+      passiveCritDmgPct: 100,
+      passiveSkillCritDmgPct: 30,
+      passiveEquipmentMagicSkillCritConversion: true,
+    }).player;
+
+    expect(withoutPassive).not.toHaveProperty("equipmentMagicSkillCritDmgPct");
+    expect(amplified.equipmentMagicSkillCritDmgPct).toBeCloseTo(
+      29.5102005,
+      6,
+    );
+    expect(withNonEquipmentCritDamage.equipmentMagicSkillCritDmgPct).toBe(
+      amplified.equipmentMagicSkillCritDmgPct,
+    );
+  });
+
+  it("원초 증폭은 일반 세트와 태그 세트의 활성 치명타 배율도 포함한다", () => {
+    const ordinarySet = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: {
+        armor: "v2_canyon_set_armor",
+        gloves: "v2_canyon_set_gloves",
+        boots: "v2_canyon_set_boots",
+      },
+      passiveEquipmentMagicSkillCritConversion: true,
+    }).player;
+    const tagSet = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: {
+        gloves: "v2_crafted_spark_gloves",
+        boots: "v2_crafted_fury_boots",
+      },
+      passiveEquipmentMagicSkillCritConversion: true,
+    }).player;
+
+    expect(ordinarySet.equipmentMagicSkillCritDmgPct).toBeCloseTo(
+      10.4469018,
+      6,
+    );
+    expect(tagSet.equipmentMagicSkillCritDmgPct).toBeCloseTo(
+      27.1778886,
+      6,
+    );
+  });
+
+  it("원초 증폭을 장착했지만 장비 치명타 배율이 없으면 표시용 0을 보존한다", () => {
+    const amplified = derivePlayerCombatV2Pure({
+      ...base,
+      passiveEquipmentMagicSkillCritConversion: true,
+    }).player;
+    expect(amplified).toHaveProperty("equipmentMagicSkillCritDmgPct", 0);
+  });
+
   it("흑월지배 패시브는 회피 후 스킬 치명타 레버로 노출된다", () => {
     const plain = derivePlayerCombatV2Pure({ ...base }).player;
     const blackmoon = derivePlayerCombatV2Pure({
@@ -1000,6 +1949,33 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     }).player;
     expect(plain.skillCritAfterEvade).toBeUndefined();
     expect(blackmoon.skillCritAfterEvade).toBe(true);
+  });
+
+  it("흑월지배의 행운 속도 환산은 최종 LUK에만 비례해 행동 속도를 올린다", () => {
+    const plain = derivePlayerCombatV2Pure({
+      ...base,
+      allocatedStats: { luk: 100 },
+    }).player;
+    const blackmoon = derivePlayerCombatV2Pure({
+      ...base,
+      allocatedStats: { luk: 100 },
+      passiveSpdPerLukCoef: 0.75,
+    }).player;
+    expect(blackmoon.spd - plain.spd).toBeCloseTo(115 * 0.75);
+  });
+
+  it("흑월지배의 행운 공격 환산은 최종 LUK에 비례해 물리 공격력을 올린다", () => {
+    const plain = derivePlayerCombatV2Pure({
+      ...base,
+      allocatedStats: { luk: 100 },
+    }).player;
+    const blackmoon = derivePlayerCombatV2Pure({
+      ...base,
+      allocatedStats: { luk: 100 },
+      atkPerLukCoef: 0.95,
+    }).player;
+    expect(blackmoon.atk - plain.atk).toBeGreaterThanOrEqual(Math.floor(115 * 0.95));
+    expect(blackmoon.atk - plain.atk).toBeLessThanOrEqual(Math.ceil(115 * 0.95));
   });
 
   it("미지정/0 이면 무영향 (byte-identical 레버)", () => {
@@ -1074,6 +2050,7 @@ describe("derivePlayerCombatV2Pure thornsFlatFromDef (수호자 가시 방벽)",
       v2Equipped: {},
       passiveThornsDefPct: 100,
     }).player;
+    expect(p.thornsDefPct).toBe(100);
     expect(p.thornsFlatFromDef).toBe(p.def);
   });
 
@@ -1088,11 +2065,156 @@ describe("derivePlayerCombatV2Pure thornsFlatFromDef (수호자 가시 방벽)",
 
   it("미지정 → thornsFlatFromDef 미설정(inert·byte-identical)", () => {
     const p = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    expect(p.thornsDefPct).toBeUndefined();
     expect(p.thornsFlatFromDef).toBeUndefined();
   });
 });
 
+describe("derivePlayerCombatV2 빙결 강화", () => {
+  it("Pure 입력의 빙결 피해·지연·잔류를 PlayerCombat에 전달하고 0은 생략한다", () => {
+    const mastered = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+      passiveFreezeDamagePct: 85,
+      passiveFreezeDelayPct: 50,
+      passiveFreezeRetainStacks: 1,
+    }).player;
+    const plain = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+
+    expect(mastered).toMatchObject({
+      freezeDamagePct: 85,
+      freezeDelayPct: 50,
+      freezeRetainStacks: 1,
+    });
+    expect(plain.freezeDamagePct).toBeUndefined();
+    expect(plain.freezeDelayPct).toBeUndefined();
+    expect(plain.freezeRetainStacks).toBeUndefined();
+  });
+
+  it("빙점 지배와 영구동토 장착값을 save 집계에서 전투 상태까지 전달한다", () => {
+    const base = {
+      character: {
+        level: 50,
+        hp: 500,
+        mp: 100,
+        class: "mage",
+        selectedStance: null,
+        specChoice: "cryomancer",
+      },
+      equipmentSave: { owned: [], equipped: {} },
+      proficiencyRaw: {},
+      skillsRaw: {
+        learned: [
+          "v2c_cryomancer_freezingpoint",
+          "v2c_frostsovereign_permafrost",
+        ],
+        equipped: [
+          "v2c_cryomancer_freezingpoint",
+          "v2c_frostsovereign_permafrost",
+        ],
+      },
+    };
+    const equipped = derivePlayerCombatV2FromSaves(base)!;
+    const unequipped = derivePlayerCombatV2FromSaves({
+      ...base,
+      skillsRaw: { ...base.skillsRaw, equipped: [] },
+    })!;
+
+    expect(equipped.player).toMatchObject({
+      freezeDamagePct: 85,
+      freezeDelayPct: 50,
+      freezeRetainStacks: 1,
+    });
+    expect(unequipped.player.freezeDamagePct).toBeUndefined();
+    expect(unequipped.player.freezeDelayPct).toBeUndefined();
+    expect(unequipped.player.freezeRetainStacks).toBeUndefined();
+  });
+});
+
+describe("derivePlayerCombatV2Pure 성채기사 충격 파생 속성", () => {
+  it("충격 획득·스택 피해·방어력 직접 공격 계수를 PlayerCombat에 전달한다", () => {
+    const p = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+      passiveFortressImpactOnHit: true,
+      passiveFortressImpactDamagePctPerStack: 20,
+      passiveFortressDefSkillStatCoefPct: 15,
+    }).player;
+
+    expect(p.fortressImpactOnHit).toBe(true);
+    expect(p.fortressImpactDamagePctPerStack).toBe(20);
+    expect(p.fortressDefSkillStatCoefPct).toBe(15);
+  });
+
+  it("미지정이면 성채기사 전투 속성을 만들지 않는다", () => {
+    const p = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    expect(p.fortressImpactOnHit).toBeUndefined();
+    expect(p.fortressImpactDamagePctPerStack).toBeUndefined();
+    expect(p.fortressDefSkillStatCoefPct).toBeUndefined();
+  });
+});
+
 describe("collectEquipSignatures + equipSignatures 배선 (고유 시그니처 Phase 2)", () => {
+  it("신규 6T HARD 3부위 세트는 2·3세트 시그니처와 정적 보너스를 단계적으로 집계한다", () => {
+    const catastropheTwo = {
+      gloves: "v2_boss_catastrophe_gloves",
+      boots: "v2_boss_catastrophe_boots",
+    } as const;
+    expect(collectEquipSignatures(catastropheTwo as never)).toContainEqual({
+      trigger: "direct_skill_hit",
+      label: "재앙독 주입",
+      poisonChancePct: 25,
+      poisonStacks: 1,
+    });
+    expect(
+      collectEquipSignatures(catastropheTwo as never).some(
+        (signature) => signature.label === "맹독 추격",
+      ),
+    ).toBe(false);
+    const catastropheThree = {
+      ...catastropheTwo,
+      ring: "v2_boss_catastrophe_ring",
+    } as const;
+    expect(collectEquipSignatures(catastropheThree as never)).toContainEqual({
+      trigger: "direct_skill_hit",
+      label: "맹독 추격",
+      poisonedTargetDamagePct: 10,
+    });
+    expect(aggregateV2Equipment(catastropheThree as never).spd).toBe(
+      aggregateV2Equipment(catastropheTwo as never).spd +
+        (V2_EQUIPMENT.v2_boss_catastrophe_ring.options?.spd ?? 0) +
+        8,
+    );
+
+    const frozenTwo = {
+      armor: "v2_boss_frozen_lake_armor",
+      boots: "v2_boss_frozen_lake_boots",
+    } as const;
+    expect(collectEquipSignatures(frozenTwo as never)).toContainEqual({
+      trigger: "battle_start",
+      label: "빙호수호",
+      battleStartShieldPctMaxHp: 8,
+    });
+    expect(aggregateV2Equipment(frozenTwo as never).statusDamageReductionPct).toBe(
+      (V2_EQUIPMENT.v2_boss_frozen_lake_armor.options?.statusDamageReductionPct ?? 0) +
+        (V2_EQUIPMENT.v2_boss_frozen_lake_boots.options?.statusDamageReductionPct ?? 0) +
+        10,
+    );
+    expect(
+      collectEquipSignatures({
+        ...frozenTwo,
+        necklace: "v2_boss_frozen_lake_necklace",
+      } as never),
+    ).toContainEqual({
+      trigger: "tracked_shield_break",
+      label: "빙호 해방",
+      trackedShieldPctMaxHp: 8,
+      cleanseHarmfulStatuses: true,
+      damageTakenReductionPct: 15,
+      buffActions: 2,
+    });
+  });
+
   it("시그니처 없음 → 빈 배열", () => {
     expect(collectEquipSignatures({})).toEqual([]);
     // 일반 장비(시그니처 없는 흔한템)만 → 빈 배열.
@@ -1101,13 +2223,14 @@ describe("collectEquipSignatures + equipSignatures 배선 (고유 시그니처 P
     ).toEqual([]);
   });
 
-  it("마퀴 단품(봉인된 반지) 장착 → on_dodge 시그니처", () => {
+  it("마퀴 단품(봉인된 반지) 장착 → on_action_evasion 시그니처", () => {
     const sigs = collectEquipSignatures({
       ring: "v2_sanctum_sig_sealed_ring",
     } as never);
     expect(sigs).toHaveLength(1);
-    expect(sigs[0].trigger).toBe("on_dodge");
+    expect(sigs[0].trigger).toBe("on_action_evasion");
     expect(sigs[0].label).toBe("봉인");
+    expect(sigs[0].lostHpHealPct).toBe(4);
   });
 
   it("제작 독샘 단검 장착 → 적중 시 중독 시그니처", () => {
@@ -1146,9 +2269,7 @@ describe("collectEquipSignatures + equipSignatures 배선 (고유 시그니처 P
         signature: {
           trigger: "on_hit",
           label: "뇌침",
-          shockChancePct: 20,
-          shockSlowPct: 25,
-          buffActions: 2,
+          shockChancePct: 10,
         },
       },
       {
@@ -1226,7 +2347,7 @@ describe("collectEquipSignatures + equipSignatures 배선 (고유 시그니처 P
     expect(partial).toEqual([]);
   });
 
-  it("연격각인 6세트 → 3회 적중마다 추가 행동 시그니처", () => {
+  it("연격각인 6세트 → 3회 적중마다 추가 기본 공격 시그니처", () => {
     const sigs = collectEquipSignatures({
       weapon: "v2_crafted_combo_bow",
       armor: "v2_crafted_combo_coat",
@@ -1280,6 +2401,6 @@ describe("collectEquipSignatures + equipSignatures 배선 (고유 시그니처 P
       level: 50,
       v2Equipped: { ring: "v2_sanctum_sig_sealed_ring" } as never,
     }).player;
-    expect(withSig.equipSignatures?.[0]?.trigger).toBe("on_dodge");
+    expect(withSig.equipSignatures?.[0]?.trigger).toBe("on_action_evasion");
   });
 });

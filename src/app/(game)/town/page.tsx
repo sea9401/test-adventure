@@ -1,20 +1,24 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
 
-// /town — 마을 탭 home. 생활 지도/치료소/은행/상점/대장간/농장/주방 진입.
+// /town — 마을 탭 home. 협회/통합 교환소/생활 시설 진입.
 export default function TownPage() {
   const router = useRouter();
+  const { gameStateLoaded, viewerGuildId } = useGameState();
   return (
     <V2TownHome
+      gameStateLoaded={gameStateLoaded}
+      viewerGuildId={viewerGuildId}
       onAction={(a: TownAction) => {
         switch (a.kind) {
+          case "open-association":
+            router.push("/town/association");
+            break;
           case "open-healing":
             router.push("/town/healing");
-            break;
-          case "open-shop":
-            router.push("/town/shop");
             break;
           case "open-exchange":
             router.push("/town/exchange");
@@ -33,6 +37,9 @@ export default function TownPage() {
             break;
           case "open-map":
             router.push("/map");
+            break;
+          case "open-life-workshop":
+            router.push("/town/life-workshop");
             break;
         }
       }}

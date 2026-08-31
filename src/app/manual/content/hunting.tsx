@@ -1,4 +1,12 @@
-import { MAX_STAMINA, REGEN_SECONDS_PER_POINT } from "@/adventure/v2/stamina";
+import {
+  HUNT_COST,
+  MAX_STAMINA,
+  REGEN_SECONDS_PER_POINT,
+} from "@/adventure/v2/stamina";
+import {
+  HP_RESTORE_MS,
+  MIN_HUNT_HP_FRACTION,
+} from "@/adventure/v2/hpRegen";
 import {
   RARE_MAP_CAP,
   RARE_MAP_KINDS,
@@ -12,10 +20,24 @@ import {
   STORM_EXPEDITION_UNLOCK_DEPTH,
 } from "@/adventure/data/v2/stormExpedition";
 import {
+  STORM_EXPEDITION_CROSS_UNIQUE_IDS,
+  STORM_EXPEDITION_EQUIPMENT_IDS,
+  STORM_EXPEDITION_HEART_UNIQUE_ID,
+  STORM_EXPEDITION_ROUTE_UNIQUE_IDS,
+  STORM_EXPEDITION_SP_FRUIT_CAP,
+  STORM_EXPEDITION_SP_FRUIT_CHANCE,
+  STORM_EXPEDITION_SP_FRUIT_PITY_CLEARS,
+  STORM_EXPEDITION_UNIQUE_LOOT,
+} from "@/adventure/data/v2/stormExpeditionRewards";
+import {
   MAX_FRONTIER_DEPTH,
   dungeonThemeCatalog,
   huntStageName,
 } from "@/adventure/data/v2/dungeon";
+import {
+  V2_EQUIPMENT,
+  type V2EquipmentId,
+} from "@/adventure/data/v2/v2Equipment";
 import { H2, P, UL, Em, Code, Table, Note } from "./primitives";
 
 const HUNTING_THEMES = dungeonThemeCatalog(MAX_FRONTIER_DEPTH);
@@ -34,9 +56,24 @@ const LOCATION_RARE_MAP_IDS = [
   "rename_map",
 ] satisfies RareMapKindId[];
 const RARE_MAP_TTL_MINUTES = Math.floor(RARE_MAP_TTL_MS / 60_000);
+const HP_RESTORE_MINUTES = HP_RESTORE_MS / 60_000;
+const MIN_HUNT_HP_PERCENT = MIN_HUNT_HP_FRACTION * 100;
+const STORM_EXPEDITION_ROUTES = [
+  { id: "wreckage", name: "잔해" },
+  { id: "gale", name: "칼바람" },
+  { id: "thunder", name: "뇌운" },
+] as const;
 
 function percentText(pct: number) {
   return `${pct}%`;
+}
+
+function equipmentNames(ids: readonly V2EquipmentId[]) {
+  return ids.map((id) => V2_EQUIPMENT[id]?.name ?? id).join(" · ");
+}
+
+function chanceText(chance: number) {
+  return (chance * 100).toFixed(2) + "%";
 }
 
 function multText(label: string, mult: number) {
@@ -75,15 +112,16 @@ export function HuntingContent() {
 
       <H2>사냥과 스태미나</H2>
       <P>
-        사냥 1회에는 <Em>스태미나 1</Em>을 사용하며 몬스터 한 마리와 자동으로
+        사냥 1회에는 <Em>스태미나 {HUNT_COST}</Em>을 사용하며 몬스터 한 마리와 자동으로
         전투합니다. 일괄 사냥으로 여러 전투를 묶어 진행할 수도 있습니다. 패배하면
         이번 전투 보상을 받지 못하고 마지막 패배 이후 사냥으로 번 골드 일부를
-        잃습니다. 은행 예치금과 장비·경험치는 안전합니다.
+        잃습니다. 시간초과는 골드 페널티 계산에서 무승부로 처리되어 손실이
+        없습니다. 은행 예치금과 장비·경험치는 안전합니다.
       </P>
       <Table
         head={["요소", "값"]}
         rows={[
-          ["사냥 1회 비용", <Code key="c">1</Code>],
+          ["사냥 1회 비용", <Code key="c">{HUNT_COST}</Code>],
           ["최대치", <Code key="m">{MAX_STAMINA.toLocaleString()}</Code>],
           ["회복 속도", <Code key="r">{REGEN_SECONDS_PER_POINT}초당 1</Code>],
         ]}
@@ -92,8 +130,9 @@ export function HuntingContent() {
 
       <H2>HP</H2>
       <P>
-        HP가 너무 낮으면 사냥할 수 없습니다. HP는 시간이 지나면 회복되며 마을
-        치료소에서 즉시 모두 채울 수 있습니다.
+        HP가 최대치의 <Em>{MIN_HUNT_HP_PERCENT}% 미만</Em>이면 사냥할 수 없습니다.
+        HP는 최대치와 관계없이 0에서 가득 차기까지 약 {HP_RESTORE_MINUTES}분의
+        속도로 회복되며, 마을 치료소에서 즉시 모두 채울 수 있습니다.
       </P>
 
       <Note>
@@ -110,7 +149,8 @@ export function HuntingContent() {
         7개 전투로 구성됩니다.
       </P>
       <UL>
-        <li>세 항로 중 하나를 고르면 HP와 MP를 유지한 채 다음 구간으로 이어서 싸웁니다.</li>
+        <li>지도에서 연결된 다음 노드를 누르고 상세 미리보기 후 이동을 확정합니다. 지나온 노드로 돌아갈 수 없습니다.</li>
+        <li>첫 항로를 고른 뒤 공용 보급과 폭풍 제단에서 다른 항로로 갈아탈 수 있으며, 이후 적과 항로 보상은 새 항로를 따릅니다.</li>
         <li>보급품, 야영지, 폭풍 제단, 최종 정비에서 회복이나 원정 전용 강화 효과를 선택할 수 있습니다.</li>
         <li>원정마다 위험 이벤트 하나가 고정됩니다. 정확한 이익과 대가를 확인한 뒤 수락하거나 지나칠 수 있습니다.</li>
         <li>
@@ -121,18 +161,100 @@ export function HuntingContent() {
           다음 전투에서 패배하면 해당 원정의 임시 전리품을 모두 잃습니다. 남은
           상태와 보상을 보고 계속 진행할지 결정해야 합니다.
         </li>
+        <li>
+          <Em>연습 모드</Em>는 일일 입장 횟수를 소모하지 않고 실전과 같은 항로·전투·
+          선택을 체험합니다. 골드·재료·장비·SP 열매는 생성되지 않으며 완주와 천장
+          기록도 오르지 않습니다.
+        </li>
+        <li>
+          최종 보스를 처치해 완주하면 <Em>SP 열매 V</Em>를 {percentText(STORM_EXPEDITION_SP_FRUIT_CHANCE * 100)}
+          확률로 얻습니다. 항로를 바꿔도 미획득 횟수는 공용으로 누적되며, {STORM_EXPEDITION_SP_FRUIT_PITY_CLEARS}회
+          연속 미획득 시 확정 지급됩니다. 원정에서는 캐릭터당 최대 {STORM_EXPEDITION_SP_FRUIT_CAP}개까지 획득할 수 있습니다.
+        </li>
+      </UL>
+
+      <H2>원정 장비와 획득 위치</H2>
+      <P>
+        항로 일반 장비는 해당 항로의 모든 전투에서 나오며, 깊은 체크포인트일수록
+        장비 획득 확률이 높습니다. 아래 유니크 확률은 폭풍 계약을 적용하지 않은 기본
+        확률입니다.
+      </P>
+      <Table
+        head={["구분", "획득 위치", "장비"]}
+        rows={[
+          ...STORM_EXPEDITION_ROUTES.map((route) => [
+            route.name + " 항로 일반 장비",
+            route.name + " 항로의 모든 전투",
+            equipmentNames(STORM_EXPEDITION_EQUIPMENT_IDS[route.id]),
+          ]),
+          ...STORM_EXPEDITION_ROUTES.map((route) => [
+            route.name + " 항로 유니크",
+            "해당 항로 수호자 " +
+              chanceText(STORM_EXPEDITION_UNIQUE_LOOT.guardianRouteChance) +
+              " · 폭풍의 심장 " +
+              chanceText(STORM_EXPEDITION_UNIQUE_LOOT.finalRouteChance),
+            V2_EQUIPMENT[STORM_EXPEDITION_ROUTE_UNIQUE_IDS[route.id]]?.name ??
+              STORM_EXPEDITION_ROUTE_UNIQUE_IDS[route.id],
+          ]),
+          [
+            "교차 유니크",
+            "폭풍의 심장 " +
+              chanceText(STORM_EXPEDITION_UNIQUE_LOOT.finalCrossChance),
+            equipmentNames(STORM_EXPEDITION_CROSS_UNIQUE_IDS),
+          ],
+          [
+            "폭풍심장 유니크",
+            "폭풍의 심장 " +
+              chanceText(STORM_EXPEDITION_UNIQUE_LOOT.finalHeartChance),
+            V2_EQUIPMENT[STORM_EXPEDITION_HEART_UNIQUE_ID]?.name ??
+              STORM_EXPEDITION_HEART_UNIQUE_ID,
+          ],
+        ]}
+        caption="폭풍 계약은 항로·교차 유니크 확률을 2배로 올리지만 폭풍심장 유니크 확률은 바꾸지 않습니다."
+      />
+
+      <H2>직접 진행과 일괄 진행</H2>
+      <P>
+        원정 지도에서는 노드를 하나씩 확인하는 직접 진행과, 경로·정비 방침을 먼저
+        정하는 <Em>일괄 진행</Em>을 선택할 수 있습니다. 일괄 진행 설정에서 실전 또는
+        연습 모드, <Em>외곽·중층·수호자</Em> 항로, <Em>공격·생존·자원</Em> 축복 전략을
+        정하면 완주하거나 패배할 때까지 이어서 처리합니다.
+      </P>
+      <UL>
+        <li>
+          일괄 진행 중 회복·정비·축복은 현재 HP·MP와 선택한 전략에 따라 자동으로
+          고릅니다. 위험 이벤트는 자동으로 지나칩니다.
+        </li>
+        <li>
+          일괄 진행도 패배하면 임시 전리품을 모두 잃으며 <Em>자동 귀환하지 않습니다</Em>.
+          안전하게 전리품을 확보하려면 직접 진행으로 전환해 전투 뒤 귀환해야 합니다.
+        </li>
+        <li>
+          중단을 누르면 <Em>현재 요청이 끝난 뒤</Em> 멈춥니다. 새로고침하거나 다시
+          들어왔을 때 현재 원정과 저장된 경로가 맞으면 <Em>일괄 진행 재개</Em>를
+          명시적으로 눌러 이어 갑니다. 자동으로 다시 시작되지는 않습니다.
+        </li>
       </UL>
 
       <H2>전리품</H2>
       <UL>
         <li>
-          <Em>재료</Em> — 강화석(장비 강화)과 보스 소환서가 낮은 확률로 떨어지며,
-          거래소에서 사고팔 수 있습니다.
+          <Em>재료</Em> — 모든 사냥터에서 강화석·보스 소환서·재련석·정착지 재료와
+          활력의 파편 등이 독립적으로 떨어집니다. 구간별 길드 제작 재료와 일부
+          몬스터 전용 재료도 있으며, 정확한 종류와 기본 확률은 모험의 서 →
+          사냥터에서 확인할 수 있습니다.
         </li>
         <li>
           <Em>장비</Em> — 깊이별 풀에서 드랍됩니다. 같은 장비도 옵션 굴림이 달라
           더 좋은 굴림을 노린 재드랍 추격이 가능하고, 드물게 드랍 전용{" "}
-          <Em>유니크</Em>가 나옵니다.
+          <Em>유니크</Em>가 나옵니다. 단, <Em>천공 균열의 입구·심부·최심부</Em> 방어구는
+          모든 난이도가 같은 6티어 전역 후보 풀을 사용하고 깊은 구간일수록 총
+          드랍률만 높아집니다. 천공 균열 시그니처 유니크 12종도 전 구간에서 같은
+          초저확률 후보 풀을 공유합니다. 무기 완제품은 천공 균열 최심부에서만 극히
+          낮은 확률로 나옵니다. <Em>별의 무덤의 입구·심부·최심부</Em>는 같은 6티어 방어구 21종과
+          시그니처 유니크 12종을 다시 노리는 고난도 사냥터입니다. 일반 장비 확률은
+          천공 균열의 각 구간과 같고, 시그니처 유니크만 처치당 총 0.0035%로 조금
+          높습니다. 경험치와 골드는 천공 균열 최심부와 동일합니다.
         </li>
         <li>
           <Em>희귀 탐사</Em> — 아주 낮은 확률로 열리는 특별 사냥. 발견된

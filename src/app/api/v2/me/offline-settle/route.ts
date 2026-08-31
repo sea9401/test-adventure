@@ -18,12 +18,21 @@ import {
   OFFLINE_SETTLE_BATCH_SIZE,
   offlineBattlesAccrued,
   offlineFarmDepth,
+  V2_EQUIPMENT_LIBERATION,
 } from "@/adventure/data/v2/coreLoopConfig";
+import {
+  EMPTY_LIBERATION_HUNT_SNAPSHOT,
+  deriveLiberationHuntSnapshot,
+} from "@/adventure/data/v2/equipmentLiberationEffects";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
 import {
   runOneHunt,
   type RunOneHuntCtx,
 } from "@/app/api/v2/dungeon/hunt/route";
+import {
+  recordCodexMasteryGameplayBatch,
+  type CodexMasteryGameplayEvent,
+} from "@/lib/server/codexMasteryGameplay";
 
 // POST /api/v2/me/offline-settle — 오프라인 자동전투 정산(코어루프 전용).
 //
@@ -119,6 +128,11 @@ export async function POST(req: Request) {
       Number(charSave.frontierDepth) || 2,
     );
     const dropFloor = Math.min(depth, DROP_FLOOR_CAP) as DungeonFloorId;
+    const liberationSnapshot = V2_EQUIPMENT_LIBERATION
+      ? deriveLiberationHuntSnapshot(
+          await lockSaveForUpdate(tx, userId, "equipment.v2", {}),
+        )
+      : EMPTY_LIBERATION_HUNT_SNAPSHOT;
 
     // 🔑오프라인 세션 = "로그아웃 HP + 판당 5초 회복". hpRegenSince 를 첫 판 기준(now − n×쿨다운)
     //   으로 리셋해, 장기 부재의 window 이전 누적 회복(거대 첫판 힐)을 차단한다. 첫 판은 정확히
@@ -140,6 +154,7 @@ export async function POST(req: Request) {
     let levelsGained = 0;
     let spMilestonesGained = 0; // 코어루프 — 자리 비운 동안 새로 넘은 SP 마일스톤 합산.
     let stopped: "hp" | "error" | AutoHuntStopReason | null = null;
+    const codexMasteryEvents: CodexMasteryGameplayEvent[] = [];
 
     for (let i = 0; i < n; i++) {
       // 판별 시뮬 시각 — 5초 간격, 마지막 판이 이번 batchEnd에 맞닿는다.
@@ -151,8 +166,12 @@ export async function POST(req: Request) {
         dropFloor,
         outpostId: null,
         rareMapIid: null,
+        hpPotionTargetPct: autoStopConfig.hpPotionTargetPct,
+        mpPotionTargetPct: autoStopConfig.mpPotionTargetPct,
         offline: true,
         nowOverride,
+        codexMasteryEvents,
+        liberationSnapshot,
       };
       const r = await runOneHunt(false, ctx);
       if (!r.ok) {
@@ -215,6 +234,15 @@ export async function POST(req: Request) {
           }
         : {}),
     });
+
+    if (codexMasteryEvents.length > 0) {
+      await recordCodexMasteryGameplayBatch(
+        tx,
+        userId,
+        codexMasteryEvents,
+        new Date(batchEnd),
+      );
+    }
 
     return {
       battles: completed,

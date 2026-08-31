@@ -6,7 +6,8 @@
 // PR-4a 전투 재설계 — 장비 데이터 모델을 **위력(power) / 옵션(options)** 중심으로
 // 통합 (옛 atk/def/matk 직접표기 + 6스탯 token 폐기). 효과는 **슬롯별 분기**(derive):
 //   - 무기: 위력 → weaponType 별 공격력. 지팡이=마법 공격력, 그 외=물리 공격력.
-//   - 갑옷/장갑/신발: 위력 → 물리 방어력 (물리 방어선 3슬롯).
+//   - 중갑 갑옷/장갑/신발: 위력 → 물리 방어력.
+//   - 경갑 갑옷/장갑/신발: 위력 → 회피도.
 //   - 반지/목걸이: 위력 → 마법 방어력 (장신구선 2슬롯).
 //   - 예전 무게 페널티는 카탈로그 변환 단계에서 일부 장비의 속도 감소 옵션으로 노출한다.
 //   - 옵션(crit/eva/mp/hp) → 위력 외 flavor 차별화. derive 결과 player 에 후-가산.
@@ -18,10 +19,18 @@
 
 import type { V2Element } from "@/adventure/data/v2/elements";
 import type { V2BuildTagId } from "./buildTags";
+import {
+  parseLiberationState,
+  type V2LiberationState,
+} from "./equipmentLiberation";
 
-import { V2_EQUIPMENT } from "./v2EquipmentCatalog";
+import {
+  DISPLAY_TIER_6_POWER_SCALE,
+  V2_EQUIPMENT,
+} from "./v2EquipmentCatalog";
 import {
   enhanceGoldCost,
+  equipmentPowerWithBonus,
   parseEnhance,
   type V2EnhanceState,
 } from "./v2Enhance";
@@ -135,8 +144,10 @@ export type V2EquipmentId = keyof typeof V2_EQUIPMENT;
 export type V2EquipOptions = {
   /** critChancePct 후-가산, 퍼센트 정수. */
   crit?: number;
-  /** evasionPct 후-가산, 퍼센트 정수 (EVASION_PCT_CAP 클램프 유지). */
+  /** 경갑 위력과 합산되는 고정 회피도. */
   eva?: number;
+  /** 스탯 적중도와 합산되는 고정 적중도. */
+  accuracy?: number;
   /** maxMp 후-가산, flat. */
   mp?: number;
   /** maxHp 후-가산, flat. */
@@ -163,6 +174,7 @@ export type V2EquipOptions = {
 export const V2_EQUIP_OPTION_KEYS: readonly (keyof V2EquipOptions)[] = [
   "crit",
   "eva",
+  "accuracy",
   "mp",
   "hp",
   "critMult",
@@ -238,12 +250,42 @@ const ENHANCE_POWER_FLOOR_DISPLAY_TIER_5: Record<V2EquipSlot, number> = {
   necklace: maxPowerByDisplayTierAndSlot(4, "necklace") + 1,
 };
 
+// 6T는 5T의 특수 제작 위력 이상치가 아니라 기존 5T 강화 비용 기준선을 이어받는다.
+// 저품질 굴림이 나오더라도 상위 티어 강화비가 역전되지 않도록 부위별로 20% 프리미엄을 둔다.
+export const ENHANCE_DISPLAY_TIER_6_COST_PREMIUM = 1.2;
+const ENHANCE_POWER_FLOOR_DISPLAY_TIER_6: Record<V2EquipSlot, number> = {
+  weapon: Math.ceil(
+    ENHANCE_POWER_FLOOR_DISPLAY_TIER_5.weapon * ENHANCE_DISPLAY_TIER_6_COST_PREMIUM,
+  ),
+  armor: Math.ceil(
+    ENHANCE_POWER_FLOOR_DISPLAY_TIER_5.armor * ENHANCE_DISPLAY_TIER_6_COST_PREMIUM,
+  ),
+  gloves: Math.ceil(
+    ENHANCE_POWER_FLOOR_DISPLAY_TIER_5.gloves * ENHANCE_DISPLAY_TIER_6_COST_PREMIUM,
+  ),
+  boots: Math.ceil(
+    ENHANCE_POWER_FLOOR_DISPLAY_TIER_5.boots * ENHANCE_DISPLAY_TIER_6_COST_PREMIUM,
+  ),
+  ring: Math.ceil(
+    ENHANCE_POWER_FLOOR_DISPLAY_TIER_5.ring * ENHANCE_DISPLAY_TIER_6_COST_PREMIUM,
+  ),
+  necklace: Math.ceil(
+    ENHANCE_POWER_FLOOR_DISPLAY_TIER_5.necklace * ENHANCE_DISPLAY_TIER_6_COST_PREMIUM,
+  ),
+};
+
 export function enhancePowerForCost(
   item: V2Equipment,
   power: number,
 ): number {
-  if (v2EquipCatalogTierToDisplayTier(item.tier) !== 5) return power;
-  return Math.max(power, ENHANCE_POWER_FLOOR_DISPLAY_TIER_5[item.slot]);
+  const displayTier = v2EquipCatalogTierToDisplayTier(item.tier);
+  if (displayTier === 5) {
+    return Math.max(power, ENHANCE_POWER_FLOOR_DISPLAY_TIER_5[item.slot]);
+  }
+  if (displayTier === 6) {
+    return Math.max(power, ENHANCE_POWER_FLOOR_DISPLAY_TIER_6[item.slot]);
+  }
+  return power;
 }
 
 export function enhanceGoldCostForEquipment(
@@ -372,7 +414,8 @@ export function weaponGateOpen(
 
 // === 발동형 시그니처 효과 (Phase 2) ==================================
 // 고유 아이템(세트 완성 또는 단품)이 전투 "중"에 조건부로 발동하는 효과. 옵션(flat 패시브)과 달리
-//   트리거가 있다(전투시작/저체력/회복/회피/크리/적중/피격/스킬시전/상태방어/N타마다).
+//   트리거가 있다(전투시작/저체력/회복/회피/행동 회피 회복/크리/적중/피격/스킬시전/
+//   상태방어/N타마다).
 //   docs/v2-signature-uniques-plan.md §10.
 //   🔑 라이브 사냥=단일 적 1v1 → on-kill 무용(처치=전투 종료) → 전투 중 트리거만.
 //   엔진(engine.playerPhase/enemyPhase/pvpPhase)이 PlayerCombat.equipSignatures 로 읽어 발동.
@@ -382,17 +425,42 @@ export type SignatureTrigger =
   | "low_hp"
   | "on_heal"
   | "on_dodge"
+  | "on_action_evasion"
   | "on_crit"
   | "on_hit"
   | "on_hit_taken"
   | "on_skill_cast"
+  | "direct_skill_hit"
+  | "tracked_shield_break"
   | "status_block_once"
-  | "every_n_hits";
+  | "every_n_hits"
+  | "tier6_unique";
+export type Tier6UniqueMechanic =
+  | "gravity_reprisal"
+  | "gravity_feedback"
+  | "bleed_burst"
+  | "bleed_aftermath"
+  | "pursuit_mark"
+  | "shadow_echo"
+  | "venom_burst"
+  | "venom_balance"
+  | "arcane_overload"
+  | "arcane_feedback"
+  | "sanctuary_reserve"
+  | "mechanic_unity"
+  | "shield_conversion"
+  | "gale_circuit"
+  | "status_mana_return"
+  | "triphase_link"
+  | "storm_confluence"
+  | "dominant_heart";
 export type SignatureEffect = {
   trigger: SignatureTrigger;
   /** 전투로그/UI 표기 이름(예: "성물"). */
   label: string;
-  /** low_hp: 현재 HP 가 maxHp 의 이 % 이하일 때 효과 활성. */
+  /** 6티어 단품 유니크의 데이터 주도 메커니즘. 세트 태그와 독립이다. */
+  mechanic?: Tier6UniqueMechanic;
+  /** low_hp: 피격 직전 현재 HP 가 maxHp 의 이 % 이하일 때 효과 활성. */
   hpThresholdPct?: number;
   /** low_hp: 받는 피해 −% (조건 충족 시). */
   damageTakenReductionPct?: number;
@@ -400,8 +468,8 @@ export type SignatureEffect = {
   spdBuffPct?: number;
   /** 속도/스탯 버프 지속(행동 수). */
   buffActions?: number;
-  /** on_dodge/on_crit: 발동 시 maxHp 의 이 % 만큼 회복. */
-  healPct?: number;
+  /** on_action_evasion: 발동 시 잃은 HP 의 이 % 만큼 회복. */
+  lostHpHealPct?: number;
   /** on_crit: 크리 시 대상에게 중독(독 DoT) 부여. */
   poisonOnCrit?: boolean;
   /** on_crit: 크리 시 대상에게 한기(둔화) — 적 속도 −% (buffActions 행동). 군림(자속도+)의 거울. */
@@ -410,27 +478,31 @@ export type SignatureEffect = {
   poisonChancePct?: number;
   /** on_hit: 공격 적중 시 부여하는 중독 스택 수. 기본 1. */
   poisonStacks?: number;
+  /** direct_skill_hit: 대상이 중독 상태면 직접 스킬 최종 피해 +%. */
+  poisonedTargetDamagePct?: number;
   /** on_hit: 공격 적중 시 대상에게 출혈을 부여할 확률. */
   bleedChancePct?: number;
   /** on_hit: 공격 적중 시 부여하는 출혈 스택 수. 기본 1. */
   bleedStacks?: number;
-  /** on_hit: 공격 적중 시 대상에게 감전(둔화)을 부여할 확률. */
+  /** on_hit: 공격 적중 시 대상의 다음 행동 1회를 막는 감전을 부여할 확률. */
   shockChancePct?: number;
-  /** on_hit: 감전 발동 시 적 속도 −% (buffActions 행동). */
-  shockSlowPct?: number;
   /** on_crit: 치명타 시 적 DEF −% (buffActions 행동). */
   enemyDefDebuffPct?: number;
   /** on_hit_taken: 받은 HP 피해의 이 % 만큼 DEF 보너스 누적(전투 중, 상한=기본 DEF). */
   defGainOnHitPct?: number;
   /** battle_start: 전투 시작 시 maxHp 의 이 % 만큼 보호막 생성. */
   battleStartShieldPctMaxHp?: number;
+  /** tracked_shield_break: 별도 추적할 전투 시작 보호막의 최대 HP 비율. */
+  trackedShieldPctMaxHp?: number;
+  /** tracked_shield_break: 전용 보호막 소진 시 해로운 상태를 정화. */
+  cleanseHarmfulStatuses?: boolean;
   /** on_skill_cast: 실제로 낸 스킬 MP 비용의 이 % 만큼 환급. */
   mpRefundPctOfCost?: number;
   /** on_heal: 실제 HP 회복량의 이 % 만큼 보호막 생성. */
   healToShieldPct?: number;
   /** status_block_once: 전투당 1회 DoT/한기 등 상태이상 부여를 막는다. */
   statusBlockOnce?: boolean;
-  /** every_n_hits: 평타·스킬의 실제 적중 횟수가 이 값에 도달할 때마다 추가 행동 1회. */
+  /** every_n_hits: 평타·스킬의 실제 적중 횟수가 이 값에 도달할 때마다 추가 기본 공격 1회. */
   everyNHits?: number;
 };
 
@@ -440,14 +512,15 @@ export function signatureLabel(sig: SignatureEffect): string {
     case "battle_start":
       return `전투 시작 시 최대 HP의 ${sig.battleStartShieldPctMaxHp ?? 0}% 보호막`;
     case "low_hp":
-      return `체력 ${sig.hpThresholdPct ?? 0}% 이하일 때 받는 피해 −${sig.damageTakenReductionPct ?? 0}%`;
+      return `피격 직전 체력 ${sig.hpThresholdPct ?? 0}% 이하일 때 받는 피해 −${sig.damageTakenReductionPct ?? 0}%`;
     case "on_heal":
       return `회복 시 회복량의 ${sig.healToShieldPct ?? 0}% 보호막`;
     case "on_dodge":
-      if (sig.healPct) return `회피 시 HP +${sig.healPct}% 회복`;
       if (sig.spdBuffPct)
         return `회피 시 속도 +${sig.spdBuffPct}% (${sig.buffActions ?? 1}행동)`;
       return "회피 시 발동";
+    case "on_action_evasion":
+      return `행동 시 회피 경감률의 절반 확률로 잃은 HP의 ${sig.lostHpHealPct ?? 0}% 회복`;
     case "on_crit":
       if (sig.poisonOnCrit) return "치명타 시 대상 중독(독)";
       if (sig.chillSlowPct)
@@ -463,16 +536,45 @@ export function signatureLabel(sig: SignatureEffect): string {
       if (sig.bleedChancePct)
         return `공격 적중 시 ${sig.bleedChancePct}% 확률로 출혈 ${sig.bleedStacks ?? 1}스택`;
       if (sig.shockChancePct)
-        return `공격 적중 시 ${sig.shockChancePct}% 확률로 감전 — 속도 −${sig.shockSlowPct ?? 0}% (${sig.buffActions ?? 1}행동)`;
+        return `공격 적중 시 ${sig.shockChancePct}% 확률로 감전 — 다음 행동 1회 불가`;
       return "공격 적중 시 발동";
     case "on_hit_taken":
       return `피격 시 받은 HP 피해의 ${sig.defGainOnHitPct ?? 0}%만큼 방어 상승`;
     case "on_skill_cast":
       return `스킬 사용 시 소모 MP의 ${sig.mpRefundPctOfCost ?? 0}% 환급`;
+    case "direct_skill_hit":
+      if (sig.poisonChancePct)
+        return `직접 피해 액티브 적중 시 ${sig.poisonChancePct}% 확률로 중독 ${sig.poisonStacks ?? 1}스택`;
+      return `중독 대상 직접 스킬 최종 피해 +${sig.poisonedTargetDamagePct ?? 0}%`;
+    case "tracked_shield_break":
+      return `전용 보호막 소진 시 해로운 상태 정화 및 ${sig.buffActions ?? 0}행동 동안 받는 피해 −${sig.damageTakenReductionPct ?? 0}%`;
     case "status_block_once":
       return "전투당 1회 상태이상 무효";
     case "every_n_hits":
-      return `${sig.everyNHits ?? 0}회 공격 적중마다 추가 행동 1회`;
+      return `${sig.everyNHits ?? 0}회 공격 적중마다 추가 기본 공격 1회`;
+    case "tier6_unique": {
+      const labels: Record<Tier6UniqueMechanic, string> = {
+        gravity_reprisal: "보호막 파괴 시 충격의 35%를 저장해 다음 직접 공격으로 반격",
+        gravity_feedback: "보호막 획득량의 20%를 반발로 저장하고 반발 시 최대 HP 5% 보호막",
+        bleed_burst: "기본 공격 시 출혈을 소비하지 않고 남은 피해의 50%를 즉시 적용 (4행동당 1회)",
+        bleed_aftermath: "출혈 폭발 시 출혈 중첩은 유지하고 지속 횟수만 최소 5회로 갱신 · 현재 출혈 중첩당 방어 3% 감소",
+        pursuit_mark: "연속 적중 5회마다 직전 공격 피해 60%의 추적 사격",
+        shadow_echo: "회피로 잔상을 쌓아 다음 치명타 피해의 45%를 복제",
+        venom_burst: "스킬로 중독을 쌓고 기본 공격으로 5스택 이상 중독을 폭발",
+        venom_balance: "중독 폭발 시 절반을 재부여하고 스택당 마법방어 2% 감소",
+        arcane_overload: "MP 100 소모마다 마법공격력 140%의 마법 피해를 주는 과부하 낙뢰",
+        arcane_feedback: "과부하 낙뢰 시 MP 20% 환급, 상태이상 대상이면 과부하 25 회수",
+        sanctuary_reserve: "산출 회복량 30%를 저장해 HP 35% 이하에서 긴급 회복",
+        mechanic_unity: "서로 다른 핵심 기믹 3종 발동 시 3행동 동안 합일 강화",
+        shield_conversion: "행동마다 보호막 10%를 소비해 다음 직접 공격 피해로 전환",
+        gale_circuit: "적중·치명타·회피를 모두 달성하면 추가 기본 공격 1회",
+        status_mana_return: "상태이상 적 공격 시 소모 MP 8%, 복합 상태면 16% 회복",
+        triphase_link: "폭발은 추적 표식을, 추적·잔상·낙뢰는 성역 축적을 생성",
+        storm_confluence: "시그니처 피해와 회복·보호막이 서로의 다음 효과를 12% 강화",
+        dominant_heart: "먼저 3회 발동한 핵심 기믹의 계수와 자원 생성을 35% 강화",
+      };
+      return sig.mechanic ? labels[sig.mechanic] : "6티어 고유 기믹";
+    }
   }
 }
 
@@ -826,6 +928,60 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
     ],
   },
   {
+    id: "catastrophe_venom",
+    name: "재앙독갑",
+    buildTags: ["physical", "crit", "speed", "poison", "dot"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: {},
+        signature: {
+          trigger: "direct_skill_hit",
+          label: "재앙독 주입",
+          poisonChancePct: 25,
+          poisonStacks: 1,
+        },
+      },
+      {
+        count: 3,
+        bonus: { spd: 8 },
+        signature: {
+          trigger: "direct_skill_hit",
+          label: "맹독 추격",
+          poisonedTargetDamagePct: 10,
+        },
+      },
+    ],
+  },
+  {
+    id: "frozen_lake_guard",
+    name: "빙호수호",
+    buildTags: ["magic", "tank", "shield", "heal"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { statusDamageReductionPct: 10 },
+        signature: {
+          trigger: "battle_start",
+          label: "빙호수호",
+          battleStartShieldPctMaxHp: 8,
+        },
+      },
+      {
+        count: 3,
+        bonus: {},
+        signature: {
+          trigger: "tracked_shield_break",
+          label: "빙호 해방",
+          trackedShieldPctMaxHp: 8,
+          cleanseHarmfulStatuses: true,
+          damageTakenReductionPct: 15,
+          buffActions: 2,
+        },
+      },
+    ],
+  },
+  {
     id: "royal_hunt",
     name: "왕도 사냥꾼",
     buildTags: ["crit", "evasion", "speed"],
@@ -947,15 +1103,311 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
     name: "흉포한 산군",
     buildTags: ["physical", "crit", "tank"],
     thresholds: [
-      { count: 2, bonus: { hp: 360, def: 44, magicDef: 24 } },
-      { count: 4, bonus: { hp: 520, def: 64, crit: 4, critResist: 8 } },
+      { count: 2, bonus: { hp: 260, def: 32, magicDef: 24 } },
+      { count: 4, bonus: { hp: 400, def: 48, crit: 4, critResist: 8 } },
       {
         count: 6,
-        bonus: { hp: 760, def: 96, magicDef: 48, critResist: 14 },
+        // 방어구·2·4세트에서 덜어낸 총량을 완성 보너스로 옮겨 순수 산군 탱커는 중립으로 유지한다.
+        bonus: { hp: 1_230, def: 166, magicDef: 48, critResist: 14 },
         signature: {
           trigger: "on_hit_taken",
           label: "정면돌파",
           defGainOnHitPct: 2,
+        },
+      },
+    ],
+  },
+  // 6T 세트의 2·4부위는 컨셉 발동 효과, 3·5부위는 산군 세트가 끊길 때 사라지는 기반 스탯을
+  // 각 컨셉의 생존 방식으로 되돌린다. 6부위는 공격 템포를 여는 완성 효과로, 4+2 혼합과 경쟁한다.
+  {
+    id: "storm_gravity",
+    name: "중력성채",
+    buildTags: ["tank", "shield", "low_hp"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { hp: 200, def: 20, critResist: 6 },
+        signature: {
+          trigger: "battle_start",
+          label: "성채 전개",
+          battleStartShieldPctMaxHp: 10,
+        },
+      },
+      {
+        count: 3,
+        bonus: { hp: 600, def: 80, magicDef: 25, critResist: 8 },
+      },
+      {
+        count: 4,
+        bonus: { hp: 300, def: 30, critResist: 8 },
+        signature: {
+          trigger: "low_hp",
+          label: "중력 고정",
+          hpThresholdPct: 40,
+          damageTakenReductionPct: 20,
+        },
+      },
+      {
+        count: 5,
+        bonus: { hp: 300, def: 30, magicDef: 20, critResist: 5 },
+      },
+    ],
+  },
+  {
+    id: "storm_breaker",
+    name: "붕괴의 선봉",
+    buildTags: ["physical", "crit", "bleed", "vulnerability"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { crit: 4, critMult: 30 },
+        signature: {
+          trigger: "on_crit",
+          label: "균열",
+          enemyDefDebuffPct: 12,
+          buffActions: 2,
+        },
+      },
+      {
+        count: 3,
+        bonus: { hp: 600, def: 60, crit: 2, critMult: 15 },
+      },
+      {
+        count: 4,
+        bonus: { crit: 6, critMult: 50, spd: 4 },
+        signature: {
+          trigger: "on_hit",
+          label: "붕괴상",
+          bleedChancePct: 30,
+          bleedStacks: 1,
+        },
+      },
+      {
+        count: 5,
+        bonus: { hp: 600, def: 60, critMult: 20, spd: 2 },
+      },
+    ],
+  },
+  {
+    id: "storm_pursuit",
+    name: "천공추적",
+    buildTags: ["physical", "crit", "speed"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { crit: 4, accuracy: 10, spd: 5 },
+        signature: {
+          trigger: "on_crit",
+          label: "추적 호흡",
+          spdBuffPct: 18,
+          buffActions: 2,
+        },
+      },
+      {
+        count: 3,
+        bonus: { hp: 350, magicDef: 15, eva: 4 },
+      },
+      {
+        count: 4,
+        bonus: { crit: 6, accuracy: 14, spd: 8 },
+        signature: {
+          trigger: "every_n_hits",
+          label: "추적 화살",
+          everyNHits: 3,
+        },
+      },
+      {
+        count: 5,
+        bonus: { hp: 420, magicDef: 15, eva: 5 },
+      },
+      {
+        count: 6,
+        bonus: { accuracy: 20, critMult: 60 },
+        signature: {
+          trigger: "every_n_hits",
+          label: "천공질주",
+          everyNHits: 2,
+        },
+      },
+    ],
+  },
+  {
+    id: "storm_shadow",
+    name: "무풍암영",
+    buildTags: ["physical", "crit", "evasion", "speed"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { crit: 4, eva: 5, spd: 5 },
+        signature: {
+          trigger: "on_dodge",
+          label: "암영",
+          spdBuffPct: 25,
+          buffActions: 2,
+        },
+      },
+      {
+        count: 3,
+        bonus: { hp: 850, magicDef: 25, eva: 8 },
+      },
+      {
+        count: 4,
+        bonus: {
+          hp: 650,
+          magicDef: 20,
+          crit: 6,
+          critMult: 50,
+          eva: 8,
+          spd: 8,
+        },
+        signature: {
+          trigger: "on_crit",
+          label: "그림자 절명",
+          enemyDefDebuffPct: 18,
+          buffActions: 1,
+        },
+      },
+      {
+        count: 5,
+        bonus: { hp: 1_250, magicDef: 30, eva: 10 },
+      },
+      {
+        count: 6,
+        bonus: { crit: 6, critMult: 100 },
+        signature: {
+          trigger: "every_n_hits",
+          label: "무풍연살",
+          everyNHits: 7,
+        },
+      },
+    ],
+  },
+  {
+    id: "storm_venom",
+    name: "만독침식",
+    buildTags: ["poison", "dot", "evasion", "vulnerability"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { hp: 180, eva: 3, statusDamageReductionPct: 5 },
+        signature: {
+          trigger: "on_hit",
+          label: "만독",
+          poisonChancePct: 20,
+          poisonStacks: 1,
+        },
+      },
+      {
+        count: 3,
+        bonus: {
+          hp: 700,
+          magicDef: 20,
+          statusDamageReductionPct: 5,
+        },
+      },
+      {
+        count: 4,
+        bonus: { hp: 280, crit: 4, eva: 5, statusDamageReductionPct: 10 },
+        signature: {
+          trigger: "on_hit",
+          label: "침식독",
+          poisonChancePct: 25,
+          poisonStacks: 1,
+        },
+      },
+      {
+        count: 5,
+        bonus: {
+          hp: 720,
+          magicDef: 25,
+          statusDamageReductionPct: 5,
+        },
+      },
+      {
+        count: 6,
+        bonus: { crit: 4, critMult: 60 },
+        signature: {
+          trigger: "every_n_hits",
+          label: "만독순환",
+          everyNHits: 8,
+        },
+      },
+    ],
+  },
+  {
+    id: "storm_arcane",
+    name: "뇌정술식",
+    buildTags: ["magic", "crit", "speed", "resource"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { mp: 160, crit: 4 },
+        signature: {
+          trigger: "on_skill_cast",
+          label: "마력 순환",
+          mpRefundPctOfCost: 15,
+        },
+      },
+      {
+        count: 3,
+        bonus: { hp: 250, mp: 200, def: 20, magicDef: 10 },
+      },
+      {
+        count: 4,
+        bonus: { hp: 200, mp: 260, def: 20, crit: 6, critMult: 35, spd: 8 },
+        signature: {
+          trigger: "on_hit",
+          label: "전도 낙뢰",
+          shockChancePct: 10,
+        },
+      },
+      {
+        count: 5,
+        bonus: { hp: 400, mp: 200, def: 60, magicDef: 15 },
+      },
+    ],
+  },
+  {
+    id: "storm_sanctuary",
+    name: "성역공명",
+    buildTags: ["magic", "tank", "heal", "shield", "resource"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { mp: 180, magicDef: 20, healPowerPct: 8 },
+        signature: {
+          trigger: "on_heal",
+          label: "치유 공명",
+          healToShieldPct: 25,
+        },
+      },
+      {
+        count: 3,
+        bonus: {
+          hp: 400,
+          mp: 200,
+          def: 40,
+          magicDef: 20,
+          healPowerPct: 4,
+        },
+      },
+      {
+        count: 4,
+        bonus: { hp: 300, mp: 220, magicDef: 30, healPowerPct: 12 },
+        signature: {
+          trigger: "status_block_once",
+          label: "성역 정화",
+          statusBlockOnce: true,
+        },
+      },
+      {
+        count: 5,
+        bonus: {
+          hp: 350,
+          mp: 170,
+          def: 40,
+          magicDef: 20,
+          healPowerPct: 4,
         },
       },
     ],
@@ -1029,12 +1481,13 @@ export function v2ItemTypeLabel(item: V2Equipment): string {
 
 const OPTION_LABELS: Record<keyof V2EquipOptions, string> = {
   crit: "치명타",
-  eva: "회피",
+  eva: "추가 회피도",
+  accuracy: "추가 적중도",
   mp: "MP",
   hp: "HP",
   critMult: "치명타 피해",
   spd: "속도",
-  def: "방어",
+  def: "추가 방어력",
   magicDef: "마법방어",
   healPowerPct: "회복",
   critResist: "치명타 저항",
@@ -1046,11 +1499,31 @@ const OPTION_PERCENT_KEYS: ReadonlySet<keyof V2EquipOptions> = new Set<
   keyof V2EquipOptions
 >([
   "crit",
-  "eva",
   "healPowerPct",
   "critResist",
   "statusDamageReductionPct",
 ]);
+
+// 장갑·신발 카탈로그는 역사적으로 concept="light"를 공통 기본값으로 사용했다. 중갑 갑옷과
+// 같은 세트 태그를 가진 부속 장비까지 회피도로 오분류하지 않도록 세트 기준을 함께 본다.
+const HEAVY_ARMOR_SET_TAGS = new Set(
+  Object.values(V2_EQUIPMENT)
+    .filter((item) => item.slot === "armor" && item.concept === "heavy")
+    .flatMap((item) => item.setTags ?? []),
+);
+
+export function v2EquipSurvivalPowerKind(
+  item: V2Equipment,
+): "def" | "evasion" | null {
+  if (item.slot !== "armor" && item.slot !== "gloves" && item.slot !== "boots") {
+    return null;
+  }
+  if (item.concept === "heavy") return "def";
+  if ((item.setTags ?? []).some((tag) => HEAVY_ARMOR_SET_TAGS.has(tag))) {
+    return "def";
+  }
+  return "evasion";
+}
 
 // 장비 옵션 한 줄 — 라벨과 값(부호·단위 포함)을 분리해 들고 있다.
 // 카드가 라벨(좌)·값(우) 행으로 그리려면 합친 문자열이 아니라 이 형태가 필요.
@@ -1066,6 +1539,7 @@ export function v2EquipPowerLabel(item: V2Equipment): string {
     return item.weaponType === "staff" ? "마법 공격력" : "공격력";
   }
   if (item.slot === "ring" || item.slot === "necklace") return "마법 방어력";
+  if (v2EquipSurvivalPowerKind(item) === "evasion") return "회피도";
   return "방어력";
 }
 
@@ -1075,6 +1549,12 @@ export function scaledEquipWeight(item: V2Equipment, rawWeight: number): number 
   void item;
   void rawWeight;
   return 0;
+}
+
+/** 내부 계산 정밀도는 유지하고 장비 위력은 화면에서 정수로 표시한다. */
+export function equipmentPowerDisplayValue(value: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.round(parsed) : 0;
 }
 
 // 적용 스탯 — 개체 굴림(V2EquipRoll) 있으면 그 값, 없으면 카탈로그(상점 구매·옛 데이터·옵션
@@ -1146,17 +1626,21 @@ export function v2EquipStatRows(
 ): V2EquipStatRow[] {
   const eff = effectiveStats(item, roll);
   const out: V2EquipStatRow[] = [];
-  const power = powerWithBonuses(eff.power, enhance, craftQuality);
+  const basePower = equipmentPowerDisplayValue(eff.power);
+  const power = equipmentPowerDisplayValue(
+    powerWithBonuses(eff.power, enhance, craftQuality),
+  );
   if (power) {
     const enhanceBonus = enhance
-      ? powerWithBonuses(eff.power, enhance) - eff.power
+      ? equipmentPowerDisplayValue(powerWithBonuses(eff.power, enhance)) -
+        basePower
       : 0;
     out.push({
       label: v2EquipPowerLabel(item),
       value: `+${power}`,
       ...(enhance && enhance.level > 0
         ? {
-            detail: `기본 +${eff.power} · 강화 +${Math.max(0, enhanceBonus)}`,
+            detail: `기본 +${basePower} · 강화 +${Math.max(0, enhanceBonus)}`,
           }
         : {}),
     });
@@ -1202,6 +1686,7 @@ const COMPARE_FIELD_ORDER: { label: string; lowerBetter: boolean }[] = [
   { label: "공격력", lowerBetter: false },
   { label: "마법 공격력", lowerBetter: false },
   { label: "방어력", lowerBetter: false },
+  { label: "회피도", lowerBetter: false },
   { label: "마법 방어력", lowerBetter: false },
   ...V2_EQUIP_OPTION_KEYS.map((k) => ({
     label: OPTION_LABELS[k],
@@ -1218,21 +1703,22 @@ function compareNumeric(
 ): Record<string, number> {
   const eff = effectiveStats(item, roll);
   const out: Record<string, number> = {
-    [v2EquipPowerLabel(item)]: powerWithBonuses(eff.power, enhance, craftQuality),
+    [v2EquipPowerLabel(item)]: equipmentPowerDisplayValue(
+      powerWithBonuses(eff.power, enhance, craftQuality),
+    ),
   };
   const opts = eff.options ?? {};
   for (const k of V2_EQUIP_OPTION_KEYS) out[OPTION_LABELS[k]] = opts[k] ?? 0;
   return out;
 }
 
-// 증감 표시 — v2EquipStatRows 와 단위 일치(치명피해 ×, 치명/회피/회복 %, 그 외 flat).
+// 증감 표시 — v2EquipStatRows 와 단위 일치(치명피해 ×, 치명/회복 %, 그 외 flat).
 function formatCompareDelta(label: string, delta: number): string {
   const sign = delta > 0 ? "+" : "-";
   const a = Math.abs(delta);
   if (label === OPTION_LABELS.critMult) return `${sign}${(a / 100).toFixed(2)}×`;
   if (
     label === OPTION_LABELS.crit ||
-    label === OPTION_LABELS.eva ||
     label === OPTION_LABELS.healPowerPct ||
     label === OPTION_LABELS.critResist ||
     label === OPTION_LABELS.statusDamageReductionPct
@@ -1311,7 +1797,13 @@ export type V2EquipRoll = {
   power: number;
   weight: number;
   options?: V2EquipOptions;
+  /** 폭풍 개량 후 품질 계산 기준이 되는 6T 기본 위력. 일반 굴림에는 없다. */
+  powerBase?: number;
+  /** 6T 기본 위력 보정 적용 버전. 기존 굴림을 한 번만 마이그레이션한다. */
+  powerScaleVersion?: number;
 };
+
+export const TIER_6_POWER_SCALE_VERSION = 1;
 
 export type EquipmentSave = {
   owned?: unknown;
@@ -1326,6 +1818,8 @@ export type V2CraftedBy = {
   craftedAt: string;
   /** 명장 제작 모드로 생산된 제작품 표식. 납품·거래 가치 판정에 사용한다. */
   masterwork?: boolean;
+  /** Lv.28 이상 대장장이의 영구 전문 분야 각인. 성능에는 관여하지 않는다. */
+  specialty?: "weapon" | "armor" | "jewelry";
 };
 
 export type V2CraftQualityLevel = 1 | 2;
@@ -1364,23 +1858,30 @@ export function powerWithBonuses(
 ): number {
   const bonusPct = (enhance?.bonusPct ?? 0) + (craftQuality?.bonusPct ?? 0);
   if (bonusPct <= 0) return basePower;
-  return Math.floor(basePower * (1 + bonusPct / 100));
+  return equipmentPowerWithBonus(basePower, bonusPct);
 }
 
 // 장비 개체(instance) — 같은 카탈로그 id 라도 개별 굴림을 갖는 한 자루. iid 로 식별.
 //   iid: 고유 식별자(획득 시 생성, 재사용 금지) · id: 카탈로그 id · roll: 개체 굴림(없으면 카탈로그값).
 //   locked: 즐겨찾기 잠금 — 일괄/실수 판매 방지. true 만 저장(false/없음 = 미잠금).
+//   bound: 계정 귀속 — 계정 간 거래·이동 제한. 현재 부여처는 없으며 향후 요소용으로 보존.
 export type V2EquipInstance = {
   iid: string;
   id: V2EquipmentId;
   roll?: V2EquipRoll;
   locked?: boolean;
+  /** 계정 귀속 상태 — 명시적인 true만 저장하며 강화 여부와는 독립적이다. */
+  bound?: true;
   /** 강화 상태(+레벨·누적 위력 보너스 %p) — 미강화는 부재. v2Enhance 참고. */
   enhance?: V2EnhanceState;
   /** 제작 품질(★/★★) — 강화와 별도 표시·보너스 축. */
   craftQuality?: V2CraftQualityState;
   /** 제작자 표식 — 길드 제작소 제작품에만 붙는 표시용 메타. */
   craftedBy?: V2CraftedBy;
+  /** 기존 특화 장비의 개성과 강화 상태를 유지한 채 6T 위력대로 개량했는지 여부. */
+  stormRefined?: true;
+  /** 장비 해방 단계·영구 줄 수·현재 옵션. 기능 플래그와 무관하게 저장은 보존한다. */
+  liberation?: V2LiberationState;
 };
 
 // 개체 iid 생성 — 서버/클라 공용. crypto.randomUUID 우선, 없으면 폴백.
@@ -1433,6 +1934,19 @@ export function parseEquipRoll(val: unknown): V2EquipRoll | undefined {
     power: Math.max(1, Math.floor(r.power)),
     weight: Math.max(0, Math.floor(r.weight)),
   };
+  const powerBase = (val as { powerBase?: unknown }).powerBase;
+  if (typeof powerBase === "number" && Number.isFinite(powerBase)) {
+    roll.powerBase = Math.max(1, Math.floor(powerBase));
+  }
+  const powerScaleVersion = (val as { powerScaleVersion?: unknown })
+    .powerScaleVersion;
+  if (
+    typeof powerScaleVersion === "number" &&
+    Number.isFinite(powerScaleVersion) &&
+    powerScaleVersion > 0
+  ) {
+    roll.powerScaleVersion = Math.floor(powerScaleVersion);
+  }
   if (r.options && typeof r.options === "object") {
     const opts: V2EquipOptions = {};
     const rawOpts = r.options as Record<string, unknown>;
@@ -1443,6 +1957,40 @@ export function parseEquipRoll(val: unknown): V2EquipRoll | undefined {
     if (Object.keys(opts).length > 0) roll.options = opts;
   }
   return roll;
+}
+
+/** 기존 6T·폭풍 개량 굴림을 현재 카탈로그 위력대로 한 번만 올린다. */
+export function migrateEquipRollPowerScale(
+  item: V2Equipment,
+  roll: V2EquipRoll | undefined,
+): V2EquipRoll | undefined {
+  if (
+    !roll ||
+    (item.tier !== 16 && roll.powerBase == null) ||
+    (roll.powerScaleVersion ?? 0) >= TIER_6_POWER_SCALE_VERSION
+  ) {
+    return roll;
+  }
+  return {
+    ...roll,
+    power: Math.max(1, Math.round(roll.power * DISPLAY_TIER_6_POWER_SCALE)),
+    ...(roll.powerBase != null
+      ? {
+          powerBase: Math.max(
+            1,
+            Math.round(roll.powerBase * DISPLAY_TIER_6_POWER_SCALE),
+          ),
+        }
+      : {}),
+    powerScaleVersion: TIER_6_POWER_SCALE_VERSION,
+  };
+}
+
+export function parseEquipRollForItem(
+  item: V2Equipment,
+  val: unknown,
+): V2EquipRoll | undefined {
+  return migrateEquipRollPowerScale(item, parseEquipRoll(val));
 }
 
 export function parseCraftedBy(val: unknown): V2CraftedBy | undefined {
@@ -1461,6 +2009,12 @@ export function parseCraftedBy(val: unknown): V2CraftedBy | undefined {
     typeof raw.name === "string" && raw.name.trim().length > 0
       ? raw.name.trim()
       : undefined;
+  const specialty =
+    raw.specialty === "weapon" ||
+    raw.specialty === "armor" ||
+    raw.specialty === "jewelry"
+      ? raw.specialty
+      : undefined;
   return {
     userId: raw.userId,
     ...(name ? { name } : {}),
@@ -1468,6 +2022,7 @@ export function parseCraftedBy(val: unknown): V2CraftedBy | undefined {
     level,
     craftedAt,
     ...(raw.masterwork === true ? { masterwork: true } : {}),
+    ...(specialty ? { specialty } : {}),
   };
 }
 
@@ -1500,7 +2055,23 @@ export function parseInstanceCraftQuality(
   return parseCraftQuality(craftQuality) ?? parseLegacyCraftQuality(legacyEnhance, craftedBy);
 }
 
-// equipment.v2 파싱 — 개체(instance) 모델. owned = {iid,id,roll?,locked?,enhance?} 배열.
+/**
+ * 실제 강화와, 구형 제작품이 enhance 필드에 저장하던 제작 품질을 구분한다.
+ * 명시적 craftQuality가 있으면 두 보너스는 별도 축이므로 enhance도 함께 보존한다.
+ */
+export function parseInstanceEnhance(
+  enhance: unknown,
+  craftQuality: unknown,
+  craftedBy: V2CraftedBy | undefined,
+): V2EnhanceState | undefined {
+  const hasExplicitCraftQuality = parseCraftQuality(craftQuality) != null;
+  if (!hasExplicitCraftQuality && parseLegacyCraftQuality(enhance, craftedBy)) {
+    return undefined;
+  }
+  return parseEnhance(enhance);
+}
+
+// equipment.v2 파싱 — 개체(instance) 모델. owned = {iid,id,roll?,locked?,bound?,enhance?} 배열.
 // 카탈로그 슬롯(item.slot) 기준 배치(저장 슬롯 키 불신). equipped = 슬롯→iid. 옛 24-class·티어
 // 리매핑(LEGACY_ID_REMAP)·옛 {owned:id[], statRolls} 마이그는 폐지(DB 초기화 전제) — 알 수 없는
 // id 는 무음 제거. 누락/중복 iid 는 결정적 스킴(`id~n`)으로 복구해 read=write 안정성을 유지한다.
@@ -1521,9 +2092,12 @@ export function parseEquipmentSave(raw: unknown): {
       id?: unknown;
       roll?: unknown;
       locked?: unknown;
+      bound?: unknown;
       enhance?: unknown;
       craftQuality?: unknown;
       craftedBy?: unknown;
+      stormRefined?: unknown;
+      liberation?: unknown;
     };
     if (typeof e.id !== "string" || !VALID_IDS.has(e.id)) continue;
     const id = e.id as V2EquipmentId;
@@ -1540,15 +2114,19 @@ export function parseEquipmentSave(raw: unknown): {
     const inst: V2EquipInstance = {
       iid,
       id,
-      roll: parseEquipRoll(e.roll),
+      roll: parseEquipRollForItem(V2_EQUIPMENT[id], e.roll),
     };
     if (e.locked === true) inst.locked = true;
+    if (e.bound === true) inst.bound = true;
     const craftedBy = parseCraftedBy(e.craftedBy);
     const craftQuality = parseInstanceCraftQuality(e.craftQuality, e.enhance, craftedBy);
-    const enhance = craftQuality ? undefined : parseEnhance(e.enhance);
+    const enhance = parseInstanceEnhance(e.enhance, e.craftQuality, craftedBy);
     if (enhance) inst.enhance = enhance;
     if (craftQuality) inst.craftQuality = craftQuality;
     if (craftedBy) inst.craftedBy = craftedBy;
+    if (e.stormRefined === true) inst.stormRefined = true;
+    const liberation = parseLiberationState(e.liberation, V2_EQUIPMENT[id].slot);
+    if (liberation) inst.liberation = liberation;
     owned.push(inst);
     byIid.set(iid, inst);
   }
@@ -1620,7 +2198,7 @@ export function resolveEquippedForAggregate(
       const item = V2_EQUIPMENT[inst.id];
       const basePower = inst.roll?.power ?? item.power;
       rolls[inst.id] = {
-        power: Math.floor(basePower * (1 + bonusPct / 100)),
+        power: equipmentPowerWithBonus(basePower, bonusPct),
         weight: inst.roll?.weight ?? item.weight,
         ...(inst.roll?.options ? { options: inst.roll.options } : {}),
       };

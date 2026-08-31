@@ -14,6 +14,7 @@ import {
   readProfileAvatarMap,
 } from "@/lib/server/museunCosmetics";
 import { excludeArenaOperatorAccounts } from "@/lib/server/arenaOperatorEligibility";
+import { filterRankingEligibleRows } from "@/lib/server/rankingEligibility";
 
 // GET /api/v2/arena/ranking — 현재 주간 Elo 순위표.
 //   실유저 랭크전으로 적립된 pvp_ratings 만 정렬해 상위 N + 본인 순위를 돌려준다.
@@ -31,6 +32,7 @@ export async function GET() {
     .select({
       userId: pvpRatings.userId,
       email: users.email,
+      bannedUntil: users.bannedUntil,
       score: pvpRatings.rating,
       wins: pvpRatings.wins,
       losses: pvpRatings.losses,
@@ -41,7 +43,9 @@ export async function GET() {
     .innerJoin(users, eq(users.id, pvpRatings.userId))
     .where(eq(pvpRatings.seasonId, season.id))
     .orderBy(desc(pvpRatings.rating), desc(pvpRatings.wins), pvpRatings.updatedAt);
-  const rows = excludeArenaOperatorAccounts(ratingRows);
+  const rows = excludeArenaOperatorAccounts(
+    filterRankingEligibleRows(ratingRows),
+  );
 
   const scored = rows
     .map((r) => ({

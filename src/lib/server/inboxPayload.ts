@@ -16,15 +16,23 @@ import {
   type EquipmentInstance,
 } from "@/adventure/inventory/equipmentInstances";
 import {
-  isMuseunShopItemId,
-  type MuseunShopItemId,
+  isMuseunAdminGiftItemId,
+  type MuseunAdminGiftItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import { TITLES } from "@/adventure/data/titles";
+import {
+  isCookingStoredIngredientId,
+  type CookingStoredIngredientId,
+} from "@/adventure/v2/cooking/storedIngredients";
 
 export type GuildQuestRewardMaterial = { materialId: string; count: number };
 export type GuildQuestRewardItem = { itemId: string; count: number };
 export type AdminGiftCashItem = {
-  itemId: MuseunShopItemId;
+  itemId: MuseunAdminGiftItemId;
+  count: number;
+};
+export type AdminGiftCookingIngredient = {
+  ingredientId: CookingStoredIngredientId;
   count: number;
 };
 
@@ -43,7 +51,7 @@ export type InboxPayload =
   | { kind: "price_alert"; text: string }
   | {
       kind: "buy_order_item";
-      item_kind: "material" | "cash" | "cooking";
+      item_kind: "material" | "cash" | "cooking" | "specimen";
       item_id: string;
       quantity: number;
     }
@@ -109,8 +117,12 @@ export type InboxPayload =
       kind: "admin_gift";
       gold: number;
       materials: GuildQuestRewardMaterial[];
+      /** 요리 전용 재료. 누락은 기존 운영자 우편 호환을 위해 빈 배열로 처리한다. */
+      cookingIngredients?: AdminGiftCookingIngredient[];
       items: GuildQuestRewardItem[];
       staminaPotions: number;
+      /** 관리자 지급분만 귀속 처리한다. 누락된 레거시·이벤트 보상은 비귀속으로 유지. */
+      staminaPotionsBound?: boolean;
       museunCoins: number;
       cashItems: AdminGiftCashItem[];
       /** 수령 시점부터 시작되는 월간 모험 지원권 기간. 활성 중이면 남은 기간 뒤에 이어 붙임. */
@@ -168,7 +180,8 @@ export function parseInboxPayload(
       if (
         (item_kind !== "material" &&
           item_kind !== "cash" &&
-          item_kind !== "cooking") ||
+          item_kind !== "cooking" &&
+          item_kind !== "specimen") ||
         !item_id ||
         quantity == null ||
         quantity < 1
@@ -275,8 +288,12 @@ export function parseInboxPayload(
       // 모든 첨부는 선택 — 구 페이로드 호환을 위해 누락은 0/빈배열로 정규화한다.
       const gold = asNonNegInt(p.gold) ?? 0;
       const materials = parseRewardMaterials(p.materials);
+      const cookingIngredients = parseRewardCookingIngredients(
+        p.cookingIngredients,
+      );
       const items = parseRewardItems(p.items);
       const staminaPotions = asNonNegInt(p.staminaPotions) ?? 0;
+      const staminaPotionsBound = p.staminaPotionsBound === true;
       const museunCoins = asNonNegInt(p.museunCoins) ?? 0;
       const cashItems = parseRewardCashItems(p.cashItems);
       const adventureSupportDays = asNonNegInt(p.adventureSupportDays) ?? 0;
@@ -285,14 +302,68 @@ export function parseInboxPayload(
         kind,
         gold,
         materials,
+        cookingIngredients,
         items,
         staminaPotions,
+        ...(staminaPotionsBound ? { staminaPotionsBound: true } : {}),
         museunCoins,
         cashItems,
         adventureSupportDays,
         ...(titleIds.length > 0 ? { titleIds } : {}),
       };
     }
+  }
+}
+
+export type InboxClaimState = "none" | "claimable" | "action" | "invalid";
+
+/** 읽음과 별개로 이 우편에 수령 또는 응답 동작이 남아 있는지 판정한다. */
+export function inboxClaimState(
+  kind: string,
+  payload: unknown,
+): InboxClaimState {
+  const parsed = parseInboxPayload(kind, payload);
+  if (!parsed) return "invalid";
+
+  switch (parsed.kind) {
+    case "user_message":
+    case "price_alert":
+      return "none";
+    case "guild_invite":
+      return "action";
+    case "sale_proceeds":
+    case "bid_refund":
+    case "buy_order_refund":
+      return parsed.gold > 0 ? "claimable" : "none";
+    case "buy_order_item":
+    case "buy_order_equipment":
+    case "recipe_gift":
+      return "claimable";
+    case "purchase_item":
+      return parsed.instance || parsed.item_kind === "recipe" || parsed.quantity > 0
+        ? "claimable"
+        : "none";
+    case "cancel_return":
+    case "listing_expired":
+      return parsed.instance || parsed.quantity > 0 ? "claimable" : "none";
+    case "guild_quest_reward":
+      return parsed.gold > 0 || parsed.materials.length > 0 || parsed.items.length > 0
+        ? "claimable"
+        : "none";
+    case "season_reward":
+      return parsed.coins > 0 ? "claimable" : "none";
+    case "admin_gift":
+      return parsed.gold > 0 ||
+        parsed.materials.length > 0 ||
+        (parsed.cookingIngredients?.length ?? 0) > 0 ||
+        parsed.items.length > 0 ||
+        parsed.staminaPotions > 0 ||
+        parsed.museunCoins > 0 ||
+        parsed.cashItems.length > 0 ||
+        parsed.adventureSupportDays > 0 ||
+        (parsed.titleIds?.length ?? 0) > 0
+        ? "claimable"
+        : "none";
   }
 }
 
@@ -348,6 +419,28 @@ function parseRewardMaterials(v: unknown): GuildQuestRewardMaterial[] {
   return out;
 }
 
+function parseRewardCookingIngredients(
+  v: unknown,
+): AdminGiftCookingIngredient[] {
+  if (!Array.isArray(v)) return [];
+  const out: AdminGiftCookingIngredient[] = [];
+  for (const ingredient of v) {
+    if (typeof ingredient !== "object" || ingredient === null) continue;
+    const row = ingredient as Record<string, unknown>;
+    const ingredientId = asString(row.ingredientId);
+    const count = asNonNegInt(row.count);
+    if (
+      ingredientId &&
+      isCookingStoredIngredientId(ingredientId) &&
+      count != null &&
+      count > 0
+    ) {
+      out.push({ ingredientId, count });
+    }
+  }
+  return out;
+}
+
 function parseRewardItems(v: unknown): GuildQuestRewardItem[] {
   if (!Array.isArray(v)) return [];
   const out: GuildQuestRewardItem[] = [];
@@ -371,7 +464,12 @@ function parseRewardCashItems(v: unknown): AdminGiftCashItem[] {
     const row = item as Record<string, unknown>;
     const itemId = asString(row.itemId);
     const count = asNonNegInt(row.count);
-    if (itemId && isMuseunShopItemId(itemId) && count != null && count > 0) {
+    if (
+      itemId &&
+      isMuseunAdminGiftItemId(itemId) &&
+      count != null &&
+      count > 0
+    ) {
       out.push({ itemId, count });
     }
   }

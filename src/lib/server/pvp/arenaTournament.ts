@@ -5,16 +5,10 @@ export const ARENA_TOURNAMENT_MIN_MATCHES = 10;
 export const ARENA_TOURNAMENT_MAX_SIZE = 32;
 export const ARENA_TOURNAMENT_MIN_SIZE = 8;
 export const ARENA_TOURNAMENT_DAY_MS = 24 * 60 * 60 * 1000;
-export const ARENA_TOURNAMENT_START_BEFORE_END_MS = 5 * 60 * 60 * 1000;
-export const ARENA_TOURNAMENT_SNAPSHOT_BEFORE_END_MS = 6 * 60 * 60 * 1000;
-export const ARENA_TOURNAMENT_ROUND_INTERVAL_MS = 15 * 60 * 1000;
-export const ARENA_TOURNAMENT_BET_CLOSE_MS = 30 * 1000;
+export const ARENA_TOURNAMENT_START_BEFORE_END_MS = 11 * 60 * 60 * 1000;
+export const ARENA_TOURNAMENT_SNAPSHOT_BEFORE_END_MS = 12 * 60 * 60 * 1000;
+export const ARENA_TOURNAMENT_ROUND_INTERVAL_MS = 5 * 60 * 1000;
 export const ARENA_TOURNAMENT_MAX_GAMES_PER_MATCH = 5;
-export const ARENA_TOURNAMENT_BET_MIN_GOLD = 100;
-export const ARENA_TOURNAMENT_BET_MAX_GOLD = 1_500_000;
-// 경기당 상한의 4배 — 한 경기 몰빵과 여러 라운드 분산 베팅을 모두 허용한다.
-export const ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD = 6_000_000;
-export const ARENA_TOURNAMENT_BET_FEE_BPS = 500;
 
 export type ArenaSeasonPhase = "ranked" | "tournament" | "closed";
 export type ArenaTournamentStatus =
@@ -27,6 +21,8 @@ export type ArenaTournamentParticipant = {
   userId: string;
   name: string;
   avatar?: Avatar;
+  /** 공개 응답에서 시즌별 불명예 처리로 신원을 가린 참가자. DB 원본 참가자에는 생략한다. */
+  dishonored?: boolean;
   level: number;
   qualifyingRank: number;
   rating: number;
@@ -83,6 +79,8 @@ export type ArenaTournamentBracket = {
   snapshotsFrozenAt?: string;
   startsAt: string;
   status: ArenaTournamentStatus;
+  /** 경기 결과는 유지하되 공개 화면에서 신원을 영구히 가릴 시즌별 참가자 목록. */
+  dishonoredUserIds?: string[];
   participants: ArenaTournamentParticipant[];
   matches: ArenaTournamentMatch[];
   championUserId: string | null;
@@ -119,18 +117,6 @@ export type ArenaTournamentFightResult = {
 export type ArenaTournamentEntrant<T> = {
   participant: ArenaTournamentParticipant;
   payload: T;
-};
-
-export type ArenaTournamentBetForPayout = {
-  userId: string;
-  chosenUserId: string;
-  amount: number;
-};
-
-export type ArenaTournamentBetPayout = {
-  userId: string;
-  amount: number;
-  status: "won" | "lost" | "refunded";
 };
 
 export function arenaRankedEndsAt(seasonEndAt: Date): Date {
@@ -431,6 +417,9 @@ export function arenaTournamentBracketOverview(
 ): ArenaTournamentBracket {
   return {
     ...bracket,
+    participants: bracket.participants.map((participant) =>
+      arenaTournamentParticipantForPublic(bracket, participant),
+    ),
     matches: bracket.matches.map((match) => ({
       ...match,
       games: match.games.map(({ replay, ...game }) => ({
@@ -438,6 +427,62 @@ export function arenaTournamentBracketOverview(
         hasReplay: Boolean(replay) || game.hasReplay === true,
       })),
     })),
+  };
+}
+
+export const ARENA_TOURNAMENT_DISHONORED_NAME = "불명예 처리된 참가자";
+
+export function isArenaTournamentParticipantDishonored(
+  bracket: ArenaTournamentBracket,
+  userId: string | null | undefined,
+): boolean {
+  return Boolean(
+    userId &&
+      Array.isArray(bracket.dishonoredUserIds) &&
+      bracket.dishonoredUserIds.includes(userId),
+  );
+}
+
+export function arenaTournamentParticipantForPublic(
+  bracket: ArenaTournamentBracket,
+  participant: ArenaTournamentParticipant,
+): ArenaTournamentParticipant {
+  if (!isArenaTournamentParticipantDishonored(bracket, participant.userId)) {
+    return participant;
+  }
+  const { avatar: _avatar, ...publicParticipant } = participant;
+  return {
+    ...publicParticipant,
+    name: ARENA_TOURNAMENT_DISHONORED_NAME,
+    dishonored: true,
+  };
+}
+
+function replaceAllLiteral(value: string, search: string, replacement: string): string {
+  return search ? value.split(search).join(replacement) : value;
+}
+
+export function arenaTournamentReplayForPublic(
+  bracket: ArenaTournamentBracket,
+  replay: ReplayPayload,
+): ReplayPayload {
+  const hiddenNames = bracket.participants
+    .filter((participant) =>
+      isArenaTournamentParticipantDishonored(bracket, participant.userId),
+    )
+    .map((participant) => participant.name)
+    .filter(Boolean);
+  if (hiddenNames.length === 0) return replay;
+  const redact = (value: string) =>
+    hiddenNames.reduce(
+      (next, name) =>
+        replaceAllLiteral(next, name, ARENA_TOURNAMENT_DISHONORED_NAME),
+      value,
+    );
+  return {
+    ...replay,
+    enemy: { ...replay.enemy, name: redact(replay.enemy.name) },
+    log: replay.log.map((entry) => ({ ...entry, text: redact(entry.text) })),
   };
 }
 
@@ -576,59 +621,4 @@ export function nextDueArenaTournamentMatch(
         new Date(match.scheduledAt).getTime() <= now.getTime(),
     ) ?? null
   );
-}
-
-export function arenaTournamentBetPayouts(args: {
-  bets: readonly ArenaTournamentBetForPayout[];
-  winnerUserId: string;
-  feeBps?: number;
-}): {
-  payouts: ArenaTournamentBetPayout[];
-  totalPool: number;
-  fee: number;
-  refunded: boolean;
-} {
-  const bets = args.bets.map((bet) => ({
-    ...bet,
-    amount: Math.max(0, Math.floor(bet.amount)),
-  }));
-  const totalPool = bets.reduce((sum, bet) => sum + bet.amount, 0);
-  const winners = bets.filter((bet) => bet.chosenUserId === args.winnerUserId);
-  const winnerPool = winners.reduce((sum, bet) => sum + bet.amount, 0);
-  if (totalPool === 0) {
-    return { payouts: [], totalPool: 0, fee: 0, refunded: false };
-  }
-  if (winnerPool === 0) {
-    return {
-      payouts: bets.map((bet) => ({
-        userId: bet.userId,
-        amount: bet.amount,
-        status: "refunded" as const,
-      })),
-      totalPool,
-      fee: 0,
-      refunded: true,
-    };
-  }
-
-  const loserPool = totalPool - winnerPool;
-  const feeBps = Math.max(0, Math.min(10_000, args.feeBps ?? ARENA_TOURNAMENT_BET_FEE_BPS));
-  const distributable = Math.floor((loserPool * (10_000 - feeBps)) / 10_000);
-  const payouts = bets.map((bet) => {
-    if (bet.chosenUserId !== args.winnerUserId) {
-      return { userId: bet.userId, amount: 0, status: "lost" as const };
-    }
-    return {
-      userId: bet.userId,
-      amount: bet.amount + Math.floor((distributable * bet.amount) / winnerPool),
-      status: "won" as const,
-    };
-  });
-  const paid = payouts.reduce((sum, payout) => sum + payout.amount, 0);
-  return {
-    payouts,
-    totalPool,
-    fee: totalPool - paid,
-    refunded: false,
-  };
 }

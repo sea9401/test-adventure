@@ -38,12 +38,32 @@ import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
   LIFE_CRAFTING_RECIPE_BY_ID,
   LIFE_CRAFTING_RECIPES,
-  consumeFinishedItem,
+  activateLifeAid,
+  isLifeCraftingRecipeAvailable,
   lifeAidSpec,
   recipeMasteryStage,
   rollHiddenBlueprint,
   type LifeFinishedItemId,
 } from "@/adventure/v2/lifeCrafting";
+import {
+  FARM_CROP_ITEM_IDS,
+  FARM_CROP_REQUIRED_SKILL_ID,
+  FARM_SAVE_KEY,
+  emptyFarmState,
+  farmCropItemCount,
+  parseFarmState,
+} from "@/adventure/v2/farm";
+import {
+  emptyV2SkillsState,
+  parseV2SkillsState,
+} from "@/adventure/data/v2/v2Skills";
+import {
+  FAILED_DISH_FEED_RECIPE,
+  RANCH_FEED_RECIPE,
+} from "@/adventure/v2/ranch";
+import { equippedPersonalCraftGoldDiscountPct } from "@/lib/server/equipmentLiberationCraftDiscount";
+
+const CRAFTING_BATCH_LIMITS = [1, 5, 15, 40, 100, 100] as const;
 
 type CharacterSave = {
   gold?: unknown;
@@ -52,8 +72,27 @@ type CharacterSave = {
   [key: string]: unknown;
 };
 
+type InventorySave = Record<string, unknown> & {
+  failedCookingDishes?: unknown;
+};
+
 function materialBalances(raw: unknown): Record<string, number> {
   return mergeDrops(raw, {});
+}
+
+function failedDishCount(raw: unknown): number {
+  return Math.min(999_999, Math.max(0, Math.floor(Number(raw) || 0)));
+}
+
+function maxCraftableByCosts(
+  balances: Record<string, number>,
+  costs: Record<string, number>,
+): number {
+  const entries = Object.entries(costs).filter(([, amount]) => amount > 0);
+  if (entries.length === 0) return Number.MAX_SAFE_INTEGER;
+  return Math.min(
+    ...entries.map(([id, amount]) => Math.floor((balances[id] ?? 0) / amount)),
+  );
 }
 
 function lifeLevels(woodcuttingRaw: unknown, miningRaw: unknown) {
@@ -73,15 +112,49 @@ function workshopPayload(args: {
   charSave: CharacterSave;
   woodcuttingRaw: unknown;
   miningRaw: unknown;
+  farmRaw?: unknown;
+  skillsRaw?: unknown;
+  inventoryRaw?: unknown;
+  equipmentRaw?: unknown;
 }) {
   const levels = lifeLevels(args.woodcuttingRaw, args.miningRaw);
   const materials = materialBalances(args.charSave.materials);
+  const farm = parseFarmState(args.farmRaw ?? emptyFarmState());
+  const skills = parseV2SkillsState(args.skillsRaw ?? emptyV2SkillsState());
+  const failedCookingDishes = failedDishCount(
+    (args.inventoryRaw as InventorySave | null | undefined)?.failedCookingDishes,
+  );
+  const ranchCraftCount =
+    args.state.crafting.craftCounts[RANCH_FEED_RECIPE.id] ?? 0;
+  const ranchMasteryStage = recipeMasteryStage(ranchCraftCount);
+  const ranchBatchLimit = CRAFTING_BATCH_LIMITS[ranchMasteryStage];
+  const availableCropCount = farmCropItemCount(farm.inventory);
+  const ranchMaxByMaterials = Math.floor(
+    availableCropCount / RANCH_FEED_RECIPE.ingredientAmount,
+  );
+  const failedDishFeedCraftCount =
+    args.state.crafting.craftCounts[FAILED_DISH_FEED_RECIPE.id] ?? 0;
+  const failedDishFeedMasteryStage = recipeMasteryStage(
+    failedDishFeedCraftCount,
+  );
+  const failedDishFeedBatchLimit =
+    CRAFTING_BATCH_LIMITS[failedDishFeedMasteryStage];
+  const liberationDiscountPct = equippedPersonalCraftGoldDiscountPct(
+    args.equipmentRaw,
+  );
   return {
     state: args.state,
     levels,
     materials,
+    failedCookingDishes,
     gold: Math.max(0, Math.floor(Number(args.charSave.gold) || 0)),
     bankedGold: Math.max(0, Math.floor(Number(args.charSave.bankedGold) || 0)),
+    liberationDiscountPct,
+    personalCraftGoldCost: {
+      baseGoldCost: 0,
+      goldCost: 0,
+      liberationDiscountPct,
+    },
     recipes: [...LIFE_PROCESSING_RECIPE_BY_ID.values()].map((recipe) => ({
       ...recipe,
       maxBatches:
@@ -104,30 +177,77 @@ function workshopPayload(args: {
         LIFE_TOOL_BONUS_MATERIAL_PCT[args.state.tools[activity]],
       nextUpgrade: nextLifeToolUpgrade(activity, args.state),
     })),
-    craftingRecipes: LIFE_CRAFTING_RECIPES.map((recipe) => {
+    craftingRecipes: LIFE_CRAFTING_RECIPES.filter(
+      isLifeCraftingRecipeAvailable,
+    ).map((recipe) => {
       const level = Math.max(levels.woodcutting, levels.mining);
       const learned = !recipe.hidden || args.state.crafting.learnedHiddenRecipeIds.includes(recipe.id);
       const craftCount = args.state.crafting.craftCounts[recipe.id] ?? 0;
       const stage = recipeMasteryStage(craftCount);
       const batchLimit = [1, 5, 15, 40, 100, 100][stage];
-      const maxByMaterials = Math.min(...Object.entries(recipe.costs).map(([id, amount]) => Math.floor((materials[id] ?? 0) / amount)));
-      return { ...recipe, learned, craftCount, masteryStage: stage, batchLimit, maxCraftable: learned && level >= recipe.requiredLevel ? Math.max(0, Math.min(batchLimit, maxByMaterials)) : 0 };
+      const maxByMaterials = maxCraftableByCosts(materials, recipe.costs);
+      const maxByFailedDishes = recipe.failedDishCost
+        ? Math.floor(failedCookingDishes / recipe.failedDishCost)
+        : Number.MAX_SAFE_INTEGER;
+      return { ...recipe, learned, craftCount, masteryStage: stage, batchLimit, maxCraftable: learned && level >= recipe.requiredLevel ? Math.max(0, Math.min(batchLimit, maxByMaterials, maxByFailedDishes)) : 0 };
     }),
+    ranchCraftingRecipe: {
+      ...RANCH_FEED_RECIPE,
+      unlocked: skills.learned.includes(FARM_CROP_REQUIRED_SKILL_ID),
+      craftCount: ranchCraftCount,
+      masteryStage: ranchMasteryStage,
+      batchLimit: ranchBatchLimit,
+      maxCraftable: skills.learned.includes(FARM_CROP_REQUIRED_SKILL_ID)
+        ? Math.max(0, Math.min(ranchBatchLimit, ranchMaxByMaterials))
+        : 0,
+      ownedFeed: farm.inventory.compound_feed ?? 0,
+      availableCropCount,
+      cropInventory: Object.fromEntries(
+        FARM_CROP_ITEM_IDS.map((itemId) => [
+          itemId,
+          farm.inventory[itemId] ?? 0,
+        ]),
+      ),
+    },
+    failedDishFeedRecipe: {
+      ...FAILED_DISH_FEED_RECIPE,
+      craftCount: failedDishFeedCraftCount,
+      masteryStage: failedDishFeedMasteryStage,
+      batchLimit: failedDishFeedBatchLimit,
+      maxCraftable: Math.max(
+        0,
+        Math.min(
+          failedDishFeedBatchLimit,
+          Math.floor(
+            failedCookingDishes / FAILED_DISH_FEED_RECIPE.failedDishCost,
+          ),
+        ),
+      ),
+      ownedFeed: farm.inventory.compound_feed ?? 0,
+    },
   };
 }
 
 async function readWorkshopSnapshot(userId: string) {
-  const [charSave, workshopRaw, woodcuttingRaw, miningRaw] = await Promise.all([
+  const [charSave, workshopRaw, woodcuttingRaw, miningRaw, farmRaw, skillsRaw, inventoryRaw, equipmentRaw] = await Promise.all([
     readSave<CharacterSave>(db, userId, "character.v2", {}),
     readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
     readSave(db, userId, WOODCUTTING_LOG_KEY, {}),
     readSave(db, userId, MINING_LOG_KEY, {}),
+    readSave(db, userId, FARM_SAVE_KEY, emptyFarmState()),
+    readSave(db, userId, "skills.v2", emptyV2SkillsState()),
+    readSave(db, userId, "inventory.v2", {}),
+    readSave(db, userId, "equipment.v2", {}),
   ]);
   return {
     charSave,
     state: parseLifeWorkshopState(workshopRaw),
     woodcuttingRaw,
     miningRaw,
+    farmRaw,
+    skillsRaw,
+    inventoryRaw,
+    equipmentRaw,
   };
 }
 
@@ -208,7 +328,7 @@ export async function POST(req: Request) {
     if (action === "craft") {
       const recipe = typeof requestBody.recipeId === "string" ? LIFE_CRAFTING_RECIPE_BY_ID.get(requestBody.recipeId) : undefined;
       const quantity = Math.floor(Number(requestBody.quantity));
-      if (!recipe || !Number.isFinite(quantity) || quantity < 1) return { error: "bad_craft_recipe" as const };
+      if (!recipe || !isLifeCraftingRecipeAvailable(recipe) || !Number.isFinite(quantity) || quantity < 1) return { error: "bad_craft_recipe" as const };
       if (recipe.hidden && !state.crafting.learnedHiddenRecipeIds.includes(recipe.id)) return { error: "blueprint_required" as const };
       const level = Math.max(levels.woodcutting, levels.mining);
       if (level < recipe.requiredLevel) return { error: "level_required" as const, requiredLevel: recipe.requiredLevel };
@@ -219,6 +339,32 @@ export async function POST(req: Request) {
       const costs = Object.fromEntries(Object.entries(recipe.costs).map(([id, amount]) => [id, amount * quantity]));
       const nextMaterials = consumeMaterials(materials, costs);
       if (!nextMaterials) return { error: "not_enough_materials" as const };
+      const equipmentRaw = await lockSaveForUpdate(
+        tx,
+        userId,
+        "equipment.v2",
+        {},
+      );
+      const liberationDiscountPct =
+        equippedPersonalCraftGoldDiscountPct(equipmentRaw);
+      let nextInventory: InventorySave | null = null;
+      if (recipe.failedDishCost) {
+        const inventory = await lockSaveForUpdate<InventorySave>(
+          tx,
+          userId,
+          "inventory.v2",
+          {},
+        );
+        const held = failedDishCount(inventory.failedCookingDishes);
+        const required = recipe.failedDishCost * quantity;
+        if (held < required) {
+          return { error: "not_enough_failed_dishes" as const };
+        }
+        nextInventory = {
+          ...inventory,
+          failedCookingDishes: held - required,
+        };
+      }
       const produced = recipe.outputAmount * quantity;
       const discovered = new Set(state.crafting.discoveredRecipeIds);
       discovered.add(recipe.id);
@@ -232,6 +378,9 @@ export async function POST(req: Request) {
       };
       const nextState: LifeWorkshopState = { ...state, crafting: nextCrafting };
       const nextCharSave = { ...charSave, materials: nextMaterials };
+      if (nextInventory) {
+        await upsertSave(tx, userId, "inventory.v2", nextInventory);
+      }
       await upsertSave(tx, userId, "character.v2", nextCharSave);
       await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, nextState);
       const grantedTitles: string[] = [];
@@ -244,19 +393,19 @@ export async function POST(req: Request) {
       ]) {
         if (milestone.ready && await grantTitleIfMissingInTx(tx, userId, milestone.id, Date.now())) grantedTitles.push(milestone.id);
       }
-      return { ok: true as const, result: { action, recipeId: recipe.id, itemId: recipe.outputId, produced, grantedTitles }, snapshot: { state: nextState, charSave: nextCharSave, woodcuttingRaw, miningRaw } };
+      return { ok: true as const, result: { action, recipeId: recipe.id, itemId: recipe.outputId, produced, grantedTitles, baseGoldCost: 0, goldCost: 0, liberationDiscountPct }, snapshot: { state: nextState, charSave: nextCharSave, woodcuttingRaw, miningRaw, equipmentRaw } };
     }
 
     if (action === "activate_aid") {
       const itemId = typeof requestBody.itemId === "string" ? requestBody.itemId as LifeFinishedItemId : "" as LifeFinishedItemId;
       const spec = lifeAidSpec(itemId);
       if (!spec) return { error: "bad_aid" as const };
-      if (state.crafting.activeAids[spec.activity]?.remainingUses) return { error: "aid_in_use" as const };
-      const consumed = consumeFinishedItem(state.crafting, itemId, 1);
-      if (!consumed) return { error: "aid_not_owned" as const };
-      const nextState: LifeWorkshopState = { ...state, crafting: { ...consumed, activeAids: { ...consumed.activeAids, [spec.activity]: { itemId, remainingUses: spec.uses, enabled: true } } } };
+      if (state.crafting.activeAids[spec.activity]?.itemId === itemId) return { error: "aid_in_use" as const };
+      const activation = activateLifeAid(state.crafting, itemId);
+      if (!activation) return { error: "aid_not_owned" as const };
+      const nextState: LifeWorkshopState = { ...state, crafting: activation.state };
       await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, nextState);
-      return { ok: true as const, result: { action, itemId, activity: spec.activity }, snapshot: { state: nextState, charSave, woodcuttingRaw, miningRaw } };
+      return { ok: true as const, result: { action, itemId, activity: spec.activity, replaced: activation.replaced, resumed: activation.resumed }, snapshot: { state: nextState, charSave, woodcuttingRaw, miningRaw } };
     }
 
     if (action === "toggle_aid") {
@@ -395,15 +544,27 @@ export async function POST(req: Request) {
   });
 
   if (!("ok" in result) || !result.ok) {
-    const status = result.error === "not_enough_gold" || result.error === "not_enough_materials"
+    const status = result.error === "not_enough_gold" || result.error === "not_enough_materials" || result.error === "not_enough_failed_dishes"
       ? 409
       : 400;
     return Response.json({ ok: false, ...result }, { status });
   }
   if ("blueprintRecipeId" in result.result && result.result.blueprintRecipeId) await insertFeedEntry(userId, "life_blueprint", { recipeId: result.result.blueprintRecipeId });
+  const [farmRaw, skillsRaw, inventoryRaw, equipmentRaw] = await Promise.all([
+    readSave(db, userId, FARM_SAVE_KEY, emptyFarmState()),
+    readSave(db, userId, "skills.v2", emptyV2SkillsState()),
+    readSave(db, userId, "inventory.v2", {}),
+    readSave(db, userId, "equipment.v2", {}),
+  ]);
   return Response.json({
     ok: true,
     result: result.result,
-    ...workshopPayload(result.snapshot),
+    ...workshopPayload({
+      ...result.snapshot,
+      farmRaw,
+      skillsRaw,
+      inventoryRaw,
+      equipmentRaw,
+    }),
   });
 }

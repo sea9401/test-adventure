@@ -1,11 +1,35 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
-const { store } = vi.hoisted(() => ({
-  store: new Map<string, unknown>(),
-}));
+const { store, rewardReferralTutorialTasks, recordCodexMasteryGameplayBatch, upsertSaves } = vi.hoisted(() => {
+  const store = new Map<string, unknown>();
+  return {
+  store,
+  rewardReferralTutorialTasks: vi.fn(async () => ({
+    staminaPotions: 0,
+    newlyCompletedTaskIds: [] as string[],
+    completedTaskIds: [] as string[],
+  })),
+  recordCodexMasteryGameplayBatch: vi.fn(
+    async (
+      _executor: unknown,
+      _userId: string,
+      _events: readonly CodexMasteryGameplayEvent[],
+      _now: Date,
+    ) => [],
+  ),
+  upsertSaves: vi.fn(async (_tx, _uid, entries: Record<string, unknown>) => {
+    for (const [key, value] of Object.entries(entries)) store.set(key, value);
+  }),
+  };
+});
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
+}));
+vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
+vi.mock("@/lib/server/codexMasteryGameplay", () => ({
+  recordCodexMasteryGameplayBatch,
 }));
 vi.mock("@/db", () => ({
   db: {
@@ -20,15 +44,28 @@ vi.mock("@/db", () => ({
   },
 }));
 vi.mock("@/lib/server/savesKv", () => ({
+  lockSavesForUpdate: vi.fn(async (_tx, _uid, fallbacks: Record<string, unknown>) =>
+    Object.fromEntries(Object.entries(fallbacks).map(([key, fallback]) => [
+      key,
+      store.has(key) ? store.get(key) : fallback,
+    ]))
+  ),
   lockSaveForUpdate: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
   readSave: vi.fn(async (_dbOrTx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
+  readSaves: vi.fn(async (_dbOrTx, _uid, fallbacks: Record<string, unknown>) =>
+    Object.fromEntries(Object.entries(fallbacks).map(([key, fallback]) => [
+      key,
+      store.has(key) ? store.get(key) : fallback,
+    ]))
+  ),
   upsertSave: vi.fn(async (_tx, _uid, key: string, value: unknown) => {
     store.set(key, value);
   }),
+  upsertSaves,
 }));
 
 import { POST as START } from "@/app/api/v2/mining/start/route";
@@ -51,6 +88,7 @@ import {
   MINING_AUTO_KEY,
   WOODCUTTING_AUTO_KEY,
 } from "@/adventure/v2/autoGathering";
+import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
 
 const NOW = 1_700_000_000_000;
 
@@ -68,12 +106,39 @@ beforeEach(() => {
 
 afterEach(() => {
   store.clear();
+  rewardReferralTutorialTasks.mockClear();
+  recordCodexMasteryGameplayBatch.mockClear();
+  upsertSaves.mockClear();
   resetUserRateLimitForTests();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
 describe("mining routes", () => {
+  it("strike — 채광 레벨 5에 도달하면 홍보 생활 단계를 확인한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 4_100);
+    store.set(MINING_SESSION_KEY, {
+      sessionId: "mine-life-5",
+      spotId: "iron_quarry",
+      nodeId: "iron",
+      readyAt: NOW + 4_000,
+      expiresAt: NOW + 34_000,
+      failureRate: 0,
+    });
+    store.set(MINING_LOG_KEY, { successes: 127, xp: 635 });
+    store.set("character.v2", { materials: {} });
+
+    const response = await STRIKE(request("strike", { sessionId: "mine-life-5" }));
+
+    expect(response.status).toBe(200);
+    expect(rewardReferralTutorialTasks).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      "새 모험가",
+      ["life_level_5"],
+    );
+  });
+
   it("2시간 느긋한 자동 채광을 선택해 낮은 성공률과 재료 효율을 고정한다", async () => {
     vi.spyOn(Date, "now").mockReturnValue(NOW);
 
@@ -87,6 +152,7 @@ describe("mining routes", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
+    expect(json.serverNow).toBe(NOW);
     expect(json.autoSession).toMatchObject({
       planId: "extended",
       readyAt: NOW + 2 * 60 * 60_000,
@@ -143,7 +209,15 @@ describe("mining routes", () => {
         baseXp: 10,
       },
     });
-    store.set("character.v2", { materials: { [iron]: 2 } });
+    store.set("character.v2", {
+      class: "survivor",
+      specChoice: "miner",
+      materials: { [iron]: 2 },
+    });
+    store.set("proficiency.v2", {
+      groups: { survivor: { tier: 1, cumLevel: 900 } },
+      jobCumLevel: { miner: 10 },
+    });
 
     const response = await AUTO(request("auto", { action: "cancel" }));
 
@@ -155,6 +229,7 @@ describe("mining routes", () => {
       successes: 100,
       materialsGained: 80,
       xpGained: 700,
+      masteryGained: 70,
     });
     expect(store.get(MINING_AUTO_KEY)).toMatchObject({ session: null });
     expect(store.get("character.v2")).toMatchObject({
@@ -164,6 +239,109 @@ describe("mining routes", () => {
       successes: 100,
       xp: 700,
       oreEarned: 80,
+    });
+    expect(upsertSaves).toHaveBeenCalledTimes(1);
+    expect(Object.keys(upsertSaves.mock.calls[0]?.[2] ?? {}).sort()).toEqual([
+      LIFE_WORKSHOP_SAVE_KEY,
+      MINING_AUTO_KEY,
+      MINING_LOG_KEY,
+      "character.v2",
+      "proficiency.v2",
+    ].sort());
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      [{
+        category: "job",
+        entryId: "miner",
+        amount: 70,
+        source: "job.activity",
+      }],
+      new Date(NOW + 15 * 60_000),
+    );
+  });
+
+  it("자동 정산은 구 초과 XP를 한 번 환산하고 버전을 함께 저장한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 15 * 60_000);
+    const iron = MINING_MATERIAL_ID.iron;
+    store.set(MINING_AUTO_KEY, {
+      session: {
+        sessionId: "mining-migration",
+        sourceId: "iron",
+        sourceName: "철 광맥",
+        materialId: iron,
+        startedAt: NOW,
+        readyAt: NOW + 30 * 60_000,
+        cycleDurationMs: 9_000,
+        attempts: 200,
+        successRate: 1,
+        bonusMaterialRate: 0,
+        baseXp: 10,
+      },
+    });
+    store.set(MINING_LOG_KEY, { successes: 999_999, xp: 999_999 });
+    store.set("character.v2", { materials: {} });
+
+    const response = await AUTO(request("auto", { action: "cancel" }));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.levelCurveMigrated).toBe(true);
+    expect(store.get(MINING_LOG_KEY)).toMatchObject({
+      levelCurveVersion: 2,
+      xp: 136_693,
+    });
+  });
+
+  it("자동 채광 보조품의 추가 광석은 작업 효율로 감산하지 않는다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 15 * 60_000);
+    const iron = MINING_MATERIAL_ID.iron;
+    store.set(MINING_AUTO_KEY, {
+      session: {
+        sessionId: "mining-aid-auto",
+        planId: "extended",
+        sourceId: "iron",
+        sourceName: "철 광맥",
+        materialId: iron,
+        startedAt: NOW,
+        readyAt: NOW + 2 * 60 * 60_000,
+        cycleDurationMs: 9_000,
+        attempts: 800,
+        successRate: 1,
+        materialEfficiency: 0.6,
+        xpEfficiency: 0.7,
+        bonusMaterialRate: 0,
+        baseXp: 5,
+        aidItemId: "mining_probe_basic",
+        aidBonusMaterialRate: 0.1,
+        aidByproductMultiplier: 1.25,
+      },
+    });
+    store.set(LIFE_WORKSHOP_SAVE_KEY, {
+      crafting: {
+        activeAids: {
+          mining: {
+            itemId: "mining_probe_basic",
+            remainingUses: 600,
+            enabled: true,
+          },
+        },
+      },
+    });
+
+    const response = await AUTO(request("auto", { action: "cancel" }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      successes: 100,
+      materialsGained: 70,
+    });
+    expect(store.get(LIFE_WORKSHOP_SAVE_KEY)).toMatchObject({
+      crafting: {
+        activeAids: {
+          mining: { remainingUses: 500 },
+        },
+      },
     });
   });
 
@@ -263,7 +441,7 @@ describe("mining routes", () => {
     vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");
     vi.stubEnv("TURNSTILE_EXPECTED_HOSTNAMES", "test.local");
     store.set(ACTIVITY_GUARD_KEY, {
-      version: 1,
+      version: 5,
       activities: { mining: { verificationRequiredAt: NOW } },
     });
     const response = await START(request("start", { spotId: "iron_quarry" }));
@@ -467,6 +645,26 @@ describe("mining routes", () => {
       groups: { survivor: { cumLevel: 901 } },
       jobCumLevel: { miner: 13 },
     });
+    expect(upsertSaves).toHaveBeenCalledTimes(1);
+    expect(Object.keys(upsertSaves.mock.calls[0]?.[2] ?? {}).sort()).toEqual([
+      ACTIVITY_GUARD_KEY,
+      LIFE_WORKSHOP_SAVE_KEY,
+      MINING_LOG_KEY,
+      MINING_SESSION_KEY,
+      "character.v2",
+      "proficiency.v2",
+    ].sort());
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      [{
+        category: "job",
+        entryId: "miner",
+        amount: 1,
+        source: "job.activity",
+      }],
+      new Date(NOW + 4_100),
+    );
   });
 
   it("strike — 채광 명인은 실패를 구제하고 전설의 광부는 광석을 하나 더 얻는다", async () => {
@@ -523,6 +721,7 @@ describe("mining routes", () => {
   });
 
   it("status — 채광 재료와 누적 기록을 반환한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
     store.set("character.v2", {
       materials: { [MINING_MATERIAL_ID.silver]: 4 },
     });
@@ -532,6 +731,7 @@ describe("mining routes", () => {
       equipped: ["v2c_miningtechnician_toolcare"],
     });
     const json = await (await STATUS()).json();
+    expect(json.serverNow).toBe(NOW);
     expect(json.materials[MINING_MATERIAL_ID.silver]).toBe(4);
     expect(json.log).toMatchObject({ successes: 3, xp: 30, oreEarned: 3 });
     expect(json.durationReductionPct).toBe(8);

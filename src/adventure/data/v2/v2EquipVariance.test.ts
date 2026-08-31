@@ -16,6 +16,8 @@ import {
   V2_REFORGE_ENABLED,
   VARIANCE_FRACTION,
   canReforge,
+  equipRollFromPercentiles,
+  equipRollPercentiles,
   effectiveStats,
   reforgeGoldCost,
   reforgeRollCount,
@@ -24,6 +26,7 @@ import {
   rollQualityPct,
   rollReforgeStoneDrops,
   selectBulkSell,
+  selectExplicitSell,
 } from "./v2EquipVariance";
 
 describe("조합소 공통 비용", () => {
@@ -33,6 +36,14 @@ describe("조합소 공통 비용", () => {
 });
 
 describe("rollItemStats", () => {
+  it("사냥 최소 품질은 각 굴림 구간의 하단을 지정 품질 이상으로 remap한다", () => {
+    const item = V2_EQUIPMENT.v2_starsong_bow;
+    const unrestricted = rollItemStats(item, () => 0);
+    const limited = rollItemStats(item, () => 0, { minimumQualityPct: 10 });
+
+    expect(rollQualityPct(item, unrestricted)).toBe(0);
+    expect(rollQualityPct(item, limited)).toBeGreaterThanOrEqual(10);
+  });
   it("rng=0 → 각 스탯 최소값(별노래궁: 위력 ±편차, crit ±1, 속도 페널티 고정)", () => {
     // power spread = round(위력×0.65) → [위력−spread, 위력+spread]. crit 1→[1,3].
     // 위력값은 카탈로그 기준(다이얼 변경에 견고).
@@ -105,6 +116,33 @@ describe("rollItemStats", () => {
         }
       }
     }
+  });
+});
+
+describe("equipment roll percentile conversion", () => {
+  it("round-trips variable and fixed stats without adding option keys", () => {
+    const item = V2_EQUIPMENT.v2_storm_gale_bow;
+    const values = [0.1, 0.9, 0.4, 0.7, 0.2];
+    let index = 0;
+    const roll = rollItemStats(item, () => values[index++] ?? 0.5);
+
+    expect(equipRollFromPercentiles(item, equipRollPercentiles(item, roll))).toEqual(
+      roll,
+    );
+    expect(Object.keys(roll.options ?? {}).sort()).toEqual(
+      Object.keys(item.options ?? {}).sort(),
+    );
+  });
+
+  it("preserves fixed negative options and tier-16 scale metadata", () => {
+    const item = V2_EQUIPMENT.v2_storm_wreckage_greatsword;
+    const roll = rollItemStats(item, () => 0.75);
+
+    expect(equipRollFromPercentiles(item, equipRollPercentiles(item, roll))).toEqual(
+      roll,
+    );
+    expect(roll.options?.spd).toBe(-6);
+    expect(roll.powerScaleVersion).toBeDefined();
   });
 });
 
@@ -186,11 +224,11 @@ describe("rollQualityPct", () => {
     ).toBe(50);
   });
 
-  it("위력만 god(나머지 가운데) — 위력 가중 2 → 83%", () => {
-    // power 1.0(w2) + crit 0.5(w1) = 2.5/3
+  it("위력만 god(나머지 가운데) — 실제 전투 기여 폭 기준 99%", () => {
+    // 별노래궁은 공격력 굴림 폭이 치명타 2%p 폭보다 훨씬 커 위력이 품질을 지배한다.
     expect(
       rollQualityPct(bow, { power: pMax, weight: 2, options: { crit: 2 } }),
-    ).toBe(83);
+    ).toBe(99);
   });
 
   it("굴림 없으면(상점 정가) null", () => {
@@ -202,6 +240,45 @@ describe("rollQualityPct", () => {
     const ring = V2_EQUIPMENT.v2_silver_ring;
     expect(Math.round(ring.power * VARIANCE_FRACTION)).toBeGreaterThan(0);
     expect(rollQualityPct(ring, { power: 1, weight: 0 })).not.toBeNull();
+  });
+
+  it("낮은 주 능력치를 값싼 다옵션 개수만으로 고품질로 만들지 않는다", () => {
+    const item = {
+      ...bow,
+      power: 100,
+      options: { hp: 100, mp: 100, crit: 10, critMult: 20 },
+    };
+
+    // 위력 [35,165]은 최저, 모든 옵션은 최대다. 전투 기여 폭은
+    // 위력 130, HP 13, MP 13, 치명 7, 치명피해 3.25라 36.25 / 166.25 = 22%.
+    expect(
+      rollQualityPct(item, {
+        power: 35,
+        weight: 0,
+        options: { hp: 165, mp: 165, crit: 17, critMult: 33 },
+      }),
+    ).toBe(22);
+  });
+
+  it("같은 굴림 폭이면 HP보다 방어력의 전투 기여를 크게 반영한다", () => {
+    const item = {
+      ...bow,
+      power: 100,
+      options: { hp: 10, def: 10 },
+    };
+    const hpHigh = rollQualityPct(item, {
+      power: 35,
+      weight: 0,
+      options: { hp: 17, def: 3 },
+    });
+    const defHigh = rollQualityPct(item, {
+      power: 35,
+      weight: 0,
+      options: { hp: 3, def: 17 },
+    });
+
+    expect(hpHigh).toBe(1);
+    expect(defHigh).toBe(10);
   });
 });
 
@@ -273,6 +350,7 @@ describe("selectBulkSell", () => {
   const owned: V2EquipInstance[] = [
     { iid: "eq", id: id("v2_iron_sword") }, // 장착 → 제외
     { iid: "lock", id: id("v2_iron_sword"), locked: true }, // 잠금 → 제외
+    { iid: "bound", id: id("v2_iron_sword"), bound: true }, // 귀속 → 자동 판매 제외
     { iid: "sell1", id: id("v2_iron_sword") }, // 판매(무기)
     { iid: "sell2", id: id("v2_leather_armor") }, // 판매(갑옷)
     { iid: "uniq", id: id("v2_lake_dodge_cloak") }, // 유니크도 이제 판매 가능(잠금으로만 보호)
@@ -283,6 +361,7 @@ describe("selectBulkSell", () => {
     const plan = selectBulkSell(owned, equipped, {});
     expect([...plan.iids].sort()).toEqual(["sell1", "sell2", "uniq"]);
     expect(plan.count).toBe(3);
+    expect(plan.skippedBoundCount).toBe(1);
     expect(plan.gold).toBe(
       (sellPriceOf(V2_EQUIPMENT.v2_iron_sword) ?? 0) +
         (sellPriceOf(V2_EQUIPMENT.v2_leather_armor) ?? 0) +
@@ -293,6 +372,7 @@ describe("selectBulkSell", () => {
   it("slot 필터 — weapon 만(sell1), 갑옷 sell2 제외", () => {
     const plan = selectBulkSell(owned, equipped, { slot: "weapon" });
     expect(plan.iids).toEqual(["sell1"]);
+    expect(plan.skippedBoundCount).toBe(1);
     expect(plan.gold).toBe(sellPriceOf(V2_EQUIPMENT.v2_iron_sword) ?? 0);
   });
 
@@ -315,6 +395,49 @@ describe("selectBulkSell", () => {
     // 경계 포함(이하) — belowPct=100 이면 100% 품질도 포함(미만이면 제외됐을 것).
     const all = selectBulkSell(bows, {}, { belowPct: 100 });
     expect(all.iids).toEqual(["low", "high"]);
+  });
+});
+
+describe("selectExplicitSell", () => {
+  const id = (value: string) => value as V2EquipmentId;
+  const owned: V2EquipInstance[] = [
+    { iid: "equipped", id: id("v2_iron_sword") },
+    { iid: "locked", id: id("v2_iron_sword"), locked: true },
+    { iid: "first", id: id("v2_iron_sword") },
+    { iid: "second", id: id("v2_leather_armor") },
+    { iid: "bound", id: id("v2_iron_sword"), bound: true },
+  ];
+
+  it("요청한 판매 가능 개체만 입력 순서대로 계획한다", () => {
+    const result = selectExplicitSell(owned, { weapon: "equipped" }, [
+      "second",
+      "first",
+    ]);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.plan.iids).toEqual(["second", "first"]);
+    expect(result.plan.count).toBe(2);
+    expect(result.plan.gold).toBeGreaterThan(0);
+  });
+
+  it("명시적으로 고른 귀속 장비는 서버 확인 절차를 위해 계획에 포함한다", () => {
+    const result = selectExplicitSell(owned, {}, ["bound"]);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.plan.iids).toEqual(["bound"]);
+  });
+
+  it.each([
+    ["보유 목록에서 사라진 경우", ["first", "missing"]],
+    ["판매 직전에 장착된 경우", ["first", "equipped"]],
+    ["잠긴 경우", ["first", "locked"]],
+    ["같은 iid가 중복된 경우", ["first", "first"]],
+  ])("%s 부분 판매 없이 전체 계획을 거절한다", (_label, iids) => {
+    expect(
+      selectExplicitSell(owned, { weapon: "equipped" }, iids),
+    ).toEqual({ ok: false, reason: "selection_changed" });
   });
 });
 

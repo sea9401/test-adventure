@@ -10,7 +10,7 @@ import {
 } from "@/adventure/data/v2/classes";
 import {
   parseProficiencyForChar,
-  setGrown,
+  resetLevelGrowth,
   setGroupTier,
   flattenGroupTiers,
   addReincarnation,
@@ -40,6 +40,7 @@ import {
   isRootJobSelectable,
   jobUnlockSpBonus,
   jobIdFromLegacy,
+  cumLevelForJob,
   rejobRequiredLevel,
   CATALOG_USES_QUEST_CONDITION,
   CATALOG_USES_FARMING_LEVEL_CONDITION,
@@ -70,18 +71,26 @@ import {
   COOKING_SAVE_KEY,
   cookingLevelForXp,
   parseCookingState,
-} from "@/adventure/v2/cooking";
+} from "@/adventure/v2/cooking/state";
+import {
+  spendTier7FirstUnlockMaterial,
+  tier7AdvancementStatus,
+} from "@/adventure/data/v2/tier7Advancement";
+import { rollInitialLifeResourceGrowth } from "@/adventure/data/v2/lifeResourceGrowth";
+import { lifeResourceRangesForProficiency } from "@/adventure/data/v2/statGrowth";
 
 // POST /api/v2/me/advance-class.
 // 코어루프 on: targetJobId 로 직업을 선택해 재전직한다. 게이트는 현재 직업별 필요 레벨 +
 // v2JobCatalog 해금 조건(직업 숙련도/추가 조건)이며, 생산 직업은 Lv 1, 나머지는 Lv 100을 요구한다.
-// 같은 직업 재전직은 해금 조건을 다시 보지 않는다.
+// 같은 직업 재전직은 해금 조건을 다시 보지 않는다. 과거 직업 재방문 중에는 다른 직업으로
+// 즉시 이동할 수 있지만, 같은 직업 반복 초기화는 원래 레벨 조건을 유지한다.
 // 코어루프 off: 옛 차수 승급/환생 경로. 현 차수 레벨캡 + 3·4차 모험의 서 요건만 본다
 // (옛 숙련도 임계 55/110/170은 레벨캡과 충돌해 폐지).
 
 type CharSaveShape = {
   class?: unknown;
   level?: number;
+  revisitJobId?: unknown;
   materials?: unknown;
   [k: string]: unknown;
 };
@@ -167,7 +176,19 @@ export async function POST(req: Request) {
         parseV2Class(charSave.class),
         typeof charSave.specChoice === "string" ? charSave.specChoice : null,
       );
-      const requiredLevel = rejobRequiredLevel(currentJobId);
+      const targetJobId =
+        typeof reqBody.targetJobId === "string" ? reqBody.targetJobId : "";
+      const jobDef = V2_JOB_CATALOG[targetJobId];
+      if (!jobDef || !isRootJobSelectable(jobDef)) {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "bad_target" as const },
+        };
+      }
+      const baseRequiredLevel = rejobRequiredLevel(currentJobId);
+      const canLeaveRevisitedJob =
+        charSave.revisitJobId === currentJobId && targetJobId !== currentJobId;
+      const requiredLevel = canLeaveRevisitedJob ? 1 : baseRequiredLevel;
       if (lvl < requiredLevel) {
         return {
           status: 400,
@@ -183,21 +204,50 @@ export async function POST(req: Request) {
       //   체인은 브리지 LEGACY_CLASS_SPEC_BY_JOB 로 옛 class+spec 모델로 변환(저장 호환, 영구).
       // 현재 직업과 동일한 targetJobId(재전직)도 의도적으로 허용 — 같은 직업 환생 루프
       //   (레벨1 리셋·숙련도 보존). 별도 same-job 거부 가드를 두지 않는다.
-      const targetJobId =
-        typeof reqBody.targetJobId === "string" ? reqBody.targetJobId : "";
-      const jobDef = V2_JOB_CATALOG[targetJobId];
       // 루트 직업(tier 0: 모험가/생존자)은 전직 대상으로 허용 — 전직 후엔 루트 킷을
-      //   배울 길이 없어(되돌아갈 수 없음) 학습이 막히던 문제 해소. 그 외 tier 0(미래 추가분)은 차단.
-      if (!jobDef || !isRootJobSelectable(jobDef)) {
-        return {
-          status: 400,
-          body: { ok: false as const, error: "bad_target" as const },
-        };
-      }
+      // 배울 길이 없어(되돌아갈 수 없음) 학습이 막히던 문제 해소. 그 외 tier 0은 위에서 차단한다.
       // 🔑 같은 직업 재전직(환생 루프)이면 해금 게이트를 건너뛴다 — 이미 그 직업을 보유 중이므로
       //   해금 규칙이 나중에 바뀌어도(예: 직군 게이팅 → 계보 게이팅) 자기 직업 환생은 항상 가능해야
       //   한다(옛 규칙으로 얻은 직업이 새 규칙 미달이라 재전직조차 막히는 잠금 방지).
       const isReJobToCurrent = targetJobId === currentJobId;
+      const tier7Status = tier7AdvancementStatus({
+        targetJobId,
+        currentJobId,
+        currentLevel: lvl,
+        jobCumLevel: prof.jobCumLevel ?? {},
+        jobHistory: prof.jobHistory ?? [],
+        materials: charSave.materials,
+      });
+      const tier7PreviouslyUnlocked =
+        tier7Status?.permanentlyUnlocked === true;
+      if (tier7Status && !tier7PreviouslyUnlocked && tier7Status.failure) {
+        if (tier7Status.failure === "level_too_low") {
+          return {
+            status: 400,
+            body: {
+              ok: false as const,
+              error: "level_too_low" as const,
+              required: tier7Status.level.required,
+              have: tier7Status.level.current,
+            },
+          };
+        }
+        if (tier7Status.failure === "tier7_material_shortage") {
+          return {
+            status: 400,
+            body: {
+              ok: false as const,
+              error: "tier7_material_shortage" as const,
+              required: tier7Status.material.required,
+              have: tier7Status.material.current,
+            },
+          };
+        }
+        return {
+          status: 400,
+          body: { ok: false as const, error: tier7Status.failure },
+        };
+      }
       // 해금 게이트 = 직업 숙련도 prereqs + 추가조건(stat=proficiency·quest=ctx). 기본 직업은
       //   prereqs 비어 통과(위 레벨 한계가 바닥 게이트). quest 조건 쓰는 직업이 있을 때만 quest 세이브 로드.
       const jobCtx: JobUnlockContext | undefined = {
@@ -209,7 +259,11 @@ export async function POST(req: Request) {
         ...(woodcuttingLevel != null ? { woodcuttingLevel } : {}),
         ...(miningLevel != null ? { miningLevel } : {}),
       };
-      if (!isReJobToCurrent && !isJobUnlocked(jobDef, prof, jobCtx)) {
+      if (
+        !isReJobToCurrent &&
+        !tier7PreviouslyUnlocked &&
+        !isJobUnlocked(jobDef, prof, jobCtx)
+      ) {
         return {
           status: 400,
           body: { ok: false as const, error: "job_locked" as const },
@@ -218,6 +272,15 @@ export async function POST(req: Request) {
       const legacy = LEGACY_CLASS_SPEC_BY_JOB[targetJobId];
       const targetClass = parseV2Class(legacy?.class ?? targetJobId);
       const targetSpec: string | null = legacy?.spec ?? null;
+      const revisitingTarget =
+        targetJobId !== currentJobId &&
+        (targetJobId === "none" ||
+          (prof.jobHistory ?? []).includes(targetJobId) ||
+          cumLevelForJob(prof, jobDef) > 0);
+      const nextMaterials =
+        tier7Status && !tier7PreviouslyUnlocked
+          ? spendTier7FirstUnlockMaterial(charSave.materials, tier7Status)
+          : null;
 
       // 재전직 — class/spec 갈아끼우고 레벨1·exp0·grown 리셋(스탯은 floor 부터 재성장).
       await upsertSave(tx, userId, "character.v2", {
@@ -226,6 +289,8 @@ export async function POST(req: Request) {
         specChoice: targetSpec,
         level: 1,
         exp: 0,
+        revisitJobId: revisitingTarget ? targetJobId : null,
+        ...(nextMaterials ? { materials: nextMaterials } : {}),
       });
       // 차수 폐지 — 모든 직업군 tier=1 정규화(flattenGroupTiers). setGroupTier 는 max-clamp 라
       //   1차로 내릴 수 없어 옛 차수 보너스(앵커 %·floor mult)가 샌다. 숙련도/points/caps 보존.
@@ -233,16 +298,27 @@ export async function POST(req: Request) {
       //   생활직은 Lv.1에서 같은 직업을 반복 선택할 수 있으므로 업적 카운터에서 제외한다.
       // 직업 숙련도는 사냥 승리에서만 오르므로, 재전직/환생 진입 자체는 숙련도를 더하지 않는다.
       const targetGroup = tier1ClassOf(targetClass);
-      const resetProf = flattenGroupTiers(setGrown(prof, {}), targetGroup);
+      const resetProf = flattenGroupTiers(resetLevelGrowth(prof), targetGroup);
+      const completedCombatCycle =
+        baseRequiredLevel === V2_LEVEL_CAP && lvl >= baseRequiredLevel;
       const rejobProf =
-        requiredLevel === V2_LEVEL_CAP
+        completedCombatCycle
           ? addReincarnation(resetProf)
           : resetProf;
-      const nextProf = addJobHistory(
+      const historyProf = addJobHistory(
         rejobProf,
         currentJobId,
         targetJobId,
       );
+      const lifeResourceRanges = completedCombatCycle
+        ? lifeResourceRangesForProficiency(historyProf)
+        : null;
+      const lifeResourceGrowth = lifeResourceRanges
+        ? rollInitialLifeResourceGrowth(lifeResourceRanges)
+        : null;
+      const nextProf = lifeResourceGrowth
+        ? { ...historyProf, lifeResourceGrowth }
+        : historyProf;
       const codexBonus = await readCodexSpBonus(tx, userId);
       // 코어루프 — 환생: 모아둔 로드아웃 보존 + SP 예산 초과분만 빠진다(강제 재산출 아님 →
       //   타직업 공용/기본기 오픈믹스 수집분 유지). 예산은 tier 1 정규화 기준(정복 보너스 빠짐).
@@ -268,6 +344,17 @@ export async function POST(req: Request) {
           class: targetClass,
           spec: targetSpec,
           reincarnated: true as const,
+          revisitExpedited: revisitingTarget,
+          ...(lifeResourceGrowth && lifeResourceRanges
+            ? {
+                lifeResources: {
+                  maxHp: lifeResourceGrowth.baseHp,
+                  maxMp: lifeResourceGrowth.baseMp,
+                  hpPerLevel: lifeResourceRanges.hpPerLevel,
+                  mpPerLevel: lifeResourceRanges.mpPerLevel,
+                },
+              }
+            : {}),
         },
       };
     }
@@ -350,10 +437,19 @@ export async function POST(req: Request) {
     // 숙달 — grown 리셋(레벨1=성장분 0, floor 부터) + 직업군 도달 차수 기록(floor tierMult).
     // points/숙련도/caps 는 보존(전직해도 잔액·숙련도·수행이득 유지). 위에서 잠가 읽은 prof 재사용.
     // 환생(4차 정점→1차)일 때만 환생 1회 기록 — 일반 차수 승급은 환생이 아니므로 제외.
-    const advancedProf = setGroupTier(setGrown(prof, {}), group, nextTier);
-    const nextProf = isReincarnate
+    const advancedProf = setGroupTier(resetLevelGrowth(prof), group, nextTier);
+    const reincarnatedProf = isReincarnate
       ? addReincarnation(advancedProf)
       : advancedProf;
+    const lifeResourceRanges = isReincarnate
+      ? lifeResourceRangesForProficiency(reincarnatedProf)
+      : null;
+    const lifeResourceGrowth = lifeResourceRanges
+      ? rollInitialLifeResourceGrowth(lifeResourceRanges)
+      : null;
+    const nextProf = lifeResourceGrowth
+      ? { ...reincarnatedProf, lifeResourceGrowth }
+      : reincarnatedProf;
     await upsertSave(tx, userId, "proficiency.v2", nextProf);
 
     return {
@@ -363,6 +459,16 @@ export async function POST(req: Request) {
         class: curClass,
         tier: nextTier,
         reincarnated: isReincarnate,
+        ...(lifeResourceGrowth && lifeResourceRanges
+          ? {
+              lifeResources: {
+                maxHp: lifeResourceGrowth.baseHp,
+                maxMp: lifeResourceGrowth.baseMp,
+                hpPerLevel: lifeResourceRanges.hpPerLevel,
+                mpPerLevel: lifeResourceRanges.mpPerLevel,
+              },
+            }
+          : {}),
       },
     };
   });

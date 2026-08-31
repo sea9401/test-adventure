@@ -4,7 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Lock, PencilSimple } from "@phosphor-icons/react";
+import { Lock, PencilSimple, X } from "@phosphor-icons/react";
 import { AdminProvider, useAdmin } from "./AdminContext";
 
 const adminTabLoading = () => (
@@ -28,9 +28,11 @@ const LifeGatheringTelemetryTab = dynamic(() => import("./tabs/LifeGatheringTele
 const AuditLogTab = dynamic(() => import("./tabs/AuditLogTab").then((module) => module.AuditLogTab), { loading: adminTabLoading });
 const BroadcastTab = dynamic(() => import("./tabs/BroadcastTab").then((module) => module.BroadcastTab), { loading: adminTabLoading });
 const FeedbackTab = dynamic(() => import("./tabs/FeedbackTab").then((module) => module.FeedbackTab), { loading: adminTabLoading });
+const SafetyReportsTab = dynamic(() => import("./tabs/SafetyReportsTab").then((module) => module.SafetyReportsTab), { loading: adminTabLoading });
 const OpsManualTab = dynamic(() => import("./tabs/OpsManualTab").then((module) => module.OpsManualTab), { loading: adminTabLoading });
 const OpsSearchTab = dynamic(() => import("./tabs/OpsSearchTab").then((module) => module.OpsSearchTab), { loading: adminTabLoading });
 const OnlineUsersTab = dynamic(() => import("./tabs/OnlineUsersTab").then((module) => module.OnlineUsersTab), { loading: adminTabLoading });
+const ChatMonitorTab = dynamic(() => import("./tabs/ChatMonitorTab").then((module) => module.ChatMonitorTab), { loading: adminTabLoading });
 
 // 2026-06-03: v1 죽은 탭 제거(거래소·협동보스·퀘스트·제작·지도·룬·인벤토리 — v2 미참조).
 // 2026-06-04: v1 데이터 브라우저(개요/모험의 서/데이터) 제거 — 로컬 *.v1 세이브 도구로 v2(서버 DB)엔 무용.
@@ -50,6 +52,8 @@ type TabKey =
   | "opsSearch"
   | "broadcast"
   | "feedback"
+  | "safetyReports"
+  | "chatMonitor"
   | "opsManual"
   | "audit";
 
@@ -61,6 +65,7 @@ type AdminTab = {
   description: string;
   group: TabGroup;
   keywords?: string;
+  superOnly?: boolean;
 };
 
 const TABS: AdminTab[] = [
@@ -71,6 +76,8 @@ const TABS: AdminTab[] = [
   { key: "users", label: "유저 관리", description: "유저 조회, 지급, 제재와 데이터 수정", group: "daily", keywords: "닉네임 계정 캐릭터" },
   { key: "broadcast", label: "공지·우편", description: "공지 등록과 개인·전체 우편 발송", group: "community", keywords: "메일 보상" },
   { key: "feedback", label: "건의사항", description: "버그 제보와 유저 의견 확인", group: "community", keywords: "문의 피드백" },
+  { key: "safetyReports", label: "신고 관리", description: "콘텐츠·사용자 신고 검토와 조치", group: "community", keywords: "UGC 신고 차단 제재 삭제" },
+  { key: "chatMonitor", label: "채팅 모니터링", description: "모든 채팅방의 최근 대화 열람", group: "community", keywords: "전체 거래 길드 공개 비공개 대화", superOnly: true },
   { key: "season", label: "시즌 운영", description: "시즌 정산과 운영 스케줄 관리", group: "community" },
   { key: "stats", label: "전체 통계", description: "접속·성장·보유 현황 통계", group: "analytics" },
   { key: "balance", label: "밸런스 지표", description: "재화와 성장 분포 분석", group: "analytics" },
@@ -82,6 +89,10 @@ const TABS: AdminTab[] = [
   { key: "audit", label: "관리자 기록", description: "관리자 변경과 처리 이력", group: "analytics", keywords: "감사 로그" },
   { key: "opsManual", label: "운영 안내", description: "권한과 상황별 처리 절차", group: "guide", keywords: "매뉴얼 도움말" },
 ];
+
+export function visibleAdminTabs(capabilities: { super: boolean }): AdminTab[] {
+  return TABS.filter((tab) => !tab.superOnly || capabilities.super);
+}
 
 const GROUP_LABELS: Record<TabGroup, string> = {
   daily: "자주 쓰는 메뉴",
@@ -107,17 +118,27 @@ function ShellInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tab = tabFromParam(searchParams.get("tab"));
-  const { readOnly, setReadOnly, toast, adminMe, loadingAdminMe } = useAdmin();
+  const {
+    readOnly,
+    setReadOnly,
+    toast,
+    dismissToast,
+    adminMe,
+    loadingAdminMe,
+  } = useAdmin();
   const [navQuery, setNavQuery] = useState("");
+  const availableTabs = visibleAdminTabs({
+    super: adminMe?.capabilities.super === true,
+  });
   const filteredTabs = useMemo(() => {
     const query = navQuery.trim().toLocaleLowerCase("ko-KR");
-    if (!query) return TABS;
-    return TABS.filter((item) =>
+    if (!query) return availableTabs;
+    return availableTabs.filter((item) =>
       `${item.label} ${item.description} ${item.keywords ?? ""}`
         .toLocaleLowerCase("ko-KR")
         .includes(query),
     );
-  }, [navQuery]);
+  }, [availableTabs, navQuery]);
   const groups = groupTabs(filteredTabs);
   const activeTab = TABS.find((item) => item.key === tab) ?? TABS[0];
   const openTab = (next: TabKey) => {
@@ -187,7 +208,7 @@ function ShellInner() {
               onChange={(event) => openTab(event.target.value as TabKey)}
               className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
             >
-              {groupTabs(TABS).map(({ group, items }) => (
+              {groupTabs(availableTabs).map(({ group, items }) => (
                 <optgroup key={group} label={GROUP_LABELS[group]}>
                   {items.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
                 </optgroup>
@@ -250,14 +271,24 @@ function ShellInner() {
           {tab === "opsSearch" && <OpsSearchTab />}
           {tab === "broadcast" && <BroadcastTab />}
           {tab === "feedback" && <FeedbackTab />}
+          {tab === "safetyReports" && <SafetyReportsTab />}
+          {tab === "chatMonitor" && <ChatMonitorTab />}
           {tab === "opsManual" && <OpsManualTab />}
           {tab === "audit" && <AuditLogTab />}
         </main>
       </div>
 
       {toast ? (
-        <div className="fixed bottom-4 right-4 z-40 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-lg dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
-          {toast}
+        <div className="fixed bottom-4 right-4 z-40 flex max-w-[min(24rem,calc(100vw-2rem))] items-start gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-lg dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
+          <span className="min-w-0 flex-1">{toast}</span>
+          <button
+            type="button"
+            aria-label="알림 닫기"
+            onClick={dismissToast}
+            className="-mr-1 flex size-7 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-2 focus-visible:outline-offset-1 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          >
+            <X size={16} weight="bold" aria-hidden />
+          </button>
         </div>
       ) : null}
     </div>

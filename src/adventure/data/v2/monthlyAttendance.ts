@@ -6,17 +6,19 @@ import {
 
 export const MONTHLY_ATTENDANCE_SAVE_KEY = "monthly-attendance.v1";
 export const MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS = 15;
+export const MONTHLY_ATTENDANCE_BONUS_SUPPORT_DAYS = 7;
 
 type MonthlyAttendanceBaseReward =
   | { kind: "adventure_support"; days: number }
   | { kind: "stamina_potion"; count: number }
-  | { kind: "enhancement_stone"; color: "red" | "blue"; count: number }
   | { kind: "boss_summon_scroll"; count: number }
   | { kind: "mastery_certificate"; count: number }
-  | { kind: "enhancement_stone_bundle"; red: number; blue: number };
+  | { kind: "torn_map_fragment"; count: number }
+  | { kind: "coop_coin"; count: number };
 
 export type MonthlyAttendanceReward = MonthlyAttendanceBaseReward & {
   cosmeticBox?: MuseunCosmeticBoxItemId;
+  adventureSupportDays?: number;
 };
 
 export const MONTHLY_ATTENDANCE_REWARDS = [
@@ -24,47 +26,86 @@ export const MONTHLY_ATTENDANCE_REWARDS = [
     kind: "adventure_support",
     days: MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS,
   },
-  { kind: "enhancement_stone", color: "blue", count: 1 },
+  { kind: "torn_map_fragment", count: 2 },
   { kind: "stamina_potion", count: 2 },
   { kind: "stamina_potion", count: 2 },
   { kind: "stamina_potion", count: 2 },
-  { kind: "enhancement_stone", color: "red", count: 1 },
+  { kind: "coop_coin", count: 20 },
   {
     kind: "stamina_potion",
     count: 2,
     cosmeticBox: "chroma_name_box",
   },
-  { kind: "enhancement_stone", color: "blue", count: 1 },
+  { kind: "boss_summon_scroll", count: 2 },
   { kind: "stamina_potion", count: 2 },
   { kind: "stamina_potion", count: 2 },
-  { kind: "enhancement_stone", color: "blue", count: 1 },
+  { kind: "torn_map_fragment", count: 3 },
   { kind: "stamina_potion", count: 2 },
   { kind: "stamina_potion", count: 2 },
   {
-    kind: "boss_summon_scroll",
-    count: 3,
+    kind: "adventure_support",
+    days: MONTHLY_ATTENDANCE_BONUS_SUPPORT_DAYS,
     cosmeticBox: "chat_badge_box",
   },
-  { kind: "enhancement_stone", color: "red", count: 1 },
+  { kind: "coop_coin", count: 25 },
   { kind: "stamina_potion", count: 2 },
-  { kind: "enhancement_stone", color: "blue", count: 1 },
+  { kind: "boss_summon_scroll", count: 2 },
   { kind: "stamina_potion", count: 2 },
-  { kind: "enhancement_stone", color: "red", count: 1 },
+  { kind: "torn_map_fragment", count: 5 },
   { kind: "stamina_potion", count: 2 },
-  { kind: "mastery_certificate", count: 300 },
-  { kind: "enhancement_stone", color: "blue", count: 1 },
+  {
+    kind: "mastery_certificate",
+    count: 300,
+    adventureSupportDays: MONTHLY_ATTENDANCE_BONUS_SUPPORT_DAYS,
+  },
+  { kind: "coop_coin", count: 35 },
   { kind: "stamina_potion", count: 2 },
-  { kind: "enhancement_stone", color: "red", count: 1 },
+  { kind: "boss_summon_scroll", count: 3 },
   { kind: "stamina_potion", count: 2 },
-  { kind: "enhancement_stone", color: "blue", count: 1 },
+  { kind: "coop_coin", count: 40 },
   { kind: "stamina_potion", count: 3 },
   {
-    kind: "enhancement_stone_bundle",
-    red: 2,
-    blue: 2,
+    kind: "mastery_certificate",
+    count: 500,
     cosmeticBox: "profile_border_box",
   },
 ] as const satisfies readonly MonthlyAttendanceReward[];
+
+export const SEPTEMBER_2026_ATTENDANCE_REWARDS: readonly MonthlyAttendanceReward[] =
+  MONTHLY_ATTENDANCE_REWARDS.map((reward, index) => {
+    switch (index + 1) {
+      case 1:
+        return { kind: "adventure_support", days: 7 };
+      case 7:
+        return { kind: "stamina_potion", count: 2 };
+      case 8:
+        return { kind: "boss_summon_scroll", count: 10 };
+      case 11:
+        return { kind: "torn_map_fragment", count: 5 };
+      case 14:
+        return { kind: "stamina_potion", count: 3 };
+      case 17:
+        return { kind: "boss_summon_scroll", count: 15 };
+      case 19:
+        return { kind: "torn_map_fragment", count: 10 };
+      case 21:
+        return { kind: "mastery_certificate", count: 500 };
+      case 24:
+        return { kind: "boss_summon_scroll", count: 20 };
+      case 28:
+        return { kind: "mastery_certificate", count: 1_500 };
+      default:
+        return reward;
+    }
+  });
+
+export function monthlyAttendanceRewardsForMonth(
+  monthKey: string,
+): readonly MonthlyAttendanceReward[] {
+  return monthKey === "2026-09"
+    ? SEPTEMBER_2026_ATTENDANCE_REWARDS
+    : MONTHLY_ATTENDANCE_REWARDS;
+}
 
 export type MonthlyAttendanceState = {
   monthKey: string;
@@ -107,7 +148,7 @@ export function monthlyAttendanceState(
     ),
   )
     .sort()
-    .slice(0, MONTHLY_ATTENDANCE_REWARDS.length);
+    .slice(0, monthlyAttendanceRewardsForMonth(monthKey).length);
   return { monthKey, claimedDayKeys };
 }
 
@@ -119,7 +160,8 @@ export function monthlyAttendanceStatus(
   const todayKey = kstDayKey(now);
   const claimedCount = state.claimedDayKeys.length;
   const claimedToday = state.claimedDayKeys.includes(todayKey);
-  const complete = claimedCount >= MONTHLY_ATTENDANCE_REWARDS.length;
+  const complete =
+    claimedCount >= monthlyAttendanceRewardsForMonth(state.monthKey).length;
   return {
     ...state,
     todayKey,
@@ -135,9 +177,14 @@ export function monthlyAttendanceRewardLabel(
   reward: MonthlyAttendanceReward,
 ): string {
   const baseLabel = monthlyAttendanceBaseRewardLabel(reward);
-  return reward.cosmeticBox
-    ? `${baseLabel} · ${MUSEUN_CASH_ITEMS[reward.cosmeticBox].name}`
-    : baseLabel;
+  const extras: string[] = [];
+  if (reward.kind !== "adventure_support" && reward.adventureSupportDays) {
+    extras.push(`월간 모험 지원권 ${reward.adventureSupportDays}일`);
+  }
+  if (reward.cosmeticBox) {
+    extras.push(MUSEUN_CASH_ITEMS[reward.cosmeticBox].name);
+  }
+  return [baseLabel, ...extras].join(" · ");
 }
 
 function monthlyAttendanceBaseRewardLabel(
@@ -148,13 +195,13 @@ function monthlyAttendanceBaseRewardLabel(
       return `월간 모험 지원권 ${reward.days}일`;
     case "stamina_potion":
       return `스태미나 회복약 ${reward.count}개`;
-    case "enhancement_stone":
-      return `${reward.color === "red" ? "붉은" : "푸른"} 강화석 ${reward.count}개`;
     case "boss_summon_scroll":
       return `보스 소환서 ${reward.count}장`;
     case "mastery_certificate":
       return `숙련의 증표 ${reward.count.toLocaleString("ko-KR")}개`;
-    case "enhancement_stone_bundle":
-      return `붉은·푸른 강화석 각 ${reward.red}개`;
+    case "torn_map_fragment":
+      return `찢어진 지도 조각 ${reward.count}개`;
+    case "coop_coin":
+      return `협동 주화 ${reward.count}개`;
   }
 }

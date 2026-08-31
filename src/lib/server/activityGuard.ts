@@ -1,8 +1,8 @@
 import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
 
 export const ACTIVITY_GUARD_KEY = "activity-guard.v1";
-export const ACTIVITY_CHECKPOINT_COMPLETIONS = 100;
-export const ACTIVITY_CHECKPOINT_CONTINUOUS_MS = 60 * 60_000;
+export const ACTIVITY_CHECKPOINT_COMPLETIONS = 500;
+export const ACTIVITY_CHECKPOINT_CONTINUOUS_MS = 3 * 60 * 60_000;
 export const ACTIVITY_SEQUENCE_RESET_MS = 10 * 60_000;
 export const ACTIVITY_STRONG_SIGNAL_THRESHOLD = 3;
 export const ACTIVITY_STRONG_SIGNAL_WINDOW_MS = 10 * 60_000;
@@ -21,6 +21,7 @@ export const ACTIVITY_BEHAVIOR_SIGNAL_SCORE = 6;
 export const ACTIVITY_REGULARITY_MIN_INTERVALS = 24;
 export const ACTIVITY_REGULARITY_MAX_CV = 0.015;
 export const ACTIVITY_REGULARITY_MIN_ACTIVE_MS = 2 * 60_000;
+export const MANUAL_ACTIVITY_VERIFICATION_TTL_MS = 10 * 60_000;
 
 const ACTIVITY_GLOBAL_VOLUME_STAGES = [
   { completions: 500, score: 5 },
@@ -32,6 +33,13 @@ const ACTIVITY_GLOBAL_VOLUME_STAGES = [
 
 export type GuardedActivity = "fishing" | "woodcutting" | "mining";
 export type ActivityRiskLevel = "normal" | "watch" | "high" | "critical";
+export type ManualActivityVerificationMode = "standard" | "captcha";
+
+export type ManualActivityVerification = {
+  mode: ManualActivityVerificationMode;
+  requestedAt: number;
+  expiresAt: number;
+};
 
 type ActivityGuardEntry = {
   sequenceStartedAt: number | null;
@@ -51,6 +59,7 @@ type ActivityGuardEntry = {
   intervalM2Ms: number;
   behaviorStage: number;
   behaviorSignals: number;
+  manualVerification: ManualActivityVerification | null;
 };
 
 type ActivityRiskState = {
@@ -64,7 +73,7 @@ type ActivityRiskState = {
 };
 
 export type ActivityGuardState = {
-  version: 4;
+  version: 5;
   activities: Record<GuardedActivity, ActivityGuardEntry>;
   risk: ActivityRiskState;
 };
@@ -99,6 +108,7 @@ function emptyEntry(): ActivityGuardEntry {
     intervalM2Ms: 0,
     behaviorStage: 0,
     behaviorSignals: 0,
+    manualVerification: null,
   };
 }
 
@@ -116,7 +126,7 @@ function emptyRisk(): ActivityRiskState {
 
 export function emptyActivityGuardState(): ActivityGuardState {
   return {
-    version: 4,
+    version: 5,
     activities: {
       fishing: emptyEntry(),
       woodcutting: emptyEntry(),
@@ -144,6 +154,25 @@ function nullableTimestamp(value: unknown): number | null {
 function parseEntry(raw: unknown): ActivityGuardEntry {
   if (!raw || typeof raw !== "object") return emptyEntry();
   const value = raw as Record<string, unknown>;
+  const manualRaw = value.manualVerification;
+  const manualValue =
+    manualRaw && typeof manualRaw === "object"
+      ? (manualRaw as Record<string, unknown>)
+      : null;
+  const manualMode = manualValue?.mode;
+  const manualRequestedAt = nullableTimestamp(manualValue?.requestedAt);
+  const manualExpiresAt = nullableTimestamp(manualValue?.expiresAt);
+  const manualVerification: ManualActivityVerification | null =
+    (manualMode === "standard" || manualMode === "captcha") &&
+    manualRequestedAt !== null &&
+    manualExpiresAt !== null &&
+    manualExpiresAt > manualRequestedAt
+      ? {
+          mode: manualMode as ManualActivityVerificationMode,
+          requestedAt: manualRequestedAt,
+          expiresAt: manualExpiresAt,
+        }
+      : null;
   return {
     sequenceStartedAt: nullableTimestamp(value.sequenceStartedAt),
     lastCompletedAt: nullableTimestamp(value.lastCompletedAt),
@@ -165,6 +194,7 @@ function parseEntry(raw: unknown): ActivityGuardEntry {
     intervalM2Ms: nonNegativeNumber(value.intervalM2Ms),
     behaviorStage: nonNegativeInt(value.behaviorStage),
     behaviorSignals: nonNegativeInt(value.behaviorSignals),
+    manualVerification,
   };
 }
 
@@ -188,23 +218,22 @@ function parseRisk(raw: unknown): ActivityRiskState {
 export function parseActivityGuardState(raw: unknown): ActivityGuardState {
   if (!raw || typeof raw !== "object") return emptyActivityGuardState();
   const storedVersion = nonNegativeInt((raw as { version?: unknown }).version);
+  // v5에서 정상 이용자에게 지나치게 잦았던 확인 주기와 위험도 산정을 완화했다.
+  // 이전 버전의 확인 대기·의심 점수·행동 신호는 이어받지 않고 한 번 초기화한다.
+  if (storedVersion < 5) return emptyActivityGuardState();
   const activities = (raw as { activities?: unknown }).activities;
   const source =
     activities && typeof activities === "object"
       ? (activities as Record<string, unknown>)
       : {};
   return {
-    version: 4,
+    version: 5,
     activities: {
       fishing: parseEntry(source.fishing),
       woodcutting: parseEntry(source.woodcutting),
       mining: parseEntry(source.mining),
     },
-    // v3까지는 농장 활동도 공통 위험도에 섞였다. 농장을 제외하는 v4로 처음
-    // 읽을 때 기존 공통 점수를 초기화해 과거 농장 기록이 다른 활동에 남지 않게 한다.
-    risk: storedVersion >= 4
-      ? parseRisk((raw as { risk?: unknown }).risk)
-      : emptyRisk(),
+    risk: parseRisk((raw as { risk?: unknown }).risk),
   };
 }
 
@@ -235,6 +264,7 @@ export function activityCheckpointTarget(
   rng: () => number = Math.random,
   context: {
     dailyCompleted?: number;
+    // 운영 지표로는 유지하지만 확인 성공이 다음 확인을 앞당기지는 않는다.
     dailyVerifications?: number;
     behaviorSignals?: number;
   } = {},
@@ -254,34 +284,22 @@ function activityCheckpointRange(
 ): [number, number] {
   const level = activityRiskLevel(riskScore);
   const riskRange: [number, number] = level === "critical"
-    ? [10, 25]
+    ? [40, 80]
     : level === "high"
-      ? [25, 50]
+      ? [100, 180]
       : level === "watch"
-        ? [50, 80]
-        : [80, 140];
+        ? [250, 400]
+        : [400, 700];
   const dailyCompleted = nonNegativeInt(context.dailyCompleted);
-  const dailyVerifications = nonNegativeInt(context.dailyVerifications);
   const behaviorSignals = nonNegativeInt(context.behaviorSignals);
   const pressure = Math.max(
-    dailyCompleted >= 2_500
-      ? 4
-      : dailyCompleted >= 1_000
-        ? 3
-        : dailyCompleted >= 500
-          ? 2
-          : dailyCompleted >= 150
-            ? 1
-            : 0,
-    dailyVerifications >= 7
-      ? 4
-      : dailyVerifications >= 4
-        ? 3
-        : dailyVerifications >= 2
-          ? 2
-          : dailyVerifications >= 1
-            ? 1
-            : 0,
+    dailyCompleted >= 5_000
+      ? 3
+      : dailyCompleted >= 2_500
+        ? 2
+        : dailyCompleted >= 1_000
+          ? 1
+          : 0,
     behaviorSignals >= 4
       ? 4
       : behaviorSignals >= 3
@@ -294,14 +312,14 @@ function activityCheckpointRange(
   );
   const pressureRange: [number, number] =
     pressure >= 4
-      ? [10, 25]
+      ? [40, 80]
       : pressure === 3
-        ? [25, 50]
+        ? [100, 180]
         : pressure === 2
-          ? [40, 70]
+          ? [250, 400]
           : pressure === 1
-            ? [60, 100]
-            : [80, 140];
+            ? [300, 500]
+            : [400, 700];
   return pressureRange[1] < riskRange[1] ? pressureRange : riskRange;
 }
 
@@ -310,11 +328,89 @@ export function activityVerificationRequired(
   activity: GuardedActivity,
   verificationConfigured: boolean,
 ): boolean {
+  return activityVerificationContext(
+    state,
+    activity,
+    verificationConfigured,
+  ).required;
+}
+
+export function organicActivityVerificationRequired(
+  state: ActivityGuardState,
+  activity: GuardedActivity,
+): boolean {
   return (
-    verificationConfigured &&
-    (state.activities[activity].verificationRequiredAt !== null ||
-      state.risk.score >= ACTIVITY_RISK_HIGH_THRESHOLD)
+    state.activities[activity].verificationRequiredAt !== null ||
+    state.risk.score >= ACTIVITY_RISK_HIGH_THRESHOLD
   );
+}
+
+export function activeManualActivityVerification(
+  state: ActivityGuardState,
+  activity: GuardedActivity,
+  now = Date.now(),
+): ManualActivityVerification | null {
+  const manual = state.activities[activity].manualVerification;
+  return manual && manual.requestedAt <= now && manual.expiresAt > now
+    ? manual
+    : null;
+}
+
+export function setManualActivityVerification(
+  state: ActivityGuardState,
+  activity: GuardedActivity,
+  mode: ManualActivityVerificationMode,
+  now = Date.now(),
+): ActivityGuardState {
+  return withEntry(state, activity, {
+    ...state.activities[activity],
+    manualVerification: {
+      mode,
+      requestedAt: now,
+      expiresAt: now + MANUAL_ACTIVITY_VERIFICATION_TTL_MS,
+    },
+  });
+}
+
+export function clearManualActivityVerification(
+  state: ActivityGuardState,
+  activity: GuardedActivity,
+): ActivityGuardState {
+  return withEntry(state, activity, {
+    ...state.activities[activity],
+    manualVerification: null,
+  });
+}
+
+export function activityVerificationContext(
+  state: ActivityGuardState,
+  activity: GuardedActivity,
+  verificationConfigured: boolean,
+  now = Date.now(),
+): {
+  required: boolean;
+  reason: "volume" | "strong_signal";
+  manualTest: boolean;
+} {
+  if (!verificationConfigured) {
+    return { required: false, reason: "volume", manualTest: false };
+  }
+  if (organicActivityVerificationRequired(state, activity)) {
+    return {
+      required: true,
+      reason: activityVerificationReason(state, activity),
+      manualTest: false,
+    };
+  }
+  const manual = activeManualActivityVerification(state, activity, now);
+  if (!manual) {
+    return { required: false, reason: "volume", manualTest: false };
+  }
+  return {
+    required: true,
+    reason: manual.mode === "captcha" ? "strong_signal" : "volume",
+    manualTest: true,
+  };
 }
 
 function withEntry(
@@ -323,14 +419,14 @@ function withEntry(
   entry: ActivityGuardEntry,
 ): ActivityGuardState {
   return {
-    version: 4,
+    version: 5,
     activities: { ...state.activities, [activity]: entry },
     risk: state.risk,
   };
 }
 
 function withRisk(state: ActivityGuardState, risk: ActivityRiskState): ActivityGuardState {
-  return { ...state, version: 4, risk };
+  return { ...state, version: 5, risk };
 }
 
 function volumeRiskUpdate(
@@ -463,7 +559,6 @@ export function recordActivityCompletion(
     previous.checkpointTarget,
     activityCheckpointRange(risk.score, {
       dailyCompleted: risk.dailyCompleted,
-      dailyVerifications: risk.dailyVerifications,
       behaviorSignals:
         previous.behaviorSignals + (behavior.signal ? 1 : 0),
     })[1],
@@ -618,6 +713,12 @@ export function clearActivityVerification(
   activity: GuardedActivity,
   now: number,
 ): ActivityGuardState {
+  if (
+    activeManualActivityVerification(state, activity, now) &&
+    !organicActivityVerificationRequired(state, activity)
+  ) {
+    return clearManualActivityVerification(state, activity);
+  }
   const previous = state.activities[activity];
   const decayed = decayedRisk(state.risk, now);
   const dailyKey = kstDailyKey(new Date(now));
@@ -643,7 +744,6 @@ export function clearActivityVerification(
     earlyAttempts: 0,
     checkpointTarget: activityCheckpointTarget(risk.score, Math.random, {
       dailyCompleted: risk.dailyCompleted,
-      dailyVerifications: risk.dailyVerifications,
     }),
     intervalSamples: 0,
     intervalMeanMs: 0,
@@ -689,8 +789,14 @@ export function activityVerificationReason(
     (sum, entry) => sum + entry.strongSignals,
     0,
   );
+  const totalBehaviorSignals = Object.values(state.activities).reduce(
+    (sum, entry) => sum + entry.behaviorSignals,
+    0,
+  );
   return state.activities[activity].strongSignals >= ACTIVITY_STRONG_SIGNAL_THRESHOLD ||
-    totalStrongSignals >= ACTIVITY_STRONG_SIGNAL_THRESHOLD
+    totalStrongSignals >= ACTIVITY_STRONG_SIGNAL_THRESHOLD ||
+    state.activities[activity].behaviorSignals >= 3 ||
+    totalBehaviorSignals >= 3
     ? "strong_signal"
     : "volume";
 }

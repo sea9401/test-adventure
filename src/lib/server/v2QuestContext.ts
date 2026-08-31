@@ -3,7 +3,7 @@
 //   character.v2  → class·level·frontierDepth·specChoice(→직업 tier 브리지)
 //   proficiency.v2 → cultivations(현 직군). tier = 직업 카탈로그 tier(jobIdFromLegacy)
 //   adventure-log.v2 → battleCount·bossKills(보스 첫 처치 칭호 수)
-//   equipment.v2  → equippedCount·uniqueOwned
+//   equipment.v2  → equippedCount (유니크 누적 획득은 adventure-log.v2, 레거시 보정은 equipment/codex)
 //   extras(DB/별도 세이브) → hasGuild·hasTraded·arenaPlayed (assembleQuestExtras)
 
 import { and, eq, or, sql } from "drizzle-orm";
@@ -18,9 +18,6 @@ import {
 } from "@/adventure/data/v2/proficiency";
 import {
   parseEquipmentSave,
-  isUnique,
-  V2_EQUIPMENT,
-  type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
 import {
@@ -47,6 +44,7 @@ import {
   marketplaceListingsV2,
   marketplaceUserTradeTotals,
   pvpRatings,
+  referralConversions,
 } from "@/db/schema";
 import { ARENA_HISTORY_KEY } from "@/lib/storage-keys";
 import { parseArenaHistory } from "@/lib/server/arena";
@@ -81,12 +79,14 @@ import {
 import {
   cookingLevelForXp,
   parseCookingState,
-} from "@/adventure/v2/cooking";
+} from "@/adventure/v2/cooking/state";
+import { COOKING_PUBLIC_RECIPE_BY_ID } from "@/adventure/v2/cooking/catalog";
 import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
 import { LIFE_CRAFTING_RECIPE_BY_ID } from "@/adventure/v2/lifeCrafting";
 import { parseLifeRequestsState } from "@/adventure/v2/lifeRequests";
 import { lifeFieldRecordSummary } from "@/adventure/v2/lifeFieldRecords";
+import { uniqueEquipmentAcquisitionProgress } from "@/lib/server/uniqueEquipmentAchievement";
 
 type CharSave = {
   class?: unknown;
@@ -117,6 +117,7 @@ export type QuestExtras = {
   hasTraded: boolean;
   arenaPlayed: boolean;
   arenaWins: number;
+  referralCount: number;
   guildDiningMeals: number;
   guildTrainingDrills: number;
   guildExpeditions: number;
@@ -148,6 +149,7 @@ export function buildQuestCtx(args: {
   lifeRequestsRaw?: unknown;
   lifeFieldRecordsRaw?: unknown;
   lifeFieldMilestonesEnabled?: boolean;
+  uniqueAcquiredFloor?: number;
   extras: QuestExtras;
 }): QuestCtx {
   const charSave = (args.charRaw ?? {}) as CharSave;
@@ -206,10 +208,12 @@ export function buildQuestCtx(args: {
   const equippedCount = Object.values(equipped).filter(
     (iid) => iid != null,
   ).length;
-  const uniqueOwned = owned.filter((it) => {
-    const def = V2_EQUIPMENT[it.id as V2EquipmentId];
-    return def ? isUnique(def) : false;
-  }).length;
+  const uniqueAcquired = uniqueEquipmentAcquisitionProgress({
+    adventureLogRaw: advLog,
+    equipmentRaw: args.equipmentRaw,
+    equipmentCodexRaw: args.equipmentCodexRaw,
+    minimum: args.uniqueAcquiredFloor,
+  });
   // 강화의 길 — 보유 장비 최고 강화 레벨 + 강화석 보유 합(붉은+푸른).
   const maxEnhanceLevel = owned.reduce(
     (max, it) => Math.max(max, it.enhance?.level ?? 0),
@@ -264,7 +268,9 @@ export function buildQuestCtx(args: {
   const lifeRequests = parseLifeRequestsState(args.lifeRequestsRaw, "", "");
   const lifeFieldRecords = lifeFieldRecordSummary(args.lifeFieldRecordsRaw);
   const cookingLevel = cookingLevelForXp(cooking.xp);
-  const cookingRecipesDiscovered = cooking.discoveredRecipeIds.length;
+  const cookingRecipesDiscovered = cooking.discoveredRecipeIds.filter(
+    (id) => COOKING_PUBLIC_RECIPE_BY_ID.get(id)?.discovery !== "basic",
+  ).length;
 
   // 확장 신호(2026-06-11) — 직업 숙련도·몬스터 종 수.
   const cumLevel = totalCumLevel(prof);
@@ -283,13 +289,14 @@ export function buildQuestCtx(args: {
     equippedCount,
     hasManuallyEquippedGear,
     hasBattledAfterEquippingGear,
-    uniqueOwned,
+    uniqueAcquired,
     cultivations,
     bossKills,
     hasGuild: args.extras.hasGuild,
     hasTraded: args.extras.hasTraded,
     arenaPlayed: args.extras.arenaPlayed,
     arenaWins: args.extras.arenaWins,
+    referralCount: args.extras.referralCount,
     gold,
     outpostsDiscovered,
     titleCount,
@@ -348,9 +355,9 @@ export function buildQuestCtx(args: {
     cookingLevel,
     cookingRecipesDiscovered,
     cookingDishesCooked: cooking.stats.dishesCooked,
-    cookingOrdersCompleted: cooking.stats.ordersCompleted,
+    cookingOrdersCompleted: cooking.stats.deliveriesCompleted,
     cookingMasterpiecesCooked: cooking.stats.masterpiecesCooked,
-    cookingRareIngredientDishes: cooking.stats.rareIngredientDishes,
+    cookingRareIngredientDishes: cooking.stats.researchSuccesses,
     guildDiningMeals: args.extras.guildDiningMeals,
     guildTrainingDrills: args.extras.guildTrainingDrills,
     guildExpeditions: args.extras.guildExpeditions,
@@ -396,6 +403,10 @@ export async function assembleQuestExtras(
       ),
     )
     .limit(1);
+  const referralAgg = await ex
+    .select({ count: sql<number>`count(*)::bigint` })
+    .from(referralConversions)
+    .where(eq(referralConversions.referrerUserId, userId));
   const arenaRaw = await readSave(ex, userId, ARENA_HISTORY_KEY, {});
   const arenaAgg = await ex
     .select({
@@ -445,6 +456,7 @@ export async function assembleQuestExtras(
       lifetimeArenaWins,
       arenaHistory.filter((e) => e.outcome === "win").length,
     ),
+    referralCount: Number(referralAgg[0]?.count ?? 0),
     guildDiningMeals:
       Number(guildActivityAgg[0]?.diningMeals ?? 0) +
       Number(archivedGuildActivityAgg[0]?.diningMeals ?? 0),

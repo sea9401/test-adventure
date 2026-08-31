@@ -100,7 +100,7 @@ describe("MessageList", () => {
     expect(html).not.toContain("max-w-16");
   });
 
-  it("일반 채팅 본문을 들여쓰기 없이 두 줄로 표시한다", () => {
+  it("일반 채팅 본문과 신고 메뉴를 같은 행에 표시한다", () => {
     const html = renderToStaticMarkup(
       <MessageList
         open
@@ -110,7 +110,14 @@ describe("MessageList", () => {
       />,
     );
 
-    expect(html).toContain("whitespace-pre-wrap break-words leading-relaxed");
+    expect(html).toContain("flex min-w-0 items-start gap-1");
+    expect(html).toContain(
+      "min-w-0 flex-1 whitespace-pre-wrap break-words leading-relaxed",
+    );
+    expect(html).toContain('aria-label="시스템 신고 및 차단 메뉴"');
+    expect(html.indexOf("태고의 노룡이 깨어났습니다.")).toBeLessThan(
+      html.indexOf('aria-label="시스템 신고 및 차단 메뉴"'),
+    );
     expect(html).not.toContain("pl-2");
   });
 

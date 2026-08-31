@@ -6,6 +6,7 @@ const POLICY_LINKS = [
   { href: "/terms", label: "이용약관" },
   { href: "/privacy", label: "개인정보처리방침" },
   { href: "/operations", label: "운영정책" },
+  { href: "/account-deletion", label: "계정 삭제" },
   { href: "/licenses", label: "오픈소스 고지" },
 ] as const;
 

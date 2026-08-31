@@ -36,7 +36,11 @@
   "fullScopeUrl": "https://msmsge.com/",
   "minSdkVersion": 21,
   "orientation": "portrait",
-  "fingerprints": [],
+  "fingerprints": [
+    {
+      "value": "B9:55:3F:3C:B5:2F:54:EA:12:A0:A8:5F:86:2F:2E:64:B6:59:9D:4B:6F:82:CA:49:48:B2:DB:FE:36:3F:26:71"
+    }
+  ],
   "additionalTrustedOrigins": [],
   "retainedBundles": [],
   "protocolHandlers": [],

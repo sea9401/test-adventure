@@ -11,6 +11,39 @@ const TROPHIES = [
   { id: "frontier_100", title: "미지의 개척자", desc: "가장 깊은 사냥터의 끝에 도달하세요.", points: 70, badgeTier: "legendary" as const, unlocked: false },
   { id: "farm_100", title: "풍년", desc: "농작물을 100회 수확하세요.", points: 15, badgeTier: "silver" as const, unlocked: false },
   { id: "enhance_15", title: "불꽃의 장인", desc: "장비 강화 +15에 성공하세요.", points: 60, badgeTier: "legendary" as const, unlocked: false },
+  {
+    id: "mastery:fish",
+    kind: "mastery" as const,
+    category: "fish" as const,
+    title: "만경의 어탁",
+    desc: "다음 다이아 승급까지 12 / 17",
+    points: 0 as const,
+    badgeTier: "platinum" as const,
+    unlocked: true,
+    currentTier: "platinum" as const,
+    nextTier: "diamond" as const,
+    progress: { current: 12, required: 17 },
+    tierAchievedAt: {
+      bronze: "2026-02-01T00:00:00.000Z",
+      silver: "2026-03-01T00:00:00.000Z",
+      gold: "2026-05-01T00:00:00.000Z",
+      platinum: "2026-07-01T00:00:00.000Z",
+    },
+  },
+  {
+    id: "mastery:overall",
+    kind: "mastery" as const,
+    category: "overall" as const,
+    title: "모험왕의 대서",
+    desc: "다음 다이아 승급까지 4 / 6",
+    points: 0 as const,
+    badgeTier: "diamond" as const,
+    unlocked: false,
+    currentTier: null,
+    nextTier: "diamond" as const,
+    progress: { current: 4, required: 6 },
+    tierAchievedAt: {},
+  },
 ];
 
 export default function TrophyCabinetDevPage() {
@@ -23,7 +56,7 @@ export default function TrophyCabinetDevPage() {
         slots: [
           { kind: "achievement", achievementId: "combat_100" },
           { kind: "achievement", achievementId: "boss_10" },
-          { kind: "achievement", achievementId: "codex_50" },
+          { kind: "masteryTrophy", trophyId: "mastery:fish" },
         ],
         trophyOptions: TROPHIES,
       }}

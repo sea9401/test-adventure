@@ -20,6 +20,7 @@ import { BulletinMarkdown } from "./BulletinMarkdown";
 import { CommentsPanel } from "./CommentsPanel";
 import { CATEGORY_BADGE, type BulletinPost } from "./types";
 import { BulletinActivityBadge } from "./BulletinActivityBadge";
+import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
 
 // 게시판 글 상세 — 목록에서 한 글 클릭 시 같은 view 영역 안에서 전환되는 페이지.
 // 본문 전체 + 좋아요 토글 + 항상 펼쳐진 댓글 패널 + 뒤로 가기.
@@ -241,6 +242,15 @@ export function PostDetailPage({
             <Eye size={14} weight="regular" />
             <span className="tabular-nums">{post.viewCount}</span>
           </div>
+          {!post.mine && post.category !== "notice" && (
+            <ContentSafetyActions
+              sourceType="bulletin_post"
+              sourceId={post.id}
+              targetName={post.name}
+              className="ml-auto"
+              onBlocked={onBack}
+            />
+          )}
         </div>
       </Card>
 

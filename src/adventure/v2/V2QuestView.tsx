@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -20,7 +20,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { TabBar } from "@/components/ui/TabBar";
-import { useGameState } from "./GameStateProvider";
+import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
+import { useRefreshGameState } from "./GameStateRefreshContext";
 import { useRewardToast } from "./RewardToastProvider";
 import {
   type QuestLine,
@@ -44,6 +45,10 @@ import {
   type FarmSeedInventory,
 } from "./farm";
 import type { MonsterHuntCodexView } from "@/adventure/data/v2/monsterHuntCodex";
+import type {
+  GrowthLeapMilestoneId,
+  GrowthLeapMissionView,
+} from "@/adventure/data/v2/growthLeap";
 
 // 퀘스트 — 일일/주간/업적 3탭.
 //   업적(가이드 퀘스트): 튜토리얼 겸 성장 안내. 완료 자동 감지, 개별 보상 "받기".
@@ -75,10 +80,91 @@ type QuestsResponse = {
   achievementSummary?: AchievementSummary;
   monsterCodex?: MonsterHuntCodexView;
   trackedQuestId?: string | null;
+  growthLeap?: GrowthLeapMissionView;
 };
 
 type TopTab = "tutorial" | "daily" | "weekly" | "achievement";
 type ClaimAllScope = Extract<TopTab, "tutorial" | "achievement">;
+type GrowthLeapMilestoneView = Exclude<
+  GrowthLeapMissionView,
+  { status: "not_purchased" }
+>["milestones"][number];
+
+export function QuestTabContent({
+  tab,
+  children,
+}: {
+  tab: TopTab;
+  children: ReactNode;
+}) {
+  return (
+    <div data-quest-tab-content={tab} className="ui-tab-content-reveal">
+      {children}
+    </div>
+  );
+}
+
+export function GuideEmptyState({
+  tab,
+  groupLabel,
+}: {
+  tab: "active" | "done";
+  groupLabel: string;
+}) {
+  return (
+    <Card padding="md">
+      <p className="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+        {tab === "done" ? (
+          `아직 완료한 ${groupLabel} 항목이 없어요.`
+        ) : (
+          <>
+            <span>{`진행 중인 ${groupLabel} 항목이 없어요.`}</span>
+            <PlumpGameIcon name="celebration" size={18} />
+          </>
+        )}
+      </p>
+    </Card>
+  );
+}
+
+export function QuestTopTabs({
+  active,
+  dailyRewardReady,
+  weeklyRewardReady,
+  onChange,
+}: {
+  active: TopTab;
+  dailyRewardReady: boolean;
+  weeklyRewardReady: boolean;
+  onChange: (tab: TopTab) => void;
+}) {
+  return (
+    <TabBar
+      tabs={[
+        { key: "tutorial", label: "튜토리얼" },
+        {
+          key: "daily",
+          label: "일일",
+          badge: dailyRewardReady ? "받기" : undefined,
+          badgeLabel: dailyRewardReady ? "일일 보상 수령 가능" : undefined,
+        },
+        {
+          key: "weekly",
+          label: "주간",
+          badge: weeklyRewardReady ? "받기" : undefined,
+          badgeLabel: weeklyRewardReady ? "주간 보상 수령 가능" : undefined,
+        },
+        { key: "achievement", label: "업적" },
+      ]}
+      active={active}
+      onChange={onChange}
+      ariaLabel="퀘스트 분류"
+      size="md"
+      badgeVariant="alert"
+      scrollable
+    />
+  );
+}
 
 export type ClaimAllReward = {
   gold: number;
@@ -162,8 +248,149 @@ export function claimAllRewardText(reward: ClaimAllReward): string {
   return parts.join(" · ");
 }
 
+function growthLeapRewardText(
+  milestone: GrowthLeapMilestoneView,
+): string {
+  return [
+    `숙련 증서 ${milestone.masteryCertificates.toLocaleString()}개`,
+    milestone.staminaPotions > 0
+      ? `귀속 회복약 ${milestone.staminaPotions}개`
+      : null,
+    milestone.cosmeticExtensions > 0
+      ? `꾸미기 30일 연장권 ${milestone.cosmeticExtensions}개`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function growthLeapTimeLabel(until: number, now: number): string {
+  const remaining = Math.max(0, until - now);
+  const days = Math.floor(remaining / 86_400_000);
+  if (days > 0) return `${days}일 ${Math.floor((remaining % 86_400_000) / 3_600_000)}시간 남음`;
+  const hours = Math.floor(remaining / 3_600_000);
+  if (hours > 0) return `${hours}시간 남음`;
+  return `${Math.max(1, Math.ceil(remaining / 60_000))}분 남음`;
+}
+
+export function GrowthLeapMissionPanel({
+  mission,
+  busyId,
+  onClaim,
+  now,
+}: {
+  mission: GrowthLeapMissionView;
+  busyId: GrowthLeapMilestoneId | null;
+  onClaim: (milestoneId: GrowthLeapMilestoneId) => void;
+  now: number;
+}) {
+  if (mission.status === "not_purchased") {
+    return (
+      <Card padding="md" className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Gift size={20} weight="duotone" className="text-amber-500" />
+          <h2 className="text-sm font-semibold">성장 도약 의뢰</h2>
+        </div>
+        <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+          성장 도약 패키지를 구매하면 30일 동안 스태미나 사용량에 따라 단계 보상을
+          받을 수 있습니다.
+        </p>
+        <Link
+          href="/settings/coin-shop"
+          className="inline-flex text-xs font-semibold text-amber-700 hover:underline dark:text-amber-300"
+        >
+          무슨 코인 상점에서 확인
+        </Link>
+      </Card>
+    );
+  }
+
+  const pct = Math.min(
+    100,
+    (mission.staminaSpent / Math.max(1, mission.maxStamina)) * 100,
+  );
+  const statusText =
+    mission.status === "active"
+      ? `진행 중 · ${growthLeapTimeLabel(mission.progressUntil, now)}`
+      : mission.status === "claim_only"
+        ? `진행 종료 · 보상 수령만 가능 · ${growthLeapTimeLabel(mission.claimUntil, now)}`
+        : "수령 기간 만료";
+
+  return (
+    <Card padding="md" className="space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold">성장 도약 의뢰</h2>
+          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+            {statusText}
+          </p>
+        </div>
+        <strong className="shrink-0 text-sm tabular-nums text-amber-700 dark:text-amber-300">
+          {mission.staminaSpent.toLocaleString()}/{mission.maxStamina.toLocaleString()}
+        </strong>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+        <div
+          className="h-full rounded-full bg-amber-500 transition-all"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <ul className="space-y-2">
+        {mission.milestones.map((milestone) => {
+          const claimable = mission.status !== "expired" && milestone.claimable;
+          return (
+            <li
+              key={milestone.id}
+              className={`${SURFACE_INSET} flex items-center gap-3 p-3`}
+            >
+              {milestone.claimed ? (
+                <CheckCircle size={18} weight="fill" className="shrink-0 text-emerald-500" />
+              ) : claimable ? (
+                <Gift size={18} weight="fill" className="shrink-0 text-amber-500" />
+              ) : (
+                <Circle size={18} className="shrink-0 text-zinc-400" />
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                  <span className="text-sm font-semibold">{milestone.name}</span>
+                  <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                    누적 {milestone.stamina.toLocaleString()}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-400">
+                  {growthLeapRewardText(milestone)}
+                </p>
+              </div>
+              {milestone.claimed ? (
+                <span className="shrink-0 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                  수령 완료
+                </span>
+              ) : claimable ? (
+                <Button
+                  size="xs"
+                  variant="warning"
+                  disabled={busyId !== null}
+                  loading={busyId === milestone.id}
+                  loadingLabel={`${milestone.name} 보상 수령 중`}
+                  onClick={() => onClaim(milestone.id)}
+                >
+                  받기
+                </Button>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+        실제로 차감된 캐릭터 스태미나만 누적됩니다. 회복약 사용 자체는 진행도에
+        포함되지 않습니다.
+      </p>
+    </Card>
+  );
+}
+
 export function V2QuestView({ onBack }: { onBack: () => void }) {
-  const { refreshGameState } = useGameState();
+  const refreshGameState = useRefreshGameState();
   const { notifyReward, notifySystem } = useRewardToast();
   const [lines, setLines] = useState<QuestLine[]>([]);
   const [quests, setQuests] = useState<QuestView[]>([]);
@@ -171,6 +398,10 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
   const [achievement, setAchievement] = useState<AchievementSummary | null>(null);
   const [monsterCodex, setMonsterCodex] =
     useState<MonsterHuntCodexView | null>(null);
+  const [growthLeap, setGrowthLeap] = useState<GrowthLeapMissionView>({
+    status: "not_purchased",
+  });
+  const [growthLeapNow, setGrowthLeapNow] = useState(0);
   const [monsterCodexOpen, setMonsterCodexOpen] = useState(false);
   const [trackedQuestId, setTrackedQuestId] = useState<string | null>(null);
   const [trackingBusy, setTrackingBusy] = useState<string | null>(null);
@@ -178,6 +409,8 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [claimAllBusy, setClaimAllBusy] = useState<ClaimAllScope | null>(null);
   const [bundleBusy, setBundleBusy] = useState<"daily" | "weekly" | null>(null);
+  const [growthLeapBusy, setGrowthLeapBusy] =
+    useState<GrowthLeapMilestoneId | null>(null);
   // 초기 탭 — 홈 튜토리얼 배너가 ?tab=tutorial 로 딥링크. 그 외 기본 일일.
   const tabParam = useSearchParams().get("tab");
   const [topTab, setTopTab] = useState<TopTab>(
@@ -201,6 +434,8 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
         setAchievement(j.achievementSummary ?? null);
         setMonsterCodex(j.monsterCodex ?? null);
         setTrackedQuestId(j.trackedQuestId ?? null);
+        setGrowthLeap(j.growthLeap ?? { status: "not_purchased" });
+        setGrowthLeapNow(Date.now());
       }
     } catch {}
     setLoading(false);
@@ -349,34 +584,79 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
     [notifySystem, refresh, trackedQuestId],
   );
 
+  const claimGrowthLeap = useCallback(
+    async (milestoneId: GrowthLeapMilestoneId) => {
+      setGrowthLeapBusy(milestoneId);
+      try {
+        const res = await fetch("/api/v2/me/growth-leap/claim", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ milestoneId }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          mission?: GrowthLeapMissionView;
+          reward?: {
+            masteryCertificates: number;
+            staminaPotions: number;
+            cosmeticExtensions: number;
+          };
+        } | null;
+        if (!res.ok || !j?.ok || !j.reward || !j.mission) {
+          notifySystem(`✗ ${claimErr(j?.error, res.status)}`);
+          return;
+        }
+        setGrowthLeap(j.mission);
+        setGrowthLeapNow(Date.now());
+        notifyReward(
+          "성장 도약 보상 수령",
+          [
+            `숙련 증서 ${j.reward.masteryCertificates.toLocaleString()}개`,
+            j.reward.staminaPotions > 0
+              ? `귀속 회복약 ${j.reward.staminaPotions}개`
+              : null,
+            j.reward.cosmeticExtensions > 0
+              ? `꾸미기 30일 연장권 ${j.reward.cosmeticExtensions}개`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        );
+        await Promise.all([refresh(), refreshGameState()]);
+      } catch (error) {
+        notifySystem(`✗ ${(error as Error).message}`);
+      } finally {
+        setGrowthLeapBusy(null);
+      }
+    },
+    [notifyReward, notifySystem, refresh, refreshGameState],
+  );
+
   return (
     <PageShell spacing="tight">
       <SubViewHeader title="퀘스트" onBack={onBack} />
 
-      <TabBar
-        tabs={[
-          { key: "tutorial", label: "튜토리얼" },
-          { key: "daily", label: "일일" },
-          { key: "weekly", label: "주간" },
-          { key: "achievement", label: "업적" },
-        ]}
+      <QuestTopTabs
         active={topTab}
         onChange={setTopTab}
-        ariaLabel="퀘스트 분류"
-        size="md"
+        dailyRewardReady={repeat?.dailyBundle.claimable === true}
+        weeklyRewardReady={repeat?.weeklyBundle.claimable === true}
       />
 
-      {loading ? (
-        <Card padding="md">
-          <Skeleton rows={4} />
-        </Card>
-      ) : topTab === "tutorial" ? (
-        renderGuide(true)
-      ) : topTab === "achievement" ? (
-        renderGuide(false)
-      ) : (
-        renderRepeatTab(topTab)
-      )}
+      <QuestTabContent key={topTab} tab={topTab}>
+        {loading ? (
+          <Card padding="md">
+            <Skeleton rows={4} />
+          </Card>
+        ) : topTab === "tutorial" ? (
+          renderGuide(true)
+        ) : topTab === "achievement" ? (
+          renderGuide(false)
+        ) : (
+          renderRepeatTab(topTab)
+        )}
+      </QuestTabContent>
     </PageShell>
   );
 
@@ -432,6 +712,14 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
 
     return (
       <>
+        {forTutorial && (
+          <GrowthLeapMissionPanel
+            mission={growthLeap}
+            now={growthLeapNow}
+            busyId={growthLeapBusy}
+            onClaim={(milestoneId) => void claimGrowthLeap(milestoneId)}
+          />
+        )}
         {!forTutorial && achievement && (
           <Card padding="md" className="space-y-2">
             <div className="flex items-center gap-3">
@@ -485,27 +773,21 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
                 disabled={
                   claimableCount === 0 || busy !== null || claimAllBusy !== null
                 }
+                loading={claimAllBusy === claimAllScope}
+                loadingLabel={`${groupLabel} 보상 모두 수령 중`}
                 variant="warning"
                 size="sm"
                 className="shrink-0"
               >
                 <Gift size={16} weight="fill" aria-hidden />
-                {claimAllBusy === claimAllScope
-                  ? "모두 받는 중…"
-                  : `모두 받기 (${claimableCount})`}
+                모두 받기 ({claimableCount})
               </Button>
             </div>
           </Card>
         )}
 
         {shown.length === 0 ? (
-          <Card padding="md">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              {tab === "done"
-                ? `아직 완료한 ${groupLabel} 항목이 없어요.`
-                : `진행 중인 ${groupLabel} 항목이 없어요. 🎉`}
-            </p>
-          </Card>
+          <GuideEmptyState tab={tab} groupLabel={groupLabel} />
         ) : (
           lines
             .filter((line) => isTutorialLine(line.id) === forTutorial)
@@ -636,11 +918,13 @@ function BundleCard({
           <Button
             onClick={onClaim}
             disabled={!bundle.claimable || busy}
+            loading={busy}
+            loadingLabel={`${scope === "daily" ? "일일" : "주간"} 마일스톤 보상 수령 중`}
             variant="warning"
             size="xs"
             className="shrink-0"
           >
-            {busy ? "수령 중…" : "받기"}
+            받기
           </Button>
         )}
       </div>
@@ -748,11 +1032,13 @@ export function QuestRow({
             <Button
               onClick={onToggleTracking}
               disabled={trackingBusy || busy}
+              loading={trackingBusy}
+              loadingLabel={`${quest.title} 추적 상태 변경 중`}
               variant={tracked ? "warning" : "secondary"}
               size="xs"
             >
               <Star size={12} weight={tracked ? "fill" : "regular"} aria-hidden />
-              {trackingBusy ? "처리 중…" : tracked ? "추적 해제" : "메인 표시"}
+              {tracked ? "추적 해제" : "메인 표시"}
             </Button>
           )}
           {onOpenMonsterCodex && (
@@ -768,10 +1054,12 @@ export function QuestRow({
             <Button
               onClick={onClaim}
               disabled={busy}
+              loading={busy}
+              loadingLabel={`${quest.title} 보상 수령 중`}
               variant="secondary"
               size="xs"
             >
-              {busy ? "처리 중…" : reward ? "받기" : "완료"}
+              {reward ? "받기" : "완료"}
             </Button>
           )}
           {status === "active" && quest.href && (

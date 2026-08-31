@@ -11,10 +11,12 @@ import { useModalA11y } from "@/lib/useModalA11y";
 
 export function SparringFullLogDialog({
   entries,
+  playerName,
   enemyName,
   onClose,
 }: {
   entries: BattleLogEntry[];
+  playerName: string;
   enemyName: string;
   onClose: () => void;
 }) {
@@ -58,7 +60,11 @@ export function SparringFullLogDialog({
         </div>
 
         <div className="min-h-0 overflow-y-auto p-3 sm:p-4">
-          <BattleLogList entries={entries} />
+          <BattleLogList
+            entries={entries}
+            playerName={playerName}
+            enemyName={enemyName}
+          />
         </div>
       </div>
     </div>,

@@ -1,6 +1,17 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
-const { store } = vi.hoisted(() => ({ store: new Map<string, unknown>() }));
+const { store, recordCodexMasteryGameplayBatch } = vi.hoisted(() => ({
+  store: new Map<string, unknown>(),
+  recordCodexMasteryGameplayBatch: vi.fn(
+    async (
+      _executor: unknown,
+      _userId: string,
+      _events: readonly CodexMasteryGameplayEvent[],
+      _now: Date,
+    ) => [],
+  ),
+}));
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
@@ -9,6 +20,10 @@ vi.mock("@/lib/server/ensureUser", () => ({
 vi.mock("@/lib/server/economyLog", () => ({
   recordEconomyEventSoon: vi.fn(),
   recordRewardFailureSoon: vi.fn(),
+}));
+
+vi.mock("@/lib/server/codexMasteryGameplay", () => ({
+  recordCodexMasteryGameplayBatch,
 }));
 
 vi.mock("@/db", () => ({
@@ -38,6 +53,10 @@ function req(body: Record<string, unknown>): Request {
 }
 
 describe("mastery certificate route", () => {
+  beforeEach(() => {
+    recordCodexMasteryGameplayBatch.mockClear();
+  });
+
   it("숙련 증서를 공용 숙달 포인트로 1:1 전환한다", async () => {
     store.clear();
     store.set("character.v2", { class: "none" });
@@ -70,6 +89,7 @@ describe("mastery certificate route", () => {
       [MASTERY_CERTIFICATE_KEY]: 2,
     });
     expect(store.get("proficiency.v2")).toMatchObject({ points: 10 });
+    expect(recordCodexMasteryGameplayBatch).not.toHaveBeenCalled();
   });
 
   it("mode를 생략하면 기존처럼 선택한 직업 숙련도를 올린다", async () => {
@@ -107,6 +127,38 @@ describe("mastery certificate route", () => {
       groups: { warrior: { cumLevel: 102 } },
       jobCumLevel: { warrior: 102 },
     });
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      [{
+        category: "job",
+        entryId: "warrior",
+        amount: 2,
+        source: "job.consumable",
+      }],
+      expect.any(Date),
+    );
+  });
+
+  it("수인 숙련도 사용 응답은 개별 직업 숙련도를 반환한다", async () => {
+    store.clear();
+    store.set("character.v2", { class: "mutant", specChoice: "beastkin" });
+    store.set("inventory.v2", { [MASTERY_CERTIFICATE_KEY]: 5 });
+    store.set("proficiency.v2", {
+      groups: {
+        mutant: { tier: 1, cultivations: 0, cumLevel: 1_000 },
+      },
+      jobCumLevel: { beastkin: 40 },
+    });
+
+    const res = await POST(req({ jobId: "beastkin", amount: 2 }));
+    const json = (await res.json()) as {
+      ok?: boolean;
+      jobMastery?: number;
+    };
+
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({ ok: true, jobMastery: 42 });
   });
 
   it("알 수 없는 증서 사용 용도는 거부한다", async () => {
@@ -121,6 +173,7 @@ describe("mastery certificate route", () => {
     expect(store.get("inventory.v2")).toEqual({
       [MASTERY_CERTIFICATE_KEY]: 5,
     });
+    expect(recordCodexMasteryGameplayBatch).not.toHaveBeenCalled();
   });
 
   it("숙련 증서는 낚시 계열 직업에 사용할 수 없다", async () => {
@@ -147,5 +200,6 @@ describe("mastery certificate route", () => {
     expect(store.get("proficiency.v2")).toMatchObject({
       jobCumLevel: { fisher: 10 },
     });
+    expect(recordCodexMasteryGameplayBatch).not.toHaveBeenCalled();
   });
 });

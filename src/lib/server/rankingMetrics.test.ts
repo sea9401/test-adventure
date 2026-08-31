@@ -44,4 +44,27 @@ describe("rankingMetrics", () => {
     expect(collected.collected).toBe(empty.collected + 2);
     expect(collected.total).toBe(empty.total);
   });
+
+  it("표본 등록권은 도감 완성도에 포함하고 추출 뒤 남은 포획 기록은 포함하지 않는다", () => {
+    const registered = codexCompletionRankingFromSaves({
+      fishingCodexRaw: {
+        fish: { carp: { registered: true, caughtEver: false } },
+      },
+    });
+    const extracted = codexCompletionRankingFromSaves({
+      fishingCodexRaw: {
+        fish: {
+          carp: {
+            registered: false,
+            caughtEver: true,
+            bestSize: 40,
+            totalCaught: 3,
+          },
+        },
+      },
+    });
+
+    expect(registered.fishDiscovered).toBe(1);
+    expect(extracted.fishDiscovered).toBe(0);
+  });
 });

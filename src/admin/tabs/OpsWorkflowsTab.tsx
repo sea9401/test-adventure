@@ -12,6 +12,11 @@ import {
   type AdminUserIdentity,
 } from "../useAdminUserDirectory";
 import { useAsyncData } from "@/lib/useAsyncData";
+import {
+  evaluateRuntimeObjectives,
+  type RuntimeObjectiveSnapshot,
+  type ServiceObjectiveStatus,
+} from "@/lib/opsServiceObjectives";
 
 type CountRow = { key: string; count: number };
 
@@ -185,6 +190,9 @@ export function OpsWorkflowsTab() {
     adminGet(`/api/admin/ops-dashboard?hours=${dashboardHours}`, signal),
     [dashboardHours],
   );
+  const profiler = useAsyncData<RuntimeObjectiveSnapshot>((signal) =>
+    adminGet("/api/admin/runtime-profiler", signal),
+  );
   const settings = useAsyncData<OpsSettings>((signal) =>
     adminGet("/api/admin/ops-settings", signal),
   );
@@ -238,6 +246,7 @@ export function OpsWorkflowsTab() {
     notes.refetch();
     dashboard.refetch();
     settings.refetch();
+    profiler.refetch();
   };
 
   const updateNoteWorkflow = async (
@@ -284,6 +293,12 @@ export function OpsWorkflowsTab() {
         />
         <OpsSummaryPanel dashboard={dashboard.data} />
       </div>
+
+      <ServiceObjectivesPanel
+        snapshot={profiler.data}
+        loading={profiler.loading}
+        error={profiler.error}
+      />
 
       <GlobalNotesPanel
         q={noteQueryDraft}
@@ -344,6 +359,96 @@ export function OpsWorkflowsTab() {
       <RollbackGuidePanel />
     </section>
   );
+}
+
+function ServiceObjectivesPanel({
+  snapshot,
+  loading,
+  error,
+}: {
+  snapshot: RuntimeObjectiveSnapshot | null;
+  loading: boolean;
+  error: string | null;
+}) {
+  const objectives = evaluateRuntimeObjectives(snapshot);
+  return (
+    <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold">서비스 목표(SLO)</h3>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            목표치와 현재 연결된 관측 신호를 함께 표시합니다. 신호가 없으면 정상으로
+            추정하지 않고 측정 대기로 둡니다.
+          </p>
+        </div>
+        <Link
+          href="/operations"
+          className="text-xs font-medium text-blue-700 hover:underline dark:text-blue-300"
+        >
+          운영 정책
+        </Link>
+      </div>
+      {error ? (
+        <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+          런타임 지표 조회 실패: {error}
+        </p>
+      ) : null}
+      <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+        {objectives.map((objective) => (
+          <div
+            key={objective.key}
+            className="rounded-md border border-zinc-200 bg-zinc-50 p-2.5 dark:border-zinc-700 dark:bg-zinc-950"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <h4 className="text-xs font-semibold">{objective.label}</h4>
+              <ObjectiveStatus status={objective.status} loading={loading} />
+            </div>
+            <p className="mt-2 text-sm font-semibold">
+              {formatObjectiveObserved(objective.observed, objective.unit)}
+            </p>
+            <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+              목표 {objective.targetLabel} · {objective.window}
+            </p>
+            <p className="mt-1 text-[10px] text-zinc-400 dark:text-zinc-500">
+              {objective.source}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ObjectiveStatus({
+  status,
+  loading,
+}: {
+  status: ServiceObjectiveStatus;
+  loading: boolean;
+}) {
+  if (loading) {
+    return <span className="text-[10px] text-zinc-500">조회 중</span>;
+  }
+  const label =
+    status === "healthy" ? "정상" : status === "breached" ? "목표 초과" : "측정 대기";
+  const color =
+    status === "healthy"
+      ? "text-emerald-700 dark:text-emerald-300"
+      : status === "breached"
+        ? "text-red-700 dark:text-red-300"
+        : "text-zinc-500 dark:text-zinc-400";
+  return <span className={`whitespace-nowrap text-[10px] font-medium ${color}`}>{label}</span>;
+}
+
+function formatObjectiveObserved(
+  value: number | null,
+  unit: "%" | "ms" | "hours" | "minutes",
+) {
+  if (value == null) return "—";
+  if (unit === "ms") return `${value.toLocaleString()}ms`;
+  if (unit === "%") return `${value.toLocaleString()}%`;
+  if (unit === "hours") return `${value.toLocaleString()}시간`;
+  return `${value.toLocaleString()}분`;
 }
 
 function RolePermissionPanel({

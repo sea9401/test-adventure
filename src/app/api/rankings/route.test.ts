@@ -12,6 +12,14 @@ vi.mock("@/lib/server/isAdmin", () => ({
 vi.mock("@/lib/server/museunCosmetics", () => ({
   readMuseunCosmeticAppearanceMap: vi.fn(async () => new Map()),
 }));
+vi.mock("@/lib/server/ugcSafety", () => ({
+  readBlockedUserIds: vi.fn(async () => []),
+}));
+vi.mock("@/adventure/data/v2/masteryTower", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/adventure/data/v2/masteryTower")>();
+  return { ...actual, MASTERY_TOWER_MAX_FLOOR: 100 };
+});
 
 import { GET } from "./route";
 
@@ -20,6 +28,47 @@ beforeEach(() => {
 });
 
 describe("개인 랭킹", () => {
+  it("정지 중인 계정을 제외하고 남은 이용자의 순위를 다시 매긴다", async () => {
+    execute.mockResolvedValueOnce({
+      rows: [
+        {
+          user_id: "u-banned",
+          name: "정지계정",
+          avatar: "male1",
+          level: 50,
+          cum_level: 2000,
+          paragon_exp: 0,
+          fame: 999999,
+          bannedUntil: "9999-12-31T23:59:59.999Z",
+          rank: 1,
+        },
+        {
+          user_id: "u-me",
+          name: "정상이용자",
+          avatar: "female1",
+          level: 40,
+          cum_level: 1000,
+          paragon_exp: 0,
+          fame: 100,
+          bannedUntil: null,
+          rank: 2,
+        },
+      ],
+    });
+
+    const response = await GET(
+      new Request("http://localhost/api/rankings?metric=fame"),
+    );
+    const json = await response.json();
+
+    expect(json.list).toEqual([
+      expect.objectContaining({ name: "정상이용자", rank: 1, mine: true }),
+    ]);
+    expect(json.me).toEqual(
+      expect.objectContaining({ name: "정상이용자", rank: 1 }),
+    );
+  });
+
   it("프로필 아바타를 목록과 내 순위에 포함하고 구형 값을 정규화한다", async () => {
     execute.mockResolvedValueOnce({
       rows: [
@@ -210,21 +259,21 @@ describe("개인 랭킹", () => {
     );
   });
 
-  it("숙련의 탑은 일일 기록이 아닌 역대 최고층으로 정렬한다", async () => {
+  it("숙련의 탑은 50층을 넘은 역대 최고층도 실제 기록대로 정렬한다", async () => {
     execute.mockResolvedValueOnce({
       rows: [
         {
           user_id: "u-me",
           name: "오늘의도전자",
           avatar: "female1",
-          tower_save: { todayBestFloor: 40, lifetimeBestFloor: 12 },
+          tower_save: { todayBestFloor: 90, lifetimeBestFloor: 61 },
           updated_at: "2026-07-20T00:00:00.000Z",
         },
         {
           user_id: "u-tower",
           name: "탑의기록자",
           avatar: "male1",
-          tower_save: { todayBestFloor: 1, lifetimeBestFloor: 35 },
+          tower_save: { todayBestFloor: 1, lifetimeBestFloor: 73 },
           updated_at: "2026-07-20T00:00:01.000Z",
         },
       ],
@@ -241,8 +290,8 @@ describe("개인 랭킹", () => {
       "오늘의도전자",
     ]);
     expect(json.list.map((entry: { masteryTowerFloor: number }) => entry.masteryTowerFloor)).toEqual([
-      35,
-      12,
+      73,
+      61,
     ]);
   });
 
@@ -270,6 +319,7 @@ describe("개인 랭킹", () => {
           fishing_codex_save: {},
           arena_wins: 0,
           arena_matches: 0,
+          referral_count: 0,
           siege_attempts: 0,
           siege_wins: 0,
           has_guild: false,
@@ -298,6 +348,7 @@ describe("개인 랭킹", () => {
           fishing_codex_save: {},
           arena_wins: 0,
           arena_matches: 0,
+          referral_count: 50,
           siege_attempts: 0,
           siege_wins: 0,
           has_guild: false,
@@ -319,7 +370,7 @@ describe("개인 랭킹", () => {
       "전투업적가",
     ]);
     expect(json.list[0]).toEqual(
-      expect.objectContaining({ achievementScore: 40, achievementCompleted: 1 }),
+      expect.objectContaining({ achievementScore: 90, achievementCompleted: 2 }),
     );
     expect(json.me).toEqual(
       expect.objectContaining({ achievementScore: 20, achievementCompleted: 3 }),

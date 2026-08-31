@@ -2,7 +2,7 @@
 //
 // 루프(exten 원형 — sea9401/exten coop 시스템의 v2 이식):
 //   사냥 승리 → 소환서(재료) 드랍 → N장 소모해 보스 소환 → 모든 유저가 공유 HP 를
-//   누적 데미지로 깎음(1회 공격 = COOP_ATTACK_TURNS 턴 시뮬, 보스가 반격) → 처치 시
+//   누적 데미지로 깎음(1회 공격 = 일반 PvE와 같은 3,000 ATB 틱, 보스가 반격) → 처치 시
 //   기여도 비율 5티어 보상(골드 + 보스 전용 유니크 확률 + 첫 처치 칭호).
 //
 // 옛 솔로 "보스 도전"(#622 파일럿, dungeonBosses.ts)은 이 시스템으로 대체 — 기존 보스들의
@@ -28,8 +28,13 @@ export const SUMMON_SCROLL_MATERIAL_ID = "v2_boss_summon_scroll";
 export const SUMMON_SCROLL_DROP_PCT = 0.5;
 
 // 사냥 승리 시 소환서 드랍 굴림(순수). rng() ∈ [0,1). 통과 시 1장.
-export function rollSummonScrollDrop(rng: () => number): number {
-  return rng() * 100 < SUMMON_SCROLL_DROP_PCT ? 1 : 0;
+export function rollSummonScrollDrop(
+  rng: () => number,
+  chanceMult: number = 1,
+): number {
+  const mult = Math.max(0, Number(chanceMult) || 0);
+  const chance = Math.min(100, SUMMON_SCROLL_DROP_PCT * mult);
+  return chance > 0 && rng() * 100 < chance ? 1 : 0;
 }
 
 // 낚시 성공 시 초저확률로 자동 소환되는 이벤트 보스.
@@ -107,6 +112,7 @@ export function coopBossDifficultyOf(
     return kind.difficulty;
   }
   return kind === "mountain_chief_hard" || kind === "abyssal_tyrant"
+    || kind === "canyon_predator_hard" || kind === "lake_sovereign_hard"
     ? "hard"
     : "normal";
 }
@@ -202,9 +208,9 @@ export function rollCoopUnique(
 
 // === 공격 다이얼 =======================================================
 
-// 1회 공격 시뮬 턴 수(플레이어 턴 기준 — resolveBattle maxTurns). 강빌드도 1회로
-// 보스를 통째 못 가져가게 하는 1차 가드(2차는 티어 캡·쿨다운).
-export const COOP_ATTACK_TURNS = 20;
+// 1회 공격의 플레이어 행동 안전 상한. 라이브 ATB에서는 공통 3,000틱 제한이 먼저 적용되므로
+// 공격력뿐 아니라 생존력·지속력도 끝까지 기여한다. 레거시 폴백에서도 무한 전투를 막는다.
+export const COOP_ATTACK_TURNS = 3_000;
 
 // 공격 스태미너 비용 — 짧은 10초 쿨다운 대신 공격마다 스태미나를 소모한다.
 export const COOP_ATTACK_STAMINA_COST = 20;
@@ -225,9 +231,10 @@ export const COOP_BOSS_MP_DAMAGE_RATIO = 1.2;
 export const COOP_BOSS_MP_ATTACK_DRAIN = 2;
 export const COOP_BOSS_MP_CRIT_DRAIN = 2;
 
-// === 가시성/공격 권한 — 코어루프 협동보스 리워크 ===========================
-// 소환 시 소환자가 공개 범위를 고른다. 공격 비용은 스태미나가 담당한다.
+// === 가시성/공격 권한 ======================================================
+// 모든 보스는 소환자 전용으로 시작하며, 소환 후 길드 또는 전체에 공개한다.
 export type CoopVisibility = "public" | "guild_only" | "summoner_only";
+export const COOP_INITIAL_VISIBILITY: CoopVisibility = "summoner_only";
 export const COOP_VISIBILITY_VALUES: readonly CoopVisibility[] = [
   "public",
   "guild_only",
@@ -237,7 +244,20 @@ export function parseCoopVisibility(v: unknown): CoopVisibility {
   return v === "guild_only" || v === "summoner_only" ? v : "public";
 }
 
-// 가시성 표시 라벨 + 선택지 — 소환 UI(목록)와 소환 후 변경 UI(상세) 공용.
+export function coopVisibilityTransition(
+  current: unknown,
+  requested: CoopVisibility,
+):
+  | { ok: true; changed: boolean }
+  | { ok: false; error: "visibility_locked" } {
+  const stored = parseCoopVisibility(current);
+  if (stored === "public" && requested !== "public") {
+    return { ok: false, error: "visibility_locked" };
+  }
+  return { ok: true, changed: stored !== requested };
+}
+
+// 가시성 표시 라벨 + 소환 후 변경 UI 선택지.
 export const COOP_VISIBILITY_LABEL: Record<CoopVisibility, string> = {
   public: "공개",
   guild_only: "길드원만",
@@ -281,7 +301,9 @@ export type CoopBossKindId =
   | "mountain_chief_hard"
   | "abyssal_tyrant"
   | "canyon_predator"
+  | "canyon_predator_hard"
   | "lake_sovereign"
+  | "lake_sovereign_hard"
   | "void_priest";
 
 // 발악 스테이지 — 전역 공유 HP 비율이 hpFraction 이하면 적용(누적). 시뮬이 공격 단위
@@ -296,6 +318,16 @@ export type CoopEnrageStage = {
   defBonus?: number;
   /** 회피율 가산(%p). */
   evasionBonus?: number;
+  /** 행동 속도 곱. */
+  spdMult?: number;
+  /** 관통 스킬의 방어 관통 가산. */
+  armorPierceBonus?: number;
+  /** 이 페이즈에서 사용할 몬스터 상태 스킬. */
+  statusSkill?: V2MonsterStatusSkillId;
+  /** 한기 스택의 적중당 누적량 가산. */
+  chillAmountBonus?: number;
+  /** 한기 스택당 고정 피해 가산. */
+  chillFixedDamageBonus?: number;
 };
 
 export type CoopConditionalEnrage = {
@@ -417,14 +449,17 @@ export function coopBossMpPressureDamage(
 // 보스 베이스 — 옛 dungeonBosses.ts(#622 파일럿) 승계 + 협동 레이드 킷(#715).
 // phaseTrigger(시뮬 내부 HP 비율 트리거)는 폐기 — 시뮬이 전역 잔여 HP 에서 시작하므로
 // 발악은 CoopBossKind.enrageStages(전역 비율)로 coopBossForBattle 이 미리 구워 넣는다.
+// 2026-08-10 후속 조정 — 6종의 기본 ATK를 약 10%, 물리 DEF를 약 3% 상향.
+// 공유 HP·마법 DEF·기믹 피해·발악 수치는 유지한다.
 
 const MOUNTAIN_CHIEF_BASE: Monster = {
   name: "산군",
   tags: ["humanoid"],
   image: "/images/monster/v2/sangoon.webp",
   hp: 620,
-  atk: 33,
-  def: 18,
+  // 새 DEF 점감식 재보정값에 후속 공격·방어 상향을 반영.
+  atk: 30.8,
+  def: 18.54,
   magicDef: 20,
   // spd ↑(2026-06-26) — 협동 보스는 effectiveMonsterSpd(10+raw×6)로 매핑돼 필드 1~9 밴드에선
   //   엔드 플레이어(spd 200~300) 대비 반격이 너무 굼떴다. 레이드 보스라 밴드 밖으로 올림(유효 ~95).
@@ -452,11 +487,13 @@ const MOUNTAIN_CHIEF_HARD_BASE: Monster = {
   ...MOUNTAIN_CHIEF_BASE,
   name: "흉포한 산군",
   hp: 860,
-  atk: 40,
-  def: 28,
+  // 깊이 68의 soften 없는 공격 배율(×109.84)을 직접 상쇄한 재보정값에 후속 상향을 반영.
+  atk: 5.962,
+  def: 28.84,
   magicDef: 36,
   spd: 16,
-  accuracy: 8,
+  // floorAccuracy(+164.76) 적용 뒤 실전 명중 104.76. LUK 회피 투자를 대응축으로 남긴다.
+  accuracy: -60,
   evasionPct: 12,
   armorVulnerable: 0.35,
   playerDefVulnerable: 0.35,
@@ -470,11 +507,14 @@ const ABYSSAL_TYRANT_BASE: Monster = {
   image: "/images/monster/deepseamonster.webp",
   element: "water",
   hp: 840,
-  atk: 40,
-  def: 16,
+  // 깊이 60의 급격한 배율(×82.86)을 상쇄한 재보정값에 후속 상향을 반영.
+  // 공격 유형과 정확도는 마방·정신 계보가 대응축이 되도록 유지한다.
+  atk: 12.826,
+  atkType: "magic",
+  def: 16.5,
   magicDef: 32,
   spd: 17,
-  accuracy: 8,
+  accuracy: 10,
   evasionPct: 8,
   exp: 120,
   skill: {
@@ -496,8 +536,9 @@ const CANYON_PREDATOR_BASE: Monster = {
   image: "/images/monster/v2/scorpionking.webp",
   element: "earth",
   hp: 600,
-  atk: 37,
-  def: 13,
+  // 회피 반응 경감 기준 재보정값에 후속 상향을 반영.
+  atk: 29.7,
+  def: 13.45,
   spd: 15, // ↑ 레이드 보스 속도(유효 ~101) — MOUNTAIN_CHIEF_BASE 주석 참고.
   exp: 95,
   skill: { kind: "pierce", name: "절벽 발톱", armorPierce: 10 },
@@ -510,25 +551,42 @@ const CANYON_PREDATOR_BASE: Monster = {
   v2MaxMp: 90,
 };
 
+const CANYON_PREDATOR_HARD_BASE: Monster = {
+  ...CANYON_PREDATOR_BASE,
+  name: "재앙의 스콜피온 킹",
+  hp: 900,
+  // 기존 HARD보다 지나치게 안전했던 초기 압박을 6T 상위 난도에 맞게 보정.
+  atk: 5,
+  def: 34,
+  magicDef: 32,
+  spd: 22,
+  accuracy: -125,
+  evasionPct: 18,
+  skill: { kind: "pierce", name: "왕독의 집게", armorPierce: 10 },
+  dropQualityBias: 4,
+  v2MaxMp: 120,
+};
+
 const LAKE_SOVEREIGN_BASE: Monster = {
   name: "호수의 괴물",
   tags: ["golem"],
   image: "/images/monster/v2/nessi.webp",
   element: "water",
   hp: 680,
-  atk: 36,
-  def: 16,
+  atk: 4.4,
+  def: 16.48,
   spd: 12, // ↑ 레이드 보스 속도(유효 ~83·느린 골렘이라 셋 중 최저) — MOUNTAIN_CHIEF_BASE 주석 참고.
   exp: 100,
   // 한기 스택 기믹(옛 월드 보스 「별을 잊은 것」 계열) — 맞을수록 한기가 쌓여 고정
-  // 피해 + 회피 감소. "오래 버티는 싸움일수록 아프다" 시간압 — 20턴 공격과 맞물림.
+  // 피해 + 회피 감소. "오래 버티는 싸움일수록 아프다" 시간압 — 장기전과 맞물림.
   // ⚠️ 수치 캘리브 다이얼.
   skill: {
     kind: "chill",
     name: "얼어붙는 손길",
     perHit: 2,
     threshold: 2,
-    dmgPerStack: 35,
+    // ATK 최저 보정만으로도 누적 고정 피해가 커지므로 구조는 유지하고 피해만 완화.
+    dmgPerStack: 17,
     maxStacks: 10,
     defMitigationFraction: 0.25,
     evasionPenaltyPerStack: 1.5,
@@ -542,6 +600,32 @@ const LAKE_SOVEREIGN_BASE: Monster = {
   v2MaxMp: 105,
 };
 
+const LAKE_SOVEREIGN_HARD_BASE: Monster = {
+  ...LAKE_SOVEREIGN_BASE,
+  name: "혹한의 호수 괴물",
+  hp: 950,
+  // 높은 마법 방어·한기 압박에 더해 초기 마법 공격도 6T 상위 난도로 보정.
+  atk: 5,
+  atkType: "magic",
+  def: 36,
+  magicDef: 46,
+  spd: 20,
+  accuracy: -125,
+  evasionPct: 12,
+  skill: {
+    kind: "chill",
+    name: "얼어붙는 손길",
+    perHit: 2,
+    threshold: 2,
+    dmgPerStack: 22,
+    maxStacks: 10,
+    defMitigationFraction: 0.25,
+    evasionPenaltyPerStack: 1.5,
+  },
+  dropQualityBias: 4,
+  v2MaxMp: 130,
+};
+
 const VOID_PRIEST_BASE: Monster = {
   name: "공허의 대사제",
   tags: ["undead", "spirit"],
@@ -549,8 +633,9 @@ const VOID_PRIEST_BASE: Monster = {
   element: "void",
   atkType: "magic",
   hp: 760,
-  atk: 42,
-  def: 18,
+  // 새 회피 반응 경감 기준 재보정값에 후속 상향을 반영.
+  atk: 6.05,
+  def: 18.55,
   spd: 14,
   critPct: 18,
   critMult: 1.6,
@@ -581,7 +666,7 @@ const VOID_PRIEST_BASE: Monster = {
 // === 소환 유지시간 — 공유 HP 비례 ====================================
 // HP 가 클수록 다 같이 깎을 시간이 필요 — HP COOP_DURATION_HP_PER_HOUR 당 1시간,
 // 최소 2시간 ~ 최대 24시간(사용자 결정 2026-06-13). ⚠️ 캘리브 다이얼.
-// 현재 사다리: 30k→6h · 80k→16h · 200k→24h(캡) · 420k→24h(캡).
+// 현재 사다리: 30k→6h · 80k→16h · 270k 이상→24h(캡).
 export const COOP_DURATION_HP_PER_HOUR = 5_000;
 export const COOP_DURATION_MIN_MS = 2 * 3_600_000;
 export const COOP_DURATION_MAX_MS = 24 * 3_600_000;
@@ -681,12 +766,47 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
       "발악 — HP 70%·45%·20% 단계로 점점 강해짐(회피·공격력)",
     ],
   },
+  canyon_predator_hard: {
+    id: "canyon_predator_hard",
+    difficulty: "hard",
+    name: "재앙의 스콜피온 킹",
+    desc: "왕독과 모래폭풍을 두른 스콜피온 킹. 깊어질수록 더 빠르고 날카롭게 갑각을 꿰뚫는다.",
+    scrollCost: 30,
+    // 2026-08-20 운영 상위 중앙 피해 약 60만 기준 14회 공격 목표.
+    sharedMaxHp: 8_400_000,
+    anchorDepth: 78,
+    base: CANYON_PREDATOR_HARD_BASE,
+    uniqueIds: [],
+    titleId: "v2_boss_canyon",
+    statusSkill: "mob_venom_bite",
+    enrageStages: [
+      {
+        hpFraction: 0.7,
+        note: "재앙의 모래폭풍이 일어난다! (속도·회피·중독 압박 상승)",
+        spdMult: 1.12,
+        evasionBonus: 6,
+        statusSkill: "mob_catastrophe_venom",
+      },
+      {
+        hpFraction: 0.4,
+        note: "맹독 갑각이 붕괴하며 집게가 날카로워진다! (공격력·관통 상승)",
+        atkMult: 1.25,
+        armorPierceBonus: 14,
+        statusSkill: "mob_venom_sunder",
+      },
+    ],
+    traits: [
+      "왕독의 집게 — 방어 관통과 제한된 MP의 강한 물리 액티브",
+      "재앙의 모래폭풍 — HP 70%부터 속도·회피·중독 압박 상승",
+      "맹독갑각 붕괴 — HP 40%부터 공격력·관통·방어 약화 강화",
+    ],
+  },
   lake_sovereign: {
     id: "lake_sovereign",
     name: "호수의 괴물",
     desc: "얼음 호수 가장 깊은 곳에서 깨어난 거대한 존재. 닿는 것마다 얼어붙는다.",
     scrollCost: 20,
-    sharedMaxHp: 200_000,
+    sharedMaxHp: 270_000,
     anchorDepth: 42,
     base: LAKE_SOVEREIGN_BASE,
     uniqueIds: ["v2_boss_lake_maul", "v2_boss_lake_gloves"],
@@ -719,12 +839,49 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
       "발악 — HP 70%·45%·20% 단계로 점점 강해짐(방어력·공격력)",
     ],
   },
+  lake_sovereign_hard: {
+    id: "lake_sovereign_hard",
+    difficulty: "hard",
+    name: "혹한의 호수 괴물",
+    desc: "호수 밑바닥의 혹한을 깨운 괴물. 얼음 갑주가 두꺼워질수록 한기와 마력이 거세진다.",
+    scrollCost: 30,
+    // 2026-08-20 운영 상위 중앙 피해 약 60만 기준 14회 공격 목표.
+    sharedMaxHp: 8_400_000,
+    anchorDepth: 78,
+    base: LAKE_SOVEREIGN_HARD_BASE,
+    uniqueIds: [],
+    titleId: "v2_boss_lake",
+    statusSkill: "mob_chilling_touch",
+    enrageStages: [
+      {
+        hpFraction: 0.7,
+        note: "빙결 갑주가 호수를 뒤덮는다! (방어력·한기 압박 상승)",
+        defBonus: 30,
+        statusSkill: "mob_deep_chill",
+        chillAmountBonus: 1,
+      },
+      {
+        hpFraction: 0.4,
+        note: "혹한의 심장이 폭주한다! (마법 공격·한기 피해 상승)",
+        atkMult: 1.25,
+        defBonus: 20,
+        statusSkill: "mob_glacial_chill",
+        chillAmountBonus: 1,
+        chillFixedDamageBonus: 8,
+      },
+    ],
+    traits: [
+      "얼어붙는 손길 — 한기 누적과 제한된 MP의 강한 마법 액티브",
+      "빙결 갑주 — HP 70%부터 물리·마법 방어와 한기 압박 상승",
+      "혹한의 심장 — HP 40%부터 마법 공격·한기 누적·고정 피해 상승",
+    ],
+  },
   void_priest: {
     id: "void_priest",
     name: "공허의 대사제",
     desc: "검은 왕도의 봉인 아래 남은 대사제. 맞설수록 저주가 깊어지고, 남은 저주는 다음 일격을 더 무겁게 만든다.",
     scrollCost: 30,
-    sharedMaxHp: 420_000,
+    sharedMaxHp: 630_000,
     anchorDepth: 60,
     base: VOID_PRIEST_BASE,
     uniqueIds: ["v2_boss_void_bastion", "v2_boss_void_reliquary"],
@@ -761,7 +918,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     name: "흉포한 산군",
     desc: "피 냄새에 날이 선 산군. 산길을 막고 선 자를 끝까지 물어뜯는다.",
     scrollCost: 30,
-    sharedMaxHp: 600_000,
+    sharedMaxHp: 1_200_000,
     anchorDepth: 68,
     base: MOUNTAIN_CHIEF_HARD_BASE,
     uniqueIds: [],
@@ -791,7 +948,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     name: "심연어룡",
     desc: "낚싯줄 아래 어둠을 찢고 올라오는 거대한 어룡. 거품과 해류를 몰아치며 전장을 휘젓는다.",
     scrollCost: 30,
-    sharedMaxHp: 600_000,
+    sharedMaxHp: 1_400_000,
     anchorDepth: 60,
     base: ABYSSAL_TYRANT_BASE,
     uniqueIds: [],
@@ -864,6 +1021,9 @@ export function coopBossForBattle(
   let def = scaled.def;
   let magicDef = scaled.magicDef;
   let evasion = scaled.evasionPct ?? 0;
+  let spd = scaled.spd;
+  let skill = scaled.skill;
+  let statusSkill = kind.statusSkill;
   const enrageNotes: string[] = [];
   const applyEnrage = (stage: CoopEnrageStage) => {
     if (frac > stage.hpFraction) return;
@@ -873,6 +1033,25 @@ export function coopBossForBattle(
       if (magicDef != null) magicDef += stage.defBonus;
     }
     if (stage.evasionBonus) evasion += stage.evasionBonus;
+    if (stage.spdMult) spd = Math.round(spd * stage.spdMult);
+    if (stage.statusSkill) statusSkill = stage.statusSkill;
+    if (stage.armorPierceBonus && skill?.kind === "pierce") {
+      skill = {
+        ...skill,
+        armorPierce: skill.armorPierce + stage.armorPierceBonus,
+      };
+    }
+    if (skill?.kind === "chill") {
+      if (stage.chillAmountBonus) {
+        skill = { ...skill, perHit: skill.perHit + stage.chillAmountBonus };
+      }
+      if (stage.chillFixedDamageBonus) {
+        skill = {
+          ...skill,
+          dmgPerStack: skill.dmgPerStack + stage.chillFixedDamageBonus,
+        };
+      }
+    }
     enrageNotes.push(stage.note);
   };
   for (const stage of kind.enrageStages) {
@@ -890,15 +1069,17 @@ export function coopBossForBattle(
     hp,
     atk,
     def,
+    spd,
+    skill,
     ...(magicDef != null ? { magicDef } : {}),
     ...(evasion > 0 ? { evasionPct: evasion } : {}),
-    v2Skills: kind.statusSkill
+    v2Skills: statusSkill
       ? {
           learned: Array.from(
-            new Set([...(scaled.v2Skills?.learned ?? []), kind.statusSkill]),
+            new Set([...(scaled.v2Skills?.learned ?? []), statusSkill]),
           ),
           equipped: Array.from(
-            new Set([...(scaled.v2Skills?.equipped ?? []), kind.statusSkill]),
+            new Set([...(scaled.v2Skills?.equipped ?? []), statusSkill]),
           ),
         }
       : scaled.v2Skills,

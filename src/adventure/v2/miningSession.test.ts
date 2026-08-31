@@ -4,6 +4,7 @@ import {
   createMiningSession,
   miningAttemptSucceeds,
   parseMiningLog,
+  parseMiningLogWithLevelMigration,
   parseMiningSession,
   recordMiningSuccess,
 } from "./miningSession";
@@ -47,6 +48,15 @@ describe("채광 세션", () => {
       oreEarned: 1,
       byproductsEarned: 2,
       nodes: { silver: 1 },
+    });
+  });
+
+  it("성공 횟수에서 복구한 구 XP도 60레벨 한도에서 한 번 환산한다", () => {
+    const parsed = parseMiningLogWithLevelMigration({ successes: 999_999 });
+    expect(parsed.levelCurveMigrated).toBe(true);
+    expect(parsed.log).toMatchObject({
+      levelCurveVersion: 2,
+      xp: 135_993,
     });
   });
 });

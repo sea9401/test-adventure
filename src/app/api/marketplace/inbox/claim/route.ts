@@ -7,10 +7,13 @@ import {
   parseInboxPayload,
   type SeasonRewardSeason,
 } from "@/lib/server/inboxPayload";
-import { upsertSave } from "@/lib/server/savesKv";
+import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { PVP_WALLET_KEY } from "@/lib/server/pvp/coins";
 import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
-import { STAMINA_POTIONS_KEY } from "@/adventure/v2/staminaPotions";
+import {
+  grantStaminaPotions,
+  STAMINA_POTIONS_KEY,
+} from "@/adventure/v2/staminaPotions";
 import {
   addGradedEquip,
   addInstance,
@@ -25,6 +28,7 @@ import {
 } from "@/adventure/inventory/equipmentInstances";
 import {
   V2_EQUIPMENT,
+  isUnique,
   type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
@@ -33,6 +37,8 @@ import {
   mintRolledEquipInstance,
 } from "@/adventure/data/v2/v2EquipMint";
 import { appendEquipInstances } from "@/lib/server/equipGrant";
+import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
+import { recordUniqueEquipmentAcquisitions } from "@/lib/server/uniqueEquipmentAchievement";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import {
   ADVENTURE_SUPPORT_PASS,
@@ -50,15 +56,46 @@ import {
   addMuseunCashItem,
   isMuseunShopItemId,
   parseMuseunCoinBalance,
-  type MuseunShopItemId,
+  type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import {
   addCookingFood,
   isCookingFoodId,
   type CookingFoodId,
-} from "@/adventure/v2/cooking";
+} from "@/adventure/v2/cooking/food";
+import {
+  COOKING_SAVE_KEY,
+  emptyCookingState,
+  parseCookingState,
+} from "@/adventure/v2/cooking/state";
+import {
+  parseCookingStoredIngredientId,
+  type CookingStoredIngredientId,
+} from "@/adventure/v2/cooking/storedIngredients";
+import {
+  FARM_SAVE_KEY,
+  emptyFarmState,
+  parseFarmState,
+} from "@/adventure/v2/farm";
+import {
+  FISHING_STOCK_KEY,
+  emptyFishingStock,
+  parseFishingStock,
+} from "@/adventure/v2/fishingStock";
 import { randomUUID } from "node:crypto";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
+import type { FishId } from "@/adventure/data/v2/fish";
+import {
+  FISH_SPECIMEN_SAVE_KEY,
+  addFishSpecimen,
+  fishIdFromSpecimenItemId,
+  parseFishSpecimenInventory,
+} from "@/adventure/v2/fishSpecimens";
+import {
+  TradeSuspendedError,
+  lockTradeParticipantStatuses,
+  tradeSuspendedResponse,
+} from "@/lib/server/tradeSuspension";
 
 const SAVES_CHARACTER = "character.v2";
 const SAVES_INVENTORY = "inventory.v2";
@@ -113,6 +150,11 @@ export async function POST(req: Request) {
 
   try {
     const result = await db.transaction(async (tx) => {
+      const participantStatuses = await lockTradeParticipantStatuses(
+        tx,
+        [userId],
+        new Date(),
+      );
       const rows = await tx
         .select()
         .from(marketplaceInbox)
@@ -127,6 +169,15 @@ export async function POST(req: Request) {
 
       if (rows.length === 0) {
         return { error: "no_unclaimed", status: 404 as const };
+      }
+
+      const restriction = participantStatuses.get(userId) ?? null;
+      const blockedPlayerGift = rows.some(
+        (row) =>
+          parseInboxPayload(row.kind, row.payload)?.kind === "recipe_gift",
+      );
+      if (restriction && blockedPlayerGift) {
+        throw new TradeSuspendedError(restriction);
       }
 
       // 판매 대금은 은행으로, 환불·기타 우편 골드는 기존처럼 보유 현금으로 지급한다.
@@ -152,9 +203,15 @@ export async function POST(req: Request) {
       const v2MaterialsToAdd: { id: string; count: number }[] = [];
       const recipesToAdd: AddRecipe[] = [];
       let staminaPotionsTotal = 0;
+      let boundStaminaPotionsTotal = 0;
       let museunCoinsTotal = 0;
-      const museunCashItemTotals = new Map<MuseunShopItemId, number>();
+      const museunCashItemTotals = new Map<MuseunCashItemId, number>();
       const cookingFoodTotals = new Map<CookingFoodId, number>();
+      const cookingIngredientTotals = new Map<
+        CookingStoredIngredientId,
+        number
+      >();
+      const fishSpecimenTotals = new Map<FishId, number>();
       let adventureSupportDaysTotal = 0;
       const titleIdsToGrant = new Set<string>();
       // 장비 보상 라우팅 — id 가 V2 장비면 equipment.v2 개체로, 그 외(레거시 v1 매물 등)는
@@ -227,6 +284,16 @@ export async function POST(req: Request) {
                 parsed.item_id,
                 (cookingFoodTotals.get(parsed.item_id) ?? 0) + parsed.quantity,
               );
+            } else if (parsed.item_kind === "specimen") {
+              const fishId = fishIdFromSpecimenItemId(parsed.item_id);
+              if (fishId) {
+                fishSpecimenTotals.set(
+                  fishId,
+                  (fishSpecimenTotals.get(fishId) ?? 0) + parsed.quantity,
+                );
+              } else {
+                parseFailedRowIds.push(row.id);
+              }
             } else {
               parseFailedRowIds.push(row.id);
             }
@@ -292,11 +359,21 @@ export async function POST(req: Request) {
             for (const m of parsed.materials) {
               pushMaterial(m.materialId, m.count);
             }
+            for (const ingredient of parsed.cookingIngredients ?? []) {
+              cookingIngredientTotals.set(
+                ingredient.ingredientId,
+                (cookingIngredientTotals.get(ingredient.ingredientId) ?? 0) +
+                  ingredient.count,
+              );
+            }
             for (const it of parsed.items) {
               pushEquip(it.itemId, it.count);
             }
             if (parsed.staminaPotions > 0) {
               staminaPotionsTotal += parsed.staminaPotions;
+              if (parsed.staminaPotionsBound) {
+                boundStaminaPotionsTotal += parsed.staminaPotions;
+              }
             }
             if (parsed.museunCoins > 0) {
               museunCoinsTotal += parsed.museunCoins;
@@ -470,14 +547,33 @@ export async function POST(req: Request) {
         newInventory = next;
       }
 
+      let fishSpecimensAfter: ReturnType<typeof parseFishSpecimenInventory> | null = null;
+      if (fishSpecimenTotals.size > 0) {
+        let specimens = parseFishSpecimenInventory(
+          await lockSaveForUpdate(
+            tx,
+            userId,
+            FISH_SPECIMEN_SAVE_KEY,
+            {},
+          ),
+        );
+        for (const [fishId, count] of fishSpecimenTotals) {
+          specimens = addFishSpecimen(specimens, fishId, count);
+        }
+        await upsertSave(tx, userId, FISH_SPECIMEN_SAVE_KEY, specimens);
+        fishSpecimensAfter = specimens;
+      }
+
       // V2 장비 갱신 — equipment.v2.owned 에 개체(iid)로 추가. V2 장비는 스택이 아니라
       // 개체 모델이라 count 만큼 굴림이 붙은 개별 개체를 발급한다.
       // 잠금 순서: character.v2 → inventory.v2 → equipment.v2 (buy/v2-grant 라우트와 동일).
       if (v2EquipToAdd.length > 0 || v2MarketplaceEquipToAdd.length > 0) {
         const minted: V2EquipInstance[] = [];
+        const acquiredUniqueIds: V2EquipmentId[] = [];
         for (const e of v2EquipToAdd) {
           for (let i = 0; i < e.count; i++) {
             minted.push(mintRolledEquipInstance(e.id));
+            if (isUnique(V2_EQUIPMENT[e.id])) acquiredUniqueIds.push(e.id);
           }
           equipV2Added.push({ id: e.id, count: e.count });
         }
@@ -488,6 +584,24 @@ export async function POST(req: Request) {
           equipV2Added.push({ id: equipment.id, count: 1 });
         }
         newEquipmentOwned = await appendEquipInstances(tx, userId, minted);
+        // 거래소 매물 수령·반환은 같은 개체의 이동이므로 제외하고, 운영 보상/우편이 새로
+        // 발급한 v2EquipToAdd 유니크만 누적 획득으로 기록한다.
+        if (acquiredUniqueIds.length > 0) {
+          await recordUniqueEquipmentAcquisitions({
+            executor: tx,
+            userId,
+            evidence: {
+              equipmentOwnedAfter: newEquipmentOwned,
+              equipmentCodexRaw: await readSave(
+                tx,
+                userId,
+                EQUIPMENT_CODEX_KEY,
+                {},
+              ),
+              acquiredIds: acquiredUniqueIds,
+            },
+          });
+        }
       }
 
       // 레시피 학습 (있을 때만).
@@ -524,6 +638,125 @@ export async function POST(req: Request) {
             shareable: shareableArr,
           };
           await upsertSave(tx, userId, SAVES_CRAFTING, nextCraft);
+        }
+      }
+
+      const cookingIngredientsAdded: Array<{
+        ingredientId: CookingStoredIngredientId;
+        count: number;
+      }> = [];
+      if (cookingIngredientTotals.size > 0) {
+        const farmTotals = new Map<
+          Extract<CookingStoredIngredientId, `farm:${string}`>,
+          number
+        >();
+        const fishingTotals = new Map<
+          Extract<CookingStoredIngredientId, `fishing:${string}`>,
+          number
+        >();
+        const kitchenTotals = new Map<
+          Extract<
+            CookingStoredIngredientId,
+            `pantry:${string}` | `processed:${string}`
+          >,
+          number
+        >();
+        for (const [ingredientId, count] of cookingIngredientTotals) {
+          const parsed = parseCookingStoredIngredientId(ingredientId);
+          if (parsed?.kind === "farm") farmTotals.set(parsed.ingredientId, count);
+          else if (parsed?.kind === "fishing") {
+            fishingTotals.set(parsed.ingredientId, count);
+          } else if (parsed?.kind === "kitchen") {
+            kitchenTotals.set(parsed.ingredientId, count);
+          }
+        }
+
+        if (farmTotals.size > 0) {
+          const farm = parseFarmState(
+            await lockSaveForUpdate(
+              tx,
+              userId,
+              FARM_SAVE_KEY,
+              emptyFarmState(),
+            ),
+          );
+          const inventory = { ...farm.inventory };
+          for (const [ingredientId, requestedCount] of farmTotals) {
+            const parsed = parseCookingStoredIngredientId(ingredientId);
+            if (parsed?.kind !== "farm") continue;
+            const previous = Math.max(
+              0,
+              Math.floor(inventory[parsed.itemId] ?? 0),
+            );
+            const next = Math.min(999_999, previous + requestedCount);
+            inventory[parsed.itemId] = next;
+            if (next > previous) {
+              cookingIngredientsAdded.push({
+                ingredientId,
+                count: next - previous,
+              });
+            }
+          }
+          await upsertSave(tx, userId, FARM_SAVE_KEY, { ...farm, inventory });
+        }
+
+        if (fishingTotals.size > 0) {
+          const fishing = parseFishingStock(
+            await lockSaveForUpdate(
+              tx,
+              userId,
+              FISHING_STOCK_KEY,
+              emptyFishingStock(),
+            ),
+          );
+          const items = { ...fishing.items };
+          for (const [ingredientId, requestedCount] of fishingTotals) {
+            const parsed = parseCookingStoredIngredientId(ingredientId);
+            if (parsed?.kind !== "fishing") continue;
+            const previous = Math.max(
+              0,
+              Math.floor(items[parsed.itemId] ?? 0),
+            );
+            const next = Math.min(999_999, previous + requestedCount);
+            items[parsed.itemId] = next;
+            if (next > previous) {
+              cookingIngredientsAdded.push({
+                ingredientId,
+                count: next - previous,
+              });
+            }
+          }
+          await upsertSave(tx, userId, FISHING_STOCK_KEY, { ...fishing, items });
+        }
+
+        if (kitchenTotals.size > 0) {
+          const cooking = parseCookingState(
+            await lockSaveForUpdate(
+              tx,
+              userId,
+              COOKING_SAVE_KEY,
+              emptyCookingState(),
+            ),
+          );
+          const kitchenItems = { ...cooking.kitchenItems };
+          for (const [ingredientId, requestedCount] of kitchenTotals) {
+            const previous = Math.max(
+              0,
+              Math.floor(kitchenItems[ingredientId] ?? 0),
+            );
+            const next = Math.min(999_999, previous + requestedCount);
+            kitchenItems[ingredientId] = next;
+            if (next > previous) {
+              cookingIngredientsAdded.push({
+                ingredientId,
+                count: next - previous,
+              });
+            }
+          }
+          await upsertSave(tx, userId, COOKING_SAVE_KEY, {
+            ...cooking,
+            kitchenItems,
+          });
         }
       }
 
@@ -585,15 +818,21 @@ export async function POST(req: Request) {
           )
           .for("update");
         const raw = (prows[0]?.value ?? {}) as Record<string, unknown>;
-        const cur =
-          typeof raw.count === "number" && Number.isFinite(raw.count)
-            ? Math.max(0, Math.floor(raw.count))
-            : 0;
-        staminaPotions = cur + staminaPotionsTotal;
-        await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
-          ...raw,
-          count: staminaPotions,
-        });
+        const unboundStaminaPotionsTotal =
+          staminaPotionsTotal - boundStaminaPotionsTotal;
+        const withUnbound = grantStaminaPotions(
+          raw,
+          unboundStaminaPotionsTotal,
+        );
+        const nextPotions = grantStaminaPotions(
+          withUnbound,
+          boundStaminaPotionsTotal,
+          {
+            bound: true,
+          },
+        );
+        staminaPotions = nextPotions.count;
+        await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextPotions);
       }
 
       // 영구 칭호 — 같은 칭호가 여러 우편에 있어도 한 번만 지급한다. 기존 보유분은
@@ -614,7 +853,7 @@ export async function POST(req: Request) {
       if (idsToMark.length > 0) {
         await tx
           .update(marketplaceInbox)
-          .set({ claimedAt: now })
+          .set({ claimedAt: now, readAt: now })
           .where(
             and(
               eq(marketplaceInbox.userId, userId),
@@ -646,6 +885,12 @@ export async function POST(req: Request) {
           itemId,
           count,
         })),
+        cookingIngredientsAdded,
+        fishSpecimensAdded: Array.from(fishSpecimenTotals, ([fishId, count]) => ({
+          fishId,
+          count,
+        })),
+        fishSpecimens: fishSpecimensAfter?.items ?? null,
         staminaPotionsAdded: staminaPotionsTotal,
         staminaPotions,
         adventureSupportDaysAdded: adventureSupportDaysApplied,
@@ -666,6 +911,7 @@ export async function POST(req: Request) {
     }
     return Response.json(result);
   } catch (e) {
+    if (e instanceof TradeSuspendedError) return tradeSuspendedResponse(e);
     console.error("[marketplace.inbox.claim] ", e);
     return new Response("internal error", { status: 500 });
   }

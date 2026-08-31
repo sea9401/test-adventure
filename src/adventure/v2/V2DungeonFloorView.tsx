@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
+import { Button } from "@/components/ui/Button";
 import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
-import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { Gear } from "@phosphor-icons/react";
+import { Gear, MapTrifold } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { HuntResultCard } from "@/adventure/v2/HuntResultCard";
 import { applyHpRegen, canHuntWithHp } from "@/adventure/v2/hpRegen";
@@ -21,6 +21,9 @@ import {
   type PlayerCombatStats,
 } from "@/adventure/v2/PlayerStatusCard";
 import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
+import type { HuntResultPayload } from "@/adventure/v2/useDungeonHunt";
+import { DungeonContextSummary } from "@/adventure/v2/DungeonContextSummary";
+import { CompactBattlePlayerStatus } from "@/adventure/v2/CompactBattlePlayerStatus";
 import {
   HUNT_COST,
   msUntilStaminaAtLeast,
@@ -48,20 +51,30 @@ import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
 import type { RareMapInstance } from "@/adventure/data/v2/rareMaps";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 import { DiscoveryNotice } from "@/adventure/v2/DiscoveryNotice";
+import { RareMapCountdownText } from "@/adventure/v2/RareMapCountdownText";
+import {
+  heldRareMapsAfterExpedition,
+  RareMapQuickEntry,
+  sortHuntRareMaps,
+} from "@/adventure/v2/RareMapQuickEntry";
 import {
   AUTO_HUNT_LEVEL_TARGET,
   getAutoHuntStopReason,
   useAutoHuntStopConfig,
 } from "@/adventure/v2/autoHuntStopConditions";
 import {
-  ADVENTURE_SUPPORT_PASS,
+  adventureSupportBenefits,
   huntCountsForAdventureSupport,
   normalizeHuntCount,
+  type AdventureSupportTier,
   type HuntCount,
 } from "@/adventure/data/v2/adventureSupport";
 import {
+  experienceProgressUpdate,
   recoveryChargesUpdate,
+  type ExperienceProgressUpdate,
   type RecoveryChargesUpdate,
 } from "@/adventure/v2/recoveryChargesSync";
 import {
@@ -72,17 +85,26 @@ import {
 // 한 층 전용 던전 페이지. 1회 사냥 + 5/10/50회 일괄 사냥 (한 번에 N회, 합산 결과).
 // 옛 무한 자동/연속 useEffect 트리거 폐기 — runBatch 가 직접 for-loop with await.
 
+export function LevelUpTutorialTitle() {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span>레벨 업!</span>
+      <PlumpGameIcon name="celebration" size={22} />
+    </span>
+  );
+}
+
 // 사냥 버튼이 한 번에 처리할 횟수. 전투 설정에서 고르면 메인 사냥 버튼이 이 값을 반영한다.
 // 1 이면 단판(hunt), 5/10/50 이면 일괄(runBatch).
 // 사냥 횟수 기본값을 localStorage 에 영속 — 사냥터 재진입마다 1 로 리셋되는 번거로움 제거.
 // 지원권 권한에 없는 저장값(미가입자의 옛 50회 포함)·손상값은 1 로 폴백.
 const HUNT_COUNT_STORAGE_KEY = "v2-hunt-count.v1";
-function loadHuntCount(adventureSupportActive: boolean): HuntCount {
+function loadHuntCount(adventureSupportTier: AdventureSupportTier): HuntCount {
   if (typeof window === "undefined") return 1;
   try {
     return normalizeHuntCount(
       localStorage.getItem(HUNT_COUNT_STORAGE_KEY),
-      adventureSupportActive,
+      adventureSupportTier,
     );
   } catch {
     return 1;
@@ -107,6 +129,45 @@ type ExpProgressSnapshot = {
   exp: number;
   maxExp: number;
 };
+
+export function RareMapProgressNotice({
+  map,
+  serverNow,
+  onReturnToNormalHunt,
+  onExpire,
+}: {
+  map: RareMapInstance;
+  serverNow: number;
+  onReturnToNormalHunt?: () => void;
+  onExpire?: () => void;
+}) {
+  return (
+    <DiscoveryNotice
+      kind="hunt"
+      align="start"
+      action={
+        onReturnToNormalHunt ? (
+          <Button
+            size="xs"
+            variant="info"
+            onClick={onReturnToNormalHunt}
+            className="shrink-0"
+          >
+            일반 사냥터로
+          </Button>
+        ) : undefined
+      }
+    >
+      희귀 탐사 진행 중 · 1회 전투 · 보상 {map.runsLeft}회분 · 30분 동안 개방 ·{" "}
+      <RareMapCountdownText
+        foundAt={map.foundAt}
+        serverNow={serverNow}
+        onExpire={onExpire}
+      />
+      {map.runsLeft === 0 && " (소진 — 목록으로 돌아가세요)"}
+    </DiscoveryNotice>
+  );
+}
 
 function nextRecoveryChargesSnapshot({
   prev,
@@ -156,6 +217,7 @@ export function V2DungeonFloorView({
   initialExp = 0,
   initialMaxExp = 1,
   adventureSupportActive = false,
+  adventureSupportTier,
   initialHpCharges = 0,
   initialMpCharges = 0,
   stamina,
@@ -180,8 +242,10 @@ export function V2DungeonFloorView({
   setAtRiskGold,
   onGoldChange,
   onProficiencyChange,
+  onExperienceChange,
   onRecoveryChargesChange,
   onEnterRareMap,
+  onReturnToNormalHunt,
   offlineHunt,
   onRefresh,
 }: {
@@ -199,6 +263,7 @@ export function V2DungeonFloorView({
   initialMaxExp?: number;
   // 월간 모험 지원권 활성 여부. 서버 만료 시각이 유효한 이용자만 50회 일괄 전투 허용.
   adventureSupportActive?: boolean;
+  adventureSupportTier?: AdventureSupportTier;
   initialHpCharges?: number;
   initialMpCharges?: number;
   // 전역 stamina + setter — V2GameFlow.
@@ -241,11 +306,15 @@ export function V2DungeonFloorView({
   // 사냥으로 변한 공용 자원 readout 동기화 — 같은 layout 내 은행/상단 상태가 stale 해지지 않게 한다.
   onGoldChange?: (n: number) => void;
   onProficiencyChange?: (n: number | null) => void;
+  // 사냥 응답의 최신 경험치 진행도를 공유 레이아웃에도 반영해 화면 재진입 시 되돌아가지 않게 한다.
+  onExperienceChange?: (update: ExperienceProgressUpdate) => void;
   // 사냥 응답의 최신 충전약 잔량을 공유 레이아웃 상태에도 반영한다. 페이지를 떠났다가
   // 브라우저 뒤로가기·앞으로가기로 재진입해도 화면 진입 당시의 오래된 값이 복원되지 않는다.
   onRecoveryChargesChange?: (update: RecoveryChargesUpdate) => void;
   // 사냥 결과에서 새로 발견한 희귀 탐사/장소로 즉시 이동.
   onEnterRareMap?: (map: RareMapInstance) => void;
+  // 희귀 탐사와 같은 단계의 일반 사냥터로 즉시 복귀. 일반 사냥 모드에서는 사용하지 않는다.
+  onReturnToNormalHunt?: () => void;
   // 오프라인 사냥 세션 상태(전역) + 시작/정지 후 me/state 재조회 콜백.
   offlineHunt?: { active: boolean; endsAt: number; depth: number } | null;
   onRefresh?: () => void | Promise<void>;
@@ -285,12 +354,92 @@ export function V2DungeonFloorView({
     setStamina,
     rareMapIid,
   });
-  // 레어맵 남은 판수 — 단판/일괄 응답에서 갱신(서버 권위). null = 아직 응답 없음.
+  // 희귀 탐사 보유 목록과 현재 지도의 압축 보상 횟수 — 서버 응답을 권위로 갱신한다.
+  const [heldRareMaps, setHeldRareMaps] = useState<RareMapInstance[]>([]);
+  const [rareMapServerNow, setRareMapServerNow] = useState<number | null>(null);
   const [rareMapRunsLeft, setRareMapRunsLeft] = useState<number | null>(null);
+  const [rareMapSnapshot, setRareMapSnapshot] = useState<{
+    map: RareMapInstance;
+    serverNow: number;
+  } | null>(null);
+  const [expiredRareMapIid, setExpiredRareMapIid] = useState<string | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!rareMapIid && !onEnterRareMap) return;
+    let alive = true;
+    fetch("/api/v2/me/rare-maps")
+      .then((response) => (response.ok ? response.json() : null))
+      .then(
+        (data: {
+          ok?: boolean;
+          rareMaps?: RareMapInstance[];
+          serverNow?: number;
+        } | null) => {
+          if (!alive || !data?.ok) return;
+          const maps = data.rareMaps ?? [];
+          setHeldRareMaps(maps);
+          if (
+            typeof data.serverNow === "number" &&
+            Number.isFinite(data.serverNow)
+          ) {
+            setRareMapServerNow(data.serverNow);
+          }
+          if (!rareMapIid) return;
+          const map = maps.find(
+            (candidate) => candidate.iid === rareMapIid,
+          );
+          if (
+            !map ||
+            typeof data.serverNow !== "number" ||
+            !Number.isFinite(data.serverNow)
+          ) {
+            setExpiredRareMapIid(rareMapIid);
+            onReturnToNormalHunt?.();
+            return;
+          }
+          setExpiredRareMapIid(null);
+          setRareMapSnapshot({ map, serverNow: data.serverNow });
+          setRareMapRunsLeft(map.runsLeft);
+        },
+      )
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [onEnterRareMap, onReturnToNormalHunt, rareMapIid]);
   // 일괄 사냥 상태.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchSummary, setBatchSummary] = useState<BatchSummary | null>(null);
+  const [latestPresentedResult, setLatestPresentedResult] = useState<
+    | { kind: "single"; result: HuntResultPayload }
+    | { kind: "batch"; summary: BatchSummary }
+    | null
+  >(null);
+  const newlyDiscoveredRareMaps = latestPresentedResult
+    ? latestPresentedResult.kind === "single"
+      ? latestPresentedResult.result.rareMapDropInstance
+        ? [latestPresentedResult.result.rareMapDropInstance]
+        : []
+      : latestPresentedResult.summary.rareMapDropInstances ?? []
+    : [];
+  const resultRareMap =
+    newlyDiscoveredRareMaps
+      .filter(
+        (map) => RARE_MAP_KINDS[map.kind]?.category !== "utility",
+      )
+      .slice()
+      .sort(
+        (a, b) => a.foundAt - b.foundAt || a.iid.localeCompare(b.iid),
+      )[0] ??
+    (rareMapIid &&
+    latestPresentedResult?.kind === "single" &&
+    latestPresentedResult.result.won
+      ? sortHuntRareMaps(heldRareMaps)[0] ?? null
+      : null);
+  const [showReplay, setShowReplay] = useState(false);
+  const replaySectionRef = useRef<HTMLDivElement>(null);
   const [selectedBatchReplay, setSelectedBatchReplay] =
     useState<BatchReplayEntry | null>(null);
   // 연패 카운터 — 단판 사냥 결과마다 갱신(승=0 리셋·패=+1). 넛지 배너 격상 조건에 사용.
@@ -358,14 +507,19 @@ export function V2DungeonFloorView({
   const statusProficiency =
     lastResult?.masteryAfter ?? batchStatus?.proficiency ?? latestProficiency;
   // 선택한 사냥 횟수 — 메인 버튼이 단판/일괄을 이 값으로 결정. 기본 1(단판).
+  const effectiveAdventureSupportTier =
+    adventureSupportTier ??
+    (adventureSupportActive ? "standard" : "none");
   const [huntCount, setHuntCount] = useState<HuntCount>(1);
-  const huntCounts = huntCountsForAdventureSupport(adventureSupportActive);
+  const huntCounts = huntCountsForAdventureSupport(
+    effectiveAdventureSupportTier,
+  );
   // 저장된 기본값 로드(마운트 1회). SSR/hydration mismatch 피하려 default 1 후 effect 에서 적용
   // (useAutoPotionConfig 와 동일 패턴 — 클라 전용 localStorage 하이드레이션).
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setHuntCount(loadHuntCount(adventureSupportActive));
-  }, [adventureSupportActive]);
+    setHuntCount(loadHuntCount(effectiveAdventureSupportTier));
+  }, [effectiveAdventureSupportTier]);
 
   // HP 게이트용 1초 틱 — 시간 재생으로 회복되면 사냥 버튼이 자동 재활성된다. (HpBar 와 같은 패턴)
   const [now, setNow] = useState(() => Date.now());
@@ -540,7 +694,7 @@ export function V2DungeonFloorView({
         }
         return; // 네트워크/서버 오류 — hook 이 로그 남김. 요약 없이 종료.
       }
-      setBatchSummary({
+      const summary: BatchSummary = {
         attempted: b.attempted,
         completed: b.completed,
         wins: b.wins,
@@ -565,7 +719,21 @@ export function V2DungeonFloorView({
         rareMapDropInstances: b.rareMapDropInstances,
         stoppedReason: b.stoppedReason,
         replays: b.replays,
-      });
+      };
+      setBatchSummary(summary);
+      setLatestPresentedResult({ kind: "batch", summary });
+      setShowReplay(false);
+      if (b.rareMapDropInstances?.length) {
+        setHeldRareMaps((current) => {
+          const discoveredIids = new Set(
+            b.rareMapDropInstances!.map((map) => map.iid),
+          );
+          return [
+            ...current.filter((map) => !discoveredIids.has(map.iid)),
+            ...b.rareMapDropInstances!,
+          ];
+        });
+      }
       if (b.rareMapRunsLeft != null) setRareMapRunsLeft(b.rareMapRunsLeft);
       if (typeof b.finalGoldAfter === "number") onGoldChange?.(b.finalGoldAfter);
       if (b.proficiencyAfter !== undefined) {
@@ -604,6 +772,8 @@ export function V2DungeonFloorView({
           exp: b.expAfter,
           maxExp: b.maxExpAfter,
         });
+        const update = experienceProgressUpdate(b.expAfter, b.maxExpAfter);
+        if (update) onExperienceChange?.(update);
       }
       // 부수효과 — 서버가 합산해 준 마지막 상태로 한 번만.
       if (b.finalHpAfter != null && b.finalMaxHp != null) {
@@ -662,9 +832,9 @@ export function V2DungeonFloorView({
     : 0;
   const staminaCurrent = stamina.current;
   const staminaLastUpdatedAt = stamina.lastUpdatedAt;
-  const staminaRegenBonusPct = adventureSupportActive
-    ? ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct
-    : 0;
+  const staminaRegenBonusPct = adventureSupportBenefits(
+    effectiveAdventureSupportTier,
+  ).staminaRegenBonusPct;
   const lowStamina = !coreLoopOn && staminaCurrent < HUNT_COST;
   useEffect(() => {
     if (coreLoopOn || !onRefresh || staminaCurrent >= HUNT_COST) {
@@ -760,14 +930,16 @@ export function V2DungeonFloorView({
     setSelectedBatchReplay(null);
     // 코어루프 on = 항상 단판(일괄 폐지 — 누적은 오프라인 정산). 스태미나 모드는
     // 수동/자동 모두 설정한 huntCount 를 반영한다.
-    if (coreLoopOn || huntCount === 1) {
+    if (rareMapIid || coreLoopOn || huntCount === 1) {
       // 이미 한 판이 진행 중이면 무발동(동시 제출 차단). hunt 결과 .then 에서 해제.
       if (huntInFlightRef.current) return;
       huntInFlightRef.current = true;
       setBatchStatus(null);
-      void hunt(depth).then((r) => {
+      void hunt(depth, autoStopConfigRef.current).then((r) => {
         huntInFlightRef.current = false;
         if (r) {
+          setLatestPresentedResult({ kind: "single", result: r });
+          setShowReplay(false);
           if (
             typeof r.expAfter === "number" &&
             typeof r.maxExpAfter === "number"
@@ -778,11 +950,29 @@ export function V2DungeonFloorView({
               exp: r.expAfter,
               maxExp: r.maxExpAfter,
             });
+            const update = experienceProgressUpdate(
+              r.expAfter,
+              r.maxExpAfter,
+            );
+            if (update) onExperienceChange?.(update);
           }
           // 연패 추적 — 승리면 리셋, 패배면 누적(넛지 배너 격상용).
           setLossStreak((s) => (r.won ? 0 : s + 1));
           recordHp(r);
           recordMp(r);
+          if (rareMapIid) {
+            setHeldRareMaps((current) =>
+              heldRareMapsAfterExpedition(current, rareMapIid, r.won),
+            );
+          }
+          if (r.rareMapDropInstance) {
+            setHeldRareMaps((current) => [
+              ...current.filter(
+                (map) => map.iid !== r.rareMapDropInstance!.iid,
+              ),
+              r.rareMapDropInstance!,
+            ]);
+          }
           if (r.rareMapRunsLeft != null) setRareMapRunsLeft(r.rareMapRunsLeft);
           if (typeof r.goldAfter === "number") onGoldChange?.(r.goldAfter);
           if (r.masteryAfter !== undefined) {
@@ -883,7 +1073,7 @@ export function V2DungeonFloorView({
   const startAutoHunt = () => {
     // 스태미나 모드에서도 자동 사냥 허용(coreLoopOn 게이트 제거). 능동적 길게누르기라 방치
     //   자동전투(#840 우려)와 무관하고, 스태미나·체력으로 자연 제한된다(소진 시 triggerHunt 정지).
-    if (offlineLocked || autoHunt) return;
+    if (rareMapIid || offlineLocked || autoHunt) return;
     const stopReason = getAutoHuntStopReason(autoStopConfigRef.current, {
       hpCharges: statusHpCharges,
       mpCharges: statusMpCharges,
@@ -920,7 +1110,7 @@ export function V2DungeonFloorView({
   // 누르기 시작 → 0.5초 유지하면 자동 시작(두 모드 공용). 자동 중·잠금이면 길게 무의미(탭만 동작).
   const onHuntPressStart = () => {
     longPressFired.current = false;
-    if (offlineLocked || autoHunt) return;
+    if (rareMapIid || offlineLocked || autoHunt) return;
     cancelLongPress();
     longPressTimer.current = setTimeout(() => {
       longPressFired.current = true;
@@ -953,58 +1143,56 @@ export function V2DungeonFloorView({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 px-4 py-5 text-zinc-900 sm:p-6 dark:text-zinc-100">
-      <SubViewHeader
-        title={
-          <>
-            {displayName}
-            {isChallenge && (
-              <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-normal text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                도전
-              </span>
-            )}
-          </>
-        }
+      <DungeonContextSummary
+        displayName={displayName}
+        outpostName={outpostName}
+        challenge={isChallenge}
+        playerPower={myPower}
+        difficultyPower={powerGate}
+        growthLabel={growthLabel}
+        readiness={readiness}
         onBack={onBack}
-        right={
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            {outpostName}
-          </span>
-        }
       />
-      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        {myPower != null && (
-          <>
-            내 전투력{" "}
-            <span className="font-semibold tabular-nums text-zinc-700 dark:text-zinc-200">
-              {myPower.toLocaleString()}
-            </span>
-            {" · "}
-          </>
-        )}
-        난이도 지표{" "}
-        <span className="tabular-nums">{powerGate.toLocaleString()}</span>
-      </p>
-      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        {growthLabel && <>{growthLabel} · </>}
-        <span
-          className={
-            readiness.tone === "positive"
-              ? "font-medium text-emerald-600 dark:text-emerald-400"
-              : readiness.tone === "warning"
-                ? "font-medium text-amber-600 dark:text-amber-400"
-                : "font-medium text-zinc-600 dark:text-zinc-300"
+      {rareMapIid && expiredRareMapIid === rareMapIid ? (
+        <DiscoveryNotice kind="hunt" align="start">
+          희귀 탐사 시간이 만료되어 일반 사냥터로 이동합니다.
+        </DiscoveryNotice>
+      ) : rareMapIid && rareMapSnapshot?.map.iid === rareMapIid ? (
+        <RareMapProgressNotice
+          map={{
+            ...rareMapSnapshot.map,
+            runsLeft: rareMapRunsLeft ?? rareMapSnapshot.map.runsLeft,
+          }}
+          serverNow={rareMapSnapshot.serverNow}
+          onReturnToNormalHunt={onReturnToNormalHunt}
+          onExpire={() => {
+            setExpiredRareMapIid(rareMapIid);
+            onReturnToNormalHunt?.();
+          }}
+        />
+      ) : rareMapIid ? (
+        <DiscoveryNotice
+          kind="hunt"
+          align="start"
+          action={
+            onReturnToNormalHunt ? (
+              <Button
+                size="xs"
+                variant="info"
+                onClick={onReturnToNormalHunt}
+                className="shrink-0"
+              >
+                일반 사냥터로
+              </Button>
+            ) : undefined
           }
         >
-          {readiness.label}
-        </span>
-      </p>
-      {rareMapIid && (
-        <DiscoveryNotice kind="hunt" align="start">
           희귀 탐사 진행 중
-          {rareMapRunsLeft != null && ` — 남은 ${rareMapRunsLeft}판`}
-          {rareMapRunsLeft === 0 && " (소진 — 목록으로 돌아가세요)"}
+          {rareMapRunsLeft != null &&
+            rareMapSnapshot?.map.iid === rareMapIid &&
+            ` — 남은 ${rareMapRunsLeft}판`}
         </DiscoveryNotice>
-      )}
+      ) : null}
 
       {autoStopReason && (
         <StatusBanner tone="warning" role="status" className="py-2.5">
@@ -1019,8 +1207,7 @@ export function V2DungeonFloorView({
       {/* 캐릭터 정보 — 전투 버튼 위 상시 노출. 첫 사냥 전에도 EXP/회복약 행을 유지해 버튼
           클릭 때 카드 높이가 바뀌지 않게 한다. */}
       {hp && (
-        <PlayerStatusCard
-          gender={playerGender}
+        <CompactBattlePlayerStatus
           name={playerName}
           subtitle={playerSubtitle}
           hp={hp}
@@ -1029,11 +1216,24 @@ export function V2DungeonFloorView({
           maxExp={statusMaxExp}
           hpCharges={statusHpCharges}
           mpCharges={statusMpCharges}
-          hasMp={(mp?.maxMp ?? 0) > 0}
-          combat={playerCombat}
-          primaryAttack={playerPrimaryAttack}
           proficiency={statusProficiency}
-        />
+        >
+          <PlayerStatusCard
+            gender={playerGender}
+            name={playerName}
+            subtitle={playerSubtitle}
+            hp={hp}
+            mp={mp}
+            exp={statusExp}
+            maxExp={statusMaxExp}
+            hpCharges={statusHpCharges}
+            mpCharges={statusMpCharges}
+            hasMp={(mp?.maxMp ?? 0) > 0}
+            combat={playerCombat}
+            primaryAttack={playerPrimaryAttack}
+            proficiency={statusProficiency}
+          />
+        </CompactBattlePlayerStatus>
       )}
 
       {showDefeatNudge && (
@@ -1050,7 +1250,10 @@ export function V2DungeonFloorView({
       )}
 
       <Card padding="md" className="sticky bottom-3 z-20 shadow-lg sm:static sm:shadow-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <div
+          data-hunt-primary-actions
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3"
+        >
           <button
             type="button"
             onClick={onHuntClick}
@@ -1097,7 +1300,9 @@ export function V2DungeonFloorView({
                     ? "회복 필요"
                     : onCooldown
                       ? `다음 사냥까지 ${cooldownLeftSec}초`
-                      : coreLoopOn
+                      : rareMapIid
+                        ? "희귀 탐사 시작"
+                        : coreLoopOn
                         ? "사냥 (길게 눌러 자동)"
                         : huntCount === 1
                           ? "사냥 (길게 눌러 자동 · 스태미너 1)"
@@ -1109,10 +1314,23 @@ export function V2DungeonFloorView({
             disabled={batchRunning}
             aria-label="전투 설정"
             aria-expanded={settingsOpen}
-            className="ui-game-button flex shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 sm:w-auto dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            className="ui-game-button flex shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 p-2.5 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
           >
             <Gear size={16} weight="duotone" />
           </button>
+          {!rareMapIid && onEnterRareMap && (
+            <RareMapQuickEntry
+              className="col-start-1 mt-0"
+              maps={heldRareMaps}
+              serverNow={rareMapServerNow}
+              onEnter={onEnterRareMap}
+              onExpire={(expiredMap) =>
+                setHeldRareMaps((current) =>
+                  current.filter((map) => map.iid !== expiredMap.iid),
+                )
+              }
+            />
+          )}
         </div>
         {settingsOpen && (
           <div className="mt-3 space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
@@ -1147,6 +1365,85 @@ export function V2DungeonFloorView({
                 </div>
               </div>
             )}
+
+            <div className={`${SURFACE_INSET} space-y-2 p-3`}>
+              <div className="flex items-center justify-between gap-3">
+                <label
+                  htmlFor="hp-potion-target"
+                  className="text-sm font-medium"
+                >
+                  HP 충전약 사용 목표
+                </label>
+                <span className="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+                  {autoStopConfig.hpPotionTargetPct === 0
+                    ? "사용 안 함"
+                    : `체력 ${autoStopConfig.hpPotionTargetPct}%`}
+                </span>
+              </div>
+              <input
+                id="hp-potion-target"
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={autoStopConfig.hpPotionTargetPct}
+                onChange={(e) =>
+                  updateAutoStopConfig({
+                    hpPotionTargetPct: Number(e.target.value),
+                  })
+                }
+                aria-label="HP 충전약 사용 목표 체력"
+                aria-valuetext={
+                  autoStopConfig.hpPotionTargetPct === 0
+                    ? "사용 안 함"
+                    : `체력 ${autoStopConfig.hpPotionTargetPct}%까지`
+                }
+                className="w-full accent-emerald-600"
+              />
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                사냥 후 HP 충전약을 설정한 체력까지만 사용합니다. 체력이
+                너무 낮아 사냥 전에 자동 회복할 때도 같은 기준을 적용합니다.
+              </p>
+
+              <div className="space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+                <div className="flex items-center justify-between gap-3">
+                  <label
+                    htmlFor="mp-potion-target"
+                    className="text-sm font-medium"
+                  >
+                    MP 충전약 사용 목표
+                  </label>
+                  <span className="text-sm font-semibold tabular-nums text-sky-700 dark:text-sky-300">
+                    {autoStopConfig.mpPotionTargetPct === 0
+                      ? "사용 안 함"
+                      : `마나 ${autoStopConfig.mpPotionTargetPct}%`}
+                  </span>
+                </div>
+                <input
+                  id="mp-potion-target"
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={autoStopConfig.mpPotionTargetPct}
+                  onChange={(e) =>
+                    updateAutoStopConfig({
+                      mpPotionTargetPct: Number(e.target.value),
+                    })
+                  }
+                  aria-label="MP 충전약 사용 목표 마나"
+                  aria-valuetext={
+                    autoStopConfig.mpPotionTargetPct === 0
+                      ? "사용 안 함"
+                      : `마나 ${autoStopConfig.mpPotionTargetPct}%까지`
+                  }
+                  className="w-full accent-sky-600"
+                />
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  사냥 후 MP 충전약을 설정한 마나까지만 사용합니다.
+                </p>
+              </div>
+            </div>
 
             <div className={`${SURFACE_INSET} space-y-3 p-3`}>
               <div>
@@ -1279,56 +1576,86 @@ export function V2DungeonFloorView({
         </div>
       )}
 
-      {/* batch summary 가 우선 노출. 1회 사냥 결과(HuntResultCard) 는 summary 없을 때만. */}
-      {/* 캐릭터 정보(HP/MP/EXP)는 위 PlayerStatusCard 로 상시 노출 — 결과는 요약/리플레이만. */}
-      {batchSummary ? (
-        <BatchSummaryCard
-          summary={batchSummary}
-          remainingStamina={
-            !coreLoopOn && !autoHunt ? staminaCurrent : undefined
-          }
-          potionThreshold={autoStopConfig.potionThreshold}
-          onSelectReplay={setSelectedBatchReplay}
-          onEnterRareMap={onEnterRareMap}
-        />
-      ) : (
-        lastResult && (
-          <HuntResultCard
-            result={lastResult}
-            hpCharges={lastResult.hpCharges}
-            mpCharges={lastResult.mpCharges}
-            hasMp={(mp?.maxMp ?? 0) > 0}
-            onEnterRareMap={onEnterRareMap}
-          />
-        )
+      {latestPresentedResult && (
+        <section aria-label="최근 사냥 결과" className="space-y-2">
+          {latestPresentedResult.kind === "batch" ? (
+            <BatchSummaryCard
+              summary={latestPresentedResult.summary}
+              remainingStamina={!coreLoopOn && !autoHunt ? staminaCurrent : undefined}
+              potionThreshold={autoStopConfig.potionThreshold}
+              onSelectReplay={(entry) => {
+                setSelectedBatchReplay(entry);
+                setShowReplay(true);
+                window.setTimeout(() => replaySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+              }}
+            />
+          ) : (
+            <HuntResultCard
+              result={latestPresentedResult.result}
+              hpCharges={latestPresentedResult.result.hpCharges}
+              mpCharges={latestPresentedResult.result.mpCharges}
+              hasMp={(mp?.maxMp ?? 0) > 0}
+            />
+          )}
+          {resultRareMap && onEnterRareMap && (
+            <Button
+              type="button"
+              variant="warning"
+              size="md"
+              className="w-full"
+              onClick={() => onEnterRareMap(resultRareMap)}
+            >
+              <MapTrifold size={18} aria-hidden /> 레어맵 ·{" "}
+              {RARE_MAP_KINDS[resultRareMap.kind].name}
+            </Button>
+          )}
+          {latestPresentedResult.kind === "single" &&
+            latestPresentedResult.result.replay && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="md"
+                className="w-full"
+                onClick={() => {
+                  setShowReplay(true);
+                  window.setTimeout(
+                    () =>
+                      replaySectionRef.current?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                      }),
+                    0,
+                  );
+                }}
+              >
+                전투 기록 보기
+              </Button>
+            )}
+        </section>
       )}
 
-      {batchSummary && selectedBatchReplay?.replay && (
-        <ReplayBattleScene
-          key={selectedBatchReplay.index}
-          payload={selectedBatchReplay.replay}
-          startPlayerHp={selectedBatchReplay.startPlayerHp}
-          playerName={playerName}
-          gender={playerGender}
-          exp={selectedBatchReplay.expForBar ?? 0}
-          maxExp={selectedBatchReplay.maxExpForBar ?? 1}
-          hpCharges={selectedBatchReplay.hpCharges}
-          mpCharges={selectedBatchReplay.mpCharges}
-          playerSubtitle={playerSubtitle}
-          outcome={selectedBatchReplay.won ? undefined : "lose"}
-          playerCombat={
-            playerCombat
-              ? playerCombatToBattleStats(playerCombat, {
-                  primaryAttack: playerPrimaryAttack,
-                })
-              : undefined
-          }
-        />
+      {showReplay && selectedBatchReplay?.replay && (
+        <div ref={replaySectionRef}>
+          <ReplayBattleScene
+            key={selectedBatchReplay.index}
+            payload={selectedBatchReplay.replay}
+            startPlayerHp={selectedBatchReplay.startPlayerHp}
+            playerName={playerName}
+            gender={playerGender}
+            exp={selectedBatchReplay.expForBar ?? 0}
+            maxExp={selectedBatchReplay.maxExpForBar ?? 1}
+            hpCharges={selectedBatchReplay.hpCharges}
+            mpCharges={selectedBatchReplay.mpCharges}
+            playerSubtitle={playerSubtitle}
+            outcome={selectedBatchReplay.won ? undefined : "lose"}
+            playerCombat={playerCombat ? playerCombatToBattleStats(playerCombat, { primaryAttack: playerPrimaryAttack }) : undefined}
+          />
+        </div>
       )}
 
       {showLevelupModal && (
         <TutorialOverlayInner
-          title="레벨 업! 🎉"
+          title={<LevelUpTutorialTitle />}
           body={
             <>
               <p>새로운 레벨에 도달했습니다. 캐릭터가 더 강해졌어요.</p>
@@ -1349,19 +1676,20 @@ export function V2DungeonFloorView({
       )}
 
       {/* 1회 사냥 replay — batch summary 표시 중에는 숨김(합산만 보길 원함). */}
-      {!batchSummary && lastResult?.replay && (
+      {showReplay && latestPresentedResult?.kind === "single" && latestPresentedResult.result.replay && (
+        <div ref={replaySectionRef}>
         <ReplayBattleScene
-          payload={lastResult.replay}
-          startPlayerHp={lastResult.startPlayerHp}
+          payload={latestPresentedResult.result.replay}
+          startPlayerHp={latestPresentedResult.result.startPlayerHp}
           playerName={playerName}
           gender={playerGender}
-          exp={lastResult.expForBar ?? 0}
-          maxExp={lastResult.maxExpForBar ?? 1}
-          hpCharges={lastResult.hpCharges}
-          mpCharges={lastResult.mpCharges}
+          exp={latestPresentedResult.result.expForBar ?? 0}
+          maxExp={latestPresentedResult.result.maxExpForBar ?? 1}
+          hpCharges={latestPresentedResult.result.hpCharges}
+          mpCharges={latestPresentedResult.result.mpCharges}
           playerSubtitle={playerSubtitle}
           // 승리는 결과 카드의 "전투 결과 승리"와 중복이라 배너 생략 — 패배만 부각(코덱스 권고).
-          outcome={lastResult.won ? undefined : "lose"}
+          outcome={latestPresentedResult.result.won ? undefined : "lose"}
           playerCombat={
             playerCombat
               ? playerCombatToBattleStats(playerCombat, {
@@ -1370,6 +1698,7 @@ export function V2DungeonFloorView({
               : undefined
           }
         />
+        </div>
       )}
     </main>
   );

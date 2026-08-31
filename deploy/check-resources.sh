@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# EC2 자체 자원 사용량을 확인하고 상태가 바뀌거나 경보가 오래 지속되면 webhook에 알린다.
+# EC2 자체 자원과 중요 작업 heartbeat를 확인하고 상태 변화 시 webhook에 알린다.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -20,6 +20,12 @@ MEM_AVAILABLE_PCT="${RESOURCE_MONITOR_MEM_AVAILABLE_PCT:-$(awk '
 ' /proc/meminfo)}"
 DISK_USED_PCT="${RESOURCE_MONITOR_DISK_USED_PCT:-$(df -P "${RESOURCE_MONITOR_DISK_PATH:-/}" | awk 'NR == 2 { gsub(/%/, "", $5); print $5 }')}"
 LOAD_PCT="$(awk -v current_load="$LOAD_5" -v cpus="$CPU_COUNT" 'BEGIN { if (cpus > 0) printf "%.1f", current_load * 100 / cpus; else print "999" }')"
+
+# crond와 백업 작업의 성공 기록은 systemd timer에서 독립적으로 확인한다. crond가
+# 멈추면 cron 자체로는 실패 알림을 보낼 수 없으므로 이 경로가 dead-man 역할을 한다.
+if ! node scripts/ops-heartbeat.mjs check; then
+  echo "RESOURCE WARN: 정기 작업 heartbeat 감시 스크립트 실행 실패" >&2
+fi
 
 ALERTS=()
 if awk -v value="$LOAD_PCT" -v threshold="$LOAD_MAX_PCT" 'BEGIN { exit !(value >= threshold) }'; then

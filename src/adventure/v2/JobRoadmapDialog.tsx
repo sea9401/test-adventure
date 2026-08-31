@@ -24,11 +24,23 @@ import {
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
-import { jobCultivationSummary } from "./jobExplorer";
+import {
+  V2_SKILLS,
+  spCostOf,
+  type V2SkillId,
+} from "@/adventure/data/v2/v2Skills";
+import {
+  jobCultivationSummary,
+  resolveJobAdvanceAction,
+} from "./jobExplorer";
+import { SkillEffectChips } from "./SkillEffectChips";
 import {
   buildJobRoadmap,
+  roadmapRootJumpTargets,
   type JobRoadmapNode,
 } from "./jobRoadmapModel";
+import type { Tier7AdvancementStatus } from "@/adventure/data/v2/tier7Advancement";
+import { Tier7AdvancementRequirements } from "./Tier7AdvancementRequirements";
 
 export type JobRoadmapPlayerJob = {
   id: string;
@@ -46,19 +58,26 @@ export type JobRoadmapPlayerJob = {
     kind: "active" | "passive";
   }>;
   skillsCollected?: boolean;
+  tier7Advancement?: Tier7AdvancementStatus;
 };
 
 export function JobRoadmapDialog({
   jobs,
   currentJobId,
   goalJobId,
+  atLevelCap,
+  currentJobSelectable,
   onSetGoal,
+  onPickJob,
   onClose,
 }: {
   jobs: readonly JobRoadmapPlayerJob[];
   currentJobId: string;
   goalJobId: string | null;
+  atLevelCap: boolean;
+  currentJobSelectable: boolean;
   onSetGoal: (jobId: string | null) => void;
+  onPickJob: (job: JobRoadmapPlayerJob) => void;
   onClose: () => void;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -69,6 +88,10 @@ export function JobRoadmapDialog({
     [jobs],
   );
   const selectedJob = jobById.get(selectedJobId) ?? null;
+  const rootJumpTargets = useMemo(
+    () => roadmapRootJumpTargets(root),
+    [root],
+  );
   useEscapeKey(onClose);
   useModalA11y(contentRef);
 
@@ -95,7 +118,7 @@ export function JobRoadmapDialog({
               전직 로드맵
             </h2>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              다른 직업을 선택하면 아래에서 성장 방향과 대표 스킬을 미리 볼 수
+              현재 직업과 전직 이력 또는 해금된 직업의 스킬 정보를 확인할 수
               있습니다.
             </p>
           </div>
@@ -122,7 +145,11 @@ export function JobRoadmapDialog({
             </div>
           </div>
 
-          <RoadmapScroller>
+          <RoadmapScroller
+            jumpTargets={rootJumpTargets}
+            currentJobId={currentJobId}
+            onSelectJob={setSelectedJobId}
+          >
             <ul className="shrine-job-tree">
               <RoadmapBranch
                 node={root}
@@ -139,7 +166,10 @@ export function JobRoadmapDialog({
               job={selectedJob}
               currentJobId={currentJobId}
               goalJobId={goalJobId}
+              atLevelCap={atLevelCap}
+              currentJobSelectable={currentJobSelectable}
               onSetGoal={onSetGoal}
+              onPickJob={onPickJob}
             />
           ) : null}
         </div>
@@ -168,15 +198,29 @@ export function JobRoadmapDetails({
   job,
   currentJobId,
   goalJobId,
+  atLevelCap,
+  currentJobSelectable,
   onSetGoal,
+  onPickJob,
 }: {
   job: JobRoadmapPlayerJob;
   currentJobId: string;
   goalJobId: string | null;
+  atLevelCap?: boolean;
+  currentJobSelectable?: boolean;
   onSetGoal: (jobId: string | null) => void;
+  onPickJob?: (job: JobRoadmapPlayerJob) => void;
 }) {
   const cultivation = jobCultivationSummary(job.id);
   const tierLabel = job.tier <= 0 ? "루트 직업" : `${job.tier}차 직업`;
+  const canInspectSkills =
+    job.id === currentJobId || job.visited === true || job.unlocked !== false;
+  const advanceAction = resolveJobAdvanceAction({
+    job,
+    currentJobId,
+    atLevelCap: atLevelCap ?? false,
+    currentJobSelectable: currentJobSelectable ?? false,
+  });
 
   return (
     <section
@@ -209,21 +253,34 @@ export function JobRoadmapDetails({
             {Math.max(0, job.cumLevel ?? 0).toLocaleString("ko-KR")}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => onSetGoal(job.id === goalJobId ? null : job.id)}
-          className={`flex min-h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition ${
-            job.id === goalJobId
-              ? "border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
-              : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          }`}
-        >
-          <Star
-            size={14}
-            weight={job.id === goalJobId ? "fill" : "regular"}
-          />
-          {job.id === goalJobId ? "목표 해제" : "목표로 설정"}
-        </button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => onSetGoal(job.id === goalJobId ? null : job.id)}
+            className={`flex min-h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition ${
+              job.id === goalJobId
+                ? "border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            }`}
+          >
+            <Star
+              size={14}
+              weight={job.id === goalJobId ? "fill" : "regular"}
+            />
+            {job.id === goalJobId ? "목표 해제" : "목표로 설정"}
+          </button>
+          {onPickJob ? (
+            <button
+              type="button"
+              onClick={() => onPickJob(job)}
+              disabled={!advanceAction.enabled}
+              aria-label={advanceAction.ariaLabel}
+              className="flex min-h-9 min-w-20 items-center justify-center rounded-md border border-emerald-600 bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:border-emerald-700 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-400 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+            >
+              {advanceAction.label}
+            </button>
+          ) : null}
+        </div>
       </div>
       <dl className="mt-3 grid gap-3 text-xs sm:grid-cols-2">
         <div>
@@ -246,27 +303,62 @@ export function JobRoadmapDetails({
             {cultivation || "수행 성장 정보 없음"}
           </dd>
         </div>
-        <div>
-          <dt className="text-zinc-500 dark:text-zinc-400">대표 스킬</dt>
-          <dd className="mt-1 flex flex-wrap gap-1.5 text-zinc-800 dark:text-zinc-200">
-            {job.signatureSkills?.length ? (
-              job.signatureSkills.map((skill) => (
-                <span
-                  key={skill.id}
-                  className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
-                >
-                  <span>{skill.name}</span>
-                  <span className="text-[9px] font-semibold text-zinc-400 dark:text-zinc-500">
-                    {skill.kind === "passive" ? "패시브" : "액티브"}
-                  </span>
-                </span>
-              ))
+        <div className="sm:col-span-2">
+          <dt className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-zinc-500 dark:text-zinc-400">
+            <span>대표 스킬</span>
+            {canInspectSkills && job.signatureSkills?.length ? (
+              <span className="text-[10px]">스킬명을 눌러 상세 확인</span>
+            ) : null}
+          </dt>
+          <dd className="mt-1 grid gap-1.5 text-zinc-800 dark:text-zinc-200 sm:grid-cols-2">
+            {!canInspectSkills ? (
+              <span className="text-zinc-500 dark:text-zinc-400">
+                직업을 해금하면 스킬 정보를 확인할 수 있습니다.
+              </span>
+            ) : job.signatureSkills?.length ? (
+              job.signatureSkills.map((skill) => {
+                const skillDef = V2_SKILLS[skill.id as V2SkillId];
+                return (
+                  <details
+                    key={skill.id}
+                    className={`${SURFACE_CARD} group overflow-hidden`}
+                  >
+                    <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1.5 px-2.5 py-1.5 font-semibold transition hover:bg-zinc-100 [&::-webkit-details-marker]:hidden dark:hover:bg-zinc-800">
+                      <CaretRight
+                        size={13}
+                        className="shrink-0 text-zinc-400 transition-transform group-open:rotate-90"
+                      />
+                      <span>{skill.name}</span>
+                      <span className="ml-auto text-[9px] font-semibold text-zinc-400 dark:text-zinc-500">
+                        {skill.kind === "passive" ? "패시브" : "액티브"}
+                      </span>
+                    </summary>
+                    <div className="border-t border-zinc-200 px-2.5 py-2 dark:border-zinc-700">
+                      <p className="leading-relaxed text-zinc-700 dark:text-zinc-300">
+                        {skillDef?.description ??
+                          "등록된 스킬 설명이 없습니다."}
+                      </p>
+                      {skillDef ? (
+                        <span className="mt-2 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                          SP {spCostOf(skillDef)}
+                        </span>
+                      ) : null}
+                      <SkillEffectChips skillId={skill.id} />
+                    </div>
+                  </details>
+                );
+              })
             ) : (
               <span>전용 스킬 정보 없음</span>
             )}
           </dd>
         </div>
       </dl>
+      {job.tier7Advancement ? (
+        <div className="mt-3">
+          <Tier7AdvancementRequirements status={job.tier7Advancement} />
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -284,6 +376,25 @@ export function isRoadmapDragGesture(startX: number, currentX: number) {
   return Math.abs(currentX - startX) >= ROADMAP_DRAG_THRESHOLD_PX;
 }
 
+export function centeredRoadmapScrollLeft({
+  scrollLeft,
+  viewportLeft,
+  viewportWidth,
+  targetLeft,
+  targetWidth,
+}: {
+  scrollLeft: number;
+  viewportLeft: number;
+  viewportWidth: number;
+  targetLeft: number;
+  targetWidth: number;
+}) {
+  return Math.max(
+    0,
+    scrollLeft + targetLeft - viewportLeft - (viewportWidth - targetWidth) / 2,
+  );
+}
+
 function touchDistance(touches: TouchList) {
   const first = touches[0];
   const second = touches[1];
@@ -292,7 +403,17 @@ function touchDistance(touches: TouchList) {
     : 0;
 }
 
-export function RoadmapScroller({ children }: { children: React.ReactNode }) {
+export function RoadmapScroller({
+  children,
+  jumpTargets = [],
+  currentJobId,
+  onSelectJob,
+}: {
+  children: React.ReactNode;
+  jumpTargets?: ReadonlyArray<{ id: string; label: string }>;
+  currentJobId?: string;
+  onSelectJob?: (jobId: string) => void;
+}) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
     id: number;
@@ -343,6 +464,40 @@ export function RoadmapScroller({ children }: { children: React.ReactNode }) {
       left: direction * Math.max(320, scroller.clientWidth * 0.75),
       behavior: "smooth",
     });
+  };
+
+  const moveToEdge = (edge: "start" | "end") => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    scroller.scrollTo({
+      left: edge === "start" ? 0 : scroller.scrollWidth,
+      behavior: "smooth",
+    });
+  };
+
+  const moveToJob = (jobId: string) => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const target = scroller.querySelector<HTMLElement>(
+      `[data-roadmap-job-id="${jobId}"]`,
+    );
+    if (!target) return;
+    const viewportRect = scroller.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    scroller.scrollTo({
+      left: centeredRoadmapScrollLeft({
+        scrollLeft: scroller.scrollLeft,
+        viewportLeft: viewportRect.left,
+        viewportWidth: viewportRect.width,
+        targetLeft: targetRect.left,
+        targetWidth: targetRect.width,
+      }),
+      behavior: "smooth",
+    });
+    onSelectJob?.(jobId);
+    if (target instanceof HTMLButtonElement) {
+      target.focus({ preventScroll: true });
+    }
   };
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
@@ -455,52 +610,92 @@ export function RoadmapScroller({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="shrine-job-roadmap-wrap">
-      <div className="shrine-job-roadmap-controls">
-        <button
-          type="button"
-          className="shrine-job-roadmap-button"
-          aria-label={`로드맵 축소, 현재 ${zoomPct}%`}
-          title="축소"
-          disabled={zoom <= ROADMAP_ZOOM_MIN}
-          onClick={() => zoomAt(zoomRef.current - ROADMAP_ZOOM_STEP)}
-        >
-          <MagnifyingGlassMinus size={15} weight="bold" />
-        </button>
-        <button
-          type="button"
-          className="shrine-job-roadmap-button is-zoom-level"
-          aria-label={`확대/축소 초기화, 현재 ${zoomPct}%`}
-          title="100%로 초기화"
-          onClick={() => zoomAt(1)}
-        >
-          <span aria-live="polite">{zoomPct}%</span>
-        </button>
-        <button
-          type="button"
-          className="shrine-job-roadmap-button"
-          aria-label={`로드맵 확대, 현재 ${zoomPct}%`}
-          title="확대"
-          disabled={zoom >= ROADMAP_ZOOM_MAX}
-          onClick={() => zoomAt(zoomRef.current + ROADMAP_ZOOM_STEP)}
-        >
-          <MagnifyingGlassPlus size={15} weight="bold" />
-        </button>
-        <button
-          type="button"
-          className="shrine-job-roadmap-button"
-          aria-label="로드맵 왼쪽으로 이동"
-          onClick={() => move(-1)}
-        >
-          <CaretLeft size={15} weight="bold" />
-        </button>
-        <button
-          type="button"
-          className="shrine-job-roadmap-button"
-          aria-label="로드맵 오른쪽으로 이동"
-          onClick={() => move(1)}
-        >
-          <CaretRight size={15} weight="bold" />
-        </button>
+      <div className="shrine-job-roadmap-toolbar">
+        <div className="shrine-job-roadmap-jumps" aria-label="로드맵 빠른 이동">
+          <button
+            type="button"
+            className="shrine-job-roadmap-jump"
+            aria-label="로드맵 처음으로 이동"
+            onClick={() => moveToEdge("start")}
+          >
+            처음
+          </button>
+          <button
+            type="button"
+            className="shrine-job-roadmap-jump"
+            aria-label="로드맵 끝으로 이동"
+            onClick={() => moveToEdge("end")}
+          >
+            끝
+          </button>
+          {jumpTargets.map((target) => (
+            <button
+              key={target.id}
+              type="button"
+              className="shrine-job-roadmap-jump"
+              aria-label={`${target.label}로 이동`}
+              onClick={() => moveToJob(target.id)}
+            >
+              {target.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="shrine-job-roadmap-jump is-current"
+            aria-label="현재 직업으로 이동"
+            disabled={!currentJobId}
+            onClick={() => currentJobId && moveToJob(currentJobId)}
+          >
+            현재 직업
+          </button>
+        </div>
+        <div className="shrine-job-roadmap-controls">
+          <button
+            type="button"
+            className="shrine-job-roadmap-button"
+            aria-label={`로드맵 축소, 현재 ${zoomPct}%`}
+            title="축소"
+            disabled={zoom <= ROADMAP_ZOOM_MIN}
+            onClick={() => zoomAt(zoomRef.current - ROADMAP_ZOOM_STEP)}
+          >
+            <MagnifyingGlassMinus size={15} weight="bold" />
+          </button>
+          <button
+            type="button"
+            className="shrine-job-roadmap-button is-zoom-level"
+            aria-label={`확대/축소 초기화, 현재 ${zoomPct}%`}
+            title="100%로 초기화"
+            onClick={() => zoomAt(1)}
+          >
+            <span aria-live="polite">{zoomPct}%</span>
+          </button>
+          <button
+            type="button"
+            className="shrine-job-roadmap-button"
+            aria-label={`로드맵 확대, 현재 ${zoomPct}%`}
+            title="확대"
+            disabled={zoom >= ROADMAP_ZOOM_MAX}
+            onClick={() => zoomAt(zoomRef.current + ROADMAP_ZOOM_STEP)}
+          >
+            <MagnifyingGlassPlus size={15} weight="bold" />
+          </button>
+          <button
+            type="button"
+            className="shrine-job-roadmap-button"
+            aria-label="로드맵 왼쪽으로 이동"
+            onClick={() => move(-1)}
+          >
+            <CaretLeft size={15} weight="bold" />
+          </button>
+          <button
+            type="button"
+            className="shrine-job-roadmap-button"
+            aria-label="로드맵 오른쪽으로 이동"
+            onClick={() => move(1)}
+          >
+            <CaretRight size={15} weight="bold" />
+          </button>
+        </div>
       </div>
       <div
         ref={scrollerRef}
@@ -556,6 +751,7 @@ function RoadmapBranch({
       {job ? (
         <button
           type="button"
+          data-roadmap-job-id={node.id}
           className={nodeClass}
           onClick={() => onSelectJob(node.id)}
           aria-pressed={selected}
@@ -572,7 +768,11 @@ function RoadmapBranch({
           />
         </button>
       ) : (
-        <div className={nodeClass} title={node.prereqText || undefined}>
+        <div
+          data-roadmap-job-id={node.id}
+          className={nodeClass}
+          title={node.prereqText || undefined}
+        >
           <RoadmapNodeContent
             node={node}
             tierLabel={tierLabel}
@@ -679,13 +879,18 @@ function DetailBadge({
 
 const ROADMAP_CSS = `
 .shrine-job-roadmap-wrap{position:relative;max-width:100%}
-.shrine-job-roadmap-controls{position:absolute;right:10px;top:10px;z-index:2;display:flex;gap:6px}
+.shrine-job-roadmap-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #3f3549;border-bottom:0;border-radius:8px 8px 0 0;background:#17131d}
+.shrine-job-roadmap-jumps,.shrine-job-roadmap-controls{display:flex;flex-wrap:wrap;gap:6px}
+.shrine-job-roadmap-jump{display:inline-flex;min-height:30px;align-items:center;justify-content:center;border:1px solid rgba(248,250,252,.18);border-radius:7px;background:#211b2a;padding:0 10px;color:#f8fafc;font-size:10px;font-weight:800;box-shadow:0 6px 14px rgba(0,0,0,.2)}
+.shrine-job-roadmap-jump:hover{border-color:rgba(248,250,252,.34);background:#342b40}
+.shrine-job-roadmap-jump.is-current{border-color:#34d399;color:#a7f3d0}
+.shrine-job-roadmap-jump:disabled{cursor:not-allowed;color:#71717a;border-color:rgba(248,250,252,.1);box-shadow:none}
 .shrine-job-roadmap-button{display:inline-flex;height:30px;width:30px;align-items:center;justify-content:center;border:1px solid rgba(248,250,252,.18);border-radius:7px;background:#211b2a;color:#f8fafc;box-shadow:0 8px 18px rgba(0,0,0,.28);transition:background-color .15s ease,border-color .15s ease,transform .12s ease}
 .shrine-job-roadmap-button.is-zoom-level{width:46px;font-size:10px;font-variant-numeric:tabular-nums}
 .shrine-job-roadmap-button:hover{border-color:rgba(248,250,252,.34);background:#342b40}
 .shrine-job-roadmap-button:active{transform:translateY(1px)}
 .shrine-job-roadmap-button:disabled{cursor:not-allowed;color:#71717a;border-color:rgba(248,250,252,.1);background:#211b2a;box-shadow:none}
-.shrine-job-roadmap{max-width:100%;overflow-x:auto;overflow-y:hidden;border:1px solid #3f3549;border-radius:8px;color:#f8fafc;background:#17131d;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:28px 28px;overscroll-behavior-x:contain;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;cursor:grab}
+.shrine-job-roadmap{max-width:100%;overflow-x:auto;overflow-y:hidden;border:1px solid #3f3549;border-radius:0 0 8px 8px;color:#f8fafc;background:#17131d;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:28px 28px;overscroll-behavior-x:contain;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;cursor:grab}
 .shrine-job-roadmap.is-dragging{cursor:grabbing}
 .shrine-job-roadmap-canvas{display:flow-root;width:max-content;min-width:100%;transform-origin:top left}
 .shrine-job-tree{display:flex;width:max-content;min-width:max(100%,1560px);justify-content:flex-start;margin:0;padding:38px 24px 20px}

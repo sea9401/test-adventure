@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FocusEvent } from "react";
+import { useEffect, useRef, type FocusEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ChatButton } from "@/components/ChatButton";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
@@ -10,62 +10,20 @@ import { WarTicker } from "@/adventure/v2/WarTicker";
 import { MainTabNav } from "@/adventure/v2/MainTabNav";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { shouldShowStaminaBar } from "@/adventure/v2/staminaBarVisibility";
-import { LotteryWinCelebration } from "@/adventure/v2/LotteryWinCelebration";
+import { UgcConsentPrompt } from "@/components/safety/UgcConsentPrompt";
+import { GameSceneBackground } from "@/adventure/v2/GameSceneBackground";
+import { GameContentTransition } from "@/adventure/v2/GameContentTransition";
+import { gameSceneBackgroundForPath } from "@/adventure/v2/gameSceneBackgroundForPath";
+import { gameTabForPath, type GameTabId } from "@/adventure/v2/gameTabForPath";
+import { SURFACE_GAME_HEADER } from "@/components/ui/surfaces";
 
 // v2 게임 chrome — 모든 라우트가 공유하는 영속 틀(상단바·탭바·배경).
 // (game)/layout.tsx 안에 마운트되어 네비게이션마다 remount 되지 않는다 → 자식 page 만 교체.
 
-type TabId = "adventure" | "battle" | "town" | "character" | "guild" | "plaza";
-
 // 탭 목록·하위 메뉴는 MainTabNav 가 소유(#723: 광장은 탭 제외·설정 메뉴로 이관, /plaza/* 라우트·배경만 유지).
 
 // 배경을 깔 탭 — 모험/마을/캐릭터. 전투·길드·광장은 별도 이미지 없음(중립 배경).
-const BG_TABS = new Set<TabId>(["adventure", "town", "character"]);
-
-// 현재 경로 → 활성 탭.
-function tabOfPath(pathname: string): TabId {
-  if (pathname === "/") return "adventure";
-  if (pathname.startsWith("/battle")) return "battle";
-  if (pathname.startsWith("/town")) return "town";
-  // 퀘스트(/quests)는 캐릭터 탭의 하위 메뉴 — 캐릭터로 묶어 활성 강조·배경이 안 깨지게.
-  if (pathname.startsWith("/character") || pathname.startsWith("/quests"))
-    return "character";
-  if (pathname.startsWith("/guild")) return "guild";
-  if (pathname.startsWith("/plaza")) return "plaza";
-  return "adventure";
-}
-
-// 탭 배경 이미지 — fixed full-screen + 위에 반투명 dim 오버레이.
-// 길드 배경은 ui/guild.webp 정적 경로.
-// src 가 바뀌면 부모가 key 로 remount → errored 리셋.
-function TabBackground({
-  src,
-  fallbackSrc,
-}: {
-  src: string;
-  fallbackSrc?: string;
-}) {
-  const [errored, setErrored] = useState(false);
-  const finalSrc = errored && fallbackSrc ? fallbackSrc : src;
-  return (
-    <div
-      aria-hidden
-      className="game-scene-background pointer-events-none fixed inset-0 -z-10 overflow-hidden"
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={finalSrc}
-        alt=""
-        onError={() => {
-          if (fallbackSrc) setErrored(true);
-        }}
-        className="h-full w-full object-cover"
-      />
-      {/* 라이트는 흰 카드와 분리되는 옅은 회색 바탕으로 눌러 눈부심을 줄인다. */}
-      <div className="absolute inset-0 bg-zinc-100/80 dark:bg-zinc-950/80" />
-    </div>
-  );
-}
+const BG_TABS = new Set<GameTabId>(["adventure", "town", "life", "character"]);
 
 function selectNumericInputValue(event: FocusEvent<HTMLDivElement>) {
   const input = event.target;
@@ -79,18 +37,23 @@ function selectNumericInputValue(event: FocusEvent<HTMLDivElement>) {
 }
 
 export function GameChrome({ children }: { children: React.ReactNode }) {
+  const chromeRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
   const router = useRouter();
   const {
     stamina,
     staminaMax,
+    spendableGold,
     staminaRegenBonusPct,
     staminaPotions,
     viewerName,
     viewerGuildId,
-    autoGathering,
+    gameStateLoaded,
     coreLoopOn,
     huntStaminaMode,
+    autoGathering,
+    fishingActive,
     refreshGameState,
   } = useGameState();
   // 스태미나 포션 사용(모달에서 개수 선택) — 서버 권위 회복 후 전역 상태 갱신.
@@ -105,9 +68,32 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     await refreshGameState();
   };
 
-  const activeTab = tabOfPath(pathname);
+  const activeTab = gameTabForPath(pathname);
   // 스태미나 바 — 스태미나를 직접 사용하는 지정 화면에서만 노출한다.
   const showStamina = shouldShowStaminaBar(pathname);
+
+  useEffect(() => {
+    const chrome = chromeRef.current;
+    const header = headerRef.current;
+    if (!chrome || !header) return;
+
+    const syncHeaderHeight = () => {
+      const height = Math.ceil(header.getBoundingClientRect().height);
+      if (height > 0) {
+        chrome.style.setProperty("--game-header-height", `${height}px`);
+      }
+    };
+    syncHeaderHeight();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", syncHeaderHeight);
+      return () => window.removeEventListener("resize", syncHeaderHeight);
+    }
+
+    const observer = new ResizeObserver(syncHeaderHeight);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
 
   // 탭/화면별 배경 이미지 — 우선순위: 특정 화면(치료소·은행·상점·대장간·낚시터·사냥터·숙련의 탑·아레나·대련장)
   // > 거점 탭(모험/마을/캐릭터) > 길드 > 광장 > 전투 탭. 거점 탭은 현 위치 거점 종류별
@@ -138,7 +124,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
                       : pathname.startsWith("/battle/arena")
                         ? { src: "/images/ui/arena.webp" }
                         : pathname.startsWith("/battle/dungeon")
-                          ? { src: "/images/ui/hunt.webp" }
+                          ? gameSceneBackgroundForPath(pathname)
                           : BG_TABS.has(activeTab)
                             ? { src: "/images/ui/village.webp" }
                             : activeTab === "guild"
@@ -151,10 +137,44 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <div
+      ref={chromeRef}
+      data-game-chrome
       className="game-desktop-compact"
       onFocusCapture={selectNumericInputValue}
     >
-      <V2TopBar autoGathering={autoGathering} />
+      <header
+        ref={headerRef}
+        data-game-header
+        className={`${SURFACE_GAME_HEADER} sticky top-0 z-[60] pt-[env(safe-area-inset-top)]`}
+      >
+        <div className="w-full md:grid md:min-h-16 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center md:px-5">
+          <V2TopBar
+            stamina={stamina}
+            staminaMax={staminaMax}
+            staminaRegenBonusPct={staminaRegenBonusPct}
+            staminaPotions={staminaPotions}
+            onUsePotion={usePotion}
+            spendableGold={spendableGold}
+            autoGathering={autoGathering}
+            fishingActive={fishingActive}
+          />
+          {/* 메인 내비 — 마을 시설과 생활 콘텐츠를 분리한 6탭. */}
+          <MainTabNav
+            activeKey={activeTab}
+            gameStateLoaded={gameStateLoaded}
+            viewerGuildId={viewerGuildId}
+            onNavigate={(href) => router.push(href)}
+          />
+          {/* 전쟁 전광판 — 탭바 바로 아래 전역 한 줄. 사건 0건이면 빈 높이를 만들지 않는다. */}
+          <div
+            data-game-ticker-slot
+            className="overflow-hidden md:col-span-3 md:row-start-2 md:border-t md:border-zinc-200 dark:md:border-zinc-800"
+          >
+            <WarTicker />
+          </div>
+        </div>
+      </header>
+      <UgcConsentPrompt />
       {/* 전역 채팅 — 메뉴 안에 묻히지 않도록 모든 게임 화면 우하단에 고정한다.
           모바일은 하단 액션 바를 피하고, 단일 인스턴스라 폴링·읽음 상태도 중복되지 않는다. */}
       <ChatButton
@@ -166,23 +186,13 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
       />
       {/* 코어루프 오프라인 정산 카드 — flag off 면 offlinePending null 이라 no-op. */}
       <OfflineSettleCard />
-      <LotteryWinCelebration />
       {background && (
-        <TabBackground
-          key={background.src}
+        <GameSceneBackground
           src={background.src}
           fallbackSrc={background.fallbackSrc}
         />
       )}
       <div>
-        {/* 메인 내비 — 5탭 유지, 하위 화면은 드롭다운으로 진입. */}
-        <MainTabNav
-          activeKey={activeTab}
-          viewerGuildId={viewerGuildId}
-          onNavigate={(href) => router.push(href)}
-        />
-        {/* 전쟁 전광판 — 탭바 바로 아래 전역 한 줄. 사건 0건이면 스스로 숨는다. */}
-        <WarTicker />
         {/* 쿨다운 모드만 스태미나 폐지(전투 쿨다운 대체) → 바 숨김. 스태미나 모드/off 면 표시. */}
         {showStamina && (!coreLoopOn || huntStaminaMode) && (
           <div className="mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6">
@@ -197,9 +207,11 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         )}
         {/* 모바일에서는 우하단 고정 채팅 버튼 뒤로 마지막 컨트롤이 가려지지 않도록
             버튼 높이·위치와 기기 하단 안전 영역만큼 스크롤 여유를 둔다. */}
-        <div className="pb-[calc(env(safe-area-inset-bottom)+9rem)] sm:pb-0">
-          {children}
-        </div>
+        <GameContentTransition>
+          <div className="pb-[calc(env(safe-area-inset-bottom)+9rem)] sm:pb-0">
+            {children}
+          </div>
+        </GameContentTransition>
       </div>
     </div>
   );

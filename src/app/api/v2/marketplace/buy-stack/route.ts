@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, isNull, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { marketplaceInbox, marketplaceListingsV2 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -9,15 +9,24 @@ import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   isMarketKind,
   isStackableMarketplaceItem,
-  isTradableMaterial,
+  isTradableMarketplaceMaterial,
   isValidMaterialQty,
   marketplacePartialPrice,
   marketplaceTaxRateForAdventureSupport,
   saleProceeds,
 } from "@/lib/server/marketplaceV2";
 import { deliverMarketplaceListing } from "@/lib/server/marketplaceV2Fulfillment";
-import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
+import { adventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
+import {
+  TradeSuspendedError,
+  requireTradeParticipants,
+  tradeSuspendedResponse,
+} from "@/lib/server/tradeSuspension";
+import {
+  clearMarketplaceHighestBid,
+  unresolvedMarketplaceHighestBidderId,
+} from "@/lib/server/marketplaceEscrow";
 
 type CharSave = {
   gold?: number;
@@ -72,7 +81,10 @@ export async function POST(req: Request) {
   if (!isStackableMarketplaceItem(body.kind, body.itemId)) {
     return bad("not_stackable");
   }
-  if (body.kind === "material" && !isTradableMaterial(body.itemId)) {
+  if (
+    body.kind === "material" &&
+    !isTradableMarketplaceMaterial(body.itemId)
+  ) {
     return bad("not_tradable");
   }
 
@@ -83,7 +95,7 @@ export async function POST(req: Request) {
   const now = new Date();
 
   const result = await db.transaction(async (tx) => {
-    const candidates = await tx
+    const probedCandidates = await tx
       .select()
       .from(marketplaceListingsV2)
       .where(
@@ -106,8 +118,50 @@ export async function POST(req: Request) {
         ),
         asc(marketplaceListingsV2.createdAt),
       )
-      .limit(100)
-      .for("update");
+      .limit(100);
+    const probedListingIds = probedCandidates.map((listing) => listing.id);
+    const participantIds = [
+      userId,
+      ...probedCandidates.flatMap((listing) => {
+        const bidderId = unresolvedMarketplaceHighestBidderId(listing);
+        return [listing.sellerId, ...(bidderId ? [bidderId] : [])];
+      }),
+    ];
+    await requireTradeParticipants(tx, participantIds, now);
+
+    const candidates =
+      probedListingIds.length === 0
+        ? []
+        : await tx
+            .select()
+            .from(marketplaceListingsV2)
+            .where(
+              and(
+                inArray(marketplaceListingsV2.id, probedListingIds),
+                eq(marketplaceListingsV2.status, "active"),
+                eq(marketplaceListingsV2.kind, kind),
+                eq(marketplaceListingsV2.itemId, itemId),
+                ne(marketplaceListingsV2.sellerId, userId),
+                lte(marketplaceListingsV2.bidEndsAt, now),
+                gt(marketplaceListingsV2.expiresAt, now),
+                or(
+                  isNull(marketplaceListingsV2.highestBid),
+                  sql`${marketplaceListingsV2.highestBid} <= ${marketplaceListingsV2.price}`,
+                ),
+              ),
+            )
+            .orderBy(asc(marketplaceListingsV2.id))
+            .for("update");
+    const prelockedParticipants = new Set(participantIds);
+    candidates.sort((left, right) => {
+      const unitPrice = (listing: (typeof candidates)[number]) =>
+        Math.ceil(listing.price / Math.max(1, listing.quantity));
+      return (
+        unitPrice(left) - unitPrice(right) ||
+        left.createdAt.getTime() - right.createdAt.getTime() ||
+        left.id - right.id
+      );
+    });
 
     let remaining = requestedQuantity;
     const fills: Array<{
@@ -121,6 +175,13 @@ export async function POST(req: Request) {
 
     for (const listing of candidates) {
       if (remaining <= 0) break;
+      const bidderId = unresolvedMarketplaceHighestBidderId(listing);
+      if (
+        !prelockedParticipants.has(listing.sellerId) ||
+        (bidderId != null && !prelockedParticipants.has(bidderId))
+      ) {
+        continue;
+      }
       let take = Math.min(remaining, listing.quantity);
       let fillPrice = marketplacePartialPrice(
         listing.price,
@@ -143,7 +204,7 @@ export async function POST(req: Request) {
           {},
         );
         taxRate = marketplaceTaxRateForAdventureSupport(
-          adventureSupportActive(sellerCharacter.adventureSupport),
+          adventureSupportTier(sellerCharacter.adventureSupport),
         );
         sellerTaxRates.set(listing.sellerId, taxRate);
       }
@@ -210,19 +271,7 @@ export async function POST(req: Request) {
         throw new Error(`marketplace_stack_delivery_failed:${deliveryError}`);
       }
 
-      if (
-        !listing.bidResolvedAt &&
-        listing.highestBidderId &&
-        (listing.highestBid ?? 0) > 0
-      ) {
-        await tx.insert(marketplaceInbox).values(
-          inboxValues({
-            userId: listing.highestBidderId,
-            payload: { kind: "bid_refund", gold: listing.highestBid! },
-            message: `${listing.itemName} 유예 종료 · ${listing.highestBid!.toLocaleString()}골드 반환`,
-          }),
-        );
-      }
+      await clearMarketplaceHighestBid(tx, listing, now, "expired");
 
       await tx
         .update(marketplaceListingsV2)
@@ -288,7 +337,11 @@ export async function POST(req: Request) {
         ...(V2_CORE_LOOP_V2 ? { bankedGold: nextChar.bankedGold } : {}),
       },
     };
+  }).catch((error) => {
+    if (error instanceof TradeSuspendedError) return tradeSuspendedResponse(error);
+    throw error;
   });
+  if (result instanceof Response) return result;
 
   if (result.status === 200 && "fills" in result) {
     for (const fill of result.fills ?? []) {

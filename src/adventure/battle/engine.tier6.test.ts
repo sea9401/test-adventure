@@ -112,13 +112,13 @@ describe("6티어 — 그림자 군단", () => {
 
 describe("6티어 — 흡혈 갑옷", () => {
   it("받은 피해의 N% HP 회복", () => {
-    // 적 atk 100 → damageToDefender(100,5)=87 피해. 흡혈 30% = floor(87×30/100)=26 회복.
+    // 적 atk 100 → 물리 방어 적용 99 피해. 흡혈 30% = 29 회복.
     const p: PlayerCombat = { ...PLAYER, hp: 1000, maxHp: 1000, bloodfeastPct: 30 };
     let s = initialBattleState(p, enemy(1000, { atk: 100 }), "용사");
     s = advanceTurn(s, p, "용사"); // 본타 7 → 993
     expect(s.enemyHp).toBe(993);
-    s = advanceTurn(s, p, "용사"); // 적 87 피해 + 회복 26 → 1000 - 87 + 26 = 939
-    expect(s.playerHp).toBe(939);
+    s = advanceTurn(s, p, "용사");
+    expect(s.playerHp).toBe(930);
   });
 
   it("HP 0 이 되는 죽음에는 흡혈 회복 미발동", () => {
@@ -256,7 +256,7 @@ describe("6티어 — 만물 행운", () => {
 
 describe("몬스터 다대시 — bonusAttackChancePct", () => {
   it("bonusAttackChancePct 200 보스는 한 enemy phase 에 3회 공격 (1 + 2 확정)", () => {
-    // PLAYER hp 9999, def 5. 적 atk 8, def 3 → damageBetween(8,5)=3. 3대 = 9 데미지.
+    // PLAYER hp 9999, def 5. 적 atk 8의 방어 적용 피해 8. 3대 = 24 데미지.
     const boss: Monster = { ...enemy(1000), bonusAttackChancePct: 200 };
     let s = initialBattleState(PLAYER, boss, "용사");
     s = advanceTurn(s, PLAYER, "용사"); // 1턴 본타 → 적 993
@@ -266,8 +266,7 @@ describe("몬스터 다대시 — bonusAttackChancePct", () => {
       s = advanceTurn(s, PLAYER, "용사");
     }
     expect(s.phase).toBe("player");
-    // 보스 3대 = damageBetween(8,5)×3 = 3×3 = 9 피해
-    expect(s.playerHp).toBe(9999 - 9);
+    expect(s.playerHp).toBe(9999 - 24);
     expect(s.log.some((entry) => entry.text === "적의 3회 공격!")).toBe(true);
   });
 

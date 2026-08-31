@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { PolicyDocument } from "@/components/PolicyDocument";
+import { CHAT_RETENTION_DAYS } from "@/lib/chat-config";
+import { FEED_RETENTION_DAYS } from "@/lib/feed-config";
+import { RETENTION_POLICY } from "@/lib/server/retentionPolicy";
 
-const EFFECTIVE_DATE = "2026년 8월 4일";
+const EFFECTIVE_DATE = "2026년 8월 28일";
 
 export const metadata: Metadata = {
   title: "개인정보처리방침 — 무슨무슨게임",
@@ -49,8 +52,13 @@ export default function PrivacyPage() {
                 <td>게임 진행 저장, 콘텐츠 제공, 부정 이용 방지, 오류 복구</td>
               </tr>
               <tr>
+                <td>홍보 이벤트</td>
+                <td>홍보 참여·보상 기록, 로그인 식별자를 원문 없이 변환한 HMAC 해시</td>
+                <td>홍보 실적 제공, 탈퇴·재가입을 통한 중복 보상 방지</td>
+              </tr>
+              <tr>
                 <td>커뮤니티와 문의</td>
-                <td>채팅, 게시글, 댓글, 신고·건의 내용, 첨부 이미지, 처리 답변</td>
+                <td>채팅, 게시글, 댓글, 신고·건의 내용, 신고 당시 콘텐츠·대상·문맥, 커뮤니티 정책 동의 버전과 시각, 첨부 이미지, 처리 답변</td>
                 <td>커뮤니티 제공, 문의 처리, 분쟁과 운영 기록 확인</td>
               </tr>
               <tr>
@@ -94,13 +102,18 @@ export default function PrivacyPage() {
             </thead>
             <tbody>
               <tr><td>계정, 게임 저장 데이터, 게시글·댓글·문의 등 회원 귀속 정보</td><td>회원 탈퇴 시까지</td></tr>
-              <tr><td>채팅 메시지</td><td>작성 후 3일</td></tr>
-              <tr><td>전체 소식 기록</td><td>발생 후 6개월</td></tr>
-              <tr><td>이상행동·보안 이벤트</td><td>발생 후 90일</td></tr>
+              <tr><td>채팅 메시지</td><td>작성 후 {CHAT_RETENTION_DAYS}일</td></tr>
+              <tr><td>완료·기각된 콘텐츠 신고 기록</td><td>처리 완료 후 {RETENTION_POLICY.resolvedUgcReportDays}일(회원 탈퇴 시 계정 식별값과 표시 이름 익명화)</td></tr>
+              <tr><td>커뮤니티 운영정책 동의 기록</td><td>회원 탈퇴 시까지</td></tr>
+              <tr><td>전체 소식 기록</td><td>발생 후 {FEED_RETENTION_DAYS}일</td></tr>
+              <tr><td>이상행동·보안 이벤트</td><td>발생 후 {RETENTION_POLICY.abuseDays}일</td></tr>
               <tr><td>CloudFront·WAF 접속 및 보안 로그</td><td>생성 후 최대 90일</td></tr>
-              <tr><td>재화 변동·경제 감사 이벤트</td><td>발생 후 180일</td></tr>
+              <tr><td>재화 변동·경제 감사 이벤트</td><td>발생 후 {RETENTION_POLICY.economyDays}일</td></tr>
+              <tr><td>관리자 조치 감사 기록</td><td>발생 후 {RETENTION_POLICY.adminAuditDays}일</td></tr>
+              <tr><td>종료된 이용 제한·경고 기록</td><td>해제·만료 또는 경고 확인 후 {RETENTION_POLICY.endedSanctionDays}일</td></tr>
+              <tr><td>홍보 이벤트 중복 보상 방지 식별 해시</td><td>이벤트 운영 기간 및 종료 후 180일(로그인 식별 원문은 저장하지 않음)</td></tr>
               <tr><td>푸시 구독 정보</td><td>이용자가 알림을 해제하거나 회원 탈퇴할 때까지</td></tr>
-              <tr><td>푸시 중복 발송 방지 기록</td><td>발송 후 최대 180일</td></tr>
+              <tr><td>푸시 중복 발송 방지 기록</td><td>발송 후 최대 {RETENTION_POLICY.pushDeliveryDays}일</td></tr>
               <tr>
                 <td>프로필 이미지</td>
                 <td>교체·삭제 또는 회원 탈퇴 시까지</td>
@@ -377,7 +390,7 @@ export default function PrivacyPage() {
       <section>
         <h2>5. 파기 절차와 방법</h2>
         <p>
-          회원은 게임 메뉴의 ‘환경 설정 → 회원 탈퇴’에서 탈퇴할 수 있습니다. 탈퇴가 완료되면 운영 데이터베이스의 계정과 연결 정보는 삭제되고, 별도 저장된 첨부 이미지 등은 연결 관계를 확인해 파기합니다. 백업에 남은 정보는 보관 주기가 끝나면 복구하기 어려운 방법으로 삭제됩니다.
+          회원은 게임 메뉴의 ‘환경 설정 → 회원 탈퇴’에서 탈퇴할 수 있습니다. 앱에 로그인할 수 없는 경우 <a href="/account-deletion">계정 및 데이터 삭제 안내</a>에 따라 웹에서 요청할 수 있습니다. 탈퇴가 완료되면 운영 데이터베이스의 계정과 연결 정보는 삭제되고, 별도 저장된 첨부 이미지 등은 연결 관계를 확인해 파기합니다. 완료된 안전 신고는 계정 식별값과 표시 이름을 익명화한 뒤 제2조의 기간 동안 보관할 수 있습니다. 백업에 남은 정보는 보관 주기가 끝나면 복구하기 어려운 방법으로 삭제됩니다.
         </p>
       </section>
 

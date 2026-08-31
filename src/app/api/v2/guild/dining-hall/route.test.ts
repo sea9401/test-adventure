@@ -45,11 +45,16 @@ vi.mock("@/lib/server/userRateLimit", () => ({
 vi.mock("@/lib/server/guildActivityLog", () => ({
   logGuildActivity: vi.fn(async () => undefined),
 }));
+vi.mock("@/lib/server/adventurerAssociation", () => ({
+  claimWeeklyFacilitySource: vi.fn(async () => ({ ok: true })),
+  readWeeklyFacilitySource: vi.fn(async () => null),
+}));
 
 import { lockGuildDiningWeekly } from "@/lib/server/guildDining";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
-import { POST } from "./route";
+import { readWeeklyFacilitySource } from "@/lib/server/adventurerAssociation";
+import { GET, POST } from "./route";
 
 function request(body: Record<string, unknown>) {
   return new Request("http://localhost/api/v2/guild/dining-hall", {
@@ -62,6 +67,7 @@ function request(body: Record<string, unknown>) {
 function weekly(
   pantryPoints = 0,
   selectedMenuIds: GuildDiningMenuId[] = ["hearty_stew"],
+  eligibleUserIds = ["u-diner"],
 ) {
   return {
     guildId: 7,
@@ -69,12 +75,13 @@ function weekly(
     selectedMenuIds,
     pantryPoints,
     targetPoints: 60,
-    eligibleUserIds: ["u-diner"],
+    eligibleUserIds,
   };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(readWeeklyFacilitySource).mockResolvedValue(null);
   vi.mocked(lockGuildDiningWeekly).mockResolvedValue(weekly());
   vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
     if (key === "farm.v2") {
@@ -96,6 +103,16 @@ beforeEach(() => {
 });
 
 describe("길드 식당", () => {
+  it("현재 선택한 주간 식당 이용처를 화면 데이터에 포함한다", async () => {
+    vi.mocked(readWeeklyFacilitySource).mockResolvedValue("association");
+
+    const response = await GET();
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.weeklySource).toBe("association");
+  });
+
   it("등록된 농장 식재료를 소비해 공동 준비와 개인 식권 진척을 함께 올린다", async () => {
     const response = await POST(
       request({ action: "donate", ingredientId: "farm:wheat", quantity: 10 }),
@@ -168,11 +185,11 @@ describe("길드 식당", () => {
       recovery: { hp: 250_000, mp: 250_000 },
     });
     expect(json.tickets).toMatchObject({
-      base: 1,
-      contributionEarned: 1,
-      earned: 2,
+      base: 4,
+      contributionEarned: 3,
+      earned: 7,
       used: 1,
-      available: 1,
+      available: 6,
     });
     expect(json.charges).toMatchObject({ hp: 260_000, mp: 270_000 });
     expect(logGuildActivity).toHaveBeenCalledWith(
@@ -181,7 +198,35 @@ describe("길드 식당", () => {
     );
   });
 
-  it("기부하지 않은 주간 참여 길드원도 기본 식권으로 한 번 식사한다", async () => {
+  it("과거 주간 선택 목록과 무관하게 시설에서 해금된 메뉴를 개인이 주문한다", async () => {
+    vi.mocked(lockGuildDiningWeekly).mockResolvedValue(
+      weekly(60, ["hearty_stew"]),
+    );
+
+    const response = await POST(
+      request({ action: "order", menuId: "adventurer_meal" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).ordered).toMatchObject({
+      menuId: "adventurer_meal",
+    });
+  });
+
+  it("시설 레벨보다 높은 메뉴는 개인 선택에서도 거부한다", async () => {
+    vi.mocked(lockGuildDiningWeekly).mockResolvedValue(
+      weekly(60, ["guild_grand_feast"]),
+    );
+
+    const response = await POST(
+      request({ action: "order", menuId: "guild_grand_feast" }),
+    );
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe("menu_unavailable");
+  });
+
+  it("기부하지 않은 주간 참여 길드원도 기본 식권으로 식사한다", async () => {
     vi.mocked(lockGuildDiningWeekly).mockResolvedValue(weekly(60));
     vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
       if (key === "inventory.v2") {
@@ -201,10 +246,38 @@ describe("길드 식당", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.tickets).toMatchObject({ earned: 1, used: 1, available: 0 });
+    expect(json.tickets).toMatchObject({ earned: 4, used: 1, available: 3 });
   });
 
-  it("같은 효과식을 다시 주문하면 기존 만료 시각에 12시간을 더한다", async () => {
+  it("주간 목표 명단이 확정된 뒤 가입한 길드원도 기본 식권으로 식사한다", async () => {
+    vi.mocked(lockGuildDiningWeekly).mockResolvedValue(
+      weekly(60, ["hearty_stew"], []),
+    );
+    vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
+      if (key === "inventory.v2") {
+        return { hpCharges: 10_000, mpCharges: 20_000 };
+      }
+      return {
+        weekKey: kstWeekMondayKey(),
+        guildId: 7,
+        contributionPoints: 0,
+        mealsUsed: 0,
+      };
+    });
+
+    const response = await POST(
+      request({ action: "order", menuId: "hearty_stew" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).tickets).toMatchObject({
+      earned: 4,
+      used: 1,
+      available: 3,
+    });
+  });
+
+  it("같은 효과식을 다시 주문하면 기존 만료 시각에 3시간을 더한다", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-15T00:00:00.000Z"));
     const currentExpiresAt = Date.now() + 60 * 60 * 1000;
@@ -239,7 +312,7 @@ describe("길드 식당", () => {
       expect(response.status).toBe(200);
       expect(json.activeEffect).toMatchObject({
         menuId: "adventurer_meal",
-        expiresAt: currentExpiresAt + 12 * 60 * 60 * 1000,
+        expiresAt: currentExpiresAt + 3 * 60 * 60 * 1000,
       });
     } finally {
       vi.useRealTimers();
@@ -286,14 +359,13 @@ describe("길드 식당", () => {
     }
   });
 
-  it("기부가 시작된 뒤에는 관리자의 메뉴 변경도 거부한다", async () => {
-    vi.mocked(lockGuildDiningWeekly).mockResolvedValue(weekly(1));
+  it("폐기된 주간 메뉴 선택 요청을 거부한다", async () => {
     const response = await POST(
       request({ action: "select_menus", menuIds: ["adventurer_meal"] }),
     );
 
-    expect(response.status).toBe(409);
-    expect((await response.json()).error).toBe("menu_locked");
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe("invalid_body");
     expect(upsertSave).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { FishingView } from "./FishingView";
+import { useGameActivityState } from "./GameStateProvider";
 import { useFishing } from "./useFishing";
 import {
   DEFAULT_FISHING_SPOT_ID,
@@ -12,6 +13,7 @@ import {
 export function FishingPanel({
   onBack,
   onOpenLeaderboard,
+  onOpenDangerous,
   onOpenShop,
   onOpenChallenges,
   onOpenHallOfFame,
@@ -20,6 +22,7 @@ export function FishingPanel({
 }: {
   onBack: () => void;
   onOpenLeaderboard: () => void;
+  onOpenDangerous: () => void;
   onOpenShop: () => void;
   onOpenChallenges: () => void;
   onOpenHallOfFame: () => void;
@@ -27,13 +30,16 @@ export function FishingPanel({
   spotId?: FishingSpotId;
 }) {
   const handlers = useFishing(spotId);
+  const { setFishingActive } = useGameActivityState();
   const spot = FISHING_SPOTS[spotId];
   return (
     <FishingView
       {...handlers}
+      onFishingActiveChange={setFishingActive}
       fishingSpot={spot}
       onBack={onBack}
       onOpenLeaderboard={onOpenLeaderboard}
+      onOpenDangerous={onOpenDangerous}
       onOpenShop={onOpenShop}
       onOpenChallenges={onOpenChallenges}
       onOpenHallOfFame={onOpenHallOfFame}

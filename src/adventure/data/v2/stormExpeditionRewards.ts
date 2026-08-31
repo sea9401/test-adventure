@@ -1,4 +1,5 @@
 import type { V2EquipmentId } from "./v2Equipment";
+import { SP_FRUIT } from "./spFruit";
 import type {
   StormExpeditionEncounterKind,
   StormExpeditionRouteId,
@@ -16,6 +17,48 @@ export const STORM_EXPEDITION_ROUTE_MATERIAL_ID: Record<
 /** 향후 7차 전직 공통 재료. 사용처 출시 전에도 원정에서 선행 수집할 수 있다. */
 export const STORM_ORIGIN_FRAGMENT_MATERIAL_ID = "v2_storm_origin_fragment";
 export const STORM_HEART_FRAGMENT_MATERIAL_ID = "v2_storm_heart_fragment";
+
+export const STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID = SP_FRUIT[5].materialId;
+export const STORM_EXPEDITION_SP_FRUIT_CHANCE = 0.04;
+export const STORM_EXPEDITION_SP_FRUIT_PITY_CLEARS = 25;
+export const STORM_EXPEDITION_SP_FRUIT_CAP = 3;
+
+export type StormExpeditionSpFruitProgress = {
+  pity: number;
+  obtained: number;
+};
+
+export type StormExpeditionSpFruitRoll = {
+  dropped: boolean;
+  next: StormExpeditionSpFruitProgress;
+};
+
+/** 항로와 무관하게 최종 보스 완주 1회를 공용 천장에 반영한다. */
+export function rollStormExpeditionSpFruit(
+  progress: StormExpeditionSpFruitProgress,
+  rng: () => number = Math.random,
+): StormExpeditionSpFruitRoll {
+  const obtained = Math.min(
+    STORM_EXPEDITION_SP_FRUIT_CAP,
+    Math.max(0, Math.floor(Number(progress.obtained) || 0)),
+  );
+  if (obtained >= STORM_EXPEDITION_SP_FRUIT_CAP) {
+    return { dropped: false, next: { pity: 0, obtained } };
+  }
+
+  const pity = Math.min(
+    STORM_EXPEDITION_SP_FRUIT_PITY_CLEARS - 1,
+    Math.max(0, Math.floor(Number(progress.pity) || 0)),
+  );
+  const dropped = pity + 1 >= STORM_EXPEDITION_SP_FRUIT_PITY_CLEARS
+    || rng() < STORM_EXPEDITION_SP_FRUIT_CHANCE;
+  return {
+    dropped,
+    next: dropped
+      ? { pity: 0, obtained: obtained + 1 }
+      : { pity: pity + 1, obtained },
+  };
+}
 
 export const STORM_EXPEDITION_MATERIALS = {
   [STORM_EXPEDITION_ROUTE_MATERIAL_ID.wreckage]: {
@@ -55,31 +98,116 @@ export const STORM_EXPEDITION_EQUIPMENT_IDS: Record<
   readonly V2EquipmentId[]
 > = {
   wreckage: [
-    "v2_storm_wreckage_greatsword",
-    "v2_storm_wreckage_armor",
-    "v2_storm_wreckage_gloves",
-    "v2_storm_wreckage_boots",
     "v2_storm_wreckage_ring",
     "v2_storm_wreckage_necklace",
+    "v2_storm_breaker_ring",
+    "v2_storm_breaker_necklace",
   ],
   gale: [
-    "v2_storm_gale_bow",
-    "v2_storm_gale_dagger",
-    "v2_storm_gale_armor",
-    "v2_storm_gale_gloves",
-    "v2_storm_gale_boots",
     "v2_storm_gale_ring",
     "v2_storm_gale_necklace",
+    "v2_storm_shadow_ring",
+    "v2_storm_shadow_necklace",
+    "v2_storm_venom_ring",
+    "v2_storm_venom_necklace",
   ],
   thunder: [
-    "v2_storm_thunder_staff",
-    "v2_storm_thunder_armor",
-    "v2_storm_thunder_gloves",
-    "v2_storm_thunder_boots",
     "v2_storm_thunder_ring",
     "v2_storm_thunder_necklace",
+    "v2_storm_sanctuary_ring",
+    "v2_storm_sanctuary_necklace",
   ],
 };
+
+export type StormExpeditionUniqueRule = {
+  guardianRouteChance: number;
+  finalRouteChance: number;
+  finalCrossChance: number;
+  finalHeartChance: number;
+};
+
+export const STORM_EXPEDITION_UNIQUE_LOOT: StormExpeditionUniqueRule = {
+  guardianRouteChance: 0.0015,
+  finalRouteChance: 0.004,
+  finalCrossChance: 0.002,
+  finalHeartChance: 0.0005,
+};
+
+export const STORM_EXPEDITION_ROUTE_UNIQUE_IDS: Record<
+  StormExpeditionRouteId,
+  V2EquipmentId
+> = {
+  wreckage: "v2_storm_sig_wreckage_power_armor",
+  gale: "v2_storm_sig_gale_orbit_boots",
+  thunder: "v2_storm_sig_thunder_return_ring",
+};
+
+export const STORM_EXPEDITION_CROSS_UNIQUE_IDS: readonly V2EquipmentId[] = [
+  "v2_storm_sig_triphase_gloves",
+  "v2_storm_sig_confluence_necklace",
+];
+
+export const STORM_EXPEDITION_HEART_UNIQUE_ID: V2EquipmentId =
+  "v2_storm_sig_heart_necklace";
+
+export type StormExpeditionUniqueLoot = {
+  routeUniqueId: V2EquipmentId | null;
+  crossUniqueId: V2EquipmentId | null;
+  heartUniqueId: V2EquipmentId | null;
+  uniqueIds: V2EquipmentId[];
+};
+
+/** 수호자와 최종 보스에서만 굴리는 독립 유니크 보상. 중복 보유 여부는 제한하지 않는다. */
+export function rollStormExpeditionUniqueLoot(
+  routeId: StormExpeditionRouteId,
+  encounterKind: StormExpeditionEncounterKind,
+  rng: () => number = Math.random,
+  modifiers: { uniqueChanceMultiplier?: number } = {},
+): StormExpeditionUniqueLoot {
+  let routeUniqueId: V2EquipmentId | null = null;
+  let crossUniqueId: V2EquipmentId | null = null;
+  let heartUniqueId: V2EquipmentId | null = null;
+  const multiplier = Math.max(0, modifiers.uniqueChanceMultiplier ?? 1);
+
+  if (encounterKind === "guardian") {
+    if (
+      rng() <
+      Math.min(1, STORM_EXPEDITION_UNIQUE_LOOT.guardianRouteChance * multiplier)
+    ) {
+      routeUniqueId = STORM_EXPEDITION_ROUTE_UNIQUE_IDS[routeId];
+    }
+  } else if (encounterKind === "final_boss") {
+    if (
+      rng() <
+      Math.min(1, STORM_EXPEDITION_UNIQUE_LOOT.finalRouteChance * multiplier)
+    ) {
+      routeUniqueId = STORM_EXPEDITION_ROUTE_UNIQUE_IDS[routeId];
+    }
+    if (
+      rng() <
+      Math.min(1, STORM_EXPEDITION_UNIQUE_LOOT.finalCrossChance * multiplier)
+    ) {
+      crossUniqueId = STORM_EXPEDITION_CROSS_UNIQUE_IDS[
+        Math.min(
+          STORM_EXPEDITION_CROSS_UNIQUE_IDS.length - 1,
+          Math.floor(rng() * STORM_EXPEDITION_CROSS_UNIQUE_IDS.length),
+        )
+      ] ?? null;
+    }
+    if (rng() < STORM_EXPEDITION_UNIQUE_LOOT.finalHeartChance) {
+      heartUniqueId = STORM_EXPEDITION_HEART_UNIQUE_ID;
+    }
+  }
+
+  return {
+    routeUniqueId,
+    crossUniqueId,
+    heartUniqueId,
+    uniqueIds: [routeUniqueId, crossUniqueId, heartUniqueId].filter(
+      (id): id is V2EquipmentId => id !== null,
+    ),
+  };
+}
 
 export type StormExpeditionLoot = {
   materials: Record<string, number>;

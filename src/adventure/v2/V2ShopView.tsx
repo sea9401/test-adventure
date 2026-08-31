@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { fetchGameState } from "./fetchGameState";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
@@ -39,10 +40,13 @@ import {
   type ItemCardAnchor,
 } from "./V2ItemCard";
 import { sortEquipInstances } from "./v2ItemListShared";
-import { useGameState } from "./GameStateProvider";
+import { useGameResourceState } from "./GameStateProvider";
 import { useSingleFlightGuard } from "@/lib/useSingleFlight";
 import { useSystemToast } from "./RewardToastProvider";
-import { EquipmentCodexBadge } from "./EquipmentCodexBadge";
+import { shopSaleBalancePatch, shopSaleBankNotice } from "./shopSaleBalance";
+import { confirmGameAction } from "@/components/ui/gameDialog";
+import { boundEquipmentDisposalConfirmation } from "./item-card/shared";
+import { V2_EQUIPMENT_LIBERATION } from "@/adventure/data/v2/coreLoopConfig";
 
 // v2 상점 — 상위 탭: 구매 / 판매.
 //  - 구매: 장비 카탈로그 (무기/방어구/장신구). 보유 중이어도 추가 구매 가능.
@@ -74,7 +78,7 @@ const MODE_TABS: ReadonlyArray<{ key: Mode; label: string }> = [
 
 // 구매 표 열: 아이템 | 종류 | 가격 | 위력/무게 | 구매. 종류는 이름과 가격 사이.
 const BUY_GRID_CLASS =
-  "grid grid-cols-[minmax(0,1fr)_2.75rem_4.25rem_4.25rem_4rem] sm:grid-cols-[minmax(0,1fr)_4.5rem_6.5rem_6rem_5.25rem]";
+  "grid-cols-1 sm:grid-cols-[minmax(0,1fr)_4.5rem_6.5rem_6rem_5.25rem]";
 
 // 슬롯별 상점 취급 장비 id — concept 정렬 (티어는 표시하지 않지만 정렬엔 사용).
 const SHOP_IDS_BY_SLOT: Record<SlotTab, V2EquipmentId[]> = (() => {
@@ -134,7 +138,7 @@ export function V2ShopView({
 }) {
   // 지불 게이트는 보유+은행(코어루프 on) — 은행 잔액은 로컬(이 화면의 me/state·구매 응답)로
   //   추적해 항상 신선하게 유지하고, 앱 전역(은행 패널 등)을 위해 컨텍스트도 함께 동기화한다.
-  const { coreLoopOn, applyResourcePatch } = useGameState();
+  const { coreLoopOn, applyResourcePatch } = useGameResourceState();
   const [gold, setGold] = useState<number>(0);
   const [bankedGold, setBankedGold] = useState<number>(0);
   // 지불 가능 총액 — flag off 면 보유만(===gold, prod 무변경), on 이면 보유+은행.
@@ -164,7 +168,7 @@ export function V2ShopView({
     setLoadError(false);
     try {
       const [stateRes, equipRes, invRes] = await Promise.all([
-        fetch("/api/v2/me/state"),
+        fetchGameState(),
         fetch("/api/v2/me/equipment"),
         fetch("/api/v2/me/inventory"),
       ]);
@@ -273,22 +277,44 @@ export function V2ShopView({
         return;
       }
       setBusyId(iid);
+      let confirmedBound = false;
       try {
-        const res = await fetch("/api/v2/shop/equipment/sell", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ iid }),
-        });
-        const j = (await res.json().catch(() => null)) as
-          | {
+        const requestSale = async (confirmBound: boolean) => {
+          const res = await fetch("/api/v2/shop/equipment/sell", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              iid,
+              ...(confirmBound ? { confirmBound: true } : {}),
+            }),
+          });
+          const body = (await res.json().catch(() => null)) as
+            | {
               ok?: boolean;
               error?: string;
+              item?: {
+                iid: string;
+                itemName: string;
+                liberation?: V2EquipInstance["liberation"];
+              };
               retryAfterSec?: number;
               gold?: number;
+              bankedGold?: number;
               owned?: V2EquipInstance[];
               sellPrice?: number;
             }
           | null;
+          return { res, body };
+        };
+        let { res, body: j } = await requestSale(false);
+        if (j?.error === "bound_confirmation_required" && j.item) {
+          confirmedBound = await confirmGameAction(
+            boundEquipmentDisposalConfirmation([j.item], "판매"),
+          );
+          if (!confirmedBound) return;
+          ({ res, body: j } = await requestSale(true));
+          if (!j?.ok) await refresh();
+        }
         if (!j?.ok) {
           const reason =
             j?.error === "equipped"
@@ -302,14 +328,17 @@ export function V2ShopView({
           return;
         }
         const item = V2_EQUIPMENT[inst.id];
-        notifySystem(`✓ ${item.name} 판매 (+${j.sellPrice ?? 0} G)`);
+        notifySystem(shopSaleBankNotice(item.name, j.sellPrice ?? 0));
         const insts = j.owned ?? [];
         setOwnedInsts(insts);
-        if (typeof j.gold === "number") {
-          setGold(j.gold);
-          applyResourcePatch({ gold: j.gold });
+        const balancePatch = shopSaleBalancePatch(j);
+        if (balancePatch.gold != null) setGold(balancePatch.gold);
+        if (balancePatch.bankedGold != null) {
+          setBankedGold(balancePatch.bankedGold);
         }
+        applyResourcePatch(balancePatch);
       } catch (err) {
+        if (confirmedBound) await refresh();
         notifySystem(`✗ ${(err as Error).message}`);
       } finally {
         release();
@@ -342,6 +371,7 @@ export function V2ShopView({
             error?: string;
             retryAfterSec?: number;
             gold?: number;
+            bankedGold?: number;
             materials?: Partial<Record<V2MaterialId, number>>;
             sold?: { count: number; gold: number };
           }
@@ -352,13 +382,18 @@ export function V2ShopView({
       }
       const mat = V2_MATERIALS[id];
       notifySystem(
-        `✓ ${mat.name} ×${j.sold?.count ?? 0} 판매 (+${j.sold?.gold ?? 0} G)`,
+        shopSaleBankNotice(
+          `${mat.name} ×${j.sold?.count ?? 0}`,
+          j.sold?.gold ?? 0,
+        ),
       );
       setMaterials(j.materials ?? {});
-      if (typeof j.gold === "number") {
-        setGold(j.gold);
-        applyResourcePatch({ gold: j.gold });
+      const balancePatch = shopSaleBalancePatch(j);
+      if (balancePatch.gold != null) setGold(balancePatch.gold);
+      if (balancePatch.bankedGold != null) {
+        setBankedGold(balancePatch.bankedGold);
       }
+      applyResourcePatch(balancePatch);
     } catch (err) {
       notifySystem(`✗ ${(err as Error).message}`);
     } finally {
@@ -424,8 +459,8 @@ export function V2ShopView({
     <Root
       className={
         embedded
-          ? "space-y-4 text-zinc-900 dark:text-zinc-100"
-          : "mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100"
+          ? "w-full min-w-0 space-y-4 text-zinc-900 dark:text-zinc-100"
+          : "mx-auto w-full min-w-0 max-w-[720px] space-y-4 p-4 text-zinc-900 sm:p-6 dark:text-zinc-100"
       }
     >
       {!embedded ? (
@@ -484,7 +519,8 @@ export function V2ShopView({
           <Card padding="none" className="overflow-hidden dark:border-zinc-700">
             <div className="text-sm">
               <div
-                className={`${BUY_GRID_CLASS} border-b border-zinc-200 bg-zinc-100/60 text-[11px] text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-400`}
+                data-testid="shop-buy-header"
+                className={`hidden sm:grid ${BUY_GRID_CLASS} border-b border-zinc-200 bg-zinc-100/60 text-[11px] text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-400`}
                 role="row"
               >
                 <SortTh
@@ -588,6 +624,9 @@ export function V2ShopView({
           enhance={card.inst?.enhance}
           craftQuality={card.inst?.craftQuality}
           craftedBy={card.inst?.craftedBy}
+          liberation={
+            V2_EQUIPMENT_LIBERATION ? card.inst?.liberation : undefined
+          }
           equippedIds={equipped}
         />
       )}
@@ -626,7 +665,6 @@ function EquipmentName({
         >
           {item.name}
         </span>
-        <EquipmentCodexBadge itemId={item.id} />
         {showTypeChip && <ItemTypeChip item={item} />}
       </div>
     </button>
@@ -695,28 +733,54 @@ function BuyEquipmentRow({
   const affordable = gold >= buyPrice;
   return (
     <div
-      className={`ui-shop-row ${BUY_GRID_CLASS} items-center hover:bg-zinc-50 dark:hover:bg-zinc-800/60`}
+      data-testid="shop-buy-row"
+      className={`ui-shop-row grid ${BUY_GRID_CLASS} items-center hover:bg-zinc-50 dark:hover:bg-zinc-800/60`}
       role="row"
     >
+      <div className="min-w-0 space-y-3 p-3 sm:hidden" role="cell">
+        <EquipmentName item={item} onOpenCard={onOpenCard} showTypeChip={false} />
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-300">
+          <ItemTypeChip item={item} />
+          <span className="font-bold tabular-nums text-zinc-900 dark:text-white">
+            {buyPrice.toLocaleString()}G
+          </span>
+          <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
+            위력 {item.power}
+            <span className="text-zinc-400 dark:text-zinc-500">
+              {" "}/ 무게 {effectiveStats(item, undefined).weight}
+            </span>
+          </span>
+        </div>
+        <Button
+          onClick={() => onBuy(id)}
+          disabled={busy || !affordable}
+          title={`${buyPrice.toLocaleString()} G 에 구매`}
+          variant="success"
+          size="xs"
+          className="w-full sm:w-auto whitespace-nowrap leading-none"
+        >
+          {busy ? "…" : "구매"}
+        </Button>
+      </div>
       {/* 구매 화면은 보유 개수(×N) 미표기 — 판매 화면만 표기. 종류 칩은 별도 열로 빼서
           이름 옆 칩은 숨긴다(중복 방지). */}
-      <div className="min-w-0 pl-4 pr-2 py-3 sm:pl-5 sm:pr-3" role="cell">
+      <div className="hidden min-w-0 py-3 pl-4 pr-2 sm:block sm:pl-5 sm:pr-3" role="cell">
         <EquipmentName item={item} onOpenCard={onOpenCard} showTypeChip={false} />
       </div>
       <div
-        className="flex min-w-0 items-center px-2 py-3 sm:px-3"
+        className="hidden min-w-0 items-center px-2 py-3 sm:flex sm:px-3"
         role="cell"
       >
         <ItemTypeChip item={item} />
       </div>
       <div
-        className="min-w-0 whitespace-nowrap px-2 py-3 text-right font-bold tabular-nums text-zinc-900 dark:text-white sm:px-3"
+        className="hidden min-w-0 whitespace-nowrap px-2 py-3 text-right font-bold tabular-nums text-zinc-900 sm:block sm:px-3 dark:text-white"
         role="cell"
       >
         <span className="ui-price-pill">{buyPrice.toLocaleString()}G</span>
       </div>
       <div
-        className="min-w-0 whitespace-nowrap px-2 py-3 text-right tabular-nums text-xs text-zinc-500 dark:text-zinc-400 sm:px-3"
+        className="hidden min-w-0 whitespace-nowrap px-2 py-3 text-right text-xs tabular-nums text-zinc-500 sm:block sm:px-3 dark:text-zinc-400"
         role="cell"
       >
         {item.power}
@@ -725,7 +789,7 @@ function BuyEquipmentRow({
           / {effectiveStats(item, undefined).weight}
         </span>
       </div>
-      <div className="min-w-0 px-1 py-3 text-right sm:px-3" role="cell">
+      <div className="hidden min-w-0 px-1 py-3 text-right sm:block sm:px-3" role="cell">
         <Button
           onClick={() => onBuy(id)}
           disabled={busy || !affordable}
@@ -782,7 +846,6 @@ function SellEquipmentRow({
             {item.name}
           </span>
           <ItemTypeChip item={item} />
-          <EquipmentCodexBadge itemId={item.id} />
           {qualityPct != null ? (
             <span className="text-[10px] font-semibold tabular-nums" title="품질">
               품질 <QualityPctText pct={qualityPct} />

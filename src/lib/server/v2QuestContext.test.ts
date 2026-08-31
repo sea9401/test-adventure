@@ -5,6 +5,7 @@ import {
   parseTrackedQuestId,
   type QuestExtras,
 } from "./v2QuestContext";
+import type { QuestCtx } from "@/adventure/data/v2/v2Quests";
 
 describe("가이드 퀘스트 추적 저장", () => {
   it("추적 id를 안전하게 읽고 해제 시 저장 필드에서 제거한다", () => {
@@ -33,9 +34,39 @@ const EXTRAS: QuestExtras = {
   fishSpecies: 0,
   fishCaught: 0,
   arenaTimes: [],
+  referralCount: 57,
 };
 
 describe("buildQuestCtx 신규 콘텐츠 누적 신호", () => {
+  it("홍보 링크로 합류한 누적 인원을 업적 컨텍스트로 전달한다", () => {
+    const ctx = buildQuestCtx({
+      charRaw: {},
+      proficiencyRaw: {},
+      advLogRaw: {},
+      equipmentRaw: {},
+      skillsRaw: {},
+      craftingRaw: {},
+      extras: EXTRAS,
+    });
+
+    expect(ctx.referralCount).toBe(57);
+  });
+
+  it("유니크 장비는 현재 보유량이 아니라 저장된 누적 획득량을 사용한다", () => {
+    const ctx = buildQuestCtx({
+      charRaw: {},
+      proficiencyRaw: {},
+      advLogRaw: { uniqueEquipmentAcquired: 28 },
+      equipmentRaw: { owned: [], equipped: {} },
+      skillsRaw: {},
+      craftingRaw: {},
+      equipmentCodexRaw: {},
+      extras: EXTRAS,
+    });
+
+    expect((ctx as QuestCtx & { uniqueAcquired?: number }).uniqueAcquired).toBe(28);
+  });
+
   it("요리 XP·발견 목록과 길드 활동 누적을 업적 컨텍스트로 변환한다", () => {
     const ctx = buildQuestCtx({
       charRaw: {},
@@ -46,12 +77,12 @@ describe("buildQuestCtx 신규 콘텐츠 누적 신호", () => {
       craftingRaw: {},
       cookingRaw: {
         xp: 810,
-        discoveredRecipeIds: ["rustic_bread", "herb_tea", "rustic_bread"],
+        discoveredRecipeIds: ["tomato_salad", "fresh_fish_soup", "tomato_salad"],
         stats: {
           dishesCooked: 120,
-          ordersCompleted: 15,
+          deliveriesCompleted: 15,
           masterpiecesCooked: 7,
-          rareIngredientDishes: 9,
+          researchSuccesses: 9,
         },
       },
       extras: EXTRAS,

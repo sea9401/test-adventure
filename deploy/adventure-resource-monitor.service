@@ -8,6 +8,9 @@ Type=oneshot
 WorkingDirectory=/home/ec2-user/adventure-rpg
 ExecStart=/usr/bin/bash deploy/check-resources.sh
 Environment=RESOURCE_MONITOR_STATE_PATH=/var/lib/adventure-resource-monitor/state
+Environment=OPS_HEARTBEAT_DIR=/var/lib/adventure-resource-monitor/heartbeats
+Environment=OPS_HEARTBEAT_ALERT_STATE_PATH=/var/lib/adventure-resource-monitor/heartbeat-alert-state.json
+Environment=OPS_HEARTBEAT_RULES_PATH=/home/ec2-user/adventure-rpg/deploy/ops-heartbeats.json
 User=ec2-user
 Group=ec2-user
 UMask=0077

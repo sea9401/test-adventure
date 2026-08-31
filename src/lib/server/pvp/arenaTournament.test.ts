@@ -1,14 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  ARENA_TOURNAMENT_BET_FEE_BPS,
-  ARENA_TOURNAMENT_BET_MAX_GOLD,
-  ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD,
   ARENA_TOURNAMENT_ROUND_INTERVAL_MS,
   ARENA_TOURNAMENT_MIN_MATCHES,
   arenaTournamentBracketOverview,
   arenaRankedEndsAt,
   arenaSeasonPhase,
-  arenaTournamentBetPayouts,
   arenaTournamentBracketSize,
   arenaTournamentFirstRoundPairs,
   arenaTournamentSnapshotsAt,
@@ -41,15 +37,15 @@ function entrants(count: number): ArenaTournamentEntrant<{ seed: number }>[] {
 describe("arena tournament phase", () => {
   const endAt = new Date("2026-07-26T15:00:00.000Z");
 
-  it("일요일 00시에 예선을 닫고 19시에 챔피언십을 시작한다", () => {
+  it("일요일 00시에 예선을 닫고 12시에 세팅을 동결한 뒤 13시에 챔피언십을 시작한다", () => {
     expect(arenaRankedEndsAt(endAt).toISOString()).toBe(
       "2026-07-25T15:00:00.000Z",
     );
     expect(arenaTournamentStartsAt(endAt).toISOString()).toBe(
-      "2026-07-26T10:00:00.000Z",
+      "2026-07-26T04:00:00.000Z",
     );
     expect(arenaTournamentSnapshotsAt(endAt).toISOString()).toBe(
-      "2026-07-26T09:00:00.000Z",
+      "2026-07-26T03:00:00.000Z",
     );
     expect(arenaSeasonPhase(endAt, new Date("2026-07-25T14:59:59.999Z"))).toBe(
       "ranked",
@@ -105,6 +101,39 @@ describe("arena tournament replay retention", () => {
     });
     expect(bracket.matches[0]!.games[0]!.replay).toBeDefined();
   });
+
+  it("불명예 참가자는 공개 대진표에서 이름과 아바타를 숨기고 결과는 보존한다", () => {
+    const scheduled = createArenaTournamentSchedule({
+      seasonId: "2026-W32",
+      generatedAt: new Date(0),
+      startsAt: new Date(0),
+      entrants: entrants(8),
+      rng: () => 0.5,
+    });
+    const dishonoredUserId = scheduled.participants[0]!.userId;
+    const bracket = {
+      ...scheduled,
+      championUserId: dishonoredUserId,
+      dishonoredUserIds: [dishonoredUserId],
+      rewards: [{ userId: dishonoredUserId, placement: "1위", coins: 600 }],
+    };
+
+    const overview = arenaTournamentBracketOverview(bracket);
+    const publicParticipant = overview.participants.find(
+      (participant) => participant.userId === dishonoredUserId,
+    );
+
+    expect(publicParticipant).toMatchObject({
+      userId: dishonoredUserId,
+      name: "불명예 처리된 참가자",
+      dishonored: true,
+    });
+    expect(publicParticipant?.avatar).toBeUndefined();
+    expect(JSON.stringify(overview)).not.toContain("참가자 1");
+    expect(overview.championUserId).toBe(dishonoredUserId);
+    expect(overview.rewards).toEqual(bracket.rewards);
+    expect(overview.matches).toHaveLength(bracket.matches.length);
+  });
 });
 
 describe("arena tournament schedule", () => {
@@ -132,8 +161,8 @@ describe("arena tournament schedule", () => {
     }
   });
 
-  it("같은 라운드는 동시에, 다음 라운드는 15분 뒤로 예약한다", () => {
-    const startsAt = new Date("2026-07-26T10:00:00.000Z");
+  it("같은 라운드는 동시에, 다음 라운드는 5분 뒤로 예약한다", () => {
+    const startsAt = new Date("2026-07-26T04:00:00.000Z");
     const bracket = createArenaTournamentSchedule({
       seasonId: "2026-W30",
       generatedAt: new Date("2026-07-25T15:00:00.000Z"),
@@ -158,8 +187,8 @@ describe("arena tournament schedule", () => {
     expect(nextDueArenaTournamentMatch(bracket, startsAt)?.sequence).toBe(1);
   });
 
-  it("32강은 20시에 3·4위전, 20시 15분에 결승을 예약한다", () => {
-    const startsAt = new Date("2026-07-26T10:00:00.000Z");
+  it("32강은 13시 20분에 3·4위전, 13시 25분에 결승을 예약한다", () => {
+    const startsAt = new Date("2026-07-26T04:00:00.000Z");
     const bracket = createArenaTournamentSchedule({
       seasonId: "2026-W30",
       generatedAt: new Date("2026-07-25T15:00:00.000Z"),
@@ -172,13 +201,13 @@ describe("arena tournament schedule", () => {
       kind: "third_place",
       roundName: "3·4위전",
       sequence: 31,
-      scheduledAt: "2026-07-26T11:00:00.000Z",
+      scheduledAt: "2026-07-26T04:20:00.000Z",
     });
     expect(bracket.matches.at(-1)).toMatchObject({
       kind: "final",
       roundName: "결승",
       sequence: 32,
-      scheduledAt: "2026-07-26T11:15:00.000Z",
+      scheduledAt: "2026-07-26T04:25:00.000Z",
     });
   });
 
@@ -314,47 +343,5 @@ describe("arena tournament schedule", () => {
       matches: [],
       rewards: [],
     });
-  });
-});
-
-describe("arena tournament pool betting", () => {
-  it("경기당 150만, 주간 600만 골드까지 베팅할 수 있다", () => {
-    expect(ARENA_TOURNAMENT_BET_MAX_GOLD).toBe(1_500_000);
-    expect(ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD).toBe(6_000_000);
-    expect(ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD).toBe(
-      ARENA_TOURNAMENT_BET_MAX_GOLD * 4,
-    );
-  });
-
-  it("패배 풀에서 5%를 회수하고 승리 선택자에게 베팅 비율대로 분배한다", () => {
-    const result = arenaTournamentBetPayouts({
-      winnerUserId: "p1",
-      feeBps: ARENA_TOURNAMENT_BET_FEE_BPS,
-      bets: [
-        { userId: "a", chosenUserId: "p1", amount: 1_000 },
-        { userId: "b", chosenUserId: "p1", amount: 3_000 },
-        { userId: "c", chosenUserId: "p2", amount: 2_000 },
-      ],
-    });
-    expect(result.totalPool).toBe(6_000);
-    expect(result.fee).toBe(100);
-    expect(result.payouts).toEqual([
-      { userId: "a", amount: 1_475, status: "won" },
-      { userId: "b", amount: 4_425, status: "won" },
-      { userId: "c", amount: 0, status: "lost" },
-    ]);
-  });
-
-  it("승리자를 고른 사람이 없으면 전액 환불한다", () => {
-    const result = arenaTournamentBetPayouts({
-      winnerUserId: "p1",
-      bets: [
-        { userId: "a", chosenUserId: "p2", amount: 1_000 },
-        { userId: "b", chosenUserId: "p2", amount: 2_000 },
-      ],
-    });
-    expect(result.refunded).toBe(true);
-    expect(result.fee).toBe(0);
-    expect(result.payouts.map((payout) => payout.amount)).toEqual([1_000, 2_000]);
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { V2CharacterBasics } from "@/adventure/v2/V2CharacterBasics";
+import type { BuildAlignmentAdvisory } from "@/adventure/data/v2/buildAlignment";
 
 // 내 정보 "기본 정보" 카드 QA — me/state 주입값 대신 mock 으로 변형(속성·길드 유무·자릿수) 확인.
 // 로그인/DB 불필요.
@@ -11,6 +12,7 @@ const CASES: {
   points: number;
   battleCount: number;
   power: number;
+  buildAdvisory?: BuildAlignmentAdvisory;
 }[] = [
   {
     title: "별빛 · 길드 소속",
@@ -27,6 +29,12 @@ const CASES: {
     points: 30,
     battleCount: 5,
     power: 112,
+    buildAdvisory: {
+      focus: "magic",
+      issues: ["growth", "job"],
+      message:
+        "현재 주 공격은 마법 중심이지만 성장 능력치와 현재 직업 보너스가 물리 계열에 치우쳐 있습니다. 지능·정신 성장과 마법 계열 직업을 확인해 주세요.",
+    },
   },
   {
     title: "무속성 · 큰 수치",
@@ -63,6 +71,7 @@ export default function CharacterBasicsPreview() {
             points={c.points}
             battleCount={c.battleCount}
             power={c.power}
+            buildAdvisory={c.buildAdvisory}
           />
         </div>
       ))}

@@ -7,6 +7,7 @@ export const GUILD_FACILITY_IDS = [
   "alchemy_workshop",
   "dining_hall",
   "trade_post",
+  "guild_warehouse",
 ] as const satisfies readonly SettlementBuildingId[];
 
 export type GuildFacilityId = (typeof GUILD_FACILITY_IDS)[number];
@@ -18,6 +19,7 @@ export const GUILD_FACILITY_LABELS: Record<GuildFacilityId, string> = {
   alchemy_workshop: "연금 공방",
   dining_hall: "길드 식당",
   trade_post: "교역소",
+  guild_warehouse: "길드 창고",
 };
 
 // 메인 길드 드롭다운과 길드 시설 목록이 공유하는 아이콘 색상.
@@ -28,6 +30,7 @@ export const GUILD_FACILITY_ICON_COLORS: Record<GuildFacilityId, string> = {
   alchemy_workshop: "text-violet-600 dark:text-violet-400",
   dining_hall: "text-emerald-600 dark:text-emerald-400",
   trade_post: "text-teal-600 dark:text-teal-400",
+  guild_warehouse: "text-blue-600 dark:text-blue-400",
 };
 
 export function isGuildFacilityId(
@@ -39,7 +42,7 @@ export function isGuildFacilityId(
   );
 }
 
-export function unlockedGuildFacilityIds(
+export function availableGuildFacilityIds(
   buildings?: Partial<Record<SettlementBuildingId, number>>,
 ): GuildFacilityId[] {
   return GUILD_FACILITY_IDS.filter((id) => (buildings?.[id] ?? 0) > 0);

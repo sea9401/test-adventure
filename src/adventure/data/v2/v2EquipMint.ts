@@ -4,14 +4,14 @@
 import {
   genEquipIid,
   parseCraftedBy,
-  parseEquipRoll,
+  parseEquipRollForItem,
   parseInstanceCraftQuality,
+  parseInstanceEnhance,
   V2_EQUIPMENT,
   type V2EquipInstance,
   type V2EquipmentId,
   type V2EquipRoll,
 } from "./v2Equipment";
-import { parseEnhance } from "./v2Enhance";
 import { rollItemStats } from "./v2EquipVariance";
 
 /** 무굴림 개체 — 상점 정가·퀘스트 보상·스타터처럼 "카탈로그값 그대로"가 의도인 발급. */
@@ -26,8 +26,9 @@ export function mintEquipInstance(
 export function mintRolledEquipInstance(
   id: V2EquipmentId,
   rng: () => number = Math.random,
+  options?: { minimumQualityPct?: number },
 ): V2EquipInstance {
-  return mintEquipInstance(id, rollItemStats(V2_EQUIPMENT[id], rng));
+  return mintEquipInstance(id, rollItemStats(V2_EQUIPMENT[id], rng, options));
 }
 
 /** 거래소의 옛 매물 payload 에 실제 강화 상태가 있는지 판정한다. */
@@ -37,22 +38,28 @@ export function listedEquipEnhance(payload: unknown) {
         craftedBy?: unknown;
         craftQuality?: unknown;
         enhance?: unknown;
+        stormRefined?: unknown;
       })
     | null
     | undefined;
   const craftedBy = parseCraftedBy(payloadRaw?.craftedBy);
-  const craftQuality = parseInstanceCraftQuality(
-    payloadRaw?.craftQuality,
+  return parseInstanceEnhance(
     payloadRaw?.enhance,
+    payloadRaw?.craftQuality,
     craftedBy,
   );
-  return craftQuality ? undefined : parseEnhance(payloadRaw?.enhance);
+}
+
+/** 거래 payload에 명시적으로 저장된 계정 귀속 여부. */
+export function listedEquipBound(payload: unknown): boolean {
+  return (payload as { bound?: unknown } | null | undefined)?.bound === true;
 }
 
 /**
  * 거래소 매물 payload(굴림+강화+제작품질+제작자) → 새 iid 개체 복원 — buy/cancel/expire 공용.
  * 옛 행은 raw roll 만 저장돼 있어 방어 파스로 양형을 흡수한다.
- * craftQuality 가 있으면 enhance 는 무시(양쪽 동시 부착 금지 규약 — buy/cancel 기존 로직).
+ * 명시적 craftQuality와 실제 enhance는 별도 축으로 함께 복원한다. 구형 제작품이 enhance에
+ * 저장한 품질만 parseInstanceEnhance에서 강화로 취급하지 않는다.
  */
 export function mintListedEquipInstance(
   id: V2EquipmentId,
@@ -63,10 +70,12 @@ export function mintListedEquipInstance(
         craftedBy?: unknown;
         craftQuality?: unknown;
         enhance?: unknown;
+        bound?: unknown;
+        stormRefined?: unknown;
       })
     | null
     | undefined;
-  const roll = parseEquipRoll(payloadRaw ?? undefined);
+  const roll = parseEquipRollForItem(V2_EQUIPMENT[id], payloadRaw ?? undefined);
   const craftedBy = parseCraftedBy(payloadRaw?.craftedBy);
   const craftQuality = parseInstanceCraftQuality(
     payloadRaw?.craftQuality,
@@ -74,10 +83,13 @@ export function mintListedEquipInstance(
     craftedBy,
   );
   const enhance = listedEquipEnhance(payloadRaw);
+  const bound = listedEquipBound(payloadRaw);
   return {
     ...mintEquipInstance(id, roll),
     ...(enhance ? { enhance } : {}),
+    ...(bound ? { bound: true as const } : {}),
     ...(craftQuality ? { craftQuality } : {}),
     ...(craftedBy ? { craftedBy } : {}),
+    ...(payloadRaw?.stormRefined === true ? { stormRefined: true } : {}),
   };
 }

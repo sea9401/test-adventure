@@ -1,11 +1,6 @@
 import { ARENA_SHOP_CONSUMABLES } from "@/adventure/v2/arenaShop";
 import { STAMINA_POTION_RESTORE } from "@/adventure/v2/staminaPotions";
 import {
-  ARENA_TOURNAMENT_BET_MAX_GOLD,
-  ARENA_TOURNAMENT_BET_MIN_GOLD,
-  ARENA_TOURNAMENT_BET_CLOSE_MS,
-  ARENA_TOURNAMENT_BET_FEE_BPS,
-  ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD,
   ARENA_TOURNAMENT_MIN_MATCHES,
   ARENA_TOURNAMENT_MIN_SIZE,
   arenaTournamentRewardFor,
@@ -80,16 +75,10 @@ export function ArenaContent() {
           <Em>{ARENA_TOURNAMENT_MIN_SIZE}·16·32강 토너먼트</Em>에 진출합니다.
         </li>
         <li>
-          본선 대진과 전투 세팅은 일요일 00:00에 동결됩니다. 19:00에 같은
-          라운드 경기를 모두 진행하고 15분마다 다음 라운드로 넘어가며, 각 경기는
-          포트 추첨 대진의 3판 2선승으로 자동 진행됩니다. 20:00에는 3·4위전,
-          20:15에는 결승을 진행합니다.
-        </li>
-        <li>
-          본인 경기를 제외한 본선 경기에 골드를 베팅할 수 있습니다. 경기{" "}
-          {ARENA_TOURNAMENT_BET_CLOSE_MS / 1_000}초 전에 마감되며, 패배 측 풀의 수수료{" "}
-          {ARENA_TOURNAMENT_BET_FEE_BPS / 100}%를 제외한 골드를 승리 선택자들이
-          베팅 비율대로 나눕니다. 승리 선택자가 없으면 전액 환불됩니다.
+          본선 대진은 일요일 00:00에, 전투 세팅은 12:00에 동결됩니다.
+          13:00에 같은 라운드 경기를 모두 진행하고 5분마다 다음 라운드로
+          넘어가며, 각 경기는 포트 추첨 대진의 3판 2선승으로 자동 진행됩니다.
+          13:20에는 3·4위전, 13:25에는 결승을 진행합니다.
         </li>
         <li>
           일요일 일반 대전은 연습전이라 Elo·골드가 변하지 않습니다.
@@ -104,7 +93,7 @@ export function ArenaContent() {
         메달과 칭호는 캐릭터 스탯을 직접 올리지 않습니다.
       </Note>
 
-      <H2>챔피언십 보상과 베팅 한도</H2>
+      <H2>챔피언십 보상</H2>
       <Table
         head={["성적", "투기장 코인"]}
         rows={ARENA_REWARD_ROWS.map(([placement, coins]) => [
@@ -113,20 +102,6 @@ export function ArenaContent() {
         ])}
         caption="주간 순위 보상과 챔피언십 성적 보상은 우편함으로 지급됩니다."
       />
-      <UL>
-        <li>
-          경기당 <Em>{ARENA_TOURNAMENT_BET_MIN_GOLD.toLocaleString("ko-KR")}~
-          {ARENA_TOURNAMENT_BET_MAX_GOLD.toLocaleString("ko-KR")}골드</Em>를 베팅할 수
-          있습니다. 일요일 챔피언십 전체 한도는{" "}
-          {ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD.toLocaleString("ko-KR")}골드입니다.
-        </li>
-        <li>
-          한 경기에는 한 번만 베팅할 수 있고, 본인이 출전하는 경기에는 베팅할
-          수 없습니다. 결과를 대기 중인 베팅과 적중·미적중·환불 결과는 대진표에서
-          확인합니다.
-        </li>
-      </UL>
-
       <H2>투기장 상점과 전투 기록</H2>
       <UL>
         <li>

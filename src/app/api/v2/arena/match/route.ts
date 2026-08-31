@@ -2,8 +2,9 @@ import { and, asc, eq, ne, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { savesKv, pvpRatings, users } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordGrowthLeapStaminaSpendInTx } from "@/lib/server/growthLeapProgress";
 import { isCurrentUserAdmin } from "@/lib/server/isAdmin";
-import { excludeArenaOperatorAccounts } from "@/lib/server/arenaOperatorEligibility";
+import { filterArenaOpponentEligibleRows } from "@/lib/server/arenaOpponentEligibility";
 import { enforceHighCostRateLimit } from "@/lib/server/highCostRateLimit";
 import { getOrCreateCurrentSeason } from "@/lib/server/pvp/season";
 import { arenaSeasonPhase } from "@/lib/server/pvp/arenaTournament";
@@ -31,6 +32,10 @@ import {
   toPvpReplayPayloadForSide,
 } from "@/adventure/data/v2/replayPayload";
 import {
+  BATTLE_REPLAY_RETENTION_MS,
+  storeBattleReplay,
+} from "@/lib/server/battleReplayStore";
+import {
   ARENA_STATE_KEY,
   ARENA_HISTORY_KEY,
   ARENA_LOADOUTS_KEY,
@@ -49,11 +54,12 @@ import {
 import {
   ARENA_INITIAL_RATING,
   ARENA_DAMAGE_MULTIPLIER,
+  ARENA_SUSTAIN_MULTIPLIER,
   ARENA_MATCH_COOLDOWN_MS,
   arenaHistorySince,
   arenaCooldownRemainingMs,
   arenaDailyMatchCount,
-  arenaNextStaminaCost,
+  arenaStaminaCostForPhase,
   computeGoldReward,
   defaultArenaState,
   oppositeArenaOutcome,
@@ -62,6 +68,7 @@ import {
   pushArenaHistory,
   pushRecentOpponent,
   recordArenaDailyMatch,
+  selectPreferredArenaCandidatePool,
   settleArenaElo,
   weightForCandidate,
   weightedPick,
@@ -95,6 +102,7 @@ import {
 //   7. 선정된 상대만 derive (real user snapshot) 또는 봇 snapshot 사용.
 //   8. resolveBattlePvP 단판. 양측 HP = maxHp, 마법 sweep 자동, 아레나 피해 ×0.65.
 //   9. outcome → 월~토 실유저전은 양쪽 Elo 정산(K=32). 일요일·봇전은 비랭크 연습전.
+//      일요일 연습전은 무보상인 대신 스태미나도 소모하지 않는다.
 //  10. 공격자/방어자 pvp_ratings(Elo/전적) + arena-state.v2(쿨타임/최근 상대) 저장.
 //  11. 양쪽 전투 로그(각자 관점 ReplayPayload) + 전투 기록(arena-history.v2, 최근순 ≤ MAX).
 
@@ -114,10 +122,6 @@ type CandidateInternal = ArenaCandidate;
 
 const PROFILE_KEY = "character-profile.v2";
 const ARENA_BOT_LEVEL_BAND = 5;
-// 전투 로그 다시보기 — 저장/표시 로그 길이 상한(PvP 100턴 ≈ 300+ 엔트리 → cap 으로 바운드,
-// 초과 시 clampReplayLog 가 "앞선 턴 생략" 안내 + 뒷부분만). 기록 MAX(10)판 × 이 cap 이 세이브 크기.
-const ARENA_REPLAY_LOG_CAP = 150;
-
 type BotPick = {
   candidate: CandidateInternal;
   bot: ArenaBot;
@@ -228,9 +232,13 @@ export async function POST(req: Request) {
       };
     }
 
-    // 오늘 성립한 공격 매치 수 기준으로 10회마다 다음 비용이 1씩 증가한다.
-    // 여기서는 가능 여부만 계산하고, 실제 매치가 성립한 뒤 같은 트랜잭션에서 저장한다.
-    const staminaCost = arenaNextStaminaCost(parsedArena, now);
+    // 월~토에는 오늘 성립한 공격 매치 수 기준으로 10회마다 다음 비용이 1씩 증가한다.
+    // 일요일 무보상 연습전은 무료다. 실제 매치 수는 성립한 뒤 같은 트랜잭션에서 저장한다.
+    const staminaCost = arenaStaminaCostForPhase(
+      parsedArena,
+      seasonPhase,
+      now,
+    );
     const stamina = parseStaminaFromSave(charSave.stamina, now.getTime());
     const staminaConfig = staminaConfigForCharacter(charSave, now.getTime());
     const afterStamina = tryConsume(
@@ -320,6 +328,7 @@ export async function POST(req: Request) {
         userId: savesKv.userId,
         value: savesKv.value,
         email: users.email,
+        bannedUntil: users.bannedUntil,
       })
       .from(savesKv)
       .innerJoin(users, eq(users.id, savesKv.userId))
@@ -329,11 +338,12 @@ export async function POST(req: Request) {
           ne(savesKv.userId, userId),
         ),
       );
-    const candidateChars = excludeArenaOperatorAccounts(candidateRows);
+    const candidateChars = filterArenaOpponentEligibleRows(candidateRows, now);
     const candidateIds = candidateChars.map((r) => r.userId);
     // 6a. 순위표와 동일한 현재 시즌 pvp_ratings를 일괄 조회. 미참가자는 1000점.
     // arena-state.v2.score는 이전 누적 레이팅 호환 필드이며 매칭 기준으로 쓰지 않는다.
     const scoreByUser = new Map<string, number>();
+    const seasonParticipantIds = new Set<string>();
     const ratingUserIds = [...new Set([userId, ...candidateIds])];
     if (ratingUserIds.length > 0) {
       const ratingRows = await tx
@@ -347,6 +357,7 @@ export async function POST(req: Request) {
         );
       for (const row of ratingRows) {
         scoreByUser.set(row.userId, row.rating);
+        seasonParticipantIds.add(row.userId);
       }
     }
     const myScore = scoreByUser.get(userId) ?? ARENA_INITIAL_RATING;
@@ -383,9 +394,23 @@ export async function POST(req: Request) {
       return weightedPick(weightedBots, Math.random);
     };
 
-    // 7. 가중 추첨 — 실유저 풀을 우선한다. 후보가 없으면 비랭크 봇 폴백으로 새 서버/저인구
-    //    상황에서도 아레나가 실제로 진행된다. 봇도 recentOpponents 페널티를 받아 같은 봇 반복을 줄인다.
-    const weighted = realCandidates.map((cand) => ({
+    // 7. 가까운 점수 후보군 안에서 가중 추첨. 현재 시즌 참가자를 먼저 채우고 목표 인원보다
+    //    적을 때만 미참가자를 가까운 점수순으로 보충한다. 전 유저를 한 번에 추첨하면 먼 점수대
+    //    다수가 합산 가중치로 가까운 상대를 밀어내므로 후보 풀 단계에서 먼저 막는다.
+    const participantCandidates = realCandidates.filter(
+      (candidate) =>
+        candidate.userId != null && seasonParticipantIds.has(candidate.userId),
+    );
+    const candidatePool = selectPreferredArenaCandidatePool(
+      myScore,
+      participantCandidates,
+      realCandidates.filter(
+        (candidate) =>
+          candidate.userId == null ||
+          !seasonParticipantIds.has(candidate.userId),
+      ),
+    );
+    const weighted = candidatePool.map((cand) => ({
       item: cand,
       weight: weightForCandidate(
         myScore,
@@ -501,6 +526,7 @@ export async function POST(req: Request) {
     const battle = resolveBattlePvP(myPlayer, oppPlayer, viewerName, oppName, {
       ...autoDuelContext(),
       damageMultiplier: ARENA_DAMAGE_MULTIPLIER,
+      sustainMultiplier: ARENA_SUSTAIN_MULTIPLIER,
       v2Skills: { p1: mySkills, p2: oppSkills },
     });
 
@@ -667,8 +693,30 @@ export async function POST(req: Request) {
       }
     }
 
-    // 11b. 전투 로그(다시보기) — 나=p1 관점 ReplayPayload + 전투 기록 1판.
-    const replay = toPvpReplayPayload(battle.finalState, oppName, ARENA_REPLAY_LOG_CAP);
+    // 11b. 전투 로그(다시보기) — 전체 로그는 전용 테이블에 보관하고 arena-history.v2에는
+    // replayId가 든 가벼운 payload만 둔다. 기록 목록 조회로 여러 판의 로그를 한꺼번에
+    // 전송하지 않고, 사용자가 다시보기를 열 때 한 판만 불러온다.
+    const replay = await storeBattleReplay(
+      tx,
+      userId,
+      toPvpReplayPayload(battle.finalState, oppName),
+      BATTLE_REPLAY_RETENTION_MS.arena,
+      now,
+    );
+    const defenderReplay =
+      ranked && oppUserId && defenderArena
+        ? await storeBattleReplay(
+            tx,
+            oppUserId,
+            toPvpReplayPayloadForSide(
+              battle.finalState,
+              "p2",
+              viewerName,
+            ),
+            BATTLE_REPLAY_RETENTION_MS.arena,
+            now,
+          )
+        : null;
     const historyEntry: ArenaHistoryEntry = {
       id: `${now.getTime().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
       at: now.toISOString(),
@@ -683,7 +731,7 @@ export async function POST(req: Request) {
       replay,
     };
     const defenderHistoryEntry: ArenaHistoryEntry | null =
-      ranked && oppUserId && defenderArena
+      ranked && oppUserId && defenderArena && defenderReplay
         ? {
             id: `${now.getTime().toString(36)}-${Math.floor(
               Math.random() * 1e6,
@@ -697,12 +745,7 @@ export async function POST(req: Request) {
             scoreDelta: elo.defenderDelta,
             goldGained: 0,
             turns: battle.turns,
-            replay: toPvpReplayPayloadForSide(
-              battle.finalState,
-              "p2",
-              viewerName,
-              ARENA_REPLAY_LOG_CAP,
-            ),
+            replay: defenderReplay,
           }
         : null;
 
@@ -753,6 +796,14 @@ export async function POST(req: Request) {
       stamina: afterStamina,
     };
     await upsertSave(tx, userId, CHARACTER_STATE_KEY, nextChar);
+    if (staminaCost > 0) {
+      await recordGrowthLeapStaminaSpendInTx(
+        tx,
+        userId,
+        staminaCost,
+        now.getTime(),
+      );
+    }
 
     return {
       status: 200,
@@ -767,7 +818,11 @@ export async function POST(req: Request) {
         stamina: afterStamina,
         staminaCost,
         dailyMatchCount: nextArena.dailyMatchCount,
-        nextStaminaCost: arenaNextStaminaCost(nextArena, now),
+        nextStaminaCost: arenaStaminaCostForPhase(
+          nextArena,
+          seasonPhase,
+          now,
+        ),
         opponent: {
           name: oppName,
           level: oppLevel,

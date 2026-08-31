@@ -22,12 +22,18 @@ import {
   dungeonReadiness,
 } from "@/adventure/v2/dungeonReadiness";
 import { useSystemToast } from "@/adventure/v2/RewardToastProvider";
+import { RareMapCountdownText } from "@/adventure/v2/RareMapCountdownText";
+import { confirmGameAction } from "@/components/ui/gameDialog";
+import {
+  DUNGEON_THEME_VISIBILITY_STORAGE_KEY,
+  parseHiddenThemeStarts,
+} from "./dungeonThemeVisibility";
+import { useDungeonThemeVisibility } from "./useDungeonThemeVisibility";
 
 // 프론티어 사냥터 목록 — 2단. 테마 카드 → 입구·심부·최심부의 3단계.
 // 내부 깊이와 밸런스는 유지하고 각 두 깊이의 뒤쪽 값(2·4·6)을 대표 전투 깊이로 사용한다.
 
-export const DUNGEON_THEME_VISIBILITY_STORAGE_KEY =
-  "adventure.v2.dungeonThemeHiddenStarts";
+export { DUNGEON_THEME_VISIBILITY_STORAGE_KEY, parseHiddenThemeStarts };
 
 export function V2DungeonList({
   onSelectFloor,
@@ -64,9 +70,8 @@ export function V2DungeonList({
   //   사냥터에서 "뒤로"로 진입 시(initialOpenDepth) 그 테마를 펼친 상태로 시작.
   const [openDepth, setOpenDepth] = useState<number | null>(initialOpenDepth);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [hiddenThemeStarts, setHiddenThemeStarts] = useState<Set<number>>(
-    () => new Set(),
-  );
+  const { hiddenThemeStarts, setHiddenThemeStarts } =
+    useDungeonThemeVisibility();
   const openGroup =
     openDepth != null
       ? (groups.find((g) => g.themeStartDepth === openDepth) ?? null)
@@ -75,28 +80,8 @@ export function V2DungeonList({
     (g) => !hiddenThemeStarts.has(g.themeStartDepth),
   );
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      try {
-        const raw = localStorage.getItem(DUNGEON_THEME_VISIBILITY_STORAGE_KEY);
-        setHiddenThemeStarts(parseHiddenThemeStarts(raw));
-      } catch {}
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, []);
-
   function setHiddenThemes(next: Set<number>) {
     setHiddenThemeStarts(next);
-    try {
-      if (next.size === 0) {
-        localStorage.removeItem(DUNGEON_THEME_VISIBILITY_STORAGE_KEY);
-      } else {
-        localStorage.setItem(
-          DUNGEON_THEME_VISIBILITY_STORAGE_KEY,
-          JSON.stringify([...next].sort((a, b) => a - b)),
-        );
-      }
-    } catch {}
   }
 
   function toggleThemeVisibility(startDepth: number) {
@@ -105,19 +90,29 @@ export function V2DungeonList({
 
   // 열린 레어맵 — 마운트 1회 조회(판수/장소 완료와 30분 만료는 서버 권위).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[]>([]);
+  const [rareMapServerNow, setRareMapServerNow] = useState<number | null>(null);
   const [discardingMapIid, setDiscardingMapIid] = useState<string | null>(null);
   useEffect(() => {
     if (!onSelectRareMap) return;
     let alive = true;
     fetch("/api/v2/me/rare-maps")
       .then((r) => (r.ok ? r.json() : null))
-      .then((j: { ok?: boolean; rareMaps?: RareMapInstance[] } | null) => {
+      .then((j: {
+        ok?: boolean;
+        rareMaps?: RareMapInstance[];
+        serverNow?: number;
+      } | null) => {
         if (alive && j?.ok) {
           // 테스트 전용 즉시 사용 항목만 제외. 희귀 탐사와 희귀 장소는 모두 여기서 입장.
           setRareMaps(
             (j.rareMaps ?? []).filter(
               (m) => RARE_MAP_KINDS[m.kind]?.category !== "utility",
             ),
+          );
+          setRareMapServerNow(
+            typeof j.serverNow === "number" && Number.isFinite(j.serverNow)
+              ? j.serverNow
+              : null,
           );
         }
       })
@@ -130,9 +125,9 @@ export function V2DungeonList({
   async function discardRareMap(map: RareMapInstance) {
     const name = RARE_MAP_KINDS[map.kind]?.name ?? map.kind;
     if (
-      !window.confirm(
+      !(await confirmGameAction(
         `${name}을 삭제할까요?\n삭제한 지도는 복구할 수 없습니다.`,
-      )
+      ))
     ) {
       return;
     }
@@ -272,10 +267,16 @@ export function V2DungeonList({
                 <RareMapButton
                   key={m.iid}
                   map={m}
+                  serverNow={rareMapServerNow}
                   frontierDepth={frontierDepth}
                   onSelect={onSelectRareMap}
                   onDiscard={discardRareMap}
                   discarding={discardingMapIid === m.iid}
+                  onExpire={() =>
+                    setRareMaps((current) =>
+                      removeExpiredRareMap(current, m.iid),
+                    )
+                  }
                 />
               ))}
             </div>
@@ -354,18 +355,22 @@ export function V2DungeonList({
   );
 }
 
-function RareMapButton({
+export function RareMapButton({
   map,
+  serverNow,
   frontierDepth,
   onSelect,
   onDiscard,
   discarding,
+  onExpire,
 }: {
   map: RareMapInstance;
+  serverNow: number | null;
   frontierDepth: number;
   onSelect: (map: RareMapInstance) => void;
   onDiscard: (map: RareMapInstance) => void;
   discarding: boolean;
+  onExpire: () => void;
 }) {
   const def = RARE_MAP_KINDS[map.kind];
   const isLocation = def?.category === "location";
@@ -388,9 +393,23 @@ function RareMapButton({
         </span>
         <span className="mt-0.5 block text-[11px] text-sky-700 dark:text-sky-400">
           {unavailable ??
-            (isLocation
-              ? "희귀 장소 · 발견 후 30분 동안 개방"
-              : `남은 ${map.runsLeft}판`)}
+            (isLocation ? (
+              "희귀 장소 · 발견 후 30분 동안 개방"
+            ) : (
+              <>
+                1회 탐사 · 보상 {map.runsLeft}회분 · 30분 동안 개방
+                {serverNow != null && (
+                  <>
+                    {" · "}
+                    <RareMapCountdownText
+                      foundAt={map.foundAt}
+                      serverNow={serverNow}
+                      onExpire={onExpire}
+                    />
+                  </>
+                )}
+              </>
+            ))}
         </span>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
@@ -415,6 +434,13 @@ function RareMapButton({
   );
 }
 
+export function removeExpiredRareMap(
+  maps: RareMapInstance[],
+  iid: string,
+): RareMapInstance[] {
+  return maps.filter((map) => map.iid !== iid);
+}
+
 export function rareMapUnavailable(
   map: RareMapInstance,
   frontierDepth: number,
@@ -437,21 +463,6 @@ export function toggleHiddenTheme(
   if (next.has(startDepth)) next.delete(startDepth);
   else next.add(startDepth);
   return next;
-}
-
-export function parseHiddenThemeStarts(raw: string | null): Set<number> {
-  try {
-    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
-    if (!Array.isArray(parsed)) return new Set();
-    const next = new Set<number>();
-    for (const value of parsed) {
-      const n = Math.floor(Number(value));
-      if (Number.isFinite(n) && n > 0) next.add(n);
-    }
-    return next;
-  } catch {
-    return new Set();
-  }
 }
 
 export function stageRangeLabel(depths: readonly number[]): string {

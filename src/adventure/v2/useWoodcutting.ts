@@ -15,11 +15,13 @@ import type {
   AutoGatheringSessionView,
 } from "./AutoGatheringCard";
 import {
-  autoGatheringPlan,
+  parseAutoGatheringSessionView,
   type AutoGatheringActivity,
   type AutoGatheringPlanId,
 } from "./autoGathering";
-import { useGameState } from "./GameStateProvider";
+import { useGameActivityState } from "./GameStateProvider";
+import { useSystemToast } from "./RewardToastProvider";
+import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
 
 function parseAutoActivity(value: unknown): AutoGatheringActivity | null {
   return value === "woodcutting" || value === "mining" ? value : null;
@@ -64,25 +66,6 @@ function parseNextActionAt(value: unknown): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
 }
 
-function parseAutoSession(value: unknown): AutoGatheringSessionView | null {
-  if (!value || typeof value !== "object") return null;
-  const item = value as Record<string, unknown>;
-  if (typeof item.sessionId !== "string" || typeof item.sourceId !== "string") return null;
-  const readyAt = Number(item.readyAt);
-  const startedAt = Number(item.startedAt);
-  if (!Number.isFinite(readyAt) || !Number.isFinite(startedAt)) return null;
-  return {
-    sessionId: item.sessionId,
-    planId: autoGatheringPlan(item.planId).id,
-    sourceId: item.sourceId,
-    sourceName: String(item.sourceName ?? "나무"),
-    materialId: String(item.materialId ?? ""),
-    startedAt: Math.floor(startedAt),
-    readyAt: Math.floor(readyAt),
-    attempts: Math.max(1, Math.floor(Number(item.attempts) || 1)),
-  };
-}
-
 function parseAutoResult(value: unknown): AutoGatheringResultView {
   const item = (value ?? {}) as Record<string, unknown>;
   return {
@@ -99,7 +82,8 @@ function wait(ms: number): Promise<void> {
 }
 
 export function useWoodcutting(): WoodcuttingHandlers {
-  const { setAutoGathering } = useGameState();
+  const { setAutoGathering } = useGameActivityState();
+  const { notifySystem } = useSystemToast();
   const { verification, verifyHuman, readJson } = useActivityVerification("woodcutting");
   const [materials, setMaterials] = useState<Record<string, number>>({});
   const [log, setLog] = useState<WoodcuttingLogView>({ cuts: 0, xp: 0, timberEarned: 0 });
@@ -123,7 +107,12 @@ export function useWoodcutting(): WoodcuttingHandlers {
         setDurationReductionPct(
           Math.min(50, Math.max(0, Number(json.durationReductionPct) || 0)),
         );
-        setAutoSession(parseAutoSession(json.autoSession));
+        setAutoSession(
+          parseAutoGatheringSessionView(json.autoSession, {
+            serverNow: json.serverNow,
+            fallbackSourceName: "나무",
+          }),
+        );
         setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
       } catch {
         // 표시용 상태라 실패해도 화면 진입은 유지한다.
@@ -191,6 +180,9 @@ export function useWoodcutting(): WoodcuttingHandlers {
           nextActionAt: parseNextActionAt(json.nextActionAt),
         };
       }
+      if (json.levelCurveMigrated) {
+        notifySystem(LIFE_LEVEL_MIGRATION_NOTICE, "info");
+      }
       const nextMaterials = parseMaterials(json.materials);
       const nextLog = parseLog(json.log);
       const seedDrop =
@@ -232,7 +224,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
       };
     }
     throw new Error("woodcutting_finish_failed");
-  }, [readJson]);
+  }, [notifySystem, readJson]);
 
   const startAuto = useCallback(async (
     spotId: WoodcuttingSpotId,
@@ -251,7 +243,10 @@ export function useWoodcutting(): WoodcuttingHandlers {
         if (active) setActiveAutoActivity(active);
         throw new Error("woodcutting_auto_start_failed");
       }
-      const session = parseAutoSession(json.autoSession);
+      const session = parseAutoGatheringSessionView(json.autoSession, {
+        serverNow: json.serverNow,
+        fallbackSourceName: "나무",
+      });
       setAutoSession(session);
       setActiveAutoActivity("woodcutting");
       setAutoResult(null);
@@ -280,6 +275,9 @@ export function useWoodcutting(): WoodcuttingHandlers {
       });
       const json = await readJson(response);
       if (!response.ok || !json?.ok) throw new Error("woodcutting_auto_claim_failed");
+      if (json.levelCurveMigrated) {
+        notifySystem(LIFE_LEVEL_MIGRATION_NOTICE, "info");
+      }
       setMaterials(parseMaterials(json.materials));
       setLog(parseLog(json.log));
       setAutoSession(null);
@@ -289,7 +287,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
     } finally {
       setAutoLoading(false);
     }
-  }, [readJson, setAutoGathering]);
+  }, [notifySystem, readJson, setAutoGathering]);
 
   const cancelAuto = useCallback(async (): Promise<void> => {
     setAutoLoading(true);

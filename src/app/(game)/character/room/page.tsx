@@ -1,9 +1,8 @@
-"use client";
-
-import { useRouter } from "next/navigation";
-import { V2HousingView } from "@/adventure/v2/V2HousingView";
+import { notFound } from "next/navigation";
+import { HousingRouteView } from "@/adventure/v2/HousingRouteView";
+import { isLifeHousingEnabled } from "@/adventure/v2/lifeCrafting";
 
 export default function HousingPage() {
-  const router = useRouter();
-  return <V2HousingView onBack={() => router.push("/character")} />;
+  if (!isLifeHousingEnabled()) notFound();
+  return <HousingRouteView />;
 }

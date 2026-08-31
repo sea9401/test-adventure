@@ -1,0 +1,3 @@
+ALTER TABLE "users" ADD COLUMN "trade_suspended_until" timestamp;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN "trade_suspension_reason" text;--> statement-breakpoint
+CREATE INDEX "listings_v2_active_highest_bidder_idx" ON "marketplace_listings_v2" USING btree ("highest_bidder_id","id") WHERE "marketplace_listings_v2"."status" = 'active' AND "marketplace_listings_v2"."highest_bidder_id" IS NOT NULL;

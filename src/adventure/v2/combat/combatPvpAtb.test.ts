@@ -41,11 +41,13 @@ function run(
   p1: PlayerCombat,
   p2: PlayerCombat,
   seed = 1,
+  initiativeRoll?: number,
 ): PvPBattleResolution {
   vi.spyOn(Math, "random").mockImplementation(mulberry32(seed));
   const result = resolveBattlePvP(p1, p2, "P1", "P2", {
     pickAction: () => ({ kind: "attack" }),
     potions: { p1: {}, p2: {} },
+    initiativeRoll,
   });
   vi.restoreAllMocks();
   return result;
@@ -69,6 +71,82 @@ function actionCounts(result: PvPBattleResolution): { p1: number; p2: number } {
 }
 
 describe("resolveBattlePvP ATB invariants", () => {
+  it("동속 첫 행동은 추첨 승자부터 같은 틱에 차례로 실행한다", () => {
+    const durable = {
+      ...basePlayer,
+      hp: 50_000,
+      maxHp: 50_000,
+      atk: 1,
+      def: 0,
+    };
+    const result = run(durable, durable, 1, 0.75);
+    const firstTwo = result.finalState.log
+      .filter(
+        (entry) =>
+          entry.kind === "player_attack" && entry.text.includes("공격!"),
+      )
+      .slice(0, 2)
+      .map((entry) => ({ side: entry.side, tick: entry.t }));
+
+    expect(firstTwo).toEqual([
+      { side: "p2", tick: 0 },
+      { side: "p1", tick: 0 },
+    ]);
+  });
+
+  it("이후 동속 행동 시각이 겹치면 직전과 반대쪽에 우선권을 준다", () => {
+    const durable = {
+      ...basePlayer,
+      hp: 50_000,
+      maxHp: 50_000,
+      atk: 1,
+      def: 0,
+    };
+    const result = run(durable, durable, 1, 0.75);
+    const firstFour = result.finalState.log
+      .filter(
+        (entry) =>
+          entry.kind === "player_attack" && entry.text.includes("공격!"),
+      )
+      .slice(0, 4)
+      .map((entry) => ({ side: entry.side, tick: entry.t }));
+
+    expect(firstFour).toEqual([
+      { side: "p2", tick: 0 },
+      { side: "p1", tick: 0 },
+      { side: "p1", tick: actionInterval(durable.spd) },
+      { side: "p2", tick: actionInterval(durable.spd) },
+    ]);
+  });
+
+  it("더 느린 쪽도 추첨에 이기면 치명적인 첫 행동을 할 수 있다", () => {
+    const p1 = { ...basePlayer, hp: 100, maxHp: 100, atk: 1_000, spd: 120 };
+    const p2 = { ...p1, spd: 30 };
+    const result = run(p1, p2, 1, 0.99);
+
+    expect(result.outcome).toBe("p2_win");
+    expect(
+      result.finalState.log.find((entry) => entry.kind === "player_attack")
+        ?.side,
+    ).toBe("p2");
+  });
+
+  it("치명타 기본 공격도 행동명을 보존해 독립 로그로 식별된다", () => {
+    const result = run(
+      { ...basePlayer, critChancePct: 100 },
+      { ...basePlayer, hp: 1_000, maxHp: 1_000, spd: 30 },
+      29,
+    );
+    const criticalBasic = result.finalState.log.find(
+      (entry) =>
+        entry.side === "p1" &&
+        entry.kind === "player_attack" &&
+        entry.text.includes("치명타"),
+    );
+
+    expect(criticalBasic?.text).toMatch(/^\[치명타(?: \+ [^\]]+)*\] 공격! /);
+  });
+
   it("deterministic: same seeded inputs produce identical outcome and log", () => {
     const runs = [
       run(basePlayer, { ...basePlayer, spd: 45 }, 123),
@@ -113,6 +191,37 @@ describe("resolveBattlePvP ATB invariants", () => {
     expect(observed).toBeCloseTo(expected, 0);
   });
 
+  it("중독 피해는 중독시킨 상대가 아니라 대상 본인의 행동 tick에 발생한다", () => {
+    const fastPoisoner: PlayerCombat = {
+      ...basePlayer,
+      hp: 50_000,
+      maxHp: 50_000,
+      atk: 1,
+      def: 0,
+      spd: 292,
+      poisonOnHit: { pctMaxHpPerStack: 0.001 },
+    };
+    const slowTarget: PlayerCombat = {
+      ...basePlayer,
+      hp: 50_000,
+      maxHp: 50_000,
+      atk: 1,
+      def: 0,
+      spd: 14,
+    };
+    const result = run(fastPoisoner, slowTarget, 17);
+    const firstPoisonTick = result.finalState.log.find(
+      (entry) =>
+        entry.kind === "info" &&
+        entry.effect === "status_damage" &&
+        entry.side === "p2" &&
+        entry.text.includes("중독으로"),
+    );
+
+    expect(firstPoisonTick).toBeDefined();
+    expect(firstPoisonTick?.t).toBe(actionInterval(slowTarget.spd));
+  });
+
   it("stalemate hits the tick cap and resolves by HP ratio", () => {
     const p1: PlayerCombat = {
       ...basePlayer,
@@ -133,7 +242,7 @@ describe("resolveBattlePvP ATB invariants", () => {
     const result = run(p1, p2, 11);
     expect(result.outcome).toBe("p1_win");
     expect(result.finalState.phase).toBe("ended");
-    expect(PVP_ATB_TICK_CAP).toBe(2_600);
+    expect(PVP_ATB_TICK_CAP).toBe(3_000);
     expect(result.finalState.log.some((entry) => entry.text.includes("틱 경과"))).toBe(true);
   });
 

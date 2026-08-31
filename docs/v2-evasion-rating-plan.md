@@ -1,8 +1,8 @@
 # v2 회피 재설계 — 절대 %캡 → 명중 대결형 레이팅 (설계 + sim 검증)
 
 > 2026-08-05 후속 조정: 플레이어 생존용 PvE 대결은 `PVE_DODGE_K=6`, PvP는
-> `PVP_DODGE_K=7`, 플레이어→PvE 적 명중 대결은 기존 `DODGE_K=8`을 사용한다. 권장 전투력 미달 시 몬스터
-> HP·ATK 배율은 유지하되 명중 배율은 최대 `2`로 제한한다.
+> `PVP_DODGE_K=7`, 플레이어→PvE 적 명중 대결은 기존 `DODGE_K=8`을 사용한다.
+> 2026-08-07부터 권장 전투력은 안내 지표로만 유지하며, 미달에 따른 몬스터 강화는 적용하지 않는다.
 
 2026-06-21 오너 세션. 선행 = [project-v2-dex-dominance-diagnosis] 메모리 + DEX 재밸런스 PR-1/2(머지).
 프로토타입 sim: `scripts/sim-v2-evasion-rating.ts` (`node --import tsx ...`).

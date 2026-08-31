@@ -17,6 +17,8 @@ export const SHATTERED_DREAM_TITLE_ID = "shattered_dream";
 export const FIELD_RECORDER_TITLE_ID = "field_recorder";
 export const ECOLOGICAL_RESEARCHER_TITLE_ID = "ecological_researcher";
 export const EARTH_WITNESS_TITLE_ID = "earth_witness";
+export const FARM_BOUNTIFUL_HAND_TITLE_ID = "farm_bountiful_hand";
+export const FARM_GOLDEN_FIELDS_OWNER_TITLE_ID = "farm_golden_fields_owner";
 
 // 도감의 칭호 섹션 분류. 추가 시 TITLE_CATEGORY_ORDER 에 라벨/순서 등록.
 export type TitleCategory =
@@ -107,6 +109,20 @@ export const TITLES: Record<TitleId, Title> = {
     category: "collection",
     hidden: true,
   },
+  [FARM_BOUNTIFUL_HAND_TITLE_ID]: {
+    id: FARM_BOUNTIFUL_HAND_TITLE_ID,
+    name: "풍요의 손",
+    description: "오랜 수확으로 마을의 풍요를 일군 농장주.",
+    condition: "농장주의 교환소에서 농장 증표 1,000개로 구매",
+    category: "collection",
+  },
+  [FARM_GOLDEN_FIELDS_OWNER_TITLE_ID]: {
+    id: FARM_GOLDEN_FIELDS_OWNER_TITLE_ID,
+    name: "황금 들판의 주인",
+    description: "끝없이 이어진 황금빛 들판을 가꾼 대농장주.",
+    condition: "농장주의 교환소에서 농장 증표 5,000개로 구매",
+    category: "collection",
+  },
   frail: {
     id: "frail",
     name: "약골",
@@ -148,6 +164,20 @@ export const TITLES: Record<TitleId, Title> = {
     name: "광장지기",
     description: "오랜 시간 광장의 이야기와 온기를 지켜 온 자.",
     condition: "게시판 활동 Lv.10 달성",
+    category: "town",
+  },
+  bulletin_elder: {
+    id: "bulletin_elder",
+    name: "광장 원로",
+    description: "오랜 시간 광장의 이야기를 듣고 사람들의 자리를 이어 준 원로.",
+    condition: "게시판 활동 Lv.15 달성",
+    category: "town",
+  },
+  bulletin_legend: {
+    id: "bulletin_legend",
+    name: "광장의 전설",
+    description: "수많은 이야기와 인연으로 광장의 역사를 함께 써 내려간 전설.",
+    condition: "게시판 활동 Lv.20 달성",
     category: "town",
   },
   patient: {
@@ -837,6 +867,20 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "낚시 코인 상점에서 낚시 코인 3000으로 구매",
     category: "fishing",
   },
+  dangerous_tidal_conqueror: {
+    id: "dangerous_tidal_conqueror",
+    name: "파도를 거둔 자",
+    description: "해일의 거신을 함께 제압하고 거친 파도를 거두어 낸 낚시꾼.",
+    condition: "위험 해역 교환에서 해일의 거신 증표 10개로 구매",
+    category: "fishing",
+  },
+  dangerous_abyss_conqueror: {
+    id: "dangerous_abyss_conqueror",
+    name: "심연을 낚은 자",
+    description: "심연 크라켄을 함께 끌어올려 바다 밑 어둠과 마주한 낚시꾼.",
+    condition: "위험 해역 교환에서 심연 크라켄 증표 10개로 구매",
+    category: "fishing",
+  },
   // 낚시 칭호 4종(심해의 어부·여명의 낚시꾼·물때를 읽는 자·특별한 손님의 벗) 정의 제거
   //   (2026-06-25 과다 정리). TitleId=string 이라 타입 영향 없음. 표시 경로는 미정의 id 를
   //   가드(resolveActor·V2Codex 의 `if(!t)`) — 옛 보유분은 칭호만 비표시(데이터 무손실·정의
@@ -918,6 +962,104 @@ export const TITLES: Record<TitleId, Title> = {
     description: "꾸준히 다듬어 만족스러운 결과를 낸 사람.",
     condition: "업적 '전설의 +10' 보상 수령",
     category: "training",
+  },
+  ach_farming_transcendent: {
+    id: "ach_farming_transcendent",
+    name: "대지의 초월자",
+    description: "백 번의 계절을 넘어 대지의 결실을 다루는 자.",
+    condition: "농사 레벨 100 달성",
+    category: "collection",
+  },
+  ach_worldtree_touch: {
+    id: "ach_worldtree_touch",
+    name: "세계수의 손길",
+    description: "숲의 오랜 숨결과 나이테의 시간을 손끝으로 읽는 자.",
+    condition: "벌목 레벨 100 달성",
+    category: "collection",
+  },
+  ach_deep_mine_ruler: {
+    id: "ach_deep_mine_ruler",
+    name: "심층의 지배자",
+    description: "빛이 닿지 않는 심층의 광맥까지 지배한 자.",
+    condition: "채광 레벨 100 달성",
+    category: "collection",
+  },
+  ach_boundless_angler: {
+    id: "ach_boundless_angler",
+    name: "만경창파의 강태공",
+    description: "끝없는 물결의 흐름을 읽고 모든 입질을 기다리는 자.",
+    condition: "낚시 레벨 100 달성",
+    category: "fishing",
+  },
+  ach_celestial_banquet: {
+    id: "ach_celestial_banquet",
+    name: "천상의 대연회",
+    description: "평범한 재료로도 천상의 만찬을 차려 내는 자.",
+    condition: "요리 레벨 100 달성",
+    category: "collection",
+  },
+  ach_promotion_staff: {
+    id: "ach_promotion_staff",
+    name: "홍보사원",
+    description: "새 모험가 오십 명에게 이곳의 소식을 전한 부지런한 홍보 담당자.",
+    condition: "업적 '홍보사원' 보상 수령",
+    category: "town",
+  },
+  ach_promotion_king: {
+    id: "ach_promotion_king",
+    name: "홍보왕",
+    description: "백 명의 새 모험가를 불러 모아 입소문을 대륙에 퍼뜨린 홍보의 왕.",
+    condition: "업적 '홍보왕' 보상 수령",
+    category: "town",
+  },
+  ach_equipment_archivist: {
+    id: "ach_equipment_archivist",
+    name: "장비 기록관",
+    description: "대륙의 수많은 장비를 빠짐없이 살피고 한 권의 도감에 기록한 사람.",
+    condition: "업적 '장비 도감 완주' 보상 수령",
+    category: "collection",
+  },
+  ach_arena_conqueror: {
+    id: "ach_arena_conqueror",
+    name: "투기장 정복자",
+    description: "수많은 승부를 넘어 투기장에 자신의 이름을 깊이 새긴 사람.",
+    condition: "업적 '투기장의 지배자' 보상 수령",
+    category: "pvp",
+  },
+  ach_mastery_tower_peak: {
+    id: "ach_mastery_tower_peak",
+    name: "탑 정복자",
+    description: "숙련의 탑 마지막 계단을 넘어 구름 위의 풍경을 마주한 사람.",
+    condition: "업적 '숙련의 정점' 보상 수령",
+    category: "tower",
+  },
+  ach_transcendent: {
+    id: "ach_transcendent",
+    name: "초월자",
+    description: "여섯 단계의 직업 경지를 넘어 자신의 한계를 초월한 모험가.",
+    condition: "업적 '초월 직업' 보상 수령",
+    category: "character",
+  },
+  ach_town_helper: {
+    id: "ach_town_helper",
+    name: "마을 해결사",
+    description: "마을의 크고 작은 생활 의뢰를 믿음직하게 해결해 온 사람.",
+    condition: "업적 '생활 해결사' 보상 수령",
+    category: "town",
+  },
+  ach_millionaire: {
+    id: "ach_millionaire",
+    name: "백만장자",
+    description: "지갑과 금고를 합쳐 백만 골드의 재산을 일군 사람.",
+    condition: "업적 '백만장자' 보상 수령",
+    category: "economy",
+  },
+  ach_title_collector: {
+    id: "ach_title_collector",
+    name: "칭호 수집가",
+    description: "여러 모험의 이름과 이야기를 하나씩 모아 온 수집가.",
+    condition: "업적 '칭호 수집가' 보상 수령",
+    category: "collection",
   },
   // 수집 칭호 — ⚠️ 레거시(2026-06: 수집 포인트/칭호 상점 폐지·불필요한 복잡도). 신규 획득 경로
   //   없음. 옛 상점에서 구매한 보유분이 정상 표시되도록 정의만 보존(비파괴). 새 칭호로 재사용 금지.
@@ -1140,48 +1282,4 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "낚시 조합장 테오 신뢰도 35 달성",
     category: "town",
   },
-};
-
-// 카운터 기반 칭호 — 진행도 source 와 임계값을 한 곳에 정리.
-// 1) 임계값 도달 시 자동 등록 (page.tsx 의 useEffect 가 이 표를 돌면서 grantTitle).
-// 2) 절반 도달 시 모험의 서에서 조건만 미리 공개 (이름은 여전히 ???).
-export type TitleCounterKey =
-  | "battleLosses"
-  | "trainingCount"
-  | "chatCount"
-  | "healingCount"
-  | "npcTalkCount";
-
-export const COUNTER_TITLES: {
-  id: TitleId;
-  key: TitleCounterKey;
-  target: number;
-}[] = [
-  { id: "frail", key: "battleLosses", target: 10 },
-  { id: "unknown_soldier", key: "battleLosses", target: 100 },
-  { id: "training_apprentice", key: "trainingCount", target: 50 },
-  { id: "training_blackbelt", key: "trainingCount", target: 100 },
-  { id: "marathoner", key: "trainingCount", target: 1000 },
-  { id: "chatterbox", key: "chatCount", target: 100 },
-  { id: "town_broadcaster", key: "chatCount", target: 3000 },
-  { id: "patient", key: "healingCount", target: 50 },
-  { id: "head_patient", key: "healingCount", target: 500 },
-  // NPC 1인 누적 대화 — 한 사람을 얼마나 붙들었나. 카운터는 NPC 별 talkCount 의 최댓값.
-  { id: "phisher", key: "npcTalkCount", target: 100 },
-  { id: "devoted_listener", key: "npcTalkCount", target: 500 },
-];
-
-export function getTitle(id: TitleId | null | undefined): Title | undefined {
-  if (!id) return undefined;
-  return TITLES[id];
-}
-
-// 옛 칭호 ID 가 옛 임계값에 묶여 있어(임계값이 바뀌어도 ID 가 그대로) 의미 흐트러진
-// 케이스를 의미적 ID 로 옮기는 매핑. adventure-log 로드 시 storage.migrateTitles 가
-// 적용 — 구 ID 가 보유 상태면 신 ID 로 옮긴다 (idempotent).
-export const TITLE_RENAMES: Record<string, string> = {
-  training_10: "training_apprentice", // 50회
-  training_50: "training_blackbelt", // 100회
-  // training_100 → training_master 매핑은 PR-5 에서 training_master 자체가 삭제되며 제거.
-  // 옛 보유분은 log.titles 에 dormant key 로 그대로 남는다 (도감에는 안 보임).
 };

@@ -2,6 +2,8 @@
 
 import { Card } from "@/components/ui/Card";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { SURFACE_ACCENT } from "@/components/ui/surfaces";
+import type { BuildAlignmentAdvisory } from "@/adventure/data/v2/buildAlignment";
 
 // 내 정보 "기본 정보" 카드 — 옛 「직업 숙달」(숙련도·수행 횟수, 성장의 신전과 중복) 대체.
 // 캐릭터 한눈 정보: 전투력(헤드라인) + 소속 길드·전투 횟수·숙달 포인트.
@@ -12,11 +14,13 @@ export function V2CharacterBasics({
   points,
   battleCount,
   power,
+  buildAdvisory,
 }: {
   guildName?: string | null;
   points: number;
   battleCount: number;
   power: number;
+  buildAdvisory?: BuildAlignmentAdvisory | null;
 }) {
   return (
     <Card padding="md">
@@ -27,8 +31,8 @@ export function V2CharacterBasics({
       <Tooltip
         className="mt-3"
         placement="bottom"
-        content="공격·방어·생존·속도를 모두 합산한 콘텐츠 강도 지표예요. 장비·능력치·숙련을 올리면 함께 오릅니다."
-        triggerClassName="flex w-full cursor-help flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left transition-colors hover:border-amber-300 dark:border-amber-900/50 dark:bg-amber-950/30 dark:hover:border-amber-800"
+        content="물리·마법 공격과 방어, 치명타, 생존, 피해 감소, 회복, 속도를 합산한 콘텐츠 강도 지표예요."
+        triggerClassName={`${SURFACE_ACCENT} flex w-full cursor-help flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3 text-left transition-colors hover:border-amber-400 dark:hover:border-amber-800`}
       >
         <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
           전투력
@@ -37,6 +41,17 @@ export function V2CharacterBasics({
           {power.toLocaleString()}
         </span>
       </Tooltip>
+
+      {buildAdvisory ? (
+        <div className={`${SURFACE_ACCENT} mt-3 p-3`} role="status">
+          <div className="text-xs font-semibold text-amber-900 dark:text-amber-100">
+            세팅 방향 확인
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-amber-800 dark:text-amber-200">
+            {buildAdvisory.message}
+          </p>
+        </div>
+      ) : null}
 
       <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
         <InfoTile label="소속 길드" value={guildName?.trim() || "무소속"} />

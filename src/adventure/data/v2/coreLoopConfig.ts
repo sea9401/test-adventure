@@ -57,6 +57,9 @@ export const V2_SKILL_PROC_IN_PATTERN =
 export const V2_FREEFORM_TILES =
   process.env.NEXT_PUBLIC_V2_FREEFORM_TILES === "true";
 
+// 6티어 이상 장비의 장기 골드 성장 시스템. 전체 구현 완료 전까지 기본값은 off다.
+export const V2_EQUIPMENT_LIBERATION =
+  process.env.NEXT_PUBLIC_V2_EQUIPMENT_LIBERATION === "true";
 // === 사냥 페이싱 (V1식·스태미나 폐지·전투당 서버 쿨다운) =====================
 // throttle = 전투당 실시간 쿨다운(클릭 스팸/무한 그라인딩 차단·온오프 동일 속도).
 export const HUNT_COOLDOWN_MS = 5000; // 전투 1판 간격(유저 확정 — 판당 성장 체감 cadence)
@@ -120,7 +123,8 @@ export function offlineFarmDepth(
 // 코어루프 은행 모델: 출금 폐지·입금만 가능. 은행이 black hole 이 되지 않게 모든 골드 소비가
 //   은행(bankedGold)을 먼저 쓰고 모자라면 보유(gold)에서 뺀다. flag off(prod)면 보유만 사용 →
 //   현행과 바이트 동일(은행 불변). 충분치 않으면 ok:false (호출부가 insufficient_gold 반환).
-// 사용처: 상점/치료/강화/제작/이동/창단/점령/계파변경/거래소/비밀상점 등 모든 골드 sink.
+// 사용처: 상점/강화/제작/이동/창단/점령/계파변경/거래소/비밀상점 등 골드 sink.
+// 치료소 충전약만 사냥 실패 위험 골드를 먼저 줄이기 위해 아래 지갑 우선 래퍼를 사용한다.
 //
 // 순수 코어(bankFirst 명시) + flag 래퍼 분리 — 코어는 mocking 없이 양쪽 분기 테스트 가능.
 export function spendGoldWith(
@@ -150,6 +154,36 @@ export function spendGold(
   cost: number,
 ): { ok: boolean; gold: number; bankedGold: number } {
   return spendGoldWith(gold, bankedGold, cost, V2_CORE_LOOP_V2);
+}
+
+// 치료소 충전약 전용 — 지갑에서 가능한 만큼 먼저 쓰고 부족분만 은행에서 차감한다.
+// 지갑 전용이 아니며, 총합이 충분하면 은행 잔액으로 나머지를 결제한다.
+export function spendGoldWalletFirstWithBank(
+  gold: number,
+  bankedGold: number,
+  cost: number,
+): { ok: boolean; gold: number; bankedGold: number } {
+  const g = Math.max(0, Math.floor(Number(gold) || 0));
+  const b = Math.max(0, Math.floor(Number(bankedGold) || 0));
+  const c = Math.max(0, Math.floor(Number(cost) || 0));
+  if (g + b < c) return { ok: false, gold: g, bankedGold: b };
+  const fromWallet = Math.min(g, c);
+  return {
+    ok: true,
+    gold: g - fromWallet,
+    bankedGold: b - (c - fromWallet),
+  };
+}
+
+// 코어루프가 꺼진 환경은 기존 호환 동작(지갑 전용)을 유지한다.
+export function spendTreatmentGold(
+  gold: number,
+  bankedGold: number,
+  cost: number,
+): { ok: boolean; gold: number; bankedGold: number } {
+  return V2_CORE_LOOP_V2
+    ? spendGoldWalletFirstWithBank(gold, bankedGold, cost)
+    : spendGoldWith(gold, bankedGold, cost, false);
 }
 
 // "지불 가능한 총 골드" — 클라 affordability 게이트용. bankFirst 면 보유+은행, 아니면 보유만.
@@ -203,15 +237,11 @@ export const STAT_FLOOR_DECAY_MIN = 0.45;
 
 // === 스킬포인트(SP) 로드아웃 예산 (직업 해금 수집 파생) ========================
 // 레벨 슬롯(스킬 1개씩) 폐지 → "배운 스킬 중 합(spCost) ≤ SP예산"으로 자유 장착. SP 는
-// 기본 예산 + 해금한 실제 직업 수 + 별도 수집/소모품 보너스로 쌓인다. 숙련도 자체는 더 이상
-// SP 를 직접 주지 않고, 직업 해금 조건을 채우는 간접 동기로만 남긴다.
+// 기본 예산 + 해금 직업에서 환산한 SP + 별도 수집/소모품 보너스로 쌓인다. 해금 직업 SP는
+// 첫 50개 +1, 이후 두 직업당 +1이며 숙련도 자체는 해금 조건을 채우는 간접 동기로만 남긴다.
 //
 export const SP_BASE = 40; // 시작 SP. 기본 조합 선택지를 넓히기 위해 28 → 40.
-export const SP_MILESTONE_BASE = 45; // deprecated: 숙련도 SP 마일스톤은 더 이상 사용하지 않는다.
-export const SP_MILESTONE_WIDEN = 25; // deprecated.
-export const SP_MASTERED_JOB_BONUS = 0; // deprecated: 직업군 정복 SP 보너스 제거.
 export const SP_MASTERED_REQUIRED_CUMLEVEL = 10_000;
-export const SP_MAX_SOFT_CAP = Number.POSITIVE_INFINITY; // deprecated: 수집형 SP 는 소프트캡 없음.
 
 export function spMasteryProgressForCumLevel(cumLevel: number): {
   cumLevel: number;
@@ -237,28 +267,7 @@ export function spMasteryProgressForCumLevel(cumLevel: number): {
   };
 }
 
-// deprecated: 숙련도는 더 이상 SP 를 직접 지급하지 않는다.
-export function spMilestonesForCumLevel(cumLevel: number): number {
-  void cumLevel;
-  return 0;
-}
-
-export function nextSpMilestoneProgressForCumLevel(cumLevel: number): {
-  currentMilestoneSp: number;
-  nextMilestoneSp: number;
-  requiredCumLevel: number;
-  remainingCumLevel: number;
-} {
-  void cumLevel;
-  return {
-    currentMilestoneSp: 0,
-    nextMilestoneSp: 0,
-    requiredCumLevel: 0,
-    remainingCumLevel: 0,
-  };
-}
-
-// SP 예산 계산 — 기본 + 해금 직업 수 + SP 열매 + 도감 보너스. 소프트캡 없음.
+// SP 예산 계산 — 기본 + 환산된 해금 직업 SP + SP 열매 + 도감 보너스. 추가 소프트캡 없음.
 //   groups 인자는 옛 숙련도 기반 호출 호환용으로 남기며 계산에는 사용하지 않는다.
 export function calcSpBudget(
   groups: Record<string, { cumLevel?: number; tier?: number }> | null | undefined,
@@ -309,16 +318,6 @@ export function calcSpBudgetBreakdown(
     spFruitBonus: bonus,
     collectionBonusSp: collection,
   };
-}
-
-// deprecated: 숙련도 마일스톤 SP 지급 제거.
-export function spMilestonesCrossed(
-  oldCumLevel: number,
-  newCumLevel: number,
-): number {
-  void oldCumLevel;
-  void newCumLevel;
-  return 0;
 }
 
 // === 거점 행동 비용 (스태미나 → 골드/전투 쿨다운으로 대체) ====================

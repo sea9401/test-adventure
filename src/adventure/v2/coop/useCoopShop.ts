@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { useGameResourceState } from "@/adventure/v2/GameStateProvider";
 
 export type CoopShopLimit = {
   scope: "daily" | "weekly";
@@ -60,7 +60,7 @@ function stateFromResponse(j: Record<string, unknown>): CoopShopState {
 }
 
 export function useCoopShop() {
-  const { applyResourcePatch } = useGameState();
+  const { applyResourcePatch } = useGameResourceState();
   const [state, setState] = useState<CoopShopState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

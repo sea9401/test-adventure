@@ -7,11 +7,19 @@ import {
   STAMINA_SHARD_MATERIAL_ID,
 } from "@/adventure/data/v2/staminaPotionCrafting";
 import {
+  grantStaminaPotions,
   STAMINA_POTIONS_KEY,
-  staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import { COMBINE_GOLD_COST } from "@/adventure/data/v2/v2EquipVariance";
+import {
+  forgeCombinationTotal,
+  parseForgeCombinationQuantity,
+} from "@/adventure/data/v2/forgeCombination";
+import {
+  discountedPersonalCraftGoldCost,
+  equippedPersonalCraftGoldDiscountPct,
+} from "@/lib/server/equipmentLiberationCraftDiscount";
 
 type CharSave = {
   materials?: Record<string, number>;
@@ -36,6 +44,25 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
+  const body = (await req.json().catch(() => null)) as {
+    quantity?: unknown;
+  } | null;
+  const quantity = parseForgeCombinationQuantity(body?.quantity);
+  const shardCost =
+    quantity == null
+      ? null
+      : forgeCombinationTotal(STAMINA_SHARD_COMBINE_COST, quantity);
+  const baseGoldCost =
+    quantity == null
+      ? null
+      : forgeCombinationTotal(COMBINE_GOLD_COST, quantity);
+  if (quantity == null || shardCost == null || baseGoldCost == null) {
+    return Response.json(
+      { ok: false, error: "invalid_quantity" },
+      { status: 400 },
+    );
+  }
+
   const result = await db.transaction(async (tx) => {
     const charSave = await lockSaveForUpdate<CharSave>(
       tx,
@@ -48,13 +75,13 @@ export async function POST(req: Request) {
       0,
       Math.floor(Number(materials[STAMINA_SHARD_MATERIAL_ID]) || 0),
     );
-    if (heldShards < STAMINA_SHARD_COMBINE_COST) {
+    if (heldShards < shardCost) {
       return {
         status: 400,
         body: {
           ok: false as const,
           error: "insufficient_material" as const,
-          need: STAMINA_SHARD_COMBINE_COST,
+          need: shardCost,
         },
       };
     }
@@ -64,22 +91,40 @@ export async function POST(req: Request) {
       0,
       Math.floor(Number(charSave.bankedGold) || 0),
     );
-    const spend = spendGold(gold, bankedGold, COMBINE_GOLD_COST);
+    const equipment = await lockSaveForUpdate(
+      tx,
+      userId,
+      "equipment.v2",
+      {},
+    );
+    const liberationDiscountPct =
+      equippedPersonalCraftGoldDiscountPct(equipment);
+    const goldCost = discountedPersonalCraftGoldCost(
+      baseGoldCost,
+      liberationDiscountPct,
+    );
+    const spend = spendGold(gold, bankedGold, goldCost);
     if (!spend.ok) {
       return {
         status: 400,
         body: {
           ok: false as const,
           error: "insufficient_gold" as const,
-          goldCost: COMBINE_GOLD_COST,
+          goldCost,
+          baseGoldCost,
+          liberationDiscountPct,
         },
       };
     }
 
-    const potionCount = staminaPotionCount(
-      await lockSaveForUpdate(tx, userId, STAMINA_POTIONS_KEY, { count: 0 }),
+    const potionSave = await lockSaveForUpdate(
+      tx,
+      userId,
+      STAMINA_POTIONS_KEY,
+      { count: 0 },
     );
-    const shardsLeft = heldShards - STAMINA_SHARD_COMBINE_COST;
+    const nextPotions = grantStaminaPotions(potionSave, quantity);
+    const shardsLeft = heldShards - shardCost;
     if (shardsLeft > 0) materials[STAMINA_SHARD_MATERIAL_ID] = shardsLeft;
     else delete materials[STAMINA_SHARD_MATERIAL_ID];
 
@@ -89,17 +134,18 @@ export async function POST(req: Request) {
       bankedGold: spend.bankedGold,
       materials,
     });
-    await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
-      count: potionCount + 1,
-    });
+    await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextPotions);
 
     return {
       status: 200,
       body: {
         ok: true as const,
+        quantity,
         shardsLeft,
-        staminaPotions: potionCount + 1,
-        goldCost: COMBINE_GOLD_COST,
+        staminaPotions: nextPotions.count,
+        goldCost,
+        baseGoldCost,
+        liberationDiscountPct,
         gold: spend.gold,
         ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
       },

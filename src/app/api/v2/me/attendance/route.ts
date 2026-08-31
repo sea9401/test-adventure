@@ -1,8 +1,8 @@
 import { db } from "@/db";
 import {
-  MONTHLY_ATTENDANCE_REWARDS,
   MONTHLY_ATTENDANCE_SAVE_KEY,
   monthlyAttendanceRewardLabel,
+  monthlyAttendanceRewardsForMonth,
   monthlyAttendanceStatus,
   type MonthlyAttendanceReward,
 } from "@/adventure/data/v2/monthlyAttendance";
@@ -15,8 +15,9 @@ import {
   grantAdventureSupport,
 } from "@/adventure/data/v2/adventureSupport";
 import { SUMMON_SCROLL_MATERIAL_ID } from "@/adventure/data/v2/coopBosses";
+import { COOP_COIN_MATERIAL_ID } from "@/adventure/data/v2/coopRewards";
 import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
-import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
+import { TORN_MAP_FRAGMENT_MATERIAL_ID } from "@/adventure/data/v2/scavengedCrafting";
 import {
   applyRegen,
   parseStaminaFromSave,
@@ -24,8 +25,8 @@ import {
   staminaOverchargeCap,
 } from "@/adventure/v2/stamina";
 import {
+  grantStaminaPotions,
   STAMINA_POTIONS_KEY,
-  parseStaminaPotions,
 } from "@/adventure/v2/staminaPotions";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { hasCompletedOnboarding } from "@/lib/server/profile";
@@ -61,7 +62,7 @@ function publicStatus(raw: unknown, now: Date) {
   const status = monthlyAttendanceStatus(raw, now);
   return {
     ...status,
-    rewards: MONTHLY_ATTENDANCE_REWARDS,
+    rewards: monthlyAttendanceRewardsForMonth(status.monthKey),
   };
 }
 
@@ -117,8 +118,8 @@ export async function POST() {
         };
       }
 
-      const reward: MonthlyAttendanceReward =
-        MONTHLY_ATTENDANCE_REWARDS[status.nextDay - 1];
+      const rewards = monthlyAttendanceRewardsForMonth(status.monthKey);
+      const reward: MonthlyAttendanceReward = rewards[status.nextDay - 1];
       let nextCharacter: CharacterSave = { ...character };
       let characterChanged = false;
       let adventureSupportActiveUntil: number | null = null;
@@ -127,10 +128,14 @@ export async function POST() {
       let grantedMaterials: Record<string, number> | null = null;
       let grantedCosmeticBox: MuseunCosmeticBoxItemId | null = null;
 
-      if (reward.kind === "adventure_support") {
+      const adventureSupportDays =
+        reward.kind === "adventure_support"
+          ? reward.days
+          : reward.adventureSupportDays ?? 0;
+      if (adventureSupportDays > 0) {
         const grant = grantAdventureSupport(
           character.adventureSupport,
-          reward.days,
+          adventureSupportDays,
           nowMs,
         );
         if (!grant) throw new Error("invalid_adventure_support_reward");
@@ -162,17 +167,18 @@ export async function POST() {
             },
           };
         }
-      } else if (reward.kind === "stamina_potion") {
+      }
+
+      if (reward.kind === "stamina_potion") {
         const potionSave = await lockSaveForUpdate(
           tx,
           userId,
           STAMINA_POTIONS_KEY,
           { count: 0 },
         );
-        staminaPotions = parseStaminaPotions(potionSave).count + reward.count;
-        await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
-          count: staminaPotions,
-        });
+        const nextPotions = grantStaminaPotions(potionSave, reward.count);
+        staminaPotions = nextPotions.count;
+        await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextPotions);
       } else if (reward.kind === "mastery_certificate") {
         const inventory = await lockSaveForUpdate<Record<string, unknown>>(
           tx,
@@ -189,7 +195,7 @@ export async function POST() {
           ...inventory,
           [MASTERY_CERTIFICATE_KEY]: masteryCertificates,
         });
-      } else {
+      } else if (reward.kind !== "adventure_support") {
         const materials = materialCounts(character.materials);
         grantedMaterials = {};
         const grantMaterial = (materialId: string, count: number) => {
@@ -197,13 +203,12 @@ export async function POST() {
           grantedMaterials![materialId] = count;
         };
 
-        if (reward.kind === "enhancement_stone") {
-          grantMaterial(ENHANCE_STONE_MATERIAL_ID[reward.color], reward.count);
-        } else if (reward.kind === "boss_summon_scroll") {
+        if (reward.kind === "boss_summon_scroll") {
           grantMaterial(SUMMON_SCROLL_MATERIAL_ID, reward.count);
+        } else if (reward.kind === "torn_map_fragment") {
+          grantMaterial(TORN_MAP_FRAGMENT_MATERIAL_ID, reward.count);
         } else {
-          grantMaterial(ENHANCE_STONE_MATERIAL_ID.red, reward.red);
-          grantMaterial(ENHANCE_STONE_MATERIAL_ID.blue, reward.blue);
+          grantMaterial(COOP_COIN_MATERIAL_ID, reward.count);
         }
         nextCharacter = { ...nextCharacter, materials };
         characterChanged = true;
@@ -283,14 +288,20 @@ function recordAttendanceReward(
       quantity: 1,
     });
   }
-  if (reward.kind === "adventure_support") {
+  const adventureSupportDays =
+    reward.kind === "adventure_support"
+      ? reward.days
+      : reward.adventureSupportDays ?? 0;
+  if (adventureSupportDays > 0) {
     recordEconomyEventSoon({
       userId,
       eventType: "reward.monthly_attendance",
       itemKind: "entitlement",
       itemId: "monthly_adventure_support",
-      quantity: reward.days,
+      quantity: adventureSupportDays,
     });
+  }
+  if (reward.kind === "adventure_support") {
     return;
   }
   if (reward.kind === "stamina_potion") {
@@ -322,12 +333,11 @@ function recordAttendanceReward(
       itemId,
       quantity,
     });
-  if (reward.kind === "enhancement_stone") {
-    recordMaterial(ENHANCE_STONE_MATERIAL_ID[reward.color], reward.count);
-  } else if (reward.kind === "boss_summon_scroll") {
+  if (reward.kind === "boss_summon_scroll") {
     recordMaterial(SUMMON_SCROLL_MATERIAL_ID, reward.count);
+  } else if (reward.kind === "torn_map_fragment") {
+    recordMaterial(TORN_MAP_FRAGMENT_MATERIAL_ID, reward.count);
   } else {
-    recordMaterial(ENHANCE_STONE_MATERIAL_ID.red, reward.red);
-    recordMaterial(ENHANCE_STONE_MATERIAL_ID.blue, reward.blue);
+    recordMaterial(COOP_COIN_MATERIAL_ID, reward.count);
   }
 }

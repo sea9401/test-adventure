@@ -3,7 +3,12 @@ import {
   COOP_EXTRA_REWARD_RULES,
   COOP_MASTERY_TOME_GAIN,
 } from "@/adventure/data/v2/coopRewards";
-import { COOP_TIER_LABEL, COOP_TIER_ORDER } from "@/adventure/data/v2/coopBosses";
+import {
+  COOP_ATTACK_COOLDOWN_MS,
+  COOP_ATTACK_STAMINA_COST,
+  COOP_TIER_LABEL,
+  COOP_TIER_ORDER,
+} from "@/adventure/data/v2/coopBosses";
 import { H2, P, UL, Em, Note, Table } from "./primitives";
 
 export function CoopContent() {
@@ -29,8 +34,9 @@ export function CoopContent() {
           좋아집니다. 같은 종류의 보스를 여러 마리 소환할 수도 있습니다.
         </li>
         <li>
-          공격에는 별도 비용이 들지 않습니다. 전투에서 깎은 HP가 기여도로
-          기록됩니다.
+          공격 1회마다 스태미나 <Em>{COOP_ATTACK_STAMINA_COST}</Em>을 사용하고, 공격한
+          뒤에는 <Em>{COOP_ATTACK_COOLDOWN_MS / 1_000}초</Em>가 지나야 다시 공격할 수
+          있습니다. 전투에서 깎은 HP는 기여도로 기록됩니다.
         </li>
         <li>
           보스는 고유 스킬과 상태이상으로 반격하며, HP가 낮아지면 더 강해집니다.
@@ -40,8 +46,9 @@ export function CoopContent() {
 
       <H2>공개 범위</H2>
       <P>
-        소환할 때 누가 함께 칠 수 있는지 <Em>공개 / 길드원만 / 나만</Em> 중에서
-        선택합니다. 공개 범위는 소환한 뒤에도 바꿀 수 있습니다.
+        모든 보스는 먼저 <Em>나만</Em> 공격할 수 있는 상태로 소환됩니다. 소환자는
+        이후 공개 범위를 <Em>길드원만</Em> 또는 <Em>공개</Em>로 넓힐 수 있습니다. 전체
+        공개한 뒤에는 다시 범위를 줄일 수 없습니다.
       </P>
 
       <H2>기여 보상</H2>

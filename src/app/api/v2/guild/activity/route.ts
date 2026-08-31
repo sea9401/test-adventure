@@ -87,8 +87,20 @@ export async function GET() {
         questTitle?: string;
         deliveryTitle?: string;
         itemName?: string;
+        materialId?: string;
+        equipmentIid?: string;
+        itemKind?: "material" | "equipment";
+        permissionEnabled?: boolean;
         tokenCost?: number;
         remainingTokens?: number;
+        recipientCount?: number;
+        facilitySupport?: {
+          buildingId: string;
+          buildingName: string;
+          targetLevel: number;
+          crop: number;
+          ore: number;
+        };
         smithyLevel?: number;
         buildingName?: string;
         buildingLevel?: number;
@@ -104,6 +116,11 @@ export async function GET() {
         titleName?: string;
         rewardGold?: number;
         rewardFame?: number;
+        chargeTarget?: "hp" | "mp" | "balanced";
+        chargeAmount?: number;
+        staminaPotions?: number;
+        alchemyRewardName?: string;
+        alchemyRewardAmount?: number;
       } | null,
       createdAt: r.createdAt,
     })),

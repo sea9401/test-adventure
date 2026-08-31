@@ -18,6 +18,7 @@ import {
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
+import { requireCurrentUgcConsent } from "@/lib/server/ugcSafety";
 
 const PERMIT_ID = "profile_image_permit" as const;
 const MAX_MULTIPART_BYTES = PROFILE_IMAGE_MAX_BYTES + 256 * 1024;
@@ -37,6 +38,8 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const consentFailure = await requireCurrentUgcConsent(userId);
+  if (consentFailure) return consentFailure;
   const limited = enforceUserAndIpRateLimit(req, {
     userId,
     action: "profile:image:upload",

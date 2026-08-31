@@ -4,12 +4,14 @@ import {
   V2_JOB_LIST,
   isLifestyleMasteryJobId,
 } from "@/adventure/data/v2/v2JobCatalog";
+import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 import { effectiveCultivateProfile } from "@/adventure/data/v2/proficiency";
 import {
   V2_STAT_KEYS,
   V2_STAT_LABELS,
   type V2StatKey,
 } from "@/adventure/data/v2/v2StatKeys";
+import type { Tier7AdvancementStatus } from "@/adventure/data/v2/tier7Advancement";
 
 export const JOB_GOAL_STORAGE_KEY = "adventure.v2.jobGoalId";
 
@@ -25,11 +27,68 @@ export type JobExplorerJob = {
   skillsLearned?: number;
   skillsTotal?: number;
   conditionRevealed?: boolean;
+  tier7Advancement?: Tier7AdvancementStatus;
 };
 
 export type JobExplorerContext = {
   currentJobId?: string | null;
 };
+
+export type JobAdvanceAction = {
+  enabled: boolean;
+  label: "전직" | "재전직" | "조건 부족" | `Lv ${number} 필요`;
+  ariaLabel: string;
+};
+
+export function resolveJobAdvanceAction({
+  job,
+  currentJobId,
+  atLevelCap,
+  currentJobSelectable,
+}: {
+  job: Pick<
+    JobExplorerJob,
+    "id" | "name" | "unlocked" | "tier7Advancement"
+  >;
+  currentJobId: string;
+  atLevelCap: boolean;
+  currentJobSelectable: boolean;
+}): JobAdvanceAction {
+  const isCurrent = job.id === currentJobId;
+  const tier7 = job.tier7Advancement;
+  if (tier7 && !tier7.permanentlyUnlocked) {
+    const enabled = tier7.firstUnlockReady;
+    const label = enabled
+      ? "전직"
+      : tier7.failure === "level_too_low"
+        ? (`Lv ${tier7.level.required} 필요` as const)
+        : "조건 부족";
+    return {
+      enabled,
+      label,
+      ariaLabel: enabled
+        ? `${job.name}(으)로 전직`
+        : `${job.name} 전직: ${label}`,
+    };
+  }
+  const unlocked = job.unlocked !== false;
+  const enabled = unlocked && (isCurrent ? currentJobSelectable : atLevelCap);
+  const label = !unlocked
+    ? "조건 부족"
+    : !enabled
+      ? (`Lv ${V2_LEVEL_CAP} 필요` as const)
+      : isCurrent
+        ? "재전직"
+        : "전직";
+  const actionName = isCurrent ? "재전직" : "전직";
+  const ariaLabel = enabled
+    ? isCurrent
+      ? `${job.name} 재전직`
+      : `${job.name}(으)로 전직`
+    : `${job.name} ${actionName}: ${label}`;
+
+  return { enabled, label, ariaLabel };
+}
 
 export function isJobVisibleInShrine(
   job: Pick<JobExplorerJob, "unlocked" | "conditionRevealed">,
@@ -44,6 +103,7 @@ const JOB_LINE_ROOT_ORDER = [
   "mage",
   "rogue",
   "survivor",
+  "mutant",
 ];
 
 const JOB_CATALOG_INDEX = new Map(
@@ -220,12 +280,14 @@ export function jobCultivationProfile(
   jobId: string,
 ): Partial<Record<V2StatKey, number>> | undefined {
   if (!V2_JOB_CATALOG[jobId]) return undefined;
+  if (isLifestyleMasteryJobId(jobId)) return undefined;
   const group = LEGACY_CLASS_SPEC_BY_JOB[jobId]?.class ?? jobId;
   return effectiveCultivateProfile(group, jobId);
 }
 
 /** 기본 수행 1회에 오르는 스탯 한계치를 카드 표기용으로 정렬해 반환한다. */
 export function jobCultivationSummary(jobId: string): string {
+  if (isLifestyleMasteryJobId(jobId)) return "생활직은 수행할 수 없음";
   const profile = jobCultivationProfile(jobId);
   if (!profile) return "";
   return [...V2_STAT_KEYS]

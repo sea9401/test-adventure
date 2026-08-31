@@ -16,15 +16,34 @@ import {
   nextHuntStageDepth,
   MAX_FRONTIER_DEPTH,
 } from "./dungeon";
-import { scaleMonsterForFloor } from "./monsterScale";
+import {
+  HUNT_HIGH_DEPTH_ACCURACY_MULT,
+  HUNT_HIGH_DEPTH_ACCURACY_START,
+  HUNT_HIGH_DEPTH_AUTHORED_ACCURACY_WEIGHT,
+  scaleMonsterForFloor,
+  scaleMonsterForHunt,
+} from "./monsterScale";
 import {
   floorStatMult,
   floorDefMult,
   floorExpMult,
   floorCritHpComp,
+  endgameSoften,
+  endExtensionCombatSoften,
   frontierOnsetSoften,
   floorAccuracy,
   floorPowerGate,
+  fixedFrontierAccuracyMult,
+  fixedFrontierAttackMult,
+  fixedFrontierDefenseMult,
+  fixedFrontierDurabilityMult,
+  fixedFrontierEvasionBonus,
+  lateAccuracyMult,
+  lateAttackMult,
+  lateDefenseMult,
+  lateDurabilityMult,
+  lateEvasionBonus,
+  lateStatusDamageReductionBonus,
 } from "./dungeonLadder";
 import { MONSTERS } from "../monsters";
 import { V2_MONSTERS } from "./v2Monsters";
@@ -32,8 +51,8 @@ import { V2_ELEMENTS, type V2Element } from "./elements";
 import { V2_SKILLS } from "./v2Skills";
 
 describe("dungeonThemeGroups — 사냥터 목록 2단 그룹핑", () => {
-  it("몬스터 처치 도감은 현재 사냥 가능한 표시 이름 60종을 중복 없이 제공한다", () => {
-    expect(HUNT_MONSTER_SPECIES_COUNT).toBe(60);
+  it("몬스터 처치 도감은 현재 사냥 가능한 표시 이름 70종을 중복 없이 제공한다", () => {
+    expect(HUNT_MONSTER_SPECIES_COUNT).toBe(70);
     expect(new Set(HUNT_MONSTER_CODEX.map((entry) => entry.name)).size).toBe(
       HUNT_MONSTER_CODEX.length,
     );
@@ -43,9 +62,9 @@ describe("dungeonThemeGroups — 사냥터 목록 2단 그룹핑", () => {
       firstDepth: 1,
     });
     expect(HUNT_MONSTER_CODEX.at(-1)).toEqual({
-      name: "암류 파수병",
-      areas: ["심해 폐허"],
-      firstDepth: 67,
+      name: "죽은 별의 관측자",
+      areas: ["별의 무덤"],
+      firstDepth: 79,
     });
   });
 
@@ -88,6 +107,16 @@ describe("dungeonThemeGroups — 사냥터 목록 2단 그룹핑", () => {
 });
 
 describe("3단계 일반 사냥 진행", () => {
+  it("천공 균열 다음에 별의 무덤 3단계를 순서대로 개방한다", () => {
+    expect(nextHuntStageDepth(78)).toBe(80);
+    expect(nextHuntStageDepth(80)).toBe(82);
+    expect(nextHuntStageDepth(82)).toBe(84);
+    expect(nextHuntStageDepth(84)).toBeNull();
+    expect(huntStageName(80)).toBe("별의 무덤 · 입구");
+    expect(huntStageName(82)).toBe("별의 무덤 · 심부");
+    expect(huntStageName(84)).toBe("별의 무덤 · 최심부");
+  });
+
   it("레거시 두 깊이를 입구·심부·최심부로 묶고 2·4·6을 대표 깊이로 사용", () => {
     expect([1, 2, 3, 4, 5, 6].map(huntStageLabel)).toEqual([
       "입구",
@@ -110,7 +139,9 @@ describe("3단계 일반 사냥 진행", () => {
     expect(nextHuntStageDepth(3)).toBe(4);
     expect(nextHuntStageDepth(7)).toBe(8);
     expect(nextHuntStageDepth(71)).toBe(72);
-    expect(nextHuntStageDepth(72)).toBeNull();
+    expect(nextHuntStageDepth(72)).toBe(74);
+    expect(nextHuntStageDepth(77)).toBe(78);
+    expect(nextHuntStageDepth(78)).toBe(80);
     expect(latestUnlockedHuntStageDepth(7)).toBe(6);
   });
 
@@ -130,6 +161,35 @@ describe("3단계 일반 사냥 진행", () => {
 });
 
 describe("v2 dungeon", () => {
+  it("별의 무덤은 속성 없이 서로 다른 방어 대응을 요구하는 몬스터 5종을 제공한다", () => {
+    const enemies = enemiesForDepth(79);
+    expect(enemies.map((enemy) => enemy.name)).toEqual([
+      "성해의 파수꾼",
+      "혜성꼬리 추적자",
+      "적색거성의 사제",
+      "공허를 먹는 짐승",
+      "죽은 별의 관측자",
+    ]);
+    expect(enemies.every((enemy) => enemy.element === undefined)).toBe(true);
+
+    const warden = V2_MONSTERS["성해의 파수꾼"];
+    const priest = V2_MONSTERS["적색거성의 사제"];
+    const observer = V2_MONSTERS["죽은 별의 관측자"];
+    expect(warden.def).toBeGreaterThan(warden.magicDef ?? 0);
+    expect(priest.atkType).toBe("magic");
+    expect(priest.def).toBeLessThan(priest.magicDef ?? 0);
+    expect(observer.atkType).toBe("magic");
+    expect(observer.magicDef ?? 0).toBeGreaterThan(observer.def);
+  });
+
+  it("별의 무덤을 마지막 79~84 깊이 테마로 추가한다", () => {
+    expect(MAX_FRONTIER_DEPTH).toBe(84);
+    expect(depthName(79)).toBe("별의 무덤 1");
+    expect(depthName(84)).toBe("별의 무덤 6");
+    expect(enemiesForDepth(79)).not.toBe(enemiesForDepth(78));
+    expect(enemiesForDepth(999)).toBe(enemiesForDepth(79));
+  });
+
   it("statusSkill 은 monsterOnly v2 스킬만, 1구역(신규)엔 없음 (PR-9)", () => {
     for (const floor of MAIN_DUNGEON.floors) {
       for (const e of floor.enemies) {
@@ -162,7 +222,8 @@ describe("v2 dungeon", () => {
   it("enemiesForDepth / depthName — 테마당 6깊이, 테마 내 로컬 번호 표시", () => {
     // 들판(1~6)·마른협곡(7~12)·얼음호수(13~18)·심층동굴(19~24)·
     // 잊힌성소(25~30)·리자드늪지(31~36)·짐승의소굴(37~42)·검은왕도(43~48)·
-    // 붉은벌판(49~54)·백골고원(55~60)·폭풍산맥(61~66)·심해폐허(67~72=프론티어 끝).
+    // 붉은벌판(49~54)·백골고원(55~60)·폭풍산맥(61~66)·심해폐허(67~72)·
+    // 천공균열(73~78)·별의무덤(79~84=프론티어 끝).
     expect(depthName(1)).toBe("들판 1");
     expect(depthName(6)).toBe("들판 6");
     expect(depthName(7)).toBe("마른 협곡 1");
@@ -180,7 +241,10 @@ describe("v2 dungeon", () => {
     expect(depthName(66)).toBe("폭풍 산맥 6");
     expect(depthName(67)).toBe("심해 폐허 1");
     expect(depthName(72)).toBe("심해 폐허 6");
-    expect(depthName(74)).toBe("심해 폐허 8"); // 캡(72) 밖=도달 불가, 방어적 클램프 표시만
+    expect(depthName(73)).toBe("천공 균열 1");
+    expect(depthName(78)).toBe("천공 균열 6");
+    expect(depthName(79)).toBe("별의 무덤 1");
+    expect(depthName(84)).toBe("별의 무덤 6");
 
     // 풀: 들판 = authored(MAIN_DUNGEON), 나머지 = 밴드(마른 협곡부터).
     expect(enemiesForDepth(1)).toBe(MAIN_DUNGEON.floors[0].enemies); // 들판
@@ -194,11 +258,13 @@ describe("v2 dungeon", () => {
     expect(enemiesForDepth(55)).not.toBe(enemiesForDepth(49)); // 붉은 벌판→백골 고원 전환
     expect(enemiesForDepth(61)).not.toBe(enemiesForDepth(55)); // 백골 고원→폭풍 산맥 전환
     expect(enemiesForDepth(67)).not.toBe(enemiesForDepth(61)); // 폭풍 산맥→심해 폐허 전환
-    expect(enemiesForDepth(999)).toBe(enemiesForDepth(67)); // 캡 밖도 방어적 클램프(도달 불가)
+    expect(enemiesForDepth(73)).not.toBe(enemiesForDepth(67)); // 심해 폐허→천공 균열 전환
+    expect(enemiesForDepth(79)).not.toBe(enemiesForDepth(73)); // 천공 균열→별의 무덤 전환
+    expect(enemiesForDepth(999)).toBe(enemiesForDepth(79)); // 캡 밖도 방어적 클램프(도달 불가)
 
-    // 12테마 각 대표 깊이 — 5종 + 인접 테마와 다른 풀.
-    const themeReps = [1, 7, 13, 19, 25, 31, 37, 43, 49, 55, 61, 67];
-    const themeNames = ["들판", "마른 협곡", "얼음 호수", "심층 동굴", "잊힌 성소", "리자드 늪지", "짐승의 소굴", "검은 왕도", "붉은 벌판", "백골 고원", "폭풍 산맥", "심해 폐허"];
+    // 14테마 각 대표 깊이 — 5종 + 인접 테마와 다른 풀.
+    const themeReps = [1, 7, 13, 19, 25, 31, 37, 43, 49, 55, 61, 67, 73, 79];
+    const themeNames = ["들판", "마른 협곡", "얼음 호수", "심층 동굴", "잊힌 성소", "리자드 늪지", "짐승의 소굴", "검은 왕도", "붉은 벌판", "백골 고원", "폭풍 산맥", "심해 폐허", "천공 균열", "별의 무덤"];
     for (let i = 0; i < themeReps.length; i++) {
       const pool = enemiesForDepth(themeReps[i]);
       expect(pool.length, `${themeNames[i]} 5종`).toBe(5);
@@ -223,43 +289,59 @@ describe("v2 dungeon", () => {
   });
 
   it("MAX_FRONTIER_DEPTH = 마지막 테마 끝(테마수 × 6) — 무한 반복 안 함, 새 테마 추가 시 자동 확장", () => {
-    // 12테마 × 6깊이 = 72. 심해 폐허 6(깊이 72)이 프론티어의 끝.
-    expect(MAX_FRONTIER_DEPTH).toBe(72);
-    expect(depthName(MAX_FRONTIER_DEPTH)).toBe("심해 폐허 6");
+    // 14테마 × 6깊이 = 84. 별의 무덤 6(깊이 84)이 프론티어의 끝.
+    expect(MAX_FRONTIER_DEPTH).toBe(84);
+    expect(depthName(MAX_FRONTIER_DEPTH)).toBe("별의 무덤 6");
   });
 
-  it("신규 엔드 사냥터 권장 전투력 — 붉은 벌판부터 심해 폐허까지 단계 상승", () => {
+  it("신규 엔드 사냥터 권장 전투력 — 검은 왕도부터 천공 균열까지 단계 상승", () => {
+    expect([43, 44, 45, 46, 47, 48].map(floorPowerGate)).toEqual([
+      1200,
+      1230,
+      1260,
+      1290,
+      1320,
+      1350,
+    ]);
     expect([49, 50, 51, 52, 53, 54].map(floorPowerGate)).toEqual([
-      2000,
-      2060,
-      2120,
-      2180,
-      2240,
-      2300,
+      1400,
+      1450,
+      1500,
+      1550,
+      1600,
+      1650,
     ]);
     expect([55, 56, 57, 58, 59, 60].map(floorPowerGate)).toEqual([
-      2800,
-      2900,
-      3000,
-      3100,
-      3200,
-      3300,
+      1700,
+      1760,
+      1820,
+      1880,
+      1940,
+      2000,
     ]);
     expect([61, 62, 63, 64, 65, 66].map(floorPowerGate)).toEqual([
-      3400,
-      3500,
-      3600,
-      3700,
-      3800,
-      3900,
+      2050,
+      2090,
+      2130,
+      2170,
+      2210,
+      2250,
     ]);
     expect([67, 68, 69, 70, 71, 72].map(floorPowerGate)).toEqual([
-      4000,
+      2500,
+      2900,
+      3300,
+      3700,
       4100,
-      4200,
-      4300,
-      4400,
       4500,
+    ]);
+    expect([73, 74, 75, 76, 77, 78].map(floorPowerGate)).toEqual([
+      4650,
+      4800,
+      4950,
+      5100,
+      5300,
+      5500,
     ]);
   });
 
@@ -344,7 +426,7 @@ describe("scaleMonsterForFloor", () => {
   it("들판 1 — hp/atk 는 ×1.0 동일하나 회피 대결용 명중(floorAccuracy)은 가산", () => {
     const weak = MONSTERS["슬라임"];
     const d1 = scaleMonsterForFloor(weak, 1);
-    // 깊이 1 = hp/atk/def/exp ×1.0(평탄). 단 명중은 floorAccuracy(1)=0.3 가산(들판 대결 퇴화 방지·라운드 금지).
+    // 깊이 1 = hp/atk/def/exp ×1.0(평탄). 명중도는 floorAccuracy(1)를 가산한다.
     expect(d1.hp).toBe(weak.hp);
     expect(d1.atk).toBe(weak.atk);
     expect(d1.accuracy).toBeCloseTo((weak.accuracy ?? 0) + floorAccuracy(1));
@@ -372,42 +454,123 @@ describe("scaleMonsterForFloor", () => {
     expect(scaled.name).toBe(base.name);
   });
 
-  it("권장 전투력 미달은 HP·ATK만 보강하고 명중은 회피 생존축을 위해 분리한다", () => {
-    const depth = 26;
-    const gate = floorPowerGate(depth);
-    const ready = scaleMonsterForFloor(base, depth, true, gate);
-    const underprepared = scaleMonsterForFloor(base, depth, true, gate * 0.7);
+  it("상위 난도 스케일은 HP·공격력 예산을 방어·명중·회피·상태 피해 대응으로 옮긴다", () => {
+    const depth = 72;
+    const scaled = scaleMonsterForFloor(base, depth);
+    const combatMult =
+      floorStatMult(depth) *
+      endgameSoften(depth) *
+      frontierOnsetSoften(depth) *
+      endExtensionCombatSoften(depth);
 
-    expect(underprepared.hp).toBeGreaterThan(ready.hp);
-    expect(underprepared.atk).toBeGreaterThan(ready.atk);
-    expect(underprepared.accuracy).toBe(ready.accuracy);
-    expect(underprepared.def).toBe(ready.def);
-    expect(underprepared.exp).toBe(ready.exp);
-    expect(scaleMonsterForFloor(base, 43, true, 0)).toEqual(
-      scaleMonsterForFloor(base, 43),
+    expect(lateDurabilityMult(depth)).toBe(0.92);
+    expect(lateAttackMult(depth)).toBe(0.75);
+    expect(lateDefenseMult(depth)).toBe(2.25);
+    expect(lateAccuracyMult(depth)).toBe(1);
+    expect(lateEvasionBonus(depth)).toBe(3);
+    expect(lateStatusDamageReductionBonus(depth)).toBe(30);
+    expect(scaled.hp).toBe(
+      Math.round(
+        base.hp *
+          combatMult *
+          fixedFrontierDurabilityMult(depth) *
+          floorCritHpComp(depth) *
+          lateDurabilityMult(depth),
+      ),
     );
-    const endgameDepth = 60;
-    const endgameGate = floorPowerGate(endgameDepth);
-    const endgameReady = scaleMonsterForFloor(
-      base,
-      endgameDepth,
-      true,
-      endgameGate,
+    expect(scaled.atk).toBe(
+      Math.round(
+        base.atk *
+          combatMult *
+          fixedFrontierAttackMult(depth) *
+          lateAttackMult(depth),
+      ),
     );
-    const endgameUnderprepared = scaleMonsterForFloor(
-      base,
-      endgameDepth,
-      true,
-      endgameGate * 0.5,
+    expect(scaled.def).toBe(
+      Math.round(
+        base.def *
+          floorDefMult(depth) *
+          fixedFrontierDefenseMult(depth) *
+          lateDefenseMult(depth),
+      ),
     );
-    expect(endgameUnderprepared.hp).toBeGreaterThan(endgameReady.hp);
-    expect(endgameUnderprepared.atk).toBeGreaterThan(endgameReady.atk);
-    expect(endgameUnderprepared.accuracy).toBe(endgameReady.accuracy);
-    expect(endgameUnderprepared.accuracy).toBeCloseTo(
-      (base.accuracy ?? 0) + floorAccuracy(endgameDepth),
+    expect(scaled.evasionPct).toBeCloseTo(
+      (base.evasionPct ?? 0) +
+        fixedFrontierEvasionBonus(depth) +
+        lateEvasionBonus(depth),
     );
-    expect(endgameUnderprepared.def).toBe(endgameReady.def);
-    expect(endgameUnderprepared.exp).toBe(endgameReady.exp);
+    expect(scaled.accuracy).toBeCloseTo(
+      ((base.accuracy ?? 0) + floorAccuracy(depth)) *
+        fixedFrontierAccuracyMult(depth) *
+        lateAccuracyMult(depth),
+    );
+    expect(scaled.statusDamageReductionPct).toBe(30);
+  });
+
+  it("일반 사냥터는 깊이 보너스와 몬스터 고유 상태 피해 감소를 적용하지 않는다", () => {
+    const baseWithResistance = {
+      ...base,
+      statusDamageReductionPct: 40,
+    };
+    const scaled = scaleMonsterForHunt(baseWithResistance, 72);
+
+    expect(scaled.statusDamageReductionPct).toBeUndefined();
+    expect(baseWithResistance.statusDamageReductionPct).toBe(40);
+  });
+
+  it("61층 이후 일반 사냥터는 고유 적중도를 25%만 반영하고 최종값을 10% 낮춘다", () => {
+    expect(HUNT_HIGH_DEPTH_ACCURACY_START).toBe(61);
+    expect(HUNT_HIGH_DEPTH_AUTHORED_ACCURACY_WEIGHT).toBe(0.25);
+    expect(HUNT_HIGH_DEPTH_ACCURACY_MULT).toBe(0.9);
+    const accurateMonster = V2_MONSTERS["낙뢰 예언자"];
+    const authoredAccuracy = accurateMonster.accuracy ?? 0;
+
+    const depth60 = scaleMonsterForHunt(accurateMonster, 60);
+    expect(depth60.accuracy).toBeCloseTo(
+      (floorAccuracy(60) + authoredAccuracy) *
+        fixedFrontierAccuracyMult(60) *
+        lateAccuracyMult(60),
+    );
+
+    const depth61 = scaleMonsterForHunt(accurateMonster, 61);
+    expect(depth61.accuracy).toBeCloseTo(
+      (floorAccuracy(61) + authoredAccuracy * 0.25) *
+        fixedFrontierAccuracyMult(61) *
+        lateAccuracyMult(61) *
+        0.9,
+    );
+
+    // 고유 적중도가 없는 몬스터도 같은 일반 사냥터 최종 완화를 받는다.
+    const noAuthoredAccuracy = scaleMonsterForHunt(
+      { ...accurateMonster, accuracy: undefined },
+      61,
+    );
+    expect(noAuthoredAccuracy.accuracy).toBeCloseTo(
+      floorAccuracy(61) *
+        fixedFrontierAccuracyMult(61) *
+        lateAccuracyMult(61) *
+        0.9,
+    );
+
+    // 격자 던전·원정 등 별도 난도표는 기존 고유 적중도를 유지한다.
+    const specialCombat = scaleMonsterForFloor(accurateMonster, 61);
+    expect(specialCombat.accuracy).toBeCloseTo(
+      (floorAccuracy(61) + authoredAccuracy) *
+        fixedFrontierAccuracyMult(61) *
+        lateAccuracyMult(61),
+    );
+  });
+
+  it("49+ 고정 난도 보정은 협동 보스 스케일에는 적용하지 않는다", () => {
+    const depth = 72;
+    const coopScaled = scaleMonsterForFloor(base, depth, false);
+
+    expect(coopScaled.hp).toBe(
+      Math.round(base.hp * floorStatMult(depth)),
+    );
+    expect(coopScaled.atk).toBe(
+      Math.round(base.atk * floorStatMult(depth)),
+    );
   });
 
   it("베이스 변형 없음 (mutation 가드)", () => {
@@ -440,13 +603,13 @@ describe("dungeonThemeCatalog (코덱스 사냥터 도감)", () => {
     expect(c[1].depthEnd).toBe(8); // 도달 8
   });
 
-  it("캡 밖 마지막 테마(심해 폐허) — 중복 카드 없이 한 장으로 합침", () => {
-    const c = dungeonThemeCatalog(74);
-    expect(c).toHaveLength(12); // 12 테마(깊은 산 삭제 후 + 엔드 4개), 중복 없음
+  it("캡 밖 마지막 테마(별의 무덤) — 중복 카드 없이 한 장으로 합침", () => {
+    const c = dungeonThemeCatalog(86);
+    expect(c).toHaveLength(14); // 14 테마, 중복 없음
     const last = c[c.length - 1];
-    expect(last.name).toBe("심해 폐허");
-    expect(last.depthStart).toBe(67);
-    expect(last.depthEnd).toBe(74); // 캡 밖 방어 입력도 마지막 테마 한 카드
+    expect(last.name).toBe("별의 무덤");
+    expect(last.depthStart).toBe(79);
+    expect(last.depthEnd).toBe(86); // 캡 밖 방어 입력도 마지막 테마 한 카드
     // 테마명 중복 없음
     expect(new Set(c.map((t) => t.name)).size).toBe(c.length);
   });

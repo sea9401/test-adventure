@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { fetchGameState } from "./fetchGameState";
 import {
   V2CharacterCard,
   type V2CharacterCardData,
@@ -11,15 +12,34 @@ import { AdventureRankingPreview } from "./AdventureRankingPreview";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import { activeLoadoutPresetName } from "@/adventure/data/v2/v2LoadoutPresets";
 import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
-import type { ActiveCookingBuff } from "@/adventure/v2/cooking";
+import type { ActiveCookingBuff } from "@/adventure/v2/cooking/foodShared";
+import type { GuildDiningEffectSummary } from "@/adventure/data/v2/guildDining";
 import type {
   V2EquipInstance,
   V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import type {
+  ProfileMasteryTrophyDisplay,
   ProfileShowcaseSelection,
   ProfileShowcaseSlots,
 } from "@/adventure/profile/profileShowcase";
+import { useAdventureDashboard } from "./AdventureDashboardProvider";
+import {
+  DEFAULT_ADVENTURE_HOME_PREFERENCES,
+  type AdventureHomePreferences,
+  type AdventureHomeWidgetId,
+} from "./adventureDashboard";
+import { AdventureHomeWidgetGrid } from "./AdventureHomeWidgetGrid";
+import { AdventureActivityChecklist } from "./AdventureActivityChecklist";
+import { CompactCharacterSummary } from "./CompactCharacterSummary";
+import { RecentBulletinPreview } from "./RecentBulletinPreview";
+import { StaminaBar } from "./StaminaBar";
+import { useGameState } from "./GameStateProvider";
+import { Inset } from "@/components/ui/Inset";
+import { PageShell } from "@/components/ui/PageShell";
+import { StatusBanner } from "@/components/ui/StatusBanner";
+import { SURFACE_ACCENT } from "@/components/ui/surfaces";
+import type { AdventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 
 // 모험 탭 — 캐릭터 상태 + 안내/공지.
 
@@ -29,13 +49,17 @@ type StateResponse = {
   guild?: { id: number; name: string } | null;
   adventureSupport?: {
     active: boolean;
+    tier: AdventureSupportTier;
     activeUntil: number | null;
+    premiumUntil: number | null;
     regenBonusPct: number;
   };
   cosmetics?: MuseunCosmeticAppearance;
   activeFoodBuff?: ActiveCookingBuff | null;
+  activeGuildDiningEffect?: GuildDiningEffectSummary | null;
   profileShowcase?: ProfileShowcaseSelection | null;
   profileShowcaseSlots?: ProfileShowcaseSlots;
+  profileMasteryTrophies?: ProfileMasteryTrophyDisplay[];
   profileBadgeStandOwned?: boolean;
   profileBadgeStandVisible?: boolean;
   hotTime?: {
@@ -71,11 +95,32 @@ type EquipmentResponse = {
 export function V2AdventureHome() {
   const [state, setState] = useState<StateResponse | null>(null);
   const [equipment, setEquipment] = useState<EquipmentResponse | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const { snapshot, loading, error, refresh: refreshDashboard, updatePreferences } =
+    useAdventureDashboard();
+  const {
+    stamina,
+    staminaMax,
+    staminaRegenBonusPct,
+    staminaPotions,
+    refreshGameState,
+  } = useGameState();
+
+  const usePotion = useCallback(async (count: number) => {
+    try {
+      await fetch("/api/v2/me/use-stamina-potion", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ count }),
+      });
+    } catch {}
+    await refreshGameState();
+  }, [refreshGameState]);
 
   const refresh = useCallback(async () => {
     try {
       const [stateRes, equipmentRes] = await Promise.all([
-        fetch("/api/v2/me/state").then((response) =>
+        fetchGameState().then((response) =>
           response.ok ? response.json() : null,
         ),
         fetch("/api/v2/me/equipment").then((response) =>
@@ -105,42 +150,98 @@ export function V2AdventureHome() {
     state?.skills?.loadoutPresets,
     state?.skills?.equipped,
   );
+  const preferences =
+    snapshot?.preferences ?? DEFAULT_ADVENTURE_HOME_PREFERENCES;
+  const persistPreferences = (patch: Partial<AdventureHomePreferences>) => {
+    setSaveError(null);
+    void updatePreferences(patch).catch(() => {
+      setSaveError("홈 설정을 저장하지 못해 이전 상태로 되돌렸습니다.");
+    });
+  };
+
+  const characterWidget = state?.character ? (
+    <CompactCharacterSummary
+      character={state.character}
+      guild={state.guild ?? null}
+      levelCap={levelCap}
+      activePresetName={activePresetName}
+      adventureSupport={state.adventureSupport}
+      activeFoodBuff={state.activeFoodBuff ?? null}
+      activeGuildDiningEffect={state.activeGuildDiningEffect ?? null}
+      equipped={equipment?.equipped}
+      owned={equipment?.owned}
+      expanded={preferences.characterExpanded}
+      onExpandedChange={(characterExpanded) =>
+        persistPreferences({ characterExpanded })
+      }
+    >
+      <V2CharacterCard
+        character={state.character}
+        guild={state.guild ?? null}
+        levelCap={levelCap}
+        rejobRequiredLevel={state.jobsV2?.currentJobLevelCap ?? null}
+        showGold={true}
+        activePresetName={activePresetName}
+        adventureSupport={state.adventureSupport}
+        profileBorder={state.cosmetics?.profileBorder ?? null}
+        chatNameEffect={state.cosmetics?.chatNameEffect ?? null}
+        championshipBadge={state.cosmetics?.championshipBadge ?? null}
+        activeFoodBuff={state.activeFoodBuff ?? null}
+        activeGuildDiningEffect={state.activeGuildDiningEffect ?? null}
+        profileShowcase={state.profileShowcase ?? null}
+        profileShowcaseSlots={state.profileShowcaseSlots}
+        profileMasteryTrophies={state.profileMasteryTrophies}
+        profileBadgeStandOwned={state.profileBadgeStandOwned === true}
+        profileBadgeStandVisible={state.profileBadgeStandVisible !== false}
+        showcaseEditable
+        onCollapse={() => persistPreferences({ characterExpanded: false })}
+        equipped={equipment?.equipped}
+        owned={equipment?.owned}
+      />
+    </CompactCharacterSummary>
+  ) : null;
+
+  const widgets: Partial<Record<AdventureHomeWidgetId, React.ReactNode>> = {
+    character_summary: characterWidget,
+    stamina: (
+      <StaminaBar
+        state={stamina}
+        max={staminaMax}
+        regenBonusPct={staminaRegenBonusPct}
+        potions={staminaPotions}
+        onUsePotion={usePotion}
+      />
+    ),
+    activity_checklist: (
+      <AdventureActivityChecklist
+        activities={snapshot?.activities ?? []}
+        summary={snapshot?.summary ?? { completed: 0, total: 0, actionableCount: 0 }}
+        serverNow={snapshot?.serverNow}
+        loading={loading}
+        error={error}
+        onRetry={() => void refreshDashboard()}
+      />
+    ),
+    quest_rewards: <GuideQuestBanner />,
+    hot_time: state?.hotTime ? <HotTimeBanner hotTime={state.hotTime} /> : null,
+    announcements: <V2AnnouncementsPanel />,
+    bulletin_preview: <RecentBulletinPreview />,
+    ranking_preview: <AdventureRankingPreview />,
+  };
 
   return (
-    <main className="text-zinc-900 dark:text-zinc-100">
-      <div className="mx-auto max-w-[720px] space-y-4 p-6">
-        {state?.character && (
-          <V2CharacterCard
-            character={state.character}
-            guild={state.guild ?? null}
-            levelCap={levelCap}
-            rejobRequiredLevel={state.jobsV2?.currentJobLevelCap ?? null}
-            showGold={true}
-            activePresetName={activePresetName}
-            adventureSupport={state.adventureSupport}
-            profileBorder={state.cosmetics?.profileBorder ?? null}
-            chatNameEffect={state.cosmetics?.chatNameEffect ?? null}
-            championshipBadge={state.cosmetics?.championshipBadge ?? null}
-            activeFoodBuff={state.activeFoodBuff ?? null}
-            profileShowcase={state.profileShowcase ?? null}
-            profileShowcaseSlots={state.profileShowcaseSlots}
-            profileBadgeStandOwned={state.profileBadgeStandOwned === true}
-            profileBadgeStandVisible={state.profileBadgeStandVisible !== false}
-            showcaseEditable
-            equipped={equipment?.equipped}
-            owned={equipment?.owned}
-          />
-        )}
-
-        {state?.hotTime ? <HotTimeBanner hotTime={state.hotTime} /> : null}
-
-        <GuideQuestBanner />
-
-        <V2AnnouncementsPanel />
-
-        <AdventureRankingPreview />
-      </div>
-    </main>
+    <PageShell spacing="tight" className="py-3 sm:py-6">
+      {saveError && (
+        <StatusBanner tone="error" role="status">
+          {saveError}
+        </StatusBanner>
+      )}
+      <AdventureHomeWidgetGrid
+        order={preferences.widgetOrder}
+        hidden={preferences.hiddenWidgetIds}
+        widgets={widgets}
+      />
+    </PageShell>
   );
 }
 
@@ -158,7 +259,7 @@ function HotTimeBanner({ hotTime }: { hotTime: NonNullable<StateResponse["hotTim
       : "",
   ].filter(Boolean);
   return (
-    <section className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+    <section className={`${SURFACE_ACCENT} px-4 py-3 text-amber-950 dark:text-amber-100`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <div className="text-sm font-semibold">
@@ -168,9 +269,9 @@ function HotTimeBanner({ hotTime }: { hotTime: NonNullable<StateResponse["hotTim
             {bonusLabels.length > 0 ? bonusLabels.join(" · ") : "보너스 적용 중"}
           </div>
         </div>
-        <div className="rounded bg-white/70 px-2 py-1 text-xs font-medium tabular-nums dark:bg-zinc-900/60">
+        <Inset className="px-2 py-1 text-xs font-medium tabular-nums">
           {formatRemaining(remainingMs)}
-        </div>
+        </Inset>
       </div>
     </section>
   );

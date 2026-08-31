@@ -166,12 +166,13 @@ sudo install -m 0644 deploy/adventure-rpg.service \
   /etc/systemd/system/adventure-rpg.service
 sudo install -m 0644 deploy/adventure-rpg-test.service \
   /etc/systemd/system/adventure-rpg-test.service
-sudo install -m 0644 deploy/adventure-resource-monitor.service \
-  /etc/systemd/system/adventure-resource-monitor.service
-sudo install -m 0644 deploy/adventure-resource-monitor.timer \
-  /etc/systemd/system/adventure-resource-monitor.timer
 sudo systemctl daemon-reload
-sudo systemctl enable --now adventure-resource-monitor.timer
+
+echo "▶ [prod] enforce journal retention"
+bash deploy/configure-log-retention.sh
+
+echo "▶ [prod] sync resource monitors"
+bash deploy/install-resource-monitors.sh
 
 echo "▶ [prod] start production"
 sudo systemctl start "$PRODUCTION_SERVICE"
@@ -230,6 +231,7 @@ echo "▶ [prod] sync application crontab"
 crontab deploy/crontab.txt
 systemctl is-active --quiet crond
 for path in \
+  /api/v2/cron/battle-replay-retention \
   /api/v2/cron/ops-retention \
   /api/v2/cron/ops-daily-report; do
   crontab -l | grep -Fq "$path" || {
@@ -239,6 +241,7 @@ for path in \
 done
 echo "  application crontab synced"
 sudo systemctl start adventure-resource-monitor.service
+sudo systemctl start adventure-rds-memory-monitor.service
 
 if [ "$STAGING_PAUSED" -eq 1 ]; then
   echo "▶ [prod] restore staging runtime"

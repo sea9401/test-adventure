@@ -18,6 +18,10 @@ import {
   LIFE_PROCESSED_MATERIALS,
   type LifeProcessedMaterialId,
 } from "../../v2/lifeWorkshopMaterials";
+import {
+  GUILD_DINING_BASE_WEEKLY_TICKETS,
+  guildDiningMenusForFacilityLevel,
+} from "./guildDining";
 
 // ── 정착지 단계 ──────────────────────────────────────────────────────────
 export type VillageTier = "village" | "city" | "metropolis";
@@ -69,11 +73,6 @@ export const PRODUCTION_KIND_NAME: Record<ProductionKind, string> = {
 export const SETTLEMENT_RESOURCE_NAME: Record<ProductionKind, string> = {
   crop: "통나무",
   ore: "철광석",
-};
-// 종류별 간단 아이콘(이모지) — 슬롯/재화 표시용.
-export const PRODUCTION_KIND_ICON: Record<ProductionKind, string> = {
-  crop: "🪵",
-  ore: "🪨",
 };
 export const PRODUCTION_KINDS: ProductionKind[] = ["crop", "ore"];
 
@@ -204,12 +203,14 @@ export function settlementResourceName(key: SettlementResourceKey): string {
   return settlementDonationMaterialName(key);
 }
 
-export function settlementResourceIcon(key: SettlementResourceKey): string {
+export function settlementResourceIconName(
+  key: SettlementResourceKey,
+): "wood_resource" | "ore_resource" {
   return key === "crop" || SETTLEMENT_WOOD_MATERIAL_IDS.includes(
     key as (typeof SETTLEMENT_WOOD_MATERIAL_IDS)[number],
   )
-    ? PRODUCTION_KIND_ICON.crop
-    : PRODUCTION_KIND_ICON.ore;
+    ? "wood_resource"
+    : "ore_resource";
 }
 
 // ── 영지 건축물 ───────────────────────────────────────────────────────────
@@ -221,7 +222,8 @@ export type SettlementBuildingId =
   | "map_workshop"
   | "alchemy_workshop"
   | "dining_hall"
-  | "trade_post";
+  | "trade_post"
+  | "guild_warehouse";
 
 export type SettlementBuildingDef = {
   id: SettlementBuildingId;
@@ -291,6 +293,13 @@ export const SETTLEMENT_BUILDINGS: Record<
     iconName: "Scales",
     desc: "생활 재료를 주간 계약에 공동 납품하고 교역 토큰을 얻는 길드 공용 시설입니다.",
   },
+  guild_warehouse: {
+    id: "guild_warehouse",
+    name: "길드 창고",
+    icon: "📦",
+    iconName: "Cube",
+    desc: "길드원이 재료를 함께 보관하고 운영진이 필요한 곳에 배분하는 공용 시설입니다.",
+  },
 };
 export const SETTLEMENT_BUILDING_IDS = Object.keys(
   SETTLEMENT_BUILDINGS,
@@ -302,19 +311,8 @@ export const PLACEABLE_SETTLEMENT_BUILDING_IDS: SettlementBuildingId[] = [
   "alchemy_workshop",
   "dining_hall",
   "trade_post",
+  "guild_warehouse",
 ];
-
-export const GUILD_FACILITY_UNLOCK_GOLD_COST: Partial<
-  Record<SettlementBuildingId, number>
-> = {
-  guild_smithy: 50_000_000,
-  training_ground: 80_000_000,
-  exploration_hq: 65_000_000,
-  map_workshop: 15_000_000,
-  alchemy_workshop: 60_000_000,
-  dining_hall: 50_000_000,
-  trade_post: 70_000_000,
-};
 
 export const MAX_SETTLEMENT_BUILDING_LEVEL = 5;
 
@@ -486,9 +484,8 @@ export type AlchemyWorkshopUpgradeDef = {
 export type DiningHallUpgradeDef = {
   level: number;
   cost: SettlementBuildingUpgradeCost;
-  /** 기본 1장과 별도로 기부로 얻을 수 있는 주간 식권 상한. */
+  /** 기본 식권과 별도로 기부로 얻을 수 있는 주간 식권 상한. */
   weeklyMealTickets: number;
-  weeklyMenuSlots: number;
   label: string;
 };
 
@@ -499,6 +496,13 @@ export type TradePostUpgradeDef = {
   personalContributionCap: number;
   tokenYieldBonusPct: number;
   completionRewardBonusPct: number;
+  label: string;
+};
+
+export type GuildWarehouseUpgradeDef = {
+  level: number;
+  cost: SettlementBuildingUpgradeCost;
+  capacity: number;
   label: string;
 };
 
@@ -610,36 +614,31 @@ export const DINING_HALL_UPGRADES: readonly DiningHallUpgradeDef[] = [
   {
     level: 1,
     cost: {},
-    weeklyMealTickets: 2,
-    weeklyMenuSlots: 1,
+    weeklyMealTickets: 8,
     label: "공동 취사장",
   },
   {
     level: 2,
     cost: facilityUpgradeCost(2, 20_000_000, 0),
-    weeklyMealTickets: 2,
-    weeklyMenuSlots: 2,
+    weeklyMealTickets: 8,
     label: "식재료 저장고",
   },
   {
     level: 3,
     cost: facilityUpgradeCost(3, 45_000_000, 600),
-    weeklyMealTickets: 3,
-    weeklyMenuSlots: 3,
+    weeklyMealTickets: 12,
     label: "전문 조리실",
   },
   {
     level: 4,
     cost: facilityUpgradeCost(4, 90_000_000, 1250),
-    weeklyMealTickets: 4,
-    weeklyMenuSlots: 4,
+    weeklyMealTickets: 16,
     label: "연회 준비실",
   },
   {
     level: 5,
     cost: facilityUpgradeCost(5, 160_000_000, 2500),
-    weeklyMealTickets: 5,
-    weeklyMenuSlots: 5,
+    weeklyMealTickets: 20,
     label: "길드 대연회장",
   },
 ];
@@ -692,6 +691,34 @@ export const TRADE_POST_UPGRADES: readonly TradePostUpgradeDef[] = [
   },
 ];
 
+export const GUILD_WAREHOUSE_UPGRADES: readonly GuildWarehouseUpgradeDef[] = [
+  { level: 1, cost: {}, capacity: 1, label: "공동 보관실" },
+  {
+    level: 2,
+    cost: facilityUpgradeCost(2, 20_000_000, 0),
+    capacity: 3,
+    label: "분류 선반",
+  },
+  {
+    level: 3,
+    cost: facilityUpgradeCost(3, 45_000_000, 600),
+    capacity: 5,
+    label: "물류 관리실",
+  },
+  {
+    level: 4,
+    cost: facilityUpgradeCost(4, 90_000_000, 1250),
+    capacity: 7,
+    label: "대형 적재고",
+  },
+  {
+    level: 5,
+    cost: facilityUpgradeCost(5, 160_000_000, 2500),
+    capacity: 9,
+    label: "왕립 공동 창고",
+  },
+];
+
 export type AnySettlementBuildingUpgradeDef =
   | SettlementBuildingUpgradeDef
   | TrainingGroundUpgradeDef
@@ -699,7 +726,8 @@ export type AnySettlementBuildingUpgradeDef =
   | ExplorationHqUpgradeDef
   | AlchemyWorkshopUpgradeDef
   | DiningHallUpgradeDef
-  | TradePostUpgradeDef;
+  | TradePostUpgradeDef
+  | GuildWarehouseUpgradeDef;
 
 export function clampSettlementBuildingLevel(level: unknown): number {
   const n = Math.floor(Number(level) || 1);
@@ -841,6 +869,26 @@ export function nextTradePostUpgrade(
   );
 }
 
+export function guildWarehouseUpgradeForLevel(
+  level: number,
+): GuildWarehouseUpgradeDef {
+  const safe = clampSettlementBuildingLevel(level);
+  return (
+    GUILD_WAREHOUSE_UPGRADES.find((upgrade) => upgrade.level === safe) ??
+    GUILD_WAREHOUSE_UPGRADES[0]
+  );
+}
+
+export function nextGuildWarehouseUpgrade(
+  level: number,
+): GuildWarehouseUpgradeDef | null {
+  const safe = clampSettlementBuildingLevel(level);
+  return (
+    GUILD_WAREHOUSE_UPGRADES.find((upgrade) => upgrade.level === safe + 1) ??
+    null
+  );
+}
+
 export function mapWorkshopUpgradeForLevel(level: number): MapWorkshopUpgradeDef {
   const safe = clampSettlementBuildingLevel(level);
   return (
@@ -880,6 +928,9 @@ export function nextSettlementBuildingUpgrade(
   if (buildingId === "trade_post") {
     return nextTradePostUpgrade(level);
   }
+  if (buildingId === "guild_warehouse") {
+    return nextGuildWarehouseUpgrade(level);
+  }
   if (buildingId === "guild_smithy") {
     return nextGuildSmithyUpgrade(level);
   }
@@ -908,11 +959,16 @@ export function settlementBuildingUpgradeSummary(
   }
   if (buildingId === "dining_hall") {
     const dining = upgrade as DiningHallUpgradeDef;
-    return `기본 식권 1장 + 기여 식권 ${dining.weeklyMealTickets}장 · 메뉴 ${dining.weeklyMenuSlots}종`;
+    const menuCount = guildDiningMenusForFacilityLevel(dining.level).length;
+    return `기본 식권 ${GUILD_DINING_BASE_WEEKLY_TICKETS}장 + 기여 식권 ${dining.weeklyMealTickets}장 · 이용 가능 메뉴 ${menuCount}종`;
   }
   if (buildingId === "trade_post") {
     const trade = upgrade as TradePostUpgradeDef;
     return `주간 계약 ${trade.weeklyContractCount}건 · 개인 납품 ${trade.personalContributionCap}점 · 토큰 +${trade.tokenYieldBonusPct}% · 완료 보상 +${trade.completionRewardBonusPct}%`;
+  }
+  if (buildingId === "guild_warehouse") {
+    const warehouse = upgrade as GuildWarehouseUpgradeDef;
+    return `아이템 보관 슬롯 ${warehouse.capacity.toLocaleString()}칸`;
   }
   const smithy = upgrade as SettlementBuildingUpgradeDef;
   return `품질 +${smithy.qualityChanceBonusPct}%p · 주간 의뢰 진척 +${smithy.weeklyProgressBonusPct}%`;
@@ -925,9 +981,7 @@ export function settlementBuildingUpgradeCostText(
     (key) => (cost[key] ?? 0) > 0,
   ).map(
     (key) =>
-      `${settlementResourceIcon(key)} ${settlementResourceName(key)} ${(
-        cost[key] ?? 0
-      ).toLocaleString()}`,
+      `${settlementResourceName(key)} ${(cost[key] ?? 0).toLocaleString()}`,
   );
   if ((cost.gold ?? 0) > 0) {
     parts.push(`길드 금고 ${(cost.gold ?? 0).toLocaleString()}G`);

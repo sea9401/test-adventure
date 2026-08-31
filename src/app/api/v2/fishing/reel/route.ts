@@ -7,7 +7,11 @@ import {
   lockAutoGatheringStatesForUpdate,
 } from "@/lib/server/lifeActivityLock";
 import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import {
+  lockSaveForUpdate,
+  lockSavesForUpdate,
+  upsertSaves,
+} from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
   activityGuardView,
@@ -39,6 +43,8 @@ import {
 } from "@/adventure/data/v2/v2JobCatalog";
 import { MULTTAE_BY_ID, multtaeAt } from "@/adventure/data/v2/multtae";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
+import { referralLifeTaskIds } from "@/adventure/data/v2/referralTutorial";
+import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
 import {
   FISHING_SESSION_KEY,
   judgeCatch,
@@ -88,7 +94,7 @@ import {
   fishingLevelRewardCoins,
   fishingProgressionView,
   fishingXpForCatch,
-  parseFishingProgression,
+  parseFishingProgressionWithLevelMigration,
 } from "@/adventure/v2/fishingProgression";
 import {
   FISHING_STOCK_KEY,
@@ -103,14 +109,13 @@ import {
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { applyPctBonus, bonusDelta, readActiveHotTime } from "@/lib/server/opsSettings";
 import {
-  broadcastCoopNotice,
   trySpawnFishingCoopBoss,
 } from "@/lib/server/v2Coop";
 import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
 import { rolloverRepeatQuestsBeforeProgress } from "@/lib/server/v2QuestContext";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
-import { rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
+import { consumeLifeAidUses, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
 import { getFishingSpot } from "@/adventure/data/v2/fishingSpots";
 import {
   LIFE_FIELD_DISCOVERIES,
@@ -119,13 +124,17 @@ import {
 import {
   LIFE_FIELD_ENVIRONMENTS,
   lifeFieldEnvironmentSnapshot,
-  lifeFieldXpBonus,
+  lifeFieldFlatXpBonus,
 } from "@/adventure/data/v2/lifeFieldEnvironment";
 import {
   lifeFieldSessionRoll,
   recordLifeFieldSuccessInTx,
 } from "@/lib/server/lifeFieldProgress";
 import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
+import {
+  recordCodexMasteryGameplayBatch,
+  type CodexMasteryGameplayEvent,
+} from "@/lib/server/codexMasteryGameplay";
 
 // POST /api/v2/fishing/reel — 챔질. body: { castId, reactionMs }.
 //
@@ -170,9 +179,15 @@ export async function POST(req: Request) {
         activeAutoActivity,
       };
     }
-    const session = parseFishingSession(
-      await lockSaveForUpdate(tx, userId, FISHING_SESSION_KEY, {}),
-    );
+    const fishingSaves = await lockSavesForUpdate(tx, userId, {
+      [FISHING_SESSION_KEY]: {},
+      [FISHING_ANTI_MACRO_KEY]: {},
+      [ACTIVITY_GUARD_KEY]: {},
+      [FISHING_STREAK_KEY]: {},
+      [FISHING_STOCK_KEY]: emptyFishingStock(),
+      [FISHING_PROGRESS_KEY]: emptyFishingProgression(),
+    });
+    const session = parseFishingSession(fishingSaves[FISHING_SESSION_KEY]);
     // 열린 세션 없음 = cast 안 함 / 이미 소비됨.
     if (!session) return { caught: false as const, reason: "no_session" as const };
     // 새 캐스팅이 이 세션을 덮어썼다(다른 castId) — 현재 세션은 보존하고 거부.
@@ -181,7 +196,9 @@ export async function POST(req: Request) {
     }
 
     // castId 일치 → 판정하고 세션 소비(성공/실패 무관).
-    await upsertSave(tx, userId, FISHING_SESSION_KEY, {});
+    const dirtySaves: Record<string, unknown> = {
+      [FISHING_SESSION_KEY]: {},
+    };
     const judgment = judgeCatch({
       reactionMs,
       serverNow: now,
@@ -190,7 +207,7 @@ export async function POST(req: Request) {
     });
     const antiMacro = recordFishingAntiMacroSample(
       parseFishingAntiMacroState(
-        await lockSaveForUpdate(tx, userId, FISHING_ANTI_MACRO_KEY, {}),
+        fishingSaves[FISHING_ANTI_MACRO_KEY],
       ),
       {
         at: now,
@@ -202,10 +219,10 @@ export async function POST(req: Request) {
       },
       now,
     );
-    await upsertSave(tx, userId, FISHING_ANTI_MACRO_KEY, antiMacro.state);
+    dirtySaves[FISHING_ANTI_MACRO_KEY] = antiMacro.state;
     let guardUpdate = recordActivityCompletion(
       parseActivityGuardState(
-        await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
+        fishingSaves[ACTIVITY_GUARD_KEY],
       ),
       "fishing",
       now,
@@ -233,12 +250,13 @@ export async function POST(req: Request) {
       activityGuardView(guardUpdate.state, "fishing").nextActionAt ?? 0,
       antiMacro.state.frictionUntil ?? 0,
     ) || null;
-    await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, guardUpdate.state);
+    dirtySaves[ACTIVITY_GUARD_KEY] = guardUpdate.state;
     if (!judgment.caught) {
       const streak = resetFishingStreak(
-        await lockSaveForUpdate(tx, userId, FISHING_STREAK_KEY, {}),
+        fishingSaves[FISHING_STREAK_KEY],
       );
-      await upsertSave(tx, userId, FISHING_STREAK_KEY, streak);
+      dirtySaves[FISHING_STREAK_KEY] = streak;
+      await upsertSaves(tx, userId, dirtySaves);
       return {
         caught: false as const,
         reason: judgment.reason,
@@ -282,42 +300,37 @@ export async function POST(req: Request) {
     const discoveryRewardXp = discoveryReward?.xp ?? 0;
 
     const streak = nextFishingStreak(
-      await lockSaveForUpdate(tx, userId, FISHING_STREAK_KEY, {}),
+      fishingSaves[FISHING_STREAK_KEY],
     );
-    await upsertSave(tx, userId, FISHING_STREAK_KEY, streak);
+    dirtySaves[FISHING_STREAK_KEY] = streak;
     const streakBuff = fishingStreakBuff(streak.current);
     const multtaeEffect = multtaeAt(now).condition.effect;
     const dayKey = kstDailyKey(new Date(now));
 
+    const parsedProgress = parseFishingProgressionWithLevelMigration(
+      fishingSaves[FISHING_PROGRESS_KEY],
+    );
+    const progressBefore = parsedProgress.state;
+    const fishingLevelBeforeCatch = fishingProgressionView(progressBefore).level;
+
     // 어종·크기는 도감/기록에 남기고, 공동 식재료는 티어별 5종으로만 적립한다.
     // 길드 식당 기부도 어획물 → 식사 효과 순서로 잠그므로 같은 순서를 지킨다.
     const stockBefore = parseFishingStock(
-      await lockSaveForUpdate(
-        tx,
-        userId,
-        FISHING_STOCK_KEY,
-        emptyFishingStock(),
-      ),
+      fishingSaves[FISHING_STOCK_KEY],
     );
     const catchStock = rollFishingCatchToStock(
       stockBefore,
       FISH[session.fishId].tier,
       dayKey,
+      Math.random,
+      fishingLevelBeforeCatch,
     );
     if (catchStock.awarded) {
-      await upsertSave(tx, userId, FISHING_STOCK_KEY, catchStock.stock);
+      dirtySaves[FISHING_STOCK_KEY] = catchStock.stock;
     }
 
     // 낚시 진행도 — 성공한 챔질에만 경험치/누적 어획을 지급한다.
     // 락 순서: 세션 → streak → 어획물 → 낚시진행도 → 식사 효과 → character → proficiency → 반복퀘스트 → 코덱스 → 일일트래커 → 지갑.
-    const progressBefore = parseFishingProgression(
-      await lockSaveForUpdate(
-        tx,
-        userId,
-        FISHING_PROGRESS_KEY,
-        emptyFishingProgression(),
-      ),
-    );
     const progressGoalViewsBefore = deriveFishingGoalViews(progressBefore);
     const diningXp = await consumeGuildDiningEffect(
       tx,
@@ -327,9 +340,9 @@ export async function POST(req: Request) {
       new Date(now),
     );
     const environmentXpGained = lifeFeatures.environmentEnabled
-      ? lifeFieldXpBonus(
-          fishingXpForCatch(session.fishId),
-          lifeEnvironment.effect.xpBonusPct ?? 0,
+      ? lifeFieldFlatXpBonus(
+          lifeEnvironment.effect.flatXpBonus ?? 0,
+          lifeEnvironment.effect.flatXpBonusChance ?? 0,
           lifeFieldSessionRoll(session.castId, "xp-bonus"),
         )
       : 0;
@@ -338,28 +351,33 @@ export async function POST(req: Request) {
       session.fishId,
       diningXp.bonus + environmentXpGained + discoveryRewardXp,
     );
-    await upsertSave(
+    dirtySaves[FISHING_PROGRESS_KEY] = progressResult.state;
+    const progressView = fishingProgressionView(progressResult.state);
+    await rewardReferralTutorialTasks(
       tx,
       userId,
-      FISHING_PROGRESS_KEY,
-      progressResult.state,
+      "새 모험가",
+      referralLifeTaskIds(progressView.level),
     );
-    const progressView = fishingProgressionView(progressResult.state);
 
     // 낚시 숙련도 — 현재 직업과 관계없이 직접 전직해 본 낚시 직업 중
     // 가장 높은 차수의 직업 숙련도만 성공한 챔질당 +1. 생존자 직군 숙련도는 올리지 않는다.
     // 스태미나 없는 루프라 숙달 포인트(points)는 주지 않는다.
-    const charSave = await lockSaveForUpdate<{
+    const characterSaves = await lockSavesForUpdate(tx, userId, {
+      "character.v2": {},
+      "proficiency.v2": {},
+    });
+    const charSave = characterSaves["character.v2"] as {
       class?: unknown;
       specChoice?: unknown;
-    }>(tx, userId, "character.v2", {});
+    };
     const playerClass = parseV2Class(charSave.class);
     const jobId = jobIdFromLegacy(
       playerClass,
       typeof charSave.specChoice === "string" ? charSave.specChoice : null,
     );
     let prof = parseProficiencyForChar(
-      await lockSaveForUpdate(tx, userId, "proficiency.v2", {}),
+      characterSaves["proficiency.v2"],
       charSave,
     );
     const masteryJobId = highestVisitedFishingJobId(prof, jobId);
@@ -370,7 +388,7 @@ export async function POST(req: Request) {
       prof = addJobCumLevel(prof, masteryJobId, 1);
       masteryAfter = prof.jobCumLevel?.[masteryJobId] ?? 0;
     }
-    await upsertSave(tx, userId, "proficiency.v2", prof);
+    dirtySaves["proficiency.v2"] = prof;
 
     // 자정/주간 경계 뒤 첫 낚시도 반복 퀘스트에 포함되도록, 누적 어획 신호를
     // 변경하기 전에 새 주기의 baseline 을 확정한다. repeat → codex 순서는 번들 수령과 동일하다.
@@ -382,10 +400,11 @@ export async function POST(req: Request) {
     );
     const prev = codex.fish[session.fishId];
     const prevBest = prev?.bestSize ?? 0;
-    const isNewSpecies = !prev?.discovered;
+    const isNewSpecies = prev?.caughtEver !== true;
+    const registrationRestored = prev?.caughtEver === true && prev.registered !== true;
     const isPersonalBest = session.size > prevBest;
     const next = recordCatch(codex, session.fishId, session.size, now);
-    await upsertSave(tx, userId, FISHING_CODEX_KEY, next);
+    dirtySaves[FISHING_CODEX_KEY] = next;
 
     // 주간 종별 기록 upsert(개인 최대어) — 같은 tx. 리더보드/정산(PR-5)의 원천.
     await upsertFishingRecord(
@@ -408,9 +427,13 @@ export async function POST(req: Request) {
 
     // 일일 낚시 도전과제 — 그날 카운터를 올린다(일 경계 롤오버는 applyDailyCatch 내부). 같은 tx.
     //   락 순서: 세션 → 코덱스 → 일일트래커 → (조각). claim 라우트는 일일트래커 → 지갑이라 순환 없음.
+    const dailyWalletSaves = await lockSavesForUpdate(tx, userId, {
+      [FISHING_DAILY_KEY]: {},
+      [FISHING_WALLET_KEY]: {},
+    });
     const dailyBefore = rolloverFishingDaily(
       parseFishingDaily(
-        await lockSaveForUpdate(tx, userId, FISHING_DAILY_KEY, {}),
+        dailyWalletSaves[FISHING_DAILY_KEY],
       ),
       dayKey,
     );
@@ -422,7 +445,7 @@ export async function POST(req: Request) {
       dayKey,
       session.size,
     );
-    await upsertSave(tx, userId, FISHING_DAILY_KEY, daily);
+    dirtySaves[FISHING_DAILY_KEY] = daily;
     const contractViewsAfter = deriveFishingContractViews(daily);
     const dailyViewsAfter = deriveFishingDailyViews(daily);
     const goalViewsAfter = progressView.goals;
@@ -447,12 +470,7 @@ export async function POST(req: Request) {
 
     // 챔질당 코인 — 티어 소량(크기 무관) 적립, 일일 상한 클램프. 락 순서: 일일 → 지갑
     //   (= challenges/claim 라우트와 동일 순서라 순환/데드락 없음). 캐스팅·실패엔 미지급(여기는 caught 분기).
-    const walletBeforeCoins = await lockSaveForUpdate(
-      tx,
-      userId,
-      FISHING_WALLET_KEY,
-      {},
-    );
+    const walletBeforeCoins = dailyWalletSaves[FISHING_WALLET_KEY];
     const hotTime = await readActiveHotTime(now, tx);
     const baseCatchCoin =
       (FISHING_CATCH_COIN_BY_TIER[FISH[session.fishId].tier] ?? 0) +
@@ -490,7 +508,7 @@ export async function POST(req: Request) {
             walletAfterBaseRewards.coins + discoveryRewardCoins,
           )
         : walletAfterBaseRewards;
-    await upsertSave(tx, userId, FISHING_WALLET_KEY, walletAfterCoins);
+    dirtySaves[FISHING_WALLET_KEY] = walletAfterCoins;
 
     const coopBoss = await trySpawnFishingCoopBoss(tx, {
       userId,
@@ -506,16 +524,34 @@ export async function POST(req: Request) {
     );
     let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
     let crafting = workshop.crafting;
-    const activeAid = crafting.activeAids.fishing;
-    if (session.aidItemId && activeAid?.itemId === session.aidItemId && activeAid.remainingUses > 0) {
-      const activeAids = { ...crafting.activeAids };
-      if (activeAid.remainingUses <= 1) delete activeAids.fishing;
-      else activeAids.fishing = { ...activeAid, remainingUses: activeAid.remainingUses - 1 };
-      crafting = { ...crafting, activeAids, aidsUsed: crafting.aidsUsed + 1 };
-    }
+    crafting = consumeLifeAidUses(crafting, "fishing", session.aidItemId, 1).state;
     const blueprint = rollHiddenBlueprint(crafting, "fishing");
     workshop = { ...workshop, crafting: blueprint.state };
-    await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);
+    dirtySaves[LIFE_WORKSHOP_SAVE_KEY] = workshop;
+
+    await upsertSaves(tx, userId, dirtySaves);
+
+    const codexMasteryEvents: CodexMasteryGameplayEvent[] = [{
+      category: "fish",
+      entryId: session.fishId,
+      amount: 1,
+      bestValue: session.size,
+      source: "fishing.catch",
+    }];
+    if (masteryJobId && masteryGained > 0) {
+      codexMasteryEvents.push({
+        category: "job",
+        entryId: masteryJobId,
+        amount: masteryGained,
+        source: "job.activity",
+      });
+    }
+    await recordCodexMasteryGameplayBatch(
+      tx,
+      userId,
+      codexMasteryEvents,
+      new Date(now),
+    );
 
     return {
       caught: true as const,
@@ -523,6 +559,7 @@ export async function POST(req: Request) {
       fishId: session.fishId,
       size: session.size,
       isNewSpecies,
+      registrationRestored,
       isPersonalBest,
       prevBest,
       codexCount: countDiscoveredFish(next),
@@ -560,6 +597,7 @@ export async function POST(req: Request) {
       challengeClaimableCount,
       masteryGained,
       masteryAfter,
+      levelCurveMigrated: parsedProgress.levelCurveMigrated,
       coopBoss,
       streak,
       streakBuff,
@@ -756,16 +794,6 @@ export async function POST(req: Request) {
       },
     });
   }
-  if (result.coopBoss) {
-    await insertFeedEntry(userId, "coop_summon", {
-      kind: result.coopBoss.kind,
-      sessionId: result.coopBoss.sessionId,
-      expiresAt: result.coopBoss.expiresAt,
-    });
-    await broadcastCoopNotice(
-      `${result.coopBoss.name}이(가) 낚싯줄을 타고 올라왔다`,
-    );
-  }
   // 물때 한정 특별 손님이면 그 물때 정보를 동봉(결과 오버레이 "○○ 물때의 손님" 표시용).
   const mt = fish.condition ? MULTTAE_BY_ID.get(fish.condition) : undefined;
   return Response.json({
@@ -776,6 +804,7 @@ export async function POST(req: Request) {
     tier: fish.tier,
     size: result.size,
     isNewSpecies: result.isNewSpecies,
+    registrationRestored: result.registrationRestored,
     isPersonalBest: result.isPersonalBest,
     prevBest: result.prevBest,
     codexCount: result.codexCount,
@@ -811,5 +840,6 @@ export async function POST(req: Request) {
     nextActionAt: result.nextActionAt,
     lifeEnvironment: result.lifeEnvironment,
     lifeField: result.lifeField,
+    ...(result.levelCurveMigrated ? { levelCurveMigrated: true } : {}),
   });
 }

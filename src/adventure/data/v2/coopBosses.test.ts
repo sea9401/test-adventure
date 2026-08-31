@@ -38,6 +38,8 @@ import {
   coopBossMpPressureDamage,
   withCoopBossMp,
   parseCoopMechanicState,
+  COOP_INITIAL_VISIBILITY,
+  coopVisibilityTransition,
 } from "./coopBosses";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_MATERIALS } from "./dungeonDrops";
@@ -45,8 +47,8 @@ import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
 import { TITLES } from "@/adventure/data/titles";
 
 describe("coopBosses 카탈로그", () => {
-  it("6종 — 노말 4단 사다리 + 하드 보스 2종", () => {
-    expect(COOP_BOSS_KIND_IDS).toHaveLength(6);
+  it("8종 — 노말 4단 사다리 + 하드 보스 4종", () => {
+    expect(COOP_BOSS_KIND_IDS).toHaveLength(8);
     const normalLadder = [
       "mountain_chief",
       "canyon_predator",
@@ -68,18 +70,113 @@ describe("coopBosses 카탈로그", () => {
     expect(COOP_BOSSES.canyon_predator.scrollCost).toBe(15);
     expect(COOP_BOSSES.lake_sovereign.scrollCost).toBe(20);
     expect(COOP_BOSSES.void_priest.scrollCost).toBe(30);
-    expect(COOP_BOSSES.void_priest.sharedMaxHp).toBe(420_000);
+    expect(COOP_BOSSES.lake_sovereign.sharedMaxHp).toBe(270_000);
+    expect(COOP_BOSSES.void_priest.sharedMaxHp).toBe(630_000);
     expect(COOP_BOSSES.mountain_chief_hard).toMatchObject({
       difficulty: "hard",
       scrollCost: 30,
-      sharedMaxHp: 600_000,
+      sharedMaxHp: 1_200_000,
       anchorDepth: 68,
     });
     expect(COOP_BOSSES.abyssal_tyrant).toMatchObject({
       difficulty: "hard",
       scrollCost: 30,
-      sharedMaxHp: 600_000,
+      sharedMaxHp: 1_400_000,
       anchorDepth: 60,
+    });
+    expect(COOP_BOSSES.canyon_predator_hard).toMatchObject({
+      difficulty: "hard",
+      name: "재앙의 스콜피온 킹",
+      scrollCost: 30,
+      sharedMaxHp: 8_400_000,
+      anchorDepth: 78,
+    });
+    expect(COOP_BOSSES.lake_sovereign_hard).toMatchObject({
+      difficulty: "hard",
+      name: "혹한의 호수 괴물",
+      scrollCost: 30,
+      sharedMaxHp: 8_400_000,
+      anchorDepth: 78,
+    });
+  });
+
+  it("신규 6T HARD 보스는 운영 상위 중앙 피해 기준 14회 공격을 요구한다", () => {
+    const scorpion = COOP_BOSSES.canyon_predator_hard;
+    const lake = COOP_BOSSES.lake_sovereign_hard;
+
+    // 2026-08-20 운영 상위 20명 익명 감사의 두 보스 중앙 피해는 회당 약 61만이었다.
+    // 보수적으로 60만을 기준으로 고정해 목표 범위 12~15회의 중앙인 14회를 맞춘다.
+    const liveTopMedianDamage = 600_000;
+    expect(Math.ceil(scorpion.sharedMaxHp / liveTopMedianDamage)).toBe(14);
+    expect(Math.ceil(lake.sharedMaxHp / liveTopMedianDamage)).toBe(14);
+  });
+
+  it("신규 6T HARD 보스는 초기부터 기존 HARD와 구별되는 파생 공·방·속을 가진다", () => {
+    const scorpion = COOP_BOSSES.canyon_predator_hard;
+    const lake = COOP_BOSSES.lake_sovereign_hard;
+    const scorpionFull = coopBossForBattle(scorpion, scorpion.sharedMaxHp).monster;
+    const lakeFull = coopBossForBattle(lake, lake.sharedMaxHp).monster;
+
+    expect(scorpionFull).toMatchObject({
+      atk: 804,
+      def: 717,
+      magicDef: 675,
+      spd: 22,
+      evasionPct: 18,
+    });
+    expect(lakeFull).toMatchObject({
+      atk: 804,
+      def: 759,
+      magicDef: 970,
+      spd: 20,
+      evasionPct: 12,
+    });
+    expect(scorpionFull.accuracy).toBeLessThan(120);
+    expect(lakeFull.accuracy).toBeLessThan(120);
+  });
+
+  it("신규 6T HARD 보스는 일반판 이미지를 재사용하고 70%·40%에서 다음 공격의 페이즈를 강화한다", () => {
+    const scorpion = COOP_BOSSES.canyon_predator_hard;
+    const lake = COOP_BOSSES.lake_sovereign_hard;
+
+    expect(scorpion.base.image).toBe(COOP_BOSSES.canyon_predator.base.image);
+    expect(lake.base.image).toBe(COOP_BOSSES.lake_sovereign.base.image);
+    expect(coopBossDurationMs(scorpion)).toBe(COOP_DURATION_MAX_MS);
+    expect(coopBossDurationMs(lake)).toBe(COOP_DURATION_MAX_MS);
+
+    const scorpionFull = coopBossForBattle(scorpion, scorpion.sharedMaxHp).monster;
+    const scorpionMid = coopBossForBattle(scorpion, scorpion.sharedMaxHp * 0.7).monster;
+    const scorpionDeep = coopBossForBattle(scorpion, scorpion.sharedMaxHp * 0.4).monster;
+    expect(scorpionFull.v2Skills?.equipped).toContain("mob_venom_bite");
+    expect(scorpionMid.v2Skills?.equipped).toContain("mob_catastrophe_venom");
+    expect(scorpionMid.spd).toBeGreaterThan(scorpionFull.spd);
+    expect(scorpionMid.evasionPct).toBeGreaterThan(scorpionFull.evasionPct ?? 0);
+    expect(scorpionDeep.v2Skills?.equipped).toContain("mob_venom_sunder");
+    expect(scorpionDeep.atk).toBeGreaterThan(scorpionMid.atk);
+    expect(scorpionMid.spd).toBe(25);
+    expect(scorpionDeep.atk).toBe(1_005);
+    expect(scorpionDeep.skill).toMatchObject({
+      kind: "pierce",
+      armorPierce: 24,
+    });
+
+    const lakeFull = coopBossForBattle(lake, lake.sharedMaxHp).monster;
+    const lakeMid = coopBossForBattle(lake, lake.sharedMaxHp * 0.7).monster;
+    const lakeDeep = coopBossForBattle(lake, lake.sharedMaxHp * 0.4).monster;
+    expect(lakeFull.atkType).toBe("magic");
+    expect(lakeFull.v2Skills?.equipped).toContain("mob_chilling_touch");
+    expect(lakeMid.v2Skills?.equipped).toContain("mob_deep_chill");
+    expect(lakeMid.def).toBeGreaterThan(lakeFull.def);
+    expect(lakeMid.magicDef).toBeGreaterThan(lakeFull.magicDef ?? 0);
+    expect(lakeDeep.v2Skills?.equipped).toContain("mob_glacial_chill");
+    expect(lakeDeep.atk).toBeGreaterThan(lakeMid.atk);
+    expect(lakeDeep.atk).toBe(1_005);
+    expect(lakeDeep.def).toBe(809);
+    expect(lakeDeep.magicDef).toBe(1_020);
+    expect(lakeDeep.skill).toMatchObject({
+      kind: "chill",
+      perHit: 4,
+      dmgPerStack: 30,
     });
   });
 
@@ -327,25 +424,50 @@ describe("coopBosses 카탈로그", () => {
     ).toBe(100);
   });
 
-  it("산군 난이도별 방어·마법방어·명중·회피 스탯을 가진다", () => {
-    const normal = coopBossForBattle(
-      COOP_BOSSES.mountain_chief,
-      COOP_BOSSES.mountain_chief.sharedMaxHp,
-    ).monster;
-    const hard = coopBossForBattle(
-      COOP_BOSSES.mountain_chief_hard,
-      COOP_BOSSES.mountain_chief_hard.sharedMaxHp,
-    ).monster;
-    expect(normal.atk).toBe(146);
-    expect(normal.def).toBe(44);
-    expect(normal.magicDef).toBe(49);
-    expect(normal.accuracy).toBeGreaterThan(4);
-    expect(normal.evasionPct).toBe(5);
-    expect(hard.atk).toBe(4394);
-    expect(hard.def).toBe(469);
-    expect(hard.magicDef).toBe(604);
-    expect(hard.accuracy).toBeGreaterThan(40);
-    expect(hard.evasionPct).toBe(12);
+  it("기존 6종은 새 방어 체계에 재보정된 파생 전투 스탯을 유지한다", () => {
+    const expected = {
+      mountain_chief: { atk: 136, def: 45, magicDef: 49, accuracy: 9.63 },
+      canyon_predator: { atk: 317, def: 56, magicDef: undefined, accuracy: 15.99 },
+      lake_sovereign: { atk: 88, def: 100, magicDef: undefined, accuracy: 30.03 },
+      void_priest: {
+        atk: 501,
+        def: 263,
+        magicDef: undefined,
+        accuracy: 124.28838673308641,
+      },
+      mountain_chief_hard: {
+        atk: 655,
+        def: 484,
+        magicDef: 604,
+        accuracy: 104.76274329310041,
+      },
+      abyssal_tyrant: {
+        atk: 1063,
+        def: 234,
+        magicDef: 453,
+        accuracy: 134.2883867330864,
+      },
+    } as const;
+
+    for (const id of Object.keys(expected) as Array<keyof typeof expected>) {
+      const monster = coopBossForBattle(
+        COOP_BOSSES[id],
+        COOP_BOSSES[id].sharedMaxHp,
+      ).monster;
+      const stats = expected[id];
+      expect(monster.atk).toBe(stats.atk);
+      expect(monster.def).toBe(stats.def);
+      expect(monster.magicDef).toBe(stats.magicDef);
+      expect(monster.accuracy).toBeCloseTo(stats.accuracy);
+    }
+  });
+
+  it("호수 기믹 피해와 심연어룡 공격 유형은 방어 체계 재보정값을 유지한다", () => {
+    expect(COOP_BOSSES.lake_sovereign.base.skill).toMatchObject({
+      kind: "chill",
+      dmgPerStack: 17,
+    });
+    expect(COOP_BOSSES.abyssal_tyrant.base.atkType).toBe("magic");
   });
 
   it("유지시간 — HP 비례·최소 2h·최대 24h 클램프·HP 오름차순과 단조", () => {
@@ -403,6 +525,8 @@ describe("coopBosses 카탈로그", () => {
     expect(parseCoopBossKindId("mountain_chief")).toBe("mountain_chief");
     expect(parseCoopBossKindId("void_priest")).toBe("void_priest");
     expect(parseCoopBossKindId("abyssal_tyrant")).toBe("abyssal_tyrant");
+    expect(parseCoopBossKindId("canyon_predator_hard")).toBe("canyon_predator_hard");
+    expect(parseCoopBossKindId("lake_sovereign_hard")).toBe("lake_sovereign_hard");
     expect(parseCoopBossKindId("nope")).toBeNull();
     expect(parseCoopBossKindId(42)).toBeNull();
     expect(parseCoopBossKindId(null)).toBeNull();
@@ -485,6 +609,12 @@ describe("coopTierForRatio", () => {
     expect(coopTierThresholdFor("bronze", "abyssal_tyrant")).toBe(
       COOP_HARD_TIER_THRESHOLDS.bronze,
     );
+    expect(coopTierThresholdFor("bronze", "canyon_predator_hard")).toBe(
+      COOP_HARD_TIER_THRESHOLDS.bronze,
+    );
+    expect(coopTierThresholdFor("bronze", "lake_sovereign_hard")).toBe(
+      COOP_HARD_TIER_THRESHOLDS.bronze,
+    );
   });
 });
 
@@ -504,6 +634,50 @@ describe("소환서 드랍", () => {
 });
 
 describe("협동보스 가시성/권한 (코어루프 리워크)", () => {
+  it("새 협동 보스는 소환자만 볼 수 있는 상태로 시작한다", () => {
+    expect(COOP_INITIAL_VISIBILITY).toBe("summoner_only");
+  });
+
+  it("전체 공개 전에는 개인과 길드 범위를 오갈 수 있다", () => {
+    expect(coopVisibilityTransition("summoner_only", "guild_only")).toEqual({
+      ok: true,
+      changed: true,
+    });
+    expect(coopVisibilityTransition("guild_only", "summoner_only")).toEqual({
+      ok: true,
+      changed: true,
+    });
+  });
+
+  it("개인 또는 길드 보스는 전체 공개로 전환할 수 있다", () => {
+    expect(coopVisibilityTransition("summoner_only", "public")).toEqual({
+      ok: true,
+      changed: true,
+    });
+    expect(coopVisibilityTransition("guild_only", "public")).toEqual({
+      ok: true,
+      changed: true,
+    });
+  });
+
+  it("전체 공개된 보스는 개인이나 길드 범위로 되돌릴 수 없다", () => {
+    expect(coopVisibilityTransition("public", "summoner_only")).toEqual({
+      ok: false,
+      error: "visibility_locked",
+    });
+    expect(coopVisibilityTransition("public", "guild_only")).toEqual({
+      ok: false,
+      error: "visibility_locked",
+    });
+  });
+
+  it("이미 전체 공개된 보스를 다시 공개하는 요청은 무변경 성공이다", () => {
+    expect(coopVisibilityTransition("public", "public")).toEqual({
+      ok: true,
+      changed: false,
+    });
+  });
+
   it("parseCoopVisibility — 유효값만, 그 외 public 폴백", () => {
     expect(parseCoopVisibility("public")).toBe("public");
     expect(parseCoopVisibility("guild_only")).toBe("guild_only");

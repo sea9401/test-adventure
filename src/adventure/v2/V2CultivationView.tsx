@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { fetchGameState } from "./fetchGameState";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -14,22 +15,28 @@ import {
   V2_STAT_LABELS,
   type V2StatKey,
 } from "@/adventure/data/v2/v2StatKeys";
-import {
-  cultivationOutcomeLabel,
-  effectiveCultivateProfile,
-  V2_HYBRID_CULTIVATE_PROFILE,
-  V2_SPECIALIZED_CULTIVATE_PROFILE,
-  V2_STAT_CAP_BASE,
-} from "@/adventure/data/v2/proficiency";
-import {
-  V2_CLASS_DEFS,
-  parseV2Class,
-  type V2Class,
-} from "@/adventure/data/v2/classes";
+import { V2_STAT_CAP_BASE } from "@/adventure/data/v2/proficiency";
+import { parseV2Class, type V2Class } from "@/adventure/data/v2/classes";
 import { V2ClassGrid, type V2AdvanceInfo } from "./V2ClassGrid";
 import { V2JobLadder, type JobLadderEntry } from "./V2JobLadder";
 import { TabBar } from "@/components/ui/TabBar";
 import { useGameState } from "./GameStateProvider";
+import {
+  cultivationGroupForJob,
+  isLifestyleMasteryJobId,
+  jobIdFromLegacy,
+  V2_JOB_CATALOG,
+} from "@/adventure/data/v2/v2JobCatalog";
+import {
+  CultivationActions,
+  CultivationJobSelector,
+  cultivationCompletionMessage,
+  cultivationRequestInit,
+  visitedCultivationJobOptions,
+  type CultivationMode,
+  type CultivationRunSummary,
+} from "./CultivationActions";
+import { jobCultivationProfile } from "./jobExplorer";
 
 // 성장의 신전 내부 탭 — 직업(전직), 수행(스탯 한계↑).
 type ShrineTab = "job" | "cultivate";
@@ -61,11 +68,15 @@ type StateShape = {
     currentJobName: string;
     currentJobLevelCap: number;
     atLevelCap: boolean;
+    revisitExpedited: boolean;
     jobs: JobLadderEntry[];
   } | null;
   proficiency?: {
     caps?: Partial<Record<V2StatKey, number>>;
-    groups?: Record<string, { tier?: number; cumLevel?: number }>;
+    groups?: Record<
+      string,
+      { tier?: number; cumLevel?: number; cultivations?: number }
+    >;
     current?: {
       group: string;
       cumLevel: number;
@@ -87,7 +98,9 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   const [tab, setTab] = useState<ShrineTab>("job");
   const [group, setGroup] = useState<string>("none");
   const [usable, setUsable] = useState(0);
-  const [cultivations, setCultivations] = useState(0);
+  const [cultivationsByGroup, setCultivationsByGroup] = useState<
+    Record<string, number>
+  >({});
   const [capGains, setCapGains] = useState(0);
   const [nextCost, setNextCost] = useState(0);
   const [cultivationPointsSpent, setCultivationPointsSpent] = useState(0);
@@ -109,9 +122,14 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     currentJobName: string;
     rejobRequiredLevel: number;
     atLevelCap: boolean;
+    revisitExpedited: boolean;
     jobs: JobLadderEntry[];
     level: number;
   } | null>(null);
+  const [resolvedJobId, setResolvedJobId] = useState<string | null>(null);
+  const [selectedCultivationJobId, setSelectedCultivationJobId] = useState<
+    string | null
+  >(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useSystemMessageState();
@@ -119,13 +137,30 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   // 마운트 1회 로드 — setState 동기 호출을 피하려 loading 초기값(true)에서 시작, 완료 시 해제.
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/v2/me/state");
+      const res = await fetchGameState();
       const j = (await res.json().catch(() => null)) as StateShape | null;
       const cur = j?.proficiency?.current;
       if (j?.ok && cur) {
+        setResolvedJobId(
+          j.jobsV2?.currentJobId ??
+            jobIdFromLegacy(
+              j.character?.class ?? "none",
+              j.character?.spec ?? null,
+            ),
+        );
         setGroup(cur.group);
         setUsable(cur.points);
-        setCultivations(cur.cultivations);
+        setCultivationsByGroup(() => {
+          const byGroup = Object.fromEntries(
+            Object.entries(j.proficiency?.groups ?? {}).map(
+              ([groupId, value]) => [groupId, value.cultivations ?? 0],
+            ),
+          );
+          if (byGroup[cur.group] == null) {
+            byGroup[cur.group] = cur.cultivations;
+          }
+          return byGroup;
+        });
         setCapGains(cur.capGains ?? 0);
         setNextCost(cur.nextCost);
         setCultivationPointsSpent(cur.cultivationPointsSpent ?? 0);
@@ -149,6 +184,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
                 currentJobName: j.jobsV2.currentJobName,
                 rejobRequiredLevel: j.jobsV2.currentJobLevelCap,
                 atLevelCap: j.jobsV2.atLevelCap,
+                revisitExpedited: j.jobsV2.revisitExpedited,
                 jobs: j.jobsV2.jobs,
                 level: j.character?.level ?? 1,
               }
@@ -164,59 +200,109 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     refresh();
   }, [refresh]);
 
-  // 하이브리드와 방패 전문 계보는 직군 공용값 대신 직업 정체성 프로필로 한계를 올린다.
-  const jobId = jobLadder?.currentJobId ?? null;
-  const usesJobCultivationProfile = !!(
-    jobId &&
-    (V2_HYBRID_CULTIVATE_PROFILE[jobId] ||
-      V2_SPECIALIZED_CULTIVATE_PROFILE[jobId])
+  const currentJobId = jobLadder?.currentJobId ?? resolvedJobId;
+  const cultivationJobOptions = useMemo(
+    () =>
+      visitedCultivationJobOptions(
+        jobLadder?.jobs ??
+          (currentJobId
+            ? [
+                {
+                  id: currentJobId,
+                  name:
+                    V2_JOB_CATALOG[currentJobId]?.name ??
+                    jobLadder?.currentJobName ??
+                    currentJobId,
+                  visited: true,
+                },
+              ]
+            : []),
+      ),
+    [currentJobId, jobLadder],
   );
-  const profile = effectiveCultivateProfile(group, jobId) ?? null;
-  const disciplineName = usesJobCultivationProfile
-    ? (jobLadder?.currentJobName ?? "")
-    : group !== "none"
-      ? V2_CLASS_DEFS[group as V2Class]?.group ?? ""
-      : "";
+  const selectedCultivationJob =
+    cultivationJobOptions.find(
+      (option) => option.id === selectedCultivationJobId,
+    ) ??
+    cultivationJobOptions.find((option) => option.id === currentJobId) ??
+    cultivationJobOptions[0] ??
+    null;
+  const selectedJobId = selectedCultivationJob?.id ?? null;
+  const selectedGroup = selectedJobId
+    ? (cultivationGroupForJob(selectedJobId) ?? group)
+    : group;
+  const profile = selectedJobId
+    ? (jobCultivationProfile(selectedJobId) ?? null)
+    : null;
+  const isLifestyleJob = !!(
+    !selectedJobId &&
+    currentJobId &&
+    isLifestyleMasteryJobId(currentJobId)
+  );
+  const disciplineName =
+    selectedCultivationJob?.name ??
+    jobLadder?.currentJobName ??
+    (currentJobId ? V2_JOB_CATALOG[currentJobId]?.name : "") ??
+    "";
+  const cultivations = cultivationsByGroup[selectedGroup] ?? 0;
   const canCultivate =
-    !!profile && !busy && usable >= nextCost && nextCost > 0;
-  const cultivate = useCallback(async () => {
+    !!profile && !isLifestyleJob && !busy && usable >= nextCost && nextCost > 0;
+  const cultivate = useCallback(async (mode: CultivationMode) => {
+    if (!selectedJobId) return;
     setBusy(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/v2/me/cultivate", { method: "POST" });
-      const j = (await res.json().catch(() => null)) as {
+      const res = await fetch(
+        "/api/v2/me/cultivate",
+        cultivationRequestInit(mode, selectedJobId),
+      );
+      const j = (await res.json().catch(() => null)) as (CultivationRunSummary & {
         ok?: boolean;
         error?: string;
-        spent?: number;
-        mult?: number;
         caps?: Partial<Record<V2StatKey, number>>;
         cultivations?: number;
         capGains?: number;
         points?: number;
         nextCost?: number;
         cultivationPointsSpent?: number;
+        group?: string;
+        targetJobName?: string;
         required?: number;
         have?: number;
-      } | null;
+      }) | null;
       if (!j?.ok) {
         const label =
           j?.error === "no_class"
             ? "직업이 없어요 (먼저 직업을 선택하세요)"
+            : j?.error === "unvisited_job"
+              ? "전직한 적이 있는 직업만 선택할 수 있습니다"
+            : j?.error === "lifestyle_job"
+              ? "생활직은 수행할 수 없습니다"
             : j?.error === "insufficient_proficiency"
               ? `숙달 포인트 부족 (필요 ${j.required ?? nextCost}, 보유 ${j.have ?? usable})`
               : (j?.error ?? `http ${res.status}`);
         setMsg(`✗ ${label}`);
         return;
       }
-      const outcome = cultivationOutcomeLabel(j.mult ?? 1);
-      const special = outcome ? ` · ${outcome} ×${j.mult}!` : "";
-      setMsg(`✓ 수행 완료 (숙달 포인트 -${j.spent ?? nextCost})${special}`);
+      const spent = j.spent ?? nextCost;
+      setMsg(
+        cultivationCompletionMessage(
+          j,
+          mode,
+          nextCost,
+          j.targetJobName ?? selectedCultivationJob?.name,
+        ),
+      );
       setCaps(j.caps ?? caps);
-      setCultivations(j.cultivations ?? cultivations + 1);
+      setCultivationsByGroup((current) => ({
+        ...current,
+        [j.group ?? selectedGroup]:
+          j.cultivations ?? cultivations + (j.performed ?? 1),
+      }));
       setCapGains(j.capGains ?? capGains);
-      setUsable(j.points ?? Math.max(0, usable - nextCost));
+      setUsable(j.points ?? Math.max(0, usable - spent));
       setCultivationPointsSpent(
-        j.cultivationPointsSpent ?? cultivationPointsSpent + (j.spent ?? nextCost),
+        j.cultivationPointsSpent ?? cultivationPointsSpent + spent,
       );
       setNextCost(j.nextCost ?? nextCost);
     } catch (err) {
@@ -231,6 +317,9 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     cultivations,
     usable,
     nextCost,
+    selectedCultivationJob,
+    selectedGroup,
+    selectedJobId,
     setMsg,
   ]);
 
@@ -247,6 +336,8 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         refundedPoints?: number;
         gold?: number;
         bankedGold?: number;
+        level?: number;
+        exp?: number;
       } | null;
       if (!j?.ok) {
         const label =
@@ -268,7 +359,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         ? ` · 골드 -${(j.spentGold ?? 0).toLocaleString()} G`
         : " · 첫 초기화 무료";
       setMsg(
-        `✓ 수행 초기화 완료 · 숙달 포인트 +${(j.refundedPoints ?? 0).toLocaleString()}${costLabel}`,
+        `✓ 수행 초기화 완료 · Lv.1로 초기화 · 숙달 포인트 +${(j.refundedPoints ?? 0).toLocaleString()}${costLabel}`,
       );
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
@@ -313,6 +404,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
               currentJobName={jobLadder.currentJobName}
               currentJobId={jobLadder.currentJobId}
               atLevelCap={jobLadder.atLevelCap}
+              revisitExpedited={jobLadder.revisitExpedited}
               rejobRequiredLevel={jobLadder.rejobRequiredLevel}
               jobs={jobLadder.jobs}
               onChanged={async () => {
@@ -356,23 +448,39 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
               </div>
             </div>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              숙달 포인트로 스탯 한계치를 올리면, 레벨업 랜덤 성장이 그 한계까지 채운다.
+              숙달 포인트로 스탯 한계치를 올리면 레벨업 성장 능력치가 그
+              한계까지 적용됩니다.
             </p>
+
+            {cultivationJobOptions.length > 0 ? (
+              <CultivationJobSelector
+                options={cultivationJobOptions}
+                value={selectedJobId ?? ""}
+                busy={busy}
+                onChange={setSelectedCultivationJobId}
+              />
+            ) : null}
+
+            {isLifestyleJob ? (
+              <p className="mt-3 text-sm font-medium text-amber-700 dark:text-amber-300">
+                생활직은 수행할 수 없습니다. 전투직으로 전직한 뒤 이용해 주세요.
+              </p>
+            ) : null}
 
             {loading ? (
               <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
                 불러오는 중…
               </p>
-            ) : !profile ? (
+            ) : !profile && !isLifestyleJob ? (
               <p className="mt-3 text-sm text-amber-600 dark:text-amber-400">
                 직업이 없어 수행할 수 없어요. 먼저 직업을 선택하세요.
               </p>
-            ) : (
+            ) : profile ? (
               <ul className="mt-3 space-y-1.5">
                 {V2_STAT_KEYS.map((k) => {
                   const cap = caps[k] ?? V2_STAT_CAP_BASE;
                   const cur = stats[k] ?? 0;
-                  const gain = profile[k] ?? 0;
+                  const gain = isLifestyleJob ? 0 : (profile[k] ?? 0);
                   return (
                     <li
                       key={k}
@@ -404,11 +512,11 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
                   );
                 })}
               </ul>
-            )}
+            ) : null}
 
             {profile && (
               <div className="mt-3 space-y-3">
-                <div className="flex items-center justify-between gap-2">
+                <div className="grid gap-3 sm:flex sm:items-center sm:justify-between sm:gap-2">
                   <span className="text-xs text-zinc-500 dark:text-zinc-400">
                     한계 증가 합 {capGains.toLocaleString()} · 수행{" "}
                     {cultivations.toLocaleString()}회 · 다음 비용{" "}
@@ -422,14 +530,13 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
                       {nextCost}
                     </strong>
                   </span>
-                  <Button
-                    onClick={cultivate}
-                    disabled={!canCultivate}
-                    variant="success"
-                    size="md"
-                  >
-                    {busy ? "처리 중…" : "수행"}
-                  </Button>
+                  <CultivationActions
+                    canCultivate={canCultivate}
+                    busy={busy}
+                    isLifestyleJob={isLifestyleJob}
+                    onCultivate={() => void cultivate("once")}
+                    onCultivateMax={() => void cultivate("max")}
+                  />
                 </div>
 
                 <div className="border-t border-zinc-200 pt-3 dark:border-zinc-700">
@@ -469,12 +576,14 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
                   {resetConfirming && (
                     <div className={`${SURFACE_INSET} mt-3 p-3`}>
                       <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">
-                        모든 수행 한계치를 초기화할까요?
+                        모든 수행 한계치를 초기화하고 레벨 1로 돌아갈까요?
                       </p>
                       <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
                         대성공·각성 결과를 포함한 한계 증가치가 모두 사라집니다.
                         사용한 숙달 포인트 {cultivationPointsSpent.toLocaleString()}은
-                        전액 돌려받으며, 수행 횟수와 직업 숙련도는 유지됩니다.
+                        전액 돌려받습니다. 캐릭터는 레벨 1·경험치 0으로 돌아가고
+                        현재 레벨 성장값은 사라집니다. 수행 횟수와 직업 숙련도는
+                        유지됩니다.
                       </p>
                       <div className="mt-3 flex justify-end gap-2">
                         <Button

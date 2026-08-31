@@ -43,6 +43,15 @@ function PostListRowImpl({ post, onOpen }: Props) {
           <span className={`min-w-0 flex-1 truncate text-sm ${titleClass}`}>
             {displayTitle}
           </span>
+          {post.category === "notice" && !post.viewedByMe && (
+            <>
+              <span
+                aria-hidden
+                className="h-2.5 w-2.5 shrink-0 rounded-full bg-rose-500"
+              />
+              <span className="sr-only">읽지 않은 공지</span>
+            </>
+          )}
           {post.scope === "guild" && (
             <span
               className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"

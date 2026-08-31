@@ -5,6 +5,7 @@ import {
   marketplaceListingPower,
   marketplaceStackQuote,
   groupMarketplaceStackListings,
+  individualMarketplaceListings,
   priceStatForQuantity,
   type Listing,
 } from "./marketplaceShared";
@@ -86,6 +87,30 @@ describe("스택 매물 통합·견적", () => {
   it("수량이 부족하면 견적을 만들지 않는다", () => {
     expect(marketplaceStackQuote([stackListing(1, 3, 300)], 4)).toBeNull();
   });
+
+  it("본인 스택 매물은 구매 묶음에서 빼고 개별 관리 행으로 남긴다", () => {
+    const foreign = stackListing(1, 5, 500);
+    const mine = { ...stackListing(2, 7, 350), isMine: true };
+    const equipment: Listing = {
+      ...stackListing(3, 1, 1_000),
+      kind: "equip",
+      itemId: "v2_wooden_bow",
+      itemName: "나무 활",
+      instancePayload: { power: 8, weight: 0 },
+    };
+
+    const [group] = groupMarketplaceStackListings([foreign, mine, equipment]);
+    const individual = individualMarketplaceListings(
+      [foreign, mine, equipment],
+      "fixed",
+    );
+
+    expect(group.listings.map((listing) => listing.id)).toEqual([1]);
+    expect(group.totalQuantity).toBe(5);
+    expect(group.minUnitPrice).toBe(100);
+    expect(marketplaceStackQuote(group.listings, 2)).toBe(200);
+    expect(individual.map((listing) => listing.id)).toEqual([2, 3]);
+  });
 });
 
 describe("priceStatForQuantity", () => {
@@ -131,6 +156,24 @@ describe("거래소 매물 정렬", () => {
         .sort((a, b) => compareMarketplaceListings(a, b, "power_desc"))
         .map((listing) => listing.id),
     ).toEqual([2, 1]);
+  });
+
+  it("제작 품질과 강화 보너스를 매물 위력에 함께 반영한다", () => {
+    const listing = equipListing(3, "v2_wooden_bow", 100, 1_000);
+    listing.instancePayload = {
+      power: 100,
+      weight: 0,
+      craftQuality: { level: 1, bonusPct: 5 },
+      enhance: { level: 3, bonusPct: 4 },
+      craftedBy: {
+        userId: "u1",
+        profession: "blacksmith",
+        level: 6,
+        craftedAt: "2026-08-09T00:00:00.000Z",
+      },
+    };
+
+    expect(marketplaceListingPower(listing)).toBe(109);
   });
 
   it("스택 매물 가격 정렬은 총액이 아니라 개당 가격을 사용한다", () => {

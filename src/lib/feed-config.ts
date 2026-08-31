@@ -2,14 +2,15 @@
 //
 // 채팅과 분리된 "전광판" — 서버 전체에 흘러가는 자랑거리(유실된 명품 획득, 걸작 제작 성공).
 // 한 번에 FEED_FETCH_LIMIT 개씩 불러온다. append-only — insert 시 보관기간 초과분을
-// 잘라낸다(cron 없음, lazy trim).
+// 잘라내고 운영 보존 cron이 보완한다.
 
 // GET /api/feed 가 돌려주는 최근 항목 수. 패널이 한 번에 보여주는 상한.
 export const FEED_FETCH_LIMIT = 30;
 
 // DB 보관 기간 — insert 마다 이보다 오래된 행 trim(시간 기준).
 // (옛 FEED_MAX_ROWS=500 행 수 캡 대체 — 운영 보관 정책에 따라 최근 30일 보존.)
-export const FEED_RETENTION_MS = 30 * 24 * 3_600_000;
+export const FEED_RETENTION_DAYS = 30;
+export const FEED_RETENTION_MS = FEED_RETENTION_DAYS * 24 * 3_600_000;
 
 // 과거 페이지 cursor. server_feed 의 단조 증가 serial(PG integer) PK만 허용해 범위가
 // 불명확하거나 컬럼 범위 밖인 값을 쿼리에 넘기지 않는다.
@@ -46,6 +47,8 @@ export const FEED_TYPES = [
   "newcomer",
   "life_blueprint",
   "life_discovery",
+  "cooking_discovery",
+  "codex_research_result",
 ] as const;
 export type FeedType = (typeof FEED_TYPES)[number];
 
@@ -74,6 +77,8 @@ export const WAR_FEED_TYPES: readonly FeedType[] = [
   "newcomer",
   "life_blueprint",
   "life_discovery",
+  "cooking_discovery",
+  "codex_research_result",
 ];
 
 // 전광판(티커) 표시 범위 — 이 시간(분) 안의 사건만 순환. 0건이면 띠 자체를 숨긴다
@@ -89,14 +94,20 @@ export const WAR_TICKER_MAX_ITEMS = 10;
 
 // === 분류(카테고리) — 패널의 분류별 보기 탭 + GET /api/feed?category= 서버 필터 ===
 // 전광판 묶음(WAR_FEED_TYPES — enhance_high 포함)과 별개: 이쪽은 열람용 의미 분류.
-// 유니크 드랍(unique_drop)은 어느 분류에도 안 넣는다 — 빈도가 높아 획득 칩을 도배하던
-// 것을 "전체"에서만 보이게(사용자 결정 2026-06-13). 강화는 획득에서 분리.
+// 유니크 드랍(unique_drop)은 획득 분류에 포함하되 전광판에는 올리지 않는다.
+// 강화는 획득에서 분리.
 export const FEED_CATEGORIES = ["acquisition", "enhance", "war", "boss"] as const;
 export type FeedCategory = (typeof FEED_CATEGORIES)[number];
 
 export const FEED_CATEGORY_TYPES: Record<FeedCategory, readonly FeedType[]> = {
-  // 획득 — 걸작 제작(유니크 드랍/레어맵 발견 제외).
-  acquisition: ["masterpiece", "life_blueprint", "life_discovery"],
+  // 획득 — 유니크 드랍·걸작 제작·생활 도면/발견(레어맵 발견 제외).
+  acquisition: [
+    "unique_drop",
+    "masterpiece",
+    "life_blueprint",
+    "life_discovery",
+    "cooking_discovery",
+  ],
   // 강화 — 고강(+9 이상) 성공/파괴.
   enhance: ["enhance_high", "enhance_destroy"],
   // 전쟁 — 거점 점령/공성/침입자 토벌.
@@ -154,8 +165,15 @@ export type FeedPayload =
   | { cultivationMult: number }
   // newcomer — 새 모험가 합류(첫 캐릭터 생성). 닉네임은 actorName 에 스냅샷되므로 payload 는 비움.
   | { newcomer: true }
-  | { recipeId: string }
-  | { discoveryId: string };
+  | { recipeId: string; recipeName?: string }
+  | { discoveryId: string }
+  | {
+      seasonId: string;
+      themeName: string;
+      tier: import("@/adventure/data/v2/codexMasteryTrophies").CodexMasteryTrophyTier;
+      finalRank: number;
+      score: number;
+    };
 
 // 클라/서버가 주고받는 한 항목.
 export type FeedEntry = {

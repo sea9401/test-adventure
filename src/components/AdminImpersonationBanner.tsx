@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { showGameAlert } from "@/components/ui/gameDialog";
 
 type ActiveImpersonation = {
   targetUserId: string;
@@ -47,7 +48,7 @@ export function AdminImpersonationBanner() {
       window.location.replace("/admin?tab=users");
     } catch {
       setEnding(false);
-      window.alert("계정 가장을 종료하지 못했습니다. 잠시 후 다시 시도해주세요.");
+      await showGameAlert("계정 가장을 종료하지 못했습니다. 잠시 후 다시 시도해주세요.");
     }
   }
 

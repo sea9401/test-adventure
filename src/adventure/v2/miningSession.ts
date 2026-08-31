@@ -7,7 +7,16 @@ import {
   type MiningNodeId,
   type MiningSpotId,
 } from "@/adventure/data/v2/miningSpots";
-import { MINING_XP_PER_SUCCESS, miningFailureRate } from "./miningProgression";
+import {
+  MINING_XP_PER_SUCCESS,
+  miningFailureRate,
+  miningXpForLevel,
+} from "./miningProgression";
+import {
+  LIFE_LEVEL_CURVE_VERSION,
+  applyLifeXpGain,
+  normalizeLifeXp,
+} from "./lifeLevelProgression";
 import {
   isLifeFieldEnvironmentId,
   type LifeFieldEnvironmentId,
@@ -33,6 +42,7 @@ export type MiningSession = {
 };
 
 export type MiningLog = {
+  levelCurveVersion: number;
   successes: number;
   xp: number;
   oreEarned: number;
@@ -140,8 +150,9 @@ export function parseMiningSession(raw: unknown): MiningSession | null {
   };
 }
 
-export function parseMiningLog(raw: unknown): MiningLog {
+function parseMiningLogFields(raw: unknown): MiningLog {
   const empty: MiningLog = {
+    levelCurveVersion: LIFE_LEVEL_CURVE_VERSION,
     successes: 0,
     xp: 0,
     oreEarned: 0,
@@ -162,6 +173,9 @@ export function parseMiningLog(raw: unknown): MiningLog {
   const hasStoredXp = Object.prototype.hasOwnProperty.call(value, "xp");
   const storedXp = Number(value.xp);
   return {
+    levelCurveVersion: Number.isFinite(Number(value.levelCurveVersion))
+      ? Math.max(1, Math.floor(Number(value.levelCurveVersion)))
+      : 1,
     successes,
     xp:
       hasStoredXp && Number.isFinite(storedXp)
@@ -176,6 +190,30 @@ export function parseMiningLog(raw: unknown): MiningLog {
   };
 }
 
+export function parseMiningLogWithLevelMigration(raw: unknown): {
+  log: MiningLog;
+  levelCurveMigrated: boolean;
+} {
+  const log = parseMiningLogFields(raw);
+  const normalized = normalizeLifeXp({
+    xp: log.xp,
+    levelCurveVersion: log.levelCurveVersion,
+    legacyThreshold: miningXpForLevel,
+  });
+  return {
+    log: {
+      ...log,
+      xp: normalized.xp,
+      levelCurveVersion: normalized.levelCurveVersion,
+    },
+    levelCurveMigrated: normalized.migrated,
+  };
+}
+
+export function parseMiningLog(raw: unknown): MiningLog {
+  return parseMiningLogWithLevelMigration(raw).log;
+}
+
 export function miningAttemptSucceeds(
   failureRate: number,
   roll: number = Math.random(),
@@ -188,10 +226,19 @@ export function recordMiningSuccess(
   log: MiningLog,
   args: { nodeId: MiningNodeId; ore: number; byproducts: number; xp: number },
 ): MiningLog {
+  const xp = applyLifeXpGain({
+    xp: log.xp,
+    gainedXp: args.xp,
+    legacyThreshold: miningXpForLevel,
+  }).xp;
   return {
     ...log,
+    levelCurveVersion: Math.max(
+      LIFE_LEVEL_CURVE_VERSION,
+      log.levelCurveVersion,
+    ),
     successes: log.successes + 1,
-    xp: log.xp + Math.max(0, Math.floor(args.xp)),
+    xp,
     oreEarned: log.oreEarned + Math.max(0, Math.floor(args.ore)),
     byproductsEarned:
       log.byproductsEarned + Math.max(0, Math.floor(args.byproducts)),

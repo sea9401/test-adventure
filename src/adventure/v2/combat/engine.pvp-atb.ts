@@ -1,5 +1,8 @@
 import type { PotionId } from "@/adventure/data/potions";
-import { actionInterval } from "./combatTimeline";
+import {
+  ATB_TIMELINE_TICK_CAP,
+  actionInterval,
+} from "./combatTimeline";
 import {
   appendLog,
   type BattleLogEntry,
@@ -8,9 +11,13 @@ import {
 } from "./engine";
 import {
   advanceTurnPvP,
+  applyEvasionActionRecoveryPvP,
   castV2SkillOnAttackerTurnPvP,
+  decrementTimedEffects,
+  endAttackerPhase,
   initialBattleStatePvP,
   rollPvPAttackCount,
+  tickPvPSideDotsOnAction,
   type PvPBattleResolution,
   type PvPBattleState,
   type PvPOutcome,
@@ -18,13 +25,52 @@ import {
   type PvPSide,
 } from "./engine-pvp";
 import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
+import { activeTier6ResourceSnapshot } from "./tier6UniqueEffects";
+import { consumeDuelistCritHaste } from "./duelistCombat";
+import { tickV2BuffMap } from "./combatShared";
+import { enterShockAction } from "./shockAction";
+import { mergeTripleWardResourceSnapshot } from "./tripleWard";
+import { mergeLawInscriptionSnapshot } from "./lawInscription";
+import { mergeTier7ResourceSnapshot } from "./engineState";
+import { mergeFrostChillSnapshot } from "./frostChill";
+import {
+  pickPvpInitiative,
+  type PvPInitiativeActor,
+} from "./pvpInitiative";
+import { weightSpeedMultiplier } from "./mutationCombat";
 
-// PvP has two player-scale actors. 2600 ticks is roughly 2x the PvE ATB cap
-// and is the dial equivalent of legacy PVP_TURN_CAP=100 rounds.
-export const PVP_ATB_TICK_CAP = 50 * 26 * 2;
+// PvE 사냥과 같은 3000틱 상한을 사용한다. 양쪽 모두 플레이어 스케일 SPD를 쓰므로 실제 행동 수는
+// 각자의 actionInterval에 따라 달라지며, 장기전만 사냥과 동일한 타임라인 길이까지 허용한다.
+export const PVP_ATB_TICK_CAP = ATB_TIMELINE_TICK_CAP;
 export const PVP_ATB_ACTION_GUARD = 2000;
 
 function hpBarEntry(state: PvPBattleState, tick?: number): BattleLogEntry {
+  const playerResources = mergeFrostChillSnapshot(
+    mergeLawInscriptionSnapshot(
+      mergeTripleWardResourceSnapshot(
+        mergeTier7ResourceSnapshot(
+          activeTier6ResourceSnapshot(state.p1.stacks.tier6Uniques),
+          state.p1.stacks.tier7,
+        ),
+        state.p1.stacks.tripleWard,
+      ),
+      state.p1.stacks.lawInscriptions,
+    ),
+    state.p1.stacks.frostChillStacks,
+  );
+  const enemyResources = mergeFrostChillSnapshot(
+    mergeLawInscriptionSnapshot(
+      mergeTripleWardResourceSnapshot(
+        mergeTier7ResourceSnapshot(
+          activeTier6ResourceSnapshot(state.p2.stacks.tier6Uniques),
+          state.p2.stacks.tier7,
+        ),
+        state.p2.stacks.tripleWard,
+      ),
+      state.p2.stacks.lawInscriptions,
+    ),
+    state.p2.stacks.frostChillStacks,
+  );
   return {
     kind: "hp_bar",
     text: "",
@@ -37,6 +83,20 @@ function hpBarEntry(state: PvPBattleState, tick?: number): BattleLogEntry {
     playerMaxMp: state.p1.maxMp,
     enemyMp: state.p2.mp,
     enemyMaxMp: state.p2.maxMp,
+    playerMagicBarrier: state.p1.magicBarrier,
+    playerMagicBarrierMax: state.p1.maxMagicBarrier,
+    enemyMagicBarrier: state.p2.magicBarrier,
+    enemyMagicBarrierMax: state.p2.maxMagicBarrier,
+    ...(playerResources
+      ? {
+          playerSignatureResources: playerResources,
+        }
+      : {}),
+    ...(enemyResources
+      ? {
+          enemySignatureResources: enemyResources,
+        }
+      : {}),
   };
 }
 
@@ -48,7 +108,10 @@ function atbPlayerView(player: PlayerCombat): PlayerCombat {
   };
 }
 
-function effectiveSideSpd(state: PvPBattleState, who: "p1" | "p2"): number {
+export function effectiveSideSpd(
+  state: PvPBattleState,
+  who: "p1" | "p2",
+): number {
   const side = state[who];
   const other = state[who === "p1" ? "p2" : "p1"];
   let spd = side.player.spd;
@@ -58,17 +121,18 @@ function effectiveSideSpd(state: PvPBattleState, who: "p1" | "p2"): number {
   if (other.buffs.enemySpdTurnsLeft > 0) {
     spd *= other.buffs.enemySpdMult;
   }
-  return spd;
+  return spd * weightSpeedMultiplier(side.stacks.mutationWeight);
 }
 
 function nextActorPvP(
   p1NextTick: number,
   p2NextTick: number,
+  tiePriority: PvPInitiativeActor,
 ): "p1" | "p2" {
   if (p1NextTick !== p2NextTick) {
     return p1NextTick < p2NextTick ? "p1" : "p2";
   }
-  return "p1";
+  return tiePriority;
 }
 
 function tagNewLogEntries(
@@ -167,6 +231,11 @@ export function resolveBattlePvPAtb(
   p2Name: string,
   ctx: PvPResolveContext,
 ): PvPBattleResolution {
+  const initiative = pickPvpInitiative(
+    p1Player.spd,
+    p2Player.spd,
+    ctx.initiativeRoll ?? Math.random(),
+  );
   const potions = {
     p1: { ...ctx.potions.p1 },
     p2: { ...ctx.potions.p2 },
@@ -183,6 +252,8 @@ export function resolveBattlePvPAtb(
     ctx.v2Skills?.p1,
     ctx.v2Skills?.p2,
     ctx.damageMultiplier,
+    ctx.sustainMultiplier,
+    initiative,
   );
   state = withAtbPlayers(state);
   if (state.p1.hp <= 0 && state.p2.hp <= 0) {
@@ -199,8 +270,11 @@ export function resolveBattlePvPAtb(
     };
   }
 
-  let p1NextTick = actionInterval(effectiveSideSpd(state, "p1"));
-  let p2NextTick = actionInterval(effectiveSideSpd(state, "p2"));
+  // 선공 추첨은 첫 행동 순서만 정한다. 양쪽 모두 같은 tick에 첫 행동을 얻고,
+  // 이후부터 각자의 actionInterval로 행동 빈도 차이를 만든다.
+  let p1NextTick = 0;
+  let p2NextTick = 0;
+  let tiePriority = initiative;
   let actions = 0;
   let turns = 0;
   let lastTick = 0; // 최종 hp_bar 스탬프용(루프 밖)
@@ -215,61 +289,180 @@ export function resolveBattlePvPAtb(
       return forceActionGuardDraw(state, turns, consumed);
     }
 
-    const who = nextActorPvP(p1NextTick, p2NextTick);
+    const tied = p1NextTick === p2NextTick;
+    const who = nextActorPvP(p1NextTick, p2NextTick, tiePriority);
     const other = who === "p1" ? "p2" : "p1";
+    if (tied) tiePriority = other;
     actions += 1;
     state = ensureBundleReady({ ...state, phase: who }, who);
 
-    // v2 스킬 시전(V2_ATB_SKILLS) — PvP 는 legacy 와 동일하게 cast + 평타(XOR 아님): 이번 액터의
-    //   번들 시작에 1회 시전한 뒤 아래 평타 루프가 그대로 돈다. PvP 의 v2 buff tick 은
-    //   castV2SkillOnAttackerTurnPvP 내부가 소유(번들엔 tick 없음) → 이중 tick 없음. atbPlayerView
-    //   적용은 평타와 동일하게 withAtbPlayers 로 감싼다. cast 가 적을 처치(phase=ended)하면
-    //   아래 평타 루프가 자연히 스킵되고 return 의 최종 hp_bar 가 마무리한다(legacy 미러).
-    let castSelfHastePct = 0; // 바람 — who 의 다음 행동 틱 가속(아래 틱 증가에서 반영).
-    if (V2_ATB_SKILLS) {
-      const castLogLen = state.log.length;
-      const cast = castV2SkillOnAttackerTurnPvP(state, who);
-      state = withAtbPlayers(cast.state);
-      state = tagNewLogEntries(state, castLogLen, who, nextTick);
-      castSelfHastePct = cast.selfHastePct;
-      if (cast.enemyDelayPct > 0) {
-        // 대지 — 상대(other)의 다음 행동(p?NextTick 에 예약됨)을 상대 인터벌의 pct% 만큼 뒤로 민다.
-        const push =
-          actionInterval(effectiveSideSpd(state, other)) * (cast.enemyDelayPct / 100);
-        if (other === "p1") p1NextTick += push;
-        else p2NextTick += push;
-      }
+    // DoT 는 피격시킨 상대의 행동 종료가 아니라, 대상 본인의 실제 ATB 행동 시작에 틱한다.
+    const dotLogLen = state.log.length;
+    state = withAtbPlayers(tickPvPSideDotsOnAction(state, who));
+    state = tagNewLogEntries(state, dotLogLen, who, nextTick);
+    if (state.phase === "ended") {
+      turns += 1;
+      break;
     }
-
-    let action: PlayerAction = { kind: "attack" };
-    const picked = ctx.pickAction(state, who);
-    if (picked.kind === "use_potion") {
-      const have = potions[who][picked.potionId] ?? 0;
-      if (have > 0) {
-        potions[who][picked.potionId] = have - 1;
-        consumed[who][picked.potionId] = (consumed[who][picked.potionId] ?? 0) + 1;
-        action = picked;
+    let castSelfHastePct = 0;
+    const shockEntry = enterShockAction(state[who].stacks.shockAction);
+    if (state[who].stacks.shockAction !== shockEntry.next) {
+      const side = state[who];
+      state = {
+        ...state,
+        [who]: {
+          ...side,
+          stacks: { ...side.stacks, shockAction: shockEntry.next },
+        },
+      };
+    }
+    if (shockEntry.skip) {
+      const side = state[who];
+      const tickClassicBuffs = side.turn.completedPlayerTurns > 0;
+      const forcedRuinRelease = side.stacks.tier7?.ruinCharge != null;
+      state = {
+        ...state,
+        [who]: {
+          ...side,
+          attacksLeft: 0,
+          buffs: tickClassicBuffs && !forcedRuinRelease
+            ? decrementTimedEffects(side.buffs)
+            : side.buffs,
+          v2SelfBuffs: forcedRuinRelease
+            ? side.v2SelfBuffs
+            : tickV2BuffMap(side.v2SelfBuffs),
+          v2SelfDebuffs: forcedRuinRelease
+            ? side.v2SelfDebuffs
+            : tickV2BuffMap(side.v2SelfDebuffs),
+        },
+        log: appendLog(state.log, {
+          kind: "info",
+          text: `[감전] ${side.name}이(가) 움직이지 못했다.`,
+          side: who,
+          t: nextTick,
+        }),
+      };
+      if (forcedRuinRelease) {
+        const cast = castV2SkillOnAttackerTurnPvP(state, who);
+        state = withAtbPlayers(cast.state);
+        castSelfHastePct = cast.selfHastePct;
+        if (cast.enemyDelayPct > 0) {
+          const push =
+            actionInterval(effectiveSideSpd(state, other)) *
+            (cast.enemyDelayPct / 100);
+          if (other === "p1") p1NextTick += push;
+          else p2NextTick += push;
+        }
+      }
+      if (state.phase !== "ended") {
+        state = withAtbPlayers(
+          endAttackerPhase(state, who, other, {
+            tickDefenderDots: false,
+            skipOffensiveFollowups: true,
+          }),
+        );
       }
     } else {
-      action = picked;
+      state = withAtbPlayers(applyEvasionActionRecoveryPvP(state, who));
+
+      // v2 스킬 시전(V2_ATB_SKILLS) — 스킬이 발동하면 이번 행동을 소진해 평타를 대체한다.
+      // 다단 적중 시그니처로 생긴 추가 기본 공격만 같은 번들에서 평타로 이어진다. PvP 의 v2 buff tick 은
+      // castV2SkillOnAttackerTurnPvP 내부가 소유(번들엔 tick 없음) → 이중 tick 없음.
+      let castFired = false;
+      if (V2_ATB_SKILLS) {
+        const castLogLen = state.log.length;
+        const cast = castV2SkillOnAttackerTurnPvP(state, who);
+        state = withAtbPlayers(cast.state);
+        state = tagNewLogEntries(state, castLogLen, who, nextTick);
+        castFired = cast.castFired;
+        castSelfHastePct = cast.selfHastePct;
+        if (cast.enemyDelayPct > 0) {
+          // 대지 — 상대(other)의 다음 행동(p?NextTick 에 예약됨)을 상대 인터벌의 pct% 만큼 뒤로 민다.
+          const push =
+            actionInterval(effectiveSideSpd(state, other)) *
+            (cast.enemyDelayPct / 100);
+          if (other === "p1") p1NextTick += push;
+          else p2NextTick += push;
+        }
+        if (
+          cast.castFired &&
+          cast.signatureExtraActions <= 0 &&
+          state.phase === who
+        ) {
+          state = withAtbPlayers(
+            endAttackerPhase(state, who, other, { tickDefenderDots: false }),
+          );
+          state = tagNewLogEntries(state, castLogLen, who, nextTick);
+        }
+      }
+
+      if (state.phase === who) {
+        let action: PlayerAction = { kind: "attack" };
+        // 스킬로 얻은 추가 기본 공격은 PvE와 동일하게 평타로만 소비한다.
+        if (!castFired) {
+          const picked = ctx.pickAction(state, who);
+          if (picked.kind === "use_potion") {
+            const have = potions[who][picked.potionId] ?? 0;
+            if (have > 0) {
+              potions[who][picked.potionId] = have - 1;
+              consumed[who][picked.potionId] =
+                (consumed[who][picked.potionId] ?? 0) + 1;
+              action = picked;
+            }
+          } else {
+            action = picked;
+          }
+        }
+
+        while (state.phase === who) {
+          const prevLogLen = state.log.length;
+          state = withAtbPlayers(
+            advanceTurnPvP(state, action, { tickDefenderDots: false }),
+          );
+          state = tagNewLogEntries(state, prevLogLen, who, nextTick);
+          action = { kind: "attack" };
+          if (state.phase === "ended") break;
+        }
+      }
     }
 
-    while (state.phase === who) {
-      const prevLogLen = state.log.length;
-      state = withAtbPlayers(advanceTurnPvP(state, action));
-      state = tagNewLogEntries(state, prevLogLen, who, nextTick);
-      action = { kind: "attack" };
-      if (state.phase === "ended") break;
+    const shadowReleaseHastePct =
+      state[other].stacks.tier7?.shadowReleaseHastePct ?? 0;
+    if (shadowReleaseHastePct > 0) {
+      const pull =
+        actionInterval(effectiveSideSpd(state, other)) *
+        (shadowReleaseHastePct / 100);
+      if (other === "p1") p1NextTick = Math.max(nextTick + 1, p1NextTick - pull);
+      else p2NextTick = Math.max(nextTick + 1, p2NextTick - pull);
+      const hastenedSide = state[other];
+      state = {
+        ...state,
+        [other]: {
+          ...hastenedSide,
+          stacks: {
+            ...hastenedSide.stacks,
+            tier7: {
+              ...hastenedSide.stacks.tier7,
+              shadowReleaseHastePct: 0,
+            },
+          },
+        },
+      };
     }
 
     // 바람 — 이번 액터의 다음 행동 틱을 가속(pct% 단축). 미시전이면 0 → 무변.
-    if (who === "p1") {
-      p1NextTick +=
-        actionInterval(effectiveSideSpd(state, "p1")) * (1 - castSelfHastePct / 100);
-    } else {
-      p2NextTick +=
-        actionInterval(effectiveSideSpd(state, "p2")) * (1 - castSelfHastePct / 100);
-    }
+    const actingSide = state[who];
+    const duelistHaste = consumeDuelistCritHaste(
+      actionInterval(effectiveSideSpd(state, who)) * (1 - castSelfHastePct / 100),
+      actingSide.player.basicCritHastePct ?? 0,
+      actingSide.duelistCritHastePending === true,
+    );
+    if (who === "p1") p1NextTick += duelistHaste.interval;
+    else p2NextTick += duelistHaste.interval;
+    state = {
+      ...state,
+      [who]: { ...actingSide, duelistCritHastePending: duelistHaste.pending },
+    };
     turns += 1;
 
     if (state.phase !== "ended") {

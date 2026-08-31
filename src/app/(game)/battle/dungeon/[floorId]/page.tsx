@@ -16,6 +16,7 @@ import {
 } from "@/adventure/data/v2/dungeon";
 import {
   dungeonFloorBackHref,
+  normalHuntFloorHref,
   rareMapEntryHref,
 } from "@/adventure/v2/dungeonNavigation";
 
@@ -43,6 +44,7 @@ export default function DungeonFloorPage() {
     stamina,
     staminaMax,
     adventureSupportActive,
+    adventureSupportTier,
     setStamina,
     hpCharges,
     mpCharges,
@@ -108,6 +110,7 @@ export default function DungeonFloorPage() {
       stamina={stamina}
       staminaMax={staminaMax}
       adventureSupportActive={adventureSupportActive}
+      adventureSupportTier={adventureSupportTier}
       setStamina={setStamina}
       hp={hp}
       setHp={setHp}
@@ -130,8 +133,12 @@ export default function DungeonFloorPage() {
       onProficiencyChange={(n) =>
         applyResourcePatch({ viewerProficiency: n })
       }
+      onExperienceChange={applyResourcePatch}
       onRecoveryChargesChange={applyResourcePatch}
       onEnterRareMap={(map) => router.push(rareMapEntryHref(map))}
+      onReturnToNormalHunt={() =>
+        router.push(normalHuntFloorHref(n))
+      }
       offlineHunt={offlineHunt}
       onRefresh={refreshGameState}
     />

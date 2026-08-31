@@ -24,8 +24,11 @@ import { V2_JOB_CATALOG } from "./v2JobCatalog";
 import {
   parseCombatPattern,
   parseCombatPresets,
+  V2_DIRECT_SKILL_STAT_COEF_MULT,
   v2PureSkillFormulaCoefficients,
+  v2SkillHealStatCoef,
   v2SkillAttackCoef,
+  v2SpecializedSkillStatCoef,
   type V2CombatCondition,
   type V2CombatPattern,
   type V2CombatPreset,
@@ -40,6 +43,15 @@ import {
   type V2SkillEnhancements,
 } from "./skillRitual";
 import type { V2BuildTagId } from "./buildTags";
+import {
+  bleedHuntPowerValue,
+  type BleedHuntMechanic,
+} from "./bleedHunt";
+import {
+  tier7CombatJobIdForSkillId,
+  tier7MechanicPower,
+  type Tier7Mechanic,
+} from "./tier7SkillMechanics";
 import { combineDefReductionPcts } from "./v2CombatConstants";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff" | "passive";
@@ -56,6 +68,16 @@ export type V2PassiveSkillEffect = {
   maxHpPct?: number;
   /** 최대 MP % 가산(마나). */
   maxMpPct?: number;
+  /** 직접 피해 마법 스킬의 실제 MP 소모 감소율. 여러 패시브는 가산한다. */
+  mpCostReductionPct?: number;
+  /** 한기 5중첩으로 발생하는 빙결 피해 증가율. */
+  freezeDamagePct?: number;
+  /** 한기 5중첩으로 발생하는 다음 행동 지연율. */
+  freezeDelayPct?: number;
+  /** 빙결 발동 뒤 대상에게 남기는 한기 수. 여러 패시브는 최대값만 적용한다. */
+  freezeRetainStacks?: number;
+  /** 마나 실드 활성화 — INT·최대 MP 기반 전투별 장벽을 전개한다. 현재 MP는 소모하지 않는다. */
+  magicBarrier?: boolean;
   /** 민첩→공격력 보조 계수(예기). */
   atkPerDexCoef?: number;
   // ── 다양성 확장(A 메타) — 스탯 크기 외 "작동 방식" 사이드그레이드. 반격 확률 외에는 가산 합산.
@@ -65,7 +87,7 @@ export type V2PassiveSkillEffect = {
   critPct?: number;
   /** 치명타 피해 +% 가산(맹공) — critMult 에 /100 환산 가산. */
   critDmgPct?: number;
-  /** 회피 +%p 가산(허보) — eva 캡 적용 대상. */
+  /** 회피도 +% 증가(허보) — 스탯·경갑·옵션 회피도 합계에 적용. */
   evasionPct?: number;
   /** 흡혈 +% — 가한 피해의 일부 체력 흡수(포식). 자동전투 눈덩이 방지로 의도적 저수치. */
   lifestealPct?: number;
@@ -75,13 +97,19 @@ export type V2PassiveSkillEffect = {
   /** 활성 반사 피해 증폭을 이 패시브의 반격 피해에도 적용한다. 금강나한 고유 연계. */
   counterDamageUsesReflectBoost?: boolean;
   // ── 다양성 2차(A 메타) — 둘 다 PvE/PvP 양쪽 적용(def=damageBetween 공용·명중=PvP도 소비).
-  /** 물리 방어력 +% 가산(철벽) — def 에 곱연산. */
+  /** 물리·마법 방어력 +% 가산(철벽) — def 와 magicDef 에 곱연산. */
   defPct?: number;
   /** 반사(가시) — 피격 시 내 방어력의 이 %만큼을 적에게 고정 데미지로 반사(수호자 패시브).
    *  derive 가 def × %/100 → PlayerCombat.thornsFlatFromDef, 엔진이 피격 시 가산(PvE enemyPhase +
    *  PvP applyOnHitReflect 양쪽). 미지정=무적용(byte-identical). 100 = "방어 계수의 수치만큼". */
   thornsDefPct?: number;
-  /** 명중 +%p 가산(정밀) — accuracyPct 에 가산(캡 적용). */
+  /** 성채기사 — 적의 직접 공격이 명중할 때 충격을 1 얻는다. */
+  fortressImpactOnHit?: boolean;
+  /** 충격을 소비하는 직접 공격의 스택당 최종 피해 증가율. 같은 계보에서는 최댓값 적용. */
+  fortressImpactDamagePctPerStack?: number;
+  /** 방어력 계수를 사용하는 직접 공격의 방어력 계수 증가율. 반사에는 적용하지 않는다. */
+  fortressDefSkillStatCoefPct?: number;
+  /** 적중도 +% 증가(정밀) — 스탯·장비 적중도 합계에 적용. */
   accuracyPct?: number;
   // ── SPI 부활(신술 지원) — 회복 강화. healMult 에 곱연산(딜 아님 → INT 와 역할 분리·파워크립 차단).
   /** 회복 +% 가산(치유 강화) — healMult ×(1+합산%/100). 신술 지원 라인 패시브. */
@@ -90,18 +118,34 @@ export type V2PassiveSkillEffect = {
   //   PvE/PvP 양쪽 작동(#835 PvP 미러 후). 미지정=무적용(byte-identical).
   /** 받는 피해 -% 가산(방벽) — totalDamageTakenReductionPct 에 합산. */
   damageTakenReductionPct?: number;
+  /** 중독·출혈 등 상태 피해 감소율. 직접 피해에는 적용하지 않는다. */
+  statusDamageReductionPct?: number;
+  /** 대상의 출혈 스택당 직접 물리 스킬 피해 증가율. */
+  bleedPhysicalSkillDamagePctPerStack?: number;
+  /** 현재 중량 스택당 방어력 증가율. */
+  stoneskinDefPctPerWeight?: number;
   /** 마법 방어력 +% 가산(결계술) — magicDef 에 곱연산. */
   magicDefPct?: number;
   /** 전투 초반 마법형 평타 받는 피해 -% 가산(결계술). */
   openingMagicDamageReductionPct?: number;
   /** 초반 마법 피해 감소가 적용되는 적 행동 횟수. */
   openingMagicDamageReductionPhases?: number;
+  /** 삼중 결계 단계. 1=각 1회, 2=각 3회와 영역 안정. */
+  tripleWardRank?: 1 | 2;
   /** 원소 공명 — 원소 폭주 같은 속성 분기 액티브의 보조 효과를 강화. */
   elementResonance?: boolean;
   /** 각인 증폭 — 각인 해방의 복수 장착 시너지를 강화. */
   inscriptionAmplification?: boolean;
+  /** 법칙 각인 — 문장 해방의 정상 시전을 장착 재료별 전투 각인으로 변환한다. */
+  lawInscription?: boolean;
   /** 중독된 적 방어 -% 가산(부식) — 엔진이 중독 상태인 적에게만 적용. */
   poisonedEnemyDefReductionPct?: number;
+  /** 중독 지속 피해 +% 가산(맹독). 부식과 분리해 독 피해에만 적용한다. */
+  poisonDamagePct?: number;
+  /** 적 물리 방어 -% — 장착 중 항상 적용하며 같은 효과끼리 남은 방어력 기준 곱연산. */
+  enemyPhysicalDefReductionPct?: number;
+  /** 적 마법 방어 -% — 마법 피해에만 적용하며 같은 효과끼리 남은 방어력 기준 곱연산. */
+  enemyMagicDefReductionPct?: number;
   /** 광전 — 잃은 HP 비율만큼 공격력 가산. 0.45 = HP를 전부 잃은 상태 기준 공격력 +45%. */
   berserkAtkPctPerLostHpPct?: number;
   /** 약점 노출 — 스킬 적중 시 적 마법취약 +1스택, 스택당 받는 스킬피해 +%. */
@@ -110,6 +154,8 @@ export type V2PassiveSkillEffect = {
   enemyMagicVulnApplyChancePct?: number;
   /** 마법 스킬 피해 +% — damage effect 의 scaling="magic"/"spi" 피해분에만 적용. */
   magicSkillDamagePct?: number;
+  /** 일검필살 — 단일 일반 물리 damage 효과만 가진 공격 스킬의 직접 피해 +%. */
+  singleHitPhysicalSkillDamagePct?: number;
   // ── 경제(비전투) — 장착 시 사냥 승리당 숙달 포인트 획득 +N. 전투 derive 무관(hunt 지급부에서 소비).
   profPerKillBonus?: number;
   // ── 낚시(비전투) — 캐스팅 시 서버 권위 판정에서만 소비. 전투 derive 와 무관.
@@ -127,7 +173,7 @@ export type V2PassiveSkillEffect = {
   /** 주간 훈련 보너스가 발동할 때 추가로 받는 직업 숙련도. */
   guildTrainingWeeklyBonusMastery?: number;
   // ── 농장(비전투) — 수확 서버 판정에서만 소비. 전투 derive 와 무관.
-  /** 수확량 보너스 +%. 작은 수확량에서도 체감되도록 수확 라우트가 최소 +1을 보장한다. */
+  /** 수확량 보너스 +%. 1개 미만의 보너스는 다음 수확에 누적해 지급한다. */
   farmYieldBonusPct?: number;
   /** 희귀 수확 확률 +%p. */
   farmRareChancePct?: number;
@@ -158,14 +204,28 @@ export type V2PassiveSkillEffect = {
   miningFailureRecoveryPct?: number;
   /** 성공 시 같은 광석을 1개 더 얻을 확률 +%p. */
   miningBonusOreChancePct?: number;
-  /** 검의 집중(검호) — 행동 속도 한계(SPD_OVERFLOW_THRESHOLD≈292) 초과분을 공격력 %로 환원(점근, 값=상한%). */
-  spdOverflowToAtkPct?: number;
-  /** 밤의 장막(밤그림자) — 치명 오버플로(75% 초과 크리뎀)를 평타뿐 아니라 스킬에도 적용. */
+  /** 전체 속도를 공격력 %로 환원(점근, 값=상한%). */
+  spdToAtkMaxPct?: number;
+  /** 흑월지배 — 행운 1당 속도 가산 계수. 순수 LUK 암살 계보의 행동 빈도를 복구한다. */
+  spdPerLukCoef?: number;
+  /** 흑월지배 — 행운 1당 물리 공격력 가산 계수. */
+  atkPerLukCoef?: number;
+  /** 치명 한계 확장 — 치명 오버플로(75% 초과 크리뎀)를 평타뿐 아니라 스킬에도 적용. */
   skillCritOverflow?: boolean;
+  /** 스킬 치명타 피해 +% — 액티브 스킬의 기본 치명타 배율(1.7)에 /100만큼 가산. */
+  skillCritDmgPct?: number;
+  /** 장비 치명타 배율을 점근 곡선으로 변환해 직접 마법 스킬의 치명타 배율에 가산. */
+  equipmentMagicSkillCritConversion?: boolean;
   /** 흑월지배 — 회피 성공 후 다음에 적중하는 직접 피해 액티브 스킬을 확정 치명타로 만든다. */
   skillCritAfterEvade?: boolean;
   /** 절초 — 누적 적중 4타째마다 해당 타격 피해 +%. 다단 액티브 스킬과 평타가 같은 카운터를 공유. */
   comboFinisherBonusPct?: number;
+  /** 평타에만 적용되는 대상 방어 관통 %p. */
+  basicDefPenetrationPct?: number;
+  /** 평타 치명타 뒤 다음 행동 간격을 한 번 단축하는 비율. */
+  basicCritHastePct?: number;
+  /** 평타 치명타 확률 상한. 75% 초과분의 피해 전환 기준은 바꾸지 않는다. */
+  basicCritChanceCap?: number;
 };
 
 // 스킬 학습 비용 — 숙달 포인트로 지불. 티어별 단가를 기본으로 하며, per-skill override 가 우선.
@@ -198,6 +258,10 @@ export type V2SkillId =
   | "mob_venom_bite" // 독니 — 중독(DoT)
   | "mob_chilling_touch" // 한기 — 둔화(속도−)
   | "mob_rending_claw" // 살점 뜯기 — 출혈(DoT)
+  | "mob_catastrophe_venom" // 재앙독 — 중독 2스택
+  | "mob_venom_sunder" // 맹독 파쇄 — 중독 2스택 + 방어 약화
+  | "mob_deep_chill" // 심층 한기 — 강화 둔화
+  | "mob_glacial_chill" // 혹한 — 최종 강화 둔화
   // (위 3종은 V2MonsterStatusSkillId 로도 재노출 — 몹 부착 타입 안전)
   // ── 몬스터 전용 마법 시전 (사냥터 마법몹 castSkill) — scaling magic·플레이어 미학습 ──
   | "mob_arcane_bolt" // 마력탄 — 마법 단일딜(magicDef 경감)
@@ -220,7 +284,11 @@ export type V2SkillId =
 export type V2MonsterStatusSkillId =
   | "mob_venom_bite"
   | "mob_chilling_touch"
-  | "mob_rending_claw";
+  | "mob_rending_claw"
+  | "mob_catastrophe_venom"
+  | "mob_venom_sunder"
+  | "mob_deep_chill"
+  | "mob_glacial_chill";
 
 // 몬스터 전용 마법 시전 스킬 id (DungeonEnemy.castSkill 부착 타입 안전). 사냥터 마법몹이
 //   마법 평타 대신 시전(시전 턴엔 평타 생략 → DPS 대략 중립·"체감"↑). scaling magic → 플레이어
@@ -249,6 +317,8 @@ export type V2SkillEffect =
       kind: "damage";
       /** 공격력/마법공격력 기반 계수. 미지정이면 스킬 차수와 타격 수로 기본값을 정한다. */
       attackCoef?: number;
+      /** 순수 물리·마법 스킬의 STR/INT 직접 계수. 미지정이면 공통 차수 공식을 사용한다. */
+      primaryStatCoef?: number;
       statCoef: number;
       baseFlat?: number;
       baseFlatByTier?: readonly [number, number, number];
@@ -268,8 +338,13 @@ export type V2SkillEffect =
       baseFlatByTier?: readonly [number, number, number];
       scaling?: V2DamageScaling;
     }
-  // 이번 스킬로 가한 피해량의 pct% 만큼 회복.
-  | { kind: "healFromDamage"; pct: number }
+  // 이번 스킬로 가한 피해량의 pct% 만큼 회복. 회복량 증가 보정은 적용하지 않는다.
+  // basis 미지정은 기존처럼 방어·보호막 적용 전 명목 피해를 사용한다.
+  | {
+      kind: "healFromDamage";
+      pct: number;
+      basis?: "nominal" | "actual";
+    }
   | { kind: "selfBuff"; stat: StatKey; pct: number; turns: number }
   // 파생 스탯 버프 — StatKey 밖(회피=선풍각, 크리율=연환 집중, 받피감 등).
   | { kind: "selfBuffPct"; target: "evasion" | "crit" | "damageReduction" | "reflectDamage"; pct: number; turns: number }
@@ -303,12 +378,24 @@ export type V2SkillEffect =
   | {
       kind: "hpCostDamage";
       pctCurrentHp: number;
+      /** 추가 피해 계산에서 현재 HP로 간주할 최대 HP 대비 최저 비율. 실제 HP 소모에는 미적용. */
+      soakCurrentHpFloorPct?: number;
       /** 공격력/마법공격력 기반 계수. 미지정이면 스킬 차수 기본값. */
       attackCoef?: number;
       statCoef: number;
       baseFlatByTier?: readonly [number, number, number];
       soakRatio: number;
       scaling?: V2DamageScaling;
+    }
+  // 광전사·패황 단발 필살 — 잃은 체력 비율로 기본 피해 전체를 증폭한다.
+  // selfCurrentHpCostPct가 있으면 명중 뒤 예상 체력을 기준으로 잃은 체력을 계산한다.
+  | {
+      kind: "missingHpDamage";
+      attackCoef: number;
+      statCoef: number;
+      missingHpCoef: number;
+      selfCurrentHpCostPct?: number;
+      scaling: "physical";
     }
   // 힐→딜 — 자힐 후 힐량×damageRatio 적에게 딜(신성 강타).
   | {
@@ -339,6 +426,8 @@ export type V2SkillEffect =
       baseFlatByTier?: readonly [number, number, number];
       hpThresholdPct: number;
       bonusMult: number;
+      /** PvP에서만 사용할 조건부 배율. 미지정이면 bonusMult를 그대로 사용한다. */
+      pvpBonusMult?: number;
       scaling?: V2DamageScaling;
     }
   // 스택 비례 딜 — 적 DoT/취약 스택당 추가딜(참절·중독 폭발·비전 작렬).
@@ -350,6 +439,8 @@ export type V2SkillEffect =
       statCoef: number;
       baseFlatByTier?: readonly [number, number, number];
       perStackFlat: number;
+      /** 보상 계수만 올리고 기존 SP 평가를 유지할 때 쓰는 스택당 피해 산정 기준. */
+      spCostPerStackFlat?: number;
       scaling?: V2DamageScaling;
     }
   | {
@@ -391,9 +482,44 @@ export type V2SkillDefinition = {
   /** 발동 확률 % (0~100). 미지정=100=조건 충족 시 항상 발동. <100 이면 매 발동 판정마다
    *  procRoll 롤 — 실패하면 미발동(평타로 폴백, MP·쿨다운 미소모). 스킬 발동확률 패시브 토대. */
   procChance?: number;
+  /** 결투가 계보의 준비형 선언. 실제 효과는 장착한 선언을 합성해 전투 상태에 만든다. */
+  duelistDeclaration?: {
+    rank: 1 | 2 | 3 | 4;
+    hits: 3 | 4 | 5;
+    basicDamagePct?: number;
+    basicCritChancePct?: number;
+    basicDefPenetrationPct?: number;
+    rampPctPerPriorHit?: number;
+    basicCritMultAdd?: number;
+    basicCritChanceCap?: number;
+  };
   /** 개별 스킬 전투 리듬. 차수·직업 보정 뒤 마지막 발동률 미세 조정에 사용한다. */
   tempo?: V2SkillTempo;
   effects: readonly V2SkillEffect[];
+  /** 이 액티브에만 적용되는 치명타 확률 가산(%p). */
+  skillCritChancePct?: number;
+  /** 이 액티브에만 적용되는 명중도 가산(%p). */
+  accuracyBonusPct?: number;
+  /** 적중한 시전 1회당 대상에게 쌓는 한기. 다단 피해여도 한 번만 적용한다. */
+  frostChillGain?: number;
+  /** 도발 시 사냥·PvP 상대가 즉시 시전자에게 가하는 기본 공격 횟수. */
+  provokeImmediateBasicAttacks?: number;
+  /** 철벽 태세 — 시전 시 갱신할 전용 반사 횟수와 피격 효과. */
+  ironWallReflect?: {
+    charges: number;
+    damageReductionPct: number;
+    reflectDefPct: number;
+  };
+  /** 시전 성공 시 장착한 삼중 결계를 최대 횟수로 갱신한다. */
+  refreshTripleWards?: boolean;
+  /** 적중 시 현재 충격을 모두 소비해 최종 피해를 강화하는 방패 계열 직접 공격. */
+  consumesFortressImpact?: boolean;
+  /** 정상 시전 확정 시 현재 법칙 각인을 모두 소비해 동적 효과를 만든다. */
+  consumesLawInscriptions?: boolean;
+  /** 시전 뒤 중량을 얻는 양. 피해 계산에는 시전 전 중량을 사용한다. */
+  mutationWeightGain?: number;
+  /** 현재 중량을 모두 소비하고 스택당 최종 피해를 높이는 비율. */
+  mutationWeightConsumePctPerStack?: number;
   /** PR-5b 스킬 속성 — 부여 시 이 스킬 데미지는 이 속성으로 상성 적용(없으면 캐릭 속성).
    *  무기 속성(평타)보다 우선 — 공허 마법사가 "불 마법"을 쓰면 그 스킬만 불 상성. */
   element?: V2Element;
@@ -409,6 +535,17 @@ export type V2SkillDefinition = {
   /** SP 로드아웃 코스트(코어루프) — 생활 스킬은 항상 0, 나머지는 미지정 시
    *  (category, tier) 루브릭 표(spCostOf)에서 도출. PR-5 sim 튜닝 때 아웃라이어만 명시 override. */
   spCost?: number;
+  /** 성능 루브릭 산정 뒤 적용하는 명시 할인. 결과 SP는 최소 1. */
+  spCostDiscount?: number;
+  /** 저장 패턴이 없을 때 사용할 스킬별 스마트 기본 조건과 전역 우선순위. */
+  defaultPattern?: {
+    priority: number;
+    condition: V2CombatCondition;
+  };
+  /** 같은 그룹에서는 한 스킬만 장착할 수 있다. */
+  exclusiveGroup?: string;
+  /** 배타 그룹의 마이그레이션 우선순위. 높은 단계가 기존 중첩 장착에서 살아남는다. */
+  exclusiveRank?: number;
   /** 학습 비용 오버라이드(숙달 포인트) — 미지정이면 tier 스케일(V2_SKILL_LEARN_COST_BY_TIER). */
   learnCost?: number;
   /** 패시브 스킬(category "passive") 의 상시 효과 — 장착 시 derive 가 적용(캐스트 아님).
@@ -440,6 +577,10 @@ export type V2SkillDefinition = {
   }[];
   /** 전투당 1회만 시전 가능. 시전 후 해당 전투가 끝날 때까지 쿨다운으로 잠근다. */
   oncePerBattle?: boolean;
+  /** 7차 전용 전투 규칙. 점수 계산과 런타임이 같은 수치를 읽는다. */
+  tier7Mechanic?: Tier7Mechanic;
+  /** 출혈 유지형 수인 계보. 전투·표기·성능 점수가 같은 선언을 읽는다. */
+  bleedHunt?: BleedHuntMechanic;
 };
 
 // === SP 코스트 = 스킬 성능(power)에 비례 (2026-06-21 재설계) ====================
@@ -453,7 +594,22 @@ export type V2SkillDefinition = {
 //     고비용 액티브는 자원 제약 할인. 극단값이 효과 점수를 압도하지 않도록 0.8~1.2로 제한한다.
 //   - 패시브는 상시 효과라 발동 가중 없이 효과 크기 합산.
 //   - 1~5 SP는 그대로 두고, 5 초과분은 60%만 반영해 중·고비용 구간의 조합 경직을 완화한다.
-const SP_FLAT_NORM = 140; // baseFlat ~140 ≈ statCoef 1.0 (정규화 기준).
+const SP_FLAT_NORM = 140; // 실제로 남아 있는 회복·DoT·스택 고정값의 정규화 기준.
+// 순수 STR/INT 스킬은 공격력 계수 일부를 주스탯 직접항으로 이전한다. 이전 후 같은 실전급
+// 캐릭터의 총 피해가 거의 중립이므로 SP 가격이 계수 표기만 보고 뛰지 않게 기준 비율을 맞춘다.
+const SP_REFERENCE_PRIMARY_STAT_TO_ATTACK = 0.36;
+const SP_REFERENCE_SPECIALIZED_STAT_TO_ATTACK: Record<
+  Exclude<V2DamageScaling, "physical" | "magic">,
+  number
+> = {
+  def: 0.7,
+  vit: 0.6,
+  dex: 0.6,
+  luk: 0.6,
+  spi: 0.6,
+  all: 2.5,
+  maxHp: 8,
+};
 // 패시브 SP 할인 — 패시브는 상시 효과라 성능비례 루브릭이 다소 과청구되는 면(같은 power 라도
 //   액티브는 발동 조건/빈도 제약이 있으나 패시브는 항상 켜짐). 코스트만 할인(power 점수는 불변).
 const SP_PASSIVE_DISCOUNT = 0.75;
@@ -464,6 +620,7 @@ type V2DirectDamageEffect = Extract<
     kind:
       | "damage"
       | "hpCostDamage"
+      | "missingHpDamage"
       | "executeDamage"
       | "ambushDamage"
       | "stackPayoffDamage";
@@ -474,6 +631,7 @@ function isDirectDamageEffect(e: V2SkillEffect): e is V2DirectDamageEffect {
   return (
     e.kind === "damage" ||
     e.kind === "hpCostDamage" ||
+    e.kind === "missingHpDamage" ||
     e.kind === "executeDamage" ||
     e.kind === "ambushDamage" ||
     e.kind === "stackPayoffDamage"
@@ -488,65 +646,136 @@ function spAvgTier(byTier?: readonly [number, number, number]): number {
   return byTier ? (byTier[0] + byTier[1] + byTier[2]) / 3 : 0;
 }
 
+// HP 풀 감소를 상쇄하는 피해 전환 보정은 신규 스킬 파워로 과금하지 않는다.
+const HP_COST_DAMAGE_COMPENSATION_MULT = 1.14;
+
+function spDirectDamageValue(
+  def: V2SkillDefinition,
+  effect: V2DirectDamageEffect,
+  directDamageEffectCount: number,
+): number {
+  // 몬스터 스킬은 아직 고정 피해를 실제 전투에서 사용한다. 플레이어 스킬만 런타임과 동일하게
+  // 폐기된 baseFlat/baseFlatByTier를 제외하고 공격력·특화 스탯 계수로 평가한다.
+  if (def.monsterOnly) {
+    const legacyFlat =
+      ("baseFlat" in effect ? effect.baseFlat ?? 0 : 0) +
+      ("baseFlatByTier" in effect ? spAvgTier(effect.baseFlatByTier) : 0);
+    return effect.statCoef + legacyFlat / SP_FLAT_NORM;
+  }
+
+  const specialized = isSpecializedDamageScaling(effect.scaling);
+  const resolvedAttackCoef = v2SkillAttackCoef({
+    tier: def.tier,
+    statCoef: effect.statCoef,
+    specialized,
+    directDamageEffectCount,
+    attackCoef: effect.attackCoef,
+  });
+  if (!specialized) {
+    const scale = effect.scaling === "magic" ? "magic" : "physical";
+    const pure = v2PureSkillFormulaCoefficients({
+      tier: def.tier,
+      scaling: scale,
+      directDamageEffectCount,
+      resolvedAttackCoef,
+    });
+    return (
+      pure.attackCoef +
+      ((effect.kind === "damage" && effect.primaryStatCoef != null
+        ? effect.primaryStatCoef
+        : pure.uncompensatedPrimaryStatCoef) /
+        V2_DIRECT_SKILL_STAT_COEF_MULT) *
+        SP_REFERENCE_PRIMARY_STAT_TO_ATTACK
+    );
+  }
+
+  return (
+    resolvedAttackCoef +
+    effect.statCoef *
+      SP_REFERENCE_SPECIALIZED_STAT_TO_ATTACK[
+        effect.scaling as Exclude<V2DamageScaling, "physical" | "magic">
+      ]
+  );
+}
+
 function spMpEfficiencyMultiplier(def: V2SkillDefinition): number {
   if (def.passive) return 1;
+  if (def.mpCost <= 0) return 1.12;
+  // 일반 스킬의 카탈로그 비용 편차는 MP 차등화에만 사용한다. SP 루브릭은 기존처럼
+  // 계열·차수 기준 비용을 중립값으로 보고, 명시적 fixedMpCost 예외만 효율 보정한다.
+  if (typeof def.fixedMpCost !== "number") return 1;
   const actual = v2SkillMpCostValue(def);
-  if (actual <= 0) return 1.12;
   const baseline = Math.max(
     1,
     Math.round(
-      MP_REFERENCE_POOL * MP_BASE_PCT * mpArchetypeMult(def.id) * MP_TIER_MULT[def.tier],
+      Math.round(
+        MP_REFERENCE_POOL * MP_BASE_PCT * mpArchetypeMult(def.id) * MP_TIER_MULT[def.tier],
+      ) * mpPressureMult(def.id),
     ),
   );
   return Math.min(1.2, Math.max(0.8, Math.sqrt(baseline / actual)));
 }
 
-// 액티브 effect 1개의 가치(statCoef-등가 단위). 이 점수는 기존 SP 가격을 유지하기 위한 카탈로그
-// 밸런스 값이라, 전투에서 제거된 직접 피해 flat 도 마이그레이션 기간에는 종전처럼 평가한다.
+// 액티브 effect 1개의 가치(공격력 1회 등가 단위). 직접 피해는 실제 런타임 계수와 같은 공식을
+// 사용한다. 전투에서 제거된 플레이어 baseFlat/baseFlatByTier는 가격에도 반영하지 않는다.
 function spEffectValue(
+  def: V2SkillDefinition,
   e: V2SkillEffect,
   directDamageEffectCount: number,
 ): number {
-  // 플레이어 직접 피해의 legacy flat은 전투에서 이미 제거됐지만 기존 SP 가격의 급변을 막기 위해
-  // 호환 가치로는 남겨 둔다. 다단기는 이 값을 매타 그대로 반복 청구하지 않되, 가격이 한 번에
-  // 과도하게 내려가지 않도록 타수의 제곱근으로 완만하게 나눠 반영한다.
-  const legacyFlatShare = (value: number): number =>
-    value / Math.sqrt(Math.max(1, directDamageEffectCount));
-  const legacyTierFlatShare = (
-    byTier?: readonly [number, number, number],
-  ): number => legacyFlatShare(spAvgTier(byTier));
-
   switch (e.kind) {
-    case "damage":
-      return (
-        e.statCoef +
-        (legacyFlatShare(e.baseFlat ?? 0) +
-          legacyTierFlatShare(e.baseFlatByTier)) /
-          SP_FLAT_NORM
-      );
+    case "damage": {
+      const base = spDirectDamageValue(def, e, directDamageEffectCount);
+      // 관통분은 0방어 피해를 기준으로 추가되므로 일반 계수보다 가치가 높지만, 모든 적이
+      // 고방어는 아닌 점을 반영해 표기 수치의 75%만 평균 가치로 환산한다.
+      return base * (1 + ((e.pierceDamagePct ?? 0) / 100) * 0.75);
+    }
     case "hpCostDamage": {
-      const base =
-        e.statCoef + legacyTierFlatShare(e.baseFlatByTier) / SP_FLAT_NORM;
-      return (base + 0.3 * e.soakRatio) * 0.85; // 자체 HP 소모 할인.
+      const base = spDirectDamageValue(def, e, directDamageEffectCount);
+      const expectedCurrentHpRatio = 0.7;
+      const expectedSoakHpRatio = Math.max(
+        expectedCurrentHpRatio,
+        (e.soakCurrentHpFloorPct ?? 0) / 100,
+      );
+      const hpToAttackRatio = SP_REFERENCE_SPECIALIZED_STAT_TO_ATTACK.maxHp;
+      const soakValue =
+        expectedSoakHpRatio *
+        (e.pctCurrentHp / 100) *
+        hpToAttackRatio *
+        (e.soakRatio / HP_COST_DAMAGE_COMPENSATION_MULT);
+      const selfCostDiscount = 1 - Math.min(0.25, (e.pctCurrentHp / 100) * 1.25);
+      return (base + soakValue) * selfCostDiscount;
+    }
+    case "missingHpDamage": {
+      const base = spDirectDamageValue(def, e, directDamageEffectCount);
+      // 필살기를 쓰는 평균 시점을 HP 50%로 잡고, 자해가 있는 기술은 그 위험만큼 할인한다.
+      const expectedMissingHpRatio = 0.5;
+      const selfCostDiscount =
+        1 - Math.min(0.25, ((e.selfCurrentHpCostPct ?? 0) / 100) * 1.25);
+      return base * (1 + expectedMissingHpRatio * e.missingHpCoef) * selfCostDiscount;
     }
     case "healToDamage": {
       const base = e.healStatCoef + spAvgTier(e.healFlatByTier) / SP_FLAT_NORM;
       return base * (1 + 0.5 * e.damageRatio); // 자힐 + 미러 데미지.
     }
     case "executeDamage": {
-      const base =
-        e.statCoef + legacyTierFlatShare(e.baseFlatByTier) / SP_FLAT_NORM;
-      return base * (1 + 0.25 * (e.bonusMult - 1)); // 조건부 처형 배수 = 약하게.
+      const base = spDirectDamageValue(def, e, directDamageEffectCount);
+      // 일반 몬스터는 런타임에서 최소 35% 처형 창을 받는다. 전체 전투 중 조건 구간의 70%를
+      // 실현한다고 보고 보너스 배수를 가중한다.
+      const effectiveThreshold = Math.max(35, e.hpThresholdPct) / 100;
+      return base * (1 + effectiveThreshold * 0.7 * (e.bonusMult - 1));
     }
     case "ambushDamage": {
-      const base =
-        e.statCoef + legacyTierFlatShare(e.baseFlatByTier) / SP_FLAT_NORM;
-      return base * (1 + 0.2 * (e.bonusMult - 1)); // 풀피 한정(첫 턴 1회) — 처형보다 더 약하게.
+      const base = spDirectDamageValue(def, e, directDamageEffectCount);
+      return (
+        base *
+        (1 + (e.hpThresholdPct / 100) * 0.2 * (e.bonusMult - 1))
+      ); // 풀피 오프너 1회라 처형보다 약하게 평가.
     }
     case "stackPayoffDamage": {
-      const base =
-        e.statCoef + legacyTierFlatShare(e.baseFlatByTier) / SP_FLAT_NORM;
-      return base + (e.perStackFlat / SP_FLAT_NORM) * 2 * 0.6; // ~2 스택·조건부.
+      const base = spDirectDamageValue(def, e, directDamageEffectCount);
+      const pricedPerStackFlat = e.spCostPerStackFlat ?? e.perStackFlat;
+      return base + (pricedPerStackFlat / SP_FLAT_NORM) * 2 * 0.6; // ~2 스택·조건부.
     }
     case "dot": {
       const perStack =
@@ -567,11 +796,12 @@ function spEffectValue(
     case "healFromDamage":
       return e.pct / 18;
     case "shield":
-      return (((e.pctMaxHp ?? 0) + (e.pctMaxMp ?? 0)) / 20) * Math.max(1, e.turns) * 0.5;
+      // 엔진의 보호막은 만료 턴 없이 소진될 때까지 유지된다. turns는 가격에 쓰지 않는다.
+      return ((e.pctMaxHp ?? 0) + (e.pctMaxMp ?? 0)) / 16;
     case "selfRegen":
       return (e.pctMaxHpPerTurn * e.turns) / 16;
     case "manaRestore":
-      return e.pctMaxMp / 30;
+      return e.pctMaxMp / 20;
     case "guaranteedEvade":
       return Math.max(0, e.count) * 1.5;
     case "selfBuff":
@@ -604,31 +834,69 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     const p = def.passive;
     let mag = 0;
     for (const v of Object.values(p.stat ?? {})) mag += Math.abs(v ?? 0) / 10;
-    for (const v of Object.values(p.statPct ?? {})) mag += Math.abs(v ?? 0) / 10;
-    mag += (p.maxHpPct ?? 0) / 10;
+    // 주스탯%는 캐릭터 스탯만, HP%는 큰 기본·레벨 HP 풀을 증폭한다. 같은 숫자를 같은
+    // 가격으로 보던 종전 평가를 분리해 주스탯%는 저렴하게, HP%는 비싸게 계산한다.
+    for (const v of Object.values(p.statPct ?? {})) mag += Math.abs(v ?? 0) / 20;
+    mag += (p.maxHpPct ?? 0) / 8;
     mag += (p.maxMpPct ?? 0) / 12;
+    mag += (p.mpCostReductionPct ?? 0) / 20;
+    // 마나 실드는 기존 전역 INT 장벽을 2차 마법사 패시브로 옮긴 것이므로,
+    // 기존 총명 II 장착자의 SP 구성이 깨지지 않게 별도 비용을 더하지 않는다.
     mag += (p.atkPerDexCoef ?? 0) * 12;
     mag += (p.critPct ?? 0) / 6;
-    mag += (p.critDmgPct ?? 0) / 25;
-    mag += (p.evasionPct ?? 0) / 8;
+    // 치명타 피해 25%가 회피 8%와 같은 가격이던 종전 환산은 공격 패시브를 과소평가하고
+    // 회피 패시브를 과청구했다. 치명타 피해는 20%당, 회피는 10%당 power 1로 맞춘다.
+    mag += (p.critDmgPct ?? 0) / 20;
+    mag += (p.evasionPct ?? 0) / 15;
     mag += (p.lifestealPct ?? 0) / 4;
     mag += (p.counterChancePct ?? 0) / 12;
     mag += (p.defPct ?? 0) / 12;
     mag += (p.thornsDefPct ?? 0) / 40;
-    mag += (p.accuracyPct ?? 0) / 12;
+    // 적중도는 상대가 회피도에 투자한 경우에만 직접 피해 경감을 완화하고, 보장 회피는
+    // 뚫지 못한다. 저회피 상대에서도 항상 작동하는 치명·주스탯과 같은 가격을 매기지 않는다.
+    mag += (p.accuracyPct ?? 0) / 30;
     mag += (p.healPowerPct ?? 0) / 16;
     mag += (p.damageTakenReductionPct ?? 0) / 8;
     mag += (p.magicDefPct ?? 0) / 12;
-    mag += (p.openingMagicDamageReductionPct ?? 0) / 10;
-    if (p.elementResonance) mag += 2;
-    if (p.inscriptionAmplification) mag += 2;
-    // 부식은 중독이 먼저 걸린 적에게만 유효하다. 상시 방어 감소보다 낮은 조건부 가치로 평가한다.
-    mag += (p.poisonedEnemyDefReductionPct ?? 0) / 12;
+    if (p.openingMagicDamageReductionPct) {
+      mag +=
+        (p.openingMagicDamageReductionPct / 10) *
+        Math.sqrt((p.openingMagicDamageReductionPhases ?? 3) / 3);
+    }
+    if (p.tripleWardRank) mag += p.tripleWardRank === 2 ? 6 : 3;
+    // 마커 패시브의 실제 추가 효과는 액티브의 조건부 시너지 쪽에서 절반 가격으로 평가한다.
+    if (p.elementResonance) mag += 0.75;
+    if (p.inscriptionAmplification) mag += 0.75;
+    if (p.lawInscription) mag += 1;
+    // 방어 감소는 여러 직업을 순회해 자유롭게 모을 수 있는 대신 높은 SP 기회비용을 치른다.
+    mag += (p.poisonedEnemyDefReductionPct ?? 0) / 6;
+    // 맹독은 독 계보 안에서 부식과 같은 단계별 선택지다. 각 단계의 명시 SP가
+    // 같은 예산 선택을 보장하므로 generic power 루브릭에서 다시 과금하지 않는다.
+    mag += (p.enemyPhysicalDefReductionPct ?? 0) / 8;
+    mag += (p.enemyMagicDefReductionPct ?? 0) / 8;
     mag += (p.berserkAtkPctPerLostHpPct ?? 0) / 0.25;
-    mag += (p.enemyMagicVulnPctPerStack ?? 0) / 5;
+    mag +=
+      ((p.enemyMagicVulnPctPerStack ?? 0) / 5) *
+      ((p.enemyMagicVulnApplyChancePct ?? 100) / 100);
     mag += (p.magicSkillDamagePct ?? 0) / 8;
+    mag += (p.singleHitPhysicalSkillDamagePct ?? 0) / 10;
+    mag += (p.spdToAtkMaxPct ?? 0) / 20;
+    if (p.atkPerLukCoef) {
+      mag += Math.sqrt(p.atkPerLukCoef / 0.08) * 0.35;
+    }
+    mag += ((p.spdPerLukCoef ?? 0) / 0.95) * 0.5;
+    if (p.skillCritOverflow) mag += 0.5;
+    // 스킬이 발동하고 치명타까지 발생해야 적용되는 조건부 배율이라 일반 치명 피해보다 낮게 평가한다.
+    mag += (p.skillCritDmgPct ?? 0) / 60;
+    if (p.equipmentMagicSkillCritConversion) mag += 3.5;
+    if (p.skillCritAfterEvade) mag += 0.5;
+    if (p.counterDamageUsesReflectBoost) mag += 0.5;
     mag += (p.comboFinisherBonusPct ?? 0) / 25;
-    return mag;
+    return (
+      mag +
+      bleedHuntPowerValue(def.bleedHunt) +
+      (def.tier7Mechanic ? tier7MechanicPower(def.tier7Mechanic) : 0)
+    );
   }
   const sumEffects = (effects: readonly V2SkillEffect[]): number => {
     let r = 0;
@@ -638,12 +906,15 @@ export function skillPowerScore(def: V2SkillDefinition): number {
         (effect) =>
           effect.kind === "damage" ||
           effect.kind === "hpCostDamage" ||
+          effect.kind === "missingHpDamage" ||
           effect.kind === "executeDamage" ||
           effect.kind === "ambushDamage" ||
           effect.kind === "stackPayoffDamage",
       ).length,
     );
-    for (const e of effects) r += spEffectValue(e, directDamageEffectCount);
+    for (const e of effects) {
+      r += spEffectValue(def, e, directDamageEffectCount);
+    }
     return r;
   };
   let raw = sumEffects(def.effects);
@@ -660,18 +931,33 @@ export function skillPowerScore(def: V2SkillDefinition): number {
       raw = Math.max(raw, sumEffects(variant.effects));
     }
   }
+  const baseVariantRaw = raw;
   if (def.equippedSynergies) {
     for (const synergy of def.equippedSynergies) {
-      raw += sumEffects(synergy.effects);
+      // 선행 스킬도 별도 SP를 내므로 본체에는 조건부 추가 효과 가치의 절반만 부담시킨다.
+      raw += sumEffects(synergy.effects) * 0.5;
     }
   }
   if (def.elementEffectSynergies) {
+    let strongestSynergyRaw = baseVariantRaw;
     for (const synergy of def.elementEffectSynergies) {
       for (const variant of Object.values(synergy.elementEffects)) {
-        if (variant) raw = Math.max(raw, sumEffects(variant));
+        if (variant) {
+          strongestSynergyRaw = Math.max(
+            strongestSynergyRaw,
+            sumEffects(variant),
+          );
+        }
       }
     }
+    // 속성 시너지도 선행 패시브를 별도 장착해야 발현된다. 강화판 전체가 아니라 기본 변형을
+    // 넘어서는 증분의 절반만 본체에 청구해 선행 패시브와 같은 효과를 이중 과금하지 않는다.
+    raw += Math.max(0, strongestSynergyRaw - baseVariantRaw) * 0.5;
   }
+  // 단일 액티브에만 적용되는 치명 확률은 상시 패시브보다 제한적이므로 낮게 평가한다.
+  raw += (def.skillCritChancePct ?? 0) / 20;
+  raw += (def.accuracyBonusPct ?? 0) / 30;
+  raw += bleedHuntPowerValue(def.bleedHunt);
   // proc 가중 — 0~1 클램프(손상된 음수 procChance 방어). √소프트닝 + 바닥(0.35): 저확률 스킬에
   //   의미 있는 할인을 주되 최강 누크가 최저가가 되지 않게. 10%→0.56 · 30%→0.71 · 100%→1.0.
   const proc = Math.min(1, Math.max(0, (def.procChance ?? 100) / 100));
@@ -679,22 +965,26 @@ export function skillPowerScore(def: V2SkillDefinition): number {
   raw *= spMpEfficiencyMultiplier(def);
   if (def.oncePerBattle) raw *= 0.65;
   if (def.cooldown > 0) raw /= 1 + def.cooldown / 4;
-  return raw;
+  return raw + (def.tier7Mechanic ? tier7MechanicPower(def.tier7Mechanic) : 0);
 }
 
-// 성능비례 코스트 바닥(루브릭) — power 점수 → 원시 SP 뒤 중·고비용 구간만 압축.
-//   기존 호출부/테스트가 rubricSpCost 이름을 쓰므로 유지(이제 "표"가 아니라 power 도출).
+// 성능비례 코스트 바닥(루브릭) — power 점수 → 원시 SP. 1~4차의 중·고비용 구간만 압축하고
+// 5·6차는 원시 SP를 그대로 써 상위 전직의 강한 스킬이 지나치게 싸지 않게 한다.
+// 기존 호출부/테스트가 rubricSpCost 이름을 쓰므로 유지(이제 "표"가 아니라 power 도출).
 export function rubricSpCost(skill: V2SkillDefinition): number {
   // 패시브는 코스트만 ×SP_PASSIVE_DISCOUNT 할인(상시 효과 과청구 완화). power 점수 자체는 불변.
   const power = skillPowerScore(skill) * (skill.passive ? SP_PASSIVE_DISCOUNT : 1);
   const rawSp = Math.max(1, Math.round(0.7 + 3.0 * power));
   if (rawSp <= 5) return rawSp;
   const compressed = 5 + Math.ceil((rawSp - 5) * 0.6);
+  const jobTier = combatJobTierForSkill(skill.id);
+  const pricedSp =
+    jobTier === 5 || jobTier === 6 || jobTier === 7 ? rawSp : compressed;
   // 조합형 액티브는 표시된 최대 효과를 혼자 내는 스킬이 아니다. 강한 주문식을 쓰려면 하위 재료
   // 스킬도 각각 SP를 지불해 함께 장착해야 하므로, 본체까지 최대 효과 전액으로 청구하면 조합 자체가
   // 성립하지 않는다. 재료 비용을 감안해 본체는 현 카탈로그 고성능 상한(16 SP)에서 제한한다.
   // 원소군주 최대 변형 기준 22→16으로 약 27% 할인되어, 오원소 선행 조건의 실전 보상이 된다.
-  return skill.castVariants?.length ? Math.min(16, compressed) : compressed;
+  return skill.castVariants?.length ? Math.min(16, pricedSp) : pricedSp;
 }
 
 const LIFESTYLE_PASSIVE_KEYS = [
@@ -727,22 +1017,41 @@ export function isLifestyleSkill(skill: V2SkillDefinition): boolean {
   return !!passive && LIFESTYLE_PASSIVE_KEYS.some((key) => key in passive);
 }
 
+/** 배운 생활 패시브는 선택형 로드아웃과 무관하게 항상 적용한다. 기존 전투 우선순위는 보존하고,
+ *  누락된 생활 패시브만 학습 순서대로 뒤에 추가한다. */
+export function includeLearnedLifestyleSkills(
+  equipped: readonly V2SkillId[],
+  learned: readonly V2SkillId[],
+): V2SkillId[] {
+  const next = [...equipped];
+  const equippedSet = new Set<V2SkillId>(next);
+  for (const id of learned) {
+    const skill = V2_SKILLS[id];
+    if (!skill || !isLifestyleSkill(skill) || equippedSet.has(id)) continue;
+    equippedSet.add(id);
+    next.push(id);
+  }
+  return next;
+}
+
 // 스킬 1종의 SP 코스트 — 생활 스킬은 장착 혼동을 줄이기 위해 항상 0.
-//   전투 스킬의 명시 spCost override 는 "위로만"(루브릭 이상) 허용(아웃라이어 너프).
-//   아래로 깎으면 값싼+강한 공용 스택(정체성 붕괴) 길이 열린다 → max(루브릭, override).
+//   전투 스킬의 명시 spCost override 는 "위로만"(루브릭 이상) 허용한다.
+//   합의된 소량의 하향 조정은 spCostDiscount 로 별도 명시하며, 최종 비용은 최소 1 SP다.
 export function spCostOf(skill: V2SkillDefinition): number {
   if (isLifestyleSkill(skill)) return 0;
-  if (typeof skill.spCost === "number" && skill.spCost > 0) {
-    return Math.max(rubricSpCost(skill), Math.floor(skill.spCost));
-  }
-  return rubricSpCost(skill);
+  const baseCost =
+    typeof skill.spCost === "number" && skill.spCost > 0
+      ? Math.max(rubricSpCost(skill), Math.floor(skill.spCost))
+      : rubricSpCost(skill);
+  const discount = Math.max(0, Math.floor(skill.spCostDiscount ?? 0));
+  return Math.max(1, baseCost - discount);
 }
 
 // 전체 액티브 리밸런싱(2026-07): 낮은 차수는 자주·약하게, 높은 차수는 덜 자주·강하게.
 // 기존 30~40% 확률형은 차수별 바닥까지 올리고, 조건이 이미 throttle 하는 100% 스킬은
 // 내리지 않는다. 더 자주 쓰는 대신 공격 계수·고정 피해를 낮추고 MP 비용은 유지한다.
 // 패시브·몬스터·예전 공용 스타터(v2_skill_*)는 적용하지 않는다.
-type CombatJobTier = 1 | 2 | 3 | 4 | 5 | 6;
+type CombatJobTier = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 const ACTIVE_PROC_FLOOR_BY_JOB_TIER: Record<CombatJobTier, number> = {
   1: 75,
@@ -751,6 +1060,7 @@ const ACTIVE_PROC_FLOOR_BY_JOB_TIER: Record<CombatJobTier, number> = {
   4: 56,
   5: 50,
   6: 45,
+  7: 40,
 };
 
 const ACTIVE_DAMAGE_SCALE_BY_JOB_TIER: Record<CombatJobTier, number> = {
@@ -760,6 +1070,7 @@ const ACTIVE_DAMAGE_SCALE_BY_JOB_TIER: Record<CombatJobTier, number> = {
   4: 0.84,
   5: 0.9,
   6: 0.95,
+  7: 1,
 };
 
 // 같은 차수 안에서도 직업의 전투 리듬이 같아지지 않게 ±2~4%p만 미세 조정한다.
@@ -804,7 +1115,14 @@ const ACTIVE_JOB_TEMPO: Partial<Record<string, ActiveJobTempo>> = {
   immortal: "steady",
   fortressknight: "steady",
   savior: "steady",
+  grandwarder: "steady",
+  lawguardian: "steady",
   myriadvenom: "steady",
+  beastwarrior: "steady",
+  tracker: "steady",
+  bloodtracker: "steady",
+  predator: "steady",
+  primalpredator: "steady",
   // 큰 한 방·처형·광전 — 한 번의 위력이 높은 대신 조금 덜 발동.
   mage: "burst",
   caster: "burst",
@@ -824,7 +1142,9 @@ const ACTIVE_JOB_TEMPO: Partial<Record<string, ActiveJobTempo>> = {
   overlord: "burst",
   arcanist: "burst",
   elementallord: "burst",
+  cryomancer: "steady",
   inscriber: "burst",
+  lawweaver: "burst",
   marksman: "burst",
   bloodlord: "burst",
   swordsaint: "burst",
@@ -873,6 +1193,7 @@ const ACTIVE_SKILL_TEMPO: Partial<Record<V2SkillId, V2SkillTempo>> = {
   v2c_crimsontemplar_judgment: "control",
   v2c_firemage_inferno: "control",
   v2c_frostmage_glacier: "control",
+  v2c_cryomancer_absolutezero: "control",
   v2c_earthmage_tectonic: "control",
   v2c_calamitycaller_brand: "control",
   v2c_swordmaster_cut: "control",
@@ -886,6 +1207,7 @@ const ACTIVE_SKILL_TEMPO: Partial<Record<V2SkillId, V2SkillTempo>> = {
   v2c_arcanist_burst: "burst",
   v2c_elementallord_surge: "burst",
   v2c_inscriber_release: "burst",
+  v2c_lawweaver_release: "payoff",
   v2c_marksman_shot: "burst",
   v2c_swordsaint_flash: "burst",
   v2c_archmage_collapse: "burst",
@@ -922,6 +1244,7 @@ function combatJobIdForSkill(skillId: V2SkillId): string | null {
 }
 
 function combatJobTierForSkill(skillId: V2SkillId): CombatJobTier | null {
+  if (tier7CombatJobIdForSkillId(skillId) != null) return 7;
   const jobId = combatJobIdForSkill(skillId);
   if (jobId == null) return null;
   // 원소술사는 4차 다섯 계통으로 분리됐지만 옛 통합 액티브 id 는 세이브 호환용으로 남아 있다.
@@ -929,7 +1252,7 @@ function combatJobTierForSkill(skillId: V2SkillId): CombatJobTier | null {
   const tier = jobId ? V2_JOB_CATALOG[jobId]?.tier : undefined;
   // 생존자처럼 tier 0 카탈로그에 속한 전투 킷은 입문(tier 1) 정책을 쓴다.
   if (tier === 0) return 1;
-  return tier != null && tier >= 1 && tier <= 6 ? (tier as CombatJobTier) : null;
+  return tier != null && tier >= 1 && tier <= 7 ? (tier as CombatJobTier) : null;
 }
 
 function scaledCoef(value: number, scale: number): number {
@@ -954,10 +1277,10 @@ function scaledDirectStatCoef(
   scaling: V2DamageScaling | undefined,
   scale: number,
 ): number {
-  // 일반 공격력 계수는 전투 산식의 차수별 기반선으로 하한이 보장되지만, DEX·LUK
+  // 일반 공격력 계수는 전투 산식의 차수별 기반선으로 하한이 보장되지만, DEX·LUK·최대 HP
   // 직접 비례분은 그대로 사용된다. 발동률 상향 보정을 여기에 다시 적용하면 특화 빌드만
   // 이중으로 약해지므로, 카탈로그에서 의도한 원시 스탯 계수는 보존한다.
-  if (scaling === "dex" || scaling === "luk") {
+  if (scaling === "dex" || scaling === "luk" || scaling === "maxHp") {
     return statCoef;
   }
 
@@ -977,6 +1300,9 @@ function rebalanceDamageEffect(effect: V2SkillEffect, scale: number): V2SkillEff
           ? { baseFlatByTier: scaledFlatByTier(effect.baseFlatByTier, scale) }
           : {}),
       };
+    case "missingHpDamage":
+      // 승인된 단발 필살 계수는 발동률 공통 리밸런싱으로 다시 깎지 않는다.
+      return effect;
     case "hpCostDamage":
     case "executeDamage":
     case "ambushDamage":
@@ -1000,11 +1326,17 @@ function rebalanceDamageEffect(effect: V2SkillEffect, scale: number): V2SkillEff
         ...effect,
         statCoef: scaledDirectStatCoef(effect.statCoef, effect.scaling, scale),
         perStackFlat: scaledFlat(effect.perStackFlat, scale),
+        ...(effect.spCostPerStackFlat != null
+          ? { spCostPerStackFlat: scaledFlat(effect.spCostPerStackFlat, scale) }
+          : {}),
         ...(effect.baseFlatByTier
           ? { baseFlatByTier: scaledFlatByTier(effect.baseFlatByTier, scale) }
           : {}),
       };
     case "dot":
+      // 플레이어 출혈은 짧고 강한 공용 상태 피해로 별도 밸런싱한다. 직업 차수 배율로
+      // 다시 낮추면 프리셋의 플레이어 전용 ATK 계수와 고정 피해가 훼손된다.
+      if (effect.tag === "bleed") return effect;
       return {
         ...effect,
         flatPerStack: scaledFlat(effect.flatPerStack, scale),
@@ -1023,6 +1355,17 @@ function rebalanceEffects(
   scale: number,
 ): readonly V2SkillEffect[] {
   return effects.map((effect) => rebalanceDamageEffect(effect, scale));
+}
+
+/** 런타임에 합성한 효과를 같은 직업 차수 액티브 보정에 정확히 한 번 태운다. */
+export function rebalanceDynamicV2SkillEffects(
+  skillId: V2SkillId,
+  effects: readonly V2SkillEffect[],
+): readonly V2SkillEffect[] {
+  const jobTier = combatJobTierForSkill(skillId);
+  return jobTier == null
+    ? effects
+    : rebalanceEffects(effects, ACTIVE_DAMAGE_SCALE_BY_JOB_TIER[jobTier]);
 }
 
 function rebalanceElementEffects(
@@ -1097,15 +1440,93 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = Object.fromEntrie
   Object.entries(RAW_V2_SKILLS).map(([id, skill]) => [id, rebalancePlayerSkill(skill)]),
 ) as Record<V2SkillId, V2SkillDefinition>;
 
+/** 원정당 1회·PvP 효과 50% 제한을 공유하는 무자원 생존 회복기. */
+export const LIMITED_RECOVERY_SKILL_IDS = [
+  "v2c_survivor_firstaid",
+  "v2c_camper_camp",
+  "v2c_fieldmedic_treatment",
+  "v2c_extremesurvivor_struggle",
+  "v2c_rescueexpert_rescue",
+  "v2c_returner_survive",
+] as const satisfies readonly V2SkillId[];
+
+export type LimitedRecoverySkillId =
+  (typeof LIMITED_RECOVERY_SKILL_IDS)[number];
+
+const LIMITED_RECOVERY_SKILL_ID_SET = new Set<V2SkillId>(
+  LIMITED_RECOVERY_SKILL_IDS,
+);
+
+export function isLimitedRecoverySkillId(
+  value: unknown,
+): value is LimitedRecoverySkillId {
+  return (
+    typeof value === "string" &&
+    LIMITED_RECOVERY_SKILL_ID_SET.has(value as V2SkillId)
+  );
+}
+
+export type V2ExclusiveSkillConflict = {
+  group: string;
+  skillIds: V2SkillId[];
+};
+
+/** 같은 배타 그룹을 둘 이상 장착한 입력을 원래 순서대로 분류한다. */
+export function exclusiveSkillConflicts(
+  ids: readonly V2SkillId[],
+): V2ExclusiveSkillConflict[] {
+  const grouped = new Map<string, V2SkillId[]>();
+  for (const id of ids) {
+    const group = V2_SKILLS[id]?.exclusiveGroup;
+    if (!group) continue;
+    const skillIds = grouped.get(group) ?? [];
+    skillIds.push(id);
+    grouped.set(group, skillIds);
+  }
+  return [...grouped.entries()]
+    .filter(([, skillIds]) => skillIds.length > 1)
+    .map(([group, skillIds]) => ({ group, skillIds }));
+}
+
+/** 손상된 기존 장착에서 그룹별 최고 단계를 하나만 남긴다. 동률은 먼저 나온 항목이 이긴다. */
+export function resolveExclusiveSkills(
+  ids: readonly V2SkillId[],
+): V2SkillId[] {
+  const winnerByGroup = new Map<
+    string,
+    { index: number; rank: number }
+  >();
+  ids.forEach((id, index) => {
+    const def = V2_SKILLS[id];
+    if (!def?.exclusiveGroup) return;
+    const rank = def.exclusiveRank ?? 0;
+    const current = winnerByGroup.get(def.exclusiveGroup);
+    if (!current || rank > current.rank) {
+      winnerByGroup.set(def.exclusiveGroup, { index, rank });
+    }
+  });
+
+  return ids.filter((id, index) => {
+    const group = V2_SKILLS[id]?.exclusiveGroup;
+    return !group || winnerByGroup.get(group)?.index === index;
+  });
+}
+
 // 장착(로드아웃)된 패시브 스킬들의 상시 효과 집계 — 코어루프 derive 가 호출.
 //   대부분은 합산한다. 반격 확률(counterChancePct)은 100%에 쉽게 닿지 않도록 실패 확률을 곱한다.
-//   패시브 아닌 스킬·미존재 id 는 무시.
+//   배타 그룹은 최고 단계 하나만 적용하고, 패시브 아닌 스킬·미존재 id 는 무시.
 export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   stat: Partial<Record<V2StatKey, number>>;
   statPct: Partial<Record<V2StatKey, number>>;
   maxHpPct: number;
   maxMpPct: number;
+  mpCostReductionPct: number;
+  freezeDamagePct: number;
+  freezeDelayPct: number;
+  freezeRetainStacks: number;
+  magicBarrier: boolean;
   atkPerDexCoef: number;
+  atkPerLukCoef: number;
   critPct: number;
   critDmgPct: number;
   evasionPct: number;
@@ -1114,27 +1535,52 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   counterDamageUsesReflectBoost: boolean;
   defPct: number;
   thornsDefPct: number;
+  fortressImpactOnHit: boolean;
+  fortressImpactDamagePctPerStack: number;
+  fortressDefSkillStatCoefPct: number;
+  lawInscription: boolean;
   accuracyPct: number;
   healPowerPct: number;
   damageTakenReductionPct: number;
+  statusDamageReductionPct: number;
+  bleedPhysicalSkillDamagePctPerStack: number;
+  stoneskinDefPctPerWeight: number;
   magicDefPct: number;
   openingMagicDamageReductionPct: number;
   openingMagicDamageReductionPhases: number;
+  tripleWardRank: 0 | 1 | 2;
   poisonedEnemyDefReductionPct: number;
+  poisonDamagePct: number;
+  enemyPhysicalDefReductionPct: number;
+  enemyMagicDefReductionPct: number;
   berserkAtkPctPerLostHpPct: number;
   enemyMagicVulnPctPerStack: number;
   enemyMagicVulnApplyChancePct: number;
   magicSkillDamagePct: number;
-  spdOverflowToAtkPct: number;
+  singleHitPhysicalSkillDamagePct: number;
+  spdToAtkMaxPct: number;
+  spdPerLukCoef: number;
   skillCritOverflow: boolean;
+  skillCritDmgPct: number;
+  equipmentMagicSkillCritConversion: boolean;
   skillCritAfterEvade: boolean;
   comboFinisherBonusPct: number;
+  basicDefPenetrationPct: number;
+  basicCritHastePct: number;
+  basicCritChanceCap: number;
+  berserkerMadnessRank: 0 | 1 | 2 | 3 | 4;
 } {
   const stat: Partial<Record<V2StatKey, number>> = {};
   const statPct: Partial<Record<V2StatKey, number>> = {};
   let maxHpPct = 0;
   let maxMpPct = 0;
+  let mpCostReductionPct = 0;
+  let freezeDamagePct = 0;
+  let freezeDelayPct = 0;
+  let freezeRetainStacks = 0;
+  let magicBarrier = false;
   let atkPerDexCoef = 0;
+  let atkPerLukCoef = 0;
   let critPct = 0;
   let critDmgPct = 0;
   let evasionPct = 0;
@@ -1143,23 +1589,55 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let counterDamageUsesReflectBoost = false;
   let defPct = 0;
   let thornsDefPct = 0;
+  let fortressImpactOnHit = false;
+  let fortressImpactDamagePctPerStack = 0;
+  let fortressDefSkillStatCoefPct = 0;
+  let lawInscription = false;
   let accuracyPct = 0;
   let healPowerPct = 0;
   let damageTakenReductionPct = 0;
+  let statusDamageReductionPct = 0;
+  let bleedPhysicalSkillDamagePctPerStack = 0;
+  let stoneskinDefPctPerWeight = 0;
   let magicDefPct = 0;
   let openingMagicDamageReductionPct = 0;
   let openingMagicDamageReductionPhases = 0;
+  let tripleWardRank: 0 | 1 | 2 = 0;
   let poisonedEnemyDefReductionPct = 0;
+  let poisonDamagePct = 0;
+  let enemyPhysicalDefReductionPct = 0;
+  let enemyMagicDefReductionPct = 0;
   let berserkAtkPctPerLostHpPct = 0;
   let enemyMagicVulnPctPerStack = 0;
   let enemyMagicVulnApplyChancePct = 0;
   let magicSkillDamagePct = 0;
-  let spdOverflowToAtkPct = 0;
+  let singleHitPhysicalSkillDamagePct = 0;
+  let spdToAtkMaxPct = 0;
+  let spdPerLukCoef = 0;
   let skillCritOverflow = false;
+  let skillCritDmgPct = 0;
+  let equipmentMagicSkillCritConversion = false;
   let skillCritAfterEvade = false;
   let comboFinisherBonusPct = 0;
-  for (const id of equipped) {
-    const p = V2_SKILLS[id]?.passive;
+  let basicDefPenetrationPct = 0;
+  let basicCritHastePct = 0;
+  let basicCritChanceCap = 75;
+  let berserkerMadnessRank: 0 | 1 | 2 | 3 | 4 = 0;
+  for (const id of resolveExclusiveSkills(equipped)) {
+    const def = V2_SKILLS[id];
+    if (def?.exclusiveGroup === "berserker_madness") {
+      const rank = Math.max(0, Math.min(4, def.exclusiveRank ?? 0)) as
+        | 0
+        | 1
+        | 2
+        | 3
+        | 4;
+      berserkerMadnessRank = Math.max(
+        berserkerMadnessRank,
+        rank,
+      ) as 0 | 1 | 2 | 3 | 4;
+    }
+    const p = def?.passive;
     if (!p) continue;
     for (const [k, v] of Object.entries(p.stat ?? {})) {
       if (v) stat[k as V2StatKey] = (stat[k as V2StatKey] ?? 0) + v;
@@ -1169,7 +1647,16 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     }
     maxHpPct += p.maxHpPct ?? 0;
     maxMpPct += p.maxMpPct ?? 0;
+    mpCostReductionPct += p.mpCostReductionPct ?? 0;
+    freezeDamagePct += p.freezeDamagePct ?? 0;
+    freezeDelayPct = Math.max(freezeDelayPct, p.freezeDelayPct ?? 0);
+    freezeRetainStacks = Math.max(
+      freezeRetainStacks,
+      p.freezeRetainStacks ?? 0,
+    );
+    if (p.magicBarrier) magicBarrier = true;
     atkPerDexCoef += p.atkPerDexCoef ?? 0;
+    atkPerLukCoef += p.atkPerLukCoef ?? 0;
     critPct += p.critPct ?? 0;
     critDmgPct += p.critDmgPct ?? 0;
     evasionPct += p.evasionPct ?? 0;
@@ -1181,18 +1668,42 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     if (p.counterDamageUsesReflectBoost) counterDamageUsesReflectBoost = true;
     defPct += p.defPct ?? 0;
     thornsDefPct += p.thornsDefPct ?? 0;
+    if (p.fortressImpactOnHit) fortressImpactOnHit = true;
+    fortressImpactDamagePctPerStack = Math.max(
+      fortressImpactDamagePctPerStack,
+      p.fortressImpactDamagePctPerStack ?? 0,
+    );
+    fortressDefSkillStatCoefPct += p.fortressDefSkillStatCoefPct ?? 0;
+    if (p.lawInscription) lawInscription = true;
     accuracyPct += p.accuracyPct ?? 0;
     healPowerPct += p.healPowerPct ?? 0;
     damageTakenReductionPct += p.damageTakenReductionPct ?? 0;
+    statusDamageReductionPct += p.statusDamageReductionPct ?? 0;
+    bleedPhysicalSkillDamagePctPerStack +=
+      p.bleedPhysicalSkillDamagePctPerStack ?? 0;
+    stoneskinDefPctPerWeight += p.stoneskinDefPctPerWeight ?? 0;
     magicDefPct += p.magicDefPct ?? 0;
     openingMagicDamageReductionPct += p.openingMagicDamageReductionPct ?? 0;
     openingMagicDamageReductionPhases = Math.max(
       openingMagicDamageReductionPhases,
       p.openingMagicDamageReductionPhases ?? 0,
     );
+    tripleWardRank = Math.max(
+      tripleWardRank,
+      p.tripleWardRank ?? 0,
+    ) as 0 | 1 | 2;
     poisonedEnemyDefReductionPct = combineDefReductionPcts(
       poisonedEnemyDefReductionPct,
       p.poisonedEnemyDefReductionPct ?? 0,
+    );
+    poisonDamagePct += p.poisonDamagePct ?? 0;
+    enemyPhysicalDefReductionPct = combineDefReductionPcts(
+      enemyPhysicalDefReductionPct,
+      p.enemyPhysicalDefReductionPct ?? 0,
+    );
+    enemyMagicDefReductionPct = combineDefReductionPcts(
+      enemyMagicDefReductionPct,
+      p.enemyMagicDefReductionPct ?? 0,
     );
     berserkAtkPctPerLostHpPct += p.berserkAtkPctPerLostHpPct ?? 0;
     enemyMagicVulnPctPerStack += p.enemyMagicVulnPctPerStack ?? 0;
@@ -1203,17 +1714,33 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
       );
     }
     magicSkillDamagePct += p.magicSkillDamagePct ?? 0;
-    spdOverflowToAtkPct += p.spdOverflowToAtkPct ?? 0;
+    singleHitPhysicalSkillDamagePct +=
+      p.singleHitPhysicalSkillDamagePct ?? 0;
+    spdToAtkMaxPct += p.spdToAtkMaxPct ?? 0;
+    spdPerLukCoef += p.spdPerLukCoef ?? 0;
     if (p.skillCritOverflow) skillCritOverflow = true;
+    skillCritDmgPct += p.skillCritDmgPct ?? 0;
+    if (p.equipmentMagicSkillCritConversion) {
+      equipmentMagicSkillCritConversion = true;
+    }
     if (p.skillCritAfterEvade) skillCritAfterEvade = true;
     comboFinisherBonusPct += p.comboFinisherBonusPct ?? 0;
+    basicDefPenetrationPct += p.basicDefPenetrationPct ?? 0;
+    basicCritHastePct = Math.max(basicCritHastePct, p.basicCritHastePct ?? 0);
+    basicCritChanceCap = Math.max(basicCritChanceCap, p.basicCritChanceCap ?? 75);
   }
   return {
     stat,
     statPct,
     maxHpPct,
     maxMpPct,
+    mpCostReductionPct,
+    freezeDamagePct,
+    freezeDelayPct,
+    freezeRetainStacks,
+    magicBarrier,
     atkPerDexCoef,
+    atkPerLukCoef,
     critPct,
     critDmgPct,
     evasionPct,
@@ -1222,21 +1749,40 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     counterDamageUsesReflectBoost,
     defPct,
     thornsDefPct,
+    fortressImpactOnHit,
+    fortressImpactDamagePctPerStack,
+    fortressDefSkillStatCoefPct,
+    lawInscription,
     accuracyPct,
     healPowerPct,
     damageTakenReductionPct,
+    statusDamageReductionPct,
+    bleedPhysicalSkillDamagePctPerStack,
+    stoneskinDefPctPerWeight,
     magicDefPct,
     openingMagicDamageReductionPct,
     openingMagicDamageReductionPhases,
+    tripleWardRank,
     poisonedEnemyDefReductionPct,
+    poisonDamagePct,
+    enemyPhysicalDefReductionPct,
+    enemyMagicDefReductionPct,
     berserkAtkPctPerLostHpPct,
     enemyMagicVulnPctPerStack,
     enemyMagicVulnApplyChancePct,
     magicSkillDamagePct,
-    spdOverflowToAtkPct,
+    singleHitPhysicalSkillDamagePct,
+    spdToAtkMaxPct,
+    spdPerLukCoef,
     skillCritOverflow,
+    skillCritDmgPct,
+    equipmentMagicSkillCritConversion,
     skillCritAfterEvade,
     comboFinisherBonusPct,
+    basicDefPenetrationPct,
+    basicCritHastePct,
+    basicCritChanceCap,
+    berserkerMadnessRank,
   };
 }
 
@@ -1408,7 +1954,7 @@ const DERIVED_BUFF_LABEL: Record<"evasion" | "crit" | "damageReduction" | "refle
   evasion: "회피",
   crit: "치명타 확률",
   damageReduction: "받는 피해 감소",
-  reflectDamage: "반사 피해",
+  reflectDamage: "기존 반사 피해",
 };
 const STACK_TAG_LABEL: Record<"bleed" | "poison" | "magicVuln", string> = {
   bleed: "출혈",
@@ -1435,7 +1981,7 @@ function scalingStatLabel(scaling?: V2DamageScaling): string {
 // 부동소수점 꼬리가 생길 수 있다. 전투 계산값은 유지하고 설명에서만 소수 둘째
 // 자리까지 반올림해 읽기 좋은 계수로 표시한다.
 function formatSkillCoefficient(value: number): string {
-  return Number(value.toFixed(2)).toString();
+  return (Math.round((value + 1e-9) * 100) / 100).toString();
 }
 function damageFormulaChip(
   e: V2DirectDamageEffect,
@@ -1467,17 +2013,139 @@ function damageFormulaChip(
   const attackCoef = pureFormula?.attackCoef ?? baseAttackCoef;
   const attackTerm = `${attackLabel}×${formatSkillCoefficient(attackCoef)}`;
   if (specialized) {
-    return `${attackTerm} + ${scalingStatLabel(e.scaling)}×${formatSkillCoefficient(e.statCoef)}`;
+    const statCoef = monsterOnly
+      ? e.statCoef
+      : v2SpecializedSkillStatCoef(e.statCoef, e.scaling);
+    return `${attackTerm} + ${scalingStatLabel(e.scaling)}×${formatSkillCoefficient(statCoef)}`;
   }
   if (!pureFormula) return attackTerm;
   const primaryStatLabel = e.scaling === "magic" ? "지능" : "힘";
-  return `${attackTerm} + ${primaryStatLabel}×${formatSkillCoefficient(pureFormula.primaryStatCoef)}`;
+  const primaryStatCoef =
+    e.kind === "damage" && e.primaryStatCoef != null
+      ? e.primaryStatCoef
+      : pureFormula.primaryStatCoef;
+  return `${attackTerm} + ${primaryStatLabel}×${formatSkillCoefficient(primaryStatCoef)}`;
 }
 function actionsChip(actions: number): string {
   return `${actions}행동`;
 }
 function targetActionsChip(actions: number): string {
   return `대상 행동 ${actions}회`;
+}
+
+function describeMissingHpDamage(
+  effect: Extract<V2SkillEffect, { kind: "missingHpDamage" }>,
+): string[] {
+  return [
+    ...(effect.selfCurrentHpCostPct
+      ? [
+          `명중 시 현재 HP ${effect.selfCurrentHpCostPct}% 소모 (소모 후 HP로 피해 계산)`,
+        ]
+      : []),
+    `기본 피해 공격력×${formatSkillCoefficient(effect.attackCoef)} + 힘×${formatSkillCoefficient(effect.statCoef)}`,
+    `잃은 HP 1%당 피해 +${formatSkillCoefficient(effect.missingHpCoef)}% (최대 ×${formatSkillCoefficient(1 + effect.missingHpCoef)} · 대련 추가분 60%)`,
+  ];
+}
+
+function describeBerserkerLineageRules(skill: V2SkillDefinition): string[] {
+  const chips: string[] = [];
+
+  if (skill.id === "v2c_warlord_bloodbath") {
+    chips.push("명중 시 혈전 준비 획득");
+  }
+  if (
+    skill.id === "v2c_overlord_ruin" ||
+    skill.id === "v2c_hegemon_annihilation"
+  ) {
+    chips.push("혈전 준비 시 광폭 계수 +25% · 확정 치명타");
+  }
+  if (skill.id === "v2c_hegemon_annihilation") {
+    chips.push(
+      "사망 극복 시 1회 재충전 (전투당 최대 2회)",
+      "사망 극복 발동 시: 잃은 HP 100% 취급 · 광폭 계수 ×1.5",
+    );
+  }
+
+  if (skill.exclusiveGroup !== "berserker_madness") return chips;
+
+  const rank = skill.exclusiveRank ?? 0;
+  if (rank >= 1) {
+    chips.push("HP 50% 이하: 공격 액티브 발동률 +10%p");
+  }
+  if (rank >= 2) {
+    chips.push(
+      "혈전 준비로 강화된 파멸일격·멸왕일도: 치명타 피해 +30%",
+    );
+  }
+  if (rank === 3) {
+    chips.push(
+      "사망 극복: 전투당 1회 치명 피해 무효 · HP 20%로 회복",
+      "현재 행동 종료까지 HP 20% 아래로 내려가지 않음",
+    );
+  }
+  if (rank >= 4) {
+    chips.push(
+      "사망 극복: 전투당 1회 치명 피해 무효 · HP 40%로 회복",
+      "사망 극복 발생 시: 다음 내 공격 종료까지 HP 40% 아래로 내려가지 않음",
+      "사망 극복 발생 시: 다음 공격 액티브 스킬 100% 발동 · 잃은 HP 100% 취급 · 광폭 계수 ×1.5",
+      "사망 극복 발생 시: 멸왕일도 1회 재충전",
+    );
+  }
+  chips.push("광기 계열 중 1개만 장착");
+  return chips;
+}
+
+function describeBleedHunt(skill: V2SkillDefinition): string[] {
+  const mechanic = skill.bleedHunt;
+  if (!mechanic) return [];
+  const chips = [`출혈 ${mechanic.minStacks}중첩 이상`];
+  if (mechanic.hitBleedStacks) {
+    chips.push(`명중 시 출혈 +${mechanic.hitBleedStacks}중첩`);
+  }
+  if (mechanic.hitBleedSetTurns) {
+    chips.push(`명중 시 출혈 지속 ${mechanic.hitBleedSetTurns}회로 갱신`);
+  }
+  if (mechanic.skillAccuracyPct) {
+    chips.push(`이 스킬 적중도 +${mechanic.skillAccuracyPct}%`);
+  }
+  if (mechanic.hitEnemyDelayPct) {
+    chips.push(`명중 시 적 다음 행동 지연 +${mechanic.hitEnemyDelayPct}%`);
+  }
+  if (mechanic.skillPenetrationPct) {
+    chips.push(`이 스킬 방어 관통 +${mechanic.skillPenetrationPct}%p`);
+  }
+  if (mechanic.skillActualDamageHealPct) {
+    chips.push(`실제 피해의 ${mechanic.skillActualDamageHealPct}% HP 회복`);
+  }
+  if (mechanic.castHastePct) {
+    chips.push(`정상 시전 시 다음 행동 속도 +${mechanic.castHastePct}%`);
+  }
+  if (mechanic.directPhysicalAccuracyPct) {
+    chips.push(`직접 물리 스킬 적중도 +${mechanic.directPhysicalAccuracyPct}%`);
+  }
+  if (mechanic.directPhysicalHastePct) {
+    chips.push(
+      `직접 물리 스킬 정상 시전 시 다음 행동 속도 +${mechanic.directPhysicalHastePct}%`,
+    );
+  }
+  if (mechanic.directPhysicalPenetrationPct) {
+    chips.push(
+      `직접 물리 스킬 방어 관통 +${mechanic.directPhysicalPenetrationPct}%p`,
+    );
+  }
+  if (mechanic.directPhysicalDamagePct) {
+    chips.push(`직접 물리 스킬 피해 +${mechanic.directPhysicalDamagePct}%`);
+  }
+  if (mechanic.bleedTickHealMaxHpPct) {
+    chips.push(`출혈 피해 발생 시 최대 HP ${mechanic.bleedTickHealMaxHpPct}% 회복`);
+  }
+  const extend = mechanic.directPhysicalHitBleedExtend;
+  if (extend) {
+    chips.push(
+      `직접 물리 스킬 명중 시 ${extend.chancePct}% 확률로 출혈 지속 +${extend.turns} (최대 ${extend.maxTurns}회)`,
+    );
+  }
+  return chips;
 }
 
 function describeV2Effect(
@@ -1490,16 +2158,16 @@ function describeV2Effect(
     case "damage":
       return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)}`;
     case "heal":
-      return [
+      return `${[
         e.pctLostHp != null ? `잃은 체력 ${e.pctLostHp}%` : "",
         e.pctMaxHp != null ? `최대HP ${e.pctMaxHp}%` : "",
         e.statCoef != null
-          ? `${scalingStatLabel(e.scaling)}×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)}`
+          ? `${scalingStatLabel(e.scaling)}×${formatSkillCoefficient(v2SkillHealStatCoef(e.statCoef))}${flatChip(undefined, e.baseFlatByTier)}`
           : "",
         e.flat ? `+${e.flat}` : "",
-      ].filter(Boolean).join(" + ").replace(/^/, "회복 ");
+      ].filter(Boolean).join(" + ").replace(/^/, "회복 ")} (회복량 보정 적용)`;
     case "healFromDamage":
-      return `피해량 ${e.pct}% 회복`;
+      return `피해량 ${e.pct}% 회복 (회복량 보정 미적용)`;
     case "selfBuff":
       return `${STAT_LABELS[e.stat]} +${e.pct}% (${actionsChip(e.turns)})`;
     case "selfBuffPct":
@@ -1540,17 +2208,19 @@ function describeV2Effect(
     case "enemyDotVuln":
       return `적 지속/저주 피해 +${e.pct}% (${targetActionsChip(e.turns)})`;
     case "hpCostDamage":
-      return `HP ${e.pctCurrentHp}% 소모 → 피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} + 소모량×${e.soakRatio}`;
+      return `명중 시 HP ${e.pctCurrentHp}% 소모 → 피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} + 기준 소모량×${e.soakRatio}${e.soakCurrentHpFloorPct ? ` (추가 피해 기준 현재 HP 최소 ${e.soakCurrentHpFloorPct}%)` : ""}`;
+    case "missingHpDamage":
+      return describeMissingHpDamage(e).join(" · ");
     case "healToDamage":
-      return `자힐 ${scalingStatLabel(e.scaling)}×${e.healStatCoef}${flatChip(undefined, e.healFlatByTier)} → 힐량×${e.damageRatio} 피해`;
+      return `자힐 ${scalingStatLabel(e.scaling)}×${formatSkillCoefficient(v2SkillHealStatCoef(e.healStatCoef))}${flatChip(undefined, e.healFlatByTier)} (회복량 보정 적용) → 힐량×${e.damageRatio} 피해`;
     case "executeDamage":
       return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} (적 HP ${e.hpThresholdPct}%↓ 시 ×${e.bonusMult}, 일반 몬스터는 35%↓)`;
     case "ambushDamage":
-      return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} (적 HP ${e.hpThresholdPct}%↑ 시 ×${e.bonusMult})`;
+      return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} (적 HP ${e.hpThresholdPct}%↑ 시 ${e.pvpBonusMult != null && e.pvpBonusMult !== e.bonusMult ? `PvE ×${e.bonusMult} · PvP ×${e.pvpBonusMult}` : `×${e.bonusMult}`})`;
     case "stackPayoffDamage":
       return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} + 적 ${STACK_TAG_LABEL[e.tag]} 스택당 ${e.tag === "poison" ? "방어 무시 " : ""}+${e.perStackFlat}`;
     case "dot":
-      return `${e.label} 지속피해 +${e.stacks}스택 (${targetActionsChip(e.turns)}, 최대 ${e.maxStacks}스택)`;
+      return `${e.label} 지속피해 +${e.stacks}스택 (${targetActionsChip(e.turns)}, 최대 ${e.maxStacks}스택${e.tag === "poison" ? ", 보스 최대 HP 비례분 50%" : ""})`;
   }
   // 모든 효과 종류 처리됨 — 새 kind 추가 시 컴파일 에러로 누락 방지.
   const _exhaustive: never = e;
@@ -1572,35 +2242,74 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   }
   if (p.maxHpPct) chips.push(`최대 HP +${p.maxHpPct}%`);
   if (p.maxMpPct) chips.push(`최대 MP +${p.maxMpPct}%`);
+  if (p.mpCostReductionPct)
+    chips.push(`마법 MP 소모 -${p.mpCostReductionPct}%`);
+  if (p.freezeDamagePct) chips.push(`빙결 피해 +${p.freezeDamagePct}%`);
+  if (p.freezeDelayPct) chips.push(`빙결 행동 지연 ${p.freezeDelayPct}%`);
+  if (p.freezeRetainStacks) {
+    chips.push(`빙결 후 한기 ${p.freezeRetainStacks} 잔류`);
+  }
+  if (p.magicBarrier) chips.push("마나 실드 활성화");
   if (p.atkPerDexCoef) chips.push("민첩이 공격력을 보조");
   if (p.critPct) chips.push(`치명타 확률 +${p.critPct}%`);
   if (p.critDmgPct) chips.push(`치명타 피해 +${p.critDmgPct}%`);
-  if (p.evasionPct) chips.push(`회피 +${p.evasionPct}%`);
+  if (p.evasionPct) chips.push(`회피도 +${p.evasionPct}%`);
   if (p.lifestealPct) chips.push(`흡혈 +${p.lifestealPct}%`);
-  if (p.counterChancePct) chips.push(`피격 시 ${p.counterChancePct}% 반격`);
-  if (p.defPct) chips.push(`방어력 +${p.defPct}%`);
-  if (p.thornsDefPct) chips.push(`피격 시 방어력의 ${p.thornsDefPct}% 반사`);
-  if (p.accuracyPct) chips.push(`명중 +${p.accuracyPct}`);
+  if (p.counterChancePct)
+    chips.push(`HP 피해 시 ${p.counterChancePct}% 확률로 공격력 기반 반격`);
+  if (p.defPct) chips.push(`물리·마법 방어력 +${p.defPct}%`);
+  if (p.thornsDefPct) chips.push(`HP 피해 시 방어력의 ${p.thornsDefPct}% 반사`);
+  if (p.fortressImpactOnHit) chips.push("적의 직접 공격 명중 시 충격 +1 (최대 3)");
+  if (p.fortressImpactDamagePctPerStack)
+    chips.push(`충격 소비 공격 최종 피해 스택당 +${p.fortressImpactDamagePctPerStack}%`);
+  if (p.fortressDefSkillStatCoefPct)
+    chips.push(`방어력 직접 공격 계수 +${p.fortressDefSkillStatCoefPct}%`);
+  if (p.accuracyPct) chips.push(`적중도 +${p.accuracyPct}%`);
   if (p.healPowerPct) chips.push(`회복 +${p.healPowerPct}%`);
   if (p.damageTakenReductionPct)
     chips.push(`받는 피해 -${p.damageTakenReductionPct}%`);
-  if (p.magicDefPct) chips.push(`마법 방어력 +${p.magicDefPct}%`);
-  if (p.openingMagicDamageReductionPct)
+  if (p.statusDamageReductionPct)
+    chips.push(`상태이상 피해 -${p.statusDamageReductionPct}%`);
+  if (p.bleedPhysicalSkillDamagePctPerStack)
     chips.push(
-      `전투 초반 ${p.openingMagicDamageReductionPhases ?? 3}회 마법 피해 -${p.openingMagicDamageReductionPct}%`,
+      `대상 출혈 스택당 직접 물리 스킬 피해 +${p.bleedPhysicalSkillDamagePctPerStack}% (최대 +20%)`,
     );
+  if (p.stoneskinDefPctPerWeight)
+    chips.push(`중량당 방어력 +${p.stoneskinDefPctPerWeight}%`);
+  if (p.magicDefPct) chips.push(`마법 방어력 +${p.magicDefPct}%`);
+  if (p.openingMagicDamageReductionPct) {
+    chips.push(
+      `전투 초반 적 공격 ${p.openingMagicDamageReductionPhases ?? 3}회 동안 받는 마법 피해 -${p.openingMagicDamageReductionPct}% (회피한 공격 포함)`,
+    );
+    chips.push("초반 마법 피해 감소 중첩 시 감소율 합산 · 횟수는 최댓값");
+  }
   if (p.elementResonance) chips.push("원소 폭주 속성 효과 강화");
   if (p.inscriptionAmplification) chips.push("각인 해방 문장 시너지 강화");
+  if (p.lawInscription) chips.push("문장 해방 시 장착 재료별 법칙 각인 생성");
+  if (p.tripleWardRank === 1) {
+    chips.push("삼중 결계 각 1회 · 직접 피해 PvE -45% / PvP -30%");
+  }
+  if (p.tripleWardRank === 2) {
+    chips.push("삼중 결계 각 3회 · 직접 피해 PvE -60% / PvP -40%");
+    chips.push("결계 소모 시 영역 안정 +1 (받는 피해 -4%, 최대 3중첩)");
+  }
   if (p.poisonedEnemyDefReductionPct)
-    chips.push(`중독 적 방어 -${p.poisonedEnemyDefReductionPct}% / 중독 피해 +${p.poisonedEnemyDefReductionPct * 3}%`);
+    chips.push(`중독 적 방어 -${p.poisonedEnemyDefReductionPct}%`);
+  if (p.poisonDamagePct) chips.push(`중독 피해 +${p.poisonDamagePct}%`);
+  if (p.enemyPhysicalDefReductionPct)
+    chips.push(`적 물리 방어 -${p.enemyPhysicalDefReductionPct}%`);
+  if (p.enemyMagicDefReductionPct)
+    chips.push(`적 마법 방어 -${p.enemyMagicDefReductionPct}%`);
   if (p.berserkAtkPctPerLostHpPct)
-    chips.push(`잃은 HP 100%당 공격력 +${Math.round(p.berserkAtkPctPerLostHpPct * 100)}%`);
+    chips.push(`잃은 HP 1%당 공격력 +${p.berserkAtkPctPerLostHpPct}%`);
   if (p.enemyMagicVulnPctPerStack)
     chips.push(`마법취약 스택당 받는 스킬피해 +${p.enemyMagicVulnPctPerStack}%`);
   if (p.enemyMagicVulnApplyChancePct)
     chips.push(`마법취약 누적 확률 ${p.enemyMagicVulnApplyChancePct}%`);
   if (p.magicSkillDamagePct)
     chips.push(`마법 스킬 피해 +${p.magicSkillDamagePct}%`);
+  if (p.singleHitPhysicalSkillDamagePct)
+    chips.push(`단일 타격 물리 스킬 피해 +${p.singleHitPhysicalSkillDamagePct}%`);
   if (p.profPerKillBonus) chips.push(`사냥 승리 숙달 +${p.profPerKillBonus}`);
   if (p.fishingSizeBonusPct)
     chips.push(`물고기 크기 +${p.fishingSizeBonusPct}%`);
@@ -1611,18 +2320,21 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.fishingBigCatchSizeBonusPct)
     chips.push(`대물급 물고기 크기 +${p.fishingBigCatchSizeBonusPct}%`);
   if (p.guildTrainingRewardBonusPct)
-    chips.push(`훈련장 보상 +${p.guildTrainingRewardBonusPct}%`);
+    chips.push(`훈련장 보상 +${p.guildTrainingRewardBonusPct}% (누적 지급)`);
   if (p.guildTrainingWeeklyBonusMastery)
     chips.push(`주간 훈련 보너스 +${p.guildTrainingWeeklyBonusMastery}`);
-  if (p.farmYieldBonusPct) chips.push(`농장 수확량 +${p.farmYieldBonusPct}%`);
+  if (p.farmYieldBonusPct)
+    chips.push(`농장 수확량 +${p.farmYieldBonusPct}% (누적 지급)`);
   if (p.farmRareChancePct)
     chips.push(`희귀 수확 확률 +${p.farmRareChancePct}%`);
   if (p.cookingXpBonusPct)
-    chips.push(`요리 경험치 +${p.cookingXpBonusPct}%`);
+    chips.push(`요리 경험치 +${p.cookingXpBonusPct}% (평균 적용)`);
   if (p.cookingCarefulChancePct)
     chips.push(`정성작 확률 +${p.cookingCarefulChancePct}%`);
   if (p.cookingMaterialReductionPct)
-    chips.push(`묶음 조리 일반 재료 -${p.cookingMaterialReductionPct}%`);
+    chips.push(
+      `묶음 조리 일반 재료 -${p.cookingMaterialReductionPct}% (누적 절약)`,
+    );
   if (p.cookingMasterpieceChancePct)
     chips.push(`걸작 확률 +${p.cookingMasterpieceChancePct}%`);
   if (p.cookingRareIngredientSaveChancePct)
@@ -1643,57 +2355,204 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`채광 실패 구제 ${p.miningFailureRecoveryPct}%`);
   if (p.miningBonusOreChancePct)
     chips.push(`추가 광석 확률 ${p.miningBonusOreChancePct}%`);
-  if (p.spdOverflowToAtkPct)
-    chips.push(`속도 한계 초과분을 공격력으로 (최대 +${p.spdOverflowToAtkPct}%에 가까워짐)`);
+  if (p.spdToAtkMaxPct)
+    chips.push(`속도에 비례해 공격력 증가 (최대 +${p.spdToAtkMaxPct}%에 가까워짐)`);
+  if (p.spdPerLukCoef)
+    chips.push(`행운 ×${p.spdPerLukCoef}만큼 속도 증가`);
+  if (p.atkPerLukCoef)
+    chips.push(`행운 ×${p.atkPerLukCoef}만큼 공격력 증가`);
   if (p.skillCritOverflow)
     chips.push(`치명타 한계(75%) 초과 보너스를 스킬에도 적용`);
+  if (p.skillCritDmgPct)
+    chips.push(`스킬 치명타 피해 +${p.skillCritDmgPct}%`);
+  if (p.equipmentMagicSkillCritConversion)
+    chips.push(`장비 치명타 배율을 마법 스킬 치명타 배율로 변환 (최대 +0.75배)`);
   if (p.skillCritAfterEvade)
     chips.push(`회피 후 다음 직접 피해 스킬 확정 치명타`);
   if (p.comboFinisherBonusPct)
     chips.push(`4타마다 피해 +${p.comboFinisherBonusPct}%`);
+  if (p.basicDefPenetrationPct)
+    chips.push(`평타 방어 관통 +${p.basicDefPenetrationPct}%p`);
+  if (p.basicCritHastePct)
+    chips.push(`평타 치명타 시 다음 행동 간격 -${p.basicCritHastePct}% (1회)`);
+  if (p.basicCritChanceCap && p.basicCritChanceCap > 75)
+    chips.push(`평타 치명타 확률 상한 ${p.basicCritChanceCap}%`);
+  return chips;
+}
+
+function describeTier7Mechanic(mechanic: Tier7Mechanic): string[] {
+  switch (mechanic.kind) {
+    case "shadowStrike":
+      return [
+        `검영 기록 ${mechanic.recordPct}% · 정련 시 ${mechanic.refinedRecordPct}%`,
+        `PvP 직접 피해 ${mechanic.pvpDirectDamagePct}% 적용`,
+      ];
+    case "shadowRefine":
+      return [
+        `검영 정련 +${mechanic.refinePctPoints}%p · 발동 후 행동 가속 ${mechanic.hastePct}%`,
+        `PvP 직접 피해 ${mechanic.pvpDirectDamagePct}% 적용`,
+      ];
+    case "shadowCore":
+      return [
+        `고유 단일 물리 최종 피해 ${mechanic.recordPct}% 기록(잔영 70%) · 계승 공격 ${mechanic.inheritedRecordPct}% 기록 · 정련 시 +${mechanic.refinedRecordPct - mechanic.recordPct}%p`,
+        `검영 발동 후 다음 단일 물리 피해 +${mechanic.nextSingleDamagePct}%`,
+        `PvP 검영·후속 보너스 ${mechanic.pvpScalePct}% 적용`,
+      ];
+    case "intentStrike":
+      return [
+        `잃은 HP 비례 최종 피해 최대 +${mechanic.missingHpBonusCapPct}%`,
+        `HP ${mechanic.lowHpThresholdPct}% 이하 적중 시 검의 2개`,
+        `PvP 직접 피해 ${mechanic.pvpDirectDamagePct}% 적용`,
+      ];
+    case "intentCore":
+      return [
+        `검의 최대 ${mechanic.maxStacks}개 · 단일 물리 최종 피해 개당 +${mechanic.damagePctPerStack}%`,
+        `멸검 최종 피해 검의 개당 +${mechanic.finisherPctPerStack}%`,
+      ];
+    case "chargedFinisher":
+      return [
+        `검의 ${mechanic.requiredIntentStacks}개 필요 · 한 행동 충전 · 다음 행동 자동 해방`,
+        `현재 잃은 HP 최대 +${mechanic.currentMissingHpCapPct}% · 충전 중 잃은 HP 최대 +${mechanic.chargeLostHpCapPct}%`,
+        `PvP 각 보너스 최대 ${mechanic.pvpCapPct}% · 관통 ${mechanic.pvpPenetrationPct}%`,
+        `PvP 직접 피해 ${mechanic.pvpDirectDamagePct}% 적용`,
+      ];
+    case "crossStrike":
+      return [`교차 계열: ${mechanic.family === "ranged" ? "원거리" : "체술"}`];
+    case "crossCore":
+      return [
+        `포획: 최종 피해 +${mechanic.captureDamagePct}% · 적중 +${mechanic.captureAccuracyPct}% · 관통 ${mechanic.capturePenetrationPct}%`,
+        `추격: 추가 피해 ${mechanic.pursuitDamagePct}% · 적 행동 지연 ${mechanic.pursuitEnemyDelayPct}%`,
+        `교차 적중 시 행동 가속 ${mechanic.hastePct}% · PvP ${mechanic.pvpHastePct}%`,
+      ];
+    case "formulaStrike":
+      return [
+        `술식 ${mechanic.stages}단계 · 완전식 발동 후 행동 가속 ${mechanic.completionHastePct}%`,
+      ];
+    case "manaOptimization":
+      return [
+        `완전식 MP 부족 시 현재 MP 전부 소비 · 최대 MP ${mechanic.restoreMaxMpPct}% 회복 (주기 미환급 소비 MP 이하)`,
+      ];
+    case "completeFormula":
+      return [
+        `완전식: 직접 최종 피해 +${mechanic.directDamagePct}% · 관통 +${mechanic.penetrationPct}% · 행동 가속 ${mechanic.hastePct}%`,
+        `PvP: 직접 최종 피해 +${mechanic.pvpDamagePct}% · 관통 +${mechanic.pvpPenetrationPct}% · 행동 가속 ${mechanic.pvpHastePct}%`,
+      ];
+  }
+  const _exhaustive: never = mechanic;
+  return _exhaustive;
+}
+
+function describeDuelistDeclaration(
+  declaration: NonNullable<V2SkillDefinition["duelistDeclaration"]>,
+): string[] {
+  const chips = [`다음 평타 ${declaration.hits}회`];
+  if (declaration.basicDamagePct)
+    chips.push(`평타 피해 +${declaration.basicDamagePct}%`);
+  if (declaration.basicCritChancePct)
+    chips.push(`평타 치명타 확률 +${declaration.basicCritChancePct}%p`);
+  if (declaration.basicDefPenetrationPct)
+    chips.push(`평타 방어 관통 +${declaration.basicDefPenetrationPct}%p`);
+  if (declaration.rampPctPerPriorHit) {
+    const maxPct = declaration.rampPctPerPriorHit * (declaration.hits - 1);
+    chips.push(
+      `연속 평타마다 피해 +${declaration.rampPctPerPriorHit}% (최대 +${maxPct}%)`,
+    );
+  }
+  if (declaration.basicCritMultAdd)
+    chips.push(`평타 치명타 배율 +${declaration.basicCritMultAdd.toFixed(2)}배`);
+  if (declaration.basicCritChanceCap && declaration.basicCritChanceCap > 75)
+    chips.push(`평타 치명타 확률 상한 ${declaration.basicCritChanceCap}%`);
   return chips;
 }
 
 // ── MP 비용 루브릭 (P5 — 고정 절대값 모델) ──────────────────────────────────
-// 정적·직업무차별 mpCost(풀 대비 과소 → MP 가 죽은 자원) 를 "기준 풀 × % × 계열 × 차수" 로
-// 산정한 고정 절대값으로 대체. 풀 성장(INT)과 무관한 고정값 → 예측 가능(지속형 MP 자원: 전투 중
-// 재생 없이 치료소/물약 리필). 무료(mpCost 0 센티넬: 패시브·기본기·명상)·몬스터(monsterOnly)는
-// 그 literal 그대로. MP_REFERENCE_POOL·MP_BASE_PCT 가 튜닝 다이얼. 표시·차감 동일 산식 공유.
+// 정적·직업무차별 mpCost(풀 대비 과소 → MP 가 죽은 자원) 를 기준 풀·계열·차수로 보정하되,
+// 같은 그룹 안에서는 카탈로그 mpCost 의 스킬별 차이를 보존한다. 풀 성장(INT)과 무관한 고정값
+// → 예측 가능(지속형 MP 자원: 전투 중 재생 없이 치료소/물약 리필). 무료(mpCost 0 센티넬:
+// 패시브·기본기·명상)·몬스터(monsterOnly)는 그 literal 그대로. 표시·차감 동일 산식 공유.
 export const MP_REFERENCE_POOL = 600; // 산정 기준 풀(~중간 캐스터). 올리면 전체 비용↑·엔드 타이트.
 export const MP_BASE_PCT = 0.07;
 const MP_TIER_MULT: Record<1 | 2 | 3, number> = { 1: 1.0, 2: 1.4, 3: 1.8 };
-// 계열 = 직업 계보(tier1~4) 전체. 캐스터 ×1.3 — 큰 풀·마나가 핵심 자원.
-const MP_CASTER_JOBS = new Set([
-  "mage", "caster", "acolyte", "warder", "magus", "bishop", "sage", "elementalist", "archbishop",
-  "firemage", "frostmage", "lightningmage", "windmage", "earthmage",
-  "elementallord", "inscriber", "archmage", "primordialmage",
-]);
-// 무인 ×0.85 — 기 기반·작은 풀.
-const MP_MARTIAL_JOBS = new Set([
-  "martial", "boxer", "monk", "brawler", "warmonk", "sensei", "battlemonk",
-  "dragonfist", "adamantmonk", "celestialdragon", "vajraarhat",
-]);
-// 도적 ×0.7 — 물리/술수·MP 가벼움.
-const MP_ROGUE_JOBS = new Set([
-  "rogue", "assassin", "archer", "venomist", "shadow", "ranger", "venomancer",
-  "phantom", "chief", "venomlord", "marksman", "nightshade", "plaguebringer",
-  "heavenlybow", "blackmoon", "myriadvenom",
-]);
-// default 1.0 = 병사 계보(warrior/shieldman/squire/paladin/guardian/veteran/warden)
-//   + 하이브리드(templar/spellblade) + none·스타터(v2_skill_).
+// 병사 계열의 대표 액티브 비용. 그룹 기준 비용은 유지하면서 원본 비용의 편차만 더한다.
+const MP_TIER_REFERENCE_COST: Record<1 | 2 | 3, number> = {
+  1: 30,
+  2: 28,
+  3: 50,
+};
+type MpArchetype = "caster" | "martial" | "rogue" | "default";
+
+const MP_ARCHETYPE_MULT: Record<MpArchetype, number> = {
+  caster: 1.3,
+  martial: 0.85,
+  rogue: 0.7,
+  default: 1,
+};
+const MP_PRESSURE_MULT: Record<MpArchetype, number> = {
+  caster: 1.25,
+  martial: 1.5,
+  rogue: 1.5,
+  default: 1.5,
+};
+const MP_ARCHETYPE_CACHE = new Map<string, MpArchetype>();
+
+function jobDescendsFrom(
+  jobId: string,
+  rootJobId: "mage" | "martial" | "rogue",
+  visited = new Set<string>(),
+): boolean {
+  if (jobId === rootJobId) return true;
+  if (visited.has(jobId)) return false;
+  visited.add(jobId);
+
+  const job = V2_JOB_CATALOG[jobId];
+  if (!job) return false;
+  const prerequisiteIds = [
+    ...Object.keys(job.unlock.prereqs),
+    ...(job.unlock.extraConditions ?? []).flatMap((condition) =>
+      condition.type === "jobUnlocked" ? [condition.jobId] : [],
+    ),
+  ];
+  return prerequisiteIds.some((prerequisiteId) =>
+    jobDescendsFrom(prerequisiteId, rootJobId, visited),
+  );
+}
+
+function mpArchetype(id: string): MpArchetype {
+  const jobId = id.split("_")[1] ?? ""; // v2c_<직업>_… / v2_skill_… 접두에서 계열 추출
+  const cached = MP_ARCHETYPE_CACHE.get(jobId);
+  if (cached) return cached;
+
+  const archetype = jobDescendsFrom(jobId, "mage")
+    ? "caster"
+    : jobDescendsFrom(jobId, "martial")
+      ? "martial"
+      : jobDescendsFrom(jobId, "rogue")
+        ? "rogue"
+        : "default";
+  MP_ARCHETYPE_CACHE.set(jobId, archetype);
+  return archetype;
+}
+
 function mpArchetypeMult(id: string): number {
-  const job = id.split("_")[1] ?? ""; // v2c_<직업>_… / v2_skill_… 접두에서 계열 추출
-  if (MP_CASTER_JOBS.has(job)) return 1.3;
-  if (MP_MARTIAL_JOBS.has(job)) return 0.85;
-  if (MP_ROGUE_JOBS.has(job)) return 0.7;
-  return 1.0;
+  return MP_ARCHETYPE_MULT[mpArchetype(id)];
+}
+
+function mpPressureMult(id: string): number {
+  return MP_PRESSURE_MULT[mpArchetype(id)];
 }
 // 플레이어 학습 스킬 1회 시전 MP 비용(고정 절대값). 무료·몬스터 스킬은 그 literal 그대로.
 export function v2SkillMpCostValue(def: V2SkillDefinition): number {
   if (def.mpCost === 0 || def.monsterOnly) return def.mpCost;
-  if (typeof def.fixedMpCost === "number") return Math.max(1, Math.floor(def.fixedMpCost));
-  const pct = MP_BASE_PCT * mpArchetypeMult(def.id) * MP_TIER_MULT[def.tier];
-  return Math.max(1, Math.round(MP_REFERENCE_POOL * pct));
+  const baseCost = (() => {
+    if (typeof def.fixedMpCost === "number") {
+      return Math.max(1, Math.floor(def.fixedMpCost));
+    }
+    const pct = MP_BASE_PCT * mpArchetypeMult(def.id) * MP_TIER_MULT[def.tier];
+    const baseline = Math.round(MP_REFERENCE_POOL * pct);
+    const skillCostDelta = def.mpCost - MP_TIER_REFERENCE_COST[def.tier];
+    return Math.max(1, baseline + skillCostDelta);
+  })();
+  return Math.max(1, Math.round(baseCost * mpPressureMult(def.id)));
 }
 
 export function describeV2Skill(skill: V2SkillDefinition): string[] {
@@ -1726,14 +2585,60 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   );
   const chips = skill.passive
     ? describePassive(skill.passive)
-    : displayEffects.map((effect) =>
-        describeV2Effect(
-          effect,
-          skill.tier,
-          directDamageEffectCount,
-          skill.monsterOnly === true,
-        ),
+    : displayEffects.flatMap((effect) =>
+        effect.kind === "missingHpDamage"
+          ? describeMissingHpDamage(effect)
+          : [
+              describeV2Effect(
+                effect,
+                skill.tier,
+                directDamageEffectCount,
+                skill.monsterOnly === true,
+              ),
+            ],
       );
+  chips.push(...describeBerserkerLineageRules(skill));
+  chips.push(...describeBleedHunt(skill));
+  // 각 직접 피해 effect 는 전투 로그에서 별도 타격으로 처리된다. 피해 칩이 여러 개 나열되는 것만으로는
+  // 다단 여부가 잘 드러나지 않으므로 학습·장착·전투 패턴 툴팁 맨 앞에 기본 타수를 명시한다.
+  if (!skill.passive && directDamageEffectCount > 1) {
+    chips.unshift(`${directDamageEffectCount}회 공격`);
+  }
+  if (skill.provokeImmediateBasicAttacks) {
+    chips.push(
+      `도발: 상대가 즉시 시전자를 기본 공격 ${skill.provokeImmediateBasicAttacks}회`,
+    );
+  }
+  if (skill.ironWallReflect) {
+    chips.push(
+      `철벽 반사 ${skill.ironWallReflect.charges}회 · 해당 공격 피해 ${skill.ironWallReflect.damageReductionPct}% 감소 · 반사 원량: 방어력의 ${skill.ironWallReflect.reflectDefPct}%`,
+    );
+  }
+  if (skill.refreshTripleWards) chips.push("삼중 결계 전부 재전개");
+  if (skill.duelistDeclaration) {
+    chips.push(...describeDuelistDeclaration(skill.duelistDeclaration));
+  }
+  if (skill.skillCritChancePct) {
+    chips.push(`이 스킬 치명타 확률 +${skill.skillCritChancePct}%p`);
+  }
+  if (skill.accuracyBonusPct) {
+    chips.push(`이 스킬 적중도 +${skill.accuracyBonusPct}%`);
+  }
+  if (skill.tier7Mechanic) {
+    chips.push(...describeTier7Mechanic(skill.tier7Mechanic));
+  }
+  if (skill.consumesFortressImpact) chips.push("명중 시 충격 전부 소비");
+  if (skill.mutationWeightGain) {
+    chips.push(`중량 +${skill.mutationWeightGain} (최대 3)`);
+  }
+  if (skill.frostChillGain) {
+    chips.push(`적중 시 한기 +${skill.frostChillGain}`);
+  }
+  if (skill.mutationWeightConsumePctPerStack) {
+    chips.push(
+      `중량 전부 소모 · 스택당 최종 피해 +${skill.mutationWeightConsumePctPerStack}%`,
+    );
+  }
   if (
     skill.effects.some(
       (payoff) =>
@@ -1757,6 +2662,9 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   const mp = v2SkillMpCostValue(skill);
   if (mp > 0) chips.push(`MP ${mp}`);
   if (skill.oncePerBattle) chips.push("전투당 1회");
+  if (isLimitedRecoverySkillId(skill.id)) {
+    chips.push("원정당 1회 · 대련 효과 50%");
+  }
   if (skill.cooldown > 0) chips.push(`쿨 ${skill.cooldown}행동`);
   if (skill.element && skill.element !== "neutral") {
     chips.push(`속성 ${V2_ELEMENT_LABEL[skill.element]}`);
@@ -1805,7 +2713,8 @@ const MAX_SKILL_ORDER_INPUT = Object.keys(V2_SKILLS).length;
 export type V2SkillsState = {
   /** 학습 보유 스킬 id 목록 (영구, 중복 없음). */
   learned: V2SkillId[];
-  /** SP 로드아웃 스킬 id 목록 (배열 순서 = 자동 발동 우선순위, learned 의 부분집합). */
+  /** SP 로드아웃 스킬 id 목록 (배열 순서 = 자동 발동 우선순위, learned 의 부분집합).
+   *  배운 생활 패시브는 파싱 시 항상 포함된다. */
   equipped: V2SkillId[];
   /** 학습 라이브러리 표시 순서. 전투/소유 판정과 무관한 UI 정렬값. */
   skillOrder?: V2SkillId[];
@@ -1888,7 +2797,8 @@ export function normalizeFavoriteSkills(
   return out;
 }
 
-// 손상/누락 raw 도 안전하게 정규화. learned 의 부분집합인 equipped 만 유지한다.
+// 손상/누락 raw 도 안전하게 정규화. learned 의 부분집합인 equipped 만 유지하고, 배운 생활
+// 패시브는 누락됐더라도 항상 추가한다.
 // SP 예산 클램프는 proficiency/character 컨텍스트가 있는 라우트에서 sanitizeLoadout 으로 처리한다.
 export function parseV2SkillsState(raw: unknown): V2SkillsState {
   if (!raw || typeof raw !== "object") return emptyV2SkillsState();
@@ -1913,6 +2823,10 @@ export function parseV2SkillsState(raw: unknown): V2SkillsState {
     equippedSet.add(id);
     equipped.push(id as V2SkillId);
   }
+  const equippedWithLifestyle = includeLearnedLifestyleSkills(
+    equipped,
+    learned,
+  );
   // 전투 패턴 — 있으면 검증 파싱(블록 단위 drop), 없으면 미설정(undefined → 엔진 기본 패턴).
   const rawPattern = (raw as { pattern?: unknown }).pattern;
   const pattern =
@@ -1941,8 +2855,8 @@ export function parseV2SkillsState(raw: unknown): V2SkillsState {
     learned,
   );
   let base: V2SkillsState = pattern
-    ? { learned, equipped, pattern }
-    : { learned, equipped };
+    ? { learned, equipped: equippedWithLifestyle, pattern }
+    : { learned, equipped: equippedWithLifestyle };
   if (skillOrder.length > 0) base = { ...base, skillOrder };
   if (favoriteSkills.length > 0) base = { ...base, favoriteSkills };
   if (presets.length > 0) base = { ...base, presets };
@@ -1990,6 +2904,7 @@ const DAMAGE_EFFECT_KINDS = new Set([
   "damage",
   "dot",
   "hpCostDamage",
+  "missingHpDamage",
   "healToDamage",
   "executeDamage",
   "stackPayoffDamage",
@@ -2000,6 +2915,17 @@ export function smartDefaultConditionForSkill(
   def: V2SkillDefinition,
 ): V2CombatCondition {
   const effs = def.effects;
+  if (def.provokeImmediateBasicAttacks) {
+    return { kind: "always" };
+  }
+  if (def.ironWallReflect) {
+    return {
+      kind: "self_resource",
+      resource: "ironWallReflect",
+      op: "none",
+      value: 0,
+    };
+  }
   // 기습(ambushDamage) — 풀피 적에게만 큰 딜(처형의 역). 기본딜이 낮아 깎인 적엔 평타 이하라, 기본
   //   조건을 "첫 턴만(turn≤1)"으로 깔아 자동전투가 오프너 1회만 쏘게 한다("딱 첫 턴만"). 더 정교하게
   //   쓰려면 패턴 편집(예: 적 풀피일 때 재발동) — 패턴 사용 유도. DAMAGE_EFFECT_KINDS 의 "항상"보다 먼저.
@@ -2070,23 +2996,117 @@ export function smartDefaultConditionForSkill(
   return { kind: "turn", op: "atMost", value: 1 };
 }
 
-// 장착 스킬을 스마트 기본 조건으로 묶은 패턴(슬롯 순서 = 우선순위 유지). 미설정 캐릭의 폴백.
-//   카탈로그에 없는 id 는 안전하게 "항상". 엔진·에디터·PvP 가 공유(단일 소스).
+function isOncePerBattleEvadeOpener(skillId: string): boolean {
+  const def = V2_SKILLS[skillId as V2SkillId];
+  return (
+    def?.oncePerBattle === true &&
+    def.effects.some((effect) => effect.kind === "guaranteedEvade")
+  );
+}
+
+function highestEquippedDuelistDeclaration(equipped: readonly string[]): string | null {
+  let highest: string | null = null;
+  let highestRank = 0;
+  for (const skillId of equipped) {
+    const rank = V2_SKILLS[skillId as V2SkillId]?.duelistDeclaration?.rank ?? 0;
+    if (rank > highestRank) {
+      highest = skillId;
+      highestRank = rank;
+    }
+  }
+  return highest;
+}
+
+function withoutLowerDuelistDeclarations(
+  equipped: readonly string[],
+  pattern: V2CombatPattern,
+): V2CombatPattern {
+  const highest = highestEquippedDuelistDeclaration(equipped);
+  if (!highest) return pattern;
+  return {
+    blocks: pattern.blocks.filter((block) => {
+      if (block.action.kind !== "skill") return true;
+      const declaration = V2_SKILLS[block.action.skillId as V2SkillId]?.duelistDeclaration;
+      return !declaration || block.action.skillId === highest;
+    }),
+  };
+}
+
+// 장착 스킬을 스마트 기본 조건으로 묶은 패턴. 미설정 캐릭의 폴백.
+//   전투당 1회 생존 오프너(그림자 도약)는 "항상" 공격보다 먼저 독립 시전되어야 하므로 최우선에
+//   둔다. 그 뒤 카탈로그가 명시한 기본 우선순위를 적용하고, 메타데이터가 없는 나머지는 슬롯
+//   순서를 유지한다. 카탈로그에 없는 id 는 안전하게 "항상".
+//   엔진·에디터·PvP 가 공유(단일 소스).
 export function smartDefaultPatternFromEquipped(
   equipped: readonly string[],
 ): V2CombatPattern {
+  const activeSkillIds = equipped.filter(
+    (skillId) => {
+      const definition = V2_SKILLS[skillId as V2SkillId];
+      if (definition?.category === "passive") return false;
+      if (!definition?.duelistDeclaration) return true;
+      return skillId === highestEquippedDuelistDeclaration(equipped);
+    },
+  );
+  const openerSkillIds = activeSkillIds.filter(isOncePerBattleEvadeOpener);
+  const remainingSkillIds = activeSkillIds
+    .filter((skillId) => !isOncePerBattleEvadeOpener(skillId))
+    .map((skillId, index) => ({ skillId, index }))
+    .sort((left, right) => {
+      const leftPriority =
+        V2_SKILLS[left.skillId as V2SkillId]?.defaultPattern?.priority;
+      const rightPriority =
+        V2_SKILLS[right.skillId as V2SkillId]?.defaultPattern?.priority;
+      if (leftPriority !== undefined && rightPriority !== undefined) {
+        return rightPriority - leftPriority || left.index - right.index;
+      }
+      if (leftPriority !== undefined) return -1;
+      if (rightPriority !== undefined) return 1;
+      return left.index - right.index;
+    })
+    .map(({ skillId }) => skillId);
+  const orderedSkillIds = [...openerSkillIds, ...remainingSkillIds];
+
   return {
-    blocks: equipped
-      // 패시브 스킬(category "passive")은 캐스트 대상 아님(상시 효과) — 자동 패턴에서 제외.
-      .filter((skillId) => V2_SKILLS[skillId as V2SkillId]?.category !== "passive")
-      .map((skillId) => {
-        const def = V2_SKILLS[skillId as V2SkillId];
-        return {
-          condition: def
-            ? smartDefaultConditionForSkill(def)
-            : ({ kind: "always" } as V2CombatCondition),
-          action: { kind: "skill" as const, skillId },
-        };
-      }),
+    blocks: orderedSkillIds.map((skillId) => {
+      const def = V2_SKILLS[skillId as V2SkillId];
+      return {
+        condition: def?.duelistDeclaration
+          ? ({ kind: "self_buff_pct", target: "duelistDeclaration", active: false } as const)
+          : def
+            ? (def.defaultPattern?.condition ?? smartDefaultConditionForSkill(def))
+          : ({ kind: "always" } as V2CombatCondition),
+        action: { kind: "skill" as const, skillId },
+      };
+    }),
+  };
+}
+
+// 저장된 사용자 패턴은 그대로 보존하되, 장착한 전투당 1회 확정 회피 오프너가 누락됐거나
+// 후순위에 있으면 전투용 패턴의 첫 블록으로 정규화한다. 장착만 해도 적용된다는 스킬 계약을
+// 사용자 패턴이 우연히 무효화하지 않게 하며, 나머지 사용자 블록의 조건과 순서는 유지한다.
+export function effectiveCombatPatternFromEquipped(
+  equipped: readonly string[],
+  savedPattern: V2CombatPattern | null | undefined,
+): V2CombatPattern {
+  const basePattern = withoutLowerDuelistDeclarations(equipped,
+    savedPattern && savedPattern.blocks.length > 0
+      ? savedPattern
+      : smartDefaultPatternFromEquipped(equipped));
+  const openerSkillId = equipped.find(isOncePerBattleEvadeOpener);
+  if (!openerSkillId) return basePattern;
+
+  return {
+    blocks: [
+      {
+        condition: { kind: "turn", op: "atMost", value: 1 },
+        action: { kind: "skill", skillId: openerSkillId },
+      },
+      ...basePattern.blocks.filter(
+        (block) =>
+          block.action.kind !== "skill" ||
+          block.action.skillId !== openerSkillId,
+      ),
+    ],
   };
 }

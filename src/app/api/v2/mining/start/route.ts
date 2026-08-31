@@ -28,6 +28,7 @@ import {
   miningFailureRate,
   miningProgressionView,
 } from "@/adventure/v2/miningProgression";
+import { miningPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
 import {
   activeAutoGatheringActivity,
   lockAutoGatheringStatesForUpdate,
@@ -94,6 +95,7 @@ export async function POST(req: Request) {
 
   const log = parseMiningLog(logRaw);
   const progression = miningProgressionView(log.successes, log.xp);
+  const levelBonuses = miningPost50Bonuses(progression.level);
   const bonuses = equippedMiningBonuses(parseV2SkillsState(skillsRaw).equipped);
   const workshop = parseLifeWorkshopState(workshopRaw);
   const toolTier = workshop.tools.mining;
@@ -107,6 +109,7 @@ export async function POST(req: Request) {
     bonuses.bonusOreChancePct +
       LIFE_TOOL_BONUS_MATERIAL_PCT[toolTier] +
       lifeGatheringBonusPct("mining", workshop, progression.level) +
+      levelBonuses.bonusOreChancePct +
       (aidApplies ? aidSpec?.bonusPct ?? 0 : 0),
   );
   const baseAdjustedDurationMs = miningDurationWithPassive(

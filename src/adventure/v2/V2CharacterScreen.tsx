@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { fetchGameState } from "./fetchGameState";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { StatsPanel } from "@/adventure/character/StatsPanel";
 import { V2CharacterCard } from "./V2CharacterCard";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
-import { pveDodgeChance } from "@/adventure/data/v2/v2CombatConstants";
-import { floorAccuracy } from "@/adventure/data/v2/dungeonLadder";
 import {
   V2_STAT_KEYS,
   V2_STAT_LABELS,
@@ -21,17 +20,23 @@ import type {
 import { V2CharacterBasics } from "./V2CharacterBasics";
 import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 import type {
+  ProfileMasteryTrophyDisplay,
   ProfileShowcaseSelection,
   ProfileShowcaseSlots,
 } from "@/adventure/profile/profileShowcase";
 import type { LifeSummary } from "./lifeSummary";
 import { LifeMasterySummaryCard } from "./LifeMasterySummaryCard";
+import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
+import type { BuildAlignmentAdvisory } from "@/adventure/data/v2/buildAlignment";
+import { FriendlySparringProfileLink } from "@/adventure/v2/FriendlySparringProfileLink";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 
 // v2 캐릭터 "내 정보" 페이지 — 캐릭터 카드(장비 3슬롯 인라인 포함) + StatsPanel.
 // 장착/해제는 인벤토리에서.
 
 type StateResponse = {
   ok?: boolean;
+  isSelf?: boolean;
   character?: {
     name: string;
     gender?: string;
@@ -48,6 +53,7 @@ type StateResponse = {
   cosmetics?: MuseunCosmeticAppearance;
   profileShowcase?: ProfileShowcaseSelection | null;
   profileShowcaseSlots?: ProfileShowcaseSlots;
+  profileMasteryTrophies?: ProfileMasteryTrophyDisplay[];
   profileBadgeStandOwned?: boolean;
   profileBadgeStandVisible?: boolean;
   stats?: {
@@ -60,19 +66,25 @@ type StateResponse = {
     spd: number;
     magicAtk?: number;
     magicDef?: number;
+    healMult?: number;
+    magicBarrierMax?: number;
+    magicBarrierAbsorbPct?: number;
+    magicBarrierEfficiencyPct?: number;
     evasionPct?: number;
-    evaRating?: number; // 회피 대결형 Slice 1b — 캡 없는 raw. 현재 깊이 몹명중과 대결해 실제 dodge% 표시.
+    evaRating?: number; // 회피도. StatsPanel에서 원본 수치로 표시한다.
     accuracyPct?: number;
-    accRating?: number; // 회피 대결형 Slice 2 — 캡 없는 명중레이팅. "명중" 표시에 사용(StatsPanel 폴백).
+    accRating?: number; // 적중도. StatsPanel에서 원본 수치로 표시한다.
     critChancePct?: number;
     critMult?: number;
     skillCritOverflow?: boolean;
+    skillCritDmgPct?: number;
+    equipmentMagicSkillCritDmgPct?: number;
     // 콘텐츠 파워(합성 전투력) — 기본 정보 카드 헤드라인.
     power?: number;
   } | null;
+  buildAdvisory?: BuildAlignmentAdvisory | null;
   // 누적 전투 횟수(전적) — 기본 정보 카드.
   battleCount?: number;
-  frontierDepth?: number; // 현재 사냥터 최대 깊이 — 회피 대결형 dodge% 표시 기준(몹 명중).
   codex?: { discovered: number; total: number; discoveredIds: string[] };
   proficiency?: {
     // 각 스탯 한계치(cap) — 내 정보 능력치 "값(한계치)" 표기용. 수행 화면과 동일 스케일.
@@ -86,6 +98,22 @@ type StateResponse = {
       cultivations?: number;
     };
     groups?: Record<string, { tier?: number }>;
+    lifeResourceGrowth?: {
+      mode: "legacy" | "rolled";
+      appliesAfterRejob: boolean;
+      currentRanges: {
+        baseHp: { min: number; max: number };
+        baseMp: { min: number; max: number };
+        hpPerLevel: { min: number; max: number };
+        mpPerLevel: { min: number; max: number };
+      };
+      nextRejobRanges: {
+        baseHp: { min: number; max: number };
+        baseMp: { min: number; max: number };
+        hpPerLevel: { min: number; max: number };
+        mpPerLevel: { min: number; max: number };
+      } | null;
+    };
   };
   jobsV2?: {
     currentJobLevelCap?: number;
@@ -157,7 +185,7 @@ export function V2CharacterScreen({
         return;
       }
       const [stateRes, equipRes, lifeRes] = await Promise.all([
-        fetch("/api/v2/me/state").then((r) => (r.ok ? r.json() : null)),
+        fetchGameState().then((r) => (r.ok ? r.json() : null)),
         fetch("/api/v2/me/equipment").then((r) => (r.ok ? r.json() : null)),
         fetch("/api/v2/me/life-summary")
           .then((r) => (r.ok ? r.json() : null))
@@ -215,6 +243,7 @@ export function V2CharacterScreen({
           championshipBadge={state?.cosmetics?.championshipBadge ?? null}
           profileShowcase={state?.profileShowcase ?? null}
           profileShowcaseSlots={state?.profileShowcaseSlots}
+          profileMasteryTrophies={state?.profileMasteryTrophies}
           profileBadgeStandOwned={state?.profileBadgeStandOwned === true}
           profileBadgeStandVisible={state?.profileBadgeStandVisible !== false}
           showcaseEditable={!playerName}
@@ -235,12 +264,35 @@ export function V2CharacterScreen({
         </Card>
       )}
 
+      {playerName && character ? (
+        <div className="space-y-2">
+          <FriendlySparringProfileLink
+            name={character.name}
+            isSelf={state?.isSelf === true}
+          />
+          <Card padding="sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                부적절한 이름이나 프로필 이미지를 발견하셨나요?
+              </p>
+              <ContentSafetyActions
+                sourceType="profile"
+                sourceId={character.name}
+                targetName={character.name}
+                onBlocked={() => onBack?.()}
+              />
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
       {character && (
         <V2CharacterBasics
           guildName={guild?.name}
           points={state?.proficiency?.current?.points ?? 0}
           battleCount={state?.battleCount ?? 0}
           power={combat?.power ?? 0}
+          buildAdvisory={playerName ? null : state?.buildAdvisory}
         />
       )}
 
@@ -315,27 +367,58 @@ export function V2CharacterScreen({
         <Card padding="md">
           <StatsPanel
             stats={stats.base}
+            totalStats={stats.total}
             caps={state?.proficiency?.caps}
-            // 회피 대결형 Slice 1b — "회피"는 현재 깊이 몹 명중과 겨룬 실제 PvE dodge% 로 표시
-            //   (캡 evasionPct 가 아니라 evaRating vs floorAccuracy(현재깊이) 대결값).
-            combat={
-              combat.evaRating != null
-                ? {
-                    ...combat,
-                    evasionPct: (() => {
-                      const depth = state?.frontierDepth ?? 2;
-                      return pveDodgeChance(
-                        combat.evaRating,
-                        floorAccuracy(depth),
-                      );
-                    })(),
-                  }
-                : combat
-            }
+            combat={combat}
             statKeys={V2_STAT_KEYS}
             statLabels={V2_STAT_LABELS}
             statDescriptions={playerName ? undefined : V2_STAT_DESCRIPTIONS}
           />
+          {state?.proficiency?.lifeResourceGrowth && (
+            <div className={`${SURFACE_INSET} mt-4 p-3`}>
+              <div className="text-xs font-semibold">재전직 자원 성장</div>
+              {state.proficiency.lifeResourceGrowth.mode === "rolled" ? (
+                <div className="mt-1 space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
+                  <p>
+                    현재 레벨업 범위: HP +
+                    {state.proficiency.lifeResourceGrowth.currentRanges.hpPerLevel.min}
+                    ~
+                    {state.proficiency.lifeResourceGrowth.currentRanges.hpPerLevel.max}
+                    {" · "}MP +
+                    {state.proficiency.lifeResourceGrowth.currentRanges.mpPerLevel.min}
+                    ~
+                    {state.proficiency.lifeResourceGrowth.currentRanges.mpPerLevel.max}
+                  </p>
+                  {state.proficiency.lifeResourceGrowth.nextRejobRanges && (
+                    <p>
+                      다음 전투 재전직부터: HP +
+                      {state.proficiency.lifeResourceGrowth.nextRejobRanges.hpPerLevel.min}
+                      ~
+                      {state.proficiency.lifeResourceGrowth.nextRejobRanges.hpPerLevel.max}
+                      {" · "}MP +
+                      {state.proficiency.lifeResourceGrowth.nextRejobRanges.mpPerLevel.min}
+                      ~
+                      {state.proficiency.lifeResourceGrowth.nextRejobRanges.mpPerLevel.max}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-1 space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
+                  <p>현재 캐릭터는 기존 HP·MP 성장 공식을 사용합니다.</p>
+                  <p>
+                    다음 Lv.100 전투 재전직부터: HP +
+                    {state.proficiency.lifeResourceGrowth.currentRanges.hpPerLevel.min}
+                    ~
+                    {state.proficiency.lifeResourceGrowth.currentRanges.hpPerLevel.max}
+                    {" · "}MP +
+                    {state.proficiency.lifeResourceGrowth.currentRanges.mpPerLevel.min}
+                    ~
+                    {state.proficiency.lifeResourceGrowth.currentRanges.mpPerLevel.max}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </Card>
       )}
 

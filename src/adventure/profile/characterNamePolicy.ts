@@ -1,5 +1,5 @@
 export const CHARACTER_NAME_MIN = 1;
-export const CHARACTER_NAME_MAX = 16;
+export const CHARACTER_NAME_MAX = 9;
 
 export type CharacterNameInvalidReason =
   | "length"
@@ -14,7 +14,7 @@ const CHARACTER_NAME_PATTERN = /^[가-힣A-Za-z0-9]+$/;
 const CHARACTER_NAME_RESERVED_WORDS = ["운영자", "관리자", "admin", "system"];
 
 export const CHARACTER_NAME_RULE_TEXT =
-  "1~16자, 한글·영문·숫자만 사용할 수 있습니다.";
+  "1~9자, 한글·영문·숫자만 사용할 수 있습니다.";
 
 export function validateCharacterName(raw: unknown): CharacterNameValidation {
   const name =

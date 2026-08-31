@@ -5,19 +5,19 @@
 // 모두 float — 합산은 derive 내부에서 누적 후 최종 floor 한 번만.
 
 export const MP_PER_INT = 2; // 옛 10. 5×INT × 2 = 10 MP (동등)
-export const HP_PER_VIT = 1; // 옛 5.  5×VIT × 1 = 5 HP (동등)
+export const HP_PER_STR = 1;
+export const HP_PER_VIT = 3;
 
-export const DEF_PER_VIT = 0.1; // 옛 0.5. 5×VIT × 0.1 = 0.5 DEF (동등)
+export const DEF_PER_VIT = 0.35;
 // 초반부 템포 완화(2026-06-28): LUK 의 치명 도달 속도가 장비 flat crit·패시브와 합쳐져
 // 초반부터 높게 체감되어 0.15 → 0.12 로 소폭 하향. 치명피해(CRIT_DMG_PER_LUK)는 유지해
 // LUK 빌드 정체성은 확률보다 누적 투자 보상 쪽에 남긴다.
 export const CRIT_PER_LUK = 0.12;
-export const ATK_PER_STR = 0.15; // 무기 위력 ×0.8 하향과 함께 스탯 비중 상대적↑(계수는 불변 — 올리면 엔드 폭증).
-// VIT→atk(DEX 재설계 lever-2·docs §0-C) — 순수/헤비 VIT 도 천천히 솔로 클리어 가능하게. lever-1(비대칭
-//   감산)으로 생존은 살았으나 VIT 는 공격력 0 라 못 죽였음(sim). STR 0.15 의 ⅔ = 탱의 보조 딜(천천히 범·
-//   DEX #1 불변). 2026-06-21 0.10→0.16 상향(sim: VIT d50 wr ~45%→~90% = 무리 패리티·DEX 100 불변·
-//   부수피해 0). docs/v2-dex-rebalance-plan.md. 더 올리면 광역 물리버프 과함(d50 과조정 주의).
-export const VIT_ATK_COEF = 0.16;
+export const ATK_PER_STR = 0.7;
+// VIT→atk(DEX 재설계 lever-2·docs §0-C) — 순수/헤비 VIT 도 천천히 솔로 클리어 가능하게 하는 보조 딜.
+// 과거 0.16은 HP·DEF까지 함께 붙은 VIT가 물리 공격 투자를 대체했다. 현재 값은 STR 0.7의
+// 약 14%로 제한해 느린 탱커의 처치력을 돕되 주 공격 스탯을 대신하지 않는다.
+export const VIT_ATK_COEF = 0.1;
 // 도적 직군 패시브 "예기" — 공격력에 DEX×계수 가산(도적 한정). 죽은 축 DEX 부활.
 // 스킬 재설계(docs/v2-skill-system-plan.md). 🔑 v2c_rogue_finesse(예기) passive.atkPerDexCoef 와 동기.
 export const ROGUE_ATK_PER_DEX = 0.08;
@@ -37,27 +37,23 @@ export const SPD_PER_DEX = 0.95;
 //   weight 다이얼은 페널티 계수 그대로 두고, 무게 자체를 effectiveStats 에서 슬롯별 스케일
 //   (일반 ×2·무기 ×4)로 키워 SPD 가치 대비 너무 미미하던 무게 트레이드오프를 강화(2026-06-20, 오너).
 //   "표시 무게 1 = 속도 −2" 직관은 유지. 무게는 전투력 점수 미산입이라 순수 속도 트레이드오프.
-//   2.0→0.5 (2026-06-25, 오너·sim): ATB 속도곡선 ~6배 전환과 함께 중갑 탱(STR/VIT)이 속도열세로
+//   2.0→0.5 (2026-06-25, 오너·sim): ATB 속도곡선 전환과 함께 중갑 탱(STR/VIT)이 속도열세로
 //   전멸하던 걸 막기 위해 무게 속도페널티를 1/4 로 완화 — 6배에서 STR 67%·VIT 58% 생존(sim 검증).
 export const WEIGHT_SPD_PENALTY = 0.5;
-// 최소 데미지(데미지 하한) — 힘·지능 major, 활력 minor.
-export const MIN_DMG_PER_STR = 0.1;
-export const MIN_DMG_PER_INT = 0.05;
-export const MIN_DMG_PER_VIT = 0.03;
-// 명중 — 힘·지능·정신 minor (민첩은 ACCURACY_PCT_PER_DEX). 회피 — 행운 minor (민첩은 EVA_PER_DEX).
-//   지능(ACC_PER_INT)=마법사 명중 바닥: 명중 기여 스탯이 없던 순수 INT 빌드가 회피·기본미스를
-//   홀로 떠안던 문제 해소(STR 과 대칭). 마법도 빗나가지 않게.
-export const ACC_PER_STR = 0.02;
-export const ACC_PER_INT = 0.02; // 마법사 명중 바닥(STR 대칭).
-export const ACC_PER_SPI = 0.015;
-// 회피 대결형 Slice 2 — 플레이어 기본 명중레이팅(accRating 에만 가산, 표시 accuracyPct 는 제외).
-//   대결식 dodgeChance(eva, acc) 는 공격자 명중 0 에서 회피몹/PvP탱이 75% 로 퇴화하는데, 플레이어
-//   명중은 minor 스탯(보통 accR 2~5)이라 회피몹(eva 15~25)이 거의 안 맞게 됨. Slice 1 의 몹
-//   floorAccuracy(MOB_ACC_BASE) 대칭 — 플레이어에 기본 명중을 줘 회피몹 미스를 옛 모델(10+eva−acc)에
-//   맞추고(투자0 = eva20 미스 30% 로 거의 동일) PvP 무적탱도 추가 완화(eva60탱 65%→~39% 미스).
-//   일반몹(eva0)은 dodgeChance=0 이라 불변(10% 플랫). 다이얼 — docs/v2-evasion-rating-plan.md §Slice2.
-export const ACC_BASE_RATING = 7;
-export const EVA_PER_LUK = 0.08;
+// 직접 피해 스킬 최소 데미지 — 물리는 힘 major+활력 minor, 마법은 지능 major+정신 minor.
+export const MIN_DMG_PER_STR = 0.15;
+export const MIN_DMG_PER_INT = 0.15;
+export const MIN_DMG_PER_VIT = 0.05;
+export const MIN_DMG_PER_SPI = 0.08;
+// 적중도 — 힘·지능·정신 minor (민첩은 ACCURACY_PCT_PER_DEX).
+// 회피도 — 행운 minor (민첩은 EVA_PER_DEX). 적중도는 상대의 회피 피해 경감을 낮춘다.
+export const ACC_PER_STR = 0.1;
+export const ACC_PER_INT = 0.1;
+export const ACC_PER_SPI = 0.075;
+// 플레이어 기본 적중도. 무투자 캐릭터도 민첩형 몬스터의 회피 경감을 일부 상쇄하며,
+// 이후 스탯·장비·적중도 증가 패시브가 이 바닥값 위에 누적된다.
+export const ACC_BASE_RATING = 25;
+export const EVA_PER_LUK = 0.25;
 // 치명타 피해 — 힘 minor (행운은 CRIT_DMG_PER_LUK major).
 export const CRIT_DMG_PER_STR = 0.002;
 // 마법 방어력 — 정신 major + 지능 minor. 마법 데미지 경감.
@@ -103,28 +99,53 @@ export const CRIT_MULT_SCALE = 3.0;
 // 프리미엄(메테오 2.8 등)으로 유지. 알려진 공백: Lv18 전 마법 공격 스킬 부재(상수 무관, 후속).
 // 2026-06-21 0.15→0.22: DEX 독주 재밸런스에서 INT 솔로 viability 부양(sim: INT d50 wr 62%→95%).
 //   STR 대칭(0.15)을 의도적으로 깸 — 마법 버스트축 회복. docs/v2-dex-rebalance-plan.md.
-export const MAGIC_ATK_PER_INT = 0.22;
-export const EVA_PER_DEX = 0.1; // 옛 0.5. 5×DEX × 0.1 = 0.5% (동등)
-export const ACCURACY_PCT_PER_DEX = 0.05; // 옛 0.25. 5×DEX × 0.05 = 0.25%p (동등)
-// 명중 상한 — 명중이 스탯(STR·INT·SPI·DEX) 비례라 후반엔 수백까지 치솟아 몬스터 회피를
-//   무조건 상쇄했다(회피축 무력화). cap 으로 제한 → 명중을 cap 까지 채우면 회피를 상쇄,
-//   덜 채운/저명중 빌드는 회피만큼 빗나감 → 회피가 유효한 축이 된다. sim 캘리브 대상.
+// 2026-08-22 0.35→0.7: 후반 무기 위력에 묻히는 주스탯 투자 체감을 높인다. 순수 마법
+// 스킬은 combatPattern의 직접 INT 계수 보정으로 기준 피해를 보존한다.
+export const MAGIC_ATK_PER_INT = 0.7;
+// 정신은 지능 이하에서도 마법 공격을 보조하고, 지능을 초과한 부분은 더 높은 비율로 전환한다.
+// 초과 구간의 한계 계수는 0.1+0.6=0.7로 기존과 같아 순수 SPI 빌드의 성장 기울기를 보존한다.
+// 기본 공격 전환은 derive에서 이 보너스를 포함한 마공이 물공보다 높을 때만 켜진다.
+export const MAGIC_ATK_PER_SPI = 0.1;
+export const MAGIC_ATK_PER_EXCESS_SPI = 0.6;
+export const EVA_PER_DEX = 0.5;
+export const ACCURACY_PCT_PER_DEX = 0.35;
+// 레거시 표시용 상한. 실제 전투는 캡 없는 accRating을 사용한다.
 export const ACCURACY_PCT_CAP = 35;
-// 궁사 활 패시브 — 적중 임계(=base miss 10, 명중 이만큼이면 0-회피 적중 100%) 초과 명중을 공격력
-//   으로 변환. 활 한정. cap(35)은 hit 에만 적용 — 궁사는 명중 특화라 명중을 hit+딜 양쪽으로 활용
-//   (의도된 이중 활용; 다른 빌드는 hit 한 번만). coef·임계는 sim 캘리브 대상.
-export const BOW_HIT_THRESHOLD = 10;
-export const BOW_ACCURACY_TO_ATK_COEF = 3;
-// 5차 물리 캡스톤 — 명궁 "초월 사격": 행동빈도 포화 데드존(combatTimeline: spd≳292 부터 actionRate
-//   거의 불변) 초과 속도를 점근 곡선으로 공격력 환원. 활 명중→딜의 속도판. 점근=죽은 투자 없음.
-export const SPD_OVERFLOW_THRESHOLD = 292;
-export const SPD_OVERFLOW_SCALE = 200; // 점근 완만도(클수록 천천히 상한 접근).
+// 궁사 활 패시브 — 임계치를 넘긴 적중도를 공격력으로 일부 변환한다.
+export const BOW_HIT_THRESHOLD = 50;
+export const BOW_ACCURACY_TO_ATK_COEF = 0.45;
+// 천궁 속도 전환 — 전체 SPD를 공격력으로 환원하되, 이 값에서 최대 보너스의 절반에 도달한다.
+export const SPD_TO_ATK_HALF_SATURATION = 500;
 
-// v2 SPD → 다중공격. SPD 1 당 +0.5%p 추가공격 확률 (옛 2 — 전 빌드 타수 과다로 0.5 하향).
-// SPD = DEX×2 라 추가확률 = DEX×1 %p. DEX 100 → 100%(확정 +1타) · DEX 200 → 200%(확정 +2타).
-// 다중공격을 DEX 특화 빌드의 강점으로 — 일반 빌드(DEX 15~60)는 1~1.6타.
-// rollAttackCount(combatShared) 가 100%↑를 정수부 확정 + 소수부 확률로 처리. cap 없음.
+export function speedToAttackBonusPct(spd: number, maxPct: number): number {
+  const safeSpd = Math.max(0, Number(spd) || 0);
+  const safeMaxPct = Math.max(0, Number(maxPct) || 0);
+  return safeMaxPct * (safeSpd / (safeSpd + SPD_TO_ATK_HALF_SATURATION));
+}
+
+// v2 SPD → 레거시 다중공격 원시 확률. 실제 반환값은 아래 점감 곡선을 거친다. 라이브 ATB는
+// extraAttackChancePct를 끄고 combatTimeline의 행동 빈도 곡선만 사용한다.
 export const EXTRA_ATTACK_PCT_PER_SPD = 0.5;
+
+// 레거시/비-ATB 전투의 속도 기반 추가 공격 점감. 직업·스킬로 얻는 고정 추가 공격 확률은
+// 이 곡선 뒤에 더해 그대로 보존하고, 스탯 SPD에서 나온 부분만 100% 이후 완만해진다.
+export const EXTRA_ATTACK_SOFTCAP_START_PCT = 100;
+export const EXTRA_ATTACK_SOFTCAP_BONUS_PCT = 100;
+export const EXTRA_ATTACK_SOFTCAP_SCALE_PCT = 200;
+
+export function diminishingExtraAttackChancePct(rawChancePct: number): number {
+  const raw = Math.max(0, Number(rawChancePct) || 0);
+  if (raw <= EXTRA_ATTACK_SOFTCAP_START_PCT) return raw;
+  return (
+    EXTRA_ATTACK_SOFTCAP_START_PCT +
+    EXTRA_ATTACK_SOFTCAP_BONUS_PCT *
+      (1 -
+        Math.exp(
+          -(raw - EXTRA_ATTACK_SOFTCAP_START_PCT) /
+            EXTRA_ATTACK_SOFTCAP_SCALE_PCT,
+        ))
+  );
+}
 
 // 초반 난이도 완화 — 4대 전투 스탯(공격력·마법공격력·방어력·마법방어력)에 더하는 플랫 보너스.
 // 스탯이 작은 초반엔 비중이 커 체감 큰 완화, 후반엔 미미(Lv100 atk~75 대비 +5). 플레이어·아레나

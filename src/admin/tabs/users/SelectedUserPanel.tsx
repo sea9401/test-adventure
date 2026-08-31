@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { Button, Field, NumberInput, TextInput } from "../../ui/Field";
-import { initialCharacterState } from "@/adventure/character/useCharacterState";
-import type { CharacterDynamicState } from "@/adventure/character/useCharacterState";
+import {
+  initialCharacterState,
+  type CharacterDynamicState,
+} from "@/adventure/character/state";
 import { maxHpForLevel } from "@/adventure/character/defaults";
 import { MAX_LEVEL, requiredExpToNext } from "@/lib/leveling";
 import type { Profile } from "@/adventure/profile/useProfile";
@@ -18,7 +21,10 @@ import { SanctionsSection } from "./SanctionsSection";
 import { V2GrantSection } from "./V2GrantSection";
 import { CharacterPreviewSection } from "./CharacterPreviewSection";
 import { UserImpersonationSection } from "./UserImpersonationSection";
+import { ActivityVerificationTestSection } from "./ActivityVerificationTestSection";
+import { ReviewOpPresetSection } from "./ReviewOpPresetSection";
 import { Warning } from "@phosphor-icons/react";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 
 export function SelectedUserPanel({
   user,
@@ -31,6 +37,13 @@ export function SelectedUserPanel({
   onGrantV2,
   onResetCharacter,
   onResetMasteryTowerDaily,
+  onResetStormExpeditionDailyAttempts,
+  canResetStormExpedition,
+  canTestActivityVerification,
+  canApplyReviewOpPreset,
+  reviewOpPresetApplying,
+  onApplyReviewOpPreset,
+  stormExpeditionResetting,
   onReload,
 }: {
   user: AdminUserRow;
@@ -43,6 +56,13 @@ export function SelectedUserPanel({
   onGrantV2: (payload: V2GrantPayload) => void | Promise<void>;
   onResetCharacter: () => void | Promise<void>;
   onResetMasteryTowerDaily: () => void | Promise<void>;
+  onResetStormExpeditionDailyAttempts: () => void | Promise<void>;
+  canResetStormExpedition: boolean;
+  canTestActivityVerification: boolean;
+  canApplyReviewOpPreset: boolean;
+  reviewOpPresetApplying: boolean;
+  onApplyReviewOpPreset: () => void | Promise<void>;
+  stormExpeditionResetting: boolean;
   onReload: () => void;
 }) {
   const character = saves?.["character.v2"] ?? initialCharacterState;
@@ -60,7 +80,7 @@ export function SelectedUserPanel({
 
   return (
     <>
-      <div className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className={`${SURFACE_CARD} p-3`}>
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold">{profile.name}</div>
@@ -69,9 +89,17 @@ export function SelectedUserPanel({
             </div>
             <div className="font-mono text-[10px] text-zinc-400">{user.id}</div>
           </div>
-          <Button onClick={onReload} disabled={loading}>
-            새로고침
-          </Button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Link
+              href={`/admin?tab=economy&traceUser=${encodeURIComponent(user.id)}`}
+              className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+            >
+              재화 흐름 분석
+            </Link>
+            <Button onClick={onReload} disabled={loading}>
+              새로고침
+            </Button>
+          </div>
         </div>
         {error ? (
           <div className="mt-2 text-xs text-red-600 dark:text-red-400">
@@ -103,6 +131,24 @@ export function SelectedUserPanel({
         gameName={profile.name}
       />
 
+      {user.isSuperAdmin ? (
+        <ReviewOpPresetSection
+          disabled={
+            readOnly || loading || !canApplyReviewOpPreset
+          }
+          applying={reviewOpPresetApplying}
+          onApply={() => void onApplyReviewOpPreset()}
+        />
+      ) : null}
+
+      {canTestActivityVerification ? (
+        <ActivityVerificationTestSection
+          key={`activity-verification:${user.id}`}
+          userId={user.id}
+          readOnly={readOnly}
+        />
+      ) : null}
+
       <CharacterPreviewSection
         key={`${user.id}:${previewDepth}`}
         userId={user.id}
@@ -110,6 +156,34 @@ export function SelectedUserPanel({
       />
 
       <GuildCooldownSection userId={user.id} readOnly={readOnly} />
+
+      <section className={`${SURFACE_CARD} p-3`}>
+        <h2 className="text-sm font-semibold">폭풍 원정</h2>
+        <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+          오늘 사용한 입장 횟수만 0회로 초기화합니다. 진행 중 원정과 누적
+          완주·SP 열매 천장 및 획득 기록은 유지됩니다.
+        </p>
+        <Button
+          variant="danger"
+          disabled={
+            readOnly ||
+            loading ||
+            stormExpeditionResetting ||
+            !canResetStormExpedition
+          }
+          onClick={() => void onResetStormExpeditionDailyAttempts()}
+          className="mt-2"
+        >
+          {stormExpeditionResetting
+            ? "초기화 중…"
+            : "오늘 입장 횟수 초기화"}
+        </Button>
+        {!canResetStormExpedition ? (
+          <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+            보상 권한이 있는 관리자만 초기화할 수 있습니다.
+          </p>
+        ) : null}
+      </section>
 
       <section className="rounded-md border border-amber-300 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
         <h2 className="text-sm font-semibold text-amber-800 dark:text-amber-300">

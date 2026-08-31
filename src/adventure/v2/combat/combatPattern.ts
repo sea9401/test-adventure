@@ -7,25 +7,40 @@
 // 사용 가능 판정(쿨다운/MP/효과유무)은 호출부(combatShared)가 isUsable 콜백으로 주입한다.
 // 조건 평가에 필요한 전투 상태는 PatternCtx 로 받는다(엔진이 매 턴 합성).
 
-import type { StatKey } from "@/adventure/data/stats";
+import { STAT_KEYS, type StatKey } from "@/adventure/data/stats";
 
 // 🚩 기능 플래그 — C1~C3(데이터/엔진·UI·재밸런스) 완성 전까지 off. on 이면 엔진이 패턴 평가기로
 //    스킬을 고르고 procChance 를 건너뛴다(확정 발동). off 면 옛 슬롯순서+proc 경로 유지(무변).
 export const V2_COMBAT_PATTERN_ENABLED = true;
 
-// 적 상태 태그 — 적에게 쌓인 DoT/취약 스택(combatShared V2Dot tag + magicVuln).
-export type V2PatternEnemyStatus = "bleed" | "poison" | "vuln";
+// 적 상태 태그 — 적에게 쌓인 DoT/취약/한기 스택.
+export type V2PatternEnemyStatus =
+  | "bleed"
+  | "poison"
+  | "vuln"
+  | "frostChill";
 export type V2PatternEnemyDebuff =
+  | StatKey
   | "vulnerability"
   | "damageDown"
-  | "skillProcDown";
+  | "skillProcDown"
+  | "healReduction";
 export type V2PatternSelfStatus =
   | "evasion"
   | "crit"
   | "damageReduction"
   | "reflectDamage"
   | "regen"
-  | "guaranteedEvade";
+  | "guaranteedEvade"
+  | "duelistDeclaration"
+  | "berserkerFinisher"
+  | "berserkerDeathOvercome";
+export type V2PatternSelfResource =
+  | "impact"
+  | "ironWallReflect"
+  | "inscription"
+  | "weight"
+  | "bloodlineBurstReady";
 
 // 조건 — "언제 이 블록을 발동하나". 아군/위치는 1:1 자동전투엔 없어 미포함(파티 도입 시 확장).
 export type V2CombatCondition =
@@ -36,8 +51,9 @@ export type V2CombatCondition =
   // 내 HP/MP 비율(0~100). below = 이하, above = 이상(둘 다 경계 포함).
   | { kind: "self_hp"; op: "below" | "above"; pct: number }
   | { kind: "self_mp"; op: "below" | "above"; pct: number }
-  // 내 보호막 보유 여부 — 보호막 스킬 재시전/중첩 낭비 방지.
+  // 내 보호막 보유 여부 또는 현재 보호막 포인트(경계 포함).
   | { kind: "self_shield"; active: boolean }
+  | { kind: "self_shield"; op: "atMost" | "atLeast"; value: number }
   // 내 상태 — 특정 스탯 버프 활성/미활성(재버프 낭비 방지 등). v2SelfBuffs 키 = StatKey.
   | { kind: "self_buff"; stat: StatKey; active: boolean }
   // 내 파생 버프(회피/치명/받피감/반사피해 = selfBuffPct) 활성/미활성 — 만료 시 재시전.
@@ -46,22 +62,40 @@ export type V2CombatCondition =
       target: V2PatternSelfStatus;
       active: boolean;
     }
+  // 전투 한정 숫자 자원. none 은 0, atLeast/atMost 는 경계 포함 비교.
+  | {
+      kind: "self_resource";
+      resource: V2PatternSelfResource;
+      op: "atLeast" | "atMost" | "none";
+      value: number;
+    }
   // 적 HP 비율.
   | { kind: "enemy_hp"; op: "below" | "above"; pct: number }
-  // 적 상태 — DoT/취약 스택. atLeast = stacks 이상, none = 0(스택 없을 때).
-  | { kind: "enemy_status"; tag: V2PatternEnemyStatus; op: "atLeast" | "none"; stacks: number }
+  // 적 상태 — DoT/취약 스택. atLeast/atMost = stacks 이상/이하, none = 0(스택 없을 때).
+  | {
+      kind: "enemy_status";
+      tag: V2PatternEnemyStatus;
+      metric?: "stacks" | "remainingTurns";
+      op: "atLeast" | "atMost" | "none";
+      stacks: number;
+    }
   // 적에게 걸린 봉쇄 계열 디버프 — 봉마진 같은 순수 유틸의 중복 시전을 막고 만료 시 갱신한다.
   | { kind: "enemy_debuff"; target: V2PatternEnemyDebuff; active: boolean }
   // 내 공격 차례(턴, 1-based). atMost/atLeast = 이하/이상, every = N 배수(주기).
   | { kind: "turn"; op: "atMost" | "atLeast" | "every"; value: number };
 
-// 행동 — 특정 스킬 사용 또는 현재 로드아웃에서 역할에 맞는 스킬 사용.
+// 행동 — 일반 공격, 특정 스킬 사용 또는 현재 로드아웃에서 역할에 맞는 스킬 사용.
 // role 은 패턴 블록을 장착 스킬 id 에서 분리하는 QoL 경로다. 실제 발동은 호출부가 현재 equipped
 // 안에서만 resolve 하므로 SP/장착 게이트는 그대로 유지된다.
 export type V2CombatRole = "main_attack" | "heal" | "buff" | "debuff";
 export type V2CombatAction =
+  | { kind: "basic_attack" }
   | { kind: "skill"; skillId: string }
   | { kind: "role"; role: V2CombatRole };
+
+export type V2CombatPatternCandidate =
+  | { kind: "basic_attack" }
+  | { kind: "skill"; skillId: string };
 
 export type V2CombatBlock = {
   condition: V2CombatCondition;
@@ -74,26 +108,67 @@ export type V2CombatPattern = { blocks: V2CombatBlock[] };
 export type V2PatternCtx = {
   selfHpPct: number; // 0~100
   selfMpPct: number; // 0~100
+  selfShield: number; // 현재 보호막 포인트
   selfShieldActive: boolean;
   selfBuffStats: ReadonlySet<StatKey>; // 활성 자버프의 스탯들
   // 내부 필드명은 기존 저장/호출부 호환을 위해 유지. 능력치 밖의 활성 상태 효과 전체를 담는다.
   selfBuffPctTargets: ReadonlySet<V2PatternSelfStatus>;
+  selfResources: Readonly<Partial<Record<V2PatternSelfResource, number>>>;
   enemyHpPct: number; // 0~100
   enemyBleed: number; // 스택
+  enemyBleedTurns: number; // 앞으로 출혈 피해가 발동할 횟수
   enemyPoison: number;
+  enemyPoisonTurns: number; // 앞으로 중독 피해가 발동할 횟수
   enemyVuln: number;
+  enemyFrostChill: number;
   enemyVulnerabilityActive?: boolean;
   enemyDamageDownActive?: boolean;
   enemySkillProcDownActive?: boolean;
+  enemyHealReductionActive?: boolean;
+  enemyStatDebuffs?: ReadonlySet<StatKey>;
   turn: number; // 1-based 공격 차례
 };
 
 function enemyStatusStacks(ctx: V2PatternCtx, tag: V2PatternEnemyStatus): number {
-  return tag === "bleed"
-    ? ctx.enemyBleed
-    : tag === "poison"
-      ? ctx.enemyPoison
-      : ctx.enemyVuln;
+  switch (tag) {
+    case "bleed":
+      return ctx.enemyBleed;
+    case "poison":
+      return ctx.enemyPoison;
+    case "vuln":
+      return ctx.enemyVuln;
+    case "frostChill":
+      return ctx.enemyFrostChill;
+  }
+}
+
+function enemyStatusValue(
+  ctx: V2PatternCtx,
+  cond: Extract<V2CombatCondition, { kind: "enemy_status" }>,
+): number {
+  if (cond.metric === "remainingTurns") {
+    if (cond.tag === "bleed") return ctx.enemyBleedTurns;
+    if (cond.tag === "poison") return ctx.enemyPoisonTurns;
+  }
+  return enemyStatusStacks(ctx, cond.tag);
+}
+
+function enemyDebuffActive(
+  ctx: V2PatternCtx,
+  target: V2PatternEnemyDebuff,
+): boolean {
+  switch (target) {
+    case "vulnerability":
+      return ctx.enemyVulnerabilityActive ?? false;
+    case "damageDown":
+      return ctx.enemyDamageDownActive ?? false;
+    case "skillProcDown":
+      return ctx.enemySkillProcDownActive ?? false;
+    case "healReduction":
+      return ctx.enemyHealReductionActive ?? false;
+    default:
+      return ctx.enemyStatDebuffs?.has(target) ?? false;
+  }
 }
 
 // 단일 조건 충족 여부. 알 수 없는 kind 는 false(보수적).
@@ -117,27 +192,37 @@ export function conditionPasses(
         ? ctx.selfMpPct <= cond.pct
         : ctx.selfMpPct >= cond.pct;
     case "self_shield":
-      return ctx.selfShieldActive === cond.active;
+      return "active" in cond
+        ? ctx.selfShieldActive === cond.active
+        : cond.op === "atMost"
+          ? ctx.selfShield <= cond.value
+          : ctx.selfShield >= cond.value;
     case "self_buff":
       return ctx.selfBuffStats.has(cond.stat) === cond.active;
     case "self_buff_pct":
       return ctx.selfBuffPctTargets.has(cond.target) === cond.active;
+    case "self_resource": {
+      const value = ctx.selfResources[cond.resource] ?? 0;
+      return cond.op === "none"
+        ? value === 0
+        : cond.op === "atMost"
+          ? value <= cond.value
+          : value >= cond.value;
+    }
     case "enemy_hp":
       return cond.op === "below"
         ? ctx.enemyHpPct <= cond.pct
         : ctx.enemyHpPct >= cond.pct;
     case "enemy_status": {
-      const stacks = enemyStatusStacks(ctx, cond.tag);
-      return cond.op === "none" ? stacks === 0 : stacks >= cond.stacks;
+      const stacks = enemyStatusValue(ctx, cond);
+      return cond.op === "none"
+        ? stacks === 0
+        : cond.op === "atMost"
+          ? stacks <= cond.stacks
+          : stacks >= cond.stacks;
     }
     case "enemy_debuff":
-      return (
-        (cond.target === "vulnerability"
-          ? (ctx.enemyVulnerabilityActive ?? false)
-          : cond.target === "damageDown"
-            ? (ctx.enemyDamageDownActive ?? false)
-            : (ctx.enemySkillProcDownActive ?? false)) === cond.active
-      );
+      return enemyDebuffActive(ctx, cond.target) === cond.active;
     case "turn":
       if (cond.value <= 0) return false;
       return cond.op === "atMost"
@@ -159,15 +244,17 @@ export function evaluateCombatPattern(
   isUsable: (skillId: string) => boolean,
   resolveRole?: (role: V2CombatRole) => string | null,
 ): string | null {
-  return evaluateCombatPatternCandidates(
+  const candidate = evaluateCombatPatternCandidates(
     pattern,
     ctx,
     isUsable,
     resolveRole,
-  )[0] ?? null;
+  )[0];
+  return candidate?.kind === "skill" ? candidate.skillId : null;
 }
 
-// 패턴 평가 후보 목록 — 우선순위 순서대로 조건 충족 + 실행 가능(isUsable)한 스킬 id 를 반환한다.
+// 패턴 평가 후보 목록 — 우선순위 순서대로 조건 충족 + 실행 가능한 행동을 반환한다.
+// 일반 공격을 만나면 그 아래 블록은 평가하지 않는다.
 // 발동확률(procChance)처럼 "선택 후 실패"할 수 있는 게이트는 호출부가 이 목록을 순회해 다음 순위로
 // 넘어갈 수 있다. MP/쿨다운/효과 없음은 isUsable 단계에서 이미 걸러져 다음 블록으로 이동한다.
 export function evaluateCombatPatternCandidates(
@@ -175,16 +262,20 @@ export function evaluateCombatPatternCandidates(
   ctx: V2PatternCtx,
   isUsable: (skillId: string) => boolean,
   resolveRole?: (role: V2CombatRole) => string | null,
-): string[] {
-  const out: string[] = [];
+): V2CombatPatternCandidate[] {
+  const out: V2CombatPatternCandidate[] = [];
   for (const block of pattern.blocks) {
     if (!conditionPasses(block.condition, ctx)) continue;
+    if (block.action.kind === "basic_attack") {
+      out.push({ kind: "basic_attack" });
+      break;
+    }
     const id =
       block.action.kind === "skill"
         ? block.action.skillId
         : (resolveRole?.(block.action.role) ?? null);
     if (!id || !isUsable(id)) continue;
-    out.push(id);
+    out.push({ kind: "skill", skillId: id });
   }
   return out;
 }
@@ -223,21 +314,48 @@ export const V2_SKILL_HYBRID_ATTACK_BASE_COEF_BY_TIER: Record<1 | 2 | 3, number>
   3: 1.2,
 };
 
+// 스킬이 장비 공격력뿐 아니라 육성한 주·특화 스탯에도 더 민감하게 성장하도록 직접 스탯
+// 기여분만 높인다. 공격력 기반선·최대 HP 비례·조건부 배수·DoT 계수에는 적용하지 않는다.
+export const V2_DIRECT_SKILL_STAT_COEF_MULT = 1.15;
+export const V2_HEAL_SKILL_STAT_COEF_MULT = 1.1;
+
+function scaledSkillStatCoef(statCoef: number, multiplier: number): number {
+  return Math.round((statCoef * multiplier + 1e-9) * 1_000_000) / 1_000_000;
+}
+
+export function v2SpecializedSkillStatCoef(
+  statCoef: number,
+  scaling?: string,
+): number {
+  return scaling === "maxHp"
+    ? statCoef
+    : scaledSkillStatCoef(statCoef, V2_DIRECT_SKILL_STAT_COEF_MULT);
+}
+
+export function v2SkillHealStatCoef(statCoef: number): number {
+  return scaledSkillStatCoef(statCoef, V2_HEAL_SKILL_STAT_COEF_MULT);
+}
+
 // 순수 물리/마법 공격기는 공격력 계수만 받으면 레벨업으로 쌓은 STR/INT보다 무기 위력에 성장이
-// 치우친다. 기존 공격력 예산 일부를 주스탯 계수로 옮겨 현재 피해는 크게 흔들지 않으면서, 순수형도
-// 주스탯 집중 투자에 보상을 받게 한다. 혼합형(def/dex/luk/spi/all/maxHp)은 기존 산식을 그대로 쓴다.
+// 치우친다. 라이브 기준 공격력≈1000/주스탯≈300에서 총 피해가 거의 같도록 공격력 예산을 직접
+// 주스탯 항으로 옮긴다. 그보다 오래 주스탯을 수행한 캐릭터는 비용에 맞는 추가 보상을 받는다.
+// 혼합형(def/dex/luk/spi/all/maxHp)은 단위가 다르므로 이 표를 공유하지 않고 기존 산식을 유지한다.
 const V2_PURE_SKILL_PRIMARY_STAT_FORMULA_BY_TIER = {
   physical: {
-    1: { attackTransfer: 0.1, primaryStatCoef: 0.1 },
-    2: { attackTransfer: 0.15, primaryStatCoef: 0.15 },
-    3: { attackTransfer: 0.2, primaryStatCoef: 0.2 },
+    1: { attackTransfer: 0.22, primaryStatCoef: 0.5 },
+    2: { attackTransfer: 0.38, primaryStatCoef: 0.9 },
+    3: { attackTransfer: 0.55, primaryStatCoef: 1.3 },
   },
   magic: {
-    1: { attackTransfer: 0.18, primaryStatCoef: 0.07 },
-    2: { attackTransfer: 0.26, primaryStatCoef: 0.1 },
-    3: { attackTransfer: 0.35, primaryStatCoef: 0.14 },
+    1: { attackTransfer: 0.25, primaryStatCoef: 0.35 },
+    2: { attackTransfer: 0.42, primaryStatCoef: 0.65 },
+    3: { attackTransfer: 0.65, primaryStatCoef: 1.1 },
   },
 } as const;
+
+// STR/INT의 공격력 환산이 0.35에서 0.7로 늘어난 만큼 순수 스킬의 직접 주스탯 계수에서
+// 같은 피해 기여분을 옮긴다. 특화 스킬은 직접 STR/INT 항이 없으므로 이 보정을 쓰지 않는다.
+export const V2_PRIMARY_STAT_ATTACK_CONVERSION_GAIN = 0.35;
 
 /** 순수 직접 피해 효과 1개의 공격력 계수와 STR/INT 계수. 다단기는 총계수를 타수로 나눈다. */
 export function v2PureSkillFormulaCoefficients({
@@ -250,12 +368,33 @@ export function v2PureSkillFormulaCoefficients({
   scaling: "physical" | "magic";
   directDamageEffectCount: number;
   resolvedAttackCoef: number;
-}): { attackCoef: number; primaryStatCoef: number } {
+}): {
+  attackCoef: number;
+  primaryStatCoef: number;
+  uncompensatedPrimaryStatCoef: number;
+} {
   const hitCount = Math.max(1, directDamageEffectCount);
   const formula = V2_PURE_SKILL_PRIMARY_STAT_FORMULA_BY_TIER[scaling][tier];
+  const attackCoef = Math.max(
+    0,
+    resolvedAttackCoef - formula.attackTransfer / hitCount,
+  );
+  const previousPrimaryStatCoef =
+    scaledSkillStatCoef(
+      formula.primaryStatCoef,
+      V2_DIRECT_SKILL_STAT_COEF_MULT,
+    ) / hitCount;
   return {
-    attackCoef: Math.max(0, resolvedAttackCoef - formula.attackTransfer / hitCount),
-    primaryStatCoef: formula.primaryStatCoef / hitCount,
+    attackCoef,
+    uncompensatedPrimaryStatCoef: previousPrimaryStatCoef,
+    primaryStatCoef: Math.max(
+      0,
+      scaledSkillStatCoef(
+        previousPrimaryStatCoef -
+          attackCoef * V2_PRIMARY_STAT_ATTACK_CONVERSION_GAIN,
+        1,
+      ),
+    ),
   };
 }
 
@@ -322,6 +461,13 @@ function isFinitePct(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);
 }
 
+function isStatKey(value: unknown): value is StatKey {
+  return (
+    typeof value === "string" &&
+    (STAT_KEYS as readonly string[]).includes(value)
+  );
+}
+
 function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
   if (!raw || typeof raw !== "object") return null;
   const c = raw as Record<string, unknown>;
@@ -347,8 +493,16 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
       return { kind: c.kind, op, pct: Math.max(0, Math.min(100, c.pct)) };
     }
     case "self_shield": {
-      if (typeof c.active !== "boolean") return null;
-      return { kind: "self_shield", active: c.active };
+      if (typeof c.active === "boolean") {
+        return { kind: "self_shield", active: c.active };
+      }
+      const op = c.op === "atMost" || c.op === "atLeast" ? c.op : null;
+      if (!op || !isFinitePct(c.value)) return null;
+      return {
+        kind: "self_shield",
+        op,
+        value: Math.max(0, Math.floor(c.value)),
+      };
     }
     case "self_buff": {
       if (typeof c.stat !== "string" || typeof c.active !== "boolean") return null;
@@ -361,26 +515,75 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
         c.target === "damageReduction" ||
         c.target === "reflectDamage" ||
         c.target === "regen" ||
-        c.target === "guaranteedEvade"
+        c.target === "guaranteedEvade" ||
+        c.target === "duelistDeclaration" ||
+        c.target === "berserkerFinisher" ||
+        c.target === "berserkerDeathOvercome"
           ? c.target
           : null;
       if (!target || typeof c.active !== "boolean") return null;
       return { kind: "self_buff_pct", target, active: c.active };
     }
+    case "self_resource": {
+      const resource =
+        c.resource === "impact" ||
+        c.resource === "ironWallReflect" ||
+        c.resource === "inscription" ||
+        c.resource === "weight" ||
+        c.resource === "bloodlineBurstReady"
+          ? c.resource
+          : null;
+      const op =
+        c.op === "atLeast" || c.op === "atMost" || c.op === "none"
+          ? c.op
+          : null;
+      if (!resource || !op || !isFinitePct(c.value)) return null;
+      return {
+        kind: "self_resource",
+        resource,
+        op,
+        value: Math.max(0, Math.floor(c.value)),
+      };
+    }
     case "enemy_status": {
       const tag =
-        c.tag === "bleed" || c.tag === "poison" || c.tag === "vuln" ? c.tag : null;
-      const op = c.op === "atLeast" || c.op === "none" ? c.op : null;
+        c.tag === "bleed" ||
+        c.tag === "poison" ||
+        c.tag === "vuln" ||
+        c.tag === "frostChill"
+          ? c.tag
+          : null;
+      const op =
+        c.op === "atLeast" || c.op === "atMost" || c.op === "none"
+          ? c.op
+          : null;
       if (!tag || !op || !isFinitePct(c.stacks)) return null;
-      return { kind: "enemy_status", tag, op, stacks: Math.max(0, Math.floor(c.stacks)) };
+      const metric =
+        (tag === "bleed" || tag === "poison") &&
+        c.metric === "remainingTurns"
+          ? "remainingTurns"
+          : undefined;
+      return {
+        kind: "enemy_status",
+        tag,
+        ...(metric ? { metric } : {}),
+        op,
+        stacks: Math.min(
+          tag === "frostChill" ? 5 : Number.MAX_SAFE_INTEGER,
+          Math.max(0, Math.floor(c.stacks)),
+        ),
+      };
     }
     case "enemy_debuff": {
       const target =
         c.target === "vulnerability" ||
         c.target === "damageDown" ||
-        c.target === "skillProcDown"
+        c.target === "skillProcDown" ||
+        c.target === "healReduction"
           ? c.target
-          : null;
+          : isStatKey(c.target)
+            ? c.target
+            : null;
       if (!target || typeof c.active !== "boolean") return null;
       return { kind: "enemy_debuff", target, active: c.active };
     }
@@ -398,6 +601,7 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
 function parseAction(raw: unknown): V2CombatAction | null {
   if (!raw || typeof raw !== "object") return null;
   const a = raw as Record<string, unknown>;
+  if (a.kind === "basic_attack") return { kind: "basic_attack" };
   if (a.kind === "skill" && typeof a.skillId === "string" && a.skillId.length > 0) {
     return { kind: "skill", skillId: a.skillId };
   }

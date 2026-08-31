@@ -6,6 +6,7 @@ import {
   V2_JOB_LIST,
 } from "./v2JobCatalog";
 import { emptyProficiency, type V2ProficiencyState } from "./proficiency";
+import { TIER7_COMBAT_JOB_IDS } from "./tier7Jobs";
 
 // 직군 cumLevel 을 세팅한 proficiency 생성 헬퍼.
 function profWith(groups: Record<string, number>): V2ProficiencyState {
@@ -17,6 +18,26 @@ function profWith(groups: Record<string, number>): V2ProficiencyState {
 }
 
 describe("buildJobCodex", () => {
+  it("7차는 목록에 공개하되 첫 전직 성공 뒤에만 도감 해금으로 센다", () => {
+    const candidate = emptyProficiency();
+    candidate.jobCumLevel = { swordsaint: 100_000, blackmoon: 100_000 };
+    const before = buildJobCodex(candidate, [], "warrior", "swordsaint");
+
+    expect(before.jobs.find((job) => job.id === "shadowblade")).toMatchObject({
+      unlocked: false,
+      skillsTotal: 3,
+    });
+    expect(
+      before.jobs.filter((job) => job.tier === 7).map((job) => job.id),
+    ).toEqual([...TIER7_COMBAT_JOB_IDS]);
+
+    candidate.jobHistory = ["shadowblade"];
+    const after = buildJobCodex(candidate, [], "warrior", "swordsaint");
+    expect(after.jobs.find((job) => job.id === "shadowblade")?.unlocked).toBe(
+      true,
+    );
+  });
+
   it("전체 직업 목록 + unlocked 상태 + totalJobs=전체 + 폐지 필드 없음 + condition 포함", () => {
     const prof = profWith({
       warrior: TIER2_UNLOCK_CUMLEVEL,

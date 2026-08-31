@@ -1,5 +1,6 @@
 // 희귀 탐사 갱신 — runOneHunt 에서 추출한 순수 헬퍼(DB 미접촉).
-//   입장 중이면 판수 차감(승패 무관)·소진 시 purge, 아니면 신규 드랍 롤(레어맵 안 재귀 farming 차단).
+//   압축 탐사 입장 중이면 승리 시 지도 소모, 패배 시 그대로 보존한다. 일반 사냥만 신규 지도를
+//   굴려 레어맵 안 재귀 farming 을 막는다.
 //   ⚠️ rollRareMapDrop(Math.random) 한 곳만 RNG 소비 — 원본과 동일 위치에서 호출되어야 byte-identical.
 import {
   RARE_MAP_CAP,
@@ -15,6 +16,7 @@ export function updateRareMaps(params: {
   won: boolean;
   depth: number;
   now: number;
+  rareMapDropChanceMult?: number;
 }): {
   rareMaps: RareMapInstance[];
   rareMapDrop: RareMapKindId | null;
@@ -28,20 +30,23 @@ export function updateRareMaps(params: {
   // 희귀 탐사 안에서 또 희귀 탐사가 열리는 재귀 farming 은 막는다(입장 중 롤 없음).
   // 캡 가득이면 롤 자체를 건너뜀.
   if (activeRareMap) {
-    rareMaps = rareMaps
-      .map((m) =>
-        m.iid === activeRareMap.iid ? { ...m, runsLeft: m.runsLeft - 1 } : m,
-      )
-      .filter((m) => m.runsLeft > 0);
+    if (won) {
+      rareMaps = rareMaps.filter((m) => m.iid !== activeRareMap.iid);
+    }
   } else if (won && rareMaps.length < RARE_MAP_CAP) {
-    rareMapDrop = rollRareMapDrop(Math.random);
+    rareMapDrop = rollRareMapDrop(
+      Math.random,
+      params.rareMapDropChanceMult ?? 1,
+    );
     if (rareMapDrop) {
       rareMapDropInstance = newRareMapInstance(rareMapDrop, depth, now);
       rareMaps = [...rareMaps, rareMapDropInstance];
     }
   }
   const rareMapRunsLeft = activeRareMap
-    ? (rareMaps.find((m) => m.iid === activeRareMap.iid)?.runsLeft ?? 0)
+    ? won
+      ? 0
+      : activeRareMap.runsLeft
     : null;
   return {
     rareMaps,

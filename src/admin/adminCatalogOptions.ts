@@ -6,6 +6,13 @@ import {
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
+import {
+  COOKING_PANTRY_ITEMS,
+  COOKING_PROCESSING_RECIPES,
+} from "@/adventure/v2/cooking/kitchen";
+import { COOKING_FARM_INGREDIENT_IDS } from "@/adventure/v2/cooking/researchIngredients";
+import { FARM_ITEMS } from "@/adventure/v2/farm";
+import { FISHING_CATCH_ITEM_LIST } from "@/adventure/v2/fishingStock";
 
 export type CatalogOption = { id: string; name: string; label: string };
 
@@ -29,6 +36,34 @@ export function v2MaterialOptions(): CatalogOption[] {
     name: m.name,
     label: m.name,
   }));
+}
+
+export function cookingIngredientOptions(): CatalogOption[] {
+  return [
+    ...COOKING_FARM_INGREDIENT_IDS.map((itemId) => {
+      const item = FARM_ITEMS[itemId];
+      return {
+        id: `farm:${itemId}`,
+        name: item.name,
+        label: `농장 · ${item.icon} ${item.name}`,
+      };
+    }),
+    ...FISHING_CATCH_ITEM_LIST.map((item) => ({
+      id: `fishing:${item.id}`,
+      name: item.name,
+      label: `낚시 · ${item.icon} ${item.name}`,
+    })),
+    ...COOKING_PANTRY_ITEMS.map((item) => ({
+      id: item.id,
+      name: item.name,
+      label: `상점 · ${item.name}`,
+    })),
+    ...COOKING_PROCESSING_RECIPES.map((recipe) => ({
+      id: recipe.outputId,
+      name: recipe.name,
+      label: `가공 · ${recipe.name}`,
+    })),
+  ];
 }
 
 export function v2EquipmentOptions(): CatalogOption[] {

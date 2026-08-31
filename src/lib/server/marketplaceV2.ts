@@ -23,7 +23,11 @@ import {
   V2_REFORGE_ENABLED,
   isReforgeStoneMaterialId,
 } from "@/adventure/data/v2/v2EquipVariance";
-import { ADVENTURE_SUPPORT_PASS } from "@/adventure/data/v2/adventureSupport";
+import {
+  adventureSupportBenefits,
+  normalizeAdventureSupportTierInput,
+  type AdventureSupportTierInput,
+} from "@/adventure/data/v2/adventureSupport";
 import {
   MUSEUN_CASH_ITEMS,
   isMuseunCashItemId,
@@ -32,7 +36,14 @@ import {
 import {
   cookingFoodDefinition,
   isCookingFoodId,
-} from "@/adventure/v2/cooking";
+} from "@/adventure/v2/cooking/food";
+import { FISH } from "@/adventure/data/v2/fish";
+import { fishIdFromSpecimenItemId } from "@/adventure/v2/fishSpecimens";
+import {
+  isMarketplaceLifeItemId,
+  marketplaceLifeItemDefinition,
+  type MarketplaceLifeItemId,
+} from "@/adventure/v2/marketplace/lifeItemCatalog";
 
 // ── 다이얼 ──────────────────────────────────────────────────────────────────
 // 판매세 — 판매 성사 시 대금의 이 비율이 소각(골드 sink). 판매자는 (대금 − 세금) 수령.
@@ -49,7 +60,7 @@ export const MARKETPLACE_V2_BROWSE_LIMIT = 100;
 // 시세 — 최근 며칠간 판매 완료(sold) 기록을 종목별 집계. 가격 판단 참고용.
 export const MARKETPLACE_V2_PRICE_HISTORY_DAYS = 30;
 // 최근 거래 내역 — 체결(sold) 매물을 최신순으로 이만큼 반환(거래소 "최근 거래" 탭).
-export const MARKETPLACE_V2_HISTORY_LIMIT = 50;
+export const MARKETPLACE_V2_HISTORY_LIMIT = 100;
 // 새 매물은 즉시구매(유예 0)가 기본이며 24시간 노출한다.
 // 선택형 공개 입찰은 판매자가 2~24시간 중 선택. 초과 입찰이 없으면 유예 종료 후
 // 고정가 즉시구매로 2시간 더 노출하고, 그 뒤 만료·반환한다.
@@ -65,20 +76,22 @@ export const MARKETPLACE_V2_BUY_ORDER_ESCROW_MAX = 999_999_999;
 export type MarketKind = "equip" | "material" | "consumable";
 
 export function marketplaceSlotLimitForAdventureSupport(
-  active: boolean,
+  support: AdventureSupportTierInput,
 ): number {
   return (
     MARKETPLACE_V2_SLOT_LIMIT +
-    (active ? ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus : 0)
+    adventureSupportBenefits(normalizeAdventureSupportTierInput(support))
+      .marketplaceSlotBonus
   );
 }
 
 export function marketplaceTaxRateForAdventureSupport(
-  active: boolean,
+  support: AdventureSupportTierInput,
 ): number {
-  return active
-    ? ADVENTURE_SUPPORT_PASS.marketplaceTaxRate
-    : MARKETPLACE_V2_TAX_RATE;
+  const tier = normalizeAdventureSupportTierInput(support);
+  return tier === "none"
+    ? MARKETPLACE_V2_TAX_RATE
+    : adventureSupportBenefits(tier).marketplaceTaxRate;
 }
 
 // 판매자 수령 골드 — 대금 − 판매세(내림). proceeds + 소각분 = price (보존, 골드 신규생성 0).
@@ -247,7 +260,9 @@ export function isStackableMarketplaceItem(
   return (
     kind === "material" ||
     (kind === "consumable" &&
-      (isTradeableMuseunCashItemId(itemId) || isCookingFoodId(itemId)))
+      (isTradeableMuseunCashItemId(itemId) ||
+        isCookingFoodId(itemId) ||
+        fishIdFromSpecimenItemId(itemId) !== null))
   );
 }
 
@@ -284,17 +299,20 @@ export function equipmentBuyOrderMinimumPrice(id: string): number | null {
 
 export type MarketplaceEquipListError =
   | "not_tradable"
-  | "enhanced"
+  | "bound"
   | "locked"
   | "equipped";
 
-// 장비 등록 정책의 서버 권위 판정. 강화에 투자한 개체는 캐릭터에 귀속되어 거래할 수 없다.
+// 장비 등록 정책의 서버 권위 판정. 강화 여부와 별개로 명시적 귀속 장비만 계정 간 이동을 막는다.
 export function marketplaceEquipListError(
-  inst: Pick<V2EquipInstance, "id" | "enhance" | "locked">,
+  inst: Pick<
+    V2EquipInstance,
+    "id" | "bound" | "locked" | "enhance" | "liberation"
+  >,
   isEquipped: boolean,
 ): MarketplaceEquipListError | null {
   if (!isTradableEquip(inst.id)) return "not_tradable";
-  if (inst.enhance) return "enhanced";
+  if (inst.bound) return "bound";
   if (inst.locked) return "locked";
   if (isEquipped) return "equipped";
   return null;
@@ -307,17 +325,26 @@ export function isTradableMaterial(id: string): id is V2MaterialId {
   );
 }
 
+export function isTradableMarketplaceMaterial(
+  id: string,
+): id is V2MaterialId | MarketplaceLifeItemId {
+  return isTradableMaterial(id) || isMarketplaceLifeItemId(id);
+}
+
 // 등록 시점 이름 스냅샷용 — 카탈로그 표시명.
 export function itemDisplayName(kind: MarketKind, id: string): string | null {
   if (kind === "equip") return isTradableEquip(id) ? V2_EQUIPMENT[id].name : null;
   if (kind === "consumable") {
     if (isMuseunCashItemId(id)) return MUSEUN_CASH_ITEMS[id].name;
     if (isCookingFoodId(id)) return cookingFoodDefinition(id)?.name ?? null;
+    const specimenFishId = fishIdFromSpecimenItemId(id);
+    if (specimenFishId) return `${FISH[specimenFishId].name} 표본`;
     return id in RARE_MAP_KINDS
       ? RARE_MAP_KINDS[id as keyof typeof RARE_MAP_KINDS].name
       : null;
   }
-  return isTradableMaterial(id) ? V2_MATERIALS[id].name : null;
+  if (isTradableMaterial(id)) return V2_MATERIALS[id].name;
+  return marketplaceLifeItemDefinition(id)?.name ?? null;
 }
 
 // 조회 표시명 — 장비/재료는 카탈로그 이름 변경을 즉시 반영하고, 레어맵은 깊이 정보가 들어간
@@ -331,6 +358,8 @@ export function currentMarketplaceItemName(
   if (kind === "consumable") {
     if (isMuseunCashItemId(id)) return MUSEUN_CASH_ITEMS[id].name;
     if (isCookingFoodId(id)) return cookingFoodDefinition(id)?.name ?? storedName;
+    const specimenFishId = fishIdFromSpecimenItemId(id);
+    if (specimenFishId) return `${FISH[specimenFishId].name} 표본`;
     return storedName;
   }
   return itemDisplayName(kind, id) ?? storedName;

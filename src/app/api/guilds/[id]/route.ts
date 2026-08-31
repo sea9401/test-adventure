@@ -8,6 +8,7 @@ import {
   museunCosmeticAppearance,
   type MuseunCosmeticAppearance,
 } from "@/adventure/data/v2/museunCosmetics";
+import { readBlockedUserIds } from "@/lib/server/ugcSafety";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -54,6 +55,16 @@ export async function GET(_req: Request, { params }: Ctx) {
     .from(guildMembers)
     .where(eq(guildMembers.guildId, guildId));
   const memberIds = memberRows.map((member) => member.userId);
+  const viewerIsMember = memberIds.includes(userId);
+  if (
+    !viewerIsMember &&
+    (await readBlockedUserIds(userId)).includes(guild.masterId)
+  ) {
+    return Response.json(
+      { ok: false, error: "guild_not_found" },
+      { status: 404 },
+    );
+  }
 
   const [profileRows, characterRows] =
     memberIds.length === 0

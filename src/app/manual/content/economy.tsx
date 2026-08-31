@@ -1,5 +1,17 @@
-import { MAX_STAMINA, REGEN_SECONDS_PER_POINT } from "@/adventure/v2/stamina";
+import {
+  HUNT_COST,
+  MAX_STAMINA,
+  REGEN_SECONDS_PER_POINT,
+  STAMINA_OVERCHARGE_CAP,
+} from "@/adventure/v2/stamina";
+import {
+  HP_RESTORE_MS,
+  MIN_HUNT_HP_FRACTION,
+} from "@/adventure/v2/hpRegen";
 import { H2, H3, P, UL, Em, Code, Table, Note } from "./primitives";
+
+const HP_RESTORE_MINUTES = HP_RESTORE_MS / 60_000;
+const MIN_HUNT_HP_PERCENT = MIN_HUNT_HP_FRACTION * 100;
 
 export function EconomyContent() {
   return (
@@ -19,7 +31,7 @@ export function EconomyContent() {
       </UL>
       <H3>쓰는 법</H3>
       <UL>
-        <li>장비 강화(대장간), 상점 장비 구매.</li>
+        <li>장비 강화(대장간), 거래소 장비 구매와 제작.</li>
         <li>HP·MP 충전약 구매, 스킬 습득과 각종 성장 비용.</li>
       </UL>
       <P>
@@ -27,9 +39,11 @@ export function EconomyContent() {
         먼저 사용됩니다. 예치금은 사냥 패배 시 발생하는 골드 손실에서 제외됩니다.
       </P>
       <Note>
-        사냥에서 패배하면 마지막 패배 이후 사냥으로 번 골드 중 일부를 잃습니다.
-        자주 쓰지 않을 골드는 은행에 입금해 두는 편이 안전합니다. 거점이나 영지의
-        점령 상태와 관계없이 사냥 보상에 별도의 지역 세금은 붙지 않습니다.
+        사냥에서 일반 패배하면 마지막 패배 이후 사냥으로 번 골드 중 일부를
+        잃습니다. 시간초과는 골드 페널티 계산에서 무승부로 처리되어 손실이
+        없습니다. 자주 쓰지 않을 골드는 은행에 입금해 두는 편이 안전합니다.
+        거점이나 영지의 점령 상태와 관계없이 사냥 보상에 별도의 지역 세금은 붙지
+        않습니다.
       </Note>
 
       <H2>스태미나</H2>
@@ -38,7 +52,7 @@ export function EconomyContent() {
         rows={[
           ["최대치", <Code key="m">{MAX_STAMINA.toLocaleString()}</Code>],
           ["회복", <Code key="r">{REGEN_SECONDS_PER_POINT}초당 1</Code>],
-          ["사냥 1회", <Code key="h">−1</Code>],
+          ["사냥 1회", <Code key="h">−{HUNT_COST}</Code>],
           [
             "0 → 가득",
             <Code key="f">
@@ -48,12 +62,50 @@ export function EconomyContent() {
         ]}
         caption="스태미나는 사냥할 때 사용하며, 접속하지 않은 동안에도 회복됩니다."
       />
+      <P>
+        스태미나 회복약은 현재 최대치를 넘어 최대{" "}
+        <Em>{STAMINA_OVERCHARGE_CAP.toLocaleString("ko-KR")}</Em>까지 미리 비축할 수
+        있습니다. 시간 회복은 최대치까지만 진행되므로 최대치를 넘긴 동안에는 자연
+        회복이 쌓이지 않습니다. 캐릭터의 실제 최대치가 비축 상한보다 높아지는 특별한
+        경우에는 그 최대치까지 보관할 수 있습니다.
+      </P>
+
+      <H3>무슨 코인 추격 상품</H3>
+      <P>
+        <Em>월간 스태미나 회복약 세트</Em>는 300 무슨 코인에 귀속 회복약 20개를
+        즉시 지급합니다. 한국 시간 기준 계정당 월 3회까지 구매할 수 있고, 구매
+        횟수는 매월 1일 00:00에 새로 시작합니다. 회복약은 거래할 수 없습니다.
+      </P>
+      <P>
+        <Em>성장 도약 패키지</Em>는 1,200 무슨 코인이며 계정당 평생 1회만 구매할
+        수 있습니다. 귀속 회복약 30개, 닉네임 꾸미기 상자 1개, 프로필 꾸미기 상자
+        1개를 즉시 받고 성장 도약 의뢰를 시작합니다. 꾸미기 상자 2개는 거래할 수
+        있습니다. 모험 지원권이나 장비는 포함되지 않습니다.
+      </P>
+      <Table
+        head={["누적 스태미나", "성장 도약 의뢰 보상"]}
+        rows={[
+          ["3,000", "숙련 증서 300개 · 귀속 회복약 5개"],
+          ["10,000", "숙련 증서 1,000개"],
+          ["20,000", "숙련 증서 600개 · 귀속 회복약 5개"],
+          ["35,000", "숙련 증서 1,400개"],
+          ["50,000", "숙련 증서 1,700개 · 꾸미기 30일 연장권 1개"],
+        ]}
+        caption="성장 도약 의뢰는 30일 진행 + 7일 수령 유예로 운영되며 누적 50,000에서 완료됩니다."
+      />
+      <P>
+        의뢰는 패키지를 구매한 뒤 실제로 차감된 캐릭터 스태미나만 계산합니다. 구매
+        이전 사용량은 소급하지 않고 회복약 사용 자체도 진행도에 포함하지 않습니다.
+        30일이 지나면 진행도는 더 오르지 않지만 7일 동안 달성 보상을 받을 수 있으며,
+        이후에는 미수령 보상이 만료됩니다. 전체 단계 보상은 숙련 증서 총 5,000개,
+        귀속 회복약 10개, 꾸미기 30일 연장권 1개입니다.
+      </P>
 
       <H2>HP 회복</H2>
       <UL>
         <li>
-          <Em>시간 회복</Em> — 최대 HP와 관계없이 약 5분이면 0에서 최대치까지
-          회복됩니다.
+          <Em>시간 회복</Em> — 최대 HP와 관계없이 약 {HP_RESTORE_MINUTES}분이면
+          0에서 최대치까지 회복됩니다.
         </li>
         <li>
           <Em>치료소</Em> — HP와 MP를 무료로 즉시 회복합니다.
@@ -63,7 +115,7 @@ export function EconomyContent() {
           자동으로 채웁니다.
         </li>
         <li>
-          HP가 최대치의 <Em>5% 미만</Em>이면 사냥할 수 없습니다. 자연 회복을
+          HP가 최대치의 <Em>{MIN_HUNT_HP_PERCENT}% 미만</Em>이면 사냥할 수 없습니다. 자연 회복을
           기다리거나 치료소를 이용해야 합니다.
         </li>
       </UL>

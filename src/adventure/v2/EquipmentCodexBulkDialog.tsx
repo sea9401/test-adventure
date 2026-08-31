@@ -12,11 +12,9 @@ import {
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { EquipmentTierBadge, itemNameClass } from "./V2ItemCard";
+import type { EquipmentCodexBulkCandidate } from "./equipmentCodexBulk";
 
-export type EquipmentCodexBulkCandidate = {
-  inst: V2EquipInstance;
-  ownedCount: number;
-};
+export type { EquipmentCodexBulkCandidate } from "./equipmentCodexBulk";
 
 function setNamesFor(inst: V2EquipInstance): string[] {
   const item = V2_EQUIPMENT[inst.id];

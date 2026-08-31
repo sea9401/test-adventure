@@ -24,15 +24,19 @@ import {
   ALCHEMY_WORKSHOP_UPGRADES,
   DINING_HALL_UPGRADES,
   TRADE_POST_UPGRADES,
+  GUILD_WAREHOUSE_UPGRADES,
   SETTLEMENT_RESOURCE_KEYS,
   canAffordSettlementBuildingUpgrade,
   explorationHqUpgradeForLevel,
   alchemyWorkshopUpgradeForLevel,
   diningHallUpgradeForLevel,
   tradePostUpgradeForLevel,
+  guildWarehouseUpgradeForLevel,
   mapWorkshopUpgradeForLevel,
   nextSettlementBuildingUpgrade,
   settlementBuildingUpgradeSummary,
+  settlementBuildingUpgradeCostText,
+  settlementResourceIconName,
   trainingGroundUpgradeForLevel,
 } from "./settlement";
 import { WOODCUTTING_MATERIAL_ID } from "./woodcuttingSpots";
@@ -43,6 +47,14 @@ import { terrainTraitOf } from "./outposts";
 //   생산 헬퍼 테스트는 함수와 함께 삭제. 정착지 업글·칸 해금·검증 테스트만 유지.
 
 describe("settlement — 정착지(업그레이드·칸 해금)", () => {
+  it("정착지 자원은 자체 아이콘 이름과 이모지 없는 비용 문구를 제공한다", () => {
+    expect(settlementResourceIconName("crop")).toBe("wood_resource");
+    expect(settlementResourceIconName("ore")).toBe("ore_resource");
+    expect(settlementBuildingUpgradeCostText({ crop: 3, ore: 4 })).toBe(
+      "소나무 원목 3 · 철광석 4",
+    );
+  });
+
   it("nextTier — 마을→도시→대도시→null", () => {
     expect(nextTier("village")).toBe("city");
     expect(nextTier("city")).toBe("metropolis");
@@ -124,24 +136,21 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     ).toBe("주간 연성력 30 · 조제법 Lv.5");
   });
 
-  it("길드 식당은 레벨마다 운영 메뉴가 늘고 Lv5에서 기여 식권 5장을 연다", () => {
+  it("길드 식당은 레벨마다 이용 메뉴가 늘고 Lv5에서 기여 식권 20장을 연다", () => {
     expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("dining_hall");
-    expect(DINING_HALL_UPGRADES.map((upgrade) => upgrade.weeklyMenuSlots)).toEqual([
-      1, 2, 3, 4, 5,
+    expect(DINING_HALL_UPGRADES.map((upgrade) => upgrade.weeklyMealTickets)).toEqual([
+      8, 8, 12, 16, 20,
     ]);
     expect(nextSettlementBuildingUpgrade("dining_hall", 1)).toMatchObject({
       level: 2,
       cost: { crop: 500, ore: 500, gold: 20_000_000, fame: 0 },
-      weeklyMealTickets: 2,
-      weeklyMenuSlots: 2,
+      weeklyMealTickets: 8,
     });
     expect(diningHallUpgradeForLevel(4)).toMatchObject({
-      weeklyMealTickets: 4,
-      weeklyMenuSlots: 4,
+      weeklyMealTickets: 16,
     });
     expect(diningHallUpgradeForLevel(5)).toMatchObject({
-      weeklyMealTickets: 5,
-      weeklyMenuSlots: 5,
+      weeklyMealTickets: 20,
       label: "길드 대연회장",
     });
     expect(
@@ -149,7 +158,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
         "dining_hall",
         diningHallUpgradeForLevel(5),
       ),
-    ).toBe("기본 식권 1장 + 기여 식권 5장 · 메뉴 5종");
+    ).toBe("기본 식권 4장 + 기여 식권 20장 · 이용 가능 메뉴 6종");
   });
 
   it("길드 교역소는 매 레벨 토큰·납품 한도·완료 보상을 크게 높인다", () => {
@@ -179,6 +188,28 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     );
   });
 
+  it("길드 창고는 배치 가능하며 레벨마다 슬롯이 2칸씩 늘어난다", () => {
+    expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("guild_warehouse");
+    expect(GUILD_WAREHOUSE_UPGRADES.map((upgrade) => upgrade.capacity)).toEqual([
+      1, 3, 5, 7, 9,
+    ]);
+    expect(nextSettlementBuildingUpgrade("guild_warehouse", 1)).toMatchObject({
+      level: 2,
+      cost: { crop: 500, ore: 500, gold: 20_000_000, fame: 0 },
+      capacity: 3,
+    });
+    expect(guildWarehouseUpgradeForLevel(5)).toMatchObject({
+      capacity: 9,
+      label: "왕립 공동 창고",
+    });
+    expect(
+      settlementBuildingUpgradeSummary(
+        "guild_warehouse",
+        guildWarehouseUpgradeForLevel(5),
+      ),
+    ).toBe("아이템 보관 슬롯 9칸");
+  });
+
   it("시설 재료 비용은 Lv2~5에서 기존 대비 2~5배이며 Lv2 명성은 무료다", () => {
     for (const upgrades of [
       GUILD_SMITHY_UPGRADES,
@@ -187,6 +218,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
       ALCHEMY_WORKSHOP_UPGRADES,
       DINING_HALL_UPGRADES,
       TRADE_POST_UPGRADES,
+      GUILD_WAREHOUSE_UPGRADES,
     ]) {
       expect(upgrades[1].cost.fame).toBe(0);
       expect(upgrades[1].cost).toMatchObject({ crop: 500, ore: 500 });
@@ -225,6 +257,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
       ALCHEMY_WORKSHOP_UPGRADES,
       DINING_HALL_UPGRADES,
       TRADE_POST_UPGRADES,
+      GUILD_WAREHOUSE_UPGRADES,
     ].map((upgrades) => ({
       materials: upgrades
         .slice(1)
@@ -251,6 +284,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
       { materials: 20_000, gold: 315_000_000, fame: 4_350 },
       { materials: 20_000, gold: 315_000_000, fame: 4_350 },
       { materials: 20_000, gold: 380_000_000, fame: 5_350 },
+      { materials: 20_000, gold: 315_000_000, fame: 4_350 },
     ]);
   });
 

@@ -36,18 +36,20 @@ export const ONBOARDING_MAX_STAT_MULT = 1.3; // 들판 6 스탯 배율 상한(�
 //   사냥터 난이도 곡선 하향(중간 완화·깊을수록 완화폭↑: d12 -10%·d24 -12%). 들판(1~6)은 불변.
 export const LADDER_STAT_STEP = 0.52; // 깊이당 statMult 증가(들판 0.06 대비 완만 램프)
 
-// 엔드 확장 램프(43+) — 1~42 는 기존 곡선을 유지하고, 새 사냥터부터 권장 전투력을
-// 1500 전후로 끌어올린다. 기존 후반 평가는 "성장 대비 너무 쉬움"이라 43에서 의도적으로 한 번
-// 단차를 만들고, 이후 깊이당 증가 폭도 기존 0.52보다 높게 둔다.
+// 엔드 확장 램프(43+) — 1~42 는 기존 곡선을 유지하고 실제 몬스터 스탯만 별도 램프로 확장한다.
+// 표시 권장 전투력은 실전 승률을 기준으로 아래에서 분리해 산정한다.
 export const END_EXTENSION_START_DEPTH = 43;
 export const END_EXTENSION_START_STAT_MULT = 30;
 export const END_EXTENSION_STAT_STEP = 1.0;
 
-// 검은 왕도 이후 신규 사냥터 권장 전투력 앵커(2026-06-30).
-// 43~48(검은 왕도)은 기존 1500대 엔드 램프를 유지하고, 49~54(붉은 벌판)는 2000~2300,
-// 55~60(백골 고원)은 2800~3300으로 한 단계 더 큰 단차를 둔다. 61+ 는 깊이당 +100으로
-// 이어져 폭풍 산맥(3400~3900), 심해 폐허(4000~4500)를 자연 확장한다.
-function endExtensionPowerGate(depth: number): number {
+// 49+ 몬스터 스탯을 보존하는 내부 앵커. 과거에는 이 값을 그대로 권장 전투력으로 노출했지만,
+// 전투 완화·스킬·회피·회복 효율이 반영되지 않아 실제 필요 전투력보다 최대 80% 높게 보였다.
+// 천공 균열(73~78)은 원정·개량으로 크게 성장한 유저가 힘을 체감하도록 더 가파르게
+// 4650→5500까지 상승한다. 단, 73은 5T 최종 세팅으로 진입 가능한 수준을 유지한다.
+export const SKY_RIFT_POWER_GATES = [4650, 4800, 4950, 5100, 5300, 5500] as const;
+export const STAR_GRAVE_POWER_GATES = [8000, 8400, 8800, 9200, 9600, 10000] as const;
+
+function endExtensionStatAnchorPower(depth: number): number {
   const d = Math.max(END_EXTENSION_START_DEPTH, Math.floor(depth));
   if (d < 49) {
     return Math.round(
@@ -59,10 +61,44 @@ function endExtensionPowerGate(depth: number): number {
     );
   }
   if (d <= 54) return 2000 + (d - 49) * 60;
+  if (d >= 73) {
+    const index = d - 73;
+    return index < SKY_RIFT_POWER_GATES.length
+      ? SKY_RIFT_POWER_GATES[index]
+      : SKY_RIFT_POWER_GATES[SKY_RIFT_POWER_GATES.length - 1] +
+          (index - SKY_RIFT_POWER_GATES.length + 1) * 200;
+  }
   return 2800 + (d - 55) * 100;
 }
 
-function statMultForPowerGate(power: number): number {
+// 운영 상위 20명 실데이터 재검증 뒤 43~66은 기존 안내 곡선을 유지한다. 방어기제·전투력 산식
+// 재설계 후 심해 폐허 후반(67~72)의 실제 몬스터 앵커는 4,500인데 권장치는 2,500에 머물러,
+// 72가 다음 지역 73보다 오히려 어려운 역전이 생겼다. 67~72만 2,500→4,500으로 이어
+// 천공 균열 진입 4,650과 연결한다. 몬스터 능력치·EXP는 바꾸지 않는다.
+function endExtensionRecommendedPower(depth: number): number {
+  const d = Math.max(END_EXTENSION_START_DEPTH, Math.floor(depth));
+  if (d <= 48) return 1200 + (d - 43) * 30;
+  if (d <= 54) return 1400 + (d - 49) * 50;
+  if (d <= 60) return 1700 + (d - 55) * 60;
+  if (d <= 66) return 2050 + (d - 61) * 40;
+  if (d >= 79) {
+    const index = d - 79;
+    return index < STAR_GRAVE_POWER_GATES.length
+      ? STAR_GRAVE_POWER_GATES[index]
+      : STAR_GRAVE_POWER_GATES[STAR_GRAVE_POWER_GATES.length - 1] +
+          (index - STAR_GRAVE_POWER_GATES.length + 1) * 400;
+  }
+  if (d >= 73) {
+    const index = d - 73;
+    return index < SKY_RIFT_POWER_GATES.length
+      ? SKY_RIFT_POWER_GATES[index]
+      : SKY_RIFT_POWER_GATES[SKY_RIFT_POWER_GATES.length - 1] +
+          (index - SKY_RIFT_POWER_GATES.length + 1) * 200;
+  }
+  return 2500 + (d - 67) * 400;
+}
+
+function statMultForAnchorPower(power: number): number {
   return Math.pow(power / POWER_PER_STAT, 1 / LADDER_GATE_DAMP);
 }
 
@@ -83,66 +119,15 @@ export function endgameSoften(depth: number): number {
   );
 }
 
-// 권장 전투력 미달 페널티 — 들판(온보딩)은 건드리지 않고, 중반은 부족분만큼 몬스터 HP·ATK를
-// 최대 20~30% 보강한다. 최상위 4개 사냥터(붉은 벌판 49+)는 권장 전투력보다 한참 낮은
-// 캐릭터가 엔드 완화 계수와 특정 빌드 효율로 우회하지 못하도록 부족분을 더 강하게 반영한다.
-// 권장치의 90%까지는 유예해 근소한 표시 오차는 허용하고, 그보다 부족한 구간만 가파르게 보강한다.
-// 권장치 이상 캐릭터의 기존 난도는 그대로이며 전투력을 하드 입장 제한으로 쓰지는 않는다.
-export const UNDERPREPARED_COMBAT_FULL_DEPTH = 36;
-export const UNDERPREPARED_COMBAT_END_DEPTH = 42;
-export const UNDERPREPARED_COMBAT_MAX = 1.3;
-export const UNDERPREPARED_COMBAT_LATE_MAX = 1.2;
-export const UNDERPREPARED_COMBAT_SHORTFALL_SCALE = 2;
-export const UNDERPREPARED_ENDGAME_START_DEPTH = 49;
-export const UNDERPREPARED_ENDGAME_GRACE_RATIO = 0.9;
-export const UNDERPREPARED_ENDGAME_MAX = 6;
-export const UNDERPREPARED_ENDGAME_SHORTFALL_SCALE = 12;
-export function underpreparedCombatMult(
-  depth: number,
-  playerPower?: number,
-): number {
-  if (
-    depth <= ONBOARDING_END_DEPTH ||
-    playerPower == null ||
-    !Number.isFinite(playerPower)
-  ) {
-    return 1;
-  }
-  const gate = floorPowerGate(depth);
-  if (gate <= 0 || playerPower >= gate) return 1;
-  const endgame = depth >= UNDERPREPARED_ENDGAME_START_DEPTH;
-  const maxMult = endgame
-    ? UNDERPREPARED_ENDGAME_MAX
-    : depth <= UNDERPREPARED_COMBAT_FULL_DEPTH
-      ? UNDERPREPARED_COMBAT_MAX
-      : depth <= UNDERPREPARED_COMBAT_END_DEPTH
-        ? UNDERPREPARED_COMBAT_LATE_MAX
-        : 1;
-  const shortfallScale = endgame
-    ? UNDERPREPARED_ENDGAME_SHORTFALL_SCALE
-    : UNDERPREPARED_COMBAT_SHORTFALL_SCALE;
-  const powerRatio = Math.max(0, playerPower) / gate;
-  const shortfall = endgame
-    ? Math.max(0, UNDERPREPARED_ENDGAME_GRACE_RATIO - powerRatio)
-    : 1 - powerRatio;
-  return (
-    1 +
-    Math.min(
-      maxMult - 1,
-      shortfall * shortfallScale,
-    )
-  );
-}
-
 // 엔드 확장(43+) 전용 전투 완화. 42→43에서 statMult가 약 20→30으로 50% 뛰는 의도적
-// 콘텐츠 단차는 권장 전투력/보상에는 남기되, 같은 순간 몬스터 HP·ATK까지 모두 1.5배가 되어
+// 콘텐츠 단차는 내부 스탯/보상에는 남기되, 같은 순간 몬스터 HP·ATK까지 모두 1.5배가 되어
 // 다수 빌드가 90%+→20%대로 붕괴하는 현상은 분리한다. def·exp·권장 전투력에는 적용하지 않는다.
 export const END_EXTENSION_COMBAT_SOFTEN = 0.7;
-// 신규 지역 입구(49·55)에서 권장 전투력이 각각 +21%·+26% 뛰지만, 직전 지역 장비 상승폭은
-// 그보다 작다. 43~48의 검증된 난이도는 유지하고 지역 경계 이후 HP·ATK를 단계적으로 완화한다.
+// 신규 지역 입구(49·55)의 내부 스탯 앵커 단차에 비해 직전 지역 장비 상승폭은 작다.
+// 43~48의 검증된 난이도는 유지하고 지역 경계 이후 HP·ATK를 단계적으로 완화한다.
 // 단, 0.30에서 완화를 멈춘다. 종전 0.18까지 누적하면 원래 statMult 상승을 상쇄해 심해 폐허
 // 몬스터가 오히려 약해지고 전투력 1,500 안팎으로 최심부를 정복하는 역전이 생겼다.
-// 방어·EXP·권장 전투력은 그대로라 진행 보상/표시 곡선은 바뀌지 않는다.
+// 방어·EXP는 그대로며 표시 권장 전투력은 별도 실전 곡선이라 이 완화값과 직접 연동하지 않는다.
 export const RED_PLAINS_COMBAT_SOFTEN = 0.56;
 export const BONE_PLATEAU_COMBAT_SOFTEN = 0.38;
 export const DEEP_FRONTIER_COMBAT_SOFTEN_SLOPE = 0.012;
@@ -157,6 +142,245 @@ export function endExtensionCombatSoften(depth: number): number {
   }
   if (depth >= 49) return RED_PLAINS_COMBAT_SOFTEN;
   return depth >= END_EXTENSION_START_DEPTH ? END_EXTENSION_COMBAT_SOFTEN : 1;
+}
+
+// 49+ 솔로 사냥터 고정 난도 복원(2026-08-08). 과거의 권장 전투력 미달 보정은 같은 몬스터가
+// 캐릭터마다 최대 6배까지 달라지는 문제가 있어 제거했지만, 보정 제거와 함께 상위 사냥터 HP가
+// 한 번에 70~80% 낮아져 진행도가 지나치게 빠르게 열렸다. 플레이어 전투력은 다시 읽지 않고,
+// 깊이만으로 모두에게 같은 전투 배율을 적용한다. 72·78의 종점은 과거 운영 상위 20명에게
+// 적용되던 보정의 중앙값에 가깝게 고정해 절대 난도는 복원하되, 생존형·극딜형 등 빌드에 따라
+// 같은 몬스터 스펙이 달라지던 불공정은 되살리지 않는다. 협동 보스는 softenEndgame=false라 제외된다.
+// 2026-08-09: 방어·회피가 확률/선형 감산에서 수치 대결형 경감으로 바뀐 뒤 기존 복원 배율과
+// 상위 난도 재분배가 중첩되어 60+ 사냥터가 과도해졌다. 깊이별 고정 원칙은 유지하되 생존축을
+// 다시 무효화하지 않는 수준으로 HP·ATK·DEF·명중·회피 종점을 함께 낮춘다.
+export const FIXED_FRONTIER_DIFFICULTY_START_DEPTH = 49;
+export const FIXED_FRONTIER_DURABILITY_START = 1.5;
+export const FIXED_FRONTIER_DURABILITY_DEPTH_72 = 4.5;
+export const FIXED_FRONTIER_DURABILITY_DEPTH_78 = 6;
+export const FIXED_FRONTIER_DURABILITY_DEPTH_84 = 10;
+export const FIXED_FRONTIER_ATTACK_START = 1.1;
+export const FIXED_FRONTIER_ATTACK_DEPTH_72 = 2.3;
+export const FIXED_FRONTIER_ATTACK_DEPTH_78 = 2.7;
+export const FIXED_FRONTIER_ATTACK_DEPTH_84 = 3.6;
+export const FIXED_FRONTIER_DEFENSE_START = 1;
+export const FIXED_FRONTIER_DEFENSE_DEPTH_72 = 1.45;
+export const FIXED_FRONTIER_DEFENSE_DEPTH_78 = 1.5;
+export const FIXED_FRONTIER_DEFENSE_DEPTH_84 = 1.8;
+export const FIXED_FRONTIER_ACCURACY_START = 1;
+export const FIXED_FRONTIER_ACCURACY_DEPTH_72 = 1;
+export const FIXED_FRONTIER_ACCURACY_DEPTH_78 = 1.03;
+export const FIXED_FRONTIER_ACCURACY_DEPTH_84 = 1.08;
+export const FIXED_FRONTIER_EVASION_START = 0;
+export const FIXED_FRONTIER_EVASION_DEPTH_72 = 2;
+export const FIXED_FRONTIER_EVASION_DEPTH_78 = 3;
+export const FIXED_FRONTIER_EVASION_DEPTH_84 = 5;
+
+function linearRamp(
+  depth: number,
+  startDepth: number,
+  endDepth: number,
+  startValue: number,
+  endValue: number,
+): number {
+  const t = Math.min(
+    1,
+    Math.max(0, (Math.floor(depth) - startDepth) / (endDepth - startDepth)),
+  );
+  return startValue + (endValue - startValue) * t;
+}
+
+export function fixedFrontierDurabilityMult(depth: number): number {
+  if (depth < FIXED_FRONTIER_DIFFICULTY_START_DEPTH) return 1;
+  if (depth <= 72) {
+    return linearRamp(
+      depth,
+      FIXED_FRONTIER_DIFFICULTY_START_DEPTH,
+      72,
+      FIXED_FRONTIER_DURABILITY_START,
+      FIXED_FRONTIER_DURABILITY_DEPTH_72,
+    );
+  }
+  if (depth <= 78) {
+    return linearRamp(
+      depth,
+      73,
+      78,
+      FIXED_FRONTIER_DURABILITY_DEPTH_72,
+      FIXED_FRONTIER_DURABILITY_DEPTH_78,
+    );
+  }
+  return linearRamp(
+    depth,
+    78,
+    84,
+    FIXED_FRONTIER_DURABILITY_DEPTH_78,
+    FIXED_FRONTIER_DURABILITY_DEPTH_84,
+  );
+}
+
+export function fixedFrontierAttackMult(depth: number): number {
+  if (depth < FIXED_FRONTIER_DIFFICULTY_START_DEPTH) return 1;
+  if (depth <= 72) {
+    return linearRamp(
+      depth,
+      FIXED_FRONTIER_DIFFICULTY_START_DEPTH,
+      72,
+      FIXED_FRONTIER_ATTACK_START,
+      FIXED_FRONTIER_ATTACK_DEPTH_72,
+    );
+  }
+  if (depth <= 78) {
+    return linearRamp(
+      depth,
+      73,
+      78,
+      FIXED_FRONTIER_ATTACK_DEPTH_72,
+      FIXED_FRONTIER_ATTACK_DEPTH_78,
+    );
+  }
+  return linearRamp(
+    depth,
+    78,
+    84,
+    FIXED_FRONTIER_ATTACK_DEPTH_78,
+    FIXED_FRONTIER_ATTACK_DEPTH_84,
+  );
+}
+
+export function fixedFrontierDefenseMult(depth: number): number {
+  if (depth < FIXED_FRONTIER_DIFFICULTY_START_DEPTH) return 1;
+  if (depth <= 72) {
+    return linearRamp(
+      depth,
+      FIXED_FRONTIER_DIFFICULTY_START_DEPTH,
+      72,
+      FIXED_FRONTIER_DEFENSE_START,
+      FIXED_FRONTIER_DEFENSE_DEPTH_72,
+    );
+  }
+  if (depth <= 78) {
+    return linearRamp(
+      depth,
+      73,
+      78,
+      FIXED_FRONTIER_DEFENSE_DEPTH_72,
+      FIXED_FRONTIER_DEFENSE_DEPTH_78,
+    );
+  }
+  return linearRamp(
+    depth,
+    78,
+    84,
+    FIXED_FRONTIER_DEFENSE_DEPTH_78,
+    FIXED_FRONTIER_DEFENSE_DEPTH_84,
+  );
+}
+
+export function fixedFrontierAccuracyMult(depth: number): number {
+  if (depth < FIXED_FRONTIER_DIFFICULTY_START_DEPTH) return 1;
+  if (depth <= 72) {
+    return linearRamp(
+      depth,
+      FIXED_FRONTIER_DIFFICULTY_START_DEPTH,
+      72,
+      FIXED_FRONTIER_ACCURACY_START,
+      FIXED_FRONTIER_ACCURACY_DEPTH_72,
+    );
+  }
+  if (depth <= 78) {
+    return linearRamp(
+      depth,
+      73,
+      78,
+      FIXED_FRONTIER_ACCURACY_DEPTH_72,
+      FIXED_FRONTIER_ACCURACY_DEPTH_78,
+    );
+  }
+  return linearRamp(
+    depth,
+    78,
+    84,
+    FIXED_FRONTIER_ACCURACY_DEPTH_78,
+    FIXED_FRONTIER_ACCURACY_DEPTH_84,
+  );
+}
+
+export function fixedFrontierEvasionBonus(depth: number): number {
+  if (depth < FIXED_FRONTIER_DIFFICULTY_START_DEPTH) return 0;
+  if (depth <= 72) {
+    return linearRamp(
+      depth,
+      FIXED_FRONTIER_DIFFICULTY_START_DEPTH,
+      72,
+      FIXED_FRONTIER_EVASION_START,
+      FIXED_FRONTIER_EVASION_DEPTH_72,
+    );
+  }
+  if (depth <= 78) {
+    return linearRamp(
+      depth,
+      73,
+      78,
+      FIXED_FRONTIER_EVASION_DEPTH_72,
+      FIXED_FRONTIER_EVASION_DEPTH_78,
+    );
+  }
+  return linearRamp(
+    depth,
+    78,
+    84,
+    FIXED_FRONTIER_EVASION_DEPTH_78,
+    FIXED_FRONTIER_EVASION_DEPTH_84,
+  );
+}
+
+// 상위 난도 스펙 예산 재분배(43~72) — HP·ATK만 함께 부풀리면 "맞기 전에 처치 / 한 방에 사망"의
+// 이진 전투가 된다. 기존 HP·ATK 예산을 낮추고 방어·명중·회피·상태이상 저항으로 옮긴다.
+// 42 이하는 기존 곡선과 byte-identical, 72 이후는 plateau.
+// 협동 보스(scaleMonsterForFloor softenEndgame=false)는 별도 난도표를 쓰므로 적용하지 않는다.
+// 일반 사냥은 scaleMonsterForHunt 에서 상태이상 저항만 제거한다.
+export const LATE_DIFFICULTY_START_DEPTH = 43;
+export const LATE_DIFFICULTY_FULL_DEPTH = 72;
+// 새 방어·회피 경감식 기준으로 HP·ATK에 몰린 예산을 완화하되, DEF·명중·회피로 과도하게
+// 재분배해 특정 생존축을 다시 무효화하지 않도록 상위 종점을 함께 제한한다.
+export const LATE_DURABILITY_MULT_MAX = 0.92;
+export const LATE_ATTACK_MULT_MIN = 0.75;
+export const LATE_DEFENSE_MULT_MAX = 2.25;
+export const LATE_ACCURACY_MULT_MAX = 1;
+export const LATE_EVASION_BONUS_MAX = 3;
+export const LATE_STATUS_DAMAGE_REDUCTION_MAX = 30;
+
+function lateDifficultyT(depth: number): number {
+  if (depth < LATE_DIFFICULTY_START_DEPTH) return 0;
+  return Math.min(
+    1,
+    (Math.floor(depth) - LATE_DIFFICULTY_START_DEPTH) /
+      (LATE_DIFFICULTY_FULL_DEPTH - LATE_DIFFICULTY_START_DEPTH),
+  );
+}
+
+export function lateDurabilityMult(depth: number): number {
+  return 1 + (LATE_DURABILITY_MULT_MAX - 1) * lateDifficultyT(depth);
+}
+
+export function lateAttackMult(depth: number): number {
+  return 1 - (1 - LATE_ATTACK_MULT_MIN) * lateDifficultyT(depth);
+}
+
+export function lateDefenseMult(depth: number): number {
+  return 1 + (LATE_DEFENSE_MULT_MAX - 1) * lateDifficultyT(depth);
+}
+
+export function lateAccuracyMult(depth: number): number {
+  return 1 + (LATE_ACCURACY_MULT_MAX - 1) * lateDifficultyT(depth);
+}
+
+export function lateEvasionBonus(depth: number): number {
+  return LATE_EVASION_BONUS_MAX * lateDifficultyT(depth);
+}
+
+export function lateStatusDamageReductionBonus(depth: number): number {
+  return LATE_STATUS_DAMAGE_REDUCTION_MAX * lateDifficultyT(depth);
 }
 
 // 프론티어 진입 완화(2026-06-22, 밸런스) — 들판(d1~6, statMult step 0.06)→마른협곡(d7~, step 0.52)
@@ -195,12 +419,12 @@ export function floorCritHpComp(depth: number): number {
   );
 }
 
-// 회피 대결형(2026-06-21 Slice 1) — 몹 명중레이팅. 플레이어 evaRating 이 깊이 따라(dex/luk 성장)
-//   커지는 만큼 몹 명중도 floorStatMult 로 키워, 회피%가 깊이 무관 일정(콘텐츠 자동 추종). enemyPhase
-//   가 dodgeChance(evaR, 몹명중)에 씀. scaleMonsterForFloor 가 몹 accuracy 에 합산. docs/v2-evasion-rating-plan.md.
-// 몹 명중 = MOB_ACC_BASE × floorStatMult(depth). win-rate 캘리브(2026-06-21): 회피%-only 캘리브 1.05는
-//   필드 회귀(STR 94→73 — 회피 누르면 느린 빌드만 죽음), 0.3 이라야 PR-2 무회귀 + DEX dodge 75→56%(EHP ×4→×2.3).
-export const MOB_ACC_BASE = 0.3;
+// 몬스터 적중도. 플레이어 회피도가 깊이 따라 커지는 만큼 몬스터 적중도도 floorStatMult로
+// 키워 회피 경감률이 콘텐츠 깊이를 자동으로 따라가게 한다. scaleMonsterForFloor가 몬스터
+// 고유 적중도에 이 값을 합산한다.
+// 몹 명중 = MOB_ACC_BASE × floorStatMult(depth). 새 회피도 규모에서 무투자 캐릭터가 점근 상한에
+// 붙지 않고, DEX/LUK 집중 투자만 의미 있는 경감을 얻도록 캘리브한다.
+export const MOB_ACC_BASE = 1.5;
 export function floorAccuracy(depth: number): number {
   return MOB_ACC_BASE * floorStatMult(depth);
 }
@@ -226,7 +450,7 @@ export function floorStatMult(depth: number): number {
   }
   if (depth >= END_EXTENSION_START_DEPTH) {
     if (depth >= 49) {
-      return statMultForPowerGate(endExtensionPowerGate(depth));
+      return statMultForAnchorPower(endExtensionStatAnchorPower(depth));
     }
     return (
       END_EXTENSION_START_STAT_MULT +
@@ -240,7 +464,7 @@ export function floorStatMult(depth: number): number {
 
 // 사냥터 난이도 지표(표시 전용 — 실제 진입 게이트는 frontierDepth). 전투력 환산은 회피·치명·회복
 // 효율을 모두 담지 못하므로 빌드 간 합격선이 아니다. 깊이별 상대 난이도 비교에만 사용한다.
-// 들판(1~6)=50→95 완만, 7+ = statMult 비례(난이도=레벨 균형). 무한 깊이.
+// 들판(1~6)=50→95 완만, 7~42=statMult 비례, 43+=운영 실전 승률에 맞춘 별도 곡선.
 export function floorPowerGate(depth: number): number {
   if (depth <= 1) return FLOOR1_POWER;
   if (depth <= ONBOARDING_END_DEPTH) {
@@ -249,7 +473,7 @@ export function floorPowerGate(depth: number): number {
     );
   }
   if (depth >= END_EXTENSION_START_DEPTH) {
-    return endExtensionPowerGate(depth);
+    return endExtensionRecommendedPower(depth);
   }
   return Math.round(
     Math.pow(floorStatMult(depth), LADDER_GATE_DAMP) * POWER_PER_STAT,
@@ -284,13 +508,15 @@ export const REWARD_SLOWDOWN_START_DEPTH = 31;
 export const REWARD_SLOWDOWN_ANCHOR_DEPTH = REWARD_SLOWDOWN_START_DEPTH - 1;
 export const REWARD_SLOWDOWN_EXP_STEP = 0.15;
 export const REWARD_EXP_MULT_CAP = 30;
+export const HUNT_REWARD_DEPTH_CAP = 78;
 export function floorExpMult(depth: number): number {
   if (depth <= 1) return 1;
   if (depth >= REWARD_SLOWDOWN_START_DEPTH) {
+    const rewardDepth = Math.min(HUNT_REWARD_DEPTH_CAP, depth);
     return Math.min(
       REWARD_EXP_MULT_CAP,
       floorExpMult(REWARD_SLOWDOWN_ANCHOR_DEPTH) +
-        (depth - REWARD_SLOWDOWN_ANCHOR_DEPTH) * REWARD_SLOWDOWN_EXP_STEP,
+        (rewardDepth - REWARD_SLOWDOWN_ANCHOR_DEPTH) * REWARD_SLOWDOWN_EXP_STEP,
     );
   }
   const sMult = floorStatMult(depth);

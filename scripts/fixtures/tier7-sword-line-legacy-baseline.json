@@ -1,0 +1,11 @@
+{
+  "seedBase": 20260829,
+  "seeds": 200,
+  "cases": {
+    "swordsaint-core": { "mean": 66891.655, "firstActionKoRate": 0 },
+    "shadowblade-core": { "mean": 38728.185, "firstActionKoRate": 0 },
+    "shadowblade-inherited": { "mean": 74535.53, "firstActionKoRate": 0 },
+    "ruinblade-core": { "mean": 26415.1, "firstActionKoRate": 0 },
+    "ruinblade-inherited": { "mean": 87481.03, "firstActionKoRate": 0 }
+  }
+}

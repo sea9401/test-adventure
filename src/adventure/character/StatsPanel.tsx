@@ -14,15 +14,22 @@ import { SURFACE_INSET } from "@/components/ui/surfaces";
 const COMBAT_STAT_DESCRIPTIONS: Record<string, string> = {
   공격력: "일반 공격과 물리 스킬의 기본값입니다. 힘이 높을수록 커집니다.",
   방어력: "받는 물리 피해를 줄입니다. 활력이 높을수록 커집니다.",
-  "마법 공격력": "마력탄 같은 마법 스킬의 기본값입니다. 지능이 높을수록 커집니다.",
+  "마법 공격력":
+    "마법 스킬과 마법 기본 공격의 위력입니다. 지능이 주축이고 정신도 일부 기여하며, 지능을 초과한 정신은 더 높은 비율로 전환됩니다.",
   "마법 방어력":
     "마법형 몬스터의 공격과 마법 스킬 피해를 줄입니다. 정신이 주축이고 지능·반지·목걸이·마법 방어 옵션이 보조합니다.",
-  "명중 능력":
-    "확률이 아닌 원본 능력 수치입니다. 상대의 회피 능력과 함께 계산해 실제 적중률이 정해집니다. 민첩·힘·지능·정신이 보조합니다.",
-  "회피 능력":
-    "확률이 아닌 원본 능력 수치입니다. 상대의 명중 능력과 함께 계산해 실제 회피율이 정해집니다. 민첩·행운이 높을수록 커집니다.",
-  "현재 사냥터 회피율":
-    "현재 사냥터(최대 깊이) 적의 명중 능력을 반영한 실제 회피 확률입니다. 더 깊은 곳에서는 적의 명중 능력이 높아져 달라질 수 있습니다.",
+  회복량:
+    "회복 스킬·흡혈·일부 자가 회복에 적용되는 최종 배율입니다. 정신과 활력이 높을수록 커지며 장비의 회복 옵션과 장착 패시브도 반영됩니다.",
+  "마나 실드":
+    "마나 실드 패시브 장착 시 지능과 최대 MP로 정해지는 전투 시작 내구도입니다. 전투 중 재계산하거나 회복하지 않으며 현재 MP는 소모하지 않습니다.",
+  "마나 실드 흡수율":
+    "방어·마법 방어·회피를 적용하기 전 적대 피해에서 마나 실드 채널로 나누는 비율입니다.",
+  "마나 실드 경감률":
+    "마나 실드 채널이 막은 피해보다 내구도를 적게 소모하게 하는 비율입니다. 최대 MP와 최대 내구도가 높을수록 커집니다.",
+  적중도:
+    "상대의 회피도와 함께 계산해 상대의 직접 피해 경감률을 낮추는 수치입니다. 장비·민첩·힘·지능·정신으로 얻은 수치에 적중도 증가 패시브가 적용됩니다.",
+  회피도:
+    "상대의 적중도와 함께 계산해 직접 피해 경감률을 정하는 수치입니다. 경갑·민첩·행운으로 얻은 수치에 회피도 증가 패시브가 적용됩니다.",
   "치명타 확률":
     "평타와 직접 피해를 주는 액티브 스킬이 함께 사용하는 치명타 확률. 전투에서는 최대 75%까지 적용되고, 초과분은 기본적으로 평타 치명타 피해로 전환됩니다.",
   "평타 치명타 배율":
@@ -31,24 +38,36 @@ const COMBAT_STAT_DESCRIPTIONS: Record<string, string> = {
     "직접 피해를 주는 액티브 스킬에 적용되는 치명타 확률. 캐릭터 치명타 확률을 공유하며 최대 75%까지 적용됩니다.",
   "스킬 치명타 배율":
     "액티브 스킬 치명타의 피해 배수. 평타 치명타 배율과 별개이며, 관련 패시브가 있으면 치명타 확률 75% 초과분도 포함됩니다.",
+  "마법 스킬 치명타 배율":
+    "원초 증폭 장착 시 모든 직접 마법 스킬 피해에 적용되는 치명타 배수입니다. 기본 스킬 치명타 배율에 현재 장비의 치명타 배율 변환값을 더해 표시합니다.",
   속도: "행동 빈도를 좌우합니다. 민첩에서 파생되고 장비 무게로 줄어듭니다.",
 };
+
+export function combatStatDescription(label: string): string | undefined {
+  return COMBAT_STAT_DESCRIPTIONS[label];
+}
 
 type CombatStats = {
   atk: number;
   def: number;
   magicAtk?: number;
   magicDef?: number;
+  healMult?: number;
+  magicBarrierMax?: number;
+  magicBarrierAbsorbPct?: number;
+  magicBarrierEfficiencyPct?: number;
   spd?: number;
   evasionPct?: number;
   accuracyPct?: number;
-  // 회피 대결형 Slice 2 — 캡 없는 명중레이팅. 표시는 이 raw 를 우선(없으면 accuracyPct 폴백).
+  // 캡 없는 적중도. 표시는 이 raw 를 우선하고, 없으면 레거시 필드로 폴백한다.
   accRating?: number;
-  // 회피 대결형 — 캡 없는 회피레이팅. 확률(evasionPct)과 구분해 표시한다.
+  // 캡 없는 회피도. 내 정보에서는 이 원본 수치를 표시한다.
   evaRating?: number;
   critChancePct?: number;
   critMult?: number;
   skillCritOverflow?: boolean;
+  skillCritDmgPct?: number;
+  equipmentMagicSkillCritDmgPct?: number;
 };
 
 type CombatItem = { label: string; value: string | number; accent: string };
@@ -63,15 +82,27 @@ function critOverflowMult(critChancePct: number | undefined): number {
 
 export function activeSkillCritStats(combat: Pick<
   CombatStats,
-  "critChancePct" | "skillCritOverflow"
+  | "critChancePct"
+  | "skillCritOverflow"
+  | "skillCritDmgPct"
+  | "equipmentMagicSkillCritDmgPct"
 >) {
+  const multiplier =
+    SKILL_CRIT_MULT +
+    Math.max(0, combat.skillCritDmgPct ?? 0) / 100 +
+    (combat.skillCritOverflow
+      ? critOverflowMult(combat.critChancePct)
+      : 0);
   return {
     chancePct: Math.min(CRIT_PCT_CAP, Math.max(0, combat.critChancePct ?? 0)),
-    multiplier:
-      SKILL_CRIT_MULT +
-      (combat.skillCritOverflow
-        ? critOverflowMult(combat.critChancePct)
-        : 0),
+    multiplier,
+    ...(combat.equipmentMagicSkillCritDmgPct !== undefined
+      ? {
+          magicMultiplier:
+            multiplier +
+            Math.max(0, combat.equipmentMagicSkillCritDmgPct) / 100,
+        }
+      : {}),
   };
 }
 
@@ -97,22 +128,43 @@ function buildCombatItems(combat: CombatStats): CombatItem[] {
       accent: "text-cyan-600 dark:text-cyan-400",
     });
   }
+  if (combat.healMult !== undefined) {
+    items.push({
+      label: "회복량",
+      value: `${(combat.healMult * 100).toFixed(1)}%`,
+      accent: "text-emerald-600 dark:text-emerald-400",
+    });
+  }
+  if ((combat.magicBarrierMax ?? 0) > 0) {
+    items.push(
+      {
+        label: "마나 실드",
+        value: Math.round(combat.magicBarrierMax ?? 0).toLocaleString(),
+        accent: "text-violet-600 dark:text-violet-400",
+      },
+      {
+        label: "마나 실드 흡수율",
+        value: `${(combat.magicBarrierAbsorbPct ?? 0).toFixed(1)}%`,
+        accent: "text-violet-600 dark:text-violet-400",
+      },
+      {
+        label: "마나 실드 경감률",
+        value: `${(combat.magicBarrierEfficiencyPct ?? 0).toFixed(1)}%`,
+        accent: "text-violet-600 dark:text-violet-400",
+      },
+    );
+  }
   if (combat.evasionPct !== undefined) {
     items.push(
       {
-        label: "명중 능력",
+        label: "적중도",
         value: Math.round(combat.accRating ?? combat.accuracyPct ?? 0),
         accent: "text-amber-600 dark:text-amber-400",
       },
       {
-        label: "회피 능력",
+        label: "회피도",
         value: Math.round(combat.evaRating ?? combat.evasionPct),
         accent: "text-cyan-600 dark:text-cyan-400",
-      },
-      {
-        label: "현재 사냥터 회피율",
-        value: `${Math.round(combat.evasionPct)}%`,
-        accent: "text-teal-600 dark:text-teal-400",
       },
       {
         label: "치명타 확률",
@@ -136,6 +188,15 @@ function buildCombatItems(combat: CombatStats): CombatItem[] {
         value: `×${activeSkillCrit.multiplier.toFixed(2)}`,
         accent: "text-pink-600 dark:text-pink-400",
       },
+      ...(activeSkillCrit.magicMultiplier !== undefined
+        ? [
+            {
+              label: "마법 스킬 치명타 배율",
+              value: `×${activeSkillCrit.magicMultiplier.toFixed(2)}`,
+              accent: "text-violet-600 dark:text-violet-400",
+            },
+          ]
+        : []),
       {
         label: "속도",
         value: Math.round(combat.spd ?? 0),
@@ -163,11 +224,11 @@ export function StatsPanel({
   statLabels = STAT_LABELS,
   statDescriptions,
 }: {
-  /** 베이스 + 분배 스탯 (장비 보너스 제외). */
+  /** 베이스 + 성장/분배 스탯 (추가 효과 제외). */
   stats: Record<string, number>;
-  /** 베이스 + 분배 + 장비 합산된 최종 스탯. 미지정 시 stats 와 동일 (장비 보너스 표시 X). */
+  /** 추가 효과까지 합산된 최종 스탯. 미지정 시 stats 와 동일 (증가분 표시 X). */
   totalStats?: Record<string, number>;
-  /** 각 스탯의 한계치(cap). 지정 시 "값(한계치)" 표기로 바뀌고 장비 보너스 분리는 숨긴다(v2 내 정보). */
+  /** 각 스탯의 성장 한계치(cap). 지정 시 최종값과 효과 증가분을 분리한다(v2 내 정보). */
   caps?: Record<string, number | undefined>;
   /** 상세(전투 세부) — 공격력/방어력 + (v2) 마법공·마방·회피·명중·치명타·속도. magicAtk 은 0이면 숨김.
    *  v2 전용 필드(magicDef·회피 등)는 v2 caller 만 전달 — 라이브 caller(undefined)는 미표시. */
@@ -192,7 +253,7 @@ export function StatsPanel({
             {combatItems.map((it, i) => (
               <Tooltip
                 key={it.label}
-                content={COMBAT_STAT_DESCRIPTIONS[it.label]}
+                content={combatStatDescription(it.label)}
                 // 2열 그리드 — 왼쪽 열은 좌측, 오른쪽 열은 우측 정렬해 가로 잘림 방지.
                 align={i % 2 === 0 ? "start" : "end"}
                 triggerClassName={COMBAT_CELL}
@@ -219,10 +280,14 @@ export function StatsPanel({
           {statKeys.map((k, idx) => {
             const base = stats[k];
             const finalValue = total[k];
-            const equipBonus = finalValue - base;
-            // caps 모드(v2 내 정보): 장비 분리 대신 "값(한계치)" 표기. 라이브는 종전 장비 분리 유지.
-            const hasBonus =
-              !showCaps && totalStats !== undefined && equipBonus !== 0;
+            const bonus = finalValue - base;
+            const hasBonus = totalStats !== undefined && bonus !== 0;
+            // caps 모드(v2 내 정보)는 직업·패시브·음식 등을 합친 "효과" 증가분,
+            // 라이브는 종전처럼 장비 증가분으로 표시한다.
+            const hasEffectBonus = showCaps && hasBonus;
+            const hasEquipmentBonus = !showCaps && hasBonus;
+            const displayedValue =
+              showCaps && totalStats !== undefined ? finalValue : base;
             const cap = caps?.[k];
             const desc = statDescriptions?.[k];
             const inner = (
@@ -230,26 +295,43 @@ export function StatsPanel({
                 <span className="block text-xs text-zinc-500 dark:text-zinc-400">
                   {statLabels[k]}
                 </span>
-                {/* 큰 글자 = 기본(베이스 + 분배). caps 모드면 옆에 (한계치), 아니면 장비 보너스로 갈라진다. */}
+                {/* v2는 최종값, 라이브는 종전대로 기본값을 큰 글자로 표시한다. */}
                 <span className="mt-0.5 block break-all text-lg font-semibold leading-none tabular-nums text-zinc-900 dark:text-zinc-100">
-                  {base.toLocaleString()}
+                  {displayedValue.toLocaleString()}
                 </span>
-                {cap !== undefined && (
-                  <span className="mt-1 block break-all text-[11px] leading-none tabular-nums text-zinc-500 dark:text-zinc-400">
-                    ({cap.toLocaleString()})
-                  </span>
-                )}
-                {hasBonus && (
+                {hasEffectBonus && (
                   <>
+                    <span className="mt-1 block text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                      기본·성장 {base.toLocaleString()}
+                    </span>
                     <span
                       className={`block text-[10px] tabular-nums ${
-                        equipBonus > 0
+                        bonus > 0
                           ? "text-emerald-600 dark:text-emerald-400"
                           : "text-rose-500 dark:text-rose-400"
                       }`}
                     >
-                      장비 {equipBonus > 0 ? "+" : ""}
-                      {equipBonus}
+                      효과 {bonus > 0 ? "+" : ""}
+                      {bonus.toLocaleString()}
+                    </span>
+                  </>
+                )}
+                {cap !== undefined && (
+                  <span className="mt-1 block break-all text-[11px] leading-none tabular-nums text-zinc-500 dark:text-zinc-400">
+                    성장 한계 {cap.toLocaleString()}
+                  </span>
+                )}
+                {hasEquipmentBonus && (
+                  <>
+                    <span
+                      className={`block text-[10px] tabular-nums ${
+                        bonus > 0
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-rose-500 dark:text-rose-400"
+                      }`}
+                    >
+                      장비 {bonus > 0 ? "+" : ""}
+                      {bonus.toLocaleString()}
                     </span>
                     <span className="block text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">
                       = {finalValue}

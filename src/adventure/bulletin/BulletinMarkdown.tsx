@@ -101,6 +101,158 @@ const COMPONENTS: Components = {
   },
 };
 
+const INLINE_COMPONENTS: Components = {
+  p({ node, children }) {
+    void node;
+    return <>{children}</>;
+  },
+  a({ node, href, children }) {
+    void node;
+    const textColor = bulletinTextColorFromUrl(href);
+    return textColor ? (
+      <span className={`${textColor.textClassName} [&_strong]:!text-current`}>
+        {children}
+      </span>
+    ) : (
+      <span>{children}</span>
+    );
+  },
+};
+
+export type BulletinMarkdownSegment =
+  | { kind: "markdown"; content: string }
+  | { kind: "details"; summary: string; content: string };
+
+type MarkdownFence = { marker: "`" | "~"; length: number } | null;
+
+function normalizeBulletinLineEndings(content: string): string {
+  return content.replace(/\r\n?/g, "\n");
+}
+
+// 제목·목록·접기처럼 블록 문법을 사용한 글은 일반 마크다운의 개행 규칙을 따른다.
+// 그래야 편집기에서 읽기 편하게 나눈 한 줄이 본문에서 강제 줄바꿈으로 남지 않는다.
+// 블록 문법이 없는 기존 평문 글은 종전처럼 단일 개행을 그대로 보존한다.
+function hasStructuredMarkdown(content: string): boolean {
+  return /^(?:[ \t]{0,3})(?:#{1,6}(?:[ \t]+|$)|(?:[-+*]|\d+[.)])[ \t]+|>[ \t]?|`{3,}|~{3,}|:::details(?:[ \t]+|$)|(?:[-*_][ \t]*){3,}$|\|?[ \t]*:?-{3,}:?[ \t]*(?:\|[ \t]*:?-{3,}:?[ \t]*)+\|?[ \t]*$)/m.test(
+    content,
+  );
+}
+
+function nextMarkdownFence(line: string, current: MarkdownFence): MarkdownFence {
+  const match = /^\s*(`{3,}|~{3,})(.*)$/.exec(line);
+  if (!match) return current;
+  const marker = match[1][0] as "`" | "~";
+  if (!current) return { marker, length: match[1].length };
+  if (
+    marker === current.marker &&
+    match[1].length >= current.length &&
+    match[2].trim() === ""
+  ) {
+    return null;
+  }
+  return current;
+}
+
+// 원시 HTML을 열지 않고 게시판 전용 :::details 제목 … ::: 블록만 안전하게 분리한다.
+// 코드 펜스 안의 예시 문법과 닫히지 않은 블록은 일반 마크다운으로 그대로 둔다.
+export function parseBulletinMarkdownSegments(
+  content: string,
+): BulletinMarkdownSegment[] {
+  const lines = normalizeBulletinLineEndings(content).split("\n");
+  const segments: BulletinMarkdownSegment[] = [];
+  let markdownLines: string[] = [];
+  let fence: MarkdownFence = null;
+
+  const flushMarkdown = () => {
+    if (markdownLines.length === 0) return;
+    segments.push({ kind: "markdown", content: markdownLines.join("\n") });
+    markdownLines = [];
+  };
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    // CommonMark가 블록 문법에 허용하는 최대 세 칸 들여쓰기를 접기 문법에도
+    // 허용한다. 복사·붙여넣기 과정에서 본문 전체에 공백이 붙어도 정상 인식하되,
+    // 네 칸 이상 들여쓴 코드 블록은 접기 영역으로 바꾸지 않는다.
+    const opening =
+      fence == null
+        ? /^[ \t]{0,3}:::details(?:[ \t]+(.*?))?[ \t]*$/.exec(line)
+        : null;
+
+    if (opening) {
+      const detailLines: string[] = [];
+      let detailFence: MarkdownFence = null;
+      let closingIndex = -1;
+      for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
+        const detailLine = lines[cursor];
+        if (
+          detailFence == null &&
+          /^[ \t]{0,3}:::[ \t]*$/.test(detailLine)
+        ) {
+          closingIndex = cursor;
+          break;
+        }
+        detailLines.push(detailLine);
+        detailFence = nextMarkdownFence(detailLine, detailFence);
+      }
+
+      if (closingIndex >= 0) {
+        flushMarkdown();
+        segments.push({
+          kind: "details",
+          summary: opening[1]?.trim() || "자세히 보기",
+          content: detailLines.join("\n"),
+        });
+        index = closingIndex;
+        continue;
+      }
+    }
+
+    markdownLines.push(line);
+    fence = nextMarkdownFence(line, fence);
+  }
+
+  flushMarkdown();
+  return segments;
+}
+
+function SafeMarkdown({
+  content,
+  preserveSingleLineBreaks,
+}: {
+  content: string;
+  preserveSingleLineBreaks: boolean;
+}) {
+  return (
+    <ReactMarkdown
+      allowedElements={[...BULLETIN_MARKDOWN_ELEMENTS]}
+      components={COMPONENTS}
+      remarkPlugins={
+        preserveSingleLineBreaks ? [remarkGfm, remarkBreaks] : [remarkGfm]
+      }
+      skipHtml
+      urlTransform={safeBulletinMarkdownUrl}
+    >
+      {expandBulletinTextColors(content)}
+    </ReactMarkdown>
+  );
+}
+
+function SafeInlineMarkdown({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      allowedElements={["p", "strong", "em", "del", "code", "a"]}
+      components={INLINE_COMPONENTS}
+      remarkPlugins={[remarkGfm]}
+      skipHtml
+      unwrapDisallowed
+      urlTransform={safeBulletinMarkdownUrl}
+    >
+      {expandBulletinTextColors(content)}
+    </ReactMarkdown>
+  );
+}
+
 export function BulletinMarkdown({
   content,
   className = "",
@@ -108,14 +260,17 @@ export function BulletinMarkdown({
   content: string;
   className?: string;
 }) {
+  const normalizedContent = normalizeBulletinLineEndings(content);
+  const preserveSingleLineBreaks = !hasStructuredMarkdown(normalizedContent);
+  const segments = parseBulletinMarkdownSegments(normalizedContent);
   return (
     <div
       className={`bulletin-markdown min-w-0 break-words text-[15px] leading-7 text-zinc-800 dark:text-zinc-200 ${className}
         [&>*:first-child]:mt-0 [&>*:last-child]:mb-0
         [&_h1]:mt-6 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:leading-tight [&_h1]:text-zinc-950 dark:[&_h1]:text-zinc-50
-        [&_h2]:mt-6 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:leading-snug [&_h2]:text-zinc-950 dark:[&_h2]:text-zinc-50
-        [&_h3]:mt-5 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-zinc-900 dark:[&_h3]:text-zinc-100
-        [&_h4]:mt-4 [&_h4]:font-bold [&_h4]:text-zinc-900 dark:[&_h4]:text-zinc-100
+        [&_h2]:mt-6 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:leading-snug [&_h2]:text-sky-800 dark:[&_h2]:text-sky-300
+        [&_h3]:mt-5 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-violet-800 dark:[&_h3]:text-violet-300
+        [&_h4]:mt-4 [&_h4]:font-bold [&_h4]:text-amber-800 dark:[&_h4]:text-amber-300
         [&_p]:mt-3 [&_strong]:font-bold [&_strong]:text-zinc-950 dark:[&_strong]:text-zinc-50
         [&_ul]:mt-3 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-6
         [&_ol]:mt-3 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-6
@@ -128,15 +283,38 @@ export function BulletinMarkdown({
         [&_td]:border-b [&_td]:border-zinc-200 [&_td]:px-3 [&_td]:py-2 dark:[&_td]:border-zinc-700
         [&_tr:last-child_td]:border-b-0 [&_input]:mr-2`}
     >
-      <ReactMarkdown
-        allowedElements={[...BULLETIN_MARKDOWN_ELEMENTS]}
-        components={COMPONENTS}
-        remarkPlugins={[remarkGfm, remarkBreaks]}
-        skipHtml
-        urlTransform={safeBulletinMarkdownUrl}
-      >
-        {expandBulletinTextColors(content)}
-      </ReactMarkdown>
+      {segments.map((segment, index) =>
+        segment.kind === "details" ? (
+          <details
+            key={`details:${index}`}
+            className={`${SURFACE_INSET} group mt-4 px-3 py-2`}
+          >
+            <summary className="cursor-pointer select-none font-semibold text-zinc-900 marker:text-zinc-400 dark:text-zinc-100">
+              <span className="inline-flex w-[calc(100%_-_1rem)] min-w-0 items-center justify-between gap-3 align-middle">
+                <span className="min-w-0">
+                  <SafeInlineMarkdown content={segment.summary} />
+                </span>
+                <span className="shrink-0 text-[11px] font-medium text-sky-700 dark:text-sky-300">
+                  <span className="group-open:hidden">펼치기</span>
+                  <span className="hidden group-open:inline">접기</span>
+                </span>
+              </span>
+            </summary>
+            <div className="mt-2 border-t border-zinc-200 pt-1 dark:border-zinc-700">
+              <SafeMarkdown
+                content={segment.content}
+                preserveSingleLineBreaks={preserveSingleLineBreaks}
+              />
+            </div>
+          </details>
+        ) : (
+          <SafeMarkdown
+            key={`markdown:${index}`}
+            content={segment.content}
+            preserveSingleLineBreaks={preserveSingleLineBreaks}
+          />
+        ),
+      )}
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { adminLogLabel, jobLabel, skillLabel } from "../../displayLabels";
 import { Button } from "../../ui/Field";
 import { useAsyncData } from "@/lib/useAsyncData";
 import { V2_SLOT_LABEL, type V2EquipSlot } from "@/adventure/data/v2/v2Equipment";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 
 type OpsEventRow = {
   id: number;
@@ -226,7 +227,7 @@ export function OpsUserSummarySection({
 
   const compensate = async () => {
     const confirmLarge = isLargeCompensation(itemKind, quantity)
-      ? window.confirm(
+      ? await confirmGameAction(
           `대량 보정 지급입니다. ${economyItemKindLabel(itemKind)} ${quantity.toLocaleString()}개를 지급할까요?`,
         )
       : false;
@@ -256,7 +257,7 @@ export function OpsUserSummarySection({
         if (!isDuplicateCompensationError(message) && message !== "daily_compensation_risk") {
           throw e;
         }
-        const ok = window.confirm(
+        const ok = await confirmGameAction(
           message === "duplicate_source_event"
             ? "이미 보정 완료 처리된 원본 이벤트입니다. 그래도 한 번 더 지급할까요?"
             : message === "daily_compensation_risk"
@@ -271,7 +272,7 @@ export function OpsUserSummarySection({
         } catch (second) {
           const secondMessage = second instanceof Error ? second.message : "";
           if (secondMessage !== "daily_compensation_risk" || confirmedDailyRisk) throw second;
-          const dailyOk = window.confirm(
+          const dailyOk = await confirmGameAction(
             "중복 확인 후에도 최근 24시간 보정 총량 경고가 있습니다. 그래도 지급할까요?",
           );
           if (!dailyOk) return;

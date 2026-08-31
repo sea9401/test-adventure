@@ -19,18 +19,17 @@ import {
   coopBossCurrentMp,
   coopBossMaxMp,
 } from "@/adventure/data/v2/coopBosses";
-import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import {
-  attackMissPct,
-  pveDodgeChance,
+  evasionDamageReductionPct,
+  pveEvasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { effectiveMonsterSpd } from "@/adventure/v2/combat/combatTimeline";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
-import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import {
   readMuseunCosmeticAppearanceMap,
   readProfileAvatarMap,
 } from "@/lib/server/museunCosmetics";
+import { toCoopSessionAttackSummary } from "./coopSessionAttackSummary";
 
 // GET /api/v2/coop/[sessionId] — 협동 보스 인스턴스 상세(상세 화면 폴링용).
 // 활성/처치/만료 무관 조회 가능 — 끝난 세션도 결과·내 보상 상태를 보여준다.
@@ -40,16 +39,6 @@ import {
 //   top(30, isMe), recentAttacks(10) }
 
 type Ctx = { params: Promise<{ sessionId: string }> };
-
-function parseReplayPayload(raw: unknown): ReplayPayload | null {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const r = raw as Partial<ReplayPayload>;
-  if (!r.enemy || typeof r.enemy !== "object") return null;
-  if (typeof r.playerMaxHp !== "number") return null;
-  if (typeof r.playerMaxMp !== "number") return null;
-  if (!Array.isArray(r.log) || r.log.length === 0) return null;
-  return r as ReplayPayload;
-}
 
 export async function GET(_req: Request, { params }: Ctx) {
   const userId = await ensureUser();
@@ -68,34 +57,31 @@ export async function GET(_req: Request, { params }: Ctx) {
     return Response.json({ ok: false, error: "no_session" }, { status: 404 });
   }
   const def = COOP_BOSSES[kind];
-  // 코어루프 — 가시성 권한. 접근 권한 없으면 기여자(과거 참전·보상 확인)만 열람 허용,
-  //   그 외엔 존재 노출 안 하려 404. off 면 누구나 열람(현행).
-  if (V2_CORE_LOOP_V2) {
-    const viewerGuildId =
-      (
-        await db
-          .select({ guildId: guildMembers.guildId })
-          .from(guildMembers)
-          .where(eq(guildMembers.userId, userId))
-          .limit(1)
-      )[0]?.guildId ?? null;
-    if (!canAccessCoopBoss(session, { userId, guildId: viewerGuildId })) {
-      const [contrib] = await db
-        .select({ userId: coopBossContributors.userId })
-        .from(coopBossContributors)
-        .where(
-          and(
-            eq(coopBossContributors.sessionId, sessionId),
-            eq(coopBossContributors.userId, userId),
-          ),
-        )
-        .limit(1);
-      if (!contrib) {
-        return Response.json(
-          { ok: false, error: "no_session" },
-          { status: 404 },
-        );
-      }
+  // 접근 권한 없으면 기여자(과거 참전·보상 확인)만 열람을 허용한다.
+  const viewerGuildId =
+    (
+      await db
+        .select({ guildId: guildMembers.guildId })
+        .from(guildMembers)
+        .where(eq(guildMembers.userId, userId))
+        .limit(1)
+    )[0]?.guildId ?? null;
+  if (!canAccessCoopBoss(session, { userId, guildId: viewerGuildId })) {
+    const [contrib] = await db
+      .select({ userId: coopBossContributors.userId })
+      .from(coopBossContributors)
+      .where(
+        and(
+          eq(coopBossContributors.sessionId, sessionId),
+          eq(coopBossContributors.userId, userId),
+        ),
+      )
+      .limit(1);
+    if (!contrib) {
+      return Response.json(
+        { ok: false, error: "no_session" },
+        { status: 404 },
+      );
     }
   }
 
@@ -161,7 +147,10 @@ export async function GET(_req: Request, { params }: Ctx) {
     const bossEvaRating = Math.max(0, monster.evasionPct ?? 0) *
       (player.precisionEvasionMult ?? 1);
     const playerAccRating = player.accRating ?? player.accuracyPct ?? 0;
-    const playerMissPct = attackMissPct(bossEvaRating, playerAccRating);
+    const bossEvasionReductionPct = evasionDamageReductionPct(
+      bossEvaRating,
+      playerAccRating,
+    );
     const playerEvaRating = player.evaRating ?? player.evasionPct;
     const bossAccRating = monster.accuracy ?? 0;
     return {
@@ -177,8 +166,14 @@ export async function GET(_req: Request, { params }: Ctx) {
       player: {
         accRating: playerAccRating,
         evaRating: playerEvaRating,
-        hitPct: Math.max(0, Math.min(100, 100 - playerMissPct)),
-        evadePct: pveDodgeChance(playerEvaRating, bossAccRating),
+        damageRetainedPct: Math.max(
+          0,
+          Math.min(100, 100 - bossEvasionReductionPct),
+        ),
+        evasionReductionPct: pveEvasionDamageReductionPct(
+          playerEvaRating,
+          bossAccRating,
+        ),
       },
     };
   })();
@@ -191,7 +186,6 @@ export async function GET(_req: Request, { params }: Ctx) {
       damageDealt: coopBossAttackLog.damageDealt,
       damageTaken: coopBossAttackLog.damageTaken,
       diedEarly: coopBossAttackLog.diedEarly,
-      log: coopBossAttackLog.log,
       createdAt: coopBossAttackLog.createdAt,
     })
     .from(coopBossAttackLog)
@@ -243,18 +237,14 @@ export async function GET(_req: Request, { params }: Ctx) {
       profileBorder:
         cosmeticByUser.get(r.userId)?.profileBorder ?? null,
     })),
-    recentAttacks: recentAttacks.map((a) => ({
-      id: a.id,
-      name: a.name,
-      damageDealt: a.damageDealt,
-      damageTaken: a.damageTaken,
-      diedEarly: a.diedEarly,
-      isMe: a.userId === userId,
-      avatar: avatarByUser.get(a.userId) ?? "male1",
-      profileBorder:
-        cosmeticByUser.get(a.userId)?.profileBorder ?? null,
-      replay: parseReplayPayload(a.log),
-      at: a.createdAt.getTime(),
-    })),
+    recentAttacks: recentAttacks.map((attack) =>
+      toCoopSessionAttackSummary({
+        attack,
+        viewerUserId: userId,
+        avatar: avatarByUser.get(attack.userId) ?? "male1",
+        profileBorder:
+          cosmeticByUser.get(attack.userId)?.profileBorder ?? null,
+      })
+    ),
   });
 }

@@ -17,8 +17,8 @@ import {
   COOP_BOSSES,
   coopBossCurrentMp,
   coopBossMaxMp,
+  parseCoopVisibility,
 } from "@/adventure/data/v2/coopBosses";
-import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 
 // GET /api/v2/coop — 협동 보스 목록 현황(목록 화면 폴링용 — 슬림).
 // 같은 종류 동시 다수 소환(#714): 활성 세션이 인스턴스 단위로 N개 — 참전자 명단/최근
@@ -27,7 +27,7 @@ import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 // 응답: {
 //   scrolls,                       — 내 소환서 보유 장수
 //   sessions: [{ id, kind, hp, maxHp, expiresAt, summonedByName,
-//                participantCount, myDamage, myTier }],
+//                visibility, isOwner, participantCount, myDamage, myTier }],
 //   claimables: [{ sessionId, kind, myDamage, tier, defeatedAt }],
 // }
 // 만료 정리는 lazy — 진입 시 sweep(cron 불요·멱등).
@@ -68,21 +68,19 @@ export async function GET() {
       ),
     )
     .orderBy(coopBossSessions.spawnedAt);
-  // 코어루프 — 가시성 필터(공개/길드원만/소환자만). off 면 전부 노출(현행 무변경).
-  const viewerGuildId = V2_CORE_LOOP_V2
-    ? ((
-        await db
-          .select({ guildId: guildMembers.guildId })
-          .from(guildMembers)
-          .where(eq(guildMembers.userId, userId))
-          .limit(1)
-      )[0]?.guildId ?? null)
-    : null;
-  const visibleSessions = V2_CORE_LOOP_V2
-    ? activeSessions.filter((s) =>
-        canAccessCoopBoss(s, { userId, guildId: viewerGuildId }),
-      )
-    : activeSessions;
+  // 가시성 필터(공개/길드원만/소환자만)는 협동 보스 공통 안전 규칙이라
+  // 코어루프 플래그와 무관하게 항상 적용한다.
+  const viewerGuildId =
+    (
+      await db
+        .select({ guildId: guildMembers.guildId })
+        .from(guildMembers)
+        .where(eq(guildMembers.userId, userId))
+        .limit(1)
+    )[0]?.guildId ?? null;
+  const visibleSessions = activeSessions.filter((s) =>
+    canAccessCoopBoss(s, { userId, guildId: viewerGuildId }),
+  );
   const activeIds = visibleSessions.map((s) => s.id);
 
   // 세션별 참전자 수(집계) + 내 기여 — 활성 세션이 있을 때만.
@@ -128,6 +126,8 @@ export async function GET() {
         bossMaxMp: coopBossMaxMp(def),
         expiresAt: s.expiresAt.getTime(),
         summonedByName: s.summonedByName,
+        visibility: parseCoopVisibility(s.visibility),
+        isOwner: s.summonerId === userId,
         participantCount: countBySession.get(s.id) ?? 0,
         myDamage,
         myTier: coopTierForRatio(myDamage / Math.max(1, s.maxHp), kind),

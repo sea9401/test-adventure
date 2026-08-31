@@ -2,6 +2,7 @@ import {
   V2_EQUIPMENT,
   V2_EQUIP_SETS,
   V2_EQUIP_TAG_SETS,
+  v2EquipSurvivalPowerKind,
   type SignatureEffect,
   type V2EquipmentId,
   type V2EquipRoll,
@@ -23,7 +24,8 @@ export type V2EquipAggregate = {
   // 옵션 — derive 결과 후-가산
   crit: number;
   mp: number;
-  eva: number;
+  eva: number; // 경갑 위력 + 회피도 옵션
+  accuracy: number; // 적중도 옵션
   hp: number;
   critMult: number; // 백분의 일 정수 합(100=+1.0×). derive 에서 /100 환산.
   spd: number; // flat 속도 합.
@@ -41,6 +43,7 @@ const EMPTY_AGGREGATE = (): V2EquipAggregate => ({
   crit: 0,
   mp: 0,
   eva: 0,
+  accuracy: 0,
   hp: 0,
   critMult: 0,
   spd: 0,
@@ -54,6 +57,7 @@ function addEquipBonus(
   b: Readonly<{
     crit?: number;
     eva?: number;
+    accuracy?: number;
     mp?: number;
     hp?: number;
     critMult?: number;
@@ -67,6 +71,7 @@ function addEquipBonus(
 ) {
   acc.crit += b.crit ?? 0;
   acc.eva += b.eva ?? 0;
+  acc.accuracy += b.accuracy ?? 0;
   acc.mp += b.mp ?? 0;
   acc.hp += b.hp ?? 0;
   acc.critMult += b.critMult ?? 0;
@@ -108,14 +113,17 @@ export function aggregateV2Equipment(
     } else if (slot === "ring" || slot === "necklace") {
       acc.magicDef += power;
     } else {
-      // armor / gloves / boots
-      acc.def += power;
+      // 방어 장비의 생존축을 분리한다. 중갑 위력은 방어도, 경갑 위력은 회피도가 된다.
+      // 방어력·회피도 옵션은 아래에서 별도로 더해 혼합 장비를 허용한다.
+      if (v2EquipSurvivalPowerKind(item) === "evasion") acc.eva += power;
+      else acc.def += power;
     }
     acc.weight += eff.weight;
     const o = eff.options ?? {};
     acc.crit += o.crit ?? 0;
     acc.mp += o.mp ?? 0;
     acc.eva += o.eva ?? 0;
+    acc.accuracy += o.accuracy ?? 0;
     acc.hp += o.hp ?? 0;
     acc.critMult += o.critMult ?? 0;
     acc.spd += o.spd ?? 0;

@@ -2,29 +2,38 @@
 //
 // 고정 교대(나 한 번 너 한 번) → "다음 행동 tick 가장 빠른 액터가 행동"하는 타임라인.
 // SPD 는 데미지에 **행동 빈도 하나로만** 기여한다(데미지식·스탯은 불변). 빠른 빌드(도적/궁사)가
-// 느린 빌드 대비 ~6배까지 행동 = 정체성. 단순 1/spd 는 궁사가 49배라 금지 → 멱(power) 곡선으로
-// ~6배 스프레드(오너 결정·sim 검증). 중갑 무게페널티 완화(WEIGHT_SPD_PENALTY 0.5)로 탱 생존 동반.
+// 느린 빌드보다 자주 행동하되, 단순 1/spd 처럼 궁사가 49배까지 폭주하지 않도록 멱(power)
+// 곡선으로 압축한다. 중갑 무게페널티 완화(WEIGHT_SPD_PENALTY 0.5)로 탱 생존도 함께 보정한다.
 //
 // 🔑 "스탯 과열"의 범인은 ATB 가 아니라 기존 SPD 파생 extraAttackChancePct(=spd×0.5)다. ATB 에선
 //    그걸 제거(빈도로 일원화)해야 ~2배로 통제된다 — 그 제거는 엔진 통합 단계에서.
 // 이 모듈은 결정론(Math.random 미사용) — 리플레이가 동일 타임라인을 재현한다.
 
-// 속도 매운맛 다이얼 — 멱 곡선 rate 상한. 정상 범위(spd≤292 → rate≤~288)엔 안 걸리고 극단
-//   outlier(버프 등·spd≈504+)만 캡. 옛 로그(~2배 천장)에서 멱(~6배 스프레드)으로 전환.
-export const RATE_CAP = 400;
-// 멱지수 — 클수록 SPD 당 빈도 증가 가파름. 0.6 ≈ 최슬로(14)↔최패스트(292) 행동빈도 ~6.19배.
-export const SPD_RATE_POW = 0.6;
-// (spd/REF)^POW 기준 스케일 — spd=REF(50) 에서 rate=기준 100.
-export const RATE_REF_SPD = 50;
+// 멱지수 — 클수록 SPD 당 빈도 증가가 가파르다. 제곱근 곡선은 저속 구간의 기존 빈도를 거의
+// 유지하면서 최슬로(14)↔기존 최패스트(292) 행동빈도를 약 4.5배로 압축한다.
+export const SPD_RATE_POW = 0.5;
+// (spd/REF)^POW 기준 스케일 — spd=REF(64) 에서 rate=기준 100.
+// REF 64 × (RATE_CAP/100)² = SPD 1,024에서 상한에 정확히 도달한다.
+export const RATE_REF_SPD = 64;
 // 기준 액터(rate 100)의 행동 간격(tick). interval = ceil(RATE_BASE^2 / rate).
 const RATE_BASE = 100;
+// 플레이어 행동 속도 상한 — 전투력 표시와 초과 속도 전환도 이 값을 단일 기준으로 공유한다.
+export const PLAYER_ACTION_SPD_CAP = 1_024;
+// 속도 매운맛 다이얼 — SPD 상한에서 도달하는 행동 레이트. 고속 성장 구간을 길게 유지하되,
+// 최종 행동 빈도는 기준 속도의 최대 4배로 제한한다.
+export const RATE_CAP =
+  RATE_BASE * Math.pow(PLAYER_ACTION_SPD_CAP / RATE_REF_SPD, SPD_RATE_POW);
 
 // 전투 로그 표시 — 이 틱 폭 단위로 행동들을 한 박스에 묶는다(UI). 기준 액터 1행동≈100틱이라
 //   400 ≈ 약 4교대(플레이어·적 행동 여러 개 + HP 바 1개)를 한 "순간"으로 보여줘 잘게 쪼개짐을 줄임.
 //   순수 표시 다이얼 — 엔진/리플레이 불변, 한 줄로 조절. BattleLogList 가 e.t 를 이 값으로 버킷팅.
 export const ATB_LOG_WINDOW_TICKS = 400;
 
-// 행동 레이트 — SPD^POW 비례(멱 곡선). spd=REF(50)에서 100 기준, 높을수록 ↑(RATE_CAP 상한).
+// PvE·PvP·전투 로그 UI가 공유하는 전투 타임라인 상한. 기준 속도(actionInterval≈100)에서
+// 플레이어 행동 약 30회분으로, 지속형 빌드가 작동할 여지를 주되 장기전을 제한한다.
+export const ATB_TIMELINE_TICK_CAP = 3_000;
+
+// 행동 레이트 — SPD^POW 비례(멱 곡선). spd=REF(64)에서 100 기준, 높을수록 ↑(RATE_CAP 상한).
 export function actionRate(spd: number): number {
   const s = Math.max(1, Number(spd) || 0);
   return Math.min(RATE_CAP, RATE_BASE * Math.pow(s / RATE_REF_SPD, SPD_RATE_POW));
@@ -41,6 +50,18 @@ export function actionInterval(spd: number): number {
 export function effectiveMonsterSpd(rawSpd: number, depthCorrection = 0): number {
   const s = Math.max(0, Math.floor(Number(rawSpd) || 0));
   return 10 + s * 6 + Math.max(0, Number(depthCorrection) || 0);
+}
+
+// 수련의 탑처럼 데이터가 이미 플레이어와 같은 속도 단위로 작성된 몬스터는 spd를 직접 쓴다.
+// 일반 몬스터는 기존 원시 속도 매핑과 던전 깊이 보정을 그대로 유지한다.
+export function monsterActionSpd(
+  monster: { spd: number; directActionSpd?: boolean },
+  depthCorrection = 0,
+): number {
+  if (monster.directActionSpd) {
+    return Math.max(1, Number(monster.spd) || 0);
+  }
+  return effectiveMonsterSpd(monster.spd, depthCorrection);
 }
 
 // 깊이당 몬스터 effective SPD 가산 — 깊을수록 ↑(약한 보정). depth 1=0(초반 균형 보존), 이후

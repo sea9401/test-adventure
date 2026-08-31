@@ -4,17 +4,53 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { savesStore, inboxRows, saveSelectRows } = vi.hoisted(() => ({
-  savesStore: new Map<string, unknown>(),
-  inboxRows: [] as Record<string, unknown>[],
-  saveSelectRows: [] as Record<string, unknown>[],
-}));
+const {
+  savesStore,
+  inboxRows,
+  saveSelectRows,
+  inboxUpdates,
+  lockTradeParticipantStatuses,
+  TradeSuspendedError,
+  tradeState,
+} = vi.hoisted(() => {
+  class TradeSuspendedError extends Error {}
+  const tradeState = { restricted: false };
+  return {
+    TradeSuspendedError,
+    tradeState,
+    savesStore: new Map<string, unknown>(),
+    inboxRows: [] as Record<string, unknown>[],
+    saveSelectRows: [] as Record<string, unknown>[],
+    inboxUpdates: [] as Record<string, unknown>[],
+    lockTradeParticipantStatuses: vi.fn(async () =>
+      new Map([
+        [
+          "u1",
+          tradeState.restricted
+            ? {
+                source: "trade" as const,
+                reason: "test",
+                expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+                permanent: false,
+              }
+            : null,
+        ],
+      ]),
+    ),
+  };
+});
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u1"),
 }));
 vi.mock("@/lib/server/checkSession", () => ({
   requireActiveDeviceSession: vi.fn(async () => null),
+}));
+vi.mock("@/lib/server/tradeSuspension", () => ({
+  TradeSuspendedError,
+  lockTradeParticipantStatuses,
+  tradeSuspendedResponse: () =>
+    Response.json({ ok: false, error: "trade_suspended" }, { status: 403 }),
 }));
 vi.mock("@/lib/server/savesKv", () => ({
   upsertSave: vi.fn(async (_tx: unknown, u: string, key: string, v: unknown) => {
@@ -49,7 +85,13 @@ vi.mock("@/db", async () => {
               : [],
         ),
     }),
-    update: () => ({ set: () => ({ where: async () => undefined }) }),
+    update: () => ({
+      set: (values: Record<string, unknown>) => ({
+        where: async () => {
+          inboxUpdates.push(values);
+        },
+      }),
+    }),
   };
   return {
     db: { transaction: vi.fn(async (cb: (t: unknown) => unknown) => cb(tx)) },
@@ -69,6 +111,9 @@ beforeEach(() => {
   savesStore.clear();
   inboxRows.length = 0;
   saveSelectRows.length = 0;
+  inboxUpdates.length = 0;
+  tradeState.restricted = false;
+  vi.clearAllMocks();
 });
 
 describe("inbox claim — season_reward → 코인 지갑", () => {
@@ -140,6 +185,10 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(savesStore.get("u1::fishing-wallet.v1")).toEqual({ coins: 120 });
     const byS = Object.fromEntries(j.coinsAdded.map((c) => [c.season, c.coins]));
     expect(byS).toEqual({ pvp: 600, fishing: 120 });
+    expect(inboxUpdates).toContainEqual({
+      claimedAt: expect.any(Date),
+      readAt: expect.any(Date),
+    });
   });
 
   it("같은 시즌 여러 우편은 합산되어 한 지갑에", async () => {
@@ -179,7 +228,13 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     inboxRows.push({
       id: 1,
       kind: "admin_gift",
-      payload: { gold: 0, materials: [], items: [], staminaPotions: 3 },
+      payload: {
+        gold: 0,
+        materials: [],
+        items: [],
+        staminaPotions: 3,
+        staminaPotionsBound: true,
+      },
       claimedAt: null,
     });
     const res = await POST(req([1]));
@@ -194,7 +249,27 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(j.claimed).toEqual([1]);
     expect(j.staminaPotionsAdded).toBe(3);
     expect(j.staminaPotions).toBe(3);
-    expect(savesStore.get("u1::stamina-potions.v1")).toEqual({ count: 3 });
+    expect(savesStore.get("u1::stamina-potions.v1")).toEqual({
+      count: 3,
+      boundCount: 3,
+    });
+  });
+
+  it("귀속 표시가 없는 이벤트·레거시 우편 회복약은 비귀속으로 유지한다", async () => {
+    inboxRows.push({
+      id: 1,
+      kind: "admin_gift",
+      payload: { staminaPotions: 2 },
+      claimedAt: null,
+    });
+
+    const res = await POST(req([1]));
+
+    expect(res.status).toBe(200);
+    expect(savesStore.get("u1::stamina-potions.v1")).toEqual({
+      count: 2,
+      boundCount: 0,
+    });
   });
 
   it("admin_gift 무슨 코인과 코인샵 아이템이 각 전용 세이브에 적립된다", async () => {
@@ -206,6 +281,7 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
         cashItems: [
           { itemId: "rename_permit", count: 2 },
           { itemId: "adventure_support_30d", count: 1 },
+          { itemId: "cultivation_reset_potion", count: 1 },
         ],
       },
       claimedAt: null,
@@ -226,10 +302,15 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(j.cashItemsAdded).toEqual([
       { itemId: "rename_permit", count: 2 },
       { itemId: "adventure_support_30d", count: 1 },
+      { itemId: "cultivation_reset_potion", count: 1 },
     ]);
     expect(savesStore.get("u1::museun-coin-wallet.v1")).toEqual({ coins: 800 });
     expect(savesStore.get("u1::character.v2")).toEqual({
-      cashItems: { rename_permit: 2, adventure_support_30d: 1 },
+      cashItems: {
+        rename_permit: 2,
+        adventure_support_30d: 1,
+        cultivation_reset_potion: 1,
+      },
     });
   });
 
@@ -263,8 +344,8 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(j.adventureSupportActiveUntil).toBeGreaterThanOrEqual(
       before + 30 * 86_400_000,
     );
-    expect(j.staminaAfterSupport.current).toBe(2500);
-    expect(j.staminaMaxAfterSupport).toBe(2500);
+    expect(j.staminaAfterSupport.current).toBe(3000);
+    expect(j.staminaMaxAfterSupport).toBe(3000);
 
     const character = savesStore.get("u1::character.v2") as {
       adventureSupport: { activeUntil: number };
@@ -273,7 +354,7 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(character.adventureSupport.activeUntil).toBe(
       j.adventureSupportActiveUntil,
     );
-    expect(character.stamina.current).toBe(2500);
+    expect(character.stamina.current).toBe(3000);
   });
 
   it("admin_gift 장비는 inventory.v2 가 아니라 equipment.v2 개체로 들어간다", async () => {
@@ -338,6 +419,226 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     };
     expect(ch.materials).toEqual({ v2_red_enhance_stone: 5 });
     expect(savesStore.get("u1::inventory.v2")).toBeUndefined();
+  });
+
+  it("admin_gift 요리 재료를 원래 농장·낚시·주방 보관함에 누적한다", async () => {
+    savesStore.set("u1::farm.v2", {
+      inventory: { wheat: 2 },
+    });
+    savesStore.set("u1::fishing-stock.v1", {
+      version: 1,
+      items: { catch_legendary: 1 },
+    });
+    savesStore.set("u1::cooking.v2", {
+      kitchenItems: { "pantry:salt": 3 },
+    });
+    inboxRows.push({
+      id: 1,
+      kind: "admin_gift",
+      payload: {
+        cookingIngredients: [
+          { ingredientId: "farm:wheat", count: 5 },
+          { ingredientId: "fishing:catch_legendary", count: 2 },
+          { ingredientId: "pantry:salt", count: 4 },
+          { ingredientId: "processed:flour", count: 3 },
+        ],
+      },
+      claimedAt: null,
+    });
+
+    const response = await POST(req([1]));
+    const json = (await response.json()) as {
+      cookingIngredientsAdded: Array<{ ingredientId: string; count: number }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.cookingIngredientsAdded).toEqual([
+      { ingredientId: "farm:wheat", count: 5 },
+      { ingredientId: "fishing:catch_legendary", count: 2 },
+      { ingredientId: "pantry:salt", count: 4 },
+      { ingredientId: "processed:flour", count: 3 },
+    ]);
+    expect(savesStore.get("u1::cooking.v2")).toMatchObject({
+      kitchenItems: {
+        "pantry:salt": 7,
+        "processed:flour": 3,
+      },
+    });
+    expect(savesStore.get("u1::farm.v2")).toMatchObject({
+      inventory: { wheat: 7 },
+    });
+    expect(savesStore.get("u1::fishing-stock.v1")).toMatchObject({
+      items: { catch_legendary: 3 },
+    });
+    expect(savesStore.get("u1::inventory.v2")).toBeUndefined();
+  });
+
+  it("거래 정지 중에는 사용자에게 받은 제작서 선물을 수령하지 않는다", async () => {
+    tradeState.restricted = true;
+    inboxRows.push({
+      id: 1,
+      kind: "recipe_gift",
+      payload: {
+        recipe_id: "starlit_greatsword_str",
+        recipe_name: "힘의 별빛 대검 제작서",
+      },
+      fromUserId: "u-sender",
+      claimedAt: null,
+    });
+
+    const response = await POST(req([1]));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "trade_suspended",
+    });
+    expect(savesStore.size).toBe(0);
+    expect(inboxUpdates).toEqual([]);
+  });
+
+  it("거래 정지 중에도 시스템 보상·정산·환불과 자산 없는 사용자 메시지를 수령한다", async () => {
+    tradeState.restricted = true;
+    inboxRows.push(
+      {
+        id: 1,
+        kind: "sale_proceeds",
+        payload: { gold: 100 },
+        fromUserId: null,
+        claimedAt: null,
+      },
+      {
+        id: 2,
+        kind: "bid_refund",
+        payload: { gold: 20 },
+        fromUserId: null,
+        claimedAt: null,
+      },
+      {
+        id: 3,
+        kind: "buy_order_refund",
+        payload: { gold: 30 },
+        fromUserId: null,
+        claimedAt: null,
+      },
+      {
+        id: 4,
+        kind: "season_reward",
+        payload: { season: "pvp", coins: 40 },
+        fromUserId: null,
+        claimedAt: null,
+      },
+      {
+        id: 5,
+        kind: "admin_gift",
+        payload: { gold: 10 },
+        fromUserId: null,
+        claimedAt: null,
+      },
+      {
+        id: 6,
+        kind: "user_message",
+        payload: { text: "확인 메시지" },
+        fromUserId: "u-sender",
+        claimedAt: null,
+      },
+    );
+    saveSelectRows.push({ value: { gold: 1, bankedGold: 2 } });
+
+    const response = await POST(req([1, 2, 3, 4, 5, 6]));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.claimed).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(savesStore.get("u1::character.v2")).toMatchObject({
+      gold: 61,
+      bankedGold: 102,
+    });
+    expect(savesStore.get("u1::pvp-wallet.v1")).toEqual({
+      gold: 1,
+      bankedGold: 2,
+      coins: 40,
+    });
+    expect(lockTradeParticipantStatuses).toHaveBeenCalledWith(
+      expect.anything(),
+      ["u1"],
+      expect.any(Date),
+    );
+  });
+
+  it("사용자 제작서 선물이 섞인 수령 요청은 시스템 보상까지 함께 롤백한다", async () => {
+    tradeState.restricted = true;
+    inboxRows.push(
+      {
+        id: 1,
+        kind: "admin_gift",
+        payload: { gold: 50 },
+        fromUserId: null,
+        claimedAt: null,
+      },
+      {
+        id: 2,
+        kind: "recipe_gift",
+        payload: {
+          recipe_id: "starlit_greatsword_str",
+          recipe_name: "힘의 별빛 대검 제작서",
+        },
+        fromUserId: "u-sender",
+        claimedAt: null,
+      },
+    );
+
+    const response = await POST(req([1, 2]));
+
+    expect(response.status).toBe(403);
+    expect(savesStore.size).toBe(0);
+    expect(inboxUpdates).toEqual([]);
+  });
+
+  it("발신자가 탈퇴해 FK가 null이 된 정상 제작서 선물도 플레이어 이전으로 계속 차단한다", async () => {
+    tradeState.restricted = true;
+    inboxRows.push({
+      id: 1,
+      kind: "recipe_gift",
+      payload: {
+        recipe_id: "starlit_greatsword_str",
+        recipe_name: "힘의 별빛 대검 제작서",
+      },
+      fromUserId: null,
+      claimedAt: null,
+    });
+
+    const response = await POST(req([1]));
+
+    expect(response.status).toBe(403);
+    expect(savesStore.size).toBe(0);
+    expect(inboxUpdates).toEqual([]);
+  });
+
+  it("거래 정지 중에도 분류할 수 없는 사용자 우편은 보존하고 정상 시스템 보상만 수령한다", async () => {
+    tradeState.restricted = true;
+    inboxRows.push(
+      {
+        id: 1,
+        kind: "recipe_gift",
+        payload: { recipe_name: "손상된 선물" },
+        fromUserId: "u-sender",
+        claimedAt: null,
+      },
+      {
+        id: 2,
+        kind: "season_reward",
+        payload: { season: "fishing", coins: 25 },
+        fromUserId: null,
+        claimedAt: null,
+      },
+    );
+
+    const response = await POST(req([1, 2]));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.claimed).toEqual([2]);
+    expect(savesStore.get("u1::fishing-wallet.v1")).toEqual({ coins: 25 });
   });
 
 });

@@ -1,16 +1,18 @@
 "use client";
 
-// 통합 알림 종 — 일반 알림 미읽음 수와 미수령 우편 수를 합산한다.
+// 통합 알림 종 — 일반 알림 미읽음 수와 미확인 우편 수를 합산한다.
 // 버튼을 열면 두 채널의 최근 항목을 시간순으로 섞어 보여주고 통합 알림 센터로 이동한다.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, CaretRight, Envelope } from "@phosphor-icons/react";
 import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
+import { unreadInboxItems } from "@/adventure/v2/inboxViewState";
 import { acknowledgeFarmReadyNotification } from "@/adventure/v2/farmReadyNotificationClient";
 import { acknowledgeV2Notification } from "@/adventure/v2/notificationReadClient";
 import { coopBossSessionHref } from "@/adventure/v2/coop/coopRoutes";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { feedbackReplyHref } from "@/lib/feedbackNavigation";
 import { formatRelative } from "@/lib/notifications";
 import {
   NOTIF_POLL_MS,
@@ -77,15 +79,10 @@ function previewText(notification: V2NotificationEntry): string {
       const p = payload as { readyCount: number };
       return `수확 가능한 작물이 ${p.readyCount}개 있어요.`;
     }
-    case "lottery_won": {
-      const p = payload as { ranks: number[]; prizeAmount: number };
-      return [
-        "복권 ",
-        Math.min(...p.ranks),
-        "등 당첨 · ",
-        p.prizeAmount.toLocaleString(),
-        "G",
-      ].join("");
+    case "codex_research_trophy": {
+      const p = payload as { seasonId: string; themeName: string; tier: import("@/adventure/data/v2/codexMasteryTrophies").CodexMasteryTrophyTier; finalRank: number };
+      const labels = { bronze: "동", silver: "은", gold: "금", platinum: "백금", diamond: "다이아", legendary: "전설" } as const;
+      return `${p.seasonId} ${p.themeName} 최종 ${p.finalRank}위 · ${labels[p.tier]} 트로피`;
     }
   }
 }
@@ -126,7 +123,7 @@ export function NotificationBell() {
       }),
       fetch("/api/marketplace/inbox?count=1").then(async (res) => {
         if (!res.ok) throw new Error("mail count failed");
-        return (await res.json()) as { unclaimedCount?: number };
+        return (await res.json()) as { unreadCount?: number };
       }),
     ]);
 
@@ -137,7 +134,7 @@ export function NotificationBell() {
       setNotificationUnread(notificationResult.value.unreadCount ?? 0);
     }
     if (mailResult.status === "fulfilled") {
-      setMailUnread(mailResult.value.unclaimedCount ?? 0);
+      setMailUnread(mailResult.value.unreadCount ?? 0);
     }
   }, []);
 
@@ -165,7 +162,7 @@ export function NotificationBell() {
             item,
           }),
         ),
-        ...inbox.items.map((item) => ({
+        ...unreadInboxItems(inbox.items).map((item) => ({
           kind: "mail" as const,
           timestamp: Date.parse(item.createdAt),
           item,
@@ -177,7 +174,7 @@ export function NotificationBell() {
           .slice(0, PREVIEW_LIMIT),
       );
       setNotificationUnread(notificationJson.unreadCount ?? 0);
-      setMailUnread(inbox.unclaimedCount);
+      setMailUnread(inbox.unreadCount);
     } catch {
       setError(true);
     } finally {
@@ -232,13 +229,6 @@ export function NotificationBell() {
   };
 
   const openNotification = (notification: V2NotificationEntry) => {
-    if (notification.type === "lottery_won") {
-      setOpen(false);
-      window.dispatchEvent(
-        new CustomEvent("lottery:celebrate", { detail: notification }),
-      );
-      return;
-    }
     if (notification.type === "coop_defeated") {
       const { sessionId } = notification.payload as { sessionId: string };
       setOpen(false);
@@ -251,6 +241,21 @@ export function NotificationBell() {
       );
       void acknowledgeV2Notification(notification.id);
       router.push(coopBossSessionHref(sessionId));
+      return;
+    }
+    if (notification.type === "feedback_replied") {
+      const { feedbackId } = notification.payload as { feedbackId: number };
+      setOpen(false);
+      setNotificationUnread((current) => Math.max(0, current - 1));
+      setItems((current) =>
+        current?.filter(
+          (entry) =>
+            entry.kind !== "notification" ||
+            entry.item.id !== notification.id,
+        ) ?? null,
+      );
+      void acknowledgeV2Notification(notification.id);
+      router.push(feedbackReplyHref(feedbackId));
       return;
     }
     if (notification.type !== "farm_ready") {
@@ -279,7 +284,7 @@ export function NotificationBell() {
         }
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="relative rounded p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+        className="relative flex min-h-11 min-w-11 items-center justify-center rounded p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 sm:min-h-0 sm:min-w-0 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
       >
         <Bell size={18} weight="duotone" />
         {totalUnread > 0 && (
@@ -364,7 +369,7 @@ export function NotificationBell() {
                             {mailPreviewText(entry.item)}
                           </span>
                           <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">
-                            {formatRelative(entry.timestamp)} · 미수령
+                            {formatRelative(entry.timestamp)} · 미확인
                           </span>
                         </span>
                       </button>

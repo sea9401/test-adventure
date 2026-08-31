@@ -33,6 +33,11 @@ import { STAMINA_SHARD_MATERIAL } from "./staminaPotionCrafting";
 import { SCAVENGED_CRAFT_MATERIALS } from "./scavengedCrafting";
 import { STORM_EXPEDITION_MATERIALS } from "./stormExpeditionRewards";
 import { LIFE_PROCESSED_MATERIALS } from "@/adventure/v2/lifeWorkshop";
+import {
+  DANGEROUS_FISH,
+  DANGEROUS_FISHING_MATERIALS,
+  dangerousCatchMaterialId,
+} from "./dangerousFishing";
 
 // === 재료/제작 보류 토글 (단일 reversible 플래그) =====================
 // 재료·제작 시스템을 통째로 "park" 하는 단일 스위치. false 면:
@@ -122,11 +127,19 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
   // 폭풍 원정 항로 재료 3종 + 향후 7차 전직 공통 파편. 일반 사냥 재료 플래그와
   // 무관하게 원정 보상에서 공급하며 인벤토리·도감·거래소 카탈로그에 즉시 노출한다.
   ...STORM_EXPEDITION_MATERIALS,
+  // 위험 해역 낚시 어획물·거대어 증표. 귀환 또는 보상 수령 이후에만 확정 재료로 들어온다.
+  ...DANGEROUS_FISHING_MATERIALS,
 };
 
 // 재료 NPC 판매가 (개당, 골드). 강화석은 의도적으로 **비등재** — NPC 환금 없음,
 // 유저 거래(거래소) 전용(사용자 결정 2026-06-11). 미등재 재료는 판매 라우트가 거부.
-export const V2_MATERIAL_SELL_PRICE: Partial<Record<V2MaterialId, number>> = {};
+export const V2_MATERIAL_SELL_PRICE: Partial<Record<V2MaterialId, number>> =
+  Object.fromEntries(
+    Object.values(DANGEROUS_FISH).map((fish) => [
+      dangerousCatchMaterialId(fish.id),
+      fish.cargoValue * 10,
+    ]),
+  );
 
 // NPC 판매가는 카탈로그 등재 여부와 별도다. V2MaterialId가 string 이라
 // Record 직접 인덱싱은 미등재 id도 number로 추론해 UI에서 undefined × 수량 =
@@ -162,40 +175,6 @@ export const FLOOR_DROP_POOLS: Record<DungeonFloorId, DropRule[]> = {
   7: [],
   8: [],
 };
-
-// === 재료 → 드랍 구역 역인덱스 (모험의 서 재료 도감용) ================
-// FLOOR_DROP_POOLS 를 뒤집어 "이 재료가 어느 floor 에서 몇 % 로 떨어지나" 를 만든다.
-// 라이브 모험의 서 재료 탭이 "재료 → 드랍 몬스터" 였던 것의 v2 대응 —
-// v2 드랍은 몬스터별이 아니라 floor(구역)별이라 출처를 구역으로 잡는다.
-// chance 내림차순(잘 떨어지는 구역이 위). 정적 카탈로그라 게이팅 없음.
-
-export type MaterialDropSource = {
-  floorId: DungeonFloorId;
-  chance: number;
-  amountMin: number;
-  amountMax: number;
-};
-
-export const MATERIAL_DROP_SOURCES: Record<V2MaterialId, MaterialDropSource[]> =
-  (() => {
-    const map = {} as Record<V2MaterialId, MaterialDropSource[]>;
-    for (const id of Object.keys(V2_MATERIALS) as V2MaterialId[]) map[id] = [];
-    const floors = Object.keys(FLOOR_DROP_POOLS).map(Number) as DungeonFloorId[];
-    for (const floorId of floors) {
-      for (const rule of FLOOR_DROP_POOLS[floorId]) {
-        map[rule.id].push({
-          floorId,
-          chance: rule.chance,
-          amountMin: rule.amountMin,
-          amountMax: rule.amountMax,
-        });
-      }
-    }
-    for (const id of Object.keys(map) as V2MaterialId[]) {
-      map[id].sort((a, b) => b.chance - a.chance);
-    }
-    return map;
-  })();
 
 // === 드랍 굴림 (순수 함수) ===========================================
 

@@ -1,10 +1,11 @@
-// ATB 타임라인 순수 헬퍼 — 단위테스트. 결정론·~2배 천장·동점 player 우선·몬스터 매핑.
+// ATB 타임라인 순수 헬퍼 — 단위테스트. 결정론·기준 3배 천장·동점 player 우선·몬스터 매핑.
 import { describe, it, expect } from "vitest";
 import {
   RATE_CAP,
   actionRate,
   actionInterval,
   effectiveMonsterSpd,
+  monsterActionSpd,
   depthSpdCorrection,
   tieRank,
   pickNextEntry,
@@ -22,11 +23,11 @@ describe("actionRate — 멱 곡선", () => {
     }
   });
   it("RATE_CAP(400) 에서 평평 — 극단 고SPD 만 캡", () => {
-    expect(actionRate(1000)).toBe(RATE_CAP);
+    expect(actionRate(1_024)).toBe(RATE_CAP);
     expect(actionRate(10000)).toBe(RATE_CAP);
   });
-  it("기준(spd REF=50)=100", () => {
-    expect(actionRate(50)).toBeCloseTo(100, 5);
+  it("기준(spd REF=64)=100", () => {
+    expect(actionRate(64)).toBeCloseTo(100, 5);
   });
   it("음수/NaN/0 → spd 1 바닥 취급(동일·양수)", () => {
     const floor = actionRate(1);
@@ -37,7 +38,7 @@ describe("actionRate — 멱 곡선", () => {
   });
 });
 
-describe("actionInterval — ~6배 스프레드(설계 핵심)", () => {
+describe("actionInterval — 완만한 고속 성장 곡선", () => {
   it("interval 은 정수, SPD↑ 면 단조 감소(자주 행동)", () => {
     let prev = Infinity;
     for (const s of [20, 50, 120, 200, 292]) {
@@ -47,10 +48,18 @@ describe("actionInterval — ~6배 스프레드(설계 핵심)", () => {
       prev = iv;
     }
   });
-  it("궁사(spd292) 는 최슬로(spd14) 대비 ~6배 행동(5.8~6.4×)", () => {
+  it("기존 고속 기준(spd292)은 최슬로(spd14) 대비 약 4.5배 행동한다", () => {
     const ratio = actionInterval(14) / actionInterval(292);
-    expect(ratio).toBeGreaterThanOrEqual(5.8);
-    expect(ratio).toBeLessThanOrEqual(6.4);
+    expect(ratio).toBeGreaterThanOrEqual(4.3);
+    expect(ratio).toBeLessThanOrEqual(4.7);
+  });
+
+  it("행동 빈도는 SPD 1,024까지 증가하고 그 이후 고정된다", () => {
+    expect(actionRate(1_000)).toBeLessThan(RATE_CAP);
+    expect(actionInterval(1_000)).toBe(26);
+    expect(actionRate(1_024)).toBe(RATE_CAP);
+    expect(actionInterval(1_024)).toBe(25);
+    expect(actionInterval(10_000)).toBe(25);
   });
 });
 
@@ -63,6 +72,16 @@ describe("effectiveMonsterSpd — 원시 1~14 → 플레이어 스케일", () =>
   it("깊이 보정 가산(음수 무시)", () => {
     expect(effectiveMonsterSpd(6, 10)).toBe(56);
     expect(effectiveMonsterSpd(6, -10)).toBe(46); // 음수 보정 무시
+  });
+});
+
+describe("monsterActionSpd — 몬스터별 속도 단위 선택", () => {
+  it("일반 몬스터는 기존 원시 속도 변환을 유지한다", () => {
+    expect(monsterActionSpd({ spd: 6 })).toBe(46);
+  });
+
+  it("직접 속도 몬스터는 데이터의 spd를 그대로 사용한다", () => {
+    expect(monsterActionSpd({ spd: 244, directActionSpd: true })).toBe(244);
   });
 });
 

@@ -2,10 +2,11 @@ import { FARM_ITEMS, type FarmItemId } from "@/adventure/v2/farm";
 import { FISHING_CATCH_ITEM_LIST } from "@/adventure/v2/fishingStock";
 
 export const GUILD_DINING_USER_SAVE_KEY = "guild-dining-user.v1";
-export const GUILD_DINING_BASE_WEEKLY_TICKETS = 1;
-export const GUILD_DINING_POINTS_PER_TICKET = 15;
+export const GUILD_DINING_BASE_WEEKLY_TICKETS = 4;
+export const GUILD_DINING_POINTS_PER_TICKET = 4;
 export const GUILD_DINING_POINTS_PER_MEMBER_TARGET = 20;
-export const GUILD_DINING_EFFECT_DURATION_HOURS = 12;
+export const ASSOCIATION_DINING_POINTS_PER_TICKET = 20;
+export const GUILD_DINING_EFFECT_DURATION_HOURS = 3;
 export const GUILD_DINING_EFFECT_DURATION_MS =
   GUILD_DINING_EFFECT_DURATION_HOURS * 60 * 60 * 1000;
 
@@ -126,6 +127,8 @@ export type GuildDiningMenu = {
     | {
         kind: GuildDiningEffectKind;
         bonusPct: number;
+        /** all_xp 메뉴에서 생활 경험치에 적용할 별도 비율. */
+        lifeBonusPct?: number;
         durationHours: number;
       };
 };
@@ -145,11 +148,11 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     name: "모험가 정식",
     icon: "🍛",
     imageSrc: "/images/items/dining/adventurer_meal.webp",
-    description: "12시간 동안 사냥 경험치가 8% 증가합니다.",
+    description: `${GUILD_DINING_EFFECT_DURATION_HOURS}시간 동안 사냥 경험치가 25% 증가합니다.`,
     minFacilityLevel: 1,
     effect: {
       kind: "hunt_exp",
-      bonusPct: 8,
+      bonusPct: 25,
       durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
     },
   },
@@ -158,11 +161,11 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     name: "일꾼 도시락",
     icon: "🍱",
     imageSrc: "/images/items/dining/worker_lunch.webp",
-    description: "12시간 동안 생활 경험치가 8% 증가합니다.",
+    description: `${GUILD_DINING_EFFECT_DURATION_HOURS}시간 동안 생활 경험치가 10% 증가합니다.`,
     minFacilityLevel: 2,
     effect: {
       kind: "life_xp",
-      bonusPct: 8,
+      bonusPct: 10,
       durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
     },
   },
@@ -171,11 +174,11 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     name: "사냥꾼 바비큐",
     icon: "🍖",
     imageSrc: "/images/items/dining/hunters_barbecue.webp",
-    description: "12시간 동안 사냥 경험치가 12% 증가합니다.",
+    description: `${GUILD_DINING_EFFECT_DURATION_HOURS}시간 동안 사냥 경험치가 40% 증가합니다.`,
     minFacilityLevel: 3,
     effect: {
       kind: "hunt_exp",
-      bonusPct: 12,
+      bonusPct: 40,
       durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
     },
   },
@@ -184,11 +187,11 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     name: "장인의 해산물 덮밥",
     icon: "🍤",
     imageSrc: "/images/items/dining/artisan_seafood_rice.webp",
-    description: "12시간 동안 생활 경험치가 12% 증가합니다.",
+    description: `${GUILD_DINING_EFFECT_DURATION_HOURS}시간 동안 생활 경험치가 15% 증가합니다.`,
     minFacilityLevel: 4,
     effect: {
       kind: "life_xp",
-      bonusPct: 12,
+      bonusPct: 15,
       durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
     },
   },
@@ -197,11 +200,12 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     name: "길드 대연회",
     icon: "🍽️",
     imageSrc: "/images/items/dining/guild_grand_feast.webp",
-    description: "12시간 동안 사냥과 생활 경험치가 20% 증가합니다.",
+    description: `${GUILD_DINING_EFFECT_DURATION_HOURS}시간 동안 사냥 경험치가 60%, 생활 경험치가 20% 증가합니다.`,
     minFacilityLevel: 5,
     effect: {
       kind: "all_xp",
-      bonusPct: 20,
+      bonusPct: 60,
+      lifeBonusPct: 20,
       durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
     },
   },
@@ -212,13 +216,28 @@ export function guildDiningMenu(raw: unknown): GuildDiningMenu | null {
   return GUILD_DINING_MENUS.find((menu) => menu.id === raw) ?? null;
 }
 
+export function guildDiningMenusForFacilityLevel(
+  level: number,
+): readonly GuildDiningMenu[] {
+  const safeLevel = Math.max(0, Math.floor(Number(level) || 0));
+  return GUILD_DINING_MENUS.filter(
+    (menu) => menu.minFacilityLevel <= safeLevel,
+  );
+}
+
 export type GuildDiningActiveEffect = {
   menuId: GuildDiningMenuId;
   kind: GuildDiningEffectKind;
   bonusPct: number;
+  lifeBonusPct?: number;
   expiresAt: number;
   roundingRemainder: number;
 };
+
+export type GuildDiningEffectSummary = Omit<
+  GuildDiningActiveEffect,
+  "roundingRemainder"
+> & { name: string };
 
 export type GuildDiningUserState = {
   version: 1;
@@ -249,7 +268,7 @@ function parseActiveEffect(
   if (value.kind !== menu.effect.kind) return null;
   const weekEndsAt = guildDiningWeekEndsAt(args.weekKey);
   const storedExpiresAt = Number(value.expiresAt);
-  // 횟수형 효과를 보유한 기존 세이브는 남은 식권을 잃지 않도록 최초 사용 시 12시간제로 승계한다.
+  // 횟수형 효과를 보유한 기존 세이브는 남은 식권을 잃지 않도록 최초 사용 시 현재 지속 시간으로 승계한다.
   const legacyExpiresAt =
     nonNegativeInt(value.remainingUses) > 0
       ? args.now.getTime() + GUILD_DINING_EFFECT_DURATION_MS
@@ -265,6 +284,8 @@ function parseActiveEffect(
     menuId: menu.id,
     kind: menu.effect.kind,
     bonusPct: menu.effect.bonusPct,
+    lifeBonusPct:
+      menu.effect.kind === "all_xp" ? menu.effect.lifeBonusPct : undefined,
     expiresAt,
     roundingRemainder: Math.min(99, nonNegativeInt(value.roundingRemainder)),
   };
@@ -287,11 +308,15 @@ export function parseGuildDiningUserState(
     };
   }
   const sameGuild = Number(value.guildId) === args.guildId;
+  const associationToGuild = Number(value.guildId) === 0 && args.guildId > 0;
   return {
     version: 1,
     weekKey: args.weekKey,
     guildId: args.guildId,
-    contributionPoints: sameGuild ? nonNegativeInt(value.contributionPoints) : 0,
+    contributionPoints:
+      sameGuild || associationToGuild
+        ? nonNegativeInt(value.contributionPoints)
+        : 0,
     // 길드 이동으로 식권을 다시 받지 못하게 사용량과 이미 먹은 음식 효과는 주차 단위로 유지한다.
     mealsUsed: nonNegativeInt(value.mealsUsed),
     activeEffect: parseActiveEffect(value.activeEffect, {
@@ -334,6 +359,29 @@ export function guildDiningTicketProgress(
   };
 }
 
+export function associationDiningTicketProgress(
+  state: GuildDiningUserState,
+): {
+  base: 0;
+  contributionEarned: number;
+  earned: number;
+  used: number;
+  available: number;
+  contributionCap: null;
+} {
+  const earned = Math.floor(
+    state.contributionPoints / ASSOCIATION_DINING_POINTS_PER_TICKET,
+  );
+  return {
+    base: 0,
+    contributionEarned: earned,
+    earned,
+    used: state.mealsUsed,
+    available: Math.max(0, earned - state.mealsUsed),
+    contributionCap: null,
+  };
+}
+
 export function guildDiningPantryTarget(memberCount: number): number {
   return Math.min(
     400,
@@ -363,6 +411,8 @@ export function activeEffectForMenu(
     menuId: menu.id,
     kind: menu.effect.kind,
     bonusPct: menu.effect.bonusPct,
+    lifeBonusPct:
+      menu.effect.kind === "all_xp" ? menu.effect.lifeBonusPct : undefined,
     expiresAt: Math.min(
       startsAt + menu.effect.durationHours * 60 * 60 * 1000,
       guildDiningWeekEndsAt(args.weekKey),
@@ -387,7 +437,11 @@ export function consumeGuildDiningEffectState(
   ) {
     return { state, bonus: 0, consumed: false };
   }
-  const rawBonus = base * active.bonusPct + active.roundingRemainder;
+  const bonusPct =
+    kind === "life_xp" && active.kind === "all_xp"
+      ? (active.lifeBonusPct ?? active.bonusPct)
+      : active.bonusPct;
+  const rawBonus = base * bonusPct + active.roundingRemainder;
   const bonus = Math.floor(rawBonus / 100);
   return {
     state: {

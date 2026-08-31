@@ -33,6 +33,24 @@ describe("life request board", () => {
     expect(first.special.every((request) => request.requesterSpecial && request.requiredRequesterTrust === LIFE_REQUEST_TRUST_SPECIAL_UNLOCK)).toBe(true);
   });
 
+  it("keeps requester-only weekly requirements distinct from normal weekly choices", () => {
+    const boards = Array.from({ length: 20 }, (_, index) =>
+      lifeRequestsForPeriod("2026-08-06", `2026-W${String(index + 1).padStart(2, "0")}`),
+    );
+    const normalRequirements = new Set(
+      boards.flatMap((board) => board.weekly).map(
+        (request) => `${request.itemKind}:${request.itemId}:${request.quantity}`,
+      ),
+    );
+    const duplicateSpecialIds = boards[0].special
+      .filter((request) =>
+        normalRequirements.has(`${request.itemKind}:${request.itemId}:${request.quantity}`),
+      )
+      .map((request) => request.id);
+
+    expect(duplicateSpecialIds).toEqual([]);
+  });
+
   it("rolls only the changed period while preserving lifetime stats", () => {
     const parsed = parseLifeRequestsState({
       daily: { key: "old", completedIds: ["daily_pine"] },

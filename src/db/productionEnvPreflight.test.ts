@@ -55,4 +55,14 @@ describe("production environment preflight", () => {
     expect(result.status).toBe(1);
     expect(result.stderr).not.toContain("OPS_ALERT_WEBHOOK_URL");
   });
+
+  it("홍보 중복 방지 HMAC 비밀키가 없으면 운영 배포를 거절한다", () => {
+    const result = spawnSync(process.execPath, [scriptPath], {
+      encoding: "utf8",
+      env: { NODE_ENV: "production" },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("REFERRAL_IDENTITY_SECRET");
+  });
 });

@@ -29,6 +29,14 @@ vi.mock("@/lib/server/savesKv", () => ({
   readSave: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
+  readSaves: vi.fn(async (_tx, _uid, fallbacks: Record<string, unknown>) =>
+    Object.fromEntries(
+      Object.entries(fallbacks).map(([key, fallback]) => [
+        key,
+        store.has(key) ? store.get(key) : fallback,
+      ]),
+    ),
+  ),
   upsertSave: vi.fn(async (_tx, _uid, key: string, value: unknown) => {
     store.set(key, value);
   }),
@@ -97,9 +105,13 @@ describe("class-element — 코어루프 수동 로드아웃 보존", () => {
       learned: ["v2c_mage_boltcast"],
       equipped: ["v2c_mage_boltcast"],
     });
+    expect(store.get("proficiency.v2")).not.toHaveProperty(
+      "lifeResourceGrowth",
+    );
   });
 
   it("직업군 변경 시 learned 는 보존하고 equipped 를 새 직업 체인으로 재산출하지 않는다", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
     store.clear();
     store.set("character.v2", {
       class: "warrior",
@@ -118,15 +130,35 @@ describe("class-element — 코어루프 수동 로드아웃 보존", () => {
       points: 0,
       groups: { warrior: { tier: 5, cultivations: 0, cumLevel: 2250 } },
       caps: {},
-      grown: {},
+      grown: { str: 12 },
+      growthRespecPoints: 9,
+      lifeResourceGrowth: {
+        version: 1,
+        rolledLevel: 100,
+        baseHp: 999,
+        baseMp: 999,
+        gainedHp: 999,
+        gainedMp: 999,
+      },
+      liberationCycleGrowth: { hp: 240, mp: 30 },
     });
 
     const res = await POST(req("martial"));
-    const json = (await res.json()) as { ok?: boolean; class?: string };
+    const json = (await res.json()) as {
+      ok?: boolean;
+      class?: string;
+      lifeResources?: unknown;
+    };
 
     expect(res.status).toBe(200);
     expect(json.ok).toBe(true);
     expect(json.class).toBe("martial");
+    expect(json.lifeResources).toEqual({
+      maxHp: 150,
+      maxMp: 65,
+      hpPerLevel: { min: 8, max: 12 },
+      mpPerLevel: { min: 3, max: 5 },
+    });
 
     const skills = store.get("skills.v2") as {
       learned: string[];
@@ -137,5 +169,18 @@ describe("class-element — 코어루프 수동 로드아웃 보존", () => {
       "v2c_mage_boltcast",
       "v2c_warrior_strike",
     ]);
+    expect(store.get("proficiency.v2")).toMatchObject({
+      grown: {},
+      growthRespecPoints: 0,
+      lifeResourceGrowth: {
+        version: 2,
+        rolledLevel: 1,
+        baseHp: 150,
+        baseMp: 65,
+        gainedHp: 0,
+        gainedMp: 0,
+      },
+      liberationCycleGrowth: { hp: 0, mp: 0 },
+    });
   });
 });

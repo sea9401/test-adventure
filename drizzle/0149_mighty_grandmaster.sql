@@ -1,0 +1,1 @@
+ALTER TABLE "guild_trade_weekly" ADD COLUMN "member_purchases_enabled" boolean DEFAULT true NOT NULL;

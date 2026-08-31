@@ -6,6 +6,7 @@ import {
   setAuthenticatedE2eCharacterLevel,
 } from "./support/authenticatedDatabase";
 import { prepareLocalHttpBrowser } from "./support/localHttpBrowser";
+import { installStormExpeditionApiFixture } from "./support/stormExpeditionFixture";
 
 const LOCAL_ORIGIN = "http://localhost:3212";
 const CHARACTER_NAME = "자동검증모험가";
@@ -13,6 +14,8 @@ const ATTENDANCE_CHARACTER_NAME = "출석검증모험가";
 const GAMEPLAY_CHARACTER_NAME = "사냥검증모험가";
 const DELETION_CHARACTER_NAME = "삭제검증모험가";
 const CHAT_CHARACTER_NAME = "채팅검증모험가";
+const STORM_DIRECT_CHARACTER_NAME = "원정직접검증가";
+const STORM_AUTOPLAY_CHARACTER_NAME = "원정일괄검증가";
 const PERSISTED_FLAG = "e2e.persisted-after-login";
 const account = authenticatedE2eConfig();
 
@@ -51,7 +54,7 @@ test("신규 모험가의 초기 지급·첫 전직 경계와 저장 진행을 �
     level: 1,
     exp: 0,
     gold: 50,
-    stamina: { current: 1500 },
+    stamina: { current: 2000 },
   });
   expect(bootstrap.saves["character.v2"]).not.toHaveProperty("class");
   expect(bootstrap.saves["inventory.v2"]).toMatchObject({
@@ -226,7 +229,7 @@ test("직업 없는 신규 모험가가 첫 출석으로 15일 지원권을 받�
   });
 });
 
-test("모바일 전체화면 채팅은 헤더에서 방 목록으로 돌아가고 플로팅 토글로 닫을 수 있다", async ({
+test("모바일 전체화면 채팅은 플로팅 토글을 숨기고 헤더에서 이동·닫기할 수 있다", async ({
   page,
 }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"));
@@ -240,20 +243,93 @@ test("모바일 전체화면 채팅은 헤더에서 방 목록으로 돌아가�
   await floatingToggle.click();
 
   await expect(page.getByRole("dialog", { name: "채팅" })).toBeVisible();
-  await expect(floatingToggle).toHaveAttribute("aria-label", "채팅 닫기");
-  await expect(floatingToggle).toBeVisible();
-  await expect(page.getByRole("button", { name: "채팅 닫기" })).toHaveCount(2);
+  await expect(floatingToggle).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "채팅 닫기" })).toHaveCount(1);
 
-  await page.getByRole("button", { name: /전체 채팅방/ }).click();
+  const globalRoomButton = page.getByRole("button", {
+    name: "전체 채팅방 메시지가 없습니다",
+  });
+  await globalRoomButton.click();
   const headerRoomBack = page.getByTestId("chat-room-header-back");
   await expect(headerRoomBack).toBeVisible();
 
   await headerRoomBack.click();
   await expect(headerRoomBack).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /전체 채팅방/ })).toBeVisible();
+  await expect(globalRoomButton).toBeVisible();
 
-  await floatingToggle.click();
+  await page.getByRole("button", { name: "채팅 닫기" }).click();
   await expect(page.getByRole("dialog", { name: "채팅" })).toHaveCount(0);
+  await expect(floatingToggle).toBeVisible();
+});
+
+test("폭풍 원정을 모바일 지도와 노드 모달에서 직접 진행한다", async ({
+  page,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.includes("mobile"));
+  if (!account) throw new Error("Authenticated E2E configuration is missing");
+
+  await loginWithPassword(page, account.loginId, account.password);
+  await createCharacter(page, STORM_DIRECT_CHARACTER_NAME);
+  const fixture = await installStormExpeditionApiFixture(page);
+  await page.goto("/battle/storm-expedition");
+
+  const map = page.getByTestId("storm-expedition-command-map");
+  await expect(map).toBeVisible();
+  await map.getByRole("button", { name: /칼바람 외곽, 이동 가능/ }).click();
+  const nodeDialog = page.getByRole("dialog", { name: "칼바람 외곽" });
+  await expect(nodeDialog).toContainText("다음 경로 확인");
+  await nodeDialog.getByRole("button", { name: "이 경로로 이동" }).click();
+  await expect(nodeDialog.getByRole("button", { name: "전투 시작" })).toBeVisible();
+
+  expect(fixture.actions).toEqual([
+    { action: "start", mode: "normal", targetNodeId: "gale_outer" },
+  ]);
+  await expect(page.getByTestId("storm-expedition-current-action")).toHaveCount(0);
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    content: document.documentElement.scrollWidth,
+  }));
+  expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport);
+
+  await nodeDialog.getByRole("button", { name: "확인" }).click();
+  const order = await page.evaluate(() => {
+    const mapElement = document.querySelector('[data-testid="storm-expedition-command-map"]');
+    const support = document.querySelector('[data-testid="storm-expedition-support"]');
+    return Boolean(mapElement && support && (mapElement.compareDocumentPosition(support) & Node.DOCUMENT_POSITION_FOLLOWING));
+  });
+  expect(order).toBe(true);
+});
+
+test("폭풍 원정을 모바일에서 혼합 항로로 일괄 진행한다", async ({
+  page,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.includes("mobile"));
+  if (!account) throw new Error("Authenticated E2E configuration is missing");
+
+  await loginWithPassword(page, account.loginId, account.password);
+  await createCharacter(page, STORM_AUTOPLAY_CHARACTER_NAME);
+  const fixture = await installStormExpeditionApiFixture(page);
+  await page.goto("/battle/storm-expedition");
+
+  await page.getByRole("button", { name: "일괄 진행 설정" }).click();
+  const planDialog = page.getByRole("dialog", { name: "일괄 진행 설정" });
+  await expect(planDialog).toContainText("패배하면 임시 전리품을 모두 잃으며 자동 귀환하지 않습니다.");
+  await planDialog.getByRole("button", { name: "중층 항로 뇌운" }).click();
+  await planDialog.getByRole("button", { name: "수호자 항로 잔해" }).click();
+  await planDialog.getByRole("button", { name: "축복 전략 공격 우선" }).click();
+  await planDialog.getByRole("button", { name: "일괄 진행 시작" }).click();
+
+  const resultDialog = page.getByRole("dialog", { name: "일괄 진행 완료" });
+  await expect(resultDialog).toBeVisible();
+  await expect(resultDialog).toContainText("폭풍의 심장");
+  await expect(page.getByRole("dialog", { name: /칼바람|뇌운|잔해|표류|제단|정비/ })).toHaveCount(0);
+
+  const moveTargets = fixture.actions
+    .filter((action) => action.action === "move")
+    .map((action) => action.targetNodeId);
+  expect(moveTargets).toEqual(expect.arrayContaining(["thunder_middle", "wreckage_guardian"]));
+  expect(fixture.actions).toContainEqual(expect.objectContaining({ action: "choose", choiceId: "swift_fate" }));
+  expect(fixture.actions.some((action) => action.action === "withdraw")).toBe(false);
 });
 
 test("전투 메뉴로 사냥터에 진입해 얻은 진행은 새로고침과 재로그인 뒤에도 복원된다", async ({
@@ -269,7 +345,7 @@ test("전투 메뉴로 사냥터에 진입해 얻은 진행은 새로고침과 �
   expect(before.battleCount).toBe(0);
 
   const mainNavigation = page.getByRole("navigation", { name: "메인 메뉴" });
-  await mainNavigation.getByRole("button", { name: "전투", exact: true }).click();
+  await mainNavigation.getByRole("button", { name: /^전투(?:,|$)/ }).click();
   await page
     .getByRole("menu", { name: "전투 메뉴" })
     .getByRole("menuitem", { name: "사냥터" })
@@ -303,7 +379,32 @@ test("전투 메뉴로 사냥터에 진입해 얻은 진행은 새로고침과 �
   expect(hunt.result?.won).toBe(true);
   expect(hunt.result?.expGained).toBeGreaterThan(0);
   expect(hunt.result?.goldGained).toBeGreaterThan(0);
-  await expect(page.getByText("승리", { exact: true }).first()).toBeVisible();
+  const huntResult = page.getByRole("region", { name: "최근 사냥 결과" });
+  await expect(huntResult).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: /사냥 (?:승리|패배)/ }),
+  ).toHaveCount(0);
+  await dismissTutorialOverlayIfVisible(page);
+  await huntResult.getByRole("button", { name: "전투 기록 보기" }).click();
+
+  const battleLogButton = page.getByRole("button", {
+    name: "전체 전투 로그 보기",
+  });
+  await expect(battleLogButton).toBeVisible();
+  await battleLogButton.click();
+  await expect(page).toHaveURL(/\/battle\/log\/[^/]+$/);
+  const battleLogDialog = page.getByRole("dialog", { name: "전투 로그" });
+  await expect(battleLogDialog).toBeVisible();
+  await battleLogDialog.getByRole("button", { name: "뒤로" }).click();
+  await expect(page).toHaveURL(`${LOCAL_ORIGIN}/battle/dungeon/2`);
+  await expect(battleLogButton).toBeVisible();
+
+  await battleLogButton.click();
+  await expect(page).toHaveURL(/\/battle\/log\/[^/]+$/);
+  await expect(battleLogDialog).toBeVisible();
+  await battleLogDialog.getByRole("button", { name: "뒤로" }).click();
+  await expect(page).toHaveURL(`${LOCAL_ORIGIN}/battle/dungeon/2`);
+  await expect(battleLogButton).toBeVisible();
 
   const afterHunt = await coreGameplayState(page);
   expect(afterHunt.battleCount).toBe(before.battleCount + 1);
@@ -410,6 +511,9 @@ async function createCharacter(page: Page, name: string) {
   await page.getByPlaceholder("이름 입력").fill(name);
   await expect(page.getByText("사용 가능한 이름이에요.")).toBeVisible();
   await page.getByRole("button", { name: "남성 1" }).click();
+  await page
+    .getByRole("checkbox", { name: /커뮤니티 운영정책/ })
+    .check();
 
   const setupResponse = page.waitForResponse(
     (response) =>
@@ -421,6 +525,17 @@ async function createCharacter(page: Page, name: string) {
 
   await expect(page).toHaveURL(`${LOCAL_ORIGIN}/`);
   await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
+}
+
+async function dismissTutorialOverlayIfVisible(page: Page) {
+  const overlay = page
+    .locator('[role="dialog"][aria-labelledby="tutorial-overlay-title"]')
+    .first();
+  await overlay.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
+  if (!(await overlay.isVisible())) return;
+
+  await overlay.getByRole("button", { name: "닫기" }).click();
+  await expect(overlay).toHaveCount(0);
 }
 
 type CoreGameplayState = {

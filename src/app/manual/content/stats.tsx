@@ -1,3 +1,14 @@
+import {
+  V2_HP_PER_LEVEL,
+  V2_MP_PER_LEVEL,
+} from "@/adventure/data/v2/v2Stats";
+import {
+  ATK_PER_STR,
+  HP_PER_STR,
+  HP_PER_VIT,
+  MAGIC_ATK_PER_INT,
+  MP_PER_INT,
+} from "@/lib/server/v2CombatCoefficients";
 import { H2, P, UL, Em, Table, Note } from "./primitives";
 
 export function StatsContent() {
@@ -12,27 +23,49 @@ export function StatsContent() {
       <Table
         head={["스탯", "앵커 직업군", "주된 역할"]}
         rows={[
-          [<Em key="s1">힘 STR</Em>, "전사", "물리 공격력"],
-          [<Em key="s2">민첩 DEX</Em>, "도적", "회피 / 속도 / 명중"],
-          [<Em key="s3">활력 VIT</Em>, "무도가", "최대 HP / 물리 방어 / 회복"],
-          [<Em key="s4">지능 INT</Em>, "마법사", "마법 공격력 / 최대 MP"],
-          [<Em key="s5">정신 SPI</Em>, "(보조)", "마법 방어 / 회복 / 치명타 저항"],
-          [<Em key="s6">행운 LUK</Em>, "(보조)", "치명타 확률·배수 / 회피"],
+          [<Em key="s1">힘 STR</Em>, "전사", "물리 공격력 / 최대 HP 보조 / 물리 스킬 최소 데미지"],
+          [<Em key="s2">민첩 DEX</Em>, "도적", "회피도 / 속도 / 적중도"],
+          [<Em key="s3">활력 VIT</Em>, "무도가", "최대 HP / 물리 방어 / 회복 / 물리 스킬 최소 데미지"],
+          [<Em key="s4">지능 INT</Em>, "마법사", "마법 공격력 / 최대 MP / 마법 스킬 최소 데미지"],
+          [<Em key="s5">정신 SPI</Em>, "(보조)", "마법 방어 / 회복 / 마법 공격 보조 / 마법 스킬 최소 데미지 / 치명타 저항"],
+          [<Em key="s6">행운 LUK</Em>, "(보조)", "치명타 확률·배수 / 회피도"],
         ]}
         caption="각 스탯은 여러 전투 수치에 함께 반영됩니다."
       />
       <Note>
+        2차 마법사의 <Em>마나 실드</Em> 패시브를 장착하면 지능과 최대 MP에 비례한
+        실드가 전투마다 가득 찬 상태로 전개됩니다. 지능은 방어 전 피해에서 실드가
+        맡는 비율을, 최대 MP는 내구도와 내구도 소모 경감률을 함께 키웁니다. 이 값은
+        전투 시작에 고정되고, 피해를 막아도 현재 MP는 줄지 않습니다.
+      </Note>
+      <Note>
         <Em>정신 SPI</Em> 은 지원·대항 축입니다. 회복량의 주력이고(사제 치유),
         마법형 몬스터의 평타와 마법 스킬은 <Em>마법방어</Em>로, 치명형 몬스터의 치명타는{" "}
         <Em>치명타 저항</Em>으로 막습니다 — 물리 탱크로는 버거운 적을 정신 빌드가
-        받아냅니다.
+        받아냅니다. 정신 전체가 마법 공격력을 조금 올리고, 지능을 초과한 정신은 더 높은
+        비율로 마법 공격력에 전환됩니다.
+      </Note>
+      <Note>
+        회피도는 모든 캐릭터가 공통으로 가진 시작 DEX·LUK 15가 아니라, 그보다 더 성장한
+        수치부터 증가합니다. 경갑 위력과 장비의 추가 회피도는 시작 단계부터 그대로
+        반영됩니다.
       </Note>
 
       <H2>최대 HP·MP</H2>
       <UL>
         <li>
-          <Em>최대 HP</Em> 는 레벨과 VIT 로, <Em>최대 MP</Em> 는 레벨과 INT 로
-          늘어납니다.
+          힘 1당 공격력 {ATK_PER_STR}, 힘 1당 최대 HP {HP_PER_STR}, 활력 1당 최대
+          HP {HP_PER_VIT}을 얻습니다. 지능 1당 마법 공격력 {MAGIC_ATK_PER_INT},
+          지능 1당 최대 MP {MP_PER_INT}를 얻습니다.
+        </li>
+        <li>
+          <Em>최대 HP</Em> 는 레벨·STR·VIT로, <Em>최대 MP</Em> 는 레벨과 INT로
+          늘어납니다. 레벨이 오를 때마다 최대 HP +{V2_HP_PER_LEVEL}, 최대 MP +
+          {V2_MP_PER_LEVEL}이 적용됩니다.
+        </li>
+        <li>
+          최대 HP 증가 패시브는 캐릭터의 기본 HP와 STR·VIT로 얻은 HP에 적용되며,
+          장비의 고정 HP까지 다시 증폭하지는 않습니다.
         </li>
         <li>MP는 전투 후 잔여분이 유지되고, 부족분은 MP 충전약으로 채웁니다.</li>
       </UL>

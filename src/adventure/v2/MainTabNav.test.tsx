@@ -54,6 +54,13 @@ vi.mock("./AdventureDashboardProvider", () => ({
   }),
 }));
 
+vi.mock("@/adventure/data/v2/coreLoopConfig", async (importActual) => ({
+  ...(await importActual<
+    typeof import("@/adventure/data/v2/coreLoopConfig")
+  >()),
+  V2_UNEXPLORED: true,
+}));
+
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn();
 });
@@ -70,6 +77,23 @@ describe("상단 캐릭터 하위 메뉴", () => {
         }),
       ]),
     );
+  });
+
+  it("기능 플래그가 켜지면 미개척지 화면으로 이동할 수 있다", () => {
+    const onNavigate = vi.fn();
+    render(
+      <MainTabNav
+        activeKey="character"
+        gameStateLoaded
+        viewerGuildId={null}
+        onNavigate={onNavigate}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "캐릭터" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "미개척지" }));
+
+    expect(onNavigate).toHaveBeenCalledWith("/character/unexplored");
   });
 });
 

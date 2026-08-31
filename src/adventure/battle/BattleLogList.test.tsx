@@ -1054,6 +1054,75 @@ describe("BattleLogList 행동 묶음", () => {
     expect(legacy).not.toContain("한기");
   });
 
+  it("적 자원 스냅샷의 추적 위협을 한글 라벨로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[{
+          kind: "hp_bar",
+          text: "",
+          playerHp: 900,
+          playerMaxHp: 1_000,
+          enemyHp: 800,
+          enemyMaxHp: 1_000,
+          enemySignatureResources: { trackingThreat: "73/100" },
+        }]}
+      />,
+    );
+
+    expect(html).toContain("추적 위협 73/100");
+    expect(html).not.toContain("trackingThreat");
+  });
+
+  it("적 자원 스냅샷의 독혈과 회복 억제를 한글 라벨로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[{
+          kind: "hp_bar",
+          text: "",
+          playerHp: 900,
+          playerMaxHp: 1_000,
+          enemyHp: 800,
+          enemyMaxHp: 1_000,
+          enemySignatureResources: {
+            toxicBlood: "7/10",
+            toxicRecoveryLock: "2/2",
+          },
+        }]}
+      />,
+    );
+
+    expect(html).toContain("독혈 7/10");
+    expect(html).toContain("회복 억제 2/2");
+    expect(html).not.toContain("toxicBlood");
+    expect(html).not.toContain("toxicRecoveryLock");
+  });
+
+  it("빙하 거수의 한기와 빙결 자원을 한글 라벨로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "hp_bar",
+            text: "",
+            playerHp: 900,
+            playerMaxHp: 1_000,
+            enemyHp: 800,
+            enemyMaxHp: 1_000,
+            enemySignatureResources: {
+              glacialChill: "7/10",
+              glacialFreeze: "1/1",
+            },
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toContain("한기 7/10");
+    expect(html).toContain("빙결 1/1");
+    expect(html).not.toContain("glacialChill");
+    expect(html).not.toContain("glacialFreeze");
+  });
+
   it("HP 스냅샷에 삼중 결계 잔량과 영역 안정을 밝음·소모 상태로 표시한다", () => {
     const html = renderToStaticMarkup(
       <BattleLogList

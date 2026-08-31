@@ -64,24 +64,46 @@ describe("unexplored exploration XP", () => {
 });
 
 describe("unexplored achievements", () => {
-  it("derives boss milestones and event achievements from authoritative counts", () => {
+  it("ignores standard co-op bosses and derives achievements from personal boss IDs", () => {
     expect(
       unexploredAchievementCandidates({
-        coopBossKindCount: 6,
+        defeatedBossIds: [
+          "mountain_chief",
+          "tracking_weapon",
+          "tracking_weapon",
+        ],
         unexploredHuntWon: true,
         specialMonsterKilled: true,
         summonStoneCrafted: true,
         activePoolCount: 3,
       }),
     ).toEqual([
-      "boss_kinds_1",
-      "boss_kinds_3",
-      "boss_kinds_6",
+      "first_personal_boss",
+      "defeat_tracking_weapon",
       "first_unexplored_hunt",
       "first_special_kill",
       "first_summon_stone_craft",
       "activate_two_pools",
       "activate_three_pools",
+    ]);
+  });
+
+  it("awards all five boss achievements after defeating all three personal bosses", () => {
+    expect(
+      unexploredAchievementCandidates({
+        defeatedBossIds: [
+          "tracking_weapon",
+          "toxic_blood_lord",
+          "glacial_colossus",
+          "lake_sovereign",
+        ],
+      }),
+    ).toEqual([
+      "first_personal_boss",
+      "defeat_tracking_weapon",
+      "defeat_toxic_blood_lord",
+      "defeat_glacial_colossus",
+      "defeat_all_personal_bosses",
     ]);
   });
 

@@ -9,10 +9,12 @@ import {
   type BattleState,
   type PlayerCombat,
 } from "./engine";
+import type { Monster } from "@/adventure/data/monsters";
 import {
   damageBetween,
   damageToMagicDefender,
   damageToDefender,
+  healingAfterReceivedMultiplier,
   v2AtkBuffMult,
   v2DefBuffMult,
 } from "./combatShared";
@@ -336,8 +338,14 @@ export function resolveEnemyPhase(
   // 회피/방패 성공 시 곡예(특기) 장착이면 HP +evadeHealAmount.
   // 장비의 회피 경감 연동 회복은 소유자 행동 시작에 별도로 판정한다.
   const evadeHeal = player.evadeHealAmount ?? 0;
+  const reducedEvadeHeal = healingAfterReceivedMultiplier(
+    evadeHeal,
+    player.receivedHealMult,
+  );
   const healOnDodge = (hp: number): number =>
-    evadeHeal > 0 ? Math.min(state.playerMaxHp, hp + evadeHeal) : hp;
+    reducedEvadeHeal > 0
+      ? Math.min(state.playerMaxHp, hp + reducedEvadeHeal)
+      : hp;
   // on-dodge 속도 버프(Phase 2) — 회피 성공 분기들이 next.buffs 로 쓸 값. 미발동=state.buffs
   //   그대로(Math.max 로 기존 버프 미감소) → byte-identical.
   const sigDodgeSpd = onDodgeSpeedBuff(player.equipSignatures);
@@ -970,13 +978,17 @@ export function resolveEnemyPhase(
     : state.playerHp;
   // 흡혈 갑옷 (6티어) — 받은 HP 피해의 N% HP 회복. HP 0 으로 죽은 후엔 미발동, 불굴로 버틴 후엔 발동.
   const bloodfeastPct = player.bloodfeastPct ?? 0;
-  const bloodfeastHeal =
+  const bloodfeastHealRaw =
     bloodfeastPct > 0 &&
     dmgToHp > 0 &&
     playerHpAfterDmg > 0 &&
     !berserkerSurvival.triggered
       ? Math.floor((dmgToHp * bloodfeastPct) / 100)
       : 0;
+  const bloodfeastHeal = healingAfterReceivedMultiplier(
+    bloodfeastHealRaw,
+    player.receivedHealMult,
+  );
   const playerHp =
     bloodfeastHeal > 0
       ? Math.min(state.playerMaxHp, playerHpAfterDmg + bloodfeastHeal)
@@ -1103,6 +1115,8 @@ export function resolveEnemyPhase(
   log = appendLog(log, {
     kind: "enemy_attack",
     text: `공격! ${atkPrefix}${dmgToHp} 피해를 입혔다.`,
+    enemyHpDamage: dmgToHp,
+    heavyBlowFired,
   });
   if (effectiveCurseAdd > 0) {
     log = appendLog(log, {
@@ -1343,6 +1357,11 @@ export function resolveEnemyPhase(
     ...(trackedShieldEffect?.cleanse
       ? { playerV2Dots: [], v2SelfDebuffs: {} }
       : {}),
+    bossMechanic:
+      trackedShieldEffect?.cleanse &&
+      state.bossMechanic?.kind === "glacial_colossus"
+        ? { ...state.bossMechanic, glacialChillStacks: 0 }
+        : state.bossMechanic,
     turn: {
       ...state.turn,
       enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
@@ -1406,4 +1425,104 @@ export function resolveEnemyPhase(
     };
   }
   return finishEnemyAttack(resolvedState);
+}
+
+export type ForcedEnemyPhysicalHitOptions = {
+  attackName: string;
+  multiplier: number;
+  armorPierce: number;
+  allowCritical: boolean;
+  applyStatus: boolean;
+  consumeEnemyAction: boolean;
+};
+
+/**
+ * 현재 적의 물리 평타 판정을 재사용하되 ATB 행동 예약은 소비하지 않는 강제 1타.
+ * 추적 섬멸처럼 플레이어 행동 직후 끼어드는 반격이 일반 방어·보호막·생존·반사
+ * 경로를 그대로 거치게 한다.
+ */
+export function resolveForcedEnemyPhysicalHit(
+  state: BattleState,
+  basePlayer: PlayerCombat,
+  playerName: string,
+  options: ForcedEnemyPhysicalHitOptions,
+): { state: BattleState; damageToHp: number } {
+  if (state.phase === "ended" || state.playerHp <= 0 || state.enemyHp <= 0) {
+    return { state, damageToHp: 0 };
+  }
+
+  const originalEnemy = state.enemy;
+  const originalPhase = state.phase;
+  const originalEnemyAttacksLeft = state.turn.enemyAttacksLeft;
+  const originalEnemyPhasesCompleted = state.turn.enemyPhasesCompleted;
+  const logStart = state.log.length;
+  const beforePlayerHp = state.playerHp;
+  const multiplier = Number.isFinite(options.multiplier)
+    ? Math.max(0, options.multiplier)
+    : 0;
+  const armorPierce = Number.isFinite(options.armorPierce)
+    ? Math.max(0, Math.floor(options.armorPierce))
+    : 0;
+  const player =
+    armorPierce > 0
+      ? { ...basePlayer, def: Math.max(0, basePlayer.def - armorPierce) }
+      : basePlayer;
+  const forcedEnemy: Monster = {
+    ...originalEnemy,
+    atk: Math.max(0, Math.floor(originalEnemy.atk * multiplier)),
+    atkType: "physical",
+    playerDefVulnerable: 0,
+    critPct: options.allowCritical ? originalEnemy.critPct : 0,
+    bonusAttackChancePct: 0,
+    ...(options.applyStatus ? {} : { skill: undefined }),
+  };
+  const prepared: BattleState = {
+    ...state,
+    enemy: forcedEnemy,
+    phase: "enemy",
+    turn: { ...state.turn, enemyAttacksLeft: 1 },
+  };
+  const resolved = resolveEnemyPhase(
+    prepared,
+    player,
+    playerName,
+    false,
+    false,
+    !options.applyStatus,
+  );
+  const log = [
+    ...resolved.log.slice(0, logStart),
+    ...resolved.log.slice(logStart).map((entry) => {
+      if (entry.kind === "enemy_attack" && entry.text.startsWith("공격!")) {
+        return {
+          ...entry,
+          text: `${options.attackName}!${entry.text.slice("공격!".length)}`,
+          turn: "enemy" as const,
+        };
+      }
+      return entry.kind === "hp_bar" || entry.turn
+        ? entry
+        : { ...entry, turn: "enemy" as const };
+    }),
+  ];
+  const restoredTurn = options.consumeEnemyAction
+    ? resolved.turn
+    : {
+        ...resolved.turn,
+        enemyAttacksLeft: originalEnemyAttacksLeft,
+        enemyPhasesCompleted: originalEnemyPhasesCompleted,
+      };
+  return {
+    state: {
+      ...resolved,
+      enemy: originalEnemy,
+      turn: restoredTurn,
+      phase:
+        !options.consumeEnemyAction && resolved.phase !== "ended"
+          ? originalPhase
+          : resolved.phase,
+      log,
+    },
+    damageToHp: Math.max(0, beforePlayerHp - resolved.playerHp),
+  };
 }

@@ -1,6 +1,9 @@
 import type { Monster } from "@/adventure/data/monsters/types";
 import type { V2EquipmentId } from "./v2Equipment";
-import type { UnexploredPoolId } from "./unexploredMonsterPools";
+import {
+  UNEXPLORED_POOL_BY_ID,
+  type UnexploredPoolId,
+} from "./unexploredMonsterPools";
 
 export const UNEXPLORED_BOSS_CORE_MATERIAL = {
   id: "v2_unexplored_boss_core",
@@ -39,6 +42,7 @@ export type UnexploredSummonStoneMaterialId =
 
 export type UnexploredBossUniqueDrop = {
   equipmentId: V2EquipmentId;
+  equipmentName: string;
   chancePct: 30 | 10 | 0.5;
 };
 
@@ -66,9 +70,21 @@ export const UNEXPLORED_BOSSES = {
     pools: ["runaway_machines", "shadow_stalkers"],
     summonMaterialId: "v2_unexplored_tracking_weapon_summon_stone",
     uniqueDrops: [
-      { equipmentId: "v2_unexplored_tracking_blade_dagger", chancePct: 30 },
-      { equipmentId: "v2_unexplored_phantom_acceleration_boots", chancePct: 10 },
-      { equipmentId: "v2_unexplored_infinite_orbit_heart", chancePct: 0.5 },
+      {
+        equipmentId: "v2_unexplored_tracking_blade_dagger",
+        equipmentName: "추적날 단검",
+        chancePct: 30,
+      },
+      {
+        equipmentId: "v2_unexplored_phantom_acceleration_boots",
+        equipmentName: "허상 가속화",
+        chancePct: 10,
+      },
+      {
+        equipmentId: "v2_unexplored_infinite_orbit_heart",
+        equipmentName: "무한궤도 심장",
+        chancePct: 0.5,
+      },
     ],
     titleId: "v2_unexplored_tracking_weapon",
     sharedMaxHp: 10_800_000,
@@ -83,16 +99,15 @@ export const UNEXPLORED_BOSSES = {
       magicDef: 38,
       spd: 27,
       accuracy: -220,
-      evasionPct: 22,
+      evasionPct: 12,
       exp: 0,
-      skill: { kind: "pierce", name: "궤도 절단", armorPierce: 18 },
-      bonusAttackChancePct: 100,
+      skill: { kind: "pierce", name: "궤도 절단", armorPierce: 10 },
       armorVulnerable: 0.35,
       playerDefVulnerable: 0.35,
       dropQualityBias: 4,
       v2MaxMp: 0,
     },
-    traits: ["빠른 행동", "연속 공격", "높은 회피와 방어 관통"],
+    traits: ["빠른 행동", "피해·타격 추적", "추적 완료 시 2연타 반격"],
   },
   toxic_blood_lord: {
     id: "toxic_blood_lord",
@@ -100,9 +115,21 @@ export const UNEXPLORED_BOSSES = {
     pools: ["venom_colony", "bloodstained_dead"],
     summonMaterialId: "v2_unexplored_toxic_blood_lord_summon_stone",
     uniqueDrops: [
-      { equipmentId: "v2_unexplored_toxic_blood_claw", chancePct: 30 },
-      { equipmentId: "v2_unexplored_coagulated_venom_ring", chancePct: 10 },
-      { equipmentId: "v2_unexplored_uncorrupted_heart", chancePct: 0.5 },
+      {
+        equipmentId: "v2_unexplored_toxic_blood_claw",
+        equipmentName: "독혈 발톱",
+        chancePct: 30,
+      },
+      {
+        equipmentId: "v2_unexplored_coagulated_venom_ring",
+        equipmentName: "응고독 반지",
+        chancePct: 10,
+      },
+      {
+        equipmentId: "v2_unexplored_uncorrupted_heart",
+        equipmentName: "부패하지 않는 심장",
+        chancePct: 0.5,
+      },
     ],
     titleId: "v2_unexplored_toxic_blood_lord",
     sharedMaxHp: 10_800_000,
@@ -126,7 +153,11 @@ export const UNEXPLORED_BOSSES = {
       v2Skills: { learned: ["mob_venom_bite"], equipped: ["mob_venom_bite"] },
       v2MaxMp: 120,
     },
-    traits: ["중독 누적", "출혈성 강타", "지속 피해 압박"],
+    traits: [
+      "피격 시 독혈 누적",
+      "10중첩 독혈 폭발",
+      "중독·폭발 후 회복 억제",
+    ],
   },
   glacial_colossus: {
     id: "glacial_colossus",
@@ -134,9 +165,21 @@ export const UNEXPLORED_BOSSES = {
     pools: ["frozen_legion", "crushing_colossi"],
     summonMaterialId: "v2_unexplored_glacial_colossus_summon_stone",
     uniqueDrops: [
-      { equipmentId: "v2_unexplored_glacial_crushing_hammer", chancePct: 30 },
-      { equipmentId: "v2_unexplored_frozen_great_armor", chancePct: 10 },
-      { equipmentId: "v2_unexplored_absolute_zero_core", chancePct: 0.5 },
+      {
+        equipmentId: "v2_unexplored_glacial_crushing_hammer",
+        equipmentName: "빙하 파쇄망치",
+        chancePct: 30,
+      },
+      {
+        equipmentId: "v2_unexplored_frozen_great_armor",
+        equipmentName: "얼어붙은 거갑",
+        chancePct: 10,
+      },
+      {
+        equipmentId: "v2_unexplored_absolute_zero_core",
+        equipmentName: "절대영도의 핵",
+        chancePct: 0.5,
+      },
     ],
     titleId: "v2_unexplored_glacial_colossus",
     sharedMaxHp: 10_800_000,
@@ -154,22 +197,16 @@ export const UNEXPLORED_BOSSES = {
       accuracy: -205,
       evasionPct: 8,
       exp: 0,
-      skill: {
-        kind: "chill",
-        name: "절대 한기",
-        perHit: 2,
-        threshold: 2,
-        dmgPerStack: 26,
-        maxStacks: 10,
-        defMitigationFraction: 0.25,
-        evasionPenaltyPerStack: 1.5,
-      },
       armorVulnerable: 0.35,
       playerDefVulnerable: 0.35,
       dropQualityBias: 4,
       v2MaxMp: 0,
     },
-    traits: ["높은 체력과 방어", "한기 누적", "주기적인 강타"],
+    traits: [
+      "냉기장으로 한기 누적",
+      "한기 중첩당 행동 속도 감소",
+      "10중첩 빙결 — 다음 행동 취소",
+    ],
   },
 } as const satisfies Record<string, UnexploredBossDefinition>;
 
@@ -178,6 +215,65 @@ export type UnexploredBossId = keyof typeof UNEXPLORED_BOSSES;
 export const UNEXPLORED_BOSS_IDS = Object.keys(
   UNEXPLORED_BOSSES,
 ) as UnexploredBossId[];
+
+export type UnexploredBossEquipmentCraftRecipe = {
+  bossId: UnexploredBossId;
+  equipmentId: V2EquipmentId;
+  equipmentName: string;
+  chancePct: 30 | 10;
+  bossCoreCost: 8 | 25;
+  materialCosts: readonly [
+    {
+      poolId: UnexploredPoolId;
+      materialId: string;
+      materialName: string;
+      count: 25 | 75;
+    },
+    {
+      poolId: UnexploredPoolId;
+      materialId: string;
+      materialName: string;
+      count: 25 | 75;
+    },
+  ];
+};
+
+export const UNEXPLORED_BOSS_EQUIPMENT_CRAFT_RECIPES =
+  UNEXPLORED_BOSS_IDS.flatMap((bossId): UnexploredBossEquipmentCraftRecipe[] => {
+    const boss = UNEXPLORED_BOSSES[bossId];
+    return boss.uniqueDrops.flatMap((drop): UnexploredBossEquipmentCraftRecipe[] => {
+      if (drop.chancePct === 0.5) return [];
+      const bossCoreCost = drop.chancePct === 30 ? 8 : 25;
+      const materialCount: 25 | 75 = drop.chancePct === 30 ? 25 : 75;
+      const materialCost = (poolId: UnexploredPoolId) => ({
+        poolId,
+        materialId: UNEXPLORED_POOL_BY_ID[poolId].materialId,
+        materialName: UNEXPLORED_POOL_BY_ID[poolId].materialName,
+        count: materialCount,
+      });
+      return [{
+        bossId,
+        equipmentId: drop.equipmentId,
+        equipmentName: drop.equipmentName,
+        chancePct: drop.chancePct,
+        bossCoreCost,
+        materialCosts: [
+          materialCost(boss.pools[0]),
+          materialCost(boss.pools[1]),
+        ],
+      }];
+    });
+  });
+
+export function unexploredBossEquipmentCraftRecipe(
+  value: unknown,
+): UnexploredBossEquipmentCraftRecipe | null {
+  return typeof value === "string"
+    ? UNEXPLORED_BOSS_EQUIPMENT_CRAFT_RECIPES.find(
+      (recipe) => recipe.equipmentId === value,
+    ) ?? null
+    : null;
+}
 
 export function parseUnexploredBossId(value: unknown): UnexploredBossId | null {
   return typeof value === "string" &&

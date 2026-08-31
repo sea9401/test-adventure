@@ -218,7 +218,7 @@ export async function POST(req: Request) {
       const nextUnexplored = grantUnexploredAchievements(
         parseUnexploredSave(charSave.unexplored),
         unexploredAchievementCandidates({
-          coopBossKindCount: new Set(nextKinds).size,
+          defeatedBossIds: nextKinds,
         }),
       ).save;
       await upsertSave(tx, userId, "character.v2", {
@@ -377,7 +377,7 @@ export async function POST(req: Request) {
       ? grantUnexploredAchievements(
           parseUnexploredSave(charSave.unexplored),
           unexploredAchievementCandidates({
-            coopBossKindCount: new Set(nextKinds).size,
+            defeatedBossIds: nextKinds,
           }),
         ).save
       : null;

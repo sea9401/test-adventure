@@ -196,6 +196,7 @@ import {
   markForcedActionMainLog,
   mergeTier7ResourceSnapshot,
   type BattleBuffs,
+  type BossMechanicContext,
   type BattleLogEntry,
   type BattleOutcome,
   type BattleStacks,
@@ -210,6 +211,8 @@ export {
 } from "./engineState";
 export type {
   BattleBuffs,
+  BossMechanicBattleState,
+  BossMechanicContext,
   BattleFlags,
   BattleLogEntry,
   BattleOutcome,
@@ -1766,6 +1769,8 @@ export type ResolveContext = {
   // 공유 HP 보스처럼 최대 HP(enemy.hp)와 전투 시작 현재 HP가 다른 경우 사용.
   // 미지정이면 enemy.hp에서 시작한다.
   initialEnemyHp?: number;
+  /** 선택적 보스 전용 자동 전투 기믹과 세션에서 이어받은 시작 상태. */
+  bossMechanic?: BossMechanicContext;
 };
 
 // 보스 전투 타임아웃 — 플레이어 턴 기준. 정상 빌드는 10~30턴 안에 끝나므로
@@ -2039,6 +2044,7 @@ export function applyEnemyV2SkillCast(
     nextLog = appendLog(nextLog, {
       kind: "enemy_attack",
       text: `${result.castSkillName}! ${enemySkillDamageToHp} 피해를 입혔다.`,
+      enemyHpDamage: enemySkillDamageToHp,
     });
     const survival = applyBerserkerHostileDamage(
       { ...state, playerHp: nextPlayerHp, log: nextLog },
@@ -2989,6 +2995,7 @@ export function applyPlayerV2SkillCast(
       nextLog = appendLog(nextLog, {
         kind: "player_attack",
         text: `${result.castSkillName}!${skillCritFired ? " [치명타]" : ""} ${hit} 피해를 입혔다.`,
+        directHits: 1,
       });
     }
   }
@@ -4293,6 +4300,7 @@ function resolveBattleLegacy(
           nextLog = appendLog(nextLog, {
             kind: "enemy_attack",
             text: `${result.castSkillName}! ${enemySkillDamageToHp} 피해를 입혔다.`,
+            enemyHpDamage: enemySkillDamageToHp,
           });
           const survival = applyBerserkerHostileDamage(
             { ...state, playerHp: nextPlayerHp, log: nextLog },

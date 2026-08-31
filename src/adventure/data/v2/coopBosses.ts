@@ -12,6 +12,7 @@
 
 import type { Monster } from "@/adventure/data/monsters/types";
 import type { BattleLogEntry } from "@/adventure/v2/combat/engineState";
+import { TRACKING_THREAT_MAX } from "@/adventure/v2/combat/trackingWeaponMechanic";
 import { scaleMonsterForFloor } from "./monsterScale";
 import { V2_CORE_LOOP_V2 } from "./coreLoopConfig";
 import type { V2EquipmentId } from "./v2Equipment";
@@ -387,18 +388,58 @@ export type CoopBossKind = {
 
 export type CoopMechanicState = {
   bossMp?: number;
+  trackingThreat?: number;
 };
 
 export function parseCoopMechanicState(value: unknown): CoopMechanicState {
   if (!value || typeof value !== "object") return {};
   const src = value as {
     bossMp?: unknown;
+    trackingThreat?: unknown;
   };
   const next: CoopMechanicState = {};
   if (typeof src.bossMp === "number" && Number.isFinite(src.bossMp)) {
     next.bossMp = Math.max(0, Math.floor(src.bossMp));
   }
+  if (
+    typeof src.trackingThreat === "number" &&
+    Number.isFinite(src.trackingThreat)
+  ) {
+    next.trackingThreat = Math.max(
+      0,
+      Math.min(TRACKING_THREAT_MAX, Math.floor(src.trackingThreat)),
+    );
+  }
   return next;
+}
+
+export function coopBossTrackingThreatMax(kind: CoopBossKind): number {
+  return kind.id === "tracking_weapon" ? TRACKING_THREAT_MAX : 0;
+}
+
+export function coopBossTrackingThreat(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+): number {
+  const max = coopBossTrackingThreatMax(kind);
+  if (max <= 0) return 0;
+  const parsed = parseCoopMechanicState(stateRaw);
+  return Math.max(0, Math.min(max, parsed.trackingThreat ?? 0));
+}
+
+export function withCoopBossTrackingThreat(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  threat: number,
+): CoopMechanicState {
+  const parsed = parseCoopMechanicState(stateRaw);
+  const max = coopBossTrackingThreatMax(kind);
+  if (max <= 0) return parsed;
+  const normalized = Number.isFinite(threat) ? Math.floor(threat) : 0;
+  return {
+    ...parsed,
+    trackingThreat: Math.max(0, Math.min(max, normalized)),
+  };
 }
 
 export function coopBossMaxMp(kind: CoopBossKind): number {

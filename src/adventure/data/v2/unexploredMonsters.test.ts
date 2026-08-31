@@ -3,22 +3,24 @@ import { UNEXPLORED_MONSTER_POOLS } from "./unexploredMonsterPools";
 import { unexploredResourceGrowthCompensation } from "./unexploredSimulationBalance";
 import {
   UNEXPLORED_BASE_MONSTER_IDS,
+  unexploredActiveSpecialMonstersAtDifficulty,
   unexploredBaseMonstersAtDifficulty,
-  unexploredLaunchSpecialMonstersAtDifficulty,
   unexploredMonsterAtDifficulty,
 } from "./unexploredMonsters";
 
 describe("unexplored runtime monsters", () => {
-  it("exposes five independent base monsters and one launch monster per pool", () => {
+  it("exposes five base monsters and every active special monster", () => {
     const base = unexploredBaseMonstersAtDifficulty(95);
-    const special = unexploredLaunchSpecialMonstersAtDifficulty(95, []);
+    const special = unexploredActiveSpecialMonstersAtDifficulty(95, []);
 
     expect(base).toHaveLength(5);
-    expect(special).toHaveLength(12);
-    expect(new Set([...base, ...special].map((entry) => entry.monsterId)).size).toBe(17);
+    expect(special).toHaveLength(14);
+    expect(new Set([...base, ...special].map((entry) => entry.monsterId)).size).toBe(19);
     expect(base.map((entry) => entry.monsterId)).toEqual(UNEXPLORED_BASE_MONSTER_IDS);
     expect(special.map((entry) => entry.monsterId)).toEqual(
-      UNEXPLORED_MONSTER_POOLS.map((pool) => pool.launchMonster.id),
+      UNEXPLORED_MONSTER_POOLS.flatMap((pool) =>
+        pool.activeMonsters.map((monster) => monster.id),
+      ),
     );
     for (const entry of [...base, ...special]) {
       expect(entry.monster.image).toBe(
@@ -33,9 +35,9 @@ describe("unexplored runtime monsters", () => {
     for (let difficulty = 95; difficulty <= 120; difficulty += 1) {
       const monsters = [
         ...unexploredBaseMonstersAtDifficulty(difficulty),
-        ...unexploredLaunchSpecialMonstersAtDifficulty(difficulty, []),
+        ...unexploredActiveSpecialMonstersAtDifficulty(difficulty, []),
       ];
-      expect(monsters).toHaveLength(17);
+      expect(monsters).toHaveLength(19);
       for (const { monster, monsterId } of monsters) {
         for (const stat of ["hp", "atk", "def", "magicDef", "spd"] as const) {
           expect(Number.isFinite(monster[stat]), `${monsterId}:${difficulty}:${stat}`).toBe(true);
@@ -52,6 +54,58 @@ describe("unexplored runtime monsters", () => {
       }
       previous = current;
     }
+  });
+
+  it("routes active iron legion variants to their combat profiles and images", () => {
+    const spearman = unexploredMonsterAtDifficulty({
+      source: "special",
+      poolId: "iron_legion",
+      monsterId: "armored_spearman",
+      focused: false,
+      difficulty: 100,
+    });
+    const crusher = unexploredMonsterAtDifficulty({
+      source: "special",
+      poolId: "iron_legion",
+      monsterId: "armored_crusher",
+      focused: false,
+      difficulty: 100,
+    });
+
+    expect(spearman.monsterId).toBe("armored_spearman");
+    expect(spearman.imageFileName).toBe("unexplored-armored-spearman.webp");
+    expect(spearman.monster.skill).toMatchObject({
+      kind: "pierce",
+      armorPierce: 11,
+    });
+    expect(
+      unexploredMonsterAtDifficulty({
+        source: "special",
+        poolId: "iron_legion",
+        monsterId: "armored_spearman",
+        focused: true,
+        difficulty: 100,
+      }).monster.def,
+    ).toBeGreaterThan(spearman.monster.def);
+    expect(crusher.monsterId).toBe("armored_crusher");
+    expect(crusher.imageFileName).toBe("unexplored-armored-crusher.webp");
+    expect(crusher.monster.skill).toMatchObject({
+      kind: "heavy_blow",
+      everyPhases: 3,
+      multiplier: 2,
+    });
+  });
+
+  it("rejects special monsters that are not active in their pool", () => {
+    expect(() =>
+      unexploredMonsterAtDifficulty({
+        source: "special",
+        poolId: "mana_barrier",
+        monsterId: "rune_executor",
+        focused: false,
+        difficulty: 100,
+      }),
+    ).toThrow(/not active/i);
   });
 
   it("preserves the approved anchor values and ends resource compensation at 110", () => {

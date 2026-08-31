@@ -18,6 +18,8 @@ import {
   canAccessCoopBoss,
   coopBossCurrentMp,
   coopBossMaxMp,
+  coopBossTrackingThreat,
+  coopBossTrackingThreatMax,
 } from "@/adventure/data/v2/coopBosses";
 import {
   evasionDamageReductionPct,
@@ -216,6 +218,12 @@ export async function GET(_req: Request, { params }: Ctx) {
       maxHp: session.maxHp,
       bossMp: coopBossCurrentMp(def, session.mechanicState),
       bossMaxMp: coopBossMaxMp(def),
+      trackingThreat: coopBossTrackingThreat(def, session.mechanicState),
+      trackingThreatMax: coopBossTrackingThreatMax(def),
+      trackingReady:
+        coopBossTrackingThreatMax(def) > 0 &&
+        coopBossTrackingThreat(def, session.mechanicState) >=
+          coopBossTrackingThreatMax(def),
       expiresAt: session.expiresAt.getTime(),
       defeatedAt: session.defeatedAt?.getTime() ?? null,
       defeated: session.defeatedAt !== null && session.hp <= 0,

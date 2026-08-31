@@ -31,6 +31,9 @@ export type CoopSessionSummary = {
   maxHp: number;
   bossMp: number;
   bossMaxMp: number;
+  trackingThreat: number;
+  trackingThreatMax: number;
+  trackingReady: boolean;
   expiresAt: number;
   summonedByName: string | null;
   visibility: CoopVisibility;
@@ -61,6 +64,19 @@ export type CoopAttackResult = {
   bossMaxMp: number;
   bossMpDamage: number;
   bossMpDepleted: boolean;
+  trackingThreat: number;
+  trackingThreatMax: number;
+  trackingReady: boolean;
+  trackingCounterCount: number;
+  trackingCounterDamage: number;
+  toxicBloodStacks: number;
+  toxicRecoveryLockActions: number;
+  toxicExplosionCount: number;
+  toxicDamageTaken: number;
+  glacialChillStacks: number;
+  glacialFreezePending: 0 | 1;
+  glacialFreezeCount: number;
+  glacialSkippedActionCount: number;
   defeated: boolean;
   myDamage: number;
   myTier: CoopRewardTier | null;
@@ -119,6 +135,9 @@ export type CoopSessionDetail = {
     maxHp: number;
     bossMp: number;
     bossMaxMp: number;
+    trackingThreat: number;
+    trackingThreatMax: number;
+    trackingReady: boolean;
     expiresAt: number;
     defeatedAt: number | null;
     defeated: boolean;
@@ -400,6 +419,9 @@ export function useCoopSessionState({
                   hp: r.bossHp,
                   bossMp: r.bossMp,
                   bossMaxMp: r.bossMaxMp,
+                  trackingThreat: r.trackingThreat,
+                  trackingThreatMax: r.trackingThreatMax,
+                  trackingReady: r.trackingReady,
                   defeated: prev.session.defeated || r.defeated,
                 },
               }

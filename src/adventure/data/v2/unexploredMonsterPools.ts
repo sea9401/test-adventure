@@ -18,6 +18,7 @@ export const UNEXPLORED_POOL_IDS = [
 
 export type UnexploredPoolId = (typeof UNEXPLORED_POOL_IDS)[number];
 export type UnexploredMonsterRole = "base" | "attack" | "variant";
+export type UnexploredReleaseStage = "launch" | "expanded";
 
 export type UnexploredRelativeStats = {
   hp: number;
@@ -88,12 +89,11 @@ export type UnexploredMonsterPool = {
   focusDescription: string;
   rewardCategories: readonly UnexploredRewardCategory[];
   slowKillRewardBonusPctRange?: readonly [10, 15];
+  releaseStage: UnexploredReleaseStage;
   launchMonster: UnexploredMonsterDefinition;
-  expansionCandidates: readonly [
-    UnexploredMonsterDefinition,
-    UnexploredMonsterDefinition,
-  ];
-  /** 전체 설계 카탈로그. 출시 조우는 launchMonster만 사용한다. */
+  activeMonsters: readonly UnexploredMonsterDefinition[];
+  expansionCandidates: readonly UnexploredMonsterDefinition[];
+  /** 전체 설계 카탈로그. 실제 조우는 activeMonsters만 사용한다. */
   monsters: readonly [
     UnexploredMonsterDefinition,
     UnexploredMonsterDefinition,
@@ -103,22 +103,32 @@ export type UnexploredMonsterPool = {
 
 type UnexploredMonsterPoolSeed = Omit<
   UnexploredMonsterPool,
-  "launchMonster" | "expansionCandidates"
->;
+  "releaseStage" | "launchMonster" | "activeMonsters" | "expansionCandidates"
+> & { releaseStage?: UnexploredReleaseStage };
 
 function definePool<const T extends UnexploredMonsterPoolSeed>(
   pool: T,
-): T & Pick<UnexploredMonsterPool, "launchMonster" | "expansionCandidates"> {
+): T &
+  Pick<
+    UnexploredMonsterPool,
+    "releaseStage" | "launchMonster" | "activeMonsters" | "expansionCandidates"
+  > {
+  const releaseStage = pool.releaseStage ?? "launch";
   return {
     ...pool,
+    releaseStage,
     launchMonster: pool.monsters[0],
-    expansionCandidates: [pool.monsters[1], pool.monsters[2]],
+    activeMonsters:
+      releaseStage === "expanded" ? pool.monsters : [pool.monsters[0]],
+    expansionCandidates:
+      releaseStage === "expanded" ? [] : [pool.monsters[1], pool.monsters[2]],
   };
 }
 
 export const UNEXPLORED_MONSTER_POOLS = [
   definePool({
     id: "iron_legion",
+    releaseStage: "expanded",
     name: "철갑 군단",
     materialId: "v2_unexplored_iron_legion_material",
     materialName: "강화 철편",

@@ -5,12 +5,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowClockwise,
+  CheckCircle,
   Compass,
   Hammer,
   LockKey,
   MapTrifold,
+  Trophy,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
@@ -21,15 +24,20 @@ import {
 import { useSystemToast } from "@/adventure/v2/RewardToastProvider";
 import { SUMMON_SCROLL_MATERIAL_ID } from "@/adventure/data/v2/coopBosses";
 import {
+  UNEXPLORED_BOSS_CORE_MATERIAL,
+  UNEXPLORED_BOSS_EQUIPMENT_CRAFT_RECIPES,
   UNEXPLORED_BOSSES,
   UNEXPLORED_BOSS_IDS,
   UNEXPLORED_SUMMON_STONE_GOLD_COST,
   UNEXPLORED_SUMMON_STONE_POOL_MATERIAL_COST,
   UNEXPLORED_SUMMON_STONE_SCROLL_COST,
   UNEXPLORED_SUMMON_STONE_TRACE_COST,
+  type UnexploredBossEquipmentCraftRecipe,
   type UnexploredBossId,
 } from "@/adventure/data/v2/unexploredBosses";
 import { UNEXPLORED_POOL_BY_ID } from "@/adventure/data/v2/unexploredMonsterPools";
+import { UNEXPLORED_ACHIEVEMENTS } from "@/adventure/data/v2/unexploredProgression";
+import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import {
   buildUnexploredTreeModel,
   type UnexploredClientSnapshot,
@@ -52,6 +60,10 @@ const ERROR_TEXT: Record<string, string> = {
   insufficient_trace: "소환석 제작에 필요한 흔적이 부족합니다.",
   insufficient_material: "소환석 제작에 필요한 특화 재료가 부족합니다.",
   insufficient_scrolls: "소환석 제작에 필요한 보스 소환서가 부족합니다.",
+  insufficient_boss_cores: "장비 제작에 필요한 우두머리 핵이 부족합니다.",
+  insufficient_pool_material: "장비 제작에 필요한 연결 특화 재료가 부족합니다.",
+  not_craftable: "확정 제작할 수 없는 장비입니다.",
+  invalid_request: "장비 제작 요청을 확인해 주세요.",
   request_conflict: "제작 요청 식별자가 충돌했습니다. 다시 시도해 주세요.",
   not_enough_summon_stones: "사용할 소환석이 없습니다.",
   too_many_active: "같은 우두머리의 활성 세션이 너무 많습니다.",
@@ -108,8 +120,13 @@ export function V2UnexploredTreeView({
   const [loading, setLoading] = useState(initialSnapshot === null);
   const [busy, setBusy] = useState(false);
   const [bossBusy, setBossBusy] = useState<UnexploredBossId | null>(null);
+  const [equipmentCraftBusy, setEquipmentCraftBusy] =
+    useState<V2EquipmentId | null>(null);
   const pendingCraftRequestIds = useRef<
     Partial<Record<UnexploredBossId, string>>
+  >({});
+  const pendingEquipmentCraftRequestIds = useRef<
+    Partial<Record<V2EquipmentId, string>>
   >({});
 
   useEffect(() => {
@@ -280,6 +297,72 @@ export function V2UnexploredTreeView({
     }
   }
 
+  async function craftBossEquipment(
+    recipe: UnexploredBossEquipmentCraftRecipe,
+  ) {
+    if (equipmentCraftBusy) return;
+    setEquipmentCraftBusy(recipe.equipmentId);
+    try {
+      const confirmed = await confirmGameAction({
+        title: `${recipe.equipmentName} 확정 제작`,
+        message: [
+          `우두머리 핵 ${recipe.bossCoreCost.toLocaleString()}개`,
+          ...recipe.materialCosts.map(
+            (cost) => `${cost.materialName} ${cost.count.toLocaleString()}개`,
+          ),
+        ].join("\n"),
+        confirmLabel: "확정 제작",
+        tone: "warning",
+      });
+      if (!confirmed) return;
+
+      const requestId =
+        pendingEquipmentCraftRequestIds.current[recipe.equipmentId] ??
+        crypto.randomUUID();
+      pendingEquipmentCraftRequestIds.current[recipe.equipmentId] = requestId;
+      let serverAnswered = false;
+      try {
+        const response = await fetch("/api/v2/unexplored/equipment-craft", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            equipmentId: recipe.equipmentId,
+            requestId,
+          }),
+        });
+        serverAnswered = true;
+        const body = (await response.json()) as {
+          error?: string;
+          equipmentId?: V2EquipmentId;
+          equipmentIid?: string;
+          materials?: Record<string, number>;
+        };
+        if (
+          !response.ok ||
+          body.equipmentId !== recipe.equipmentId ||
+          !body.equipmentIid ||
+          !body.materials
+        ) {
+          throw new Error(
+            ERROR_TEXT[body.error ?? ""] ?? body.error ?? "장비 제작 실패",
+          );
+        }
+        pendingEquipmentCraftRequestIds.current[recipe.equipmentId] = undefined;
+        setSnapshot((current) =>
+          current ? { ...current, materials: body.materials! } : current
+        );
+        notifySystem(`✓ ${recipe.equipmentName}을 제작했습니다.`, "success");
+      } catch (error) {
+        if (serverAnswered) {
+          pendingEquipmentCraftRequestIds.current[recipe.equipmentId] = undefined;
+        }
+        notifySystem(`✗ ${(error as Error).message}`, "error");
+      }
+    } finally {
+      setEquipmentCraftBusy(null);
+    }
+  }
+
   if (loading || !snapshot || !model) {
     return (
       <PageShell className="max-w-[1400px] overflow-x-hidden">
@@ -292,6 +375,7 @@ export function V2UnexploredTreeView({
   }
 
   const selected = model.selected;
+  const completedAchievementIds = new Set(snapshot.achievementIds);
   return (
     <PageShell className="max-w-[1400px] overflow-x-hidden" spacing="tight">
       <SubViewHeader
@@ -334,6 +418,68 @@ export function V2UnexploredTreeView({
           <span>100레벨 달성 후 다시 입장할 수 있습니다. 기존 탐사 진행도는 유지됩니다.</span>
         </div>
       )}
+
+      <section className={`${SURFACE_CARD} space-y-3 p-4`}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Trophy size={22} className="text-amber-500" />
+            <div>
+              <h2 className="font-bold">탐사 업적</h2>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                업적마다 탐사 포인트를 1개 획득합니다.
+              </p>
+            </div>
+          </div>
+          <strong className="shrink-0 text-sm text-amber-700 dark:text-amber-300">
+            {snapshot.achievementIds.length} / {UNEXPLORED_ACHIEVEMENTS.length} 완료
+          </strong>
+        </div>
+        <ul aria-label="탐사 업적" className="grid gap-2 md:grid-cols-2">
+          {UNEXPLORED_ACHIEVEMENTS.map((achievement) => {
+            const completed = completedAchievementIds.has(achievement.id);
+            return (
+              <li
+                key={achievement.id}
+                aria-label={`${achievement.name} ${completed ? "완료" : "미완료"}`}
+                className={`${SURFACE_INSET} flex items-start gap-3 p-3`}
+              >
+                {completed ? (
+                  <CheckCircle
+                    size={21}
+                    weight="fill"
+                    className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                  />
+                ) : (
+                  <LockKey
+                    size={21}
+                    className="mt-0.5 shrink-0 text-zinc-400 dark:text-zinc-500"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
+                    <h3 className="text-sm font-bold">{achievement.name}</h3>
+                    <span
+                      className={
+                        completed
+                          ? "text-xs font-semibold text-emerald-700 dark:text-emerald-300"
+                          : "text-xs font-semibold text-zinc-500 dark:text-zinc-400"
+                      }
+                    >
+                      {completed ? "완료" : "미완료"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
+                    {achievement.description}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                    탐사 포인트 +1
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
 
       <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <section className={`${SURFACE_CARD} min-w-0 p-2 sm:p-3`}>
@@ -605,6 +751,118 @@ export function V2UnexploredTreeView({
                     소환
                   </Button>
                 </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className={`${SURFACE_CARD} space-y-3 p-4`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2">
+            <Hammer size={22} className="mt-0.5 shrink-0 text-violet-600" />
+            <div>
+              <h2 className="font-bold">우두머리 핵 제작소</h2>
+              <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                일반 고유 장비는 핵과 연결 특화 재료로 확정 제작할 수 있습니다.
+                초희귀 고유는 개인 보스 토벌에서만 획득할 수 있습니다.
+              </p>
+            </div>
+          </div>
+          <strong className="shrink-0 text-sm text-violet-700 dark:text-violet-300">
+            보유 우두머리 핵 {(snapshot.materials[
+              UNEXPLORED_BOSS_CORE_MATERIAL.id
+            ] ?? 0).toLocaleString()}개
+          </strong>
+        </div>
+        <div className="grid gap-3 xl:grid-cols-3">
+          {UNEXPLORED_BOSS_IDS.map((bossId) => {
+            const boss = UNEXPLORED_BOSSES[bossId];
+            const recipes = UNEXPLORED_BOSS_EQUIPMENT_CRAFT_RECIPES.filter(
+              (recipe) => recipe.bossId === bossId,
+            );
+            const dropOnly = boss.uniqueDrops.find(
+              (drop) => drop.chancePct === 0.5,
+            );
+            return (
+              <article
+                key={bossId}
+                aria-label={`${boss.name} 장비 제작`}
+                className={`${SURFACE_INSET} space-y-3 p-3`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-sm font-bold">{boss.name}</h3>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      일반 고유 2종 확정 제작
+                    </p>
+                  </div>
+                  <img
+                    src={boss.monster.image}
+                    alt=""
+                    className="h-10 w-10 rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
+                  />
+                </div>
+                {recipes.map((recipe) => {
+                  const coreCount = snapshot.materials[
+                    UNEXPLORED_BOSS_CORE_MATERIAL.id
+                  ] ?? 0;
+                  const craftable =
+                    coreCount >= recipe.bossCoreCost &&
+                    recipe.materialCosts.every(
+                      (cost) =>
+                        (snapshot.materials[cost.materialId] ?? 0) >= cost.count,
+                    );
+                  return (
+                    <div
+                      key={recipe.equipmentId}
+                      className={`${SURFACE_CARD} space-y-2 p-3`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h4 className="text-sm font-bold">
+                            {recipe.equipmentName}
+                          </h4>
+                          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                            {recipe.chancePct}% 일반 고유
+                          </p>
+                        </div>
+                        <Button
+                          size="xs"
+                          variant="warning"
+                          loading={equipmentCraftBusy === recipe.equipmentId}
+                          disabled={equipmentCraftBusy !== null || !craftable}
+                          aria-label={`${recipe.equipmentName} 확정 제작`}
+                          onClick={() => void craftBossEquipment(recipe)}
+                        >
+                          확정 제작
+                        </Button>
+                      </div>
+                      <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 text-xs">
+                        <dt>우두머리 핵</dt>
+                        <dd className="text-right font-mono">
+                          {coreCount.toLocaleString()} / {recipe.bossCoreCost.toLocaleString()}
+                        </dd>
+                        {recipe.materialCosts.map((cost) => (
+                          <div key={cost.materialId} className="contents">
+                            <dt>{cost.materialName}</dt>
+                            <dd className="text-right font-mono">
+                              {(snapshot.materials[cost.materialId] ?? 0).toLocaleString()} / {cost.count.toLocaleString()}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                  );
+                })}
+                {dropOnly ? (
+                  <div className={`${SURFACE_CARD} p-3`}>
+                    <h4 className="text-sm font-bold">{dropOnly.equipmentName}</h4>
+                    <p className="mt-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
+                      0.5% · 토벌 드롭 전용
+                    </p>
+                  </div>
+                ) : null}
               </article>
             );
           })}

@@ -109,6 +109,7 @@ export function prepareUnexploredHunt(
       : unexploredMonsterAtDifficulty({
           source: "special",
           poolId: pick.poolId,
+          monsterId: pick.monsterId,
           focused: effects.focusedPoolIds.includes(pick.poolId),
           difficulty: effects.difficulty,
         });

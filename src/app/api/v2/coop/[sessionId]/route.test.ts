@@ -9,6 +9,8 @@ function builder(result: unknown[]) {
     from: vi.fn(() => query),
     where: vi.fn(() => query),
     limit: vi.fn(() => query),
+    orderBy: vi.fn(() => query),
+    leftJoin: vi.fn(() => query),
     then: (resolve: (value: unknown[]) => unknown) =>
       Promise.resolve(result).then(resolve),
   };
@@ -53,5 +55,39 @@ describe("GET /api/v2/coop/[sessionId]", () => {
     });
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({ error: "no_session" });
+  });
+
+  it("추적 병기 상세에 저장된 추적 게이지와 준비 상태를 반환한다", async () => {
+    rows.queue = [
+      [{
+        id: "personal-1",
+        regionId: "tracking_weapon",
+        hp: 80,
+        maxHp: 100,
+        mechanicState: { trackingThreat: 100 },
+        expiresAt: new Date(Date.now() + 60_000),
+        defeatedAt: null,
+        summonedByName: "outsider",
+        summonerId: "outsider",
+        summonerGuildId: null,
+        visibility: "summoner_only",
+      }],
+      [],
+      [],
+      [],
+    ];
+
+    const response = await GET(new Request("http://localhost"), {
+      params: Promise.resolve({ sessionId: "personal-1" }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      session: {
+        trackingThreat: 100,
+        trackingThreatMax: 100,
+        trackingReady: true,
+      },
+    });
   });
 });

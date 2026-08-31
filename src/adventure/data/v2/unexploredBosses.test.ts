@@ -5,11 +5,14 @@ import { V2_MATERIALS, materialSellPriceOf } from "./dungeonDrops";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import {
   UNEXPLORED_BOSS_CORE_MATERIAL,
+  UNEXPLORED_BOSS_EQUIPMENT_CRAFT_RECIPES,
   UNEXPLORED_BOSSES,
   UNEXPLORED_BOSS_IDS,
   UNEXPLORED_SUMMON_STONE_GOLD_COST,
   UNEXPLORED_SUMMON_STONE_MATERIALS,
   UNEXPLORED_SUMMON_STONE_SCROLL_COST,
+  unexploredBossEquipmentCraftRecipe,
+  type UnexploredBossUniqueDrop,
 } from "./unexploredBosses";
 
 describe("미개척지 개인 보스 카탈로그", () => {
@@ -58,14 +61,55 @@ describe("미개척지 개인 보스 카탈로그", () => {
     expect(materialSellPriceOf("v2_unexplored_boss_core")).toBeUndefined();
   });
 
+  it("30%·10% 일반 고유 6종만 확정 제작하고 등급별 핵·연결 재료 비용을 적용한다", () => {
+    expect(
+      UNEXPLORED_BOSS_EQUIPMENT_CRAFT_RECIPES.map(
+        (recipe) => recipe.equipmentId,
+      ),
+    ).toEqual([
+      "v2_unexplored_tracking_blade_dagger",
+      "v2_unexplored_phantom_acceleration_boots",
+      "v2_unexplored_toxic_blood_claw",
+      "v2_unexplored_coagulated_venom_ring",
+      "v2_unexplored_glacial_crushing_hammer",
+      "v2_unexplored_frozen_great_armor",
+    ]);
+
+    for (const recipe of UNEXPLORED_BOSS_EQUIPMENT_CRAFT_RECIPES) {
+      expect(recipe.equipmentName).toBe(V2_EQUIPMENT[recipe.equipmentId].name);
+      expect([
+        recipe.bossCoreCost,
+        ...recipe.materialCosts.map((cost) => cost.count),
+      ]).toEqual(recipe.chancePct === 30 ? [8, 25, 25] : [25, 75, 75]);
+    }
+
+    expect(
+      unexploredBossEquipmentCraftRecipe(
+        "v2_unexplored_infinite_orbit_heart",
+      ),
+    ).toBeNull();
+    expect(
+      unexploredBossEquipmentCraftRecipe("v2_unexplored_uncorrupted_heart"),
+    ).toBeNull();
+    expect(
+      unexploredBossEquipmentCraftRecipe(
+        "v2_unexplored_absolute_zero_core",
+      ),
+    ).toBeNull();
+  });
+
   it("고유 장비 9종은 6티어 드랍 전용이며 실제 이미지가 존재한다", () => {
-    const equipmentIds = Object.values(UNEXPLORED_BOSSES).flatMap((boss) =>
-      boss.uniqueDrops.map((drop) => drop.equipmentId),
+    const drops = Object.values(UNEXPLORED_BOSSES).flatMap(
+      (boss): UnexploredBossUniqueDrop[] => [...boss.uniqueDrops],
     );
+    const equipmentIds = drops.map((drop) => drop.equipmentId);
     expect(equipmentIds).toHaveLength(9);
     for (const id of equipmentIds) {
       const item = V2_EQUIPMENT[id];
       expect(item).toBeDefined();
+      expect(item.name).toBe(
+        drops.find((drop) => drop.equipmentId === id)?.equipmentName,
+      );
       expect(item.tier).toBe(16);
       expect(item.rarity).toBe("unique");
       expect(item.noDrop).toBe(true);

@@ -585,6 +585,7 @@ export function resolvePlayerPhase(
   log = appendLog(log, {
     kind: "player_attack",
     text: `공격! ${prefix}${totalDmg} 피해를 입혔다.`,
+    directHits: Math.max(1, apHits),
   });
   if (state.duelistBuff) {
     log = appendLog(log, {
@@ -968,6 +969,11 @@ export function resolvePlayerPhase(
       state.duelistCritHastePending ||
       (critRoll && (player.basicCritHastePct ?? 0) > 0),
     enemyHp,
+    bossMechanic:
+      shouldCleanseDebuffs &&
+      state.bossMechanic?.kind === "glacial_colossus"
+        ? { ...state.bossMechanic, glacialChillStacks: 0 }
+        : state.bossMechanic,
     enemyV2Dots: sigEnemyDots, // 고유 시그니처 on-crit 독(독니) 합류·미발동=state 그대로.
     playerHp: playerHpAfterMadSlash,
     log,

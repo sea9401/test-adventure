@@ -76,6 +76,67 @@ describe("unexplored hunt rewards", () => {
     });
   });
 
+  it("uses the same iron legion material rule for every active variant", () => {
+    const rules = [
+      "armored_shieldman",
+      "armored_spearman",
+      "armored_crusher",
+    ].map((monsterId) =>
+      buildUnexploredRewardPlan(
+        unexploredMonsterAtDifficulty({
+          source: "special",
+          poolId: "iron_legion",
+          monsterId,
+          focused: false,
+          difficulty: 95,
+        }),
+        effects(),
+      ).rolls,
+    );
+
+    expect(rules).toEqual([
+      [{ id: "v2_unexplored_iron_legion_material", tag: "special", chance: 0.01, amount: 1 }],
+      [{ id: "v2_unexplored_iron_legion_material", tag: "special", chance: 0.01, amount: 1 }],
+      [{ id: "v2_unexplored_iron_legion_material", tag: "special", chance: 0.01, amount: 1 }],
+    ]);
+  });
+
+  it("해방 일반·특화·희귀 재료 배율을 각 확률에만 곱한다", () => {
+    const hunt = emptyEquippedLiberationEffects().hunt;
+    const boosted = {
+      ...hunt,
+      normalMaterialDropPct: 20,
+      specialMaterialDropPct: 30,
+      rareMaterialDropPct: 40,
+    };
+    const baseMonster = unexploredMonsterAtDifficulty({
+      source: "base",
+      poolId: null,
+      monsterId: "unexplored_star_sea_warden",
+      focused: false,
+      difficulty: 95,
+    });
+    const specialMonster = unexploredMonsterAtDifficulty({
+      source: "special",
+      poolId: "iron_legion",
+      focused: false,
+      difficulty: 95,
+    });
+
+    expect(buildUnexploredRewardPlan(baseMonster, effects(), boosted).rolls)
+      .toEqual([
+        expect.objectContaining({ tag: "base", chance: 0.036 }),
+        expect.objectContaining({ tag: "rare", chance: 0.0014 }),
+      ]);
+    const specialRule = buildUnexploredRewardPlan(
+      specialMonster,
+      effects(),
+      boosted,
+    ).rolls[0];
+    expect(specialRule).toMatchObject({ tag: "special" });
+    expect(specialRule?.chance).toBeCloseTo(0.013);
+  });
+
   it("uses strict probability boundaries and only rare drops receive rare copies", () => {
     const monster = unexploredMonsterAtDifficulty({
       source: "base",

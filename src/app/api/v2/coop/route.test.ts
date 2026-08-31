@@ -68,4 +68,39 @@ describe("GET /api/v2/coop", () => {
       claimables: [],
     });
   });
+
+  it("추적 병기 소환자에게 저장된 추적 게이지를 목록에 표시한다", async () => {
+    mocks.queryRows.push(
+      [{
+        id: "personal-1",
+        regionId: "tracking_weapon",
+        hp: 80,
+        maxHp: 100,
+        mechanicState: { trackingThreat: 73 },
+        expiresAt: new Date(Date.now() + 60_000),
+        summonedByName: "viewer",
+        summonerId: "viewer",
+        summonerGuildId: null,
+        visibility: "summoner_only",
+        spawnedAt: new Date(),
+        defeatedAt: null,
+      }],
+      [],
+      [],
+      [],
+      [],
+    );
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      sessions: [{
+        id: "personal-1",
+        trackingThreat: 73,
+        trackingThreatMax: 100,
+        trackingReady: false,
+      }],
+    });
+  });
 });

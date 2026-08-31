@@ -77,8 +77,9 @@ describe("unexplored service", () => {
         unexplored: parseUnexploredSave({
           xpPoints: 30,
           achievementIds: [
-            "boss_kinds_1", "boss_kinds_3", "boss_kinds_6", "boss_kinds_9",
-            "boss_kinds_12", "first_unexplored_hunt", "first_special_kill",
+            "first_personal_boss", "defeat_tracking_weapon",
+            "defeat_toxic_blood_lord", "defeat_glacial_colossus",
+            "defeat_all_personal_bosses", "first_unexplored_hunt", "first_special_kill",
             "first_summon_stone_craft", "activate_two_pools", "activate_three_pools",
           ],
           selectedNodeIds: conversionSelected,

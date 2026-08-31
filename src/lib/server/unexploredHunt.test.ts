@@ -18,6 +18,7 @@ function character(selectedNodeIds: string[], level = 100) {
       selectedNodeIds,
       traces: {},
       craftReceipts: [],
+      equipmentCraftReceipts: [],
     },
   };
 }
@@ -68,6 +69,23 @@ describe("unexplored hunt server authority", () => {
     ]);
     expect(prepared.runtime.kind).toBe("special");
     expect(prepared.runtime.monsterId).toBe("armored_shieldman");
+  });
+
+  it.each([
+    [0.34, "armored_spearman"],
+    [0.67, "armored_crusher"],
+  ])("preserves selected iron legion variant %s through runtime", (monsterRoll, monsterId) => {
+    const prepared = prepareUnexploredHunt(
+      character(["start", "pool-iron_legion", "enh-iron_legion-frequency"]),
+      (() => {
+        const rolls = [0.95, monsterRoll];
+        return () => rolls.shift() ?? 0;
+      })(),
+    );
+
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+    expect(prepared.runtime.monsterId).toBe(monsterId);
   });
 
   it("selects exactly one base monster for one hunt", () => {

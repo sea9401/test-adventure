@@ -171,7 +171,7 @@ describe("coop claim codex mastery", () => {
     expect(recordCodexMasteryGameplayBatch).not.toHaveBeenCalled();
   });
 
-  it("records exploration achievements from the authoritative unique boss count", async () => {
+  it("does not grant unexplored achievements for standard co-op boss kinds", async () => {
     seedClaim();
     store.set("adventure-log.v2", {
       coopBossKinds: ["canyon_predator", "lake_sovereign"],
@@ -183,7 +183,7 @@ describe("coop claim codex mastery", () => {
     expect(response.status).toBe(200);
     expect(store.get("character.v2")).toMatchObject({
       unexplored: {
-        achievementIds: ["boss_kinds_1", "boss_kinds_3"],
+        achievementIds: [],
       },
     });
   });

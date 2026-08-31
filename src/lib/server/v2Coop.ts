@@ -24,6 +24,7 @@ import {
   MAX_ACTIVE_PER_KIND,
   coopBossDurationMs,
   coopBossMaxMp,
+  withCoopBossTrackingThreat,
   rollFishingCoopBossSpawn,
   type CoopBossKindId,
   type CoopVisibility,
@@ -69,7 +70,7 @@ export async function expireStaleCoopSessions(
 ): Promise<void> {
   await ex
     .update(coopBossSessions)
-    .set({ defeatedAt: now })
+    .set({ defeatedAt: now, mechanicState: null })
     .where(
       and(
         isNull(coopBossSessions.defeatedAt),
@@ -133,7 +134,11 @@ export async function createCoopBossSession(
     summonerId: args.userId,
     summonerGuildId,
     visibility: args.visibility,
-    mechanicState: { bossMp: coopBossMaxMp(kind) },
+    mechanicState: withCoopBossTrackingThreat(
+      kind,
+      { bossMp: coopBossMaxMp(kind) },
+      0,
+    ),
   });
   return { ok: true, sessionId, expiresAt };
 }

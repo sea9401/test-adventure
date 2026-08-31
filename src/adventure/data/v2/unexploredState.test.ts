@@ -19,6 +19,7 @@ describe("unexplored save", () => {
         selectedNodeIds: 12,
         traces: "many",
         craftReceipts: {},
+        equipmentCraftReceipts: {},
       }),
     ).toEqual(emptyUnexploredSave());
   });
@@ -39,6 +40,28 @@ describe("unexplored save", () => {
     expect(save.xpPoints).toBe(30);
     expect(save.achievementIds).toEqual(["first_unexplored_hunt"]);
     expect(save.selectedNodeIds).toEqual(["start", "inner-0-0"]);
+  });
+
+  it("keeps the attainable personal-boss achievements and drops obsolete boss milestones", () => {
+    const save = parseUnexploredSave({
+      achievementIds: [
+        "boss_kinds_1",
+        "first_personal_boss",
+        "defeat_tracking_weapon",
+        "defeat_toxic_blood_lord",
+        "defeat_glacial_colossus",
+        "defeat_all_personal_bosses",
+        "boss_kinds_12",
+      ],
+    });
+
+    expect(save.achievementIds).toEqual([
+      "first_personal_boss",
+      "defeat_tracking_weapon",
+      "defeat_toxic_blood_lord",
+      "defeat_glacial_colossus",
+      "defeat_all_personal_bosses",
+    ]);
   });
 
   it("shows the first XP point at level 100 and caps earned points at 40", () => {
@@ -96,5 +119,55 @@ describe("unexplored save", () => {
     expect(parsed.craftReceipts).toHaveLength(50);
     expect(parsed.craftReceipts[0]?.requestId).toBe("request-5");
     expect(parsed.craftReceipts[49]?.requestId).toBe("request-54");
+  });
+
+  it("장비 제작 영수증은 제작 가능 장비만 남기고 중복 요청의 마지막 기록을 보존한다", () => {
+    const receipts = Array.from({ length: 55 }, (_, index) => ({
+      requestId: `equipment-request-${index}`,
+      equipmentId: "v2_unexplored_tracking_blade_dagger",
+      equipmentIid: `equipment-iid-${index}`,
+      craftedAt: 1_000 + index,
+    }));
+    const parsed = parseUnexploredSave({
+      equipmentCraftReceipts: [
+        { requestId: "", equipmentId: receipts[0].equipmentId, equipmentIid: "bad", craftedAt: 1 },
+        ...receipts,
+        {
+          requestId: "duplicate",
+          equipmentId: "v2_unexplored_tracking_blade_dagger",
+          equipmentIid: "old-iid",
+          craftedAt: 2_000,
+        },
+        {
+          requestId: "duplicate",
+          equipmentId: "v2_unexplored_tracking_blade_dagger",
+          equipmentIid: "latest-iid",
+          craftedAt: 2_001,
+        },
+        {
+          requestId: "ultra-rare",
+          equipmentId: "v2_unexplored_infinite_orbit_heart",
+          equipmentIid: "ultra-iid",
+          craftedAt: 3_000,
+        },
+        {
+          requestId: "bad-time",
+          equipmentId: "v2_unexplored_tracking_blade_dagger",
+          equipmentIid: "bad-time-iid",
+          craftedAt: Number.NaN,
+        },
+      ],
+    });
+
+    expect(parsed.equipmentCraftReceipts).toHaveLength(50);
+    expect(parsed.equipmentCraftReceipts[0]?.requestId).toBe(
+      "equipment-request-6",
+    );
+    expect(parsed.equipmentCraftReceipts.at(-1)).toEqual({
+      requestId: "duplicate",
+      equipmentId: "v2_unexplored_tracking_blade_dagger",
+      equipmentIid: "latest-iid",
+      craftedAt: 2_001,
+    });
   });
 });

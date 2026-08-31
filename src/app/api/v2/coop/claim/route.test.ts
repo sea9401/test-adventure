@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
     claimedRewardSnapshot: null,
   } as Record<string, unknown>,
   character: { materials: {}, unexplored: {} } as Record<string, unknown>,
+  adventureLog: {} as Record<string, unknown>,
   appendEquipInstances: vi.fn(),
   grantTitle: vi.fn(),
   upsertSave: vi.fn(),
@@ -48,7 +49,9 @@ vi.mock("@/lib/server/ensureUser", () => ({
 }));
 vi.mock("@/lib/server/savesKv", () => ({
   lockSaveForUpdate: vi.fn(async (_tx, _uid, key: string) =>
-    key === "character.v2" ? structuredClone(mocks.character) : {},
+    key === "character.v2"
+      ? structuredClone(mocks.character)
+      : structuredClone(mocks.adventureLog),
   ),
   readSave: vi.fn(async () => ({})),
   upsertSave: mocks.upsertSave,
@@ -119,6 +122,7 @@ beforeEach(() => {
     claimedRewardSnapshot: null,
   };
   mocks.character = { materials: {}, unexplored: {} };
+  mocks.adventureLog = {};
   mocks.appendEquipInstances.mockResolvedValue(
     UNEXPLORED_BOSSES.tracking_weapon.uniqueDrops.map((drop) => ({
       iid: `iid-${drop.equipmentId}`,
@@ -131,6 +135,9 @@ beforeEach(() => {
 
 describe("POST /api/v2/coop/claim — 개인 보스", () => {
   it("핵·연결 재료와 세 독립 고유를 지급하고 최초 칭호를 기록한다", async () => {
+    mocks.adventureLog = {
+      coopBossKinds: ["mountain_chief", "lake_sovereign"],
+    };
     const rolls = [0.29, 0.09, 0.004, 0];
     vi.spyOn(Math, "random").mockImplementation(() => rolls.shift() ?? 0.999);
     const response = await POST(request());
@@ -162,9 +169,16 @@ describe("POST /api/v2/coop/claim — 개인 보스", () => {
     );
     const characterWrite = mocks.upsertSave.mock.calls.find(
       (call) => call[2] === "character.v2",
-    )?.[3] as { materials: Record<string, number> };
+    )?.[3] as {
+      materials: Record<string, number>;
+      unexplored: { achievementIds: string[] };
+    };
     expect(characterWrite.materials[UNEXPLORED_BOSS_CORE_MATERIAL.id]).toBe(1);
     expect(Object.values(characterWrite.materials)).toContain(1);
+    expect(characterWrite.unexplored.achievementIds).toEqual([
+      "first_personal_boss",
+      "defeat_tracking_weapon",
+    ]);
   });
 
   it("claim 재시도는 저장된 스냅샷을 그대로 반환하고 재지급하지 않는다", async () => {

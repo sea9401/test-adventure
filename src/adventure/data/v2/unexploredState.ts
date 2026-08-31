@@ -2,17 +2,19 @@ import {
   parseUnexploredTraces,
   type UnexploredTraceState,
 } from "./unexploredRewards";
+import { unexploredBossEquipmentCraftRecipe } from "./unexploredBosses";
 import {
   isUnexploredNodeId,
   type UnexploredNodeId,
 } from "./unexploredTree";
+import type { V2EquipmentId } from "./v2Equipment";
 
 export const UNEXPLORED_ACHIEVEMENT_IDS = [
-  "boss_kinds_1",
-  "boss_kinds_3",
-  "boss_kinds_6",
-  "boss_kinds_9",
-  "boss_kinds_12",
+  "first_personal_boss",
+  "defeat_tracking_weapon",
+  "defeat_toxic_blood_lord",
+  "defeat_glacial_colossus",
+  "defeat_all_personal_bosses",
   "first_unexplored_hunt",
   "first_special_kill",
   "first_summon_stone_craft",
@@ -29,6 +31,13 @@ export type UnexploredCraftReceipt = {
   craftedAt: number;
 };
 
+export type UnexploredEquipmentCraftReceipt = {
+  requestId: string;
+  equipmentId: V2EquipmentId;
+  equipmentIid: string;
+  craftedAt: number;
+};
+
 export type UnexploredSave = {
   explorationXp: number;
   xpPoints: number;
@@ -36,6 +45,7 @@ export type UnexploredSave = {
   selectedNodeIds: UnexploredNodeId[];
   traces: UnexploredTraceState;
   craftReceipts: UnexploredCraftReceipt[];
+  equipmentCraftReceipts: UnexploredEquipmentCraftReceipt[];
 };
 
 const achievementIdSet = new Set<string>(UNEXPLORED_ACHIEVEMENT_IDS);
@@ -88,6 +98,45 @@ function parseCraftReceipts(raw: unknown): UnexploredCraftReceipt[] {
   return [...latestByRequestId.values()].slice(-MAX_CRAFT_RECEIPTS);
 }
 
+function parseEquipmentCraftReceipts(
+  raw: unknown,
+): UnexploredEquipmentCraftReceipt[] {
+  if (!Array.isArray(raw)) return [];
+  const latestByRequestId = new Map<
+    string,
+    UnexploredEquipmentCraftReceipt
+  >();
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+    const source = entry as Record<string, unknown>;
+    const requestId = typeof source.requestId === "string"
+      ? source.requestId.trim()
+      : "";
+    const recipe = unexploredBossEquipmentCraftRecipe(source.equipmentId);
+    const equipmentIid = typeof source.equipmentIid === "string"
+      ? source.equipmentIid.trim()
+      : "";
+    const craftedAt = Number(source.craftedAt);
+    if (
+      !requestId ||
+      !recipe ||
+      !equipmentIid ||
+      !Number.isFinite(craftedAt) ||
+      craftedAt < 0
+    ) {
+      continue;
+    }
+    latestByRequestId.delete(requestId);
+    latestByRequestId.set(requestId, {
+      requestId,
+      equipmentId: recipe.equipmentId,
+      equipmentIid,
+      craftedAt: Math.floor(craftedAt),
+    });
+  }
+  return [...latestByRequestId.values()].slice(-MAX_CRAFT_RECEIPTS);
+}
+
 export function emptyUnexploredSave(): UnexploredSave {
   return {
     explorationXp: 0,
@@ -96,6 +145,7 @@ export function emptyUnexploredSave(): UnexploredSave {
     selectedNodeIds: [],
     traces: {},
     craftReceipts: [],
+    equipmentCraftReceipts: [],
   };
 }
 
@@ -111,6 +161,9 @@ export function parseUnexploredSave(raw: unknown): UnexploredSave {
     selectedNodeIds: uniqueKnownValues(source.selectedNodeIds, isUnexploredNodeId),
     traces: parseUnexploredTraces(source.traces),
     craftReceipts: parseCraftReceipts(source.craftReceipts),
+    equipmentCraftReceipts: parseEquipmentCraftReceipts(
+      source.equipmentCraftReceipts,
+    ),
   };
 }
 

@@ -17,6 +17,8 @@ import {
   COOP_BOSSES,
   coopBossCurrentMp,
   coopBossMaxMp,
+  coopBossTrackingThreat,
+  coopBossTrackingThreatMax,
   parseCoopVisibility,
 } from "@/adventure/data/v2/coopBosses";
 
@@ -117,6 +119,8 @@ export async function GET() {
       if (!kind) return null;
       const def = COOP_BOSSES[kind];
       const myDamage = myBySession.get(s.id) ?? 0;
+      const trackingThreat = coopBossTrackingThreat(def, s.mechanicState);
+      const trackingThreatMax = coopBossTrackingThreatMax(def);
       return {
         id: s.id,
         kind,
@@ -124,6 +128,10 @@ export async function GET() {
         maxHp: s.maxHp,
         bossMp: coopBossCurrentMp(def, s.mechanicState),
         bossMaxMp: coopBossMaxMp(def),
+        trackingThreat,
+        trackingThreatMax,
+        trackingReady:
+          trackingThreatMax > 0 && trackingThreat >= trackingThreatMax,
         expiresAt: s.expiresAt.getTime(),
         summonedByName: s.summonedByName,
         visibility: parseCoopVisibility(s.visibility),

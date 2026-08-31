@@ -33,6 +33,7 @@ import {
   COOP_LIST_VISIBILITY_LABEL,
   coopSessionListSections,
 } from "@/adventure/v2/coop/coopListSections";
+import { TrackingThreatMeter } from "@/adventure/v2/coop/TrackingThreatMeter";
 
 type CoopBossSummonVariant = {
   kind: CoopBossKindId;
@@ -205,6 +206,10 @@ function CoopSessionCard({
                 </span>
               </span>
             )}
+            <TrackingThreatMeter
+              value={session.trackingThreat}
+              max={session.trackingThreatMax}
+            />
             <span className="flex justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
               <span>
                 {session.hp.toLocaleString()} / {session.maxHp.toLocaleString()}

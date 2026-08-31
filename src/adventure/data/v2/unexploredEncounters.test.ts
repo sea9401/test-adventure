@@ -51,19 +51,23 @@ describe("unexplored encounter shares", () => {
   });
 
   it("selects uniformly inside the chosen special pool", () => {
-    const result = pickUnexploredMonster({
-      baseMonsterIds: ["base_a", "base_b"],
-      shares: unexploredEncounterShares([
-        { poolId: "iron_legion", core: true, frequency: true },
-      ]),
-      groupRng: () => 0.99,
-      monsterRng: () => 0.999999,
-    });
-    expect(result).toEqual({
+    const pickIronMonster = (roll: number) =>
+      pickUnexploredMonster({
+        baseMonsterIds: ["base_a", "base_b"],
+        shares: unexploredEncounterShares([
+          { poolId: "iron_legion", core: true, frequency: true },
+        ]),
+        groupRng: () => 0.99,
+        monsterRng: () => roll,
+      });
+
+    expect(pickIronMonster(0)).toMatchObject({
       source: "special",
       poolId: "iron_legion",
       monsterId: "armored_shieldman",
     });
+    expect(pickIronMonster(0.34)?.monsterId).toBe("armored_spearman");
+    expect(pickIronMonster(0.67)?.monsterId).toBe("armored_crusher");
   });
 
   it("returns null only when the selected base pool is empty", () => {

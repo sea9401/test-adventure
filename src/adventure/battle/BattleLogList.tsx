@@ -1283,6 +1283,11 @@ const SIGNATURE_RESOURCE_LABELS: Record<string, string> = {
   domainStability: "영역 안정",
   lawInscriptions: "각인",
   frostChill: "한기",
+  trackingThreat: "추적 위협",
+  toxicBlood: "독혈",
+  toxicRecoveryLock: "회복 억제",
+  glacialChill: "한기",
+  glacialFreeze: "빙결",
 };
 
 const TRIPLE_WARD_RESOURCE_KEYS = new Set([

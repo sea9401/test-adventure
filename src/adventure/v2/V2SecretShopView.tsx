@@ -156,6 +156,8 @@ export function V2SecretShopView({
         map?: string;
         gold?: number;
         bankedGold?: number;
+        hpCharges?: number;
+        mpCharges?: number;
         mapCompleted?: boolean;
       } | null;
       if (j?.ok) {
@@ -171,6 +173,10 @@ export function V2SecretShopView({
           gold: typeof j.gold === "number" ? j.gold : undefined,
           bankedGold:
             typeof j.bankedGold === "number" ? j.bankedGold : undefined,
+          hpCharges:
+            typeof j.hpCharges === "number" ? j.hpCharges : undefined,
+          mpCharges:
+            typeof j.mpCharges === "number" ? j.mpCharges : undefined,
         });
         if (j.mapCompleted) {
           await refreshGameState();

@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { ArrowClockwise, Compass, LockKey, MapTrifold } from "@phosphor-icons/react";
+/* eslint-disable @next/next/no-img-element */
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ArrowClockwise,
+  Compass,
+  Hammer,
+  LockKey,
+  MapTrifold,
+} from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -11,6 +19,17 @@ import {
   SURFACE_INSET,
 } from "@/components/ui/surfaces";
 import { useSystemToast } from "@/adventure/v2/RewardToastProvider";
+import { SUMMON_SCROLL_MATERIAL_ID } from "@/adventure/data/v2/coopBosses";
+import {
+  UNEXPLORED_BOSSES,
+  UNEXPLORED_BOSS_IDS,
+  UNEXPLORED_SUMMON_STONE_GOLD_COST,
+  UNEXPLORED_SUMMON_STONE_POOL_MATERIAL_COST,
+  UNEXPLORED_SUMMON_STONE_SCROLL_COST,
+  UNEXPLORED_SUMMON_STONE_TRACE_COST,
+  type UnexploredBossId,
+} from "@/adventure/data/v2/unexploredBosses";
+import { UNEXPLORED_POOL_BY_ID } from "@/adventure/data/v2/unexploredMonsterPools";
 import {
   buildUnexploredTreeModel,
   type UnexploredClientSnapshot,
@@ -29,6 +48,13 @@ const ERROR_TEXT: Record<string, string> = {
   start_required: "탐사 시작 노드는 반환할 수 없습니다.",
   would_disconnect: "반환하면 활성 경로가 끊어집니다.",
   insufficient_gold: "노드 반환에 필요한 골드가 부족합니다.",
+  boss_node_required: "우두머리의 흔적 노드를 활성화해야 제작할 수 있습니다.",
+  insufficient_trace: "소환석 제작에 필요한 흔적이 부족합니다.",
+  insufficient_material: "소환석 제작에 필요한 특화 재료가 부족합니다.",
+  insufficient_scrolls: "소환석 제작에 필요한 보스 소환서가 부족합니다.",
+  request_conflict: "제작 요청 식별자가 충돌했습니다. 다시 시도해 주세요.",
+  not_enough_summon_stones: "사용할 소환석이 없습니다.",
+  too_many_active: "같은 우두머리의 활성 세션이 너무 많습니다.",
 };
 
 function nodeGlyph(node: UnexploredTreeNodeModel): string {
@@ -68,9 +94,11 @@ function formatPct(value: number): string {
 export function V2UnexploredTreeView({
   initialSnapshot = null,
   onBack,
+  onOpenSession,
 }: {
   initialSnapshot?: UnexploredClientSnapshot | null;
   onBack: () => void;
+  onOpenSession?: (sessionId: string) => void;
 }) {
   const { notifySystem } = useSystemToast();
   const [snapshot, setSnapshot] = useState(initialSnapshot);
@@ -79,6 +107,10 @@ export function V2UnexploredTreeView({
   );
   const [loading, setLoading] = useState(initialSnapshot === null);
   const [busy, setBusy] = useState(false);
+  const [bossBusy, setBossBusy] = useState<UnexploredBossId | null>(null);
+  const pendingCraftRequestIds = useRef<
+    Partial<Record<UnexploredBossId, string>>
+  >({});
 
   useEffect(() => {
     if (initialSnapshot !== null) return;
@@ -152,6 +184,99 @@ export function V2UnexploredTreeView({
       notifySystem(`✗ ${(error as Error).message}`, "error");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function craftSummonStone(bossId: UnexploredBossId) {
+    if (bossBusy) return;
+    const requestId =
+      pendingCraftRequestIds.current[bossId] ?? crypto.randomUUID();
+    pendingCraftRequestIds.current[bossId] = requestId;
+    let serverAnswered = false;
+    setBossBusy(bossId);
+    try {
+      const response = await fetch("/api/v2/unexplored/craft", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ bossId, requestId }),
+      });
+      serverAnswered = true;
+      const body = (await response.json()) as {
+        error?: string;
+        gold?: number;
+        bankedGold?: number;
+        materials?: Record<string, number>;
+        traces?: UnexploredClientSnapshot["traces"];
+        achievementIds?: UnexploredClientSnapshot["achievementIds"];
+      };
+      if (
+        !response.ok ||
+        body.gold == null ||
+        body.bankedGold == null ||
+        !body.materials ||
+        !body.traces ||
+        !body.achievementIds
+      ) {
+        throw new Error(ERROR_TEXT[body.error ?? ""] ?? body.error ?? "제작 실패");
+      }
+      pendingCraftRequestIds.current[bossId] = undefined;
+      setSnapshot((current) =>
+        current
+          ? {
+              ...current,
+              gold: body.gold!,
+              bankedGold: body.bankedGold!,
+              materials: body.materials!,
+              traces: body.traces!,
+              achievementIds: body.achievementIds!,
+            }
+          : current,
+      );
+      notifySystem(`✓ ${UNEXPLORED_BOSSES[bossId].name} 소환석을 제작했습니다.`, "success");
+    } catch (error) {
+      // 서버가 명시적으로 거절한 요청은 새 ID로 다시 시도한다. 응답 자체를 받지 못한 경우만
+      // 같은 ID를 보존해, 첫 요청이 서버에서 성공했을 가능성을 멱등 영수증으로 확인한다.
+      if (serverAnswered) pendingCraftRequestIds.current[bossId] = undefined;
+      notifySystem(`✗ ${(error as Error).message}`, "error");
+    } finally {
+      setBossBusy(null);
+    }
+  }
+
+  async function summonPersonalBoss(bossId: UnexploredBossId) {
+    if (bossBusy) return;
+    setBossBusy(bossId);
+    try {
+      const response = await fetch("/api/v2/unexplored/summon", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ bossId }),
+      });
+      const body = (await response.json()) as {
+        error?: string;
+        sessionId?: string;
+        summonStonesLeft?: number;
+      };
+      if (!response.ok || !body.sessionId || body.summonStonesLeft == null) {
+        throw new Error(ERROR_TEXT[body.error ?? ""] ?? body.error ?? "소환 실패");
+      }
+      const summonMaterialId = UNEXPLORED_BOSSES[bossId].summonMaterialId;
+      setSnapshot((current) => {
+        if (!current) return current;
+        const materials = { ...current.materials };
+        if (body.summonStonesLeft! > 0) {
+          materials[summonMaterialId] = body.summonStonesLeft!;
+        } else {
+          delete materials[summonMaterialId];
+        }
+        return { ...current, materials };
+      });
+      notifySystem(`✓ ${UNEXPLORED_BOSSES[bossId].name}을 소환했습니다.`, "success");
+      onOpenSession?.(body.sessionId);
+    } catch (error) {
+      notifySystem(`✗ ${(error as Error).message}`, "error");
+    } finally {
+      setBossBusy(null);
     }
   }
 
@@ -344,9 +469,15 @@ export function V2UnexploredTreeView({
                     </Button>
                   )}
                   {selected.state === "locked" && (
-                    <Button fullWidth disabled>
-                      <LockKey size={16} /> 경로 또는 포인트 필요
-                    </Button>
+                    <div className="space-y-2">
+                      <p className="text-xs leading-5 text-amber-700 dark:text-amber-300">
+                        {ERROR_TEXT[selected.activationError ?? ""] ??
+                          "현재 상태에서는 활성화할 수 없습니다."}
+                      </p>
+                      <Button fullWidth disabled>
+                        <LockKey size={16} /> 활성화 불가
+                      </Button>
+                    </div>
                   )}
                 </div>
               </>
@@ -383,6 +514,102 @@ export function V2UnexploredTreeView({
           </section>
         </aside>
       </div>
+
+      <section className={`${SURFACE_CARD} space-y-3 p-4`}>
+        <div className="flex items-start gap-2">
+          <Hammer size={22} className="mt-0.5 shrink-0 text-amber-600" />
+          <div>
+            <h2 className="font-bold">흔적 보관함</h2>
+            <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+              우두머리의 흔적 노드를 활성화한 동안 소환석을 제작할 수 있습니다.
+              이미 만든 소환석은 노드나 레벨 상태와 관계없이 사용할 수 있습니다.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-3 xl:grid-cols-3">
+          {UNEXPLORED_BOSS_IDS.map((bossId) => {
+            const boss = UNEXPLORED_BOSSES[bossId];
+            const [poolAId, poolBId] = boss.pools;
+            const poolA = UNEXPLORED_POOL_BY_ID[poolAId];
+            const poolB = UNEXPLORED_POOL_BY_ID[poolBId];
+            const traceA = snapshot.traces[poolAId] ?? 0;
+            const traceB = snapshot.traces[poolBId] ?? 0;
+            const materialA = snapshot.materials[poolA.materialId] ?? 0;
+            const materialB = snapshot.materials[poolB.materialId] ?? 0;
+            const scrolls = snapshot.materials[SUMMON_SCROLL_MATERIAL_ID] ?? 0;
+            const summonStones = snapshot.materials[boss.summonMaterialId] ?? 0;
+            const spendableGold = snapshot.gold + snapshot.bankedGold;
+            const hasRecipe =
+              traceA >= UNEXPLORED_SUMMON_STONE_TRACE_COST &&
+              traceB >= UNEXPLORED_SUMMON_STONE_TRACE_COST &&
+              materialA >= UNEXPLORED_SUMMON_STONE_POOL_MATERIAL_COST &&
+              materialB >= UNEXPLORED_SUMMON_STONE_POOL_MATERIAL_COST &&
+              scrolls >= UNEXPLORED_SUMMON_STONE_SCROLL_COST &&
+              spendableGold >= UNEXPLORED_SUMMON_STONE_GOLD_COST;
+            const craftingUnlocked = snapshot.effects?.traceEnabled === true;
+            return (
+              <article key={bossId} className={`${SURFACE_INSET} space-y-3 p-3`}>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-sm font-bold">{boss.name} 소환석</h3>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      보유 {summonStones.toLocaleString()}개 · 나만 전투
+                    </p>
+                  </div>
+                  <img
+                    src={boss.monster.image}
+                    alt={boss.name}
+                    className="h-12 w-12 rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
+                  />
+                </div>
+                <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 text-xs">
+                  <dt>{poolA.name} 흔적</dt>
+                  <dd className="text-right font-mono">{traceA.toLocaleString()} / {UNEXPLORED_SUMMON_STONE_TRACE_COST}</dd>
+                  <dt>{poolB.name} 흔적</dt>
+                  <dd className="text-right font-mono">{traceB.toLocaleString()} / {UNEXPLORED_SUMMON_STONE_TRACE_COST}</dd>
+                  <dt>{poolA.materialName}</dt>
+                  <dd className="text-right font-mono">{materialA.toLocaleString()} / {UNEXPLORED_SUMMON_STONE_POOL_MATERIAL_COST}</dd>
+                  <dt>{poolB.materialName}</dt>
+                  <dd className="text-right font-mono">{materialB.toLocaleString()} / {UNEXPLORED_SUMMON_STONE_POOL_MATERIAL_COST}</dd>
+                  <dt>보스 소환서</dt>
+                  <dd className="text-right font-mono">{scrolls.toLocaleString()} / {UNEXPLORED_SUMMON_STONE_SCROLL_COST}</dd>
+                  <dt>사용 가능 골드</dt>
+                  <dd className="text-right font-mono">
+                    {spendableGold.toLocaleString()} / {UNEXPLORED_SUMMON_STONE_GOLD_COST.toLocaleString()}G
+                  </dd>
+                </dl>
+                {!craftingUnlocked && (
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                    우두머리의 흔적 노드를 활성화하면 제작할 수 있습니다.
+                  </p>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    size="xs"
+                    variant="warning"
+                    loading={bossBusy === bossId}
+                    disabled={bossBusy !== null || !craftingUnlocked || !hasRecipe}
+                    aria-label={`${boss.name} 소환석 제작`}
+                    onClick={() => void craftSummonStone(bossId)}
+                  >
+                    제작
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="danger"
+                    loading={bossBusy === bossId}
+                    disabled={bossBusy !== null || summonStones < 1}
+                    aria-label={`${boss.name} 소환`}
+                    onClick={() => void summonPersonalBoss(bossId)}
+                  >
+                    소환
+                  </Button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
     </PageShell>
   );
 }

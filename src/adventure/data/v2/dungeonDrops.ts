@@ -28,7 +28,9 @@ import { GUILD_WORKSHOP_MATERIALS } from "./guildWorkshopMaterials";
 import { MONSTER_CRAFT_MATERIALS } from "./monsterCraftMaterials";
 import {
   UNEXPLORED_BASE_DROP_MATERIALS,
+  UNEXPLORED_BOSS_CORE_MATERIAL,
   UNEXPLORED_POOL_MATERIALS,
+  UNEXPLORED_SUMMON_STONE_MATERIALS,
 } from "./unexploredRewards";
 import { COOP_REWARD_MATERIALS } from "./coopRewards";
 import { WOODCUTTING_MATERIALS } from "./woodcuttingSpots";
@@ -123,6 +125,9 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
   // 미개척지 기본 몬스터 5종의 주 재료·희귀 재료. 일반 재료 시스템 보류 플래그와
   // 무관하게 전용 보상 해석기가 공급하며 NPC 판매가는 두지 않는다.
   ...UNEXPLORED_BASE_DROP_MATERIALS,
+  // 미개척지 개인 보스 제작·보상 재료. 소환석과 핵 모두 거래 가능하며 NPC 판매가는 없다.
+  ...UNEXPLORED_SUMMON_STONE_MATERIALS,
+  [UNEXPLORED_BOSS_CORE_MATERIAL.id]: UNEXPLORED_BOSS_CORE_MATERIAL,
   // SP 열매 3종(spFruit) — 협동 보스 드랍. 카탈로그 등재로 인벤 소모품·거래소 거래(NPC 비매).
   //   사용 시 SP 최대치 +1(/me/use-sp-fruit). 거래용으로도 가치(사용 캡 도달분 판매).
   ...SP_FRUIT_MATERIALS,

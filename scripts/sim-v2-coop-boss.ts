@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 import {
   COOP_ATTACK_TURNS,
   COOP_BOSSES,
-  COOP_BOSS_KIND_IDS,
+  STANDARD_COOP_BOSS_KIND_IDS,
   coopBossForBattle,
   type CoopBossKindId,
 } from "../src/adventure/data/v2/coopBosses";
@@ -241,7 +241,7 @@ export function buildCoopBossBalanceReport(options: {
 } = {}): CoopBossAudit[] {
   const trials = validateTrials(options.trials ?? DEFAULT_TRIALS);
   const seed = Math.floor(options.seed ?? DEFAULT_SEED);
-  const bossIds = (options.bossIds ?? COOP_BOSS_KIND_IDS).map(parseBossId);
+  const bossIds = (options.bossIds ?? STANDARD_COOP_BOSS_KIND_IDS).map(parseBossId);
   if (bossIds.length === 0) throw new Error("bossIds must not be empty");
 
   return bossIds.map((bossId) => {

@@ -130,7 +130,9 @@ export async function GET() {
         isOwner: s.summonerId === userId,
         participantCount: countBySession.get(s.id) ?? 0,
         myDamage,
-        myTier: coopTierForRatio(myDamage / Math.max(1, s.maxHp), kind),
+        myTier: def.rewardMode === "coop"
+          ? coopTierForRatio(myDamage / Math.max(1, s.maxHp), kind)
+          : null,
       };
     })
     .filter(Boolean);
@@ -143,6 +145,7 @@ export async function GET() {
       regionId: coopBossSessions.regionId,
       maxHp: coopBossSessions.maxHp,
       defeatedAt: coopBossSessions.defeatedAt,
+      summonerId: coopBossSessions.summonerId,
     })
     .from(coopBossContributors)
     .innerJoin(
@@ -163,7 +166,15 @@ export async function GET() {
   const claimables = claimRows
     .map((r) => {
       const kind = parseCoopBossKindId(r.regionId);
-      const tier = coopTierForRatio(r.damage / Math.max(1, r.maxHp), kind);
+      if (
+        !kind ||
+        (COOP_BOSSES[kind].visibilityLocked && r.summonerId !== userId)
+      ) {
+        return null;
+      }
+      const tier = COOP_BOSSES[kind].rewardMode === "coop"
+        ? coopTierForRatio(r.damage / Math.max(1, r.maxHp), kind)
+        : null;
       return kind
         ? {
             sessionId: r.sessionId,

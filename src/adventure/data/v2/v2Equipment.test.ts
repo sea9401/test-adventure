@@ -58,6 +58,32 @@ describe("장비 이름 식별성", () => {
   });
 });
 
+describe("미개척지 개인 보스 고유 장비", () => {
+  it("9종 모두 기존 슬롯·옵션 타입을 쓰는 이미지 연결 6티어 고유다", () => {
+    const ids = [
+      "v2_unexplored_tracking_blade_dagger",
+      "v2_unexplored_phantom_acceleration_boots",
+      "v2_unexplored_infinite_orbit_heart",
+      "v2_unexplored_toxic_blood_claw",
+      "v2_unexplored_coagulated_venom_ring",
+      "v2_unexplored_uncorrupted_heart",
+      "v2_unexplored_glacial_crushing_hammer",
+      "v2_unexplored_frozen_great_armor",
+      "v2_unexplored_absolute_zero_core",
+    ] as const;
+
+    for (const id of ids) {
+      expect(V2_EQUIPMENT[id]).toMatchObject({
+        id,
+        tier: 16,
+        rarity: "unique",
+        noDrop: true,
+      });
+      expect(V2_EQUIPMENT[id].image).toContain(`/images/equipment/unexplored-`);
+    }
+  });
+});
+
 describe("무기 속성 폐지 (속성 = 캐릭터 선택/스킬, 무기는 위력 전담)", () => {
   it("모든 장비(무기 포함)에 element 없음 — 평타 속성은 캐릭터 선택으로", () => {
     for (const item of Object.values(V2_EQUIPMENT)) {
@@ -327,10 +353,10 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기 · 들판 유니크 6 삭제):
     //   정규 그리드 29 = 비무기 18(갑옷 6 + 장갑 3 + 신발 3 + 반지 3 + 목걸이 3) + 무기 11
     //     (대검 3·지팡이 3·활 3 + 단검 정규 2). 장갑/신발 중갑 정규 6자루 제거(경갑 단일).
-    //   전문화 스타터 3 · noDrop 198(기존 180 + 6T 시그니처 유니크 18종) · 유니크 66
+    //   전문화 스타터 3 · noDrop 213 · 유니크 81(미개척지 개인 보스 9종 포함)
     //     (고유 아이템 30 + 보스 8). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
     //     신규 고유 아이템 30 → unique. 검은 왕도 이후 보스 유니크 2종 추가.
-    //     총 328 = 기존 304 + 6T 시그니처 유니크 18 + HARD 협동 보스 6.
+    //     총 337 = 기존 328 + 미개척지 개인 보스 고유 9.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -338,13 +364,13 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       ),
       "정규 그리드",
     ).toHaveLength(29);
-    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(72);
+    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(81);
     expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(67);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
     expect(
       all.filter((i) => i.noDrop),
       "noDrop(밴드흔한+하드 보스+폭풍 원정+강등 필드유니크)",
-    ).toHaveLength(204);
+    ).toHaveLength(213);
   });
 
   it("상점 구매=스타터(T1)만, 판매는 전 티어 — shopPriceOf vs shopPriceForSell", () => {

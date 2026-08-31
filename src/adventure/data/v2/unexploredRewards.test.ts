@@ -8,6 +8,10 @@ import {
   parseUnexploredTraces,
   rollUnexploredTraceAmount,
 } from "./unexploredRewards";
+import {
+  UNEXPLORED_BOSS_CORE_MATERIAL,
+  UNEXPLORED_SUMMON_STONE_MATERIALS,
+} from "./unexploredBosses";
 
 describe("unexplored rewards", () => {
   it("defines one shared material for every pool", () => {
@@ -108,5 +112,17 @@ describe("unexplored rewards", () => {
       );
       expect(grantUnexploredTrace({}, pool.id).traces[pool.id]).toBe(1);
     }
+  });
+
+  it("registers three summon stones and the shared boss core", () => {
+    expect(Object.keys(UNEXPLORED_SUMMON_STONE_MATERIALS)).toHaveLength(3);
+    for (const [id, material] of Object.entries(
+      UNEXPLORED_SUMMON_STONE_MATERIALS,
+    )) {
+      expect(V2_MATERIALS[id]).toEqual(material);
+    }
+    expect(V2_MATERIALS[UNEXPLORED_BOSS_CORE_MATERIAL.id]).toEqual(
+      UNEXPLORED_BOSS_CORE_MATERIAL,
+    );
   });
 });

@@ -5,6 +5,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { V2UnexploredTreeView } from "./V2UnexploredTreeView";
 import type { UnexploredClientSnapshot } from "./unexploredTreeModel";
+import { SUMMON_SCROLL_MATERIAL_ID } from "@/adventure/data/v2/coopBosses";
+import { shortestUnexploredPath } from "@/adventure/data/v2/unexploredTree";
+import {
+  UNEXPLORED_BOSSES,
+  UNEXPLORED_SUMMON_STONE_GOLD_COST,
+} from "@/adventure/data/v2/unexploredBosses";
 
 const mocks = vi.hoisted(() => ({ notifySystem: vi.fn() }));
 
@@ -43,7 +49,11 @@ const SNAPSHOT: UnexploredClientSnapshot = {
     basePoolRewardPct: 0,
     conversion: null,
   },
+  effects: { traceEnabled: false },
   traces: {},
+  gold: 0,
+  bankedGold: 0,
+  materials: {},
   achievementIds: [],
   refundGoldCost: 50_000,
 };
@@ -114,5 +124,155 @@ describe("V2UnexploredTreeView", () => {
       "✓ 탐사 노드를 활성화했습니다.",
       "success",
     );
+  });
+
+  it("흔적 보관함에 보스별 제작식의 현재/필요 수량과 고정 골드를 표시한다", () => {
+    const tracking = UNEXPLORED_BOSSES.tracking_weapon;
+    const html = renderToStaticMarkup(
+      <V2UnexploredTreeView
+        initialSnapshot={{
+          ...SNAPSHOT,
+          selectedNodeIds: ["start", "deep-boss"],
+          effects: { traceEnabled: true },
+          gold: UNEXPLORED_SUMMON_STONE_GOLD_COST,
+          traces: { runaway_machines: 500, shadow_stalkers: 500 },
+          materials: {
+            v2_unexplored_runaway_machines_material: 10,
+            v2_unexplored_shadow_stalkers_material: 10,
+            [SUMMON_SCROLL_MATERIAL_ID]: 10,
+            [tracking.summonMaterialId]: 1,
+          },
+        }}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("흔적 보관함");
+    expect(html).toContain("추적 병기 소환석");
+    expect(html).toContain("폭주 기계 흔적");
+    expect(html).toContain("그림자 추적자 흔적");
+    expect(html).toContain("500 / 500");
+    expect(html).toContain("10 / 10");
+    expect(html).toContain(
+      `${UNEXPLORED_SUMMON_STONE_GOLD_COST.toLocaleString()} / ${UNEXPLORED_SUMMON_STONE_GOLD_COST.toLocaleString()}G`,
+    );
+  });
+
+  it("네트워크 오류 뒤 제작 재시도에 같은 requestId를 사용한다", async () => {
+    const tracking = UNEXPLORED_BOSSES.tracking_weapon;
+    const ready = {
+      ...SNAPSHOT,
+      selectedNodeIds: ["start", "deep-boss"],
+      effects: { traceEnabled: true },
+      gold: UNEXPLORED_SUMMON_STONE_GOLD_COST,
+      traces: { runaway_machines: 500, shadow_stalkers: 500 },
+      materials: {
+        v2_unexplored_runaway_machines_material: 10,
+        v2_unexplored_shadow_stalkers_material: 10,
+        [SUMMON_SCROLL_MATERIAL_ID]: 10,
+      },
+    } satisfies UnexploredClientSnapshot;
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            idempotent: false,
+            gold: 0,
+            bankedGold: 0,
+            materials: { [tracking.summonMaterialId]: 1 },
+            traces: {},
+            achievementIds: ["first_summon_stone_craft"],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "craft-request-1") });
+    render(<V2UnexploredTreeView initialSnapshot={ready} onBack={vi.fn()} />);
+
+    const craftButton = screen.getByRole("button", {
+      name: "추적 병기 소환석 제작",
+    });
+    fireEvent.click(craftButton);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(craftButton.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(craftButton);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    const bodies = fetchMock.mock.calls.map((call) =>
+      JSON.parse((call[1] as RequestInit).body as string),
+    );
+    expect(bodies).toEqual([
+      { bossId: "tracking_weapon", requestId: "craft-request-1" },
+      { bossId: "tracking_weapon", requestId: "craft-request-1" },
+    ]);
+  });
+
+  it("흔적 노드가 꺼져도 보유 소환석은 사용하고 상세 화면으로 이동한다", async () => {
+    const tracking = UNEXPLORED_BOSSES.tracking_weapon;
+    const onOpenSession = vi.fn();
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          ok: true,
+          sessionId: "personal-session",
+          summonStonesLeft: 0,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <V2UnexploredTreeView
+        initialSnapshot={{
+          ...SNAPSHOT,
+          level: 1,
+          eligible: false,
+          effects: { traceEnabled: false },
+          materials: { [tracking.summonMaterialId]: 1 },
+        }}
+        onBack={vi.fn()}
+        onOpenSession={onOpenSession}
+      />,
+    );
+
+    const craftButton = screen.getByRole("button", {
+      name: "추적 병기 소환석 제작",
+    });
+    const summonButton = screen.getByRole("button", { name: "추적 병기 소환" });
+    expect(craftButton.hasAttribute("disabled")).toBe(true);
+    expect(summonButton.hasAttribute("disabled")).toBe(false);
+    fireEvent.click(summonButton);
+    await waitFor(() => expect(onOpenSession).toHaveBeenCalledWith("personal-session"));
+  });
+
+  it("보상 전환 노드 충돌을 잠금 이유로 안내한다", () => {
+    const selectedNodeIds = [
+      ...new Set([
+        ...shortestUnexploredPath("deep-gold"),
+        ...shortestUnexploredPath("deep-collector").slice(0, -1),
+      ]),
+    ];
+    const { container } = render(
+      <V2UnexploredTreeView
+        initialSnapshot={{
+          ...SNAPSHOT,
+          earnedPoints: 160,
+          spentPoints: selectedNodeIds.length,
+          selectedNodeIds,
+        }}
+        onBack={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      container.querySelector('[data-unexplored-node="deep-collector"]')!,
+    );
+    expect(
+      screen.getByText("보상 전환 노드는 하나만 선택할 수 있습니다."),
+    ).toBeTruthy();
   });
 });

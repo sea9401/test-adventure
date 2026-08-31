@@ -7,10 +7,12 @@ import {
   shortestUnexploredPath,
   unexploredActivationError,
   unexploredPoolName,
+  type UnexploredActivationError,
   type UnexploredNode,
 } from "@/adventure/data/v2/unexploredTree";
 import type { UnexploredAchievementId } from "@/adventure/data/v2/unexploredState";
 import type { UnexploredEncounterShare } from "@/adventure/data/v2/unexploredEncounters";
+import type { UnexploredEffects } from "@/adventure/data/v2/unexploredTree";
 
 export type UnexploredClientSnapshot = {
   level: number;
@@ -37,7 +39,11 @@ export type UnexploredClientSnapshot = {
     basePoolRewardPct: number;
     conversion: null | "gold" | "collector" | "armory";
   };
+  effects?: Pick<UnexploredEffects, "traceEnabled">;
   traces: UnexploredTraceState;
+  gold: number;
+  bankedGold: number;
+  materials: Record<string, number>;
   achievementIds: UnexploredAchievementId[];
   refundGoldCost: number;
 };
@@ -47,6 +53,7 @@ export type UnexploredNodeState = "active" | "available" | "locked";
 export type UnexploredTreeNodeModel = UnexploredNode & {
   state: UnexploredNodeState;
   categoryLabel: string;
+  activationError: UnexploredActivationError | "level_required" | null;
 };
 
 function categoryLabel(node: UnexploredNode): string {
@@ -82,17 +89,26 @@ export function buildUnexploredTreeModel(
     : [];
   const previewPathSet = new Set(previewPath);
   const nodes: UnexploredTreeNodeModel[] = UNEXPLORED_NODES.map((node) => {
-    const state: UnexploredNodeState = active.has(node.id)
-      ? "active"
-      : snapshot.eligible &&
-          unexploredActivationError(
+    const activationError = active.has(node.id)
+      ? null
+      : !snapshot.eligible
+        ? "level_required"
+        : unexploredActivationError(
             snapshot.selectedNodeIds,
             node.id,
             snapshot.earnedPoints,
-          ) === null
+          );
+    const state: UnexploredNodeState = active.has(node.id)
+      ? "active"
+      : activationError === null
         ? "available"
         : "locked";
-    return { ...node, state, categoryLabel: categoryLabel(node) };
+    return {
+      ...node,
+      state,
+      categoryLabel: categoryLabel(node),
+      activationError,
+    };
   });
   const selected = nodes.find((node) => node.id === selectedNodeId) ?? null;
   const previewDifficulty =

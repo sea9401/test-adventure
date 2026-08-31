@@ -14,6 +14,7 @@ import {
   coopSpFruitMaxAt,
   coopTierThresholdFor,
   coopTierForRatio,
+  isStandardCoopBossKindId,
   type CoopBossKind,
   type CoopRewardTier,
 } from "@/adventure/data/v2/coopBosses";
@@ -25,9 +26,16 @@ import {
   coopExtraRewardRuleFor,
   coopKillingBlowReward,
 } from "@/adventure/data/v2/coopRewards";
+import {
+  UNEXPLORED_BOSSES,
+  UNEXPLORED_BOSS_CORE_MATERIAL,
+  parseUnexploredBossId,
+} from "@/adventure/data/v2/unexploredBosses";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 
 // 보상 캡션 — 무엇을 주나(SP 열매 이름·효과 + 보스 전용 유니크 트로피). 인라인/모달 공용.
 export function CoopRewardCaptions({ kind }: { kind: CoopBossKind }) {
+  if (!isStandardCoopBossKindId(kind.id)) return null;
   const fruitTier = fruitTierForBoss(kind.id);
   const fruit = fruitTier != null ? SP_FRUIT[fruitTier] : null;
   const uniqueNames = kind.uniqueIds
@@ -78,6 +86,7 @@ function requiredDamage(kind: CoopBossKind, tier: CoopRewardTier): number {
 }
 
 function rewardDropList(kind: CoopBossKind, tier: CoopRewardTier): string {
+  if (!isStandardCoopBossKindId(kind.id)) return "개인 토벌 보상";
   const fruitTier = fruitTierForBoss(kind.id);
   const fruit = fruitTier != null ? SP_FRUIT[fruitTier] : null;
   const uniqueNames = kind.uniqueIds
@@ -107,6 +116,13 @@ function rewardDropList(kind: CoopBossKind, tier: CoopRewardTier): string {
 }
 
 export function CoopContributionCriteria({ kind }: { kind: CoopBossKind }) {
+  if (!isStandardCoopBossKindId(kind.id)) {
+    return (
+      <p className="text-xs text-zinc-600 dark:text-zinc-300">
+        개인 토벌 보상은 기여도 티어를 사용하지 않습니다.
+      </p>
+    );
+  }
   const fruitTier = fruitTierForBoss(kind.id);
   const hasFruit = fruitTier != null;
   const killingBlow = coopKillingBlowReward(kind.id);
@@ -184,6 +200,30 @@ export function CoopRewardTable({
   /** 보상 캡션(무엇을 주나)을 인라인에서 숨김 — 상세 화면은 모달 버튼으로 대체. 기본 표시. */
   hideCaptions?: boolean;
 }) {
+  if (!isStandardCoopBossKindId(kind.id)) {
+    const bossId = parseUnexploredBossId(kind.id);
+    if (!bossId) return null;
+    const boss = UNEXPLORED_BOSSES[bossId];
+    return (
+      <div className={`${SURFACE_INSET} space-y-2 p-3 text-xs`}>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-zinc-700 dark:text-zinc-200">
+          <span>{UNEXPLORED_BOSS_CORE_MATERIAL.name} ×1 확정</span>
+          <span>연결 특화 재료 ×1 확정</span>
+        </div>
+        <ul className="space-y-1 text-violet-700 dark:text-violet-300">
+          {boss.uniqueDrops.map((drop) => (
+            <li key={drop.equipmentId} className="flex justify-between gap-3">
+              <span>{V2_EQUIPMENT[drop.equipmentId].name}</span>
+              <strong>{drop.chancePct}%</strong>
+            </li>
+          ))}
+        </ul>
+        <p className="text-zinc-500 dark:text-zinc-400">
+          고유 장비 3종은 각각 독립적으로 등장합니다.
+        </p>
+      </div>
+    );
+  }
   const myTier =
     myDamage != null && myDamage > 0
       ? coopTierForRatio(myDamage / kind.sharedMaxHp, kind)

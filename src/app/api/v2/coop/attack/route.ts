@@ -32,6 +32,7 @@ import {
   coopBossCurrentMp,
   coopBossMaxMp,
   coopBossMpPressureDamage,
+  isStandardCoopBossKindId,
   withCoopBossMp,
 } from "@/adventure/data/v2/coopBosses";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
@@ -367,7 +368,9 @@ export async function POST(req: Request) {
       .returning({ hp: coopBossSessions.hp });
     const bossHp = updated?.hp ?? s.hp;
     const killingBlowReward =
-      bossHp === 0 ? coopKillingBlowReward(kindId) : null;
+      bossHp === 0 && isStandardCoopBossKindId(kindId)
+        ? coopKillingBlowReward(kindId)
+        : null;
     if (bossHp === 0) {
       // 처치 — 락 보유로 이 분기는 정확히 1명(킬 CAS). nextSpawnAt 없음(소환형).
       await tx
@@ -473,7 +476,9 @@ export async function POST(req: Request) {
           bossMpDepleted: currentBossMp > 0 && nextBossMp === 0,
           defeated: bossHp === 0,
           myDamage,
-          myTier: coopTierForRatio(myDamage / Math.max(1, s.maxHp), kindId),
+          myTier: kind.rewardMode === "coop"
+            ? coopTierForRatio(myDamage / Math.max(1, s.maxHp), kindId)
+            : null,
           killingBlowReward,
           replay,
         },
@@ -486,6 +491,7 @@ export async function POST(req: Request) {
     result.status === 200 && result.body.ok ? result.body.result : null;
   if (defeatedResult?.defeated) {
     const defeatedKind = defeatedResult.kind as CoopBossKindId;
+    const isStandardReward = isStandardCoopBossKindId(defeatedKind);
     if (defeatedResult.killingBlowReward) {
       recordEconomyEventSoon({
         userId,
@@ -502,10 +508,12 @@ export async function POST(req: Request) {
         },
       });
     }
-    await insertFeedEntry(userId, "coop_kill", {
-      kind: defeatedKind,
-      sessionId,
-    });
+    if (isStandardReward) {
+      await insertFeedEntry(userId, "coop_kill", {
+        kind: defeatedKind,
+        sessionId,
+      });
+    }
     const contributors = await db
       .select({
         userId: coopBossContributors.userId,
@@ -513,14 +521,16 @@ export async function POST(req: Request) {
       })
       .from(coopBossContributors)
       .where(eq(coopBossContributors.sessionId, sessionId));
-    const recipients = contributors
-      .filter((c) =>
-        coopTierForRatio(
-          c.damage / Math.max(1, defeatedResult.bossMaxHp),
-          defeatedKind,
-        ),
-      )
-      .map((c) => c.userId);
+    const recipients = isStandardReward
+      ? contributors
+          .filter((c) =>
+            coopTierForRatio(
+              c.damage / Math.max(1, defeatedResult.bossMaxHp),
+              defeatedKind,
+            ),
+          )
+          .map((c) => c.userId)
+      : [];
     if (recipients.length > 0) {
       const bossName = COOP_BOSSES[defeatedKind]?.name ?? defeatedKind;
       await insertNotificationMany(recipients, "coop_defeated", {

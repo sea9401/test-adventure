@@ -194,6 +194,8 @@ export type V2Equipment = {
   tier: V2EquipCatalogTier;
   name: string;
   description: string;
+  /** 카탈로그·보상 UI에서 사용하는 정적 아이템 이미지. */
+  image?: string;
   /** 위력 — 슬롯별 분기(무기=weaponType 별 공격력 / 방어구=물방 / 장신구=마방). 항상 ≥ 1. */
   power: number;
   /** 레거시 호환 필드. 현재 export 카탈로그와 실효 스탯에서는 항상 0으로 정규화한다. */

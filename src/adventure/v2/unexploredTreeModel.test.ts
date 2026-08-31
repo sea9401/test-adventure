@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { UNEXPLORED_NODES } from "@/adventure/data/v2/unexploredTree";
+import {
+  UNEXPLORED_NODES,
+  shortestUnexploredPath,
+} from "@/adventure/data/v2/unexploredTree";
 import {
   buildUnexploredTreeModel,
   type UnexploredClientSnapshot,
@@ -33,7 +36,11 @@ function snapshot(
       basePoolRewardPct: 0,
       conversion: null,
     },
+    effects: { traceEnabled: false },
     traces: {},
+    gold: 0,
+    bankedGold: 0,
+    materials: {},
     achievementIds: [],
     refundGoldCost: 50_000,
     ...overrides,
@@ -93,6 +100,57 @@ describe("unexplored tree model", () => {
       { poolId: "mana_barrier", name: "마력 방벽체", share: 30 },
     ]);
     expect(model.selected?.categoryLabel).toBe("보상 전환");
+  });
+
+  it("잠긴 노드에 보상 전환 충돌 이유를 노출한다", () => {
+    const selectedNodeIds = [
+      ...new Set([
+        ...buildUnexploredTreeModel(snapshot({ earnedPoints: 160 }), "deep-gold")
+          .previewPath,
+        ...buildUnexploredTreeModel(
+          snapshot({ earnedPoints: 160 }),
+          "deep-collector",
+        ).previewPath.slice(0, -1),
+      ]),
+    ];
+    const model = buildUnexploredTreeModel(
+      snapshot({
+        earnedPoints: 160,
+        spentPoints: selectedNodeIds.length,
+        selectedNodeIds,
+      }),
+      "deep-collector",
+    );
+
+    expect(model.selected?.state).toBe("locked");
+    expect(model.selected?.activationError).toBe("conversion_conflict");
+  });
+
+  it("난이도 120을 넘기는 잠긴 노드에 상한 이유를 노출한다", () => {
+    const difficultyIds = UNEXPLORED_NODES.filter((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    ).map((node) => node.id);
+    const finalDifficultyId = difficultyIds.at(-1)!;
+    const selectedNodeIds = [
+      ...new Set([
+        ...shortestUnexploredPath("deep-contract"),
+        ...difficultyIds
+          .slice(0, -1)
+          .flatMap((id) => shortestUnexploredPath(id)),
+        ...shortestUnexploredPath(finalDifficultyId).slice(0, -1),
+      ]),
+    ];
+    const model = buildUnexploredTreeModel(
+      snapshot({
+        earnedPoints: 160,
+        spentPoints: selectedNodeIds.length,
+        selectedNodeIds,
+      }),
+      finalDifficultyId,
+    );
+
+    expect(model.selected?.state).toBe("locked");
+    expect(model.selected?.activationError).toBe("difficulty_cap");
   });
 
   it("locks every inactive node below level 100 without deleting progress", () => {

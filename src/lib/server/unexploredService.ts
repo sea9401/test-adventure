@@ -23,6 +23,7 @@ export type UnexploredCharacterSave = {
   level?: number;
   gold?: number;
   bankedGold?: number;
+  materials?: unknown;
   unexplored?: unknown;
   [key: string]: unknown;
 };
@@ -48,6 +49,16 @@ export type UnexploredMutationError =
 function normalizedLevel(value: unknown): number {
   const level = Number(value);
   return Number.isFinite(level) ? Math.max(1, Math.floor(level)) : 1;
+}
+
+function normalizedMaterials(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return Object.fromEntries(
+    Object.entries(raw as Record<string, unknown>).flatMap(([id, value]) => {
+      const count = Math.max(0, Math.floor(Number(value) || 0));
+      return count > 0 ? [[id, count]] : [];
+    }),
+  );
 }
 
 export function unexploredSnapshot(character: UnexploredCharacterSave) {
@@ -82,6 +93,9 @@ export function unexploredSnapshot(character: UnexploredCharacterSave) {
     },
     effects,
     traces: save.traces,
+    gold: Math.max(0, Math.floor(Number(character.gold) || 0)),
+    bankedGold: Math.max(0, Math.floor(Number(character.bankedGold) || 0)),
+    materials: normalizedMaterials(character.materials),
     achievementIds: save.achievementIds,
     refundGoldCost: UNEXPLORED_REFUND_GOLD_COST,
   };

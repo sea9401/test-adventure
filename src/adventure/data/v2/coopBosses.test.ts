@@ -47,8 +47,8 @@ import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
 import { TITLES } from "@/adventure/data/titles";
 
 describe("coopBosses 카탈로그", () => {
-  it("8종 — 노말 4단 사다리 + 하드 보스 4종", () => {
-    expect(COOP_BOSS_KIND_IDS).toHaveLength(8);
+  it("11종 — 기존 협동 8종 + 미개척지 개인 보스 3종", () => {
+    expect(COOP_BOSS_KIND_IDS).toHaveLength(11);
     const normalLadder = [
       "mountain_chief",
       "canyon_predator",
@@ -98,6 +98,30 @@ describe("coopBosses 카탈로그", () => {
       sharedMaxHp: 8_400_000,
       anchorDepth: 78,
     });
+  });
+
+  it("미개척지 보스는 개인 공개가 잠기며 일반 소환서 목록에서 제외된다", () => {
+    const personalIds = [
+      "tracking_weapon",
+      "toxic_blood_lord",
+      "glacial_colossus",
+    ] as const;
+    for (const id of personalIds) {
+      expect(COOP_BOSSES[id]).toMatchObject({
+        rewardMode: "unexplored_personal",
+        visibilityLocked: true,
+      });
+      expect(COOP_BOSSES[id].summonMaterialId).toMatch(/_summon_stone$/);
+      expect(SCROLL_SUMMONABLE_COOP_BOSS_KIND_IDS).not.toContain(id);
+      expect(isScrollSummonableCoopBossKind(id)).toBe(false);
+    }
+    const personalIdSet = new Set<string>(personalIds);
+    for (const id of COOP_BOSS_KIND_IDS.filter(
+      (kindId) => !personalIdSet.has(kindId),
+    )) {
+      expect(COOP_BOSSES[id].rewardMode).toBe("coop");
+      expect(COOP_BOSSES[id].visibilityLocked).toBe(false);
+    }
   });
 
   it("신규 6T HARD 보스는 운영 상위 중앙 피해 기준 14회 공격을 요구한다", () => {
@@ -287,7 +311,9 @@ describe("coopBosses 카탈로그", () => {
       expect(b.uniqueIds.length).toBeGreaterThan(0);
       for (const u of b.uniqueIds) {
         expect(V2_EQUIPMENT[u]?.rarity).toBe("unique");
-        expect(V2_EQUIPMENT[u]?.signature).toBeDefined(); // 발동형 효과 부여
+        if (b.rewardMode === "coop") {
+          expect(V2_EQUIPMENT[u]?.signature).toBeDefined(); // 기존 협동 보스 발동형 효과
+        }
       }
     }
   });
@@ -310,10 +336,10 @@ describe("coopBosses 카탈로그", () => {
       for (const skill of b.base.v2Skills?.equipped ?? []) {
         expect(full.monster.v2Skills?.equipped).toContain(skill);
       }
-      expect(full.monster.v2MaxMp).toBe(b.base.v2MaxMp);
+      expect(full.monster.v2MaxMp).toBe(b.base.v2MaxMp ?? 0);
       expect(
         coopBossForBattle(b, b.sharedMaxHp, { bossMp: 7 }).monster.v2MaxMp,
-      ).toBe(7);
+      ).toBe((b.base.v2MaxMp ?? 0) > 0 ? 7 : 0);
       // 잔여 HP 클램프 — 0 이하/초과 입력 방어.
       expect(coopBossForBattle(b, 0).monster.hp).toBe(1);
       expect(

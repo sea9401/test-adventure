@@ -3,6 +3,10 @@ import {
   UNEXPLORED_POOL_IDS,
   type UnexploredPoolId,
 } from "./unexploredMonsterPools";
+export {
+  UNEXPLORED_BOSS_CORE_MATERIAL,
+  UNEXPLORED_SUMMON_STONE_MATERIALS,
+} from "./unexploredBosses";
 
 export const UNEXPLORED_TRACE_CAP = 2_500;
 

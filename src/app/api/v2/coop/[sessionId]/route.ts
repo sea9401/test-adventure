@@ -67,6 +67,12 @@ export async function GET(_req: Request, { params }: Ctx) {
         .limit(1)
     )[0]?.guildId ?? null;
   if (!canAccessCoopBoss(session, { userId, guildId: viewerGuildId })) {
+    if (def.visibilityLocked) {
+      return Response.json(
+        { ok: false, error: "no_session" },
+        { status: 404 },
+      );
+    }
     const [contrib] = await db
       .select({ userId: coopBossContributors.userId })
       .from(coopBossContributors)
@@ -223,7 +229,9 @@ export async function GET(_req: Request, { params }: Ctx) {
       damage: myDamage,
       attackCount: myRow?.attackCount ?? 0,
       lastAttackAt: myRow?.lastAttackAt?.getTime() ?? null,
-      tier: coopTierForRatio(myDamage / Math.max(1, session.maxHp), kind),
+      tier: def.rewardMode === "coop"
+        ? coopTierForRatio(myDamage / Math.max(1, session.maxHp), kind)
+        : null,
       claimed: myRow?.claimedAt != null,
     },
     combatPreview,

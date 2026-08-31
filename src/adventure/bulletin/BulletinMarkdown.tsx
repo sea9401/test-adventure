@@ -50,7 +50,24 @@ export const safeBulletinMarkdownUrl: UrlTransform = (url) => {
   }
 };
 
+const BulletinStrong: NonNullable<Components["strong"]> = ({
+  node,
+  children,
+  ...props
+}) => {
+  void node;
+  return (
+    <strong
+      {...props}
+      className="font-extrabold text-zinc-950 dark:text-zinc-50"
+    >
+      {children}
+    </strong>
+  );
+};
+
 const COMPONENTS: Components = {
+  strong: BulletinStrong,
   a({ node, href, children, ...props }) {
     void node;
     const textColor = bulletinTextColorFromUrl(href);
@@ -102,6 +119,7 @@ const COMPONENTS: Components = {
 };
 
 const INLINE_COMPONENTS: Components = {
+  strong: BulletinStrong,
   p({ node, children }) {
     void node;
     return <>{children}</>;
@@ -271,7 +289,7 @@ export function BulletinMarkdown({
         [&_h2]:mt-6 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:leading-snug [&_h2]:text-sky-800 dark:[&_h2]:text-sky-300
         [&_h3]:mt-5 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-violet-800 dark:[&_h3]:text-violet-300
         [&_h4]:mt-4 [&_h4]:font-bold [&_h4]:text-amber-800 dark:[&_h4]:text-amber-300
-        [&_p]:mt-3 [&_strong]:font-bold [&_strong]:text-zinc-950 dark:[&_strong]:text-zinc-50
+        [&_p]:mt-3
         [&_ul]:mt-3 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-6
         [&_ol]:mt-3 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-6
         [&_li>ul]:mt-1 [&_li>ol]:mt-1

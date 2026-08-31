@@ -47,31 +47,73 @@ function renderPanel(
   );
 }
 
-describe("장비 해방 작업대", () => {
-  it("최초 해방의 귀속·영구 줄 수와 50/35/15 확률을 보여준다", () => {
+describe("장비 마법부여 작업대", () => {
+  it("상세 확률은 도움말로 분리하고 최초 마법부여의 영구 조건만 확인받는다", () => {
     renderPanel(initialItem);
 
-    expect(screen.getAllByText("재앙독 완갑")).toHaveLength(2);
-    expect(screen.getByText(/성공 즉시 귀속/)).toBeTruthy();
-    expect(screen.getByText(/줄 수는 영구 고정/)).toBeTruthy();
+    expect(screen.getAllByText("재앙독 완갑")).toHaveLength(1);
+    expect(screen.queryByText("1줄 50%")).toBeNull();
+    expect(screen.queryByText(/2·3번째 줄은 이미 선택된 옵션을 제외/)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "마법부여 도움말" }));
+    expect(screen.getByRole("dialog", { name: "마법부여 도움말" })).toBeTruthy();
     expect(screen.getByText("1줄 50%")).toBeTruthy();
     expect(screen.getByText("2줄 35%")).toBeTruthy();
     expect(screen.getByText("3줄 15%")).toBeTruthy();
+    expect(screen.getByText(/마법부여 1단계 · Lv.1~5/)).toBeTruthy();
     expect(screen.getByText(/2·3번째 줄은 이미 선택된 옵션을 제외/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "도움말 닫기" }));
+    fireEvent.click(screen.getByRole("button", { name: "마법부여" }));
+    expect(screen.getByRole("dialog", { name: "최초 마법부여 확인" })).toBeTruthy();
+    expect(screen.getByText(/즉시 귀속/)).toBeTruthy();
+    expect(screen.getByText(/옵션 줄 수는 영구 고정/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "15,000,000 G 지불하고 마법부여" })).toBeTruthy();
   });
 
-  it("재해방 전에 기존 옵션 소멸·승급률·단계별 레벨 분포를 확인받는다", () => {
+  it("긴 후보 목록은 검색 가능한 장비 선택 창에서 고른다", () => {
+    const armor: V2EquipInstance = {
+      iid: "armor-1",
+      id: "v2_boss_frozen_lake_armor",
+    };
+    renderPanel(initialItem, {
+      owned: [initialItem, armor],
+      equipped: { gloves: initialItem.iid } as Partial<Record<V2EquipSlot, string>>,
+    });
+
+    expect(screen.queryByRole("listbox", { name: "마법부여 대상 장비" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "장비 선택" }));
+    expect(screen.getByRole("dialog", { name: "마법부여 장비 선택" })).toBeTruthy();
+    expect(screen.getByRole("listbox", { name: "마법부여 대상 장비" })).toBeTruthy();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "장비 이름 검색" }), {
+      target: { value: "빙호" },
+    });
+    expect(screen.queryByRole("option", { name: /재앙독 완갑/ })).toBeNull();
+    fireEvent.click(screen.getByRole("option", { name: /빙호 갑주/ }));
+
+    expect(screen.queryByRole("dialog", { name: "마법부여 장비 선택" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "빙호 갑주" })).toBeTruthy();
+  });
+
+  it("재마법부여는 경고를 상시 표시하고 확인창 없이 즉시 요청한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, item: rerollItem, gold: 5_000_000, bankedGold: 10_000_000 }),
+    });
+    vi.stubGlobal("crypto", { randomUUID: () => "11111111-1111-4111-8111-111111111111" });
+    vi.stubGlobal("fetch", fetchMock);
     renderPanel(rerollItem);
 
-    expect(screen.getByText("해방 3 · 2줄")).toBeTruthy();
-    expect(screen.getByText(/현재 옵션 전체가 즉시 소멸/)).toBeTruthy();
-    expect(screen.getByText(/해방 2 승급 5%/)).toBeTruthy();
-    expect(screen.getByText(/해방 1 · Lv.10~20/)).toBeTruthy();
-    expect(screen.getByText(/Lv.1 24% · Lv.2 22%/)).toBeTruthy();
+    expect(screen.getByText("마법부여 1단계 · 2줄")).toBeTruthy();
+    expect(screen.getByText(/재마법부여하면 현재 옵션 전체가 즉시 소멸/)).toBeTruthy();
+    expect(screen.getByRole("list", { name: "현재 마법부여 옵션" })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "재해방" }));
-    expect(screen.getByRole("dialog", { name: "재해방 확인" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "15,000,000 G 지불하고 재해방" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "재마법부여" }));
+    expect(screen.queryByRole("dialog", { name: /재마법부여 확인/ })).toBeNull();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText("재마법부여가 완료되었습니다.")).toBeTruthy();
   });
 
   it("네트워크 재시도만 같은 요청 ID를 쓰고 stale 장비는 즉시 갱신한다", async () => {
@@ -94,12 +136,10 @@ describe("장비 해방 작업대", () => {
     vi.stubGlobal("fetch", fetchMock);
     renderPanel(rerollItem, { onItemUpdated: updated });
 
-    fireEvent.click(screen.getByRole("button", { name: "재해방" }));
-    fireEvent.click(screen.getByRole("button", { name: "15,000,000 G 지불하고 재해방" }));
+    fireEvent.click(screen.getByRole("button", { name: "재마법부여" }));
     await screen.findByText(/연결에 실패했습니다/);
 
-    fireEvent.click(screen.getByRole("button", { name: "재해방" }));
-    fireEvent.click(screen.getByRole("button", { name: "15,000,000 G 지불하고 재해방" }));
+    fireEvent.click(screen.getByRole("button", { name: "재마법부여" }));
     await waitFor(() => expect(updated).toHaveBeenCalledWith(staleItem));
 
     const requestIds = fetchMock.mock.calls.map((call) =>

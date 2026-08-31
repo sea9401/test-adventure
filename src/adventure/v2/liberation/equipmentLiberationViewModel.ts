@@ -36,10 +36,14 @@ export const LIBERATION_LINE_COUNT_CHANCES: readonly {
 ];
 
 const RANK_LEVEL_SUMMARIES: Record<LiberationRank, string> = {
-  3: "해방 3 · Lv.1~5",
-  2: "해방 2 · Lv.5~10",
-  1: "해방 1 · Lv.10~20",
+  3: "마법부여 1단계 · Lv.1~5",
+  2: "마법부여 2단계 · Lv.5~10",
+  1: "마법부여 3단계 · Lv.10~20",
 };
+
+export function enchantmentStage(rank: LiberationRank): 1 | 2 | 3 {
+  return rank === 3 ? 1 : rank === 2 ? 2 : 3;
+}
 
 export function liberationPromotionChancePct(rank: LiberationRank): number {
   return rank === 3 ? 5 : rank === 2 ? 1 : 0;

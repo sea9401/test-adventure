@@ -32,7 +32,11 @@ import {
   coopBossCurrentMp,
   coopBossMaxMp,
   coopBossMpPressureDamage,
+  isStandardCoopBossKindId,
   withCoopBossMp,
+  coopBossTrackingThreat,
+  coopBossTrackingThreatMax,
+  withCoopBossTrackingThreat,
 } from "@/adventure/data/v2/coopBosses";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
@@ -193,6 +197,22 @@ export async function POST(req: Request) {
       bossStartMp,
       kind.base.v2MaxMp ?? bossStartMp,
     );
+    const trackingThreatMax = coopBossTrackingThreatMax(kind);
+    const trackingThreatAtStart = coopBossTrackingThreat(
+      kind,
+      peekMechanicState,
+    );
+    const bossMechanic =
+      trackingThreatMax > 0
+        ? {
+            kind: "tracking_weapon" as const,
+            initialThreat: trackingThreatAtStart,
+          }
+        : kindId === "toxic_blood_lord"
+          ? { kind: "toxic_blood_lord" as const }
+          : kindId === "glacial_colossus"
+            ? { kind: "glacial_colossus" as const }
+          : undefined;
 
     // 전투 시뮬. 보스 hp = 전역 잔여
     // (#715 — 막타 처치가 리플레이에 보이고 damageDealt 자연 클램프. 동시 공격의 stale
@@ -244,6 +264,7 @@ export async function POST(req: Request) {
       // 타임아웃 lose 는 협동에선 정상 흐름이며 그때까지 준 데미지만 누적한다.
       maxTurns: COOP_ATTACK_TURNS,
       initialEnemyHp: bossStartHp,
+      ...(bossMechanic ? { bossMechanic } : {}),
     });
     const damageDealt = Math.max(
       0,
@@ -265,6 +286,18 @@ export async function POST(req: Request) {
       bossBattleStartMp - simulatedBossMpAfter,
     );
     const diedEarly = battleResult.finalState.playerHp <= 0;
+    const battleTrackingState =
+      battleResult.finalState.bossMechanic?.kind === "tracking_weapon"
+        ? battleResult.finalState.bossMechanic
+        : null;
+    const battleToxicState =
+      battleResult.finalState.bossMechanic?.kind === "toxic_blood_lord"
+        ? battleResult.finalState.bossMechanic
+        : null;
+    const battleGlacialState =
+      battleResult.finalState.bossMechanic?.kind === "glacial_colossus"
+        ? battleResult.finalState.bossMechanic
+        : null;
     // === 4. session FOR UPDATE — 재검증 + 쿨다운 + 차감 + 처치 CAS ===
     const [s] = await tx
       .select()
@@ -355,19 +388,28 @@ export async function POST(req: Request) {
       s.mechanicState,
       nextBossMp,
     );
+    const nextTrackingThreat =
+      projectedBossHp <= 0 ? 0 : (battleTrackingState?.trackingThreat ?? 0);
+    const nextMechanicState = withCoopBossTrackingThreat(
+      kind,
+      nextMechanicStateWithMp,
+      nextTrackingThreat,
+    );
     const nowDate = new Date(now);
     const [updated] = await tx
       .update(coopBossSessions)
       .set({
         hp: sql`GREATEST(0, ${coopBossSessions.hp} - ${appliedDamage})`,
         ...(weakenConditionalEnrage ? { hardEnrageWeakened: true } : {}),
-        mechanicState: nextMechanicStateWithMp,
+        mechanicState: nextMechanicState,
       })
       .where(eq(coopBossSessions.id, s.id))
       .returning({ hp: coopBossSessions.hp });
     const bossHp = updated?.hp ?? s.hp;
     const killingBlowReward =
-      bossHp === 0 ? coopKillingBlowReward(kindId) : null;
+      bossHp === 0 && isStandardCoopBossKindId(kindId)
+        ? coopKillingBlowReward(kindId)
+        : null;
     if (bossHp === 0) {
       // 처치 — 락 보유로 이 분기는 정확히 1명(킬 CAS). nextSpawnAt 없음(소환형).
       await tx
@@ -471,9 +513,32 @@ export async function POST(req: Request) {
           bossMaxMp,
           bossMpDamage: appliedBossMpDamage,
           bossMpDepleted: currentBossMp > 0 && nextBossMp === 0,
+          trackingThreat: nextTrackingThreat,
+          trackingThreatMax,
+          trackingReady:
+            trackingThreatMax > 0 && nextTrackingThreat >= trackingThreatMax,
+          trackingCounterCount:
+            battleTrackingState?.trackingCounterCount ?? 0,
+          trackingCounterDamage:
+            battleTrackingState?.trackingCounterDamage ?? 0,
+          toxicBloodStacks: battleToxicState?.toxicBloodStacks ?? 0,
+          toxicRecoveryLockActions:
+            battleToxicState?.toxicRecoveryLockActions ?? 0,
+          toxicExplosionCount: battleToxicState?.toxicExplosionCount ?? 0,
+          toxicDamageTaken: battleToxicState?.toxicDamageTaken ?? 0,
+          glacialChillStacks:
+            battleGlacialState?.glacialChillStacks ?? 0,
+          glacialFreezePending:
+            battleGlacialState?.glacialFreezePending ?? 0,
+          glacialFreezeCount:
+            battleGlacialState?.glacialFreezeCount ?? 0,
+          glacialSkippedActionCount:
+            battleGlacialState?.glacialSkippedActionCount ?? 0,
           defeated: bossHp === 0,
           myDamage,
-          myTier: coopTierForRatio(myDamage / Math.max(1, s.maxHp), kindId),
+          myTier: kind.rewardMode === "coop"
+            ? coopTierForRatio(myDamage / Math.max(1, s.maxHp), kindId)
+            : null,
           killingBlowReward,
           replay,
         },
@@ -486,6 +551,7 @@ export async function POST(req: Request) {
     result.status === 200 && result.body.ok ? result.body.result : null;
   if (defeatedResult?.defeated) {
     const defeatedKind = defeatedResult.kind as CoopBossKindId;
+    const isStandardReward = isStandardCoopBossKindId(defeatedKind);
     if (defeatedResult.killingBlowReward) {
       recordEconomyEventSoon({
         userId,
@@ -502,10 +568,12 @@ export async function POST(req: Request) {
         },
       });
     }
-    await insertFeedEntry(userId, "coop_kill", {
-      kind: defeatedKind,
-      sessionId,
-    });
+    if (isStandardReward) {
+      await insertFeedEntry(userId, "coop_kill", {
+        kind: defeatedKind,
+        sessionId,
+      });
+    }
     const contributors = await db
       .select({
         userId: coopBossContributors.userId,
@@ -513,14 +581,16 @@ export async function POST(req: Request) {
       })
       .from(coopBossContributors)
       .where(eq(coopBossContributors.sessionId, sessionId));
-    const recipients = contributors
-      .filter((c) =>
-        coopTierForRatio(
-          c.damage / Math.max(1, defeatedResult.bossMaxHp),
-          defeatedKind,
-        ),
-      )
-      .map((c) => c.userId);
+    const recipients = isStandardReward
+      ? contributors
+          .filter((c) =>
+            coopTierForRatio(
+              c.damage / Math.max(1, defeatedResult.bossMaxHp),
+              defeatedKind,
+            ),
+          )
+          .map((c) => c.userId)
+      : [];
     if (recipients.length > 0) {
       const bossName = COOP_BOSSES[defeatedKind]?.name ?? defeatedKind;
       await insertNotificationMany(recipients, "coop_defeated", {

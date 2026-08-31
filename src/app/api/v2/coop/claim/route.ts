@@ -14,11 +14,17 @@ import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   COOP_BOSSES,
   coopTierForRatio,
+  isStandardCoopBossKindId,
   parseCoopBossKindId,
   rollCoopSpFruits,
   rollCoopUnique,
   type CoopRewardTier,
 } from "@/adventure/data/v2/coopBosses";
+import {
+  UNEXPLORED_BOSSES,
+  parseUnexploredBossId,
+} from "@/adventure/data/v2/unexploredBosses";
+import { rollUnexploredBossReward } from "@/adventure/data/v2/unexploredBossRewards";
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 import { SP_FRUIT, fruitTierForBoss } from "@/adventure/data/v2/spFruit";
 import {
@@ -36,6 +42,13 @@ import { incrementGuildExplorationCoopProgress } from "@/lib/server/guildExplora
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import { applyUniqueEquipmentAcquisitions } from "@/lib/server/uniqueEquipmentAchievement";
 import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
+import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
+import { V2_UNEXPLORED } from "@/adventure/data/v2/coreLoopConfig";
+import { parseUnexploredSave } from "@/adventure/data/v2/unexploredState";
+import {
+  grantUnexploredAchievements,
+  unexploredAchievementCandidates,
+} from "@/adventure/data/v2/unexploredProgression";
 
 // POST /api/v2/coop/claim — 처치된 협동 보스의 기여 보상 수령.
 //
@@ -48,7 +61,8 @@ import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGamepl
 // 저장된 claimedRewardSnapshot 그대로 반환(보상 재적용 없음·응답 손실 retry 안전).
 // 락 순서: character.v2 먼저(전 라우트 공통) → adventure-log → contributor.
 
-type RewardSnapshot = {
+type CoopRewardSnapshot = {
+  rewardMode: "coop";
   tier: CoopRewardTier;
   // 획득한 SP 열매 개수(0~3)·등급. 멱등 스냅샷 — retry 시 그대로 반환.
   spFruitCount: number;
@@ -65,6 +79,19 @@ type RewardSnapshot = {
   equipmentBoxId: string | null;
   equipmentBoxName: string | null;
 };
+
+type PersonalRewardSnapshot = {
+  rewardMode: "unexplored_personal";
+  bossCore: 1;
+  bossCoreMaterialId: string;
+  poolMaterialId: string;
+  poolMaterialCount: 1;
+  uniqueIds: V2EquipmentId[];
+  uniqueNames: string[];
+  titleId: string;
+};
+
+type RewardSnapshot = CoopRewardSnapshot | PersonalRewardSnapshot;
 
 type CharSave = { materials?: unknown; [k: string]: unknown };
 
@@ -124,6 +151,13 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "not_defeated" as const },
       };
     }
+    const personalBossId = parseUnexploredBossId(kindId);
+    if (personalBossId && session.summonerId !== userId) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "no_permission" as const },
+      };
+    }
 
     // === 3. contributor FOR UPDATE — 멱등 가드 ===
     const [contrib] = await tx
@@ -150,6 +184,121 @@ export async function POST(req: Request) {
           alreadyClaimed: true,
           reward: (contrib.claimedRewardSnapshot ?? null) as RewardSnapshot | null,
         },
+      };
+    }
+    if (personalBossId) {
+      const rolled = rollUnexploredBossReward(
+        personalBossId,
+        Math.random,
+        Math.random,
+      );
+      const nextMaterials = mergeDrops(charSave.materials, {
+        [rolled.bossCoreMaterialId]: rolled.bossCore,
+        [rolled.poolMaterialId]: rolled.poolMaterialCount,
+      });
+      const equipmentOwnedAfter = rolled.uniqueIds.length > 0
+        ? await appendEquipInstances(
+            tx,
+            userId,
+            rolled.uniqueIds.map((id) => mintRolledEquipInstance(id)),
+          )
+        : null;
+      const logSave = await lockSaveForUpdate<{
+        coopBossKinds?: unknown;
+        [key: string]: unknown;
+      }>(tx, userId, "adventure-log.v2", {});
+      const priorKinds = Array.isArray(logSave.coopBossKinds)
+        ? (logSave.coopBossKinds.filter(
+            (kind) => typeof kind === "string",
+          ) as string[])
+        : [];
+      const nextKinds = priorKinds.includes(personalBossId)
+        ? priorKinds
+        : [...priorKinds, personalBossId];
+      const nextUnexplored = grantUnexploredAchievements(
+        parseUnexploredSave(charSave.unexplored),
+        unexploredAchievementCandidates({
+          defeatedBossIds: nextKinds,
+        }),
+      ).save;
+      await upsertSave(tx, userId, "character.v2", {
+        ...charSave,
+        materials: nextMaterials,
+        unexplored: nextUnexplored,
+      });
+
+      const nextLog = rolled.uniqueIds.length > 0 && equipmentOwnedAfter
+        ? applyUniqueEquipmentAcquisitions({
+            adventureLogRaw: logSave,
+            equipmentOwnedAfter,
+            equipmentCodexRaw: await readSave(
+              tx,
+              userId,
+              EQUIPMENT_CODEX_KEY,
+              {},
+            ),
+            acquiredIds: rolled.uniqueIds,
+          })
+        : logSave;
+      await upsertSave(tx, userId, "adventure-log.v2", {
+        ...nextLog,
+        coopBossKinds: nextKinds,
+      });
+      if (rolled.uniqueIds.length > 0) {
+        await recordCodexMasteryGameplayBatch(
+          tx,
+          userId,
+          rolled.uniqueIds.map((id) => ({
+            category: "equipment" as const,
+            entryId: id,
+            amount: 1,
+            source: "equipment.drop" as const,
+          })),
+          new Date(now),
+        );
+      }
+      const boss = UNEXPLORED_BOSSES[personalBossId];
+      await grantTitleIfMissingInTx(tx, userId, boss.titleId, now);
+
+      const reward: PersonalRewardSnapshot = {
+        rewardMode: "unexplored_personal",
+        bossCore: rolled.bossCore,
+        bossCoreMaterialId: rolled.bossCoreMaterialId,
+        poolMaterialId: rolled.poolMaterialId,
+        poolMaterialCount: rolled.poolMaterialCount,
+        uniqueIds: rolled.uniqueIds,
+        uniqueNames: rolled.uniqueIds.map(
+          (id) => V2_EQUIPMENT[id]?.name ?? id,
+        ),
+        titleId: boss.titleId,
+      };
+      await tx
+        .update(coopBossContributors)
+        .set({
+          claimedAt: new Date(now),
+          claimedTier: null,
+          claimedRewardSnapshot: reward,
+        })
+        .where(
+          and(
+            eq(coopBossContributors.sessionId, sessionId),
+            eq(coopBossContributors.userId, userId),
+          ),
+        );
+      return {
+        status: 200,
+        body: {
+          ok: true as const,
+          alreadyClaimed: false,
+          reward,
+          explorationProgressed: false,
+        },
+      };
+    }
+    if (!isStandardCoopBossKindId(kindId)) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "bad_session" as const },
       };
     }
     const tier = coopTierForRatio(
@@ -199,11 +348,6 @@ export async function POST(req: Request) {
     }
     const nextMaterials = mergeDrops(charSave.materials, materialDrops);
 
-    await upsertSave(tx, userId, "character.v2", {
-      ...charSave,
-      materials: nextMaterials,
-    });
-
     // 보스 전용 시그니처 유니크 — SP 열매와 별개의 희귀 트로피. EPIC+ 단일 굴림(GOLD 이하 0).
     //   보스가 여러 종 보유 시 보유 풀에서 랜덤 1개(보스당 2종 — 산군/스콜피온/호수 각 2).
     const kind = COOP_BOSSES[kindId];
@@ -229,6 +373,19 @@ export async function POST(req: Request) {
     const nextKinds = priorKinds.includes(kindId)
       ? priorKinds
       : [...priorKinds, kindId];
+    const nextUnexplored = V2_UNEXPLORED
+      ? grantUnexploredAchievements(
+          parseUnexploredSave(charSave.unexplored),
+          unexploredAchievementCandidates({
+            defeatedBossIds: nextKinds,
+          }),
+        ).save
+      : null;
+    await upsertSave(tx, userId, "character.v2", {
+      ...charSave,
+      materials: nextMaterials,
+      ...(nextUnexplored ? { unexplored: nextUnexplored } : {}),
+    });
     const nextLog = uniqueId && equipmentOwnedAfter
       ? applyUniqueEquipmentAcquisitions({
           adventureLogRaw: logSave,
@@ -263,7 +420,8 @@ export async function POST(req: Request) {
     }
 
     // === 5. claim 마킹 + 스냅샷(retry 시 그대로 반환) ===
-    const reward: RewardSnapshot = {
+    const reward: CoopRewardSnapshot = {
+      rewardMode: "coop",
       tier,
       spFruitCount: fruitCount,
       spFruitMaterialId: fruitCount > 0 && fruitDef ? fruitDef.materialId : null,
@@ -328,23 +486,38 @@ export async function POST(req: Request) {
     result.body.reward
   ) {
     const reward = result.body.reward;
-    recordEconomyEventSoon({
-      userId,
-      eventType: "reward.coop.claim",
-      itemKind: "coop_reward",
-      quantity: 1,
-      detail: {
-        sessionId,
-        tier: reward.tier,
-        coopCoin: reward.coopCoin,
-        bossMaterialId: reward.bossMaterialId,
-        bossMaterialCount: reward.bossMaterialCount,
-        spFruitMaterialId: reward.spFruitMaterialId,
-        spFruitCount: reward.spFruitCount,
-        uniqueId: reward.uniqueId,
-        equipmentBoxId: reward.equipmentBoxId,
-      },
-    });
+    if (reward.rewardMode === "unexplored_personal") {
+      recordEconomyEventSoon({
+        userId,
+        eventType: "reward.unexplored.boss_claim",
+        itemKind: "unexplored_boss_reward",
+        quantity: 1,
+        detail: {
+          sessionId,
+          bossCoreMaterialId: reward.bossCoreMaterialId,
+          poolMaterialId: reward.poolMaterialId,
+          uniqueIds: reward.uniqueIds,
+        },
+      });
+    } else {
+      recordEconomyEventSoon({
+        userId,
+        eventType: "reward.coop.claim",
+        itemKind: "coop_reward",
+        quantity: 1,
+        detail: {
+          sessionId,
+          tier: reward.tier,
+          coopCoin: reward.coopCoin,
+          bossMaterialId: reward.bossMaterialId,
+          bossMaterialCount: reward.bossMaterialCount,
+          spFruitMaterialId: reward.spFruitMaterialId,
+          spFruitCount: reward.spFruitCount,
+          uniqueId: reward.uniqueId,
+          equipmentBoxId: reward.equipmentBoxId,
+        },
+      });
+    }
   } else if (result.status !== 200 && !result.body.ok) {
     recordRewardFailureSoon({
       userId,

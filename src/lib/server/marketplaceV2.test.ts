@@ -312,12 +312,15 @@ describe("tradable 판정 + 이름 스냅샷", () => {
   });
 
   it("채광·생활 가공 재료를 포함한 등재 재료 중 비활성 재련석을 제외해 tradable", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(93);
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(119);
     for (const id of Object.keys(V2_MATERIALS)) {
       expect(isTradableMaterial(id)).toBe(
         id !== "v2_reforge_stone" && id !== "v2_reforge_stone_high",
       );
     }
+    expect(isTradableMaterial("v2_unexplored_iron_legion_material")).toBe(
+      true,
+    );
     expect(isTradableMaterial("nope")).toBe(false);
     expect(isTradableMaterial("toString")).toBe(false);
   });

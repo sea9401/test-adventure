@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import type { Avatar } from "@/adventure/profile/avatars";
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
+import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import type { StaminaState } from "@/adventure/v2/stamina";
 import {
   COOP_ATTACK_STAMINA_COST,
@@ -30,6 +31,9 @@ export type CoopSessionSummary = {
   maxHp: number;
   bossMp: number;
   bossMaxMp: number;
+  trackingThreat: number;
+  trackingThreatMax: number;
+  trackingReady: boolean;
   expiresAt: number;
   summonedByName: string | null;
   visibility: CoopVisibility;
@@ -60,6 +64,19 @@ export type CoopAttackResult = {
   bossMaxMp: number;
   bossMpDamage: number;
   bossMpDepleted: boolean;
+  trackingThreat: number;
+  trackingThreatMax: number;
+  trackingReady: boolean;
+  trackingCounterCount: number;
+  trackingCounterDamage: number;
+  toxicBloodStacks: number;
+  toxicRecoveryLockActions: number;
+  toxicExplosionCount: number;
+  toxicDamageTaken: number;
+  glacialChillStacks: number;
+  glacialFreezePending: 0 | 1;
+  glacialFreezeCount: number;
+  glacialSkippedActionCount: number;
   defeated: boolean;
   myDamage: number;
   myTier: CoopRewardTier | null;
@@ -72,19 +89,31 @@ export type CoopAttackResult = {
   replay?: ReplayPayload;
 };
 
-export type CoopClaimReward = {
-  tier: CoopRewardTier;
-  // SP 열매 획득 개수(0~3)·등급 이름(0개면 null).
-  spFruitCount: number;
-  spFruitName: string | null;
-  // 보스 전용 시그니처 유니크 드랍(EPIC+ 확률·없으면 null).
-  uniqueId: string | null;
-  uniqueName: string | null;
-  coopCoin?: number;
-  bossMaterialName?: string | null;
-  bossMaterialCount?: number;
-  equipmentBoxName?: string | null;
-};
+export type CoopClaimReward =
+  | {
+      rewardMode: "coop";
+      tier: CoopRewardTier;
+      // SP 열매 획득 개수(0~3)·등급 이름(0개면 null).
+      spFruitCount: number;
+      spFruitName: string | null;
+      // 보스 전용 시그니처 유니크 드랍(EPIC+ 확률·없으면 null).
+      uniqueId: string | null;
+      uniqueName: string | null;
+      coopCoin?: number;
+      bossMaterialName?: string | null;
+      bossMaterialCount?: number;
+      equipmentBoxName?: string | null;
+    }
+  | {
+      rewardMode: "unexplored_personal";
+      bossCore: 1;
+      bossCoreMaterialId: string;
+      poolMaterialId: string;
+      poolMaterialCount: 1;
+      uniqueIds: V2EquipmentId[];
+      uniqueNames: string[];
+      titleId: string;
+    };
 
 export type CoopRecentAttack = {
   id: number;
@@ -106,6 +135,9 @@ export type CoopSessionDetail = {
     maxHp: number;
     bossMp: number;
     bossMaxMp: number;
+    trackingThreat: number;
+    trackingThreatMax: number;
+    trackingReady: boolean;
     expiresAt: number;
     defeatedAt: number | null;
     defeated: boolean;
@@ -387,6 +419,9 @@ export function useCoopSessionState({
                   hp: r.bossHp,
                   bossMp: r.bossMp,
                   bossMaxMp: r.bossMaxMp,
+                  trackingThreat: r.trackingThreat,
+                  trackingThreatMax: r.trackingThreatMax,
+                  trackingReady: r.trackingReady,
                   defeated: prev.session.defeated || r.defeated,
                 },
               }

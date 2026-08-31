@@ -105,9 +105,7 @@ describe("POST /api/v2/coop/[sessionId]/visibility", () => {
     "전체 공개된 보스를 %s 범위로 줄이지 못한다",
     async (visibility) => {
       state.session.visibility = "public";
-
       const response = await POST(request(visibility), ctx);
-
       expect(response.status).toBe(409);
       await expect(response.json()).resolves.toEqual({
         ok: false,
@@ -121,9 +119,7 @@ describe("POST /api/v2/coop/[sessionId]/visibility", () => {
 
   it("이미 전체 공개된 보스의 공개 재요청은 무변경이며 알림을 반복하지 않는다", async () => {
     state.session.visibility = "public";
-
     const response = await POST(request("public"), ctx);
-
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       ok: true,
@@ -137,7 +133,6 @@ describe("POST /api/v2/coop/[sessionId]/visibility", () => {
 
   it("전체 공개 전에는 길드 범위로 바꿔도 전체 알림을 발송하지 않는다", async () => {
     const response = await POST(request("guild_only"), ctx);
-
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       ok: true,
@@ -152,9 +147,22 @@ describe("POST /api/v2/coop/[sessionId]/visibility", () => {
     expect(broadcastCoopNotice).not.toHaveBeenCalled();
   });
 
+  it("개인 미개척지 보스는 소환자도 공개 범위를 바꿀 수 없다", async () => {
+    state.session.regionId = "tracking_weapon";
+    state.session.bossName = "추적 병기";
+    const response = await POST(request("public"), ctx);
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      error: "visibility_locked",
+    });
+    expect(state.updated).toBeNull();
+    expect(insertFeedEntry).not.toHaveBeenCalled();
+    expect(broadcastCoopNotice).not.toHaveBeenCalled();
+  });
+
   it("잘못된 공개 범위는 전체 공개로 해석하지 않고 거부한다", async () => {
     const response = await POST(request("unexpected"), ctx);
-
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       ok: false,

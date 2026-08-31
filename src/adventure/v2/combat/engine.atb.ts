@@ -29,6 +29,7 @@ import {
 import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
 import {
   releaseSwordShadowAfterEnemyAction,
+  resolveForcedEnemyPhysicalHit,
   resolveEnemyPhase,
 } from "./engine.enemyPhase";
 import { resolvePlayerPhase } from "./engine.playerPhase";
@@ -36,6 +37,7 @@ import {
   decrementTimedBuffs,
   distributeV2DotTicks,
   statusDamageAfterReduction,
+  healingAfterReceivedMultiplier,
   tickV2BuffMap,
   tickV2Dots,
   v2DotLogCause,
@@ -50,12 +52,39 @@ import {
 import { activeTier6ResourceSnapshot } from "./tier6UniqueEffects";
 import { consumeDuelistCritHaste } from "./duelistCombat";
 import { enterShockAction } from "./shockAction";
-import { mergeTripleWardResourceSnapshot } from "./tripleWard";
+import {
+  consumePurificationWard,
+  mergeTripleWardResourceSnapshot,
+  TRIPLE_WARD_LABELS,
+} from "./tripleWard";
 import { mergeLawInscriptionSnapshot } from "./lawInscription";
 import { mergeTier7ResourceSnapshot } from "./engineState";
 import { mergeFrostChillSnapshot } from "./frostChill";
 import { weightSpeedMultiplier } from "./mutationCombat";
 import { recordChargeHpLoss } from "./ruinBladeCombat";
+import { statusBlockOnce } from "./signatureEffects";
+import {
+  TRACKING_ELIMINATION_HIT_MULTIPLIER,
+  TRACKING_THREAT_MAX,
+  accumulateTrackingThreat,
+  resolveTrackingThreatAfterPlayerAction,
+  trackingThreatGain,
+} from "./trackingWeaponMechanic";
+import {
+  TOXIC_BLOOD_MAX_STACKS,
+  TOXIC_RECOVERY_LOCK_ACTIONS,
+  consumeToxicRecoveryAction,
+  resolveToxicBloodGain,
+  toxicBloodRawDotDamage,
+  toxicBloodRawExplosionDamage,
+  toxicBloodRecoveryMultiplier,
+} from "./toxicBloodLordMechanic";
+import {
+  GLACIAL_CHILL_THRESHOLD,
+  glacialChillSpeedMultiplier,
+  rescaleReservedPlayerTick,
+  resolveGlacialChillGain,
+} from "./glacialColossusMechanic";
 
 export const ATB_TICK_CAP = ATB_TIMELINE_TICK_CAP;
 export const ATB_ACTION_GUARD = 1000;
@@ -71,8 +100,32 @@ function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {
     ),
     state.stacks.lawInscriptions,
   );
+  const bossResources: Record<string, number | string> | undefined =
+    state.bossMechanic?.kind === "tracking_weapon"
+      ? {
+          trackingThreat: `${state.bossMechanic.trackingThreat}/${TRACKING_THREAT_MAX}`,
+        }
+      : state.bossMechanic?.kind === "glacial_colossus" &&
+          state.bossMechanic.glacialChillStacks > 0
+        ? {
+            glacialChill: `${state.bossMechanic.glacialChillStacks}/${GLACIAL_CHILL_THRESHOLD}`,
+          }
+        : state.bossMechanic?.kind === "glacial_colossus" &&
+            state.bossMechanic.glacialFreezePending === 1
+          ? { glacialFreeze: "1/1" }
+      : state.bossMechanic?.kind === "toxic_blood_lord" &&
+          state.bossMechanic.toxicBloodStacks > 0
+        ? {
+            toxicBlood: `${state.bossMechanic.toxicBloodStacks}/${TOXIC_BLOOD_MAX_STACKS}`,
+          }
+        : state.bossMechanic?.kind === "toxic_blood_lord" &&
+            state.bossMechanic.toxicRecoveryLockActions > 0
+          ? {
+              toxicRecoveryLock: `${state.bossMechanic.toxicRecoveryLockActions}/${TOXIC_RECOVERY_LOCK_ACTIONS}`,
+            }
+      : undefined;
   const enemyResources = mergeFrostChillSnapshot(
-    undefined,
+    bossResources,
     state.stacks.enemyFrostChillStacks,
   );
   return {
@@ -118,7 +171,11 @@ export function effectivePlayerSpd(
   const buffed = state.buffs.playerSpdTurnsLeft > 0
     ? player.spd * state.buffs.playerSpdMult
     : player.spd;
-  return buffed * weightSpeedMultiplier(state.stacks.mutationWeight);
+  const weighted = buffed * weightSpeedMultiplier(state.stacks.mutationWeight);
+  return state.bossMechanic?.kind === "glacial_colossus"
+    ? weighted *
+        glacialChillSpeedMultiplier(state.bossMechanic.glacialChillStacks)
+    : weighted;
 }
 
 function effectiveEnemyTimelineSpd(
@@ -163,6 +220,666 @@ function tagNewLogEntries(
         ? { ...withTurn, t: tick }
         : withTurn;
     }),
+  };
+}
+
+function appendTrackingLog(
+  state: BattleState,
+  text: string,
+  tick: number,
+): BattleState {
+  return {
+    ...state,
+    log: appendLog(state.log, {
+      kind: "info",
+      text,
+      turn: "enemy",
+      t: tick,
+    }),
+  };
+}
+
+function trackingDirectHits(
+  log: readonly BattleLogEntry[],
+  start: number,
+): number {
+  return log.slice(start).reduce((sum, entry) => {
+    if (entry.kind !== "player_attack") return sum;
+    return sum + Math.max(0, Math.floor(entry.directHits ?? 1));
+  }, 0);
+}
+
+function settleTrackingAfterPlayerAction(args: {
+  state: BattleState;
+  player: PlayerCombat;
+  playerName: string;
+  enemyHpBefore: number;
+  logStart: number;
+  tick: number;
+}): BattleState {
+  const mechanic = args.state.bossMechanic;
+  if (!mechanic || mechanic.kind !== "tracking_weapon") return args.state;
+
+  const playerDamage = Math.max(0, args.enemyHpBefore - args.state.enemyHp);
+  const directHits = trackingDirectHits(args.state.log, args.logStart);
+  const gain = trackingThreatGain({
+    damage: playerDamage,
+    bossMaxHp: args.state.enemy.hp,
+    directHits,
+  });
+  if (args.state.enemyHp <= 0) {
+    return {
+      ...args.state,
+      bossMechanic: { ...mechanic, trackingThreat: 0 },
+    };
+  }
+
+  if (args.state.playerHp <= 0) {
+    const trackingThreat = accumulateTrackingThreat({
+      current: mechanic.trackingThreat,
+      gain,
+    });
+    return {
+      ...args.state,
+      bossMechanic: { ...mechanic, trackingThreat },
+    };
+  }
+
+  const resolution = resolveTrackingThreatAfterPlayerAction({
+    current: mechanic.trackingThreat,
+    gain,
+    bossAlive: true,
+  });
+  const displayThreat = resolution.triggered
+    ? TRACKING_THREAT_MAX
+    : resolution.threat;
+  let state: BattleState = {
+    ...args.state,
+    bossMechanic: { ...mechanic, trackingThreat: resolution.threat },
+  };
+  if (gain > 0) {
+    state = appendTrackingLog(
+      state,
+      `추적 +${gain} · 현재 ${displayThreat}/${TRACKING_THREAT_MAX}`,
+      args.tick,
+    );
+  }
+  if (
+    mechanic.trackingThreat < 70 &&
+    displayThreat >= 70 &&
+    !resolution.triggered
+  ) {
+    state = appendTrackingLog(state, "추적 섬멸 임박", args.tick);
+  }
+  if (!resolution.triggered) return state;
+
+  state = appendTrackingLog(
+    state,
+    "추적 완료 — 추적 섬멸 발동",
+    args.tick,
+  );
+  const enemyHpBeforeCounter = state.enemyHp;
+  let counterDamage = 0;
+  for (
+    let hit = 0;
+    hit < 2 && state.playerHp > 0 && state.enemyHp > 0;
+    hit += 1
+  ) {
+    const logStart = state.log.length;
+    const resolved = resolveForcedEnemyPhysicalHit(
+      state,
+      args.player,
+      args.playerName,
+      {
+        attackName: "추적 섬멸",
+        multiplier: TRACKING_ELIMINATION_HIT_MULTIPLIER,
+        armorPierce: 0,
+        allowCritical: false,
+        applyStatus: false,
+        consumeEnemyAction: false,
+      },
+    );
+    state = stampTick(resolved.state, logStart, args.tick);
+    counterDamage += resolved.damageToHp;
+  }
+
+  const counterReactionDamage = Math.max(
+    0,
+    enemyHpBeforeCounter - state.enemyHp,
+  );
+  const reactionGain = trackingThreatGain({
+    damage: counterReactionDamage,
+    bossMaxHp: state.enemy.hp,
+    directHits: 0,
+  });
+  const trackingThreat =
+    state.enemyHp <= 0
+      ? 0
+      : accumulateTrackingThreat({
+          current: resolution.threat,
+          gain: reactionGain,
+        });
+  state = {
+    ...state,
+    bossMechanic: {
+      ...mechanic,
+      trackingThreat,
+      trackingCounterCount: mechanic.trackingCounterCount + 1,
+      trackingCounterDamage: mechanic.trackingCounterDamage + counterDamage,
+    },
+  };
+  state = appendTrackingLog(
+    state,
+    `추적 섬멸 총피해 ${counterDamage}`,
+    args.tick,
+  );
+  if (trackingThreat > 0) {
+    state = appendTrackingLog(
+      state,
+      `잔여 추적 ${trackingThreat}/${TRACKING_THREAT_MAX}`,
+      args.tick,
+    );
+  }
+  return state;
+}
+
+function accumulateTrackingFromEnemyAction(
+  state: BattleState,
+  enemyHpBefore: number,
+): BattleState {
+  const mechanic = state.bossMechanic;
+  if (!mechanic || mechanic.kind !== "tracking_weapon") return state;
+  if (state.enemyHp <= 0) {
+    return {
+      ...state,
+      bossMechanic: { ...mechanic, trackingThreat: 0 },
+    };
+  }
+  const gain = trackingThreatGain({
+    damage: Math.max(0, enemyHpBefore - state.enemyHp),
+    bossMaxHp: state.enemy.hp,
+    directHits: 0,
+  });
+  if (gain <= 0) return state;
+  return {
+    ...state,
+    bossMechanic: {
+      ...mechanic,
+      trackingThreat: accumulateTrackingThreat({
+        current: mechanic.trackingThreat,
+        gain,
+      }),
+    },
+  };
+}
+
+function appendGlacialLog(
+  state: BattleState,
+  text: string,
+  turn: "player" | "enemy",
+  tick: number,
+): BattleState {
+  return {
+    ...state,
+    log: appendLog(state.log, {
+      kind: "info",
+      effect: "status",
+      text,
+      turn,
+      t: tick,
+    }),
+  };
+}
+
+function settleGlacialChillAfterEnemyAction(args: {
+  state: BattleState;
+  player: PlayerCombat;
+  logStart: number;
+  previousStacks: number;
+  currentTick: number;
+  playerNextTick: number;
+}): { state: BattleState; playerNextTick: number } {
+  const mechanic = args.state.bossMechanic;
+  if (
+    !mechanic ||
+    mechanic.kind !== "glacial_colossus" ||
+    mechanic.glacialFreezePending === 1 ||
+    args.state.playerHp <= 0 ||
+    args.state.enemyHp <= 0
+  ) {
+    return { state: args.state, playerNextTick: args.playerNextTick };
+  }
+  const hpDamage = args.state.log.slice(args.logStart).reduce(
+    (sum, entry) =>
+      entry.kind === "enemy_attack"
+        ? sum + Math.max(0, entry.enemyHpDamage ?? 0)
+        : sum,
+    0,
+  );
+  const auraResolution = resolveGlacialChillGain({
+    current: mechanic.glacialChillStacks,
+    gain: 1,
+    freezePending: mechanic.glacialFreezePending,
+  });
+  let stateBeforeGain = args.state;
+  let hitBlocked = false;
+  if (!auraResolution.triggered && hpDamage > 0) {
+    const signatureBlock = statusBlockOnce(args.player.equipSignatures);
+    if (signatureBlock && !args.state.flags.statusBlockUsed) {
+      hitBlocked = true;
+      stateBeforeGain = appendGlacialLog(
+        {
+          ...args.state,
+          flags: { ...args.state.flags, statusBlockUsed: true },
+        },
+        `[${signatureBlock.label}] 상태이상을 막았다.`,
+        "enemy",
+        args.currentTick,
+      );
+    } else {
+      const ward = consumePurificationWard(args.state.stacks.tripleWard);
+      if (ward.consumed) {
+        hitBlocked = true;
+        stateBeforeGain = appendGlacialLog(
+          {
+            ...args.state,
+            stacks: {
+              ...args.state.stacks,
+              tripleWard: ward.state,
+            },
+          },
+          `[${TRIPLE_WARD_LABELS.purification}] 상태이상을 막았다. (${ward.remaining}회 남음)`,
+          "enemy",
+          args.currentTick,
+        );
+      }
+    }
+  }
+  const resolution =
+    auraResolution.triggered || hpDamage <= 0 || hitBlocked
+      ? auraResolution
+      : resolveGlacialChillGain({
+          current: mechanic.glacialChillStacks,
+          gain: 2,
+          freezePending: mechanic.glacialFreezePending,
+        });
+  const displayStacks = resolution.triggered
+    ? GLACIAL_CHILL_THRESHOLD
+    : resolution.stacks;
+  let state: BattleState = {
+    ...stateBeforeGain,
+    bossMechanic: {
+      ...mechanic,
+      glacialChillStacks: resolution.stacks,
+      glacialFreezePending: resolution.freezePending,
+      glacialFreezeCount:
+        mechanic.glacialFreezeCount + (resolution.triggered ? 1 : 0),
+    },
+  };
+  state = appendGlacialLog(
+    state,
+    `[한기] +${resolution.appliedGain} · 현재 ${displayStacks}/${GLACIAL_CHILL_THRESHOLD}`,
+    "enemy",
+    args.currentTick,
+  );
+  if (resolution.triggered) {
+    state = appendGlacialLog(
+      state,
+      "[빙결] 다음 행동이 봉쇄된다.",
+      "enemy",
+      args.currentTick,
+    );
+    return { state, playerNextTick: args.playerNextTick };
+  }
+
+  return {
+    state,
+    playerNextTick: rescaleReservedPlayerTick({
+      currentTick: args.currentTick,
+      playerNextTick: args.playerNextTick,
+      previousStacks: args.previousStacks,
+      nextStacks: resolution.stacks,
+    }),
+  };
+}
+
+function consumeGlacialFrozenPlayerAction(
+  state: BattleState,
+  tick: number,
+): BattleState {
+  const mechanic = state.bossMechanic;
+  if (
+    !mechanic ||
+    mechanic.kind !== "glacial_colossus" ||
+    mechanic.glacialFreezePending !== 1
+  ) {
+    return state;
+  }
+  return appendGlacialLog(
+    {
+      ...state,
+      phase: "player",
+      bossMechanic: {
+        ...mechanic,
+        glacialChillStacks: 0,
+        glacialFreezePending: 0,
+        glacialSkippedActionCount: mechanic.glacialSkippedActionCount + 1,
+      },
+    },
+    "[빙결] 몸이 얼어붙어 행동할 수 없다.",
+    "player",
+    tick,
+  );
+}
+
+function appendToxicBloodLog(
+  state: BattleState,
+  text: string,
+  turn: "player" | "enemy",
+  tick: number,
+): BattleState {
+  return {
+    ...state,
+    log: appendLog(state.log, {
+      kind: "info",
+      effect: "status_damage",
+      text,
+      turn,
+      t: tick,
+    }),
+  };
+}
+
+function applyToxicBloodStatusDamage(args: {
+  state: BattleState;
+  player: PlayerCombat;
+  rawDamage: number;
+  label: string;
+  turn: "player" | "enemy";
+  tick: number;
+}): BattleState {
+  const mechanic = args.state.bossMechanic;
+  if (!mechanic || mechanic.kind !== "toxic_blood_lord") return args.state;
+
+  const barrier = resolveMagicBarrierDamage({
+    rawDamage: args.rawDamage,
+    durability: args.state.playerMagicBarrier ?? 0,
+    absorbPct: args.player.magicBarrierAbsorbPct,
+    efficiencyPct: args.player.magicBarrierEfficiencyPct,
+    eligible: true,
+    mitigateBody: (bodyRawDamage) =>
+      statusDamageAfterReduction(
+        bodyRawDamage,
+        args.player.statusDamageReductionPct,
+      ),
+  });
+  const hpBefore = args.state.playerHp;
+  let next: BattleState = {
+    ...args.state,
+    playerMagicBarrier: barrier.durabilityLeft,
+  };
+  const damageLogIndex = next.log.length;
+  next = appendToxicBloodLog(
+    next,
+    `${args.label} ${barrier.hpBoundDamage}`,
+    args.turn,
+    args.tick,
+  );
+  for (const entry of magicBarrierCombatLogEntries(barrier)) {
+    next = {
+      ...next,
+      log: appendLog(next.log, {
+        ...entry,
+        turn: args.turn,
+        t: args.tick,
+      }),
+    };
+  }
+
+  const survival = applyBerserkerHostileDamage(
+    next,
+    args.player,
+    hpBefore - barrier.hpBoundDamage,
+    args.turn,
+  );
+  next = survival.state;
+  if (survival.triggered && next.berserker) {
+    next = {
+      ...next,
+      berserker: finishBerserkerCurrentActionGuard(next.berserker),
+    };
+  }
+  const enduranceFires =
+    next.playerHp <= 0 &&
+    !!args.player.enduranceActive &&
+    !next.flags.enduranceTriggered;
+  if (enduranceFires) {
+    next = {
+      ...next,
+      playerHp: 1,
+      flags: { ...next.flags, enduranceTriggered: true },
+      log: appendLog(next.log, {
+        kind: "info",
+        text: `[불굴] 마지막 한 숨 — HP 1 로 버텼다!`,
+        turn: args.turn,
+        t: args.tick,
+      }),
+    };
+  }
+
+  const actualDamage = Math.max(0, hpBefore - Math.max(0, next.playerHp));
+  const damageLog = next.log[damageLogIndex];
+  if (damageLog?.text === `${args.label} ${barrier.hpBoundDamage}`) {
+    next = {
+      ...next,
+      log: [
+        ...next.log.slice(0, damageLogIndex),
+        { ...damageLog, text: `${args.label} ${actualDamage}` },
+        ...next.log.slice(damageLogIndex + 1),
+      ],
+    };
+  }
+  if (next.stacks.tier7?.ruinCharge && actualDamage > 0) {
+    next = {
+      ...next,
+      stacks: {
+        ...next.stacks,
+        tier7: {
+          ...next.stacks.tier7,
+          ruinCharge: {
+            ...recordChargeHpLoss(
+              next.stacks.tier7.ruinCharge,
+              actualDamage,
+            ),
+            deathBypassTriggered:
+              next.stacks.tier7.ruinCharge.deathBypassTriggered ||
+              survival.triggered,
+          },
+        },
+      },
+    };
+  }
+  const currentMechanic = next.bossMechanic;
+  if (currentMechanic?.kind === "toxic_blood_lord") {
+    next = {
+      ...next,
+      bossMechanic: {
+        ...currentMechanic,
+        toxicDamageTaken: currentMechanic.toxicDamageTaken + actualDamage,
+      },
+    };
+  }
+  if (next.playerHp > 0) return next;
+  return {
+    ...next,
+    playerHp: 0,
+    log: appendLog(next.log, {
+      kind: "info",
+      text: `플레이어가 쓰러졌다.`,
+      turn: args.turn,
+      t: args.tick,
+    }),
+    phase: "ended",
+    outcome: "lose",
+  };
+}
+
+function settleToxicBloodAfterEnemyAction(args: {
+  state: BattleState;
+  player: PlayerCombat;
+  logStart: number;
+  tick: number;
+}): BattleState {
+  const mechanic = args.state.bossMechanic;
+  if (!mechanic || mechanic.kind !== "toxic_blood_lord") return args.state;
+  if (args.state.playerHp <= 0 || args.state.enemyHp <= 0) return args.state;
+
+  const attacks = args.state.log.slice(args.logStart);
+  const hpDamage = attacks.reduce(
+    (sum, entry) =>
+      entry.kind === "enemy_attack"
+        ? sum + Math.max(0, entry.enemyHpDamage ?? 0)
+        : sum,
+    0,
+  );
+  if (hpDamage <= 0) return args.state;
+
+  const gain = attacks.some(
+    (entry) =>
+      entry.kind === "enemy_attack" && entry.heavyBlowFired === true,
+  )
+    ? 2
+    : 1;
+  const resolution = resolveToxicBloodGain({
+    current: mechanic.toxicBloodStacks,
+    gain,
+  });
+  const displayStacks = resolution.exploded
+    ? TOXIC_BLOOD_MAX_STACKS
+    : resolution.stacks;
+  let state: BattleState = {
+    ...args.state,
+    bossMechanic: {
+      ...mechanic,
+      toxicBloodStacks: resolution.stacks,
+      toxicExplosionCount:
+        mechanic.toxicExplosionCount + (resolution.exploded ? 1 : 0),
+    },
+  };
+  state = appendToxicBloodLog(
+    state,
+    `[독혈] +${gain} · 현재 ${displayStacks}/${TOXIC_BLOOD_MAX_STACKS}`,
+    "enemy",
+    args.tick,
+  );
+  if (
+    mechanic.toxicBloodStacks < 7 &&
+    displayStacks >= 7 &&
+    !resolution.exploded
+  ) {
+    state = appendToxicBloodLog(
+      state,
+      "[독혈] 폭발 임박",
+      "enemy",
+      args.tick,
+    );
+  }
+  if (!resolution.exploded) return state;
+
+  state = applyToxicBloodStatusDamage({
+    state,
+    player: args.player,
+    rawDamage: toxicBloodRawExplosionDamage(state.playerMaxHp),
+    label: "[독혈 폭발] 최대 체력 비례 피해",
+    turn: "enemy",
+    tick: args.tick,
+  });
+  if (state.playerHp <= 0) return state;
+  const survivedMechanic = state.bossMechanic;
+  if (survivedMechanic?.kind !== "toxic_blood_lord") return state;
+  state = {
+    ...state,
+    bossMechanic: {
+      ...survivedMechanic,
+      toxicRecoveryLockActions: TOXIC_RECOVERY_LOCK_ACTIONS,
+    },
+  };
+  return appendToxicBloodLog(
+    state,
+    `[회복 억제] 받는 회복량 -50% · ${TOXIC_RECOVERY_LOCK_ACTIONS}회 행동`,
+    "enemy",
+    args.tick,
+  );
+}
+
+function tickToxicBloodOnPlayerAction(
+  state: BattleState,
+  player: PlayerCombat,
+  tick: number,
+): BattleState {
+  const mechanic = state.bossMechanic;
+  if (!mechanic || mechanic.kind !== "toxic_blood_lord") return state;
+  const rawDamage = toxicBloodRawDotDamage(
+    state.playerMaxHp,
+    mechanic.toxicBloodStacks,
+  );
+  if (rawDamage <= 0) return state;
+  return applyToxicBloodStatusDamage({
+    state,
+    player,
+    rawDamage,
+    label: `[독혈 ${mechanic.toxicBloodStacks}중첩] 지속 피해`,
+    turn: "player",
+    tick,
+  });
+}
+
+function consumeToxicRecoveryAfterPlayerAction(
+  state: BattleState,
+  actionsAtStart: number,
+  tick: number,
+): BattleState {
+  const mechanic = state.bossMechanic;
+  if (
+    !mechanic ||
+    mechanic.kind !== "toxic_blood_lord" ||
+    actionsAtStart <= 0
+  ) {
+    return state;
+  }
+  const nextActions = consumeToxicRecoveryAction(actionsAtStart);
+  let next: BattleState = {
+    ...state,
+    bossMechanic: {
+      ...mechanic,
+      toxicRecoveryLockActions: nextActions,
+    },
+  };
+  if (nextActions === 0) {
+    next = appendToxicBloodLog(
+      next,
+      "[회복 억제] 해제",
+      "player",
+      tick,
+    );
+  }
+  return next;
+}
+
+function playerWithToxicRecoveryMultiplier(
+  state: BattleState,
+  player: PlayerCombat,
+): PlayerCombat {
+  const mechanic = state.bossMechanic;
+  if (!mechanic || mechanic.kind !== "toxic_blood_lord") return player;
+  const toxicMultiplier = toxicBloodRecoveryMultiplier({
+    stacks: mechanic.toxicBloodStacks,
+    recoveryLockActions: mechanic.toxicRecoveryLockActions,
+  });
+  if (toxicMultiplier === 1) return player;
+  return {
+    ...player,
+    receivedHealMult: (player.receivedHealMult ?? 1) * toxicMultiplier,
   };
 }
 
@@ -317,7 +1034,10 @@ export function tickPlayerDotsOnAction(
 }
 
 // 적 행동 시작 — 적에게 걸린 DoT 가 먼저 틱한다. 로그는 적 행동 묶음(tick)에 붙인다.
-function tickEnemyDotsOnAction(state: BattleState): BattleState {
+function tickEnemyDotsOnAction(
+  state: BattleState,
+  player: PlayerCombat,
+): BattleState {
   const bleedBeforeTick = state.enemyV2Dots.find(
     (dot) => dot.tag === "bleed" && dot.turns > 0,
   );
@@ -362,10 +1082,14 @@ function tickEnemyDotsOnAction(state: BattleState): BattleState {
           return sum + Math.max(0, mechanic?.bleedTickHealMaxHpPct ?? 0);
         }, 0)
       : 0;
-  const bleedTickHeal =
+  const bleedTickHealRaw =
     actualBleedDamage > 0 && bleedTickHealPct > 0
       ? Math.floor((state.playerMaxHp * bleedTickHealPct) / 100)
       : 0;
+  const bleedTickHeal = healingAfterReceivedMultiplier(
+    bleedTickHealRaw,
+    player.receivedHealMult,
+  );
   const nextPlayerHp = Math.min(
     state.playerMaxHp,
     state.playerHp + bleedTickHeal,
@@ -444,6 +1168,42 @@ export function resolveBattleAtb(
     ctx.initialEnemyHp,
   );
   state = { ...state, usesAtb: true };
+  if (ctx.bossMechanic?.kind === "tracking_weapon") {
+    state = {
+      ...state,
+      bossMechanic: {
+        kind: "tracking_weapon",
+        trackingThreat: accumulateTrackingThreat({
+          current: 0,
+          gain: ctx.bossMechanic.initialThreat,
+        }),
+        trackingCounterCount: 0,
+        trackingCounterDamage: 0,
+      },
+    };
+  } else if (ctx.bossMechanic?.kind === "toxic_blood_lord") {
+    state = {
+      ...state,
+      bossMechanic: {
+        kind: "toxic_blood_lord",
+        toxicBloodStacks: 0,
+        toxicRecoveryLockActions: 0,
+        toxicExplosionCount: 0,
+        toxicDamageTaken: 0,
+      },
+    };
+  } else if (ctx.bossMechanic?.kind === "glacial_colossus") {
+    state = {
+      ...state,
+      bossMechanic: {
+        kind: "glacial_colossus",
+        glacialChillStacks: 0,
+        glacialFreezePending: 0,
+        glacialFreezeCount: 0,
+        glacialSkippedActionCount: 0,
+      },
+    };
+  }
   if (ctx.isBoss) state = { ...state, isBoss: true };
   if (ctx.maxHpDamageMult != null) {
     state = {
@@ -487,6 +1247,19 @@ export function resolveBattleAtb(
     const actor = nextActor1v1(playerNextTick, enemyNextTick);
     actions += 1;
     if (actor === "player") {
+      if (
+        state.bossMechanic?.kind === "glacial_colossus" &&
+        state.bossMechanic.glacialFreezePending === 1
+      ) {
+        state = consumeGlacialFrozenPlayerAction(state, nextTick);
+        playerNextTick =
+          nextTick + actionInterval(effectivePlayerSpd(atbPlayer, state));
+        state = {
+          ...state,
+          log: appendLog(state.log, hpBarEntry(state, nextTick)),
+        };
+        continue;
+      }
       state = {
         ...state,
         phase: "player",
@@ -496,9 +1269,21 @@ export function resolveBattleAtb(
             : state.playerAttacksLeft,
       };
       const playerBundleStart = state.log.length;
+      const playerEnemyHpBefore = state.enemyHp;
+      const toxicRecoveryActionsAtStart =
+        state.bossMechanic?.kind === "toxic_blood_lord"
+          ? state.bossMechanic.toxicRecoveryLockActions
+          : 0;
+      state = tickToxicBloodOnPlayerAction(state, atbPlayer, nextTick);
+      state = tagNewLogEntries(state, playerBundleStart, "player", nextTick);
+      if (state.phase === "ended") {
+        turns += 1;
+        break;
+      }
+      const actionPlayer = playerWithToxicRecoveryMultiplier(state, atbPlayer);
       state = tickPlayerDotsOnAction(
         state,
-        atbPlayer,
+        actionPlayer,
         playerName,
       );
       state = tagNewLogEntries(state, playerBundleStart, "player", nextTick);
@@ -506,7 +1291,7 @@ export function resolveBattleAtb(
         turns += 1;
         break;
       }
-      state = applyEvasionActionRecoveryPvE(state, atbPlayer, playerName);
+      state = applyEvasionActionRecoveryPvE(state, actionPlayer, playerName);
       state = tickPlayerBundleEntry(state);
       // 번들 진입 로그가 t 없이 남으면 최종 hp_bar 만 t 를 가져 외톨이 박스가 생긴다.
       // 여기서 같은 nextTick 으로 채워 같은 윈도우에 묶음.
@@ -521,7 +1306,7 @@ export function resolveBattleAtb(
         let castFired = false;
         if (V2_ATB_SKILLS || ctx.forceAtbSkills) {
           const prevLogLen = state.log.length;
-          const cast = applyPlayerV2SkillCast(state, atbPlayer, {
+          const cast = applyPlayerV2SkillCast(state, actionPlayer, {
             selfBuffs: state.v2SelfBuffs,
             selfDebuffs: state.v2SelfDebuffs,
             enemyDebuffs: state.enemyV2Debuffs,
@@ -569,7 +1354,7 @@ export function resolveBattleAtb(
                 fatedChainTriggeredThisTurn: false,
               },
             };
-            state = finishPlayerTurn(ended, atbPlayer, playerName);
+            state = finishPlayerTurn(ended, actionPlayer, playerName);
             if (cast.signatureExtraActions > 0) {
               // 스킬 적중으로 발생한 보너스 행동은 같은 ATB 시점에서 즉시 평타 행동으로
               // 처리한다. 아래 공용 평타 루프를 열기 위해 castFired 를 해제한다.
@@ -603,13 +1388,26 @@ export function resolveBattleAtb(
           }
           while (state.phase === "player") {
             const prevLogLen = state.log.length;
-            state = resolvePlayerPhase(state, atbPlayer, playerName, action);
+            state = resolvePlayerPhase(state, actionPlayer, playerName, action);
             state = tagNewLogEntries(state, prevLogLen, "player", nextTick);
             action = { kind: "attack" };
             if (state.phase === "ended") break;
           }
         }
       }
+      state = settleTrackingAfterPlayerAction({
+        state,
+        player: atbPlayer,
+        playerName,
+        enemyHpBefore: playerEnemyHpBefore,
+        logStart: playerBundleStart,
+        tick: nextTick,
+      });
+      state = consumeToxicRecoveryAfterPlayerAction(
+        state,
+        toxicRecoveryActionsAtStart,
+        nextTick,
+      );
       // 바람 — 이번 행동 후 내 다음 행동 틱을 가속(pct% 만큼 단축). 미시전이면 0 → 무변.
       const duelistHaste = consumeDuelistCritHaste(
         actionInterval(effectivePlayerSpd(atbPlayer, state)) *
@@ -630,9 +1428,22 @@ export function resolveBattleAtb(
         },
       };
       const enemyBundleStart = state.log.length;
-      state = tickEnemyDotsOnAction(state);
+      const enemyHpBeforeAction = state.enemyHp;
+      const glacialStacksBeforeAction =
+        state.bossMechanic?.kind === "glacial_colossus"
+          ? state.bossMechanic.glacialChillStacks
+          : 0;
+      const enemyTargetPlayer = playerWithToxicRecoveryMultiplier(
+        state,
+        atbPlayer,
+      );
+      state = tickEnemyDotsOnAction(state, enemyTargetPlayer);
       state = tagNewLogEntries(state, enemyBundleStart, "enemy", nextTick);
       if (state.phase === "ended") {
+        state = accumulateTrackingFromEnemyAction(
+          state,
+          enemyHpBeforeAction,
+        );
         break;
       }
       state = tickEnemyBundleEntry(state);
@@ -684,7 +1495,7 @@ export function resolveBattleAtb(
         let enemyCastFired = false;
         if (V2_ATB_SKILLS || ctx.forceAtbSkills) {
           const prevLogLen = state.log.length;
-          const cast = applyEnemyV2SkillCast(state, atbPlayer);
+          const cast = applyEnemyV2SkillCast(state, enemyTargetPlayer);
           state = cast.state;
           enemyCastFired = cast.castFired;
           state = tagNewLogEntries(state, prevLogLen, "enemy", nextTick);
@@ -694,7 +1505,13 @@ export function resolveBattleAtb(
           // 시전 = 이 틱의 적 행동. 평타 루프 대신 skipBasicAttack=true 로 한기 틱·페이즈 전환만
           //   (skip 분기가 자체 finishEnemyAttack → 평타 한 번도 안 굴림, 더블어택 방지).
           const prevLogLen = state.log.length;
-          state = resolveEnemyPhase(state, atbPlayer, playerName, true, true);
+          state = resolveEnemyPhase(
+            state,
+            enemyTargetPlayer,
+            playerName,
+            true,
+            true,
+          );
           state = tagNewLogEntries(state, prevLogLen, "enemy", nextTick);
         } else if (!enemyCastFired) {
           let enteringEnemyPhase = true;
@@ -702,7 +1519,7 @@ export function resolveBattleAtb(
             const prevLogLen = state.log.length;
             state = resolveEnemyPhase(
               state,
-              atbPlayer,
+              enemyTargetPlayer,
               playerName,
               enteringEnemyPhase,
             );
@@ -734,6 +1551,23 @@ export function resolveBattleAtb(
           },
         };
       }
+      state = accumulateTrackingFromEnemyAction(state, enemyHpBeforeAction);
+      state = settleToxicBloodAfterEnemyAction({
+        state,
+        player: atbPlayer,
+        logStart: enemyBundleStart,
+        tick: nextTick,
+      });
+      const glacialSettlement = settleGlacialChillAfterEnemyAction({
+        state,
+        player: atbPlayer,
+        logStart: enemyBundleStart,
+        previousStacks: glacialStacksBeforeAction,
+        currentTick: nextTick,
+        playerNextTick,
+      });
+      state = glacialSettlement.state;
+      playerNextTick = glacialSettlement.playerNextTick;
       enemyNextTick += actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));
     }
 

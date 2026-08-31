@@ -54,11 +54,16 @@ import {
 } from "@/adventure/v2/stamina";
 import {
   V2_CORE_LOOP_V2,
+  V2_UNEXPLORED,
   HUNT_COOLDOWN_MODE,
   HUNT_COOLDOWN_MS,
   V2_EQUIPMENT_LIBERATION,
   combatCooldownRemainingMs,
 } from "@/adventure/data/v2/coreLoopConfig";
+import { parseUnexploredSave } from "@/adventure/data/v2/unexploredState";
+import {
+  grantExplorationXp,
+} from "@/adventure/data/v2/unexploredProgression";
 import {
   EMPTY_LIBERATION_HUNT_SNAPSHOT,
   deriveLiberationHuntSnapshot,
@@ -100,6 +105,17 @@ import {
 import { referralHuntTaskIds } from "@/adventure/data/v2/referralTutorial";
 import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
 import { rollHuntDropsRepeated } from "./huntDrops";
+import {
+  buildUnexploredRewardPlan,
+  rollUnexploredHuntRewards,
+  type UnexploredHuntRewardResult,
+} from "@/adventure/data/v2/unexploredHuntRewards";
+import {
+  applyUnexploredHuntProgress,
+  mintUnexploredRewardEquipment,
+  prepareUnexploredHunt,
+  type PreparedUnexploredHunt,
+} from "@/lib/server/unexploredHunt";
 import { computeLossTax } from "./huntTax";
 import {
   applyLiberationPostHuntRestore,
@@ -129,7 +145,10 @@ import {
   authoritativeTileOutpostId,
   type HuntCharacterSave as CharSave,
 } from "./huntCharacter";
-import { parseHuntRequestIntent } from "./huntRequestIntent";
+import {
+  HUNT_DROP_FLOOR_CAP,
+  parseHuntRequestIntent,
+} from "./huntRequestIntent";
 import {
   flushHuntSaves,
   preloadHuntSaves,
@@ -204,6 +223,7 @@ export type RunOneHuntCtx = {
   tileOutpostId?: string | null;
   // 레어맵 입장 — 보유 지도 iid. 검증(소유·깊이 일치·잔여 판수)은 save lock 후.
   rareMapIid: string | null;
+  mode?: "normal" | "unexplored";
   // 전투 전·후 HP 충전약이 채울 목표 체력 비율. 미지정은 기존 동작인 100%.
   hpPotionTargetPct?: number;
   // 전투 후 MP 충전약이 채울 목표 마나 비율. 미지정은 기존 동작인 100%.
@@ -231,12 +251,17 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   const {
     tx,
     userId,
-    depth,
-    dropFloor,
+    depth: requestedDepth,
+    dropFloor: requestedDropFloor,
     outpostId,
     tileOutpostId: lockedTileOutpostId,
     rareMapIid,
   } = ctx;
+  const unexploredMode = ctx.mode === "unexplored";
+  let depth = requestedDepth;
+  const dropFloor = unexploredMode
+    ? HUNT_DROP_FLOOR_CAP
+    : requestedDropFloor;
   // === 1. outpost 점령 조회 (FOR SHARE) ===
   // v2 의 lock 순서 통일: outpost FOR SHARE → getGuildId → character.v2.
   // FOR SHARE 로 정책 게이트를 일관된 스냅샷에서 평가한다. 점령자가 hunt 도중 정책을
@@ -245,8 +270,8 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   const occupationById =
     ctx.batchState?.occupationById ?? new Map<string, OccupationRow>();
   const locationIds = normalizedHuntLocationIds(
-    outpostId,
-    lockedTileOutpostId ?? null,
+    unexploredMode ? null : outpostId,
+    unexploredMode ? null : (lockedTileOutpostId ?? null),
   );
   // 후보가 둘(카탈로그 거점+자유 타일)이어도 id 정렬 순으로 잠가 동시 사냥 간 교착을 막는다.
   if (!ctx.batchState?.occupationById && locationIds.length > 0) {
@@ -294,7 +319,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   }
 
   // === 3. 정책 게이트 — 거부 시 즉시 403, stamina 차감/character.v2 lock 전. ===
-  if (occRow) {
+  if (!unexploredMode && occRow) {
     const decision = evaluateOutpostEntry({
       policy: occRow.policy,
       occupiedByGuildId: occRow.occupiedByGuildId,
@@ -322,7 +347,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   // 위치를 미리 읽은 뒤 outpost 행을 먼저 잠그는 동안 이동 요청이 끼어들 수 있다.
   // character 행 잠금까지 얻은 시점에 같은 위치인지 재검증해, 다른 거점의 입장 정책으로
   // 사냥이 커밋되는 TOCTOU를 차단한다. undefined는 내부 오프라인 정산의 기존 경로다.
-  if (lockedTileOutpostId !== undefined) {
+  if (!unexploredMode && lockedTileOutpostId !== undefined) {
     const currentOutpostId = authoritativeCatalogOutpostId(charSave);
     const currentTileOutpostId = authoritativeTileOutpostId(charSave);
     if (
@@ -342,6 +367,20 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
 
   if (ctx.batchState) {
     await preloadHuntSaves(tx, userId, ctx.batchState);
+  }
+
+  let unexploredHunt: PreparedUnexploredHunt | null = null;
+  if (unexploredMode) {
+    const prepared = prepareUnexploredHunt(charSave, Math.random);
+    if (!prepared.ok) {
+      return {
+        ok: false as const,
+        status: 409,
+        body: { ok: false as const, error: prepared.error },
+      };
+    }
+    unexploredHunt = prepared;
+    depth = prepared.difficulty;
   }
 
   // equipment.v2 조기 잠금 (드랍/굴림 한 번에 기록). lock 순서 char→equipment.
@@ -372,7 +411,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     2,
     Math.floor(Number(charSave.frontierDepth) || 2),
   );
-  if (!rareMapIid && !isHuntStageDepth(depth)) {
+  if (!unexploredMode && !rareMapIid && !isHuntStageDepth(depth)) {
     return {
       ok: false as const,
       status: 400,
@@ -384,7 +423,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     };
   }
   // 프론티어 끝 게이트 — 마지막 테마(MAX_FRONTIER_DEPTH) 너머는 콘텐츠 없음(새 테마 추가 전까지).
-  if (depth > MAX_FRONTIER_DEPTH) {
+  if (!unexploredMode && depth > MAX_FRONTIER_DEPTH) {
     return {
       ok: false as const,
       status: 403,
@@ -401,7 +440,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   const depthLocked = rareMapIid
     ? depth > frontierDepth + 1
     : depth > frontierDepth && depth !== nextStageDepth;
-  if (depthLocked) {
+  if (!unexploredMode && depthLocked) {
     return {
       ok: false as const,
       status: 403,
@@ -527,54 +566,61 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   }
   const { player, skills: v2Skills, proficiencyRaw } = preparedActor;
 
-  // 적 — 깊이 풀에서 랜덤 픽 후 깊이 스케일(이름·초상화는 사냥터 고유 값으로 덮어씀).
-  //   spread 로 새 객체를 만들어 V2_MONSTERS 카탈로그 원본을 mutate 하지 않는다.
-  const enemy = pickRandomEnemy(enemiesForDepth(depth));
-  if (!enemy) {
-    return {
-      ok: false as const,
-      status: 400,
-      body: {
+  // 적 선택만 모드화한다. 일반 사냥은 기존 깊이 카탈로그와 스케일을 그대로 쓰고,
+  // 미개척지는 잠긴 character.v2의 탐사 노드에서 이미 확정한 한 개체를 사용한다.
+  let enemyKey: string;
+  let enemyName: string;
+  let enemyMonster: import("@/adventure/data/monsters/types").Monster;
+  if (unexploredHunt) {
+    enemyKey = unexploredHunt.runtime.monsterId;
+    enemyName = unexploredHunt.runtime.monster.name;
+    enemyMonster = unexploredHunt.runtime.monster;
+  } else {
+    const enemy = pickRandomEnemy(enemiesForDepth(depth));
+    if (!enemy) {
+      return {
         ok: false as const,
-        error: "empty_floor" as const,
-        stamina: afterStamina,
-      },
+        status: 400,
+        body: {
+          ok: false as const,
+          error: "empty_floor" as const,
+          stamina: afterStamina,
+        },
+      };
+    }
+    const baseMonster = V2_MONSTERS[enemy.key];
+    if (!baseMonster) {
+      return {
+        ok: false as const,
+        status: 500,
+        body: {
+          ok: false as const,
+          error: "monster_not_found" as const,
+          stamina: afterStamina,
+        },
+      };
+    }
+    enemyKey = enemy.key;
+    enemyName = enemy.name;
+    const scaledEnemy = scaleMonsterForHunt(baseMonster, depth);
+    const seededMonsterSkills = [enemy.statusSkill, enemy.castSkill].filter(
+      (skill): skill is NonNullable<typeof skill> => skill != null,
+    );
+    enemyMonster = {
+      ...scaledEnemy,
+      name: enemyName,
+      image: enemy.image ?? baseMonster.image,
+      element: "neutral",
+      ...(seededMonsterSkills.length
+        ? {
+            v2Skills: {
+              learned: seededMonsterSkills,
+              equipped: seededMonsterSkills,
+            },
+          }
+        : {}),
     };
   }
-  const baseMonster = V2_MONSTERS[enemy.key];
-  if (!baseMonster) {
-    return {
-      ok: false as const,
-      status: 500,
-      body: {
-        ok: false as const,
-        error: "monster_not_found" as const,
-        stamina: afterStamina,
-      },
-    };
-  }
-  const enemyName: string = enemy.name;
-  const scaledEnemy = scaleMonsterForHunt(baseMonster, depth);
-  // PR-9 + 마법몹 시전 — 사냥터 몹 v2 스킬 시드. statusSkill(DoT/디버프) + castSkill(마법 단일딜)을
-  //   병합해 equipped 에 둔다(둘 다 monsterOnly·mpCost 0). 엔진 적 페이즈가 슬롯순+쿨다운+procChance 로
-  //   자동 시전(시전 턴 평타 생략). 둘 다 없으면 v2Skills 미시드(byte-identical). v2 전용(라이브 Monster 무수정).
-  const seededMonsterSkills = [enemy.statusSkill, enemy.castSkill].filter(
-    (s): s is NonNullable<typeof s> => s != null,
-  );
-  const enemyMonster: import("@/adventure/data/monsters/types").Monster = {
-    ...scaledEnemy,
-    name: enemyName,
-    image: enemy.image ?? baseMonster.image,
-    element: "neutral",
-    ...(seededMonsterSkills.length
-      ? {
-          v2Skills: {
-            learned: seededMonsterSkills,
-            equipped: seededMonsterSkills,
-          },
-        }
-      : {}),
-  };
   // 전투 로그에 박을 캐릭 이름 — character-profile.v2 의 name. 없으면 "모험가".
   let playerName = ctx.batchState?.playerName;
   if (playerName === undefined) {
@@ -755,7 +801,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   const goldBeforeFood = hotTime.active ? applyPctBonus(goldAfterGuild, hotTime.bonuses.goldPct) : goldAfterGuild;
   const foodGoldPct = foodBuff?.effect.huntGoldPct ?? 0;
   const goldGrossPerRoll = foodBuff && foodGoldPct > 0 ? applyPctBonus(goldBeforeFood, foodGoldPct) : goldBeforeFood;
-  const goldGross = multiplyHuntReward(goldGrossPerRoll, rewardRolls);
+  let goldGross = multiplyHuntReward(goldGrossPerRoll, rewardRolls);
   const hotTimeExpBonus = multiplyHuntReward(
     bonusDelta(expAfterGuild, expBeforeDining),
     rewardRolls,
@@ -774,16 +820,11 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   );
   // 드랍 굴림 — 승리 시 재료/강화석/소환서/재련석/정착지 재료 + 정규/유니크 장비를 한 번에
   //   굴린다(순수 RNG 헬퍼·huntDrops). 영속(materials merge·equipment.v2 기록)은 아래 라우트가.
-  const {
-    drops,
-    droppedEquipments,
-    droppedUniques,
-    nextOwned,
-  } = rollHuntDropsRepeated({
+  const commonDropResult = rollHuntDropsRepeated({
     won,
     dropFloor,
-    depth,
-    monsterKey: enemy.key,
+    depth: unexploredHunt ? MAX_FRONTIER_DEPTH : depth,
+    monsterKey: enemyKey,
     ownedEquip,
     mapDropMult,
     mapUniqueMult,
@@ -791,6 +832,44 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     liberationHuntEffects: liberationSnapshot.effects,
     rewardRolls,
   });
+  let drops = commonDropResult.drops;
+  let droppedEquipments = commonDropResult.droppedEquipments;
+  let droppedUniques = commonDropResult.droppedUniques;
+  let nextOwned = commonDropResult.nextOwned;
+  let unexploredRewards: UnexploredHuntRewardResult | null = null;
+  let unexploredQualityBonusPct = 0;
+  if (won && unexploredHunt) {
+    const rewardPlan = buildUnexploredRewardPlan(
+      unexploredHunt.runtime,
+      unexploredHunt.effects,
+    );
+    unexploredQualityBonusPct = rewardPlan.commonBonusPct.quality;
+    unexploredRewards = rollUnexploredHuntRewards(rewardPlan, Math.random, {
+      common: {
+        gold: goldGross,
+        drops,
+        droppedEquipments,
+        droppedUniques,
+      },
+      existingTraces: unexploredHunt.save.traces,
+    });
+    goldGross = unexploredRewards.gold;
+    drops = unexploredRewards.drops;
+    droppedEquipments = unexploredRewards.droppedEquipments;
+    droppedUniques = unexploredRewards.droppedUniques;
+    // 공용 굴림이 만든 미저장 개체 대신 최종 보상 ID만 새로 발급한다. 감산형 노드로
+    // 제거된 장비는 저장되지 않고, 추가 굴림 복사본은 서로 다른 iid/옵션을 갖는다.
+    nextOwned = [
+      ...ownedEquip,
+      ...[...droppedEquipments, ...droppedUniques].map((id) =>
+        mintUnexploredRewardEquipment(
+          id,
+          unexploredQualityBonusPct,
+          Math.random,
+        ),
+      ),
+    ];
+  }
   // 구버전 단판 응답 소비자 호환. 압축 결과 전체는 아래 plural 필드로 함께 보낸다.
   const droppedEquipment = droppedEquipments[0] ?? null;
   const droppedUnique = droppedUniques[0] ?? null;
@@ -836,6 +915,30 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
 
   const curExp = Math.max(0, charSave.exp ?? 0);
   const expResult = applyExpGain(curLevel, curExp, expGained, levelCap);
+  const explorationGrant =
+    V2_UNEXPLORED && won && expResult.level >= 100
+      ? unexploredHunt
+        ? (() => {
+            const progress = applyUnexploredHuntProgress({
+              rawSave: charSave.unexplored,
+              won,
+              specialMonsterKilled:
+                unexploredHunt.runtime.kind === "special",
+              overflowExp: expResult.overflowExp,
+              traces:
+                unexploredRewards?.traces ?? unexploredHunt.save.traces,
+            });
+            return {
+              save: progress.save,
+              acceptedXp: progress.xpGained,
+              pointsGained: progress.pointsGained,
+            };
+          })()
+        : grantExplorationXp(
+            parseUnexploredSave(charSave.unexplored),
+            expResult.overflowExp,
+          )
+      : null;
 
   const newGold = Math.max(0, (charSave.gold ?? 0) + goldNet - lossTax);
 
@@ -887,7 +990,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   // 침입자 트래킹 — 사냥 성공 시 lastHuntedOutpost 갱신 (outpost 사냥에 한해).
   // 패배해도 거점에서 사냥 시도는 한 셈이라 트래킹. 미점령 거점도 트래킹 X 의미 없으므로
   // outpostId 가 있을 때만.
-  const nextLastHunted: LastHuntedOutpost | undefined = outpostId
+  const nextLastHunted: LastHuntedOutpost | undefined = !unexploredMode && outpostId
     ? { outpostId, at: now }
     : undefined;
 
@@ -902,15 +1005,22 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   // === 레어맵 갱신 — 입장 중이면 판수 차감(승패 무관), 아니면 신규 드랍 롤(순수 헬퍼·huntRareMaps). ===
   // ⚠️ 반드시 next 빌드 전에 적용 — character.v2 저장(아래 upsertSave)에 rareMaps 가
   //   포함되므로. 과거엔 이 블록이 save 뒤에 있어 판수 차감·신규 드랍이 영속되지 않았다.
-  const rareMapUpdate = updateRareMaps({
-    activeRareMap,
-    rareMaps,
-    won,
-    depth,
-    now,
-    rareMapDropChanceMult:
-      1 + liberationSnapshot.effects.rareMapAndSummonScrollDropPct / 100,
-  });
+  const rareMapUpdate = unexploredMode
+    ? {
+        rareMaps,
+        rareMapDrop: null,
+        rareMapDropInstance: null,
+        rareMapRunsLeft: null,
+      }
+    : updateRareMaps({
+        activeRareMap,
+        rareMaps,
+        won,
+        depth,
+        now,
+        rareMapDropChanceMult:
+          1 + liberationSnapshot.effects.rareMapAndSummonScrollDropPct / 100,
+      });
   rareMaps = rareMapUpdate.rareMaps;
   const rareMapDrop = rareMapUpdate.rareMapDrop;
   const rareMapDropInstance = rareMapUpdate.rareMapDropInstance;
@@ -924,6 +1034,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     hpRegenSince: now,
     level: expResult.level,
     exp: expResult.exp,
+    ...(explorationGrant ? { unexplored: explorationGrant.save } : {}),
     gold: newGold,
     materials: nextMaterials,
     rareMaps,
@@ -934,10 +1045,12 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       : {}),
     // 프론티어 수동 푸시 — 최고도달+1 깊이를 이기면 해금(+1). 패배·기존깊이면 유지. MAX 캡으로
     //   정규화(레거시 무한기 >42 저장값도 현재 콘텐츠 끝 42 로 수렴 → 새 테마 추가 시 그 지점부터 재공략).
-    frontierDepth: Math.min(
-      MAX_FRONTIER_DEPTH,
-      won && depth > frontierDepth ? depth : frontierDepth,
-    ),
+    frontierDepth: unexploredMode
+      ? Math.min(frontierDepth, MAX_FRONTIER_DEPTH)
+      : Math.min(
+          MAX_FRONTIER_DEPTH,
+          won && depth > frontierDepth ? depth : frontierDepth,
+        ),
     // outpost 사냥 → 트래킹 업데이트. 미점령 거점 또는 outpostId 없는 hunt 면 기존값 유지.
     ...(nextLastHunted ? { lastHuntedOutpost: nextLastHunted } : {}),
     // 사냥 쿨다운 시각 — 코어루프면 기록(off 면 키 불변). 토벌은 자기 영지 방어라
@@ -947,7 +1060,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     // 코어루프 패배 페널티 카운터 — 승리 누적/패배 리셋(off 면 키 불변). 스태미나 모드에도 유지.
     ...(V2_CORE_LOOP_V2 ? { atRiskGold: nextAtRisk } : {}),
     // 오프라인 정산 farm 깊이 — 쿨다운 모드의 정상 사냥(레어맵 아님)만 기록(스태미나 모드는 오프라인 폐지).
-    ...(HUNT_COOLDOWN_MODE && !ctx.offline && !rareMapIid
+    ...(HUNT_COOLDOWN_MODE && !ctx.offline && !rareMapIid && !unexploredMode
       ? { lastHuntDepth: depth }
       : {}),
   };
@@ -1036,7 +1149,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   if (won) {
     codexMasteryEvents.push({
       category: "monster",
-      entryId: enemy.key,
+      entryId: enemyKey,
       amount: 1,
       source: "hunt.victory",
     });
@@ -1064,7 +1177,12 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   }
 
   // 코어루프 패배 페널티는 순수 소실이다. 보유 골드에서 이미 차감됐고, 세금처럼 금고에 쌓지 않는다.
-  if (won && !ctx.offline && !ctx.batchState?.deferGuildExploration) {
+  if (
+    won &&
+    !unexploredMode &&
+    !ctx.offline &&
+    !ctx.batchState?.deferGuildExploration
+  ) {
     await incrementGuildExplorationProgressForUser(
       tx,
       userId,
@@ -1091,10 +1209,12 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       stamina: afterStamina,
       result: {
         floor: depth, // 깊이(클라 호환 키)
-        maxDepth: Math.min(
-          MAX_FRONTIER_DEPTH,
-          won && depth > frontierDepth ? depth : frontierDepth,
-        ), // 최고 도달(MAX 캡으로 정규화)
+        maxDepth: unexploredMode
+          ? Math.min(frontierDepth, MAX_FRONTIER_DEPTH)
+          : Math.min(
+              MAX_FRONTIER_DEPTH,
+              won && depth > frontierDepth ? depth : frontierDepth,
+            ), // 최고 도달(MAX 캡으로 정규화)
         enemyName,
         won,
         referralRewardEarned,
@@ -1132,6 +1252,16 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
           ? { lossTax, atRiskGold: nextAtRisk, spMilestonesGained }
           : {}),
         levelsGained: expResult.levelsGained,
+        ...(explorationGrant
+          ? {
+              exploration: {
+                xpGained: explorationGrant.acceptedXp,
+                xpAfter: explorationGrant.save.explorationXp,
+                xpPoints: explorationGrant.save.xpPoints,
+                pointsGained: explorationGrant.pointsGained,
+              },
+            }
+          : {}),
         statGains, // 레벨업 랜덤 성장으로 오른 1차 스탯 ({} = 레벨업 없음).
         hpGain, // 레벨업으로 오른 maxHp (레벨 고정분 + VIT).
         mpGain, // 레벨업으로 오른 maxMp (레벨 고정분 + INT).
@@ -1154,6 +1284,23 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         droppedUnique,
         droppedEquipments,
         droppedUniques,
+        ...(unexploredHunt
+          ? {
+              unexploredSummary: {
+                difficulty: unexploredHunt.difficulty,
+                encounterShares: unexploredHunt.encounterShares,
+                rewardPct: unexploredHunt.effects.rewardPct,
+                rareCopyChancePct:
+                  unexploredHunt.effects.rareCopyChancePct,
+                traceEnabled: unexploredHunt.effects.traceEnabled,
+                traceExtraChancePct:
+                  unexploredHunt.effects.traceExtraChancePct,
+                monsterKind: unexploredHunt.runtime.kind,
+                poolId: unexploredHunt.runtime.poolId,
+                grants: unexploredRewards?.grants ?? [],
+              },
+            }
+          : {}),
         ejected: ejectedNotice,
         // BattleScene replay 용 — BattleScene 이 실제로 보는 필드만 추출
         // (enemy.{name,hp,image}, playerMaxHp, log). 클라가 buildBattleStateFromReplay
@@ -1209,6 +1356,7 @@ async function handleHunt(req: Request, userId: string) {
   const parsed = await parseHuntRequestIntent(req, userId);
   if (!parsed.ok) return parsed.response;
   const {
+    mode,
     depth,
     dropFloor,
     count,
@@ -1227,6 +1375,7 @@ async function handleHunt(req: Request, userId: string) {
       outpostId,
       tileOutpostId: lockedTileOutpostId,
       rareMapIid,
+      mode,
       hpPotionTargetPct: autoStopConfig.hpPotionTargetPct,
       mpPotionTargetPct: autoStopConfig.mpPotionTargetPct,
     };
@@ -1263,6 +1412,12 @@ async function handleHunt(req: Request, userId: string) {
     let losses = 0;
     let referralRewardEarned = false;
     let totalExp = 0;
+    let explorationXpGained = 0;
+    let explorationPointsGained = 0;
+    let explorationAfter: {
+      xpAfter: number;
+      xpPoints: number;
+    } | null = null;
     let totalProficiency = 0;
     let totalGold = 0;
     let totalLossTax = 0;
@@ -1304,6 +1459,7 @@ async function handleHunt(req: Request, userId: string) {
     let finalMpAfter: number | null = null;
     let finalGoldAfter: number | null = null;
     let ejected: EjectedFrom | null = null;
+    let unexploredSummary: Record<string, unknown> | null = null;
     const replays: Array<{
       index: number;
       enemyName: string;
@@ -1340,6 +1496,14 @@ async function handleHunt(req: Request, userId: string) {
       else losses++;
       referralRewardEarned ||= res.referralRewardEarned;
       totalExp += res.expGained;
+      if (res.exploration) {
+        explorationXpGained += res.exploration.xpGained;
+        explorationPointsGained += res.exploration.pointsGained;
+        explorationAfter = {
+          xpAfter: res.exploration.xpAfter,
+          xpPoints: res.exploration.xpPoints,
+        };
+      }
       totalProficiency += res.proficiencyGained;
       totalMastery += res.masteryGained ?? 0;
       proficiencyPointsAfter = res.proficiencyPointsAfter;
@@ -1368,6 +1532,12 @@ async function handleHunt(req: Request, userId: string) {
       }
       rareMapRunsLeft = res.rareMapRunsLeft ?? rareMapRunsLeft;
       if (res.ejected && !ejected) ejected = res.ejected;
+      if ("unexploredSummary" in res && res.unexploredSummary) {
+        unexploredSummary = res.unexploredSummary as unknown as Record<
+          string,
+          unknown
+        >;
+      }
       replays.push({
         index: completed,
         enemyName: res.enemyName,
@@ -1440,7 +1610,7 @@ async function handleHunt(req: Request, userId: string) {
 
     // 매 승리마다 같은 길드 멤버십·본부·주간 row를 다시 조회/잠그지 않고 합산 반영한다.
     // addGuildExplorationProgress의 계산은 count에 선형이므로 판별 결과는 기존과 같다.
-    if (wins > 0) {
+    if (wins > 0 && mode === "normal") {
       const progressAt = new Date();
       await incrementGuildExplorationProgressForUser(
         tx,
@@ -1482,6 +1652,16 @@ async function handleHunt(req: Request, userId: string) {
           losses,
           referralRewardEarned,
           totalExp,
+          ...(explorationAfter
+            ? {
+                exploration: {
+                  xpGained: explorationXpGained,
+                  xpAfter: explorationAfter.xpAfter,
+                  xpPoints: explorationAfter.xpPoints,
+                  pointsGained: explorationPointsGained,
+                },
+              }
+            : {}),
           totalProficiency,
           totalMastery,
           proficiencyAfter,
@@ -1515,6 +1695,7 @@ async function handleHunt(req: Request, userId: string) {
           playerMaxMp,
           replays,
           ejected,
+          ...(unexploredSummary ? { unexploredSummary } : {}),
         },
       },
     };

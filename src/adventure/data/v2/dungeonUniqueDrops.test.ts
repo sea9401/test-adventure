@@ -30,6 +30,7 @@ import {
 import { rollEquipDrop } from "./dungeonEquipDrops";
 import { BOSS_UNIQUE_IDS } from "./coopBosses";
 import type { DungeonFloorId } from "./types";
+import { UNEXPLORED_MONSTER_POOLS } from "./unexploredMonsterPools";
 
 const FLOORS: DungeonFloorId[] = [1, 2, 3, 4, 5, 6, 7, 8];
 
@@ -206,9 +207,9 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
   });
 });
 
-describe("유니크 카탈로그 (72종 — 기존 48 + 6T 시그니처 18 + HARD 보스 6)", () => {
-  it("V2_UNIQUE_IDS 72종, 전부 rarity:unique + 카탈로그 존재", () => {
-    expect(V2_UNIQUE_IDS).toHaveLength(72);
+describe("유니크 카탈로그 (87종 — 기존 81 + 미개척지 개척자 무기 6)", () => {
+  it("V2_UNIQUE_IDS 87종, 전부 rarity:unique + 카탈로그 존재", () => {
+    expect(V2_UNIQUE_IDS).toHaveLength(87);
     for (const id of V2_UNIQUE_IDS) {
       expect(V2_EQUIPMENT[id], id).toBeDefined();
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
@@ -242,6 +243,13 @@ describe("UNIQUE_FLOOR_POOLS", () => {
     for (const id of BOSS_UNIQUE_IDS) {
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
       inPools.add(id);
+    }
+    // 미개척지 앞쪽 공용 풀 전용 개척자 무기.
+    for (const pool of UNEXPLORED_MONSTER_POOLS) {
+      if (!("weaponEquipmentId" in pool)) continue;
+      const weaponEquipmentId = pool.weaponEquipmentId;
+      expect(isUnique(V2_EQUIPMENT[weaponEquipmentId]), weaponEquipmentId).toBe(true);
+      inPools.add(weaponEquipmentId);
     }
     const expeditionOnly = new Set<V2EquipmentId>([
       "v2_storm_sig_wreckage_power_armor",

@@ -36,7 +36,10 @@ import {
   coopBossCurrentMp,
   coopBossMaxMp,
   coopBossMpPressureDamage,
+  coopBossTrackingThreat,
+  coopBossTrackingThreatMax,
   withCoopBossMp,
+  withCoopBossTrackingThreat,
   parseCoopMechanicState,
   COOP_INITIAL_VISIBILITY,
   coopVisibilityTransition,
@@ -47,8 +50,8 @@ import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
 import { TITLES } from "@/adventure/data/titles";
 
 describe("coopBosses 카탈로그", () => {
-  it("8종 — 노말 4단 사다리 + 하드 보스 4종", () => {
-    expect(COOP_BOSS_KIND_IDS).toHaveLength(8);
+  it("11종 — 기존 협동 8종 + 미개척지 개인 보스 3종", () => {
+    expect(COOP_BOSS_KIND_IDS).toHaveLength(11);
     const normalLadder = [
       "mountain_chief",
       "canyon_predator",
@@ -98,6 +101,76 @@ describe("coopBosses 카탈로그", () => {
       sharedMaxHp: 8_400_000,
       anchorDepth: 78,
     });
+  });
+
+  it("미개척지 보스는 개인 공개가 잠기며 일반 소환서 목록에서 제외된다", () => {
+    const personalIds = [
+      "tracking_weapon",
+      "toxic_blood_lord",
+      "glacial_colossus",
+    ] as const;
+    for (const id of personalIds) {
+      expect(COOP_BOSSES[id]).toMatchObject({
+        rewardMode: "unexplored_personal",
+        visibilityLocked: true,
+      });
+      expect(COOP_BOSSES[id].summonMaterialId).toMatch(/_summon_stone$/);
+      expect(SCROLL_SUMMONABLE_COOP_BOSS_KIND_IDS).not.toContain(id);
+      expect(isScrollSummonableCoopBossKind(id)).toBe(false);
+    }
+    const personalIdSet = new Set<string>(personalIds);
+    for (const id of COOP_BOSS_KIND_IDS.filter(
+      (kindId) => !personalIdSet.has(kindId),
+    )) {
+      expect(COOP_BOSSES[id].rewardMode).toBe("coop");
+      expect(COOP_BOSSES[id].visibilityLocked).toBe(false);
+    }
+  });
+
+  it("추적 병기는 확정 연타 대신 추적 반격 중심의 일반 공격 수치를 사용한다", () => {
+    const tracking = COOP_BOSSES.tracking_weapon;
+    expect(tracking.base).toMatchObject({
+      atk: 2.2,
+      spd: 27,
+      evasionPct: 12,
+      skill: { kind: "pierce", armorPierce: 10 },
+    });
+    expect(tracking.base.bonusAttackChancePct).toBeUndefined();
+    expect(tracking.enrageStages).toEqual([]);
+    expect(tracking.traits).toEqual([
+      "빠른 행동",
+      "피해·타격 추적",
+      "추적 완료 시 2연타 반격",
+    ]);
+  });
+
+  it("독혈 군주는 장기전 독혈 순환을 특성으로 안내한다", () => {
+    const toxic = COOP_BOSSES.toxic_blood_lord;
+
+    expect(toxic.base.skill).toMatchObject({
+      kind: "heavy_blow",
+      name: "독혈 파열",
+      everyPhases: 3,
+      multiplier: 1.8,
+    });
+    expect(toxic.enrageStages).toEqual([]);
+    expect(toxic.traits).toEqual([
+      "피격 시 독혈 누적",
+      "10중첩 독혈 폭발",
+      "중독·폭발 후 회복 억제",
+    ]);
+  });
+
+  it("빙하 거수는 공용 한기 피해 대신 행동 속도 봉쇄를 안내한다", () => {
+    const glacial = COOP_BOSSES.glacial_colossus;
+
+    expect(glacial.base.skill).toBeUndefined();
+    expect(glacial.enrageStages).toEqual([]);
+    expect(glacial.traits).toEqual([
+      "냉기장으로 한기 누적",
+      "한기 중첩당 행동 속도 감소",
+      "10중첩 빙결 — 다음 행동 취소",
+    ]);
   });
 
   it("신규 6T HARD 보스는 운영 상위 중앙 피해 기준 14회 공격을 요구한다", () => {
@@ -287,7 +360,9 @@ describe("coopBosses 카탈로그", () => {
       expect(b.uniqueIds.length).toBeGreaterThan(0);
       for (const u of b.uniqueIds) {
         expect(V2_EQUIPMENT[u]?.rarity).toBe("unique");
-        expect(V2_EQUIPMENT[u]?.signature).toBeDefined(); // 발동형 효과 부여
+        if (b.rewardMode === "coop") {
+          expect(V2_EQUIPMENT[u]?.signature).toBeDefined(); // 기존 협동 보스 발동형 효과
+        }
       }
     }
   });
@@ -300,7 +375,11 @@ describe("coopBosses 카탈로그", () => {
       expect(full.monster.hp).toBe(b.sharedMaxHp);
       expect(full.monster.name).toBe(b.base.name);
       expect(full.monster.image).toBe(b.base.image);
-      expect(full.monster.skill).toBeDefined();
+      if (id === "glacial_colossus") {
+        expect(full.monster.skill).toBeUndefined();
+      } else {
+        expect(full.monster.skill).toBeDefined();
+      }
       expect(full.monster.phaseTrigger).toBeUndefined(); // 발악 스테이지로 대체
       expect(full.enrageNotes).toHaveLength(0);
       // statusSkill — v2Skills 주입(잡몹 statusSkill 경로와 동일).
@@ -310,10 +389,10 @@ describe("coopBosses 카탈로그", () => {
       for (const skill of b.base.v2Skills?.equipped ?? []) {
         expect(full.monster.v2Skills?.equipped).toContain(skill);
       }
-      expect(full.monster.v2MaxMp).toBe(b.base.v2MaxMp);
+      expect(full.monster.v2MaxMp).toBe(b.base.v2MaxMp ?? 0);
       expect(
         coopBossForBattle(b, b.sharedMaxHp, { bossMp: 7 }).monster.v2MaxMp,
-      ).toBe(7);
+      ).toBe((b.base.v2MaxMp ?? 0) > 0 ? 7 : 0);
       // 잔여 HP 클램프 — 0 이하/초과 입력 방어.
       expect(coopBossForBattle(b, 0).monster.hp).toBe(1);
       expect(
@@ -538,6 +617,27 @@ describe("coopBosses 카탈로그", () => {
     expect(coopBossCurrentMp(boss, {})).toBe(maxMp);
     const state = withCoopBossMp(boss, {}, 123);
     expect(parseCoopMechanicState(state).bossMp).toBe(123);
+  });
+
+  it("추적 위협만 0~100으로 보정하며 기존 공유 MP 상태를 보존한다", () => {
+    const tracking = COOP_BOSSES.tracking_weapon;
+    const parsed = parseCoopMechanicState({
+      bossMp: 17,
+      trackingThreat: 180,
+    });
+    expect(parsed).toEqual({ bossMp: 17, trackingThreat: 100 });
+    expect(coopBossTrackingThreat(tracking, { trackingThreat: 73 })).toBe(73);
+    expect(coopBossTrackingThreatMax(tracking)).toBe(100);
+    expect(withCoopBossTrackingThreat(tracking, { bossMp: 17 }, 31)).toEqual({
+      bossMp: 17,
+      trackingThreat: 31,
+    });
+    expect(coopBossTrackingThreatMax(COOP_BOSSES.toxic_blood_lord)).toBe(0);
+    expect(
+      coopBossTrackingThreat(COOP_BOSSES.toxic_blood_lord, {
+        trackingThreat: 73,
+      }),
+    ).toBe(0);
   });
 
   it("공유 MP — 플레이어 공격 로그와 기여 피해로 압박 피해를 계산한다", () => {

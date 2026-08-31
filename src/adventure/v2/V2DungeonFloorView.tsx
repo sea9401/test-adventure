@@ -20,8 +20,12 @@ import {
   playerCombatToBattleStats,
   type PlayerCombatStats,
 } from "@/adventure/v2/PlayerStatusCard";
-import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
-import type { HuntResultPayload } from "@/adventure/v2/useDungeonHunt";
+import {
+  useDungeonHunt,
+  type DungeonHuntMode,
+  type HuntResultPayload,
+  type UnexploredHuntSummary,
+} from "@/adventure/v2/useDungeonHunt";
 import { DungeonContextSummary } from "@/adventure/v2/DungeonContextSummary";
 import { CompactBattlePlayerStatus } from "@/adventure/v2/CompactBattlePlayerStatus";
 import {
@@ -81,6 +85,7 @@ import {
   huntEndReasonText,
   type HuntEndReason,
 } from "@/adventure/v2/huntEndNotice";
+import { UNEXPLORED_POOL_BY_ID } from "@/adventure/data/v2/unexploredMonsterPools";
 
 // 한 층 전용 던전 페이지. 1회 사냥 + 5/10/50회 일괄 사냥 (한 번에 N회, 합산 결과).
 // 옛 무한 자동/연속 useEffect 트리거 폐기 — runBatch 가 직접 for-loop with await.
@@ -169,6 +174,70 @@ export function RareMapProgressNotice({
   );
 }
 
+export function UnexploredHuntSummaryPanel({
+  summary,
+}: {
+  summary: UnexploredHuntSummary;
+}) {
+  const rewardLabels: Array<[keyof typeof summary.rewardPct, string]> = [
+    ["gold", "골드"],
+    ["baseMaterial", "일반 재료"],
+    ["equipment", "장비"],
+    ["quality", "장비 품질"],
+    ["specialMaterial", "특화 재료"],
+    ["rare", "희귀 보상"],
+  ];
+  const activeRewards = rewardLabels.filter(
+    ([key]) => summary.rewardPct[key] !== 0,
+  );
+  return (
+    <Card as="section" padding="sm" aria-label="미개척지 적용 효과">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold">탐사 설정</h2>
+        <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+          난이도 {summary.difficulty}
+        </span>
+      </div>
+      <div className={`${SURFACE_INSET} mt-2 space-y-2 p-3 text-xs`}>
+        <div>
+          <p className="font-medium text-zinc-700 dark:text-zinc-200">출현 비중</p>
+          <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+            {summary.encounterShares
+              .map((entry) =>
+                entry.kind === "base"
+                  ? `기본 몬스터 ${entry.share}%`
+                  : `${UNEXPLORED_POOL_BY_ID[entry.poolId].name} ${entry.share}%`,
+              )
+              .join(" · ")}
+          </p>
+        </div>
+        <div>
+          <p className="font-medium text-zinc-700 dark:text-zinc-200">보상 효과</p>
+          <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+            {activeRewards.length > 0
+              ? activeRewards
+                  .map(([key, label]) => {
+                    const value = summary.rewardPct[key];
+                    return `${label} ${value > 0 ? "+" : ""}${value}%`;
+                  })
+                  .join(" · ")
+              : "추가 보상 효과 없음"}
+            {summary.rareCopyChancePct > 0
+              ? ` · 희귀 추가 획득 ${summary.rareCopyChancePct}%`
+              : ""}
+          </p>
+        </div>
+        <p className="text-zinc-600 dark:text-zinc-400">
+          흔적 획득 {summary.traceEnabled ? "활성" : "비활성"}
+          {summary.traceEnabled && summary.traceExtraChancePct > 0
+            ? ` · 추가 획득 +${summary.traceExtraChancePct}%p`
+            : ""}
+        </p>
+      </div>
+    </Card>
+  );
+}
+
 function nextRecoveryChargesSnapshot({
   prev,
   initialHpCharges,
@@ -207,6 +276,8 @@ function fmtOfflineRemain(ms: number): string {
 
 export function V2DungeonFloorView({
   floorId,
+  huntMode = "normal",
+  unexploredSummary = null,
   outpostId,
   outpostName,
   playerName,
@@ -251,6 +322,8 @@ export function V2DungeonFloorView({
 }: {
   // 깊이 숫자 (테마당 6깊이: 1~6 들판·7+ 프론티어 밴드, 마른 협곡부터). 무한 — DungeonFloorId(1~8) 초과 가능.
   floorId: number;
+  huntMode?: DungeonHuntMode;
+  unexploredSummary?: UnexploredHuntSummary | null;
   outpostId: string;
   outpostName: string;
   playerName: string;
@@ -324,7 +397,10 @@ export function V2DungeonFloorView({
   // ⚠️ floor 존재 ≠ 깊이 유효성(깊이 2~6 도 들판이지만 authored 층 없음). 유효성은 page 가 검증.
   const floor = MAIN_DUNGEON.floors.find((f) => f.id === floorId);
   const depth = Number(floorId);
-  const displayName = huntStageName(depth);
+  const isUnexplored = huntMode === "unexplored";
+  const displayName = isUnexplored
+    ? `미개척지 · 난이도 ${unexploredSummary?.difficulty ?? depth}`
+    : huntStageName(depth);
   const powerGate = floor
     ? floor.requirement.kind === "power"
       ? floor.requirement.min
@@ -348,11 +424,12 @@ export function V2DungeonFloorView({
     levelCap: currentLevelCap,
   });
   // 도전(미정복) 여부 — 최고 도달보다 다음 대표 단계가 깊다.
-  const isChallenge = depth > frontierDepth;
+  const isChallenge = !isUnexplored && depth > frontierDepth;
   const { busy, lastResult, hunt, huntBatch } = useDungeonHunt({
     outpostId,
     setStamina,
-    rareMapIid,
+    rareMapIid: isUnexplored ? null : rareMapIid,
+    huntMode,
   });
   // 희귀 탐사 보유 목록과 현재 지도의 압축 보상 횟수 — 서버 응답을 권위로 갱신한다.
   const [heldRareMaps, setHeldRareMaps] = useState<RareMapInstance[]>([]);
@@ -366,6 +443,7 @@ export function V2DungeonFloorView({
     null,
   );
   useEffect(() => {
+    if (isUnexplored) return;
     if (!rareMapIid && !onEnterRareMap) return;
     let alive = true;
     fetch("/api/v2/me/rare-maps")
@@ -407,7 +485,7 @@ export function V2DungeonFloorView({
     return () => {
       alive = false;
     };
-  }, [onEnterRareMap, onReturnToNormalHunt, rareMapIid]);
+  }, [isUnexplored, onEnterRareMap, onReturnToNormalHunt, rareMapIid]);
   // 일괄 사냥 상태.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
@@ -1148,12 +1226,19 @@ export function V2DungeonFloorView({
         outpostName={outpostName}
         challenge={isChallenge}
         playerPower={myPower}
-        difficultyPower={powerGate}
-        growthLabel={growthLabel}
-        readiness={readiness}
+        difficultyPower={isUnexplored ? depth : powerGate}
+        growthLabel={isUnexplored ? null : growthLabel}
+        readiness={
+          isUnexplored
+            ? { label: "탐사 노드 적용", tone: "neutral" }
+            : readiness
+        }
         onBack={onBack}
       />
-      {rareMapIid && expiredRareMapIid === rareMapIid ? (
+      {isUnexplored && unexploredSummary && (
+        <UnexploredHuntSummaryPanel summary={unexploredSummary} />
+      )}
+      {!isUnexplored && (rareMapIid && expiredRareMapIid === rareMapIid ? (
         <DiscoveryNotice kind="hunt" align="start">
           희귀 탐사 시간이 만료되어 일반 사냥터로 이동합니다.
         </DiscoveryNotice>
@@ -1192,7 +1277,7 @@ export function V2DungeonFloorView({
             rareMapSnapshot?.map.iid === rareMapIid &&
             ` — 남은 ${rareMapRunsLeft}판`}
         </DiscoveryNotice>
-      ) : null}
+      ) : null)}
 
       {autoStopReason && (
         <StatusBanner tone="warning" role="status" className="py-2.5">
@@ -1300,7 +1385,7 @@ export function V2DungeonFloorView({
                     ? "회복 필요"
                     : onCooldown
                       ? `다음 사냥까지 ${cooldownLeftSec}초`
-                      : rareMapIid
+                      : !isUnexplored && rareMapIid
                         ? "희귀 탐사 시작"
                         : coreLoopOn
                         ? "사냥 (길게 눌러 자동)"
@@ -1318,7 +1403,7 @@ export function V2DungeonFloorView({
           >
             <Gear size={16} weight="duotone" />
           </button>
-          {!rareMapIid && onEnterRareMap && (
+          {!isUnexplored && !rareMapIid && onEnterRareMap && (
             <RareMapQuickEntry
               className="col-start-1 mt-0"
               maps={heldRareMaps}
@@ -1492,17 +1577,19 @@ export function V2DungeonFloorView({
                 </p>
               </div>
 
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={autoStopConfig.rareMapEnabled}
-                  onChange={(e) =>
-                    updateAutoStopConfig({ rareMapEnabled: e.target.checked })
-                  }
-                  className="size-4 accent-emerald-600"
-                />
-                <span>희귀 탐사맵 발견 시</span>
-              </label>
+              {!isUnexplored && (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={autoStopConfig.rareMapEnabled}
+                    onChange={(e) =>
+                      updateAutoStopConfig({ rareMapEnabled: e.target.checked })
+                    }
+                    className="size-4 accent-emerald-600"
+                  />
+                  <span>희귀 탐사맵 발견 시</span>
+                </label>
+              )}
 
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -1519,7 +1606,7 @@ export function V2DungeonFloorView({
           </div>
         )}
         {/* 코어루프 — 사냥 버튼=탭 열림 연속 사냥. 오프라인 사냥=탭 닫아도 최대 2시간 누적 후 정산 */}
-        {coreLoopOn && (
+        {coreLoopOn && !isUnexplored && (
           <div className="mt-3 space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
             {offlineHunt?.active ? (
               <button

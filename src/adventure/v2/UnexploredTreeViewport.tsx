@@ -110,11 +110,6 @@ export function UnexploredTreeViewport({
       suppressNextClick.current = false;
     }
     pointers.current.set(event.pointerId, clientPoint(event));
-    try {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    } catch {
-      // 브라우저가 포인터 캡처를 지원하지 않아도 영역 안 제스처는 계속 처리한다.
-    }
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
@@ -127,6 +122,13 @@ export function UnexploredTreeViewport({
     gestureDistance.current += distance(previousPoint, nextPoint);
     if (gestureDistance.current > DRAG_THRESHOLD_PX) {
       suppressNextClick.current = true;
+      try {
+        if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }
+      } catch {
+        // 브라우저가 포인터 캡처를 지원하지 않아도 영역 안 제스처는 계속 처리한다.
+      }
     }
 
     if (pointers.current.size === 1) {

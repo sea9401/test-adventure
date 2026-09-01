@@ -108,8 +108,17 @@ export function MarketplaceRareMapTab({
       </Card>
     );
   }
+  const wholeLotPrice = (itemId: string, unitPrice: number) => {
+    const quantity = Number(qtys[itemId] ?? "1");
+    return unitPrice * (Number.isInteger(quantity) && quantity > 0 ? quantity : 1);
+  };
   return (
     <div className="space-y-2">
+      <Card padding="sm">
+        <p className="text-[11px] text-zinc-600 dark:text-zinc-300">
+          선택한 수량 전체가 한 번에 낙찰됩니다. 나누어 팔려면 여러 번 등록해 주세요.
+        </p>
+      </Card>
       {heldFishSpecimens.map(({ fishId, count }) => {
         const fish = FISH[fishId];
         const itemId = fishSpecimenItemId(fishId);
@@ -130,7 +139,10 @@ export function MarketplaceRareMapTab({
                     stat={priceRef[itemId]}
                     unit
                     onSelect={(value) =>
-                      setPrices((current) => ({ ...current, [itemId]: String(value) }))
+                      setPrices((current) => ({
+                        ...current,
+                        [itemId]: String(wholeLotPrice(itemId, value)),
+                      }))
                     }
                   />
                 </span>
@@ -151,7 +163,7 @@ export function MarketplaceRareMapTab({
                   onChange={(value) =>
                     setPrices((current) => ({ ...current, [itemId]: value }))
                   }
-                  placeholder="개당 가격"
+                  placeholder="묶음 전체 시작 입찰가"
                 />
                 <button
                   type="button"
@@ -195,7 +207,7 @@ export function MarketplaceRareMapTab({
                     onSelect={(value) =>
                       setPrices((current) => ({
                         ...current,
-                        [itemId]: String(value),
+                        [itemId]: String(wholeLotPrice(itemId, value)),
                       }))
                     }
                   />
@@ -217,7 +229,7 @@ export function MarketplaceRareMapTab({
                   onChange={(value) =>
                     setPrices((current) => ({ ...current, [itemId]: value }))
                   }
-                  placeholder="개당 가격"
+                  placeholder="묶음 전체 시작 입찰가"
                 />
                 <button
                   type="button"
@@ -258,7 +270,7 @@ export function MarketplaceRareMapTab({
                     onSelect={(value) =>
                       setPrices((current) => ({
                         ...current,
-                        [itemId]: String(value),
+                        [itemId]: String(wholeLotPrice(itemId, value)),
                       }))
                     }
                   />
@@ -283,7 +295,7 @@ export function MarketplaceRareMapTab({
                       [itemId]: value,
                     }))
                   }
-                  placeholder="개당 가격"
+                  placeholder="묶음 전체 시작 입찰가"
                 />
                 <button
                   type="button"
@@ -340,6 +352,7 @@ export function MarketplaceRareMapTab({
                   onChange={(v) =>
                     setPrices((p) => ({ ...p, [m.iid]: v }))
                   }
+                  placeholder="시작 입찰가"
                 />
                 <button
                   type="button"

@@ -28,6 +28,7 @@ describe("MarketplaceRareMapTab 물고기 표본", () => {
     expect(html).toContain("잉어 표본");
     expect(html).toContain("보유 3개");
     expect(html).toContain('max="3"');
-    expect(html).toContain("개당 가격");
+    expect(html).toContain("묶음 전체 시작 입찰가");
+    expect(html).toContain("선택한 수량 전체가 한 번에 낙찰됩니다");
   });
 });

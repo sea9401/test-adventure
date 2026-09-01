@@ -54,6 +54,7 @@ vi.mock("@/lib/server/tradeSuspension", () => ({
   ),
 }));
 vi.mock("@/lib/server/marketplaceV2", () => ({
+  MARKETPLACE_V2_AUCTION_MODE_VERSION: 1,
   isMarketKind: vi.fn((value: unknown) =>
     value === "equip" || value === "material" || value === "consumable"
   ),
@@ -67,8 +68,15 @@ vi.mock("@/lib/server/marketplaceV2", () => ({
     typeof value === "number" && Number.isSafeInteger(value) && value > 0
   ),
   marketplaceListingPhase: vi.fn(() => "fixed"),
-  marketplaceNextBidMinimum: vi.fn((current: number | null) =>
-    current == null ? 1 : current + 1
+  marketplaceBidExtendedTimes: vi.fn(
+    (_now: Date, bidEndsAt: Date, expiresAt: Date) => ({
+      bidEndsAt,
+      expiresAt,
+      extended: false,
+    }),
+  ),
+  marketplaceNextBidMinimum: vi.fn((starting: number, current: number | null) =>
+    current == null ? starting : current + 1
   ),
   marketplacePartialPrice: vi.fn(
     (price: number, quantity: number, take: number) =>
@@ -156,8 +164,6 @@ vi.mock("@/db", () => ({
   },
 }));
 
-import { POST as buy } from "@/app/api/v2/marketplace/buy/route";
-import { POST as buyStack } from "@/app/api/v2/marketplace/buy-stack/route";
 import { POST as bid } from "@/app/api/v2/marketplace/bid/route";
 
 function listing(options: { bidding?: boolean } = {}) {
@@ -170,6 +176,7 @@ function listing(options: { bidding?: boolean } = {}) {
     itemName: "철광석",
     quantity: 2,
     price: 1_000,
+    auctionModeVersion: 1,
     instancePayload: null,
     status: "active",
     createdAt: new Date("2026-08-20T09:00:00.000Z"),
@@ -186,22 +193,11 @@ function listing(options: { bidding?: boolean } = {}) {
   };
 }
 
-function requestFor(route: "buy" | "stack" | "bid") {
-  const body =
-    route === "buy"
-      ? { listingId: 71 }
-      : route === "stack"
-        ? {
-            kind: "material",
-            itemId: "v2_iron_ore",
-            quantity: 2,
-            maxTotalPrice: 1_000,
-          }
-        : { listingId: 71, amount: 1_200 };
-  return new Request(`http://test/api/v2/marketplace/${route}`, {
+function bidRequest() {
+  return new Request("http://test/api/v2/marketplace/bid", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ listingId: 71, amount: 1_200 }),
   });
 }
 
@@ -226,21 +222,17 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe.each([
-  ["고정가 구매", "buy", buy],
-  ["스택 구매", "stack", buyStack],
-  ["입찰", "bid", bid],
-] as const)("%s 거래 정지", (_name, route, handler) => {
+describe("입찰 거래 정지", () => {
   it.each([
     ["행위자", "buyer-a"],
     ["판매자", "seller-z"],
     ["현재 최고 입찰자", "bidder-m"],
   ] as const)("제한된 %s가 참여하면 양쪽 자산을 그대로 둔다", async (_label, restrictedId) => {
     mocks.restrictedId = restrictedId;
-    mocks.listing = listing({ bidding: route === "bid" });
+    mocks.listing = listing({ bidding: true });
     if (restrictedId === "bidder-m") {
       Object.assign(mocks.listing, {
-        highestBid: route === "bid" ? 1_000 : 900,
+        highestBid: 1_000,
         highestBidderId: "bidder-m",
         bidCount: 1,
       });
@@ -248,7 +240,7 @@ describe.each([
     const listingBefore = structuredClone(mocks.listing);
     const walletsBefore = structuredClone([...mocks.wallets]);
 
-    const response = await handler(requestFor(route));
+    const response = await bid(bidRequest());
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({ error: "trade_suspended" });
@@ -285,7 +277,7 @@ describe("귀속 장비 입찰", () => {
     };
     const walletBefore = structuredClone(mocks.wallets.get("buyer-a"));
 
-    const response = await bid(requestFor("bid"));
+    const response = await bid(bidRequest());
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toEqual({
@@ -294,29 +286,5 @@ describe("귀속 장비 입찰", () => {
     });
     expect(mocks.wallets.get("buyer-a")).toEqual(walletBefore);
     expect(mocks.upsertSave).not.toHaveBeenCalled();
-  });
-});
-
-describe("정산 완료 입찰 캐시", () => {
-  it("이미 환불된 옛 최고 입찰자가 제한되어도 고정가 구매를 막거나 다시 환불하지 않는다", async () => {
-    mocks.restrictedId = "bidder-m";
-    mocks.listing = {
-      ...listing(),
-      highestBid: 900,
-      highestBidderId: "bidder-m",
-      bidCount: 1,
-      bidResolvedAt: new Date("2026-08-20T11:05:00.000Z"),
-    };
-
-    const response = await buy(requestFor("buy"));
-
-    expect(response.status).toBe(200);
-    expect(mocks.lockedParticipants).toEqual(["buyer-a", "seller-z"]);
-    expect(mocks.inboxWrites.filter((row) => row.kind === "bid_refund")).toHaveLength(0);
-    expect(mocks.listing).toMatchObject({
-      status: "sold",
-      highestBid: null,
-      highestBidderId: null,
-    });
   });
 });

@@ -71,6 +71,7 @@ function listing(overrides: Partial<Listing> = {}): Listing {
     itemName: "철광석",
     quantity: 3,
     price: 900,
+    auctionModeVersion: 1,
     instancePayload: null,
     status: "active",
     createdAt: new Date("2026-08-20T10:00:00.000Z"),
@@ -310,6 +311,36 @@ describe("거래소 에스크로 취소", () => {
       cancelMarketplaceBuyOrderEscrow(tx as never, { ...activeOrder, status: "cancelled" }, now, "trade_suspension"),
     ).resolves.toEqual({ cancelled: false, refundedGold: 0 });
     expect(insertedInbox).toHaveLength(1);
+  });
+
+  it("입찰제 전환으로 기존 입찰금과 구매 주문 예치금을 반환한다고 안내한다", async () => {
+    const listingTx = transactionRecorder();
+    const orderTx = transactionRecorder();
+
+    await cancelMarketplaceListingEscrow(
+      listingTx.tx as never,
+      listing({ highestBid: 7000, highestBidderId: "bidder-1", bidCount: 1 }),
+      { now, refundHighestBid: true, reason: "feature_retired" },
+    );
+    await cancelMarketplaceBuyOrderEscrow(
+      orderTx.tx as never,
+      buyOrder(),
+      now,
+      "feature_retired",
+    );
+
+    expect(listingTx.insertedInbox).toContainEqual(
+      expect.objectContaining({
+        userId: "bidder-1",
+        message: "철광석 입찰제 전환 · 7,000골드 반환",
+      }),
+    );
+    expect(orderTx.insertedInbox).toContainEqual(
+      expect.objectContaining({
+        userId: "buyer-1",
+        message: "철광석 구매 주문 기능 종료 · 4,500골드 반환",
+      }),
+    );
   });
 
   it("거래 제재 최고 입찰 반환은 활성 경매의 후속 입찰과 정산을 위해 미정산 상태를 보존한다", async () => {

@@ -464,6 +464,13 @@ export type V2SkillLearnRequirement = {
   prereqSkillIds?: readonly V2SkillId[];
 };
 
+export type V2SkillDetail = {
+  mechanics: readonly [string, ...string[]];
+  synergies?: readonly string[];
+  limitations?: readonly string[];
+  pvp?: readonly string[];
+};
+
 export type V2SkillDefinition = {
   id: V2SkillId;
   name: string;
@@ -474,6 +481,7 @@ export type V2SkillDefinition = {
   /** 1=입문 (스타터), 2=중급, 3=상급. 카탈로그 정렬·교관 화면 그룹화. */
   tier: 1 | 2 | 3;
   description: string;
+  detail?: V2SkillDetail;
   mpCost: number;
   /** 공식 대신 쓰는 절대 MP 비용. 고비용 주문/회복처럼 직업별 수동 튜닝이 필요한 스킬용. */
   fixedMpCost?: number;
@@ -2227,6 +2235,19 @@ function describeV2Effect(
   return _exhaustive;
 }
 
+export function describeV2SkillEffects(
+  skill: V2SkillDefinition,
+  effects: readonly V2SkillEffect[],
+  activeCastEffects: readonly V2SkillEffect[] = effects,
+): string[] {
+  return describeV2Effects(
+    effects,
+    skill.tier,
+    skill.monsterOnly === true,
+    activeCastEffects,
+  );
+}
+
 // 스킬의 상세 옵션을 칩 문자열 배열로 — 효과(피해/회복/버프/디버프/DoT) 먼저, 그 뒤
 // MP·쿨다운·속성 메타. UI(학습/장착 화면)에서 작은 칩으로 표기.
 //
@@ -2562,6 +2583,7 @@ export function describeV2Effects(
   effects: readonly V2SkillEffect[],
   tier: 1 | 2 | 3,
   monsterOnly = false,
+  activeCastEffects: readonly V2SkillEffect[] = effects,
 ): string[] {
   // 독 계열 복합기는 전투 처리상 중독 부여를 먼저 선언하지만, 설명은 독침과 같은
   // "계수 피해 → 중독 스택" 순서로 보여준다. 실행용 effects 배열은 건드리지 않는다.
@@ -2588,7 +2610,7 @@ export function describeV2Effects(
   })();
   const directDamageEffectCount = Math.max(
     1,
-    displayEffects.filter(isDirectDamageEffect).length,
+    activeCastEffects.filter(isDirectDamageEffect).length,
   );
   const chips = displayEffects.flatMap((effect) =>
     effect.kind === "missingHpDamage"
@@ -2613,7 +2635,7 @@ export function describeV2Effects(
 export function describeV2Skill(skill: V2SkillDefinition): string[] {
   const chips = skill.passive
     ? describePassive(skill.passive)
-    : describeV2Effects(skill.effects, skill.tier, skill.monsterOnly === true);
+    : describeV2SkillEffects(skill, skill.effects);
   chips.push(...describeBerserkerLineageRules(skill));
   chips.push(...describeBleedHunt(skill));
   if (skill.provokeImmediateBasicAttacks) {

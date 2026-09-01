@@ -17,15 +17,14 @@ import {
   parseRareMaps,
 } from "@/adventure/data/v2/rareMaps";
 import {
+  MARKETPLACE_V2_AUCTION_MODE_VERSION,
   isMarketKind,
-  isStackableMarketplaceItem,
   isTradableMarketplaceMaterial,
-  isValidBidGraceHours,
   isValidMaterialQty,
   isValidPrice,
   itemDisplayName,
+  marketplaceAuctionTimes,
   marketplaceEquipListError,
-  marketplaceListingTimes,
   pauseMarketplaceRareMap,
   marketplaceSlotLimitForAdventureSupport,
   resolvePlayerName,
@@ -47,13 +46,7 @@ import {
   parseFishSpecimenInventory,
   removeFishSpecimen,
 } from "@/adventure/v2/fishSpecimens";
-import {
-  matchMarketplaceBuyOrdersForItem,
-  prepareMarketplaceMatchScope,
-  recordMarketplaceAutoMatchFills,
-  requireMarketplaceMatchParticipants,
-  triggerMarketplacePriceAlertsForListing,
-} from "@/lib/server/marketplaceBuyOrdersV2";
+import { triggerMarketplacePriceAlertsForListing } from "@/lib/server/marketplaceBuyOrdersV2";
 
 // POST /api/v2/marketplace/list — 매물 등록(에스크로: 내 save 에서 빼서 listing 으로 묶음).
 //   body(장비):   { kind:"equip", iid:string, price:int }
@@ -96,7 +89,6 @@ export async function POST(req: Request) {
     itemId?: unknown;
     quantity?: unknown;
     price?: unknown;
-    graceHours?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -107,45 +99,13 @@ export async function POST(req: Request) {
   if (!isMarketKind(body.kind)) return bad("bad_kind");
   const kind: MarketKind = body.kind;
   if (!isValidPrice(body.price)) return bad("bad_price");
-  if (!isValidBidGraceHours(body.graceHours)) return bad("bad_grace_hours");
   const price = body.price;
   const createdAt = new Date();
-  const listingTimes = marketplaceListingTimes(createdAt, body.graceHours);
+  const listingTimes = marketplaceAuctionTimes(createdAt);
   const listingWindow = { createdAt, ...listingTimes };
 
   const result = await db.transaction(async (tx) => {
-    const matchItemId =
-      body.graceHours === 0 &&
-      kind !== "equip" &&
-      typeof body.itemId === "string" &&
-      isStackableMarketplaceItem(kind, body.itemId)
-        ? body.itemId
-        : null;
-    const matchScope = matchItemId
-      ? await prepareMarketplaceMatchScope(tx, {
-          kind,
-          itemId: matchItemId,
-          now: createdAt,
-          participantIds: [userId],
-        })
-      : null;
-    if (matchScope) requireMarketplaceMatchParticipants(matchScope, [userId]);
-    else await requireTradeParticipants(tx, [userId], createdAt);
-    const matchNewListing = async (
-      listingId: number,
-      itemKind: string,
-      itemId: string,
-    ) => {
-      if (!matchScope) return [];
-      matchScope.listingIds.add(listingId);
-      return matchMarketplaceBuyOrdersForItem(
-        tx,
-        itemKind,
-        itemId,
-        createdAt,
-        matchScope,
-      );
-    };
+    await requireTradeParticipants(tx, [userId], createdAt);
     // 판매자 직렬화 — character.v2 를 먼저 잠가 동시 list 요청이 슬롯 상한을 우회하지 못하게 한다
     //   (같은 seller 의 모든 list 가 이 단일 행으로 순서화). 잠금 순서 character.v2 → equipment.v2
     //   는 buy·sell-bulk 와 일관(데드락 회피). material 경로는 이 charSave 를 그대로 씀.
@@ -206,6 +166,7 @@ export async function POST(req: Request) {
           itemName: itemDisplayName("equip", inst.id) ?? inst.id,
           quantity: 1,
           price,
+          auctionModeVersion: MARKETPLACE_V2_AUCTION_MODE_VERSION,
           // 개체 스냅샷(iid 제외) — 구매 시 새 개체로 복원. 메타데이터가 없으면 null.
           // 굴림 + 강화 + 제작품질 + 제작자 표식을 한 payload 에 — 옛 행은 raw roll 객체도 흡수한다.
           instancePayload:
@@ -287,20 +248,13 @@ export async function POST(req: Request) {
             itemName: itemDisplayName("consumable", itemId) ?? itemId,
             quantity,
             price,
+            auctionModeVersion: MARKETPLACE_V2_AUCTION_MODE_VERSION,
             instancePayload: { kind: "fish_specimen", fishId: specimenFishId },
           })
           .returning({ id: marketplaceListingsV2.id });
-        const autoMatchFills = await matchNewListing(
-          row.id,
-          "consumable",
-          itemId,
-        );
-        if (body.graceHours === 0) {
-          await triggerMarketplacePriceAlertsForListing(tx, row.id, createdAt);
-        }
+        await triggerMarketplacePriceAlertsForListing(tx, row.id, createdAt);
         return {
           status: 200,
-          autoMatchFills,
           log: {
             listingId: row.id,
             itemKind: "consumable",
@@ -347,20 +301,13 @@ export async function POST(req: Request) {
             itemName: itemDisplayName("consumable", itemId) ?? itemId,
             quantity,
             price,
+            auctionModeVersion: MARKETPLACE_V2_AUCTION_MODE_VERSION,
             instancePayload: { kind: "museun_cash_item" },
           })
           .returning({ id: marketplaceListingsV2.id });
-        const autoMatchFills = await matchNewListing(
-          row.id,
-          "consumable",
-          itemId,
-        );
-        if (body.graceHours === 0) {
-          await triggerMarketplacePriceAlertsForListing(tx, row.id, createdAt);
-        }
+        await triggerMarketplacePriceAlertsForListing(tx, row.id, createdAt);
         return {
           status: 200,
-          autoMatchFills,
           log: {
             listingId: row.id,
             itemKind: "consumable",
@@ -413,20 +360,13 @@ export async function POST(req: Request) {
             itemName: itemDisplayName("consumable", itemId) ?? itemId,
             quantity,
             price,
+            auctionModeVersion: MARKETPLACE_V2_AUCTION_MODE_VERSION,
             instancePayload: { kind: "cooking_food" },
           })
           .returning({ id: marketplaceListingsV2.id });
-        const autoMatchFills = await matchNewListing(
-          row.id,
-          "consumable",
-          itemId,
-        );
-        if (body.graceHours === 0) {
-          await triggerMarketplacePriceAlertsForListing(tx, row.id, createdAt);
-        }
+        await triggerMarketplacePriceAlertsForListing(tx, row.id, createdAt);
         return {
           status: 200,
-          autoMatchFills,
           log: {
             listingId: row.id,
             itemKind: "consumable",
@@ -472,6 +412,7 @@ export async function POST(req: Request) {
           itemName: `${kindName} (${huntStageName(inst.depth)})`,
           quantity: 1,
           price,
+          auctionModeVersion: MARKETPLACE_V2_AUCTION_MODE_VERSION,
           instancePayload: pauseMarketplaceRareMap(inst, createdAt.getTime()),
         })
         .returning({ id: marketplaceListingsV2.id });
@@ -543,16 +484,13 @@ export async function POST(req: Request) {
         itemName: itemDisplayName("material", itemId) ?? itemId,
         quantity,
         price,
+        auctionModeVersion: MARKETPLACE_V2_AUCTION_MODE_VERSION,
         instancePayload: null,
       })
       .returning({ id: marketplaceListingsV2.id });
-    const autoMatchFills = await matchNewListing(row.id, "material", itemId);
-    if (body.graceHours === 0) {
-      await triggerMarketplacePriceAlertsForListing(tx, row.id, createdAt);
-    }
+    await triggerMarketplacePriceAlertsForListing(tx, row.id, createdAt);
     return {
       status: 200,
-      autoMatchFills,
       log: {
         listingId: row.id,
         itemKind: "material",
@@ -583,9 +521,5 @@ export async function POST(req: Request) {
       },
     });
   }
-  if (result.status === 200 && "autoMatchFills" in result) {
-    recordMarketplaceAutoMatchFills(result.autoMatchFills ?? []);
-  }
-
   return Response.json(result.body, { status: result.status });
 }

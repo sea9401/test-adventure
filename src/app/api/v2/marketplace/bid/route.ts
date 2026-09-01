@@ -13,7 +13,9 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import { listedEquipBound } from "@/adventure/data/v2/v2EquipMint";
 import {
+  MARKETPLACE_V2_AUCTION_MODE_VERSION,
   isValidPrice,
+  marketplaceBidExtendedTimes,
   marketplaceNextBidMinimum,
 } from "@/lib/server/marketplaceV2";
 import {
@@ -106,7 +108,10 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "not_available" },
       };
     }
-    if (listing.status !== "active") {
+    if (
+      listing.status !== "active" ||
+      listing.auctionModeVersion !== MARKETPLACE_V2_AUCTION_MODE_VERSION
+    ) {
       return {
         status: 409,
         body: { ok: false as const, error: "not_available" },
@@ -118,7 +123,8 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "own_listing" },
       };
     }
-    if (now >= listing.bidEndsAt) {
+    const bidAt = new Date();
+    if (bidAt >= listing.bidEndsAt) {
       return {
         status: 409,
         body: { ok: false as const, error: "bidding_closed" },
@@ -132,7 +138,7 @@ export async function POST(req: Request) {
     }
 
     const currentBid = listing.highestBid;
-    const nextBid = marketplaceNextBidMinimum(currentBid);
+    const nextBid = marketplaceNextBidMinimum(listing.price, currentBid);
     if ((currentBid != null && amount <= currentBid) || amount < nextBid) {
       return {
         status: 409,
@@ -185,19 +191,25 @@ export async function POST(req: Request) {
       );
     }
 
-    const createdAt = new Date();
     await tx.insert(marketplaceBidsV2).values({
       listingId,
       bidderId: userId,
       amount,
-      createdAt,
+      createdAt: bidAt,
     });
+    const nextTimes = marketplaceBidExtendedTimes(
+      bidAt,
+      listing.bidEndsAt,
+      listing.expiresAt,
+    );
     await tx
       .update(marketplaceListingsV2)
       .set({
         highestBid: amount,
         highestBidderId: userId,
         bidCount: listing.bidCount + 1,
+        bidEndsAt: nextTimes.bidEndsAt,
+        expiresAt: nextTimes.expiresAt,
       })
       .where(eq(marketplaceListingsV2.id, listingId));
 
@@ -212,7 +224,9 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         highestBid: amount,
-        nextBid: marketplaceNextBidMinimum(amount),
+        nextBid: marketplaceNextBidMinimum(listing.price, amount),
+        bidEndsAt: nextTimes.bidEndsAt.toISOString(),
+        extended: nextTimes.extended,
         gold: spend.gold,
         bankedGold: spend.bankedGold,
       },

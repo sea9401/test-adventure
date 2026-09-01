@@ -54,11 +54,19 @@ vi.mock("@/adventure/data/v2/rareMaps", () => ({
   parseRareMaps: vi.fn(() => []),
 }));
 vi.mock("@/lib/server/marketplaceV2", () => ({
+  MARKETPLACE_V2_AUCTION_MODE_VERSION: 1,
   isValidPrice: vi.fn((value: unknown) =>
     typeof value === "number" && Number.isSafeInteger(value) && value > 0
   ),
-  marketplaceNextBidMinimum: vi.fn((current: number | null) =>
-    current == null ? 1 : current + 1
+  marketplaceBidExtendedTimes: vi.fn(
+    (_now: Date, bidEndsAt: Date, expiresAt: Date) => ({
+      bidEndsAt,
+      expiresAt,
+      extended: false,
+    }),
+  ),
+  marketplaceNextBidMinimum: vi.fn((starting: number, current: number | null) =>
+    current == null ? starting : current + 1
   ),
   marketplaceTaxRateForAdventureSupport: vi.fn(() => 0),
   restoreMarketplaceRareMap: vi.fn(() => null),
@@ -111,6 +119,7 @@ function listing(): Listing {
     itemName: "철광석",
     quantity: 1,
     price: 5_000,
+    auctionModeVersion: 1,
     instancePayload: null,
     status: "active",
     createdAt: new Date("2026-08-20T10:00:00.000Z"),
@@ -229,7 +238,7 @@ afterEach(() => {
 });
 
 describe("거래 제재 최고 입찰 정리 이후 경매 수명주기", () => {
-  it("정지 입찰금을 반환한 뒤 새 입찰을 받고 유예 종료에 정상 낙찰한다", async () => {
+  it("정지 입찰금을 반환한 뒤 시작가 입찰을 받고 종료 시 정상 낙찰한다", async () => {
     await expect(
       clearMarketplaceHighestBid(
         tx as never,
@@ -251,13 +260,13 @@ describe("거래 제재 최고 입찰 정리 이후 경매 수명주기", () => 
       new Request("http://test/api/v2/marketplace/bid", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ listingId: 30, amount: 7_000 }),
+        body: JSON.stringify({ listingId: 30, amount: 5_000 }),
       }),
     );
     expect(bidResponse.status).toBe(200);
     expect(mocks.listing).toMatchObject({
       status: "active",
-      highestBid: 7_000,
+      highestBid: 5_000,
       highestBidderId: "u-new-bidder",
       bidCount: 3,
       bidResolvedAt: null,
@@ -277,7 +286,7 @@ describe("거래 제재 최고 입찰 정리 이후 경매 수명주기", () => 
     expect(mocks.listing).toMatchObject({
       status: "sold",
       buyerId: "u-new-bidder",
-      price: 7_000,
+      price: 5_000,
       bidResolvedAt: new Date("2026-08-20T13:01:00.000Z"),
     });
   });

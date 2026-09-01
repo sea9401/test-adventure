@@ -71,12 +71,16 @@ export function MarketplaceMaterialTab({
                 <PriceQuickFill
                   stat={priceRef[matId]}
                   unit
-                  onSelect={(value) =>
-                    setPrices((current) => ({
-                      ...current,
-                      [matId]: String(value),
-                    }))
-                  }
+                  onSelect={(value) => {
+                    const quantity = Number(qtys[matId] ?? "1");
+                    const total = value * quantity;
+                    if (Number.isSafeInteger(total) && total > 0) {
+                      setPrices((current) => ({
+                        ...current,
+                        [matId]: String(total),
+                      }));
+                    }
+                  }}
                 />
               </span>
               <div className="flex shrink-0 items-center gap-1.5">
@@ -93,7 +97,7 @@ export function MarketplaceMaterialTab({
                 <PriceInput
                   value={prices[matId] ?? ""}
                   onChange={(v) => setPrices((p) => ({ ...p, [matId]: v }))}
-                  placeholder="개당 가격"
+                  placeholder="묶음 전체 시작 입찰가"
                 />
                 <button
                   type="button"
@@ -104,6 +108,9 @@ export function MarketplaceMaterialTab({
                   등록
                 </button>
               </div>
+            </div>
+            <div className="mt-1 text-right text-[10px] text-zinc-500 dark:text-zinc-400">
+              선택한 수량 전체가 한 번에 낙찰됩니다.
             </div>
           </Card>
         );

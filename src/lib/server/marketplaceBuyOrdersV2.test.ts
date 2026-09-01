@@ -3,6 +3,7 @@ import {
   marketplaceBuyOrdersV2,
   marketplaceInbox,
   marketplaceListingsV2,
+  marketplacePriceAlertsV2,
 } from "@/db/schema";
 
 const mocks = vi.hoisted(() => ({
@@ -15,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   inboxWrites: [] as Array<Record<string, unknown>>,
   orderUpdates: [] as Array<Record<string, unknown>>,
   listingUpdates: [] as Array<Record<string, unknown>>,
+  alerts: [] as Array<Record<string, unknown>>,
+  alertUpdates: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock("@/lib/server/tradeSuspension", () => ({
@@ -46,6 +49,7 @@ vi.mock("@/lib/server/economyLog", () => ({
 import {
   marketplaceBuyOrderDeliveryKind,
   matchMarketplaceBuyOrder,
+  triggerMarketplacePriceAlertsForListing,
 } from "./marketplaceBuyOrdersV2";
 
 function order() {
@@ -78,6 +82,7 @@ function listing(id = 21, sellerId = "seller-z") {
     itemName: "철광석",
     quantity: 10,
     price: 10_000,
+    auctionModeVersion: 1,
     instancePayload: null,
     status: "active",
     createdAt: new Date("2026-08-20T08:00:00.000Z"),
@@ -134,6 +139,8 @@ function selectQuery() {
             ? locked
               ? mocks.authoritativeListings
               : mocks.probeListings
+            : table === marketplacePriceAlertsV2
+              ? mocks.alerts
             : [];
       return Promise.resolve(rows).then(onfulfilled, onrejected);
     },
@@ -156,6 +163,8 @@ const tx = {
           if (mocks.order) Object.assign(mocks.order, values);
         } else if (table === marketplaceListingsV2) {
           mocks.listingUpdates.push(values);
+        } else if (table === marketplacePriceAlertsV2) {
+          mocks.alertUpdates.push(values);
         }
       }),
     })),
@@ -173,6 +182,52 @@ beforeEach(() => {
   mocks.inboxWrites.length = 0;
   mocks.orderUpdates.length = 0;
   mocks.listingUpdates.length = 0;
+  mocks.alerts.length = 0;
+  mocks.alertUpdates.length = 0;
+});
+
+describe("시작 입찰가 알림", () => {
+  it("진행 중인 경매의 묶음 시작가를 개당 가격으로 환산해 알린다", async () => {
+    mocks.probeListings = [
+      {
+        ...listing(),
+        quantity: 3,
+        price: 900,
+        bidEndsAt: new Date("2026-08-20T15:00:00.000Z"),
+        expiresAt: new Date("2026-08-20T15:00:00.001Z"),
+      },
+    ];
+    mocks.alerts = [
+      {
+        id: 44,
+        userId: "buyer-alert",
+        kind: "material",
+        itemId: "v2_iron_ore",
+        itemName: "철광석",
+        targetUnitPrice: 300,
+        status: "active",
+        createdAt: new Date("2026-08-20T08:00:00.000Z"),
+        triggeredAt: null,
+      },
+    ];
+
+    const triggered = await triggerMarketplacePriceAlertsForListing(
+      tx as never,
+      21,
+      new Date("2026-08-20T09:00:00.000Z"),
+    );
+
+    expect(triggered).toBe(1);
+    expect(mocks.inboxWrites).toContainEqual(
+      expect.objectContaining({
+        userId: "buyer-alert",
+        message: "철광석 경매가 개당 시작 입찰가 300골드에 등록됐어요.",
+      }),
+    );
+    expect(mocks.alertUpdates).toContainEqual(
+      expect.objectContaining({ status: "triggered" }),
+    );
+  });
 });
 
 describe("거래소 구매 주문 배송 분류", () => {

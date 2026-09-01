@@ -5,11 +5,11 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { listedEquipBound } from "@/adventure/data/v2/v2EquipMint";
 import {
+  MARKETPLACE_V2_AUCTION_HOURS,
+  MARKETPLACE_V2_AUCTION_MODE_VERSION,
   MARKETPLACE_V2_BROWSE_LIMIT,
-  MARKETPLACE_V2_BID_GRACE_MAX_HOURS,
-  MARKETPLACE_V2_BID_GRACE_MIN_HOURS,
-  MARKETPLACE_V2_DIRECT_LISTING_HOURS,
-  MARKETPLACE_V2_FIXED_LISTING_HOURS,
+  MARKETPLACE_V2_BID_EXTENSION_MINUTES,
+  MARKETPLACE_V2_BID_EXTENSION_WINDOW_MINUTES,
   currentMarketplaceItemName,
   isMarketKind,
   isTradableMarketplaceMaterial,
@@ -38,7 +38,13 @@ export async function GET(req: Request) {
   const kindParam = url.searchParams.get("kind");
   const mine = url.searchParams.get("mine") === "1";
 
-  const conds = [eq(marketplaceListingsV2.status, "active")];
+  const conds = [
+    eq(marketplaceListingsV2.status, "active"),
+    eq(
+      marketplaceListingsV2.auctionModeVersion,
+      MARKETPLACE_V2_AUCTION_MODE_VERSION,
+    ),
+  ];
   if (kindParam && isMarketKind(kindParam)) {
     conds.push(eq(marketplaceListingsV2.kind, kindParam));
   }
@@ -53,6 +59,7 @@ export async function GET(req: Request) {
       itemName: marketplaceListingsV2.itemName,
       quantity: marketplaceListingsV2.quantity,
       price: marketplaceListingsV2.price,
+      auctionModeVersion: marketplaceListingsV2.auctionModeVersion,
       instancePayload: marketplaceListingsV2.instancePayload,
       createdAt: marketplaceListingsV2.createdAt,
       bidEndsAt: marketplaceListingsV2.bidEndsAt,
@@ -81,18 +88,18 @@ export async function GET(req: Request) {
   return Response.json({
     ok: true,
     viewerGold,
-    bidGraceMinHours: MARKETPLACE_V2_BID_GRACE_MIN_HOURS,
-    bidGraceMaxHours: MARKETPLACE_V2_BID_GRACE_MAX_HOURS,
-    fixedListingHours: MARKETPLACE_V2_FIXED_LISTING_HOURS,
-    directListingHours: MARKETPLACE_V2_DIRECT_LISTING_HOURS,
+    auctionHours: MARKETPLACE_V2_AUCTION_HOURS,
+    bidExtensionWindowMinutes: MARKETPLACE_V2_BID_EXTENSION_WINDOW_MINUTES,
+    bidExtensionMinutes: MARKETPLACE_V2_BID_EXTENSION_MINUTES,
     listings: rows
       .filter(
         (row) =>
-          mine ||
-          (row.kind === "equip"
-            ? !listedEquipBound(row.instancePayload)
-            : row.kind !== "material" ||
-              isTradableMarketplaceMaterial(row.itemId)),
+          row.auctionModeVersion === MARKETPLACE_V2_AUCTION_MODE_VERSION &&
+          (mine ||
+            (row.kind === "equip"
+              ? !listedEquipBound(row.instancePayload)
+              : row.kind !== "material" ||
+                isTradableMarketplaceMaterial(row.itemId))),
       )
       .map((row) =>
         marketplacePublicListing(

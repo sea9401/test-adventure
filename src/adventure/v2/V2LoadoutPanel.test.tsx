@@ -340,6 +340,10 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     expect(html).toContain("h-11 w-11 sm:h-9 sm:w-8");
     expect(html).toContain("h-11 w-11 sm:h-8 sm:w-8");
     expect(html).toContain("h-11 w-11 sm:h-6 sm:w-5");
+    expect(html).toContain('aria-label="강타 상세 보기"');
+    expect(html).toContain('aria-label="독침 상세 보기"');
+    expect(html).toContain('aria-label="강타 해제"');
+    expect(html).toContain('aria-label="독침 장착"');
     expect(html).toContain(">해제<");
     expect(html).toContain(">SP 부족<");
   });

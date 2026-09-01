@@ -27,6 +27,10 @@ import {
   highestEquippedDeclaration,
 } from "./combat/duelistCombat";
 import { SkillEffectChips } from "./SkillEffectChips";
+import {
+  SkillDetailDialog,
+  SkillDetailTrigger,
+} from "./SkillDetailDialog";
 import { useSystemMessageState } from "./RewardToastProvider";
 import {
   matchesSkillLibraryClassification,
@@ -233,6 +237,7 @@ export function V2LoadoutPanel({
   const [showSpDetails, setShowSpDetails] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useSystemMessageState();
+  const [detailSkillId, setDetailSkillId] = useState<V2SkillId | null>(null);
   const [migrationNow, setMigrationNow] = useState(
     () => loadout.spMigration?.serverNow ?? Date.now(),
   );
@@ -1320,8 +1325,13 @@ export function V2LoadoutPanel({
               >
                 <DotsSixVertical size={18} weight="bold" />
               </span>
-              <div className="flex min-w-0 flex-1 flex-col">
-                <div className="flex items-center gap-2">
+              <SkillDetailTrigger
+                skillId={s.skillId as V2SkillId}
+                skillName={s.name}
+                onOpen={setDetailSkillId}
+                className="flex min-w-0 flex-1 flex-col text-left"
+              >
+                <span className="flex items-center gap-2">
                   {favorite && (
                     <Star
                       size={14}
@@ -1340,7 +1350,7 @@ export function V2LoadoutPanel({
                       기본 {s.spCost} SP
                     </span>
                   )}
-                </div>
+                </span>
                 {/* 간단한 효과 설명 — 패시브면 "지능 +10%" 등, 액티브면 피해/회복 + MP·쿨다운. */}
                 {!compact && <SkillEffectChips skillId={s.skillId} />}
                 {skillDef?.exclusiveGroup && (
@@ -1358,7 +1368,7 @@ export function V2LoadoutPanel({
                     근원 촉매 · {effectiveSpCost} SP · 태초회귀 강화
                   </span>
                 )}
-              </div>
+              </SkillDetailTrigger>
               </div>
               <div className="grid w-full sm:w-[6.25rem] shrink-0 grid-cols-[2.75rem_minmax(0,1fr)] sm:grid-cols-[2rem_minmax(0,1fr)] items-start gap-1.5">
                 <button
@@ -1426,6 +1436,12 @@ export function V2LoadoutPanel({
           {msg}
         </div>
       )}
+      {detailSkillId ? (
+        <SkillDetailDialog
+          skillId={detailSkillId}
+          onClose={() => setDetailSkillId(null)}
+        />
+      ) : null}
     </Card>
   );
 }

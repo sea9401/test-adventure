@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   inboxWrites: [] as Array<Record<string, unknown>>,
   deliverMarketplaceListing: vi.fn(async () => null),
   transaction: vi.fn(),
+  topSelectIndex: 0,
   lockTradeParticipantStatuses: vi.fn(
     async (_tx: unknown, userIds: string[]) => {
       const ordered = [...new Set(userIds)].sort();
@@ -58,6 +59,7 @@ vi.mock("@/adventure/data/v2/rareMaps", () => ({
   parseRareMaps: vi.fn(() => []),
 }));
 vi.mock("@/lib/server/marketplaceV2", () => ({
+  MARKETPLACE_V2_AUCTION_MODE_VERSION: 1,
   marketplaceTaxRateForAdventureSupport: vi.fn(() => 0),
   restoreMarketplaceRareMap: vi.fn(() => null),
   saleProceeds: vi.fn((gross: number) => gross),
@@ -93,6 +95,7 @@ function listing() {
     itemName: "철광석",
     quantity: 2,
     price: 5_000,
+    auctionModeVersion: 1,
     instancePayload: null,
     status: "active",
     createdAt: new Date("2026-08-20T08:00:00.000Z"),
@@ -109,6 +112,7 @@ function listing() {
 
 function dbSelectQuery() {
   let table: unknown;
+  const selectIndex = mocks.topSelectIndex++;
   const builder = {
     from(selected: unknown) {
       table = selected;
@@ -118,10 +122,15 @@ function dbSelectQuery() {
       return builder;
     },
     async limit() {
-      if (table === marketplaceListingsV2 && mocks.listing) {
+      if (
+        table === marketplaceListingsV2 &&
+        mocks.listing &&
+        ((selectIndex === 0 && mocks.listing.auctionModeVersion === 1) ||
+          (selectIndex === 1 && mocks.listing.auctionModeVersion !== 1))
+      ) {
         return [{ id: mocks.listing.id }];
       }
-      if (table === marketplaceBuyOrdersV2 && mocks.order) {
+      if (selectIndex === 2 && table === marketplaceBuyOrdersV2 && mocks.order) {
         return [{ id: mocks.order.id }];
       }
       return [];
@@ -222,6 +231,7 @@ beforeEach(() => {
   mocks.restrictedId = null;
   mocks.lockedParticipants.length = 0;
   mocks.inboxWrites.length = 0;
+  mocks.topSelectIndex = 0;
   mocks.transaction.mockImplementation(
     async (callback: (executor: typeof tx) => Promise<unknown>) => callback(tx),
   );
@@ -262,12 +272,12 @@ describe.each([
   });
 });
 
-describe("낙찰되지 않은 입찰 유예 종료", () => {
-  it("한 번 환불한 최고 입찰 캐시를 원자적으로 비워 후속 경로가 다시 반환하지 못하게 한다", async () => {
+describe("무입찰 경매 종료", () => {
+  it("고정가 단계로 넘기지 않고 판매자에게 즉시 반환한다", async () => {
     Object.assign(mocks.listing!, {
-      price: 8_000,
-      highestBid: 7_000,
-      highestBidderId: "bidder-a",
+      highestBid: null,
+      highestBidderId: null,
+      bidCount: 0,
       bidResolvedAt: null,
     });
 
@@ -278,19 +288,21 @@ describe("낙찰되지 않은 입찰 유예 종료", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ bidsRefunded: 1 });
+    await expect(response.json()).resolves.toMatchObject({
+      auctionsReturned: 1,
+      bidsRefunded: 0,
+    });
     expect(mocks.listing).toMatchObject({
-      status: "active",
+      status: "expired",
       highestBid: null,
       highestBidderId: null,
-      bidResolvedAt: new Date("2026-08-20T12:00:00.000Z"),
     });
-    expect(mocks.inboxWrites.filter((row) => row.kind === "bid_refund")).toHaveLength(1);
+    expect(mocks.inboxWrites.filter((row) => row.kind === "bid_refund")).toHaveLength(0);
   });
 });
 
-describe("구매 주문 만료 잠금", () => {
-  it("제한 여부와 무관하게 구매자 유저를 주문 행보다 먼저 잠그고 환불한다", async () => {
+describe("구매 주문 기능 종료 잠금", () => {
+  it("만료 전이어도 구매자 유저를 주문 행보다 먼저 잠그고 전액 환불한다", async () => {
     mocks.listing = null;
     mocks.order = {
       id: 91,
@@ -306,7 +318,7 @@ describe("구매 주문 만료 잠금", () => {
       minQualityPct: null,
       status: "active",
       createdAt: new Date("2026-08-19T10:00:00.000Z"),
-      expiresAt: new Date("2026-08-20T11:00:00.000Z"),
+      expiresAt: new Date("2026-08-21T11:00:00.000Z"),
       closedAt: null,
     };
 
@@ -317,11 +329,14 @@ describe("구매 주문 만료 잠금", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ ordersExpired: 1 });
+    await expect(response.json()).resolves.toMatchObject({
+      legacyOrdersReturned: 1,
+      legacyOrdersRefunded: 2_000,
+    });
     expect(mocks.lockedParticipants).toEqual(["buyer-a"]);
     expect(
       mocks.lockTradeParticipantStatuses.mock.invocationCallOrder[0],
     ).toBeLessThan(tx.select.mock.invocationCallOrder[1]);
-    expect(mocks.order).toMatchObject({ status: "expired", goldEscrow: 0 });
+    expect(mocks.order).toMatchObject({ status: "cancelled", goldEscrow: 0 });
   });
 });

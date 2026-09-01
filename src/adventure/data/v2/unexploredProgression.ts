@@ -1,4 +1,3 @@
-import { getLevelTable } from "@/lib/leveling";
 import {
   UNEXPLORED_BOSS_IDS,
   parseUnexploredBossId,
@@ -11,17 +10,30 @@ import {
 } from "./unexploredState";
 
 const MAX_XP_POINTS = 30;
-const XP_WEIGHT_TOTAL = 29 * 30 / 2;
-const TOTAL_LOOP_XP = getLevelTable().at(-1)?.cumulative ?? 0;
-const TOTAL_EXPLORATION_XP = TOTAL_LOOP_XP * 5;
+const PAID_XP_POINTS = MAX_XP_POINTS - 1;
+// 탐사 경험치 1은 100레벨 실제 사냥 승리 1회다. 전투 EXP 버프나 희귀 탐사의
+// 압축 보상 횟수와 분리해, 플레이 방식에 따라 30포인트 기간이 무너지는 것을 막는다.
+export const EXPLORATION_XP_PER_HUNT_WIN = 1;
+const TOTAL_EXPLORATION_XP = 200_000;
+const BASE_POINT_COST = 3_000;
+const POINT_COST_POWER = 1.5;
+const VARIABLE_XP_TOTAL =
+  TOTAL_EXPLORATION_XP - BASE_POINT_COST * PAID_XP_POINTS;
+const XP_WEIGHT_TOTAL = Array.from(
+  { length: PAID_XP_POINTS },
+  (_, index) => index ** POINT_COST_POWER,
+).reduce((sum, weight) => sum + weight, 0);
 
 const pointCosts = (() => {
   const costs = Array.from({ length: MAX_XP_POINTS + 1 }, () => 0);
   let allocated = 0;
   for (let point = 2; point < MAX_XP_POINTS; point += 1) {
+    const weight = (point - 2) ** POINT_COST_POWER;
     const cost = Math.max(
       1,
-      Math.round((TOTAL_EXPLORATION_XP * (point - 1)) / XP_WEIGHT_TOTAL),
+      Math.round(
+        BASE_POINT_COST + (VARIABLE_XP_TOTAL * weight) / XP_WEIGHT_TOTAL,
+      ),
     );
     costs[point] = cost;
     allocated += cost;

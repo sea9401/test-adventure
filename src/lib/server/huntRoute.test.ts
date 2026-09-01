@@ -349,7 +349,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     );
   });
 
-  it("100레벨 일반 사냥 승리 EXP를 탐사 경험치로 전환한다", async () => {
+  it("100레벨 일반 사냥 승리 한 번을 탐사 경험치 1로 전환한다", async () => {
     const current = store.get("character.v2") as Record<string, unknown>;
     store.set("character.v2", { ...current, level: 100, exp: 0 });
     overpowerSeededWarrior();
@@ -376,8 +376,8 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(res.status).toBe(200);
     expect(json.result.won).toBe(true);
     expect(json.result.exploration).toEqual({
-      xpGained: json.result.expGained,
-      xpAfter: json.result.expGained,
+      xpGained: 1,
+      xpAfter: 1,
       xpPoints: 1,
       pointsGained: 1,
     });
@@ -385,13 +385,14 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       level: 100,
       exp: 0,
       unexplored: {
-        explorationXp: json.result.expGained,
+        explorationXp: 1,
+        explorationProgressVersion: 2,
         xpPoints: 1,
       },
     });
   });
 
-  it("100레벨 압축 사냥은 실제 승리 EXP 합계를 탐사 경험치로 누적한다", async () => {
+  it("100레벨 일괄 사냥은 실제 승리 수만큼 탐사 경험치를 누적한다", async () => {
     const current = store.get("character.v2") as Record<string, unknown>;
     store.set("character.v2", {
       ...current,
@@ -423,8 +424,8 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(res.status).toBe(200);
     expect(json.batch).toMatchObject({ completed: 2, wins: 2 });
     expect(json.batch.exploration).toEqual({
-      xpGained: json.batch.totalExp,
-      xpAfter: json.batch.totalExp,
+      xpGained: 2,
+      xpAfter: 2,
       xpPoints: 1,
       pointsGained: 1,
     });

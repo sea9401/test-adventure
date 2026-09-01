@@ -21,6 +21,7 @@ describe("unexplored service", () => {
     const snapshot = unexploredSnapshot(character({
       unexplored: parseUnexploredSave({
         explorationXp: 123,
+        explorationProgressVersion: 2,
         xpPoints: 3,
         selectedNodeIds: ["start", "inner-0-0"],
         traces: { iron_legion: 9 },

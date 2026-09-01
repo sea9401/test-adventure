@@ -934,11 +934,7 @@ export function V2EnhanceView({
         : null;
 
   return (
-    <main
-      className={`mx-auto space-y-4 p-6 pb-28 text-zinc-900 dark:text-zinc-100 sm:pb-6 ${
-        mode === "liberation" ? "max-w-[820px]" : "max-w-[720px]"
-      }`}
-    >
+    <main className="mx-auto max-w-[720px] space-y-4 p-6 pb-28 text-zinc-900 sm:pb-6 dark:text-zinc-100">
       <SubViewHeader
         title={
           <>

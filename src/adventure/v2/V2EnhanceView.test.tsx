@@ -12,8 +12,11 @@ describe("대장간 해방 기능 플래그", () => {
     expect(resolveSmithyForgeMode("liberation", false)).toBe("enhance");
   });
 
-  it("플래그가 켜지면 해방 탭과 URL 진입을 허용한다", () => {
-    expect(smithyForgeTabs(true).map(({ key }) => key)).toContain("liberation");
+  it("플래그가 켜지면 마법부여 탭과 기존 URL 진입을 허용한다", () => {
+    expect(smithyForgeTabs(true)).toContainEqual({
+      key: "liberation",
+      label: "마법부여",
+    });
     expect(resolveSmithyForgeMode("liberation", true)).toBe("liberation");
   });
 });

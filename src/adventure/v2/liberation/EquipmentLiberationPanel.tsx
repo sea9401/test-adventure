@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { Question, Sparkle } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import {
@@ -18,13 +19,15 @@ import {
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import {
-  LIBERATION_LINE_COUNT_CHANCES,
+  EquipmentEnchantmentGuideDialog,
+  EquipmentSelectionDialog,
+  InitialEnchantmentConfirmDialog,
+} from "./EquipmentEnchantmentDialogs";
+import {
+  enchantmentStage,
   formatLiberationOptionRoll,
   liberationCandidateRows,
   liberationOptionProbabilityRows,
-  liberationPromotionChancePct,
-  liberationRankLevelDistribution,
-  liberationRankLevelSummary,
 } from "./equipmentLiberationViewModel";
 
 type LiberationApiResponse = {
@@ -56,13 +59,13 @@ function errorMessage(error: string | undefined): string {
     case "insufficient_gold":
       return "골드가 부족합니다.";
     case "ineligible":
-      return "이 장비는 해방할 수 없습니다.";
+      return "이 장비에는 마법부여할 수 없습니다.";
     case "not_owned":
       return "보유하지 않은 장비입니다.";
     case "stale_state":
       return "다른 작업에서 장비 상태가 바뀌어 최신 상태를 불러왔습니다.";
     default:
-      return "해방에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+      return "마법부여에 실패했습니다. 잠시 후 다시 시도해 주세요.";
   }
 }
 
@@ -80,6 +83,8 @@ export function EquipmentLiberationPanel({
     [equipped, owned],
   );
   const [selectedIid, setSelectedIid] = useState(initialItemIid ?? "");
+  const [selectionOpen, setSelectionOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{
@@ -89,6 +94,7 @@ export function EquipmentLiberationPanel({
   const [result, setResult] = useState<{
     rank: LiberationRank;
     promoted: boolean;
+    revision: number;
   } | null>(null);
   const pendingRequest = useRef<PendingRequest | null>(null);
   const selected =
@@ -101,14 +107,13 @@ export function EquipmentLiberationPanel({
   const spendable = gold + bankedGold;
   const probabilityRows = item ? liberationOptionProbabilityRows(item.slot) : [];
 
-  useEffect(() => {
-    if (!confirmOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busy) setConfirmOpen(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [busy, confirmOpen]);
+  function selectEquipment(iid: string): void {
+    if (busy) return;
+    setSelectedIid(iid);
+    setSelectionOpen(false);
+    setMessage(null);
+    setResult(null);
+  }
 
   async function submit(): Promise<void> {
     if (!instance || busy) return;
@@ -146,19 +151,20 @@ export function EquipmentLiberationPanel({
         return;
       }
       const previousRank = current?.rank ?? 3;
+      const nextLiberation = body.item.liberation;
       onItemUpdated(body.item);
       onWalletUpdated(body.gold ?? gold, body.bankedGold ?? bankedGold);
       setResult({
-        rank: body.item.liberation?.rank ?? previousRank,
+        rank: nextLiberation?.rank ?? previousRank,
         promoted:
-          body.item.liberation != null &&
-          body.item.liberation.rank < previousRank,
+          nextLiberation != null && nextLiberation.rank < previousRank,
+        revision: nextLiberation?.revision ?? revision + 1,
       });
       setMessage({
         tone: "success",
         text: isReroll
-          ? "재해방이 완료되었습니다."
-          : "장비 해방이 완료되었습니다.",
+          ? "재마법부여가 완료되었습니다."
+          : "장비 마법부여가 완료되었습니다.",
       });
     } catch {
       setMessage({
@@ -174,160 +180,176 @@ export function EquipmentLiberationPanel({
   if (candidates.length === 0) {
     return (
       <section className={`${SURFACE_CARD} p-5`}>
-        <h2 className="font-semibold">장비 해방</h2>
+        <h2 className="font-semibold">장비 마법부여</h2>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
-          해방 가능한 6T 이상 장비가 없습니다. 폭풍 개량 장비는 해방할 수 없습니다.
+          마법부여 가능한 6T 이상 장비가 없습니다. 폭풍 개량 장비에는 마법부여할 수 없습니다.
         </p>
       </section>
     );
   }
 
   return (
-    <section className="grid gap-4 lg:grid-cols-[minmax(240px,0.8fr)_minmax(0,1.4fr)]">
-      <div className={`${SURFACE_CARD} p-4`}>
-        <h2 className="text-sm font-bold">해방 대상 장비</h2>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">6T 이상 · 폭풍 개량 제외</p>
-        <div className="mt-3 space-y-2" role="listbox" aria-label="해방 대상 장비">
-          {candidates.map((candidate) => {
-            const active = candidate.iid === selected?.iid;
-            return (
-              <button
-                key={candidate.iid}
-                type="button"
-                role="option"
-                aria-selected={active}
-                onClick={() => {
-                  if (busy) return;
-                  setSelectedIid(candidate.iid);
-                  setMessage(null);
-                  setResult(null);
-                }}
-                className={`${SURFACE_INSET} w-full px-3 py-2 text-left transition-colors ${
-                  active ? "ring-2 ring-violet-500" : "hover:border-violet-400"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm font-semibold">{candidate.name}</span>
-                  {candidate.isEquipped ? <span className="shrink-0 text-[11px] text-emerald-700 dark:text-emerald-300">장착 중</span> : null}
-                </div>
-                <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  {candidate.displayTier}T · {candidate.rank ? `해방 ${candidate.rank} · ${candidate.lineCount}줄` : "미해방"}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className={`${SURFACE_CARD} p-4 sm:p-5`}>
+    <>
+      <section className={`${SURFACE_CARD} p-4 sm:p-5`}>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">장비 해방 작업대</p>
-            <h2 className="mt-1 text-lg font-bold">{selected?.name}</h2>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">
+              장비 마법부여 작업대
+            </p>
+            <h2 className="mt-1 truncate text-lg font-bold">{selected?.name}</h2>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-              {current ? `해방 ${current.rank} · ${current.lineCount}줄` : "아직 해방되지 않은 장비"}
+              {current
+                ? `마법부여 ${enchantmentStage(current.rank)}단계 · ${current.lineCount}줄`
+                : "아직 마법부여되지 않은 장비"}
             </p>
           </div>
-          <div className={`${SURFACE_INSET} px-3 py-2 text-right text-xs tabular-nums`}>
-            <div>비용 <strong>{EQUIPMENT_LIBERATION_GOLD_COST.toLocaleString()} G</strong></div>
-            <div className="mt-1 text-zinc-500 dark:text-zinc-400">결제 가능 {spendable.toLocaleString()} G</div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              disabled={busy}
+              onClick={() => setSelectionOpen(true)}
+            >
+              장비 선택
+            </Button>
+            <button
+              type="button"
+              onClick={() => setGuideOpen(true)}
+              aria-label="마법부여 도움말"
+              aria-haspopup="dialog"
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-violet-200 bg-white text-violet-700 shadow-sm transition-colors hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-violet-800 dark:bg-zinc-900 dark:text-violet-300 dark:hover:bg-violet-950"
+            >
+              <Question size={17} weight="bold" aria-hidden />
+            </button>
           </div>
+        </div>
+
+        <div className={`${SURFACE_INSET} mt-4 flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs`}>
+          <span className="text-zinc-500 dark:text-zinc-400">
+            6T 이상 · 폭풍 개량 제외
+          </span>
+          <span className="tabular-nums">
+            비용 <strong className="text-amber-700 dark:text-amber-300">{EQUIPMENT_LIBERATION_GOLD_COST.toLocaleString()} G</strong>
+            <span className="ml-2 text-zinc-500 dark:text-zinc-400">
+              결제 가능 {spendable.toLocaleString()} G
+            </span>
+          </span>
         </div>
 
         {current ? (
-          <div className={`${SURFACE_ACCENT} mt-4 p-3`}>
-            <div className="text-sm font-bold">현재 옵션</div>
-            <ul className="mt-2 space-y-1 text-sm">
+          <div className={`${SURFACE_ACCENT} mt-4 p-3 sm:p-4`}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex size-8 items-center justify-center rounded-lg border border-violet-200 bg-white text-violet-600 shadow-sm dark:border-violet-800 dark:bg-zinc-900 dark:text-violet-300">
+                  <Sparkle size={18} weight="duotone" aria-hidden />
+                </span>
+                <div>
+                  <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">
+                    마법 각인
+                  </p>
+                  <h3 className="text-sm font-bold">현재 마법부여 옵션</h3>
+                </div>
+              </div>
+              <span className="rounded-full border border-amber-300 bg-white px-2 py-1 text-[11px] font-bold text-amber-700 dark:border-amber-800 dark:bg-zinc-900 dark:text-amber-300">
+                {current.lineCount}줄
+              </span>
+            </div>
+            <ul
+              key={`enchantment-options-${result?.revision ?? current.revision}`}
+              aria-label="현재 마법부여 옵션"
+              className={`mt-3 space-y-2 ${result ? "ui-result-highlight" : ""}`}
+            >
               {current.options.map((option) => (
-                <li key={option.id} className="flex justify-between gap-3">
-                  <span>{formatLiberationOptionRoll(option)}</span>
-                  <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">Lv.{option.level}</span>
+                <li
+                  key={option.id}
+                  className={`${SURFACE_INSET} flex items-center justify-between gap-3 border-violet-200 px-3 py-2.5 shadow-sm dark:border-violet-900`}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <Sparkle
+                      size={15}
+                      weight="fill"
+                      className="shrink-0 text-violet-500"
+                      aria-hidden
+                    />
+                    <strong className="truncate text-sm text-violet-950 dark:text-violet-100">
+                      {formatLiberationOptionRoll(option)}
+                    </strong>
+                  </span>
+                  <span className="shrink-0 rounded-md border border-violet-200 bg-white px-2 py-1 text-xs font-bold tabular-nums text-violet-700 dark:border-violet-800 dark:bg-zinc-900 dark:text-violet-300">
+                    Lv.{option.level}
+                  </span>
                 </li>
               ))}
             </ul>
           </div>
-        ) : null}
-
-        <div className={`${SURFACE_INSET} mt-4 p-3 text-sm`}>
-          {current ? (
-            <>
-              <p className="font-semibold text-rose-700 dark:text-rose-300">재해방하면 현재 옵션 전체가 즉시 소멸합니다.</p>
-              <p className="mt-2">{current.rank === 1 ? "최고 단계 유지" : `해방 ${current.rank - 1} 승급 ${liberationPromotionChancePct(current.rank)}%`}</p>
-              <div className="mt-3 space-y-1.5 text-xs text-zinc-600 dark:text-zinc-300">
-                {([3, 2, 1] as const).map((rank) => (
-                  <div key={rank}>
-                    <strong>{liberationRankLevelSummary(rank)}</strong>
-                    <span className="ml-2">
-                      {liberationRankLevelDistribution(rank).map(({ level, chancePct }) => `Lv.${level} ${chancePct}%`).join(" · ")}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <p><strong>성공 즉시 귀속</strong>되며 거래할 수 없습니다.</p>
-              <p className="mt-1"><strong>줄 수는 영구 고정</strong>되어 재해방해도 바뀌지 않습니다.</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {LIBERATION_LINE_COUNT_CHANCES.map(({ lineCount, chancePct }) => (
-                  <span key={lineCount} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900">{lineCount}줄 {chancePct}%</span>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-
-        <details className={`${SURFACE_INSET} mt-4 p-3`}>
-          <summary className="cursor-pointer text-sm font-semibold">옵션 출현 확률</summary>
-          <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">2·3번째 줄은 이미 선택된 옵션을 제외하고 남은 가중치로 다시 계산됩니다.</p>
-          <div className="mt-2 max-h-64 overflow-auto">
-            <table className="w-full text-left text-xs">
-              <thead><tr className="text-zinc-500 dark:text-zinc-400"><th className="py-1">옵션</th><th>가중치</th><th>첫 줄 확률</th></tr></thead>
-              <tbody>
-                {probabilityRows.map((row) => (
-                  <tr key={row.id} className="border-t border-zinc-200 dark:border-zinc-700">
-                    <td className="py-1.5">{row.label}</td><td>{row.weight}</td><td>{row.firstLineChancePct.toFixed(2)}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        ) : (
+          <div className={`${SURFACE_INSET} mt-4 p-3 text-sm leading-relaxed`}>
+            최초 마법부여에서 장비 귀속과 옵션 줄 수가 확정됩니다. 실행 전에 한 번만 자세히 확인합니다.
           </div>
-        </details>
+        )}
+
+        {current ? (
+          <div className={`${SURFACE_INSET} mt-4 border-rose-300 px-3 py-2.5 text-sm text-rose-800 dark:border-rose-900 dark:text-rose-200`}>
+            <strong>재마법부여하면 현재 옵션 전체가 즉시 소멸합니다.</strong>
+            <span className="mt-1 block text-xs">
+              옵션 줄 수는 유지되며, 버튼을 누르면 별도 확인 없이 바로 진행됩니다.
+            </span>
+          </div>
+        ) : null}
 
         {result ? (
           <div className={`${result.promoted ? SURFACE_ACCENT : SURFACE_INSET} mt-4 p-3 text-sm font-semibold`} role="status">
-            {result.promoted ? `단계 상승! 해방 ${result.rank}` : `결과: 해방 ${result.rank}`}
+            {result.promoted
+              ? `단계 상승! 마법부여 ${enchantmentStage(result.rank)}단계`
+              : `마법부여 ${enchantmentStage(result.rank)}단계 결과가 반영되었습니다.`}
           </div>
         ) : null}
-        {message ? <div className="mt-4"><StatusBanner tone={message.tone}>{message.text}</StatusBanner></div> : null}
+        {message ? (
+          <div className="mt-4">
+            <StatusBanner tone={message.tone}>{message.text}</StatusBanner>
+          </div>
+        ) : null}
 
         <Button
-          className="mt-4 w-full"
+          className="mt-4 w-full shadow-lg shadow-violet-500/20"
           size="md"
           variant="primary"
           disabled={busy || spendable < EQUIPMENT_LIBERATION_GOLD_COST}
-          onClick={() => setConfirmOpen(true)}
+          onClick={() => {
+            if (isReroll) {
+              void submit();
+            } else {
+              setConfirmOpen(true);
+            }
+          }}
         >
-          {busy ? "작업 중…" : isReroll ? "재해방" : "해방"}
+          {busy ? "마법부여 중…" : isReroll ? "재마법부여" : "마법부여"}
         </Button>
+      </section>
 
-        {confirmOpen ? (
-          <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center" role="presentation">
-            <div className={`${SURFACE_CARD} w-full max-w-md p-5`} role="dialog" aria-modal="true" aria-label={isReroll ? "재해방 확인" : "장비 해방 확인"}>
-              <h3 className="text-lg font-bold">{isReroll ? "현재 옵션을 모두 지우고 재해방할까요?" : "이 장비를 해방할까요?"}</h3>
-              <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-                {isReroll ? "줄 수는 유지되지만 현재 옵션은 되돌릴 수 없이 사라집니다." : "성공한 장비는 즉시 귀속되고, 결정된 줄 수는 영구 고정됩니다."}
-              </p>
-              <div className="mt-5 grid grid-cols-2 gap-2">
-                <Button disabled={busy} onClick={() => setConfirmOpen(false)}>취소</Button>
-                <Button disabled={busy} variant="primary" onClick={() => void submit()}>
-                  {busy ? "작업 중…" : `${EQUIPMENT_LIBERATION_GOLD_COST.toLocaleString()} G 지불하고 ${isReroll ? "재해방" : "해방"}`}
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </div>
-    </section>
+      {selectionOpen ? (
+        <EquipmentSelectionDialog
+          candidates={candidates}
+          selectedIid={selected?.iid ?? ""}
+          busy={busy}
+          onSelect={selectEquipment}
+          onClose={() => setSelectionOpen(false)}
+        />
+      ) : null}
+      {guideOpen ? (
+        <EquipmentEnchantmentGuideDialog
+          probabilityRows={probabilityRows}
+          onClose={() => setGuideOpen(false)}
+        />
+      ) : null}
+      {confirmOpen && instance ? (
+        <InitialEnchantmentConfirmDialog
+          itemName={selected.name}
+          goldCost={EQUIPMENT_LIBERATION_GOLD_COST}
+          busy={busy}
+          onConfirm={() => void submit()}
+          onClose={() => setConfirmOpen(false)}
+        />
+      ) : null}
+    </>
   );
 }

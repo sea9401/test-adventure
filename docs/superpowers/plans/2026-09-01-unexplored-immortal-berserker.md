@@ -200,7 +200,7 @@ git commit -m "feat: register immortal berserker rewards"
 - Consumes: Task 1 state transitions.
 - Produces: `BossMechanicContext` variant `{ kind: "immortal_berserker"; sharedMaxHp: number; initialState: ImmortalBerserkerBattleState }` and final battle state counters `immortalBodyDamage`, `immortalHealing`, `immortalRevivalCount`.
 
-- [ ] **Step 1: ATB 실패 테스트 작성**
+- [x] **Step 1: ATB 실패 테스트 작성**
 
 경계 10 HP 위에서 100 피해를 주면 10만 적용되고 둘째 생명으로 전환되는 사례, 같은 다단 행동의 남은 타격이 무시되는 사례, 다음 플레이어 행동은 피해를 주는 사례를 작성한다. 넷째 적 행동 뒤 첫 생명 142,560 회복, 둘째 106,920 회복, 셋째 무회복을 검사한다.
 
@@ -215,31 +215,31 @@ expect(result.finalState.bossMechanic).toMatchObject({
 expect(result.finalState.enemyHp).toBe(7_236_000);
 ```
 
-- [ ] **Step 2: ATB 테스트 실패 확인**
+- [x] **Step 2: ATB 테스트 실패 확인**
 
 Run: `npm test -- src/adventure/v2/combat/immortalBerserkerAtb.test.ts`
 Expected: FAIL on missing mechanic context and state.
 
-- [ ] **Step 3: 엔진 상태와 초기 문맥 구현**
+- [x] **Step 3: 엔진 상태와 초기 문맥 구현**
 
 `BossMechanicContext`와 `BossMechanicBattleState` union을 확장한다. 초기화에서 Task 1 정규화 함수를 사용하고 `bossSharedMaxHp`를 고정한다. 기본 적 스냅샷을 보존한 뒤 생명별 배율을 `atk`와 `spd`에만 적용한다.
 
-- [ ] **Step 4: 모든 플레이어 피해 경로 뒤 경계 정산 구현**
+- [x] **Step 4: 모든 플레이어 피해 경로 뒤 경계 정산 구현**
 
 불괴의 성채 정산 훅 옆에 `settleImmortalBerserkerAfterPlayerDamage(before, after, tick)`을 둔다. 스킬 시전, 평타·다단, 추가타와 적 행동 시작 지속 피해 뒤에 호출한다. 부활이면 조기 승리 로그를 제거하고 같은 행동 묶음의 남은 공격을 종료하며 다음 플레이어 행동을 예약한다.
 
-- [ ] **Step 5: 적 행동 완료 후 재생과 광폭 구현**
+- [x] **Step 5: 적 행동 완료 후 재생과 광폭 구현**
 
 일반 공격과 광란 참격이 끝난 뒤 한 번만 `advanceImmortalBerserkerEnemyAction`을 호출한다. 플레이어 사망 행동도 회복을 반영한 뒤 종료한다. 로그에는 `첫 번째 부활`, `두 번째 부활`, `재생 +142,560`, `광폭 · 공격력 +25% · 행동 속도 +12%`를 정형 effect와 함께 남긴다.
 
-- [ ] **Step 6: 리플레이 자원과 ATB 회귀 통과**
+- [x] **Step 6: 리플레이 자원과 ATB 회귀 통과**
 
 `boss_resource` 스냅샷에 생명, 현재 생명 HP, 남은 재생, 재생 행동 수, 광폭 배율을 넣고 `BattleLogList`가 기존 카드 그룹을 유지하는지 검사한다.
 
 Run: `npm test -- src/adventure/v2/combat/immortalBerserkerMechanic.test.ts src/adventure/v2/combat/immortalBerserkerAtb.test.ts src/adventure/battle/BattleLogList.test.tsx src/adventure/v2/combat/trackingWeaponAtb.test.ts src/adventure/v2/combat/toxicBloodLordAtb.test.ts src/adventure/v2/combat/glacialColossusAtb.test.ts src/adventure/v2/combat/invincibleFortressAtb.test.ts`
 Expected: PASS.
 
-- [ ] **Step 7: ATB 통합 커밋**
+- [x] **Step 7: ATB 통합 커밋**
 
 ```bash
 git add src/adventure/v2/combat src/adventure/battle/BattleLogList.tsx src/adventure/battle/BattleLogList.test.tsx

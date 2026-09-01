@@ -11,6 +11,7 @@ import type { RuinChargeState } from "./ruinBladeCombat";
 import type { CrossFamily } from "./skyAscendantCombat";
 import type { FormulaState } from "./primordialSageCombat";
 import type { InvincibleFortressBattleState } from "./invincibleFortressMechanic";
+import type { ImmortalBerserkerBattleState } from "./immortalBerserkerMechanic";
 
 export type Tier7BattleResources = {
   swordShadow?: SwordShadowState;
@@ -419,6 +420,11 @@ export type BossMechanicContext =
       kind: "invincible_fortress";
       sharedMaxHp: number;
       initialState: InvincibleFortressBattleState;
+    }
+  | {
+      kind: "immortal_berserker";
+      sharedMaxHp: number;
+      initialState: ImmortalBerserkerBattleState;
     };
 
 export type TrackingWeaponBattleState = {
@@ -444,11 +450,18 @@ export type GlacialColossusBattleState = {
   glacialSkippedActionCount: number;
 };
 
+export type ImmortalBerserkerCombatState = ImmortalBerserkerBattleState & {
+  immortalBodyDamage: number;
+  immortalHealing: number;
+  immortalRevivalCount: number;
+};
+
 export type BossMechanicBattleState =
   | TrackingWeaponBattleState
   | ToxicBloodBattleState
   | GlacialColossusBattleState
-  | InvincibleFortressBattleState;
+  | InvincibleFortressBattleState
+  | ImmortalBerserkerCombatState;
 
 /** 보스에 대한 %HP 비례 추가 데미지(충돌파/천명) 감산 계수. 1.0 = 그대로, 0.1 = 1/10. */
 export const BOSS_PCT_HP_DAMAGE_MULT = 0.1;

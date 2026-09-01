@@ -1291,6 +1291,10 @@ const SIGNATURE_RESOURCE_LABELS: Record<string, string> = {
   fortressTrial: "방벽 시험",
   fortressDamage: "방벽 피해",
   fortressEnrage: "성채 광폭",
+  immortalLife: "불멸 생명",
+  immortalLifeHp: "현재 생명",
+  immortalRegeneration: "재생",
+  immortalEnrage: "광폭",
 };
 
 const TRIPLE_WARD_RESOURCE_KEYS = new Set([

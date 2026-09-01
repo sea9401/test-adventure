@@ -1148,6 +1148,33 @@ describe("BattleLogList 행동 묶음", () => {
     expect(html).not.toContain("fortressTrial");
   });
 
+  it("불멸의 광전왕 생명과 재생 자원을 한글 라벨로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[{
+          kind: "hp_bar",
+          text: "",
+          playerHp: 900,
+          playerMaxHp: 1_000,
+          enemyHp: 7_000_000,
+          enemyMaxHp: 10_800_000,
+          enemySignatureResources: {
+            immortalLife: "2/3",
+            immortalLifeHp: "3,328,000 / 3,564,000",
+            immortalRegeneration: "2행동 · 1회",
+            immortalEnrage: "공격 +12% · 속도 +6%",
+          },
+        }]}
+      />,
+    );
+
+    expect(html).toContain("불멸 생명 2/3");
+    expect(html).toContain("현재 생명 3,328,000 / 3,564,000");
+    expect(html).toContain("재생 2행동 · 1회");
+    expect(html).toContain("광폭 공격 +12% · 속도 +6%");
+    expect(html).not.toContain("immortalLife");
+  });
+
   it("HP 스냅샷에 삼중 결계 잔량과 영역 안정을 밝음·소모 상태로 표시한다", () => {
     const html = renderToStaticMarkup(
       <BattleLogList

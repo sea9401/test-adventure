@@ -11,6 +11,7 @@ import type { RuinChargeState } from "./ruinBladeCombat";
 import type { CrossFamily } from "./skyAscendantCombat";
 import type { FormulaState } from "./primordialSageCombat";
 import type { InvincibleFortressBattleState } from "./invincibleFortressMechanic";
+import type { SkywardCrystalEyeBattleState } from "./skywardCrystalEyeMechanic";
 import type { ImmortalBerserkerBattleState } from "./immortalBerserkerMechanic";
 
 export type Tier7BattleResources = {
@@ -85,6 +86,8 @@ export type BattleLogEntry =
        * 1타로 해석한다. 피해 문자열 파싱 없이 보스 기믹이 다단 공격을 집계할 때 사용한다.
        */
       directHits?: number;
+      /** directHits 중 치명타로 적중한 수. 보스 기믹이 표시 문자열 파싱 없이 사용한다. */
+      criticalDirectHits?: number;
       /** 적 공격이 일반 보호막을 통과해 실제 HP에 준 피해. 보스 기믹이 문자열 없이 판정한다. */
       enemyHpDamage?: number;
       /** 이 적 공격이 주기형 heavy_blow를 발동했는지 나타내는 정형 메타데이터. */
@@ -401,6 +404,8 @@ export type BattleState = {
   usesAtb?: boolean;
   /** 호출부가 명시적으로 활성화한 보스 전용 전투 상태. */
   bossMechanic?: BossMechanicBattleState;
+  /** 현재 공격 시도에서 발생한 수정안 포격의 정형 결과. 영속 상태와 분리된 리플레이/감사용. */
+  skywardCrystalEyeArtilleryEvents?: import("./skywardCrystalEyeMechanic").SkywardCrystalEyeArtilleryEvent[];
   /** 시도 시작 잔여 HP와 별개인 협동/개인 보스의 고정 공유 최대 HP. */
   bossSharedMaxHp?: number;
 };
@@ -420,6 +425,11 @@ export type BossMechanicContext =
       kind: "invincible_fortress";
       sharedMaxHp: number;
       initialState: InvincibleFortressBattleState;
+    }
+  | {
+      kind: "skyward_crystal_eye";
+      sharedMaxHp: number;
+      initialState: SkywardCrystalEyeBattleState;
     }
   | {
       kind: "immortal_berserker";
@@ -461,6 +471,7 @@ export type BossMechanicBattleState =
   | ToxicBloodBattleState
   | GlacialColossusBattleState
   | InvincibleFortressBattleState
+  | SkywardCrystalEyeBattleState
   | ImmortalBerserkerCombatState;
 
 /** 보스에 대한 %HP 비례 추가 데미지(충돌파/천명) 감산 계수. 1.0 = 그대로, 0.1 = 1/10. */

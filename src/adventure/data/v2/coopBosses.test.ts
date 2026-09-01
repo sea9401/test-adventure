@@ -43,6 +43,9 @@ import {
   coopInvincibleFortressState,
   coopInvincibleFortressDisplay,
   withCoopInvincibleFortressState,
+  coopSkywardCrystalEyeState,
+  coopSkywardCrystalEyeDisplay,
+  withCoopSkywardCrystalEyeState,
   coopImmortalBerserkerState,
   coopImmortalBerserkerDisplay,
   withCoopImmortalBerserkerState,
@@ -51,6 +54,7 @@ import {
   coopVisibilityTransition,
 } from "./coopBosses";
 import { initialInvincibleFortressState } from "@/adventure/v2/combat/invincibleFortressMechanic";
+import { initialSkywardCrystalEyeState } from "@/adventure/v2/combat/skywardCrystalEyeMechanic";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_MATERIALS } from "./dungeonDrops";
 import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
@@ -117,8 +121,8 @@ describe("coopBosses 카탈로그", () => {
     });
   });
 
-  it("13종 — 기존 협동 8종 + 미개척지 개인 보스 5종", () => {
-    expect(COOP_BOSS_KIND_IDS).toHaveLength(13);
+  it("14종 — 기존 협동 8종 + 미개척지 개인 보스 6종", () => {
+    expect(COOP_BOSS_KIND_IDS).toHaveLength(14);
     const normalLadder = [
       "mountain_chief",
       "canyon_predator",
@@ -176,6 +180,7 @@ describe("coopBosses 카탈로그", () => {
       "toxic_blood_lord",
       "glacial_colossus",
       "invincible_fortress",
+      "skyward_crystal_eye",
       "immortal_berserker",
     ] as const;
     for (const id of personalIds) {
@@ -444,7 +449,11 @@ describe("coopBosses 카탈로그", () => {
       expect(full.monster.hp).toBe(b.sharedMaxHp);
       expect(full.monster.name).toBe(b.base.name);
       expect(full.monster.image).toBe(b.base.image);
-      if (id === "glacial_colossus" || id === "invincible_fortress") {
+      if (
+        id === "glacial_colossus" ||
+        id === "invincible_fortress" ||
+        id === "skyward_crystal_eye"
+      ) {
         expect(full.monster.skill).toBeUndefined();
       } else {
         expect(full.monster.skill).toBeDefined();
@@ -780,6 +789,64 @@ describe("coopBosses 카탈로그", () => {
       fortressCompletedBarrierCount: 1,
       fortressNextBarrierHpFraction: 0.5,
       fortressLastResultTier: 2,
+    });
+  });
+
+  it("천공의 수정안 상태를 정규화·병합하며 기존 기믹 키를 보존한다", () => {
+    const eye = COOP_BOSSES.skyward_crystal_eye;
+    const merged = withCoopSkywardCrystalEyeState(
+      eye,
+      { bossMp: 7, trackingThreat: 31, unknownKey: true },
+      {
+        ...initialSkywardCrystalEyeState(),
+        aimTicksRemaining: 640,
+        disruptionStacks: 17,
+      },
+    );
+
+    expect(merged).toMatchObject({
+      bossMp: 7,
+      trackingThreat: 31,
+      crystalEye: { aimTicksRemaining: 640, disruptionStacks: 17 },
+    });
+    expect(merged).not.toHaveProperty("unknownKey");
+    expect(
+      coopSkywardCrystalEyeState(eye, {
+        crystalEye: { kind: "skyward_crystal_eye", aimTicksRemaining: -4 },
+      }),
+    ).toMatchObject({ aimTicksRemaining: 0, disruptionStacks: 0 });
+  });
+
+  it("천공의 수정안 목록·상세 표시값을 저장 상태에서 한 번에 계산한다", () => {
+    const eye = COOP_BOSSES.skyward_crystal_eye;
+    const display = coopSkywardCrystalEyeDisplay(
+      eye,
+      {
+        crystalEye: {
+          kind: "skyward_crystal_eye",
+          aimTicksRemaining: 640,
+          disruptionStacks: 17,
+          coreExposureTicksRemaining: 180,
+          artilleryCount: 2,
+          lastArtilleryStacks: 12,
+          lastArtilleryPowerPct: 70,
+          lastArtilleryDamage: 1234,
+        },
+      },
+      Math.floor(eye.sharedMaxHp * 0.6),
+    );
+
+    expect(display).toEqual({
+      crystalEyeAimTicksRemaining: 640,
+      crystalEyeDisruptionStacks: 17,
+      crystalEyeProjectedPowerPct: 60,
+      crystalEyeBasePowerPct: 210,
+      crystalEyeCoreExposed: true,
+      crystalEyeCoreExposureTicksRemaining: 180,
+      crystalEyeArtilleryCount: 2,
+      crystalEyeLastArtilleryStacks: 12,
+      crystalEyeLastArtilleryPowerPct: 70,
+      crystalEyeLastArtilleryDamage: 1234,
     });
   });
 

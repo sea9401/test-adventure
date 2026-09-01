@@ -40,6 +40,11 @@ export const UNEXPLORED_SUMMON_STONE_MATERIALS = {
     name: "불괴의 성채 소환석",
     description: "철갑 군단과 마력 방벽체의 흔적을 결속한 거래 가능한 개인 보스 소환석.",
   },
+  v2_unexplored_skyward_crystal_eye_summon_stone: {
+    id: "v2_unexplored_skyward_crystal_eye_summon_stone",
+    name: "천공의 수정안 소환석",
+    description: "수정 포격대와 정밀 사냥단의 흔적을 결속한 거래 가능한 개인 보스 소환석.",
+  },
   v2_unexplored_immortal_berserker_summon_stone: {
     id: "v2_unexplored_immortal_berserker_summon_stone",
     name: "불멸의 광전왕 소환석",
@@ -62,6 +67,7 @@ export type UnexploredBossDefinition = {
     | "toxic_blood_lord"
     | "glacial_colossus"
     | "invincible_fortress"
+    | "skyward_crystal_eye"
     | "immortal_berserker";
   name: string;
   pools: readonly [UnexploredPoolId, UnexploredPoolId];
@@ -269,6 +275,55 @@ export const UNEXPLORED_BOSSES = {
       "네 구간에서 방벽 시험",
       "400틱 동안 순간 피해 측정",
       "달성률이 높을수록 다음 광폭 약화",
+    ],
+  },
+  skyward_crystal_eye: {
+    id: "skyward_crystal_eye",
+    name: "천공의 수정안",
+    pools: ["crystal_artillery", "precision_hunters"],
+    summonMaterialId: "v2_unexplored_skyward_crystal_eye_summon_stone",
+    uniqueDrops: [
+      {
+        equipmentId: "v2_unexplored_prismatic_firing_gauntlets",
+        equipmentName: "분광 사격완갑",
+        chancePct: 30,
+      },
+      {
+        equipmentId: "v2_unexplored_starpath_aiming_ring",
+        equipmentName: "별궤 조준환",
+        chancePct: 10,
+      },
+      {
+        equipmentId: "v2_unexplored_infinite_focus_crystal_eye",
+        equipmentName: "무한초점 수정안",
+        chancePct: 0.5,
+      },
+    ],
+    titleId: "v2_unexplored_skyward_crystal_eye",
+    sharedMaxHp: 10_800_000,
+    anchorDepth: 120,
+    monster: {
+      name: "천공의 수정안",
+      tags: ["golem", "spirit"],
+      image: "/images/monster/v2/unexplored-boss-skyward-crystal-eye.webp",
+      hp: 1_150,
+      atk: 2,
+      atkType: "magic",
+      def: 42,
+      magicDef: 48,
+      spd: 22,
+      accuracy: -185,
+      evasionPct: 16,
+      exp: 0,
+      armorVulnerable: 0.35,
+      playerDefVulnerable: 0.35,
+      dropQualityBias: 4,
+      v2MaxMp: 0,
+    },
+    traits: [
+      "900틱마다 천공 포격",
+      "연타·치명타로 조준 붕괴",
+      "24중첩 시 포격 25%·핵 노출",
     ],
   },
   immortal_berserker: {

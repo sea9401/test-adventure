@@ -500,6 +500,13 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "별빛 거인 잔영 처치",
     category: "endgame",
   },
+  v2_unexplored_skyward_crystal_eye: {
+    id: "v2_unexplored_skyward_crystal_eye",
+    name: "천공을 흐린 자",
+    description: "완벽한 수정 포격의 조준을 연속 타격으로 무너뜨린 자.",
+    condition: "천공의 수정안 처치",
+    category: "endgame",
+  },
   starlit_depth_breaker: {
     id: "starlit_depth_breaker",
     name: "수심의 메아리를 가라앉힌 자",

@@ -2996,6 +2996,9 @@ export function applyPlayerV2SkillCast(
         kind: "player_attack",
         text: `${result.castSkillName}!${skillCritFired ? " [치명타]" : ""} ${hit} 피해를 입혔다.`,
         directHits: 1,
+        ...(state.bossMechanic?.kind === "skyward_crystal_eye"
+          ? { criticalDirectHits: skillCritFired ? 1 : 0 }
+          : {}),
       });
     }
   }

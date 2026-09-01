@@ -116,6 +116,7 @@ const BOSS_ACHIEVEMENT_ID_BY_BOSS = {
   toxic_blood_lord: "defeat_toxic_blood_lord",
   glacial_colossus: "defeat_glacial_colossus",
   invincible_fortress: "defeat_invincible_fortress",
+  skyward_crystal_eye: "defeat_skyward_crystal_eye",
   immortal_berserker: "defeat_immortal_berserker",
 } as const satisfies Record<UnexploredBossId, UnexploredAchievementId>;
 
@@ -146,6 +147,11 @@ export const UNEXPLORED_ACHIEVEMENTS = [
     description: "불괴의 성채를 처치하세요.",
   },
   {
+    id: "defeat_skyward_crystal_eye",
+    name: "천공의 수정안 처치",
+    description: "천공의 수정안을 처치하세요.",
+  },
+  {
     id: "defeat_immortal_berserker",
     name: "불멸의 광전왕 처치",
     description: "불멸의 광전왕을 처치하세요.",
@@ -153,7 +159,7 @@ export const UNEXPLORED_ACHIEVEMENTS = [
   {
     id: "defeat_all_personal_bosses",
     name: "미개척지 보스 정복",
-    description: "미개척지 개인 보스 5종을 모두 처치하세요.",
+    description: "미개척지 개인 보스 6종을 모두 처치하세요.",
   },
   {
     id: "first_unexplored_hunt",

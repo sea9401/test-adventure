@@ -586,6 +586,9 @@ export function resolvePlayerPhase(
     kind: "player_attack",
     text: `공격! ${prefix}${totalDmg} 피해를 입혔다.`,
     directHits: Math.max(1, apHits),
+    ...(state.bossMechanic?.kind === "skyward_crystal_eye"
+      ? { criticalDirectHits: critRoll ? Math.max(1, apHits) : 0 }
+      : {}),
   });
   if (state.duelistBuff) {
     log = appendLog(log, {

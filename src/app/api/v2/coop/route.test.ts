@@ -154,6 +154,58 @@ describe("GET /api/v2/coop", () => {
     });
   });
 
+  it("천공의 수정안 조준·핵 노출·직전 포격을 목록에 표시한다", async () => {
+    mocks.queryRows.push(
+      [{
+        id: "eye-1",
+        regionId: "skyward_crystal_eye",
+        hp: 6_480_000,
+        maxHp: 10_800_000,
+        mechanicState: {
+          crystalEye: {
+            kind: "skyward_crystal_eye",
+            aimTicksRemaining: 640,
+            disruptionStacks: 17,
+            coreExposureTicksRemaining: 180,
+            artilleryCount: 2,
+            lastArtilleryStacks: 12,
+            lastArtilleryPowerPct: 70,
+            lastArtilleryDamage: 1234,
+          },
+        },
+        expiresAt: new Date(Date.now() + 60_000),
+        summonedByName: "viewer",
+        summonerId: "viewer",
+        summonerGuildId: null,
+        visibility: "summoner_only",
+        spawnedAt: new Date(),
+        defeatedAt: null,
+      }],
+      [],
+      [],
+      [],
+      [],
+    );
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      sessions: [{
+        crystalEyeAimTicksRemaining: 640,
+        crystalEyeDisruptionStacks: 17,
+        crystalEyeProjectedPowerPct: 60,
+        crystalEyeBasePowerPct: 210,
+        crystalEyeCoreExposed: true,
+        crystalEyeCoreExposureTicksRemaining: 180,
+        crystalEyeArtilleryCount: 2,
+        crystalEyeLastArtilleryStacks: 12,
+        crystalEyeLastArtilleryPowerPct: 70,
+        crystalEyeLastArtilleryDamage: 1234,
+      }],
+    });
+  });
+
   it("불멸의 광전왕 둘째 생명과 재생 상태를 목록에 표시한다", async () => {
     mocks.queryRows.push(
       [{

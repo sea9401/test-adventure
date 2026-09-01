@@ -12,6 +12,8 @@ import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import type { StaminaState } from "@/adventure/v2/stamina";
 import type { InvincibleFortressEnrageTier } from "@/adventure/v2/combat/invincibleFortressMechanic";
+import type { SkywardCrystalEyeArtilleryPowerPct } from "@/adventure/v2/combat/skywardCrystalEyeMechanic";
+import type { SkywardCrystalEyeArtilleryEvent } from "@/adventure/v2/combat/skywardCrystalEyeMechanic";
 import {
   COOP_ATTACK_STAMINA_COST,
   COOP_BOSSES,
@@ -37,6 +39,19 @@ export type CoopFortressStatus = {
   fortressLastResultTier?: InvincibleFortressEnrageTier | null;
 };
 
+export type CoopSkywardCrystalEyeStatus = {
+  crystalEyeAimTicksRemaining?: number;
+  crystalEyeDisruptionStacks?: number;
+  crystalEyeProjectedPowerPct?: SkywardCrystalEyeArtilleryPowerPct;
+  crystalEyeBasePowerPct?: 180 | 210 | 240 | 270;
+  crystalEyeCoreExposed?: boolean;
+  crystalEyeCoreExposureTicksRemaining?: number;
+  crystalEyeArtilleryCount?: number;
+  crystalEyeLastArtilleryStacks?: number | null;
+  crystalEyeLastArtilleryPowerPct?: SkywardCrystalEyeArtilleryPowerPct | null;
+  crystalEyeLastArtilleryDamage?: number | null;
+};
+
 export type CoopImmortalBerserkerStatus = {
   immortalLifeIndex?: 0 | 1 | 2;
   immortalLifeHp?: number;
@@ -48,7 +63,8 @@ export type CoopImmortalBerserkerStatus = {
   immortalSpdMult?: number;
 };
 
-export type CoopSessionSummary = CoopFortressStatus & CoopImmortalBerserkerStatus & {
+export type CoopSessionSummary = CoopFortressStatus &
+  CoopSkywardCrystalEyeStatus & CoopImmortalBerserkerStatus & {
   id: string;
   kind: CoopBossKindId;
   hp: number;
@@ -75,7 +91,8 @@ export type CoopClaimable = {
   defeatedAt: number;
 };
 
-export type CoopAttackResult = CoopFortressStatus & CoopImmortalBerserkerStatus & {
+export type CoopAttackResult = CoopFortressStatus &
+  CoopSkywardCrystalEyeStatus & CoopImmortalBerserkerStatus & {
   attackId: number;
   kind: CoopBossKindId;
   damageDealt: number;
@@ -102,6 +119,7 @@ export type CoopAttackResult = CoopFortressStatus & CoopImmortalBerserkerStatus 
   glacialFreezeCount: number;
   glacialSkippedActionCount: number;
   fortressCompletedResults: InvincibleFortressEnrageTier[];
+  crystalEyeArtilleryEvents: SkywardCrystalEyeArtilleryEvent[];
   immortalBodyDamage: number;
   immortalHealing: number;
   immortalRevivalCount: number;
@@ -157,7 +175,8 @@ export type CoopRecentAttack = {
 };
 
 export type CoopSessionDetail = {
-  session: CoopFortressStatus & CoopImmortalBerserkerStatus & {
+  session: CoopFortressStatus & CoopSkywardCrystalEyeStatus &
+    CoopImmortalBerserkerStatus & {
     id: string;
     kind: CoopBossKindId;
     hp: number;
@@ -464,6 +483,23 @@ export function useCoopSessionState({
                   fortressNextBarrierHpFraction:
                     r.fortressNextBarrierHpFraction,
                   fortressLastResultTier: r.fortressLastResultTier,
+                  crystalEyeAimTicksRemaining:
+                    r.crystalEyeAimTicksRemaining,
+                  crystalEyeDisruptionStacks:
+                    r.crystalEyeDisruptionStacks,
+                  crystalEyeProjectedPowerPct:
+                    r.crystalEyeProjectedPowerPct,
+                  crystalEyeBasePowerPct: r.crystalEyeBasePowerPct,
+                  crystalEyeCoreExposed: r.crystalEyeCoreExposed,
+                  crystalEyeCoreExposureTicksRemaining:
+                    r.crystalEyeCoreExposureTicksRemaining,
+                  crystalEyeArtilleryCount: r.crystalEyeArtilleryCount,
+                  crystalEyeLastArtilleryStacks:
+                    r.crystalEyeLastArtilleryStacks,
+                  crystalEyeLastArtilleryPowerPct:
+                    r.crystalEyeLastArtilleryPowerPct,
+                  crystalEyeLastArtilleryDamage:
+                    r.crystalEyeLastArtilleryDamage,
                   immortalLifeIndex: r.immortalLifeIndex,
                   immortalLifeHp: r.immortalLifeHp,
                   immortalLifeMaxHp: r.immortalLifeMaxHp,

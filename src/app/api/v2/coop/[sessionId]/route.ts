@@ -21,6 +21,7 @@ import {
   coopBossTrackingThreat,
   coopBossTrackingThreatMax,
   coopInvincibleFortressDisplay,
+  coopSkywardCrystalEyeDisplay,
   coopImmortalBerserkerDisplay,
 } from "@/adventure/data/v2/coopBosses";
 import {
@@ -227,6 +228,11 @@ export async function GET(_req: Request, { params }: Ctx) {
         coopBossTrackingThreat(def, session.mechanicState) >=
           coopBossTrackingThreatMax(def),
       ...coopInvincibleFortressDisplay(
+        def,
+        session.mechanicState,
+        session.hp,
+      ),
+      ...coopSkywardCrystalEyeDisplay(
         def,
         session.mechanicState,
         session.hp,

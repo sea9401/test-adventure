@@ -21,6 +21,14 @@ import {
   type InvincibleFortressEnrageTier,
 } from "@/adventure/v2/combat/invincibleFortressMechanic";
 import {
+  initialSkywardCrystalEyeState,
+  normalizeSkywardCrystalEyeState,
+  skywardCrystalEyeArtilleryPowerPct,
+  skywardCrystalEyeBasePowerPct,
+  type SkywardCrystalEyeArtilleryPowerPct,
+  type SkywardCrystalEyeBattleState,
+} from "@/adventure/v2/combat/skywardCrystalEyeMechanic";
+import {
   immortalBerserkerDisplay,
   immortalBerserkerLifeCeilings,
   normalizeImmortalBerserkerState,
@@ -405,6 +413,7 @@ export type CoopMechanicState = {
   bossMp?: number;
   trackingThreat?: number;
   fortress?: InvincibleFortressBattleState;
+  crystalEye?: SkywardCrystalEyeBattleState;
   immortalBerserker?: ImmortalBerserkerBattleState;
 };
 
@@ -414,6 +423,7 @@ export function parseCoopMechanicState(value: unknown): CoopMechanicState {
     bossMp?: unknown;
     trackingThreat?: unknown;
     fortress?: unknown;
+    crystalEye?: unknown;
     immortalBerserker?: unknown;
   };
   const next: CoopMechanicState = {};
@@ -436,6 +446,9 @@ export function parseCoopMechanicState(value: unknown): CoopMechanicState {
       maxHp,
       maxHp,
     );
+  }
+  if (src.crystalEye != null) {
+    next.crystalEye = normalizeSkywardCrystalEyeState(src.crystalEye);
   }
   if (src.immortalBerserker != null) {
     const maxHp = UNEXPLORED_BOSSES.immortal_berserker.sharedMaxHp;
@@ -613,6 +626,72 @@ export function coopInvincibleFortressDisplay(
     fortressNextBarrierHpFraction:
       FORTRESS_FUTURE_BARRIER_FRACTIONS[nextFractionIndex] ?? null,
     fortressLastResultTier: lastResultTier,
+  };
+}
+
+export function coopSkywardCrystalEyeState(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+): SkywardCrystalEyeBattleState {
+  if (kind.id !== "skyward_crystal_eye") {
+    return initialSkywardCrystalEyeState();
+  }
+  const rawCrystalEye =
+    stateRaw && typeof stateRaw === "object" && !Array.isArray(stateRaw)
+      ? (stateRaw as { crystalEye?: unknown }).crystalEye
+      : undefined;
+  return normalizeSkywardCrystalEyeState(rawCrystalEye);
+}
+
+export function withCoopSkywardCrystalEyeState(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  crystalEye: SkywardCrystalEyeBattleState,
+): CoopMechanicState {
+  return {
+    ...parseCoopMechanicState(stateRaw),
+    crystalEye:
+      kind.id === "skyward_crystal_eye"
+        ? normalizeSkywardCrystalEyeState(crystalEye)
+        : initialSkywardCrystalEyeState(),
+  };
+}
+
+export type CoopSkywardCrystalEyeDisplay = {
+  crystalEyeAimTicksRemaining: number;
+  crystalEyeDisruptionStacks: number;
+  crystalEyeProjectedPowerPct: SkywardCrystalEyeArtilleryPowerPct;
+  crystalEyeBasePowerPct: 180 | 210 | 240 | 270;
+  crystalEyeCoreExposed: boolean;
+  crystalEyeCoreExposureTicksRemaining: number;
+  crystalEyeArtilleryCount: number;
+  crystalEyeLastArtilleryStacks: number | null;
+  crystalEyeLastArtilleryPowerPct: SkywardCrystalEyeArtilleryPowerPct | null;
+  crystalEyeLastArtilleryDamage: number | null;
+};
+
+export function coopSkywardCrystalEyeDisplay(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  currentHp: number,
+): CoopSkywardCrystalEyeDisplay {
+  const state = coopSkywardCrystalEyeState(kind, stateRaw);
+  return {
+    crystalEyeAimTicksRemaining: state.aimTicksRemaining,
+    crystalEyeDisruptionStacks: state.disruptionStacks,
+    crystalEyeProjectedPowerPct: skywardCrystalEyeArtilleryPowerPct(
+      state.disruptionStacks,
+    ),
+    crystalEyeBasePowerPct: skywardCrystalEyeBasePowerPct(
+      currentHp,
+      kind.sharedMaxHp,
+    ),
+    crystalEyeCoreExposed: state.coreExposureTicksRemaining > 0,
+    crystalEyeCoreExposureTicksRemaining: state.coreExposureTicksRemaining,
+    crystalEyeArtilleryCount: state.artilleryCount,
+    crystalEyeLastArtilleryStacks: state.lastArtilleryStacks,
+    crystalEyeLastArtilleryPowerPct: state.lastArtilleryPowerPct,
+    crystalEyeLastArtilleryDamage: state.lastArtilleryDamage,
   };
 }
 
@@ -1281,6 +1360,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   toxic_blood_lord: unexploredPersonalBossKind("toxic_blood_lord"),
   glacial_colossus: unexploredPersonalBossKind("glacial_colossus"),
   invincible_fortress: unexploredPersonalBossKind("invincible_fortress"),
+  skyward_crystal_eye: unexploredPersonalBossKind("skyward_crystal_eye"),
   immortal_berserker: unexploredPersonalBossKind("immortal_berserker"),
 };
 

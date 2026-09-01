@@ -21,12 +21,13 @@ describe("미개척지 개인 보스 카탈로그", () => {
     expect(UNEXPLORED_SUMMON_STONE_SCROLL_COST).toBe(30);
   });
 
-  it("출시 보스 5종과 연결된 특화 풀 조합을 고정한다", () => {
+  it("출시 보스 6종과 연결된 특화 풀 조합을 고정한다", () => {
     expect(UNEXPLORED_BOSS_IDS).toEqual([
       "tracking_weapon",
       "toxic_blood_lord",
       "glacial_colossus",
       "invincible_fortress",
+      "skyward_crystal_eye",
       "immortal_berserker",
     ]);
     expect(UNEXPLORED_BOSSES.tracking_weapon.pools).toEqual([
@@ -53,6 +54,21 @@ describe("미개척지 개인 보스 카탈로그", () => {
       spd: 20,
       accuracy: -205,
       evasionPct: 8,
+    });
+    expect(UNEXPLORED_BOSSES.skyward_crystal_eye).toMatchObject({
+      pools: ["crystal_artillery", "precision_hunters"],
+      sharedMaxHp: 10_800_000,
+      anchorDepth: 120,
+      monster: {
+        hp: 1_150,
+        atk: 2,
+        atkType: "magic",
+        def: 42,
+        magicDef: 48,
+        spd: 22,
+        accuracy: -185,
+        evasionPct: 16,
+      },
     });
     expect(UNEXPLORED_BOSSES.immortal_berserker).toMatchObject({
       pools: ["regenerating_swarm", "red_berserkers"],
@@ -89,7 +105,7 @@ describe("미개척지 개인 보스 카탈로그", () => {
     expect(materialSellPriceOf("v2_unexplored_boss_core")).toBeUndefined();
   });
 
-  it("30%·10% 일반 고유 8종만 확정 제작하고 등급별 핵·연결 재료 비용을 적용한다", () => {
+  it("30%·10% 일반 고유 12종만 확정 제작하고 등급별 핵·연결 재료 비용을 적용한다", () => {
     expect(
       UNEXPLORED_BOSS_EQUIPMENT_CRAFT_RECIPES.map(
         (recipe) => recipe.equipmentId,
@@ -103,6 +119,8 @@ describe("미개척지 개인 보스 카탈로그", () => {
       "v2_unexplored_frozen_great_armor",
       "v2_unexplored_magisteel_guard_gauntlets",
       "v2_unexplored_sealing_barrier_ring",
+      "v2_unexplored_prismatic_firing_gauntlets",
+      "v2_unexplored_starpath_aiming_ring",
       "v2_unexplored_immortal_king_greatsword",
       "v2_unexplored_pulsing_berserker_gauntlets",
     ]);
@@ -134,16 +152,21 @@ describe("미개척지 개인 보스 카탈로그", () => {
       ),
     ).toBeNull();
     expect(
+      unexploredBossEquipmentCraftRecipe(
+        "v2_unexplored_infinite_focus_crystal_eye",
+      ),
+    ).toBeNull();
+    expect(
       unexploredBossEquipmentCraftRecipe("v2_unexplored_eternal_life_core"),
     ).toBeNull();
   });
 
-  it("고유 장비 15종은 6티어 드랍 전용이며 실제 이미지가 존재한다", () => {
+  it("고유 장비 18종은 6티어 드랍 전용이며 실제 이미지가 존재한다", () => {
     const drops = Object.values(UNEXPLORED_BOSSES).flatMap(
       (boss): UnexploredBossUniqueDrop[] => [...boss.uniqueDrops],
     );
     const equipmentIds = drops.map((drop) => drop.equipmentId);
-    expect(equipmentIds).toHaveLength(15);
+    expect(equipmentIds).toHaveLength(18);
     for (const id of equipmentIds) {
       const item = V2_EQUIPMENT[id];
       expect(item).toBeDefined();

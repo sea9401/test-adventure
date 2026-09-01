@@ -35,6 +35,7 @@ import {
 } from "@/adventure/v2/coop/coopListSections";
 import { TrackingThreatMeter } from "@/adventure/v2/coop/TrackingThreatMeter";
 import { InvincibleFortressStatus } from "@/adventure/v2/coop/InvincibleFortressStatus";
+import { SkywardCrystalEyeStatus } from "@/adventure/v2/coop/SkywardCrystalEyeStatus";
 import { ImmortalBerserkerStatus } from "@/adventure/v2/coop/ImmortalBerserkerStatus";
 
 type CoopBossSummonVariant = {
@@ -214,6 +215,9 @@ function CoopSessionCard({
             />
             {session.kind === "invincible_fortress" && (
               <InvincibleFortressStatus status={session} />
+            )}
+            {session.kind === "skyward_crystal_eye" && (
+              <SkywardCrystalEyeStatus status={session} />
             )}
             {session.kind === "immortal_berserker" && (
               <ImmortalBerserkerStatus status={session} compact />

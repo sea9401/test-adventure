@@ -40,6 +40,9 @@ import {
   coopInvincibleFortressState,
   withCoopInvincibleFortressState,
   coopInvincibleFortressDisplay,
+  coopSkywardCrystalEyeState,
+  withCoopSkywardCrystalEyeState,
+  coopSkywardCrystalEyeDisplay,
   coopImmortalBerserkerState,
   withCoopImmortalBerserkerState,
   coopImmortalBerserkerDisplay,
@@ -215,6 +218,9 @@ export async function POST(req: Request) {
           sessionPeek.hp,
         )
       : null;
+    const crystalEyeStateAtStart = kindId === "skyward_crystal_eye"
+      ? coopSkywardCrystalEyeState(kind, sessionPeek.mechanicState)
+      : null;
     const immortalBerserkerStateAtStart = kindId === "immortal_berserker"
       ? coopImmortalBerserkerState(
           kind,
@@ -237,6 +243,12 @@ export async function POST(req: Request) {
                 kind: "invincible_fortress" as const,
                 sharedMaxHp: kind.sharedMaxHp,
                 initialState: fortressStateAtStart!,
+              }
+          : kindId === "skyward_crystal_eye"
+            ? {
+                kind: "skyward_crystal_eye" as const,
+                sharedMaxHp: kind.sharedMaxHp,
+                initialState: crystalEyeStateAtStart!,
               }
           : kindId === "immortal_berserker"
             ? {
@@ -334,6 +346,10 @@ export async function POST(req: Request) {
       battleResult.finalState.bossMechanic?.kind === "invincible_fortress"
         ? battleResult.finalState.bossMechanic
         : null;
+    const battleCrystalEyeState =
+      battleResult.finalState.bossMechanic?.kind === "skyward_crystal_eye"
+        ? battleResult.finalState.bossMechanic
+        : null;
     const battleImmortalBerserkerState =
       battleResult.finalState.bossMechanic?.kind === "immortal_berserker"
         ? battleResult.finalState.bossMechanic
@@ -360,6 +376,22 @@ export async function POST(req: Request) {
         s.hp !== sessionPeek.hp ||
         JSON.stringify(lockedFortressState) !==
           JSON.stringify(fortressStateAtStart)
+      ) {
+        return {
+          status: 409,
+          body: { ok: false as const, error: "boss_state_changed" as const },
+        };
+      }
+    }
+    if (crystalEyeStateAtStart) {
+      const lockedCrystalEyeState = coopSkywardCrystalEyeState(
+        kind,
+        s.mechanicState,
+      );
+      if (
+        s.hp !== sessionPeek.hp ||
+        JSON.stringify(lockedCrystalEyeState) !==
+          JSON.stringify(crystalEyeStateAtStart)
       ) {
         return {
           status: 409,
@@ -514,6 +546,19 @@ export async function POST(req: Request) {
         );
       } else {
         const { fortress: _terminalFortress, ...terminalMechanicState } =
+          nextMechanicState;
+        nextMechanicState = terminalMechanicState;
+      }
+    }
+    if (kindId === "skyward_crystal_eye") {
+      if (projectedBossHp > 0 && battleCrystalEyeState) {
+        nextMechanicState = withCoopSkywardCrystalEyeState(
+          kind,
+          nextMechanicState,
+          battleCrystalEyeState,
+        );
+      } else {
+        const { crystalEye: _terminalCrystalEye, ...terminalMechanicState } =
           nextMechanicState;
         nextMechanicState = terminalMechanicState;
       }
@@ -682,6 +727,11 @@ export async function POST(req: Request) {
             nextMechanicState,
             bossHp,
           ),
+          ...coopSkywardCrystalEyeDisplay(
+            kind,
+            nextMechanicState,
+            bossHp,
+          ),
           immortalBodyDamage:
             battleImmortalBerserkerState?.immortalBodyDamage ?? 0,
           immortalHealing:
@@ -694,6 +744,8 @@ export async function POST(req: Request) {
             nextMechanicState,
             bossHp,
           ),
+          crystalEyeArtilleryEvents:
+            battleResult.finalState.skywardCrystalEyeArtilleryEvents ?? [],
           defeated: bossHp === 0,
           myDamage,
           myTier: kind.rewardMode === "coop"

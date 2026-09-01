@@ -237,11 +237,14 @@ describe("POST /api/v2/coop/claim — 개인 보스", () => {
     ]);
   });
 
-  it("불멸의 광전왕 핵·전용 장비·칭호·처치 업적을 지급한다", async () => {
-    const immortal = UNEXPLORED_BOSSES.immortal_berserker;
-    mocks.session.regionId = "immortal_berserker";
+  it.each([
+    ["skyward_crystal_eye", "defeat_skyward_crystal_eye"],
+    ["immortal_berserker", "defeat_immortal_berserker"],
+  ] as const)("%s 핵·전용 장비·칭호·처치 업적을 지급한다", async (bossId, achievementId) => {
+    const boss = UNEXPLORED_BOSSES[bossId];
+    mocks.session.regionId = bossId;
     mocks.appendEquipInstances.mockResolvedValue(
-      immortal.uniqueDrops.map((drop) => ({
+      boss.uniqueDrops.map((drop) => ({
         iid: `iid-${drop.equipmentId}`,
         id: drop.equipmentId,
       })),
@@ -256,13 +259,14 @@ describe("POST /api/v2/coop/claim — 개인 보스", () => {
     expect(body.reward).toMatchObject({
       rewardMode: "unexplored_personal",
       bossCore: 1,
-      uniqueIds: immortal.uniqueDrops.map((drop) => drop.equipmentId),
-      titleId: immortal.titleId,
+      uniqueIds: boss.uniqueDrops.map((drop) => drop.equipmentId),
+      titleId: boss.titleId,
     });
+    expect(body.reward).not.toHaveProperty("pity");
     expect(mocks.grantTitle).toHaveBeenCalledWith(
       expect.anything(),
       "owner",
-      immortal.titleId,
+      boss.titleId,
       expect.any(Number),
     );
     const characterWrite = mocks.upsertSave.mock.calls.find(
@@ -270,7 +274,7 @@ describe("POST /api/v2/coop/claim — 개인 보스", () => {
     )?.[3] as { unexplored: { achievementIds: string[] } };
     expect(characterWrite.unexplored.achievementIds).toEqual([
       "first_personal_boss",
-      "defeat_immortal_berserker",
+      achievementId,
     ]);
   });
 

@@ -166,7 +166,9 @@ describe("invincible fortress ATB mechanic", () => {
     expect(
       result.finalState.log.some(
         (entry) =>
-          entry.effect === "status_damage" && entry.text.includes("중독"),
+          "effect" in entry &&
+          entry.effect === "status_damage" &&
+          entry.text.includes("중독"),
       ),
     ).toBe(false);
   });

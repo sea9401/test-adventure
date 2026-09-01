@@ -37,6 +37,9 @@ import {
   coopBossTrackingThreat,
   coopBossTrackingThreatMax,
   withCoopBossTrackingThreat,
+  coopInvincibleFortressState,
+  withCoopInvincibleFortressState,
+  coopInvincibleFortressDisplay,
 } from "@/adventure/data/v2/coopBosses";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
@@ -212,6 +215,16 @@ export async function POST(req: Request) {
           ? { kind: "toxic_blood_lord" as const }
           : kindId === "glacial_colossus"
             ? { kind: "glacial_colossus" as const }
+          : kindId === "invincible_fortress"
+            ? {
+                kind: "invincible_fortress" as const,
+                sharedMaxHp: kind.sharedMaxHp,
+                initialState: coopInvincibleFortressState(
+                  kind,
+                  peekMechanicState,
+                  sessionPeek.hp,
+                ),
+              }
           : undefined;
 
     // 전투 시뮬. 보스 hp = 전역 잔여
@@ -296,6 +309,10 @@ export async function POST(req: Request) {
         : null;
     const battleGlacialState =
       battleResult.finalState.bossMechanic?.kind === "glacial_colossus"
+        ? battleResult.finalState.bossMechanic
+        : null;
+    const battleFortressState =
+      battleResult.finalState.bossMechanic?.kind === "invincible_fortress"
         ? battleResult.finalState.bossMechanic
         : null;
     // === 4. session FOR UPDATE — 재검증 + 쿨다운 + 차감 + 처치 CAS ===
@@ -390,11 +407,25 @@ export async function POST(req: Request) {
     );
     const nextTrackingThreat =
       projectedBossHp <= 0 ? 0 : (battleTrackingState?.trackingThreat ?? 0);
-    const nextMechanicState = withCoopBossTrackingThreat(
+    let nextMechanicState = withCoopBossTrackingThreat(
       kind,
       nextMechanicStateWithMp,
       nextTrackingThreat,
     );
+    if (kindId === "invincible_fortress") {
+      if (projectedBossHp > 0 && battleFortressState) {
+        nextMechanicState = withCoopInvincibleFortressState(
+          kind,
+          nextMechanicState,
+          battleFortressState,
+          projectedBossHp,
+        );
+      } else {
+        const { fortress: _terminalFortress, ...terminalMechanicState } =
+          nextMechanicState;
+        nextMechanicState = terminalMechanicState;
+      }
+    }
     const nowDate = new Date(now);
     const [updated] = await tx
       .update(coopBossSessions)
@@ -534,6 +565,13 @@ export async function POST(req: Request) {
             battleGlacialState?.glacialFreezeCount ?? 0,
           glacialSkippedActionCount:
             battleGlacialState?.glacialSkippedActionCount ?? 0,
+          fortressCompletedResults:
+            battleFortressState?.barrierResults ?? [],
+          ...coopInvincibleFortressDisplay(
+            kind,
+            nextMechanicState,
+            bossHp,
+          ),
           defeated: bossHp === 0,
           myDamage,
           myTier: kind.rewardMode === "coop"

@@ -19,6 +19,7 @@ import {
   coopBossMaxMp,
   coopBossTrackingThreat,
   coopBossTrackingThreatMax,
+  coopInvincibleFortressDisplay,
   parseCoopVisibility,
 } from "@/adventure/data/v2/coopBosses";
 
@@ -121,6 +122,11 @@ export async function GET() {
       const myDamage = myBySession.get(s.id) ?? 0;
       const trackingThreat = coopBossTrackingThreat(def, s.mechanicState);
       const trackingThreatMax = coopBossTrackingThreatMax(def);
+      const fortressDisplay = coopInvincibleFortressDisplay(
+        def,
+        s.mechanicState,
+        s.hp,
+      );
       return {
         id: s.id,
         kind,
@@ -132,6 +138,7 @@ export async function GET() {
         trackingThreatMax,
         trackingReady:
           trackingThreatMax > 0 && trackingThreat >= trackingThreatMax,
+        ...fortressDisplay,
         expiresAt: s.expiresAt.getTime(),
         summonedByName: s.summonedByName,
         visibility: parseCoopVisibility(s.visibility),

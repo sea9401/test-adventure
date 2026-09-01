@@ -1686,10 +1686,11 @@ export function resolveBattleAtb(
         state.bossMechanic?.kind === "invincible_fortress" &&
         state.bossMechanic.activeBarrierIndex !== null
       ) {
+        const fortress = state.bossMechanic;
         state = applyInvincibleFortressTierToEnemy(state, enemy);
         fortressClockTick = nextTick;
         enemyNextTick =
-          nextTick + state.bossMechanic.barrierTicksRemaining;
+          nextTick + fortress.barrierTicksRemaining;
         state = {
           ...state,
           phase: "player",

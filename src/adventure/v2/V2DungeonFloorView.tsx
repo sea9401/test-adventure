@@ -228,10 +228,19 @@ export function UnexploredHuntSummaryPanel({
           </p>
         </div>
         <p className="text-zinc-600 dark:text-zinc-400">
-          흔적 획득 {summary.traceEnabled ? "활성" : "비활성"}
-          {summary.traceEnabled && summary.traceExtraChancePct > 0
-            ? ` · 추가 획득 +${summary.traceExtraChancePct}%p`
-            : ""}
+          {summary.traceEnabled ? (
+            <>
+              흔적 획득 활성 · 우두머리 계열 특화 몬스터 처치 시 1개
+              {summary.traceExtraChancePct > 0
+                ? ` · 추가 획득 +${summary.traceExtraChancePct}%p`
+                : ""}
+            </>
+          ) : (
+            <>
+              흔적 획득 비활성 · 우두머리의 흔적 노드를 활성화해야
+              획득할 수 있습니다.
+            </>
+          )}
         </p>
       </div>
     </Card>

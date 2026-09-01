@@ -80,6 +80,15 @@ function openUnexploredTab(
 }
 
 describe("V2UnexploredTreeView", () => {
+  it("흔적 보관함에서 획득 해금 조건과 대상 몬스터를 안내한다", () => {
+    const html = renderToStaticMarkup(
+      <V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />,
+    );
+
+    expect(html).toContain("우두머리의 흔적 노드를 활성화한 뒤");
+    expect(html).toContain("우두머리 계열 특화 몬스터를 처치하면 획득합니다.");
+  });
+
   it("renders the 160-node graph, point progress and opaque panels", () => {
     const html = renderToStaticMarkup(
       <V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />,

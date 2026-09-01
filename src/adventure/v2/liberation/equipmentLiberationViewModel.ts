@@ -126,6 +126,9 @@ export function liberationCandidateRows(
       const item = V2_EQUIPMENT[instance.id];
       if (!item || !canLiberateEquipment(item, instance)) return [];
       const rank = instance.liberation?.rank;
+      const stage: LiberationCandidateRow["stage"] = rank
+        ? enchantmentStage(rank)
+        : 0;
       return [
         {
           iid: instance.iid,
@@ -141,7 +144,7 @@ export function liberationCandidateRows(
             instance.enhance,
             instance.craftQuality,
           ),
-          stage: rank ? enchantmentStage(rank) : 0,
+          stage,
           rank,
           lineCount: instance.liberation?.lineCount,
         },

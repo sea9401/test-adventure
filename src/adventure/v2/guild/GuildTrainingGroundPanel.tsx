@@ -204,7 +204,7 @@ export function GuildTrainingGroundPanel({
           </p>
         </div>
         {hasTrainingGround && (
-          <div className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-right text-[11px] text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300">
+          <div className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-right text-[11px] text-sky-700 dark:border-sky-900/60 dark:bg-zinc-950 dark:text-sky-300">
             <div>보상 +{state?.upgrade?.trainingRewardBonusPct ?? 0}%</div>
             <div>일일 {dailyClaimLimit}회</div>
           </div>

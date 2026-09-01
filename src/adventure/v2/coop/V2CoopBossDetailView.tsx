@@ -513,7 +513,7 @@ export function V2CoopBossDetailView({
       )}
 
       {lastReward && (
-        <div className="ui-reward-flash rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800/60 dark:bg-emerald-950/30">
+        <div className="ui-reward-flash rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800/60 dark:bg-zinc-950">
           <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
             {lastReward.rewardMode === "unexplored_personal"
               ? "개인 토벌 보상 획득!"
@@ -579,7 +579,7 @@ export function V2CoopBossDetailView({
                 key={`${t.name}-${i}`}
                 className={`flex items-center justify-between gap-2 rounded px-2 py-1 text-sm ${
                   t.isMe
-                    ? "bg-amber-50 font-medium dark:bg-amber-950/40"
+                    ? "bg-amber-50 font-medium dark:bg-zinc-950 dark:text-amber-200 dark:ring-1 dark:ring-amber-800"
                     : i % 2 === 1
                       ? "bg-zinc-50 dark:bg-zinc-900/60"
                       : ""

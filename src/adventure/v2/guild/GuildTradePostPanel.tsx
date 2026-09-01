@@ -407,7 +407,7 @@ export function GuildTradePostPanel({
                         (json) => deliveryNotice(json, sharedTokens),
                       )
                     }
-                    className="ui-semantic-fill flex-1 rounded-md border border-cyan-700 bg-cyan-50 px-2 py-1.5 text-xs font-semibold text-cyan-800 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-cyan-950 dark:text-cyan-200 dark:hover:bg-cyan-900"
+                    className="flex-1 rounded-md border border-cyan-700 bg-cyan-50 px-2 py-1.5 text-xs font-semibold text-cyan-800 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-cyan-950 dark:text-cyan-200 dark:hover:bg-cyan-900"
                   >
                     {quickDelivery.points}점 납품
                   </button>

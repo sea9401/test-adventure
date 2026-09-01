@@ -1150,7 +1150,7 @@ export function WorkshopCraftPanel({
                     return (
                       <div
                         key={rule.materialId}
-                        className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 dark:border-emerald-900 dark:bg-emerald-950/20"
+                        className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 dark:border-emerald-900 dark:bg-zinc-950"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium text-zinc-900 dark:text-zinc-100">
@@ -1177,7 +1177,7 @@ export function WorkshopCraftPanel({
                     return (
                       <div
                         key={id}
-                        className="rounded border border-violet-200 bg-violet-50 px-2 py-1 dark:border-violet-900 dark:bg-violet-950/20"
+                        className="rounded border border-violet-200 bg-violet-50 px-2 py-1 dark:border-violet-900 dark:bg-zinc-950"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium text-zinc-900 dark:text-zinc-100">

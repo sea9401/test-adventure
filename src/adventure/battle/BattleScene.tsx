@@ -566,10 +566,10 @@ export function BattleScene({
     <div className="space-y-4">
       {outcome && (
         <div
-          className={`ui-reward-flash rounded-lg border-2 px-4 py-3 text-center ${
+          className={`rounded-lg border-2 px-4 py-3 text-center ${
             outcome === "lose"
-              ? "border-rose-500 bg-rose-50 dark:border-rose-600 dark:bg-rose-950"
-              : "border-emerald-500 bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-950"
+              ? "border-rose-500 bg-rose-50 dark:border-rose-600 dark:bg-zinc-950"
+              : "border-emerald-500 bg-emerald-50 dark:border-emerald-600 dark:bg-zinc-950"
           }`}
         >
           <BattleOutcomeBadge outcome={outcome} size="lg" />

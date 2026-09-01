@@ -1547,7 +1547,7 @@ export function V2MarketplaceView({
                       ? setEquipmentOrderOpen(true)
                       : setOrderCatalogOpen(true)
                   }
-                  className="ui-semantic-fill flex w-full items-center justify-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
                 >
                   <ShoppingCart size={15} weight="duotone" />
                   {browseEquipmentTab

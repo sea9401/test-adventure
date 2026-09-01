@@ -302,7 +302,7 @@ function UserRankingsBody({
           {Array.from({ length: 5 }).map((_, i) => (
             <li
               key={i}
-              className="rounded-lg border border-zinc-200 bg-white/70 p-3 dark:border-zinc-700 dark:bg-zinc-900/60"
+              className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900"
             >
               <Skeleton rows={2} />
             </li>
@@ -373,7 +373,7 @@ function GuildRankingsBody() {
           {Array.from({ length: 5 }).map((_, i) => (
             <li
               key={i}
-              className="rounded-lg border border-zinc-200 bg-white/70 p-3 dark:border-zinc-700 dark:bg-zinc-900/60"
+              className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900"
             >
               <Skeleton rows={2} />
             </li>

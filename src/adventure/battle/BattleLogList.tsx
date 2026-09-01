@@ -1288,6 +1288,9 @@ const SIGNATURE_RESOURCE_LABELS: Record<string, string> = {
   toxicRecoveryLock: "회복 억제",
   glacialChill: "한기",
   glacialFreeze: "빙결",
+  fortressTrial: "방벽 시험",
+  fortressDamage: "방벽 피해",
+  fortressEnrage: "성채 광폭",
 };
 
 const TRIPLE_WARD_RESOURCE_KEYS = new Set([

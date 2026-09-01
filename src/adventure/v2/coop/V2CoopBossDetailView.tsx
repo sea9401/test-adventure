@@ -36,6 +36,7 @@ import { GameIcon } from "@/adventure/v2/GameIcon";
 import { CombatMatchupSummary } from "@/adventure/battle/CombatMatchupSummary";
 import { CoopRecentAttackList } from "./CoopRecentAttackList";
 import { TrackingThreatMeter } from "./TrackingThreatMeter";
+import { InvincibleFortressStatus } from "./InvincibleFortressStatus";
 
 function fmtPreviewNumber(value: number): string {
   return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1);
@@ -237,6 +238,9 @@ export function V2CoopBossDetailView({
             value={session.trackingThreat}
             max={session.trackingThreatMax}
           />
+          {session.kind === "invincible_fortress" && (
+            <InvincibleFortressStatus status={session} />
+          )}
         </div>
 
         {/* 발악 단계 트래커 — 현재 HP 기준 발동/임박/예정 단계를 라이브로. 토벌이

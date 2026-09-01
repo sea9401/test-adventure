@@ -740,9 +740,23 @@ export function isUnexploredNodeId(value: unknown): value is UnexploredNodeId {
 }
 
 export function shortestUnexploredPath(id: string): string[] {
+  return shortestUnexploredPathFromActive([], id);
+}
+
+export function shortestUnexploredPathFromActive(
+  activeNodeIds: readonly string[],
+  id: string,
+): string[] {
   if (!nodeById.has(id)) return [];
-  const parent = new Map<string, string | null>([["start", null]]);
-  const queue = ["start"];
+  const active = new Set(activeNodeIds.filter(isUnexploredNodeId));
+  const queue = active.size > 0
+    ? UNEXPLORED_NODES.filter((node) => active.has(node.id)).map(
+        (node) => node.id,
+      )
+    : ["start"];
+  const parent = new Map<string, string | null>(
+    queue.map((nodeId) => [nodeId, null]),
+  );
   for (let cursor = 0; cursor < queue.length; cursor += 1) {
     const current = queue[cursor];
     if (current === id) break;
@@ -998,7 +1012,10 @@ export function unexploredActivationPath(
   }
 
   const nodeIds: string[] = [];
-  for (const nodeId of shortestUnexploredPath(targetNodeId)) {
+  for (const nodeId of shortestUnexploredPathFromActive(
+    selected,
+    targetNodeId,
+  )) {
     if (selectedSet.has(nodeId)) continue;
     const error = unexploredActivationError(selected, nodeId, earnedPoints);
     if (error) return { ok: false, error };

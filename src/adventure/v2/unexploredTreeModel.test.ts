@@ -66,12 +66,10 @@ describe("unexplored tree model", () => {
     const difficultyNode = UNEXPLORED_NODES.find((node) =>
       node.effects.some((effect) => effect.kind === "difficulty_reward"),
     )!;
-    const selectedNodeIds = [
-      ...new Set(
-        buildUnexploredTreeModel(snapshot(), difficultyNode.id)
-          .previewPath.slice(0, -1),
-      ),
-    ];
+    const selectedNodeIds = shortestUnexploredPath(difficultyNode.id).slice(
+      0,
+      -1,
+    );
     const model = buildUnexploredTreeModel(
       snapshot({
         earnedPoints: 40,
@@ -84,8 +82,10 @@ describe("unexplored tree model", () => {
     expect(model.selected?.id).toBe(difficultyNode.id);
     expect(model.selected?.state).toBe("available");
     expect(model.previewDifficulty).toBeGreaterThan(model.currentDifficulty);
-    expect(model.previewPath.at(0)).toBe("start");
-    expect(model.previewPath.at(-1)).toBe(difficultyNode.id);
+    expect(model.previewPath).toEqual([
+      selectedNodeIds.at(-1),
+      difficultyNode.id,
+    ]);
   });
 
   it("plans every missing node when a distant inactive target is selected", () => {
@@ -121,6 +121,24 @@ describe("unexplored tree model", () => {
       "pool-iron_legion",
     ]);
     expect(model.previewDifficulty).toBe(95);
+  });
+
+  it("previews an adjacent node from the active frontier instead of start", () => {
+    const model = buildUnexploredTreeModel(
+      snapshot({
+        earnedPoints: 4,
+        spentPoints: 3,
+        selectedNodeIds: ["start", "inner-0-0", "inner-1-0"],
+      }),
+      "inner-1-1",
+    );
+
+    expect(model.plan).toEqual({
+      action: "activate",
+      nodeIds: ["inner-1-1"],
+      error: null,
+    });
+    expect(model.previewPath).toEqual(["inner-1-0", "inner-1-1"]);
   });
 
   it("marks the minimum disconnected closure for a distant batch refund", () => {

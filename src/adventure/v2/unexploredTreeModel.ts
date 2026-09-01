@@ -9,7 +9,7 @@ import {
   UNEXPLORED_NODE_BY_ID,
   UNEXPLORED_NODES,
   deriveUnexploredEffects,
-  shortestUnexploredPath,
+  shortestUnexploredPathFromActive,
   unexploredActivationError,
   unexploredActivationPath,
   unexploredPoolName,
@@ -118,7 +118,7 @@ export function buildUnexploredTreeModel(
 ) {
   const active = new Set(snapshot.selectedNodeIds);
   const previewPath = selectedNodeId
-    ? shortestUnexploredPath(selectedNodeId)
+    ? shortestUnexploredPathFromActive(snapshot.selectedNodeIds, selectedNodeId)
     : [];
   const previewPathSet = new Set(previewPath);
   let plan: UnexploredTreePlan | null = null;

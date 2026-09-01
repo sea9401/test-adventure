@@ -507,6 +507,17 @@ function fireSkywardCrystalEyeAtbArtillery(args: {
         ...state.bossMechanic,
         lastArtilleryDamage: shot.damageToHp,
       },
+      skywardCrystalEyeArtilleryEvents: [
+        ...(state.skywardCrystalEyeArtilleryEvents ?? []),
+        {
+          tick: args.tick,
+          stacks,
+          powerPct: fired.powerPct,
+          basePowerPct,
+          damage: shot.damageToHp,
+          coreExposed: fired.coreExposed,
+        },
+      ],
     };
   }
   state = tagNewLogEntries(state, logStart, "enemy", args.tick);

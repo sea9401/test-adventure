@@ -13,6 +13,7 @@ import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import type { StaminaState } from "@/adventure/v2/stamina";
 import type { InvincibleFortressEnrageTier } from "@/adventure/v2/combat/invincibleFortressMechanic";
 import type { SkywardCrystalEyeArtilleryPowerPct } from "@/adventure/v2/combat/skywardCrystalEyeMechanic";
+import type { SkywardCrystalEyeArtilleryEvent } from "@/adventure/v2/combat/skywardCrystalEyeMechanic";
 import {
   COOP_ATTACK_STAMINA_COST,
   COOP_BOSSES,
@@ -105,6 +106,7 @@ export type CoopAttackResult = CoopFortressStatus & CoopSkywardCrystalEyeStatus 
   glacialFreezeCount: number;
   glacialSkippedActionCount: number;
   fortressCompletedResults: InvincibleFortressEnrageTier[];
+  crystalEyeArtilleryEvents: SkywardCrystalEyeArtilleryEvent[];
   defeated: boolean;
   myDamage: number;
   myTier: CoopRewardTier | null;

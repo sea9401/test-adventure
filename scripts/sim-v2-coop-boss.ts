@@ -20,6 +20,7 @@ import {
 } from "../src/adventure/v2/combat/engine";
 import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import { initialInvincibleFortressState } from "../src/adventure/v2/combat/invincibleFortressMechanic";
+import { initialSkywardCrystalEyeState } from "../src/adventure/v2/combat/skywardCrystalEyeMechanic";
 import {
   buildLevelDesignProgressionSnapshot,
   LEVEL_DESIGN_ARCHETYPES,
@@ -51,6 +52,9 @@ export type CoopBossTrialAudit = {
   fortressEnrageTiers: number[];
   fortressBarrierDamageRatios: number[];
   fortressFirstTier4NormalHitRatio: number;
+  crystalEyeArtilleryStacks: number[];
+  crystalEyeArtilleryPowerPcts: number[];
+  crystalEyeArtilleryDamageRatios: number[];
 };
 
 export type CoopBossBuildAudit = {
@@ -70,6 +74,9 @@ export type CoopBossBuildAudit = {
   medianFortressEnrageTier: number;
   medianFortressBarrierDamageRatio: number;
   maxFortressFirstNormalHitRatio: number;
+  medianCrystalEyeArtilleryStacks: number;
+  medianCrystalEyeArtilleryPowerPct: number;
+  medianCrystalEyeArtilleryDamageRatio: number;
 };
 
 export type CoopBossAudit = {
@@ -89,6 +96,9 @@ export type CoopBossAudit = {
   medianFortressEnrageTier: number;
   medianFortressBarrierDamageRatio: number;
   maxFortressFirstNormalHitRatio: number;
+  medianCrystalEyeArtilleryStacks: number;
+  medianCrystalEyeArtilleryPowerPct: number;
+  medianCrystalEyeArtilleryDamageRatio: number;
 };
 
 const FORTRESS_TIER_MIN_DAMAGE_RATIO = [1, 0.75, 0.5, 0.25, 0] as const;
@@ -175,7 +185,8 @@ export function auditCoopBossForPlayer(args: {
     bossId === "tracking_weapon" ||
       bossId === "toxic_blood_lord" ||
       bossId === "glacial_colossus" ||
-      bossId === "invincible_fortress",
+      bossId === "invincible_fortress" ||
+      bossId === "skyward_crystal_eye",
   );
   try {
     for (let trial = 0; trial < trials; trial += 1) {
@@ -193,6 +204,9 @@ export function auditCoopBossForPlayer(args: {
       const fortressEnrageTiers: number[] = [];
       const fortressBarrierDamageRatios: number[] = [];
       let fortressFirstTier4NormalHitRatio = 0;
+      const crystalEyeArtilleryStacks: number[] = [];
+      const crystalEyeArtilleryPowerPcts: number[] = [];
+      const crystalEyeArtilleryDamageRatios: number[] = [];
       let damageDealt = 0;
       let finalPlayerHp = args.player.maxHp;
       let survivalTicks = 0;
@@ -243,6 +257,14 @@ export function auditCoopBossForPlayer(args: {
                             initialState: initialInvincibleFortressState(
                               kind.sharedMaxHp,
                             ),
+                          },
+                        }
+                    : bossId === "skyward_crystal_eye"
+                      ? {
+                          bossMechanic: {
+                            kind: "skyward_crystal_eye" as const,
+                            sharedMaxHp: kind.sharedMaxHp,
+                            initialState: initialSkywardCrystalEyeState(),
                           },
                         }
                     : {}),
@@ -317,6 +339,13 @@ export function auditCoopBossForPlayer(args: {
             );
           }
         }
+        for (const event of result.finalState.skywardCrystalEyeArtilleryEvents ?? []) {
+          crystalEyeArtilleryStacks.push(event.stacks);
+          crystalEyeArtilleryPowerPcts.push(event.powerPct);
+          crystalEyeArtilleryDamageRatios.push(
+            event.damage / Math.max(1, args.player.maxHp),
+          );
+        }
         if (result.finalState.enemyHp <= 0) break;
       }
       const trackingCounterDamageRatioPerTrigger =
@@ -353,6 +382,9 @@ export function auditCoopBossForPlayer(args: {
         fortressEnrageTiers,
         fortressBarrierDamageRatios,
         fortressFirstTier4NormalHitRatio,
+        crystalEyeArtilleryStacks,
+        crystalEyeArtilleryPowerPcts,
+        crystalEyeArtilleryDamageRatios,
       });
     }
   } finally {
@@ -497,6 +529,33 @@ function buildAuditForArch(
           ),
         ),
       ),
+      medianCrystalEyeArtilleryStacks: assertFinite(
+        "medianCrystalEyeArtilleryStacks",
+        percentile(
+          trialAudits.flatMap((audit) => audit.crystalEyeArtilleryStacks).length > 0
+            ? trialAudits.flatMap((audit) => audit.crystalEyeArtilleryStacks)
+            : [0],
+          0.5,
+        ),
+      ),
+      medianCrystalEyeArtilleryPowerPct: assertFinite(
+        "medianCrystalEyeArtilleryPowerPct",
+        percentile(
+          trialAudits.flatMap((audit) => audit.crystalEyeArtilleryPowerPcts).length > 0
+            ? trialAudits.flatMap((audit) => audit.crystalEyeArtilleryPowerPcts)
+            : [0],
+          0.5,
+        ),
+      ),
+      medianCrystalEyeArtilleryDamageRatio: assertFinite(
+        "medianCrystalEyeArtilleryDamageRatio",
+        percentile(
+          trialAudits.flatMap((audit) => audit.crystalEyeArtilleryDamageRatios).length > 0
+            ? trialAudits.flatMap((audit) => audit.crystalEyeArtilleryDamageRatios)
+            : [0],
+          0.5,
+        ),
+      ),
     },
     trials: trialAudits,
   };
@@ -623,6 +682,33 @@ export function buildCoopBossBalanceReport(options: {
           ...allTrials.map(
             (trial) => trial.fortressFirstTier4NormalHitRatio,
           ),
+        ),
+      ),
+      medianCrystalEyeArtilleryStacks: assertFinite(
+        "medianCrystalEyeArtilleryStacks",
+        percentile(
+          allTrials.flatMap((trial) => trial.crystalEyeArtilleryStacks).length > 0
+            ? allTrials.flatMap((trial) => trial.crystalEyeArtilleryStacks)
+            : [0],
+          0.5,
+        ),
+      ),
+      medianCrystalEyeArtilleryPowerPct: assertFinite(
+        "medianCrystalEyeArtilleryPowerPct",
+        percentile(
+          allTrials.flatMap((trial) => trial.crystalEyeArtilleryPowerPcts).length > 0
+            ? allTrials.flatMap((trial) => trial.crystalEyeArtilleryPowerPcts)
+            : [0],
+          0.5,
+        ),
+      ),
+      medianCrystalEyeArtilleryDamageRatio: assertFinite(
+        "medianCrystalEyeArtilleryDamageRatio",
+        percentile(
+          allTrials.flatMap((trial) => trial.crystalEyeArtilleryDamageRatios).length > 0
+            ? allTrials.flatMap((trial) => trial.crystalEyeArtilleryDamageRatios)
+            : [0],
+          0.5,
         ),
       ),
     };

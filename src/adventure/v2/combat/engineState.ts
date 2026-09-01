@@ -403,6 +403,8 @@ export type BattleState = {
   usesAtb?: boolean;
   /** 호출부가 명시적으로 활성화한 보스 전용 전투 상태. */
   bossMechanic?: BossMechanicBattleState;
+  /** 현재 공격 시도에서 발생한 수정안 포격의 정형 결과. 영속 상태와 분리된 리플레이/감사용. */
+  skywardCrystalEyeArtilleryEvents?: import("./skywardCrystalEyeMechanic").SkywardCrystalEyeArtilleryEvent[];
   /** 시도 시작 잔여 HP와 별개인 협동/개인 보스의 고정 공유 최대 HP. */
   bossSharedMaxHp?: number;
 };

@@ -642,6 +642,8 @@ export async function POST(req: Request) {
             nextMechanicState,
             bossHp,
           ),
+          crystalEyeArtilleryEvents:
+            battleResult.finalState.skywardCrystalEyeArtilleryEvents ?? [],
           defeated: bossHp === 0,
           myDamage,
           myTier: kind.rewardMode === "coop"

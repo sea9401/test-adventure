@@ -29,6 +29,15 @@ export type SkywardCrystalEyeArtilleryResult = {
   coreExposed: boolean;
 };
 
+export type SkywardCrystalEyeArtilleryEvent = {
+  tick: number;
+  stacks: number;
+  powerPct: SkywardCrystalEyeArtilleryPowerPct;
+  basePowerPct: 180 | 210 | 240 | 270;
+  damage: number;
+  coreExposed: boolean;
+};
+
 const ARTILLERY_POWER_VALUES = new Set<number>([25, 50, 60, 70, 80, 90, 100]);
 
 function finiteInteger(

@@ -125,6 +125,11 @@ describe("skyward crystal eye ATB mechanic", () => {
     );
 
     expect(shots.map((entry) => entry.t)).toEqual([900, 1800, 2700]);
+    expect(result.finalState.skywardCrystalEyeArtilleryEvents?.map((event) => event.tick)).toEqual([
+      900,
+      1800,
+      2700,
+    ]);
     expect(eyeState(result).artilleryCount).toBe(3);
     expect(eyeState(result).aimTicksRemaining).toBe(600);
   });

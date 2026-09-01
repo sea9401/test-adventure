@@ -485,6 +485,13 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "미개척지 개인 보스 불괴의 성채 최초 처치",
     category: "battle",
   },
+  v2_unexplored_immortal_berserker: {
+    id: "v2_unexplored_immortal_berserker",
+    name: "죽음을 넘어선 자",
+    description: "두 번의 죽음에서 되살아난 광전왕의 마지막 생명까지 끊어 낸 자.",
+    condition: "미개척지 개인 보스 불멸의 광전왕 최초 처치",
+    category: "battle",
+  },
   // ── 5막 잔영 처치 칭호 3종 + 셋 모두 처치 시 컬렉션 칭호 ────────────────────
   starlit_giant_breaker: {
     id: "starlit_giant_breaker",

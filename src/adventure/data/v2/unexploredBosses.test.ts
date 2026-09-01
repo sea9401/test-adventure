@@ -21,12 +21,13 @@ describe("미개척지 개인 보스 카탈로그", () => {
     expect(UNEXPLORED_SUMMON_STONE_SCROLL_COST).toBe(30);
   });
 
-  it("출시 보스 4종과 연결된 상위 풀 조합을 고정한다", () => {
+  it("출시 보스 5종과 연결된 특화 풀 조합을 고정한다", () => {
     expect(UNEXPLORED_BOSS_IDS).toEqual([
       "tracking_weapon",
       "toxic_blood_lord",
       "glacial_colossus",
       "invincible_fortress",
+      "immortal_berserker",
     ]);
     expect(UNEXPLORED_BOSSES.tracking_weapon.pools).toEqual([
       "runaway_machines",
@@ -52,6 +53,19 @@ describe("미개척지 개인 보스 카탈로그", () => {
       spd: 20,
       accuracy: -205,
       evasionPct: 8,
+    });
+    expect(UNEXPLORED_BOSSES.immortal_berserker).toMatchObject({
+      pools: ["regenerating_swarm", "red_berserkers"],
+      sharedMaxHp: 10_800_000,
+      monster: {
+        hp: 1_200,
+        atk: 1.75,
+        def: 42,
+        magicDef: 38,
+        spd: 21,
+        accuracy: -205,
+        evasionPct: 10,
+      },
     });
   });
 
@@ -89,6 +103,8 @@ describe("미개척지 개인 보스 카탈로그", () => {
       "v2_unexplored_frozen_great_armor",
       "v2_unexplored_magisteel_guard_gauntlets",
       "v2_unexplored_sealing_barrier_ring",
+      "v2_unexplored_immortal_king_greatsword",
+      "v2_unexplored_pulsing_berserker_gauntlets",
     ]);
 
     for (const recipe of UNEXPLORED_BOSS_EQUIPMENT_CRAFT_RECIPES) {
@@ -117,14 +133,17 @@ describe("미개척지 개인 보스 카탈로그", () => {
         "v2_unexplored_invincible_fortress_armor",
       ),
     ).toBeNull();
+    expect(
+      unexploredBossEquipmentCraftRecipe("v2_unexplored_eternal_life_core"),
+    ).toBeNull();
   });
 
-  it("고유 장비 12종은 6티어 드랍 전용이며 실제 이미지가 존재한다", () => {
+  it("고유 장비 15종은 6티어 드랍 전용이며 실제 이미지가 존재한다", () => {
     const drops = Object.values(UNEXPLORED_BOSSES).flatMap(
       (boss): UnexploredBossUniqueDrop[] => [...boss.uniqueDrops],
     );
     const equipmentIds = drops.map((drop) => drop.equipmentId);
-    expect(equipmentIds).toHaveLength(12);
+    expect(equipmentIds).toHaveLength(15);
     for (const id of equipmentIds) {
       const item = V2_EQUIPMENT[id];
       expect(item).toBeDefined();

@@ -137,7 +137,7 @@ git commit -m "feat: add immortal berserker state machine"
 - Consumes: `ImmortalBerserkerBattleState` and multipliers from Task 1.
 - Produces: `UNEXPLORED_BOSSES.immortal_berserker`, summon material, three equipment IDs, `COOP_BOSSES.immortal_berserker`, title and achievement mappings.
 
-- [ ] **Step 1: 카탈로그 계약 실패 테스트 작성**
+- [x] **Step 1: 카탈로그 계약 실패 테스트 작성**
 
 ```ts
 expect(UNEXPLORED_BOSS_IDS).toContain("immortal_berserker");
@@ -154,16 +154,16 @@ expect(UNEXPLORED_BOSSES.immortal_berserker).toMatchObject({
 
 장비 테스트는 명세의 슬롯·power·옵션·`tier: 16`·`rarity: "unique"`·`noDrop: true`를 정확히 검사한다. 제작식 테스트는 앞 두 장비만 생성되고 영겁의 생명핵은 제외되는지 확인한다.
 
-- [ ] **Step 2: 테스트 실패 확인**
+- [x] **Step 2: 테스트 실패 확인**
 
 Run: `npm test -- src/adventure/data/v2/unexploredBosses.test.ts src/adventure/data/v2/v2Equipment.test.ts src/adventure/data/v2/coopBosses.test.ts src/adventure/data/v2/unexploredProgression.test.ts`
 Expected: FAIL on missing boss, equipment, title and achievement IDs.
 
-- [ ] **Step 3: 소환석·보스·장비 정의 구현**
+- [x] **Step 3: 소환석·보스·장비 정의 구현**
 
 `UnexploredBossDefinition["id"]`와 소환석 material union을 확장한다. 보스 기본값은 `hp 1200`, `atk 1.75`, `def 42`, `magicDef 38`, `spd 21`, `accuracy -205`, `evasionPct 10`, 물리 `광란 참격` 3행동·1.65배로 고정한다. 장비는 명세의 세 ID와 옵션을 그대로 등록한다.
 
-- [ ] **Step 4: 칭호·업적·협동 카탈로그 구현**
+- [x] **Step 4: 칭호·업적·협동 카탈로그 구현**
 
 ```ts
 v2_unexplored_immortal_berserker: {
@@ -177,7 +177,7 @@ v2_unexplored_immortal_berserker: {
 
 `BOSS_ACHIEVEMENT_ID_BY_BOSS`에 `defeat_immortal_berserker`를 추가하고 정복 설명을 5종으로 바꾼다. 기존 저장 업적 파서는 새 ID를 허용하되 기존 정복 업적을 삭제하지 않는다. `COOP_BOSSES`에는 `unexploredPersonalBossKind("immortal_berserker")`를 등록한다.
 
-- [ ] **Step 5: 카탈로그 테스트 통과 및 커밋**
+- [x] **Step 5: 카탈로그 테스트 통과 및 커밋**
 
 Run: `npm test -- src/adventure/data/v2/unexploredBosses.test.ts src/adventure/data/v2/v2Equipment.test.ts src/adventure/data/v2/dungeonDrops.test.ts src/adventure/data/v2/dungeonUniqueDrops.test.ts src/adventure/data/v2/coopBosses.test.ts src/adventure/data/v2/unexploredProgression.test.ts`
 Expected: PASS.

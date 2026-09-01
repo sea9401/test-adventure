@@ -59,7 +59,7 @@ describe("장비 이름 식별성", () => {
 });
 
 describe("미개척지 개인 보스 고유 장비", () => {
-  it("12종 모두 기존 슬롯·옵션 타입을 쓰는 이미지 연결 6티어 고유다", () => {
+  it("15종 모두 기존 슬롯·옵션 타입을 쓰는 이미지 연결 6티어 고유다", () => {
     const ids = [
       "v2_unexplored_tracking_blade_dagger",
       "v2_unexplored_phantom_acceleration_boots",
@@ -73,6 +73,9 @@ describe("미개척지 개인 보스 고유 장비", () => {
       "v2_unexplored_magisteel_guard_gauntlets",
       "v2_unexplored_sealing_barrier_ring",
       "v2_unexplored_invincible_fortress_armor",
+      "v2_unexplored_immortal_king_greatsword",
+      "v2_unexplored_pulsing_berserker_gauntlets",
+      "v2_unexplored_eternal_life_core",
     ] as const;
 
     for (const id of ids) {
@@ -84,6 +87,31 @@ describe("미개척지 개인 보스 고유 장비", () => {
       });
       expect(V2_EQUIPMENT[id].image).toContain(`/images/equipment/unexplored-`);
     }
+  });
+
+  it("불멸의 광전왕 고유 3종은 재생과 광폭 옵션을 나눠 가진다", () => {
+    expect(V2_EQUIPMENT.v2_unexplored_immortal_king_greatsword).toMatchObject({
+      slot: "weapon",
+      concept: "str",
+      tier: 16,
+      power: 673,
+      weaponType: "greatsword",
+      options: { hp: 420, crit: 10, critMult: 75, healPowerPct: 12, spd: -2 },
+    });
+    expect(V2_EQUIPMENT.v2_unexplored_pulsing_berserker_gauntlets).toMatchObject({
+      slot: "gloves",
+      concept: "light",
+      tier: 16,
+      power: 91,
+      options: { hp: 360, crit: 14, critMult: 60, healPowerPct: 10, spd: 10 },
+    });
+    expect(V2_EQUIPMENT.v2_unexplored_eternal_life_core).toMatchObject({
+      slot: "necklace",
+      concept: "mana",
+      tier: 16,
+      power: 178,
+      options: { hp: 750, def: 60, magicDef: 60, crit: 12, critMult: 80, healPowerPct: 20 },
+    });
   });
 
   it("불괴의 성채 고유 3종은 발동·세트 없이 확정 방어 옵션을 쓴다", () => {
@@ -400,13 +428,13 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       ),
       "정규 그리드",
     ).toHaveLength(29);
-    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(90);
+    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(93);
     expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(91);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
     expect(
       all.filter((i) => i.noDrop),
       "noDrop(밴드흔한+하드 보스+폭풍 원정+강등 필드유니크)",
-    ).toHaveLength(222);
+    ).toHaveLength(225);
   });
 
   it("미개척지 개척자 장비 18종은 승인된 6.5T 카탈로그와 획득 경계를 가진다", () => {

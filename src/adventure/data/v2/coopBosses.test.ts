@@ -54,8 +54,8 @@ import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
 import { TITLES } from "@/adventure/data/titles";
 
 describe("coopBosses 카탈로그", () => {
-  it("12종 — 기존 협동 8종 + 미개척지 개인 보스 4종", () => {
-    expect(COOP_BOSS_KIND_IDS).toHaveLength(12);
+  it("13종 — 기존 협동 8종 + 미개척지 개인 보스 5종", () => {
+    expect(COOP_BOSS_KIND_IDS).toHaveLength(13);
     const normalLadder = [
       "mountain_chief",
       "canyon_predator",
@@ -113,6 +113,7 @@ describe("coopBosses 카탈로그", () => {
       "toxic_blood_lord",
       "glacial_colossus",
       "invincible_fortress",
+      "immortal_berserker",
     ] as const;
     for (const id of personalIds) {
       expect(COOP_BOSSES[id]).toMatchObject({

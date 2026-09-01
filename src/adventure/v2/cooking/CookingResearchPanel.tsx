@@ -72,7 +72,7 @@ export function CookingResearchPanel({ data, busy, mutate }: {
           <div className="grid grid-cols-2 gap-1.5">
             {availableMethods.map((entry) => (
               <button key={entry} type="button" onClick={() => setMethod(entry)}
-                className={`rounded-md border px-2 py-2 text-xs font-semibold ${method === entry ? "border-amber-500 bg-amber-100 text-amber-900 dark:bg-zinc-800 dark:text-amber-100" : "border-zinc-300 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"}`}>
+                className={`rounded-md border px-2 py-2 text-xs font-semibold ${method === entry ? "border-amber-500 bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-100" : "border-zinc-300 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"}`}>
                 {COOKING_METHOD_NAMES[entry]}
               </button>
             ))}
@@ -107,7 +107,7 @@ export function CookingResearchPanel({ data, busy, mutate }: {
                 const active = selected.includes(id);
                 return (
                   <button key={id} type="button" aria-pressed={active} onClick={() => toggle(id)}
-                    className={`rounded-md border px-2.5 py-2 text-left text-xs ${active ? "border-amber-500 bg-amber-100 text-amber-950 dark:bg-zinc-800 dark:text-amber-100" : "border-zinc-300 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"}`}>
+                    className={`rounded-md border px-2.5 py-2 text-left text-xs ${active ? "border-amber-500 bg-amber-100 text-amber-950 dark:bg-amber-950 dark:text-amber-100" : "border-zinc-300 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"}`}>
                     <span className="font-semibold">{cookingIngredientName(data, id)}</span>
                     <span className="ml-1 text-zinc-500">×{cookingIngredientCount(data, id)}</span>
                   </button>

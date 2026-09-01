@@ -31,14 +31,6 @@ describe("생활 제작 해방 할인 표시", () => {
 });
 
 describe("생활 조합 작업장 모바일 배치", () => {
-  it("선택 탭은 중립 다크 표면과 amber 텍스트를 함께 렌더링한다", () => {
-    const html = renderToStaticMarkup(<LifeWorkshopView onBack={vi.fn()} />);
-
-    expect(html).toMatch(
-      /<button[^>]*aria-pressed="true"[^>]*class="[^"]*dark:bg-zinc-800[^"]*dark:text-amber-300[^"]*"/,
-    );
-  });
-
   it("터치 기기에서 상단 메뉴를 네 칸으로 되돌릴 수 있는 표식을 둔다", () => {
     const html = renderToStaticMarkup(<LifeWorkshopView onBack={vi.fn()} />);
 

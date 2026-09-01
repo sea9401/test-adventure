@@ -43,25 +43,6 @@ describe("멸검제 검의와 충전", () => {
     ).toEqual({ damagePct: 195, penetrationPct: 45 });
   });
 
-  it("uses the charged-finisher caps declared by the equipped skill", () => {
-    const charge = recordChargeHpLoss(
-      startRuinCharge({ hp: 600, intent: 3 }),
-      800,
-    );
-    expect(
-      ruinSwordBonuses({
-        state: charge,
-        hp: 100,
-        maxHp: 1_000,
-        pvp: false,
-        currentMissingHpCapPct: 55,
-        chargeLostHpCapPct: 35,
-        pvpCapPct: 40,
-        pvpPenetrationPct: 30,
-      }),
-    ).toEqual({ damagePct: 135, penetrationPct: 45 });
-  });
-
   it("uses 40% component caps and 30 penetration in PvP", () => {
     const charge = recordChargeHpLoss(
       startRuinCharge({ hp: 600, intent: 3 }),

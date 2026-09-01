@@ -386,9 +386,9 @@ describe("guild workshop recipes", () => {
     ).toBe(true);
   });
 
-  it("exposes craft-only, unexplored specialty, monster, boss, and storm equipment", () => {
+  it("exposes craft-only equipment, monster upgrades, boss upgrade, and storm equipment", () => {
     const recipes = Object.values(GUILD_WORKSHOP_RECIPES);
-    expect(recipes).toHaveLength(99);
+    expect(recipes).toHaveLength(75);
     const stormRecipes = recipes.filter((recipe) => recipe.id.startsWith("storm_"));
     expect(stormRecipes).toHaveLength(7);
     expect(stormRecipes.every((recipe) => recipe.equipmentId.startsWith("v2_storm_")))
@@ -405,208 +405,6 @@ describe("guild workshop recipes", () => {
           !recipe.id.startsWith("storm_"),
       ),
     ).toEqual([GUILD_WORKSHOP_RECIPES.crafted_scorpion_king_stinger]);
-  });
-
-  it("개척자 제작 12종은 풀별 기본형·집중형 비용과 Lv 13~18 해금을 공유한다", () => {
-    const rows = [
-      ["pioneer_iron_wall_armor", "v2_pioneer_iron_wall_armor", 13, 300, "guard", "iron_legion", "v2_unexplored_star_sea_shell", "v2_unexplored_star_sea_core", false],
-      ["pioneer_iron_guard_gloves", "v2_pioneer_iron_guard_gloves", 13, 300, "guard", "iron_legion", "v2_unexplored_star_sea_shell", "v2_unexplored_star_sea_core", true],
-      ["pioneer_mana_barrier_core", "v2_pioneer_mana_barrier_core", 14, 320, "focus", "mana_barrier", "v2_unexplored_red_stardust", "v2_unexplored_red_giant_ritual_tool", false],
-      ["pioneer_barrier_woven_armor", "v2_pioneer_barrier_woven_armor", 14, 320, "focus", "mana_barrier", "v2_unexplored_red_stardust", "v2_unexplored_red_giant_ritual_tool", true],
-      ["pioneer_regrowth_ring", "v2_pioneer_regrowth_ring", 15, 340, "focus", "regenerating_swarm", "v2_unexplored_void_fang", "v2_unexplored_compressed_void_sac", false],
-      ["pioneer_pulsing_bio_armor", "v2_pioneer_pulsing_bio_armor", 15, 340, "focus", "regenerating_swarm", "v2_unexplored_void_fang", "v2_unexplored_compressed_void_sac", true],
-      ["pioneer_bloodlight_gauntlets", "v2_pioneer_bloodlight_gauntlets", 16, 360, "fury", "red_berserkers", "v2_unexplored_red_stardust", "v2_unexplored_red_giant_ritual_tool", false],
-      ["pioneer_berserk_boots", "v2_pioneer_berserk_boots", 16, 360, "fury", "red_berserkers", "v2_unexplored_red_stardust", "v2_unexplored_red_giant_ritual_tool", true],
-      ["pioneer_refraction_core", "v2_pioneer_refraction_core", 17, 380, "focus", "crystal_artillery", "v2_unexplored_observation_lens", "v2_unexplored_dead_star_eye", false],
-      ["pioneer_focused_crystal_ring", "v2_pioneer_focused_crystal_ring", 17, 380, "focus", "crystal_artillery", "v2_unexplored_observation_lens", "v2_unexplored_dead_star_eye", true],
-      ["pioneer_tracefree_boots", "v2_pioneer_tracefree_boots", 18, 400, "pursuit", "precision_hunters", "v2_unexplored_comet_feather", "v2_unexplored_faded_star_needle", false],
-      ["pioneer_flawless_aim_gloves", "v2_pioneer_flawless_aim_gloves", 18, 400, "pursuit", "precision_hunters", "v2_unexplored_comet_feather", "v2_unexplored_faded_star_needle", true],
-    ] as const;
-
-    for (const [recipeId, equipmentId, level, xp, profile, poolId, commonId, rareId, focused] of rows) {
-      const recipe = GUILD_WORKSHOP_RECIPES[recipeId];
-      expect(recipe, recipeId).toMatchObject({
-        id: recipeId,
-        equipmentId,
-        resourceProfile: profile,
-        requiredArtisanLevel: level,
-        requiredSmithyLevel: 5,
-        artisanXp: xp,
-        materialCost: {
-          [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 4,
-          [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 4,
-        },
-        specialMaterialCost: {
-          [`v2_unexplored_${poolId}_material`]: 8,
-          [commonId]: 10,
-          ...(focused ? { [rareId]: 1 } : {}),
-        },
-      });
-      expect(recipe.note, recipeId).toContain("미개척지 · 개척자");
-      expect(Object.values(recipe.cost).reduce((sum, amount) => sum + (amount ?? 0), 0), recipeId).toBe(480);
-      expect(guildWorkshopRecipeGoldCost(recipe), recipeId).toBe(300_000);
-      expect(guildWorkshopRecipeGoldCost(recipe, "masterwork"), recipeId).toBe(600_000);
-      const normal = guildWorkshopRecipeMaterialCost(recipe);
-      const masterwork = guildWorkshopRecipeMaterialCost(recipe, "masterwork");
-      expect(normal[`v2_unexplored_${poolId}_material`], recipeId).toBe(8);
-      expect(masterwork[`v2_unexplored_${poolId}_material`], recipeId).toBe(16);
-      expect(normal[commonId], recipeId).toBe(10);
-      expect(masterwork[commonId], recipeId).toBe(20);
-      expect(normal[rareId] ?? 0, recipeId).toBe(focused ? 1 : 0);
-      expect(masterwork[rareId] ?? 0, recipeId).toBe(focused ? 2 : 0);
-      expect(normal[GUILD_WORKSHOP_MATERIAL_ID.sunstone], recipeId).toBe(4);
-      expect(masterwork[GUILD_WORKSHOP_MATERIAL_ID.sunstone], recipeId).toBe(8);
-      expect(normal[GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal], recipeId).toBe(4);
-      expect(masterwork[GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal], recipeId).toBe(8);
-      expect(Object.values(guildWorkshopRecipeResourceCost(recipe, "masterwork")).reduce((sum, amount) => sum + (amount ?? 0), 0), recipeId).toBe(960);
-    }
-  });
-
-  it("미개척지 특화 세트 12종은 Lv 20~22와 상위 풀 재료 비용을 사용한다", () => {
-    const rows = [
-      {
-        recipeId: "specialty_overheat_tracking_gloves",
-        equipmentId: "v2_unexplored_overheat_tracking_gloves",
-        level: 20, xp: 450, profile: "pursuit", cost: { crop: 360, ore: 240 },
-        materials: { v2_unexplored_runaway_machines_material: 18 },
-        note: "추적 병기",
-      },
-      {
-        recipeId: "specialty_shadow_leap_boots",
-        equipmentId: "v2_unexplored_shadow_leap_boots",
-        level: 21, xp: 475, profile: "pursuit", cost: { crop: 360, ore: 240 },
-        materials: { v2_unexplored_shadow_stalkers_material: 18 },
-        note: "추적 병기",
-      },
-      {
-        recipeId: "specialty_orbit_calculation_ring",
-        equipmentId: "v2_unexplored_orbit_calculation_ring",
-        level: 22, xp: 500, profile: "pursuit", cost: { crop: 360, ore: 240 },
-        materials: { v2_unexplored_runaway_machines_material: 12, v2_unexplored_shadow_stalkers_material: 12 },
-        note: "추적 병기",
-      },
-      {
-        recipeId: "specialty_toxic_blood_erosion_armor",
-        equipmentId: "v2_unexplored_toxic_blood_erosion_armor",
-        level: 20, xp: 450, profile: "corrosion", cost: { crop: 300, ore: 300 },
-        materials: { v2_unexplored_venom_colony_material: 18 },
-        note: "독혈 군주",
-      },
-      {
-        recipeId: "specialty_coagulated_gauntlets",
-        equipmentId: "v2_unexplored_coagulated_gauntlets",
-        level: 21, xp: 475, profile: "corrosion", cost: { crop: 300, ore: 300 },
-        materials: { v2_unexplored_bloodstained_dead_material: 18 },
-        note: "독혈 군주",
-      },
-      {
-        recipeId: "specialty_lord_pulse_ring",
-        equipmentId: "v2_unexplored_lord_pulse_ring",
-        level: 22, xp: 500, profile: "corrosion", cost: { crop: 300, ore: 300 },
-        materials: { v2_unexplored_venom_colony_material: 12, v2_unexplored_bloodstained_dead_material: 12 },
-        note: "독혈 군주",
-      },
-      {
-        recipeId: "specialty_colossus_wall_armor",
-        equipmentId: "v2_unexplored_colossus_wall_armor",
-        level: 20, xp: 450, profile: "guard", cost: { crop: 240, ore: 360 },
-        materials: { v2_unexplored_crushing_colossi_material: 18 },
-        note: "빙하 거수",
-      },
-      {
-        recipeId: "specialty_frostbreaker_boots",
-        equipmentId: "v2_unexplored_frostbreaker_boots",
-        level: 21, xp: 475, profile: "guard", cost: { crop: 240, ore: 360 },
-        materials: { v2_unexplored_frozen_legion_material: 18 },
-        note: "빙하 거수",
-      },
-      {
-        recipeId: "specialty_icewall_core_necklace",
-        equipmentId: "v2_unexplored_icewall_core_necklace",
-        level: 22, xp: 500, profile: "guard", cost: { crop: 240, ore: 360 },
-        materials: { v2_unexplored_crushing_colossi_material: 12, v2_unexplored_frozen_legion_material: 12 },
-        note: "빙하 거수",
-      },
-      {
-        recipeId: "specialty_deep_alchemy_staff",
-        equipmentId: "v2_unexplored_deep_alchemy_staff",
-        level: 20, xp: 450, profile: "focus", cost: { crop: 330, ore: 270 },
-        materials: { v2_unexplored_runaway_machines_material: 18 },
-        note: "심층 마도",
-      },
-      {
-        recipeId: "specialty_mana_cycle_robe",
-        equipmentId: "v2_unexplored_mana_cycle_robe",
-        level: 21, xp: 475, profile: "focus", cost: { crop: 330, ore: 270 },
-        materials: { v2_unexplored_frozen_legion_material: 18 },
-        note: "심층 마도",
-      },
-      {
-        recipeId: "specialty_abyss_catalyst_ring",
-        equipmentId: "v2_unexplored_abyss_catalyst_ring",
-        level: 22, xp: 500, profile: "focus", cost: { crop: 330, ore: 270 },
-        materials: {
-          v2_unexplored_runaway_machines_material: 8,
-          v2_unexplored_venom_colony_material: 8,
-          v2_unexplored_frozen_legion_material: 8,
-        },
-        note: "심층 마도",
-      },
-    ] as const;
-
-    expect(rows).toHaveLength(12);
-    for (const row of rows) {
-      const recipe = GUILD_WORKSHOP_RECIPES[
-        row.recipeId as keyof typeof GUILD_WORKSHOP_RECIPES
-      ];
-      expect(recipe, row.recipeId).toMatchObject({
-        id: row.recipeId,
-        equipmentId: row.equipmentId,
-        resourceProfile: row.profile,
-        cost: row.cost,
-        materialCost: {
-          [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 6,
-          [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 6,
-          [GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel]: 2,
-        },
-        specialMaterialCost: row.materials,
-        requiredArtisanLevel: row.level,
-        requiredSmithyLevel: 5,
-        artisanXp: row.xp,
-      });
-      expect(recipe.note, row.recipeId).toContain(
-        `미개척지 · 특화 세트 · ${row.note}`,
-      );
-      expect(guildWorkshopRecipeGoldCost(recipe), row.recipeId).toBe(500_000);
-      expect(guildWorkshopRecipeGoldCost(recipe, "masterwork"), row.recipeId)
-        .toBe(1_000_000);
-      expect(guildWorkshopRecipeResourceCost(recipe), row.recipeId).toEqual(row.cost);
-      expect(guildWorkshopRecipeResourceCost(recipe, "masterwork"), row.recipeId)
-        .toEqual({ crop: row.cost.crop * 2, ore: row.cost.ore * 2 });
-      const normal = guildWorkshopRecipeMaterialCost(recipe);
-      const masterwork = guildWorkshopRecipeMaterialCost(recipe, "masterwork");
-      expect(normal, row.recipeId).toMatchObject({
-        [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 6,
-        [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 6,
-        [GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel]: 2,
-        ...row.materials,
-      });
-      expect(masterwork, row.recipeId).toMatchObject({
-        [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 12,
-        [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 12,
-        [GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel]: 4,
-        ...Object.fromEntries(
-          Object.entries(row.materials).map(([id, amount]) => [id, amount * 2]),
-        ),
-      });
-    }
-
-    expect(guildWorkshopRecipeGoldCost(GUILD_WORKSHOP_RECIPES.pioneer_iron_wall_armor))
-      .toBe(300_000);
-    expect(guildWorkshopRecipeGoldCost(
-      GUILD_WORKSHOP_RECIPES.pioneer_iron_wall_armor,
-      "masterwork",
-    )).toBe(600_000);
   });
 
   it("exposes craft-only set recipes across smithy levels", () => {
@@ -1057,18 +855,10 @@ describe("guild workshop recipes", () => {
     ]);
   });
 
-  it("aligns standard recipes to tier totals and keeps specialty recipes at 600 resources", () => {
+  it("aligns every recipe to the tier total and set resource profile", () => {
     for (const recipe of Object.values(GUILD_WORKSHOP_RECIPES)) {
       const tier = V2_EQUIPMENT[recipe.equipmentId]
         .tier as GuildWorkshopResourceTier;
-      if (recipe.id.startsWith("specialty_")) {
-        expect(
-          (recipe.cost.crop ?? 0) + (recipe.cost.ore ?? 0),
-          recipe.id,
-        ).toBe(600);
-        expect(recipe.artisanXp).toBeGreaterThanOrEqual(450);
-        continue;
-      }
       expect(recipe.cost, recipe.id).toEqual(
         guildWorkshopResourceCostForTier(tier, recipe.resourceProfile),
       );
@@ -1089,9 +879,7 @@ describe("guild workshop recipes", () => {
         0,
       );
       const expectedTotal =
-        recipe.id.startsWith("specialty_")
-          ? 14
-          : smithyLevel === 1
+        smithyLevel === 1
           ? 0
           : smithyLevel === 2
             ? 2

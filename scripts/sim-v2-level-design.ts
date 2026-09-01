@@ -1114,7 +1114,6 @@ export function buildLevelDesignProgressionSnapshot(options: {
   enhanceLevel?: number;
   careerWins?: number;
   cultivate?: boolean;
-  equipment?: Partial<Record<V2EquipSlot, V2EquipmentId>>;
 }): LevelDesignProgressionSnapshot {
   const depth = Math.max(
     2,
@@ -1134,7 +1133,6 @@ export function buildLevelDesignProgressionSnapshot(options: {
         seed,
         enhanceLevel,
         options.cultivate ?? true,
-        { equipment: options.equipment },
       );
   const equipped = [...snapshot.equippedSkills];
   return {

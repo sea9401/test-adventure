@@ -16,7 +16,7 @@ vi.mock("@/lib/server/ensureUser", () => ({
 vi.mock("@/adventure/data/v2/coreLoopConfig", async (importActual) => {
   const actual =
     await importActual<typeof import("@/adventure/data/v2/coreLoopConfig")>();
-  return { ...actual, V2_CORE_LOOP_V2: true, V2_UNEXPLORED: true };
+  return { ...actual, V2_CORE_LOOP_V2: true };
 });
 vi.mock("@/lib/server/v2QuestContext", () => ({
   loadCompletedQuestIds: vi.fn(async () => [] as string[]),
@@ -470,18 +470,6 @@ describe("advance-class — 과거 직업 재방문", () => {
 });
 
 describe("advance-class — 재전직/환생 진입 자체는 직업 숙련도를 더하지 않음", () => {
-  it("미개척지를 열지 않고 바로 재전직해도 첫 탐사 포인트를 보존한다", async () => {
-    seed("warrior", "warrior", 500);
-
-    const res = await POST(advanceReq("warrior"));
-
-    expect(res.status).toBe(200);
-    expect(store.get("character.v2")).toMatchObject({
-      level: 1,
-      unexplored: { xpPoints: 1 },
-    });
-  });
-
   it("재전직(병사→병사): 직군 숙련도 보존, 직업 숙련도 시드 없음", async () => {
     // 직업 숙련도는 사냥 승리에서만 +1. 전직/재전직은 레벨과 grown만 리셋한다.
     seed("warrior", "warrior", 500); // groups.warrior.cumLevel = 200

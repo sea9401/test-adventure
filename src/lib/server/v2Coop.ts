@@ -23,16 +23,8 @@ import {
   FISHING_COOP_BOSS_KIND_ID,
   MAX_ACTIVE_PER_KIND,
   coopBossDurationMs,
-  coopBossMaxMp,
-  withCoopImmortalBerserkerState,
-  withCoopInvincibleFortressState,
-  withCoopBossTrackingThreat,
   rollFishingCoopBossSpawn,
-  type CoopBossKindId,
-  type CoopVisibility,
 } from "@/adventure/data/v2/coopBosses";
-import { initialInvincibleFortressState } from "@/adventure/v2/combat/invincibleFortressMechanic";
-import { initialImmortalBerserkerState } from "@/adventure/v2/combat/immortalBerserkerMechanic";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 
 type TxExecutor = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -74,7 +66,7 @@ export async function expireStaleCoopSessions(
 ): Promise<void> {
   await ex
     .update(coopBossSessions)
-    .set({ defeatedAt: now, mechanicState: null })
+    .set({ defeatedAt: now })
     .where(
       and(
         isNull(coopBossSessions.defeatedAt),
@@ -97,70 +89,6 @@ export async function findActiveCoopSessions(
         isNull(coopBossSessions.defeatedAt),
       ),
     );
-}
-
-export type CreateCoopBossSessionResult =
-  | { ok: true; sessionId: string; expiresAt: number }
-  | { ok: false; error: "too_many_active"; cap: number };
-
-/** 공개 협동·미개척지 개인 보스가 함께 쓰는 단일 세션 생성 경로. */
-export async function createCoopBossSession(
-  ex: TxExecutor,
-  args: {
-    kindId: CoopBossKindId;
-    userId: string;
-    summonerName: string;
-    now: Date;
-    visibility: CoopVisibility;
-  },
-): Promise<CreateCoopBossSessionResult> {
-  const kind = COOP_BOSSES[args.kindId];
-  await expireStaleCoopSessions(ex, args.now);
-  const active = await findActiveCoopSessions(ex, args.kindId);
-  if (active.length >= MAX_ACTIVE_PER_KIND) {
-    return { ok: false, error: "too_many_active", cap: MAX_ACTIVE_PER_KIND };
-  }
-
-  const sessionId = randomUUID();
-  const expiresAt = args.now.getTime() + coopBossDurationMs(kind);
-  const summonerGuildId = await getGuildId(ex, args.userId);
-  const initialMechanicState = withCoopBossTrackingThreat(
-    kind,
-    { bossMp: coopBossMaxMp(kind) },
-    0,
-  );
-  const mechanicState = kind.id === "invincible_fortress"
-    ? withCoopInvincibleFortressState(
-        kind,
-        initialMechanicState,
-        initialInvincibleFortressState(kind.sharedMaxHp),
-        kind.sharedMaxHp,
-      )
-    : kind.id === "immortal_berserker"
-      ? withCoopImmortalBerserkerState(
-          kind,
-          initialMechanicState,
-          initialImmortalBerserkerState(kind.sharedMaxHp),
-          kind.sharedMaxHp,
-        )
-      : initialMechanicState;
-  await ex.insert(coopBossSessions).values({
-    id: sessionId,
-    regionId: args.kindId,
-    bossName: kind.name,
-    hp: kind.sharedMaxHp,
-    maxHp: kind.sharedMaxHp,
-    spawnedAt: args.now,
-    expiresAt: new Date(expiresAt),
-    regenPerMin: 0,
-    lastRegenAt: null,
-    summonedByName: args.summonerName,
-    summonerId: args.userId,
-    summonerGuildId,
-    visibility: args.visibility,
-    mechanicState,
-  });
-  return { ok: true, sessionId, expiresAt };
 }
 
 export type FishingCoopBossSpawnResult = {

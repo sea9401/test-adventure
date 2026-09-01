@@ -821,7 +821,7 @@ export function GuildManagePanel({
           <div className="text-xs font-medium uppercase tracking-wider text-rose-500">
             위험 구역
           </div>
-          <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/60 dark:bg-zinc-950">
+          <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/60 dark:bg-rose-950/30">
             <p className="text-xs text-rose-700 dark:text-rose-300">
               길드를 해산하면 모든 길드원이 방출되고, 금고 골드(
               {(info?.guildGold ?? 0).toLocaleString()} G)가 소멸합니다. 되돌릴 수 없어요.

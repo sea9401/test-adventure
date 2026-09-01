@@ -14,7 +14,7 @@ export function LoadErrorBanner({
   return (
     <div
       role="alert"
-      className="flex items-center justify-between gap-2 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-700 dark:bg-zinc-950 dark:text-rose-300"
+      className="flex items-center justify-between gap-2 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
     >
       <span>{message}</span>
       <Button onClick={onRetry} variant="danger" size="xs" className="shrink-0">

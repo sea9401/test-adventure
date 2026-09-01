@@ -3,7 +3,6 @@ import { db } from "@/db";
 import { coopBossSessions } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
-  COOP_BOSSES,
   COOP_VISIBILITY_VALUES,
   coopVisibilityTransition,
   parseCoopBossKindId,
@@ -67,14 +66,6 @@ export async function POST(req: Request, { params }: Ctx) {
       return {
         status: 403,
         body: { ok: false, error: "not_owner" },
-        publication: null as Publication | null,
-      };
-    }
-    const sessionKind = parseCoopBossKindId(session.regionId);
-    if (sessionKind && COOP_BOSSES[sessionKind].visibilityLocked) {
-      return {
-        status: 409,
-        body: { ok: false, error: "visibility_locked" },
         publication: null as Publication | null,
       };
     }

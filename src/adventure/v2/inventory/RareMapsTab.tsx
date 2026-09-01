@@ -471,7 +471,7 @@ function MasteryTomeSection({
       <div className="mb-1.5 text-xs font-semibold text-violet-700 dark:text-violet-400">
         숙련 교본 · 사용 시 현재 직업 숙련도 증가
       </div>
-      <div className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2 dark:border-violet-900 dark:bg-zinc-950">
+      <div className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2 dark:border-violet-900 dark:bg-violet-950/40">
         <div className="flex items-center justify-between gap-2">
           <button
             type="button"
@@ -574,7 +574,7 @@ function SpFruitSection({
           return (
             <li
               key={def.materialId}
-              className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900 dark:bg-zinc-950"
+              className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900 dark:bg-amber-950/40"
             >
               <div className="flex items-center justify-between gap-2">
                 <button
@@ -678,7 +678,7 @@ function CoopEquipmentBoxSection({
           return (
             <li
               key={box.id}
-              className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 dark:border-sky-900 dark:bg-zinc-950"
+              className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 dark:border-sky-900 dark:bg-sky-950/40"
             >
               <div className="flex items-center justify-between gap-2">
                 <button

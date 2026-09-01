@@ -335,7 +335,7 @@ export function LifeFieldCodexPanel() {
               ) : null}
             </div>
             {trace ? (
-              <div className="border-b border-zinc-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-amber-200">
+              <div className="border-b border-zinc-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-zinc-800 dark:bg-amber-950 dark:text-amber-200">
                 <Sparkle size={14} weight="fill" className="mr-1 inline" />
                 {LIFE_FIELD_DISCOVERIES[trace.discoveryId].label} 흔적 · {trace.progress}/{LIFE_FIELD_TRACE_REQUIRED_SUCCESSES} · {lifeFieldTraceLocationText(trace)}
               </div>

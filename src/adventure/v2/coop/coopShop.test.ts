@@ -14,7 +14,7 @@ import {
   COOP_MASTERY_TOME_MATERIAL_ID,
   COOP_TIER5_EQUIPMENT_BOX,
 } from "@/adventure/data/v2/coopRewards";
-import type { StandardCoopBossKindId } from "@/adventure/data/v2/coopBosses";
+import type { CoopBossKindId } from "@/adventure/data/v2/coopBosses";
 
 describe("coopShop", () => {
   it("v1 상품은 협동 주화를 비용에 포함한다", () => {
@@ -40,7 +40,7 @@ describe("coopShop", () => {
       "canyon_predator",
       "lake_sovereign",
       "void_priest",
-    ] as StandardCoopBossKindId[]) {
+    ] as CoopBossKindId[]) {
       const box = COOP_EQUIPMENT_BOX[bossId];
       const entry = entries.find(
         (e) => e.output.kind === "material" && e.output.materialId === box.id,

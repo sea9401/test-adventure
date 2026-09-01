@@ -7,11 +7,7 @@ import {
   adventureSupportTier,
   maxHuntBatchForAdventureSupport,
 } from "@/adventure/data/v2/adventureSupport";
-import {
-  HUNT_COOLDOWN_MODE,
-  V2_UNEXPLORED,
-} from "@/adventure/data/v2/coreLoopConfig";
-import { validateDungeonHuntMode } from "@/lib/server/unexploredHunt";
+import { HUNT_COOLDOWN_MODE } from "@/adventure/data/v2/coreLoopConfig";
 import { normalizeHuntBattleCount } from "./huntRewards";
 import { normalizeAutoHuntStopConfig } from "@/adventure/v2/autoHuntStopPolicy";
 import {
@@ -23,7 +19,6 @@ import {
 export const HUNT_DROP_FLOOR_CAP = 8 as DungeonFloorId;
 
 export type HuntRequestIntent = {
-  mode: "normal" | "unexplored";
   depth: number;
   dropFloor: DungeonFloorId;
   count: number;
@@ -35,7 +30,6 @@ export type HuntRequestIntent = {
 
 type HuntRequestBody = {
   floor?: unknown;
-  mode?: unknown;
   outpostId?: unknown;
   count?: unknown;
   autoStopConfig?: unknown;
@@ -56,13 +50,7 @@ export async function parseHuntRequestIntent(
     return errorResponse("invalid_json", 400);
   }
 
-  const modeValidation = validateDungeonHuntMode(body.mode, V2_UNEXPLORED);
-  if (!modeValidation.ok) {
-    return errorResponse(modeValidation.error, modeValidation.status);
-  }
-  const mode = modeValidation.mode;
   if (
-    mode === "normal" &&
     (typeof body.floor !== "number" ||
       !Number.isInteger(body.floor) ||
       body.floor < 1)
@@ -70,7 +58,7 @@ export async function parseHuntRequestIntent(
     return errorResponse("bad_intent", 400);
   }
 
-  const depth = mode === "unexplored" ? 95 : (body.floor as number);
+  const depth = body.floor as number;
   const dropFloor = Math.min(depth, HUNT_DROP_FLOOR_CAP) as DungeonFloorId;
   const supportCharacter = await readSave<HuntCharacterSave>(
     db,
@@ -78,30 +66,16 @@ export async function parseHuntRequestIntent(
     "character.v2",
     {},
   );
-  const outpostId =
-    mode === "unexplored"
-      ? null
-      : authoritativeCatalogOutpostId(supportCharacter);
-  const lockedTileOutpostId =
-    mode === "unexplored"
-      ? null
-      : authoritativeTileOutpostId(supportCharacter);
+  const outpostId = authoritativeCatalogOutpostId(supportCharacter);
+  const lockedTileOutpostId = authoritativeTileOutpostId(supportCharacter);
   const claimedOutpostId =
     typeof body.outpostId === "string" && body.outpostId.length > 0
       ? body.outpostId
       : null;
-  if (
-    mode === "normal" &&
-    claimedOutpostId &&
-    !OUTPOST_BY_ID.has(claimedOutpostId)
-  ) {
+  if (claimedOutpostId && !OUTPOST_BY_ID.has(claimedOutpostId)) {
     return errorResponse("bad_outpost", 400);
   }
-  if (
-    mode === "normal" &&
-    claimedOutpostId &&
-    claimedOutpostId !== outpostId
-  ) {
+  if (claimedOutpostId && claimedOutpostId !== outpostId) {
     return {
       ok: false,
       response: Response.json(
@@ -115,9 +89,6 @@ export async function parseHuntRequestIntent(
     typeof body.rareMap === "string" && body.rareMap.length > 0
       ? body.rareMap
       : null;
-  if (mode === "unexplored" && rareMapIid) {
-    return errorResponse("rare_map_unavailable", 400);
-  }
   const maxHuntBatch = maxHuntBatchForAdventureSupport(
     adventureSupportTier(supportCharacter.adventureSupport),
   );
@@ -140,14 +111,13 @@ export async function parseHuntRequestIntent(
     rareMapIid,
   );
   const autoStopConfig = normalizeAutoHuntStopConfig(body.autoStopConfig);
-  if (mode === "normal" && !rareMapIid && !isHuntStageDepth(depth)) {
+  if (!rareMapIid && !isHuntStageDepth(depth)) {
     return errorResponse("hunt_stage_only", 400);
   }
 
   return {
     ok: true,
     intent: {
-      mode,
       depth,
       dropFloor,
       count,

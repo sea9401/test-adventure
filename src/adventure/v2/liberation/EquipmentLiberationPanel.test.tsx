@@ -1,13 +1,6 @@
 // @vitest-environment jsdom
 
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { V2EquipInstance, V2EquipSlot } from "@/adventure/data/v2/v2Equipment";
 import { EquipmentLiberationPanel } from "./EquipmentLiberationPanel";
@@ -55,22 +48,6 @@ function renderPanel(
 }
 
 describe("장비 마법부여 작업대", () => {
-  it("대상 장비와 현재 옵션은 중립 다크 표면에 포인트 테두리를 유지한다", () => {
-    renderPanel(rerollItem);
-
-    const target = screen.getByRole("button", { name: /대상 장비 변경/ });
-    expect(target.className).toContain("dark:bg-zinc-800");
-    expect(target.className).toContain("dark:border-violet-800");
-
-    const optionList = screen.getByRole("list", {
-      name: "현재 마법부여 옵션",
-    });
-    const currentOptions = optionList.parentElement;
-    expect(currentOptions?.className).toContain("dark:bg-zinc-800");
-    expect(optionList.innerHTML).toContain("dark:border-violet-900");
-    expect(optionList.innerHTML).toContain("dark:text-violet-100");
-  });
-
   it("상세 확률은 도움말로 분리하고 최초 마법부여의 영구 조건만 확인받는다", () => {
     renderPanel(initialItem);
 
@@ -105,9 +82,7 @@ describe("장비 마법부여 작업대", () => {
     });
 
     expect(screen.queryByRole("listbox", { name: "마법부여 대상 장비" })).toBeNull();
-    fireEvent.click(
-      screen.getByRole("button", { name: /대상 장비 변경.*2개 선택 가능/ }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "장비 선택" }));
     expect(screen.getByRole("dialog", { name: "마법부여 장비 선택" })).toBeTruthy();
     expect(screen.getByRole("listbox", { name: "마법부여 대상 장비" })).toBeTruthy();
 
@@ -121,52 +96,7 @@ describe("장비 마법부여 작업대", () => {
     expect(screen.getByRole("heading", { name: "빙호 갑주" })).toBeTruthy();
   });
 
-  it("같은 이름의 장비를 바꾸면 현재 선택 장비 요약도 해당 개체 정보로 갱신한다", () => {
-    const equippedGloves: V2EquipInstance = {
-      iid: "gloves-equipped",
-      id: "v2_boss_catastrophe_gloves",
-      roll: {
-        power: 68,
-        weight: 0,
-        options: { hp: 165, crit: 10, spd: 8, accuracy: 10 },
-      },
-    };
-    const spareGloves: V2EquipInstance = {
-      iid: "gloves-spare",
-      id: "v2_boss_catastrophe_gloves",
-      locked: true,
-      roll: {
-        power: 82,
-        weight: 0,
-        options: { hp: 195, crit: 15, spd: 11, accuracy: 13 },
-      },
-    };
-    renderPanel(equippedGloves, {
-      owned: [equippedGloves, spareGloves],
-      equipped: { gloves: equippedGloves.iid },
-    });
-
-    let summary = screen.getByRole("region", { name: "현재 선택 장비" });
-    expect(within(summary).getByRole("heading", { name: "재앙독 완갑" })).toBeTruthy();
-    expect(within(summary).getByText("위력 68")).toBeTruthy();
-    expect(within(summary).getByText(/품질/)).toBeTruthy();
-    expect(within(summary).getByText("장착 중")).toBeTruthy();
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /대상 장비 변경.*2개 선택 가능/ }),
-    );
-    fireEvent.click(
-      screen.getAllByRole("option", { name: /재앙독 완갑/ })[1],
-    );
-
-    summary = screen.getByRole("region", { name: "현재 선택 장비" });
-    expect(within(summary).getByRole("heading", { name: "재앙독 완갑" })).toBeTruthy();
-    expect(within(summary).getByText("위력 82")).toBeTruthy();
-    expect(within(summary).getByText("잠금됨")).toBeTruthy();
-    expect(within(summary).queryByText("장착 중")).toBeNull();
-  });
-
-  it("재마법부여 안내는 도움말에서 보여주고 확인창 없이 즉시 요청한다", async () => {
+  it("재마법부여는 경고를 상시 표시하고 확인창 없이 즉시 요청한다", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -177,79 +107,13 @@ describe("장비 마법부여 작업대", () => {
     renderPanel(rerollItem);
 
     expect(screen.getByText("마법부여 1단계 · 2줄")).toBeTruthy();
-    expect(screen.queryByText(/재마법부여하면 현재 옵션 전체가 즉시 소멸/)).toBeNull();
-    expect(screen.getByRole("list", { name: "현재 마법부여 옵션" })).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "마법부여 도움말" }));
     expect(screen.getByText(/재마법부여하면 현재 옵션 전체가 즉시 소멸/)).toBeTruthy();
-    expect(
-      screen.getByText(/옵션 줄 수는 유지되며, 버튼을 누르면 별도 확인 없이 바로 진행/),
-    ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "도움말 닫기" }));
+    expect(screen.getByRole("list", { name: "현재 마법부여 옵션" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "재마법부여" }));
     expect(screen.queryByRole("dialog", { name: /재마법부여 확인/ })).toBeNull();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(await screen.findByText("재마법부여가 완료되었습니다.")).toBeTruthy();
-  });
-
-  it("재마법부여 요청 중 직전 결과 영역을 유지한다", async () => {
-    let resolveSecondRequest!: (response: {
-      ok: boolean;
-      status: number;
-      json: () => Promise<{
-        ok: boolean;
-        item: V2EquipInstance;
-        gold: number;
-        bankedGold: number;
-      }>;
-    }) => void;
-    const secondRequest = new Promise<Parameters<typeof resolveSecondRequest>[0]>(
-      (resolve) => {
-        resolveSecondRequest = resolve;
-      },
-    );
-    const successResponse = {
-      ok: true,
-      status: 200,
-      json: async () => ({
-        ok: true,
-        item: rerollItem,
-        gold: 5_000_000,
-        bankedGold: 10_000_000,
-      }),
-    };
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(successResponse)
-      .mockReturnValueOnce(secondRequest);
-    vi.stubGlobal("crypto", {
-      randomUUID: () => "11111111-1111-4111-8111-111111111111",
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    renderPanel(rerollItem);
-
-    fireEvent.click(screen.getByRole("button", { name: "재마법부여" }));
-    expect(await screen.findByText("재마법부여가 완료되었습니다.")).toBeTruthy();
-    expect(
-      screen.getByText("마법부여 1단계 결과가 반영되었습니다."),
-    ).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "재마법부여" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-
-    expect(screen.getByText("재마법부여가 완료되었습니다.")).toBeTruthy();
-    expect(
-      screen.getByText("마법부여 1단계 결과가 반영되었습니다."),
-    ).toBeTruthy();
-
-    resolveSecondRequest(successResponse);
-    await waitFor(() =>
-      expect(
-        (screen.getByRole("button", { name: "재마법부여" }) as HTMLButtonElement)
-          .disabled,
-      ).toBe(false),
-    );
   });
 
   it("네트워크 재시도만 같은 요청 ID를 쓰고 stale 장비는 즉시 갱신한다", async () => {

@@ -132,8 +132,6 @@ export type V2EquipmentBase<Id extends string = string> = {
   tier: V2EquipCatalogTier;
   name: string;
   description: string;
-  /** 카탈로그·보상 UI에서 사용하는 정적 아이템 이미지. */
-  image?: string;
   power: number;
   weight: number;
   options?: V2EquipOptions;

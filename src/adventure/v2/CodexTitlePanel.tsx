@@ -116,7 +116,7 @@ export function CodexTitlePanel({
                         onClick={() => equipTitle(isEquipped ? null : id)}
                         className={`rounded-lg border p-3 text-left transition disabled:opacity-60 ${
                           isEquipped
-                            ? "border-amber-400 bg-amber-50 dark:border-amber-500/70 dark:bg-zinc-800"
+                            ? "border-amber-400 bg-amber-50 dark:border-amber-500/70 dark:bg-amber-900"
                             : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
                         }`}
                       >

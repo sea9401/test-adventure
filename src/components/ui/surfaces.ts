@@ -18,9 +18,9 @@ export const SURFACE_CARD =
 export const SURFACE_INSET =
   "rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950";
 
-/** 강조 패널 — 라이트는 amber, 다크는 중립 표면+amber 테두리로 색면을 줄인다. 불투명. */
+/** 강조 패널 — 테마색(amber) 카드. 정착지처럼 정체성을 주는 패널. 불투명. */
 export const SURFACE_ACCENT =
-  "rounded-xl border border-amber-300 bg-amber-50 shadow-sm dark:border-amber-800 dark:bg-zinc-800";
+  "rounded-xl border border-amber-300 bg-amber-50 shadow-sm dark:border-amber-900/70 dark:bg-amber-950";
 
 /** 프로스티드 헤더 — 반투명 + backdrop-blur(유일한 반투명 예외, 의도적). 지역 배경 위 헤더. */
 export const SURFACE_FROSTED =

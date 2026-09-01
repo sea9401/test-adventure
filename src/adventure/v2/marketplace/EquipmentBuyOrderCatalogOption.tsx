@@ -35,7 +35,7 @@ export function EquipmentBuyOrderCatalogOption({
       onClick={() => onSelect(item)}
       className={`flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-xs ${
         selected
-          ? "bg-sky-100 font-semibold text-sky-900 dark:bg-zinc-800 dark:text-sky-100"
+          ? "bg-sky-100 font-semibold text-sky-900 dark:bg-sky-950 dark:text-sky-100"
           : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
       }`}
     >

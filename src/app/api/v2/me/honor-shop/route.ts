@@ -5,13 +5,9 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   V2_SETTLEMENT_WARFARE,
+  HONOR_SHOP_STAMINA_POTION_COST,
 } from "@/adventure/data/v2/settlementWarfareConfig";
 import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
-import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
-import {
-  HONOR_SHOP_ITEMS,
-  honorShopItem,
-} from "@/adventure/data/v2/honorShop";
 import {
   grantStaminaPotions,
   STAMINA_POTIONS_KEY,
@@ -25,10 +21,17 @@ import {
 type HonorSave = {
   honor?: unknown;
   honorEarned?: unknown;
-  materials?: unknown;
   [k: string]: unknown;
 };
 type PotSave = { count?: unknown; [k: string]: unknown };
+
+const ITEMS = [
+  {
+    id: "stamina_potion",
+    name: "스태미나 회복약",
+    cost: HONOR_SHOP_STAMINA_POTION_COST,
+  },
+];
 
 export async function GET() {
   if (!V2_SETTLEMENT_WARFARE) {
@@ -48,7 +51,7 @@ export async function GET() {
   const save = row?.value as HonorSave | undefined;
   const honor = parseHonor(save?.honor);
   const honorEarned = parseHonorEarned(save?.honorEarned, honor);
-  return Response.json({ ok: true, honor, honorEarned, items: HONOR_SHOP_ITEMS });
+  return Response.json({ ok: true, honor, honorEarned, items: ITEMS });
 }
 
 export async function POST(req: Request) {
@@ -65,7 +68,7 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
-  const item = honorShopItem(body.itemId);
+  const item = ITEMS.find((i) => i.id === body.itemId);
   if (!item) {
     return Response.json({ ok: false, error: "no_such_item" }, { status: 400 });
   }
@@ -87,50 +90,28 @@ export async function POST(req: Request) {
       };
     }
     // 보유(honor)만 차감 — 누적(honorEarned)은 보존(spread + 미수정). "소비 ≠ 누적" 분리.
-    const nextCharSave: HonorSave = {
+    await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       honor: honor - item.cost,
-      ...(item.grantKind === "material"
-        ? {
-            materials: mergeDrops(charSave.materials, {
-              [item.targetId]: item.quantity,
-            }),
-          }
-        : {}),
-    };
-    await upsertSave(tx, userId, "character.v2", nextCharSave);
-
-    let staminaPotions: number | undefined;
-    if (item.grantKind === "stamina_potion") {
-      const potSave = await lockSaveForUpdate<PotSave>(
-        tx,
-        userId,
-        STAMINA_POTIONS_KEY,
-        {},
-      );
-      const nextPotions = grantStaminaPotions(potSave, item.quantity, {
-        bound: true,
-      });
-      staminaPotions = nextPotions.count;
-      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextPotions);
-    }
+    });
+    // 지급 — 스태미나 회복약 +1(전용 키 stamina-potions.v1).
+    const potSave = await lockSaveForUpdate<PotSave>(
+      tx,
+      userId,
+      STAMINA_POTIONS_KEY,
+      {},
+    );
+    const nextPotions = grantStaminaPotions(potSave, 1, { bound: true });
+    const staminaPotions = nextPotions.count;
+    await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextPotions);
     return {
       status: 200,
       body: {
         ok: true as const,
         honor: honor - item.cost,
         honorEarned,
-        granted: {
-          itemId: item.id,
-          name: item.name,
-          kind: item.grantKind,
-          targetId: item.targetId,
-          quantity: item.quantity,
-        },
-        ...(item.grantKind === "material"
-          ? { materials: nextCharSave.materials }
-          : {}),
-        ...(typeof staminaPotions === "number" ? { staminaPotions } : {}),
+        granted: item.id,
+        staminaPotions,
       },
     };
   });

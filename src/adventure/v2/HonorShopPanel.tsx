@@ -4,16 +4,17 @@ import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { useGameResourceState } from "@/adventure/v2/GameStateProvider";
 import { useSystemToast } from "./RewardToastProvider";
-import type { HonorShopItem } from "@/adventure/data/v2/honorShop";
 
 // 명예상점 — 정착지 전쟁 개인 화폐(명예) 소비처. 설계: docs/v2-settlement-warfare-plan.md §2.5.
 //   수비 전투 승리·길드 골드 입금으로 모은 명예로 구매. V2GuildHome "명예상점" 탭에서 렌더(flag on).
+
+type Item = { id: string; name: string; cost: number };
 
 export default function HonorShopPanel() {
   const { applyResourcePatch } = useGameResourceState();
   const [honor, setHonor] = useState<number | null>(null);
   const [honorEarned, setHonorEarned] = useState<number | null>(null);
-  const [items, setItems] = useState<HonorShopItem[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
   const [busy, setBusy] = useState(false);
   const { notifySystem } = useSystemToast();
 
@@ -24,7 +25,7 @@ export default function HonorShopPanel() {
       if (j?.ok) {
         setHonor(j.honor ?? 0);
         setHonorEarned(j.honorEarned ?? j.honor ?? 0);
-        setItems(Array.isArray(j.items) ? (j.items as HonorShopItem[]) : []);
+        setItems(Array.isArray(j.items) ? (j.items as Item[]) : []);
       }
     } catch {
       /* 표시 전용 */
@@ -50,13 +51,7 @@ export default function HonorShopPanel() {
               ok: true;
               honor: number;
               honorEarned: number;
-              granted: {
-                itemId: string;
-                name: string;
-                kind: "stamina_potion" | "material";
-                targetId: string;
-                quantity: number;
-              };
+              granted: string;
               staminaPotions?: number;
             }
           | { ok: false; error: string }
@@ -67,9 +62,7 @@ export default function HonorShopPanel() {
           if (typeof j.staminaPotions === "number") {
             applyResourcePatch({ staminaPotions: j.staminaPotions });
           }
-          notifySystem(
-            `✓ 구매 완료 — ${j.granted.name} +${j.granted.quantity.toLocaleString()}`,
-          );
+          notifySystem("✓ 구매 완료 — 스태미나 회복약 +1");
         } else {
           notifySystem(
             `✗ ${j?.error === "insufficient_honor" ? "명성이 부족합니다" : (j?.error ?? "구매 실패")}`,

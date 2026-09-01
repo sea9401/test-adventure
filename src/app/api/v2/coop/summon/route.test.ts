@@ -3,13 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   insertedSessions,
   broadcastCoopNotice,
-  createCoopBossSession,
   insertFeedEntry,
   upsertSave,
 } = vi.hoisted(() => ({
   insertedSessions: [] as Record<string, unknown>[],
   broadcastCoopNotice: vi.fn(async () => undefined),
-  createCoopBossSession: vi.fn(),
   insertFeedEntry: vi.fn(async () => undefined),
   upsertSave: vi.fn(async () => undefined),
 }));
@@ -29,7 +27,6 @@ vi.mock("@/lib/server/v2EnsureSoloGuild", () => ({
 }));
 vi.mock("@/lib/server/v2Coop", () => ({
   broadcastCoopNotice,
-  createCoopBossSession,
   expireStaleCoopSessions: vi.fn(async () => undefined),
   findActiveCoopSessions: vi.fn(async () => []),
 }));
@@ -54,22 +51,6 @@ describe("POST /api/v2/coop/summon", () => {
   beforeEach(() => {
     insertedSessions.length = 0;
     broadcastCoopNotice.mockClear();
-    createCoopBossSession.mockReset();
-    createCoopBossSession.mockImplementation(async (_tx, args) => {
-      const hard = args.kindId === "canyon_predator_hard";
-      const expiresAt = args.now.getTime() + (hard ? 24 : 3) * 60 * 60 * 1000;
-      insertedSessions.push({
-        regionId: args.kindId,
-        bossName: hard ? "재앙의 스콜피온 킹" : "산군",
-        hp: hard ? 8_400_000 : 30_000,
-        maxHp: hard ? 8_400_000 : 30_000,
-        spawnedAt: args.now,
-        expiresAt: new Date(expiresAt),
-        summonerId: args.userId,
-        visibility: args.visibility,
-      });
-      return { ok: true, sessionId: "session-1", expiresAt };
-    });
     insertFeedEntry.mockClear();
     upsertSave.mockClear();
   });

@@ -587,7 +587,7 @@ export function CodexEquipmentPanel({
                     key={goal.label}
                     className={`rounded border px-2.5 py-2 ${
                       complete
-                        ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-zinc-950"
+                        ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30"
                         : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
                     }`}
                   >
@@ -703,7 +703,7 @@ export function CodexEquipmentPanel({
                       key={id}
                       className={`ui-codex-card ui-lift-card relative flex min-h-[7.25rem] flex-col gap-1 p-3 text-left transition ${
                         registered
-                          ? "is-registered rounded-lg border border-emerald-400 bg-emerald-50 shadow-sm ring-1 ring-emerald-200 dark:border-emerald-600/80 dark:bg-zinc-800 dark:ring-emerald-900"
+                          ? "is-registered rounded-lg border border-emerald-400 bg-emerald-50 shadow-sm ring-1 ring-emerald-200 dark:border-emerald-600/80 dark:bg-emerald-950 dark:ring-emerald-900"
                           : `${SURFACE_CARD} hover:bg-zinc-50 dark:hover:bg-zinc-800`
                       } ${!registered && inst ? "is-ready" : ""}`}
                     >

@@ -101,7 +101,7 @@ export function V2ArenaRankingTab() {
                 onClick={() => router.push(`/character/${encodeURIComponent(e.name)}`)}
                 className={
                   "flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 " +
-                  (e.isMe ? "bg-amber-50 dark:bg-zinc-800" : "bg-white dark:bg-zinc-900")
+                  (e.isMe ? "bg-amber-50 dark:bg-amber-950" : "bg-white dark:bg-zinc-900")
                 }
               >
                 <span

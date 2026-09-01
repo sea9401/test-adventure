@@ -5,13 +5,11 @@ import {
   BookOpen,
   Compass,
   Lightning,
-  MapTrifold,
   SlidersHorizontal,
   Sparkle,
   Trophy,
   UserCircle,
 } from "@phosphor-icons/react";
-import { V2_UNEXPLORED } from "@/adventure/data/v2/coreLoopConfig";
 import { EntryCard } from "@/components/ui/EntryCard";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -27,15 +25,12 @@ export type CharacterAction =
   | { kind: "open-shrine" }
   | { kind: "open-quests" }
   | { kind: "open-trophies" }
-  | { kind: "open-codex" }
-  | { kind: "open-unexplored" };
+  | { kind: "open-codex" };
 
 export function V2CharacterMenu({
   onAction,
-  unexploredEnabled = V2_UNEXPLORED,
 }: {
   onAction: (action: CharacterAction) => void;
-  unexploredEnabled?: boolean;
 }) {
   return (
     <PageShell spacing="tight">
@@ -71,6 +66,7 @@ export function V2CharacterMenu({
             />
           }
           title="전투 프리셋"
+          description="스킬·전투패턴·장비를 한 번에 변경"
           onClick={() => onAction({ kind: "open-presets" })}
         />
         <EntryCard
@@ -87,19 +83,6 @@ export function V2CharacterMenu({
           title="성장의 신전"
           onClick={() => onAction({ kind: "open-shrine" })}
         />
-        {unexploredEnabled && (
-          <EntryCard
-            icon={
-              <MapTrifold
-                size={28}
-                weight="duotone"
-                className="text-violet-500"
-              />
-            }
-            title="개척 노드"
-            onClick={() => onAction({ kind: "open-unexplored" })}
-          />
-        )}
         <EntryCard
           icon={
             <Trophy size={28} weight="duotone" className="text-amber-600" />

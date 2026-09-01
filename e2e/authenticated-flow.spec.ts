@@ -2,10 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   authenticatedE2eAccountDeletionState,
   authenticatedE2eConfig,
-  prepareAuthenticatedE2eUnexploredBossState,
   resetAuthenticatedE2eAccount,
   setAuthenticatedE2eCharacterLevel,
-  setAuthenticatedE2ePersonalBossHp,
 } from "./support/authenticatedDatabase";
 import { prepareLocalHttpBrowser } from "./support/localHttpBrowser";
 import { installStormExpeditionApiFixture } from "./support/stormExpeditionFixture";
@@ -14,7 +12,6 @@ const LOCAL_ORIGIN = "http://localhost:3212";
 const CHARACTER_NAME = "자동검증모험가";
 const ATTENDANCE_CHARACTER_NAME = "출석검증모험가";
 const GAMEPLAY_CHARACTER_NAME = "사냥검증모험가";
-const UNEXPLORED_CHARACTER_NAME = "미개척검증모험가";
 const DELETION_CHARACTER_NAME = "삭제검증모험가";
 const CHAT_CHARACTER_NAME = "채팅검증모험가";
 const STORM_DIRECT_CHARACTER_NAME = "원정직접검증가";
@@ -446,160 +443,6 @@ test("전투 메뉴로 사냥터에 진입해 얻은 진행은 새로고침과 �
   const afterRelogin = await coreGameplayState(page);
   expect(stableGameplayProgress(afterRelogin)).toEqual(
     stableGameplayProgress(afterHunt),
-  );
-});
-
-test("세 개인 보스를 제작·소환·자동전투하고 각 보상을 수령한다", async ({
-  page,
-}, testInfo) => {
-  test.skip(testInfo.project.name.includes("mobile"));
-  test.skip(
-    process.env.NEXT_PUBLIC_V2_UNEXPLORED !== "true",
-    "NEXT_PUBLIC_V2_UNEXPLORED=true 빌드에서만 실행합니다.",
-  );
-  test.setTimeout(180_000);
-  if (!account) throw new Error("Authenticated E2E configuration is missing");
-
-  await loginWithPassword(page, account.loginId, account.password);
-  await createCharacter(page, UNEXPLORED_CHARACTER_NAME);
-  await prepareAuthenticatedE2eUnexploredBossState();
-  await page.goto("/character/unexplored");
-  await expect(
-    page.getByRole("heading", { name: "미개척지 탐사망" }),
-  ).toBeVisible();
-
-  const bosses = [
-    {
-      id: "tracking_weapon",
-      name: "추적 병기",
-      summonStone: "v2_unexplored_tracking_weapon_summon_stone",
-      mechanicKeys: ["trackingCounterCount", "trackingCounterDamage"],
-    },
-    {
-      id: "toxic_blood_lord",
-      name: "독혈 군주",
-      summonStone: "v2_unexplored_toxic_blood_lord_summon_stone",
-      mechanicKeys: ["toxicExplosionCount", "toxicDamageTaken"],
-    },
-    {
-      id: "glacial_colossus",
-      name: "빙하 거수",
-      summonStone: "v2_unexplored_glacial_colossus_summon_stone",
-      mechanicKeys: ["glacialFreezeCount", "glacialSkippedActionCount"],
-    },
-  ] as const;
-
-  for (const boss of bosses) {
-    const craftButton = page.getByRole("button", {
-      name: `${boss.name} 소환석 제작`,
-    });
-    await expect(craftButton).toBeEnabled();
-    const craftResponse = page.waitForResponse(
-      (response) =>
-        response.url().endsWith("/api/v2/unexplored/craft") &&
-        response.request().method() === "POST",
-    );
-    await craftButton.click();
-    expect((await craftResponse).status()).toBe(200);
-  }
-
-  const crafted = await page.evaluate(async () =>
-    fetch("/api/v2/unexplored").then((response) => response.json()),
-  );
-  expect(crafted.snapshot).toMatchObject({
-    gold: 0,
-    bankedGold: 0,
-    materials: {
-      v2_unexplored_tracking_weapon_summon_stone: 1,
-      v2_unexplored_toxic_blood_lord_summon_stone: 1,
-      v2_unexplored_glacial_colossus_summon_stone: 1,
-    },
-  });
-  expect(crafted.snapshot.materials).not.toHaveProperty("v2_boss_summon_scroll");
-
-  for (const boss of bosses) {
-    await page.goto("/character/unexplored");
-    const summonButton = page.getByRole("button", {
-      name: `${boss.name} 소환`,
-      exact: true,
-    });
-    await expect(summonButton).toBeEnabled();
-    const summonResponse = page.waitForResponse(
-      (response) =>
-        response.url().endsWith("/api/v2/unexplored/summon") &&
-        response.request().method() === "POST",
-    );
-    await summonButton.click();
-    const summon = await summonResponse;
-    expect(summon.status()).toBe(200);
-    const summoned = (await summon.json()) as { sessionId: string };
-    await expect(page).toHaveURL(
-      `${LOCAL_ORIGIN}/battle/coop/${summoned.sessionId}`,
-    );
-    await expect(page.getByRole("heading", { name: boss.name })).toBeVisible();
-    await expect(page.getByText("나만 전투")).toBeVisible();
-
-    await setAuthenticatedE2ePersonalBossHp(summoned.sessionId, 1);
-    await page.reload();
-    const attackResponse = page.waitForResponse(
-      (response) =>
-        response.url().endsWith("/api/v2/coop/attack") &&
-        response.request().method() === "POST",
-    );
-    await page.getByRole("button", { name: /공격 \(스태미너/ }).click();
-    const attack = await attackResponse;
-    expect(attack.status()).toBe(200);
-    const attacked = (await attack.json()) as {
-      result: Record<string, unknown> & { defeated: boolean };
-    };
-    expect(attacked.result.defeated).toBe(true);
-    for (const key of boss.mechanicKeys) {
-      expect(attacked.result).toHaveProperty(key);
-      expect(typeof attacked.result[key]).toBe("number");
-    }
-
-    await expect(page).toHaveURL(
-      new RegExp(`/battle/coop/${summoned.sessionId}/log/\\d+$`),
-    );
-    await expect(page.getByText(`${boss.name} 공격 기록`)).toBeVisible();
-    await page
-      .getByRole("button", { name: "토벌 화면으로 돌아가기" })
-      .click();
-    await expect(
-      page.getByRole("button", { name: "개인 토벌 보상 수령" }),
-    ).toBeVisible();
-    const claimResponse = page.waitForResponse(
-      (response) =>
-        response.url().endsWith("/api/v2/coop/claim") &&
-        response.request().method() === "POST",
-    );
-    await page
-      .getByRole("button", { name: "개인 토벌 보상 수령" })
-      .click();
-    const claim = await claimResponse;
-    expect(claim.status()).toBe(200);
-    await expect(claim.json()).resolves.toMatchObject({
-      ok: true,
-      reward: { rewardMode: "unexplored_personal", bossCore: 1 },
-    });
-
-    const state = await page.evaluate(async () =>
-      fetch("/api/v2/unexplored").then((response) => response.json()),
-    );
-    expect(state.snapshot.materials).not.toHaveProperty(boss.summonStone);
-  }
-
-  const completed = await page.evaluate(async () =>
-    fetch("/api/v2/unexplored").then((response) => response.json()),
-  );
-  expect(completed.snapshot.achievementIds).toEqual(
-    expect.arrayContaining([
-      "first_personal_boss",
-      "defeat_tracking_weapon",
-      "defeat_toxic_blood_lord",
-      "defeat_glacial_colossus",
-      "defeat_all_personal_bosses",
-    ]),
   );
 });
 

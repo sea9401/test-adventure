@@ -3300,9 +3300,15 @@ export function castV2SkillOnAttackerTurnPvP(
     tier7FinalDamagePct += (side.stacks.tier7?.swordIntent ?? 0) * 8;
   }
   if (result.castSkillId === "v2c_ruinblade_limitstrike") {
+    const missingHpCap =
+      V2_SKILLS.v2c_ruinblade_limitstrike.tier7Mechanic?.kind ===
+      "intentStrike"
+        ? V2_SKILLS.v2c_ruinblade_limitstrike.tier7Mechanic
+            .missingHpBonusCapPct
+        : 0;
     tier7FinalDamagePct += Math.min(
-      60,
-      ((side.maxHp - side.hp) / Math.max(1, side.maxHp)) * 60,
+      missingHpCap,
+      ((side.maxHp - side.hp) / Math.max(1, side.maxHp)) * missingHpCap,
     );
   }
   if (ruinChargeAtActionStart) {
@@ -3311,6 +3317,18 @@ export function castV2SkillOnAttackerTurnPvP(
       hp: side.hp,
       maxHp: side.maxHp,
       pvp: true,
+      currentMissingHpCapPct: ruinSwordMechanic?.kind === "chargedFinisher"
+        ? ruinSwordMechanic.currentMissingHpCapPct
+        : undefined,
+      chargeLostHpCapPct: ruinSwordMechanic?.kind === "chargedFinisher"
+        ? ruinSwordMechanic.chargeLostHpCapPct
+        : undefined,
+      pvpCapPct: ruinSwordMechanic?.kind === "chargedFinisher"
+        ? ruinSwordMechanic.pvpCapPct
+        : undefined,
+      pvpPenetrationPct: ruinSwordMechanic?.kind === "chargedFinisher"
+        ? ruinSwordMechanic.pvpPenetrationPct
+        : undefined,
     }).damagePct;
   }
   if (crossover?.bonus === "capture") {

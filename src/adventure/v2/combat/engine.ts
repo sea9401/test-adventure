@@ -2858,10 +2858,16 @@ export function applyPlayerV2SkillCast(
     tier7FinalDamagePct += (state.stacks.tier7?.swordIntent ?? 0) * 8;
   }
   if (result.castSkillId === "v2c_ruinblade_limitstrike") {
+    const missingHpCap =
+      V2_SKILLS.v2c_ruinblade_limitstrike.tier7Mechanic?.kind ===
+      "intentStrike"
+        ? V2_SKILLS.v2c_ruinblade_limitstrike.tier7Mechanic
+            .missingHpBonusCapPct
+        : 0;
     tier7FinalDamagePct += Math.min(
-      60,
+      missingHpCap,
       ((state.playerMaxHp - state.playerHp) / Math.max(1, state.playerMaxHp)) *
-        60,
+        missingHpCap,
     );
   }
   if (ruinChargeAtActionStart) {
@@ -2870,6 +2876,12 @@ export function applyPlayerV2SkillCast(
       hp: state.playerHp,
       maxHp: state.playerMaxHp,
       pvp: false,
+      currentMissingHpCapPct: ruinSwordMechanic?.kind === "chargedFinisher"
+        ? ruinSwordMechanic.currentMissingHpCapPct
+        : undefined,
+      chargeLostHpCapPct: ruinSwordMechanic?.kind === "chargedFinisher"
+        ? ruinSwordMechanic.chargeLostHpCapPct
+        : undefined,
     }).damagePct;
   }
   if (crossover?.bonus === "capture") {

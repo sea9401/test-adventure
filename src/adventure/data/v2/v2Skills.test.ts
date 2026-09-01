@@ -50,9 +50,9 @@ describe("7차 스킬 설명", () => {
       describeV2Skill(V2_SKILLS.v2c_shadowblade_swordshadow),
     ).toEqual(
       expect.arrayContaining([
-        "고유 단일 물리 최종 피해 50% 기록(잔영 70%) · 계승 공격 25% 기록 · 정련 시 +15%p",
+        "고유 단일 물리 최종 피해 50% 기록(잔영 70%) · 계승 공격 10% 기록 · 정련 시 +15%p",
         "검영 발동 후 다음 단일 물리 피해 +15%",
-        "PvP 검영·후속 보너스 80% 적용",
+        "PvP 검영·후속 보너스 92.2% 적용",
       ]),
     );
     expect(describeV2Skill(V2_SKILLS.v2c_ruinblade_ruinsword)).toEqual(
@@ -66,6 +66,8 @@ describe("7차 스킬 설명", () => {
       expect.arrayContaining([
         "포획: 최종 피해 +20% · 적중 +25% · 관통 45%",
         "추격: 추가 피해 40% · 적 행동 지연 20%",
+        "PvP 포획: 최종 피해 +12% · 관통 10%",
+        "PvP 추격: 추가 피해 25% · 적 행동 지연 10%",
       ]),
     );
     expect(

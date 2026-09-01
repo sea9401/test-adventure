@@ -49,7 +49,7 @@ function snapshot(): UnexploredClientSnapshot {
     bankedGold: 0,
     materials: {},
     achievementIds: [],
-    refundGoldCost: 50_000,
+    refundGoldCost: 75_000,
     summonStoneCraftCost: {
       baseGoldCost: 5_000_000,
       goldCost: 5_000_000,

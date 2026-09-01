@@ -171,7 +171,7 @@ describe("/api/v2/unexplored", () => {
     const selectedNodeIds = shortestUnexploredPath("route-b-0");
     mocks.saves.set("character.v2", {
       level: 100,
-      gold: 100_000,
+      gold: 150_000,
       unexplored: { xpPoints: 30, selectedNodeIds },
     });
 

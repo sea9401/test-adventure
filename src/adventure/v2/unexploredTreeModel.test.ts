@@ -42,7 +42,7 @@ function snapshot(
     bankedGold: 0,
     materials: {},
     achievementIds: [],
-    refundGoldCost: 50_000,
+    refundGoldCost: 75_000,
     ...overrides,
     summonStoneCraftCost: overrides.summonStoneCraftCost ?? {
       baseGoldCost: 1_000_000,

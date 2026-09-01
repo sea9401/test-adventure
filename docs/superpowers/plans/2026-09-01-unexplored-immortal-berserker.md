@@ -260,7 +260,7 @@ git commit -m "feat: integrate immortal berserker into atb combat"
 - Produces: `CoopMechanicState.immortalBerserker`, `coopImmortalBerserkerState`, `withCoopImmortalBerserkerState`, `coopImmortalBerserkerDisplay`.
 - Attack response adds `immortalBodyDamage`, `immortalHealing`, `netProgress` and display fields.
 
-- [ ] **Step 1: 파서·병합·신규 세션 실패 테스트 작성**
+- [x] **Step 1: 파서·병합·신규 세션 실패 테스트 작성**
 
 ```ts
 expect(parseCoopMechanicState({
@@ -276,12 +276,12 @@ expect(parseCoopMechanicState({
 
 새 `immortal_berserker` 세션이 첫 생명·재생 3회 상태를 저장하는지 `v2Coop.test.ts`에서 검사한다.
 
-- [ ] **Step 2: 실패 확인 후 파서·표시 mapper·세션 생성 구현**
+- [x] **Step 2: 실패 확인 후 파서·표시 mapper·세션 생성 구현**
 
 Run: `npm test -- src/adventure/data/v2/coopBosses.test.ts src/lib/server/v2Coop.test.ts`
 Expected: FAIL before implementation, then PASS after adding helpers.
 
-- [ ] **Step 3: 공격 route 회복·기여도 실패 테스트 작성**
+- [x] **Step 3: 공격 route 회복·기여도 실패 테스트 작성**
 
 다음 네 사례를 route mock으로 고정한다.
 
@@ -290,11 +290,11 @@ Expected: FAIL before implementation, then PASS after adding helpers.
 3. 잠금 뒤 HP 또는 전용 상태가 바뀌면 `409 boss_state_changed`이고 모든 쓰기 없음.
 4. 셋째 생명 0에서만 처치·보상 수령 가능 상태로 전환.
 
-- [ ] **Step 4: 공격 route 문맥 주입과 원자 저장 구현**
+- [x] **Step 4: 공격 route 문맥 주입과 원자 저장 구현**
 
 peek 단계에서 불멸 상태를 정규화해 엔진에 전달한다. 잠금 뒤 `s.hp`와 시작 상태를 JSON 구조 비교한다. 불멸 보스만 최종 HP를 `battleResult.finalState.enemyHp`에서 읽어 현재 생명·전체 상한으로 검증한 뒤 직접 저장한다. 기여와 critical contribution은 `netProgress`를 상한으로 제한한다. 다른 보스는 기존 `GREATEST(0, hp - appliedDamage)` 경로를 유지한다.
 
-- [ ] **Step 5: API 집중 테스트 통과 및 커밋**
+- [x] **Step 5: API 집중 테스트 통과 및 커밋**
 
 Run: `npm test -- src/adventure/data/v2/coopBosses.test.ts src/lib/server/v2Coop.test.ts src/app/api/v2/coop/attack/route.test.ts`
 Expected: PASS.

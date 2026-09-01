@@ -14,7 +14,7 @@
     {
       "id": "operator-cleared-game-art",
       "releaseStatus": "cleared",
-      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06, the nine ranch and cooking rasters added on 2026-08-10, the six Star Grave environment and monster rasters added on 2026-08-14, the 37 dangerous-fishing and ranch/cooking rasters added on 2026-08-15, the six ranch cooking rasters added on 2026-08-16, the 55 cooking-research recipe rasters added on 2026-08-22, the five dangerous-fishing realtime rasters added on 2026-08-22, the nine dangerous-fishing species rasters added on 2026-08-23, the simple and staged cooking-expansion rasters added beginning on 2026-08-24, the 53 unexplored-region monster, boss, and equipment rasters added on 2026-08-28 through 2026-08-30, and the four Invincible Fortress boss and equipment rasters added on 2026-09-01 were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. The 2026-08-22 boss sheets use cleared repository fish artwork for identity and style; a user-supplied, non-deployed golem sheet served only as a generic spacing/motion-layout reference, with no pixels, character identity, palette, anatomy, or style carried into the deployed assets. The unexplored-region variants use only repository-cleared game artwork as style references where their plans note a reference. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included in deployed game art.",
+      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06, the nine ranch and cooking rasters added on 2026-08-10, the six Star Grave environment and monster rasters added on 2026-08-14, the 37 dangerous-fishing and ranch/cooking rasters added on 2026-08-15, the six ranch cooking rasters added on 2026-08-16, the 55 cooking-research recipe rasters added on 2026-08-22, the five dangerous-fishing realtime rasters added on 2026-08-22, the nine dangerous-fishing species rasters added on 2026-08-23, the simple and staged cooking-expansion rasters added beginning on 2026-08-24, the 53 unexplored-region monster, boss, and equipment rasters added on 2026-08-28 through 2026-08-30, and the four Invincible Fortress plus four Skyward Crystal Eye boss and equipment rasters added on 2026-09-01 were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. The 2026-08-22 boss sheets use cleared repository fish artwork for identity and style; a user-supplied, non-deployed golem sheet served only as a generic spacing/motion-layout reference, with no pixels, character identity, palette, anatomy, or style carried into the deployed assets. The unexplored-region variants use only repository-cleared game artwork as style references where their plans note a reference. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included in deployed game art.",
       "evidence": [
         "docs/image-gen-prompt.md",
         "https://github.com/sea9401/test-adventure/pull/232",
@@ -47,7 +47,8 @@
         "docs/superpowers/plans/2026-08-30-unexplored-runaway-machines-expansion.md",
         "docs/superpowers/plans/2026-08-30-unexplored-shadow-stalkers-expansion.md",
         "docs/superpowers/plans/2026-08-30-unexplored-venom-colony-expansion.md",
-        "docs/superpowers/plans/2026-09-01-unexplored-invincible-fortress.md"
+        "docs/superpowers/plans/2026-09-01-unexplored-invincible-fortress.md",
+        "docs/asset-provenance-skyward-crystal-eye-2026-09-01.md"
       ]
     },
     {
@@ -132,6 +133,11 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/equipment/unexplored-infinite-focus-crystal-eye.webp",
+      "sha256": "e8ce02859fb7ad352378e523d86836e56c46cc5f98b56e4025787f1286dfd609",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/equipment/unexplored-infinite-orbit-heart.webp",
       "sha256": "481f6d9bd58a28a662d57a59bc24ce348c6123f118034036f17962944696bb05",
       "source": "operator-cleared-game-art"
@@ -152,8 +158,18 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/equipment/unexplored-prismatic-firing-gauntlets.webp",
+      "sha256": "d44e74b66444131837d8723fb182aa2dd42da3d00f021e2c812c01300621c74d",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/equipment/unexplored-sealing-barrier-ring.webp",
       "sha256": "c2bb0be3717926f7c4de3f9a7e20945d9bf6c9f593001cb7aa36e8a768d6486a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-starpath-aiming-ring.webp",
+      "sha256": "04ac994e97b5b5614f29cd1d2a8a484f4d5569cf54fd46d92d22777a3f501bf1",
       "source": "operator-cleared-game-art"
     },
     {
@@ -4149,6 +4165,11 @@
     {
       "path": "public/images/monster/v2/unexplored-boss-invincible-fortress.webp",
       "sha256": "d91368c59fbbf5067560f697335bd72720764e39e1bb3487a01f62458b94c661",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-boss-skyward-crystal-eye.webp",
+      "sha256": "dfa8bc639b264e362f1498e368d80682be3f6b9aed0e07a6f3b579994399bd63",
       "source": "operator-cleared-game-art"
     },
     {

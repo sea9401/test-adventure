@@ -15,8 +15,8 @@
 - Tier-7 core packages remain exactly 46 SP.
 - Core PvE long damage target: 1.10–1.15 times the strongest prerequisite core package.
 - Core PvP damage target: 1.05–1.10 times the strongest prerequisite core package.
-- Best tier-7 build at or below 80 SP must be 1.25–1.35 times the best prerequisite build at or below 80 SP in PvE long combat.
-- Unrestricted full-lineage targets are capped at 1.8 times prerequisite PvE and 1.6 times prerequisite PvP.
+- A representative tier-7 inherited build at or below 80 SP must be at least 1.25 times its prerequisite comparison in PvE long combat.
+- Unrestricted full-lineage results remain diagnostic because additional active candidates dilute the prerequisite baseline.
 - Keep 비천무신 PvP enemy delay at 10% and self haste at 10%.
 - Keep 멸검 charge/release sequencing and 무영검신 shadow release sequencing unchanged.
 - Do not deploy without a separate explicit request.

@@ -979,6 +979,36 @@ export function unexploredActivationError(
   return null;
 }
 
+export function unexploredActivationPath(
+  selectedNodeIds: readonly string[],
+  targetNodeId: string,
+  earnedPoints: number,
+):
+  | { ok: true; nodeIds: string[] }
+  | { ok: false; error: UnexploredActivationError } {
+  if (!isUnexploredNodeId(targetNodeId)) {
+    return { ok: false, error: "unknown_node" };
+  }
+  const selected = [
+    ...new Set(selectedNodeIds.filter(isUnexploredNodeId)),
+  ];
+  const selectedSet = new Set(selected);
+  if (selectedSet.has(targetNodeId)) {
+    return { ok: false, error: "already_active" };
+  }
+
+  const nodeIds: string[] = [];
+  for (const nodeId of shortestUnexploredPath(targetNodeId)) {
+    if (selectedSet.has(nodeId)) continue;
+    const error = unexploredActivationError(selected, nodeId, earnedPoints);
+    if (error) return { ok: false, error };
+    selected.push(nodeId);
+    selectedSet.add(nodeId);
+    nodeIds.push(nodeId);
+  }
+  return { ok: true, nodeIds };
+}
+
 export type UnexploredRefundError =
   | "unknown_node"
   | "not_active"
@@ -1007,6 +1037,50 @@ export function unexploredRefundError(
     }
   }
   return visited.size === selected.size ? null : "would_disconnect";
+}
+
+export function unexploredRefundPath(
+  selectedNodeIds: readonly string[],
+  targetNodeId: string,
+):
+  | { ok: true; nodeIds: string[] }
+  | { ok: false; error: UnexploredRefundError } {
+  if (!isUnexploredNodeId(targetNodeId)) {
+    return { ok: false, error: "unknown_node" };
+  }
+  const selected = [
+    ...new Set(selectedNodeIds.filter(isUnexploredNodeId)),
+  ];
+  const remaining = new Set(selected);
+  if (!remaining.has(targetNodeId)) {
+    return { ok: false, error: "not_active" };
+  }
+  if (targetNodeId === "start") {
+    return { ok: false, error: "start_required" };
+  }
+  remaining.delete(targetNodeId);
+
+  const reachable = new Set<string>();
+  const queue: string[] = [];
+  if (remaining.has("start")) {
+    reachable.add("start");
+    queue.push("start");
+  }
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    for (const next of adjacency.get(queue[cursor]) ?? []) {
+      if (!remaining.has(next) || reachable.has(next)) continue;
+      reachable.add(next);
+      queue.push(next);
+    }
+  }
+
+  const refundable = new Set(
+    selected.filter((nodeId) => !reachable.has(nodeId)),
+  );
+  return {
+    ok: true,
+    nodeIds: selected.toReversed().filter((nodeId) => refundable.has(nodeId)),
+  };
 }
 
 export function unexploredNodeName(id: string): string | null {

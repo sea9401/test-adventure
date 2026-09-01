@@ -10,9 +10,12 @@ import {
   deriveUnexploredEffects,
   shortestUnexploredPath,
   unexploredActivationError,
+  unexploredActivationPath,
   unexploredPoolName,
+  unexploredRefundPath,
   type UnexploredActivationError,
   type UnexploredNode,
+  type UnexploredRefundError,
 } from "@/adventure/data/v2/unexploredTree";
 import type { UnexploredAchievementId } from "@/adventure/data/v2/unexploredState";
 import type { UnexploredEncounterShare } from "@/adventure/data/v2/unexploredEncounters";
@@ -61,8 +64,19 @@ export type UnexploredNodeState = "active" | "available" | "locked";
 
 export type UnexploredTreeNodeModel = UnexploredNode & {
   state: UnexploredNodeState;
+  planState: "activate" | "refund" | null;
   categoryLabel: string;
   activationError: UnexploredActivationError | "level_required" | null;
+};
+
+export type UnexploredTreePlan = {
+  action: "activate" | "refund";
+  nodeIds: string[];
+  error:
+    | UnexploredActivationError
+    | UnexploredRefundError
+    | "level_required"
+    | null;
 };
 
 function categoryLabel(node: UnexploredNode): string {
@@ -97,6 +111,30 @@ export function buildUnexploredTreeModel(
     ? shortestUnexploredPath(selectedNodeId)
     : [];
   const previewPathSet = new Set(previewPath);
+  let plan: UnexploredTreePlan | null = null;
+  if (selectedNodeId && !(active.has(selectedNodeId) && selectedNodeId === "start")) {
+    const action = active.has(selectedNodeId) ? "refund" : "activate";
+    if (!snapshot.eligible) {
+      plan = { action, nodeIds: [], error: "level_required" };
+    } else {
+      const result = action === "activate"
+        ? unexploredActivationPath(
+            snapshot.selectedNodeIds,
+            selectedNodeId,
+            snapshot.earnedPoints,
+          )
+        : unexploredRefundPath(snapshot.selectedNodeIds, selectedNodeId);
+      plan = result.ok
+        ? { action, nodeIds: result.nodeIds, error: null }
+        : { action, nodeIds: [], error: result.error };
+    }
+  }
+  const activationPlan = new Set(
+    plan?.action === "activate" && plan.error === null ? plan.nodeIds : [],
+  );
+  const refundPlan = new Set(
+    plan?.action === "refund" && plan.error === null ? plan.nodeIds : [],
+  );
   const nodes: UnexploredTreeNodeModel[] = UNEXPLORED_NODES.map((node) => {
     const activationError = active.has(node.id)
       ? null
@@ -115,22 +153,35 @@ export function buildUnexploredTreeModel(
     return {
       ...node,
       state,
+      planState: activationPlan.has(node.id)
+        ? "activate"
+        : refundPlan.has(node.id)
+          ? "refund"
+          : null,
       categoryLabel: categoryLabel(node),
       activationError,
     };
   });
   const selected = nodes.find((node) => node.id === selectedNodeId) ?? null;
-  const previewDifficulty =
-    selected?.state === "available"
-      ? deriveUnexploredEffects([...snapshot.selectedNodeIds, selected.id]).difficulty
-      : snapshot.difficulty;
+  const previewNodeIds = plan?.error === null
+    ? plan.action === "activate"
+      ? [...snapshot.selectedNodeIds, ...plan.nodeIds]
+      : snapshot.selectedNodeIds.filter((nodeId) => !refundPlan.has(nodeId))
+    : snapshot.selectedNodeIds;
+  const previewDifficulty = deriveUnexploredEffects(previewNodeIds).difficulty;
   const edges = UNEXPLORED_EDGES.map(([left, right]) => ({
     left,
     right,
     state:
-      active.has(left) && active.has(right)
+      active.has(left) &&
+      active.has(right) &&
+      (refundPlan.has(left) || refundPlan.has(right))
+        ? ("refund" as const)
+        : active.has(left) && active.has(right)
         ? ("active" as const)
-        : previewPathSet.has(left) && previewPathSet.has(right)
+        : activationPlan.size > 0 &&
+            previewPathSet.has(left) &&
+            previewPathSet.has(right)
           ? ("preview" as const)
           : ("inactive" as const),
   }));
@@ -159,6 +210,7 @@ export function buildUnexploredTreeModel(
     nodes,
     edges,
     selected,
+    plan,
     previewPath,
     currentDifficulty: snapshot.difficulty,
     previewDifficulty,

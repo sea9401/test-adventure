@@ -3,7 +3,9 @@ import { unexploredEncounterShares } from "@/adventure/data/v2/unexploredEncount
 import {
   deriveUnexploredEffects,
   unexploredActivationError,
+  unexploredActivationPath,
   unexploredRefundError,
+  unexploredRefundPath,
 } from "@/adventure/data/v2/unexploredTree";
 import {
   canChangeUnexploredNodes,
@@ -30,7 +32,9 @@ export type UnexploredCharacterSave = {
 
 export type UnexploredMutation =
   | { action: "activate"; nodeId: string }
+  | { action: "activate_path"; nodeId: string }
   | { action: "refund"; nodeId: string }
+  | { action: "refund_path"; nodeId: string }
   | { action: "reset" };
 
 export type UnexploredMutationError =
@@ -163,6 +167,23 @@ export function applyUnexploredMutation(
     return successfulMutation(character, achievementGrant.save);
   }
 
+  if (mutation.action === "activate_path") {
+    const plan = unexploredActivationPath(
+      save.selectedNodeIds,
+      mutation.nodeId,
+      unexploredEarnedPoints(level, save),
+    );
+    if (!plan.ok) return plan;
+    const selectedNodeIds = [...save.selectedNodeIds, ...plan.nodeIds];
+    const activePoolCount = deriveUnexploredEffects(selectedNodeIds)
+      .encounterSelections.length;
+    const achievementGrant = grantUnexploredAchievements(
+      { ...save, selectedNodeIds },
+      unexploredAchievementCandidates({ activePoolCount }),
+    );
+    return successfulMutation(character, achievementGrant.save);
+  }
+
   if (mutation.action === "refund") {
     const error = unexploredRefundError(save.selectedNodeIds, mutation.nodeId);
     if (error) return { ok: false, error };
@@ -174,6 +195,24 @@ export function applyUnexploredMutation(
         ...save,
         selectedNodeIds: save.selectedNodeIds.filter(
           (nodeId) => nodeId !== mutation.nodeId,
+        ),
+      },
+      payment,
+    );
+  }
+
+  if (mutation.action === "refund_path") {
+    const plan = unexploredRefundPath(save.selectedNodeIds, mutation.nodeId);
+    if (!plan.ok) return plan;
+    const payment = payRefundCost(character, plan.nodeIds.length);
+    if (!payment.ok) return { ok: false, error: "insufficient_gold" };
+    const refunded = new Set(plan.nodeIds);
+    return successfulMutation(
+      character,
+      {
+        ...save,
+        selectedNodeIds: save.selectedNodeIds.filter(
+          (nodeId) => !refunded.has(nodeId),
         ),
       },
       payment,

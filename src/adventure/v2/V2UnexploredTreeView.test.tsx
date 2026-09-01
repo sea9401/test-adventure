@@ -202,21 +202,125 @@ describe("V2UnexploredTreeView", () => {
     fireEvent.click(
       container.querySelector('[data-unexplored-node="inner-0-1"]')!,
     );
-    fireEvent.click(screen.getByRole("button", { name: "탐사 포인트 1 사용" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "탐사 포인트 1 사용 · 1개 활성화",
+      }),
+    );
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v2/unexplored",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ action: "activate", nodeId: "inner-0-1" }),
+        body: JSON.stringify({ action: "activate_path", nodeId: "inner-0-1" }),
       }),
     );
     await waitFor(() => expect(screen.getByText("3 / 3")).toBeTruthy());
     expect(mocks.notifySystem).toHaveBeenCalledWith(
-      "✓ 탐사 노드를 활성화했습니다.",
+      "✓ 탐사 노드 1개를 활성화했습니다.",
       "success",
     );
+  });
+
+  it("selects and activates every missing node on a distant shortest route", async () => {
+    const selectedNodeIds = shortestUnexploredPath("pool-iron_legion");
+    const ready = {
+      ...SNAPSHOT,
+      earnedPoints: 9,
+    } satisfies UnexploredClientSnapshot;
+    const nextSnapshot = {
+      ...ready,
+      spentPoints: selectedNodeIds.length,
+      selectedNodeIds,
+    } satisfies UnexploredClientSnapshot;
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true, snapshot: nextSnapshot }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { container } = render(
+      <V2UnexploredTreeView initialSnapshot={ready} onBack={vi.fn()} />,
+    );
+
+    fireEvent.click(
+      container.querySelector('[data-unexplored-node="pool-iron_legion"]')!,
+    );
+
+    expect(
+      container.querySelectorAll('[data-unexplored-plan="activate"]'),
+    ).toHaveLength(7);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "탐사 포인트 7 사용 · 7개 활성화",
+      }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v2/unexplored",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          action: "activate_path",
+          nodeId: "pool-iron_legion",
+        }),
+      }),
+    );
+    await waitFor(() => expect(screen.getByText("9 / 9")).toBeTruthy());
+  });
+
+  it("selects and refunds the minimum disconnected active route in one request", async () => {
+    const selectedNodeIds = shortestUnexploredPath("route-b-0");
+    const ready = {
+      ...SNAPSHOT,
+      earnedPoints: 30,
+      spentPoints: selectedNodeIds.length,
+      selectedNodeIds,
+      gold: 100_000,
+    } satisfies UnexploredClientSnapshot;
+    const nextSnapshot = {
+      ...ready,
+      spentPoints: selectedNodeIds.length - 2,
+      selectedNodeIds: selectedNodeIds.slice(0, -2),
+      gold: 0,
+    } satisfies UnexploredClientSnapshot;
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true, snapshot: nextSnapshot }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { container } = render(
+      <V2UnexploredTreeView initialSnapshot={ready} onBack={vi.fn()} />,
+    );
+
+    fireEvent.click(
+      container.querySelector('[data-unexplored-node="route-a-0"]')!,
+    );
+
+    expect(
+      container.querySelectorAll('[data-unexplored-plan="refund"]'),
+    ).toHaveLength(2);
+    fireEvent.click(
+      screen.getByRole("button", { name: "100,000G로 2개 반환" }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v2/unexplored",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          action: "refund_path",
+          nodeId: "route-a-0",
+        }),
+      }),
+    );
+    await waitFor(() => expect(screen.getByText("9 / 30")).toBeTruthy());
   });
 
   it("흔적 보관함에 보스별 제작식의 현재/필요 수량과 고정 골드를 표시한다", () => {

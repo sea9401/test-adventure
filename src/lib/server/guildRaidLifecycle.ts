@@ -130,6 +130,43 @@ function toParticipantRecord(
   };
 }
 
+type GuildRaidQueryDatabase = Pick<typeof db, "$with" | "select" | "with">;
+
+export function buildGuildRaidViewerRankQuery(
+  database: GuildRaidQueryDatabase,
+  eventId: string,
+  guildId: number,
+) {
+  const ranked = database.$with("guild_raid_ranked_score").as(
+    database
+      .select({
+        eventId: guildRaidGuildScores.eventId,
+        guildId: guildRaidGuildScores.guildId,
+        guildName: guildRaidGuildScores.guildNameSnapshot,
+        guildEmblem: guildRaidGuildScores.guildEmblemSnapshot,
+        damage: guildRaidGuildScores.damage,
+        finalRank: guildRaidGuildScores.finalRank,
+        settledAt: guildRaidGuildScores.settledAt,
+        rank: sql<number>`rank() over (order by ${guildRaidGuildScores.damage} desc)`
+          .mapWith(Number)
+          .as("rank"),
+      })
+      .from(guildRaidGuildScores)
+      .where(
+        and(
+          eq(guildRaidGuildScores.eventId, eventId),
+          gt(guildRaidGuildScores.damage, 0),
+        ),
+      ),
+  );
+  return database
+    .with(ranked)
+    .select()
+    .from(ranked)
+    .where(eq(ranked.guildId, guildId))
+    .limit(1);
+}
+
 const drizzleGuildRaidLifecycleStore: GuildRaidLifecycleStore = {
   async findEventByWeek(weekKey) {
     const [row] = await db
@@ -287,32 +324,7 @@ const drizzleGuildRaidLifecycleStore: GuildRaidLifecycleStore = {
   },
 
   async findRankedScore(eventId, guildId) {
-    const ranked = db.$with("guild_raid_ranked_score").as(
-      db
-        .select({
-          eventId: guildRaidGuildScores.eventId,
-          guildId: guildRaidGuildScores.guildId,
-          guildName: guildRaidGuildScores.guildNameSnapshot,
-          guildEmblem: guildRaidGuildScores.guildEmblemSnapshot,
-          damage: guildRaidGuildScores.damage,
-          finalRank: guildRaidGuildScores.finalRank,
-          settledAt: guildRaidGuildScores.settledAt,
-          rank: sql<number>`rank() over (order by ${guildRaidGuildScores.damage} desc)`.mapWith(Number),
-        })
-        .from(guildRaidGuildScores)
-        .where(
-          and(
-            eq(guildRaidGuildScores.eventId, eventId),
-            gt(guildRaidGuildScores.damage, 0),
-          ),
-        ),
-    );
-    const [row] = await db
-      .with(ranked)
-      .select()
-      .from(ranked)
-      .where(eq(ranked.guildId, guildId))
-      .limit(1);
+    const [row] = await buildGuildRaidViewerRankQuery(db, eventId, guildId);
     return row ? { ...row, rank: row.finalRank ?? row.rank } : null;
   },
 };

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { drizzle } from "drizzle-orm/node-postgres";
+import * as databaseSchema from "@/db/schema";
 import {
+  buildGuildRaidViewerRankQuery,
   createGuildRaidLifecycleService,
   type GuildRaidEventRecord,
   type GuildRaidLifecycleStore,
@@ -101,6 +104,20 @@ function activeEvent(overrides: Partial<GuildRaidEventRecord> = {}): GuildRaidEv
 }
 
 describe("길드 토벌전 주간 수명주기", () => {
+  it("조회자 길드 순위 서브쿼리를 실제 Drizzle 쿼리로 구성한다", () => {
+    const database = drizzle.mock({ schema: databaseSchema });
+
+    const query = buildGuildRaidViewerRankQuery(
+      database,
+      "guild-raid:2026-08-31",
+      42,
+    );
+
+    expect(query.toSQL().sql).toContain(
+      'rank() over (order by "damage" desc) as "rank"',
+    );
+  });
+
   it("같은 KST 주에는 이벤트를 한 번만 생성한다", async () => {
     const store = new MemoryGuildRaidStore();
     const service = createGuildRaidLifecycleService(store);

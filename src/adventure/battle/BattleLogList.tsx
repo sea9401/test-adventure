@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { BattleLogEntry } from "../v2/combat/engine";
 import { ATB_LOG_WINDOW_TICKS } from "../v2/combat/combatTimeline";
 import { v2StatusPillColor } from "@/adventure/data/v2/statusEffects";
+import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 
@@ -116,6 +117,17 @@ const DAMAGE_CALCULATION_LABELS = [
 const ACTION_RECOVERY_LABELS = ["봉인", "그림자", "해연"] as const;
 const ACTION_OPENING_DEFENSE_LABELS = ["철벽", "마나 실드"] as const;
 
+// skillCast 도입 전 저장된 로그는 효과 라벨에만 스킬명이 남아 있다. 패시브·장비
+// 라벨을 행동으로 오인하지 않도록 실제 액티브 스킬 이름만 레거시 경계 복원에 쓴다.
+const LEGACY_ACTIVE_SKILL_CASTS = new Map(
+  Object.entries(V2_SKILLS)
+    .filter(([, skill]) => skill.category !== "passive")
+    .map(([skillId, skill]) => [
+      skill.name,
+      { skillId, skillName: skill.name },
+    ]),
+);
+
 // 2026-08-10 이전 PvP 리플레이는 치명타 등 수식어가 붙은 기본 공격에서 `공격!`을
 // 빠뜨렸다. 반사·추가타까지 행동으로 오인하지 않도록 기본 공격 자체를 만들 수 있는
 // 수식어가 있으면서 본문이 순수 피해 결과인 경우만 옛 기본 공격으로 복원한다.
@@ -198,6 +210,24 @@ function skillCastActionMain(entry: BattleLogEntry): BattleLogEntry | null {
     kind: entry.turn === "enemy" ? "enemy_attack" : "player_attack",
     text: `${entry.skillCast.skillName}!`,
   };
+}
+
+function legacyEffectSkillCast(
+  entry: BattleLogEntry,
+): { skillId: string; skillName: string } | null {
+  if (
+    entry.kind === "hp_bar" ||
+    entry.skillCast ||
+    !isEffectBattleLogEntry(entry) ||
+    entryTurnSide(entry) == null
+  ) {
+    return null;
+  }
+  for (const label of parseBattleLogText(entry.text).labels) {
+    const skillCast = LEGACY_ACTIVE_SKILL_CASTS.get(label);
+    if (skillCast) return skillCast;
+  }
+  return null;
 }
 
 function actionSkillCast(
@@ -365,6 +395,44 @@ export function groupBattleLogActions(
       pendingCalculations = [];
       pendingEffects = [];
       continue;
+    }
+    const legacySkillCast = legacyEffectSkillCast(entry);
+    if (legacySkillCast && current) {
+      const currentSide = entryTurnSide(current.main);
+      const entrySide = entryTurnSide(entry);
+      if (
+        currentSide === entrySide &&
+        actionHeadline(current.main.text).title === legacySkillCast.skillName
+      ) {
+        current.effects.push(entry);
+        continue;
+      }
+      const startsIndependentAction =
+        currentSide !== entrySide ||
+        (current.main.t != null &&
+          entry.t != null &&
+          current.main.t !== entry.t);
+      // 같은 표시 윈도우의 직전 행동과 주체나 실제 틱이 다르면, 이 효과는 그 행동의
+      // 부가 효과가 아니라 표식이 누락된 별도 스킬 시전이다.
+      if (startsIndependentAction) {
+        flushCurrent();
+        const legacySkillMain: BattleLogEntry = {
+          ...entry,
+          kind: entrySide === "enemy" ? "enemy_attack" : "player_attack",
+          text: `${legacySkillCast.skillName}!`,
+          skillCast: legacySkillCast,
+        };
+        current = {
+          kind: "action",
+          main: legacySkillMain,
+          hits: [legacySkillMain],
+          calculations: pendingCalculations,
+          effects: [...pendingEffects, entry],
+        };
+        pendingCalculations = [];
+        pendingEffects = [];
+        continue;
+      }
     }
     const dodgeActionMain = guaranteedDodgeActionMain(entry);
     if (dodgeActionMain) {

@@ -49,4 +49,18 @@ describe("게임 안내서 구성", () => {
     });
     expect(MANUAL_CONTENT["combat-formulas"]).toBeTypeOf("function");
   });
+
+  it("전체 직업 도감을 직업·숙련도·전직 바로 다음의 독립 성장 섹션으로 제공한다", () => {
+    const jobsIndex = MANUAL_SECTIONS.findIndex(
+      (section) => section.slug === "jobs",
+    );
+
+    expect(jobsIndex).toBeGreaterThanOrEqual(0);
+    expect(MANUAL_SECTIONS[jobsIndex + 1]).toMatchObject({
+      slug: "job-codex",
+      title: "전체 직업 도감",
+      group: "growth",
+    });
+    expect(MANUAL_CONTENT["job-codex"]).toBeTypeOf("function");
+  });
 });

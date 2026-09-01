@@ -123,7 +123,7 @@ export function JobManualContent({ entry }: { entry: JobManualEntry }) {
   return (
     <div>
       <Link
-        href="/manual/jobs"
+        href="/manual/job-codex"
         className="inline-flex rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 hover:border-amber-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
       >
         ← 전체 직업 도감
@@ -140,6 +140,39 @@ export function JobManualContent({ entry }: { entry: JobManualEntry }) {
           {entry.classification.lineLabel}
         </span>
       </div>
+
+      {entry.guide && (
+        <section className={`${SURFACE_INSET} mt-5 p-4 sm:p-5`}>
+          <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+            운용 이해하기
+          </h2>
+          <p className="mt-2 break-keep text-sm leading-6 text-zinc-700 dark:text-zinc-300">
+            {entry.guide.overview}
+          </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <h3 className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                핵심 규칙
+              </h3>
+              <ul className="mt-2 space-y-1.5 text-sm leading-6 text-zinc-700 dark:text-zinc-300">
+                {entry.guide.rules.map((rule) => (
+                  <li key={rule}>• {rule}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                운용 예시
+              </h3>
+              <ul className="mt-2 space-y-1.5 text-sm leading-6 text-zinc-700 dark:text-zinc-300">
+                {entry.guide.examples.map((example) => (
+                  <li key={example}>• {example}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className={`${SURFACE_ACCENT} mt-5 p-4`}>
         <h2 className="text-sm font-bold text-amber-950 dark:text-amber-100">
@@ -301,7 +334,7 @@ export function JobManualContent({ entry }: { entry: JobManualEntry }) {
             </Link>
           ))}
           <Link
-            href="/manual/jobs"
+            href="/manual/job-codex"
             className="rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-zinc-950 hover:bg-amber-400"
           >
             전체 직업 도감

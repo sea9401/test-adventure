@@ -41,6 +41,18 @@ describe("JobManualContent", () => {
     expect(html).toContain("PvP");
   });
 
+  it("renders Sky Ascendant crossover families and practical sequences", () => {
+    const html = renderJob("skyascendant");
+
+    expect(html).toContain("운용 이해하기");
+    expect(html).toContain("원거리 계열: 낙성 · 천궁궤적");
+    expect(html).toContain("체술 계열: 파공 · 천룡난무");
+    expect(html).toContain("체술 다음 원거리 적중: 포획");
+    expect(html).toContain("원거리 다음 체술 적중: 추격");
+    expect(html).toContain("파공 → 낙성 = 포획");
+    expect(html).toContain("낙성 → 파공 = 추격");
+  });
+
   it("renders lifestyle and root jobs without unlock-state gating", () => {
     const chef = renderJob("legendarychef");
     const adventurer = renderJob("none");
@@ -51,6 +63,7 @@ describe("JobManualContent", () => {
     expect(adventurer).toContain("모험가");
     expect(adventurer).toContain("선행 직업 없음");
     expect(adventurer).toContain("강인함");
+    expect(adventurer).not.toContain("운용 이해하기");
   });
 
   it("uses approved opaque surfaces and no locked-card opacity", () => {
@@ -59,5 +72,12 @@ describe("JobManualContent", () => {
     expect(html).toContain(SURFACE_CARD);
     expect(html).toContain(SURFACE_INSET);
     expect(html).not.toContain("opacity-");
+  });
+
+  it("returns to the independent full job codex section", () => {
+    const html = renderJob("primordialmage");
+
+    expect(html).toContain('href="/manual/job-codex"');
+    expect(html).not.toContain('href="/manual/jobs">← 전체 직업 도감');
   });
 });

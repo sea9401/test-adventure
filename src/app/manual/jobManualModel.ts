@@ -31,6 +31,10 @@ import {
   V2_STAT_LABELS,
   type V2StatKey,
 } from "@/adventure/data/v2/v2StatKeys";
+import {
+  jobManualGuideFor,
+  type JobManualGuide,
+} from "./jobManualGuides";
 
 export type JobManualKind = "combat" | "life";
 export type JobManualLine =
@@ -118,6 +122,7 @@ export type JobManualEntry = JobManualIndexEntry & {
   jobBonuses: JobManualStatValue[];
   cultivation: JobManualStatValue[];
   skills: JobManualSkill[];
+  guide: JobManualGuide | null;
 };
 
 const KIND_LABELS: Record<JobManualKind, string> = {
@@ -397,6 +402,7 @@ export function buildJobManualEntry(jobId: string): JobManualEntry | null {
     jobBonuses: statValues(job.jobBonus),
     cultivation: statValues(job.cultivateProfile),
     skills,
+    guide: jobManualGuideFor(job.id),
   };
 }
 

@@ -81,6 +81,34 @@ describe("job manual model", () => {
     ]);
   });
 
+  it("explains every public tier seven job with concrete play examples", () => {
+    for (const jobId of [
+      "shadowblade",
+      "ruinblade",
+      "skyascendant",
+      "primordialsage",
+    ]) {
+      const entry = buildJobManualEntry(jobId);
+
+      expect(entry?.guide?.overview, `${jobId} overview`).toBeTruthy();
+      expect(entry?.guide?.rules.length, `${jobId} rules`).toBeGreaterThan(0);
+      expect(entry?.guide?.examples.length, `${jobId} examples`).toBeGreaterThan(0);
+    }
+    expect(buildJobManualEntry("none")?.guide).toBeNull();
+  });
+
+  it("lists the exact Sky Ascendant crossover families and both directions", () => {
+    const guide = buildJobManualEntry("skyascendant")?.guide;
+
+    expect(guide?.rules).toContain("원거리 계열: 낙성 · 천궁궤적");
+    expect(guide?.rules).toContain("체술 계열: 파공 · 천룡난무");
+    expect(guide?.rules).toContain("체술 다음 원거리 적중: 포획");
+    expect(guide?.rules).toContain("원거리 다음 체술 적중: 추격");
+    expect(guide?.rules).toContain("같은 계열을 연속 사용하면 교차가 발동하지 않음");
+    expect(guide?.examples).toContain("파공 → 낙성 = 포획");
+    expect(guide?.examples).toContain("낙성 → 파공 = 추격");
+  });
+
   it("returns null for an unknown job", () => {
     expect(buildJobManualEntry("missing-job")).toBeNull();
   });

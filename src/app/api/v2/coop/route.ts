@@ -20,6 +20,7 @@ import {
   coopBossTrackingThreat,
   coopBossTrackingThreatMax,
   coopInvincibleFortressDisplay,
+  coopSkywardCrystalEyeDisplay,
   parseCoopVisibility,
 } from "@/adventure/data/v2/coopBosses";
 
@@ -127,6 +128,11 @@ export async function GET() {
         s.mechanicState,
         s.hp,
       );
+      const crystalEyeDisplay = coopSkywardCrystalEyeDisplay(
+        def,
+        s.mechanicState,
+        s.hp,
+      );
       return {
         id: s.id,
         kind,
@@ -139,6 +145,7 @@ export async function GET() {
         trackingReady:
           trackingThreatMax > 0 && trackingThreat >= trackingThreatMax,
         ...fortressDisplay,
+        ...crystalEyeDisplay,
         expiresAt: s.expiresAt.getTime(),
         summonedByName: s.summonedByName,
         visibility: parseCoopVisibility(s.visibility),

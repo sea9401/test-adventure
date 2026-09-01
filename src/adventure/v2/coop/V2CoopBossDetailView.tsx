@@ -37,6 +37,7 @@ import { CombatMatchupSummary } from "@/adventure/battle/CombatMatchupSummary";
 import { CoopRecentAttackList } from "./CoopRecentAttackList";
 import { TrackingThreatMeter } from "./TrackingThreatMeter";
 import { InvincibleFortressStatus } from "./InvincibleFortressStatus";
+import { SkywardCrystalEyeStatus } from "./SkywardCrystalEyeStatus";
 
 function fmtPreviewNumber(value: number): string {
   return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1);
@@ -240,6 +241,9 @@ export function V2CoopBossDetailView({
           />
           {session.kind === "invincible_fortress" && (
             <InvincibleFortressStatus status={session} />
+          )}
+          {session.kind === "skyward_crystal_eye" && (
+            <SkywardCrystalEyeStatus status={session} />
           )}
         </div>
 

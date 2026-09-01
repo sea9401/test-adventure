@@ -140,4 +140,53 @@ describe("GET /api/v2/coop/[sessionId]", () => {
       },
     });
   });
+
+  it("천공의 수정안 상세에 조준·핵 노출·직전 포격을 반환한다", async () => {
+    rows.queue = [
+      [{
+        id: "eye-1",
+        regionId: "skyward_crystal_eye",
+        hp: 6_480_000,
+        maxHp: 10_800_000,
+        mechanicState: {
+          crystalEye: {
+            kind: "skyward_crystal_eye",
+            aimTicksRemaining: 640,
+            disruptionStacks: 17,
+            coreExposureTicksRemaining: 180,
+            artilleryCount: 2,
+            lastArtilleryStacks: 12,
+            lastArtilleryPowerPct: 70,
+            lastArtilleryDamage: 1234,
+          },
+        },
+        expiresAt: new Date(Date.now() + 60_000),
+        defeatedAt: null,
+        summonedByName: "outsider",
+        summonerId: "outsider",
+        summonerGuildId: null,
+        visibility: "summoner_only",
+      }],
+      [],
+      [],
+      [],
+    ];
+
+    const response = await GET(new Request("http://localhost"), {
+      params: Promise.resolve({ sessionId: "eye-1" }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      session: {
+        crystalEyeAimTicksRemaining: 640,
+        crystalEyeDisruptionStacks: 17,
+        crystalEyeProjectedPowerPct: 60,
+        crystalEyeBasePowerPct: 210,
+        crystalEyeCoreExposed: true,
+        crystalEyeCoreExposureTicksRemaining: 180,
+        crystalEyeLastArtilleryDamage: 1234,
+      },
+    });
+  });
 });

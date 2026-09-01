@@ -649,7 +649,7 @@ export function V2HousingView({
                     disabled={exhausted && !selected}
                     className={`${SURFACE_INSET} min-h-28 p-3 text-left transition-colors disabled:cursor-not-allowed ${
                       selected
-                        ? "border-amber-400 bg-amber-50 dark:border-amber-700 dark:bg-amber-950"
+                        ? "border-amber-400 bg-amber-50 dark:border-amber-700 dark:bg-zinc-800"
                         : "hover:border-zinc-400 dark:hover:border-zinc-600"
                     }`}
                   >

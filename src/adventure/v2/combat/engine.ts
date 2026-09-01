@@ -198,6 +198,7 @@ import {
   markForcedActionMainLog,
   mergeTier7ResourceSnapshot,
   type BattleBuffs,
+  type BossMechanicContext,
   type BattleLogEntry,
   type BattleOutcome,
   type BattleStacks,
@@ -212,6 +213,8 @@ export {
 } from "./engineState";
 export type {
   BattleBuffs,
+  BossMechanicBattleState,
+  BossMechanicContext,
   BattleFlags,
   BattleLogEntry,
   BattleOutcome,
@@ -1772,6 +1775,8 @@ export type ResolveContext = {
   // 공유 HP 보스처럼 최대 HP(enemy.hp)와 전투 시작 현재 HP가 다른 경우 사용.
   // 미지정이면 enemy.hp에서 시작한다.
   initialEnemyHp?: number;
+  /** 선택적 보스 전용 자동 전투 기믹과 세션에서 이어받은 시작 상태. */
+  bossMechanic?: BossMechanicContext;
   /** 적 처치로 끝내지 않고 실제 판정 피해를 누적하는 토벌전 전용 계측 모드. */
   damageMeter?: { continueAfterDefeat: true; refillHp: number };
 };
@@ -2086,6 +2091,7 @@ export function applyEnemyV2SkillCast(
     nextLog = appendLog(nextLog, {
       kind: "enemy_attack",
       text: `${result.castSkillName}! ${enemySkillDamageToHp} 피해를 입혔다.`,
+      enemyHpDamage: enemySkillDamageToHp,
     });
     const survival = applyBerserkerHostileDamage(
       { ...state, playerHp: nextPlayerHp, log: nextLog },
@@ -2858,10 +2864,16 @@ export function applyPlayerV2SkillCast(
     tier7FinalDamagePct += (state.stacks.tier7?.swordIntent ?? 0) * 8;
   }
   if (result.castSkillId === "v2c_ruinblade_limitstrike") {
+    const missingHpCap =
+      V2_SKILLS.v2c_ruinblade_limitstrike.tier7Mechanic?.kind ===
+      "intentStrike"
+        ? V2_SKILLS.v2c_ruinblade_limitstrike.tier7Mechanic
+            .missingHpBonusCapPct
+        : 0;
     tier7FinalDamagePct += Math.min(
-      60,
+      missingHpCap,
       ((state.playerMaxHp - state.playerHp) / Math.max(1, state.playerMaxHp)) *
-        60,
+        missingHpCap,
     );
   }
   if (ruinChargeAtActionStart) {
@@ -2870,6 +2882,12 @@ export function applyPlayerV2SkillCast(
       hp: state.playerHp,
       maxHp: state.playerMaxHp,
       pvp: false,
+      currentMissingHpCapPct: ruinSwordMechanic?.kind === "chargedFinisher"
+        ? ruinSwordMechanic.currentMissingHpCapPct
+        : undefined,
+      chargeLostHpCapPct: ruinSwordMechanic?.kind === "chargedFinisher"
+        ? ruinSwordMechanic.chargeLostHpCapPct
+        : undefined,
     }).damagePct;
   }
   if (crossover?.bonus === "capture") {
@@ -3048,6 +3066,10 @@ export function applyPlayerV2SkillCast(
       nextLog = appendLog(nextLog, {
         kind: "player_attack",
         text: `${result.castSkillName}!${skillCritFired ? " [치명타]" : ""} ${hit} 피해를 입혔다.`,
+        directHits: 1,
+        ...(state.bossMechanic?.kind === "skyward_crystal_eye"
+          ? { criticalDirectHits: skillCritFired ? 1 : 0 }
+          : {}),
       });
     }
   }
@@ -4367,6 +4389,7 @@ function resolveBattleLegacy(
           nextLog = appendLog(nextLog, {
             kind: "enemy_attack",
             text: `${result.castSkillName}! ${enemySkillDamageToHp} 피해를 입혔다.`,
+            enemyHpDamage: enemySkillDamageToHp,
           });
           const survival = applyBerserkerHostileDamage(
             { ...state, playerHp: nextPlayerHp, log: nextLog },

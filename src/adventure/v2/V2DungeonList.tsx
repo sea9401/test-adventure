@@ -29,6 +29,17 @@ import {
   parseHiddenThemeStarts,
 } from "./dungeonThemeVisibility";
 import { useDungeonThemeVisibility } from "./useDungeonThemeVisibility";
+import type { UnexploredClientSnapshot } from "./unexploredTreeModel";
+import { UNEXPLORED_POOL_BY_ID } from "@/adventure/data/v2/unexploredMonsterPools";
+
+export type UnexploredDungeonListSnapshot = Pick<
+  UnexploredClientSnapshot,
+  | "level"
+  | "eligible"
+  | "selectedNodeIds"
+  | "difficulty"
+  | "encounterShares"
+>;
 
 // 프론티어 사냥터 목록 — 2단. 테마 카드 → 입구·심부·최심부의 3단계.
 // 내부 깊이와 밸런스는 유지하고 각 두 깊이의 뒤쪽 값(2·4·6)을 대표 전투 깊이로 사용한다.
@@ -44,6 +55,8 @@ export function V2DungeonList({
   playerLevelCap = null,
   playerJobTier = null,
   onSelectRareMap,
+  unexploredSnapshot = null,
+  onSelectUnexplored,
   initialOpenDepth = null,
 }: {
   onSelectFloor: (depth: number) => void;
@@ -56,6 +69,8 @@ export function V2DungeonList({
   playerJobTier?: number | null;
   // 레어맵 입장 — 농축 사냥 또는 희귀 장소로 이동. 미전달이면 섹션 숨김.
   onSelectRareMap?: (map: RareMapInstance) => void;
+  unexploredSnapshot?: UnexploredDungeonListSnapshot | null;
+  onSelectUnexplored?: () => void;
   // 진입 시 자동으로 펼칠 테마 블록의 첫 깊이(사냥터에서 "뒤로"로 들어올 때). null=테마 목록부터.
   initialOpenDepth?: number | null;
 }) {
@@ -206,6 +221,12 @@ export function V2DungeonList({
             playerLevelCap={playerLevelCap}
             playerJobTier={playerJobTier}
           />
+          {unexploredSnapshot && onSelectUnexplored && (
+            <UnexploredDungeonCard
+              snapshot={unexploredSnapshot}
+              onSelect={onSelectUnexplored}
+            />
+          )}
           <div className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             <span className="font-medium text-zinc-600 dark:text-zinc-300">
               표시 사냥터 {visibleGroups.length}/{groups.length}
@@ -355,6 +376,80 @@ export function V2DungeonList({
   );
 }
 
+export function UnexploredDungeonCard({
+  snapshot,
+  onSelect,
+}: {
+  snapshot: UnexploredDungeonListSnapshot;
+  onSelect: () => void;
+}) {
+  const startActive = snapshot.selectedNodeIds.includes("start");
+  const canEnter = snapshot.eligible && startActive;
+  const activePools = snapshot.encounterShares
+    .filter((share) => share.kind === "pool")
+    .slice(0, 3);
+  const status = !snapshot.eligible
+    ? "100레벨 달성 필요"
+    : !startActive
+      ? "탐사 시작 필요"
+      : "전용 사냥터 입장";
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      disabled={!canEnter}
+      className="group block w-full text-left disabled:cursor-not-allowed"
+    >
+      <Card
+        padding="md"
+        className={`ui-dungeon-card transition-all duration-150 ${
+          canEnter
+            ? "border-violet-300 hover:-translate-y-0.5 hover:border-violet-500 hover:shadow-md active:translate-y-0 dark:border-violet-700 dark:hover:border-violet-400"
+            : "border-zinc-300 dark:border-zinc-700"
+        }`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-base font-semibold text-zinc-900 dark:text-zinc-100">
+              <GameIcon name="Compass" size={20} className="text-violet-500" />
+              <span>미개척지 · 난이도 {snapshot.difficulty}</span>
+            </div>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              탐사망으로 구성한 몬스터와 보상이 적용되는 전용 사냥터
+            </p>
+          </div>
+          <span
+            className={`shrink-0 rounded-md px-2 py-1 text-xs font-medium ${
+              canEnter
+                ? "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-200"
+                : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+            }`}
+          >
+            {status}
+          </span>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {activePools.length > 0 ? (
+            activePools.map((share) => (
+              <span
+                key={share.poolId}
+                className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
+              >
+                {UNEXPLORED_POOL_BY_ID[share.poolId]?.name ?? share.poolId} {share.share}%
+              </span>
+            ))
+          ) : (
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              기본 몬스터 풀
+            </span>
+          )}
+        </div>
+      </Card>
+    </button>
+  );
+}
+
 export function RareMapButton({
   map,
   serverNow,
@@ -377,7 +472,7 @@ export function RareMapButton({
   const unavailable = rareMapUnavailable(map, frontierDepth);
   return (
     <div
-      className="flex w-full items-center gap-2 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 dark:border-sky-700 dark:bg-sky-950"
+      className="flex w-full items-center gap-2 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 dark:border-sky-700 dark:bg-zinc-950"
     >
       <div className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5 truncate text-sm font-medium text-sky-800 dark:text-sky-200">

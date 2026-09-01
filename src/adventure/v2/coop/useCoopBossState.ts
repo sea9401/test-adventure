@@ -9,7 +9,11 @@ import { useCallback, useEffect, useState } from "react";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import type { Avatar } from "@/adventure/profile/avatars";
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
+import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import type { StaminaState } from "@/adventure/v2/stamina";
+import type { InvincibleFortressEnrageTier } from "@/adventure/v2/combat/invincibleFortressMechanic";
+import type { SkywardCrystalEyeArtilleryPowerPct } from "@/adventure/v2/combat/skywardCrystalEyeMechanic";
+import type { SkywardCrystalEyeArtilleryEvent } from "@/adventure/v2/combat/skywardCrystalEyeMechanic";
 import {
   COOP_ATTACK_STAMINA_COST,
   COOP_BOSSES,
@@ -23,13 +27,53 @@ const POLL_MS = 20_000;
 //   처치/만료 확정 시 폴링 중단(죽은 세션 무한 폴링 방지).
 const DETAIL_POLL_MS = 5_000;
 
-export type CoopSessionSummary = {
+export type CoopFortressStatus = {
+  fortressBarrierActive?: boolean;
+  fortressBarrierTicksRemaining?: number;
+  fortressBarrierDamage?: number;
+  fortressBarrierTarget?: number;
+  fortressEnrageTier?: InvincibleFortressEnrageTier;
+  fortressProjectedEnrageTier?: InvincibleFortressEnrageTier;
+  fortressCompletedBarrierCount?: number;
+  fortressNextBarrierHpFraction?: 0.75 | 0.5 | 0.25 | null;
+  fortressLastResultTier?: InvincibleFortressEnrageTier | null;
+};
+
+export type CoopSkywardCrystalEyeStatus = {
+  crystalEyeAimTicksRemaining?: number;
+  crystalEyeDisruptionStacks?: number;
+  crystalEyeProjectedPowerPct?: SkywardCrystalEyeArtilleryPowerPct;
+  crystalEyeBasePowerPct?: 180 | 210 | 240 | 270;
+  crystalEyeCoreExposed?: boolean;
+  crystalEyeCoreExposureTicksRemaining?: number;
+  crystalEyeArtilleryCount?: number;
+  crystalEyeLastArtilleryStacks?: number | null;
+  crystalEyeLastArtilleryPowerPct?: SkywardCrystalEyeArtilleryPowerPct | null;
+  crystalEyeLastArtilleryDamage?: number | null;
+};
+
+export type CoopImmortalBerserkerStatus = {
+  immortalLifeIndex?: 0 | 1 | 2;
+  immortalLifeHp?: number;
+  immortalLifeMaxHp?: number;
+  immortalRegenActionsRemaining?: number;
+  immortalRegenUsesRemaining?: 0 | 1 | 2 | 3;
+  immortalNextRegenAmount?: number;
+  immortalAtkMult?: number;
+  immortalSpdMult?: number;
+};
+
+export type CoopSessionSummary = CoopFortressStatus &
+  CoopSkywardCrystalEyeStatus & CoopImmortalBerserkerStatus & {
   id: string;
   kind: CoopBossKindId;
   hp: number;
   maxHp: number;
   bossMp: number;
   bossMaxMp: number;
+  trackingThreat: number;
+  trackingThreatMax: number;
+  trackingReady: boolean;
   expiresAt: number;
   summonedByName: string | null;
   visibility: CoopVisibility;
@@ -47,7 +91,8 @@ export type CoopClaimable = {
   defeatedAt: number;
 };
 
-export type CoopAttackResult = {
+export type CoopAttackResult = CoopFortressStatus &
+  CoopSkywardCrystalEyeStatus & CoopImmortalBerserkerStatus & {
   attackId: number;
   kind: CoopBossKindId;
   damageDealt: number;
@@ -60,6 +105,25 @@ export type CoopAttackResult = {
   bossMaxMp: number;
   bossMpDamage: number;
   bossMpDepleted: boolean;
+  trackingThreat: number;
+  trackingThreatMax: number;
+  trackingReady: boolean;
+  trackingCounterCount: number;
+  trackingCounterDamage: number;
+  toxicBloodStacks: number;
+  toxicRecoveryLockActions: number;
+  toxicExplosionCount: number;
+  toxicDamageTaken: number;
+  glacialChillStacks: number;
+  glacialFreezePending: 0 | 1;
+  glacialFreezeCount: number;
+  glacialSkippedActionCount: number;
+  fortressCompletedResults: InvincibleFortressEnrageTier[];
+  crystalEyeArtilleryEvents: SkywardCrystalEyeArtilleryEvent[];
+  immortalBodyDamage: number;
+  immortalHealing: number;
+  immortalRevivalCount: number;
+  netProgress: number;
   defeated: boolean;
   myDamage: number;
   myTier: CoopRewardTier | null;
@@ -72,19 +136,31 @@ export type CoopAttackResult = {
   replay?: ReplayPayload;
 };
 
-export type CoopClaimReward = {
-  tier: CoopRewardTier;
-  // SP 열매 획득 개수(0~3)·등급 이름(0개면 null).
-  spFruitCount: number;
-  spFruitName: string | null;
-  // 보스 전용 시그니처 유니크 드랍(EPIC+ 확률·없으면 null).
-  uniqueId: string | null;
-  uniqueName: string | null;
-  coopCoin?: number;
-  bossMaterialName?: string | null;
-  bossMaterialCount?: number;
-  equipmentBoxName?: string | null;
-};
+export type CoopClaimReward =
+  | {
+      rewardMode: "coop";
+      tier: CoopRewardTier;
+      // SP 열매 획득 개수(0~3)·등급 이름(0개면 null).
+      spFruitCount: number;
+      spFruitName: string | null;
+      // 보스 전용 시그니처 유니크 드랍(EPIC+ 확률·없으면 null).
+      uniqueId: string | null;
+      uniqueName: string | null;
+      coopCoin?: number;
+      bossMaterialName?: string | null;
+      bossMaterialCount?: number;
+      equipmentBoxName?: string | null;
+    }
+  | {
+      rewardMode: "unexplored_personal";
+      bossCore: 1;
+      bossCoreMaterialId: string;
+      poolMaterialId: string;
+      poolMaterialCount: 1;
+      uniqueIds: V2EquipmentId[];
+      uniqueNames: string[];
+      titleId: string;
+    };
 
 export type CoopRecentAttack = {
   id: number;
@@ -99,13 +175,17 @@ export type CoopRecentAttack = {
 };
 
 export type CoopSessionDetail = {
-  session: {
+  session: CoopFortressStatus & CoopSkywardCrystalEyeStatus &
+    CoopImmortalBerserkerStatus & {
     id: string;
     kind: CoopBossKindId;
     hp: number;
     maxHp: number;
     bossMp: number;
     bossMaxMp: number;
+    trackingThreat: number;
+    trackingThreatMax: number;
+    trackingReady: boolean;
     expiresAt: number;
     defeatedAt: number | null;
     defeated: boolean;
@@ -387,6 +467,49 @@ export function useCoopSessionState({
                   hp: r.bossHp,
                   bossMp: r.bossMp,
                   bossMaxMp: r.bossMaxMp,
+                  trackingThreat: r.trackingThreat,
+                  trackingThreatMax: r.trackingThreatMax,
+                  trackingReady: r.trackingReady,
+                  fortressBarrierActive: r.fortressBarrierActive,
+                  fortressBarrierTicksRemaining:
+                    r.fortressBarrierTicksRemaining,
+                  fortressBarrierDamage: r.fortressBarrierDamage,
+                  fortressBarrierTarget: r.fortressBarrierTarget,
+                  fortressEnrageTier: r.fortressEnrageTier,
+                  fortressProjectedEnrageTier:
+                    r.fortressProjectedEnrageTier,
+                  fortressCompletedBarrierCount:
+                    r.fortressCompletedBarrierCount,
+                  fortressNextBarrierHpFraction:
+                    r.fortressNextBarrierHpFraction,
+                  fortressLastResultTier: r.fortressLastResultTier,
+                  crystalEyeAimTicksRemaining:
+                    r.crystalEyeAimTicksRemaining,
+                  crystalEyeDisruptionStacks:
+                    r.crystalEyeDisruptionStacks,
+                  crystalEyeProjectedPowerPct:
+                    r.crystalEyeProjectedPowerPct,
+                  crystalEyeBasePowerPct: r.crystalEyeBasePowerPct,
+                  crystalEyeCoreExposed: r.crystalEyeCoreExposed,
+                  crystalEyeCoreExposureTicksRemaining:
+                    r.crystalEyeCoreExposureTicksRemaining,
+                  crystalEyeArtilleryCount: r.crystalEyeArtilleryCount,
+                  crystalEyeLastArtilleryStacks:
+                    r.crystalEyeLastArtilleryStacks,
+                  crystalEyeLastArtilleryPowerPct:
+                    r.crystalEyeLastArtilleryPowerPct,
+                  crystalEyeLastArtilleryDamage:
+                    r.crystalEyeLastArtilleryDamage,
+                  immortalLifeIndex: r.immortalLifeIndex,
+                  immortalLifeHp: r.immortalLifeHp,
+                  immortalLifeMaxHp: r.immortalLifeMaxHp,
+                  immortalRegenActionsRemaining:
+                    r.immortalRegenActionsRemaining,
+                  immortalRegenUsesRemaining:
+                    r.immortalRegenUsesRemaining,
+                  immortalNextRegenAmount: r.immortalNextRegenAmount,
+                  immortalAtkMult: r.immortalAtkMult,
+                  immortalSpdMult: r.immortalSpdMult,
                   defeated: prev.session.defeated || r.defeated,
                 },
               }
@@ -403,6 +526,8 @@ export function useCoopSessionState({
                 ? "이미 끝난 토벌입니다."
                 : j.error === "already_defeated"
                   ? "이미 처치된 보스입니다."
+                  : j.error === "boss_state_changed"
+                    ? "다른 공격 결과가 먼저 반영되었습니다. 다시 공격해 주세요."
                   : `공격 실패 (${j.error ?? "unknown"})`,
         );
         return null;

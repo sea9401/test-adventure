@@ -50,19 +50,28 @@ export function ruinSwordBonuses(input: {
   hp: number;
   maxHp: number;
   pvp: boolean;
+  currentMissingHpCapPct?: number;
+  chargeLostHpCapPct?: number;
+  pvpCapPct?: number;
+  pvpPenetrationPct?: number;
 }): { damagePct: number; penetrationPct: number } {
   const maxHp = Math.max(1, input.maxHp);
-  const componentCap = input.pvp ? 40 : 75;
+  const currentMissingCap = input.pvp
+    ? (input.pvpCapPct ?? 40)
+    : (input.currentMissingHpCapPct ?? 75);
+  const chargeLossCap = input.pvp
+    ? (input.pvpCapPct ?? 40)
+    : (input.chargeLostHpCapPct ?? 75);
   const currentMissingPct = Math.min(
-    componentCap,
+    currentMissingCap,
     Math.max(0, ((maxHp - input.hp) / maxHp) * 100),
   );
   const chargeLossPct = input.state.deathBypassTriggered
-    ? componentCap
-    : Math.min(componentCap, (input.state.actualHpLost / maxHp) * 100);
+    ? chargeLossCap
+    : Math.min(chargeLossCap, (input.state.actualHpLost / maxHp) * 100);
   const intentPct = Math.min(3, input.state.intentAtStart) * 15;
   return {
     damagePct: Math.round((currentMissingPct + chargeLossPct + intentPct) * 100) / 100,
-    penetrationPct: input.pvp ? 30 : 45,
+    penetrationPct: input.pvp ? (input.pvpPenetrationPct ?? 30) : 45,
   };
 }

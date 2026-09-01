@@ -142,7 +142,7 @@ describe("InboxMailCard 상태 표시", () => {
     onRespondInvite: vi.fn(),
   };
 
-  it("미확인 받은 우편을 불투명 강조 표면과 굵은 글씨로 표시한다", () => {
+  it("미확인 받은 우편을 중립 다크 강조 표면과 굵은 글씨로 표시한다", () => {
     const html = renderToStaticMarkup(
       createElement(InboxMailCard, {
         ...handlers,
@@ -151,7 +151,8 @@ describe("InboxMailCard 상태 표시", () => {
     );
 
     expect(html).toContain("bg-amber-50");
-    expect(html).toContain("dark:bg-amber-950");
+    expect(html).toContain("dark:bg-zinc-800");
+    expect(html).not.toContain("dark:bg-amber-950");
     expect(html).toContain("font-semibold");
   });
 

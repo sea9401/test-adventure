@@ -12,10 +12,38 @@
 
 import type { Monster } from "@/adventure/data/monsters/types";
 import type { BattleLogEntry } from "@/adventure/v2/combat/engineState";
+import { TRACKING_THREAT_MAX } from "@/adventure/v2/combat/trackingWeaponMechanic";
+import {
+  invincibleFortressBarrierTarget,
+  invincibleFortressTierForDamage,
+  normalizeInvincibleFortressState,
+  type InvincibleFortressBattleState,
+  type InvincibleFortressEnrageTier,
+} from "@/adventure/v2/combat/invincibleFortressMechanic";
+import {
+  initialSkywardCrystalEyeState,
+  normalizeSkywardCrystalEyeState,
+  skywardCrystalEyeArtilleryPowerPct,
+  skywardCrystalEyeBasePowerPct,
+  type SkywardCrystalEyeArtilleryPowerPct,
+  type SkywardCrystalEyeBattleState,
+} from "@/adventure/v2/combat/skywardCrystalEyeMechanic";
+import {
+  immortalBerserkerDisplay,
+  immortalBerserkerLifeCeilings,
+  normalizeImmortalBerserkerState,
+  type ImmortalBerserkerBattleState,
+  type ImmortalBerserkerLifeIndex,
+  type ImmortalBerserkerRegenUses,
+} from "@/adventure/v2/combat/immortalBerserkerMechanic";
 import { scaleMonsterForFloor } from "./monsterScale";
 import { V2_CORE_LOOP_V2 } from "./coreLoopConfig";
 import type { V2EquipmentId } from "./v2Equipment";
 import type { V2MonsterStatusSkillId } from "./v2Skills";
+import {
+  UNEXPLORED_BOSSES,
+  type UnexploredBossId,
+} from "./unexploredBosses";
 
 // === 소환서 (재료) =====================================================
 // 강화석 패턴 — V2_MATERIALS 카탈로그 등재(인벤 재료 탭·거래소 거래), NPC 환금 비등재,
@@ -271,12 +299,17 @@ export const COOP_VISIBILITY_OPTIONS: readonly (readonly [
 // 공격/조회 권한 (순수). 가시성 + 소환자/소환 시점 길드 기준. 미지정/구행은 public 폴백.
 export function canAccessCoopBoss(
   session: {
+    regionId?: string | null;
     visibility?: string | null;
     summonerId?: string | null;
     summonerGuildId?: number | null;
   },
   viewer: { userId: string; guildId: number | null },
 ): boolean {
+  const kindId = parseCoopBossKindId(session.regionId);
+  if (kindId && COOP_BOSSES[kindId].visibilityLocked) {
+    return session.summonerId === viewer.userId;
+  }
   const vis = session.visibility ?? "public";
   if (vis === "guild_only") {
     return (
@@ -304,7 +337,11 @@ export type CoopBossKindId =
   | "canyon_predator_hard"
   | "lake_sovereign"
   | "lake_sovereign_hard"
-  | "void_priest";
+  | "void_priest"
+  | UnexploredBossId;
+
+/** 기존 협동 기여 티어·협동 주화 보상을 사용하는 공개 보스 ID. */
+export type StandardCoopBossKindId = Exclude<CoopBossKindId, UnexploredBossId>;
 
 // 발악 스테이지 — 전역 공유 HP 비율이 hpFraction 이하면 적용(누적). 시뮬이 공격 단위
 // stateless 라 페이즈를 "현재 상태"로 미리 구워 넣는다 — 토벌이 진행될수록 모두에게
@@ -338,6 +375,12 @@ export type CoopConditionalEnrage = {
 
 export type CoopBossKind = {
   id: CoopBossKindId;
+  /** 보상 해석 경로. 개인 보스는 협동 기여 티어 보상을 사용하지 않는다. */
+  rewardMode: "coop" | "unexplored_personal";
+  /** true면 세션의 summoner_only 공개 범위를 끝까지 바꿀 수 없다. */
+  visibilityLocked: boolean;
+  /** 일반 소환서 대신 소비할 보스별 거래 가능 소환석. */
+  summonMaterialId?: string;
   difficulty?: CoopBossDifficulty;
   name: string;
   /** 보스 상세 화면 플레이버 한 줄. */
@@ -368,18 +411,317 @@ export type CoopBossKind = {
 
 export type CoopMechanicState = {
   bossMp?: number;
+  trackingThreat?: number;
+  fortress?: InvincibleFortressBattleState;
+  crystalEye?: SkywardCrystalEyeBattleState;
+  immortalBerserker?: ImmortalBerserkerBattleState;
 };
 
 export function parseCoopMechanicState(value: unknown): CoopMechanicState {
   if (!value || typeof value !== "object") return {};
   const src = value as {
     bossMp?: unknown;
+    trackingThreat?: unknown;
+    fortress?: unknown;
+    crystalEye?: unknown;
+    immortalBerserker?: unknown;
   };
   const next: CoopMechanicState = {};
   if (typeof src.bossMp === "number" && Number.isFinite(src.bossMp)) {
     next.bossMp = Math.max(0, Math.floor(src.bossMp));
   }
+  if (
+    typeof src.trackingThreat === "number" &&
+    Number.isFinite(src.trackingThreat)
+  ) {
+    next.trackingThreat = Math.max(
+      0,
+      Math.min(TRACKING_THREAT_MAX, Math.floor(src.trackingThreat)),
+    );
+  }
+  if (src.fortress != null) {
+    const maxHp = UNEXPLORED_BOSSES.invincible_fortress.sharedMaxHp;
+    next.fortress = normalizeInvincibleFortressState(
+      src.fortress,
+      maxHp,
+      maxHp,
+    );
+  }
+  if (src.crystalEye != null) {
+    next.crystalEye = normalizeSkywardCrystalEyeState(src.crystalEye);
+  }
+  if (src.immortalBerserker != null) {
+    const maxHp = UNEXPLORED_BOSSES.immortal_berserker.sharedMaxHp;
+    const raw = src.immortalBerserker as { lifeIndex?: unknown };
+    const rawLifeIndex =
+      typeof raw?.lifeIndex === "number" && Number.isFinite(raw.lifeIndex)
+        ? Math.max(0, Math.min(2, Math.floor(raw.lifeIndex)))
+        : 0;
+    const currentHp = immortalBerserkerLifeCeilings(maxHp)[rawLifeIndex];
+    next.immortalBerserker = normalizeImmortalBerserkerState(
+      src.immortalBerserker,
+      maxHp,
+      currentHp,
+    );
+  }
   return next;
+}
+
+export function coopImmortalBerserkerState(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  currentHp: number,
+): ImmortalBerserkerBattleState {
+  const rawState =
+    stateRaw && typeof stateRaw === "object" && !Array.isArray(stateRaw)
+      ? (stateRaw as { immortalBerserker?: unknown }).immortalBerserker
+      : undefined;
+  return normalizeImmortalBerserkerState(
+    rawState,
+    kind.sharedMaxHp,
+    currentHp,
+  );
+}
+
+export function withCoopImmortalBerserkerState(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  immortalBerserker: ImmortalBerserkerBattleState,
+  currentHp: number,
+): CoopMechanicState {
+  return {
+    ...parseCoopMechanicState(stateRaw),
+    immortalBerserker: normalizeImmortalBerserkerState(
+      immortalBerserker,
+      kind.sharedMaxHp,
+      currentHp,
+    ),
+  };
+}
+
+export type CoopImmortalBerserkerDisplay = {
+  immortalLifeIndex: ImmortalBerserkerLifeIndex;
+  immortalLifeHp: number;
+  immortalLifeMaxHp: number;
+  immortalRegenActionsRemaining: number;
+  immortalRegenUsesRemaining: ImmortalBerserkerRegenUses;
+  immortalNextRegenAmount: number;
+  immortalAtkMult: number;
+  immortalSpdMult: number;
+};
+
+export function coopImmortalBerserkerDisplay(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  currentHp: number,
+): CoopImmortalBerserkerDisplay {
+  const empty: CoopImmortalBerserkerDisplay = {
+    immortalLifeIndex: 0,
+    immortalLifeHp: 0,
+    immortalLifeMaxHp: 0,
+    immortalRegenActionsRemaining: 0,
+    immortalRegenUsesRemaining: 0,
+    immortalNextRegenAmount: 0,
+    immortalAtkMult: 1,
+    immortalSpdMult: 1,
+  };
+  if (kind.id !== "immortal_berserker") return empty;
+  const display = immortalBerserkerDisplay(
+    coopImmortalBerserkerState(kind, stateRaw, currentHp),
+    kind.sharedMaxHp,
+    currentHp,
+  );
+  return {
+    immortalLifeIndex: display.lifeIndex,
+    immortalLifeHp: display.lifeHp,
+    immortalLifeMaxHp: display.lifeMaxHp,
+    immortalRegenActionsRemaining: display.regenActionsRemaining,
+    immortalRegenUsesRemaining: display.regenUsesRemaining,
+    immortalNextRegenAmount: display.nextRegenAmount,
+    immortalAtkMult: display.atkMult,
+    immortalSpdMult: display.spdMult,
+  };
+}
+
+export function coopInvincibleFortressState(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  currentHp: number,
+): InvincibleFortressBattleState {
+  const rawFortress =
+    stateRaw && typeof stateRaw === "object" && !Array.isArray(stateRaw)
+      ? (stateRaw as { fortress?: unknown }).fortress
+      : undefined;
+  return normalizeInvincibleFortressState(
+    rawFortress,
+    kind.sharedMaxHp,
+    currentHp,
+  );
+}
+
+export function withCoopInvincibleFortressState(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  fortress: InvincibleFortressBattleState,
+  currentHp: number,
+): CoopMechanicState {
+  return {
+    ...parseCoopMechanicState(stateRaw),
+    fortress: normalizeInvincibleFortressState(
+      fortress,
+      kind.sharedMaxHp,
+      currentHp,
+    ),
+  };
+}
+
+export type CoopInvincibleFortressDisplay = {
+  fortressBarrierActive: boolean;
+  fortressBarrierTicksRemaining: number;
+  fortressBarrierDamage: number;
+  fortressBarrierTarget: number;
+  fortressEnrageTier: InvincibleFortressEnrageTier;
+  fortressProjectedEnrageTier: InvincibleFortressEnrageTier;
+  fortressCompletedBarrierCount: number;
+  fortressNextBarrierHpFraction: 0.75 | 0.5 | 0.25 | null;
+  fortressLastResultTier: InvincibleFortressEnrageTier | null;
+};
+
+const FORTRESS_FUTURE_BARRIER_FRACTIONS = [0.75, 0.5, 0.25] as const;
+
+export function coopInvincibleFortressDisplay(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  currentHp: number,
+): CoopInvincibleFortressDisplay {
+  if (kind.id !== "invincible_fortress") {
+    return {
+      fortressBarrierActive: false,
+      fortressBarrierTicksRemaining: 0,
+      fortressBarrierDamage: 0,
+      fortressBarrierTarget: 0,
+      fortressEnrageTier: 0,
+      fortressProjectedEnrageTier: 0,
+      fortressCompletedBarrierCount: 0,
+      fortressNextBarrierHpFraction: null,
+      fortressLastResultTier: null,
+    };
+  }
+  const state = coopInvincibleFortressState(kind, stateRaw, currentHp);
+  const active = state.activeBarrierIndex !== null;
+  const lastResultTier = state.barrierResults.at(-1) ?? null;
+  const nextFractionIndex = state.completedBarrierCount - 1 + (active ? 1 : 0);
+  return {
+    fortressBarrierActive: active,
+    fortressBarrierTicksRemaining: active ? state.barrierTicksRemaining : 0,
+    fortressBarrierDamage: active ? state.barrierDamage : 0,
+    fortressBarrierTarget: invincibleFortressBarrierTarget(kind.sharedMaxHp),
+    fortressEnrageTier: active
+      ? (lastResultTier ?? 0)
+      : state.enrageTier,
+    fortressProjectedEnrageTier: active
+      ? invincibleFortressTierForDamage(state.barrierDamage, kind.sharedMaxHp)
+      : state.enrageTier,
+    fortressCompletedBarrierCount: state.completedBarrierCount,
+    fortressNextBarrierHpFraction:
+      FORTRESS_FUTURE_BARRIER_FRACTIONS[nextFractionIndex] ?? null,
+    fortressLastResultTier: lastResultTier,
+  };
+}
+
+export function coopSkywardCrystalEyeState(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+): SkywardCrystalEyeBattleState {
+  if (kind.id !== "skyward_crystal_eye") {
+    return initialSkywardCrystalEyeState();
+  }
+  const rawCrystalEye =
+    stateRaw && typeof stateRaw === "object" && !Array.isArray(stateRaw)
+      ? (stateRaw as { crystalEye?: unknown }).crystalEye
+      : undefined;
+  return normalizeSkywardCrystalEyeState(rawCrystalEye);
+}
+
+export function withCoopSkywardCrystalEyeState(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  crystalEye: SkywardCrystalEyeBattleState,
+): CoopMechanicState {
+  return {
+    ...parseCoopMechanicState(stateRaw),
+    crystalEye:
+      kind.id === "skyward_crystal_eye"
+        ? normalizeSkywardCrystalEyeState(crystalEye)
+        : initialSkywardCrystalEyeState(),
+  };
+}
+
+export type CoopSkywardCrystalEyeDisplay = {
+  crystalEyeAimTicksRemaining: number;
+  crystalEyeDisruptionStacks: number;
+  crystalEyeProjectedPowerPct: SkywardCrystalEyeArtilleryPowerPct;
+  crystalEyeBasePowerPct: 180 | 210 | 240 | 270;
+  crystalEyeCoreExposed: boolean;
+  crystalEyeCoreExposureTicksRemaining: number;
+  crystalEyeArtilleryCount: number;
+  crystalEyeLastArtilleryStacks: number | null;
+  crystalEyeLastArtilleryPowerPct: SkywardCrystalEyeArtilleryPowerPct | null;
+  crystalEyeLastArtilleryDamage: number | null;
+};
+
+export function coopSkywardCrystalEyeDisplay(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  currentHp: number,
+): CoopSkywardCrystalEyeDisplay {
+  const state = coopSkywardCrystalEyeState(kind, stateRaw);
+  return {
+    crystalEyeAimTicksRemaining: state.aimTicksRemaining,
+    crystalEyeDisruptionStacks: state.disruptionStacks,
+    crystalEyeProjectedPowerPct: skywardCrystalEyeArtilleryPowerPct(
+      state.disruptionStacks,
+    ),
+    crystalEyeBasePowerPct: skywardCrystalEyeBasePowerPct(
+      currentHp,
+      kind.sharedMaxHp,
+    ),
+    crystalEyeCoreExposed: state.coreExposureTicksRemaining > 0,
+    crystalEyeCoreExposureTicksRemaining: state.coreExposureTicksRemaining,
+    crystalEyeArtilleryCount: state.artilleryCount,
+    crystalEyeLastArtilleryStacks: state.lastArtilleryStacks,
+    crystalEyeLastArtilleryPowerPct: state.lastArtilleryPowerPct,
+    crystalEyeLastArtilleryDamage: state.lastArtilleryDamage,
+  };
+}
+
+export function coopBossTrackingThreatMax(kind: CoopBossKind): number {
+  return kind.id === "tracking_weapon" ? TRACKING_THREAT_MAX : 0;
+}
+
+export function coopBossTrackingThreat(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+): number {
+  const max = coopBossTrackingThreatMax(kind);
+  if (max <= 0) return 0;
+  const parsed = parseCoopMechanicState(stateRaw);
+  return Math.max(0, Math.min(max, parsed.trackingThreat ?? 0));
+}
+
+export function withCoopBossTrackingThreat(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  threat: number,
+): CoopMechanicState {
+  const parsed = parseCoopMechanicState(stateRaw);
+  const max = coopBossTrackingThreatMax(kind);
+  if (max <= 0) return parsed;
+  const normalized = Number.isFinite(threat) ? Math.floor(threat) : 0;
+  return {
+    ...parsed,
+    trackingThreat: Math.max(0, Math.min(max, normalized)),
+  };
 }
 
 export function coopBossMaxMp(kind: CoopBossKind): number {
@@ -687,12 +1029,35 @@ export function coopBossDurationLabel(kind: CoopBossKind): string {
   return rest > 0 ? `${h}시간 ${rest}분` : `${h}시간`;
 }
 
+function unexploredPersonalBossKind(id: UnexploredBossId): CoopBossKind {
+  const boss = UNEXPLORED_BOSSES[id];
+  return {
+    id,
+    rewardMode: "unexplored_personal",
+    visibilityLocked: true,
+    summonMaterialId: boss.summonMaterialId,
+    name: boss.name,
+    desc: `${boss.pools.join(" · ")}의 흔적이 결속되어 나타난 개인 우두머리.`,
+    // 일반 소환서 경로에서는 제외되며 실제 소비량은 보스별 소환석 1개다.
+    scrollCost: 0,
+    sharedMaxHp: boss.sharedMaxHp,
+    anchorDepth: boss.anchorDepth,
+    base: boss.monster,
+    uniqueIds: boss.uniqueDrops.map((drop) => drop.equipmentId),
+    titleId: boss.titleId,
+    enrageStages: [],
+    traits: [...boss.traits],
+  };
+}
+
 // 4단 사다리 — 소환서 10/15/20/30장, 시뮬 스탯은 깊이 12/24/42/60 스케일(상위 보스일수록
 // 반격이 아파 약빌드는 비싼 보스에 함부로 못 붙는다). 공유 HP·보상은 ⚠️ 라이브 캘리브.
 // 보상 = SP 열매뿐(COOP_SP_FRUIT_CHANCE·티어별 확률 굴림). 골드·유니크·칭호 보상 폐지(2026-06-26).
 export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   mountain_chief: {
     id: "mountain_chief",
+    rewardMode: "coop",
+    visibilityLocked: false,
     name: "산군",
     desc: "산을 틀어쥔 채 군림하는 자. 분노하면 바위도 갈라지는 강타를 휘두른다.",
     scrollCost: 10,
@@ -731,6 +1096,8 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   },
   canyon_predator: {
     id: "canyon_predator",
+    rewardMode: "coop",
+    visibilityLocked: false,
     name: "스콜피온 킹",
     desc: "마른 협곡의 모래 밑을 헤엄치는 거대한 전갈. 절벽조차 집게로 꿰뚫는다.",
     scrollCost: 15,
@@ -768,6 +1135,8 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   },
   canyon_predator_hard: {
     id: "canyon_predator_hard",
+    rewardMode: "coop",
+    visibilityLocked: false,
     difficulty: "hard",
     name: "재앙의 스콜피온 킹",
     desc: "왕독과 모래폭풍을 두른 스콜피온 킹. 깊어질수록 더 빠르고 날카롭게 갑각을 꿰뚫는다.",
@@ -803,6 +1172,8 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   },
   lake_sovereign: {
     id: "lake_sovereign",
+    rewardMode: "coop",
+    visibilityLocked: false,
     name: "호수의 괴물",
     desc: "얼음 호수 가장 깊은 곳에서 깨어난 거대한 존재. 닿는 것마다 얼어붙는다.",
     scrollCost: 20,
@@ -841,6 +1212,8 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   },
   lake_sovereign_hard: {
     id: "lake_sovereign_hard",
+    rewardMode: "coop",
+    visibilityLocked: false,
     difficulty: "hard",
     name: "혹한의 호수 괴물",
     desc: "호수 밑바닥의 혹한을 깨운 괴물. 얼음 갑주가 두꺼워질수록 한기와 마력이 거세진다.",
@@ -878,6 +1251,8 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   },
   void_priest: {
     id: "void_priest",
+    rewardMode: "coop",
+    visibilityLocked: false,
     name: "공허의 대사제",
     desc: "검은 왕도의 봉인 아래 남은 대사제. 맞설수록 저주가 깊어지고, 남은 저주는 다음 일격을 더 무겁게 만든다.",
     scrollCost: 30,
@@ -914,6 +1289,8 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   },
   mountain_chief_hard: {
     id: "mountain_chief_hard",
+    rewardMode: "coop",
+    visibilityLocked: false,
     difficulty: "hard",
     name: "흉포한 산군",
     desc: "피 냄새에 날이 선 산군. 산길을 막고 선 자를 끝까지 물어뜯는다.",
@@ -944,6 +1321,8 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   },
   abyssal_tyrant: {
     id: "abyssal_tyrant",
+    rewardMode: "coop",
+    visibilityLocked: false,
     difficulty: "hard",
     name: "심연어룡",
     desc: "낚싯줄 아래 어둠을 찢고 올라오는 거대한 어룡. 거품과 해류를 몰아치며 전장을 휘젓는다.",
@@ -977,19 +1356,40 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
       "숨구멍 — HP 50% 돌입 순간 치명타로 압력을 흔들면 수압 발악 약화",
     ],
   },
+  tracking_weapon: unexploredPersonalBossKind("tracking_weapon"),
+  toxic_blood_lord: unexploredPersonalBossKind("toxic_blood_lord"),
+  glacial_colossus: unexploredPersonalBossKind("glacial_colossus"),
+  invincible_fortress: unexploredPersonalBossKind("invincible_fortress"),
+  skyward_crystal_eye: unexploredPersonalBossKind("skyward_crystal_eye"),
+  immortal_berserker: unexploredPersonalBossKind("immortal_berserker"),
 };
 
 export const COOP_BOSS_KIND_IDS = Object.keys(
   COOP_BOSSES,
 ) as CoopBossKindId[];
 
-export const SCROLL_SUMMONABLE_COOP_BOSS_KIND_IDS: readonly CoopBossKindId[] =
-  COOP_BOSS_KIND_IDS.filter((kindId) => kindId !== FISHING_COOP_BOSS_KIND_ID);
+export function isStandardCoopBossKindId(
+  kindId: CoopBossKindId,
+): kindId is StandardCoopBossKindId {
+  return COOP_BOSSES[kindId].rewardMode === "coop";
+}
+
+export const STANDARD_COOP_BOSS_KIND_IDS: readonly StandardCoopBossKindId[] =
+  COOP_BOSS_KIND_IDS.filter(isStandardCoopBossKindId);
+
+export const SCROLL_SUMMONABLE_COOP_BOSS_KIND_IDS: readonly StandardCoopBossKindId[] =
+  STANDARD_COOP_BOSS_KIND_IDS.filter(
+    (kindId): kindId is StandardCoopBossKindId =>
+      kindId !== FISHING_COOP_BOSS_KIND_ID,
+  );
 
 export function isScrollSummonableCoopBossKind(
   kindId: CoopBossKindId,
 ): boolean {
-  return kindId !== FISHING_COOP_BOSS_KIND_ID;
+  return (
+    kindId !== FISHING_COOP_BOSS_KIND_ID &&
+    isStandardCoopBossKindId(kindId)
+  );
 }
 
 export function parseCoopBossKindId(v: unknown): CoopBossKindId | null {

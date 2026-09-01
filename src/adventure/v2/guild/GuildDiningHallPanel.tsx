@@ -308,7 +308,7 @@ export function GuildDiningHallPanel({
       {unavailableReasons.length > 0 && (
         <section
           role="status"
-          className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
+          className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900 dark:border-amber-800 dark:bg-zinc-950 dark:text-amber-100"
         >
           <p className="text-sm font-bold">지금 식권을 사용할 수 없는 이유</p>
           <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs leading-relaxed">
@@ -323,8 +323,8 @@ export function GuildDiningHallPanel({
         <p
           className={`rounded-md border px-3 py-2 text-sm ${
             notice.kind === "ok"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
-              : "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-zinc-950 dark:text-emerald-300"
+              : "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-zinc-950 dark:text-red-300"
           }`}
         >
           {notice.text}
@@ -499,7 +499,7 @@ export function GuildDiningHallPanel({
       </section>
 
       {activeEffect && (
-        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-900 dark:bg-zinc-950 dark:text-emerald-300">
           적용 중: {activeEffect.name} · {activeEffect.kind === "all_xp" && activeEffect.lifeBonusPct != null
             ? `사냥 +${activeEffect.bonusPct}% · 생활 +${activeEffect.lifeBonusPct}%`
             : `+${activeEffect.bonusPct}%`} · 남은 시간 {formatDiningRemaining(activeEffect.expiresAt - clockNow)}

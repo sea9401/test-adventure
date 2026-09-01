@@ -245,7 +245,7 @@ export function StormRefinementConfirmDialog({
           </div>
         </div>
 
-        <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+        <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900 dark:border-amber-800 dark:bg-zinc-950 dark:text-amber-200">
           개량은 한 번만 가능하고 되돌릴 수 없습니다. 개량한 장비는 향후에도
           재련할 수 없으며, 현재 옵션과 품질이 그대로 확정됩니다.
         </div>
@@ -934,11 +934,7 @@ export function V2EnhanceView({
         : null;
 
   return (
-    <main
-      className={`mx-auto space-y-4 p-6 pb-28 text-zinc-900 dark:text-zinc-100 sm:pb-6 ${
-        mode === "liberation" ? "max-w-[820px]" : "max-w-[720px]"
-      }`}
-    >
+    <main className="mx-auto max-w-[720px] space-y-4 p-6 pb-28 text-zinc-900 sm:pb-6 dark:text-zinc-100">
       <SubViewHeader
         title={
           <>

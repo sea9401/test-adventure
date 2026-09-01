@@ -1451,7 +1451,7 @@ function ChallengeProgressSummary({
   const summary = challengeProgressSummary(items);
   if (!summary) return null;
   return (
-    <div className="mx-auto mt-2 max-w-sm rounded-lg border border-amber-200 bg-amber-50/70 px-2.5 py-1.5 text-center text-[11px] font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+    <div className="mx-auto mt-2 max-w-sm rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-center text-[11px] font-medium text-amber-800 dark:border-amber-900/60 dark:bg-zinc-950 dark:text-amber-200">
       {summary}
     </div>
   );
@@ -1755,7 +1755,7 @@ export function FishingView({
 
         {progression ? (
           <>
-            <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-2.5 py-1.5 text-[11px] dark:border-sky-900/60 dark:bg-sky-950/30 sm:hidden">
+            <div className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[11px] dark:border-sky-900/60 dark:bg-zinc-950 sm:hidden">
               <div className="flex items-center gap-2">
                 <span className="shrink-0 font-bold text-sky-900 dark:text-sky-100">
                   Lv {progression.level} / 100
@@ -1779,7 +1779,7 @@ export function FishingView({
               </div>
             </div>
 
-            <div className="hidden rounded-xl border border-sky-200 bg-sky-50/70 p-3 text-xs dark:border-sky-900/60 dark:bg-sky-950/30 sm:block">
+            <div className="hidden rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs dark:border-sky-900/60 dark:bg-zinc-950 sm:block">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-sm font-bold text-sky-900 dark:text-sky-100">
@@ -1919,7 +1919,7 @@ export function FishingView({
               </div>
               <CatchRewardSummary result={result} />
               {result.coopBoss && (
-                <div className="mt-3 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-left dark:border-rose-800 dark:bg-rose-950/30">
+                <div className="mt-3 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-left dark:border-rose-800 dark:bg-zinc-950">
                   <div className="text-sm font-semibold text-rose-800 dark:text-rose-200">
                     {result.coopBoss.name} 출현
                   </div>

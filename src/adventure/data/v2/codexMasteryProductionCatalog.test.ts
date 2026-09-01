@@ -76,7 +76,7 @@ describe("production codex mastery catalog", () => {
 
   it("keeps published v1 weights stable while category catalogs grow", () => {
     for (const [category, report] of Object.entries(CODEX_MASTERY_BUDGET_REPORT)) {
-      if (category === "job" || category === "cooking") continue;
+      if (category === "equipment" || category === "job" || category === "cooking") continue;
       expect(report.scoreMilli).toBeGreaterThanOrEqual(9_900_000);
       expect(report.scoreMilli).toBeLessThanOrEqual(10_100_000);
       expect(report.entries).toBeGreaterThan(0);
@@ -94,6 +94,13 @@ describe("production codex mastery catalog", () => {
     expect(CODEX_MASTERY_BUDGET_REPORT.cooking).toEqual({
       entries: COOKING_PUBLIC_RECIPES.length,
       scoreMilli: COOKING_PUBLIC_RECIPES.length * 22 * 10_101,
+    });
+    expect(
+      CODEX_MASTERY_CATALOG.get("equipment", "v2_unexplored_tracking_blade_dagger"),
+    ).toMatchObject({ scoreWeightMilli: 1_295 });
+    expect(CODEX_MASTERY_BUDGET_REPORT.equipment).toEqual({
+      entries: Object.keys(V2_EQUIPMENT).length,
+      scoreMilli: Object.keys(V2_EQUIPMENT).length * 22 * 1_295,
     });
   });
 

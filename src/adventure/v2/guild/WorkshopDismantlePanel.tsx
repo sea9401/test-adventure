@@ -212,7 +212,7 @@ export function WorkshopDismantlePanel({
           />
         ) : null}
       </div>
-      <div className="mb-2 grid gap-1.5 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100 sm:grid-cols-2">
+      <div className="mb-2 grid gap-1.5 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900 dark:border-amber-900 dark:bg-zinc-950 dark:text-amber-100 sm:grid-cols-2">
         <div>
           <span className="font-semibold">해체 가능</span> · 대장장이 제작자
           각인이 있는 장비, 제작 전용 장비
@@ -289,7 +289,7 @@ export function WorkshopDismantlePanel({
       ) : null}
       {dismantleResult ? (
         <div className="mb-2 overflow-hidden rounded border border-rose-200 bg-white text-xs dark:border-rose-900 dark:bg-zinc-900">
-          <div className="border-b border-rose-200 bg-rose-50 px-3 py-2 dark:border-rose-900 dark:bg-rose-950/30">
+          <div className="border-b border-rose-200 bg-rose-50 px-3 py-2 dark:border-rose-900 dark:bg-zinc-800">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-semibold text-rose-950 dark:text-rose-100">
                 해체 완료

@@ -17,6 +17,11 @@ import {
   COOP_BOSSES,
   coopBossCurrentMp,
   coopBossMaxMp,
+  coopBossTrackingThreat,
+  coopBossTrackingThreatMax,
+  coopInvincibleFortressDisplay,
+  coopSkywardCrystalEyeDisplay,
+  coopImmortalBerserkerDisplay,
   parseCoopVisibility,
 } from "@/adventure/data/v2/coopBosses";
 
@@ -117,6 +122,23 @@ export async function GET() {
       if (!kind) return null;
       const def = COOP_BOSSES[kind];
       const myDamage = myBySession.get(s.id) ?? 0;
+      const trackingThreat = coopBossTrackingThreat(def, s.mechanicState);
+      const trackingThreatMax = coopBossTrackingThreatMax(def);
+      const fortressDisplay = coopInvincibleFortressDisplay(
+        def,
+        s.mechanicState,
+        s.hp,
+      );
+      const crystalEyeDisplay = coopSkywardCrystalEyeDisplay(
+        def,
+        s.mechanicState,
+        s.hp,
+      );
+      const immortalBerserkerDisplay = coopImmortalBerserkerDisplay(
+        def,
+        s.mechanicState,
+        s.hp,
+      );
       return {
         id: s.id,
         kind,
@@ -124,13 +146,22 @@ export async function GET() {
         maxHp: s.maxHp,
         bossMp: coopBossCurrentMp(def, s.mechanicState),
         bossMaxMp: coopBossMaxMp(def),
+        trackingThreat,
+        trackingThreatMax,
+        trackingReady:
+          trackingThreatMax > 0 && trackingThreat >= trackingThreatMax,
+        ...fortressDisplay,
+        ...crystalEyeDisplay,
+        ...immortalBerserkerDisplay,
         expiresAt: s.expiresAt.getTime(),
         summonedByName: s.summonedByName,
         visibility: parseCoopVisibility(s.visibility),
         isOwner: s.summonerId === userId,
         participantCount: countBySession.get(s.id) ?? 0,
         myDamage,
-        myTier: coopTierForRatio(myDamage / Math.max(1, s.maxHp), kind),
+        myTier: def.rewardMode === "coop"
+          ? coopTierForRatio(myDamage / Math.max(1, s.maxHp), kind)
+          : null,
       };
     })
     .filter(Boolean);
@@ -143,6 +174,7 @@ export async function GET() {
       regionId: coopBossSessions.regionId,
       maxHp: coopBossSessions.maxHp,
       defeatedAt: coopBossSessions.defeatedAt,
+      summonerId: coopBossSessions.summonerId,
     })
     .from(coopBossContributors)
     .innerJoin(
@@ -163,7 +195,15 @@ export async function GET() {
   const claimables = claimRows
     .map((r) => {
       const kind = parseCoopBossKindId(r.regionId);
-      const tier = coopTierForRatio(r.damage / Math.max(1, r.maxHp), kind);
+      if (
+        !kind ||
+        (COOP_BOSSES[kind].visibilityLocked && r.summonerId !== userId)
+      ) {
+        return null;
+      }
+      const tier = COOP_BOSSES[kind].rewardMode === "coop"
+        ? coopTierForRatio(r.damage / Math.max(1, r.maxHp), kind)
+        : null;
       return kind
         ? {
             sessionId: r.sessionId,

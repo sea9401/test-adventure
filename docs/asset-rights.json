@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-08-23",
+  "reviewedAt": "2026-09-02",
   "instructions": "Every deployed visual or media asset must have an exact SHA-256 entry. Change a source rule only after reviewing evidence; --strict is the public-release clearance gate.",
   "sources": [
     {
@@ -14,7 +14,7 @@
     {
       "id": "operator-cleared-game-art",
       "releaseStatus": "cleared",
-      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06, the nine ranch and cooking rasters added on 2026-08-10, the six Star Grave environment and monster rasters added on 2026-08-14, the 37 dangerous-fishing and ranch/cooking rasters added on 2026-08-15, the six ranch cooking rasters added on 2026-08-16, the 55 cooking-research recipe rasters added on 2026-08-22, the five dangerous-fishing realtime rasters added on 2026-08-22, the nine dangerous-fishing species rasters added on 2026-08-23, and the simple and staged cooking-expansion rasters added beginning on 2026-08-24 were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. The 2026-08-22 boss sheets use cleared repository fish artwork for identity and style; a user-supplied, non-deployed golem sheet served only as a generic spacing/motion-layout reference, with no pixels, character identity, palette, anatomy, or style carried into the deployed assets. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included in deployed game art.",
+      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06, the nine ranch and cooking rasters added on 2026-08-10, the six Star Grave environment and monster rasters added on 2026-08-14, the 37 dangerous-fishing and ranch/cooking rasters added on 2026-08-15, the six ranch cooking rasters added on 2026-08-16, the 55 cooking-research recipe rasters added on 2026-08-22, the five dangerous-fishing realtime rasters added on 2026-08-22, the nine dangerous-fishing species rasters added on 2026-08-23, the simple and staged cooking-expansion rasters added beginning on 2026-08-24, the 53 unexplored-region monster, boss, and equipment rasters added on 2026-08-28 through 2026-08-30, the four Invincible Fortress plus four Skyward Crystal Eye boss and equipment rasters added on 2026-09-01, and the four Immortal Berserker boss and equipment rasters added on 2026-09-02 were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. The 2026-08-22 boss sheets use cleared repository fish artwork for identity and style; a user-supplied, non-deployed golem sheet served only as a generic spacing/motion-layout reference, with no pixels, character identity, palette, anatomy, or style carried into the deployed assets. The unexplored-region variants use only repository-cleared game artwork as style references where their plans note a reference. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included in deployed game art.",
       "evidence": [
         "docs/image-gen-prompt.md",
         "https://github.com/sea9401/test-adventure/pull/232",
@@ -33,7 +33,23 @@
         "docs/asset-provenance-dangerous-fishing-realtime-2026-08-22.md",
         "docs/superpowers/plans/2026-08-23-dangerous-fishing-species-variety.md",
         "docs/superpowers/plans/2026-08-24-simple-cooking-recipes.md",
-        "docs/superpowers/plans/2026-08-24-cooking-500-recipes.md"
+        "docs/superpowers/plans/2026-08-24-cooking-500-recipes.md",
+        "docs/superpowers/plans/2026-08-28-unexplored-live-content.md",
+        "docs/superpowers/plans/2026-08-30-unexplored-bloodstained-dead-expansion.md",
+        "docs/superpowers/plans/2026-08-30-unexplored-crushing-colossi-expansion.md",
+        "docs/superpowers/plans/2026-08-30-unexplored-crystal-artillery-expansion.md",
+        "docs/superpowers/plans/2026-08-30-unexplored-frozen-legion-expansion.md",
+        "docs/superpowers/plans/2026-08-30-unexplored-iron-legion-expansion.md",
+        "docs/superpowers/plans/2026-08-30-unexplored-mana-barrier-expansion.md",
+        "docs/superpowers/plans/2026-08-30-unexplored-precision-hunters-expansion.md",
+        "docs/superpowers/plans/2026-08-30-unexplored-red-berserkers-expansion.md",
+        "docs/superpowers/plans/2026-08-30-unexplored-regenerating-swarm-expansion.md",
+        "docs/superpowers/plans/2026-08-30-unexplored-runaway-machines-expansion.md",
+        "docs/superpowers/plans/2026-08-30-unexplored-shadow-stalkers-expansion.md",
+        "docs/superpowers/plans/2026-08-30-unexplored-venom-colony-expansion.md",
+        "docs/superpowers/plans/2026-09-01-unexplored-invincible-fortress.md",
+        "docs/asset-provenance-skyward-crystal-eye-2026-09-01.md",
+        "docs/superpowers/plans/2026-09-01-unexplored-immortal-berserker.md"
       ]
     },
     {
@@ -95,6 +111,96 @@
     {
       "path": "public/images/character/male3.webp",
       "sha256": "2d89e4494c79dcbe8e0c1c6b928730adc161c193a6fde61f4b049fb6a27348f3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-absolute-zero-core.webp",
+      "sha256": "095067df2e2b382fbbaa3893bd46e83251a67bf0ce07a16583e0e3ca1562dcba",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-coagulated-venom-ring.webp",
+      "sha256": "326bfd76a786db083340ab51deaf27b744a217cb5b3d5f3fc9cfab129871113f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-eternal-life-core.webp",
+      "sha256": "efa72db0860eacf16580d252d4d27305f02a54dfb82a222d0012aef2af128065",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-frozen-great-armor.webp",
+      "sha256": "ed76461e6093a180abf3185b83a2a27f9dbff7d0e8518a08b6b453a0958c81e5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-glacial-crushing-hammer.webp",
+      "sha256": "d5fe26fea0d47cdb9496d1012b575e27803e6ac94dd0007fc4f54ff8e315bb25",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-immortal-king-greatsword.webp",
+      "sha256": "fba2acc47cb939397f82287b60d9fcf83e7df97e1fd41b0ddc6b354b1f37d59e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-infinite-focus-crystal-eye.webp",
+      "sha256": "e8ce02859fb7ad352378e523d86836e56c46cc5f98b56e4025787f1286dfd609",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-infinite-orbit-heart.webp",
+      "sha256": "481f6d9bd58a28a662d57a59bc24ce348c6123f118034036f17962944696bb05",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-invincible-fortress-armor.webp",
+      "sha256": "831e9a2f41945d947383aff86dcc520cb3c9bc4b847e1e588fd9a472e879d995",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-magisteel-guard-gauntlets.webp",
+      "sha256": "22f9ba5c9d91a65ef1d453c97926b7fed93703059cce04373b747de61263107c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-phantom-acceleration-boots.webp",
+      "sha256": "e9e168031a4565339a35315232bbd9c15e761e74b9aaff585d9c1480db36a9f6",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-prismatic-firing-gauntlets.webp",
+      "sha256": "d44e74b66444131837d8723fb182aa2dd42da3d00f021e2c812c01300621c74d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-pulsing-berserker-gauntlets.webp",
+      "sha256": "30fa41542ec3301030d83363fe23334dd636816e748b48c389bc8992ecdc38ec",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-sealing-barrier-ring.webp",
+      "sha256": "c2bb0be3717926f7c4de3f9a7e20945d9bf6c9f593001cb7aa36e8a768d6486a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-starpath-aiming-ring.webp",
+      "sha256": "04ac994e97b5b5614f29cd1d2a8a484f4d5569cf54fd46d92d22777a3f501bf1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-toxic-blood-claw.webp",
+      "sha256": "b14a87578d3475bd501d354502e5db39b852845827bb4bf1b074d3d745d08c35",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-tracking-blade-dagger.webp",
+      "sha256": "1d8a379ece5a283dfb8792c66d215ade002dd2b8c910e8c28c666ac17ac74945",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/equipment/unexplored-uncorrupted-heart.webp",
+      "sha256": "3969504479b987dcc88a0040048814d1701740b3c3be9353b3fcd5a1696a93c9",
       "source": "operator-cleared-game-art"
     },
     {
@@ -4040,6 +4146,241 @@
     {
       "path": "public/images/monster/v2/undertow-sentinel.webp",
       "sha256": "7608e2e1d238f722e8f4fb2704ff1d7d1d216bc818d2a45a831dce3c70df514e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-armor-hunter.webp",
+      "sha256": "369afadb3dbb246e41c793ad887acdd57f3bdf570c4fc79aa13910400a7bc881",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-armored-crusher.webp",
+      "sha256": "9ecabc964dcc10dd08429e1c6f0a92e3b4255fb5e73350052adeac1b1bf9847d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-armored-shieldman.webp",
+      "sha256": "c4304a09a647f78687cac8d3fc887a7fe03bee812b55abae2df3c9572570d2b3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-armored-spearman.webp",
+      "sha256": "11f5eec00be5527cb9bf6bfaf477eb5cfa4d26240a8c4f036be5d8a27d9f46f8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-barrier-guardian.webp",
+      "sha256": "bae1a1ac388dded037b939adf2527b3ff0c9e1012fcfae2835cc05b264418774",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-bedrock-colossus.webp",
+      "sha256": "525681a34a81fa94a885a58c9e5b3ae5d4838200eefe27bdc8fbcc9b72ce6c50",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-blood-duelist.webp",
+      "sha256": "439960330b30b71f8ff66e84dbf9f5b765f4a465d9d892132081d1ebe12b643e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-bloodtrail-pursuer.webp",
+      "sha256": "72ef177eb2b546915429b290b3ced5e9651178ab2aaa4cad8aee513bf396125b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-boss-glacial-colossus.webp",
+      "sha256": "aeab2b70d0c1d34c3832b8eba92500fb39ec6c5e6707b067f8ba47de6fe75f05",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-boss-immortal-berserker.webp",
+      "sha256": "5a04eda7f69dbe00a33a26310baa5388f9b7831364cc286fb7dd2144dad69c81",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-boss-invincible-fortress.webp",
+      "sha256": "d91368c59fbbf5067560f697335bd72720764e39e1bb3487a01f62458b94c661",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-boss-skyward-crystal-eye.webp",
+      "sha256": "dfa8bc639b264e362f1498e368d80682be3f6b9aed0e07a6f3b579994399bd63",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-boss-toxic-blood-lord.webp",
+      "sha256": "77072c8319e8256a509a4eeca4a2308065bdef32eb589ad1dca0b7d47baa10c8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-boss-tracking-weapon.webp",
+      "sha256": "f968125cc0a1fec810fd8b1bd3d33a72f3132521cd9f50280b0fa75229efb489",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-combo-automaton.webp",
+      "sha256": "04eb459f557b995e26b700dba8ef8dc204765092bf6b6859844353a75eace90a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-comet-tail-stalker.webp",
+      "sha256": "2e1b285815960fc431377af84416ff2f3305834695579b1057d7c879573f858e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-corrosive-colony.webp",
+      "sha256": "da19cf03f24a79d9137a2665c3913ce7cc293bd8b26ed8ff9ebd73318b90da26",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-crust-destroyer.webp",
+      "sha256": "757b33fcb2546a009efb36fc918fbfcd59d5495450bfdc366364e602dd629652",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-crystal-mage.webp",
+      "sha256": "0baa4b0a1340cba7cb537c8733ea0389c4e6a586e1525822e75e93729d1f248c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-crystal-sentinel.webp",
+      "sha256": "1946a6a690c38c738a6230e0a08855e05728343b085055eaacac8c412fb5922e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-dead-star-observer.webp",
+      "sha256": "4ed215ec637946dfd8ed703ac65d6c6e7300511f9d34ef0fd960a3633cfad454",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-devouring-regenerator.webp",
+      "sha256": "954dea23285fbd5a2511a553af137bd68ac0b1e532857faca88498b5f9278ff0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-freezing-mage.webp",
+      "sha256": "d1e1651f91e9799498ccde143ed8b2519e75856a79bf9c5712365353932c1e0b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-frost-toucher.webp",
+      "sha256": "6210b4cc32d7217ccc9e9d5cbe9ca795afbab5a8d6b8fe65cde5f0290caba5e2",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-frozen-sentinel.webp",
+      "sha256": "3bb3de419a4804371ca1fc920882cb695544c51a8ebb783d2eefd9bf221fc88b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-hooked-dead.webp",
+      "sha256": "48ce83f3df5e47ae50216af6ccbffd58a2c1f9fe3ff3f94aab41e35b71dcc7af",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-ironwall-crusher.webp",
+      "sha256": "a5c2bdaf5fbf32f57bf6986cce0e602c25ce804764361675eeb5028c4b874518",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-lethal-sniper.webp",
+      "sha256": "b8379edd4143be8ea1a4f1540c6418dc5ae96d34fa2a286f3afb8697d2c33eee",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-night-assassin.webp",
+      "sha256": "25d50b842d95bcd4f1380f3e7245ad3f9edc063d17e270ef40c1b04cc7b71c29",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-overheated-enforcer.webp",
+      "sha256": "0d57fd299d1db22fbc328fcfb6177a4f51fbf7f3afb70ec9b2cbb37ad0baa586",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-phantom-stalker.webp",
+      "sha256": "8c8f2e1f81d5e061b3b9fd60892ae64361da4997ec302fa2de92a425c3d5be0a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-precision-scout.webp",
+      "sha256": "07b710c0ceb11f6ee25324dd9af65927bf6130de90497816d3e55ffef76ba01e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-proliferating-core.webp",
+      "sha256": "81003e1e999a2f4858513b451951690f1b5bbf17ee6fffaf68806438dee4eb44",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-red-berserker.webp",
+      "sha256": "c42c0466100e60c620ef481f5f42661d51c456b04d84d75c5b84f55a19241b81",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-red-executioner.webp",
+      "sha256": "e38d4dae5c6b26e4acf3edc8b9313655241e0fa5eeaddcef52b43f96db344aa8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-red-giant-priest.webp",
+      "sha256": "d39171d6b2bd40017204920098e08d6af3c7861cb917dcc043b2dcb47ce72985",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-refraction-artillery.webp",
+      "sha256": "9b78a7c9aed09240eaeb74f01eab8977c614f8769ab83ce70382ef5e9b90447d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-regenerating-spore.webp",
+      "sha256": "56852eea20d4ef50076c2ffad917143577767fd7aa57b85a61be2347e81903ae",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-rune-executor.webp",
+      "sha256": "d8926829ae36f9100d2bf784ec57e2e260a754a28c502e92e5e044a1c899cf65",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-rushing-machine.webp",
+      "sha256": "27944c1fadaea34e53a009d917e1c79e794e5b2dcc52dc3e3ba923296ace79eb",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-seal-watcher.webp",
+      "sha256": "344e60be94c9943eec56b2d26fa3ba20b342303f06b70a1d369aa859e0bb65ed",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-severing-executioner.webp",
+      "sha256": "579ed65c34be7a8bdde9fbebb7933195e28374f8d24c974e595757cd5761bb58",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-shadow-scout.webp",
+      "sha256": "fb4cc572cd8de9d0a25d1c8894b651ea0268d9bd07cfe2653c849ff28c004866",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-star-sea-warden.webp",
+      "sha256": "17bf38c731b191d0b387e7f3c7db815c6aa759b4571dcc11c05465b6c224c3ac",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-venom-fang-devourer.webp",
+      "sha256": "1b1fab3398020bdd7ae932a506640a1e11d6c9b4737d7d2c647d8a9a32c1f0f9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-venom-sprayer.webp",
+      "sha256": "b7bb13b991aaa8c444705f99a6e8928b9dbc34863a3829214e49af5cf0d94f5f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/unexplored-void-devourer.webp",
+      "sha256": "0e2942353c5583f1fb5b773cd66961876b6c5d34ab1a5bc2eb2296accc80d0fc",
       "source": "operator-cleared-game-art"
     },
     {

@@ -465,6 +465,8 @@ export function useCoopSessionState({
                 ? "이미 끝난 토벌입니다."
                 : j.error === "already_defeated"
                   ? "이미 처치된 보스입니다."
+                  : j.error === "boss_state_changed"
+                    ? "다른 공격 결과가 먼저 반영되었습니다. 다시 공격해 주세요."
                   : `공격 실패 (${j.error ?? "unknown"})`,
         );
         return null;

@@ -205,6 +205,13 @@ export async function POST(req: Request) {
       kind,
       peekMechanicState,
     );
+    const fortressStateAtStart = kindId === "invincible_fortress"
+      ? coopInvincibleFortressState(
+          kind,
+          sessionPeek.mechanicState,
+          sessionPeek.hp,
+        )
+      : null;
     const bossMechanic =
       trackingThreatMax > 0
         ? {
@@ -219,11 +226,7 @@ export async function POST(req: Request) {
             ? {
                 kind: "invincible_fortress" as const,
                 sharedMaxHp: kind.sharedMaxHp,
-                initialState: coopInvincibleFortressState(
-                  kind,
-                  peekMechanicState,
-                  sessionPeek.hp,
-                ),
+                initialState: fortressStateAtStart!,
               }
           : undefined;
 
@@ -326,6 +329,23 @@ export async function POST(req: Request) {
         status: 409,
         body: { ok: false as const, error: "already_defeated" as const },
       };
+    }
+    if (fortressStateAtStart) {
+      const lockedFortressState = coopInvincibleFortressState(
+        kind,
+        s.mechanicState,
+        s.hp,
+      );
+      if (
+        s.hp !== sessionPeek.hp ||
+        JSON.stringify(lockedFortressState) !==
+          JSON.stringify(fortressStateAtStart)
+      ) {
+        return {
+          status: 409,
+          body: { ok: false as const, error: "boss_state_changed" as const },
+        };
+      }
     }
     if (s.expiresAt.getTime() <= now) {
       return {

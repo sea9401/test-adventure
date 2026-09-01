@@ -449,4 +449,38 @@ describe("POST /api/v2/coop/attack", () => {
     expect(response.status).toBe(200);
     expect(mocks.updateValues[0]?.mechanicState).not.toHaveProperty("fortress");
   });
+
+  it("성채 시뮬레이션 중 다른 공격이 방벽을 갱신했으면 오래된 결과를 저장하지 않는다", async () => {
+    const sharedMaxHp = 10_800_000;
+    const initialFortress = initialInvincibleFortressState(sharedMaxHp);
+    const peek = personalSession({
+      regionId: "invincible_fortress",
+      hp: sharedMaxHp,
+      maxHp: sharedMaxHp,
+      mechanicState: { fortress: initialFortress },
+    });
+    const locked = personalSession({
+      ...peek,
+      mechanicState: {
+        fortress: { ...initialFortress, barrierDamage: 5_000 },
+      },
+    });
+    mocks.selectRows = [[peek], [locked]];
+    mocks.resolveBattle.mockReturnValue({
+      outcome: "lose",
+      turns: 1,
+      finalState: battleState({
+        enemyHp: sharedMaxHp,
+        bossMechanic: { ...initialFortress, barrierDamage: 10_000 },
+      }),
+    });
+
+    const response = await attack();
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "boss_state_changed",
+    });
+    expect(mocks.updateValues).toHaveLength(0);
+  });
 });

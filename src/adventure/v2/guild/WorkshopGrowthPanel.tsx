@@ -161,7 +161,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
               </span>
             </div>
           </div>
-          <div className="mt-3 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-900 dark:bg-emerald-950/30">
+          <div className="mt-3 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-900 dark:bg-zinc-950">
             <div className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
               다음에 할 일
             </div>
@@ -379,7 +379,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
                     key={job.id}
                     className={`rounded border px-2 py-1 ${
                       unlocked
-                        ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950"
+                        ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-zinc-950"
                         : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
                     }`}
                   >
@@ -446,7 +446,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
                 key={milestone.level}
                 className={`rounded border px-2 py-1 ${
                   unlocked
-                    ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950"
+                        ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-zinc-950"
                     : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
                 }`}
               >

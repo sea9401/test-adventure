@@ -122,7 +122,7 @@ export function GuildContributionPanel({
             const member = memberByUser.get(row.userId);
             const rowClassName = `grid w-full grid-cols-[2rem_minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-2 text-left text-xs ${
               mine
-                ? "bg-sky-50 text-sky-900 dark:bg-sky-950 dark:text-sky-100"
+                ? "bg-sky-50 text-sky-900 dark:bg-zinc-800 dark:text-sky-100"
                 : "bg-white dark:bg-zinc-900"
             }`;
             const cells = (

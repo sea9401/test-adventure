@@ -14,6 +14,7 @@ describe("생활 지도", () => {
     expect(html).toContain('data-life-activity-icon="mining"');
     expect(html).toContain("대표 어종:");
     expect(html).toContain("전체 어종 14종 보기");
+    expect(html).not.toContain("ui-game-button");
   });
 
   it("낚시터별 미등록 어종 수와 상세 어종의 미등록 상태를 표시한다", () => {

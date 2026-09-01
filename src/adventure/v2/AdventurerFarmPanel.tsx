@@ -640,8 +640,8 @@ export function FarmExchangeShopPanel() {
         <p
           className={`rounded-md border px-3 py-2 text-sm ${
             notice?.kind === "error"
-              ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
-              : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
+              ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-zinc-950 dark:text-amber-200"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-zinc-950 dark:text-emerald-300"
           }`}
         >
           {shopNotice}
@@ -817,8 +817,8 @@ function FarmToastMessage({
       aria-live="polite"
       className={`fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-4 z-50 flex max-w-[min(24rem,calc(100vw-2rem))] items-start gap-2 rounded-md border px-4 py-3 text-base font-semibold leading-relaxed shadow-xl sm:left-6 ${
         ok
-          ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-100"
-          : "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-100"
+          ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-zinc-950 dark:text-emerald-100"
+          : "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-800 dark:bg-zinc-950 dark:text-rose-100"
       }`}
     >
       <span className="min-w-0 flex-1">{toast.text}</span>
@@ -1295,7 +1295,7 @@ function CropSelector({
               disabled={locked}
               className={`flex min-h-[6.25rem] items-center gap-3 rounded-md border px-3 py-2 text-left transition ${
                 active
-                  ? "border-emerald-500 bg-emerald-50 text-emerald-950 shadow-sm dark:border-emerald-500 dark:bg-emerald-950 dark:text-emerald-100"
+                  ? "border-emerald-500 bg-emerald-50 text-emerald-950 shadow-sm dark:border-emerald-500 dark:bg-zinc-800 dark:text-emerald-100"
                   : locked
                     ? "cursor-not-allowed border-zinc-200 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-500"
                     : "border-zinc-200 bg-white text-zinc-700 hover:border-emerald-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-emerald-700 dark:hover:bg-zinc-900"

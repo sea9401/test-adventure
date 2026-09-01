@@ -48,6 +48,22 @@ function renderPanel(
 }
 
 describe("장비 마법부여 작업대", () => {
+  it("대상 장비와 현재 옵션은 중립 다크 표면에 포인트 테두리를 유지한다", () => {
+    renderPanel(rerollItem);
+
+    const target = screen.getByRole("button", { name: /대상 장비 변경/ });
+    expect(target.className).toContain("dark:bg-zinc-800");
+    expect(target.className).toContain("dark:border-violet-800");
+
+    const optionList = screen.getByRole("list", {
+      name: "현재 마법부여 옵션",
+    });
+    const currentOptions = optionList.parentElement;
+    expect(currentOptions?.className).toContain("dark:bg-zinc-800");
+    expect(optionList.innerHTML).toContain("dark:border-violet-900");
+    expect(optionList.innerHTML).toContain("dark:text-violet-100");
+  });
+
   it("상세 확률은 도움말로 분리하고 최초 마법부여의 영구 조건만 확인받는다", () => {
     renderPanel(initialItem);
 

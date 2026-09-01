@@ -1322,7 +1322,7 @@ export function V2DungeonFloorView({
       )}
 
       {showDefeatNudge && (
-        <div className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 dark:border-rose-800 dark:bg-rose-950">
+        <div className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 dark:border-rose-800 dark:bg-zinc-950">
           <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">
             {lossStreak >= 2
               ? `${lossStreak}연패로 사냥이 멈췄습니다.`
@@ -1635,7 +1635,7 @@ export function V2DungeonFloorView({
               정산됩니다.
             </p>
             {offlineMsg && (
-              <p className="rounded-md bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+              <p className="rounded-md bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-700 dark:bg-zinc-950 dark:text-emerald-300">
                 {offlineMsg}
               </p>
             )}
@@ -1644,7 +1644,7 @@ export function V2DungeonFloorView({
       </Card>
 
       {needsRecovery && (
-        <div className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 dark:border-rose-800 dark:bg-rose-950">
+        <div className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 dark:border-rose-800 dark:bg-zinc-950">
           <p className="text-sm font-medium text-rose-700 dark:text-rose-300">
             체력이 부족해 전투할 수 없습니다.
           </p>

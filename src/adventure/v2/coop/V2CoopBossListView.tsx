@@ -299,7 +299,7 @@ export function V2CoopBossListView({
       <V2CoopTabs active="bosses" onOpenShop={onOpenShop} />
 
       {notice && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-zinc-950 dark:text-amber-300">
           {notice}
         </div>
       )}
@@ -311,7 +311,7 @@ export function V2CoopBossListView({
           {claimables.map((c) => (
             <div
               key={c.sessionId}
-              className="flex items-center justify-between gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 dark:border-emerald-700 dark:bg-emerald-950/40"
+              className="flex items-center justify-between gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 dark:border-emerald-700 dark:bg-zinc-950"
             >
               <span className="min-w-0 text-sm">
                 <span className="font-medium">{coopBossListName(c.kind)}</span>
@@ -349,7 +349,7 @@ export function V2CoopBossListView({
       )}
 
       {lastReward && (
-        <div className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800/60 dark:bg-emerald-950/30">
+        <div className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800/60 dark:bg-zinc-950">
           <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
             {lastReward.rewardMode === "unexplored_personal"
               ? "개인 토벌 보상 획득!"

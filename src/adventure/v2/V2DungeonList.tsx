@@ -472,7 +472,7 @@ export function RareMapButton({
   const unavailable = rareMapUnavailable(map, frontierDepth);
   return (
     <div
-      className="flex w-full items-center gap-2 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 dark:border-sky-700 dark:bg-sky-950"
+      className="flex w-full items-center gap-2 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 dark:border-sky-700 dark:bg-zinc-950"
     >
       <div className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5 truncate text-sm font-medium text-sky-800 dark:text-sky-200">

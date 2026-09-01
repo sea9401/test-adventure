@@ -850,7 +850,7 @@ export function V2SkillLearnView({
                     className={[
                       "rounded-md border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                       active
-                        ? "border-emerald-500 bg-emerald-50 dark:border-emerald-500 dark:bg-emerald-950/40"
+                        ? "border-emerald-500 bg-emerald-50 dark:border-emerald-500 dark:bg-zinc-800"
                         : "border-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800",
                     ].join(" ")}
                   >
@@ -910,7 +910,7 @@ export function V2SkillLearnView({
                   className={[
                     "rounded-md border px-3 py-2",
                     selectedNext
-                      ? "border-emerald-200 bg-emerald-50/80 dark:border-emerald-800 dark:bg-emerald-950/35"
+                      ? "border-emerald-200 bg-emerald-50/80 dark:border-emerald-800 dark:bg-zinc-950"
                       : "border-transparent bg-white dark:bg-zinc-900",
                   ].join(" ")}
                 >
@@ -962,7 +962,7 @@ export function V2SkillLearnView({
             </div>
 
             {ritualLevel > 0 && (
-              <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+              <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-zinc-950 dark:text-amber-200">
                 초기화하면 현재 의식이 사라지고 누적 비용의 50%를 돌려받습니다. 환급:{" "}
                 <strong>{goldLabel(currentRefund.gold)}</strong> · 숙달{" "}
                 <strong>{currentRefund.proficiency.toLocaleString()}</strong>

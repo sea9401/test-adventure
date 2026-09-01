@@ -1,3 +1,5 @@
+import type { Tier7Mechanic } from "@/adventure/data/v2/tier7SkillMechanics";
+
 export type RuinChargeState = {
   startHp: number;
   actualHpLost: number;
@@ -74,4 +76,37 @@ export function ruinSwordBonuses(input: {
     damagePct: Math.round((currentMissingPct + chargeLossPct + intentPct) * 100) / 100,
     penetrationPct: input.pvp ? (input.pvpPenetrationPct ?? 30) : 45,
   };
+}
+
+export function ruinIntentStrikeBonus(input: {
+  hp: number;
+  maxHp: number;
+  mechanic: Tier7Mechanic | undefined;
+}): number {
+  const cap =
+    input.mechanic?.kind === "intentStrike"
+      ? input.mechanic.missingHpBonusCapPct
+      : 0;
+  return Math.min(
+    cap,
+    ((input.maxHp - input.hp) / Math.max(1, input.maxHp)) * cap,
+  );
+}
+
+export function ruinSwordBonusesForMechanic(input: {
+  state: RuinChargeState;
+  hp: number;
+  maxHp: number;
+  pvp: boolean;
+  mechanic: Tier7Mechanic | undefined;
+}): { damagePct: number; penetrationPct: number } {
+  const { mechanic, ...base } = input;
+  const finisher = mechanic?.kind === "chargedFinisher" ? mechanic : undefined;
+  return ruinSwordBonuses({
+    ...base,
+    currentMissingHpCapPct: finisher?.currentMissingHpCapPct,
+    chargeLostHpCapPct: finisher?.chargeLostHpCapPct,
+    pvpCapPct: finisher?.pvpCapPct,
+    pvpPenetrationPct: finisher?.pvpPenetrationPct,
+  });
 }

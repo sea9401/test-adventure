@@ -164,7 +164,7 @@ import {
   canStartRuinCharge,
   gainSwordIntent,
   recordChargeHpLoss,
-  ruinSwordBonuses,
+  ruinIntentStrikeBonus, ruinSwordBonusesForMechanic,
   startRuinCharge,
 } from "./ruinBladeCombat";
 import {
@@ -3300,35 +3300,18 @@ export function castV2SkillOnAttackerTurnPvP(
     tier7FinalDamagePct += (side.stacks.tier7?.swordIntent ?? 0) * 8;
   }
   if (result.castSkillId === "v2c_ruinblade_limitstrike") {
-    const missingHpCap =
-      V2_SKILLS.v2c_ruinblade_limitstrike.tier7Mechanic?.kind ===
-      "intentStrike"
-        ? V2_SKILLS.v2c_ruinblade_limitstrike.tier7Mechanic
-            .missingHpBonusCapPct
-        : 0;
-    tier7FinalDamagePct += Math.min(
-      missingHpCap,
-      ((side.maxHp - side.hp) / Math.max(1, side.maxHp)) * missingHpCap,
-    );
+    tier7FinalDamagePct += ruinIntentStrikeBonus({
+      hp: side.hp,
+      maxHp: side.maxHp,
+      mechanic: V2_SKILLS.v2c_ruinblade_limitstrike.tier7Mechanic,
+    });
   }
   if (ruinChargeAtActionStart) {
-    tier7FinalDamagePct += ruinSwordBonuses({
+    tier7FinalDamagePct += ruinSwordBonusesForMechanic({
       state: ruinChargeAtActionStart,
       hp: side.hp,
       maxHp: side.maxHp,
-      pvp: true,
-      currentMissingHpCapPct: ruinSwordMechanic?.kind === "chargedFinisher"
-        ? ruinSwordMechanic.currentMissingHpCapPct
-        : undefined,
-      chargeLostHpCapPct: ruinSwordMechanic?.kind === "chargedFinisher"
-        ? ruinSwordMechanic.chargeLostHpCapPct
-        : undefined,
-      pvpCapPct: ruinSwordMechanic?.kind === "chargedFinisher"
-        ? ruinSwordMechanic.pvpCapPct
-        : undefined,
-      pvpPenetrationPct: ruinSwordMechanic?.kind === "chargedFinisher"
-        ? ruinSwordMechanic.pvpPenetrationPct
-        : undefined,
+      pvp: true, mechanic: ruinSwordMechanic,
     }).damagePct;
   }
   if (crossover?.bonus === "capture") {

@@ -21,12 +21,13 @@ describe("미개척지 개인 보스 카탈로그", () => {
     expect(UNEXPLORED_SUMMON_STONE_SCROLL_COST).toBe(30);
   });
 
-  it("출시 보스 4종과 연결된 상위 풀 조합을 고정한다", () => {
+  it("출시 보스 5종과 연결된 상위 풀 조합을 고정한다", () => {
     expect(UNEXPLORED_BOSS_IDS).toEqual([
       "tracking_weapon",
       "toxic_blood_lord",
       "glacial_colossus",
       "invincible_fortress",
+      "skyward_crystal_eye",
     ]);
     expect(UNEXPLORED_BOSSES.tracking_weapon.pools).toEqual([
       "runaway_machines",
@@ -53,6 +54,21 @@ describe("미개척지 개인 보스 카탈로그", () => {
       accuracy: -205,
       evasionPct: 8,
     });
+    expect(UNEXPLORED_BOSSES.skyward_crystal_eye).toMatchObject({
+      pools: ["crystal_artillery", "precision_hunters"],
+      sharedMaxHp: 10_800_000,
+      anchorDepth: 120,
+      monster: {
+        hp: 1_150,
+        atk: 2,
+        atkType: "magic",
+        def: 42,
+        magicDef: 48,
+        spd: 22,
+        accuracy: -185,
+        evasionPct: 16,
+      },
+    });
   });
 
   it("보스마다 거래 가능한 소환석과 독립 고유 3종을 가진다", () => {
@@ -75,7 +91,7 @@ describe("미개척지 개인 보스 카탈로그", () => {
     expect(materialSellPriceOf("v2_unexplored_boss_core")).toBeUndefined();
   });
 
-  it("30%·10% 일반 고유 8종만 확정 제작하고 등급별 핵·연결 재료 비용을 적용한다", () => {
+  it("30%·10% 일반 고유 10종만 확정 제작하고 등급별 핵·연결 재료 비용을 적용한다", () => {
     expect(
       UNEXPLORED_BOSS_EQUIPMENT_CRAFT_RECIPES.map(
         (recipe) => recipe.equipmentId,
@@ -89,6 +105,8 @@ describe("미개척지 개인 보스 카탈로그", () => {
       "v2_unexplored_frozen_great_armor",
       "v2_unexplored_magisteel_guard_gauntlets",
       "v2_unexplored_sealing_barrier_ring",
+      "v2_unexplored_prismatic_firing_gauntlets",
+      "v2_unexplored_starpath_aiming_ring",
     ]);
 
     for (const recipe of UNEXPLORED_BOSS_EQUIPMENT_CRAFT_RECIPES) {
@@ -117,14 +135,19 @@ describe("미개척지 개인 보스 카탈로그", () => {
         "v2_unexplored_invincible_fortress_armor",
       ),
     ).toBeNull();
+    expect(
+      unexploredBossEquipmentCraftRecipe(
+        "v2_unexplored_infinite_focus_crystal_eye",
+      ),
+    ).toBeNull();
   });
 
-  it("고유 장비 12종은 6티어 드랍 전용이며 실제 이미지가 존재한다", () => {
+  it("고유 장비 15종은 6티어 드랍 전용이며 실제 이미지가 존재한다", () => {
     const drops = Object.values(UNEXPLORED_BOSSES).flatMap(
       (boss): UnexploredBossUniqueDrop[] => [...boss.uniqueDrops],
     );
     const equipmentIds = drops.map((drop) => drop.equipmentId);
-    expect(equipmentIds).toHaveLength(12);
+    expect(equipmentIds).toHaveLength(15);
     for (const id of equipmentIds) {
       const item = V2_EQUIPMENT[id];
       expect(item).toBeDefined();

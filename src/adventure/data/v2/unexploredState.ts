@@ -15,6 +15,7 @@ export const UNEXPLORED_ACHIEVEMENT_IDS = [
   "defeat_toxic_blood_lord",
   "defeat_glacial_colossus",
   "defeat_invincible_fortress",
+  "defeat_skyward_crystal_eye",
   "defeat_all_personal_bosses",
   "first_unexplored_hunt",
   "first_special_kill",

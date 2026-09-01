@@ -101,7 +101,7 @@ describe("unexplored achievements", () => {
     ]);
   });
 
-  it("requires all four personal bosses for conquest and grants the fortress achievement", () => {
+  it("requires all five personal bosses for conquest and grants both new boss achievements", () => {
     expect(
       unexploredAchievementCandidates({
         defeatedBossIds: [
@@ -118,6 +118,7 @@ describe("unexplored achievements", () => {
           "toxic_blood_lord",
           "glacial_colossus",
           "invincible_fortress",
+          "skyward_crystal_eye",
           "lake_sovereign",
         ],
       }),
@@ -127,6 +128,7 @@ describe("unexplored achievements", () => {
       "defeat_toxic_blood_lord",
       "defeat_glacial_colossus",
       "defeat_invincible_fortress",
+      "defeat_skyward_crystal_eye",
       "defeat_all_personal_bosses",
     ]);
   });

@@ -39,6 +39,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 
 import { GET, POST } from "./route";
 import { UNEXPLORED_SUMMON_STONE_GOLD_COST } from "@/adventure/data/v2/unexploredBosses";
+import { shortestUnexploredPath } from "@/adventure/data/v2/unexploredTree";
 import { upsertSave } from "@/lib/server/savesKv";
 
 function request(body: unknown): Request {
@@ -138,6 +139,56 @@ describe("/api/v2/unexplored", () => {
       gold: 100_000,
       unexplored: { selectedNodeIds: ["start"] },
     });
+  });
+
+  it("atomically persists every node in an activation path with one request", async () => {
+    mocks.saves.set("character.v2", {
+      level: 100,
+      gold: 100_000,
+      unexplored: {
+        xpPoints: 30,
+        selectedNodeIds: ["start", "inner-0-0"],
+      },
+    });
+
+    const response = await POST(request({
+      action: "activate_path",
+      nodeId: "pool-iron_legion",
+    }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      snapshot: {
+        selectedNodeIds: shortestUnexploredPath("pool-iron_legion"),
+        spentPoints: 9,
+      },
+    });
+    expect(upsertSave).toHaveBeenCalledOnce();
+  });
+
+  it("charges and persists a batch refund once for its full closure", async () => {
+    const selectedNodeIds = shortestUnexploredPath("route-b-0");
+    mocks.saves.set("character.v2", {
+      level: 100,
+      gold: 100_000,
+      unexplored: { xpPoints: 30, selectedNodeIds },
+    });
+
+    const response = await POST(request({
+      action: "refund_path",
+      nodeId: "route-a-0",
+    }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      snapshot: {
+        gold: 0,
+        selectedNodeIds: selectedNodeIds.slice(0, -2),
+      },
+    });
+    expect(upsertSave).toHaveBeenCalledOnce();
   });
 
   it("does not persist a rejected mutation", async () => {

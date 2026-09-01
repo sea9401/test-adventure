@@ -6,7 +6,9 @@ import {
   UNEXPLORED_NODES,
   deriveUnexploredEffects,
   shortestUnexploredPath,
+  unexploredActivationPath,
   unexploredActivationError,
+  unexploredRefundPath,
   unexploredRefundError,
 } from "./unexploredTree";
 
@@ -136,6 +138,78 @@ describe("unexplored tree catalogue", () => {
     );
     expect(unexploredRefundError(path, path.at(-1)!)).toBeNull();
     expect(unexploredRefundError(path, "start")).toBe("start_required");
+  });
+
+  it("plans every inactive node on the shortest route in activation order", () => {
+    expect(
+      unexploredActivationPath(
+        ["start", "inner-0-0"],
+        "pool-iron_legion",
+        9,
+      ),
+    ).toEqual({
+      ok: true,
+      nodeIds: [
+        "inner-1-0",
+        "inner-2-0",
+        "inner-3-0",
+        "inner-4-0",
+        "inner-5-0",
+        "inner-6-0",
+        "pool-iron_legion",
+      ],
+    });
+  });
+
+  it("rejects the whole activation route when an intermediate constraint fails", () => {
+    expect(
+      unexploredActivationPath(
+        ["start", "inner-0-0"],
+        "pool-iron_legion",
+        3,
+      ),
+    ).toEqual({ ok: false, error: "point_limit" });
+
+    const goldPath = shortestUnexploredPath("deep-gold");
+    const collectorPath = shortestUnexploredPath("deep-collector");
+    const selected = [
+      ...new Set([...goldPath, ...collectorPath.slice(0, -1)]),
+    ];
+    expect(
+      unexploredActivationPath(selected, "deep-collector", 160),
+    ).toEqual({ ok: false, error: "conversion_conflict" });
+  });
+
+  it("plans the minimum refund closure while preserving nodes with another route to start", () => {
+    const singleRoute = shortestUnexploredPath("route-b-0");
+    expect(unexploredRefundPath(singleRoute, "route-a-0")).toEqual({
+      ok: true,
+      nodeIds: ["route-b-0", "route-a-0"],
+    });
+
+    const alternateRoute = [
+      ...new Set([
+        ...singleRoute,
+        ...shortestUnexploredPath("route-b-1"),
+        "shared-0",
+      ]),
+    ];
+    expect(unexploredRefundPath(alternateRoute, "route-a-0")).toEqual({
+      ok: true,
+      nodeIds: ["route-a-0"],
+    });
+  });
+
+  it("keeps start and inactive nodes out of batch refund plans", () => {
+    const selected = shortestUnexploredPath("pool-iron_legion");
+    expect(unexploredRefundPath(selected, "start")).toEqual({
+      ok: false,
+      error: "start_required",
+    });
+    expect(unexploredRefundPath(selected, "pool-mana_barrier")).toEqual({
+      ok: false,
+      error: "not_active",
+    });
   });
 
   it("does not contain duplicate or dangling edges", () => {

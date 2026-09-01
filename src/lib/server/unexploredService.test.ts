@@ -121,6 +121,53 @@ describe("unexplored service", () => {
     ]);
   });
 
+  it("atomically activates every missing node on the shortest route", () => {
+    const result = applyUnexploredMutation(character({
+      unexplored: parseUnexploredSave({
+        xpPoints: 30,
+        selectedNodeIds: ["start", "inner-0-0"],
+      }),
+    }), { action: "activate_path", nodeId: "pool-iron_legion" });
+
+    expect(result).toMatchObject({ ok: true });
+    if (!result.ok) throw new Error("expected success");
+    expect(result.character.unexplored.selectedNodeIds).toEqual(
+      shortestUnexploredPath("pool-iron_legion"),
+    );
+    expect(result.snapshot.spentPoints).toBe(9);
+  });
+
+  it("charges every node in the minimum batch refund closure", () => {
+    const selected = shortestUnexploredPath("route-b-0");
+    const result = applyUnexploredMutation(character({
+      gold: 100_000,
+      unexplored: parseUnexploredSave({ xpPoints: 30, selectedNodeIds: selected }),
+    }), { action: "refund_path", nodeId: "route-a-0" });
+
+    expect(result).toMatchObject({ ok: true });
+    if (!result.ok) throw new Error("expected success");
+    expect(result.character.gold).toBe(0);
+    expect(result.character.unexplored.selectedNodeIds).toEqual(
+      selected.filter((nodeId) => !["route-a-0", "route-b-0"].includes(nodeId)),
+    );
+  });
+
+  it("rejects a batch refund without changing any node when total gold is short", () => {
+    const selected = shortestUnexploredPath("route-b-0");
+    const original = character({
+      gold: 99_999,
+      unexplored: parseUnexploredSave({ xpPoints: 30, selectedNodeIds: selected }),
+    });
+    const result = applyUnexploredMutation(original, {
+      action: "refund_path",
+      nodeId: "route-a-0",
+    });
+
+    expect(result).toEqual({ ok: false, error: "insufficient_gold" });
+    expect(original.gold).toBe(99_999);
+    expect(parseUnexploredSave(original.unexplored).selectedNodeIds).toEqual(selected);
+  });
+
   it("charges 50,000G per refund and blocks start/disconnecting refunds", () => {
     const path = shortestUnexploredPath("deep-boss");
     expect(

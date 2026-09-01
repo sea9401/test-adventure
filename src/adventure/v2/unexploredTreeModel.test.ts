@@ -88,6 +88,79 @@ describe("unexplored tree model", () => {
     expect(model.previewPath.at(-1)).toBe(difficultyNode.id);
   });
 
+  it("plans every missing node when a distant inactive target is selected", () => {
+    const model = buildUnexploredTreeModel(
+      snapshot({ earnedPoints: 9 }),
+      "pool-iron_legion",
+    );
+
+    expect(model.plan).toEqual({
+      action: "activate",
+      nodeIds: [
+        "inner-1-0",
+        "inner-2-0",
+        "inner-3-0",
+        "inner-4-0",
+        "inner-5-0",
+        "inner-6-0",
+        "pool-iron_legion",
+      ],
+      error: null,
+    });
+    expect(
+      model.nodes
+        .filter((node) => node.planState === "activate")
+        .map((node) => node.id),
+    ).toEqual([
+      "inner-1-0",
+      "inner-2-0",
+      "inner-3-0",
+      "inner-4-0",
+      "inner-5-0",
+      "inner-6-0",
+      "pool-iron_legion",
+    ]);
+    expect(model.previewDifficulty).toBe(95);
+  });
+
+  it("marks the minimum disconnected closure for a distant batch refund", () => {
+    const selectedNodeIds = shortestUnexploredPath("route-b-0");
+    const model = buildUnexploredTreeModel(
+      snapshot({
+        earnedPoints: 30,
+        spentPoints: selectedNodeIds.length,
+        selectedNodeIds,
+      }),
+      "route-a-0",
+    );
+
+    expect(model.plan).toEqual({
+      action: "refund",
+      nodeIds: ["route-b-0", "route-a-0"],
+      error: null,
+    });
+    expect(
+      model.nodes
+        .filter((node) => node.planState === "refund")
+        .map((node) => node.id),
+    ).toEqual(["route-a-0", "route-b-0"]);
+    expect(model.edges.some((edge) => edge.state === "refund")).toBe(true);
+  });
+
+  it("exposes the first path constraint without leaving partial planned nodes", () => {
+    const model = buildUnexploredTreeModel(
+      snapshot({ earnedPoints: 3 }),
+      "pool-iron_legion",
+    );
+
+    expect(model.plan).toEqual({
+      action: "activate",
+      nodeIds: [],
+      error: "point_limit",
+    });
+    expect(model.nodes.every((node) => node.planState === null)).toBe(true);
+  });
+
   it("summarizes only active special pools and exposes conversion nodes", () => {
     const model = buildUnexploredTreeModel(
       snapshot({

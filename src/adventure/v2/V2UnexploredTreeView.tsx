@@ -101,6 +101,12 @@ function nodeRadius(node: UnexploredTreeNodeModel): number {
 }
 
 function nodeColors(node: UnexploredTreeNodeModel, selected: boolean) {
+  if (node.planState === "activate") {
+    return { fill: "#7c3aed", stroke: "#c4b5fd", text: "#ffffff" };
+  }
+  if (node.planState === "refund") {
+    return { fill: "#be123c", stroke: "#fda4af", text: "#ffffff" };
+  }
   if (selected) return { fill: "#7c3aed", stroke: "#c4b5fd", text: "#ffffff" };
   if (node.state === "active") {
     return { fill: "#d97706", stroke: "#fcd34d", text: "#ffffff" };
@@ -183,8 +189,9 @@ export function V2UnexploredTreeView({
 
   async function mutate(
     mutation:
-      | { action: "activate" | "refund"; nodeId: string }
+      | { action: "activate_path" | "refund_path"; nodeId: string }
       | { action: "reset" },
+    nodeCount = 1,
   ) {
     if (busy) return;
     setBusy(true);
@@ -203,10 +210,10 @@ export function V2UnexploredTreeView({
       }
       setSnapshot(body.snapshot);
       notifySystem(
-        mutation.action === "activate"
-          ? "✓ 탐사 노드를 활성화했습니다."
-          : mutation.action === "refund"
-            ? "✓ 탐사 노드를 반환했습니다."
+        mutation.action === "activate_path"
+          ? `✓ 탐사 노드 ${nodeCount.toLocaleString()}개를 활성화했습니다.`
+          : mutation.action === "refund_path"
+            ? `✓ 탐사 노드 ${nodeCount.toLocaleString()}개를 반환했습니다.`
             : "✓ 탐사망을 초기화했습니다.",
         "success",
       );
@@ -559,6 +566,8 @@ export function V2UnexploredTreeView({
                 if (!left || !right) return null;
                 const stroke = edge.state === "active"
                   ? "#f59e0b"
+                  : edge.state === "refund"
+                    ? "#e11d48"
                   : edge.state === "preview"
                     ? "#8b5cf6"
                     : "#d4d4d8";
@@ -582,9 +591,16 @@ export function V2UnexploredTreeView({
                   <g
                     key={node.id}
                     data-unexplored-node={node.id}
+                    data-unexplored-plan={node.planState ?? undefined}
                     role="button"
                     tabIndex={0}
-                    aria-label={`노드 선택: ${node.name}`}
+                    aria-label={`노드 선택: ${node.name}${
+                      node.planState === "activate"
+                        ? " · 활성화 대기"
+                        : node.planState === "refund"
+                          ? " · 반환 대기"
+                          : ""
+                    }`}
                     onClick={() => setSelectedNodeId(node.id)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
@@ -649,42 +665,68 @@ export function V2UnexploredTreeView({
                   <p className="font-medium">난이도</p>
                   <p>
                     {model.currentDifficulty}
-                    {selected.state === "available" && (
+                    {model.plan?.error === null && (
                       <> → <strong className="text-violet-600 dark:text-violet-300">{model.previewDifficulty}</strong></>
                     )}
                   </p>
                 </div>
                 <div className="mt-3">
-                  {selected.state === "available" && (
+                  {model.plan?.action === "activate" &&
+                    model.plan.error === null && (
                     <Button
                       fullWidth
                       variant="primary"
                       loading={busy}
                       disabled={!snapshot.eligible}
-                      onClick={() => void mutate({ action: "activate", nodeId: selected.id })}
+                      onClick={() => void mutate(
+                        { action: "activate_path", nodeId: selected.id },
+                        model.plan!.nodeIds.length,
+                      )}
                     >
-                      탐사 포인트 1 사용
+                      탐사 포인트 {model.plan.nodeIds.length.toLocaleString()} 사용 ·{" "}
+                      {model.plan.nodeIds.length.toLocaleString()}개 활성화
                     </Button>
                   )}
-                  {selected.state === "active" && selected.id !== "start" && (
-                    <Button
-                      fullWidth
-                      variant="danger"
-                      loading={busy}
-                      disabled={!snapshot.eligible}
-                      onClick={() => void mutate({ action: "refund", nodeId: selected.id })}
-                    >
-                      {snapshot.refundGoldCost.toLocaleString()}G로 반환
-                    </Button>
-                  )}
-                  {selected.state === "locked" && (
+                  {model.plan?.action === "refund" &&
+                    model.plan.error === null && (() => {
+                      const refundGoldCost =
+                        snapshot.refundGoldCost * model.plan.nodeIds.length;
+                      const canAfford =
+                        snapshot.gold + snapshot.bankedGold >= refundGoldCost;
+                      return (
+                        <div className="space-y-2">
+                          {!canAfford && (
+                            <p className="text-xs leading-5 text-rose-700 dark:text-rose-300">
+                              {ERROR_TEXT.insufficient_gold}
+                            </p>
+                          )}
+                          <Button
+                            fullWidth
+                            variant="danger"
+                            loading={busy}
+                            disabled={!snapshot.eligible || !canAfford}
+                            onClick={() => void mutate(
+                              { action: "refund_path", nodeId: selected.id },
+                              model.plan!.nodeIds.length,
+                            )}
+                          >
+                            {refundGoldCost.toLocaleString()}G로{" "}
+                            {model.plan.nodeIds.length.toLocaleString()}개 반환
+                          </Button>
+                        </div>
+                      );
+                    })()}
+                  {model.plan?.error && (
                     <div className="space-y-2">
                       <p className="text-xs leading-5 text-amber-700 dark:text-amber-300">
-                        {ERROR_TEXT[selected.activationError ?? ""] ??
-                          "현재 상태에서는 활성화할 수 없습니다."}
+                        {ERROR_TEXT[model.plan.error] ??
+                          `현재 상태에서는 ${
+                            model.plan.action === "activate" ? "활성화" : "반환"
+                          }할 수 없습니다.`}
                       </p>
                       <Button fullWidth disabled>
-                        <LockKey size={16} /> 활성화 불가
+                        <LockKey size={16} />{" "}
+                        {model.plan.action === "activate" ? "활성화" : "반환"} 불가
                       </Button>
                     </div>
                   )}

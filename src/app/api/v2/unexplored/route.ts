@@ -60,7 +60,12 @@ function parseMutation(raw: unknown): UnexploredMutation | null {
   const source = raw as Record<string, unknown>;
   if (source.action === "reset") return { action: "reset" };
   if (
-    (source.action === "activate" || source.action === "refund") &&
+    (
+      source.action === "activate" ||
+      source.action === "activate_path" ||
+      source.action === "refund" ||
+      source.action === "refund_path"
+    ) &&
     typeof source.nodeId === "string" &&
     source.nodeId.length > 0
   ) {

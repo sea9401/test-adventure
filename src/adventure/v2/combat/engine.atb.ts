@@ -29,6 +29,7 @@ import {
 import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
 import {
   releaseSwordShadowAfterEnemyAction,
+  resolveForcedEnemyMagicHit,
   resolveForcedEnemyPhysicalHit,
   resolveEnemyPhase,
 } from "./engine.enemyPhase";
@@ -92,6 +93,15 @@ import {
   normalizeInvincibleFortressState,
   settleInvincibleFortressDamage,
 } from "./invincibleFortressMechanic";
+import {
+  SKYWARD_CRYSTAL_EYE_EXPOSURE_DAMAGE_PCT,
+  addSkywardCrystalEyeHit,
+  advanceSkywardCrystalEyeTimers,
+  fireSkywardCrystalEyeArtillery,
+  normalizeSkywardCrystalEyeState,
+  skywardCrystalEyeBasePowerPct,
+  skywardCrystalEyeResourceSnapshot,
+} from "./skywardCrystalEyeMechanic";
 
 export const ATB_TICK_CAP = ATB_TIMELINE_TICK_CAP;
 export const ATB_ACTION_GUARD = 1000;
@@ -113,6 +123,8 @@ function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {
           state.bossMechanic,
           state.bossSharedMaxHp ?? state.enemy.hp,
         )
+      : state.bossMechanic?.kind === "skyward_crystal_eye"
+        ? skywardCrystalEyeResourceSnapshot(state.bossMechanic)
       : state.bossMechanic?.kind === "tracking_weapon"
       ? {
           trackingThreat: `${state.bossMechanic.trackingThreat}/${TRACKING_THREAT_MAX}`,
@@ -361,6 +373,146 @@ function trackingDirectHits(
     if (entry.kind !== "player_attack") return sum;
     return sum + Math.max(0, Math.floor(entry.directHits ?? 1));
   }, 0);
+}
+
+export function skywardCrystalEyeStackGainFromLogs(
+  log: readonly BattleLogEntry[],
+  start: number,
+): number {
+  return log.slice(start).reduce((sum, entry) => {
+    if (entry.kind !== "player_attack" || entry.directHits == null) return sum;
+    const directHits = Math.max(0, Math.floor(entry.directHits));
+    const criticalHits = Math.min(
+      directHits,
+      Math.max(0, Math.floor(entry.criticalDirectHits ?? 0)),
+    );
+    return sum + directHits + criticalHits;
+  }, 0);
+}
+
+function settleSkywardCrystalEyeAfterPlayerAction(
+  state: BattleState,
+  logStart: number,
+  tick: number,
+): BattleState {
+  const mechanic = state.bossMechanic;
+  if (!mechanic || mechanic.kind !== "skyward_crystal_eye") return state;
+  const gain = skywardCrystalEyeStackGainFromLogs(state.log, logStart);
+  if (gain <= 0) return state;
+  let nextMechanic = mechanic;
+  for (let stack = 0; stack < gain; stack += 1) {
+    nextMechanic = addSkywardCrystalEyeHit(nextMechanic, false);
+  }
+  const actualGain = nextMechanic.disruptionStacks - mechanic.disruptionStacks;
+  if (actualGain <= 0) return { ...state, bossMechanic: nextMechanic };
+  return {
+    ...state,
+    bossMechanic: nextMechanic,
+    log: appendLog(state.log, {
+      kind: "info",
+      effect: "status",
+      text: `조준 붕괴 +${actualGain} · ${nextMechanic.disruptionStacks}/24`,
+      turn: "player",
+      t: tick,
+    }),
+  };
+}
+
+function settleSkywardCrystalEyeExposureDamage(args: {
+  before: BattleState;
+  after: BattleState;
+  tick: number;
+}): BattleState {
+  const mechanic = args.before.bossMechanic;
+  if (
+    !mechanic ||
+    mechanic.kind !== "skyward_crystal_eye" ||
+    mechanic.coreExposureTicksRemaining <= 0 ||
+    args.after.phase === "ended"
+  ) {
+    return args.after;
+  }
+  const baseDamage = Math.max(0, args.before.enemyHp - args.after.enemyHp);
+  const bonusDamage = Math.min(
+    args.after.enemyHp,
+    Math.floor(baseDamage * (SKYWARD_CRYSTAL_EYE_EXPOSURE_DAMAGE_PCT / 100)),
+  );
+  if (bonusDamage <= 0) return args.after;
+  const enemyHp = args.after.enemyHp - bonusDamage;
+  let log = appendLog(args.after.log, {
+    kind: "player_attack",
+    effect: "extra_damage",
+    text: `[핵 노출] ${bonusDamage} 추가 피해.`,
+    turn: "player",
+    t: args.tick,
+  });
+  if (enemyHp <= 0) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `${args.after.enemy.name}을(를) 쓰러뜨렸다!`,
+      turn: "player",
+      t: args.tick,
+    });
+  }
+  return {
+    ...args.after,
+    enemyHp,
+    log,
+    ...(enemyHp <= 0 ? { phase: "ended" as const, outcome: "win" as const } : {}),
+  };
+}
+
+const SKYWARD_CRYSTAL_EYE_ARTILLERY_MAGIC_DEF_PIERCE_PCT = 20;
+const SKYWARD_CRYSTAL_EYE_ARTILLERY_ACCURACY_BONUS = 250;
+
+function fireSkywardCrystalEyeAtbArtillery(args: {
+  state: BattleState;
+  player: PlayerCombat;
+  playerName: string;
+  tick: number;
+}): BattleState {
+  const mechanic = args.state.bossMechanic;
+  if (!mechanic || mechanic.kind !== "skyward_crystal_eye") return args.state;
+  const stacks = mechanic.disruptionStacks;
+  const fired = fireSkywardCrystalEyeArtillery(mechanic);
+  const basePowerPct = skywardCrystalEyeBasePowerPct(
+    args.state.enemyHp,
+    args.state.bossSharedMaxHp ?? args.state.enemy.hp,
+  );
+  let state: BattleState = {
+    ...args.state,
+    bossMechanic: fired.state,
+    log: appendLog(args.state.log, {
+      kind: "info",
+      effect: "status",
+      text: `천공 포격 발사 · 조준 붕괴 ${stacks}/24 · 위력 ${fired.powerPct}%`,
+      turn: "enemy",
+      t: args.tick,
+    }),
+  };
+  const logStart = state.log.length;
+  state = resolveForcedEnemyMagicHit(state, args.player, args.playerName, {
+    attackName: "천공 포격",
+    multiplier: (basePowerPct / 100) * (fired.powerPct / 100),
+    magicDefensePiercePct: SKYWARD_CRYSTAL_EYE_ARTILLERY_MAGIC_DEF_PIERCE_PCT,
+    accuracyBonus: SKYWARD_CRYSTAL_EYE_ARTILLERY_ACCURACY_BONUS,
+    allowCritical: false,
+    consumeEnemyAction: false,
+  }).state;
+  state = tagNewLogEntries(state, logStart, "enemy", args.tick);
+  if (fired.coreExposed && state.phase !== "ended") {
+    state = {
+      ...state,
+      log: appendLog(state.log, {
+        kind: "info",
+        effect: "status",
+        text: "완전 조준 붕괴 — 핵 노출 250틱 · 받는 피해 +25%",
+        turn: "enemy",
+        t: args.tick,
+      }),
+    };
+  }
+  return state;
 }
 
 function settleTrackingAfterPlayerAction(args: {
@@ -1358,6 +1510,15 @@ export function resolveBattleAtb(
       ),
     };
     state = applyInvincibleFortressTierToEnemy(state, enemy);
+  } else if (ctx.bossMechanic?.kind === "skyward_crystal_eye") {
+    const sharedMaxHp = Math.max(1, Math.floor(ctx.bossMechanic.sharedMaxHp));
+    state = {
+      ...state,
+      bossSharedMaxHp: sharedMaxHp,
+      bossMechanic: normalizeSkywardCrystalEyeState(
+        ctx.bossMechanic.initialState,
+      ),
+    };
   }
   if (ctx.isBoss) state = { ...state, isBoss: true };
   if (ctx.maxHpDamageMult != null) {
@@ -1378,6 +1539,15 @@ export function resolveBattleAtb(
       effect: "status",
       text: `방벽 시험 시작 — ${state.bossMechanic.activeBarrierIndex + 1}/4`,
       turn: "player",
+      t: 0,
+    });
+  }
+  if (state.bossMechanic?.kind === "skyward_crystal_eye") {
+    openingExtra.push({
+      kind: "info",
+      effect: "status",
+      text: `천공 포격 조준 시작 · ${state.bossMechanic.aimTicksRemaining}틱`,
+      turn: "enemy",
       t: 0,
     });
   }
@@ -1402,18 +1572,50 @@ export function resolveBattleAtb(
       ? state.bossMechanic.barrierTicksRemaining
       : actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));
   let fortressClockTick = 0;
+  let skywardClockTick = 0;
+  let skywardArtilleryNextTick =
+    state.bossMechanic?.kind === "skyward_crystal_eye"
+      ? state.bossMechanic.aimTicksRemaining
+      : Number.POSITIVE_INFINITY;
   let actions = 0;
   let turns = 0;
   let lastTick = 0; // 최종 hp_bar 스탬프용(루프 밖)
   while (state.phase !== "ended") {
-    const nextTick = Math.min(playerNextTick, enemyNextTick);
+    const nextTick = Math.min(
+      playerNextTick,
+      enemyNextTick,
+      skywardArtilleryNextTick,
+    );
     lastTick = nextTick;
+    if (nextTick > ATB_TICK_CAP) {
+      if (state.bossMechanic?.kind === "skyward_crystal_eye") {
+        state = {
+          ...state,
+          bossMechanic: advanceSkywardCrystalEyeTimers(
+            state.bossMechanic,
+            Math.max(0, ATB_TICK_CAP - skywardClockTick),
+          ),
+        };
+        skywardClockTick = ATB_TICK_CAP;
+      }
+      return forceAtbLoss(state, turns, consumed);
+    }
     if (
-      nextTick > ATB_TICK_CAP ||
       actions >= ATB_ACTION_GUARD ||
       turns >= (ctx.maxTurns ?? Number.POSITIVE_INFINITY)
     ) {
       return forceAtbLoss(state, turns, consumed);
+    }
+
+    if (state.bossMechanic?.kind === "skyward_crystal_eye") {
+      state = {
+        ...state,
+        bossMechanic: advanceSkywardCrystalEyeTimers(
+          state.bossMechanic,
+          Math.max(0, nextTick - skywardClockTick),
+        ),
+      };
+      skywardClockTick = nextTick;
     }
 
     if (
@@ -1459,7 +1661,34 @@ export function resolveBattleAtb(
       }
     }
 
-    const actor = nextActor1v1(playerNextTick, enemyNextTick);
+    const playerActsNow =
+      playerNextTick <= enemyNextTick &&
+      playerNextTick <= skywardArtilleryNextTick;
+    const artilleryFiresNow =
+      !playerActsNow && skywardArtilleryNextTick <= enemyNextTick;
+    if (artilleryFiresNow) {
+      actions += 1;
+      state = fireSkywardCrystalEyeAtbArtillery({
+        state,
+        player: atbPlayer,
+        playerName,
+        tick: nextTick,
+      });
+      skywardArtilleryNextTick =
+        state.bossMechanic?.kind === "skyward_crystal_eye"
+          ? nextTick + state.bossMechanic.aimTicksRemaining
+          : Number.POSITIVE_INFINITY;
+      if (state.phase !== "ended") {
+        state = {
+          ...state,
+          log: appendLog(state.log, hpBarEntry(state, nextTick)),
+        };
+      }
+      continue;
+    }
+    const actor = playerActsNow
+      ? "player"
+      : nextActor1v1(playerNextTick, enemyNextTick);
     actions += 1;
     if (actor === "player") {
       if (
@@ -1530,6 +1759,11 @@ export function resolveBattleAtb(
           state = settleInvincibleFortressAfterPlayerDamage({
             before: beforeCast,
             after: cast.state,
+            tick: nextTick,
+          });
+          state = settleSkywardCrystalEyeExposureDamage({
+            before: beforeCast,
+            after: state,
             tick: nextTick,
           });
           state = applyInvincibleFortressTierToEnemy(state, enemy);
@@ -1616,6 +1850,11 @@ export function resolveBattleAtb(
               after: state,
               tick: nextTick,
             });
+            state = settleSkywardCrystalEyeExposureDamage({
+              before: beforeAttack,
+              after: state,
+              tick: nextTick,
+            });
             state = applyInvincibleFortressTierToEnemy(state, enemy);
             state = tagNewLogEntries(state, prevLogLen, "player", nextTick);
             action = { kind: "attack" };
@@ -1639,6 +1878,11 @@ export function resolveBattleAtb(
         logStart: playerBundleStart,
         tick: nextTick,
       });
+      state = settleSkywardCrystalEyeAfterPlayerAction(
+        state,
+        playerBundleStart,
+        nextTick,
+      );
       state = consumeToxicRecoveryAfterPlayerAction(
         state,
         toxicRecoveryActionsAtStart,

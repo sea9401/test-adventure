@@ -1181,6 +1181,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   toxic_blood_lord: unexploredPersonalBossKind("toxic_blood_lord"),
   glacial_colossus: unexploredPersonalBossKind("glacial_colossus"),
   invincible_fortress: unexploredPersonalBossKind("invincible_fortress"),
+  skyward_crystal_eye: unexploredPersonalBossKind("skyward_crystal_eye"),
 };
 
 export const COOP_BOSS_KIND_IDS = Object.keys(

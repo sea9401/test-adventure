@@ -1526,3 +1526,108 @@ export function resolveForcedEnemyPhysicalHit(
     damageToHp: Math.max(0, beforePlayerHp - resolved.playerHp),
   };
 }
+
+export type ForcedEnemyMagicHitOptions = {
+  attackName: string;
+  multiplier: number;
+  magicDefensePiercePct: number;
+  accuracyBonus: number;
+  allowCritical: boolean;
+  consumeEnemyAction: boolean;
+};
+
+/**
+ * 현재 적의 마법 평타 판정을 재사용하는 독립 강제 1타. 고정 타임라인 보스기가
+ * 일반 적 행동 예약을 건드리지 않으면서 회피·마법방벽·보호막·생존 경로를 공유한다.
+ */
+export function resolveForcedEnemyMagicHit(
+  state: BattleState,
+  basePlayer: PlayerCombat,
+  playerName: string,
+  options: ForcedEnemyMagicHitOptions,
+): { state: BattleState; damageToHp: number } {
+  if (state.phase === "ended" || state.playerHp <= 0 || state.enemyHp <= 0) {
+    return { state, damageToHp: 0 };
+  }
+
+  const originalEnemy = state.enemy;
+  const originalPhase = state.phase;
+  const originalEnemyAttacksLeft = state.turn.enemyAttacksLeft;
+  const originalEnemyPhasesCompleted = state.turn.enemyPhasesCompleted;
+  const logStart = state.log.length;
+  const beforePlayerHp = state.playerHp;
+  const multiplier = Number.isFinite(options.multiplier)
+    ? Math.max(0, options.multiplier)
+    : 0;
+  const piercePct = Number.isFinite(options.magicDefensePiercePct)
+    ? Math.max(0, Math.min(100, options.magicDefensePiercePct))
+    : 0;
+  const accuracyBonus = Number.isFinite(options.accuracyBonus)
+    ? options.accuracyBonus
+    : 0;
+  const player = {
+    ...basePlayer,
+    magicDef: Math.max(
+      0,
+      Math.floor((basePlayer.magicDef ?? 0) * (1 - piercePct / 100)),
+    ),
+  };
+  const forcedEnemy: Monster = {
+    ...originalEnemy,
+    atk: Math.max(0, Math.floor(originalEnemy.atk * multiplier)),
+    atkType: "magic",
+    accuracy: (originalEnemy.accuracy ?? 0) + accuracyBonus,
+    critPct: options.allowCritical ? originalEnemy.critPct : 0,
+    bonusAttackChancePct: 0,
+    skill: undefined,
+  };
+  const prepared: BattleState = {
+    ...state,
+    enemy: forcedEnemy,
+    phase: "enemy",
+    turn: { ...state.turn, enemyAttacksLeft: 1 },
+  };
+  const resolved = resolveEnemyPhase(
+    prepared,
+    player,
+    playerName,
+    false,
+    false,
+    true,
+  );
+  const log = [
+    ...resolved.log.slice(0, logStart),
+    ...resolved.log.slice(logStart).map((entry) => {
+      if (entry.kind === "enemy_attack" && entry.text.startsWith("공격!")) {
+        return {
+          ...entry,
+          text: `${options.attackName}!${entry.text.slice("공격!".length)}`,
+          turn: "enemy" as const,
+        };
+      }
+      return entry.kind === "hp_bar" || entry.turn
+        ? entry
+        : { ...entry, turn: "enemy" as const };
+    }),
+  ];
+  const restoredTurn = options.consumeEnemyAction
+    ? resolved.turn
+    : {
+        ...resolved.turn,
+        enemyAttacksLeft: originalEnemyAttacksLeft,
+        enemyPhasesCompleted: originalEnemyPhasesCompleted,
+      };
+  return {
+    state: {
+      ...resolved,
+      enemy: originalEnemy,
+      turn: restoredTurn,
+      phase:
+        !options.consumeEnemyAction && resolved.phase !== "ended"
+          ? originalPhase
+          : resolved.phase,
+      log,
+    },
+    damageToHp: Math.max(0, beforePlayerHp - resolved.playerHp),
+  };
+}

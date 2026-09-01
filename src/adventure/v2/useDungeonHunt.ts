@@ -16,29 +16,6 @@ import type {
 } from "@/adventure/data/v2/rareMaps";
 import type { BatchReplayEntry } from "@/adventure/v2/BatchSummaryCard";
 import type { AutoHuntStopConfig } from "@/adventure/v2/autoHuntStopPolicy";
-import type { UnexploredEncounterShare } from "@/adventure/data/v2/unexploredEncounters";
-import type { UnexploredPoolId } from "@/adventure/data/v2/unexploredMonsterPools";
-import type { UnexploredRewardPercentages } from "@/adventure/data/v2/unexploredTree";
-
-export type DungeonHuntMode = "normal" | "unexplored";
-
-export type UnexploredHuntSummary = {
-  difficulty: number;
-  encounterShares: UnexploredEncounterShare[];
-  rewardPct: UnexploredRewardPercentages;
-  rareCopyChancePct: number;
-  traceEnabled: boolean;
-  traceExtraChancePct: number;
-  monsterKind?: "base" | "special";
-  poolId?: UnexploredPoolId | null;
-  grants?: Array<{
-    kind: string;
-    id: string;
-    amount: number;
-    tag: string;
-    source: string;
-  }>;
-};
 
 // hunt API 응답 — UI 기록용 + replay 용 추가 필드.
 export type HuntResultPayload = HuntResult & {
@@ -70,7 +47,6 @@ export type HuntResultPayload = HuntResult & {
   atRiskGold?: number;
   // 사냥 후 최종 보유 골드 — 공용 GameState gold 를 즉시 동기화하는 권위값.
   goldAfter?: number;
-  unexploredSummary?: UnexploredHuntSummary;
 };
 
 type HuntResponse = {
@@ -137,7 +113,6 @@ export type BatchHuntPayload = {
   mpCharges: number | null;
   playerMaxMp: number | null;
   replays?: BatchReplayEntry[];
-  unexploredSummary?: UnexploredHuntSummary;
 };
 
 type BatchHuntResponse = {
@@ -160,29 +135,6 @@ function formatDrops(
   return parts.length ? ` · 드랍 ${parts.join(", ")}` : "";
 }
 
-export function buildDungeonHuntIntent(params: {
-  floor: number;
-  outpostId?: string;
-  count?: number;
-  autoStopConfig?: AutoHuntStopConfig;
-  rareMapIid?: string | null;
-  huntMode?: DungeonHuntMode;
-}): Record<string, unknown> {
-  const huntMode = params.huntMode ?? "normal";
-  return {
-    floor: params.floor,
-    ...(params.count == null ? {} : { count: params.count }),
-    outpostId: params.outpostId,
-    ...(huntMode === "unexplored" ? { mode: "unexplored" } : {}),
-    ...(params.autoStopConfig
-      ? { autoStopConfig: params.autoStopConfig }
-      : {}),
-    ...(huntMode === "normal" && params.rareMapIid
-      ? { rareMap: params.rareMapIid }
-      : {}),
-  };
-}
-
 // 던전 사냥 상태 + 호출 hook — DungeonHunt(dev) / V2DungeonFloorView 공유.
 // stamina 는 controlled — caller 가 state/setter 보유 (전역 StaminaBar 와 sync).
 // replay step-through 폐기 후 replayDone/replayPending 도 제거 — hunt 끝나면 즉시 결과 표시.
@@ -190,13 +142,11 @@ export function useDungeonHunt({
   outpostId,
   setStamina,
   rareMapIid,
-  huntMode = "normal",
 }: {
   outpostId?: string;
   setStamina: (s: StaminaState) => void;
   // 레어맵 입장 모드 — 보유 지도 iid. 단판/일괄 hunt body 에 동봉(서버 검증·판수 차감).
   rareMapIid?: string | null;
-  huntMode?: DungeonHuntMode;
 }) {
   const [busy, setBusy] = useState(false);
   const [lastResult, setLastResult] = useState<HuntResultPayload | null>(null);
@@ -229,13 +179,12 @@ export function useDungeonHunt({
         const res = await fetch("/api/v2/dungeon/hunt", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify(buildDungeonHuntIntent({
+          body: JSON.stringify({
             floor: f,
             outpostId,
-            autoStopConfig,
-            rareMapIid,
-            huntMode,
-          })),
+            ...(autoStopConfig ? { autoStopConfig } : {}),
+            ...(rareMapIid ? { rareMap: rareMapIid } : {}),
+          }),
         });
         let json: HuntResponse | null = null;
         try {
@@ -296,7 +245,7 @@ export function useDungeonHunt({
         return null;
       }
     },
-    [outpostId, pushLog, setStamina, rareMapIid, huntMode],
+    [outpostId, pushLog, setStamina, rareMapIid],
   );
 
   // 일괄 사냥 — 서버에서 count 회를 한 트랜잭션으로 처리(한 왕복). 합산 결과 반환, 실패 시 null.
@@ -312,14 +261,13 @@ export function useDungeonHunt({
         const res = await fetch("/api/v2/dungeon/hunt", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify(buildDungeonHuntIntent({
+          body: JSON.stringify({
             floor,
             count,
             outpostId,
-            autoStopConfig,
-            rareMapIid,
-            huntMode,
-          })),
+            ...(autoStopConfig ? { autoStopConfig } : {}),
+            ...(rareMapIid ? { rareMap: rareMapIid } : {}),
+          }),
         });
         let json: BatchHuntResponse | null = null;
         try {
@@ -367,7 +315,7 @@ export function useDungeonHunt({
         setBusy(false);
       }
     },
-    [outpostId, pushLog, setStamina, rareMapIid, huntMode],
+    [outpostId, pushLog, setStamina, rareMapIid],
   );
 
   return {

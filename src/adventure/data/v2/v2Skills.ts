@@ -2422,8 +2422,6 @@ function describeTier7Mechanic(mechanic: Tier7Mechanic): string[] {
       return [
         `포획: 최종 피해 +${mechanic.captureDamagePct}% · 적중 +${mechanic.captureAccuracyPct}% · 관통 ${mechanic.capturePenetrationPct}%`,
         `추격: 추가 피해 ${mechanic.pursuitDamagePct}% · 적 행동 지연 ${mechanic.pursuitEnemyDelayPct}%`,
-        `PvP 포획: 최종 피해 +${mechanic.pvpCaptureDamagePct}% · 관통 ${mechanic.pvpCapturePenetrationPct}%`,
-        `PvP 추격: 추가 피해 ${mechanic.pvpPursuitDamagePct}% · 적 행동 지연 ${mechanic.pvpPursuitEnemyDelayPct}%`,
         `교차 적중 시 행동 가속 ${mechanic.hastePct}% · PvP ${mechanic.pvpHastePct}%`,
       ];
     case "formulaStrike":

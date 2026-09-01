@@ -57,7 +57,6 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importActual) => {
   return {
     ...actual,
     V2_EQUIPMENT_LIBERATION: true,
-    V2_UNEXPLORED: true,
   };
 });
 vi.mock("@/lib/server/v2EnsureSoloGuild", () => ({
@@ -290,7 +289,6 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
         goldGained: number;
         goldAfter: number;
         enemyName: string;
-        exploration?: unknown;
       };
     };
     expect(json.ok).toBe(true);
@@ -306,7 +304,6 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(json.result.masteryGained).toBe(1);
     expect(json.result.masteryAfter).toBe(31);
     expect(json.result.goldAfter).toBe(1000 + json.result.goldGained);
-    expect(json.result.exploration).toBeUndefined();
 
     // 세이브 권위 반영 확인.
     const char = store.get("character.v2") as { exp: number; stamina: { current: number } };
@@ -347,137 +344,6 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       ],
       expect.any(Date),
     );
-  });
-
-  it("100레벨 일반 사냥 승리 한 번을 탐사 경험치 1로 전환한다", async () => {
-    const current = store.get("character.v2") as Record<string, unknown>;
-    store.set("character.v2", { ...current, level: 100, exp: 0 });
-    overpowerSeededWarrior();
-    store.set("proficiency.v2", {
-      groups: { warrior: { tier: 4, points: 0, cumLevel: 1_000 } },
-      grown: { str: 50_000, vit: 50_000, dex: 50_000, luk: 50_000 },
-    });
-
-    const res = await POST(huntReq({ floor: 2 }));
-    const json = (await res.json()) as {
-      ok: boolean;
-      result: {
-        won: boolean;
-        expGained: number;
-        exploration?: {
-          xpGained: number;
-          xpAfter: number;
-          xpPoints: number;
-          pointsGained: number;
-        };
-      };
-    };
-
-    expect(res.status).toBe(200);
-    expect(json.result.won).toBe(true);
-    expect(json.result.exploration).toEqual({
-      xpGained: 1,
-      xpAfter: 1,
-      xpPoints: 1,
-      pointsGained: 1,
-    });
-    expect(store.get("character.v2")).toMatchObject({
-      level: 100,
-      exp: 0,
-      unexplored: {
-        explorationXp: 1,
-        explorationProgressVersion: 2,
-        xpPoints: 1,
-      },
-    });
-  });
-
-  it("100레벨 일괄 사냥은 실제 승리 수만큼 탐사 경험치를 누적한다", async () => {
-    const current = store.get("character.v2") as Record<string, unknown>;
-    store.set("character.v2", {
-      ...current,
-      level: 100,
-      exp: 0,
-      adventureSupport: { expiresAt: Date.now() + 60_000 },
-    });
-    overpowerSeededWarrior();
-    store.set("proficiency.v2", {
-      groups: { warrior: { tier: 4, points: 0, cumLevel: 1_000 } },
-      grown: { str: 50_000, vit: 50_000, dex: 50_000, luk: 50_000 },
-    });
-
-    const res = await POST(huntReq({ floor: 2, count: 2 }));
-    const json = (await res.json()) as {
-      batch: {
-        completed: number;
-        wins: number;
-        totalExp: number;
-        exploration?: {
-          xpGained: number;
-          xpAfter: number;
-          xpPoints: number;
-          pointsGained: number;
-        };
-      };
-    };
-
-    expect(res.status).toBe(200);
-    expect(json.batch).toMatchObject({ completed: 2, wins: 2 });
-    expect(json.batch.exploration).toEqual({
-      xpGained: 2,
-      xpAfter: 2,
-      xpPoints: 1,
-      pointsGained: 1,
-    });
-  });
-
-  it("미개척지 승리는 v1 도감에 없는 몬스터 이벤트로 사냥을 중단하지 않는다", async () => {
-    const current = store.get("character.v2") as Record<string, unknown>;
-    store.set("character.v2", {
-      ...current,
-      level: 100,
-      exp: 0,
-      unexplored: { selectedNodeIds: ["start"] },
-    });
-    overpowerSeededWarrior();
-    store.set("proficiency.v2", {
-      groups: { warrior: { tier: 4, points: 0, cumLevel: 1_000 } },
-      caps: {
-        str: 1_000_000,
-        vit: 1_000_000,
-        dex: 1_000_000,
-        int: 1_000_000,
-        spi: 1_000_000,
-        luk: 1_000_000,
-      },
-      grown: {
-        str: 1_000_000,
-        vit: 1_000_000,
-        dex: 1_000_000,
-        int: 1_000_000,
-        spi: 1_000_000,
-        luk: 1_000_000,
-      },
-    });
-    recordCodexMasteryGameplayBatch.mockImplementationOnce(
-      async (_executor, _userId, events) => {
-        const unknown = events.find(
-          (event) => !CODEX_MASTERY_CATALOG.get(event.category, event.entryId),
-        );
-        if (unknown) throw new Error(`unknown_entry:${unknown.entryId}`);
-        return [];
-      },
-    );
-
-    const response = await POST(huntReq({ mode: "unexplored" }));
-    const json = (await response.json()) as {
-      result: { won: boolean; enemyName: string };
-    };
-
-    expect(response.status).toBe(200);
-    expect(json.result.won).toBe(true);
-    const events = recordCodexMasteryGameplayBatch.mock.calls[0]?.[2] ?? [];
-    expect(events.filter((event) => event.category === "monster")).toEqual([]);
   });
 
   it.each(["survivor", "mutant"] as const)(

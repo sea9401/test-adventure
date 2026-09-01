@@ -52,14 +52,6 @@ import {
   STORM_EXPEDITION_ROUTE_MATERIAL_ID,
 } from "./stormExpeditionRewards";
 import type { StormExpeditionRouteId } from "./stormExpedition";
-import {
-  UNEXPLORED_BASE_DROP_MATERIALS,
-  UNEXPLORED_POOL_MATERIALS,
-} from "./unexploredRewards";
-import {
-  UNEXPLORED_POOL_BY_ID,
-  type UnexploredPoolId,
-} from "./unexploredMonsterPools";
 
 // 활동 내역은 화면에 보이는 티어 기준으로 제한한다(표시 4T = 내부 카탈로그 10~12단계).
 export const GUILD_WORKSHOP_ACTIVITY_MIN_DISPLAY_TIER = 4;
@@ -143,30 +135,6 @@ export type GuildWorkshopRecipeId =
   | "crafted_berserker_husk"
   | "crafted_oblivion_ring"
   | "crafted_painless_relic"
-  | "pioneer_iron_wall_armor"
-  | "pioneer_iron_guard_gloves"
-  | "pioneer_mana_barrier_core"
-  | "pioneer_barrier_woven_armor"
-  | "pioneer_regrowth_ring"
-  | "pioneer_pulsing_bio_armor"
-  | "pioneer_bloodlight_gauntlets"
-  | "pioneer_berserk_boots"
-  | "pioneer_refraction_core"
-  | "pioneer_focused_crystal_ring"
-  | "pioneer_tracefree_boots"
-  | "pioneer_flawless_aim_gloves"
-  | "specialty_overheat_tracking_gloves"
-  | "specialty_shadow_leap_boots"
-  | "specialty_orbit_calculation_ring"
-  | "specialty_toxic_blood_erosion_armor"
-  | "specialty_coagulated_gauntlets"
-  | "specialty_lord_pulse_ring"
-  | "specialty_colossus_wall_armor"
-  | "specialty_frostbreaker_boots"
-  | "specialty_icewall_core_necklace"
-  | "specialty_deep_alchemy_staff"
-  | "specialty_mana_cycle_robe"
-  | "specialty_abyss_catalyst_ring"
   | "storm_wreckage_greatsword"
   | "storm_gale_bow"
   | "storm_gale_dagger"
@@ -183,8 +151,6 @@ export type GuildWorkshopRecipe = {
   materialCost?: Partial<Record<GuildWorkshopMaterialId, number>>;
   /** 보스·일반 몬스터 등 특정 콘텐츠에서 얻는 테마 제작 재료. */
   specialMaterialCost?: Partial<Record<string, number>>;
-  /** 표시 티어 공통 수수료 대신 적용하는 일반 제작 1회 수수료. */
-  goldCost?: number;
   /** 개량 제작에 1개 소모하는 하위 장비. 명장 제작에서도 수량은 늘지 않는다. */
   baseEquipmentId?: V2EquipmentId;
   profession: ArtisanProfessionId;
@@ -232,16 +198,7 @@ export function guildWorkshopResourceCostForTier(
   tier: GuildWorkshopResourceTier,
   profile: GuildWorkshopResourceProfile,
 ): Partial<Record<ProductionKind, number>> {
-  return guildWorkshopResourceCostForTotal(
-    GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER[tier],
-    profile,
-  );
-}
-
-function guildWorkshopResourceCostForTotal(
-  total: number,
-  profile: GuildWorkshopResourceProfile,
-): Partial<Record<ProductionKind, number>> {
+  const total = GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER[tier];
   const woodSharePct = GUILD_WORKSHOP_WOOD_SHARE_PCT_BY_PROFILE[profile];
   const wood = Math.round((total * woodSharePct) / 500) * 5;
   return { crop: wood, ore: total - wood };
@@ -370,15 +327,9 @@ export function guildWorkshopRecipeGoldCost(
   recipe: GuildWorkshopRecipe,
   mode: GuildWorkshopCraftMode = "normal",
 ): number {
-  const override = Number(recipe.goldCost);
-  const base = recipe.goldCost != null && Number.isFinite(override)
-    ? Math.max(0, Math.floor(override))
-    : GUILD_WORKSHOP_GOLD_COST_BY_DISPLAY_TIER[
-      v2EquipCatalogTierToDisplayTier(V2_EQUIPMENT[recipe.equipmentId].tier)
-    ];
-  return (
-    base *
-    (mode === "masterwork" ? GUILD_WORKSHOP_MASTERWORK_GOLD_COST_MULT : 1)
+  return guildWorkshopCraftGoldCostForTier(
+    V2_EQUIPMENT[recipe.equipmentId].tier,
+    mode,
   );
 }
 
@@ -444,69 +395,6 @@ function keycard5tRecipe(
     requiredSmithyLevel: 5,
     artisanXp: 280,
     note: `5T 키카드 · ${note}`,
-  };
-}
-
-function pioneerRecipe(
-  id: GuildWorkshopRecipeId,
-  equipmentId: V2EquipmentId,
-  poolId: UnexploredPoolId,
-  resourceProfile: GuildWorkshopResourceProfile,
-  requiredArtisanLevel: number,
-  artisanXp: number,
-  commonMaterialId: string,
-  rareMaterialId: string | null,
-  note: string,
-): GuildWorkshopRecipe {
-  return {
-    id,
-    equipmentId,
-    resourceProfile,
-    cost: guildWorkshopResourceCostForTier(16, resourceProfile),
-    materialCost: {
-      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 4,
-      [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 4,
-    },
-    specialMaterialCost: {
-      [UNEXPLORED_POOL_BY_ID[poolId].materialId]: 8,
-      [commonMaterialId]: 10,
-      ...(rareMaterialId ? { [rareMaterialId]: 1 } : {}),
-    },
-    profession: "blacksmith",
-    requiredArtisanLevel,
-    requiredSmithyLevel: 5,
-    artisanXp,
-    note: `미개척지 · 개척자 · ${note}`,
-  };
-}
-
-function unexploredSpecialtyRecipe(
-  id: GuildWorkshopRecipeId,
-  equipmentId: V2EquipmentId,
-  setName: string,
-  resourceProfile: GuildWorkshopResourceProfile,
-  requiredArtisanLevel: 20 | 21 | 22,
-  artisanXp: 450 | 475 | 500,
-  specialMaterialCost: Partial<Record<string, number>>,
-  note: string,
-): GuildWorkshopRecipe {
-  return {
-    id,
-    equipmentId,
-    resourceProfile,
-    cost: guildWorkshopResourceCostForTotal(600, resourceProfile),
-    materialCost: {
-      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 6,
-      [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 6,
-      [GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel]: 2,
-    },
-    specialMaterialCost,
-    goldCost: 500_000,
-    profession: "blacksmith",
-    requiredArtisanLevel,
-    requiredSmithyLevel: 5,
-    artisanXp,
-    note: `미개척지 · 특화 세트 · ${setName} · ${note}`,
   };
 }
 
@@ -1292,187 +1180,6 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     MONSTER_CRAFT_MATERIAL_ID.trenchApostlePrayerCore,
     "상태이상 피해 감소 목걸이",
   ),
-  pioneer_iron_wall_armor: pioneerRecipe(
-    "pioneer_iron_wall_armor", "v2_pioneer_iron_wall_armor", "iron_legion",
-    "guard", 13, 300, "v2_unexplored_star_sea_shell", null, "철갑 군단 기본형",
-  ),
-  pioneer_iron_guard_gloves: pioneerRecipe(
-    "pioneer_iron_guard_gloves", "v2_pioneer_iron_guard_gloves", "iron_legion",
-    "guard", 13, 300, "v2_unexplored_star_sea_shell", "v2_unexplored_star_sea_core", "철갑 군단 집중형",
-  ),
-  pioneer_mana_barrier_core: pioneerRecipe(
-    "pioneer_mana_barrier_core", "v2_pioneer_mana_barrier_core", "mana_barrier",
-    "focus", 14, 320, "v2_unexplored_red_stardust", null, "마력 방벽체 기본형",
-  ),
-  pioneer_barrier_woven_armor: pioneerRecipe(
-    "pioneer_barrier_woven_armor", "v2_pioneer_barrier_woven_armor", "mana_barrier",
-    "focus", 14, 320, "v2_unexplored_red_stardust", "v2_unexplored_red_giant_ritual_tool", "마력 방벽체 집중형",
-  ),
-  pioneer_regrowth_ring: pioneerRecipe(
-    "pioneer_regrowth_ring", "v2_pioneer_regrowth_ring", "regenerating_swarm",
-    "focus", 15, 340, "v2_unexplored_void_fang", null, "재생 군체 기본형",
-  ),
-  pioneer_pulsing_bio_armor: pioneerRecipe(
-    "pioneer_pulsing_bio_armor", "v2_pioneer_pulsing_bio_armor", "regenerating_swarm",
-    "focus", 15, 340, "v2_unexplored_void_fang", "v2_unexplored_compressed_void_sac", "재생 군체 집중형",
-  ),
-  pioneer_bloodlight_gauntlets: pioneerRecipe(
-    "pioneer_bloodlight_gauntlets", "v2_pioneer_bloodlight_gauntlets", "red_berserkers",
-    "fury", 16, 360, "v2_unexplored_red_stardust", null, "붉은 광전대 기본형",
-  ),
-  pioneer_berserk_boots: pioneerRecipe(
-    "pioneer_berserk_boots", "v2_pioneer_berserk_boots", "red_berserkers",
-    "fury", 16, 360, "v2_unexplored_red_stardust", "v2_unexplored_red_giant_ritual_tool", "붉은 광전대 집중형",
-  ),
-  pioneer_refraction_core: pioneerRecipe(
-    "pioneer_refraction_core", "v2_pioneer_refraction_core", "crystal_artillery",
-    "focus", 17, 380, "v2_unexplored_observation_lens", null, "수정 포격대 기본형",
-  ),
-  pioneer_focused_crystal_ring: pioneerRecipe(
-    "pioneer_focused_crystal_ring", "v2_pioneer_focused_crystal_ring", "crystal_artillery",
-    "focus", 17, 380, "v2_unexplored_observation_lens", "v2_unexplored_dead_star_eye", "수정 포격대 집중형",
-  ),
-  pioneer_tracefree_boots: pioneerRecipe(
-    "pioneer_tracefree_boots", "v2_pioneer_tracefree_boots", "precision_hunters",
-    "pursuit", 18, 400, "v2_unexplored_comet_feather", null, "정밀 사냥단 기본형",
-  ),
-  pioneer_flawless_aim_gloves: pioneerRecipe(
-    "pioneer_flawless_aim_gloves", "v2_pioneer_flawless_aim_gloves", "precision_hunters",
-    "pursuit", 18, 400, "v2_unexplored_comet_feather", "v2_unexplored_faded_star_needle", "정밀 사냥단 집중형",
-  ),
-  specialty_overheat_tracking_gloves: unexploredSpecialtyRecipe(
-    "specialty_overheat_tracking_gloves",
-    "v2_unexplored_overheat_tracking_gloves",
-    "추적 병기",
-    "pursuit",
-    20,
-    450,
-    { [UNEXPLORED_POOL_BY_ID.runaway_machines.materialId]: 18 },
-    "과열 동력핵 장갑",
-  ),
-  specialty_shadow_leap_boots: unexploredSpecialtyRecipe(
-    "specialty_shadow_leap_boots",
-    "v2_unexplored_shadow_leap_boots",
-    "추적 병기",
-    "pursuit",
-    21,
-    475,
-    { [UNEXPLORED_POOL_BY_ID.shadow_stalkers.materialId]: 18 },
-    "그림자 피막 신발",
-  ),
-  specialty_orbit_calculation_ring: unexploredSpecialtyRecipe(
-    "specialty_orbit_calculation_ring",
-    "v2_unexplored_orbit_calculation_ring",
-    "추적 병기",
-    "pursuit",
-    22,
-    500,
-    {
-      [UNEXPLORED_POOL_BY_ID.runaway_machines.materialId]: 12,
-      [UNEXPLORED_POOL_BY_ID.shadow_stalkers.materialId]: 12,
-    },
-    "결합 핵심 반지",
-  ),
-  specialty_toxic_blood_erosion_armor: unexploredSpecialtyRecipe(
-    "specialty_toxic_blood_erosion_armor",
-    "v2_unexplored_toxic_blood_erosion_armor",
-    "독혈 군주",
-    "corrosion",
-    20,
-    450,
-    { [UNEXPLORED_POOL_BY_ID.venom_colony.materialId]: 18 },
-    "농축 독낭 갑옷",
-  ),
-  specialty_coagulated_gauntlets: unexploredSpecialtyRecipe(
-    "specialty_coagulated_gauntlets",
-    "v2_unexplored_coagulated_gauntlets",
-    "독혈 군주",
-    "corrosion",
-    21,
-    475,
-    { [UNEXPLORED_POOL_BY_ID.bloodstained_dead.materialId]: 18 },
-    "응고 혈액 장갑",
-  ),
-  specialty_lord_pulse_ring: unexploredSpecialtyRecipe(
-    "specialty_lord_pulse_ring",
-    "v2_unexplored_lord_pulse_ring",
-    "독혈 군주",
-    "corrosion",
-    22,
-    500,
-    {
-      [UNEXPLORED_POOL_BY_ID.venom_colony.materialId]: 12,
-      [UNEXPLORED_POOL_BY_ID.bloodstained_dead.materialId]: 12,
-    },
-    "결합 핵심 반지",
-  ),
-  specialty_colossus_wall_armor: unexploredSpecialtyRecipe(
-    "specialty_colossus_wall_armor",
-    "v2_unexplored_colossus_wall_armor",
-    "빙하 거수",
-    "guard",
-    20,
-    450,
-    { [UNEXPLORED_POOL_BY_ID.crushing_colossi.materialId]: 18 },
-    "거수 골편 갑옷",
-  ),
-  specialty_frostbreaker_boots: unexploredSpecialtyRecipe(
-    "specialty_frostbreaker_boots",
-    "v2_unexplored_frostbreaker_boots",
-    "빙하 거수",
-    "guard",
-    21,
-    475,
-    { [UNEXPLORED_POOL_BY_ID.frozen_legion.materialId]: 18 },
-    "혹한 결정 신발",
-  ),
-  specialty_icewall_core_necklace: unexploredSpecialtyRecipe(
-    "specialty_icewall_core_necklace",
-    "v2_unexplored_icewall_core_necklace",
-    "빙하 거수",
-    "guard",
-    22,
-    500,
-    {
-      [UNEXPLORED_POOL_BY_ID.crushing_colossi.materialId]: 12,
-      [UNEXPLORED_POOL_BY_ID.frozen_legion.materialId]: 12,
-    },
-    "결합 핵심 목걸이",
-  ),
-  specialty_deep_alchemy_staff: unexploredSpecialtyRecipe(
-    "specialty_deep_alchemy_staff",
-    "v2_unexplored_deep_alchemy_staff",
-    "심층 마도",
-    "focus",
-    20,
-    450,
-    { [UNEXPLORED_POOL_BY_ID.runaway_machines.materialId]: 18 },
-    "과열 동력핵 지팡이",
-  ),
-  specialty_mana_cycle_robe: unexploredSpecialtyRecipe(
-    "specialty_mana_cycle_robe",
-    "v2_unexplored_mana_cycle_robe",
-    "심층 마도",
-    "focus",
-    21,
-    475,
-    { [UNEXPLORED_POOL_BY_ID.frozen_legion.materialId]: 18 },
-    "혹한 결정 예복",
-  ),
-  specialty_abyss_catalyst_ring: unexploredSpecialtyRecipe(
-    "specialty_abyss_catalyst_ring",
-    "v2_unexplored_abyss_catalyst_ring",
-    "심층 마도",
-    "focus",
-    22,
-    500,
-    {
-      [UNEXPLORED_POOL_BY_ID.runaway_machines.materialId]: 8,
-      [UNEXPLORED_POOL_BY_ID.venom_colony.materialId]: 8,
-      [UNEXPLORED_POOL_BY_ID.frozen_legion.materialId]: 8,
-    },
-    "삼중 촉매 반지",
-  ),
   storm_wreckage_greatsword: stormExpeditionRecipe(
     "storm_wreckage_greatsword",
     "v2_storm_wreckage_greatsword",
@@ -1972,8 +1679,6 @@ export function guildWorkshopMaterialName(id: string): string {
     (MONSTER_CRAFT_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     (COOP_REWARD_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     (STORM_EXPEDITION_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
-    (UNEXPLORED_BASE_DROP_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
-    (UNEXPLORED_POOL_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     id
   );
 }

@@ -10,9 +10,6 @@ import type { SwordShadowState } from "./shadowBladeCombat";
 import type { RuinChargeState } from "./ruinBladeCombat";
 import type { CrossFamily } from "./skyAscendantCombat";
 import type { FormulaState } from "./primordialSageCombat";
-import type { InvincibleFortressBattleState } from "./invincibleFortressMechanic";
-import type { SkywardCrystalEyeBattleState } from "./skywardCrystalEyeMechanic";
-import type { ImmortalBerserkerBattleState } from "./immortalBerserkerMechanic";
 
 export type Tier7BattleResources = {
   swordShadow?: SwordShadowState;
@@ -86,17 +83,6 @@ export type BattleLogEntry =
        * UI가 일반적인 "기본 공격" 대신 강제 행동임을 설명할 때만 사용한다.
        */
       forcedBySkill?: string;
-      /**
-       * 이 로그가 대표하는 플레이어 직접 타격 수. 미지정 과거 player_attack 로그는
-       * 1타로 해석한다. 피해 문자열 파싱 없이 보스 기믹이 다단 공격을 집계할 때 사용한다.
-       */
-      directHits?: number;
-      /** directHits 중 치명타로 적중한 수. 보스 기믹이 표시 문자열 파싱 없이 사용한다. */
-      criticalDirectHits?: number;
-      /** 적 공격이 일반 보호막을 통과해 실제 HP에 준 피해. 보스 기믹이 문자열 없이 판정한다. */
-      enemyHpDamage?: number;
-      /** 이 적 공격이 주기형 heavy_blow를 발동했는지 나타내는 정형 메타데이터. */
-      heavyBlowFired?: boolean;
       /**
        * ATB 타임라인 틱(이 행동이 발생한 시각). resolveBattleAtb / resolveBattlePvPAtb 가
        * 찍는다. UI 가 일정 틱 윈도우(ATB_LOG_WINDOW_TICKS) 단위로 로그를 묶어 한 박스에
@@ -409,77 +395,7 @@ export type BattleState = {
   maxHpDamageMult?: number;
   /** ATB에서는 적 대상 디버프 지속시간을 플레이어 차례가 아닌 적 행동 횟수로 소모한다. */
   usesAtb?: boolean;
-  /** 호출부가 명시적으로 활성화한 보스 전용 전투 상태. */
-  bossMechanic?: BossMechanicBattleState;
-  /** 현재 공격 시도에서 발생한 수정안 포격의 정형 결과. 영속 상태와 분리된 리플레이/감사용. */
-  skywardCrystalEyeArtilleryEvents?: import("./skywardCrystalEyeMechanic").SkywardCrystalEyeArtilleryEvent[];
-  /** 시도 시작 잔여 HP와 별개인 협동/개인 보스의 고정 공유 최대 HP. */
-  bossSharedMaxHp?: number;
 };
-
-export type BossMechanicContext =
-  | {
-      kind: "tracking_weapon";
-      initialThreat: number;
-    }
-  | {
-      kind: "toxic_blood_lord";
-    }
-  | {
-      kind: "glacial_colossus";
-    }
-  | {
-      kind: "invincible_fortress";
-      sharedMaxHp: number;
-      initialState: InvincibleFortressBattleState;
-    }
-  | {
-      kind: "skyward_crystal_eye";
-      sharedMaxHp: number;
-      initialState: SkywardCrystalEyeBattleState;
-    }
-  | {
-      kind: "immortal_berserker";
-      sharedMaxHp: number;
-      initialState: ImmortalBerserkerBattleState;
-    };
-
-export type TrackingWeaponBattleState = {
-  kind: "tracking_weapon";
-  trackingThreat: number;
-  trackingCounterCount: number;
-  trackingCounterDamage: number;
-};
-
-export type ToxicBloodBattleState = {
-  kind: "toxic_blood_lord";
-  toxicBloodStacks: number;
-  toxicRecoveryLockActions: number;
-  toxicExplosionCount: number;
-  toxicDamageTaken: number;
-};
-
-export type GlacialColossusBattleState = {
-  kind: "glacial_colossus";
-  glacialChillStacks: number;
-  glacialFreezePending: 0 | 1;
-  glacialFreezeCount: number;
-  glacialSkippedActionCount: number;
-};
-
-export type ImmortalBerserkerCombatState = ImmortalBerserkerBattleState & {
-  immortalBodyDamage: number;
-  immortalHealing: number;
-  immortalRevivalCount: number;
-};
-
-export type BossMechanicBattleState =
-  | TrackingWeaponBattleState
-  | ToxicBloodBattleState
-  | GlacialColossusBattleState
-  | InvincibleFortressBattleState
-  | SkywardCrystalEyeBattleState
-  | ImmortalBerserkerCombatState;
 
 /** 보스에 대한 %HP 비례 추가 데미지(충돌파/천명) 감산 계수. 1.0 = 그대로, 0.1 = 1/10. */
 export const BOSS_PCT_HP_DAMAGE_MULT = 0.1;

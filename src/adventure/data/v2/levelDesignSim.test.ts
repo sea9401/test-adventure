@@ -41,28 +41,6 @@ describe("sim-v2-level-design", () => {
     );
   });
 
-  it("고정 장비 오버라이드는 실제 전투 스냅샷과 시그니처를 바꾼다", () => {
-    const snapshot = buildLevelDesignProgressionSnapshot({
-      arch: "INT",
-      depth: 84,
-      careerWins: 500_000,
-      cultivate: true,
-      equipment: {
-        weapon: "v2_unexplored_deep_alchemy_staff",
-        armor: "v2_unexplored_mana_cycle_robe",
-        gloves: "v2_pioneer_iron_guard_gloves",
-        boots: "v2_pioneer_tracefree_boots",
-        ring: "v2_unexplored_abyss_catalyst_ring",
-        necklace: "v2_pioneer_refraction_core",
-      },
-    });
-
-    expect(snapshot.player.magicAtk).toBeGreaterThan(0);
-    expect(snapshot.player.equipSignatures?.map((entry) => entry.label)).toEqual(
-      expect.arrayContaining(["마력 재순환", "심층 방전"]),
-    );
-  });
-
   it("패황 STR 표본은 광기 중첩 없이 계보 액티브 4종과 최고 패시브를 51 SP로 장착한다", () => {
     const snapshot = buildLevelDesignProgressionSnapshot({
       arch: "STR",

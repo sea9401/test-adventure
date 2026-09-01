@@ -350,7 +350,7 @@ export function V2MasteryTowerView({
               </div>
 
               {cooldownSeconds > 0 && (
-                <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:bg-zinc-950 dark:text-amber-200">
+                <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
                   재입장 대기 중 · {cooldownSeconds}초 후 시작 위치 선택 가능
                 </p>
               )}
@@ -406,7 +406,7 @@ export function V2MasteryTowerView({
                         : ""}
                     </p>
                     {targetGuardian.gimmickDescription && (
-                      <p className="rounded-md bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800 dark:bg-zinc-950 dark:text-amber-200">
+                      <p className="rounded-md bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
                         {targetGuardian.gimmickDescription}
                       </p>
                     )}

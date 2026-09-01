@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Inset } from "@/components/ui/Inset";
 import { StatusBanner } from "@/components/ui/StatusBanner";
-import { SURFACE_ACCENT } from "@/components/ui/surfaces";
 import { TabBar } from "@/components/ui/TabBar";
 import { TextInput } from "@/components/ui/TextInput";
 
@@ -52,14 +51,6 @@ function PreviewPanel() {
           ))}
         </div>
       </Card>
-      <div className={`${SURFACE_ACCENT} p-3 text-sm`}>
-        <strong className="text-amber-800 dark:text-amber-200">
-          강조 표면
-        </strong>
-        <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-          다크모드에서는 중립 배경과 의미색 테두리로 강조합니다.
-        </p>
-      </div>
       <div className="flex flex-wrap gap-2">
         <Button variant="primary">주요 행동</Button>
         <Button variant="secondary">보조 행동</Button>

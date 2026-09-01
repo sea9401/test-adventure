@@ -60,7 +60,7 @@ export function StancePicker({
               onClick={() => onChange(o.id)}
               className={`rounded-md border p-3 text-left transition-colors ${
                 active
-                  ? "border-sky-500 bg-sky-50 dark:border-sky-400 dark:bg-zinc-800"
+                  ? "border-sky-500 bg-sky-50 dark:border-sky-400 dark:bg-sky-950/40"
                   : "border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
               }`}
             >

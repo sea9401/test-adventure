@@ -5,8 +5,8 @@ import {
   coopBossDifficultyOf,
   COOP_TIER_LABEL,
   COOP_TIER_ORDER,
+  type CoopBossKindId,
   type CoopRewardTier,
-  type StandardCoopBossKindId,
 } from "./coopBosses";
 import {
   V2_EQUIPMENT,
@@ -23,7 +23,7 @@ export const COOP_KILLING_BLOW_NORMAL_COIN = 5;
 export const COOP_KILLING_BLOW_HARD_COIN = 10;
 export const COOP_KILLING_BLOW_MATERIAL_COUNT = 1;
 
-export const COOP_BOSS_MATERIAL_ID: Record<StandardCoopBossKindId, string> = {
+export const COOP_BOSS_MATERIAL_ID: Record<CoopBossKindId, string> = {
   mountain_chief: "v2_coop_mountain_claw",
   mountain_chief_hard: "v2_coop_mountain_trace",
   abyssal_tyrant: "v2_coop_abyssal_scale",
@@ -34,7 +34,7 @@ export const COOP_BOSS_MATERIAL_ID: Record<StandardCoopBossKindId, string> = {
   void_priest: "v2_coop_void_relic",
 };
 
-export const COOP_EQUIPMENT_BOX_ID: Record<StandardCoopBossKindId, string> = {
+export const COOP_EQUIPMENT_BOX_ID: Record<CoopBossKindId, string> = {
   mountain_chief: "v2_coop_mountain_equipment_box",
   mountain_chief_hard: "v2_coop_mountain_hard_equipment_box",
   abyssal_tyrant: "v2_coop_abyssal_equipment_box",
@@ -55,10 +55,7 @@ export type CoopEquipmentBoxDef = {
   itemIds?: readonly V2EquipmentId[];
 };
 
-export const COOP_EQUIPMENT_BOX: Record<
-  StandardCoopBossKindId,
-  CoopEquipmentBoxDef
-> = {
+export const COOP_EQUIPMENT_BOX: Record<CoopBossKindId, CoopEquipmentBoxDef> = {
   mountain_chief: {
     id: COOP_EQUIPMENT_BOX_ID.mountain_chief,
     name: "1T 장비 상자",
@@ -174,7 +171,7 @@ export const COOP_ALL_EQUIPMENT_BOXES: readonly CoopEquipmentBoxDef[] = [
 ];
 
 export const COOP_BOSS_MATERIAL: Record<
-  StandardCoopBossKindId,
+  CoopBossKindId,
   { id: string; name: string; description: string }
 > = {
   mountain_chief: {
@@ -236,7 +233,7 @@ export type CoopKillingBlowReward = {
 
 /** 기여 등급과 별도로 처치 확정타를 넣은 한 명에게 즉시 지급하는 소액 보상. */
 export function coopKillingBlowReward(
-  boss: StandardCoopBossKindId,
+  boss: CoopBossKindId,
 ): CoopKillingBlowReward {
   const hard = coopBossDifficultyOf(boss) === "hard";
   const material = COOP_BOSS_MATERIAL[boss];
@@ -300,7 +297,7 @@ export const COOP_HARD_EXTRA_REWARD_RULES: Record<
 };
 
 export function coopExtraRewardRuleFor(
-  boss: StandardCoopBossKindId,
+  boss: CoopBossKindId,
   tier: CoopRewardTier,
 ): CoopExtraRewardRule {
   return coopBossDifficultyOf(boss) === "hard"
@@ -318,7 +315,7 @@ export type CoopExtraRewardRoll = {
 };
 
 export function rollCoopExtraRewards(
-  boss: StandardCoopBossKindId,
+  boss: CoopBossKindId,
   tier: CoopRewardTier,
   rng: () => number,
 ): CoopExtraRewardRoll {
@@ -336,9 +333,7 @@ export function rollCoopExtraRewards(
   };
 }
 
-export function coopExtraRewardDropText(
-  boss: StandardCoopBossKindId,
-): string[] {
+export function coopExtraRewardDropText(boss: CoopBossKindId): string[] {
   const material = COOP_BOSS_MATERIAL[boss];
   const box = COOP_EQUIPMENT_BOX[boss];
   return COOP_TIER_ORDER.map((tier) => {
@@ -356,11 +351,9 @@ export function coopExtraRewardDropText(
 
 export function parseCoopEquipmentBoxId(
   value: unknown,
-): StandardCoopBossKindId | null {
+): CoopBossKindId | null {
   if (typeof value !== "string") return null;
-  for (const boss of Object.keys(
-    COOP_EQUIPMENT_BOX_ID,
-  ) as StandardCoopBossKindId[]) {
+  for (const boss of Object.keys(COOP_EQUIPMENT_BOX_ID) as CoopBossKindId[]) {
     if (COOP_EQUIPMENT_BOX_ID[boss] === value) return boss;
   }
   return null;
@@ -394,7 +387,7 @@ export function rollCoopEquipmentBoxDefItem(
 }
 
 export function rollCoopEquipmentBoxItem(
-  boss: StandardCoopBossKindId,
+  boss: CoopBossKindId,
   rng: () => number,
 ): V2EquipmentId | null {
   return rollCoopEquipmentBoxDefItem(COOP_EQUIPMENT_BOX[boss], rng);

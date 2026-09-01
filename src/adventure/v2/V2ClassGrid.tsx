@@ -227,7 +227,7 @@ export function V2ClassGrid({
               onClick={() => setSelected(job)}
               className={`relative flex flex-col items-center gap-1 rounded-xl border px-2 py-3 text-center transition ${
                 isSel
-                  ? "border-sky-400 bg-sky-50 dark:border-sky-500 dark:bg-zinc-800"
+                  ? "border-sky-400 bg-sky-50 dark:border-sky-500 dark:bg-sky-950/40"
                   : "border-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/50 dark:hover:bg-zinc-800/60"
               }`}
             >

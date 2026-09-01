@@ -1,19 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { V2DungeonList } from "@/adventure/v2/V2DungeonList";
 import { rareMapEntryHref } from "@/adventure/v2/dungeonNavigation";
-import { V2_UNEXPLORED } from "@/adventure/data/v2/coreLoopConfig";
-import type { UnexploredClientSnapshot } from "@/adventure/v2/unexploredTreeModel";
 
 // /battle/dungeon — 무한 프론티어 사냥터 목록.
 // 자동 사냥(오프라인 세션) 중이면 목록 대신 사냥 중인 층으로 바로 입장한다 — 거기서 정지 가능.
 export default function DungeonListPage() {
   const router = useRouter();
-  const [unexploredSnapshot, setUnexploredSnapshot] =
-    useState<UnexploredClientSnapshot | null>(null);
   const {
     frontierDepth,
     offlineHunt,
@@ -37,23 +33,6 @@ export default function DungeonListPage() {
       router.replace(`/battle/dungeon/${autoHuntDepth}`);
     }
   }, [autoHuntDepth, router]);
-
-  useEffect(() => {
-    if (!V2_UNEXPLORED) return;
-    const controller = new AbortController();
-    void fetch("/api/v2/unexplored", { signal: controller.signal })
-      .then(async (response) => {
-        const data = (await response.json().catch(() => null)) as {
-          ok?: boolean;
-          snapshot?: UnexploredClientSnapshot;
-        } | null;
-        if (response.ok && data?.ok && data.snapshot) {
-          setUnexploredSnapshot(data.snapshot);
-        }
-      })
-      .catch(() => {});
-    return () => controller.abort();
-  }, []);
   if (autoHuntDepth != null) return null;
 
   return (
@@ -67,8 +46,6 @@ export default function DungeonListPage() {
       playerJobTier={viewerJobTier}
       initialOpenDepth={initialOpenDepth}
       onSelectRareMap={(m) => router.push(rareMapEntryHref(m))}
-      unexploredSnapshot={unexploredSnapshot}
-      onSelectUnexplored={() => router.push("/battle/dungeon/unexplored")}
     />
   );
 }

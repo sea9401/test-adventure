@@ -437,8 +437,8 @@ export function V2LoadoutPresetsPanel({
           aria-live="polite"
           className={`mt-2 flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium ${
             feedback.tone === "success"
-              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-zinc-950 dark:text-emerald-300"
-              : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-zinc-950 dark:text-rose-300"
+              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+              : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
           }`}
         >
           {feedback.tone === "success" ? (
@@ -573,7 +573,7 @@ export function LoadoutPresetAdjustment({
       </div>
 
       {autoRemoved.length > 0 && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-800 dark:border-amber-800 dark:bg-zinc-950 dark:text-amber-200">
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
           <strong className="block font-semibold">자동 맞춤 제외</strong>
           <ul className="mt-1 space-y-0.5">
             {autoRemoved.map((skillId) => {

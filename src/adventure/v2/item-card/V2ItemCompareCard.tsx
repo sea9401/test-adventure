@@ -445,7 +445,7 @@ export function V2ItemCompareCard({
         )}
 
         {equip?.disabledReason && (
-          <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs font-medium text-amber-800 dark:border-amber-800 dark:bg-zinc-950 dark:text-amber-300">
+          <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
             착용 조건: {equip.disabledReason}
           </p>
         )}

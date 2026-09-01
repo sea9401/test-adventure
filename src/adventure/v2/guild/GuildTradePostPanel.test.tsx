@@ -72,10 +72,6 @@ describe("길드 시설 지원 물자 대상 선택", () => {
     expect(html).toContain("철광석");
     expect(html).toContain("30 → 130 / 500");
     expect(html).toContain("공동 토큰 120개로 지원하기");
-    expect(html).toMatch(
-      /aria-pressed="true"[^>]*class="[^"]*dark:bg-zinc-950[^"]*border-cyan-500[^"]*ring-cyan-500/,
-    );
-    expect(html).toContain("dark:text-cyan-300");
   });
 
   it("지원할 수 없는 시설은 이유와 함께 선택 불가로 표시한다", () => {

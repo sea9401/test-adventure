@@ -15,23 +15,23 @@ type PackageSkill = {
 };
 
 describe("tier 7 capstone contract", () => {
-  it("uses separately calibrated tier-7 sword PvP direct damage", () => {
+  it("keeps PvE-only sword-line coefficient increases out of PvP", () => {
     expect(
       tier7PvpDirectDamagePct({
         kind: "shadowStrike",
         recordPct: 70,
         refinedRecordPct: 85,
-        pvpDirectDamagePct: 92.2,
+        pvpDirectDamagePct: 72.73,
       }),
-    ).toBe(92.2);
+    ).toBe(72.73);
     expect(
       tier7PvpDirectDamagePct({
         kind: "intentStrike",
-        missingHpBonusCapPct: 22.2,
+        missingHpBonusCapPct: 60,
         lowHpThresholdPct: 40,
-        pvpDirectDamagePct: 95,
+        pvpDirectDamagePct: 22.73,
       }),
-    ).toBe(95);
+    ).toBe(22.73);
     expect(tier7PvpDirectDamagePct(undefined)).toBe(100);
   });
 
@@ -100,20 +100,20 @@ describe("tier 7 capstone contract", () => {
   });
 
   it.each<[Tier7Mechanic, number]>([
-    [{ kind: "shadowStrike", recordPct: 70, refinedRecordPct: 85, pvpDirectDamagePct: 92.2 }, 1.55],
-    [{ kind: "shadowRefine", refinePctPoints: 15, hastePct: 20, pvpDirectDamagePct: 92.2 }, 2],
+    [{ kind: "shadowStrike", recordPct: 70, refinedRecordPct: 85, pvpDirectDamagePct: 72.73 }, 1.55],
+    [{ kind: "shadowRefine", refinePctPoints: 15, hastePct: 20, pvpDirectDamagePct: 72.73 }, 2],
     [
       {
         kind: "shadowCore",
         recordPct: 50,
-        inheritedRecordPct: 10,
+        inheritedRecordPct: 25,
         refinedRecordPct: 65,
         nextSingleDamagePct: 15,
-        pvpScalePct: 92.2,
+        pvpScalePct: 80,
       },
       8.1,
     ],
-    [{ kind: "intentStrike", missingHpBonusCapPct: 22.2, lowHpThresholdPct: 40, pvpDirectDamagePct: 95 }, 1.74],
+    [{ kind: "intentStrike", missingHpBonusCapPct: 60, lowHpThresholdPct: 40, pvpDirectDamagePct: 22.73 }, 3],
     [{ kind: "intentCore", maxStacks: 3, damagePctPerStack: 8, finisherPctPerStack: 15 }, 2.73],
     [
       {
@@ -123,7 +123,7 @@ describe("tier 7 capstone contract", () => {
         requiredIntentStacks: 3,
         pvpCapPct: 40,
         pvpPenetrationPct: 30,
-        pvpDirectDamagePct: 100,
+        pvpDirectDamagePct: 47.62,
       },
       4.88,
     ],

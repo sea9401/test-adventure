@@ -886,7 +886,7 @@ function BundleCard({
       padding="md"
       className={
         bundle.claimable
-          ? "border-amber-300 bg-amber-50 dark:border-amber-900/70 dark:bg-zinc-800"
+          ? "border-amber-300 bg-amber-50 dark:border-amber-900/70 dark:bg-amber-950"
           : undefined
       }
     >
@@ -1221,7 +1221,7 @@ function RepeatRow({ quest }: { quest: RepeatQuestView }) {
     <li
       className={`rounded-md border px-3 py-2 ${
         quest.complete
-          ? "border-emerald-300 bg-emerald-50 dark:border-emerald-900/70 dark:bg-zinc-950"
+          ? "border-emerald-300 bg-emerald-50 dark:border-emerald-900/70 dark:bg-emerald-950"
           : SURFACE_INSET
       }`}
     >

@@ -232,7 +232,7 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
     expect(countText(res, "[검영]")).toBeGreaterThan(0);
   });
 
-  it("무영검신은 고유 잔영 70%, 계승 무심검 10%로 검영을 기록한다", () => {
+  it("무영검신은 고유 잔영 70%, 계승 무심검 25%로 검영을 기록한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const enemy: Monster = {
       name: "검영 기록 허수아비",
@@ -264,7 +264,7 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
     };
 
     expect(castOnce("v2c_shadowblade_afterimage")?.recordPct).toBe(70);
-    expect(castOnce("v2c_swordsaint_flash")?.recordPct).toBe(10);
+    expect(castOnce("v2c_swordsaint_flash")?.recordPct).toBe(25);
   });
 
   it("멸검은 한 행동을 충전에 쓰고 다음 행동 기회에 자동 해방한다", () => {

@@ -31,11 +31,8 @@ import {
 import {
   V2_CORE_LOOP_V2,
   V2_LEVEL_CAP,
-  V2_UNEXPLORED,
   calcSpBudget,
 } from "@/adventure/data/v2/coreLoopConfig";
-import { parseUnexploredSave } from "@/adventure/data/v2/unexploredState";
-import { withFirstExplorationPoint } from "@/adventure/data/v2/unexploredProgression";
 import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
 import {
   V2_JOB_CATALOG,
@@ -293,13 +290,6 @@ export async function POST(req: Request) {
         level: 1,
         exp: 0,
         revisitJobId: revisitingTarget ? targetJobId : null,
-        ...(V2_UNEXPLORED && lvl >= V2_LEVEL_CAP
-          ? {
-              unexplored: withFirstExplorationPoint(
-                parseUnexploredSave(charSave.unexplored),
-              ),
-            }
-          : {}),
         ...(nextMaterials ? { materials: nextMaterials } : {}),
       });
       // 차수 폐지 — 모든 직업군 tier=1 정규화(flattenGroupTiers). setGroupTier 는 max-clamp 라
@@ -428,13 +418,6 @@ export async function POST(req: Request) {
       class: curClass,
       level: 1,
       exp: 0,
-      ...(V2_UNEXPLORED && isReincarnate && level >= V2_LEVEL_CAP
-        ? {
-            unexplored: withFirstExplorationPoint(
-              parseUnexploredSave(charSave.unexplored),
-            ),
-          }
-        : {}),
     });
 
     // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 전직은 learned 불변, equipped 는 PRUNE 만

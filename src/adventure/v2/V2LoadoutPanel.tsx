@@ -1046,7 +1046,7 @@ export function V2LoadoutPanel({
           })}
         </div>
         {domain === "lifestyle" && (
-          <p className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-800 dark:border-emerald-900 dark:bg-zinc-950 dark:text-emerald-200">
+          <p className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
             생활 패시브는 SP를 사용하지 않으며, 배우는 즉시 항상 적용됩니다.
           </p>
         )}
@@ -1261,7 +1261,7 @@ export function V2LoadoutPanel({
               data-skill-drop-id={s.skillId}
               className={`ui-skill-card relative flex flex-col sm:flex-row gap-2 rounded-md border px-2 py-2 transition-colors sm:items-start sm:px-3 ${
                 equipped
-                  ? "border-violet-300 bg-violet-50 dark:border-violet-800 dark:bg-zinc-800"
+                  ? "border-violet-300 bg-violet-50 dark:border-violet-800 dark:bg-violet-950"
                   : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
               } ${
                 draggingId === s.skillId ? "opacity-55" : ""
@@ -1421,7 +1421,7 @@ export function V2LoadoutPanel({
         <div
           role="status"
           aria-live="polite"
-          className="mt-2 rounded-md border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs text-rose-700 dark:border-rose-700 dark:bg-zinc-950 dark:text-rose-300"
+          className="mt-2 rounded-md border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
         >
           {msg}
         </div>

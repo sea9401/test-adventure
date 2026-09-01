@@ -1,7 +1,7 @@
 import { TITLES, type TitleId } from "@/adventure/data/titles";
 import {
   SUMMON_SCROLL_MATERIAL_ID,
-  type StandardCoopBossKindId,
+  type CoopBossKindId,
 } from "@/adventure/data/v2/coopBosses";
 import {
   COOP_BOSS_MATERIAL,
@@ -61,7 +61,7 @@ const EQUIPMENT_BOX_SHOP_COST_BY_TIER: Record<
 };
 
 function equipmentBoxShopEntries(): CoopShopEntry[] {
-  const regularBosses: StandardCoopBossKindId[] = [
+  const regularBosses: CoopBossKindId[] = [
     "mountain_chief",
     "canyon_predator",
     "lake_sovereign",

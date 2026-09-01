@@ -511,7 +511,7 @@ export function LifeRequestBoard({
             <h2 className="flex items-center gap-2 text-base font-extrabold"><CalendarCheck size={22} weight="duotone" />오늘의 생활 의뢰</h2>
             <p className="mt-1 max-w-xl text-sm leading-5 text-zinc-500 dark:text-zinc-400">필요한 품목을 모아 하루 최대 {LIFE_REQUEST_DAILY_LIMIT}건까지 납품하세요.</p>
           </div>
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-right dark:border-amber-900 dark:bg-zinc-950">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-right dark:border-amber-900 dark:bg-amber-950">
             <div className="text-sm font-extrabold text-amber-800 dark:text-amber-200">{dailyDone}/{LIFE_REQUEST_DAILY_LIMIT}건 완료</div>
             <div className="mt-1 flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400"><ClockCountdown size={13} />{resetText(data.nextDailyResetAt)}</div>
           </div>

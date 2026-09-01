@@ -275,7 +275,7 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
       ) : null}
 
       {data?.previousSeason ? (
-        <div className="rounded border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900 dark:border-sky-900 dark:bg-zinc-950 dark:text-sky-100">
+        <div className="rounded border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-100">
           <div className="font-semibold">지난 확정 시즌</div>
           <div className="mt-1">
             {data.previousSeason.weekKey} · {data.previousSeason.rank}위 · 제작{" "}
@@ -296,7 +296,7 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
       ) : null}
 
       {data?.rewards.length ? (
-        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-zinc-950 dark:text-amber-100">
+        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="font-semibold">랭킹 보상</div>
@@ -305,18 +305,18 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
                 상위권은 추가 칭호와 명성을 받습니다.
               </div>
               {data.previousSeasonRewards.some((reward) => reward.claimable) ? (
-                <div className="mt-1 rounded border border-amber-200 bg-white px-2 py-1 text-amber-900 dark:border-amber-800 dark:bg-zinc-900 dark:text-amber-100">
+                <div className="mt-1 rounded border border-amber-200 bg-white/70 px-2 py-1 text-amber-900 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-100">
                   수령 가능: 지난 시즌 {data.previousSeason?.rank}위 보상
                 </div>
               ) : null}
               {data.nextReward ? (
-                <div className="mt-1 rounded border border-amber-200 bg-white px-2 py-1 text-amber-900 dark:border-amber-800 dark:bg-zinc-900 dark:text-amber-100">
+                <div className="mt-1 rounded border border-amber-200 bg-white/70 px-2 py-1 text-amber-900 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-100">
                   다음 목표: {data.nextReward.label}까지{" "}
                   {data.nextReward.ranksToGo.toLocaleString()}위 상승 · 명성 +
                   {data.nextReward.rewardFame.toLocaleString()}
                 </div>
               ) : data.myRank ? (
-                <div className="mt-1 rounded border border-amber-200 bg-white px-2 py-1 text-amber-900 dark:border-amber-800 dark:bg-zinc-900 dark:text-amber-100">
+                <div className="mt-1 rounded border border-amber-200 bg-white/70 px-2 py-1 text-amber-900 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-100">
                   현재 순위에서 받을 수 있는 상위 랭킹 보상을 모두 달성했습니다.
                 </div>
               ) : null}
@@ -384,7 +384,7 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
             <div
               key={entry.userId}
               className={`grid grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5 ${
-                entry.isMe ? "bg-emerald-50 dark:bg-zinc-800" : ""
+                entry.isMe ? "bg-emerald-50 dark:bg-emerald-950/30" : ""
               }`}
             >
               <div className="text-center text-sm font-bold tabular-nums text-zinc-600 dark:text-zinc-300">

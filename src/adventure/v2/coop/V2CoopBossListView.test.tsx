@@ -102,4 +102,43 @@ describe("협동 보스 소환 난이도 선택", () => {
 
     expect(html).not.toContain("추적 위협");
   });
+
+  it("불괴의 성채 카드에 방벽 누적 피해와 예상 광폭을 표시한다", () => {
+    state.sessions = [{
+      id: "fortress-1",
+      kind: "invincible_fortress",
+      hp: 8_100_000,
+      maxHp: 10_800_000,
+      bossMp: 0,
+      bossMaxMp: 0,
+      trackingThreat: 0,
+      trackingThreatMax: 0,
+      trackingReady: false,
+      fortressBarrierActive: true,
+      fortressBarrierTicksRemaining: 160,
+      fortressBarrierDamage: 18_200,
+      fortressBarrierTarget: 32_400,
+      fortressEnrageTier: 2,
+      fortressProjectedEnrageTier: 1,
+      fortressCompletedBarrierCount: 1,
+      fortressNextBarrierHpFraction: 0.5,
+      fortressLastResultTier: 2,
+      expiresAt: Date.now() + 60_000,
+      summonedByName: "개척자",
+      visibility: "summoner_only",
+      isOwner: true,
+      participantCount: 1,
+      myDamage: 0,
+      myTier: null,
+    }];
+
+    const html = renderToStaticMarkup(
+      <V2CoopBossListView onOpenSession={() => {}} onBack={() => {}} />,
+    );
+
+    expect(html).toContain("불괴의 성채");
+    expect(html).toContain("방벽 시험 240 / 400틱");
+    expect(html).toContain("누적 피해 18,200 / 32,400");
+    expect(html).toContain("예상 광폭: 약함");
+  });
 });

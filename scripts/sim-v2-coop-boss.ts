@@ -19,6 +19,7 @@ import {
   type PlayerCombat,
 } from "../src/adventure/v2/combat/engine";
 import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
+import { initialInvincibleFortressState } from "../src/adventure/v2/combat/invincibleFortressMechanic";
 import {
   buildLevelDesignProgressionSnapshot,
   LEVEL_DESIGN_ARCHETYPES,
@@ -47,6 +48,9 @@ export type CoopBossTrialAudit = {
   completedPlayerActions: number;
   glacialFreezeCount: number;
   glacialSkippedActionCount: number;
+  fortressEnrageTiers: number[];
+  fortressBarrierDamageRatios: number[];
+  fortressFirstTier4NormalHitRatio: number;
 };
 
 export type CoopBossBuildAudit = {
@@ -63,6 +67,9 @@ export type CoopBossBuildAudit = {
   medianCompletedPlayerActions: number;
   medianGlacialFreezeCount: number;
   medianGlacialSkippedActionCount: number;
+  medianFortressEnrageTier: number;
+  medianFortressBarrierDamageRatio: number;
+  maxFortressFirstNormalHitRatio: number;
 };
 
 export type CoopBossAudit = {
@@ -79,7 +86,12 @@ export type CoopBossAudit = {
   medianCompletedPlayerActions: number;
   medianGlacialFreezeCount: number;
   medianGlacialSkippedActionCount: number;
+  medianFortressEnrageTier: number;
+  medianFortressBarrierDamageRatio: number;
+  maxFortressFirstNormalHitRatio: number;
 };
+
+const FORTRESS_TIER_MIN_DAMAGE_RATIO = [1, 0.75, 0.5, 0.25, 0] as const;
 
 function mulberry32(seed: number): () => number {
   let value = seed >>> 0;
@@ -162,7 +174,8 @@ export function auditCoopBossForPlayer(args: {
   setBattleLogCollection(
     bossId === "tracking_weapon" ||
       bossId === "toxic_blood_lord" ||
-      bossId === "glacial_colossus",
+      bossId === "glacial_colossus" ||
+      bossId === "invincible_fortress",
   );
   try {
     for (let trial = 0; trial < trials; trial += 1) {
@@ -177,6 +190,9 @@ export function auditCoopBossForPlayer(args: {
       let completedPlayerActions = 0;
       let glacialFreezeCount = 0;
       let glacialSkippedActionCount = 0;
+      const fortressEnrageTiers: number[] = [];
+      const fortressBarrierDamageRatios: number[] = [];
+      let fortressFirstTier4NormalHitRatio = 0;
       let damageDealt = 0;
       let finalPlayerHp = args.player.maxHp;
       let survivalTicks = 0;
@@ -217,6 +233,16 @@ export function auditCoopBossForPlayer(args: {
                       ? {
                           bossMechanic: {
                             kind: "glacial_colossus" as const,
+                          },
+                        }
+                    : bossId === "invincible_fortress"
+                      ? {
+                          bossMechanic: {
+                            kind: "invincible_fortress" as const,
+                            sharedMaxHp: kind.sharedMaxHp,
+                            initialState: initialInvincibleFortressState(
+                              kind.sharedMaxHp,
+                            ),
                           },
                         }
                     : {}),
@@ -263,6 +289,34 @@ export function auditCoopBossForPlayer(args: {
           glacialFreezeCount += glacial.glacialFreezeCount;
           glacialSkippedActionCount += glacial.glacialSkippedActionCount;
         }
+        if (result.finalState.bossMechanic?.kind === "invincible_fortress") {
+          const fortress = result.finalState.bossMechanic;
+          fortressEnrageTiers.push(...fortress.barrierResults);
+          fortressBarrierDamageRatios.push(
+            ...fortress.barrierResults.map(
+              (tier) => FORTRESS_TIER_MIN_DAMAGE_RATIO[tier],
+            ),
+          );
+          const tier4LogIndex = result.finalState.log.findIndex((entry) =>
+            entry.text.includes("광폭 4단계 적용"),
+          );
+          if (tier4LogIndex >= 0) {
+            const firstNormalHit = result.finalState.log
+              .slice(tier4LogIndex + 1)
+              .find(
+                (entry) =>
+                  entry.kind === "enemy_attack" &&
+                  (entry.enemyHpDamage ?? 0) > 0 &&
+                  entry.heavyBlowFired !== true,
+              );
+            fortressFirstTier4NormalHitRatio = Math.max(
+              fortressFirstTier4NormalHitRatio,
+              (firstNormalHit?.kind === "enemy_attack"
+                ? firstNormalHit.enemyHpDamage ?? 0
+                : 0) / Math.max(1, args.player.maxHp),
+            );
+          }
+        }
         if (result.finalState.enemyHp <= 0) break;
       }
       const trackingCounterDamageRatioPerTrigger =
@@ -296,6 +350,9 @@ export function auditCoopBossForPlayer(args: {
         completedPlayerActions,
         glacialFreezeCount,
         glacialSkippedActionCount,
+        fortressEnrageTiers,
+        fortressBarrierDamageRatios,
+        fortressFirstTier4NormalHitRatio,
       });
     }
   } finally {
@@ -337,6 +394,12 @@ function buildAuditForArch(
   const survivalRatePct =
     (trialAudits.filter((audit) => audit.survived).length / trialAudits.length) *
     100;
+  const fortressTiers = trialAudits.flatMap(
+    (audit) => audit.fortressEnrageTiers,
+  );
+  const fortressDamageRatios = trialAudits.flatMap(
+    (audit) => audit.fortressBarrierDamageRatios,
+  );
   return {
     build: {
       arch,
@@ -412,6 +475,26 @@ function buildAuditForArch(
         percentile(
           trialAudits.map((audit) => audit.glacialSkippedActionCount),
           0.5,
+        ),
+      ),
+      medianFortressEnrageTier: assertFinite(
+        "medianFortressEnrageTier",
+        percentile(fortressTiers.length > 0 ? fortressTiers : [0], 0.5),
+      ),
+      medianFortressBarrierDamageRatio: assertFinite(
+        "medianFortressBarrierDamageRatio",
+        percentile(
+          fortressDamageRatios.length > 0 ? fortressDamageRatios : [0],
+          0.5,
+        ),
+      ),
+      maxFortressFirstNormalHitRatio: assertFinite(
+        "maxFortressFirstNormalHitRatio",
+        Math.max(
+          0,
+          ...trialAudits.map(
+            (audit) => audit.fortressFirstTier4NormalHitRatio,
+          ),
         ),
       ),
     },
@@ -515,6 +598,33 @@ export function buildCoopBossBalanceReport(options: {
           0.5,
         ),
       ),
+      medianFortressEnrageTier: assertFinite(
+        "medianFortressEnrageTier",
+        percentile(
+          allTrials.flatMap((trial) => trial.fortressEnrageTiers).length > 0
+            ? allTrials.flatMap((trial) => trial.fortressEnrageTiers)
+            : [0],
+          0.5,
+        ),
+      ),
+      medianFortressBarrierDamageRatio: assertFinite(
+        "medianFortressBarrierDamageRatio",
+        percentile(
+          allTrials.flatMap((trial) => trial.fortressBarrierDamageRatios).length > 0
+            ? allTrials.flatMap((trial) => trial.fortressBarrierDamageRatios)
+            : [0],
+          0.5,
+        ),
+      ),
+      maxFortressFirstNormalHitRatio: assertFinite(
+        "maxFortressFirstNormalHitRatio",
+        Math.max(
+          0,
+          ...allTrials.map(
+            (trial) => trial.fortressFirstTier4NormalHitRatio,
+          ),
+        ),
+      ),
     };
   });
 }
@@ -559,11 +669,11 @@ function printReport(report: readonly CoopBossAudit[], options: CliOptions): voi
     `협동 보스 방어 체계 점검 · ${options.trials}회/계보 · seed ${options.seed}`,
   );
   console.log(
-    "보스                 생존 중앙  기여 중앙  기여 p95  생존 틱  완료 행동  반격 횟수  반격/HP  독혈 폭발  독혈/HP  빙결  취소",
+    "보스                 생존 중앙  기여 중앙  기여 p95  생존 틱  완료 행동  성채 광폭  방벽 달성  최대광폭 첫타/HP",
   );
   for (const boss of report) {
     console.log(
-      `${COOP_BOSSES[boss.bossId].name.padEnd(18)} ${boss.medianSurvivalRatePct.toFixed(1).padStart(6)}%     ${(boss.medianContributionRatio * 100).toFixed(2).padStart(6)}%     ${(boss.p95ContributionRatio * 100).toFixed(2).padStart(6)}%     ${boss.medianSurvivalTicks.toFixed(0).padStart(6)}     ${boss.medianCompletedPlayerActions.toFixed(1).padStart(6)}     ${boss.medianTrackingCounterCount.toFixed(1).padStart(6)}     ${(boss.medianTrackingCounterDamageRatioPerTrigger * 100).toFixed(1).padStart(6)}%     ${boss.medianToxicExplosionCount.toFixed(1).padStart(6)}     ${(boss.medianToxicDamageRatio * 100).toFixed(1).padStart(6)}%     ${boss.medianGlacialFreezeCount.toFixed(1).padStart(4)}     ${boss.medianGlacialSkippedActionCount.toFixed(1).padStart(4)}`,
+      `${COOP_BOSSES[boss.bossId].name.padEnd(18)} ${boss.medianSurvivalRatePct.toFixed(1).padStart(6)}%     ${(boss.medianContributionRatio * 100).toFixed(2).padStart(6)}%     ${(boss.p95ContributionRatio * 100).toFixed(2).padStart(6)}%     ${boss.medianSurvivalTicks.toFixed(0).padStart(6)}     ${boss.medianCompletedPlayerActions.toFixed(1).padStart(6)}     ${boss.medianFortressEnrageTier.toFixed(1).padStart(6)}     ${(boss.medianFortressBarrierDamageRatio * 100).toFixed(1).padStart(6)}%     ${(boss.maxFortressFirstNormalHitRatio * 100).toFixed(1).padStart(6)}%`,
     );
   }
 }

@@ -10,6 +10,7 @@ import type { SwordShadowState } from "./shadowBladeCombat";
 import type { RuinChargeState } from "./ruinBladeCombat";
 import type { CrossFamily } from "./skyAscendantCombat";
 import type { FormulaState } from "./primordialSageCombat";
+import type { InvincibleFortressBattleState } from "./invincibleFortressMechanic";
 
 export type Tier7BattleResources = {
   swordShadow?: SwordShadowState;
@@ -399,6 +400,8 @@ export type BattleState = {
   usesAtb?: boolean;
   /** 호출부가 명시적으로 활성화한 보스 전용 전투 상태. */
   bossMechanic?: BossMechanicBattleState;
+  /** 시도 시작 잔여 HP와 별개인 협동/개인 보스의 고정 공유 최대 HP. */
+  bossSharedMaxHp?: number;
 };
 
 export type BossMechanicContext =
@@ -411,6 +414,11 @@ export type BossMechanicContext =
     }
   | {
       kind: "glacial_colossus";
+    }
+  | {
+      kind: "invincible_fortress";
+      sharedMaxHp: number;
+      initialState: InvincibleFortressBattleState;
     };
 
 export type TrackingWeaponBattleState = {
@@ -439,7 +447,8 @@ export type GlacialColossusBattleState = {
 export type BossMechanicBattleState =
   | TrackingWeaponBattleState
   | ToxicBloodBattleState
-  | GlacialColossusBattleState;
+  | GlacialColossusBattleState
+  | InvincibleFortressBattleState;
 
 /** 보스에 대한 %HP 비례 추가 데미지(충돌파/천명) 감산 계수. 1.0 = 그대로, 0.1 = 1/10. */
 export const BOSS_PCT_HP_DAMAGE_MULT = 0.1;

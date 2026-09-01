@@ -85,6 +85,13 @@ import {
   rescaleReservedPlayerTick,
   resolveGlacialChillGain,
 } from "./glacialColossusMechanic";
+import {
+  advanceInvincibleFortressBarrier,
+  invincibleFortressEnrageMultipliers,
+  invincibleFortressResourceSnapshot,
+  normalizeInvincibleFortressState,
+  settleInvincibleFortressDamage,
+} from "./invincibleFortressMechanic";
 
 export const ATB_TICK_CAP = ATB_TIMELINE_TICK_CAP;
 export const ATB_ACTION_GUARD = 1000;
@@ -101,7 +108,12 @@ function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {
     state.stacks.lawInscriptions,
   );
   const bossResources: Record<string, number | string> | undefined =
-    state.bossMechanic?.kind === "tracking_weapon"
+    state.bossMechanic?.kind === "invincible_fortress"
+      ? invincibleFortressResourceSnapshot(
+          state.bossMechanic,
+          state.bossSharedMaxHp ?? state.enemy.hp,
+        )
+      : state.bossMechanic?.kind === "tracking_weapon"
       ? {
           trackingThreat: `${state.bossMechanic.trackingThreat}/${TRACKING_THREAT_MAX}`,
         }
@@ -186,6 +198,108 @@ function effectiveEnemyTimelineSpd(
   return state.buffs.enemySpdTurnsLeft > 0
     ? base * state.buffs.enemySpdMult
     : base;
+}
+
+function applyInvincibleFortressTierToEnemy(
+  state: BattleState,
+  baseEnemy: Monster,
+): BattleState {
+  const mechanic = state.bossMechanic;
+  if (!mechanic || mechanic.kind !== "invincible_fortress") return state;
+  const multipliers = invincibleFortressEnrageMultipliers(
+    mechanic.activeBarrierIndex === null ? mechanic.enrageTier : 0,
+  );
+  return {
+    ...state,
+    enemy: {
+      ...state.enemy,
+      atk: baseEnemy.atk * multipliers.atkMult,
+      spd: baseEnemy.spd * multipliers.spdMult,
+    },
+  };
+}
+
+function withoutPrematureVictoryLog(
+  before: BattleState,
+  after: BattleState,
+): BattleLogEntry[] {
+  return [
+    ...after.log.slice(0, before.log.length),
+    ...after.log.slice(before.log.length).filter(
+      (entry) => !entry.text.includes("쓰러뜨렸다"),
+    ),
+  ];
+}
+
+function settleInvincibleFortressAfterPlayerDamage(args: {
+  before: BattleState;
+  after: BattleState;
+  tick: number;
+}): BattleState {
+  const mechanic = args.before.bossMechanic;
+  if (!mechanic || mechanic.kind !== "invincible_fortress") {
+    return args.after;
+  }
+  const incomingDamage = Math.max(
+    0,
+    args.before.enemyHp - args.after.enemyHp,
+  );
+  if (incomingDamage <= 0) return args.after;
+  const settled = settleInvincibleFortressDamage({
+    state: mechanic,
+    currentHp: args.before.enemyHp,
+    incomingDamage,
+    maxHp: args.before.bossSharedMaxHp ?? args.before.enemy.hp,
+  });
+  let log = args.after.log;
+  if (settled.barrierStarted) {
+    log = appendLog(log, {
+      kind: "info",
+      effect: "status",
+      text: `방벽 시험 시작 — ${settled.state.activeBarrierIndex! + 1}/4`,
+      turn: "player",
+      t: args.tick,
+    });
+  }
+  if (settled.barrierDamageApplied > 0) {
+    log = appendLog(log, {
+      kind: "info",
+      effect: "extra_damage",
+      text: `방벽 누적 피해 +${settled.barrierDamageApplied.toLocaleString("ko-KR")} · ${settled.state.barrierDamage.toLocaleString("ko-KR")}`,
+      turn: "player",
+      t: args.tick,
+    });
+  }
+
+  const prematureVictory =
+    args.after.outcome === "win" && settled.bodyHp > 0;
+  if (prematureVictory) {
+    const attacksLeft = Math.max(0, args.before.playerAttacksLeft - 1);
+    return {
+      ...args.after,
+      enemyHp: settled.bodyHp,
+      bossMechanic: settled.state,
+      log: [
+        ...withoutPrematureVictoryLog(args.before, { ...args.after, log }),
+      ],
+      phase: attacksLeft > 0 ? "player" : "enemy",
+      outcome: null,
+      playerAttacksLeft: attacksLeft,
+      turn: {
+        ...args.after.turn,
+        completedPlayerTurns:
+          attacksLeft > 0
+            ? args.before.turn.completedPlayerTurns
+            : args.after.turn.completedPlayerTurns,
+      },
+    };
+  }
+  return {
+    ...args.after,
+    enemyHp: settled.bodyHp,
+    bossMechanic: settled.state,
+    log,
+  };
 }
 
 // prevLogLen 이후 새 엔트리에 ATB 틱만 찍는다(turn 미변경). 번들 틱(DoT/사망 로그)처럼
@@ -1102,11 +1216,40 @@ function tickEnemyDotsOnAction(
       turn: "enemy",
     });
   }
+  let enemyHp = Math.max(0, state.enemyHp - damage);
+  let bossMechanic = state.bossMechanic;
+  if (bossMechanic?.kind === "invincible_fortress") {
+    const settled = settleInvincibleFortressDamage({
+      state: bossMechanic,
+      currentHp: state.enemyHp,
+      incomingDamage: damage,
+      maxHp: state.bossSharedMaxHp ?? state.enemy.hp,
+    });
+    enemyHp = settled.bodyHp;
+    bossMechanic = settled.state;
+    if (settled.barrierStarted) {
+      dotLog = appendLog(dotLog, {
+        kind: "info",
+        effect: "status",
+        text: `방벽 시험 시작 — ${settled.state.activeBarrierIndex! + 1}/4`,
+        turn: "enemy",
+      });
+    }
+    if (settled.barrierDamageApplied > 0) {
+      dotLog = appendLog(dotLog, {
+        kind: "info",
+        effect: "extra_damage",
+        text: `방벽 누적 피해 +${settled.barrierDamageApplied.toLocaleString("ko-KR")} · ${settled.state.barrierDamage.toLocaleString("ko-KR")}`,
+        turn: "enemy",
+      });
+    }
+  }
   const next = applyPhaseTriggerIfAny({
     ...state,
     playerHp: nextPlayerHp,
     enemyV2Dots: eTick.nextDots,
-    enemyHp: Math.max(0, state.enemyHp - damage),
+    enemyHp,
+    bossMechanic,
     log: dotLog,
   });
   if (next.enemyHp > 0) return next;
@@ -1203,6 +1346,18 @@ export function resolveBattleAtb(
         glacialSkippedActionCount: 0,
       },
     };
+  } else if (ctx.bossMechanic?.kind === "invincible_fortress") {
+    const sharedMaxHp = Math.max(1, Math.floor(ctx.bossMechanic.sharedMaxHp));
+    state = {
+      ...state,
+      bossSharedMaxHp: sharedMaxHp,
+      bossMechanic: normalizeInvincibleFortressState(
+        ctx.bossMechanic.initialState,
+        sharedMaxHp,
+        state.enemyHp,
+      ),
+    };
+    state = applyInvincibleFortressTierToEnemy(state, enemy);
   }
   if (ctx.isBoss) state = { ...state, isBoss: true };
   if (ctx.maxHpDamageMult != null) {
@@ -1214,6 +1369,18 @@ export function resolveBattleAtb(
   const openingExtra: BattleLogEntry[] = ctx.openingNote
     ? [{ kind: "info", text: ctx.openingNote, turn: "player" }]
     : [];
+  if (
+    state.bossMechanic?.kind === "invincible_fortress" &&
+    state.bossMechanic.activeBarrierIndex !== null
+  ) {
+    openingExtra.push({
+      kind: "info",
+      effect: "status",
+      text: `방벽 시험 시작 — ${state.bossMechanic.activeBarrierIndex + 1}/4`,
+      turn: "player",
+      t: 0,
+    });
+  }
   // ATB 는 고정 "턴"이 없다 — turn_marker 미발행. BattleLogList 가 행동 주체(액터 묶음)
   // 단위로 박스를 끊어(PvP ATB 와 동일) 타임라인이 자연히 읽힌다: 빠른 빌드는 적 행동 사이에
   // 플레이어 공격이 더 자주 나타난다. (레거시는 turn_marker 유지 → 턴 박스.)
@@ -1229,7 +1396,12 @@ export function resolveBattleAtb(
   };
 
   let playerNextTick = 0;
-  let enemyNextTick = actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));
+  let enemyNextTick =
+    state.bossMechanic?.kind === "invincible_fortress" &&
+    state.bossMechanic.activeBarrierIndex !== null
+      ? state.bossMechanic.barrierTicksRemaining
+      : actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));
+  let fortressClockTick = 0;
   let actions = 0;
   let turns = 0;
   let lastTick = 0; // 최종 hp_bar 스탬프용(루프 밖)
@@ -1242,6 +1414,49 @@ export function resolveBattleAtb(
       turns >= (ctx.maxTurns ?? Number.POSITIVE_INFINITY)
     ) {
       return forceAtbLoss(state, turns, consumed);
+    }
+
+    if (
+      state.bossMechanic?.kind === "invincible_fortress" &&
+      state.bossMechanic.activeBarrierIndex !== null
+    ) {
+      const barrierDamage = state.bossMechanic.barrierDamage;
+      const advanced = advanceInvincibleFortressBarrier({
+        state: state.bossMechanic,
+        elapsedTicks: Math.max(0, nextTick - fortressClockTick),
+        maxHp: state.bossSharedMaxHp ?? state.enemy.hp,
+      });
+      state = { ...state, bossMechanic: advanced.state };
+      fortressClockTick = nextTick;
+      if (advanced.completedTier !== null) {
+        state = applyInvincibleFortressTierToEnemy(state, enemy);
+        state = {
+          ...state,
+          log: appendLog(
+            appendLog(state.log, {
+              kind: "info",
+              effect: "status",
+              text: `방벽 시험 종료 — 누적 ${barrierDamage.toLocaleString("ko-KR")}`,
+              turn: "enemy",
+              t: nextTick,
+            }),
+            {
+              kind: "info",
+              effect: "status",
+              text: `광폭 ${advanced.completedTier}단계 적용`,
+              turn: "enemy",
+              t: nextTick,
+            },
+          ),
+        };
+        enemyNextTick =
+          nextTick + actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));
+        state = {
+          ...state,
+          log: appendLog(state.log, hpBarEntry(state, nextTick)),
+        };
+        continue;
+      }
     }
 
     const actor = nextActor1v1(playerNextTick, enemyNextTick);
@@ -1306,12 +1521,18 @@ export function resolveBattleAtb(
         let castFired = false;
         if (V2_ATB_SKILLS || ctx.forceAtbSkills) {
           const prevLogLen = state.log.length;
+          const beforeCast = state;
           const cast = applyPlayerV2SkillCast(state, actionPlayer, {
             selfBuffs: state.v2SelfBuffs,
             selfDebuffs: state.v2SelfDebuffs,
             enemyDebuffs: state.enemyV2Debuffs,
           }, playerName);
-          state = cast.state;
+          state = settleInvincibleFortressAfterPlayerDamage({
+            before: beforeCast,
+            after: cast.state,
+            tick: nextTick,
+          });
+          state = applyInvincibleFortressTierToEnemy(state, enemy);
           castFired = cast.castFired;
           castSelfHastePct = cast.selfHastePct;
           if (cast.enemyDelayPct > 0) {
@@ -1388,12 +1609,27 @@ export function resolveBattleAtb(
           }
           while (state.phase === "player") {
             const prevLogLen = state.log.length;
+            const beforeAttack = state;
             state = resolvePlayerPhase(state, actionPlayer, playerName, action);
+            state = settleInvincibleFortressAfterPlayerDamage({
+              before: beforeAttack,
+              after: state,
+              tick: nextTick,
+            });
+            state = applyInvincibleFortressTierToEnemy(state, enemy);
             state = tagNewLogEntries(state, prevLogLen, "player", nextTick);
             action = { kind: "attack" };
             if (state.phase === "ended") break;
           }
         }
+      }
+      if (
+        state.bossMechanic?.kind === "invincible_fortress" &&
+        state.bossMechanic.activeBarrierIndex !== null
+      ) {
+        fortressClockTick = nextTick;
+        enemyNextTick =
+          nextTick + state.bossMechanic.barrierTicksRemaining;
       }
       state = settleTrackingAfterPlayerAction({
         state,
@@ -1445,6 +1681,27 @@ export function resolveBattleAtb(
           enemyHpBeforeAction,
         );
         break;
+      }
+      if (
+        state.bossMechanic?.kind === "invincible_fortress" &&
+        state.bossMechanic.activeBarrierIndex !== null
+      ) {
+        const fortress = state.bossMechanic;
+        state = applyInvincibleFortressTierToEnemy(state, enemy);
+        fortressClockTick = nextTick;
+        enemyNextTick =
+          nextTick + fortress.barrierTicksRemaining;
+        state = {
+          ...state,
+          phase: "player",
+          turn: {
+            ...state.turn,
+            enemyAttacksLeft: 0,
+            enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
+          },
+          log: appendLog(state.log, hpBarEntry(state, nextTick)),
+        };
+        continue;
       }
       state = tickEnemyBundleEntry(state);
       // 적 번들 진입 로그도 동일 — t 미스탬프 외톨이 박스 방지(같은 nextTick 윈도우).

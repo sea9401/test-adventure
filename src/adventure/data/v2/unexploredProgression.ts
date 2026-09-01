@@ -115,6 +115,7 @@ const BOSS_ACHIEVEMENT_ID_BY_BOSS = {
   tracking_weapon: "defeat_tracking_weapon",
   toxic_blood_lord: "defeat_toxic_blood_lord",
   glacial_colossus: "defeat_glacial_colossus",
+  invincible_fortress: "defeat_invincible_fortress",
 } as const satisfies Record<UnexploredBossId, UnexploredAchievementId>;
 
 export const UNEXPLORED_ACHIEVEMENTS = [
@@ -139,9 +140,14 @@ export const UNEXPLORED_ACHIEVEMENTS = [
     description: "빙하 거수를 처치하세요.",
   },
   {
+    id: "defeat_invincible_fortress",
+    name: "불괴의 성채 처치",
+    description: "불괴의 성채를 처치하세요.",
+  },
+  {
     id: "defeat_all_personal_bosses",
     name: "미개척지 보스 정복",
-    description: "미개척지 개인 보스 3종을 모두 처치하세요.",
+    description: "미개척지 개인 보스 4종을 모두 처치하세요.",
   },
   {
     id: "first_unexplored_hunt",

@@ -103,4 +103,54 @@ describe("GET /api/v2/coop", () => {
       }],
     });
   });
+
+  it("불괴의 성채 방벽 진행도와 예상 광폭을 목록에 표시한다", async () => {
+    mocks.queryRows.push(
+      [{
+        id: "fortress-1",
+        regionId: "invincible_fortress",
+        hp: 8_100_000,
+        maxHp: 10_800_000,
+        mechanicState: {
+          fortress: {
+            kind: "invincible_fortress",
+            completedBarrierCount: 1,
+            activeBarrierIndex: 1,
+            barrierTicksRemaining: 240,
+            barrierDamage: 18_200,
+            enrageTier: 0,
+            barrierResults: [2],
+          },
+        },
+        expiresAt: new Date(Date.now() + 60_000),
+        summonedByName: "viewer",
+        summonerId: "viewer",
+        summonerGuildId: null,
+        visibility: "summoner_only",
+        spawnedAt: new Date(),
+        defeatedAt: null,
+      }],
+      [],
+      [],
+      [],
+      [],
+    );
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      sessions: [{
+        fortressBarrierActive: true,
+        fortressBarrierTicksRemaining: 240,
+        fortressBarrierDamage: 18_200,
+        fortressBarrierTarget: 32_400,
+        fortressEnrageTier: 2,
+        fortressProjectedEnrageTier: 2,
+        fortressCompletedBarrierCount: 1,
+        fortressNextBarrierHpFraction: 0.5,
+        fortressLastResultTier: 2,
+      }],
+    });
+  });
 });

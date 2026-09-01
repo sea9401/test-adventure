@@ -101,13 +101,23 @@ describe("unexplored achievements", () => {
     ]);
   });
 
-  it("awards all five boss achievements after defeating all three personal bosses", () => {
+  it("requires all four personal bosses for conquest and grants the fortress achievement", () => {
     expect(
       unexploredAchievementCandidates({
         defeatedBossIds: [
           "tracking_weapon",
           "toxic_blood_lord",
           "glacial_colossus",
+        ],
+      }),
+    ).not.toContain("defeat_all_personal_bosses");
+    expect(
+      unexploredAchievementCandidates({
+        defeatedBossIds: [
+          "tracking_weapon",
+          "toxic_blood_lord",
+          "glacial_colossus",
+          "invincible_fortress",
           "lake_sovereign",
         ],
       }),
@@ -116,8 +126,15 @@ describe("unexplored achievements", () => {
       "defeat_tracking_weapon",
       "defeat_toxic_blood_lord",
       "defeat_glacial_colossus",
+      "defeat_invincible_fortress",
       "defeat_all_personal_bosses",
     ]);
+  });
+
+  it("retains a previously saved conquest achievement", () => {
+    expect(parseUnexploredSave({
+      achievementIds: ["defeat_all_personal_bosses"],
+    }).achievementIds).toEqual(["defeat_all_personal_bosses"]);
   });
 
   it("adds achievements once and never removes prior achievements", () => {

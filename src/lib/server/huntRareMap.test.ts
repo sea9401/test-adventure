@@ -14,7 +14,12 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
       typeof import("@/adventure/data/v2/coreLoopConfig")
     >();
   // 코어루프 on, 사냥 throttle = 스태미나(쿨다운 모드 off) = 라이브.
-  return { ...actual, V2_CORE_LOOP_V2: true, HUNT_COOLDOWN_MODE: false };
+  return {
+    ...actual,
+    V2_CORE_LOOP_V2: true,
+    HUNT_COOLDOWN_MODE: false,
+    V2_UNEXPLORED: true,
+  };
 });
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -73,7 +78,7 @@ import type { RareMapInstance } from "@/adventure/data/v2/rareMaps";
 
 // 강한 전사 + hunt 계열 레어맵 1장(worn_map). frontierDepth 를 높여 지도 깊이가
 // 깊이 게이트(depth ≤ frontierDepth+1)를 통과하게 둔다.
-function seedWithMap(runsLeft: number, depth = 2) {
+function seedWithMap(runsLeft: number, depth = 2, level = 30) {
   store.clear();
   const now = Date.now();
   const map: RareMapInstance = {
@@ -85,7 +90,7 @@ function seedWithMap(runsLeft: number, depth = 2) {
   };
   store.set("character.v2", {
     class: "warrior",
-    level: 30,
+    level,
     exp: 0,
     gold: 1000,
     hp: 999999,
@@ -139,6 +144,25 @@ describe("POST /api/v2/dungeon/hunt — 희귀 탐사 1회 압축 정산", () =>
     expect(json.result?.rewardRolls).toBe(3);
     expect(json.result?.rareMapRunsLeft).toBe(0);
     expect(savedMaps().find((x) => x.iid === "rm1")).toBeUndefined();
+  });
+
+  it("100레벨 희귀 탐사의 압축 보상은 탐사 경험치에 한 번만 반영한다", async () => {
+    seedWithMap(30, 2, 100);
+    const res = await POST(huntReq({ floor: 2, rareMap: "rm1" }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      result?: {
+        expGained?: number;
+        rewardRolls?: number;
+        exploration?: { xpGained?: number; xpAfter?: number };
+      };
+    };
+    expect(json.result?.rewardRolls).toBe(30);
+    expect(json.result?.expGained).toBeGreaterThan(1);
+    expect(json.result?.exploration).toMatchObject({
+      xpGained: 1,
+      xpAfter: 1,
+    });
   });
 
   it("마지막 판수 소진 시 레어맵이 저장에서 제거된다(runsLeft>0 필터)", async () => {

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { getLevelTable } from "@/lib/leveling";
 import { emptyUnexploredSave, parseUnexploredSave } from "./unexploredState";
 import {
   explorationPointCost,
@@ -11,24 +10,34 @@ import {
 } from "./unexploredProgression";
 
 describe("unexplored exploration XP", () => {
-  it("makes point 1 free and charges a rising cost through point 30", () => {
+  it("첫 포인트는 무료이고 2포인트부터 3,000승으로 시작해 완만하게 증가한다", () => {
     expect(explorationPointCost(1)).toBe(0);
     expect(explorationPointCost(31)).toBe(0);
     const costs = Array.from({ length: 29 }, (_, index) =>
       explorationPointCost(index + 2),
     );
+    expect(costs[0]).toBe(3_000);
+    expect(costs.at(-1)).toBe(12_656);
     expect(costs.every((cost) => cost > 0)).toBe(true);
     expect(costs.slice(0, -1).every((cost, index) => cost < costs[index + 1])).toBe(true);
   });
 
-  it("costs exactly five current level-1-to-100 loops in total", () => {
-    const totalLoopXp = getLevelTable().at(-1)?.cumulative ?? 0;
-    expect(unexploredTotalXpCost()).toBe(totalLoopXp * 5);
+  it("30포인트까지 총 200,000승을 요구하고 합의한 중간 누적치를 지킨다", () => {
+    expect(unexploredTotalXpCost()).toBe(200_000);
     expect(
       Array.from({ length: 29 }, (_, index) =>
         explorationPointCost(index + 2),
       ).reduce((sum, cost) => sum + cost, 0),
-    ).toBe(totalLoopXp * 5);
+    ).toBe(200_000);
+
+    const cumulativeAt = (point: number) =>
+      Array.from({ length: point - 1 }, (_, index) =>
+        explorationPointCost(index + 2),
+      ).reduce((sum, cost) => sum + cost, 0);
+    expect(cumulativeAt(5)).toBe(12_588);
+    expect(cumulativeAt(10)).toBe(32_477);
+    expect(cumulativeAt(20)).toBe(95_349);
+    expect(cumulativeAt(30)).toBe(200_000);
   });
 
   it("persists the free first point before reincarnation", () => {
@@ -53,7 +62,11 @@ describe("unexplored exploration XP", () => {
   });
 
   it("discards overflow once all 30 XP points are earned", () => {
-    const completed = parseUnexploredSave({ xpPoints: 30, explorationXp: 99 });
+    const completed = parseUnexploredSave({
+      xpPoints: 30,
+      explorationXp: 99,
+      explorationProgressVersion: 2,
+    });
     const result = grantExplorationXp(completed, 12345);
 
     expect(result.save).toMatchObject({ xpPoints: 30, explorationXp: 0 });

@@ -27,6 +27,7 @@ describe("unexplored save", () => {
   it("keeps only known unique nodes and achievements", () => {
     const save = parseUnexploredSave({
       explorationXp: 12.9,
+      explorationProgressVersion: 2,
       xpPoints: 41.7,
       achievementIds: [
         "first_unexplored_hunt",
@@ -40,6 +41,27 @@ describe("unexplored save", () => {
     expect(save.xpPoints).toBe(30);
     expect(save.achievementIds).toEqual(["first_unexplored_hunt"]);
     expect(save.selectedNodeIds).toEqual(["start", "inner-0-0"]);
+  });
+
+  it("기존 원시 경험치 잔여량을 승리 단위로 이전하고 새 단위는 그대로 보존한다", () => {
+    expect(
+      parseUnexploredSave({ explorationXp: 6_601, xpPoints: 4 }),
+    ).toMatchObject({
+      explorationXp: 2,
+      explorationProgressVersion: 2,
+      xpPoints: 4,
+    });
+    expect(
+      parseUnexploredSave({
+        explorationXp: 6_601,
+        explorationProgressVersion: 2,
+        xpPoints: 4,
+      }),
+    ).toMatchObject({
+      explorationXp: 6_601,
+      explorationProgressVersion: 2,
+      xpPoints: 4,
+    });
   });
 
   it("keeps the attainable personal-boss achievements and drops obsolete boss milestones", () => {
@@ -88,6 +110,7 @@ describe("unexplored save", () => {
   it("preserves progress while a reincarnated character is below level 100", () => {
     const parsed = parseUnexploredSave({
       explorationXp: 1234,
+      explorationProgressVersion: 2,
       xpPoints: 8,
       selectedNodeIds: ["start", "inner-0-0"],
       traces: { iron_legion: 321 },

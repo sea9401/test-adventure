@@ -62,6 +62,7 @@ import {
 } from "@/adventure/data/v2/coreLoopConfig";
 import { parseUnexploredSave } from "@/adventure/data/v2/unexploredState";
 import {
+  EXPLORATION_XP_PER_HUNT_WIN,
   grantExplorationXp,
 } from "@/adventure/data/v2/unexploredProgression";
 import {
@@ -924,7 +925,6 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
               won,
               specialMonsterKilled:
                 unexploredHunt.runtime.kind === "special",
-              overflowExp: expResult.overflowExp,
               traces:
                 unexploredRewards?.traces ?? unexploredHunt.save.traces,
             });
@@ -936,7 +936,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
           })()
         : grantExplorationXp(
             parseUnexploredSave(charSave.unexplored),
-            expResult.overflowExp,
+            EXPLORATION_XP_PER_HUNT_WIN,
           )
       : null;
 

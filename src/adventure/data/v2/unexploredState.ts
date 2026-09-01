@@ -43,6 +43,7 @@ export type UnexploredEquipmentCraftReceipt = {
 
 export type UnexploredSave = {
   explorationXp: number;
+  explorationProgressVersion: 2;
   xpPoints: number;
   achievementIds: UnexploredAchievementId[];
   selectedNodeIds: UnexploredNodeId[];
@@ -55,6 +56,10 @@ const achievementIdSet = new Set<string>(UNEXPLORED_ACHIEVEMENT_IDS);
 const MAX_XP_POINTS = 30;
 const MAX_ACHIEVEMENT_POINTS = 10;
 const MAX_CRAFT_RECEIPTS = 50;
+const EXPLORATION_PROGRESS_VERSION = 2;
+// v1은 사냥 EXP 원값을 저장했다. 운영 기본 배율에서 미개척지 1승이 3,300 EXP였으므로
+// 남은 진행도만 승리 단위로 환산하고, 이미 획득한 xpPoints는 그대로 보존한다.
+const LEGACY_EXPLORATION_XP_PER_WIN = 3_300;
 
 function nonNegativeInteger(value: unknown, maximum = Number.MAX_SAFE_INTEGER): number {
   const number = Number(value);
@@ -158,6 +163,7 @@ function parseEquipmentCraftReceipts(
 export function emptyUnexploredSave(): UnexploredSave {
   return {
     explorationXp: 0,
+    explorationProgressVersion: EXPLORATION_PROGRESS_VERSION,
     xpPoints: 0,
     achievementIds: [],
     selectedNodeIds: [],
@@ -172,8 +178,14 @@ export function parseUnexploredSave(raw: unknown): UnexploredSave {
     return emptyUnexploredSave();
   }
   const source = raw as Record<string, unknown>;
+  const rawExplorationXp = nonNegativeInteger(source.explorationXp);
+  const explorationXp =
+    source.explorationProgressVersion === EXPLORATION_PROGRESS_VERSION
+      ? rawExplorationXp
+      : Math.floor(rawExplorationXp / LEGACY_EXPLORATION_XP_PER_WIN);
   return {
-    explorationXp: nonNegativeInteger(source.explorationXp),
+    explorationXp,
+    explorationProgressVersion: EXPLORATION_PROGRESS_VERSION,
     xpPoints: nonNegativeInteger(source.xpPoints, MAX_XP_POINTS),
     achievementIds: uniqueKnownValues(source.achievementIds, isAchievementId),
     selectedNodeIds: uniqueKnownValues(source.selectedNodeIds, isUnexploredNodeId),

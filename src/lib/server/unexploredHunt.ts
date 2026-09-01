@@ -10,6 +10,7 @@ import {
   type UnexploredRuntimeMonster,
 } from "@/adventure/data/v2/unexploredMonsters";
 import {
+  EXPLORATION_XP_PER_HUNT_WIN,
   grantExplorationXp,
   grantUnexploredAchievements,
   unexploredAchievementCandidates,
@@ -128,7 +129,6 @@ export function applyUnexploredHuntProgress(params: {
   rawSave: unknown;
   won: boolean;
   specialMonsterKilled: boolean;
-  overflowExp: number;
   traces: unknown;
 }): {
   save: UnexploredSave;
@@ -139,7 +139,7 @@ export function applyUnexploredHuntProgress(params: {
   if (!params.won) {
     return { save: before, xpGained: 0, pointsGained: 0 };
   }
-  const xp = grantExplorationXp(before, params.overflowExp);
+  const xp = grantExplorationXp(before, EXPLORATION_XP_PER_HUNT_WIN);
   const withTraces: UnexploredSave = {
     ...xp.save,
     traces: parseUnexploredTraces(params.traces),

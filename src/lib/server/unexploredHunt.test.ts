@@ -13,6 +13,7 @@ function character(selectedNodeIds: string[], level = 100) {
     level,
     unexplored: {
       explorationXp: 0,
+      explorationProgressVersion: 2,
       xpPoints: 10,
       achievementIds: [],
       selectedNodeIds,
@@ -367,22 +368,21 @@ describe("unexplored hunt server authority", () => {
     expect(prepared.runtime.monsterId).toBe("unexplored_dead_star_observer");
   });
 
-  it("records victory achievements, traces, and exploration XP in one save", () => {
+  it("미개척지 승리 한 번은 전투 경험치와 무관하게 탐사 경험치 1만 기록한다", () => {
     const before = character(["start"]).unexplored;
     const result = applyUnexploredHuntProgress({
       rawSave: before,
       won: true,
       specialMonsterKilled: true,
-      overflowExp: 123,
       traces: { frozen_legion: 2 },
     });
-    expect(result.save.explorationXp).toBe(123);
+    expect(result.save.explorationXp).toBe(1);
     expect(result.save.traces).toEqual({ frozen_legion: 2 });
     expect(result.save.achievementIds).toEqual([
       "first_unexplored_hunt",
       "first_special_kill",
     ]);
-    expect(result.xpGained).toBe(123);
+    expect(result.xpGained).toBe(1);
   });
 
   it("does not grant rewards or achievements on defeat", () => {
@@ -391,7 +391,6 @@ describe("unexplored hunt server authority", () => {
       rawSave: before,
       won: false,
       specialMonsterKilled: true,
-      overflowExp: 123,
       traces: { frozen_legion: 2 },
     });
     expect(result.save).toEqual(before);

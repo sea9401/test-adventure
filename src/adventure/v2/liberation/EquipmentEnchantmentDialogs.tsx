@@ -96,6 +96,16 @@ export function EquipmentEnchantmentGuideDialog({
           </div>
         </section>
 
+        <section className={`${SURFACE_INSET} mt-4 border-rose-300 p-3 text-sm text-rose-800 dark:border-rose-900 dark:text-rose-200`}>
+          <h3 className="font-bold">재마법부여 안내</h3>
+          <p className="mt-2">
+            <strong>재마법부여하면 현재 옵션 전체가 즉시 소멸합니다.</strong>
+          </p>
+          <p className="mt-1 text-xs leading-relaxed">
+            옵션 줄 수는 유지되며, 버튼을 누르면 별도 확인 없이 바로 진행됩니다.
+          </p>
+        </section>
+
         <section className="mt-4 space-y-2">
           <h3 className="font-bold">단계별 옵션 레벨</h3>
           {([3, 2, 1] as const).map((rank) => {

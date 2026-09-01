@@ -491,15 +491,35 @@ function fireSkywardCrystalEyeAtbArtillery(args: {
     }),
   };
   const logStart = state.log.length;
-  state = resolveForcedEnemyMagicHit(state, args.player, args.playerName, {
+  const shot = resolveForcedEnemyMagicHit(state, args.player, args.playerName, {
     attackName: "천공 포격",
     multiplier: (basePowerPct / 100) * (fired.powerPct / 100),
     magicDefensePiercePct: SKYWARD_CRYSTAL_EYE_ARTILLERY_MAGIC_DEF_PIERCE_PCT,
     accuracyBonus: SKYWARD_CRYSTAL_EYE_ARTILLERY_ACCURACY_BONUS,
     allowCritical: false,
     consumeEnemyAction: false,
-  }).state;
+  });
+  state = shot.state;
+  if (state.bossMechanic?.kind === "skyward_crystal_eye") {
+    state = {
+      ...state,
+      bossMechanic: {
+        ...state.bossMechanic,
+        lastArtilleryDamage: shot.damageToHp,
+      },
+    };
+  }
   state = tagNewLogEntries(state, logStart, "enemy", args.tick);
+  state = {
+    ...state,
+    log: appendLog(state.log, {
+      kind: "info",
+      effect: "status",
+      text: `천공 포격 실제 피해 ${shot.damageToHp.toLocaleString("ko-KR")}`,
+      turn: "enemy",
+      t: args.tick,
+    }),
+  };
   if (fired.coreExposed && state.phase !== "ended") {
     state = {
       ...state,

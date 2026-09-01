@@ -40,6 +40,9 @@ import {
   coopInvincibleFortressState,
   withCoopInvincibleFortressState,
   coopInvincibleFortressDisplay,
+  coopSkywardCrystalEyeState,
+  withCoopSkywardCrystalEyeState,
+  coopSkywardCrystalEyeDisplay,
 } from "@/adventure/data/v2/coopBosses";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
@@ -212,6 +215,9 @@ export async function POST(req: Request) {
           sessionPeek.hp,
         )
       : null;
+    const crystalEyeStateAtStart = kindId === "skyward_crystal_eye"
+      ? coopSkywardCrystalEyeState(kind, sessionPeek.mechanicState)
+      : null;
     const bossMechanic =
       trackingThreatMax > 0
         ? {
@@ -227,6 +233,12 @@ export async function POST(req: Request) {
                 kind: "invincible_fortress" as const,
                 sharedMaxHp: kind.sharedMaxHp,
                 initialState: fortressStateAtStart!,
+              }
+          : kindId === "skyward_crystal_eye"
+            ? {
+                kind: "skyward_crystal_eye" as const,
+                sharedMaxHp: kind.sharedMaxHp,
+                initialState: crystalEyeStateAtStart!,
               }
           : undefined;
 
@@ -318,6 +330,10 @@ export async function POST(req: Request) {
       battleResult.finalState.bossMechanic?.kind === "invincible_fortress"
         ? battleResult.finalState.bossMechanic
         : null;
+    const battleCrystalEyeState =
+      battleResult.finalState.bossMechanic?.kind === "skyward_crystal_eye"
+        ? battleResult.finalState.bossMechanic
+        : null;
     // === 4. session FOR UPDATE — 재검증 + 쿨다운 + 차감 + 처치 CAS ===
     const [s] = await tx
       .select()
@@ -340,6 +356,22 @@ export async function POST(req: Request) {
         s.hp !== sessionPeek.hp ||
         JSON.stringify(lockedFortressState) !==
           JSON.stringify(fortressStateAtStart)
+      ) {
+        return {
+          status: 409,
+          body: { ok: false as const, error: "boss_state_changed" as const },
+        };
+      }
+    }
+    if (crystalEyeStateAtStart) {
+      const lockedCrystalEyeState = coopSkywardCrystalEyeState(
+        kind,
+        s.mechanicState,
+      );
+      if (
+        s.hp !== sessionPeek.hp ||
+        JSON.stringify(lockedCrystalEyeState) !==
+          JSON.stringify(crystalEyeStateAtStart)
       ) {
         return {
           status: 409,
@@ -442,6 +474,19 @@ export async function POST(req: Request) {
         );
       } else {
         const { fortress: _terminalFortress, ...terminalMechanicState } =
+          nextMechanicState;
+        nextMechanicState = terminalMechanicState;
+      }
+    }
+    if (kindId === "skyward_crystal_eye") {
+      if (projectedBossHp > 0 && battleCrystalEyeState) {
+        nextMechanicState = withCoopSkywardCrystalEyeState(
+          kind,
+          nextMechanicState,
+          battleCrystalEyeState,
+        );
+      } else {
+        const { crystalEye: _terminalCrystalEye, ...terminalMechanicState } =
           nextMechanicState;
         nextMechanicState = terminalMechanicState;
       }
@@ -588,6 +633,11 @@ export async function POST(req: Request) {
           fortressCompletedResults:
             battleFortressState?.barrierResults ?? [],
           ...coopInvincibleFortressDisplay(
+            kind,
+            nextMechanicState,
+            bossHp,
+          ),
+          ...coopSkywardCrystalEyeDisplay(
             kind,
             nextMechanicState,
             bossHp,

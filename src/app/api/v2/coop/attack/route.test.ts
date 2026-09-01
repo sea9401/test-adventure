@@ -127,6 +127,7 @@ vi.mock("@/db", () => ({
 
 import { POST } from "./route";
 import { initialInvincibleFortressState } from "@/adventure/v2/combat/invincibleFortressMechanic";
+import { initialSkywardCrystalEyeState } from "@/adventure/v2/combat/skywardCrystalEyeMechanic";
 
 function battleState(overrides: Record<string, unknown> = {}) {
   return {
@@ -472,6 +473,128 @@ describe("POST /api/v2/coop/attack", () => {
       finalState: battleState({
         enemyHp: sharedMaxHp,
         bossMechanic: { ...initialFortress, barrierDamage: 10_000 },
+      }),
+    });
+
+    const response = await attack();
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "boss_state_changed",
+    });
+    expect(mocks.updateValues).toHaveLength(0);
+  });
+
+  it("천공의 수정안 타이머를 전투에 주입하고 HP와 함께 원자적으로 저장한다", async () => {
+    const sharedMaxHp = 10_800_000;
+    const initialEye = {
+      ...initialSkywardCrystalEyeState(),
+      aimTicksRemaining: 640,
+      disruptionStacks: 17,
+    };
+    const completedEye = {
+      ...initialEye,
+      aimTicksRemaining: 340,
+      disruptionStacks: 24,
+      coreExposureTicksRemaining: 180,
+      artilleryCount: 2,
+      lastArtilleryStacks: 12,
+      lastArtilleryPowerPct: 70 as const,
+      lastArtilleryDamage: 1234,
+    };
+    const session = personalSession({
+      regionId: "skyward_crystal_eye",
+      hp: sharedMaxHp,
+      maxHp: sharedMaxHp,
+      mechanicState: { bossMp: 7, crystalEye: initialEye },
+    });
+    mocks.selectRows = [[session], [session], [], [{ damage: 0 }]];
+    mocks.updateRows = [[{ hp: sharedMaxHp }]];
+    mocks.insertRows = [[{ id: "attack-1" }]];
+    mocks.resolveBattle.mockReturnValue({
+      outcome: "lose",
+      turns: 3,
+      finalState: battleState({
+        enemyHp: sharedMaxHp,
+        enemyMp: 0,
+        bossMechanic: completedEye,
+      }),
+    });
+
+    const response = await attack();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mocks.resolveBattle).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      "추적자",
+      expect.objectContaining({
+        bossMechanic: {
+          kind: "skyward_crystal_eye",
+          sharedMaxHp,
+          initialState: initialEye,
+        },
+      }),
+    );
+    expect(mocks.updateValues[0]?.mechanicState).toMatchObject({
+      bossMp: 0,
+      crystalEye: completedEye,
+    });
+    expect(body.result).toMatchObject({
+      crystalEyeAimTicksRemaining: 340,
+      crystalEyeDisruptionStacks: 24,
+      crystalEyeCoreExposed: true,
+      crystalEyeLastArtilleryDamage: 1234,
+    });
+  });
+
+  it("천공의 수정안 처치 시 종료 세션에서 타이머 상태를 제거한다", async () => {
+    const sharedMaxHp = 10_800_000;
+    const eye = initialSkywardCrystalEyeState();
+    const session = personalSession({
+      regionId: "skyward_crystal_eye",
+      hp: 1,
+      maxHp: sharedMaxHp,
+      mechanicState: { bossMp: 0, crystalEye: eye },
+    });
+    mocks.selectRows = [[session], [session], [], [{ damage: 1 }]];
+    mocks.updateRows = [[{ hp: 0 }]];
+    mocks.insertRows = [[{ id: "attack-1" }]];
+    mocks.resolveBattle.mockReturnValue({
+      outcome: "win",
+      turns: 1,
+      finalState: battleState({ enemyHp: 0, bossMechanic: eye }),
+    });
+
+    const response = await attack();
+
+    expect(response.status).toBe(200);
+    expect(mocks.updateValues[0]?.mechanicState).not.toHaveProperty("crystalEye");
+  });
+
+  it("수정안 시뮬레이션 중 같은 HP의 타이머가 갱신됐으면 오래된 결과를 저장하지 않는다", async () => {
+    const sharedMaxHp = 10_800_000;
+    const initialEye = initialSkywardCrystalEyeState();
+    const peek = personalSession({
+      regionId: "skyward_crystal_eye",
+      hp: sharedMaxHp,
+      maxHp: sharedMaxHp,
+      mechanicState: { crystalEye: initialEye },
+    });
+    const locked = personalSession({
+      ...peek,
+      mechanicState: {
+        crystalEye: { ...initialEye, aimTicksRemaining: 500 },
+      },
+    });
+    mocks.selectRows = [[peek], [locked]];
+    mocks.resolveBattle.mockReturnValue({
+      outcome: "lose",
+      turns: 1,
+      finalState: battleState({
+        enemyHp: sharedMaxHp,
+        bossMechanic: { ...initialEye, aimTicksRemaining: 300 },
       }),
     });
 

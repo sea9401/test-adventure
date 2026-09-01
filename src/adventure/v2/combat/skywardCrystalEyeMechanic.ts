@@ -18,7 +18,9 @@ export type SkywardCrystalEyeBattleState = {
   disruptionStacks: number;
   coreExposureTicksRemaining: number;
   artilleryCount: number;
+  lastArtilleryStacks: number | null;
   lastArtilleryPowerPct: SkywardCrystalEyeArtilleryPowerPct | null;
+  lastArtilleryDamage: number | null;
 };
 
 export type SkywardCrystalEyeArtilleryResult = {
@@ -46,7 +48,9 @@ export function initialSkywardCrystalEyeState(): SkywardCrystalEyeBattleState {
     disruptionStacks: 0,
     coreExposureTicksRemaining: 0,
     artilleryCount: 0,
+    lastArtilleryStacks: null,
     lastArtilleryPowerPct: null,
+    lastArtilleryDamage: null,
   };
 }
 
@@ -87,7 +91,27 @@ export function normalizeSkywardCrystalEyeState(
       Number.MAX_SAFE_INTEGER,
       0,
     ),
+    lastArtilleryStacks:
+      typeof source.lastArtilleryStacks === "number" &&
+        Number.isFinite(source.lastArtilleryStacks)
+        ? finiteInteger(
+            source.lastArtilleryStacks,
+            0,
+            SKYWARD_CRYSTAL_EYE_STACK_CAP,
+            0,
+          )
+        : null,
     lastArtilleryPowerPct: lastPower,
+    lastArtilleryDamage:
+      typeof source.lastArtilleryDamage === "number" &&
+        Number.isFinite(source.lastArtilleryDamage)
+        ? finiteInteger(
+            source.lastArtilleryDamage,
+            0,
+            Number.MAX_SAFE_INTEGER,
+            0,
+          )
+        : null,
   };
 }
 
@@ -177,7 +201,9 @@ export function fireSkywardCrystalEyeArtillery(
         ? SKYWARD_CRYSTAL_EYE_EXPOSURE_TICKS
         : state.coreExposureTicksRemaining,
       artilleryCount: state.artilleryCount + 1,
+      lastArtilleryStacks: state.disruptionStacks,
       lastArtilleryPowerPct: powerPct,
+      lastArtilleryDamage: null,
     },
   };
 }
@@ -196,7 +222,11 @@ export function skywardCrystalEyeResourceSnapshot(
       ` · 받는 피해 +${SKYWARD_CRYSTAL_EYE_EXPOSURE_DAMAGE_PCT}%`;
   }
   if (state.lastArtilleryPowerPct !== null) {
-    snapshot.crystalEyeLastArtillery = `${state.lastArtilleryPowerPct}%`;
+    snapshot.crystalEyeLastArtillery =
+      `${state.lastArtilleryStacks ?? 0}중첩 · ${state.lastArtilleryPowerPct}%` +
+      (state.lastArtilleryDamage !== null
+        ? ` · ${state.lastArtilleryDamage.toLocaleString("ko-KR")} 피해`
+        : "");
   }
   return snapshot;
 }

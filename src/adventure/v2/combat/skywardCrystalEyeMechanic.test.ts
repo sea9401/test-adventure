@@ -21,7 +21,9 @@ describe("skyward crystal eye mechanic", () => {
       disruptionStacks: 0,
       coreExposureTicksRemaining: 0,
       artilleryCount: 0,
+      lastArtilleryStacks: null,
       lastArtilleryPowerPct: null,
+      lastArtilleryDamage: null,
     });
   });
 
@@ -83,7 +85,9 @@ describe("skyward crystal eye mechanic", () => {
         disruptionStacks: 0,
         coreExposureTicksRemaining: SKYWARD_CRYSTAL_EYE_EXPOSURE_TICKS,
         artilleryCount: 1,
+        lastArtilleryStacks: 24,
         lastArtilleryPowerPct: 25,
+        lastArtilleryDamage: null,
       },
     });
   });
@@ -103,7 +107,9 @@ describe("skyward crystal eye mechanic", () => {
         disruptionStacks: 0,
         coreExposureTicksRemaining: 40,
         artilleryCount: 3,
+        lastArtilleryStacks: 17,
         lastArtilleryPowerPct: 60,
+        lastArtilleryDamage: null,
       },
     });
   });
@@ -122,7 +128,9 @@ describe("skyward crystal eye mechanic", () => {
       disruptionStacks: 24,
       coreExposureTicksRemaining: 0,
       artilleryCount: 0,
+      lastArtilleryStacks: null,
       lastArtilleryPowerPct: null,
+      lastArtilleryDamage: null,
     });
     expect(normalizeSkywardCrystalEyeState(undefined)).toEqual(
       initialSkywardCrystalEyeState(),
@@ -136,12 +144,14 @@ describe("skyward crystal eye mechanic", () => {
       disruptionStacks: 17,
       coreExposureTicksRemaining: 180,
       lastArtilleryPowerPct: 70,
+      lastArtilleryStacks: 12,
+      lastArtilleryDamage: 1234,
     })).toEqual({
       crystalEyeAim: "640틱",
       crystalEyeDisruption: "17 / 24",
       crystalEyeArtillery: "60%",
       crystalEyeCore: "노출 180틱 · 받는 피해 +25%",
-      crystalEyeLastArtillery: "70%",
+      crystalEyeLastArtillery: "12중첩 · 70% · 1,234 피해",
     });
   });
 });

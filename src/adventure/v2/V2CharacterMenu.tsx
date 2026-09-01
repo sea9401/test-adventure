@@ -71,7 +71,6 @@ export function V2CharacterMenu({
             />
           }
           title="전투 프리셋"
-          description="스킬·전투패턴·장비를 한 번에 변경"
           onClick={() => onAction({ kind: "open-presets" })}
         />
         <EntryCard
@@ -98,7 +97,6 @@ export function V2CharacterMenu({
               />
             }
             title="개척 노드"
-            description="탐사망을 조율하고 전용 사냥터를 강화"
             onClick={() => onAction({ kind: "open-unexplored" })}
           />
         )}

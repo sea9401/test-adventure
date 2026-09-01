@@ -42,6 +42,7 @@ import {
   type UnexploredClientSnapshot,
   type UnexploredTreeNodeModel,
 } from "./unexploredTreeModel";
+import { unexploredNodeRadius } from "./unexploredTreeGeometry";
 import { UnexploredTreeViewport } from "./UnexploredTreeViewport";
 
 const ERROR_TEXT: Record<string, string> = {
@@ -92,12 +93,6 @@ function nodeGlyph(node: UnexploredTreeNodeModel): string {
   if (node.kind === "medium") return "▲";
   if (node.kind === "enhancer") return "+";
   return "•";
-}
-
-function nodeRadius(node: UnexploredTreeNodeModel): number {
-  return { start: 34, small: 15, medium: 25, pool: 31, enhancer: 22, deep: 34 }[
-    node.kind
-  ];
 }
 
 function nodeColors(node: UnexploredTreeNodeModel, selected: boolean) {
@@ -182,11 +177,6 @@ export function V2UnexploredTreeView({
     () => (snapshot ? buildUnexploredTreeModel(snapshot, selectedNodeId) : null),
     [selectedNodeId, snapshot],
   );
-  const positions = useMemo(
-    () => new Map(model?.nodes.map((node) => [node.id, node]) ?? []),
-    [model],
-  );
-
   async function mutate(
     mutation:
       | { action: "activate_path" | "refund_path"; nodeId: string }
@@ -561,9 +551,6 @@ export function V2UnexploredTreeView({
         <section className={`${SURFACE_CARD} min-w-0 p-2 sm:p-3`}>
           <UnexploredTreeViewport ariaLabel="미개척지 160노드 탐사망">
               {model.edges.map((edge) => {
-                const left = positions.get(edge.left);
-                const right = positions.get(edge.right);
-                if (!left || !right) return null;
                 const stroke = edge.state === "active"
                   ? "#f59e0b"
                   : edge.state === "refund"
@@ -572,21 +559,22 @@ export function V2UnexploredTreeView({
                     ? "#8b5cf6"
                     : "#d4d4d8";
                 return (
-                  <line
+                  <path
                     key={`${edge.left}-${edge.right}`}
-                    x1={left.x}
-                    y1={left.y}
-                    x2={right.x}
-                    y2={right.y}
+                    data-unexplored-edge={`${edge.left}|${edge.right}`}
+                    d={edge.path}
+                    fill="none"
                     stroke={stroke}
                     strokeWidth={edge.state === "inactive" ? 3 : 7}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
                 );
               })}
               {model.nodes.map((node) => {
                 const isSelected = node.id === selectedNodeId;
                 const colors = nodeColors(node, isSelected);
-                const radius = nodeRadius(node);
+                const radius = unexploredNodeRadius(node);
                 return (
                   <g
                     key={node.id}

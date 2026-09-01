@@ -97,6 +97,18 @@ describe("V2UnexploredTreeView", () => {
     expect(bareOpacityClasses).toEqual([]);
   });
 
+  it("renders misleading straight crossings as routed SVG paths", () => {
+    const { container } = render(
+      <V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />,
+    );
+
+    const routed = container.querySelector(
+      '[data-unexplored-edge="deep-tracking|deep-boss"]',
+    );
+    expect(routed?.tagName.toLowerCase()).toBe("path");
+    expect(routed?.getAttribute("d")).toContain(" Q ");
+  });
+
   it("탐사망·탐사 업적·흔적 보관함·우두머리 핵 제작소를 독립 탭으로 표시한다", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

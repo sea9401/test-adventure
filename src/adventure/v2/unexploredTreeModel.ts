@@ -6,6 +6,7 @@ import {
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import {
   UNEXPLORED_EDGES,
+  UNEXPLORED_NODE_BY_ID,
   UNEXPLORED_NODES,
   deriveUnexploredEffects,
   shortestUnexploredPath,
@@ -20,6 +21,15 @@ import {
 import type { UnexploredAchievementId } from "@/adventure/data/v2/unexploredState";
 import type { UnexploredEncounterShare } from "@/adventure/data/v2/unexploredEncounters";
 import type { UnexploredEffects } from "@/adventure/data/v2/unexploredTree";
+import { buildUnexploredEdgeRoute } from "./unexploredTreeGeometry";
+
+const UNEXPLORED_EDGE_ROUTES = UNEXPLORED_EDGES.map(([left, right]) =>
+  buildUnexploredEdgeRoute(
+    UNEXPLORED_NODE_BY_ID.get(left)!,
+    UNEXPLORED_NODE_BY_ID.get(right)!,
+    UNEXPLORED_NODES,
+  ),
+);
 
 export type UnexploredClientSnapshot = {
   level: number;
@@ -169,9 +179,10 @@ export function buildUnexploredTreeModel(
       : snapshot.selectedNodeIds.filter((nodeId) => !refundPlan.has(nodeId))
     : snapshot.selectedNodeIds;
   const previewDifficulty = deriveUnexploredEffects(previewNodeIds).difficulty;
-  const edges = UNEXPLORED_EDGES.map(([left, right]) => ({
+  const edges = UNEXPLORED_EDGES.map(([left, right], index) => ({
     left,
     right,
+    path: UNEXPLORED_EDGE_ROUTES[index].path,
     state:
       active.has(left) &&
       active.has(right) &&

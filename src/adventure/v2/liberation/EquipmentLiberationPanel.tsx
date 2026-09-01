@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Question, Sparkle } from "@phosphor-icons/react";
+import { Lock, Question, Sparkle } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
+import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import {
   SURFACE_ACCENT,
@@ -15,9 +16,17 @@ import {
 } from "@/adventure/data/v2/equipmentLiberation";
 import {
   V2_EQUIPMENT,
+  equipmentPowerDisplayValue,
   type V2EquipInstance,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
+import {
+  EquipmentTierBadge,
+  EnhanceLevelBadge,
+  QualityPctText,
+  UniqueBadge,
+  powerNameClass,
+} from "@/adventure/v2/V2ItemCard";
 import {
   EquipmentEnchantmentGuideDialog,
   InitialEnchantmentConfirmDialog,
@@ -191,14 +200,9 @@ export function EquipmentLiberationPanel({
       <section className={`${SURFACE_CARD} p-4 sm:p-5`}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">
-              장비 마법부여 작업대
-            </p>
-            <h2 className="mt-1 truncate text-lg font-bold">{selected?.name}</h2>
+            <h2 className="text-lg font-bold">장비 마법부여 작업대</h2>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-              {current
-                ? `마법부여 ${enchantmentStage(current.rank)}단계 · ${current.lineCount}줄`
-                : "아직 마법부여되지 않은 장비"}
+              대상 장비를 확인한 뒤 옵션을 부여하세요.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -233,6 +237,74 @@ export function EquipmentLiberationPanel({
             {candidates.length}개 선택 가능
           </span>
         </button>
+
+        {selected && instance && item ? (
+          <section
+            aria-labelledby="current-enchantment-target-title"
+            className={`${SURFACE_INSET} mt-3 p-3 sm:p-4`}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p
+                  id="current-enchantment-target-title"
+                  className="text-xs font-semibold text-violet-700 dark:text-violet-300"
+                >
+                  현재 선택 장비
+                </p>
+                <div className="mt-1 flex min-w-0 items-center gap-1.5">
+                  <h3
+                    className={`truncate text-base font-bold ${powerNameClass(
+                      item,
+                      instance.roll,
+                      instance.enhance,
+                      instance.craftQuality,
+                    )}`}
+                  >
+                    {selected.name}
+                  </h3>
+                  <ItemTypeChip item={item} />
+                </div>
+              </div>
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                {selected.isEquipped ? (
+                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                    장착 중
+                  </span>
+                ) : null}
+                {instance.locked ? (
+                  <span className="inline-flex items-center gap-0.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                    <Lock size={11} weight="fill" aria-hidden /> 잠금됨
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center gap-1">
+              <EquipmentTierBadge tier={item.tier} compact />
+              {item.rarity === "unique" ? <UniqueBadge /> : null}
+              <EnhanceLevelBadge enhance={instance.enhance} />
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+              <span className="tabular-nums">
+                위력 {equipmentPowerDisplayValue(selected.effectivePower)}
+              </span>
+              {selected.qualityPct != null ? (
+                <span className="tabular-nums">
+                  품질 <QualityPctText pct={selected.qualityPct} />
+                </span>
+              ) : (
+                <span className="text-zinc-500 dark:text-zinc-400">품질 고정</span>
+              )}
+            </div>
+
+            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+              {current
+                ? `마법부여 ${enchantmentStage(current.rank)}단계 · ${current.lineCount}줄`
+                : "아직 마법부여되지 않은 장비"}
+            </p>
+          </section>
+        ) : null}
 
         <div className={`${SURFACE_INSET} mt-4 flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs`}>
           <span className="text-zinc-500 dark:text-zinc-400">

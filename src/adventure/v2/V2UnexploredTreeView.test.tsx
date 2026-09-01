@@ -185,7 +185,7 @@ describe("V2UnexploredTreeView", () => {
     expect(html).toContain("무기 0.1% · 집중 0.2%");
   });
 
-  it("shows all eleven exploration achievements with their completion state and reward", () => {
+  it("shows all twelve exploration achievements with their completion state and reward", () => {
     render(
       <V2UnexploredTreeView
         initialSnapshot={{
@@ -199,7 +199,7 @@ describe("V2UnexploredTreeView", () => {
     openUnexploredTab("탐사 업적");
 
     const list = screen.getByRole("list", { name: "탐사 업적" });
-    expect(within(list).getAllByRole("listitem")).toHaveLength(11);
+    expect(within(list).getAllByRole("listitem")).toHaveLength(12);
     expect(
       within(list).getByRole("listitem", {
         name: "미개척지 보스 첫 처치 완료",
@@ -210,7 +210,7 @@ describe("V2UnexploredTreeView", () => {
         name: "추적 병기 처치 미완료",
       }),
     ).toBeTruthy();
-    expect(within(list).getAllByText("탐사 포인트 +1")).toHaveLength(11);
+    expect(within(list).getAllByText("탐사 포인트 +1")).toHaveLength(12);
   });
 
   it("replaces the full snapshot with the server response after activation", async () => {
@@ -580,6 +580,8 @@ describe("V2UnexploredTreeView", () => {
       "얼어붙은 거갑",
       "마철 수호완갑",
       "봉인 결계환",
+      "분광 사격완갑",
+      "별궤 조준환",
     ]) {
       expect(html).toContain(name);
     }
@@ -588,11 +590,12 @@ describe("V2UnexploredTreeView", () => {
       "부패하지 않는 심장",
       "절대영도의 핵",
       "불괴의 성채갑",
+      "무한초점 수정안",
     ]) {
       expect(html).toContain(name);
     }
-    expect(html.match(/0\.5% · 토벌 드롭 전용/g)).toHaveLength(4);
-    expect(html.match(/aria-label="[^"]+ 확정 제작"/g)).toHaveLength(8);
+    expect(html.match(/0\.5% · 토벌 드롭 전용/g)).toHaveLength(5);
+    expect(html.match(/aria-label="[^"]+ 확정 제작"/g)).toHaveLength(10);
     expect(html).toContain("25 / 8");
     expect(html).toContain("25 / 25");
     expect(html).toContain("75 / 25");

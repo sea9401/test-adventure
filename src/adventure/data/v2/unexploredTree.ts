@@ -169,33 +169,33 @@ const smallEffectSeeds: Array<{
 }> = [
   ...Array.from({ length: 18 }, () => ({
     name: "골드 탐색",
-    description: "미개척지 골드 획득량이 0.5% 증가합니다.",
+    description: "미개척지 골드 획득량이 1% 증가합니다.",
     icon: "coin",
-    effect: { kind: "reward", reward: "gold", pct: 0.5 } as const,
+    effect: { kind: "reward", reward: "gold", pct: 1 } as const,
   })),
   ...Array.from({ length: 18 }, () => ({
     name: "재료 탐색",
-    description: "일반 재료 획득량이 1% 증가합니다.",
+    description: "일반 재료 획득량이 2% 증가합니다.",
     icon: "material",
-    effect: { kind: "reward", reward: "base_material", pct: 1 } as const,
+    effect: { kind: "reward", reward: "base_material", pct: 2 } as const,
   })),
   ...Array.from({ length: 14 }, () => ({
     name: "장비 발견",
-    description: "일반 장비 기대 획득량이 1% 증가합니다.",
+    description: "일반 장비 기대 획득량이 2% 증가합니다.",
     icon: "equipment",
-    effect: { kind: "reward", reward: "equipment", pct: 1 } as const,
+    effect: { kind: "reward", reward: "equipment", pct: 2 } as const,
   })),
   ...Array.from({ length: 10 }, () => ({
     name: "품질 감식",
-    description: "높은 품질 장비 등장 기대확률이 1% 증가합니다.",
+    description: "높은 품질 장비 등장 기대확률이 2% 증가합니다.",
     icon: "quality",
-    effect: { kind: "reward", reward: "quality", pct: 1 } as const,
+    effect: { kind: "reward", reward: "quality", pct: 2 } as const,
   })),
   ...Array.from({ length: 12 }, () => ({
     name: "특화 채집",
-    description: "특화 몬스터 전용 재료 기대 획득량이 1% 증가합니다.",
+    description: "특화 몬스터 전용 재료 기대 획득량이 2% 증가합니다.",
     icon: "special-material",
-    effect: { kind: "reward", reward: "special_material", pct: 1 } as const,
+    effect: { kind: "reward", reward: "special_material", pct: 2 } as const,
   })),
 ];
 

@@ -35,6 +35,35 @@ describe("unexplored tree catalogue", () => {
     expect(new Set(UNEXPLORED_NODES.map((node) => node.id)).size).toBe(160);
   });
 
+  it("keeps the doubled reward values for every small node", () => {
+    const expectedPct = {
+      gold: 1,
+      base_material: 2,
+      equipment: 2,
+      quality: 2,
+      special_material: 2,
+    } as const;
+    const smallNodes = UNEXPLORED_NODES.filter((node) => node.kind === "small");
+
+    for (const node of smallNodes) {
+      expect(node.effects).toHaveLength(1);
+      const effect = node.effects[0];
+      expect(effect.kind).toBe("reward");
+      if (effect.kind !== "reward") continue;
+      expect(effect.pct).toBe(expectedPct[effect.reward]);
+    }
+
+    expect(deriveUnexploredEffects(smallNodes.map((node) => node.id)).rewardPct)
+      .toEqual({
+        gold: 18,
+        baseMaterial: 36,
+        equipment: 28,
+        quality: 20,
+        specialMaterial: 24,
+        rare: 0,
+      });
+  });
+
   it("keeps every node reachable at the approved minimum depths", () => {
     for (const node of UNEXPLORED_NODES) {
       expect(shortestUnexploredPath(node.id).at(0)).toBe("start");

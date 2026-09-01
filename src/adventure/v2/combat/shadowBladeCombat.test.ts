@@ -8,7 +8,7 @@ import {
 } from "./shadowBladeCombat";
 
 describe("무영검신 검영", () => {
-  it("고유 잔영은 70%, 계승 공격은 25% 기록률을 사용한다", () => {
+  it("고유 잔영은 70%, 계승 공격은 10% 기록률을 사용한다", () => {
     const strike = V2_SKILLS.v2c_shadowblade_afterimage.tier7Mechanic;
     const core = V2_SKILLS.v2c_shadowblade_swordshadow.tier7Mechanic;
     expect(strike?.kind).toBe("shadowStrike");
@@ -17,14 +17,14 @@ describe("무영검신 검영", () => {
       throw new Error("무영검신 검영 기믹 데이터가 없습니다.");
     }
     expect(strike.recordPct).toBe(70);
-    expect(core.inheritedRecordPct).toBe(25);
+    expect(core.inheritedRecordPct).toBe(10);
     expect(
       recordSwordShadow({
         sourceSkillId: "v2c_swordsaint_flash",
         dealtDamage: 1_000,
         recordPct: core.inheritedRecordPct,
       })?.recordPct,
-    ).toBe(25);
+    ).toBe(10);
   });
 
   it("records final dealt damage and keeps only the stronger shadow", () => {

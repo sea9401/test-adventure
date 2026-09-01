@@ -619,7 +619,7 @@ render(<InvincibleFortressStatus status={{
 }} />);
 expect(screen.getByText("방벽 시험 240 / 400틱")).toBeInTheDocument();
 expect(screen.getByText("누적 피해 18,200 / 32,400")).toBeInTheDocument();
-expect(screen.getByText("예상 광폭: 약함")).toBeInTheDocument();
+expect(screen.getByText("예상 광폭: 보통")).toBeInTheDocument();
 ```
 
 Also render inactive tier 3 and assert `현재 광폭: 강함 (3단계)`, `공격 +28%`, `속도 +12%`.

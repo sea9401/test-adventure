@@ -125,8 +125,6 @@ export function EquipmentLiberationPanel({
         : { iid: instance.iid, revision, requestId: crypto.randomUUID() };
     pendingRequest.current = request;
     setBusy(true);
-    setMessage(null);
-    setResult(null);
     try {
       const response = await fetch("/api/v2/me/equipment/liberate", {
         method: "POST",

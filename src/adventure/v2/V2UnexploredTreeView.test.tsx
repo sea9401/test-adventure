@@ -9,6 +9,7 @@ import { SUMMON_SCROLL_MATERIAL_ID } from "@/adventure/data/v2/coopBosses";
 import { shortestUnexploredPath } from "@/adventure/data/v2/unexploredTree";
 import {
   UNEXPLORED_BOSS_CORE_MATERIAL,
+  UNEXPLORED_BOSS_IDS,
   UNEXPLORED_BOSSES,
   UNEXPLORED_SUMMON_STONE_GOLD_COST,
   UNEXPLORED_SUMMON_STONE_SCROLL_COST,
@@ -344,15 +345,16 @@ describe("V2UnexploredTreeView", () => {
     await waitFor(() => expect(screen.getByText("9 / 30")).toBeTruthy());
   });
 
-  it("흔적 보관함에 보스별 제작식의 현재/필요 수량과 고정 골드를 표시한다", () => {
+  it("흔적 보관함 상단에 보유 골드를 한 번 표시하고 제작식에는 실제 골드 비용만 표시한다", () => {
     const tracking = UNEXPLORED_BOSSES.tracking_weapon;
-    const html = renderToStaticMarkup(
+    render(
       <V2UnexploredTreeView
         initialSnapshot={{
           ...SNAPSHOT,
           selectedNodeIds: ["start", "deep-boss"],
           effects: { traceEnabled: true },
-          gold: UNEXPLORED_SUMMON_STONE_GOLD_COST,
+          gold: 1_000_000,
+          bankedGold: 999_460_143_838,
           traces: { runaway_machines: 500, shadow_stalkers: 500 },
           materials: {
             v2_unexplored_runaway_machines_material: 10,
@@ -360,24 +362,36 @@ describe("V2UnexploredTreeView", () => {
             [SUMMON_SCROLL_MATERIAL_ID]: UNEXPLORED_SUMMON_STONE_SCROLL_COST,
             [tracking.summonMaterialId]: 1,
           },
+          summonStoneCraftCost: {
+            baseGoldCost: UNEXPLORED_SUMMON_STONE_GOLD_COST,
+            goldCost: 4_650_000,
+            liberationDiscountPct: 7,
+          },
         }}
         onBack={vi.fn()}
       />,
     );
+    openUnexploredTab("흔적 보관함");
 
-    expect(html).toContain("흔적 보관함");
-    expect(html).toContain("추적 병기 소환석");
-    expect(html).toContain("폭주 기계 흔적");
-    expect(html).toContain("그림자 추적자 흔적");
-    expect(html).toContain("500 / 500");
-    expect(html).toContain("10 / 10");
-    expect(html).toContain("30 / 30");
-    expect(html).toContain(
-      `${UNEXPLORED_SUMMON_STONE_GOLD_COST.toLocaleString()} / ${UNEXPLORED_SUMMON_STONE_GOLD_COST.toLocaleString()}G`,
+    const panel = screen.getByRole("tabpanel", { name: "흔적 보관함" });
+    expect(within(panel).getByText("추적 병기 소환석")).toBeTruthy();
+    expect(within(panel).getByText("폭주 기계 흔적")).toBeTruthy();
+    expect(within(panel).getByText("그림자 추적자 흔적")).toBeTruthy();
+    expect(within(panel).getAllByText("500 / 500").length).toBeGreaterThan(0);
+    expect(within(panel).getAllByText("10 / 10").length).toBeGreaterThan(0);
+    expect(within(panel).getAllByText("30 / 30").length).toBeGreaterThan(0);
+    expect(within(panel).getByText("보유 골드").parentElement?.textContent).toContain(
+      "999,461,143,838G",
     );
+    expect(within(panel).getAllByText("4,650,000G")).toHaveLength(
+      UNEXPLORED_BOSS_IDS.length,
+    );
+    expect(within(panel).queryByText("사용 가능 골드")).toBeNull();
+    expect(within(panel).queryByText(/해방 할인/)).toBeNull();
+    expect(within(panel).queryByText(/기본 .*실제/)).toBeNull();
   });
 
-  it("큰 골드 잔액은 재료명 열을 밀어내지 않도록 독립 행에 표시한다", () => {
+  it("큰 골드 잔액도 흔적 보관함 상단에만 표시한다", () => {
     render(
       <V2UnexploredTreeView
         initialSnapshot={{
@@ -389,15 +403,17 @@ describe("V2UnexploredTreeView", () => {
     );
     openUnexploredTab("흔적 보관함");
 
-    const goldLabel = screen.getAllByText("사용 가능 골드")[0];
+    const panel = screen.getByRole("tabpanel", { name: "흔적 보관함" });
+    const goldLabel = within(panel).getByText("보유 골드");
     const goldRow = goldLabel.parentElement;
 
     expect(goldRow?.textContent).toContain("1,001,901,043,838");
     expect(goldRow?.textContent).not.toContain("폭주 기계 흔적");
+    expect(within(panel).getAllByText("보유 골드")).toHaveLength(1);
   });
 
-  it("소환석 제작의 기본 비용·해방 할인·실제 비용을 서버 값으로 표시한다", () => {
-    const html = renderToStaticMarkup(
+  it("소환석 제작 비용은 서버가 계산한 할인 후 금액만 표시한다", () => {
+    render(
       <V2UnexploredTreeView
         initialSnapshot={{
           ...SNAPSHOT,
@@ -410,10 +426,16 @@ describe("V2UnexploredTreeView", () => {
         onBack={vi.fn()}
       />,
     );
+    openUnexploredTab("흔적 보관함");
 
-    expect(html).toContain(`기본 ${UNEXPLORED_SUMMON_STONE_GOLD_COST.toLocaleString()}G`);
-    expect(html).toContain(`실제 ${(UNEXPLORED_SUMMON_STONE_GOLD_COST * 0.9).toLocaleString()}G`);
-    expect(html).toContain("해방 할인 10%");
+    const panel = screen.getByRole("tabpanel", { name: "흔적 보관함" });
+    expect(
+      within(panel).getAllByText(
+        `${(UNEXPLORED_SUMMON_STONE_GOLD_COST * 0.9).toLocaleString()}G`,
+      ),
+    ).toHaveLength(UNEXPLORED_BOSS_IDS.length);
+    expect(within(panel).queryByText(/해방 할인/)).toBeNull();
+    expect(within(panel).queryByText(/기본 .*실제/)).toBeNull();
   });
 
   it("네트워크 오류 뒤 제작 재시도에 같은 requestId를 사용한다", async () => {
@@ -471,7 +493,7 @@ describe("V2UnexploredTreeView", () => {
     ]);
   });
 
-  it("흔적 노드가 꺼져도 보유 소환석은 사용하고 상세 화면으로 이동한다", async () => {
+  it("잠긴 제작 버튼을 누르면 노드 활성화 안내를 표시하고 제작 요청은 보내지 않는다", async () => {
     const tracking = UNEXPLORED_BOSSES.tracking_weapon;
     const onOpenSession = vi.fn();
     const fetchMock = vi.fn(async () =>
@@ -505,8 +527,18 @@ describe("V2UnexploredTreeView", () => {
       name: "추적 병기 소환석 제작",
     });
     const summonButton = screen.getByRole("button", { name: "추적 병기 소환" });
-    expect(craftButton.hasAttribute("disabled")).toBe(true);
+    expect(craftButton.hasAttribute("disabled")).toBe(false);
+    expect(craftButton.getAttribute("aria-disabled")).toBe("true");
     expect(summonButton.hasAttribute("disabled")).toBe(false);
+    expect(
+      screen.queryByText("우두머리의 흔적 노드를 활성화하면 제작할 수 있습니다."),
+    ).toBeNull();
+    fireEvent.click(craftButton);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mocks.notifySystem).toHaveBeenCalledWith(
+      "✗ 우두머리의 흔적 노드를 활성화하면 제작할 수 있습니다.",
+      "error",
+    );
     fireEvent.click(summonButton);
     await waitFor(() => expect(onOpenSession).toHaveBeenCalledWith("personal-session"));
   });

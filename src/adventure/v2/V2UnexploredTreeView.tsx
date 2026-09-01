@@ -45,6 +45,9 @@ import {
 import { unexploredNodeRadius } from "./unexploredTreeGeometry";
 import { UnexploredTreeViewport } from "./UnexploredTreeViewport";
 
+const CRAFTING_LOCKED_TEXT =
+  "우두머리의 흔적 노드를 활성화하면 제작할 수 있습니다.";
+
 const ERROR_TEXT: Record<string, string> = {
   level_required: "100레벨 달성 후 탐사망을 변경할 수 있습니다.",
   unknown_node: "존재하지 않는 탐사 노드입니다.",
@@ -57,7 +60,7 @@ const ERROR_TEXT: Record<string, string> = {
   start_required: "탐사 시작 노드는 반환할 수 없습니다.",
   would_disconnect: "반환하면 활성 경로가 끊어집니다.",
   insufficient_gold: "노드 반환에 필요한 골드가 부족합니다.",
-  boss_node_required: "우두머리의 흔적 노드를 활성화해야 제작할 수 있습니다.",
+  boss_node_required: CRAFTING_LOCKED_TEXT,
   insufficient_trace: "소환석 제작에 필요한 흔적이 부족합니다.",
   insufficient_material: "소환석 제작에 필요한 특화 재료가 부족합니다.",
   insufficient_scrolls: "소환석 제작에 필요한 보스 소환서가 부족합니다.",
@@ -399,6 +402,8 @@ export function V2UnexploredTreeView({
 
   const selected = model.selected;
   const completedAchievementIds = new Set(snapshot.achievementIds);
+  const spendableGold = snapshot.gold + snapshot.bankedGold;
+  const craftCost = snapshot.summonStoneCraftCost;
   return (
     <PageShell className="max-w-[1400px] overflow-x-hidden" spacing="tight">
       <SubViewHeader
@@ -772,13 +777,22 @@ export function V2UnexploredTreeView({
         hidden={activeTab !== "traces"}
       >
       <section className={`${SURFACE_CARD} space-y-3 p-4`}>
-        <div className="flex items-start gap-2">
-          <Hammer size={22} className="mt-0.5 shrink-0 text-amber-600" />
-          <div>
-            <h2 className="font-bold">흔적 보관함</h2>
-            <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-              우두머리의 흔적 노드를 활성화한 동안 소환석을 제작할 수 있습니다.
-              이미 만든 소환석은 노드나 레벨 상태와 관계없이 사용할 수 있습니다.
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-start gap-2">
+            <Hammer size={22} className="mt-0.5 shrink-0 text-amber-600" />
+            <div>
+              <h2 className="font-bold">흔적 보관함</h2>
+              <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                제작한 소환석은 노드나 레벨 상태와 관계없이 사용할 수 있습니다.
+              </p>
+            </div>
+          </div>
+          <div className={`${SURFACE_INSET} min-w-0 px-3 py-2 text-right`}>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              보유 골드
+            </p>
+            <p className="break-all font-mono text-sm font-bold text-amber-700 dark:text-amber-300">
+              {spendableGold.toLocaleString()}G
             </p>
           </div>
         </div>
@@ -794,8 +808,6 @@ export function V2UnexploredTreeView({
             const materialB = snapshot.materials[poolB.materialId] ?? 0;
             const scrolls = snapshot.materials[SUMMON_SCROLL_MATERIAL_ID] ?? 0;
             const summonStones = snapshot.materials[boss.summonMaterialId] ?? 0;
-            const spendableGold = snapshot.gold + snapshot.bankedGold;
-            const craftCost = snapshot.summonStoneCraftCost;
             const hasRecipe =
               traceA >= UNEXPLORED_SUMMON_STONE_TRACE_COST &&
               traceB >= UNEXPLORED_SUMMON_STONE_TRACE_COST &&
@@ -830,31 +842,29 @@ export function V2UnexploredTreeView({
                   <dd className="text-right font-mono">{materialB.toLocaleString()} / {UNEXPLORED_SUMMON_STONE_POOL_MATERIAL_COST}</dd>
                   <dt>보스 소환서</dt>
                   <dd className="text-right font-mono">{scrolls.toLocaleString()} / {UNEXPLORED_SUMMON_STONE_SCROLL_COST}</dd>
-                  <div className="col-span-2 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                    <dt className="shrink-0">사용 가능 골드</dt>
-                    <dd className="min-w-0 break-all text-right font-mono">
-                      {spendableGold.toLocaleString()} / {craftCost.goldCost.toLocaleString()}G
-                    </dd>
-                  </div>
+                  <dt>골드</dt>
+                  <dd className="text-right font-mono">
+                    {craftCost.goldCost.toLocaleString()}G
+                  </dd>
                 </dl>
-                <p className="text-[11px] text-amber-700 dark:text-amber-300">
-                  기본 {craftCost.baseGoldCost.toLocaleString()}G → 실제{" "}
-                  {craftCost.goldCost.toLocaleString()}G · 해방 할인{" "}
-                  {craftCost.liberationDiscountPct.toLocaleString()}%
-                </p>
-                {!craftingUnlocked && (
-                  <p className="text-[11px] text-amber-700 dark:text-amber-300">
-                    우두머리의 흔적 노드를 활성화하면 제작할 수 있습니다.
-                  </p>
-                )}
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     size="xs"
                     variant="warning"
                     loading={bossBusy === bossId}
-                    disabled={bossBusy !== null || !craftingUnlocked || !hasRecipe}
+                    disabled={
+                      bossBusy !== null || (craftingUnlocked && !hasRecipe)
+                    }
+                    aria-disabled={!craftingUnlocked || !hasRecipe || undefined}
+                    className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-amber-600 dark:aria-disabled:hover:bg-amber-600"
                     aria-label={`${boss.name} 소환석 제작`}
-                    onClick={() => void craftSummonStone(bossId)}
+                    onClick={() => {
+                      if (!craftingUnlocked) {
+                        notifySystem(`✗ ${CRAFTING_LOCKED_TEXT}`, "error");
+                        return;
+                      }
+                      void craftSummonStone(bossId);
+                    }}
                   >
                     제작
                   </Button>

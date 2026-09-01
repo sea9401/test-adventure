@@ -433,15 +433,15 @@ git commit -m "test: calibrate immortal berserker combat"
 - Consumes: exact image paths from Task 2.
 - Produces: optimized WebP files referenced by catalogue data.
 
-- [ ] **Step 1: `imagegen` skill 지침 확인 후 네 자산 생성**
+- [x] **Step 1: `imagegen` skill 지침 확인 후 네 자산 생성**
 
 보스는 붉은 중갑, 재생 조직과 증식핵을 한 실루엣으로 구성한다. 장비는 기존 미개척지 장비의 어두운 판타지 아이콘 구도·배경·여백을 맞추고 텍스트·워터마크를 넣지 않는다.
 
-- [ ] **Step 2: 저장·최적화·시각 검수**
+- [x] **Step 2: 저장·최적화·시각 검수**
 
 생성 결과를 정확한 경로에 저장하고 `npm run optimize-images`를 실행한다. 보스 전신이 잘리지 않고 장비 세 종류가 작은 아이콘에서도 구분되는지 `view_image`로 확인한다.
 
-- [ ] **Step 3: 이미지와 권리 검사 후 커밋**
+- [x] **Step 3: 이미지와 권리 검사 후 커밋**
 
 Run: `npm run check-images`
 Expected: referenced files all exist; no new orphan warnings.

@@ -1098,7 +1098,11 @@ describe("엔진 통합 — on-skill-cast MP 환급이 스킬 시전 후 적용�
     }).state;
 
     expect(result.playerMp).toBe(888);
-    expect(result.log.some((entry) => entry.text === "태초회귀! 마나 80 회복했다.")).toBe(true);
+    expect(
+      result.log.some(
+        (entry) => entry.text === "[근원공명] 태초회귀로 마나 80 회복했다.",
+      ),
+    ).toBe(true);
     expect(result.log.some((entry) => entry.text === "[마력 순환] 마나 33 환급")).toBe(true);
   });
 });

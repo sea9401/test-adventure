@@ -278,11 +278,13 @@ export function GrowthLeapMissionPanel({
   busyId,
   onClaim,
   now,
+  coinShopAccessible = false,
 }: {
   mission: GrowthLeapMissionView;
   busyId: GrowthLeapMilestoneId | null;
   onClaim: (milestoneId: GrowthLeapMilestoneId) => void;
   now: number;
+  coinShopAccessible?: boolean;
 }) {
   if (mission.status === "not_purchased") {
     return (
@@ -295,12 +297,14 @@ export function GrowthLeapMissionPanel({
           성장 도약 패키지를 구매하면 30일 동안 스태미나 사용량에 따라 단계 보상을
           받을 수 있습니다.
         </p>
-        <Link
-          href="/settings/coin-shop"
-          className="inline-flex text-xs font-semibold text-amber-700 hover:underline dark:text-amber-300"
-        >
-          무슨 코인 상점에서 확인
-        </Link>
+        {coinShopAccessible && (
+          <Link
+            href="/settings/coin-shop"
+            className="inline-flex text-xs font-semibold text-amber-700 hover:underline dark:text-amber-300"
+          >
+            무슨 코인 상점에서 확인
+          </Link>
+        )}
       </Card>
     );
   }
@@ -402,6 +406,9 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
     status: "not_purchased",
   });
   const [growthLeapNow, setGrowthLeapNow] = useState(0);
+  const [coinShopAccessible, setCoinShopAccessible] = useState(
+    process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN === "true",
+  );
   const [monsterCodexOpen, setMonsterCodexOpen] = useState(false);
   const [trackedQuestId, setTrackedQuestId] = useState<string | null>(null);
   const [trackingBusy, setTrackingBusy] = useState<string | null>(null);
@@ -445,6 +452,20 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 퀘스트 fetch
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (coinShopAccessible) return;
+    const controller = new AbortController();
+    void fetch("/api/v2/museun-coin-shop/access", {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then((response) => {
+        if (response.ok) setCoinShopAccessible(true);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [coinShopAccessible]);
 
   // 가이드(업적) 퀘 보상 수령.
   const claim = useCallback(
@@ -718,6 +739,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
             now={growthLeapNow}
             busyId={growthLeapBusy}
             onClaim={(milestoneId) => void claimGrowthLeap(milestoneId)}
+            coinShopAccessible={coinShopAccessible}
           />
         )}
         {!forTutorial && achievement && (

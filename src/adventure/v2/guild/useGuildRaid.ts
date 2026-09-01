@@ -24,14 +24,31 @@ export function useGuildRaid() {
   const [state, setState] = useState<GuildRaidState | null>(null);
   const [loading, setLoading] = useState(true);
   const [attacking, setAttacking] = useState(false);
+  const [claiming, setClaiming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastAttack, setLastAttack] = useState<GuildRaidAttackResult | null>(null);
   const attackingRef = useRef(false);
+  const leaderboardPageRef = useRef(1);
+  const recentPageRef = useRef(1);
 
-  const load = useCallback(async ({ quiet = false }: { quiet?: boolean } = {}) => {
+  const load = useCallback(async ({
+    quiet = false,
+    leaderboardPage = leaderboardPageRef.current,
+    recentPage = recentPageRef.current,
+  }: {
+    quiet?: boolean;
+    leaderboardPage?: number;
+    recentPage?: number;
+  } = {}) => {
+    leaderboardPageRef.current = leaderboardPage;
+    recentPageRef.current = recentPage;
     if (!quiet) setLoading(true);
     try {
-      const response = await fetch("/api/v2/guild/raid");
+      const query = new URLSearchParams({
+        leaderboardPage: String(leaderboardPage),
+        recentPage: String(recentPage),
+      });
+      const response = await fetch(`/api/v2/guild/raid?${query}`);
       const body = (await response.json().catch(() => null)) as
         | GuildRaidState
         | GuildRaidErrorResponse
@@ -97,5 +114,45 @@ export function useGuildRaid() {
     }
   }, [load]);
 
-  return { state, loading, attacking, error, lastAttack, load, attack };
+  const claim = useCallback(async () => {
+    if (claiming) return;
+    setClaiming(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/v2/guild/raid/claim", {
+        method: "POST",
+      });
+      const body = (await response.json().catch(() => null)) as
+        | GuildRaidErrorResponse
+        | { ok: true }
+        | null;
+      if (!response.ok || !body?.ok) {
+        setError(
+          body && "error" in body ? body.error ?? "claim_failed" : "claim_failed",
+        );
+        return;
+      }
+      await load({ quiet: true });
+    } catch {
+      setError("claim_failed");
+    } finally {
+      setClaiming(false);
+    }
+  }, [claiming, load]);
+
+  return {
+    state,
+    loading,
+    attacking,
+    claiming,
+    error,
+    lastAttack,
+    load,
+    attack,
+    claim,
+    setLeaderboardPage: (page: number) =>
+      load({ leaderboardPage: page, recentPage: recentPageRef.current }),
+    setRecentPage: (page: number) =>
+      load({ leaderboardPage: leaderboardPageRef.current, recentPage: page }),
+  };
 }

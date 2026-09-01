@@ -31,6 +31,7 @@ import {
   type BattleLogEntry,
   type BattleTurnState,
   appendLog,
+  appendSkillCastLog,
   damageBetween,
 } from "./engine";
 import {
@@ -3137,8 +3138,16 @@ export function castV2SkillOnAttackerTurnPvP(
     }
   }
   // 3) state 업데이트. 앞 단계에서 만든 st 의 로그를 이어서 누적한다.
-  // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
-  let nextLog = st.log;
+  // 구조화된 시전 경계와 별개로 damage/heal 로그에도 스킬명을 포함한다.
+  let nextLog =
+    result.castSkillId && result.castSkillName
+      ? appendSkillCastLog(
+          st.log,
+          result.castSkillId,
+          result.castSkillName,
+          { side: who },
+        )
+      : st.log;
   let nextSideHp = side.hp;
   let nextOppHp = opp.hp;
   let tier6SkillHitDamages: number[] = [];
@@ -4069,7 +4078,10 @@ export function castV2SkillOnAttackerTurnPvP(
   if (result.manaRestored > 0 && result.castSkillName) {
     nextLog = appendLog(nextLog, {
       kind: "player_attack",
-      text: `${result.castSkillName}! ${side.name} 마나 ${result.manaRestored} 회복했다.`,
+      text:
+        result.castSkillId === "v2c_primordialmage_return"
+          ? `[근원공명] 태초회귀로 ${side.name} 마나 ${result.manaRestored} 회복했다.`
+          : `${result.castSkillName}! ${side.name} 마나 ${result.manaRestored} 회복했다.`,
       side: who,
     });
   }

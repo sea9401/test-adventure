@@ -145,9 +145,14 @@ export const CASH_ITEM_DETAIL_BODY_CLASS =
 export const CASH_ITEM_PURCHASE_CONFIRM_OVERLAY_CLASS =
   "fixed inset-0 z-[110] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center";
 export const CASH_ITEM_ART_PATHS: Partial<Record<MuseunCashItemId, string>> = {
+  profile_badge_display_stand:
+    "/images/items/cash/profile_badge_display_stand.svg",
   adventure_support_premium_30d:
     "/images/items/cash/adventure_support_premium_30d.svg",
   adventure_support_30d: "/images/items/cash/adventure_support_30d.svg",
+  monthly_stamina_potion_bundle:
+    "/images/items/cash/monthly_stamina_potion_bundle.svg",
+  growth_leap_package: "/images/items/cash/growth_leap_package.svg",
   rename_permit: "/images/items/cash/rename_permit.svg",
   profile_image_permit: "/images/items/cash/profile_image_permit.svg",
   chroma_name_box: "/images/items/cash/chroma_name_box.svg",

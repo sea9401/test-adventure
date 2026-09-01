@@ -16,6 +16,7 @@ export type PublicCookingDiscovery = {
   imageSrc: string;
   actorName: string;
   discoveredAt: number;
+  codexRegistered: boolean;
 };
 
 export type CookingFailedResearchView = {

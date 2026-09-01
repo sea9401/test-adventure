@@ -2,16 +2,32 @@
   <title id="title">닉네임 꾸미기 상자</title>
   <desc id="desc">보라색 타일 위 다채로운 빛이 솟아나는 꾸미기 상자</desc>
 
-  <rect width="256" height="256" rx="54" fill="#4c158f"/>
-  <rect x="4" y="4" width="248" height="248" rx="50" fill="none" stroke="#6f35b3" stroke-width="4"/>
+  <defs>
+    <linearGradient id="chroma-bg" x1="25" y1="17" x2="229" y2="239" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#d8b4fe"/>
+      <stop offset="0.48" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#4c1d95"/>
+    </linearGradient>
+    <linearGradient id="chroma-box" x1="85" y1="142" x2="171" y2="216" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#e9d5ff"/>
+      <stop offset="0.55" stop-color="#b884ec"/>
+      <stop offset="1" stop-color="#7440aa"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="54" fill="#2e1065"/>
+  <rect x="4" y="4" width="248" height="248" rx="50" fill="url(#chroma-bg)" stroke="#f3e8ff" stroke-width="4"/>
+  <path d="M25 69C40 31 73 17 120 14H55c-23 0-41 18-41 41v78c2-26 5-47 11-64Z" fill="#fff" opacity=".22"/>
 
+  <path d="M75 151h120v70H75Z" fill="#2e1065" opacity=".42"/>
   <path d="M50 123 82 94h92l32 29-18 22H68Z" fill="#fff8e8" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
-  <path d="M68 139h120v76H68Z" fill="#c6a6f4" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M68 139h120v76H68Z" fill="url(#chroma-box)" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M78 151h98" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".45"/>
   <path d="M118 139h20v76h-20Z" fill="#ffca28" stroke="#2a0a5e" stroke-width="7"/>
   <path d="M64 139h128" stroke="#2a0a5e" stroke-width="9" stroke-linecap="round"/>
 
   <path d="M86 105C66 76 77 49 99 37" fill="none" stroke="#ef5c5c" stroke-width="13" stroke-linecap="round"/>
   <path d="M127 98c-9-31 4-53 25-68" fill="none" stroke="#52d3c4" stroke-width="13" stroke-linecap="round"/>
   <path d="M166 104c20-24 17-48 1-65" fill="none" stroke="#ffca28" stroke-width="13" stroke-linecap="round"/>
+  <path d="M82 98C69 75 78 55 96 43M124 90c-4-23 7-41 23-53M163 95c12-18 9-35 1-47" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".6"/>
   <path d="M96 31c3 10 9 16 19 19-10 3-16 9-19 19-3-10-9-16-19-19 10-3 16-9 19-19ZM188 65c3 10 9 16 19 19-10 3-16 9-19 19-3-10-9-16-19-19 10-3 16-9 19-19Z" fill="#fff8e8" stroke="#2a0a5e" stroke-width="6" stroke-linejoin="round"/>
 </svg>

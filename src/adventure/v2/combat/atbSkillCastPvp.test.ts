@@ -53,6 +53,46 @@ function run(): PvPBattleResolution {
 }
 
 describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
+  it("PvP의 효과 전용 스킬도 구조화된 시전 경계를 기록한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const skillId = "v2c_ironman_brace" as const;
+    const skills: V2SkillsState = {
+      learned: [skillId],
+      equipped: [skillId],
+      pattern: {
+        blocks: [
+          {
+            condition: { kind: "always" },
+            action: { kind: "skill", skillId },
+          },
+        ],
+      },
+    };
+    const initial = initialBattleStatePvP(
+      caster,
+      target,
+      "P1",
+      "P2",
+      skills,
+      { learned: [], equipped: [] },
+      undefined,
+      undefined,
+      "p1",
+    );
+
+    const cast = castV2SkillOnAttackerTurnPvP(initial, "p1");
+
+    expect(cast.castFired).toBe(true);
+    expect(
+      cast.state.log.some(
+        (entry) =>
+          entry.kind === "info" &&
+          entry.skillCast?.skillId === skillId &&
+          entry.skillCast.skillName === "버티기",
+      ),
+    ).toBe(true);
+  });
+
   it("빙점 지배 빙결은 상대의 예약된 다음 행동을 정확히 40% 미룬다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const speed = 30;
@@ -317,7 +357,12 @@ describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
     const cast = castV2SkillOnAttackerTurnPvP(initial, "p1");
 
     expect(cast.state.p1.mp).toBe(888);
-    expect(cast.state.log.some((entry) => entry.text === "태초회귀! P1 마나 80 회복했다.")).toBe(true);
+    expect(
+      cast.state.log.some(
+        (entry) =>
+          entry.text === "[근원공명] 태초회귀로 P1 마나 80 회복했다.",
+      ),
+    ).toBe(true);
     expect(cast.state.log.some((entry) => entry.text === "[마력 순환] P1 마나 33 환급")).toBe(true);
   });
 

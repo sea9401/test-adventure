@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">월간 스태미나 회복약 세트</title>
+  <desc id="desc">푸른 타일 위 세 개의 붉은 회복약과 달력 인장이 담긴 보급 상자</desc>
+
+  <defs>
+    <linearGradient id="potion-bg" x1="25" y1="18" x2="230" y2="238" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#bae6fd"/>
+      <stop offset="0.48" stop-color="#0ea5e9"/>
+      <stop offset="1" stop-color="#075985"/>
+    </linearGradient>
+    <linearGradient id="potion-crate" x1="75" y1="132" x2="181" y2="220" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8be4f6"/>
+      <stop offset="0.55" stop-color="#38b6d2"/>
+      <stop offset="1" stop-color="#14738b"/>
+    </linearGradient>
+    <linearGradient id="potion-glass" x1="104" y1="64" x2="149" y2="159" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff1f2"/>
+      <stop offset="0.27" stop-color="#fb7185"/>
+      <stop offset="0.72" stop-color="#e11d48"/>
+      <stop offset="1" stop-color="#881337"/>
+    </linearGradient>
+    <linearGradient id="potion-gold" x1="172" y1="34" x2="218" y2="91" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff4b8"/>
+      <stop offset="0.55" stop-color="#fbbf24"/>
+      <stop offset="1" stop-color="#b45309"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="256" height="256" rx="54" fill="#0c4a6e"/>
+  <rect x="4" y="4" width="248" height="248" rx="50" fill="url(#potion-bg)" stroke="#e0f2fe" stroke-width="4"/>
+  <path d="M25 69C40 31 73 17 120 14H55c-23 0-41 18-41 41v78c2-26 5-47 11-64Z" fill="#fff" opacity=".24"/>
+
+  <ellipse cx="128" cy="218" rx="84" ry="16" fill="#082f49" opacity=".4"/>
+
+  <g transform="translate(-35 24) rotate(-12 128 112)">
+    <rect x="104" y="45" width="48" height="27" rx="9" fill="#fff8e8" stroke="#2a0a5e" stroke-width="7"/>
+    <path d="M101 70h54l7 20v58c0 17-14 30-31 30h-6c-17 0-31-13-31-30V90Z" fill="url(#potion-glass)" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M108 91c3-8 8-12 15-13" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".74"/>
+  </g>
+  <g transform="translate(35 24) rotate(12 128 112)">
+    <rect x="104" y="45" width="48" height="27" rx="9" fill="#fff8e8" stroke="#2a0a5e" stroke-width="7"/>
+    <path d="M101 70h54l7 20v58c0 17-14 30-31 30h-6c-17 0-31-13-31-30V90Z" fill="url(#potion-glass)" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M108 91c3-8 8-12 15-13" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".74"/>
+  </g>
+  <rect x="104" y="47" width="48" height="27" rx="9" fill="#fff8e8" stroke="#2a0a5e" stroke-width="7"/>
+  <path d="M101 72h54l7 20v59c0 17-14 30-31 30h-6c-17 0-31-13-31-30V92Z" fill="url(#potion-glass)" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M109 94c3-8 8-12 15-13" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".75"/>
+
+  <path d="M48 143h160l-14 74H62Z" fill="url(#potion-crate)" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M58 154h138" stroke="#d9faff" stroke-width="6" stroke-linecap="round" opacity=".68"/>
+  <path d="M82 143v74M174 143v74M64 184h128" stroke="#2a0a5e" stroke-width="8"/>
+  <path d="M45 143h166" stroke="#2a0a5e" stroke-width="10" stroke-linecap="round"/>
+
+  <circle cx="198" cy="62" r="31" fill="url(#potion-gold)" stroke="#2a0a5e" stroke-width="7"/>
+  <rect x="181" y="46" width="34" height="31" rx="6" fill="#fff8e8" stroke="#2a0a5e" stroke-width="5"/>
+  <path d="M181 57h34M189 41v11M207 41v11" stroke="#2a0a5e" stroke-width="5" stroke-linecap="round"/>
+  <path d="m191 67 5 5 10-12" fill="none" stroke="#e11d48" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

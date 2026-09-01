@@ -32,6 +32,8 @@ import {
 } from "@/adventure/data/v2/masteryTower";
 import { H2, P, UL, Em, Table, Note } from "./primitives";
 import { JobRoadmapScroller } from "./JobRoadmapScroller";
+import { JobWikiIndex } from "./JobWikiIndex";
+import { buildJobManualIndex } from "../jobManualModel";
 
 const MASTERY_TOWER_SAMPLE_FLOORS = [10, 30, 50, 60, 80, 100];
 const TIER7_ROWS = TIER7_COMBAT_JOB_IDS.map((jobId) => [
@@ -245,6 +247,14 @@ export function JobsContent() {
         올립니다(스탯 자체가 아니라 천장을 올리는 것). 한계를 높일수록 비용이
         증가하며, 넓어진 범위는 이후 레벨업 성장에 반영됩니다.
       </P>
+
+      <H2>전체 직업 도감</H2>
+      <P>
+        전투·생활 직업의 계보와 성장 수치, 배울 수 있는 모든 스킬을 현재 해금 여부와
+        관계없이 공개합니다. 아래 정보는 실제 직업·스킬 데이터에서 바로 가져오므로 게임
+        내 수치와 함께 갱신됩니다.
+      </P>
+      <JobWikiIndex entries={buildJobManualIndex()} />
     </>
   );
 }

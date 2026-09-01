@@ -1,10 +1,12 @@
 import {
   appendLog,
+  applyEnemyDamage,
   applyBerserkerHostileDamage,
   applyCounterIfAny,
   playerPveEvasionReductionPct,
   finishEnemyAttack,
   playerFacingEnemyDef,
+  recordEnemyDamage,
   type BattleLogEntry,
   type BattleState,
   type PlayerCombat,
@@ -62,9 +64,9 @@ export function releaseSwordShadowAfterEnemyAction(
     nextSingleDamagePct: 15,
   });
   const shadowDamage = Math.min(state.enemyHp, released.damage);
+  const damagedState = applyEnemyDamage(state, released.damage);
   return {
-    ...state,
-    enemyHp: Math.max(0, state.enemyHp - released.damage),
+    ...damagedState,
     stacks: {
       ...state.stacks,
       tier7: {
@@ -409,9 +411,11 @@ export function resolveEnemyPhase(
   const applyDodgeReflect = (
     log0: BattleLogEntry[],
     enemyHp0: number,
-  ): { log: BattleLogEntry[]; enemyHp: number; killed: boolean } => {
+  ): { log: BattleLogEntry[]; enemyHp: number; killed: boolean; damage: number } => {
     const rawReflect = infiniteThornsDmg + reflexEvadeDmg;
-    if (rawReflect <= 0) return { log: log0, enemyHp: enemyHp0, killed: false };
+    if (rawReflect <= 0) {
+      return { log: log0, enemyHp: enemyHp0, killed: false, damage: 0 };
+    }
     const v2DefMult = v2DefBuffMult(state.enemyV2SelfBuffs, state.enemyV2Debuffs);
     const targetDef = playerFacingEnemyDef(state, player);
     const totalReflect = damageBetween(
@@ -427,7 +431,12 @@ export function resolveEnemyPhase(
       kind: "player_attack",
       text: `[${labels.join(" + ")}] ${state.enemy.name}에게 ${totalReflect} 반사 피해.`,
     });
-    return { log: nextLog, enemyHp: newEnemyHp, killed: newEnemyHp <= 0 };
+    return {
+      log: nextLog,
+      enemyHp: newEnemyHp,
+      killed: newEnemyHp <= 0,
+      damage: totalReflect,
+    };
   };
 
   // 그림자 보법 (2티어 특기) — 적 턴 시작 시 일정 확률로 그 턴 모든 적 공격 무효.
@@ -454,7 +463,7 @@ export function resolveEnemyPhase(
     const reflect = applyDodgeReflect(log, state.enemyHp);
     if (reflect.killed) {
       return {
-        ...state,
+        ...recordEnemyDamage(state, reflect.damage),
         playerHp: healedHp,
         enemyHp: 0,
         flags: dodgeFlags,
@@ -472,7 +481,7 @@ export function resolveEnemyPhase(
     }
     // 그림자 보법은 그 턴 모든 적 공격 무효 — 다대시 보스라도 남은 추가타까지 모두 흘려보냄.
     let next: BattleState = {
-      ...state,
+      ...recordEnemyDamage(state, reflect.damage),
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
       flags: dodgeFlags,
@@ -514,7 +523,7 @@ export function resolveEnemyPhase(
     const reflect = applyDodgeReflect(log, state.enemyHp);
     if (reflect.killed) {
       return {
-        ...state,
+        ...recordEnemyDamage(state, reflect.damage),
         playerHp: healedHp,
         enemyHp: 0,
         flags: dodgeFlags,
@@ -535,7 +544,7 @@ export function resolveEnemyPhase(
       };
     }
     let next: BattleState = {
-      ...state,
+      ...recordEnemyDamage(state, reflect.damage),
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
       flags: dodgeFlags,
@@ -613,7 +622,7 @@ export function resolveEnemyPhase(
     const reflect = applyDodgeReflect(log, state.enemyHp);
     if (reflect.killed) {
       return {
-        ...state,
+        ...recordEnemyDamage(state, reflect.damage),
         playerHp: healedHp,
         enemyHp: 0,
         turn: {
@@ -629,7 +638,7 @@ export function resolveEnemyPhase(
       };
     }
     let next: BattleState = {
-      ...state,
+      ...recordEnemyDamage(state, reflect.damage),
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
       buffs: dodgeBuffs, // on-dodge 속도 버프(미발동=state.buffs → byte-identical)
@@ -1201,6 +1210,7 @@ export function resolveEnemyPhase(
             : reflectTargetDef,
         )
       : 0;
+  let reactiveEnemyDamageTotal = reflectDmg;
   const enemyHpAfterThorns = Math.max(0, state.enemyHp - reflectDmg);
   if (reflectDmg > 0) {
     const reflectLabels: string[] = [];
@@ -1241,6 +1251,7 @@ export function resolveEnemyPhase(
       v2AtkMultC !== 1 ? Math.floor(player.atk * v2AtkMultC) : player.atk,
       v2DefMultC !== 1 ? Math.floor(counterDef * v2DefMultC) : counterDef,
     );
+    reactiveEnemyDamageTotal += counterDmg;
     enemyHpAfterRuneCounter = Math.max(0, enemyHpAfterThorns - counterDmg);
     log = appendLog(log, {
       kind: "player_attack",
@@ -1275,6 +1286,7 @@ export function resolveEnemyPhase(
       boostedCounterAtkM,
       v2DefMultM !== 1 ? Math.floor(counterDefM * v2DefMultM) : counterDefM,
     );
+    reactiveEnemyDamageTotal += counterDmgM;
     enemyHpAfterMartialCounter = Math.max(0, enemyHpAfterRuneCounter - counterDmgM);
     log = appendLog(log, {
       kind: "player_attack",
@@ -1294,7 +1306,7 @@ export function resolveEnemyPhase(
     },
   );
   let resolvedState: BattleState = {
-    ...state,
+    ...recordEnemyDamage(state, reactiveEnemyDamageTotal),
     playerHp,
     playerMagicBarrier: magicBarrier.durabilityLeft,
     enemyHp: enemyHpAfterMartialCounter,

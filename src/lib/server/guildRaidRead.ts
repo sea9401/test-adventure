@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import {
   guildMembers,
@@ -14,6 +14,10 @@ import {
   GUILD_RAID_DAILY_ATTACKS,
   GUILD_RAID_ELIGIBLE_ATTACKS,
   guildRaidDayKey,
+  guildRaidMaxHp,
+  guildRaidPhase,
+  guildRaidRewardForRank,
+  normalizeGuildRaidPage,
 } from "@/adventure/data/v2/guildRaid";
 import { parseCoopBossKindId } from "@/adventure/data/v2/coopBosses";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
@@ -36,66 +40,98 @@ function parseReplayPayload(raw: unknown): ReplayPayload | null {
   return replay as ReplayPayload;
 }
 
-export async function readGuildRaidState(userId: string, now = new Date()) {
-  const [guild] = await db
-    .select({ id: guilds.id, name: guilds.name, emblem: guilds.emblem })
-    .from(guildMembers)
-    .innerJoin(guilds, eq(guilds.id, guildMembers.guildId))
-    .where(and(eq(guildMembers.userId, userId), isNull(guilds.disbandedAt)))
-    .limit(1);
-  if (!guild) return { ok: false as const, error: "no_guild" as const };
-
+export async function readGuildRaidState(
+  userId: string,
+  now = new Date(),
+  pages: { leaderboardPage?: unknown; recentPage?: unknown } = {},
+) {
   const event = await ensureCurrentGuildRaid(now);
-  const [participantRows, scoreRows, memberRows, recentRows, leaderboard] =
-    await Promise.all([
-      db
-        .select()
-        .from(guildRaidParticipants)
-        .where(
-          and(
-            eq(guildRaidParticipants.eventId, event.id),
-            eq(guildRaidParticipants.userId, userId),
-          ),
-        )
-        .limit(1),
-      db
-        .select()
-        .from(guildRaidGuildScores)
-        .where(
-          and(
-            eq(guildRaidGuildScores.eventId, event.id),
-            eq(guildRaidGuildScores.guildId, guild.id),
-          ),
-        )
-        .limit(1),
-      db
-        .select()
-        .from(guildRaidParticipants)
-        .where(
-          and(
-            eq(guildRaidParticipants.eventId, event.id),
-            eq(guildRaidParticipants.guildId, guild.id),
-          ),
-        )
-        .orderBy(desc(guildRaidParticipants.damage)),
-      db
-        .select({
-          id: guildRaidAttackLogs.id,
-          name: guildRaidAttackLogs.name,
-          guildId: guildRaidAttackLogs.guildId,
-          damageDealt: guildRaidAttackLogs.damageDealt,
-          stageBefore: guildRaidAttackLogs.stageBefore,
-          stageAfter: guildRaidAttackLogs.stageAfter,
-          createdAt: guildRaidAttackLogs.createdAt,
-        })
-        .from(guildRaidAttackLogs)
-        .where(eq(guildRaidAttackLogs.eventId, event.id))
-        .orderBy(desc(guildRaidAttackLogs.createdAt))
-        .limit(20),
-      readGuildRaidLeaderboard(event.id, guild.id),
-    ]);
+  const [participantRows, currentGuildRows] = await Promise.all([
+    db
+      .select()
+      .from(guildRaidParticipants)
+      .where(
+        and(
+          eq(guildRaidParticipants.eventId, event.id),
+          eq(guildRaidParticipants.userId, userId),
+        ),
+      )
+      .limit(1),
+    db
+      .select({ id: guilds.id, name: guilds.name, emblem: guilds.emblem })
+      .from(guildMembers)
+      .innerJoin(guilds, eq(guilds.id, guildMembers.guildId))
+      .where(and(eq(guildMembers.userId, userId), isNull(guilds.disbandedAt)))
+      .limit(1),
+  ]);
   const participant = participantRows[0] ?? null;
+  const currentGuild = currentGuildRows[0] ?? null;
+  const raidGuildId = participant?.guildId ?? currentGuild?.id ?? null;
+  if (raidGuildId == null) {
+    return { ok: false as const, error: "no_guild" as const };
+  }
+
+  const [scoreRows, recentCountRows, leaderboard] = await Promise.all([
+    db
+      .select()
+      .from(guildRaidGuildScores)
+      .where(
+        and(
+          eq(guildRaidGuildScores.eventId, event.id),
+          eq(guildRaidGuildScores.guildId, raidGuildId),
+        ),
+      )
+      .limit(1),
+    db
+      .select({ total: count() })
+      .from(guildRaidAttackLogs)
+      .where(
+        and(
+          eq(guildRaidAttackLogs.eventId, event.id),
+          eq(guildRaidAttackLogs.guildId, raidGuildId),
+        ),
+      ),
+    readGuildRaidLeaderboard(
+      event.id,
+      raidGuildId,
+      pages.leaderboardPage,
+    ),
+  ]);
   const score = scoreRows[0] ?? null;
+  const recentTotal = recentCountRows[0]?.total ?? 0;
+  const recentPage = normalizeGuildRaidPage(pages.recentPage, recentTotal);
+  const [memberRows, recentRows] = await Promise.all([
+    db
+      .select()
+      .from(guildRaidParticipants)
+      .where(
+        and(
+          eq(guildRaidParticipants.eventId, event.id),
+          eq(guildRaidParticipants.guildId, raidGuildId),
+        ),
+      )
+      .orderBy(desc(guildRaidParticipants.damage)),
+    db
+      .select({
+        id: guildRaidAttackLogs.id,
+        name: guildRaidAttackLogs.name,
+        guildId: guildRaidAttackLogs.guildId,
+        damageDealt: guildRaidAttackLogs.damageDealt,
+        stageBefore: guildRaidAttackLogs.stageBefore,
+        stageAfter: guildRaidAttackLogs.stageAfter,
+        createdAt: guildRaidAttackLogs.createdAt,
+      })
+      .from(guildRaidAttackLogs)
+      .where(
+        and(
+          eq(guildRaidAttackLogs.eventId, event.id),
+          eq(guildRaidAttackLogs.guildId, raidGuildId),
+        ),
+      )
+      .orderBy(desc(guildRaidAttackLogs.createdAt))
+      .offset(recentPage.offset)
+      .limit(recentPage.limit),
+  ]);
   const today = guildRaidDayKey(now);
   const dailyAttackCount =
     participant?.dayKey === today ? participant.dailyAttackCount : 0;
@@ -103,6 +139,15 @@ export async function readGuildRaidState(userId: string, now = new Date()) {
   if (!bossKind) {
     return { ok: false as const, error: "bad_boss" as const };
   }
+  const phase = guildRaidPhase(now, event);
+  const eligible =
+    participant?.eligibleAtSettlement ??
+    ((participant?.attackCount ?? 0) >= GUILD_RAID_ELIGIBLE_ATTACKS &&
+      (participant?.damage ?? 0) >= 1);
+  const rank = leaderboard.viewer?.rank ?? null;
+  const reward = rank == null ? null : guildRaidRewardForRank(rank);
+  const initialMaxHp = guildRaidMaxHp(1);
+  const currentGuildMatches = currentGuild?.id === raidGuildId;
 
   return {
     ok: true as const,
@@ -110,9 +155,10 @@ export async function readGuildRaidState(userId: string, now = new Date()) {
       id: event.id,
       bossKind,
       status: event.status,
-      stage: event.stage,
-      hp: event.hp,
-      maxHp: event.maxHp,
+      phase,
+      stage: score?.stage ?? 1,
+      hp: score?.hp ?? initialMaxHp,
+      maxHp: score?.maxHp ?? initialMaxHp,
       startsAt: event.startsAt.getTime(),
       endsAt: event.endsAt.getTime(),
       settledAt: event.settledAt?.getTime() ?? null,
@@ -124,17 +170,25 @@ export async function readGuildRaidState(userId: string, now = new Date()) {
       dailyAttackCount,
       dailyAttackLimit: GUILD_RAID_DAILY_ATTACKS,
       remainingAttacks: Math.max(0, GUILD_RAID_DAILY_ATTACKS - dailyAttackCount),
-      eligible:
-        participant?.eligibleAtSettlement ??
-        ((participant?.attackCount ?? 0) >= GUILD_RAID_ELIGIBLE_ATTACKS &&
-          (participant?.damage ?? 0) >= 1),
+      eligible,
+      rewardClaimedAt: participant?.rewardClaimedAt?.getTime() ?? null,
+      reward,
+      canClaim:
+        phase === "claim" &&
+        eligible &&
+        participant?.rewardClaimedAt == null &&
+        reward != null,
     },
     guild: {
-      id: guild.id,
-      name: guild.name,
-      emblem: guild.emblem,
+      id: raidGuildId,
+      name:
+        score?.guildNameSnapshot ??
+        (currentGuildMatches ? currentGuild.name : "이전 길드"),
+      emblem:
+        score?.guildEmblemSnapshot ??
+        (currentGuildMatches ? currentGuild.emblem : null),
       damage: score?.damage ?? 0,
-      rank: leaderboard.viewer?.rank ?? null,
+      rank,
     },
     members: memberRows.map((member) => ({
       userId: member.userId,
@@ -152,6 +206,7 @@ export async function readGuildRaidState(userId: string, now = new Date()) {
       damage: row.damage,
       rank: row.rank,
     })),
+    leaderboardPagination: leaderboard.pagination,
     recentAttacks: recentRows.map((attack) => ({
       id: attack.id,
       name: attack.name,
@@ -160,6 +215,12 @@ export async function readGuildRaidState(userId: string, now = new Date()) {
       stagesCleared: Math.max(0, attack.stageAfter - attack.stageBefore),
       at: attack.createdAt.getTime(),
     })),
+    recentPagination: {
+      page: recentPage.page,
+      pageSize: recentPage.pageSize,
+      totalPages: recentPage.totalPages,
+      total: recentTotal,
+    },
   };
 }
 

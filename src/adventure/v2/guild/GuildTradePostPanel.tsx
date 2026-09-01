@@ -242,7 +242,7 @@ export function GuildTradePostPanel({
       </section>
 
       {!shopOnly && !state.eligible && (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-zinc-950 dark:text-amber-200">
           이번 주 계약이 열린 뒤 가입했습니다. 다음 주 계약부터 납품할 수 있습니다.
         </p>
       )}
@@ -251,8 +251,8 @@ export function GuildTradePostPanel({
         <p
           className={`rounded-md border px-3 py-2 ${
             notice.kind === "ok"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
-              : "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-zinc-950 dark:text-emerald-300"
+              : "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-zinc-950 dark:text-red-300"
           }`}
         >
           {notice.text}
@@ -407,7 +407,7 @@ export function GuildTradePostPanel({
                         (json) => deliveryNotice(json, sharedTokens),
                       )
                     }
-                    className="flex-1 rounded-md border border-cyan-700 bg-cyan-50 px-2 py-1.5 text-xs font-semibold text-cyan-800 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-cyan-950 dark:text-cyan-200 dark:hover:bg-cyan-900"
+                    className="ui-semantic-fill flex-1 rounded-md border border-cyan-700 bg-cyan-50 px-2 py-1.5 text-xs font-semibold text-cyan-800 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-cyan-950 dark:text-cyan-200 dark:hover:bg-cyan-900"
                   >
                     {quickDelivery.points}점 납품
                   </button>
@@ -457,7 +457,7 @@ export function GuildTradePostPanel({
           </div>
         </div>
         {sharedTokens && !state.canManage && (
-          <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+          <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-zinc-950 dark:text-amber-200">
             길드장 또는 관리자만 공동 토큰으로 물품을 선택할 수 있습니다. 선택된
             물품은 길드원 전원에게 지급됩니다.
           </p>

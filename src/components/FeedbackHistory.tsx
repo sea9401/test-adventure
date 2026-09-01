@@ -118,11 +118,11 @@ export function FeedbackHistory({ refreshToken }: { refreshToken: number }) {
           불러오는 중…
         </p>
       ) : error ? (
-        <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-6 text-center text-sm text-rose-700 shadow-sm dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
+        <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-6 text-center text-sm text-rose-700 shadow-sm dark:border-rose-900 dark:bg-zinc-950 dark:text-rose-300">
           건의 내역을 불러오지 못했습니다.
         </p>
       ) : targetMissing ? (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-6 text-center text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-6 text-center text-sm text-amber-800 dark:border-amber-900 dark:bg-zinc-950 dark:text-amber-200">
           해당 건의를 찾을 수 없습니다.
         </p>
       ) : entries.length === 0 ? (

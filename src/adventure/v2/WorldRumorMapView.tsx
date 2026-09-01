@@ -447,7 +447,7 @@ export function WorldRumorMapView({
               </p>
               <Link
                 href="/town/life-workshop"
-                className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-700 transition hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
+                className="ui-game-button mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-700 transition hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
               >
                 <Hammer size={14} weight="duotone" aria-hidden />
                 생활 의뢰·조합 작업장
@@ -707,7 +707,7 @@ export function WorldRumorMapView({
                 ) ? (
                   <Link
                     href="/character/codex?tab=life"
-                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200"
+                    className="ui-game-button inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200"
                   >
                     이 지역의 미등록 기록과 힌트 보기
                     <ArrowRight size={14} weight="bold" aria-hidden />

@@ -161,7 +161,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
               </span>
             </div>
           </div>
-          <div className="mt-3 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-900 dark:bg-emerald-950/30">
+          <div className="mt-3 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-900 dark:bg-zinc-950">
             <div className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
               다음에 할 일
             </div>

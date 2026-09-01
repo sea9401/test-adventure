@@ -114,7 +114,7 @@ export function GrowthShrineView({
           />
         </div>
 
-        <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50/60 px-3 py-2 dark:border-amber-900 dark:bg-amber-950/30">
+        <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50/60 px-3 py-2 dark:border-amber-900 dark:bg-zinc-950">
           <Coins
             size={16}
             weight="fill"
@@ -271,8 +271,8 @@ function PointBadge({
 }) {
   const cls =
     tone === "emerald"
-      ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
-      : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200";
+      ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-zinc-950 dark:text-emerald-200"
+      : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-zinc-950 dark:text-amber-200";
   const pending = value !== total;
   return (
     <div className={`rounded-md border px-3 py-2 text-xs ${cls}`}>

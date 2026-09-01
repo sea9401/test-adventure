@@ -444,7 +444,7 @@ function RankingRow({
       type="button"
       onClick={() => onSelectName(entry.name)}
       className={`flex w-full items-center justify-between gap-3 px-4 py-2 text-left transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-900 ${
-        entry.mine ? "bg-emerald-50 dark:bg-emerald-950/40" : ""
+        entry.mine ? "bg-emerald-50 dark:bg-zinc-800" : ""
       }`}
     >
       <span className="flex items-center gap-3 min-w-0">
@@ -518,7 +518,7 @@ function GuildRankingRow({
   return (
     <div
       className={`flex items-center justify-between gap-3 px-4 py-2 ${
-        entry.mine ? "bg-emerald-50 dark:bg-emerald-950" : ""
+        entry.mine ? "bg-emerald-50 dark:bg-zinc-800" : ""
       }`}
     >
       <span className="flex items-center gap-3 min-w-0">

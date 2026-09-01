@@ -60,7 +60,7 @@ function ChallengeSection({
             key={c.id}
             className={`rounded-xl border p-3 ${
               c.claimable
-                ? "border-amber-300 bg-amber-50/70 dark:border-amber-800/70 dark:bg-amber-950/30"
+                ? "border-amber-300 bg-amber-50/70 dark:border-amber-800/70 dark:bg-zinc-800"
                 : "border-zinc-200 dark:border-zinc-800"
             }`}
           >

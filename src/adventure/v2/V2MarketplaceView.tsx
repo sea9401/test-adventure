@@ -1547,7 +1547,7 @@ export function V2MarketplaceView({
                       ? setEquipmentOrderOpen(true)
                       : setOrderCatalogOpen(true)
                   }
-                  className="flex w-full items-center justify-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                  className="ui-semantic-fill flex w-full items-center justify-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
                 >
                   <ShoppingCart size={15} weight="duotone" />
                   {browseEquipmentTab
@@ -2086,7 +2086,7 @@ export function V2MarketplaceView({
                 onClick={() => setListingMode("fixed")}
                 className={`rounded-lg border p-3 text-left transition ${
                   listingMode === "fixed"
-                    ? "border-emerald-600 bg-emerald-50 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100"
+                    ? "border-emerald-600 bg-emerald-50 text-emerald-900 dark:bg-zinc-800 dark:text-emerald-100"
                     : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
                 }`}
               >
@@ -2101,7 +2101,7 @@ export function V2MarketplaceView({
                 onClick={() => setListingMode("auction")}
                 className={`rounded-lg border p-3 text-left transition ${
                   listingMode === "auction"
-                    ? "border-sky-600 bg-sky-50 text-sky-900 dark:bg-sky-950 dark:text-sky-100"
+                    ? "border-sky-600 bg-sky-50 text-sky-900 dark:bg-zinc-800 dark:text-sky-100"
                     : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
                 }`}
               >
@@ -3181,7 +3181,7 @@ function BuyConfirm({
             <div className="text-[11px] text-zinc-600 dark:text-zinc-300">{detail.line}</div>
           )}
           {progressionLock && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs font-medium text-amber-800 dark:border-amber-800 dark:bg-zinc-950 dark:text-amber-300">
               구매·보관은 가능하지만 {progressionLock.label} 전에는 착용할 수 없습니다.
             </div>
           )}

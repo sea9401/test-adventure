@@ -22,6 +22,7 @@ import {
   coopBossTrackingThreatMax,
   coopInvincibleFortressDisplay,
   coopSkywardCrystalEyeDisplay,
+  coopImmortalBerserkerDisplay,
 } from "@/adventure/data/v2/coopBosses";
 import {
   evasionDamageReductionPct,
@@ -232,6 +233,11 @@ export async function GET(_req: Request, { params }: Ctx) {
         session.hp,
       ),
       ...coopSkywardCrystalEyeDisplay(
+        def,
+        session.mechanicState,
+        session.hp,
+      ),
+      ...coopImmortalBerserkerDisplay(
         def,
         session.mechanicState,
         session.hp,

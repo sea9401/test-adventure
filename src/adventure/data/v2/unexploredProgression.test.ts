@@ -101,7 +101,7 @@ describe("unexplored achievements", () => {
     ]);
   });
 
-  it("requires all five personal bosses for conquest and grants both new boss achievements", () => {
+  it("requires all six personal bosses for conquest and grants both new boss achievements", () => {
     expect(
       unexploredAchievementCandidates({
         defeatedBossIds: [
@@ -119,6 +119,7 @@ describe("unexplored achievements", () => {
           "glacial_colossus",
           "invincible_fortress",
           "skyward_crystal_eye",
+          "immortal_berserker",
           "lake_sovereign",
         ],
       }),
@@ -129,6 +130,7 @@ describe("unexplored achievements", () => {
       "defeat_glacial_colossus",
       "defeat_invincible_fortress",
       "defeat_skyward_crystal_eye",
+      "defeat_immortal_berserker",
       "defeat_all_personal_bosses",
     ]);
   });

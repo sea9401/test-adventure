@@ -114,8 +114,8 @@ describe("unexplored rewards", () => {
     }
   });
 
-  it("registers five summon stones and the shared boss core", () => {
-    expect(Object.keys(UNEXPLORED_SUMMON_STONE_MATERIALS)).toHaveLength(5);
+  it("registers six summon stones and the shared boss core", () => {
+    expect(Object.keys(UNEXPLORED_SUMMON_STONE_MATERIALS)).toHaveLength(6);
     for (const [id, material] of Object.entries(
       UNEXPLORED_SUMMON_STONE_MATERIALS,
     )) {

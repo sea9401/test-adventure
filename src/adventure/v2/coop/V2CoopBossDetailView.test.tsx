@@ -109,4 +109,38 @@ describe("V2CoopBossDetailView 추적 병기", () => {
     expect(html).toContain("누적 피해 18,200 / 32,400");
     expect(html).not.toContain("발악 0/");
   });
+
+  it("불멸의 광전왕 상세에 생명·재생·광폭 상태를 모두 표시한다", () => {
+    state.session = {
+      ...state.session,
+      id: "immortal-1",
+      kind: "immortal_berserker",
+      hp: 5_672_000,
+      immortalLifeIndex: 1,
+      immortalLifeHp: 2_000_000,
+      immortalLifeMaxHp: 3_564_000,
+      immortalRegenActionsRemaining: 2,
+      immortalRegenUsesRemaining: 1,
+      immortalNextRegenAmount: 106_920,
+      immortalAtkMult: 1.12,
+      immortalSpdMult: 1.06,
+    };
+    const html = renderToStaticMarkup(
+      <V2CoopBossDetailView
+        sessionId="immortal-1"
+        stamina={{ current: 100, lastUpdatedAt: Date.now() }}
+        staminaMax={100}
+        staminaRegenBonusPct={0}
+        setStamina={() => {}}
+        onBack={() => {}}
+        onOpenAttackLog={() => {}}
+      />,
+    );
+
+    expect(html).toContain("생명 2 / 3");
+    expect(html).toContain("현재 생명 2,000,000 / 3,564,000");
+    expect(html).toContain("재생까지 2행동");
+    expect(html).toContain("남은 재생 1회");
+    expect(html).toContain("공격력 +12%");
+  });
 });

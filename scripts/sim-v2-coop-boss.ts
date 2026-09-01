@@ -21,6 +21,7 @@ import {
 import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import { initialInvincibleFortressState } from "../src/adventure/v2/combat/invincibleFortressMechanic";
 import { initialSkywardCrystalEyeState } from "../src/adventure/v2/combat/skywardCrystalEyeMechanic";
+import { initialImmortalBerserkerState } from "../src/adventure/v2/combat/immortalBerserkerMechanic";
 import {
   buildLevelDesignProgressionSnapshot,
   LEVEL_DESIGN_ARCHETYPES,
@@ -55,6 +56,11 @@ export type CoopBossTrialAudit = {
   crystalEyeArtilleryStacks: number[];
   crystalEyeArtilleryPowerPcts: number[];
   crystalEyeArtilleryDamageRatios: number[];
+  immortalRevivalCount: number;
+  immortalRegenerationCount: number;
+  immortalBodyDamage: number;
+  immortalHealing: number;
+  immortalNetProgress: number;
 };
 
 export type CoopBossBuildAudit = {
@@ -77,6 +83,11 @@ export type CoopBossBuildAudit = {
   medianCrystalEyeArtilleryStacks: number;
   medianCrystalEyeArtilleryPowerPct: number;
   medianCrystalEyeArtilleryDamageRatio: number;
+  medianRevivalCount: number;
+  medianRegenerationCount: number;
+  medianBodyDamage: number;
+  medianHealing: number;
+  medianNetProgress: number;
 };
 
 export type CoopBossAudit = {
@@ -99,6 +110,11 @@ export type CoopBossAudit = {
   medianCrystalEyeArtilleryStacks: number;
   medianCrystalEyeArtilleryPowerPct: number;
   medianCrystalEyeArtilleryDamageRatio: number;
+  medianRevivalCount: number;
+  medianRegenerationCount: number;
+  medianBodyDamage: number;
+  medianHealing: number;
+  medianNetProgress: number;
 };
 
 const FORTRESS_TIER_MIN_DAMAGE_RATIO = [1, 0.75, 0.5, 0.25, 0] as const;
@@ -186,7 +202,8 @@ export function auditCoopBossForPlayer(args: {
       bossId === "toxic_blood_lord" ||
       bossId === "glacial_colossus" ||
       bossId === "invincible_fortress" ||
-      bossId === "skyward_crystal_eye",
+      bossId === "skyward_crystal_eye" ||
+      bossId === "immortal_berserker",
   );
   try {
     for (let trial = 0; trial < trials; trial += 1) {
@@ -207,6 +224,10 @@ export function auditCoopBossForPlayer(args: {
       const crystalEyeArtilleryStacks: number[] = [];
       const crystalEyeArtilleryPowerPcts: number[] = [];
       const crystalEyeArtilleryDamageRatios: number[] = [];
+      let immortalRevivalCount = 0;
+      let immortalRegenerationCount = 0;
+      let immortalBodyDamage = 0;
+      let immortalHealing = 0;
       let damageDealt = 0;
       let finalPlayerHp = args.player.maxHp;
       let survivalTicks = 0;
@@ -265,6 +286,16 @@ export function auditCoopBossForPlayer(args: {
                             kind: "skyward_crystal_eye" as const,
                             sharedMaxHp: kind.sharedMaxHp,
                             initialState: initialSkywardCrystalEyeState(),
+                          },
+                        }
+                    : bossId === "immortal_berserker"
+                      ? {
+                          bossMechanic: {
+                            kind: "immortal_berserker" as const,
+                            sharedMaxHp: kind.sharedMaxHp,
+                            initialState: initialImmortalBerserkerState(
+                              kind.sharedMaxHp,
+                            ),
                           },
                         }
                     : {}),
@@ -346,6 +377,15 @@ export function auditCoopBossForPlayer(args: {
             event.damage / Math.max(1, args.player.maxHp),
           );
         }
+        if (result.finalState.bossMechanic?.kind === "immortal_berserker") {
+          const immortal = result.finalState.bossMechanic;
+          immortalRevivalCount += immortal.immortalRevivalCount;
+          immortalBodyDamage += immortal.immortalBodyDamage;
+          immortalHealing += immortal.immortalHealing;
+          immortalRegenerationCount += result.finalState.log.filter((entry) =>
+            entry.text.startsWith("재생 +"),
+          ).length;
+        }
         if (result.finalState.enemyHp <= 0) break;
       }
       const trackingCounterDamageRatioPerTrigger =
@@ -385,6 +425,14 @@ export function auditCoopBossForPlayer(args: {
         crystalEyeArtilleryStacks,
         crystalEyeArtilleryPowerPcts,
         crystalEyeArtilleryDamageRatios,
+        immortalRevivalCount,
+        immortalRegenerationCount,
+        immortalBodyDamage,
+        immortalHealing,
+        immortalNetProgress: Math.max(
+          0,
+          immortalBodyDamage - immortalHealing,
+        ),
       });
     }
   } finally {
@@ -556,6 +604,41 @@ function buildAuditForArch(
           0.5,
         ),
       ),
+      medianRevivalCount: assertFinite(
+        "medianRevivalCount",
+        percentile(
+          trialAudits.map((audit) => audit.immortalRevivalCount),
+          0.5,
+        ),
+      ),
+      medianRegenerationCount: assertFinite(
+        "medianRegenerationCount",
+        percentile(
+          trialAudits.map((audit) => audit.immortalRegenerationCount),
+          0.5,
+        ),
+      ),
+      medianBodyDamage: assertFinite(
+        "medianBodyDamage",
+        percentile(
+          trialAudits.map((audit) => audit.immortalBodyDamage),
+          0.5,
+        ),
+      ),
+      medianHealing: assertFinite(
+        "medianHealing",
+        percentile(
+          trialAudits.map((audit) => audit.immortalHealing),
+          0.5,
+        ),
+      ),
+      medianNetProgress: assertFinite(
+        "medianNetProgress",
+        percentile(
+          trialAudits.map((audit) => audit.immortalNetProgress),
+          0.5,
+        ),
+      ),
     },
     trials: trialAudits,
   };
@@ -708,6 +791,41 @@ export function buildCoopBossBalanceReport(options: {
           allTrials.flatMap((trial) => trial.crystalEyeArtilleryDamageRatios).length > 0
             ? allTrials.flatMap((trial) => trial.crystalEyeArtilleryDamageRatios)
             : [0],
+          0.5,
+        ),
+      ),
+      medianRevivalCount: assertFinite(
+        "medianRevivalCount",
+        percentile(
+          allTrials.map((trial) => trial.immortalRevivalCount),
+          0.5,
+        ),
+      ),
+      medianRegenerationCount: assertFinite(
+        "medianRegenerationCount",
+        percentile(
+          allTrials.map((trial) => trial.immortalRegenerationCount),
+          0.5,
+        ),
+      ),
+      medianBodyDamage: assertFinite(
+        "medianBodyDamage",
+        percentile(
+          allTrials.map((trial) => trial.immortalBodyDamage),
+          0.5,
+        ),
+      ),
+      medianHealing: assertFinite(
+        "medianHealing",
+        percentile(
+          allTrials.map((trial) => trial.immortalHealing),
+          0.5,
+        ),
+      ),
+      medianNetProgress: assertFinite(
+        "medianNetProgress",
+        percentile(
+          allTrials.map((trial) => trial.immortalNetProgress),
           0.5,
         ),
       ),

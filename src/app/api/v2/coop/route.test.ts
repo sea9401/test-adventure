@@ -205,4 +205,51 @@ describe("GET /api/v2/coop", () => {
       }],
     });
   });
+
+  it("불멸의 광전왕 둘째 생명과 재생 상태를 목록에 표시한다", async () => {
+    mocks.queryRows.push(
+      [{
+        id: "immortal-1",
+        regionId: "immortal_berserker",
+        hp: 5_672_000,
+        maxHp: 10_800_000,
+        mechanicState: {
+          immortalBerserker: {
+            kind: "immortal_berserker",
+            lifeIndex: 1,
+            regenActionCount: 2,
+            regenUsesRemaining: 1,
+            revivalsCompleted: 1,
+          },
+        },
+        expiresAt: new Date(Date.now() + 60_000),
+        summonedByName: "viewer",
+        summonerId: "viewer",
+        summonerGuildId: null,
+        visibility: "summoner_only",
+        spawnedAt: new Date(),
+        defeatedAt: null,
+      }],
+      [],
+      [],
+      [],
+      [],
+    );
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      sessions: [{
+        immortalLifeIndex: 1,
+        immortalLifeHp: 2_000_000,
+        immortalLifeMaxHp: 3_564_000,
+        immortalRegenActionsRemaining: 2,
+        immortalRegenUsesRemaining: 1,
+        immortalNextRegenAmount: 106_920,
+        immortalAtkMult: 1.12,
+        immortalSpdMult: 1.06,
+      }],
+    });
+  });
 });

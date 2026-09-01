@@ -189,4 +189,51 @@ describe("GET /api/v2/coop/[sessionId]", () => {
       },
     });
   });
+
+  it("불멸의 광전왕 상세에 둘째 생명과 재생 상태를 반환한다", async () => {
+    rows.queue = [
+      [{
+        id: "immortal-1",
+        regionId: "immortal_berserker",
+        hp: 5_672_000,
+        maxHp: 10_800_000,
+        mechanicState: {
+          immortalBerserker: {
+            kind: "immortal_berserker",
+            lifeIndex: 1,
+            regenActionCount: 2,
+            regenUsesRemaining: 1,
+            revivalsCompleted: 1,
+          },
+        },
+        expiresAt: new Date(Date.now() + 60_000),
+        defeatedAt: null,
+        summonedByName: "outsider",
+        summonerId: "outsider",
+        summonerGuildId: null,
+        visibility: "summoner_only",
+      }],
+      [],
+      [],
+      [],
+    ];
+
+    const response = await GET(new Request("http://localhost"), {
+      params: Promise.resolve({ sessionId: "immortal-1" }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      session: {
+        immortalLifeIndex: 1,
+        immortalLifeHp: 2_000_000,
+        immortalLifeMaxHp: 3_564_000,
+        immortalRegenActionsRemaining: 2,
+        immortalRegenUsesRemaining: 1,
+        immortalNextRegenAmount: 106_920,
+        immortalAtkMult: 1.12,
+        immortalSpdMult: 1.06,
+      },
+    });
+  });
 });

@@ -28,6 +28,14 @@ import {
   type SkywardCrystalEyeArtilleryPowerPct,
   type SkywardCrystalEyeBattleState,
 } from "@/adventure/v2/combat/skywardCrystalEyeMechanic";
+import {
+  immortalBerserkerDisplay,
+  immortalBerserkerLifeCeilings,
+  normalizeImmortalBerserkerState,
+  type ImmortalBerserkerBattleState,
+  type ImmortalBerserkerLifeIndex,
+  type ImmortalBerserkerRegenUses,
+} from "@/adventure/v2/combat/immortalBerserkerMechanic";
 import { scaleMonsterForFloor } from "./monsterScale";
 import { V2_CORE_LOOP_V2 } from "./coreLoopConfig";
 import type { V2EquipmentId } from "./v2Equipment";
@@ -406,6 +414,7 @@ export type CoopMechanicState = {
   trackingThreat?: number;
   fortress?: InvincibleFortressBattleState;
   crystalEye?: SkywardCrystalEyeBattleState;
+  immortalBerserker?: ImmortalBerserkerBattleState;
 };
 
 export function parseCoopMechanicState(value: unknown): CoopMechanicState {
@@ -415,6 +424,7 @@ export function parseCoopMechanicState(value: unknown): CoopMechanicState {
     trackingThreat?: unknown;
     fortress?: unknown;
     crystalEye?: unknown;
+    immortalBerserker?: unknown;
   };
   const next: CoopMechanicState = {};
   if (typeof src.bossMp === "number" && Number.isFinite(src.bossMp)) {
@@ -440,7 +450,97 @@ export function parseCoopMechanicState(value: unknown): CoopMechanicState {
   if (src.crystalEye != null) {
     next.crystalEye = normalizeSkywardCrystalEyeState(src.crystalEye);
   }
+  if (src.immortalBerserker != null) {
+    const maxHp = UNEXPLORED_BOSSES.immortal_berserker.sharedMaxHp;
+    const raw = src.immortalBerserker as { lifeIndex?: unknown };
+    const rawLifeIndex =
+      typeof raw?.lifeIndex === "number" && Number.isFinite(raw.lifeIndex)
+        ? Math.max(0, Math.min(2, Math.floor(raw.lifeIndex)))
+        : 0;
+    const currentHp = immortalBerserkerLifeCeilings(maxHp)[rawLifeIndex];
+    next.immortalBerserker = normalizeImmortalBerserkerState(
+      src.immortalBerserker,
+      maxHp,
+      currentHp,
+    );
+  }
   return next;
+}
+
+export function coopImmortalBerserkerState(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  currentHp: number,
+): ImmortalBerserkerBattleState {
+  const rawState =
+    stateRaw && typeof stateRaw === "object" && !Array.isArray(stateRaw)
+      ? (stateRaw as { immortalBerserker?: unknown }).immortalBerserker
+      : undefined;
+  return normalizeImmortalBerserkerState(
+    rawState,
+    kind.sharedMaxHp,
+    currentHp,
+  );
+}
+
+export function withCoopImmortalBerserkerState(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  immortalBerserker: ImmortalBerserkerBattleState,
+  currentHp: number,
+): CoopMechanicState {
+  return {
+    ...parseCoopMechanicState(stateRaw),
+    immortalBerserker: normalizeImmortalBerserkerState(
+      immortalBerserker,
+      kind.sharedMaxHp,
+      currentHp,
+    ),
+  };
+}
+
+export type CoopImmortalBerserkerDisplay = {
+  immortalLifeIndex: ImmortalBerserkerLifeIndex;
+  immortalLifeHp: number;
+  immortalLifeMaxHp: number;
+  immortalRegenActionsRemaining: number;
+  immortalRegenUsesRemaining: ImmortalBerserkerRegenUses;
+  immortalNextRegenAmount: number;
+  immortalAtkMult: number;
+  immortalSpdMult: number;
+};
+
+export function coopImmortalBerserkerDisplay(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  currentHp: number,
+): CoopImmortalBerserkerDisplay {
+  const empty: CoopImmortalBerserkerDisplay = {
+    immortalLifeIndex: 0,
+    immortalLifeHp: 0,
+    immortalLifeMaxHp: 0,
+    immortalRegenActionsRemaining: 0,
+    immortalRegenUsesRemaining: 0,
+    immortalNextRegenAmount: 0,
+    immortalAtkMult: 1,
+    immortalSpdMult: 1,
+  };
+  if (kind.id !== "immortal_berserker") return empty;
+  const display = immortalBerserkerDisplay(
+    coopImmortalBerserkerState(kind, stateRaw, currentHp),
+    kind.sharedMaxHp,
+    currentHp,
+  );
+  return {
+    immortalLifeIndex: display.lifeIndex,
+    immortalLifeHp: display.lifeHp,
+    immortalLifeMaxHp: display.lifeMaxHp,
+    immortalRegenActionsRemaining: display.regenActionsRemaining,
+    immortalRegenUsesRemaining: display.regenUsesRemaining,
+    immortalNextRegenAmount: display.nextRegenAmount,
+    immortalAtkMult: display.atkMult,
+    immortalSpdMult: display.spdMult,
+  };
 }
 
 export function coopInvincibleFortressState(
@@ -1261,6 +1361,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   glacial_colossus: unexploredPersonalBossKind("glacial_colossus"),
   invincible_fortress: unexploredPersonalBossKind("invincible_fortress"),
   skyward_crystal_eye: unexploredPersonalBossKind("skyward_crystal_eye"),
+  immortal_berserker: unexploredPersonalBossKind("immortal_berserker"),
 };
 
 export const COOP_BOSS_KIND_IDS = Object.keys(

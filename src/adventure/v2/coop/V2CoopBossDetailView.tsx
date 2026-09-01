@@ -38,6 +38,7 @@ import { CoopRecentAttackList } from "./CoopRecentAttackList";
 import { TrackingThreatMeter } from "./TrackingThreatMeter";
 import { InvincibleFortressStatus } from "./InvincibleFortressStatus";
 import { SkywardCrystalEyeStatus } from "./SkywardCrystalEyeStatus";
+import { ImmortalBerserkerStatus } from "./ImmortalBerserkerStatus";
 
 function fmtPreviewNumber(value: number): string {
   return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1);
@@ -244,6 +245,9 @@ export function V2CoopBossDetailView({
           )}
           {session.kind === "skyward_crystal_eye" && (
             <SkywardCrystalEyeStatus status={session} />
+          )}
+          {session.kind === "immortal_berserker" && (
+            <ImmortalBerserkerStatus status={session} />
           )}
         </div>
 

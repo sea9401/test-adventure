@@ -43,6 +43,9 @@ import {
   coopSkywardCrystalEyeState,
   withCoopSkywardCrystalEyeState,
   coopSkywardCrystalEyeDisplay,
+  coopImmortalBerserkerState,
+  withCoopImmortalBerserkerState,
+  coopImmortalBerserkerDisplay,
 } from "@/adventure/data/v2/coopBosses";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
@@ -218,6 +221,13 @@ export async function POST(req: Request) {
     const crystalEyeStateAtStart = kindId === "skyward_crystal_eye"
       ? coopSkywardCrystalEyeState(kind, sessionPeek.mechanicState)
       : null;
+    const immortalBerserkerStateAtStart = kindId === "immortal_berserker"
+      ? coopImmortalBerserkerState(
+          kind,
+          sessionPeek.mechanicState,
+          sessionPeek.hp,
+        )
+      : null;
     const bossMechanic =
       trackingThreatMax > 0
         ? {
@@ -239,6 +249,12 @@ export async function POST(req: Request) {
                 kind: "skyward_crystal_eye" as const,
                 sharedMaxHp: kind.sharedMaxHp,
                 initialState: crystalEyeStateAtStart!,
+              }
+          : kindId === "immortal_berserker"
+            ? {
+                kind: "immortal_berserker" as const,
+                sharedMaxHp: kind.sharedMaxHp,
+                initialState: immortalBerserkerStateAtStart!,
               }
           : undefined;
 
@@ -334,6 +350,10 @@ export async function POST(req: Request) {
       battleResult.finalState.bossMechanic?.kind === "skyward_crystal_eye"
         ? battleResult.finalState.bossMechanic
         : null;
+    const battleImmortalBerserkerState =
+      battleResult.finalState.bossMechanic?.kind === "immortal_berserker"
+        ? battleResult.finalState.bossMechanic
+        : null;
     // === 4. session FOR UPDATE — 재검증 + 쿨다운 + 차감 + 처치 CAS ===
     const [s] = await tx
       .select()
@@ -372,6 +392,23 @@ export async function POST(req: Request) {
         s.hp !== sessionPeek.hp ||
         JSON.stringify(lockedCrystalEyeState) !==
           JSON.stringify(crystalEyeStateAtStart)
+      ) {
+        return {
+          status: 409,
+          body: { ok: false as const, error: "boss_state_changed" as const },
+        };
+      }
+    }
+    if (immortalBerserkerStateAtStart) {
+      const lockedImmortalBerserkerState = coopImmortalBerserkerState(
+        kind,
+        s.mechanicState,
+        s.hp,
+      );
+      if (
+        s.hp !== sessionPeek.hp ||
+        JSON.stringify(lockedImmortalBerserkerState) !==
+          JSON.stringify(immortalBerserkerStateAtStart)
       ) {
         return {
           status: 409,
@@ -425,7 +462,42 @@ export async function POST(req: Request) {
             Math.floor((criticalDamageRaw * appliedDamage) / damageDealt),
           )
         : 0;
-    const projectedBossHp = Math.max(0, s.hp - appliedDamage);
+    const projectedBossHp = kindId === "immortal_berserker"
+      ? Math.max(
+          0,
+          Math.min(
+            kind.sharedMaxHp,
+            Math.floor(battleResult.finalState.enemyHp),
+          ),
+        )
+      : Math.max(0, s.hp - appliedDamage);
+    if (kindId === "immortal_berserker") {
+      if (!battleImmortalBerserkerState) {
+        return {
+          status: 409,
+          body: { ok: false as const, error: "boss_state_changed" as const },
+        };
+      }
+      const normalizedFinalState = coopImmortalBerserkerState(
+        kind,
+        { immortalBerserker: battleImmortalBerserkerState },
+        projectedBossHp,
+      );
+      const engineFinalState = {
+        kind: battleImmortalBerserkerState.kind,
+        lifeIndex: battleImmortalBerserkerState.lifeIndex,
+        regenActionCount: battleImmortalBerserkerState.regenActionCount,
+        regenUsesRemaining:
+          battleImmortalBerserkerState.regenUsesRemaining,
+        revivalsCompleted: battleImmortalBerserkerState.revivalsCompleted,
+      };
+      if (JSON.stringify(normalizedFinalState) !== JSON.stringify(engineFinalState)) {
+        return {
+          status: 409,
+          body: { ok: false as const, error: "boss_state_changed" as const },
+        };
+      }
+    }
     const bossBleedingAtEnd = battleResult.finalState.enemyV2Dots.some(
       (dot) => dot.tag === "bleed" && dot.stacks > 0 && dot.turns > 0,
     );
@@ -491,11 +563,29 @@ export async function POST(req: Request) {
         nextMechanicState = terminalMechanicState;
       }
     }
+    if (kindId === "immortal_berserker") {
+      if (projectedBossHp > 0 && battleImmortalBerserkerState) {
+        nextMechanicState = withCoopImmortalBerserkerState(
+          kind,
+          nextMechanicState,
+          battleImmortalBerserkerState,
+          projectedBossHp,
+        );
+      } else {
+        const {
+          immortalBerserker: _terminalImmortalBerserker,
+          ...terminalMechanicState
+        } = nextMechanicState;
+        nextMechanicState = terminalMechanicState;
+      }
+    }
     const nowDate = new Date(now);
     const [updated] = await tx
       .update(coopBossSessions)
       .set({
-        hp: sql`GREATEST(0, ${coopBossSessions.hp} - ${appliedDamage})`,
+        hp: kindId === "immortal_berserker"
+          ? projectedBossHp
+          : sql`GREATEST(0, ${coopBossSessions.hp} - ${appliedDamage})`,
         ...(weakenConditionalEnrage ? { hardEnrageWeakened: true } : {}),
         mechanicState: nextMechanicState,
       })
@@ -638,6 +728,18 @@ export async function POST(req: Request) {
             bossHp,
           ),
           ...coopSkywardCrystalEyeDisplay(
+            kind,
+            nextMechanicState,
+            bossHp,
+          ),
+          immortalBodyDamage:
+            battleImmortalBerserkerState?.immortalBodyDamage ?? 0,
+          immortalHealing:
+            battleImmortalBerserkerState?.immortalHealing ?? 0,
+          immortalRevivalCount:
+            battleImmortalBerserkerState?.immortalRevivalCount ?? 0,
+          netProgress: appliedDamage,
+          ...coopImmortalBerserkerDisplay(
             kind,
             nextMechanicState,
             bossHp,

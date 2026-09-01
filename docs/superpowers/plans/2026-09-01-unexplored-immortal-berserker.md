@@ -396,21 +396,21 @@ git commit -m "test: cover immortal berserker progression"
 **Interfaces:**
 - Produces: `--boss=immortal_berserker` 필터와 생명 소진·부활·재생·총 피해·총 회복·순진행량 중앙값.
 
-- [ ] **Step 1: 보고서 필드 실패 테스트 작성**
+- [x] **Step 1: 보고서 필드 실패 테스트 작성**
 
 `bossIds: ["immortal_berserker"]` 결과에 `medianRevivalCount`, `medianRegenerationCount`, `medianBodyDamage`, `medianHealing`, `medianNetProgress`가 유한한 수로 존재하고 생명 경계가 고정인지 검사한다.
 
-- [ ] **Step 2: 시뮬레이션 수집 구현**
+- [x] **Step 2: 시뮬레이션 수집 구현**
 
 엔진에 새 보스 문맥과 초기 상태를 전달하고 최종 상태의 카운터를 trial row와 JSON·텍스트 집계에 추가한다. 기존 보스 행에는 0을 유지한다.
 
-- [ ] **Step 3: 정해진 순서로 수치 보정**
+- [x] **Step 3: 정해진 순서로 수치 보정**
 
 Run: `npm run sim:coop-boss -- --trials=50 --seed=20260901 --boss=immortal_berserker --json`
 
 먼저 기본 atk/spd, 다음 회복 비율·횟수, 다음 광폭 배율, 마지막 def/magicDef 순서로만 조정한다. 33/33/34, 두 부활과 초과 피해 차단은 바꾸지 않는다. 대표 생존형이 마지막 생명 첫 평타에 즉사하지 않고 모든 계보가 유한한 순진행량을 내야 한다.
 
-- [ ] **Step 4: 장비·보스 균형 테스트 통과 및 커밋**
+- [x] **Step 4: 장비·보스 균형 테스트 통과 및 커밋**
 
 Run: `npm test -- src/adventure/v2/combat/unexploredBossBalanceSim.test.ts src/adventure/data/v2/coopBossBalance.test.ts src/adventure/data/v2/v2Equipment.test.ts`
 Expected: PASS.

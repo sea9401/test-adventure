@@ -161,6 +161,19 @@ describe("unexplored tree catalogue", () => {
     });
   });
 
+  it("starts an activation route from the nearest active node", () => {
+    expect(
+      unexploredActivationPath(
+        ["start", "inner-0-0", "inner-1-0"],
+        "inner-1-1",
+        160,
+      ),
+    ).toEqual({
+      ok: true,
+      nodeIds: ["inner-1-1"],
+    });
+  });
+
   it("rejects the whole activation route when an intermediate constraint fails", () => {
     expect(
       unexploredActivationPath(

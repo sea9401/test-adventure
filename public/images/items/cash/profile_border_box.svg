@@ -2,15 +2,35 @@
   <title id="title">프로필 테두리 상자</title>
   <desc id="desc">초록색 타일 위 금빛 프로필 액자가 솟아나는 꾸미기 상자</desc>
 
-  <rect width="256" height="256" rx="54" fill="#065f46"/>
-  <rect x="4" y="4" width="248" height="248" rx="50" fill="none" stroke="#34d399" stroke-width="4"/>
+  <defs>
+    <linearGradient id="border-bg" x1="25" y1="18" x2="230" y2="238" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a7f3d0"/>
+      <stop offset="0.48" stop-color="#10b981"/>
+      <stop offset="1" stop-color="#065f46"/>
+    </linearGradient>
+    <linearGradient id="border-gold" x1="83" y1="39" x2="170" y2="137" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff1a8"/>
+      <stop offset="0.55" stop-color="#ffca28"/>
+      <stop offset="1" stop-color="#b66b0b"/>
+    </linearGradient>
+    <linearGradient id="border-box" x1="84" y1="158" x2="171" y2="215" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#e9d5ff"/>
+      <stop offset="1" stop-color="#8056b0"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="54" fill="#064e3b"/>
+  <rect x="4" y="4" width="248" height="248" rx="50" fill="url(#border-bg)" stroke="#d1fae5" stroke-width="4"/>
+  <path d="M24 70C39 31 72 17 119 14H55c-23 0-41 18-41 41v79c2-27 5-48 10-64Z" fill="#fff" opacity=".23"/>
 
+  <rect x="84" y="39" width="102" height="112" rx="18" fill="#064e3b" opacity=".4"/>
   <rect x="77" y="31" width="102" height="112" rx="18" fill="#fff8e8" stroke="#2a0a5e" stroke-width="9"/>
   <rect x="94" y="48" width="68" height="78" rx="12" fill="#52d3c4" stroke="#ffca28" stroke-width="9"/>
-  <path d="M84 54V38h17M155 38h17v17M84 118v17h17M155 135h17v-17" fill="none" stroke="#ffca28" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M84 54V38h17M155 38h17v17M84 118v17h17M155 135h17v-17" fill="none" stroke="url(#border-gold)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
 
   <path d="M50 139 82 112h92l32 27-18 21H68Z" fill="#fff8e8" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
-  <path d="M68 154h120v61H68Z" fill="#c6a6f4" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M74 161h120v60H74Z" fill="#064e3b" opacity=".35"/>
+  <path d="M68 154h120v61H68Z" fill="url(#border-box)" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M78 166h98" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".45"/>
   <path d="M118 154h20v61h-20Z" fill="#ffca28" stroke="#2a0a5e" stroke-width="7"/>
   <path d="M64 154h128" stroke="#2a0a5e" stroke-width="9" stroke-linecap="round"/>
 </svg>

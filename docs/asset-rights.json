@@ -504,7 +504,7 @@
     },
     {
       "path": "public/images/items/cash/adventure_support_30d.svg",
-      "sha256": "fdb779409e523350c3585e8114e53f84279aedcb3cdafdd96358550b03c2a9da",
+      "sha256": "0d3c8056484b8b44245bba517d1be154b6fa18d9d53cc52594ec27f8dff2b058",
       "source": "repository-authored-vector"
     },
     {
@@ -514,32 +514,47 @@
     },
     {
       "path": "public/images/items/cash/chat_badge_box.svg",
-      "sha256": "5282d6b78a18934b6c6025a46b01a5202295d9b8d9512e618d25f361c02cc565",
+      "sha256": "5a3b68170bcb597a4cfbec781680dd14886a55a0a1c97660b5602a46db114aea",
       "source": "repository-authored-vector"
     },
     {
       "path": "public/images/items/cash/chroma_name_box.svg",
-      "sha256": "49492f91ba418ba1e991454be315416fa88a6fea2b4daa1112c8101c161f26b6",
+      "sha256": "473f531095ed5bde64310c2dde453856a895608a510693fee841e447c72b4959",
       "source": "repository-authored-vector"
     },
     {
       "path": "public/images/items/cash/cosmetic_extension_30d.svg",
-      "sha256": "6635c2340904142b66649e015fd7f25d920a235da2bb085b5aa9669d1c04179e",
+      "sha256": "8795fc0f8b66198f63233f3b20ca3bd7af06c76d1e9afcad5367c6a645d6f742",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/items/cash/growth_leap_package.svg",
+      "sha256": "fdd435cebda345eaf5c162870eaa793a01833d43473cf73de00b459d2c2746bc",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/items/cash/monthly_stamina_potion_bundle.svg",
+      "sha256": "144e0449d22f38a754b6edd188a74e5ab63132a1610501d19013041b68685421",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/items/cash/profile_badge_display_stand.svg",
+      "sha256": "49ee6a91f38093ba0bb193fd7bee07c7683f2981e529574b9d2e0ea5c3944a95",
       "source": "repository-authored-vector"
     },
     {
       "path": "public/images/items/cash/profile_border_box.svg",
-      "sha256": "910b974a063856bf5843063efc57061ce3f8b753fb1bf5e681ce6392a0f584e2",
+      "sha256": "1ff59f33c3507c23ace519fb280cbf52eaebdb2e10a492f03d71fa25aa28a5bc",
       "source": "repository-authored-vector"
     },
     {
       "path": "public/images/items/cash/profile_image_permit.svg",
-      "sha256": "698de7fed01d8f44419b89ad3b273cf3bf5d65b3edde1ae55802afb0ac363cab",
+      "sha256": "e3cd8d63af02fad9ad90aca5bd6f2c311ab321f7007016374cf3cf87fd8a21ae",
       "source": "repository-authored-vector"
     },
     {
       "path": "public/images/items/cash/rename_permit.svg",
-      "sha256": "233565f7a5d148fe807debd150a85eb66f2e56eaaf4ea19acc4d644a64f5788a",
+      "sha256": "beb076a2ef7485a3be2e7de3c0c94e3683ea521e81577ed7b26c312aeaaace7e",
       "source": "repository-authored-vector"
     },
     {

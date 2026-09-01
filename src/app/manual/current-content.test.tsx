@@ -102,6 +102,15 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("수행 성장 직업");
   });
 
+  it("기존 직업 성장 안내와 전체 직업 도감을 함께 제공한다", () => {
+    const html = renderToStaticMarkup(<JobsContent />);
+
+    expect(html).toContain("직군과 직업 사다리");
+    expect(html).toContain("숙련의 탑");
+    expect(html).toContain("전체 직업 도감");
+    expect(html).toContain("141개 중 141개");
+  });
+
   it("도감 숙련의 6분야와 발견부터 전설까지의 장기 수집 단계를 안내한다", () => {
     const html = renderToStaticMarkup(<CompendiumContent />);
 

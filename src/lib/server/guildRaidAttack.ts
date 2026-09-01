@@ -38,12 +38,13 @@ export type GuildRaidParticipantMutationState = {
 
 export type GuildRaidAttackMutationInput = {
   now: Date;
-  event: GuildRaidStageState & {
+  event: {
     id: string;
     bossKind: string;
     status: string;
     endsAt: Date;
   };
+  guildProgress: GuildRaidStageState;
   guild: { id: number; name: string; emblem: string | null };
   participant: GuildRaidParticipantMutationState | null;
   existingAttack: { attackId: number; damageDealt: number } | null;
@@ -62,7 +63,7 @@ export type GuildRaidAttackMutation =
   | {
       ok: true;
       alreadyCommitted: false;
-      event: GuildRaidStageState;
+      guildProgress: GuildRaidStageState;
       participant: GuildRaidParticipantMutationState;
       guildDamageDelta: number;
       stagesCleared: number;
@@ -101,18 +102,18 @@ export function resolveGuildRaidAttackMutation(
   }
 
   const damage = Math.max(0, Math.floor(input.battle.damageDealt));
-  const nextEvent = applyGuildRaidDamage(
-    input.event,
+  const nextGuildProgress = applyGuildRaidDamage(
+    input.guildProgress,
     damage,
     input.maxHpForStage ?? guildRaidMaxHp,
   );
   return {
     ok: true,
     alreadyCommitted: false,
-    event: {
-      stage: nextEvent.stage,
-      hp: nextEvent.hp,
-      maxHp: nextEvent.maxHp,
+    guildProgress: {
+      stage: nextGuildProgress.stage,
+      hp: nextGuildProgress.hp,
+      maxHp: nextGuildProgress.maxHp,
     },
     participant: {
       guildId: input.participant?.guildId ?? input.guild.id,
@@ -122,7 +123,7 @@ export function resolveGuildRaidAttackMutation(
       dailyAttackCount: dailyAttackCount + 1,
     },
     guildDamageDelta: damage,
-    stagesCleared: nextEvent.stagesCleared,
+    stagesCleared: nextGuildProgress.stagesCleared,
     battle: input.battle,
   };
 }
@@ -236,7 +237,7 @@ export async function attackGuildRaid({
       .select()
       .from(guildRaidEvents)
       .where(eq(guildRaidEvents.id, current.id))
-      .for("update");
+      .limit(1);
     if (!event) return { ok: false, error: "event_ended" };
 
     const [existing] = await tx
@@ -262,6 +263,35 @@ export async function attackGuildRaid({
       .for("update");
     if (existing) return existingOutcome(existing, participantRow ?? null);
 
+    const initialMaxHp = guildRaidMaxHp(1);
+    await tx
+      .insert(guildRaidGuildScores)
+      .values({
+        eventId: event.id,
+        guildId: guild.id,
+        guildNameSnapshot: guild.name,
+        guildEmblemSnapshot: guild.emblem,
+        damage: 0,
+        stage: 1,
+        hp: initialMaxHp,
+        maxHp: initialMaxHp,
+        updatedAt: now,
+      })
+      .onConflictDoNothing({
+        target: [guildRaidGuildScores.eventId, guildRaidGuildScores.guildId],
+      });
+    const [guildProgress] = await tx
+      .select()
+      .from(guildRaidGuildScores)
+      .where(
+        and(
+          eq(guildRaidGuildScores.eventId, event.id),
+          eq(guildRaidGuildScores.guildId, guild.id),
+        ),
+      )
+      .for("update");
+    if (!guildProgress) throw new Error("guild raid progress row missing");
+
     const mutation = resolveGuildRaidAttackMutation({
       now,
       event: {
@@ -269,9 +299,11 @@ export async function attackGuildRaid({
         bossKind: event.bossKind,
         status: event.status,
         endsAt: event.endsAt,
-        stage: event.stage,
-        hp: event.hp,
-        maxHp: event.maxHp,
+      },
+      guildProgress: {
+        stage: guildProgress.stage,
+        hp: guildProgress.hp,
+        maxHp: guildProgress.maxHp,
       },
       guild,
       participant: participantRow
@@ -291,14 +323,6 @@ export async function attackGuildRaid({
       throw new Error("unreachable committed guild raid mutation");
     }
 
-    await tx
-      .update(guildRaidEvents)
-      .set({
-        stage: mutation.event.stage,
-        hp: mutation.event.hp,
-        maxHp: mutation.event.maxHp,
-      })
-      .where(eq(guildRaidEvents.id, event.id));
     await tx
       .insert(guildRaidParticipants)
       .values({
@@ -324,24 +348,22 @@ export async function attackGuildRaid({
         },
       });
     await tx
-      .insert(guildRaidGuildScores)
-      .values({
-        eventId: event.id,
-        guildId: guild.id,
+      .update(guildRaidGuildScores)
+      .set({
         guildNameSnapshot: guild.name,
         guildEmblemSnapshot: guild.emblem,
-        damage: mutation.guildDamageDelta,
+        damage: sql`${guildRaidGuildScores.damage} + ${mutation.guildDamageDelta}`,
+        stage: mutation.guildProgress.stage,
+        hp: mutation.guildProgress.hp,
+        maxHp: mutation.guildProgress.maxHp,
         updatedAt: now,
       })
-      .onConflictDoUpdate({
-        target: [guildRaidGuildScores.eventId, guildRaidGuildScores.guildId],
-        set: {
-          guildNameSnapshot: guild.name,
-          guildEmblemSnapshot: guild.emblem,
-          damage: sql`${guildRaidGuildScores.damage} + ${mutation.guildDamageDelta}`,
-          updatedAt: now,
-        },
-      });
+      .where(
+        and(
+          eq(guildRaidGuildScores.eventId, event.id),
+          eq(guildRaidGuildScores.guildId, guild.id),
+        ),
+      );
     const [attack] = await tx
       .insert(guildRaidAttackLogs)
       .values({
@@ -353,10 +375,10 @@ export async function attackGuildRaid({
         damageDealt: battle.damageDealt,
         damageTaken: battle.damageTaken,
         diedEarly: battle.diedEarly,
-        stageBefore: event.stage,
-        stageAfter: mutation.event.stage,
-        hpBefore: event.hp,
-        hpAfter: mutation.event.hp,
+        stageBefore: guildProgress.stage,
+        stageAfter: mutation.guildProgress.stage,
+        hpBefore: guildProgress.hp,
+        hpAfter: mutation.guildProgress.hp,
         replay: battle.replay,
         createdAt: now,
       })
@@ -371,9 +393,9 @@ export async function attackGuildRaid({
       damageTaken: battle.damageTaken,
       diedEarly: battle.diedEarly,
       replay: battle.replay,
-      stage: mutation.event.stage,
-      hp: mutation.event.hp,
-      maxHp: mutation.event.maxHp,
+      stage: mutation.guildProgress.stage,
+      hp: mutation.guildProgress.hp,
+      maxHp: mutation.guildProgress.maxHp,
       stagesCleared: mutation.stagesCleared,
       myDamage: mutation.participant.damage,
       myAttackCount: mutation.participant.attackCount,

@@ -1569,8 +1569,8 @@ export const coopBossAttackLog = pgTable(
   ],
 );
 
-// 길드 토벌전 — 모든 길드가 한 주 동안 같은 단계형 보스를 공격하는 전역 이벤트.
-// 일반 협동 보스의 소환/공개/기여 보상 수명주기와 분리하고 전투 엔진·리플레이만 공유한다.
+// 길드 토벌전 주간 일정. 보스 종류와 전투/정산 기간만 전역으로 공유하고 실제 단계·HP는
+// guild_raid_guild_scores 에서 길드별로 독립 관리한다. stage/hp/maxHp는 구 데이터 호환용이다.
 export const guildRaidEvents = pgTable(
   "guild_raid_events",
   {
@@ -1614,6 +1614,9 @@ export const guildRaidGuildScores = pgTable(
     guildNameSnapshot: text("guild_name_snapshot").notNull(),
     guildEmblemSnapshot: text("guild_emblem_snapshot"),
     damage: bigint("damage", { mode: "number" }).notNull().default(0),
+    stage: integer("stage").notNull().default(1),
+    hp: bigint("hp", { mode: "number" }).notNull().default(1_200_000),
+    maxHp: bigint("max_hp", { mode: "number" }).notNull().default(1_200_000),
     finalRank: integer("final_rank"),
     settledAt: timestamp("settled_at"),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -1625,6 +1628,9 @@ export const guildRaidGuildScores = pgTable(
       sql`${t.damage} DESC`,
     ),
     check("guild_raid_guild_scores_damage_nonnegative", sql`${t.damage} >= 0`),
+    check("guild_raid_guild_scores_stage_positive", sql`${t.stage} > 0`),
+    check("guild_raid_guild_scores_hp_positive", sql`${t.hp} > 0`),
+    check("guild_raid_guild_scores_max_hp_positive", sql`${t.maxHp} > 0`),
   ],
 );
 
@@ -1645,6 +1651,7 @@ export const guildRaidParticipants = pgTable(
     dayKey: text("day_key").notNull(),
     dailyAttackCount: integer("daily_attack_count").notNull().default(0),
     eligibleAtSettlement: boolean("eligible_at_settlement"),
+    rewardClaimedAt: timestamp("reward_claimed_at"),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => [
@@ -1693,7 +1700,11 @@ export const guildRaidAttackLogs = pgTable(
       t.userId,
       t.requestId,
     ),
-    index("guild_raid_attack_logs_recent_idx").on(t.eventId, t.createdAt),
+    index("guild_raid_attack_logs_recent_idx").on(
+      t.eventId,
+      t.guildId,
+      t.createdAt,
+    ),
     check("guild_raid_attack_logs_damage_nonnegative", sql`${t.damageDealt} >= 0`),
     check("guild_raid_attack_logs_damage_taken_nonnegative", sql`${t.damageTaken} >= 0`),
   ],

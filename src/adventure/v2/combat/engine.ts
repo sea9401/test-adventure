@@ -83,12 +83,14 @@ import {
 } from "@/adventure/data/v2/v2CombatConstants";
 import {
   appendLog,
+  appendSkillCastLog,
   applyEvasionActionRecoveryPvE,
   applyHealShieldIfAny,
   playerPveEvasionReductionPct,
 } from "./engineSupport";
 export {
   appendLog,
+  appendSkillCastLog,
   applyEvasionActionRecoveryPvE,
   applyHealShieldIfAny,
   playerPveEvasionReductionPct,
@@ -865,9 +867,10 @@ export function applyCounterIfAny(
   const def = playerFacingEnemyDef(state, player);
   const v2EffDef = v2DefMult !== 1 ? Math.floor(def * v2DefMult) : def;
   const dmg = damageBetween(atk, v2EffDef);
-  const enemyHp = Math.max(0, state.enemyHp - dmg);
+  const damagedState = applyEnemyDamage(state, dmg);
+  const enemyHp = damagedState.enemyHp;
   let next: BattleState = {
-    ...state,
+    ...damagedState,
     enemyHp,
     log: appendLog(state.log, {
       kind: "player_attack",
@@ -925,9 +928,10 @@ export function applyPassiveCounterOnHitIfAny(
     boostedCounterAtk,
     v2DefMult !== 1 ? Math.floor(counterDef * v2DefMult) : counterDef,
   );
-  const enemyHp = Math.max(0, state.enemyHp - dmg);
+  const damagedState = applyEnemyDamage(state, dmg);
+  const enemyHp = damagedState.enemyHp;
   let next: BattleState = {
-    ...state,
+    ...damagedState,
     enemyHp,
     log: appendLog(state.log, {
       kind: "player_attack",
@@ -1088,7 +1092,8 @@ function dealExtraEnemyDamage(
     ? Math.floor(decreeBaseDmg * BOSS_PCT_HP_DAMAGE_MULT)
     : decreeBaseDmg;
   const totalDmg = dmgAfterLuckyStar + decreeDmg;
-  const enemyHp = Math.max(0, state.enemyHp - totalDmg);
+  const damagedState = applyEnemyDamage(state, totalDmg);
+  const enemyHp = damagedState.enemyHp;
   // 흡혈류 — 크리 흡혈(lifestealCritHealPct) 은 extras 가 크리 안 굴리므로 제외. 그 외 셋만.
   const luckyLifestealHeal =
     (player.luckyLifestealPct ?? 0) > 0
@@ -1131,7 +1136,7 @@ function dealExtraEnemyDamage(
   }
 
   let healedState = {
-    ...state,
+    ...damagedState,
     enemyHp,
     playerHp: newPlayerHp,
     log,
@@ -1638,7 +1643,8 @@ export function advanceTurn(
         distributeV2DotTicks(enemyDotTick.ticks, actualEnemyDotDamage).find(
           (tick) => tick.tag === "bleed",
         )?.damage ?? 0;
-      const newHp = Math.max(0, state.enemyHp - enemyDotDamage);
+      const damagedState = applyEnemyDamage(state, enemyDotDamage);
+      const newHp = damagedState.enemyHp;
       let dotLog = distributeV2DotTicks(
         enemyDotTick.ticks,
         enemyDotDamage,
@@ -1683,7 +1689,7 @@ export function advanceTurn(
         });
       }
       state = applyPhaseTriggerIfAny({
-        ...state,
+        ...damagedState,
         playerHp: nextPlayerHp,
         enemyHp: newHp,
         enemyV2Dots: enemyDotTick.nextDots,
@@ -1766,6 +1772,8 @@ export type ResolveContext = {
   // 공유 HP 보스처럼 최대 HP(enemy.hp)와 전투 시작 현재 HP가 다른 경우 사용.
   // 미지정이면 enemy.hp에서 시작한다.
   initialEnemyHp?: number;
+  /** 적 처치로 끝내지 않고 실제 판정 피해를 누적하는 토벌전 전용 계측 모드. */
+  damageMeter?: { continueAfterDefeat: true; refillHp: number };
 };
 
 // 보스 전투 타임아웃 — 플레이어 턴 기준. 정상 빌드는 10~30턴 안에 끝나므로
@@ -1781,7 +1789,35 @@ export type BattleResolution = {
   finalState: BattleState;
   potionsConsumed: Partial<Record<PotionId, number>>;
   turns: number;
+  /** 토벌전 피해 계측 모드에서만 제공하는 구조화된 총피해. */
+  damageDealtTotal?: number;
 };
+
+export function applyEnemyDamage(
+  state: BattleState,
+  rawDamage: number,
+): BattleState {
+  const damage =
+    Number.isFinite(rawDamage) && rawDamage > 0 ? Math.floor(rawDamage) : 0;
+  if (damage <= 0) return state;
+  return {
+    ...recordEnemyDamage(state, damage),
+    enemyHp: Math.max(0, state.enemyHp - damage),
+  };
+}
+
+export function recordEnemyDamage(
+  state: BattleState,
+  rawDamage: number,
+): BattleState {
+  const damage =
+    Number.isFinite(rawDamage) && rawDamage > 0 ? Math.floor(rawDamage) : 0;
+  if (damage <= 0 || state.enemyDamageDealtTotal == null) return state;
+  return {
+    ...state,
+    enemyDamageDealtTotal: state.enemyDamageDealtTotal + damage,
+  };
+}
 
 function evadeIncomingEnemySkill(
   state: BattleState,
@@ -1960,6 +1996,17 @@ export function applyEnemyV2SkillCast(
       castFired: false,
     };
   }
+  if (result.castSkillName) {
+    state = {
+      ...state,
+      log: appendSkillCastLog(
+        state.log,
+        result.castSkillId,
+        result.castSkillName,
+        { turn: "enemy" },
+      ),
+    };
+  }
   const guaranteedEvade = evadeIncomingEnemySkill(state, player, result);
   state = guaranteedEvade.state;
   result = guaranteedEvade.result;
@@ -2058,6 +2105,7 @@ export function applyEnemyV2SkillCast(
   }
   if (enemySkillReflection.damage > 0) {
     nextEnemyHp = Math.max(0, nextEnemyHp - enemySkillReflection.damage);
+    state = recordEnemyDamage(state, enemySkillReflection.damage);
     nextLog = appendLog(nextLog, {
       kind: "player_attack",
       text: `[${enemySkillReflection.labels.join(" + ")}] ${state.enemy.name}에게 ${enemySkillReflection.damage} 반사 피해.`,
@@ -2884,9 +2932,18 @@ export function applyPlayerV2SkillCast(
   // 3) state 업데이트 — MP, cooldown, buff/debuff map, HP delta, log.
   let nextEnemyHp = state.enemyHp;
   let nextPlayerHp = state.playerHp;
-  let nextLog = state.log;
+  let nextLog =
+    result.castSkillId && result.castSkillName
+      ? appendSkillCastLog(
+          state.log,
+          result.castSkillId,
+          result.castSkillName,
+          { turn: "player" },
+        )
+      : state.log;
   let healShieldAmount = 0;
   let actualSkillDamage = 0;
+  let damageMeterSkillTotal = 0;
   let tier6SkillHitDamages: number[] = [];
   // hpCostDamage의 HP는 적중한 피해로 바뀌는 자원이다. 확정 회피에서는 비용이 0이 되며,
   // 일반 회피 경감은 적중으로 취급해 흡혈보다 먼저 비용을 낸다.
@@ -2929,7 +2986,7 @@ export function applyPlayerV2SkillCast(
       turn: "player",
     });
   }
-  // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
+  // 구조화된 시전 경계와 별개로 damage/heal 로그에도 스킬명을 포함한다.
   // damage 효과: 일반 공격과 같은 player_attack kind. 스킬명을 평타 "공격!" 자리의 액션
   //   라벨로 표기("강타! N 피해를 입혔다."). 브라켓 태그 대신 발동 스킬을 앞세운다.
   if (result.enemyDamage > 0 && result.castSkillName) {
@@ -2968,6 +3025,7 @@ export function applyPlayerV2SkillCast(
     landedSkillHits = perHit.filter((hit) => hit > 0).length;
     nextComboHitCount = comboResult.nextComboHitCount;
     const boostedSkillDamage = perHit.reduce((sum, hit) => sum + hit, 0);
+    damageMeterSkillTotal += boostedSkillDamage;
     dealtDirectSkillDamage = boostedSkillDamage;
     const enemyHpBeforeSkill = nextEnemyHp;
     nextEnemyHp = Math.max(0, nextEnemyHp - boostedSkillDamage);
@@ -2975,6 +3033,7 @@ export function applyPlayerV2SkillCast(
       const pursuitDamage = Math.round(
         boostedSkillDamage * (crossover.damagePct / 100),
       );
+      damageMeterSkillTotal += pursuitDamage;
       nextEnemyHp = Math.max(0, nextEnemyHp - pursuitDamage);
       nextLog = appendLog(nextLog, {
         kind: "player_attack",
@@ -3076,6 +3135,7 @@ export function applyPlayerV2SkillCast(
         skillEvasionReductionPct,
       );
       nextEnemyHp = Math.max(0, nextEnemyHp - freezeDamage);
+      damageMeterSkillTotal += freezeDamage;
       if (freezeDamage > 0) {
         tier6SkillHitDamages.push(freezeDamage);
         nextLog = appendLog(nextLog, {
@@ -3298,7 +3358,10 @@ export function applyPlayerV2SkillCast(
   if (result.manaRestored > 0 && result.castSkillName) {
     nextLog = appendLog(nextLog, {
       kind: "player_attack",
-      text: `${result.castSkillName}! 마나 ${result.manaRestored} 회복했다.`,
+      text:
+        result.castSkillId === "v2c_primordialmage_return"
+          ? `[근원공명] 태초회귀로 마나 ${result.manaRestored} 회복했다.`
+          : `${result.castSkillName}! 마나 ${result.manaRestored} 회복했다.`,
     });
   }
   if (result.guaranteedEvadesToAdd > 0 && result.castSkillName) {
@@ -3733,7 +3796,7 @@ export function applyPlayerV2SkillCast(
     }
   }
   state = {
-    ...state,
+    ...recordEnemyDamage(state, damageMeterSkillTotal),
     playerHp: nextPlayerHp,
     ...(nextBerserker ? { berserker: nextBerserker } : {}),
     enemyHp: nextEnemyHp,
@@ -4208,6 +4271,17 @@ function resolveBattleLegacy(
             poisonStacks: state.playerV2Dots.filter((d) => d.tag === "poison").reduce((s, d) => s + d.stacks, 0),
           },
         });
+        if (result.castSkillId && result.castSkillName) {
+          state = {
+            ...state,
+            log: appendSkillCastLog(
+              state.log,
+              result.castSkillId,
+              result.castSkillName,
+              { turn: "enemy" },
+            ),
+          };
+        }
         let nextPlayerHp = state.playerHp;
         let nextEnemyHp = state.enemyHp;
         let nextLog = state.log;
@@ -4236,7 +4310,7 @@ function resolveBattleLegacy(
           impactOnHit: player.fortressImpactOnHit ?? false,
           ironWallReflectCharges: state.stacks.ironWallReflectCharges,
         });
-        // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
+        // 구조화된 시전 경계와 별개로 damage/heal 로그에도 스킬명을 포함한다.
         // 적의 v2 damage 는 일반 적 공격과 같은 enemy_attack kind 로 통일.
         const resolvedEnemySkill = resolveIncomingEnemySkillWithBarrier(
           state,
@@ -4681,7 +4755,9 @@ export function resolveBattle(
   playerName: string,
   ctx: ResolveContext,
 ): BattleResolution {
-  if (V2_CORE_LOOP_V2) return resolveBattleAtb(player, enemy, playerName, ctx);
+  if (V2_CORE_LOOP_V2 || ctx.damageMeter) {
+    return resolveBattleAtb(player, enemy, playerName, ctx);
+  }
   return resolveBattleLegacy(player, enemy, playerName, ctx);
 }
 

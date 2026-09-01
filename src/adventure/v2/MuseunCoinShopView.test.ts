@@ -22,25 +22,7 @@ describe("무슨 코인 상점 상품 그룹", () => {
     expect(shopItemIds).toContain("monthly_stamina_potion_bundle");
     expect(shopItemIds).toContain("growth_leap_package");
     expect(shopItemIds).toContain("profile_badge_display_stand");
-    expect(Object.keys(CASH_ITEM_ART_PATHS)).toEqual(
-      expect.arrayContaining(
-        shopItemIds.filter((itemId) =>
-          ![
-            "profile_badge_display_stand",
-            "monthly_stamina_potion_bundle",
-            "growth_leap_package",
-          ].includes(itemId),
-        ),
-      ),
-    );
-    for (const itemId of shopItemIds.filter(
-      (candidate) =>
-        ![
-          "profile_badge_display_stand",
-          "monthly_stamina_potion_bundle",
-          "growth_leap_package",
-        ].includes(candidate),
-    )) {
+    for (const itemId of shopItemIds) {
       expect(CASH_ITEM_ART_PATHS[itemId]).toBe(
         `/images/items/cash/${itemId}.svg`,
       );

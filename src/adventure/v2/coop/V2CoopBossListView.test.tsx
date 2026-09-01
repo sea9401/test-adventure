@@ -141,4 +141,41 @@ describe("협동 보스 소환 난이도 선택", () => {
     expect(html).toContain("누적 피해 18,200 / 32,400");
     expect(html).toContain("예상 광폭: 약함");
   });
+
+  it("불멸의 광전왕 목록 카드에는 생명과 광폭만 압축 표시한다", () => {
+    state.sessions = [{
+      id: "immortal-1",
+      kind: "immortal_berserker",
+      hp: 5_672_000,
+      maxHp: 10_800_000,
+      bossMp: 0,
+      bossMaxMp: 0,
+      trackingThreat: 0,
+      trackingThreatMax: 0,
+      trackingReady: false,
+      immortalLifeIndex: 1,
+      immortalLifeHp: 2_000_000,
+      immortalLifeMaxHp: 3_564_000,
+      immortalRegenActionsRemaining: 2,
+      immortalRegenUsesRemaining: 1,
+      immortalNextRegenAmount: 106_920,
+      immortalAtkMult: 1.12,
+      immortalSpdMult: 1.06,
+      expiresAt: Date.now() + 60_000,
+      summonedByName: "개척자",
+      visibility: "summoner_only",
+      isOwner: true,
+      participantCount: 1,
+      myDamage: 0,
+      myTier: null,
+    }];
+
+    const html = renderToStaticMarkup(
+      <V2CoopBossListView onOpenSession={() => {}} onBack={() => {}} />,
+    );
+
+    expect(html).toContain("생명 2 / 3");
+    expect(html).toContain("공격력 +12%");
+    expect(html).not.toContain("재생까지 2행동");
+  });
 });

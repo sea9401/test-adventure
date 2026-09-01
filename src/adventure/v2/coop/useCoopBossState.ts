@@ -37,7 +37,18 @@ export type CoopFortressStatus = {
   fortressLastResultTier?: InvincibleFortressEnrageTier | null;
 };
 
-export type CoopSessionSummary = CoopFortressStatus & {
+export type CoopImmortalBerserkerStatus = {
+  immortalLifeIndex?: 0 | 1 | 2;
+  immortalLifeHp?: number;
+  immortalLifeMaxHp?: number;
+  immortalRegenActionsRemaining?: number;
+  immortalRegenUsesRemaining?: 0 | 1 | 2 | 3;
+  immortalNextRegenAmount?: number;
+  immortalAtkMult?: number;
+  immortalSpdMult?: number;
+};
+
+export type CoopSessionSummary = CoopFortressStatus & CoopImmortalBerserkerStatus & {
   id: string;
   kind: CoopBossKindId;
   hp: number;
@@ -64,7 +75,7 @@ export type CoopClaimable = {
   defeatedAt: number;
 };
 
-export type CoopAttackResult = CoopFortressStatus & {
+export type CoopAttackResult = CoopFortressStatus & CoopImmortalBerserkerStatus & {
   attackId: number;
   kind: CoopBossKindId;
   damageDealt: number;
@@ -91,6 +102,10 @@ export type CoopAttackResult = CoopFortressStatus & {
   glacialFreezeCount: number;
   glacialSkippedActionCount: number;
   fortressCompletedResults: InvincibleFortressEnrageTier[];
+  immortalBodyDamage: number;
+  immortalHealing: number;
+  immortalRevivalCount: number;
+  netProgress: number;
   defeated: boolean;
   myDamage: number;
   myTier: CoopRewardTier | null;
@@ -142,7 +157,7 @@ export type CoopRecentAttack = {
 };
 
 export type CoopSessionDetail = {
-  session: CoopFortressStatus & {
+  session: CoopFortressStatus & CoopImmortalBerserkerStatus & {
     id: string;
     kind: CoopBossKindId;
     hp: number;
@@ -449,6 +464,16 @@ export function useCoopSessionState({
                   fortressNextBarrierHpFraction:
                     r.fortressNextBarrierHpFraction,
                   fortressLastResultTier: r.fortressLastResultTier,
+                  immortalLifeIndex: r.immortalLifeIndex,
+                  immortalLifeHp: r.immortalLifeHp,
+                  immortalLifeMaxHp: r.immortalLifeMaxHp,
+                  immortalRegenActionsRemaining:
+                    r.immortalRegenActionsRemaining,
+                  immortalRegenUsesRemaining:
+                    r.immortalRegenUsesRemaining,
+                  immortalNextRegenAmount: r.immortalNextRegenAmount,
+                  immortalAtkMult: r.immortalAtkMult,
+                  immortalSpdMult: r.immortalSpdMult,
                   defeated: prev.session.defeated || r.defeated,
                 },
               }

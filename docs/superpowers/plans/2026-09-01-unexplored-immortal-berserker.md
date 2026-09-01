@@ -323,16 +323,16 @@ git commit -m "feat: persist immortal berserker sessions"
 - Consumes: `coopImmortalBerserkerDisplay` from Task 4.
 - Produces: list/detail client fields for life, local HP, regen countdown/uses and multipliers.
 
-- [ ] **Step 1: route 응답 실패 테스트 작성**
+- [x] **Step 1: route 응답 실패 테스트 작성**
 
 목록과 상세 fixture에 둘째 생명 상태를 넣고 `immortalLifeIndex: 1`, `immortalLifeHp: 2_000_000`, `immortalLifeMaxHp: 3_564_000`, `immortalRegenActionsRemaining: 2`, `immortalRegenUsesRemaining: 1`, `immortalAtkMult: 1.12`, `immortalSpdMult: 1.06`을 기대한다.
 
-- [ ] **Step 2: route mapper와 클라이언트 타입 구현**
+- [x] **Step 2: route mapper와 클라이언트 타입 구현**
 
 Run: `npm test -- src/app/api/v2/coop/route.test.ts src/app/api/v2/coop/[sessionId]/route.test.ts`
 Expected: FAIL before mapper wiring, then PASS.
 
-- [ ] **Step 3: 불투명 상태 카드 실패 테스트 작성**
+- [x] **Step 3: 불투명 상태 카드 실패 테스트 작성**
 
 ```tsx
 expect(markup).toContain("생명 2 / 3");
@@ -342,11 +342,11 @@ expect(markup).toContain("남은 재생 1회");
 expect(markup).toContain("공격력 +12%");
 ```
 
-- [ ] **Step 4: `ImmortalBerserkerStatus`와 목록·상세 통합**
+- [x] **Step 4: `ImmortalBerserkerStatus`와 목록·상세 통합**
 
 상태 카드는 `SURFACE_INSET`을 사용하고 생명 3칸은 색상으로 현재·완료·남음을 구분한다. 목록에는 생명과 광폭만 압축 표시하고 상세에는 재생 수치를 모두 표시한다. `kind === "immortal_berserker"`일 때만 렌더한다.
 
-- [ ] **Step 5: UI/API 테스트 통과 및 커밋**
+- [x] **Step 5: UI/API 테스트 통과 및 커밋**
 
 Run: `npm test -- src/app/api/v2/coop/route.test.ts src/app/api/v2/coop/[sessionId]/route.test.ts src/adventure/v2/coop/ImmortalBerserkerStatus.test.tsx src/adventure/v2/coop/V2CoopBossListView.test.tsx src/adventure/v2/coop/V2CoopBossDetailView.test.tsx`
 Expected: PASS.

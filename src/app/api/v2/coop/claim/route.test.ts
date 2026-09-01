@@ -237,6 +237,38 @@ describe("POST /api/v2/coop/claim — 개인 보스", () => {
     ]);
   });
 
+  it("천공의 수정안 핵·연결 재료와 30%·10%·0.5% 독립 고유를 지급한다", async () => {
+    const eye = UNEXPLORED_BOSSES.skyward_crystal_eye;
+    mocks.session.regionId = "skyward_crystal_eye";
+    mocks.appendEquipInstances.mockResolvedValue(
+      eye.uniqueDrops.map((drop) => ({
+        iid: `iid-${drop.equipmentId}`,
+        id: drop.equipmentId,
+      })),
+    );
+    const rolls = [0.29, 0.09, 0.004, 0];
+    vi.spyOn(Math, "random").mockImplementation(() => rolls.shift() ?? 0.999);
+
+    const response = await POST(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.reward).toMatchObject({
+      rewardMode: "unexplored_personal",
+      bossCore: 1,
+      uniqueIds: eye.uniqueDrops.map((drop) => drop.equipmentId),
+      titleId: eye.titleId,
+    });
+    expect(body.reward).not.toHaveProperty("pity");
+    const characterWrite = mocks.upsertSave.mock.calls.find(
+      (call) => call[2] === "character.v2",
+    )?.[3] as { unexplored: { achievementIds: string[] } };
+    expect(characterWrite.unexplored.achievementIds).toEqual([
+      "first_personal_boss",
+      "defeat_skyward_crystal_eye",
+    ]);
+  });
+
   it("소환자가 아니면 보상을 조회하거나 받지 못한다", async () => {
     mocks.session.summonerId = "other";
     const response = await POST(request());

@@ -783,7 +783,9 @@ export function V2UnexploredTreeView({
             <div>
               <h2 className="font-bold">흔적 보관함</h2>
               <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                제작한 소환석은 노드나 레벨 상태와 관계없이 사용할 수 있습니다.
+                우두머리의 흔적 노드를 활성화한 뒤 우두머리 계열 특화
+                몬스터를 처치하면 획득합니다. 제작한 소환석은 노드나 레벨
+                상태와 관계없이 사용할 수 있습니다.
               </p>
             </div>
           </div>

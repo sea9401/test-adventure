@@ -94,6 +94,18 @@ describe("미개척지 사냥 화면", () => {
     expect(html).toContain("철갑 군단 50%");
     expect(html).toContain("특화 재료 +35%");
     expect(html).toContain("흔적 획득 활성");
+    expect(html).toContain("우두머리 계열 특화 몬스터 처치 시 1개");
+  });
+
+  it("흔적 획득이 비활성이면 필요한 탐사망 노드를 안내한다", () => {
+    const html = renderToStaticMarkup(
+      <UnexploredHuntSummaryPanel
+        summary={{ ...summary, traceEnabled: false, traceExtraChancePct: 0 }}
+      />,
+    );
+
+    expect(html).toContain("흔적 획득 비활성");
+    expect(html).toContain("우두머리의 흔적 노드를 활성화해야 획득할 수 있습니다.");
   });
 
   it("hides rare-map and offline controls in unexplored mode", () => {

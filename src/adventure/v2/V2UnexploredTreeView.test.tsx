@@ -185,7 +185,7 @@ describe("V2UnexploredTreeView", () => {
     expect(html).toContain("무기 0.1% · 집중 0.2%");
   });
 
-  it("shows all ten exploration achievements with their completion state and reward", () => {
+  it("shows all eleven exploration achievements with their completion state and reward", () => {
     render(
       <V2UnexploredTreeView
         initialSnapshot={{
@@ -199,7 +199,7 @@ describe("V2UnexploredTreeView", () => {
     openUnexploredTab("탐사 업적");
 
     const list = screen.getByRole("list", { name: "탐사 업적" });
-    expect(within(list).getAllByRole("listitem")).toHaveLength(10);
+    expect(within(list).getAllByRole("listitem")).toHaveLength(11);
     expect(
       within(list).getByRole("listitem", {
         name: "미개척지 보스 첫 처치 완료",
@@ -210,7 +210,7 @@ describe("V2UnexploredTreeView", () => {
         name: "추적 병기 처치 미완료",
       }),
     ).toBeTruthy();
-    expect(within(list).getAllByText("탐사 포인트 +1")).toHaveLength(10);
+    expect(within(list).getAllByText("탐사 포인트 +1")).toHaveLength(11);
   });
 
   it("replaces the full snapshot with the server response after activation", async () => {
@@ -552,7 +552,7 @@ describe("V2UnexploredTreeView", () => {
     await waitFor(() => expect(onOpenSession).toHaveBeenCalledWith("personal-session"));
   });
 
-  it("우두머리 핵 제작소는 일반 고유 6종과 드롭 전용 초희귀 3종을 구분한다", () => {
+  it("우두머리 핵 제작소는 일반 고유 8종과 드롭 전용 초희귀 4종을 구분한다", () => {
     const html = renderToStaticMarkup(
       <V2UnexploredTreeView
         initialSnapshot={{
@@ -561,6 +561,8 @@ describe("V2UnexploredTreeView", () => {
             [UNEXPLORED_BOSS_CORE_MATERIAL.id]: 25,
             v2_unexplored_runaway_machines_material: 75,
             v2_unexplored_shadow_stalkers_material: 75,
+            v2_unexplored_iron_legion_material: 75,
+            v2_unexplored_mana_barrier_material: 75,
           },
         }}
         onBack={vi.fn()}
@@ -576,6 +578,8 @@ describe("V2UnexploredTreeView", () => {
       "응고독 반지",
       "빙하 파쇄망치",
       "얼어붙은 거갑",
+      "마철 수호완갑",
+      "봉인 결계환",
     ]) {
       expect(html).toContain(name);
     }
@@ -583,11 +587,12 @@ describe("V2UnexploredTreeView", () => {
       "무한궤도 심장",
       "부패하지 않는 심장",
       "절대영도의 핵",
+      "불괴의 성채갑",
     ]) {
       expect(html).toContain(name);
     }
-    expect(html.match(/0\.5% · 토벌 드롭 전용/g)).toHaveLength(3);
-    expect(html.match(/aria-label="[^"]+ 확정 제작"/g)).toHaveLength(6);
+    expect(html.match(/0\.5% · 토벌 드롭 전용/g)).toHaveLength(4);
+    expect(html.match(/aria-label="[^"]+ 확정 제작"/g)).toHaveLength(8);
     expect(html).toContain("25 / 8");
     expect(html).toContain("25 / 25");
     expect(html).toContain("75 / 25");

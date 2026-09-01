@@ -121,7 +121,7 @@ import {
 import {
   canStartRuinCharge,
   gainSwordIntent,
-  ruinSwordBonuses,
+  ruinIntentStrikeBonus, ruinSwordBonusesForMechanic,
   startRuinCharge,
 } from "./ruinBladeCombat";
 import { tier7CombatJobIdForSkillId } from "@/adventure/data/v2/tier7SkillMechanics";
@@ -2858,18 +2858,18 @@ export function applyPlayerV2SkillCast(
     tier7FinalDamagePct += (state.stacks.tier7?.swordIntent ?? 0) * 8;
   }
   if (result.castSkillId === "v2c_ruinblade_limitstrike") {
-    tier7FinalDamagePct += Math.min(
-      60,
-      ((state.playerMaxHp - state.playerHp) / Math.max(1, state.playerMaxHp)) *
-        60,
-    );
+    tier7FinalDamagePct += ruinIntentStrikeBonus({
+      hp: state.playerHp,
+      maxHp: state.playerMaxHp,
+      mechanic: V2_SKILLS.v2c_ruinblade_limitstrike.tier7Mechanic,
+    });
   }
   if (ruinChargeAtActionStart) {
-    tier7FinalDamagePct += ruinSwordBonuses({
+    tier7FinalDamagePct += ruinSwordBonusesForMechanic({
       state: ruinChargeAtActionStart,
       hp: state.playerHp,
       maxHp: state.playerMaxHp,
-      pvp: false,
+      pvp: false, mechanic: ruinSwordMechanic,
     }).damagePct;
   }
   if (crossover?.bonus === "capture") {

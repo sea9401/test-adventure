@@ -63,6 +63,13 @@ function renderPicker(onSelect = vi.fn()) {
 }
 
 describe("마법부여 장비 선택 창", () => {
+  it("높이가 제한된 모달에서도 종류 탭 행을 축소하지 않는다", () => {
+    renderPicker();
+
+    const tablist = screen.getByRole("tablist", { name: "장비 부위" });
+    expect(tablist.className.split(" ")).toContain("shrink-0");
+  });
+
   it("부위 탭과 여섯 정렬 기준을 제공하고 검색·탭을 함께 적용한다", () => {
     renderPicker();
 

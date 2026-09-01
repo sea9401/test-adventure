@@ -287,7 +287,7 @@ export function EquipmentEnchantmentPickerDialog({
         <div
           role="tablist"
           aria-label="장비 부위"
-          className="mt-3 flex gap-1 overflow-x-auto pb-1"
+          className="mt-3 flex shrink-0 gap-1 overflow-x-auto pb-1"
         >
           {ENCHANTMENT_EQUIPMENT_SLOT_TABS.map((tab) => {
             const active = slot === tab.key;

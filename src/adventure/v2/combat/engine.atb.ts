@@ -383,6 +383,8 @@ function settleImmortalBerserkerAfterPlayerDamage(args: {
       t: args.tick,
     });
   }
+  const playerDefeated =
+    args.after.playerHp <= 0 || args.after.outcome === "lose";
   return {
     ...args.after,
     enemyHp: settled.hp,
@@ -395,7 +397,7 @@ function settleImmortalBerserkerAfterPlayerDamage(args: {
         mechanic.immortalRevivalCount + (settled.revived ? 1 : 0),
     },
     log,
-    ...(settled.revived
+    ...(settled.revived && !playerDefeated
       ? {
           phase: "enemy" as const,
           outcome: null,

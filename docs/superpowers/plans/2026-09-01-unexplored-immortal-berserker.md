@@ -460,24 +460,24 @@ git commit -m "feat: add immortal berserker artwork"
 - Consumes: Tasks 1-8.
 - Produces: clean implementation branch with no deployment side effects.
 
-- [ ] **Step 1: 금지 요소와 diff 감사**
+- [x] **Step 1: 금지 요소와 diff 감사**
 
 Run: `git diff origin/staging...HEAD --check && git status --short`
 Expected: no whitespace errors; only intended files changed.
 
 `rg -n "NEXT_PUBLIC_V2_UNEXPLORED|maintenance\.sh|deploy-staging|deploy-test"`를 변경 파일에 한정해 실행하고 기능 플래그·점검·배포 변경이 없음을 확인한다.
 
-- [ ] **Step 2: 집중 회귀 실행**
+- [x] **Step 2: 집중 회귀 실행**
 
 Run: `npm test -- src/adventure/v2/combat/immortalBerserkerMechanic.test.ts src/adventure/v2/combat/immortalBerserkerAtb.test.ts src/adventure/data/v2/unexploredBosses.test.ts src/adventure/data/v2/coopBosses.test.ts src/app/api/v2/coop/attack/route.test.ts src/app/api/v2/coop/claim/route.test.ts src/app/api/v2/coop/route.test.ts src/app/api/v2/coop/[sessionId]/route.test.ts src/adventure/v2/coop/ImmortalBerserkerStatus.test.tsx`
 Expected: PASS.
 
-- [ ] **Step 3: 정적·자산 검증**
+- [x] **Step 3: 정적·자산 검증**
 
 Run: `npx tsc --noEmit && npx eslint src/adventure/v2/combat/immortalBerserkerMechanic.ts src/adventure/v2/combat/immortalBerserkerMechanic.test.ts src/adventure/v2/combat/immortalBerserkerAtb.test.ts src/adventure/v2/coop/ImmortalBerserkerStatus.tsx src/adventure/v2/coop/ImmortalBerserkerStatus.test.tsx src/app/api/v2/coop/attack/route.ts && npm run check-images`
 Expected: all commands exit 0.
 
-- [ ] **Step 4: 전체 테스트·시뮬레이션·Next 빌드**
+- [x] **Step 4: 전체 테스트·시뮬레이션·Next 빌드**
 
 Run: `npm test`
 Expected: all test files pass.
@@ -488,7 +488,7 @@ Expected: finite metrics and no strict balance failure.
 Run: `V2_UNEXPLORED=true npm run build`
 Expected: production build exits 0.
 
-- [ ] **Step 5: 최종 상태 확인과 필요한 보정 커밋**
+- [x] **Step 5: 최종 상태 확인과 필요한 보정 커밋**
 
 Run: `git status --short && git log --oneline origin/staging..HEAD`
 Expected: clean worktree and only feature commits. 검증 보정이 생겼으면 관련 파일만 stage해 `fix: complete immortal berserker validation`으로 커밋한다. 푸시·PR·배포는 수행하지 않는다.

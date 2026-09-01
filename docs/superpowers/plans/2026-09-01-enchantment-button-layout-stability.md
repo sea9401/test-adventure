@@ -26,21 +26,21 @@
 - Consumes: 기존 `submit(): Promise<void>` 상태 전환과 `/api/v2/me/equipment/liberate` 응답
 - Produces: 요청 대기 중에도 직전 `result`와 `message`가 유지되는 UI 동작
 
-- [ ] **Step 1: 실패하는 회귀 테스트 작성**
+- [x] **Step 1: 실패하는 회귀 테스트 작성**
 
 첫 번째 요청을 성공시킨 뒤 두 번째 `fetch`를 대기 상태로 두고, 두 번째 요청 중 `재마법부여가 완료되었습니다.`와 결과 `role=status`가 유지되는지 검증한다.
 
-- [ ] **Step 2: 테스트 실패 확인**
+- [x] **Step 2: 테스트 실패 확인**
 
 Run: `npm test -- src/adventure/v2/liberation/EquipmentLiberationPanel.test.tsx`
 
 Expected: 두 번째 요청 직후 직전 완료 안내 또는 결과가 사라져 실패한다.
 
-- [ ] **Step 3: 최소 구현**
+- [x] **Step 3: 최소 구현**
 
 `submit()` 시작부에서 `setMessage(null)`과 `setResult(null)`을 제거한다. 성공·오류 응답 처리와 장비 선택 시 초기화는 유지한다.
 
-- [ ] **Step 4: 관련 검증 실행**
+- [x] **Step 4: 관련 검증 실행**
 
 Run: `npm test -- src/adventure/v2/liberation/EquipmentLiberationPanel.test.tsx`
 
@@ -48,6 +48,6 @@ Run: `npx tsc --noEmit`
 
 Run: `npx eslint src/adventure/v2/liberation/EquipmentLiberationPanel.tsx src/adventure/v2/liberation/EquipmentLiberationPanel.test.tsx`
 
-- [ ] **Step 5: 변경 검토 및 커밋**
+- [x] **Step 5: 변경 검토 및 커밋**
 
 `git diff --check`와 `git status --short`로 범위를 확인한 뒤 테스트와 구현을 함께 커밋한다.

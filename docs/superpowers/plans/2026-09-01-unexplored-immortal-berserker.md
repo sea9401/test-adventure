@@ -36,7 +36,7 @@
 - `settleImmortalBerserkerDamage` returns `{ state, hp, appliedDamage, blockedDamage, revived, cancelledRemainingActionDamage }`.
 - `advanceImmortalBerserkerEnemyAction` returns `{ state, hp, healed, regenerationTriggered }`.
 
-- [ ] **Step 1: 경계·초과 피해·초기 상태 실패 테스트 작성**
+- [x] **Step 1: 경계·초과 피해·초기 상태 실패 테스트 작성**
 
 ```ts
 const MAX_HP = 10_800_000;
@@ -64,12 +64,12 @@ expect(settleImmortalBerserkerDamage({
 });
 ```
 
-- [ ] **Step 2: 테스트가 모듈 부재로 실패하는지 확인**
+- [x] **Step 2: 테스트가 모듈 부재로 실패하는지 확인**
 
 Run: `npm test -- src/adventure/v2/combat/immortalBerserkerMechanic.test.ts`
 Expected: FAIL because `immortalBerserkerMechanic` does not exist.
 
-- [ ] **Step 3: 상수·타입·초기화·피해 정산 구현**
+- [x] **Step 3: 상수·타입·초기화·피해 정산 구현**
 
 ```ts
 export const IMMORTAL_BERSERKER_LIFE_FLOORS = [7_236_000, 3_672_000, 0] as const;
@@ -86,7 +86,7 @@ export type ImmortalBerserkerBattleState = {
 
 피해는 `min(incomingDamage, currentHp - currentLifeFloor)`만 적용한다. 경계에 닿으면 다음 생명 상태를 만들고 `cancelledRemainingActionDamage: true`를 반환한다. 셋째 생명 0에서는 부활하지 않는다.
 
-- [ ] **Step 4: 회복·광폭·정규화 실패 테스트 작성**
+- [x] **Step 4: 회복·광폭·정규화 실패 테스트 작성**
 
 ```ts
 expect(advanceImmortalBerserkerEnemyAction({
@@ -103,14 +103,14 @@ expect(normalizeImmortalBerserkerState(undefined, MAX_HP, 5_000_000)).toMatchObj
 });
 ```
 
-- [ ] **Step 5: 회복·광폭·정규화 구현 후 집중 테스트 통과**
+- [x] **Step 5: 회복·광폭·정규화 구현 후 집중 테스트 통과**
 
 회복은 첫 생명 `142,560`, 둘째 `106,920`으로 고정하고 현재 생명 위쪽 경계에서 제한한다. 상태 전체가 없을 때 `options?.newSession === true`인 경우만 생명별 초기 재생 횟수를 주고, 그 외 복구는 0회로 둔다.
 
 Run: `npm test -- src/adventure/v2/combat/immortalBerserkerMechanic.test.ts`
 Expected: PASS.
 
-- [ ] **Step 6: 순수 모듈 커밋**
+- [x] **Step 6: 순수 모듈 커밋**
 
 ```bash
 git add src/adventure/v2/combat/immortalBerserkerMechanic.ts src/adventure/v2/combat/immortalBerserkerMechanic.test.ts

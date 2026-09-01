@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { V2EquipInstance, V2EquipSlot } from "@/adventure/data/v2/v2Equipment";
 import { EquipmentLiberationPanel } from "./EquipmentLiberationPanel";
@@ -112,6 +119,51 @@ describe("장비 마법부여 작업대", () => {
 
     expect(screen.queryByRole("dialog", { name: "마법부여 장비 선택" })).toBeNull();
     expect(screen.getByRole("heading", { name: "빙호 갑주" })).toBeTruthy();
+  });
+
+  it("같은 이름의 장비를 바꾸면 현재 선택 장비 요약도 해당 개체 정보로 갱신한다", () => {
+    const equippedGloves: V2EquipInstance = {
+      iid: "gloves-equipped",
+      id: "v2_boss_catastrophe_gloves",
+      roll: {
+        power: 68,
+        weight: 0,
+        options: { hp: 165, crit: 10, spd: 8, accuracy: 10 },
+      },
+    };
+    const spareGloves: V2EquipInstance = {
+      iid: "gloves-spare",
+      id: "v2_boss_catastrophe_gloves",
+      locked: true,
+      roll: {
+        power: 82,
+        weight: 0,
+        options: { hp: 195, crit: 15, spd: 11, accuracy: 13 },
+      },
+    };
+    renderPanel(equippedGloves, {
+      owned: [equippedGloves, spareGloves],
+      equipped: { gloves: equippedGloves.iid },
+    });
+
+    let summary = screen.getByRole("region", { name: "현재 선택 장비" });
+    expect(within(summary).getByRole("heading", { name: "재앙독 완갑" })).toBeTruthy();
+    expect(within(summary).getByText("위력 68")).toBeTruthy();
+    expect(within(summary).getByText(/품질/)).toBeTruthy();
+    expect(within(summary).getByText("장착 중")).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /대상 장비 변경.*2개 선택 가능/ }),
+    );
+    fireEvent.click(
+      screen.getAllByRole("option", { name: /재앙독 완갑/ })[1],
+    );
+
+    summary = screen.getByRole("region", { name: "현재 선택 장비" });
+    expect(within(summary).getByRole("heading", { name: "재앙독 완갑" })).toBeTruthy();
+    expect(within(summary).getByText("위력 82")).toBeTruthy();
+    expect(within(summary).getByText("잠금됨")).toBeTruthy();
+    expect(within(summary).queryByText("장착 중")).toBeNull();
   });
 
   it("재마법부여 안내는 도움말에서 보여주고 확인창 없이 즉시 요청한다", async () => {

@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
-import { MagnifyingGlass, X } from "@phosphor-icons/react";
+import { useCallback, useRef } from "react";
+import { X } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import {
   SURFACE_ACCENT,
@@ -16,7 +16,6 @@ import {
   liberationPromotionChancePct,
   liberationRankLevelDistribution,
   liberationRankLevelSummary,
-  type LiberationCandidateRow,
   type LiberationOptionProbabilityRow,
 } from "./equipmentLiberationViewModel";
 
@@ -39,128 +38,6 @@ function DialogCloseButton({
     >
       <X size={18} weight="bold" aria-hidden />
     </button>
-  );
-}
-
-export function EquipmentSelectionDialog({
-  candidates,
-  selectedIid,
-  busy,
-  onSelect,
-  onClose,
-}: {
-  candidates: readonly LiberationCandidateRow[];
-  selectedIid: string;
-  busy: boolean;
-  onSelect: (iid: string) => void;
-  onClose: () => void;
-}) {
-  const panelRef = useRef<HTMLDivElement>(null);
-  const [query, setQuery] = useState("");
-  const closeIfIdle = useCallback(() => {
-    if (!busy) onClose();
-  }, [busy, onClose]);
-  const filtered = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase("ko");
-    if (!normalized) return candidates;
-    return candidates.filter((candidate) =>
-      candidate.name.toLocaleLowerCase("ko").includes(normalized),
-    );
-  }, [candidates, query]);
-
-  useEscapeKey(closeIfIdle);
-  useModalA11y(panelRef);
-
-  return (
-    <div
-      className="ui-modal-reveal fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.currentTarget === event.target) closeIfIdle();
-      }}
-    >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="equipment-enchantment-picker-title"
-        className={`${SURFACE_CARD} ui-modal-panel flex max-h-[min(88vh,760px)] w-full max-w-xl flex-col p-4 shadow-2xl sm:p-5`}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">
-              마법부여 대상 변경
-            </p>
-            <h2 id="equipment-enchantment-picker-title" className="mt-0.5 text-lg font-bold">
-              마법부여 장비 선택
-            </h2>
-          </div>
-          <DialogCloseButton label="장비 선택 닫기" onClick={closeIfIdle} disabled={busy} />
-        </div>
-
-        <label className="relative mt-4 block">
-          <MagnifyingGlass
-            size={16}
-            aria-hidden
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
-          />
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            aria-label="장비 이름 검색"
-            placeholder="장비 이름 검색"
-            className="min-h-11 w-full rounded-lg border border-zinc-300 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200 dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-violet-400 dark:focus:ring-violet-900"
-          />
-        </label>
-
-        <div
-          className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1"
-          role="listbox"
-          aria-label="마법부여 대상 장비"
-        >
-          {filtered.length > 0 ? (
-            filtered.map((candidate) => {
-              const active = candidate.iid === selectedIid;
-              const state = candidate.rank
-                ? `마법부여 ${enchantmentStage(candidate.rank)}단계 · ${candidate.lineCount}줄`
-                : "미마법부여";
-              return (
-                <button
-                  key={candidate.iid}
-                  type="button"
-                  role="option"
-                  aria-selected={active}
-                  disabled={busy}
-                  onClick={() => onSelect(candidate.iid)}
-                  className={`${SURFACE_INSET} w-full px-3 py-3 text-left transition-colors disabled:opacity-50 ${
-                    active
-                      ? "border-violet-500 ring-2 ring-violet-200 dark:border-violet-400 dark:ring-violet-900"
-                      : "hover:border-violet-400 dark:hover:border-violet-500"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-semibold">{candidate.name}</span>
-                    {candidate.isEquipped ? (
-                      <span className="shrink-0 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
-                        장착 중
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                    {candidate.displayTier}T · {state}
-                  </div>
-                </button>
-              );
-            })
-          ) : (
-            <p className={`${SURFACE_INSET} p-4 text-center text-sm text-zinc-500 dark:text-zinc-400`}>
-              검색 결과가 없습니다.
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
   );
 }
 

@@ -20,9 +20,9 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import {
   EquipmentEnchantmentGuideDialog,
-  EquipmentSelectionDialog,
   InitialEnchantmentConfirmDialog,
 } from "./EquipmentEnchantmentDialogs";
+import { EquipmentEnchantmentPickerDialog } from "./EquipmentEnchantmentPickerDialog";
 import {
   enchantmentStage,
   formatLiberationOptionRoll,
@@ -327,7 +327,7 @@ export function EquipmentLiberationPanel({
       </section>
 
       {selectionOpen ? (
-        <EquipmentSelectionDialog
+        <EquipmentEnchantmentPickerDialog
           candidates={candidates}
           selectedIid={selected?.iid ?? ""}
           busy={busy}

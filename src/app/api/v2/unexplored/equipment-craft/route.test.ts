@@ -57,6 +57,8 @@ const COMMON_ID = "v2_unexplored_tracking_blade_dagger";
 const RARE_ID = "v2_unexplored_phantom_acceleration_boots";
 const MATERIAL_A = "v2_unexplored_runaway_machines_material";
 const MATERIAL_B = "v2_unexplored_shadow_stalkers_material";
+const IMMORTAL_COMMON_ID = "v2_unexplored_immortal_king_greatsword";
+const IMMORTAL_DROP_ONLY_ID = "v2_unexplored_eternal_life_core";
 const TX = { kind: "test-transaction" };
 
 function readyCharacter() {
@@ -111,6 +113,34 @@ beforeEach(() => {
 });
 
 describe("POST /api/v2/unexplored/equipment-craft", () => {
+  it("불멸 장비는 30% 장비만 확정 제작하고 0.5% 생명핵은 거부한다", async () => {
+    mocks.character = {
+      level: 100,
+      materials: {
+        [UNEXPLORED_BOSS_CORE_MATERIAL.id]: 8,
+        v2_unexplored_regenerating_swarm_material: 25,
+        v2_unexplored_red_berserkers_material: 25,
+      },
+      unexplored: { selectedNodeIds: ["start"] },
+    };
+
+    const crafted = await POST(request({
+      equipmentId: IMMORTAL_COMMON_ID,
+      requestId: "immortal-common",
+    }));
+    expect(crafted.status).toBe(200);
+    await expect(crafted.json()).resolves.toMatchObject({
+      equipmentId: IMMORTAL_COMMON_ID,
+      materials: {},
+    });
+
+    const dropOnly = await POST(request({
+      equipmentId: IMMORTAL_DROP_ONLY_ID,
+      requestId: "immortal-drop-only",
+    }));
+    expect(dropOnly.status).toBe(400);
+  });
+
   it("인증·기능 플래그·본문을 트랜잭션 전에 검증한다", async () => {
     mocks.userId = null;
     expect((await POST(request({}))).status).toBe(401);

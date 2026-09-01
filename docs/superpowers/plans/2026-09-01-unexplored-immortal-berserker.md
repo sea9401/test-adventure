@@ -370,16 +370,16 @@ git commit -m "feat: show immortal berserker status"
 - Consumes: Task 2 catalogue IDs.
 - Produces: end-to-end proof that existing generic routes support the fifth boss.
 
-- [ ] **Step 1: 신규 보스 파이프라인 테스트 작성**
+- [x] **Step 1: 신규 보스 파이프라인 테스트 작성**
 
 제작은 두 흔적 500, 두 재료 10, 소환서 30, 5,000,000G를 차감하고 같은 requestId 재시도에 추가 차감하지 않아야 한다. 소환은 소환석 1개로 `summoner_only` 세션을 만든다. 보상은 핵 확정과 세 독립 굴림, 칭호·업적을 지급한다. 장비 확정 제작은 30%·10%만 허용한다.
 
-- [ ] **Step 2: 파이프라인 테스트 실행과 최소 매핑 보정**
+- [x] **Step 2: 파이프라인 테스트 실행과 최소 매핑 보정**
 
 Run: `npm test -- src/app/api/v2/unexplored/craft/route.test.ts src/app/api/v2/unexplored/summon/route.test.ts src/adventure/data/v2/unexploredBossRewards.test.ts src/app/api/v2/coop/claim/route.test.ts src/app/api/v2/unexplored/equipment-craft/route.test.ts src/lib/server/marketplaceV2.test.ts`
 Expected: PASS after generic catalogue totals and fixtures include the new IDs.
 
-- [ ] **Step 3: 회귀 커밋**
+- [x] **Step 3: 회귀 커밋**
 
 ```bash
 git add src/app/api/v2/unexplored src/app/api/v2/coop/claim/route.test.ts src/adventure/data/v2/unexploredBossRewards.test.ts src/lib/server/marketplaceV2.test.ts

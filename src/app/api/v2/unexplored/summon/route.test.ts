@@ -84,6 +84,32 @@ describe("POST /api/v2/unexplored/summon", () => {
     );
   });
 
+  it("불멸의 광전왕 소환석 1개로 소환자 전용 세션을 만든다", async () => {
+    const immortal = UNEXPLORED_BOSSES.immortal_berserker;
+    mocks.character = {
+      level: 1,
+      materials: { [immortal.summonMaterialId]: 1 },
+      unexplored: { selectedNodeIds: [] },
+    };
+
+    const response = await POST(request({ bossId: "immortal_berserker" }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.createCoopBossSession).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        kindId: "immortal_berserker",
+        visibility: "summoner_only",
+      }),
+    );
+    expect(mocks.upsertSave).toHaveBeenCalledWith(
+      expect.anything(),
+      "summoner-1",
+      "character.v2",
+      expect.objectContaining({ materials: {} }),
+    );
+  });
+
   it("소환석이 부족하면 세션도 저장도 만들지 않는다", async () => {
     mocks.character = { materials: {} };
     const response = await POST(request({ bossId: "tracking_weapon" }));

@@ -117,6 +117,47 @@ describe("POST /api/v2/unexplored/craft", () => {
     });
   });
 
+  it("불멸의 광전왕 소환석은 두 흔적 500·두 재료 10·소환서 30·500만 골드를 소모한다", async () => {
+    const boss = UNEXPLORED_BOSSES.immortal_berserker;
+    mocks.character = {
+      level: 100,
+      gold: UNEXPLORED_SUMMON_STONE_GOLD_COST,
+      materials: {
+        v2_unexplored_regenerating_swarm_material: 10,
+        v2_unexplored_red_berserkers_material: 10,
+        [SUMMON_SCROLL_MATERIAL_ID]: UNEXPLORED_SUMMON_STONE_SCROLL_COST,
+      },
+      unexplored: {
+        selectedNodeIds: ["start", "deep-boss"],
+        traces: { regenerating_swarm: 500, red_berserkers: 500 },
+      },
+    };
+
+    const response = await POST(
+      request({ bossId: "immortal_berserker", requestId: "immortal" }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      goldCost: 5_000_000,
+      receipt: { bossId: "immortal_berserker", goldCost: 5_000_000 },
+    });
+    expect(mocks.character).toMatchObject({
+      gold: 0,
+      materials: { [boss.summonMaterialId]: 1 },
+      unexplored: {
+        traces: {},
+      },
+    });
+
+    const retry = await POST(
+      request({ bossId: "immortal_berserker", requestId: "immortal" }),
+    );
+    expect(retry.status).toBe(200);
+    await expect(retry.json()).resolves.toMatchObject({ idempotent: true });
+    expect(mocks.writes).toBe(1);
+  });
+
   it("인증·기능 플래그·본문을 검증한다", async () => {
     mocks.userId = null;
     expect((await POST(request({}))).status).toBe(401);

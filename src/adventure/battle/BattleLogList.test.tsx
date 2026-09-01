@@ -855,6 +855,41 @@ describe("BattleLogList 행동 묶음", () => {
     );
   });
 
+  it("시전 표식이 없는 기존 영겁 순환 로그도 직전 상대 행동과 분리한다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "enemy_attack",
+            text: "공격! 321 피해를 입혔다.",
+            turn: "enemy",
+            t: 10,
+          },
+          {
+            kind: "info",
+            text: "[영겁 순환] 행동마다 HP +10% (4행동)",
+            turn: "player",
+            t: 12,
+          },
+          {
+            kind: "info",
+            text: "[영겁 순환] 활력 +18% (4행동)",
+            turn: "player",
+            t: 12,
+          },
+        ]}
+        playerName="천년이두번지나도"
+        enemyName="상대"
+      />,
+    );
+
+    expect(html.match(/data-battle-action=/g)).toHaveLength(2);
+    expect(html).toContain('data-battle-action="left"');
+    expect(html.replace(/<[^>]+>/g, "")).toContain(
+      "내 행동천년이두번지나도영겁 순환행동마다 HP +10% (4행동)활력 +18% (4행동)",
+    );
+  });
+
   it("같은 ATB 묶음의 명상과 후속 보호막 시전을 서로 다른 행동으로 표시한다", () => {
     const html = renderToStaticMarkup(
       <BattleLogList

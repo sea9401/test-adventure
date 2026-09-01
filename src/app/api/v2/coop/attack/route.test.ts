@@ -127,6 +127,7 @@ vi.mock("@/db", () => ({
 
 import { POST } from "./route";
 import { initialInvincibleFortressState } from "@/adventure/v2/combat/invincibleFortressMechanic";
+import { initialImmortalBerserkerState } from "@/adventure/v2/combat/immortalBerserkerMechanic";
 
 function battleState(overrides: Record<string, unknown> = {}) {
   return {
@@ -472,6 +473,217 @@ describe("POST /api/v2/coop/attack", () => {
       finalState: battleState({
         enemyHp: sharedMaxHp,
         bossMechanic: { ...initialFortress, barrierDamage: 10_000 },
+      }),
+    });
+
+    const response = await attack();
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "boss_state_changed",
+    });
+    expect(mocks.updateValues).toHaveLength(0);
+  });
+
+  it("불멸 보스의 본체 피해와 회복을 합산한 순진행량만 HP와 기여도로 저장한다", async () => {
+    const sharedMaxHp = 10_800_000;
+    const initial = initialImmortalBerserkerState(sharedMaxHp);
+    const final = { ...initial, regenActionCount: 1 };
+    const session = personalSession({
+      regionId: "immortal_berserker",
+      hp: 8_000_000,
+      maxHp: sharedMaxHp,
+      mechanicState: { bossMp: 7, immortalBerserker: initial },
+    });
+    mocks.selectRows = [[session], [session], [], [{ damage: 100_000 }]];
+    mocks.updateRows = [[{ hp: 7_900_000 }]];
+    mocks.insertRows = [[{ id: "attack-1" }]];
+    mocks.resolveBattle.mockReturnValue({
+      outcome: "lose",
+      turns: 3,
+      finalState: battleState({
+        enemyHp: 7_900_000,
+        bossMechanic: {
+          ...final,
+          immortalBodyDamage: 200_000,
+          immortalHealing: 100_000,
+          immortalRevivalCount: 0,
+        },
+      }),
+    });
+
+    const response = await attack();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mocks.resolveBattle).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      "추적자",
+      expect.objectContaining({
+        bossMechanic: {
+          kind: "immortal_berserker",
+          sharedMaxHp,
+          initialState: initial,
+        },
+      }),
+    );
+    expect(mocks.updateValues[0]).toMatchObject({
+      hp: 7_900_000,
+      mechanicState: { immortalBerserker: final },
+    });
+    expect(body.result).toMatchObject({
+      damageDealt: 100_000,
+      immortalBodyDamage: 200_000,
+      immortalHealing: 100_000,
+      netProgress: 100_000,
+      bossHp: 7_900_000,
+    });
+  });
+
+  it("불멸 보스가 공격 중 더 많이 회복하면 HP 증가는 저장하되 기여도는 0이다", async () => {
+    const sharedMaxHp = 10_800_000;
+    const initial = initialImmortalBerserkerState(sharedMaxHp);
+    const session = personalSession({
+      regionId: "immortal_berserker",
+      hp: 8_000_000,
+      maxHp: sharedMaxHp,
+      mechanicState: { immortalBerserker: initial },
+    });
+    mocks.selectRows = [[session], [session], [], [{ damage: 0 }]];
+    mocks.updateRows = [[{ hp: 8_050_000 }]];
+    mocks.insertRows = [[{ id: "attack-1" }]];
+    mocks.resolveBattle.mockReturnValue({
+      outcome: "lose",
+      turns: 3,
+      finalState: battleState({
+        enemyHp: 8_050_000,
+        bossMechanic: {
+          ...initial,
+          immortalBodyDamage: 50_000,
+          immortalHealing: 100_000,
+          immortalRevivalCount: 0,
+        },
+      }),
+    });
+
+    const response = await attack();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mocks.updateValues[0]).toMatchObject({ hp: 8_050_000 });
+    expect(body.result).toMatchObject({
+      damageDealt: 0,
+      immortalBodyDamage: 50_000,
+      immortalHealing: 100_000,
+      netProgress: 0,
+      bossHp: 8_050_000,
+    });
+  });
+
+  it("불멸 보스 시뮬레이션 중 HP나 생명 상태가 바뀌면 오래된 결과를 저장하지 않는다", async () => {
+    const sharedMaxHp = 10_800_000;
+    const initial = initialImmortalBerserkerState(sharedMaxHp);
+    const peek = personalSession({
+      regionId: "immortal_berserker",
+      hp: 8_000_000,
+      maxHp: sharedMaxHp,
+      mechanicState: { immortalBerserker: initial },
+    });
+    const locked = personalSession({
+      ...peek,
+      hp: 7_900_000,
+      mechanicState: {
+        immortalBerserker: { ...initial, regenActionCount: 1 },
+      },
+    });
+    mocks.selectRows = [[peek], [locked]];
+    mocks.resolveBattle.mockReturnValue({
+      outcome: "lose",
+      turns: 1,
+      finalState: battleState({
+        enemyHp: 7_800_000,
+        bossMechanic: {
+          ...initial,
+          immortalBodyDamage: 200_000,
+          immortalHealing: 0,
+          immortalRevivalCount: 0,
+        },
+      }),
+    });
+
+    const response = await attack();
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "boss_state_changed",
+    });
+    expect(mocks.updateValues).toHaveLength(0);
+  });
+
+  it("불멸 보스는 셋째 생명이 0이 된 경우에만 처치 상태로 끝난다", async () => {
+    const sharedMaxHp = 10_800_000;
+    const finalLife = {
+      kind: "immortal_berserker" as const,
+      lifeIndex: 2 as const,
+      regenActionCount: 0,
+      regenUsesRemaining: 0 as const,
+      revivalsCompleted: 2 as const,
+    };
+    const session = personalSession({
+      regionId: "immortal_berserker",
+      hp: 100,
+      maxHp: sharedMaxHp,
+      mechanicState: { immortalBerserker: finalLife },
+    });
+    mocks.selectRows = [[session], [session], [], [{ damage: 100 }]];
+    mocks.updateRows = [[{ hp: 0 }]];
+    mocks.insertRows = [[{ id: "attack-1" }]];
+    mocks.resolveBattle.mockReturnValue({
+      outcome: "win",
+      turns: 1,
+      finalState: battleState({
+        enemyHp: 0,
+        bossMechanic: {
+          ...finalLife,
+          immortalBodyDamage: 100,
+          immortalHealing: 0,
+          immortalRevivalCount: 0,
+        },
+      }),
+    });
+
+    const response = await attack();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.result).toMatchObject({ defeated: true, bossHp: 0 });
+    expect(mocks.updateValues[0]?.mechanicState).not.toHaveProperty(
+      "immortalBerserker",
+    );
+  });
+
+  it("셋째 생명이 아닌 전투 결과가 HP 0을 보고하면 저장을 거부한다", async () => {
+    const sharedMaxHp = 10_800_000;
+    const initial = initialImmortalBerserkerState(sharedMaxHp);
+    const session = personalSession({
+      regionId: "immortal_berserker",
+      hp: 8_000_000,
+      maxHp: sharedMaxHp,
+      mechanicState: { immortalBerserker: initial },
+    });
+    mocks.selectRows = [[session], [session], []];
+    mocks.resolveBattle.mockReturnValue({
+      outcome: "win",
+      turns: 1,
+      finalState: battleState({
+        enemyHp: 0,
+        bossMechanic: {
+          ...initial,
+          immortalBodyDamage: 8_000_000,
+          immortalHealing: 0,
+          immortalRevivalCount: 0,
+        },
       }),
     });
 

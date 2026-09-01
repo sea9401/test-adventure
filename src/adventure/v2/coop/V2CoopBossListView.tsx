@@ -35,6 +35,7 @@ import {
 } from "@/adventure/v2/coop/coopListSections";
 import { TrackingThreatMeter } from "@/adventure/v2/coop/TrackingThreatMeter";
 import { InvincibleFortressStatus } from "@/adventure/v2/coop/InvincibleFortressStatus";
+import { ImmortalBerserkerStatus } from "@/adventure/v2/coop/ImmortalBerserkerStatus";
 
 type CoopBossSummonVariant = {
   kind: CoopBossKindId;
@@ -213,6 +214,9 @@ function CoopSessionCard({
             />
             {session.kind === "invincible_fortress" && (
               <InvincibleFortressStatus status={session} />
+            )}
+            {session.kind === "immortal_berserker" && (
+              <ImmortalBerserkerStatus status={session} compact />
             )}
             <span className="flex justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
               <span>

@@ -237,6 +237,43 @@ describe("POST /api/v2/coop/claim — 개인 보스", () => {
     ]);
   });
 
+  it("불멸의 광전왕 핵·전용 장비·칭호·처치 업적을 지급한다", async () => {
+    const immortal = UNEXPLORED_BOSSES.immortal_berserker;
+    mocks.session.regionId = "immortal_berserker";
+    mocks.appendEquipInstances.mockResolvedValue(
+      immortal.uniqueDrops.map((drop) => ({
+        iid: `iid-${drop.equipmentId}`,
+        id: drop.equipmentId,
+      })),
+    );
+    const rolls = [0.29, 0.09, 0.004, 0];
+    vi.spyOn(Math, "random").mockImplementation(() => rolls.shift() ?? 0.999);
+
+    const response = await POST(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.reward).toMatchObject({
+      rewardMode: "unexplored_personal",
+      bossCore: 1,
+      uniqueIds: immortal.uniqueDrops.map((drop) => drop.equipmentId),
+      titleId: immortal.titleId,
+    });
+    expect(mocks.grantTitle).toHaveBeenCalledWith(
+      expect.anything(),
+      "owner",
+      immortal.titleId,
+      expect.any(Number),
+    );
+    const characterWrite = mocks.upsertSave.mock.calls.find(
+      (call) => call[2] === "character.v2",
+    )?.[3] as { unexplored: { achievementIds: string[] } };
+    expect(characterWrite.unexplored.achievementIds).toEqual([
+      "first_personal_boss",
+      "defeat_immortal_berserker",
+    ]);
+  });
+
   it("소환자가 아니면 보상을 조회하거나 받지 못한다", async () => {
     mocks.session.summonerId = "other";
     const response = await POST(request());

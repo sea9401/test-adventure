@@ -68,6 +68,28 @@ describe("개인 보스 세션 상태", () => {
     });
   });
 
+  it("불멸의 광전왕 세션은 첫 생명과 재생 3회 상태로 생성한다", async () => {
+    const inserted: Record<string, unknown>[] = [];
+
+    await createCoopBossSession(sessionTx(inserted) as never, {
+      kindId: "immortal_berserker",
+      userId: "owner",
+      summonerName: "광전왕 도전자",
+      now: new Date("2026-09-02T00:00:00.000Z"),
+      visibility: "summoner_only",
+    });
+
+    expect(inserted[0]?.mechanicState).toMatchObject({
+      immortalBerserker: {
+        kind: "immortal_berserker",
+        lifeIndex: 0,
+        regenActionCount: 0,
+        regenUsesRemaining: 3,
+        revivalsCompleted: 0,
+      },
+    });
+  });
+
   it("만료 세션은 메커니즘 상태도 함께 비운다", async () => {
     const set = vi.fn(() => ({ where: vi.fn(async () => undefined) }));
     const ex = { update: vi.fn(() => ({ set })) };

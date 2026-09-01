@@ -40,6 +40,11 @@ export const UNEXPLORED_SUMMON_STONE_MATERIALS = {
     name: "불괴의 성채 소환석",
     description: "철갑 군단과 마력 방벽체의 흔적을 결속한 거래 가능한 개인 보스 소환석.",
   },
+  v2_unexplored_immortal_berserker_summon_stone: {
+    id: "v2_unexplored_immortal_berserker_summon_stone",
+    name: "불멸의 광전왕 소환석",
+    description: "재생 군체와 붉은 광전대의 흔적을 결속한 거래 가능한 개인 보스 소환석.",
+  },
 } as const;
 
 export type UnexploredSummonStoneMaterialId =
@@ -56,7 +61,8 @@ export type UnexploredBossDefinition = {
     | "tracking_weapon"
     | "toxic_blood_lord"
     | "glacial_colossus"
-    | "invincible_fortress";
+    | "invincible_fortress"
+    | "immortal_berserker";
   name: string;
   pools: readonly [UnexploredPoolId, UnexploredPoolId];
   summonMaterialId: UnexploredSummonStoneMaterialId;
@@ -263,6 +269,55 @@ export const UNEXPLORED_BOSSES = {
       "네 구간에서 방벽 시험",
       "400틱 동안 순간 피해 측정",
       "달성률이 높을수록 다음 광폭 약화",
+    ],
+  },
+  immortal_berserker: {
+    id: "immortal_berserker",
+    name: "불멸의 광전왕",
+    pools: ["regenerating_swarm", "red_berserkers"],
+    summonMaterialId: "v2_unexplored_immortal_berserker_summon_stone",
+    uniqueDrops: [
+      {
+        equipmentId: "v2_unexplored_immortal_king_greatsword",
+        equipmentName: "불사왕의 대검",
+        chancePct: 30,
+      },
+      {
+        equipmentId: "v2_unexplored_pulsing_berserker_gauntlets",
+        equipmentName: "맥동 광전완갑",
+        chancePct: 10,
+      },
+      {
+        equipmentId: "v2_unexplored_eternal_life_core",
+        equipmentName: "영겁의 생명핵",
+        chancePct: 0.5,
+      },
+    ],
+    titleId: "v2_unexplored_immortal_berserker",
+    sharedMaxHp: 10_800_000,
+    anchorDepth: 120,
+    monster: {
+      name: "불멸의 광전왕",
+      tags: ["humanoid", "slime"],
+      image: "/images/monster/v2/unexplored-boss-immortal-berserker.webp",
+      hp: 1_200,
+      atk: 1.75,
+      def: 42,
+      magicDef: 38,
+      spd: 21,
+      accuracy: -205,
+      evasionPct: 10,
+      exp: 0,
+      skill: { kind: "heavy_blow", name: "광란 참격", everyPhases: 3, multiplier: 1.65 },
+      armorVulnerable: 0.35,
+      playerDefVulnerable: 0.35,
+      dropQualityBias: 4,
+      v2MaxMp: 0,
+    },
+    traits: [
+      "두 번 부활하는 세 개의 생명",
+      "초기 생명은 주기적으로 재생",
+      "부활할수록 재생은 약해지고 광폭은 강화",
     ],
   },
 } as const satisfies Record<string, UnexploredBossDefinition>;

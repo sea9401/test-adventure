@@ -92,6 +92,13 @@ import {
   normalizeInvincibleFortressState,
   settleInvincibleFortressDamage,
 } from "./invincibleFortressMechanic";
+import {
+  advanceImmortalBerserkerEnemyAction,
+  immortalBerserkerDisplay,
+  immortalBerserkerMultipliers,
+  normalizeImmortalBerserkerState,
+  settleImmortalBerserkerDamage,
+} from "./immortalBerserkerMechanic";
 
 export const ATB_TICK_CAP = ATB_TIMELINE_TICK_CAP;
 export const ATB_ACTION_GUARD = 1000;
@@ -113,6 +120,26 @@ function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {
           state.bossMechanic,
           state.bossSharedMaxHp ?? state.enemy.hp,
         )
+      : state.bossMechanic?.kind === "immortal_berserker"
+        ? (() => {
+            const display = immortalBerserkerDisplay(
+              state.bossMechanic,
+              state.bossSharedMaxHp ?? state.enemy.hp,
+              state.enemyHp,
+            );
+            return {
+              immortalLife: `${display.lifeIndex + 1}/3`,
+              immortalLifeHp: `${display.lifeHp.toLocaleString("ko-KR")} / ${display.lifeMaxHp.toLocaleString("ko-KR")}`,
+              immortalRegeneration:
+                display.regenUsesRemaining > 0
+                  ? `${display.regenActionsRemaining}행동 · ${display.regenUsesRemaining}회`
+                  : "소진",
+              immortalEnrage:
+                display.lifeIndex === 0
+                  ? "없음"
+                  : `공격 +${Math.round((display.atkMult - 1) * 100)}% · 속도 +${Math.round((display.spdMult - 1) * 100)}%`,
+            };
+          })()
       : state.bossMechanic?.kind === "tracking_weapon"
       ? {
           trackingThreat: `${state.bossMechanic.trackingThreat}/${TRACKING_THREAT_MAX}`,
@@ -219,6 +246,23 @@ function applyInvincibleFortressTierToEnemy(
   };
 }
 
+function applyImmortalBerserkerLifeToEnemy(
+  state: BattleState,
+  baseEnemy: Monster,
+): BattleState {
+  const mechanic = state.bossMechanic;
+  if (!mechanic || mechanic.kind !== "immortal_berserker") return state;
+  const multipliers = immortalBerserkerMultipliers(mechanic.lifeIndex);
+  return {
+    ...state,
+    enemy: {
+      ...state.enemy,
+      atk: baseEnemy.atk * multipliers.atkMult,
+      spd: baseEnemy.spd * multipliers.spdMult,
+    },
+  };
+}
+
 function withoutPrematureVictoryLog(
   before: BattleState,
   after: BattleState,
@@ -300,6 +344,124 @@ function settleInvincibleFortressAfterPlayerDamage(args: {
     bossMechanic: settled.state,
     log,
   };
+}
+
+function settleImmortalBerserkerAfterPlayerDamage(args: {
+  before: BattleState;
+  after: BattleState;
+  tick: number;
+}): BattleState {
+  const mechanic = args.before.bossMechanic;
+  if (!mechanic || mechanic.kind !== "immortal_berserker") {
+    return args.after;
+  }
+  const incomingDamage = Math.max(0, args.before.enemyHp - args.after.enemyHp);
+  if (incomingDamage <= 0) return args.after;
+  const settled = settleImmortalBerserkerDamage({
+    state: mechanic,
+    currentHp: args.before.enemyHp,
+    incomingDamage,
+    maxHp: args.before.bossSharedMaxHp ?? args.before.enemy.hp,
+  });
+  let log = args.after.log;
+  if (settled.revived) {
+    log = withoutPrematureVictoryLog(args.before, { ...args.after, log });
+    const ordinal = settled.state.lifeIndex === 1 ? "첫 번째" : "두 번째";
+    const multipliers = immortalBerserkerMultipliers(settled.state.lifeIndex);
+    log = appendLog(log, {
+      kind: "info",
+      effect: "status",
+      text: `${ordinal} 부활 · 생명 ${settled.state.lifeIndex + 1}/3`,
+      turn: "player",
+      t: args.tick,
+    });
+    log = appendLog(log, {
+      kind: "info",
+      effect: "status",
+      text: `광폭 · 공격력 +${Math.round((multipliers.atkMult - 1) * 100)}% · 행동 속도 +${Math.round((multipliers.spdMult - 1) * 100)}%`,
+      turn: "player",
+      t: args.tick,
+    });
+  }
+  const playerDefeated =
+    args.after.playerHp <= 0 || args.after.outcome === "lose";
+  return {
+    ...args.after,
+    enemyHp: settled.hp,
+    bossMechanic: {
+      ...settled.state,
+      immortalBodyDamage:
+        mechanic.immortalBodyDamage + settled.appliedDamage,
+      immortalHealing: mechanic.immortalHealing,
+      immortalRevivalCount:
+        mechanic.immortalRevivalCount + (settled.revived ? 1 : 0),
+    },
+    log,
+    ...(settled.revived && !playerDefeated
+      ? {
+          phase: "enemy" as const,
+          outcome: null,
+          playerAttacksLeft: 0,
+          turn: {
+            ...args.after.turn,
+            completedPlayerTurns:
+              args.before.turn.completedPlayerTurns + 1,
+            doubleStrikeUsedThisTurn: false,
+            lightspeedUsedThisTurn: false,
+            critThisTurn: false,
+            riposteUsedThisTurn: false,
+            firstAttackPending: true,
+            galeChainsThisTurn: 0,
+            weakpointUsedThisTurn: false,
+            fatedChainTriggeredThisTurn: false,
+          },
+        }
+      : {}),
+  };
+}
+
+function settleImmortalBerserkerAfterEnemyAction(
+  state: BattleState,
+  baseEnemy: Monster,
+  tick: number,
+): BattleState {
+  const mechanic = state.bossMechanic;
+  if (
+    !mechanic ||
+    mechanic.kind !== "immortal_berserker" ||
+    state.enemyHp <= 0
+  ) {
+    return state;
+  }
+  const advanced = advanceImmortalBerserkerEnemyAction({
+    state: mechanic,
+    currentHp: state.enemyHp,
+    maxHp: state.bossSharedMaxHp ?? state.enemy.hp,
+  });
+  let log = state.log;
+  if (advanced.regenerationTriggered) {
+    log = appendLog(log, {
+      kind: "info",
+      effect: "status",
+      text: `재생 +${advanced.healed.toLocaleString("ko-KR")}`,
+      turn: "enemy",
+      t: tick,
+    });
+  }
+  return applyImmortalBerserkerLifeToEnemy(
+    {
+      ...state,
+      enemyHp: advanced.hp,
+      bossMechanic: {
+        ...advanced.state,
+        immortalBodyDamage: mechanic.immortalBodyDamage,
+        immortalHealing: mechanic.immortalHealing + advanced.healed,
+        immortalRevivalCount: mechanic.immortalRevivalCount,
+      },
+      log,
+    },
+    baseEnemy,
+  );
 }
 
 // prevLogLen 이후 새 엔트리에 ATB 틱만 찍는다(turn 미변경). 번들 틱(DoT/사망 로그)처럼
@@ -1243,6 +1405,38 @@ function tickEnemyDotsOnAction(
         turn: "enemy",
       });
     }
+  } else if (bossMechanic?.kind === "immortal_berserker") {
+    const settled = settleImmortalBerserkerDamage({
+      state: bossMechanic,
+      currentHp: state.enemyHp,
+      incomingDamage: damage,
+      maxHp: state.bossSharedMaxHp ?? state.enemy.hp,
+    });
+    enemyHp = settled.hp;
+    bossMechanic = {
+      ...settled.state,
+      immortalBodyDamage:
+        bossMechanic.immortalBodyDamage + settled.appliedDamage,
+      immortalHealing: bossMechanic.immortalHealing,
+      immortalRevivalCount:
+        bossMechanic.immortalRevivalCount + (settled.revived ? 1 : 0),
+    };
+    if (settled.revived) {
+      const ordinal = settled.state.lifeIndex === 1 ? "첫 번째" : "두 번째";
+      const multipliers = immortalBerserkerMultipliers(settled.state.lifeIndex);
+      dotLog = appendLog(dotLog, {
+        kind: "info",
+        effect: "status",
+        text: `${ordinal} 부활 · 생명 ${settled.state.lifeIndex + 1}/3`,
+        turn: "enemy",
+      });
+      dotLog = appendLog(dotLog, {
+        kind: "info",
+        effect: "status",
+        text: `광폭 · 공격력 +${Math.round((multipliers.atkMult - 1) * 100)}% · 행동 속도 +${Math.round((multipliers.spdMult - 1) * 100)}%`,
+        turn: "enemy",
+      });
+    }
   }
   const next = applyPhaseTriggerIfAny({
     ...state,
@@ -1358,6 +1552,24 @@ export function resolveBattleAtb(
       ),
     };
     state = applyInvincibleFortressTierToEnemy(state, enemy);
+  } else if (ctx.bossMechanic?.kind === "immortal_berserker") {
+    const sharedMaxHp = Math.max(1, Math.floor(ctx.bossMechanic.sharedMaxHp));
+    const normalized = normalizeImmortalBerserkerState(
+      ctx.bossMechanic.initialState,
+      sharedMaxHp,
+      state.enemyHp,
+    );
+    state = {
+      ...state,
+      bossSharedMaxHp: sharedMaxHp,
+      bossMechanic: {
+        ...normalized,
+        immortalBodyDamage: 0,
+        immortalHealing: 0,
+        immortalRevivalCount: 0,
+      },
+    };
+    state = applyImmortalBerserkerLifeToEnemy(state, enemy);
   }
   if (ctx.isBoss) state = { ...state, isBoss: true };
   if (ctx.maxHpDamageMult != null) {
@@ -1532,7 +1744,13 @@ export function resolveBattleAtb(
             after: cast.state,
             tick: nextTick,
           });
+          state = settleImmortalBerserkerAfterPlayerDamage({
+            before: beforeCast,
+            after: state,
+            tick: nextTick,
+          });
           state = applyInvincibleFortressTierToEnemy(state, enemy);
+          state = applyImmortalBerserkerLifeToEnemy(state, enemy);
           castFired = cast.castFired;
           castSelfHastePct = cast.selfHastePct;
           if (cast.enemyDelayPct > 0) {
@@ -1616,7 +1834,13 @@ export function resolveBattleAtb(
               after: state,
               tick: nextTick,
             });
+            state = settleImmortalBerserkerAfterPlayerDamage({
+              before: beforeAttack,
+              after: state,
+              tick: nextTick,
+            });
             state = applyInvincibleFortressTierToEnemy(state, enemy);
+            state = applyImmortalBerserkerLifeToEnemy(state, enemy);
             state = tagNewLogEntries(state, prevLogLen, "player", nextTick);
             action = { kind: "attack" };
             if (state.phase === "ended") break;
@@ -1674,6 +1898,7 @@ export function resolveBattleAtb(
         atbPlayer,
       );
       state = tickEnemyDotsOnAction(state, enemyTargetPlayer);
+      state = applyImmortalBerserkerLifeToEnemy(state, enemy);
       state = tagNewLogEntries(state, enemyBundleStart, "enemy", nextTick);
       if (state.phase === "ended") {
         state = accumulateTrackingFromEnemyAction(
@@ -1825,6 +2050,13 @@ export function resolveBattleAtb(
       });
       state = glacialSettlement.state;
       playerNextTick = glacialSettlement.playerNextTick;
+      if (!shockEntry.skip) {
+        state = settleImmortalBerserkerAfterEnemyAction(
+          state,
+          enemy,
+          nextTick,
+        );
+      }
       enemyNextTick += actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));
     }
 

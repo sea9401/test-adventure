@@ -43,6 +43,9 @@ import {
   coopInvincibleFortressState,
   coopInvincibleFortressDisplay,
   withCoopInvincibleFortressState,
+  coopImmortalBerserkerState,
+  coopImmortalBerserkerDisplay,
+  withCoopImmortalBerserkerState,
   parseCoopMechanicState,
   COOP_INITIAL_VISIBILITY,
   coopVisibilityTransition,
@@ -54,8 +57,68 @@ import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
 import { TITLES } from "@/adventure/data/titles";
 
 describe("coopBosses 카탈로그", () => {
-  it("12종 — 기존 협동 8종 + 미개척지 개인 보스 4종", () => {
-    expect(COOP_BOSS_KIND_IDS).toHaveLength(12);
+  it("불멸 상태를 정규화하면서 기존 협동 메커니즘 필드를 보존한다", () => {
+    const parsed = parseCoopMechanicState({
+      bossMp: 7,
+      trackingThreat: 9,
+      immortalBerserker: {
+        kind: "immortal_berserker",
+        lifeIndex: 0,
+        regenActionCount: 9,
+        regenUsesRemaining: 99,
+        revivalsCompleted: 0,
+      },
+    });
+
+    expect(parsed).toMatchObject({
+      bossMp: 7,
+      trackingThreat: 9,
+      immortalBerserker: {
+        kind: "immortal_berserker",
+        lifeIndex: 0,
+        regenActionCount: 3,
+        regenUsesRemaining: 3,
+        revivalsCompleted: 0,
+      },
+    });
+  });
+
+  it("불멸 상태의 병합과 둘째 생명 표시값을 계산한다", () => {
+    const kind = COOP_BOSSES.immortal_berserker;
+    const state = {
+      kind: "immortal_berserker",
+      lifeIndex: 1,
+      regenActionCount: 2,
+      regenUsesRemaining: 1,
+      revivalsCompleted: 1,
+    } as const;
+    const merged = withCoopImmortalBerserkerState(
+      kind,
+      { bossMp: 7, trackingThreat: 9 },
+      state,
+      5_672_000,
+    );
+
+    expect(merged).toMatchObject({
+      bossMp: 7,
+      trackingThreat: 9,
+      immortalBerserker: state,
+    });
+    expect(coopImmortalBerserkerState(kind, merged, 5_672_000)).toEqual(state);
+    expect(coopImmortalBerserkerDisplay(kind, merged, 5_672_000)).toEqual({
+      immortalLifeIndex: 1,
+      immortalLifeHp: 2_000_000,
+      immortalLifeMaxHp: 3_564_000,
+      immortalRegenActionsRemaining: 2,
+      immortalRegenUsesRemaining: 1,
+      immortalNextRegenAmount: 106_920,
+      immortalAtkMult: 1.12,
+      immortalSpdMult: 1.06,
+    });
+  });
+
+  it("13종 — 기존 협동 8종 + 미개척지 개인 보스 5종", () => {
+    expect(COOP_BOSS_KIND_IDS).toHaveLength(13);
     const normalLadder = [
       "mountain_chief",
       "canyon_predator",
@@ -113,6 +176,7 @@ describe("coopBosses 카탈로그", () => {
       "toxic_blood_lord",
       "glacial_colossus",
       "invincible_fortress",
+      "immortal_berserker",
     ] as const;
     for (const id of personalIds) {
       expect(COOP_BOSSES[id]).toMatchObject({

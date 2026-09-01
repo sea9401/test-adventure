@@ -24,6 +24,7 @@ import {
   MAX_ACTIVE_PER_KIND,
   coopBossDurationMs,
   coopBossMaxMp,
+  withCoopImmortalBerserkerState,
   withCoopInvincibleFortressState,
   withCoopBossTrackingThreat,
   rollFishingCoopBossSpawn,
@@ -31,6 +32,7 @@ import {
   type CoopVisibility,
 } from "@/adventure/data/v2/coopBosses";
 import { initialInvincibleFortressState } from "@/adventure/v2/combat/invincibleFortressMechanic";
+import { initialImmortalBerserkerState } from "@/adventure/v2/combat/immortalBerserkerMechanic";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 
 type TxExecutor = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -134,7 +136,14 @@ export async function createCoopBossSession(
         initialInvincibleFortressState(kind.sharedMaxHp),
         kind.sharedMaxHp,
       )
-    : initialMechanicState;
+    : kind.id === "immortal_berserker"
+      ? withCoopImmortalBerserkerState(
+          kind,
+          initialMechanicState,
+          initialImmortalBerserkerState(kind.sharedMaxHp),
+          kind.sharedMaxHp,
+        )
+      : initialMechanicState;
   await ex.insert(coopBossSessions).values({
     id: sessionId,
     regionId: args.kindId,

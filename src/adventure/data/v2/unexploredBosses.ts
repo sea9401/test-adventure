@@ -35,6 +35,11 @@ export const UNEXPLORED_SUMMON_STONE_MATERIALS = {
     name: "빙하 거수 소환석",
     description: "혹한 군단과 파쇄 거수의 흔적을 결속한 거래 가능한 개인 보스 소환석.",
   },
+  v2_unexplored_invincible_fortress_summon_stone: {
+    id: "v2_unexplored_invincible_fortress_summon_stone",
+    name: "불괴의 성채 소환석",
+    description: "철갑 군단과 마력 방벽체의 흔적을 결속한 거래 가능한 개인 보스 소환석.",
+  },
 } as const;
 
 export type UnexploredSummonStoneMaterialId =
@@ -47,7 +52,11 @@ export type UnexploredBossUniqueDrop = {
 };
 
 export type UnexploredBossDefinition = {
-  id: "tracking_weapon" | "toxic_blood_lord" | "glacial_colossus";
+  id:
+    | "tracking_weapon"
+    | "toxic_blood_lord"
+    | "glacial_colossus"
+    | "invincible_fortress";
   name: string;
   pools: readonly [UnexploredPoolId, UnexploredPoolId];
   summonMaterialId: UnexploredSummonStoneMaterialId;
@@ -206,6 +215,54 @@ export const UNEXPLORED_BOSSES = {
       "냉기장으로 한기 누적",
       "한기 중첩당 행동 속도 감소",
       "10중첩 빙결 — 다음 행동 취소",
+    ],
+  },
+  invincible_fortress: {
+    id: "invincible_fortress",
+    name: "불괴의 성채",
+    pools: ["iron_legion", "mana_barrier"],
+    summonMaterialId: "v2_unexplored_invincible_fortress_summon_stone",
+    uniqueDrops: [
+      {
+        equipmentId: "v2_unexplored_magisteel_guard_gauntlets",
+        equipmentName: "마철 수호완갑",
+        chancePct: 30,
+      },
+      {
+        equipmentId: "v2_unexplored_sealing_barrier_ring",
+        equipmentName: "봉인 결계환",
+        chancePct: 10,
+      },
+      {
+        equipmentId: "v2_unexplored_invincible_fortress_armor",
+        equipmentName: "불괴의 성채갑",
+        chancePct: 0.5,
+      },
+    ],
+    titleId: "v2_unexplored_invincible_fortress",
+    sharedMaxHp: 10_800_000,
+    anchorDepth: 120,
+    monster: {
+      name: "불괴의 성채",
+      tags: ["golem"],
+      image: "/images/monster/v2/unexplored-boss-invincible-fortress.webp",
+      hp: 1_250,
+      atk: 1.9,
+      def: 50,
+      magicDef: 50,
+      spd: 20,
+      accuracy: -205,
+      evasionPct: 8,
+      exp: 0,
+      armorVulnerable: 0.35,
+      playerDefVulnerable: 0.35,
+      dropQualityBias: 4,
+      v2MaxMp: 0,
+    },
+    traits: [
+      "네 구간에서 방벽 시험",
+      "400틱 동안 순간 피해 측정",
+      "달성률이 높을수록 다음 광폭 약화",
     ],
   },
 } as const satisfies Record<string, UnexploredBossDefinition>;

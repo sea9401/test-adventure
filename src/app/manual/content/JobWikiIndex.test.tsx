@@ -41,6 +41,16 @@ const ENTRIES: JobManualIndexEntry[] = [
   },
 ];
 
+const PAGINATED_ENTRIES: JobManualIndexEntry[] = Array.from(
+  { length: 13 },
+  (_, index) => ({
+    ...ENTRIES[0],
+    id: `job-${index + 1}`,
+    name: `직업 ${index + 1}`,
+    searchText: `job-${index + 1} 직업 ${index + 1} 마법사`,
+  }),
+);
+
 afterEach(cleanup);
 
 describe("job wiki index", () => {
@@ -101,5 +111,44 @@ describe("job wiki index", () => {
     expect(screen.getByText("검색 조건에 맞는 직업이 없습니다.")).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "필터 초기화" }));
     expect(screen.getByText("3개 중 3개")).toBeDefined();
+  });
+
+  it("shows twelve filtered jobs per page with bounded navigation", () => {
+    render(<JobWikiIndex entries={PAGINATED_ENTRIES} />);
+
+    expect(screen.getAllByRole("link")).toHaveLength(12);
+    expect(screen.getByRole("link", { name: /^직업 16차/ })).toBeDefined();
+    expect(screen.queryByRole("link", { name: /^직업 136차/ })).toBeNull();
+    expect(screen.getByText("1 / 2 페이지")).toBeDefined();
+    expect(
+      (screen.getByRole("button", { name: "이전 페이지" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "다음 페이지" }));
+
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+    expect(screen.queryByRole("link", { name: /^직업 16차/ })).toBeNull();
+    expect(screen.getByRole("link", { name: /^직업 136차/ })).toBeDefined();
+    expect(screen.getByText("2 / 2 페이지")).toBeDefined();
+    expect(
+      (screen.getByRole("button", { name: "다음 페이지" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
+  it("returns to page one when search filters change", () => {
+    render(<JobWikiIndex entries={PAGINATED_ENTRIES} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "다음 페이지" }));
+    expect(screen.getByText("2 / 2 페이지")).toBeDefined();
+
+    fireEvent.change(screen.getByLabelText("직업 또는 스킬 검색"), {
+      target: { value: "직업" },
+    });
+
+    expect(screen.getByText("1 / 2 페이지")).toBeDefined();
+    expect(screen.getByRole("link", { name: /^직업 16차/ })).toBeDefined();
+    expect(screen.queryByRole("link", { name: /^직업 136차/ })).toBeNull();
   });
 });

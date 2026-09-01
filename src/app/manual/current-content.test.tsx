@@ -27,6 +27,7 @@ import { TownContent } from "./content/town";
 import { CompendiumContent } from "./content/compendium";
 import { CoopContent } from "./content/coop";
 import { OverviewContent } from "./content/overview";
+import { MANUAL_CONTENT } from "./content";
 
 describe("최신 게임 안내서 내용", () => {
   it("월간 회복약 세트와 성장 도약 패키지의 제한·보상을 정확히 안내한다", () => {
@@ -102,11 +103,20 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("수행 성장 직업");
   });
 
-  it("기존 직업 성장 안내와 전체 직업 도감을 함께 제공한다", () => {
+  it("직업 성장 안내에서 전체 직업 목록을 분리한다", () => {
     const html = renderToStaticMarkup(<JobsContent />);
 
     expect(html).toContain("직군과 직업 사다리");
     expect(html).toContain("숙련의 탑");
+    expect(html).not.toContain("전체 직업 도감");
+    expect(html).not.toContain("141개 중 141개");
+  });
+
+  it("독립된 전체 직업 도감 문서에서 검색 가능한 전체 목록을 제공한다", () => {
+    const JobCodexContent = MANUAL_CONTENT["job-codex"];
+
+    expect(JobCodexContent).toBeTypeOf("function");
+    const html = renderToStaticMarkup(<>{JobCodexContent?.()}</>);
     expect(html).toContain("전체 직업 도감");
     expect(html).toContain("141개 중 141개");
   });

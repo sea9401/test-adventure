@@ -24,6 +24,16 @@ const INITIAL_FILTERS: JobWikiFilters = {
   tier: "all",
 };
 
+export const JOB_WIKI_PAGE_SIZE = 12;
+
+export type JobWikiPage = {
+  entries: JobManualIndexEntry[];
+  currentPage: number;
+  pageCount: number;
+  startIndex: number;
+  endIndex: number;
+};
+
 const KIND_OPTIONS: Array<{ value: JobWikiFilters["kind"]; label: string }> = [
   { value: "all", label: "전체" },
   { value: "combat", label: "전투" },
@@ -64,6 +74,26 @@ export function filterJobManualIndex(
   );
 }
 
+export function paginateJobManualIndex(
+  entries: readonly JobManualIndexEntry[],
+  page: number,
+): JobWikiPage {
+  const pageCount = Math.max(1, Math.ceil(entries.length / JOB_WIKI_PAGE_SIZE));
+  const currentPage = Math.min(
+    Math.max(Number.isFinite(page) ? Math.trunc(page) : 1, 1),
+    pageCount,
+  );
+  const offset = (currentPage - 1) * JOB_WIKI_PAGE_SIZE;
+  const pageEntries = entries.slice(offset, offset + JOB_WIKI_PAGE_SIZE);
+  return {
+    entries: pageEntries,
+    currentPage,
+    pageCount,
+    startIndex: pageEntries.length > 0 ? offset + 1 : 0,
+    endIndex: offset + pageEntries.length,
+  };
+}
+
 function FilterButton<T extends string | number>({
   active,
   label,
@@ -91,18 +121,72 @@ function FilterButton<T extends string | number>({
   );
 }
 
+function PaginationControls({
+  currentPage,
+  pageCount,
+  onSelect,
+}: {
+  currentPage: number;
+  pageCount: number;
+  onSelect: (page: number) => void;
+}) {
+  if (pageCount <= 1) return null;
+  return (
+    <nav
+      aria-label="직업 도감 페이지"
+      className="mt-4 flex items-center justify-center gap-3"
+    >
+      <button
+        type="button"
+        aria-label="이전 페이지"
+        disabled={currentPage === 1}
+        onClick={() => onSelect(currentPage - 1)}
+        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:border-amber-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
+      >
+        이전
+      </button>
+      <span className="min-w-20 text-center text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+        {currentPage} / {pageCount} 페이지
+      </span>
+      <button
+        type="button"
+        aria-label="다음 페이지"
+        disabled={currentPage === pageCount}
+        onClick={() => onSelect(currentPage + 1)}
+        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:border-amber-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
+      >
+        다음
+      </button>
+    </nav>
+  );
+}
+
 export function JobWikiIndex({ entries }: { entries: JobManualIndexEntry[] }) {
   const [filters, setFilters] = useState<JobWikiFilters>(INITIAL_FILTERS);
-  const visibleEntries = useMemo(
+  const [page, setPage] = useState(1);
+  const filteredEntries = useMemo(
     () => filterJobManualIndex(entries, filters),
     [entries, filters],
+  );
+  const pagination = useMemo(
+    () => paginateJobManualIndex(filteredEntries, page),
+    [filteredEntries, page],
   );
   const hasActiveFilter =
     filters.query.trim() !== "" ||
     filters.kind !== "all" ||
     filters.line !== "all" ||
     filters.tier !== "all";
-  const reset = () => setFilters(INITIAL_FILTERS);
+  const updateFilters = (
+    update: (current: JobWikiFilters) => JobWikiFilters,
+  ) => {
+    setFilters(update);
+    setPage(1);
+  };
+  const reset = () => {
+    setFilters(INITIAL_FILTERS);
+    setPage(1);
+  };
 
   return (
     <section className="mt-5" aria-label="전체 직업 도감 검색">
@@ -119,7 +203,7 @@ export function JobWikiIndex({ entries }: { entries: JobManualIndexEntry[] }) {
             type="search"
             value={filters.query}
             onChange={(event) =>
-              setFilters((current) => ({
+              updateFilters((current) => ({
                 ...current,
                 query: event.target.value,
               }))
@@ -138,7 +222,7 @@ export function JobWikiIndex({ entries }: { entries: JobManualIndexEntry[] }) {
                 {...option}
                 active={filters.kind === option.value}
                 onSelect={(kind) =>
-                  setFilters((current) => ({ ...current, kind }))
+                  updateFilters((current) => ({ ...current, kind }))
                 }
               />
             ))}
@@ -154,7 +238,7 @@ export function JobWikiIndex({ entries }: { entries: JobManualIndexEntry[] }) {
                 {...option}
                 active={filters.line === option.value}
                 onSelect={(line) =>
-                  setFilters((current) => ({ ...current, line }))
+                  updateFilters((current) => ({ ...current, line }))
                 }
               />
             ))}
@@ -170,7 +254,7 @@ export function JobWikiIndex({ entries }: { entries: JobManualIndexEntry[] }) {
                 {...option}
                 active={filters.tier === option.value}
                 onSelect={(tier) =>
-                  setFilters((current) => ({ ...current, tier }))
+                  updateFilters((current) => ({ ...current, tier }))
                 }
               />
             ))}
@@ -180,9 +264,14 @@ export function JobWikiIndex({ entries }: { entries: JobManualIndexEntry[] }) {
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300" aria-live="polite">
-          {entries.length}개 중 {visibleEntries.length}개
+          <span>{entries.length}개 중 {filteredEntries.length}개</span>
+          {filteredEntries.length > 0 && (
+            <span className="font-normal text-zinc-500 dark:text-zinc-400">
+              {" "}· {pagination.startIndex}–{pagination.endIndex} 표시
+            </span>
+          )}
         </p>
-        {hasActiveFilter && visibleEntries.length > 0 && (
+        {hasActiveFilter && filteredEntries.length > 0 && (
           <button
             type="button"
             onClick={reset}
@@ -193,9 +282,9 @@ export function JobWikiIndex({ entries }: { entries: JobManualIndexEntry[] }) {
         )}
       </div>
 
-      {visibleEntries.length > 0 ? (
+      {filteredEntries.length > 0 ? (
         <ul className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {visibleEntries.map((entry) => (
+          {pagination.entries.map((entry) => (
             <li key={entry.id}>
               <Link
                 href={`/manual/jobs/${entry.id}`}
@@ -234,6 +323,11 @@ export function JobWikiIndex({ entries }: { entries: JobManualIndexEntry[] }) {
           </button>
         </div>
       )}
+      <PaginationControls
+        currentPage={pagination.currentPage}
+        pageCount={pagination.pageCount}
+        onSelect={setPage}
+      />
     </section>
   );
 }

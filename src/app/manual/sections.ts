@@ -68,6 +68,12 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     group: "growth",
   },
   {
+    slug: "job-codex",
+    title: "전체 직업 도감",
+    summary: "모든 전투·생활 직업의 계보, 성장 수치와 전용 스킬을 찾아봅니다.",
+    group: "growth",
+  },
+  {
     slug: "skills",
     title: "스킬",
     summary: "스킬을 배우고 SP 한도 안에서 장착하는 방법을 안내합니다.",

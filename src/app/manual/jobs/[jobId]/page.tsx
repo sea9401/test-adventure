@@ -61,7 +61,7 @@ export default async function Page({
 
   return (
     <ManualLayout
-      currentSlug="jobs"
+      currentSlug="job-codex"
       title={entry.name}
       summary={entry.summary}
     >

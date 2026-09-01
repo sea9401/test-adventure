@@ -142,4 +142,3 @@ Run: `env NODE_OPTIONS=--max-old-space-size=4096 npm run build`
 - [ ] **Step 5: Commit**
 
 Stage the spec, plan, implementation, and tests, then commit with `feat: improve manual job codex navigation`.
-

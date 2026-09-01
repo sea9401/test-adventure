@@ -20,9 +20,9 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import {
   EquipmentEnchantmentGuideDialog,
-  EquipmentSelectionDialog,
   InitialEnchantmentConfirmDialog,
 } from "./EquipmentEnchantmentDialogs";
+import { EquipmentEnchantmentPickerDialog } from "./EquipmentEnchantmentPickerDialog";
 import {
   enchantmentStage,
   formatLiberationOptionRoll,
@@ -204,13 +204,6 @@ export function EquipmentLiberationPanel({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              disabled={busy}
-              onClick={() => setSelectionOpen(true)}
-            >
-              장비 선택
-            </Button>
             <button
               type="button"
               onClick={() => setGuideOpen(true)}
@@ -222,6 +215,26 @@ export function EquipmentLiberationPanel({
             </button>
           </div>
         </div>
+
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setSelectionOpen(true)}
+          aria-label={`대상 장비 변경 · ${candidates.length}개 선택 가능`}
+          className={`${SURFACE_ACCENT} mt-4 flex min-h-16 w-full items-center justify-between gap-3 border-violet-300 px-4 py-3 text-left shadow-sm transition hover:border-violet-500 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-violet-800 dark:hover:border-violet-500`}
+        >
+          <span>
+            <strong className="block text-sm text-violet-950 dark:text-violet-100">
+              대상 장비 변경
+            </strong>
+            <span className="mt-0.5 block text-xs text-zinc-600 dark:text-zinc-300">
+              품질·위력·옵션을 비교해 선택
+            </span>
+          </span>
+          <span className="shrink-0 rounded-full border border-violet-300 bg-white px-2.5 py-1 text-xs font-bold text-violet-700 dark:border-violet-700 dark:bg-zinc-950 dark:text-violet-300">
+            {candidates.length}개 선택 가능
+          </span>
+        </button>
 
         <div className={`${SURFACE_INSET} mt-4 flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs`}>
           <span className="text-zinc-500 dark:text-zinc-400">
@@ -287,15 +300,6 @@ export function EquipmentLiberationPanel({
           </div>
         )}
 
-        {current ? (
-          <div className={`${SURFACE_INSET} mt-4 border-rose-300 px-3 py-2.5 text-sm text-rose-800 dark:border-rose-900 dark:text-rose-200`}>
-            <strong>재마법부여하면 현재 옵션 전체가 즉시 소멸합니다.</strong>
-            <span className="mt-1 block text-xs">
-              옵션 줄 수는 유지되며, 버튼을 누르면 별도 확인 없이 바로 진행됩니다.
-            </span>
-          </div>
-        ) : null}
-
         {result ? (
           <div className={`${result.promoted ? SURFACE_ACCENT : SURFACE_INSET} mt-4 p-3 text-sm font-semibold`} role="status">
             {result.promoted
@@ -327,7 +331,7 @@ export function EquipmentLiberationPanel({
       </section>
 
       {selectionOpen ? (
-        <EquipmentSelectionDialog
+        <EquipmentEnchantmentPickerDialog
           candidates={candidates}
           selectedIid={selected?.iid ?? ""}
           busy={busy}

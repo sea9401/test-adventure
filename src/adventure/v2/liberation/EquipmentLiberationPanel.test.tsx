@@ -82,7 +82,9 @@ describe("장비 마법부여 작업대", () => {
     });
 
     expect(screen.queryByRole("listbox", { name: "마법부여 대상 장비" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "장비 선택" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /대상 장비 변경.*2개 선택 가능/ }),
+    );
     expect(screen.getByRole("dialog", { name: "마법부여 장비 선택" })).toBeTruthy();
     expect(screen.getByRole("listbox", { name: "마법부여 대상 장비" })).toBeTruthy();
 
@@ -96,7 +98,7 @@ describe("장비 마법부여 작업대", () => {
     expect(screen.getByRole("heading", { name: "빙호 갑주" })).toBeTruthy();
   });
 
-  it("재마법부여는 경고를 상시 표시하고 확인창 없이 즉시 요청한다", async () => {
+  it("재마법부여 안내는 도움말에서 보여주고 확인창 없이 즉시 요청한다", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -107,8 +109,15 @@ describe("장비 마법부여 작업대", () => {
     renderPanel(rerollItem);
 
     expect(screen.getByText("마법부여 1단계 · 2줄")).toBeTruthy();
-    expect(screen.getByText(/재마법부여하면 현재 옵션 전체가 즉시 소멸/)).toBeTruthy();
+    expect(screen.queryByText(/재마법부여하면 현재 옵션 전체가 즉시 소멸/)).toBeNull();
     expect(screen.getByRole("list", { name: "현재 마법부여 옵션" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "마법부여 도움말" }));
+    expect(screen.getByText(/재마법부여하면 현재 옵션 전체가 즉시 소멸/)).toBeTruthy();
+    expect(
+      screen.getByText(/옵션 줄 수는 유지되며, 버튼을 누르면 별도 확인 없이 바로 진행/),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "도움말 닫기" }));
 
     fireEvent.click(screen.getByRole("button", { name: "재마법부여" }));
     expect(screen.queryByRole("dialog", { name: /재마법부여 확인/ })).toBeNull();

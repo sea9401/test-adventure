@@ -622,7 +622,7 @@ export function V2UnexploredTreeView({
                         textAnchor="middle"
                         fontSize="19"
                         fontWeight="700"
-                        fill="#3f3f46"
+                        className="fill-zinc-700 dark:fill-zinc-200"
                       >
                         {node.name}
                       </text>

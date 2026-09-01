@@ -109,6 +109,15 @@ describe("V2UnexploredTreeView", () => {
     expect(routed?.getAttribute("d")).toContain(" Q ");
   });
 
+  it("uses a high-contrast color for node names in dark mode", () => {
+    const html = renderToStaticMarkup(
+      <V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />,
+    );
+
+    expect(html).toContain("fill-zinc-700 dark:fill-zinc-200");
+    expect(html).not.toContain('fill="#3f3f46"');
+  });
+
   it("탐사망·탐사 업적·흔적 보관함·우두머리 핵 제작소를 독립 탭으로 표시한다", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

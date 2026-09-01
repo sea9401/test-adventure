@@ -11,6 +11,7 @@ import {
   BOSS_MAX_HP_DAMAGE_MULT,
   appendLog,
   applyBerserkerHostileDamage,
+  applyEnemyDamage,
   applyEnemyV2SkillCast,
   applyEvasionActionRecoveryPvE,
   applyPhaseTriggerIfAny,
@@ -1561,7 +1562,8 @@ function tickEnemyDotsOnAction(
       turn: "enemy",
     });
   }
-  let enemyHp = Math.max(0, state.enemyHp - damage);
+  const damagedState = applyEnemyDamage(state, damage);
+  let enemyHp = damagedState.enemyHp;
   let bossMechanic = state.bossMechanic;
   if (bossMechanic?.kind === "invincible_fortress") {
     const settled = settleInvincibleFortressDamage({
@@ -1622,7 +1624,7 @@ function tickEnemyDotsOnAction(
     }
   }
   const next = applyPhaseTriggerIfAny({
-    ...state,
+    ...damagedState,
     playerHp: nextPlayerHp,
     enemyV2Dots: eTick.nextDots,
     enemyHp,
@@ -1664,6 +1666,37 @@ function forceAtbLoss(
     },
     potionsConsumed: consumed,
     turns,
+    ...(state.enemyDamageDealtTotal == null
+      ? {}
+      : { damageDealtTotal: state.enemyDamageDealtTotal }),
+  };
+}
+
+function continueDamageMeterAfterEnemyDefeat(
+  state: BattleState,
+  ctx: ResolveContext,
+  turn: "player" | "enemy",
+  tick: number,
+): BattleState {
+  if (
+    !ctx.damageMeter?.continueAfterDefeat ||
+    state.outcome !== "win" ||
+    state.enemyHp > 0 ||
+    state.playerHp <= 0
+  ) {
+    return state;
+  }
+  return {
+    ...state,
+    enemyHp: Math.max(1, Math.floor(ctx.damageMeter.refillHp)),
+    phase: turn,
+    outcome: null,
+    log: appendLog(state.log, {
+      kind: "info",
+      text: "피해 계측 구간 돌파 — 전투를 계속합니다.",
+      turn,
+      t: tick,
+    }),
   };
 }
 
@@ -1770,6 +1803,9 @@ export function resolveBattleAtb(
       maxHpDamageMult: Math.max(0, ctx.maxHpDamageMult),
     };
   }
+  if (ctx.damageMeter) {
+    state = { ...state, enemyDamageDealtTotal: 0 };
+  }
   const openingExtra: BattleLogEntry[] = ctx.openingNote
     ? [{ kind: "info", text: ctx.openingNote, turn: "player" }]
     : [];
@@ -1844,7 +1880,7 @@ export function resolveBattleAtb(
       return forceAtbLoss(state, turns, consumed);
     }
     if (
-      actions >= ATB_ACTION_GUARD ||
+      (!ctx.damageMeter && actions >= ATB_ACTION_GUARD) ||
       turns >= (ctx.maxTurns ?? Number.POSITIVE_INFINITY)
     ) {
       return forceAtbLoss(state, turns, consumed);
@@ -1974,6 +2010,12 @@ export function resolveBattleAtb(
         playerName,
       );
       state = tagNewLogEntries(state, playerBundleStart, "player", nextTick);
+      state = continueDamageMeterAfterEnemyDefeat(
+        state,
+        ctx,
+        "player",
+        nextTick,
+      );
       if (state.phase === "ended") {
         turns += 1;
         break;
@@ -2143,6 +2185,12 @@ export function resolveBattleAtb(
         toxicRecoveryActionsAtStart,
         nextTick,
       );
+      state = continueDamageMeterAfterEnemyDefeat(
+        state,
+        ctx,
+        "player",
+        nextTick,
+      );
       // 바람 — 이번 행동 후 내 다음 행동 틱을 가속(pct% 만큼 단축). 미시전이면 0 → 무변.
       const duelistHaste = consumeDuelistCritHaste(
         actionInterval(effectivePlayerSpd(atbPlayer, state)) *
@@ -2175,6 +2223,12 @@ export function resolveBattleAtb(
       state = tickEnemyDotsOnAction(state, enemyTargetPlayer);
       state = applyImmortalBerserkerLifeToEnemy(state, enemy);
       state = tagNewLogEntries(state, enemyBundleStart, "enemy", nextTick);
+      state = continueDamageMeterAfterEnemyDefeat(
+        state,
+        ctx,
+        "enemy",
+        nextTick,
+      );
       if (state.phase === "ended") {
         state = accumulateTrackingFromEnemyAction(
           state,
@@ -2287,6 +2341,12 @@ export function resolveBattleAtb(
           }
         }
       }
+      state = continueDamageMeterAfterEnemyDefeat(
+        state,
+        ctx,
+        "enemy",
+        nextTick,
+      );
       if (state.phase !== "ended") state = tickEnemyTargetDebuffs(state);
       const shadowReleaseHastePct =
         state.stacks.tier7?.shadowReleaseHastePct ?? 0;
@@ -2351,5 +2411,8 @@ export function resolveBattleAtb(
     },
     potionsConsumed: consumed,
     turns,
+    ...(state.enemyDamageDealtTotal == null
+      ? {}
+      : { damageDealtTotal: state.enemyDamageDealtTotal }),
   };
 }

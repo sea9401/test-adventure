@@ -15,11 +15,12 @@ function raidState(
       id: "2026-W34",
       bossKind: "mountain_chief_hard",
       status: "active",
+      phase: "active",
       stage: 4,
       hp: 750_000,
       maxHp: 1_875_000,
       startsAt: Date.UTC(2026, 7, 16, 15),
-      endsAt: Date.UTC(2026, 7, 23, 15),
+      endsAt: Date.UTC(2026, 7, 21, 15),
       settledAt: null,
     },
     my: {
@@ -30,6 +31,9 @@ function raidState(
       dailyAttackLimit: 3,
       remainingAttacks: 3,
       eligible: true,
+      rewardClaimedAt: null,
+      reward: { gold: 3_000_000, masteryCertificates: 300 },
+      canClaim: false,
     },
     guild: {
       id: 7,
@@ -56,7 +60,9 @@ function raidState(
         rank: 2,
       },
     ],
+    leaderboardPagination: { page: 1, pageSize: 8, totalPages: 3, total: 17 },
     recentAttacks: [],
+    recentPagination: { page: 1, pageSize: 8, totalPages: 2, total: 9 },
     ...overrides,
   };
 }
@@ -68,7 +74,7 @@ describe("길드 토벌전 패널", () => {
     expect(html).toContain("토벌전 정보를 불러오는 중");
   });
 
-  it("단계·남은 공격·길드 순위와 보상 준비 상태를 보여준다", () => {
+  it("단계·남은 공격·길드 순위와 확정 보상을 보여준다", () => {
     const html = renderToStaticMarkup(
       <GuildRaidPanelContent
         state={raidState()}
@@ -81,7 +87,8 @@ describe("길드 토벌전 패널", () => {
     expect(html).toContain("4단계");
     expect(html).toContain("남은 공격 3/3");
     expect(html).toContain("현재 2위");
-    expect(html).toContain("보상 정책 준비 중");
+    expect(html).toContain("3,000,000 골드");
+    expect(html).toContain("숙련의 증표 300개");
     expect(html).toContain("참여 조건 달성");
     expect(html).toContain("bg-white");
   });
@@ -113,8 +120,10 @@ describe("길드 토벌전 패널", () => {
           event: {
             ...raidState().event,
             status: "settled",
+            phase: "claim",
             settledAt: Date.UTC(2026, 7, 23, 15, 1),
           },
+          my: { ...raidState().my, canClaim: true },
         })}
         attacking={false}
         error={null}
@@ -123,7 +132,22 @@ describe("길드 토벌전 패널", () => {
     );
 
     expect(html).toContain("최종 2위");
-    expect(html).toContain("이번 토벌전이 종료되었습니다");
+    expect(html).toContain("보상 수령");
+  });
+
+  it("길드 순위와 최근 전투의 서버 페이지 이동 버튼을 보여준다", () => {
+    const html = renderToStaticMarkup(
+      <GuildRaidPanelContent
+        state={raidState()}
+        attacking={false}
+        error={null}
+        onAttack={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("1 / 3");
+    expect(html).toContain("1 / 2");
+    expect(html).toContain("다음 페이지");
   });
 
   it("종료 직후 정산 중 상태를 명시한다", () => {

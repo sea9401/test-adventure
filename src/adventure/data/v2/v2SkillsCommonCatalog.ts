@@ -2913,7 +2913,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_primordialsage_completeformula: {
     id: "v2c_primordialsage_completeformula", name: "완전식", stat: "int", category: "passive", tier: 3,
-    description: "서로 다른 직접 마법으로 세 단계를 완성한 현재 주문을 강화한다. 직접 피해·관통·다음 행동 속도가 오른다.",
+    description: "서로 다른 직접 마법을 주기당 한 번씩 계산해 합계 3단계를 완성한 현재 주문을 강화한다. 일반 주문은 1단계, 오원소 폭주와 오원소형 태초회귀는 2단계를 전개한다. 직접 피해·관통·다음 행동 속도가 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 20000, spCost: 22,
     effects: [], passive: { statPct: { int: 20, spi: 10 }, magicSkillDamagePct: 24 },
     tier7Mechanic: { kind: "completeFormula", directDamagePct: 50, penetrationPct: 35, hastePct: 20, pvpDamagePct: 30, pvpPenetrationPct: 20, pvpHastePct: 12 },

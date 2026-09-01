@@ -14,7 +14,9 @@ function input(
       id: "guild-raid:2026-08-17",
       bossKind: "mountain_chief_hard",
       status: "active",
-      endsAt: new Date("2026-08-23T15:00:00.000Z"),
+      endsAt: new Date("2026-08-21T15:00:00.000Z"),
+    },
+    guildProgress: {
       stage: 1,
       hp: 100,
       maxHp: 100,
@@ -49,7 +51,7 @@ describe("길드 토벌전 공격 변경", () => {
         dailyAttackCount: 1,
       },
       guildDamageDelta: 30,
-      event: { stage: 1, hp: 70, maxHp: 100 },
+      guildProgress: { stage: 1, hp: 70, maxHp: 100 },
     });
   });
 
@@ -114,7 +116,7 @@ describe("길드 토벌전 공격 변경", () => {
 
     expect(result).toMatchObject({
       ok: true,
-      event: { stage: 3, hp: 140, maxHp: 150 },
+      guildProgress: { stage: 3, hp: 140, maxHp: 150 },
       stagesCleared: 2,
       guildDamageDelta: 260,
     });

@@ -191,6 +191,33 @@ function guaranteedDodgeActionMain(
   };
 }
 
+function skillCastActionMain(entry: BattleLogEntry): BattleLogEntry | null {
+  if (entry.kind !== "info" || !entry.skillCast) return null;
+  return {
+    ...entry,
+    kind: entry.turn === "enemy" ? "enemy_attack" : "player_attack",
+    text: `${entry.skillCast.skillName}!`,
+  };
+}
+
+function actionSkillCast(
+  current: Extract<BattleLogDisplayItem, { kind: "action" }> | null,
+): NonNullable<Exclude<BattleLogEntry, { kind: "hp_bar" }>["skillCast"]> | undefined {
+  return current?.main.kind === "hp_bar" ? undefined : current?.main.skillCast;
+}
+
+function isMatchingSkillCastResult(
+  current: Extract<BattleLogDisplayItem, { kind: "action" }>,
+  entry: BattleLogEntry,
+): boolean {
+  const skillCast = actionSkillCast(current);
+  if (!skillCast || !isDirectActionEntry(entry)) return false;
+  return (
+    entryTurnSide(current.main) === entryTurnSide(entry) &&
+    actionHeadline(entry.text).title === skillCast.skillName
+  );
+}
+
 function isDamageCalculationEntry(entry: BattleLogEntry): boolean {
   if (entry.kind === "hp_bar") return false;
   const { labels } = parseBattleLogText(entry.text);
@@ -303,6 +330,20 @@ export function groupBattleLogActions(
       items.push({ kind: "entry", entry });
       continue;
     }
+    const skillCastMain = skillCastActionMain(entry);
+    if (skillCastMain) {
+      flushCurrent();
+      current = {
+        kind: "action",
+        main: skillCastMain,
+        hits: [skillCastMain],
+        calculations: pendingCalculations,
+        effects: pendingEffects,
+      };
+      pendingCalculations = [];
+      pendingEffects = [];
+      continue;
+    }
     const legacyStandaloneMain = legacyStandaloneActionMain(entry);
     if (legacyStandaloneMain) {
       if (
@@ -327,6 +368,14 @@ export function groupBattleLogActions(
     }
     const dodgeActionMain = guaranteedDodgeActionMain(entry);
     if (dodgeActionMain) {
+      if (
+        actionSkillCast(current) &&
+        current &&
+        entryTurnSide(current.main) === entryTurnSide(dodgeActionMain)
+      ) {
+        current.effects.push(entry);
+        continue;
+      }
       flushCurrent();
       current = {
         kind: "action",
@@ -340,11 +389,19 @@ export function groupBattleLogActions(
       continue;
     }
     if (isDamageCalculationEntry(entry)) {
+      if (actionSkillCast(current) && current) {
+        current.calculations.push(entry);
+        continue;
+      }
       flushCurrent();
       pendingCalculations.push(entry);
       continue;
     }
     if (isActionOpeningEffect(entry)) {
+      if (actionSkillCast(current) && current) {
+        current.effects.push(entry);
+        continue;
+      }
       flushCurrent();
       pendingEffects.push(entry);
       continue;
@@ -355,6 +412,11 @@ export function groupBattleLogActions(
       continue;
     }
     if (isDirectActionEntry(entry)) {
+      if (current && isMatchingSkillCastResult(current, entry)) {
+        current.main = entry;
+        current.hits = [entry];
+        continue;
+      }
       if (current && canMergeActionHit(current, entry)) {
         current.hits.push(entry);
         continue;
@@ -743,7 +805,7 @@ function actionHeadline(text: string): {
     ) &&
     /^\d[\d,]*\s*피해를 입혔다\.?$/.test(body);
   const rawTitle = match?.[1]?.trim() || (legacyBasicAttack ? "공격" : "행동");
-  const rawResult = match?.[2]?.trim() || body;
+  const rawResult = match ? (match[2]?.trim() ?? "") : body;
   const damage = rawResult.match(/^(\d+)\s*피해를 입혔다\.?$/);
   return {
     labels,

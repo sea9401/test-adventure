@@ -1,7 +1,6 @@
 import "server-only";
 
 import {
-  COOP_ATTACK_TURNS,
   COOP_BOSSES,
   coopBossForBattle,
   coopBossMaxMp,
@@ -72,10 +71,13 @@ export async function simulateGuildRaidBattle({
     v2Skills: prepared.skills,
     isBoss: true,
     maxHpDamageMult: COOP_BOSS_MAX_HP_DAMAGE_MULT,
-    maxTurns: COOP_ATTACK_TURNS,
     initialEnemyHp: bossHp,
+    damageMeter: { continueAfterDefeat: true, refillHp: bossHp },
   });
-  const damageDealt = Math.max(0, bossHp - battle.finalState.enemyHp);
+  const damageDealt = Math.max(
+    0,
+    battle.damageDealtTotal ?? bossHp - battle.finalState.enemyHp,
+  );
   const damageTaken = Math.max(0, playerMaxHp - battle.finalState.playerHp);
   return {
     playerName,

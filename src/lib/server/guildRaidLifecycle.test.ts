@@ -7,6 +7,7 @@ import {
   type GuildRaidScoreRecord,
   type GuildRaidSettlement,
 } from "./guildRaidLifecycle";
+import { rankGuildRaidScores } from "@/adventure/data/v2/guildRaid";
 
 class MemoryGuildRaidStore implements GuildRaidLifecycleStore {
   events = new Map<string, GuildRaidEventRecord>();
@@ -55,6 +56,32 @@ class MemoryGuildRaidStore implements GuildRaidLifecycleStore {
   async listScores(eventId: string) {
     return this.scores.get(eventId) ?? [];
   }
+
+  async countScores(eventId: string) {
+    return (this.scores.get(eventId) ?? []).filter((score) => score.damage > 0)
+      .length;
+  }
+
+  async listRankedScoresPage(eventId: string, offset: number, limit: number) {
+    return rankGuildRaidScores(
+      (this.scores.get(eventId) ?? []).filter((score) => score.damage > 0),
+    )
+      .map((score) => ({
+        ...score,
+        rank: score.finalRank ?? score.rank,
+      }))
+      .slice(offset, offset + limit);
+  }
+
+  async findRankedScore(eventId: string, guildId: number) {
+    return (
+      rankGuildRaidScores(
+        (this.scores.get(eventId) ?? []).filter((score) => score.damage > 0),
+      )
+        .map((score) => ({ ...score, rank: score.finalRank ?? score.rank }))
+        .find((score) => score.guildId === guildId) ?? null
+    );
+  }
 }
 
 function activeEvent(overrides: Partial<GuildRaidEventRecord> = {}): GuildRaidEventRecord {
@@ -63,7 +90,7 @@ function activeEvent(overrides: Partial<GuildRaidEventRecord> = {}): GuildRaidEv
     weekKey: "2026-08-17",
     bossKind: "mountain_chief_hard",
     startsAt: new Date("2026-08-16T15:00:00.000Z"),
-    endsAt: new Date("2026-08-23T15:00:00.000Z"),
+    endsAt: new Date("2026-08-21T15:00:00.000Z"),
     status: "active",
     stage: 1,
     hp: 1_200_000,
@@ -85,11 +112,12 @@ describe("길드 토벌전 주간 수명주기", () => {
     expect(first.id).toBe("guild-raid:2026-08-17");
     expect(second.id).toBe(first.id);
     expect(store.createCalls).toBe(1);
+    expect(first.endsAt).toEqual(new Date("2026-08-21T15:00:00.000Z"));
   });
 
-  it("만료 이벤트를 공동 순위와 개인 자격으로 한 번만 정산한다", async () => {
+  it("토요일 00시부터 길드 순위와 개인 자격을 한 번만 정산한다", async () => {
     const store = new MemoryGuildRaidStore();
-    const event = activeEvent({ endsAt: new Date("2026-08-23T15:00:00.000Z") });
+    const event = activeEvent();
     store.events.set(event.id, event);
     store.scores.set(event.id, [
       { eventId: event.id, guildId: 3, guildName: "셋", guildEmblem: null, damage: 20, finalRank: null, settledAt: null },
@@ -101,7 +129,7 @@ describe("길드 토벌전 주간 수명주기", () => {
       { eventId: event.id, userId: "u2", guildId: 2, name: "나", damage: 999, attackCount: 2, eligibleAtSettlement: null },
     ]);
     const service = createGuildRaidLifecycleService(store);
-    const now = new Date("2026-08-23T15:00:00.000Z");
+    const now = new Date("2026-08-21T15:00:00.000Z");
 
     expect(await service.settleExpiredGuildRaids(now)).toBe(1);
     expect(await service.settleExpiredGuildRaids(now)).toBe(0);
@@ -116,7 +144,7 @@ describe("길드 토벌전 주간 수명주기", () => {
     ]);
   });
 
-  it("첫 50위 밖의 조회자 길드 순위를 별도로 돌려준다", async () => {
+  it("길드 순위를 8개씩 페이지로 나누고 조회자 길드 순위를 별도로 돌려준다", async () => {
     const store = new MemoryGuildRaidStore();
     const event = activeEvent();
     store.events.set(event.id, event);
@@ -134,9 +162,15 @@ describe("길드 토벌전 주간 수명주기", () => {
     );
     const service = createGuildRaidLifecycleService(store);
 
-    const leaderboard = await service.readGuildRaidLeaderboard(event.id, 51);
+    const leaderboard = await service.readGuildRaidLeaderboard(event.id, 51, 7);
 
-    expect(leaderboard.rows).toHaveLength(50);
+    expect(leaderboard.rows).toHaveLength(3);
+    expect(leaderboard.pagination).toEqual({
+      page: 7,
+      pageSize: 8,
+      totalPages: 7,
+      total: 51,
+    });
     expect(leaderboard.viewer).toMatchObject({ guildId: 51, rank: 51 });
   });
 
@@ -146,7 +180,7 @@ describe("길드 토벌전 주간 수명주기", () => {
       id: "guild-raid:2026-08-10",
       weekKey: "2026-08-10",
       startsAt: new Date("2026-08-09T15:00:00.000Z"),
-      endsAt: new Date("2026-08-16T15:00:00.000Z"),
+      endsAt: new Date("2026-08-14T15:00:00.000Z"),
     });
     store.events.set(expired.id, expired);
     const service = createGuildRaidLifecycleService(store);

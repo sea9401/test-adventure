@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">대표 배지 전시대</title>
+  <desc id="desc">호박색 타일 위 세 개의 보석 배지를 올린 금빛 전시대</desc>
+
+  <defs>
+    <linearGradient id="stand-bg" x1="25" y1="18" x2="230" y2="238" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fde68a"/>
+      <stop offset="0.48" stop-color="#f59e0b"/>
+      <stop offset="1" stop-color="#92400e"/>
+    </linearGradient>
+    <linearGradient id="stand-gold" x1="78" y1="103" x2="177" y2="218" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff4b8"/>
+      <stop offset="0.5" stop-color="#f8c943"/>
+      <stop offset="1" stop-color="#a95c08"/>
+    </linearGradient>
+    <linearGradient id="stand-red" x1="76" y1="59" x2="106" y2="105" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fecaca"/>
+      <stop offset="0.55" stop-color="#ef4444"/>
+      <stop offset="1" stop-color="#991b1b"/>
+    </linearGradient>
+    <linearGradient id="stand-blue" x1="111" y1="42" x2="147" y2="101" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#dbeafe"/>
+      <stop offset="0.55" stop-color="#60a5fa"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="stand-violet" x1="153" y1="60" x2="183" y2="106" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f3e8ff"/>
+      <stop offset="0.55" stop-color="#a855f7"/>
+      <stop offset="1" stop-color="#6b21a8"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="256" height="256" rx="54" fill="#451a03"/>
+  <rect x="4" y="4" width="248" height="248" rx="50" fill="url(#stand-bg)" stroke="#fff7d6" stroke-width="4"/>
+  <path d="M25 69C40 31 73 17 120 14H55c-23 0-41 18-41 41v78c2-26 5-47 11-64Z" fill="#fff" opacity=".23"/>
+
+  <ellipse cx="132" cy="215" rx="79" ry="16" fill="#451a03" opacity=".38"/>
+  <path d="M58 186h140l19 25H39Z" fill="#6f3608" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M67 151h122l9 35H58Z" fill="url(#stand-gold)" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M77 161h99" stroke="#fff5c4" stroke-width="6" stroke-linecap="round" opacity=".72"/>
+  <path d="M85 113h86l18 38H67Z" fill="#fff8e8" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+
+  <path d="m90 56 13 10 16-3-2 16 10 13-15 7-7 15-12-11-17 2 4-16-8-14 16-5Z" fill="url(#stand-red)" stroke="#2a0a5e" stroke-width="7" stroke-linejoin="round"/>
+  <path d="m128 34 14 13 19-1-4 18 11 15-17 8-8 17-14-12-19 3 3-19-12-14 18-9Z" fill="url(#stand-blue)" stroke="#2a0a5e" stroke-width="7" stroke-linejoin="round"/>
+  <path d="m166 56 13 10 16-3-2 16 10 13-15 7-7 15-12-11-17 2 4-16-8-14 16-5Z" fill="url(#stand-violet)" stroke="#2a0a5e" stroke-width="7" stroke-linejoin="round"/>
+  <path d="m85 75 8-5M121 55l10-7M161 75l8-5" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".72"/>
+</svg>

@@ -3,6 +3,7 @@ import {
   COMBO_FINISHER_PERIOD,
   NORMAL_MONSTER_EXECUTION_HP_FRACTION,
   appendLog,
+  applyEnemyDamage,
   applyPhaseTriggerIfAny,
   applyPlayerOnHitDots,
   applyPotionEffect,
@@ -662,7 +663,8 @@ export function resolvePlayerPhase(
       text: `[${lifestealLabels.join(" + ")}] ${playerName}의 HP +${actualLifesteal}`,
     });
   }
-  const enemyHp = Math.max(0, state.enemyHp - totalDmg);
+  const damagedState = applyEnemyDamage(state, totalDmg);
+  const enemyHp = damagedState.enemyHp;
   // 출혈/중독 — 적중 시 tagged DoT 로 누적 (다음 적 턴부터 tick).
   // 약점 적중 (2티어 특기) — 크리 발동 시 그 턴 1회, DEF 무시 큐 + 추가타 1회.
   const weakpointFires =
@@ -966,7 +968,7 @@ export function resolvePlayerPhase(
   // 페이즈 트리거 검사 — 데미지 적용 직후, 사망 분기 전에 처리해야 트리거된 def 가
   // 같은 턴 후속 공격(다중공격/연타)에 즉시 반영된다.
   let afterDamage = applyPhaseTriggerIfAny(applyPlayerOnHitDots({
-    ...state,
+    ...damagedState,
     duelistBuff: consumedDuelist.buff,
     duelistCritHastePending:
       state.duelistCritHastePending ||

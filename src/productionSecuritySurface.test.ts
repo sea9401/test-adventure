@@ -122,9 +122,10 @@ describe("production security surface", () => {
       );
       expect(maintenance).toContain("점검 시간:");
       expect(maintenance).toContain(
-        "8월 29일(토) 오전 4:00 ~ 오전 5:00 (약 1시간)",
+        "2026년 9월 2일(수) 오전 3:00 ~ 오전 4:00 (약 1시간)",
       );
-      expect(maintenance).not.toContain("점검 내용:");
+      expect(maintenance).toContain("점검 내용:");
+      expect(maintenance).toContain("서비스 안정화 및 업데이트");
       expect(maintenance).toContain(
         "점검 중에는 게임 접속 및 이용이 불가합니다.",
       );

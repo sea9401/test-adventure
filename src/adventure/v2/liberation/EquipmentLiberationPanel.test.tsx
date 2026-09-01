@@ -125,6 +125,65 @@ describe("장비 마법부여 작업대", () => {
     expect(await screen.findByText("재마법부여가 완료되었습니다.")).toBeTruthy();
   });
 
+  it("재마법부여 요청 중 직전 결과 영역을 유지한다", async () => {
+    let resolveSecondRequest!: (response: {
+      ok: boolean;
+      status: number;
+      json: () => Promise<{
+        ok: boolean;
+        item: V2EquipInstance;
+        gold: number;
+        bankedGold: number;
+      }>;
+    }) => void;
+    const secondRequest = new Promise<Parameters<typeof resolveSecondRequest>[0]>(
+      (resolve) => {
+        resolveSecondRequest = resolve;
+      },
+    );
+    const successResponse = {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        item: rerollItem,
+        gold: 5_000_000,
+        bankedGold: 10_000_000,
+      }),
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(successResponse)
+      .mockReturnValueOnce(secondRequest);
+    vi.stubGlobal("crypto", {
+      randomUUID: () => "11111111-1111-4111-8111-111111111111",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderPanel(rerollItem);
+
+    fireEvent.click(screen.getByRole("button", { name: "재마법부여" }));
+    expect(await screen.findByText("재마법부여가 완료되었습니다.")).toBeTruthy();
+    expect(
+      screen.getByText("마법부여 1단계 결과가 반영되었습니다."),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "재마법부여" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    expect(screen.getByText("재마법부여가 완료되었습니다.")).toBeTruthy();
+    expect(
+      screen.getByText("마법부여 1단계 결과가 반영되었습니다."),
+    ).toBeTruthy();
+
+    resolveSecondRequest(successResponse);
+    await waitFor(() =>
+      expect(
+        (screen.getByRole("button", { name: "재마법부여" }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(false),
+    );
+  });
+
   it("네트워크 재시도만 같은 요청 ID를 쓰고 stale 장비는 즉시 갱신한다", async () => {
     const updated = vi.fn();
     const randomUUID = vi.fn()

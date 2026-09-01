@@ -842,10 +842,12 @@ export function V2UnexploredTreeView({
                   <dd className="text-right font-mono">{materialB.toLocaleString()} / {UNEXPLORED_SUMMON_STONE_POOL_MATERIAL_COST}</dd>
                   <dt>보스 소환서</dt>
                   <dd className="text-right font-mono">{scrolls.toLocaleString()} / {UNEXPLORED_SUMMON_STONE_SCROLL_COST}</dd>
-                  <dt>사용 가능 골드</dt>
-                  <dd className="text-right font-mono">
-                    {spendableGold.toLocaleString()} / {craftCost.goldCost.toLocaleString()}G
-                  </dd>
+                  <div className="col-span-2 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                    <dt className="shrink-0">사용 가능 골드</dt>
+                    <dd className="min-w-0 break-all text-right font-mono">
+                      {spendableGold.toLocaleString()} / {craftCost.goldCost.toLocaleString()}G
+                    </dd>
+                  </div>
                 </dl>
                 <p className="text-[11px] text-amber-700 dark:text-amber-300">
                   기본 {craftCost.baseGoldCost.toLocaleString()}G → 실제{" "}

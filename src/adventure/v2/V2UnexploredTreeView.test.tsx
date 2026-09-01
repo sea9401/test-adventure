@@ -356,6 +356,25 @@ describe("V2UnexploredTreeView", () => {
     );
   });
 
+  it("큰 골드 잔액은 재료명 열을 밀어내지 않도록 독립 행에 표시한다", () => {
+    render(
+      <V2UnexploredTreeView
+        initialSnapshot={{
+          ...SNAPSHOT,
+          gold: 1_001_901_043_838,
+        }}
+        onBack={vi.fn()}
+      />,
+    );
+    openUnexploredTab("흔적 보관함");
+
+    const goldLabel = screen.getAllByText("사용 가능 골드")[0];
+    const goldRow = goldLabel.parentElement;
+
+    expect(goldRow?.textContent).toContain("1,001,901,043,838");
+    expect(goldRow?.textContent).not.toContain("폭주 기계 흔적");
+  });
+
   it("소환석 제작의 기본 비용·해방 할인·실제 비용을 서버 값으로 표시한다", () => {
     const html = renderToStaticMarkup(
       <V2UnexploredTreeView

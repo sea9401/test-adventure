@@ -13,6 +13,13 @@
 import type { Monster } from "@/adventure/data/monsters/types";
 import type { BattleLogEntry } from "@/adventure/v2/combat/engineState";
 import { TRACKING_THREAT_MAX } from "@/adventure/v2/combat/trackingWeaponMechanic";
+import {
+  invincibleFortressBarrierTarget,
+  invincibleFortressTierForDamage,
+  normalizeInvincibleFortressState,
+  type InvincibleFortressBattleState,
+  type InvincibleFortressEnrageTier,
+} from "@/adventure/v2/combat/invincibleFortressMechanic";
 import { scaleMonsterForFloor } from "./monsterScale";
 import { V2_CORE_LOOP_V2 } from "./coreLoopConfig";
 import type { V2EquipmentId } from "./v2Equipment";
@@ -389,6 +396,7 @@ export type CoopBossKind = {
 export type CoopMechanicState = {
   bossMp?: number;
   trackingThreat?: number;
+  fortress?: InvincibleFortressBattleState;
 };
 
 export function parseCoopMechanicState(value: unknown): CoopMechanicState {
@@ -396,6 +404,7 @@ export function parseCoopMechanicState(value: unknown): CoopMechanicState {
   const src = value as {
     bossMp?: unknown;
     trackingThreat?: unknown;
+    fortress?: unknown;
   };
   const next: CoopMechanicState = {};
   if (typeof src.bossMp === "number" && Number.isFinite(src.bossMp)) {
@@ -410,7 +419,101 @@ export function parseCoopMechanicState(value: unknown): CoopMechanicState {
       Math.min(TRACKING_THREAT_MAX, Math.floor(src.trackingThreat)),
     );
   }
+  if (src.fortress != null) {
+    const maxHp = UNEXPLORED_BOSSES.invincible_fortress.sharedMaxHp;
+    next.fortress = normalizeInvincibleFortressState(
+      src.fortress,
+      maxHp,
+      maxHp,
+    );
+  }
   return next;
+}
+
+export function coopInvincibleFortressState(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  currentHp: number,
+): InvincibleFortressBattleState {
+  const rawFortress =
+    stateRaw && typeof stateRaw === "object" && !Array.isArray(stateRaw)
+      ? (stateRaw as { fortress?: unknown }).fortress
+      : undefined;
+  return normalizeInvincibleFortressState(
+    rawFortress,
+    kind.sharedMaxHp,
+    currentHp,
+  );
+}
+
+export function withCoopInvincibleFortressState(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  fortress: InvincibleFortressBattleState,
+  currentHp: number,
+): CoopMechanicState {
+  return {
+    ...parseCoopMechanicState(stateRaw),
+    fortress: normalizeInvincibleFortressState(
+      fortress,
+      kind.sharedMaxHp,
+      currentHp,
+    ),
+  };
+}
+
+export type CoopInvincibleFortressDisplay = {
+  fortressBarrierActive: boolean;
+  fortressBarrierTicksRemaining: number;
+  fortressBarrierDamage: number;
+  fortressBarrierTarget: number;
+  fortressEnrageTier: InvincibleFortressEnrageTier;
+  fortressProjectedEnrageTier: InvincibleFortressEnrageTier;
+  fortressCompletedBarrierCount: number;
+  fortressNextBarrierHpFraction: 0.75 | 0.5 | 0.25 | null;
+  fortressLastResultTier: InvincibleFortressEnrageTier | null;
+};
+
+const FORTRESS_FUTURE_BARRIER_FRACTIONS = [0.75, 0.5, 0.25] as const;
+
+export function coopInvincibleFortressDisplay(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  currentHp: number,
+): CoopInvincibleFortressDisplay {
+  if (kind.id !== "invincible_fortress") {
+    return {
+      fortressBarrierActive: false,
+      fortressBarrierTicksRemaining: 0,
+      fortressBarrierDamage: 0,
+      fortressBarrierTarget: 0,
+      fortressEnrageTier: 0,
+      fortressProjectedEnrageTier: 0,
+      fortressCompletedBarrierCount: 0,
+      fortressNextBarrierHpFraction: null,
+      fortressLastResultTier: null,
+    };
+  }
+  const state = coopInvincibleFortressState(kind, stateRaw, currentHp);
+  const active = state.activeBarrierIndex !== null;
+  const lastResultTier = state.barrierResults.at(-1) ?? null;
+  const nextFractionIndex = state.completedBarrierCount - 1 + (active ? 1 : 0);
+  return {
+    fortressBarrierActive: active,
+    fortressBarrierTicksRemaining: active ? state.barrierTicksRemaining : 0,
+    fortressBarrierDamage: active ? state.barrierDamage : 0,
+    fortressBarrierTarget: invincibleFortressBarrierTarget(kind.sharedMaxHp),
+    fortressEnrageTier: active
+      ? (lastResultTier ?? 0)
+      : state.enrageTier,
+    fortressProjectedEnrageTier: active
+      ? invincibleFortressTierForDamage(state.barrierDamage, kind.sharedMaxHp)
+      : state.enrageTier,
+    fortressCompletedBarrierCount: state.completedBarrierCount,
+    fortressNextBarrierHpFraction:
+      FORTRESS_FUTURE_BARRIER_FRACTIONS[nextFractionIndex] ?? null,
+    fortressLastResultTier: lastResultTier,
+  };
 }
 
 export function coopBossTrackingThreatMax(kind: CoopBossKind): number {
@@ -1077,6 +1180,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   tracking_weapon: unexploredPersonalBossKind("tracking_weapon"),
   toxic_blood_lord: unexploredPersonalBossKind("toxic_blood_lord"),
   glacial_colossus: unexploredPersonalBossKind("glacial_colossus"),
+  invincible_fortress: unexploredPersonalBossKind("invincible_fortress"),
 };
 
 export const COOP_BOSS_KIND_IDS = Object.keys(

@@ -24,11 +24,13 @@ import {
   MAX_ACTIVE_PER_KIND,
   coopBossDurationMs,
   coopBossMaxMp,
+  withCoopInvincibleFortressState,
   withCoopBossTrackingThreat,
   rollFishingCoopBossSpawn,
   type CoopBossKindId,
   type CoopVisibility,
 } from "@/adventure/data/v2/coopBosses";
+import { initialInvincibleFortressState } from "@/adventure/v2/combat/invincibleFortressMechanic";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 
 type TxExecutor = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -120,6 +122,19 @@ export async function createCoopBossSession(
   const sessionId = randomUUID();
   const expiresAt = args.now.getTime() + coopBossDurationMs(kind);
   const summonerGuildId = await getGuildId(ex, args.userId);
+  const initialMechanicState = withCoopBossTrackingThreat(
+    kind,
+    { bossMp: coopBossMaxMp(kind) },
+    0,
+  );
+  const mechanicState = kind.id === "invincible_fortress"
+    ? withCoopInvincibleFortressState(
+        kind,
+        initialMechanicState,
+        initialInvincibleFortressState(kind.sharedMaxHp),
+        kind.sharedMaxHp,
+      )
+    : initialMechanicState;
   await ex.insert(coopBossSessions).values({
     id: sessionId,
     regionId: args.kindId,
@@ -134,11 +149,7 @@ export async function createCoopBossSession(
     summonerId: args.userId,
     summonerGuildId,
     visibility: args.visibility,
-    mechanicState: withCoopBossTrackingThreat(
-      kind,
-      { bossMp: coopBossMaxMp(kind) },
-      0,
-    ),
+    mechanicState,
   });
   return { ok: true, sessionId, expiresAt };
 }

@@ -34,6 +34,7 @@ import {
   coopSessionListSections,
 } from "@/adventure/v2/coop/coopListSections";
 import { TrackingThreatMeter } from "@/adventure/v2/coop/TrackingThreatMeter";
+import { InvincibleFortressStatus } from "@/adventure/v2/coop/InvincibleFortressStatus";
 
 type CoopBossSummonVariant = {
   kind: CoopBossKindId;
@@ -210,6 +211,9 @@ function CoopSessionCard({
               value={session.trackingThreat}
               max={session.trackingThreatMax}
             />
+            {session.kind === "invincible_fortress" && (
+              <InvincibleFortressStatus status={session} />
+            )}
             <span className="flex justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
               <span>
                 {session.hp.toLocaleString()} / {session.maxHp.toLocaleString()}

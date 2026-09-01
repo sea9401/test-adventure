@@ -59,7 +59,7 @@ describe("장비 이름 식별성", () => {
 });
 
 describe("미개척지 개인 보스 고유 장비", () => {
-  it("9종 모두 기존 슬롯·옵션 타입을 쓰는 이미지 연결 6티어 고유다", () => {
+  it("12종 모두 기존 슬롯·옵션 타입을 쓰는 이미지 연결 6티어 고유다", () => {
     const ids = [
       "v2_unexplored_tracking_blade_dagger",
       "v2_unexplored_phantom_acceleration_boots",
@@ -70,6 +70,9 @@ describe("미개척지 개인 보스 고유 장비", () => {
       "v2_unexplored_glacial_crushing_hammer",
       "v2_unexplored_frozen_great_armor",
       "v2_unexplored_absolute_zero_core",
+      "v2_unexplored_magisteel_guard_gauntlets",
+      "v2_unexplored_sealing_barrier_ring",
+      "v2_unexplored_invincible_fortress_armor",
     ] as const;
 
     for (const id of ids) {
@@ -80,6 +83,38 @@ describe("미개척지 개인 보스 고유 장비", () => {
         noDrop: true,
       });
       expect(V2_EQUIPMENT[id].image).toContain(`/images/equipment/unexplored-`);
+    }
+  });
+
+  it("불괴의 성채 고유 3종은 발동·세트 없이 확정 방어 옵션을 쓴다", () => {
+    expect(V2_EQUIPMENT.v2_unexplored_magisteel_guard_gauntlets).toMatchObject({
+      slot: "gloves",
+      concept: "light",
+      tier: 16,
+      power: 87,
+      options: { hp: 450, def: 70, magicDef: 70, critResist: 8 },
+    });
+    expect(V2_EQUIPMENT.v2_unexplored_sealing_barrier_ring).toMatchObject({
+      slot: "ring",
+      concept: "luck",
+      tier: 16,
+      power: 137,
+      options: { hp: 380, mp: 280, def: 45, magicDef: 75, statusDamageReductionPct: 12 },
+    });
+    expect(V2_EQUIPMENT.v2_unexplored_invincible_fortress_armor).toMatchObject({
+      slot: "armor",
+      concept: "heavy",
+      tier: 16,
+      power: 288,
+      options: { hp: 1_400, def: 150, magicDef: 150, critResist: 15, statusDamageReductionPct: 20 },
+    });
+    for (const id of [
+      "v2_unexplored_magisteel_guard_gauntlets",
+      "v2_unexplored_sealing_barrier_ring",
+      "v2_unexplored_invincible_fortress_armor",
+    ] as const) {
+      expect(V2_EQUIPMENT[id].signature).toBeUndefined();
+      expect(V2_EQUIPMENT[id].setTags).toBeUndefined();
     }
   });
 });
@@ -357,7 +392,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     //     (고유 아이템 30 + 보스 8). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
     //     신규 고유 아이템 30 → unique. 검은 왕도 이후 보스 유니크 2종 추가.
     //   제작 전용 91 = 기존 79 + 미개척지 상위 특화 12.
-    //     총 349 = 기존 328 + 미개척지 개인 보스 고유 9 + 상위 특화 제작 12.
+    //     총 352 = 기존 328 + 미개척지 개인 보스 고유 12 + 상위 특화 제작 12.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -365,13 +400,13 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       ),
       "정규 그리드",
     ).toHaveLength(29);
-    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(87);
+    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(90);
     expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(91);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
     expect(
       all.filter((i) => i.noDrop),
       "noDrop(밴드흔한+하드 보스+폭풍 원정+강등 필드유니크)",
-    ).toHaveLength(219);
+    ).toHaveLength(222);
   });
 
   it("미개척지 개척자 장비 18종은 승인된 6.5T 카탈로그와 획득 경계를 가진다", () => {

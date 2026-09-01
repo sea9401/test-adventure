@@ -40,18 +40,22 @@ import {
   coopBossTrackingThreatMax,
   withCoopBossMp,
   withCoopBossTrackingThreat,
+  coopInvincibleFortressState,
+  coopInvincibleFortressDisplay,
+  withCoopInvincibleFortressState,
   parseCoopMechanicState,
   COOP_INITIAL_VISIBILITY,
   coopVisibilityTransition,
 } from "./coopBosses";
+import { initialInvincibleFortressState } from "@/adventure/v2/combat/invincibleFortressMechanic";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_MATERIALS } from "./dungeonDrops";
 import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
 import { TITLES } from "@/adventure/data/titles";
 
 describe("coopBosses 카탈로그", () => {
-  it("11종 — 기존 협동 8종 + 미개척지 개인 보스 3종", () => {
-    expect(COOP_BOSS_KIND_IDS).toHaveLength(11);
+  it("12종 — 기존 협동 8종 + 미개척지 개인 보스 4종", () => {
+    expect(COOP_BOSS_KIND_IDS).toHaveLength(12);
     const normalLadder = [
       "mountain_chief",
       "canyon_predator",
@@ -108,6 +112,7 @@ describe("coopBosses 카탈로그", () => {
       "tracking_weapon",
       "toxic_blood_lord",
       "glacial_colossus",
+      "invincible_fortress",
     ] as const;
     for (const id of personalIds) {
       expect(COOP_BOSSES[id]).toMatchObject({
@@ -375,7 +380,7 @@ describe("coopBosses 카탈로그", () => {
       expect(full.monster.hp).toBe(b.sharedMaxHp);
       expect(full.monster.name).toBe(b.base.name);
       expect(full.monster.image).toBe(b.base.image);
-      if (id === "glacial_colossus") {
+      if (id === "glacial_colossus" || id === "invincible_fortress") {
         expect(full.monster.skill).toBeUndefined();
       } else {
         expect(full.monster.skill).toBeDefined();
@@ -638,6 +643,80 @@ describe("coopBosses 카탈로그", () => {
         trackingThreat: 73,
       }),
     ).toBe(0);
+  });
+
+  it("불괴의 성채 상태를 정규화·병합하며 공유 MP와 알려진 키만 보존한다", () => {
+    const fortress = COOP_BOSSES.invincible_fortress;
+    const merged = withCoopInvincibleFortressState(
+      fortress,
+      { bossMp: 7, unknownKey: true },
+      {
+        ...initialInvincibleFortressState(fortress.sharedMaxHp),
+        barrierDamage: 1_000,
+      },
+      fortress.sharedMaxHp,
+    );
+
+    expect(merged).toMatchObject({
+      bossMp: 7,
+      fortress: { activeBarrierIndex: 0, barrierDamage: 1_000 },
+    });
+    expect(merged).not.toHaveProperty("unknownKey");
+  });
+
+  it.each([
+    [0.9, 1],
+    [0.6, 2],
+    [0.4, 3],
+    [0.2, 4],
+  ] as const)(
+    "레거시 성채 세션 HP %s에서는 지난 방벽 %i개를 무광폭 완료로 복원한다",
+    (hpFraction, completedBarrierCount) => {
+      const fortress = COOP_BOSSES.invincible_fortress;
+      const state = coopInvincibleFortressState(
+        fortress,
+        { bossMp: 7 },
+        fortress.sharedMaxHp * hpFraction,
+      );
+
+      expect(state).toMatchObject({
+        completedBarrierCount,
+        activeBarrierIndex: null,
+        enrageTier: 0,
+        barrierResults: [],
+      });
+    },
+  );
+
+  it("불괴의 성채 목록·상세 표시값을 저장 상태에서 한 번에 계산한다", () => {
+    const fortress = COOP_BOSSES.invincible_fortress;
+    const display = coopInvincibleFortressDisplay(
+      fortress,
+      {
+        fortress: {
+          kind: "invincible_fortress",
+          completedBarrierCount: 1,
+          activeBarrierIndex: 1,
+          barrierTicksRemaining: 240,
+          barrierDamage: 18_200,
+          enrageTier: 0,
+          barrierResults: [2],
+        },
+      },
+      Math.floor(fortress.sharedMaxHp * 0.75),
+    );
+
+    expect(display).toEqual({
+      fortressBarrierActive: true,
+      fortressBarrierTicksRemaining: 240,
+      fortressBarrierDamage: 18_200,
+      fortressBarrierTarget: 32_400,
+      fortressEnrageTier: 2,
+      fortressProjectedEnrageTier: 2,
+      fortressCompletedBarrierCount: 1,
+      fortressNextBarrierHpFraction: 0.5,
+      fortressLastResultTier: 2,
+    });
   });
 
   it("공유 MP — 플레이어 공격 로그와 기여 피해로 압박 피해를 계산한다", () => {

@@ -1123,6 +1123,31 @@ describe("BattleLogList 행동 묶음", () => {
     expect(html).not.toContain("glacialFreeze");
   });
 
+  it("불괴의 성채 방벽 시험 자원을 한글 라벨로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[{
+          kind: "hp_bar",
+          text: "",
+          playerHp: 900,
+          playerMaxHp: 1_000,
+          enemyHp: 800,
+          enemyMaxHp: 1_000,
+          enemySignatureResources: {
+            fortressTrial: "2/4 · 240틱",
+            fortressDamage: "18,200 / 32,400",
+            fortressEnrage: "보통",
+          },
+        }]}
+      />,
+    );
+
+    expect(html).toContain("방벽 시험 2/4 · 240틱");
+    expect(html).toContain("방벽 피해 18,200 / 32,400");
+    expect(html).toContain("성채 광폭 보통");
+    expect(html).not.toContain("fortressTrial");
+  });
+
   it("HP 스냅샷에 삼중 결계 잔량과 영역 안정을 밝음·소모 상태로 표시한다", () => {
     const html = renderToStaticMarkup(
       <BattleLogList

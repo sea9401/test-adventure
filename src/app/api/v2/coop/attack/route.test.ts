@@ -126,6 +126,7 @@ vi.mock("@/db", () => ({
 }));
 
 import { POST } from "./route";
+import { initialInvincibleFortressState } from "@/adventure/v2/combat/invincibleFortressMechanic";
 
 function battleState(overrides: Record<string, unknown> = {}) {
   return {
@@ -355,5 +356,131 @@ describe("POST /api/v2/coop/attack", () => {
       glacialFreezeCount: 2,
       glacialSkippedActionCount: 1,
     });
+  });
+
+  it("불괴의 성채 방벽 상태를 전투에 주입하고 MP와 함께 원자적으로 저장한다", async () => {
+    const sharedMaxHp = 10_800_000;
+    const initialFortress = initialInvincibleFortressState(sharedMaxHp);
+    const completedFortress = {
+      ...initialFortress,
+      completedBarrierCount: 1 as const,
+      activeBarrierIndex: null,
+      barrierTicksRemaining: 0,
+      barrierDamage: 0,
+      enrageTier: 2 as const,
+      barrierResults: [2 as const],
+    };
+    const session = personalSession({
+      regionId: "invincible_fortress",
+      hp: sharedMaxHp,
+      maxHp: sharedMaxHp,
+      mechanicState: { bossMp: 7, fortress: initialFortress },
+    });
+    mocks.selectRows = [[session], [session], [], [{ damage: 0 }]];
+    mocks.updateRows = [[{ hp: sharedMaxHp }]];
+    mocks.insertRows = [[{ id: "attack-1" }]];
+    mocks.resolveBattle.mockReturnValue({
+      outcome: "lose",
+      turns: 3,
+      finalState: battleState({
+        enemyHp: sharedMaxHp,
+        enemyMp: 0,
+        bossMechanic: completedFortress,
+      }),
+    });
+
+    const response = await attack();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mocks.resolveBattle).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      "추적자",
+      expect.objectContaining({
+        bossMechanic: {
+          kind: "invincible_fortress",
+          sharedMaxHp,
+          initialState: initialFortress,
+        },
+      }),
+    );
+    expect(mocks.updateValues[0]?.mechanicState).toMatchObject({
+      bossMp: 0,
+      fortress: completedFortress,
+    });
+    expect(body.result).toMatchObject({
+      fortressEnrageTier: 2,
+      fortressCompletedResults: [2],
+    });
+  });
+
+  it("불괴의 성채 처치 시 종료 세션에서 방벽 상태를 제거한다", async () => {
+    const sharedMaxHp = 10_800_000;
+    const finishedFortress = {
+      kind: "invincible_fortress" as const,
+      completedBarrierCount: 4 as const,
+      activeBarrierIndex: null,
+      barrierTicksRemaining: 0,
+      barrierDamage: 0,
+      enrageTier: 1 as const,
+      barrierResults: [2, 2, 1, 1] as const,
+    };
+    const session = personalSession({
+      regionId: "invincible_fortress",
+      hp: 1,
+      maxHp: sharedMaxHp,
+      mechanicState: { bossMp: 0, fortress: finishedFortress },
+    });
+    mocks.selectRows = [[session], [session], [], [{ damage: 1 }]];
+    mocks.updateRows = [[{ hp: 0 }]];
+    mocks.insertRows = [[{ id: "attack-1" }]];
+    mocks.resolveBattle.mockReturnValue({
+      outcome: "win",
+      turns: 1,
+      finalState: battleState({
+        enemyHp: 0,
+        bossMechanic: finishedFortress,
+      }),
+    });
+
+    const response = await attack();
+
+    expect(response.status).toBe(200);
+    expect(mocks.updateValues[0]?.mechanicState).not.toHaveProperty("fortress");
+  });
+
+  it("성채 시뮬레이션 중 다른 공격이 방벽을 갱신했으면 오래된 결과를 저장하지 않는다", async () => {
+    const sharedMaxHp = 10_800_000;
+    const initialFortress = initialInvincibleFortressState(sharedMaxHp);
+    const peek = personalSession({
+      regionId: "invincible_fortress",
+      hp: sharedMaxHp,
+      maxHp: sharedMaxHp,
+      mechanicState: { fortress: initialFortress },
+    });
+    const locked = personalSession({
+      ...peek,
+      mechanicState: {
+        fortress: { ...initialFortress, barrierDamage: 5_000 },
+      },
+    });
+    mocks.selectRows = [[peek], [locked]];
+    mocks.resolveBattle.mockReturnValue({
+      outcome: "lose",
+      turns: 1,
+      finalState: battleState({
+        enemyHp: sharedMaxHp,
+        bossMechanic: { ...initialFortress, barrierDamage: 10_000 },
+      }),
+    });
+
+    const response = await attack();
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "boss_state_changed",
+    });
+    expect(mocks.updateValues).toHaveLength(0);
   });
 });

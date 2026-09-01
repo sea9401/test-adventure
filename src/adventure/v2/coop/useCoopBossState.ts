@@ -11,6 +11,7 @@ import type { Avatar } from "@/adventure/profile/avatars";
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import type { StaminaState } from "@/adventure/v2/stamina";
+import type { InvincibleFortressEnrageTier } from "@/adventure/v2/combat/invincibleFortressMechanic";
 import {
   COOP_ATTACK_STAMINA_COST,
   COOP_BOSSES,
@@ -24,7 +25,19 @@ const POLL_MS = 20_000;
 //   처치/만료 확정 시 폴링 중단(죽은 세션 무한 폴링 방지).
 const DETAIL_POLL_MS = 5_000;
 
-export type CoopSessionSummary = {
+export type CoopFortressStatus = {
+  fortressBarrierActive?: boolean;
+  fortressBarrierTicksRemaining?: number;
+  fortressBarrierDamage?: number;
+  fortressBarrierTarget?: number;
+  fortressEnrageTier?: InvincibleFortressEnrageTier;
+  fortressProjectedEnrageTier?: InvincibleFortressEnrageTier;
+  fortressCompletedBarrierCount?: number;
+  fortressNextBarrierHpFraction?: 0.75 | 0.5 | 0.25 | null;
+  fortressLastResultTier?: InvincibleFortressEnrageTier | null;
+};
+
+export type CoopSessionSummary = CoopFortressStatus & {
   id: string;
   kind: CoopBossKindId;
   hp: number;
@@ -51,7 +64,7 @@ export type CoopClaimable = {
   defeatedAt: number;
 };
 
-export type CoopAttackResult = {
+export type CoopAttackResult = CoopFortressStatus & {
   attackId: number;
   kind: CoopBossKindId;
   damageDealt: number;
@@ -77,6 +90,7 @@ export type CoopAttackResult = {
   glacialFreezePending: 0 | 1;
   glacialFreezeCount: number;
   glacialSkippedActionCount: number;
+  fortressCompletedResults: InvincibleFortressEnrageTier[];
   defeated: boolean;
   myDamage: number;
   myTier: CoopRewardTier | null;
@@ -128,7 +142,7 @@ export type CoopRecentAttack = {
 };
 
 export type CoopSessionDetail = {
-  session: {
+  session: CoopFortressStatus & {
     id: string;
     kind: CoopBossKindId;
     hp: number;
@@ -422,6 +436,19 @@ export function useCoopSessionState({
                   trackingThreat: r.trackingThreat,
                   trackingThreatMax: r.trackingThreatMax,
                   trackingReady: r.trackingReady,
+                  fortressBarrierActive: r.fortressBarrierActive,
+                  fortressBarrierTicksRemaining:
+                    r.fortressBarrierTicksRemaining,
+                  fortressBarrierDamage: r.fortressBarrierDamage,
+                  fortressBarrierTarget: r.fortressBarrierTarget,
+                  fortressEnrageTier: r.fortressEnrageTier,
+                  fortressProjectedEnrageTier:
+                    r.fortressProjectedEnrageTier,
+                  fortressCompletedBarrierCount:
+                    r.fortressCompletedBarrierCount,
+                  fortressNextBarrierHpFraction:
+                    r.fortressNextBarrierHpFraction,
+                  fortressLastResultTier: r.fortressLastResultTier,
                   defeated: prev.session.defeated || r.defeated,
                 },
               }
@@ -438,6 +465,8 @@ export function useCoopSessionState({
                 ? "이미 끝난 토벌입니다."
                 : j.error === "already_defeated"
                   ? "이미 처치된 보스입니다."
+                  : j.error === "boss_state_changed"
+                    ? "다른 공격 결과가 먼저 반영되었습니다. 다시 공격해 주세요."
                   : `공격 실패 (${j.error ?? "unknown"})`,
         );
         return null;

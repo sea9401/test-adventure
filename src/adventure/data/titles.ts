@@ -478,6 +478,13 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "미개척지 개인 보스 빙하 거수 최초 처치",
     category: "battle",
   },
+  v2_unexplored_invincible_fortress: {
+    id: "v2_unexplored_invincible_fortress",
+    name: "성채를 깨뜨린 자",
+    description: "무너지지 않던 철갑과 결계를 화력으로 깨뜨리고 성채의 심장을 멈춘 자.",
+    condition: "미개척지 개인 보스 불괴의 성채 최초 처치",
+    category: "battle",
+  },
   // ── 5막 잔영 처치 칭호 3종 + 셋 모두 처치 시 컬렉션 칭호 ────────────────────
   starlit_giant_breaker: {
     id: "starlit_giant_breaker",

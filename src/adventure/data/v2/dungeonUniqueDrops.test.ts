@@ -207,9 +207,9 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
   });
 });
 
-describe("유니크 카탈로그 (87종 — 기존 81 + 미개척지 개척자 무기 6)", () => {
-  it("V2_UNIQUE_IDS 87종, 전부 rarity:unique + 카탈로그 존재", () => {
-    expect(V2_UNIQUE_IDS).toHaveLength(87);
+describe("유니크 카탈로그 (90종 — 기존 81 + 미개척지 고유 9)", () => {
+  it("V2_UNIQUE_IDS 90종, 전부 rarity:unique + 카탈로그 존재", () => {
+    expect(V2_UNIQUE_IDS).toHaveLength(90);
     for (const id of V2_UNIQUE_IDS) {
       expect(V2_EQUIPMENT[id], id).toBeDefined();
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);

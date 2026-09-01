@@ -111,6 +111,7 @@ function listing(overrides: Partial<Listing>): Listing {
     quantity: 1,
     price: 1_000,
     instancePayload: null,
+    auctionModeVersion: 1,
     status: "active",
     createdAt: new Date("2026-08-20T10:00:00.000Z"),
     bidEndsAt: new Date("2026-08-20T13:00:00.000Z"),

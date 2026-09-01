@@ -51,12 +51,12 @@ describe("V2MarketplaceView 모바일 매물 카드", () => {
     expect(html).toContain("grid-cols-4");
   });
 
-  it("가격 정보와 구매 동작을 모바일에서 세로로 쌓는다", () => {
-    const fixedListingPreview = {
+  it("가격 정보와 입찰 동작을 모바일에서 세로로 쌓는다", () => {
+    const auctionListingPreview = {
       ...marketplacePreview,
       listings: marketplacePreview.listings.map((listing) => ({
         ...listing,
-        bidEndsAt: "2000-01-01T00:00:00.000Z",
+        bidEndsAt: "9999-12-31T23:59:59.999Z",
         expiresAt: "9999-12-31T23:59:59.999Z",
         highestBid: null,
         bidCount: 0,
@@ -67,7 +67,7 @@ describe("V2MarketplaceView 모바일 매물 카드", () => {
         <RewardToastProvider>
           <V2MarketplaceView
             onBack={() => {}}
-            preview={fixedListingPreview}
+            preview={auctionListingPreview}
           />
         </RewardToastProvider>
       </GameStateProvider>,
@@ -79,15 +79,17 @@ describe("V2MarketplaceView 모바일 매물 카드", () => {
     );
     expect(html).toContain('data-testid="marketplace-listing-action"');
     expect(html).toContain("w-full sm:w-auto");
+    expect(html).toContain("시작 입찰가");
+    expect(html).not.toContain("즉시구매");
   });
 
-  it("본인 고정가 매물은 구매 대신 관리 동작을 제공한다", () => {
-    const ownFixedPreview = {
+  it("본인 경매 매물도 구매 동작 없이 입찰 현황을 제공한다", () => {
+    const ownAuctionPreview = {
       ...marketplacePreview,
       listings: marketplacePreview.listings.map((listing, index) => ({
         ...listing,
         isMine: index === 0,
-        bidEndsAt: "2000-01-01T00:00:00.000Z",
+        bidEndsAt: "9999-12-31T23:59:59.999Z",
         expiresAt: "9999-12-31T23:59:59.999Z",
         highestBid: null,
         bidCount: 0,
@@ -96,12 +98,13 @@ describe("V2MarketplaceView 모바일 매물 카드", () => {
     const html = renderToStaticMarkup(
       <GameStateProvider>
         <RewardToastProvider>
-          <V2MarketplaceView onBack={() => {}} preview={ownFixedPreview} />
+          <V2MarketplaceView onBack={() => {}} preview={ownAuctionPreview} />
         </RewardToastProvider>
       </GameStateProvider>,
     );
 
-    expect(html).toContain("내 매물 관리");
+    expect(html).toContain("입찰");
+    expect(html).not.toContain("즉시구매");
   });
 
   it("공개 체결 행은 개당 가격과 거래 신고 동작을 표시한다", () => {

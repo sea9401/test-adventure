@@ -16,16 +16,20 @@ vi.mock("./GameStateProvider", () => ({
 
 function responseFor(url: string): Response {
   if (url.includes("/browse")) {
-    return Response.json({ ok: true, viewerGold: 0, listings: [] });
+    return Response.json({
+      ok: true,
+      viewerGold: 0,
+      auctionHours: 6,
+      bidExtensionWindowMinutes: 10,
+      bidExtensionMinutes: 10,
+      listings: [],
+    });
   }
   if (url.includes("/equipment")) {
     return Response.json({ owned: [], equipped: {} });
   }
   if (url.includes("/prices")) {
     return Response.json({ ok: true, prices: {} });
-  }
-  if (url.includes("/buy-orders")) {
-    return Response.json({ ok: true, mine: [], book: [], equipmentOrders: [] });
   }
   if (url.includes("/price-alerts")) {
     return Response.json({ ok: true, alerts: [] });
@@ -34,8 +38,9 @@ function responseFor(url: string): Response {
 }
 
 describe("V2MarketplaceView request timing", () => {
-  const fetchMock = vi.fn(async (input: RequestInfo | URL) =>
-    responseFor(String(input)),
+  const fetchMock = vi.fn(
+    async (input: RequestInfo | URL, _init?: RequestInit) =>
+      responseFor(String(input)),
   );
 
   beforeEach(() => {
@@ -68,22 +73,89 @@ describe("V2MarketplaceView request timing", () => {
     expect(requestedUrls.some((url) => url.includes("/price-alerts"))).toBe(false);
   });
 
-  it("loads automation data after the equipment order tool opens", async () => {
+  it("loads only price alerts when the alert management tab opens", async () => {
     render(
       <RewardToastProvider>
         <V2MarketplaceView onBack={() => {}} />
       </RewardToastProvider>,
     );
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: "조건을 정해 장비 구매 주문 만들기",
-      }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: /내 거래/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /가격 알림/ }));
 
     await waitFor(() => {
       const requestedUrls = fetchMock.mock.calls.map(([input]) => String(input));
-      expect(requestedUrls.some((url) => url.includes("/buy-orders"))).toBe(true);
       expect(requestedUrls.some((url) => url.includes("/price-alerts"))).toBe(true);
+      expect(requestedUrls.some((url) => url.includes("/buy-orders"))).toBe(false);
+    });
+  });
+
+  it("merges an extended bid deadline into the visible whole-lot card", async () => {
+    const now = Date.now();
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/browse")) {
+        return Response.json({
+          ok: true,
+          viewerGold: 10_000,
+          auctionHours: 6,
+          bidExtensionWindowMinutes: 10,
+          bidExtensionMinutes: 10,
+          listings: [
+            {
+              id: 7,
+              isMine: false,
+              isHighestBidder: false,
+              kind: "material",
+              itemId: "iron_ore",
+              itemName: "철광석",
+              quantity: 2,
+              price: 100,
+              instancePayload: null,
+              createdAt: new Date(now - 60_000).toISOString(),
+              bidEndsAt: new Date(now + 5 * 60_000).toISOString(),
+              expiresAt: new Date(now + 5 * 60_000 + 1).toISOString(),
+              highestBid: null,
+              bidCount: 0,
+              bidResolvedAt: null,
+              nextBid: 100,
+            },
+          ],
+        });
+      }
+      if (url.endsWith("/bid") && init?.method === "POST") {
+        return Response.json({
+          ok: true,
+          highestBid: 100,
+          nextBid: 105,
+          bidEndsAt: new Date(now + 15 * 60_000).toISOString(),
+          extended: true,
+        });
+      }
+      return responseFor(url);
+    });
+
+    render(
+      <RewardToastProvider>
+        <V2MarketplaceView onBack={() => {}} />
+      </RewardToastProvider>,
+    );
+    fireEvent.click(await screen.findByRole("tab", { name: "재료" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "철광석 2개 묶음 입찰" }),
+    );
+    const bidButtons = await screen.findAllByRole("button", { name: "입찰" });
+    fireEvent.click(bidButtons[bidButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(screen.getByText("15분 남음")).toBeTruthy();
+      expect(screen.getAllByText(/마감 10분 연장/).length).toBeGreaterThan(0);
+    });
+    const bidRequest = fetchMock.mock.calls.find(
+      ([input, init]) => String(input).endsWith("/bid") && init?.method === "POST",
+    );
+    expect(JSON.parse(String(bidRequest?.[1]?.body))).toEqual({
+      listingId: 7,
+      amount: 100,
     });
   });
 });

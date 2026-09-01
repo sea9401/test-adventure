@@ -189,7 +189,7 @@ describe("최신 게임 안내서 내용", () => {
 
     expect(html).toContain("거래 이용 제한");
     expect(html).toContain("거래 정보 조회");
-    expect(html).toContain("신규 등록·구매·입찰·구매 주문·선물");
+    expect(html).toContain("신규 등록·입찰·선물");
     expect(html).toContain("취소·정산·환불");
   });
 
@@ -714,22 +714,21 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("일반 이용자에게 공개되지 않습니다");
   });
 
-  it("거래소 즉시구매 기본값과 선택형 공개 입찰 정산 흐름을 안내한다", () => {
+  it("거래소의 6시간 묶음 전체 경매와 연장·정산 흐름을 안내한다", () => {
     const html = renderToStaticMarkup(<PlazaContent />);
 
-    expect(html).toContain("기본 판매 방식은");
-    expect(html).toContain("등록 즉시 살 수 있고");
-    expect(html).toContain("같은 품목의 매물이 한 줄로 합쳐지며");
-    expect(html).toContain("최저가 매물부터");
+    expect(html).toContain("6시간 공개 경매");
+    expect(html).toContain("즉시구매와 구매 주문은 이용하지 않습니다");
+    expect(html).toContain("묶음 전체");
+    expect(html).toContain("나누어 여러 매물을 등록");
     expect(html).toContain("별표 즐겨찾기");
     expect(html).toContain("최근 30일 체결가 추이");
-    expect(html).toContain("구매 주문 골드는 등록 시");
-    expect(html).toContain("가격 알림에 목표 개당 가격");
-    expect(html).toContain("판매 관리에서 가격을 변경");
-    expect(html).toContain("공개 입찰 유예");
-    expect(html).toContain("2~");
-    expect(html).toContain("24시간");
-    expect(html).toContain("최고 입찰자에게 판매");
+    expect(html).toContain("목표 개당 가격 이하");
+    expect(html).toContain("시작 입찰가 이상");
+    expect(html).toContain("10분 미만");
+    expect(html).toContain("10분");
+    expect(html).toContain("연장 횟수에는 제한이 없습니다");
+    expect(html).toContain("최고 입찰자에게 전체 매물이 낙찰");
     expect(html).toContain("판매자가 취소할 수 없습니다");
   });
 

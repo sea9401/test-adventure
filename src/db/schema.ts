@@ -910,6 +910,7 @@ export const marketplaceListingsV2 = pgTable(
     itemName: text("item_name").notNull(),
     quantity: integer("quantity").notNull(),
     price: integer("price").notNull(),
+    auctionModeVersion: integer("auction_mode_version").notNull().default(0),
     instancePayload: jsonb("instance_payload"),
     status: text("status").notNull().default("active"), // 'active'|'sold'|'cancelled'
     createdAt: timestamp("created_at").defaultNow().notNull(),

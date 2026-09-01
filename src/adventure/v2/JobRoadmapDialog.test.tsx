@@ -137,6 +137,7 @@ describe("JobRoadmapDetails", () => {
         currentJobSelectable={false}
         onSetGoal={() => {}}
         onPickJob={() => {}}
+        onInspectSkill={() => {}}
       />,
     );
 
@@ -158,6 +159,7 @@ describe("JobRoadmapDetails", () => {
         currentJobSelectable
         onSetGoal={() => {}}
         onPickJob={() => {}}
+        onInspectSkill={() => {}}
       />,
     );
 
@@ -194,6 +196,7 @@ describe("JobRoadmapDetails", () => {
           currentJobSelectable={false}
           onSetGoal={() => {}}
           onPickJob={() => {}}
+          onInspectSkill={() => {}}
         />,
       );
 
@@ -207,7 +210,7 @@ describe("JobRoadmapDetails", () => {
     },
   );
 
-  it("shows expandable skill details for an unlocked job", () => {
+  it("offers shared skill-detail triggers instead of inline previews", () => {
     const html = renderToStaticMarkup(
       <JobRoadmapDetails
         job={{
@@ -217,6 +220,7 @@ describe("JobRoadmapDetails", () => {
         currentJobId="warrior"
         goalJobId={null}
         onSetGoal={() => {}}
+        onInspectSkill={() => {}}
       />,
     );
 
@@ -226,16 +230,13 @@ describe("JobRoadmapDetails", () => {
     expect(html).toContain("수행 성장");
     expect(html).toContain("힘 +2");
     expect(html).toContain("직업 보너스");
-    expect(html).toContain("<details");
-    expect(html).toContain("<summary");
+    expect(html).toContain('aria-label="돌격 상세 보기"');
+    expect(html).not.toContain("<details");
+    expect(html).not.toContain("<summary");
     expect(html).toContain("돌격");
     expect(html).toContain("액티브");
-    expect(html).toContain("말을 몰듯 단숨에 파고들어 베어낸다.");
     expect(html).toContain("근력 II");
     expect(html).toContain("패시브");
-    expect(html).toContain("거듭된 단련. 힘이 비례해 오른다.");
-    expect(html).toContain("SP 5");
-    expect(html).toContain("SP 3");
   });
 
   it.each([
@@ -256,11 +257,11 @@ describe("JobRoadmapDetails", () => {
         currentJobId={currentJobId}
         goalJobId={null}
         onSetGoal={() => {}}
+        onInspectSkill={() => {}}
       />,
     );
 
-    expect(html).toContain("돌격");
-    expect(html).toContain("말을 몰듯 단숨에 파고들어 베어낸다.");
+    expect(html).toContain('aria-label="돌격 상세 보기"');
   });
 
   it("hides skill names and effects for a locked, unvisited job", () => {
@@ -270,15 +271,14 @@ describe("JobRoadmapDetails", () => {
         currentJobId="warrior"
         goalJobId={null}
         onSetGoal={() => {}}
+        onInspectSkill={() => {}}
       />,
     );
 
     expect(html).toContain("직업을 해금하면 스킬 정보를 확인할 수 있습니다.");
     expect(html).not.toContain("돌격");
     expect(html).not.toContain("근력 II");
-    expect(html).not.toContain("말을 몰듯 단숨에 파고들어 베어낸다.");
-    expect(html).not.toContain("SP 5");
-    expect(html).not.toContain("SP 3");
+    expect(html).not.toContain('aria-label="돌격 상세 보기"');
   });
 
   it("keeps unrevealed unlock conditions hidden in the preview", () => {
@@ -295,6 +295,7 @@ describe("JobRoadmapDetails", () => {
         currentJobId="warrior"
         goalJobId={null}
         onSetGoal={() => {}}
+        onInspectSkill={() => {}}
       />,
     );
 

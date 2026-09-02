@@ -30,7 +30,7 @@ describe("CommandRunner", () => {
       command: process.execPath,
       args: [
         "-e",
-        'process.stdout.write("standard\\n"); process.stderr.write("error\\n")',
+        'const fs = require("node:fs"); fs.writeSync(1, "standard\\n"); fs.writeSync(2, "error\\n")',
       ],
       cwd,
       logPath,
@@ -38,9 +38,9 @@ describe("CommandRunner", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.outputHash).toMatch(/^[a-f0-9]{64}$/);
-    expect(result.tailLines).toEqual(expect.arrayContaining(["standard", "error"]));
     expect(await readFile(logPath, "utf8")).toContain("standard\n");
     expect(await readFile(logPath, "utf8")).toContain("error\n");
+    expect(result.tailLines).toEqual(expect.arrayContaining(["standard", "error"]));
   });
 
   it("returns a nonzero exit without converting it into a spawn error", async () => {
@@ -78,7 +78,7 @@ describe("CommandRunner", () => {
       command: process.execPath,
       args: [
         "-e",
-        'for (let i = 0; i < 205; i++) console.log(`line-${i}`); console.error(process.env.API_TOKEN)',
+        'const fs = require("node:fs"); const lines = Array.from({ length: 205 }, (_, i) => `line-${i}`).join("\\n"); fs.writeSync(1, `${lines}\\n`); fs.writeSync(2, `${process.env.API_TOKEN}\\n`)',
       ],
       cwd,
       env: { API_TOKEN: secret },

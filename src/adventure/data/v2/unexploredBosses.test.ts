@@ -104,6 +104,15 @@ describe("미개척지 개인 보스 카탈로그", () => {
     expect(actionInterval(actionSpd)).toBe(45);
   });
 
+  it("독혈 군주는 표시 속도 322로 45틱마다 행동한다", () => {
+    const monster = UNEXPLORED_BOSSES.toxic_blood_lord.monster;
+    const actionSpd = monsterActionSpd(monster);
+
+    expect(monster).toMatchObject({ spd: 52, def: 44, magicDef: 46 });
+    expect(actionSpd).toBe(322);
+    expect(actionInterval(actionSpd)).toBe(45);
+  });
+
   it("모든 미개척지 보스는 평타 사이에 정체성에 맞는 기본 스킬을 섞는다", () => {
     expect(UNEXPLORED_BOSSES.tracking_weapon.monster).toMatchObject({
       v2Skills: {

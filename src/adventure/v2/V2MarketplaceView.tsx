@@ -329,7 +329,7 @@ export function V2MarketplaceView({
   const [recentTrades, setRecentTrades] = useState<Listing[] | null>(null);
   const [myHistory, setMyHistory] = useState<Listing[] | null>(null);
   const [priceAlerts, setPriceAlerts] = useState<PriceAlert[] | null>(null);
-  // 팔기 — 내 인벤(미강화·미장착·미잠금 장비 + 재료).
+  // 팔기 — 내 인벤(미장착·미잠금 장비 + 재료). 강화 상태는 그대로 거래된다.
   const [owned, setOwned] = useState<V2EquipInstance[]>([]);
   const [equipped, setEquipped] = useState<Partial<Record<V2EquipSlot, string>>>({});
   const [materials, setMaterials] = useState<Record<string, number>>({});
@@ -929,7 +929,7 @@ export function V2MarketplaceView({
 
   const equippedIids = new Set(Object.values(equipped));
   const sellableEquip = owned.filter(
-    (i) => !i.enhance && !i.locked && !equippedIids.has(i.iid),
+    (i) => !i.locked && !equippedIids.has(i.iid),
   );
   const sellableMats = Object.keys(materials).filter((id) => (materials[id] ?? 0) > 0);
   const sellableMaterialItems = sellableMats.filter(

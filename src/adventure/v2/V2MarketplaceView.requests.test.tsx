@@ -4,8 +4,16 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RewardToastProvider } from "./RewardToastProvider";
 import { V2MarketplaceView } from "./V2MarketplaceView";
+import type {
+  V2EquipInstance,
+  V2EquipSlot,
+} from "@/adventure/data/v2/v2Equipment";
+
+let ownedEquipment: V2EquipInstance[] = [];
+let equippedEquipment: Partial<Record<V2EquipSlot, string>> = {};
 
 vi.mock("./GameStateProvider", () => ({
+  useEquipmentCodexContext: () => null,
   useGameState: () => ({
     coreLoopOn: true,
     bankedGold: 0,
@@ -26,7 +34,10 @@ function responseFor(url: string): Response {
     });
   }
   if (url.includes("/equipment")) {
-    return Response.json({ owned: [], equipped: {} });
+    return Response.json({
+      owned: ownedEquipment,
+      equipped: equippedEquipment,
+    });
   }
   if (url.includes("/prices")) {
     return Response.json({ ok: true, prices: {} });
@@ -45,6 +56,8 @@ describe("V2MarketplaceView request timing", () => {
 
   beforeEach(() => {
     fetchMock.mockClear();
+    ownedEquipment = [];
+    equippedEquipment = {};
     vi.stubGlobal("fetch", fetchMock);
   });
 
@@ -71,6 +84,29 @@ describe("V2MarketplaceView request timing", () => {
     const requestedUrls = fetchMock.mock.calls.map(([input]) => String(input));
     expect(requestedUrls.some((url) => url.includes("/buy-orders"))).toBe(false);
     expect(requestedUrls.some((url) => url.includes("/price-alerts"))).toBe(false);
+  });
+
+  it("강화 장비를 판매 등록 목록에 표시한다", async () => {
+    ownedEquipment = [
+      {
+        iid: "enhanced-iron-sword",
+        id: "v2_iron_sword",
+        enhance: { level: 3, bonusPct: 4 },
+      },
+    ];
+
+    render(
+      <RewardToastProvider>
+        <V2MarketplaceView onBack={() => {}} />
+      </RewardToastProvider>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /판매.*아이템 올리기/ }),
+    );
+
+    expect(await screen.findByText("철검")).not.toBeNull();
+    expect(screen.getByLabelText("강화 +3")).not.toBeNull();
   });
 
   it("loads only price alerts when the alert management tab opens", async () => {

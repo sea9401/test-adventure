@@ -30,7 +30,7 @@
 - Consumes: each boss mechanic's previous stored value, calculated `displayThreat` or `displayStacks`, existing `appendTrackingLog`, `appendToxicBloodLog`, and `appendGlacialLog` functions.
 - Produces: one additional numeric narrative log on transitions to tracking 40/70/100, toxic blood 4/7/10, and glacial chill 4/7/10.
 
-- [ ] **Step 1: Write failing integration tests for threshold transitions**
+- [x] **Step 1: Write failing integration tests for threshold transitions**
 
 Add assertions against real `resolveBattle` output for these literal behaviors:
 
@@ -50,7 +50,7 @@ expect(logs).toContain("[한기 10/10] 한기가 한계에 도달해 다음 행�
 
 For each mid/high stage, also assert the literal narrative line occurs exactly once even when another gain remains in the same stage. Keep existing numeric gain assertions so removal of exact values remains a regression.
 
-- [ ] **Step 2: Run the three focused test files and verify RED**
+- [x] **Step 2: Run the three focused test files and verify RED**
 
 Run:
 
@@ -60,7 +60,7 @@ npx vitest run src/adventure/v2/combat/trackingWeaponAtb.test.ts src/adventure/v
 
 Expected: FAIL because the staged narrative lines do not exist yet, while the existing numeric gain assertions continue to pass.
 
-- [ ] **Step 3: Implement strongest-stage transition logging**
+- [x] **Step 3: Implement strongest-stage transition logging**
 
 In each mechanic settlement block, keep the numeric gain append unchanged, then compare the previous value with the displayed value in descending stage order. Add the following branches at the existing warning/trigger sites:
 
@@ -135,9 +135,9 @@ if (resolution.triggered) {
 }
 ```
 
-Use the existing mechanic values as `previous`, use the existing display values in the text, and do not alter any resolution or status logic. Replace the old terse tracking/toxic warning lines and glacial freeze-preparation line with the approved numeric narrative text; preserve actual damage, recovery lock, and skipped-action logs.
+Use the existing mechanic values as `previous`, use the existing display values in the text, and do not alter any resolution or status logic. Replace the old terse tracking/toxic pre-warning lines with the approved numeric narrative text. Append the maximum-stage narrative line immediately before the existing tracking activation or glacial freeze-result line, and preserve actual damage, recovery lock, activation, freeze-result, and skipped-action logs.
 
-- [ ] **Step 4: Run focused tests and verify GREEN**
+- [x] **Step 4: Run focused tests and verify GREEN**
 
 Run:
 
@@ -147,7 +147,7 @@ npx vitest run src/adventure/v2/combat/trackingWeaponAtb.test.ts src/adventure/v
 
 Expected: 3 test files pass with all existing mechanic behavior tests and the new staged narrative assertions.
 
-- [ ] **Step 5: Run static and broader combat regression checks**
+- [x] **Step 5: Run static and broader combat regression checks**
 
 Run:
 
@@ -159,7 +159,7 @@ npx vitest run src/adventure/v2/combat
 
 Expected: all commands exit 0 with no new diagnostics or failed tests.
 
-- [ ] **Step 6: Commit the verified implementation**
+- [x] **Step 6: Commit the verified implementation**
 
 ```bash
 git add docs/superpowers/specs/2026-09-02-unexplored-boss-mechanic-hint-logs-design.md docs/superpowers/plans/2026-09-02-unexplored-boss-mechanic-hint-logs.md src/adventure/v2/combat/engine.atb.ts src/adventure/v2/combat/trackingWeaponAtb.test.ts src/adventure/v2/combat/toxicBloodLordAtb.test.ts src/adventure/v2/combat/glacialColossusAtb.test.ts

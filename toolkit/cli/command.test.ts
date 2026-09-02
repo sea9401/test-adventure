@@ -131,6 +131,24 @@ describe("parseToolkitCommand", () => {
     });
   });
 
+  it("parses a task checkpoint without shell interpolation", () => {
+    expect(
+      parseToolkitCommand([
+        "task",
+        "checkpoint",
+        "boss-red",
+        "--message",
+        "feat: add red boss",
+        "--dry-run",
+      ]),
+    ).toEqual({
+      kind: "task-checkpoint",
+      taskId: "boss-red",
+      message: "feat: add red boss",
+      dryRun: true,
+    });
+  });
+
   it.each([
     [
       ["images", "import", "boss-red"],

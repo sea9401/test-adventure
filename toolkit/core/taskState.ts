@@ -184,7 +184,8 @@ function validateTaskState(value: unknown): ToolkitTaskState {
     value.approvals.every(isApprovalRecord) &&
     isStringArray(value.manualPaths) &&
     isImageReviews(value.imageReviews) &&
-    isFullVerification(value.fullVerification);
+    isFullVerification(value.fullVerification) &&
+    (value.checkpointSha === undefined || typeof value.checkpointSha === "string");
 
   if (!valid) {
     throw new Error("invalid task state");

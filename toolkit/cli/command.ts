@@ -7,6 +7,12 @@ export type ToolkitCommand =
     }
   | { kind: "task-resume"; taskId: string; dryRun: boolean }
   | {
+      kind: "task-checkpoint";
+      taskId: string;
+      message: string;
+      dryRun: boolean;
+    }
+  | {
       kind: "images-import";
       taskId: string;
       sourceDir: string;
@@ -149,6 +155,17 @@ function parseTaskResume(argv: readonly string[]): ToolkitCommand {
   return { kind: "task-resume", taskId, dryRun: parsed.dryRun };
 }
 
+function parseTaskCheckpoint(argv: readonly string[]): ToolkitCommand {
+  const parsed = parseTail(argv, ["--message"]);
+  const [taskId] = requirePositionals(parsed.positionals, ["task id"]);
+  return {
+    kind: "task-checkpoint",
+    taskId,
+    message: requireFlag(parsed.values, "--message"),
+    dryRun: parsed.dryRun,
+  };
+}
+
 function parseTaskScopeAdd(argv: readonly string[]): ToolkitCommand {
   const parsed = parseTail(argv, ["--paths"]);
   const [taskId] = requirePositionals(parsed.positionals, ["task id"]);
@@ -246,6 +263,9 @@ export function parseToolkitCommand(argv: readonly string[]): ToolkitCommand {
   if (argv[0] === "task" && argv[1] === "resume") {
     return parseTaskResume(argv.slice(2));
   }
+  if (argv[0] === "task" && argv[1] === "checkpoint") {
+    return parseTaskCheckpoint(argv.slice(2));
+  }
   if (argv[0] === "task" && argv[1] === "scope" && argv[2] === "add") {
     return parseTaskScopeAdd(argv.slice(3));
   }
@@ -276,6 +296,7 @@ export function toolkitUsage(): string {
     "Usage:",
     "  npm run toolkit -- content create <adapter> --spec <path> [--dry-run]",
     "  npm run toolkit -- task resume <task-id> [--dry-run]",
+    "  npm run toolkit -- task checkpoint <task-id> --message <text> [--dry-run]",
     "  npm run toolkit -- task scope add <task-id> --paths <path,...> [--dry-run]",
     "  npm run toolkit -- task approve <task-id> --action <action> --target <target> --reason <reason> [--dry-run]",
     "  npm run toolkit -- images import <task-id> --source-dir <path> [--dry-run]",

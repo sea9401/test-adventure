@@ -87,4 +87,5 @@ export type ToolkitTaskState = {
   manualPaths: readonly string[];
   imageReviews?: Readonly<Partial<Record<ImageReviewRole, ImageReviewRecord>>>;
   fullVerification?: FullVerificationRecord;
+  checkpointSha?: string;
 };

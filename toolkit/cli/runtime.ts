@@ -13,6 +13,11 @@ import {
 import { sha256Text, stableJson } from "../core/hashes";
 import { loadYamlSpec } from "../core/specFile";
 import { recordManualPaths, TaskStateStore } from "../core/taskState";
+import {
+  CliGitClient,
+  createTaskCheckpoint,
+  type GitClient,
+} from "../pipelines/git";
 import { runChecks } from "../pipelines/checkCache";
 import {
   recordImageReview,
@@ -60,6 +65,7 @@ export type ToolkitRuntimeDependencies = {
     state: ToolkitTaskState,
     options: RepositoryStateOptions,
   ) => Promise<RepositoryState>;
+  gitClient?: GitClient;
   releaseHandlers?: ReleaseHandlers;
 };
 
@@ -432,6 +438,19 @@ export async function executeToolkitCommand(
         return 0;
       }
       return verifyTask(state, "fast", false, dependencies);
+    }
+    case "task-checkpoint": {
+      const state = await dependencies.store.load(command.taskId);
+      const next = await createTaskCheckpoint(
+        state,
+        dependencies.projectRoot,
+        dependencies.gitClient ?? new CliGitClient(),
+        command.message,
+        command.dryRun,
+        dependencies.report,
+      );
+      if (!command.dryRun) await dependencies.store.save(next);
+      return 0;
     }
     case "task-scope-add": {
       const state = await dependencies.store.load(command.taskId);

@@ -199,7 +199,7 @@ describe("skyward crystal eye ATB mechanic", () => {
     );
   });
 
-  it("fires at 25% power and immediately starts the next aim while exposing the core", () => {
+  it("fires at 50% power and immediately starts the next aim while exposing the core", () => {
     const result = runEye({
       maxTurns: 2,
       initialState: {
@@ -214,7 +214,7 @@ describe("skyward crystal eye ATB mechanic", () => {
       disruptionStacks: 1,
       coreExposureTicksRemaining: 136,
       artilleryCount: 1,
-      lastArtilleryPowerPct: 25,
+      lastArtilleryPowerPct: 50,
     });
     expect(
       result.finalState.log.some((entry) => entry.text.includes("핵 노출 250틱")),

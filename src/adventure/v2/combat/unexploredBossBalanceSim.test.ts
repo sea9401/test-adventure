@@ -70,7 +70,7 @@ describe("천공의 수정안 고정 시드 밸런스", () => {
 
     expect(single.crystalEyeArtilleryPowerPcts).toHaveLength(3);
     expect(critical.crystalEyeArtilleryPowerPcts).toHaveLength(3);
-    expect(multi.crystalEyeArtilleryPowerPcts).toEqual([25, 25, 25]);
+    expect(multi.crystalEyeArtilleryPowerPcts).toEqual([50, 50, 50]);
     expect(multi.crystalEyeArtilleryStacks).toEqual([24, 24, 24]);
     expect(critical.crystalEyeArtilleryStacks[0]).toBeGreaterThan(
       single.crystalEyeArtilleryStacks[0],

@@ -30,7 +30,7 @@ describe("skyward crystal eye mechanic", () => {
   it.each([
     [0, 100], [3, 100], [4, 90], [7, 90], [8, 80], [11, 80],
     [12, 70], [15, 70], [16, 60], [19, 60], [20, 50], [23, 50],
-    [24, 25], [99, 25],
+    [24, 50], [99, 50],
   ] as const)("maps %i disruption stacks to %i%% artillery", (stacks, power) => {
     expect(skywardCrystalEyeArtilleryPowerPct(stacks)).toBe(power);
   });
@@ -70,14 +70,14 @@ describe("skyward crystal eye mechanic", () => {
     });
   });
 
-  it("fires mandatory 25% artillery and exposes the core at 24 stacks", () => {
+  it("fires mandatory 50% artillery and exposes the core at 24 stacks", () => {
     const result = fireSkywardCrystalEyeArtillery({
       ...initialSkywardCrystalEyeState(),
       aimTicksRemaining: 0,
       disruptionStacks: 24,
     });
     expect(result).toEqual({
-      powerPct: 25,
+      powerPct: 50,
       coreExposed: true,
       state: {
         kind: "skyward_crystal_eye",
@@ -86,7 +86,7 @@ describe("skyward crystal eye mechanic", () => {
         coreExposureTicksRemaining: SKYWARD_CRYSTAL_EYE_EXPOSURE_TICKS,
         artilleryCount: 1,
         lastArtilleryStacks: 24,
-        lastArtilleryPowerPct: 25,
+        lastArtilleryPowerPct: 50,
         lastArtilleryDamage: null,
       },
     });
@@ -135,6 +135,24 @@ describe("skyward crystal eye mechanic", () => {
     expect(normalizeSkywardCrystalEyeState(undefined)).toEqual(
       initialSkywardCrystalEyeState(),
     );
+  });
+
+  it("preserves a historical 25% shot while projecting the next perfect shot at 50%", () => {
+    const normalized = normalizeSkywardCrystalEyeState({
+      kind: "skyward_crystal_eye",
+      aimTicksRemaining: 225,
+      disruptionStacks: 24,
+      coreExposureTicksRemaining: 0,
+      artilleryCount: 1,
+      lastArtilleryStacks: 24,
+      lastArtilleryPowerPct: 25,
+      lastArtilleryDamage: 31,
+    });
+
+    expect(skywardCrystalEyeResourceSnapshot(normalized)).toMatchObject({
+      crystalEyeArtillery: "50%",
+      crystalEyeLastArtillery: "24중첩 · 25% · 31 피해",
+    });
   });
 
   it("formats replay resources from the normalized mechanic state", () => {

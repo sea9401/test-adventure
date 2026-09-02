@@ -1175,6 +1175,35 @@ describe("BattleLogList 행동 묶음", () => {
     expect(html).not.toContain("immortalLife");
   });
 
+  it("천공의 수정안 기믹 자원을 한글 라벨로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[{
+          kind: "hp_bar",
+          text: "",
+          playerHp: 900,
+          playerMaxHp: 1_000,
+          enemyHp: 7_000_000,
+          enemyMaxHp: 10_800_000,
+          enemySignatureResources: {
+            crystalEyeAim: "225틱",
+            crystalEyeArtillery: "50%",
+            crystalEyeDisruption: "24 / 24",
+            crystalEyeCore: "노출 180틱 · 받는 피해 +25%",
+            crystalEyeLastArtillery: "24중첩 · 50% · 31 피해",
+          },
+        }]}
+      />,
+    );
+
+    expect(html).toContain("천공 포격까지 225틱");
+    expect(html).toContain("현재 예상 위력 50%");
+    expect(html).toContain("조준 붕괴 24 / 24");
+    expect(html).toContain("수정 핵 노출 180틱 · 받는 피해 +25%");
+    expect(html).toContain("직전 포격 24중첩 · 50% · 31 피해");
+    expect(html).not.toContain("crystalEye");
+  });
+
   it("HP 스냅샷에 삼중 결계 잔량과 영역 안정을 밝음·소모 상태로 표시한다", () => {
     const html = renderToStaticMarkup(
       <BattleLogList

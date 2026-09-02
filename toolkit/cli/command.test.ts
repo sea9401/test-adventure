@@ -1,0 +1,147 @@
+import { describe, expect, it } from "vitest";
+
+import { parseToolkitCommand, ToolkitUsageError } from "./command";
+
+describe("parseToolkitCommand", () => {
+  it("parses content creation without inventing defaults", () => {
+    expect(
+      parseToolkitCommand([
+        "content",
+        "create",
+        "unexplored-boss",
+        "--spec",
+        "boss.yaml",
+        "--dry-run",
+      ]),
+    ).toEqual({
+      kind: "content-create",
+      adapterId: "unexplored-boss",
+      specPath: "boss.yaml",
+      dryRun: true,
+    });
+  });
+
+  it("rejects content creation without a spec path", () => {
+    expect(() =>
+      parseToolkitCommand(["content", "create", "unexplored-boss"]),
+    ).toThrow("--spec is required");
+  });
+
+  it("parses every deterministic core command", () => {
+    expect(parseToolkitCommand(["task", "resume", "boss-red"])).toEqual({
+      kind: "task-resume",
+      taskId: "boss-red",
+      dryRun: false,
+    });
+    expect(
+      parseToolkitCommand([
+        "task",
+        "scope",
+        "add",
+        "boss-red",
+        "--paths",
+        "src/a.ts, scripts/b.ts,src/a.ts",
+      ]),
+    ).toEqual({
+      kind: "task-scope-add",
+      taskId: "boss-red",
+      paths: ["src/a.ts", "scripts/b.ts"],
+      dryRun: false,
+    });
+    expect(
+      parseToolkitCommand([
+        "task",
+        "approve",
+        "boss-red",
+        "--action",
+        "deploy-test",
+        "--target",
+        "staging",
+        "--reason",
+        "테스트 서버 배포 요청",
+      ]),
+    ).toEqual({
+      kind: "task-approve",
+      taskId: "boss-red",
+      action: "deploy-test",
+      target: "staging",
+      reason: "테스트 서버 배포 요청",
+      dryRun: false,
+    });
+    expect(parseToolkitCommand(["verify", "full", "boss-red"])).toEqual({
+      kind: "verify",
+      level: "full",
+      taskId: "boss-red",
+      dryRun: false,
+    });
+    expect(parseToolkitCommand(["release", "pr", "boss-red"])).toEqual({
+      kind: "release-pr",
+      taskId: "boss-red",
+      dryRun: false,
+    });
+    expect(
+      parseToolkitCommand([
+        "release",
+        "deploy-test",
+        "boss-red",
+        "--dry-run",
+      ]),
+    ).toEqual({
+      kind: "release-deploy-test",
+      taskId: "boss-red",
+      dryRun: true,
+    });
+  });
+
+  it.each([
+    {
+      name: "an unknown flag",
+      argv: ["task", "resume", "boss-red", "--force"],
+      message: "unknown flag --force",
+    },
+    {
+      name: "a duplicate flag",
+      argv: [
+        "content",
+        "create",
+        "unexplored-boss",
+        "--spec",
+        "one.yaml",
+        "--spec",
+        "two.yaml",
+      ],
+      message: "duplicate flag --spec",
+    },
+    {
+      name: "a missing flag value",
+      argv: ["content", "create", "unexplored-boss", "--spec"],
+      message: "--spec requires a value",
+    },
+    {
+      name: "an extra positional argument",
+      argv: ["task", "resume", "boss-red", "extra"],
+      message: "unexpected argument extra",
+    },
+    {
+      name: "an empty scope path segment",
+      argv: [
+        "task",
+        "scope",
+        "add",
+        "boss-red",
+        "--paths",
+        "src/a.ts,,scripts/b.ts",
+      ],
+      message: "--paths contains an empty path",
+    },
+  ])("rejects $name", ({ argv, message }) => {
+    expect(() => parseToolkitCommand(argv)).toThrow(message);
+  });
+
+  it("reports invalid invocations as usage errors", () => {
+    expect(() => parseToolkitCommand([])).toThrow(ToolkitUsageError);
+    expect(() => parseToolkitCommand(["verify", "quick", "boss-red"])).toThrow(
+      "verify level must be fast or full",
+    );
+  });
+});

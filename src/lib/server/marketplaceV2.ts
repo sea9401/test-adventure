@@ -188,13 +188,14 @@ export function marketplacePublicListing<
     highestBidderId: string | null;
     highestBid: number | null;
   },
->(row: T, viewerId: string) {
+>(row: T, viewerId: string, hasMyBid = false) {
   const { sellerId, sellerName: _sellerName, highestBidderId, ...publicRow } =
     row;
   return {
     ...publicRow,
     isMine: sellerId === viewerId,
     isHighestBidder: highestBidderId === viewerId,
+    hasMyBid,
     nextBid: marketplaceNextBidMinimum(row.price, row.highestBid),
   };
 }

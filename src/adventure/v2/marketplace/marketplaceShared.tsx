@@ -66,6 +66,7 @@ export type Listing = {
   id: number;
   isMine: boolean;
   isHighestBidder: boolean;
+  hasMyBid: boolean;
   kind: "equip" | "material" | "consumable";
   itemId: string;
   itemName: string;

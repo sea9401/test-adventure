@@ -47,6 +47,7 @@ const stackListing = (
   id,
   isMine: false,
   isHighestBidder: false,
+  hasMyBid: false,
   kind: "material",
   itemId: "ore",
   itemName: "광석",

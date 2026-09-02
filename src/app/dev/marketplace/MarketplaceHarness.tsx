@@ -16,6 +16,7 @@ const listings = weaponSamples.map((item, index) => ({
   id: index + 1,
   isMine: false,
   isHighestBidder: index === 0,
+  hasMyBid: index === 0,
   kind: "equip" as const,
   itemId: item.id,
   itemName: item.name,

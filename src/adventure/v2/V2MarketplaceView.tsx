@@ -200,6 +200,7 @@ function tradeToListing(trade: Trade): Listing {
     id: trade.id,
     isMine: trade.side === "sell",
     isHighestBidder: trade.side === "buy",
+    hasMyBid: trade.side === "buy",
     kind: trade.kind as Listing["kind"],
     itemId: trade.itemId,
     itemName: trade.itemName,

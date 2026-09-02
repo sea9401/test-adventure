@@ -53,7 +53,7 @@ import { triggerMarketplacePriceAlertsForListing } from "@/lib/server/marketplac
 //   body(재료):   { kind:"material", itemId:string, quantity:int, price:int }
 //   body(소모품): { kind:"consumable", iid:string, price:int } — 레어맵 개체
 //                 { kind:"consumable", itemId:string, quantity:int, price:int } — 캐시/음식 스택
-// 활성 매물 슬롯 상한 체크. 장비=미강화·미장착·미잠금 개체만. 가격은 정수 [1, 999,999,999].
+// 활성 매물 슬롯 상한 체크. 장비=미장착·미잠금·미귀속 개체만. 가격은 정수 [1, 999,999,999].
 
 type CharSave = {
   gold?: number;

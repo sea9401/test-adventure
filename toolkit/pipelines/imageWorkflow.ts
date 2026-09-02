@@ -24,6 +24,10 @@ import type {
   ToolkitTaskState,
 } from "../schemas/task";
 import {
+  runAssetRightsWorkflow,
+  type ImageRightsHash,
+} from "./assetRights";
+import {
   inspectImageInputs,
   planInspectedImageImport,
   type ImageInspection,
@@ -375,6 +379,35 @@ export async function runImageWorkflow(
     },
   };
   await dependencies.store.save(state);
+  const hasRightsApproval = state.approvals.some(
+    (approval) =>
+      approval.action === "asset-rights" && approval.target === state.taskId,
+  );
+  if (
+    state.steps["images:review"].status === "passed" &&
+    hasRightsApproval
+  ) {
+    const rightsHashes: ImageRightsHash[] = dependencies.specs.map((spec) => {
+      const record = state.artifacts.find(
+        (candidate) =>
+          candidate.scope === "project" && candidate.path === spec.target,
+      );
+      if (record === undefined) {
+        throw new Error(`image artifact is missing for rights: ${spec.role}`);
+      }
+      return {
+        role: spec.role,
+        path: spec.target,
+        sha256: record.outputHash,
+        rightsSource: spec.rightsSource,
+      };
+    });
+    return runAssetRightsWorkflow(context, state, rightsHashes, {
+      store: dependencies.store,
+      runner: dependencies.runner,
+      now: dependencies.now,
+    });
+  }
   return state;
 }
 

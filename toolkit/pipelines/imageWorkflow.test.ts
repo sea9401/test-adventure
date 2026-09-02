@@ -11,6 +11,7 @@ import sharp from "sharp";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import type { CommandRequest, CommandResult, CommandRunnerLike } from "../core/commandRunner";
+import { recordApproval } from "../core/approvals";
 import { sha256Text } from "../core/hashes";
 import { TaskStateStore } from "../core/taskState";
 import type { ImageSpec } from "../adapters/unexplored-boss/schema";
@@ -312,5 +313,81 @@ describe("runImageWorkflow", () => {
     expect(current.imageReviews?.boss).toBeUndefined();
     expect(Object.keys(current.imageReviews ?? {})).toHaveLength(3);
     expect(current.steps["images:review"].status).toBe("pending");
+  });
+
+  it("registers rights evidence after reviews and same-task approval are complete", async () => {
+    const { fixture, sourceDir, store, state, now } = await setup();
+    await mkdir(join(fixture.root, "docs"));
+    await writeFile(
+      join(fixture.root, "docs/asset-rights.json"),
+      `${JSON.stringify(
+        {
+          schemaVersion: 1,
+          reviewedAt: "2026-09-01",
+          instructions: "fixture",
+          sources: [
+            {
+              id: "operator-cleared-game-art",
+              releaseStatus: "cleared",
+              rightsBasis: "fixture",
+              evidence: [],
+            },
+          ],
+          assets: [],
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    let current = await runImageWorkflow(state, sourceDir, {
+      projectRoot: fixture.root,
+      store,
+      runner: new ImageRunner(fixture.root, specs()),
+      specs: specs(),
+      now,
+    });
+    for (const image of specs()) {
+      current = await recordImageReview(current, {
+        projectRoot: fixture.root,
+        store,
+        specs: specs(),
+        role: image.role,
+        decision: "accept",
+        reason: "시각 검수 완료",
+        now,
+      });
+    }
+    current = recordApproval(
+      current,
+      {
+        action: "asset-rights",
+        target: current.taskId,
+        reason: "운영자 소유 이미지 생성 세션에서 제작했고 배포 권리를 확인함",
+        approvedAt: "2026-09-02T00:01:00.000Z",
+      },
+      new Date("2026-09-02T00:02:00.000Z"),
+    );
+    await store.save(current);
+    const rightsRunner = new ImageRunner(fixture.root, specs());
+
+    current = await runImageWorkflow(current, sourceDir, {
+      projectRoot: fixture.root,
+      store,
+      runner: rightsRunner,
+      specs: specs(),
+      now,
+    });
+
+    expect(rightsRunner.runIds).toEqual(["images:rights"]);
+    expect(current.steps["images:rights"].status).toBe("passed");
+    await expect(
+      readFile(
+        join(
+          fixture.root,
+          "docs/asset-provenance-echo-warden-2026-09-02.md",
+        ),
+        "utf8",
+      ),
+    ).resolves.toContain("operator-cleared-game-art");
   });
 });

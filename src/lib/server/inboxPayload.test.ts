@@ -23,6 +23,9 @@ describe("inboxClaimState", () => {
   it("실제 내용물이 있는 우편만 수령 대상으로 분류한다", () => {
     expect(inboxClaimState("admin_gift", { gold: 100 })).toBe("claimable");
     expect(
+      inboxClaimState("admin_gift", { masteryCertificates: 100 }),
+    ).toBe("claimable");
+    expect(
       inboxClaimState("admin_gift", {
         cookingIngredients: [{ ingredientId: "pantry:salt", count: 1 }],
       }),
@@ -445,6 +448,15 @@ describe("parseInboxPayload — happy path", () => {
       museunCoins: 0,
       cashItems: [],
       adventureSupportDays: 30,
+    });
+  });
+
+  it("admin_gift (숙련 증서)", () => {
+    expect(
+      parseInboxPayload("admin_gift", { masteryCertificates: 750 }),
+    ).toMatchObject({
+      kind: "admin_gift",
+      masteryCertificates: 750,
     });
   });
 

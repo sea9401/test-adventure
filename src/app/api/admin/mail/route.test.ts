@@ -79,4 +79,31 @@ describe("POST /api/admin/mail 요리 재료", () => {
       cookingIngredients: json.cookingIngredients,
     });
   });
+
+  it("숙련 증서만 있는 우편을 허용하고 상한을 적용한다", async () => {
+    const response = await POST(
+      request({
+        target: "user",
+        userId: "target-user",
+        gold: 0,
+        masteryCertificates: 1_500_000,
+      }),
+    );
+    const json = (await response.json()) as {
+      masteryCertificates?: number;
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.masteryCertificates).toBe(1_000_000);
+    expect(insertedRows).toHaveLength(1);
+    expect(insertedRows[0]).toMatchObject({
+      kind: "admin_gift",
+      payload: { masteryCertificates: 1_000_000 },
+    });
+    expect(audit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detail: expect.objectContaining({ masteryCertificates: 1_000_000 }),
+      }),
+    );
+  });
 });

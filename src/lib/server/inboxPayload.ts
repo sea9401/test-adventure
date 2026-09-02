@@ -124,6 +124,8 @@ export type InboxPayload =
       /** 관리자 지급분만 귀속 처리한다. 누락된 레거시·이벤트 보상은 비귀속으로 유지. */
       staminaPotionsBound?: boolean;
       museunCoins: number;
+      /** 희귀 지도 숙련에 쓰는 inventory.v2 전용 재화. */
+      masteryCertificates?: number;
       cashItems: AdminGiftCashItem[];
       /** 수령 시점부터 시작되는 월간 모험 지원권 기간. 활성 중이면 남은 기간 뒤에 이어 붙임. */
       adventureSupportDays: number;
@@ -295,6 +297,7 @@ export function parseInboxPayload(
       const staminaPotions = asNonNegInt(p.staminaPotions) ?? 0;
       const staminaPotionsBound = p.staminaPotionsBound === true;
       const museunCoins = asNonNegInt(p.museunCoins) ?? 0;
+      const masteryCertificates = asNonNegInt(p.masteryCertificates) ?? 0;
       const cashItems = parseRewardCashItems(p.cashItems);
       const adventureSupportDays = asNonNegInt(p.adventureSupportDays) ?? 0;
       const titleIds = parseRewardTitleIds(p.titleIds);
@@ -307,6 +310,7 @@ export function parseInboxPayload(
         staminaPotions,
         ...(staminaPotionsBound ? { staminaPotionsBound: true } : {}),
         museunCoins,
+        ...(masteryCertificates > 0 ? { masteryCertificates } : {}),
         cashItems,
         adventureSupportDays,
         ...(titleIds.length > 0 ? { titleIds } : {}),
@@ -359,6 +363,7 @@ export function inboxClaimState(
         parsed.items.length > 0 ||
         parsed.staminaPotions > 0 ||
         parsed.museunCoins > 0 ||
+        (parsed.masteryCertificates ?? 0) > 0 ||
         parsed.cashItems.length > 0 ||
         parsed.adventureSupportDays > 0 ||
         (parsed.titleIds?.length ?? 0) > 0

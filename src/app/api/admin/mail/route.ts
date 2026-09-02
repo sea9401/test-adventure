@@ -22,7 +22,7 @@ import { isCookingStoredIngredientId } from "@/adventure/v2/cooking/storedIngred
 //           materials?: { materialId, count }[],
 //           cookingIngredients?: { ingredientId, count }[],
 //           items?: { itemId, count }[], staminaPotions?,
-//           museunCoins?, cashItems?: { itemId, count }[], message? }
+//           museunCoins?, masteryCertificates?, cashItems?: { itemId, count }[], message? }
 // 우편함(marketplace_inbox)에 kind='admin_gift' 행으로 적재 → 수신자가 우편함에서 수령(claim)
 // 시 각 전용 세이브에 지급(장비는 base 등급). fromName="운영자". 모든 발송은 감사 로그에 기록.
 //
@@ -126,6 +126,7 @@ export async function POST(req: Request) {
     items?: unknown;
     staminaPotions?: unknown;
     museunCoins?: unknown;
+    masteryCertificates?: unknown;
     cashItems?: unknown;
     adventureSupportDays?: unknown;
     message?: unknown;
@@ -154,6 +155,11 @@ export async function POST(req: Request) {
     typeof body.museunCoins === "number" && Number.isFinite(body.museunCoins)
       ? Math.max(0, Math.min(MAX_COUNT, Math.trunc(body.museunCoins)))
       : 0;
+  const masteryCertificates =
+    typeof body.masteryCertificates === "number" &&
+    Number.isFinite(body.masteryCertificates)
+      ? Math.max(0, Math.min(MAX_COUNT, Math.trunc(body.masteryCertificates)))
+      : 0;
   const cashItems = parseAttachCashItems(body.cashItems);
   const adventureSupportDays = normalizeAdventureSupportGrantDays(
     body.adventureSupportDays,
@@ -169,6 +175,7 @@ export async function POST(req: Request) {
     items.length === 0 &&
     staminaPotions <= 0 &&
     museunCoins <= 0 &&
+    masteryCertificates <= 0 &&
     cashItems.length === 0 &&
     adventureSupportDays <= 0
   ) {
@@ -176,7 +183,7 @@ export async function POST(req: Request) {
       {
         ok: false,
         error:
-          "nothing to send (gold/materials/cookingIngredients/items/staminaPotions/museunCoins/cashItems/adventureSupportDays all empty)",
+          "nothing to send (gold/materials/cookingIngredients/items/staminaPotions/museunCoins/masteryCertificates/cashItems/adventureSupportDays all empty)",
       },
       { status: 400 },
     );
@@ -191,6 +198,7 @@ export async function POST(req: Request) {
     staminaPotions,
     staminaPotionsBound: true,
     museunCoins,
+    masteryCertificates,
     cashItems,
     adventureSupportDays,
   };
@@ -236,6 +244,7 @@ export async function POST(req: Request) {
         items,
         staminaPotions,
         museunCoins,
+        masteryCertificates,
         cashItems,
         adventureSupportDays,
       });
@@ -258,6 +267,8 @@ export async function POST(req: Request) {
       items: items.length > 0 ? items : undefined,
       staminaPotions: staminaPotions > 0 ? staminaPotions : undefined,
       museunCoins: museunCoins > 0 ? museunCoins : undefined,
+      masteryCertificates:
+        masteryCertificates > 0 ? masteryCertificates : undefined,
       cashItems: cashItems.length > 0 ? cashItems : undefined,
       adventureSupportDays:
         adventureSupportDays > 0 ? adventureSupportDays : undefined,
@@ -274,6 +285,7 @@ export async function POST(req: Request) {
     items,
     staminaPotions,
     museunCoins,
+    masteryCertificates,
     cashItems,
     adventureSupportDays,
   });

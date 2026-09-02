@@ -5,8 +5,8 @@ import { useAdmin } from "../AdminContext";
 import { adminGet, adminPost } from "../api";
 import {
   cookingIngredientOptions,
-  v2EquipmentOptions,
-  v2MaterialOptions,
+  v2EquipmentOptionGroups,
+  v2MaterialOptionGroups,
 } from "../adminCatalogOptions";
 import {
   adminMailCashItemOptions,
@@ -49,6 +49,7 @@ export function BroadcastTab() {
   const [recipientError, setRecipientError] = useState<string | null>(null);
   const [gold, setGold] = useState(1000);
   const [museunCoins, setMuseunCoins] = useState(0);
+  const [masteryCertificates, setMasteryCertificates] = useState(0);
   const [adventureSupportDays, setAdventureSupportDays] = useState(0);
   const [mailMsg, setMailMsg] = useState("");
   const [sending, setSending] = useState(false);
@@ -65,9 +66,9 @@ export function BroadcastTab() {
   const [attachCashItems, setAttachCashItems] = useState<AttachmentEntry[]>([]);
 
   // 카탈로그 옵션 (V2GrantSection 과 공용 — adminCatalogOptions).
-  const materialOptions = useMemo(() => v2MaterialOptions(), []);
+  const materialGroups = useMemo(() => v2MaterialOptionGroups(), []);
   const cookingOptions = useMemo(() => cookingIngredientOptions(), []);
-  const equipOptions = useMemo(() => v2EquipmentOptions(), []);
+  const equipGroups = useMemo(() => v2EquipmentOptionGroups(), []);
   const consumableOptions = useMemo(() => adminMailConsumableOptions(), []);
   const cashItemOptions = useMemo(() => adminMailCashItemOptions(), []);
 
@@ -76,6 +77,7 @@ export function BroadcastTab() {
   const hasReward =
     gold > 0 ||
     museunCoins > 0 ||
+    masteryCertificates > 0 ||
     attachMaterials.length > 0 ||
     attachCookingIngredients.length > 0 ||
     attachItems.length > 0 ||
@@ -167,6 +169,7 @@ export function BroadcastTab() {
         items?: unknown[];
         staminaPotions?: number;
         museunCoins?: number;
+        masteryCertificates?: number;
         cashItems?: { itemId: string; count: number }[];
         adventureSupportDays?: number;
       }>("/api/admin/mail", {
@@ -184,6 +187,7 @@ export function BroadcastTab() {
         items: attachItems.map((e) => ({ itemId: e.id, count: e.count })),
         staminaPotions: consumables.staminaPotions,
         museunCoins,
+        masteryCertificates,
         cashItems: consumables.cashItems,
         adventureSupportDays,
         message: mailMsg,
@@ -203,6 +207,11 @@ export function BroadcastTab() {
       }
       if ((j.museunCoins ?? 0) > 0) {
         parts.push(`무슨 코인 ${(j.museunCoins ?? 0).toLocaleString()}개`);
+      }
+      if ((j.masteryCertificates ?? 0) > 0) {
+        parts.push(
+          `숙련 증서 ${(j.masteryCertificates ?? 0).toLocaleString()}개`,
+        );
       }
       if ((j.cashItems?.length ?? 0) > 0) {
         parts.push(`무슨 코인샵 아이템 ${j.cashItems?.length ?? 0}종`);
@@ -224,6 +233,7 @@ export function BroadcastTab() {
       setAttachConsumables([]);
       setAttachCashItems([]);
       setMuseunCoins(0);
+      setMasteryCertificates(0);
       setAdventureSupportDays(0);
     } catch (e) {
       showToast(`우편 실패: ${e instanceof Error ? e.message : "오류"}`);
@@ -290,10 +300,10 @@ export function BroadcastTab() {
       {/* 대량 우편 */}
       <div className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
         <h3 className="text-sm font-semibold">
-          대량 우편 (골드·재료·요리 재료·장비·소비템·무슨 코인·지원권)
+          대량 우편 (골드·숙련 증서·재료·요리 재료·장비·소비템·무슨 코인·지원권)
         </h3>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          골드 + 재료/요리 재료/장비/소비템/무슨 코인 + 메시지를 우편함으로 발송합니다(수신자가 수령).
+          골드 + 숙련 증서/재료/요리 재료/장비/소비템/무슨 코인 + 메시지를 우편함으로 발송합니다(수신자가 수령).
           보정금·이벤트 보상용. 장비는 기본 등급으로 지급됩니다.
           <strong> 전체 발송</strong>은 모든 유저에게 자원을 지급하는 강력한 작업입니다.
         </p>
@@ -415,6 +425,22 @@ export function BroadcastTab() {
             />
           </Field>
           <Field
+            label="숙련 증서"
+            hint="0이면 미첨부 · 수령 시 희귀 지도 숙련 재화에 적립"
+          >
+            <NumberInput
+              value={masteryCertificates}
+              min={0}
+              max={1_000_000}
+              disabled={mailDisabled}
+              onChange={(n) =>
+                setMasteryCertificates(
+                  Math.max(0, Math.min(1_000_000, Math.floor(n))),
+                )
+              }
+            />
+          </Field>
+          <Field
             label="월간 모험 지원권"
             hint="0이면 미첨부 · 수령 시점부터 시작 · 활성 이용자는 기간 연장"
           >
@@ -440,7 +466,7 @@ export function BroadcastTab() {
 
         <AttachmentPicker
           label="재료 첨부"
-          options={materialOptions}
+          groups={materialGroups}
           entries={attachMaterials}
           onChange={setAttachMaterials}
           disabled={mailDisabled}
@@ -454,7 +480,7 @@ export function BroadcastTab() {
         />
         <AttachmentPicker
           label="장비 첨부 (기본 등급)"
-          options={equipOptions}
+          groups={equipGroups}
           entries={attachItems}
           onChange={setAttachItems}
           disabled={mailDisabled}
@@ -490,6 +516,10 @@ export function BroadcastTab() {
               trigger="전체 발송"
               title="전체 유저에게 우편 발송"
               description={`모든 유저에게 ${gold.toLocaleString()} 골드${
+                masteryCertificates > 0
+                  ? ` · 숙련 증서 ${masteryCertificates.toLocaleString()}개`
+                  : ""
+              }${
                 attachMaterials.length > 0
                   ? ` · 재료 ${attachMaterials.length}종`
                   : ""

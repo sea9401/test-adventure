@@ -28,11 +28,11 @@ describe("폭풍 원정 도움말", () => {
 
     const text = screen.getByRole("dialog", { name: "폭풍 원정 도움말" }).textContent;
     expect(text).toContain("부유성채의 동력갑");
-    expect(text).toContain("해당 항로 수호자 0.15% · 폭풍의 심장 0.40%");
+    expect(text).toContain("해당 항로 수호자 3.00% · 폭풍의 심장 7.00%");
     expect(text).toContain("삼상 접속장갑");
-    expect(text).toContain("폭풍의 심장 0.20%");
+    expect(text).toContain("폭풍의 심장 4.00%");
     expect(text).toContain("맥동하는 폭풍심장");
-    expect(text).toContain("폭풍의 심장 0.05%");
+    expect(text).toContain("폭풍의 심장 1.00%");
   });
 
   it("닫기 버튼으로 모달을 닫는다", () => {

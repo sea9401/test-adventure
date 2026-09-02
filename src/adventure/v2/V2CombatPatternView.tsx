@@ -111,6 +111,7 @@ export const ACTION_KIND_OPTIONS = [
   { value: "basic_attack", label: "일반 공격" },
   { value: "role", label: "역할 사용" },
   { value: "skill", label: "특정 스킬" },
+  { value: "alternate", label: "교대 사용" },
 ] as const;
 const STAT_OPTIONS: PatternChoiceOption<StatKey>[] = STAT_KEYS.map((value) => ({
   value,
@@ -820,8 +821,67 @@ function PatternNumberInput({
   );
 }
 
-function actionSkillId(action: V2CombatAction): string | null {
-  return action.kind === "skill" ? action.skillId : null;
+function actionSkillIds(action: V2CombatAction): string[] {
+  if (action.kind === "skill") return [action.skillId];
+  if (action.kind === "alternate") {
+    return [action.firstSkillId, action.secondSkillId];
+  }
+  return [];
+}
+
+function AlternateSkillPatternPickers({
+  action,
+  castableEquipped,
+  activeCastableCount,
+  resonanceMaterialIds,
+  onChange,
+}: {
+  action: Extract<V2CombatAction, { kind: "alternate" }>;
+  castableEquipped: readonly string[];
+  activeCastableCount: number;
+  resonanceMaterialIds: ReadonlySet<string>;
+  onChange: (action: Extract<V2CombatAction, { kind: "alternate" }>) => void;
+}) {
+  return (
+    <div className="grid w-full gap-2 pl-10 sm:grid-cols-2">
+      <div className="space-y-1">
+        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+          1회차 · A
+        </span>
+        <SkillPatternPicker
+          value={action.firstSkillId}
+          choices={combatPatternSkillChoices({
+            castableEquipped: castableEquipped.filter(
+              (skillId) => skillId !== action.secondSkillId,
+            ),
+            currentSkillId: action.firstSkillId,
+            resonanceMaterialIds,
+          })}
+          placeholder="첫 스킬 선택"
+          disabled={activeCastableCount === 0}
+          onChange={(firstSkillId) => onChange({ ...action, firstSkillId })}
+        />
+      </div>
+      <div className="space-y-1">
+        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+          2회차 · B
+        </span>
+        <SkillPatternPicker
+          value={action.secondSkillId}
+          choices={combatPatternSkillChoices({
+            castableEquipped: castableEquipped.filter(
+              (skillId) => skillId !== action.firstSkillId,
+            ),
+            currentSkillId: action.secondSkillId,
+            resonanceMaterialIds,
+          })}
+          placeholder="둘째 스킬 선택"
+          disabled={activeCastableCount < 2}
+          onChange={(secondSkillId) => onChange({ ...action, secondSkillId })}
+        />
+      </div>
+    </div>
+  );
 }
 
 export function V2CombatPatternView({
@@ -942,7 +1002,9 @@ export function V2CombatPatternView({
     const t = setTimeout(async () => {
       // 스킬 안 고른 빈 블록은 서버가 조용히 버린다(parseCombatPattern) → 데이터 손실. 저장을
       //   보류하고 경고만 — 사용자가 스킬을 고르거나 블록(✕)을 지우면 다시 깨어나 재시도한다.
-      const emptyCount = blocks.filter((b) => b.action.kind === "skill" && !b.action.skillId).length;
+      const emptyCount = blocks.filter((b) =>
+        actionSkillIds(b.action).some((skillId) => !skillId),
+      ).length;
       if (emptyCount > 0) {
         setSaveState("error");
         setMsg(`✗ 스킬을 안 고른 블록이 ${emptyCount}개 있습니다 — 스킬을 고르거나 블록(✕)을 지워주세요`);
@@ -1078,6 +1140,7 @@ export function V2CombatPatternView({
         위에서부터 조건과 사용 가능 여부를 확인합니다. 스킬 발동률 판정에 실패하면 다음
         블록을 확인하고, 모두 실패하면 기본 공격을 사용합니다. 서로 다른 스킬은 독립적으로
         판정하며, 같은 스킬을 중복 배치해도 발동률을 따로 다시 굴리지는 않습니다.
+        교대 사용은 두 스킬을 A → B → A → B 순서로 반복합니다.
         여러 조건은 AND (모두 만족) 또는 OR (하나 만족)으로 묶습니다. 예: 내 HP 50% 이상
         AND 혈전 준비 없음 → 혈전, 혈전 준비 있음 → 필살기.
       </p>
@@ -1196,8 +1259,20 @@ export function V2CombatPatternView({
                           kind === "basic_attack"
                             ? { kind: "basic_attack" }
                             : kind === "role"
-                            ? { kind: "role", role: "main_attack" }
-                            : { kind: "skill", skillId: activeCastableEquipped[0] ?? "" },
+                              ? { kind: "role", role: "main_attack" }
+                              : kind === "alternate"
+                                ? {
+                                    kind: "alternate",
+                                    firstSkillId:
+                                      activeCastableEquipped[0] ?? "",
+                                    secondSkillId:
+                                      activeCastableEquipped[1] ?? "",
+                                  }
+                                : {
+                                    kind: "skill",
+                                    skillId:
+                                      activeCastableEquipped[0] ?? "",
+                                  },
                       });
                     }}
                   />
@@ -1215,6 +1290,14 @@ export function V2CombatPatternView({
                           action: { kind: "role", role },
                         })
                       }
+                    />
+                  ) : b.action.kind === "alternate" ? (
+                    <AlternateSkillPatternPickers
+                      action={b.action}
+                      castableEquipped={castableEquipped}
+                      activeCastableCount={activeCastableEquipped.length}
+                      resonanceMaterialIds={resonanceMaterialIds}
+                      onChange={(action) => update(i, { action })}
                     />
                   ) : (
                     <SkillPatternPicker
@@ -1238,22 +1321,37 @@ export function V2CombatPatternView({
 
                 {/* 선택 스킬 정보 칩(MP·피해·효과) — 무엇을 발동하는지 한눈에. */}
                 {(() => {
-                  const selectedSkillId =
+                  const selectedSkillIds =
                     b.action.kind === "skill"
-                      ? b.action.skillId
+                      ? [b.action.skillId]
+                      : b.action.kind === "alternate"
+                        ? [b.action.firstSkillId, b.action.secondSkillId]
                       : b.action.kind === "role"
-                        ? roleCandidate(b.action.role)
-                        : null;
-                  const def = selectedSkillId ? V2_SKILLS[selectedSkillId as V2SkillId] : undefined;
-                  if (!def) return null;
+                        ? [roleCandidate(b.action.role)]
+                        : [];
                   return (
-                    <div className="mt-1.5 flex flex-wrap gap-1 pl-10">
-                      {describeV2Skill(def).map((chip, ci) => (
-                        <span key={ci}
-                          className="rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-                          {chip}
-                        </span>
-                      ))}
+                    <div className="mt-1.5 space-y-1 pl-10">
+                      {selectedSkillIds.map((selectedSkillId, skillIndex) => {
+                        const def = selectedSkillId
+                          ? V2_SKILLS[selectedSkillId as V2SkillId]
+                          : undefined;
+                        if (!def) return null;
+                        return (
+                          <div key={`${selectedSkillId}-${skillIndex}`} className="flex flex-wrap gap-1">
+                            {b.action.kind === "alternate" ? (
+                              <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                                {skillIndex === 0 ? "A" : "B"}
+                              </span>
+                            ) : null}
+                            {describeV2Skill(def).map((chip, chipIndex) => (
+                              <span key={chipIndex}
+                                className="rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                                {chip}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })()}
@@ -1263,16 +1361,20 @@ export function V2CombatPatternView({
                   </p>
                 )}
                 {/* 미장착 스킬 경고 — 저장돼도 전투에서 발동 안 함(평타 폴백). */}
-                {actionSkillId(b.action) && !equipped.includes(actionSkillId(b.action)!) && (
-                  <p className="mt-1 pl-10 text-[11px] text-amber-600 dark:text-amber-400">
-                    미장착 스킬 — 이 블록은 전투에서 발동하지 않습니다
-                  </p>
-                )}
-                {actionSkillId(b.action) && resonanceMaterialIds.has(actionSkillId(b.action)!) && (
-                  <p className="mt-1 pl-10 text-[11px] font-medium text-violet-700 dark:text-violet-300">
-                    공명 재료 — 상위 원소 스킬에 흡수되어 이 블록은 개별 발동하지 않습니다
-                  </p>
-                )}
+                {actionSkillIds(b.action).some(
+                  (skillId) => skillId && !equipped.includes(skillId),
+                ) && (
+                    <p className="mt-1 pl-10 text-[11px] text-amber-600 dark:text-amber-400">
+                      미장착 스킬 — 해당 차례에는 이 블록이 발동하지 않습니다
+                    </p>
+                  )}
+                {actionSkillIds(b.action).some((skillId) =>
+                  resonanceMaterialIds.has(skillId),
+                ) && (
+                    <p className="mt-1 pl-10 text-[11px] font-medium text-violet-700 dark:text-violet-300">
+                      공명 재료 — 상위 원소 스킬에 흡수되어 해당 차례에는 이 블록이 발동하지 않습니다
+                    </p>
+                  )}
               </li>
             ))}
           </ul>

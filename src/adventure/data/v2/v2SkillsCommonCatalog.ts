@@ -3131,7 +3131,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       synergies: ["완전식의 합계 3단계를 완성한 시전이면 강화된 피해와 관통을 적용하고 다음 행동을 15% 앞당긴다."],
       limitations: ["같은 직접 마법은 한 주기에 한 번만 주문식 단계에 계산된다."],
     },
-    mpCost: 41, fixedMpCost: 133, cooldown: 0, procChance: 60, learnCost: 20000, spCost: 12, spCostDiscount: 3,
+    mpCost: 41, fixedMpCost: 133, cooldown: 0, procChance: 60, learnCost: 20000, spCost: 12, spCostDiscount: 4,
     effects: [dmg(1.98, 501, "magic", 15)],
     tier7Mechanic: { kind: "formulaStrike", stages: 1, completionHastePct: 15 },
   },

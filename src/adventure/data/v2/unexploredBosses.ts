@@ -117,7 +117,7 @@ export const UNEXPLORED_BOSSES = {
       atk: 16,
       def: 42,
       magicDef: 38,
-      spd: 27,
+      spd: 52,
       accuracy: -220,
       evasionPct: 12,
       exp: 0,
@@ -131,7 +131,11 @@ export const UNEXPLORED_BOSSES = {
       },
       v2MaxMp: 90,
     },
-    traits: ["빠른 행동", "피해·타격 추적", "추적 완료 시 2연타 반격"],
+    traits: [
+      "45틱마다 빠른 행동",
+      "피해·타격 추적",
+      "추적 완료 시 방어 50% 관통·일반 보호막 무시 2연타",
+    ],
   },
   toxic_blood_lord: {
     id: "toxic_blood_lord",

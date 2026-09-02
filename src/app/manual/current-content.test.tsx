@@ -565,6 +565,8 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("독립된 재도전 횟수가 늘어나지 않습니다");
     expect(html).toContain("최대 5개 슬롯");
     expect(html).toContain("장착 스킬·전투 패턴·장비");
+    expect(html).toContain("교대 사용");
+    expect(html).toContain("A → B → A → B");
   });
 
   it("마나 실드의 성장식·피해 순서·예외와 복합 스킬 규칙을 안내한다", () => {
@@ -631,11 +633,11 @@ describe("최신 게임 안내서 내용", () => {
     expect(hunting).toContain("뇌운 항로의 모든 전투");
     expect(hunting).toContain("낙뢰점 반지");
     expect(hunting).toContain("부유성채의 동력갑");
-    expect(hunting).toContain("해당 항로 수호자 0.15% · 폭풍의 심장 0.40%");
+    expect(hunting).toContain("해당 항로 수호자 3.00% · 폭풍의 심장 7.00%");
     expect(hunting).toContain("삼상 접속장갑");
-    expect(hunting).toContain("폭풍의 심장 0.20%");
+    expect(hunting).toContain("폭풍의 심장 4.00%");
     expect(hunting).toContain("맥동하는 폭풍심장");
-    expect(hunting).toContain("폭풍의 심장 0.05%");
+    expect(hunting).toContain("폭풍의 심장 1.00%");
   });
 
   it("숙련의 탑 100층 도전과 50층 보상 상한을 함께 안내한다", () => {

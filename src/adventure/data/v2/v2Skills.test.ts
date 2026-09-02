@@ -1582,7 +1582,7 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
       spCostOf(V2_SKILLS.v2c_warrior_flurry),
     );
     expect(spCostOf(V2_SKILLS.v2c_mage_boltcast)).toBe(4);
-    expect(spCostOf(V2_SKILLS.v2c_primordialsage_greatorb)).toBe(9);
+    expect(spCostOf(V2_SKILLS.v2c_primordialsage_greatorb)).toBe(8);
     expect(spCostOf(V2_SKILLS.v2c_warder_barrier)).toBeLessThan(
       spCostOf(V2_SKILLS.v2c_ironman_brace),
     );

@@ -473,6 +473,7 @@ export function coopImmortalBerserkerState(
   kind: CoopBossKind,
   stateRaw: unknown,
   currentHp: number,
+  sharedMaxHp = kind.sharedMaxHp,
 ): ImmortalBerserkerBattleState {
   const rawState =
     stateRaw && typeof stateRaw === "object" && !Array.isArray(stateRaw)
@@ -480,7 +481,7 @@ export function coopImmortalBerserkerState(
       : undefined;
   return normalizeImmortalBerserkerState(
     rawState,
-    kind.sharedMaxHp,
+    sharedMaxHp,
     currentHp,
   );
 }
@@ -490,12 +491,13 @@ export function withCoopImmortalBerserkerState(
   stateRaw: unknown,
   immortalBerserker: ImmortalBerserkerBattleState,
   currentHp: number,
+  sharedMaxHp = kind.sharedMaxHp,
 ): CoopMechanicState {
   return {
     ...parseCoopMechanicState(stateRaw),
     immortalBerserker: normalizeImmortalBerserkerState(
       immortalBerserker,
-      kind.sharedMaxHp,
+      sharedMaxHp,
       currentHp,
     ),
   };
@@ -516,6 +518,7 @@ export function coopImmortalBerserkerDisplay(
   kind: CoopBossKind,
   stateRaw: unknown,
   currentHp: number,
+  sharedMaxHp = kind.sharedMaxHp,
 ): CoopImmortalBerserkerDisplay {
   const empty: CoopImmortalBerserkerDisplay = {
     immortalLifeIndex: 0,
@@ -529,8 +532,8 @@ export function coopImmortalBerserkerDisplay(
   };
   if (kind.id !== "immortal_berserker") return empty;
   const display = immortalBerserkerDisplay(
-    coopImmortalBerserkerState(kind, stateRaw, currentHp),
-    kind.sharedMaxHp,
+    coopImmortalBerserkerState(kind, stateRaw, currentHp, sharedMaxHp),
+    sharedMaxHp,
     currentHp,
   );
   return {
@@ -549,6 +552,7 @@ export function coopInvincibleFortressState(
   kind: CoopBossKind,
   stateRaw: unknown,
   currentHp: number,
+  sharedMaxHp = kind.sharedMaxHp,
 ): InvincibleFortressBattleState {
   const rawFortress =
     stateRaw && typeof stateRaw === "object" && !Array.isArray(stateRaw)
@@ -556,7 +560,7 @@ export function coopInvincibleFortressState(
       : undefined;
   return normalizeInvincibleFortressState(
     rawFortress,
-    kind.sharedMaxHp,
+    sharedMaxHp,
     currentHp,
   );
 }
@@ -566,12 +570,13 @@ export function withCoopInvincibleFortressState(
   stateRaw: unknown,
   fortress: InvincibleFortressBattleState,
   currentHp: number,
+  sharedMaxHp = kind.sharedMaxHp,
 ): CoopMechanicState {
   return {
     ...parseCoopMechanicState(stateRaw),
     fortress: normalizeInvincibleFortressState(
       fortress,
-      kind.sharedMaxHp,
+      sharedMaxHp,
       currentHp,
     ),
   };
@@ -595,6 +600,7 @@ export function coopInvincibleFortressDisplay(
   kind: CoopBossKind,
   stateRaw: unknown,
   currentHp: number,
+  sharedMaxHp = kind.sharedMaxHp,
 ): CoopInvincibleFortressDisplay {
   if (kind.id !== "invincible_fortress") {
     return {
@@ -609,7 +615,12 @@ export function coopInvincibleFortressDisplay(
       fortressLastResultTier: null,
     };
   }
-  const state = coopInvincibleFortressState(kind, stateRaw, currentHp);
+  const state = coopInvincibleFortressState(
+    kind,
+    stateRaw,
+    currentHp,
+    sharedMaxHp,
+  );
   const active = state.activeBarrierIndex !== null;
   const lastResultTier = state.barrierResults.at(-1) ?? null;
   const nextFractionIndex = state.completedBarrierCount - 1 + (active ? 1 : 0);
@@ -617,12 +628,12 @@ export function coopInvincibleFortressDisplay(
     fortressBarrierActive: active,
     fortressBarrierTicksRemaining: active ? state.barrierTicksRemaining : 0,
     fortressBarrierDamage: active ? state.barrierDamage : 0,
-    fortressBarrierTarget: invincibleFortressBarrierTarget(kind.sharedMaxHp),
+    fortressBarrierTarget: invincibleFortressBarrierTarget(sharedMaxHp),
     fortressEnrageTier: active
       ? (lastResultTier ?? 0)
       : state.enrageTier,
     fortressProjectedEnrageTier: active
-      ? invincibleFortressTierForDamage(state.barrierDamage, kind.sharedMaxHp)
+      ? invincibleFortressTierForDamage(state.barrierDamage, sharedMaxHp)
       : state.enrageTier,
     fortressCompletedBarrierCount: state.completedBarrierCount,
     fortressNextBarrierHpFraction:
@@ -676,6 +687,7 @@ export function coopSkywardCrystalEyeDisplay(
   kind: CoopBossKind,
   stateRaw: unknown,
   currentHp: number,
+  sharedMaxHp = kind.sharedMaxHp,
 ): CoopSkywardCrystalEyeDisplay {
   const state = coopSkywardCrystalEyeState(kind, stateRaw);
   return {
@@ -686,7 +698,7 @@ export function coopSkywardCrystalEyeDisplay(
     ),
     crystalEyeBasePowerPct: skywardCrystalEyeBasePowerPct(
       currentHp,
-      kind.sharedMaxHp,
+      sharedMaxHp,
     ),
     crystalEyeCoreExposed: state.coreExposureTicksRemaining > 0,
     crystalEyeCoreExposureTicksRemaining: state.coreExposureTicksRemaining,

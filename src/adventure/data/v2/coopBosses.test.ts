@@ -101,7 +101,7 @@ describe("coopBosses 카탈로그", () => {
       kind,
       { bossMp: 7, trackingThreat: 9 },
       state,
-      5_672_000,
+      17_016_000,
     );
 
     expect(merged).toMatchObject({
@@ -109,14 +109,14 @@ describe("coopBosses 카탈로그", () => {
       trackingThreat: 9,
       immortalBerserker: state,
     });
-    expect(coopImmortalBerserkerState(kind, merged, 5_672_000)).toEqual(state);
-    expect(coopImmortalBerserkerDisplay(kind, merged, 5_672_000)).toEqual({
+    expect(coopImmortalBerserkerState(kind, merged, 17_016_000)).toEqual(state);
+    expect(coopImmortalBerserkerDisplay(kind, merged, 17_016_000)).toEqual({
       immortalLifeIndex: 1,
-      immortalLifeHp: 2_000_000,
-      immortalLifeMaxHp: 3_564_000,
+      immortalLifeHp: 6_000_000,
+      immortalLifeMaxHp: 10_692_000,
       immortalRegenActionsRemaining: 2,
       immortalRegenUsesRemaining: 1,
-      immortalNextRegenAmount: 106_920,
+      immortalNextRegenAmount: 320_760,
       immortalAtkMult: 1.12,
       immortalSpdMult: 1.06,
     });
@@ -223,7 +223,7 @@ describe("coopBosses 카탈로그", () => {
   it("추적 병기는 확정 연타 대신 추적 반격 중심의 일반 공격 수치를 사용한다", () => {
     const tracking = COOP_BOSSES.tracking_weapon;
     expect(tracking.base).toMatchObject({
-      atk: 2.2,
+      atk: 16,
       spd: 27,
       evasionPct: 12,
       skill: { kind: "pierce", armorPierce: 10 },

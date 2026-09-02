@@ -19,6 +19,11 @@ export const UNEXPLORED_SUMMON_STONE_SCROLL_COST = 30;
 // 높이는 운영 결정을 함께 반영해 골드 싱크는 5,000,000G로 낮춰 확정했다.
 export const UNEXPLORED_SUMMON_STONE_GOLD_COST = 5_000_000;
 
+// 2026-09-02 테스트 서버 실전 기록: 기존 10,800,000 HP는 상위 캐릭터에게 평균
+// 1~4회 공격으로 처치됐다. 기믹을 전개할 여유는 주되 HP만으로 늘어지는 전투를 피하도록
+// 공통 체력은 3배로 잡고, 실제 생존 압박은 각 보스의 공격력으로 분담한다.
+export const UNEXPLORED_BOSS_SHARED_MAX_HP = 32_400_000;
+
 export const UNEXPLORED_SUMMON_STONE_MATERIALS = {
   v2_unexplored_tracking_weapon_summon_stone: {
     id: "v2_unexplored_tracking_weapon_summon_stone",
@@ -102,14 +107,14 @@ export const UNEXPLORED_BOSSES = {
       },
     ],
     titleId: "v2_unexplored_tracking_weapon",
-    sharedMaxHp: 10_800_000,
+    sharedMaxHp: UNEXPLORED_BOSS_SHARED_MAX_HP,
     anchorDepth: 120,
     monster: {
       name: "추적 병기",
       tags: ["golem"],
       image: "/images/monster/v2/unexplored-boss-tracking-weapon.webp",
       hp: 1_050,
-      atk: 2.2,
+      atk: 16,
       def: 42,
       magicDef: 38,
       spd: 27,
@@ -147,7 +152,7 @@ export const UNEXPLORED_BOSSES = {
       },
     ],
     titleId: "v2_unexplored_toxic_blood_lord",
-    sharedMaxHp: 10_800_000,
+    sharedMaxHp: UNEXPLORED_BOSS_SHARED_MAX_HP,
     anchorDepth: 120,
     monster: {
       name: "독혈 군주",
@@ -197,14 +202,14 @@ export const UNEXPLORED_BOSSES = {
       },
     ],
     titleId: "v2_unexplored_glacial_colossus",
-    sharedMaxHp: 10_800_000,
+    sharedMaxHp: UNEXPLORED_BOSS_SHARED_MAX_HP,
     anchorDepth: 120,
     monster: {
       name: "빙하 거수",
       tags: ["golem"],
       image: "/images/monster/v2/unexplored-boss-glacial-colossus.webp",
       hp: 1_300,
-      atk: 2,
+      atk: 4,
       atkType: "magic",
       def: 48,
       magicDef: 52,
@@ -246,14 +251,14 @@ export const UNEXPLORED_BOSSES = {
       },
     ],
     titleId: "v2_unexplored_invincible_fortress",
-    sharedMaxHp: 10_800_000,
+    sharedMaxHp: UNEXPLORED_BOSS_SHARED_MAX_HP,
     anchorDepth: 120,
     monster: {
       name: "불괴의 성채",
       tags: ["golem"],
       image: "/images/monster/v2/unexplored-boss-invincible-fortress.webp",
       hp: 1_250,
-      atk: 1.9,
+      atk: 6.2,
       def: 50,
       magicDef: 50,
       spd: 20,
@@ -294,14 +299,14 @@ export const UNEXPLORED_BOSSES = {
       },
     ],
     titleId: "v2_unexplored_skyward_crystal_eye",
-    sharedMaxHp: 10_800_000,
+    sharedMaxHp: UNEXPLORED_BOSS_SHARED_MAX_HP,
     anchorDepth: 120,
     monster: {
       name: "천공의 수정안",
       tags: ["golem", "spirit"],
       image: "/images/monster/v2/unexplored-boss-skyward-crystal-eye.webp",
       hp: 1_150,
-      atk: 2,
+      atk: 11.2,
       atkType: "magic",
       def: 42,
       magicDef: 48,
@@ -343,14 +348,14 @@ export const UNEXPLORED_BOSSES = {
       },
     ],
     titleId: "v2_unexplored_immortal_berserker",
-    sharedMaxHp: 10_800_000,
+    sharedMaxHp: UNEXPLORED_BOSS_SHARED_MAX_HP,
     anchorDepth: 120,
     monster: {
       name: "불멸의 광전왕",
       tags: ["humanoid", "slime"],
       image: "/images/monster/v2/unexplored-boss-immortal-berserker.webp",
       hp: 1_200,
-      atk: 1.75,
+      atk: 15,
       def: 42,
       magicDef: 38,
       spd: 21,

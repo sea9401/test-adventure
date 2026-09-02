@@ -1,10 +1,16 @@
 import { isAbsolute, relative, resolve } from "node:path";
 
+import { unexploredBossAdapter } from "../adapters/unexplored-boss/adapter";
 import type { AdapterContext, ValidationIssue } from "../core/adapter";
 import { AdapterRegistry } from "../core/adapterRegistry";
 import { recordApproval } from "../core/approvals";
 import type { CommandRunnerLike } from "../core/commandRunner";
-import { applyArtifactWrites, planArtifactWrites } from "../core/fileWriter";
+import {
+  applyArtifactWrites,
+  planArtifactWrites,
+  verifyArtifactRecords,
+} from "../core/fileWriter";
+import { sha256Text, stableJson } from "../core/hashes";
 import { loadYamlSpec } from "../core/specFile";
 import { recordManualPaths, TaskStateStore } from "../core/taskState";
 import { ToolkitWorkflow } from "../core/workflow";
@@ -34,8 +40,13 @@ export type ToolkitRuntimeDependencies = {
   runner: CommandRunnerLike;
   resolveBaseSha(): Promise<string>;
   now?: () => Date;
+  report?: (message: string) => void;
   releaseHandlers?: ReleaseHandlers;
 };
+
+export function createDefaultAdapterRegistry(): AdapterRegistry {
+  return new AdapterRegistry().register(unexploredBossAdapter);
+}
 
 function projectPath(projectRoot: string, path: string): string {
   if (isAbsolute(path)) {
@@ -122,13 +133,29 @@ function assertMatchingTask(
 }
 
 function assertNoGeneratedErrors(issues: readonly ValidationIssue[]): void {
-  const errors = issues.filter((issue) => issue.severity === "error");
+  const errors = issues.filter(
+    (issue) =>
+      issue.severity === "error" && issue.blockingPhase !== "release",
+  );
   if (errors.length > 0) {
     throw new Error(
       `generated content validation failed: ${errors
         .map((issue) => `${issue.code}: ${issue.message}`)
         .join("; ")}`,
     );
+  }
+}
+
+function reportDryRunTargets(
+  dependencies: ToolkitRuntimeDependencies,
+  artifacts: readonly { scope: "project" | "task"; path: string }[],
+  externalTargets: readonly string[],
+): void {
+  for (const artifact of artifacts) {
+    dependencies.report?.(`${artifact.scope}:${artifact.path}`);
+  }
+  for (const path of externalTargets) {
+    dependencies.report?.(`external:${path}`);
   }
 }
 
@@ -161,6 +188,7 @@ async function createContent(
   );
   const spec = adapter.parseSpec(source);
   const taskId = taskIdFromSpec(spec);
+  const specHash = sha256Text(stableJson(spec));
   const baseSha = await dependencies.resolveBaseSha();
   let state = await loadOptionalState(dependencies.store, taskId);
   if (state !== null) {
@@ -171,6 +199,44 @@ async function createContent(
       specPath,
       baseSha,
     );
+    if (
+      state.steps.scaffold?.inputHash === specHash &&
+      state.artifacts.length > 0
+    ) {
+      await verifyArtifactRecords(
+        dependencies.projectRoot,
+        taskId,
+        state.artifacts,
+      );
+      if (command.dryRun) {
+        const context = contextFor(dependencies, state);
+        reportDryRunTargets(
+          dependencies,
+          state.artifacts,
+          adapter.listExternalTargets?.(context, spec) ?? [],
+        );
+        return 0;
+      }
+      const context = contextFor(dependencies, state);
+      assertNoGeneratedErrors(await adapter.validateGenerated(context, spec));
+      if (state.steps.scaffold.status !== "passed") {
+        const now = (dependencies.now?.() ?? new Date()).toISOString();
+        state = {
+          ...state,
+          updatedAt: now,
+          steps: {
+            ...state.steps,
+            scaffold: {
+              ...state.steps.scaffold,
+              status: "passed",
+              finishedAt: now,
+            },
+          },
+        };
+        await dependencies.store.save(state);
+      }
+      return 0;
+    }
   }
   const context = contextFor(dependencies, { taskId, baseSha });
   const plans = await adapter.plan(context, spec);
@@ -181,6 +247,11 @@ async function createContent(
     { taskId },
   );
   if (command.dryRun) {
+    reportDryRunTargets(
+      dependencies,
+      preview.entries.map((entry) => entry.plan),
+      adapter.listExternalTargets?.(context, spec) ?? [],
+    );
     return 0;
   }
   if (state === null) {
@@ -201,6 +272,24 @@ async function createContent(
   };
   await dependencies.store.save(state);
   assertNoGeneratedErrors(await adapter.validateGenerated(context, spec));
+  const completedAt = (dependencies.now?.() ?? new Date()).toISOString();
+  state = {
+    ...state,
+    updatedAt: completedAt,
+    steps: {
+      ...state.steps,
+      scaffold: {
+        status: "passed",
+        inputHash: specHash,
+        outputHash: sha256Text(stableJson(artifacts)),
+        dependsOn: [],
+        attempts: (state.steps.scaffold?.attempts ?? 0) + 1,
+        startedAt: completedAt,
+        finishedAt: completedAt,
+      },
+    },
+  };
+  await dependencies.store.save(state);
   return 0;
 }
 

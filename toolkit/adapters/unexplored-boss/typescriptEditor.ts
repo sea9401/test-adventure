@@ -100,12 +100,35 @@ function requireInitializer(
 function propertyName(
   member: ts.ObjectLiteralElementLike,
   declarationName: string,
+  sourceFile: ts.SourceFile,
 ): string {
   if (ts.isSpreadAssignment(member)) {
     throw new Error(`${declarationName} contains a spread property`);
   }
   const name = member.name;
-  if (name === undefined || ts.isComputedPropertyName(name)) {
+  if (name === undefined) {
+    throw new Error(`${declarationName} contains an unsupported property name`);
+  }
+  if (ts.isComputedPropertyName(name)) {
+    const expression = unwrapExpression(name.expression);
+    if (ts.isStringLiteralLike(expression)) {
+      return expression.text;
+    }
+    if (ts.isIdentifier(expression)) {
+      try {
+        const declarations = namedDeclarations(sourceFile, expression.text);
+        const initializer = declarations[0].initializer;
+        if (
+          initializer !== undefined &&
+          ts.isStringLiteralLike(unwrapExpression(initializer))
+        ) {
+          return (unwrapExpression(initializer) as ts.StringLiteralLike).text;
+        }
+      } catch {
+        // The generic computed-property error below avoids treating an
+        // unresolved or ambiguous expression as a safe static registry key.
+      }
+    }
     throw new Error(`${declarationName} contains a computed property`);
   }
   if (ts.isIdentifier(name) || ts.isStringLiteral(name)) {
@@ -123,7 +146,7 @@ function requireObjectLiteral(
     throw new Error(`${declarationName} must be initialized with an object literal`);
   }
   for (const member of initializer.properties) {
-    propertyName(member, declarationName);
+    propertyName(member, declarationName, sourceFile);
   }
   return initializer;
 }
@@ -312,7 +335,7 @@ export function readObjectPropertyNames(
   const parsed = parseSource(fileName, source);
   const literal = requireObjectLiteral(parsed.sourceFile, declarationName);
   return literal.properties.map((member) =>
-    propertyName(member, declarationName),
+    propertyName(member, declarationName, parsed.sourceFile),
   );
 }
 
@@ -341,7 +364,7 @@ export function insertObjectProperty(
     request.declarationName,
   );
   const names = literal.properties.map((member) =>
-    propertyName(member, request.declarationName),
+    propertyName(member, request.declarationName, parsed.sourceFile),
   );
   if (names.includes(request.propertyName)) {
     throw new Error(

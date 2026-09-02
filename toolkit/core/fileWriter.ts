@@ -223,7 +223,11 @@ export async function planArtifactWrites(
       previousBytes === null ? 0o644 : (await lstat(targetPath)).mode & 0o777;
     const record = previousByPath.get(key);
 
-    if (record === undefined && previousBytes !== null) {
+    if (
+      record === undefined &&
+      previousBytes !== null &&
+      plan.operation !== "replace-owned"
+    ) {
       throw new Error(
         `${plan.path} already exists without toolkit ownership`,
       );
@@ -252,6 +256,44 @@ export async function planArtifactWrites(
     ),
     records: entries.map(makeRecord),
   };
+}
+
+export async function verifyArtifactRecords(
+  projectRoot: string,
+  taskId: string,
+  records: readonly ArtifactRecord[],
+): Promise<void> {
+  const canonicalProjectRoot = await realpath(projectRoot);
+  if (!TASK_ID_PATTERN.test(taskId)) {
+    throw new Error(`invalid task id: ${taskId}`);
+  }
+  const seen = new Set<string>();
+  for (const record of records) {
+    assertRelativeArtifactPath(record.path);
+    const key = artifactKey(record.scope, record.path);
+    if (seen.has(key)) {
+      throw new Error(`duplicate artifact record: ${record.scope}:${record.path}`);
+    }
+    seen.add(key);
+    const scopeRoot =
+      record.scope === "project"
+        ? canonicalProjectRoot
+        : join(canonicalProjectRoot, ".toolkit", "work", taskId);
+    const targetPath = resolve(scopeRoot, record.path);
+    if (!isPathInside(scopeRoot, targetPath)) {
+      throw new Error(`unsafe artifact path: ${record.path}`);
+    }
+    await assertNoSymlinkEscape(
+      canonicalProjectRoot,
+      scopeRoot,
+      record.path,
+      record.scope,
+    );
+    const bytes = await readExistingBytes(targetPath);
+    if (bytes === null || hashBytes(bytes) !== record.outputHash) {
+      throw new Error(`${record.path} changed outside toolkit ownership`);
+    }
+  }
 }
 
 async function verifyPreviewStillCurrent(

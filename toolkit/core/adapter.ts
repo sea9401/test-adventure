@@ -12,10 +12,12 @@ export type ValidationIssue = {
   code: string;
   message: string;
   path?: string;
+  blockingPhase?: "content" | "release";
 };
 
 export type ToolkitAdapter<TSpec> = {
   id: string;
+  displayName?: string;
   specVersion: number;
   parseSpec(input: unknown): TSpec;
   plan(
@@ -26,6 +28,10 @@ export type ToolkitAdapter<TSpec> = {
     context: AdapterContext,
     spec: TSpec,
   ): Promise<readonly ValidationIssue[]>;
+  listExternalTargets?(
+    context: AdapterContext,
+    spec: TSpec,
+  ): readonly string[];
   selectFastChecks(
     context: AdapterContext,
     spec: TSpec,

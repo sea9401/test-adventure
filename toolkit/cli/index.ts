@@ -6,7 +6,6 @@ import {
 import { promisify } from "node:util";
 import { execFile } from "node:child_process";
 
-import { AdapterRegistry } from "../core/adapterRegistry";
 import { CommandRunner } from "../core/commandRunner";
 import { TaskStateStore } from "../core/taskState";
 import {
@@ -14,7 +13,10 @@ import {
   promptForToolkitCommand,
   shouldPromptInteractively,
 } from "./interactive";
-import { executeToolkitCommand } from "./runtime";
+import {
+  createDefaultAdapterRegistry,
+  executeToolkitCommand,
+} from "./runtime";
 
 const execFileAsync = promisify(execFile);
 
@@ -25,7 +27,7 @@ async function main(argv: readonly string[]): Promise<void> {
   }
 
   try {
-    const registry = new AdapterRegistry();
+    const registry = createDefaultAdapterRegistry();
     let command;
     if (shouldPromptInteractively(argv, process.env.CI, process.stdin.isTTY)) {
       const session = createReadlineInteractiveIo();
@@ -33,7 +35,7 @@ async function main(argv: readonly string[]): Promise<void> {
         command = await promptForToolkitCommand(session.io, {
           adapters: registry.list().map((adapter) => ({
             id: adapter.id,
-            label: adapter.id,
+            label: adapter.displayName ?? adapter.id,
           })),
         });
       } finally {
@@ -50,6 +52,7 @@ async function main(argv: readonly string[]): Promise<void> {
       registry,
       store: new TaskStateStore(process.cwd()),
       runner: new CommandRunner(),
+      report: (message) => process.stdout.write(`${message}\n`),
       resolveBaseSha: async () => {
         const result = await execFileAsync("git", ["rev-parse", "HEAD"], {
           cwd: process.cwd(),

@@ -63,6 +63,33 @@ describe("insertObjectProperty", () => {
     ).toThrow("CATALOG already contains old");
   });
 
+  it("preserves computed properties backed by string constants and detects their ids", () => {
+    const computed = [
+      'const STATIC_ID = "static_id";',
+      "const CATALOG = {",
+      "  [STATIC_ID]: { id: STATIC_ID },",
+      "};",
+      "",
+    ].join("\n");
+
+    expect(
+      insertObjectProperty(computed, {
+        fileName: "catalog.ts",
+        declarationName: "CATALOG",
+        propertyName: "next",
+        renderedProperty: "  next: { id: \"next\" },\n",
+      }),
+    ).toContain("[STATIC_ID]: { id: STATIC_ID },\n  next:");
+    expect(() =>
+      insertObjectProperty(computed, {
+        fileName: "catalog.ts",
+        declarationName: "CATALOG",
+        propertyName: "static_id",
+        renderedProperty: '  static_id: { id: "static_id" },\n',
+      }),
+    ).toThrow("CATALOG already contains static_id");
+  });
+
   it.each([
     [
       "duplicate declarations",

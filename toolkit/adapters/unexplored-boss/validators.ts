@@ -61,6 +61,7 @@ export async function validateUnexploredBossArtifacts(
       code: "mechanic-incomplete",
       message: `mechanic implementation remains blocked in: ${blockedPaths.join(", ")}`,
       path: blockedPaths[0],
+      blockingPhase: "release",
     });
   }
 

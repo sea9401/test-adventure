@@ -15,6 +15,7 @@ import {
   applyArtifactWrites,
   nodeFileWriterOperations,
   planArtifactWrites,
+  verifyArtifactRecords,
 } from "./fileWriter";
 import { createFixtureWorkspace } from "../testing/fixtureWorkspace";
 
@@ -79,6 +80,37 @@ describe("planArtifactWrites", () => {
         [],
       ),
     ).rejects.toThrow("src/generated.ts already exists without toolkit ownership");
+  });
+
+  it("adopts an AST-validated existing file only through replace-owned", async () => {
+    const root = await workspace();
+    await writeFile(join(root, "src/catalog.ts"), "export const old = 1;\n");
+    const preview = await planArtifactWrites(
+      root,
+      [
+        {
+          scope: "project",
+          path: "src/catalog.ts",
+          operation: "replace-owned",
+          ownershipKey: "catalog:v1",
+          content: "export const old = 1;\nexport const generated = 2;\n",
+        },
+      ],
+      [],
+    );
+
+    const records = await applyArtifactWrites(root, preview);
+
+    expect(await readFile(join(root, "src/catalog.ts"), "utf8")).toContain(
+      "generated = 2",
+    );
+    await expect(
+      verifyArtifactRecords(root, "boss-red", records),
+    ).resolves.toBeUndefined();
+    await writeFile(join(root, "src/catalog.ts"), "user edit\n");
+    await expect(verifyArtifactRecords(root, "boss-red", records)).rejects.toThrow(
+      "src/catalog.ts changed outside toolkit ownership",
+    );
   });
 
   it("rejects duplicate targets and replace-owned without an ownership key", async () => {

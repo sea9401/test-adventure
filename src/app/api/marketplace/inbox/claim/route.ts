@@ -180,8 +180,7 @@ export async function POST(req: Request) {
         throw new TradeSuspendedError(restriction);
       }
 
-      // 판매 대금은 은행으로, 환불·기타 우편 골드는 기존처럼 보유 현금으로 지급한다.
-      let walletGoldTotal = 0;
+      // 우편으로 수령하는 골드는 종류와 관계없이 은행에 바로 보관한다.
       let bankedGoldTotal = 0;
       // 시즌 순위 보상 코인 — season 별로 합산해 각 지갑에 적립.
       const coinsBySeason: Record<SeasonRewardSeason, number> = {
@@ -262,7 +261,7 @@ export async function POST(req: Request) {
             break;
           case "bid_refund":
           case "buy_order_refund":
-            if (parsed.gold > 0) walletGoldTotal += parsed.gold;
+            if (parsed.gold > 0) bankedGoldTotal += parsed.gold;
             break;
           case "buy_order_item":
             if (parsed.item_kind === "material") {
@@ -339,7 +338,7 @@ export async function POST(req: Request) {
             break;
           case "guild_quest_reward": {
             // 길드 의뢰 보상 — 골드 + 멤버당 재료/아이템.
-            if (parsed.gold > 0) walletGoldTotal += parsed.gold;
+            if (parsed.gold > 0) bankedGoldTotal += parsed.gold;
             for (const m of parsed.materials) {
               pushMaterial(m.materialId, m.count);
             }
@@ -355,7 +354,7 @@ export async function POST(req: Request) {
           case "admin_gift": {
             // 운영자 대량 우편 — 골드 + 재료/장비/스태미나 회복약 지급(메시지는 message 컬럼).
             // 장비는 길드 의뢰 보상과 동일하게 항상 base 등급.
-            if (parsed.gold > 0) walletGoldTotal += parsed.gold;
+            if (parsed.gold > 0) bankedGoldTotal += parsed.gold;
             for (const m of parsed.materials) {
               pushMaterial(m.materialId, m.count);
             }
@@ -395,8 +394,8 @@ export async function POST(req: Request) {
         }
       }
 
-      // 캐릭터 갱신 — 골드 + V2 재료(둘 다 character.v2 가 SSOT). 한 번만 잠그고 합쳐 upsert.
-      let newGold: number | null = null;
+      // 캐릭터 갱신 — 은행 골드 + V2 재료(둘 다 character.v2 가 SSOT). 한 번만 잠그고 합쳐 upsert.
+      const newGold: number | null = null;
       let newBankedGold: number | null = null;
       let adventureSupportActiveUntil: number | null = null;
       let adventureSupportDaysApplied = 0;
@@ -405,7 +404,6 @@ export async function POST(req: Request) {
       let staminaMaxAfterSupport: number | null = null;
       const materialsV2Added: { id: string; count: number }[] = [];
       if (
-        walletGoldTotal > 0 ||
         bankedGoldTotal > 0 ||
         v2MaterialsToAdd.length > 0 ||
         museunCashItemTotals.size > 0 ||
@@ -419,16 +417,11 @@ export async function POST(req: Request) {
           )
           .for("update");
         // 골드 지급은 캐릭터가 반드시 있어야 함(기존 동작 보존). 재료만이면 없을 때 빈 캐릭터로 시작.
-        if ((walletGoldTotal > 0 || bankedGoldTotal > 0) && charRows.length === 0) {
+        if (bankedGoldTotal > 0 && charRows.length === 0) {
           return { error: "no_character", status: 400 as const };
         }
         const character = (charRows[0]?.value ?? {}) as Record<string, unknown>;
         let nextChar: Record<string, unknown> = { ...character };
-        if (walletGoldTotal > 0) {
-          const cur = Number((character as { gold?: unknown }).gold ?? 0);
-          newGold = cur + walletGoldTotal;
-          nextChar = { ...nextChar, gold: newGold };
-        }
         if (bankedGoldTotal > 0) {
           const cur = Number(
             (character as { bankedGold?: unknown }).bankedGold ?? 0,
@@ -866,7 +859,7 @@ export async function POST(req: Request) {
       return {
         ok: true as const,
         claimed: idsToMark,
-        goldAdded: walletGoldTotal,
+        goldAdded: 0,
         bankedGoldAdded: bankedGoldTotal,
         itemsAdded: itemsToAdd,
         equipV2Added,

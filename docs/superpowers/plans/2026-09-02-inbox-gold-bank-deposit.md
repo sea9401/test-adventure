@@ -27,27 +27,27 @@
 - Consumes: `parseInboxPayload`가 반환하는 `sale_proceeds`, `bid_refund`, `buy_order_refund`, `guild_quest_reward`, `admin_gift`의 `gold`
 - Produces: 수령 응답의 `bankedGoldAdded`, `newBankedGold`; 변경되지 않는 `character.v2.gold`
 
-- [ ] **Step 1: 모든 골드 우편의 은행 적립 실패 테스트 작성**
+- [x] **Step 1: 모든 골드 우편의 은행 적립 실패 테스트 작성**
 
   판매 대금 1,000G, 입찰 환불 50G, 구매주문 환불 70G, 길드 의뢰 80G, 운영자 우편 100G를 한 요청으로 수령한다. 초기 `{ gold: 100, bankedGold: 200 }`에서 응답과 저장값이 `gold: 100`, `bankedGold: 1_500`, `goldAdded: 0`, `bankedGoldAdded: 1_300`인지 리터럴로 검증한다.
 
-- [ ] **Step 2: 테스트를 실행해 RED 확인**
+- [x] **Step 2: 테스트를 실행해 RED 확인**
 
   Run: `npx vitest run src/lib/server/inboxClaimSeasonReward.test.ts`
 
   Expected: 기존 구현이 환불·길드·운영자 골드 300G를 보유금에 넣어 실패한다.
 
-- [ ] **Step 3: 최소 서버 구현**
+- [x] **Step 3: 최소 서버 구현**
 
   `walletGoldTotal` 분기를 제거하고 다섯 종류의 양수 골드를 모두 `bankedGoldTotal`에 합산한다. 캐릭터 잠금·업서트와 응답은 기존 은행 골드 경로만 사용한다.
 
-- [ ] **Step 4: 집중 테스트를 실행해 GREEN 확인**
+- [x] **Step 4: 집중 테스트를 실행해 GREEN 확인**
 
   Run: `npx vitest run src/lib/server/inboxClaimSeasonReward.test.ts`
 
   Expected: 모든 테스트가 통과한다.
 
-- [ ] **Step 5: 정적 검사와 빌드**
+- [x] **Step 5: 정적 검사와 빌드**
 
   Run: `npx eslint src/app/api/marketplace/inbox/claim/route.ts src/lib/server/inboxClaimSeasonReward.test.ts`
 
@@ -57,7 +57,7 @@
 
   Expected: 모든 명령이 종료 코드 0으로 끝난다.
 
-- [ ] **Step 6: 로컬 커밋**
+- [x] **Step 6: 로컬 커밋**
 
 ```bash
 git add docs/superpowers/specs/2026-09-02-inbox-gold-bank-deposit-design.md docs/superpowers/plans/2026-09-02-inbox-gold-bank-deposit.md src/app/api/marketplace/inbox/claim/route.ts src/lib/server/inboxClaimSeasonReward.test.ts

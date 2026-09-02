@@ -90,7 +90,7 @@ describe("개인 보스 세션 상태", () => {
     });
   });
 
-  it("만료 세션은 메커니즘 상태도 함께 비운다", async () => {
+  it("만료 세션은 NOT NULL 제약을 지키며 메커니즘 상태를 빈 객체로 비운다", async () => {
     const set = vi.fn(() => ({ where: vi.fn(async () => undefined) }));
     const ex = { update: vi.fn(() => ({ set })) };
 
@@ -100,7 +100,7 @@ describe("개인 보스 세션 상태", () => {
     );
 
     expect(set).toHaveBeenCalledWith(expect.objectContaining({
-      mechanicState: null,
+      mechanicState: {},
     }));
   });
 });

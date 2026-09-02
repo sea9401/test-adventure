@@ -1,6 +1,10 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { marketplaceListingsV2, savesKv } from "@/db/schema";
+import {
+  marketplaceBidsV2,
+  marketplaceListingsV2,
+  savesKv,
+} from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { listedEquipBound } from "@/adventure/data/v2/v2EquipMint";
@@ -74,6 +78,25 @@ export async function GET(req: Request) {
     .orderBy(desc(marketplaceListingsV2.createdAt))
     .limit(MARKETPLACE_V2_BROWSE_LIMIT);
 
+  const participatedRows = rows.length === 0
+    ? []
+    : await db
+        .select({ listingId: marketplaceBidsV2.listingId })
+        .from(marketplaceBidsV2)
+        .where(
+          and(
+            eq(marketplaceBidsV2.bidderId, userId),
+            inArray(
+              marketplaceBidsV2.listingId,
+              rows.map((row) => row.id),
+            ),
+          ),
+        )
+        .groupBy(marketplaceBidsV2.listingId);
+  const participatedIds = new Set(
+    participatedRows.map((row) => row.listingId),
+  );
+
   // 뷰어 골드(character.v2.gold) — 비잠금 단순 read(표시용, 권위는 buy tx).
   const [charRow] = await db
     .select({ value: savesKv.value })
@@ -112,6 +135,7 @@ export async function GET(req: Request) {
             ),
           },
           userId,
+          participatedIds.has(row.id),
         ),
       ),
   });

@@ -50,12 +50,18 @@ vi.mock("@/lib/server/userRateLimit", () => ({
 vi.mock("@/db", () => ({
   db: {
     select: vi.fn((selection: Record<string, unknown>) => {
-      const result = "value" in selection ? [{ value: { gold: 321 } }] : rows;
+      const result =
+        "value" in selection
+          ? [{ value: { gold: 321 } }]
+          : "listingId" in selection && Object.keys(selection).length === 1
+            ? [{ listingId: 1 }]
+            : rows;
       const chain = {
         from: () => chain,
         where: () => chain,
         orderBy: () => chain,
         limit: () => Promise.resolve(result),
+        groupBy: () => Promise.resolve(result),
       };
       return chain;
     }),
@@ -83,6 +89,7 @@ describe("경매장 조회", () => {
           quantity: 3,
           price: 900,
           nextBid: 900,
+          hasMyBid: true,
         }),
       ],
     });

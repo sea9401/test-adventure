@@ -61,6 +61,8 @@ export const MARKETPLACE_V2_BROWSE_LIMIT = 100;
 export const MARKETPLACE_V2_PRICE_HISTORY_DAYS = 30;
 // 최근 거래 내역 — 체결(sold) 매물을 최신순으로 이만큼 반환(거래소 "최근 거래" 탭).
 export const MARKETPLACE_V2_HISTORY_LIMIT = 100;
+// 내 입찰 — 원본 입찰 기록 보존 범위에서 최근 참여 매물을 이만큼 반환한다.
+export const MARKETPLACE_V2_MY_BIDS_LIMIT = 50;
 export const MARKETPLACE_V2_AUCTION_MODE_VERSION = 1;
 export const MARKETPLACE_V2_AUCTION_HOURS = 6;
 export const MARKETPLACE_V2_BID_EXTENSION_WINDOW_MINUTES = 10;
@@ -186,13 +188,14 @@ export function marketplacePublicListing<
     highestBidderId: string | null;
     highestBid: number | null;
   },
->(row: T, viewerId: string) {
+>(row: T, viewerId: string, hasMyBid = false) {
   const { sellerId, sellerName: _sellerName, highestBidderId, ...publicRow } =
     row;
   return {
     ...publicRow,
     isMine: sellerId === viewerId,
     isHighestBidder: highestBidderId === viewerId,
+    hasMyBid,
     nextBid: marketplaceNextBidMinimum(row.price, row.highestBid),
   };
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Cube,
   Flask,
+  Gavel,
   HandPalm,
   ListPlus,
   MagnifyingGlass,
@@ -111,6 +112,8 @@ import {
 } from "./marketplace/equipmentComparison";
 import { EquipmentCodexBadge } from "./EquipmentCodexBadge";
 import { MarketplaceTradeReportButton } from "./marketplace/MarketplaceTradeReportButton";
+import { MarketplaceMyBids } from "./marketplace/MarketplaceMyBids";
+import type { MarketplaceMyBid } from "./marketplace/marketplaceBidTracking";
 import { marketplaceLifeItemDefinition } from "./marketplace/lifeItemCatalog";
 import {
   MARKETPLACE_EQUIPMENT_TIER_OPTIONS,
@@ -142,7 +145,7 @@ function listingCraftQuality(payload: unknown): V2CraftQualityState | undefined 
 }
 
 type Tab = "browse" | "sell" | "recent" | "mine";
-type MineTab = "active" | "alerts" | "history";
+type MineTab = "active" | "bids" | "alerts" | "history";
 type SellCraftFilter =
   | "all"
   | "crafted"
@@ -159,7 +162,7 @@ const MARKETPLACE_TABS: ReadonlyArray<{
   { key: "browse", label: "경매", description: "입찰 매물", Icon: ShoppingCart },
   { key: "sell", label: "판매", description: "아이템 올리기", Icon: ListPlus },
   { key: "recent", label: "최근 거래", description: "전체 체결", Icon: Receipt },
-  { key: "mine", label: "내 거래", description: "판매·체결 관리", Icon: Package },
+  { key: "mine", label: "내 거래", description: "판매·입찰 관리", Icon: Package },
 ];
 
 const LISTING_ICON: Record<V2ItemTabKey, Icon> = {
@@ -200,6 +203,7 @@ function tradeToListing(trade: Trade): Listing {
     id: trade.id,
     isMine: trade.side === "sell",
     isHighestBidder: trade.side === "buy",
+    hasMyBid: trade.side === "buy",
     kind: trade.kind as Listing["kind"],
     itemId: trade.itemId,
     itemName: trade.itemName,
@@ -325,6 +329,7 @@ export function V2MarketplaceView({
     preview?.listings ?? null,
   );
   const [mine, setMine] = useState<Listing[] | null>(null);
+  const [myBids, setMyBids] = useState<MarketplaceMyBid[] | null>(null);
   // 최근 거래 — Trade 를 Listing 형태로 매핑(ListingList 재사용). createdAt 자리 = 체결 시각.
   const [recentTrades, setRecentTrades] = useState<Listing[] | null>(null);
   const [myHistory, setMyHistory] = useState<Listing[] | null>(null);
@@ -358,6 +363,7 @@ export function V2MarketplaceView({
     () => new Set(),
   );
   const [favoriteOnly, setFavoriteOnly] = useState(false);
+  const [personalOnly, setPersonalOnly] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [craftedOnly, setCraftedOnly] = useState(false);
@@ -481,6 +487,18 @@ export function V2MarketplaceView({
     else setRecentTrades(rows);
   }, []);
 
+  const loadMyBids = useCallback(async () => {
+    const res = await fetch("/api/v2/marketplace/my-bids");
+    const payload = (await res.json().catch(() => null)) as {
+      ok?: boolean;
+      bids?: MarketplaceMyBid[];
+    } | null;
+    if (!res.ok || !payload?.ok) {
+      throw new Error(`입찰 내역 로드 실패 (${res.status})`);
+    }
+    setMyBids(payload.bids ?? []);
+  }, []);
+
   const loadPriceAlerts = useCallback(async () => {
     const response = await fetch("/api/v2/marketplace/price-alerts");
     if (response.ok) {
@@ -506,6 +524,7 @@ export function V2MarketplaceView({
     } else if (tab === "mine") {
       void loadBrowse(true).catch((e) => setError(String(e.message ?? e)));
       void loadHistory(true).catch((e) => setError(String(e.message ?? e)));
+      void loadMyBids().catch((e) => setError(String(e.message ?? e)));
       void loadEquipment();
       void loadPrices();
     } else {
@@ -521,6 +540,7 @@ export function V2MarketplaceView({
     loadPrices,
     loadHistory,
     loadPriceAlerts,
+    loadMyBids,
     preview,
   ]);
 
@@ -544,6 +564,7 @@ export function V2MarketplaceView({
     const refresh = () => {
       if (document.visibilityState !== "visible") return;
       const requests = [loadBrowse(tab === "mine")];
+      if (tab === "mine") requests.push(loadMyBids());
       if (automationSurfaceOpen) requests.push(loadPriceAlerts());
       void Promise.all(requests).catch(() => {
         // 주기 갱신 실패는 현재 목록을 유지하고 다음 주기에 재시도한다.
@@ -559,6 +580,7 @@ export function V2MarketplaceView({
     automationSurfaceOpen,
     loadBrowse,
     loadPriceAlerts,
+    loadMyBids,
     preview,
     tab,
   ]);
@@ -766,6 +788,10 @@ export function V2MarketplaceView({
       setMsg(
         `✓ ${amount.toLocaleString()}골드 입찰 완료${payload.extended ? ` · 마감 ${bidExtensionMinutes}분 연장` : ""}`,
       );
+      await Promise.all([
+        loadBrowse(false),
+        ...(myBids !== null ? [loadMyBids()] : []),
+      ]);
       await refreshGameState();
       return true;
     } catch (caught) {
@@ -1026,6 +1052,9 @@ export function V2MarketplaceView({
     : STACK_BROWSE_SORT_BUTTONS;
   const displayedListings = (listings ?? [])
     .filter((l) => matchesBrowseTab(l, browseTab))
+    .filter(
+      (l) => !personalOnly || l.isMine || l.isHighestBidder || l.hasMyBid,
+    )
     .filter((l) => !favoriteOnly || favoriteKeys.has(favoriteKeyForListing(l)))
     .filter(
       (l) =>
@@ -1049,6 +1078,7 @@ export function V2MarketplaceView({
   const displayedItemCount = displayedListings.length;
   const activeFilterCount =
     Number(favoriteOnly) +
+    Number(personalOnly) +
     (browseEquipmentTab
       ? Number(equipmentTierFilter !== "all") +
         Number(craftedOnly) +
@@ -1063,11 +1093,12 @@ export function V2MarketplaceView({
     setCraftedQualityFilter("all");
     setCraftedLevelFilter("all");
     setFavoriteOnly(false);
+    setPersonalOnly(false);
   };
   const browsePager = usePagination(
     displayedListings,
     MARKETPLACE_PAGE_SIZE,
-    `browse:${browseTab}:${q}:${favoriteOnly}:${equipmentTierFilter}:${craftedOnly}:${craftedQualityFilter}:${craftedLevelFilter}:${sort}`,
+    `browse:${browseTab}:${q}:${favoriteOnly}:${personalOnly}:${equipmentTierFilter}:${craftedOnly}:${craftedQualityFilter}:${craftedLevelFilter}:${sort}`,
   );
   const recentTradesPager = usePagination(
     recentTrades ?? [],
@@ -1234,6 +1265,20 @@ export function V2MarketplaceView({
               <div className={`${SURFACE_INSET} px-3 py-2 text-[11px] text-zinc-600 dark:text-zinc-300`}>
                 모든 매물은 {auctionHours}시간 경매이며, 마감 {bidExtensionWindowMinutes}분 미만에 새 입찰이 들어오면 마감이 {bidExtensionMinutes}분 연장됩니다.
               </div>
+              <button
+                type="button"
+                aria-pressed={personalOnly}
+                aria-label="내 항목만 보기"
+                onClick={() => setPersonalOnly((value) => !value)}
+                className={`flex w-full items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-semibold transition ${
+                  personalOnly
+                    ? "border-sky-600 bg-sky-600 text-white"
+                    : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <Package size={15} weight={personalOnly ? "fill" : "duotone"} />
+                내 항목만 보기
+              </button>
               <div className="flex gap-2">
                 <label className="relative min-w-0 flex-1">
                   <span className="sr-only">아이템 또는 제작자 검색</span>
@@ -1477,6 +1522,11 @@ export function V2MarketplaceView({
                       제작자 Lv {craftedLevelFilter}+
                     </span>
                   ) : null}
+                  {personalOnly ? (
+                    <span className="rounded-full bg-sky-100 px-2 py-1 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                      내 항목
+                    </span>
+                  ) : null}
                 </div>
                 {activeFilterCount > 0 ? (
                   <button
@@ -1577,9 +1627,10 @@ export function V2MarketplaceView({
       {tab === "mine" && (
         <>
           <Card padding="none" className="overflow-hidden">
-            <div className="grid grid-cols-3 p-1.5">
+            <div className="grid grid-cols-4 p-1.5">
               {([
                 ["active", "판매 중", Package],
+                ["bids", "내 입찰", Gavel],
                 ["alerts", "가격 알림", Star],
                 ["history", "거래 내역", Receipt],
               ] as const).map(([key, label, Icon]) => (
@@ -1599,6 +1650,10 @@ export function V2MarketplaceView({
                   {key === "active" && mine !== null && mine.length > 0 ? (
                     <span className="rounded-full bg-white px-1.5 py-0.5 text-[9px] leading-none text-sky-700">
                       {mine.length}
+                    </span>
+                  ) : key === "bids" && myBids !== null && myBids.length > 0 ? (
+                    <span className="rounded-full bg-white px-1.5 py-0.5 text-[9px] leading-none text-sky-700">
+                      {myBids.length}
                     </span>
                   ) : key === "alerts" && priceAlerts !== null ? (
                     <span className="rounded-full bg-white px-1.5 py-0.5 text-[9px] leading-none text-sky-700">
@@ -1651,6 +1706,15 @@ export function V2MarketplaceView({
                 />
               )}
             </>
+          ) : mineTab === "bids" ? (
+            <MarketplaceMyBids
+              rows={myBids}
+              clockMs={clockMs}
+              busy={busy}
+              onOpenBid={(bid) =>
+                void openBid({ ...bid, isMine: false, hasMyBid: true })
+              }
+            />
           ) : mineTab === "alerts" ? (
             <PriceAlertManagement
               alerts={priceAlerts}
@@ -2405,6 +2469,30 @@ function ListingList({
               : "consumable";
         const ListingKindIcon = LISTING_ICON[listingTabKey];
         const clickable = l.kind === "equip" && !!onOpenCard;
+        const relation = historical
+          ? null
+          : l.isMine
+            ? {
+                key: "mine",
+                label: "내 매물",
+                className:
+                  "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300",
+              }
+            : l.isHighestBidder
+              ? {
+                  key: "leading",
+                  label: "최고 입찰 중",
+                  className:
+                    "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+                }
+              : l.hasMyBid
+                ? {
+                    key: "bid",
+                    label: "내 입찰",
+                    className:
+                      "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+                  }
+                : null;
         const info = (
           <>
             <div className="flex flex-wrap items-center gap-1.5">
@@ -2428,6 +2516,14 @@ function ListingList({
               </span>
               {item ? <EquipmentTierBadge tier={item.tier} compact /> : null}
               {item ? <EquipmentCodexBadge itemId={item.id} /> : null}
+              {relation ? (
+                <span
+                  data-marketplace-relation={relation.key}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${relation.className}`}
+                >
+                  {relation.label}
+                </span>
+              ) : null}
               <EnhanceLevelBadge enhance={detail?.enhance} />
               <CraftQualityBadge craftQuality={detail?.craftQuality} />
               {craftedBy?.masterwork ? <MasterworkBadge /> : null}

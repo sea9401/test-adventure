@@ -115,6 +115,7 @@ describe("6시간 전 품목 입찰 경매", () => {
         highestBid: 100,
       },
       "viewer",
+      true,
     );
     expect(listing).not.toHaveProperty("sellerId");
     expect(listing).not.toHaveProperty("sellerName");
@@ -123,6 +124,7 @@ describe("6시간 전 품목 입찰 경매", () => {
       id: 1,
       isMine: false,
       isHighestBidder: true,
+      hasMyBid: true,
       nextBid: 105,
     });
   });

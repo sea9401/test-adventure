@@ -96,6 +96,7 @@ import {
   lockTradeParticipantStatuses,
   tradeSuspendedResponse,
 } from "@/lib/server/tradeSuspension";
+import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
 
 const SAVES_CHARACTER = "character.v2";
 const SAVES_INVENTORY = "inventory.v2";
@@ -205,6 +206,7 @@ export async function POST(req: Request) {
       let staminaPotionsTotal = 0;
       let boundStaminaPotionsTotal = 0;
       let museunCoinsTotal = 0;
+      let masteryCertificatesTotal = 0;
       const museunCashItemTotals = new Map<MuseunCashItemId, number>();
       const cookingFoodTotals = new Map<CookingFoodId, number>();
       const cookingIngredientTotals = new Map<
@@ -378,6 +380,9 @@ export async function POST(req: Request) {
             if (parsed.museunCoins > 0) {
               museunCoinsTotal += parsed.museunCoins;
             }
+            if ((parsed.masteryCertificates ?? 0) > 0) {
+              masteryCertificatesTotal += parsed.masteryCertificates ?? 0;
+            }
             for (const item of parsed.cashItems) {
               museunCashItemTotals.set(
                 item.itemId,
@@ -494,13 +499,15 @@ export async function POST(req: Request) {
 
       // 인벤토리 갱신 (스택 아이템 또는 인스턴스 있을 때만).
       let newInventory: InventoryShape | null = null;
+      let masteryCertificates: number | null = null;
       // V2 장비 갱신 (equipment.v2). 운영자 우편/길드 보상 장비가 여기로 합류.
       let newEquipmentOwned: V2EquipInstance[] | null = null;
       const equipV2Added: { id: string; count: number }[] = [];
       if (
         itemsToAdd.length > 0 ||
         instancesToAdd.length > 0 ||
-        cookingFoodTotals.size > 0
+        cookingFoodTotals.size > 0 ||
+        masteryCertificatesTotal > 0
       ) {
         const invRows = await tx
           .select()
@@ -511,8 +518,12 @@ export async function POST(req: Request) {
           .for("update");
         const inv = (invRows[0]?.value ?? {}) as InventoryShape & {
           cookingFoods?: unknown;
+          masteryCertificates?: number;
         };
-        let next: InventoryShape & { cookingFoods?: unknown } = { ...inv };
+        let next: InventoryShape & {
+          cookingFoods?: unknown;
+          masteryCertificates?: number;
+        } = { ...inv };
         for (const it of itemsToAdd) {
           if (it.kind === "equip") {
             next = addGradedEquip(next, it.id, it.grade, it.quantity);
@@ -541,6 +552,20 @@ export async function POST(req: Request) {
           next = {
             ...next,
             cookingFoods: addCookingFood(next.cookingFoods, itemId, count),
+          };
+        }
+        if (masteryCertificatesTotal > 0) {
+          const current = Math.max(
+            0,
+            Math.floor(Number(inv[MASTERY_CERTIFICATE_KEY]) || 0),
+          );
+          masteryCertificates = Math.min(
+            Number.MAX_SAFE_INTEGER,
+            current + masteryCertificatesTotal,
+          );
+          next = {
+            ...next,
+            [MASTERY_CERTIFICATE_KEY]: masteryCertificates,
           };
         }
         await upsertSave(tx, userId, SAVES_INVENTORY, next);
@@ -877,6 +902,8 @@ export async function POST(req: Request) {
         coinsAdded,
         museunCoinsAdded: museunCoinsTotal,
         museunCoins,
+        masteryCertificatesAdded: masteryCertificatesTotal,
+        masteryCertificates,
         cashItemsAdded: Array.from(museunCashItemTotals, ([itemId, count]) => ({
           itemId,
           count,

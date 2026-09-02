@@ -272,6 +272,29 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     });
   });
 
+  it("admin_gift 숙련 증서를 inventory.v2 기존 보유량에 누적한다", async () => {
+    inboxRows.push({
+      id: 1,
+      kind: "admin_gift",
+      payload: { masteryCertificates: 25 },
+      claimedAt: null,
+    });
+    saveSelectRows.push({ value: { masteryCertificates: 40 } });
+
+    const response = await POST(req([1]));
+    const json = (await response.json()) as {
+      masteryCertificatesAdded: number;
+      masteryCertificates: number;
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.masteryCertificatesAdded).toBe(25);
+    expect(json.masteryCertificates).toBe(65);
+    expect(savesStore.get("u1::inventory.v2")).toMatchObject({
+      masteryCertificates: 65,
+    });
+  });
+
   it("admin_gift 무슨 코인과 코인샵 아이템이 각 전용 세이브에 적립된다", async () => {
     inboxRows.push({
       id: 1,

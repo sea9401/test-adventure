@@ -14,5 +14,6 @@ export type CheckDefinition = {
   command: string;
   args: readonly string[];
   env?: Readonly<Record<string, string>>;
+  inputHash?: string;
   dependsOn: readonly string[];
 };

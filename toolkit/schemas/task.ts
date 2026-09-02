@@ -44,6 +44,16 @@ export type ApprovalRecord = {
   approvedAt: string;
 };
 
+export type ImageReviewRole = "boss" | "drop-30" | "drop-10" | "drop-rare";
+
+export type ImageReviewRecord = {
+  role: ImageReviewRole;
+  contentHash: string;
+  decision: "accept" | "reject";
+  reason: string;
+  reviewedAt: string;
+};
+
 export type ToolkitTaskState = {
   schemaVersion: 1;
   taskId: string;
@@ -58,4 +68,5 @@ export type ToolkitTaskState = {
   artifacts: readonly ArtifactRecord[];
   approvals: readonly ApprovalRecord[];
   manualPaths: readonly string[];
+  imageReviews?: Readonly<Partial<Record<ImageReviewRole, ImageReviewRecord>>>;
 };

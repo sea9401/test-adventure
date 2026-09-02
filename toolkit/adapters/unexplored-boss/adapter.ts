@@ -109,6 +109,9 @@ export const unexploredBossAdapter: ToolkitAdapter<UnexploredBossSpecV1> = {
   listExternalTargets(_context, spec) {
     return spec.images.map((image) => image.target).toSorted();
   },
+  listImageSpecs(_context, spec) {
+    return spec.images;
+  },
   selectFastChecks(context, spec) {
     return fastChecks(context.projectRoot, spec);
   },

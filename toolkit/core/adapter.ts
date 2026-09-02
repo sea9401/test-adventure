@@ -15,6 +15,13 @@ export type ValidationIssue = {
   blockingPhase?: "content" | "release";
 };
 
+export type AdapterImageSpec = {
+  role: "boss" | "drop-30" | "drop-10" | "drop-rare";
+  target: string;
+  requiresAlpha: boolean;
+  rightsSource: string;
+};
+
 export type ToolkitAdapter<TSpec> = {
   id: string;
   displayName?: string;
@@ -32,6 +39,10 @@ export type ToolkitAdapter<TSpec> = {
     context: AdapterContext,
     spec: TSpec,
   ): readonly string[];
+  listImageSpecs?(
+    context: AdapterContext,
+    spec: TSpec,
+  ): readonly AdapterImageSpec[];
   selectFastChecks(
     context: AdapterContext,
     spec: TSpec,

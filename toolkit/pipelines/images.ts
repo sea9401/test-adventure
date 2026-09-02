@@ -184,6 +184,12 @@ export async function planImageImport(
   sourceDir: string,
 ): Promise<readonly ArtifactPlan[]> {
   const inspections = await inspectImageInputs(context, specs, sourceDir);
+  return planInspectedImageImport(inspections);
+}
+
+export function planInspectedImageImport(
+  inspections: readonly ImageInspection[],
+): readonly ArtifactPlan[] {
   return inspections
     .map(
       (inspection): ArtifactPlan => ({

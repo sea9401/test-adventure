@@ -14,6 +14,11 @@ import { sha256Text, stableJson } from "../core/hashes";
 import { loadYamlSpec } from "../core/specFile";
 import { recordManualPaths, TaskStateStore } from "../core/taskState";
 import { ToolkitWorkflow } from "../core/workflow";
+import {
+  recordImageReview,
+  runImageWorkflow,
+} from "../pipelines/imageWorkflow";
+import { inspectImageInputs } from "../pipelines/images";
 import type {
   ExternalAction,
   ToolkitTaskState,
@@ -162,7 +167,11 @@ function reportDryRunTargets(
 async function loadTaskSpec(
   state: ToolkitTaskState,
   dependencies: ToolkitRuntimeDependencies,
-): Promise<{ spec: unknown; context: AdapterContext }> {
+): Promise<{
+  adapter: ReturnType<AdapterRegistry["require"]>;
+  spec: unknown;
+  context: AdapterContext;
+}> {
   const adapter = dependencies.registry.require(
     state.adapterId,
     state.adapterSpecVersion,
@@ -171,7 +180,7 @@ async function loadTaskSpec(
     projectPath(dependencies.projectRoot, state.specPath),
   );
   const spec = adapter.parseSpec(source);
-  return { spec, context: contextFor(dependencies, state) };
+  return { adapter, spec, context: contextFor(dependencies, state) };
 }
 
 async function createContent(
@@ -370,9 +379,66 @@ export async function executeToolkitCommand(
       }
       return verifyTask(state, command.level, dependencies);
     }
-    case "images-import":
-    case "images-review":
-      throw new ToolkitUsageError("image pipeline is not registered");
+    case "images-import": {
+      const state = await dependencies.store.load(command.taskId);
+      const { adapter, spec, context } = await loadTaskSpec(state, dependencies);
+      const specs = adapter.listImageSpecs?.(context, spec);
+      if (specs === undefined || specs.length === 0) {
+        throw new ToolkitUsageError(
+          `adapter ${adapter.id} does not declare image inputs`,
+        );
+      }
+      const sourceDir = resolve(dependencies.projectRoot, command.sourceDir);
+      if (command.dryRun) {
+        const inspections = await inspectImageInputs(context, specs, sourceDir);
+        for (const inspection of inspections) {
+          dependencies.report?.(
+            `${inspection.sourceName} -> ${inspection.importTarget}`,
+          );
+        }
+        dependencies.report?.("command:npm run optimize-images");
+        dependencies.report?.("command:npm run check-images");
+        return 0;
+      }
+      const result = await runImageWorkflow(state, sourceDir, {
+        projectRoot: dependencies.projectRoot,
+        store: dependencies.store,
+        runner: dependencies.runner,
+        specs,
+        now: () => (dependencies.now?.() ?? new Date()).toISOString(),
+      });
+      dependencies.report?.(
+        `images:review:${result.steps["images:review"]?.status ?? "pending"}`,
+      );
+      return result.steps["images:optimize"]?.status === "passed" &&
+        result.steps["images:references"]?.status === "passed"
+        ? 0
+        : 1;
+    }
+    case "images-review": {
+      const state = await dependencies.store.load(command.taskId);
+      const { adapter, spec, context } = await loadTaskSpec(state, dependencies);
+      const specs = adapter.listImageSpecs?.(context, spec);
+      if (specs === undefined || specs.length === 0) {
+        throw new ToolkitUsageError(
+          `adapter ${adapter.id} does not declare image inputs`,
+        );
+      }
+      const next = await recordImageReview(state, {
+        projectRoot: dependencies.projectRoot,
+        store: dependencies.store,
+        specs,
+        role: command.role,
+        decision: command.decision,
+        reason: command.reason,
+        now: () => (dependencies.now?.() ?? new Date()).toISOString(),
+        persist: !command.dryRun,
+      });
+      dependencies.report?.(
+        `images:review:${next.steps["images:review"].status}`,
+      );
+      return 0;
+    }
     case "release-pr":
       if (dependencies.releaseHandlers?.pr === undefined) {
         throw new ToolkitUsageError("release PR pipeline is not registered");

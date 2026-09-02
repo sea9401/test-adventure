@@ -12,6 +12,7 @@ import { dirname, isAbsolute, join, posix, relative, resolve } from "node:path";
 import type {
   ArtifactRecord,
   ApprovalRecord,
+  ImageReviewRecord,
   StepState,
   ToolkitPhase,
   ToolkitTaskState,
@@ -90,6 +91,33 @@ function isApprovalRecord(value: unknown): value is ApprovalRecord {
   );
 }
 
+function isImageReviewRecord(value: unknown): value is ImageReviewRecord {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    ["boss", "drop-30", "drop-10", "drop-rare"].includes(String(value.role)) &&
+    typeof value.contentHash === "string" &&
+    ["accept", "reject"].includes(String(value.decision)) &&
+    typeof value.reason === "string" &&
+    typeof value.reviewedAt === "string"
+  );
+}
+
+function isImageReviews(value: unknown): boolean {
+  if (value === undefined) {
+    return true;
+  }
+  if (!isRecord(value)) {
+    return false;
+  }
+  const roles = new Set(["boss", "drop-30", "drop-10", "drop-rare"]);
+  return Object.entries(value).every(
+    ([role, review]) =>
+      roles.has(role) && isImageReviewRecord(review) && review.role === role,
+  );
+}
+
 function validateTaskState(value: unknown): ToolkitTaskState {
   if (!isRecord(value)) {
     throw new Error("invalid task state");
@@ -122,7 +150,8 @@ function validateTaskState(value: unknown): ToolkitTaskState {
     value.artifacts.every(isArtifactRecord) &&
     Array.isArray(value.approvals) &&
     value.approvals.every(isApprovalRecord) &&
-    isStringArray(value.manualPaths);
+    isStringArray(value.manualPaths) &&
+    isImageReviews(value.imageReviews);
 
   if (!valid) {
     throw new Error("invalid task state");
@@ -256,6 +285,7 @@ export class TaskStateStore {
       artifacts: [],
       approvals: [],
       manualPaths: [],
+      imageReviews: {},
     };
     await this.save(state);
     return state;

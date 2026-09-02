@@ -6,7 +6,7 @@ import { sha256Text, stableJson } from "./hashes";
 import { invalidateChangedInputs, TaskStateStore } from "./taskState";
 import type { StepState, ToolkitTaskState } from "../schemas/task";
 
-const CHECK_ID_PATTERN = /^[a-z0-9][a-z0-9-]{1,63}$/;
+const CHECK_ID_PATTERN = /^[a-z0-9][a-z0-9:-]{1,63}$/;
 
 export type WorkflowStepContext = {
   projectRoot: string;
@@ -23,13 +23,14 @@ export type ToolkitWorkflowOptions = {
   now?: () => string;
 };
 
-function checkInputHash(check: CheckDefinition): string {
+export function workflowCheckInputHash(check: CheckDefinition): string {
   return sha256Text(
     stableJson({
       id: check.id,
       command: check.command,
       args: check.args,
       env: check.env ?? {},
+      inputHash: check.inputHash ?? "",
       dependsOn: check.dependsOn,
     }),
   );
@@ -96,7 +97,7 @@ function prepareState(
   checks: readonly CheckDefinition[],
 ): ToolkitTaskState {
   const inputHashes = Object.fromEntries(
-    checks.map((check) => [check.id, checkInputHash(check)]),
+    checks.map((check) => [check.id, workflowCheckInputHash(check)]),
   );
   let next = invalidateChangedInputs(state, inputHashes);
   const steps = { ...next.steps };

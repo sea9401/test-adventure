@@ -2,6 +2,7 @@ import { lstat, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
+import sharp from "sharp";
 
 import type { ToolkitAdapter } from "../core/adapter";
 import { AdapterRegistry } from "../core/adapterRegistry";
@@ -46,6 +47,32 @@ function exampleAdapter(): ToolkitAdapter<ExampleSpec> {
       },
     ],
     validateGenerated: async () => [],
+    listImageSpecs: () => [
+      {
+        role: "boss",
+        target: "public/images/monster/v2/example-boss.webp",
+        requiresAlpha: false,
+        rightsSource: "operator-cleared-game-art",
+      },
+      {
+        role: "drop-30",
+        target: "public/images/equipment/example-30.webp",
+        requiresAlpha: true,
+        rightsSource: "operator-cleared-game-art",
+      },
+      {
+        role: "drop-10",
+        target: "public/images/equipment/example-10.webp",
+        requiresAlpha: true,
+        rightsSource: "operator-cleared-game-art",
+      },
+      {
+        role: "drop-rare",
+        target: "public/images/equipment/example-rare.webp",
+        requiresAlpha: true,
+        rightsSource: "operator-cleared-game-art",
+      },
+    ],
     selectFastChecks: () => [
       {
         id: "fast-check",
@@ -155,6 +182,83 @@ describe("executeToolkitCommand", () => {
     const state = await store.load("boss-red");
     expect(state.artifacts).toHaveLength(1);
     expect(state.artifacts[0].path).toBe("src/generated.ts");
+  });
+
+  it("previews image mappings and commands without changing task state", async () => {
+    const { fixture, registry, store } = await setup();
+    await store.create({
+      taskId: "boss-red",
+      adapterId: "example",
+      adapterSpecVersion: 1,
+      specPath: "specs/example.yaml",
+      baseSha: "a".repeat(40),
+      now: "2026-09-02T00:00:00.000Z",
+    });
+    const sourceDir = join(fixture.root, "image-inputs");
+    await mkdir(sourceDir);
+    const opaque = await sharp({
+      create: {
+        width: 2,
+        height: 2,
+        channels: 3,
+        background: { r: 1, g: 2, b: 3 },
+      },
+    })
+      .png()
+      .toBuffer();
+    const alpha = await sharp({
+      create: {
+        width: 2,
+        height: 2,
+        channels: 4,
+        background: { r: 1, g: 2, b: 3, alpha: 0.5 },
+      },
+    })
+      .png()
+      .toBuffer();
+    await Promise.all([
+      writeFile(join(sourceDir, "boss.png"), opaque),
+      writeFile(join(sourceDir, "drop-30.png"), alpha),
+      writeFile(join(sourceDir, "drop-10.png"), alpha),
+      writeFile(join(sourceDir, "drop-rare.png"), alpha),
+    ]);
+    const statePath = join(
+      fixture.root,
+      ".toolkit/work/boss-red/state.json",
+    );
+    const before = await readFile(statePath, "utf8");
+    const reports: string[] = [];
+
+    expect(
+      await executeToolkitCommand(
+        {
+          kind: "images-import",
+          taskId: "boss-red",
+          sourceDir,
+          dryRun: true,
+        },
+        {
+          projectRoot: fixture.root,
+          registry,
+          store,
+          runner: new FakeCommandRunner(),
+          resolveBaseSha: async () => "a".repeat(40),
+          report: (message) => reports.push(message),
+        },
+      ),
+    ).toBe(0);
+
+    expect(reports).toEqual(
+      expect.arrayContaining([
+        "boss.png -> public/images/monster/v2/example-boss.png",
+        "command:npm run optimize-images",
+        "command:npm run check-images",
+      ]),
+    );
+    await expect(readFile(statePath, "utf8")).resolves.toBe(before);
+    await expect(lstat(join(fixture.root, "public"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
   });
 
   it("runs selected verification and records scoped manual paths and approval", async () => {

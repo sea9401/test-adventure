@@ -67,6 +67,9 @@ describe("V2MarketplaceView request timing", () => {
 
   beforeEach(() => {
     fetchMock.mockClear();
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) =>
+      responseFor(String(input)),
+    );
     ownedEquipment = [];
     equippedEquipment = {};
     browseListings = [];
@@ -140,6 +143,7 @@ describe("V2MarketplaceView request timing", () => {
 
   it("merges an extended bid deadline into the visible whole-lot card", async () => {
     const now = Date.now();
+    let bidPlaced = false;
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.includes("/browse")) {
@@ -161,10 +165,10 @@ describe("V2MarketplaceView request timing", () => {
               price: 100,
               instancePayload: null,
               createdAt: new Date(now - 60_000).toISOString(),
-              bidEndsAt: new Date(now + 5 * 60_000).toISOString(),
-              expiresAt: new Date(now + 5 * 60_000 + 1).toISOString(),
-              highestBid: null,
-              bidCount: 0,
+              bidEndsAt: new Date(now + (bidPlaced ? 15 : 5) * 60_000).toISOString(),
+              expiresAt: new Date(now + (bidPlaced ? 15 : 5) * 60_000 + 1).toISOString(),
+              highestBid: bidPlaced ? 100 : null,
+              bidCount: bidPlaced ? 1 : 0,
               bidResolvedAt: null,
               nextBid: 100,
             },
@@ -172,6 +176,7 @@ describe("V2MarketplaceView request timing", () => {
         });
       }
       if (url.endsWith("/bid") && init?.method === "POST") {
+        bidPlaced = true;
         return Response.json({
           ok: true,
           highestBid: 100,
@@ -266,7 +271,6 @@ describe("V2MarketplaceView request timing", () => {
       </RewardToastProvider>,
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: "경매" }));
     expect(await screen.findByText("무관한 장검")).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "내 항목만 보기" }));
 
@@ -298,8 +302,7 @@ describe("V2MarketplaceView request timing", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /내 입찰/ }));
     await screen.findByText("아직 참여한 입찰이 없어요.");
-    fireEvent.click(screen.getAllByRole("button", { name: /구매/ })[0]);
-    fireEvent.click(await screen.findByRole("button", { name: "경매" }));
+    fireEvent.click(screen.getByRole("button", { name: /경매/ }));
     fireEvent.click(await screen.findByRole("button", { name: "입찰" }));
     await screen.findByRole("heading", { name: "공개 입찰" });
 

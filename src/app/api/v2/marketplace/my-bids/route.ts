@@ -84,7 +84,7 @@ export async function GET(req: Request) {
         myHighestBid: Number(row.myHighestBid),
         isHighestBidder: highestBidderId === userId,
         isBuyer: buyerId === userId,
-        nextBid: marketplaceNextBidMinimum(row.highestBid),
+        nextBid: marketplaceNextBidMinimum(row.price, row.highestBid),
       }),
     ),
   });

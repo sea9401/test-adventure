@@ -788,7 +788,10 @@ export function V2MarketplaceView({
       setMsg(
         `✓ ${amount.toLocaleString()}골드 입찰 완료${payload.extended ? ` · 마감 ${bidExtensionMinutes}분 연장` : ""}`,
       );
-      if (myBids !== null) await loadMyBids();
+      await Promise.all([
+        loadBrowse(false),
+        ...(myBids !== null ? [loadMyBids()] : []),
+      ]);
       await refreshGameState();
       return true;
     } catch (caught) {

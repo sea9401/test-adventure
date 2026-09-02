@@ -4,6 +4,7 @@ import type { GitClient, ReleaseRepositoryState } from "./git";
 import type { GitHubClient, PullRequestRef } from "./github";
 import {
   ensureStagingPullRequest,
+  mergePullRequestToStaging,
   pushVerifiedBranch,
   type StagingMutationContext,
 } from "./stagingRelease";
@@ -80,6 +81,7 @@ class FakeGit implements GitClient {
 
 class FakeGitHub implements GitHubClient {
   created = 0;
+  merged = 0;
   existing: PullRequestRef | null = null;
   async findPullRequest() {
     return this.existing;
@@ -117,6 +119,14 @@ class FakeGitHub implements GitHubClient {
     return [];
   }
   async mergePullRequest() {
+    this.merged += 1;
+    if (this.existing !== null) {
+      this.existing = {
+        ...this.existing,
+        state: "MERGED",
+        mergedAt: "2026-09-02T00:03:00Z",
+      };
+    }
     return { exitCode: 0 };
   }
   async listDeployRuns() {
@@ -203,5 +213,32 @@ describe("staging push and PR", () => {
     await expect(ensureStagingPullRequest(fixture.value)).rejects.toThrow(
       "pull request base must be staging",
     );
+  });
+
+  it("squash-merges only the exact staging PR and resolves origin staging SHA", async () => {
+    const fixture = context();
+    fixture.github.existing = {
+      number: 2501,
+      state: "OPEN",
+      baseRefName: "staging",
+      headRefName: "feat/echo-warden",
+      url: "https://github.com/sea9401/test-adventure/pull/2501",
+      mergeable: "MERGEABLE",
+      mergeCommitSha: "c".repeat(40),
+    };
+    fixture.git.exec = async (_cwd, args) => {
+      fixture.git.mutableCalls.push([...args]);
+      return {
+        exitCode: 0,
+        stdout: args[0] === "rev-parse" ? `${"c".repeat(40)}\n` : "",
+        stderr: "",
+      };
+    };
+
+    await expect(
+      mergePullRequestToStaging(fixture.value, 2501),
+    ).resolves.toMatchObject({ stagingSha: "c".repeat(40), prNumber: 2501 });
+    expect(fixture.github.merged).toBe(1);
+    expect(fixture.git.mutableCalls).toContainEqual(["fetch", "origin", "staging"]);
   });
 });

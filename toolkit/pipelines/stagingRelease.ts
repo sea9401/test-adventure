@@ -89,3 +89,53 @@ export async function ensureStagingPullRequest(
   assertStagingPr(created, branch);
   return created;
 }
+
+export async function mergePullRequestToStaging(
+  context: StagingMutationContext,
+  prNumber: number,
+): Promise<{
+  prNumber: number;
+  stagingSha: string;
+  mergedAt: string;
+}> {
+  assertVerified(context);
+  requireApproval(context.task, "merge-staging", "staging");
+  let pr = await context.github.viewPullRequest(prNumber);
+  assertStagingPr(pr, context.repository.branch!);
+  if (pr.state !== "MERGED") {
+    if (pr.state !== "OPEN") throw new Error("staging pull request is not open");
+    if (pr.mergeable !== "MERGEABLE") {
+      throw new Error("staging pull request is not mergeable");
+    }
+    const merge = await context.github.mergePullRequest(prNumber);
+    pr = await context.github.viewPullRequest(prNumber);
+    if (merge.exitCode !== 0 && pr.state !== "MERGED") {
+      throw new Error("staging squash merge failed");
+    }
+  }
+  if (
+    pr.state !== "MERGED" ||
+    pr.baseRefName !== "staging" ||
+    pr.mergeCommitSha === null ||
+    pr.mergeCommitSha === undefined ||
+    !/^[a-f0-9]{40}$/.test(pr.mergeCommitSha) ||
+    typeof pr.mergedAt !== "string"
+  ) {
+    throw new Error("merged staging PR data is incomplete");
+  }
+  let result = await context.git.exec(context.projectRoot, [
+    "fetch",
+    "origin",
+    "staging",
+  ]);
+  if (result.exitCode !== 0) throw new Error("could not fetch origin staging");
+  result = await context.git.exec(context.projectRoot, [
+    "rev-parse",
+    "origin/staging",
+  ]);
+  const stagingSha = result.stdout.trim();
+  if (result.exitCode !== 0 || stagingSha !== pr.mergeCommitSha) {
+    throw new Error("origin staging SHA does not match PR merge commit");
+  }
+  return { prNumber, stagingSha, mergedAt: pr.mergedAt };
+}

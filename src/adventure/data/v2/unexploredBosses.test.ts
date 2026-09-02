@@ -48,7 +48,7 @@ describe("미개척지 개인 보스 카탈로그", () => {
     ]);
     expect(UNEXPLORED_BOSSES.invincible_fortress.monster).toMatchObject({
       hp: 1_250,
-      atk: 1.9,
+      atk: 6.2,
       def: 50,
       magicDef: 50,
       spd: 20,
@@ -57,11 +57,11 @@ describe("미개척지 개인 보스 카탈로그", () => {
     });
     expect(UNEXPLORED_BOSSES.skyward_crystal_eye).toMatchObject({
       pools: ["crystal_artillery", "precision_hunters"],
-      sharedMaxHp: 10_800_000,
+      sharedMaxHp: 32_400_000,
       anchorDepth: 120,
       monster: {
         hp: 1_150,
-        atk: 2,
+        atk: 11.2,
         atkType: "magic",
         def: 42,
         magicDef: 48,
@@ -72,16 +72,67 @@ describe("미개척지 개인 보스 카탈로그", () => {
     });
     expect(UNEXPLORED_BOSSES.immortal_berserker).toMatchObject({
       pools: ["regenerating_swarm", "red_berserkers"],
-      sharedMaxHp: 10_800_000,
+      sharedMaxHp: 32_400_000,
       monster: {
         hp: 1_200,
-        atk: 1.75,
+        atk: 15,
         def: 42,
         magicDef: 38,
         spd: 21,
         accuracy: -205,
         evasionPct: 10,
       },
+    });
+  });
+
+  it("미개척지 보스는 현재 상위 화력에도 기믹을 전개할 공통 체력을 가진다", () => {
+    for (const boss of Object.values(UNEXPLORED_BOSSES)) {
+      expect(boss.sharedMaxHp).toBe(32_400_000);
+    }
+  });
+
+  it("모든 미개척지 보스는 평타 사이에 정체성에 맞는 기본 스킬을 섞는다", () => {
+    expect(UNEXPLORED_BOSSES.tracking_weapon.monster).toMatchObject({
+      v2Skills: {
+        learned: ["mob_crushing_blow"],
+        equipped: ["mob_crushing_blow"],
+      },
+      v2MaxMp: 90,
+    });
+    expect(UNEXPLORED_BOSSES.toxic_blood_lord.monster).toMatchObject({
+      v2Skills: {
+        learned: ["mob_venom_sunder", "mob_crushing_blow"],
+        equipped: ["mob_venom_sunder", "mob_crushing_blow"],
+      },
+      v2MaxMp: 90,
+    });
+    expect(UNEXPLORED_BOSSES.glacial_colossus.monster).toMatchObject({
+      v2Skills: {
+        learned: ["mob_arcane_nova"],
+        equipped: ["mob_arcane_nova"],
+      },
+      v2MaxMp: 105,
+    });
+    expect(UNEXPLORED_BOSSES.invincible_fortress.monster).toMatchObject({
+      v2Skills: {
+        learned: ["mob_arcane_bolt"],
+        equipped: ["mob_arcane_bolt"],
+      },
+      v2MaxMp: 0,
+    });
+    expect(UNEXPLORED_BOSSES.skyward_crystal_eye.monster).toMatchObject({
+      v2Skills: {
+        learned: ["mob_arcane_nova"],
+        equipped: ["mob_arcane_nova"],
+      },
+      v2MaxMp: 105,
+    });
+    expect(UNEXPLORED_BOSSES.immortal_berserker.monster).toMatchObject({
+      v2Skills: {
+        learned: ["mob_savage_roar"],
+        equipped: ["mob_savage_roar"],
+      },
+      v2MaxMp: 75,
     });
   });
 

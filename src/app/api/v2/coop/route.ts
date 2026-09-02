@@ -128,16 +128,19 @@ export async function GET() {
         def,
         s.mechanicState,
         s.hp,
+        s.maxHp,
       );
       const crystalEyeDisplay = coopSkywardCrystalEyeDisplay(
         def,
         s.mechanicState,
         s.hp,
+        s.maxHp,
       );
       const immortalBerserkerDisplay = coopImmortalBerserkerDisplay(
         def,
         s.mechanicState,
         s.hp,
+        s.maxHp,
       );
       return {
         id: s.id,

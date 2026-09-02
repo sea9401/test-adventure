@@ -165,11 +165,11 @@ describe("toxic blood lord ATB mechanic", () => {
 
     expect(
       result.finalState.log.some((entry) =>
-        entry.text.includes("[독혈 1중첩] 지속 피해 300"),
+        entry.text.includes("[독혈 1중첩] 지속 피해 500"),
       ),
     ).toBe(true);
     expect(result.finalState.bossMechanic).toMatchObject({
-      toxicDamageTaken: 300,
+      toxicDamageTaken: 500,
     });
   });
 
@@ -180,11 +180,11 @@ describe("toxic blood lord ATB mechanic", () => {
 
     expect(
       result.finalState.log.some((entry) =>
-        entry.text.includes("[독혈 1중첩] 지속 피해 150"),
+        entry.text.includes("[독혈 1중첩] 지속 피해 250"),
       ),
     ).toBe(true);
     expect(result.finalState.bossMechanic).toMatchObject({
-      toxicDamageTaken: 150,
+      toxicDamageTaken: 250,
     });
   });
 

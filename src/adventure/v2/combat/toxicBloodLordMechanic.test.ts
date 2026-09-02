@@ -36,7 +36,7 @@ describe("toxic blood lord mechanic", () => {
   });
 
   it("최대 HP 100000의 6중첩 지속 피해와 폭발 피해를 계산한다", () => {
-    expect(toxicBloodRawDotDamage(100_000, 6)).toBe(1_800);
+    expect(toxicBloodRawDotDamage(100_000, 6)).toBe(3_000);
     expect(toxicBloodRawExplosionDamage(100_000)).toBe(20_000);
   });
 

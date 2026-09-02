@@ -216,6 +216,7 @@ export async function POST(req: Request) {
           kind,
           sessionPeek.mechanicState,
           sessionPeek.hp,
+          sessionPeek.maxHp,
         )
       : null;
     const crystalEyeStateAtStart = kindId === "skyward_crystal_eye"
@@ -226,6 +227,7 @@ export async function POST(req: Request) {
           kind,
           sessionPeek.mechanicState,
           sessionPeek.hp,
+          sessionPeek.maxHp,
         )
       : null;
     const bossMechanic =
@@ -241,19 +243,19 @@ export async function POST(req: Request) {
           : kindId === "invincible_fortress"
             ? {
                 kind: "invincible_fortress" as const,
-                sharedMaxHp: kind.sharedMaxHp,
+                sharedMaxHp: sessionPeek.maxHp,
                 initialState: fortressStateAtStart!,
               }
           : kindId === "skyward_crystal_eye"
             ? {
                 kind: "skyward_crystal_eye" as const,
-                sharedMaxHp: kind.sharedMaxHp,
+                sharedMaxHp: sessionPeek.maxHp,
                 initialState: crystalEyeStateAtStart!,
               }
           : kindId === "immortal_berserker"
             ? {
                 kind: "immortal_berserker" as const,
-                sharedMaxHp: kind.sharedMaxHp,
+                sharedMaxHp: sessionPeek.maxHp,
                 initialState: immortalBerserkerStateAtStart!,
               }
           : undefined;
@@ -273,11 +275,11 @@ export async function POST(req: Request) {
     );
     const bossStartHp = Math.max(
       1,
-      Math.min(Math.floor(sessionPeek.hp), kind.sharedMaxHp),
+      Math.min(Math.floor(sessionPeek.hp), sessionPeek.maxHp),
     );
     const bossMonster = {
       ...bossMonsterForCurrentHp,
-      hp: kind.sharedMaxHp,
+      hp: sessionPeek.maxHp,
     };
     const profile = await readSave<{ name?: string } | null>(
       tx,
@@ -371,6 +373,7 @@ export async function POST(req: Request) {
         kind,
         s.mechanicState,
         s.hp,
+        s.maxHp,
       );
       if (
         s.hp !== sessionPeek.hp ||
@@ -404,6 +407,7 @@ export async function POST(req: Request) {
         kind,
         s.mechanicState,
         s.hp,
+        s.maxHp,
       );
       if (
         s.hp !== sessionPeek.hp ||
@@ -466,7 +470,7 @@ export async function POST(req: Request) {
       ? Math.max(
           0,
           Math.min(
-            kind.sharedMaxHp,
+            s.maxHp,
             Math.floor(battleResult.finalState.enemyHp),
           ),
         )
@@ -482,6 +486,7 @@ export async function POST(req: Request) {
         kind,
         { immortalBerserker: battleImmortalBerserkerState },
         projectedBossHp,
+        s.maxHp,
       );
       const engineFinalState = {
         kind: battleImmortalBerserkerState.kind,
@@ -543,6 +548,7 @@ export async function POST(req: Request) {
           nextMechanicState,
           battleFortressState,
           projectedBossHp,
+          s.maxHp,
         );
       } else {
         const { fortress: _terminalFortress, ...terminalMechanicState } =
@@ -570,6 +576,7 @@ export async function POST(req: Request) {
           nextMechanicState,
           battleImmortalBerserkerState,
           projectedBossHp,
+          s.maxHp,
         );
       } else {
         const {
@@ -726,11 +733,13 @@ export async function POST(req: Request) {
             kind,
             nextMechanicState,
             bossHp,
+            s.maxHp,
           ),
           ...coopSkywardCrystalEyeDisplay(
             kind,
             nextMechanicState,
             bossHp,
+            s.maxHp,
           ),
           immortalBodyDamage:
             battleImmortalBerserkerState?.immortalBodyDamage ?? 0,
@@ -743,6 +752,7 @@ export async function POST(req: Request) {
             kind,
             nextMechanicState,
             bossHp,
+            s.maxHp,
           ),
           crystalEyeArtilleryEvents:
             battleResult.finalState.skywardCrystalEyeArtilleryEvents ?? [],

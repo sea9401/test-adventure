@@ -4,6 +4,7 @@ import {
   INVINCIBLE_FORTRESS_BARRIER_TICKS,
   advanceInvincibleFortressBarrier,
   initialInvincibleFortressState,
+  invincibleFortressBarrierTarget,
   invincibleFortressEnrageMultipliers,
   invincibleFortressResourceSnapshot,
   invincibleFortressTierForDamage,
@@ -15,6 +16,10 @@ import {
 const MAX_HP = 10_800_000;
 
 describe("invincible fortress mechanic", () => {
+  it("keeps the burst-check target capped when only the long-fight HP grows", () => {
+    expect(invincibleFortressBarrierTarget(MAX_HP * 10)).toBe(32_400);
+  });
+
   it("starts the 100% barrier for 400 ticks", () => {
     expect(initialInvincibleFortressState(MAX_HP)).toEqual({
       kind: "invincible_fortress",

@@ -284,7 +284,12 @@ describe("POST /api/v2/coop/attack", () => {
         bossMechanic: { kind: "toxic_blood_lord" },
       }),
     );
-    expect(mocks.updateValues[0]?.mechanicState).toMatchObject({ bossMp: 0 });
+    expect(mocks.updateValues[0]?.mechanicState).toMatchObject({
+      bossSkillMpRevision: 1,
+    });
+    expect(
+      (mocks.updateValues[0]?.mechanicState as { bossMp: number }).bossMp,
+    ).toBeGreaterThan(0);
     expect(mocks.updateValues[0]?.mechanicState).not.toHaveProperty(
       "toxicBloodStacks",
     );
@@ -539,9 +544,12 @@ describe("POST /api/v2/coop/attack", () => {
       }),
     );
     expect(mocks.updateValues[0]?.mechanicState).toMatchObject({
-      bossMp: 0,
+      bossSkillMpRevision: 1,
       crystalEye: completedEye,
     });
+    expect(
+      (mocks.updateValues[0]?.mechanicState as { bossMp: number }).bossMp,
+    ).toBeGreaterThan(0);
     expect(body.result).toMatchObject({
       crystalEyeAimTicksRemaining: 340,
       crystalEyeDisruptionStacks: 24,

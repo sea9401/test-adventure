@@ -1,5 +1,8 @@
 export const INVINCIBLE_FORTRESS_BARRIER_TICKS = 400;
 export const INVINCIBLE_FORTRESS_TARGET_FRACTION = 0.003;
+// 방벽 시험은 400틱 동안의 순간 화력 검사다. 본체 장기전용 HP 상향이 요구 화력까지
+// 끌어올려 계보별 공략 차이를 지우지 않도록 최초 밸런스 기준 HP에서 상한을 둔다.
+export const INVINCIBLE_FORTRESS_TARGET_MAX_HP = 10_800_000;
 export const INVINCIBLE_FORTRESS_HP_FRACTIONS = [1, 0.75, 0.5, 0.25] as const;
 
 export type InvincibleFortressEnrageTier = 0 | 1 | 2 | 3 | 4;
@@ -46,7 +49,10 @@ function sharedMaxHp(value: number): number {
 export function invincibleFortressBarrierTarget(maxHp: number): number {
   return Math.max(
     1,
-    Math.floor(sharedMaxHp(maxHp) * INVINCIBLE_FORTRESS_TARGET_FRACTION),
+    Math.floor(
+      Math.min(sharedMaxHp(maxHp), INVINCIBLE_FORTRESS_TARGET_MAX_HP) *
+        INVINCIBLE_FORTRESS_TARGET_FRACTION,
+    ),
   );
 }
 

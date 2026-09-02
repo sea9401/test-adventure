@@ -89,9 +89,17 @@ describe("미개척지 개인 보스 카탈로그", () => {
     });
   });
 
-  it("미개척지 보스는 현재 상위 화력에도 기믹을 전개할 공통 체력을 가진다", () => {
-    for (const boss of Object.values(UNEXPLORED_BOSSES)) {
-      expect(boss.sharedMaxHp).toBe(32_400_000);
+  it("초기 두 보스는 1,500만, 후속 보스는 3,240만 체력으로 전투를 시작한다", () => {
+    expect(UNEXPLORED_BOSSES.tracking_weapon.sharedMaxHp).toBe(15_000_000);
+    expect(UNEXPLORED_BOSSES.toxic_blood_lord.sharedMaxHp).toBe(15_000_000);
+
+    for (const id of [
+      "glacial_colossus",
+      "invincible_fortress",
+      "skyward_crystal_eye",
+      "immortal_berserker",
+    ] as const) {
+      expect(UNEXPLORED_BOSSES[id].sharedMaxHp).toBe(32_400_000);
     }
   });
 

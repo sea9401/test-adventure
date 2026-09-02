@@ -278,4 +278,45 @@ describe("V2MarketplaceView request timing", () => {
       expect(screen.getByText(name)).not.toBeNull();
     }
   });
+
+  it("내 입찰을 불러온 뒤 입찰하면 구매 목록과 내 입찰을 함께 갱신한다", async () => {
+    const source = marketplacePreview.listings[0];
+    browseListings = [{ ...source, isMine: false }];
+    render(
+      <RewardToastProvider>
+        <V2MarketplaceView onBack={() => {}} />
+      </RewardToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /내 거래/ }));
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([input]) =>
+          String(input).includes("/api/v2/marketplace/my-bids"),
+        ),
+      ).toBe(true);
+    });
+    fireEvent.click(screen.getByRole("button", { name: /내 입찰/ }));
+    await screen.findByText("아직 참여한 입찰이 없어요.");
+    fireEvent.click(screen.getAllByRole("button", { name: /구매/ })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: "경매" }));
+    fireEvent.click(await screen.findByRole("button", { name: "입찰" }));
+    await screen.findByRole("heading", { name: "공개 입찰" });
+
+    const countRequests = (part: string) =>
+      fetchMock.mock.calls.filter(([input]) => String(input).includes(part)).length;
+    const browseBefore = countRequests("/api/v2/marketplace/browse");
+    const myBidsBefore = countRequests("/api/v2/marketplace/my-bids");
+    const bidButtons = screen.getAllByRole("button", { name: "입찰" });
+    fireEvent.click(bidButtons[bidButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(countRequests("/api/v2/marketplace/browse")).toBeGreaterThan(
+        browseBefore,
+      );
+      expect(countRequests("/api/v2/marketplace/my-bids")).toBeGreaterThan(
+        myBidsBefore,
+      );
+    });
+  });
 });

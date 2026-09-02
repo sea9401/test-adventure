@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { emptyUnexploredSave, parseUnexploredSave } from "./unexploredState";
+import { UNEXPLORED_BOSS_IDS } from "./unexploredBosses";
 import {
   explorationPointCost,
   grantExplorationXp,
@@ -101,38 +102,22 @@ describe("unexplored achievements", () => {
     ]);
   });
 
-  it("requires all six personal bosses for conquest and grants both new boss achievements", () => {
+  it("requires every catalogued personal boss for conquest", () => {
     expect(
       unexploredAchievementCandidates({
-        defeatedBossIds: [
-          "tracking_weapon",
-          "toxic_blood_lord",
-          "glacial_colossus",
-        ],
+        defeatedBossIds: [...UNEXPLORED_BOSS_IDS, "lake_sovereign"],
       }),
-    ).not.toContain("defeat_all_personal_bosses");
-    expect(
-      unexploredAchievementCandidates({
-        defeatedBossIds: [
-          "tracking_weapon",
-          "toxic_blood_lord",
-          "glacial_colossus",
-          "invincible_fortress",
-          "skyward_crystal_eye",
-          "immortal_berserker",
-          "lake_sovereign",
-        ],
-      }),
-    ).toEqual([
-      "first_personal_boss",
-      "defeat_tracking_weapon",
-      "defeat_toxic_blood_lord",
-      "defeat_glacial_colossus",
-      "defeat_invincible_fortress",
-      "defeat_skyward_crystal_eye",
-      "defeat_immortal_berserker",
-      "defeat_all_personal_bosses",
-    ]);
+    ).toContain("defeat_all_personal_bosses");
+
+    for (const omitted of UNEXPLORED_BOSS_IDS) {
+      expect(
+        unexploredAchievementCandidates({
+          defeatedBossIds: UNEXPLORED_BOSS_IDS.filter(
+            (bossId) => bossId !== omitted,
+          ),
+        }),
+      ).not.toContain("defeat_all_personal_bosses");
+    }
   });
 
   it("retains a previously saved conquest achievement", () => {

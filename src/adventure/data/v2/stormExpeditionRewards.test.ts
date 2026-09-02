@@ -27,16 +27,16 @@ function sequence(...values: number[]): () => number {
 describe("폭풍 원정 보상", () => {
   it("6T 원정 유니크 확률은 수호자·최종 경로·교차·심장을 독립 규칙으로 둔다", () => {
     expect(STORM_EXPEDITION_UNIQUE_LOOT).toEqual({
-      guardianRouteChance: 0.0015,
-      finalRouteChance: 0.004,
-      finalCrossChance: 0.002,
-      finalHeartChance: 0.0005,
+      guardianRouteChance: 0.03,
+      finalRouteChance: 0.07,
+      finalCrossChance: 0.04,
+      finalHeartChance: 0.01,
     });
   });
 
-  it("수호자는 선택 항로 유니크만 0.15%로 굴린다", () => {
+  it("수호자는 선택 항로 유니크만 3%로 굴린다", () => {
     expect(
-      rollStormExpeditionUniqueLoot("gale", "guardian", sequence(0.001499)),
+      rollStormExpeditionUniqueLoot("gale", "guardian", sequence(0.029999)),
     ).toEqual({
       routeUniqueId: "v2_storm_sig_gale_orbit_boots",
       crossUniqueId: null,
@@ -44,17 +44,17 @@ describe("폭풍 원정 보상", () => {
       uniqueIds: ["v2_storm_sig_gale_orbit_boots"],
     });
     expect(
-      rollStormExpeditionUniqueLoot("gale", "guardian", sequence(0.0015))
+      rollStormExpeditionUniqueLoot("gale", "guardian", sequence(0.03))
         .uniqueIds,
     ).toEqual([]);
   });
 
-  it("최종 보스는 경로 0.4%·교차 0.2%·심장 0.05%를 각각 굴린다", () => {
+  it("최종 보스는 경로 7%·교차 4%·심장 1%를 각각 굴린다", () => {
     expect(
       rollStormExpeditionUniqueLoot(
         "thunder",
         "final_boss",
-        sequence(0.003999, 0.001999, 0.999, 0.000499),
+        sequence(0.069999, 0.039999, 0.999, 0.009999),
       ),
     ).toEqual({
       routeUniqueId: "v2_storm_sig_thunder_return_ring",
@@ -97,19 +97,32 @@ describe("폭풍 원정 보상", () => {
     const guardian = rollStormExpeditionUniqueLoot(
       "wreckage",
       "guardian",
-      sequence(0.002),
+      sequence(0.059999),
       { uniqueChanceMultiplier: 2 },
     );
     const final = rollStormExpeditionUniqueLoot(
       "wreckage",
       "final_boss",
-      sequence(0.007, 0.003, 0, 0.0007),
+      sequence(0.139999, 0.079999, 0, 0.01),
       { uniqueChanceMultiplier: 2 },
     );
     expect(guardian.routeUniqueId).toBe("v2_storm_sig_wreckage_power_armor");
     expect(final.routeUniqueId).toBe("v2_storm_sig_wreckage_power_armor");
     expect(final.crossUniqueId).toBe("v2_storm_sig_triphase_gloves");
     expect(final.heartUniqueId).toBeNull();
+  });
+
+  it("하루 3회 완주 기준 첫 유니크의 평균 획득 주기는 2~3일이다", () => {
+    const rules = STORM_EXPEDITION_UNIQUE_LOOT;
+    const anyUniqueChance = 1
+      - (1 - rules.guardianRouteChance)
+        * (1 - rules.finalRouteChance)
+        * (1 - rules.finalCrossChance)
+        * (1 - rules.finalHeartChance);
+
+    expect(anyUniqueChance).toBeCloseTo(0.14264416, 8);
+    expect(1 / (anyUniqueChance * 3)).toBeGreaterThanOrEqual(2);
+    expect(1 / (anyUniqueChance * 3)).toBeLessThanOrEqual(3);
   });
 
   it("원정 전용 SP 열매 V를 지급한다", () => {

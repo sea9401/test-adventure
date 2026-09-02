@@ -182,15 +182,71 @@ describe("tracking weapon ATB mechanic", () => {
     ).toHaveLength(1);
   });
 
-  it("일반 보호막이 추적 섬멸을 기존 물리 공격처럼 흡수한다", () => {
+  it("추적 섬멸은 일반 보호막을 소모하지 않고 HP에 직접 피해를 준다", () => {
     const result = runTrackingBattle({
       initialThreat: 100,
-      player: { ...basePlayer, bulwarkShield: 2_000 },
+      player: {
+        ...basePlayer,
+        hp: 10_000,
+        maxHp: 10_000,
+        bulwarkShield: 20_000,
+      },
     });
 
-    expect(result.finalState.playerHp).toBe(basePlayer.maxHp);
-    expect(trackingState(result).trackingCounterDamage).toBe(0);
+    expect(result.finalState.playerHp).toBe(9_200);
+    expect(result.finalState.stacks.playerShield).toBe(20_000);
+    expect(trackingState(result).trackingCounterDamage).toBe(800);
     expect(eliminationLogs(result)).toHaveLength(2);
+    expect(
+      result.finalState.log.some((entry) =>
+        entry.text.includes("방어력 50% 관통 · 일반 보호막 무시"),
+      ),
+    ).toBe(true);
+  });
+
+  it("추적 섬멸은 플레이어 물리 방어력의 50%만 적용한다", () => {
+    const result = runTrackingBattle({
+      initialThreat: 100,
+      player: {
+        ...basePlayer,
+        hp: 10_000,
+        maxHp: 10_000,
+        def: 200,
+      },
+    });
+
+    expect(result.finalState.playerHp).toBe(9_314);
+    expect(trackingState(result).trackingCounterDamage).toBe(686);
+  });
+
+  it("추적 섬멸은 일반 보호막을 무시하지만 마나 실드는 유지한다", () => {
+    const plain = runTrackingBattle({
+      initialThreat: 100,
+      player: {
+        ...basePlayer,
+        hp: 10_000,
+        maxHp: 10_000,
+        bulwarkShield: 20_000,
+      },
+    });
+    vi.restoreAllMocks();
+    const barrier = runTrackingBattle({
+      initialThreat: 100,
+      player: {
+        ...basePlayer,
+        hp: 10_000,
+        maxHp: 10_000,
+        bulwarkShield: 20_000,
+        magicBarrierMax: 2_000,
+        magicBarrierAbsorbPct: 50,
+        magicBarrierEfficiencyPct: 0,
+      },
+    });
+
+    expect(plain.finalState.playerHp).toBe(9_200);
+    expect(barrier.finalState.playerHp).toBe(9_600);
+    expect(barrier.finalState.playerMagicBarrier).toBe(1_600);
+    expect(barrier.finalState.stacks.playerShield).toBe(20_000);
   });
 
   it("적 행동 중 반사 피해도 피해량 비례 추적으로 다음 행동까지 유지한다", () => {

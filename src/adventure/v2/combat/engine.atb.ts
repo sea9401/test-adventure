@@ -66,6 +66,7 @@ import { recordChargeHpLoss } from "./ruinBladeCombat";
 import { statusBlockOnce } from "./signatureEffects";
 import {
   TRACKING_ELIMINATION_HIT_MULTIPLIER,
+  TRACKING_ELIMINATION_PHYSICAL_DEFENSE_PIERCE_PCT,
   TRACKING_THREAT_MAX,
   accumulateTrackingThreat,
   resolveTrackingThreatAfterPlayerAction,
@@ -786,7 +787,7 @@ function settleTrackingAfterPlayerAction(args: {
 
   state = appendTrackingLog(
     state,
-    "추적 완료 — 추적 섬멸 발동",
+    "추적 완료 — 추적 섬멸 발동 (방어력 50% 관통 · 일반 보호막 무시)",
     args.tick,
   );
   const enemyHpBeforeCounter = state.enemyHp;
@@ -805,6 +806,9 @@ function settleTrackingAfterPlayerAction(args: {
         attackName: "추적 섬멸",
         multiplier: TRACKING_ELIMINATION_HIT_MULTIPLIER,
         armorPierce: 0,
+        physicalDefensePiercePct:
+          TRACKING_ELIMINATION_PHYSICAL_DEFENSE_PIERCE_PCT,
+        bypassPlayerShield: true,
         allowCritical: false,
         applyStatus: false,
         consumeEnemyAction: false,

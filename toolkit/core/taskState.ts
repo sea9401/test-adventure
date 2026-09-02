@@ -12,6 +12,7 @@ import { dirname, isAbsolute, join, posix, relative, resolve } from "node:path";
 import type {
   ArtifactRecord,
   ApprovalRecord,
+  FullVerificationRecord,
   ImageReviewRecord,
   StepState,
   ToolkitPhase,
@@ -118,6 +119,37 @@ function isImageReviews(value: unknown): boolean {
   );
 }
 
+function isStringRecord(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    Object.values(value).every((entry) => typeof entry === "string")
+  );
+}
+
+function isFullVerification(
+  value: unknown,
+): value is FullVerificationRecord | undefined {
+  if (value === undefined) return true;
+  if (!isRecord(value) || !isRecord(value.checks)) return false;
+  const checksValid = Object.values(value.checks).every(
+    (check) =>
+      isRecord(check) &&
+      typeof check.inputHash === "string" &&
+      typeof check.outputHash === "string" &&
+      (check.finishedAt === undefined || typeof check.finishedAt === "string") &&
+      (check.logPath === undefined || typeof check.logPath === "string"),
+  );
+  return (
+    typeof value.headSha === "string" &&
+    typeof value.repositoryHash === "string" &&
+    isStringRecord(value.plannedArtifactHashes) &&
+    typeof value.specHash === "string" &&
+    typeof value.checkGraphHash === "string" &&
+    typeof value.completedAt === "string" &&
+    checksValid
+  );
+}
+
 function validateTaskState(value: unknown): ToolkitTaskState {
   if (!isRecord(value)) {
     throw new Error("invalid task state");
@@ -151,7 +183,8 @@ function validateTaskState(value: unknown): ToolkitTaskState {
     Array.isArray(value.approvals) &&
     value.approvals.every(isApprovalRecord) &&
     isStringArray(value.manualPaths) &&
-    isImageReviews(value.imageReviews);
+    isImageReviews(value.imageReviews) &&
+    isFullVerification(value.fullVerification);
 
   if (!valid) {
     throw new Error("invalid task state");

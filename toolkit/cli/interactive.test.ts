@@ -93,6 +93,38 @@ describe("promptForToolkitCommand", () => {
       dryRun: false,
     });
   });
+
+  it("builds image import and review commands through the same parser", async () => {
+    const imageImport = scriptedIo([
+      "이미지 가져오기",
+      "boss-red",
+      "/tmp/boss-red-images",
+      "dry-run",
+    ]);
+    await expect(promptForToolkitCommand(imageImport.io)).resolves.toEqual({
+      kind: "images-import",
+      taskId: "boss-red",
+      sourceDir: "/tmp/boss-red-images",
+      dryRun: true,
+    });
+
+    const review = scriptedIo([
+      "이미지 검수",
+      "boss-red",
+      "drop-rare",
+      "reject",
+      "실루엣 재작업 필요",
+      "실행",
+    ]);
+    await expect(promptForToolkitCommand(review.io)).resolves.toEqual({
+      kind: "images-review",
+      taskId: "boss-red",
+      role: "drop-rare",
+      decision: "reject",
+      reason: "실루엣 재작업 필요",
+      dryRun: false,
+    });
+  });
 });
 
 describe("shouldPromptInteractively", () => {

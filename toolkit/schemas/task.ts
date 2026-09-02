@@ -54,6 +54,23 @@ export type ImageReviewRecord = {
   reviewedAt: string;
 };
 
+export type FullVerificationCheckRecord = {
+  inputHash: string;
+  outputHash: string;
+  finishedAt?: string;
+  logPath?: string;
+};
+
+export type FullVerificationRecord = {
+  headSha: string;
+  repositoryHash: string;
+  plannedArtifactHashes: Readonly<Record<string, string>>;
+  specHash: string;
+  checkGraphHash: string;
+  completedAt: string;
+  checks: Readonly<Record<string, FullVerificationCheckRecord>>;
+};
+
 export type ToolkitTaskState = {
   schemaVersion: 1;
   taskId: string;
@@ -69,4 +86,5 @@ export type ToolkitTaskState = {
   approvals: readonly ApprovalRecord[];
   manualPaths: readonly string[];
   imageReviews?: Readonly<Partial<Record<ImageReviewRole, ImageReviewRecord>>>;
+  fullVerification?: FullVerificationRecord;
 };

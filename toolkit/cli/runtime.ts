@@ -13,12 +13,21 @@ import {
 import { sha256Text, stableJson } from "../core/hashes";
 import { loadYamlSpec } from "../core/specFile";
 import { recordManualPaths, TaskStateStore } from "../core/taskState";
-import { ToolkitWorkflow } from "../core/workflow";
+import { runChecks } from "../pipelines/checkCache";
 import {
   recordImageReview,
   runImageWorkflow,
 } from "../pipelines/imageWorkflow";
 import { inspectImageInputs } from "../pipelines/images";
+import {
+  recordFullVerification,
+  repositoryState,
+  selectFastChecks,
+  selectFullChecks,
+  verificationGraphHash,
+  type RepositoryState,
+  type RepositoryStateOptions,
+} from "../pipelines/verification";
 import type {
   ExternalAction,
   ToolkitTaskState,
@@ -46,6 +55,11 @@ export type ToolkitRuntimeDependencies = {
   resolveBaseSha(): Promise<string>;
   now?: () => Date;
   report?: (message: string) => void;
+  inspectRepository?: (
+    projectRoot: string,
+    state: ToolkitTaskState,
+    options: RepositoryStateOptions,
+  ) => Promise<RepositoryState>;
   releaseHandlers?: ReleaseHandlers;
 };
 
@@ -305,27 +319,104 @@ async function createContent(
 async function verifyTask(
   state: ToolkitTaskState,
   level: "fast" | "full",
+  dryRun: boolean,
   dependencies: ToolkitRuntimeDependencies,
 ): Promise<number> {
-  const adapter = dependencies.registry.require(
-    state.adapterId,
-    state.adapterSpecVersion,
-  );
-  const { spec, context } = await loadTaskSpec(state, dependencies);
+  const { adapter, spec, context } = await loadTaskSpec(state, dependencies);
+  if (level === "full") {
+    const errors = (await adapter.validateGenerated(context, spec)).filter(
+      (issue) => issue.severity === "error",
+    );
+    if (errors.length > 0) {
+      throw new Error(
+        `full verification blocked: ${errors
+          .map((issue) => `${issue.code}: ${issue.message}`)
+          .join("; ")}`,
+      );
+    }
+  }
+  const specHash = sha256Text(stableJson(spec));
+  const inspect = dependencies.inspectRepository ?? repositoryState;
+  const initialSnapshot = await inspect(dependencies.projectRoot, state, {
+    specHash,
+    checkGraphHash: "",
+  });
+  const selectionContext = {
+    adapterContext: context,
+    spec,
+    changedPaths: initialSnapshot.dirtyPaths,
+  };
   const checks =
     level === "fast"
-      ? adapter.selectFastChecks(context, spec)
-      : adapter.selectFullChecks(context, spec);
-  const workflow = new ToolkitWorkflow({
+      ? selectFastChecks(selectionContext, adapter)
+      : selectFullChecks(selectionContext, adapter);
+  const checkGraphHash = verificationGraphHash(checks);
+  const snapshot: RepositoryState = {
+    ...initialSnapshot,
+    specHash,
+    checkGraphHash,
+  };
+  for (const check of checks) {
+    dependencies.report?.(`check:${check.id}`);
+    dependencies.report?.(`reason:${check.id}:${check.reason ?? "selected"}`);
+  }
+  if (dryRun) {
+    return 0;
+  }
+  if (level === "full" && snapshot.unrelatedDirtyPaths.length > 0) {
+    throw new Error(
+      `full verification has unrelated dirty files: ${snapshot.unrelatedDirtyPaths.join(", ")}`,
+    );
+  }
+  const sharedInputs = {
+    ...snapshot.plannedArtifactHashes,
+    "@head": snapshot.headSha,
+    "@repository": snapshot.repositoryHash,
+    "@spec": snapshot.specHash,
+    "@graph": snapshot.checkGraphHash,
+  };
+  const inputsByCheck = Object.fromEntries(
+    checks.map((check) => [check.id, sharedInputs]),
+  );
+  const priorAttempts = Object.fromEntries(
+    checks.map((check) => [check.id, state.steps[check.id]?.attempts ?? 0]),
+  );
+  let executionState = state;
+  if (level === "full" && state.fullVerification !== undefined) {
+    const { fullVerification: _previous, ...withoutPrevious } = state;
+    executionState = withoutPrevious;
+  }
+  let result = await runChecks(executionState, checks, {
     projectRoot: dependencies.projectRoot,
     store: dependencies.store,
-    checks,
+    runner: dependencies.runner,
+    inputsByCheck,
     now: () => (dependencies.now?.() ?? new Date()).toISOString(),
   });
-  const result = await workflow.resume(state, dependencies.runner);
-  return checks.every((check) => result.steps[check.id]?.status === "passed")
-    ? 0
-    : 1;
+  const passed = checks.every(
+    (check) => result.steps[check.id]?.status === "passed",
+  );
+  const updatedAt = (dependencies.now?.() ?? new Date()).toISOString();
+  result = { ...result, phase: "verify", updatedAt };
+  if (level === "full" && passed) {
+    result = recordFullVerification(result, snapshot, checks, updatedAt);
+  }
+  await dependencies.store.save(result);
+  for (const check of checks) {
+    const step = result.steps[check.id];
+    const elapsedMs =
+      step.startedAt === undefined || step.finishedAt === undefined
+        ? 0
+        : Math.max(
+            0,
+            Date.parse(step.finishedAt) - Date.parse(step.startedAt),
+          );
+    const cache = step.attempts === priorAttempts[check.id] ? "hit" : "miss";
+    dependencies.report?.(
+      `result:${check.id}:${step.status}:cache=${cache}:elapsedMs=${elapsedMs}:log=${step.logPath ?? "none"}`,
+    );
+  }
+  return passed ? 0 : 1;
 }
 
 export async function executeToolkitCommand(
@@ -340,7 +431,7 @@ export async function executeToolkitCommand(
       if (command.dryRun) {
         return 0;
       }
-      return verifyTask(state, "fast", dependencies);
+      return verifyTask(state, "fast", false, dependencies);
     }
     case "task-scope-add": {
       const state = await dependencies.store.load(command.taskId);
@@ -374,10 +465,7 @@ export async function executeToolkitCommand(
     }
     case "verify": {
       const state = await dependencies.store.load(command.taskId);
-      if (command.dryRun) {
-        return 0;
-      }
-      return verifyTask(state, command.level, dependencies);
+      return verifyTask(state, command.level, command.dryRun, dependencies);
     }
     case "images-import": {
       const state = await dependencies.store.load(command.taskId);

@@ -444,8 +444,10 @@ export async function recordImageReview(
     reason: options.reason,
     reviewedAt,
   };
+  const { fullVerification: _previousVerification, ...withoutVerification } =
+    state;
   let next: ToolkitTaskState = {
-    ...state,
+    ...withoutVerification,
     updatedAt: reviewedAt,
     imageReviews: { ...(state.imageReviews ?? {}), [options.role]: review },
   };

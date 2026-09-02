@@ -115,6 +115,8 @@ export async function promptForToolkitCommand(
   const actions = [
     ...(adapters.length === 0 ? [] : ["콘텐츠 생성"]),
     "작업 재개",
+    "이미지 가져오기",
+    "이미지 검수",
     "수동 범위 추가",
     "승인 기록",
     "빠른 검증",
@@ -166,6 +168,42 @@ export async function promptForToolkitCommand(
     case "작업 재개":
       argv = ["task", "resume", taskId];
       break;
+    case "이미지 가져오기": {
+      const sourceDir = await readValue(io, "이미지 원본 디렉터리: ");
+      if (sourceDir === null) {
+        return null;
+      }
+      argv = ["images", "import", taskId, "--source-dir", sourceDir];
+      break;
+    }
+    case "이미지 검수": {
+      const role = await choose(io, "이미지 역할을 선택하세요.", [
+        "boss",
+        "drop-30",
+        "drop-10",
+        "drop-rare",
+      ]);
+      const decision = await choose(io, "검수 결과를 선택하세요.", [
+        "accept",
+        "reject",
+      ]);
+      const reason = await readValue(io, "검수 사유: ");
+      if (role === null || decision === null || reason === null) {
+        return null;
+      }
+      argv = [
+        "images",
+        "review",
+        taskId,
+        "--role",
+        role,
+        "--decision",
+        decision,
+        "--reason",
+        reason,
+      ];
+      break;
+    }
     case "수동 범위 추가": {
       const paths = await readValue(io, "프로젝트 경로(쉼표 구분): ");
       if (paths === null) {

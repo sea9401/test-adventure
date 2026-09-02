@@ -261,6 +261,82 @@ describe("executeToolkitCommand", () => {
     });
   });
 
+  it("prints all authoritative checks for a write-free full verification dry run", async () => {
+    const { fixture, store } = await setup();
+    await writeFile(
+      join(fixture.root, "specs/release.yaml"),
+      "taskId: boss-release\nid: echo_warden\n",
+    );
+    const releaseAdapter: ToolkitAdapter<{ taskId: string; id: string }> = {
+      id: "release-fixture",
+      specVersion: 1,
+      parseSpec(input) {
+        return input as { taskId: string; id: string };
+      },
+      plan: async () => [],
+      validateGenerated: async () => [],
+      selectFastChecks: () => [
+        {
+          id: "boss-simulation",
+          command: "npm",
+          args: ["run", "sim:coop-boss"],
+          dependsOn: [],
+        },
+      ],
+      selectFullChecks: () => [],
+    };
+    const registry = new AdapterRegistry().register(releaseAdapter);
+    await store.create({
+      taskId: "boss-release",
+      adapterId: "release-fixture",
+      adapterSpecVersion: 1,
+      specPath: "specs/release.yaml",
+      baseSha: "a".repeat(40),
+      now: "2026-09-02T00:00:00.000Z",
+    });
+    const statePath = join(
+      fixture.root,
+      ".toolkit/work/boss-release/state.json",
+    );
+    const before = await readFile(statePath, "utf8");
+    const reports: string[] = [];
+
+    expect(
+      await executeToolkitCommand(
+        {
+          kind: "verify",
+          level: "full",
+          taskId: "boss-release",
+          dryRun: true,
+        },
+        {
+          projectRoot: fixture.root,
+          registry,
+          store,
+          runner: new FakeCommandRunner(),
+          resolveBaseSha: async () => "a".repeat(40),
+          inspectRepository: async () => ({
+            headSha: "a".repeat(40),
+            dirtyPaths: [],
+            dirtyFileHashes: {},
+            unrelatedDirtyPaths: [],
+            plannedArtifactHashes: {},
+            repositoryHash: "repository",
+            specHash: "spec",
+            checkGraphHash: "graph",
+          }),
+          report: (message) => reports.push(message),
+        },
+      ),
+    ).toBe(0);
+
+    expect(reports.filter((line) => line.startsWith("check:"))).toHaveLength(8);
+    expect(reports).toEqual(
+      expect.arrayContaining(["check:images", "check:build", "check:diff"]),
+    );
+    await expect(readFile(statePath, "utf8")).resolves.toBe(before);
+  });
+
   it("runs selected verification and records scoped manual paths and approval", async () => {
     const { fixture, registry, store } = await setup();
     const baseDependencies = {
@@ -268,6 +344,16 @@ describe("executeToolkitCommand", () => {
       registry,
       store,
       resolveBaseSha: async () => "a".repeat(40),
+      inspectRepository: async () => ({
+        headSha: "a".repeat(40),
+        dirtyPaths: [],
+        dirtyFileHashes: {},
+        unrelatedDirtyPaths: [],
+        plannedArtifactHashes: {},
+        repositoryHash: "repository",
+        specHash: "spec",
+        checkGraphHash: "graph",
+      }),
     };
     await executeToolkitCommand(
       {

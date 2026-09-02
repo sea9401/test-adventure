@@ -1,14 +1,208 @@
+import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { isAbsolute, relative, resolve } from "node:path";
+import { promisify } from "node:util";
+
 import type {
   AdapterContext,
   ToolkitAdapter,
 } from "../core/adapter";
 import type { CheckDefinition } from "../core/artifacts";
+import { sha256Text, stableJson } from "../core/hashes";
+import type {
+  FullVerificationRecord,
+  ToolkitTaskState,
+} from "../schemas/task";
+
+const execFileAsync = promisify(execFile);
+
+export type RepositoryState = {
+  headSha: string;
+  dirtyPaths: readonly string[];
+  dirtyFileHashes: Readonly<Record<string, string>>;
+  unrelatedDirtyPaths: readonly string[];
+  plannedArtifactHashes: Readonly<Record<string, string>>;
+  repositoryHash: string;
+  specHash: string;
+  checkGraphHash: string;
+};
+
+export type RepositoryStateOptions = {
+  specHash: string;
+  checkGraphHash: string;
+};
 
 export type VerificationSelectionContext<TSpec = unknown> = {
   adapterContext: AdapterContext;
   spec: TSpec;
   changedPaths: readonly string[];
 };
+
+function hashBytes(bytes: Uint8Array): string {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+function isInside(root: string, candidate: string): boolean {
+  const path = relative(root, candidate);
+  return path === "" || (!path.startsWith("..") && !isAbsolute(path));
+}
+
+function parseDirtyPaths(status: string): readonly string[] {
+  const entries = status.split("\0");
+  const paths: string[] = [];
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index];
+    if (entry === "") continue;
+    const code = entry.slice(0, 2);
+    paths.push(entry.slice(3));
+    if (code.includes("R") || code.includes("C")) {
+      const oldPath = entries[index + 1];
+      if (oldPath !== undefined && oldPath !== "") paths.push(oldPath);
+      index += 1;
+    }
+  }
+  return [...new Set(paths)].sort();
+}
+
+async function fileHash(projectRoot: string, path: string): Promise<string> {
+  const absolute = resolve(projectRoot, path);
+  if (!isInside(resolve(projectRoot), absolute)) {
+    throw new Error(`verification path escapes project: ${path}`);
+  }
+  try {
+    return hashBytes(await readFile(absolute));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return "<missing>";
+    throw error;
+  }
+}
+
+export async function repositoryState(
+  projectRoot: string,
+  task: ToolkitTaskState,
+  options: RepositoryStateOptions,
+): Promise<RepositoryState> {
+  const [{ stdout: headOutput }, { stdout: statusOutput }] = await Promise.all([
+    execFileAsync("git", ["rev-parse", "HEAD"], {
+      cwd: projectRoot,
+      encoding: "utf8",
+    }),
+    execFileAsync(
+      "git",
+      ["status", "--porcelain=v1", "-z", "--untracked-files=all"],
+      { cwd: projectRoot, encoding: "utf8" },
+    ),
+  ]);
+  const allowedPaths = new Set([
+    task.specPath,
+    ...task.manualPaths,
+    ...task.artifacts
+      .filter((artifact) => artifact.scope === "project")
+      .map((artifact) => artifact.path),
+  ]);
+  const plannedArtifactHashes = Object.fromEntries(
+    await Promise.all(
+      [...allowedPaths].sort().map(async (path) => [
+        path,
+        await fileHash(projectRoot, path),
+      ]),
+    ),
+  );
+  const dirtyPaths = parseDirtyPaths(statusOutput).filter(
+    (path) => path !== ".toolkit/work" && !path.startsWith(".toolkit/work/"),
+  );
+  const unrelatedDirtyPaths = dirtyPaths.filter((path) => !allowedPaths.has(path));
+  const dirtyFileHashes = Object.fromEntries(
+    await Promise.all(
+      dirtyPaths.map(async (path) => [path, await fileHash(projectRoot, path)]),
+    ),
+  );
+  const headSha = headOutput.trim();
+  return {
+    headSha,
+    dirtyPaths,
+    dirtyFileHashes,
+    unrelatedDirtyPaths,
+    plannedArtifactHashes,
+    repositoryHash: sha256Text(
+      stableJson({ headSha, dirtyFileHashes, plannedArtifactHashes }),
+    ),
+    specHash: options.specHash,
+    checkGraphHash: options.checkGraphHash,
+  };
+}
+
+export function verificationGraphHash(
+  checks: readonly CheckDefinition[],
+): string {
+  return sha256Text(stableJson(checks));
+}
+
+export function recordFullVerification(
+  task: ToolkitTaskState,
+  snapshot: RepositoryState,
+  checks: readonly CheckDefinition[],
+  completedAt: string,
+): ToolkitTaskState {
+  if (snapshot.unrelatedDirtyPaths.length > 0) {
+    throw new Error("full verification has unrelated dirty files");
+  }
+  if (snapshot.checkGraphHash !== verificationGraphHash(checks)) {
+    throw new Error("full verification graph hash does not match");
+  }
+  const results: FullVerificationRecord["checks"] = Object.fromEntries(
+    checks.map((check) => {
+      const step = task.steps[check.id];
+      if (step?.status !== "passed" || step.outputHash === undefined) {
+        throw new Error("full verification graph is incomplete");
+      }
+      return [
+        check.id,
+        {
+          inputHash: step.inputHash,
+          outputHash: step.outputHash,
+          ...(step.finishedAt === undefined ? {} : { finishedAt: step.finishedAt }),
+          ...(step.logPath === undefined ? {} : { logPath: step.logPath }),
+        },
+      ];
+    }),
+  );
+  return {
+    ...task,
+    phase: "checkpoint",
+    updatedAt: completedAt,
+    fullVerification: {
+      headSha: snapshot.headSha,
+      repositoryHash: snapshot.repositoryHash,
+      plannedArtifactHashes: snapshot.plannedArtifactHashes,
+      specHash: snapshot.specHash,
+      checkGraphHash: snapshot.checkGraphHash,
+      completedAt,
+      checks: results,
+    },
+  };
+}
+
+export function requireCurrentFullVerification(
+  task: ToolkitTaskState,
+  current: RepositoryState,
+): FullVerificationRecord {
+  const token = task.fullVerification;
+  const stale =
+    token === undefined ||
+    current.unrelatedDirtyPaths.length > 0 ||
+    token.headSha !== current.headSha ||
+    token.repositoryHash !== current.repositoryHash ||
+    token.specHash !== current.specHash ||
+    token.checkGraphHash !== current.checkGraphHash ||
+    stableJson(token.plannedArtifactHashes) !==
+      stableJson(current.plannedArtifactHashes);
+  if (stale) {
+    throw new Error("full verification is stale");
+  }
+  return token;
+}
 
 function withReason(check: CheckDefinition, reason: string): CheckDefinition {
   return { ...check, reason };

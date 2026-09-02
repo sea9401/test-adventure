@@ -316,6 +316,21 @@ export function readObjectPropertyNames(
   );
 }
 
+export function readStringArrayElements(
+  source: string,
+  declarationName: string,
+  fileName = "source.ts",
+): readonly string[] {
+  const parsed = parseSource(fileName, source);
+  const literal = requireArrayLiteral(parsed.sourceFile, declarationName);
+  return literal.elements.map((element) => {
+    if (!ts.isStringLiteralLike(element)) {
+      throw new Error(`${declarationName} must contain only string literals`);
+    }
+    return element.text;
+  });
+}
+
 export function insertObjectProperty(
   source: string,
   request: ObjectPropertyInsertion,

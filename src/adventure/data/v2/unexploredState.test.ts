@@ -7,8 +7,18 @@ import {
   parseUnexploredSave,
   unexploredEarnedPoints,
 } from "./unexploredState";
+import { UNEXPLORED_BOSS_IDS } from "./unexploredBosses";
 
 describe("unexplored save", () => {
+  it("derives per-boss achievement IDs from the boss catalog", () => {
+    expect(
+      UNEXPLORED_ACHIEVEMENT_IDS.filter(
+        (id) =>
+          id.startsWith("defeat_") && id !== "defeat_all_personal_bosses",
+      ),
+    ).toEqual(UNEXPLORED_BOSS_IDS.map((bossId) => `defeat_${bossId}`));
+  });
+
   it("normalizes malformed input to an empty save", () => {
     expect(parseUnexploredSave(null)).toEqual(emptyUnexploredSave());
     expect(

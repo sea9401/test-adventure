@@ -4,6 +4,7 @@ import {
   insertArrayElement,
   insertObjectProperty,
   readObjectPropertyNames,
+  readStringArrayElements,
 } from "./typescriptEditor";
 
 describe("insertObjectProperty", () => {
@@ -147,5 +148,27 @@ describe("insertArrayElement", () => {
         renderedElement: '  { id: "new" },\n',
       }),
     ).toThrow("ENTRIES contains a spread element");
+  });
+});
+
+describe("readStringArrayElements", () => {
+  it("reads a named as-const string catalog", () => {
+    expect(
+      readStringArrayElements(
+        'export const IDS = ["first", "second"] as const;\n',
+        "IDS",
+        "ids.ts",
+      ),
+    ).toEqual(["first", "second"]);
+  });
+
+  it("rejects non-string entries", () => {
+    expect(() =>
+      readStringArrayElements(
+        'const IDS = ["first", getSecond()];\n',
+        "IDS",
+        "ids.ts",
+      ),
+    ).toThrow("IDS must contain only string literals");
   });
 });

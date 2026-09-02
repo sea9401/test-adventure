@@ -87,6 +87,7 @@ describe("미개척지 개인 보스 카탈로그", () => {
 
   it("보스마다 거래 가능한 소환석과 독립 고유 3종을 가진다", () => {
     for (const boss of Object.values(UNEXPLORED_BOSSES)) {
+      expect(UNEXPLORED_BOSSES[boss.id]).toBe(boss);
       expect(V2_MATERIALS[boss.summonMaterialId]).toEqual(
         UNEXPLORED_SUMMON_STONE_MATERIALS[boss.summonMaterialId],
       );

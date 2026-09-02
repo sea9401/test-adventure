@@ -2,21 +2,26 @@ import {
   parseUnexploredTraces,
   type UnexploredTraceState,
 } from "./unexploredRewards";
-import { unexploredBossEquipmentCraftRecipe } from "./unexploredBosses";
+import {
+  UNEXPLORED_BOSS_IDS,
+  unexploredBossEquipmentCraftRecipe,
+  type UnexploredBossId,
+} from "./unexploredBosses";
 import {
   isUnexploredNodeId,
   type UnexploredNodeId,
 } from "./unexploredTree";
 import type { V2EquipmentId } from "./v2Equipment";
 
+type UnexploredBossAchievementId = `defeat_${UnexploredBossId}`;
+
+const UNEXPLORED_BOSS_ACHIEVEMENT_IDS = UNEXPLORED_BOSS_IDS.map(
+  (bossId): UnexploredBossAchievementId => `defeat_${bossId}`,
+);
+
 export const UNEXPLORED_ACHIEVEMENT_IDS = [
   "first_personal_boss",
-  "defeat_tracking_weapon",
-  "defeat_toxic_blood_lord",
-  "defeat_glacial_colossus",
-  "defeat_invincible_fortress",
-  "defeat_skyward_crystal_eye",
-  "defeat_immortal_berserker",
+  ...UNEXPLORED_BOSS_ACHIEVEMENT_IDS,
   "defeat_all_personal_bosses",
   "first_unexplored_hunt",
   "first_special_kill",

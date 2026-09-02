@@ -159,7 +159,7 @@ export const UNEXPLORED_ACHIEVEMENTS = [
   {
     id: "defeat_all_personal_bosses",
     name: "미개척지 보스 정복",
-    description: "미개척지 개인 보스 6종을 모두 처치하세요.",
+    description: `미개척지 개인 보스 ${UNEXPLORED_BOSS_IDS.length}종을 모두 처치하세요.`,
   },
   {
     id: "first_unexplored_hunt",

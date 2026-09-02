@@ -59,6 +59,7 @@ import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_MATERIALS } from "./dungeonDrops";
 import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
 import { TITLES } from "@/adventure/data/titles";
+import { UNEXPLORED_BOSS_IDS } from "./unexploredBosses";
 
 describe("coopBosses 카탈로그", () => {
   it("불멸 상태를 정규화하면서 기존 협동 메커니즘 필드를 보존한다", () => {
@@ -121,8 +122,12 @@ describe("coopBosses 카탈로그", () => {
     });
   });
 
-  it("14종 — 기존 협동 8종 + 미개척지 개인 보스 6종", () => {
-    expect(COOP_BOSS_KIND_IDS).toHaveLength(14);
+  it("기존 협동 보스와 카탈로그의 미개척지 개인 보스를 모두 등록한다", () => {
+    expect(
+      COOP_BOSS_KIND_IDS.filter(
+        (id) => COOP_BOSSES[id].rewardMode === "unexplored_personal",
+      ),
+    ).toEqual(UNEXPLORED_BOSS_IDS);
     const normalLadder = [
       "mountain_chief",
       "canyon_predator",
@@ -175,14 +180,7 @@ describe("coopBosses 카탈로그", () => {
   });
 
   it("미개척지 보스는 개인 공개가 잠기며 일반 소환서 목록에서 제외된다", () => {
-    const personalIds = [
-      "tracking_weapon",
-      "toxic_blood_lord",
-      "glacial_colossus",
-      "invincible_fortress",
-      "skyward_crystal_eye",
-      "immortal_berserker",
-    ] as const;
+    const personalIds = UNEXPLORED_BOSS_IDS;
     for (const id of personalIds) {
       expect(COOP_BOSSES[id]).toMatchObject({
         rewardMode: "unexplored_personal",

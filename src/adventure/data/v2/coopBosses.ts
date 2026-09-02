@@ -42,6 +42,7 @@ import type { V2EquipmentId } from "./v2Equipment";
 import type { V2MonsterStatusSkillId } from "./v2Skills";
 import {
   UNEXPLORED_BOSSES,
+  UNEXPLORED_BOSS_IDS,
   type UnexploredBossId,
 } from "./unexploredBosses";
 import { UNEXPLORED_POOL_BY_ID } from "./unexploredMonsterPools";
@@ -1030,7 +1031,9 @@ export function coopBossDurationLabel(kind: CoopBossKind): string {
   return rest > 0 ? `${h}시간 ${rest}분` : `${h}시간`;
 }
 
-function unexploredPersonalBossKind(id: UnexploredBossId): CoopBossKind {
+function unexploredPersonalBossKind<K extends UnexploredBossId>(
+  id: K,
+): CoopBossKind & { id: K; rewardMode: "unexplored_personal" } {
   const boss = UNEXPLORED_BOSSES[id];
   return {
     id,
@@ -1050,6 +1053,18 @@ function unexploredPersonalBossKind(id: UnexploredBossId): CoopBossKind {
     traits: [...boss.traits],
   };
 }
+
+const UNEXPLORED_COOP_BOSSES = Object.fromEntries(
+  UNEXPLORED_BOSS_IDS.map((bossId) => [
+    bossId,
+    unexploredPersonalBossKind(bossId),
+  ]),
+) as {
+  [K in UnexploredBossId]: CoopBossKind & {
+    id: K;
+    rewardMode: "unexplored_personal";
+  };
+};
 
 // 4단 사다리 — 소환서 10/15/20/30장, 시뮬 스탯은 깊이 12/24/42/60 스케일(상위 보스일수록
 // 반격이 아파 약빌드는 비싼 보스에 함부로 못 붙는다). 공유 HP·보상은 ⚠️ 라이브 캘리브.
@@ -1357,12 +1372,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
       "숨구멍 — HP 50% 돌입 순간 치명타로 압력을 흔들면 수압 발악 약화",
     ],
   },
-  tracking_weapon: unexploredPersonalBossKind("tracking_weapon"),
-  toxic_blood_lord: unexploredPersonalBossKind("toxic_blood_lord"),
-  glacial_colossus: unexploredPersonalBossKind("glacial_colossus"),
-  invincible_fortress: unexploredPersonalBossKind("invincible_fortress"),
-  skyward_crystal_eye: unexploredPersonalBossKind("skyward_crystal_eye"),
-  immortal_berserker: unexploredPersonalBossKind("immortal_berserker"),
+  ...UNEXPLORED_COOP_BOSSES,
 };
 
 export const COOP_BOSS_KIND_IDS = Object.keys(

@@ -62,13 +62,7 @@ export type UnexploredBossUniqueDrop = {
 };
 
 export type UnexploredBossDefinition = {
-  id:
-    | "tracking_weapon"
-    | "toxic_blood_lord"
-    | "glacial_colossus"
-    | "invincible_fortress"
-    | "skyward_crystal_eye"
-    | "immortal_berserker";
+  id: string;
   name: string;
   pools: readonly [UnexploredPoolId, UnexploredPoolId];
   summonMaterialId: UnexploredSummonStoneMaterialId;

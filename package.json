@@ -13,6 +13,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "toolkit": "node --import tsx toolkit/cli/index.ts",
     "test:e2e": "playwright test",
     "test:e2e:mobile-ui": "playwright test --config playwright.mobile-ui.config.ts",
     "test:e2e:db:setup": "node src/db/migrate.mjs && node scripts/seed-e2e-account.mjs",
@@ -86,7 +87,8 @@
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "yaml": "^2.9.0"
   },
   "optionalDependencies": {
     "@tailwindcss/oxide-linux-arm64-gnu": "4.2.4",

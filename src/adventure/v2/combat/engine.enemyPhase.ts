@@ -84,6 +84,10 @@ export function releaseSwordShadowAfterEnemyAction(
   };
 }
 
+export type EnemyPhaseDamagePolicy = {
+  bypassPlayerShield?: boolean;
+};
+
 // 적 페이즈 전체 — advanceTurn 에서 플레이어 페이즈(평타·스킬)와 분량을 가르기 위해 분리한다.
 // 한기 틱 → 잔상(AP 블록) → 회피 캐스케이드(그림자보법·보장회피·%회피·별빛가드·흘려막기·
 // 행운의방패) → 적 데미지 적용(반사·반격·보호막) 순. 이 구간의 지역 상태(evadeHeal·무한가시·
@@ -98,6 +102,7 @@ export function resolveEnemyPhase(
   skipBasicAttack: boolean = false,
   // 도발로 즉시 발생한 공격은 몬스터 고유 스킬 없이 기본 공격 판정만 수행한다.
   forceBasicAttack: boolean = false,
+  damagePolicy: EnemyPhaseDamagePolicy = {},
 ): BattleState {
   const effectiveDef = effectiveMutationDef(
     basePlayer.def,
@@ -928,10 +933,9 @@ export function resolveEnemyPhase(
   const guardApplied = guarded < wardReduced;
   const steadfastApplied = bodyDamage < guarded;
   // 마나 채널과 경감된 몸통 피해를 합친 뒤 일반 보호막이 HP 직전에서 직접 피해를 흡수한다.
-  const shieldAbsorbed = Math.min(
-    state.stacks.playerShield,
-    magicBarrier.hpBoundDamage,
-  );
+  const shieldAbsorbed = damagePolicy.bypassPlayerShield
+    ? 0
+    : Math.min(state.stacks.playerShield, magicBarrier.hpBoundDamage);
   const dmgToHp = magicBarrier.hpBoundDamage - shieldAbsorbed;
   const newShield = state.stacks.playerShield - shieldAbsorbed;
   const trackedShieldResolution = resolveTrackedShieldAbsorption({
@@ -1431,6 +1435,8 @@ export type ForcedEnemyPhysicalHitOptions = {
   attackName: string;
   multiplier: number;
   armorPierce: number;
+  physicalDefensePiercePct?: number;
+  bypassPlayerShield?: boolean;
   allowCritical: boolean;
   applyStatus: boolean;
   consumeEnemyAction: boolean;
@@ -1463,6 +1469,11 @@ export function resolveForcedEnemyPhysicalHit(
   const armorPierce = Number.isFinite(options.armorPierce)
     ? Math.max(0, Math.floor(options.armorPierce))
     : 0;
+  const physicalDefensePiercePct = Number.isFinite(
+    options.physicalDefensePiercePct,
+  )
+    ? Math.max(0, Math.min(100, options.physicalDefensePiercePct ?? 0))
+    : 0;
   const player =
     armorPierce > 0
       ? { ...basePlayer, def: Math.max(0, basePlayer.def - armorPierce) }
@@ -1471,7 +1482,7 @@ export function resolveForcedEnemyPhysicalHit(
     ...originalEnemy,
     atk: Math.max(0, Math.floor(originalEnemy.atk * multiplier)),
     atkType: "physical",
-    playerDefVulnerable: 0,
+    playerDefVulnerable: physicalDefensePiercePct / 100,
     critPct: options.allowCritical ? originalEnemy.critPct : 0,
     bonusAttackChancePct: 0,
     ...(options.applyStatus ? {} : { skill: undefined }),
@@ -1489,6 +1500,7 @@ export function resolveForcedEnemyPhysicalHit(
     false,
     false,
     !options.applyStatus,
+    { bypassPlayerShield: options.bypassPlayerShield === true },
   );
   const log = [
     ...resolved.log.slice(0, logStart),

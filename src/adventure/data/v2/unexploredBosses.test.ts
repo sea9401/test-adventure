@@ -1,6 +1,10 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import {
+  actionInterval,
+  monsterActionSpd,
+} from "@/adventure/v2/combat/combatTimeline";
 import { V2_MATERIALS, materialSellPriceOf } from "./dungeonDrops";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import {
@@ -89,6 +93,15 @@ describe("미개척지 개인 보스 카탈로그", () => {
     for (const boss of Object.values(UNEXPLORED_BOSSES)) {
       expect(boss.sharedMaxHp).toBe(32_400_000);
     }
+  });
+
+  it("추적 병기는 표시 속도 322로 45틱마다 행동한다", () => {
+    const monster = UNEXPLORED_BOSSES.tracking_weapon.monster;
+    const actionSpd = monsterActionSpd(monster);
+
+    expect(monster.spd).toBe(52);
+    expect(actionSpd).toBe(322);
+    expect(actionInterval(actionSpd)).toBe(45);
   });
 
   it("모든 미개척지 보스는 평타 사이에 정체성에 맞는 기본 스킬을 섞는다", () => {

@@ -224,16 +224,16 @@ describe("coopBosses 카탈로그", () => {
     const tracking = COOP_BOSSES.tracking_weapon;
     expect(tracking.base).toMatchObject({
       atk: 16,
-      spd: 27,
+      spd: 52,
       evasionPct: 12,
       skill: { kind: "pierce", armorPierce: 10 },
     });
     expect(tracking.base.bonusAttackChancePct).toBeUndefined();
     expect(tracking.enrageStages).toEqual([]);
     expect(tracking.traits).toEqual([
-      "빠른 행동",
+      "45틱마다 빠른 행동",
       "피해·타격 추적",
-      "추적 완료 시 2연타 반격",
+      "추적 완료 시 방어 50% 관통·일반 보호막 무시 2연타",
     ]);
   });
 

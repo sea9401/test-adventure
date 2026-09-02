@@ -42,6 +42,7 @@ const mocks = vi.hoisted(() => ({
       accRating: 10,
       critChancePct: 75,
       critMult: 1.8,
+      critResistPct: 101.5,
       equipmentMagicSkillCritDmgPct: 29.5102,
     },
   })),
@@ -101,5 +102,16 @@ describe("GET /api/v2/player/[name]", () => {
     expect(json.combat).toMatchObject({
       equipmentMagicSkillCritDmgPct: 29.5102,
     });
+  });
+
+  it("상한 없는 치명타 저항을 공개 캐릭터 정보에 전달한다", async () => {
+    const response = await GET(
+      new Request("http://test/api/v2/player/%ED%83%9C%EC%B4%88%EC%88%A0%EC%82%AC"),
+      { params: Promise.resolve({ name: "태초술사" }) },
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.combat).toMatchObject({ critResistPct: 101.5 });
   });
 });

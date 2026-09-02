@@ -44,6 +44,16 @@ describe("생활 조합 작업장 모바일 배치", () => {
 
     expect(html).toMatch(/aria-pressed="true"[^>]*>생활 제작<\/button>/);
   });
+
+  it("작업 결과 영역을 polite 상태 메시지로 알린다", () => {
+    const html = renderToStaticMarkup(
+      <LifeWorkshopView onBack={vi.fn()} initialTab="process" />,
+    );
+
+    expect(html).toContain('role="status"');
+    expect(html).toContain('aria-live="polite"');
+    expect(html).toContain('aria-atomic="true"');
+  });
 });
 
 describe("생활 가공 재료 선택", () => {

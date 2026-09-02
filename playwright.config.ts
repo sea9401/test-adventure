@@ -4,7 +4,7 @@ const PORT = 3212;
 // Auth.js의 callback URL과 브라우저 쿠키 도메인이 반드시 같아야 한다.
 // 하나의 로컬 호스트명만 사용해 127.0.0.1 ↔ localhost 전환을 막는다.
 const BASE_URL = `http://localhost:${PORT}`;
-const AUTHENTICATED_SPEC = /authenticated-flow\.spec\.ts/;
+const AUTHENTICATED_SPEC = /authenticated-(?:flow|accessibility)\.spec\.ts/;
 const MOBILE_UI_SPEC = /mobile-ui\.spec\.ts/;
 const GENERIC_SPEC_IGNORES = [AUTHENTICATED_SPEC, MOBILE_UI_SPEC];
 
@@ -63,6 +63,8 @@ export default defineConfig({
       AUTH_URL: BASE_URL,
       NEXTAUTH_URL: BASE_URL,
       AUTH_SECRET: "browser-e2e-only-not-a-production-secret",
+      ADMIN_EMAILS:
+        process.env.ADMIN_EMAILS ?? "browser-e2e@accounts.msmsge.invalid",
       DATABASE_URL:
         process.env.DATABASE_URL ??
         "postgresql://browser_e2e:browser_e2e@127.0.0.1:1/browser_e2e",

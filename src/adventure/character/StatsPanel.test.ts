@@ -129,6 +129,29 @@ describe("StatsPanel 마법 공격력 설명", () => {
   });
 });
 
+describe("StatsPanel 치명타 저항 표기", () => {
+  it("상한 없는 실제 저항과 저항 선차감·확정 치명타 예외를 안내한다", () => {
+    const html = renderToStaticMarkup(
+      createElement(StatsPanel, {
+        stats: { spi: 1_015 },
+        statKeys: ["spi"],
+        statLabels: { spi: "정신" },
+        combat: {
+          atk: 10,
+          def: 5,
+          critResistPct: 101.5,
+        },
+      }),
+    );
+    const description = combatStatDescription("치명타 저항");
+
+    expect(html).toContain("치명타 저항");
+    expect(html).toContain("101.5%p");
+    expect(description).toContain("확률 상한을 적용하기 전에");
+    expect(description).toContain("확정 치명타는 이 저항을 무시");
+  });
+});
+
 describe("StatsPanel 마나 실드 표기", () => {
   it("전투 시작 최대 내구도·흡수율·내구도 경감률을 함께 표시한다", () => {
     const html = renderToStaticMarkup(

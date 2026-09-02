@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ChatCircle, X } from "@phosphor-icons/react";
 import { isNoticeMessage } from "@/lib/chat-config";
@@ -56,6 +56,8 @@ export function ChatButton({
   /** 메시지 전송 성공 시 1회 호출 — '수다쟁이' 칭호 카운터 등에 사용. */
   onSent?: () => void;
 }) {
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const wasOpenRef = useRef(false);
   const [open, setOpen] = useState(false);
   const [panelActivated, setPanelActivated] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -74,6 +76,17 @@ export function ChatButton({
     readId(LAST_SEEN_NOTICE_KEY),
   );
   const guildAvailable = viewerGuildId != null;
+
+  useEffect(() => {
+    const wasOpen = wasOpenRef.current;
+    wasOpenRef.current = open;
+    if (!wasOpen || open) return;
+
+    const animationFrameId = window.requestAnimationFrame(() => {
+      toggleRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(animationFrameId);
+  }, [open]);
 
   // 패널이 닫혀 있어도 새 메시지 배지를 위해 느리게 폴링한다. 첫 응답만 최신
   // 100개 전체를 받고 이후에는 마지막 id 뒤의 메시지만 받아 합친다. 탭이 숨겨진
@@ -275,6 +288,7 @@ export function ChatButton({
     <>
       {showToggle && (
         <button
+          ref={toggleRef}
           type="button"
           // 인라인 토글은 열려 있으면 다시 눌러 닫는다(X 버튼 외 추가 닫기 경로).
           onClick={() => {

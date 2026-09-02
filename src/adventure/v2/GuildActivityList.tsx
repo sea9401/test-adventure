@@ -304,7 +304,7 @@ export function GuildActivityList({
                   {description}
                   {repeatCount > 1 ? ` · ${repeatCount.toLocaleString()}회` : ""}
                 </span>
-                <span className="shrink-0 tabular-nums text-zinc-400 dark:text-zinc-500">
+                <span className="shrink-0 tabular-nums text-zinc-600 dark:text-zinc-400">
                   {relTime(a.createdAt)}
                 </span>
               </li>

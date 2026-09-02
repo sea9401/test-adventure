@@ -76,7 +76,7 @@ export function EquippedItemSummaryGrid({
               <Icon size={17} weight="duotone" className={color} aria-hidden />
               <span className="text-[0.625rem] text-zinc-500 dark:text-zinc-400">{label}</span>
             </span>
-            <span className={`flex min-w-0 items-baseline justify-center text-[0.6875rem] font-semibold ${item ? powerNameClass(item, inst?.roll) : "text-zinc-400 dark:text-zinc-500"}`}>
+            <span className={`flex min-w-0 items-baseline justify-center text-[0.6875rem] font-semibold ${item ? powerNameClass(item, inst?.roll) : "text-zinc-600 dark:text-zinc-400"}`}>
               <span className="truncate">{item?.name ?? "비어 있음"}</span>
               {inst?.enhance && inst.enhance.level > 0 && (
                 <span className="ml-0.5 shrink-0 text-amber-600 dark:text-amber-400">+{inst.enhance.level}</span>
@@ -89,7 +89,7 @@ export function EquippedItemSummaryGrid({
                 className={`w-full truncate text-[0.625rem] leading-tight ${
                   setNames.length
                     ? "font-medium text-violet-600 dark:text-violet-400"
-                    : "text-zinc-400 dark:text-zinc-500"
+                    : "text-zinc-600 dark:text-zinc-400"
                 }`}
               >
                 {setLabel}

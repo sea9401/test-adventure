@@ -98,12 +98,13 @@ export function MarketplaceMaterialTab({
                   value={prices[matId] ?? ""}
                   onChange={(v) => setPrices((p) => ({ ...p, [matId]: v }))}
                   placeholder="묶음 전체 시작 입찰가"
+                  ariaLabel={`${itemName} 묶음 전체 시작 입찰가`}
                 />
                 <button
                   type="button"
                   onClick={() => onListMaterial(matId)}
                   disabled={busy}
-                  className="rounded-md border border-sky-600 bg-sky-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+                  className="rounded-md border border-sky-700 bg-sky-700 px-2.5 py-1 text-xs font-medium text-white hover:bg-sky-800 disabled:opacity-50"
                 >
                   등록
                 </button>

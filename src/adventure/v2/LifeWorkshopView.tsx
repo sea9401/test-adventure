@@ -895,7 +895,7 @@ export function LifeWorkshopView({
             className={`min-h-10 rounded-lg px-1 py-2 text-[11px] font-semibold transition sm:text-xs ${
               tab === entry.id
                 ? "bg-white text-amber-700 shadow-sm dark:bg-zinc-800 dark:text-amber-300"
-                : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100"
+                : "text-zinc-600 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100"
             }`}
           >
             {entry.label}
@@ -904,7 +904,12 @@ export function LifeWorkshopView({
       </div>
 
       {tab !== "requests" ? (
-        <div className="h-12" aria-live="polite" aria-atomic="true">
+        <div
+          className="h-12"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
           {notice ? (
             <div className="flex h-full items-center overflow-y-auto rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
               {notice}
@@ -938,7 +943,7 @@ export function LifeWorkshopView({
                   {activity === "woodcutting" ? <Tree size={19} weight="duotone" /> : <Mountains size={19} weight="duotone" />}
                   {ACTIVITY_LABEL[activity]} 가공 · Lv.{data.levels[activity]}
                 </h2>
-                <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-300">
+                <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
                   대성공 {lifeProcessingGreatSuccessPct(activity, data.state, data.levels[activity])}%
                 </span>
               </div>

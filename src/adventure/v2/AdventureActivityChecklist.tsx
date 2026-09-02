@@ -94,7 +94,7 @@ function ActivityRow({ activity }: { activity: AdventureActivityView }) {
             ? "bg-amber-500 text-white"
             : completed
               ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-              : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300"
+              : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
         }`}
       >
         {stateLabel}

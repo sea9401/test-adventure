@@ -350,11 +350,6 @@ export function GuildRaidPanelContent({
               ))}
             </ul>
           )}
-          <PaginationControls
-            pagination={state.recentPagination}
-            onPageChange={onRecentPage}
-            label="최근 전투"
-          />
         </Card>
 
         <Card padding="md" className="space-y-3">
@@ -380,6 +375,11 @@ export function GuildRaidPanelContent({
               ))}
             </ul>
           )}
+          <PaginationControls
+            pagination={state.recentPagination}
+            onPageChange={onRecentPage}
+            label="최근 전투"
+          />
         </Card>
       </div>
     </section>

@@ -101,6 +101,31 @@ export async function resetAuthenticatedE2eAccount() {
     await client.query("DELETE FROM server_feed WHERE user_id = $1", [
       E2E_ACCOUNT_USER_ID,
     ]);
+    await client.query(
+      `DELETE FROM outpost_occupations
+       WHERE occupied_by_guild_id IN (
+         SELECT guild_id FROM guild_members WHERE user_id = $1
+       )`,
+      [E2E_ACCOUNT_USER_ID],
+    );
+    await client.query(
+      `DELETE FROM guilds
+       WHERE id IN (
+         SELECT mine.guild_id
+         FROM guild_members mine
+         WHERE mine.user_id = $1
+           AND NOT EXISTS (
+             SELECT 1
+             FROM guild_members other
+             WHERE other.guild_id = mine.guild_id
+               AND other.user_id <> $1
+           )
+       )`,
+      [E2E_ACCOUNT_USER_ID],
+    );
+    await client.query("DELETE FROM guild_members WHERE user_id = $1", [
+      E2E_ACCOUNT_USER_ID,
+    ]);
     await client.query("DELETE FROM saves_kv WHERE user_id = $1", [
       E2E_ACCOUNT_USER_ID,
     ]);
@@ -186,6 +211,46 @@ export async function setAuthenticatedE2eCharacterLevel(level: number) {
        WHERE user_id = $1 AND key = 'character.v2'
        RETURNING user_id`,
       [E2E_ACCOUNT_USER_ID, level],
+    );
+    if (result.rowCount !== 1) {
+      throw new Error("The E2E character save is missing");
+    }
+  } finally {
+    await pool.end();
+  }
+}
+
+/**
+ * 3차 접근성 흐름에 필요한 레벨·골드·재료를 격리 E2E DB에만 고정한다.
+ * 운영에서 숨겨져야 하는 dev 지급 라우트를 브라우저 서버에 노출하지 않는다.
+ */
+export async function seedAuthenticatedE2ePhaseThreeState() {
+  const databaseUrl = assertIsolatedE2eDatabaseUrl(process.env.DATABASE_URL);
+  const pool = new pg.Pool({
+    ...createDatabaseConnectionOptions(databaseUrl),
+    max: 1,
+  });
+
+  try {
+    const result = await pool.query(
+      `UPDATE saves_kv
+       SET value = jsonb_set(
+             jsonb_set(
+               jsonb_set(value, '{level}', to_jsonb($2::int), true),
+               '{gold}',
+               to_jsonb($3::int),
+               true
+             ),
+             '{materials}',
+             COALESCE(value->'materials', '{}'::jsonb) ||
+               jsonb_build_object('v2_timber', $4::int, 'v2_iron_ore', $5::int),
+             true
+           ),
+           version = version + 1,
+           updated_at = now()
+       WHERE user_id = $1 AND key = 'character.v2'
+       RETURNING user_id`,
+      [E2E_ACCOUNT_USER_ID, 30, 20_000_000, 100, 100],
     );
     if (result.rowCount !== 1) {
       throw new Error("The E2E character save is missing");

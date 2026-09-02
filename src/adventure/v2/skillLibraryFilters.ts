@@ -21,7 +21,8 @@ export type SkillLineageFilter =
   | "martial"
   | "mage"
   | "rogue"
-  | "survivor";
+  | "survivor"
+  | "mutant";
 
 export type SkillLibraryClassification = {
   tier: Exclude<SkillJobTierFilter, "all">;
@@ -51,6 +52,7 @@ export const SKILL_LINEAGE_OPTIONS: ReadonlyArray<
   ["mage", "마법 계열"],
   ["rogue", "도적 계열"],
   ["survivor", "생존 계열"],
+  ["mutant", "변이자 계열"],
 ];
 
 const SKILL_LINEAGES = new Set<SkillLibraryClassification["lineage"]>([
@@ -59,6 +61,7 @@ const SKILL_LINEAGES = new Set<SkillLibraryClassification["lineage"]>([
   "mage",
   "rogue",
   "survivor",
+  "mutant",
 ]);
 
 export function classifySkillForLibrary(

@@ -204,7 +204,7 @@ export function GuildFacilitiesPanel({
   return (
     <div className="space-y-3">
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
           길드 시설
         </h3>
         <div className="grid gap-2 md:grid-cols-2">
@@ -257,7 +257,7 @@ export function GuildFacilitiesPanel({
                     <button
                       type="button"
                       onClick={() => onFacilityChange(row.id)}
-                      className="mx-auto mt-auto block h-8 w-[70%] rounded-md border border-emerald-600 bg-emerald-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+                      className="mx-auto mt-auto block h-8 w-[70%] rounded-md border border-emerald-700 bg-emerald-700 px-3 text-xs font-semibold text-white transition-colors hover:bg-emerald-800"
                     >
                       {row.name} {row.actionLabel}
                     </button>

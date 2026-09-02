@@ -11,12 +11,14 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
 });
 
 import {
+  castV2SkillOnAttackerTurnPvP,
   resolveBattlePvP,
   maybeApplyMartialCounter,
   initialBattleStatePvP,
   type PvPBattleResolution,
 } from "./engine-pvp";
 import type { PlayerCombat } from "./engine";
+import type { V2SkillsState } from "@/adventure/data/v2/v2Skills";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -126,5 +128,40 @@ describe("PvP 반격 — 통합(resolveBattlePvP)", () => {
       (e) => typeof (e as { text?: string }).text === "string" && (e as { text: string }).text.includes("[반격]"),
     );
     expect(hasCounter).toBe(true);
+  });
+
+  it("직접 피해 스킬로 HP 피해를 받으면 방어자의 반격 패시브가 발동한다", () => {
+    const attacker: PlayerCombat = {
+      ...base,
+      hp: 1_000,
+      maxHp: 1_000,
+      mp: 1_000,
+      maxMp: 1_000,
+    };
+    const defender: PlayerCombat = {
+      ...base,
+      hp: 1_000,
+      maxHp: 1_000,
+      passiveCounterChancePct: 100,
+    };
+    const strike: V2SkillsState = {
+      learned: ["v2_skill_strike"],
+      equipped: ["v2_skill_strike"],
+    };
+    const state = initialBattleStatePvP(
+      attacker,
+      defender,
+      "공격자",
+      "반격가",
+      strike,
+      { learned: [], equipped: [] },
+    );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const next = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+
+    expect(next.p2.hp).toBeLessThan(defender.hp);
+    expect(next.p1.hp).toBeLessThan(attacker.hp);
+    expect(next.log.some((entry) => entry.text.includes("[반격]"))).toBe(true);
   });
 });

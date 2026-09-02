@@ -18,6 +18,8 @@ const COMBAT_STAT_DESCRIPTIONS: Record<string, string> = {
     "마법 스킬과 마법 기본 공격의 위력입니다. 지능이 주축이고 정신도 일부 기여하며, 지능을 초과한 정신은 더 높은 비율로 전환됩니다.",
   "마법 방어력":
     "마법형 몬스터의 공격과 마법 스킬 피해를 줄입니다. 정신이 주축이고 지능·반지·목걸이·마법 방어 옵션이 보조합니다.",
+  "치명타 저항":
+    "상대의 원본 치명타 확률에서 %p로 차감합니다. 이 차감은 확률 상한을 적용하기 전에 이루어지며, 확정 치명타는 이 저항을 무시합니다.",
   회복량:
     "회복 스킬·흡혈·일부 자가 회복에 적용되는 최종 배율입니다. 정신과 활력이 높을수록 커지며 장비의 회복 옵션과 장착 패시브도 반영됩니다.",
   "마나 실드":
@@ -52,6 +54,7 @@ type CombatStats = {
   def: number;
   magicAtk?: number;
   magicDef?: number;
+  critResistPct?: number;
   healMult?: number;
   magicBarrierMax?: number;
   magicBarrierAbsorbPct?: number;
@@ -126,6 +129,13 @@ function buildCombatItems(combat: CombatStats): CombatItem[] {
       label: "마법 방어력",
       value: combat.magicDef,
       accent: "text-cyan-600 dark:text-cyan-400",
+    });
+  }
+  if (combat.critResistPct !== undefined) {
+    items.push({
+      label: "치명타 저항",
+      value: `${combat.critResistPct.toFixed(1)}%p`,
+      accent: "text-fuchsia-600 dark:text-fuchsia-400",
     });
   }
   if (combat.healMult !== undefined) {

@@ -288,7 +288,7 @@ export function NotificationBell() {
       >
         <Bell size={18} weight="duotone" />
         {totalUnread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-none text-white">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-700 px-1 text-[10px] font-semibold leading-none text-white">
             {totalUnread > 9 ? "9+" : totalUnread}
           </span>
         )}

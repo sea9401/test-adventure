@@ -120,11 +120,11 @@ export function GuildFoundCard({ onCreated }: { onCreated: () => void }) {
 
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
         <dt className="text-zinc-500 dark:text-zinc-400">현재 레벨</dt>
-        <dd className={levelOk ? "" : "text-rose-500"}>
+        <dd className={levelOk ? "" : "text-rose-700 dark:text-rose-300"}>
           Lv.{level ?? "—"} (필요 Lv.{GUILD_CREATE_MIN_LEVEL})
         </dd>
         <dt className="text-zinc-500 dark:text-zinc-400">소지 골드</dt>
-        <dd className={goldOk ? "" : "text-rose-500"}>
+        <dd className={goldOk ? "" : "text-rose-700 dark:text-rose-300"}>
           {(spendable ?? 0).toLocaleString()} / {GUILD_CREATE_GOLD_COST.toLocaleString()} G
         </dd>
       </dl>

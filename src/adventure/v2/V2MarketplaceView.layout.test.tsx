@@ -107,6 +107,32 @@ describe("V2MarketplaceView 모바일 매물 카드", () => {
     expect(html).not.toContain("즉시구매");
   });
 
+  it("일반 목록에서 내 매물·최고 입찰·과거 입찰 관계를 구분한다", () => {
+    const relationPreview = {
+      ...marketplacePreview,
+      listings: marketplacePreview.listings.map((listing, index) => ({
+        ...listing,
+        isMine: index === 0,
+        isHighestBidder: index === 1,
+        hasMyBid: index >= 1,
+        bidEndsAt: "2000-01-01T00:00:00.000Z",
+        expiresAt: "9999-12-31T23:59:59.999Z",
+        highestBid: null,
+      })),
+    };
+    const html = renderToStaticMarkup(
+      <GameStateProvider>
+        <RewardToastProvider>
+          <V2MarketplaceView onBack={() => {}} preview={relationPreview} />
+        </RewardToastProvider>
+      </GameStateProvider>,
+    );
+
+    expect(html).toContain('data-marketplace-relation="mine"');
+    expect(html).toContain('data-marketplace-relation="leading"');
+    expect(html).toContain('data-marketplace-relation="bid"');
+  });
+
   it("공개 체결 행은 개당 가격과 거래 신고 동작을 표시한다", () => {
     const html = renderToStaticMarkup(
       <MarketplaceRecentTradeList

@@ -4892,8 +4892,9 @@ export function castV2SkillOnAttackerTurnPvP(
       true,
     );
   }
-  // 직접 피해 스킬도 한 번의 피격 행동으로 반사를 발동한다. 다단 스킬은 회피 판정과 동일하게
-  // 한 행동으로 취급하며, 스킬로 방어자가 쓰러진 경우에는 평타와 마찬가지로 반사하지 않는다.
+  // 직접 피해 스킬도 한 번의 피격 행동으로 반사·반격을 발동한다. 다단 스킬은 회피 판정과
+  // 동일하게 한 행동으로 취급하며, 스킬로 방어자가 쓰러진 경우에는 평타와 마찬가지로
+  // 반사·반격하지 않는다.
   if (
     skillReflectBase > 0 &&
     next[otherKey].hp > 0 &&
@@ -4909,6 +4910,29 @@ export function castV2SkillOnAttackerTurnPvP(
     );
     next = reflected.state;
     if (reflected.attackerKilled) {
+      return {
+        state: releaseSwordShadowAfterPvPAction(next, who, otherKey),
+        castFired: result.castSkillId != null,
+        signatureExtraActions: signatureExtraActions + tier6ExtraActions,
+        selfHastePct,
+        enemyDelayPct,
+      };
+    }
+  }
+  if (
+    skillDamageToHp > 0 &&
+    next[otherKey].hp > 0 &&
+    next[who].hp > 0 &&
+    next.phase !== "ended"
+  ) {
+    const countered = maybeApplyMartialCounter(
+      next,
+      who,
+      otherKey,
+      false,
+    );
+    next = countered.state;
+    if (countered.attackerKilled) {
       return {
         state: releaseSwordShadowAfterPvPAction(next, who, otherKey),
         castFired: result.castSkillId != null,

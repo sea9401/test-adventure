@@ -63,11 +63,13 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
     <h1>서버 점검 안내</h1>
     <p class="lead">안정적인 서비스 제공을 위해 아래와 같이 서버 점검을 진행합니다.</p>
     <dl class="details">
-      <div class="row"><dt>점검 시간:</dt><dd>2026년 9월 2일(수) 오전 3:00 ~ 오전 4:00 (약 1시간)</dd></div>
+      <div class="row"><dt>점검 시간:</dt><dd>2026년 9월 3일(목) 오전 4:00 ~ 오전 4:30</dd></div>
+      <div class="row"><dt>예상 소요 시간:</dt><dd>30분</dd></div>
       <div class="row"><dt>점검 내용:</dt><dd>서비스 안정화 및 업데이트</dd></div>
+      <div class="row"><dt>점검 영향:</dt><dd>점검 중 게임 접속 및 이용 불가</dd></div>
     </dl>
-    <p class="notice">점검 중에는 게임 접속 및 이용이 불가합니다.</p>
-    <p class="note">점검은 진행 상황에 따라 조기에 종료되거나 연장될 수 있습니다.<br />이용에 불편을 드려 죄송하며, 더욱 안정적인 서비스를 제공할 수 있도록 최선을 다하겠습니다.<br />감사합니다.</p>
+    <p class="notice">점검 상황에 따라 종료 시간이 변경될 수 있으며, 점검이 완료되면 별도로 안내해 드리겠습니다.</p>
+    <p class="note">이용에 불편을 드려 죄송합니다.<br />더욱 안정적인 서비스를 제공할 수 있도록 최선을 다하겠습니다.</p>
   </div>
 </main>
 </body>

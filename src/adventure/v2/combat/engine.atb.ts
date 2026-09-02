@@ -763,12 +763,24 @@ function settleTrackingAfterPlayerAction(args: {
       args.tick,
     );
   }
-  if (
-    mechanic.trackingThreat < 70 &&
-    displayThreat >= 70 &&
-    !resolution.triggered
-  ) {
-    state = appendTrackingLog(state, "추적 섬멸 임박", args.tick);
+  if (resolution.triggered) {
+    state = appendTrackingLog(
+      state,
+      `[추적 ${TRACKING_THREAT_MAX}/${TRACKING_THREAT_MAX}] 조준이 완료되어 추적 병기가 연속 공격을 개시한다.`,
+      args.tick,
+    );
+  } else if (mechanic.trackingThreat < 70 && displayThreat >= 70) {
+    state = appendTrackingLog(
+      state,
+      `[추적 ${displayThreat}/${TRACKING_THREAT_MAX}] 붉은 조준선이 더욱 선명하게 고정된다.`,
+      args.tick,
+    );
+  } else if (mechanic.trackingThreat < 40 && displayThreat >= 40) {
+    state = appendTrackingLog(
+      state,
+      `[추적 ${displayThreat}/${TRACKING_THREAT_MAX}] 조준 장치가 공격 궤적을 따라 움직인다.`,
+      args.tick,
+    );
   }
   if (!resolution.triggered) return state;
 
@@ -984,11 +996,32 @@ function settleGlacialChillAfterEnemyAction(args: {
   if (resolution.triggered) {
     state = appendGlacialLog(
       state,
+      `[한기 ${GLACIAL_CHILL_THRESHOLD}/${GLACIAL_CHILL_THRESHOLD}] 한기가 한계에 도달해 다음 행동이 봉쇄된다.`,
+      "enemy",
+      args.currentTick,
+    );
+    state = appendGlacialLog(
+      state,
       "[빙결] 다음 행동이 봉쇄된다.",
       "enemy",
       args.currentTick,
     );
     return { state, playerNextTick: args.playerNextTick };
+  }
+  if (mechanic.glacialChillStacks < 7 && displayStacks >= 7) {
+    state = appendGlacialLog(
+      state,
+      `[한기 ${displayStacks}/${GLACIAL_CHILL_THRESHOLD}] 온몸에 서리가 번져 움직임을 붙잡는다.`,
+      "enemy",
+      args.currentTick,
+    );
+  } else if (mechanic.glacialChillStacks < 4 && displayStacks >= 4) {
+    state = appendGlacialLog(
+      state,
+      `[한기 ${displayStacks}/${GLACIAL_CHILL_THRESHOLD}] 냉기장이 짙어지며 움직임이 무거워진다.`,
+      "enemy",
+      args.currentTick,
+    );
   }
 
   return {
@@ -1231,14 +1264,24 @@ function settleToxicBloodAfterEnemyAction(args: {
     "enemy",
     args.tick,
   );
-  if (
-    mechanic.toxicBloodStacks < 7 &&
-    displayStacks >= 7 &&
-    !resolution.exploded
-  ) {
+  if (resolution.exploded) {
     state = appendToxicBloodLog(
       state,
-      "[독혈] 폭발 임박",
+      `[독혈 ${TOXIC_BLOOD_MAX_STACKS}/${TOXIC_BLOOD_MAX_STACKS}] 축적된 독혈이 한꺼번에 파열된다.`,
+      "enemy",
+      args.tick,
+    );
+  } else if (mechanic.toxicBloodStacks < 7 && displayStacks >= 7) {
+    state = appendToxicBloodLog(
+      state,
+      `[독혈 ${displayStacks}/${TOXIC_BLOOD_MAX_STACKS}] 축적된 독혈이 불길하게 맥동한다. 폭발이 임박했다.`,
+      "enemy",
+      args.tick,
+    );
+  } else if (mechanic.toxicBloodStacks < 4 && displayStacks >= 4) {
+    state = appendToxicBloodLog(
+      state,
+      `[독혈 ${displayStacks}/${TOXIC_BLOOD_MAX_STACKS}] 검붉은 독혈이 상처 깊숙이 스며든다.`,
       "enemy",
       args.tick,
     );

@@ -94,6 +94,13 @@ describe("tracking weapon ATB mechanic", () => {
     expect(eliminationLogs(result)).toHaveLength(2);
     expect(
       result.finalState.log.some((entry) =>
+        entry.text.includes(
+          "[추적 100/100] 조준이 완료되어 추적 병기가 연속 공격을 개시한다.",
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      result.finalState.log.some((entry) =>
         entry.text.includes("추적 완료 — 추적 섬멸 발동"),
       ),
     ).toBe(true);
@@ -148,7 +155,7 @@ describe("tracking weapon ATB mechanic", () => {
 
   it("한 행동의 큰 초과분도 반격 한 번과 위협 99만 남긴다", () => {
     const result = runTrackingBattle({
-      initialThreat: 99,
+      initialThreat: 0,
       player: { ...basePlayer, atk: 500_000 },
       enemy: { ...trackingWeapon, hp: 1_000_000, def: 0 },
     });
@@ -158,6 +165,21 @@ describe("tracking weapon ATB mechanic", () => {
       trackingCounterCount: 1,
     });
     expect(eliminationLogs(result)).toHaveLength(2);
+    expect(
+      result.finalState.log.filter((entry) =>
+        entry.text.includes("조준 장치가 공격 궤적을 따라 움직인다"),
+      ),
+    ).toHaveLength(0);
+    expect(
+      result.finalState.log.filter((entry) =>
+        entry.text.includes("붉은 조준선이 더욱 선명하게 고정된다"),
+      ),
+    ).toHaveLength(0);
+    expect(
+      result.finalState.log.filter((entry) =>
+        entry.text.includes("조준이 완료되어 추적 병기가 연속 공격을 개시한다"),
+      ),
+    ).toHaveLength(1);
   });
 
   it("일반 보호막이 추적 섬멸을 기존 물리 공격처럼 흡수한다", () => {
@@ -209,6 +231,33 @@ describe("tracking weapon ATB mechanic", () => {
     );
 
     expect(snapshot?.enemySignatureResources?.trackingThreat).toBe("24/100");
+  });
+
+  it("추적 40에 처음 진입할 때만 공격 궤적 전조를 한 번 남긴다", () => {
+    const entered = runTrackingBattle({ initialThreat: 36 });
+    const hint =
+      "[추적 40/100] 조준 장치가 공격 궤적을 따라 움직인다.";
+
+    expect(
+      entered.finalState.log.filter((entry) => entry.text === hint),
+    ).toHaveLength(1);
+
+    vi.restoreAllMocks();
+    const alreadyInside = runTrackingBattle({ initialThreat: 40 });
+
+    expect(
+      alreadyInside.finalState.log.filter((entry) => entry.text === hint),
+    ).toHaveLength(0);
+  });
+
+  it("추적 70에 처음 진입하면 조준선 고정 전조를 한 번 남긴다", () => {
+    const result = runTrackingBattle({ initialThreat: 66 });
+    const hint =
+      "[추적 70/100] 붉은 조준선이 더욱 선명하게 고정된다.";
+
+    expect(
+      result.finalState.log.filter((entry) => entry.text === hint),
+    ).toHaveLength(1);
   });
 
   it("추적 설정이 없는 전투에는 상태와 추적 로그를 만들지 않는다", () => {

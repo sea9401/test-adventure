@@ -151,6 +151,13 @@ describe("toxic blood lord ATB mechanic", () => {
         entry.text.includes("[독혈 폭발]"),
       ),
     ).toHaveLength(1);
+    expect(
+      result.finalState.log.filter(
+        (entry) =>
+          entry.text ===
+          "[독혈 10/10] 축적된 독혈이 한꺼번에 파열된다.",
+      ),
+    ).toHaveLength(1);
   });
 
   it("플레이어 행동 시작에 현재 중첩 비례 지속 피해를 준다", () => {
@@ -195,18 +202,27 @@ describe("toxic blood lord ATB mechanic", () => {
     ).toBe(false);
   });
 
-  it("7중첩을 처음 넘을 때 폭발 임박 경고를 한 번 남긴다", () => {
+  it("독혈 4와 7 구간에 처음 진입할 때 단계별 전조를 한 번씩 남긴다", () => {
     const result = runBattle({
       enemy: toxicMonster({ spd: 60, heavyBlowEvery: 1 }),
     });
+    const logs = result.finalState.log.map((entry) => entry.text);
 
     expect(result.finalState.bossMechanic).toMatchObject({
       toxicBloodStacks: 8,
       toxicExplosionCount: 0,
     });
     expect(
-      result.finalState.log.filter((entry) =>
-        entry.text.includes("[독혈] 폭발 임박"),
+      logs.filter(
+        (text) =>
+          text === "[독혈 4/10] 검붉은 독혈이 상처 깊숙이 스며든다.",
+      ),
+    ).toHaveLength(1);
+    expect(
+      logs.filter(
+        (text) =>
+          text ===
+          "[독혈 8/10] 축적된 독혈이 불길하게 맥동한다. 폭발이 임박했다.",
       ),
     ).toHaveLength(1);
   });

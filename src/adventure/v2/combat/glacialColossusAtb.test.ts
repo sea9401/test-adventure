@@ -283,8 +283,36 @@ describe("glacial colossus ATB mechanic", () => {
         entry.text.includes("몸이 얼어붙어 행동할 수 없다"),
       ),
     ).toHaveLength(1);
+    expect(
+      result.finalState.log.filter(
+        (entry) =>
+          entry.text ===
+          "[한기 10/10] 한기가 한계에 도달해 다음 행동이 봉쇄된다.",
+      ),
+    ).toHaveLength(1);
     expect(pickAction).toHaveBeenCalledTimes(result.turns);
     expect(result.finalState.turn.completedPlayerTurns).toBe(result.turns);
+  });
+
+  it("한기 4와 7 구간에 처음 진입할 때 단계별 전조를 한 번씩 남긴다", () => {
+    const result = runGlacialBattle({
+      enemy: glacialMonster({ spd: 0, directActionSpd: false }),
+      maxTurns: 7,
+    });
+    const logs = result.finalState.log.map((entry) => entry.text);
+
+    expect(
+      logs.filter(
+        (text) =>
+          text === "[한기 4/10] 냉기장이 짙어지며 움직임이 무거워진다.",
+      ),
+    ).toHaveLength(1);
+    expect(
+      logs.filter(
+        (text) =>
+          text === "[한기 8/10] 온몸에 서리가 번져 움직임을 붙잡는다.",
+      ),
+    ).toHaveLength(1);
   });
 
   it("빙결 예약 중 보스가 여러 번 행동해도 한기와 빙결을 더 쌓지 않는다", () => {

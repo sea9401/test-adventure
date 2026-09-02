@@ -23,6 +23,9 @@ export const UNEXPLORED_SUMMON_STONE_GOLD_COST = 5_000_000;
 // 1~4회 공격으로 처치됐다. 기믹을 전개할 여유는 주되 HP만으로 늘어지는 전투를 피하도록
 // 공통 체력은 3배로 잡고, 실제 생존 압박은 각 보스의 공격력으로 분담한다.
 export const UNEXPLORED_BOSS_SHARED_MAX_HP = 32_400_000;
+// 추적 병기·독혈 군주는 1,080만 체력 기준으로 조정한 초반 보스다. 강화된 기믹을
+// 확인할 시간만 보태고 후속 보스처럼 장기전이 되지 않도록 별도 체력을 사용한다.
+export const UNEXPLORED_EARLY_BOSS_SHARED_MAX_HP = 15_000_000;
 
 export const UNEXPLORED_SUMMON_STONE_MATERIALS = {
   v2_unexplored_tracking_weapon_summon_stone: {
@@ -107,7 +110,7 @@ export const UNEXPLORED_BOSSES = {
       },
     ],
     titleId: "v2_unexplored_tracking_weapon",
-    sharedMaxHp: UNEXPLORED_BOSS_SHARED_MAX_HP,
+    sharedMaxHp: UNEXPLORED_EARLY_BOSS_SHARED_MAX_HP,
     anchorDepth: 120,
     monster: {
       name: "추적 병기",
@@ -160,7 +163,7 @@ export const UNEXPLORED_BOSSES = {
       },
     ],
     titleId: "v2_unexplored_toxic_blood_lord",
-    sharedMaxHp: UNEXPLORED_BOSS_SHARED_MAX_HP,
+    sharedMaxHp: UNEXPLORED_EARLY_BOSS_SHARED_MAX_HP,
     anchorDepth: 120,
     monster: {
       name: "독혈 군주",

@@ -240,14 +240,23 @@ describe("coopBosses 카탈로그", () => {
   it("독혈 군주는 장기전 독혈 순환을 특성으로 안내한다", () => {
     const toxic = COOP_BOSSES.toxic_blood_lord;
 
-    expect(toxic.base.skill).toMatchObject({
-      kind: "heavy_blow",
-      name: "독혈 파열",
-      everyPhases: 3,
-      multiplier: 1.8,
+    expect(toxic.base).toMatchObject({
+      spd: 52,
+      def: 44,
+      magicDef: 46,
+      skill: {
+        kind: "heavy_blow",
+        name: "독혈 파열",
+        everyPhases: 3,
+        multiplier: 1.8,
+      },
     });
+    expect(
+      coopBossForBattle(toxic, toxic.sharedMaxHp).monster,
+    ).toMatchObject({ def: 1_910, magicDef: 1_997 });
     expect(toxic.enrageStages).toEqual([]);
     expect(toxic.traits).toEqual([
+      "45틱마다 빠른 행동",
       "피격 시 독혈 누적",
       "10중첩 독혈 폭발",
       "중독·폭발 후 회복 억제",

@@ -341,7 +341,7 @@ export const UNEXPLORED_BOSSES = {
     traits: [
       "900틱마다 천공 포격",
       "연타·치명타로 조준 붕괴",
-      "24중첩 시 포격 25%·핵 노출",
+      "24중첩 시 포격 50%·핵 노출",
     ],
   },
   immortal_berserker: {

@@ -1295,6 +1295,11 @@ const SIGNATURE_RESOURCE_LABELS: Record<string, string> = {
   immortalLifeHp: "현재 생명",
   immortalRegeneration: "재생",
   immortalEnrage: "광폭",
+  crystalEyeAim: "천공 포격까지",
+  crystalEyeArtillery: "현재 예상 위력",
+  crystalEyeDisruption: "조준 붕괴",
+  crystalEyeCore: "수정 핵",
+  crystalEyeLastArtillery: "직전 포격",
 };
 
 const TRIPLE_WARD_RESOURCE_KEYS = new Set([

@@ -166,7 +166,7 @@ export function skywardCrystalEyeArtilleryPowerPct(
     SKYWARD_CRYSTAL_EYE_STACK_CAP,
     0,
   );
-  if (scored >= 24) return 25;
+  if (scored >= 24) return 50;
   if (scored >= 20) return 50;
   if (scored >= 16) return 60;
   if (scored >= 12) return 70;

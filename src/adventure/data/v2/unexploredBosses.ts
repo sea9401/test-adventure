@@ -125,7 +125,11 @@ export const UNEXPLORED_BOSSES = {
       armorVulnerable: 0.35,
       playerDefVulnerable: 0.35,
       dropQualityBias: 4,
-      v2MaxMp: 0,
+      v2Skills: {
+        learned: ["mob_crushing_blow"],
+        equipped: ["mob_crushing_blow"],
+      },
+      v2MaxMp: 90,
     },
     traits: ["빠른 행동", "피해·타격 추적", "추적 완료 시 2연타 반격"],
   },
@@ -170,8 +174,11 @@ export const UNEXPLORED_BOSSES = {
       armorVulnerable: 0.35,
       playerDefVulnerable: 0.35,
       dropQualityBias: 4,
-      v2Skills: { learned: ["mob_venom_bite"], equipped: ["mob_venom_bite"] },
-      v2MaxMp: 120,
+      v2Skills: {
+        learned: ["mob_venom_sunder", "mob_crushing_blow"],
+        equipped: ["mob_venom_sunder", "mob_crushing_blow"],
+      },
+      v2MaxMp: 90,
     },
     traits: [
       "피격 시 독혈 누적",
@@ -220,7 +227,11 @@ export const UNEXPLORED_BOSSES = {
       armorVulnerable: 0.35,
       playerDefVulnerable: 0.35,
       dropQualityBias: 4,
-      v2MaxMp: 0,
+      v2Skills: {
+        learned: ["mob_arcane_nova"],
+        equipped: ["mob_arcane_nova"],
+      },
+      v2MaxMp: 105,
     },
     traits: [
       "냉기장으로 한기 누적",
@@ -268,6 +279,10 @@ export const UNEXPLORED_BOSSES = {
       armorVulnerable: 0.35,
       playerDefVulnerable: 0.35,
       dropQualityBias: 4,
+      v2Skills: {
+        learned: ["mob_arcane_bolt"],
+        equipped: ["mob_arcane_bolt"],
+      },
       v2MaxMp: 0,
     },
     traits: [
@@ -317,7 +332,11 @@ export const UNEXPLORED_BOSSES = {
       armorVulnerable: 0.35,
       playerDefVulnerable: 0.35,
       dropQualityBias: 4,
-      v2MaxMp: 0,
+      v2Skills: {
+        learned: ["mob_arcane_nova"],
+        equipped: ["mob_arcane_nova"],
+      },
+      v2MaxMp: 105,
     },
     traits: [
       "900틱마다 천공 포격",
@@ -366,7 +385,11 @@ export const UNEXPLORED_BOSSES = {
       armorVulnerable: 0.35,
       playerDefVulnerable: 0.35,
       dropQualityBias: 4,
-      v2MaxMp: 0,
+      v2Skills: {
+        learned: ["mob_savage_roar"],
+        equipped: ["mob_savage_roar"],
+      },
+      v2MaxMp: 75,
     },
     traits: [
       "두 번 부활하는 세 개의 생명",

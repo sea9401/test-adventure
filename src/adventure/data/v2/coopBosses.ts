@@ -413,6 +413,7 @@ export type CoopBossKind = {
 
 export type CoopMechanicState = {
   bossMp?: number;
+  bossSkillMpRevision?: number;
   trackingThreat?: number;
   fortress?: InvincibleFortressBattleState;
   crystalEye?: SkywardCrystalEyeBattleState;
@@ -423,6 +424,7 @@ export function parseCoopMechanicState(value: unknown): CoopMechanicState {
   if (!value || typeof value !== "object") return {};
   const src = value as {
     bossMp?: unknown;
+    bossSkillMpRevision?: unknown;
     trackingThreat?: unknown;
     fortress?: unknown;
     crystalEye?: unknown;
@@ -431,6 +433,15 @@ export function parseCoopMechanicState(value: unknown): CoopMechanicState {
   const next: CoopMechanicState = {};
   if (typeof src.bossMp === "number" && Number.isFinite(src.bossMp)) {
     next.bossMp = Math.max(0, Math.floor(src.bossMp));
+  }
+  if (
+    typeof src.bossSkillMpRevision === "number" &&
+    Number.isFinite(src.bossSkillMpRevision)
+  ) {
+    next.bossSkillMpRevision = Math.max(
+      0,
+      Math.floor(src.bossSkillMpRevision),
+    );
   }
   if (
     typeof src.trackingThreat === "number" &&
@@ -745,12 +756,22 @@ export function coopBossMaxMp(kind: CoopBossKind): number {
   );
 }
 
+const UNEXPLORED_BOSS_SKILL_MP_REVISION = 1;
+
+function coopBossSkillMpRevision(kind: CoopBossKind): number {
+  return (UNEXPLORED_BOSS_IDS as readonly string[]).includes(kind.id)
+    ? UNEXPLORED_BOSS_SKILL_MP_REVISION
+    : 0;
+}
+
 export function coopBossCurrentMp(
   kind: CoopBossKind,
   stateRaw: unknown,
 ): number {
   const maxMp = coopBossMaxMp(kind);
   const parsed = parseCoopMechanicState(stateRaw);
+  const skillMpRevision = coopBossSkillMpRevision(kind);
+  if ((parsed.bossSkillMpRevision ?? 0) < skillMpRevision) return maxMp;
   return Math.max(0, Math.min(maxMp, parsed.bossMp ?? maxMp));
 }
 
@@ -760,9 +781,13 @@ export function withCoopBossMp(
   bossMp: number,
 ): CoopMechanicState {
   const maxMp = coopBossMaxMp(kind);
+  const skillMpRevision = coopBossSkillMpRevision(kind);
   return {
     ...parseCoopMechanicState(stateRaw),
     bossMp: Math.max(0, Math.min(maxMp, Math.floor(bossMp))),
+    ...(skillMpRevision > 0
+      ? { bossSkillMpRevision: skillMpRevision }
+      : {}),
   };
 }
 

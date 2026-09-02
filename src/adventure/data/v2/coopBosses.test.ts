@@ -716,6 +716,23 @@ describe("coopBosses 카탈로그", () => {
     expect(parseCoopMechanicState(state).bossMp).toBe(123);
   });
 
+  it("기존 미개척지 세션은 새 스킬 MP를 한 번만 충전하고 이후 소모값을 보존한다", () => {
+    const boss = COOP_BOSSES.tracking_weapon;
+    const maxMp = coopBossMaxMp(boss);
+
+    expect(coopBossCurrentMp(boss, { bossMp: 0 })).toBe(maxMp);
+
+    const migrated = withCoopBossMp(boss, { bossMp: 0 }, maxMp - 30);
+    expect(migrated).toMatchObject({
+      bossMp: maxMp - 30,
+      bossSkillMpRevision: 1,
+    });
+    expect(coopBossCurrentMp(boss, migrated)).toBe(maxMp - 30);
+    expect(
+      coopBossCurrentMp(boss, { ...migrated, bossMp: 0 }),
+    ).toBe(0);
+  });
+
   it("추적 위협만 0~100으로 보정하며 기존 공유 MP 상태를 보존한다", () => {
     const tracking = COOP_BOSSES.tracking_weapon;
     const parsed = parseCoopMechanicState({

@@ -24,6 +24,7 @@ import {
   MAX_ACTIVE_PER_KIND,
   coopBossDurationMs,
   coopBossMaxMp,
+  withCoopBossMp,
   withCoopImmortalBerserkerState,
   withCoopInvincibleFortressState,
   withCoopBossTrackingThreat,
@@ -126,7 +127,7 @@ export async function createCoopBossSession(
   const summonerGuildId = await getGuildId(ex, args.userId);
   const initialMechanicState = withCoopBossTrackingThreat(
     kind,
-    { bossMp: coopBossMaxMp(kind) },
+    withCoopBossMp(kind, {}, coopBossMaxMp(kind)),
     0,
   );
   const mechanicState = kind.id === "invincible_fortress"

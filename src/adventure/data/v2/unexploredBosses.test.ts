@@ -91,6 +91,51 @@ describe("미개척지 개인 보스 카탈로그", () => {
     }
   });
 
+  it("모든 미개척지 보스는 평타 사이에 정체성에 맞는 기본 스킬을 섞는다", () => {
+    expect(UNEXPLORED_BOSSES.tracking_weapon.monster).toMatchObject({
+      v2Skills: {
+        learned: ["mob_crushing_blow"],
+        equipped: ["mob_crushing_blow"],
+      },
+      v2MaxMp: 90,
+    });
+    expect(UNEXPLORED_BOSSES.toxic_blood_lord.monster).toMatchObject({
+      v2Skills: {
+        learned: ["mob_venom_sunder", "mob_crushing_blow"],
+        equipped: ["mob_venom_sunder", "mob_crushing_blow"],
+      },
+      v2MaxMp: 90,
+    });
+    expect(UNEXPLORED_BOSSES.glacial_colossus.monster).toMatchObject({
+      v2Skills: {
+        learned: ["mob_arcane_nova"],
+        equipped: ["mob_arcane_nova"],
+      },
+      v2MaxMp: 105,
+    });
+    expect(UNEXPLORED_BOSSES.invincible_fortress.monster).toMatchObject({
+      v2Skills: {
+        learned: ["mob_arcane_bolt"],
+        equipped: ["mob_arcane_bolt"],
+      },
+      v2MaxMp: 0,
+    });
+    expect(UNEXPLORED_BOSSES.skyward_crystal_eye.monster).toMatchObject({
+      v2Skills: {
+        learned: ["mob_arcane_nova"],
+        equipped: ["mob_arcane_nova"],
+      },
+      v2MaxMp: 105,
+    });
+    expect(UNEXPLORED_BOSSES.immortal_berserker.monster).toMatchObject({
+      v2Skills: {
+        learned: ["mob_savage_roar"],
+        equipped: ["mob_savage_roar"],
+      },
+      v2MaxMp: 75,
+    });
+  });
+
   it("보스마다 거래 가능한 소환석과 독립 고유 3종을 가진다", () => {
     for (const boss of Object.values(UNEXPLORED_BOSSES)) {
       expect(UNEXPLORED_BOSSES[boss.id]).toBe(boss);

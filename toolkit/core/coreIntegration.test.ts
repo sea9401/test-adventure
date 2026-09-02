@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { ToolkitAdapter } from "./adapter";
+import type { ToolkitTaskState } from "../schemas/task";
 import { AdapterRegistry } from "./adapterRegistry";
 import { CommandRunner } from "./commandRunner";
 import { TaskStateStore } from "./taskState";
@@ -102,6 +103,20 @@ describe("project toolkit core integration", () => {
       runner: new CommandRunner(),
       resolveBaseSha: async () => "a".repeat(40),
       now: () => new Date("2026-09-02T00:00:00.000Z"),
+      inspectRepository: async (
+        _projectRoot: string,
+        _state: ToolkitTaskState,
+        options: { specHash: string; checkGraphHash: string },
+      ) => ({
+        headSha: "a".repeat(40),
+        dirtyPaths: [],
+        dirtyFileHashes: {},
+        unrelatedDirtyPaths: [],
+        plannedArtifactHashes: {},
+        repositoryHash: "fixture-repository",
+        specHash: options.specHash,
+        checkGraphHash: options.checkGraphHash,
+      }),
     };
     const create = {
       kind: "content-create" as const,

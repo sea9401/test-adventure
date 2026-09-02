@@ -8,6 +8,7 @@ import { execFile } from "node:child_process";
 
 import { CommandRunner } from "../core/commandRunner";
 import { TaskStateStore } from "../core/taskState";
+import { runStagingRelease } from "../pipelines/stagingRelease";
 import {
   createReadlineInteractiveIo,
   promptForToolkitCommand,
@@ -28,6 +29,9 @@ async function main(argv: readonly string[]): Promise<void> {
 
   try {
     const registry = createDefaultAdapterRegistry();
+    const projectRoot = process.cwd();
+    const store = new TaskStateStore(projectRoot);
+    const report = (message: string) => process.stdout.write(`${message}\n`);
     let command;
     if (shouldPromptInteractively(argv, process.env.CI, process.stdin.isTTY)) {
       const session = createReadlineInteractiveIo();
@@ -37,6 +41,8 @@ async function main(argv: readonly string[]): Promise<void> {
             id: adapter.id,
             label: adapter.displayName ?? adapter.id,
           })),
+          releasePr: true,
+          deployTest: true,
         });
       } finally {
         session.close();
@@ -48,17 +54,35 @@ async function main(argv: readonly string[]): Promise<void> {
       command = parseToolkitCommand(argv);
     }
     process.exitCode = await executeToolkitCommand(command, {
-      projectRoot: process.cwd(),
+      projectRoot,
       registry,
-      store: new TaskStateStore(process.cwd()),
+      store,
       runner: new CommandRunner(),
-      report: (message) => process.stdout.write(`${message}\n`),
+      report,
       resolveBaseSha: async () => {
         const result = await execFileAsync("git", ["rev-parse", "HEAD"], {
-          cwd: process.cwd(),
+          cwd: projectRoot,
           encoding: "utf8",
         });
         return result.stdout.trim();
+      },
+      releaseHandlers: {
+        pr: async (taskId, dryRun) => {
+          await runStagingRelease(taskId, "pr-open", dryRun, {
+            projectRoot,
+            store,
+            report,
+          });
+          return 0;
+        },
+        deployTest: async (taskId, dryRun) => {
+          await runStagingRelease(taskId, "public-verified", dryRun, {
+            projectRoot,
+            store,
+            report,
+          });
+          return 0;
+        },
       },
     });
   } catch (error) {

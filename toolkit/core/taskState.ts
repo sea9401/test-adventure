@@ -18,6 +18,7 @@ import type {
   ToolkitPhase,
   ToolkitTaskState,
 } from "../schemas/task";
+import { STAGING_RELEASE_PHASES } from "../schemas/task";
 
 const TASK_ID_PATTERN = /^[a-z0-9][a-z0-9-]{2,63}$/;
 const ROOT_PATH_PREFIXES = ["src/", "scripts/", "public/", "docs/"];
@@ -150,6 +151,31 @@ function isFullVerification(
   );
 }
 
+function isStagingRelease(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (!isRecord(value) || !isRecord(value.phases)) return false;
+  const releasePhases = value.phases;
+  const phaseIndex = STAGING_RELEASE_PHASES.indexOf(value.phase as never);
+  if (phaseIndex < 0) return false;
+  const completePrefix = STAGING_RELEASE_PHASES.every((phase, index) =>
+    index <= phaseIndex
+      ? isRecord(releasePhases[phase])
+      : releasePhases[phase] === undefined,
+  );
+  return (
+    typeof value.branch === "string" &&
+    value.branch !== "" &&
+    !["main", "staging"].includes(value.branch) &&
+    typeof value.verifiedSha === "string" &&
+    /^[a-f0-9]{40}$/.test(value.verifiedSha) &&
+    Object.entries(releasePhases).every(
+      ([phase, data]) =>
+        STAGING_RELEASE_PHASES.includes(phase as never) && isRecord(data),
+    ) &&
+    completePrefix
+  );
+}
+
 function validateTaskState(value: unknown): ToolkitTaskState {
   if (!isRecord(value)) {
     throw new Error("invalid task state");
@@ -185,7 +211,8 @@ function validateTaskState(value: unknown): ToolkitTaskState {
     isStringArray(value.manualPaths) &&
     isImageReviews(value.imageReviews) &&
     isFullVerification(value.fullVerification) &&
-    (value.checkpointSha === undefined || typeof value.checkpointSha === "string");
+    (value.checkpointSha === undefined || typeof value.checkpointSha === "string") &&
+    isStagingRelease(value.stagingRelease);
 
   if (!valid) {
     throw new Error("invalid task state");

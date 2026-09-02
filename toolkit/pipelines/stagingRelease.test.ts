@@ -215,6 +215,20 @@ describe("staging push and PR", () => {
     );
   });
 
+  it("rejects an exact-head PR that was closed without merging", async () => {
+    const fixture = context();
+    fixture.github.existing = {
+      number: 2501,
+      state: "CLOSED",
+      baseRefName: "staging",
+      headRefName: "feat/echo-warden",
+      url: "https://github.com/sea9401/test-adventure/pull/2501",
+    };
+    await expect(ensureStagingPullRequest(fixture.value)).rejects.toThrow(
+      "existing staging pull request is closed without merge",
+    );
+  });
+
   it("squash-merges only the exact staging PR and resolves origin staging SHA", async () => {
     const fixture = context();
     fixture.github.existing = {

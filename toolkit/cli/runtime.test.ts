@@ -424,4 +424,40 @@ describe("executeToolkitCommand", () => {
       ),
     ).rejects.toBeInstanceOf(ToolkitUsageError);
   });
+
+  it("delegates registered staging release commands without widening their target", async () => {
+    const { fixture, registry, store } = await setup();
+    const calls: Array<[string, string, boolean]> = [];
+    const dependencies = {
+      projectRoot: fixture.root,
+      registry,
+      store,
+      runner: new FakeCommandRunner(),
+      resolveBaseSha: async () => "a".repeat(40),
+      releaseHandlers: {
+        pr: async (taskId: string, dryRun: boolean) => {
+          calls.push(["pr", taskId, dryRun]);
+          return 0;
+        },
+        deployTest: async (taskId: string, dryRun: boolean) => {
+          calls.push(["deploy-test", taskId, dryRun]);
+          return 0;
+        },
+      },
+    };
+
+    await executeToolkitCommand(
+      { kind: "release-pr", taskId: "boss-red", dryRun: true },
+      dependencies,
+    );
+    await executeToolkitCommand(
+      { kind: "release-deploy-test", taskId: "boss-red", dryRun: false },
+      dependencies,
+    );
+
+    expect(calls).toEqual([
+      ["pr", "boss-red", true],
+      ["deploy-test", "boss-red", false],
+    ]);
+  });
 });

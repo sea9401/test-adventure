@@ -159,6 +159,27 @@ describe("TaskStateStore", () => {
     });
   });
 
+  it("reloads a complete monotonic staging release prefix", async () => {
+    const root = await temporaryRoot();
+    const store = new TaskStateStore(root);
+    const state = fixtureState({
+      phase: "release",
+      stagingRelease: {
+        phase: "pr-open",
+        branch: "feat/boss-red",
+        verifiedSha: "b".repeat(40),
+        phases: {
+          verified: { sha: "b".repeat(40) },
+          pushed: { sha: "b".repeat(40) },
+          "pr-open": { prNumber: 2501 },
+        },
+      },
+    });
+    await store.save(state);
+
+    await expect(store.load("boss-red")).resolves.toEqual(state);
+  });
+
   it("rejects path traversal in task ids", async () => {
     const store = new TaskStateStore(await temporaryRoot());
     await expect(store.load("../outside")).rejects.toThrow("invalid task id");
@@ -169,6 +190,22 @@ describe("TaskStateStore", () => {
     {
       body: JSON.stringify({ ...fixtureState(), schemaVersion: 2 }),
       message: "unsupported task state schema",
+    },
+    {
+      body: JSON.stringify({
+        ...fixtureState(),
+        phase: "release",
+        stagingRelease: {
+          phase: "pr-open",
+          branch: "feat/boss-red",
+          verifiedSha: "b".repeat(40),
+          phases: {
+            verified: { sha: "b".repeat(40) },
+            "pr-open": { prNumber: 2501 },
+          },
+        },
+      }),
+      message: "invalid task state",
     },
   ])("rejects invalid persisted state: $message", async ({ body, message }) => {
     const root = await temporaryRoot();

@@ -1,24 +1,11 @@
 import { stableJson } from "../core/hashes";
+import {
+  STAGING_RELEASE_PHASES,
+  type StagingReleasePhase,
+  type StagingReleaseState,
+} from "../schemas/task";
 
-export const RELEASE_PHASES = [
-  "verified",
-  "pushed",
-  "pr-open",
-  "pr-ci-passed",
-  "merged-staging",
-  "staging-ci-passed",
-  "deploy-passed",
-  "public-verified",
-] as const;
-
-export type StagingReleasePhase = (typeof RELEASE_PHASES)[number];
-
-export type StagingReleaseState = {
-  phase: StagingReleasePhase;
-  branch: string;
-  verifiedSha: string;
-  phases: Partial<Record<StagingReleasePhase, Readonly<Record<string, unknown>>>>;
-};
+export type { StagingReleasePhase, StagingReleaseState } from "../schemas/task";
 
 export type ReleasePhaseEvent = {
   phase: StagingReleasePhase;
@@ -29,8 +16,8 @@ export function nextReleasePhase(
   state: StagingReleaseState,
   event: ReleasePhaseEvent,
 ): StagingReleaseState {
-  const currentIndex = RELEASE_PHASES.indexOf(state.phase);
-  const eventIndex = RELEASE_PHASES.indexOf(event.phase);
+  const currentIndex = STAGING_RELEASE_PHASES.indexOf(state.phase);
+  const eventIndex = STAGING_RELEASE_PHASES.indexOf(event.phase);
   if (eventIndex === currentIndex) {
     if (stableJson(state.phases[event.phase]) !== stableJson(event.data)) {
       throw new Error(

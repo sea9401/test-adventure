@@ -71,6 +71,28 @@ export type FullVerificationRecord = {
   checks: Readonly<Record<string, FullVerificationCheckRecord>>;
 };
 
+export const STAGING_RELEASE_PHASES = [
+  "verified",
+  "pushed",
+  "pr-open",
+  "pr-ci-passed",
+  "merged-staging",
+  "staging-ci-passed",
+  "deploy-passed",
+  "public-verified",
+] as const;
+
+export type StagingReleasePhase = (typeof STAGING_RELEASE_PHASES)[number];
+
+export type StagingReleaseState = {
+  phase: StagingReleasePhase;
+  branch: string;
+  verifiedSha: string;
+  phases: Partial<
+    Record<StagingReleasePhase, Readonly<Record<string, unknown>>>
+  >;
+};
+
 export type ToolkitTaskState = {
   schemaVersion: 1;
   taskId: string;
@@ -88,4 +110,5 @@ export type ToolkitTaskState = {
   imageReviews?: Readonly<Partial<Record<ImageReviewRole, ImageReviewRecord>>>;
   fullVerification?: FullVerificationRecord;
   checkpointSha?: string;
+  stagingRelease?: StagingReleaseState;
 };

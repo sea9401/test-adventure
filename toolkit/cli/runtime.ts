@@ -370,6 +370,9 @@ export async function executeToolkitCommand(
       }
       return verifyTask(state, command.level, dependencies);
     }
+    case "images-import":
+    case "images-review":
+      throw new ToolkitUsageError("image pipeline is not registered");
     case "release-pr":
       if (dependencies.releaseHandlers?.pr === undefined) {
         throw new ToolkitUsageError("release PR pipeline is not registered");

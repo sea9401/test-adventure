@@ -7,6 +7,20 @@ export type ToolkitCommand =
     }
   | { kind: "task-resume"; taskId: string; dryRun: boolean }
   | {
+      kind: "images-import";
+      taskId: string;
+      sourceDir: string;
+      dryRun: boolean;
+    }
+  | {
+      kind: "images-review";
+      taskId: string;
+      role: "boss" | "drop-30" | "drop-10" | "drop-rare";
+      decision: "accept" | "reject";
+      reason: string;
+      dryRun: boolean;
+    }
+  | {
       kind: "task-scope-add";
       taskId: string;
       paths: readonly string[];
@@ -176,6 +190,44 @@ function parseVerify(argv: readonly string[]): ToolkitCommand {
   return { kind: "verify", level, taskId, dryRun: parsed.dryRun };
 }
 
+function parseImagesImport(argv: readonly string[]): ToolkitCommand {
+  const parsed = parseTail(argv, ["--source-dir"]);
+  const [taskId] = requirePositionals(parsed.positionals, ["task id"]);
+  const sourceDir = requireFlag(parsed.values, "--source-dir");
+  if (sourceDir.includes("://")) {
+    throw new ToolkitUsageError("--source-dir must be a local filesystem path");
+  }
+  return { kind: "images-import", taskId, sourceDir, dryRun: parsed.dryRun };
+}
+
+function parseImagesReview(argv: readonly string[]): ToolkitCommand {
+  const parsed = parseTail(argv, ["--role", "--decision", "--reason"]);
+  const [taskId] = requirePositionals(parsed.positionals, ["task id"]);
+  const role = requireFlag(parsed.values, "--role");
+  if (
+    role !== "boss" &&
+    role !== "drop-30" &&
+    role !== "drop-10" &&
+    role !== "drop-rare"
+  ) {
+    throw new ToolkitUsageError(
+      "image role must be boss, drop-30, drop-10, or drop-rare",
+    );
+  }
+  const decision = requireFlag(parsed.values, "--decision");
+  if (decision !== "accept" && decision !== "reject") {
+    throw new ToolkitUsageError("image decision must be accept or reject");
+  }
+  return {
+    kind: "images-review",
+    taskId,
+    role,
+    decision,
+    reason: requireFlag(parsed.values, "--reason"),
+    dryRun: parsed.dryRun,
+  };
+}
+
 function parseRelease(
   releaseKind: "pr" | "deploy-test",
   argv: readonly string[],
@@ -203,6 +255,12 @@ export function parseToolkitCommand(argv: readonly string[]): ToolkitCommand {
   if (argv[0] === "verify") {
     return parseVerify(argv.slice(1));
   }
+  if (argv[0] === "images" && argv[1] === "import") {
+    return parseImagesImport(argv.slice(2));
+  }
+  if (argv[0] === "images" && argv[1] === "review") {
+    return parseImagesReview(argv.slice(2));
+  }
   if (argv[0] === "release" && argv[1] === "pr") {
     return parseRelease("pr", argv.slice(2));
   }
@@ -220,6 +278,8 @@ export function toolkitUsage(): string {
     "  npm run toolkit -- task resume <task-id> [--dry-run]",
     "  npm run toolkit -- task scope add <task-id> --paths <path,...> [--dry-run]",
     "  npm run toolkit -- task approve <task-id> --action <action> --target <target> --reason <reason> [--dry-run]",
+    "  npm run toolkit -- images import <task-id> --source-dir <path> [--dry-run]",
+    "  npm run toolkit -- images review <task-id> --role <role> --decision <accept|reject> --reason <reason> [--dry-run]",
     "  npm run toolkit -- verify <fast|full> <task-id> [--dry-run]",
     "  npm run toolkit -- release <pr|deploy-test> <task-id> [--dry-run]",
   ].join("\n");

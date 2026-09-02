@@ -93,6 +93,81 @@ describe("parseToolkitCommand", () => {
     });
   });
 
+  it("parses image import and review commands", () => {
+    expect(
+      parseToolkitCommand([
+        "images",
+        "import",
+        "boss-red",
+        "--source-dir",
+        "/tmp/boss-red-images",
+        "--dry-run",
+      ]),
+    ).toEqual({
+      kind: "images-import",
+      taskId: "boss-red",
+      sourceDir: "/tmp/boss-red-images",
+      dryRun: true,
+    });
+    expect(
+      parseToolkitCommand([
+        "images",
+        "review",
+        "boss-red",
+        "--role",
+        "drop-rare",
+        "--decision",
+        "accept",
+        "--reason",
+        "투명 배경과 장비 실루엣 확인",
+      ]),
+    ).toEqual({
+      kind: "images-review",
+      taskId: "boss-red",
+      role: "drop-rare",
+      decision: "accept",
+      reason: "투명 배경과 장비 실루엣 확인",
+      dryRun: false,
+    });
+  });
+
+  it.each([
+    [
+      ["images", "import", "boss-red"],
+      "--source-dir is required",
+    ],
+    [
+      [
+        "images",
+        "review",
+        "boss-red",
+        "--role",
+        "unknown",
+        "--decision",
+        "accept",
+        "--reason",
+        "확인",
+      ],
+      "image role must be boss, drop-30, drop-10, or drop-rare",
+    ],
+    [
+      [
+        "images",
+        "review",
+        "boss-red",
+        "--role",
+        "boss",
+        "--decision",
+        "maybe",
+        "--reason",
+        "확인",
+      ],
+      "image decision must be accept or reject",
+    ],
+  ])("rejects invalid image command %#", (argv, message) => {
+    expect(() => parseToolkitCommand(argv)).toThrow(message);
+  });
+
   it.each([
     {
       name: "an unknown flag",

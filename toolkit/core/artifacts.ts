@@ -15,5 +15,7 @@ export type CheckDefinition = {
   args: readonly string[];
   env?: Readonly<Record<string, string>>;
   inputHash?: string;
+  toolVersion?: string;
+  reason?: string;
   dependsOn: readonly string[];
 };

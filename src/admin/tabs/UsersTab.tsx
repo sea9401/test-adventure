@@ -350,7 +350,7 @@ export function UsersTab() {
                     <div className="font-mono text-[10px] text-zinc-500">
                       {u.email ?? u.id}
                     </div>
-                    <div className="text-[10px] text-zinc-400">
+                    <div className="text-[10px] text-zinc-600 dark:text-zinc-400">
                       마지막 접속 {formatLastSeen(u.lastSeenAt)}
                     </div>
                   </button>

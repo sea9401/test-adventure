@@ -663,7 +663,7 @@ export function V2InboxView({
         </Card>
       ) : displayed.length === 0 ? (
         <Card padding="md">
-          <div className="flex flex-col items-center gap-2 py-6 text-zinc-400 dark:text-zinc-500">
+          <div className="flex flex-col items-center gap-2 py-6 text-zinc-600 dark:text-zinc-400">
             <Envelope size={32} weight="duotone" />
             <div className="text-sm">
               {tab === "inbox"
@@ -834,7 +834,7 @@ function TabButton({
       className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
         active
           ? "border-emerald-600 text-zinc-900 dark:text-zinc-100"
-          : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+          : "border-transparent text-zinc-600 hover:text-zinc-800 dark:text-zinc-300 dark:hover:text-zinc-100"
       }`}
     >
       {label}

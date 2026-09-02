@@ -172,7 +172,7 @@ function RankingLeader({
         <PreviewRankingName entry={entry} className="text-base" />
       </div>
       <div className={`${SURFACE_INSET} shrink-0 px-3 py-2 text-right`}>
-        <div className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500">
+        <div className="text-[10px] font-semibold text-zinc-600 dark:text-zinc-400">
           1위 기록
         </div>
         <div className="mt-0.5 text-sm font-bold tabular-nums text-amber-700 dark:text-amber-300">

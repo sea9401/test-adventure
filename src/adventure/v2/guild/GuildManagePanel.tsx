@@ -682,7 +682,7 @@ export function GuildManagePanel({
       {/* 가입 신청 (멤버 탭) */}
       {activeManageTab === "members" && (
         <div className="space-y-2">
-          <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+          <div className="text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
             가입 신청
           </div>
           {pendingRequests.length === 0 ? (
@@ -736,10 +736,10 @@ export function GuildManagePanel({
       {/* 직책 관리 — 마스터 전용. 관리자 임명/해임. (멤버 탭) */}
       {activeManageTab === "members" && isMaster && (
         <div className="space-y-2">
-          <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+          <div className="text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
             직책 관리
           </div>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="text-xs text-zinc-600 dark:text-zinc-400">
             관리자는 최대 {MANAGER_LIMIT}명까지 임명할 수 있고, 초대·가입 신청·시설 관리·길드 연구를 쓸 수 있어요.
           </p>
           <ul className="space-y-1.5">

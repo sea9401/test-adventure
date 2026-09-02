@@ -1,5 +1,8 @@
+// @vitest-environment jsdom
+
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   GuildRaidPanel,
   GuildRaidPanelContent,
@@ -68,6 +71,8 @@ function raidState(
 }
 
 describe("길드 토벌전 패널", () => {
+  afterEach(cleanup);
+
   it("첫 조회 전에는 불러오는 상태를 보여준다", () => {
     const html = renderToStaticMarkup(<GuildRaidPanel />);
 
@@ -148,6 +153,41 @@ describe("길드 토벌전 패널", () => {
     expect(html).toContain("1 / 3");
     expect(html).toContain("1 / 2");
     expect(html).toContain("다음 페이지");
+  });
+
+  it("최근 전투 페이지 이동 버튼은 최근 전투 기록 카드에 배치하고 해당 페이지만 변경한다", () => {
+    const onLeaderboardPage = vi.fn();
+    const onRecentPage = vi.fn();
+    render(
+      <GuildRaidPanelContent
+        state={raidState()}
+        attacking={false}
+        error={null}
+        onAttack={vi.fn()}
+        onLeaderboardPage={onLeaderboardPage}
+        onRecentPage={onRecentPage}
+      />,
+    );
+
+    const memberCard = screen
+      .getByRole("heading", { name: "길드원 기여도" })
+      .closest(".ui-game-card");
+    const recentCard = screen
+      .getByRole("heading", { name: "최근 전투 기록" })
+      .closest(".ui-game-card");
+
+    expect(memberCard).not.toBeNull();
+    expect(recentCard).not.toBeNull();
+    expect(
+      within(memberCard as HTMLElement).queryByRole("navigation"),
+    ).toBeNull();
+    fireEvent.click(
+      within(recentCard as HTMLElement).getByRole("button", {
+        name: "최근 전투 다음 페이지",
+      }),
+    );
+    expect(onRecentPage).toHaveBeenCalledWith(2);
+    expect(onLeaderboardPage).not.toHaveBeenCalled();
   });
 
   it("종료 직후 정산 중 상태를 명시한다", () => {

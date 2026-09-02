@@ -40,6 +40,23 @@ describe("스킬 보유 목록 차수·계열 분류", () => {
     ).toBe(false);
   });
 
+  it.each([
+    ["v2c_mutant_morphstrike", "1"],
+    ["v2c_beastwarrior_reopen", "2"],
+    ["v2c_tracker_pounce", "3"],
+    ["v2c_bloodtracker_trailslash", "4"],
+    ["v2c_predator_devour", "5"],
+    ["v2c_primalpredator_primalfeast", "6"],
+  ] as const)("%s를 변이자 %s차 검색 결과에 포함한다", (skillId, tier) => {
+    expect(classifySkillForLibrary(skillId)).toEqual({
+      tier,
+      lineage: "mutant",
+    });
+    expect(matchesSkillLibraryClassification(skillId, tier, "all")).toBe(
+      true,
+    );
+  });
+
   it("알 수 없는 스킬은 전체 보기에서만 보존한다", () => {
     expect(
       matchesSkillLibraryClassification("legacy_unknown", "all", "all"),

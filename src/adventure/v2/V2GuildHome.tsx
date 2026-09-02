@@ -158,7 +158,7 @@ export function V2GuildHome({
           }}
         />
 
-        <div className="flex items-center gap-2 pt-1 text-xs text-zinc-400 dark:text-zinc-500">
+        <div className="flex items-center gap-2 pt-1 text-xs text-zinc-600 dark:text-zinc-400">
           <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
           또는 기존 길드에 가입
           <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />

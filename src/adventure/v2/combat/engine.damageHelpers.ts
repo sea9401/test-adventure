@@ -63,6 +63,26 @@ export function computeCritOverflowBonus(rawCritPct: number): number {
   );
 }
 
+export function resolveCriticalChanceAfterResistance(
+  rawCritPct: number,
+  critResistPct: number,
+  chanceCap = CRIT_PCT_CAP,
+): {
+  resistedCritPct: number;
+  effectiveCritPct: number;
+  overflowDamageBonus: number;
+} {
+  const resistedCritPct = Math.max(
+    0,
+    rawCritPct - Math.max(0, critResistPct),
+  );
+  return {
+    resistedCritPct,
+    effectiveCritPct: Math.min(Math.max(0, chanceCap), resistedCritPct),
+    overflowDamageBonus: computeCritOverflowBonus(resistedCritPct),
+  };
+}
+
 // 폭풍 일격(AP) — fire 시 atk × spdPct/100 추가 고정 피해(targetDef 무시). 아니면 0.
 export function computeStormBonus(
   atk: number,

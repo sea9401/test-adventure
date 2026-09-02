@@ -50,7 +50,7 @@ export function EquipmentCodexBadge({
           onRegister();
         }}
         disabled={busy}
-        className={`${badgeClassName} pointer-events-auto cursor-pointer transition hover:bg-amber-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:cursor-wait disabled:opacity-70 dark:hover:bg-amber-900`}
+        className={`${badgeClassName} min-h-7 pointer-events-auto cursor-pointer justify-center transition hover:bg-amber-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:cursor-wait disabled:opacity-70 dark:hover:bg-amber-900`}
         title="눌러서 모험의 서 장비 도감에 등록"
         aria-label={`${label}: 눌러서 바로 등록`}
       >

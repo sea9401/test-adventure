@@ -201,6 +201,27 @@ describe("coopBosses 카탈로그", () => {
     }
   });
 
+  it("미개척지 개인 보스 설명은 내부 풀 ID 대신 한글 지역명을 표시한다", () => {
+    expect(COOP_BOSSES.tracking_weapon.desc).toBe(
+      "폭주 기계 · 그림자 추적자의 흔적이 결속되어 나타난 개인 우두머리.",
+    );
+    expect(COOP_BOSSES.toxic_blood_lord.desc).toBe(
+      "맹독 군락 · 혈흔 망자의 흔적이 결속되어 나타난 개인 우두머리.",
+    );
+    expect(COOP_BOSSES.glacial_colossus.desc).toBe(
+      "혹한 군단 · 파쇄 거수의 흔적이 결속되어 나타난 개인 우두머리.",
+    );
+    expect(COOP_BOSSES.invincible_fortress.desc).toBe(
+      "철갑 군단 · 마력 방벽체의 흔적이 결속되어 나타난 개인 우두머리.",
+    );
+    expect(COOP_BOSSES.skyward_crystal_eye.desc).toBe(
+      "수정 포격대 · 정밀 사냥단의 흔적이 결속되어 나타난 개인 우두머리.",
+    );
+    expect(COOP_BOSSES.immortal_berserker.desc).toBe(
+      "재생 군체 · 붉은 광전대의 흔적이 결속되어 나타난 개인 우두머리.",
+    );
+  });
+
   it("추적 병기는 확정 연타 대신 추적 반격 중심의 일반 공격 수치를 사용한다", () => {
     const tracking = COOP_BOSSES.tracking_weapon;
     expect(tracking.base).toMatchObject({

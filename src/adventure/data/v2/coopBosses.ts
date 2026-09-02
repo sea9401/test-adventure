@@ -44,6 +44,7 @@ import {
   UNEXPLORED_BOSSES,
   type UnexploredBossId,
 } from "./unexploredBosses";
+import { UNEXPLORED_POOL_BY_ID } from "./unexploredMonsterPools";
 
 // === 소환서 (재료) =====================================================
 // 강화석 패턴 — V2_MATERIALS 카탈로그 등재(인벤 재료 탭·거래소 거래), NPC 환금 비등재,
@@ -1037,7 +1038,7 @@ function unexploredPersonalBossKind(id: UnexploredBossId): CoopBossKind {
     visibilityLocked: true,
     summonMaterialId: boss.summonMaterialId,
     name: boss.name,
-    desc: `${boss.pools.join(" · ")}의 흔적이 결속되어 나타난 개인 우두머리.`,
+    desc: `${boss.pools.map((poolId) => UNEXPLORED_POOL_BY_ID[poolId].name).join(" · ")}의 흔적이 결속되어 나타난 개인 우두머리.`,
     // 일반 소환서 경로에서는 제외되며 실제 소비량은 보스별 소환석 1개다.
     scrollCost: 0,
     sharedMaxHp: boss.sharedMaxHp,

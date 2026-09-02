@@ -126,8 +126,8 @@ type ToolkitAdapter<TSpec> = {
   id: string;
   specVersion: number;
   parseSpec(input: unknown): TSpec;
-  plan(context: AdapterContext, spec: TSpec): ArtifactPlan;
-  validateGenerated(context: AdapterContext, spec: TSpec): ValidationIssue[];
+  plan(context: AdapterContext, spec: TSpec): Promise<readonly ArtifactPlan[]>;
+  validateGenerated(context: AdapterContext, spec: TSpec): Promise<readonly ValidationIssue[]>;
   selectFastChecks(context: AdapterContext, spec: TSpec): CheckDefinition[];
   selectFullChecks(context: AdapterContext, spec: TSpec): CheckDefinition[];
 };
@@ -142,6 +142,9 @@ type ToolkitAdapter<TSpec> = {
 
 어댑터 출력은 구조화된 `ArtifactPlan`으로 반환한다. 공통 파일 작성기가 dry run, 충돌 검사,
 해시와 원자적 쓰기를 일관되게 처리한다.
+
+각 산출물은 `project` 또는 `task` 범위를 명시한다. `project` 산출물만 저장소 변경과 커밋
+대상이 되며, `task` 산출물은 해당 작업의 `.toolkit/work/<task-id>/` 아래에만 저장한다.
 
 ## 작업 명세
 
@@ -221,13 +224,16 @@ type ToolkitTaskState = {
   approvals: Record<ExternalAction, ApprovalRecord | null>;
   steps: Record<string, StepState>;
   artifacts: ArtifactRecord[];
+  manualPaths: string[];
   external: {
     branch?: string;
     commits?: string[];
     prNumber?: number;
     prUrl?: string;
-    ciRunId?: number;
-    deployRunId?: number;
+    prCiRunId?: number;
+    stagingCiRunId?: number;
+    deployRunIds?: number[];
+    stagingSha?: string;
     deployedSha?: string;
   };
 };
@@ -243,6 +249,10 @@ type ToolkitTaskState = {
 
 상태 파일에는 비밀값, 토큰, SSH 키, 전체 환경 변수와 명령의 민감한 출력을 저장하지 않는다.
 승인은 행동 종류, 승인 시각, 대상 환경과 승인 근거만 기록한다.
+
+고유 기믹 구현으로 생성 산출물 밖의 기존 파일을 수정해야 하면 `task scope add`로 정확한
+프로젝트 상대 경로를 작업에 등록한다. 등록 경로는 충돌 없는 로컬 작업 범위와 체크포인트
+커밋 대상에만 사용되며 생성기의 덮어쓰기 소유권을 주지 않는다.
 
 ## 파일 생성과 충돌 처리
 

@@ -74,7 +74,7 @@ export async function expireStaleCoopSessions(
 ): Promise<void> {
   await ex
     .update(coopBossSessions)
-    .set({ defeatedAt: now, mechanicState: null })
+    .set({ defeatedAt: now, mechanicState: {} })
     .where(
       and(
         isNull(coopBossSessions.defeatedAt),

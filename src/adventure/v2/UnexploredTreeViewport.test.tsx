@@ -4,7 +4,67 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { UnexploredTreeViewport } from "./UnexploredTreeViewport";
 
-afterEach(cleanup);
+let restorePointerCapture: (() => void) | null = null;
+
+afterEach(() => {
+  restorePointerCapture?.();
+  restorePointerCapture = null;
+  cleanup();
+});
+
+function installPointerCaptureHarness() {
+  const owners = new Map<number, Element>();
+  const setDescriptor = Object.getOwnPropertyDescriptor(
+    Element.prototype,
+    "setPointerCapture",
+  );
+  const hasDescriptor = Object.getOwnPropertyDescriptor(
+    Element.prototype,
+    "hasPointerCapture",
+  );
+  const releaseDescriptor = Object.getOwnPropertyDescriptor(
+    Element.prototype,
+    "releasePointerCapture",
+  );
+  Object.defineProperties(Element.prototype, {
+    setPointerCapture: {
+      configurable: true,
+      value(this: Element, pointerId: number) {
+        owners.set(pointerId, this);
+      },
+    },
+    hasPointerCapture: {
+      configurable: true,
+      value(this: Element, pointerId: number) {
+        return owners.get(pointerId) === this;
+      },
+    },
+    releasePointerCapture: {
+      configurable: true,
+      value(this: Element, pointerId: number) {
+        if (owners.get(pointerId) === this) owners.delete(pointerId);
+      },
+    },
+  });
+  restorePointerCapture = () => {
+    for (const [name, descriptor] of [
+      ["setPointerCapture", setDescriptor],
+      ["hasPointerCapture", hasDescriptor],
+      ["releasePointerCapture", releaseDescriptor],
+    ] as const) {
+      if (descriptor) {
+        Object.defineProperty(Element.prototype, name, descriptor);
+      } else {
+        delete (Element.prototype as unknown as Record<string, unknown>)[name];
+      }
+    }
+  };
+  return {
+    owner(pointerId: number) {
+      return owners.get(pointerId) ?? null;
+    },
+  };
+}
 
 function renderViewport(
   children = <circle cx={100} cy={100} r={20} />,
@@ -35,31 +95,13 @@ function renderViewport(
 describe("UnexploredTreeViewport", () => {
   it("단순 노드 누르기를 지도 컨테이너로 재대상화하지 않는다", () => {
     const onSelect = vi.fn();
-    const viewport = renderViewport(
+    const capture = installPointerCaptureHarness();
+    renderViewport(
       <g data-testid="test-node" onClick={onSelect}>
         <circle cx={100} cy={100} r={20} />
       </g>,
     );
     const node = screen.getByTestId("test-node");
-    let capturedTarget: Element | null = null;
-    Object.defineProperties(viewport, {
-      setPointerCapture: {
-        configurable: true,
-        value: () => {
-          capturedTarget = viewport;
-        },
-      },
-      hasPointerCapture: {
-        configurable: true,
-        value: () => capturedTarget === viewport,
-      },
-      releasePointerCapture: {
-        configurable: true,
-        value: () => {
-          capturedTarget = null;
-        },
-      },
-    });
 
     fireEvent.pointerDown(node, {
       pointerId: 1,
@@ -68,7 +110,7 @@ describe("UnexploredTreeViewport", () => {
       clientX: 100,
       clientY: 100,
     });
-    const pointerUpTarget = capturedTarget ?? node;
+    const pointerUpTarget = capture.owner(1) ?? node;
     fireEvent.pointerUp(pointerUpTarget, {
       pointerId: 1,
       pointerType: "mouse",
@@ -79,6 +121,56 @@ describe("UnexploredTreeViewport", () => {
     fireEvent.click(pointerUpTarget);
 
     expect(onSelect).toHaveBeenCalledOnce();
+  });
+
+  it("노드에서 시작한 터치 포인터를 즉시 원본 노드가 캡처한다", () => {
+    const capture = installPointerCaptureHarness();
+    renderViewport(<g data-testid="gesture-node" />);
+    const node = screen.getByTestId("gesture-node");
+
+    fireEvent.pointerDown(node, {
+      pointerId: 7,
+      pointerType: "touch",
+      clientX: 100,
+      clientY: 100,
+    });
+
+    expect(capture.owner(7)).toBe(node);
+  });
+
+  it("캡처된 단일 터치의 연속 이동을 모두 누적한다", () => {
+    const capture = installPointerCaptureHarness();
+    renderViewport(<g data-testid="gesture-node" />);
+    const node = screen.getByTestId("gesture-node");
+
+    fireEvent.pointerDown(node, {
+      pointerId: 1,
+      pointerType: "touch",
+      clientX: 100,
+      clientY: 100,
+    });
+    const target = capture.owner(1);
+    expect(target).toBe(node);
+
+    fireEvent.pointerMove(target!, {
+      pointerId: 1,
+      pointerType: "touch",
+      clientX: 140,
+      clientY: 100,
+    });
+    expect(
+      screen.getByTestId("unexplored-tree-transform").getAttribute("transform"),
+    ).toBe("translate(78.4 0) scale(1)");
+
+    fireEvent.pointerMove(target!, {
+      pointerId: 1,
+      pointerType: "touch",
+      clientX: 190,
+      clientY: 100,
+    });
+    expect(
+      screen.getByTestId("unexplored-tree-transform").getAttribute("transform"),
+    ).toBe("translate(176.4 0) scale(1)");
   });
 
   it("버튼으로 25%씩 확대하고 화면 맞춤으로 초기화한다", () => {
@@ -136,21 +228,40 @@ describe("UnexploredTreeViewport", () => {
   });
 
   it("두 터치 포인터 간격이 벌어지면 확대한다", () => {
-    const viewport = renderViewport();
+    const capture = installPointerCaptureHarness();
+    renderViewport(
+      <>
+        <g data-testid="left-node" />
+        <g data-testid="right-node" />
+      </>,
+    );
+    const leftNode = screen.getByTestId("left-node");
+    const rightNode = screen.getByTestId("right-node");
 
-    fireEvent.pointerDown(viewport, {
+    fireEvent.pointerDown(leftNode, {
       pointerId: 1,
       pointerType: "touch",
       clientX: 400,
       clientY: 500,
     });
-    fireEvent.pointerDown(viewport, {
+    fireEvent.pointerDown(rightNode, {
       pointerId: 2,
       pointerType: "touch",
       clientX: 600,
       clientY: 500,
     });
-    fireEvent.pointerMove(viewport, {
+    expect(capture.owner(1)).toBe(leftNode);
+    expect(capture.owner(2)).toBe(rightNode);
+
+    fireEvent.pointerMove(capture.owner(2)!, {
+      pointerId: 2,
+      pointerType: "touch",
+      clientX: 700,
+      clientY: 500,
+    });
+    expect(screen.getByText("150%")).toBeTruthy();
+
+    fireEvent.pointerMove(capture.owner(2)!, {
       pointerId: 2,
       pointerType: "touch",
       clientX: 800,

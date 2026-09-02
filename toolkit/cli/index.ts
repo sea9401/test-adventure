@@ -9,6 +9,11 @@ import { execFile } from "node:child_process";
 import { AdapterRegistry } from "../core/adapterRegistry";
 import { CommandRunner } from "../core/commandRunner";
 import { TaskStateStore } from "../core/taskState";
+import {
+  createReadlineInteractiveIo,
+  promptForToolkitCommand,
+  shouldPromptInteractively,
+} from "./interactive";
 import { executeToolkitCommand } from "./runtime";
 
 const execFileAsync = promisify(execFile);
@@ -20,10 +25,29 @@ async function main(argv: readonly string[]): Promise<void> {
   }
 
   try {
-    const command = parseToolkitCommand(argv);
+    const registry = new AdapterRegistry();
+    let command;
+    if (shouldPromptInteractively(argv, process.env.CI, process.stdin.isTTY)) {
+      const session = createReadlineInteractiveIo();
+      try {
+        command = await promptForToolkitCommand(session.io, {
+          adapters: registry.list().map((adapter) => ({
+            id: adapter.id,
+            label: adapter.id,
+          })),
+        });
+      } finally {
+        session.close();
+      }
+      if (command === null) {
+        return;
+      }
+    } else {
+      command = parseToolkitCommand(argv);
+    }
     process.exitCode = await executeToolkitCommand(command, {
       projectRoot: process.cwd(),
-      registry: new AdapterRegistry(),
+      registry,
       store: new TaskStateStore(process.cwd()),
       runner: new CommandRunner(),
       resolveBaseSha: async () => {

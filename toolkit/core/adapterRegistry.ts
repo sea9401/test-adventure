@@ -35,4 +35,8 @@ export class AdapterRegistry {
     }
     return adapter as ToolkitAdapter<TSpec>;
   }
+
+  list(): readonly ToolkitAdapter<unknown>[] {
+    return [...this.adapters.values()];
+  }
 }

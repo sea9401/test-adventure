@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyLifeFieldDurationReduction,
+  LIFE_FIELD_ENVIRONMENTS,
   LIFE_FIELD_ENVIRONMENT_IDS,
   LIFE_FIELD_SPOT_IDS,
   lifeFieldDayEndsAt,
@@ -10,6 +11,12 @@ import {
 } from "./lifeFieldEnvironment";
 
 describe("life field environments", () => {
+  it("presents the active-school weight bonus as an explicit percentage", () => {
+    expect(LIFE_FIELD_ENVIRONMENTS.fishing_active_school.effectLabel).toBe(
+      "희귀 이상 어종 출현 가중치 +8%",
+    );
+  });
+
   it("assigns each of three environments to exactly two of six spots", () => {
     for (const activity of ["fishing", "woodcutting", "mining"] as const) {
       const assignments = lifeFieldEnvironmentAssignments(

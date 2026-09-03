@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PolicyDocument } from "@/components/PolicyDocument";
 
-const EFFECTIVE_DATE = "2026년 8월 21일";
+const EFFECTIVE_DATE = "2026년 9월 4일";
 
 export const metadata: Metadata = {
   title: "이용약관 — 무슨무슨게임",
@@ -27,6 +27,9 @@ export default function TermsPage() {
       <section>
         <h2>제2조 계정과 회원의 책임</h2>
         <ol>
+          <li>서비스는 만 14세 이상인 이용자만 이용할 수 있습니다. 만 14세 미만인 이용자는 회원가입, 로그인 또는 게임 이용을 할 수 없습니다.</li>
+          <li>게임물의 내용에 관한 12세이용가 등급과 별도의 서비스 이용 조건으로 만 14세 이상 기준을 적용합니다.</li>
+          <li>회원은 로그인 전에 자신이 만 14세 이상임을 사실대로 확인해야 합니다. 서비스는 이 과정에서 생년월일을 수집하지 않습니다.</li>
           <li>회원은 카카오 로그인 또는 운영자가 개별 발급한 계정으로 서비스를 이용할 수 있습니다.</li>
           <li>회원은 자신의 인증수단과 기기 세션을 안전하게 관리해야 하며, 계정을 타인에게 양도·판매·대여해서는 안 됩니다.</li>
           <li>회원은 도용이나 무단 사용을 알게 된 경우 즉시 운영자에게 알려야 합니다.</li>
@@ -136,7 +139,7 @@ export default function TermsPage() {
 
       <section>
         <h2>부칙</h2>
-        <p>이 약관은 2026년 8월 21일부터 시행합니다.</p>
+        <p>이 약관은 2026년 9월 4일부터 시행합니다.</p>
       </section>
     </PolicyDocument>
   );

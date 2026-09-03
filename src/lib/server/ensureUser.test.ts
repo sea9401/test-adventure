@@ -7,11 +7,15 @@ const mocks = vi.hoisted(() => ({
   impersonation: vi.fn(async () => null as { targetUserId: string } | null),
   selectRows: [] as unknown[][],
   deviceSessionId: "device-a" as string | undefined,
+  ageEligible: true,
 }));
 
 vi.mock("@/auth", () => ({ auth: mocks.auth }));
 vi.mock("@/lib/server/adminImpersonation", () => ({
   readAdminImpersonationFor: mocks.impersonation,
+}));
+vi.mock("@/lib/server/ageEligibility", () => ({
+  hasValidAgeEligibilityCookie: vi.fn(async () => mocks.ageEligible),
 }));
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
@@ -42,6 +46,7 @@ describe("ensureUser impersonation", () => {
     mocks.selectRows.length = 0;
     mocks.impersonation.mockResolvedValue(null);
     mocks.deviceSessionId = "device-a";
+    mocks.ageEligible = true;
   });
 
   it("가장이 없으면 원래 로그인 유저를 반환한다", async () => {
@@ -54,6 +59,13 @@ describe("ensureUser impersonation", () => {
   it("DB에서 삭제된 사용자는 유효한 옛 JWT로 다시 만들지 않는다", async () => {
     mocks.selectRows.push([]);
     await expect(ensureOriginalUser()).resolves.toBeNull();
+  });
+
+  it("연령 확인이 없으면 유효한 로그인 세션도 게임 API 사용자로 인정하지 않는다", async () => {
+    mocks.ageEligible = false;
+
+    await expect(ensureOriginalUser()).resolves.toBeNull();
+    expect(mocks.auth).not.toHaveBeenCalled();
   });
 
   it("유효한 가장 세션은 게임 사용자만 대상으로 전환한다", async () => {

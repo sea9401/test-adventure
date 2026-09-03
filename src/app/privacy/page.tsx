@@ -4,7 +4,7 @@ import { CHAT_RETENTION_DAYS } from "@/lib/chat-config";
 import { FEED_RETENTION_DAYS } from "@/lib/feed-config";
 import { RETENTION_POLICY } from "@/lib/server/retentionPolicy";
 
-const EFFECTIVE_DATE = "2026년 8월 28일";
+const EFFECTIVE_DATE = "2026년 9월 4일";
 
 export const metadata: Metadata = {
   title: "개인정보처리방침 — 무슨무슨게임",
@@ -45,6 +45,11 @@ export default function PrivacyPage() {
                 <td>운영자 발급 계정</td>
                 <td>로그인 아이디, 암호화된 비밀번호, 연결된 이메일</td>
                 <td>해외 이용자·심사 계정의 로그인 제공</td>
+              </tr>
+              <tr>
+                <td>서비스 연령 확인</td>
+                <td>만 14세 이상 확인 여부와 확인 시각, 서명된 확인 쿠키(생년월일은 수집하지 않음)</td>
+                <td>서비스 이용 연령 기준 확인과 미확인 접근 차단</td>
               </tr>
               <tr>
                 <td>게임 이용</td>
@@ -102,6 +107,7 @@ export default function PrivacyPage() {
             </thead>
             <tbody>
               <tr><td>계정, 게임 저장 데이터, 게시글·댓글·문의 등 회원 귀속 정보</td><td>회원 탈퇴 시까지</td></tr>
+              <tr><td>만 14세 이상 확인 쿠키</td><td>확인 후 최대 1년 또는 이용자가 브라우저에서 쿠키를 삭제할 때까지</td></tr>
               <tr><td>채팅 메시지</td><td>작성 후 {CHAT_RETENTION_DAYS}일</td></tr>
               <tr><td>완료·기각된 콘텐츠 신고 기록</td><td>처리 완료 후 {RETENTION_POLICY.resolvedUgcReportDays}일(회원 탈퇴 시 계정 식별값과 표시 이름 익명화)</td></tr>
               <tr><td>커뮤니티 운영정책 동의 기록</td><td>회원 탈퇴 시까지</td></tr>
@@ -404,7 +410,7 @@ export default function PrivacyPage() {
       <section>
         <h2>7. 쿠키와 기기 저장소</h2>
         <p>
-          서비스는 로그인 유지, 활성 기기 확인, 홍보 링크 적용과 사람 확인을 위해 필수 쿠키 또는 이와 유사한 기술을 사용합니다. 테마, 채팅 표시 방식, 알림, 사냥 설정과 같은 이용자 선택은 브라우저의 로컬 저장소에 보관될 수 있습니다. 광고 추적용 쿠키나 제3자 분석 도구는 현재 사용하지 않습니다.
+          서비스는 만 14세 이상 확인, 로그인 유지, 활성 기기 확인, 홍보 링크 적용과 사람 확인을 위해 필수 쿠키 또는 이와 유사한 기술을 사용합니다. 연령 확인 쿠키에는 생년월일이 아니라 확인 시각과 위조 방지용 서명만 저장됩니다. 테마, 채팅 표시 방식, 알림, 사냥 설정과 같은 이용자 선택은 브라우저의 로컬 저장소에 보관될 수 있습니다. 광고 추적용 쿠키나 제3자 분석 도구는 현재 사용하지 않습니다.
         </p>
         <p className="mt-3">
           이용자는 브라우저 설정에서 쿠키와 사이트 데이터를 삭제할 수 있습니다. 필수 쿠키를 차단하면 로그인이나 일부 기능이 정상적으로 동작하지 않을 수 있습니다.

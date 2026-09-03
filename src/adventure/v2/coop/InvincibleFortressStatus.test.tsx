@@ -8,10 +8,10 @@ describe("InvincibleFortressStatus", () => {
       <InvincibleFortressStatus status={{
         fortressBarrierActive: true,
         fortressBarrierTicksRemaining: 160,
-        fortressBarrierDamage: 18_200,
+        fortressBarrierDamage: 100_000,
         fortressBarrierTarget: 32_400,
         fortressEnrageTier: 2,
-        fortressProjectedEnrageTier: 1,
+        fortressProjectedEnrageTier: 0,
         fortressCompletedBarrierCount: 1,
         fortressNextBarrierHpFraction: 0.5,
         fortressLastResultTier: 2,
@@ -20,9 +20,10 @@ describe("InvincibleFortressStatus", () => {
 
     expect(html).toContain("마력 방벽 2/4");
     expect(html).toContain("방벽 시험 240 / 400틱");
-    expect(html).toContain("누적 피해 18,200 / 32,400");
-    expect(html).toContain("예상 광폭: 약함");
-    expect(html).toContain('aria-valuenow="18200"');
+    expect(html).toContain("누적 피해 100,000 / 32,400");
+    expect(html).toContain("예상 광폭: 없음");
+    expect(html).toContain('aria-valuenow="32400"');
+    expect(html).toContain('style="width:100%"');
   });
 
   it("방벽 밖에서는 현재 광폭의 공격·속도 증가량을 표시한다", () => {

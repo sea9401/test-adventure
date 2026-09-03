@@ -158,13 +158,16 @@ export function normalizeInvincibleFortressState(
     return fallback;
   }
 
-  const target = invincibleFortressBarrierTarget(maxHp);
   const ticks = finiteInteger(
     source.barrierTicksRemaining,
     0,
     INVINCIBLE_FORTRESS_BARRIER_TICKS,
   );
-  const barrierDamage = finiteInteger(source.barrierDamage, 0, target);
+  const barrierDamage = finiteInteger(
+    source.barrierDamage,
+    0,
+    Number.MAX_SAFE_INTEGER,
+  );
   if (ticks === null || barrierDamage === null) return fallback;
   const fallbackTier = results.at(-1) ?? 0;
   const enrageTier = isEnrageTier(source.enrageTier)
@@ -202,17 +205,26 @@ export function settleInvincibleFortressDamage(args: {
   const hp = Math.max(0, Math.min(max, Math.floor(args.currentHp)));
   const damage = Math.max(
     0,
-    Math.floor(Number.isFinite(args.incomingDamage) ? args.incomingDamage : 0),
+    Math.min(
+      Number.MAX_SAFE_INTEGER,
+      Math.floor(Number.isFinite(args.incomingDamage) ? args.incomingDamage : 0),
+    ),
   );
-  const target = invincibleFortressBarrierTarget(max);
 
   if (args.state.activeBarrierIndex !== null) {
-    const barrierDamage = Math.min(target, args.state.barrierDamage + damage);
+    const previousBarrierDamage = Math.max(
+      0,
+      Math.min(Number.MAX_SAFE_INTEGER, Math.floor(args.state.barrierDamage)),
+    );
+    const barrierDamage = Math.min(
+      Number.MAX_SAFE_INTEGER,
+      previousBarrierDamage + damage,
+    );
     return {
       state: { ...args.state, barrierDamage },
       bodyHp: hp,
       bodyDamage: 0,
-      barrierDamageApplied: barrierDamage - args.state.barrierDamage,
+      barrierDamageApplied: barrierDamage - previousBarrierDamage,
       barrierStarted: false,
     };
   }
@@ -242,18 +254,17 @@ export function settleInvincibleFortressDamage(args: {
   }
 
   const overflow = Math.max(0, damage - bodyDamageBeforeBoundary);
-  const barrierDamage = Math.min(target, overflow);
   return {
     state: {
       ...args.state,
       activeBarrierIndex: nextIndex,
       barrierTicksRemaining: INVINCIBLE_FORTRESS_BARRIER_TICKS,
-      barrierDamage,
+      barrierDamage: overflow,
       enrageTier: 0,
     },
     bodyHp: boundaryHp,
     bodyDamage: bodyDamageBeforeBoundary,
-    barrierDamageApplied: barrierDamage,
+    barrierDamageApplied: overflow,
     barrierStarted: true,
   };
 }

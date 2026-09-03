@@ -61,6 +61,22 @@ describe("invincible fortress mechanic", () => {
     expect(result.state.barrierDamage).toBe(12_000);
   });
 
+  it("records all active-barrier damage above the target without reducing body HP", () => {
+    const result = settleInvincibleFortressDamage({
+      state: initialInvincibleFortressState(MAX_HP),
+      currentHp: MAX_HP,
+      incomingDamage: 100_000,
+      maxHp: MAX_HP,
+    });
+
+    expect(result).toMatchObject({
+      bodyHp: MAX_HP,
+      bodyDamage: 0,
+      barrierDamageApplied: 100_000,
+    });
+    expect(result.state.barrierDamage).toBe(100_000);
+  });
+
   it("clamps body HP at 75% and sends overflow into the next barrier", () => {
     const state: InvincibleFortressBattleState = {
       ...initialInvincibleFortressState(MAX_HP),
@@ -80,11 +96,11 @@ describe("invincible fortress mechanic", () => {
     expect(result).toMatchObject({
       bodyHp: 8_100_000,
       bodyDamage: 100_000,
-      barrierDamageApplied: 32_400,
+      barrierDamageApplied: 150_000,
     });
     expect(result.state).toMatchObject({
       activeBarrierIndex: 1,
-      barrierDamage: 32_400,
+      barrierDamage: 150_000,
       enrageTier: 0,
     });
   });
@@ -109,7 +125,7 @@ describe("invincible fortress mechanic", () => {
     expect(result.state).toMatchObject({
       completedBarrierCount: 1,
       activeBarrierIndex: 1,
-      barrierDamage: 32_400,
+      barrierDamage: 10_700_000,
     });
   });
 
@@ -182,6 +198,26 @@ describe("invincible fortress mechanic", () => {
     });
   });
 
+  it("preserves valid above-target damage when normalizing an active trial", () => {
+    expect(normalizeInvincibleFortressState({
+      ...initialInvincibleFortressState(MAX_HP),
+      barrierTicksRemaining: 160,
+      barrierDamage: 100_000,
+    }, MAX_HP, MAX_HP)).toMatchObject({
+      activeBarrierIndex: 0,
+      barrierTicksRemaining: 160,
+      barrierDamage: 100_000,
+      enrageTier: 0,
+    });
+  });
+
+  it("caps an extreme persisted measurement at the safe integer boundary", () => {
+    expect(normalizeInvincibleFortressState({
+      ...initialInvincibleFortressState(MAX_HP),
+      barrierDamage: Number.MAX_VALUE,
+    }, MAX_HP, MAX_HP).barrierDamage).toBe(Number.MAX_SAFE_INTEGER);
+  });
+
   it("returns the exact phase-local attack and speed multipliers", () => {
     expect([0, 1, 2, 3, 4].map((tier) =>
       invincibleFortressEnrageMultipliers(tier as 0 | 1 | 2 | 3 | 4),
@@ -198,11 +234,11 @@ describe("invincible fortress mechanic", () => {
     expect(invincibleFortressResourceSnapshot({
       ...initialInvincibleFortressState(MAX_HP),
       barrierTicksRemaining: 160,
-      barrierDamage: 18_200,
+      barrierDamage: 100_000,
     }, MAX_HP)).toEqual({
       fortressTrial: "240 / 400틱",
-      fortressDamage: "18,200 / 32,400",
-      fortressEnrage: "보통",
+      fortressDamage: "100,000 / 32,400",
+      fortressEnrage: "없음",
     });
 
     expect(invincibleFortressResourceSnapshot({

@@ -13,6 +13,8 @@ import {
   clearStormExpeditionAutoplayPlan,
   STORM_EXPEDITION_AUTOPLAY_DEFAULTS_KEY,
   STORM_EXPEDITION_AUTOPLAY_PLAN_KEY,
+  alignStormExpeditionPlanToVisitedRoutes,
+  stormExpeditionRiskDecision,
 } from "./stormExpeditionAutoplayPolicy";
 
 const basePlan: StormExpeditionAutoplayPlan = {
@@ -32,6 +34,37 @@ const resources = (hp: number, maxHp: number, mp: number, maxMp: number) => ({
 });
 
 describe("폭풍 원정 일괄 진행 계획", () => {
+  it("위험 이벤트 설정이 없는 기존 계획은 모든 이벤트를 안전하게 지나친다", () => {
+    expect(stormExpeditionRiskDecision(basePlan, "rift_cache")).toBe("decline");
+    expect(stormExpeditionRiskDecision(basePlan, "storm_contract")).toBe("decline");
+  });
+
+  it("이벤트별 수락 설정만 선택적으로 적용한다", () => {
+    const configured = {
+      ...basePlan,
+      riskEventDecisions: {
+        rift_cache: "accept" as const,
+        golden_compass: "decline" as const,
+      },
+    };
+    expect(stormExpeditionRiskDecision(configured, "rift_cache")).toBe("accept");
+    expect(stormExpeditionRiskDecision(configured, "golden_compass")).toBe("decline");
+    expect(stormExpeditionRiskDecision(configured, "unstable_blessing")).toBe("decline");
+  });
+
+  it("진행 중 방문한 항로는 현재 경로로 계획을 맞추고 남은 항로는 유지한다", () => {
+    expect(alignStormExpeditionPlanToVisitedRoutes(basePlan, [
+      "gale_outer",
+      "supply",
+      "wreckage_middle",
+      "wreckage_camp",
+    ])).toEqual({
+      ...basePlan,
+      outerRouteId: "gale",
+      middleRouteId: "wreckage",
+    });
+  });
+
   it("외곽·중층·수호자 항로를 계획한 체크포인트 노드로 변환한다", () => {
     expect(stormExpeditionPlannedNodeId(basePlan, "outer")).toBe("gale_outer");
     expect(stormExpeditionPlannedNodeId(basePlan, "middle")).toBe("thunder_middle");
@@ -154,6 +187,20 @@ describe("폭풍 원정 자동 정비 선택", () => {
 describe("폭풍 원정 자동 계획 저장 형식", () => {
   it("정상 계획을 직렬화하고 다시 검증해 읽는다", () => {
     expect(parseStoredStormExpeditionPlan(serializeStormExpeditionPlan(basePlan))).toEqual(basePlan);
+  });
+
+  it("저장된 이벤트 결정을 검증하고 잘못된 값은 안전한 기본값으로 버린다", () => {
+    expect(parseStoredStormExpeditionPlan(JSON.stringify({
+      ...basePlan,
+      riskEventDecisions: {
+        rift_cache: "accept",
+        storm_contract: "always",
+        unknown_event: "accept",
+      },
+    }))).toEqual({
+      ...basePlan,
+      riskEventDecisions: { rift_cache: "accept" },
+    });
   });
 
   it.each([

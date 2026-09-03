@@ -3,7 +3,7 @@
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { fetchGameState } from "./fetchGameState";
-import { CheckCircle, X } from "@phosphor-icons/react";
+import { ArrowClockwise, CheckCircle, X } from "@phosphor-icons/react";
 import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -36,6 +36,7 @@ import {
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
 import { useSystemMessageState } from "./RewardToastProvider";
+import { confirmPresetOverwrite } from "./presetConfirmation";
 
 // "전투 패턴"(갬빗) 에디터 — 우선순위 {조건→행동} 블록을 배열하면 전투에서 위에서부터 조건 맞는
 // 스킬 후보를 검사한다. 운영에서는 procChance 실패 시 다음 후보로 넘어간다. 조건 어휘는 1:1
@@ -1019,6 +1020,27 @@ export function V2CombatPatternView({
     }
   }, [blocks, presetName, presets, persistPresets, setMsg]);
 
+  const overwritePreset = useCallback(
+    async (preset: V2CombatPreset) => {
+      await confirmPresetOverwrite({
+        name: preset.name,
+        onConfirm: async () => {
+          const entry: V2CombatPreset = {
+            name: preset.name,
+            pattern: { blocks },
+          };
+          const next = presets.map((candidate) =>
+            candidate.name === preset.name ? entry : candidate,
+          );
+          if (await persistPresets(next)) {
+            setMsg(`✓ 프리셋 '${preset.name}' 덮어쓰기 완료`);
+          }
+        },
+      });
+    },
+    [blocks, persistPresets, presets, setMsg],
+  );
+
   // 프리셋 불러오기 = 그 블록을 에디터에 싣고 활성 패턴으로 즉시 적용(빠른 스왑).
   const loadPreset = useCallback(
     async (p: V2CombatPreset) => {
@@ -1107,6 +1129,16 @@ export function V2CombatPatternView({
                     <span className="max-w-[140px] truncate font-medium">{p.name}</span>
                     <button type="button" onClick={() => loadPreset(p)} disabled={busy}
                       className="rounded px-1.5 text-indigo-600 hover:bg-indigo-100 disabled:opacity-40 dark:text-indigo-400 dark:hover:bg-indigo-950">불러오기</button>
+                    <button
+                      type="button"
+                      onClick={() => void overwritePreset(p)}
+                      disabled={busy}
+                      aria-label={`${p.name} 프리셋을 현재 패턴으로 덮어쓰기`}
+                      title="현재 패턴으로 덮어쓰기"
+                      className="inline-flex size-8 items-center justify-center rounded-md border border-amber-500 text-amber-700 transition hover:bg-amber-50 active:scale-90 disabled:opacity-40 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-950"
+                    >
+                      <ArrowClockwise size={16} weight="bold" aria-hidden />
+                    </button>
                     <button type="button" onClick={() => deletePreset(p.name)} disabled={busy}
                       className="rounded px-1.5 text-rose-500 hover:bg-rose-100 disabled:opacity-40 dark:hover:bg-rose-950">✕</button>
                   </li>

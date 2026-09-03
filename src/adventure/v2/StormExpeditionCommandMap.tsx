@@ -115,13 +115,13 @@ export function StormExpeditionCommandMap({
               {autoplay.kind === "stopping" ? "중단 대기 중" : "현재 요청 후 중단"}
             </button>
           )}
-          {!active && autoplay.kind === "idle" && (
+          {autoplay.kind === "idle" && (
             <button
               type="button"
               className="min-h-11 rounded-md bg-sky-600 px-4 font-semibold text-white hover:bg-sky-500"
               onClick={onOpenAutoplayPlan}
             >
-              일괄 진행 설정
+              {active ? "남은 구간 일괄 진행 설정" : "일괄 진행 설정"}
             </button>
           )}
           {autoplay.kind === "resume" && (

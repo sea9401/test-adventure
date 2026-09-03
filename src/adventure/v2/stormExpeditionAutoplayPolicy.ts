@@ -2,6 +2,7 @@ import type {
   StormExpeditionBoonId,
   StormExpeditionChoiceKind,
   StormExpeditionMode,
+  StormExpeditionRiskEventId,
   StormExpeditionRouteId,
 } from "@/adventure/data/v2/stormExpedition";
 import type { StormExpeditionMapNodeId } from "@/adventure/data/v2/stormExpeditionMap";
@@ -11,6 +12,7 @@ export const STORM_EXPEDITION_AUTOPLAY_DEFAULTS_KEY = "storm-expedition.autoplay
 
 export type StormExpeditionBoonStrategy = "offense" | "survival" | "resource";
 export type StormExpeditionRouteStage = "outer" | "middle" | "guardian";
+export type StormExpeditionRiskDecision = "accept" | "decline";
 
 export type StormExpeditionAutoplayPlan = {
   version: 1;
@@ -19,6 +21,9 @@ export type StormExpeditionAutoplayPlan = {
   middleRouteId: StormExpeditionRouteId;
   guardianRouteId: StormExpeditionRouteId;
   boonStrategy: StormExpeditionBoonStrategy;
+  riskEventDecisions?: Partial<
+    Record<StormExpeditionRiskEventId, StormExpeditionRiskDecision>
+  >;
 };
 
 type StormExpeditionResources = {
@@ -37,6 +42,13 @@ export type StormExpeditionPlanStorage = {
 const ROUTE_IDS = ["gale", "thunder", "wreckage"] as const;
 const MODES = ["normal", "practice"] as const;
 const BOON_STRATEGIES = ["offense", "survival", "resource"] as const;
+const RISK_EVENT_IDS = [
+  "rift_cache",
+  "storm_contract",
+  "unstable_blessing",
+  "golden_compass",
+] as const satisfies readonly StormExpeditionRiskEventId[];
+const RISK_DECISIONS = ["accept", "decline"] as const;
 const EPSILON = 1e-9;
 
 const BOON_PRIORITIES: Record<StormExpeditionBoonStrategy, readonly StormExpeditionBoonId[]> = {
@@ -69,6 +81,49 @@ export function isStormExpeditionPlanCompatible(
     if (nodeId.endsWith("_guardian")) return nodeId === `${plan.guardianRouteId}_guardian`;
     return true;
   });
+}
+
+export function stormExpeditionRiskDecision(
+  plan: StormExpeditionAutoplayPlan,
+  eventId: StormExpeditionRiskEventId,
+): StormExpeditionRiskDecision {
+  return plan.riskEventDecisions?.[eventId] === "accept"
+    ? "accept"
+    : "decline";
+}
+
+export function stormExpeditionVisitedRouteId(
+  visitedNodeIds: readonly StormExpeditionMapNodeId[],
+  stage: StormExpeditionRouteStage,
+): StormExpeditionRouteId | null {
+  const suffixes = stage === "outer"
+    ? ["_outer"]
+    : stage === "middle"
+      ? ["_middle", "_camp", "_elite"]
+      : ["_guardian"];
+  for (const routeId of ROUTE_IDS) {
+    if (visitedNodeIds.some((nodeId) =>
+      suffixes.some((suffix) => nodeId === `${routeId}${suffix}`)
+    )) {
+      return routeId;
+    }
+  }
+  return null;
+}
+
+export function alignStormExpeditionPlanToVisitedRoutes(
+  plan: StormExpeditionAutoplayPlan,
+  visitedNodeIds: readonly StormExpeditionMapNodeId[],
+): StormExpeditionAutoplayPlan {
+  const outerRouteId = stormExpeditionVisitedRouteId(visitedNodeIds, "outer");
+  const middleRouteId = stormExpeditionVisitedRouteId(visitedNodeIds, "middle");
+  const guardianRouteId = stormExpeditionVisitedRouteId(visitedNodeIds, "guardian");
+  return {
+    ...plan,
+    ...(outerRouteId ? { outerRouteId } : {}),
+    ...(middleRouteId ? { middleRouteId } : {}),
+    ...(guardianRouteId ? { guardianRouteId } : {}),
+  };
 }
 
 export function chooseStormExpeditionBoon(
@@ -121,6 +176,15 @@ export function parseStoredStormExpeditionPlan(raw: string | null): StormExpedit
     if (!includes(ROUTE_IDS, source.middleRouteId)) return null;
     if (!includes(ROUTE_IDS, source.guardianRouteId)) return null;
     if (!includes(BOON_STRATEGIES, source.boonStrategy)) return null;
+    const rawRiskDecisions = source.riskEventDecisions;
+    const riskEventDecisions = rawRiskDecisions && typeof rawRiskDecisions === "object"
+      ? Object.fromEntries(
+          RISK_EVENT_IDS.flatMap((eventId) => {
+            const decision = (rawRiskDecisions as Record<string, unknown>)[eventId];
+            return includes(RISK_DECISIONS, decision) ? [[eventId, decision]] : [];
+          }),
+        ) as Partial<Record<StormExpeditionRiskEventId, StormExpeditionRiskDecision>>
+      : {};
     return {
       version: 1,
       mode: source.mode,
@@ -128,6 +192,7 @@ export function parseStoredStormExpeditionPlan(raw: string | null): StormExpedit
       middleRouteId: source.middleRouteId,
       guardianRouteId: source.guardianRouteId,
       boonStrategy: source.boonStrategy,
+      ...(Object.keys(riskEventDecisions).length > 0 ? { riskEventDecisions } : {}),
     };
   } catch {
     return null;

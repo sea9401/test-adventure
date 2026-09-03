@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { StormExpeditionAutoplayPlan } from "./stormExpeditionAutoplayPolicy";
 import { StormExpeditionAutoPlanDialog } from "./StormExpeditionAutoPlanDialog";
 
@@ -14,6 +14,8 @@ const plan: StormExpeditionAutoplayPlan = {
   guardianRouteId: "wreckage",
   boonStrategy: "offense",
 };
+
+afterEach(cleanup);
 
 describe("StormExpeditionAutoPlanDialog", () => {
   it("모드·세 구간 항로·축복 전략과 패배 경고를 한 번에 설정한다", () => {
@@ -57,12 +59,69 @@ describe("StormExpeditionAutoPlanDialog", () => {
     expect(html).toMatch(/aria-label="축복 전략 공격 우선" aria-pressed="true"/);
   });
 
+  it("위험 이벤트별 수락과 지나치기를 설정한다", () => {
+    const onChange = vi.fn();
+    render(
+      <StormExpeditionAutoPlanDialog open value={plan} attemptsLeft={2} busy={false} onChange={onChange} onSubmit={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    expect(screen.getByText("위험 이벤트")).toBeTruthy();
+    expect(screen.getByText("균열 상자")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "균열 상자 지나치기" }).getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "균열 상자 수락" }));
+
+    expect(onChange).toHaveBeenCalledWith({
+      ...plan,
+      riskEventDecisions: { rift_cache: "accept" },
+    });
+  });
+
+  it("진행 중 이미 방문한 항로는 현재 경로로 고정하고 남은 항로만 바꿀 수 있다", () => {
+    const html = renderToStaticMarkup(
+      <StormExpeditionAutoPlanDialog
+        open
+        value={plan}
+        lockedMode="normal"
+        visitedNodeIds={["wreckage_outer", "supply", "gale_middle"]}
+        attemptsLeft={2}
+        busy={false}
+        onChange={vi.fn()}
+        onSubmit={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(html).toMatch(/aria-label="외곽 항로 잔해" aria-pressed="true"[^>]* disabled=""/);
+    expect(html).toMatch(/aria-label="중층 항로 칼바람" aria-pressed="true"[^>]* disabled=""/);
+    expect(html).not.toMatch(/aria-label="수호자 항로 잔해"[^>]* disabled=""/);
+  });
+
   it("입장 횟수가 없으면 실전만 비활성화하고 연습은 유지한다", () => {
     const html = renderToStaticMarkup(
       <StormExpeditionAutoPlanDialog open value={plan} attemptsLeft={0} busy={false} onChange={vi.fn()} onSubmit={vi.fn()} onClose={vi.fn()} />,
     );
     expect(html).toMatch(/aria-label="실전 모드"[^>]* disabled=""/);
     expect(html).not.toMatch(/aria-label="연습 모드"[^>]* disabled=""/);
+  });
+
+  it("이미 진행 중인 실전 원정은 남은 입장 횟수가 없어도 일괄 진행할 수 있다", () => {
+    const html = renderToStaticMarkup(
+      <StormExpeditionAutoPlanDialog
+        open
+        value={plan}
+        lockedMode="normal"
+        visitedNodeIds={["gale_outer"]}
+        attemptsLeft={0}
+        busy={false}
+        onChange={vi.fn()}
+        onSubmit={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("일괄 진행 시작");
+    expect(html).not.toMatch(/disabled=""[^>]*>일괄 진행 시작<\/button>/);
   });
 
   it("진행 중인 연습 원정에서는 연습 모드를 표시하고 모드 변경을 막는다", () => {

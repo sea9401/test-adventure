@@ -142,6 +142,37 @@ describe("guild workshop recipe equipment codex badge", () => {
     expect(html).toContain("정제 철괴 1개 · 보유 3개");
     expect(html).not.toContain("저항");
   });
+
+  it("적용 가능한 옵션 성향이 없는 전문 장비는 빈 선택 대신 이유를 표시한다", () => {
+    const controlledState: WorkshopState = {
+      ...workshopState(),
+      blacksmithProgression: { specialty: "weapon" },
+      recipes: [
+        {
+          ...guildWorkshopRecipeView(recipe, {}),
+          techniques: {
+            eligible: true,
+            optionFocuses: [],
+            structures: [
+              { id: "balanced", name: "균형 제작", requiredLevel: 20 },
+            ],
+            focusChancePct: 75,
+            catalystUnlocked: true,
+            catalystFocusChancePct: 90,
+            catalystPreserveChancePct: 20,
+            masterworkTechniquesUnlocked: false,
+            signatureUnlocked: false,
+            inspectionUnlocked: false,
+            catalyst: null,
+          },
+        },
+      ],
+    };
+
+    const html = renderWorkshop(new Set(), "ready", controlledState);
+    expect(html).toContain("이 장비에는 조정 가능한 옵션 성향이 없습니다.");
+    expect(html).not.toContain("성향 사용 안 함");
+  });
   it("shows normal and masterwork crafting fees", () => {
     const html = renderWorkshop(new Set());
     expect(html).toContain("제작 수수료: 10,000 G");

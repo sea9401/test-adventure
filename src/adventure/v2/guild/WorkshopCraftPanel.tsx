@@ -2,7 +2,11 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { SpinnerGap, Star, X } from "@phosphor-icons/react";
-import { SURFACE_ACCENT, SURFACE_CARD } from "@/components/ui/surfaces";
+import {
+  SURFACE_ACCENT,
+  SURFACE_CARD,
+  SURFACE_INSET,
+} from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
 import {
@@ -726,32 +730,38 @@ export function WorkshopCraftPanel({
                 전문 제작 설정
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
-                <label className="space-y-1">
-                  <span className="block text-zinc-600 dark:text-zinc-300">
-                    옵션 성향
-                  </span>
-                  <select
-                    value={control.optionFocus ?? ""}
-                    onChange={(event) =>
-                      updateCraftControl(recipe.id, {
-                        optionFocus: (event.target.value || undefined) as
-                          | BlacksmithOptionFocusId
-                          | undefined,
-                        useCatalyst: event.target.value
-                          ? control.useCatalyst
-                          : false,
-                      })
-                    }
-                    className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-                  >
-                    <option value="">성향 사용 안 함</option>
-                    {techniques.optionFocuses.map((focus) => (
-                      <option key={focus.id} value={focus.id}>
-                        {focus.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {techniques.optionFocuses.length > 0 ? (
+                  <label className="space-y-1">
+                    <span className="block text-zinc-600 dark:text-zinc-300">
+                      옵션 성향
+                    </span>
+                    <select
+                      value={control.optionFocus ?? ""}
+                      onChange={(event) =>
+                        updateCraftControl(recipe.id, {
+                          optionFocus: (event.target.value || undefined) as
+                            | BlacksmithOptionFocusId
+                            | undefined,
+                          useCatalyst: event.target.value
+                            ? control.useCatalyst
+                            : false,
+                        })
+                      }
+                      className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                    >
+                      <option value="">성향 사용 안 함</option>
+                      {techniques.optionFocuses.map((focus) => (
+                        <option key={focus.id} value={focus.id}>
+                          {focus.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <div className={`${SURFACE_INSET} flex items-center px-2 py-1 text-zinc-500 dark:text-zinc-400`}>
+                    이 장비에는 조정 가능한 옵션 성향이 없습니다.
+                  </div>
+                )}
                 <label className="space-y-1">
                   <span className="block text-zinc-600 dark:text-zinc-300">
                     구조 제작술

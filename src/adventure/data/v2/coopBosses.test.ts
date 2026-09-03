@@ -819,7 +819,7 @@ describe("coopBosses 카탈로그", () => {
           barrierTicksRemaining: 240,
           barrierDamage: 18_200,
           enrageTier: 0,
-          barrierResults: [2],
+          barrierResults: [7],
         },
       },
       Math.floor(fortress.sharedMaxHp * 0.75),
@@ -829,12 +829,12 @@ describe("coopBosses 카탈로그", () => {
       fortressBarrierActive: true,
       fortressBarrierTicksRemaining: 240,
       fortressBarrierDamage: 18_200,
-      fortressBarrierTarget: 3_000_000,
-      fortressEnrageTier: 2,
-      fortressProjectedEnrageTier: 4,
+      fortressBarrierTarget: 1_500_000,
+      fortressEnrageTier: 7,
+      fortressProjectedEnrageTier: 7,
       fortressCompletedBarrierCount: 1,
       fortressNextBarrierHpFraction: 0.5,
-      fortressLastResultTier: 2,
+      fortressLastResultTier: 7,
     });
   });
 

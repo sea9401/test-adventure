@@ -44,6 +44,15 @@
         "Git history for public/icon-* and public/og*",
         "docs/google-play-store-listing.md"
       ]
+    },
+    {
+      "id": "official-gcrb-rating-marks",
+      "releaseStatus": "cleared",
+      "rightsBasis": "Official game rating and content descriptor marks published by the Game Content Rating Board for display with the classified game.",
+      "evidence": [
+        "https://www.gcrb.or.kr/images/grade_icon/icon_over12.gif",
+        "https://www.gcrb.or.kr/images/grade_icon/grade2.gif"
+      ]
     }
   ],
   "assets": [
@@ -4266,6 +4275,16 @@
       "path": "public/images/npc/yousung.webp",
       "sha256": "053af2f05f315e9937f81f33717b79bc48d62f4b4f3b0d8c762e554b1a5d78a5",
       "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/rating/12-plus.webp",
+      "sha256": "d1b8852fd894409abfa6835ad2e47432c55de28d0c46468640a6944718fece36",
+      "source": "official-gcrb-rating-marks"
+    },
+    {
+      "path": "public/images/rating/violence.webp",
+      "sha256": "3b14d9ba86ed9f206f20e01aeaca5e3cdedd439977676046b0d63f552ce95116",
+      "source": "official-gcrb-rating-marks"
     },
     {
       "path": "public/images/ui/apex_throne.webp",

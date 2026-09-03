@@ -32,6 +32,8 @@ describe("대문 로그인 선택지", () => {
     expect(html).toContain('href="/privacy"');
     expect(html).toContain('href="/operations"');
     expect(html).toContain('href="/licenses"');
+    expect(html).toContain('href="/game-info"');
+    expect(html).toContain("게임 등급정보");
     expect(html).not.toContain("함께한 모험가");
     expect(html).not.toContain("접속 중");
   });

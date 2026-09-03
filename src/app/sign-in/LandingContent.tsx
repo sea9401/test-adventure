@@ -177,6 +177,9 @@ export function LandingContent({
               <Link href="/manual" className="transition-colors hover:text-zinc-300">
                 게임 가이드
               </Link>
+              <Link href="/game-info" className="transition-colors hover:text-zinc-300">
+                게임 등급정보
+              </Link>
               <Link href="/terms" className="transition-colors hover:text-zinc-300">
                 이용약관
               </Link>

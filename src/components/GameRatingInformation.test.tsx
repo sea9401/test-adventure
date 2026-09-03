@@ -23,6 +23,8 @@ describe("게임 등급정보", () => {
     const html = renderToStaticMarkup(<GameInfoPage />);
 
     expect(html).toContain("게임 등급정보");
+    expect(html).toContain("최초 공개일");
+    expect(html).toContain("2026.08.01");
     expect(html).toContain("무기와 붉은 선혈이 표현된 일러스트");
     expect(html).toContain("게임콘텐츠등급분류위원회에서 결정 내용 확인");
   });

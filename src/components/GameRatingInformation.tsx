@@ -78,6 +78,10 @@ export function GameRatingInformation({ compact = false }: GameRatingInformation
             <p>{GAME_RATING.decisionDate}</p>
           </div>
           <div>
+            <h2 className="font-bold">최초 공개일</h2>
+            <p>{GAME_RATING.firstPublicDate}</p>
+          </div>
+          <div>
             <h2 className="font-bold">등급결정사유</h2>
             <p>{GAME_RATING.summary}</p>
             <p>{GAME_RATING.descriptorReason}</p>

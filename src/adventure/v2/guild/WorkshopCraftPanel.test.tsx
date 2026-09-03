@@ -211,6 +211,36 @@ describe("guild workshop recipe equipment codex badge", () => {
     expect(html).toContain(
       '<span class="font-semibold text-rose-700 dark:text-rose-300">태양석 2 (필요 2 · 보유 1 · 부족)</span>',
     );
+    expect(html).toContain("부족 재료 입수처");
+    expect(html).toContain("필드 사냥 · 심층 동굴~잊힌 성소");
+    expect(html).toContain('href="/battle"');
+  });
+
+  it("제작 재료가 충분하면 입수처 안내를 표시하지 않는다", () => {
+    const completeRecipe = GUILD_WORKSHOP_RECIPES.crafted_toxic_mist_gloves;
+    const completeMaterials = Object.fromEntries(
+      Object.entries(
+        guildWorkshopRecipeMaterialCost(completeRecipe, "masterwork"),
+      ).map(([id, amount]) => [id, amount ?? 0]),
+    );
+    const state: WorkshopState = {
+      ...workshopState(),
+      materials: completeMaterials,
+      smithyLevel: 5,
+      recipes: [
+        guildWorkshopRecipeView(
+          completeRecipe,
+          {},
+          { blacksmith: { xp: 999_999, crafts: 999 } },
+          0,
+          5,
+          completeMaterials,
+        ),
+      ],
+    };
+
+    const html = renderWorkshop(new Set(), "ready", state);
+    expect(html).not.toContain("부족 재료 입수처");
   });
 
   it("shows an explicit higher-material substitution action and marketplace link", () => {

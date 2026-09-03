@@ -76,6 +76,7 @@ import {
   type WorkshopState,
 } from "./guildWorkshopPanelModel";
 import { WorkshopInspectionPanel } from "./WorkshopInspectionPanel";
+import { workshopMaterialSource } from "./workshopMaterialSources";
 
 type WorkshopTierFilter = "all" | 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -122,28 +123,64 @@ function WorkshopMaterialCostText({
     return required > 0 ? [{ id, required }] : [];
   });
   if (entries.length === 0) return fallbackText;
-
-  return entries.map(({ id, required }, index) => {
+  const shortages = entries.filter(({ id, required }) => {
     const owned = Math.max(0, Math.floor(Number(materials[id]) || 0));
-    const shortage = owned < required;
-    return (
-      <Fragment key={id}>
-        {index > 0 ? " · " : null}
-        <span
-          className={
-            shortage
-              ? "font-semibold text-rose-700 dark:text-rose-300"
-              : undefined
-          }
-        >
-          {guildWorkshopMaterialName(id)} {required.toLocaleString()}
-          {shortage
-            ? ` (필요 ${required.toLocaleString()} · 보유 ${owned.toLocaleString()} · 부족)`
-            : null}
-        </span>
-      </Fragment>
-    );
+    return owned < required;
   });
+
+  return (
+    <>
+      {entries.map(({ id, required }, index) => {
+        const owned = Math.max(0, Math.floor(Number(materials[id]) || 0));
+        const shortage = owned < required;
+        return (
+          <Fragment key={id}>
+            {index > 0 ? " · " : null}
+            <span
+              className={
+                shortage
+                  ? "font-semibold text-rose-700 dark:text-rose-300"
+                  : undefined
+              }
+            >
+              {guildWorkshopMaterialName(id)} {required.toLocaleString()}
+              {shortage
+                ? ` (필요 ${required.toLocaleString()} · 보유 ${owned.toLocaleString()} · 부족)`
+                : null}
+            </span>
+          </Fragment>
+        );
+      })}
+      {shortages.length > 0 ? (
+        <div className={`${SURFACE_INSET} mt-1.5 space-y-1 p-2`}>
+          <div className="font-semibold text-zinc-700 dark:text-zinc-200">
+            부족 재료 입수처
+          </div>
+          {shortages.map(({ id }) => {
+            const materialName = guildWorkshopMaterialName(id);
+            const source = workshopMaterialSource(id);
+            return (
+              <div
+                key={id}
+                className="flex flex-wrap items-center justify-between gap-1 text-zinc-600 dark:text-zinc-300"
+              >
+                <span>
+                  <strong>{materialName}</strong> · {source.label}
+                </span>
+                <Link
+                  href={source.href}
+                  aria-label={`${materialName} 입수처로 이동`}
+                  className="font-semibold text-sky-700 underline underline-offset-2 dark:text-sky-300"
+                >
+                  이동
+                </Link>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+    </>
+  );
 }
 
 function MaterialSubstitutionOption({

@@ -159,8 +159,8 @@ describe("immortal berserker mechanic", () => {
   it("returns exact life multipliers and display values", () => {
     expect([0, 1, 2].map((life) => immortalBerserkerMultipliers(life as 0 | 1 | 2))).toEqual([
       { atkMult: 1, spdMult: 1 },
-      { atkMult: 1.12, spdMult: 1.06 },
-      { atkMult: 1.25, spdMult: 1.12 },
+      { atkMult: 1.2, spdMult: 1.1 },
+      { atkMult: 1.6, spdMult: 1.25 },
     ]);
     expect(immortalBerserkerDisplay({
       kind: "immortal_berserker",
@@ -175,8 +175,8 @@ describe("immortal berserker mechanic", () => {
       regenActionsRemaining: 2,
       regenUsesRemaining: 1,
       nextRegenAmount: 106_920,
-      atkMult: 1.12,
-      spdMult: 1.06,
+      atkMult: 1.2,
+      spdMult: 1.1,
     });
   });
 });

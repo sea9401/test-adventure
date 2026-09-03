@@ -14,8 +14,8 @@ const MAX_REGEN_USES = [3, 2, 0] as const;
 const REGEN_FRACTIONS = [0.04, 0.03, 0] as const;
 const MULTIPLIERS = [
   { atkMult: 1, spdMult: 1 },
-  { atkMult: 1.12, spdMult: 1.06 },
-  { atkMult: 1.25, spdMult: 1.12 },
+  { atkMult: 1.2, spdMult: 1.1 },
+  { atkMult: 1.6, spdMult: 1.25 },
 ] as const;
 
 function integer(value: unknown, fallback = 0): number {

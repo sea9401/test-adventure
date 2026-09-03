@@ -389,6 +389,7 @@ export function V2MarketplaceView({
   const [bidExtensionMinutes, setBidExtensionMinutes] = useState(
     preview?.bidExtensionMinutes ?? 10,
   );
+  const [serverClockOffsetMs, setServerClockOffsetMs] = useState(0);
   const [clockMs, setClockMs] = useState(() => Date.now());
   // 아이템 옵션 카드(클릭 시 뜨는 팝오버) — 장비만(재료는 옵션 없음). V2ItemCard 재사용(읽기전용).
   const [card, setCard] = useState<{
@@ -406,6 +407,7 @@ export function V2MarketplaceView({
     const j = (await res.json().catch(() => null)) as {
       ok?: boolean;
       viewerGold?: number;
+      serverNow?: number;
       auctionHours?: number;
       bidExtensionWindowMinutes?: number;
       bidExtensionMinutes?: number;
@@ -413,6 +415,10 @@ export function V2MarketplaceView({
     } | null;
     if (!res.ok || !j?.ok) throw new Error(`목록 로드 실패 (${res.status})`);
     if (typeof j.viewerGold === "number") setGold(j.viewerGold);
+    if (typeof j.serverNow === "number" && Number.isFinite(j.serverNow)) {
+      setServerClockOffsetMs(j.serverNow - Date.now());
+      setClockMs(j.serverNow);
+    }
     if (typeof j.auctionHours === "number") setAuctionHours(j.auctionHours);
     if (typeof j.bidExtensionWindowMinutes === "number") {
       setBidExtensionWindowMinutes(j.bidExtensionWindowMinutes);
@@ -557,9 +563,12 @@ export function V2MarketplaceView({
   }, [automationSurfaceOpen, loadPriceAlerts, preview]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setClockMs(Date.now()), 30_000);
+    const timer = window.setInterval(
+      () => setClockMs(Date.now() + serverClockOffsetMs),
+      30_000,
+    );
     return () => window.clearInterval(timer);
-  }, []);
+  }, [serverClockOffsetMs]);
 
   useEffect(() => {
     if (preview || (tab !== "browse" && tab !== "mine")) return;

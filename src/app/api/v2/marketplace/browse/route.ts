@@ -111,6 +111,7 @@ export async function GET(req: Request) {
   return Response.json({
     ok: true,
     viewerGold,
+    serverNow: Date.now(),
     auctionHours: MARKETPLACE_V2_AUCTION_HOURS,
     bidExtensionWindowMinutes: MARKETPLACE_V2_BID_EXTENSION_WINDOW_MINUTES,
     bidExtensionMinutes: MARKETPLACE_V2_BID_EXTENSION_MINUTES,

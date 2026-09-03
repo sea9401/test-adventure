@@ -81,6 +81,7 @@ describe("V2MarketplaceView request timing", () => {
 
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -213,6 +214,60 @@ describe("V2MarketplaceView request timing", () => {
       listingId: 7,
       amount: 100,
     });
+  });
+
+  it("기기 시계가 2분 빨라도 서버 마감 전에는 입찰을 유지한다", async () => {
+    const clientNow = Date.parse("2026-09-03T09:00:00.000Z");
+    const serverNow = Date.parse("2026-09-03T08:58:00.000Z");
+    vi.spyOn(Date, "now").mockReturnValue(clientNow);
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/browse")) {
+        return Response.json({
+          ok: true,
+          viewerGold: 10_000,
+          serverNow,
+          auctionHours: 6,
+          bidExtensionWindowMinutes: 10,
+          bidExtensionMinutes: 10,
+          listings: [
+            {
+              id: 8,
+              isMine: false,
+              isHighestBidder: false,
+              hasMyBid: false,
+              kind: "material",
+              itemId: "iron_ore",
+              itemName: "철광석",
+              quantity: 2,
+              price: 100,
+              instancePayload: null,
+              createdAt: "2026-09-03T03:00:00.000Z",
+              bidEndsAt: "2026-09-03T09:00:00.000Z",
+              expiresAt: "2026-09-03T09:00:00.001Z",
+              highestBid: null,
+              bidCount: 0,
+              bidResolvedAt: null,
+              nextBid: 100,
+            },
+          ],
+        });
+      }
+      return responseFor(url);
+    });
+
+    render(
+      <RewardToastProvider>
+        <V2MarketplaceView onBack={() => {}} />
+      </RewardToastProvider>,
+    );
+    fireEvent.click(await screen.findByRole("tab", { name: "재료" }));
+
+    expect(await screen.findByText("2분 남음")).not.toBeNull();
+    expect(
+      screen.getByRole("button", { name: "철광석 2개 묶음 입찰" }),
+    ).not.toBeNull();
+    expect(screen.queryByText("입찰 종료 · 정산 중")).toBeNull();
   });
 
   it("내 거래 진입 시 내 입찰을 불러와 별도 탭에서 표시한다", async () => {

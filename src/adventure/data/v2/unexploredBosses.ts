@@ -387,7 +387,7 @@ export const UNEXPLORED_BOSSES = {
       atk: 15,
       def: 42,
       magicDef: 38,
-      spd: 21,
+      spd: 52,
       accuracy: -205,
       evasionPct: 10,
       exp: 0,
@@ -396,8 +396,8 @@ export const UNEXPLORED_BOSSES = {
       playerDefVulnerable: 0.35,
       dropQualityBias: 4,
       v2Skills: {
-        learned: ["mob_savage_roar"],
-        equipped: ["mob_savage_roar"],
+        learned: ["mob_savage_roar", "mob_crushing_blow"],
+        equipped: ["mob_savage_roar", "mob_crushing_blow"],
       },
       v2MaxMp: 75,
     },
@@ -405,6 +405,7 @@ export const UNEXPLORED_BOSSES = {
       "두 번 부활하는 세 개의 생명",
       "초기 생명은 주기적으로 재생",
       "부활할수록 재생은 약해지고 광폭은 강화",
+      "포효·분쇄 일격과 광란 참격",
     ],
   },
 } as const satisfies Record<string, UnexploredBossDefinition>;

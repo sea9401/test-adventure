@@ -82,7 +82,7 @@ describe("미개척지 개인 보스 카탈로그", () => {
         atk: 15,
         def: 42,
         magicDef: 38,
-        spd: 21,
+        spd: 52,
         accuracy: -205,
         evasionPct: 10,
       },
@@ -117,6 +117,15 @@ describe("미개척지 개인 보스 카탈로그", () => {
     const actionSpd = monsterActionSpd(monster);
 
     expect(monster).toMatchObject({ spd: 52, def: 44, magicDef: 46 });
+    expect(actionSpd).toBe(322);
+    expect(actionInterval(actionSpd)).toBe(45);
+  });
+
+  it("불멸의 광전왕은 첫 생명에서 표시 속도 322로 45틱마다 행동한다", () => {
+    const monster = UNEXPLORED_BOSSES.immortal_berserker.monster;
+    const actionSpd = monsterActionSpd(monster);
+
+    expect(monster.spd).toBe(52);
     expect(actionSpd).toBe(322);
     expect(actionInterval(actionSpd)).toBe(45);
   });
@@ -159,11 +168,14 @@ describe("미개척지 개인 보스 카탈로그", () => {
     });
     expect(UNEXPLORED_BOSSES.immortal_berserker.monster).toMatchObject({
       v2Skills: {
-        learned: ["mob_savage_roar"],
-        equipped: ["mob_savage_roar"],
+        learned: ["mob_savage_roar", "mob_crushing_blow"],
+        equipped: ["mob_savage_roar", "mob_crushing_blow"],
       },
       v2MaxMp: 75,
     });
+    expect(UNEXPLORED_BOSSES.immortal_berserker.traits).toContain(
+      "포효·분쇄 일격과 광란 참격",
+    );
   });
 
   it("보스마다 거래 가능한 소환석과 독립 고유 3종을 가진다", () => {

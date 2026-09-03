@@ -15,6 +15,7 @@ import { StaleBuildAutoReload } from "@/components/StaleBuildAutoReload";
 import { VersionCheck } from "@/components/VersionCheck";
 import { AdminImpersonationBanner } from "@/components/AdminImpersonationBanner";
 import { AppLaunchSplash } from "@/components/AppLaunchSplash";
+import { GameRatingLaunchNotice } from "@/components/GameRatingLaunchNotice";
 import { GameDialogHost } from "@/components/ui/GameDialogHost";
 import "./globals.css";
 
@@ -106,6 +107,7 @@ export default function RootLayout({
         </head>
         <body className="min-h-full flex flex-col font-sans">
           <AppLaunchSplash />
+          <GameRatingLaunchNotice />
           <AdminImpersonationBanner />
           <StaleBuildAutoReload />
           <ServiceWorkerRegistrar />

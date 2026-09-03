@@ -677,6 +677,16 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("즐겨찾기 필터");
   });
 
+  it("길드 토벌전 연습의 무소모·비기록 규칙을 안내한다", () => {
+    const html = renderToStaticMarkup(<GuildContent />);
+
+    expect(html).toContain("연습 전투");
+    expect(html).toContain("공격 횟수");
+    expect(html).toContain("기여도");
+    expect(html).toContain("보상");
+    expect(html).toContain("기록되지 않습니다");
+  });
+
   it("대장장이 영구 전문화와 전문 제작의 핵심 단계를 안내한다", () => {
     const html = renderToStaticMarkup(<GuildContent />);
 

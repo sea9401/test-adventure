@@ -3,6 +3,19 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/adventure/v2/ReplayBattleScene", () => ({
+  ReplayBattleScene: () => (
+    <section aria-label="연습 전투 로그">연습 전투 로그 링크</section>
+  ),
+}));
+vi.mock("@/adventure/v2/GameStateProvider", () => ({
+  useGameIdentityState: () => ({
+    viewerGender: "female1",
+    playerSubtitle: "연습 모험가",
+  }),
+}));
+
 import {
   GuildRaidPanel,
   GuildRaidPanelContent,
@@ -116,6 +129,88 @@ describe("길드 토벌전 패널", () => {
 
     expect(html).toContain("오늘 공격을 모두 마쳤습니다");
     expect(html).toContain("disabled");
+  });
+
+  it("오늘 공격을 모두 쓴 뒤에도 연습 전투를 시작할 수 있다", () => {
+    const onAttack = vi.fn();
+    const onPractice = vi.fn();
+    render(
+      <GuildRaidPanelContent
+        state={raidState({
+          my: {
+            ...raidState().my,
+            dailyAttackCount: 3,
+            remainingAttacks: 0,
+          },
+        })}
+        attacking={false}
+        error={null}
+        onAttack={onAttack}
+        onPractice={onPractice}
+      />,
+    );
+
+    const practiceButton = screen.getByRole("button", { name: "연습 전투" });
+    expect(practiceButton.hasAttribute("disabled")).toBe(false);
+    expect(screen.getByText("공격 횟수와 피해·보상에 반영되지 않습니다.")).toBeTruthy();
+
+    fireEvent.click(practiceButton);
+    expect(onPractice).toHaveBeenCalledTimes(1);
+    expect(onAttack).not.toHaveBeenCalled();
+  });
+
+  it("토벌 전투 기간이 끝나면 연습 전투도 비활성화한다", () => {
+    render(
+      <GuildRaidPanelContent
+        state={raidState({
+          event: {
+            ...raidState().event,
+            status: "settled",
+            phase: "claim",
+          },
+        })}
+        attacking={false}
+        error={null}
+        onAttack={vi.fn()}
+        onPractice={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "연습 전투" }).hasAttribute("disabled"),
+    ).toBe(true);
+  });
+
+  it("연습 피해와 비저장 안내 및 전체 전투 로그를 보여준다", () => {
+    const html = renderToStaticMarkup(
+      <GuildRaidPanelContent
+        state={raidState()}
+        attacking={false}
+        error={null}
+        onAttack={vi.fn()}
+        lastPractice={{
+          ok: true,
+          practice: true,
+          bossKind: "mountain_chief_hard",
+          playerName: "연습가",
+          damageDealt: 1_234_567,
+          damageTaken: 890,
+          diedEarly: false,
+          turns: 12,
+          replay: {
+            enemy: { name: "산군", hp: 1_200_000 },
+            playerMaxHp: 500,
+            playerMaxMp: 80,
+            log: [{ kind: "info", text: "전투 시작" }],
+          },
+        }}
+      />,
+    );
+
+    expect(html).toContain("연습 결과");
+    expect(html).toContain("1,234,567");
+    expect(html).toContain("길드 진행과 개인 기록에는 반영되지 않았습니다.");
+    expect(html).toContain("연습 전투 로그 링크");
   });
 
   it("이벤트 종료 후에는 최종 순위를 표시하고 공격하지 못하게 한다", () => {

@@ -30,18 +30,32 @@ export async function simulateGuildRaidBattle({
   tx,
   userId,
   bossKind,
+  lockForUpdate = true,
 }: {
   tx: DbExecutor;
   userId: string;
   bossKind: CoopBossKindId;
+  lockForUpdate?: boolean;
 }): Promise<GuildRaidBattleResult | null> {
-  const charSave = await lockSaveForUpdate<Record<string, unknown>>(
+  const charSave = lockForUpdate
+    ? await lockSaveForUpdate<Record<string, unknown>>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      )
+    : await readSave<Record<string, unknown>>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
+  const prepared = await prepareV2BattleActor({
     tx,
     userId,
-    "character.v2",
-    {},
-  );
-  const prepared = await prepareV2BattleActor({ tx, userId, charSave });
+    charSave,
+    lockForUpdate,
+  });
   if (!prepared) return null;
 
   const profile = await readSave<{ name?: string } | null>(

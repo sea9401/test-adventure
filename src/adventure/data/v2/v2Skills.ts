@@ -30,6 +30,7 @@ import {
   v2SkillAttackCoef,
   v2SpecializedSkillStatCoef,
   type V2CombatCondition,
+  type V2CombatAction,
   type V2CombatPattern,
   type V2CombatPreset,
 } from "@/adventure/v2/combat/combatPattern";
@@ -3057,11 +3058,19 @@ function withoutLowerDuelistDeclarations(
 ): V2CombatPattern {
   const highest = highestEquippedDuelistDeclaration(equipped);
   if (!highest) return pattern;
+  const actionSkillIds = (action: V2CombatAction): string[] =>
+    action.kind === "skill"
+      ? [action.skillId]
+      : action.kind === "alternate"
+        ? [action.firstSkillId, action.secondSkillId]
+        : [];
   return {
     blocks: pattern.blocks.filter((block) => {
-      if (block.action.kind !== "skill") return true;
-      const declaration = V2_SKILLS[block.action.skillId as V2SkillId]?.duelistDeclaration;
-      return !declaration || block.action.skillId === highest;
+      return actionSkillIds(block.action).every((skillId) => {
+        const declaration =
+          V2_SKILLS[skillId as V2SkillId]?.duelistDeclaration;
+        return !declaration || skillId === highest;
+      });
     }),
   };
 }

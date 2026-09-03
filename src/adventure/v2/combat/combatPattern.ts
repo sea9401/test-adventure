@@ -91,6 +91,11 @@ export type V2CombatRole = "main_attack" | "heal" | "buff" | "debuff";
 export type V2CombatAction =
   | { kind: "basic_attack" }
   | { kind: "skill"; skillId: string }
+  | {
+      kind: "alternate";
+      firstSkillId: string;
+      secondSkillId: string;
+    }
   | { kind: "role"; role: V2CombatRole };
 
 export type V2CombatPatternCandidate =
@@ -273,7 +278,11 @@ export function evaluateCombatPatternCandidates(
     const id =
       block.action.kind === "skill"
         ? block.action.skillId
-        : (resolveRole?.(block.action.role) ?? null);
+        : block.action.kind === "alternate"
+          ? ctx.turn % 2 === 1
+            ? block.action.firstSkillId
+            : block.action.secondSkillId
+          : (resolveRole?.(block.action.role) ?? null);
     if (!id || !isUsable(id)) continue;
     out.push({ kind: "skill", skillId: id });
   }
@@ -604,6 +613,19 @@ function parseAction(raw: unknown): V2CombatAction | null {
   if (a.kind === "basic_attack") return { kind: "basic_attack" };
   if (a.kind === "skill" && typeof a.skillId === "string" && a.skillId.length > 0) {
     return { kind: "skill", skillId: a.skillId };
+  }
+  if (
+    a.kind === "alternate" &&
+    typeof a.firstSkillId === "string" &&
+    a.firstSkillId.length > 0 &&
+    typeof a.secondSkillId === "string" &&
+    a.secondSkillId.length > 0
+  ) {
+    return {
+      kind: "alternate",
+      firstSkillId: a.firstSkillId,
+      secondSkillId: a.secondSkillId,
+    };
   }
   if (
     a.kind === "role" &&

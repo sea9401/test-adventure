@@ -565,6 +565,8 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("독립된 재도전 횟수가 늘어나지 않습니다");
     expect(html).toContain("최대 5개 슬롯");
     expect(html).toContain("장착 스킬·전투 패턴·장비");
+    expect(html).toContain("교대 사용");
+    expect(html).toContain("A → B → A → B");
   });
 
   it("마나 실드의 성장식·피해 순서·예외와 복합 스킬 규칙을 안내한다", () => {

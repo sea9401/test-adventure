@@ -34,13 +34,13 @@ const TAB_STATE: Record<TabVariant, { active: string; inactive: string }> = {
   underline: {
     active: "border-violet-600 text-violet-700 dark:border-violet-400 dark:text-violet-300",
     inactive:
-      "border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100",
+      "border-transparent text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100",
   },
   // 박스(테두리·배경) 없이 글자 색만 — 선택은 진한 인디고, 호버는 옅은 인디고, 기본은 중립 회색.
   highlight: {
     active: "border-violet-600 text-violet-700 dark:border-violet-400 dark:text-violet-300",
     inactive:
-      "border-transparent text-zinc-500 hover:text-violet-600 dark:text-zinc-400 dark:hover:text-violet-300",
+      "border-transparent text-zinc-600 hover:text-violet-600 dark:text-zinc-400 dark:hover:text-violet-300",
   },
 };
 

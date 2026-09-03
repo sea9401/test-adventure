@@ -90,7 +90,7 @@ describe("7차 전투 패키지", () => {
       expect(skillsForJob(jobId)).toEqual(ids);
       const defs = ids.map((id) => V2_SKILLS[id]);
       expect(defs.map(spCostOf).reduce((sum, cost) => sum + cost, 0)).toBe(
-        jobId === "primordialsage" ? 43 : 46,
+        jobId === "primordialsage" ? 42 : 46,
       );
       expect(() =>
         validateTier7Package(

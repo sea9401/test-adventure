@@ -1,5 +1,5 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { expectNoA11yViolations } from "./support/accessibility";
 import { prepareLocalHttpBrowser } from "./support/localHttpBrowser";
 
 const PUBLIC_PAGES = [
@@ -13,14 +13,6 @@ const PUBLIC_PAGES = [
   { path: "/operations", heading: "운영정책", title: "운영정책" },
   { path: "/licenses", heading: "오픈소스 고지", title: "오픈소스 고지" },
   { path: "/manual/overview", heading: "게임 개요", title: "게임 안내서" },
-] as const;
-
-const WCAG_AA_TAGS = [
-  "wcag2a",
-  "wcag2aa",
-  "wcag21a",
-  "wcag21aa",
-  "wcag22aa",
 ] as const;
 
 for (const surface of PUBLIC_PAGES) {
@@ -45,10 +37,7 @@ for (const surface of PUBLIC_PAGES) {
     }));
     expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth + 1);
 
-    const accessibility = await new AxeBuilder({ page })
-      .withTags([...WCAG_AA_TAGS])
-      .analyze();
-    expect(violationSummary(accessibility.violations)).toEqual([]);
+    await expectNoA11yViolations(page);
     expect(browserErrors).toEqual([]);
     expect(badResponses).toEqual([]);
   });
@@ -188,20 +177,4 @@ function observeBadSameOriginResponses(page: Page) {
     }
   });
   return failures;
-}
-
-function violationSummary(
-  violations: Array<{
-    id: string;
-    impact?: string | null;
-    help: string;
-    nodes: Array<{ target: unknown }>;
-  }>,
-) {
-  return violations.map((violation) => ({
-    id: violation.id,
-    impact: violation.impact,
-    help: violation.help,
-    targets: violation.nodes.map((node) => node.target),
-  }));
 }

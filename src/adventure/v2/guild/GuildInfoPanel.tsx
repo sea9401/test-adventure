@@ -165,7 +165,7 @@ export function GuildInfoPanel({
       <GuildActivityList activity={activity} loading={loading} />
     </div>
   ) : (
-    <div className="text-sm text-zinc-500 dark:text-zinc-400">
+    <div className="text-sm text-zinc-600 dark:text-zinc-400">
       {loading ? "불러오는 중…" : "—"}
     </div>
   );

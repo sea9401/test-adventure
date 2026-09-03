@@ -330,7 +330,7 @@ export function V2DungeonList({
                         {stageRangeLabel(g.depths)}
                       </div>
                       {hasChallenge && (
-                        <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                        <div className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-300">
                           도전 구역 포함
                         </div>
                       )}

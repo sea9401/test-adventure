@@ -186,12 +186,12 @@ function ShellInner() {
         <details className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
           <summary className="cursor-pointer list-none font-medium text-zinc-800 dark:text-zinc-100">
             {adminMe ? `${adminMe.email} · ${capabilityLabel(adminMe.capabilities)} 권한` : "권한 확인 중"}
-            <span className="ml-2 font-normal text-zinc-400">주의사항과 권한 상세 보기</span>
+            <span className="ml-2 font-normal text-zinc-600 dark:text-zinc-400">주의사항과 권한 상세 보기</span>
           </summary>
           <div className="mt-2 border-t border-zinc-100 pt-2 leading-5 dark:border-zinc-800">
             게임 진행 상태를 직접 변경하는 화면입니다. 저장 후 대상 유저의 새로고침이 필요할 수 있습니다.
             {adminMe ? (
-              <span className="block font-mono text-[10px] text-zinc-400">
+              <span className="block font-mono text-[10px] text-zinc-600 dark:text-zinc-400">
                 role {adminMe.role ?? "none"} · super {adminMe.roleConfig.super} · reward {adminMe.roleConfig.reward} · sanction {adminMe.roleConfig.sanction} · readonly {adminMe.roleConfig.readonly}
               </span>
             ) : null}
@@ -224,7 +224,7 @@ function ShellInner() {
             />
             {groups.map(({ group, items }) => (
               <div key={group}>
-                <div className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                <div className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
                   {GROUP_LABELS[group]}
                 </div>
                 <ul className="flex flex-col gap-0.5">
@@ -240,7 +240,7 @@ function ShellInner() {
                         }
                       >
                         <span className="block text-sm font-medium">{t.label}</span>
-                        <span className={tab === t.key ? "block text-[10px] text-zinc-300 dark:text-zinc-600" : "block text-[10px] text-zinc-400"}>{t.description}</span>
+                        <span className={tab === t.key ? "block text-[10px] text-zinc-300 dark:text-zinc-600" : "block text-[10px] text-zinc-600 dark:text-zinc-400"}>{t.description}</span>
                       </button>
                     </li>
                   ))}

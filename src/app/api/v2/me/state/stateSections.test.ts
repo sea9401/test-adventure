@@ -70,6 +70,23 @@ describe("combatStatsSection", () => {
       equipmentMagicSkillCritDmgPct: 29.5102,
     });
   });
+
+  it("상한 없는 치명타 저항을 캐릭터 전투 스탯에 전달한다", () => {
+    const combat = {
+      player: {
+        atk: 10,
+        def: 8,
+        spd: 7,
+        critResistPct: 101.5,
+      },
+    } as unknown as NonNullable<
+      Parameters<typeof combatStatsSection>[0]
+    >;
+
+    expect(combatStatsSection(combat, 100, 50)).toMatchObject({
+      critResistPct: 101.5,
+    });
+  });
 });
 
 describe("frontierDepthOf", () => {

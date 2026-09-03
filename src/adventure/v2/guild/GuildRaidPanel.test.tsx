@@ -15,7 +15,6 @@ vi.mock("@/adventure/v2/GameStateProvider", () => ({
     playerSubtitle: "연습 모험가",
   }),
 }));
-
 import {
   GuildRaidPanel,
   GuildRaidPanelContent,

@@ -61,7 +61,10 @@ import {
   powerNameClass,
   type ItemCardAnchor,
 } from "./V2ItemCard";
-import { useGameState } from "./GameStateProvider";
+import {
+  useEquipmentCodexContext,
+  useGameState,
+} from "./GameStateProvider";
 import { TabBar } from "@/components/ui/TabBar";
 import { usePagination } from "@/lib/usePagination";
 import { useSingleFlightGuard } from "@/lib/useSingleFlight";
@@ -119,6 +122,7 @@ import { marketplaceLifeItemDefinition } from "./marketplace/lifeItemCatalog";
 import {
   MARKETPLACE_EQUIPMENT_TIER_OPTIONS,
   matchesMarketplaceEquipmentTier,
+  matchesMarketplaceUnregisteredCodex,
   type MarketplaceEquipmentTierFilter,
 } from "./marketplace/marketplaceBrowseFilters";
 import { FISH, type FishId } from "@/adventure/data/v2/fish";
@@ -317,6 +321,8 @@ export function V2MarketplaceView({
   // 구매 affordability — flag off 면 보유(viewerGold)만, on 이면 보유+은행(은행 골드로도 구매).
   const { coreLoopOn, bankedGold, frontierDepth, refreshGameState } =
     useGameState();
+  const equipmentCodex = useEquipmentCodexContext();
+  const equipmentCodexLoaded = equipmentCodex?.loaded === true;
   const [tab, setTab] = useState<Tab>("browse");
   const [mineTab, setMineTab] = useState<MineTab>("active");
   // 둘러보기 — 인벤토리/판매 탭과 같은 6부위 + 재료 + 소모품 하위 탭.
@@ -368,6 +374,7 @@ export function V2MarketplaceView({
   const [personalOnly, setPersonalOnly] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [unregisteredCodexOnly, setUnregisteredCodexOnly] = useState(false);
   const [craftedOnly, setCraftedOnly] = useState(false);
   const [craftedQualityFilter, setCraftedQualityFilter] = useState<
     "all" | "plus1"
@@ -1072,6 +1079,16 @@ export function V2MarketplaceView({
         !browseEquipmentTab ||
         matchesMarketplaceEquipmentTier(l.itemId, equipmentTierFilter),
     )
+    .filter(
+      (listing) =>
+        !browseEquipmentTab ||
+        matchesMarketplaceUnregisteredCodex(
+          listing.itemId,
+          unregisteredCodexOnly,
+          equipmentCodexLoaded,
+          equipmentCodex?.registeredIds,
+        ),
+    )
     .filter((l) => !browseEquipmentTab || !craftedOnly || isCraftedListing(l))
     .filter(
       (l) =>
@@ -1092,6 +1109,7 @@ export function V2MarketplaceView({
     Number(personalOnly) +
     (browseEquipmentTab
       ? Number(equipmentTierFilter !== "all") +
+        Number(unregisteredCodexOnly) +
         Number(craftedOnly) +
         Number(craftedQualityFilter !== "all") +
         Number(craftedLevelFilter !== "all")
@@ -1100,6 +1118,7 @@ export function V2MarketplaceView({
     browseSortOptions.find(([value]) => value === sort)?.[1] ?? "가격 낮은순";
   const resetBrowseFilters = () => {
     setEquipmentTierFilter("all");
+    setUnregisteredCodexOnly(false);
     setCraftedOnly(false);
     setCraftedQualityFilter("all");
     setCraftedLevelFilter("all");
@@ -1109,7 +1128,7 @@ export function V2MarketplaceView({
   const browsePager = usePagination(
     displayedListings,
     MARKETPLACE_PAGE_SIZE,
-    `browse:${browseTab}:${q}:${favoriteOnly}:${personalOnly}:${equipmentTierFilter}:${craftedOnly}:${craftedQualityFilter}:${craftedLevelFilter}:${sort}`,
+    `browse:${browseTab}:${q}:${favoriteOnly}:${personalOnly}:${equipmentTierFilter}:${unregisteredCodexOnly}:${craftedOnly}:${craftedQualityFilter}:${craftedLevelFilter}:${sort}`,
   );
   const filteredRecentTrades = filterMarketplaceRecentTrades(
     recentTrades ?? [],
@@ -1218,7 +1237,7 @@ export function V2MarketplaceView({
                 onClick={() => setTab(key)}
                 className={`flex min-w-0 flex-col items-center justify-center rounded-md px-1.5 py-2 text-center transition sm:flex-row sm:gap-2 ${
                   active
-                    ? "bg-sky-600 text-white shadow-sm"
+                    ? "bg-sky-700 text-white shadow-sm"
                     : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
                 }`}
               >
@@ -1240,7 +1259,7 @@ export function V2MarketplaceView({
                   </span>
                   <span
                     className={`hidden text-[10px] sm:block ${
-                      active ? "text-sky-100" : "text-zinc-400 dark:text-zinc-500"
+                      active ? "text-sky-100" : "text-zinc-600 dark:text-zinc-400"
                     }`}
                   >
                     {description}
@@ -1258,7 +1277,10 @@ export function V2MarketplaceView({
         </div>
       )}
       {error && (
-        <div className={`${SURFACE_INSET} p-3 text-sm text-rose-600 dark:text-rose-400`}>
+        <div
+          role="alert"
+          className={`${SURFACE_INSET} p-3 text-sm text-rose-600 dark:text-rose-400`}
+        >
           {error}
         </div>
       )}
@@ -1287,7 +1309,7 @@ export function V2MarketplaceView({
                 onClick={() => setPersonalOnly((value) => !value)}
                 className={`flex w-full items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-semibold transition ${
                   personalOnly
-                    ? "border-sky-600 bg-sky-600 text-white"
+                    ? "border-sky-700 bg-sky-700 text-white"
                     : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 }`}
               >
@@ -1332,7 +1354,7 @@ export function V2MarketplaceView({
                   onClick={() => setFiltersOpen((open) => !open)}
                   className={`inline-flex shrink-0 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition ${
                     filtersOpen || activeFilterCount > 0
-                      ? "border-sky-600 bg-sky-600 text-white"
+                      ? "border-sky-700 bg-sky-700 text-white"
                       : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                   }`}
                 >
@@ -1370,7 +1392,7 @@ export function V2MarketplaceView({
                       onClick={() => setSort(next)}
                       className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
                         active
-                          ? "border-sky-600 bg-sky-600 text-white"
+                          ? "border-sky-700 bg-sky-700 text-white"
                           : "border-zinc-300 bg-white text-zinc-600 hover:border-sky-300 hover:text-sky-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
                       }`}
                     >
@@ -1443,6 +1465,30 @@ export function V2MarketplaceView({
                           className="w-full"
                         />
                       </label>
+                      <div className="space-y-1">
+                        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                          도감 상태
+                        </span>
+                        <button
+                          type="button"
+                          aria-pressed={unregisteredCodexOnly}
+                          disabled={!equipmentCodexLoaded}
+                          onClick={() =>
+                            setUnregisteredCodexOnly((value) => !value)
+                          }
+                          className={`w-full rounded-md border px-3 py-2 text-left text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                            unregisteredCodexOnly
+                              ? "border-sky-600 bg-sky-600 text-white"
+                              : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                          }`}
+                        >
+                          {!equipmentCodexLoaded
+                            ? "도감 불러오는 중"
+                            : unregisteredCodexOnly
+                              ? "✓ 도감 미등록만 보는 중"
+                              : "도감 미등록만 보기"}
+                        </button>
+                      </div>
                       <label className="space-y-1">
                         <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
                           제작자 숙련도
@@ -1522,6 +1568,14 @@ export function V2MarketplaceView({
                       {equipmentTierFilter}T
                     </span>
                   ) : null}
+                  {browseEquipmentTab && unregisteredCodexOnly ? (
+                    <span
+                      data-testid="marketplace-unregistered-codex-filter-chip"
+                      className="rounded-full bg-sky-100 px-2 py-1 text-sky-700 dark:bg-sky-950 dark:text-sky-300"
+                    >
+                      도감 미등록
+                    </span>
+                  ) : null}
                   {craftedOnly ? (
                     <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                       제작품
@@ -1569,7 +1623,15 @@ export function V2MarketplaceView({
           {browseEquipmentTab ? (
             <ListingList
               rows={listings === null ? null : browsePager.pageItems}
-              emptyText={listings && listings.length > 0 ? "조건에 맞는 매물이 없어요." : "등록된 매물이 없어요."}
+              emptyText={
+                browseEquipmentTab &&
+                unregisteredCodexOnly &&
+                equipmentCodexLoaded
+                  ? "도감 미등록 매물이 없어요."
+                  : listings && listings.length > 0
+                    ? "조건에 맞는 매물이 없어요."
+                    : "등록된 매물이 없어요."
+              }
               action={(l) => {
                 const bidding = new Date(l.bidEndsAt).getTime() > clockMs;
                 const primaryAction = bidding ? (
@@ -1687,7 +1749,7 @@ export function V2MarketplaceView({
                   onClick={() => setMineTab(key)}
                   className={`flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold transition ${
                     mineTab === key
-                      ? "bg-sky-600 text-white"
+                      ? "bg-sky-700 text-white"
                       : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
                   }`}
                 >
@@ -2464,7 +2526,7 @@ function ListingList({
   if (rows.length === 0) {
     return (
       <Card padding="md">
-        <div className="flex flex-col items-center gap-2 py-6 text-zinc-400 dark:text-zinc-500">
+        <div className="flex flex-col items-center gap-2 py-6 text-zinc-600 dark:text-zinc-400">
           <Storefront size={32} weight="duotone" />
           <div className="text-sm">{emptyText}</div>
         </div>
@@ -2670,7 +2732,7 @@ function ListingList({
                     · 대장장이 Lv {craftedBy.level.toLocaleString()}
                   </div>
                 ) : null}
-                <div className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
+                <div className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-400">
                   {historical ? "체결" : "등록"} {timeAgo(l.createdAt)}
                 </div>
               </div>
@@ -2703,7 +2765,7 @@ function ListingList({
                   ) : null}
                   <PricePositionBadge price={l.price} stat={comparablePriceStat} />
                   {!historical ? (
-                    <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                    <span className="text-[11px] text-zinc-600 dark:text-zinc-400">
                       {new Date(l.bidEndsAt).getTime() > clockMs
                         ? `경매 · ${remainingLabel(l.bidEndsAt, clockMs)}`
                         : "입찰 종료 · 정산 중"}

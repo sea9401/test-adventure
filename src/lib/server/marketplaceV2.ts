@@ -56,7 +56,7 @@ export const MARKETPLACE_V2_PRICE_MAX = 999_999_999; // < 2^31 — integer 컬�
 // 재료 1매물 최대 수량.
 export const MARKETPLACE_V2_MATERIAL_QTY_MAX = 9999;
 // 둘러보기 1회 최대 반환 행.
-export const MARKETPLACE_V2_BROWSE_LIMIT = 100;
+export const MARKETPLACE_V2_BROWSE_LIMIT = 500;
 // 시세 — 최근 며칠간 판매 완료(sold) 기록을 종목별 집계. 가격 판단 참고용.
 export const MARKETPLACE_V2_PRICE_HISTORY_DAYS = 30;
 // 최근 거래 내역 — 체결(sold) 매물을 최신순으로 이만큼 반환(거래소 "최근 거래" 탭).

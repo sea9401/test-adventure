@@ -151,6 +151,31 @@ describe("arenaPatternActionSummary — 실제 패턴 행동만 표시", () => {
     ]);
   });
 
+  it("교대 사용 행동은 두 스킬 이름과 순서를 함께 요약한다", () => {
+    const loadout = mk("alternate-summary", {
+      pattern: {
+        blocks: [
+          {
+            condition: { kind: "always" },
+            action: {
+              kind: "alternate",
+              firstSkillId: "v2_skill_strike",
+              secondSkillId: "v2_skill_recover",
+            },
+          },
+        ],
+      },
+    });
+
+    expect(arenaPatternActionSummary(loadout)).toEqual([
+      {
+        key: "0:alternate:v2_skill_strike:v2_skill_recover",
+        name: "강타 → 회복 (교대)",
+        condition: "항상",
+      },
+    ]);
+  });
+
   it("복합 조건과 내 버프 조건을 사용자 문구로 함께 표시한다", () => {
     const loadout = mk("condition-summary", {
       pattern: {
@@ -361,6 +386,28 @@ describe("arenaLoadoutIssueSummary — 전투 적용 누락 경고", () => {
     expect(
       arenaLoadoutIssueSummary(loadout, new Set(["w1", "a1"]))
         .uncoveredActiveSkills,
+    ).toEqual([]);
+  });
+
+  it("교대 사용의 두 스킬은 모두 패턴에 포함된 것으로 판정한다", () => {
+    const loadout = mk("alternate-covered", {
+      skills: ["v2_skill_strike", "v2_skill_recover"],
+      pattern: {
+        blocks: [
+          {
+            condition: { kind: "always" },
+            action: {
+              kind: "alternate",
+              firstSkillId: "v2_skill_strike",
+              secondSkillId: "v2_skill_recover",
+            },
+          },
+        ],
+      },
+    });
+
+    expect(
+      arenaLoadoutIssueSummary(loadout, new Set()).uncoveredActiveSkills,
     ).toEqual([]);
   });
 

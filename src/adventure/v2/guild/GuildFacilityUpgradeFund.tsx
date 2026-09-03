@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   SETTLEMENT_RESOURCE_KEYS,
   SETTLEMENT_RESOURCE_TO_MATERIAL,
@@ -45,6 +45,15 @@ export function GuildFacilityUpgradeFund({
     kind: "ok" | "err";
     text: string;
   } | null>(null);
+  const donationTriggerRef = useRef<HTMLButtonElement>(null);
+  const restoreDonationFocusRef = useRef(false);
+
+  useEffect(() => {
+    if (!donateOpen && restoreDonationFocusRef.current) {
+      donationTriggerRef.current?.focus();
+      restoreDonationFocusRef.current = false;
+    }
+  }, [donateOpen]);
 
   const donated: SettlementResources =
     progress?.targetLevel === next.level ? progress.materials : {};
@@ -112,6 +121,12 @@ export function GuildFacilityUpgradeFund({
     }
   }
 
+  function closeDonation() {
+    restoreDonationFocusRef.current = true;
+    setDonateOpen(false);
+    setDraft({});
+  }
+
   async function donate() {
     if (donating || !canSubmit) return;
     const donations: Partial<Record<SettlementDonationMaterialId, number>> = {};
@@ -138,8 +153,7 @@ export function GuildFacilityUpgradeFund({
         return;
       }
       setInventory(json.materials ?? inventory);
-      setDraft({});
-      setDonateOpen(false);
+      closeDonation();
       setNotice({
         kind: "ok",
         text: `시설 업그레이드 재료를 기부했습니다.${
@@ -222,9 +236,10 @@ export function GuildFacilityUpgradeFund({
 
       {!materialsComplete && !donateOpen && (
         <button
+          ref={donationTriggerRef}
           type="button"
           onClick={() => void openDonation()}
-          className="mx-auto block w-[70%] rounded-md border border-amber-600 bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-amber-600"
+          className="mx-auto block w-[70%] rounded-md border border-amber-700 bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-amber-800"
         >
           재료 기부
         </button>
@@ -339,12 +354,9 @@ export function GuildFacilityUpgradeFund({
             </button>
             <button
               type="button"
-              onClick={() => {
-                setDonateOpen(false);
-                setDraft({});
-              }}
+              onClick={closeDonation}
               disabled={donating}
-              className="rounded px-2 py-1 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+              className="rounded px-2 py-1 text-xs text-zinc-600 hover:text-zinc-700 dark:text-zinc-300"
             >
               닫기
             </button>

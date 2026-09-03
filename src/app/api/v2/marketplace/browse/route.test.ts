@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const rows = [
   {
@@ -39,6 +39,8 @@ const rows = [
   },
 ];
 
+let listingRows = rows;
+
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "viewer"),
 }));
@@ -55,12 +57,12 @@ vi.mock("@/db", () => ({
           ? [{ value: { gold: 321 } }]
           : "listingId" in selection && Object.keys(selection).length === 1
             ? [{ listingId: 1 }]
-            : rows;
+            : listingRows;
       const chain = {
         from: () => chain,
         where: () => chain,
         orderBy: () => chain,
-        limit: () => Promise.resolve(result),
+        limit: (limit: number) => Promise.resolve(result.slice(0, limit)),
         groupBy: () => Promise.resolve(result),
       };
       return chain;
@@ -71,6 +73,10 @@ vi.mock("@/db", () => ({
 import { GET } from "./route";
 
 describe("경매장 조회", () => {
+  beforeEach(() => {
+    listingRows = rows;
+  });
+
   it("현재 경매 버전만 노출하고 6시간·10분 정책을 반환한다", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_788_426_000_000);
     const response = await GET(
@@ -95,5 +101,22 @@ describe("경매장 조회", () => {
         }),
       ],
     });
+  });
+
+  it("활성 매물 조회 상한을 500건까지 적용한다", async () => {
+    listingRows = Array.from({ length: 501 }, (_, index) => ({
+      ...rows[0],
+      id: index + 1,
+      createdAt: new Date(Date.UTC(2026, 7, 31, 0, 0, index)),
+    }));
+
+    const response = await GET(
+      new Request("http://test/api/v2/marketplace/browse?kind=material"),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.listings).toHaveLength(500);
+    expect(body.listings.at(-1)?.id).toBe(500);
   });
 });

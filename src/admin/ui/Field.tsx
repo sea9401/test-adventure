@@ -83,6 +83,25 @@ export function TextInput({
   );
 }
 
+export function InlineInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <input
+      aria-label={label}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full min-w-32 rounded border border-zinc-300 bg-white px-1.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-950"
+    />
+  );
+}
+
 export function Select<T extends string>({
   value,
   options,
@@ -156,7 +175,7 @@ export function Button({
     "inline-flex items-center justify-center rounded-md border px-3 py-1.5 text-sm font-medium transition-[transform,background-color,opacity] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50";
   const styles =
     variant === "primary"
-      ? "border-emerald-700 bg-emerald-600 text-white hover:bg-emerald-700 dark:border-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+      ? "border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800 dark:border-emerald-400 dark:bg-emerald-400 dark:text-zinc-950 dark:hover:bg-emerald-300"
       : variant === "danger"
         ? "border-red-700 bg-red-600 text-white hover:bg-red-700 dark:border-red-500 dark:bg-red-600 dark:hover:bg-red-500"
         : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800";

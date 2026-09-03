@@ -450,13 +450,16 @@ export function PriceInput({
   value,
   onChange,
   placeholder = "가격",
+  ariaLabel,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  ariaLabel?: string;
 }) {
   return (
     <NumberInput
+      aria-label={ariaLabel}
       placeholder={placeholder}
       value={value}
       onValueChange={onChange}

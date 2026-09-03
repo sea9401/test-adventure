@@ -128,6 +128,34 @@ describe("V2MarketplaceView request timing", () => {
     expect(screen.getByLabelText("강화 +3")).not.toBeNull();
   });
 
+  it("판매 입력 오류를 즉시 읽을 수 있는 alert로 표시한다", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/api/v2/me/inventory")) {
+        return Response.json({ materials: { v2_timber: 10 } });
+      }
+      return responseFor(url);
+    });
+
+    render(
+      <RewardToastProvider>
+        <V2MarketplaceView onBack={() => {}} />
+      </RewardToastProvider>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /판매.*아이템 올리기/ }),
+    );
+    fireEvent.click(await screen.findByRole("tab", { name: "재료" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "등록" }),
+    );
+
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "묶음 전체 시작 입찰가는 1 이상 정수로 입력하세요.",
+    );
+  });
+
   it("loads only price alerts when the alert management tab opens", async () => {
     render(
       <RewardToastProvider>
@@ -269,7 +297,6 @@ describe("V2MarketplaceView request timing", () => {
     ).not.toBeNull();
     expect(screen.queryByText("입찰 종료 · 정산 중")).toBeNull();
   });
-
   it("내 거래 진입 시 내 입찰을 불러와 별도 탭에서 표시한다", async () => {
     const source = marketplacePreview.listings[0];
     myBidRows = [
@@ -344,7 +371,6 @@ describe("V2MarketplaceView request timing", () => {
       expect(screen.getByText("은광석")).not.toBeNull();
     });
   });
-
   it("내 항목만 보기에서 기존 순서를 유지하며 무관한 매물을 숨긴다", async () => {
     const [own, leading, participated] = marketplacePreview.listings;
     browseListings = [

@@ -405,6 +405,12 @@ describe("production security surface", () => {
     const workflow = source(join(ROOT, ".github/workflows/ci.yml"));
     const playwrightConfig = source(join(ROOT, "playwright.config.ts"));
     const browserTests = source(join(ROOT, "e2e/public-surface.spec.ts"));
+    const authenticatedTests = source(
+      join(ROOT, "e2e/authenticated-accessibility.spec.ts"),
+    );
+    const accessibilityHelper = source(
+      join(ROOT, "e2e/support/accessibility.ts"),
+    );
 
     expect(workflow).toContain(
       "mcr.microsoft.com/playwright:v1.62.0-noble",
@@ -416,7 +422,10 @@ describe("production security surface", () => {
     expect(workflow).toContain("npm run test:e2e");
     expect(playwrightConfig).toContain('name: "desktop-chromium"');
     expect(playwrightConfig).toContain('name: "mobile-webkit"');
-    expect(browserTests).toContain("new AxeBuilder({ page })");
-    expect(browserTests).toContain('"wcag22aa"');
+    expect(playwrightConfig).toContain('name: "authenticated-mobile-webkit"');
+    expect(browserTests).toContain("expectNoA11yViolations(page)");
+    expect(authenticatedTests).toContain("a11yViolationSummary(page)");
+    expect(accessibilityHelper).toContain("new AxeBuilder({ page })");
+    expect(accessibilityHelper).toContain('"wcag22aa"');
   });
 });

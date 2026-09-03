@@ -62,10 +62,8 @@ export const CRIT_DMG_PER_STR = 0.002;
 // 물리 방어처럼 충분한 절대값을 가져야 한다.
 export const MAGIC_DEF_PER_SPI = 0.52;
 export const MAGIC_DEF_PER_INT = 0.1;
-// 치명타 저항 — 정신. 피격 시 상대 치명 확률 차감(%p). SPI 부활 PR-3b: 치명형 몹/PvP 치명을
-//   완전 봉인하지 못하게 cap(고-spi 도 치명 위협 일부 잔존·과투자 무력화 방지, eva/acc cap 패턴).
+// 치명타 저항 — 정신. 피격 시 상대 원본 치명 확률에서 먼저 차감(%p).
 export const CRIT_RESIST_PER_SPI = 0.1;
-export const CRIT_RESIST_PCT_CAP = 50;
 // 회복량 배수 — 정신(주력)·활력(보조) (1.0 기준 + 비례). SPI 부활(#spi PR-1): spi 가 힐 주축
 // 스탯이 되도록 0.0025→0.006(vit 0.004 의 1.5배). vit 는 maxHp(=pctMaxHp/pctLostHp 힐의 분모)로도
 // 힐에 기여하므로 healMult 직접항은 보조. 신술 지원 라인(사제) 힐이 정신으로 스케일.

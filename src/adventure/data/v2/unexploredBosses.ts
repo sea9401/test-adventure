@@ -335,7 +335,7 @@ export const UNEXPLORED_BOSSES = {
       atkType: "magic",
       def: 42,
       magicDef: 48,
-      spd: 22,
+      spd: 57,
       accuracy: -185,
       evasionPct: 16,
       exp: 0,
@@ -351,7 +351,7 @@ export const UNEXPLORED_BOSSES = {
     traits: [
       "900틱마다 천공 포격",
       "연타·치명타로 조준 붕괴",
-      "24중첩 시 포격 50%·핵 노출",
+      "40중첩 시 포격 50%·핵 노출",
     ],
   },
   immortal_berserker: {

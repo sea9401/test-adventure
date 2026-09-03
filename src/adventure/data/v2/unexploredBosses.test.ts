@@ -69,7 +69,7 @@ describe("미개척지 개인 보스 카탈로그", () => {
         atkType: "magic",
         def: 42,
         magicDef: 48,
-        spd: 22,
+        spd: 57,
         accuracy: -185,
         evasionPct: 16,
       },

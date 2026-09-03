@@ -8,7 +8,7 @@ describe("SkywardCrystalEyeStatus", () => {
       <SkywardCrystalEyeStatus status={{
         crystalEyeAimTicksRemaining: 640,
         crystalEyeDisruptionStacks: 17,
-        crystalEyeProjectedPowerPct: 60,
+        crystalEyeProjectedPowerPct: 80,
         crystalEyeBasePowerPct: 210,
         crystalEyeCoreExposed: true,
         crystalEyeCoreExposureTicksRemaining: 180,
@@ -20,8 +20,8 @@ describe("SkywardCrystalEyeStatus", () => {
     );
 
     expect(html).toContain("천공 포격까지 640틱");
-    expect(html).toContain("조준 붕괴 17 / 24");
-    expect(html).toContain("현재 예상 포격 위력 60% · 기본 계수 210%");
+    expect(html).toContain("조준 붕괴 17 / 40");
+    expect(html).toContain("현재 예상 포격 위력 80% · 기본 계수 210%");
     expect(html).toContain("수정 핵 노출 180틱 · 받는 피해 +25%");
     expect(html).toContain("직전 포격 12중첩 · 위력 70% · 실제 피해 1,234");
     expect(html).toContain('aria-valuenow="17"');

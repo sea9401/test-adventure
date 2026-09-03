@@ -99,6 +99,7 @@ import {
 } from "./invincibleFortressMechanic";
 import {
   SKYWARD_CRYSTAL_EYE_EXPOSURE_DAMAGE_PCT,
+  SKYWARD_CRYSTAL_EYE_STACK_CAP,
   addSkywardCrystalEyeHit,
   advanceSkywardCrystalEyeTimers,
   fireSkywardCrystalEyeArtillery,
@@ -617,7 +618,7 @@ function settleSkywardCrystalEyeAfterPlayerAction(
     log: appendLog(state.log, {
       kind: "info",
       effect: "status",
-      text: `조준 붕괴 +${actualGain} · ${nextMechanic.disruptionStacks}/24`,
+      text: `조준 붕괴 +${actualGain} · ${nextMechanic.disruptionStacks}/${SKYWARD_CRYSTAL_EYE_STACK_CAP}`,
       turn: "player",
       t: tick,
     }),
@@ -691,7 +692,7 @@ function fireSkywardCrystalEyeAtbArtillery(args: {
     log: appendLog(args.state.log, {
       kind: "info",
       effect: "status",
-      text: `천공 포격 발사 · 조준 붕괴 ${stacks}/24 · 위력 ${fired.powerPct}%`,
+      text: `천공 포격 발사 · 조준 붕괴 ${stacks}/${SKYWARD_CRYSTAL_EYE_STACK_CAP} · 위력 ${fired.powerPct}%`,
       turn: "enemy",
       t: args.tick,
     }),

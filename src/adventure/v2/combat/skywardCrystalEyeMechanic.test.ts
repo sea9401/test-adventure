@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   SKYWARD_CRYSTAL_EYE_AIM_TICKS,
   SKYWARD_CRYSTAL_EYE_EXPOSURE_TICKS,
+  SKYWARD_CRYSTAL_EYE_STACK_CAP,
   addSkywardCrystalEyeHit,
   advanceSkywardCrystalEyeTimers,
   fireSkywardCrystalEyeArtillery,
@@ -28,9 +29,9 @@ describe("skyward crystal eye mechanic", () => {
   });
 
   it.each([
-    [0, 100], [3, 100], [4, 90], [7, 90], [8, 80], [11, 80],
-    [12, 70], [15, 70], [16, 60], [19, 60], [20, 50], [23, 50],
-    [24, 50], [99, 50],
+    [0, 100], [6, 100], [7, 90], [12, 90], [13, 80], [19, 80],
+    [20, 70], [26, 70], [27, 60], [32, 60], [33, 50], [39, 50],
+    [40, 50], [99, 50],
   ] as const)("maps %i disruption stacks to %i%% artillery", (stacks, power) => {
     expect(skywardCrystalEyeArtilleryPowerPct(stacks)).toBe(power);
   });
@@ -50,11 +51,11 @@ describe("skyward crystal eye mechanic", () => {
 
   it("counts each normal hit once and each critical hit twice without an action cap", () => {
     let state = initialSkywardCrystalEyeState();
-    for (let hit = 0; hit < 12; hit += 1) {
+    for (let hit = 0; hit < 20; hit += 1) {
       state = addSkywardCrystalEyeHit(state, true);
     }
-    expect(state.disruptionStacks).toBe(24);
-    expect(addSkywardCrystalEyeHit(state, false).disruptionStacks).toBe(24);
+    expect(state.disruptionStacks).toBe(40);
+    expect(addSkywardCrystalEyeHit(state, false).disruptionStacks).toBe(40);
   });
 
   it("advances aim and exposure over the same elapsed time", () => {
@@ -70,11 +71,11 @@ describe("skyward crystal eye mechanic", () => {
     });
   });
 
-  it("fires mandatory 50% artillery and exposes the core at 24 stacks", () => {
+  it("fires mandatory 50% artillery and exposes the core at 40 stacks", () => {
     const result = fireSkywardCrystalEyeArtillery({
       ...initialSkywardCrystalEyeState(),
       aimTicksRemaining: 0,
-      disruptionStacks: 24,
+      disruptionStacks: 40,
     });
     expect(result).toEqual({
       powerPct: 50,
@@ -85,30 +86,30 @@ describe("skyward crystal eye mechanic", () => {
         disruptionStacks: 0,
         coreExposureTicksRemaining: SKYWARD_CRYSTAL_EYE_EXPOSURE_TICKS,
         artilleryCount: 1,
-        lastArtilleryStacks: 24,
+        lastArtilleryStacks: 40,
         lastArtilleryPowerPct: 50,
         lastArtilleryDamage: null,
       },
     });
   });
 
-  it("fires weakened artillery without exposing the core below 24 stacks", () => {
+  it("fires weakened artillery without exposing the core below 40 stacks", () => {
     const result = fireSkywardCrystalEyeArtillery({
       ...initialSkywardCrystalEyeState(),
-      disruptionStacks: 17,
+      disruptionStacks: 39,
       coreExposureTicksRemaining: 40,
       artilleryCount: 2,
     });
     expect(result).toMatchObject({
-      powerPct: 60,
+      powerPct: 50,
       coreExposed: false,
       state: {
         aimTicksRemaining: 900,
         disruptionStacks: 0,
         coreExposureTicksRemaining: 40,
         artilleryCount: 3,
-        lastArtilleryStacks: 17,
-        lastArtilleryPowerPct: 60,
+        lastArtilleryStacks: 39,
+        lastArtilleryPowerPct: 50,
         lastArtilleryDamage: null,
       },
     });
@@ -125,7 +126,7 @@ describe("skyward crystal eye mechanic", () => {
     })).toEqual({
       kind: "skyward_crystal_eye",
       aimTicksRemaining: 0,
-      disruptionStacks: 24,
+      disruptionStacks: SKYWARD_CRYSTAL_EYE_STACK_CAP,
       coreExposureTicksRemaining: 0,
       artilleryCount: 0,
       lastArtilleryStacks: null,
@@ -141,17 +142,17 @@ describe("skyward crystal eye mechanic", () => {
     const normalized = normalizeSkywardCrystalEyeState({
       kind: "skyward_crystal_eye",
       aimTicksRemaining: 225,
-      disruptionStacks: 24,
+      disruptionStacks: 40,
       coreExposureTicksRemaining: 0,
       artilleryCount: 1,
-      lastArtilleryStacks: 24,
+      lastArtilleryStacks: 40,
       lastArtilleryPowerPct: 25,
       lastArtilleryDamage: 31,
     });
 
     expect(skywardCrystalEyeResourceSnapshot(normalized)).toMatchObject({
       crystalEyeArtillery: "50%",
-      crystalEyeLastArtillery: "24중첩 · 25% · 31 피해",
+      crystalEyeLastArtillery: "40중첩 · 25% · 31 피해",
     });
   });
 
@@ -166,8 +167,8 @@ describe("skyward crystal eye mechanic", () => {
       lastArtilleryDamage: 1234,
     })).toEqual({
       crystalEyeAim: "640틱",
-      crystalEyeDisruption: "17 / 24",
-      crystalEyeArtillery: "60%",
+      crystalEyeDisruption: "17 / 40",
+      crystalEyeArtillery: "80%",
       crystalEyeCore: "노출 180틱 · 받는 피해 +25%",
       crystalEyeLastArtillery: "12중첩 · 70% · 1,234 피해",
     });

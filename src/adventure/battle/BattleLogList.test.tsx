@@ -1188,9 +1188,9 @@ describe("BattleLogList 행동 묶음", () => {
           enemySignatureResources: {
             crystalEyeAim: "225틱",
             crystalEyeArtillery: "50%",
-            crystalEyeDisruption: "24 / 24",
+            crystalEyeDisruption: "40 / 40",
             crystalEyeCore: "노출 180틱 · 받는 피해 +25%",
-            crystalEyeLastArtillery: "24중첩 · 50% · 31 피해",
+            crystalEyeLastArtillery: "40중첩 · 50% · 31 피해",
           },
         }]}
       />,
@@ -1198,9 +1198,9 @@ describe("BattleLogList 행동 묶음", () => {
 
     expect(html).toContain("천공 포격까지 225틱");
     expect(html).toContain("현재 예상 위력 50%");
-    expect(html).toContain("조준 붕괴 24 / 24");
+    expect(html).toContain("조준 붕괴 40 / 40");
     expect(html).toContain("수정 핵 노출 180틱 · 받는 피해 +25%");
-    expect(html).toContain("직전 포격 24중첩 · 50% · 31 피해");
+    expect(html).toContain("직전 포격 40중첩 · 50% · 31 피해");
     expect(html).not.toContain("crystalEye");
   });
 

@@ -5,10 +5,11 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
     await importOriginal<
       typeof import("@/adventure/data/v2/coreLoopConfig")
     >();
-  return { ...actual, V2_CORE_LOOP_V2: true };
+  return { ...actual, V2_CORE_LOOP_V2: true, V2_ATB_SKILLS: true };
 });
 
 import type { Monster } from "@/adventure/data/monsters";
+import { UNEXPLORED_BOSSES } from "@/adventure/data/v2/unexploredBosses";
 import {
   resolveBattle,
   type BattleResolution,
@@ -55,8 +56,9 @@ function runImmortal(options?: {
   maxTurns?: number;
   player?: PlayerCombat;
   boss?: Monster;
+  randomValue?: number;
 }): BattleResolution {
-  vi.spyOn(Math, "random").mockReturnValue(0.5);
+  vi.spyOn(Math, "random").mockReturnValue(options?.randomValue ?? 0.5);
   return resolveBattle(
     options?.player ?? player,
     options?.boss ?? boss,
@@ -78,7 +80,92 @@ function runImmortal(options?: {
   );
 }
 
+function catalogSkillBoss(): Monster {
+  const catalogMonster = UNEXPLORED_BOSSES.immortal_berserker.monster;
+  return {
+    ...boss,
+    atk: 100,
+    spd: 100,
+    v2Skills: catalogMonster.v2Skills
+      ? {
+          learned: [...catalogMonster.v2Skills.learned],
+          equipped: [...catalogMonster.v2Skills.equipped],
+        }
+      : undefined,
+    v2MaxMp: catalogMonster.v2MaxMp,
+  };
+}
+
+function firstCrushingBlowDamage(result: BattleResolution): number {
+  const crushingBlow = result.finalState.log.find(
+    (entry) =>
+      entry.kind === "enemy_attack" && entry.text.startsWith("분쇄 일격!"),
+  );
+  expect(crushingBlow?.kind).toBe("enemy_attack");
+  if (!crushingBlow || crushingBlow.kind !== "enemy_attack") return 0;
+  return crushingBlow.enemyHpDamage ?? 0;
+}
+
 describe("immortal berserker ATB mechanic", () => {
+  it("casts roar then crushing blow without adding a basic attack on either skill tick", () => {
+    const result = runImmortal({
+      maxTurns: 4,
+      randomValue: 0.1,
+      player: {
+        ...player,
+        hp: 1_000_000_000,
+        maxHp: 1_000_000_000,
+        atk: 1,
+        def: 0,
+        spd: 99,
+      },
+      boss: catalogSkillBoss(),
+    });
+    const roar = result.finalState.log.find((entry) =>
+      entry.text.includes("[포효]"),
+    );
+    const crushingBlow = result.finalState.log.find(
+      (entry) =>
+        entry.kind === "enemy_attack" &&
+        entry.text.startsWith("분쇄 일격!"),
+    );
+
+    expect(roar?.t).toBeTypeOf("number");
+    expect(crushingBlow?.t).toBeTypeOf("number");
+    expect(crushingBlow!.t!).toBeGreaterThan(roar!.t!);
+    const skillTicks = new Set([roar!.t, crushingBlow!.t]);
+    expect(
+      result.finalState.log.some(
+        (entry) =>
+          entry.kind === "enemy_attack" &&
+          entry.text.startsWith("공격!") &&
+          skillTicks.has(entry.t),
+      ),
+    ).toBe(false);
+  });
+
+  it("deals less crushing blow damage to a player with higher defense", () => {
+    const runAgainstDefense = (def: number) =>
+      runImmortal({
+        maxTurns: 4,
+        randomValue: 0.1,
+        player: {
+          ...player,
+          hp: 1_000_000_000,
+          maxHp: 1_000_000_000,
+          atk: 1,
+          def,
+          spd: 99,
+        },
+        boss: catalogSkillBoss(),
+      });
+
+    const lowDefenseDamage = firstCrushingBlowDamage(runAgainstDefense(0));
+    const highDefenseDamage = firstCrushingBlowDamage(runAgainstDefense(150));
+
+    expect(highDefenseDamage).toBeLessThan(lowDefenseDamage);
+  });
+
   it("blocks overkill at a life boundary and cancels the remaining attacks in that action", () => {
     const result = runImmortal({
       initialEnemyHp: FIRST_FLOOR + 10,

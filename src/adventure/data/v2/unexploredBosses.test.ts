@@ -159,11 +159,14 @@ describe("미개척지 개인 보스 카탈로그", () => {
     });
     expect(UNEXPLORED_BOSSES.immortal_berserker.monster).toMatchObject({
       v2Skills: {
-        learned: ["mob_savage_roar"],
-        equipped: ["mob_savage_roar"],
+        learned: ["mob_savage_roar", "mob_crushing_blow"],
+        equipped: ["mob_savage_roar", "mob_crushing_blow"],
       },
       v2MaxMp: 75,
     });
+    expect(UNEXPLORED_BOSSES.immortal_berserker.traits).toContain(
+      "포효·분쇄 일격과 광란 참격",
+    );
   });
 
   it("보스마다 거래 가능한 소환석과 독립 고유 3종을 가진다", () => {

@@ -49,8 +49,12 @@ jobs:
         run: npm audit --omit=dev --audit-level=moderate
 
   unit-tests:
-    name: Unit tests
+    name: Unit tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -59,10 +63,10 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      # 장시간 결정적 시뮬레이션은 별도 단일-worker 잡에서 검증하고, 나머지는 기본
-      # worker 풀로 병렬 실행해 빠른 피드백을 유지한다.
+      # 장시간 결정적 시뮬레이션은 별도 단일-worker 잡에서 검증한다. 나머지는 세
+      # runner에 결정적으로 나눠 전체 테스트를 유지하면서 임계 경로를 줄인다.
       - name: Tests (vitest)
-        run: npx vitest run --exclude src/adventure/data/v2/levelDesignSim.test.ts
+        run: npx vitest run --exclude src/adventure/data/v2/levelDesignSim.test.ts --shard=${{ matrix.shard }}/3
 
   level-design-sim-tests:
     name: Level design simulation

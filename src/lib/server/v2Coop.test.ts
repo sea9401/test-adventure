@@ -44,6 +44,23 @@ describe("개인 보스 세션 상태", () => {
     expect(inserted[0]?.mechanicState).toMatchObject({ trackingThreat: 0 });
   });
 
+  it("독혈 군주 세션은 체력 1,800만으로 생성한다", async () => {
+    const inserted: Record<string, unknown>[] = [];
+
+    await createCoopBossSession(sessionTx(inserted) as never, {
+      kindId: "toxic_blood_lord",
+      userId: "owner",
+      summonerName: "독혈 도전자",
+      now: new Date("2026-09-03T00:00:00.000Z"),
+      visibility: "summoner_only",
+    });
+
+    expect(inserted[0]).toMatchObject({
+      hp: 18_000_000,
+      maxHp: 18_000_000,
+    });
+  });
+
   it("불괴의 성채 세션은 100% 방벽 시험 상태로 생성한다", async () => {
     const inserted: Record<string, unknown>[] = [];
 

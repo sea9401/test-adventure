@@ -89,9 +89,9 @@ describe("미개척지 개인 보스 카탈로그", () => {
     });
   });
 
-  it("초기 두 보스는 1,500만, 후속 보스는 3,240만 체력으로 전투를 시작한다", () => {
+  it("추적 병기는 1,500만, 독혈 군주는 1,800만, 후속 보스는 3,240만 체력으로 전투를 시작한다", () => {
     expect(UNEXPLORED_BOSSES.tracking_weapon.sharedMaxHp).toBe(15_000_000);
-    expect(UNEXPLORED_BOSSES.toxic_blood_lord.sharedMaxHp).toBe(15_000_000);
+    expect(UNEXPLORED_BOSSES.toxic_blood_lord.sharedMaxHp).toBe(18_000_000);
 
     for (const id of [
       "glacial_colossus",

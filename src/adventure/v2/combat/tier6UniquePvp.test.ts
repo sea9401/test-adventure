@@ -125,6 +125,49 @@ describe("6T 유니크 PvP 대칭 연동", () => {
       .toBe(true);
   });
 
+  it("같은 PvP 평타에서 질풍 연계와 3회 적중이 완성되면 추가 기본 공격 2회를 보존한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const attacker = player({
+      spd: 100,
+      critChancePct: 100,
+      equipSignatures: [
+        signature("gale_circuit"),
+        {
+          trigger: "every_n_hits",
+          label: "추적 화살",
+          everyNHits: 3,
+        },
+      ],
+    });
+    const initial = initialBattleStatePvP(
+      attacker,
+      player({ spd: 1 }),
+      "질풍궁수",
+      "상대",
+    );
+    const primed = {
+      ...initial,
+      p1: {
+        ...initial.p1,
+        stacks: {
+          ...initial.p1.stacks,
+          signatureHitCount: 2,
+          tier6Uniques: {
+            ...initial.p1.stacks.tier6Uniques!,
+            galeEvents: ["dodge" as const],
+          },
+        },
+      },
+    };
+
+    const after = advanceTurnPvP(primed);
+
+    expect(after.log.some((entry) => entry.text.includes("추적 화살"))).toBe(true);
+    expect(after.log.some((entry) => entry.text.includes("질풍 연계"))).toBe(true);
+    expect(after.phase).toBe("p1");
+    expect(after.p1.attacksLeft).toBe(2);
+  });
+
   it("방어자 보호막 소진은 해당 사이드의 중력 반발에 저장된다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999999);
     const gravity: SignatureEffect = {

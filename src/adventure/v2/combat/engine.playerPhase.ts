@@ -1074,7 +1074,10 @@ export function resolvePlayerPhase(
     };
   }
   const attacksLeft =
-    state.playerAttacksLeft - 1 + weakpointAdd + comboExtraAttacks + sigExtraAttack;
+    afterDamage.playerAttacksLeft - 1 +
+    weakpointAdd +
+    comboExtraAttacks +
+    sigExtraAttack;
   if (attacksLeft > 0) {
     return {
       ...afterDamage,

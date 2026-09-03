@@ -19,7 +19,10 @@ import {
   type PlayerCombat,
 } from "../src/adventure/v2/combat/engine";
 import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
-import { initialInvincibleFortressState } from "../src/adventure/v2/combat/invincibleFortressMechanic";
+import {
+  initialInvincibleFortressState,
+  INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS,
+} from "../src/adventure/v2/combat/invincibleFortressMechanic";
 import { initialSkywardCrystalEyeState } from "../src/adventure/v2/combat/skywardCrystalEyeMechanic";
 import { initialImmortalBerserkerState } from "../src/adventure/v2/combat/immortalBerserkerMechanic";
 import {
@@ -52,7 +55,7 @@ export type CoopBossTrialAudit = {
   glacialSkippedActionCount: number;
   fortressEnrageTiers: number[];
   fortressBarrierDamageRatios: number[];
-  fortressFirstTier4NormalHitRatio: number;
+  fortressFirstMaxEnrageNormalHitRatio: number;
   crystalEyeArtilleryStacks: number[];
   crystalEyeArtilleryPowerPcts: number[];
   crystalEyeArtilleryDamageRatios: number[];
@@ -116,8 +119,6 @@ export type CoopBossAudit = {
   medianHealing: number;
   medianNetProgress: number;
 };
-
-const FORTRESS_TIER_MIN_DAMAGE_RATIO = [1, 0.75, 0.5, 0.25, 0] as const;
 
 function mulberry32(seed: number): () => number {
   let value = seed >>> 0;
@@ -220,7 +221,7 @@ export function auditCoopBossForPlayer(args: {
       let glacialSkippedActionCount = 0;
       const fortressEnrageTiers: number[] = [];
       const fortressBarrierDamageRatios: number[] = [];
-      let fortressFirstTier4NormalHitRatio = 0;
+      let fortressFirstMaxEnrageNormalHitRatio = 0;
       const crystalEyeArtilleryStacks: number[] = [];
       const crystalEyeArtilleryPowerPcts: number[] = [];
       const crystalEyeArtilleryDamageRatios: number[] = [];
@@ -347,23 +348,23 @@ export function auditCoopBossForPlayer(args: {
           fortressEnrageTiers.push(...fortress.barrierResults);
           fortressBarrierDamageRatios.push(
             ...fortress.barrierResults.map(
-              (tier) => FORTRESS_TIER_MIN_DAMAGE_RATIO[tier],
+              (tier) => INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS[tier],
             ),
           );
-          const tier4LogIndex = result.finalState.log.findIndex((entry) =>
-            entry.text.includes("광폭 4단계 적용"),
+          const maxEnrageLogIndex = result.finalState.log.findIndex((entry) =>
+            entry.text.includes("광폭 7단계 적용"),
           );
-          if (tier4LogIndex >= 0) {
+          if (maxEnrageLogIndex >= 0) {
             const firstNormalHit = result.finalState.log
-              .slice(tier4LogIndex + 1)
+              .slice(maxEnrageLogIndex + 1)
               .find(
                 (entry) =>
                   entry.kind === "enemy_attack" &&
                   (entry.enemyHpDamage ?? 0) > 0 &&
                   entry.heavyBlowFired !== true,
               );
-            fortressFirstTier4NormalHitRatio = Math.max(
-              fortressFirstTier4NormalHitRatio,
+            fortressFirstMaxEnrageNormalHitRatio = Math.max(
+              fortressFirstMaxEnrageNormalHitRatio,
               (firstNormalHit?.kind === "enemy_attack"
                 ? firstNormalHit.enemyHpDamage ?? 0
                 : 0) / Math.max(1, args.player.maxHp),
@@ -421,7 +422,7 @@ export function auditCoopBossForPlayer(args: {
         glacialSkippedActionCount,
         fortressEnrageTiers,
         fortressBarrierDamageRatios,
-        fortressFirstTier4NormalHitRatio,
+        fortressFirstMaxEnrageNormalHitRatio,
         crystalEyeArtilleryStacks,
         crystalEyeArtilleryPowerPcts,
         crystalEyeArtilleryDamageRatios,
@@ -573,7 +574,7 @@ function buildAuditForArch(
         Math.max(
           0,
           ...trialAudits.map(
-            (audit) => audit.fortressFirstTier4NormalHitRatio,
+            (audit) => audit.fortressFirstMaxEnrageNormalHitRatio,
           ),
         ),
       ),
@@ -763,7 +764,7 @@ export function buildCoopBossBalanceReport(options: {
         Math.max(
           0,
           ...allTrials.map(
-            (trial) => trial.fortressFirstTier4NormalHitRatio,
+            (trial) => trial.fortressFirstMaxEnrageNormalHitRatio,
           ),
         ),
       ),

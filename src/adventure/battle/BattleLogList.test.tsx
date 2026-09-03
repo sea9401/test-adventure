@@ -1136,7 +1136,7 @@ describe("BattleLogList 행동 묶음", () => {
           enemySignatureResources: {
             fortressTrial: "2/4 · 240틱",
             fortressDamage: "18,200 / 32,400",
-            fortressEnrage: "보통",
+            fortressEnrage: "예상 3단계",
           },
         }]}
       />,
@@ -1144,7 +1144,7 @@ describe("BattleLogList 행동 묶음", () => {
 
     expect(html).toContain("방벽 시험 2/4 · 240틱");
     expect(html).toContain("방벽 피해 18,200 / 32,400");
-    expect(html).toContain("성채 광폭 보통");
+    expect(html).toContain("성채 광폭 예상 3단계");
     expect(html).not.toContain("fortressTrial");
   });
 

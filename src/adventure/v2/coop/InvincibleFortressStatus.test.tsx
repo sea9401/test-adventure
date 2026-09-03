@@ -9,9 +9,9 @@ describe("InvincibleFortressStatus", () => {
         fortressBarrierActive: true,
         fortressBarrierTicksRemaining: 160,
         fortressBarrierDamage: 100_000,
-        fortressBarrierTarget: 3_000_000,
+        fortressBarrierTarget: 1_500_000,
         fortressEnrageTier: 2,
-        fortressProjectedEnrageTier: 4,
+        fortressProjectedEnrageTier: 7,
         fortressCompletedBarrierCount: 1,
         fortressNextBarrierHpFraction: 0.5,
         fortressLastResultTier: 2,
@@ -20,8 +20,8 @@ describe("InvincibleFortressStatus", () => {
 
     expect(html).toContain("마력 방벽 2/4");
     expect(html).toContain("방벽 시험 240 / 400틱");
-    expect(html).toContain("누적 피해 100,000 / 3,000,000");
-    expect(html).toContain("예상 광폭: 최대");
+    expect(html).toContain("누적 피해 100,000 / 1,500,000");
+    expect(html).toContain("예상 광폭: 7단계");
     expect(html).toContain('aria-valuenow="100000"');
   });
 
@@ -31,16 +31,16 @@ describe("InvincibleFortressStatus", () => {
         fortressBarrierActive: false,
         fortressBarrierTicksRemaining: 0,
         fortressBarrierDamage: 0,
-        fortressBarrierTarget: 3_000_000,
-        fortressEnrageTier: 3,
-        fortressProjectedEnrageTier: 3,
+        fortressBarrierTarget: 1_500_000,
+        fortressEnrageTier: 7,
+        fortressProjectedEnrageTier: 7,
         fortressCompletedBarrierCount: 2,
         fortressNextBarrierHpFraction: 0.5,
-        fortressLastResultTier: 3,
+        fortressLastResultTier: 7,
       }} />,
     );
 
-    expect(html).toContain("현재 광폭: 강함 (3단계)");
-    expect(html).toContain("공격 +28% · 속도 +12%");
+    expect(html).toContain("현재 광폭: 7단계");
+    expect(html).toContain("공격 +150% · 속도 +200%");
   });
 });

@@ -84,13 +84,13 @@ describe("invincible fortress ATB mechanic", () => {
     });
     expect(result.finalState.log).toContainEqual(
       expect.objectContaining({
-        text: "방벽 피해 +100,000 · 남은 2,900,000 / 3,000,000",
+        text: "방벽 피해 +100,000 · 남은 1,400,000 / 1,500,000",
         turn: "player",
       }),
     );
     expect(result.finalState.log).toContainEqual(
       expect.objectContaining({
-        text: "방벽 피해 +100,000 · 남은 2,600,000 / 3,000,000",
+        text: "방벽 피해 +100,000 · 남은 1,100,000 / 1,500,000",
         turn: "player",
       }),
     );
@@ -101,7 +101,7 @@ describe("invincible fortress ATB mechanic", () => {
       player: { ...player, atk: 3_500_000 },
     });
 
-    expect(result.finalState.enemyHp).toBe(10_300_000);
+    expect(result.finalState.enemyHp).toBe(8_800_000);
     expect(result.finalState.bossMechanic).toMatchObject({
       kind: "invincible_fortress",
       completedBarrierCount: 1,
@@ -111,17 +111,17 @@ describe("invincible fortress ATB mechanic", () => {
     });
     const damageIndex = result.finalState.log.findIndex(
       (entry) =>
-        entry.text === "방벽 피해 +3,000,000 · 남은 0 / 3,000,000",
+        entry.text === "방벽 피해 +1,500,000 · 남은 0 / 1,500,000",
     );
     const destroyedIndex = result.finalState.log.findIndex(
-      (entry) => entry.text === "방벽 파괴 — 누적 3,000,000",
+      (entry) => entry.text === "방벽 파괴 — 누적 1,500,000",
     );
     expect(damageIndex).toBeGreaterThanOrEqual(0);
     expect(destroyedIndex).toBeGreaterThan(damageIndex);
     expect(result.finalState.log).toContainEqual(
       expect.objectContaining({
         t: 0,
-        text: "방벽 파괴 — 누적 3,000,000",
+        text: "방벽 파괴 — 누적 1,500,000",
       }),
     );
     expect(result.finalState.log).toContainEqual(
@@ -131,22 +131,22 @@ describe("invincible fortress ATB mechanic", () => {
 
   it("applies the remaining hit in the same multi-hit action after barrier destruction", () => {
     const result = runFortress({
-      player: { ...player, atk: 3_000_000, attackCount: 2 },
+      player: { ...player, atk: 1_500_000, attackCount: 2 },
     });
 
-    expect(result.finalState.enemyHp).toBe(8_100_000);
+    expect(result.finalState.enemyHp).toBe(9_300_000);
     expect(result.finalState.bossMechanic).toMatchObject({
       kind: "invincible_fortress",
       completedBarrierCount: 1,
-      activeBarrierIndex: 1,
-      barrierDamage: 300_000,
+      activeBarrierIndex: null,
+      barrierDamage: 0,
     });
   });
 
   it("reschedules the boss from the early barrier destruction tick", () => {
     const result = runFortress({
       maxTurns: 2,
-      player: { ...player, atk: 3_000_000 },
+      player: { ...player, atk: 1_500_000 },
     });
     const firstEnemyAttack = result.finalState.log.find(
       (entry) => entry.kind === "enemy_attack",
@@ -209,8 +209,8 @@ describe("invincible fortress ATB mechanic", () => {
 
     expect(snapshot?.kind === "hp_bar" && snapshot.enemySignatureResources).toMatchObject({
       fortressTrial: expect.any(String),
-      fortressDamage: "100,000 / 3,000,000",
-      fortressEnrage: "최대",
+      fortressDamage: "100,000 / 1,500,000",
+      fortressEnrage: "예상 7단계",
     });
   });
 
@@ -285,8 +285,8 @@ describe("invincible fortress ATB mechanic", () => {
       completedBarrierCount: 1,
       activeBarrierIndex: null,
       barrierTicksRemaining: 0,
-      enrageTier: 4,
-      barrierResults: [4],
+      enrageTier: 7,
+      barrierResults: [7],
     };
     const result = runFortress({
       initialState,
@@ -296,8 +296,8 @@ describe("invincible fortress ATB mechanic", () => {
       player: { ...player, atk: 1 },
     });
 
-    expect(result.finalState.enemy.atk).toBe(140);
-    expect(result.finalState.enemy.spd).toBeCloseTo(116);
+    expect(result.finalState.enemy.atk).toBe(250);
+    expect(result.finalState.enemy.spd).toBeCloseTo(300);
     expect(result.finalState.enemy.def).toBe(321);
     expect(result.finalState.enemy.magicDef).toBe(654);
   });

@@ -1,8 +1,18 @@
 export const INVINCIBLE_FORTRESS_BARRIER_TICKS = 400;
-export const INVINCIBLE_FORTRESS_BARRIER_HP = 3_000_000;
+export const INVINCIBLE_FORTRESS_BARRIER_HP = 1_500_000;
 export const INVINCIBLE_FORTRESS_HP_FRACTIONS = [1, 0.75, 0.5, 0.25] as const;
+export const INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS = [
+  1,
+  0.9,
+  0.75,
+  0.6,
+  0.45,
+  0.3,
+  0.15,
+  0,
+] as const;
 
-export type InvincibleFortressEnrageTier = 0 | 1 | 2 | 3 | 4;
+export type InvincibleFortressEnrageTier = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export type InvincibleFortressBarrierIndex = 0 | 1 | 2 | 3;
 export type InvincibleFortressCompletedBarrierCount = 0 | 1 | 2 | 3 | 4;
 
@@ -18,13 +28,14 @@ export type InvincibleFortressBattleState = {
 
 export const INVINCIBLE_FORTRESS_ENRAGE = [
   { atkMult: 1, spdMult: 1 },
-  { atkMult: 1.08, spdMult: 1.04 },
-  { atkMult: 1.16, spdMult: 1.08 },
-  { atkMult: 1.28, spdMult: 1.12 },
-  { atkMult: 1.4, spdMult: 1.16 },
+  { atkMult: 1.1, spdMult: 1.15 },
+  { atkMult: 1.25, spdMult: 1.35 },
+  { atkMult: 1.45, spdMult: 1.6 },
+  { atkMult: 1.7, spdMult: 1.9 },
+  { atkMult: 1.95, spdMult: 2.25 },
+  { atkMult: 2.2, spdMult: 2.6 },
+  { atkMult: 2.5, spdMult: 3 },
 ] as const;
-
-const ENRAGE_LABELS = ["없음", "약함", "보통", "강함", "최대"] as const;
 
 function finiteInteger(value: unknown, min: number, max: number): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
@@ -32,7 +43,7 @@ function finiteInteger(value: unknown, min: number, max: number): number | null 
 }
 
 function isEnrageTier(value: unknown): value is InvincibleFortressEnrageTier {
-  return Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 4;
+  return Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 7;
 }
 
 function isBarrierIndex(value: unknown): value is InvincibleFortressBarrierIndex {
@@ -67,11 +78,14 @@ export function invincibleFortressTierForDamage(
 ): InvincibleFortressEnrageTier {
   const scored = Math.max(0, Math.floor(Number.isFinite(damage) ? damage : 0));
   const target = invincibleFortressBarrierTarget(maxHp);
-  if (scored >= target) return 0;
-  if (scored >= Math.ceil(target * 0.75)) return 1;
-  if (scored >= Math.ceil(target * 0.5)) return 2;
-  if (scored >= Math.ceil(target * 0.25)) return 3;
-  return 4;
+  if (scored >= Math.ceil(target * INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS[0])) return 0;
+  if (scored >= Math.ceil(target * INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS[1])) return 1;
+  if (scored >= Math.ceil(target * INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS[2])) return 2;
+  if (scored >= Math.ceil(target * INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS[3])) return 3;
+  if (scored >= Math.ceil(target * INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS[4])) return 4;
+  if (scored >= Math.ceil(target * INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS[5])) return 5;
+  if (scored >= Math.ceil(target * INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS[6])) return 6;
+  return 7;
 }
 
 export function invincibleFortressEnrageMultipliers(
@@ -372,18 +386,20 @@ export function invincibleFortressResourceSnapshot(
   maxHp: number,
 ): Record<string, number | string> {
   if (state.activeBarrierIndex !== null) {
+    const projectedTier = invincibleFortressTierForDamage(
+      state.barrierDamage,
+      maxHp,
+    );
     return {
       fortressTrial: `${INVINCIBLE_FORTRESS_BARRIER_TICKS - state.barrierTicksRemaining} / ${INVINCIBLE_FORTRESS_BARRIER_TICKS}틱`,
       fortressDamage: `${state.barrierDamage.toLocaleString("ko-KR")} / ${invincibleFortressBarrierTarget(maxHp).toLocaleString("ko-KR")}`,
-      fortressEnrage: ENRAGE_LABELS[
-        invincibleFortressTierForDamage(state.barrierDamage, maxHp)
-      ],
+      fortressEnrage: `예상 ${projectedTier}단계`,
     };
   }
   const multipliers = invincibleFortressEnrageMultipliers(state.enrageTier);
   return {
     fortressEnrage:
-      `${ENRAGE_LABELS[state.enrageTier]} (${state.enrageTier}단계)` +
+      `${state.enrageTier}단계` +
       ` · 공격 +${percentIncrease(multipliers.atkMult)}%` +
       ` · 속도 +${percentIncrease(multipliers.spdMult)}%`,
   };

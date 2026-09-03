@@ -6,10 +6,8 @@ import {
 } from "@/adventure/v2/combat/invincibleFortressMechanic";
 import type { CoopFortressStatus } from "./useCoopBossState";
 
-const TIER_LABELS = ["없음", "약함", "보통", "강함", "최대"] as const;
-
 function safeTier(value: number): InvincibleFortressEnrageTier {
-  return Math.max(0, Math.min(4, Math.floor(value))) as InvincibleFortressEnrageTier;
+  return Math.max(0, Math.min(7, Math.floor(value))) as InvincibleFortressEnrageTier;
 }
 
 export function InvincibleFortressStatus({
@@ -57,14 +55,14 @@ export function InvincibleFortressStatus({
         <span className="font-medium text-zinc-600 dark:text-zinc-300">
           {active
             ? `방벽 시험 ${elapsedTicks} / ${INVINCIBLE_FORTRESS_BARRIER_TICKS}틱`
-            : `현재 광폭: ${TIER_LABELS[currentTier]} (${currentTier}단계)`}
+            : `현재 광폭: ${currentTier}단계`}
         </span>
       </span>
       {active ? (
         <>
           <span className="flex items-center justify-between gap-2 text-[10px] text-zinc-500 dark:text-zinc-400">
             <span>누적 피해 {damage.toLocaleString("ko-KR")} / {target.toLocaleString("ko-KR")}</span>
-            <span>예상 광폭: {TIER_LABELS[projectedTier]}</span>
+            <span>예상 광폭: {projectedTier}단계</span>
           </span>
           <span
             role="progressbar"

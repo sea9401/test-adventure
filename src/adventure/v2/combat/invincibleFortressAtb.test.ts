@@ -73,14 +73,14 @@ function runFortress(options?: {
 }
 
 describe("invincible fortress ATB mechanic", () => {
-  it("absorbs opening player damage into the barrier without reducing body HP", () => {
-    const result = runFortress();
+  it("keeps sub-durability damage in the barrier without reducing body HP", () => {
+    const result = runFortress({ maxTurns: 4 });
 
     expect(result.finalState.enemyHp).toBe(SHARED_MAX_HP);
     expect(result.finalState.bossMechanic).toMatchObject({
       kind: "invincible_fortress",
       activeBarrierIndex: 0,
-      barrierDamage: 32_400,
+      barrierDamage: 400_000,
     });
     expect(
       result.finalState.log.some((entry) =>
@@ -89,10 +89,59 @@ describe("invincible fortress ATB mechanic", () => {
     ).toBe(true);
   });
 
+  it("destroys the barrier immediately and applies the breaking hit overflow to body HP", () => {
+    const result = runFortress({
+      player: { ...player, atk: 3_500_000 },
+    });
+
+    expect(result.finalState.enemyHp).toBe(10_300_000);
+    expect(result.finalState.bossMechanic).toMatchObject({
+      kind: "invincible_fortress",
+      completedBarrierCount: 1,
+      activeBarrierIndex: null,
+      enrageTier: 0,
+      barrierResults: [0],
+    });
+    expect(result.finalState.log).toContainEqual(
+      expect.objectContaining({
+        t: 0,
+        text: "방벽 파괴 — 누적 3,000,000",
+      }),
+    );
+    expect(result.finalState.log).toContainEqual(
+      expect.objectContaining({ t: 0, text: "광폭 0단계 적용" }),
+    );
+  });
+
+  it("applies the remaining hit in the same multi-hit action after barrier destruction", () => {
+    const result = runFortress({
+      player: { ...player, atk: 3_000_000, attackCount: 2 },
+    });
+
+    expect(result.finalState.enemyHp).toBe(8_100_000);
+    expect(result.finalState.bossMechanic).toMatchObject({
+      kind: "invincible_fortress",
+      completedBarrierCount: 1,
+      activeBarrierIndex: 1,
+      barrierDamage: 300_000,
+    });
+  });
+
+  it("reschedules the boss from the early barrier destruction tick", () => {
+    const result = runFortress({
+      maxTurns: 2,
+      player: { ...player, atk: 3_000_000 },
+    });
+    const firstEnemyAttack = result.finalState.log.find(
+      (entry) => entry.kind === "enemy_attack",
+    );
+
+    expect(firstEnemyAttack?.t).toBe(80);
+  });
+
   it("keeps the boss idle until the opening 400-tick trial completes", () => {
     const result = runFortress({
       maxTurns: 8,
-      player: { ...player, atk: 1 },
     });
     const enemyAttacks = result.finalState.log.filter(
       (entry) => entry.kind === "enemy_attack",
@@ -101,11 +150,12 @@ describe("invincible fortress ATB mechanic", () => {
     expect(
       enemyAttacks.every((entry) => (entry.t ?? Number.POSITIVE_INFINITY) > 400),
     ).toBe(true);
-    expect(
-      result.finalState.log.some(
-        (entry) => entry.t === 400 && entry.text.includes("방벽 시험 종료"),
-      ),
-    ).toBe(true);
+    expect(result.finalState.log).toContainEqual(
+      expect.objectContaining({
+        t: 400,
+        text: "방벽 시험 종료 — 누적 400,000",
+      }),
+    );
   });
 
   it("clamps body HP at 75% and sends later attacks in the same action to the barrier", () => {
@@ -143,8 +193,8 @@ describe("invincible fortress ATB mechanic", () => {
 
     expect(snapshot?.kind === "hp_bar" && snapshot.enemySignatureResources).toMatchObject({
       fortressTrial: expect.any(String),
-      fortressDamage: "32,400 / 32,400",
-      fortressEnrage: "없음",
+      fortressDamage: "100,000 / 3,000,000",
+      fortressEnrage: "최대",
     });
   });
 

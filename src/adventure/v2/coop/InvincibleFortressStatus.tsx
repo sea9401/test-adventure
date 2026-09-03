@@ -27,11 +27,16 @@ export function InvincibleFortressStatus({
   );
   const elapsedTicks = INVINCIBLE_FORTRESS_BARRIER_TICKS - ticksRemaining;
   const target = Math.max(1, Math.floor(status.fortressBarrierTarget || 1));
+  const rawDamage = Number(status.fortressBarrierDamage);
   const damage = Math.max(
     0,
-    Math.min(target, Math.floor(status.fortressBarrierDamage || 0)),
+    Math.min(
+      Number.MAX_SAFE_INTEGER,
+      Math.floor(Number.isFinite(rawDamage) ? rawDamage : 0),
+    ),
   );
-  const damagePct = (damage / target) * 100;
+  const progressDamage = Math.min(target, damage);
+  const damagePct = (progressDamage / target) * 100;
   const currentTier = safeTier(status.fortressEnrageTier || 0);
   const projectedTier = safeTier(status.fortressProjectedEnrageTier || 0);
   const currentMultipliers = invincibleFortressEnrageMultipliers(currentTier);
@@ -66,7 +71,7 @@ export function InvincibleFortressStatus({
             aria-label="방벽 누적 피해"
             aria-valuemin={0}
             aria-valuemax={target}
-            aria-valuenow={damage}
+            aria-valuenow={progressDamage}
             className="block h-2 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800"
           >
             <span

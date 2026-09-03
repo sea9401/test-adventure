@@ -86,9 +86,9 @@ describe("V2CoopBossDetailView 추적 병기", () => {
       fortressBarrierActive: true,
       fortressBarrierTicksRemaining: 160,
       fortressBarrierDamage: 18_200,
-      fortressBarrierTarget: 32_400,
+      fortressBarrierTarget: 3_000_000,
       fortressEnrageTier: 2,
-      fortressProjectedEnrageTier: 1,
+      fortressProjectedEnrageTier: 4,
       fortressCompletedBarrierCount: 1,
       fortressNextBarrierHpFraction: 0.5,
       fortressLastResultTier: 2,
@@ -106,7 +106,7 @@ describe("V2CoopBossDetailView 추적 병기", () => {
     );
 
     expect(html).toContain("방벽 시험 240 / 400틱");
-    expect(html).toContain("누적 피해 18,200 / 32,400");
+    expect(html).toContain("누적 피해 18,200 / 3,000,000");
     expect(html).not.toContain("발악 0/");
   });
 

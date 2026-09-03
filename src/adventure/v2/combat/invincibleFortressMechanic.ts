@@ -1,8 +1,5 @@
 export const INVINCIBLE_FORTRESS_BARRIER_TICKS = 400;
-export const INVINCIBLE_FORTRESS_TARGET_FRACTION = 0.003;
-// 방벽 시험은 400틱 동안의 순간 화력 검사다. 본체 장기전용 HP 상향이 요구 화력까지
-// 끌어올려 계보별 공략 차이를 지우지 않도록 최초 밸런스 기준 HP에서 상한을 둔다.
-export const INVINCIBLE_FORTRESS_TARGET_MAX_HP = 10_800_000;
+export const INVINCIBLE_FORTRESS_BARRIER_HP = 3_000_000;
 export const INVINCIBLE_FORTRESS_HP_FRACTIONS = [1, 0.75, 0.5, 0.25] as const;
 
 export type InvincibleFortressEnrageTier = 0 | 1 | 2 | 3 | 4;
@@ -46,14 +43,8 @@ function sharedMaxHp(value: number): number {
   return Math.max(1, Math.floor(Number.isFinite(value) ? value : 1));
 }
 
-export function invincibleFortressBarrierTarget(maxHp: number): number {
-  return Math.max(
-    1,
-    Math.floor(
-      Math.min(sharedMaxHp(maxHp), INVINCIBLE_FORTRESS_TARGET_MAX_HP) *
-        INVINCIBLE_FORTRESS_TARGET_FRACTION,
-    ),
-  );
+export function invincibleFortressBarrierTarget(_maxHp: number): number {
+  return INVINCIBLE_FORTRESS_BARRIER_HP;
 }
 
 export function initialInvincibleFortressState(
@@ -158,13 +149,16 @@ export function normalizeInvincibleFortressState(
     return fallback;
   }
 
-  const target = invincibleFortressBarrierTarget(maxHp);
   const ticks = finiteInteger(
     source.barrierTicksRemaining,
     0,
     INVINCIBLE_FORTRESS_BARRIER_TICKS,
   );
-  const barrierDamage = finiteInteger(source.barrierDamage, 0, target);
+  const barrierDamage = finiteInteger(
+    source.barrierDamage,
+    0,
+    invincibleFortressBarrierTarget(maxHp),
+  );
   if (ticks === null || barrierDamage === null) return fallback;
   const fallbackTier = results.at(-1) ?? 0;
   const enrageTier = isEnrageTier(source.enrageTier)
@@ -190,7 +184,44 @@ export type SettleInvincibleFortressDamageResult = {
   bodyDamage: number;
   barrierDamageApplied: number;
   barrierStarted: boolean;
+  barrierEvents: readonly InvincibleFortressDamageEvent[];
 };
+
+export type InvincibleFortressDamageEvent =
+  | {
+      kind: "barrier_started";
+      barrierIndex: InvincibleFortressBarrierIndex;
+    }
+  | {
+      kind: "barrier_damage";
+      barrierIndex: InvincibleFortressBarrierIndex;
+      damage: number;
+      totalDamage: number;
+    }
+  | {
+      kind: "barrier_destroyed";
+      barrierIndex: InvincibleFortressBarrierIndex;
+      totalDamage: number;
+      tier: 0;
+    };
+
+function completeInvincibleFortressBarrier(
+  state: InvincibleFortressBattleState,
+  tier: InvincibleFortressEnrageTier,
+): InvincibleFortressBattleState {
+  if (state.activeBarrierIndex === null) return state;
+  const completed = (state.activeBarrierIndex + 1) as
+    InvincibleFortressCompletedBarrierCount;
+  return {
+    kind: "invincible_fortress",
+    completedBarrierCount: completed,
+    activeBarrierIndex: null,
+    barrierTicksRemaining: 0,
+    barrierDamage: 0,
+    enrageTier: tier,
+    barrierResults: [...state.barrierResults, tier].slice(0, 4),
+  };
+}
 
 export function settleInvincibleFortressDamage(args: {
   state: InvincibleFortressBattleState;
@@ -199,62 +230,99 @@ export function settleInvincibleFortressDamage(args: {
   maxHp: number;
 }): SettleInvincibleFortressDamageResult {
   const max = sharedMaxHp(args.maxHp);
-  const hp = Math.max(0, Math.min(max, Math.floor(args.currentHp)));
-  const damage = Math.max(
+  let bodyHp = Math.max(0, Math.min(max, Math.floor(args.currentHp)));
+  let remainingDamage = Math.max(
     0,
-    Math.floor(Number.isFinite(args.incomingDamage) ? args.incomingDamage : 0),
+    Math.min(
+      Number.MAX_SAFE_INTEGER,
+      Math.floor(Number.isFinite(args.incomingDamage) ? args.incomingDamage : 0),
+    ),
   );
-  const target = invincibleFortressBarrierTarget(max);
+  let state = args.state;
+  let bodyDamage = 0;
+  let barrierDamageApplied = 0;
+  let barrierStarted = false;
+  const barrierEvents: InvincibleFortressDamageEvent[] = [];
 
-  if (args.state.activeBarrierIndex !== null) {
-    const barrierDamage = Math.min(target, args.state.barrierDamage + damage);
-    return {
-      state: { ...args.state, barrierDamage },
-      bodyHp: hp,
-      bodyDamage: 0,
-      barrierDamageApplied: barrierDamage - args.state.barrierDamage,
-      barrierStarted: false,
-    };
-  }
+  while (remainingDamage > 0) {
+    if (state.activeBarrierIndex !== null) {
+      const barrierIndex = state.activeBarrierIndex;
+      const previousBarrierDamage = Math.max(
+        0,
+        Math.min(
+          INVINCIBLE_FORTRESS_BARRIER_HP,
+          Math.floor(state.barrierDamage),
+        ),
+      );
+      const absorbedDamage = Math.min(
+        remainingDamage,
+        INVINCIBLE_FORTRESS_BARRIER_HP - previousBarrierDamage,
+      );
+      const totalDamage = previousBarrierDamage + absorbedDamage;
+      if (absorbedDamage > 0) {
+        barrierDamageApplied += absorbedDamage;
+        remainingDamage -= absorbedDamage;
+        barrierEvents.push({
+          kind: "barrier_damage",
+          barrierIndex,
+          damage: absorbedDamage,
+          totalDamage,
+        });
+      }
+      state = { ...state, barrierDamage: totalDamage };
+      if (totalDamage < INVINCIBLE_FORTRESS_BARRIER_HP) break;
 
-  if (damage <= 0 || args.state.completedBarrierCount >= 4) {
-    const bodyHp = Math.max(0, hp - damage);
-    return {
-      state: args.state,
-      bodyHp,
-      bodyDamage: hp - bodyHp,
-      barrierDamageApplied: 0,
-      barrierStarted: false,
-    };
-  }
+      barrierEvents.push({
+        kind: "barrier_destroyed",
+        barrierIndex,
+        totalDamage,
+        tier: 0,
+      });
+      state = completeInvincibleFortressBarrier(state, 0);
+      continue;
+    }
 
-  const nextIndex = args.state.completedBarrierCount as InvincibleFortressBarrierIndex;
-  const boundaryHp = Math.floor(max * INVINCIBLE_FORTRESS_HP_FRACTIONS[nextIndex]);
-  const bodyDamageBeforeBoundary = Math.max(0, hp - boundaryHp);
-  if (damage < bodyDamageBeforeBoundary) {
-    return {
-      state: args.state,
-      bodyHp: hp - damage,
-      bodyDamage: damage,
-      barrierDamageApplied: 0,
-      barrierStarted: false,
-    };
-  }
+    if (state.completedBarrierCount >= 4) {
+      const appliedDamage = Math.min(bodyHp, remainingDamage);
+      bodyHp -= appliedDamage;
+      bodyDamage += appliedDamage;
+      remainingDamage -= appliedDamage;
+      break;
+    }
 
-  const overflow = Math.max(0, damage - bodyDamageBeforeBoundary);
-  const barrierDamage = Math.min(target, overflow);
-  return {
-    state: {
-      ...args.state,
+    const nextIndex = state.completedBarrierCount as InvincibleFortressBarrierIndex;
+    const boundaryHp = Math.floor(
+      max * INVINCIBLE_FORTRESS_HP_FRACTIONS[nextIndex],
+    );
+    const damageBeforeBoundary = Math.max(0, bodyHp - boundaryHp);
+    if (remainingDamage < damageBeforeBoundary) {
+      bodyHp -= remainingDamage;
+      bodyDamage += remainingDamage;
+      remainingDamage = 0;
+      break;
+    }
+
+    bodyHp = boundaryHp;
+    bodyDamage += damageBeforeBoundary;
+    remainingDamage -= damageBeforeBoundary;
+    barrierStarted = true;
+    state = {
+      ...state,
       activeBarrierIndex: nextIndex,
       barrierTicksRemaining: INVINCIBLE_FORTRESS_BARRIER_TICKS,
-      barrierDamage,
+      barrierDamage: 0,
       enrageTier: 0,
-    },
-    bodyHp: boundaryHp,
-    bodyDamage: bodyDamageBeforeBoundary,
-    barrierDamageApplied: barrierDamage,
-    barrierStarted: true,
+    };
+    barrierEvents.push({ kind: "barrier_started", barrierIndex: nextIndex });
+  }
+
+  return {
+    state,
+    bodyHp,
+    bodyDamage,
+    barrierDamageApplied,
+    barrierStarted,
+    barrierEvents,
   };
 }
 
@@ -288,18 +356,8 @@ export function advanceInvincibleFortressBarrier(args: {
     args.state.barrierDamage,
     args.maxHp,
   );
-  const completed = (args.state.activeBarrierIndex + 1) as
-    InvincibleFortressCompletedBarrierCount;
   return {
-    state: {
-      kind: "invincible_fortress",
-      completedBarrierCount: completed,
-      activeBarrierIndex: null,
-      barrierTicksRemaining: 0,
-      barrierDamage: 0,
-      enrageTier: tier,
-      barrierResults: [...args.state.barrierResults, tier].slice(0, 4),
-    },
+    state: completeInvincibleFortressBarrier(args.state, tier),
     completedTier: tier,
     ticksConsumed,
   };

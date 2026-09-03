@@ -94,6 +94,7 @@ import {
   invincibleFortressResourceSnapshot,
   normalizeInvincibleFortressState,
   settleInvincibleFortressDamage,
+  type InvincibleFortressDamageEvent,
 } from "./invincibleFortressMechanic";
 import {
   SKYWARD_CRYSTAL_EYE_EXPOSURE_DAMAGE_PCT,
@@ -289,6 +290,55 @@ function withoutPrematureVictoryLog(
   ];
 }
 
+function appendInvincibleFortressDamageEvents(
+  initialLog: BattleLogEntry[],
+  events: readonly InvincibleFortressDamageEvent[],
+  turn: "player" | "enemy",
+  tick?: number,
+): BattleLogEntry[] {
+  let log = initialLog;
+  const timing = tick === undefined ? {} : { t: tick };
+  for (const event of events) {
+    if (event.kind === "barrier_started") {
+      log = appendLog(log, {
+        kind: "info",
+        effect: "status",
+        text: `방벽 시험 시작 — ${event.barrierIndex + 1}/4`,
+        turn,
+        ...timing,
+      });
+      continue;
+    }
+    if (event.kind === "barrier_damage") {
+      log = appendLog(log, {
+        kind: "info",
+        effect: "extra_damage",
+        text: `방벽 누적 피해 +${event.damage.toLocaleString("ko-KR")} · ${event.totalDamage.toLocaleString("ko-KR")}`,
+        turn,
+        ...timing,
+      });
+      continue;
+    }
+    log = appendLog(
+      appendLog(log, {
+        kind: "info",
+        effect: "status",
+        text: `방벽 파괴 — 누적 ${event.totalDamage.toLocaleString("ko-KR")}`,
+        turn,
+        ...timing,
+      }),
+      {
+        kind: "info",
+        effect: "status",
+        text: `광폭 ${event.tier}단계 적용`,
+        turn,
+        ...timing,
+      },
+    );
+  }
+  return log;
+}
+
 function settleInvincibleFortressAfterPlayerDamage(args: {
   before: BattleState;
   after: BattleState;
@@ -309,25 +359,12 @@ function settleInvincibleFortressAfterPlayerDamage(args: {
     incomingDamage,
     maxHp: args.before.bossSharedMaxHp ?? args.before.enemy.hp,
   });
-  let log = args.after.log;
-  if (settled.barrierStarted) {
-    log = appendLog(log, {
-      kind: "info",
-      effect: "status",
-      text: `방벽 시험 시작 — ${settled.state.activeBarrierIndex! + 1}/4`,
-      turn: "player",
-      t: args.tick,
-    });
-  }
-  if (settled.barrierDamageApplied > 0) {
-    log = appendLog(log, {
-      kind: "info",
-      effect: "extra_damage",
-      text: `방벽 누적 피해 +${settled.barrierDamageApplied.toLocaleString("ko-KR")} · ${settled.state.barrierDamage.toLocaleString("ko-KR")}`,
-      turn: "player",
-      t: args.tick,
-    });
-  }
+  const log = appendInvincibleFortressDamageEvents(
+    args.after.log,
+    settled.barrierEvents,
+    "player",
+    args.tick,
+  );
 
   const prematureVictory =
     args.after.outcome === "win" && settled.bodyHp > 0;
@@ -1712,22 +1749,11 @@ function tickEnemyDotsOnAction(
     });
     enemyHp = settled.bodyHp;
     bossMechanic = settled.state;
-    if (settled.barrierStarted) {
-      dotLog = appendLog(dotLog, {
-        kind: "info",
-        effect: "status",
-        text: `방벽 시험 시작 — ${settled.state.activeBarrierIndex! + 1}/4`,
-        turn: "enemy",
-      });
-    }
-    if (settled.barrierDamageApplied > 0) {
-      dotLog = appendLog(dotLog, {
-        kind: "info",
-        effect: "extra_damage",
-        text: `방벽 누적 피해 +${settled.barrierDamageApplied.toLocaleString("ko-KR")} · ${settled.state.barrierDamage.toLocaleString("ko-KR")}`,
-        turn: "enemy",
-      });
-    }
+    dotLog = appendInvincibleFortressDamageEvents(
+      dotLog,
+      settled.barrierEvents,
+      "enemy",
+    );
   } else if (bossMechanic?.kind === "immortal_berserker") {
     const settled = settleImmortalBerserkerDamage({
       state: bossMechanic,
@@ -2124,6 +2150,10 @@ export function resolveBattleAtb(
       };
       const playerBundleStart = state.log.length;
       const playerEnemyHpBefore = state.enemyHp;
+      const fortressCompletedBarriersBeforePlayerAction =
+        state.bossMechanic?.kind === "invincible_fortress"
+          ? state.bossMechanic.completedBarrierCount
+          : null;
       const toxicRecoveryActionsAtStart =
         state.bossMechanic?.kind === "toxic_blood_lord"
           ? state.bossMechanic.toxicRecoveryLockActions
@@ -2291,6 +2321,15 @@ export function resolveBattleAtb(
         fortressClockTick = nextTick;
         enemyNextTick =
           nextTick + state.bossMechanic.barrierTicksRemaining;
+      } else if (
+        fortressCompletedBarriersBeforePlayerAction !== null &&
+        state.bossMechanic?.kind === "invincible_fortress" &&
+        state.bossMechanic.completedBarrierCount >
+          fortressCompletedBarriersBeforePlayerAction
+      ) {
+        fortressClockTick = nextTick;
+        enemyNextTick =
+          nextTick + actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));
       }
       state = settleTrackingAfterPlayerAction({
         state,

@@ -10,12 +10,14 @@ export function createBestEffortBatcher<T>(
 ): {
   enqueue(entry: T): void;
   flush(): Promise<void>;
+  snapshot(): { pending: number; inFlight: number };
 } {
   const maxBatchSize = Math.max(1, Math.floor(options.maxBatchSize));
   const flushDelayMs = Math.max(0, Math.floor(options.flushDelayMs));
   const pending: T[] = [];
   let flushTimer: ReturnType<typeof setTimeout> | null = null;
   let inFlight: Promise<void> | null = null;
+  let inFlightEntries = 0;
 
   const clearScheduledFlush = () => {
     if (flushTimer == null) return;
@@ -31,10 +33,13 @@ export function createBestEffortBatcher<T>(
     const run = (async () => {
       while (pending.length > 0) {
         const entries = pending.splice(0, maxBatchSize);
+        inFlightEntries = entries.length;
         try {
           await options.writeBatch(entries);
         } catch (error) {
           options.onError(error, entries);
+        } finally {
+          inFlightEntries = 0;
         }
       }
     })();
@@ -65,5 +70,6 @@ export function createBestEffortBatcher<T>(
       scheduleFlush();
     },
     flush,
+    snapshot: () => ({ pending: pending.length, inFlight: inFlightEntries }),
   };
 }

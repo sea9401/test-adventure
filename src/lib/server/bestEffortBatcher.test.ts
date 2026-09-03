@@ -94,4 +94,35 @@ describe("createBestEffortBatcher", () => {
     await batcher.flush();
     expect(writeBatch).toHaveBeenNthCalledWith(2, ["next-entry"]);
   });
+
+  it("대기 중인 항목과 처리 중인 항목 수를 스냅샷으로 제공한다", async () => {
+    let release: (() => void) | undefined;
+    const writeBatch = vi
+      .fn<() => Promise<void>>()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            release = resolve;
+          }),
+      )
+      .mockResolvedValue(undefined);
+    const batcher = createBestEffortBatcher({
+      writeBatch,
+      maxBatchSize: 2,
+      flushDelayMs: 25,
+      onError: vi.fn(),
+    });
+
+    batcher.enqueue(1);
+    expect(batcher.snapshot()).toEqual({ pending: 1, inFlight: 0 });
+    batcher.enqueue(2);
+    await Promise.resolve();
+    expect(batcher.snapshot()).toEqual({ pending: 0, inFlight: 2 });
+    batcher.enqueue(3);
+    expect(batcher.snapshot()).toEqual({ pending: 1, inFlight: 2 });
+
+    release?.();
+    await batcher.flush();
+    expect(batcher.snapshot()).toEqual({ pending: 0, inFlight: 0 });
+  });
 });

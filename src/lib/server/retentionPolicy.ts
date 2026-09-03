@@ -29,6 +29,27 @@ export function retentionCutoff(days: number, now = new Date()): Date {
   return new Date(now.getTime() - days * DAY_MS);
 }
 
+export type EconomyRetentionLoad = {
+  inflow24h: number;
+  dailyDeleteCapacity: number;
+  utilizationPct: number;
+  level: "normal" | "warning" | "critical";
+};
+
+export function economyRetentionLoad(inflow24h: number): EconomyRetentionLoad {
+  const normalized =
+    Number.isSafeInteger(inflow24h) && inflow24h > 0 ? inflow24h : 0;
+  const dailyDeleteCapacity =
+    RETENTION_POLICY.deleteBatchSize * RETENTION_POLICY.economyDeleteMaxBatches;
+  const ratio = normalized / dailyDeleteCapacity;
+  return {
+    inflow24h: normalized,
+    dailyDeleteCapacity,
+    utilizationPct: Math.round(ratio * 10_000) / 100,
+    level: ratio >= 1 ? "critical" : ratio >= 0.8 ? "warning" : "normal",
+  };
+}
+
 export async function drainRetentionBatches(
   runBatch: () => Promise<{ deleted: number; more: boolean }>,
   maxBatches: number,

@@ -300,6 +300,8 @@ export function OpsWorkflowsTab() {
         error={profiler.error}
       />
 
+      <EconomyBatchPanel metrics={profiler.data?.economyEventBatch ?? null} />
+
       <GlobalNotesPanel
         q={noteQueryDraft}
         onQChange={setNoteQueryDraft}
@@ -415,6 +417,59 @@ function ServiceObjectivesPanel({
           </div>
         ))}
       </div>
+    </section>
+  );
+}
+
+function EconomyBatchPanel({
+  metrics,
+}: {
+  metrics: RuntimeObjectiveSnapshot["economyEventBatch"] | null;
+}) {
+  const queueDepth = (metrics?.pending ?? 0) + (metrics?.inFlight ?? 0);
+  const warning = queueDepth >= 500 || (metrics?.failedBatches ?? 0) > 0;
+  return (
+    <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold">경제 로그 배치 상태</h3>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            현재 서버 프로세스에서 생활·낚시 경제 로그를 묶어 기록한 결과입니다.
+          </p>
+        </div>
+        <span
+          className={
+            warning
+              ? "text-xs font-medium text-amber-700 dark:text-amber-300"
+              : "text-xs font-medium text-emerald-700 dark:text-emerald-300"
+          }
+        >
+          {metrics ? (warning ? "확인 필요" : "정상") : "측정 대기"}
+        </span>
+      </div>
+      {metrics ? (
+        <>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+            <Metric label="성공 배치" value={metrics.successfulBatches} />
+            <Metric label="기록 건수" value={metrics.successfulEntries} />
+            <Metric label="평균 배치" value={metrics.averageBatchSize} />
+            <Metric label="최대 배치" value={metrics.maxBatchSize} />
+            <Metric label="현재 큐" value={queueDepth} />
+            <Metric label="실패 건수" value={metrics.failedEntries} />
+          </div>
+          <p className="mt-2 text-[11px] text-zinc-400 dark:text-zinc-500">
+            측정 시작 {new Date(metrics.startedAt).toLocaleString("ko-KR")}
+            {metrics.lastSuccessAt
+              ? ` · 마지막 성공 ${new Date(metrics.lastSuccessAt).toLocaleString("ko-KR")}`
+              : ""}
+            {metrics.lastFailureAt
+              ? ` · 마지막 실패 ${new Date(metrics.lastFailureAt).toLocaleString("ko-KR")}`
+              : ""}
+          </p>
+        </>
+      ) : (
+        <p className="mt-2 text-xs text-zinc-500">지표를 불러오는 중입니다.</p>
+      )}
     </section>
   );
 }

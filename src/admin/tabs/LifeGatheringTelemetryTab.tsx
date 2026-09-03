@@ -54,7 +54,7 @@ type TelemetryResponse = {
   hours: number;
   since: string;
   until: string;
-  truncated: boolean;
+  aggregation: "full-period";
   guardTruncated: boolean;
   totals: {
     attempts: number;
@@ -151,11 +151,6 @@ export function LifeGatheringTelemetryTab() {
         </div>
       </div>
 
-      {data?.truncated ? (
-        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-          조회 결과가 10만 건을 넘어 일부만 집계했습니다. 기간을 줄여 확인해 주세요.
-        </p>
-      ) : null}
       {data?.guardTruncated ? (
         <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
           사람 확인·행동 패턴 기록이 2만 건을 넘어 최신 기록만 표시합니다.

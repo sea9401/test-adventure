@@ -1,6 +1,16 @@
 export const INVINCIBLE_FORTRESS_BARRIER_TICKS = 400;
 export const INVINCIBLE_FORTRESS_BARRIER_HP = 1_500_000;
 export const INVINCIBLE_FORTRESS_HP_FRACTIONS = [1, 0.75, 0.5, 0.25] as const;
+export const INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS = [
+  1,
+  0.9,
+  0.75,
+  0.6,
+  0.45,
+  0.3,
+  0.15,
+  0,
+] as const;
 
 export type InvincibleFortressEnrageTier = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export type InvincibleFortressBarrierIndex = 0 | 1 | 2 | 3;
@@ -68,13 +78,13 @@ export function invincibleFortressTierForDamage(
 ): InvincibleFortressEnrageTier {
   const scored = Math.max(0, Math.floor(Number.isFinite(damage) ? damage : 0));
   const target = invincibleFortressBarrierTarget(maxHp);
-  if (scored >= target) return 0;
-  if (scored >= Math.ceil(target * 0.9)) return 1;
-  if (scored >= Math.ceil(target * 0.75)) return 2;
-  if (scored >= Math.ceil(target * 0.6)) return 3;
-  if (scored >= Math.ceil(target * 0.45)) return 4;
-  if (scored >= Math.ceil(target * 0.3)) return 5;
-  if (scored >= Math.ceil(target * 0.15)) return 6;
+  if (scored >= Math.ceil(target * INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS[0])) return 0;
+  if (scored >= Math.ceil(target * INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS[1])) return 1;
+  if (scored >= Math.ceil(target * INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS[2])) return 2;
+  if (scored >= Math.ceil(target * INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS[3])) return 3;
+  if (scored >= Math.ceil(target * INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS[4])) return 4;
+  if (scored >= Math.ceil(target * INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS[5])) return 5;
+  if (scored >= Math.ceil(target * INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS[6])) return 6;
   return 7;
 }
 

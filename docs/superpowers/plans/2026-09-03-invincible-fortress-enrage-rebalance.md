@@ -133,6 +133,9 @@ git commit -m "balance: strengthen fortress enrage trials"
 - Modify: `src/app/api/v2/coop/route.test.ts`
 - Modify: `src/app/api/v2/coop/[sessionId]/route.test.ts`
 - Modify: `src/adventure/battle/BattleLogList.test.tsx`
+- Modify: `src/adventure/v2/coop/V2CoopBossListView.test.tsx`
+- Modify: `src/adventure/v2/combat/unexploredBossBalanceSim.test.ts`
+- Modify: `scripts/sim-v2-coop-boss.ts`
 
 **Interfaces:**
 - Consumes: `INVINCIBLE_FORTRESS_BARRIER_HP`, `InvincibleFortressEnrageTier`, and `invincibleFortressEnrageMultipliers` from Task 1
@@ -148,6 +151,8 @@ In the status component tests, use a target of `1_500_000`, a projected tier of 
 Update coop/API response expectations from a `3_000_000` target to `1_500_000`, and include a tier 7 value in at least one serialization assertion to prove the widened tier reaches the UI boundary unchanged.
 
 Change the BattleLogList fixture's `fortressEnrage` value from `보통` to `예상 3단계` and assert that the rendered resource row contains `성채 광폭 예상 3단계`.
+
+Update the coop list-card fixture to the 1,500,000 target and numeric tier 7. Extend the balance simulator's tier-to-minimum-damage ratios through tier 7 using the authoritative ratios exported by `invincibleFortressMechanic.ts`; measure the first normal hit after maximum tier 7 rather than the former maximum tier 4. Assert that the fixed-seed maximum-tier normal hit exceeds one representative player HP but remains below twice that HP.
 
 - [ ] **Step 2: Run the focused integration/UI/API tests and confirm failure**
 

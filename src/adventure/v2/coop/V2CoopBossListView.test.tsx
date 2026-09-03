@@ -117,12 +117,12 @@ describe("협동 보스 소환 난이도 선택", () => {
       fortressBarrierActive: true,
       fortressBarrierTicksRemaining: 160,
       fortressBarrierDamage: 18_200,
-      fortressBarrierTarget: 3_000_000,
-      fortressEnrageTier: 2,
-      fortressProjectedEnrageTier: 4,
+      fortressBarrierTarget: 1_500_000,
+      fortressEnrageTier: 7,
+      fortressProjectedEnrageTier: 7,
       fortressCompletedBarrierCount: 1,
       fortressNextBarrierHpFraction: 0.5,
-      fortressLastResultTier: 2,
+      fortressLastResultTier: 7,
       expiresAt: Date.now() + 60_000,
       summonedByName: "개척자",
       visibility: "summoner_only",
@@ -138,8 +138,8 @@ describe("협동 보스 소환 난이도 선택", () => {
 
     expect(html).toContain("불괴의 성채");
     expect(html).toContain("방벽 시험 240 / 400틱");
-    expect(html).toContain("누적 피해 18,200 / 3,000,000");
-    expect(html).toContain("예상 광폭: 최대");
+    expect(html).toContain("누적 피해 18,200 / 1,500,000");
+    expect(html).toContain("예상 광폭: 7단계");
   });
 
   it("불멸의 광전왕 목록 카드에는 생명과 광폭만 압축 표시한다", () => {

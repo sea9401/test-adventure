@@ -16,7 +16,7 @@ import type { PlayerCombat } from "./engine";
 import { immortalBerserkerLifeFloors } from "./immortalBerserkerMechanic";
 
 describe("불괴의 성채 고정 시드 밸런스", () => {
-  it("300만 방벽의 계보별 광폭·달성률 지표를 유효 범위로 집계한다", () => {
+  it("150만 방벽의 계보별 광폭·달성률 지표를 유효 범위로 집계한다", () => {
     const [report] = buildCoopBossBalanceReport({
       bossIds: ["invincible_fortress"],
       seed: 20260901,
@@ -27,11 +27,12 @@ describe("불괴의 성채 고정 시드 밸런스", () => {
     for (const arch of ["STR", "DEX", "VIT", "INT", "SPI", "LUK", "BAL"] as const) {
       const build = builds.get(arch);
       expect(build?.medianFortressEnrageTier).toBeGreaterThanOrEqual(0);
-      expect(build?.medianFortressEnrageTier).toBeLessThanOrEqual(4);
+      expect(build?.medianFortressEnrageTier).toBeLessThanOrEqual(7);
       expect(build?.medianFortressBarrierDamageRatio).toBeGreaterThanOrEqual(0);
       expect(build?.medianFortressBarrierDamageRatio).toBeLessThanOrEqual(1);
     }
-    expect(report.maxFortressFirstNormalHitRatio).toBeLessThan(1);
+    expect(report.maxFortressFirstNormalHitRatio).toBeGreaterThan(1);
+    expect(report.maxFortressFirstNormalHitRatio).toBeLessThan(2);
     expect(report.builds.every((build) =>
       Number.isFinite(build.medianFortressBarrierDamageRatio)
     )).toBe(true);

@@ -64,6 +64,11 @@ Change the first-revival log assertion to `공격력 +20%` and the replay resour
 immortalEnrage: "공격 +20% · 속도 +10%",
 ```
 
+Add a boundary test starting in life two at `3,672,010` HP. After the player deals lethal
+boundary damage, assert that the log contains `두 번째 부활`, `공격력 +60%`, and
+`행동 속도 +25%` so the third-life announcement is fixed independently of the multiplier
+unit test.
+
 - [ ] **Step 2: Run the focused tests and verify the new expectations fail**
 
 Run:

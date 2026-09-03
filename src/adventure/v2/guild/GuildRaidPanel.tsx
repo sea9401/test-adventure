@@ -12,11 +12,18 @@ import {
   Sword,
 } from "@phosphor-icons/react";
 import { COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
+import type { Gender } from "@/adventure/profile/avatars";
+import { useGameIdentityState } from "@/adventure/v2/GameStateProvider";
+import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
-import type { GuildRaidPagination, GuildRaidState } from "./guildRaidTypes";
+import type {
+  GuildRaidPagination,
+  GuildRaidPracticeResult,
+  GuildRaidState,
+} from "./guildRaidTypes";
 import { useGuildRaid } from "./useGuildRaid";
 
 export type { GuildRaidState } from "./guildRaidTypes";
@@ -30,6 +37,7 @@ const ERROR_TEXT: Record<string, string> = {
   event_ended: "이번 토벌전이 종료되었습니다.",
   load_failed: "토벌전 정보를 불러오지 못했습니다.",
   attack_failed: "공격을 완료하지 못했습니다.",
+  practice_failed: "연습 전투를 완료하지 못했습니다.",
   claim_not_open: "보상은 토요일과 일요일에 받을 수 있습니다.",
   reward_expired: "지난 토벌전의 미수령 보상이 소멸했습니다.",
   not_settled: "최종 순위를 정산하고 있습니다.",
@@ -61,15 +69,19 @@ export function GuildRaidPanel() {
     state,
     loading,
     attacking,
+    practicing,
     claiming,
     error,
     lastAttack,
+    lastPractice,
     load,
     attack,
+    practice,
     claim,
     setLeaderboardPage,
     setRecentPage,
   } = useGuildRaid();
+  const { viewerGender, playerSubtitle } = useGameIdentityState();
 
   if (loading && !state) {
     return (
@@ -90,11 +102,16 @@ export function GuildRaidPanel() {
     <GuildRaidPanelContent
       state={state}
       attacking={attacking}
+      practicing={practicing}
       claiming={claiming}
       error={error}
       lastAttack={lastAttack}
+      lastPractice={lastPractice}
       onAttack={() => void attack()}
+      onPractice={() => void practice()}
       onClaim={() => void claim()}
+      viewerGender={viewerGender}
+      playerSubtitle={playerSubtitle}
       onLeaderboardPage={(page) => void setLeaderboardPage(page)}
       onRecentPage={(page) => void setRecentPage(page)}
     />
@@ -104,21 +121,31 @@ export function GuildRaidPanel() {
 export function GuildRaidPanelContent({
   state,
   attacking,
+  practicing = false,
   claiming = false,
   error,
   lastAttack,
+  lastPractice = null,
   onAttack,
+  onPractice = () => undefined,
   onClaim = () => undefined,
+  viewerGender = "male1",
+  playerSubtitle,
   onLeaderboardPage = () => undefined,
   onRecentPage = () => undefined,
 }: {
   state: GuildRaidState;
   attacking: boolean;
+  practicing?: boolean;
   claiming?: boolean;
   error: string | null;
   lastAttack?: { damageDealt: number; stagesCleared: number } | null;
+  lastPractice?: GuildRaidPracticeResult | null;
   onAttack: () => void;
+  onPractice?: () => void;
   onClaim?: () => void;
+  viewerGender?: Gender;
+  playerSubtitle?: string;
   onLeaderboardPage?: (page: number) => void;
   onRecentPage?: (page: number) => void;
 }) {
@@ -213,11 +240,25 @@ export function GuildRaidPanelContent({
               size="md"
               fullWidth
               loading={attacking}
-              disabled={!canAttack}
+              disabled={!canAttack || practicing}
               onClick={onAttack}
             >
               <Sword size={18} weight="fill" /> {actionText}
             </Button>
+            <Button
+              variant="secondary"
+              size="md"
+              fullWidth
+              loading={practicing}
+              loadingLabel="연습 전투 진행 중"
+              disabled={!active || attacking}
+              onClick={onPractice}
+            >
+              <Sword size={18} /> 연습 전투
+            </Button>
+            <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+              공격 횟수와 피해·보상에 반영되지 않습니다.
+            </p>
             <p className="text-center text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               남은 공격 {state.my.remainingAttacks}/{state.my.dailyAttackLimit}
             </p>
@@ -236,6 +277,36 @@ export function GuildRaidPanelContent({
           {lastAttack.stagesCleared > 0 &&
             ` · ${lastAttack.stagesCleared}단계 돌파`}
         </Card>
+      )}
+      {lastPractice && (
+        <>
+          <Card padding="sm" className="space-y-2 border-sky-300 dark:border-sky-800">
+            <h3 className="text-sm font-bold text-sky-700 dark:text-sky-300">
+              연습 결과
+            </h3>
+            <p className="text-sm text-zinc-700 dark:text-zinc-200">
+              <span className="font-semibold tabular-nums text-rose-600 dark:text-rose-400">
+                {formatNumber(lastPractice.damageDealt)}
+              </span>{" "}
+              피해 · 받은 피해 {formatNumber(lastPractice.damageTaken)} · {lastPractice.turns}행동
+              {lastPractice.diedEarly ? " · 전투불능" : " · 공격 완료"}
+            </p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              길드 진행과 개인 기록에는 반영되지 않았습니다.
+            </p>
+          </Card>
+          <ReplayBattleScene
+            payload={lastPractice.replay}
+            startPlayerHp={lastPractice.replay.playerMaxHp}
+            playerName={lastPractice.playerName}
+            gender={viewerGender}
+            exp={0}
+            maxExp={1}
+            playerSubtitle={playerSubtitle}
+            outcome={lastPractice.diedEarly ? "lose" : undefined}
+            logTitle={`${COOP_BOSSES[lastPractice.bossKind].name} 연습 전투 로그`}
+          />
+        </>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">

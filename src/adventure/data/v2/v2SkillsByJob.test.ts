@@ -1335,7 +1335,7 @@ describe("직업 킷 — 스킬셋", () => {
     );
     expect(V2_SKILLS.v2c_primordialmage_return.castVariants?.[0].effects[0]).toEqual({
       kind: "damage",
-      statCoef: 3.33,
+      statCoef: 3.04,
       baseFlat: 879,
       scaling: "magic",
     });

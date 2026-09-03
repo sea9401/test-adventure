@@ -387,7 +387,7 @@ export const UNEXPLORED_BOSSES = {
       atk: 15,
       def: 42,
       magicDef: 38,
-      spd: 21,
+      spd: 52,
       accuracy: -205,
       evasionPct: 10,
       exp: 0,

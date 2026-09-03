@@ -26,33 +26,16 @@
 - Modify: `src/adventure/v2/combat/glacialColossusMechanic.ts`
 - Modify: `src/adventure/v2/combat/engine.atb.ts`
 - Modify: `src/adventure/data/v2/unexploredBosses.ts`
-- Test: `src/adventure/v2/combat/glacialColossusMechanic.test.ts`
 - Test: `src/adventure/v2/combat/glacialColossusAtb.test.ts`
-- Test: `src/adventure/data/v2/unexploredBosses.test.ts`
+- Test: `src/adventure/data/v2/coopBosses.test.ts`
 
 **Interfaces:**
 - Consumes: `resolveGlacialChillGain(input)`, `rescaleReservedPlayerTick(input)`, `appendGlacialLog(state, text, turn, tick)`, `actionInterval(spd)`
 - Produces: `GLACIAL_FIELD_INTERVAL_TICKS = 100`, 결정론적 혹한의 전장 이벤트, 보스 특성 문구 `100틱마다 혹한의 전장으로 한기 누적`
 
-- [ ] **Step 1: 필드 간격과 보스 안내 회귀 테스트를 작성한다**
+- [ ] **Step 1: 100틱 주기의 실제 필드 동작을 회귀 테스트로 작성한다**
 
-`src/adventure/v2/combat/glacialColossusMechanic.test.ts`에서 새 상수를 가져와 다음 검증을 추가한다.
-
-```ts
-it("혹한의 전장은 100틱 간격으로 발동한다", () => {
-  expect(GLACIAL_FIELD_INTERVAL_TICKS).toBe(100);
-});
-```
-
-`src/adventure/data/v2/unexploredBosses.test.ts`에 다음 검증을 추가한다.
-
-```ts
-it("빙하 거수는 100틱 주기의 혹한의 전장을 안내한다", () => {
-  expect(UNEXPLORED_BOSSES.glacial_colossus.traits).toContain(
-    "100틱마다 혹한의 전장으로 한기 누적",
-  );
-});
-```
+간격 상수와 사용자 안내 문구 자체는 변경 감지기일 뿐이므로 직접 검사하지 않는다. 대신 `src/adventure/v2/combat/glacialColossusAtb.test.ts`에서 소비자에게 보이는 실제 발동 틱·상태·로그를 검증한다. 보스 안내 문구는 구현 단계에서 변경하고 리뷰로 확인한다.
 
 - [ ] **Step 2: ATB 필드 누적과 같은 틱 우선순위 테스트를 작성한다**
 
@@ -60,9 +43,7 @@ it("빙하 거수는 100틱 주기의 혹한의 전장을 안내한다", () => {
 
 ```ts
 it("100틱마다 액터 행동을 소비하지 않고 혹한의 전장 한기를 쌓는다", () => {
-  const pickAction = vi.fn(() => ({ kind: "attack" as const }));
   const result = runGlacialBattle({
-    pickAction,
     enemy: glacialMonster({ spd: 1, directActionSpd: true }),
     maxTurns: 2,
   });
@@ -75,7 +56,9 @@ it("100틱마다 액터 행동을 소비하지 않고 혹한의 전장 한기를
     "[혹한의 전장] 한기 +1 · 현재 1/10",
     "[혹한의 전장] 한기 +1 · 현재 2/10",
   ]);
-  expect(pickAction).toHaveBeenCalledTimes(2);
+  expect(
+    result.finalState.log.filter((entry) => entry.kind === "player_attack"),
+  ).toHaveLength(2);
 });
 
 it("같은 100틱이면 혹한의 전장을 플레이어 행동보다 먼저 처리한다", () => {
@@ -142,7 +125,7 @@ Run:
 npx vitest run src/adventure/v2/combat/glacialColossusMechanic.test.ts src/adventure/v2/combat/glacialColossusAtb.test.ts src/adventure/data/v2/unexploredBosses.test.ts
 ```
 
-Expected: `GLACIAL_FIELD_INTERVAL_TICKS`가 없고 혹한의 전장 로그와 특성 문구가 없어 FAIL.
+Expected: 혹한의 전장 로그와 필드 누적 상태가 없어 FAIL.
 
 - [ ] **Step 5: 필드 간격 상수와 보스 안내를 구현한다**
 
@@ -165,7 +148,7 @@ traits: [
 
 - [ ] **Step 6: 필드 누적 헬퍼를 구현한다**
 
-`src/adventure/v2/combat/engine.atb.ts`에 `applyGlacialFieldChill`을 추가한다. `resolveGlacialChillGain({ gain: 1 })`로 상태를 갱신하고, 일반 누적은 `[혹한의 전장] 한기 +1 · 현재 N/10`을 남긴다. 임계 도달 시 기존과 동일한 한기 한계·빙결 로그를 추가하고, 임계 미도달 시 `rescaleReservedPlayerTick`으로 `playerNextTick`을 재계산한다. `glacialFreezePending === 1`이면 적용 여부 `false`와 기존 상태를 반환한다.
+`src/adventure/v2/combat/engine.atb.ts`에 보스 행동과 필드 누적이 함께 쓰는 `appendGlacialThresholdWarning`을 추출하고 `applyGlacialFieldChill`을 추가한다. `resolveGlacialChillGain({ gain: 1 })`로 상태를 갱신하고, 일반 누적은 `[혹한의 전장] 한기 +1 · 현재 N/10`을 남긴다. 한기 `4`와 `7`의 단계 전조를 공통 헬퍼로 기록하고, 임계 도달 시 기존과 동일한 한기 한계·빙결 로그를 추가한다. 임계 미도달 시 `rescaleReservedPlayerTick`으로 `playerNextTick`을 재계산한다. `glacialFreezePending === 1`이면 적용 여부 `false`와 기존 상태를 반환한다.
 
 ```ts
 function applyGlacialFieldChill(args: {
@@ -224,6 +207,12 @@ function applyGlacialFieldChill(args: {
     );
     return { state, playerNextTick: args.playerNextTick, applied: true };
   }
+  state = appendGlacialThresholdWarning(
+    state,
+    mechanic.glacialChillStacks,
+    displayStacks,
+    args.currentTick,
+  );
   return {
     state,
     playerNextTick: rescaleReservedPlayerTick({
@@ -287,7 +276,7 @@ Run:
 
 ```bash
 env NODE_OPTIONS=--max-old-space-size=4096 npx tsc --noEmit
-npx eslint src/adventure/v2/combat/glacialColossusMechanic.ts src/adventure/v2/combat/glacialColossusMechanic.test.ts src/adventure/v2/combat/engine.atb.ts src/adventure/v2/combat/glacialColossusAtb.test.ts src/adventure/data/v2/unexploredBosses.ts src/adventure/data/v2/unexploredBosses.test.ts
+npx eslint src/adventure/v2/combat/glacialColossusMechanic.ts src/adventure/v2/combat/engine.atb.ts src/adventure/v2/combat/glacialColossusAtb.test.ts src/adventure/data/v2/unexploredBosses.ts src/adventure/data/v2/coopBosses.test.ts
 npm test
 git diff --check
 ```
@@ -297,6 +286,6 @@ Expected: 모든 명령 exit 0.
 - [ ] **Step 10: 구현을 커밋한다**
 
 ```bash
-git add docs/superpowers/plans/2026-09-03-unexplored-glacial-field.md src/adventure/v2/combat/glacialColossusMechanic.ts src/adventure/v2/combat/glacialColossusMechanic.test.ts src/adventure/v2/combat/engine.atb.ts src/adventure/v2/combat/glacialColossusAtb.test.ts src/adventure/data/v2/unexploredBosses.ts src/adventure/data/v2/unexploredBosses.test.ts
+git add docs/superpowers/specs/2026-09-03-unexplored-glacial-field-design.md docs/superpowers/plans/2026-09-03-unexplored-glacial-field.md src/adventure/v2/combat/glacialColossusMechanic.ts src/adventure/v2/combat/engine.atb.ts src/adventure/v2/combat/glacialColossusAtb.test.ts src/adventure/data/v2/unexploredBosses.ts src/adventure/data/v2/coopBosses.test.ts
 git commit -m "balance: add glacial battlefield chill"
 ```

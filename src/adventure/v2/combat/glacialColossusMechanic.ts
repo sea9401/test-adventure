@@ -1,5 +1,6 @@
 export const GLACIAL_CHILL_THRESHOLD = 10;
 export const GLACIAL_CHILL_SLOW_PER_STACK = 0.07;
+export const GLACIAL_FIELD_INTERVAL_TICKS = 100;
 
 export type GlacialChillTransition = {
   stacks: number;

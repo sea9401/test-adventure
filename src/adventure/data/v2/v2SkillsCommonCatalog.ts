@@ -2451,7 +2451,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
         requiredLearnedSkillIds: ["v2c_firemage_inferno", "v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt", "v2c_windmage_tempest", "v2c_earthmage_tectonic"],
         requiredEquippedSkillIds: ["v2c_firemage_inferno", "v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt", "v2c_windmage_tempest", "v2c_earthmage_tectonic"],
         effects: [
-          dmg(3.5, 925, "magic"),
+          dmg(3.2, 925, "magic"),
           { kind: "dot", ...V2_DOT_PRESETS.연소 },
           { kind: "enemyHealReduce", pct: 65, turns: 3 },
           { kind: "shield", pctMaxHp: 16, pctMaxMp: 8, turns: 3 },

@@ -22,10 +22,10 @@ AWS RDS PostgreSQL 18.3으로 옮겼으며, 옛 Neon DB는 운영에 사용하�
 | HTTPS | Let's Encrypt (`certbot --nginx`), 자동갱신 `certbot-renew.timer` |
 | 크론 | `ec2-user` crontab (vercel.json crons 대체) — `crond`(cronie) |
 | DB | AWS RDS PostgreSQL 18.3 · 서울 리전 · DB명 `test_adventurerpg`(옛 이름이지만 운영 DB) |
-| 코드 위치 | `/home/ec2-user/adventure-rpg` (GitHub `sea9401/adventure` 의 deploy key 로 clone) |
+| 코드 위치 | `/home/ec2-user/adventure-rpg` (GitHub `sea9401/test-adventure`; 정규 배포는 workflow의 임시 읽기 토큰으로 정확한 SHA fetch) |
 | 환경변수 원본 | SSM SecureString `/adventure-rpg/production/env` |
 | 환경변수 런타임 캐시 | `/run/adventure-rpg/production.env` (디렉터리 `700`, 파일 `600`) |
-| 배포 | `main` push → GitHub Actions(`.github/workflows/deploy.yml`) → SSH → `git reset --hard origin/main` → `npm ci` → `db:migrate` → `npm run build` → `systemctl restart` |
+| 배포 | `main` push CI → `production-next-<SHA>` 생성 → 운영자가 `deploy.yml`에 정확한 SHA 입력 → 아티팩트 검증·전송 → 점검 ON → 빌드 교체·마이그레이션·스모크 → 점검 유지 |
 
 `deploy/` 폴더의 파일들: `adventure-rpg.service`, `nginx-adventure-rpg.conf`, `crontab.txt` (참조용), `deploy.sh` (수동 배포용).
 
@@ -35,8 +35,18 @@ systemd와 배포는 SSM 값을 `/run/adventure-rpg/production.env`로 동기화
 
 ## 배포 (일상)
 
-코드 변경 → 평소처럼 PR → `main` 머지 → GitHub Actions 가 자동 배포. Actions 탭에서 진행/로그 확인, "Run workflow" 로 수동 트리거 가능.
-**서버에서 코드 직접 수정 금지** — 배포 시 `git reset --hard origin/main` 으로 덮어쓴다.
+일상 개발은 기능 브랜치 → `staging` PR → CI → 테스트 서버 자동 배포로 검증한다.
+운영 출시는 `staging → main` PR을 머지한 뒤, 정확한 `main` SHA의 전체 CI와
+`production-next-<SHA>` 아티팩트가 준비됐을 때 GitHub Actions의 **Deploy to EC2**를
+수동 실행한다. `deploy_sha`에는 전체 40자리 SHA를 입력한다. `main` push만으로 운영
+서버는 바뀌지 않는다. 자세한 절차는
+[`staging-release-flow.md`](./staging-release-flow.md)를 따른다.
+
+배포는 전송과 사전 검증이 끝난 뒤 런타임 교체 직전에 점검 모드를 켜며, 스모크가
+성공해도 점검을 유지한다. 사용자가 결과 확인 후 별도로 해제를 지시해야
+`bash deploy/maintenance.sh off`를 실행한다.
+**서버에서 코드 직접 수정 금지** — 운영 배포가 요청된 정확한 `main` SHA를 강제로
+체크아웃하므로 로컬 수정은 보존되지 않는다.
 
 수동 배포가 필요하면 서버에서: `cd ~/adventure-rpg && bash deploy/deploy.sh`
 
@@ -62,7 +72,8 @@ systemd와 배포는 SSM 값을 `/run/adventure-rpg/production.env`로 동기화
 1. **EC2**: 서울 리전, Amazon Linux 2023 (Arm), `t4g.small`, 20 GiB gp3, 키페어, 보안 그룹 인바운드 22(SSH; GitHub Actions 배포 쓰면 `0.0.0.0/0`)·80·443. Elastic IP 할당+연결.
 2. **Route 53**: 도메인 등록(또는 외부 도메인의 NS 를 Route 53 으로) → 호스팅 영역에 A 레코드 `@`, `www` → EIP.
 3. **인스턴스 셋업**: 스왑 2 GiB → `dnf install -y git nginx cronie` + Node 22(NodeSource) → `useradd` 불필요(ec2-user 사용).
-4. **코드**: GitHub repo Settings → Deploy keys 에 서버의 `~/.ssh/github_deploy.pub` 등록 → `git clone git@github.com:sea9401/adventure.git ~/adventure-rpg`.
+4. **코드**: `git clone https://github.com/sea9401/test-adventure.git ~/adventure-rpg`. 비공개
+   저장소의 정규 배포 fetch는 `deploy.yml`이 전달하는 임시 `GITHUB_TOKEN`을 사용한다.
 5. **env**: SSM SecureString과 EC2 읽기 전용 IAM 정책 구성. 동기화 후 `node --env-file=/run/adventure-rpg/production.env src/db/migrate.mjs` → 배포 스크립트로 빌드.
 6. **systemd**: `deploy/adventure-rpg.service` → `/etc/systemd/system/` → `daemon-reload; enable --now adventure-rpg`.
 7. **nginx + HTTPS**: `deploy/nginx-adventure-rpg.conf` → `/etc/nginx/conf.d/msmsge.conf` (server_name 교체) → `systemctl enable --now nginx` → `dnf install -y certbot python3-certbot-nginx` → `certbot --nginx -d msmsge.com -d www.msmsge.com` → `systemctl enable --now certbot-renew.timer`.

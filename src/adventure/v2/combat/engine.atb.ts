@@ -89,6 +89,7 @@ import {
   resolveGlacialChillGain,
 } from "./glacialColossusMechanic";
 import {
+  INVINCIBLE_FORTRESS_BARRIER_HP,
   advanceInvincibleFortressBarrier,
   invincibleFortressEnrageMultipliers,
   invincibleFortressResourceSnapshot,
@@ -310,10 +311,14 @@ function appendInvincibleFortressDamageEvents(
       continue;
     }
     if (event.kind === "barrier_damage") {
+      const remainingBarrier = Math.max(
+        0,
+        INVINCIBLE_FORTRESS_BARRIER_HP - event.totalDamage,
+      );
       log = appendLog(log, {
         kind: "info",
         effect: "extra_damage",
-        text: `방벽 누적 피해 +${event.damage.toLocaleString("ko-KR")} · ${event.totalDamage.toLocaleString("ko-KR")}`,
+        text: `방벽 피해 +${event.damage.toLocaleString("ko-KR")} · 남은 ${remainingBarrier.toLocaleString("ko-KR")} / ${INVINCIBLE_FORTRESS_BARRIER_HP.toLocaleString("ko-KR")}`,
         turn,
         ...timing,
       });

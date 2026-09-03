@@ -83,6 +83,7 @@ import {
 } from "./toxicBloodLordMechanic";
 import {
   GLACIAL_CHILL_THRESHOLD,
+  GLACIAL_FIELD_INTERVAL_TICKS,
   glacialChillSpeedMultiplier,
   rescaleReservedPlayerTick,
   resolveGlacialChillGain,
@@ -906,6 +907,31 @@ function appendGlacialLog(
   };
 }
 
+function appendGlacialThresholdWarning(
+  state: BattleState,
+  previousStacks: number,
+  displayStacks: number,
+  tick: number,
+): BattleState {
+  if (previousStacks < 7 && displayStacks >= 7) {
+    return appendGlacialLog(
+      state,
+      `[한기 ${displayStacks}/${GLACIAL_CHILL_THRESHOLD}] 온몸에 서리가 번져 움직임을 붙잡는다.`,
+      "enemy",
+      tick,
+    );
+  }
+  if (previousStacks < 4 && displayStacks >= 4) {
+    return appendGlacialLog(
+      state,
+      `[한기 ${displayStacks}/${GLACIAL_CHILL_THRESHOLD}] 냉기장이 짙어지며 움직임이 무거워진다.`,
+      "enemy",
+      tick,
+    );
+  }
+  return state;
+}
+
 function settleGlacialChillAfterEnemyAction(args: {
   state: BattleState;
   player: PlayerCombat;
@@ -1012,21 +1038,12 @@ function settleGlacialChillAfterEnemyAction(args: {
     );
     return { state, playerNextTick: args.playerNextTick };
   }
-  if (mechanic.glacialChillStacks < 7 && displayStacks >= 7) {
-    state = appendGlacialLog(
-      state,
-      `[한기 ${displayStacks}/${GLACIAL_CHILL_THRESHOLD}] 온몸에 서리가 번져 움직임을 붙잡는다.`,
-      "enemy",
-      args.currentTick,
-    );
-  } else if (mechanic.glacialChillStacks < 4 && displayStacks >= 4) {
-    state = appendGlacialLog(
-      state,
-      `[한기 ${displayStacks}/${GLACIAL_CHILL_THRESHOLD}] 냉기장이 짙어지며 움직임이 무거워진다.`,
-      "enemy",
-      args.currentTick,
-    );
-  }
+  state = appendGlacialThresholdWarning(
+    state,
+    mechanic.glacialChillStacks,
+    displayStacks,
+    args.currentTick,
+  );
 
   return {
     state,
@@ -1036,6 +1053,82 @@ function settleGlacialChillAfterEnemyAction(args: {
       previousStacks: args.previousStacks,
       nextStacks: resolution.stacks,
     }),
+  };
+}
+
+function applyGlacialFieldChill(args: {
+  state: BattleState;
+  currentTick: number;
+  playerNextTick: number;
+}): { state: BattleState; playerNextTick: number; applied: boolean } {
+  const mechanic = args.state.bossMechanic;
+  if (
+    !mechanic ||
+    mechanic.kind !== "glacial_colossus" ||
+    mechanic.glacialFreezePending === 1
+  ) {
+    return {
+      state: args.state,
+      playerNextTick: args.playerNextTick,
+      applied: false,
+    };
+  }
+
+  const resolution = resolveGlacialChillGain({
+    current: mechanic.glacialChillStacks,
+    gain: 1,
+    freezePending: mechanic.glacialFreezePending,
+  });
+  const displayStacks = resolution.triggered
+    ? GLACIAL_CHILL_THRESHOLD
+    : resolution.stacks;
+  let state = appendGlacialLog(
+    {
+      ...args.state,
+      bossMechanic: {
+        ...mechanic,
+        glacialChillStacks: resolution.stacks,
+        glacialFreezePending: resolution.freezePending,
+        glacialFreezeCount:
+          mechanic.glacialFreezeCount + (resolution.triggered ? 1 : 0),
+      },
+    },
+    `[혹한의 전장] 한기 +1 · 현재 ${displayStacks}/${GLACIAL_CHILL_THRESHOLD}`,
+    "enemy",
+    args.currentTick,
+  );
+  if (resolution.triggered) {
+    state = appendGlacialLog(
+      state,
+      `[한기 ${GLACIAL_CHILL_THRESHOLD}/${GLACIAL_CHILL_THRESHOLD}] 한기가 한계에 도달해 다음 행동이 봉쇄된다.`,
+      "enemy",
+      args.currentTick,
+    );
+    state = appendGlacialLog(
+      state,
+      "[빙결] 다음 행동이 봉쇄된다.",
+      "enemy",
+      args.currentTick,
+    );
+    return { state, playerNextTick: args.playerNextTick, applied: true };
+  }
+
+  state = appendGlacialThresholdWarning(
+    state,
+    mechanic.glacialChillStacks,
+    displayStacks,
+    args.currentTick,
+  );
+
+  return {
+    state,
+    playerNextTick: rescaleReservedPlayerTick({
+      currentTick: args.currentTick,
+      playerNextTick: args.playerNextTick,
+      previousStacks: mechanic.glacialChillStacks,
+      nextStacks: resolution.stacks,
+    }),
+    applied: true,
   };
 }
 
@@ -1867,6 +1960,10 @@ export function resolveBattleAtb(
     state.bossMechanic?.kind === "skyward_crystal_eye"
       ? state.bossMechanic.aimTicksRemaining
       : Number.POSITIVE_INFINITY;
+  let glacialFieldNextTick =
+    state.bossMechanic?.kind === "glacial_colossus"
+      ? GLACIAL_FIELD_INTERVAL_TICKS
+      : Number.POSITIVE_INFINITY;
   let actions = 0;
   let turns = 0;
   let lastTick = 0; // 최종 hp_bar 스탬프용(루프 밖)
@@ -1875,6 +1972,7 @@ export function resolveBattleAtb(
       playerNextTick,
       enemyNextTick,
       skywardArtilleryNextTick,
+      glacialFieldNextTick,
     );
     lastTick = nextTick;
     if (nextTick > ATB_TICK_CAP) {
@@ -1949,6 +2047,28 @@ export function resolveBattleAtb(
         };
         continue;
       }
+    }
+
+    const glacialFieldFiresNow =
+      glacialFieldNextTick <= playerNextTick &&
+      glacialFieldNextTick <= enemyNextTick &&
+      glacialFieldNextTick <= skywardArtilleryNextTick;
+    if (glacialFieldFiresNow) {
+      glacialFieldNextTick += GLACIAL_FIELD_INTERVAL_TICKS;
+      const field = applyGlacialFieldChill({
+        state,
+        currentTick: nextTick,
+        playerNextTick,
+      });
+      state = field.state;
+      playerNextTick = field.playerNextTick;
+      if (field.applied) {
+        state = {
+          ...state,
+          log: appendLog(state.log, hpBarEntry(state, nextTick)),
+        };
+      }
+      continue;
     }
 
     const playerActsNow =

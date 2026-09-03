@@ -269,7 +269,8 @@ describe("coopBosses 카탈로그", () => {
     expect(glacial.base.skill).toBeUndefined();
     expect(glacial.enrageStages).toEqual([]);
     expect(glacial.traits).toEqual([
-      "냉기장으로 한기 누적",
+      "100틱마다 혹한의 전장으로 한기 누적",
+      "냉기장과 피격으로 한기 누적",
       "한기 중첩당 행동 속도 감소",
       "10중첩 빙결 — 다음 행동 취소",
     ]);

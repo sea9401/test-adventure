@@ -84,17 +84,101 @@ function playerAttackTicks(result: BattleResolution): number[] {
 }
 
 describe("glacial colossus ATB mechanic", () => {
+  it("100틱마다 액터 행동을 소비하지 않고 혹한의 전장 한기를 쌓는다", () => {
+    const result = runGlacialBattle({
+      enemy: glacialMonster({ spd: 1, directActionSpd: true }),
+      maxTurns: 2,
+    });
+    const fieldLogs = result.finalState.log.filter((entry) =>
+      entry.text.startsWith("[혹한의 전장]"),
+    );
+
+    expect(fieldLogs.map((entry) => entry.t)).toEqual([100, 200]);
+    expect(fieldLogs.map((entry) => entry.text)).toEqual([
+      "[혹한의 전장] 한기 +1 · 현재 1/10",
+      "[혹한의 전장] 한기 +1 · 현재 2/10",
+    ]);
+    expect(
+      result.finalState.log.filter((entry) => entry.kind === "player_attack"),
+    ).toHaveLength(2);
+  });
+
+  it("같은 100틱이면 혹한의 전장을 플레이어 행동보다 먼저 처리한다", () => {
+    const result = runGlacialBattle({
+      player: { ...basePlayer, spd: 64 },
+      enemy: glacialMonster({ spd: 1, directActionSpd: true }),
+      maxTurns: 2,
+    });
+    const atTick100 = result.finalState.log.filter((entry) => entry.t === 100);
+    const fieldIndex = atTick100.findIndex((entry) =>
+      entry.text.startsWith("[혹한의 전장]"),
+    );
+    const playerIndex = atTick100.findIndex(
+      (entry) => entry.kind === "player_attack",
+    );
+
+    expect(fieldIndex).toBeGreaterThanOrEqual(0);
+    expect(playerIndex).toBeGreaterThanOrEqual(0);
+    expect(fieldIndex).toBeLessThan(playerIndex);
+  });
+
+  it("보호막과 상태 방어는 혹한의 전장 한기를 막거나 소비되지 않는다", () => {
+    const statusBlock: SignatureEffect = {
+      trigger: "status_block_once",
+      label: "시험 정화",
+      statusBlockOnce: true,
+    };
+    const result = runGlacialBattle({
+      player: {
+        ...basePlayer,
+        bulwarkShield: 100_000,
+        equipSignatures: [statusBlock],
+      },
+      enemy: glacialMonster({ spd: 1, directActionSpd: true }),
+      maxTurns: 2,
+      v2Skills: {
+        learned: ["v2c_grandwarder_tripleward"],
+        equipped: ["v2c_grandwarder_tripleward"],
+      },
+    });
+
+    expect(result.finalState.bossMechanic).toMatchObject({
+      glacialChillStacks: 2,
+    });
+    expect(result.finalState.flags.statusBlockUsed).toBe(false);
+    expect(result.finalState.stacks.tripleWard.purification).toBe(1);
+  });
+
+  it("빙결 예약 중 필드 한기를 건너뛰고 다음 주기부터 다시 누적한다", () => {
+    const result = runGlacialBattle({
+      enemy: glacialMonster({ spd: 53, directActionSpd: true }),
+      maxTurns: 3,
+    });
+    const fieldTicks = result.finalState.log
+      .filter((entry) => entry.text.startsWith("[혹한의 전장]"))
+      .map((entry) => entry.t);
+
+    expect(result.finalState.log).toContainEqual(
+      expect.objectContaining({
+        text: "[빙결] 다음 행동이 봉쇄된다.",
+        t: 400,
+      }),
+    );
+    expect(fieldTicks).not.toContain(500);
+    expect(fieldTicks).toContain(600);
+  });
+
   it("보스 행동은 냉기장과 실제 HP 피해로 한기를 두 번 쌓는다", () => {
     const result = runGlacialBattle();
 
     expect(result.finalState.bossMechanic).toMatchObject({
       kind: "glacial_colossus",
-      glacialChillStacks: 2,
+      glacialChillStacks: 4,
       glacialFreezePending: 0,
     });
     expect(
       result.finalState.log.some((entry) =>
-        entry.text.includes("[한기] +2 · 현재 2/10"),
+        entry.text.includes("[한기] +2 · 현재 3/10"),
       ),
     ).toBe(true);
   });
@@ -105,11 +189,11 @@ describe("glacial colossus ATB mechanic", () => {
     });
 
     expect(result.finalState.bossMechanic).toMatchObject({
-      glacialChillStacks: 1,
+      glacialChillStacks: 3,
     });
     expect(
       result.finalState.log.some((entry) =>
-        entry.text.includes("[한기] +1 · 현재 1/10"),
+        entry.text.includes("[한기] +1 · 현재 2/10"),
       ),
     ).toBe(true);
   });
@@ -125,11 +209,11 @@ describe("glacial colossus ATB mechanic", () => {
       ),
     ).toHaveLength(3);
     expect(result.finalState.bossMechanic).toMatchObject({
-      glacialChillStacks: 2,
+      glacialChillStacks: 4,
     });
     expect(
       result.finalState.log.filter((entry) =>
-        entry.text.includes("[한기] +2 · 현재 2/10"),
+        entry.text.includes("[한기] +2 · 현재 3/10"),
       ),
     ).toHaveLength(1);
   });
@@ -149,7 +233,7 @@ describe("glacial colossus ATB mechanic", () => {
     });
 
     expect(result.finalState.bossMechanic).toMatchObject({
-      glacialChillStacks: 1,
+      glacialChillStacks: 3,
     });
     expect(result.finalState.flags.statusBlockUsed).toBe(true);
     expect(result.finalState.stacks.tripleWard.purification).toBe(1);
@@ -169,7 +253,7 @@ describe("glacial colossus ATB mechanic", () => {
     });
 
     expect(result.finalState.bossMechanic).toMatchObject({
-      glacialChillStacks: 1,
+      glacialChillStacks: 3,
     });
     expect(result.finalState.stacks.tripleWard.purification).toBe(0);
     expect(
@@ -259,12 +343,12 @@ describe("glacial colossus ATB mechanic", () => {
       glacial.finalState.log.some(
         (entry) =>
           entry.kind === "hp_bar" &&
-          entry.enemySignatureResources?.glacialChill === "2/10",
+          entry.enemySignatureResources?.glacialChill === "1/10",
       ),
     ).toBe(true);
   });
 
-  it("10중첩 빙결은 다음 플레이어 행동을 정확히 한 번 취소한다", () => {
+  it("10중첩 빙결은 매번 다음 플레이어 행동을 정확히 한 번 취소한다", () => {
     const pickAction = vi.fn(() => ({ kind: "attack" as const }));
     const result = runGlacialBattle({
       pickAction,
@@ -274,45 +358,47 @@ describe("glacial colossus ATB mechanic", () => {
 
     expect(result.finalState.bossMechanic).toMatchObject({
       kind: "glacial_colossus",
-      glacialFreezeCount: 1,
-      glacialSkippedActionCount: 1,
+      glacialFreezeCount: 4,
+      glacialSkippedActionCount: 4,
       glacialFreezePending: 0,
     });
     expect(
       result.finalState.log.filter((entry) =>
         entry.text.includes("몸이 얼어붙어 행동할 수 없다"),
       ),
-    ).toHaveLength(1);
+    ).toHaveLength(4);
     expect(
       result.finalState.log.filter(
         (entry) =>
           entry.text ===
           "[한기 10/10] 한기가 한계에 도달해 다음 행동이 봉쇄된다.",
       ),
-    ).toHaveLength(1);
+    ).toHaveLength(4);
     expect(pickAction).toHaveBeenCalledTimes(result.turns);
     expect(result.finalState.turn.completedPlayerTurns).toBe(result.turns);
   });
 
-  it("한기 4와 7 구간에 처음 진입할 때 단계별 전조를 한 번씩 남긴다", () => {
+  it("혹한의 전장이 한기 4와 7에 도달하면 단계별 전조를 남긴다", () => {
     const result = runGlacialBattle({
-      enemy: glacialMonster({ spd: 0, directActionSpd: false }),
-      maxTurns: 7,
+      enemy: glacialMonster({ spd: 1, directActionSpd: true }),
+      maxTurns: 4,
     });
-    const logs = result.finalState.log.map((entry) => entry.text);
+    const warnings = result.finalState.log.filter(
+      (entry) =>
+        entry.text.includes("냉기장이 짙어지며") ||
+        entry.text.includes("온몸에 서리가 번져"),
+    );
 
-    expect(
-      logs.filter(
-        (text) =>
-          text === "[한기 4/10] 냉기장이 짙어지며 움직임이 무거워진다.",
-      ),
-    ).toHaveLength(1);
-    expect(
-      logs.filter(
-        (text) =>
-          text === "[한기 8/10] 온몸에 서리가 번져 움직임을 붙잡는다.",
-      ),
-    ).toHaveLength(1);
+    expect(warnings).toEqual([
+      expect.objectContaining({
+        text: "[한기 4/10] 냉기장이 짙어지며 움직임이 무거워진다.",
+        t: 400,
+      }),
+      expect.objectContaining({
+        text: "[한기 7/10] 온몸에 서리가 번져 움직임을 붙잡는다.",
+        t: 700,
+      }),
+    ]);
   });
 
   it("빙결 예약 중 보스가 여러 번 행동해도 한기와 빙결을 더 쌓지 않는다", () => {
@@ -340,6 +426,7 @@ describe("glacial colossus ATB mechanic", () => {
       pendingEntries.some(
         (entry) =>
           entry.text.includes("[한기] +") ||
+          entry.text.includes("[혹한의 전장]") ||
           entry.text.includes("[빙결] 다음 행동이 봉쇄된다"),
       ),
     ).toBe(false);
@@ -383,9 +470,14 @@ describe("glacial colossus ATB mechanic", () => {
 
     expect(result.outcome).toBe("lose");
     expect(result.finalState.bossMechanic).toMatchObject({
-      glacialChillStacks: 0,
+      glacialChillStacks: 1,
       glacialFreezeCount: 0,
     });
+    expect(
+      result.finalState.log.some(
+        (entry) => entry.text === "[혹한의 전장] 한기 +1 · 현재 1/10",
+      ),
+    ).toBe(true);
     expect(
       result.finalState.log.some((entry) => entry.text.includes("[한기] +")),
     ).toBe(false);
@@ -400,9 +492,14 @@ describe("glacial colossus ATB mechanic", () => {
 
     expect(result.outcome).toBe("win");
     expect(result.finalState.bossMechanic).toMatchObject({
-      glacialChillStacks: 0,
+      glacialChillStacks: 1,
       glacialFreezeCount: 0,
     });
+    expect(
+      result.finalState.log.some(
+        (entry) => entry.text === "[혹한의 전장] 한기 +1 · 현재 1/10",
+      ),
+    ).toBe(true);
     expect(
       result.finalState.log.some((entry) => entry.text.includes("[한기] +")),
     ).toBe(false);
@@ -416,6 +513,7 @@ describe("glacial colossus ATB mechanic", () => {
       result.finalState.log.some(
         (entry) =>
           entry.text.includes("[한기] +") ||
+          entry.text.includes("[혹한의 전장]") ||
           entry.text.includes("[빙결]"),
       ),
     ).toBe(false);

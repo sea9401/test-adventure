@@ -205,7 +205,7 @@ describe("skyward crystal eye ATB mechanic", () => {
       initialState: {
         ...initialSkywardCrystalEyeState(),
         aimTicksRemaining: 0,
-        disruptionStacks: 24,
+        disruptionStacks: 40,
       },
     });
 

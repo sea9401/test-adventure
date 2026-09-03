@@ -64,11 +64,14 @@ describe("천공의 수정안 고정 시드 밸런스", () => {
     const single = audit(base);
     const critical = audit({ ...base, critChancePct: 100 });
     const multi = audit({ ...base, attackCount: 3 });
+    const specializedMulti = audit({ ...base, attackCount: 5 });
 
     expect(single.crystalEyeArtilleryPowerPcts).toHaveLength(3);
     expect(critical.crystalEyeArtilleryPowerPcts).toHaveLength(3);
-    expect(multi.crystalEyeArtilleryPowerPcts).toEqual([50, 50, 50]);
+    expect(multi.crystalEyeArtilleryPowerPcts).toEqual([70, 70, 70]);
     expect(multi.crystalEyeArtilleryStacks).toEqual([24, 24, 24]);
+    expect(specializedMulti.crystalEyeArtilleryPowerPcts).toEqual([50, 50, 50]);
+    expect(specializedMulti.crystalEyeArtilleryStacks).toEqual([40, 40, 40]);
     expect(critical.crystalEyeArtilleryStacks[0]).toBeGreaterThan(
       single.crystalEyeArtilleryStacks[0],
     );

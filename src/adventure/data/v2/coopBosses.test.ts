@@ -60,6 +60,10 @@ import { V2_MATERIALS } from "./dungeonDrops";
 import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
 import { TITLES } from "@/adventure/data/titles";
 import { UNEXPLORED_BOSS_IDS } from "./unexploredBosses";
+import {
+  actionInterval,
+  effectiveMonsterSpd,
+} from "@/adventure/v2/combat/combatTimeline";
 
 describe("coopBosses 카탈로그", () => {
   it("불멸 상태를 정규화하면서 기존 협동 메커니즘 필드를 보존한다", () => {
@@ -235,6 +239,14 @@ describe("coopBosses 카탈로그", () => {
       "피해·타격 추적",
       "추적 완료 시 방어 50% 관통·일반 보호막 무시 2연타",
     ]);
+  });
+
+  it("천공의 수정안은 실제 전투에서 43틱마다 행동한다", () => {
+    const eye = COOP_BOSSES.skyward_crystal_eye;
+    const monster = coopBossForBattle(eye, eye.sharedMaxHp).monster;
+
+    expect(effectiveMonsterSpd(monster.spd)).toBe(352);
+    expect(actionInterval(effectiveMonsterSpd(monster.spd))).toBe(43);
   });
 
   it("독혈 군주는 장기전 독혈 순환을 특성으로 안내한다", () => {
@@ -885,7 +897,7 @@ describe("coopBosses 카탈로그", () => {
     expect(display).toEqual({
       crystalEyeAimTicksRemaining: 640,
       crystalEyeDisruptionStacks: 17,
-      crystalEyeProjectedPowerPct: 60,
+      crystalEyeProjectedPowerPct: 80,
       crystalEyeBasePowerPct: 210,
       crystalEyeCoreExposed: true,
       crystalEyeCoreExposureTicksRemaining: 180,

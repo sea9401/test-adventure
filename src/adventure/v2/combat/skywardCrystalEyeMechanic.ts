@@ -1,5 +1,5 @@
 export const SKYWARD_CRYSTAL_EYE_AIM_TICKS = 900;
-export const SKYWARD_CRYSTAL_EYE_STACK_CAP = 24;
+export const SKYWARD_CRYSTAL_EYE_STACK_CAP = 40;
 export const SKYWARD_CRYSTAL_EYE_EXPOSURE_TICKS = 250;
 export const SKYWARD_CRYSTAL_EYE_EXPOSURE_DAMAGE_PCT = 25;
 
@@ -166,12 +166,12 @@ export function skywardCrystalEyeArtilleryPowerPct(
     SKYWARD_CRYSTAL_EYE_STACK_CAP,
     0,
   );
-  if (scored >= 24) return 50;
-  if (scored >= 20) return 50;
-  if (scored >= 16) return 60;
-  if (scored >= 12) return 70;
-  if (scored >= 8) return 80;
-  if (scored >= 4) return 90;
+  if (scored >= 40) return 50;
+  if (scored >= 33) return 50;
+  if (scored >= 27) return 60;
+  if (scored >= 20) return 70;
+  if (scored >= 13) return 80;
+  if (scored >= 7) return 90;
   return 100;
 }
 

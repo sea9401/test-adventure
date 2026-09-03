@@ -501,7 +501,7 @@ describe("POST /api/v2/coop/attack", () => {
     const completedEye = {
       ...initialEye,
       aimTicksRemaining: 340,
-      disruptionStacks: 24,
+      disruptionStacks: 40,
       coreExposureTicksRemaining: 180,
       artilleryCount: 2,
       lastArtilleryStacks: 12,
@@ -552,7 +552,7 @@ describe("POST /api/v2/coop/attack", () => {
     ).toBeGreaterThan(0);
     expect(body.result).toMatchObject({
       crystalEyeAimTicksRemaining: 340,
-      crystalEyeDisruptionStacks: 24,
+      crystalEyeDisruptionStacks: 40,
       crystalEyeCoreExposed: true,
       crystalEyeLastArtilleryDamage: 1234,
     });

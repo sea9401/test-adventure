@@ -4,6 +4,7 @@ import { ChartLine, Cube, Flask, Star } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import type { Listing } from "./marketplaceShared";
+import { MarketplaceTradeReportButton } from "./MarketplaceTradeReportButton";
 
 function remainingLabel(endsAt: string, clockMs: number) {
   const remainingMs = Math.max(0, new Date(endsAt).getTime() - clockMs);
@@ -116,21 +117,30 @@ export function MarketplaceStackBrowse({
                       ? "입찰 종료 · 정산 중"
                       : remainingLabel(listing.bidEndsAt, clockMs)}
                   </span>
-                  {ended ? null : listing.isMine ? (
-                    <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      내 경매 · 입찰 {listing.bidCount}건
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => onBid(listing)}
-                      disabled={busy}
-                      aria-label={`${listing.itemName} ${listing.quantity}개 묶음 입찰`}
-                      className="rounded-md border border-sky-700 bg-sky-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                    >
-                      입찰
-                    </button>
-                  )}
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {!listing.isMine ? (
+                      <MarketplaceTradeReportButton
+                        tradeId={listing.id}
+                        itemName={listing.itemName}
+                        sourceType="marketplace_listing"
+                      />
+                    ) : null}
+                    {ended ? null : listing.isMine ? (
+                      <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                        내 경매 · 입찰 {listing.bidCount}건
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onBid(listing)}
+                        disabled={busy}
+                        aria-label={`${listing.itemName} ${listing.quantity}개 묶음 입찰`}
+                        className="rounded-md border border-sky-700 bg-sky-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                      >
+                        입찰
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

@@ -14,6 +14,7 @@ let ownedEquipment: V2EquipInstance[] = [];
 let equippedEquipment: Partial<Record<V2EquipSlot, string>> = {};
 let browseListings: MarketplacePreviewListing[] = [];
 let myBidRows: Array<Record<string, unknown>> = [];
+let historyTrades: Array<Record<string, unknown>> = [];
 
 type MarketplacePreviewListing = (typeof marketplacePreview.listings)[number];
 
@@ -54,7 +55,7 @@ function responseFor(url: string): Response {
     return Response.json({ ok: true, alerts: [] });
   }
   if (url.includes("/history")) {
-    return Response.json({ ok: true, trades: [] });
+    return Response.json({ ok: true, trades: historyTrades });
   }
   return Response.json({ ok: true });
 }
@@ -74,6 +75,7 @@ describe("V2MarketplaceView request timing", () => {
     equippedEquipment = {};
     browseListings = [];
     myBidRows = [];
+    historyTrades = [];
     vi.stubGlobal("fetch", fetchMock);
   });
 
@@ -243,6 +245,49 @@ describe("V2MarketplaceView request timing", () => {
     fireEvent.click(screen.getByRole("button", { name: /내 입찰/ }));
     expect(await screen.findByText(source.itemName)).not.toBeNull();
     expect(screen.getByText("입찰금 예치 중")).not.toBeNull();
+  });
+
+  it("최근 거래에서 품목명으로 체결 목록을 검색한다", async () => {
+    historyTrades = [
+      {
+        id: 41,
+        kind: "material",
+        itemId: "iron_ore",
+        itemName: "철광석",
+        quantity: 3,
+        price: 300,
+        instancePayload: null,
+        closedAt: "2026-09-03T01:00:00.000Z",
+      },
+      {
+        id: 42,
+        kind: "material",
+        itemId: "silver_ore",
+        itemName: "은광석",
+        quantity: 2,
+        price: 400,
+        instancePayload: null,
+        closedAt: "2026-09-03T02:00:00.000Z",
+      },
+    ];
+    render(
+      <RewardToastProvider>
+        <V2MarketplaceView onBack={() => {}} />
+      </RewardToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /최근 거래/ }));
+    expect(await screen.findByText("철광석")).not.toBeNull();
+    expect(screen.getByText("은광석")).not.toBeNull();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "최근 거래 품목 검색" }), {
+      target: { value: " 은 " },
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText("철광석")).toBeNull();
+      expect(screen.getByText("은광석")).not.toBeNull();
+    });
   });
 
   it("내 항목만 보기에서 기존 순서를 유지하며 무관한 매물을 숨긴다", async () => {

@@ -14,14 +14,17 @@ import {
 } from "@/lib/ugc-safety";
 
 type Props = {
-  sourceType: UgcSourceType;
+  sourceType: Exclude<
+    UgcSourceType,
+    "marketplace_trade" | "marketplace_listing"
+  >;
   sourceId: string | number;
   targetName: string;
   className?: string;
   onBlocked?: (blockedUserId: string) => void;
 };
 
-const SOURCE_LABEL: Record<UgcSourceType, string> = {
+const SOURCE_LABEL: Record<Props["sourceType"], string> = {
   bulletin_post: "게시글",
   bulletin_comment: "댓글",
   chat_message: "채팅 메시지",
@@ -29,7 +32,6 @@ const SOURCE_LABEL: Record<UgcSourceType, string> = {
   profile: "프로필",
   guild_profile: "길드 정보",
   chat_room: "채팅방 정보",
-  marketplace_trade: "거래",
 };
 
 function responseMessage(status: number, text: string): string {

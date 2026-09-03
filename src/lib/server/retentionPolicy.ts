@@ -17,6 +17,7 @@ export const RETENTION_POLICY = {
   resolvedUgcReportDays: 180,
   storageMetricsDays: 30,
   deleteBatchSize: 5_000,
+  economyDeleteMaxBatches: 24,
   backlogDeleteMaxBatches: 6,
   tableDailyGrowthBytes: 100 * 1024 * 1024,
   tableDailyGrowthRatio: 0.2,

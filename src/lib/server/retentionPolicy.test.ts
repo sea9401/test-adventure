@@ -49,4 +49,16 @@ describe("운영 로그 보관 정책", () => {
     ).resolves.toEqual({ deleted: 15_000, more: true });
     expect(calls).toBe(3);
   });
+
+  it("경제 로그는 현재 일일 유입량보다 큰 정리 여유를 확보한다", async () => {
+    let calls = 0;
+    const result = await drainRetentionBatches(async () => {
+      calls += 1;
+      return { deleted: RETENTION_POLICY.deleteBatchSize, more: true };
+    }, RETENTION_POLICY.economyDeleteMaxBatches);
+
+    expect(result.deleted).toBeGreaterThanOrEqual(100_000);
+    expect(result.more).toBe(true);
+    expect(calls).toBe(RETENTION_POLICY.economyDeleteMaxBatches);
+  });
 });

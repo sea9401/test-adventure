@@ -10,6 +10,8 @@ import {
 import { equipmentBuyOrderMinimumPrice } from "@/lib/server/marketplaceV2";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
+import { createBestEffortBatcher } from "@/lib/server/bestEffortBatcher";
+import { runOutsideRequestProfile } from "@/lib/server/runtimeProfiler/requestContext";
 
 export type EconomyEventInput = {
   userId?: string | null;
@@ -22,9 +24,36 @@ export type EconomyEventInput = {
   detail?: Record<string, unknown> | null;
 };
 
+const ECONOMY_EVENT_BATCH_SIZE = 100;
+const ECONOMY_EVENT_BATCH_DELAY_MS = 25;
+
+type EconomyEventBatcher = ReturnType<
+  typeof createBestEffortBatcher<EconomyEventInput>
+>;
+
+declare global {
+  var __adventureEconomyEventBatcher: EconomyEventBatcher | undefined;
+}
+
 function boundedText(value: string | null | undefined, max: number) {
   if (!value) return null;
   return value.slice(0, max);
+}
+
+function economyEventValues(entry: EconomyEventInput) {
+  return {
+    userId: entry.userId ?? null,
+    counterpartyUserId: entry.counterpartyUserId ?? null,
+    eventType: entry.eventType.slice(0, 160),
+    goldDelta: Math.trunc(entry.goldDelta ?? 0),
+    itemKind: boundedText(entry.itemKind, 80),
+    itemId: boundedText(entry.itemId, 160),
+    quantity:
+      typeof entry.quantity === "number" && Number.isFinite(entry.quantity)
+        ? Math.trunc(entry.quantity)
+        : null,
+    detail: entry.detail ?? null,
+  };
 }
 
 export async function recordEconomyEvent(entry: EconomyEventInput): Promise<void> {
@@ -32,19 +61,7 @@ export async function recordEconomyEvent(entry: EconomyEventInput): Promise<void
   try {
     const [inserted] = await db
       .insert(economyEvents)
-      .values({
-        userId: entry.userId ?? null,
-        counterpartyUserId: entry.counterpartyUserId ?? null,
-        eventType: entry.eventType.slice(0, 160),
-        goldDelta: Math.trunc(entry.goldDelta ?? 0),
-        itemKind: boundedText(entry.itemKind, 80),
-        itemId: boundedText(entry.itemId, 160),
-        quantity:
-          typeof entry.quantity === "number" && Number.isFinite(entry.quantity)
-            ? Math.trunc(entry.quantity)
-            : null,
-        detail: entry.detail ?? null,
-      })
+      .values(economyEventValues(entry))
       .returning({ id: economyEvents.id });
     recordEconomyOpsSignal(entry);
     if (inserted) {
@@ -206,7 +223,46 @@ function sendExtremeLowMarketplacePriceSignal(args: {
 }
 
 export function recordEconomyEventSoon(entry: EconomyEventInput) {
+  if (!process.env.DATABASE_URL) return;
+  if (isBatchedEconomyEvent(entry)) {
+    economyEventBatcher().enqueue({
+      ...entry,
+      detail: entry.detail ? { ...entry.detail } : entry.detail,
+    });
+    return;
+  }
   void recordEconomyEvent(entry);
+}
+
+export function isBatchedEconomyEvent(entry: EconomyEventInput): boolean {
+  return (
+    entry.eventType.startsWith("life.") ||
+    entry.eventType === "currency.fishing.catch"
+  );
+}
+
+function economyEventBatcher(): EconomyEventBatcher {
+  globalThis.__adventureEconomyEventBatcher ??= createBestEffortBatcher({
+    maxBatchSize: ECONOMY_EVENT_BATCH_SIZE,
+    flushDelayMs: ECONOMY_EVENT_BATCH_DELAY_MS,
+    writeBatch: async (entries) => {
+      await runOutsideRequestProfile(() =>
+        db.insert(economyEvents).values(entries.map(economyEventValues)),
+      );
+      for (const entry of entries) recordEconomyOpsSignal(entry);
+    },
+    onError: (error, entries) => {
+      const eventTypes = [...new Set(entries.map((entry) => entry.eventType))]
+        .slice(0, 10)
+        .map((eventType) => eventType.slice(0, 160));
+      console.error("[economyLog] 배치 기록 실패", {
+        size: entries.length,
+        eventTypes,
+        error,
+      });
+    },
+  });
+  return globalThis.__adventureEconomyEventBatcher;
 }
 
 export function recordRewardFailureSoon(entry: {

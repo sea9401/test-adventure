@@ -468,7 +468,7 @@ export async function POST(req: Request) {
               retentionCutoff(RETENTION_POLICY.economyDays, now),
             ),
           ),
-        RETENTION_POLICY.backlogDeleteMaxBatches,
+        RETENTION_POLICY.economyDeleteMaxBatches,
       ),
       deleteSimpleRows(
         adminAuditLog,

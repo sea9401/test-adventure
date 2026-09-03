@@ -82,11 +82,18 @@ describe("invincible fortress ATB mechanic", () => {
       activeBarrierIndex: 0,
       barrierDamage: 400_000,
     });
-    expect(
-      result.finalState.log.some((entry) =>
-        entry.text.includes("방벽 누적 피해"),
-      ),
-    ).toBe(true);
+    expect(result.finalState.log).toContainEqual(
+      expect.objectContaining({
+        text: "방벽 피해 +100,000 · 남은 2,900,000 / 3,000,000",
+        turn: "player",
+      }),
+    );
+    expect(result.finalState.log).toContainEqual(
+      expect.objectContaining({
+        text: "방벽 피해 +100,000 · 남은 2,600,000 / 3,000,000",
+        turn: "player",
+      }),
+    );
   });
 
   it("destroys the barrier immediately and applies the breaking hit overflow to body HP", () => {
@@ -102,6 +109,15 @@ describe("invincible fortress ATB mechanic", () => {
       enrageTier: 0,
       barrierResults: [0],
     });
+    const damageIndex = result.finalState.log.findIndex(
+      (entry) =>
+        entry.text === "방벽 피해 +3,000,000 · 남은 0 / 3,000,000",
+    );
+    const destroyedIndex = result.finalState.log.findIndex(
+      (entry) => entry.text === "방벽 파괴 — 누적 3,000,000",
+    );
+    expect(damageIndex).toBeGreaterThanOrEqual(0);
+    expect(destroyedIndex).toBeGreaterThan(damageIndex);
     expect(result.finalState.log).toContainEqual(
       expect.objectContaining({
         t: 0,

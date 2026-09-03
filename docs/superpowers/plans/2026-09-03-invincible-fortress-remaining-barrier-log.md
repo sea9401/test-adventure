@@ -28,7 +28,7 @@
 - Consumes: `InvincibleFortressDamageEvent`의 `barrier_damage.damage`, `barrier_damage.totalDamage`와 `INVINCIBLE_FORTRESS_BARRIER_HP` 상수
 - Produces: 피해 적용 후 잔량을 포함하는 기존 `BattleLogEntry[]`
 
-- [ ] **Step 1: 부분 피해와 파괴 피해의 잔량 로그 회귀 테스트 작성**
+- [x] **Step 1: 부분 피해와 파괴 피해의 잔량 로그 회귀 테스트 작성**
 
 부분 피해 테스트는 실제 전투 결과에서 다음 로그를 찾는다.
 
@@ -55,13 +55,13 @@ expect(damageIndex).toBeGreaterThanOrEqual(0);
 expect(destroyedIndex).toBeGreaterThan(damageIndex);
 ```
 
-- [ ] **Step 2: 테스트가 기존 누적 피해 문구 때문에 실패하는지 확인**
+- [x] **Step 2: 테스트가 기존 누적 피해 문구 때문에 실패하는지 확인**
 
 Run: `npm test -- src/adventure/v2/combat/invincibleFortressAtb.test.ts`
 
 Expected: 새 `방벽 피해 ... 남은 ...` 로그를 찾지 못해 FAIL하고, 기존 전투 상태·피해 검증은 통과한다.
 
-- [ ] **Step 3: 방벽 고정 내구도를 사용해 잔량 문구 구현**
+- [x] **Step 3: 방벽 고정 내구도를 사용해 잔량 문구 구현**
 
 `engine.atb.ts`에서 상수를 가져온다.
 
@@ -82,7 +82,7 @@ const remainingBarrier = Math.max(
 text: `방벽 피해 +${event.damage.toLocaleString("ko-KR")} · 남은 ${remainingBarrier.toLocaleString("ko-KR")} / ${INVINCIBLE_FORTRESS_BARRIER_HP.toLocaleString("ko-KR")}`,
 ```
 
-- [ ] **Step 4: 관련 테스트와 정적 검증 실행**
+- [x] **Step 4: 관련 테스트와 정적 검증 실행**
 
 Run: `npm test -- src/adventure/v2/combat/invincibleFortressAtb.test.ts src/adventure/v2/combat/invincibleFortressMechanic.test.ts`
 
@@ -96,7 +96,7 @@ Run: `npx eslint src/adventure/v2/combat/engine.atb.ts src/adventure/v2/combat/i
 
 Expected: exit code 0.
 
-- [ ] **Step 5: 구현 커밋 생성**
+- [x] **Step 5: 구현 커밋 생성**
 
 ```bash
 git add src/adventure/v2/combat/engine.atb.ts \

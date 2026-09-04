@@ -182,7 +182,7 @@ describe("skyward crystal eye ATB mechanic", () => {
     expect(eyeState(exposed).disruptionStacks).toBe(1);
   });
 
-  it("fires mandatory non-critical magic artillery with 20% magic-defense penetration", () => {
+  it("fires strengthened non-critical magic artillery with 50% magic-defense penetration", () => {
     const result = runEye({
       maxTurns: 2,
       initialState: { ...initialSkywardCrystalEyeState(), aimTicksRemaining: 0 },
@@ -195,7 +195,7 @@ describe("skyward crystal eye ATB mechanic", () => {
     expect(shot?.text).toContain("[마법]");
     expect(shot?.text).not.toContain("[치명타]");
     expect(shot?.kind === "enemy_attack" && shot.enemyHpDamage).toBe(
-      damageToMagicDefender(180, 80),
+      damageToMagicDefender(330, 50),
     );
   });
 

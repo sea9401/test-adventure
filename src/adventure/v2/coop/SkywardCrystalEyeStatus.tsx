@@ -27,7 +27,7 @@ export function SkywardCrystalEyeStatus({
     ),
   );
   const power = status.crystalEyeProjectedPowerPct ?? 100;
-  const basePower = status.crystalEyeBasePowerPct ?? 180;
+  const basePower = status.crystalEyeBasePowerPct ?? 330;
   const exposureTicks = Math.max(
     0,
     Math.min(

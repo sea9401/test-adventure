@@ -33,7 +33,7 @@ export type SkywardCrystalEyeArtilleryEvent = {
   tick: number;
   stacks: number;
   powerPct: SkywardCrystalEyeArtilleryPowerPct;
-  basePowerPct: 180 | 210 | 240 | 270;
+  basePowerPct: 330 | 390 | 450 | 510;
   damage: number;
   coreExposed: boolean;
 };
@@ -178,7 +178,7 @@ export function skywardCrystalEyeArtilleryPowerPct(
 export function skywardCrystalEyeBasePowerPct(
   currentHp: number,
   maxHp: number,
-): 180 | 210 | 240 | 270 {
+): 330 | 390 | 450 | 510 {
   const max = Math.max(1, finiteInteger(
     maxHp,
     1,
@@ -186,10 +186,10 @@ export function skywardCrystalEyeBasePowerPct(
     1,
   ));
   const hp = finiteInteger(currentHp, 0, max, 0);
-  if (hp * 4 > max * 3) return 180;
-  if (hp * 2 > max) return 210;
-  if (hp * 4 > max) return 240;
-  return 270;
+  if (hp * 4 > max * 3) return 330;
+  if (hp * 2 > max) return 390;
+  if (hp * 4 > max) return 450;
+  return 510;
 }
 
 export function fireSkywardCrystalEyeArtillery(

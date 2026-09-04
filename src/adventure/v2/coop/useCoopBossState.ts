@@ -43,7 +43,7 @@ export type CoopSkywardCrystalEyeStatus = {
   crystalEyeAimTicksRemaining?: number;
   crystalEyeDisruptionStacks?: number;
   crystalEyeProjectedPowerPct?: SkywardCrystalEyeArtilleryPowerPct;
-  crystalEyeBasePowerPct?: 180 | 210 | 240 | 270;
+  crystalEyeBasePowerPct?: 330 | 390 | 450 | 510;
   crystalEyeCoreExposed?: boolean;
   crystalEyeCoreExposureTicksRemaining?: number;
   crystalEyeArtilleryCount?: number;

@@ -102,11 +102,25 @@ export function MuseunCoinCheckout() {
       const toss = await loadTossPayments(body.clientKey);
       const widgets = toss.widgets({ customerKey: body.customerKey });
       await widgets.setAmount({ value: body.amountKrw, currency: "KRW" });
-      await widgets.requestPayment({
-        orderId: body.orderId,
-        orderName: body.orderName,
-        successUrl: `${window.location.origin}/settings/coin-shop/payment/success`,
-        failUrl: `${window.location.origin}/settings/coin-shop/payment/fail`,
+      const paymentWindow = await widgets.renderPaymentWindow();
+      paymentWindow.on("cancel", async () => {
+        inFlight.current = false;
+        setBusyPackage(null);
+      });
+      paymentWindow.on("paymentRequest", async () => {
+        try {
+          await widgets.requestPayment({
+            orderId: body.orderId,
+            orderName: body.orderName,
+            successUrl: `${window.location.origin}/settings/coin-shop/payment/success`,
+            failUrl: `${window.location.origin}/settings/coin-shop/payment/fail`,
+          });
+        } catch {
+          await paymentWindow.destroy().catch(() => undefined);
+          setError("결제창을 열지 못했습니다. 잠시 후 다시 시도해 주세요.");
+          inFlight.current = false;
+          setBusyPackage(null);
+        }
       });
     } catch {
       setError("결제창을 열지 못했습니다. 잠시 후 다시 시도해 주세요.");

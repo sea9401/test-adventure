@@ -127,10 +127,10 @@ export type StormExpeditionUniqueRule = {
 };
 
 export const STORM_EXPEDITION_UNIQUE_LOOT: StormExpeditionUniqueRule = {
-  guardianRouteChance: 0.0015,
-  finalRouteChance: 0.004,
-  finalCrossChance: 0.002,
-  finalHeartChance: 0.0005,
+  guardianRouteChance: 0.03,
+  finalRouteChance: 0.07,
+  finalCrossChance: 0.04,
+  finalHeartChance: 0.01,
 };
 
 export const STORM_EXPEDITION_ROUTE_UNIQUE_IDS: Record<

@@ -7,6 +7,7 @@ export const UGC_SOURCE_TYPES = [
   "guild_profile",
   "chat_room",
   "marketplace_trade",
+  "marketplace_listing",
 ] as const;
 
 export type UgcSourceType = (typeof UGC_SOURCE_TYPES)[number];
@@ -98,7 +99,7 @@ export function isAllowedUgcReportReason(
 ): value is UgcReportReason {
   if (typeof value !== "string") return false;
   const allowed: readonly string[] =
-    sourceType === "marketplace_trade"
+    sourceType === "marketplace_trade" || sourceType === "marketplace_listing"
       ? MARKETPLACE_TRADE_REPORT_REASONS
       : CONTENT_REPORT_REASONS;
   return allowed.includes(value);

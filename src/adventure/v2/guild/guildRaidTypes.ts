@@ -1,4 +1,5 @@
 import type { CoopBossKindId } from "@/adventure/data/v2/coopBosses";
+import type { GuildRaidReward } from "@/adventure/data/v2/guildRaid";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 
 export type GuildRaidState = {
@@ -7,6 +8,7 @@ export type GuildRaidState = {
     id: string;
     bossKind: CoopBossKindId;
     status: string;
+    phase: "active" | "claim" | "expired";
     stage: number;
     hp: number;
     maxHp: number;
@@ -22,6 +24,9 @@ export type GuildRaidState = {
     dailyAttackLimit: number;
     remainingAttacks: number;
     eligible: boolean;
+    rewardClaimedAt: number | null;
+    reward: GuildRaidReward | null;
+    canClaim: boolean;
   };
   guild: {
     id: number;
@@ -44,6 +49,7 @@ export type GuildRaidState = {
     damage: number;
     rank: number;
   }[];
+  leaderboardPagination: GuildRaidPagination;
   recentAttacks: {
     id: number;
     name: string;
@@ -52,6 +58,14 @@ export type GuildRaidState = {
     stagesCleared: number;
     at: number;
   }[];
+  recentPagination: GuildRaidPagination;
+};
+
+export type GuildRaidPagination = {
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  total: number;
 };
 
 export type GuildRaidAttackResult = {
@@ -69,6 +83,18 @@ export type GuildRaidAttackResult = {
   myDamage: number;
   myAttackCount: number;
   dailyAttackCount: number;
+};
+
+export type GuildRaidPracticeResult = {
+  ok: true;
+  practice: true;
+  bossKind: CoopBossKindId;
+  playerName: string;
+  damageDealt: number;
+  damageTaken: number;
+  diedEarly: boolean;
+  turns: number;
+  replay: ReplayPayload;
 };
 
 export type GuildRaidErrorResponse = { ok?: false; error?: string };

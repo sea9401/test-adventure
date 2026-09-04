@@ -22,6 +22,7 @@ import type { DbExecutor } from "@/lib/server/savesKv";
 import { readSave } from "@/lib/server/savesKv";
 import { inboxValues } from "@/lib/server/inboxPayload";
 import {
+  MARKETPLACE_V2_AUCTION_MODE_VERSION,
   marketplacePartialPrice,
   marketplaceTaxRateForAdventureSupport,
   marketplaceUnitPrice,
@@ -513,8 +514,8 @@ export async function triggerMarketplacePriceAlertsForListing(
   if (
     !listing ||
     listing.status !== "active" ||
-    listing.bidEndsAt > now ||
-    listing.expiresAt <= now
+    listing.auctionModeVersion !== MARKETPLACE_V2_AUCTION_MODE_VERSION ||
+    listing.bidEndsAt <= now
   ) {
     return 0;
   }
@@ -533,7 +534,7 @@ export async function triggerMarketplacePriceAlertsForListing(
     )
     .for("update");
   for (const alert of alerts) {
-    const text = `${listing.itemName} 매물이 개당 ${unitPrice.toLocaleString()}골드에 등록됐어요.`;
+    const text = `${listing.itemName} 경매가 개당 시작 입찰가 ${unitPrice.toLocaleString()}골드에 등록됐어요.`;
     await tx.insert(marketplaceInbox).values(
       inboxValues({
         userId: alert.userId,

@@ -136,6 +136,7 @@ describe("개편 요리 연구실", () => {
       imageSrc: recipe.imageSrc,
       actorName: "류하린",
       discoveredAt: NOW,
+      codexRegistered: false,
     }];
     const html = renderToStaticMarkup(
       <CookingWorkspace

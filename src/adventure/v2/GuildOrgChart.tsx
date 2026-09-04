@@ -129,7 +129,7 @@ function MemberCard({
           "mt-2 flex items-center gap-1 text-xs",
           isMaster ? "justify-center" : "justify-start",
           seen.online
-            ? "text-emerald-600 dark:text-emerald-400"
+            ? "text-emerald-700 dark:text-emerald-400"
             : "text-zinc-500 dark:text-zinc-400",
         ].join(" ")}
       >

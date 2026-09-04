@@ -279,6 +279,233 @@ export const savesKv = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.key] })],
 );
 
+export type MuseunCoinPaymentOrderStatus =
+  | "ready"
+  | "confirming"
+  | "paid"
+  | "cancel_pending"
+  | "partially_canceled"
+  | "canceled"
+  | "failed"
+  | "review_required";
+
+export type MuseunCoinRefundStatus =
+  | "pending"
+  | "cancel_pending"
+  | "completed"
+  | "rejected"
+  | "review_required"
+  | "failed";
+
+// 무슨 코인의 권위 잔액. 기존 savesKv 지갑은 전환 기간 동안 합계 read model로만
+// 미러링하며 유료/무료 구분과 결제 환불 판단은 이 행과 아래 불변 원장을 사용한다.
+export const museunCoinAccounts = pgTable(
+  "museun_coin_accounts",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // 토스 customerKey는 이메일·userId 대신 서버가 만든 불투명 난수를 사용한다.
+    customerKey: text("customer_key").notNull(),
+    freeBalance: integer("free_balance").notNull().default(0),
+    paidBalance: integer("paid_balance").notNull().default(0),
+    reviewRequiredAt: timestamp("review_required_at"),
+    reviewReason: text("review_reason"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("museun_coin_accounts_customer_key_unique").on(t.customerKey),
+    check(
+      "museun_coin_accounts_balances_nonnegative",
+      sql`${t.freeBalance} >= 0 AND ${t.paidBalance} >= 0`,
+    ),
+  ],
+);
+
+// 결제·공급 기록은 계정 탈퇴 뒤에도 법정 보존 기간을 지킬 수 있도록 user FK를
+// SET NULL로 분리한다. 주문에는 생성 당시 상품/가격 스냅샷만 보존한다.
+export const museunCoinPaymentOrders = pgTable(
+  "museun_coin_payment_orders",
+  {
+    orderId: text("order_id").primaryKey(),
+    userId: text("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    packageId: text("package_id").notNull(),
+    coinAmount: integer("coin_amount").notNull(),
+    amountKrw: integer("amount_krw").notNull(),
+    status: text("status")
+      .$type<MuseunCoinPaymentOrderStatus>()
+      .notNull()
+      .default("ready"),
+    paymentKey: text("payment_key"),
+    method: text("method"),
+    failureCode: text("failure_code"),
+    failureMessage: text("failure_message"),
+    requestedAt: timestamp("requested_at").defaultNow().notNull(),
+    approvedAt: timestamp("approved_at"),
+    canceledAt: timestamp("canceled_at"),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("museun_coin_payment_orders_payment_key_unique").on(
+      t.paymentKey,
+    ),
+    index("museun_coin_payment_orders_user_requested_idx").on(
+      t.userId,
+      sql`${t.requestedAt} DESC`,
+    ),
+    index("museun_coin_payment_orders_status_updated_idx").on(
+      t.status,
+      t.updatedAt,
+    ),
+    check(
+      "museun_coin_payment_orders_amounts_positive",
+      sql`${t.coinAmount} > 0 AND ${t.amountKrw} > 0`,
+    ),
+    check(
+      "museun_coin_payment_orders_status_valid",
+      sql`${t.status} IN ('ready', 'confirming', 'paid', 'cancel_pending', 'partially_canceled', 'canceled', 'failed', 'review_required')`,
+    ),
+  ],
+);
+
+// 잔액 증감 원장. 기존 행은 절대 수정·삭제하지 않고 eventKey 고유 제약으로 재전송을
+// 멱등 처리한다.
+export const museunCoinLedger = pgTable(
+  "museun_coin_ledger",
+  {
+    id: serial("id").primaryKey(),
+    eventKey: text("event_key").notNull(),
+    userId: text("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    kind: text("kind").notNull(),
+    sourceId: text("source_id"),
+    freeDelta: integer("free_delta").notNull().default(0),
+    paidDelta: integer("paid_delta").notNull().default(0),
+    freeBalanceAfter: integer("free_balance_after").notNull(),
+    paidBalanceAfter: integer("paid_balance_after").notNull(),
+    detail: jsonb("detail"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("museun_coin_ledger_event_key_unique").on(t.eventKey),
+    index("museun_coin_ledger_user_created_idx").on(
+      t.userId,
+      sql`${t.id} DESC`,
+    ),
+    index("museun_coin_ledger_source_idx").on(t.sourceId),
+    check(
+      "museun_coin_ledger_balances_nonnegative",
+      sql`${t.freeBalanceAfter} >= 0 AND ${t.paidBalanceAfter} >= 0`,
+    ),
+  ],
+);
+
+// 결제 주문별 유료 코인 잔여량. 환불 중에는 available에서 held로 옮겨 소비를 막는다.
+export const museunCoinPaidLots = pgTable(
+  "museun_coin_paid_lots",
+  {
+    orderId: text("order_id")
+      .primaryKey()
+      .references(() => museunCoinPaymentOrders.orderId, {
+        onDelete: "restrict",
+      }),
+    userId: text("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    grantedCoins: integer("granted_coins").notNull(),
+    availableCoins: integer("available_coins").notNull(),
+    heldCoins: integer("held_coins").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("museun_coin_paid_lots_user_fifo_idx").on(
+      t.userId,
+      t.createdAt,
+      t.orderId,
+    ),
+    check(
+      "museun_coin_paid_lots_values_nonnegative",
+      sql`${t.grantedCoins} > 0 AND ${t.availableCoins} >= 0 AND ${t.heldCoins} >= 0`,
+    ),
+    check(
+      "museun_coin_paid_lots_balance_valid",
+      sql`${t.availableCoins} + ${t.heldCoins} <= ${t.grantedCoins}`,
+    ),
+  ],
+);
+
+// 유료 코인을 쓴 원장 이벤트가 어느 충전 로트에서 빠졌는지 기록한다.
+export const museunCoinSpendAllocations = pgTable(
+  "museun_coin_spend_allocations",
+  {
+    id: serial("id").primaryKey(),
+    ledgerId: integer("ledger_id")
+      .notNull()
+      .references(() => museunCoinLedger.id, { onDelete: "restrict" }),
+    lotOrderId: text("lot_order_id")
+      .notNull()
+      .references(() => museunCoinPaidLots.orderId, { onDelete: "restrict" }),
+    coins: integer("coins").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("museun_coin_spend_allocations_ledger_idx").on(t.ledgerId),
+    index("museun_coin_spend_allocations_lot_idx").on(t.lotOrderId),
+    check("museun_coin_spend_allocations_coins_positive", sql`${t.coins} > 0`),
+  ],
+);
+
+export const museunCoinRefundRequests = pgTable(
+  "museun_coin_refund_requests",
+  {
+    id: text("id").primaryKey(),
+    orderId: text("order_id")
+      .notNull()
+      .references(() => museunCoinPaymentOrders.orderId, {
+        onDelete: "restrict",
+      }),
+    userId: text("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    requestedCoins: integer("requested_coins").notNull(),
+    amountKrw: integer("amount_krw").notNull(),
+    reason: text("reason").notNull(),
+    status: text("status")
+      .$type<MuseunCoinRefundStatus>()
+      .notNull()
+      .default("pending"),
+    processedByEmail: text("processed_by_email"),
+    tossTransactionKey: text("toss_transaction_key"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    processedAt: timestamp("processed_at"),
+  },
+  (t) => [
+    index("museun_coin_refund_requests_order_idx").on(t.orderId),
+    index("museun_coin_refund_requests_user_created_idx").on(
+      t.userId,
+      sql`${t.createdAt} DESC`,
+    ),
+    index("museun_coin_refund_requests_status_created_idx").on(
+      t.status,
+      t.createdAt,
+    ),
+    check(
+      "museun_coin_refund_requests_amounts_positive",
+      sql`${t.requestedCoins} > 0 AND ${t.amountKrw} > 0`,
+    ),
+    check(
+      "museun_coin_refund_requests_status_valid",
+      sql`${t.status} IN ('pending', 'cancel_pending', 'completed', 'rejected', 'review_required', 'failed')`,
+    ),
+  ],
+);
+
 // 묶음 전투 결과(일괄 사냥·아레나 기록)의 전체 리플레이를 본문 세이브와 분리해 보관한다.
 // 목록/결과 응답에는 id가 포함된 가벼운 ReplayPayload만 싣고, 사용자가 실제로 다시보기를
 // 열 때 단건 조회한다. expiresAt 이후 행은 ops-retention cron이 삭제한다.
@@ -607,7 +834,7 @@ export const ugcReports = pgTable(
     ),
     check(
       "ugc_reports_source_type_check",
-      sql`${t.sourceType} IN ('bulletin_post', 'bulletin_comment', 'chat_message', 'inbox_message', 'profile', 'guild_profile', 'chat_room', 'marketplace_trade')`,
+      sql`${t.sourceType} IN ('bulletin_post', 'bulletin_comment', 'chat_message', 'inbox_message', 'profile', 'guild_profile', 'chat_room', 'marketplace_trade', 'marketplace_listing')`,
     ),
     check(
       "ugc_reports_reason_check",
@@ -910,6 +1137,7 @@ export const marketplaceListingsV2 = pgTable(
     itemName: text("item_name").notNull(),
     quantity: integer("quantity").notNull(),
     price: integer("price").notNull(),
+    auctionModeVersion: integer("auction_mode_version").notNull().default(0),
     instancePayload: jsonb("instance_payload"),
     status: text("status").notNull().default("active"), // 'active'|'sold'|'cancelled'
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -1569,8 +1797,8 @@ export const coopBossAttackLog = pgTable(
   ],
 );
 
-// 길드 토벌전 — 모든 길드가 한 주 동안 같은 단계형 보스를 공격하는 전역 이벤트.
-// 일반 협동 보스의 소환/공개/기여 보상 수명주기와 분리하고 전투 엔진·리플레이만 공유한다.
+// 길드 토벌전 주간 일정. 보스 종류와 전투/정산 기간만 전역으로 공유하고 실제 단계·HP는
+// guild_raid_guild_scores 에서 길드별로 독립 관리한다. stage/hp/maxHp는 구 데이터 호환용이다.
 export const guildRaidEvents = pgTable(
   "guild_raid_events",
   {
@@ -1614,6 +1842,9 @@ export const guildRaidGuildScores = pgTable(
     guildNameSnapshot: text("guild_name_snapshot").notNull(),
     guildEmblemSnapshot: text("guild_emblem_snapshot"),
     damage: bigint("damage", { mode: "number" }).notNull().default(0),
+    stage: integer("stage").notNull().default(1),
+    hp: bigint("hp", { mode: "number" }).notNull().default(1_200_000),
+    maxHp: bigint("max_hp", { mode: "number" }).notNull().default(1_200_000),
     finalRank: integer("final_rank"),
     settledAt: timestamp("settled_at"),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -1625,6 +1856,9 @@ export const guildRaidGuildScores = pgTable(
       sql`${t.damage} DESC`,
     ),
     check("guild_raid_guild_scores_damage_nonnegative", sql`${t.damage} >= 0`),
+    check("guild_raid_guild_scores_stage_positive", sql`${t.stage} > 0`),
+    check("guild_raid_guild_scores_hp_positive", sql`${t.hp} > 0`),
+    check("guild_raid_guild_scores_max_hp_positive", sql`${t.maxHp} > 0`),
   ],
 );
 
@@ -1645,6 +1879,7 @@ export const guildRaidParticipants = pgTable(
     dayKey: text("day_key").notNull(),
     dailyAttackCount: integer("daily_attack_count").notNull().default(0),
     eligibleAtSettlement: boolean("eligible_at_settlement"),
+    rewardClaimedAt: timestamp("reward_claimed_at"),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => [
@@ -1693,7 +1928,11 @@ export const guildRaidAttackLogs = pgTable(
       t.userId,
       t.requestId,
     ),
-    index("guild_raid_attack_logs_recent_idx").on(t.eventId, t.createdAt),
+    index("guild_raid_attack_logs_recent_idx").on(
+      t.eventId,
+      t.guildId,
+      t.createdAt,
+    ),
     check("guild_raid_attack_logs_damage_nonnegative", sql`${t.damageDealt} >= 0`),
     check("guild_raid_attack_logs_damage_taken_nonnegative", sql`${t.damageTaken} >= 0`),
   ],

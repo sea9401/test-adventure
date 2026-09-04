@@ -40,7 +40,8 @@ export async function POST(req: Request) {
     return new Response("invalid source type", { status: 400 });
   }
   if (
-    body.sourceType === "marketplace_trade" &&
+    (body.sourceType === "marketplace_trade" ||
+      body.sourceType === "marketplace_listing") &&
     body.subjectType !== "content"
   ) {
     return new Response("invalid subject type", { status: 400 });

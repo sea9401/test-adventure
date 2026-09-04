@@ -443,6 +443,27 @@ describe("evaluateCombatPattern", () => {
     expect(evaluateCombatPattern(pattern, ctx({ selfHpPct: 20 }), noHeal)).toBe("strike");
   });
 
+  it("교대 사용은 첫째·둘째 스킬을 공격 차례마다 A→B→A→B 순서로 고른다", () => {
+    const alternating = parseCombatPattern({
+      blocks: [
+        {
+          condition: { kind: "always" },
+          action: {
+            kind: "alternate",
+            firstSkillId: "a",
+            secondSkillId: "b",
+          },
+        },
+      ],
+    });
+
+    expect(
+      [1, 2, 3, 4].map((turn) =>
+        evaluateCombatPattern(alternating, ctx({ turn }), all),
+      ),
+    ).toEqual(["a", "b", "a", "b"]);
+  });
+
   it("역할 액션은 현재 로드아웃 resolver 가 돌려준 스킬로 평가", () => {
     const byRole: V2CombatPattern = {
       blocks: [

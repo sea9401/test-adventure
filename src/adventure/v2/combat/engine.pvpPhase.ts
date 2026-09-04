@@ -17,8 +17,6 @@ import {
   pvpSideDamageTakenReductionPct,
   releaseSwordShadowAfterPvPAction,
   rollPvPAttackCount,
-  scalePvPDamage,
-  scalePvPHealing,
   setSide,
   type PvPAttackDamageResult,
   type PvPBattleState,
@@ -26,6 +24,7 @@ import {
   type PvPSide,
   type PvPSideBuffs,
 } from "./engine-pvp";
+import { scalePvPDamage, scalePvPHealing } from "./engine.pvpScaling";
 import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
 import {
   applyV2DotsToTarget,
@@ -68,6 +67,7 @@ import {
   computeBerserkBonus,
   computeCritOverflowBonus,
   computeStormBonus,
+  resolveCriticalChanceAfterResistance,
 } from "./engine.damageHelpers";
 import {
   CRIT_PCT_CAP,
@@ -212,26 +212,29 @@ function computeAttackDamagePvP(
     skillCritThisTurn +
     duelistModifiers.basicCritChancePct;
   // PR-2 — 피격자(defender)의 치명타 저항(정신)만큼 공격자 크리 확률 차감. PvE 몹은 크리 없어 PvP 한정.
-  const effectiveCritPct = Math.max(
-    0,
-    Math.min(
-      Math.max(
-        CRIT_PCT_CAP,
-        attacker.player.basicCritChanceCap ?? CRIT_PCT_CAP,
-        duelistModifiers.basicCritChanceCap,
-      ),
-      rawCritPct,
-    ) - (defender.player.critResistPct ?? 0),
+  const basicCritCap = Math.max(
+    CRIT_PCT_CAP,
+    attacker.player.basicCritChanceCap ?? CRIT_PCT_CAP,
+    duelistModifiers.basicCritChanceCap,
   );
-  const critOverflowDmgBonus = computeCritOverflowBonus(rawCritPct);
+  const critResolution = resolveCriticalChanceAfterResistance(
+    rawCritPct,
+    defender.player.critResistPct ?? 0,
+    basicCritCap,
+  );
+  const effectiveCritPct = critResolution.effectiveCritPct;
   // 연쇄 운명 — 큐가 있으면 강제 크리. 큐는 이번 공격에 소비.
   const fatedChainConsumed = attacker.flags.fatedChainCritPending;
   // 집중의 호흡 (AP) — 큐가 있으면 이 공격 크리 강제 + 크리뎀 보너스. 1회 소비.
   const focusedBreathConsumed = attacker.turn.focusedBreathCritDmgBonusPct > 0;
+  const guaranteedCrit = fatedChainConsumed || focusedBreathConsumed;
+  const critOverflowDmgBonus = guaranteedCrit
+    ? computeCritOverflowBonus(rawCritPct)
+    : critResolution.overflowDamageBonus;
   const focusedBreathCritDmgBonus = focusedBreathConsumed
     ? attacker.turn.focusedBreathCritDmgBonusPct / 100
     : 0;
-  const critRoll = fatedChainConsumed || focusedBreathConsumed
+  const critRoll = guaranteedCrit
     ? true
     : effectiveCritPct > 0
       ? Math.random() * 100 < effectiveCritPct
@@ -1526,7 +1529,10 @@ export function advanceTurnPvP(
   );
   // 남은 공격 횟수 — 연환격(comboExtraAttacks) 도 포함.
   const attacksLeft =
-    attacker.attacksLeft - 1 + weakpointAdd + comboExtraAttacks + sigExtraAttack;
+    next[atkKey].attacksLeft - 1 +
+    weakpointAdd +
+    comboExtraAttacks +
+    sigExtraAttack;
   if (attacksLeft > 0) {
     return setSide(next, atkKey, {
       ...next[atkKey],

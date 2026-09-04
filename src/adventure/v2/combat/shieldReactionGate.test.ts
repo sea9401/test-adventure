@@ -210,10 +210,11 @@ describe("보호막 완전 흡수 시 반사·반격 차단", () => {
     expect(hasReactionLog(next.log)).toBe(false);
   });
 
-  it("PvP 직접 피해 스킬도 보호막에 전부 막히면 반사를 발동하지 않는다", () => {
+  it("PvP 직접 피해 스킬도 보호막에 전부 막히면 반사와 피격 반격이 발동하지 않는다", () => {
     const defender: PlayerCombat = {
       ...PLAYER,
       thornsFlatFromDef: 200,
+      passiveCounterChancePct: 100,
     };
     const initial = initialBattleStatePvP(
       PLAYER,

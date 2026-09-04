@@ -7,6 +7,7 @@ import { HuntingContent } from "./hunting";
 import { CoopContent } from "./coop";
 import { StatsContent } from "./stats";
 import { JobsContent } from "./jobs";
+import { JobCodexContent } from "./job-codex";
 import { SkillsContent } from "./skills";
 import { QuestsContent } from "./quests";
 import { LevelingContent } from "./leveling";
@@ -30,6 +31,7 @@ export const MANUAL_CONTENT: Record<string, () => ReactNode> = {
   coop: CoopContent,
   stats: StatsContent,
   jobs: JobsContent,
+  "job-codex": JobCodexContent,
   skills: SkillsContent,
   quests: QuestsContent,
   leveling: LevelingContent,

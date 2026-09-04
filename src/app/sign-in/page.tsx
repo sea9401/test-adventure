@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { shouldStartLocalDevAutoLogin } from "@/lib/server/localDevAutoLogin";
 import { hasCompletedOnboarding } from "@/lib/server/profile";
+import { hasMinimumAgeServiceAccess } from "@/lib/server/ageEligibility";
+import { readPublicMerchantInfo } from "@/lib/publicMerchantInfo";
 import { LandingContent } from "./LandingContent";
 
 export const metadata: Metadata = {
@@ -46,8 +48,13 @@ export default async function SignInPage({
   // (hasCompletedOnboarding)이라야 / ↔ /sign-in 무한 리다이렉트가 안 생긴다.
   const params = await searchParams;
   const error = Array.isArray(params.error) ? params.error[0] : params.error;
+  const ageConfirmed = await hasMinimumAgeServiceAccess();
   const session = await auth();
-  if (session?.user && (await hasCompletedOnboarding(session.user.id))) {
+  if (
+    ageConfirmed &&
+    session?.user &&
+    (await hasCompletedOnboarding(session.user.id))
+  ) {
     redirect("/");
   }
 
@@ -56,7 +63,7 @@ export default async function SignInPage({
     shouldStartLocalDevAutoLogin({
       request: { headers: requestHeaders },
       hasSession: !!session?.user,
-      authError: error ?? null,
+      authError: ageConfirmed ? (error ?? null) : "age-required",
     })
   ) {
     redirect("/api/auth/local-dev");
@@ -65,9 +72,13 @@ export default async function SignInPage({
   return (
     <LandingContent
       authed={!!session?.user}
+      ageConfirmed={ageConfirmed}
+      merchantInfo={readPublicMerchantInfo(process.env)}
       authError={
         error === "OAuthAccountNotLinked"
           ? "account-not-linked"
+          : error === "AgeRequirement"
+            ? null
           : error
             ? "login-failed"
             : null

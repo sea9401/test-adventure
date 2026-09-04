@@ -1,15 +1,19 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { marketplaceListingsV2, savesKv } from "@/db/schema";
+import {
+  marketplaceBidsV2,
+  marketplaceListingsV2,
+  savesKv,
+} from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { listedEquipBound } from "@/adventure/data/v2/v2EquipMint";
 import {
+  MARKETPLACE_V2_AUCTION_HOURS,
+  MARKETPLACE_V2_AUCTION_MODE_VERSION,
   MARKETPLACE_V2_BROWSE_LIMIT,
-  MARKETPLACE_V2_BID_GRACE_MAX_HOURS,
-  MARKETPLACE_V2_BID_GRACE_MIN_HOURS,
-  MARKETPLACE_V2_DIRECT_LISTING_HOURS,
-  MARKETPLACE_V2_FIXED_LISTING_HOURS,
+  MARKETPLACE_V2_BID_EXTENSION_MINUTES,
+  MARKETPLACE_V2_BID_EXTENSION_WINDOW_MINUTES,
   currentMarketplaceItemName,
   isMarketKind,
   isTradableMarketplaceMaterial,
@@ -38,7 +42,13 @@ export async function GET(req: Request) {
   const kindParam = url.searchParams.get("kind");
   const mine = url.searchParams.get("mine") === "1";
 
-  const conds = [eq(marketplaceListingsV2.status, "active")];
+  const conds = [
+    eq(marketplaceListingsV2.status, "active"),
+    eq(
+      marketplaceListingsV2.auctionModeVersion,
+      MARKETPLACE_V2_AUCTION_MODE_VERSION,
+    ),
+  ];
   if (kindParam && isMarketKind(kindParam)) {
     conds.push(eq(marketplaceListingsV2.kind, kindParam));
   }
@@ -53,6 +63,7 @@ export async function GET(req: Request) {
       itemName: marketplaceListingsV2.itemName,
       quantity: marketplaceListingsV2.quantity,
       price: marketplaceListingsV2.price,
+      auctionModeVersion: marketplaceListingsV2.auctionModeVersion,
       instancePayload: marketplaceListingsV2.instancePayload,
       createdAt: marketplaceListingsV2.createdAt,
       bidEndsAt: marketplaceListingsV2.bidEndsAt,
@@ -66,6 +77,25 @@ export async function GET(req: Request) {
     .where(and(...conds))
     .orderBy(desc(marketplaceListingsV2.createdAt))
     .limit(MARKETPLACE_V2_BROWSE_LIMIT);
+
+  const participatedRows = rows.length === 0
+    ? []
+    : await db
+        .select({ listingId: marketplaceBidsV2.listingId })
+        .from(marketplaceBidsV2)
+        .where(
+          and(
+            eq(marketplaceBidsV2.bidderId, userId),
+            inArray(
+              marketplaceBidsV2.listingId,
+              rows.map((row) => row.id),
+            ),
+          ),
+        )
+        .groupBy(marketplaceBidsV2.listingId);
+  const participatedIds = new Set(
+    participatedRows.map((row) => row.listingId),
+  );
 
   // 뷰어 골드(character.v2.gold) — 비잠금 단순 read(표시용, 권위는 buy tx).
   const [charRow] = await db
@@ -81,18 +111,19 @@ export async function GET(req: Request) {
   return Response.json({
     ok: true,
     viewerGold,
-    bidGraceMinHours: MARKETPLACE_V2_BID_GRACE_MIN_HOURS,
-    bidGraceMaxHours: MARKETPLACE_V2_BID_GRACE_MAX_HOURS,
-    fixedListingHours: MARKETPLACE_V2_FIXED_LISTING_HOURS,
-    directListingHours: MARKETPLACE_V2_DIRECT_LISTING_HOURS,
+    serverNow: Date.now(),
+    auctionHours: MARKETPLACE_V2_AUCTION_HOURS,
+    bidExtensionWindowMinutes: MARKETPLACE_V2_BID_EXTENSION_WINDOW_MINUTES,
+    bidExtensionMinutes: MARKETPLACE_V2_BID_EXTENSION_MINUTES,
     listings: rows
       .filter(
         (row) =>
-          mine ||
-          (row.kind === "equip"
-            ? !listedEquipBound(row.instancePayload)
-            : row.kind !== "material" ||
-              isTradableMarketplaceMaterial(row.itemId)),
+          row.auctionModeVersion === MARKETPLACE_V2_AUCTION_MODE_VERSION &&
+          (mine ||
+            (row.kind === "equip"
+              ? !listedEquipBound(row.instancePayload)
+              : row.kind !== "material" ||
+                isTradableMarketplaceMaterial(row.itemId))),
       )
       .map((row) =>
         marketplacePublicListing(
@@ -105,6 +136,7 @@ export async function GET(req: Request) {
             ),
           },
           userId,
+          participatedIds.has(row.id),
         ),
       ),
   });

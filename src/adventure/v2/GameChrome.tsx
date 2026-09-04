@@ -142,6 +142,12 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
       className="game-desktop-compact"
       onFocusCapture={selectNumericInputValue}
     >
+      <a
+        href="#game-main-content"
+        className="sr-only fixed left-3 top-3 z-[100] rounded-md bg-violet-700 px-4 py-2 font-semibold text-white shadow-lg focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-violet-300 focus:ring-offset-2"
+      >
+        본문으로 바로가기
+      </a>
       <header
         ref={headerRef}
         data-game-header
@@ -192,7 +198,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
           fallbackSrc={background.fallbackSrc}
         />
       )}
-      <div>
+      <div id="game-main-content" tabIndex={-1}>
         {/* 쿨다운 모드만 스태미나 폐지(전투 쿨다운 대체) → 바 숨김. 스태미나 모드/off 면 표시. */}
         {showStamina && (!coreLoopOn || huntStaminaMode) && (
           <div className="mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6">

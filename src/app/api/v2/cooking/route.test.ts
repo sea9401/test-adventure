@@ -172,12 +172,23 @@ describe("/api/v2/cooking", () => {
   });
 
   it("GET은 미발견 카탈로그를 숨기고 개인·공개 발견 정보만 반환한다", async () => {
+    const cooking = emptyCookingState(NOW);
+    mocks.store.set("cooking.v2", {
+      ...cooking,
+      discoveredRecipeIds: [...cooking.discoveredRecipeIds, "potato_stew"],
+    });
     mocks.selectResults.push([{
       recipeId: "potato_stew",
       userId: "other-cook",
       actorName: "첫발견자",
       authoritativeActorName: null,
       discoveredAt: new Date(NOW - 10_000),
+    }, {
+      recipeId: "tomato_salad",
+      userId: "another-cook",
+      actorName: "다른발견자",
+      authoritativeActorName: null,
+      discoveredAt: new Date(NOW - 20_000),
     }], [{
       method: "stir_fry",
       ingredientIds: ["farm:wheat", "farm:milk"],
@@ -197,7 +208,7 @@ describe("/api/v2/cooking", () => {
     }]);
     const response = await GET(new Request("http://localhost/api/v2/cooking"));
     const json = await response.json();
-    const hiddenRecipe = COOKING_SECRET_RECIPE_BY_ID.get("tomato_salad")!;
+    const hiddenRecipe = COOKING_SECRET_RECIPE_BY_ID.get("egg_salad_sandwich")!;
     const serialized = JSON.stringify(json);
 
     expect(response.status).toBe(200);
@@ -205,15 +216,26 @@ describe("/api/v2/cooking", () => {
     expect(json).not.toHaveProperty("firstDiscoveries");
     expect(json.recipeTotal).toBe(COOKING_PUBLIC_RECIPES.length);
     expect(json.knownRecipes.map((entry: { id: string }) => entry.id)).not.toContain("tomato_salad");
-    expect(json.knownRecipes).toHaveLength(6);
+    expect(json.knownRecipes).toHaveLength(7);
     expect(json.knownRecipes[0]).toHaveProperty("ingredients");
-    expect(json.publicDiscoveries).toEqual([{
-      recipeName: "감자 양파 스튜",
-      imageSrc: "/images/items/cooking/potato_stew.webp",
-      actorName: "첫발견자",
-      discoveredAt: NOW - 10_000,
-    }]);
+    expect(json.publicDiscoveries).toEqual([
+      {
+        recipeName: "감자 양파 스튜",
+        imageSrc: "/images/items/cooking/potato_stew.webp",
+        actorName: "첫발견자",
+        discoveredAt: NOW - 10_000,
+        codexRegistered: true,
+      },
+      {
+        recipeName: "불향 토마토 샐러드",
+        imageSrc: "/images/items/cooking/tomato_salad.webp",
+        actorName: "다른발견자",
+        discoveredAt: NOW - 20_000,
+        codexRegistered: false,
+      },
+    ]);
     expect(json.publicDiscoveries[0]).not.toHaveProperty("recipeId");
+    expect(json.publicDiscoveries[1]).not.toHaveProperty("recipeId");
     expect(json.publicDiscoveries[0]).not.toHaveProperty("ingredients");
     expect(serialized).not.toContain(hiddenRecipe.id);
     expect(serialized).not.toContain(hiddenRecipe.name);

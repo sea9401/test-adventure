@@ -824,6 +824,216 @@ describe("BattleLogList 행동 묶음", () => {
     expect(html).not.toContain("┘");
   });
 
+  it("효과만 있는 보호막 스킬 시전을 독립 행동 카드로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "info",
+            text: "",
+            turn: "player",
+            t: 12,
+            skillCast: {
+              skillId: "v2c_ironman_brace",
+              skillName: "버티기",
+            },
+          },
+          {
+            kind: "info",
+            text: "[버티기] 보호막 +1501",
+            turn: "player",
+            t: 12,
+          },
+        ]}
+        playerName="Allure"
+      />,
+    );
+
+    expect(html.match(/data-battle-action=/g)).toHaveLength(1);
+    expect(html.replace(/<[^>]+>/g, "")).toContain(
+      "내 행동Allure버티기보호막 +1501",
+    );
+  });
+
+  it("시전 표식이 없는 기존 영겁 순환 로그도 직전 상대 행동과 분리한다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "enemy_attack",
+            text: "공격! 321 피해를 입혔다.",
+            turn: "enemy",
+            t: 10,
+          },
+          {
+            kind: "info",
+            text: "[영겁 순환] 행동마다 HP +10% (4행동)",
+            turn: "player",
+            t: 12,
+          },
+          {
+            kind: "info",
+            text: "[영겁 순환] 활력 +18% (4행동)",
+            turn: "player",
+            t: 12,
+          },
+        ]}
+        playerName="천년이두번지나도"
+        enemyName="상대"
+      />,
+    );
+
+    expect(html.match(/data-battle-action=/g)).toHaveLength(2);
+    expect(html).toContain('data-battle-action="left"');
+    expect(html.replace(/<[^>]+>/g, "")).toContain(
+      "내 행동천년이두번지나도영겁 순환행동마다 HP +10% (4행동)활력 +18% (4행동)",
+    );
+  });
+
+  it("같은 ATB 묶음의 명상과 후속 보호막 시전을 서로 다른 행동으로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "player_attack",
+            text: "명상! 마나 125 회복했다.",
+            turn: "player",
+            t: 10,
+          },
+          {
+            kind: "info",
+            text: "",
+            turn: "player",
+            t: 14,
+            skillCast: {
+              skillId: "v2c_ironman_brace",
+              skillName: "버티기",
+            },
+          },
+          {
+            kind: "info",
+            text: "[버티기] 보호막 +1501",
+            turn: "player",
+            t: 14,
+          },
+        ]}
+        playerName="Allure"
+      />,
+    );
+
+    expect(html.match(/data-battle-action=/g)).toHaveLength(2);
+    expect(html.replace(/<[^>]+>/g, "")).toContain(
+      "명상마나 125 회복했다.",
+    );
+    expect(html.replace(/<[^>]+>/g, "")).toContain(
+      "버티기보호막 +1501",
+    );
+  });
+
+  it("시전 표식 뒤의 일반 피해 로그는 중복 카드 없이 실제 결과로 합친다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "info",
+            text: "",
+            turn: "player",
+            t: 20,
+            skillCast: {
+              skillId: "v2c_mage_fireball",
+              skillName: "화염구",
+            },
+          },
+          {
+            kind: "info",
+            text: "[화염구 + 연소] +2스택 (3회)",
+            turn: "player",
+            t: 20,
+          },
+          {
+            kind: "player_attack",
+            text: "화염구! 432 피해를 입혔다.",
+            turn: "player",
+            t: 20,
+          },
+        ]}
+        playerName="Allure"
+      />,
+    );
+
+    expect(html.match(/data-battle-action=/g)).toHaveLength(1);
+    const text = html.replace(/<[^>]+>/g, "");
+    expect(text).toContain("화염구");
+    expect(text).toContain("432 피해");
+    expect(text).toContain("연소");
+  });
+
+  it("시전 표식과 피해 결과 사이의 방어 계산도 같은 스킬 행동에 유지한다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "info",
+            text: "",
+            turn: "player",
+            t: 30,
+            skillCast: {
+              skillId: "v2c_mage_fireball",
+              skillName: "화염구",
+            },
+          },
+          {
+            kind: "info",
+            text: "[회피 경감 20.0%] 훈련용 허수아비 피해 -108",
+            turn: "player",
+            t: 30,
+          },
+          {
+            kind: "player_attack",
+            text: "화염구! 432 피해를 입혔다.",
+            turn: "player",
+            t: 30,
+          },
+        ]}
+      />,
+    );
+
+    expect(html.match(/data-battle-action=/g)).toHaveLength(1);
+    expect(html).toContain("계산 상세");
+    expect(html.replace(/<[^>]+>/g, "")).toContain("432 피해");
+  });
+
+  it("시전 표식 뒤 확정 회피 결과는 빈 스킬 카드와 별도 행동으로 갈라지지 않는다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "info",
+            text: "",
+            turn: "player",
+            t: 40,
+            skillCast: {
+              skillId: "v2c_mage_fireball",
+              skillName: "화염구",
+            },
+          },
+          {
+            kind: "info",
+            text: "[회피 강화] 훈련용 허수아비가 Allure의 화염구을(를) 회피했다.",
+            turn: "player",
+            t: 40,
+          },
+        ]}
+        playerName="Allure"
+      />,
+    );
+
+    expect(html.match(/data-battle-action=/g)).toHaveLength(1);
+    const text = html.replace(/<[^>]+>/g, "");
+    expect(text).toContain("화염구");
+    expect(text).toContain("회피했다");
+  });
+
   it("중간 HP 표시를 접어도 연속된 서로 다른 행동을 독립 카드로 표시한다", () => {
     const html = renderToStaticMarkup(
       <BattleLogList

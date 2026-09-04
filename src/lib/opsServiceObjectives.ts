@@ -8,6 +8,19 @@ type RuntimeFeatureSample = {
 
 export type RuntimeObjectiveSnapshot = {
   enabled: boolean;
+  economyEventBatch?: {
+    startedAt: string;
+    pending: number;
+    inFlight: number;
+    successfulBatches: number;
+    successfulEntries: number;
+    averageBatchSize: number;
+    maxBatchSize: number;
+    failedBatches: number;
+    failedEntries: number;
+    lastSuccessAt: string | null;
+    lastFailureAt: string | null;
+  };
   current: {
     features: Record<string, RuntimeFeatureSample | undefined>;
   };

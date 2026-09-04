@@ -2,16 +2,37 @@
   <title id="title">개명 허가증</title>
   <desc id="desc">파란색 타일 위 문서와 깃펜으로 표현한 개명 허가증</desc>
 
-  <rect width="256" height="256" rx="54" fill="#1d4ed8"/>
-  <rect x="4" y="4" width="248" height="248" rx="50" fill="none" stroke="#60a5fa" stroke-width="4"/>
+  <defs>
+    <linearGradient id="rename-bg" x1="24" y1="16" x2="231" y2="240" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#93c5fd"/>
+      <stop offset="0.46" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <linearGradient id="rename-paper" x1="61" y1="48" x2="191" y2="213" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fffef8"/>
+      <stop offset="0.7" stop-color="#ffefc2"/>
+      <stop offset="1" stop-color="#d5b778"/>
+    </linearGradient>
+    <linearGradient id="rename-quill" x1="180" y1="126" x2="135" y2="210" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff09c"/>
+      <stop offset="0.55" stop-color="#ffca28"/>
+      <stop offset="1" stop-color="#d47c0d"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="54" fill="#172554"/>
+  <rect x="4" y="4" width="248" height="248" rx="50" fill="url(#rename-bg)" stroke="#bfdbfe" stroke-width="4"/>
+  <path d="M25 69C40 31 73 17 120 14H55c-23 0-41 18-41 41v77c2-26 5-46 11-63Z" fill="#fff" opacity=".23"/>
 
-  <path d="M48 39h122l38 38v140H48Z" fill="#fff8e8" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M55 47h122l38 38v140H55Z" fill="#172554" opacity=".42"/>
+  <path d="M48 39h122l38 38v140H48Z" fill="url(#rename-paper)" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M62 52h94" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".7"/>
   <path d="M170 39v39h38" fill="#c6a6f4" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
   <circle cx="86" cy="96" r="22" fill="#5ba7ff" stroke="#2a0a5e" stroke-width="7"/>
   <path d="M65 137c5-17 14-25 21-25s16 8 21 25Z" fill="#52d3c4" stroke="#2a0a5e" stroke-width="7" stroke-linejoin="round"/>
   <path d="M126 101h54M126 124h42M71 166h93M71 188h68" stroke="#6f35b3" stroke-width="10" stroke-linecap="round"/>
 
-  <path d="M200 120c-31 15-47 35-60 70l-20 22 28-12c31-17 46-36 60-68Z" fill="#ffca28" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M200 120c-31 15-47 35-60 70l-20 22 28-12c31-17 46-36 60-68Z" fill="url(#rename-quill)" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M195 133c-21 13-35 31-46 56 16-13 32-29 46-56Z" fill="#fff7c7" opacity=".64"/>
   <path d="m141 190 39-39" stroke="#fff8e8" stroke-width="6" stroke-linecap="round"/>
   <path d="m120 212 20-22" stroke="#2a0a5e" stroke-width="8" stroke-linecap="round"/>
 </svg>

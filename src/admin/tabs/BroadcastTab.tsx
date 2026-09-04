@@ -288,7 +288,7 @@ export function BroadcastTab() {
               className={`text-[11px] ${
                 content.length > BULLETIN_NOTICE_MAX_LENGTH
                   ? "text-red-500"
-                  : "text-zinc-400 dark:text-zinc-500"
+                  : "text-zinc-600 dark:text-zinc-400"
               }`}
             >
               {content.length} / {BULLETIN_NOTICE_MAX_LENGTH}
@@ -559,7 +559,7 @@ export function BroadcastTab() {
       </div>
 
       {readOnly && (
-        <p className="text-xs text-amber-600 dark:text-amber-400">
+        <p className="text-xs text-amber-700 dark:text-amber-400">
           보기 전용 모드 — 상단에서 편집 가능으로 전환해야 동작합니다.
         </p>
       )}

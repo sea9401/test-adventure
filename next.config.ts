@@ -39,8 +39,8 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline' https://*.hcaptcha.com",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://challenges.cloudflare.com https://*.hcaptcha.com",
-  "frame-src https://challenges.cloudflare.com https://*.hcaptcha.com",
+  "connect-src 'self' https://challenges.cloudflare.com https://*.hcaptcha.com https://*.tosspayments.com",
+  "frame-src https://challenges.cloudflare.com https://*.hcaptcha.com https://*.tosspayments.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   ...(process.env.NODE_ENV === "production"

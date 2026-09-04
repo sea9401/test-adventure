@@ -2,8 +2,26 @@
   <title id="title">꾸미기 30일 연장권</title>
   <desc id="desc">황금빛 갈색 타일 위 달력과 노란색 연장 화살표 아이콘</desc>
 
-  <rect width="256" height="256" rx="54" fill="#92400e"/>
-  <rect x="4" y="4" width="248" height="248" rx="50" fill="none" stroke="#fbbf24" stroke-width="4"/>
+  <defs>
+    <linearGradient id="extension-bg" x1="25" y1="18" x2="230" y2="238" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fde68a"/>
+      <stop offset="0.48" stop-color="#d97706"/>
+      <stop offset="1" stop-color="#78350f"/>
+    </linearGradient>
+    <linearGradient id="extension-arrow" x1="65" y1="72" x2="203" y2="205" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff4a8"/>
+      <stop offset="0.55" stop-color="#ffca28"/>
+      <stop offset="1" stop-color="#c87908"/>
+    </linearGradient>
+    <linearGradient id="extension-calendar" x1="69" y1="64" x2="166" y2="188" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fffef9"/>
+      <stop offset="0.7" stop-color="#fff0c4"/>
+      <stop offset="1" stop-color="#d6b875"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="54" fill="#451a03"/>
+  <rect x="4" y="4" width="248" height="248" rx="50" fill="url(#extension-bg)" stroke="#fef3c7" stroke-width="4"/>
+  <path d="M25 69C40 31 73 17 120 14H55c-23 0-41 18-41 41v78c2-26 5-47 11-64Z" fill="#fff" opacity=".22"/>
 
   <!-- 연장 화살표: 달력 뒤에서 아래와 오른쪽을 감싸도록 배치 -->
   <path
@@ -16,20 +34,22 @@
   <path
     d="M51 130c-4 48 31 86 78 86 52 0 88-37 88-88 0-28-11-51-31-67"
     fill="none"
-    stroke="#ffca28"
+    stroke="url(#extension-arrow)"
     stroke-width="16"
     stroke-linecap="round"
   />
   <path
     d="M178 42l42 28c6 4 5 10-1 13l-45 17c-7 3-11-1-9-8l10-44c1-6 3-7 3-6Z"
-    fill="#ffca28"
+    fill="url(#extension-arrow)"
     stroke="#2a0a5e"
     stroke-width="8"
     stroke-linejoin="round"
   />
 
   <!-- 달력 -->
-  <rect x="48" y="57" width="136" height="132" rx="24" fill="#fff8e8" stroke="#2a0a5e" stroke-width="8"/>
+  <rect x="55" y="65" width="136" height="132" rx="24" fill="#451a03" opacity=".4"/>
+  <rect x="48" y="57" width="136" height="132" rx="24" fill="url(#extension-calendar)" stroke="#2a0a5e" stroke-width="8"/>
+  <path d="M67 69h91" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".7"/>
   <path d="M49 97h134" fill="none" stroke="#2a0a5e" stroke-width="8"/>
 
   <rect x="70" y="38" width="25" height="43" rx="12.5" fill="#fff8e8" stroke="#2a0a5e" stroke-width="8"/>

@@ -414,7 +414,7 @@ export function LifeRequestBoard({
         {LIFE_REQUEST_BOARD_TABS.map((entry) => {
           const Icon = entry.icon;
           return (
-            <button key={entry.id} type="button" aria-pressed={boardTab === entry.id} onClick={() => setBoardTab(entry.id)} className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-semibold transition ${boardTab === entry.id ? "bg-white text-amber-700 shadow-sm dark:bg-zinc-800 dark:text-amber-300" : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100"}`}>
+            <button key={entry.id} type="button" aria-pressed={boardTab === entry.id} onClick={() => setBoardTab(entry.id)} className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-semibold transition ${boardTab === entry.id ? "bg-white text-amber-700 shadow-sm dark:bg-zinc-800 dark:text-amber-300" : "text-zinc-600 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100"}`}>
               <Icon size={16} weight={boardTab === entry.id ? "fill" : "regular"} />{entry.label}
             </button>
           );
@@ -735,7 +735,7 @@ export function LifeRequestCard({
             </div>
             <div className="shrink-0 text-right">
               <div className="text-xs text-zinc-500">현재 보유</div>
-              <div className={`mt-0.5 font-extrabold ${enough ? "text-emerald-700 dark:text-emerald-300" : "text-rose-600 dark:text-rose-300"}`}>
+              <div className={`mt-0.5 font-extrabold ${enough ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"}`}>
                 {request.balance.toLocaleString()} / {request.quantity.toLocaleString()}
               </div>
             </div>
@@ -743,7 +743,7 @@ export function LifeRequestCard({
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700" role="progressbar" aria-label={`${request.itemName} 납품 준비`} aria-valuemin={0} aria-valuemax={request.quantity} aria-valuenow={gathered}>
             <div className={`h-full rounded-full ${enough ? "bg-emerald-500" : "bg-rose-500"}`} style={{ width: `${gatheredPct}%` }} />
           </div>
-          <div className={`mt-1.5 text-right text-xs font-semibold ${enough ? "text-emerald-700 dark:text-emerald-300" : "text-rose-600 dark:text-rose-300"}`}>
+          <div className={`mt-1.5 text-right text-xs font-semibold ${enough ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"}`}>
             {enough ? "납품 준비 완료" : `${request.shortage.toLocaleString()}개 더 필요`}
           </div>
         </div>

@@ -11,6 +11,9 @@ import {
 
 type MarketplaceTradeReportReason =
   (typeof MARKETPLACE_TRADE_REPORT_REASONS)[number];
+type MarketplaceReportSourceType =
+  | "marketplace_trade"
+  | "marketplace_listing";
 
 export function marketplaceTradeReportResponseMessage(
   status: number,
@@ -31,6 +34,7 @@ export function marketplaceTradeReportResponseMessage(
 export function MarketplaceTradeReportDialog({
   tradeId,
   itemName,
+  sourceType = "marketplace_trade",
   reason,
   details,
   busy,
@@ -42,6 +46,7 @@ export function MarketplaceTradeReportDialog({
 }: {
   tradeId: number;
   itemName: string;
+  sourceType?: MarketplaceReportSourceType;
   reason: MarketplaceTradeReportReason;
   details: string;
   busy: boolean;
@@ -51,6 +56,10 @@ export function MarketplaceTradeReportDialog({
   onSubmit: () => void;
   onClose: () => void;
 }) {
+  const reportLabel =
+    sourceType === "marketplace_listing" ? "매물" : "거래";
+  const snapshotLabel =
+    sourceType === "marketplace_listing" ? "매물 접수 당시" : "거래 당시";
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
@@ -61,26 +70,27 @@ export function MarketplaceTradeReportDialog({
       <section
         role="dialog"
         aria-modal="true"
-        aria-labelledby={`marketplace-trade-report-title-${tradeId}`}
+        aria-labelledby={`marketplace-${reportLabel}-report-title-${tradeId}`}
         className={`${SURFACE_CARD} w-full max-w-md p-5 text-zinc-900 dark:text-zinc-100`}
       >
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2
-              id={`marketplace-trade-report-title-${tradeId}`}
+              id={`marketplace-${reportLabel}-report-title-${tradeId}`}
               className="text-lg font-bold"
             >
-              {itemName} 거래 신고
+              {itemName} {reportLabel} 신고
             </h2>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-              의심되는 사유를 선택해주세요. 거래 당시 기록은 운영자에게만 전달됩니다.
+              의심되는 사유를 선택해주세요. {snapshotLabel} 기록은
+              운영자에게만 전달됩니다.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
-            aria-label="거래 신고 창 닫기"
+            aria-label={`${reportLabel} 신고 창 닫기`}
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
             <X size={18} weight="bold" aria-hidden />
@@ -158,9 +168,11 @@ export function MarketplaceTradeReportDialog({
 export function MarketplaceTradeReportButton({
   tradeId,
   itemName,
+  sourceType = "marketplace_trade",
 }: {
   tradeId: number;
   itemName: string;
+  sourceType?: MarketplaceReportSourceType;
 }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] =
@@ -189,7 +201,7 @@ export function MarketplaceTradeReportButton({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           subjectType: "content",
-          sourceType: "marketplace_trade",
+          sourceType,
           sourceId: tradeId,
           reason,
           details,
@@ -217,6 +229,7 @@ export function MarketplaceTradeReportButton({
     <MarketplaceTradeReportDialog
       tradeId={tradeId}
       itemName={itemName}
+      sourceType={sourceType}
       reason={reason}
       details={details}
       busy={busy}
@@ -237,7 +250,7 @@ export function MarketplaceTradeReportButton({
           setOpen(true);
         }}
         disabled={busy || reported}
-        aria-label={`${itemName} 거래 신고`}
+        aria-label={`${itemName} ${sourceType === "marketplace_listing" ? "매물" : "거래"} 신고`}
         className="inline-flex min-h-9 items-center gap-1 rounded-md border border-rose-300 px-2.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950"
       >
         <Flag size={14} weight="bold" aria-hidden />

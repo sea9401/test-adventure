@@ -1,6 +1,8 @@
 # 운영 런북 (msmsge.com)
 
-이 게임을 **운영(배포·DB·장애대응)** 할 때 보는 단일 문서. 2026-06-27 베타 준비 중 실제 인프라를 확인해 정리했다.
+이 게임을 **운영(배포·DB·장애대응)** 할 때 보는 단일 문서. 2026-09-03 현재 실제
+배포 자동화와 인프라를 기준으로 갱신했다. 개발부터 출시까지의 전체 흐름은
+[`staging-release-flow.md`](./staging-release-flow.md)를 함께 본다.
 
 > 🔒 **비밀값은 여기 두지 않는다** — 위치만 가리킨다. (DB 비밀번호·OAuth 키·`CRON_SECRET` = AWS SSM SecureString, SSH 키 = 로컬 `.pem`.)
 > 🔁 사실이 바뀌면(서버 이전·리전 변경 등) 이 문서를 먼저 고친다.
@@ -42,7 +44,18 @@ EC2엔 `psql`·`pg_dump` **18.3**(RDS와 일치)·`aws` CLI·`node`가 있다. A
 
 ## 3. 배포
 
-**배포 = `main`의 CI 통과 SHA를 수동 승인**. 흐름: GitHub Action `deploy.yml`이 정확한 SHA를 EC2에서 체크아웃 → 운영 환경 사전 검사 → **nginx 점검 ON** → 운영·스테이징 Next.js 런타임 정지 → `install-deps.sh` → systemd 메모리·스왑·CPU 한도 안에서 `npm run build` → `migrate.mjs`(대기 마이그 적용) → `sudo systemctl start adventure-rpg` → **내부 스모크**(`/api/health`+`/sign-in`+`deploy-smoke` 200 재시도 검증) → 스테이징 런타임 복구 → **점검 OFF** → **외부 공개 표면 스모크**(실제 도메인·TLS·nginx 경유, 배포 SHA·정책 문서·숨김 경로 검증). 빌드나 배포가 실패하면 남은 빌드 프로세스를 종료하고 이전 빌드로 운영 서비스를 복구하며, 복구 health가 실패할 때만 점검 화면을 유지한다.
+**배포 = `main`의 CI를 통과한 정확한 SHA를 수동 승인**한다. `main` push만으로 운영
+배포가 시작되지는 않는다. GitHub Action `deploy.yml`은 해당 SHA의 성공한 전체 CI와
+`production-next-<SHA>` 아티팩트를 확인하고 체크섬 검증·EC2 전송까지 마친다. 그 뒤
+EC2에서 운영 환경 사전 검사 → **nginx 점검 ON** → 운영 런타임 정지 → 검증된 빌드 교체
+→ `migrate.mjs` → 서비스 시작 → 내부 스모크(`/api/health`·`/sign-in`·`deploy-smoke`)
+순서로 진행한다. 일반 아티팩트 배포에서는 EC2 재빌드를 하지 않으며, 비상 수동 실행에서만
+자원 제한 빌드를 fallback으로 사용한다.
+
+성공 뒤에도 **점검 모드를 유지**하고, Action은 실제 도메인에서 health 200, 정확한 build
+ID와 점검 503을 확인한다. 사용자가 결과 확인 후 점검 해제를 별도로 지시한 경우에만
+`bash deploy/maintenance.sh off`를 실행하고 공개 표면을 다시 점검한다. 런타임 교체 뒤
+실패하면 이전 빌드와 서비스를 복구하되 점검 모드는 성공·실패와 관계없이 유지한다.
 
 > ✅ **배포 후 스모크**: 재시작 뒤 라이브를 찔러보고 200 이 아니면 **배포 Action 을 빨간불**로 만든다(빌드 성공 ≠ 앱 정상 — 마이그 0-테이블 같은 사고도 잡음). 빨간불 뜨면 → `rollback.sh` 로 되돌린다.
 
@@ -72,10 +85,19 @@ rate limit / scanner block과 `www.msmsge.com` → `https://msmsge.com` 301 리�
 ### 롤백 (나쁜 배포 되돌리기)
 나쁜 배포(크래시·깨진 페이지)가 나갔을 때. **직전 정상 커밋 = 마지막으로 성공한 배포 Action 의 커밋**(`gh run list --workflow=deploy.yml` / GitHub Actions 히스토리).
 
-**A. 정석(깨끗·~2분)** — `main` 을 고쳐 되돌리는 배포를 낸다(force-push 금지):
+**A. 정석** — `main`을 고친 뒤 되돌린 SHA를 수동 배포한다(force-push 금지):
 ```bash
-git revert <나쁜커밋sha> && git push    # → 자동 재배포로 되돌림
+git revert <나쁜커밋sha>
+git push
+# 되돌린 main SHA의 CI와 production-next-<SHA> 준비 확인
+# GitHub Actions → Deploy to EC2 → deploy_sha와 내용수정 검토 입력
 ```
+
+`content_modification_status`는 `not-applicable`(게임 내용 변경 없음),
+`technical-only`(게임 내용 변경 없는 기술적 보완), `reported`(내용수정신고 접수) 중
+하나를 고르고 판단 근거를 `content_modification_summary`에 적는다. `reported`이면
+접수번호 또는 신고 기록 위치도 반드시 입력한다. 이 검토가 끝나지 않으면 아티팩트 확인과
+운영 서버 전송을 시작하지 않는다.
 
 **B. 긴급(사이트 지금 죽음·즉시)** — EC2 에서 직전 정상 커밋으로 로컬 롤백:
 ```bash
@@ -83,7 +105,9 @@ git revert <나쁜커밋sha> && git push    # → 자동 재배포로 되돌림
 bash deploy/rollback.sh                 # 인자 없이 = 현재/최근 커밋 목록
 bash deploy/rollback.sh <좋은sha>        # reset→install→build→restart→health
 ```
-→ `rollback.sh` 가 배포와 동일 단계로 그 커밋을 띄운다. **끝나면 반드시 A(main revert)도** — 안 그러면 다음 배포의 `git reset --hard origin/main` 이 나쁜 코드를 다시 당겨온다.
+→ `rollback.sh`가 그 커밋을 로컬 런타임에 띄운다. **끝나면 반드시 A(`main` revert와
+되돌린 SHA의 수동 배포)도 수행한다.** 그렇지 않으면 저장소의 출시 기준과 실제 런타임이
+어긋나고 다음 운영 배포에서 나쁜 코드가 다시 적용될 수 있다.
 
 > 롤백 스크립트도 점검 화면을 자동으로 켜고, 복구된 앱의 health 200을 확인한 뒤에도 유지한다. 운영자가 결과를 확인하고 별도로 승인한 경우에만 `bash deploy/maintenance.sh off`를 실행한다.
 > ⚠️ **마이그레이션 포함 배포**면 코드 롤백만으론 부족(마이그는 전진 전용). 롤백한 코드가 새 스키마와 안 맞으면 → **백업 복원**(§4) 또는 교정 마이그. 스키마-코드 정합을 먼저 확인.
@@ -194,7 +218,7 @@ psql "$DBURL" -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity \
 psql "$DBURL" -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
 psql "$DBURL" -c 'DROP SCHEMA drizzle CASCADE;'           # 🔑 3) 필수! (아래 함정 참고)
 node --env-file=/run/adventure-rpg/production.env src/db/migrate.mjs  # 4) 현재 마이그레이션 전체 재적용
-bash deploy/maintenance.sh off   # 5) 앱 health 200 확인 후 점검 OFF
+# 5) 앱 health와 결과 확인 뒤, 별도 사용자 승인 후 maintenance.sh off
 # 검증: public 테이블·drizzle migration 수가 모두 0보다 커야 한다.
 # 2026-07-23 운영 기준은 public 67개, migration log 124개(새 마이그 추가 시 증가).
 # (DROP 이 락에 막히면 sudo systemctl stop adventure-rpg 후 진행해도 nginx 점검 화면은 유지됨)
@@ -308,6 +332,21 @@ DB 지연은 다음 순서로 판단한다.
 상세한 SQL별 분석이 필요할 때 수행한다. 파라미터 그룹 재부팅 또는 과금·보존기간 변경이
 수반될 수 있으므로 운영 승인 없이 적용하지 않는다. 승인 후에는 변경 전 파라미터 그룹,
 예상 재부팅 여부, 비용과 롤백 절차를 기록하고 점검 시간에 적용한다.
+
+### 고빈도 경제 로그 쓰기와 보존 용량
+
+`life.*`와 `currency.fishing.catch` 경제 이벤트는 원본 행을 생략하거나 합치지 않고,
+프로세스에서 25ms 또는 100건 중 먼저 도달하는 시점에 다중 행 INSERT로 기록한다.
+여러 요청의 배치 쿼리는 요청별 DB 쿼리 수에 잘못 귀속되지 않도록 프로파일러 문맥 밖에서
+실행한다. 거래소, 보상 실패, 관리자 지급 등 감사·후속 판정이 필요한 이벤트는 기존 단건
+경로에서 즉시 기록한다.
+
+일일 `ops-retention`은 경제 로그에 한해 5,000건씩 최대 24배치, 총 120,000건의 30일 만료
+행을 정리한다. `results.economy.more=true`가 남으면 정리 용량을 모두 사용하고도 적체가
+있다는 뜻이다. DB 증설 전에 최근 24시간 `economy_events` 유입량, 이 값과
+`runtime.databasePool.waiting`을 함께 비교한다. 일일 유입이 120,000건에 근접하면 이벤트
+유형별 증가 원인을 먼저 찾고, 생활 로그 집계·샘플링은 이상 행동 탐지 정확도에 미치는
+영향을 검토한 별도 변경으로 적용한다.
 
 ```bash
 systemctl list-timers \
@@ -508,7 +547,9 @@ bash infra/operations/harden-rds.sh apply-safe
 - **초기화 시 `drizzle` 스키마**: 위 §4 참고 — 반드시 같이 드롭.
 - **pg_dump 버전**: ≥ 서버. 16<18.
 - **옛 Neon URL**: stale 좀비. 진짜 prod = RDS.
-- **main 머지 = 즉시 운영**: 스테이징 없음. CI(`check`) 통과는 런타임 정상을 보장 안 함 → 배포 후 `/api/health` 확인 습관.
+- **`main` 머지 ≠ 즉시 운영**: 개발·플레이 검증은 별도 `staging`과 테스트 서버에서
+  진행한다. 운영은 정확한 `main` SHA의 전체 CI·아티팩트를 확인한 뒤 `Deploy to EC2`를
+  수동 실행해야 바뀐다.
 - **점검 모드**: ✅ nginx 레벨 구현 — `deploy/maintenance.sh on|off` (§4b). 앱 완전 stop/build/restart 중에도 정적 503 화면 유지.
 
 ## 8b. 운영 문의 빠른 확인
@@ -551,11 +592,24 @@ bash infra/operations/harden-rds.sh apply-safe
   순차 요청한다. 한 요청이 수백~수천 전투를 한 트랜잭션에서 처리하지 않는다.
 
 ### 배포 후 점검
-1. GitHub Actions `CI`와 `Deploy to EC2` 성공 확인.
-2. `curl -fsS https://msmsge.com/api/health` 와 `/api/version` 확인.
-3. 배포 Action 의 `deploy-smoke 200` 로그 확인. 낚시 상태, 사냥, 길드 훈련장, 관리자 ops API 모듈 로드도 같이 점검된다.
-4. `Verify public release surface` 성공 확인. `/api/version`이 배포 SHA와 일치하고 정책·로그인·검색 메타 경로는 200, `/dev`와 코인 상점 화면·API 및 개발 API는 404여야 한다.
-5. 관리자 `운영 현황`에서 webhook 설정, 알림 카드, 최근 경제 이벤트가 비정상적으로 튀지 않는지 확인.
+1. 정확한 `main` SHA의 `CI`와 `production-next-<SHA>` 아티팩트, 수동
+   `Deploy to EC2` 성공을 확인한다.
+2. 배포 Action의 내부 `deploy-smoke 200` 로그를 확인한다. 낚시 상태, 사냥, 길드
+   훈련장, 관리자 ops API 모듈 로드도 같이 점검된다.
+3. `Verify deployment remains in maintenance` 성공을 확인한다. 공개 `/api/health`는
+   200, `/api/version`은 배포 SHA, 일반 화면은 올바른 점검 503이어야 한다.
+4. 관리자 `운영 현황`에서 webhook 설정, 알림 카드, 최근 경제 이벤트가 비정상적으로
+   튀지 않는지 확인한다.
+5. 위 결과 확인 후 사용자가 점검 해제를 별도로 지시한 경우에만
+   `bash deploy/maintenance.sh off`를 실행한다.
+6. 해제 뒤 공개 표면 검사를 다시 실행한다. 정책·로그인·검색 메타 경로는 200,
+   `/dev`와 코인 상점 화면·API 및 개발 API는 404여야 한다.
+
+```bash
+PUBLIC_RELEASE_EXPECTED_BUILD_ID=<40자리 SHA> \
+  PUBLIC_RELEASE_MAINTENANCE_POLICY=forbid \
+  npm run check-public-release
+```
 
 ---
 

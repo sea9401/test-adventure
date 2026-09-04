@@ -18,6 +18,7 @@ import {
   CRIT_MULT_BASE,
   PLAYER_BLEED_ATK_COEF_PER_STACK,
   RAMPAGE_START_TURN,
+  SKILL_CRIT_MULT,
 } from "../data/v2/v2CombatConstants";
 import type { Potion } from "../data/potions";
 import {
@@ -605,6 +606,78 @@ describe("공격자 측 능력 — 대칭 적용", () => {
     const dealt = s0.p2.hp - s1.p2.hp;
     expect(dealt).toBe(Math.floor(100 * CRIT_MULT_BASE));
     expect(s1.log.some((e) => e.text.includes("치명타"))).toBe(true);
+  });
+
+  it("PvP 평타는 저항을 먼저 빼고 확률 상한과 초과 치명 피해를 계산한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const s0 = initialBattleStatePvP(
+      makePlayer({
+        spd: 15,
+        atk: 100,
+        def: 0,
+        critChancePct: 150,
+        hp: 1_000,
+        maxHp: 1_000,
+        attackCount: 1,
+        extraAttackChancePct: 0,
+      }),
+      makePlayer({
+        spd: 5,
+        atk: 1,
+        def: 0,
+        critResistPct: 50,
+        hp: 5_000,
+        maxHp: 5_000,
+      }),
+      "공격자",
+      "대상",
+    );
+
+    const s1 = advanceTurnPvP(s0);
+
+    expect(s0.p2.hp - s1.p2.hp).toBe(
+      Math.floor(100 * (CRIT_MULT_BASE + 0.25)),
+    );
+    expect(s1.log.some((entry) => entry.text.includes("치명타"))).toBe(true);
+  });
+
+  it("PvP 확정 평타 치명타는 저항을 무시해 원본 초과 치명 피해를 유지한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const initial = initialBattleStatePvP(
+      makePlayer({
+        spd: 15,
+        atk: 100,
+        def: 0,
+        critChancePct: 150,
+        hp: 1_000,
+        maxHp: 1_000,
+        attackCount: 1,
+        extraAttackChancePct: 0,
+      }),
+      makePlayer({
+        spd: 5,
+        atk: 1,
+        def: 0,
+        critResistPct: 150,
+        hp: 5_000,
+        maxHp: 5_000,
+      }),
+      "공격자",
+      "대상",
+    );
+    const queued = {
+      ...initial,
+      p1: {
+        ...initial.p1,
+        flags: { ...initial.p1.flags, fatedChainCritPending: true },
+      },
+    };
+
+    const resolved = advanceTurnPvP(queued);
+
+    expect(queued.p2.hp - resolved.p2.hp).toBe(
+      Math.floor(100 * (CRIT_MULT_BASE + 0.5)),
+    );
   });
 
   it("처형 (executionDamageMult) — defender HP 비율이 임계 미만이면 데미지 배수", () => {
@@ -1864,7 +1937,7 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     expect(castDamage(100, 30)).toBe(Math.floor(noCritDamage * 2));
   });
 
-  it("PvP 확률 스킬 치명타는 대상의 치명타 저항만큼 발생 확률이 감소한다", () => {
+  it("PvP 확률 스킬 치명타는 상한 전에 대상의 치명타 저항을 차감한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const castDamage = (critChancePct: number, critResistPct: number) => {
       const state = initialBattleStatePvP(
@@ -1896,8 +1969,93 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     };
 
     const noCritDamage = castDamage(0, 0);
-    expect(castDamage(100, 75)).toBe(noCritDamage);
-    expect(castDamage(100, 74)).toBeGreaterThan(noCritDamage);
+    expect(castDamage(100, 100)).toBe(noCritDamage);
+    expect(castDamage(100, 99)).toBeGreaterThan(noCritDamage);
+  });
+
+  it("PvP 스킬 초과 치명 피해는 저항을 적용하고 남은 초과분만 사용한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const castDamage = (critChancePct: number, critResistPct: number) => {
+      const state = initialBattleStatePvP(
+        makePlayer({
+          hp: 500,
+          maxHp: 500,
+          maxMp: 500,
+          mp: 500,
+          atk: 100,
+          spd: 99,
+          critChancePct,
+          skillCritOverflow: true,
+        }),
+        makePlayer({
+          hp: 10_000,
+          maxHp: 10_000,
+          def: 0,
+          spd: 1,
+          critResistPct,
+        }),
+        "공격자",
+        "대상",
+        {
+          learned: ["v2_skill_strike"],
+          equipped: ["v2_skill_strike"],
+        },
+      );
+      const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+      return state.p2.hp - cast.p2.hp;
+    };
+
+    const noCritDamage = castDamage(0, 0);
+    expect(castDamage(150, 50)).toBe(
+      Math.floor(noCritDamage * (SKILL_CRIT_MULT + 0.25)),
+    );
+  });
+
+  it("PvP 확정 스킬 치명타는 저항을 무시해 원본 초과 치명 피해를 유지한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const makeState = (critChancePct: number) =>
+      initialBattleStatePvP(
+        makePlayer({
+          hp: 500,
+          maxHp: 500,
+          maxMp: 500,
+          mp: 500,
+          atk: 100,
+          spd: 99,
+          critChancePct,
+          skillCritOverflow: true,
+        }),
+        makePlayer({
+          hp: 10_000,
+          maxHp: 10_000,
+          def: 0,
+          spd: 1,
+          critResistPct: 150,
+        }),
+        "공격자",
+        "대상",
+        {
+          learned: ["v2_skill_strike"],
+          equipped: ["v2_skill_strike"],
+        },
+      );
+    const control = makeState(0);
+    const controlCast = castV2SkillOnAttackerTurnPvP(control, "p1").state;
+    const noCritDamage = control.p2.hp - controlCast.p2.hp;
+    const initial = makeState(150);
+    const prepared = {
+      ...initial,
+      p1: {
+        ...initial.p1,
+        flags: { ...initial.p1.flags, skillCritAfterEvadePending: true },
+      },
+    };
+
+    const forced = castV2SkillOnAttackerTurnPvP(prepared, "p1").state;
+
+    expect(prepared.p2.hp - forced.p2.hp).toBe(
+      Math.floor(noCritDamage * (SKILL_CRIT_MULT + 0.5)),
+    );
   });
 
   it("원초 증폭은 PvP에서도 직접 마법 스킬 치명타에만 적용된다", () => {

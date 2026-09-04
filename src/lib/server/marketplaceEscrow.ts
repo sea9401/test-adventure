@@ -24,7 +24,11 @@ import { inboxValues } from "@/lib/server/inboxPayload";
 export type MarketplaceListingRow = typeof marketplaceListingsV2.$inferSelect;
 export type MarketplaceBuyOrderRow = typeof marketplaceBuyOrdersV2.$inferSelect;
 
-type EscrowReason = "user_cancel" | "trade_suspension" | "expired";
+type EscrowReason =
+  | "user_cancel"
+  | "trade_suspension"
+  | "expired"
+  | "feature_retired";
 type BidClearReason = Exclude<EscrowReason, "user_cancel"> | "account_delete";
 type BidRefundReason = EscrowReason | "account_delete";
 
@@ -47,6 +51,8 @@ function buyOrderRefundMessage(
   const subject =
     reason === "user_cancel"
       ? "구매 주문 취소"
+      : reason === "feature_retired"
+        ? "구매 주문 기능 종료"
       : reason === "expired"
         ? "구매 주문 만료"
         : "구매 주문 거래 제한 해제";
@@ -61,6 +67,8 @@ function bidRefundMessage(
   const subject =
     reason === "account_delete"
       ? "판매자 탈퇴"
+      : reason === "feature_retired"
+        ? "입찰제 전환"
       : reason === "expired"
         ? "유예 종료"
         : reason === "user_cancel"

@@ -113,7 +113,6 @@ import {
   CRIT_MULT_CEIL,
   CRIT_MULT_SCALE,
   CRIT_PER_LUK,
-  CRIT_RESIST_PCT_CAP,
   CRIT_RESIST_PER_SPI,
   DEF_PER_VIT,
   EVA_PER_DEX,
@@ -623,11 +622,10 @@ export function derivePlayerCombatV2Pure(
     ((input.passiveCritDmgPct ?? 0) +
       (liberation?.combat.critDamagePp ?? 0)) /
       100;
-  // 치명타 저항(신규) — 정신. 피격 시 상대 치명 확률 차감(%p). cap 적용(완전 봉인 방지).
-  //   ⚠️ 파생 스탯이라 PvE(치명형 몹)·PvP(engine.pvpPhase) **양쪽** 캡 — spi>500 빌드는 PvP
-  //   치명저항도 50%p 에서 멈춘다(현 플레이어 범위 밖이나 명시).
-  const critResistPct = Math.min(
-    CRIT_RESIST_PCT_CAP,
+  // 치명타 저항 — 정신·장비·해방 효과를 합산해 상대 원본 치명 확률에서 먼저 차감한다.
+  // 공격자의 확률 상한과 초과 치명 피해 전환은 이 저항을 적용한 뒤 계산한다.
+  const critResistPct = Math.max(
+    0,
     totalStats.spi * CRIT_RESIST_PER_SPI +
       equipAcc.critResist +
       (liberation?.combat.critResistPp ?? 0),

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">무슨 코인 5000개</title>
+  <desc id="desc">왕관 문양이 새겨진 붉은 금고와 쌓인 금빛 코인</desc>
+  <defs><linearGradient id="gold" x1="65" y1="45" x2="190" y2="210"><stop stop-color="#fef3c7"/><stop offset="1" stop-color="#d97706"/></linearGradient></defs>
+  <rect width="256" height="256" rx="48" fill="#450a0a"/>
+  <path d="M43 64h170c13 0 23 10 23 23v127c0 13-10 23-23 23H43c-13 0-23-10-23-23V87c0-13 10-23 23-23Z" fill="#991b1b" stroke="#fecaca" stroke-width="7"/>
+  <rect x="41" y="84" width="174" height="130" rx="14" fill="#7f1d1d" stroke="#fca5a5" stroke-width="5"/>
+  <path d="m82 126 18-27 28 22 28-22 18 27-12 29H94Z" fill="url(#gold)" stroke="#fde68a" stroke-width="4" stroke-linejoin="round"/>
+  <circle cx="128" cy="179" r="21" fill="#18181b" stroke="#fbbf24" stroke-width="7"/>
+  <path d="M128 169v20M118 179h20" stroke="#fbbf24" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="47" cy="49" r="24" fill="url(#gold)" stroke="#fef3c7" stroke-width="5"/>
+  <circle cx="209" cy="48" r="24" fill="url(#gold)" stroke="#fef3c7" stroke-width="5"/>
+</svg>

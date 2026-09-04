@@ -24,6 +24,10 @@ import {
 } from "@/adventure/data/v2/skillRitual";
 import { SkillEffectChips } from "./SkillEffectChips";
 import {
+  SkillDetailDialog,
+  SkillDetailTrigger,
+} from "./SkillDetailDialog";
+import {
   V2LoadoutPanel,
   type V2LoadoutData,
   type V2LoadoutSkill,
@@ -325,6 +329,90 @@ export function SkillLearningCostSummary({
   );
 }
 
+export function SkillLearningCard({
+  skill,
+  usable,
+  busy,
+  onLearn,
+  onOpenDetail,
+}: {
+  skill: ElementalRow;
+  usable: number;
+  busy: string | null;
+  onLearn: (skillId: string, cost: number) => void;
+  onOpenDetail: (
+    skillId: V2SkillId,
+    trigger: HTMLButtonElement,
+  ) => void;
+}) {
+  const affordable = usable >= skill.cost;
+
+  return (
+    <li className="ui-skill-card flex items-center justify-between gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
+      <SkillDetailTrigger
+        skillId={skill.skillId as V2SkillId}
+        skillName={skill.name}
+        onOpen={onOpenDetail}
+        className="min-w-0 flex-1 text-left"
+      >
+        <span className="block truncate text-sm font-semibold">
+          {skill.name}
+        </span>
+        <span className="mt-0.5 block line-clamp-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+          {skillDesc(skill.skillId)}
+        </span>
+        <SkillLearningCostSummary
+          learnCost={skill.cost}
+          spCost={skill.spCost}
+          learned={skill.learned}
+        />
+        <SkillEffectChips skillId={skill.skillId} />
+      </SkillDetailTrigger>
+      {!skill.learned ? (
+        <Button
+          onClick={() => onLearn(skill.skillId, skill.cost)}
+          disabled={busy != null || !affordable}
+          loading={busy === skill.skillId}
+          loadingLabel={`${skill.name} 학습 중`}
+          variant="success"
+          size="xs"
+          className="shrink-0"
+        >
+          학습
+        </Button>
+      ) : (
+        <span className="shrink-0 rounded-md border border-sky-500 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-700 dark:text-sky-300">
+          보유
+        </span>
+      )}
+    </li>
+  );
+}
+
+export function SkillRitualButton({
+  skill,
+  busy,
+  maxed,
+  onOpen,
+}: {
+  skill: V2LoadoutSkill;
+  busy: string | null;
+  maxed: boolean;
+  onOpen: (skill: V2LoadoutSkill) => void;
+}) {
+  return (
+    <Button
+      onClick={() => onOpen(skill)}
+      disabled={busy != null}
+      variant={maxed ? "secondary" : "success"}
+      size="xs"
+      className="shrink-0"
+    >
+      {busy === `ritual:${skill.skillId}` ? "진행 중…" : "강화"}
+    </Button>
+  );
+}
+
 export function V2SkillLearnView({
   onBack,
   embedded = false,
@@ -344,6 +432,7 @@ export function V2SkillLearnView({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useSystemMessageState();
+  const [detailSkillId, setDetailSkillId] = useState<V2SkillId | null>(null);
   const [ritualTarget, setRitualTarget] = useState<V2LoadoutSkill | null>(null);
   const [ritualMode, setRitualMode] = useState<SkillRitualMode>("power");
   const [statFeedback, setStatFeedback] = useState<{
@@ -677,49 +766,16 @@ export function V2SkillLearnView({
               : "학습한 스킬은 전투에서 자동 발동합니다. 발동 순서·조건은 스킬 패턴에서 설정하세요."}
           </p>
           <ul className="mt-3 space-y-1.5">
-            {elementalSkills.map((s) => {
-              const affordable = usable >= s.cost;
-              return (
-                <li
-                  key={s.skillId}
-                  className="ui-skill-card flex items-center justify-between gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-baseline gap-2">
-                      <span className="truncate text-sm font-semibold">
-                        {s.name}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 line-clamp-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-                      {skillDesc(s.skillId)}
-                    </p>
-                    <SkillLearningCostSummary
-                      learnCost={s.cost}
-                      spCost={s.spCost}
-                      learned={s.learned}
-                    />
-                    <SkillEffectChips skillId={s.skillId} />
-                  </div>
-                  {!s.learned ? (
-                    <Button
-                      onClick={() => learn(s.skillId, s.cost)}
-                      disabled={busy != null || !affordable}
-                      loading={busy === s.skillId}
-                      loadingLabel={`${s.name} 학습 중`}
-                      variant="success"
-                      size="xs"
-                      className="shrink-0"
-                    >
-                      학습
-                    </Button>
-                  ) : (
-                    <span className="shrink-0 rounded-md border border-sky-500 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-700 dark:text-sky-300">
-                      보유
-                    </span>
-                  )}
-                </li>
-              );
-            })}
+            {elementalSkills.map((s) => (
+              <SkillLearningCard
+                key={s.skillId}
+                skill={s}
+                usable={usable}
+                busy={busy}
+                onLearn={learn}
+                onOpenDetail={setDetailSkillId}
+              />
+            ))}
           </ul>
         </Card>
       )}
@@ -775,15 +831,12 @@ export function V2SkillLearnView({
                       </p>
                       <SkillEffectChips skillId={s.skillId} />
                     </div>
-                    <Button
-                      onClick={() => openRitual(s)}
-                      disabled={busy != null}
-                      variant={maxed ? "secondary" : "success"}
-                      size="xs"
-                      className="shrink-0"
-                    >
-                      {busy === `ritual:${s.skillId}` ? "진행 중…" : "상세"}
-                    </Button>
+                    <SkillRitualButton
+                      skill={s}
+                      busy={busy}
+                      maxed={maxed}
+                      onOpen={openRitual}
+                    />
                   </li>
                 );
               })
@@ -791,6 +844,13 @@ export function V2SkillLearnView({
           </ul>
         </Card>
       )}
+
+      {detailSkillId ? (
+        <SkillDetailDialog
+          skillId={detailSkillId}
+          onClose={() => setDetailSkillId(null)}
+        />
+      ) : null}
 
       {ritualTarget && (
         <div

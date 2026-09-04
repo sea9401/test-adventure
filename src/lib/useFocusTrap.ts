@@ -17,10 +17,16 @@ import { useEffect, type RefObject } from "react";
 //   useFocusTrap(ref);
 //   return <div role="dialog"><div ref={ref}>...</div></div>;
 //
-// 조건부 렌더링 가정 (open 일 때만 컴포넌트가 마운트되는 흔한 패턴). open prop 으로
-// 토글하는 경우엔 컴포넌트 자체를 조건부로 렌더해야 한다.
-export function useFocusTrap(ref: RefObject<HTMLElement | null>): void {
+// enabled=false 로 바꾸면 현재 trap 과 리스너를 정리해 일시 중지하고, 다시 true 로
+// 바꾸면 같은 마운트 안에서 현재 포커스를 기준으로 trap 을 재개한다. 중첩 모달이 열린
+// 동안 부모 trap 만 멈출 때 컴포넌트를 언마운트할 필요가 없다.
+export function useFocusTrap(
+  ref: RefObject<HTMLElement | null>,
+  enabled = true,
+): void {
   useEffect(() => {
+    if (!enabled) return;
+
     const container = ref.current;
     if (!container) return;
 
@@ -79,10 +85,7 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>): void {
         }
       }
     };
-    // ref 는 stable 한 RefObject 라 deps 비움 — open/close 시 컴포넌트 자체가
-    // 마운트/언마운트되어야 hook 이 다시 돈다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [enabled, ref]);
 }
 
 // 포커스 가능 요소: a[href], button, input/select/textarea (disabled 제외),

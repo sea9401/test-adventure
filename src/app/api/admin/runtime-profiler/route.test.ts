@@ -12,16 +12,34 @@ const mocks = vi.hoisted(() => {
     },
     history: [],
   };
+  const economyEventBatch = {
+    startedAt: "2026-08-09T12:00:00.000Z",
+    pending: 2,
+    inFlight: 10,
+    successfulBatches: 12,
+    successfulEntries: 850,
+    averageBatchSize: 70.83,
+    maxBatchSize: 100,
+    failedBatches: 0,
+    failedEntries: 0,
+    lastSuccessAt: "2026-08-09T12:00:29.000Z",
+    lastFailureAt: null,
+  };
   return {
     gate: vi.fn(async () => null as Response | null),
     snapshot: vi.fn(() => snapshotValue),
     snapshotValue,
+    economyEventBatch,
+    getEconomyEventBatchMetrics: vi.fn(() => economyEventBatch),
   };
 });
 
 vi.mock("@/lib/server/isAdmin", () => ({ requireAdmin: mocks.gate }));
 vi.mock("@/lib/server/runtimeProfiler/runtime", () => ({
   getRuntimeProfilerSnapshot: mocks.snapshot,
+}));
+vi.mock("@/lib/server/economyLog", () => ({
+  getEconomyEventBatchMetrics: mocks.getEconomyEventBatchMetrics,
 }));
 
 import { GET } from "./route";
@@ -36,8 +54,12 @@ describe("GET /api/admin/runtime-profiler", () => {
     const response = await GET();
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual(mocks.snapshotValue);
+    await expect(response.json()).resolves.toEqual({
+      ...mocks.snapshotValue,
+      economyEventBatch: mocks.economyEventBatch,
+    });
     expect(mocks.snapshot).toHaveBeenCalledOnce();
+    expect(mocks.getEconomyEventBatchMetrics).toHaveBeenCalledOnce();
   });
 
   it("관리자 권한이 없으면 프로파일러 스냅샷도 읽지 않는다", async () => {
@@ -47,5 +69,6 @@ describe("GET /api/admin/runtime-profiler", () => {
 
     expect(response.status).toBe(403);
     expect(mocks.snapshot).not.toHaveBeenCalled();
+    expect(mocks.getEconomyEventBatchMetrics).not.toHaveBeenCalled();
   });
 });

@@ -110,6 +110,35 @@ describe("폭풍 원정 다음 자동 행동", () => {
     });
   });
 
+  it("현재 위험 이벤트가 수락 대상으로 설정되면 다른 행동보다 먼저 수락한다", () => {
+    const riskEvent: StormExpeditionRiskEventOffer = {
+      id: "storm_contract",
+      triggerCheckpoint: "supply",
+      status: "offered",
+      boonId: null,
+      curseId: "raging_current",
+    };
+    const current = active({
+      currentNodeId: "supply",
+      visitedNodeIds: ["gale_outer", "supply"],
+      riskEvent,
+    });
+
+    expect(nextStormExpeditionAutoplayStep(status(current), {
+      ...plan,
+      riskEventDecisions: { storm_contract: "accept" },
+    })).toEqual({
+      kind: "request",
+      label: "폭풍 계약 수락하는 중",
+      request: {
+        action: "risk_event",
+        decision: "accept",
+        expectedCurrentNodeId: "supply",
+        expectedEncounterIndex: 0,
+      },
+    });
+  });
+
   it("미완료 전투는 최신 노드와 연전 번호로 싸운다", () => {
     const current = active({ encounterIndex: 1 });
     expect(nextStormExpeditionAutoplayStep(status(current), plan)).toEqual({

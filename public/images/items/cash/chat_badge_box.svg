@@ -2,17 +2,36 @@
   <title id="title">채팅 배지 상자</title>
   <desc id="desc">장미색 타일 위 별 배지가 달린 말풍선이 솟아나는 꾸미기 상자</desc>
 
-  <rect width="256" height="256" rx="54" fill="#9f1239"/>
-  <rect x="4" y="4" width="248" height="248" rx="50" fill="none" stroke="#fb7185" stroke-width="4"/>
+  <defs>
+    <linearGradient id="badge-bg" x1="25" y1="18" x2="230" y2="238" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fecdd3"/>
+      <stop offset="0.48" stop-color="#f43f5e"/>
+      <stop offset="1" stop-color="#881337"/>
+    </linearGradient>
+    <linearGradient id="badge-bubble" x1="70" y1="47" x2="180" y2="139" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fffef9"/>
+      <stop offset="1" stop-color="#e8cda5"/>
+    </linearGradient>
+    <linearGradient id="badge-box" x1="85" y1="171" x2="171" y2="215" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff9c9c"/>
+      <stop offset="1" stop-color="#c8324d"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="54" fill="#4c0519"/>
+  <rect x="4" y="4" width="248" height="248" rx="50" fill="url(#badge-bg)" stroke="#ffe4e6" stroke-width="4"/>
+  <path d="M25 69C40 31 73 17 120 14H55c-23 0-41 18-41 41v78c2-26 5-47 11-64Z" fill="#fff" opacity=".22"/>
 
-  <path d="M63 40h130c13 0 23 10 23 23v48c0 13-10 23-23 23h-59l-31 25 6-25H63c-13 0-23-10-23-23V63c0-13 10-23 23-23Z" fill="#fff8e8" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M70 48h130c13 0 23 10 23 23v48c0 13-10 23-23 23h-59l-31 25 6-25H70Z" fill="#4c0519" opacity=".36"/>
+  <path d="M63 40h130c13 0 23 10 23 23v48c0 13-10 23-23 23h-59l-31 25 6-25H63c-13 0-23-10-23-23V63c0-13 10-23 23-23Z" fill="url(#badge-bubble)" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M72 52h108" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".72"/>
   <circle cx="79" cy="88" r="9" fill="#52d3c4"/>
   <circle cx="111" cy="88" r="9" fill="#c6a6f4"/>
   <circle cx="143" cy="88" r="9" fill="#5ba7ff"/>
   <path d="m181 57 9 18 20 3-14 14 3 20-18-9-18 9 3-20-14-14 20-3Z" fill="#ffca28" stroke="#2a0a5e" stroke-width="6" stroke-linejoin="round"/>
 
   <path d="M50 153 82 126h92l32 27-18 21H68Z" fill="#fff8e8" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
-  <path d="M68 168h120v47H68Z" fill="#ef5c5c" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M75 175h120v46H75Z" fill="#4c0519" opacity=".35"/>
+  <path d="M68 168h120v47H68Z" fill="url(#badge-box)" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
   <path d="M118 168h20v47h-20Z" fill="#ffca28" stroke="#2a0a5e" stroke-width="7"/>
   <path d="M64 168h128" stroke="#2a0a5e" stroke-width="9" stroke-linecap="round"/>
 </svg>

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildLargeGoldMovementSignal } from "./economyLog";
+import {
+  buildLargeGoldMovementSignal,
+  isBatchedEconomyEvent,
+} from "./economyLog";
 
 describe("large gold movement signal", () => {
   it("거래 웹훅 집계를 위한 아이템·주문·총액 메타데이터를 보존한다", () => {
@@ -68,5 +71,23 @@ describe("large gold movement signal", () => {
         detail: { listingId: 1919 },
       })?.sample,
     ).toMatchObject({ itemName: "붕괴선봉 대검" });
+  });
+});
+
+describe("economy event write batching policy", () => {
+  it.each([
+    "life.fishing.attempt",
+    "life.mining.gather",
+    "currency.fishing.catch",
+  ])("고빈도 이벤트 %s를 배치한다", (eventType) => {
+    expect(isBatchedEconomyEvent({ eventType })).toBe(true);
+  });
+
+  it.each([
+    "marketplace.buy",
+    "reward.failure.quest",
+    "admin.reward.grant",
+  ])("감사 이벤트 %s는 즉시 기록한다", (eventType) => {
+    expect(isBatchedEconomyEvent({ eventType })).toBe(false);
   });
 });

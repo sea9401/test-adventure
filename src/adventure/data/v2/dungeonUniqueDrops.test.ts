@@ -112,7 +112,7 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
     expect(commonIdsForDepthRange(73, 78)).toHaveLength(21);
   });
 
-  it("별의 무덤은 천공 균열과 같은 21종 방어구 풀과 단계별 확률을 사용한다", () => {
+  it("별의 무덤은 같은 방어구 풀을 쓰되 최심부는 천공 균열의 별도 무기 기회를 보정한다", () => {
     const skyIds = commonIdsForDepthRange(73, 78);
     expect(commonIdsForDepthRange(79, 84)).toEqual(skyIds);
     expect([79, 80, 81, 82, 83, 84].map(bandCommonChanceForDepth)).toEqual([
@@ -121,7 +121,7 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
       0.00075,
       0.00075,
       0.001,
-      0.001,
+      0.0015,
     ]);
   });
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { hasCompletedOnboarding } from "@/lib/server/profile";
+import { hasMinimumAgeServiceAccess } from "@/lib/server/ageEligibility";
 import { CreateCharacterPageContents } from "./CreateCharacterPageContents";
 
 export const metadata: Metadata = {
@@ -13,6 +14,10 @@ export const metadata: Metadata = {
 // server component 로 두고 client boundary 는 CreateCharacterPageContents 가 명시
 // (SaveProvider/STARTER_SAVES 의 client hook chain 이 server build graph 로 끌려오는 것 회피).
 export default async function CreatePage() {
+  if (!(await hasMinimumAgeServiceAccess())) {
+    redirect("/sign-in?age=required");
+  }
+
   const session = await auth();
   // 비로그인은 Proxy가 이미 /sign-in 으로 보내지만 방어적으로 한 번 더.
   if (!session?.user) redirect("/sign-in");

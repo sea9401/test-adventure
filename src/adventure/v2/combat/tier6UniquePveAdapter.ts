@@ -125,7 +125,13 @@ function applyCommand(
   let next = state;
   let signatureDamage = 0;
   if (command.kind === "damage_fixed") {
-    next = { ...next, enemyHp: Math.max(0, next.enemyHp - command.amount) };
+    next = {
+      ...next,
+      enemyHp: Math.max(0, next.enemyHp - command.amount),
+      ...(next.enemyDamageDealtTotal == null
+        ? {}
+        : { enemyDamageDealtTotal: next.enemyDamageDealtTotal + command.amount }),
+    };
   } else if (command.kind === "damage_magic") {
     const magicDefense = effectiveTier6MagicDefense({
       baseDefense: next.enemy.magicDef ?? next.enemy.def,
@@ -141,7 +147,13 @@ function applyCommand(
       magicDefense,
     });
     signatureDamage = mitigated;
-    next = { ...next, enemyHp: Math.max(0, next.enemyHp - mitigated) };
+    next = {
+      ...next,
+      enemyHp: Math.max(0, next.enemyHp - mitigated),
+      ...(next.enemyDamageDealtTotal == null
+        ? {}
+        : { enemyDamageDealtTotal: next.enemyDamageDealtTotal + mitigated }),
+    };
   } else if (command.kind === "shield") {
     next = {
       ...next,

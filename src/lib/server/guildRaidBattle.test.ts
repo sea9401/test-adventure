@@ -31,6 +31,7 @@ describe("길드 토벌전 전투 어댑터", () => {
     });
     resolveBattle.mockReturnValue({
       turns: 8,
+      damageDealtTotal: 1_500_000,
       finalState: {
         enemyHp: COOP_BOSSES.mountain_chief_hard.sharedMaxHp - 12_345,
         playerHp: 380,
@@ -48,7 +49,7 @@ describe("길드 토벌전 전투 어댑터", () => {
 
     expect(result).toMatchObject({
       playerName: "레이더",
-      damageDealt: 12_345,
+      damageDealt: 1_500_000,
       damageTaken: 120,
       diedEarly: false,
       turns: 8,
@@ -58,6 +59,10 @@ describe("길드 토벌전 전투 어댑터", () => {
     expect(enemy.hp).toBe(COOP_BOSSES.mountain_chief_hard.sharedMaxHp);
     expect(playerName).toBe("레이더");
     expect(context).toMatchObject({ isBoss: true, initialEnemyHp: enemy.hp });
+    expect(context).toMatchObject({
+      damageMeter: { continueAfterDefeat: true, refillHp: enemy.hp },
+    });
+    expect(context.maxTurns).toBeUndefined();
   });
 
   it("캐릭터가 없으면 전투를 생성하지 않는다", async () => {
@@ -67,5 +72,30 @@ describe("길드 토벌전 전투 어댑터", () => {
       simulateGuildRaidBattle({ tx: {} as never, userId: "u1", bossKind: "mountain_chief_hard" }),
     ).resolves.toBeNull();
     expect(resolveBattle).not.toHaveBeenCalled();
+  });
+
+  it("연습 전투는 캐릭터 저장값을 잠금 없이 읽고 전투 준비에도 읽기 전용을 전달한다", async () => {
+    const tx = {} as never;
+
+    await simulateGuildRaidBattle({
+      tx,
+      userId: "u1",
+      bossKind: "mountain_chief_hard",
+      lockForUpdate: false,
+    });
+
+    expect(lockSaveForUpdate).not.toHaveBeenCalled();
+    expect(readSave).toHaveBeenCalledWith(
+      tx,
+      "u1",
+      "character.v2",
+      {},
+    );
+    expect(prepareV2BattleActor).toHaveBeenCalledWith({
+      tx,
+      userId: "u1",
+      charSave: { name: "레이더" },
+      lockForUpdate: false,
+    });
   });
 });

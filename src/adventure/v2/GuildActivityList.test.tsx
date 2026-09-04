@@ -55,3 +55,34 @@ describe("길드 전투보급 운용비 활동 로그", () => {
     );
   });
 });
+
+describe("반복 길드 활동 로그", () => {
+  it("연속된 동일 활동을 횟수와 함께 한 줄로 표시한다", () => {
+    const repeated = [1, 2, 3].map<GuildActivity>((id) => ({
+      id,
+      type: "workshop_craft_only",
+      actorName: "플루디아",
+      targetName: null,
+      meta: { itemName: "오로라 관장식" },
+      createdAt: new Date(2026, 8, 1, 19, 37, id).toISOString(),
+    }));
+    const different: GuildActivity = {
+      id: 4,
+      type: "member_join",
+      actorName: null,
+      targetName: "새길드원",
+      meta: null,
+      createdAt: new Date(2026, 8, 1, 19, 36).toISOString(),
+    };
+
+    const html = renderToStaticMarkup(
+      <GuildActivityList activity={[...repeated, different]} />,
+    );
+
+    expect(html.match(/<li/g)).toHaveLength(2);
+    expect(html).toContain(
+      "플루디아 님이 오로라 관장식 제작에 성공했어요 · 3회",
+    );
+    expect(html).toContain("새길드원 님이 길드에 합류했어요");
+  });
+});

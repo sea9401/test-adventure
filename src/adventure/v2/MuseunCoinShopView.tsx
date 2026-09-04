@@ -22,9 +22,9 @@ import {
 } from "@phosphor-icons/react";
 import {
   ADVENTURE_SUPPORT_PASS,
-  MUSEUN_COIN_PACKAGES,
   PREMIUM_ADVENTURE_SUPPORT_PASS,
 } from "@/adventure/data/v2/adventureSupport";
+import { MuseunCoinCheckout } from "./MuseunCoinCheckout";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { PageShell } from "@/components/ui/PageShell";
@@ -145,9 +145,14 @@ export const CASH_ITEM_DETAIL_BODY_CLASS =
 export const CASH_ITEM_PURCHASE_CONFIRM_OVERLAY_CLASS =
   "fixed inset-0 z-[110] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center";
 export const CASH_ITEM_ART_PATHS: Partial<Record<MuseunCashItemId, string>> = {
+  profile_badge_display_stand:
+    "/images/items/cash/profile_badge_display_stand.svg",
   adventure_support_premium_30d:
     "/images/items/cash/adventure_support_premium_30d.svg",
   adventure_support_30d: "/images/items/cash/adventure_support_30d.svg",
+  monthly_stamina_potion_bundle:
+    "/images/items/cash/monthly_stamina_potion_bundle.svg",
+  growth_leap_package: "/images/items/cash/growth_leap_package.svg",
   rename_permit: "/images/items/cash/rename_permit.svg",
   profile_image_permit: "/images/items/cash/profile_image_permit.svg",
   chroma_name_box: "/images/items/cash/chroma_name_box.svg",
@@ -413,7 +418,7 @@ export function MuseunCoinShopView({ embedded = false }: { embedded?: boolean })
             </p>
             <h1 className="mt-0.5 text-xl font-bold">무슨 코인 상점</h1>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-              결제 기능은 아직 연결되지 않았습니다.
+              카드 결제는 운영 승인 후 서버 설정이 활성화된 계정에서 이용할 수 있습니다.
             </p>
           </div>
         </div>
@@ -1562,30 +1567,7 @@ function MuseunCoinChargeDialog({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 p-4">
-          {MUSEUN_COIN_PACKAGES.map((item) => (
-            <div key={item.id} className={`${SURFACE_INSET} flex flex-col p-3`}>
-              <div className="flex items-center gap-2">
-                <MuseunCoinMark size="sm" />
-                <div className="min-w-0">
-                  <p className="font-bold tabular-nums">
-                    {item.coins.toLocaleString()}코인
-                  </p>
-                  <p className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-                    {item.priceKrw.toLocaleString()}원
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled
-                className="ui-game-button mt-3 w-full rounded-md border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-400 disabled:cursor-not-allowed dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-500"
-              >
-                결제 준비 중
-              </button>
-            </div>
-          ))}
-        </div>
+        <MuseunCoinCheckout />
       </div>
     </div>
   );

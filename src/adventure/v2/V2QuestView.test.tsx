@@ -53,6 +53,32 @@ const activeGrowthLeap: GrowthLeapMissionView = {
 };
 
 describe("성장 도약 의뢰", () => {
+  it("상점 접근 권한이 없는 계정에는 무슨 코인 상점 링크를 숨긴다", () => {
+    const hidden = renderToStaticMarkup(
+      <GrowthLeapMissionPanel
+        mission={{ status: "not_purchased" }}
+        now={5_000}
+        busyId={null}
+        onClaim={vi.fn()}
+        coinShopAccessible={false}
+      />,
+    );
+    expect(hidden).not.toContain("무슨 코인 상점에서 확인");
+    expect(hidden).not.toContain('href="/settings/coin-shop"');
+
+    const allowed = renderToStaticMarkup(
+      <GrowthLeapMissionPanel
+        mission={{ status: "not_purchased" }}
+        now={5_000}
+        busyId={null}
+        onClaim={vi.fn()}
+        coinShopAccessible
+      />,
+    );
+    expect(allowed).toContain("무슨 코인 상점에서 확인");
+    expect(allowed).toContain('href="/settings/coin-shop"');
+  });
+
   it("진행 중 누적 사용량과 정확한 단계 보상·수령 버튼을 보여준다", () => {
     const html = renderToStaticMarkup(
       <GrowthLeapMissionPanel

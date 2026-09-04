@@ -1,79 +1,74 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import {
-  MarketplaceStackBrowse,
-  StackBuyConfirm,
-} from "./MarketplaceStackBrowse";
-import type { MarketplaceStackGroup } from "./marketplaceShared";
+import { MarketplaceStackBrowse } from "./MarketplaceStackBrowse";
+import type { Listing } from "./marketplaceShared";
 
-const group: MarketplaceStackGroup = {
-  key: "material:iron_ore",
-  kind: "material",
-  itemId: "iron_ore",
-  itemName: "철광석",
-  totalQuantity: 5,
-  minUnitPrice: 100,
-  listings: [
-    {
-      id: 1,
-      isMine: false,
-      isHighestBidder: false,
-      kind: "material",
-      itemId: "iron_ore",
-      itemName: "철광석",
-      quantity: 5,
-      price: 500,
-      instancePayload: null,
-      createdAt: "2026-08-13T00:00:00.000Z",
-      bidEndsAt: "2026-08-14T00:00:00.000Z",
-      expiresAt: "2026-08-15T00:00:00.000Z",
-      highestBid: null,
-      bidCount: 0,
-      bidResolvedAt: null,
-      nextBid: 0,
-    },
-  ],
-};
+const listings: Listing[] = [
+  {
+    id: 1,
+    isMine: false,
+    isHighestBidder: false,
+    hasMyBid: false,
+    kind: "material",
+    itemId: "iron_ore",
+    itemName: "철광석",
+    quantity: 2,
+    price: 200,
+    instancePayload: null,
+    createdAt: "2026-08-31T00:00:00.000Z",
+    bidEndsAt: "2026-08-31T06:00:00.000Z",
+    expiresAt: "2026-08-31T06:00:00.001Z",
+    highestBid: null,
+    bidCount: 0,
+    bidResolvedAt: null,
+    nextBid: 200,
+  },
+  {
+    id: 2,
+    isMine: false,
+    isHighestBidder: false,
+    hasMyBid: false,
+    kind: "material",
+    itemId: "iron_ore",
+    itemName: "철광석",
+    quantity: 3,
+    price: 450,
+    instancePayload: null,
+    createdAt: "2026-08-31T00:01:00.000Z",
+    bidEndsAt: "2026-08-31T06:01:00.000Z",
+    expiresAt: "2026-08-31T06:01:00.001Z",
+    highestBid: 450,
+    bidCount: 1,
+    bidResolvedAt: null,
+    nextBid: 473,
+  },
+];
 
 describe("MarketplaceStackBrowse", () => {
-  it("renders the stack quote and buy-order demand", () => {
+  it("같은 품목도 판매 등록별 묶음 전체 경매 카드로 표시한다", () => {
     const html = renderToStaticMarkup(
       <MarketplaceStackBrowse
-        groups={[group]}
-        quantities={{ [group.key]: "2" }}
-        onQuantityChange={vi.fn()}
-        onBuy={vi.fn()}
+        listings={listings}
+        clockMs={Date.parse("2026-08-31T05:00:00.000Z")}
         busy={false}
         favoriteKeys={new Set()}
         onToggleFavorite={vi.fn()}
-        orderBook={{
-          [group.key]: {
-            bestUnitPrice: 90,
-            totalQuantity: 3,
-          },
-        }}
+        onBid={vi.fn()}
         onOpenTools={vi.fn()}
       />,
     );
 
-    expect(html).toContain("철광석");
-    expect(html).toContain("200G 구매");
-    expect(html).toContain("최고 구매 주문 90G");
-  });
-
-  it("renders the confirmation total and insufficient-gold guard", () => {
-    const html = renderToStaticMarkup(
-      <StackBuyConfirm
-        confirmation={{ group, quantity: 2, totalPrice: 200 }}
-        availableGold={199}
-        busy={false}
-        onConfirm={vi.fn()}
-        onCancel={vi.fn()}
-      />,
-    );
-
-    expect(html).toContain("묶음 구매 확인");
+    expect(
+      html.match(/data-testid="marketplace-stack-listing"/g),
+    ).toHaveLength(2);
+    expect(html).toContain("2개 전체");
+    expect(html).toContain("3개 전체");
+    expect(html).toContain("묶음 시작가");
     expect(html).toContain("200G");
-    expect(html).toContain("골드가 부족해요.");
+    expect(html).toContain("다음 최소 입찰가");
+    expect(html).toContain("473G");
+    expect(html).not.toContain("구매 수량");
+    expect(html).not.toContain("최저가 매물부터 자동 구매");
+    expect(html).not.toContain("구매 주문");
   });
 });

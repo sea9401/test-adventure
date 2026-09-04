@@ -85,6 +85,8 @@ describe("환경 설정 화면", () => {
     expect(html).toContain('aria-label="콘텐츠 알림 표시"');
     expect(html).toContain("검은 화면");
     expect(html).toContain('href="/privacy"');
+    expect(html).toContain('href="/game-info?from=game"');
+    expect(html).toContain("게임 등급정보");
     expect(html).toContain("정책·약관");
     expect(html).toContain("회원 탈퇴 진행");
   });

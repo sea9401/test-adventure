@@ -305,6 +305,7 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     expect(html).toContain(">6차<");
     expect(html).toContain(">전사 계열<");
     expect(html).toContain(">생존 계열<");
+    expect(html).toContain(">변이자 계열<");
   });
 
   it("즐겨찾기 옆 동작 버튼을 모바일에서는 넓게, 데스크톱에서는 고정 폭으로 표시한다", () => {
@@ -340,6 +341,10 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     expect(html).toContain("h-11 w-11 sm:h-9 sm:w-8");
     expect(html).toContain("h-11 w-11 sm:h-8 sm:w-8");
     expect(html).toContain("h-11 w-11 sm:h-6 sm:w-5");
+    expect(html).toContain('aria-label="강타 상세 보기"');
+    expect(html).toContain('aria-label="독침 상세 보기"');
+    expect(html).toContain('aria-label="강타 해제"');
+    expect(html).toContain('aria-label="독침 장착"');
     expect(html).toContain(">해제<");
     expect(html).toContain(">SP 부족<");
   });

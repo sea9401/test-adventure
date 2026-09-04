@@ -1,7 +1,6 @@
 import "server-only";
 
 import {
-  COOP_ATTACK_TURNS,
   COOP_BOSSES,
   coopBossForBattle,
   coopBossMaxMp,
@@ -31,18 +30,32 @@ export async function simulateGuildRaidBattle({
   tx,
   userId,
   bossKind,
+  lockForUpdate = true,
 }: {
   tx: DbExecutor;
   userId: string;
   bossKind: CoopBossKindId;
+  lockForUpdate?: boolean;
 }): Promise<GuildRaidBattleResult | null> {
-  const charSave = await lockSaveForUpdate<Record<string, unknown>>(
+  const charSave = lockForUpdate
+    ? await lockSaveForUpdate<Record<string, unknown>>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      )
+    : await readSave<Record<string, unknown>>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
+  const prepared = await prepareV2BattleActor({
     tx,
     userId,
-    "character.v2",
-    {},
-  );
-  const prepared = await prepareV2BattleActor({ tx, userId, charSave });
+    charSave,
+    lockForUpdate,
+  });
   if (!prepared) return null;
 
   const profile = await readSave<{ name?: string } | null>(
@@ -72,10 +85,13 @@ export async function simulateGuildRaidBattle({
     v2Skills: prepared.skills,
     isBoss: true,
     maxHpDamageMult: COOP_BOSS_MAX_HP_DAMAGE_MULT,
-    maxTurns: COOP_ATTACK_TURNS,
     initialEnemyHp: bossHp,
+    damageMeter: { continueAfterDefeat: true, refillHp: bossHp },
   });
-  const damageDealt = Math.max(0, bossHp - battle.finalState.enemyHp);
+  const damageDealt = Math.max(
+    0,
+    battle.damageDealtTotal ?? bossHp - battle.finalState.enemyHp,
+  );
   const damageTaken = Math.max(0, playerMaxHp - battle.finalState.playerHp);
   return {
     playerName,

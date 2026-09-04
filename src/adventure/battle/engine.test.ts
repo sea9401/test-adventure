@@ -837,6 +837,14 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
         (e) => e.kind === "info" && e.text.includes("보호막 +"),
       ),
     ).toBe(true);
+    expect(
+      r.finalState.log.some(
+        (e) =>
+          e.kind === "info" &&
+          e.skillCast?.skillId === "v2c_mage_shield" &&
+          e.skillCast.skillName === "마나 보호막",
+      ),
+    ).toBe(true);
   });
 
   it("속박 사격은 PvE 전투 로그에 적이 받는 피해 증가로 표기된다", () => {

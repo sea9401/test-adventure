@@ -50,6 +50,13 @@ type RuntimeProfilerServiceOptions = {
   schedule: (callback: () => void, intervalMs: number) => ScheduledTimer;
   log: (line: string) => void;
   logError: (message: string, error: unknown) => void;
+  onPoolWaitingAlert?: (detail: {
+    consecutiveIntervals: number;
+    intervalMs: number;
+    total: number;
+    idle: number;
+    waiting: number;
+  }) => void | Promise<void>;
 };
 
 function round(value: number): number {
@@ -126,6 +133,7 @@ export function createRuntimeProfilerService(
   options: RuntimeProfilerServiceOptions,
 ) {
   let started = false;
+  let consecutivePoolWaitingIntervals = 0;
 
   const start = (): void => {
     if (started || !options.enabled) return;
@@ -143,6 +151,30 @@ export function createRuntimeProfilerService(
           options.log(
             `[runtime-profiler] ${JSON.stringify({ type: "interval", ...completed })}`,
           );
+          const pool = completed.runtime.databasePool;
+          consecutivePoolWaitingIntervals =
+            pool && pool.waiting > 0
+              ? consecutivePoolWaitingIntervals + 1
+              : 0;
+          if (
+            pool &&
+            consecutivePoolWaitingIntervals === 3 &&
+            options.onPoolWaitingAlert
+          ) {
+            try {
+              void Promise.resolve(
+                options.onPoolWaitingAlert({
+                  consecutiveIntervals: consecutivePoolWaitingIntervals,
+                  intervalMs: options.intervalMs,
+                  ...pool,
+                }),
+              ).catch((error) =>
+                options.logError("pool waiting alert failed", error),
+              );
+            } catch (error) {
+              options.logError("pool waiting alert failed", error);
+            }
+          }
         } catch (error) {
           options.logError("interval collection failed", error);
         }
@@ -200,6 +232,14 @@ function createProductionService(): RuntimeProfilerService {
     schedule: (callback, intervalMs) => setInterval(callback, intervalMs),
     log: console.info,
     logError: logProfilerError,
+    onPoolWaitingAlert: async (detail) => {
+      const { sendOpsAlert } = await import("@/lib/server/opsAlert");
+      await sendOpsAlert("[ops] DB 커넥션 풀 대기 지속", {
+        alertType: "database.pool_waiting",
+        channel: "default",
+        ...detail,
+      });
+    },
   });
 }
 

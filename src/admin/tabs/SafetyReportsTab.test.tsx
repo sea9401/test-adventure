@@ -44,4 +44,41 @@ describe("운영 거래소 신고 검토", () => {
     expect(html).toContain("구매자");
     expect(html).not.toContain("신고 콘텐츠 제거");
   });
+
+  it("판매 중 매물을 별도 원본으로 표시하고 콘텐츠 삭제 동작은 숨긴다", () => {
+    const report: SafetyReport = {
+      id: 92,
+      reporterUserId: "reporter-id",
+      reporterName: "신고자",
+      subjectType: "content",
+      sourceType: "marketplace_listing",
+      sourceId: "77",
+      targetUserId: "seller-id",
+      targetName: "판매자",
+      reason: "abnormal_price",
+      details: null,
+      contentSnapshot: "매물 번호: 77\n품목: 은광석",
+      contextSnapshot: {
+        relatedAccounts: [{ userId: "seller-id", name: "판매자" }],
+      },
+      status: "open",
+      adminNote: null,
+      createdAt: "2026-09-03T03:00:00.000Z",
+      reviewedAt: null,
+    };
+
+    const html = renderToStaticMarkup(
+      <SafetyReportItem
+        report={report}
+        canModerate={false}
+        onSaved={vi.fn()}
+        showToast={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("거래소 매물 신고");
+    expect(html).toContain("비정상적으로 높거나 낮은 가격");
+    expect(html).toContain("관련 거래 계정");
+    expect(html).not.toContain("신고 콘텐츠 제거");
+  });
 });

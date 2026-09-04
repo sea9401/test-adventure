@@ -402,5 +402,13 @@ describe("몬스터 MP 시전 횟수 제한 (ATB applyEnemyV2SkillCast)", () => 
 
     expect(cast.castFired).toBe(true);
     expect(cast.state.playerHp).toBe(state.playerHp);
+    expect(
+      cast.state.log.some(
+        (entry) =>
+          entry.kind === "info" &&
+          entry.skillCast?.skillId === "mob_savage_roar" &&
+          entry.skillCast.skillName === "포효",
+      ),
+    ).toBe(true);
   });
 });

@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { MerchantDisclosure } from "@/components/MerchantDisclosure";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
+import type { PublicMerchantInfo } from "@/lib/publicMerchantInfo";
 import { LandingBackgroundSlideshow } from "./LandingBackgroundSlideshow";
 import { SignInButtons } from "./SignInButtons";
 
@@ -33,10 +35,14 @@ const FEATURES = [
 export function LandingContent({
   authed = false,
   authError = null,
+  ageConfirmed = false,
+  merchantInfo = null,
 }: {
   // 로그인은 됐지만 아직 캐릭터가 없는 유저 — 로그인 버튼 대신 "시작하기"(→/create) 노출.
   authed?: boolean;
   authError?: "account-not-linked" | "login-failed" | null;
+  ageConfirmed?: boolean;
+  merchantInfo?: PublicMerchantInfo | null;
 }) {
   return (
     <main className="dark min-h-screen overflow-x-hidden bg-[#0a0a0b] text-zinc-200">
@@ -92,6 +98,20 @@ export function LandingContent({
             </p>
 
             <div className="mt-8 flex w-full flex-col items-center gap-3">
+              <Link
+                href="/notices/minimum-age-policy"
+                className="w-full max-w-xs rounded-lg border border-amber-300/30 bg-zinc-950 px-4 py-3 text-left transition-colors hover:border-amber-300/60"
+              >
+                <span className="block text-[10px] font-semibold uppercase tracking-wider text-amber-300">
+                  운영 안내
+                </span>
+                <span className="mt-1 block text-xs font-medium text-zinc-100">
+                  만 14세 이상 서비스 기준 변경 안내
+                </span>
+                <span className="mt-1 block text-[10px] text-zinc-400">
+                  2026년 10월 4일 시행 · 자세히 보기
+                </span>
+              </Link>
               {authError && (
                 <p
                   role="alert"
@@ -102,7 +122,7 @@ export function LandingContent({
                     : "로그인을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요."}
                 </p>
               )}
-              {authed ? (
+              {authed && ageConfirmed ? (
                 <>
                   <Link
                     href="/create"
@@ -115,13 +135,13 @@ export function LandingContent({
                     기존 계정으로 로그인
                     <span className="h-px flex-1 bg-white/10" />
                   </div>
-                  <SignInButtons />
+                  <SignInButtons ageConfirmed />
                 </>
               ) : (
-                <SignInButtons />
+                <SignInButtons ageConfirmed={ageConfirmed} />
               )}
               <p className="text-center text-xs text-zinc-400">
-                {authed
+                {authed && ageConfirmed
                   ? "새 캐릭터를 만들거나 기존 계정으로 로그인할 수 있습니다"
                   : "별도 설치 없이 브라우저에서 바로 시작"}
               </p>
@@ -169,13 +189,23 @@ export function LandingContent({
           </section>
 
           {/* ── 푸터 ─────────────────────────────────────────── */}
-          <footer className="mt-auto flex flex-col items-center gap-3 border-t border-white/5 py-8 text-xs text-zinc-400 sm:flex-row sm:justify-between">
-            <span className="font-medium tracking-wide text-zinc-400">
-              무슨무슨게임
-            </span>
+          <footer className="mt-auto border-t border-white/5 py-8 text-xs text-zinc-400">
+            <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+              <span className="font-medium tracking-wide text-zinc-400">
+                무슨무슨게임
+              </span>
             <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
               <Link href="/manual" className="transition-colors hover:text-zinc-300">
                 게임 가이드
+              </Link>
+              <Link
+                href="/products/museun-coin"
+                className="transition-colors hover:text-zinc-300"
+              >
+                무슨 코인 상품
+              </Link>
+              <Link href="/game-info" className="transition-colors hover:text-zinc-300">
+                게임 등급정보
               </Link>
               <Link href="/terms" className="transition-colors hover:text-zinc-300">
                 이용약관
@@ -197,6 +227,11 @@ export function LandingContent({
               </a>
               <span>© 2026</span>
             </nav>
+            </div>
+            <MerchantDisclosure
+              merchantInfo={merchantInfo}
+              className="mt-5 border-t border-white/5 pt-5 text-zinc-400"
+            />
           </footer>
         </div>
       </div>

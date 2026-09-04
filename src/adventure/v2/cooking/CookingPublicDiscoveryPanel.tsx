@@ -50,6 +50,7 @@ export function CookingPublicDiscoveryPanel({
             <option value="oldest">오래된 발견순</option>
             <option value="recipe_name">요리 이름순</option>
             <option value="actor_name">발견자 이름순</option>
+            <option value="unregistered">도감 미등록</option>
           </select>
         </label>
       </div>
@@ -91,7 +92,9 @@ export function CookingPublicDiscoveryPanel({
         <div
           className={`${SURFACE_INSET} mt-4 p-6 text-center text-sm text-zinc-600 dark:text-zinc-300`}
         >
-          아직 공개된 요리가 없습니다.
+          {sort === "unregistered"
+            ? "공개 발견 요리는 모두 도감에 등록했습니다."
+            : "아직 공개된 요리가 없습니다."}
         </div>
       )}
     </section>

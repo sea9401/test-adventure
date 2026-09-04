@@ -31,6 +31,7 @@ import {
   type BattleLogEntry,
   type BattleTurnState,
   appendLog,
+  appendSkillCastLog,
   damageBetween,
 } from "./engine";
 import {
@@ -143,6 +144,7 @@ import {
   resolveMagicBarrierDamage,
 } from "./magicBarrier";
 import { advanceTurnPvP } from "./engine.pvpPhase";
+import { scalePositivePvPValue, scalePvPDamage, scalePvPHealing, scalePvPShield } from "./engine.pvpScaling";
 import { resolveBattlePvPAtb } from "./engine.pvp-atb";
 import {
   pickPvpInitiative,
@@ -152,6 +154,7 @@ import {
   computeCritOverflowBonus,
   computeDirectSkillDamage,
   reducedMagicDefense,
+  resolveCriticalChanceAfterResistance,
 } from "./engine.damageHelpers";
 import {
   consumeShadowFollowUp,
@@ -163,7 +166,7 @@ import {
   canStartRuinCharge,
   gainSwordIntent,
   recordChargeHpLoss,
-  ruinSwordBonuses,
+  ruinIntentStrikeBonus, ruinSwordBonusesForMechanic,
   startRuinCharge,
 } from "./ruinBladeCombat";
 import {
@@ -406,37 +409,6 @@ export type PvPBattleState = {
   // 직접 보호막은 이 값을 적용하고, 회복 전환 보호막은 보정된 실제 회복량을 기준으로 계산한다.
   sustainMultiplier?: number;
 };
-
-// ── 유틸 ────────────────────────────────────────────────────────────────────
-
-export function scalePvPDamage(
-  state: PvPBattleState,
-  damage: number,
-): number {
-  if (damage <= 0) return damage;
-  const multiplier = state.damageMultiplier ?? 1;
-  if (multiplier === 1) return damage;
-  return Math.max(1, Math.floor(damage * multiplier));
-}
-
-function scalePositivePvPValue(value: number, multiplier = 1): number {
-  if (value <= 0 || multiplier === 1) return value;
-  return Math.max(1, Math.floor(value * multiplier));
-}
-
-export function scalePvPHealing(
-  state: PvPBattleState,
-  healing: number,
-): number {
-  return scalePositivePvPValue(healing, state.sustainMultiplier);
-}
-
-export function scalePvPShield(
-  state: PvPBattleState,
-  shield: number,
-): number {
-  return scalePositivePvPValue(shield, state.sustainMultiplier);
-}
 
 export function applyTrackedSetShieldAbsorptionPvP(
   side: PvPSide,
@@ -3137,8 +3109,16 @@ export function castV2SkillOnAttackerTurnPvP(
     }
   }
   // 3) state 업데이트. 앞 단계에서 만든 st 의 로그를 이어서 누적한다.
-  // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
-  let nextLog = st.log;
+  // 구조화된 시전 경계와 별개로 damage/heal 로그에도 스킬명을 포함한다.
+  let nextLog =
+    result.castSkillId && result.castSkillName
+      ? appendSkillCastLog(
+          st.log,
+          result.castSkillId,
+          result.castSkillName,
+          { side: who },
+        )
+      : st.log;
   let nextSideHp = side.hp;
   let nextOppHp = opp.hp;
   let tier6SkillHitDamages: number[] = [];
@@ -3217,21 +3197,22 @@ export function castV2SkillOnAttackerTurnPvP(
   // 스킬 치명타 — PvE 미러. 평타와 같은 크리 확률(min(critChancePct, 75%)) 공유, 배수만 SKILL_CRIT_MULT
   //   로 분리. PvP 확률 판정은 대상의 치명타 저항을 차감하며, 강제 치명타는 저항을 무시한다.
   //   데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → RNG 스트림 보존).
-  const effectiveSkillCritPct = Math.max(
-    0,
-    Math.min(
-      CRIT_PCT_CAP,
-      (side.player.critChancePct ?? 0) +
-        (castDefinition?.skillCritChancePct ?? 0),
-    ) -
-      (opp.player.critResistPct ?? 0),
+  const rawSkillCritPct =
+    (side.player.critChancePct ?? 0) +
+    (castDefinition?.skillCritChancePct ?? 0);
+  const skillCritResolution = resolveCriticalChanceAfterResistance(
+    rawSkillCritPct,
+    opp.player.critResistPct ?? 0,
+    CRIT_PCT_CAP,
   );
+  const effectiveSkillCritPct = skillCritResolution.effectiveCritPct;
   const skillCritAfterEvadeFired =
     result.enemyDamage > 0 && side.flags.skillCritAfterEvadePending;
+  const guaranteedSkillCrit =
+    result.berserkerTransition.forceSkillCrit || skillCritAfterEvadeFired;
   const skillCritFired =
     result.enemyDamage > 0 &&
-    (result.berserkerTransition.forceSkillCrit ||
-      skillCritAfterEvadeFired ||
+    (guaranteedSkillCrit ||
       (effectiveSkillCritPct > 0 &&
         Math.random() * 100 < effectiveSkillCritPct));
   const directSkillSignature = resolveDirectSkillHitSignatures(
@@ -3266,7 +3247,9 @@ export function castV2SkillOnAttackerTurnPvP(
       Math.max(0, side.player.skillCritDmgPct ?? 0) / 100 +
       result.berserkerTransition.bonusSkillCritDamagePct / 100 +
       (side.player.skillCritOverflow
-        ? computeCritOverflowBonus(side.player.critChancePct ?? 0)
+        ? guaranteedSkillCrit
+          ? computeCritOverflowBonus(rawSkillCritPct)
+          : skillCritResolution.overflowDamageBonus
         : 0)
     : 1;
   const baseSingleSkillDamage = computeDirectSkillDamage({
@@ -3291,17 +3274,18 @@ export function castV2SkillOnAttackerTurnPvP(
     tier7FinalDamagePct += (side.stacks.tier7?.swordIntent ?? 0) * 8;
   }
   if (result.castSkillId === "v2c_ruinblade_limitstrike") {
-    tier7FinalDamagePct += Math.min(
-      60,
-      ((side.maxHp - side.hp) / Math.max(1, side.maxHp)) * 60,
-    );
+    tier7FinalDamagePct += ruinIntentStrikeBonus({
+      hp: side.hp,
+      maxHp: side.maxHp,
+      mechanic: V2_SKILLS.v2c_ruinblade_limitstrike.tier7Mechanic,
+    });
   }
   if (ruinChargeAtActionStart) {
-    tier7FinalDamagePct += ruinSwordBonuses({
+    tier7FinalDamagePct += ruinSwordBonusesForMechanic({
       state: ruinChargeAtActionStart,
       hp: side.hp,
       maxHp: side.maxHp,
-      pvp: true,
+      pvp: true, mechanic: ruinSwordMechanic,
     }).damagePct;
   }
   if (crossover?.bonus === "capture") {
@@ -4069,7 +4053,10 @@ export function castV2SkillOnAttackerTurnPvP(
   if (result.manaRestored > 0 && result.castSkillName) {
     nextLog = appendLog(nextLog, {
       kind: "player_attack",
-      text: `${result.castSkillName}! ${side.name} 마나 ${result.manaRestored} 회복했다.`,
+      text:
+        result.castSkillId === "v2c_primordialmage_return"
+          ? `[근원공명] 태초회귀로 ${side.name} 마나 ${result.manaRestored} 회복했다.`
+          : `${result.castSkillName}! ${side.name} 마나 ${result.manaRestored} 회복했다.`,
       side: who,
     });
   }
@@ -4879,8 +4866,9 @@ export function castV2SkillOnAttackerTurnPvP(
       true,
     );
   }
-  // 직접 피해 스킬도 한 번의 피격 행동으로 반사를 발동한다. 다단 스킬은 회피 판정과 동일하게
-  // 한 행동으로 취급하며, 스킬로 방어자가 쓰러진 경우에는 평타와 마찬가지로 반사하지 않는다.
+  // 직접 피해 스킬도 한 번의 피격 행동으로 반사·반격을 발동한다. 다단 스킬은 회피 판정과
+  // 동일하게 한 행동으로 취급하며, 스킬로 방어자가 쓰러진 경우에는 평타와 마찬가지로
+  // 반사·반격하지 않는다.
   if (
     skillReflectBase > 0 &&
     next[otherKey].hp > 0 &&
@@ -4896,6 +4884,29 @@ export function castV2SkillOnAttackerTurnPvP(
     );
     next = reflected.state;
     if (reflected.attackerKilled) {
+      return {
+        state: releaseSwordShadowAfterPvPAction(next, who, otherKey),
+        castFired: result.castSkillId != null,
+        signatureExtraActions: signatureExtraActions + tier6ExtraActions,
+        selfHastePct,
+        enemyDelayPct,
+      };
+    }
+  }
+  if (
+    skillDamageToHp > 0 &&
+    next[otherKey].hp > 0 &&
+    next[who].hp > 0 &&
+    next.phase !== "ended"
+  ) {
+    const countered = maybeApplyMartialCounter(
+      next,
+      who,
+      otherKey,
+      false,
+    );
+    next = countered.state;
+    if (countered.attackerKilled) {
       return {
         state: releaseSwordShadowAfterPvPAction(next, who, otherKey),
         castFired: result.castSkillId != null,

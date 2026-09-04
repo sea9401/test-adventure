@@ -83,6 +83,25 @@ describe("운영 웹훅 식별 정보", () => {
     });
   });
 
+  it("DB 배치·보존 경보 수치만 외부 웹훅에 허용한다", () => {
+    expect(
+      sanitizeOpsWebhookDetail({
+        alertType: "database.economy_retention_capacity",
+        inflow24h: 130_000,
+        dailyDeleteCapacity: 120_000,
+        utilizationPct: 108.33,
+        queueDepth: 700,
+        adminEmail: "admin@example.com",
+      }),
+    ).toEqual({
+      alertType: "database.economy_retention_capacity",
+      inflow24h: 130_000,
+      dailyDeleteCapacity: 120_000,
+      utilizationPct: 108.33,
+      queueDepth: 700,
+    });
+  });
+
   it("Discord 웹훅에는 content·embed 형식으로 안전한 값만 전송한다", async () => {
     vi.stubEnv(
       "OPS_ALERT_WEBHOOK_URL",

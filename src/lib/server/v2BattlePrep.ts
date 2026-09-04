@@ -18,6 +18,7 @@ import {
 } from "@/lib/server/derivePlayerCombatV2";
 import {
   lockSaveForUpdate,
+  readSave,
   type DbExecutor,
 } from "@/lib/server/savesKv";
 import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
@@ -52,6 +53,7 @@ export async function prepareV2BattleActor({
   equipmentSave: preloadedEquipmentSave,
   deriveSkills = "stored",
   includeCookingBuff = true,
+  lockForUpdate = true,
   cache,
 }: {
   tx: DbExecutor;
@@ -61,27 +63,29 @@ export async function prepareV2BattleActor({
   deriveSkills?: "stored" | "sanitized";
   /** 거점전처럼 플레이어 간 전투이면 false. */
   includeCookingBuff?: boolean;
+  /** 저장 변경이 없는 연습 전투에서는 false로 두어 행 잠금을 피한다. */
+  lockForUpdate?: boolean;
   /** 동일 tx 안에서 반복 전투할 때만 전달하는 배치 범위 캐시. */
   cache?: V2BattlePrepCache;
 }): Promise<PreparedV2BattleActor | null> {
+  const loadSave = <T>(key: string, fallback: T) =>
+    lockForUpdate
+      ? lockSaveForUpdate<T>(tx, userId, key, fallback)
+      : readSave<T>(tx, userId, key, fallback);
   const equipmentSave =
     preloadedEquipmentSave ??
-    (await lockSaveForUpdate(tx, userId, "equipment.v2", {}));
+    (await loadSave("equipment.v2", {}));
   const skillsRaw =
     cache?.skillsRaw !== undefined
       ? cache.skillsRaw
-      : await lockSaveForUpdate(
-          tx,
-          userId,
+      : await loadSave(
           "skills.v2",
           emptyV2SkillsState() as unknown as Record<string, unknown>,
         );
   const proficiencyRaw =
     cache?.proficiencyRaw !== undefined
       ? cache.proficiencyRaw
-      : await lockSaveForUpdate<V2ProficiencyState>(
-          tx,
-          userId,
+      : await loadSave<V2ProficiencyState>(
           "proficiency.v2",
           emptyProficiency(),
         );

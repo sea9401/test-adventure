@@ -1,5 +1,20 @@
+// @vitest-environment jsdom
+
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/adventure/v2/ReplayBattleScene", () => ({
+  ReplayBattleScene: () => (
+    <section aria-label="연습 전투 로그">연습 전투 로그 링크</section>
+  ),
+}));
+vi.mock("@/adventure/v2/GameStateProvider", () => ({
+  useGameIdentityState: () => ({
+    viewerGender: "female1",
+    playerSubtitle: "연습 모험가",
+  }),
+}));
 import {
   GuildRaidPanel,
   GuildRaidPanelContent,
@@ -15,11 +30,12 @@ function raidState(
       id: "2026-W34",
       bossKind: "mountain_chief_hard",
       status: "active",
+      phase: "active",
       stage: 4,
       hp: 750_000,
       maxHp: 1_875_000,
       startsAt: Date.UTC(2026, 7, 16, 15),
-      endsAt: Date.UTC(2026, 7, 23, 15),
+      endsAt: Date.UTC(2026, 7, 21, 15),
       settledAt: null,
     },
     my: {
@@ -30,6 +46,9 @@ function raidState(
       dailyAttackLimit: 3,
       remainingAttacks: 3,
       eligible: true,
+      rewardClaimedAt: null,
+      reward: { gold: 3_000_000, masteryCertificates: 300 },
+      canClaim: false,
     },
     guild: {
       id: 7,
@@ -56,19 +75,23 @@ function raidState(
         rank: 2,
       },
     ],
+    leaderboardPagination: { page: 1, pageSize: 8, totalPages: 3, total: 17 },
     recentAttacks: [],
+    recentPagination: { page: 1, pageSize: 8, totalPages: 2, total: 9 },
     ...overrides,
   };
 }
 
 describe("길드 토벌전 패널", () => {
+  afterEach(cleanup);
+
   it("첫 조회 전에는 불러오는 상태를 보여준다", () => {
     const html = renderToStaticMarkup(<GuildRaidPanel />);
 
     expect(html).toContain("토벌전 정보를 불러오는 중");
   });
 
-  it("단계·남은 공격·길드 순위와 보상 준비 상태를 보여준다", () => {
+  it("단계·남은 공격·길드 순위와 확정 보상을 보여준다", () => {
     const html = renderToStaticMarkup(
       <GuildRaidPanelContent
         state={raidState()}
@@ -81,7 +104,8 @@ describe("길드 토벌전 패널", () => {
     expect(html).toContain("4단계");
     expect(html).toContain("남은 공격 3/3");
     expect(html).toContain("현재 2위");
-    expect(html).toContain("보상 정책 준비 중");
+    expect(html).toContain("3,000,000 골드");
+    expect(html).toContain("숙련의 증표 300개");
     expect(html).toContain("참여 조건 달성");
     expect(html).toContain("bg-white");
   });
@@ -106,6 +130,88 @@ describe("길드 토벌전 패널", () => {
     expect(html).toContain("disabled");
   });
 
+  it("오늘 공격을 모두 쓴 뒤에도 연습 전투를 시작할 수 있다", () => {
+    const onAttack = vi.fn();
+    const onPractice = vi.fn();
+    render(
+      <GuildRaidPanelContent
+        state={raidState({
+          my: {
+            ...raidState().my,
+            dailyAttackCount: 3,
+            remainingAttacks: 0,
+          },
+        })}
+        attacking={false}
+        error={null}
+        onAttack={onAttack}
+        onPractice={onPractice}
+      />,
+    );
+
+    const practiceButton = screen.getByRole("button", { name: "연습 전투" });
+    expect(practiceButton.hasAttribute("disabled")).toBe(false);
+    expect(screen.getByText("공격 횟수와 피해·보상에 반영되지 않습니다.")).toBeTruthy();
+
+    fireEvent.click(practiceButton);
+    expect(onPractice).toHaveBeenCalledTimes(1);
+    expect(onAttack).not.toHaveBeenCalled();
+  });
+
+  it("토벌 전투 기간이 끝나면 연습 전투도 비활성화한다", () => {
+    render(
+      <GuildRaidPanelContent
+        state={raidState({
+          event: {
+            ...raidState().event,
+            status: "settled",
+            phase: "claim",
+          },
+        })}
+        attacking={false}
+        error={null}
+        onAttack={vi.fn()}
+        onPractice={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "연습 전투" }).hasAttribute("disabled"),
+    ).toBe(true);
+  });
+
+  it("연습 피해와 비저장 안내 및 전체 전투 로그를 보여준다", () => {
+    const html = renderToStaticMarkup(
+      <GuildRaidPanelContent
+        state={raidState()}
+        attacking={false}
+        error={null}
+        onAttack={vi.fn()}
+        lastPractice={{
+          ok: true,
+          practice: true,
+          bossKind: "mountain_chief_hard",
+          playerName: "연습가",
+          damageDealt: 1_234_567,
+          damageTaken: 890,
+          diedEarly: false,
+          turns: 12,
+          replay: {
+            enemy: { name: "산군", hp: 1_200_000 },
+            playerMaxHp: 500,
+            playerMaxMp: 80,
+            log: [{ kind: "info", text: "전투 시작" }],
+          },
+        }}
+      />,
+    );
+
+    expect(html).toContain("연습 결과");
+    expect(html).toContain("1,234,567");
+    expect(html).toContain("길드 진행과 개인 기록에는 반영되지 않았습니다.");
+    expect(html).toContain("연습 전투 로그 링크");
+  });
+
   it("이벤트 종료 후에는 최종 순위를 표시하고 공격하지 못하게 한다", () => {
     const html = renderToStaticMarkup(
       <GuildRaidPanelContent
@@ -113,8 +219,10 @@ describe("길드 토벌전 패널", () => {
           event: {
             ...raidState().event,
             status: "settled",
+            phase: "claim",
             settledAt: Date.UTC(2026, 7, 23, 15, 1),
           },
+          my: { ...raidState().my, canClaim: true },
         })}
         attacking={false}
         error={null}
@@ -123,7 +231,57 @@ describe("길드 토벌전 패널", () => {
     );
 
     expect(html).toContain("최종 2위");
-    expect(html).toContain("이번 토벌전이 종료되었습니다");
+    expect(html).toContain("보상 수령");
+  });
+
+  it("길드 순위와 최근 전투의 서버 페이지 이동 버튼을 보여준다", () => {
+    const html = renderToStaticMarkup(
+      <GuildRaidPanelContent
+        state={raidState()}
+        attacking={false}
+        error={null}
+        onAttack={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("1 / 3");
+    expect(html).toContain("1 / 2");
+    expect(html).toContain("다음 페이지");
+  });
+
+  it("최근 전투 페이지 이동 버튼은 최근 전투 기록 카드에 배치하고 해당 페이지만 변경한다", () => {
+    const onLeaderboardPage = vi.fn();
+    const onRecentPage = vi.fn();
+    render(
+      <GuildRaidPanelContent
+        state={raidState()}
+        attacking={false}
+        error={null}
+        onAttack={vi.fn()}
+        onLeaderboardPage={onLeaderboardPage}
+        onRecentPage={onRecentPage}
+      />,
+    );
+
+    const memberCard = screen
+      .getByRole("heading", { name: "길드원 기여도" })
+      .closest(".ui-game-card");
+    const recentCard = screen
+      .getByRole("heading", { name: "최근 전투 기록" })
+      .closest(".ui-game-card");
+
+    expect(memberCard).not.toBeNull();
+    expect(recentCard).not.toBeNull();
+    expect(
+      within(memberCard as HTMLElement).queryByRole("navigation"),
+    ).toBeNull();
+    fireEvent.click(
+      within(recentCard as HTMLElement).getByRole("button", {
+        name: "최근 전투 다음 페이지",
+      }),
+    );
+    expect(onRecentPage).toHaveBeenCalledWith(2);
+    expect(onLeaderboardPage).not.toHaveBeenCalled();
   });
 
   it("종료 직후 정산 중 상태를 명시한다", () => {

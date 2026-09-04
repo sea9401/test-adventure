@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">성장 도약 패키지</title>
+  <desc id="desc">보라색 타일 위 황금 상승 화살표와 반짝임이 솟는 선물 상자</desc>
+
+  <defs>
+    <linearGradient id="leap-bg" x1="25" y1="18" x2="230" y2="238" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ddd6fe"/>
+      <stop offset="0.48" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#4c1d95"/>
+    </linearGradient>
+    <linearGradient id="leap-box" x1="76" y1="150" x2="182" y2="220" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f0abfc"/>
+      <stop offset="0.55" stop-color="#d946ef"/>
+      <stop offset="1" stop-color="#86198f"/>
+    </linearGradient>
+    <linearGradient id="leap-gold" x1="109" y1="32" x2="153" y2="195" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff7bd"/>
+      <stop offset="0.5" stop-color="#ffca28"/>
+      <stop offset="1" stop-color="#c56a08"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="256" height="256" rx="54" fill="#2e1065"/>
+  <rect x="4" y="4" width="248" height="248" rx="50" fill="url(#leap-bg)" stroke="#f5f3ff" stroke-width="4"/>
+  <path d="M25 69C40 31 73 17 120 14H55c-23 0-41 18-41 41v78c2-26 5-47 11-64Z" fill="#fff" opacity=".23"/>
+
+  <ellipse cx="128" cy="220" rx="82" ry="16" fill="#2e1065" opacity=".42"/>
+  <path d="M54 137 83 113h90l29 24-17 22H71Z" fill="#fff8e8" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M70 153h116v66H70Z" fill="url(#leap-box)" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M79 165h96" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".48"/>
+  <path d="M118 153h20v66h-20Z" fill="url(#leap-gold)" stroke="#2a0a5e" stroke-width="7"/>
+  <path d="M66 153h124" stroke="#2a0a5e" stroke-width="9" stroke-linecap="round"/>
+
+  <path d="M112 153V91H86l42-55 42 55h-26v62Z" fill="url(#leap-gold)" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M125 58 104 84h17v53" fill="none" stroke="#fff8c9" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity=".72"/>
+
+  <path d="M57 48c4 14 12 22 26 26-14 4-22 12-26 26-4-14-12-22-26-26 14-4 22-12 26-26ZM198 77c3 11 10 18 21 21-11 3-18 10-21 21-3-11-10-18-21-21 11-3 18-10 21-21Z" fill="#fff8e8" stroke="#2a0a5e" stroke-width="6" stroke-linejoin="round"/>
+  <circle cx="204" cy="43" r="8" fill="#ffca28" stroke="#2a0a5e" stroke-width="5"/>
+</svg>

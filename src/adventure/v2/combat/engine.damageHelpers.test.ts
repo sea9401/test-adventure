@@ -14,6 +14,7 @@ import {
   computeDirectSkillDamage,
   computeStormBonus,
   reducedMagicDefense,
+  resolveCriticalChanceAfterResistance,
 } from "@/adventure/v2/combat/engine.damageHelpers";
 
 // 각 헬퍼가 추출 전 인라인 표현식과 "값이 1:1 동일"함을 직접 단언한다(골든 커버리지와 독립).
@@ -68,6 +69,24 @@ describe("engine.damageHelpers — 인라인 수식 동치", () => {
       );
       expect(computeCritOverflowBonus(raw)).toBe(ref);
     }
+  });
+
+  it("치명타 저항을 먼저 차감한 뒤 확률 상한과 초과 피해를 계산한다", () => {
+    expect(resolveCriticalChanceAfterResistance(150, 50)).toEqual({
+      resistedCritPct: 100,
+      effectiveCritPct: 75,
+      overflowDamageBonus: 0.25,
+    });
+    expect(resolveCriticalChanceAfterResistance(40, 60)).toEqual({
+      resistedCritPct: 0,
+      effectiveCritPct: 0,
+      overflowDamageBonus: 0,
+    });
+    expect(resolveCriticalChanceAfterResistance(150, 50, 100)).toEqual({
+      resistedCritPct: 100,
+      effectiveCritPct: 100,
+      overflowDamageBonus: 0.25,
+    });
   });
 
   it("computeStormBonus = storm-kind ? floor(atk*spdPct/100) : 0", () => {

@@ -15,6 +15,53 @@ if (process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN?.trim() === "true") {
   process.exit(1);
 }
 
+if (process.env.PG_HOMEPAGE_REVIEW_MODE?.trim() === "true") {
+  const merchantKeys = [
+    "PUBLIC_MERCHANT_REPRESENTATIVE",
+    "PUBLIC_MERCHANT_ADDRESS",
+    "PUBLIC_MERCHANT_CONTACT",
+  ];
+  const missingMerchantKeys = merchantKeys.filter(
+    (key) => !process.env[key]?.trim(),
+  );
+  if (missingMerchantKeys.length > 0) {
+    console.error(
+      `✗ homepage review merchant env missing: ${missingMerchantKeys.join(", ")}`,
+    );
+    process.exit(1);
+  }
+
+  if (process.env.MUSEUN_COIN_PAYMENTS_MODE?.trim() !== "test") {
+    console.error(
+      "✗ homepage review requires MUSEUN_COIN_PAYMENTS_MODE=test",
+    );
+    process.exit(1);
+  }
+  if (
+    !process.env.TOSS_PAYMENTS_CLIENT_KEY?.trim().startsWith("test_gck_") ||
+    !process.env.TOSS_PAYMENTS_SECRET_KEY?.trim().startsWith("test_gsk_")
+  ) {
+    console.error("✗ homepage review requires matching Toss Payments test keys");
+    process.exit(1);
+  }
+
+  const requiredReviewKeys = [
+    "REVIEW_LOGIN_ID",
+    "REVIEW_LOGIN_PASSWORD",
+    "REVIEW_LOGIN_USER_EMAIL",
+    "MUSEUN_COIN_SHOP_REVIEW_USER_IDS",
+  ];
+  const missingReviewKeys = requiredReviewKeys.filter(
+    (key) => !process.env[key]?.trim(),
+  );
+  if (missingReviewKeys.length > 0) {
+    console.error(
+      `✗ homepage review login env missing: ${missingReviewKeys.join(", ")}`,
+    );
+    process.exit(1);
+  }
+}
+
 if (
   process.env.ADMIN_IMPERSONATION_ENABLED?.trim() === "true" ||
   process.env.ALLOW_PRODUCTION_ADMIN_IMPERSONATION?.trim() === "true"

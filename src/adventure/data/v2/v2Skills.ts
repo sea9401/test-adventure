@@ -30,6 +30,7 @@ import {
   v2SkillAttackCoef,
   v2SpecializedSkillStatCoef,
   type V2CombatCondition,
+  type V2CombatAction,
   type V2CombatPattern,
   type V2CombatPreset,
 } from "@/adventure/v2/combat/combatPattern";
@@ -464,6 +465,13 @@ export type V2SkillLearnRequirement = {
   prereqSkillIds?: readonly V2SkillId[];
 };
 
+export type V2SkillDetail = {
+  mechanics: readonly [string, ...string[]];
+  synergies?: readonly string[];
+  limitations?: readonly string[];
+  pvp?: readonly string[];
+};
+
 export type V2SkillDefinition = {
   id: V2SkillId;
   name: string;
@@ -474,6 +482,7 @@ export type V2SkillDefinition = {
   /** 1=입문 (스타터), 2=중급, 3=상급. 카탈로그 정렬·교관 화면 그룹화. */
   tier: 1 | 2 | 3;
   description: string;
+  detail?: V2SkillDetail;
   mpCost: number;
   /** 공식 대신 쓰는 절대 MP 비용. 고비용 주문/회복처럼 직업별 수동 튜닝이 필요한 스킬용. */
   fixedMpCost?: number;
@@ -2227,6 +2236,19 @@ function describeV2Effect(
   return _exhaustive;
 }
 
+export function describeV2SkillEffects(
+  skill: V2SkillDefinition,
+  effects: readonly V2SkillEffect[],
+  activeCastEffects: readonly V2SkillEffect[] = effects,
+): string[] {
+  return describeV2Effects(
+    effects,
+    skill.tier,
+    skill.monsterOnly === true,
+    activeCastEffects,
+  );
+}
+
 // 스킬의 상세 옵션을 칩 문자열 배열로 — 효과(피해/회복/버프/디버프/DoT) 먼저, 그 뒤
 // MP·쿨다운·속성 메타. UI(학습/장착 화면)에서 작은 칩으로 표기.
 //
@@ -2422,6 +2444,8 @@ function describeTier7Mechanic(mechanic: Tier7Mechanic): string[] {
       return [
         `포획: 최종 피해 +${mechanic.captureDamagePct}% · 적중 +${mechanic.captureAccuracyPct}% · 관통 ${mechanic.capturePenetrationPct}%`,
         `추격: 추가 피해 ${mechanic.pursuitDamagePct}% · 적 행동 지연 ${mechanic.pursuitEnemyDelayPct}%`,
+        `PvP 포획: 최종 피해 +${mechanic.pvpCaptureDamagePct}% · 관통 ${mechanic.pvpCapturePenetrationPct}%`,
+        `PvP 추격: 추가 피해 ${mechanic.pvpPursuitDamagePct}% · 적 행동 지연 ${mechanic.pvpPursuitEnemyDelayPct}%`,
         `교차 적중 시 행동 가속 ${mechanic.hastePct}% · PvP ${mechanic.pvpHastePct}%`,
       ];
     case "formulaStrike":
@@ -2434,6 +2458,7 @@ function describeTier7Mechanic(mechanic: Tier7Mechanic): string[] {
       ];
     case "completeFormula":
       return [
+        "서로 다른 직접 마법을 주기당 1회 계산 · 일반 1단계 · 오원소 폭주/오원소형 태초회귀 2단계 · 합계 3단계에서 발동",
         `완전식: 직접 최종 피해 +${mechanic.directDamagePct}% · 관통 +${mechanic.penetrationPct}% · 행동 가속 ${mechanic.hastePct}%`,
         `PvP: 직접 최종 피해 +${mechanic.pvpDamagePct}% · 관통 +${mechanic.pvpPenetrationPct}% · 행동 가속 ${mechanic.pvpHastePct}%`,
       ];
@@ -2555,14 +2580,19 @@ export function v2SkillMpCostValue(def: V2SkillDefinition): number {
   return Math.max(1, Math.round(baseCost * mpPressureMult(def.id)));
 }
 
-export function describeV2Skill(skill: V2SkillDefinition): string[] {
+export function describeV2Effects(
+  effects: readonly V2SkillEffect[],
+  tier: 1 | 2 | 3,
+  monsterOnly = false,
+  activeCastEffects: readonly V2SkillEffect[] = effects,
+): string[] {
   // 독 계열 복합기는 전투 처리상 중독 부여를 먼저 선언하지만, 설명은 독침과 같은
   // "계수 피해 → 중독 스택" 순서로 보여준다. 실행용 effects 배열은 건드리지 않는다.
   const displayEffects = (() => {
-    const poisonDotIndex = skill.effects.findIndex(
+    const poisonDotIndex = effects.findIndex(
       (effect) => effect.kind === "dot" && effect.tag === "poison",
     );
-    const poisonPayoffIndex = skill.effects.findIndex(
+    const poisonPayoffIndex = effects.findIndex(
       (effect) =>
         effect.kind === "stackPayoffDamage" && effect.tag === "poison",
     );
@@ -2571,39 +2601,44 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
       poisonPayoffIndex < 0 ||
       poisonPayoffIndex < poisonDotIndex
     ) {
-      return skill.effects;
+      return effects;
     }
 
-    const reordered = [...skill.effects];
+    const reordered = [...effects];
     const [payoff] = reordered.splice(poisonPayoffIndex, 1);
     reordered.splice(poisonDotIndex, 0, payoff);
     return reordered;
   })();
   const directDamageEffectCount = Math.max(
     1,
-    displayEffects.filter(isDirectDamageEffect).length,
+    activeCastEffects.filter(isDirectDamageEffect).length,
   );
-  const chips = skill.passive
-    ? describePassive(skill.passive)
-    : displayEffects.flatMap((effect) =>
-        effect.kind === "missingHpDamage"
-          ? describeMissingHpDamage(effect)
-          : [
-              describeV2Effect(
-                effect,
-                skill.tier,
-                directDamageEffectCount,
-                skill.monsterOnly === true,
-              ),
-            ],
-      );
-  chips.push(...describeBerserkerLineageRules(skill));
-  chips.push(...describeBleedHunt(skill));
+  const chips = displayEffects.flatMap((effect) =>
+    effect.kind === "missingHpDamage"
+      ? describeMissingHpDamage(effect)
+      : [
+          describeV2Effect(
+            effect,
+            tier,
+            directDamageEffectCount,
+            monsterOnly,
+          ),
+        ],
+  );
   // 각 직접 피해 effect 는 전투 로그에서 별도 타격으로 처리된다. 피해 칩이 여러 개 나열되는 것만으로는
   // 다단 여부가 잘 드러나지 않으므로 학습·장착·전투 패턴 툴팁 맨 앞에 기본 타수를 명시한다.
-  if (!skill.passive && directDamageEffectCount > 1) {
+  if (directDamageEffectCount > 1) {
     chips.unshift(`${directDamageEffectCount}회 공격`);
   }
+  return chips;
+}
+
+export function describeV2Skill(skill: V2SkillDefinition): string[] {
+  const chips = skill.passive
+    ? describePassive(skill.passive)
+    : describeV2SkillEffects(skill, skill.effects);
+  chips.push(...describeBerserkerLineageRules(skill));
+  chips.push(...describeBleedHunt(skill));
   if (skill.provokeImmediateBasicAttacks) {
     chips.push(
       `도발: 상대가 즉시 시전자를 기본 공격 ${skill.provokeImmediateBasicAttacks}회`,
@@ -3023,11 +3058,19 @@ function withoutLowerDuelistDeclarations(
 ): V2CombatPattern {
   const highest = highestEquippedDuelistDeclaration(equipped);
   if (!highest) return pattern;
+  const actionSkillIds = (action: V2CombatAction): string[] =>
+    action.kind === "skill"
+      ? [action.skillId]
+      : action.kind === "alternate"
+        ? [action.firstSkillId, action.secondSkillId]
+        : [];
   return {
     blocks: pattern.blocks.filter((block) => {
-      if (block.action.kind !== "skill") return true;
-      const declaration = V2_SKILLS[block.action.skillId as V2SkillId]?.duelistDeclaration;
-      return !declaration || block.action.skillId === highest;
+      return actionSkillIds(block.action).every((skillId) => {
+        const declaration =
+          V2_SKILLS[skillId as V2SkillId]?.duelistDeclaration;
+        return !declaration || skillId === highest;
+      });
     }),
   };
 }

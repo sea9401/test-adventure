@@ -1,6 +1,10 @@
 import type { NextAuthConfig } from "next-auth";
 import Kakao from "next-auth/providers/kakao";
 import { AUTH_LOGOUT_GUARD_COOKIE } from "@/lib/authSessionConfig";
+import {
+  AGE_ELIGIBILITY_COOKIE,
+  canAccessMinimumAgeService,
+} from "@/lib/ageEligibility";
 
 export const PUBLIC_PATHS = [
   "/sign-in",
@@ -10,9 +14,13 @@ export const PUBLIC_PATHS = [
   "/privacy",      // 개인정보처리방침
   "/operations",   // 운영정책
   "/licenses",     // 오픈소스 고지
+  "/game-info",    // 게임 등급정보 — 로그인·연령 확인 전에도 공개
+  "/notices/minimum-age-policy", // 만 14세 이상 서비스 기준 변경 사전 공지
+  "/products/museun-coin", // PG 홈페이지 심사용 공개 판매 상품·가격·지급 조건
   "/robots.txt",   // 검색 로봇 수집 규칙
   "/sitemap.xml",  // 공개 대문·게임 가이드 URL 목록
   "/api/auth",     // Auth.js OAuth 콜백 — Proxy 통과 필수
+  "/api/age-eligibility", // 만 14세 이상 자기확인 쿠키 발급
   "/api/health",
   "/api/version",
   "/api/chat/cleanup",
@@ -32,12 +40,20 @@ export function isAuthorizedRequest(
   pathname: string,
   authenticated: boolean,
   loggedOut: boolean,
+  ageEligible = false,
 ): boolean {
+  // OAuth·Credentials 시작점과 callback은 로그인 전 요청이므로 세션을 요구할 수 없다.
+  // 대신 연령 확인을 먼저 요구해 Auth.js 주소 직접 호출로 사전 확인을 우회하지 못하게 한다.
+  const isAuthenticationEntry = ["/api/auth/signin", "/api/auth/callback"].some(
+    (path) => pathname === path || pathname.startsWith(path + "/"),
+  );
+  if (isAuthenticationEntry) return ageEligible;
+
   const isPublic = PUBLIC_PATHS.some(
     (path) => pathname === path || pathname.startsWith(path + "/"),
   );
   if (isPublic) return true;
-  return authenticated && !loggedOut;
+  return authenticated && !loggedOut && ageEligible;
 }
 
 // Proxy 전용 설정 — adapter 없이 edge-compatible.
@@ -57,6 +73,10 @@ export const authConfig: NextAuthConfig = {
         request.nextUrl.pathname,
         !!auth?.user,
         request.cookies.has(AUTH_LOGOUT_GUARD_COOKIE),
+        canAccessMinimumAgeService(
+          request.cookies.get(AGE_ELIGIBILITY_COOKIE)?.value,
+          process.env.AUTH_SECRET,
+        ),
       );
     },
   },

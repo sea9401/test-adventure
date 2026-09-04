@@ -118,6 +118,19 @@ export function V2BattleLogHandoffView({
       )}
       {handoff?.kind === "text" && <TextBattleLog handoff={handoff} />}
 
+      {handoff != null && (
+        <div className={`${SURFACE_INSET} p-2`}>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="전투 로그 닫기"
+            className="min-h-11 w-full rounded-md border border-emerald-600 bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+          >
+            전투 로그 닫기
+          </button>
+        </div>
+      )}
+
       {handoff?.kind === "text" && (
         <BattleLogScrollTopButton scrollTargetId={scrollTargetId} />
       )}

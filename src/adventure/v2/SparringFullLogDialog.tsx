@@ -65,6 +65,16 @@ export function SparringFullLogDialog({
             playerName={playerName}
             enemyName={enemyName}
           />
+          <div className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="전체 전투 로그 하단에서 닫기"
+              className="min-h-11 w-full rounded-md bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            >
+              로그 닫기
+            </button>
+          </div>
         </div>
       </div>
     </div>,

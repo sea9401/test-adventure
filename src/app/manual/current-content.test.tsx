@@ -27,6 +27,7 @@ import { TownContent } from "./content/town";
 import { CompendiumContent } from "./content/compendium";
 import { CoopContent } from "./content/coop";
 import { OverviewContent } from "./content/overview";
+import { MANUAL_CONTENT } from "./content";
 
 describe("최신 게임 안내서 내용", () => {
   it("월간 회복약 세트와 성장 도약 패키지의 제한·보상을 정확히 안내한다", () => {
@@ -102,6 +103,24 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("수행 성장 직업");
   });
 
+  it("직업 성장 안내에서 전체 직업 목록을 분리한다", () => {
+    const html = renderToStaticMarkup(<JobsContent />);
+
+    expect(html).toContain("직군과 직업 사다리");
+    expect(html).toContain("숙련의 탑");
+    expect(html).not.toContain("전체 직업 도감");
+    expect(html).not.toContain("141개 중 141개");
+  });
+
+  it("독립된 전체 직업 도감 문서에서 검색 가능한 전체 목록을 제공한다", () => {
+    const JobCodexContent = MANUAL_CONTENT["job-codex"];
+
+    expect(JobCodexContent).toBeTypeOf("function");
+    const html = renderToStaticMarkup(<>{JobCodexContent?.()}</>);
+    expect(html).toContain("전체 직업 도감");
+    expect(html).toContain("141개 중 141개");
+  });
+
   it("도감 숙련의 6분야와 발견부터 전설까지의 장기 수집 단계를 안내한다", () => {
     const html = renderToStaticMarkup(<CompendiumContent />);
 
@@ -170,7 +189,7 @@ describe("최신 게임 안내서 내용", () => {
 
     expect(html).toContain("거래 이용 제한");
     expect(html).toContain("거래 정보 조회");
-    expect(html).toContain("신규 등록·구매·입찰·구매 주문·선물");
+    expect(html).toContain("신규 등록·입찰·선물");
     expect(html).toContain("취소·정산·환불");
   });
 
@@ -546,6 +565,8 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("독립된 재도전 횟수가 늘어나지 않습니다");
     expect(html).toContain("최대 5개 슬롯");
     expect(html).toContain("장착 스킬·전투 패턴·장비");
+    expect(html).toContain("교대 사용");
+    expect(html).toContain("A → B → A → B");
   });
 
   it("마나 실드의 성장식·피해 순서·예외와 복합 스킬 규칙을 안내한다", () => {
@@ -612,11 +633,11 @@ describe("최신 게임 안내서 내용", () => {
     expect(hunting).toContain("뇌운 항로의 모든 전투");
     expect(hunting).toContain("낙뢰점 반지");
     expect(hunting).toContain("부유성채의 동력갑");
-    expect(hunting).toContain("해당 항로 수호자 0.15% · 폭풍의 심장 0.40%");
+    expect(hunting).toContain("해당 항로 수호자 3.00% · 폭풍의 심장 7.00%");
     expect(hunting).toContain("삼상 접속장갑");
-    expect(hunting).toContain("폭풍의 심장 0.20%");
+    expect(hunting).toContain("폭풍의 심장 4.00%");
     expect(hunting).toContain("맥동하는 폭풍심장");
-    expect(hunting).toContain("폭풍의 심장 0.05%");
+    expect(hunting).toContain("폭풍의 심장 1.00%");
   });
 
   it("숙련의 탑 100층 도전과 50층 보상 상한을 함께 안내한다", () => {
@@ -658,6 +679,16 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("즐겨찾기 필터");
   });
 
+  it("길드 토벌전 연습의 무소모·비기록 규칙을 안내한다", () => {
+    const html = renderToStaticMarkup(<GuildContent />);
+
+    expect(html).toContain("연습 전투");
+    expect(html).toContain("공격 횟수");
+    expect(html).toContain("기여도");
+    expect(html).toContain("보상");
+    expect(html).toContain("기록되지 않습니다");
+  });
+
   it("대장장이 영구 전문화와 전문 제작의 핵심 단계를 안내한다", () => {
     const html = renderToStaticMarkup(<GuildContent />);
 
@@ -695,22 +726,21 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("일반 이용자에게 공개되지 않습니다");
   });
 
-  it("거래소 즉시구매 기본값과 선택형 공개 입찰 정산 흐름을 안내한다", () => {
+  it("거래소의 6시간 묶음 전체 경매와 연장·정산 흐름을 안내한다", () => {
     const html = renderToStaticMarkup(<PlazaContent />);
 
-    expect(html).toContain("기본 판매 방식은");
-    expect(html).toContain("등록 즉시 살 수 있고");
-    expect(html).toContain("같은 품목의 매물이 한 줄로 합쳐지며");
-    expect(html).toContain("최저가 매물부터");
+    expect(html).toContain("6시간 공개 경매");
+    expect(html).toContain("즉시구매와 구매 주문은 이용하지 않습니다");
+    expect(html).toContain("묶음 전체");
+    expect(html).toContain("나누어 여러 매물을 등록");
     expect(html).toContain("별표 즐겨찾기");
     expect(html).toContain("최근 30일 체결가 추이");
-    expect(html).toContain("구매 주문 골드는 등록 시");
-    expect(html).toContain("가격 알림에 목표 개당 가격");
-    expect(html).toContain("판매 관리에서 가격을 변경");
-    expect(html).toContain("공개 입찰 유예");
-    expect(html).toContain("2~");
-    expect(html).toContain("24시간");
-    expect(html).toContain("최고 입찰자에게 판매");
+    expect(html).toContain("목표 개당 가격 이하");
+    expect(html).toContain("시작 입찰가 이상");
+    expect(html).toContain("10분 미만");
+    expect(html).toContain("10분");
+    expect(html).toContain("연장 횟수에는 제한이 없습니다");
+    expect(html).toContain("최고 입찰자에게 전체 매물이 낙찰");
     expect(html).toContain("판매자가 취소할 수 없습니다");
   });
 

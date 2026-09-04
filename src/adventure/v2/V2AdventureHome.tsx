@@ -231,6 +231,7 @@ export function V2AdventureHome() {
 
   return (
     <PageShell spacing="tight" className="py-3 sm:py-6">
+      <h1 className="sr-only">모험</h1>
       {saveError && (
         <StatusBanner tone="error" role="status">
           {saveError}

@@ -135,7 +135,11 @@ function knownRecipeDetails(discoveredIds: readonly string[]) {
   }));
 }
 
-function publicDiscoveryDetails(firstDiscoveries: readonly FirstDiscoveryRow[]) {
+function publicDiscoveryDetails(
+  firstDiscoveries: readonly FirstDiscoveryRow[],
+  discoveredRecipeIds: readonly string[],
+) {
+  const registeredRecipeIds = new Set(discoveredRecipeIds);
   return firstDiscoveries.flatMap((row) => {
     const recipe = COOKING_PUBLIC_RECIPE_BY_ID.get(row.recipeId);
     if (!recipe) return [];
@@ -146,6 +150,7 @@ function publicDiscoveryDetails(firstDiscoveries: readonly FirstDiscoveryRow[]) 
         ? row.authoritativeActorName?.trim() || row.actorName
         : row.actorName,
       discoveredAt: row.discoveredAt.getTime(),
+      codexRegistered: registeredRecipeIds.has(row.recipeId),
     }];
   });
 }
@@ -185,7 +190,10 @@ function cookingView(userId: string, now: number, values: {
     nextLevelXp: level >= COOKING_LEVEL_CAP ? null : cookingLevelXpThreshold(level + 1),
     recipeTotal: COOKING_PUBLIC_RECIPES.length,
     knownRecipes: knownRecipeDetails(cooking.discoveredRecipeIds),
-    publicDiscoveries: publicDiscoveryDetails(values.firstDiscoveries),
+    publicDiscoveries: publicDiscoveryDetails(
+      values.firstDiscoveries,
+      cooking.discoveredRecipeIds,
+    ),
     failedResearches: values.failedResearches.map((row) => ({
       method: row.method,
       ingredientIds: [...row.ingredientIds],

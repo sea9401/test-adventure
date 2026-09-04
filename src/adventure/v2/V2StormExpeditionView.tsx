@@ -61,6 +61,7 @@ import { runStormExpeditionAutoplay } from "./stormExpeditionAutoplay";
 import { StormExpeditionGuideDialog } from "./StormExpeditionGuideDialog";
 import {
   clearStormExpeditionAutoplayPlan,
+  alignStormExpeditionPlanToVisitedRoutes,
   loadStormExpeditionAutoplayDefaults,
   loadStormExpeditionResumePlan,
   storeStormExpeditionAutoplayPlan,
@@ -663,7 +664,15 @@ export function V2StormExpeditionView() {
             onNodeOpen={(nodeId) => {
               if (!busy && !autoplayLocked && autoplay.kind !== "resume") setOpenNodeId(nodeId);
             }}
-            onOpenAutoplayPlan={() => setAutoPlanOpen(true)}
+            onOpenAutoplayPlan={() => {
+              setAutoPlan((current) =>
+                alignStormExpeditionPlanToVisitedRoutes(
+                  { ...current, mode: active.mode },
+                  active.visitedNodeIds,
+                ),
+              );
+              setAutoPlanOpen(true);
+            }}
             onStopAutoplay={stopAutoplay}
             onResumeAutoplay={() => resumePlan && void runAutoplay(resumePlan)}
             onUseManual={useManualProgress}
@@ -721,6 +730,7 @@ export function V2StormExpeditionView() {
         open={autoPlanOpen}
         value={autoPlan}
         lockedMode={active?.mode}
+        visitedNodeIds={active?.visitedNodeIds}
         attemptsLeft={status?.attemptsLeft ?? 0}
         busy={autoplayLocked}
         onChange={setAutoPlan}

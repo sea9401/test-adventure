@@ -12,12 +12,14 @@ const {
   lockTradeParticipantStatuses,
   TradeSuspendedError,
   tradeState,
+  grantFreeMuseunCoins,
 } = vi.hoisted(() => {
   class TradeSuspendedError extends Error {}
   const tradeState = { restricted: false };
   return {
     TradeSuspendedError,
     tradeState,
+    grantFreeMuseunCoins: vi.fn(),
     savesStore: new Map<string, unknown>(),
     inboxRows: [] as Record<string, unknown>[],
     saveSelectRows: [] as Record<string, unknown>[],
@@ -62,6 +64,9 @@ vi.mock("@/lib/server/savesKv", () => ({
     async (_tx: unknown, u: string, key: string, fallback: unknown) =>
       savesStore.get(`${u}::${key}`) ?? fallback,
   ),
+}));
+vi.mock("@/lib/server/museunCoinAccount", () => ({
+  grantFreeMuseunCoins,
 }));
 vi.mock("@/db", async () => {
   const { marketplaceInbox, savesKv } = await import("@/db/schema");
@@ -114,10 +119,19 @@ beforeEach(() => {
   inboxUpdates.length = 0;
   tradeState.restricted = false;
   vi.clearAllMocks();
+  grantFreeMuseunCoins.mockImplementation(
+    async (_tx: unknown, input: { userId: string; coins: number }) => {
+      const key = `${input.userId}::museun-coin-wallet.v1`;
+      const previous = savesStore.get(key) as { coins?: number } | undefined;
+      const coins = (previous?.coins ?? 0) + input.coins;
+      savesStore.set(key, { coins });
+      return { coins, freeCoins: coins, paidCoins: 0, duplicate: false };
+    },
+  );
 });
 
 describe("inbox claim — season_reward → 코인 지갑", () => {
-  it("판매 대금만 은행에 넣고 입찰금 반환은 보유 현금으로 돌려준다", async () => {
+  it("모든 종류의 우편 골드를 보유 현금이 아닌 은행에 넣는다", async () => {
     inboxRows.push(
       {
         id: 1,
@@ -131,10 +145,32 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
         payload: { gold: 50 },
         claimedAt: null,
       },
+      {
+        id: 3,
+        kind: "buy_order_refund",
+        payload: { gold: 70 },
+        claimedAt: null,
+      },
+      {
+        id: 4,
+        kind: "guild_quest_reward",
+        payload: {
+          quest_id: "weekly_hunt",
+          quest_name: "주간 사냥",
+          gold: 80,
+        },
+        claimedAt: null,
+      },
+      {
+        id: 5,
+        kind: "admin_gift",
+        payload: { gold: 100 },
+        claimedAt: null,
+      },
     );
     saveSelectRows.push({ value: { gold: 100, bankedGold: 200 } });
 
-    const res = await POST(req([1, 2]));
+    const res = await POST(req([1, 2, 3, 4, 5]));
     const j = (await res.json()) as {
       ok: boolean;
       goldAdded: number;
@@ -146,14 +182,14 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(res.status).toBe(200);
     expect(j).toMatchObject({
       ok: true,
-      goldAdded: 50,
-      bankedGoldAdded: 1_000,
-      newGold: 150,
-      newBankedGold: 1_200,
+      goldAdded: 0,
+      bankedGoldAdded: 1_300,
+      newGold: null,
+      newBankedGold: 1_500,
     });
     expect(savesStore.get("u1::character.v2")).toMatchObject({
-      gold: 150,
-      bankedGold: 1_200,
+      gold: 100,
+      bankedGold: 1_500,
     });
   });
 
@@ -322,6 +358,16 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(j.claimed).toEqual([1]);
     expect(j.museunCoinsAdded).toBe(800);
     expect(j.museunCoins).toBe(800);
+    expect(grantFreeMuseunCoins).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        userId: "u1",
+        coins: 800,
+        eventKey: "inbox-claim:u1:1:museun-coins",
+        kind: "inbox_reward",
+        sourceId: "1",
+      }),
+    );
     expect(j.cashItemsAdded).toEqual([
       { itemId: "rename_permit", count: 2 },
       { itemId: "adventure_support_30d", count: 1 },
@@ -573,8 +619,8 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(response.status).toBe(200);
     expect(json.claimed).toEqual([1, 2, 3, 4, 5, 6]);
     expect(savesStore.get("u1::character.v2")).toMatchObject({
-      gold: 61,
-      bankedGold: 102,
+      gold: 1,
+      bankedGold: 162,
     });
     expect(savesStore.get("u1::pvp-wallet.v1")).toEqual({
       gold: 1,

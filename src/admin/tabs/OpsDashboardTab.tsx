@@ -16,7 +16,7 @@ import {
   economyItemKindLabel,
   economyKnownItemName,
 } from "../economyLabels";
-import { Button } from "../ui/Field";
+import { Button, InlineInput } from "../ui/Field";
 import { AdminUserLink } from "../ui/AdminUserLink";
 import {
   useAdminUserDirectory,
@@ -342,6 +342,7 @@ export function OpsDashboardTab() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select
+            aria-label="운영 현황 조회 기간"
             value={hours}
             onChange={(e) => setHours(Number(e.target.value))}
             className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-950"
@@ -1562,12 +1563,14 @@ function CompensationPresetPanel() {
                   <tr key={preset.id} className="border-t border-zinc-100 dark:border-zinc-800">
                     <td className="py-1 pr-2">
                       <InlineInput
+                        label={`${preset.label} 프리셋 이름`}
                         value={preset.label}
                         onChange={(label) => update(preset.id, { label })}
                       />
                     </td>
                     <td className="py-1 pr-2">
                       <select
+                        aria-label={`${preset.label} 보상 종류`}
                         value={preset.itemKind}
                         onChange={(e) =>
                           update(preset.id, {
@@ -1585,12 +1588,14 @@ function CompensationPresetPanel() {
                     </td>
                     <td className="py-1 pr-2">
                       <InlineInput
+                        label={`${preset.label} 아이템 ID`}
                         value={preset.itemId}
                         onChange={(itemId) => update(preset.id, { itemId })}
                       />
                     </td>
                     <td className="py-1 pr-2">
                       <input
+                        aria-label={`${preset.label} 수량`}
                         type="number"
                         min={1}
                         value={preset.quantity}
@@ -1604,6 +1609,7 @@ function CompensationPresetPanel() {
                     </td>
                     <td className="py-1 pr-2">
                       <InlineInput
+                        label={`${preset.label} 사유`}
                         value={preset.reason}
                         onChange={(reason) => update(preset.id, { reason })}
                       />
@@ -1854,10 +1860,10 @@ function AlertChannelsPanel({ value }: { value: Dashboard["alertChannels"] }) {
             className="rounded-md border border-zinc-100 px-2 py-1.5 text-xs dark:border-zinc-800"
           >
             <div className="font-medium">{row.label}</div>
-            <div className={value[row.key] ? "text-emerald-600" : "text-zinc-500"}>
+            <div className={value[row.key] ? "text-emerald-700 dark:text-emerald-400" : "text-zinc-500"}>
               {value[row.key] ? "설정됨" : "미설정"}
             </div>
-            <div className="mt-0.5 truncate font-mono text-[10px] text-zinc-400">
+            <div className="mt-0.5 truncate font-mono text-[10px] text-zinc-600 dark:text-zinc-400">
               {row.env}
             </div>
           </div>
@@ -1932,7 +1938,7 @@ function AlertHistoryPanel({ rows }: { rows: AlertHistoryEntry[] }) {
       {rows.length === 0 ? (
         <p className="text-xs text-zinc-500 dark:text-zinc-400">이력 없음</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div aria-label="운영 알림 이력 표" className="overflow-x-auto" tabIndex={0}>
           <table className="w-full text-left text-xs">
             <thead className="text-zinc-500 dark:text-zinc-400">
               <tr>
@@ -2532,22 +2538,6 @@ function TextField({
         className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
       />
     </label>
-  );
-}
-
-function InlineInput({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <input
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full min-w-32 rounded border border-zinc-300 bg-white px-1.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-950"
-    />
   );
 }
 

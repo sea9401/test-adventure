@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildMarketplaceListingReportSource,
   buildMarketplaceTradeReportSource,
   type MarketplaceTradeReportRow,
 } from "./marketplaceTradeReport";
@@ -16,6 +17,8 @@ const soldRow: MarketplaceTradeReportRow = {
   price: 500,
   instancePayload: null,
   status: "sold",
+  createdAt: new Date("2026-08-16T19:00:00.000Z"),
+  bidEndsAt: new Date("2026-08-17T00:00:00.000Z"),
   closedAt: new Date("2026-08-17T01:00:00.000Z"),
   highestBid: null,
   bidCount: 0,
@@ -82,6 +85,52 @@ describe("거래소 체결 신고 원본", () => {
         "seller",
         null,
       ),
+    ).toBeNull();
+  });
+});
+
+describe("거래소 판매 중 매물 신고 원본", () => {
+  const activeRow: MarketplaceTradeReportRow = {
+    ...soldRow,
+    buyerId: null,
+    status: "active",
+    closedAt: null,
+    highestBid: 700,
+    bidCount: 3,
+  };
+
+  it("판매자를 신고 대상으로 삼고 접수 시점의 가격과 입찰 상태를 보존한다", () => {
+    const result = buildMarketplaceListingReportSource(activeRow, "observer");
+
+    expect(result).toMatchObject({
+      sourceType: "marketplace_listing",
+      sourceId: "42",
+      targetUserId: "seller",
+      targetName: "판매자",
+      relatedAccounts: [{ userId: "seller", name: "판매자" }],
+    });
+    expect(result?.contentSnapshot).toContain("시작 입찰가: 500 G");
+    expect(result?.contentSnapshot).toContain("현재 최고 입찰가: 700 G");
+    expect(result?.contentSnapshot).toContain("현재 기준 개당 가격: 140 G");
+    expect(result?.contextSnapshot).toMatchObject({
+      status: "active",
+      seller: { userId: "seller", name: "판매자" },
+      price: 500,
+      currentPrice: 700,
+      unitPrice: 140,
+      bidCount: 3,
+    });
+  });
+
+  it("종료된 매물과 판매자 본인의 신고는 거부한다", () => {
+    expect(
+      buildMarketplaceListingReportSource(
+        { ...activeRow, status: "sold" },
+        "observer",
+      ),
+    ).toBeNull();
+    expect(
+      buildMarketplaceListingReportSource(activeRow, "seller"),
     ).toBeNull();
   });
 });

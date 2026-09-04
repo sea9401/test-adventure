@@ -188,4 +188,3 @@ export function buildUnexploredEdgeRoute(
 
   throw new Error(`Unable to route unexplored edge: ${left.id}|${right.id}`);
 }
-

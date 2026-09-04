@@ -30,6 +30,39 @@ describe("production environment preflight", () => {
     expect(result.stderr).toContain("production coin shop must remain closed");
   });
 
+  it("rejects homepage review mode without a complete public merchant disclosure", () => {
+    const result = spawnSync(process.execPath, [scriptPath], {
+      encoding: "utf8",
+      env: {
+        NODE_ENV: "production",
+        PG_HOMEPAGE_REVIEW_MODE: "true",
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      "homepage review merchant env missing: PUBLIC_MERCHANT_REPRESENTATIVE, PUBLIC_MERCHANT_ADDRESS, PUBLIC_MERCHANT_CONTACT",
+    );
+  });
+
+  it("rejects homepage review mode unless Toss test payment and review login are configured", () => {
+    const result = spawnSync(process.execPath, [scriptPath], {
+      encoding: "utf8",
+      env: {
+        NODE_ENV: "production",
+        PG_HOMEPAGE_REVIEW_MODE: "true",
+        PUBLIC_MERCHANT_REPRESENTATIVE: "홍길동",
+        PUBLIC_MERCHANT_ADDRESS: "서울특별시 테스트구 테스트로 1",
+        PUBLIC_MERCHANT_CONTACT: "02-0000-0000",
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      "homepage review requires MUSEUN_COIN_PAYMENTS_MODE=test",
+    );
+  });
+
   it("rejects production account impersonation", () => {
     const result = spawnSync(process.execPath, [scriptPath], {
       encoding: "utf8",

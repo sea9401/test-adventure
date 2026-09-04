@@ -1181,7 +1181,7 @@ export function WoodcuttingView({
         />
       ) : null}
 
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 dark:border-emerald-900/70 dark:bg-emerald-950/30">
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 dark:border-emerald-900/70 dark:bg-zinc-950">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-sm font-extrabold text-emerald-900 dark:text-emerald-100">

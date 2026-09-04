@@ -911,7 +911,7 @@ export function LifeWorkshopView({
           aria-atomic="true"
         >
           {notice ? (
-            <div className="flex h-full items-center overflow-y-auto rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+            <div className="flex h-full items-center overflow-y-auto rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-900 dark:bg-zinc-950 dark:text-amber-200">
               {notice}
             </div>
           ) : (
@@ -1197,7 +1197,7 @@ export function LifeWorkshopView({
                     </Button>
                   </div>
                 ) : (
-                  <div className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">
+                  <div className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 dark:bg-zinc-950 dark:text-emerald-200">
                     최고 단계 도구입니다.
                   </div>
                 )}

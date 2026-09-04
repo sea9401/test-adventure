@@ -615,7 +615,7 @@ export function MiningView({
         <ActivityVerificationGate challenge={verification} onVerify={verifyHuman} />
       ) : null}
 
-      <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 dark:border-amber-900/70 dark:bg-amber-950/30">
+      <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 dark:border-amber-900/70 dark:bg-zinc-950">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-sm font-extrabold text-amber-900 dark:text-amber-100">

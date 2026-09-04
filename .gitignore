@@ -62,3 +62,6 @@ next-env.d.ts
 
 # Windows 다운로드 ADS 마커 정크 (이미지 등 받을 때 따라옴)
 *:Zone.Identifier
+
+# Local, resumable project-toolkit state
+/.toolkit/work/

@@ -342,7 +342,7 @@ export function PatternChoicePicker<T extends string>({
                     onClick={() => choose(option.value)}
                     className={`min-h-11 rounded-lg border px-3 py-2 text-left transition ${
                       active
-                        ? "border-indigo-500 bg-indigo-50 text-indigo-800 dark:border-indigo-400 dark:bg-indigo-950 dark:text-indigo-200"
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-800 dark:border-indigo-400 dark:bg-zinc-800 dark:text-indigo-200"
                         : "border-zinc-200 bg-white text-zinc-800 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-zinc-500 dark:hover:bg-zinc-800"
                     }`}
                   >
@@ -1233,7 +1233,7 @@ export function V2CombatPatternView({
           )}
 
           {activeCastableEquipped.length === 0 && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-700 dark:border-amber-800 dark:bg-zinc-950 dark:text-amber-300">
               개별 발동 가능한 장착 스킬이 없어 새 역할 블록은 전투에서 발동하지 않습니다.
               <br />
               <span className="text-amber-600/80 dark:text-amber-400/80">

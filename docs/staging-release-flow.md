@@ -94,6 +94,46 @@ bash deploy/apply-test-site-closed.sh
 운영은 사용자가 점검 모드를 “지금 바로” 켜라고 명시하거나 서비스 지속이 위험한 장애
 상황일 때만 준비 전에 `bash deploy/maintenance.sh on`을 직접 실행한다.
 
+## 프로젝트 툴킷으로 테스트 서버에 릴리스
+
+프로젝트 툴킷은 기능 브랜치에서 `staging` PR을 만들고 테스트 서버의 정확한 빌드까지
+확인하는 흐름만 제공한다. 운영 배포 기능은 툴킷에 포함하지 않는다. 변경을 빠르게
+검증하고 로컬 체크포인트에 커밋한 다음, 현재 커밋에서 전체 검증을 통과시킨 뒤 사용한다.
+
+```bash
+npm run toolkit -- verify fast <task-id>
+npm run toolkit -- task checkpoint <task-id> --message "feat: 작업 체크포인트"
+npm run toolkit -- verify full <task-id>
+```
+
+먼저 PR 범위만 승인하고 계획을 확인한 다음 실행한다.
+
+```bash
+npm run toolkit -- task approve <task-id> --action pr --target staging --reason "스테이징 PR 승인"
+npm run toolkit -- release pr <task-id> --dry-run
+npm run toolkit -- release pr <task-id>
+```
+
+PR 검증 이후 테스트 서버 배포까지 진행할 때는 같은 작업에 별도의 테스트 배포 승인을
+기록한다. 이 승인은 해당 작업의 브랜치 푸시, staging PR, squash merge, 테스트 배포에만
+적용된다.
+
+```bash
+npm run toolkit -- task approve <task-id> --action deploy-test --target staging --reason "테스트 서버 배포 승인"
+npm run toolkit -- release deploy-test <task-id> --dry-run
+npm run toolkit -- release deploy-test <task-id>
+```
+
+진행 상태와 외부 ID는 `.toolkit/work/<task-id>/state.json`에 단계별로 저장된다. 명령이
+중단되면 같은 명령을 다시 실행해 기존 PR·머지·워크플로를 조회하며 이어갈 수 있다. 성공
+판정은 배포 워크플로 완료뿐 아니라 `test.msmsge.com`의 상태 응답과 버전 `buildId`가
+머지된 `origin/staging` 전체 SHA와 정확히 일치해야 한다.
+
+```bash
+jq .stagingRelease .toolkit/work/<task-id>/state.json
+npm run toolkit -- release deploy-test <task-id>
+```
+
 ## 관련 문서와 실행 기준
 
 - 작업·배포 권한: [`AGENTS.md`](../AGENTS.md)

@@ -307,7 +307,7 @@ function SuspensionScreen({
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-100 p-5 dark:bg-zinc-950">
       <section className="w-full max-w-lg overflow-hidden rounded-xl border border-rose-200 bg-white shadow-xl dark:border-rose-950 dark:bg-zinc-900">
-        <div className="border-b border-rose-100 bg-rose-50 px-6 py-5 dark:border-rose-950 dark:bg-rose-950/30">
+        <div className="border-b border-rose-100 bg-rose-50 px-6 py-5 dark:border-rose-950 dark:bg-zinc-800">
           <div className="flex items-start gap-3">
             <Warning
               size={28}
@@ -410,7 +410,7 @@ function WarningAcknowledgementModal({
         ref={contentRef}
         className="w-full max-w-md overflow-hidden rounded-xl border border-amber-200 bg-white shadow-2xl dark:border-amber-900 dark:bg-zinc-900"
       >
-        <div className="border-b border-amber-100 bg-amber-50 px-5 py-4 dark:border-amber-950 dark:bg-amber-950/30">
+        <div className="border-b border-amber-100 bg-amber-50 px-5 py-4 dark:border-amber-950 dark:bg-zinc-800">
           <div className="flex items-start gap-3">
             <Warning
               size={26}

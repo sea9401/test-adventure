@@ -179,6 +179,36 @@ describe("guild workshop recipe equipment codex badge", () => {
     expect(html).toContain("제작 수수료: 20,000 G");
   });
 
+  it("미개척지 특화 세트의 해금과 일반·명장 제작 비용을 모두 표시한다", () => {
+    const specialtyRecipe = GUILD_WORKSHOP_RECIPES.specialty_abyss_catalyst_ring;
+    const state: WorkshopState = {
+      ...workshopState(),
+      smithyLevel: 5,
+      recipes: [
+        guildWorkshopRecipeView(
+          specialtyRecipe,
+          { crop: 0, ore: 0 },
+          { blacksmith: { xp: 999_999, crafts: 999 } },
+          0,
+          5,
+          {},
+        ),
+      ],
+    };
+
+    const html = renderWorkshop(new Set(), "ready", state);
+    expect(html).toContain("미개척지 · 특화 세트 · 심층 마도");
+    expect(html).toContain("대장장이 Lv 22 · 제작소 Lv 5");
+    expect(html).toContain("제작 수수료: 500,000 G");
+    expect(html).toContain("제작 수수료: 1,000,000 G");
+    expect(html).toContain("과열 동력핵 8");
+    expect(html).toContain("농축 독낭 8");
+    expect(html).toContain("혹한 결정 8");
+    expect(html).toContain("태양석 6");
+    expect(html).toContain("오로라 결정 6");
+    expect(html).toContain("심해성철 2");
+  });
+
   it("부족한 일반·명장 제작 재료에 필요량과 보유량을 표시한다", () => {
     const shortageRecipe = GUILD_WORKSHOP_RECIPES.crafted_toxic_mist_gloves;
     const materialCost = guildWorkshopRecipeMaterialCost(shortageRecipe);

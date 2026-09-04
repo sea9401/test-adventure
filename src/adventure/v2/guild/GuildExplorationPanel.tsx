@@ -406,7 +406,7 @@ export function GuildExplorationPanel({
             ) : null}
           </div>
           {activeExpeditionDef && activeExpedition ? (
-            <div className="mt-2 rounded border border-cyan-200 bg-white px-3 py-2 dark:border-cyan-900 dark:bg-cyan-950/30">
+            <div className="mt-2 rounded border border-cyan-200 bg-white px-3 py-2 dark:border-cyan-900 dark:bg-zinc-950">
               <div className="font-semibold text-cyan-900 dark:text-cyan-100">
                 {activeExpeditionDef.name}
               </div>
@@ -522,7 +522,7 @@ export function GuildExplorationPanel({
             />
           </div>
           {pendingEvent ? (
-            <div className="mt-3 rounded border border-violet-200 bg-white px-3 py-2 dark:border-violet-900 dark:bg-violet-950/30">
+            <div className="mt-3 rounded border border-violet-200 bg-white px-3 py-2 dark:border-violet-900 dark:bg-zinc-950">
               <div className="font-semibold text-violet-900 dark:text-violet-100">
                 {pendingEvent.title}
               </div>
@@ -590,7 +590,7 @@ export function GuildExplorationPanel({
         </div>
 
         {message ? (
-          <p className="mt-2 rounded bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+          <p className="mt-2 rounded bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-zinc-950 dark:text-amber-300">
             {message}
           </p>
         ) : null}

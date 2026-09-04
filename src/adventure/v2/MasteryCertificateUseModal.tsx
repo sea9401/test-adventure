@@ -297,7 +297,7 @@ function OpenMasteryCertificateUseModal({
               onClick={() => setMode(value)}
               className={`rounded-md border px-3 py-2 text-left transition ${
                 mode === value
-                  ? "border-amber-500 bg-amber-50 text-amber-950 dark:border-amber-400 dark:bg-amber-950 dark:text-amber-100"
+                  ? "border-amber-500 bg-amber-50 text-amber-950 dark:border-amber-400 dark:bg-zinc-800 dark:text-amber-100"
                   : "border-zinc-200 bg-white text-zinc-700 hover:border-amber-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
               }`}
             >
@@ -310,7 +310,7 @@ function OpenMasteryCertificateUseModal({
         </div>
 
         {error && (
-          <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
+          <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900 dark:bg-zinc-950 dark:text-rose-300">
             {error}
           </p>
         )}
@@ -413,7 +413,7 @@ function JobButton({
       onClick={onSelect}
       className={`min-h-16 rounded-md border px-3 py-2 text-left transition ${
         selected
-          ? "border-amber-500 bg-amber-50 text-amber-950 dark:border-amber-400 dark:bg-amber-950 dark:text-amber-100"
+          ? "border-amber-500 bg-amber-50 text-amber-950 dark:border-amber-400 dark:bg-zinc-800 dark:text-amber-100"
           : "border-zinc-200 bg-white text-zinc-800 hover:border-amber-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
       }`}
     >

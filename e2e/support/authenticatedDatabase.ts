@@ -259,3 +259,106 @@ export async function seedAuthenticatedE2ePhaseThreeState() {
     await pool.end();
   }
 }
+
+/**
+ * 미개척지 개인 보스 브라우저 E2E가 실제 제작 API를 통과하도록 재료와 흔적만 준비한다.
+ * 제작·소환·전투·보상 결과는 테스트가 실제 API와 DB 변경으로 검증한다.
+ */
+export async function prepareAuthenticatedE2eUnexploredBossState() {
+  const databaseUrl = assertIsolatedE2eDatabaseUrl(process.env.DATABASE_URL);
+  const pool = new pg.Pool({
+    ...createDatabaseConnectionOptions(databaseUrl),
+    max: 1,
+  });
+
+  try {
+    const current = await pool.query<{ value: Record<string, unknown> }>(
+      `SELECT value
+       FROM saves_kv
+       WHERE user_id = $1 AND key = 'character.v2'`,
+      [E2E_ACCOUNT_USER_ID],
+    );
+    const character = current.rows[0]?.value;
+    if (!character) throw new Error("The E2E character save is missing");
+
+    const materials = {
+      ...((character.materials as Record<string, number> | undefined) ?? {}),
+      v2_boss_summon_scroll: 90,
+      v2_unexplored_runaway_machines_material: 10,
+      v2_unexplored_shadow_stalkers_material: 10,
+      v2_unexplored_venom_colony_material: 10,
+      v2_unexplored_bloodstained_dead_material: 10,
+      v2_unexplored_frozen_legion_material: 10,
+      v2_unexplored_crushing_colossi_material: 10,
+    };
+    const value = {
+      ...character,
+      level: 100,
+      gold: 15_000_000,
+      bankedGold: 0,
+      materials,
+      unexplored: {
+        explorationXp: 0,
+        xpPoints: 30,
+        achievementIds: [],
+        selectedNodeIds: ["deep-boss"],
+        traces: {
+          runaway_machines: 500,
+          shadow_stalkers: 500,
+          venom_colony: 500,
+          bloodstained_dead: 500,
+          frozen_legion: 500,
+          crushing_colossi: 500,
+        },
+        craftReceipts: [],
+      },
+    };
+    const result = await pool.query(
+      `UPDATE saves_kv
+       SET value = $2::jsonb,
+           version = version + 1,
+           updated_at = now()
+       WHERE user_id = $1 AND key = 'character.v2'
+       RETURNING user_id`,
+      [E2E_ACCOUNT_USER_ID, JSON.stringify(value)],
+    );
+    if (result.rowCount !== 1) {
+      throw new Error("The E2E character save could not be prepared");
+    }
+  } finally {
+    await pool.end();
+  }
+}
+
+/** 실제 공격 한 번으로 개인 보스를 처치하도록 격리 E2E 세션의 남은 HP만 낮춘다. */
+export async function setAuthenticatedE2ePersonalBossHp(
+  sessionId: string,
+  hp: number,
+) {
+  if (!sessionId || !Number.isInteger(hp) || hp < 1) {
+    throw new Error("Invalid E2E personal boss HP request");
+  }
+  const databaseUrl = assertIsolatedE2eDatabaseUrl(process.env.DATABASE_URL);
+  const pool = new pg.Pool({
+    ...createDatabaseConnectionOptions(databaseUrl),
+    max: 1,
+  });
+
+  try {
+    const result = await pool.query(
+      `UPDATE coop_boss_sessions
+       SET hp = $3
+       WHERE id = $1
+         AND summoner_id = $2
+         AND region_id IN ('tracking_weapon', 'toxic_blood_lord', 'glacial_colossus')
+         AND defeated_at IS NULL
+       RETURNING id`,
+      [sessionId, E2E_ACCOUNT_USER_ID, hp],
+    );
+    if (result.rowCount !== 1) {
+      throw new Error("The E2E personal boss session is missing");
+    }
+  } finally {
+    await pool.end();
+  }
+}

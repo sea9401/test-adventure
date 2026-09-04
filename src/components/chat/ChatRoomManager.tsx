@@ -316,7 +316,7 @@ export function ChatRoomManager({
         )}
 
         {error && (
-          <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
+          <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700 dark:border-rose-900 dark:bg-zinc-950 dark:text-rose-300">
             {error}
           </div>
         )}

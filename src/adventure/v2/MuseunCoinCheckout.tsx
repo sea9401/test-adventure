@@ -98,10 +98,11 @@ export function MuseunCoinCheckout() {
       ) {
         throw new Error("order_failed");
       }
+      const { orderId, orderName, amountKrw, customerKey, clientKey } = body;
       const { loadTossPayments } = await import("@tosspayments/tosspayments-sdk");
-      const toss = await loadTossPayments(body.clientKey);
-      const widgets = toss.widgets({ customerKey: body.customerKey });
-      await widgets.setAmount({ value: body.amountKrw, currency: "KRW" });
+      const toss = await loadTossPayments(clientKey);
+      const widgets = toss.widgets({ customerKey });
+      await widgets.setAmount({ value: amountKrw, currency: "KRW" });
       const paymentWindow = await widgets.renderPaymentWindow();
       paymentWindow.on("cancel", async () => {
         inFlight.current = false;
@@ -110,8 +111,8 @@ export function MuseunCoinCheckout() {
       paymentWindow.on("paymentRequest", async () => {
         try {
           await widgets.requestPayment({
-            orderId: body.orderId,
-            orderName: body.orderName,
+            orderId,
+            orderName,
             successUrl: `${window.location.origin}/settings/coin-shop/payment/success`,
             failUrl: `${window.location.origin}/settings/coin-shop/payment/fail`,
           });

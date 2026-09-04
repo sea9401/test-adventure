@@ -25,7 +25,9 @@ beforeEach(() => {
   sdk.paymentWindowOn.mockImplementation(
     (eventName: string, handler: (...args: never[]) => Promise<void>) => {
       if (eventName === "paymentRequest") {
-        sdk.paymentRequestHandler = handler as typeof sdk.paymentRequestHandler;
+        sdk.paymentRequestHandler = handler as unknown as (
+          params: { paymentMethod: { code: string } },
+        ) => Promise<void>;
       }
       if (eventName === "cancel") {
         sdk.cancelHandler = handler;

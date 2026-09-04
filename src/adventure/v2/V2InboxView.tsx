@@ -257,6 +257,7 @@ function rewardLinesOf(it: InboxItem): string[] {
     case "admin_gift":
       pushReward(lines, "골드", asCount(p.gold));
       pushReward(lines, "무슨 코인", asCount(p.museunCoins));
+      pushReward(lines, "숙련 증서", asCount(p.masteryCertificates));
       pushMaterialRewards(lines, p.materials);
       pushCookingIngredientRewards(lines, p.cookingIngredients);
       pushEquipRewards(lines, p.items);

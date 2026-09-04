@@ -37,6 +37,7 @@ import {
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import type { SettlementBuildingId } from "@/adventure/data/v2/settlement";
+import { V2_UNEXPLORED } from "@/adventure/data/v2/coreLoopConfig";
 import {
   GUILD_FACILITY_ICON_COLORS,
   GUILD_FACILITY_LABELS,
@@ -230,6 +231,14 @@ export const CHARACTER_MENU_ITEMS = [
   { label: "성장의 신전", href: "/character/shrine", Icon: Sparkle, color: "text-violet-400" },
   { label: "트로피 전시대", href: "/character/trophies", Icon: Trophy, color: "text-amber-600" },
   { label: "모험의 서", href: "/character/codex", Icon: BookOpen, color: "text-sky-500" },
+  ...(V2_UNEXPLORED
+    ? [{
+        label: "개척 노드",
+        href: "/character/unexplored",
+        Icon: Binoculars,
+        color: "text-cyan-600 dark:text-cyan-400",
+      }]
+    : []),
 ] satisfies SubItem[];
 
 // 하위 항목·아이콘은 각 탭 홈(card 메뉴)에서 그대로 가져온 라우트/아이콘. 새 하위화면 추가 시 여기 한 줄.

@@ -13,6 +13,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "toolkit": "node --import tsx toolkit/cli/index.ts",
     "test:e2e": "playwright test",
     "test:e2e:mobile-ui": "playwright test --config playwright.mobile-ui.config.ts",
     "test:e2e:db:setup": "node src/db/migrate.mjs && node scripts/seed-e2e-account.mjs",
@@ -32,7 +33,9 @@
     "check-public-release": "node scripts/check-public-release.mjs",
     "load-test": "node scripts/load-test.mjs",
     "sim:level-design": "node --env-file=.env.production --import tsx scripts/sim-v2-level-design.ts",
-    "sim:coop-boss": "node --import tsx scripts/sim-v2-coop-boss.ts",
+    "sim:coop-boss": "NODE_PATH=./scripts/server-only-stub node --env-file=.env.production --import tsx scripts/sim-v2-coop-boss.ts",
+    "sim:v2:unexplored-rewards": "node --import tsx scripts/sim-v2-unexplored-rewards.ts",
+    "sim:v2:unexplored-specialty": "NODE_PATH=./scripts/server-only-stub NEXT_PUBLIC_V2_CORE_LOOP_V2=true NEXT_PUBLIC_V2_ATB_SKILLS=true NEXT_PUBLIC_V2_SKILL_PROC_IN_PATTERN=true node --import tsx scripts/sim-v2-unexplored-specialty-sets.ts",
     "sim:exp-pacing": "node --env-file=.env.production --import tsx scripts/sim-v2-exp-pacing.ts",
     "sim:crit-balance": "node --import tsx scripts/sim-crit-balance.ts",
     "simulate:equipment-liberation": "NODE_PATH=./scripts/server-only-stub node --import tsx scripts/simulate-equipment-liberation.mjs",
@@ -85,7 +88,8 @@
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "yaml": "^2.9.0"
   },
   "optionalDependencies": {
     "@tailwindcss/oxide-linux-arm64-gnu": "4.2.4",

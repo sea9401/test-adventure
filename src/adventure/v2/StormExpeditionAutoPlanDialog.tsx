@@ -260,7 +260,7 @@ function PlanButton({
       aria-pressed={selected}
       disabled={disabled}
       onClick={onClick}
-      className={`min-h-11 rounded-md border px-2 py-2 text-sm transition disabled:opacity-50 ${selected ? "border-sky-500 bg-sky-100 font-semibold text-sky-800 dark:bg-sky-950 dark:text-sky-200" : "border-zinc-300 bg-white text-zinc-700 hover:border-sky-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"}`}
+      className={`min-h-11 rounded-md border px-2 py-2 text-sm transition disabled:opacity-50 ${selected ? "border-sky-500 bg-sky-100 font-semibold text-sky-800 dark:bg-zinc-800 dark:text-sky-200" : "border-zinc-300 bg-white text-zinc-700 hover:border-sky-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"}`}
     >
       {children}
     </button>

@@ -75,4 +75,31 @@ describe("관리자 공지·우편", () => {
     }
     expect(cookingSection).not.toContain("배합 사료");
   });
+
+  it("숙련 증서를 지급하고 재료·장비를 미개척지 출처별로 나눠 고를 수 있다", () => {
+    const html = renderToStaticMarkup(
+      <AdminProvider>
+        <BroadcastTab />
+      </AdminProvider>,
+    );
+
+    expect(html).toContain(">숙련 증서<");
+    for (const category of [
+      "성장·강화·기타 재료",
+      "생활 재료",
+      "제작 재료",
+      "협동 보스 보상",
+      "원정·위험 해역 재료",
+      "미개척지 재료",
+      "미개척지 보스 재료",
+      "미개척지 보스 소환석",
+      "일반 장비 · 무기",
+      "일반 장비 · 갑옷",
+      "미개척지 · 개척자 장비",
+      "미개척지 · 특화 제작 장비",
+      "미개척지 · 보스 고유 장비",
+    ]) {
+      expect(html).toContain(category);
+    }
+  });
 });

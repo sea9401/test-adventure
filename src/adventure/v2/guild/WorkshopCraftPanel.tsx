@@ -617,7 +617,7 @@ export function WorkshopCraftPanel({
       <div
         key={recipe.id}
         className={`ui-recipe-row grid gap-3 px-3 py-2.5 ${
-          recommended ? "bg-emerald-50 dark:bg-emerald-950" : ""
+          recommended ? "bg-emerald-50 dark:bg-zinc-800" : ""
         }`}
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
@@ -743,7 +743,7 @@ export function WorkshopCraftPanel({
 
         {recipe.baseEquipment ? (
           <div
-            className={`${expanded ? "block" : "hidden"} rounded border border-amber-300 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900 md:block dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200`}
+            className={`${expanded ? "block" : "hidden"} rounded border border-amber-300 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900 md:block dark:border-amber-900 dark:bg-zinc-950 dark:text-amber-200`}
           >
             <span className="font-semibold">
               개량 재료: {recipe.baseEquipment.itemName} {recipe.baseEquipment.requiredCount}개
@@ -1197,7 +1197,7 @@ export function WorkshopCraftPanel({
                     return (
                       <div
                         key={rule.materialId}
-                        className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 dark:border-emerald-900 dark:bg-emerald-950/20"
+                        className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 dark:border-emerald-900 dark:bg-zinc-950"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium text-zinc-900 dark:text-zinc-100">
@@ -1224,7 +1224,7 @@ export function WorkshopCraftPanel({
                     return (
                       <div
                         key={id}
-                        className="rounded border border-violet-200 bg-violet-50 px-2 py-1 dark:border-violet-900 dark:bg-violet-950/20"
+                        className="rounded border border-violet-200 bg-violet-50 px-2 py-1 dark:border-violet-900 dark:bg-zinc-950"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium text-zinc-900 dark:text-zinc-100">
@@ -1510,7 +1510,7 @@ function CraftResultDialog({
           ) : null}
 
           {masterworkLine ? (
-            <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-medium text-rose-800 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-100">
+            <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-medium text-rose-800 dark:border-rose-800 dark:bg-zinc-950 dark:text-rose-100">
               {masterworkLine}
             </div>
           ) : null}

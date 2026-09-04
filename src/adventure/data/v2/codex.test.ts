@@ -19,10 +19,12 @@ import {
 // 2026-08-06: 성벽 수리 키트 삭제로 등재 재료 1종 감소.
 // 2026-08-19: 신규 HARD 협동 보스 재료·장비 상자 4종 추가.
 // 2026-08-23: 위험 해역 어종 9종 추가로 어획물 재료도 9종 증가.
+// 2026-08-27: 미개척지 특화 몬스터 풀 공용 재료 12종 추가.
+// 2026-08-29: 미개척지 기본 재료 10종·보스 핵 1종·소환석 3종 추가.
 
 describe("v2 코덱스(재료 도감) 진척 — 등재 재료·요건은 플래그 잠금", () => {
   it("V2_CODEX_TOTAL은 채광 광석·부산물과 생활 가공품을 포함한다", () => {
-    expect(V2_CODEX_TOTAL).toBe(93);
+    expect(V2_CODEX_TOTAL).toBe(122);
   });
 
   it("discoveredMaterialIds — 미등재 보유분은 진척에 안 잡힘", () => {
@@ -32,6 +34,9 @@ describe("v2 코덱스(재료 도감) 진척 — 등재 재료·요건은 플래
     expect(countDiscoveredMaterials({ v2_field_grass: 3 })).toBe(0);
     // 등재 재료(강화석)는 잡힘.
     expect(countDiscoveredMaterials({ v2_red_enhance_stone: 1 })).toBe(1);
+    expect(
+      countDiscoveredMaterials({ v2_unexplored_iron_legion_material: 1 }),
+    ).toBe(1);
   });
 
   it("비객체/null/undefined 입력은 빈 진척", () => {

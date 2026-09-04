@@ -36,19 +36,102 @@ import {
   coopBossCurrentMp,
   coopBossMaxMp,
   coopBossMpPressureDamage,
+  coopBossTrackingThreat,
+  coopBossTrackingThreatMax,
   withCoopBossMp,
+  withCoopBossTrackingThreat,
+  coopInvincibleFortressState,
+  coopInvincibleFortressDisplay,
+  withCoopInvincibleFortressState,
+  coopSkywardCrystalEyeState,
+  coopSkywardCrystalEyeDisplay,
+  withCoopSkywardCrystalEyeState,
+  coopImmortalBerserkerState,
+  coopImmortalBerserkerDisplay,
+  withCoopImmortalBerserkerState,
   parseCoopMechanicState,
   COOP_INITIAL_VISIBILITY,
   coopVisibilityTransition,
 } from "./coopBosses";
+import { initialInvincibleFortressState } from "@/adventure/v2/combat/invincibleFortressMechanic";
+import { initialSkywardCrystalEyeState } from "@/adventure/v2/combat/skywardCrystalEyeMechanic";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_MATERIALS } from "./dungeonDrops";
 import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
 import { TITLES } from "@/adventure/data/titles";
+import { UNEXPLORED_BOSS_IDS } from "./unexploredBosses";
+import {
+  actionInterval,
+  effectiveMonsterSpd,
+} from "@/adventure/v2/combat/combatTimeline";
 
 describe("coopBosses 카탈로그", () => {
-  it("8종 — 노말 4단 사다리 + 하드 보스 4종", () => {
-    expect(COOP_BOSS_KIND_IDS).toHaveLength(8);
+  it("불멸 상태를 정규화하면서 기존 협동 메커니즘 필드를 보존한다", () => {
+    const parsed = parseCoopMechanicState({
+      bossMp: 7,
+      trackingThreat: 9,
+      immortalBerserker: {
+        kind: "immortal_berserker",
+        lifeIndex: 0,
+        regenActionCount: 9,
+        regenUsesRemaining: 99,
+        revivalsCompleted: 0,
+      },
+    });
+
+    expect(parsed).toMatchObject({
+      bossMp: 7,
+      trackingThreat: 9,
+      immortalBerserker: {
+        kind: "immortal_berserker",
+        lifeIndex: 0,
+        regenActionCount: 3,
+        regenUsesRemaining: 3,
+        revivalsCompleted: 0,
+      },
+    });
+  });
+
+  it("불멸 상태의 병합과 둘째 생명 표시값을 계산한다", () => {
+    const kind = COOP_BOSSES.immortal_berserker;
+    const state = {
+      kind: "immortal_berserker",
+      lifeIndex: 1,
+      regenActionCount: 2,
+      regenUsesRemaining: 1,
+      revivalsCompleted: 1,
+    } as const;
+    const merged = withCoopImmortalBerserkerState(
+      kind,
+      { bossMp: 7, trackingThreat: 9 },
+      state,
+      22_120_800,
+    );
+
+    expect(merged).toMatchObject({
+      bossMp: 7,
+      trackingThreat: 9,
+      immortalBerserker: state,
+    });
+    expect(coopImmortalBerserkerState(kind, merged, 22_120_800)).toEqual(state);
+    expect(coopImmortalBerserkerDisplay(kind, merged, 22_120_800)).toEqual({
+      immortalLifeIndex: 1,
+      immortalLifeHp: 7_800_000,
+      immortalLifeMaxHp: 13_899_600,
+      immortalRegenActionsRemaining: 2,
+      immortalRegenUsesRemaining: 1,
+      immortalNextRegenAmount: 416_988,
+      immortalAtkMult: 1.2,
+      immortalSpdMult: 1.1,
+    });
+  });
+
+  it("기존 협동 보스와 카탈로그의 미개척지 개인 보스를 모두 등록한다", () => {
+    expect(
+      COOP_BOSS_KIND_IDS.filter(
+        (id) => COOP_BOSSES[id].rewardMode === "unexplored_personal",
+      ),
+    ).toEqual(UNEXPLORED_BOSS_IDS);
     const normalLadder = [
       "mountain_chief",
       "canyon_predator",
@@ -98,6 +181,111 @@ describe("coopBosses 카탈로그", () => {
       sharedMaxHp: 8_400_000,
       anchorDepth: 78,
     });
+  });
+
+  it("미개척지 보스는 개인 공개가 잠기며 일반 소환서 목록에서 제외된다", () => {
+    const personalIds = UNEXPLORED_BOSS_IDS;
+    for (const id of personalIds) {
+      expect(COOP_BOSSES[id]).toMatchObject({
+        rewardMode: "unexplored_personal",
+        visibilityLocked: true,
+      });
+      expect(COOP_BOSSES[id].summonMaterialId).toMatch(/_summon_stone$/);
+      expect(SCROLL_SUMMONABLE_COOP_BOSS_KIND_IDS).not.toContain(id);
+      expect(isScrollSummonableCoopBossKind(id)).toBe(false);
+    }
+    const personalIdSet = new Set<string>(personalIds);
+    for (const id of COOP_BOSS_KIND_IDS.filter(
+      (kindId) => !personalIdSet.has(kindId),
+    )) {
+      expect(COOP_BOSSES[id].rewardMode).toBe("coop");
+      expect(COOP_BOSSES[id].visibilityLocked).toBe(false);
+    }
+  });
+
+  it("미개척지 개인 보스 설명은 내부 풀 ID 대신 한글 지역명을 표시한다", () => {
+    expect(COOP_BOSSES.tracking_weapon.desc).toBe(
+      "폭주 기계 · 그림자 추적자의 흔적이 결속되어 나타난 개인 우두머리.",
+    );
+    expect(COOP_BOSSES.toxic_blood_lord.desc).toBe(
+      "맹독 군락 · 혈흔 망자의 흔적이 결속되어 나타난 개인 우두머리.",
+    );
+    expect(COOP_BOSSES.glacial_colossus.desc).toBe(
+      "혹한 군단 · 파쇄 거수의 흔적이 결속되어 나타난 개인 우두머리.",
+    );
+    expect(COOP_BOSSES.invincible_fortress.desc).toBe(
+      "철갑 군단 · 마력 방벽체의 흔적이 결속되어 나타난 개인 우두머리.",
+    );
+    expect(COOP_BOSSES.skyward_crystal_eye.desc).toBe(
+      "수정 포격대 · 정밀 사냥단의 흔적이 결속되어 나타난 개인 우두머리.",
+    );
+    expect(COOP_BOSSES.immortal_berserker.desc).toBe(
+      "재생 군체 · 붉은 광전대의 흔적이 결속되어 나타난 개인 우두머리.",
+    );
+  });
+
+  it("추적 병기는 확정 연타 대신 추적 반격 중심의 일반 공격 수치를 사용한다", () => {
+    const tracking = COOP_BOSSES.tracking_weapon;
+    expect(tracking.base).toMatchObject({
+      atk: 16,
+      spd: 52,
+      evasionPct: 12,
+      skill: { kind: "pierce", armorPierce: 10 },
+    });
+    expect(tracking.base.bonusAttackChancePct).toBeUndefined();
+    expect(tracking.enrageStages).toEqual([]);
+    expect(tracking.traits).toEqual([
+      "40틱마다 빠른 행동",
+      "피해·타격 추적",
+      "추적 완료 시 방어 50% 관통·일반 보호막 무시 2연타",
+    ]);
+  });
+
+  it("천공의 수정안은 실제 전투에서 38틱마다 행동한다", () => {
+    const eye = COOP_BOSSES.skyward_crystal_eye;
+    const monster = coopBossForBattle(eye, eye.sharedMaxHp).monster;
+
+    expect(effectiveMonsterSpd(monster.spd)).toBe(454);
+    expect(actionInterval(effectiveMonsterSpd(monster.spd))).toBe(38);
+  });
+
+  it("독혈 군주는 장기전 독혈 순환을 특성으로 안내한다", () => {
+    const toxic = COOP_BOSSES.toxic_blood_lord;
+
+    expect(toxic.base).toMatchObject({
+      spd: 52,
+      def: 44,
+      magicDef: 46,
+      skill: {
+        kind: "heavy_blow",
+        name: "독혈 파열",
+        everyPhases: 3,
+        multiplier: 1.8,
+      },
+    });
+    expect(
+      coopBossForBattle(toxic, toxic.sharedMaxHp).monster,
+    ).toMatchObject({ def: 2_483, magicDef: 2_596 });
+    expect(toxic.enrageStages).toEqual([]);
+    expect(toxic.traits).toEqual([
+      "40틱마다 빠른 행동",
+      "피격 시 독혈 누적",
+      "10중첩 독혈 폭발",
+      "중독·폭발 후 회복 억제",
+    ]);
+  });
+
+  it("빙하 거수는 공용 한기 피해 대신 행동 속도 봉쇄를 안내한다", () => {
+    const glacial = COOP_BOSSES.glacial_colossus;
+
+    expect(glacial.base.skill).toBeUndefined();
+    expect(glacial.enrageStages).toEqual([]);
+    expect(glacial.traits).toEqual([
+      "100틱마다 혹한의 전장으로 한기 누적",
+      "냉기장과 피격으로 한기 누적",
+      "한기 중첩당 행동 속도 감소",
+      "10중첩 빙결 — 다음 행동 취소",
+    ]);
   });
 
   it("신규 6T HARD 보스는 운영 상위 중앙 피해 기준 14회 공격을 요구한다", () => {
@@ -287,7 +475,9 @@ describe("coopBosses 카탈로그", () => {
       expect(b.uniqueIds.length).toBeGreaterThan(0);
       for (const u of b.uniqueIds) {
         expect(V2_EQUIPMENT[u]?.rarity).toBe("unique");
-        expect(V2_EQUIPMENT[u]?.signature).toBeDefined(); // 발동형 효과 부여
+        if (b.rewardMode === "coop") {
+          expect(V2_EQUIPMENT[u]?.signature).toBeDefined(); // 기존 협동 보스 발동형 효과
+        }
       }
     }
   });
@@ -300,7 +490,15 @@ describe("coopBosses 카탈로그", () => {
       expect(full.monster.hp).toBe(b.sharedMaxHp);
       expect(full.monster.name).toBe(b.base.name);
       expect(full.monster.image).toBe(b.base.image);
-      expect(full.monster.skill).toBeDefined();
+      if (
+        id === "glacial_colossus" ||
+        id === "invincible_fortress" ||
+        id === "skyward_crystal_eye"
+      ) {
+        expect(full.monster.skill).toBeUndefined();
+      } else {
+        expect(full.monster.skill).toBeDefined();
+      }
       expect(full.monster.phaseTrigger).toBeUndefined(); // 발악 스테이지로 대체
       expect(full.enrageNotes).toHaveLength(0);
       // statusSkill — v2Skills 주입(잡몹 statusSkill 경로와 동일).
@@ -310,10 +508,10 @@ describe("coopBosses 카탈로그", () => {
       for (const skill of b.base.v2Skills?.equipped ?? []) {
         expect(full.monster.v2Skills?.equipped).toContain(skill);
       }
-      expect(full.monster.v2MaxMp).toBe(b.base.v2MaxMp);
+      expect(full.monster.v2MaxMp).toBe(b.base.v2MaxMp ?? 0);
       expect(
         coopBossForBattle(b, b.sharedMaxHp, { bossMp: 7 }).monster.v2MaxMp,
-      ).toBe(7);
+      ).toBe((b.base.v2MaxMp ?? 0) > 0 ? 7 : 0);
       // 잔여 HP 클램프 — 0 이하/초과 입력 방어.
       expect(coopBossForBattle(b, 0).monster.hp).toBe(1);
       expect(
@@ -538,6 +736,176 @@ describe("coopBosses 카탈로그", () => {
     expect(coopBossCurrentMp(boss, {})).toBe(maxMp);
     const state = withCoopBossMp(boss, {}, 123);
     expect(parseCoopMechanicState(state).bossMp).toBe(123);
+  });
+
+  it("기존 미개척지 세션은 새 스킬 MP를 한 번만 충전하고 이후 소모값을 보존한다", () => {
+    const boss = COOP_BOSSES.tracking_weapon;
+    const maxMp = coopBossMaxMp(boss);
+
+    expect(coopBossCurrentMp(boss, { bossMp: 0 })).toBe(maxMp);
+
+    const migrated = withCoopBossMp(boss, { bossMp: 0 }, maxMp - 30);
+    expect(migrated).toMatchObject({
+      bossMp: maxMp - 30,
+      bossSkillMpRevision: 1,
+    });
+    expect(coopBossCurrentMp(boss, migrated)).toBe(maxMp - 30);
+    expect(
+      coopBossCurrentMp(boss, { ...migrated, bossMp: 0 }),
+    ).toBe(0);
+  });
+
+  it("추적 위협만 0~100으로 보정하며 기존 공유 MP 상태를 보존한다", () => {
+    const tracking = COOP_BOSSES.tracking_weapon;
+    const parsed = parseCoopMechanicState({
+      bossMp: 17,
+      trackingThreat: 180,
+    });
+    expect(parsed).toEqual({ bossMp: 17, trackingThreat: 100 });
+    expect(coopBossTrackingThreat(tracking, { trackingThreat: 73 })).toBe(73);
+    expect(coopBossTrackingThreatMax(tracking)).toBe(100);
+    expect(withCoopBossTrackingThreat(tracking, { bossMp: 17 }, 31)).toEqual({
+      bossMp: 17,
+      trackingThreat: 31,
+    });
+    expect(coopBossTrackingThreatMax(COOP_BOSSES.toxic_blood_lord)).toBe(0);
+    expect(
+      coopBossTrackingThreat(COOP_BOSSES.toxic_blood_lord, {
+        trackingThreat: 73,
+      }),
+    ).toBe(0);
+  });
+
+  it("불괴의 성채 상태를 정규화·병합하며 공유 MP와 알려진 키만 보존한다", () => {
+    const fortress = COOP_BOSSES.invincible_fortress;
+    const merged = withCoopInvincibleFortressState(
+      fortress,
+      { bossMp: 7, unknownKey: true },
+      {
+        ...initialInvincibleFortressState(fortress.sharedMaxHp),
+        barrierDamage: 1_000,
+      },
+      fortress.sharedMaxHp,
+    );
+
+    expect(merged).toMatchObject({
+      bossMp: 7,
+      fortress: { activeBarrierIndex: 0, barrierDamage: 1_000 },
+    });
+    expect(merged).not.toHaveProperty("unknownKey");
+  });
+
+  it.each([
+    [0.9, 1],
+    [0.6, 2],
+    [0.4, 3],
+    [0.2, 4],
+  ] as const)(
+    "레거시 성채 세션 HP %s에서는 지난 방벽 %i개를 무광폭 완료로 복원한다",
+    (hpFraction, completedBarrierCount) => {
+      const fortress = COOP_BOSSES.invincible_fortress;
+      const state = coopInvincibleFortressState(
+        fortress,
+        { bossMp: 7 },
+        fortress.sharedMaxHp * hpFraction,
+      );
+
+      expect(state).toMatchObject({
+        completedBarrierCount,
+        activeBarrierIndex: null,
+        enrageTier: 0,
+        barrierResults: [],
+      });
+    },
+  );
+
+  it("불괴의 성채 목록·상세 표시값을 저장 상태에서 한 번에 계산한다", () => {
+    const fortress = COOP_BOSSES.invincible_fortress;
+    const display = coopInvincibleFortressDisplay(
+      fortress,
+      {
+        fortress: {
+          kind: "invincible_fortress",
+          completedBarrierCount: 1,
+          activeBarrierIndex: 1,
+          barrierTicksRemaining: 240,
+          barrierDamage: 18_200,
+          enrageTier: 0,
+          barrierResults: [7],
+        },
+      },
+      Math.floor(fortress.sharedMaxHp * 0.75),
+    );
+
+    expect(display).toEqual({
+      fortressBarrierActive: true,
+      fortressBarrierTicksRemaining: 240,
+      fortressBarrierDamage: 18_200,
+      fortressBarrierTarget: 1_500_000,
+      fortressEnrageTier: 7,
+      fortressProjectedEnrageTier: 7,
+      fortressCompletedBarrierCount: 1,
+      fortressNextBarrierHpFraction: 0.5,
+      fortressLastResultTier: 7,
+    });
+  });
+
+  it("천공의 수정안 상태를 정규화·병합하며 기존 기믹 키를 보존한다", () => {
+    const eye = COOP_BOSSES.skyward_crystal_eye;
+    const merged = withCoopSkywardCrystalEyeState(
+      eye,
+      { bossMp: 7, trackingThreat: 31, unknownKey: true },
+      {
+        ...initialSkywardCrystalEyeState(),
+        aimTicksRemaining: 640,
+        disruptionStacks: 17,
+      },
+    );
+
+    expect(merged).toMatchObject({
+      bossMp: 7,
+      trackingThreat: 31,
+      crystalEye: { aimTicksRemaining: 640, disruptionStacks: 17 },
+    });
+    expect(merged).not.toHaveProperty("unknownKey");
+    expect(
+      coopSkywardCrystalEyeState(eye, {
+        crystalEye: { kind: "skyward_crystal_eye", aimTicksRemaining: -4 },
+      }),
+    ).toMatchObject({ aimTicksRemaining: 0, disruptionStacks: 0 });
+  });
+
+  it("천공의 수정안 목록·상세 표시값을 저장 상태에서 한 번에 계산한다", () => {
+    const eye = COOP_BOSSES.skyward_crystal_eye;
+    const display = coopSkywardCrystalEyeDisplay(
+      eye,
+      {
+        crystalEye: {
+          kind: "skyward_crystal_eye",
+          aimTicksRemaining: 640,
+          disruptionStacks: 17,
+          coreExposureTicksRemaining: 180,
+          artilleryCount: 2,
+          lastArtilleryStacks: 12,
+          lastArtilleryPowerPct: 70,
+          lastArtilleryDamage: 1234,
+        },
+      },
+      Math.floor(eye.sharedMaxHp * 0.6),
+    );
+
+    expect(display).toEqual({
+      crystalEyeAimTicksRemaining: 640,
+      crystalEyeDisruptionStacks: 17,
+      crystalEyeProjectedPowerPct: 80,
+      crystalEyeBasePowerPct: 390,
+      crystalEyeCoreExposed: true,
+      crystalEyeCoreExposureTicksRemaining: 180,
+      crystalEyeArtilleryCount: 2,
+      crystalEyeLastArtilleryStacks: 12,
+      crystalEyeLastArtilleryPowerPct: 70,
+      crystalEyeLastArtilleryDamage: 1234,
+    });
   });
 
   it("공유 MP — 플레이어 공격 로그와 기여 피해로 압박 피해를 계산한다", () => {

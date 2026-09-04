@@ -69,6 +69,10 @@ describe("RareMapsTab 이벤트 소모품", () => {
     expect(html).toContain("숙련 증서 사용");
     expect(html).toContain("보유 10개");
     expect(html).toContain("직업 숙련도 또는 숙달 포인트");
+    expect(html).toMatch(
+      /rounded-xl border border-zinc-200 bg-white[^"<]*dark:bg-zinc-900/,
+    );
+    expect(html).toContain("dark:text-amber-300");
   });
 
   it("수행 초기화 물약은 레벨 1 경고를 확인한 뒤에만 사용한다", () => {

@@ -204,7 +204,7 @@ export function GuildTrainingGroundPanel({
           </p>
         </div>
         {hasTrainingGround && (
-          <div className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-right text-[11px] text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300">
+          <div className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-right text-[11px] text-sky-700 dark:border-sky-900/60 dark:bg-zinc-950 dark:text-sky-300">
             <div>보상 +{state?.upgrade?.trainingRewardBonusPct ?? 0}%</div>
             <div>일일 {dailyClaimLimit}회</div>
           </div>
@@ -306,13 +306,13 @@ export function GuildTrainingGroundPanel({
             </div>
           </div>
           {weekly && !weekly.bonusClaimed && (
-            <div className="rounded border border-emerald-100 bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300">
+            <div className="rounded border border-emerald-100 bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-700 dark:border-emerald-900/60 dark:bg-zinc-950 dark:text-emerald-300">
               이번 주 {weekly.target.toLocaleString()}회 훈련 완료 시 숙련도 +
               {weekly.bonusMastery.toLocaleString()}
             </div>
           )}
           {hasPassiveTrainingBonus && (
-            <div className="rounded border border-violet-100 bg-violet-50 px-2 py-1.5 text-[11px] text-violet-700 dark:border-violet-900/60 dark:bg-violet-950/30 dark:text-violet-300">
+            <div className="rounded border border-violet-100 bg-violet-50 px-2 py-1.5 text-[11px] text-violet-700 dark:border-violet-900/60 dark:bg-zinc-950 dark:text-violet-300">
               학습 패시브: 훈련장 보상 +
               {(trainingBonuses?.rewardBonusPct ?? 0).toLocaleString()}% · 주간
               보너스 +{(trainingBonuses?.weeklyBonusMastery ?? 0).toLocaleString()}
@@ -338,7 +338,7 @@ export function GuildTrainingGroundPanel({
       )}
 
       {message && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-zinc-950 dark:text-amber-200">
           {message}
         </div>
       )}
@@ -357,7 +357,7 @@ export function GuildTrainingGroundPanel({
                 key={drill.id}
                 className={`rounded-md border p-3 text-xs transition ${
                   drill.claimed
-                    ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/60 dark:bg-emerald-950/20"
+                    ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/60 dark:bg-zinc-800"
                     : drill.available
                       ? "border-sky-200 bg-white dark:border-sky-900/60 dark:bg-slate-900"
                       : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-slate-900/70"

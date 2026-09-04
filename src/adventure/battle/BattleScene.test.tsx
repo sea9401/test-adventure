@@ -53,6 +53,36 @@ describe("기본 전투 능력치 표시", () => {
   });
 });
 
+describe("전투 결과 표면", () => {
+  it("다크 표면 감사 때문에 별도 보상 애니메이션을 추가하지 않는다", () => {
+    const enemy: Monster = {
+      name: "훈련용 적",
+      tags: [],
+      hp: 100,
+      atk: 10,
+      def: 5,
+      spd: 5,
+      exp: 0,
+    };
+    const state = initialBattleState(
+      { hp: 100, maxHp: 100, atk: 10, def: 5, spd: 10, evasionPct: 0, attackCount: 1 },
+      enemy,
+      "검투사",
+    );
+
+    const html = renderToStaticMarkup(
+      <BattleScene
+        state={state}
+        playerName="검투사"
+        playerStatus={{ gender: "male1", exp: 0, maxExp: 100, hpPotionCount: 0 }}
+        outcome="win"
+      />,
+    );
+
+    expect(html).not.toContain("ui-reward-flash");
+  });
+});
+
 describe("좌우 전투 상태 정렬", () => {
   it("암석 강타를 장착했을 때 현재 중량만 표시한다", () => {
     const enemy: Monster = {

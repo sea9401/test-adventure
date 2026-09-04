@@ -75,7 +75,7 @@ export function GuildMembersPanel({
 
       {/* 길드 탈퇴 — 마스터가 아닌 본인만. 마스터는 관리 탭에서 양도/해산. */}
       {!isMaster && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/60 dark:bg-rose-950/30">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/60 dark:bg-zinc-950">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs text-rose-700 dark:text-rose-300">
               길드를 떠납니다. 재가입은 하루 뒤부터 가능해요.

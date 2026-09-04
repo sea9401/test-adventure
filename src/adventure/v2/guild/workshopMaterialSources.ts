@@ -6,7 +6,7 @@ import { MONSTER_CRAFT_MATERIAL_DROP_RULES } from "@/adventure/data/v2/monsterCr
 import { COOP_BOSS_MATERIAL_ID } from "@/adventure/data/v2/coopRewards";
 import {
   COOP_BOSSES,
-  type CoopBossKindId,
+  type StandardCoopBossKindId,
 } from "@/adventure/data/v2/coopBosses";
 import {
   MINING_SPOT_IDS,
@@ -15,6 +15,8 @@ import {
 } from "@/adventure/data/v2/miningSpots";
 import { STORM_EXPEDITION_ROUTES } from "@/adventure/data/v2/stormExpedition";
 import { STORM_EXPEDITION_ROUTE_MATERIAL_ID } from "@/adventure/data/v2/stormExpeditionRewards";
+import { UNEXPLORED_MONSTER_POOLS } from "@/adventure/data/v2/unexploredMonsterPools";
+import { UNEXPLORED_BASE_DROP_MATERIALS } from "@/adventure/data/v2/unexploredRewards";
 import {
   WOODCUTTING_SPOT_IDS,
   WOODCUTTING_SPOTS,
@@ -80,8 +82,32 @@ export function workshopMaterialSource(
     };
   }
 
+  const unexploredPool = UNEXPLORED_MONSTER_POOLS.find(
+    (pool) => pool.materialId === materialId,
+  );
+  if (unexploredPool) {
+    return {
+      known: true,
+      label: `미개척지 · ${unexploredPool.name}`,
+      href: "/battle/dungeon/unexplored",
+    };
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      UNEXPLORED_BASE_DROP_MATERIALS,
+      materialId,
+    )
+  ) {
+    return {
+      known: true,
+      label: "미개척지 · 기본 몬스터",
+      href: "/battle/dungeon/unexplored",
+    };
+  }
+
   const coopBossId = (
-    Object.keys(COOP_BOSS_MATERIAL_ID) as CoopBossKindId[]
+    Object.keys(COOP_BOSS_MATERIAL_ID) as StandardCoopBossKindId[]
   ).find((bossId) => COOP_BOSS_MATERIAL_ID[bossId] === materialId);
   if (coopBossId) {
     return {

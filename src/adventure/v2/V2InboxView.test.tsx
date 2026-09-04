@@ -136,6 +136,27 @@ describe("MailDetailModal 장문 가독성", () => {
     expect(html).toContain("소금 x2");
     expect(html).toContain("밀가루 x3");
   });
+
+  it("운영자 우편의 숙련 증서 수량을 표시한다", () => {
+    const html = renderToStaticMarkup(
+      createElement(MailDetailModal, {
+        item: inboxItem({
+          kind: "admin_gift",
+          payload: { masteryCertificates: 750 },
+          hasReward: true,
+          claimState: "claimable",
+        }),
+        busy: false,
+        onClose: vi.fn(),
+        onClaim: vi.fn(),
+        onRespondInvite: vi.fn(),
+        onBlocked: vi.fn(),
+        onDelete: vi.fn(),
+      }),
+    );
+
+    expect(html).toContain("숙련 증서 x750");
+  });
 });
 
 describe("InboxMailCard 상태 표시", () => {
@@ -147,7 +168,7 @@ describe("InboxMailCard 상태 표시", () => {
     onDelete: vi.fn(),
   };
 
-  it("미확인 받은 우편을 불투명 강조 표면과 굵은 글씨로 표시한다", () => {
+  it("미확인 받은 우편을 중립 다크 강조 표면과 굵은 글씨로 표시한다", () => {
     const html = renderToStaticMarkup(
       createElement(InboxMailCard, {
         ...handlers,
@@ -156,7 +177,8 @@ describe("InboxMailCard 상태 표시", () => {
     );
 
     expect(html).toContain("bg-amber-50");
-    expect(html).toContain("dark:bg-amber-950");
+    expect(html).toContain("dark:bg-zinc-800");
+    expect(html).not.toContain("dark:bg-amber-950");
     expect(html).toContain("font-semibold");
   });
 

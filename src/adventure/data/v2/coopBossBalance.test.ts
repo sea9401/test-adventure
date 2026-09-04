@@ -1,4 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import("@/adventure/data/v2/coreLoopConfig")
+  >();
+  return { ...actual, V2_CORE_LOOP_V2: true, V2_ATB_SKILLS: true };
+});
 
 import {
   buildCoopBossBalanceReport,
@@ -40,6 +47,84 @@ describe("협동 보스 결정적 밸런스 시뮬레이션", () => {
     });
 
     expect(reverse.reverse()).toEqual(forward);
+  });
+
+  it("추적 병기 보고서는 반격 횟수와 최대 HP 대비 반격 피해를 결정적으로 집계한다", () => {
+    const first = buildCoopBossBalanceReport({
+      trials: 2,
+      seed: 20260830,
+      bossIds: ["tracking_weapon"],
+    });
+    const second = buildCoopBossBalanceReport({
+      trials: 2,
+      seed: 20260830,
+      bossIds: ["tracking_weapon"],
+    });
+
+    expect(second).toEqual(first);
+    expect(first).toHaveLength(1);
+    expect(
+      first[0].builds.every(
+        (build) => build.medianTrackingCounterCount > 0,
+      ),
+    ).toBe(true);
+    expect(
+      first[0].builds.every(
+        (build) => build.medianTrackingCounterDamageRatioPerTrigger > 0,
+      ),
+    ).toBe(true);
+  });
+
+  it("독혈군주 보고서는 생존 시간과 폭발·독혈 피해를 결정적으로 집계한다", () => {
+    const first = buildCoopBossBalanceReport({
+      trials: 2,
+      seed: 20260830,
+      bossIds: ["toxic_blood_lord"],
+    });
+    const second = buildCoopBossBalanceReport({
+      trials: 2,
+      seed: 20260830,
+      bossIds: ["toxic_blood_lord"],
+    });
+
+    expect(second).toEqual(first);
+    expect(first).toHaveLength(1);
+    expect(
+      first[0].builds.every(
+        (build) =>
+          build.medianSurvivalTicks > 0 &&
+          build.medianToxicExplosionCount >= 0 &&
+          build.medianToxicDamageRatio >= 0,
+      ),
+    ).toBe(true);
+    expect(
+      first[0].builds.find((build) => build.arch === "VIT")
+        ?.medianToxicExplosionCount,
+    ).toBeGreaterThan(0);
+  });
+
+  it("빙하 거수 보고서는 완료 행동과 빙결·취소 횟수를 결정적으로 집계한다", () => {
+    const first = buildCoopBossBalanceReport({
+      trials: 2,
+      seed: 20260830,
+      bossIds: ["glacial_colossus"],
+    });
+    const second = buildCoopBossBalanceReport({
+      trials: 2,
+      seed: 20260830,
+      bossIds: ["glacial_colossus"],
+    });
+
+    expect(second).toEqual(first);
+    expect(first).toHaveLength(1);
+    expect(
+      first[0].builds.every(
+        (build) =>
+          build.medianCompletedPlayerActions > 0 &&
+          build.medianGlacialFreezeCount >= 0 &&
+          build.medianGlacialSkippedActionCount >= 0,
+      ),
+    ).toBe(true);
   });
 
   it("시뮬레이션 콜백이 실패해도 전역 난수 함수는 복원한다", () => {

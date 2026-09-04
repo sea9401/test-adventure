@@ -43,6 +43,7 @@ import type { V2MonsterStatusSkillId } from "./v2Skills";
 import {
   UNEXPLORED_BOSSES,
   UNEXPLORED_BOSS_IDS,
+  UNEXPLORED_BOSS_STAT_MULTIPLIER,
   type UnexploredBossId,
 } from "./unexploredBosses";
 import { UNEXPLORED_POOL_BY_ID } from "./unexploredMonsterPools";
@@ -1463,13 +1464,22 @@ export function coopBossForBattle(
   // 협동 보스는 sharedMaxHp + anchorDepth 로 난이도를 독립 튜닝 → 솔로 엔드게임 완화(softenEndgame)
   //   는 적용하지 않는다(앵커 24·42 가 완화 임계 위라 보스 atk 가 의도치 않게 약화되는 것 방지).
   const scaled = scaleMonsterForFloor(kind.base, kind.anchorDepth, false);
+  const statMultiplier = kind.rewardMode === "unexplored_personal"
+    ? UNEXPLORED_BOSS_STAT_MULTIPLIER
+    : 1;
   const hp = Math.max(1, Math.min(Math.floor(currentHp), kind.sharedMaxHp));
   const frac = hp / kind.sharedMaxHp;
-  let atk = scaled.atk;
-  let def = scaled.def;
-  let magicDef = scaled.magicDef;
-  let evasion = scaled.evasionPct ?? 0;
-  let spd = scaled.spd;
+  let atk = Math.round(scaled.atk * statMultiplier);
+  let def = Math.round(scaled.def * statMultiplier);
+  let magicDef = scaled.magicDef == null
+    ? undefined
+    : Math.round(scaled.magicDef * statMultiplier);
+  const accuracy = (scaled.accuracy ?? 0) * statMultiplier;
+  let evasion = Math.min(
+    100,
+    Math.round((scaled.evasionPct ?? 0) * statMultiplier * 100) / 100,
+  );
+  let spd = Math.round(scaled.spd * statMultiplier);
   let skill = scaled.skill;
   let statusSkill = kind.statusSkill;
   const enrageNotes: string[] = [];
@@ -1518,6 +1528,7 @@ export function coopBossForBattle(
     atk,
     def,
     spd,
+    accuracy,
     skill,
     ...(magicDef != null ? { magicDef } : {}),
     ...(evasion > 0 ? { evasionPct: evasion } : {}),

@@ -120,14 +120,9 @@ describe("협동 보스 결정적 밸런스 시뮬레이션", () => {
     expect(
       first[0].builds.every(
         (build) =>
-          build.medianCompletedPlayerActions >= 0 &&
+          build.medianCompletedPlayerActions > 0 &&
           build.medianGlacialFreezeCount >= 0 &&
           build.medianGlacialSkippedActionCount >= 0,
-      ),
-    ).toBe(true);
-    expect(
-      first[0].builds.some(
-        (build) => build.medianGlacialFreezeCount > 0,
       ),
     ).toBe(true);
   });

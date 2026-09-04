@@ -31,8 +31,8 @@ describe("불괴의 성채 고정 시드 밸런스", () => {
       expect(build?.medianFortressBarrierDamageRatio).toBeGreaterThanOrEqual(0);
       expect(build?.medianFortressBarrierDamageRatio).toBeLessThanOrEqual(1);
     }
-    expect(report.maxFortressFirstNormalHitRatio).toBeGreaterThan(1);
-    expect(report.maxFortressFirstNormalHitRatio).toBeLessThan(2);
+    expect(report.maxFortressFirstNormalHitRatio).toBeGreaterThan(2.4);
+    expect(report.maxFortressFirstNormalHitRatio).toBeLessThan(2.7);
     expect(report.builds.every((build) =>
       Number.isFinite(build.medianFortressBarrierDamageRatio)
     )).toBe(true);

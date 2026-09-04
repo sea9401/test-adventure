@@ -144,6 +144,12 @@ describe("production security surface", () => {
     }
   });
 
+  it("운영 빌드에서 미개척지 콘텐츠를 활성화한다", () => {
+    const productionEnv = source(join(ROOT, ".env.production"));
+
+    expect(productionEnv).toMatch(/^NEXT_PUBLIC_V2_UNEXPLORED=true$/m);
+  });
+
   it("심의용 비밀번호 재로그인은 다른 기기로 단일 세션을 안전하게 인계한다", () => {
     const auth = source(join(ROOT, "src/auth.ts"));
     const credentialsBranch = auth.slice(

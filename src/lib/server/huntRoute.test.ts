@@ -480,6 +480,48 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(events.filter((event) => event.category === "monster")).toEqual([]);
   });
 
+  it("미개척지 기본 장비는 2,000승당 1개 경계보다 높은 굴림에서 드랍하지 않는다", async () => {
+    // Break caught: unexplored mode forwards the unmodified depth-84 regular
+    // equipment chance (0.15%) into the shared hunt drop pipeline.
+    const current = store.get("character.v2") as Record<string, unknown>;
+    store.set("character.v2", {
+      ...current,
+      level: 100,
+      exp: 0,
+      unexplored: { selectedNodeIds: ["start"] },
+    });
+    overpowerSeededWarrior();
+    store.set("proficiency.v2", {
+      groups: { warrior: { tier: 4, points: 0, cumLevel: 1_000 } },
+      caps: {
+        str: 1_000_000,
+        vit: 1_000_000,
+        dex: 1_000_000,
+        int: 1_000_000,
+        spi: 1_000_000,
+        luk: 1_000_000,
+      },
+      grown: { str: 1_000_000, vit: 1_000_000, dex: 1_000_000, luk: 1_000_000 },
+    });
+    huntDropOverride.beforeRoll = () => {
+      vi.mocked(Math.random).mockReturnValue(0.0005);
+    };
+
+    const response = await POST(huntReq({ mode: "unexplored" }));
+    const json = (await response.json()) as {
+      result: {
+        won: boolean;
+        droppedEquipment: string | null;
+        droppedUnique: string | null;
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.result.won).toBe(true);
+    expect(json.result.droppedEquipment).toBeNull();
+    expect(json.result.droppedUnique).toBeNull();
+  });
+
   it.each(["survivor", "mutant"] as const)(
     "0단계 직업 %s은 직업 숙련도를 적립하면서 도감에 없는 직업 이벤트를 만들지 않는다",
     async (classId) => {

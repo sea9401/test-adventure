@@ -109,6 +109,7 @@ import { rollHuntDropsRepeated } from "./huntDrops";
 import {
   buildUnexploredRewardPlan,
   rollUnexploredHuntRewards,
+  UNEXPLORED_REGULAR_EQUIPMENT_DROP_MULTIPLIER,
   type UnexploredHuntRewardResult,
 } from "@/adventure/data/v2/unexploredHuntRewards";
 import {
@@ -830,6 +831,9 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     mapDropMult,
     mapUniqueMult,
     mapStoneMult,
+    regularEquipmentChanceMult: unexploredHunt
+      ? UNEXPLORED_REGULAR_EQUIPMENT_DROP_MULTIPLIER
+      : 1,
     liberationHuntEffects: liberationSnapshot.effects,
     rewardRolls,
   });

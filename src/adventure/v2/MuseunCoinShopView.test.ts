@@ -13,8 +13,17 @@ import {
   supportBenefitsForItem,
   sortCosmeticPreviewEntries,
 } from "./MuseunCoinShopView";
+import { MUSEUN_COIN_PACKAGES } from "@/adventure/data/v2/adventureSupport";
 
 describe("무슨 코인 상점 상품 그룹", () => {
+  it("충전 패키지는 서버 카탈로그의 원화 가격을 표시한다", () => {
+    expect(MUSEUN_COIN_PACKAGES.map((item) => item.priceKrw)).toEqual([
+      10_000,
+      20_000,
+      30_000,
+      50_000,
+    ]);
+  });
   it("상점에 두 한정 패키지를 포함한 열한 상품을 노출한다", () => {
     const shopItemIds = SHOP_ITEM_GROUPS.flatMap((group) => group.itemIds);
 

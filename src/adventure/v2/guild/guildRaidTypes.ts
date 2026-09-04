@@ -85,4 +85,16 @@ export type GuildRaidAttackResult = {
   dailyAttackCount: number;
 };
 
+export type GuildRaidPracticeResult = {
+  ok: true;
+  practice: true;
+  bossKind: CoopBossKindId;
+  playerName: string;
+  damageDealt: number;
+  damageTaken: number;
+  diedEarly: boolean;
+  turns: number;
+  replay: ReplayPayload;
+};
+
 export type GuildRaidErrorResponse = { ok?: false; error?: string };

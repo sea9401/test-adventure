@@ -1,6 +1,7 @@
 import { desc, gte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { abuseEvents, adminAuditLog, economyEvents } from "@/db/schema";
+import { economyRetentionLoad } from "@/lib/server/retentionPolicy";
 
 type NumericAggregate = number | string;
 
@@ -41,12 +42,20 @@ export function buildOpsDailyReport(
   since: Date,
 ) {
   if (!Number.isFinite(since.getTime())) throw new Error("since must be a valid date");
+  const economyEventCount = safeInteger(
+    aggregates.economyEvents,
+    "economyEvents",
+  );
+  const retention = economyRetentionLoad(economyEventCount);
   return {
     alertType: "ops.daily_report",
     since: since.toISOString(),
     abuseEvents: safeInteger(aggregates.abuseEvents, "abuseEvents"),
     rateLimited: safeInteger(aggregates.rateLimited, "rateLimited"),
-    economyEvents: safeInteger(aggregates.economyEvents, "economyEvents"),
+    economyEvents: economyEventCount,
+    economyRetentionCapacity: retention.dailyDeleteCapacity,
+    economyRetentionUtilizationPct: retention.utilizationPct,
+    economyRetentionLevel: retention.level,
     goldIn: safeInteger(aggregates.goldIn, "goldIn"),
     goldOut: safeInteger(aggregates.goldOut, "goldOut"),
     rewardFailures: safeInteger(aggregates.rewardFailures, "rewardFailures"),

@@ -52,6 +52,7 @@ node --env-file=/secure/admin/production.env scripts/check-production-env.mjs
 # AWS 관리자 자격으로 /adventure-rpg/production/env 새 버전 업로드
 sudo systemctl restart adventure-rpg
 curl -fsS http://127.0.0.1:3000/api/health
+# 여기서 결과를 확인하고 사용자에게 별도 점검 해제 승인을 받는다.
 bash deploy/maintenance.sh off
 PUBLIC_RELEASE_EXPECTED_BUILD_ID="$(git rev-parse --short HEAD)" \
   npm run check-public-release

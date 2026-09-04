@@ -357,6 +357,8 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
     ids: SKY_RIFT_ARMOR_IDS,
   },
   {
+    // 최심부(84)는 천공 균열 최심부의 별도 무기 드랍 0.05%가 없는 차이를
+    // 일반 방어구 확률로 보정한다. 풀은 같고 84단계만 0.15%를 사용한다.
     minDepth: 83,
     maxDepth: 84,
     ids: SKY_RIFT_ARMOR_IDS,
@@ -392,6 +394,7 @@ export function bandCommonChanceForDepth(depth: number): number {
   const pool = bandCommonPoolForDepth(depth);
   if (!pool) return 0;
   const localDepth = depth - pool.minDepth + 1;
+  if (depth === 84) return 0.0015;
   if (depth >= 79) return skyRiftCommonChance(depth - 6);
   if (depth >= 73) return skyRiftCommonChance(depth);
   return depth >= 55

@@ -48,6 +48,7 @@ import {
 import type { AutoGatheringActivity } from "./autoGathering";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 import { fishingRewardSummaryLabels } from "./fishingRewardSummary";
+import { triggerFishingBiteHaptic } from "./fishingHaptics";
 import { LifeFieldEnvironmentCard } from "./LifeFieldPanels";
 import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 
@@ -1592,10 +1593,9 @@ export function FishingView({
     biteShownAt.current = Date.now();
     setPreBite(false);
     setPhase("biting");
-    // 입질 햅틱 — 모바일에서 진동으로 입질을 알림(시각 신호와 동시 발생, 정보 우위 없음).
-    if (typeof navigator !== "undefined" && navigator.vibrate) {
-      navigator.vibrate(35);
-    }
+    // 입질 햅틱 — 짧은 2회 패턴으로 모바일 진동 모터에서 인지되기 쉽게 한다.
+    // 브라우저가 진동을 지원하지 않거나 권한 정책으로 거부해도 낚시 흐름은 그대로 진행한다.
+    triggerFishingBiteHaptic();
     // 윈도우를 넘기면 자동 실패(여유를 약간 둬 네트워크 탭 지연 흡수).
     windowTimer.current = setTimeout(
       () => resolveReel(REACTION_WINDOW_MS + 500),

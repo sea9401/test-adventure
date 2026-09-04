@@ -122,20 +122,23 @@ describe("production security surface", () => {
       );
       expect(maintenance).toContain("점검 시간:");
       expect(maintenance).toContain(
-        "2026년 9월 2일(수) 오전 3:00 ~ 오전 4:00 (약 1시간)",
+        "2026년 9월 4일(금) 오전 4:00 ~ 오전 4:30",
       );
+      expect(maintenance).toContain("예상 소요 시간:");
+      expect(maintenance).toContain("30분");
       expect(maintenance).toContain("점검 내용:");
-      expect(maintenance).toContain("서비스 안정화 및 업데이트");
+      expect(maintenance).toContain("서비스 안정화 및 시스템 점검");
+      expect(maintenance).toContain("점검 영향:");
       expect(maintenance).toContain(
-        "점검 중에는 게임 접속 및 이용이 불가합니다.",
+        "점검 중 서비스 이용 제한",
       );
       expect(maintenance).toContain(
-        "점검은 진행 상황에 따라 조기에 종료되거나 연장될 수 있습니다.",
+        "점검 상황에 따라 종료 시간이 변경될 수 있으며, 점검이 완료되면 별도로 안내해 드리겠습니다.",
       );
+      expect(maintenance).toContain("이용에 불편을 드려 죄송합니다.");
       expect(maintenance).toContain(
-        "이용에 불편을 드려 죄송하며, 더욱 안정적인 서비스를 제공할 수 있도록 최선을 다하겠습니다.",
+        "더욱 안정적인 서비스를 제공할 수 있도록 최선을 다하겠습니다.",
       );
-      expect(maintenance).toContain("감사합니다.");
       expect(maintenance).not.toContain("오류 수정 패치 점검 안내");
       expect(maintenance).not.toContain("08:30 ~ 08:45 (약 15분)");
       expect(maintenance).not.toContain("약 1시간 30분");
@@ -272,11 +275,14 @@ describe("production security surface", () => {
     expect(install).toContain("previous Next build restored");
   });
 
-  it("일반 단위 테스트는 병렬 실행하고 결정적 시뮬레이션만 단일 worker로 격리한다", () => {
+  it("일반 단위 테스트는 세 shard로 병렬 실행하고 결정적 시뮬레이션만 단일 worker로 격리한다", () => {
     const workflow = source(join(ROOT, ".github/workflows/ci.yml"));
 
-    expect(workflow).toContain(
-      "run: npx vitest run --exclude src/adventure/data/v2/levelDesignSim.test.ts",
+    expect(workflow).toMatch(
+      /unit-tests:[\s\S]*?strategy:\s+fail-fast: false\s+matrix:\s+shard: \[1, 2, 3\]/,
+    );
+    expect(workflow).toMatch(
+      /unit-tests:[\s\S]*?run: npx vitest run --exclude src\/adventure\/data\/v2\/levelDesignSim\.test\.ts --shard=\$\{\{ matrix\.shard \}\}\/3/,
     );
     expect(workflow).toMatch(
       /level-design-sim-tests:[\s\S]*?run: npx vitest run src\/adventure\/data\/v2\/levelDesignSim\.test\.ts --maxWorkers=1/,

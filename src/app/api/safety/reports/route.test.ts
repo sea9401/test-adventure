@@ -190,4 +190,53 @@ describe("사용자 콘텐츠 신고 접수", () => {
     expect(contentReason.status).toBe(400);
     expect(mocks.resolveSource).not.toHaveBeenCalled();
   });
+
+  it("판매 중 매물도 거래 전용 사유의 콘텐츠 신고로 접수한다", async () => {
+    mocks.resolveSource.mockResolvedValue({
+      sourceType: "marketplace_listing",
+      sourceId: "77",
+      targetUserId: "seller-id",
+      targetName: "판매자",
+      contentSnapshot: "매물 번호: 77",
+      contextSnapshot: {
+        status: "active",
+        seller: { userId: "seller-id", name: "판매자" },
+      },
+      relatedAccounts: [{ userId: "seller-id", name: "판매자" }],
+    });
+
+    const response = await POST(
+      request("marketplace_listing", 77, { reason: "market_manipulation" }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(mocks.resolveSource).toHaveBeenCalledWith(
+      "viewer-id",
+      "marketplace_listing",
+      "77",
+    );
+    expect(mocks.state.inserted).toMatchObject({
+      sourceType: "marketplace_listing",
+      sourceId: "77",
+      targetUserId: "seller-id",
+      reason: "market_manipulation",
+      contentSnapshot: "매물 번호: 77",
+    });
+  });
+
+  it("판매 중 매물 신고의 사용자 대상과 일반 콘텐츠 사유를 거부한다", async () => {
+    const userSubject = await POST(
+      request("marketplace_listing", 77, {
+        subjectType: "user",
+        reason: "abnormal_price",
+      }),
+    );
+    const contentReason = await POST(
+      request("marketplace_listing", 77, { reason: "harassment" }),
+    );
+
+    expect(userSubject.status).toBe(400);
+    expect(contentReason.status).toBe(400);
+    expect(mocks.resolveSource).not.toHaveBeenCalled();
+  });
 });

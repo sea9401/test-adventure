@@ -193,4 +193,56 @@ describe("createRuntimeProfilerService", () => {
     expect(() => service.start()).not.toThrow();
     expect(logError).toHaveBeenCalledOnce();
   });
+
+  it("DB 풀 대기가 3개 구간 연속 발생하면 한 번 알리고 정상 구간 후 다시 감시한다", () => {
+    const aggregator = createProfilerAggregator({ now: () => 0 });
+    let waiting = 1;
+    let scheduled: (() => void) | undefined;
+    const onPoolWaitingAlert = vi.fn();
+    const service = createRuntimeProfilerService({
+      enabled: true,
+      intervalMs: 60_000,
+      aggregator,
+      installHttp: vi.fn(),
+      sampler: {
+        sample: () => ({
+          cpuPercent: 1,
+          rssBytes: 1,
+          heapUsedBytes: 1,
+          eventLoopDelayMs: { mean: 0, p95: 0, max: 0 },
+          databasePool: { total: 10, idle: 0, waiting },
+        }),
+      },
+      schedule: (callback) => {
+        scheduled = callback;
+        return { unref: vi.fn() };
+      },
+      log: vi.fn(),
+      logError: vi.fn(),
+      onPoolWaitingAlert,
+    });
+
+    service.start();
+    scheduled?.();
+    scheduled?.();
+    expect(onPoolWaitingAlert).not.toHaveBeenCalled();
+    scheduled?.();
+    scheduled?.();
+    expect(onPoolWaitingAlert).toHaveBeenCalledTimes(1);
+    expect(onPoolWaitingAlert).toHaveBeenCalledWith({
+      consecutiveIntervals: 3,
+      intervalMs: 60_000,
+      total: 10,
+      idle: 0,
+      waiting: 1,
+    });
+
+    waiting = 0;
+    scheduled?.();
+    waiting = 2;
+    scheduled?.();
+    scheduled?.();
+    scheduled?.();
+    expect(onPoolWaitingAlert).toHaveBeenCalledTimes(2);
+  });
 });

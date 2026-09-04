@@ -73,4 +73,29 @@ describe("길드 토벌전 전투 어댑터", () => {
     ).resolves.toBeNull();
     expect(resolveBattle).not.toHaveBeenCalled();
   });
+
+  it("연습 전투는 캐릭터 저장값을 잠금 없이 읽고 전투 준비에도 읽기 전용을 전달한다", async () => {
+    const tx = {} as never;
+
+    await simulateGuildRaidBattle({
+      tx,
+      userId: "u1",
+      bossKind: "mountain_chief_hard",
+      lockForUpdate: false,
+    });
+
+    expect(lockSaveForUpdate).not.toHaveBeenCalled();
+    expect(readSave).toHaveBeenCalledWith(
+      tx,
+      "u1",
+      "character.v2",
+      {},
+    );
+    expect(prepareV2BattleActor).toHaveBeenCalledWith({
+      tx,
+      userId: "u1",
+      charSave: { name: "레이더" },
+      lockForUpdate: false,
+    });
+  });
 });

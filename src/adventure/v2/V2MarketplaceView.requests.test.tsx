@@ -14,6 +14,7 @@ let ownedEquipment: V2EquipInstance[] = [];
 let equippedEquipment: Partial<Record<V2EquipSlot, string>> = {};
 let browseListings: MarketplacePreviewListing[] = [];
 let myBidRows: Array<Record<string, unknown>> = [];
+let historyTrades: Array<Record<string, unknown>> = [];
 
 type MarketplacePreviewListing = (typeof marketplacePreview.listings)[number];
 
@@ -54,7 +55,7 @@ function responseFor(url: string): Response {
     return Response.json({ ok: true, alerts: [] });
   }
   if (url.includes("/history")) {
-    return Response.json({ ok: true, trades: [] });
+    return Response.json({ ok: true, trades: historyTrades });
   }
   return Response.json({ ok: true });
 }
@@ -74,11 +75,13 @@ describe("V2MarketplaceView request timing", () => {
     equippedEquipment = {};
     browseListings = [];
     myBidRows = [];
+    historyTrades = [];
     vi.stubGlobal("fetch", fetchMock);
   });
 
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -241,6 +244,59 @@ describe("V2MarketplaceView request timing", () => {
     });
   });
 
+  it("기기 시계가 2분 빨라도 서버 마감 전에는 입찰을 유지한다", async () => {
+    const clientNow = Date.parse("2026-09-03T09:00:00.000Z");
+    const serverNow = Date.parse("2026-09-03T08:58:00.000Z");
+    vi.spyOn(Date, "now").mockReturnValue(clientNow);
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/browse")) {
+        return Response.json({
+          ok: true,
+          viewerGold: 10_000,
+          serverNow,
+          auctionHours: 6,
+          bidExtensionWindowMinutes: 10,
+          bidExtensionMinutes: 10,
+          listings: [
+            {
+              id: 8,
+              isMine: false,
+              isHighestBidder: false,
+              hasMyBid: false,
+              kind: "material",
+              itemId: "iron_ore",
+              itemName: "철광석",
+              quantity: 2,
+              price: 100,
+              instancePayload: null,
+              createdAt: "2026-09-03T03:00:00.000Z",
+              bidEndsAt: "2026-09-03T09:00:00.000Z",
+              expiresAt: "2026-09-03T09:00:00.001Z",
+              highestBid: null,
+              bidCount: 0,
+              bidResolvedAt: null,
+              nextBid: 100,
+            },
+          ],
+        });
+      }
+      return responseFor(url);
+    });
+
+    render(
+      <RewardToastProvider>
+        <V2MarketplaceView onBack={() => {}} />
+      </RewardToastProvider>,
+    );
+    fireEvent.click(await screen.findByRole("tab", { name: "재료" }));
+
+    expect(await screen.findByText("2분 남음")).not.toBeNull();
+    expect(
+      screen.getByRole("button", { name: "철광석 2개 묶음 입찰" }),
+    ).not.toBeNull();
+    expect(screen.queryByText("입찰 종료 · 정산 중")).toBeNull();
+  });
   it("내 거래 진입 시 내 입찰을 불러와 별도 탭에서 표시한다", async () => {
     const source = marketplacePreview.listings[0];
     myBidRows = [
@@ -273,6 +329,48 @@ describe("V2MarketplaceView request timing", () => {
     expect(screen.getByText("입찰금 예치 중")).not.toBeNull();
   });
 
+  it("최근 거래에서 품목명으로 체결 목록을 검색한다", async () => {
+    historyTrades = [
+      {
+        id: 41,
+        kind: "material",
+        itemId: "iron_ore",
+        itemName: "철광석",
+        quantity: 3,
+        price: 300,
+        instancePayload: null,
+        closedAt: "2026-09-03T01:00:00.000Z",
+      },
+      {
+        id: 42,
+        kind: "material",
+        itemId: "silver_ore",
+        itemName: "은광석",
+        quantity: 2,
+        price: 400,
+        instancePayload: null,
+        closedAt: "2026-09-03T02:00:00.000Z",
+      },
+    ];
+    render(
+      <RewardToastProvider>
+        <V2MarketplaceView onBack={() => {}} />
+      </RewardToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /최근 거래/ }));
+    expect(await screen.findByText("철광석")).not.toBeNull();
+    expect(screen.getByText("은광석")).not.toBeNull();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "최근 거래 품목 검색" }), {
+      target: { value: " 은 " },
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText("철광석")).toBeNull();
+      expect(screen.getByText("은광석")).not.toBeNull();
+    });
+  });
   it("내 항목만 보기에서 기존 순서를 유지하며 무관한 매물을 숨긴다", async () => {
     const [own, leading, participated] = marketplacePreview.listings;
     browseListings = [

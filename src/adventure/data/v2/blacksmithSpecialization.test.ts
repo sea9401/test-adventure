@@ -87,6 +87,35 @@ describe("blacksmith specialization progression", () => {
         .optionFocuses.map((entry) => entry.id),
     ).toEqual(["jewelry_survival", "jewelry_recovery"]);
   });
+
+  it("특수 제작 장비의 실제 옵션에 맞는 성향 선택지를 빠짐없이 제공한다", () => {
+    const cases = [
+      ["crafted_oathblade", "weapon", "weapon_guard"],
+      ["crafted_spark_gloves", "armor", "armor_offense"],
+      ["crafted_combo_boots", "armor", "armor_mobility"],
+      ["crafted_oblivion_ring", "jewelry", "jewelry_survival"],
+    ] as const;
+
+    for (const [recipeId, specialty, expectedFocus] of cases) {
+      const recipe = GUILD_WORKSHOP_RECIPES[recipeId];
+      const item = V2_EQUIPMENT[recipe.equipmentId];
+      expect(
+        blacksmithTechniqueView({ level: 30, specialty, item })
+          .optionFocuses.map((focus) => focus.id),
+        item.name,
+      ).toContain(expectedFocus);
+    }
+  });
+
+  it("조정 가능한 보조 옵션이 없는 장비에는 무효한 성향을 만들지 않는다", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_venom_injector;
+    const item = V2_EQUIPMENT[recipe.equipmentId];
+
+    expect(
+      blacksmithTechniqueView({ level: 30, specialty: "weapon", item })
+        .optionFocuses,
+    ).toEqual([]);
+  });
 });
 
 describe("blacksmith controlled rolls", () => {
@@ -119,6 +148,36 @@ describe("blacksmith controlled rolls", () => {
     expect(Object.keys(result.roll.options ?? {}).sort()).toEqual(
       Object.keys(item.options ?? {}).sort(),
     );
+  });
+
+  it("보조 옵션이 한 성향뿐이면 기본 성능과 재배분해 성향을 실제 적용한다", () => {
+    const boots = V2_EQUIPMENT[
+      GUILD_WORKSHOP_RECIPES.crafted_combo_boots.equipmentId
+    ];
+    const baseRoll = rollItemStats(
+      boots,
+      sequenceRng([0.9, 0.1, 0.2]),
+    );
+    const before = equipRollPercentiles(boots, baseRoll);
+    const result = applyBlacksmithCraftControl(
+      boots,
+      baseRoll,
+      {
+        optionFocus: "armor_mobility",
+        structure: "balanced",
+        useCatalyst: false,
+      },
+      () => 0,
+    );
+
+    expect(result.focusApplied).toBe(true);
+    expect(result.percentiles).not.toEqual(before);
+    expect(result.percentiles.options?.eva).toBeGreaterThanOrEqual(
+      result.percentiles.power,
+    );
+    expect(
+      blacksmithWeightedPercentileBudget(boots, result.percentiles),
+    ).toBeCloseTo(blacksmithWeightedPercentileBudget(boots, before), 8);
   });
 
   it("uses 75% normally and 90% with a catalyst", () => {

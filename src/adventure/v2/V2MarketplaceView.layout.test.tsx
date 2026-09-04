@@ -8,6 +8,7 @@ import { GameStateProvider } from "./GameStateProvider";
 import { RewardToastProvider } from "./RewardToastProvider";
 import { actionErrorLabel, V2MarketplaceView } from "./V2MarketplaceView";
 import { MarketplaceRecentTradeList } from "./V2MarketplaceView";
+import { MarketplaceStackBrowse } from "./marketplace/MarketplaceStackBrowse";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dev/marketplace",
@@ -80,7 +81,54 @@ describe("V2MarketplaceView 모바일 매물 카드", () => {
     expect(html).toContain('data-testid="marketplace-listing-action"');
     expect(html).toContain("w-full sm:w-auto");
     expect(html).toContain("시작 입찰가");
+    expect(html).toContain(
+      `aria-label="${marketplacePreview.listings[0].itemName} 매물 신고"`,
+    );
     expect(html).not.toContain("즉시구매");
+  });
+
+  it("본인 판매 중 매물에는 신고 동작을 표시하지 않는다", () => {
+    const ownAuctionPreview = {
+      ...marketplacePreview,
+      listings: marketplacePreview.listings.map((listing) => ({
+        ...listing,
+        isMine: true,
+      })),
+    };
+    const html = renderToStaticMarkup(
+      <GameStateProvider>
+        <RewardToastProvider>
+          <V2MarketplaceView onBack={() => {}} preview={ownAuctionPreview} />
+        </RewardToastProvider>
+      </GameStateProvider>,
+    );
+
+    expect(html).not.toContain("매물 신고");
+  });
+
+  it("재료 판매 중 매물에도 신고 동작을 표시한다", () => {
+    const listing = {
+      ...marketplacePreview.listings[0],
+      id: 77,
+      kind: "material" as const,
+      itemId: "iron_ore",
+      itemName: "철광석",
+      quantity: 5,
+      isMine: false,
+    };
+    const html = renderToStaticMarkup(
+      <MarketplaceStackBrowse
+        listings={[listing]}
+        clockMs={Date.now()}
+        busy={false}
+        favoriteKeys={new Set()}
+        onToggleFavorite={vi.fn()}
+        onBid={vi.fn()}
+        onOpenTools={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('aria-label="철광석 매물 신고"');
   });
 
   it("본인 경매 매물도 구매 동작 없이 입찰 현황을 제공한다", () => {

@@ -10,6 +10,8 @@ import {
 import { equipmentBuyOrderMinimumPrice } from "@/lib/server/marketplaceV2";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
+import { createBestEffortBatcher } from "@/lib/server/bestEffortBatcher";
+import { runOutsideRequestProfile } from "@/lib/server/runtimeProfiler/requestContext";
 
 export type EconomyEventInput = {
   userId?: string | null;
@@ -22,9 +24,91 @@ export type EconomyEventInput = {
   detail?: Record<string, unknown> | null;
 };
 
+const ECONOMY_EVENT_BATCH_SIZE = 100;
+const ECONOMY_EVENT_BATCH_DELAY_MS = 25;
+const ECONOMY_EVENT_QUEUE_ALERT_SIZE = 500;
+
+export type EconomyEventBatchMetrics = {
+  startedAt: string;
+  pending: number;
+  inFlight: number;
+  successfulBatches: number;
+  successfulEntries: number;
+  averageBatchSize: number;
+  maxBatchSize: number;
+  failedBatches: number;
+  failedEntries: number;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+};
+
+type MutableEconomyEventBatchMetrics = Omit<
+  EconomyEventBatchMetrics,
+  "pending" | "inFlight" | "averageBatchSize"
+>;
+
+type EconomyEventBatcher = ReturnType<
+  typeof createBestEffortBatcher<EconomyEventInput>
+>;
+
+declare global {
+  var __adventureEconomyEventBatcher: EconomyEventBatcher | undefined;
+  var __adventureEconomyEventBatchMetrics:
+    | MutableEconomyEventBatchMetrics
+    | undefined;
+}
+
+function mutableEconomyEventBatchMetrics(): MutableEconomyEventBatchMetrics {
+  globalThis.__adventureEconomyEventBatchMetrics ??= {
+    startedAt: new Date().toISOString(),
+    successfulBatches: 0,
+    successfulEntries: 0,
+    maxBatchSize: 0,
+    failedBatches: 0,
+    failedEntries: 0,
+    lastSuccessAt: null,
+    lastFailureAt: null,
+  };
+  return globalThis.__adventureEconomyEventBatchMetrics;
+}
+
+export function getEconomyEventBatchMetrics(): EconomyEventBatchMetrics {
+  const metrics = mutableEconomyEventBatchMetrics();
+  const queue = globalThis.__adventureEconomyEventBatcher?.snapshot() ?? {
+    pending: 0,
+    inFlight: 0,
+  };
+  return {
+    ...metrics,
+    ...queue,
+    averageBatchSize:
+      metrics.successfulBatches > 0
+        ? Math.round(
+            (metrics.successfulEntries / metrics.successfulBatches) * 100,
+          ) / 100
+        : 0,
+  };
+}
+
 function boundedText(value: string | null | undefined, max: number) {
   if (!value) return null;
   return value.slice(0, max);
+}
+
+function economyEventValues(entry: EconomyEventInput) {
+  return {
+    userId: entry.userId ?? null,
+    counterpartyUserId: entry.counterpartyUserId ?? null,
+    eventType: entry.eventType.slice(0, 160),
+    goldDelta: Math.trunc(entry.goldDelta ?? 0),
+    itemKind: boundedText(entry.itemKind, 80),
+    itemId: boundedText(entry.itemId, 160),
+    quantity:
+      typeof entry.quantity === "number" && Number.isFinite(entry.quantity)
+        ? Math.trunc(entry.quantity)
+        : null,
+    detail: entry.detail ?? null,
+  };
 }
 
 export async function recordEconomyEvent(entry: EconomyEventInput): Promise<void> {
@@ -32,19 +116,7 @@ export async function recordEconomyEvent(entry: EconomyEventInput): Promise<void
   try {
     const [inserted] = await db
       .insert(economyEvents)
-      .values({
-        userId: entry.userId ?? null,
-        counterpartyUserId: entry.counterpartyUserId ?? null,
-        eventType: entry.eventType.slice(0, 160),
-        goldDelta: Math.trunc(entry.goldDelta ?? 0),
-        itemKind: boundedText(entry.itemKind, 80),
-        itemId: boundedText(entry.itemId, 160),
-        quantity:
-          typeof entry.quantity === "number" && Number.isFinite(entry.quantity)
-            ? Math.trunc(entry.quantity)
-            : null,
-        detail: entry.detail ?? null,
-      })
+      .values(economyEventValues(entry))
       .returning({ id: economyEvents.id });
     recordEconomyOpsSignal(entry);
     if (inserted) {
@@ -206,7 +278,86 @@ function sendExtremeLowMarketplacePriceSignal(args: {
 }
 
 export function recordEconomyEventSoon(entry: EconomyEventInput) {
+  if (!process.env.DATABASE_URL) return;
+  if (isBatchedEconomyEvent(entry)) {
+    const batcher = economyEventBatcher();
+    batcher.enqueue({
+      ...entry,
+      detail: entry.detail ? { ...entry.detail } : entry.detail,
+    });
+    const queue = batcher.snapshot();
+    const queueDepth = queue.pending + queue.inFlight;
+    if (queueDepth >= ECONOMY_EVENT_QUEUE_ALERT_SIZE) {
+      recordOpsSignal({
+        key: "database:economy-event-batch-queue",
+        alertType: "database.economy_batch_queue_backlog",
+        label: "economy event batch queue is backlogged",
+        threshold: 1,
+        windowMs: 10 * 60_000,
+        detail: {
+          channel: "default",
+          queueDepth,
+          pending: queue.pending,
+          inFlight: queue.inFlight,
+        },
+      });
+    }
+    return;
+  }
   void recordEconomyEvent(entry);
+}
+
+export function isBatchedEconomyEvent(entry: EconomyEventInput): boolean {
+  return (
+    entry.eventType.startsWith("life.") ||
+    entry.eventType === "currency.fishing.catch"
+  );
+}
+
+function economyEventBatcher(): EconomyEventBatcher {
+  globalThis.__adventureEconomyEventBatcher ??= createBestEffortBatcher({
+    maxBatchSize: ECONOMY_EVENT_BATCH_SIZE,
+    flushDelayMs: ECONOMY_EVENT_BATCH_DELAY_MS,
+    writeBatch: async (entries) => {
+      await runOutsideRequestProfile(() =>
+        db.insert(economyEvents).values(entries.map(economyEventValues)),
+      );
+      const metrics = mutableEconomyEventBatchMetrics();
+      metrics.successfulBatches += 1;
+      metrics.successfulEntries += entries.length;
+      metrics.maxBatchSize = Math.max(metrics.maxBatchSize, entries.length);
+      metrics.lastSuccessAt = new Date().toISOString();
+      for (const entry of entries) recordEconomyOpsSignal(entry);
+    },
+    onError: (error, entries) => {
+      const metrics = mutableEconomyEventBatchMetrics();
+      metrics.failedBatches += 1;
+      metrics.failedEntries += entries.length;
+      metrics.lastFailureAt = new Date().toISOString();
+      const eventTypes = [...new Set(entries.map((entry) => entry.eventType))]
+        .slice(0, 10)
+        .map((eventType) => eventType.slice(0, 160));
+      console.error("[economyLog] 배치 기록 실패", {
+        size: entries.length,
+        eventTypes,
+        error,
+      });
+      recordOpsSignal({
+        key: "database:economy-event-batch-write",
+        alertType: "database.economy_batch_write_failed",
+        label: "economy event batch insert failed",
+        threshold: 1,
+        windowMs: 10 * 60_000,
+        detail: {
+          channel: "default",
+          batchSize: entries.length,
+          failedBatches: metrics.failedBatches,
+          failedEntries: metrics.failedEntries,
+        },
+      });
+    },
+  });
+  return globalThis.__adventureEconomyEventBatcher;
 }
 
 export function recordRewardFailureSoon(entry: {

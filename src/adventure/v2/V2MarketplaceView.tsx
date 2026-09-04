@@ -115,6 +115,7 @@ import {
 } from "./marketplace/equipmentComparison";
 import { EquipmentCodexBadge } from "./EquipmentCodexBadge";
 import { MarketplaceTradeReportButton } from "./marketplace/MarketplaceTradeReportButton";
+import { filterMarketplaceRecentTrades } from "./marketplace/recentTradeSearch";
 import { MarketplaceMyBids } from "./marketplace/MarketplaceMyBids";
 import type { MarketplaceMyBid } from "./marketplace/marketplaceBidTracking";
 import { marketplaceLifeItemDefinition } from "./marketplace/lifeItemCatalog";
@@ -338,6 +339,7 @@ export function V2MarketplaceView({
   const [myBids, setMyBids] = useState<MarketplaceMyBid[] | null>(null);
   // 최근 거래 — Trade 를 Listing 형태로 매핑(ListingList 재사용). createdAt 자리 = 체결 시각.
   const [recentTrades, setRecentTrades] = useState<Listing[] | null>(null);
+  const [recentSearch, setRecentSearch] = useState("");
   const [myHistory, setMyHistory] = useState<Listing[] | null>(null);
   const [priceAlerts, setPriceAlerts] = useState<PriceAlert[] | null>(null);
   // 팔기 — 내 인벤(미장착·미잠금 장비 + 재료). 강화 상태는 그대로 거래된다.
@@ -394,6 +396,7 @@ export function V2MarketplaceView({
   const [bidExtensionMinutes, setBidExtensionMinutes] = useState(
     preview?.bidExtensionMinutes ?? 10,
   );
+  const [serverClockOffsetMs, setServerClockOffsetMs] = useState(0);
   const [clockMs, setClockMs] = useState(() => Date.now());
   // 아이템 옵션 카드(클릭 시 뜨는 팝오버) — 장비만(재료는 옵션 없음). V2ItemCard 재사용(읽기전용).
   const [card, setCard] = useState<{
@@ -411,6 +414,7 @@ export function V2MarketplaceView({
     const j = (await res.json().catch(() => null)) as {
       ok?: boolean;
       viewerGold?: number;
+      serverNow?: number;
       auctionHours?: number;
       bidExtensionWindowMinutes?: number;
       bidExtensionMinutes?: number;
@@ -418,6 +422,10 @@ export function V2MarketplaceView({
     } | null;
     if (!res.ok || !j?.ok) throw new Error(`목록 로드 실패 (${res.status})`);
     if (typeof j.viewerGold === "number") setGold(j.viewerGold);
+    if (typeof j.serverNow === "number" && Number.isFinite(j.serverNow)) {
+      setServerClockOffsetMs(j.serverNow - Date.now());
+      setClockMs(j.serverNow);
+    }
     if (typeof j.auctionHours === "number") setAuctionHours(j.auctionHours);
     if (typeof j.bidExtensionWindowMinutes === "number") {
       setBidExtensionWindowMinutes(j.bidExtensionWindowMinutes);
@@ -562,9 +570,12 @@ export function V2MarketplaceView({
   }, [automationSurfaceOpen, loadPriceAlerts, preview]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setClockMs(Date.now()), 30_000);
+    const timer = window.setInterval(
+      () => setClockMs(Date.now() + serverClockOffsetMs),
+      30_000,
+    );
     return () => window.clearInterval(timer);
-  }, []);
+  }, [serverClockOffsetMs]);
 
   useEffect(() => {
     if (preview || (tab !== "browse" && tab !== "mine")) return;
@@ -1119,10 +1130,14 @@ export function V2MarketplaceView({
     MARKETPLACE_PAGE_SIZE,
     `browse:${browseTab}:${q}:${favoriteOnly}:${personalOnly}:${equipmentTierFilter}:${unregisteredCodexOnly}:${craftedOnly}:${craftedQualityFilter}:${craftedLevelFilter}:${sort}`,
   );
-  const recentTradesPager = usePagination(
+  const filteredRecentTrades = filterMarketplaceRecentTrades(
     recentTrades ?? [],
+    recentSearch,
+  );
+  const recentTradesPager = usePagination(
+    filteredRecentTrades,
     MARKETPLACE_PAGE_SIZE,
-    "recent-trades",
+    `recent-trades:${recentSearch.trim().toLocaleLowerCase("ko-KR")}`,
   );
   const myHistoryPager = usePagination(
     myHistory ?? [],
@@ -1618,9 +1633,8 @@ export function V2MarketplaceView({
                     : "등록된 매물이 없어요."
               }
               action={(l) => {
-              const bidding = new Date(l.bidEndsAt).getTime() > clockMs;
-              if (bidding) {
-                return (
+                const bidding = new Date(l.bidEndsAt).getTime() > clockMs;
+                const primaryAction = bidding ? (
                   <button
                     type="button"
                     onClick={() => void openBid(l)}
@@ -1629,19 +1643,31 @@ export function V2MarketplaceView({
                   >
                     {l.isMine ? `입찰 ${l.bidCount}건` : "입찰"}
                   </button>
+                ) : l.bidCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => void openBid(l)}
+                    className="h-9 shrink-0 rounded-md border border-amber-300 px-3 text-xs font-medium text-amber-800 dark:border-amber-800 dark:text-amber-300"
+                  >
+                    입찰 내역
+                  </button>
+                ) : (
+                  <span className="shrink-0 text-[11px] text-zinc-400">
+                    정산 중
+                  </span>
                 );
-              }
-              return l.bidCount > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => void openBid(l)}
-                  className="h-9 shrink-0 rounded-md border border-amber-300 px-3 text-xs font-medium text-amber-800 dark:border-amber-800 dark:text-amber-300"
-                >
-                  입찰 내역
-                </button>
-              ) : (
-                <span className="shrink-0 text-[11px] text-zinc-400">정산 중</span>
-              );
+                return (
+                  <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
+                    {!l.isMine ? (
+                      <MarketplaceTradeReportButton
+                        tradeId={l.id}
+                        itemName={l.itemName}
+                        sourceType="marketplace_listing"
+                      />
+                    ) : null}
+                    {primaryAction}
+                  </div>
+                );
               }}
               priceRef={priceRef}
               frontierDepth={frontierDepth}
@@ -1668,6 +1694,21 @@ export function V2MarketplaceView({
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
               판매자와 구매자는 공개되지 않습니다. 수상한 거래는 기록에서 신고할 수 있어요.
             </p>
+            <label className="relative mt-3 block">
+              <span className="sr-only">최근 거래 품목 검색</span>
+              <MagnifyingGlass
+                size={16}
+                aria-hidden
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+              />
+              <input
+                type="search"
+                value={recentSearch}
+                onChange={(event) => setRecentSearch(event.target.value)}
+                placeholder="체결 품목 검색"
+                className="w-full rounded-md border border-zinc-300 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+              />
+            </label>
           </Card>
           <MarketplaceRecentTradeList
             rows={
@@ -1675,8 +1716,13 @@ export function V2MarketplaceView({
             }
             frontierDepth={frontierDepth}
             clockMs={clockMs}
+            emptyText={
+              recentTrades !== null && recentSearch.trim()
+                ? "검색 결과가 없어요."
+                : undefined
+            }
           />
-          {recentTrades !== null && recentTrades.length > 0 ? (
+          {recentTrades !== null && filteredRecentTrades.length > 0 ? (
             <Pagination
               page={recentTradesPager.page}
               pageCount={recentTradesPager.pageCount}
@@ -2400,15 +2446,17 @@ export function MarketplaceRecentTradeList({
   rows,
   frontierDepth,
   clockMs,
+  emptyText = "아직 체결된 거래가 없어요.",
 }: {
   rows: Listing[] | null;
   frontierDepth?: number;
   clockMs: number;
+  emptyText?: string;
 }) {
   return (
     <ListingList
       rows={rows}
-      emptyText="아직 체결된 거래가 없어요."
+      emptyText={emptyText}
       historical
       priceRef={{}}
       frontierDepth={frontierDepth}

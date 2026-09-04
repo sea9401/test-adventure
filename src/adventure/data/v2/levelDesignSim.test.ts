@@ -127,8 +127,9 @@ describe("sim-v2-level-design", () => {
       expect(pool.ids.length / pool.chance).toBeCloseTo(480_000);
     }
     expect(starGrave.avgVeteranExpPerWin).toBe(skyRift.avgVeteranExpPerWin);
-    expect(starGrave.commonAnyExpectedWins).toBe(1_000);
-    expect(starGrave.commonSpecificExpectedWins).toBe(21_000);
+    // 별의 무덤 최심부는 천공 균열의 별도 0.05% 무기 경로를 일반 방어구로 보정한다.
+    expect(starGrave.commonAnyExpectedWins).toBeCloseTo(1 / 0.0015);
+    expect(starGrave.commonSpecificExpectedWins).toBe(14_000);
     expect(starGrave.signatureAnyExpectedWins).toBeCloseTo(1 / 0.000035);
     expect(starGrave.signatureSpecificExpectedWins).toBeCloseTo(
       12 / 0.000035,

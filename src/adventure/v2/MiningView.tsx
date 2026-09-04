@@ -615,8 +615,6 @@ export function MiningView({
         <ActivityVerificationGate challenge={verification} onVerify={verifyHuman} />
       ) : null}
 
-      {viewMode === "choice" ? (
-        <>
       <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 dark:border-amber-900/70 dark:bg-amber-950/30">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -641,6 +639,8 @@ export function MiningView({
         </div>
       </div>
 
+      {viewMode === "choice" ? (
+        <>
       <GatheringResourceStockCard
         resourceName={selectedMaterial.name}
         count={selectedMaterialCount}

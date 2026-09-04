@@ -15,6 +15,8 @@ export type MarketplaceTradeReportRow = {
   price: number;
   instancePayload: unknown;
   status: string;
+  createdAt: Date;
+  bidEndsAt: Date;
   closedAt: Date | null;
   highestBid: number | null;
   bidCount: number;
@@ -29,6 +31,13 @@ export type MarketplaceTradeReportSource = {
   contentSnapshot: string;
   contextSnapshot: Record<string, unknown>;
   relatedAccounts: Array<{ userId: string; name: string }>;
+};
+
+export type MarketplaceListingReportSource = Omit<
+  MarketplaceTradeReportSource,
+  "sourceType"
+> & {
+  sourceType: "marketplace_listing";
 };
 
 export function buildMarketplaceTradeReportSource(
@@ -92,10 +101,63 @@ export function buildMarketplaceTradeReportSource(
   };
 }
 
-export async function resolveMarketplaceTradeReportSource(
+export function buildMarketplaceListingReportSource(
+  row: MarketplaceTradeReportRow,
   reporterUserId: string,
+): MarketplaceListingReportSource | null {
+  if (row.status !== "active" || row.sellerId === reporterUserId) return null;
+
+  const seller = { userId: row.sellerId, name: row.sellerName };
+  const currentPrice = row.highestBid ?? row.price;
+  const unitPrice = Math.max(
+    1,
+    Math.ceil(currentPrice / Math.max(1, row.quantity)),
+  );
+  const highestBidLabel =
+    row.highestBid == null
+      ? "없음"
+      : `${row.highestBid.toLocaleString("ko-KR")} G`;
+
+  return {
+    sourceType: "marketplace_listing",
+    sourceId: String(row.id),
+    targetUserId: seller.userId,
+    targetName: seller.name,
+    contentSnapshot: [
+      `매물 번호: ${row.id}`,
+      `품목: ${row.itemName} (${row.kind}:${row.itemId})`,
+      `수량: ${row.quantity.toLocaleString("ko-KR")}`,
+      `시작 입찰가: ${row.price.toLocaleString("ko-KR")} G`,
+      `현재 최고 입찰가: ${highestBidLabel}`,
+      `현재 기준 개당 가격: ${unitPrice.toLocaleString("ko-KR")} G`,
+      `등록 시각: ${row.createdAt.toISOString()}`,
+      `입찰 마감 시각: ${row.bidEndsAt.toISOString()}`,
+    ].join("\n"),
+    contextSnapshot: {
+      listingId: row.id,
+      status: row.status,
+      seller,
+      kind: row.kind,
+      itemId: row.itemId,
+      itemName: row.itemName,
+      quantity: row.quantity,
+      price: row.price,
+      currentPrice,
+      unitPrice,
+      instancePayload: row.instancePayload,
+      createdAt: row.createdAt.toISOString(),
+      bidEndsAt: row.bidEndsAt.toISOString(),
+      highestBid: row.highestBid,
+      bidCount: row.bidCount,
+      relatedAccounts: [seller],
+    },
+    relatedAccounts: [seller],
+  };
+}
+
+async function readMarketplaceReportRow(
   listingId: number,
-): Promise<MarketplaceTradeReportSource | null> {
+): Promise<MarketplaceTradeReportRow | null> {
   const [row] = await db
     .select({
       id: marketplaceListingsV2.id,
@@ -109,6 +171,8 @@ export async function resolveMarketplaceTradeReportSource(
       price: marketplaceListingsV2.price,
       instancePayload: marketplaceListingsV2.instancePayload,
       status: marketplaceListingsV2.status,
+      createdAt: marketplaceListingsV2.createdAt,
+      bidEndsAt: marketplaceListingsV2.bidEndsAt,
       closedAt: marketplaceListingsV2.closedAt,
       highestBid: marketplaceListingsV2.highestBid,
       bidCount: marketplaceListingsV2.bidCount,
@@ -117,10 +181,27 @@ export async function resolveMarketplaceTradeReportSource(
     .from(marketplaceListingsV2)
     .where(eq(marketplaceListingsV2.id, listingId))
     .limit(1);
+  return row ?? null;
+}
+
+export async function resolveMarketplaceTradeReportSource(
+  reporterUserId: string,
+  listingId: number,
+): Promise<MarketplaceTradeReportSource | null> {
+  const row = await readMarketplaceReportRow(listingId);
   if (!row || row.status !== "sold" || !row.closedAt) return null;
 
   const buyerName = row.buyerId
     ? (await resolveActor(row.buyerId)).name
     : null;
   return buildMarketplaceTradeReportSource(row, reporterUserId, buyerName);
+}
+
+export async function resolveMarketplaceListingReportSource(
+  reporterUserId: string,
+  listingId: number,
+): Promise<MarketplaceListingReportSource | null> {
+  const row = await readMarketplaceReportRow(listingId);
+  if (!row) return null;
+  return buildMarketplaceListingReportSource(row, reporterUserId);
 }

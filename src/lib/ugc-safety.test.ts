@@ -17,6 +17,7 @@ describe("UGC 신고 입력 검증", () => {
     expect(isUgcSourceType("guild_profile")).toBe(true);
     expect(isUgcSourceType("chat_room")).toBe(true);
     expect(isUgcSourceType("marketplace_trade")).toBe(true);
+    expect(isUgcSourceType("marketplace_listing")).toBe(true);
     expect(isUgcSourceType("unknown")).toBe(false);
   });
 
@@ -51,6 +52,12 @@ describe("UGC 신고 입력 검증", () => {
       isAllowedUgcReportReason("marketplace_trade", "real_money_trade"),
     ).toBe(true);
     expect(isAllowedUgcReportReason("marketplace_trade", "other")).toBe(true);
+    expect(
+      isAllowedUgcReportReason("marketplace_listing", "abnormal_price"),
+    ).toBe(true);
+    expect(
+      isAllowedUgcReportReason("marketplace_listing", "harassment"),
+    ).toBe(false);
     expect(
       isAllowedUgcReportReason("marketplace_trade", "harassment"),
     ).toBe(false);

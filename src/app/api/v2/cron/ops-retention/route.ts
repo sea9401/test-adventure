@@ -1,6 +1,7 @@
 import {
   and,
   eq,
+  gte,
   inArray,
   isNotNull,
   isNull,
@@ -33,6 +34,7 @@ import { sendOpsAlert } from "@/lib/server/opsAlert";
 import {
   RETENTION_POLICY,
   drainRetentionBatches,
+  economyRetentionLoad,
   retentionCutoff,
 } from "@/lib/server/retentionPolicy";
 import { processStorageDeletionQueue } from "@/lib/server/storageDeletionQueue";
@@ -448,7 +450,16 @@ export async function POST(req: Request) {
   if (unauthorized) return unauthorized;
 
   const now = new Date();
-  const [abuse, economy, adminAudit, serverFeedResult, pushDelivery, safetyReports, tournament] =
+  const [
+    abuse,
+    economy,
+    adminAudit,
+    serverFeedResult,
+    pushDelivery,
+    safetyReports,
+    tournament,
+    economyInflowRows,
+  ] =
     await Promise.all([
       deleteSimpleRows(
         abuseEvents,
@@ -468,7 +479,7 @@ export async function POST(req: Request) {
               retentionCutoff(RETENTION_POLICY.economyDays, now),
             ),
           ),
-        RETENTION_POLICY.backlogDeleteMaxBatches,
+        RETENTION_POLICY.economyDeleteMaxBatches,
       ),
       deleteSimpleRows(
         adminAuditLog,
@@ -507,6 +518,10 @@ export async function POST(req: Request) {
         ),
       ),
       trimArenaTournamentReplays(now),
+      db
+        .select({ count: sql<number>`count(*)::bigint` })
+        .from(economyEvents)
+        .where(gte(economyEvents.createdAt, new Date(now.getTime() - 24 * 60 * 60_000))),
     ]);
 
   const sanctionCutoff = retentionCutoff(
@@ -624,6 +639,26 @@ export async function POST(req: Request) {
     });
   }
 
+  const economyRetention = economyRetentionLoad(
+    Number(economyInflowRows[0]?.count ?? 0),
+  );
+  if (economy.more || economyRetention.level === "critical") {
+    await sendOpsAlert(
+      economy.more
+        ? "[ops] 경제 로그 정리 즉시 적체 경고"
+        : "[ops] 경제 로그 일일 정리 용량 초과 경고",
+      {
+        alertType: economy.more
+          ? "database.economy_retention_backlog"
+          : "database.economy_retention_capacity",
+        inflow24h: economyRetention.inflow24h,
+        dailyDeleteCapacity: economyRetention.dailyDeleteCapacity,
+        utilizationPct: economyRetention.utilizationPct,
+        deleted: economy.deleted,
+      },
+    );
+  }
+
   const storage = await recordStorageMetrics(now);
   return Response.json({
     ok: true,
@@ -631,6 +666,7 @@ export async function POST(req: Request) {
     results,
     backlog,
     backlogDays,
+    economyRetention,
     storageDeletion,
     storage,
   });

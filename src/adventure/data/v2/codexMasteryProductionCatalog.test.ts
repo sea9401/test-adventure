@@ -16,6 +16,12 @@ const ids = (category: Parameters<typeof CODEX_MASTERY_CATALOG.list>[0]) =>
   CODEX_MASTERY_CATALOG.list(category).map((entry) => entry.entryId);
 
 describe("production codex mastery catalog", () => {
+  it("includes trainable tier-zero jobs while excluding the unadvanced adventurer", () => {
+    expect(CODEX_MASTERY_CATALOG.get("job", "survivor")?.label).toBe("생존자");
+    expect(CODEX_MASTERY_CATALOG.get("job", "mutant")?.label).toBe("변이자");
+    expect(CODEX_MASTERY_CATALOG.get("job", "none")).toBeNull();
+  });
+
   it("covers every authoritative version-1 source entry exactly once", () => {
     const monsterIds = [
       ...new Set(
@@ -32,7 +38,7 @@ describe("production codex mastery catalog", () => {
     expect(ids("cooking")).toEqual(COOKING_PUBLIC_RECIPES.map((recipe) => recipe.id).sort());
     expect(ids("life")).toEqual(LIFE_FIELD_RECORD_CATALOG.map((entry) => entry.id).sort());
     expect(ids("job")).toEqual(
-      V2_JOB_LIST.filter((job) => job.tier > 0).map((job) => job.id).sort(),
+      V2_JOB_LIST.filter((job) => job.id !== "none").map((job) => job.id).sort(),
     );
   });
 
@@ -82,7 +88,7 @@ describe("production codex mastery catalog", () => {
       expect(report.entries).toBeGreaterThan(0);
     }
 
-    const jobEntries = V2_JOB_LIST.filter((job) => job.tier > 0).length;
+    const jobEntries = V2_JOB_LIST.filter((job) => job.id !== "none").length;
     expect(CODEX_MASTERY_CATALOG.get("job", "warrior")).toMatchObject({
       scoreWeightMilli: 3_392,
       compatibleScoreWeightsMilli: [3_294],

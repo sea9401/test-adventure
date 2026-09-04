@@ -18,7 +18,10 @@ import { UGC_POLICY_VERSION } from "@/lib/ugc-safety";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
 import { readProfileValue } from "@/adventure/profile/profileValue";
 import { resolveActor } from "./resolveActor";
-import { resolveMarketplaceTradeReportSource } from "./marketplaceTradeReport";
+import {
+  resolveMarketplaceListingReportSource,
+  resolveMarketplaceTradeReportSource,
+} from "./marketplaceTradeReport";
 
 export type ResolvedUgcSource = {
   sourceType: UgcSourceType;
@@ -96,6 +99,14 @@ export async function resolveUgcSource(
   if (sourceType === "marketplace_trade") {
     if (validNumericSourceId == null) return null;
     return resolveMarketplaceTradeReportSource(
+      viewerUserId,
+      validNumericSourceId,
+    );
+  }
+
+  if (sourceType === "marketplace_listing") {
+    if (validNumericSourceId == null) return null;
+    return resolveMarketplaceListingReportSource(
       viewerUserId,
       validNumericSourceId,
     );

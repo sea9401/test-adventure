@@ -607,7 +607,7 @@ export const ugcReports = pgTable(
     ),
     check(
       "ugc_reports_source_type_check",
-      sql`${t.sourceType} IN ('bulletin_post', 'bulletin_comment', 'chat_message', 'inbox_message', 'profile', 'guild_profile', 'chat_room', 'marketplace_trade')`,
+      sql`${t.sourceType} IN ('bulletin_post', 'bulletin_comment', 'chat_message', 'inbox_message', 'profile', 'guild_profile', 'chat_room', 'marketplace_trade', 'marketplace_listing')`,
     ),
     check(
       "ugc_reports_reason_check",

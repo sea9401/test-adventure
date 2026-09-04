@@ -78,6 +78,7 @@ describe("경매장 조회", () => {
   });
 
   it("현재 경매 버전만 노출하고 6시간·10분 정책을 반환한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_788_426_000_000);
     const response = await GET(
       new Request("http://test/api/v2/marketplace/browse?kind=material"),
     );
@@ -86,6 +87,7 @@ describe("경매장 조회", () => {
     await expect(response.json()).resolves.toMatchObject({
       ok: true,
       viewerGold: 321,
+      serverNow: 1_788_426_000_000,
       auctionHours: 6,
       bidExtensionWindowMinutes: 10,
       bidExtensionMinutes: 10,

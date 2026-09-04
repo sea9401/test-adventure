@@ -1529,7 +1529,10 @@ export function advanceTurnPvP(
   );
   // 남은 공격 횟수 — 연환격(comboExtraAttacks) 도 포함.
   const attacksLeft =
-    attacker.attacksLeft - 1 + weakpointAdd + comboExtraAttacks + sigExtraAttack;
+    next[atkKey].attacksLeft - 1 +
+    weakpointAdd +
+    comboExtraAttacks +
+    sigExtraAttack;
   if (attacksLeft > 0) {
     return setSide(next, atkKey, {
       ...next[atkKey],

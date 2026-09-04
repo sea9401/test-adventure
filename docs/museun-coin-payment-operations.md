@@ -65,5 +65,17 @@
 
 ## 로컬 검증 기록
 
-최종 검증 명령과 결과는 구현 완료 시 이 절에 기록한다. 실제 키나 결제 응답 원문은 기록하지
-않는다.
+2026-09-04 격리 작업 공간에서 실제 키 없이 다음을 확인했다.
+
+- `npm run lint`: 종료 코드 0
+- `NODE_OPTIONS=--max-old-space-size=4096 npx tsc --noEmit --pretty false`: 종료 코드 0
+- `npm test`: 1,067개 파일 통과, 5개 건너뜀 / 8,488개 테스트 통과, 23개 건너뜀
+- `NODE_OPTIONS=--max-old-space-size=4096 npm run build`: Next.js 16.2.11 프로덕션 빌드 및
+  601개 정적 페이지 생성 완료
+- `npx playwright test e2e/museun-coin-payment.spec.ts`: Chromium·모바일 WebKit 4건 통과
+- `npm run check-migrations`: 183개 마이그레이션 저널 통과
+- `npm run check-licenses`: 790개 잠금 파일 항목의 라이선스 검사 통과
+- `npm run check-secrets`: 추적 파일 5,008개 검사와 자체 테스트 통과
+
+추적된 운영 설정은 상점 `false`, 결제 모드 `disabled`, 예제 키 공란이다. 배포·점검 모드
+전환·실제 결제 요청은 실행하지 않았다.

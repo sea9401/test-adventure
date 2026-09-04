@@ -8,6 +8,11 @@ describe("payment release gates", () => {
     expect(env).toContain("NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN=false");
     expect(env).toContain("MUSEUN_COIN_PAYMENTS_MODE=disabled");
   });
+  it("keeps checkout callbacks and payment APIs behind the shop proxy gate", () => {
+    const proxy = readFileSync("src/proxy.ts", "utf8");
+    expect(proxy).toContain('req.nextUrl.pathname.startsWith("/settings/coin-shop/")');
+    expect(proxy).toContain('req.nextUrl.pathname.startsWith("/api/v2/museun-coin-payments")');
+  });
   it("fails closed without keys and rejects test keys in live mode", () => {
     expect(readMuseunCoinPaymentConfig({})).toBeNull();
     expect(() => readMuseunCoinPaymentConfig({

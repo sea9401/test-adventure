@@ -116,6 +116,19 @@ describe("reset game progress plan", () => {
     expect(RESET_TABLES).not.toContain("password_credentials");
   });
 
+  it("preserves payment, refund, and coin-ledger evidence during game resets", () => {
+    expect(PRESERVED_TABLES).toEqual(
+      expect.arrayContaining([
+        "museun_coin_accounts",
+        "museun_coin_ledger",
+        "museun_coin_paid_lots",
+        "museun_coin_payment_orders",
+        "museun_coin_refund_requests",
+        "museun_coin_spend_allocations",
+      ]),
+    );
+  });
+
   it("rejects unclassified and missing tables", () => {
     expect(() => validateTableCoverage([...allTables, "future_table"])).toThrow(
       /unclassified: future_table/,

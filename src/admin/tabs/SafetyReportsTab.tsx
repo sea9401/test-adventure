@@ -46,6 +46,7 @@ const SOURCE_LABELS: Record<string, string> = {
   guild_profile: "길드 정보",
   chat_room: "채팅방 정보",
   marketplace_trade: "거래소 체결",
+  marketplace_listing: "거래소 매물",
 };
 
 export function SafetyReportsTab() {
@@ -148,6 +149,9 @@ export function SafetyReportItem({
           typeof (account as { name?: unknown }).name === "string",
       )
     : [];
+  const isMarketplaceReport =
+    report.sourceType === "marketplace_trade" ||
+    report.sourceType === "marketplace_listing";
 
   const save = async () => {
     setBusy(true);
@@ -208,7 +212,7 @@ export function SafetyReportItem({
         <span className="ml-auto font-semibold">{STATUS_LABELS[report.status]}</span>
       </div>
 
-      {report.sourceType === "marketplace_trade" && relatedAccounts.length > 0 ? (
+      {isMarketplaceReport && relatedAccounts.length > 0 ? (
         <div className={`${SURFACE_INSET} mt-3 p-3`}>
           <p className="text-[11px] font-semibold text-zinc-500">
             관련 거래 계정
@@ -302,7 +306,7 @@ export function SafetyReportItem({
         />
         <Button variant="primary" onClick={() => void save()} disabled={!canModerate || busy}>저장</Button>
         <div className="sm:col-span-3 flex flex-wrap justify-end gap-2">
-          {report.sourceType !== "marketplace_trade" ? (
+          {!isMarketplaceReport ? (
             <Button variant="danger" onClick={() => void removeContent()} disabled={!canModerate || busy}>
               신고 콘텐츠 제거
             </Button>

@@ -9,14 +9,27 @@ import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
 import type {
+  StormExpeditionMapNodeId,
+} from "@/adventure/data/v2/stormExpeditionMap";
+import {
+  STORM_EXPEDITION_RISK_EVENTS,
+  type StormExpeditionRiskEventId,
+} from "@/adventure/data/v2/stormExpedition";
+import type {
   StormExpeditionAutoplayPlan,
   StormExpeditionBoonStrategy,
+} from "./stormExpeditionAutoplayPolicy";
+import {
+  alignStormExpeditionPlanToVisitedRoutes,
+  stormExpeditionRiskDecision,
+  stormExpeditionVisitedRouteId,
 } from "./stormExpeditionAutoplayPolicy";
 
 type Props = {
   open: boolean;
   value: StormExpeditionAutoplayPlan;
   lockedMode?: StormExpeditionMode;
+  visitedNodeIds?: readonly StormExpeditionMapNodeId[];
   attemptsLeft: number;
   busy: boolean;
   onChange: (value: StormExpeditionAutoplayPlan) => void;
@@ -43,6 +56,7 @@ export function StormExpeditionAutoPlanDialog(props: Props) {
 function OpenStormExpeditionAutoPlanDialog({
   value,
   lockedMode,
+  visitedNodeIds = [],
   attemptsLeft,
   busy,
   onChange,
@@ -50,9 +64,13 @@ function OpenStormExpeditionAutoPlanDialog({
   onClose,
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const effectiveValue = lockedMode && value.mode !== lockedMode
+  const modeAdjustedValue = lockedMode && value.mode !== lockedMode
     ? { ...value, mode: lockedMode }
     : value;
+  const effectiveValue = alignStormExpeditionPlanToVisitedRoutes(
+    modeAdjustedValue,
+    visitedNodeIds,
+  );
   const modeLocked = lockedMode !== undefined;
   const closeIfIdle = () => {
     if (!busy) onClose();
@@ -85,25 +103,28 @@ function OpenStormExpeditionAutoPlanDialog({
               <PlanButton label="연습 모드" selected={effectiveValue.mode === "practice"} disabled={busy || modeLocked} onClick={() => onChange({ ...effectiveValue, mode: "practice" })}>연습</PlanButton>
             </div>
             {modeLocked && <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">진행 중인 원정에서는 모드를 변경할 수 없습니다.</p>}
-            {attemptsLeft <= 0 && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">오늘의 실전 입장 횟수를 모두 사용했습니다.</p>}
+            {!modeLocked && attemptsLeft <= 0 && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">오늘의 실전 입장 횟수를 모두 사용했습니다.</p>}
           </fieldset>
 
           <RouteStage
             label="외곽 항로"
             value={effectiveValue.outerRouteId}
             busy={busy}
+            locked={stormExpeditionVisitedRouteId(visitedNodeIds, "outer") !== null}
             onChange={(outerRouteId) => onChange({ ...effectiveValue, outerRouteId })}
           />
           <RouteStage
             label="중층 항로"
             value={effectiveValue.middleRouteId}
             busy={busy}
+            locked={stormExpeditionVisitedRouteId(visitedNodeIds, "middle") !== null}
             onChange={(middleRouteId) => onChange({ ...effectiveValue, middleRouteId })}
           />
           <RouteStage
             label="수호자 항로"
             value={effectiveValue.guardianRouteId}
             busy={busy}
+            locked={stormExpeditionVisitedRouteId(visitedNodeIds, "guardian") !== null}
             onChange={(guardianRouteId) => onChange({ ...effectiveValue, guardianRouteId })}
           />
 
@@ -125,12 +146,51 @@ function OpenStormExpeditionAutoPlanDialog({
             </div>
           </fieldset>
 
+          <fieldset className={`${SURFACE_INSET} p-3`}>
+            <legend className="px-1 text-sm font-bold">위험 이벤트</legend>
+            <p className="mb-3 text-xs text-zinc-600 dark:text-zinc-300">
+              이벤트마다 자동 수락 여부를 정합니다. 선택하지 않은 이벤트는 안전하게 지나칩니다.
+            </p>
+            <div className="space-y-2">
+              {(Object.keys(STORM_EXPEDITION_RISK_EVENTS) as StormExpeditionRiskEventId[]).map((eventId) => {
+                const event = STORM_EXPEDITION_RISK_EVENTS[eventId];
+                const decision = stormExpeditionRiskDecision(effectiveValue, eventId);
+                return (
+                  <div key={eventId} className={`${SURFACE_CARD} p-3`}>
+                    <div className="text-sm font-semibold">{event.name}</div>
+                    <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">{event.description}</p>
+                    <p className="mt-1 text-xs text-rose-700 dark:text-rose-300">대가 · {event.cost}</p>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {(["decline", "accept"] as const).map((nextDecision) => (
+                        <PlanButton
+                          key={nextDecision}
+                          label={`${event.name} ${nextDecision === "accept" ? "수락" : "지나치기"}`}
+                          selected={decision === nextDecision}
+                          disabled={busy}
+                          onClick={() => onChange({
+                            ...effectiveValue,
+                            riskEventDecisions: {
+                              ...effectiveValue.riskEventDecisions,
+                              [eventId]: nextDecision,
+                            },
+                          })}
+                        >
+                          {nextDecision === "accept" ? "수락" : "지나치기"}
+                        </PlanButton>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </fieldset>
+
           <p className={`${SURFACE_INSET} border-rose-300 p-3 text-sm font-semibold text-rose-700 dark:border-rose-900 dark:text-rose-300`}>
             패배하면 임시 전리품을 모두 잃으며 자동 귀환하지 않습니다.
           </p>
           <button
             type="button"
-            disabled={busy || (effectiveValue.mode === "normal" && attemptsLeft <= 0)}
+            disabled={busy || (!modeLocked && effectiveValue.mode === "normal" && attemptsLeft <= 0)}
             onClick={() => onSubmit(effectiveValue)}
             className="min-h-11 w-full rounded-md bg-sky-600 px-4 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-50"
           >
@@ -146,11 +206,13 @@ function RouteStage({
   label,
   value,
   busy,
+  locked,
   onChange,
 }: {
   label: "외곽 항로" | "중층 항로" | "수호자 항로";
   value: StormExpeditionRouteId;
   busy: boolean;
+  locked: boolean;
   onChange: (routeId: StormExpeditionRouteId) => void;
 }) {
   return (
@@ -162,13 +224,18 @@ function RouteStage({
             key={route.id}
             label={`${label} ${route.name}`}
             selected={value === route.id}
-            disabled={busy}
+            disabled={busy || locked}
             onClick={() => onChange(route.id)}
           >
             {route.name}
           </PlanButton>
         ))}
       </div>
+      {locked && (
+        <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
+          이미 방문한 항로로 고정됩니다.
+        </p>
+      )}
     </fieldset>
   );
 }

@@ -16,6 +16,7 @@ const listings = weaponSamples.map((item, index) => ({
   id: index + 1,
   isMine: false,
   isHighestBidder: index === 0,
+  hasMyBid: index === 0,
   kind: "equip" as const,
   itemId: item.id,
   itemName: item.name,
@@ -43,10 +44,9 @@ const prices: MarketplacePreviewData["prices"] = Object.fromEntries(
 
 export const marketplacePreview: MarketplacePreviewData = {
   viewerGold: 12_340_000,
-  bidGraceMinHours: 2,
-  bidGraceMaxHours: 24,
-  fixedListingHours: 2,
-  directListingHours: 24,
+  auctionHours: 6,
+  bidExtensionWindowMinutes: 10,
+  bidExtensionMinutes: 10,
   listings,
   prices,
 };

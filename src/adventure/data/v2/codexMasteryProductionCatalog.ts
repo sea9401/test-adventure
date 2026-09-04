@@ -233,7 +233,7 @@ export const CODEX_MASTERY_DEFINITIONS: readonly CodexMasteryEntryDefinition[] =
       rare_revisit: { pointUnits: 4 },
     }),
   ),
-  ...V2_JOB_LIST.filter((job) => job.tier > 0).map((job) =>
+  ...V2_JOB_LIST.filter((job) => job.id !== "none").map((job) =>
     definition("job", job.id, job.name, JOB_THRESHOLDS, {
       all_skills: { pointUnits: 2 },
       boss_variety: { pointUnits: 4 },

@@ -991,6 +991,15 @@ export function ChatPanel({
   // 애니메이션이 끝난 뒤 viewport 값을 늦게 확정하므로 focus 전환 후 한 번 더 보정한다.
   // visualViewport 미지원 브라우저는 인라인 스타일 미적용 → CSS(inset-0) 기본 동작 폴백.
   const overlayRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const animationFrameId = window.requestAnimationFrame(() => {
+      closeButtonRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(animationFrameId);
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const vv = window.visualViewport;
@@ -1178,6 +1187,7 @@ export function ChatPanel({
               />
             )}
             <button
+              ref={closeButtonRef}
               type="button"
               onClick={closePanel}
               aria-label="채팅 닫기"

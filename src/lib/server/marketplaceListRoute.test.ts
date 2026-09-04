@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { insertValues, store, upsertSave, requireTradeParticipants, TradeSuspendedError } = vi.hoisted(() => {
+const {
+  insertValues,
+  store,
+  upsertSave,
+  requireTradeParticipants,
+  triggerPriceAlerts,
+  TradeSuspendedError,
+} = vi.hoisted(() => {
   class TradeSuspendedError extends Error {}
   const store = new Map<string, unknown>();
   return {
@@ -11,6 +18,7 @@ const { insertValues, store, upsertSave, requireTradeParticipants, TradeSuspende
       store.set(key, value);
     }),
     requireTradeParticipants: vi.fn(async () => undefined),
+    triggerPriceAlerts: vi.fn(async () => 0),
   };
 });
 
@@ -24,6 +32,10 @@ vi.mock("@/lib/server/userRateLimit", () => ({
 
 vi.mock("@/lib/server/economyLog", () => ({
   recordEconomyEventSoon: vi.fn(),
+}));
+
+vi.mock("@/lib/server/marketplaceBuyOrdersV2", () => ({
+  triggerMarketplacePriceAlertsForListing: triggerPriceAlerts,
 }));
 
 vi.mock("@/db", () => {
@@ -83,7 +95,6 @@ function listEquipmentRequest(iid: string): Request {
       kind: "equip",
       iid,
       price: 10_000,
-      graceHours: 2,
     }),
   });
 }
@@ -96,7 +107,6 @@ function listRareMapRequest(iid: string): Request {
       kind: "consumable",
       iid,
       price: 10_000,
-      graceHours: 2,
     }),
   });
 }
@@ -110,7 +120,6 @@ function listSpecimenRequest(quantity: number): Request {
       itemId: "fish_specimen_carp",
       quantity,
       price: 10_000,
-      graceHours: 2,
     }),
   });
 }
@@ -124,7 +133,6 @@ function listDangerousCatchRequest(quantity: number): Request {
       itemId: "danger_catch_ironjaw_tuna",
       quantity,
       price: 12_000,
-      graceHours: 2,
     }),
   });
 }
@@ -138,7 +146,6 @@ function listWheatSeedRequest(quantity: number): Request {
       itemId: "farm_seed:wheat",
       quantity,
       price: 10,
-      graceHours: 2,
     }),
   });
 }
@@ -170,9 +177,18 @@ describe("거래소 장비 등록", () => {
     expect(insertValues).toContainEqual(
       expect.objectContaining({
         kind: "equip",
+        price: 10_000,
+        auctionModeVersion: 1,
         instancePayload: { enhance: { level: 3, bonusPct: 4 } },
       }),
     );
+    const listing = insertValues.find(
+      (value) => (value as { kind?: unknown }).kind === "equip",
+    ) as { createdAt: Date; bidEndsAt: Date; expiresAt: Date };
+    expect(listing.bidEndsAt.getTime() - listing.createdAt.getTime()).toBe(
+      6 * 60 * 60 * 1000,
+    );
+    expect(listing.expiresAt.getTime() - listing.bidEndsAt.getTime()).toBe(1);
   });
 
   it("귀속 장비는 등록하지 않고 보유 상태를 유지한다", async () => {
@@ -297,6 +313,11 @@ describe("거래소 레어맵 등록", () => {
         quantity: 2,
       }),
     );
+    expect(triggerPriceAlerts).toHaveBeenCalledWith(
+      expect.anything(),
+      1,
+      expect.any(Date),
+    );
   });
 
   it("보유량보다 많은 어종 표본은 등록하지 않는다", async () => {
@@ -330,6 +351,8 @@ describe("거래소 레어맵 등록", () => {
         itemId: "danger_catch_ironjaw_tuna",
         itemName: "철턱 참치",
         quantity: 3,
+        price: 12_000,
+        auctionModeVersion: 1,
       }),
     );
   });

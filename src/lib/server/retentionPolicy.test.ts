@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   RETENTION_POLICY,
+  economyRetentionLoad,
   drainRetentionBatches,
   retentionCutoff,
 } from "./retentionPolicy";
@@ -48,5 +49,41 @@ describe("운영 로그 보관 정책", () => {
       }, 3),
     ).resolves.toEqual({ deleted: 15_000, more: true });
     expect(calls).toBe(3);
+  });
+
+  it("경제 로그는 현재 일일 유입량보다 큰 정리 여유를 확보한다", async () => {
+    let calls = 0;
+    const result = await drainRetentionBatches(async () => {
+      calls += 1;
+      return { deleted: RETENTION_POLICY.deleteBatchSize, more: true };
+    }, RETENTION_POLICY.economyDeleteMaxBatches);
+
+    expect(result.deleted).toBeGreaterThanOrEqual(100_000);
+    expect(result.more).toBe(true);
+    expect(calls).toBe(RETENTION_POLICY.economyDeleteMaxBatches);
+  });
+});
+
+describe("economyRetentionLoad", () => {
+  it("최근 24시간 유입량을 일일 삭제 가능량과 비교한다", () => {
+    expect(economyRetentionLoad(95_000)).toEqual({
+      inflow24h: 95_000,
+      dailyDeleteCapacity: 120_000,
+      utilizationPct: 79.17,
+      level: "normal",
+    });
+    expect(economyRetentionLoad(96_000)).toMatchObject({
+      utilizationPct: 80,
+      level: "warning",
+    });
+    expect(economyRetentionLoad(120_000)).toMatchObject({
+      utilizationPct: 100,
+      level: "critical",
+    });
+  });
+
+  it("잘못된 유입량은 0으로 정규화한다", () => {
+    expect(economyRetentionLoad(Number.NaN).inflow24h).toBe(0);
+    expect(economyRetentionLoad(-10).inflow24h).toBe(0);
   });
 });

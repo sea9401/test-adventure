@@ -245,6 +245,16 @@ describe("모험의 서 SP 수집 목록", () => {
       ]),
     ).toEqual({ current: 1, total: 2 });
   });
+
+  it("50개를 넘는 직업은 실제 직업 해금 SP 환산 규칙으로 최대치를 표시한다", () => {
+    expect(
+      spCollectionSpRange({
+        label: "직업 해금",
+        value: 63,
+        jobUnlockTotal: 138,
+      }),
+    ).toEqual({ current: 63, maximum: 94 });
+  });
 });
 
 describe("어보 표본 등록 상태", () => {

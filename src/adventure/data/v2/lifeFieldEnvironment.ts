@@ -58,7 +58,7 @@ export const LIFE_FIELD_ENVIRONMENTS: Record<
     activity: "fishing",
     label: "활발한 어군",
     description: "평소보다 희귀한 어종의 움직임이 활발합니다.",
-    effectLabel: "희귀 이상 티어 가중치 ×1.08",
+    effectLabel: "희귀 이상 어종 출현 가중치 +8%",
     effect: { rareTierWeightMultiplier: 1.08 },
   },
   fishing_calm_water: {

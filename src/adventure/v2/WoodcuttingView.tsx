@@ -1181,8 +1181,6 @@ export function WoodcuttingView({
         />
       ) : null}
 
-      {viewMode === "choice" ? (
-        <>
       <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 dark:border-emerald-900/70 dark:bg-zinc-950">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -1207,6 +1205,8 @@ export function WoodcuttingView({
         </div>
       </div>
 
+      {viewMode === "choice" ? (
+        <>
       <GatheringResourceStockCard
         resourceName={selectedMaterial.name}
         count={selectedMaterialCount}

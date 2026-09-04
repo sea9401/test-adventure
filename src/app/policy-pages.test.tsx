@@ -33,15 +33,35 @@ describe("공개 정책 페이지", () => {
     expect(html).toContain("sharp-libvips");
   });
 
-  it("현재 유료 결제를 제공하지 않는다고 안내한다", () => {
-    const html = renderToStaticMarkup(<TermsPage />);
-    expect(html).toContain("현재 서비스는 현금 결제나 유료 상품 구매를 제공하지 않습니다");
+  it("유료 코인 활성화 전 상태와 결제·환불 기준을 사전 고지한다", () => {
+    const terms = renderToStaticMarkup(<TermsPage />);
+    const privacy = renderToStaticMarkup(<PrivacyPage />);
+    expect(terms).toContain("카드 결제 기능은 아직 운영 환경에서 활성화되지 않았습니다");
+    expect(terms).toContain("유료 무슨 코인");
+    expect(terms).toContain("미사용 유료 코인");
+    expect(terms).toContain("sea9401@gmail.com");
+    expect(privacy).toContain("토스페이먼츠");
+    expect(privacy).toContain("카드번호와 CVC를 저장하지 않습니다");
+    expect(privacy).toContain("5년");
+  });
+
+  it("12세이용가와 별도로 만 14세 이상 서비스 기준을 안내한다", () => {
+    const terms = renderToStaticMarkup(<TermsPage />);
+    const privacy = renderToStaticMarkup(<PrivacyPage />);
+
+    expect(terms).toContain("서비스는 만 14세 이상인 이용자만 이용할 수 있습니다");
+    expect(terms).toContain("12세이용가 등급과 별도의 서비스 이용 조건");
+    expect(terms).toContain("시행일: 2026년 10월 4일");
+    expect(privacy).toContain("만 14세 이상 확인 여부와 확인 시각");
+    expect(privacy).toContain("생년월일은 수집하지 않음");
+    expect(privacy).toContain("확인 후 최대 1년");
+    expect(privacy).toContain("시행일: 2026년 10월 4일");
   });
 
   it("확인된 처리 위치와 외부 보안 서비스의 국외 처리 내용을 안내한다", () => {
     const html = renderToStaticMarkup(<PrivacyPage />);
 
-    expect(html).toContain("2026년 8월 28일");
+    expect(html).toContain("2026년 10월 4일");
     expect(html).toContain("대한민국 서울 리전");
     expect(html).toContain("ap-northeast-2");
     expect(html).toContain("CloudFront·AWS WAF");

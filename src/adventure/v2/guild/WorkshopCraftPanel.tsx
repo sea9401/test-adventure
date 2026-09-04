@@ -2,7 +2,11 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { SpinnerGap, Star, X } from "@phosphor-icons/react";
-import { SURFACE_ACCENT, SURFACE_CARD } from "@/components/ui/surfaces";
+import {
+  SURFACE_ACCENT,
+  SURFACE_CARD,
+  SURFACE_INSET,
+} from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
 import {
@@ -72,6 +76,7 @@ import {
   type WorkshopState,
 } from "./guildWorkshopPanelModel";
 import { WorkshopInspectionPanel } from "./WorkshopInspectionPanel";
+import { workshopMaterialSource } from "./workshopMaterialSources";
 
 type WorkshopTierFilter = "all" | 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -118,28 +123,64 @@ function WorkshopMaterialCostText({
     return required > 0 ? [{ id, required }] : [];
   });
   if (entries.length === 0) return fallbackText;
-
-  return entries.map(({ id, required }, index) => {
+  const shortages = entries.filter(({ id, required }) => {
     const owned = Math.max(0, Math.floor(Number(materials[id]) || 0));
-    const shortage = owned < required;
-    return (
-      <Fragment key={id}>
-        {index > 0 ? " · " : null}
-        <span
-          className={
-            shortage
-              ? "font-semibold text-rose-700 dark:text-rose-300"
-              : undefined
-          }
-        >
-          {guildWorkshopMaterialName(id)} {required.toLocaleString()}
-          {shortage
-            ? ` (필요 ${required.toLocaleString()} · 보유 ${owned.toLocaleString()} · 부족)`
-            : null}
-        </span>
-      </Fragment>
-    );
+    return owned < required;
   });
+
+  return (
+    <>
+      {entries.map(({ id, required }, index) => {
+        const owned = Math.max(0, Math.floor(Number(materials[id]) || 0));
+        const shortage = owned < required;
+        return (
+          <Fragment key={id}>
+            {index > 0 ? " · " : null}
+            <span
+              className={
+                shortage
+                  ? "font-semibold text-rose-700 dark:text-rose-300"
+                  : undefined
+              }
+            >
+              {guildWorkshopMaterialName(id)} {required.toLocaleString()}
+              {shortage
+                ? ` (필요 ${required.toLocaleString()} · 보유 ${owned.toLocaleString()} · 부족)`
+                : null}
+            </span>
+          </Fragment>
+        );
+      })}
+      {shortages.length > 0 ? (
+        <div className={`${SURFACE_INSET} mt-1.5 space-y-1 p-2`}>
+          <div className="font-semibold text-zinc-700 dark:text-zinc-200">
+            부족 재료 입수처
+          </div>
+          {shortages.map(({ id }) => {
+            const materialName = guildWorkshopMaterialName(id);
+            const source = workshopMaterialSource(id);
+            return (
+              <div
+                key={id}
+                className="flex flex-wrap items-center justify-between gap-1 text-zinc-600 dark:text-zinc-300"
+              >
+                <span>
+                  <strong>{materialName}</strong> · {source.label}
+                </span>
+                <Link
+                  href={source.href}
+                  aria-label={`${materialName} 입수처로 이동`}
+                  className="font-semibold text-sky-700 underline underline-offset-2 dark:text-sky-300"
+                >
+                  이동
+                </Link>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+    </>
+  );
 }
 
 function MaterialSubstitutionOption({
@@ -726,32 +767,38 @@ export function WorkshopCraftPanel({
                 전문 제작 설정
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
-                <label className="space-y-1">
-                  <span className="block text-zinc-600 dark:text-zinc-300">
-                    옵션 성향
-                  </span>
-                  <select
-                    value={control.optionFocus ?? ""}
-                    onChange={(event) =>
-                      updateCraftControl(recipe.id, {
-                        optionFocus: (event.target.value || undefined) as
-                          | BlacksmithOptionFocusId
-                          | undefined,
-                        useCatalyst: event.target.value
-                          ? control.useCatalyst
-                          : false,
-                      })
-                    }
-                    className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-                  >
-                    <option value="">성향 사용 안 함</option>
-                    {techniques.optionFocuses.map((focus) => (
-                      <option key={focus.id} value={focus.id}>
-                        {focus.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {techniques.optionFocuses.length > 0 ? (
+                  <label className="space-y-1">
+                    <span className="block text-zinc-600 dark:text-zinc-300">
+                      옵션 성향
+                    </span>
+                    <select
+                      value={control.optionFocus ?? ""}
+                      onChange={(event) =>
+                        updateCraftControl(recipe.id, {
+                          optionFocus: (event.target.value || undefined) as
+                            | BlacksmithOptionFocusId
+                            | undefined,
+                          useCatalyst: event.target.value
+                            ? control.useCatalyst
+                            : false,
+                        })
+                      }
+                      className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                    >
+                      <option value="">성향 사용 안 함</option>
+                      {techniques.optionFocuses.map((focus) => (
+                        <option key={focus.id} value={focus.id}>
+                          {focus.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <div className={`${SURFACE_INSET} flex items-center px-2 py-1 text-zinc-500 dark:text-zinc-400`}>
+                    이 장비에는 조정 가능한 옵션 성향이 없습니다.
+                  </div>
+                )}
                 <label className="space-y-1">
                   <span className="block text-zinc-600 dark:text-zinc-300">
                     구조 제작술

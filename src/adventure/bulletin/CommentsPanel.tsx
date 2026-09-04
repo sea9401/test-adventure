@@ -256,8 +256,8 @@ export function CommentsPanel({
           ref={textareaRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          rows={1}
-          maxLength={BULLETIN_COMMENT_MAX_LENGTH + 50}
+          rows={3}
+          maxLength={BULLETIN_COMMENT_MAX_LENGTH}
           placeholder={replyTo ? `${replyTo.name}님에게 답글` : "댓글 달기"}
           disabled={submitting}
           onKeyDown={(e) => {
@@ -266,7 +266,7 @@ export function CommentsPanel({
               submit();
             }
           }}
-          className="min-h-[40px] flex-1 resize-none rounded-md border border-zinc-300 bg-white px-2.5 py-2 text-sm outline-none transition-colors focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
+          className="min-h-[80px] flex-1 resize-y rounded-md border border-zinc-300 bg-white px-2.5 py-2 text-sm outline-none transition-colors focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
         />
         <button
           type="button"

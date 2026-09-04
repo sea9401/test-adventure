@@ -64,6 +64,11 @@ export type BattleLogEntry =
        */
       effect?: "status" | "status_damage" | "extra_damage";
       /**
+       * 성공한 액티브 스킬 시전의 구조화된 행동 경계. 피해·회복처럼 별도 행동 행이 없는
+       * 유틸 스킬도 UI가 정확히 한 개의 행동 카드로 묶을 수 있게 한다.
+       */
+      skillCast?: { skillId: string; skillName: string };
+      /**
        * 이 entry 가 발생한 페이즈. UI 가 좌/우 레인 분할에 사용 — info entry 의 사이드를
        * 결정. attack kind 는 그대로 좌(player)/우(enemy) 라 turn 보조 없이도 동작.
        * resolveBattle 이 advanceTurn 전후의 phase 차이를 보고 사후 태깅한다 (engine
@@ -344,6 +349,8 @@ export type BattleStacks = {
 export type BattleState = {
   enemy: Monster;
   enemyHp: number;
+  /** 토벌전 피해 계측 모드에서 적 HP 클램프와 무관하게 누적한 실제 판정 피해. */
+  enemyDamageDealtTotal?: number;
   playerHp: number;
   playerMaxHp: number;
   /** 결투가 선언 계열이 합성한 평타 횟수형 버프. */

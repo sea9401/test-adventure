@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, lte } from "drizzle-orm";
+import { and, count, desc, eq, gt, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   guildRaidEvents,
@@ -9,12 +9,14 @@ import {
 } from "@/db/schema";
 import {
   GUILD_RAID_PILOT_BOSS_KIND,
+  guildRaidCombatEndsAt,
   guildRaidMaxHp,
   guildRaidWeekKey,
   isGuildRaidParticipantEligible,
+  normalizeGuildRaidPage,
   rankGuildRaidScores,
 } from "@/adventure/data/v2/guildRaid";
-import { weekEndUtcFor, weekStartUtcFor } from "@/lib/server/pvp/season";
+import { weekStartUtcFor } from "@/lib/server/pvp/season";
 
 export type GuildRaidEventRecord = {
   id: string;
@@ -54,6 +56,10 @@ export type GuildRaidSettlement = {
   participants: GuildRaidParticipantRecord[];
 };
 
+export type GuildRaidRankedScoreRecord = GuildRaidScoreRecord & {
+  rank: number;
+};
+
 export type GuildRaidLifecycleStore = {
   findEventByWeek(weekKey: string): Promise<GuildRaidEventRecord | null>;
   createEvent(event: GuildRaidEventRecord): Promise<GuildRaidEventRecord>;
@@ -67,6 +73,16 @@ export type GuildRaidLifecycleStore = {
     ) => GuildRaidSettlement,
   ): Promise<boolean>;
   listScores(eventId: string): Promise<GuildRaidScoreRecord[]>;
+  countScores(eventId: string): Promise<number>;
+  listRankedScoresPage(
+    eventId: string,
+    offset: number,
+    limit: number,
+  ): Promise<GuildRaidRankedScoreRecord[]>;
+  findRankedScore(
+    eventId: string,
+    guildId: number,
+  ): Promise<GuildRaidRankedScoreRecord | null>;
 };
 
 function toEventRecord(
@@ -112,6 +128,43 @@ function toParticipantRecord(
     attackCount: row.attackCount,
     eligibleAtSettlement: row.eligibleAtSettlement,
   };
+}
+
+type GuildRaidQueryDatabase = Pick<typeof db, "$with" | "select" | "with">;
+
+export function buildGuildRaidViewerRankQuery(
+  database: GuildRaidQueryDatabase,
+  eventId: string,
+  guildId: number,
+) {
+  const ranked = database.$with("guild_raid_ranked_score").as(
+    database
+      .select({
+        eventId: guildRaidGuildScores.eventId,
+        guildId: guildRaidGuildScores.guildId,
+        guildName: guildRaidGuildScores.guildNameSnapshot,
+        guildEmblem: guildRaidGuildScores.guildEmblemSnapshot,
+        damage: guildRaidGuildScores.damage,
+        finalRank: guildRaidGuildScores.finalRank,
+        settledAt: guildRaidGuildScores.settledAt,
+        rank: sql<number>`rank() over (order by ${guildRaidGuildScores.damage} desc)`
+          .mapWith(Number)
+          .as("rank"),
+      })
+      .from(guildRaidGuildScores)
+      .where(
+        and(
+          eq(guildRaidGuildScores.eventId, eventId),
+          gt(guildRaidGuildScores.damage, 0),
+        ),
+      ),
+  );
+  return database
+    .with(ranked)
+    .select()
+    .from(ranked)
+    .where(eq(ranked.guildId, guildId))
+    .limit(1);
 }
 
 const drizzleGuildRaidLifecycleStore: GuildRaidLifecycleStore = {
@@ -228,6 +281,52 @@ const drizzleGuildRaidLifecycleStore: GuildRaidLifecycleStore = {
       .where(eq(guildRaidGuildScores.eventId, eventId));
     return rows.map(toScoreRecord);
   },
+
+  async countScores(eventId) {
+    const [row] = await db
+      .select({ total: count() })
+      .from(guildRaidGuildScores)
+      .where(
+        and(
+          eq(guildRaidGuildScores.eventId, eventId),
+          gt(guildRaidGuildScores.damage, 0),
+        ),
+      );
+    return row?.total ?? 0;
+  },
+
+  async listRankedScoresPage(eventId, offset, limit) {
+    const rows = await db
+      .select({
+        eventId: guildRaidGuildScores.eventId,
+        guildId: guildRaidGuildScores.guildId,
+        guildName: guildRaidGuildScores.guildNameSnapshot,
+        guildEmblem: guildRaidGuildScores.guildEmblemSnapshot,
+        damage: guildRaidGuildScores.damage,
+        finalRank: guildRaidGuildScores.finalRank,
+        settledAt: guildRaidGuildScores.settledAt,
+        rank: sql<number>`rank() over (order by ${guildRaidGuildScores.damage} desc)`.mapWith(Number),
+      })
+      .from(guildRaidGuildScores)
+      .where(
+        and(
+          eq(guildRaidGuildScores.eventId, eventId),
+          gt(guildRaidGuildScores.damage, 0),
+        ),
+      )
+      .orderBy(desc(guildRaidGuildScores.damage), guildRaidGuildScores.guildId)
+      .offset(offset)
+      .limit(limit);
+    return rows.map((row) => ({
+      ...row,
+      rank: row.finalRank ?? row.rank,
+    }));
+  },
+
+  async findRankedScore(eventId, guildId) {
+    const [row] = await buildGuildRaidViewerRankQuery(db, eventId, guildId);
+    return row ? { ...row, rank: row.finalRank ?? row.rank } : null;
+  },
 };
 
 export function createGuildRaidLifecycleService(store: GuildRaidLifecycleStore) {
@@ -271,7 +370,7 @@ export function createGuildRaidLifecycleService(store: GuildRaidLifecycleStore) 
       weekKey,
       bossKind: GUILD_RAID_PILOT_BOSS_KIND,
       startsAt,
-      endsAt: weekEndUtcFor(startsAt),
+      endsAt: guildRaidCombatEndsAt(startsAt),
       status: "active",
       stage: 1,
       hp: maxHp,
@@ -294,20 +393,26 @@ export function createGuildRaidLifecycleService(store: GuildRaidLifecycleStore) 
   async function readGuildRaidLeaderboard(
     eventId: string,
     viewerGuildId: number | null,
+    requestedPage: unknown = 1,
   ) {
-    const scores = (await store.listScores(eventId)).filter(
-      (score) => score.damage > 0,
-    );
-    const ranked = rankGuildRaidScores(scores).map(({ rank, ...score }) => ({
-      ...score,
-      rank: score.finalRank ?? rank,
-    }));
-    const rows = ranked.slice(0, 50);
-    const viewer =
+    const total = await store.countScores(eventId);
+    const page = normalizeGuildRaidPage(requestedPage, total);
+    const [rows, viewer] = await Promise.all([
+      store.listRankedScoresPage(eventId, page.offset, page.limit),
       viewerGuildId == null
-        ? null
-        : ranked.find((row) => row.guildId === viewerGuildId) ?? null;
-    return { rows, viewer };
+        ? Promise.resolve(null)
+        : store.findRankedScore(eventId, viewerGuildId),
+    ]);
+    return {
+      rows,
+      viewer,
+      pagination: {
+        page: page.page,
+        pageSize: page.pageSize,
+        totalPages: page.totalPages,
+        total,
+      },
+    };
   }
 
   return {

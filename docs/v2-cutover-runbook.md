@@ -1,5 +1,10 @@
 # v2 운영 컷오버 런북 (방식 A — 코드 스왑)
 
+> 상태: **완료된 일회성 컷오버 기록**. 현재 배포 절차로 사용하지 않는다.
+> 현행 개발·스테이징·운영 출시는
+> [`staging-release-flow.md`](./staging-release-flow.md), 장애 대응은
+> [`ops-runbook.md`](./ops-runbook.md)를 따른다.
+
 v2(스테이징 `test-adventure` / `test.msmsge.com`)를 운영 `msmsge.com` 으로 통째 승격.
 **방식 A**: 운영 디렉터리 `~/adventure-rpg` 의 git origin 을 test-adventure repo 로 리포인트해
 **같은 prod 도메인/포트/서비스/nginx 를 유지한 채 코드+DB+env 만 교체**. staging 환경은 보존.

@@ -30,6 +30,20 @@ export function appendLog(
   return battleLogCollectionEnabled ? [...log, entry] : log;
 }
 
+export function appendSkillCastLog(
+  log: BattleLogEntry[],
+  skillId: string,
+  skillName: string,
+  actor: { turn?: "player" | "enemy"; side?: "p1" | "p2" } = {},
+): BattleLogEntry[] {
+  return appendLog(log, {
+    kind: "info",
+    text: "",
+    ...actor,
+    skillCast: { skillId, skillName },
+  });
+}
+
 export function applyHealShieldIfAny(
   state: BattleState,
   player: PlayerCombat,

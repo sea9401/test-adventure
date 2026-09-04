@@ -9,6 +9,33 @@ const WIDTH_SAFE_SURFACES = [
   { path: "/dev/battle-log", label: "전투 로그" },
 ] as const;
 
+test("게임 이용등급 고지는 모바일 화면을 과도하게 가리지 않는다", async ({
+  page,
+}) => {
+  // 로컬 개발 자동 로그인을 건너뛰고 신규 비로그인 진입 상태를 재현한다.
+  await page.goto("/sign-in?error=mobile-ui-preview");
+
+  const notice = page.getByRole("status", { name: "게임 이용등급 안내" });
+  await expect(notice).toBeVisible();
+  const layout = await notice.locator("section").evaluate((panel) => {
+    const rect = panel.getBoundingClientRect();
+    return {
+      panelWidth: rect.width,
+      panelHeight: rect.height,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      coveredAreaRatio:
+        (rect.width * rect.height) / (window.innerWidth * window.innerHeight),
+    };
+  });
+
+  expect(layout.panelWidth).toBeLessThanOrEqual(
+    Math.min(layout.viewportWidth * 0.88 + 1, 321),
+  );
+  expect(layout.panelHeight).toBeLessThanOrEqual(layout.viewportHeight * 0.4);
+  expect(layout.coveredAreaRatio).toBeLessThanOrEqual(0.34);
+});
+
 for (const surface of WIDTH_SAFE_SURFACES) {
   test(`${surface.label}은 모바일에서 가로 넘침이 없다`, async ({ page }) => {
     const response = await page.goto(surface.path);
@@ -100,6 +127,77 @@ test("직업 도감의 긴 섹션은 필요할 때 펼친다", async ({ page }) 
     page.getByRole("button", { name: "조건 부족 접기" }),
   ).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByText("야영꾼", { exact: true })).toBeVisible();
+});
+
+test("스킬 상세는 장착 액션과 분리해 열고 닫는다", async ({ page }) => {
+  await page.goto("/dev/skill-loadout");
+
+  const detailTrigger = page.getByRole("button", { name: "강타 상세 보기" });
+  await detailTrigger.click();
+  await expect(page.getByRole("dialog", { name: "강타" })).toBeVisible();
+  await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "강타" })).toBeHidden();
+  await expect(detailTrigger).toBeFocused();
+
+  await page.getByRole("button", { name: "강타 해제" }).click();
+  await page.getByRole("button", { name: "독침 장착" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("로드맵은 스킬 상세를 먼저 닫은 뒤 부모를 닫는다", async ({ page }) => {
+  await page.goto("/dev/job-ladder");
+  await page.getByRole("button", { name: "전직 로드맵" }).last().click();
+
+  const roadmap = page.getByRole("dialog", { name: /전직 로드맵/ });
+  await expect(roadmap).toBeVisible();
+  await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+
+  const roadmapElement = page.locator(
+    '[aria-labelledby="job-roadmap-dialog-title"]',
+  );
+  const invalidTrigger = page.getByRole("button", {
+    name: "손상된 스킬 상세 보기",
+  });
+  await invalidTrigger.click();
+  await expect(page.getByRole("dialog", { name: "손상된 스킬" })).toHaveCount(0);
+  await expect(roadmapElement).not.toHaveAttribute("aria-hidden", "true");
+  await expect(roadmapElement).not.toHaveAttribute("inert", "");
+  await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+
+  const trigger = page.getByRole("button", { name: "강타 상세 보기" });
+  await trigger.click();
+  await expect(page.getByRole("dialog", { name: "강타" })).toBeVisible();
+  await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+
+  await expect(roadmapElement).toHaveAttribute("aria-hidden", "true");
+  await expect(roadmapElement).toHaveAttribute("inert", "");
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "강타" })).toBeHidden();
+  await expect(roadmap).toBeVisible();
+  await expect(trigger).toBeFocused();
+  await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+
+  await page.keyboard.press("Escape");
+  await expect(roadmap).toBeHidden();
+});
+
+test("스킬 상세의 반복 항목은 고유한 React key를 사용한다", async ({ page }) => {
+  const duplicateKeyWarnings: string[] = [];
+  page.on("console", (message) => {
+    if (message.text().includes("same key")) {
+      duplicateKeyWarnings.push(message.text());
+    }
+  });
+
+  await page.goto("/dev/job-ladder");
+  await page.getByRole("button", { name: "전직 로드맵" }).last().click();
+  await page.getByRole("button", { name: "천궁궤적 상세 보기" }).click();
+  await expect(page.getByRole("dialog", { name: "천궁궤적" })).toBeVisible();
+
+  expect(duplicateKeyWarnings).toEqual([]);
 });
 
 test("전투 로그 보조 정보는 모바일에서도 읽을 수 있는 크기다", async ({

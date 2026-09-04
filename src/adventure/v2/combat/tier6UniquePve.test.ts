@@ -148,6 +148,43 @@ describe("6T 유니크 PvE 연동", () => {
     expect(after.stacks.tier6Uniques?.galeEvents).toContain("dodge");
   });
 
+  it("같은 평타에서 질풍 연계와 3회 적중이 완성되면 추가 기본 공격 2회를 보존한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const player = {
+      ...basePlayer,
+      critChancePct: 100,
+      equipSignatures: [
+        signature("gale_circuit"),
+        {
+          trigger: "every_n_hits" as const,
+          label: "추적 화살",
+          everyNHits: 3,
+        },
+      ],
+    };
+    const initial = initialBattleState(player, enemy, "질풍궁수");
+    const primed = {
+      ...initial,
+      stacks: {
+        ...initial.stacks,
+        signatureHitCount: 2,
+        tier6Uniques: {
+          ...initial.stacks.tier6Uniques!,
+          galeEvents: ["dodge" as const],
+        },
+      },
+    };
+
+    const after = resolvePlayerPhase(primed, player, "질풍궁수", {
+      kind: "attack",
+    });
+
+    expect(after.log.some((entry) => entry.text.includes("추적 화살"))).toBe(true);
+    expect(after.log.some((entry) => entry.text.includes("질풍 연계"))).toBe(true);
+    expect(after.phase).toBe("player");
+    expect(after.playerAttacksLeft).toBe(2);
+  });
+
   it("적 공격으로 HP가 35% 이하가 되면 저장한 성역을 즉시 소비한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999999);
     const player = {

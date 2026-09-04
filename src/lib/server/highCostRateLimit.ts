@@ -21,6 +21,11 @@ export const HIGH_COST_RATE_LIMITS = {
     userLimit: 20,
     ipLimit: 80,
   },
+  guildRaidPractice: {
+    action: "v2:guild-raid:practice",
+    userLimit: 20,
+    ipLimit: 80,
+  },
   friendlySparring: {
     action: "v2:training:friendly",
     userLimit: 20,

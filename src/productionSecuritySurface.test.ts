@@ -122,19 +122,23 @@ describe("production security surface", () => {
       );
       expect(maintenance).toContain("점검 시간:");
       expect(maintenance).toContain(
-        "8월 29일(토) 오전 4:00 ~ 오전 5:00 (약 1시간)",
+        "2026년 9월 4일(금) 오전 4:00 ~ 오전 4:30",
       );
-      expect(maintenance).not.toContain("점검 내용:");
+      expect(maintenance).toContain("예상 소요 시간:");
+      expect(maintenance).toContain("30분");
+      expect(maintenance).toContain("점검 내용:");
+      expect(maintenance).toContain("서비스 안정화 및 시스템 점검");
+      expect(maintenance).toContain("점검 영향:");
       expect(maintenance).toContain(
-        "점검 중에는 게임 접속 및 이용이 불가합니다.",
+        "점검 중 서비스 이용 제한",
       );
       expect(maintenance).toContain(
-        "점검은 진행 상황에 따라 조기에 종료되거나 연장될 수 있습니다.",
+        "점검 상황에 따라 종료 시간이 변경될 수 있으며, 점검이 완료되면 별도로 안내해 드리겠습니다.",
       );
+      expect(maintenance).toContain("이용에 불편을 드려 죄송합니다.");
       expect(maintenance).toContain(
-        "이용에 불편을 드려 죄송하며, 더욱 안정적인 서비스를 제공할 수 있도록 최선을 다하겠습니다.",
+        "더욱 안정적인 서비스를 제공할 수 있도록 최선을 다하겠습니다.",
       );
-      expect(maintenance).toContain("감사합니다.");
       expect(maintenance).not.toContain("오류 수정 패치 점검 안내");
       expect(maintenance).not.toContain("08:30 ~ 08:45 (약 15분)");
       expect(maintenance).not.toContain("약 1시간 30분");
@@ -170,6 +174,29 @@ describe("production security surface", () => {
     ]) {
       expect(release).toContain(marker);
     }
+  });
+
+  it("운영 배포 전에 내용수정신고 검토를 필수 기록한다", () => {
+    const workflow = source(join(ROOT, ".github/workflows/deploy.yml"));
+
+    for (const marker of [
+      "content_modification_status:",
+      "content_modification_summary:",
+      "content_modification_report_reference:",
+      "CONTENT_MODIFICATION_STATUS: ${{ inputs.content_modification_status }}",
+      "CONTENT_MODIFICATION_SUMMARY: ${{ inputs.content_modification_summary }}",
+      "CONTENT_MODIFICATION_REPORT_REFERENCE: ${{ inputs.content_modification_report_reference }}",
+      "node scripts/validate-content-modification-review.mjs",
+    ]) {
+      expect(workflow).toContain(marker);
+    }
+
+    const reviewGate = workflow.indexOf("Verify content modification review");
+    const artifactLookup = workflow.indexOf("Locate successful main CI artifact");
+    const artifactTransfer = workflow.indexOf("Transfer production build to EC2");
+    expect(reviewGate).toBeGreaterThan(-1);
+    expect(reviewGate).toBeLessThan(artifactLookup);
+    expect(reviewGate).toBeLessThan(artifactTransfer);
   });
 
   it("일일 DB 백업은 실패 알림 래퍼를 통해 실행한다", () => {
@@ -271,23 +298,59 @@ describe("production security surface", () => {
     expect(install).toContain("previous Next build restored");
   });
 
-  it("일반 단위 테스트는 병렬 실행하고 결정적 시뮬레이션만 단일 worker로 격리한다", () => {
+  it("일반 단위 테스트는 세 shard로 병렬 실행하고 결정적 시뮬레이션만 단일 worker로 격리한다", () => {
     const workflow = source(join(ROOT, ".github/workflows/ci.yml"));
 
-    expect(workflow).toContain(
-      "run: npx vitest run --exclude src/adventure/data/v2/levelDesignSim.test.ts",
+    expect(workflow).toMatch(
+      /unit-tests:[\s\S]*?strategy:\s+fail-fast: false\s+matrix:\s+shard: \[1, 2, 3\]/,
+    );
+    expect(workflow).toMatch(
+      /unit-tests:[\s\S]*?run: npx vitest run --exclude src\/adventure\/data\/v2\/levelDesignSim\.test\.ts --shard=\$\{\{ matrix\.shard \}\}\/3/,
     );
     expect(workflow).toMatch(
       /level-design-sim-tests:[\s\S]*?run: npx vitest run src\/adventure\/data\/v2\/levelDesignSim\.test\.ts --maxWorkers=1/,
     );
     expect(workflow).toContain(
-      "needs: [static-checks, unit-tests, level-design-sim-tests, production-build, browser-e2e]",
+      "needs: [static-checks, production-audit, unit-tests, level-design-sim-tests, production-build, browser-e2e]",
     );
     expect(workflow).toContain(
       "LEVEL_DESIGN_SIM_TESTS_RESULT: ${{ needs.level-design-sim-tests.result }}",
     );
     expect(workflow).toContain(
       'test "$LEVEL_DESIGN_SIM_TESTS_RESULT" = "success"',
+    );
+  });
+
+  it("의존성 설치의 중복 감사를 끄고 GitHub DB에서 운영 의존성만 별도로 검사한다", () => {
+    const workflow = source(join(ROOT, ".github/workflows/ci.yml"));
+    const installCommands = [...workflow.matchAll(/run: (npm ci[^\n]*)/g)].map(
+      ([, command]) => command.trim(),
+    );
+
+    expect(installCommands.length).toBeGreaterThan(0);
+    expect(installCommands).toEqual(
+      installCommands.map(() => "npm ci --no-audit --prefer-offline"),
+    );
+    expect(workflow).toMatch(
+      /production-audit:[\s\S]*?GITHUB_TOKEN: \$\{\{ github\.token \}\}[\s\S]*?run: node scripts\/check-production-advisories\.mjs/,
+    );
+    expect(workflow).not.toContain("npm audit");
+    expect(workflow).toContain(
+      "needs: [static-checks, production-audit, unit-tests, level-design-sim-tests, production-build, browser-e2e]",
+    );
+    expect(workflow).toContain(
+      "PRODUCTION_AUDIT_RESULT: ${{ needs.production-audit.result }}",
+    );
+    expect(workflow).toContain(
+      'test "$PRODUCTION_AUDIT_RESULT" = "success"',
+    );
+  });
+
+  it("깨끗한 체크아웃의 전체 타입 검사가 Node 기본 힙에 막히지 않는다", () => {
+    const workflow = source(join(ROOT, ".github/workflows/ci.yml"));
+
+    expect(workflow).toMatch(
+      /- name: Typecheck \(tsc --noEmit\)\s+env:\s+NODE_OPTIONS: --max-old-space-size=4096\s+run: npx tsc --noEmit/,
     );
   });
 
@@ -398,6 +461,12 @@ describe("production security surface", () => {
     const workflow = source(join(ROOT, ".github/workflows/ci.yml"));
     const playwrightConfig = source(join(ROOT, "playwright.config.ts"));
     const browserTests = source(join(ROOT, "e2e/public-surface.spec.ts"));
+    const authenticatedTests = source(
+      join(ROOT, "e2e/authenticated-accessibility.spec.ts"),
+    );
+    const accessibilityHelper = source(
+      join(ROOT, "e2e/support/accessibility.ts"),
+    );
 
     expect(workflow).toContain(
       "mcr.microsoft.com/playwright:v1.62.0-noble",
@@ -409,7 +478,10 @@ describe("production security surface", () => {
     expect(workflow).toContain("npm run test:e2e");
     expect(playwrightConfig).toContain('name: "desktop-chromium"');
     expect(playwrightConfig).toContain('name: "mobile-webkit"');
-    expect(browserTests).toContain("new AxeBuilder({ page })");
-    expect(browserTests).toContain('"wcag22aa"');
+    expect(playwrightConfig).toContain('name: "authenticated-mobile-webkit"');
+    expect(browserTests).toContain("expectNoA11yViolations(page)");
+    expect(authenticatedTests).toContain("a11yViolationSummary(page)");
+    expect(accessibilityHelper).toContain("new AxeBuilder({ page })");
+    expect(accessibilityHelper).toContain('"wcag22aa"');
   });
 });

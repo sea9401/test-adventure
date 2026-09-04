@@ -63,6 +63,24 @@ describe("StormExpeditionCommandMap", () => {
     expect(html).toContain("일괄 진행 설정");
   });
 
+  it("직접 진행 중에도 남은 구간 일괄 진행 설정을 제공한다", () => {
+    const html = renderToStaticMarkup(
+      <StormExpeditionCommandMap
+        nodes={STORM_EXPEDITION_MAP_NODES}
+        active={active}
+        availableNodeIds={[]}
+        nodeCount={9}
+        plan={null}
+        autoplay={{ kind: "idle" }}
+        onNodeOpen={vi.fn()}
+        onOpenAutoplayPlan={vi.fn()}
+        onStopAutoplay={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("남은 구간 일괄 진행 설정");
+  });
+
   it("자동 진행 중에는 처리 상태와 현재 요청 후 중단 버튼을 제공한다", () => {
     const html = renderToStaticMarkup(
       <StormExpeditionCommandMap

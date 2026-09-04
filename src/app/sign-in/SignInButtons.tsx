@@ -3,11 +3,38 @@
 import { signIn } from "next-auth/react";
 import { useState, type FormEvent } from "react";
 
-export function SignInButtons() {
+export function SignInButtons({ ageConfirmed = false }: { ageConfirmed?: boolean }) {
+  const [ageConfirmationChecked, setAgeConfirmationChecked] = useState(false);
+  const [ageConfirmationPending, setAgeConfirmationPending] = useState(false);
+  const [ageConfirmationError, setAgeConfirmationError] = useState<string | null>(null);
   const [passwordLoginError, setPasswordLoginError] = useState<string | null>(
     null,
   );
   const [passwordLoginPending, setPasswordLoginPending] = useState(false);
+
+  async function submitAgeConfirmation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!ageConfirmationChecked || ageConfirmationPending) return;
+
+    setAgeConfirmationError(null);
+    setAgeConfirmationPending(true);
+    try {
+      const response = await fetch("/api/age-eligibility", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ confirmed: true }),
+      });
+      if (!response.ok) {
+        setAgeConfirmationError("연령 확인을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setAgeConfirmationError("연령 확인을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setAgeConfirmationPending(false);
+    }
+  }
 
   async function submitPasswordLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,6 +64,42 @@ export function SignInButtons() {
     } finally {
       setPasswordLoginPending(false);
     }
+  }
+
+  if (!ageConfirmed) {
+    return (
+      <form
+        className="w-full max-w-xs rounded-lg border border-amber-300/30 bg-zinc-950 p-4 text-left"
+        onSubmit={submitAgeConfirmation}
+      >
+        <p className="text-sm font-semibold text-zinc-100">서비스 연령 확인</p>
+        <p className="mt-2 text-xs leading-relaxed text-zinc-300">
+          게임 등급은 12세이용가이며, 서비스 이용 기준은 만 14세 이상입니다.
+          생년월일은 수집하지 않습니다.
+        </p>
+        <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-zinc-100">
+          <input
+            type="checkbox"
+            checked={ageConfirmationChecked}
+            onChange={(event) => setAgeConfirmationChecked(event.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-amber-300"
+          />
+          <span>본인은 만 14세 이상입니다.</span>
+        </label>
+        <button
+          type="submit"
+          disabled={!ageConfirmationChecked || ageConfirmationPending}
+          className="mt-4 w-full rounded-md bg-amber-300 px-3 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-amber-200 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
+        >
+          {ageConfirmationPending ? "저장 중..." : "확인하고 계속"}
+        </button>
+        {ageConfirmationError && (
+          <p role="alert" className="mt-2 text-center text-[11px] text-rose-400">
+            {ageConfirmationError}
+          </p>
+        )}
+      </form>
+    );
   }
 
   return (

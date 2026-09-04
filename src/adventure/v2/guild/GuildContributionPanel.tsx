@@ -91,7 +91,7 @@ export function GuildContributionPanel({
                 </div>
                 <div className="mt-0.5 text-xs font-medium tabular-nums">
                   {(viewer.weeklyByCategory[category] ?? 0).toLocaleString()}
-                  <span className="ml-1 text-[10px] font-normal text-zinc-400 dark:text-zinc-500">
+                  <span className="ml-1 text-[10px] font-normal text-zinc-600 dark:text-zinc-400">
                     / {(viewer.lifetimeByCategory[category] ?? 0).toLocaleString()}
                   </span>
                 </div>

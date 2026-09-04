@@ -106,4 +106,3 @@ Run: `npm run build`
 - [ ] **Step 4: Review diff and commit**
 
 Run: `git diff --check` and `git status --short`, then commit the scoped fix and tests.
-

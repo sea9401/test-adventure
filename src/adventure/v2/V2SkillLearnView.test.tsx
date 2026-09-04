@@ -3,12 +3,56 @@ import { describe, expect, it } from "vitest";
 import {
   nextLoadoutStatFeedback,
   refreshLoadoutViews,
+  SkillLearningCard,
   SkillRitualPowerScopeHelp,
   SkillLearningCostSummary,
   skillRitualCurrencyPatch,
+  SkillRitualButton,
   skillRitualCostLabel,
 } from "./V2SkillLearnView";
 import { spCostOf, V2_SKILLS } from "@/adventure/data/v2/v2Skills";
+
+describe("학습 카드 상세와 기존 액션 분리", () => {
+  it("강타 이름·설명·효과에 상세 트리거를 제공하면서 학습 액션을 유지한다", () => {
+    const html = renderToStaticMarkup(
+      <SkillLearningCard
+        skill={{
+          skillId: "v2_skill_strike",
+          name: "강타",
+          cost: 1500,
+          spCost: 4,
+          learned: false,
+        }}
+        usable={1500}
+        busy={null}
+        onLearn={() => {}}
+        onOpenDetail={() => {}}
+      />,
+    );
+
+    expect(html).toContain('aria-label="강타 상세 보기"');
+    expect(html).toContain(">학습<");
+  });
+
+  it("강화 의식 액션을 상세가 아닌 강화로 부른다", () => {
+    const html = renderToStaticMarkup(
+      <SkillRitualButton
+        skill={{
+          skillId: "v2_skill_strike",
+          name: "강타",
+          spCost: 4,
+          equipped: true,
+        }}
+        busy={null}
+        maxed={false}
+        onOpen={() => {}}
+      />,
+    );
+
+    expect(html).toContain(">강화<");
+    expect(html).not.toContain(">상세<");
+  });
+});
 
 describe("장착 변경 후 전투 상태 동기화", () => {
   it("스킬 상세와 전역 전투 상태를 모두 갱신하고 완료될 때까지 기다린다", async () => {

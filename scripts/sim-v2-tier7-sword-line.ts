@@ -26,10 +26,22 @@ import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2
 
 export type Tier7SwordLineBuildId =
   | "swordsaint-core"
+  | "blackmoon-core"
+  | "hegemon-core"
+  | "shadow-prerequisite"
   | "shadowblade-core"
   | "shadowblade-inherited"
+  | "shadowblade-full"
+  | "ruin-prerequisite"
   | "ruinblade-core"
-  | "ruinblade-inherited";
+  | "ruinblade-inherited"
+  | "ruinblade-full"
+  | "heavenlybow-core"
+  | "celestialdragon-core"
+  | "sky-prerequisite"
+  | "skyascendant-core"
+  | "skyascendant-inherited"
+  | "skyascendant-full";
 
 export type Tier7SwordLineDistribution = {
   samples: number[];
@@ -73,8 +85,16 @@ export type Tier7SwordLineBalanceReport = {
 type BuildDefinition = {
   id: Tier7SwordLineBuildId;
   label: string;
-  jobId: "swordsaint" | "shadowblade" | "ruinblade";
-  main: "str" | "luk";
+  jobId:
+    | "swordsaint"
+    | "blackmoon"
+    | "hegemon"
+    | "shadowblade"
+    | "ruinblade"
+    | "heavenlybow"
+    | "celestialdragon"
+    | "skyascendant";
+  main: "str" | "luk" | "dex";
   skills: readonly V2SkillId[];
 };
 
@@ -92,6 +112,30 @@ const BUILDS: readonly BuildDefinition[] = [
     skills: V2_SKILLS_BY_JOB.swordsaint,
   },
   {
+    id: "blackmoon-core",
+    label: "흑월 고유 36 SP",
+    jobId: "blackmoon",
+    main: "luk",
+    skills: V2_SKILLS_BY_JOB.blackmoon,
+  },
+  {
+    id: "hegemon-core",
+    label: "패황 고유",
+    jobId: "hegemon",
+    main: "str",
+    skills: V2_SKILLS_BY_JOB.hegemon,
+  },
+  {
+    id: "shadow-prerequisite",
+    label: "검성+흑월 전체 69 SP",
+    jobId: "shadowblade",
+    main: "luk",
+    skills: [
+      ...V2_SKILLS_BY_JOB.swordsaint,
+      ...V2_SKILLS_BY_JOB.blackmoon,
+    ],
+  },
+  {
     id: "shadowblade-core",
     label: "무영검신 고유 46 SP",
     jobId: "shadowblade",
@@ -100,12 +144,33 @@ const BUILDS: readonly BuildDefinition[] = [
   },
   {
     id: "shadowblade-inherited",
-    label: "무영검신 계승 79 SP",
+    label: "무영검신 계승 68 SP",
+    jobId: "shadowblade",
+    main: "luk",
+    skills: [
+      ...V2_SKILLS_BY_JOB.shadowblade,
+      ...V2_SKILLS_BY_JOB.swordsaint.slice(1),
+    ],
+  },
+  {
+    id: "shadowblade-full",
+    label: "무영검신 전체 계승 115 SP",
     jobId: "shadowblade",
     main: "luk",
     skills: [
       ...V2_SKILLS_BY_JOB.shadowblade,
       ...V2_SKILLS_BY_JOB.swordsaint,
+      ...V2_SKILLS_BY_JOB.blackmoon,
+    ],
+  },
+  {
+    id: "ruin-prerequisite",
+    label: "검성+패황 전체",
+    jobId: "ruinblade",
+    main: "str",
+    skills: [
+      ...V2_SKILLS_BY_JOB.swordsaint,
+      ...V2_SKILLS_BY_JOB.hegemon,
     ],
   },
   {
@@ -117,12 +182,75 @@ const BUILDS: readonly BuildDefinition[] = [
   },
   {
     id: "ruinblade-inherited",
-    label: "멸검제 계승 79 SP",
+    label: "멸검제 계승 68 SP",
+    jobId: "ruinblade",
+    main: "str",
+    skills: [
+      ...V2_SKILLS_BY_JOB.ruinblade,
+      ...V2_SKILLS_BY_JOB.swordsaint.slice(1),
+    ],
+  },
+  {
+    id: "ruinblade-full",
+    label: "멸검제 전체 계승",
     jobId: "ruinblade",
     main: "str",
     skills: [
       ...V2_SKILLS_BY_JOB.ruinblade,
       ...V2_SKILLS_BY_JOB.swordsaint,
+      ...V2_SKILLS_BY_JOB.hegemon,
+    ],
+  },
+  {
+    id: "heavenlybow-core",
+    label: "천궁 고유 24 SP",
+    jobId: "heavenlybow",
+    main: "dex",
+    skills: V2_SKILLS_BY_JOB.heavenlybow,
+  },
+  {
+    id: "celestialdragon-core",
+    label: "천룡권성 고유 29 SP",
+    jobId: "celestialdragon",
+    main: "dex",
+    skills: V2_SKILLS_BY_JOB.celestialdragon,
+  },
+  {
+    id: "sky-prerequisite",
+    label: "천궁+천룡권성 전체 53 SP",
+    jobId: "skyascendant",
+    main: "dex",
+    skills: [
+      ...V2_SKILLS_BY_JOB.heavenlybow,
+      ...V2_SKILLS_BY_JOB.celestialdragon,
+    ],
+  },
+  {
+    id: "skyascendant-core",
+    label: "비천무신 고유 46 SP",
+    jobId: "skyascendant",
+    main: "dex",
+    skills: V2_SKILLS_BY_JOB.skyascendant,
+  },
+  {
+    id: "skyascendant-inherited",
+    label: "비천무신 계승 75 SP",
+    jobId: "skyascendant",
+    main: "dex",
+    skills: [
+      ...V2_SKILLS_BY_JOB.skyascendant,
+      ...V2_SKILLS_BY_JOB.celestialdragon,
+    ],
+  },
+  {
+    id: "skyascendant-full",
+    label: "비천무신 전체 계승 99 SP",
+    jobId: "skyascendant",
+    main: "dex",
+    skills: [
+      ...V2_SKILLS_BY_JOB.skyascendant,
+      ...V2_SKILLS_BY_JOB.heavenlybow,
+      ...V2_SKILLS_BY_JOB.celestialdragon,
     ],
   },
 ] as const;
@@ -139,7 +267,7 @@ const DUMMY: Monster = {
   exp: 0,
 };
 
-function allocatedStats(main: "str" | "luk"): Record<V2StatKey, number> {
+function allocatedStats(main: "str" | "luk" | "dex"): Record<V2StatKey, number> {
   const total = (LEVEL - 1) * V2_STAT_POINTS_PER_LEVEL;
   const stats: Record<V2StatKey, number> = {
     str: 0,
@@ -150,10 +278,16 @@ function allocatedStats(main: "str" | "luk"): Record<V2StatKey, number> {
     luk: 0,
   };
   stats[main] = Math.round(total * 0.6);
-  stats.dex = main === "luk" ? Math.round(total * 0.3) : 0;
-  stats.vit = Math.round(total * (main === "str" ? 0.3 : 0.1));
-  if (main === "str") stats.luk = total - stats.str - stats.vit;
-  else stats.vit = total - stats.luk - stats.dex;
+  if (main === "str") {
+    stats.vit = Math.round(total * 0.3);
+    stats.luk = total - stats.str - stats.vit;
+  } else if (main === "luk") {
+    stats.dex = Math.round(total * 0.3);
+    stats.vit = total - stats.luk - stats.dex;
+  } else {
+    stats.str = Math.round(total * 0.3);
+    stats.vit = total - stats.dex - stats.str;
+  }
   return stats;
 }
 

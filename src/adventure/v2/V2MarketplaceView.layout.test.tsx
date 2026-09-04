@@ -8,6 +8,7 @@ import { GameStateProvider } from "./GameStateProvider";
 import { RewardToastProvider } from "./RewardToastProvider";
 import { actionErrorLabel, V2MarketplaceView } from "./V2MarketplaceView";
 import { MarketplaceRecentTradeList } from "./V2MarketplaceView";
+import { MarketplaceStackBrowse } from "./marketplace/MarketplaceStackBrowse";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dev/marketplace",
@@ -51,12 +52,12 @@ describe("V2MarketplaceView 모바일 매물 카드", () => {
     expect(html).toContain("grid-cols-4");
   });
 
-  it("가격 정보와 구매 동작을 모바일에서 세로로 쌓는다", () => {
-    const fixedListingPreview = {
+  it("가격 정보와 입찰 동작을 모바일에서 세로로 쌓는다", () => {
+    const auctionListingPreview = {
       ...marketplacePreview,
       listings: marketplacePreview.listings.map((listing) => ({
         ...listing,
-        bidEndsAt: "2000-01-01T00:00:00.000Z",
+        bidEndsAt: "9999-12-31T23:59:59.999Z",
         expiresAt: "9999-12-31T23:59:59.999Z",
         highestBid: null,
         bidCount: 0,
@@ -67,7 +68,7 @@ describe("V2MarketplaceView 모바일 매물 카드", () => {
         <RewardToastProvider>
           <V2MarketplaceView
             onBack={() => {}}
-            preview={fixedListingPreview}
+            preview={auctionListingPreview}
           />
         </RewardToastProvider>
       </GameStateProvider>,
@@ -79,15 +80,64 @@ describe("V2MarketplaceView 모바일 매물 카드", () => {
     );
     expect(html).toContain('data-testid="marketplace-listing-action"');
     expect(html).toContain("w-full sm:w-auto");
+    expect(html).toContain("시작 입찰가");
+    expect(html).toContain(
+      `aria-label="${marketplacePreview.listings[0].itemName} 매물 신고"`,
+    );
+    expect(html).not.toContain("즉시구매");
   });
 
-  it("본인 고정가 매물은 구매 대신 관리 동작을 제공한다", () => {
-    const ownFixedPreview = {
+  it("본인 판매 중 매물에는 신고 동작을 표시하지 않는다", () => {
+    const ownAuctionPreview = {
+      ...marketplacePreview,
+      listings: marketplacePreview.listings.map((listing) => ({
+        ...listing,
+        isMine: true,
+      })),
+    };
+    const html = renderToStaticMarkup(
+      <GameStateProvider>
+        <RewardToastProvider>
+          <V2MarketplaceView onBack={() => {}} preview={ownAuctionPreview} />
+        </RewardToastProvider>
+      </GameStateProvider>,
+    );
+
+    expect(html).not.toContain("매물 신고");
+  });
+
+  it("재료 판매 중 매물에도 신고 동작을 표시한다", () => {
+    const listing = {
+      ...marketplacePreview.listings[0],
+      id: 77,
+      kind: "material" as const,
+      itemId: "iron_ore",
+      itemName: "철광석",
+      quantity: 5,
+      isMine: false,
+    };
+    const html = renderToStaticMarkup(
+      <MarketplaceStackBrowse
+        listings={[listing]}
+        clockMs={Date.now()}
+        busy={false}
+        favoriteKeys={new Set()}
+        onToggleFavorite={vi.fn()}
+        onBid={vi.fn()}
+        onOpenTools={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('aria-label="철광석 매물 신고"');
+  });
+
+  it("본인 경매 매물도 구매 동작 없이 입찰 현황을 제공한다", () => {
+    const ownAuctionPreview = {
       ...marketplacePreview,
       listings: marketplacePreview.listings.map((listing, index) => ({
         ...listing,
         isMine: index === 0,
-        bidEndsAt: "2000-01-01T00:00:00.000Z",
+        bidEndsAt: "9999-12-31T23:59:59.999Z",
         expiresAt: "9999-12-31T23:59:59.999Z",
         highestBid: null,
         bidCount: 0,
@@ -96,12 +146,39 @@ describe("V2MarketplaceView 모바일 매물 카드", () => {
     const html = renderToStaticMarkup(
       <GameStateProvider>
         <RewardToastProvider>
-          <V2MarketplaceView onBack={() => {}} preview={ownFixedPreview} />
+          <V2MarketplaceView onBack={() => {}} preview={ownAuctionPreview} />
         </RewardToastProvider>
       </GameStateProvider>,
     );
 
-    expect(html).toContain("내 매물 관리");
+    expect(html).toContain("입찰");
+    expect(html).not.toContain("즉시구매");
+  });
+
+  it("일반 목록에서 내 매물·최고 입찰·과거 입찰 관계를 구분한다", () => {
+    const relationPreview = {
+      ...marketplacePreview,
+      listings: marketplacePreview.listings.map((listing, index) => ({
+        ...listing,
+        isMine: index === 0,
+        isHighestBidder: index === 1,
+        hasMyBid: index >= 1,
+        bidEndsAt: "2000-01-01T00:00:00.000Z",
+        expiresAt: "9999-12-31T23:59:59.999Z",
+        highestBid: null,
+      })),
+    };
+    const html = renderToStaticMarkup(
+      <GameStateProvider>
+        <RewardToastProvider>
+          <V2MarketplaceView onBack={() => {}} preview={relationPreview} />
+        </RewardToastProvider>
+      </GameStateProvider>,
+    );
+
+    expect(html).toContain('data-marketplace-relation="mine"');
+    expect(html).toContain('data-marketplace-relation="leading"');
+    expect(html).toContain('data-marketplace-relation="bid"');
   });
 
   it("공개 체결 행은 개당 가격과 거래 신고 동작을 표시한다", () => {
@@ -112,6 +189,7 @@ describe("V2MarketplaceView 모바일 매물 카드", () => {
             id: 42,
             isMine: false,
             isHighestBidder: false,
+            hasMyBid: false,
             kind: "material",
             itemId: "iron_ore",
             itemName: "철광석",
@@ -145,6 +223,7 @@ describe("V2MarketplaceView 모바일 매물 카드", () => {
             id: 43,
             isMine: false,
             isHighestBidder: false,
+            hasMyBid: false,
             kind: "consumable",
             itemId: "two_bite_boiled_bread",
             itemName: "두박한 밀빵 (일반)",

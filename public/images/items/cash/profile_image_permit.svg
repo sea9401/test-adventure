@@ -2,11 +2,31 @@
   <title id="title">프로필 이미지 변경권</title>
   <desc id="desc">시안색 타일 위 초상 사진 카드와 반짝임으로 표현한 변경권</desc>
 
-  <rect width="256" height="256" rx="54" fill="#0e7490"/>
-  <rect x="4" y="4" width="248" height="248" rx="50" fill="none" stroke="#22d3ee" stroke-width="4"/>
+  <defs>
+    <linearGradient id="avatar-bg" x1="24" y1="18" x2="230" y2="238" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a5f3fc"/>
+      <stop offset="0.48" stop-color="#06b6d4"/>
+      <stop offset="1" stop-color="#155e75"/>
+    </linearGradient>
+    <linearGradient id="avatar-card" x1="62" y1="60" x2="193" y2="205" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fffef8"/>
+      <stop offset="0.72" stop-color="#e7f7f3"/>
+      <stop offset="1" stop-color="#9ec9c8"/>
+    </linearGradient>
+    <linearGradient id="avatar-photo" x1="64" y1="79" x2="129" y2="176" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#93c5fd"/>
+      <stop offset="1" stop-color="#3978ce"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="54" fill="#164e63"/>
+  <rect x="4" y="4" width="248" height="248" rx="50" fill="url(#avatar-bg)" stroke="#cffafe" stroke-width="4"/>
+  <path d="M24 70C39 31 72 17 119 14H55c-23 0-41 18-41 41v78c2-26 5-47 10-63Z" fill="#fff" opacity=".23"/>
 
-  <rect x="35" y="55" width="186" height="150" rx="27" fill="#fff8e8" stroke="#2a0a5e" stroke-width="8"/>
-  <rect x="54" y="76" width="83" height="104" rx="18" fill="#5ba7ff" stroke="#2a0a5e" stroke-width="7"/>
+  <rect x="42" y="63" width="186" height="150" rx="27" fill="#164e63" opacity=".44"/>
+  <rect x="35" y="55" width="186" height="150" rx="27" fill="url(#avatar-card)" stroke="#2a0a5e" stroke-width="8"/>
+  <path d="M55 67h139c8 0 14 6 14 14" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".72"/>
+  <rect x="54" y="76" width="83" height="104" rx="18" fill="url(#avatar-photo)" stroke="#2a0a5e" stroke-width="7"/>
+  <path d="M64 89c10-8 31-11 62-7" fill="none" stroke="#dbeafe" stroke-width="6" stroke-linecap="round" opacity=".6"/>
   <circle cx="96" cy="109" r="22" fill="#fff8e8" stroke="#2a0a5e" stroke-width="7"/>
   <path d="M64 170c4-27 17-41 32-41s28 14 32 41Z" fill="#52d3c4" stroke="#2a0a5e" stroke-width="7" stroke-linejoin="round"/>
   <path d="M157 97h40M157 120h31M157 160h25" stroke="#6f35b3" stroke-width="10" stroke-linecap="round"/>

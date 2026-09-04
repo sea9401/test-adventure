@@ -36,3 +36,14 @@ export function matchesMarketplaceEquipmentTier(
     v2EquipCatalogTierToDisplayTier(item.tier) === Number(filter)
   );
 }
+
+export function matchesMarketplaceUnregisteredCodex(
+  itemId: string,
+  enabled: boolean,
+  loaded: boolean,
+  registeredIds: ReadonlySet<V2EquipmentId> | null | undefined,
+): boolean {
+  if (!enabled || !loaded) return true;
+  const item = V2_EQUIPMENT[itemId as V2EquipmentId];
+  return item != null && registeredIds?.has(item.id) === false;
+}

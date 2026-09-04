@@ -30,6 +30,7 @@ const PROFILES = {
   equipment: { maxWidth: 256, quality: 85 },
   fish: { maxWidth: 1024, quality: 86 },
   housing: { maxWidth: 1024, quality: 86 },
+  rating: { maxWidth: 256, quality: 95 },
   ui: { maxWidth: 1920, quality: 80 },
 };
 

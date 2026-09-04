@@ -14,6 +14,7 @@ import {
   chooseStormExpeditionBoon,
   chooseStormExpeditionCheckpointChoice,
   isStormExpeditionPlanCompatible,
+  stormExpeditionRiskDecision,
   stormExpeditionPlannedNodeId,
   type StormExpeditionAutoplayPlan,
 } from "./stormExpeditionAutoplayPolicy";
@@ -110,10 +111,13 @@ export function nextStormExpeditionAutoplayStep(
 
   if (isPendingRiskAtCurrentNode(active)) {
     const riskName = STORM_EXPEDITION_RISK_EVENTS[active.riskEvent!.id]?.name ?? "위험 이벤트";
+    const decision = stormExpeditionRiskDecision(plan, active.riskEvent!.id);
     return {
       kind: "request",
-      label: `${riskName} 지나치는 중`,
-      request: stormExpeditionRiskRequest("decline", active.currentNodeId, active.encounterIndex),
+      label: decision === "accept"
+        ? `${riskName} 수락하는 중`
+        : `${riskName} 지나치는 중`,
+      request: stormExpeditionRiskRequest(decision, active.currentNodeId, active.encounterIndex),
     };
   }
 

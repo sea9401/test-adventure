@@ -10,13 +10,13 @@ import {
   dangerousCatchMaterialId,
 } from "@/adventure/data/v2/dangerousFishing";
 import {
-  MARKETPLACE_V2_BID_GRACE_MAX_HOURS,
-  MARKETPLACE_V2_BID_GRACE_MIN_HOURS,
+  MARKETPLACE_V2_AUCTION_HOURS,
+  MARKETPLACE_V2_AUCTION_MODE_VERSION,
+  MARKETPLACE_V2_BID_EXTENSION_MINUTES,
+  MARKETPLACE_V2_BID_EXTENSION_WINDOW_MINUTES,
   MARKETPLACE_V2_BUY_ORDER_ESCROW_MAX,
   MARKETPLACE_V2_BUY_ORDER_LIMIT,
   MARKETPLACE_V2_BUY_ORDER_MAX_DAYS,
-  MARKETPLACE_V2_DIRECT_LISTING_HOURS,
-  MARKETPLACE_V2_FIXED_LISTING_HOURS,
   MARKETPLACE_V2_MATERIAL_QTY_MAX,
   MARKETPLACE_V2_PRICE_MAX,
   MARKETPLACE_V2_TAX_RATE,
@@ -25,7 +25,6 @@ import {
   isTradableEquip,
   isTradableMarketplaceMaterial,
   isTradableMaterial,
-  isValidBidGraceHours,
   isValidMaterialQty,
   isValidPrice,
   currentMarketplaceItemName,
@@ -33,7 +32,8 @@ import {
   itemDisplayName,
   marketplaceEquipListError,
   marketplaceListingPhase,
-  marketplaceListingTimes,
+  marketplaceAuctionTimes,
+  marketplaceBidExtendedTimes,
   marketplaceNextBidMinimum,
   marketplacePartialPrice,
   marketplacePublicListing,
@@ -44,75 +44,78 @@ import {
   saleTax,
 } from "./marketplaceV2";
 
-describe("즉시구매와 공개 입찰 등록", () => {
-  it("유예 0은 즉시구매로 등록하고 24시간 유지한다", () => {
-    expect(MARKETPLACE_V2_DIRECT_LISTING_HOURS).toBe(24);
+describe("6시간 전 품목 입찰 경매", () => {
+  it("신규 경매는 등록 시점부터 6시간 뒤에 종료한다", () => {
+    expect(MARKETPLACE_V2_AUCTION_MODE_VERSION).toBe(1);
+    expect(MARKETPLACE_V2_AUCTION_HOURS).toBe(6);
     const createdAt = new Date("2026-07-28T00:00:00Z");
-    expect(marketplaceListingTimes(createdAt, 0)).toEqual({
-      bidEndsAt: createdAt,
-      expiresAt: new Date("2026-07-29T00:00:00Z"),
-    });
-  });
-
-  it("판매자가 2~24시간 유예를 고르고 이후 고정가 등록은 2시간 유지한다", () => {
-    expect(MARKETPLACE_V2_BID_GRACE_MIN_HOURS).toBe(2);
-    expect(MARKETPLACE_V2_BID_GRACE_MAX_HOURS).toBe(24);
-    expect(MARKETPLACE_V2_FIXED_LISTING_HOURS).toBe(2);
-    const createdAt = new Date("2026-07-28T00:00:00Z");
-    expect(marketplaceListingTimes(createdAt, 6)).toEqual({
+    expect(marketplaceAuctionTimes(createdAt)).toEqual({
       bidEndsAt: new Date("2026-07-28T06:00:00Z"),
-      expiresAt: new Date("2026-07-28T08:00:00Z"),
+      expiresAt: new Date("2026-07-28T06:00:00.001Z"),
     });
   });
 
-  it("즉시구매 0 또는 경매 유예 정수 2~24시간만 허용한다", () => {
-    expect(isValidBidGraceHours(0)).toBe(true);
-    expect(isValidBidGraceHours(2)).toBe(true);
-    expect(isValidBidGraceHours(24)).toBe(true);
-    expect(isValidBidGraceHours(1)).toBe(false);
-    expect(isValidBidGraceHours(25)).toBe(false);
-    expect(isValidBidGraceHours(2.5)).toBe(false);
-    expect(isValidBidGraceHours("2")).toBe(false);
+  it("첫 입찰은 묶음 전체 시작가부터 받고 이후에는 최소 5% 인상한다", () => {
+    expect(marketplaceNextBidMinimum(400, null)).toBe(400);
+    expect(marketplaceNextBidMinimum(400, 400)).toBe(420);
+    expect(marketplaceNextBidMinimum(400, 401)).toBe(422);
   });
 
-  it("현재 최고 입찰가보다 최소 5% 높은 정수만 다음 입찰가가 된다", () => {
-    expect(marketplaceNextBidMinimum(null)).toBe(1);
-    expect(marketplaceNextBidMinimum(1)).toBe(2);
-    expect(marketplaceNextBidMinimum(100)).toBe(105);
-    expect(marketplaceNextBidMinimum(101)).toBe(107);
-  });
-
-  it("유예 종료 시 즉시구매가 초과 입찰만 입찰 판매로 전환한다", () => {
+  it("종료 시 최고 입찰가가 시작가와 같아도 낙찰 정산한다", () => {
     const base = {
       status: "active",
       price: 100,
       bidEndsAt: new Date("2026-07-28T02:00:00Z"),
-      expiresAt: new Date("2026-07-28T04:00:00Z"),
+      expiresAt: new Date("2026-07-28T02:00:00.001Z"),
     };
     expect(
       marketplaceListingPhase(
         { ...base, highestBid: 100 },
         new Date("2026-07-28T02:00:00Z"),
       ),
-    ).toBe("fixed");
-    expect(
-      marketplaceListingPhase(
-        { ...base, highestBid: 101 },
-        new Date("2026-07-28T02:00:00Z"),
-      ),
     ).toBe("auction_settlement");
+  });
+
+  it("정확히 10분이 남으면 연장하지 않는다", () => {
+    expect(MARKETPLACE_V2_BID_EXTENSION_WINDOW_MINUTES).toBe(10);
+    const bidEndsAt = new Date("2026-07-28T06:00:00Z");
+    const expiresAt = new Date("2026-07-28T06:00:00.001Z");
+    expect(
+      marketplaceBidExtendedTimes(
+        new Date("2026-07-28T05:50:00Z"),
+        bidEndsAt,
+        expiresAt,
+      ),
+    ).toEqual({ bidEndsAt, expiresAt, extended: false });
+  });
+
+  it("10분 미만이면 기존 종료 시각에 10분을 누적한다", () => {
+    expect(MARKETPLACE_V2_BID_EXTENSION_MINUTES).toBe(10);
+    expect(
+      marketplaceBidExtendedTimes(
+        new Date("2026-07-28T05:50:00.001Z"),
+        new Date("2026-07-28T06:00:00Z"),
+        new Date("2026-07-28T06:00:00.001Z"),
+      ),
+    ).toEqual({
+      bidEndsAt: new Date("2026-07-28T06:10:00Z"),
+      expiresAt: new Date("2026-07-28T06:10:00.001Z"),
+      extended: true,
+    });
   });
 
   it("공개 매물에서는 판매자 이름·ID와 입찰자 ID를 제거한다", () => {
     const listing = marketplacePublicListing(
       {
         id: 1,
+        price: 80,
         sellerId: "seller-secret",
         sellerName: "판매자이름",
         highestBidderId: "viewer",
         highestBid: 100,
       },
       "viewer",
+      true,
     );
     expect(listing).not.toHaveProperty("sellerId");
     expect(listing).not.toHaveProperty("sellerName");
@@ -121,6 +124,7 @@ describe("즉시구매와 공개 입찰 등록", () => {
       id: 1,
       isMine: false,
       isHighestBidder: true,
+      hasMyBid: true,
       nextBid: 105,
     });
   });

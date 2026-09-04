@@ -53,6 +53,10 @@ export function runWithRequestProfile<T>(
   return requestStorage().run(profile, callback);
 }
 
+export function runOutsideRequestProfile<T>(callback: () => T): T {
+  return requestStorage().exit(callback);
+}
+
 export function currentRequestProfile(): RequestProfileContext | undefined {
   return requestStorage().getStore();
 }

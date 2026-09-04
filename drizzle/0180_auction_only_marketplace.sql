@@ -1,0 +1,1 @@
+ALTER TABLE "marketplace_listings_v2" ADD COLUMN "auction_mode_version" integer DEFAULT 0 NOT NULL;

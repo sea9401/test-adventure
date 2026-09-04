@@ -12,7 +12,19 @@ const noop = async () => {};
 
 // 상위 직업(방패병·견습 기사) 해금 조건 — 부모 직업 숙련도. 기본 직업 = 레벨 한계 달성.
 const BASE_JOBS: JobLadderEntry[] = [
-  { id: "warrior", name: "견습 병사", tier: 1, condition: `Lv ${V2_LEVEL_CAP} 달성`, bonus: "힘 +5", skillsCollected: true },
+  {
+    id: "warrior",
+    name: "견습 병사",
+    tier: 1,
+    condition: `Lv ${V2_LEVEL_CAP} 달성`,
+    bonus: "힘 +5",
+    signatureSkills: [
+      { id: "v2_skill_strike", name: "강타", kind: "active" },
+      { id: "v2c_heavenlybow_orbit", name: "천궁궤적", kind: "active" },
+      { id: "missing_skill", name: "손상된 스킬", kind: "active" },
+    ],
+    skillsCollected: true,
+  },
   { id: "martial", name: "견습 무인", tier: 1, condition: `Lv ${V2_LEVEL_CAP} 달성`, bonus: "활력 +5" },
   { id: "mage", name: "견습 마법사", tier: 1, condition: `Lv ${V2_LEVEL_CAP} 달성`, bonus: "지능 +5" },
   { id: "rogue", name: "견습 도적", tier: 1, condition: `Lv ${V2_LEVEL_CAP} 달성`, bonus: "민첩 +5" },

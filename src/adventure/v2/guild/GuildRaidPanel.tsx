@@ -2,13 +2,28 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Clock, FilmStrip, ShieldCheck, Sword } from "@phosphor-icons/react";
+import {
+  CaretLeft,
+  CaretRight,
+  Clock,
+  FilmStrip,
+  Gift,
+  ShieldCheck,
+  Sword,
+} from "@phosphor-icons/react";
 import { COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
+import type { Gender } from "@/adventure/profile/avatars";
+import { useGameIdentityState } from "@/adventure/v2/GameStateProvider";
+import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
-import type { GuildRaidState } from "./guildRaidTypes";
+import type {
+  GuildRaidPagination,
+  GuildRaidPracticeResult,
+  GuildRaidState,
+} from "./guildRaidTypes";
 import { useGuildRaid } from "./useGuildRaid";
 
 export type { GuildRaidState } from "./guildRaidTypes";
@@ -22,6 +37,13 @@ const ERROR_TEXT: Record<string, string> = {
   event_ended: "이번 토벌전이 종료되었습니다.",
   load_failed: "토벌전 정보를 불러오지 못했습니다.",
   attack_failed: "공격을 완료하지 못했습니다.",
+  practice_failed: "연습 전투를 완료하지 못했습니다.",
+  claim_not_open: "보상은 토요일과 일요일에 받을 수 있습니다.",
+  reward_expired: "지난 토벌전의 미수령 보상이 소멸했습니다.",
+  not_settled: "최종 순위를 정산하고 있습니다.",
+  not_eligible: "개인 참여 조건을 달성하지 못했습니다.",
+  already_claimed: "이미 보상을 받았습니다.",
+  claim_failed: "보상을 받지 못했습니다.",
 };
 
 const KST_DATE_TIME = new Intl.DateTimeFormat("ko-KR", {
@@ -43,8 +65,23 @@ function formatEndsAt(timestamp: number): string {
 }
 
 export function GuildRaidPanel() {
-  const { state, loading, attacking, error, lastAttack, load, attack } =
-    useGuildRaid();
+  const {
+    state,
+    loading,
+    attacking,
+    practicing,
+    claiming,
+    error,
+    lastAttack,
+    lastPractice,
+    load,
+    attack,
+    practice,
+    claim,
+    setLeaderboardPage,
+    setRecentPage,
+  } = useGuildRaid();
+  const { viewerGender, playerSubtitle } = useGameIdentityState();
 
   if (loading && !state) {
     return (
@@ -65,9 +102,18 @@ export function GuildRaidPanel() {
     <GuildRaidPanelContent
       state={state}
       attacking={attacking}
+      practicing={practicing}
+      claiming={claiming}
       error={error}
       lastAttack={lastAttack}
+      lastPractice={lastPractice}
       onAttack={() => void attack()}
+      onPractice={() => void practice()}
+      onClaim={() => void claim()}
+      viewerGender={viewerGender}
+      playerSubtitle={playerSubtitle}
+      onLeaderboardPage={(page) => void setLeaderboardPage(page)}
+      onRecentPage={(page) => void setRecentPage(page)}
     />
   );
 }
@@ -75,18 +121,36 @@ export function GuildRaidPanel() {
 export function GuildRaidPanelContent({
   state,
   attacking,
+  practicing = false,
+  claiming = false,
   error,
   lastAttack,
+  lastPractice = null,
   onAttack,
+  onPractice = () => undefined,
+  onClaim = () => undefined,
+  viewerGender = "male1",
+  playerSubtitle,
+  onLeaderboardPage = () => undefined,
+  onRecentPage = () => undefined,
 }: {
   state: GuildRaidState;
   attacking: boolean;
+  practicing?: boolean;
+  claiming?: boolean;
   error: string | null;
   lastAttack?: { damageDealt: number; stagesCleared: number } | null;
+  lastPractice?: GuildRaidPracticeResult | null;
   onAttack: () => void;
+  onPractice?: () => void;
+  onClaim?: () => void;
+  viewerGender?: Gender;
+  playerSubtitle?: string;
+  onLeaderboardPage?: (page: number) => void;
+  onRecentPage?: (page: number) => void;
 }) {
   const boss = COOP_BOSSES[state.event.bossKind];
-  const active = state.event.status === "active";
+  const active = state.event.phase === "active";
   const settling = state.event.status === "settling";
   const guildLocked =
     state.my.lockedGuildId != null &&
@@ -176,11 +240,25 @@ export function GuildRaidPanelContent({
               size="md"
               fullWidth
               loading={attacking}
-              disabled={!canAttack}
+              disabled={!canAttack || practicing}
               onClick={onAttack}
             >
               <Sword size={18} weight="fill" /> {actionText}
             </Button>
+            <Button
+              variant="secondary"
+              size="md"
+              fullWidth
+              loading={practicing}
+              loadingLabel="연습 전투 진행 중"
+              disabled={!active || attacking}
+              onClick={onPractice}
+            >
+              <Sword size={18} /> 연습 전투
+            </Button>
+            <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+              공격 횟수와 피해·보상에 반영되지 않습니다.
+            </p>
             <p className="text-center text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               남은 공격 {state.my.remainingAttacks}/{state.my.dailyAttackLimit}
             </p>
@@ -199,6 +277,36 @@ export function GuildRaidPanelContent({
           {lastAttack.stagesCleared > 0 &&
             ` · ${lastAttack.stagesCleared}단계 돌파`}
         </Card>
+      )}
+      {lastPractice && (
+        <>
+          <Card padding="sm" className="space-y-2 border-sky-300 dark:border-sky-800">
+            <h3 className="text-sm font-bold text-sky-700 dark:text-sky-300">
+              연습 결과
+            </h3>
+            <p className="text-sm text-zinc-700 dark:text-zinc-200">
+              <span className="font-semibold tabular-nums text-rose-600 dark:text-rose-400">
+                {formatNumber(lastPractice.damageDealt)}
+              </span>{" "}
+              피해 · 받은 피해 {formatNumber(lastPractice.damageTaken)} · {lastPractice.turns}행동
+              {lastPractice.diedEarly ? " · 전투불능" : " · 공격 완료"}
+            </p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              길드 진행과 개인 기록에는 반영되지 않았습니다.
+            </p>
+          </Card>
+          <ReplayBattleScene
+            payload={lastPractice.replay}
+            startPlayerHp={lastPractice.replay.playerMaxHp}
+            playerName={lastPractice.playerName}
+            gender={viewerGender}
+            exp={0}
+            maxExp={1}
+            playerSubtitle={playerSubtitle}
+            outcome={lastPractice.diedEarly ? "lose" : undefined}
+            logTitle={`${COOP_BOSSES[lastPractice.bossKind].name} 연습 전투 로그`}
+          />
+        </>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -232,7 +340,34 @@ export function GuildRaidPanelContent({
             {rankText}
           </p>
           <div className={`${SURFACE_INSET} p-3 text-xs text-zinc-600 dark:text-zinc-300`}>
-            보상 정책 준비 중 · 이번 버전에서는 보상이 지급되지 않습니다.
+            {state.my.reward ? (
+              <div className="space-y-2">
+                <p className="font-semibold text-zinc-800 dark:text-zinc-100">
+                  {formatNumber(state.my.reward.gold)} 골드 · 숙련의 증표{" "}
+                  {formatNumber(state.my.reward.masteryCertificates)}개
+                </p>
+                {state.my.rewardClaimedAt != null ? (
+                  <p className="text-emerald-700 dark:text-emerald-300">보상 수령 완료</p>
+                ) : state.event.phase === "claim" ? (
+                  <Button
+                    variant="warning"
+                    size="sm"
+                    fullWidth
+                    loading={claiming}
+                    disabled={!state.my.canClaim}
+                    onClick={onClaim}
+                  >
+                    <Gift size={16} weight="fill" /> 보상 수령
+                  </Button>
+                ) : state.event.phase === "active" ? (
+                  <p>토벌 종료 후 토·일요일에 직접 수령할 수 있습니다.</p>
+                ) : (
+                  <p>미수령 보상이 소멸했습니다.</p>
+                )}
+              </div>
+            ) : (
+              "참여 길드 순위가 확정되면 개인 보상이 표시됩니다."
+            )}
           </div>
         </Card>
       </div>
@@ -261,6 +396,11 @@ export function GuildRaidPanelContent({
             ))}
           </ol>
         )}
+        <PaginationControls
+          pagination={state.leaderboardPagination}
+          onPageChange={onLeaderboardPage}
+          label="길드 순위"
+        />
       </Card>
 
       <div className="grid gap-3 md:grid-cols-2">
@@ -306,8 +446,49 @@ export function GuildRaidPanelContent({
               ))}
             </ul>
           )}
+          <PaginationControls
+            pagination={state.recentPagination}
+            onPageChange={onRecentPage}
+            label="최근 전투"
+          />
         </Card>
       </div>
     </section>
+  );
+}
+
+function PaginationControls({
+  pagination,
+  onPageChange,
+  label,
+}: {
+  pagination: GuildRaidPagination;
+  onPageChange: (page: number) => void;
+  label: string;
+}) {
+  return (
+    <nav className="flex items-center justify-center gap-2" aria-label={`${label} 페이지`}>
+      <Button
+        variant="secondary"
+        size="xs"
+        aria-label={`${label} 이전 페이지`}
+        disabled={pagination.page <= 1}
+        onClick={() => onPageChange(pagination.page - 1)}
+      >
+        <CaretLeft size={14} /> 이전
+      </Button>
+      <span className="min-w-14 text-center text-xs tabular-nums text-zinc-600 dark:text-zinc-300">
+        {pagination.page} / {pagination.totalPages}
+      </span>
+      <Button
+        variant="secondary"
+        size="xs"
+        aria-label={`${label} 다음 페이지`}
+        disabled={pagination.page >= pagination.totalPages}
+        onClick={() => onPageChange(pagination.page + 1)}
+      >
+        다음 <CaretRight size={14} />
+      </Button>
+    </nav>
   );
 }

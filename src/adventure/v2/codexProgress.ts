@@ -10,6 +10,7 @@ import { FISHING_CODEX_SP_MILESTONES } from "./fishingCodex";
 import { SP_FRUIT, type SpFruitTier } from "@/adventure/data/v2/spFruit";
 import { COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
 import { STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID } from "@/adventure/data/v2/stormExpeditionRewards";
+import { jobUnlockSpForCount } from "@/adventure/data/v2/jobSpPolicy";
 
 export function spFruitCodexSource(tier: SpFruitTier): string {
   const def = SP_FRUIT[tier];
@@ -50,7 +51,7 @@ export function spCollectionSpRange({
     : 0;
   const configuredMaximum =
     label === "직업 해금"
-      ? normalizedJobTotal
+      ? jobUnlockSpForCount(normalizedJobTotal)
       : label === "어보"
         ? FISHING_CODEX_SP_MILESTONES.length
         : label === "장비 도감"

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePagination } from "@/lib/usePagination";
 
@@ -238,6 +239,30 @@ const DOT_CLASS: Record<string, string> = {
 
 const ACTIVITY_PAGE_SIZE = 10;
 
+type GroupedGuildActivity = {
+  activity: GuildActivity;
+  description: string;
+  repeatCount: number;
+};
+
+function groupRepeatedActivity(
+  activity: GuildActivity[],
+): GroupedGuildActivity[] {
+  const grouped: GroupedGuildActivity[] = [];
+
+  for (const item of activity) {
+    const description = describe(item);
+    const previous = grouped.at(-1);
+    if (previous?.description === description) {
+      previous.repeatCount += 1;
+      continue;
+    }
+    grouped.push({ activity: item, description, repeatCount: 1 });
+  }
+
+  return grouped;
+}
+
 export function GuildActivityList({
   activity,
   loading,
@@ -245,8 +270,12 @@ export function GuildActivityList({
   activity: GuildActivity[];
   loading?: boolean;
 }) {
+  const groupedActivity = useMemo(
+    () => groupRepeatedActivity(activity),
+    [activity],
+  );
   const pager = usePagination(
-    activity,
+    groupedActivity,
     ACTIVITY_PAGE_SIZE,
     activity[0]?.id ?? "empty",
   );
@@ -263,7 +292,7 @@ export function GuildActivityList({
       ) : (
         <>
           <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-            {pager.pageItems.map((a) => (
+            {pager.pageItems.map(({ activity: a, description, repeatCount }) => (
               <li
                 key={a.id}
                 className="flex items-center gap-2 px-3 py-2 text-xs"
@@ -272,9 +301,10 @@ export function GuildActivityList({
                   className={`h-1.5 w-1.5 shrink-0 rounded-full ${DOT_CLASS[a.type] ?? "bg-zinc-400"}`}
                 />
                 <span className="min-w-0 flex-1 truncate text-zinc-700 dark:text-zinc-200">
-                  {describe(a)}
+                  {description}
+                  {repeatCount > 1 ? ` · ${repeatCount.toLocaleString()}회` : ""}
                 </span>
-                <span className="shrink-0 tabular-nums text-zinc-400 dark:text-zinc-500">
+                <span className="shrink-0 tabular-nums text-zinc-600 dark:text-zinc-400">
                   {relTime(a.createdAt)}
                 </span>
               </li>

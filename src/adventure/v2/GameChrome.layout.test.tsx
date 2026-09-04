@@ -54,6 +54,25 @@ afterEach(() => {
 });
 
 describe("GameChrome 결합형 게임 헤더", () => {
+  it("키보드 사용자가 반복 메뉴를 건너뛰고 현재 본문으로 이동할 수 있다", () => {
+    const container = document.createElement("div");
+    container.innerHTML = renderToStaticMarkup(
+      <GameChrome>
+        <main>게임 콘텐츠</main>
+      </GameChrome>,
+    );
+
+    const skipLink = within(container).getByRole("link", {
+      name: "본문으로 바로가기",
+    });
+    expect(skipLink.getAttribute("href")).toBe("#game-main-content");
+    expect(skipLink.className).toContain("focus:not-sr-only");
+
+    const target = container.querySelector("#game-main-content");
+    expect(target?.getAttribute("tabindex")).toBe("-1");
+    expect(target?.querySelectorAll("main")).toHaveLength(1);
+  });
+
   it("헤더 표면과 내부 콘텐츠가 화면 상단과 좌우를 모두 채운다", () => {
     const container = document.createElement("div");
     container.innerHTML = renderToStaticMarkup(

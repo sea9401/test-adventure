@@ -4,7 +4,7 @@ import { CHAT_RETENTION_DAYS } from "@/lib/chat-config";
 import { FEED_RETENTION_DAYS } from "@/lib/feed-config";
 import { RETENTION_POLICY } from "@/lib/server/retentionPolicy";
 
-const EFFECTIVE_DATE = "2026년 8월 28일";
+const EFFECTIVE_DATE = "2026년 10월 4일";
 
 export const metadata: Metadata = {
   title: "개인정보처리방침 — 무슨무슨게임",
@@ -47,6 +47,11 @@ export default function PrivacyPage() {
                 <td>해외 이용자·심사 계정의 로그인 제공</td>
               </tr>
               <tr>
+                <td>서비스 연령 확인</td>
+                <td>만 14세 이상 확인 여부와 확인 시각, 서명된 확인 쿠키(생년월일은 수집하지 않음)</td>
+                <td>서비스 이용 연령 기준 확인과 미확인 접근 차단</td>
+              </tr>
+              <tr>
                 <td>게임 이용</td>
                 <td>게임 닉네임, 캐릭터와 성장 정보, 저장 데이터, 재화·거래·길드·전투·랭킹 기록</td>
                 <td>게임 진행 저장, 콘텐츠 제공, 부정 이용 방지, 오류 복구</td>
@@ -76,6 +81,11 @@ export default function PrivacyPage() {
                 <td>푸시 구독 주소, 브라우저가 발급한 암호화 공개키와 인증값, 알림 발송·수신 기록</td>
                 <td>이용자가 동의한 게임 작업 완료, 길드·협동 콘텐츠, 공지와 문의 답변 알림 전송</td>
               </tr>
+              <tr>
+                <td>유료 결제(기능 활성화 이후)</td>
+                <td>내부 주문번호, 결제 키, 상품·금액·코인 수량, 결제 수단 종류, 승인·취소·환불 상태와 시각</td>
+                <td>결제 승인, 유료 코인 지급, 환불, 오류 복구와 분쟁 대응. 운영자는 카드번호와 CVC를 저장하지 않습니다.</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -102,6 +112,7 @@ export default function PrivacyPage() {
             </thead>
             <tbody>
               <tr><td>계정, 게임 저장 데이터, 게시글·댓글·문의 등 회원 귀속 정보</td><td>회원 탈퇴 시까지</td></tr>
+              <tr><td>만 14세 이상 확인 쿠키</td><td>확인 후 최대 1년 또는 이용자가 브라우저에서 쿠키를 삭제할 때까지</td></tr>
               <tr><td>채팅 메시지</td><td>작성 후 {CHAT_RETENTION_DAYS}일</td></tr>
               <tr><td>완료·기각된 콘텐츠 신고 기록</td><td>처리 완료 후 {RETENTION_POLICY.resolvedUgcReportDays}일(회원 탈퇴 시 계정 식별값과 표시 이름 익명화)</td></tr>
               <tr><td>커뮤니티 운영정책 동의 기록</td><td>회원 탈퇴 시까지</td></tr>
@@ -114,6 +125,8 @@ export default function PrivacyPage() {
               <tr><td>홍보 이벤트 중복 보상 방지 식별 해시</td><td>이벤트 운영 기간 및 종료 후 180일(로그인 식별 원문은 저장하지 않음)</td></tr>
               <tr><td>푸시 구독 정보</td><td>이용자가 알림을 해제하거나 회원 탈퇴할 때까지</td></tr>
               <tr><td>푸시 중복 발송 방지 기록</td><td>발송 후 최대 {RETENTION_POLICY.pushDeliveryDays}일</td></tr>
+              <tr><td>계약·청약철회, 대금결제 및 유료 코인 공급 기록</td><td>거래 종료 후 5년</td></tr>
+              <tr><td>결제 관련 소비자 불만·분쟁 처리 기록</td><td>처리 종료 후 3년</td></tr>
               <tr>
                 <td>프로필 이미지</td>
                 <td>교체·삭제 또는 회원 탈퇴 시까지</td>
@@ -198,6 +211,12 @@ export default function PrivacyPage() {
                 <td>강한 자동화 의심 신호가 발생한 경우의 2단계 사람 확인</td>
                 <td>미국 및 hCaptcha 글로벌 네트워크</td>
                 <td>확인 토큰은 일회 검증 후 운영자가 별도로 보관하지 않으며, 기술 정보는 hCaptcha 정책에 따름</td>
+              </tr>
+              <tr>
+                <td>토스페이먼츠 주식회사(결제 기능 활성화 이후)</td>
+                <td>카드 결제 승인·취소, 결제창 제공과 부정거래 방지</td>
+                <td>대한민국</td>
+                <td>관련 법령과 토스페이먼츠의 처리 기준에 따름</td>
               </tr>
             </tbody>
           </table>
@@ -404,7 +423,7 @@ export default function PrivacyPage() {
       <section>
         <h2>7. 쿠키와 기기 저장소</h2>
         <p>
-          서비스는 로그인 유지, 활성 기기 확인, 홍보 링크 적용과 사람 확인을 위해 필수 쿠키 또는 이와 유사한 기술을 사용합니다. 테마, 채팅 표시 방식, 알림, 사냥 설정과 같은 이용자 선택은 브라우저의 로컬 저장소에 보관될 수 있습니다. 광고 추적용 쿠키나 제3자 분석 도구는 현재 사용하지 않습니다.
+          서비스는 만 14세 이상 확인, 로그인 유지, 활성 기기 확인, 홍보 링크 적용과 사람 확인을 위해 필수 쿠키 또는 이와 유사한 기술을 사용합니다. 연령 확인 쿠키에는 생년월일이 아니라 확인 시각과 위조 방지용 서명만 저장됩니다. 테마, 채팅 표시 방식, 알림, 사냥 설정과 같은 이용자 선택은 브라우저의 로컬 저장소에 보관될 수 있습니다. 광고 추적용 쿠키나 제3자 분석 도구는 현재 사용하지 않습니다.
         </p>
         <p className="mt-3">
           이용자는 브라우저 설정에서 쿠키와 사이트 데이터를 삭제할 수 있습니다. 필수 쿠키를 차단하면 로그인이나 일부 기능이 정상적으로 동작하지 않을 수 있습니다.

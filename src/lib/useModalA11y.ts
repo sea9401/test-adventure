@@ -9,7 +9,10 @@ import { useScrollLock } from "./useScrollLock";
 // 분리해 둠.)
 //
 // ref 는 dialog 의 내부 컨텐츠 컨테이너 — `<div role="dialog">...<div ref={ref}>...</div></div>`.
-export function useModalA11y(ref: RefObject<HTMLElement | null>): void {
-  useFocusTrap(ref);
-  useScrollLock(true);
+export function useModalA11y(
+  ref: RefObject<HTMLElement | null>,
+  enabled = true,
+): void {
+  useFocusTrap(ref, enabled);
+  useScrollLock(enabled);
 }

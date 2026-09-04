@@ -1,5 +1,5 @@
 // v2 거래소 — 순수 헬퍼 + 상수. DB 트랜잭션은 라우트(/api/v2/marketplace/*)가 보유.
-//   장비 개체(instance) + 재료(스택) 거래. 공개 입찰 유예 → 초과 입찰 낙찰/고정가 구매. 판매세.
+//   장비 개체(instance) + 재료(스택) 거래. 6시간 공개 입찰과 종료 임박 연장. 판매세.
 //   V1 marketplace.ts(grade·V1 인벤 모델)와 무관 — v2 전용.
 
 import { and, eq } from "drizzle-orm";
@@ -56,18 +56,17 @@ export const MARKETPLACE_V2_PRICE_MAX = 999_999_999; // < 2^31 — integer 컬�
 // 재료 1매물 최대 수량.
 export const MARKETPLACE_V2_MATERIAL_QTY_MAX = 9999;
 // 둘러보기 1회 최대 반환 행.
-export const MARKETPLACE_V2_BROWSE_LIMIT = 100;
+export const MARKETPLACE_V2_BROWSE_LIMIT = 500;
 // 시세 — 최근 며칠간 판매 완료(sold) 기록을 종목별 집계. 가격 판단 참고용.
 export const MARKETPLACE_V2_PRICE_HISTORY_DAYS = 30;
 // 최근 거래 내역 — 체결(sold) 매물을 최신순으로 이만큼 반환(거래소 "최근 거래" 탭).
 export const MARKETPLACE_V2_HISTORY_LIMIT = 100;
-// 새 매물은 즉시구매(유예 0)가 기본이며 24시간 노출한다.
-// 선택형 공개 입찰은 판매자가 2~24시간 중 선택. 초과 입찰이 없으면 유예 종료 후
-// 고정가 즉시구매로 2시간 더 노출하고, 그 뒤 만료·반환한다.
-export const MARKETPLACE_V2_BID_GRACE_MIN_HOURS = 2;
-export const MARKETPLACE_V2_BID_GRACE_MAX_HOURS = 24;
-export const MARKETPLACE_V2_FIXED_LISTING_HOURS = 2;
-export const MARKETPLACE_V2_DIRECT_LISTING_HOURS = 24;
+// 내 입찰 — 원본 입찰 기록 보존 범위에서 최근 참여 매물을 이만큼 반환한다.
+export const MARKETPLACE_V2_MY_BIDS_LIMIT = 50;
+export const MARKETPLACE_V2_AUCTION_MODE_VERSION = 1;
+export const MARKETPLACE_V2_AUCTION_HOURS = 6;
+export const MARKETPLACE_V2_BID_EXTENSION_WINDOW_MINUTES = 10;
+export const MARKETPLACE_V2_BID_EXTENSION_MINUTES = 10;
 export const MARKETPLACE_V2_MIN_BID_RAISE_RATE = 0.05;
 export const MARKETPLACE_V2_BUY_ORDER_LIMIT = 10;
 export const MARKETPLACE_V2_BUY_ORDER_MAX_DAYS = 7;
@@ -121,44 +120,48 @@ export function isValidPrice(p: unknown): p is number {
   );
 }
 
-export function isValidBidGraceHours(value: unknown): value is number {
-  return (
-    typeof value === "number" &&
-    Number.isInteger(value) &&
-    (value === 0 ||
-      (value >= MARKETPLACE_V2_BID_GRACE_MIN_HOURS &&
-        value <= MARKETPLACE_V2_BID_GRACE_MAX_HOURS))
-  );
-}
-
-export function marketplaceListingTimes(createdAt: Date, graceHours: number) {
-  if (graceHours === 0) {
-    return {
-      bidEndsAt: createdAt,
-      expiresAt: new Date(
-        createdAt.getTime() +
-          MARKETPLACE_V2_DIRECT_LISTING_HOURS * 60 * 60 * 1000,
-      ),
-    };
-  }
+export function marketplaceAuctionTimes(createdAt: Date) {
   const bidEndsAt = new Date(
-    createdAt.getTime() + graceHours * 60 * 60 * 1000,
+    createdAt.getTime() + MARKETPLACE_V2_AUCTION_HOURS * 60 * 60 * 1000,
   );
   return {
     bidEndsAt,
-    expiresAt: new Date(
-      bidEndsAt.getTime() + MARKETPLACE_V2_FIXED_LISTING_HOURS * 60 * 60 * 1000,
-    ),
+    expiresAt: new Date(bidEndsAt.getTime() + 1),
   };
 }
 
-/** 첫 입찰은 1골드부터, 이후에는 현재 최고가보다 최소 5% 높은 정수 금액만 허용한다. */
-export function marketplaceNextBidMinimum(currentBid: number | null): number {
-  if (currentBid == null || currentBid <= 0) return MARKETPLACE_V2_PRICE_MIN;
+/** 첫 입찰은 묶음 시작가부터, 이후에는 현재 최고가보다 최소 5% 높은 정수 금액만 허용한다. */
+export function marketplaceNextBidMinimum(
+  startingPrice: number,
+  currentBid: number | null,
+): number {
+  if (currentBid == null || currentBid <= 0) return startingPrice;
   return Math.min(
     MARKETPLACE_V2_PRICE_MAX,
-    Math.max(currentBid + 1, Math.ceil(currentBid * 1.05)),
+    Math.max(
+      currentBid + 1,
+      Math.ceil(currentBid * (1 + MARKETPLACE_V2_MIN_BID_RAISE_RATE)),
+    ),
   );
+}
+
+export function marketplaceBidExtendedTimes(
+  now: Date,
+  bidEndsAt: Date,
+  expiresAt: Date,
+): { bidEndsAt: Date; expiresAt: Date; extended: boolean } {
+  const remainingMs = bidEndsAt.getTime() - now.getTime();
+  const extensionWindowMs =
+    MARKETPLACE_V2_BID_EXTENSION_WINDOW_MINUTES * 60 * 1000;
+  if (remainingMs <= 0 || remainingMs >= extensionWindowMs) {
+    return { bidEndsAt, expiresAt, extended: false };
+  }
+  const extensionMs = MARKETPLACE_V2_BID_EXTENSION_MINUTES * 60 * 1000;
+  return {
+    bidEndsAt: new Date(bidEndsAt.getTime() + extensionMs),
+    expiresAt: new Date(expiresAt.getTime() + extensionMs),
+    extended: true,
+  };
 }
 
 export function marketplaceListingPhase(
@@ -170,30 +173,30 @@ export function marketplaceListingPhase(
     highestBid: number | null;
   },
   now: Date,
-): "closed" | "bidding" | "auction_settlement" | "fixed" | "expired" {
+): "closed" | "bidding" | "auction_settlement" {
   if (listing.status !== "active") return "closed";
   if (now < listing.bidEndsAt) return "bidding";
-  if ((listing.highestBid ?? 0) > listing.price) return "auction_settlement";
-  if (now < listing.expiresAt) return "fixed";
-  return "expired";
+  return "auction_settlement";
 }
 
 /** 공개 매물 응답에서는 판매자 이름·ID와 최고 입찰자 ID를 제거한다. */
 export function marketplacePublicListing<
   T extends {
+    price: number;
     sellerId: string;
     sellerName?: string;
     highestBidderId: string | null;
     highestBid: number | null;
   },
->(row: T, viewerId: string) {
+>(row: T, viewerId: string, hasMyBid = false) {
   const { sellerId, sellerName: _sellerName, highestBidderId, ...publicRow } =
     row;
   return {
     ...publicRow,
     isMine: sellerId === viewerId,
     isHighestBidder: highestBidderId === viewerId,
-    nextBid: marketplaceNextBidMinimum(row.highestBid),
+    hasMyBid,
+    nextBid: marketplaceNextBidMinimum(row.price, row.highestBid),
   };
 }
 

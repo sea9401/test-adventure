@@ -90,7 +90,7 @@ describe("7차 전투 패키지", () => {
       expect(skillsForJob(jobId)).toEqual(ids);
       const defs = ids.map((id) => V2_SKILLS[id]);
       expect(defs.map(spCostOf).reduce((sum, cost) => sum + cost, 0)).toBe(
-        jobId === "primordialsage" ? 43 : 46,
+        jobId === "primordialsage" ? 42 : 46,
       );
       expect(() =>
         validateTier7Package(
@@ -114,24 +114,33 @@ describe("7차 전투 패키지", () => {
   });
 
   it("200시드로 확정한 검성 계열 7차 직접 피해를 고정한다", () => {
-    expect(directCoef("v2c_shadowblade_afterimage")).toBe(2.289);
+    expect(directCoef("v2c_shadowblade_afterimage")).toBe(2.282);
     expect(directFlat("v2c_shadowblade_afterimage")).toBe(540);
-    expect(directCoef("v2c_shadowblade_traceless")).toBeCloseTo(2.24, 6);
+    expect(directCoef("v2c_shadowblade_traceless")).toBeCloseTo(2.23, 6);
     expect(directFlat("v2c_shadowblade_traceless")).toBe(745);
-    expect(directCoef("v2c_ruinblade_limitstrike")).toBe(4.5);
+    expect(directCoef("v2c_ruinblade_limitstrike")).toBe(6.73);
     expect(directFlat("v2c_ruinblade_limitstrike")).toBe(1063);
     expect(directCoef("v2c_ruinblade_ruinsword")).toBe(6.5);
     expect(directFlat("v2c_ruinblade_ruinsword")).toBe(1537);
+    expect(V2_SKILLS.v2c_shadowblade_afterimage.tier7Mechanic).toMatchObject({
+      pvpDirectDamagePct: 92.2,
+    });
+    expect(V2_SKILLS.v2c_shadowblade_swordshadow.tier7Mechanic).toMatchObject({
+      inheritedRecordPct: 10,
+      pvpScalePct: 92.2,
+    });
+    expect(V2_SKILLS.v2c_ruinblade_limitstrike.tier7Mechanic).toMatchObject({
+      missingHpBonusCapPct: 22.2,
+      pvpDirectDamagePct: 95,
+    });
+    expect(V2_SKILLS.v2c_ruinblade_ruinsword.tier7Mechanic).toMatchObject({
+      pvpDirectDamagePct: 100,
+    });
 
-    // 다른 두 7차 직업의 승인된 기준은 이번 검성 계열 조정과 무관하다.
-    expect(directCoef("v2c_skyascendant_fallingstar")).toBeCloseTo(
-      directCoef("v2c_swordsaint_flash"),
-      6,
-    );
-    expect(directCoef("v2c_skyascendant_voidbreak")).toBeCloseTo(
-      directCoef("v2c_celestialdragon_combo") * 1.05,
-      6,
-    );
+    expect(directCoef("v2c_skyascendant_fallingstar")).toBe(1.93);
+    expect(directCoef("v2c_skyascendant_voidbreak")).toBeCloseTo(1.88, 6);
+
+    // 태초현자의 승인된 기준은 이번 물리 7차 조정과 무관하다.
     expect(directCoef("v2c_primordialsage_greatorb")).toBeCloseTo(
       directCoef("v2c_archmage_collapse") * 0.85,
       2,

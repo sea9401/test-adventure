@@ -26,14 +26,16 @@ import { useModalA11y } from "@/lib/useModalA11y";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   V2_SKILLS,
-  spCostOf,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 import {
   jobCultivationSummary,
   resolveJobAdvanceAction,
 } from "./jobExplorer";
-import { SkillEffectChips } from "./SkillEffectChips";
+import {
+  SkillDetailDialog,
+  SkillDetailTrigger,
+} from "./SkillDetailDialog";
 import {
   buildJobRoadmap,
   roadmapRootJumpTargets,
@@ -81,7 +83,9 @@ export function JobRoadmapDialog({
   onClose: () => void;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
+  const detailTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [selectedJobId, setSelectedJobId] = useState(currentJobId);
+  const [detailSkillId, setDetailSkillId] = useState<V2SkillId | null>(null);
   const root = useMemo(() => buildJobRoadmap(), []);
   const jobById = useMemo(
     () => new Map(jobs.map((job) => [job.id, job])),
@@ -92,104 +96,136 @@ export function JobRoadmapDialog({
     () => roadmapRootJumpTargets(root),
     [root],
   );
-  useEscapeKey(onClose);
-  useModalA11y(contentRef);
+  const detailOpen = detailSkillId !== null;
+  useEscapeKey(onClose, !detailOpen);
+  useModalA11y(contentRef, !detailOpen);
+
+  const openSkillDetail = (
+    skillId: V2SkillId,
+    trigger: HTMLButtonElement,
+  ) => {
+    const skill = V2_SKILLS[skillId];
+    if (!skill) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn(`[skill-detail] Unknown skill: ${skillId}`);
+      }
+      return;
+    }
+    detailTriggerRef.current = trigger;
+    setDetailSkillId(skill.id);
+  };
+
+  const closeSkillDetail = () => {
+    setDetailSkillId(null);
+    requestAnimationFrame(() => detailTriggerRef.current?.focus());
+  };
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[140] flex items-stretch justify-center bg-black/65 sm:items-center sm:p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
+    <>
       <div
-        ref={contentRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="job-roadmap-dialog-title"
-        className={`${SURFACE_CARD} flex h-[100dvh] w-full max-w-7xl flex-col overflow-hidden rounded-none sm:h-[min(92dvh,900px)] sm:rounded-xl`}
+        className="fixed inset-0 z-[140] flex items-stretch justify-center bg-black/65 sm:items-center sm:p-4"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) onClose();
+        }}
       >
-        <header className="flex shrink-0 items-start justify-between gap-3 border-b border-zinc-200 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] sm:px-5 sm:pt-4 dark:border-zinc-700">
-          <div>
-            <h2
-              id="job-roadmap-dialog-title"
-              className="text-base font-semibold text-zinc-900 dark:text-zinc-100"
+        <div
+          ref={contentRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="job-roadmap-dialog-title"
+          aria-hidden={detailOpen ? true : undefined}
+          inert={detailOpen ? true : undefined}
+          className={`${SURFACE_CARD} flex h-[100dvh] w-full max-w-7xl flex-col overflow-hidden rounded-none sm:h-[min(92dvh,900px)] sm:rounded-xl`}
+        >
+          <header className="flex shrink-0 items-start justify-between gap-3 border-b border-zinc-200 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] sm:px-5 sm:pt-4 dark:border-zinc-700">
+            <div>
+              <h2
+                id="job-roadmap-dialog-title"
+                className="text-base font-semibold text-zinc-900 dark:text-zinc-100"
+              >
+                전직 로드맵
+              </h2>
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                현재 직업과 전직 이력 또는 해금된 직업의 스킬 정보를 확인할 수
+                있습니다.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="전직 로드맵 닫기"
+              className="flex size-9 shrink-0 items-center justify-center rounded-md border border-zinc-300 text-zinc-500 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
-              전직 로드맵
-            </h2>
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              현재 직업과 전직 이력 또는 해금된 직업의 스킬 정보를 확인할 수
-              있습니다.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="전직 로드맵 닫기"
-            className="flex size-9 shrink-0 items-center justify-center rounded-md border border-zinc-300 text-zinc-500 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            <X size={18} />
-          </button>
-        </header>
+              <X size={18} />
+            </button>
+          </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-5">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap gap-1.5 text-[10px] font-semibold">
-              <StatusLegend tone="current" label="현재 직업" />
-              <StatusLegend tone="visited" label="전직 이력" />
-              <StatusLegend tone="available" label="해금됨" />
-              <StatusLegend tone="locked" label="조건 부족" />
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-5">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap gap-1.5 text-[10px] font-semibold">
+                <StatusLegend tone="current" label="현재 직업" />
+                <StatusLegend tone="visited" label="전직 이력" />
+                <StatusLegend tone="available" label="해금됨" />
+                <StatusLegend tone="locked" label="조건 부족" />
+              </div>
+              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                드래그하여 이동 · 두 손가락 또는 Ctrl/⌘+휠로 확대
+              </div>
             </div>
-            <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-              드래그하여 이동 · 두 손가락 또는 Ctrl/⌘+휠로 확대
-            </div>
-          </div>
 
-          <RoadmapScroller
-            jumpTargets={rootJumpTargets}
-            currentJobId={currentJobId}
-            onSelectJob={setSelectedJobId}
-          >
-            <ul className="shrine-job-tree">
-              <RoadmapBranch
-                node={root}
-                jobById={jobById}
-                currentJobId={currentJobId}
-                selectedJobId={selectedJobId}
-                onSelectJob={setSelectedJobId}
-              />
-            </ul>
-          </RoadmapScroller>
-
-          {selectedJob ? (
-            <JobRoadmapDetails
-              job={selectedJob}
+            <RoadmapScroller
+              jumpTargets={rootJumpTargets}
               currentJobId={currentJobId}
-              goalJobId={goalJobId}
-              atLevelCap={atLevelCap}
-              currentJobSelectable={currentJobSelectable}
-              onSetGoal={onSetGoal}
-              onPickJob={onPickJob}
-            />
-          ) : null}
-        </div>
+              onSelectJob={setSelectedJobId}
+            >
+              <ul className="shrine-job-tree">
+                <RoadmapBranch
+                  node={root}
+                  jobById={jobById}
+                  currentJobId={currentJobId}
+                  selectedJobId={selectedJobId}
+                  onSelectJob={setSelectedJobId}
+                />
+              </ul>
+            </RoadmapScroller>
 
-        <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-zinc-200 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:pb-3 dark:border-zinc-700">
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-            복합 직업은 여러 선행 직업의 숙련도가 필요합니다.
-          </p>
-          <Link
-            href="/manual/jobs"
-            onClick={onClose}
-            className="flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            <BookOpen size={14} />
-            자세한 안내
-          </Link>
-        </footer>
-        <style>{ROADMAP_CSS}</style>
+            {selectedJob ? (
+              <JobRoadmapDetails
+                job={selectedJob}
+                currentJobId={currentJobId}
+                goalJobId={goalJobId}
+                atLevelCap={atLevelCap}
+                currentJobSelectable={currentJobSelectable}
+                onSetGoal={onSetGoal}
+                onPickJob={onPickJob}
+                onInspectSkill={openSkillDetail}
+              />
+            ) : null}
+          </div>
+
+          <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-zinc-200 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:pb-3 dark:border-zinc-700">
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              복합 직업은 여러 선행 직업의 숙련도가 필요합니다.
+            </p>
+            <Link
+              href="/manual/jobs"
+              onClick={onClose}
+              className="flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              <BookOpen size={14} />
+              자세한 안내
+            </Link>
+          </footer>
+          <style>{ROADMAP_CSS}</style>
+        </div>
       </div>
-    </div>,
+      {detailSkillId ? (
+        <SkillDetailDialog
+          skillId={detailSkillId}
+          onClose={closeSkillDetail}
+        />
+      ) : null}
+    </>,
     document.body,
   );
 }
@@ -202,6 +238,7 @@ export function JobRoadmapDetails({
   currentJobSelectable,
   onSetGoal,
   onPickJob,
+  onInspectSkill = () => {},
 }: {
   job: JobRoadmapPlayerJob;
   currentJobId: string;
@@ -210,6 +247,10 @@ export function JobRoadmapDetails({
   currentJobSelectable?: boolean;
   onSetGoal: (jobId: string | null) => void;
   onPickJob?: (job: JobRoadmapPlayerJob) => void;
+  onInspectSkill?: (
+    skillId: V2SkillId,
+    trigger: HTMLButtonElement,
+  ) => void;
 }) {
   const cultivation = jobCultivationSummary(job.id);
   const tierLabel = job.tier <= 0 ? "루트 직업" : `${job.tier}차 직업`;
@@ -316,38 +357,24 @@ export function JobRoadmapDetails({
                 직업을 해금하면 스킬 정보를 확인할 수 있습니다.
               </span>
             ) : job.signatureSkills?.length ? (
-              job.signatureSkills.map((skill) => {
-                const skillDef = V2_SKILLS[skill.id as V2SkillId];
-                return (
-                  <details
+              job.signatureSkills.map((skill) => (
+                  <SkillDetailTrigger
                     key={skill.id}
-                    className={`${SURFACE_CARD} group overflow-hidden`}
+                    skillId={skill.id as V2SkillId}
+                    skillName={skill.name}
+                    onOpen={onInspectSkill}
+                    className={`${SURFACE_CARD} flex min-h-9 w-full items-center gap-1.5 px-2.5 py-1.5 text-left font-semibold transition hover:bg-zinc-100 dark:hover:bg-zinc-800`}
                   >
-                    <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1.5 px-2.5 py-1.5 font-semibold transition hover:bg-zinc-100 [&::-webkit-details-marker]:hidden dark:hover:bg-zinc-800">
-                      <CaretRight
-                        size={13}
-                        className="shrink-0 text-zinc-400 transition-transform group-open:rotate-90"
-                      />
-                      <span>{skill.name}</span>
-                      <span className="ml-auto text-[9px] font-semibold text-zinc-400 dark:text-zinc-500">
-                        {skill.kind === "passive" ? "패시브" : "액티브"}
-                      </span>
-                    </summary>
-                    <div className="border-t border-zinc-200 px-2.5 py-2 dark:border-zinc-700">
-                      <p className="leading-relaxed text-zinc-700 dark:text-zinc-300">
-                        {skillDef?.description ??
-                          "등록된 스킬 설명이 없습니다."}
-                      </p>
-                      {skillDef ? (
-                        <span className="mt-2 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                          SP {spCostOf(skillDef)}
-                        </span>
-                      ) : null}
-                      <SkillEffectChips skillId={skill.id} />
-                    </div>
-                  </details>
-                );
-              })
+                    <CaretRight
+                      size={13}
+                      className="shrink-0 text-zinc-400"
+                    />
+                    <span>{skill.name}</span>
+                    <span className="ml-auto text-[9px] font-semibold text-zinc-400 dark:text-zinc-500">
+                      {skill.kind === "passive" ? "패시브" : "액티브"}
+                    </span>
+                  </SkillDetailTrigger>
+                ))
             ) : (
               <span>전용 스킬 정보 없음</span>
             )}

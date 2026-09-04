@@ -6,6 +6,7 @@ import {
   parseV2SkillsState,
   emptyV2SkillsState,
   orderedLearnedSkills,
+  describeV2Effects,
   describeV2Skill,
   v2SkillSelectLabel,
   v2SkillSearchText,
@@ -27,15 +28,31 @@ import {
   type V2SkillId,
 } from "./v2Skills";
 
+describe("변형 스킬 효과 설명", () => {
+  it("변형 효과만 전투 수식으로 설명하고 시전 메타는 섞지 않는다", () => {
+    const variant = V2_SKILLS.v2c_primordialmage_return.castVariants?.[0];
+    expect(variant).toBeDefined();
+
+    const lines = describeV2Effects(variant!.effects, 3);
+
+    expect(lines.some((line) => line.startsWith("피해 마법 공격력×"))).toBe(true);
+    expect(lines).toContain(
+      "연소 지속피해 +1스택 (대상 행동 2회, 최대 1스택)",
+    );
+    expect(lines.some((line) => line.startsWith("MP "))).toBe(false);
+    expect(lines.some((line) => line.startsWith("발동 "))).toBe(false);
+  });
+});
+
 describe("7차 스킬 설명", () => {
   it("전용 전투 규칙을 수치 칩으로 모두 표시한다", () => {
     expect(
       describeV2Skill(V2_SKILLS.v2c_shadowblade_swordshadow),
     ).toEqual(
       expect.arrayContaining([
-        "고유 단일 물리 최종 피해 50% 기록(잔영 70%) · 계승 공격 25% 기록 · 정련 시 +15%p",
+        "고유 단일 물리 최종 피해 50% 기록(잔영 70%) · 계승 공격 10% 기록 · 정련 시 +15%p",
         "검영 발동 후 다음 단일 물리 피해 +15%",
-        "PvP 검영·후속 보너스 80% 적용",
+        "PvP 검영·후속 보너스 92.2% 적용",
       ]),
     );
     expect(describeV2Skill(V2_SKILLS.v2c_ruinblade_ruinsword)).toEqual(
@@ -49,6 +66,8 @@ describe("7차 스킬 설명", () => {
       expect.arrayContaining([
         "포획: 최종 피해 +20% · 적중 +25% · 관통 45%",
         "추격: 추가 피해 40% · 적 행동 지연 20%",
+        "PvP 포획: 최종 피해 +12% · 관통 10%",
+        "PvP 추격: 추가 피해 25% · 적 행동 지연 10%",
       ]),
     );
     expect(
@@ -1563,7 +1582,7 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
       spCostOf(V2_SKILLS.v2c_warrior_flurry),
     );
     expect(spCostOf(V2_SKILLS.v2c_mage_boltcast)).toBe(4);
-    expect(spCostOf(V2_SKILLS.v2c_primordialsage_greatorb)).toBe(9);
+    expect(spCostOf(V2_SKILLS.v2c_primordialsage_greatorb)).toBe(8);
     expect(spCostOf(V2_SKILLS.v2c_warder_barrier)).toBeLessThan(
       spCostOf(V2_SKILLS.v2c_ironman_brace),
     );
@@ -1787,6 +1806,20 @@ describe("태초술사 공명 개편", () => {
       describeV2Skill(V2_SKILLS.v2c_primordialsage_optimization),
     ).toContain(
       "완전식 MP 부족 시 현재 MP 전부 소비 · 최대 MP 10% 회복 (주기 미환급 소비 MP 이하)",
+    );
+  });
+
+  it("완전식은 주문별 단계와 같은 스킬의 중복 제외를 안내한다", () => {
+    expect(
+      V2_SKILLS.v2c_primordialsage_completeformula.description,
+    ).toContain("일반 주문은 1단계");
+    expect(
+      V2_SKILLS.v2c_primordialsage_completeformula.description,
+    ).toContain("오원소 폭주와 오원소형 태초회귀는 2단계");
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_primordialsage_completeformula),
+    ).toContain(
+      "서로 다른 직접 마법을 주기당 1회 계산 · 일반 1단계 · 오원소 폭주/오원소형 태초회귀 2단계 · 합계 3단계에서 발동",
     );
   });
 

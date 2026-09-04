@@ -6,6 +6,7 @@
 # 사용:  bash deploy/maintenance.sh on        # 점검 시작
 #        bash deploy/maintenance.sh off       # 점검 종료
 #        bash deploy/maintenance.sh status    # 현재 상태
+#        bash deploy/maintenance.sh refresh-page # 정적 대문만 교체
 set -euo pipefail
 PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$PROJECT_DIR"
@@ -19,6 +20,8 @@ HEALTH_RETRY_DELAY="${HEALTH_RETRY_DELAY:-3}"
 COOP_TIMER_SCRIPT="${COOP_TIMER_SCRIPT:-scripts/coop-maintenance-timer.mjs}"
 COOP_TIMER_STATE_FILE="${COOP_TIMER_STATE_FILE:-${FLAG_FILE}.started-at}"
 NODE_CMD="${NODE_CMD:-node}"
+MAINTENANCE_PAGE_SOURCE="${MAINTENANCE_PAGE_SOURCE:-deploy/maintenance.html}"
+MAINTENANCE_PAGE_TARGET="${MAINTENANCE_PAGE_TARGET:-/var/www/msmsge/maintenance.html}"
 
 legacy_cur() { grep -E '^MAINTENANCE_MODE=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || echo "(미설정=off)"; }
 nginx_cur() { if $SUDO_CMD test -f "$FLAG_FILE"; then echo on; else echo off; fi; }
@@ -52,6 +55,14 @@ record_coop_timer_pause() {
 }
 resume_coop_timers() {
   "$NODE_CMD" --env-file="$ENV_FILE" "$COOP_TIMER_SCRIPT" resume
+}
+refresh_maintenance_page() {
+  if [ ! -f "$MAINTENANCE_PAGE_SOURCE" ]; then
+    echo "ERROR: 점검 대문 원본을 찾을 수 없습니다: $MAINTENANCE_PAGE_SOURCE" >&2
+    exit 1
+  fi
+  $SUDO_CMD install -D -m 0644 "$MAINTENANCE_PAGE_SOURCE" "$MAINTENANCE_PAGE_TARGET"
+  echo "→ maintenance page refreshed (앱 재시작 없음 · 점검 모드 변경 없음)"
 }
 
 case "${1:-}" in
@@ -117,5 +128,8 @@ case "${1:-}" in
     echo "live: $(live_code)  (점검 ON이면 503)"
     echo "health: $(health_code)"
     exit 0 ;;
-  *) echo "사용: bash deploy/maintenance.sh on|off|status"; exit 1 ;;
+  refresh-page)
+    refresh_maintenance_page
+    ;;
+  *) echo "사용: bash deploy/maintenance.sh on|off|status|refresh-page"; exit 1 ;;
 esac

@@ -203,7 +203,6 @@ describe("dark gameplay surface audit", () => {
     expectNoBroadColoredDarkSurface([
       "src/adventure/v2/LifeWorkshopView.tsx",
       "src/adventure/v2/V2MarketplaceView.tsx",
-      "src/adventure/v2/marketplace/EquipmentBuyOrderDialog.tsx",
       "src/adventure/v2/AdventurerFarmPanel.tsx",
       "src/adventure/v2/LifeRequestBoard.tsx",
       "src/adventure/v2/FishingView.tsx",

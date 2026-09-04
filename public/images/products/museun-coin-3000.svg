@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">무슨 코인 3000개</title>
+  <desc id="desc">보라색 보물상자에서 솟아나는 금빛 코인</desc>
+  <defs><linearGradient id="gold" x1="75" y1="40" x2="180" y2="205"><stop stop-color="#fef9c3"/><stop offset="1" stop-color="#eab308"/></linearGradient></defs>
+  <rect width="256" height="256" rx="48" fill="#2e1065"/>
+  <circle cx="82" cy="76" r="27" fill="url(#gold)" stroke="#fef3c7" stroke-width="5"/>
+  <circle cx="128" cy="57" r="31" fill="url(#gold)" stroke="#fef3c7" stroke-width="5"/>
+  <circle cx="177" cy="80" r="26" fill="url(#gold)" stroke="#fef3c7" stroke-width="5"/>
+  <path d="M32 117h192v94c0 12-10 22-22 22H54c-12 0-22-10-22-22Z" fill="#6d28d9" stroke="#c4b5fd" stroke-width="7"/>
+  <path d="M29 113c0-18 15-33 33-33h132c18 0 33 15 33 33v21H29Z" fill="#7c3aed" stroke="#ddd6fe" stroke-width="7"/>
+  <path d="M29 139h198M109 111h38v58h-38Z" fill="url(#gold)" stroke="#713f12" stroke-width="6"/>
+  <circle cx="128" cy="139" r="7" fill="#713f12"/>
+</svg>

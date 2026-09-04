@@ -329,6 +329,7 @@ export async function GET(_req: Request, ctx: Ctx) {
       accRating: combat.player.accRating,
       critChancePct: combat.player.critChancePct,
       critMult: combat.player.critMult,
+      critResistPct: combat.player.critResistPct,
       skillCritOverflow: combat.player.skillCritOverflow === true,
       skillCritDmgPct: combat.player.skillCritDmgPct,
       equipmentMagicSkillCritDmgPct:

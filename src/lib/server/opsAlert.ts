@@ -44,6 +44,8 @@ const SAFE_WEBHOOK_STRING_KEYS = new Set([
   "itemKind",
   "itemId",
   "referenceType",
+  "retentionLevel",
+  "economyRetentionLevel",
 ]);
 const SAFE_WEBHOOK_NUMBER_KEYS = new Set([
   "count",
@@ -76,6 +78,23 @@ const SAFE_WEBHOOK_NUMBER_KEYS = new Set([
   "referenceUnitPrice",
   "priceRatioPct",
   "referenceSampleCount",
+  "batchSize",
+  "failedBatches",
+  "failedEntries",
+  "queueDepth",
+  "pending",
+  "inFlight",
+  "consecutiveIntervals",
+  "intervalMs",
+  "total",
+  "idle",
+  "waiting",
+  "inflow24h",
+  "dailyDeleteCapacity",
+  "utilizationPct",
+  "deleted",
+  "economyRetentionCapacity",
+  "economyRetentionUtilizationPct",
 ]);
 const SAFE_WEBHOOK_COUNT_LIST_KEYS = new Set([
   "topEconomyEvents",
@@ -275,6 +294,36 @@ const ALERT_COPY: Record<string, AlertCopy> = {
     nextStep: "관리자 > 콘텐츠·사용자 신고에서 원문과 문맥을 확인하고 처리 상태를 기록하세요.",
     color: 0xf43f5e,
   },
+  "database.economy_batch_write_failed": {
+    title: "🚨 경제 로그 묶음 기록에 실패했습니다",
+    description: "생활·낚시 경제 로그를 DB에 묶어 기록하는 작업이 실패했습니다. 게임 진행은 계속되지만 해당 묶음의 감사 로그가 누락됐을 수 있습니다.",
+    nextStep: "DB 연결 상태와 서버의 economyLog 배치 실패 로그를 확인하세요.",
+    color: 0xef4444,
+  },
+  "database.economy_batch_queue_backlog": {
+    title: "⚠️ 경제 로그 기록 대기열이 밀리고 있습니다",
+    description: "경제 로그가 DB에 기록되는 속도보다 빠르게 쌓여 프로세스 메모리의 대기열이 커졌습니다.",
+    nextStep: "관리자 > 운영 워크플로의 경제 로그 배치 상태와 DB 커넥션 풀 대기를 확인하세요.",
+    color: 0xf59e0b,
+  },
+  "database.pool_waiting": {
+    title: "⚠️ DB 커넥션 풀 대기가 계속되고 있습니다",
+    description: "DB 연결을 기다리는 요청이 연속된 런타임 구간에서 관찰됐습니다.",
+    nextStep: "느린 쿼리와 요청당 쿼리 수를 먼저 확인하고, 실제 연결 포화인지 점검하세요.",
+    color: 0xf59e0b,
+  },
+  "database.economy_retention_capacity": {
+    title: "🚨 경제 로그 유입량이 일일 정리 용량을 넘었습니다",
+    description: "최근 24시간 경제 로그 수가 하루에 자동 정리할 수 있는 최대 건수 이상입니다.",
+    nextStep: "로그 발생량과 보존 정책을 확인하고 정리 배치 처리량을 조정하세요.",
+    color: 0xef4444,
+  },
+  "database.economy_retention_backlog": {
+    title: "🚨 경제 로그 정리 후에도 삭제 대상이 남았습니다",
+    description: "당일 경제 로그 정리 작업이 최대 배치 수까지 실행됐지만 오래된 로그가 더 남아 있습니다.",
+    nextStep: "정리 크론 실행 시간과 DB 부하를 확인하고 적체가 늘기 전에 처리량을 조정하세요.",
+    color: 0xef4444,
+  },
 };
 
 function alertCopy(alertType: string | null, channel: string): AlertCopy {
@@ -333,6 +382,25 @@ const DETAIL_LABELS: Record<string, string> = {
   priceRatioPct: "기준가 대비",
   referenceSampleCount: "참고 거래 수",
   referenceType: "판정 기준",
+  batchSize: "실패 배치 크기",
+  failedBatches: "누적 실패 배치",
+  failedEntries: "누적 실패 로그",
+  queueDepth: "전체 대기 로그",
+  pending: "대기 중",
+  inFlight: "기록 중",
+  consecutiveIntervals: "연속 대기 구간",
+  intervalMs: "관측 구간",
+  total: "전체 DB 연결",
+  idle: "유휴 DB 연결",
+  waiting: "연결 대기 요청",
+  inflow24h: "최근 24시간 유입",
+  dailyDeleteCapacity: "일일 정리 가능량",
+  utilizationPct: "정리 용량 사용률",
+  deleted: "이번 정리 건수",
+  economyRetentionCapacity: "경제 로그 일일 정리 가능량",
+  economyRetentionUtilizationPct: "경제 로그 정리 용량 사용률",
+  retentionLevel: "보존 처리 상태",
+  economyRetentionLevel: "경제 로그 보존 처리 상태",
   actorAccount: "발생 계정",
   counterpartyAccount: "상대 계정",
   buyerAccount: "구매 계정",
@@ -367,6 +435,7 @@ const VALUE_LABELS: Record<string, string> = {
   watch: "관찰",
   high: "높음",
   critical: "매우 높음",
+  warning: "주의",
   recent_median: "최근 체결가 중앙값",
   catalog_floor: "장비 NPC 판매가",
   recent_median_or_catalog: "최근 중앙값·장비 NPC 판매가 중 높은 값",
@@ -401,6 +470,12 @@ function formatDetailValue(key: string, value: unknown) {
     return `${value.toLocaleString("ko-KR")} G`;
   }
   if (key === "priceRatioPct" && typeof value === "number") {
+    return `${value.toLocaleString("ko-KR")}%`;
+  }
+  if (
+    ["utilizationPct", "economyRetentionUtilizationPct"].includes(key) &&
+    typeof value === "number"
+  ) {
     return `${value.toLocaleString("ko-KR")}%`;
   }
   if (typeof value === "number") return value.toLocaleString("ko-KR");

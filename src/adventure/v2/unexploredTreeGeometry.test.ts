@@ -153,4 +153,3 @@ describe("unexplored tree edge geometry", () => {
     }
   });
 });
-

@@ -31,7 +31,7 @@
 **Interfaces:**
 
 - Consumes: existing `V2SkillDefinition`, `V2SkillEffect`, `describeV2Effect` and `describeV2Skill` behavior.
-- Produces: `V2SkillDetail`, `V2SkillDefinition.detail?: V2SkillDetail`, and `describeV2SkillEffects(skill: V2SkillDefinition, effects: readonly V2SkillEffect[]): string[]`.
+- Produces: `V2SkillDetail`, `V2SkillDefinition.detail?: V2SkillDetail`, and `describeV2SkillEffects(skill: V2SkillDefinition, effects: readonly V2SkillEffect[], activeCastEffects?: readonly V2SkillEffect[]): string[]`.
 
 - [ ] **Step 1: 기존 자동 설명 출력을 고정하는 실패 테스트 작성**
 
@@ -88,10 +88,11 @@ detail?: V2SkillDetail;
 export function describeV2SkillEffects(
   skill: V2SkillDefinition,
   effects: readonly V2SkillEffect[],
+  activeCastEffects: readonly V2SkillEffect[] = effects,
 ): string[] {
   const directDamageEffectCount = Math.max(
     1,
-    effects.filter(isDirectDamageEffect).length,
+    activeCastEffects.filter(isDirectDamageEffect).length,
   );
   return effects.flatMap((effect) =>
     effect.kind === "missingHpDamage"
@@ -108,7 +109,7 @@ export function describeV2SkillEffects(
 }
 ```
 
-`describeV2Skill`은 패시브가 아닐 때 이 함수에 기존 `displayEffects`를 넘긴다. 독 중첩 보상 표시 순서와 이후 특수 규칙·타수·발동률·MP·쿨다운·속성 칩 추가 코드는 그대로 둔다.
+`describeV2Skill`은 패시브가 아닐 때 이 함수에 기존 `displayEffects`를 넘긴다. 세 번째 인수는 일부 효과만 출력하되 실제 한 번의 시전에 합쳐지는 전체 효과의 직접 피해 개수를 계산할 때 사용한다. 독 중첩 보상 표시 순서와 이후 특수 규칙·타수·발동률·MP·쿨다운·속성 칩 추가 코드는 그대로 둔다.
 
 - [ ] **Step 5: 자동 설명의 이전 출력과 새 함수 테스트 통과 확인**
 
@@ -243,11 +244,37 @@ function skillNames(ids: readonly V2SkillId[] | undefined): string {
     .join(", ");
 }
 
+type EquippedSynergy = NonNullable<
+  V2SkillDefinition["equippedSynergies"]
+>[number];
+
+function equippedSynergyRequirements(
+  synergy: EquippedSynergy,
+): V2SkillId[] {
+  return [
+    ...(synergy.requiredSkillId ? [synergy.requiredSkillId] : []),
+    ...(synergy.requiredSkillIds ?? []),
+  ].filter((id, index, all) => all.indexOf(id) === index);
+}
+
+function impliedEquippedSynergyEffects(
+  skill: V2SkillDefinition,
+  equippedIds: readonly V2SkillId[],
+): V2SkillEffect[] {
+  const equipped = new Set(equippedIds);
+  return (skill.equippedSynergies ?? []).flatMap((synergy) =>
+    equippedSynergyRequirements(synergy).every((id) => equipped.has(id))
+      ? synergy.effects
+      : [],
+  );
+}
+
 function effectSummary(
   skill: V2SkillDefinition,
   effects: readonly V2SkillEffect[],
+  activeCastEffects: readonly V2SkillEffect[] = effects,
 ): string {
-  return describeV2SkillEffects(skill, effects).join(" · ");
+  return describeV2SkillEffects(skill, effects, activeCastEffects).join(" · ");
 }
 
 function section(
@@ -287,9 +314,11 @@ export function buildSkillDetailModel(skillId: string): SkillDetailModel | null 
 
   const automaticSynergies = [
     ...(skill.equippedSynergies ?? []).map((synergy) => {
-      const ids = synergy.requiredSkillIds ??
-        (synergy.requiredSkillId ? [synergy.requiredSkillId] : []);
-      return `장착: ${skillNames(ids)} — ${effectSummary(skill, synergy.effects)}`;
+      const ids = equippedSynergyRequirements(synergy);
+      return `장착: ${skillNames(ids)} — ${effectSummary(skill, synergy.effects, [
+        ...skill.effects,
+        ...impliedEquippedSynergyEffects(skill, ids),
+      ])}`;
     }),
     ...(skill.elementEffectSynergies ?? []).flatMap((synergy) =>
       Object.entries(synergy.elementEffects).map(
@@ -379,7 +408,7 @@ git commit -m "feat: build reusable skill detail models"
 
 - [ ] **Step 1: 6차 필수 원문과 레거시 예외 스냅샷 테스트 작성**
 
-직업 카탈로그와 `V2_SKILLS_BY_JOB`을 함께 조회하고, `monsterOnly`와 `isLifestyleSkill(skill)`을 제외한다. 현재 타입이 6까지이므로 먼저 6차를 정확히 검사하고, 7차 타입 도입 시 같은 비교를 `tier >= 6`으로 넓힌다.
+직업 카탈로그와 `V2_SKILLS_BY_JOB`을 함께 조회하고, `monsterOnly`와 `isLifestyleSkill(skill)`을 제외한다. 현재 6차뿐 아니라 이후 추가될 상위 차수도 자동으로 같은 정책을 따르도록 `tier >= 6`을 검사한다.
 
 ```ts
 const catalogedCombatSkills = Object.entries(V2_SKILLS_BY_JOB).flatMap(
@@ -399,15 +428,20 @@ const catalogedCombatSkills = Object.entries(V2_SKILLS_BY_JOB).flatMap(
     !isLifestyleSkill(entry.definition),
 );
 
-const tierSixCombatSkills = catalogedCombatSkills.filter(
-  (entry) => entry.jobTier === 6,
+const tierSixOrLaterCombatSkills = catalogedCombatSkills.filter(
+  (entry) => entry.jobTier != null && entry.jobTier >= 6,
 );
 ```
 
 ```ts
-it("requires manual detail for every tier-6 combat skill", () => {
-  const missing = tierSixCombatSkills
-    .filter((entry) => !entry.definition.detail)
+it("requires usable manual detail for every tier-6-or-later combat skill", () => {
+  const missing = tierSixOrLaterCombatSkills
+    .filter(
+      (entry) =>
+        !entry.definition.detail?.mechanics.some(
+          (item) => item.trim().length > 0,
+        ),
+    )
     .map((entry) => `${entry.jobId}:${entry.id}`)
     .sort();
   expect(missing).toEqual([]);
@@ -438,7 +472,7 @@ Expected: FAIL — 아래 41개 6차 전투 스킬이 `missing`에 출력됨.
 const TIER_SIX_DETAIL_COPY = {
   v2c_fortressknight_ram: {
     mechanics: ["적중한 뒤 보유한 충격을 최대 3스택까지 모두 소비해 추가 피해를 준다."],
-    synergies: ["충격은 충격 방벽의 반격 효과로 얻으며, 움직이는 성채를 장착하면 스택당 추가 피해가 강화된다."],
+    synergies: ["충격 방벽을 장착한 채 적의 직접 공격이 명중할 때 충격을 얻고, 움직이는 성채를 장착하면 스택당 추가 피해가 강화된다."],
     limitations: ["충격이 없으면 충격 소비 추가 피해는 발생하지 않는다."],
   },
   v2c_fortressknight_citadel: {
@@ -450,8 +484,8 @@ const TIER_SIX_DETAIL_COPY = {
     mechanics: ["직접 피해를 먼저 적용한 뒤 대상에게 후속 약화와 행동 지연을 적용한다."],
   },
   v2c_swordsaint_transcendence: {
-    mechanics: ["일반 물리 피해 효과 하나에만 검기 초월 보정을 적용한다."],
-    limitations: ["다단 공격의 추가 타격, 체력 소모, 처형, 중첩 보상, 마법 피해에는 적용되지 않는다."],
+    mechanics: ["직접 피해 효과가 정확히 하나인 공격 스킬의 일반 물리 피해에 검기 초월 보정을 적용한다."],
+    limitations: ["직접 피해 효과가 둘 이상인 다단 공격 전체와 체력 소모·처형·중첩 보상·마법 피해에는 적용되지 않는다."],
   },
   v2c_swordsaint_armorinsight3: {
     mechanics: ["직접 물리 피해를 계산할 때 대상의 남은 방어력을 비율로 추가 무시한다."],
@@ -463,26 +497,26 @@ const TIER_SIX_DETAIL_COPY = {
     limitations: ["스킬 공격에는 적용되지 않고 기본 공격 횟수만 소비한다."],
   },
   v2c_grandchampion_instinct: {
-    mechanics: ["기본 공격의 치명타 확률과 치명타 상한을 확장한다."],
+    mechanics: ["기본 공격의 치명타 확률 상한을 85%로 확장한다."],
     limitations: ["스킬 공격의 치명타에는 적용되지 않는다."],
   },
   v2c_hegemon_annihilation: {
-    mechanics: ["전투당 한 번, 공격 처리 전에 현재 체력 상태를 기준으로 멸왕일도 보정을 확정한다."],
-    synergies: ["혈기 준비와 사선 극복 상태가 있으면 각각의 추가 보상을 함께 적용한다."],
-    limitations: ["전투당 1회 제한을 소모한 뒤에는 다시 발동할 수 없다."],
+    mechanics: ["기본 1회 충전을 소비하며, 공격 처리 전에 현재 체력 상태를 기준으로 멸왕일도 보정을 확정한다."],
+    synergies: ["혈전 준비와 사망 극복 상태가 있으면 각각의 추가 보상을 함께 적용하며, 패황의 지배를 장착한 상태에서 사망 극복이 발동하면 멸왕일도를 1회 재충전한다."],
+    limitations: ["사망 극복 재충전을 포함해 전투당 최대 2회 사용할 수 있다."],
     pvp: ["결손 체력 비례 추가 피해는 PvP에서 60%만 적용된다."],
   },
   v2c_hegemon_dominion: {
     mechanics: ["장착 중 하위 광기 효과를 계승하고 패황 전용 광기 효과로 대체한다."],
-    synergies: ["사선 극복이 발동 가능한 상태라면 그 처리 순서와 함께 생존 보상을 적용한다."],
+    synergies: ["사망 극복이 발동하면 HP를 40%로 회복하고 다음 공격을 강화하며 멸왕일도를 1회 재충전한다. 다음 내 공격이 끝날 때까지 HP는 40% 아래로 내려가지 않는다."],
     limitations: ["동일 계열 광기 효과는 중복 적용되지 않는다."],
   },
   v2c_archmage_collapse: {
     mechanics: ["직접 마법 피해를 적용한 뒤 비전 붕괴의 후속 효과를 처리한다."],
   },
   v2c_archmage_theory: {
-    mechanics: ["직접 마법 공격의 능력치 계수와 대마도사 전용 보정을 강화한다."],
-    limitations: ["물리 피해와 직접 공격이 아닌 지속 피해에는 적용되지 않는다."],
+    mechanics: ["장착 중 지능과 직접 마법 스킬 피해를 높이고 최대 HP와 받는 피해 감소를 함께 강화한다."],
+    limitations: ["마법 스킬 피해 보정은 물리 피해와 지속 피해에는 적용되지 않는다."],
   },
   v2c_archmage_magicdismantle3: {
     mechanics: ["직접 마법 피해를 계산할 때 대상의 남은 마법 방어력을 비율로 추가 무시한다."],
@@ -495,20 +529,20 @@ const TIER_SIX_DETAIL_COPY = {
   },
   v2c_primordialmage_resonance: {
     mechanics: ["태초회귀와 함께 장착하면 주문식에 필요한 원소 재료를 흡수해 유효 SP 비용 2로 취급한다."],
-    synergies: ["원소 쇄도는 주문식 촉매로 흡수할 수 있으며, 태초 회로 조건이 원소 공명보다 우선한다."],
+    synergies: ["오원소 폭주는 주문식 촉매로 흡수할 수 있으며, 태초 회로 조건이 원소 공명보다 우선한다."],
     limitations: ["흡수된 원소 재료는 별도 행동으로 시전되는 것이 아니라 태초회귀의 주문식 판정에만 사용된다."],
   },
   v2c_primordialmage_amplification: {
-    mechanics: ["장비에서 얻은 치명타 피해 배율을 직접 마법 스킬 피해 보정으로 완만하게 변환하며 최대 추가 배율에 가까워진다."],
-    limitations: ["직접 마법 피해에만 적용되고 지속 피해, 회복, 물리 피해에는 적용되지 않는다."],
+    mechanics: ["장비에서 얻은 치명타 피해 배율을 치명타가 발생한 직접 마법 스킬의 마법 피해분에 추가 치명타 배율로 완만하게 변환하며 최대 +0.75배에 가까워진다."],
+    limitations: ["치명타가 아닌 피해와 지속 피해·회복·물리 피해분에는 적용되지 않는다."],
   },
   v2c_lawweaver_release: {
-    mechanics: ["각인 합계가 3 이상일 때만 발동하며, 공격·역류·침식·수호 각인을 모두 소비한다.", "공격은 스택마다 추가 타격, 역류는 스택마다 최대 MP 회복, 침식은 스택마다 마법 취약, 수호는 스택마다 최대 MP 비례 보호막을 부여한다."],
+    mechanics: ["각인 합계가 3 이상일 때만 발동하며, 공격·환류·침식·수호 각인을 모두 소비한다.", "공격은 스택마다 추가 타격, 환류는 스택마다 최대 MP 회복, 침식은 스택마다 마법 취약, 수호는 스택마다 최대 MP 비례 보호막을 부여한다."],
     synergies: ["서로 다른 각인 종류가 2·3·4개면 피해 보상이 단계적으로 커지고, 네 종류를 모두 해방하면 추가 타격과 가속을 얻는다."],
     limitations: ["각 각인은 최대 2스택, 전체는 최대 8스택이며 발동 뒤 보유 각인을 모두 잃는다."],
   },
   v2c_lawweaver_inscription: {
-    mechanics: ["직접 피해·회복·약화·보호 효과를 사용할 때 대응하는 공격·역류·침식·수호 각인을 얻는다."],
+    mechanics: ["대문장 해방 또는 각인 해방을 정상 시전하면 장착한 문장 재료에 대응하는 공격·환류·침식·수호 각인을 각각 1스택 얻는다."],
     synergies: ["모은 각인은 만상각인 해방의 타격, MP 회복, 마법 취약, 보호막과 다양성 보상으로 변환된다."],
     limitations: ["각 종류는 최대 2스택이며 전체 합계는 최대 8스택이다."],
   },
@@ -520,33 +554,34 @@ const TIER_SIX_DETAIL_COPY = {
     limitations: ["피해 흡혈처럼 실제 입힌 피해로 계산되는 회복에는 일반 회복량 보정이 적용되지 않는다."],
   },
   v2c_lawguardian_inviolable: {
-    mechanics: ["물리·마법·정화 결계를 각각 별도 충전으로 관리하고 조건에 맞는 첫 효과를 막거나 줄인 뒤 해당 충전을 소비한다.", "결계를 소비할 때마다 안정 1스택을 얻으며 안정은 최대 3스택까지 피해 감소를 제공한다."],
+    mechanics: ["물리·마법·정화 결계를 각각 별도 충전으로 관리하고, 물리·마법 피해의 첫 유효 타격은 줄이며 새 상태이상은 막은 뒤 해당 결계를 1회 소비한다."],
+    synergies: ["만법수호영역을 장착한 상태에서만 세 결계를 각각 3회로 갱신하고, 결계를 소비할 때마다 안정 1스택을 얻어 최대 3스택까지 받는 피해를 줄인다."],
     limitations: ["한 행동의 여러 타격 중 같은 종류의 결계는 첫 유효 타격에서 한 번만 소비된다."],
-    pvp: ["물리·마법 결계의 피해 감소율은 PvP에서 40%로 적용된다."],
+    pvp: ["물리·마법 결계의 피해 감소율은 PvP에서 만법수호영역 미장착 시 30% · 장착 시 40%로 적용된다."],
   },
   v2c_lawguardian_domain: {
-    mechanics: ["결계 충전을 새로 채우면서 이미 얻은 안정 스택은 유지한다."],
-    synergies: ["만법불침을 장착하면 물리·마법·정화 결계를 각각 3회까지 충전한다."],
-    limitations: ["만법불침을 장착하지 않은 경우에는 기본 결계 단계까지만 갱신된다."],
+    mechanics: ["장착하면 전투 시작부터 물리·마법·정화 결계를 각각 3회 전개하고, 결계를 소비할 때마다 안정 1스택을 얻어 최대 3스택까지 받는 피해를 줄인다."],
+    synergies: ["만법불침을 시전하면 안정 스택을 유지한 채 세 결계를 각각 3회로 다시 채운다."],
+    limitations: ["하위 삼중결계와 중복 적용되지 않는다."],
   },
   v2c_doomprophet_sentence: {
-    mechanics: ["대상의 계시 중첩을 확인해 추가 피해를 계산하지만 중첩은 소비하지 않는다."],
-    limitations: ["계시 중첩이 없으면 중첩 보상 피해는 발생하지 않는다."],
+    mechanics: ["대상의 마법취약 중첩을 확인해 추가 피해를 계산하지만 중첩은 소비하지 않는다."],
+    limitations: ["마법취약 중첩이 없으면 중첩 보상 피해는 발생하지 않는다."],
   },
   v2c_doomprophet_revelation: {
-    mechanics: ["직접 스킬 타격이 적중할 때 대상에게 계시를 쌓는다."],
-    synergies: ["쌓인 계시는 종말 선고의 추가 피해를 높인다."],
-    limitations: ["기본 공격과 지속 피해는 계시를 쌓지 않으며 최대 10스택까지 유지된다."],
+    mechanics: ["직접 피해 스킬 시전으로 피해가 발생하면 대상에게 마법취약을 1스택 쌓는다."],
+    synergies: ["쌓인 마법취약은 대상이 받는 스킬 피해와 종말 선고의 추가 피해를 높인다."],
+    limitations: ["기본 공격과 지속 피해로는 쌓이지 않으며, 다단 스킬도 시전당 최대 1스택만 쌓고 최대 10스택까지 유지된다."],
   },
   v2c_heavenlybow_orbit: {
     mechanics: ["세 번 타격하며 마지막 타격을 강화한 뒤 대상에게 후속 약화를 적용한다."],
   },
   v2c_heavenlybow_starpath: {
-    mechanics: ["직접 스킬 공격의 치명타 성능과 공격 속도 보정을 강화한다."],
+    mechanics: ["치명타 확률과 직접 스킬의 치명타 피해를 높이고, 현재 속도를 공격력 증가로 전환한다."],
     limitations: ["속도 보정은 무한히 선형 증가하지 않고 점차 효율이 줄어든다."],
   },
   v2c_blackmoon_flurry: {
-    mechanics: ["세 번의 직접 타격을 모두 처리한 뒤 흑월난무의 후속 효과를 적용한다."],
+    mechanics: ["세 번의 직접 타격을 모두 처리한 뒤 대상의 명중을 낮추고 자신에게 회피 증가를 적용한다."],
   },
   v2c_blackmoon_dominion: {
     mechanics: ["회피가 성공하면 다음 직접 피해 스킬에 사용할 치명타 보장을 준비한다."],
@@ -577,8 +612,8 @@ const TIER_SIX_DETAIL_COPY = {
     limitations: ["마법 피해에는 적용되지 않으며 방어 무시는 남은 방어력에 곱연산으로 적용된다."],
   },
   v2c_vajraarhat_seal: {
-    mechanics: ["반사 피해와 금강 계열 반격 보상을 강화한다."],
-    synergies: ["피해를 받고 생존해 반격 조건이 성립하면 금강 계열 자동 반격과 함께 적용된다."],
+    mechanics: ["금강인 지속 중 일반 반사 피해를 강화하며, 나한금신을 함께 장착하면 자동 반격 피해에도 같은 증가율을 적용한다."],
+    limitations: ["철벽 태세의 전용 반사 피해에는 적용되지 않는다."],
   },
   v2c_vajraarhat_body: {
     mechanics: ["HP 피해를 받고 생존했을 때 조건에 맞는 자동 반격을 수행한다."],
@@ -623,8 +658,8 @@ Expected: PASS and one external snapshot created.
 - [ ] **Step 5: 생활·몬스터 제외와 레거시 예외 정책을 확인**
 
 ```ts
-expect(tierSixCombatSkills.every((entry) => !entry.definition.monsterOnly)).toBe(true);
-expect(tierSixCombatSkills.every((entry) => !isLifestyleSkill(entry.definition))).toBe(true);
+expect(tierSixOrLaterCombatSkills.every((entry) => !entry.definition.monsterOnly)).toBe(true);
+expect(tierSixOrLaterCombatSkills.every((entry) => !isLifestyleSkill(entry.definition))).toBe(true);
 ```
 
 외부 스냅샷 자체를 현재 저차 레거시 예외의 명시 목록으로 취급한다. 상세 원문 없는 신규 스킬이 추가되거나 기존 예외에 상세 원문이 작성되면 스냅샷 비교가 실패해야 한다. 원인 확인 없이 `-u`로 통과시키지 않으며, 신규 누락은 `detail`을 작성하고 기존 예외 해소는 스냅샷에서 해당 ID가 제거되는 변경만 승인한다.
@@ -744,11 +779,14 @@ return (
 다이얼로그 구현 규칙:
 
 ```tsx
-const SKILL_DETAIL_OVERLAY_CLASS =
+export const SKILL_DETAIL_OVERLAY_CLASS =
   "fixed inset-0 z-[160] flex items-end justify-center overflow-y-auto bg-black/50 sm:items-center sm:p-4";
 
-const SKILL_DETAIL_PANEL_CLASS =
+export const SKILL_DETAIL_PANEL_CLASS =
   `flex max-h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden ${SURFACE_CARD}`;
+
+export const SKILL_DETAIL_BODY_CLASS =
+  "min-h-0 overflow-y-auto p-4 sm:p-5";
 ```
 
 - 완성한 다이얼로그 React 노드를 `createPortal(dialog, document.body)`로 렌더링한다.
@@ -995,10 +1033,19 @@ const openSkillDetail = (
   skillId: V2SkillId,
   trigger: HTMLButtonElement,
 ) => {
+  const skill = V2_SKILLS[skillId];
+  if (!skill) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn(`[skill-detail] Unknown skill: ${skillId}`);
+    }
+    return;
+  }
   detailTriggerRef.current = trigger;
-  setDetailSkillId(skillId);
+  setDetailSkillId(skill.id);
 };
 ```
+
+존재하지 않는 로드맵 ID는 이 열기 결정 경계에서 즉시 거부한다. 부모 모달의 Escape·포커스 트랩·스크롤 잠금을 멈추거나 `inert`로 바꾸는 상태는 유효한 상세 스킬을 확인한 뒤에만 갱신한다.
 
 ```tsx
 const closeSkillDetail = () => {

@@ -13,8 +13,17 @@ import {
   supportBenefitsForItem,
   sortCosmeticPreviewEntries,
 } from "./MuseunCoinShopView";
+import { MUSEUN_COIN_PACKAGES } from "@/adventure/data/v2/adventureSupport";
 
 describe("무슨 코인 상점 상품 그룹", () => {
+  it("충전 패키지는 서버 카탈로그의 원화 가격을 표시한다", () => {
+    expect(MUSEUN_COIN_PACKAGES.map((item) => item.priceKrw)).toEqual([
+      10_000,
+      20_000,
+      30_000,
+      50_000,
+    ]);
+  });
   it("상점에 두 한정 패키지를 포함한 열한 상품을 노출한다", () => {
     const shopItemIds = SHOP_ITEM_GROUPS.flatMap((group) => group.itemIds);
 
@@ -22,25 +31,7 @@ describe("무슨 코인 상점 상품 그룹", () => {
     expect(shopItemIds).toContain("monthly_stamina_potion_bundle");
     expect(shopItemIds).toContain("growth_leap_package");
     expect(shopItemIds).toContain("profile_badge_display_stand");
-    expect(Object.keys(CASH_ITEM_ART_PATHS)).toEqual(
-      expect.arrayContaining(
-        shopItemIds.filter((itemId) =>
-          ![
-            "profile_badge_display_stand",
-            "monthly_stamina_potion_bundle",
-            "growth_leap_package",
-          ].includes(itemId),
-        ),
-      ),
-    );
-    for (const itemId of shopItemIds.filter(
-      (candidate) =>
-        ![
-          "profile_badge_display_stand",
-          "monthly_stamina_potion_bundle",
-          "growth_leap_package",
-        ].includes(candidate),
-    )) {
+    for (const itemId of shopItemIds) {
       expect(CASH_ITEM_ART_PATHS[itemId]).toBe(
         `/images/items/cash/${itemId}.svg`,
       );

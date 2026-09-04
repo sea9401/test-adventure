@@ -45,6 +45,35 @@ describe("거래소 체결 신고", () => {
     expect(html).not.toContain("구매자");
   });
 
+  it("판매 중 매물 신고임을 접근성 이름과 대화상자에서 구분한다", () => {
+    const buttonHtml = renderToStaticMarkup(
+      <MarketplaceTradeReportButton
+        tradeId={77}
+        itemName="은광석"
+        sourceType="marketplace_listing"
+      />,
+    );
+    const dialogHtml = renderToStaticMarkup(
+      <MarketplaceTradeReportDialog
+        tradeId={77}
+        itemName="은광석"
+        sourceType="marketplace_listing"
+        reason="abnormal_price"
+        details=""
+        busy={false}
+        feedback={null}
+        onReasonChange={vi.fn()}
+        onDetailsChange={vi.fn()}
+        onSubmit={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(buttonHtml).toContain('aria-label="은광석 매물 신고"');
+    expect(dialogHtml).toContain("은광석 매물 신고");
+    expect(dialogHtml).toContain("매물 접수 당시 기록");
+  });
+
   it("중복·제한·원본 없음·일반 실패를 구분한다", () => {
     expect(marketplaceTradeReportResponseMessage(409, "already reported")).toBe(
       "이미 접수되어 검토 중인 거래입니다.",

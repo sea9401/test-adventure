@@ -66,6 +66,7 @@ export type Listing = {
   id: number;
   isMine: boolean;
   isHighestBidder: boolean;
+  hasMyBid: boolean;
   kind: "equip" | "material" | "consumable";
   itemId: string;
   itemName: string;
@@ -449,13 +450,16 @@ export function PriceInput({
   value,
   onChange,
   placeholder = "가격",
+  ariaLabel,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  ariaLabel?: string;
 }) {
   return (
     <NumberInput
+      aria-label={ariaLabel}
       placeholder={placeholder}
       value={value}
       onValueChange={onChange}

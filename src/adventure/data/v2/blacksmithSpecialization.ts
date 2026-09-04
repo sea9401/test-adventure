@@ -30,9 +30,11 @@ export type BlacksmithOptionFocusId =
   | "weapon_offense"
   | "weapon_precision"
   | "weapon_technique"
+  | "weapon_guard"
   | "armor_guard"
   | "armor_mobility"
   | "armor_resistance"
+  | "armor_offense"
   | "jewelry_offense"
   | "jewelry_survival"
   | "jewelry_recovery";
@@ -128,6 +130,11 @@ export const BLACKSMITH_OPTION_FOCUSES: Record<
     },
     { id: "weapon_precision", name: "정밀", optionKeys: ["accuracy"] },
     { id: "weapon_technique", name: "기교", optionKeys: ["spd", "mp"] },
+    {
+      id: "weapon_guard",
+      name: "수호",
+      optionKeys: ["hp", "def", "magicDef", "critResist", "statusDamageReductionPct"],
+    },
   ],
   armor: [
     {
@@ -141,6 +148,11 @@ export const BLACKSMITH_OPTION_FOCUSES: Record<
       name: "저항",
       optionKeys: ["critResist", "statusDamageReductionPct", "magicDef"],
     },
+    {
+      id: "armor_offense",
+      name: "공세",
+      optionKeys: ["crit", "accuracy", "critMult"],
+    },
   ],
   jewelry: [
     {
@@ -151,7 +163,7 @@ export const BLACKSMITH_OPTION_FOCUSES: Record<
     {
       id: "jewelry_survival",
       name: "생존 보조",
-      optionKeys: ["hp", "mp", "magicDef"],
+      optionKeys: ["hp", "mp", "magicDef", "critResist", "statusDamageReductionPct"],
     },
     {
       id: "jewelry_recovery",
@@ -344,7 +356,7 @@ export function blacksmithTechniqueView({
           const targetCount = variableKeys.filter((key) =>
             focus.optionKeys.includes(key),
           ).length;
-          return targetCount > 0 && targetCount < variableKeys.length;
+          return targetCount > 0;
         })
       : [];
   const structures =
@@ -494,16 +506,23 @@ function focusEntries(
     (entry): entry is Extract<PercentileEntry, { kind: "option" }> =>
       entry.kind === "option",
   );
+  const targets = options.filter((entry) => focus.optionKeys.includes(entry.key));
+  const otherOptions = options.filter((entry) => !focus.optionKeys.includes(entry.key));
+  const powerFallback = percentileEntries(item, percentiles).filter(
+    (entry) => entry.kind === "power",
+  );
   return {
-    targets: options.filter((entry) => focus.optionKeys.includes(entry.key)),
-    others: options.filter((entry) => !focus.optionKeys.includes(entry.key)),
+    targets,
+    // 모든 보조 옵션이 한 성향에 몰린 장비는 기본 성능을 비교군으로 삼아
+    // 성향 선택이 실제 품질 우선순위를 만들도록 한다.
+    others: otherOptions.length > 0 ? otherOptions : powerFallback,
   };
 }
 
 function prioritizeFocus(
   percentiles: V2EquipRollPercentiles,
   targets: readonly Extract<PercentileEntry, { kind: "option" }>[],
-  others: readonly Extract<PercentileEntry, { kind: "option" }>[],
+  others: readonly PercentileEntry[],
 ) {
   const values = [...targets, ...others]
     .map((entry) => entryValue(percentiles, entry))
@@ -516,7 +535,7 @@ function prioritizeFocus(
 function applyCatalystFloor(
   percentiles: V2EquipRollPercentiles,
   targets: readonly Extract<PercentileEntry, { kind: "option" }>[],
-  others: readonly Extract<PercentileEntry, { kind: "option" }>[],
+  others: readonly PercentileEntry[],
 ) {
   const belowFloor = targets.filter(
     (entry) => entryValue(percentiles, entry) < BLACKSMITH_CATALYST_FOCUS_FLOOR,

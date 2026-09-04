@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { publicCookingDiscoveries } from "./publicDiscoveries";
 
 const discoveries = [
-  { recipeName: "나물", imageSrc: "/r1.webp", actorName: "하린", discoveredAt: 200 },
-  { recipeName: "국", imageSrc: "/r2.webp", actorName: "가람", discoveredAt: 300 },
-  { recipeName: "빵", imageSrc: "/r3.webp", actorName: "하린", discoveredAt: 100 },
+  { recipeName: "나물", imageSrc: "/r1.webp", actorName: "하린", discoveredAt: 200, codexRegistered: true },
+  { recipeName: "국", imageSrc: "/r2.webp", actorName: "가람", discoveredAt: 300, codexRegistered: false },
+  { recipeName: "빵", imageSrc: "/r3.webp", actorName: "하린", discoveredAt: 100, codexRegistered: false },
 ];
 
 describe("공개 요리 발견 목록", () => {
@@ -15,18 +15,21 @@ describe("공개 요리 발견 목록", () => {
         imageSrc: "/r2.webp",
         actorName: "가람",
         discoveredAt: 300,
+        codexRegistered: false,
       },
       {
         recipeName: "나물",
         imageSrc: "/r1.webp",
         actorName: "하린",
         discoveredAt: 200,
+        codexRegistered: true,
       },
       {
         recipeName: "빵",
         imageSrc: "/r3.webp",
         actorName: "하린",
         discoveredAt: 100,
+        codexRegistered: false,
       },
     ]);
   });
@@ -43,5 +46,13 @@ describe("공개 요리 발견 목록", () => {
         (entry) => entry.recipeName,
       ),
     ).toEqual(expected);
+  });
+
+  it("도감 미등록을 고르면 등록된 요리를 빼고 최근 발견순으로 보여준다", () => {
+    expect(
+      publicCookingDiscoveries(discoveries, "unregistered").map(
+        (entry) => entry.recipeName,
+      ),
+    ).toEqual(["국", "빵"]);
   });
 });

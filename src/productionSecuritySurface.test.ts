@@ -156,6 +156,30 @@ describe("production security surface", () => {
     expect(credentialsBranch).toContain("maxAge: 5 * 60");
   });
 
+  it("로그아웃 보호는 Auth.js 계정 확인 뒤 JWT 발급 단계에서만 해제한다", () => {
+    const auth = source(join(ROOT, "src/auth.ts"));
+    const signInCallback = auth.slice(
+      auth.indexOf("async signIn({ account, user })"),
+      auth.indexOf("async jwt({ token, user, account })"),
+    );
+    const jwtCallback = auth.slice(
+      auth.indexOf("async jwt({ token, user, account })"),
+      auth.indexOf("session({ session, token })"),
+    );
+
+    expect(signInCallback).not.toContain(
+      'cookieStore.set(AUTH_LOGOUT_GUARD_COOKIE, ""',
+    );
+    expect(jwtCallback).toContain("if (account && user?.id)");
+    expect(jwtCallback).toContain(
+      'cookieStore.set(AUTH_LOGOUT_GUARD_COOKIE, ""',
+    );
+    expect(jwtCallback).toContain("!account &&");
+    expect(jwtCallback).toContain(
+      "cookieStore.has(AUTH_LOGOUT_GUARD_COOKIE)",
+    );
+  });
+
   it("배포가 최신 크론 목록을 설치하고 개인정보 정리 작업을 확인한다", () => {
     const workflow = source(join(ROOT, ".github/workflows/deploy.yml"));
     const manualDeploy = source(join(ROOT, "deploy/deploy.sh"));

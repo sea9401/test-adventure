@@ -94,10 +94,13 @@ git push
 ```
 
 `content_modification_status`는 `not-applicable`(게임 내용 변경 없음),
-`technical-only`(게임 내용 변경 없는 기술적 보완), `reported`(내용수정신고 접수) 중
-하나를 고르고 판단 근거를 `content_modification_summary`에 적는다. `reported`이면
-접수번호 또는 신고 기록 위치도 반드시 입력한다. 이 검토가 끝나지 않으면 아티팩트 확인과
-운영 서버 전송을 시작하지 않는다.
+`technical-only`(게임 내용 변경 없는 기술적 보완), `recorded`(내부 변경 기록 완료·신고
+판단은 운영자 후속), `reported`(실제 내용수정신고 접수) 중 하나를 고르고 판단 근거를
+`content_modification_summary`에 적는다. `recorded`이면
+`docs/content-modification-records/` 아래의 실제 Markdown 문서 경로를
+`content_modification_record_reference`에 입력한다. `reported`이면 실제 접수번호 또는
+신고 기록 위치를 `content_modification_report_reference`에 반드시 입력한다. 이 기록이나
+검토가 끝나지 않으면 아티팩트 확인과 운영 서버 전송을 시작하지 않는다.
 
 **B. 긴급(사이트 지금 죽음·즉시)** — EC2 에서 직전 정상 커밋으로 로컬 롤백:
 ```bash

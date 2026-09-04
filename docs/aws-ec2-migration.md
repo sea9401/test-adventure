@@ -39,9 +39,11 @@ systemd와 배포는 SSM 값을 `/run/adventure-rpg/production.env`로 동기화
 운영 출시는 `staging → main` PR을 머지한 뒤, 정확한 `main` SHA의 전체 CI와
 `production-next-<SHA>` 아티팩트가 준비됐을 때 GitHub Actions의 **Deploy to EC2**를
 수동 실행한다. `deploy_sha`에는 전체 40자리 SHA를 입력하고, 게임 내용 변경 없음,
-기술적 보완만, 내용수정신고 접수 중 하나로 검토 상태와 판단 근거를 기록한다. 신고를
-접수한 배포는 접수번호 또는 신고 기록 위치도 입력한다. `main` push만으로 운영 서버는
-바뀌지 않는다. 자세한 절차는
+기술적 보완만, 내부 변경 기록 완료, 실제 내용수정신고 접수 중 하나로 상태와 판단 근거를
+기록한다. 게임 내용 변경을 기록하고 신고 판단을 운영자 후속으로 둘 때는 `recorded`와
+`docs/content-modification-records/` 아래 문서 경로를 입력한다. 실제 신고를 접수한
+`reported` 배포만 접수번호 또는 신고 기록 위치를 입력한다. `main` push만으로 운영
+서버는 바뀌지 않는다. 자세한 절차는
 [`staging-release-flow.md`](./staging-release-flow.md)를 따른다.
 
 배포는 전송과 사전 검증이 끝난 뒤 런타임 교체 직전에 점검 모드를 켜며, 스모크가

@@ -27,13 +27,19 @@ on:
           - select-review-status
           - not-applicable
           - technical-only
+          - recorded
           - reported
       content_modification_summary:
         description: "변경 내용과 내용수정신고 판단 근거"
         required: true
         type: string
+      content_modification_record_reference:
+        description: "recorded 선택 시 저장소 내부 변경 기록 문서 경로"
+        required: false
+        default: ""
+        type: string
       content_modification_report_reference:
-        description: "reported 선택 시 접수번호 또는 신고 기록 위치"
+        description: "reported 선택 시 실제 접수번호 또는 신고 기록 위치"
         required: false
         default: ""
         type: string
@@ -52,6 +58,7 @@ jobs:
       DEPLOY_SHA: ${{ inputs.deploy_sha }}
       CONTENT_MODIFICATION_STATUS: ${{ inputs.content_modification_status }}
       CONTENT_MODIFICATION_SUMMARY: ${{ inputs.content_modification_summary }}
+      CONTENT_MODIFICATION_RECORD_REFERENCE: ${{ inputs.content_modification_record_reference }}
       CONTENT_MODIFICATION_REPORT_REFERENCE: ${{ inputs.content_modification_report_reference }}
     outputs:
       ci_run_id: ${{ steps.ci-run.outputs.ci_run_id }}

@@ -298,7 +298,7 @@ describe("production security surface", () => {
     );
   });
 
-  it("의존성 설치의 중복 감사를 끄고 운영 의존성 감사만 제한 시간 안에 별도로 실행한다", () => {
+  it("의존성 설치의 중복 감사를 끄고 GitHub DB에서 운영 의존성만 별도로 검사한다", () => {
     const workflow = source(join(ROOT, ".github/workflows/ci.yml"));
     const installCommands = [...workflow.matchAll(/run: (npm ci[^\n]*)/g)].map(
       ([, command]) => command.trim(),
@@ -309,8 +309,9 @@ describe("production security surface", () => {
       installCommands.map(() => "npm ci --no-audit --prefer-offline"),
     );
     expect(workflow).toMatch(
-      /production-audit:[\s\S]*?for attempt in 1 2 3; do[\s\S]*?timeout 75s npm audit --omit=dev --audit-level=moderate --fetch-timeout=30000 --fetch-retries=0[\s\S]*?sleep 10[\s\S]*?exit 1/,
+      /production-audit:[\s\S]*?GITHUB_TOKEN: \$\{\{ github\.token \}\}[\s\S]*?run: node scripts\/check-production-advisories\.mjs/,
     );
+    expect(workflow).not.toContain("npm audit");
     expect(workflow).toContain(
       "needs: [static-checks, production-audit, unit-tests, level-design-sim-tests, production-build, browser-e2e]",
     );

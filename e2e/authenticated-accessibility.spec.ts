@@ -112,6 +112,9 @@ test("채팅을 키보드로 열고 닫으면 실행 버튼으로 포커스가 �
   await expect(dialog).toBeVisible();
   const closeButton = dialog.getByRole("button", { name: "채팅 닫기" });
   await expect(closeButton).toBeFocused();
+  // Axe가 등장 애니메이션의 반투명 중간 프레임을 측정하면 WebKit에서
+  // 실제 정지 상태보다 낮은 명암비로 오탐할 수 있다.
+  await expect(dialog).toHaveCSS("opacity", "1");
   await expectNoA11yViolations(page);
 
   await page.keyboard.press("Enter");

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Envelope, PaperPlaneTilt, X } from "@phosphor-icons/react";
+import { Envelope, PaperPlaneTilt, Trash, X } from "@phosphor-icons/react";
 import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
@@ -21,6 +21,7 @@ import {
   isMuseunShopItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import {
+  deleteReceivedInbox,
   fetchInbox,
   fetchInboxSent,
   markInboxRead,
@@ -38,6 +39,7 @@ import {
 } from "@/adventure/v2/RewardToastProvider";
 import { TITLES } from "@/adventure/data/titles";
 import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import {
   COOKING_PANTRY_ITEMS,
   COOKING_PROCESSING_RECIPES,
@@ -576,6 +578,40 @@ export function V2InboxView({
     [busy, load, refreshGuildId, setMsg],
   );
 
+  const deleteMail = useCallback(
+    async (item: InboxItem) => {
+      if (busy) return;
+      const confirmed = await confirmGameAction({
+        title: "받은 우편 삭제",
+        message:
+          "이 우편을 삭제할까요?\n삭제한 우편은 받은 우편함에서 다시 확인할 수 없습니다.",
+        confirmLabel: "삭제",
+        tone: "danger",
+      });
+      if (!confirmed) return;
+
+      setBusy(true);
+      setError(null);
+      setMsg(null);
+      try {
+        await deleteReceivedInbox(item.id);
+        setItems((current) =>
+          current?.filter((currentItem) => currentItem.id !== item.id) ?? [],
+        );
+        setSelected((current) => (current?.id === item.id ? null : current));
+        setMsg("우편을 삭제했어요.");
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("v2inbox:refresh"));
+        }
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "우편 삭제 실패");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, setMsg],
+  );
+
   const displayed = (tab === "inbox" ? items : sent) ?? [];
   const loading = tab === "inbox" ? items === null : sent === null;
   const claimableIds = bulkClaimIds(items ?? []);
@@ -682,6 +718,7 @@ export function V2InboxView({
               onOpen={openMail}
               onClaim={(id) => claim([id])}
               onRespondInvite={respondInvite}
+              onDelete={deleteMail}
             />
           ))}
         </div>
@@ -698,6 +735,7 @@ export function V2InboxView({
           }}
           onClaim={(id) => claim([id])}
           onRespondInvite={respondInvite}
+          onDelete={deleteMail}
           onBlocked={(blockedUserId) => {
             setItems((current) =>
               current?.filter((item) => item.fromUserId !== blockedUserId) ?? [],
@@ -727,12 +765,14 @@ export function InboxMailCard({
   onOpen,
   onClaim,
   onRespondInvite,
+  onDelete,
 }: {
   item: InboxItem;
   busy: boolean;
   onOpen: (item: InboxItem) => void;
   onClaim: (id: number) => void;
   onRespondInvite: (item: InboxItem, accept: boolean) => void;
+  onDelete: (item: InboxItem) => void;
 }) {
   const rewards = rewardLinesOf(item);
   const unread = isUnreadInboxItem(item);
@@ -743,6 +783,7 @@ export function InboxMailCard({
     item.claimState === "claimable";
   const actionable =
     item.direction !== "sent" && pending && item.claimState === "action";
+  const deletable = item.direction !== "sent" && !pending;
 
   return (
     <article
@@ -812,6 +853,20 @@ export function InboxMailCard({
           >
             수령
           </button>
+        ) : deletable ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete(item);
+            }}
+            disabled={busy}
+            aria-label={`${item.fromName ? `${item.fromName}님의 ` : ""}${KIND_LABEL[item.kind]} 삭제`}
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-rose-300 bg-white px-2.5 py-1 text-xs text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-800 dark:bg-zinc-900 dark:text-rose-300 dark:hover:bg-rose-950"
+          >
+            <Trash size={14} aria-hidden />
+            삭제
+          </button>
         ) : null}
       </div>
     </article>
@@ -851,6 +906,7 @@ export function MailDetailModal({
   onClaim,
   onRespondInvite,
   onBlocked,
+  onDelete,
 }: {
   item: InboxItem;
   busy: boolean;
@@ -859,6 +915,7 @@ export function MailDetailModal({
   onClaim: (id: number) => void;
   onRespondInvite: (it: InboxItem, accept: boolean) => void;
   onBlocked: (blockedUserId: string) => void;
+  onDelete: (item: InboxItem) => void;
 }) {
   const sent = item.direction === "sent";
   const read = item.readAt != null;
@@ -1003,13 +1060,27 @@ export function MailDetailModal({
               수령
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            >
-              닫기
-            </button>
+            <>
+              {claimed && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(item)}
+                  disabled={busy}
+                  aria-label="우편 삭제"
+                  className="inline-flex items-center gap-1 rounded-md border border-rose-300 bg-white px-3 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-800 dark:bg-zinc-900 dark:text-rose-300 dark:hover:bg-rose-950"
+                >
+                  <Trash size={15} aria-hidden />
+                  삭제
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+              >
+                닫기
+              </button>
+            </>
           )}
         </div>
       </div>

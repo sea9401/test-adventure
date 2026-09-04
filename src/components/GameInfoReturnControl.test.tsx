@@ -12,6 +12,7 @@ afterEach(() => {
 
 describe("게임 등급정보 돌아가기", () => {
   it("보조 탭을 닫아 기존 게임 탭으로 돌아간다", () => {
+    vi.useFakeTimers();
     const close = vi.spyOn(window, "close").mockImplementation(() => undefined);
     render(<GameInfoReturnControl />);
 

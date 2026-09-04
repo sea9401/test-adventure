@@ -74,6 +74,46 @@ export async function markInboxRead(id: number): Promise<MarkInboxReadResult> {
   return (await r.json()) as MarkInboxReadResult;
 }
 
+type InboxDeleteErrorPayload = {
+  error?: string;
+};
+
+export function inboxDeleteErrorLabel(
+  payload: InboxDeleteErrorPayload | null,
+  status: number,
+): string {
+  if (payload?.error === "not_completed") {
+    return "수령하거나 처리를 마친 우편만 삭제할 수 있어요.";
+  }
+  return `우편 삭제 실패 (${status})`;
+}
+
+export type DeleteReceivedInboxResult = {
+  ok: true;
+  deletedAt: string;
+};
+
+export async function deleteReceivedInbox(
+  id: number,
+): Promise<DeleteReceivedInboxResult> {
+  const response = await fetch("/api/marketplace/inbox/delete", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id }),
+  });
+  const payload = (await response.json().catch(() => null)) as
+    | (Partial<DeleteReceivedInboxResult> & InboxDeleteErrorPayload)
+    | null;
+  if (
+    !response.ok ||
+    payload?.ok !== true ||
+    typeof payload.deletedAt !== "string"
+  ) {
+    throw new Error(inboxDeleteErrorLabel(payload, response.status));
+  }
+  return { ok: true, deletedAt: payload.deletedAt };
+}
+
 export type SendMessageResult = { ok: true; recipientName: string };
 
 type InboxActionErrorPayload = {

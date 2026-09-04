@@ -1,0 +1,1 @@
+ALTER TABLE "marketplace_inbox" ADD COLUMN "recipient_deleted_at" timestamp;

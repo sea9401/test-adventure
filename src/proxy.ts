@@ -39,7 +39,7 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex,nofollow" />
-<title>서버 점검 안내 — 무슨무슨게임</title>
+<title>9월 5일 서비스 점검 안내 — 무슨무슨게임</title>
 <style>
   html,body{margin:0;padding:0;height:100%;background:#09090b;color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
   main{min-height:100%;display:flex;align-items:center;justify-content:center;padding:1.5rem;box-sizing:border-box}
@@ -48,7 +48,8 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
   .status::before{content:"";width:.45rem;height:.45rem;border-radius:50%;background:#f59e0b;box-shadow:0 0 0 .2rem rgba(245,158,11,.14)}
   h1{font-size:clamp(1.6rem,6vw,2rem);font-weight:800;letter-spacing:-.035em;margin:0}
   .lead{margin:1rem 0 0;color:#d4d4d8;font-size:.95rem;line-height:1.75}
-  .details{display:grid;gap:.75rem;margin:1.5rem 0 0;padding:1rem;text-align:left;background:#09090b;border:1px solid #3f3f46;border-radius:.75rem}
+  .details-title{margin:1.5rem 0 .75rem;color:#f4f4f5;font-size:1rem;font-weight:800;text-align:left}
+  .details{display:grid;gap:.75rem;margin:0;padding:1rem;text-align:left;background:#09090b;border:1px solid #3f3f46;border-radius:.75rem}
   .row{display:grid;grid-template-columns:6.25rem 1fr;gap:.75rem;margin:0;font-size:.9rem;line-height:1.55}
   .row dt{color:#a1a1aa;font-weight:700}.row dd{margin:0;color:#f4f4f5;font-weight:600}
   .notice{margin:1.25rem 0 0;color:#d4d4d8;font-size:.9rem;line-height:1.65}
@@ -59,17 +60,17 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <body>
 <main>
   <div class="box" role="status" aria-live="polite">
-    <div class="status">서버 점검</div>
-    <h1>서버 점검 안내</h1>
-    <p class="lead">안정적인 서비스 제공을 위해 아래와 같이 서버 점검을 진행합니다.</p>
+    <div class="status">서비스 점검</div>
+    <h1>9월 5일 서비스 점검 안내</h1>
+    <p class="lead">안녕하세요.<br />서비스 안정화 및 개선을 위한 점검이 아래와 같이 진행될 예정입니다.</p>
+    <h2 class="details-title">점검 일정</h2>
     <dl class="details">
-      <div class="row"><dt>점검 시간:</dt><dd>2026년 9월 4일(금) 오전 4:00 ~ 오전 4:30</dd></div>
-      <div class="row"><dt>예상 소요 시간:</dt><dd>30분</dd></div>
-      <div class="row"><dt>점검 내용:</dt><dd>서비스 안정화 및 시스템 점검</dd></div>
-      <div class="row"><dt>점검 영향:</dt><dd>점검 중 서비스 이용 제한</dd></div>
+      <div class="row"><dt>일시:</dt><dd>2026년 9월 5일(토) 03:00~06:00</dd></div>
+      <div class="row"><dt>시간:</dt><dd>총 3시간</dd></div>
+      <div class="row"><dt>영향:</dt><dd>점검 중 서비스 이용 불가</dd></div>
     </dl>
-    <p class="notice">점검 상황에 따라 종료 시간이 변경될 수 있으며, 점검이 완료되면 별도로 안내해 드리겠습니다.</p>
-    <p class="note">이용에 불편을 드려 죄송합니다.<br />더욱 안정적인 서비스를 제공할 수 있도록 최선을 다하겠습니다.</p>
+    <p class="notice">점검 상황에 따라 종료 시간이 변경될 수 있습니다.</p>
+    <p class="note">이용에 불편을 드려 죄송합니다.<br />더욱 안정적인 서비스로 보답하겠습니다.<br /><br />감사합니다.</p>
   </div>
 </main>
 </body>

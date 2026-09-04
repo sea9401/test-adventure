@@ -188,8 +188,13 @@ describe("6차 전투 스킬 상세 원문", () => {
 
     expect(inviolable).toContain("만법수호영역을 장착한 상태에서만");
     expect(inviolable).toContain("미장착 시 30% · 장착 시 40%");
+    expect(inviolable).toContain("이미 쌓인 영역 안정은 유지");
+    expect(inviolable).toContain("별도로 함께 적용");
     expect(domain).toContain("전투 시작부터");
     expect(domain).toContain("각각 3회");
+    expect(domain).toContain("소비한 다음 피해부터");
+    expect(domain).toContain("일반 액티브·패시브 받는 피해 감소와 별도로 적용");
+    expect(domain).toContain("영역 안정 스택을 유지한 채");
     expect(domain).not.toContain("기본 결계 단계까지만 갱신");
   });
 

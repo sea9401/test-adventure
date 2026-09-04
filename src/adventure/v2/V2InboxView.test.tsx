@@ -76,6 +76,7 @@ describe("MailDetailModal 장문 가독성", () => {
         onClaim: vi.fn(),
         onRespondInvite: vi.fn(),
         onBlocked: vi.fn(),
+        onDelete: vi.fn(),
       }),
     );
 
@@ -85,6 +86,7 @@ describe("MailDetailModal 장문 가독성", () => {
     expect(html).toContain("leading-7");
     expect(html).toContain("첫 문단입니다");
     expect(html).toContain("두 번째 문단도 충분히 길게 표시합니다.");
+    expect(html).toContain("우편 삭제");
   });
 
   it("읽음 처리 실패를 상세 모달 안에서 안내한다", () => {
@@ -97,6 +99,7 @@ describe("MailDetailModal 장문 가독성", () => {
         onClaim: vi.fn(),
         onRespondInvite: vi.fn(),
         onBlocked: vi.fn(),
+        onDelete: vi.fn(),
       }),
     );
 
@@ -124,6 +127,7 @@ describe("MailDetailModal 장문 가독성", () => {
         onClaim: vi.fn(),
         onRespondInvite: vi.fn(),
         onBlocked: vi.fn(),
+        onDelete: vi.fn(),
       }),
     );
 
@@ -140,6 +144,7 @@ describe("InboxMailCard 상태 표시", () => {
     onOpen: vi.fn(),
     onClaim: vi.fn(),
     onRespondInvite: vi.fn(),
+    onDelete: vi.fn(),
   };
 
   it("미확인 받은 우편을 불투명 강조 표면과 굵은 글씨로 표시한다", () => {
@@ -193,5 +198,36 @@ describe("InboxMailCard 상태 표시", () => {
 
     expect(html).not.toContain("미수령");
     expect(html).not.toContain(">수령<");
+    expect(html).toContain('aria-label="보낸사람님의 운영자 우편 삭제"');
+  });
+
+  it("미완료 받은 우편과 보낸 우편에는 삭제 버튼을 표시하지 않는다", () => {
+    const pending = renderToStaticMarkup(
+      createElement(InboxMailCard, {
+        ...handlers,
+        item: inboxItem({
+          kind: "admin_gift",
+          payload: { gold: 500 },
+          message: "선물",
+          readAt: "2026-08-09T00:01:00.000Z",
+          claimedAt: null,
+          hasReward: true,
+          claimState: "claimable",
+        }),
+      }),
+    );
+    const sent = renderToStaticMarkup(
+      createElement(InboxMailCard, {
+        ...handlers,
+        item: inboxItem({
+          direction: "sent",
+          readAt: "2026-08-09T00:01:00.000Z",
+          claimedAt: "2026-08-09T00:01:00.000Z",
+        }),
+      }),
+    );
+
+    expect(pending).not.toContain("우편 삭제");
+    expect(sent).not.toContain("우편 삭제");
   });
 });

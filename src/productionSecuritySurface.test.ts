@@ -115,30 +115,28 @@ describe("production security surface", () => {
       expect(proxy).toContain(path);
     }
     for (const maintenance of [proxy, maintenancePage]) {
-      expect(maintenance).toContain("서버 점검 안내");
-      expect(maintenance).toContain("서버 점검");
+      expect(maintenance).toContain("9월 5일 서비스 점검 안내");
+      expect(maintenance).toContain("서비스 점검");
       expect(maintenance).toContain(
-        "안정적인 서비스 제공을 위해 아래와 같이 서버 점검을 진행합니다.",
+        "서비스 안정화 및 개선을 위한 점검이 아래와 같이 진행될 예정입니다.",
       );
-      expect(maintenance).toContain("점검 시간:");
+      expect(maintenance).toContain("점검 일정");
+      expect(maintenance).toContain("일시:");
       expect(maintenance).toContain(
-        "2026년 9월 4일(금) 오전 4:00 ~ 오전 4:30",
+        "2026년 9월 5일(토) 03:00~06:00",
       );
-      expect(maintenance).toContain("예상 소요 시간:");
-      expect(maintenance).toContain("30분");
-      expect(maintenance).toContain("점검 내용:");
-      expect(maintenance).toContain("서비스 안정화 및 시스템 점검");
-      expect(maintenance).toContain("점검 영향:");
+      expect(maintenance).toContain("시간:");
+      expect(maintenance).toContain("총 3시간");
+      expect(maintenance).toContain("영향:");
       expect(maintenance).toContain(
-        "점검 중 서비스 이용 제한",
+        "점검 중 서비스 이용 불가",
       );
       expect(maintenance).toContain(
-        "점검 상황에 따라 종료 시간이 변경될 수 있으며, 점검이 완료되면 별도로 안내해 드리겠습니다.",
+        "점검 상황에 따라 종료 시간이 변경될 수 있습니다.",
       );
       expect(maintenance).toContain("이용에 불편을 드려 죄송합니다.");
-      expect(maintenance).toContain(
-        "더욱 안정적인 서비스를 제공할 수 있도록 최선을 다하겠습니다.",
-      );
+      expect(maintenance).toContain("더욱 안정적인 서비스로 보답하겠습니다.");
+      expect(maintenance).toContain("감사합니다.");
       expect(maintenance).not.toContain("오류 수정 패치 점검 안내");
       expect(maintenance).not.toContain("08:30 ~ 08:45 (약 15분)");
       expect(maintenance).not.toContain("약 1시간 30분");
@@ -156,6 +154,30 @@ describe("production security surface", () => {
     expect(credentialsBranch).toContain("DEVICE_SESSION_TAKEOVER_COOKIE");
     expect(credentialsBranch).toContain('cookieStore.set(DEVICE_SESSION_TAKEOVER_COOKIE, "1"');
     expect(credentialsBranch).toContain("maxAge: 5 * 60");
+  });
+
+  it("로그아웃 보호는 Auth.js 계정 확인 뒤 JWT 발급 단계에서만 해제한다", () => {
+    const auth = source(join(ROOT, "src/auth.ts"));
+    const signInCallback = auth.slice(
+      auth.indexOf("async signIn({ account, user })"),
+      auth.indexOf("async jwt({ token, user, account })"),
+    );
+    const jwtCallback = auth.slice(
+      auth.indexOf("async jwt({ token, user, account })"),
+      auth.indexOf("session({ session, token })"),
+    );
+
+    expect(signInCallback).not.toContain(
+      'cookieStore.set(AUTH_LOGOUT_GUARD_COOKIE, ""',
+    );
+    expect(jwtCallback).toContain("if (account && user?.id)");
+    expect(jwtCallback).toContain(
+      'cookieStore.set(AUTH_LOGOUT_GUARD_COOKIE, ""',
+    );
+    expect(jwtCallback).toContain("!account &&");
+    expect(jwtCallback).toContain(
+      "cookieStore.has(AUTH_LOGOUT_GUARD_COOKIE)",
+    );
   });
 
   it("배포가 최신 크론 목록을 설치하고 개인정보 정리 작업을 확인한다", () => {

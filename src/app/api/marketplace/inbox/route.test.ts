@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 
 const mocks = vi.hoisted(() => ({
   results: [] as unknown[][],
+  conditions: [] as unknown[],
 }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -11,9 +14,13 @@ vi.mock("@/lib/server/ensureUser", () => ({
 vi.mock("@/db", () => {
   const chain = (rows: unknown[]) => {
     const query: Record<string, unknown> = {};
-    for (const method of ["from", "leftJoin", "where", "orderBy", "limit"]) {
+    for (const method of ["from", "leftJoin", "orderBy", "limit"]) {
       query[method] = () => query;
     }
+    query.where = (condition: unknown) => {
+      mocks.conditions.push(condition);
+      return query;
+    };
     query.then = (
       resolve: (value: unknown[]) => unknown,
       reject?: (reason: unknown) => unknown,
@@ -72,7 +79,15 @@ const completedMessage = {
 
 beforeEach(() => {
   mocks.results.length = 0;
+  mocks.conditions.length = 0;
 });
+
+function compiledConditions(): string[] {
+  const dialect = new PgDialect();
+  return mocks.conditions.map(
+    (condition) => dialect.sqlToQuery(condition as SQL).sql,
+  );
+}
 
 describe("GET /api/marketplace/inbox", () => {
   it("미완료와 최근 완료 우편을 하나의 받은 우편 목록으로 최신순 반환한다", async () => {
@@ -94,6 +109,37 @@ describe("GET /api/marketplace/inbox", () => {
       claimState: "claimable",
       hasReward: true,
     });
+    expect(
+      compiledConditions().filter((sql) =>
+        sql.includes('"marketplace_inbox"."recipient_deleted_at" is null'),
+      ),
+    ).toHaveLength(2);
+  });
+
+  it("미확인 개수에서도 수신자가 삭제한 우편을 제외한다", async () => {
+    const response = await GET(
+      new Request("http://t/api/marketplace/inbox?count=1"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(compiledConditions()).toContainEqual(
+      expect.stringContaining(
+        '"marketplace_inbox"."recipient_deleted_at" is null',
+      ),
+    );
+  });
+
+  it("수신자의 삭제 여부와 무관하게 발신자의 보낸 우편 기록을 유지한다", async () => {
+    mocks.results.push([]);
+
+    const response = await GET(
+      new Request("http://t/api/marketplace/inbox?sent=1"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(compiledConditions()).not.toContainEqual(
+      expect.stringContaining("recipient_deleted_at"),
+    );
   });
 
   it("손상된 우편은 자동 수령할 수 없는 invalid 상태로 노출한다", async () => {

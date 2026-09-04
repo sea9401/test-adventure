@@ -1042,6 +1042,7 @@ export const marketplaceInbox = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
     readAt: timestamp("read_at"),
     claimedAt: timestamp("claimed_at"),
+    recipientDeletedAt: timestamp("recipient_deleted_at"),
   },
   (t) => [
     // 미확인 우편 — 상단 배지와 받은 우편 강조 조회.

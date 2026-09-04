@@ -18,6 +18,7 @@ import {
   SignOut,
   Storefront,
 } from "@phosphor-icons/react";
+import { signOut } from "next-auth/react";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { useAttendanceReminder } from "./useAttendanceReminder";
 
@@ -63,6 +64,9 @@ export function V2SettingsMenu() {
 
   const handleSignOut = async () => {
     setOpen(false);
+    try {
+      await signOut({ redirect: false });
+    } catch {}
     const response = await fetch("/api/auth/logout", { method: "POST" });
     if (!response.ok) {
       setOpen(true);

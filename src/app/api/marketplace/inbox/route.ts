@@ -58,6 +58,7 @@ export async function GET(req: Request) {
         and(
           eq(marketplaceInbox.userId, userId),
           isNull(marketplaceInbox.readAt),
+          isNull(marketplaceInbox.recipientDeletedAt),
           visiblePersonalMessageWhere(userId),
         ),
       );
@@ -139,6 +140,7 @@ export async function GET(req: Request) {
       and(
         eq(marketplaceInbox.userId, userId),
         isNull(marketplaceInbox.claimedAt),
+        isNull(marketplaceInbox.recipientDeletedAt),
         visiblePersonalMessageWhere(userId),
       ),
     )
@@ -151,6 +153,7 @@ export async function GET(req: Request) {
       and(
         eq(marketplaceInbox.userId, userId),
         isNotNull(marketplaceInbox.claimedAt),
+        isNull(marketplaceInbox.recipientDeletedAt),
         visiblePersonalMessageWhere(userId),
       ),
     )

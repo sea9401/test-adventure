@@ -121,8 +121,8 @@ describe("coopBosses 카탈로그", () => {
       immortalRegenActionsRemaining: 2,
       immortalRegenUsesRemaining: 1,
       immortalNextRegenAmount: 320_760,
-      immortalAtkMult: 1.12,
-      immortalSpdMult: 1.06,
+      immortalAtkMult: 1.2,
+      immortalSpdMult: 1.1,
     });
   });
 

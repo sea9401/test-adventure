@@ -24,6 +24,9 @@
 - Modify: `src/adventure/v2/combat/immortalBerserkerMechanic.test.ts`
 - Modify: `src/adventure/v2/combat/immortalBerserkerAtb.test.ts`
 - Modify: `src/adventure/v2/combat/immortalBerserkerMechanic.ts`
+- Modify: `src/adventure/data/v2/coopBosses.test.ts`
+- Modify: `src/app/api/v2/coop/route.test.ts`
+- Modify: `src/app/api/v2/coop/[sessionId]/route.test.ts`
 
 **Interfaces:**
 - Consumes: `immortalBerserkerMultipliers(lifeIndex: 0 | 1 | 2): { atkMult: number; spdMult: number }`
@@ -68,6 +71,10 @@ Add a boundary test starting in life two at `3,672,010` HP. After the player dea
 boundary damage, assert that the log contains `두 번째 부활`, `공격력 +60%`, and
 `행동 속도 +25%` so the third-life announcement is fixed independently of the multiplier
 unit test.
+
+In the cooperative boss catalog, list API, and detail API tests, update the derived second-life
+display contract to `immortalAtkMult: 1.2` and `immortalSpdMult: 1.1`. These endpoints consume
+`immortalBerserkerDisplay()` and therefore must expose the same approved multiplier values.
 
 - [ ] **Step 2: Run the focused tests and verify the new expectations fail**
 

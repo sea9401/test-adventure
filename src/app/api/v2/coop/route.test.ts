@@ -247,8 +247,8 @@ describe("GET /api/v2/coop", () => {
         immortalRegenActionsRemaining: 2,
         immortalRegenUsesRemaining: 1,
         immortalNextRegenAmount: 106_920,
-        immortalAtkMult: 1.12,
-        immortalSpdMult: 1.06,
+        immortalAtkMult: 1.2,
+        immortalSpdMult: 1.1,
       }],
     });
   });

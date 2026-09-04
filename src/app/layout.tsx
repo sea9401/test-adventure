@@ -17,6 +17,10 @@ import { AdminImpersonationBanner } from "@/components/AdminImpersonationBanner"
 import { AppLaunchSplash } from "@/components/AppLaunchSplash";
 import { GameRatingLaunchNotice } from "@/components/GameRatingLaunchNotice";
 import { GameDialogHost } from "@/components/ui/GameDialogHost";
+import {
+  GAME_RATING_NOTICE_SEEN_CLASS,
+  GAME_RATING_NOTICE_SESSION_KEY,
+} from "@/lib/gameRating";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -88,6 +92,7 @@ export const viewport: Viewport = {
 
 const themeInit = `(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})();`;
 const displayModeInit = `(function(){try{var m=localStorage.getItem(${JSON.stringify(DISPLAY_MODE_STORAGE_KEY)});if(m===${JSON.stringify(TERMINAL_MODE_STORED_VALUE)})document.documentElement.classList.add(${JSON.stringify(TERMINAL_MODE_CLASS)});else if(m===${JSON.stringify(DISCREET_MODE_STORED_VALUE)})document.documentElement.classList.add(${JSON.stringify(DISCREET_MODE_CLASS)});else if(m===${JSON.stringify(BACKGROUND_HIDDEN_MODE_STORED_VALUE)})document.documentElement.classList.add(${JSON.stringify(BACKGROUND_HIDDEN_MODE_CLASS)});}catch(e){}})();`;
+const gameRatingNoticeInit = `(function(){try{if(sessionStorage.getItem(${JSON.stringify(GAME_RATING_NOTICE_SESSION_KEY)})==='1')document.documentElement.classList.add(${JSON.stringify(GAME_RATING_NOTICE_SEEN_CLASS)});}catch(e){}})();`;
 
 export default function RootLayout({
   children,
@@ -104,6 +109,7 @@ export default function RootLayout({
         <head>
           <script dangerouslySetInnerHTML={{ __html: themeInit }} />
           <script dangerouslySetInnerHTML={{ __html: displayModeInit }} />
+          <script dangerouslySetInnerHTML={{ __html: gameRatingNoticeInit }} />
         </head>
         <body className="min-h-full flex flex-col font-sans">
           <AppLaunchSplash />

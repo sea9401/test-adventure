@@ -20,6 +20,9 @@ export const GAME_RATING = Object.freeze({
 });
 
 export const GAME_RATING_NOTICE_MS = 3_500;
+export const GAME_RATING_NOTICE_SESSION_KEY =
+  "msmsge.game-rating-notice.seen.v1";
+export const GAME_RATING_NOTICE_SEEN_CLASS = "game-rating-notice-seen";
 
 const GAME_ENTRY_PATHS = ["/", "/sign-in", "/create"] as const;
 const GAME_ROUTE_PREFIXES = [

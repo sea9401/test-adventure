@@ -12,6 +12,7 @@ import {
   EyeSlash,
   FileText,
   ImageSquare,
+  IdentificationCard,
   Moon,
   Sun,
   TerminalWindow,
@@ -354,6 +355,21 @@ export function V2PreferencesView() {
             <span className="block text-sm font-semibold">정책·약관</span>
             <span className="mt-0.5 block text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
               이용약관, 개인정보처리방침, 운영정책과 오픈소스 고지를 확인합니다.
+            </span>
+          </span>
+          <CaretRight size={18} weight="bold" className="shrink-0" aria-hidden />
+        </Link>
+        <Link
+          href="/game-info"
+          target="_blank"
+          rel="noreferrer"
+          className={`${SURFACE_INSET} flex items-center gap-3 p-3 text-zinc-700 transition-colors hover:border-amber-400 dark:text-zinc-300`}
+        >
+          <IdentificationCard size={24} weight="duotone" className="shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold">게임 등급정보</span>
+            <span className="mt-0.5 block text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+              이용등급, 내용정보와 등급분류 결정 내용을 확인합니다.
             </span>
           </span>
           <CaretRight size={18} weight="bold" className="shrink-0" aria-hidden />

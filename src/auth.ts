@@ -29,6 +29,10 @@ import { mapKakaoOAuthProfile } from "@/lib/server/kakaoOAuthProfile";
 import { recoverOrphanedKakaoAccount } from "@/lib/server/orphanedKakaoAccount";
 import { authenticatePasswordAccount } from "@/lib/server/passwordAccount";
 import {
+  AGE_ELIGIBILITY_COOKIE,
+  canAccessMinimumAgeService,
+} from "@/lib/ageEligibility";
+import {
   authenticateLocalDevAccount,
   readLocalDevAutoLoginConfig,
 } from "@/lib/server/localDevAutoLogin";
@@ -155,6 +159,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
       const cookieStore = await cookies();
       // 과거 구현의 사용자 ID 평문 쿠키는 어떤 callback에서도 신뢰하지 않고 제거한다.
       cookieStore.set("link_user_id", "", { maxAge: 0, path: "/" });
+
+      // 화면만 숨기는 것으로는 Auth.js 엔드포인트 직접 호출을 막을 수 없으므로,
+      // 모든 실제 로그인 callback에서 서버 서명 연령 확인을 다시 검증한다.
+      if (
+        !canAccessMinimumAgeService(
+          cookieStore.get(AGE_ELIGIBILITY_COOKIE)?.value,
+          process.env.AUTH_SECRET,
+        )
+      ) {
+        return "/sign-in?error=AgeRequirement";
+      }
 
       // Credentials provider 는 운영자 발급 계정 또는 기존 심사용 사용자를 JWT 로만
       // 인증한다. 올바른 비밀번호로 다시 로그인한 경우 심사 담당자가 다른 기기에서도

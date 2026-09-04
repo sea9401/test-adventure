@@ -11,6 +11,7 @@ import {
   EnvelopeSimple,
   GearSix,
   Gift,
+  IdentificationCard,
   List,
   Megaphone,
   Palette,
@@ -168,6 +169,18 @@ export function V2SettingsMenu() {
               >
                 <BookOpen size={18} weight="duotone" />
                 게임 안내서
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/game-info"
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                <IdentificationCard size={18} weight="duotone" />
+                게임 등급정보
               </Link>
             </li>
           </ul>

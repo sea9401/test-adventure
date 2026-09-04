@@ -68,6 +68,9 @@ test("캐릭터 생성과 핵심 게임 화면에 자동 탐지 접근성 위반
 
   await page.goto("/");
   await expect(page.locator("main")).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: "게임 이용등급 안내" }),
+  ).toBeHidden({ timeout: 5_000 });
   await page.keyboard.press("Tab");
   const skipLink = page.getByRole("link", { name: "본문으로 바로가기" });
   await expect(skipLink).toBeFocused();

@@ -37,6 +37,24 @@ describe("게임 최초 진입 등급 고지", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("고지가 보이는 동안 키보드 포커스를 고지 안에 유지한다", () => {
+    render(<GameRatingLaunchNotice />);
+
+    const dialog = screen.getByRole("dialog", { name: "게임 이용등급 안내" });
+    expect(dialog.tabIndex).toBe(0);
+    expect(document.activeElement).toBe(dialog);
+
+    const tabEvent = new KeyboardEvent("keydown", {
+      key: "Tab",
+      bubbles: true,
+      cancelable: true,
+    });
+    dialog.dispatchEvent(tabEvent);
+
+    expect(tabEvent.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(dialog);
+  });
+
   it("정책 페이지 직접 방문에서는 표시하지 않는다", () => {
     pathname = "/privacy";
     render(<GameRatingLaunchNotice />);

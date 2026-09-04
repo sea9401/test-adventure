@@ -14,6 +14,7 @@ export function GameRatingLaunchNotice() {
   const pathname = usePathname();
   const startsOnGame = isGameEntryPath(pathname);
   const hasShown = useRef(startsOnGame);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(startsOnGame);
 
   useEffect(() => {
@@ -24,6 +25,7 @@ export function GameRatingLaunchNotice() {
 
   useEffect(() => {
     if (!visible) return;
+    dialogRef.current?.focus();
     const timer = window.setTimeout(
       () => setVisible(false),
       GAME_RATING_NOTICE_MS,
@@ -35,9 +37,14 @@ export function GameRatingLaunchNotice() {
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label="게임 이용등급 안내"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === "Tab") event.preventDefault();
+      }}
       className="fixed inset-0 z-[2147483646] overflow-y-auto bg-black text-zinc-900 dark:text-zinc-100"
     >
       <Image

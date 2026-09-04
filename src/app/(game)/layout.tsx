@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { GameClientBoundary } from "@/adventure/v2/GameClientBoundary";
 import { redirect } from "next/navigation";
-import { hasValidAgeEligibilityCookie } from "@/lib/server/ageEligibility";
+import { hasMinimumAgeServiceAccess } from "@/lib/server/ageEligibility";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -19,7 +19,7 @@ export default async function GameLayout({
   children: React.ReactNode;
   battleLog?: React.ReactNode;
 }) {
-  if (!(await hasValidAgeEligibilityCookie())) {
+  if (!(await hasMinimumAgeServiceAccess())) {
     redirect("/sign-in?age=required");
   }
 

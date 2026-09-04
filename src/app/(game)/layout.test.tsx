@@ -12,7 +12,7 @@ vi.mock("@/adventure/v2/GameClientBoundary", () => ({
   ),
 }));
 vi.mock("@/lib/server/ageEligibility", () => ({
-  hasValidAgeEligibilityCookie: vi.fn(async () => mocks.ageEligible),
+  hasMinimumAgeServiceAccess: vi.fn(async () => mocks.ageEligible),
 }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 

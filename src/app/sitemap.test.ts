@@ -8,6 +8,7 @@ describe("sitemap.xml", () => {
 
     expect(urls).toEqual([
       "https://msmsge.com/sign-in",
+      "https://msmsge.com/notices/minimum-age-policy",
       "https://msmsge.com/terms",
       "https://msmsge.com/privacy",
       "https://msmsge.com/operations",

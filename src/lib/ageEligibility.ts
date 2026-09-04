@@ -3,10 +3,20 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 export const MINIMUM_SERVICE_AGE = 14;
 export const AGE_ELIGIBILITY_COOKIE = "msmsge_age_14_confirmed";
 export const AGE_ELIGIBILITY_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
+export const AGE_ELIGIBILITY_ENFORCEMENT_START_ISO =
+  "2026-10-04T00:00:00+09:00";
+
+const AGE_ELIGIBILITY_ENFORCEMENT_START_MS = Date.parse(
+  AGE_ELIGIBILITY_ENFORCEMENT_START_ISO,
+);
 
 const TOKEN_VERSION = "v1";
 const FUTURE_CLOCK_SKEW_SECONDS = 5 * 60;
 const SIGNING_CONTEXT = "msmsge:minimum-age-eligibility:";
+
+export function isAgeEligibilityEnforced(nowMs = Date.now()): boolean {
+  return nowMs >= AGE_ELIGIBILITY_ENFORCEMENT_START_MS;
+}
 
 function signature(payload: string, secret: string): Buffer {
   return createHmac("sha256", secret)
@@ -50,4 +60,15 @@ export function verifyAgeEligibilityToken(
   const supplied = Buffer.from(parts[2], "base64url");
   const expected = signature(`${parts[0]}.${parts[1]}`, key);
   return supplied.length === expected.length && timingSafeEqual(supplied, expected);
+}
+
+export function canAccessMinimumAgeService(
+  value: string | null | undefined,
+  secret: string | undefined,
+  nowMs = Date.now(),
+): boolean {
+  return (
+    !isAgeEligibilityEnforced(nowMs) ||
+    verifyAgeEligibilityToken(value, secret, nowMs)
+  );
 }

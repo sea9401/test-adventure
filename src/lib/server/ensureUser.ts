@@ -8,7 +8,7 @@ import {
   isValidDeviceSessionId,
 } from "@/lib/deviceSessionConfig";
 import { readAdminImpersonationFor } from "@/lib/server/adminImpersonation";
-import { hasValidAgeEligibilityCookie } from "@/lib/server/ageEligibility";
+import { hasMinimumAgeServiceAccess } from "@/lib/server/ageEligibility";
 
 // API 라우트 진입 시 호출 — Auth.js 세션에서 userId 반환.
 // 비인증 + stale JWT(=DB 와 어긋난 session.user.id) 둘 다 null 로 응답 → 호출 측은 401.
@@ -20,7 +20,7 @@ async function ensureOriginalUserContext(): Promise<{
   email: string | null;
   activeSessionId: string | null;
 } | null> {
-  if (!(await hasValidAgeEligibilityCookie())) return null;
+  if (!(await hasMinimumAgeServiceAccess())) return null;
 
   const session = await auth();
   if (!session?.user?.id) return null;

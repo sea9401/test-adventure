@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/auth", () => ({ auth: mocks.auth }));
 vi.mock("@/lib/server/ageEligibility", () => ({
-  hasValidAgeEligibilityCookie: vi.fn(async () => mocks.ageEligible),
+  hasMinimumAgeServiceAccess: vi.fn(async () => mocks.ageEligible),
 }));
 vi.mock("@/lib/server/profile", () => ({
   hasCompletedOnboarding: vi.fn(async () => false),

@@ -30,7 +30,7 @@ import { recoverOrphanedKakaoAccount } from "@/lib/server/orphanedKakaoAccount";
 import { authenticatePasswordAccount } from "@/lib/server/passwordAccount";
 import {
   AGE_ELIGIBILITY_COOKIE,
-  verifyAgeEligibilityToken,
+  canAccessMinimumAgeService,
 } from "@/lib/ageEligibility";
 import {
   authenticateLocalDevAccount,
@@ -163,7 +163,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
       // 화면만 숨기는 것으로는 Auth.js 엔드포인트 직접 호출을 막을 수 없으므로,
       // 모든 실제 로그인 callback에서 서버 서명 연령 확인을 다시 검증한다.
       if (
-        !verifyAgeEligibilityToken(
+        !canAccessMinimumAgeService(
           cookieStore.get(AGE_ELIGIBILITY_COOKIE)?.value,
           process.env.AUTH_SECRET,
         )

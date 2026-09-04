@@ -34,6 +34,8 @@ describe("대문 로그인 선택지", () => {
     expect(html).toContain('href="/licenses"');
     expect(html).toContain('href="/game-info"');
     expect(html).toContain("게임 등급정보");
+    expect(html).toContain('href="/notices/minimum-age-policy"');
+    expect(html).toContain("만 14세 이상 서비스 기준 변경 안내");
     expect(html).not.toContain("함께한 모험가");
     expect(html).not.toContain("접속 중");
   });

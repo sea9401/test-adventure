@@ -4,7 +4,7 @@ import { CHAT_RETENTION_DAYS } from "@/lib/chat-config";
 import { FEED_RETENTION_DAYS } from "@/lib/feed-config";
 import { RETENTION_POLICY } from "@/lib/server/retentionPolicy";
 
-const EFFECTIVE_DATE = "2026년 9월 4일";
+const EFFECTIVE_DATE = "2026년 10월 4일";
 
 export const metadata: Metadata = {
   title: "개인정보처리방침 — 무슨무슨게임",

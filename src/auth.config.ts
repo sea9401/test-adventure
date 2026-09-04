@@ -3,7 +3,7 @@ import Kakao from "next-auth/providers/kakao";
 import { AUTH_LOGOUT_GUARD_COOKIE } from "@/lib/authSessionConfig";
 import {
   AGE_ELIGIBILITY_COOKIE,
-  verifyAgeEligibilityToken,
+  canAccessMinimumAgeService,
 } from "@/lib/ageEligibility";
 
 export const PUBLIC_PATHS = [
@@ -15,6 +15,7 @@ export const PUBLIC_PATHS = [
   "/operations",   // 운영정책
   "/licenses",     // 오픈소스 고지
   "/game-info",    // 게임 등급정보 — 로그인·연령 확인 전에도 공개
+  "/notices/minimum-age-policy", // 만 14세 이상 서비스 기준 변경 사전 공지
   "/robots.txt",   // 검색 로봇 수집 규칙
   "/sitemap.xml",  // 공개 대문·게임 가이드 URL 목록
   "/api/auth",     // Auth.js OAuth 콜백 — Proxy 통과 필수
@@ -71,7 +72,7 @@ export const authConfig: NextAuthConfig = {
         request.nextUrl.pathname,
         !!auth?.user,
         request.cookies.has(AUTH_LOGOUT_GUARD_COOKIE),
-        verifyAgeEligibilityToken(
+        canAccessMinimumAgeService(
           request.cookies.get(AGE_ELIGIBILITY_COOKIE)?.value,
           process.env.AUTH_SECRET,
         ),

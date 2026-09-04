@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { hasCompletedOnboarding } from "@/lib/server/profile";
-import { hasValidAgeEligibilityCookie } from "@/lib/server/ageEligibility";
+import { hasMinimumAgeServiceAccess } from "@/lib/server/ageEligibility";
 import { CreateCharacterPageContents } from "./CreateCharacterPageContents";
 
 export const metadata: Metadata = {
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 // server component 로 두고 client boundary 는 CreateCharacterPageContents 가 명시
 // (SaveProvider/STARTER_SAVES 의 client hook chain 이 server build graph 로 끌려오는 것 회피).
 export default async function CreatePage() {
-  if (!(await hasValidAgeEligibilityCookie())) {
+  if (!(await hasMinimumAgeServiceAccess())) {
     redirect("/sign-in?age=required");
   }
 

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PolicyDocument } from "@/components/PolicyDocument";
 
-const EFFECTIVE_DATE = "2026년 9월 4일";
+const EFFECTIVE_DATE = "2026년 10월 4일";
 
 export const metadata: Metadata = {
   title: "이용약관 — 무슨무슨게임",
@@ -139,7 +139,7 @@ export default function TermsPage() {
 
       <section>
         <h2>부칙</h2>
-        <p>이 약관은 2026년 9월 4일부터 시행합니다.</p>
+        <p>이 약관은 2026년 10월 4일부터 시행합니다.</p>
       </section>
     </PolicyDocument>
   );

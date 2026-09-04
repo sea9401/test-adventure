@@ -15,7 +15,7 @@ vi.mock("@/lib/server/adminImpersonation", () => ({
   readAdminImpersonationFor: mocks.impersonation,
 }));
 vi.mock("@/lib/server/ageEligibility", () => ({
-  hasValidAgeEligibilityCookie: vi.fn(async () => mocks.ageEligible),
+  hasMinimumAgeServiceAccess: vi.fn(async () => mocks.ageEligible),
 }));
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({

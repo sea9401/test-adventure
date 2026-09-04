@@ -27,6 +27,7 @@ describe("출시 OAuth provider 설정", () => {
         "/operations",
         "/licenses",
         "/game-info",
+        "/notices/minimum-age-policy",
         "/api/age-eligibility",
       ]),
     );
@@ -54,6 +55,14 @@ describe("출시 OAuth provider 설정", () => {
     expect(isAuthorizedRequest("/api/v2/me/state", true, false, false)).toBe(false);
     expect(isAuthorizedRequest("/terms", true, false, false)).toBe(true);
     expect(isAuthorizedRequest("/game-info", false, false, false)).toBe(true);
+    expect(
+      isAuthorizedRequest(
+        "/notices/minimum-age-policy",
+        false,
+        false,
+        false,
+      ),
+    ).toBe(true);
   });
 
   it("Auth.js 로그인 시작과 callback 직접 호출도 연령 확인 전에 막는다", () => {

@@ -94,6 +94,20 @@ export function LandingContent({
             </p>
 
             <div className="mt-8 flex w-full flex-col items-center gap-3">
+              <Link
+                href="/notices/minimum-age-policy"
+                className="w-full max-w-xs rounded-lg border border-amber-300/30 bg-zinc-950 px-4 py-3 text-left transition-colors hover:border-amber-300/60"
+              >
+                <span className="block text-[10px] font-semibold uppercase tracking-wider text-amber-300">
+                  운영 안내
+                </span>
+                <span className="mt-1 block text-xs font-medium text-zinc-100">
+                  만 14세 이상 서비스 기준 변경 안내
+                </span>
+                <span className="mt-1 block text-[10px] text-zinc-400">
+                  2026년 10월 4일 시행 · 자세히 보기
+                </span>
+              </Link>
               {authError && (
                 <p
                   role="alert"

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { shouldStartLocalDevAutoLogin } from "@/lib/server/localDevAutoLogin";
 import { hasCompletedOnboarding } from "@/lib/server/profile";
-import { hasValidAgeEligibilityCookie } from "@/lib/server/ageEligibility";
+import { hasMinimumAgeServiceAccess } from "@/lib/server/ageEligibility";
 import { LandingContent } from "./LandingContent";
 
 export const metadata: Metadata = {
@@ -47,7 +47,7 @@ export default async function SignInPage({
   // (hasCompletedOnboarding)이라야 / ↔ /sign-in 무한 리다이렉트가 안 생긴다.
   const params = await searchParams;
   const error = Array.isArray(params.error) ? params.error[0] : params.error;
-  const ageConfirmed = await hasValidAgeEligibilityCookie();
+  const ageConfirmed = await hasMinimumAgeServiceAccess();
   const session = await auth();
   if (
     ageConfirmed &&

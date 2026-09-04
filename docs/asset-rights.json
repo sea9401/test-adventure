@@ -4277,6 +4277,26 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/products/museun-coin-1000.svg",
+      "sha256": "91e5dfa919158ce7797e06c97c896ef19e5db44bb0be6e5f2394a178bc21d738",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/products/museun-coin-2000.svg",
+      "sha256": "2c476feb9372373a397f6e8ce1f0a83b379af35356f118b584304a3292983e71",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/products/museun-coin-3000.svg",
+      "sha256": "3a24289517392306999e99728da61eaaf46d010aa352d1f09840235f507038a8",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/products/museun-coin-5000.svg",
+      "sha256": "f6142779889947854db42c744081c2101d34b87b0729c0db3581beb6ef3aaf8f",
+      "source": "repository-authored-vector"
+    },
+    {
       "path": "public/images/rating/12-plus.webp",
       "sha256": "d1b8852fd894409abfa6835ad2e47432c55de28d0c46468640a6944718fece36",
       "source": "official-gcrb-rating-marks"

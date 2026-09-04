@@ -288,13 +288,46 @@ describe("production security surface", () => {
       /level-design-sim-tests:[\s\S]*?run: npx vitest run src\/adventure\/data\/v2\/levelDesignSim\.test\.ts --maxWorkers=1/,
     );
     expect(workflow).toContain(
-      "needs: [static-checks, unit-tests, level-design-sim-tests, production-build, browser-e2e]",
+      "needs: [static-checks, production-audit, unit-tests, level-design-sim-tests, production-build, browser-e2e]",
     );
     expect(workflow).toContain(
       "LEVEL_DESIGN_SIM_TESTS_RESULT: ${{ needs.level-design-sim-tests.result }}",
     );
     expect(workflow).toContain(
       'test "$LEVEL_DESIGN_SIM_TESTS_RESULT" = "success"',
+    );
+  });
+
+  it("의존성 설치의 중복 감사를 끄고 GitHub DB에서 운영 의존성만 별도로 검사한다", () => {
+    const workflow = source(join(ROOT, ".github/workflows/ci.yml"));
+    const installCommands = [...workflow.matchAll(/run: (npm ci[^\n]*)/g)].map(
+      ([, command]) => command.trim(),
+    );
+
+    expect(installCommands.length).toBeGreaterThan(0);
+    expect(installCommands).toEqual(
+      installCommands.map(() => "npm ci --no-audit --prefer-offline"),
+    );
+    expect(workflow).toMatch(
+      /production-audit:[\s\S]*?GITHUB_TOKEN: \$\{\{ github\.token \}\}[\s\S]*?run: node scripts\/check-production-advisories\.mjs/,
+    );
+    expect(workflow).not.toContain("npm audit");
+    expect(workflow).toContain(
+      "needs: [static-checks, production-audit, unit-tests, level-design-sim-tests, production-build, browser-e2e]",
+    );
+    expect(workflow).toContain(
+      "PRODUCTION_AUDIT_RESULT: ${{ needs.production-audit.result }}",
+    );
+    expect(workflow).toContain(
+      'test "$PRODUCTION_AUDIT_RESULT" = "success"',
+    );
+  });
+
+  it("깨끗한 체크아웃의 전체 타입 검사가 Node 기본 힙에 막히지 않는다", () => {
+    const workflow = source(join(ROOT, ".github/workflows/ci.yml"));
+
+    expect(workflow).toMatch(
+      /- name: Typecheck \(tsc --noEmit\)\s+env:\s+NODE_OPTIONS: --max-old-space-size=4096\s+run: npx tsc --noEmit/,
     );
   });
 

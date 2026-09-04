@@ -7,6 +7,11 @@ import {
   PROFILE_BADGE_STAND_PRICE,
 } from "@/adventure/profile/profileShowcase";
 
+const coinMocks = vi.hoisted(() => ({
+  getBalance: vi.fn(),
+  spend: vi.fn(),
+}));
+
 vi.mock("@/db", () => ({
   db: {
     transaction: vi.fn(async (callback: (tx: object) => unknown) =>
@@ -22,6 +27,10 @@ vi.mock("@/lib/server/museunCoinShopAccess", () => ({
 }));
 vi.mock("@/lib/server/userRateLimit", () => ({
   enforceUserAndIpRateLimit: vi.fn(() => null),
+}));
+vi.mock("@/lib/server/museunCoinAccount", () => ({
+  getMuseunCoinBalance: coinMocks.getBalance,
+  spendMuseunCoins: coinMocks.spend,
 }));
 vi.mock("@/lib/server/savesKv", () => ({
   lockSaveForUpdate: vi.fn(),
@@ -57,6 +66,34 @@ beforeEach(() => {
   saves.set("character.v2", { cashItems: { chroma_name_box: 2 } });
   saves.set(GROWTH_LEAP_SAVE_KEY, {});
   saves.set(STAMINA_POTIONS_KEY, { count: 0, boundCount: 0 });
+  coinMocks.getBalance.mockImplementation(async () => {
+    const raw = saves.get(MUSEUN_COIN_WALLET_KEY) as { coins?: number };
+    const coins = raw?.coins ?? 0;
+    return { coins, freeCoins: coins, paidCoins: 0 };
+  });
+  coinMocks.spend.mockImplementation(async (_tx, input: { coins: number }) => {
+    const raw = saves.get(MUSEUN_COIN_WALLET_KEY) as { coins?: number };
+    const coins = raw?.coins ?? 0;
+    if (coins < input.coins) {
+      return {
+        ok: false as const,
+        error: "insufficient_coins" as const,
+        coins,
+        spendableCoins: coins,
+        requiredCoins: input.coins,
+      };
+    }
+    const next = coins - input.coins;
+    saves.set(MUSEUN_COIN_WALLET_KEY, { coins: next });
+    return {
+      ok: true as const,
+      coins: next,
+      freeCoins: next,
+      paidCoins: 0,
+      ledgerId: 1,
+      duplicate: false as const,
+    };
+  });
   vi.mocked(readSave).mockImplementation(
     async (_db, _userId, key, fallback) => saves.get(key) ?? fallback,
   );
@@ -109,11 +146,30 @@ describe("무슨 코인 상점 일괄 구매", () => {
       coins: 1_500,
       cashItems: { chroma_name_box: 7 },
     });
-    expect(upsertSave).toHaveBeenCalledWith(
+    expect(coinMocks.spend).toHaveBeenCalledWith(
       expect.anything(),
-      "u-buyer",
-      MUSEUN_COIN_WALLET_KEY,
-      { coins: 1_500 },
+      expect.objectContaining({
+        userId: "u-buyer",
+        coins: 1_500,
+        kind: "shop_purchase",
+        sourceId: "chroma_name_box",
+      }),
+    );
+  });
+
+  it("클라이언트 구매 ID를 코인 원장 멱등 키로 사용한다", async () => {
+    const response = await POST(
+      request({
+        itemId: "rename_permit",
+        quantity: 1,
+        purchaseId: "purchase_12345678",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(coinMocks.spend).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ eventKey: "shop:purchase_12345678" }),
     );
   });
 

@@ -7,7 +7,15 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { Check, Copy, Gift, ShareNetwork, UserPlus } from "@phosphor-icons/react";
+import {
+  Check,
+  Copy,
+  Gift,
+  ShareNetwork,
+  UserPlus,
+  WarningCircle,
+} from "@phosphor-icons/react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -187,6 +195,33 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
             <p className="mt-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
               링크로 합류한 친구와 나는 가입 완료 시 회복약 2개씩 받고,
               친구가 사냥·길드·생활 단계를 완료할 때마다 둘 다 추가 보상을 받습니다.
+            </p>
+          </div>
+        </div>
+
+        <div className={`${SURFACE_INSET} flex items-start gap-2.5 p-3`}>
+          <WarningCircle
+            size={19}
+            weight="fill"
+            className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-300"
+          />
+          <div className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+            <p className="font-semibold text-zinc-800 dark:text-zinc-100">
+              홍보 전에 확인해 주세요
+            </p>
+            <p className="mt-1">
+              홍보가 허용된 공간에 게시하거나 공유에 동의한 사람에게만
+              링크를 보내세요. 무단 광고·도배와 수신거부 후 재전송은
+              금지됩니다. 외부 공유는 참여자 개인의 활동이며 운영사가
+              수신자를 정하거나 메시지를 직접 발송하지 않습니다. 2026년
+              10월 4일부터 위반 홍보는 보상 회수 또는 이용 제한 대상이 될
+              수 있습니다.{" "}
+              <Link
+                href="/operations"
+                className="font-semibold text-amber-700 underline underline-offset-2 dark:text-amber-300"
+              >
+                운영정책 보기
+              </Link>
             </p>
           </div>
         </div>

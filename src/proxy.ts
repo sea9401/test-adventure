@@ -124,8 +124,10 @@ export default auth((req) => {
 
   const isCoinShopRoute =
     req.nextUrl.pathname === "/settings/coin-shop" ||
+    req.nextUrl.pathname.startsWith("/settings/coin-shop/") ||
     req.nextUrl.pathname === "/api/v2/museun-coin-shop" ||
-    req.nextUrl.pathname.startsWith("/api/v2/museun-coin-shop/");
+    req.nextUrl.pathname.startsWith("/api/v2/museun-coin-shop/") ||
+    req.nextUrl.pathname.startsWith("/api/v2/museun-coin-payments");
   if (
     isCoinShopRoute &&
     !canPassMuseunCoinShopProxy(req.auth?.user, process.env)

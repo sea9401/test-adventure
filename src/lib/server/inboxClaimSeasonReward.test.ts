@@ -12,12 +12,14 @@ const {
   lockTradeParticipantStatuses,
   TradeSuspendedError,
   tradeState,
+  grantFreeMuseunCoins,
 } = vi.hoisted(() => {
   class TradeSuspendedError extends Error {}
   const tradeState = { restricted: false };
   return {
     TradeSuspendedError,
     tradeState,
+    grantFreeMuseunCoins: vi.fn(),
     savesStore: new Map<string, unknown>(),
     inboxRows: [] as Record<string, unknown>[],
     saveSelectRows: [] as Record<string, unknown>[],
@@ -62,6 +64,9 @@ vi.mock("@/lib/server/savesKv", () => ({
     async (_tx: unknown, u: string, key: string, fallback: unknown) =>
       savesStore.get(`${u}::${key}`) ?? fallback,
   ),
+}));
+vi.mock("@/lib/server/museunCoinAccount", () => ({
+  grantFreeMuseunCoins,
 }));
 vi.mock("@/db", async () => {
   const { marketplaceInbox, savesKv } = await import("@/db/schema");
@@ -114,6 +119,15 @@ beforeEach(() => {
   inboxUpdates.length = 0;
   tradeState.restricted = false;
   vi.clearAllMocks();
+  grantFreeMuseunCoins.mockImplementation(
+    async (_tx: unknown, input: { userId: string; coins: number }) => {
+      const key = `${input.userId}::museun-coin-wallet.v1`;
+      const previous = savesStore.get(key) as { coins?: number } | undefined;
+      const coins = (previous?.coins ?? 0) + input.coins;
+      savesStore.set(key, { coins });
+      return { coins, freeCoins: coins, paidCoins: 0, duplicate: false };
+    },
+  );
 });
 
 describe("inbox claim — season_reward → 코인 지갑", () => {
@@ -321,6 +335,16 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(j.claimed).toEqual([1]);
     expect(j.museunCoinsAdded).toBe(800);
     expect(j.museunCoins).toBe(800);
+    expect(grantFreeMuseunCoins).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        userId: "u1",
+        coins: 800,
+        eventKey: "inbox-claim:u1:1:museun-coins",
+        kind: "inbox_reward",
+        sourceId: "1",
+      }),
+    );
     expect(j.cashItemsAdded).toEqual([
       { itemId: "rename_permit", count: 2 },
       { itemId: "adventure_support_30d", count: 1 },

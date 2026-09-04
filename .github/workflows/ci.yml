@@ -25,7 +25,7 @@ jobs:
           node-version: 20
           cache: npm
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --prefer-offline
       - name: Secret leak guard
         run: npm run check-secrets
       - name: Immutable workflow action references
@@ -41,12 +41,27 @@ jobs:
       - name: Large module no-growth budgets
         run: npm run check-module-budgets
       - name: Typecheck (tsc --noEmit)
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npx tsc --noEmit
       # ESLint — 에러 시 실패(경고는 비차단). 린트 부채 누적 방지 게이트.
       - name: Lint (eslint)
         run: npm run lint
+
+  # npm ci의 반복 감사를 끄고 운영 lockfile은 npm 권고도 수집하는 GitHub의
+  # Advisory Database에서 한 번 검사한다. 레지스트리 감사 API 장애와 설치를 피한다.
+  production-audit:
+    name: Production dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 20
       - name: Production dependency audit
-        run: npm audit --omit=dev --audit-level=moderate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-production-advisories.mjs
 
   unit-tests:
     name: Unit tests (${{ matrix.shard }}/3)
@@ -62,7 +77,7 @@ jobs:
           node-version: 20
           cache: npm
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --prefer-offline
       # 장시간 결정적 시뮬레이션은 별도 단일-worker 잡에서 검증한다. 나머지는 세
       # runner에 결정적으로 나눠 전체 테스트를 유지하면서 임계 경로를 줄인다.
       - name: Tests (vitest)
@@ -78,7 +93,7 @@ jobs:
           node-version: 20
           cache: npm
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --prefer-offline
       - name: Deterministic level design simulation
         run: npx vitest run src/adventure/data/v2/levelDesignSim.test.ts --maxWorkers=1
 
@@ -92,7 +107,7 @@ jobs:
           node-version: 20
           cache: npm
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --prefer-offline
       - name: Production build
         env:
           # 운영 배포가 요청한 전체 SHA와 클라이언트 번들의 버전 식별자를 일치시킨다.
@@ -161,7 +176,7 @@ jobs:
           node-version: 20
           cache: npm
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --prefer-offline
       - name: Verify Playwright image and package versions match
         run: test "$(node -p "require('@playwright/test/package.json').version")" = "1.62.0"
       - name: Migrate and seed browser E2E database
@@ -187,18 +202,20 @@ jobs:
   check:
     name: check
     if: ${{ always() }}
-    needs: [static-checks, unit-tests, level-design-sim-tests, production-build, browser-e2e]
+    needs: [static-checks, production-audit, unit-tests, level-design-sim-tests, production-build, browser-e2e]
     runs-on: ubuntu-latest
     steps:
       - name: Require every CI lane to pass
         env:
           STATIC_CHECKS_RESULT: ${{ needs.static-checks.result }}
+          PRODUCTION_AUDIT_RESULT: ${{ needs.production-audit.result }}
           UNIT_TESTS_RESULT: ${{ needs.unit-tests.result }}
           LEVEL_DESIGN_SIM_TESTS_RESULT: ${{ needs.level-design-sim-tests.result }}
           PRODUCTION_BUILD_RESULT: ${{ needs.production-build.result }}
           BROWSER_E2E_RESULT: ${{ needs.browser-e2e.result }}
         run: |
           test "$STATIC_CHECKS_RESULT" = "success"
+          test "$PRODUCTION_AUDIT_RESULT" = "success"
           test "$UNIT_TESTS_RESULT" = "success"
           test "$LEVEL_DESIGN_SIM_TESTS_RESULT" = "success"
           test "$PRODUCTION_BUILD_RESULT" = "success"

@@ -177,7 +177,7 @@ export function V2SettingsMenu() {
             </li>
             <li>
               <Link
-                href="/game-info"
+                href="/game-info?from=game"
                 target="_blank"
                 rel="noreferrer"
                 onClick={() => setOpen(false)}

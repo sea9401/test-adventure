@@ -26,7 +26,7 @@ describe("게임 메뉴 등급정보 링크", () => {
     fireEvent.click(screen.getByRole("button", { name: "메뉴" }));
 
     const link = screen.getByRole("link", { name: "게임 등급정보" });
-    expect(link.getAttribute("href")).toBe("/game-info");
+    expect(link.getAttribute("href")).toBe("/game-info?from=game");
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toContain("noreferrer");
   });

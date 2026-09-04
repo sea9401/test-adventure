@@ -90,8 +90,14 @@ rate limit / scanner block과 `www.msmsge.com` → `https://msmsge.com` 301 리�
 git revert <나쁜커밋sha>
 git push
 # 되돌린 main SHA의 CI와 production-next-<SHA> 준비 확인
-# GitHub Actions → Deploy to EC2 → deploy_sha에 전체 40자리 SHA 입력
+# GitHub Actions → Deploy to EC2 → deploy_sha와 내용수정 검토 입력
 ```
+
+`content_modification_status`는 `not-applicable`(게임 내용 변경 없음),
+`technical-only`(게임 내용 변경 없는 기술적 보완), `reported`(내용수정신고 접수) 중
+하나를 고르고 판단 근거를 `content_modification_summary`에 적는다. `reported`이면
+접수번호 또는 신고 기록 위치도 반드시 입력한다. 이 검토가 끝나지 않으면 아티팩트 확인과
+운영 서버 전송을 시작하지 않는다.
 
 **B. 긴급(사이트 지금 죽음·즉시)** — EC2 에서 직전 정상 커밋으로 로컬 롤백:
 ```bash

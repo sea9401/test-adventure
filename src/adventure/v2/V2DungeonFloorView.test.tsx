@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   LevelUpTutorialTitle,
   RareMapProgressNotice,
+  UnexploredHuntSummaryPanel,
   V2DungeonFloorView,
 } from "./V2DungeonFloorView";
 import { newRareMapInstance } from "@/adventure/data/v2/rareMaps";
@@ -61,5 +62,73 @@ describe("희귀 탐사 일반 사냥터 복귀", () => {
     expect(html).toContain("보상 4회분");
     expect(html).toContain("30분 동안 개방");
     expect(html).toContain("남은 시간 30:00");
+  });
+});
+
+describe("미개척지 사냥 화면", () => {
+  const summary = {
+    difficulty: 105,
+    encounterShares: [
+      { kind: "base" as const, share: 50 },
+      { kind: "pool" as const, poolId: "iron_legion" as const, share: 50 },
+    ],
+    rewardPct: {
+      gold: 10,
+      baseMaterial: 20,
+      equipment: 20,
+      quality: 0,
+      specialMaterial: 35,
+      rare: 0,
+    },
+    rareCopyChancePct: 20,
+    traceEnabled: true,
+    traceExtraChancePct: 10,
+  };
+
+  it("shows server-derived difficulty, pool shares, rewards, and trace status", () => {
+    const html = renderToStaticMarkup(
+      <UnexploredHuntSummaryPanel summary={summary} />,
+    );
+    expect(html).toContain("난이도 105");
+    expect(html).toContain("기본 몬스터 50%");
+    expect(html).toContain("철갑 군단 50%");
+    expect(html).toContain("특화 재료 +35%");
+    expect(html).toContain("흔적 획득 활성");
+    expect(html).toContain("우두머리 계열 특화 몬스터 처치 시 1개");
+  });
+
+  it("흔적 획득이 비활성이면 필요한 탐사망 노드를 안내한다", () => {
+    const html = renderToStaticMarkup(
+      <UnexploredHuntSummaryPanel
+        summary={{ ...summary, traceEnabled: false, traceExtraChancePct: 0 }}
+      />,
+    );
+
+    expect(html).toContain("흔적 획득 비활성");
+    expect(html).toContain("우두머리의 흔적 노드를 활성화해야 획득할 수 있습니다.");
+  });
+
+  it("hides rare-map and offline controls in unexplored mode", () => {
+    const html = renderToStaticMarkup(
+      <V2DungeonFloorView
+        floorId={105}
+        huntMode="unexplored"
+        unexploredSummary={summary}
+        outpostId="outpost-1"
+        outpostName="전용 사냥터"
+        playerName="모험가"
+        playerGender="male"
+        stamina={{ current: 100, lastUpdatedAt: 0 }}
+        setStamina={vi.fn()}
+        onBack={vi.fn()}
+        rareMapIid="must-be-hidden"
+        onReturnToNormalHunt={vi.fn()}
+      />,
+    );
+    expect(html).toContain("미개척지 · 난이도 105");
+    expect(html).not.toContain("희귀 탐사 진행 중");
+    expect(html).not.toContain("일반 사냥터로");
+    expect(html).not.toContain("희귀 탐사맵 발견 시");
+    expect(html).not.toContain("오프라인 사냥");
   });
 });

@@ -23,7 +23,7 @@ describe("EquipmentCardGrid", () => {
     expect(html).toContain("focus-visible:ring-violet-500");
   });
 
-  it("판매 선택은 불투명 장미색으로 표시하고 희귀도 표식을 유지한다", () => {
+  it("판매 선택은 다크 모드에서 중립 표면과 장미색 강조를 사용하고 희귀도 표식을 유지한다", () => {
     const html = renderToStaticMarkup(
       <EquipmentCardGrid
         cards={[
@@ -43,7 +43,9 @@ describe("EquipmentCardGrid", () => {
 
     expect(html).toContain("ui-item-rarity-t1");
     expect(html).toContain("bg-rose-50");
-    expect(html).toContain("dark:bg-rose-950");
+    expect(html).toContain("dark:bg-zinc-900");
+    expect(html).toContain("dark:border-rose-500");
+    expect(html).not.toContain("dark:bg-rose-950");
     expect(html).toContain('aria-pressed="true"');
   });
 

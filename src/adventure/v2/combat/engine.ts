@@ -198,6 +198,7 @@ import {
   markForcedActionMainLog,
   mergeTier7ResourceSnapshot,
   type BattleBuffs,
+  type BossMechanicContext,
   type BattleLogEntry,
   type BattleOutcome,
   type BattleStacks,
@@ -212,6 +213,8 @@ export {
 } from "./engineState";
 export type {
   BattleBuffs,
+  BossMechanicBattleState,
+  BossMechanicContext,
   BattleFlags,
   BattleLogEntry,
   BattleOutcome,
@@ -1774,6 +1777,8 @@ export type ResolveContext = {
   initialEnemyHp?: number;
   /** 적 처치로 끝내지 않고 실제 판정 피해를 누적하는 토벌전 전용 계측 모드. */
   damageMeter?: { continueAfterDefeat: true; refillHp: number };
+  /** 선택적 보스 전용 자동 전투 기믹과 세션에서 이어받은 시작 상태. */
+  bossMechanic?: BossMechanicContext;
 };
 
 // 보스 전투 타임아웃 — 플레이어 턴 기준. 정상 빌드는 10~30턴 안에 끝나므로
@@ -2086,6 +2091,7 @@ export function applyEnemyV2SkillCast(
     nextLog = appendLog(nextLog, {
       kind: "enemy_attack",
       text: `${result.castSkillName}! ${enemySkillDamageToHp} 피해를 입혔다.`,
+      enemyHpDamage: enemySkillDamageToHp,
     });
     const survival = applyBerserkerHostileDamage(
       { ...state, playerHp: nextPlayerHp, log: nextLog },
@@ -3048,6 +3054,10 @@ export function applyPlayerV2SkillCast(
       nextLog = appendLog(nextLog, {
         kind: "player_attack",
         text: `${result.castSkillName}!${skillCritFired ? " [치명타]" : ""} ${hit} 피해를 입혔다.`,
+        directHits: 1,
+        ...(state.bossMechanic?.kind === "skyward_crystal_eye"
+          ? { criticalDirectHits: skillCritFired ? 1 : 0 }
+          : {}),
       });
     }
   }
@@ -4367,6 +4377,7 @@ function resolveBattleLegacy(
           nextLog = appendLog(nextLog, {
             kind: "enemy_attack",
             text: `${result.castSkillName}! ${enemySkillDamageToHp} 피해를 입혔다.`,
+            enemyHpDamage: enemySkillDamageToHp,
           });
           const survival = applyBerserkerHostileDamage(
             { ...state, playerHp: nextPlayerHp, log: nextLog },

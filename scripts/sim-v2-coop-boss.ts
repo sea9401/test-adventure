@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 import {
   COOP_ATTACK_TURNS,
   COOP_BOSSES,
-  COOP_BOSS_KIND_IDS,
+  STANDARD_COOP_BOSS_KIND_IDS,
   coopBossForBattle,
   type CoopBossKindId,
 } from "../src/adventure/data/v2/coopBosses";
@@ -20,6 +20,12 @@ import {
 } from "../src/adventure/v2/combat/engine";
 import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import {
+  initialInvincibleFortressState,
+  INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS,
+} from "../src/adventure/v2/combat/invincibleFortressMechanic";
+import { initialSkywardCrystalEyeState } from "../src/adventure/v2/combat/skywardCrystalEyeMechanic";
+import { initialImmortalBerserkerState } from "../src/adventure/v2/combat/immortalBerserkerMechanic";
+import {
   buildLevelDesignProgressionSnapshot,
   LEVEL_DESIGN_ARCHETYPES,
   type LevelDesignArchetype,
@@ -30,20 +36,61 @@ const DEFAULT_SEED = 20260809;
 const HARD_BOSS_DEPTH = 78;
 const HARD_BOSS_CAREER_WINS = 500_000;
 const HARD_BOSS_ENHANCE_LEVEL = 12;
+// 개인 보스의 추적 수치는 사망 뒤에도 유지된다. 한 표본을 연속 공격 30회로 묶어
+// 단발 전투가 아니라 실제 세션에서의 발동 빈도와 피해를 측정한다.
+const TRACKING_SESSION_ATTACKS_PER_TRIAL = 30;
 
 export type CoopBossTrialAudit = {
   survived: boolean;
+  survivalTicks: number;
   playerHpRatio: number;
   damageDealt: number;
   contributionRatio: number;
+  trackingCounterCount: number;
+  trackingCounterDamageRatioPerTrigger: number;
+  toxicExplosionCount: number;
+  toxicDamageRatio: number;
+  completedPlayerActions: number;
+  glacialFreezeCount: number;
+  glacialSkippedActionCount: number;
+  fortressEnrageTiers: number[];
+  fortressBarrierDamageRatios: number[];
+  fortressFirstMaxEnrageNormalHitRatio: number;
+  crystalEyeArtilleryStacks: number[];
+  crystalEyeArtilleryPowerPcts: number[];
+  crystalEyeArtilleryDamageRatios: number[];
+  immortalRevivalCount: number;
+  immortalRegenerationCount: number;
+  immortalBodyDamage: number;
+  immortalHealing: number;
+  immortalNetProgress: number;
 };
 
 export type CoopBossBuildAudit = {
   arch: LevelDesignArchetype;
   survivalRatePct: number;
   medianPlayerHpRatio: number;
+  medianSurvivalTicks: number;
   medianContributionRatio: number;
   p95ContributionRatio: number;
+  medianTrackingCounterCount: number;
+  medianTrackingCounterDamageRatioPerTrigger: number;
+  medianToxicExplosionCount: number;
+  medianToxicDamageRatio: number;
+  medianCompletedPlayerActions: number;
+  medianGlacialFreezeCount: number;
+  medianGlacialSkippedActionCount: number;
+  medianFortressEnrageTier: number;
+  medianFortressBarrierDamageRatio: number;
+  maxFortressFirstNormalHitRatio: number;
+  medianCrystalEyeArtilleryStacks: number;
+  medianCrystalEyeArtilleryPowerPct: number;
+  medianCrystalEyeArtilleryDamageRatio: number;
+  medianRevivalCount: number;
+  medianRegenerationCount: number;
+  medianBodyDamage: number;
+  medianHealing: number;
+  medianNetProgress: number;
 };
 
 export type CoopBossAudit = {
@@ -52,6 +99,25 @@ export type CoopBossAudit = {
   medianSurvivalRatePct: number;
   medianContributionRatio: number;
   p95ContributionRatio: number;
+  medianTrackingCounterCount: number;
+  medianTrackingCounterDamageRatioPerTrigger: number;
+  medianSurvivalTicks: number;
+  medianToxicExplosionCount: number;
+  medianToxicDamageRatio: number;
+  medianCompletedPlayerActions: number;
+  medianGlacialFreezeCount: number;
+  medianGlacialSkippedActionCount: number;
+  medianFortressEnrageTier: number;
+  medianFortressBarrierDamageRatio: number;
+  maxFortressFirstNormalHitRatio: number;
+  medianCrystalEyeArtilleryStacks: number;
+  medianCrystalEyeArtilleryPowerPct: number;
+  medianCrystalEyeArtilleryDamageRatio: number;
+  medianRevivalCount: number;
+  medianRegenerationCount: number;
+  medianBodyDamage: number;
+  medianHealing: number;
+  medianNetProgress: number;
 };
 
 function mulberry32(seed: number): () => number {
@@ -130,45 +196,243 @@ export function auditCoopBossForPlayer(args: {
   const { monster } = coopBossForBattle(kind, kind.sharedMaxHp);
   const audits: CoopBossTrialAudit[] = [];
 
-  setBattleLogCollection(false);
+  // 보스 전용 기믹은 문자열을 파싱하지 않고 공격 로그의 정형 메타데이터를 행동 묶음에서
+  // 읽는다. 해당 보스들만 로그 수집을 유지해 실제 서버 전투와 같은 판정을 쓴다.
+  setBattleLogCollection(
+    bossId === "tracking_weapon" ||
+      bossId === "toxic_blood_lord" ||
+      bossId === "glacial_colossus" ||
+      bossId === "invincible_fortress" ||
+      bossId === "skyward_crystal_eye" ||
+      bossId === "immortal_berserker",
+  );
   try {
     for (let trial = 0; trial < trials; trial += 1) {
-      const result = withSeededRandom(
-        hashSeed(args.seed, bossId, trial),
-        () =>
-          resolveBattle(
-            {
-              ...args.player,
-              hp: args.player.maxHp,
-              mp: args.player.maxMp ?? 0,
-            },
-            monster,
-            "CoopBalanceSim",
-            {
-              pickAction: (state) =>
-                pickAutoAction(state, { rules: [], potions: {} }),
-              potions: {},
-              v2Skills: args.skills,
-              isBoss: true,
-              maxTurns: COOP_ATTACK_TURNS,
-              initialEnemyHp: kind.sharedMaxHp,
-            },
-          ),
-      );
-      const damageDealt = Math.max(
-        0,
-        kind.sharedMaxHp - result.finalState.enemyHp,
-      );
+      const attempts = bossId === "tracking_weapon"
+        ? TRACKING_SESSION_ATTACKS_PER_TRIAL
+        : 1;
+      let trackingThreat = 0;
+      let trackingCounterCount = 0;
+      let trackingCounterDamage = 0;
+      let toxicExplosionCount = 0;
+      let toxicDamageTaken = 0;
+      let completedPlayerActions = 0;
+      let glacialFreezeCount = 0;
+      let glacialSkippedActionCount = 0;
+      const fortressEnrageTiers: number[] = [];
+      const fortressBarrierDamageRatios: number[] = [];
+      let fortressFirstMaxEnrageNormalHitRatio = 0;
+      const crystalEyeArtilleryStacks: number[] = [];
+      const crystalEyeArtilleryPowerPcts: number[] = [];
+      const crystalEyeArtilleryDamageRatios: number[] = [];
+      let immortalRevivalCount = 0;
+      let immortalRegenerationCount = 0;
+      let immortalBodyDamage = 0;
+      let immortalHealing = 0;
+      let damageDealt = 0;
+      let finalPlayerHp = args.player.maxHp;
+      let survivalTicks = 0;
+      for (let attempt = 0; attempt < attempts; attempt += 1) {
+        const result = withSeededRandom(
+          hashSeed(args.seed, bossId, trial, attempt),
+          () =>
+            resolveBattle(
+              {
+                ...args.player,
+                hp: args.player.maxHp,
+                mp: args.player.maxMp ?? 0,
+              },
+              monster,
+              "CoopBalanceSim",
+              {
+                pickAction: (state) =>
+                  pickAutoAction(state, { rules: [], potions: {} }),
+                potions: {},
+                v2Skills: args.skills,
+                isBoss: true,
+                maxTurns: COOP_ATTACK_TURNS,
+                initialEnemyHp: kind.sharedMaxHp,
+                ...(bossId === "tracking_weapon"
+                  ? {
+                      bossMechanic: {
+                        kind: "tracking_weapon" as const,
+                        initialThreat: trackingThreat,
+                      },
+                    }
+                  : bossId === "toxic_blood_lord"
+                    ? {
+                        bossMechanic: {
+                          kind: "toxic_blood_lord" as const,
+                        },
+                      }
+                    : bossId === "glacial_colossus"
+                      ? {
+                          bossMechanic: {
+                            kind: "glacial_colossus" as const,
+                          },
+                        }
+                    : bossId === "invincible_fortress"
+                      ? {
+                          bossMechanic: {
+                            kind: "invincible_fortress" as const,
+                            sharedMaxHp: kind.sharedMaxHp,
+                            initialState: initialInvincibleFortressState(
+                              kind.sharedMaxHp,
+                            ),
+                          },
+                        }
+                    : bossId === "skyward_crystal_eye"
+                      ? {
+                          bossMechanic: {
+                            kind: "skyward_crystal_eye" as const,
+                            sharedMaxHp: kind.sharedMaxHp,
+                            initialState: initialSkywardCrystalEyeState(),
+                          },
+                        }
+                    : bossId === "immortal_berserker"
+                      ? {
+                          bossMechanic: {
+                            kind: "immortal_berserker" as const,
+                            sharedMaxHp: kind.sharedMaxHp,
+                            initialState: initialImmortalBerserkerState(
+                              kind.sharedMaxHp,
+                            ),
+                          },
+                        }
+                    : {}),
+              },
+            ),
+        );
+        damageDealt += Math.max(
+          0,
+          kind.sharedMaxHp - result.finalState.enemyHp,
+        );
+        finalPlayerHp = result.finalState.playerHp;
+        completedPlayerActions += result.turns;
+        survivalTicks = Math.max(
+          survivalTicks,
+          ...result.finalState.log.map((entry) => entry.t ?? 0),
+        );
+        if (result.finalState.bossMechanic?.kind === "tracking_weapon") {
+          trackingThreat = result.finalState.bossMechanic.trackingThreat;
+          trackingCounterCount +=
+            result.finalState.bossMechanic.trackingCounterCount;
+          trackingCounterDamage +=
+            result.finalState.bossMechanic.trackingCounterDamage;
+        }
+        if (result.finalState.bossMechanic?.kind === "toxic_blood_lord") {
+          toxicExplosionCount +=
+            result.finalState.bossMechanic.toxicExplosionCount;
+          toxicDamageTaken += result.finalState.bossMechanic.toxicDamageTaken;
+        }
+        if (result.finalState.bossMechanic?.kind === "glacial_colossus") {
+          const glacial = result.finalState.bossMechanic;
+          const outstandingFreezes =
+            glacial.glacialFreezeCount - glacial.glacialSkippedActionCount;
+          if (
+            outstandingFreezes !== 0 &&
+            !(
+              outstandingFreezes === 1 &&
+              glacial.glacialFreezePending === 1
+            )
+          ) {
+            throw new Error(
+              `invalid glacial freeze accounting: ${glacial.glacialFreezeCount}/${glacial.glacialSkippedActionCount}`,
+            );
+          }
+          glacialFreezeCount += glacial.glacialFreezeCount;
+          glacialSkippedActionCount += glacial.glacialSkippedActionCount;
+        }
+        if (result.finalState.bossMechanic?.kind === "invincible_fortress") {
+          const fortress = result.finalState.bossMechanic;
+          fortressEnrageTiers.push(...fortress.barrierResults);
+          fortressBarrierDamageRatios.push(
+            ...fortress.barrierResults.map(
+              (tier) => INVINCIBLE_FORTRESS_TIER_MIN_DAMAGE_RATIOS[tier],
+            ),
+          );
+          const maxEnrageLogIndex = result.finalState.log.findIndex((entry) =>
+            entry.text.includes("광폭 7단계 적용"),
+          );
+          if (maxEnrageLogIndex >= 0) {
+            const firstNormalHit = result.finalState.log
+              .slice(maxEnrageLogIndex + 1)
+              .find(
+                (entry) =>
+                  entry.kind === "enemy_attack" &&
+                  (entry.enemyHpDamage ?? 0) > 0 &&
+                  entry.heavyBlowFired !== true,
+              );
+            fortressFirstMaxEnrageNormalHitRatio = Math.max(
+              fortressFirstMaxEnrageNormalHitRatio,
+              (firstNormalHit?.kind === "enemy_attack"
+                ? firstNormalHit.enemyHpDamage ?? 0
+                : 0) / Math.max(1, args.player.maxHp),
+            );
+          }
+        }
+        for (const event of result.finalState.skywardCrystalEyeArtilleryEvents ?? []) {
+          crystalEyeArtilleryStacks.push(event.stacks);
+          crystalEyeArtilleryPowerPcts.push(event.powerPct);
+          crystalEyeArtilleryDamageRatios.push(
+            event.damage / Math.max(1, args.player.maxHp),
+          );
+        }
+        if (result.finalState.bossMechanic?.kind === "immortal_berserker") {
+          const immortal = result.finalState.bossMechanic;
+          immortalRevivalCount += immortal.immortalRevivalCount;
+          immortalBodyDamage += immortal.immortalBodyDamage;
+          immortalHealing += immortal.immortalHealing;
+          immortalRegenerationCount += result.finalState.log.filter((entry) =>
+            entry.text.startsWith("재생 +"),
+          ).length;
+        }
+        if (result.finalState.enemyHp <= 0) break;
+      }
+      const trackingCounterDamageRatioPerTrigger =
+        trackingCounterCount > 0
+          ? trackingCounterDamage /
+            trackingCounterCount /
+            Math.max(1, args.player.maxHp)
+          : 0;
       audits.push({
-        survived: result.finalState.playerHp > 0,
+        survived: finalPlayerHp > 0,
+        survivalTicks: assertFinite("survivalTicks", survivalTicks),
         playerHpRatio: assertFinite(
           "playerHpRatio",
-          result.finalState.playerHp / Math.max(1, args.player.maxHp),
+          finalPlayerHp / Math.max(1, args.player.maxHp),
         ),
         damageDealt,
         contributionRatio: assertFinite(
           "contributionRatio",
           damageDealt / kind.sharedMaxHp,
+        ),
+        trackingCounterCount,
+        trackingCounterDamageRatioPerTrigger: assertFinite(
+          "trackingCounterDamageRatioPerTrigger",
+          trackingCounterDamageRatioPerTrigger,
+        ),
+        toxicExplosionCount,
+        toxicDamageRatio: assertFinite(
+          "toxicDamageRatio",
+          toxicDamageTaken / Math.max(1, args.player.maxHp),
+        ),
+        completedPlayerActions,
+        glacialFreezeCount,
+        glacialSkippedActionCount,
+        fortressEnrageTiers,
+        fortressBarrierDamageRatios,
+        fortressFirstMaxEnrageNormalHitRatio,
+        crystalEyeArtilleryStacks,
+        crystalEyeArtilleryPowerPcts,
+        crystalEyeArtilleryDamageRatios,
+        immortalRevivalCount,
+        immortalRegenerationCount,
+        immortalBodyDamage,
+        immortalHealing,
+        immortalNetProgress: Math.max(
+          0,
+          immortalBodyDamage - immortalHealing,
         ),
       });
     }
@@ -187,11 +451,12 @@ function buildAuditForArch(
 ): { build: CoopBossBuildAudit; trials: CoopBossTrialAudit[] } {
   const kind = COOP_BOSSES[bossId];
   const hard = kind.difficulty === "hard";
+  const personalEndgame = kind.rewardMode === "unexplored_personal";
   const snapshot = buildLevelDesignProgressionSnapshot({
     arch,
     depth: hard ? HARD_BOSS_DEPTH : kind.anchorDepth,
     seed,
-    ...(hard
+    ...(hard || personalEndgame
       ? {
           careerWins: HARD_BOSS_CAREER_WINS,
           cultivate: true,
@@ -210,6 +475,12 @@ function buildAuditForArch(
   const survivalRatePct =
     (trialAudits.filter((audit) => audit.survived).length / trialAudits.length) *
     100;
+  const fortressTiers = trialAudits.flatMap(
+    (audit) => audit.fortressEnrageTiers,
+  );
+  const fortressDamageRatios = trialAudits.flatMap(
+    (audit) => audit.fortressBarrierDamageRatios,
+  );
   return {
     build: {
       arch,
@@ -221,6 +492,13 @@ function buildAuditForArch(
           0.5,
         ),
       ),
+      medianSurvivalTicks: assertFinite(
+        "medianSurvivalTicks",
+        percentile(
+          trialAudits.map((audit) => audit.survivalTicks),
+          0.5,
+        ),
+      ),
       medianContributionRatio: assertFinite(
         "medianContributionRatio",
         percentile(contributions, 0.5),
@@ -228,6 +506,139 @@ function buildAuditForArch(
       p95ContributionRatio: assertFinite(
         "p95ContributionRatio",
         percentile(contributions, 0.95),
+      ),
+      medianTrackingCounterCount: assertFinite(
+        "medianTrackingCounterCount",
+        percentile(
+          trialAudits.map((audit) => audit.trackingCounterCount),
+          0.5,
+        ),
+      ),
+      medianTrackingCounterDamageRatioPerTrigger: assertFinite(
+        "medianTrackingCounterDamageRatioPerTrigger",
+        percentile(
+          trialAudits.map(
+            (audit) => audit.trackingCounterDamageRatioPerTrigger,
+          ),
+          0.5,
+        ),
+      ),
+      medianToxicExplosionCount: assertFinite(
+        "medianToxicExplosionCount",
+        percentile(
+          trialAudits.map((audit) => audit.toxicExplosionCount),
+          0.5,
+        ),
+      ),
+      medianToxicDamageRatio: assertFinite(
+        "medianToxicDamageRatio",
+        percentile(
+          trialAudits.map((audit) => audit.toxicDamageRatio),
+          0.5,
+        ),
+      ),
+      medianCompletedPlayerActions: assertFinite(
+        "medianCompletedPlayerActions",
+        percentile(
+          trialAudits.map((audit) => audit.completedPlayerActions),
+          0.5,
+        ),
+      ),
+      medianGlacialFreezeCount: assertFinite(
+        "medianGlacialFreezeCount",
+        percentile(
+          trialAudits.map((audit) => audit.glacialFreezeCount),
+          0.5,
+        ),
+      ),
+      medianGlacialSkippedActionCount: assertFinite(
+        "medianGlacialSkippedActionCount",
+        percentile(
+          trialAudits.map((audit) => audit.glacialSkippedActionCount),
+          0.5,
+        ),
+      ),
+      medianFortressEnrageTier: assertFinite(
+        "medianFortressEnrageTier",
+        percentile(fortressTiers.length > 0 ? fortressTiers : [0], 0.5),
+      ),
+      medianFortressBarrierDamageRatio: assertFinite(
+        "medianFortressBarrierDamageRatio",
+        percentile(
+          fortressDamageRatios.length > 0 ? fortressDamageRatios : [0],
+          0.5,
+        ),
+      ),
+      maxFortressFirstNormalHitRatio: assertFinite(
+        "maxFortressFirstNormalHitRatio",
+        Math.max(
+          0,
+          ...trialAudits.map(
+            (audit) => audit.fortressFirstMaxEnrageNormalHitRatio,
+          ),
+        ),
+      ),
+      medianCrystalEyeArtilleryStacks: assertFinite(
+        "medianCrystalEyeArtilleryStacks",
+        percentile(
+          trialAudits.flatMap((audit) => audit.crystalEyeArtilleryStacks).length > 0
+            ? trialAudits.flatMap((audit) => audit.crystalEyeArtilleryStacks)
+            : [0],
+          0.5,
+        ),
+      ),
+      medianCrystalEyeArtilleryPowerPct: assertFinite(
+        "medianCrystalEyeArtilleryPowerPct",
+        percentile(
+          trialAudits.flatMap((audit) => audit.crystalEyeArtilleryPowerPcts).length > 0
+            ? trialAudits.flatMap((audit) => audit.crystalEyeArtilleryPowerPcts)
+            : [0],
+          0.5,
+        ),
+      ),
+      medianCrystalEyeArtilleryDamageRatio: assertFinite(
+        "medianCrystalEyeArtilleryDamageRatio",
+        percentile(
+          trialAudits.flatMap((audit) => audit.crystalEyeArtilleryDamageRatios).length > 0
+            ? trialAudits.flatMap((audit) => audit.crystalEyeArtilleryDamageRatios)
+            : [0],
+          0.5,
+        ),
+      ),
+      medianRevivalCount: assertFinite(
+        "medianRevivalCount",
+        percentile(
+          trialAudits.map((audit) => audit.immortalRevivalCount),
+          0.5,
+        ),
+      ),
+      medianRegenerationCount: assertFinite(
+        "medianRegenerationCount",
+        percentile(
+          trialAudits.map((audit) => audit.immortalRegenerationCount),
+          0.5,
+        ),
+      ),
+      medianBodyDamage: assertFinite(
+        "medianBodyDamage",
+        percentile(
+          trialAudits.map((audit) => audit.immortalBodyDamage),
+          0.5,
+        ),
+      ),
+      medianHealing: assertFinite(
+        "medianHealing",
+        percentile(
+          trialAudits.map((audit) => audit.immortalHealing),
+          0.5,
+        ),
+      ),
+      medianNetProgress: assertFinite(
+        "medianNetProgress",
+        percentile(
+          trialAudits.map((audit) => audit.immortalNetProgress),
+          0.5,
+        ),
       ),
     },
     trials: trialAudits,
@@ -241,7 +652,7 @@ export function buildCoopBossBalanceReport(options: {
 } = {}): CoopBossAudit[] {
   const trials = validateTrials(options.trials ?? DEFAULT_TRIALS);
   const seed = Math.floor(options.seed ?? DEFAULT_SEED);
-  const bossIds = (options.bossIds ?? COOP_BOSS_KIND_IDS).map(parseBossId);
+  const bossIds = (options.bossIds ?? STANDARD_COOP_BOSS_KIND_IDS).map(parseBossId);
   if (bossIds.length === 0) throw new Error("bossIds must not be empty");
 
   return bossIds.map((bossId) => {
@@ -272,26 +683,185 @@ export function buildCoopBossBalanceReport(options: {
         "p95ContributionRatio",
         percentile(contributions, 0.95),
       ),
+      medianTrackingCounterCount: assertFinite(
+        "medianTrackingCounterCount",
+        percentile(
+          allTrials.map((trial) => trial.trackingCounterCount),
+          0.5,
+        ),
+      ),
+      medianTrackingCounterDamageRatioPerTrigger: assertFinite(
+        "medianTrackingCounterDamageRatioPerTrigger",
+        percentile(
+          allTrials.map(
+            (trial) => trial.trackingCounterDamageRatioPerTrigger,
+          ),
+          0.5,
+        ),
+      ),
+      medianSurvivalTicks: assertFinite(
+        "medianSurvivalTicks",
+        percentile(
+          allTrials.map((trial) => trial.survivalTicks),
+          0.5,
+        ),
+      ),
+      medianToxicExplosionCount: assertFinite(
+        "medianToxicExplosionCount",
+        percentile(
+          allTrials.map((trial) => trial.toxicExplosionCount),
+          0.5,
+        ),
+      ),
+      medianToxicDamageRatio: assertFinite(
+        "medianToxicDamageRatio",
+        percentile(
+          allTrials.map((trial) => trial.toxicDamageRatio),
+          0.5,
+        ),
+      ),
+      medianCompletedPlayerActions: assertFinite(
+        "medianCompletedPlayerActions",
+        percentile(
+          allTrials.map((trial) => trial.completedPlayerActions),
+          0.5,
+        ),
+      ),
+      medianGlacialFreezeCount: assertFinite(
+        "medianGlacialFreezeCount",
+        percentile(
+          allTrials.map((trial) => trial.glacialFreezeCount),
+          0.5,
+        ),
+      ),
+      medianGlacialSkippedActionCount: assertFinite(
+        "medianGlacialSkippedActionCount",
+        percentile(
+          allTrials.map((trial) => trial.glacialSkippedActionCount),
+          0.5,
+        ),
+      ),
+      medianFortressEnrageTier: assertFinite(
+        "medianFortressEnrageTier",
+        percentile(
+          allTrials.flatMap((trial) => trial.fortressEnrageTiers).length > 0
+            ? allTrials.flatMap((trial) => trial.fortressEnrageTiers)
+            : [0],
+          0.5,
+        ),
+      ),
+      medianFortressBarrierDamageRatio: assertFinite(
+        "medianFortressBarrierDamageRatio",
+        percentile(
+          allTrials.flatMap((trial) => trial.fortressBarrierDamageRatios).length > 0
+            ? allTrials.flatMap((trial) => trial.fortressBarrierDamageRatios)
+            : [0],
+          0.5,
+        ),
+      ),
+      maxFortressFirstNormalHitRatio: assertFinite(
+        "maxFortressFirstNormalHitRatio",
+        Math.max(
+          0,
+          ...allTrials.map(
+            (trial) => trial.fortressFirstMaxEnrageNormalHitRatio,
+          ),
+        ),
+      ),
+      medianCrystalEyeArtilleryStacks: assertFinite(
+        "medianCrystalEyeArtilleryStacks",
+        percentile(
+          allTrials.flatMap((trial) => trial.crystalEyeArtilleryStacks).length > 0
+            ? allTrials.flatMap((trial) => trial.crystalEyeArtilleryStacks)
+            : [0],
+          0.5,
+        ),
+      ),
+      medianCrystalEyeArtilleryPowerPct: assertFinite(
+        "medianCrystalEyeArtilleryPowerPct",
+        percentile(
+          allTrials.flatMap((trial) => trial.crystalEyeArtilleryPowerPcts).length > 0
+            ? allTrials.flatMap((trial) => trial.crystalEyeArtilleryPowerPcts)
+            : [0],
+          0.5,
+        ),
+      ),
+      medianCrystalEyeArtilleryDamageRatio: assertFinite(
+        "medianCrystalEyeArtilleryDamageRatio",
+        percentile(
+          allTrials.flatMap((trial) => trial.crystalEyeArtilleryDamageRatios).length > 0
+            ? allTrials.flatMap((trial) => trial.crystalEyeArtilleryDamageRatios)
+            : [0],
+          0.5,
+        ),
+      ),
+      medianRevivalCount: assertFinite(
+        "medianRevivalCount",
+        percentile(
+          allTrials.map((trial) => trial.immortalRevivalCount),
+          0.5,
+        ),
+      ),
+      medianRegenerationCount: assertFinite(
+        "medianRegenerationCount",
+        percentile(
+          allTrials.map((trial) => trial.immortalRegenerationCount),
+          0.5,
+        ),
+      ),
+      medianBodyDamage: assertFinite(
+        "medianBodyDamage",
+        percentile(
+          allTrials.map((trial) => trial.immortalBodyDamage),
+          0.5,
+        ),
+      ),
+      medianHealing: assertFinite(
+        "medianHealing",
+        percentile(
+          allTrials.map((trial) => trial.immortalHealing),
+          0.5,
+        ),
+      ),
+      medianNetProgress: assertFinite(
+        "medianNetProgress",
+        percentile(
+          allTrials.map((trial) => trial.immortalNetProgress),
+          0.5,
+        ),
+      ),
     };
   });
 }
 
-type CliOptions = { trials: number; seed: number; json: boolean };
+type CliOptions = {
+  trials: number;
+  seed: number;
+  json: boolean;
+  bossIds?: CoopBossKindId[];
+};
 
 function parseCliOptions(argv: readonly string[]): CliOptions {
   let trials = DEFAULT_TRIALS;
   let seed = DEFAULT_SEED;
   let json = false;
+  let bossIds: CoopBossKindId[] | undefined;
   for (const arg of argv) {
     if (arg === "--json") json = true;
     else if (arg.startsWith("--trials=")) trials = Number(arg.slice(9));
     else if (arg.startsWith("--seed=")) seed = Number(arg.slice(7));
+    else if (arg.startsWith("--boss=")) {
+      const values = arg.slice(7).split(",").filter(Boolean);
+      if (values.length === 0) throw new Error("boss filter must not be empty");
+      bossIds = values.map(parseBossId);
+    }
     else throw new Error(`unknown option: ${arg}`);
   }
   return {
     trials: validateTrials(trials),
     seed: Math.floor(assertFinite("seed", seed)),
     json,
+    bossIds,
   };
 }
 
@@ -303,10 +873,12 @@ function printReport(report: readonly CoopBossAudit[], options: CliOptions): voi
   console.log(
     `협동 보스 방어 체계 점검 · ${options.trials}회/계보 · seed ${options.seed}`,
   );
-  console.log("보스                 생존 중앙  기여 중앙  기여 p95");
+  console.log(
+    "보스                 생존 중앙  기여 중앙  기여 p95  생존 틱  완료 행동  성채 광폭  방벽 달성  최대광폭 첫타/HP",
+  );
   for (const boss of report) {
     console.log(
-      `${COOP_BOSSES[boss.bossId].name.padEnd(18)} ${boss.medianSurvivalRatePct.toFixed(1).padStart(6)}%     ${(boss.medianContributionRatio * 100).toFixed(2).padStart(6)}%     ${(boss.p95ContributionRatio * 100).toFixed(2).padStart(6)}%`,
+      `${COOP_BOSSES[boss.bossId].name.padEnd(18)} ${boss.medianSurvivalRatePct.toFixed(1).padStart(6)}%     ${(boss.medianContributionRatio * 100).toFixed(2).padStart(6)}%     ${(boss.p95ContributionRatio * 100).toFixed(2).padStart(6)}%     ${boss.medianSurvivalTicks.toFixed(0).padStart(6)}     ${boss.medianCompletedPlayerActions.toFixed(1).padStart(6)}     ${boss.medianFortressEnrageTier.toFixed(1).padStart(6)}     ${(boss.medianFortressBarrierDamageRatio * 100).toFixed(1).padStart(6)}%     ${(boss.maxFortressFirstNormalHitRatio * 100).toFixed(1).padStart(6)}%`,
     );
   }
 }
@@ -314,7 +886,11 @@ function printReport(report: readonly CoopBossAudit[], options: CliOptions): voi
 function main(): void {
   const options = parseCliOptions(process.argv.slice(2));
   printReport(
-    buildCoopBossBalanceReport({ trials: options.trials, seed: options.seed }),
+    buildCoopBossBalanceReport({
+      trials: options.trials,
+      seed: options.seed,
+      bossIds: options.bossIds,
+    }),
     options,
   );
 }

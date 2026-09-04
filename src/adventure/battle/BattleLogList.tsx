@@ -1413,6 +1413,23 @@ const SIGNATURE_RESOURCE_LABELS: Record<string, string> = {
   domainStability: "영역 안정",
   lawInscriptions: "각인",
   frostChill: "한기",
+  trackingThreat: "추적 위협",
+  toxicBlood: "독혈",
+  toxicRecoveryLock: "회복 억제",
+  glacialChill: "한기",
+  glacialFreeze: "빙결",
+  fortressTrial: "방벽 시험",
+  fortressDamage: "방벽 피해",
+  fortressEnrage: "성채 광폭",
+  immortalLife: "불멸 생명",
+  immortalLifeHp: "현재 생명",
+  immortalRegeneration: "재생",
+  immortalEnrage: "광폭",
+  crystalEyeAim: "천공 포격까지",
+  crystalEyeArtillery: "현재 예상 위력",
+  crystalEyeDisruption: "조준 붕괴",
+  crystalEyeCore: "수정 핵",
+  crystalEyeLastArtillery: "직전 포격",
 };
 
 const TRIPLE_WARD_RESOURCE_KEYS = new Set([

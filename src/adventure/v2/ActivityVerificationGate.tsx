@@ -170,7 +170,7 @@ export function ActivityVerificationGate({
   }, [captchaReady, renderCaptcha, turnstileToken, widgetGeneration]);
 
   return (
-    <div className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-center dark:border-amber-800 dark:bg-amber-950/40">
+    <div className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-center dark:border-amber-800 dark:bg-zinc-900">
       <Script
         id="activity-turnstile"
         src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"

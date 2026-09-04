@@ -336,7 +336,7 @@ export function V2CharacterScreen({
               </div>
             </div>
             {state.artisan.blacksmith.signatureCraft ? (
-              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs dark:border-emerald-900 dark:bg-emerald-950/30">
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs dark:border-emerald-900 dark:bg-zinc-950">
                 <div className="text-emerald-700 dark:text-emerald-300">
                   대표 제작품
                 </div>

@@ -49,12 +49,12 @@ that one complete version already contains the other side's intent.
 ## Construction
 
 Build the candidate in an isolated `/tmp` worktree from the frozen production
-SHA. Use a low-level three-tree index merge with the explicit logical base,
-not a broad `staging` branch merge and not a directory copy. Resolve all
-unmerged entries manually.
+SHA. Use Git's recursive content merge with the explicit logical base, not a
+broad `staging` branch merge and not a directory copy. Load the resulting tree
+into the worktree and resolve all remaining unmerged entries manually.
 
-The initial analysis found 61 paths changed on both release lines and 16 paths
-with textual conflicts:
+The initial analysis found 61 paths changed on both release lines. The actual
+recursive merge found 15 paths with textual conflicts:
 
 - `docs/staging-release-flow.md`
 - `e2e/support/authenticatedDatabase.ts`
@@ -70,8 +70,7 @@ with textual conflicts:
 - `src/adventure/v2/liberation/EquipmentLiberationPanel.test.tsx`
 - `src/adventure/v2/liberation/EquipmentLiberationPanel.tsx`
 - `src/adventure/v2/liberation/equipmentLiberationViewModel.test.ts`
-- `toolkit/adapters/unexplored-boss/validators.test.ts`
-- `toolkit/adapters/unexplored-boss/validators.ts`
+- `src/adventure/v2/marketplace/EquipmentBuyOrderDialog.tsx`
 
 Textual conflicts are only a subset of the semantic risk. Every path changed
 on both sides must be inspected, including clean auto-merges.
@@ -88,6 +87,15 @@ environment-specific runtime configuration is copied from the test server.
 Database migrations are append-only inputs. Existing production migrations
 must not be renamed, reordered, or removed, and staging-only migrations must
 be reviewed for numbering and schema compatibility before inclusion.
+
+One-sided preservation may require a narrowly documented compatibility edit.
+This integration has three such edits: the staging-only asset-rights library
+also recognizes the production rating asset category; the production-only
+workshop material-source resolver recognizes staging's unexplored-region
+recipe materials; and the staging-only dark-surface audit no longer names the
+buy-order dialog removed by production's auction-only marketplace. Their
+source-side behavior remains intact and each edit is covered by the
+corresponding repository contract tests.
 
 ## Proof of completeness
 

@@ -1246,7 +1246,7 @@ export function ChatPanel({
             />
 
             {error && (
-              <div className="border-t border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
+              <div className="border-t border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-700 dark:border-rose-900 dark:bg-zinc-950 dark:text-rose-300">
                 {error}
               </div>
             )}

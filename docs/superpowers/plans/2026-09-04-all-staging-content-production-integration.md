@@ -8,10 +8,10 @@ change and every production-only change without overwriting either release
 line.
 
 **Architecture:** Start at frozen `origin/main`, use the verified logical
-common snapshot as an explicit three-way base, and merge `origin/staging` at
-the tree/index level. Resolve both-changed paths semantically and prove the
-result with path manifests, focused regression tests, and repository-wide
-checks.
+common snapshot as an explicit three-way base, and run Git's recursive content
+merge with that base before loading the resulting tree. Resolve both-changed
+paths semantically and prove the result with path manifests, focused
+regression tests, and repository-wide checks.
 
 **Tech Stack:** Git plumbing, TypeScript, Next.js, Vitest, Playwright, ESLint,
 Drizzle migrations, repository asset and release checks.
@@ -127,16 +127,18 @@ git rev-parse HEAD^ origin/main origin/staging
 Expected: clean state; `HEAD^` is the frozen production SHA; remote refs still
 match the frozen inputs.
 
-**Step 2: Apply the three-tree merge**
+**Step 2: Apply the recursive merge with the explicit base**
 
 Run:
 
 ```bash
-git read-tree -m -u 25fb95beffce1aa4e05d33fdf8fe560ed872c937 HEAD 6bd1744fe461a22662b20288ca9169621506b440
+git merge-tree --write-tree --merge-base 25fb95beffce1aa4e05d33fdf8fe560ed872c937 HEAD 6bd1744fe461a22662b20288ca9169621506b440
+git read-tree --reset -u <resulting-tree>
 ```
 
-Expected: all non-conflicting tree changes are staged and conflicted paths
-have index stages 1/2/3. Do not commit at this step.
+Expected: Git automatically merges independent content edits and reports the
+remaining content conflicts. The resulting tree contains conflict-marker
+files for those paths. Do not commit at this step.
 
 **Step 3: Inventory conflicts**
 
@@ -147,14 +149,14 @@ git diff --name-only --diff-filter=U
 git ls-files -u
 ```
 
-Expected: the known 16 textual-conflict paths, subject to exact tree-merge
-rename handling. Investigate any additional or missing path before continuing.
+Expected: the 15 conflict paths recorded in the design. Investigate any
+additional or missing path before continuing.
 
 ### Task 4: Resolve conflicts semantically
 
 **Files:**
 
-- Modify: the 16 conflict paths listed in the design
+- Modify: the 15 conflict paths listed in the design
 - Test: adjacent test and snapshot files for each resolved implementation
 
 **Step 1: Inspect each stage and adjacent history**
@@ -181,7 +183,7 @@ Resolve and stage in these groups:
 3. Mining, woodcutting, enhancement, and marketplace views.
 4. Combat engines and golden snapshot.
 5. Equipment liberation/enchantment UI and tests.
-6. Unexplored-boss toolkit validators and tests.
+6. Marketplace's obsolete buy-order dialog deletion.
 
 After each group, run the narrowest associated tests before staging the next
 group. If behavior is not already covered, add a regression test before the
@@ -239,12 +241,17 @@ there is any omission or duplicate.
 **Step 1: Audit production-only paths**
 
 For paths changed only by production from the logical base, verify the
-candidate blob and mode match the frozen production input exactly.
+candidate blob and mode match the frozen production input exactly, except the
+documented unexplored-material compatibility edit in
+`workshopMaterialSources.ts`.
 
 **Step 2: Audit staging-only paths**
 
 For paths changed only by staging from the logical base, verify the candidate
-blob and mode match the frozen staging input exactly.
+blob and mode match the frozen staging input exactly, except the documented
+production-rating compatibility edit in `asset-rights-lib.mjs`, the stale
+buy-order path removal in `darkSurfaceAudit.test.ts`, and non-semantic EOF
+whitespace normalization required by `git diff --check`.
 
 **Step 3: Audit deletions, renames, binaries, and file modes**
 
@@ -263,7 +270,7 @@ and review all staging-added migration ordering.
 
 **Files:**
 
-- Test: tests adjacent to the 16 conflict paths
+- Test: tests adjacent to the 15 conflict paths
 - Test: staging feature-family release tests
 - Test: production-only payment/review/rating tests
 

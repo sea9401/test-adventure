@@ -1,0 +1,105 @@
+version: 1
+taskId: boss-echo-warden
+id: echo_warden
+name: 메아리 감시자
+pools:
+  - runaway_machines
+  - shadow_stalkers
+summon:
+  materialId: v2_unexplored_echo_warden_summon_stone
+  name: 메아리 감시자 소환석
+  description: 폭주 기계와 그림자 추적자의 잔향을 결속한 개인 보스 소환석.
+boss:
+  sharedMaxHp: 10800000
+  anchorDepth: 120
+  monster:
+    hp: 1180
+    atk: 2.1
+    atkType: magic
+    def: 44
+    magicDef: 48
+    spd: 24
+    accuracy: -195
+    evasionPct: 14
+    skill:
+      kind: heavy_blow
+      name: 공명 파열
+      everyPhases: 3
+      multiplier: 1.7
+  traits:
+    - 피격 파동을 메아리로 저장
+    - 저장된 파동을 다단 공명으로 방출
+    - 공명 직전 차단 기회 제공
+drops:
+  - id: v2_unexplored_echo_blade
+    name: 메아리 칼날
+    description: 되돌아온 충격을 칼끝에 모아 연속 공격을 돕는 단검.
+    slot: weapon
+    concept: dex
+    tier: 16
+    power: 720
+    weight: 0
+    options:
+      crit: 12
+      spd: 18
+      accuracy: 20
+    image: /images/equipment/unexplored-echo-blade.webp
+    chancePct: 30
+  - id: v2_unexplored_resonance_boots
+    name: 공명 보행화
+    description: 발밑의 충격을 다음 걸음으로 되돌려 보내는 경갑 신발.
+    slot: boots
+    concept: light
+    tier: 16
+    power: 70
+    weight: 0
+    options:
+      eva: 18
+      spd: 26
+    image: /images/equipment/unexplored-resonance-boots.webp
+    chancePct: 10
+  - id: v2_unexplored_eternal_echo_core
+    name: 영원한 메아리핵
+    description: 사라진 충격을 끝없이 되돌리는 감시자의 희귀 동력핵.
+    slot: necklace
+    concept: mana
+    tier: 16
+    power: 174
+    weight: 0
+    options:
+      hp: 580
+      mp: 540
+      magicDef: 118
+    image: /images/equipment/unexplored-eternal-echo-core.webp
+    chancePct: 0.5
+title:
+  id: v2_unexplored_echo_warden
+  name: 메아리를 잠재운 자
+  description: 메아리 감시자의 끝없는 공명을 끊어낸 개척자에게 주는 칭호.
+  condition: 메아리 감시자 처치
+  category: endgame
+achievement:
+  id: defeat_echo_warden
+  name: 메아리 감시자 처치
+  description: 미개척지 개인 보스 메아리 감시자를 처치하세요.
+mechanic:
+  moduleName: echoWarden
+  persistedState: true
+  statusUi: true
+images:
+  - role: boss
+    target: public/images/monster/v2/unexplored-boss-echo-warden.webp
+    requiresAlpha: false
+    rightsSource: operator-cleared-game-art
+  - role: drop-30
+    target: public/images/equipment/unexplored-echo-blade.webp
+    requiresAlpha: true
+    rightsSource: operator-cleared-game-art
+  - role: drop-10
+    target: public/images/equipment/unexplored-resonance-boots.webp
+    requiresAlpha: true
+    rightsSource: operator-cleared-game-art
+  - role: drop-rare
+    target: public/images/equipment/unexplored-eternal-echo-core.webp
+    requiresAlpha: true
+    rightsSource: operator-cleared-game-art

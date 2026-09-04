@@ -37,6 +37,9 @@ export default function CharacterPage() {
           case "open-codex":
             router.push("/character/codex");
             break;
+          case "open-unexplored":
+            router.push("/character/unexplored");
+            break;
         }
       }}
     />

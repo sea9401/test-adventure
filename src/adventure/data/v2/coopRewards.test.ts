@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { COOP_BOSS_KIND_IDS, COOP_TIER_ORDER } from "./coopBosses";
+import {
+  COOP_TIER_ORDER,
+  STANDARD_COOP_BOSS_KIND_IDS,
+} from "./coopBosses";
 import {
   COOP_BOSS_MATERIAL,
   COOP_COIN_MATERIAL_ID,
@@ -27,7 +30,7 @@ import { V2_EQUIPMENT, isUnique } from "./v2Equipment";
 describe("coopRewards", () => {
   it("협동 주화/보스 재료/장비 상자 카탈로그를 모두 정의", () => {
     expect(COOP_REWARD_MATERIALS[COOP_COIN_MATERIAL_ID]).toBeDefined();
-    for (const boss of COOP_BOSS_KIND_IDS) {
+    for (const boss of STANDARD_COOP_BOSS_KIND_IDS) {
       expect(COOP_REWARD_MATERIALS[COOP_BOSS_MATERIAL[boss].id]).toBeDefined();
       expect(COOP_REWARD_MATERIALS[COOP_EQUIPMENT_BOX[boss].id]).toBeDefined();
       expect(parseCoopEquipmentBoxId(COOP_EQUIPMENT_BOX_ID[boss])).toBe(boss);
@@ -188,7 +191,7 @@ describe("coopRewards", () => {
   });
 
   it("rollCoopEquipmentBoxItem — 상자 티어 범위의 정규 장비만 반환", () => {
-    for (const boss of COOP_BOSS_KIND_IDS) {
+    for (const boss of STANDARD_COOP_BOSS_KIND_IDS) {
       const got = rollCoopEquipmentBoxItem(boss, () => 0);
       expect(got).toBeTruthy();
       const item = V2_EQUIPMENT[got!];

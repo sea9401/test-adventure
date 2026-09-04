@@ -20,6 +20,7 @@ import {
   COOP_VISIBILITY_OPTIONS,
   coopAttackCooldownMs,
   coopEnrageStatus,
+  isStandardCoopBossKindId,
 } from "@/adventure/data/v2/coopBosses";
 import { coopKillingBlowReward } from "@/adventure/data/v2/coopRewards";
 import {
@@ -34,6 +35,10 @@ import { useEscapeKey } from "@/lib/useEscapeKey";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { CombatMatchupSummary } from "@/adventure/battle/CombatMatchupSummary";
 import { CoopRecentAttackList } from "./CoopRecentAttackList";
+import { TrackingThreatMeter } from "./TrackingThreatMeter";
+import { InvincibleFortressStatus } from "./InvincibleFortressStatus";
+import { SkywardCrystalEyeStatus } from "./SkywardCrystalEyeStatus";
+import { ImmortalBerserkerStatus } from "./ImmortalBerserkerStatus";
 
 function fmtPreviewNumber(value: number): string {
   return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1);
@@ -124,7 +129,10 @@ export function V2CoopBossDetailView({
 
   const { session, my } = detail;
   const def = COOP_BOSSES[session.kind];
-  const killingBlowReward = coopKillingBlowReward(session.kind);
+  const isPersonalBoss = def.rewardMode === "unexplored_personal";
+  const killingBlowReward = isStandardCoopBossKindId(session.kind)
+    ? coopKillingBlowReward(session.kind)
+    : null;
   // 활성 판정 — 서버 sweep 전이라도 시간상 만료면 비활성 취급(공격 버튼 숨김).
   const ended =
     session.defeated || session.expired || session.expiresAt <= now;
@@ -152,7 +160,10 @@ export function V2CoopBossDetailView({
   const claimable = session.defeated && !my.claimed && my.damage > 0;
   // 전체 공개 전의 활성 보스만 소환자가 범위를 바꿀 수 있다. public 은 영구 잠금이다.
   const showScopeControl =
-    session.isOwner && active && session.visibility !== "public";
+    !def.visibilityLocked &&
+    session.isOwner &&
+    active &&
+    session.visibility !== "public";
   const showScopeBadge = !showScopeControl;
 
   return (
@@ -188,7 +199,9 @@ export function V2CoopBossDetailView({
           )}
           {showScopeBadge && (
             <span className="mt-1 inline-block rounded border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
-              공개 범위 · {COOP_VISIBILITY_LABEL[session.visibility]}
+              {isPersonalBoss
+                ? "나만 전투"
+                : `공개 범위 · ${COOP_VISIBILITY_LABEL[session.visibility]}`}
             </span>
           )}
           <p className="mt-0.5 font-mono text-sm text-zinc-600 dark:text-zinc-300">
@@ -222,6 +235,19 @@ export function V2CoopBossDetailView({
                 />
               </div>
             </div>
+          )}
+          <TrackingThreatMeter
+            value={session.trackingThreat}
+            max={session.trackingThreatMax}
+          />
+          {session.kind === "invincible_fortress" && (
+            <InvincibleFortressStatus status={session} />
+          )}
+          {session.kind === "skyward_crystal_eye" && (
+            <SkywardCrystalEyeStatus status={session} />
+          )}
+          {session.kind === "immortal_berserker" && (
+            <ImmortalBerserkerStatus status={session} />
           )}
         </div>
 
@@ -296,11 +322,13 @@ export function V2CoopBossDetailView({
                     ? `스태미너 부족 (${COOP_ATTACK_STAMINA_COST} 필요)`
                     : `공격 (스태미너 ${COOP_ATTACK_STAMINA_COST})`}
             </button>
-            <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
-              처치 확정타 보너스 · 협동 주화 ×{killingBlowReward.coin} +{" "}
-              {killingBlowReward.bossMaterialName} ×
-              {killingBlowReward.bossMaterialCount}
-            </p>
+            {killingBlowReward && (
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+                처치 확정타 보너스 · 협동 주화 ×{killingBlowReward.coin} +{" "}
+                {killingBlowReward.bossMaterialName} ×
+                {killingBlowReward.bossMaterialCount}
+              </p>
+            )}
           </div>
         )}
         {session.defeated && (
@@ -320,9 +348,11 @@ export function V2CoopBossDetailView({
             onClick={() => void claim()}
             className="ui-game-button ui-quest-card is-claimable mx-auto min-h-11 w-full max-w-xs rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
-            {my.tier
-              ? `기여 보상 수령 (${COOP_TIER_LABEL[my.tier]})`
-              : "기준 미달 확인"}
+            {isPersonalBoss
+              ? "개인 토벌 보상 수령"
+              : my.tier
+                ? `기여 보상 수령 (${COOP_TIER_LABEL[my.tier]})`
+                : "기준 미달 확인"}
           </button>
         )}
         {my.damage > 0 && (
@@ -433,25 +463,33 @@ export function V2CoopBossDetailView({
       )}
 
       {notice && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-zinc-950 dark:text-amber-300">
           {notice}
         </div>
       )}
 
-      {/* 기여 보상 테이블 — 내 현재 티어 강조 + 다음 티어까지(때리는 중 동기부여). */}
+      {/* 일반 보스는 기여 보상, 개인 보스는 확정 재료와 독립 고유 드롭을 안내한다. */}
       {!session.defeated && (
         <Card padding="md" className="space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <div className="text-sm font-semibold">기여 보상</div>
-            <button
-              type="button"
-              onClick={() => setCriteriaOpen(true)}
-              className="shrink-0 rounded-md border border-zinc-300 px-2 py-0.5 text-[11px] font-medium text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
-            >
-              기여 기준
-            </button>
+            <div className="text-sm font-semibold">
+              {isPersonalBoss ? "개인 토벌 보상" : "기여 보상"}
+            </div>
+            {!isPersonalBoss && (
+              <button
+                type="button"
+                onClick={() => setCriteriaOpen(true)}
+                className="shrink-0 rounded-md border border-zinc-300 px-2 py-0.5 text-[11px] font-medium text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+              >
+                기여 기준
+              </button>
+            )}
           </div>
-          <CoopRewardTable kind={def} myDamage={my.damage} hideCaptions />
+          <CoopRewardTable
+            kind={def}
+            myDamage={isPersonalBoss ? undefined : my.damage}
+            hideCaptions
+          />
         </Card>
       )}
 
@@ -487,36 +525,52 @@ export function V2CoopBossDetailView({
       )}
 
       {lastReward && (
-        <div className="ui-reward-flash rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800/60 dark:bg-emerald-950/30">
+        <div className="ui-reward-flash rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800/60 dark:bg-zinc-950">
           <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-            {COOP_TIER_LABEL[lastReward.tier]} 보상 획득!
+            {lastReward.rewardMode === "unexplored_personal"
+              ? "개인 토벌 보상 획득!"
+              : `${COOP_TIER_LABEL[lastReward.tier]} 보상 획득!`}
           </p>
           <ul className="mt-1 space-y-0.5 text-xs text-emerald-700 dark:text-emerald-400">
-            {lastReward.coopCoin != null && lastReward.coopCoin > 0 && (
-              <li>협동 주화 ×{lastReward.coopCoin}</li>
-            )}
-            {lastReward.bossMaterialCount != null &&
-              lastReward.bossMaterialCount > 0 && (
-                <li>
-                  {lastReward.bossMaterialName ?? "보스 재료"} ×
-                  {lastReward.bossMaterialCount}
-                </li>
-              )}
-            {lastReward.equipmentBoxName && (
-              <li>{lastReward.equipmentBoxName} — 소모품 탭에서 사용</li>
-            )}
-            {lastReward.uniqueId && (
-              <li>
-                보스 유니크{" "}
-                <span className="font-semibold">{lastReward.uniqueName}</span>{" "}
-                — 인벤토리에서 확인
-              </li>
-            )}
-            {lastReward.spFruitCount > 0 && (
-              <li>
-                {lastReward.spFruitName ?? "SP 열매"} ×
-                {lastReward.spFruitCount} — 소모품 탭에서 사용 시 SP 최대치 ↑
-              </li>
+            {lastReward.rewardMode === "unexplored_personal" ? (
+              <>
+                <li>우두머리 핵 ×{lastReward.bossCore}</li>
+                <li>연결 특화 재료 ×{lastReward.poolMaterialCount}</li>
+                {lastReward.uniqueNames.map((name, index) => (
+                  <li key={`${lastReward.uniqueIds[index]}-${index}`}>
+                    고유 장비 <span className="font-semibold">{name}</span>
+                  </li>
+                ))}
+              </>
+            ) : (
+              <>
+                {lastReward.coopCoin != null && lastReward.coopCoin > 0 && (
+                  <li>협동 주화 ×{lastReward.coopCoin}</li>
+                )}
+                {lastReward.bossMaterialCount != null &&
+                  lastReward.bossMaterialCount > 0 && (
+                    <li>
+                      {lastReward.bossMaterialName ?? "보스 재료"} ×
+                      {lastReward.bossMaterialCount}
+                    </li>
+                  )}
+                {lastReward.equipmentBoxName && (
+                  <li>{lastReward.equipmentBoxName} — 소모품 탭에서 사용</li>
+                )}
+                {lastReward.uniqueId && (
+                  <li>
+                    보스 유니크{" "}
+                    <span className="font-semibold">{lastReward.uniqueName}</span>{" "}
+                    — 인벤토리에서 확인
+                  </li>
+                )}
+                {lastReward.spFruitCount > 0 && (
+                  <li>
+                    {lastReward.spFruitName ?? "SP 열매"} ×
+                    {lastReward.spFruitCount} — 소모품 탭에서 사용 시 SP 최대치 ↑
+                  </li>
+                )}
+              </>
             )}
           </ul>
         </div>
@@ -537,7 +591,7 @@ export function V2CoopBossDetailView({
                 key={`${t.name}-${i}`}
                 className={`flex items-center justify-between gap-2 rounded px-2 py-1 text-sm ${
                   t.isMe
-                    ? "bg-amber-50 font-medium dark:bg-amber-950/40"
+                    ? "bg-amber-50 font-medium dark:bg-zinc-950 dark:text-amber-200 dark:ring-1 dark:ring-amber-800"
                     : i % 2 === 1
                       ? "bg-zinc-50 dark:bg-zinc-900/60"
                       : ""

@@ -1,27 +1,18 @@
-import { randomUUID } from "node:crypto";
 import { db } from "@/db";
-import { coopBossSessions } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
   lockSaveForUpdate,
   readSave,
   upsertSave,
 } from "@/lib/server/savesKv";
-import {
-  expireStaleCoopSessions,
-  findActiveCoopSessions,
-} from "@/lib/server/v2Coop";
+import { createCoopBossSession } from "@/lib/server/v2Coop";
 import {
   COOP_BOSSES,
   COOP_INITIAL_VISIBILITY,
-  MAX_ACTIVE_PER_KIND,
   SUMMON_SCROLL_MATERIAL_ID,
-  coopBossDurationMs,
   isScrollSummonableCoopBossKind,
   parseCoopBossKindId,
-  coopBossMaxMp,
 } from "@/adventure/data/v2/coopBosses";
-import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 
 // POST /api/v2/coop/summon — 소환서를 소모해 협동 보스 소환.
 //
@@ -89,29 +80,7 @@ export async function POST(req: Request) {
         };
       }
 
-      // === 2. 만료 sweep + 동시 소환 캡 ===
-      await expireStaleCoopSessions(tx, now);
-      const active = await findActiveCoopSessions(tx, kindId);
-      if (active.length >= MAX_ACTIVE_PER_KIND) {
-        return {
-          status: 409,
-          body: {
-            ok: false,
-            error: "too_many_active",
-            cap: MAX_ACTIVE_PER_KIND,
-          },
-        };
-      }
-
-      // === 3. 소환서 차감 + 세션 생성 ===
-      const remaining = have - kind.scrollCost;
-      if (remaining > 0) mats[SUMMON_SCROLL_MATERIAL_ID] = remaining;
-      else delete mats[SUMMON_SCROLL_MATERIAL_ID];
-      await upsertSave(tx, userId, "character.v2", {
-        ...charSave,
-        materials: mats,
-      });
-      // 소환자 표시명 스냅샷 — 인스턴스 구분 라벨("○○님이 소환").
+      // === 2. 동시 소환 캡 확인 + 세션 생성 ===
       const profile = await readSave<{ name?: string } | null>(
         tx,
         userId,
@@ -119,34 +88,40 @@ export async function POST(req: Request) {
         null,
       );
       summonerName = profile?.name?.trim() || "모험가";
-      // 소환 시점 길드 — 길드원 가시성 판정 기준(나중에 길드 바뀌어도 소환 당시 기준).
-      const summonerGuildId = await getGuildId(tx, userId);
-      const sessionId = randomUUID();
-      const expiresAt = now.getTime() + coopBossDurationMs(kind);
-      await tx.insert(coopBossSessions).values({
-        id: sessionId,
-        regionId: kindId,
-        bossName: kind.name,
-        hp: kind.sharedMaxHp,
-        maxHp: kind.sharedMaxHp,
-        spawnedAt: now,
-        expiresAt: new Date(expiresAt),
-        regenPerMin: 0,
-        lastRegenAt: null,
-        summonedByName: summonerName,
-        summonerId: userId,
-        summonerGuildId,
+      const created = await createCoopBossSession(tx, {
+        kindId,
+        userId,
+        summonerName,
+        now,
         visibility: COOP_INITIAL_VISIBILITY,
-        mechanicState: { bossMp: coopBossMaxMp(kind) },
+      });
+      if (!created.ok) {
+        return {
+          status: 409,
+          body: {
+            ok: false,
+            error: created.error,
+            cap: created.cap,
+          },
+        };
+      }
+
+      // === 3. 소환서 차감 ===
+      const remaining = have - kind.scrollCost;
+      if (remaining > 0) mats[SUMMON_SCROLL_MATERIAL_ID] = remaining;
+      else delete mats[SUMMON_SCROLL_MATERIAL_ID];
+      await upsertSave(tx, userId, "character.v2", {
+        ...charSave,
+        materials: mats,
       });
       return {
         status: 200,
         body: {
           ok: true,
-          sessionId,
+          sessionId: created.sessionId,
           kind: kindId,
           scrollsLeft: remaining,
-          expiresAt,
+          expiresAt: created.expiresAt,
         },
       };
     });

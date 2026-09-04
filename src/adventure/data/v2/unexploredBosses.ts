@@ -19,14 +19,15 @@ export const UNEXPLORED_SUMMON_STONE_SCROLL_COST = 30;
 // 높이는 운영 결정을 함께 반영해 골드 싱크는 5,000,000G로 낮춰 확정했다.
 export const UNEXPLORED_SUMMON_STONE_GOLD_COST = 5_000_000;
 
-// 2026-09-02 테스트 서버 실전 기록: 기존 10,800,000 HP는 상위 캐릭터에게 평균
-// 1~4회 공격으로 처치됐다. 기믹을 전개할 여유는 주되 HP만으로 늘어지는 전투를 피하도록
-// 공통 체력은 3배로 잡고, 실제 생존 압박은 각 보스의 공격력으로 분담한다.
-export const UNEXPLORED_BOSS_SHARED_MAX_HP = 32_400_000;
-// 초반 보스는 후속 보스처럼 장기전이 되지 않도록 별도 체력을 사용한다. 독혈 군주는
-// 누적 기믹을 전개할 시간을 조금 더 확보하되 추적 병기의 전투 길이는 유지한다.
-export const UNEXPLORED_TRACKING_WEAPON_MAX_HP = 15_000_000;
-export const UNEXPLORED_TOXIC_BLOOD_LORD_MAX_HP = 18_000_000;
+// 미개척지 개인 보스의 실제 전투 스탯에 공통 적용하는 난이도 배율. 원시 accuracy는
+// 음수 보정값일 수 있으므로 coop 전투 스케일링이 끝난 뒤 최종 능력치에 적용한다.
+export const UNEXPLORED_BOSS_STAT_MULTIPLIER = 1.3;
+
+// 2026-09-04 전 보스 체급 상향: 기존 전투 길이 비율을 유지하면서 공유 체력을 30% 높인다.
+export const UNEXPLORED_BOSS_SHARED_MAX_HP = 42_120_000;
+// 초반 보스는 후속 보스보다 짧은 기존 전투 길이를 유지한 채 각각 30% 높인다.
+export const UNEXPLORED_TRACKING_WEAPON_MAX_HP = 19_500_000;
+export const UNEXPLORED_TOXIC_BLOOD_LORD_MAX_HP = 23_400_000;
 
 export const UNEXPLORED_SUMMON_STONE_MATERIALS = {
   v2_unexplored_tracking_weapon_summon_stone: {
@@ -136,7 +137,7 @@ export const UNEXPLORED_BOSSES = {
       v2MaxMp: 90,
     },
     traits: [
-      "45틱마다 빠른 행동",
+      "40틱마다 빠른 행동",
       "피해·타격 추적",
       "추적 완료 시 방어 50% 관통·일반 보호막 무시 2연타",
     ],
@@ -189,7 +190,7 @@ export const UNEXPLORED_BOSSES = {
       v2MaxMp: 90,
     },
     traits: [
-      "45틱마다 빠른 행동",
+      "40틱마다 빠른 행동",
       "피격 시 독혈 누적",
       "10중첩 독혈 폭발",
       "중독·폭발 후 회복 억제",

@@ -44,7 +44,7 @@ describe("개인 보스 세션 상태", () => {
     expect(inserted[0]?.mechanicState).toMatchObject({ trackingThreat: 0 });
   });
 
-  it("독혈 군주 세션은 체력 1,800만으로 생성한다", async () => {
+  it("독혈 군주 세션은 체력 2,340만으로 생성한다", async () => {
     const inserted: Record<string, unknown>[] = [];
 
     await createCoopBossSession(sessionTx(inserted) as never, {
@@ -56,8 +56,8 @@ describe("개인 보스 세션 상태", () => {
     });
 
     expect(inserted[0]).toMatchObject({
-      hp: 18_000_000,
-      maxHp: 18_000_000,
+      hp: 23_400_000,
+      maxHp: 23_400_000,
     });
   });
 

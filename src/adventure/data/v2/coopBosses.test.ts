@@ -105,7 +105,7 @@ describe("coopBosses 카탈로그", () => {
       kind,
       { bossMp: 7, trackingThreat: 9 },
       state,
-      17_016_000,
+      22_120_800,
     );
 
     expect(merged).toMatchObject({
@@ -113,14 +113,14 @@ describe("coopBosses 카탈로그", () => {
       trackingThreat: 9,
       immortalBerserker: state,
     });
-    expect(coopImmortalBerserkerState(kind, merged, 17_016_000)).toEqual(state);
-    expect(coopImmortalBerserkerDisplay(kind, merged, 17_016_000)).toEqual({
+    expect(coopImmortalBerserkerState(kind, merged, 22_120_800)).toEqual(state);
+    expect(coopImmortalBerserkerDisplay(kind, merged, 22_120_800)).toEqual({
       immortalLifeIndex: 1,
-      immortalLifeHp: 6_000_000,
-      immortalLifeMaxHp: 10_692_000,
+      immortalLifeHp: 7_800_000,
+      immortalLifeMaxHp: 13_899_600,
       immortalRegenActionsRemaining: 2,
       immortalRegenUsesRemaining: 1,
-      immortalNextRegenAmount: 320_760,
+      immortalNextRegenAmount: 416_988,
       immortalAtkMult: 1.2,
       immortalSpdMult: 1.1,
     });
@@ -235,18 +235,18 @@ describe("coopBosses 카탈로그", () => {
     expect(tracking.base.bonusAttackChancePct).toBeUndefined();
     expect(tracking.enrageStages).toEqual([]);
     expect(tracking.traits).toEqual([
-      "45틱마다 빠른 행동",
+      "40틱마다 빠른 행동",
       "피해·타격 추적",
       "추적 완료 시 방어 50% 관통·일반 보호막 무시 2연타",
     ]);
   });
 
-  it("천공의 수정안은 실제 전투에서 43틱마다 행동한다", () => {
+  it("천공의 수정안은 실제 전투에서 38틱마다 행동한다", () => {
     const eye = COOP_BOSSES.skyward_crystal_eye;
     const monster = coopBossForBattle(eye, eye.sharedMaxHp).monster;
 
-    expect(effectiveMonsterSpd(monster.spd)).toBe(352);
-    expect(actionInterval(effectiveMonsterSpd(monster.spd))).toBe(43);
+    expect(effectiveMonsterSpd(monster.spd)).toBe(454);
+    expect(actionInterval(effectiveMonsterSpd(monster.spd))).toBe(38);
   });
 
   it("독혈 군주는 장기전 독혈 순환을 특성으로 안내한다", () => {
@@ -265,10 +265,10 @@ describe("coopBosses 카탈로그", () => {
     });
     expect(
       coopBossForBattle(toxic, toxic.sharedMaxHp).monster,
-    ).toMatchObject({ def: 1_910, magicDef: 1_997 });
+    ).toMatchObject({ def: 2_483, magicDef: 2_596 });
     expect(toxic.enrageStages).toEqual([]);
     expect(toxic.traits).toEqual([
-      "45틱마다 빠른 행동",
+      "40틱마다 빠른 행동",
       "피격 시 독혈 누적",
       "10중첩 독혈 폭발",
       "중독·폭발 후 회복 억제",

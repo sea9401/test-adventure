@@ -5,6 +5,7 @@ import {
   actionInterval,
   monsterActionSpd,
 } from "@/adventure/v2/combat/combatTimeline";
+import { COOP_BOSSES, coopBossForBattle } from "./coopBosses";
 import { V2_MATERIALS, materialSellPriceOf } from "./dungeonDrops";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import {
@@ -61,7 +62,7 @@ describe("미개척지 개인 보스 카탈로그", () => {
     });
     expect(UNEXPLORED_BOSSES.skyward_crystal_eye).toMatchObject({
       pools: ["crystal_artillery", "precision_hunters"],
-      sharedMaxHp: 32_400_000,
+      sharedMaxHp: 42_120_000,
       anchorDepth: 120,
       monster: {
         hp: 1_150,
@@ -76,7 +77,7 @@ describe("미개척지 개인 보스 카탈로그", () => {
     });
     expect(UNEXPLORED_BOSSES.immortal_berserker).toMatchObject({
       pools: ["regenerating_swarm", "red_berserkers"],
-      sharedMaxHp: 32_400_000,
+      sharedMaxHp: 42_120_000,
       monster: {
         hp: 1_200,
         atk: 15,
@@ -89,9 +90,9 @@ describe("미개척지 개인 보스 카탈로그", () => {
     });
   });
 
-  it("추적 병기는 1,500만, 독혈 군주는 1,800만, 후속 보스는 3,240만 체력으로 전투를 시작한다", () => {
-    expect(UNEXPLORED_BOSSES.tracking_weapon.sharedMaxHp).toBe(15_000_000);
-    expect(UNEXPLORED_BOSSES.toxic_blood_lord.sharedMaxHp).toBe(18_000_000);
+  it("추적 병기는 1,950만, 독혈 군주는 2,340만, 후속 보스는 4,212만 체력으로 전투를 시작한다", () => {
+    expect(UNEXPLORED_BOSSES.tracking_weapon.sharedMaxHp).toBe(19_500_000);
+    expect(UNEXPLORED_BOSSES.toxic_blood_lord.sharedMaxHp).toBe(23_400_000);
 
     for (const id of [
       "glacial_colossus",
@@ -99,35 +100,38 @@ describe("미개척지 개인 보스 카탈로그", () => {
       "skyward_crystal_eye",
       "immortal_berserker",
     ] as const) {
-      expect(UNEXPLORED_BOSSES[id].sharedMaxHp).toBe(32_400_000);
+      expect(UNEXPLORED_BOSSES[id].sharedMaxHp).toBe(42_120_000);
     }
   });
 
-  it("추적 병기는 표시 속도 322로 45틱마다 행동한다", () => {
-    const monster = UNEXPLORED_BOSSES.tracking_weapon.monster;
+  it("추적 병기는 표시 속도 418로 40틱마다 행동한다", () => {
+    const boss = COOP_BOSSES.tracking_weapon;
+    const monster = coopBossForBattle(boss, boss.sharedMaxHp).monster;
     const actionSpd = monsterActionSpd(monster);
 
-    expect(monster.spd).toBe(52);
-    expect(actionSpd).toBe(322);
-    expect(actionInterval(actionSpd)).toBe(45);
+    expect(monster.spd).toBe(68);
+    expect(actionSpd).toBe(418);
+    expect(actionInterval(actionSpd)).toBe(40);
   });
 
-  it("독혈 군주는 표시 속도 322로 45틱마다 행동한다", () => {
-    const monster = UNEXPLORED_BOSSES.toxic_blood_lord.monster;
+  it("독혈 군주는 표시 속도 418로 40틱마다 행동한다", () => {
+    const boss = COOP_BOSSES.toxic_blood_lord;
+    const monster = coopBossForBattle(boss, boss.sharedMaxHp).monster;
     const actionSpd = monsterActionSpd(monster);
 
-    expect(monster).toMatchObject({ spd: 52, def: 44, magicDef: 46 });
-    expect(actionSpd).toBe(322);
-    expect(actionInterval(actionSpd)).toBe(45);
+    expect(monster).toMatchObject({ spd: 68, def: 2_483, magicDef: 2_596 });
+    expect(actionSpd).toBe(418);
+    expect(actionInterval(actionSpd)).toBe(40);
   });
 
-  it("불멸의 광전왕은 첫 생명에서 표시 속도 322로 45틱마다 행동한다", () => {
-    const monster = UNEXPLORED_BOSSES.immortal_berserker.monster;
+  it("불멸의 광전왕은 첫 생명에서 표시 속도 418로 40틱마다 행동한다", () => {
+    const boss = COOP_BOSSES.immortal_berserker;
+    const monster = coopBossForBattle(boss, boss.sharedMaxHp).monster;
     const actionSpd = monsterActionSpd(monster);
 
-    expect(monster.spd).toBe(52);
-    expect(actionSpd).toBe(322);
-    expect(actionInterval(actionSpd)).toBe(45);
+    expect(monster.spd).toBe(68);
+    expect(actionSpd).toBe(418);
+    expect(actionInterval(actionSpd)).toBe(40);
   });
 
   it("모든 미개척지 보스는 평타 사이에 정체성에 맞는 기본 스킬을 섞는다", () => {

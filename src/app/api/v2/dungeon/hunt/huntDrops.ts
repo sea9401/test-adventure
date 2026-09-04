@@ -65,6 +65,7 @@ export function rollHuntDrops(params: {
   mapDropMult: number;
   mapUniqueMult: number;
   mapStoneMult: number;
+  regularEquipmentChanceMult?: number;
   liberationHuntEffects?: LiberationHuntEffects;
 }): HuntDropResult {
   const {
@@ -76,6 +77,7 @@ export function rollHuntDrops(params: {
     mapDropMult,
     mapUniqueMult,
     mapStoneMult,
+    regularEquipmentChanceMult = 1,
     liberationHuntEffects,
   } = params;
   const normalMaterialMult =
@@ -158,9 +160,22 @@ export function rollHuntDrops(params: {
     //   rollEquipDrop 이 7+ 에서 null → ?? 로 밴드
     //   흔한 풀이 그 자리(정규 장비 슬롯)를 채운다(깊이 범위 안 겹쳐 rng 한 쪽만 소비).
     droppedEquipment =
-      rollEquipDrop(depth, ownedSet, Math.random, mapDropMult * equipmentMult) ??
-      rollBandCommonDrop(depth, Math.random, mapDropMult * equipmentMult) ??
-      rollSkyRiftWeaponDrop(depth, Math.random, mapDropMult * equipmentMult);
+      rollEquipDrop(
+        depth,
+        ownedSet,
+        Math.random,
+        mapDropMult * equipmentMult * regularEquipmentChanceMult,
+      ) ??
+      rollBandCommonDrop(
+        depth,
+        Math.random,
+        mapDropMult * equipmentMult * regularEquipmentChanceMult,
+      ) ??
+      rollSkyRiftWeaponDrop(
+        depth,
+        Math.random,
+        mapDropMult * equipmentMult * regularEquipmentChanceMult,
+      );
     if (droppedEquipment !== null) {
       // 드랍 = 새 개체 + 새 굴림(±편차).
       nextOwned = [

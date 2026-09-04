@@ -1,4 +1,9 @@
 import type { DropResult } from "./dungeonDrops";
+import { MAX_FRONTIER_DEPTH } from "./dungeon";
+import {
+  STAR_GRAVE_SIGNATURE_UNIQUE_CHANCE,
+  bandCommonChanceForDepth,
+} from "./dungeonUniqueDrops";
 import type { UnexploredBaseMonsterId, UnexploredRuntimeMonster } from "./unexploredMonsters";
 import {
   UNEXPLORED_POOL_BY_ID,
@@ -15,6 +20,18 @@ import {
 } from "./unexploredTree";
 import type { V2EquipmentId } from "./v2Equipment";
 import type { LiberationHuntEffects } from "./equipmentLiberationEffects";
+
+// 미개척지 공용 장비(84단계 방어구 + 시그니처 유니크)의 무보정 총 드랍률은
+// 두 독립 굴림을 합쳐 정확히 1/2,000이 되게 한다. 시그니처 확률은 보존하고
+// 정규 방어구 굴림만 낮춰, 기존 84단계 사냥터의 확률에는 영향을 주지 않는다.
+export const UNEXPLORED_BASE_EQUIPMENT_DROP_CHANCE = 1 / 2_000;
+const UNEXPLORED_REGULAR_EQUIPMENT_DROP_CHANCE =
+  1 -
+  (1 - UNEXPLORED_BASE_EQUIPMENT_DROP_CHANCE) /
+    (1 - STAR_GRAVE_SIGNATURE_UNIQUE_CHANCE);
+export const UNEXPLORED_REGULAR_EQUIPMENT_DROP_MULTIPLIER =
+  UNEXPLORED_REGULAR_EQUIPMENT_DROP_CHANCE /
+  bandCommonChanceForDepth(MAX_FRONTIER_DEPTH);
 
 export type UnexploredDropTag =
   | "base"

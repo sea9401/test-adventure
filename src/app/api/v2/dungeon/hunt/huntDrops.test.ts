@@ -112,6 +112,21 @@ describe("rollHuntDrops global crafting materials", () => {
     expect(result.nextOwned).toHaveLength(6);
   });
 
+  it("정규 장비 전용 배율로 미개척지 기본 드랍을 2,000승당 1개 수준으로 낮춘다", () => {
+    // Break caught: unexplored hunts inherit the full 0.15% depth-84 regular
+    // equipment chance instead of their lower content-specific rate.
+    vi.spyOn(Math, "random").mockReturnValue(0.0005);
+
+    const result = rollHuntDrops({
+      ...baseParams,
+      won: true,
+      depth: 84,
+      regularEquipmentChanceMult: 0.31,
+    });
+
+    expect(result.droppedEquipment).toBeNull();
+  });
+
   it("사냥에서 발급된 일반·고유 장비의 최소 품질을 함께 보장한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const effects = emptyEquippedLiberationEffects().hunt;

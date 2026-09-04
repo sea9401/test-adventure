@@ -1275,6 +1275,13 @@
       "when": 1788409562622,
       "tag": "0181_marketplace_listing_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 182,
+      "version": "7",
+      "when": 1788481953911,
+      "tag": "0182_museun_coin_payments",
+      "breakpoints": true
     }
   ]
 }

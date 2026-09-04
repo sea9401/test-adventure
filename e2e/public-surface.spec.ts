@@ -12,6 +12,11 @@ const PUBLIC_PAGES = [
   },
   { path: "/operations", heading: "운영정책", title: "운영정책" },
   { path: "/licenses", heading: "오픈소스 고지", title: "오픈소스 고지" },
+  {
+    path: "/products/museun-coin",
+    heading: "무슨 코인 상품 안내",
+    title: "무슨 코인 상품 안내",
+  },
   { path: "/manual/overview", heading: "게임 개요", title: "게임 안내서" },
 ] as const;
 
@@ -115,6 +120,7 @@ test("공개 고지 원문과 PWA 메타 파일을 제공한다", async ({ reque
     ["/manifest.webmanifest", "무슨무슨게임"],
     ["/robots.txt", "Sitemap:"],
     ["/sitemap.xml", "/licenses"],
+    ["/sitemap.xml", "/products/museun-coin"],
   ] as const;
 
   for (const [path, marker] of resources) {

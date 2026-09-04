@@ -322,6 +322,14 @@ describe("production security surface", () => {
     );
   });
 
+  it("깨끗한 체크아웃의 전체 타입 검사가 Node 기본 힙에 막히지 않는다", () => {
+    const workflow = source(join(ROOT, ".github/workflows/ci.yml"));
+
+    expect(workflow).toMatch(
+      /- name: Typecheck \(tsc --noEmit\)\s+env:\s+NODE_OPTIONS: --max-old-space-size=4096\s+run: npx tsc --noEmit/,
+    );
+  });
+
   it("운영 빌드 동안 두 Next 런타임을 멈추고 실패 시 복구한다", () => {
     const release = source(join(ROOT, "deploy/release-production.sh"));
     const stagingService = source(

@@ -41,6 +41,8 @@ jobs:
       - name: Large module no-growth budgets
         run: npm run check-module-budgets
       - name: Typecheck (tsc --noEmit)
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npx tsc --noEmit
       # ESLint — 에러 시 실패(경고는 비차단). 린트 부채 누적 방지 게이트.
       - name: Lint (eslint)

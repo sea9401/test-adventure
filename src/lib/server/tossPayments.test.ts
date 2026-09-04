@@ -17,7 +17,7 @@ const DONE_PAYMENT = {
 
 describe("Toss Payments client", () => {
   it("confirms with Basic auth, JSON, and an idempotency key", async () => {
-    const fetchImpl = vi.fn(async () =>
+    const fetchImpl = vi.fn(async (_input: string | URL | Request, _init?: RequestInit) =>
       Response.json(DONE_PAYMENT, { status: 200 }),
     );
     const client = createTossPaymentsClient({
@@ -54,7 +54,10 @@ describe("Toss Payments client", () => {
   });
 
   it("URL-encodes payment keys for lookup", async () => {
-    const fetchImpl = vi.fn(async () => Response.json(DONE_PAYMENT));
+    const fetchImpl = vi.fn(
+      async (_input: string | URL | Request, _init?: RequestInit) =>
+        Response.json(DONE_PAYMENT),
+    );
     const client = createTossPaymentsClient({
       secretKey: "test_sk_demo",
       fetchImpl,
@@ -68,7 +71,7 @@ describe("Toss Payments client", () => {
   });
 
   it("sends bounded partial cancellation data", async () => {
-    const fetchImpl = vi.fn(async () =>
+    const fetchImpl = vi.fn(async (_input: string | URL | Request, _init?: RequestInit) =>
       Response.json({
         ...DONE_PAYMENT,
         status: "PARTIAL_CANCELED",
@@ -108,7 +111,7 @@ describe("Toss Payments client", () => {
   it("classifies API failures and ambiguous network failures", async () => {
     const rejected = createTossPaymentsClient({
       secretKey: "test_sk_demo",
-      fetchImpl: vi.fn(async () =>
+      fetchImpl: vi.fn(async (_input: string | URL | Request, _init?: RequestInit) =>
         Response.json(
           { code: "REJECT_CARD_COMPANY", message: "카드 거절" },
           { status: 400 },
@@ -131,16 +134,16 @@ describe("Toss Payments client", () => {
 
     const ambiguous = createTossPaymentsClient({
       secretKey: "test_sk_demo",
-      fetchImpl: vi.fn(async () => {
+      fetchImpl: vi.fn(async (_input: string | URL | Request, _init?: RequestInit) => {
         throw new TypeError("network down");
       }),
     });
     await expect(ambiguous.get("pay")).rejects.toEqual(
-      expect.objectContaining<TossPaymentsError>({
+      expect.objectContaining({
         name: "TossPaymentsError",
         code: "NETWORK_ERROR",
         ambiguous: true,
-      }),
+      }) as TossPaymentsError,
     );
   });
 });

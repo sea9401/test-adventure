@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">무슨 코인 1000개</title>
+  <desc id="desc">금빛 코인이 담긴 작은 남색 주머니</desc>
+  <defs><linearGradient id="gold" x1="70" y1="55" x2="190" y2="210"><stop stop-color="#fde68a"/><stop offset="1" stop-color="#d97706"/></linearGradient></defs>
+  <rect width="256" height="256" rx="48" fill="#18181b"/>
+  <circle cx="92" cy="85" r="35" fill="url(#gold)" stroke="#fef3c7" stroke-width="5"/>
+  <circle cx="164" cy="78" r="30" fill="url(#gold)" stroke="#fef3c7" stroke-width="5"/>
+  <path d="M60 111c30 14 106 14 136 0l20 91c3 14-8 26-22 26H62c-14 0-25-12-22-26Z" fill="#312e81" stroke="#a5b4fc" stroke-width="6"/>
+  <path d="M54 126c42 17 106 17 148 0" fill="none" stroke="#fbbf24" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="128" cy="166" r="27" fill="url(#gold)" stroke="#fef3c7" stroke-width="5"/>
+  <path d="M128 151v30M113 166h30" stroke="#78350f" stroke-width="6" stroke-linecap="round"/>
+</svg>

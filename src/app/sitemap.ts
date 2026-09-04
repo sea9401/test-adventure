@@ -17,6 +17,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.8,
     },
+    {
+      url: `${SITE_URL}/products/museun-coin`,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
     ...["terms", "privacy", "operations", "account-deletion", "licenses"].map((path) => ({
       url: `${SITE_URL}/${path}`,
       changeFrequency: "monthly" as const,

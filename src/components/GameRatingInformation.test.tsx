@@ -19,13 +19,25 @@ describe("게임 등급정보", () => {
     expect(html).not.toContain("사행성");
   });
 
-  it("로그인 없는 공개 페이지에서 결정사유와 공식 확인 경로를 제공한다", () => {
-    const html = renderToStaticMarkup(<GameInfoPage />);
+  it("로그인 없는 공개 페이지에서 결정사유와 공식 확인 경로를 제공한다", async () => {
+    const html = renderToStaticMarkup(
+      await GameInfoPage({ searchParams: Promise.resolve({}) }),
+    );
 
     expect(html).toContain("게임 등급정보");
     expect(html).toContain("최초 공개일");
     expect(html).toContain("2026.08.01");
     expect(html).toContain("무기와 붉은 선혈이 표현된 일러스트");
     expect(html).toContain("게임콘텐츠등급분류위원회에서 결정 내용 확인");
+    expect(html).toContain('href="/"');
+  });
+
+  it("게임에서 연 등급정보 탭은 게임 루트로 이동하지 않고 탭 닫기를 제공한다", async () => {
+    const html = renderToStaticMarkup(
+      await GameInfoPage({ searchParams: Promise.resolve({ from: "game" }) }),
+    );
+
+    expect(html).toContain("무슨무슨게임으로 돌아가기");
+    expect(html).not.toContain('href="/"');
   });
 });

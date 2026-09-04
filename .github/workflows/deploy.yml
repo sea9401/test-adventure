@@ -18,6 +18,25 @@ on:
         description: "CI를 통과한 main의 전체 40자리 commit SHA"
         required: true
         type: string
+      content_modification_status:
+        description: "등급 결정 후 변경 검토 상태(미선택은 배포 차단)"
+        required: true
+        type: choice
+        default: select-review-status
+        options:
+          - select-review-status
+          - not-applicable
+          - technical-only
+          - reported
+      content_modification_summary:
+        description: "변경 내용과 내용수정신고 판단 근거"
+        required: true
+        type: string
+      content_modification_report_reference:
+        description: "reported 선택 시 접수번호 또는 신고 기록 위치"
+        required: false
+        default: ""
+        type: string
 
 concurrency:
   group: deploy-ec2
@@ -31,6 +50,9 @@ jobs:
       contents: read
     env:
       DEPLOY_SHA: ${{ inputs.deploy_sha }}
+      CONTENT_MODIFICATION_STATUS: ${{ inputs.content_modification_status }}
+      CONTENT_MODIFICATION_SUMMARY: ${{ inputs.content_modification_summary }}
+      CONTENT_MODIFICATION_REPORT_REFERENCE: ${{ inputs.content_modification_report_reference }}
     outputs:
       ci_run_id: ${{ steps.ci-run.outputs.ci_run_id }}
     steps:
@@ -44,6 +66,8 @@ jobs:
           test "$(git rev-parse HEAD)" = "$DEPLOY_SHA"
           git fetch origin main
           git merge-base --is-ancestor "$DEPLOY_SHA" origin/main
+      - name: Verify content modification review
+        run: node scripts/validate-content-modification-review.mjs
       # 검증과 빌드를 다시 하지 않고, 정확히 이 SHA로 성공한 main push CI만 신뢰한다.
       - name: Locate successful main CI artifact
         id: ci-run

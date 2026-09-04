@@ -40,6 +40,28 @@ describe("대문 로그인 선택지", () => {
     expect(html).not.toContain("접속 중");
   });
 
+  it("푸터에 공개 상품과 완성된 사업자 정보를 제공한다", () => {
+    const html = renderToStaticMarkup(
+      <LandingContent
+        merchantInfo={{
+          legalName: "무슨게임",
+          registrationNumber: "781-52-01091",
+          representative: "홍길동",
+          address: "서울특별시 테스트구 테스트로 1",
+          contact: "02-0000-0000",
+          mailOrderSalesNumber: null,
+        }}
+      />,
+    );
+
+    expect(html).toContain('href="/products/museun-coin"');
+    expect(html).toContain("상호 무슨게임");
+    expect(html).toContain("사업자등록번호 781-52-01091");
+    expect(html).toContain("대표자 홍길동");
+    expect(html).toContain("사업장 주소 서울특별시 테스트구 테스트로 1");
+    expect(html).toContain("고객센터 02-0000-0000");
+  });
+
   it("홍보 링크 유입 상태가 전달돼도 대문에 별도 안내를 표시하지 않는다", () => {
     const html = renderToStaticMarkup(
       LandingContent({ referralStatus: "accepted" } as never),

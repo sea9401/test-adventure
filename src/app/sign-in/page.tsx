@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { shouldStartLocalDevAutoLogin } from "@/lib/server/localDevAutoLogin";
 import { hasCompletedOnboarding } from "@/lib/server/profile";
 import { hasMinimumAgeServiceAccess } from "@/lib/server/ageEligibility";
+import { readPublicMerchantInfo } from "@/lib/publicMerchantInfo";
 import { LandingContent } from "./LandingContent";
 
 export const metadata: Metadata = {
@@ -72,6 +73,7 @@ export default async function SignInPage({
     <LandingContent
       authed={!!session?.user}
       ageConfirmed={ageConfirmed}
+      merchantInfo={readPublicMerchantInfo(process.env)}
       authError={
         error === "OAuthAccountNotLinked"
           ? "account-not-linked"

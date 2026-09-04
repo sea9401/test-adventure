@@ -360,7 +360,7 @@ export function V2PreferencesView() {
           <CaretRight size={18} weight="bold" className="shrink-0" aria-hidden />
         </Link>
         <Link
-          href="/game-info"
+          href="/game-info?from=game"
           target="_blank"
           rel="noreferrer"
           className={`${SURFACE_INSET} flex items-center gap-3 p-3 text-zinc-700 transition-colors hover:border-amber-400 dark:text-zinc-300`}

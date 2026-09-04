@@ -48,9 +48,8 @@ jobs:
       - name: Lint (eslint)
         run: npm run lint
 
-  # npm ci의 기본 감사 요청을 각 잡에서 반복하지 않고 운영 의존성만 한 번 검사한다.
-  # 외부 레지스트리 지연은 이 잡에 격리한다. npm의 bulk→quick 폴백 전체가
-  # 일시 실패할 수 있어 감사 트랜잭션을 다시 시작하되 E2E 임계 시간 안에 끝낸다.
+  # npm ci의 반복 감사를 끄고 운영 lockfile은 npm 권고도 수집하는 GitHub의
+  # Advisory Database에서 한 번 검사한다. 레지스트리 감사 API 장애와 설치를 피한다.
   production-audit:
     name: Production dependency audit
     runs-on: ubuntu-latest
@@ -60,17 +59,9 @@ jobs:
         with:
           node-version: 20
       - name: Production dependency audit
-        run: |
-          for attempt in 1 2 3; do
-            if timeout 75s npm audit --omit=dev --audit-level=moderate --fetch-timeout=30000 --fetch-retries=0; then
-              exit 0
-            fi
-            if [ "$attempt" -lt 3 ]; then
-              echo "npm audit attempt $attempt failed; retrying the full audit transaction"
-              sleep 10
-            fi
-          done
-          exit 1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-production-advisories.mjs
 
   unit-tests:
     name: Unit tests (${{ matrix.shard }}/3)

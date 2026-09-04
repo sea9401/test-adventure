@@ -51,9 +51,11 @@
    `production-next-<40자리 SHA>` 아티팩트가 준비될 때까지 기존 서비스를 유지한다.
 5. GitHub Actions의 **Deploy to EC2**를 수동 실행하고 `deploy_sha`에 위 `main`의
    전체 40자리 SHA를 입력한다. 내용수정 검토 상태를 `not-applicable`,
-   `technical-only`, `reported` 중 하나로 선택하고 변경 요약과 판단 근거를 적는다.
-   `reported`이면 접수번호 또는 신고 기록 위치도 입력한다. `main` push만으로 운영
-   배포는 시작되지 않는다.
+   `technical-only`, `recorded`, `reported` 중 하나로 선택하고 변경 요약과 판단 근거를
+   적는다. 게임 내용 변경을 내부 기록으로 남기고 신고 판단을 운영자 후속으로 둘 때는
+   `recorded`와 `docs/content-modification-records/` 아래의 실제 문서 경로를 입력한다.
+   실제 신고를 접수한 `reported` 상태만 접수번호 또는 신고 기록 위치를 입력한다.
+   `main` push만으로 운영 배포는 시작되지 않는다.
 6. 워크플로가 SHA·CI·아티팩트를 검증하고 아티팩트 전송을 마친 뒤, 실제 런타임 교체
    직전에 점검 모드를 켠다. 일반 배포 요청만으로 점검 모드를 미리 켜지 않는다.
 7. 마이그레이션, 서비스 시작, 내부 health·로그인·운영 스모크가 통과해도 점검 모드는

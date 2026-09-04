@@ -204,9 +204,12 @@ describe("production security surface", () => {
     for (const marker of [
       "content_modification_status:",
       "content_modification_summary:",
+      "content_modification_record_reference:",
       "content_modification_report_reference:",
+      "- recorded",
       "CONTENT_MODIFICATION_STATUS: ${{ inputs.content_modification_status }}",
       "CONTENT_MODIFICATION_SUMMARY: ${{ inputs.content_modification_summary }}",
+      "CONTENT_MODIFICATION_RECORD_REFERENCE: ${{ inputs.content_modification_record_reference }}",
       "CONTENT_MODIFICATION_REPORT_REFERENCE: ${{ inputs.content_modification_report_reference }}",
       "node scripts/validate-content-modification-review.mjs",
     ]) {

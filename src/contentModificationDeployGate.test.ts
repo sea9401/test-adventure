@@ -12,6 +12,7 @@ type ReviewInput = {
   status?: string;
   summary?: string;
   reference?: string;
+  recordReference?: string;
   deploySha?: string;
   withJobSummary?: boolean;
 };
@@ -30,6 +31,7 @@ function runReview(input: ReviewInput) {
       CONTENT_MODIFICATION_STATUS: input.status ?? "",
       CONTENT_MODIFICATION_SUMMARY: input.summary ?? "",
       CONTENT_MODIFICATION_REPORT_REFERENCE: input.reference ?? "",
+      CONTENT_MODIFICATION_RECORD_REFERENCE: input.recordReference ?? "",
       DEPLOY_SHA: input.deploySha ?? "a".repeat(40),
       GITHUB_STEP_SUMMARY: input.withJobSummary ? jobSummary : "",
     },
@@ -75,6 +77,46 @@ describe("content modification deployment review", () => {
     expect(result.jobSummary).toContain("`bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`");
     expect(result.jobSummary).toContain("신규 전투 연출 폭력성 검토 / 완료");
     expect(result.jobSummary).toContain("GCRB-20260904-1 / 접수");
+  });
+
+  it("accepts an existing repository content-change record", () => {
+    const result = runReview({
+      status: "recorded",
+      summary: "미개척지 콘텐츠 운영 반영",
+      recordReference:
+        "docs/content-modification-records/2026-09-05-unexplored-production.md",
+      deploySha: "c".repeat(40),
+      withJobSummary: true,
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("content modification review: recorded");
+    expect(result.stderr).toBe("");
+    expect(result.jobSummary).toContain("`recorded`");
+    expect(result.jobSummary).toContain("내부 변경 기록");
+    expect(result.jobSummary).toContain(
+      "docs/content-modification-records/2026-09-05-unexplored-production.md",
+    );
+    expect(result.jobSummary).toContain("공식 신고 접수번호·기록");
+    expect(result.jobSummary).toContain("해당 없음");
+  });
+
+  it.each([
+    "",
+    "docs/content-modification-records/missing.md",
+    "../outside.md",
+    "/tmp/outside.md",
+    "docs/ops-runbook.md",
+    "docs/content-modification-records/not-markdown.txt",
+  ])("rejects an invalid recorded reference: %s", (recordReference) => {
+    const result = runReview({
+      status: "recorded",
+      summary: "미개척지 콘텐츠 운영 반영",
+      recordReference,
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("content change record");
   });
 
   it("rejects a filed-report status without its report reference", () => {

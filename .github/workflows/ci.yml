@@ -49,7 +49,8 @@ jobs:
         run: npm run lint
 
   # npm ci의 기본 감사 요청을 각 잡에서 반복하지 않고 운영 의존성만 한 번 검사한다.
-  # 외부 레지스트리 지연은 이 잡에 격리하고 전체 요청 시간도 짧게 제한한다.
+  # 외부 레지스트리 지연은 이 잡에 격리한다. npm의 bulk→quick 폴백 전체가
+  # 일시 실패할 수 있어 감사 트랜잭션을 다시 시작하되 E2E 임계 시간 안에 끝낸다.
   production-audit:
     name: Production dependency audit
     runs-on: ubuntu-latest
@@ -59,7 +60,17 @@ jobs:
         with:
           node-version: 20
       - name: Production dependency audit
-        run: timeout 90s npm audit --omit=dev --audit-level=moderate --fetch-timeout=30000 --fetch-retries=2 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000
+        run: |
+          for attempt in 1 2 3; do
+            if timeout 75s npm audit --omit=dev --audit-level=moderate --fetch-timeout=30000 --fetch-retries=0; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "npm audit attempt $attempt failed; retrying the full audit transaction"
+              sleep 10
+            fi
+          done
+          exit 1
 
   unit-tests:
     name: Unit tests (${{ matrix.shard }}/3)

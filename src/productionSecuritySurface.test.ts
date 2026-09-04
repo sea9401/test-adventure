@@ -309,7 +309,7 @@ describe("production security surface", () => {
       installCommands.map(() => "npm ci --no-audit --prefer-offline"),
     );
     expect(workflow).toMatch(
-      /production-audit:[\s\S]*?run: timeout 90s npm audit --omit=dev --audit-level=moderate --fetch-timeout=30000 --fetch-retries=2 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000/,
+      /production-audit:[\s\S]*?for attempt in 1 2 3; do[\s\S]*?timeout 75s npm audit --omit=dev --audit-level=moderate --fetch-timeout=30000 --fetch-retries=0[\s\S]*?sleep 10[\s\S]*?exit 1/,
     );
     expect(workflow).toContain(
       "needs: [static-checks, production-audit, unit-tests, level-design-sim-tests, production-build, browser-e2e]",

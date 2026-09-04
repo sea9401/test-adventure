@@ -176,6 +176,29 @@ describe("production security surface", () => {
     }
   });
 
+  it("운영 배포 전에 내용수정신고 검토를 필수 기록한다", () => {
+    const workflow = source(join(ROOT, ".github/workflows/deploy.yml"));
+
+    for (const marker of [
+      "content_modification_status:",
+      "content_modification_summary:",
+      "content_modification_report_reference:",
+      "CONTENT_MODIFICATION_STATUS: ${{ inputs.content_modification_status }}",
+      "CONTENT_MODIFICATION_SUMMARY: ${{ inputs.content_modification_summary }}",
+      "CONTENT_MODIFICATION_REPORT_REFERENCE: ${{ inputs.content_modification_report_reference }}",
+      "node scripts/validate-content-modification-review.mjs",
+    ]) {
+      expect(workflow).toContain(marker);
+    }
+
+    const reviewGate = workflow.indexOf("Verify content modification review");
+    const artifactLookup = workflow.indexOf("Locate successful main CI artifact");
+    const artifactTransfer = workflow.indexOf("Transfer production build to EC2");
+    expect(reviewGate).toBeGreaterThan(-1);
+    expect(reviewGate).toBeLessThan(artifactLookup);
+    expect(reviewGate).toBeLessThan(artifactTransfer);
+  });
+
   it("일일 DB 백업은 실패 알림 래퍼를 통해 실행한다", () => {
     const crontab = source(join(ROOT, "deploy/crontab.txt"));
 

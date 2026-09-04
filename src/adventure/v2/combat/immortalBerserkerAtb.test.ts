@@ -22,6 +22,7 @@ import {
 
 const SHARED_MAX_HP = 10_800_000;
 const FIRST_FLOOR = 7_236_000;
+const SECOND_FLOOR = 3_672_000;
 
 const player: PlayerCombat = {
   hp: 1_000_000,
@@ -186,7 +187,31 @@ describe("immortal berserker ATB mechanic", () => {
       result.finalState.log.filter((entry) => entry.kind === "player_attack"),
     ).toHaveLength(1);
     expect(result.finalState.log.some((entry) => entry.text.includes("첫 번째 부활"))).toBe(true);
-    expect(result.finalState.log.some((entry) => entry.text.includes("공격력 +12%"))).toBe(true);
+    expect(result.finalState.log.some((entry) => entry.text.includes("공격력 +20%"))).toBe(true);
+    expect(result.finalState.log.some((entry) => entry.text.includes("행동 속도 +10%"))).toBe(true);
+  });
+
+  it("announces the stronger enrage when the second revival begins", () => {
+    const result = runImmortal({
+      initialState: {
+        kind: "immortal_berserker",
+        lifeIndex: 1,
+        regenActionCount: 0,
+        regenUsesRemaining: 2,
+        revivalsCompleted: 1,
+      },
+      initialEnemyHp: SECOND_FLOOR + 10,
+    });
+
+    expect(result.finalState.enemyHp).toBe(SECOND_FLOOR);
+    expect(result.finalState.bossMechanic).toMatchObject({
+      kind: "immortal_berserker",
+      lifeIndex: 2,
+      revivalsCompleted: 2,
+    });
+    expect(result.finalState.log.some((entry) => entry.text.includes("두 번째 부활"))).toBe(true);
+    expect(result.finalState.log.some((entry) => entry.text.includes("공격력 +60%"))).toBe(true);
+    expect(result.finalState.log.some((entry) => entry.text.includes("행동 속도 +25%"))).toBe(true);
   });
 
   it("allows the next independent player action to damage the revived life", () => {
@@ -226,8 +251,8 @@ describe("immortal berserker ATB mechanic", () => {
         revivalsCompleted: 1,
       } satisfies ImmortalBerserkerBattleState,
       healed: 106_920,
-      atk: 112,
-      spd: 106,
+      atk: 120,
+      spd: 110,
     },
     {
       label: "third life",
@@ -240,8 +265,8 @@ describe("immortal berserker ATB mechanic", () => {
         revivalsCompleted: 2,
       } satisfies ImmortalBerserkerBattleState,
       healed: 0,
-      atk: 125,
-      spd: 112,
+      atk: 160,
+      spd: 125,
     },
   ])("applies regeneration and enrage after an enemy action in the $label", ({
     hp,
@@ -294,7 +319,7 @@ describe("immortal berserker ATB mechanic", () => {
       immortalLife: "2/3",
       immortalLifeHp: "3,228,000 / 3,564,000",
       immortalRegeneration: "2행동 · 1회",
-      immortalEnrage: "공격 +12% · 속도 +6%",
+      immortalEnrage: "공격 +20% · 속도 +10%",
     });
   });
 });

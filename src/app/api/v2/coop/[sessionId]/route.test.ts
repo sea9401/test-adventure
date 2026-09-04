@@ -182,7 +182,7 @@ describe("GET /api/v2/coop/[sessionId]", () => {
         crystalEyeAimTicksRemaining: 640,
         crystalEyeDisruptionStacks: 17,
         crystalEyeProjectedPowerPct: 80,
-        crystalEyeBasePowerPct: 210,
+        crystalEyeBasePowerPct: 390,
         crystalEyeCoreExposed: true,
         crystalEyeCoreExposureTicksRemaining: 180,
         crystalEyeLastArtilleryDamage: 1234,

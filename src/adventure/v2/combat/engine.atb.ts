@@ -669,7 +669,7 @@ function settleSkywardCrystalEyeExposureDamage(args: {
   };
 }
 
-const SKYWARD_CRYSTAL_EYE_ARTILLERY_MAGIC_DEF_PIERCE_PCT = 20;
+const SKYWARD_CRYSTAL_EYE_ARTILLERY_MAGIC_DEF_PIERCE_PCT = 50;
 const SKYWARD_CRYSTAL_EYE_ARTILLERY_ACCURACY_BONUS = 250;
 
 function fireSkywardCrystalEyeAtbArtillery(args: {

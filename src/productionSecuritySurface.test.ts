@@ -288,13 +288,37 @@ describe("production security surface", () => {
       /level-design-sim-tests:[\s\S]*?run: npx vitest run src\/adventure\/data\/v2\/levelDesignSim\.test\.ts --maxWorkers=1/,
     );
     expect(workflow).toContain(
-      "needs: [static-checks, unit-tests, level-design-sim-tests, production-build, browser-e2e]",
+      "needs: [static-checks, production-audit, unit-tests, level-design-sim-tests, production-build, browser-e2e]",
     );
     expect(workflow).toContain(
       "LEVEL_DESIGN_SIM_TESTS_RESULT: ${{ needs.level-design-sim-tests.result }}",
     );
     expect(workflow).toContain(
       'test "$LEVEL_DESIGN_SIM_TESTS_RESULT" = "success"',
+    );
+  });
+
+  it("의존성 설치의 중복 감사를 끄고 운영 의존성 감사만 제한 시간 안에 별도로 실행한다", () => {
+    const workflow = source(join(ROOT, ".github/workflows/ci.yml"));
+    const installCommands = [...workflow.matchAll(/run: (npm ci[^\n]*)/g)].map(
+      ([, command]) => command.trim(),
+    );
+
+    expect(installCommands.length).toBeGreaterThan(0);
+    expect(installCommands).toEqual(
+      installCommands.map(() => "npm ci --no-audit --prefer-offline"),
+    );
+    expect(workflow).toMatch(
+      /production-audit:[\s\S]*?run: timeout 90s npm audit --omit=dev --audit-level=moderate --fetch-timeout=30000 --fetch-retries=2 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000/,
+    );
+    expect(workflow).toContain(
+      "needs: [static-checks, production-audit, unit-tests, level-design-sim-tests, production-build, browser-e2e]",
+    );
+    expect(workflow).toContain(
+      "PRODUCTION_AUDIT_RESULT: ${{ needs.production-audit.result }}",
+    );
+    expect(workflow).toContain(
+      'test "$PRODUCTION_AUDIT_RESULT" = "success"',
     );
   });
 

@@ -6,10 +6,6 @@ import {
   isGuildEmblemObjectKey,
 } from "@/adventure/data/guild-emblems";
 import { isValidAvatarId } from "@/adventure/profile/avatars";
-import {
-  MUSEUN_COIN_WALLET_KEY,
-  parseMuseunCoinBalance,
-} from "@/adventure/data/v2/museunCashItems";
 import { db } from "@/db";
 import { guildMembers, guilds } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -21,7 +17,7 @@ import {
 } from "@/lib/server/guildEmblemStorage";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { spendMuseunCoins } from "@/lib/server/museunCoinAccount";
 import { requireCurrentUgcConsent } from "@/lib/server/ugcSafety";
 
 const MAX_MULTIPART_BYTES = GUILD_EMBLEM_IMAGE_MAX_BYTES + 256 * 1024;
@@ -168,30 +164,27 @@ export async function POST(req: Request) {
         return { status: 403, body: { ok: false as const, error: "not_master" } };
       }
 
-      // 공통 잠금 순서: 길드 행 다음 개인 지갑. 같은 사용자의 다른 소비 경로와 지갑 행으로 직렬화된다.
-      const wallet = await lockSaveForUpdate<Record<string, unknown>>(
-        tx,
+      // 공통 잠금 순서: 길드 행 다음 개인 코인 계정. 모든 소비 경로가 계정 행으로 직렬화된다.
+      const spend = await spendMuseunCoins(tx, {
         userId,
-        MUSEUN_COIN_WALLET_KEY,
-        {},
-      );
-      const coins = parseMuseunCoinBalance(wallet);
-      if (coins < GUILD_CUSTOM_EMBLEM_COIN_COST) {
+        coins: GUILD_CUSTOM_EMBLEM_COIN_COST,
+        eventKey: `guild-emblem:${emblem}`,
+        kind: "guild_emblem",
+        sourceId: emblem,
+        detail: { guildId: member.guildId },
+      });
+      if (!spend.ok) {
         return {
           status: 409,
           body: {
             ok: false as const,
             error: "insufficient_coins",
             cost: GUILD_CUSTOM_EMBLEM_COIN_COST,
-            coins,
+            coins: spend.coins,
           },
         };
       }
-      const nextCoins = coins - GUILD_CUSTOM_EMBLEM_COIN_COST;
-      await upsertSave(tx, userId, MUSEUN_COIN_WALLET_KEY, {
-        ...wallet,
-        coins: nextCoins,
-      });
+      const nextCoins = spend.coins;
       await tx.update(guilds).set({ emblem }).where(eq(guilds.id, member.guildId));
       await logGuildActivity(tx, {
         guildId: member.guildId,

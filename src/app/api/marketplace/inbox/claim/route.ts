@@ -52,12 +52,11 @@ import {
   type StaminaState,
 } from "@/adventure/v2/stamina";
 import {
-  MUSEUN_COIN_WALLET_KEY,
   addMuseunCashItem,
   isMuseunShopItemId,
-  parseMuseunCoinBalance,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
+import { grantFreeMuseunCoins } from "@/lib/server/museunCoinAccount";
 import {
   addCookingFood,
   isCookingFoodId,
@@ -782,22 +781,19 @@ export async function POST(req: Request) {
       // 무슨 코인 — 전용 지갑에 적립. 캐릭터/인벤토리/시즌 지갑 처리 뒤 leaf 로 잠근다.
       let museunCoins: number | null = null;
       if (museunCoinsTotal > 0) {
-        const walletRows = await tx
-          .select()
-          .from(savesKv)
-          .where(
-            and(
-              eq(savesKv.userId, userId),
-              eq(savesKv.key, MUSEUN_COIN_WALLET_KEY),
-            ),
-          )
-          .for("update");
-        const wallet = (walletRows[0]?.value ?? {}) as Record<string, unknown>;
-        museunCoins = parseMuseunCoinBalance(wallet) + museunCoinsTotal;
-        await upsertSave(tx, userId, MUSEUN_COIN_WALLET_KEY, {
-          ...wallet,
-          coins: museunCoins,
+        const claimRowIds = rows
+          .filter((row) => !parseFailedRowIds.includes(row.id))
+          .map((row) => row.id)
+          .sort((a, b) => a - b);
+        const grant = await grantFreeMuseunCoins(tx, {
+          userId,
+          coins: museunCoinsTotal,
+          eventKey: `inbox-claim:${userId}:${claimRowIds.join(",")}:museun-coins`,
+          kind: "inbox_reward",
+          sourceId: claimRowIds.join(","),
+          detail: { inboxIds: claimRowIds },
         });
+        museunCoins = grant.coins;
       }
 
       // 스태미나 회복약 — 전용 키(stamina-potions.v1). 다른 세이브 처리 뒤 leaf 로 잠근다.

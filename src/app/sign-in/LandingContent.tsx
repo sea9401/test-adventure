@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { MerchantDisclosure } from "@/components/MerchantDisclosure";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
+import type { PublicMerchantInfo } from "@/lib/publicMerchantInfo";
 import { LandingBackgroundSlideshow } from "./LandingBackgroundSlideshow";
 import { SignInButtons } from "./SignInButtons";
 
@@ -34,11 +36,13 @@ export function LandingContent({
   authed = false,
   authError = null,
   ageConfirmed = false,
+  merchantInfo = null,
 }: {
   // 로그인은 됐지만 아직 캐릭터가 없는 유저 — 로그인 버튼 대신 "시작하기"(→/create) 노출.
   authed?: boolean;
   authError?: "account-not-linked" | "login-failed" | null;
   ageConfirmed?: boolean;
+  merchantInfo?: PublicMerchantInfo | null;
 }) {
   return (
     <main className="dark min-h-screen overflow-x-hidden bg-[#0a0a0b] text-zinc-200">
@@ -185,13 +189,20 @@ export function LandingContent({
           </section>
 
           {/* ── 푸터 ─────────────────────────────────────────── */}
-          <footer className="mt-auto flex flex-col items-center gap-3 border-t border-white/5 py-8 text-xs text-zinc-400 sm:flex-row sm:justify-between">
-            <span className="font-medium tracking-wide text-zinc-400">
-              무슨무슨게임
-            </span>
+          <footer className="mt-auto border-t border-white/5 py-8 text-xs text-zinc-400">
+            <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+              <span className="font-medium tracking-wide text-zinc-400">
+                무슨무슨게임
+              </span>
             <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
               <Link href="/manual" className="transition-colors hover:text-zinc-300">
                 게임 가이드
+              </Link>
+              <Link
+                href="/products/museun-coin"
+                className="transition-colors hover:text-zinc-300"
+              >
+                무슨 코인 상품
               </Link>
               <Link href="/game-info" className="transition-colors hover:text-zinc-300">
                 게임 등급정보
@@ -216,6 +227,11 @@ export function LandingContent({
               </a>
               <span>© 2026</span>
             </nav>
+            </div>
+            <MerchantDisclosure
+              merchantInfo={merchantInfo}
+              className="mt-5 border-t border-white/5 pt-5 text-zinc-400"
+            />
           </footer>
         </div>
       </div>

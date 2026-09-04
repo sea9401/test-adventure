@@ -28,6 +28,7 @@ describe("출시 OAuth provider 설정", () => {
         "/licenses",
         "/game-info",
         "/notices/minimum-age-policy",
+        "/products/museun-coin",
         "/api/age-eligibility",
       ]),
     );

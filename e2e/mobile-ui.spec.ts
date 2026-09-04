@@ -9,6 +9,33 @@ const WIDTH_SAFE_SURFACES = [
   { path: "/dev/battle-log", label: "전투 로그" },
 ] as const;
 
+test("게임 이용등급 고지는 모바일 화면을 과도하게 가리지 않는다", async ({
+  page,
+}) => {
+  // 로컬 개발 자동 로그인을 건너뛰고 신규 비로그인 진입 상태를 재현한다.
+  await page.goto("/sign-in?error=mobile-ui-preview");
+
+  const notice = page.getByRole("status", { name: "게임 이용등급 안내" });
+  await expect(notice).toBeVisible();
+  const layout = await notice.locator("section").evaluate((panel) => {
+    const rect = panel.getBoundingClientRect();
+    return {
+      panelWidth: rect.width,
+      panelHeight: rect.height,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      coveredAreaRatio:
+        (rect.width * rect.height) / (window.innerWidth * window.innerHeight),
+    };
+  });
+
+  expect(layout.panelWidth).toBeLessThanOrEqual(
+    Math.min(layout.viewportWidth * 0.88 + 1, 321),
+  );
+  expect(layout.panelHeight).toBeLessThanOrEqual(layout.viewportHeight * 0.4);
+  expect(layout.coveredAreaRatio).toBeLessThanOrEqual(0.34);
+});
+
 for (const surface of WIDTH_SAFE_SURFACES) {
   test(`${surface.label}은 모바일에서 가로 넘침이 없다`, async ({ page }) => {
     const response = await page.goto(surface.path);

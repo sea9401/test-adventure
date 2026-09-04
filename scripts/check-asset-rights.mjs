@@ -95,6 +95,9 @@ function sourceFor(assetPath) {
   if (/^android\/store-assets\//.test(assetPath)) {
     return "operator-cleared-brand-art";
   }
+  if (/^public\/images\/rating\//.test(assetPath)) {
+    return "official-gcrb-rating-marks";
+  }
   if (/^public\/images\/ui\/profile-decorations\/.*\.svg$/.test(assetPath)) {
     return "repository-authored-vector";
   }

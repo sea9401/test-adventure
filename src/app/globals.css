@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* 같은 탭의 새로고침에서는 서버 렌더 고지가 hydration 전에 번쩍이지 않게 숨긴다. */
+.game-rating-notice-seen .game-rating-launch-notice {
+  display: none;
+}
+
 /* 설치 앱/TWA 첫 웹 프레임 — Android 네이티브 스플래시와 검은 배경·파비콘을
    이어 붙여 Chrome이 웹 화면을 준비하는 동안 빈 검은 화면만 보이지 않게 한다. */
 .app-launch-splash {

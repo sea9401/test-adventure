@@ -5,7 +5,7 @@ import { LandingContent } from "./LandingContent";
 describe("대문 로그인 선택지", () => {
   it("로그인했지만 캐릭터가 없어도 생성과 기존 계정 로그인을 모두 제공한다", () => {
     const html = renderToStaticMarkup(
-      <LandingContent authed />,
+      <LandingContent authed ageConfirmed />,
     );
 
     expect(html).toContain("캐릭터 만들고 시작하기");
@@ -18,7 +18,7 @@ describe("대문 로그인 선택지", () => {
 
   it("비로그인 대문은 로그인 선택지만 제공한다", () => {
     const html = renderToStaticMarkup(
-      <LandingContent />,
+      <LandingContent ageConfirmed />,
     );
 
     expect(html).not.toContain("캐릭터 만들고 시작하기");
@@ -32,6 +32,10 @@ describe("대문 로그인 선택지", () => {
     expect(html).toContain('href="/privacy"');
     expect(html).toContain('href="/operations"');
     expect(html).toContain('href="/licenses"');
+    expect(html).toContain('href="/game-info"');
+    expect(html).toContain("게임 등급정보");
+    expect(html).toContain('href="/notices/minimum-age-policy"');
+    expect(html).toContain("만 14세 이상 서비스 기준 변경 안내");
     expect(html).not.toContain("함께한 모험가");
     expect(html).not.toContain("접속 중");
   });
@@ -54,5 +58,16 @@ describe("대문 로그인 선택지", () => {
     expect(html).toContain("기존 계정과 카카오 로그인을 연결하지 못했습니다");
     expect(html).toContain("인게임 닉네임과 함께 운영자에게 문의");
     expect(html).toContain('role="alert"');
+  });
+
+  it("연령 확인 전에는 로그인·캐릭터 생성 대신 만 14세 확인만 제공한다", () => {
+    const html = renderToStaticMarkup(<LandingContent authed={false} />);
+
+    expect(html).toContain("본인은 만 14세 이상입니다");
+    expect(html).toContain("서비스 이용 기준은 만 14세 이상");
+    expect(html).toContain("게임 등급은 12세이용가");
+    expect(html).not.toContain("카카오톡으로 로그인");
+    expect(html).not.toContain("아이디·비밀번호로 로그인");
+    expect(html).not.toContain("캐릭터 만들고 시작하기");
   });
 });

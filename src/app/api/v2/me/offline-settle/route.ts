@@ -28,7 +28,7 @@ import type { DungeonFloorId } from "@/adventure/data/v2/types";
 import {
   runOneHunt,
   type RunOneHuntCtx,
-} from "@/app/api/v2/dungeon/hunt/route";
+} from "@/app/api/v2/dungeon/hunt/huntExecution";
 import {
   recordCodexMasteryGameplayBatch,
   type CodexMasteryGameplayEvent,

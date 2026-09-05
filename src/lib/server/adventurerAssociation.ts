@@ -15,6 +15,7 @@ import {
   type AdventurerAssociationFacilityId,
   type AdventurerAssociationFacilityProgress,
   type WeeklyFacilitySource,
+  type WeeklyFacilitySourceSelection,
 } from "@/adventure/data/v2/adventurerAssociation";
 import type { SettlementResources } from "@/adventure/data/v2/settlement";
 import { readSave, upsertSave, type DbExecutor } from "./savesKv";
@@ -140,6 +141,22 @@ export async function readWeeklyFacilitySource(
   buildingId: AdventurerAssociationFacilityId,
   weekKey: string,
 ): Promise<WeeklyFacilitySource | null> {
+  return (
+    await readWeeklyFacilitySourceSelection(
+      executor,
+      userId,
+      buildingId,
+      weekKey,
+    )
+  )?.source ?? null;
+}
+
+export async function readWeeklyFacilitySourceSelection(
+  executor: DbExecutor,
+  userId: string,
+  buildingId: AdventurerAssociationFacilityId,
+  weekKey: string,
+): Promise<WeeklyFacilitySourceSelection | null> {
   const raw = await readSave(
     executor,
     userId,
@@ -147,7 +164,7 @@ export async function readWeeklyFacilitySource(
     {},
   );
   const selected = parseWeeklyFacilitySourceState(raw)[buildingId];
-  return selected?.weekKey === weekKey ? selected.source : null;
+  return selected?.weekKey === weekKey ? selected : null;
 }
 
 export async function claimWeeklyFacilitySource(

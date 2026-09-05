@@ -142,22 +142,22 @@ describe("unexplored simulation balance", () => {
 
   it("matches the approved action ratios against player speed 930", () => {
     expect(unexploredCalibratedActionRatio(90, "normal")).toBeCloseTo(
-      76 / 27,
+      94 / 22,
       10,
     );
     expect(unexploredCalibratedActionRatio(100, "fast")).toBeCloseTo(
-      38 / 27,
+      37 / 22,
       10,
     );
   });
 
   it("reduces per-hit attack as action frequency rises", () => {
     expect(unexploredAttackCompensation(90, "normal")).toBeCloseTo(
-      0.8630946833531258,
+      0.8469232367361785,
       12,
     );
     expect(unexploredAttackCompensation(100, "extreme")).toBeCloseTo(
-      0.3867868565478797,
+      0.27452353300006144,
       12,
     );
     expect(unexploredAttackCompensation(100, "extreme")).toBeLessThan(
@@ -173,13 +173,13 @@ describe("unexplored simulation balance", () => {
       difficulty: 90,
       band: "slow",
       rawSpd: 10,
-      playerActionsPerMonsterAction: 89 / 27,
+      playerActionsPerMonsterAction: 112 / 22,
     });
     expect(rows.at(-1)).toEqual({
       difficulty: 120,
       band: "extreme",
       rawSpd: 129,
-      playerActionsPerMonsterAction: 29 / 27,
+      playerActionsPerMonsterAction: 25 / 22,
     });
   });
 });

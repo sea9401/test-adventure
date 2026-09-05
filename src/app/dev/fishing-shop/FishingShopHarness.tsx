@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { FishingShopView } from "@/adventure/v2/FishingShopView";
 import {
+  FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID,
   FISHING_SEED_POUCH_BASE_PRICE,
   FISHING_SEED_POUCH_DAILY_LIMIT,
   FISHING_SEED_POUCH_ITEM_ID,
-  FISHING_STAMINA_POTION_DAILY_LIMIT,
+  FISHING_STAMINA_POTION_WEEKLY_LIMIT,
   FISHING_STAMINA_POTION_ITEM_ID,
   fishingShopConsumablePriceFor,
   fishingSeedPouchPriceForPurchase,
@@ -35,7 +36,7 @@ import type {
 // /dev/fishing-shop — mock 코인/보유로 상점 구매 UI QA(로그인·DB 없이).
 export function FishingShopHarness() {
   const [state, setState] = useState<FishingShopState>({
-    coins: 7000,
+    coins: 20_000,
     ownedTitleIds: ["fishing_taegong"],
     staminaPotions: 0,
     progression: fishingProgressionView(emptyFishingProgression()),
@@ -47,9 +48,14 @@ export function FishingShopHarness() {
       contents: FARM_FISHING_SHOP_SEED_REWARD,
     },
     staminaPotionLimit: {
+      boughtThisWeek: 0,
+      weeklyLimit: FISHING_STAMINA_POTION_WEEKLY_LIMIT,
+      remainingThisWeek: FISHING_STAMINA_POTION_WEEKLY_LIMIT,
+    },
+    abyssalBait: {
       boughtToday: 0,
-      dailyLimit: FISHING_STAMINA_POTION_DAILY_LIMIT,
-      remainingToday: FISHING_STAMINA_POTION_DAILY_LIMIT,
+      dailyLimit: 1,
+      remainingToday: 1,
     },
   });
 
@@ -69,6 +75,29 @@ export function FishingShopHarness() {
   };
 
   const buyConsumable = async (itemId: string): Promise<BuyResult> => {
+    if (itemId === FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID) {
+      if ((state.abyssalBait?.remainingToday ?? 0) <= 0) {
+        return { ok: false, message: "오늘 구매 한도에 도달했다." };
+      }
+      const price = fishingShopConsumablePriceFor(itemId);
+      if (price === undefined) return { ok: false, message: "알 수 없는 품목." };
+      if (state.coins < price) {
+        return { ok: false, message: "낚시 코인이 부족하다." };
+      }
+      setState((s) => ({
+        ...s,
+        coins: s.coins - price,
+        abyssalBait: {
+          boughtToday: 1,
+          dailyLimit: 1,
+          remainingToday: 0,
+        },
+      }));
+      return {
+        ok: true,
+        message: "심연어룡을 소환했다. 협동 보스에서 확인할 수 있다.",
+      };
+    }
     if (itemId === FISHING_SEED_POUCH_ITEM_ID) {
       const pouch = state.seedPouch;
       const price = pouch?.nextPrice ?? null;
@@ -99,8 +128,8 @@ export function FishingShopHarness() {
       return { ok: true, message: "물가 씨앗 주머니를 구매했다." };
     }
     if (itemId === FISHING_STAMINA_POTION_ITEM_ID) {
-      if ((state.staminaPotionLimit?.remainingToday ?? 0) <= 0) {
-        return { ok: false, message: "오늘 구매 한도에 도달했다." };
+      if ((state.staminaPotionLimit?.remainingThisWeek ?? 0) <= 0) {
+        return { ok: false, message: "주간 구매 한도에 도달했다." };
       }
       const price = fishingShopConsumablePriceFor(itemId);
       if (price === undefined) return { ok: false, message: "알 수 없는 품목." };
@@ -108,17 +137,18 @@ export function FishingShopHarness() {
         return { ok: false, message: "낚시 코인이 부족하다." };
       }
       setState((s) => {
-        const boughtToday = (s.staminaPotionLimit?.boughtToday ?? 0) + 1;
+        const boughtThisWeek =
+          (s.staminaPotionLimit?.boughtThisWeek ?? 0) + 1;
         return {
           ...s,
           coins: s.coins - price,
           staminaPotions: s.staminaPotions + 1,
           staminaPotionLimit: {
-            boughtToday,
-            dailyLimit: FISHING_STAMINA_POTION_DAILY_LIMIT,
-            remainingToday: Math.max(
+            boughtThisWeek,
+            weeklyLimit: FISHING_STAMINA_POTION_WEEKLY_LIMIT,
+            remainingThisWeek: Math.max(
               0,
-              FISHING_STAMINA_POTION_DAILY_LIMIT - boughtToday,
+              FISHING_STAMINA_POTION_WEEKLY_LIMIT - boughtThisWeek,
             ),
           },
         };

@@ -8,6 +8,7 @@ import {
   associationFacilityLevel,
   canUseAdventurerAssociation,
   claimWeeklyFacilitySource,
+  readWeeklyFacilitySourceSelection,
 } from "@/lib/server/adventurerAssociation";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { bonusDelta, readActiveHotTime } from "@/lib/server/opsSettings";
@@ -65,6 +66,7 @@ import {
   recommendedGuildTrainingDrill,
   todayGuildTrainingWeekKey,
 } from "@/adventure/data/v2/guildTrainingGround";
+import { resolveWeeklyFacilitySourceClaim } from "@/adventure/data/v2/adventurerAssociation";
 
 const TRAINING_SAVE_KEY = "guild-training.v1";
 
@@ -240,15 +242,28 @@ export async function GET(req: Request) {
     return Response.json(resolved.body, { status: resolved.status });
   }
   const { access } = resolved;
+  const association = access.outpostId === "association";
 
   const trainingGroundLevel = access.level;
   const { dayKey } = guildTrainingDayWindow();
   const weekKey = todayGuildTrainingWeekKey();
-  const [charSave, profRaw, trainingRaw, skillsRaw] = await Promise.all([
+  const [
+    charSave,
+    profRaw,
+    trainingRaw,
+    skillsRaw,
+    weeklySourceSelection,
+  ] = await Promise.all([
     readSave<CharacterSave | null>(db, userId, "character.v2", null),
     readSave<V2ProficiencyState | null>(db, userId, "proficiency.v2", null),
     readSave<Record<string, unknown> | null>(db, userId, TRAINING_SAVE_KEY, null),
     readSave(db, userId, "skills.v2", emptyV2SkillsState()),
+    readWeeklyFacilitySourceSelection(
+      db,
+      userId,
+      "training_ground",
+      weekKey,
+    ),
   ]);
   if (!charSave) {
     return Response.json({ ok: false, error: "no_character" }, { status: 400 });
@@ -275,6 +290,15 @@ export async function GET(req: Request) {
   const dailyClaimLimit = Math.max(1, upgrade.unlockedDrillCount);
   const remainingClaims = Math.max(0, dailyClaimLimit - claimedCount);
   const recommendedDrill = recommendedGuildTrainingDrill(drills);
+  const weeklySourceEligible = resolveWeeklyFacilitySourceClaim(
+    "training_ground",
+    weeklySourceSelection ?? undefined,
+    {
+      weekKey,
+      source: association ? "association" : "guild",
+      ...(association ? {} : { guildId: access.guildId }),
+    },
+  ).ok;
   return Response.json({
     ok: true,
     dayKey,
@@ -297,7 +321,10 @@ export async function GET(req: Request) {
     claimedCount,
     availableCount,
     remainingClaims,
-    claimableCount: Math.min(availableCount, remainingClaims),
+    claimableCount: weeklySourceEligible
+      ? Math.min(availableCount, remainingClaims)
+      : 0,
+    weeklySourceEligible,
     recommendedDrillId: recommendedDrill?.id ?? null,
     weekly: {
       weekKey,

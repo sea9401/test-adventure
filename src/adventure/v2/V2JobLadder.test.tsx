@@ -31,6 +31,39 @@ describe("formatLifeResourceRejobMessage", () => {
 });
 
 describe("V2JobLadder production-job guidance", () => {
+  it("검색 숫자를 전체 직업 수가 아니라 현재 공개된 직업 수로 안내한다", () => {
+    const html = renderToStaticMarkup(
+      <V2JobLadder
+        level={1}
+        currentJobName="모험가"
+        currentJobId="none"
+        atLevelCap={false}
+        revisitExpedited={false}
+        rejobRequiredLevel={100}
+        jobs={[
+          {
+            id: "warrior",
+            name: "견습 병사",
+            tier: 1,
+            unlocked: true,
+            condition: "Lv 100 달성",
+          },
+          {
+            id: "fortressknight",
+            name: "철벽기사",
+            tier: 6,
+            unlocked: false,
+            condition: "선행 직업 해금 후 공개",
+            conditionRevealed: false,
+          },
+        ]}
+        onChanged={() => {}}
+      />,
+    );
+
+    expect(html).toContain("현재 공개 1개");
+  });
+
   it("수인 단일 계보와 바로 아래 직업 숙련도 조건을 표시한다", () => {
     const names = [
       "야수전사",

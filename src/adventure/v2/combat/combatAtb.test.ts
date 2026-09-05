@@ -236,6 +236,7 @@ describe("resolveBattle ATB invariants", () => {
         maxHp: 1_000_000_000,
         atk: 1,
         def: 1_000_000,
+        spd: 100,
       },
       {
         ...baseEnemy,

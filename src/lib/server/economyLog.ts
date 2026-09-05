@@ -366,6 +366,7 @@ export function recordRewardFailureSoon(entry: {
   error: string;
   detail?: Record<string, unknown> | null;
 }) {
+  if (isExpectedRewardRejection(entry.error)) return;
   recordEconomyEventSoon({
     userId: entry.userId ?? null,
     eventType: `reward.failure.${entry.source}`.slice(0, 160),
@@ -374,6 +375,10 @@ export function recordRewardFailureSoon(entry: {
     quantity: 1,
     detail: entry.detail ?? null,
   });
+}
+
+export function isExpectedRewardRejection(error: string): boolean {
+  return error === "weekly_source_conflict";
 }
 
 function recordEconomyOpsSignal(entry: EconomyEventInput) {

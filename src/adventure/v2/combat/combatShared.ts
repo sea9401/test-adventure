@@ -35,12 +35,13 @@ import {
   PLAYER_BLEED_ATK_COEF_PER_STACK,
   BLEED_MAX_STACKS,
   COMBO_FINISHER_PERIOD,
-  MAGIC_DEF_MITIGATION_K as MAGIC_DEF_MITIGATION_K_VALUE,
+  DEFAULT_MAGIC_PENETRATION,
   PHYSICAL_DEF_MITIGATION_MAX_PCT,
   PHYSICAL_DEF_MITIGATION_SCALE,
   POISON_CAP_ATK_COEF,
   POISON_FULL_BUILD_DAMAGE_MULT,
   POISON_MAX_STACKS,
+  magicDefenseDamageReductionPct,
   physicalDefenseDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
 import type { StatKey } from "@/adventure/data/stats";
@@ -211,15 +212,21 @@ export function damageToDefender(atk: number, def: number): number {
   return Math.max(1, minByAtk, mitigated);
 }
 
-// 마법 방어는 이번 VIT·물리 방어 개편 대상이 아니다. 정신 빌드의 기존 마법 대응력을
-// 보존하기 위해 공격력 대항형 비율식을 별도로 유지한다.
-export const MAGIC_DEF_MITIGATION_K = MAGIC_DEF_MITIGATION_K_VALUE;
-export function damageToMagicDefender(atk: number, magicDef: number): number {
+// 적→플레이어 마법 피격 전용. 공격력은 원피해만 결정하고 마법 관통도가 마방 효율과
+// 대결한다. 관통 필드가 없는 직접 생성 몬스터·옛 리플레이는 공용 기본값을 사용한다.
+export function damageToMagicDefender(
+  atk: number,
+  magicDef: number,
+  magicPenetration: number = DEFAULT_MAGIC_PENETRATION,
+): number {
   const a = Math.max(0, atk);
   const d = Math.max(0, magicDef);
   const minByAtk = Math.ceil(a * DAMAGE_FLOOR_FRACTION);
-  const denom = a + MAGIC_DEF_MITIGATION_K * d;
-  const mitigated = denom > 0 ? Math.round((a * a) / denom) : 0;
+  const mitigationPct = magicDefenseDamageReductionPct(
+    d,
+    magicPenetration,
+  );
+  const mitigated = Math.round(a * (1 - mitigationPct / 100));
   return Math.max(1, minByAtk, mitigated);
 }
 
@@ -791,6 +798,8 @@ export type V2SkillCastResult = {
   nextCooldowns: V2SkillCooldowns;
   castSkillId: V2SkillId | null;
   castSkillName: string | null;
+  /** 교대 후보가 실제 발동했을 때 전투 상태에 반영할 순서 진행. */
+  patternAlternateTransition?: { key: string; skillId: string };
   enemyDamage: number;
   /** enemyDamage 중 scaling="magic"/"spi" 피해 효과에서 나온 피해분. */
   magicEnemyDamage: number;
@@ -933,6 +942,8 @@ export type V2SkillCastInput = {
   applyProcInPattern?: boolean;
   /** 현재 턴(1-based) — combatPattern 의 turn 조건용. 미지정=1. */
   turn?: number;
+  /** 정렬된 A/B 순서쌍별 마지막 실제 발동 스킬. */
+  alternateLastSkillByPair?: Readonly<Record<string, string>>;
   /** 전투 환경별 스킬 수치 분기. 미지정은 PvE로 취급한다. */
   combatMode?: "pve" | "pvp";
   /** 현재 시전의 모든 직접 damage 효과에 더할 방어 무시 추가타 비율(%p). */
@@ -1125,6 +1136,7 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
         .filter(([, entry]) => entry != null && entry.turns > 0)
         .map(([stat]) => stat),
     ),
+    alternateLastSkillByPair: input.alternateLastSkillByPair,
     turn: input.turn ?? 1,
   };
 }
@@ -1233,6 +1245,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         : []);
   let id: V2SkillId | null = null;
   let selectedPatternUsesProcGate = false;
+  let selectedAlternatePairKey: string | undefined;
   const procRollBySkill = new Map<V2SkillId, number | undefined>();
   const procRollForSkill = (skillId: V2SkillId): number | undefined => {
     if (procRollBySkill.has(skillId)) return procRollBySkill.get(skillId);
@@ -1295,6 +1308,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     }
     id = candidateId;
     selectedPatternUsesProcGate = candidatePatternUsesProcGate;
+    selectedAlternatePairKey = candidate.alternatePairKey;
     break;
   }
   if (!id) {
@@ -2222,6 +2236,14 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     castSkillName:
       castVariant?.name ??
       (def.elementNamed ? `${V2_ELEMENT_LABEL[charEl]} 마법` : def.name),
+    ...(selectedAlternatePairKey
+      ? {
+          patternAlternateTransition: {
+            key: selectedAlternatePairKey,
+            skillId: id,
+          },
+        }
+      : {}),
     enemyDamage: finalEnemyDamage,
     magicEnemyDamage: applyRitualPower(scaledMagicEnemyDamage),
     frostChillGain: Math.max(0, Math.floor(def.frostChillGain ?? 0)),

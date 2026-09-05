@@ -7,7 +7,7 @@ import {
   BLEED_MAX_STACKS,
   COOP_BOSS_MAX_HP_DAMAGE_MULT,
   DEF_REDUCTION_PCT_CAP,
-  MAGIC_DEF_MITIGATION_K,
+  MAGIC_DEF_MITIGATION_MAX_PCT,
   MAGIC_BARRIER_ABSORB_SCALE,
   MAGIC_BARRIER_BASE_INT,
   MAGIC_BARRIER_DURABILITY_PER_INT,
@@ -41,11 +41,7 @@ import {
   FREEZE_MAX_MP_COEF,
   FROST_CHILL_THRESHOLD,
 } from "@/adventure/v2/combat/frostChill";
-import {
-  PLAYER_ACTION_SPD_CAP,
-  RATE_REF_SPD,
-  SPD_RATE_POW,
-} from "@/adventure/v2/combat/combatTimeline";
+import { PLAYER_ACTION_SPD_CAP } from "@/adventure/v2/combat/combatTimeline";
 import {
   ACC_BASE_RATING,
   ACC_PER_INT,
@@ -200,8 +196,8 @@ export function CombatFormulasContent() {
           피해는 이 비율만큼 줄이되 공격력의 15%를 방어 단계의 하한으로 둡니다.
         </li>
         <li>
-          마법 공격을 받을 때는 <Code>반올림(공격력² ÷ (공격력 + {MAGIC_DEF_MITIGATION_K} × 마법 방어력))</Code>을
-          사용하고, 마찬가지로 공격력의 15%가 방어 단계 하한입니다.
+          마법 공격을 받을 때 마방 경감률은 <Code>{MAGIC_DEF_MITIGATION_MAX_PCT}% × 마법 방어력 ÷ (마법 방어력 + 적 마법 관통도)</Code>입니다.
+          공격력은 원피해 크기만 정하고 마법 관통도는 마방 효율만 정합니다. 피해에는 마찬가지로 공격력의 15%가 방어 단계 하한입니다.
         </li>
       </UL>
 
@@ -287,9 +283,14 @@ export function CombatFormulasContent() {
           일부 직업은 LUK 전환이나 속도 증가 패시브를 추가로 적용합니다.
         </li>
         <li>
-          행동률은 <Code>100 × (속도 ÷ {RATE_REF_SPD})^{SPD_RATE_POW}</Code>이며,
-          속도 <Em>{PLAYER_ACTION_SPD_CAP.toLocaleString("ko-KR")}</Em>에서 상한에 도달합니다.
-          행동 간격은 <Code>올림(10,000 ÷ 행동률)</Code>이고, 값이 작을수록 더 자주 행동합니다.
+          속도 <Em>100</Em>은 행동률 100·행동 간격 100틱의 기준입니다. 속도 1,000은
+          행동 간격 21틱으로 약 4.8배 자주 행동합니다. 행동 간격은
+          <Code>올림(10,000 ÷ 행동률)</Code>이며, 값이 작을수록 더 자주 행동합니다.
+        </li>
+        <li>
+          속도 1,000 이후에도 행동률은 계속 증가하지만 효율은 더 크게 줄어듭니다. 기술적
+          안전 한계인 속도 <Em>{PLAYER_ACTION_SPD_CAP.toLocaleString("ko-KR")}</Em>부터는
+          행동 간격이 최소 10틱으로 고정됩니다.
         </li>
         <li>
           같은 시각에 행동할 경우 사냥에서는 플레이어가 먼저 행동합니다. 출혈·중독 같은

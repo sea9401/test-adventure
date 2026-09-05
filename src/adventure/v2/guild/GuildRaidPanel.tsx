@@ -251,13 +251,14 @@ export function GuildRaidPanelContent({
               fullWidth
               loading={practicing}
               loadingLabel="연습 전투 진행 중"
-              disabled={!active || attacking}
+              disabled={attacking}
               onClick={onPractice}
             >
               <Sword size={18} /> 연습 전투
             </Button>
             <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-              공격 횟수와 피해·보상에 반영되지 않습니다.
+              토벌전이 끝난 뒤에도 연습할 수 있으며, 공격 횟수와 피해·보상에
+              반영되지 않습니다.
             </p>
             <p className="text-center text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               남은 공격 {state.my.remainingAttacks}/{state.my.dailyAttackLimit}

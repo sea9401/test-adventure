@@ -8,6 +8,7 @@ import {
   resolveBattle,
   type PlayerCombat,
 } from "./engine";
+import { damageToMagicDefender } from "./combatShared";
 import type { Monster } from "@/adventure/data/monsters";
 
 function combatant(over: Partial<PlayerCombat> = {}): PlayerCombat {
@@ -49,6 +50,24 @@ describe("마법형 몬스터(atkType:magic) — 마법방어(정신)로 경감"
   const physDefBuild = combatant({ def: 500, magicDef: 0 }); // 물리탱크
   const magicDefBuild = combatant({ def: 0, magicDef: 500 }); // 정신 빌드
 
+  it("같은 마방·관통도는 공격력이 커져도 같은 비율로 피해를 줄인다", () => {
+    expect(damageToMagicDefender(1_000, 500, 500)).toBe(575);
+    expect(damageToMagicDefender(100_000, 500, 500)).toBe(57_500);
+  });
+
+  it("전투 엔진은 공격력이 아니라 몬스터 마법 관통도로 마방 효율을 정한다", () => {
+    const lowPenetration = damageTaken(
+      magicDefBuild,
+      { ...baseMob, atkType: "magic", magicPenetration: 100 },
+    );
+    const highPenetration = damageTaken(
+      magicDefBuild,
+      { ...baseMob, atkType: "magic", magicPenetration: 1_000 },
+    );
+
+    expect(highPenetration).toBeGreaterThan(lowPenetration * 2);
+  });
+
   it("마법 몹: 마방 빌드가 물리탱크보다 덜 맞는다(카운터 작동)", () => {
     const magicMob: Monster = { ...baseMob, atkType: "magic" };
     const physTakes = damageTaken(physDefBuild, magicMob);
@@ -62,7 +81,7 @@ describe("마법형 몬스터(atkType:magic) — 마법방어(정신)로 경감"
     const magicMob: Monster = { ...baseMob, atkType: "magic" };
     const noCounter = damageTaken(combatant({ magicDef: 0 }), magicMob);
     const prepared = damageTaken(combatant({ magicDef: 120 }), magicMob);
-    expect(prepared).toBeLessThan(noCounter * 0.5);
+    expect(prepared).toBeLessThan(noCounter * 0.6);
   });
 
   it("결계술 초반 감소는 지정된 적 행동 수 동안 마법형 평타에만 적용된다", () => {

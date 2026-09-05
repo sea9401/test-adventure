@@ -141,7 +141,7 @@ describe("unexplored service", () => {
   it("charges every node in the minimum batch refund closure", () => {
     const selected = shortestUnexploredPath("route-b-0");
     const result = applyUnexploredMutation(character({
-      gold: 2_000_000,
+      gold: 1_000_000,
       unexplored: parseUnexploredSave({ xpPoints: 30, selectedNodeIds: selected }),
     }), { action: "refund_path", nodeId: "route-a-0" });
 
@@ -156,7 +156,7 @@ describe("unexplored service", () => {
   it("rejects a batch refund without changing any node when total gold is short", () => {
     const selected = shortestUnexploredPath("route-b-0");
     const original = character({
-      gold: 1_999_999,
+      gold: 999_999,
       unexplored: parseUnexploredSave({ xpPoints: 30, selectedNodeIds: selected }),
     });
     const result = applyUnexploredMutation(original, {
@@ -165,11 +165,11 @@ describe("unexplored service", () => {
     });
 
     expect(result).toEqual({ ok: false, error: "insufficient_gold" });
-    expect(original.gold).toBe(1_999_999);
+    expect(original.gold).toBe(999_999);
     expect(parseUnexploredSave(original.unexplored).selectedNodeIds).toEqual(selected);
   });
 
-  it("charges 1,000,000G per refund and blocks start/disconnecting refunds", () => {
+  it("charges 500,000G per refund and blocks start/disconnecting refunds", () => {
     const path = shortestUnexploredPath("deep-boss");
     expect(
       applyUnexploredMutation(character({
@@ -183,13 +183,13 @@ describe("unexplored service", () => {
     ).toMatchObject({ ok: false, error: "would_disconnect" });
     expect(
       applyUnexploredMutation(character({
-        gold: 999_999,
+        gold: 499_999,
         unexplored: parseUnexploredSave({ xpPoints: 30, selectedNodeIds: path }),
       }), { action: "refund", nodeId: "deep-boss" }),
     ).toMatchObject({ ok: false, error: "insufficient_gold" });
 
     const success = applyUnexploredMutation(character({
-      gold: 1_000_000,
+      gold: 500_000,
       unexplored: parseUnexploredSave({ xpPoints: 30, selectedNodeIds: path }),
     }), { action: "refund", nodeId: "deep-boss" });
     expect(success).toMatchObject({ ok: true });
@@ -198,11 +198,11 @@ describe("unexplored service", () => {
     expect(success.character.unexplored.selectedNodeIds).not.toContain("deep-boss");
   });
 
-  it("resets to start for 1,000,000G per returned node", () => {
+  it("resets to start for 500,000G per returned node", () => {
     const selected = shortestUnexploredPath("pool-iron_legion");
     const refundable = selected.length - 1;
     const result = applyUnexploredMutation(character({
-      gold: refundable * 1_000_000,
+      gold: refundable * 500_000,
       unexplored: parseUnexploredSave({ xpPoints: 30, selectedNodeIds: selected }),
     }), { action: "reset" });
 

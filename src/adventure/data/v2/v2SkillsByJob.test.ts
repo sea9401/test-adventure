@@ -1437,7 +1437,7 @@ describe("직업 킷 — 스킬셋", () => {
       accuracyPct: 30,
       critPct: 8,
       skillCritDmgPct: 30,
-      spdToAtkMaxPct: 30,
+      spdToAtkMaxPct: 20,
     });
     expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.skillCritOverflow).toBeUndefined();
     expect(skillsForJob("blackmoon")).toEqual([

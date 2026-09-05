@@ -165,7 +165,7 @@ export function CommentsPanel({
           <BulletinActivityBadge activity={comment.authorActivity} />
           <span>{formatRelative(comment.createdAt)}</span>
         </div>
-        <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-zinc-800 dark:text-zinc-200">
+        <p className="mt-0.5 whitespace-pre-wrap break-words text-base leading-relaxed text-zinc-800 dark:text-zinc-200">
           {comment.content}
         </p>
       </div>
@@ -210,7 +210,7 @@ export function CommentsPanel({
       {comments === null ? (
         <Skeleton rows={2} />
       ) : comments.length === 0 ? (
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
           아직 댓글이 없습니다.
         </p>
       ) : (
@@ -232,7 +232,7 @@ export function CommentsPanel({
 
       {replyTo && (
         <div
-          className={`${SURFACE_INSET} flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs text-zinc-600 dark:text-zinc-300`}
+          className={`${SURFACE_INSET} flex items-center justify-between gap-2 px-2.5 py-1.5 text-sm text-zinc-600 dark:text-zinc-300`}
         >
           <span className="min-w-0 truncate">
             <strong className="font-semibold text-zinc-800 dark:text-zinc-100">
@@ -266,7 +266,7 @@ export function CommentsPanel({
               submit();
             }
           }}
-          className="min-h-[80px] flex-1 resize-y rounded-md border border-zinc-300 bg-white px-2.5 py-2 text-sm outline-none transition-colors focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
+          className="min-h-[80px] flex-1 resize-y rounded-md border border-zinc-300 bg-white px-2.5 py-2 text-base outline-none transition-colors focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
         />
         <button
           type="button"

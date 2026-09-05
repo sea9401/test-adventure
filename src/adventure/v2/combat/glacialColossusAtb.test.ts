@@ -22,7 +22,7 @@ const basePlayer: PlayerCombat = {
   maxHp: 1_000_000,
   atk: 1,
   def: 0,
-  spd: 16,
+  spd: 25,
   evasionPct: 0,
   attackCount: 1,
   accuracyPct: 100,
@@ -38,7 +38,7 @@ function glacialMonster(options?: {
     hp: 1_000_000,
     atk: 100,
     def: 100,
-    spd: options?.spd ?? 25,
+    spd: options?.spd ?? 40,
     directActionSpd: options?.directActionSpd ?? true,
     accuracy: 100,
     evasionPct: 0,
@@ -105,7 +105,7 @@ describe("glacial colossus ATB mechanic", () => {
 
   it("같은 100틱이면 혹한의 전장을 플레이어 행동보다 먼저 처리한다", () => {
     const result = runGlacialBattle({
-      player: { ...basePlayer, spd: 64 },
+      player: { ...basePlayer, spd: 100 },
       enemy: glacialMonster({ spd: 1, directActionSpd: true }),
       maxTurns: 2,
     });
@@ -151,7 +151,7 @@ describe("glacial colossus ATB mechanic", () => {
 
   it("빙결 예약 중 필드 한기를 건너뛰고 다음 주기부터 다시 누적한다", () => {
     const result = runGlacialBattle({
-      enemy: glacialMonster({ spd: 53, directActionSpd: true }),
+      enemy: glacialMonster({ spd: 83, directActionSpd: true }),
       maxTurns: 3,
     });
     const fieldTicks = result.finalState.log
@@ -352,8 +352,8 @@ describe("glacial colossus ATB mechanic", () => {
     const pickAction = vi.fn(() => ({ kind: "attack" as const }));
     const result = runGlacialBattle({
       pickAction,
-      enemy: glacialMonster({ spd: 0, directActionSpd: false }),
-      maxTurns: 7,
+      enemy: glacialMonster({ spd: 2, directActionSpd: false }),
+      maxTurns: 8,
     });
 
     expect(result.finalState.bossMechanic).toMatchObject({
@@ -403,7 +403,7 @@ describe("glacial colossus ATB mechanic", () => {
 
   it("빙결 예약 중 보스가 여러 번 행동해도 한기와 빙결을 더 쌓지 않는다", () => {
     const result = runGlacialBattle({
-      enemy: glacialMonster({ spd: 0, directActionSpd: false }),
+      enemy: glacialMonster({ spd: 1, directActionSpd: false }),
       maxTurns: 7,
     });
     const freezeLogIndex = result.finalState.log.findIndex((entry) =>

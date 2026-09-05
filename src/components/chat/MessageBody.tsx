@@ -54,6 +54,7 @@ export function MessageBody({
               enhance={itemLink.enhance}
               craftQuality={itemLink.craftQuality}
               craftedBy={itemLink.craftedBy}
+              liberation={itemLink.liberation}
             />
           ) : null}
         </>

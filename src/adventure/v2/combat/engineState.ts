@@ -266,6 +266,8 @@ export type BattleBuffs = {
 
 // 가변 자원 스택 / 잔량 카운트.
 export type BattleStacks = {
+  /** 전투 패턴 교대 행동의 정렬된 A/B 순서쌍별 마지막 실제 발동 스킬. */
+  patternAlternateLastSkillByPair?: Record<string, string>;
   /** 대결계사·만법수호자 전용 삼중 결계와 영역 안정 상태. */
   tripleWard: TripleWardState;
   // 성채기사 — 피격으로 쌓아 방패 직접 공격에 소비하는 충격, 철벽 태세의 남은 반사 횟수.

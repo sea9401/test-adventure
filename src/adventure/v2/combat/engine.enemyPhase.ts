@@ -787,7 +787,11 @@ export function resolveEnemyPhase(
     (state.playerMagicBarrier ?? 0) > 0 &&
     (player.magicBarrierAbsorbPct ?? 0) > 0;
   const baseEnemyDmg = magicAttack
-    ? damageToMagicDefender(v2EffectiveEnemyAtk, defenseForAttack)
+    ? damageToMagicDefender(
+        v2EffectiveEnemyAtk,
+        defenseForAttack,
+        state.enemy.magicPenetration,
+      )
     : damageToDefender(v2EffectiveEnemyAtk, defenseForAttack);
   const damageBeforeCurse =
     preMitMult !== 1
@@ -868,7 +872,11 @@ export function resolveEnemyPhase(
       if (bodyRawDamage <= 0) return 0;
       rawDmgBeforeEvasion = barrierActive
         ? magicAttack
-          ? damageToMagicDefender(bodyRawDamage, defenseForAttack)
+          ? damageToMagicDefender(
+              bodyRawDamage,
+              defenseForAttack,
+              state.enemy.magicPenetration,
+            )
           : damageToDefender(bodyRawDamage, defenseForAttack)
         : bodyRawDamage;
       rawDmgBeforeReduction = applyEvasionDamageReduction(

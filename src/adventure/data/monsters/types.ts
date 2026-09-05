@@ -117,6 +117,12 @@ export type Monster = {
    * 현재는 고탑 보스가 층 비례로 보유(towerEnemyAccuracy). 일반 몬스터는 0.
    */
   accuracy?: number;
+  /**
+   * 마법 관통도 — 플레이어 마법 방어력과 대결해 PvE 마법 피해 경감률을 정한다.
+   * 공격력은 원피해 크기만 담당하며, 이 값은 콘텐츠 난이도와 마방 대응 압박만 담당한다.
+   * 미지정 몬스터는 전투 계산의 공용 기본값을 사용한다.
+   */
+  magicPenetration?: number;
   /** 기존 데이터·연출 호환용 원소 태그. 전투 상성에는 사용하지 않는다. */
   element?: V2Element;
   /**

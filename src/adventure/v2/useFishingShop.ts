@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import type {
+  FishingAbyssalSummonBaitView,
   FishingSeedPouchView,
   FishingStaminaPotionView,
 } from "./fishingShop";
@@ -16,6 +17,7 @@ export type FishingShopState = {
   progression: FishingProgressionView | null;
   seedPouch: FishingSeedPouchView | null;
   staminaPotionLimit: FishingStaminaPotionView | null;
+  abyssalBait: FishingAbyssalSummonBaitView | null;
 };
 export type FishingGearKind = "rod" | "lure";
 export type FishingGearAction = "buy" | "equip";
@@ -30,6 +32,12 @@ function parseSeedPouch(v: unknown): FishingSeedPouchView | null {
 
 function parseStaminaPotionLimit(v: unknown): FishingStaminaPotionView | null {
   return v && typeof v === "object" ? (v as FishingStaminaPotionView) : null;
+}
+
+function parseAbyssalBait(v: unknown): FishingAbyssalSummonBaitView | null {
+  return v && typeof v === "object"
+    ? (v as FishingAbyssalSummonBaitView)
+    : null;
 }
 
 // 낚시 코인 상점 상태(코인·보유 칭호·낚시 진행) fetch + 구매 mutation. FishingShopView 에 주입.
@@ -49,6 +57,7 @@ export function useFishingShop() {
         progression: parseProgression(j.progression),
         seedPouch: parseSeedPouch(j.seedPouch),
         staminaPotionLimit: parseStaminaPotionLimit(j.staminaPotionLimit),
+        abyssalBait: parseAbyssalBait(j.abyssalBait),
       }),
       applyServer: (s, j) => ({
         ...s,
@@ -65,6 +74,12 @@ export function useFishingShop() {
           ? {
               staminaPotionLimit:
                 j.staminaPotionLimit as FishingStaminaPotionView,
+            }
+          : {}),
+        ...(j.abyssalBait && typeof j.abyssalBait === "object"
+          ? {
+              abyssalBait:
+                j.abyssalBait as FishingAbyssalSummonBaitView,
             }
           : {}),
       }),

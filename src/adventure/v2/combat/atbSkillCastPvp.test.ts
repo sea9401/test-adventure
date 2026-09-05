@@ -53,6 +53,79 @@ function run(): PvPBattleResolution {
 }
 
 describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
+  it("교대 패턴은 PvP에서도 사용 불가 뒤 현재 스킬을 재시도한다", () => {
+    const firstSkillId = "v2c_skyascendant_fallingstar";
+    const secondSkillId = "v2c_skyascendant_voidbreak";
+    const skills: V2SkillsState = {
+      learned: [firstSkillId, secondSkillId],
+      equipped: [firstSkillId, secondSkillId],
+      pattern: {
+        blocks: [
+          {
+            condition: { kind: "always" },
+            action: { kind: "alternate", firstSkillId, secondSkillId },
+          },
+        ],
+      },
+    };
+    let state = initialBattleStatePvP(
+      { ...caster, atk: 150, dexStat: 200 },
+      { ...target, hp: 100_000, maxHp: 100_000 },
+      "P1",
+      "P2",
+      skills,
+      { learned: [], equipped: [] },
+      undefined,
+      undefined,
+      "p1",
+    );
+    const castSequence: Array<string | null> = [];
+
+    for (let index = 0; index < 4; index += 1) {
+      if (index === 2) {
+        state = {
+          ...state,
+          p1: {
+            ...state.p1,
+            v2SkillCooldowns: {
+              ...state.p1.v2SkillCooldowns,
+              [firstSkillId]: 2,
+            },
+          },
+        };
+      }
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      const logStart = state.log.length;
+      const cast = castV2SkillOnAttackerTurnPvP(state, "p1");
+      const skillLog = cast.state.log
+        .slice(logStart)
+        .find((entry) => entry.kind === "info" && entry.skillCast);
+      castSequence.push(
+        skillLog && skillLog.kind !== "hp_bar"
+          ? (skillLog.skillCast?.skillId ?? null)
+          : null,
+      );
+      state = {
+        ...cast.state,
+        p1: {
+          ...cast.state.p1,
+          turn: {
+            ...cast.state.p1.turn,
+            completedPlayerTurns: index + 1,
+          },
+        },
+      };
+      vi.restoreAllMocks();
+    }
+
+    expect(castSequence).toEqual([
+      firstSkillId,
+      secondSkillId,
+      null,
+      firstSkillId,
+    ]);
+  });
+
   it("PvP의 효과 전용 스킬도 구조화된 시전 경계를 기록한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const skillId = "v2c_ironman_brace" as const;

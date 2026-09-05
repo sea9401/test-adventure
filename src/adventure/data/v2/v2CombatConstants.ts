@@ -38,20 +38,25 @@ export function physicalDefenseDamageReductionPct(defense: number): number {
     : 0;
 }
 
-// 마법 방어는 적 공격력과 대결하는 기존 비율식을 유지한다. 표시에서는 실제 전투의
-// 최소 피해 15%까지 반영해 현재 상대 기준 경감률을 계산한다.
-export const MAGIC_DEF_MITIGATION_K = 3;
+// 마법 방어는 공격력과 분리된 몬스터 마법 관통도와 대결한다. 공격력은 원피해 크기만,
+// 관통도는 마방 대응 압박만 정해 새 콘텐츠의 공격력 상승이 마방을 이중으로 약화하지 않는다.
+// 관통 필드가 없는 직접 생성 몬스터·옛 리플레이는 깊이 곡선의 바닥값을 사용한다.
+export const DEFAULT_MAGIC_PENETRATION = 100;
+export const MAGIC_DEF_MITIGATION_MAX_PCT = 85;
 export function magicDefenseDamageReductionPct(
-  incomingAttack: number,
   magicDefense: number,
+  magicPenetration: number = DEFAULT_MAGIC_PENETRATION,
 ): number {
-  const attack = Math.max(0, incomingAttack);
-  const defense = Math.max(0, magicDefense);
-  if (attack <= 0 || defense <= 0) return 0;
-  return Math.min(
-    PHYSICAL_DEF_MITIGATION_MAX_PCT,
-    (100 * MAGIC_DEF_MITIGATION_K * defense) /
-      (attack + MAGIC_DEF_MITIGATION_K * defense),
+  const defense = Number.isFinite(magicDefense)
+    ? Math.max(0, magicDefense)
+    : 0;
+  const penetration = Number.isFinite(magicPenetration)
+    ? Math.max(0, magicPenetration)
+    : DEFAULT_MAGIC_PENETRATION;
+  if (defense <= 0) return 0;
+  return (
+    (MAGIC_DEF_MITIGATION_MAX_PCT * defense) /
+    (defense + penetration)
   );
 }
 

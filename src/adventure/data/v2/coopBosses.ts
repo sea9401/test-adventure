@@ -1475,6 +1475,8 @@ export function coopBossForBattle(
     ? undefined
     : Math.round(scaled.magicDef * statMultiplier);
   const accuracy = (scaled.accuracy ?? 0) * statMultiplier;
+  const magicPenetration =
+    (scaled.magicPenetration ?? 0) * statMultiplier;
   let evasion = Math.min(
     100,
     Math.round((scaled.evasionPct ?? 0) * statMultiplier * 100) / 100,
@@ -1529,6 +1531,7 @@ export function coopBossForBattle(
     def,
     spd,
     accuracy,
+    magicPenetration,
     skill,
     ...(magicDef != null ? { magicDef } : {}),
     ...(evasion > 0 ? { evasionPct: evasion } : {}),

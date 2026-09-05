@@ -160,7 +160,7 @@ export function PostDetailPage({
                 )}
               </div>
 
-              <h2 className="mt-3 break-words text-2xl font-bold leading-snug text-zinc-950 dark:text-zinc-50 sm:text-3xl">
+              <h2 className="mt-3 break-words text-[1.625rem] font-bold leading-snug text-zinc-950 dark:text-zinc-50 sm:text-[2rem]">
                 {post.title && post.title.trim().length > 0
                   ? post.title
                   : "(제목 없음)"}
@@ -255,7 +255,7 @@ export function PostDetailPage({
       </Card>
 
       <Card padding="md" className="-mx-2 sm:-mx-4">
-        <div className="mb-2 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+        <div className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
           댓글 {post.commentCount}
         </div>
         <CommentsPanel

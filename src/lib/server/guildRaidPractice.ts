@@ -18,8 +18,6 @@ type GuildRaidPracticeContext = {
   hasGuild: boolean;
   event: {
     bossKind: string;
-    status: string;
-    endsAt: Date;
   } | null;
 };
 
@@ -56,11 +54,7 @@ export function createGuildRaidPracticeService(
       guildRaidWeekKey(now),
     );
     if (!context.hasGuild) return { ok: false, error: "no_guild" };
-    if (
-      !context.event ||
-      context.event.status !== "active" ||
-      context.event.endsAt <= now
-    ) {
+    if (!context.event) {
       return { ok: false, error: "event_ended" };
     }
 
@@ -97,8 +91,6 @@ export const practiceGuildRaid = createGuildRaidPracticeService({
       db
         .select({
           bossKind: guildRaidEvents.bossKind,
-          status: guildRaidEvents.status,
-          endsAt: guildRaidEvents.endsAt,
         })
         .from(guildRaidEvents)
         .where(eq(guildRaidEvents.weekKey, weekKey))

@@ -16,6 +16,29 @@ const CODEX = buildJobCodex(emptyProficiency(), [], "warrior", null);
 afterEach(cleanup);
 
 describe("JobCodexList 모바일 터치 영역", () => {
+  it("검색 숫자를 도감에 포함된 직업 수로 안내한다", () => {
+    const compactCodex: JobCodex = {
+      currentJobId: "warrior",
+      totalJobs: 1,
+      jobs: [{
+        id: "warrior",
+        name: "견습 병사",
+        tier: 1,
+        unlocked: true,
+        isCurrent: true,
+        mastery: 0,
+        condition: "Lv 100 달성",
+        conditionRevealed: true,
+        skillsLearned: 0,
+        skillsTotal: 2,
+      }],
+    };
+
+    const html = renderToStaticMarkup(<JobCodexList codex={compactCodex} />);
+
+    expect(html).toContain("도감 직업 1개");
+  });
+
   it("검색 지우기와 목표 버튼에 44px 터치 영역을 제공한다", () => {
     const html = renderToStaticMarkup(<JobCodexList codex={CODEX} />);
 

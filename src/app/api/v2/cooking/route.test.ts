@@ -365,7 +365,7 @@ describe("/api/v2/cooking", () => {
     });
   });
 
-  it("GET은 기본 이름으로 저장된 최초 발견자를 권위 닉네임으로 표시한다", async () => {
+  it("GET은 최초 발견자의 현재 권위 닉네임을 표시한다", async () => {
     mocks.selectResults.push([{
       recipeId: "egg_salad_sandwich",
       userId: "cook-user",
@@ -391,7 +391,7 @@ describe("/api/v2/cooking", () => {
       }),
       expect.objectContaining({
         recipeName: "불향 토마토 샐러드",
-        actorName: "옛 발견자",
+        actorName: "바뀐 닉네임",
       }),
     ]);
   });

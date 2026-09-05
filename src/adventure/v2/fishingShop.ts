@@ -18,10 +18,14 @@ import {
 
 export const FISHING_SHOP_STATE_KEY = "fishing-shop.v1";
 export const FISHING_STAMINA_POTION_ITEM_ID = "stamina_potion";
-export const FISHING_STAMINA_POTION_DAILY_LIMIT = 5;
+export const FISHING_STAMINA_POTION_WEEKLY_LIMIT = 30;
 export const FISHING_SEED_POUCH_ITEM_ID = "farm_seed_pouch";
 export const FISHING_SEED_POUCH_DAILY_LIMIT = 3;
 export const FISHING_SEED_POUCH_BASE_PRICE = 80;
+export const FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID =
+  "abyssal_tyrant_summon_bait";
+export const FISHING_ABYSSAL_SUMMON_BAIT_PRICE = 3_000;
+export const FISHING_ABYSSAL_SUMMON_BAIT_DAILY_LIMIT = 1;
 
 export type FishingShopTitle = {
   titleId: TitleId;
@@ -46,7 +50,7 @@ export const FISHING_SHOP_CONSUMABLES: readonly FishingShopConsumable[] = [
   {
     itemId: FISHING_STAMINA_POTION_ITEM_ID,
     name: "스태미나 회복약",
-    description: `사용 시 스태미나 ${STAMINA_POTION_RESTORE} 회복. 하루 5개까지 구매할 수 있다.`,
+    description: `사용 시 스태미나 ${STAMINA_POTION_RESTORE} 회복. 주간 30개까지 구매할 수 있다.`,
     price: 200, // 2026-06-27 사용자 결정 100→200.
   },
   {
@@ -56,10 +60,18 @@ export const FISHING_SHOP_CONSUMABLES: readonly FishingShopConsumable[] = [
       "밀 씨앗 3개, 허브 씨앗 2개, 옥수수 씨앗 1개. 하루 3개까지 살 수 있고 살 때마다 가격이 오른다.",
     price: FISHING_SEED_POUCH_BASE_PRICE,
   },
+  {
+    itemId: FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID,
+    name: "심연어룡 소환 미끼",
+    description:
+      "구매 즉시 나만 볼 수 있는 심연어룡을 확정 소환한다. 하루 1회 구매할 수 있다.",
+    price: FISHING_ABYSSAL_SUMMON_BAIT_PRICE,
+  },
 ];
 
 export type FishingShopState = {
   daily: { key: string; purchases: Record<string, number> };
+  weekly: { key: string; purchases: Record<string, number> };
 };
 
 export type FishingSeedPouchView = {
@@ -71,6 +83,12 @@ export type FishingSeedPouchView = {
 };
 
 export type FishingStaminaPotionView = {
+  boughtThisWeek: number;
+  weeklyLimit: number;
+  remainingThisWeek: number;
+};
+
+export type FishingAbyssalSummonBaitView = {
   boughtToday: number;
   dailyLimit: number;
   remainingToday: number;
@@ -90,16 +108,38 @@ function countsOf(raw: unknown): Record<string, number> {
 export function parseFishingShopState(
   raw: unknown,
   dailyKey: string,
+  weeklyKey: string,
 ): FishingShopState {
   const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const dailyRaw =
     obj.daily && typeof obj.daily === "object"
       ? (obj.daily as Record<string, unknown>)
       : {};
+  const hasWeeklyState = Boolean(obj.weekly && typeof obj.weekly === "object");
+  const weeklyRaw =
+    hasWeeklyState
+      ? (obj.weekly as Record<string, unknown>)
+      : {};
+  const dailyPurchases =
+    dailyRaw.key === dailyKey ? countsOf(dailyRaw.purchases) : {};
+  const weeklyPurchases =
+    weeklyRaw.key === weeklyKey ? countsOf(weeklyRaw.purchases) : {};
+  if (!hasWeeklyState) {
+    const legacyStaminaPurchases =
+      dailyPurchases[FISHING_STAMINA_POTION_ITEM_ID] ?? 0;
+    if (legacyStaminaPurchases > 0) {
+      weeklyPurchases[FISHING_STAMINA_POTION_ITEM_ID] =
+        legacyStaminaPurchases;
+    }
+  }
   return {
     daily: {
       key: dailyKey,
-      purchases: dailyRaw.key === dailyKey ? countsOf(dailyRaw.purchases) : {},
+      purchases: dailyPurchases,
+    },
+    weekly: {
+      key: weeklyKey,
+      purchases: weeklyPurchases,
     },
   };
 }
@@ -108,7 +148,11 @@ export function fishingShopPurchaseCount(
   state: FishingShopState,
   itemId: string,
 ): number {
-  return state.daily.purchases[itemId] ?? 0;
+  const purchases =
+    itemId === FISHING_STAMINA_POTION_ITEM_ID
+      ? state.weekly.purchases
+      : state.daily.purchases;
+  return purchases[itemId] ?? 0;
 }
 
 export function fishingSeedPouchPriceForPurchase(
@@ -135,16 +179,33 @@ export function fishingSeedPouchView(
 export function fishingStaminaPotionView(
   state: FishingShopState,
 ): FishingStaminaPotionView {
-  const boughtToday = fishingShopPurchaseCount(
+  const boughtThisWeek = fishingShopPurchaseCount(
     state,
     FISHING_STAMINA_POTION_ITEM_ID,
   );
   return {
+    boughtThisWeek,
+    weeklyLimit: FISHING_STAMINA_POTION_WEEKLY_LIMIT,
+    remainingThisWeek: Math.max(
+      0,
+      FISHING_STAMINA_POTION_WEEKLY_LIMIT - boughtThisWeek,
+    ),
+  };
+}
+
+export function fishingAbyssalSummonBaitView(
+  state: FishingShopState,
+): FishingAbyssalSummonBaitView {
+  const boughtToday = fishingShopPurchaseCount(
+    state,
+    FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID,
+  );
+  return {
     boughtToday,
-    dailyLimit: FISHING_STAMINA_POTION_DAILY_LIMIT,
+    dailyLimit: FISHING_ABYSSAL_SUMMON_BAIT_DAILY_LIMIT,
     remainingToday: Math.max(
       0,
-      FISHING_STAMINA_POTION_DAILY_LIMIT - boughtToday,
+      FISHING_ABYSSAL_SUMMON_BAIT_DAILY_LIMIT - boughtToday,
     ),
   };
 }
@@ -153,6 +214,18 @@ export function recordFishingShopPurchase(
   state: FishingShopState,
   itemId: string,
 ): FishingShopState {
+  if (itemId === FISHING_STAMINA_POTION_ITEM_ID) {
+    return {
+      ...state,
+      weekly: {
+        ...state.weekly,
+        purchases: {
+          ...state.weekly.purchases,
+          [itemId]: (state.weekly.purchases[itemId] ?? 0) + 1,
+        },
+      },
+    };
+  }
   return {
     ...state,
     daily: {

@@ -63,7 +63,7 @@ import {
   trackedShieldBreakEffect,
 } from "./signatureEffects";
 import { canApplyShock, enterShockAction } from "./shockAction";
-import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
+import { advancePatternAlternateState, preservePatternAlternateTransition, V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
 import {
   CRIT_PCT_CAP,
   STAT_LABELS,
@@ -2445,9 +2445,8 @@ export function applyPlayerV2SkillCast(
     procChanceBonus: player.skillProcChanceAdd ?? 0,
     // 패턴 경로에서도 procChance 굴림(부활) — 플래그 on 이면 패턴이 고른 스킬도 확률 게이트 통과 필요.
     applyProcInPattern: V2_SKILL_PROC_IN_PATTERN,
-    // 전투 패턴(갬빗) — 플래그 on 일 때만 주입(플레이어 cast). off 면 옛 슬롯순서+proc.
-    // 저장된 커스텀 패턴(C2) 우선, 없으면 장착 스킬 종류별 스마트 기본 패턴(유틸 스팸 방지).
     turn: state.turn.completedPlayerTurns + 1,
+    alternateLastSkillByPair: state.stacks.patternAlternateLastSkillByPair,
     combatPattern: V2_COMBAT_PATTERN_ENABLED
       ? effectiveCombatPatternFromEquipped(
           state.v2Skills.equipped,
@@ -2601,7 +2600,7 @@ export function applyPlayerV2SkillCast(
             state.v2Skills.equipped.includes("v2c_skyascendant_crossover")
           ? { str: Math.max(player.strStat ?? 0, player.dexStat ?? 0) }
           : {};
-    return resolveV2SkillCast({
+    const rerun = resolveV2SkillCast({
       ...castInput,
       ...overrides,
       skills: {
@@ -2628,11 +2627,9 @@ export function applyPlayerV2SkillCast(
           : castInput.attacker.mp,
       },
     });
+    return preservePatternAlternateTransition(current, rerun);
   };
-  if (
-    result.castSkillId === "v2c_swordsaint_flash" &&
-    shadowCoreEquipped
-  ) {
+  if (result.castSkillId === "v2c_swordsaint_flash" && shadowCoreEquipped) {
     result = rerunSelectedCast(result, {
       attacker: {
         str: Math.max(player.strStat ?? 0, player.lukStat ?? 0),
@@ -3815,6 +3812,7 @@ export function applyPlayerV2SkillCast(
     stacks: {
       // PR2-B-2c — 운기/연환집중/선풍각/속박 temp 버프 갱신.
       ...applySkillTempBuffs(state.stacks, result),
+      patternAlternateLastSkillByPair: advancePatternAlternateState(state.stacks.patternAlternateLastSkillByPair, result.patternAlternateTransition),
       tripleWard: refreshedTripleWard,
       evadesRemaining:
         state.stacks.evadesRemaining + result.guaranteedEvadesToAdd,

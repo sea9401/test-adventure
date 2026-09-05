@@ -70,7 +70,7 @@ describe("unexplored simulation monsters", () => {
 
     expect(unexploredBaseProxyMonsters(100)[0].monster).toMatchObject({
       hp: 494_969,
-      atk: 16_372,
+      atk: 15_769,
       def: 2_370,
       magicDef: 2_461,
       spd: 17,
@@ -81,7 +81,7 @@ describe("unexplored simulation monsters", () => {
       )?.monster,
     ).toMatchObject({
       hp: 435_573,
-      atk: 16_372,
+      atk: 15_769,
       def: 3_047,
       magicDef: 2_615,
       spd: 17,
@@ -89,7 +89,7 @@ describe("unexplored simulation monsters", () => {
 
     expect(unexploredBaseProxyMonsters(105)[0].monster).toMatchObject({
       hp: 617_588,
-      atk: 19_273,
+      atk: 18_253,
       def: 2_463,
       magicDef: 2_560,
       spd: 19,
@@ -100,7 +100,7 @@ describe("unexplored simulation monsters", () => {
       )?.monster,
     ).toMatchObject({
       hp: 543_477,
-      atk: 19_273,
+      atk: 18_253,
       def: 3_167,
       magicDef: 2_720,
       spd: 19,
@@ -108,7 +108,7 @@ describe("unexplored simulation monsters", () => {
 
     expect(unexploredBaseProxyMonsters(110)[0].monster).toMatchObject({
       hp: 868_429,
-      atk: 25_307,
+      atk: 23_600,
       def: 2_640,
       magicDef: 2_742,
       spd: 21,
@@ -119,7 +119,7 @@ describe("unexplored simulation monsters", () => {
       )?.monster,
     ).toMatchObject({
       hp: 764_217,
-      atk: 25_307,
+      atk: 23_600,
       def: 3_394,
       magicDef: 2_913,
       spd: 21,
@@ -163,6 +163,7 @@ describe("unexplored simulation monsters", () => {
       magicDef: 2_264,
       spd: 9,
       accuracy: 391.88708338356605,
+      magicPenetration: 486.1760117114877,
     });
 
     const shieldman = unexploredSpecialMonsters(90, "stats").find(
@@ -175,6 +176,7 @@ describe("unexplored simulation monsters", () => {
       magicDef: 1_924,
       spd: 10,
       accuracy: 391.88708338356605,
+      magicPenetration: 486.1760117114877,
       exp: 0,
     });
     expect(shieldman?.monster.skill).toBeUndefined();

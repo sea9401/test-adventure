@@ -1,4 +1,5 @@
 import type { GuildTrainingDrillId } from "@/adventure/data/v2/guildTrainingGround";
+import { weeklyFacilityActionLimit } from "./weeklyFacilityClient";
 
 export type TrainingDrillView = {
   id: GuildTrainingDrillId;
@@ -40,6 +41,7 @@ export type TrainingState = {
   availableCount?: number;
   remainingClaims?: number;
   claimableCount?: number;
+  weeklySourceEligible?: boolean;
   recommendedDrillId?: GuildTrainingDrillId | null;
   weekly?: {
     weekKey: string;
@@ -76,7 +78,10 @@ export function trainingClaimableCountOf(
 ): number | null {
   if (!state?.ok) return null;
   if (typeof state.claimableCount === "number") {
-    return Math.max(0, Math.floor(state.claimableCount));
+    return weeklyFacilityActionLimit(
+      state.weeklySourceEligible,
+      state.claimableCount,
+    );
   }
   const availableCount =
     typeof state.availableCount === "number"
@@ -86,12 +91,18 @@ export function trainingClaimableCountOf(
         : null;
   if (availableCount == null) return null;
   if (typeof state.remainingClaims === "number") {
-    return Math.min(
-      availableCount,
-      Math.max(0, Math.floor(state.remainingClaims)),
+    return weeklyFacilityActionLimit(
+      state.weeklySourceEligible,
+      Math.min(
+        availableCount,
+        Math.max(0, Math.floor(state.remainingClaims)),
+      ),
     );
   }
-  return availableCount;
+  return weeklyFacilityActionLimit(
+    state.weeklySourceEligible,
+    availableCount,
+  );
 }
 
 export async function fetchGuildTrainingClaimableCount(

@@ -246,7 +246,7 @@ describe("coopBosses 카탈로그", () => {
     const monster = coopBossForBattle(eye, eye.sharedMaxHp).monster;
 
     expect(effectiveMonsterSpd(monster.spd)).toBe(454);
-    expect(actionInterval(effectiveMonsterSpd(monster.spd))).toBe(38);
+    expect(actionInterval(effectiveMonsterSpd(monster.spd))).toBe(36);
   });
 
   it("독혈 군주는 장기전 독혈 순환을 특성으로 안내한다", () => {
@@ -657,6 +657,18 @@ describe("coopBosses 카탈로그", () => {
       expect(monster.def).toBe(stats.def);
       expect(monster.magicDef).toBe(stats.magicDef);
       expect(monster.accuracy).toBeCloseTo(stats.accuracy);
+    }
+  });
+
+  it("미개척지 개인 보스는 120 난이도 마법 관통도에도 전투 체급 배율을 적용한다", () => {
+    for (const id of UNEXPLORED_BOSS_IDS) {
+      const boss = COOP_BOSSES[id];
+      const monster = coopBossForBattle(boss, boss.sharedMaxHp).monster;
+
+      expect(monster.magicPenetration, id).toBeCloseTo(
+        1175.7165504712136,
+        10,
+      );
     }
   });
 

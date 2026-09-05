@@ -30,7 +30,7 @@ const player: PlayerCombat = {
   atk: 100,
   def: 1_000,
   magicDef: 100,
-  spd: 50,
+  spd: 77,
   evasionPct: 0,
   attackCount: 1,
   accuracyPct: 100,

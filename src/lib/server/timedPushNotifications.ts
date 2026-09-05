@@ -18,6 +18,10 @@ import {
   FARM_READY_NOTIFICATION_SAVE_KEY,
   unacknowledgedReadyPlots,
 } from "@/adventure/v2/farmReadyNotification";
+import {
+  pendingRanchReadyPush,
+  ranchReadyPushCandidates,
+} from "@/adventure/v2/ranchReadyPush";
 import { FARM_SAVE_KEY } from "@/adventure/v2/farm";
 import {
   DAY_MS,
@@ -86,6 +90,13 @@ export async function sendDueTimedPushNotifications(now = Date.now()) {
     )) {
       candidateKeys.push(`farm:${userId}:${plot.id}:${plot.plantedAt}`);
     }
+    candidateKeys.push(
+      ...ranchReadyPushCandidates(
+        userId,
+        saves.get(FARM_SAVE_KEY),
+        now,
+      ).map((candidate) => candidate.eventKey),
+    );
   }
 
   const deliveredKeys = new Set<string>();
@@ -150,6 +161,24 @@ export async function sendDueTimedPushNotifications(now = Date.now()) {
             (plot) => `farm:${userId}:${plot.id}:${plot.plantedAt}`,
           ),
         );
+      }
+    }
+
+    const ranchPlan = pendingRanchReadyPush(
+      ranchReadyPushCandidates(userId, saves.get(FARM_SAVE_KEY), now),
+      deliveredKeys,
+    );
+    if (ranchPlan) {
+      const result = await sendWebPushToUser(userId, {
+        title: "목장 생산 완료",
+        body: ranchPlan.body,
+        url: "/town/farm#ranch",
+        tag: "ranch-ready",
+      });
+      delivered += result.delivered;
+      failed += result.failed;
+      if (result.delivered > 0) {
+        await recordDeliveries(userId, ranchPlan.eventKeys);
       }
     }
   }

@@ -281,29 +281,29 @@ describe("미개척지 상위 특화 세트 결정적 밸런스 시뮬레이션"
     expect(report.ratios).toEqual([
       expect.objectContaining({
         setId: "tracking",
-        stormRoleRatio: expect.closeTo(0.8247687163, 8),
-        pioneerRoleRatio: expect.closeTo(1.1242116289, 8),
+        stormRoleRatio: expect.closeTo(0.8771429113, 8),
+        pioneerRoleRatio: expect.closeTo(1.1128499591, 8),
         bossRoleRatio: null,
         bossSurvivalRatio: null,
       }),
       expect.objectContaining({
         setId: "toxic_blood",
-        stormRoleRatio: expect.closeTo(0.7587934937, 8),
-        pioneerRoleRatio: expect.closeTo(0.9286921966, 8),
-        bossRoleRatio: expect.closeTo(0.7271319461, 8),
-        bossSurvivalRatio: expect.closeTo(1.0569371728, 8),
+        stormRoleRatio: expect.closeTo(0.8441341691, 8),
+        pioneerRoleRatio: expect.closeTo(0.930818169, 8),
+        bossRoleRatio: expect.closeTo(0.7954701682, 8),
+        bossSurvivalRatio: expect.closeTo(1, 8),
       }),
       expect.objectContaining({
         setId: "glacial_guard",
-        stormRoleRatio: expect.closeTo(1.0026394721, 8),
-        pioneerRoleRatio: expect.closeTo(0.9662388715, 8),
-        bossRoleRatio: expect.closeTo(1.000598659, 8),
-        bossSurvivalRatio: expect.closeTo(1.000598659, 8),
+        stormRoleRatio: expect.closeTo(1.0011185682, 8),
+        pioneerRoleRatio: expect.closeTo(0.9888888889, 8),
+        bossRoleRatio: expect.closeTo(1.0053089348, 8),
+        bossSurvivalRatio: expect.closeTo(1.0053089348, 8),
       }),
       expect.objectContaining({
         setId: "deep_arcane",
-        stormRoleRatio: expect.closeTo(0.8729161692, 8),
-        pioneerRoleRatio: expect.closeTo(1.1577482361, 8),
+        stormRoleRatio: expect.closeTo(0.8537761684, 8),
+        pioneerRoleRatio: expect.closeTo(1.0996511069, 8),
         bossRoleRatio: null,
         bossSurvivalRatio: null,
       }),
@@ -326,7 +326,7 @@ describe("미개척지 상위 특화 세트 결정적 밸런스 시뮬레이션"
       expect(output).toContain(
         "세트 | 폭풍 전환/폭풍 | 개척자 전환/개척자 | 전환/보스 역할 | 전환/보스 생존",
       );
-      expect(output).toContain("tracking | 0.825 | 1.124 | - | -");
+      expect(output).toContain("tracking | 0.877 | 1.113 | - | -");
       expect(output).toContain(
         "세트 | 슬롯 | 특화 장비(위력·옵션) | 보스 고유(위력·옵션)",
       );

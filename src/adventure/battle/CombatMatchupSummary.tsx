@@ -21,6 +21,7 @@ export type CombatMatchupRatings = {
   magicBarrierDurability?: number;
   incomingAttack?: number;
   incomingAttackType?: "physical" | "magic";
+  magicPenetration?: number;
   /** 중독 등 최대 HP 비례 지속 피해 성분에만 적용하는 콘텐츠 배율. */
   maxHpDamageMult?: number;
   /** 중독·출혈 등 상태 피해 전체에 마지막으로 적용하는 경감률. */
@@ -71,24 +72,28 @@ export function combatMatchupResult(
     player.physicalDefense != null || player.magicDefense != null;
   const incomingAttackType = enemy.incomingAttackType ?? "physical";
   const incomingAttack = Math.max(0, Math.floor(enemy.incomingAttack ?? 0));
+  const defenseForIncomingAttack =
+    incomingAttackType === "magic"
+      ? (player.magicDefense ?? 0)
+      : (player.physicalDefense ?? 0);
   const playerDefenseReductionPct = hasDefensePreview
     ? clampPct(
-        incomingAttackType === "magic"
-          ? magicDefenseDamageReductionPct(
-              enemy.incomingAttack ?? 0,
-              player.magicDefense ?? 0,
-            )
-          : ruleset === "pvp" && incomingAttack > 0
+        ruleset === "pvp" && incomingAttack > 0
             ? 100 *
               (1 -
                 damageBetween(
                   incomingAttack,
-                  player.physicalDefense ?? 0,
+                  defenseForIncomingAttack,
                 ) /
                   incomingAttack)
-          : physicalDefenseDamageReductionPct(
-              player.physicalDefense ?? 0,
-            ),
+            : incomingAttackType === "magic"
+              ? magicDefenseDamageReductionPct(
+                  player.magicDefense ?? 0,
+                  enemy.magicPenetration,
+                )
+              : physicalDefenseDamageReductionPct(
+                  player.physicalDefense ?? 0,
+                ),
       )
     : 0;
   const incomingDamage = incomingAttack;

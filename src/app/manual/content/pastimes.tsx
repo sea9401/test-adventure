@@ -19,7 +19,7 @@ import {
 } from "@/adventure/v2/fishingProgression";
 import {
   FISHING_SEED_POUCH_DAILY_LIMIT,
-  FISHING_STAMINA_POTION_DAILY_LIMIT,
+  FISHING_STAMINA_POTION_WEEKLY_LIMIT,
 } from "@/adventure/v2/fishingShop";
 import {
   FISHING_CATCH_COIN_BY_TIER,
@@ -285,8 +285,8 @@ export function PastimesContent() {
         </li>
         <li>
           낚시 코인 상점에서는 칭호·<Em>낚싯대</Em>·<Em>미끼</Em>와 보관형
-          소비품을 살 수 있습니다. 스태미나 회복약은 하루{" "}
-          {FISHING_STAMINA_POTION_DAILY_LIMIT}개, 농장 씨앗 주머니는 하루{" "}
+          소비품을 살 수 있습니다. 스태미나 회복약은 주간{" "}
+          {FISHING_STAMINA_POTION_WEEKLY_LIMIT}개, 농장 씨앗 주머니는 하루{" "}
           {FISHING_SEED_POUCH_DAILY_LIMIT}개까지 구매할 수 있습니다. 씨앗 주머니는
           같은 날 살 때마다 가격이 오릅니다.
         </li>

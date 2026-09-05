@@ -22,7 +22,9 @@ describe("AutoGatheringCard", () => {
     expect(html).toContain('aria-label="자동 작업 시간 선택"');
     expect(html).toContain("30분");
     expect(html).toContain("2시간");
-    expect(html).toContain("느긋한 작업 · 재료 60% · 성공률 80%");
+    expect(html).toContain("기본 작업 · 재료 80% · 성공률 보정 없음");
+    expect(html).toContain("느긋한 작업 · 재료 60% · 기본 성공률의 80%");
+    expect(html).not.toContain("성공률 100%");
     expect(html).toContain("30분 자동 벌목 시작");
   });
 

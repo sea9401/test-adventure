@@ -27,7 +27,7 @@ const player: PlayerCombat = {
   maxHp: 1_000_000,
   atk: 100_000,
   def: 1_000,
-  spd: 50,
+  spd: 77,
   evasionPct: 0,
   attackCount: 1,
   accuracyPct: 100,
@@ -40,7 +40,7 @@ const boss: Monster = {
   atk: 100,
   def: 0,
   magicDef: 0,
-  spd: 100,
+  spd: 139,
   directActionSpd: true,
   accuracy: 100,
   evasionPct: 0,
@@ -297,7 +297,7 @@ describe("invincible fortress ATB mechanic", () => {
     });
 
     expect(result.finalState.enemy.atk).toBe(250);
-    expect(result.finalState.enemy.spd).toBeCloseTo(300);
+    expect(result.finalState.enemy.spd).toBeCloseTo(417);
     expect(result.finalState.enemy.def).toBe(321);
     expect(result.finalState.enemy.magicDef).toBe(654);
   });

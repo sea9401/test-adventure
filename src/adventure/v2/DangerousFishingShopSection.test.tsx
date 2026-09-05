@@ -192,6 +192,7 @@ describe("위험 해역 낚시 상점", () => {
           progression: null,
           seedPouch: null,
           staminaPotionLimit: null,
+          abyssalBait: null,
         }}
         loading={false}
         buying={null}

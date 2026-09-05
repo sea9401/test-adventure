@@ -100,16 +100,19 @@ describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
         def: 20,
         spd: 11,
         atkType: "magic",
+        magicPenetration: 640,
         critPct: 25,
       },
     } as unknown as BattleState;
     expect(toReplayPayload(fs).enemy).toMatchObject({
       atkType: "magic",
+      magicPenetration: 640,
       critPct: 25,
       statusDamageReductionPct: 0,
     });
     expect(toReplayPayloadLite(fs).enemy).toMatchObject({
       atkType: "magic",
+      magicPenetration: 640,
       critPct: 25,
       statusDamageReductionPct: 0,
     });

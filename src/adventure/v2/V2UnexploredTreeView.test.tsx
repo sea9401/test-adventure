@@ -65,7 +65,7 @@ const SNAPSHOT: UnexploredClientSnapshot = {
   bankedGold: 0,
   materials: {},
   achievementIds: [],
-  refundGoldCost: 1_000_000,
+  refundGoldCost: 500_000,
   summonStoneCraftCost: {
     baseGoldCost: UNEXPLORED_SUMMON_STONE_GOLD_COST,
     goldCost: UNEXPLORED_SUMMON_STONE_GOLD_COST,
@@ -310,7 +310,7 @@ describe("V2UnexploredTreeView", () => {
       earnedPoints: 30,
       spentPoints: selectedNodeIds.length,
       selectedNodeIds,
-      gold: 2_000_000,
+      gold: 1_000_000,
     } satisfies UnexploredClientSnapshot;
     const nextSnapshot = {
       ...ready,
@@ -337,7 +337,7 @@ describe("V2UnexploredTreeView", () => {
       container.querySelectorAll('[data-unexplored-plan="refund"]'),
     ).toHaveLength(2);
     fireEvent.click(
-      screen.getByRole("button", { name: "2,000,000G로 2개 반환" }),
+      screen.getByRole("button", { name: "1,000,000G로 2개 반환" }),
     );
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());

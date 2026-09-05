@@ -219,6 +219,7 @@ export type BattleStats = {
   spd: number;
   actionSpd?: number; // 몬스터 ATB 행동속도 — 일반 몬스터는 환산값, 직접 속도 몬스터는 데이터값
   accuracy?: number; // 명중(rating) — 적=Monster.accuracy, 플레이어=accRating
+  magicPenetration?: number; // 적 마법 관통도 — 플레이어 마방과 대결
   evasionPct?: number; // 레거시 표시값·몬스터 회피도. 플레이어 raw 는 evaRating 우선.
   evaRating?: number; // 플레이어 회피 레이팅(raw). 없으면 evasionPct 폴백.
   critChancePct?: number; // 치명 % (플레이어)
@@ -239,6 +240,7 @@ const DETAIL_COLOR: Record<string, string> = {
   치명타: "text-amber-600 dark:text-amber-400",
   마공: "text-violet-600 dark:text-violet-400",
   마방: "text-fuchsia-600 dark:text-fuchsia-400",
+  "마법 관통": "text-violet-600 dark:text-violet-400",
   "상태 피해 감소": "text-emerald-600 dark:text-emerald-400",
   "연타 보정": "text-orange-600 dark:text-orange-400",
 };
@@ -286,6 +288,14 @@ export function BattleStatStrip({
           {
             label: "상태 피해 감소",
             value: pct(stats.statusDamageReductionPct),
+          },
+        ]
+      : []),
+    ...(usesMagicAttack && stats.magicPenetration != null
+      ? [
+          {
+            label: "마법 관통",
+            value: String(Math.round(stats.magicPenetration)),
           },
         ]
       : []),
@@ -549,6 +559,7 @@ export function BattleScene({
           spd: state.enemy.spd,
           actionSpd: enemyDisplay.actionSpd,
           accuracy: state.enemy.accuracy,
+          magicPenetration: state.enemy.magicPenetration,
           evasionPct: state.enemy.evasionPct,
           critChancePct: state.enemy.critPct,
           magicAtk:
@@ -741,6 +752,7 @@ export function BattleScene({
                         : enemyCombat.atk,
                     incomingAttackType:
                       enemyCombat.primaryAttack ?? "physical",
+                    magicPenetration: enemyCombat.magicPenetration,
                     maxHpDamageMult,
                     statusDamageReductionPct:
                       enemyCombat.statusDamageReductionPct,

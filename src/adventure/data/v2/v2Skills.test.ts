@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { speedToAttackBonusPct } from "@/lib/server/v2CombatCoefficients";
 import {
   LIMITED_RECOVERY_SKILL_IDS,
   V2_SKILLS,
@@ -1463,7 +1464,7 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(spCostOf(V2_SKILLS.v2c_marksman_aim)).toBe(5);
     expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.accuracyPct).toBe(30);
     expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.skillCritDmgPct).toBe(30);
-    expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.spdToAtkMaxPct).toBe(30);
+    expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.spdToAtkMaxPct).toBe(20);
     expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.skillCritOverflow).toBeUndefined();
     expect(spCostOf(V2_SKILLS.v2c_heavenlybow_starpath)).toBe(14);
   });
@@ -1479,7 +1480,14 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     ]);
 
     expect(sword.spdToAtkMaxPct).toBe(0);
-    expect(bow.spdToAtkMaxPct).toBe(30);
+    expect(bow.spdToAtkMaxPct).toBe(20);
+    expect(speedToAttackBonusPct(1_000, bow.spdToAtkMaxPct)).toBeCloseTo(
+      13.3333,
+      3,
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_heavenlybow_starpath)).toContain(
+      "속도에 비례해 공격력 증가 (최대 +20%에 가까워짐)",
+    );
   });
 
   it("일검필살은 방어 효과 없이 검성의 공격 능력을 모두 강화한다", () => {

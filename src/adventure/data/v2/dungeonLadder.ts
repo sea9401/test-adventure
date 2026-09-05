@@ -428,6 +428,19 @@ export const MOB_ACC_BASE = 1.5;
 export function floorAccuracy(depth: number): number {
   return MOB_ACC_BASE * floorStatMult(depth);
 }
+
+// 몬스터 마법 관통도. 공격력과 분리해 마방 효율이 공격력 성장에 이중으로 눌리지 않게 한다.
+// 고정 바닥은 초반 기본 마방이 즉시 85% 점근 상한에 붙는 것을 막고, 깊이 성장분은 별도
+// 계수로 플레이어의 장비·SPI 성장과 대결한다. depth 상한을 두지 않아 후속 콘텐츠도 같은
+// 규칙을 쓰며, 특정 마방 파훼 몬스터는 Monster.magicPenetration 고유 보정을 추가한다.
+export const MOB_MAGIC_PENETRATION_BASE = 100;
+export const MOB_MAGIC_PENETRATION_PER_STAT_MULT = 1.5;
+export function floorMagicPenetration(depth: number): number {
+  return (
+    MOB_MAGIC_PENETRATION_BASE +
+    MOB_MAGIC_PENETRATION_PER_STAT_MULT * floorStatMult(depth)
+  );
+}
 // 권장파워 = statMult^GATE_DAMP × 110. 옛 모델(statMult 선형 비례)은 후반에서 과대 —
 // 플레이어 파워(숙련도 floor 감쇠 + 밴드 장비 flat)는 깊이 statMult(선형)만큼 못 자라는데
 // 전투 실효(크리·회피·spd·def 댐핑)는 파워 점수에 다 안 잡혀, 깊이 48 권장 2915 vs 실측

@@ -189,7 +189,7 @@ export function ComposePage({
         disabled={submitting}
         required
         aria-required="true"
-        className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
+        className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-base outline-none transition-colors focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
       />
       <div className="-mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
         <span
@@ -271,7 +271,7 @@ export function ComposePage({
           maxLength={contentMaxLength + 100}
           placeholder="게시판에 남길 글을 입력하세요"
           disabled={submitting}
-          className="w-full resize-y rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
+          className="w-full resize-y rounded-md border border-zinc-300 bg-white px-3 py-2 text-base outline-none transition-colors focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
         />
       ) : (
         <div className={`${SURFACE_INSET} min-h-[22rem] p-4`} role="tabpanel">

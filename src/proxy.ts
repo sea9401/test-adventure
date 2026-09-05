@@ -39,7 +39,7 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex,nofollow" />
-<title>9월 5일 서비스 점검 안내 — 무슨무슨게임</title>
+<title>9월 6일 정기 점검 안내 — 무슨무슨게임</title>
 <style>
   html,body{margin:0;padding:0;height:100%;background:#09090b;color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
   main{min-height:100%;display:flex;align-items:center;justify-content:center;padding:1.5rem;box-sizing:border-box}
@@ -61,16 +61,17 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <main>
   <div class="box" role="status" aria-live="polite">
     <div class="status">서비스 점검</div>
-    <h1>9월 5일 서비스 점검 안내</h1>
-    <p class="lead">안녕하세요.<br />서비스 안정화 및 개선을 위한 점검이 아래와 같이 진행될 예정입니다.</p>
+    <h1>9월 6일 정기 점검 안내</h1>
+    <p class="lead">안녕하세요.<br />안정적인 서비스 제공을 위해 아래와 같이 점검을 진행합니다.</p>
     <h2 class="details-title">점검 일정</h2>
     <dl class="details">
-      <div class="row"><dt>일시:</dt><dd>2026년 9월 5일(토) 03:00~06:00</dd></div>
-      <div class="row"><dt>시간:</dt><dd>총 3시간</dd></div>
+      <div class="row"><dt>일시:</dt><dd>2026년 9월 6일(일) 04:00~04:30</dd></div>
+      <div class="row"><dt>시간:</dt><dd>약 30분</dd></div>
+      <div class="row"><dt>내용:</dt><dd>서버 안정화 및 업데이트</dd></div>
       <div class="row"><dt>영향:</dt><dd>점검 중 서비스 이용 불가</dd></div>
     </dl>
     <p class="notice">점검 상황에 따라 종료 시간이 변경될 수 있습니다.</p>
-    <p class="note">이용에 불편을 드려 죄송합니다.<br />더욱 안정적인 서비스로 보답하겠습니다.<br /><br />감사합니다.</p>
+    <p class="note">이용에 불편을 드려 죄송합니다.<br />더욱 안정적인 서비스를 제공할 수 있도록 노력하겠습니다.<br /><br />감사합니다.</p>
   </div>
 </main>
 </body>

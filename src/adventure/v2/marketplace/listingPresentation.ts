@@ -1,17 +1,13 @@
 "use client";
 
-import {
-  RARE_MAP_KINDS,
-  RARE_MAP_TTL_MS,
-  parseRareMaps
-} from "@/adventure/data/v2/rareMaps";
+import { RARE_MAP_KINDS, RARE_MAP_TTL_MS, parseRareMaps } from "@/adventure/data/v2/rareMaps";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 import {
   parseCraftedBy,
   parseInstanceCraftQuality,
   parseInstanceEnhance,
   type V2CraftQualityState,
-  type V2CraftedBy
+  type V2CraftedBy,
 } from "@/adventure/data/v2/v2Equipment";
 
 // v2 거래소 — 모든 품목을 6시간 공개 경매로 거래한다.

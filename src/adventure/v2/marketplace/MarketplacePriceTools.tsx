@@ -1,14 +1,10 @@
 "use client";
 
-import {
-  type MarketplaceStackGroup
-} from "@/adventure/v2/marketplace/marketplaceShared";
+import { type MarketplaceStackGroup } from "./marketplaceShared";
 import { Card } from "@/components/ui/Card";
 import { NumberInput, parseAmount } from "@/components/ui/NumberInput";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
-import {
-  X
-} from "@phosphor-icons/react";
+import { X } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 
 export type PriceAlert = {

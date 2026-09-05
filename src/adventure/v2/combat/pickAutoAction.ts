@@ -1,11 +1,6 @@
-import {
-  POTIONS,
-  POTION_IDS,
-  computeHealAmount,
-  type PotionId,
-} from "@/adventure/data/potions";
+import { POTIONS, POTION_IDS, computeHealAmount, type PotionId } from "@/adventure/data/potions";
 import type { AutoPotionConfig } from "@/adventure/inventory/useAutoPotionConfig";
-import type { BattleState, PlayerAction } from "./engine";
+import { type BattleState, type PlayerAction } from "./engineState";
 
 // 자동 전투 — 카테고리 단위 규칙 평가. 회복량 작은 물약부터 소진해 큰 것을 아낌.
 // 인벤토리 차감은 호출 측(BattleView)에서.

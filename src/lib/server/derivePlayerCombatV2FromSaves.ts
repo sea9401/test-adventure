@@ -1,39 +1,20 @@
-import {
-  parseV2Class,
-  tier1ClassOf
-} from "@/adventure/data/v2/classes";
-import {
-  V2_EQUIPMENT_LIBERATION
-} from "@/adventure/data/v2/coreLoopConfig";
-import {
-  deriveEquippedLiberationEffects
-} from "@/adventure/data/v2/equipmentLiberationEffects";
-import {
-  parseProficiencyForChar
-} from "@/adventure/data/v2/proficiency";
+import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
+import { V2_EQUIPMENT_LIBERATION } from "@/adventure/data/v2/coreLoopConfig";
+import { deriveEquippedLiberationEffects } from "@/adventure/data/v2/equipmentLiberationEffects";
+import { parseProficiencyForChar } from "@/adventure/data/v2/proficiency";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
-import {
-  parseEquipmentSave,
-  resolveEquippedForAggregate
-} from "@/adventure/data/v2/v2Equipment";
-import {
-  V2_JOB_CATALOG,
-  jobIdFromLegacy,
-} from "@/adventure/data/v2/v2JobCatalog";
-import {
-  jobPassive
-} from "@/adventure/data/v2/v2JobPassives";
-import {
-  aggregateEquippedPassives,
-  parseV2SkillsState,
-} from "@/adventure/data/v2/v2Skills";
-import {
-  V2_STAT_KEYS,
-  type V2StatKey
-} from "@/adventure/data/v2/v2StatKeys";
+import { parseEquipmentSave, resolveEquippedForAggregate } from "@/adventure/data/v2/v2Equipment";
+import { V2_JOB_CATALOG, jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
+import { jobPassive } from "@/adventure/data/v2/v2JobPassives";
+import { aggregateEquippedPassives, parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
+import { V2_STAT_KEYS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import { duelistStanceSnapshot } from "@/adventure/v2/combat/duelistCombat";
 import { activeCookingBuff } from "@/adventure/v2/cooking/food";
-import { DerivedPlayerCombatV2, SavedCharacterV2, derivePlayerCombatV2Pure } from "@/lib/server/derivePlayerCombatV2Pure";
+import {
+  DerivedPlayerCombatV2,
+  SavedCharacterV2,
+  derivePlayerCombatV2Pure,
+} from "./derivePlayerCombatV2Pure";
 
 // 이미 읽은 4개 save 값(character/equipment/proficiency/skills)에서 전투 스탯 derive — DB select
 //   없이. derivePlayerCombatV2(select 래퍼)가 read 후 호출한다. 사냥 라우트처럼 save 를 이미

@@ -1,9 +1,7 @@
-import { handleHunt } from "@/app/api/v2/dungeon/hunt/huntRequest";
+import { handleHunt } from "./huntRequest";
 import { ensureUser } from "@/lib/server/ensureUser";
-import {
-  enforceUserAndIpRateLimit,
-} from "@/lib/server/userRateLimit";
-export { runOneHunt, type RunOneHuntCtx } from "@/app/api/v2/dungeon/hunt/huntExecution";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
+export { runOneHunt, type RunOneHuntCtx } from "./huntExecution";
 
 // HTTP 경계: 인증·요청 제한·동시 요청 차단만 담당한다.
 // 요청 검증과 단판/일괄 트랜잭션은 huntRequest, 한 판의 처리는 huntExecution에 둔다.

@@ -9,24 +9,24 @@ import {
 } from "./combatTimeline";
 import {
   BOSS_MAX_HP_DAMAGE_MULT,
-  appendLog,
-  applyBerserkerHostileDamage,
-  applyEnemyV2SkillCast,
-  applyEvasionActionRecoveryPvE,
-  applyPhaseTriggerIfAny,
-  applyPlayerV2SkillCast,
-  finishEnemyAttack,
-  finishPlayerTurn,
   type BattleLogEntry,
-  type BattleResolution,
   type BattleState,
   type PlayerAction,
   type PlayerCombat,
-  type ResolveContext,
+} from "./engineState";
+import { appendLog, applyEvasionActionRecoveryPvE } from "./engineSupport";
+import {
+  applyBerserkerHostileDamage,
+  applyPhaseTriggerIfAny,
+  finishEnemyAttack,
+  finishPlayerTurn,
   initialBattleState,
   recordEnemyDamage,
   rollPlayerAttackCountWithBleed,
-} from "./engine";
+} from "./engine.pveOperations";
+import { applyEnemyV2SkillCast } from "./engine.enemySkills";
+import { applyPlayerV2SkillCast } from "./engine.playerSkills";
+import { type BattleResolution, type ResolveContext } from "./engineResolutionTypes";
 import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
 import {
   releaseSwordShadowAfterEnemyAction,
@@ -47,10 +47,7 @@ import {
 import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
 import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
 import { BLEED_MAX_STACKS } from "@/adventure/data/v2/v2CombatConstants";
-import {
-  magicBarrierCombatLogEntries,
-  resolveMagicBarrierDamage,
-} from "./magicBarrier";
+import { magicBarrierCombatLogEntries, resolveMagicBarrierDamage } from "./magicBarrier";
 import { activeTier6ResourceSnapshot } from "./tier6UniqueEffects";
 import { consumeDuelistCritHaste } from "./duelistCombat";
 import { enterShockAction } from "./shockAction";

@@ -1,20 +1,9 @@
-import {
-  V2_CLASS_DEFS,
-  V2_TIER_STAT_BONUS_PCT
-} from "@/adventure/data/v2/classes";
-import {
-  effectiveStatCap
-} from "@/adventure/data/v2/proficiency";
-import {
-  V2_STAT_KEYS,
-  emptyV2StatMap,
-  type V2StatKey,
-} from "@/adventure/data/v2/v2StatKeys";
-import {
-  V2_BASE_STATS
-} from "@/adventure/data/v2/v2Stats";
-import { stackedVitalityIncreasePct } from "@/lib/server/combatStatScaling";
-import type { DerivePlayerCombatV2PureInput } from "@/lib/server/derivePlayerCombatV2Pure";
+import { V2_CLASS_DEFS, V2_TIER_STAT_BONUS_PCT } from "@/adventure/data/v2/classes";
+import { effectiveStatCap } from "@/adventure/data/v2/proficiency";
+import { V2_STAT_KEYS, emptyV2StatMap, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
+import { V2_BASE_STATS } from "@/adventure/data/v2/v2Stats";
+import { stackedVitalityIncreasePct } from "./combatStatScaling";
+import type { DerivePlayerCombatV2PureInput } from "./derivePlayerCombatV2Pure";
 
 export function derivePrimaryStats(input: DerivePlayerCombatV2PureInput) {
   const liberation = input.liberationEffects;

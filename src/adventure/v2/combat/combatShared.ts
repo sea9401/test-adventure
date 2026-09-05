@@ -27,10 +27,7 @@ import {
   skillRitualFocusBonusFor,
   skillRitualPowerBonusFor,
 } from "@/adventure/data/v2/skillRitual";
-import {
-  V2_ELEMENT_LABEL,
-  type V2Element,
-} from "@/adventure/data/v2/elements";
+import { V2_ELEMENT_LABEL, type V2Element } from "@/adventure/data/v2/elements";
 import {
   PLAYER_BLEED_ATK_COEF_PER_STACK,
   BLEED_MAX_STACKS,
@@ -45,7 +42,7 @@ import {
   physicalDefenseDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
 import type { StatKey } from "@/adventure/data/stats";
-import type { PlayerCombat } from "./engine";
+import { type PlayerCombat } from "./engineState";
 import {
   evaluateCombatPatternCandidates,
   V2_PATTERN_DOT_POWER_MULT,

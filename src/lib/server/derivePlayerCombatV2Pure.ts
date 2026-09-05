@@ -1,23 +1,14 @@
 import { normalizeStance, type StanceId } from "@/adventure/character/stance";
 import { EVASION_PCT_CAP } from "@/adventure/data/stats";
-import {
-  type V2Class
-} from "@/adventure/data/v2/classes";
-import {
-  V2_CORE_LOOP_V2,
-  coreLoopMaxHpMult
-} from "@/adventure/data/v2/coreLoopConfig";
+import { type V2Class } from "@/adventure/data/v2/classes";
+import { V2_CORE_LOOP_V2, coreLoopMaxHpMult } from "@/adventure/data/v2/coreLoopConfig";
 import type { V2Element } from "@/adventure/data/v2/elements";
-import {
-  type EquippedLiberationEffects
-} from "@/adventure/data/v2/equipmentLiberationEffects";
+import { type EquippedLiberationEffects } from "@/adventure/data/v2/equipmentLiberationEffects";
 import {
   trainedIntSpiMpBonus,
   type V2LifeResourceGrowth,
 } from "@/adventure/data/v2/lifeResourceGrowth";
-import {
-  type LiberationCycleGrowth
-} from "@/adventure/data/v2/proficiency";
+import { type LiberationCycleGrowth } from "@/adventure/data/v2/proficiency";
 import { equipmentCritMultToMagicSkillCritBonus } from "@/adventure/data/v2/skillCritical";
 import {
   CRIT_MULT_BASE,
@@ -31,15 +22,10 @@ import {
   weaponTypeOf,
   type V2EquipRoll,
   type V2EquipSlot,
-  type V2EquipmentId
+  type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
-import {
-  type V2JobPassiveEffect
-} from "@/adventure/data/v2/v2JobPassives";
-import {
-  V2_STAT_KEYS,
-  type V2StatKey
-} from "@/adventure/data/v2/v2StatKeys";
+import { type V2JobPassiveEffect } from "@/adventure/data/v2/v2JobPassives";
+import { V2_STAT_KEYS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import {
   V2_BASE_HP,
   V2_BASE_MP,
@@ -48,12 +34,13 @@ import {
   V2_MP_PER_LEVEL,
 } from "@/adventure/data/v2/v2Stats";
 import type { PlayerCombat } from "@/adventure/v2/combat/engine";
-import { stackedDamageReductionPct, stackedDefenseIncreasePct, stackedMaxHpIncreasePct } from "@/lib/server/combatStatScaling";
 import {
-  aggregateV2Equipment,
-  collectEquipSignatures,
-} from "@/lib/server/derivePlayerEquipmentV2";
-import { derivePrimaryStats } from "@/lib/server/derivePlayerPrimaryStats";
+  stackedDamageReductionPct,
+  stackedDefenseIncreasePct,
+  stackedMaxHpIncreasePct,
+} from "./combatStatScaling";
+import { aggregateV2Equipment, collectEquipSignatures } from "./derivePlayerEquipmentV2";
+import { derivePrimaryStats } from "./derivePlayerPrimaryStats";
 import {
   ACCURACY_PCT_CAP,
   ACCURACY_PCT_PER_DEX,
@@ -95,8 +82,13 @@ import {
   WEIGHT_SPD_PENALTY,
   diminishingExtraAttackChancePct,
   speedToAttackBonusPct,
-} from "@/lib/server/v2CombatCoefficients";
-export { stackedDamageReductionPct, stackedDefenseIncreasePct, stackedMaxHpIncreasePct, stackedVitalityIncreasePct } from "@/lib/server/combatStatScaling";
+} from "./v2CombatCoefficients";
+export {
+  stackedDamageReductionPct,
+  stackedDefenseIncreasePct,
+  stackedMaxHpIncreasePct,
+  stackedVitalityIncreasePct,
+} from "./combatStatScaling";
 export type SavedCharacterV2 = {
   hp?: number;
   mp?: number;

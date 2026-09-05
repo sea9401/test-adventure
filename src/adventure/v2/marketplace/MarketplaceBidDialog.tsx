@@ -1,9 +1,7 @@
 "use client";
 
-import { remainingLabel } from "@/adventure/v2/marketplace/listingPresentation";
-import {
-  type Listing
-} from "@/adventure/v2/marketplace/marketplaceShared";
+import { remainingLabel } from "./listingPresentation";
+import { type Listing } from "./marketplaceShared";
 import { NumberInput } from "@/components/ui/NumberInput";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { timeAgoKo as timeAgo } from "@/lib/timeFormat";

@@ -1,16 +1,13 @@
+import { appendLog, playerPveEvasionReductionPct } from "./engineSupport";
 import {
-  appendLog,
   applyEnemyDamage,
   applyBerserkerHostileDamage,
   applyCounterIfAny,
-  playerPveEvasionReductionPct,
   finishEnemyAttack,
   playerFacingEnemyDef,
   recordEnemyDamage,
-  type BattleLogEntry,
-  type BattleState,
-  type PlayerCombat,
-} from "./engine";
+} from "./engine.pveOperations";
+import { type BattleLogEntry, type BattleState, type PlayerCombat } from "./engineState";
 import type { Monster } from "@/adventure/data/monsters";
 import {
   damageBetween,
@@ -30,13 +27,8 @@ import {
   statusBlockOnce,
   trackedShieldBreakEffect,
 } from "./signatureEffects";
-import {
-  applyEvasionDamageReduction,
-} from "@/adventure/data/v2/v2CombatConstants";
-import {
-  magicBarrierCombatLogEntries,
-  resolveMagicBarrierDamage,
-} from "./magicBarrier";
+import { applyEvasionDamageReduction } from "@/adventure/data/v2/v2CombatConstants";
+import { magicBarrierCombatLogEntries, resolveMagicBarrierDamage } from "./magicBarrier";
 import { applyTier6UniquePveEvent } from "./tier6UniquePveAdapter";
 import {
   consumeReactiveDefenseCharges,

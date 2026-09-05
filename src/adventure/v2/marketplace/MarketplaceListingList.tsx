@@ -6,12 +6,18 @@ import {
   V2_EQUIPMENT,
   type V2CraftQualityState,
   type V2CraftedBy,
-  type V2EquipRoll
+  type V2EquipRoll,
 } from "@/adventure/data/v2/v2Equipment";
 import { EquipmentCodexBadge } from "@/adventure/v2/EquipmentCodexBadge";
 import { NecklaceIcon, RingIcon } from "@/adventure/v2/EquipmentSlotIcons";
 import { GameIcon } from "@/adventure/v2/GameIcon";
-import { consumableStatusLine, listingCraftQuality, listingCraftedBy, listingEnhance, remainingLabel } from "@/adventure/v2/marketplace/listingPresentation";
+import {
+  consumableStatusLine,
+  listingCraftQuality,
+  listingCraftedBy,
+  listingEnhance,
+  remainingLabel,
+} from "./listingPresentation";
 import {
   PricePositionBadge,
   PriceRefLine,
@@ -22,9 +28,9 @@ import {
   priceStatForKey,
   priceStatForQuantity,
   type Listing,
-  type PriceStat
-} from "@/adventure/v2/marketplace/marketplaceShared";
-import { MarketplaceTradeReportButton } from "@/adventure/v2/marketplace/MarketplaceTradeReportButton";
+  type PriceStat,
+} from "./marketplaceShared";
+import { MarketplaceTradeReportButton } from "./MarketplaceTradeReportButton";
 import {
   CraftOnlyBadge,
   CraftQualityBadge,
@@ -32,11 +38,9 @@ import {
   EquipmentTierBadge,
   MasterworkBadge,
   QualityPctText,
-  powerNameClass
+  powerNameClass,
 } from "@/adventure/v2/V2ItemCard";
-import {
-  type V2ItemTabKey
-} from "@/adventure/v2/v2ItemListShared";
+import { type V2ItemTabKey } from "@/adventure/v2/v2ItemListShared";
 import { Card } from "@/components/ui/Card";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
@@ -50,7 +54,7 @@ import {
   Star,
   Storefront,
   Sword,
-  type Icon
+  type Icon,
 } from "@phosphor-icons/react";
 
 export const LISTING_ICON: Record<V2ItemTabKey, Icon> = {

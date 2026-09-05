@@ -1,29 +1,24 @@
 import type { PotionId } from "@/adventure/data/potions";
+import { ATB_TIMELINE_TICK_CAP, actionInterval } from "./combatTimeline";
+import { appendLog } from "./engineSupport";
+import { type BattleLogEntry, type PlayerAction, type PlayerCombat } from "./engineState";
+import { advanceTurnPvP } from "./engine.pvpPhase";
 import {
-  ATB_TIMELINE_TICK_CAP,
-  actionInterval,
-} from "./combatTimeline";
-import {
-  appendLog,
-  type BattleLogEntry,
-  type PlayerAction,
-  type PlayerCombat,
-} from "./engine";
-import {
-  advanceTurnPvP,
   applyEvasionActionRecoveryPvP,
-  castV2SkillOnAttackerTurnPvP,
   decrementTimedEffects,
   endAttackerPhase,
   initialBattleStatePvP,
   rollPvPAttackCount,
   tickPvPSideDotsOnAction,
+} from "./engine.pvpOperations";
+import { castV2SkillOnAttackerTurnPvP } from "./engine.pvpSkills";
+import {
   type PvPBattleResolution,
   type PvPBattleState,
   type PvPOutcome,
   type PvPResolveContext,
   type PvPSide,
-} from "./engine-pvp";
+} from "./engine.pvpState";
 import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
 import { activeTier6ResourceSnapshot } from "./tier6UniqueEffects";
 import { consumeDuelistCritHaste } from "./duelistCombat";
@@ -33,10 +28,7 @@ import { mergeTripleWardResourceSnapshot } from "./tripleWard";
 import { mergeLawInscriptionSnapshot } from "./lawInscription";
 import { mergeTier7ResourceSnapshot } from "./engineState";
 import { mergeFrostChillSnapshot } from "./frostChill";
-import {
-  pickPvpInitiative,
-  type PvPInitiativeActor,
-} from "./pvpInitiative";
+import { pickPvpInitiative, type PvPInitiativeActor } from "./pvpInitiative";
 import { weightSpeedMultiplier } from "./mutationCombat";
 
 // PvE 사냥과 같은 3000틱 상한을 사용한다. 양쪽 모두 플레이어 스케일 SPD를 쓰므로 실제 행동 수는

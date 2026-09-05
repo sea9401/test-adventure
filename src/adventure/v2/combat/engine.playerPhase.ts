@@ -1,8 +1,14 @@
 import {
   BOSS_PCT_HP_DAMAGE_MULT,
-  COMBO_FINISHER_PERIOD,
-  NORMAL_MONSTER_EXECUTION_HP_FRACTION,
-  appendLog,
+  type BattleState,
+  type EquippedAPSkill,
+  type PlayerAction,
+  type PlayerCombat,
+} from "./engineState";
+import { COMBO_FINISHER_PERIOD } from "../../data/v2/v2CombatConstants";
+import { NORMAL_MONSTER_EXECUTION_HP_FRACTION } from "./engineResolutionTypes";
+import { appendLog } from "./engineSupport";
+import {
   applyEnemyDamage,
   applyPhaseTriggerIfAny,
   applyPlayerOnHitDots,
@@ -10,11 +16,7 @@ import {
   finishPlayerTurn,
   playerFacingEnemyDef,
   rollPlayerAttackCountWithBleed,
-  type BattleState,
-  type EquippedAPSkill,
-  type PlayerAction,
-  type PlayerCombat,
-} from "./engine";
+} from "./engine.pveOperations";
 import {
   applyDefIgnore,
   computeAfterCrush,
@@ -49,9 +51,7 @@ import {
   SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
 } from "./signatureEffects";
 import { canApplyShock } from "./shockAction";
-import {
-  CRIT_PCT_CAP,
-} from "@/adventure/data/stats";
+import { CRIT_PCT_CAP } from "@/adventure/data/stats";
 import {
   CRIT_MULT_BASE,
   ETERNAL_GALE_ABSOLUTE_CAP,

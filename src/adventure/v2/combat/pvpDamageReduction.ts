@@ -1,4 +1,4 @@
-import type { PvPSide } from "./engine-pvp";
+import { type PvPSide } from "./engine.pvpState";
 import { ironWallDamageReductionPct } from "./fortressKnight";
 import { lowHpDamageReductionPct } from "./signatureEffects";
 

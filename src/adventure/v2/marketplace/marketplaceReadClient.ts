@@ -1,8 +1,6 @@
-import type { MarketplaceMyBid } from "@/adventure/v2/marketplace/marketplaceBidTracking";
-import type { PriceStat } from "@/adventure/v2/marketplace/marketplaceShared";
-import {
-  type Listing
-} from "@/adventure/v2/marketplace/marketplaceShared";
+import type { MarketplaceMyBid } from "./marketplaceBidTracking";
+import type { PriceStat } from "./marketplaceShared";
+import { type Listing } from "./marketplaceShared";
 
 type BrowseResponse = {
   ok?: boolean;

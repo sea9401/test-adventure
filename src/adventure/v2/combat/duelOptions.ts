@@ -1,4 +1,4 @@
-import type { PvPResolveContext } from "./engine-pvp";
+import { type PvPResolveContext } from "./engine.pvpState";
 
 // 서버 자동 일기토(무개입)의 표준 resolve 옵션 — 항상 평타 선택·물약 없음.
 // outpost attack(약탈/정복)·claim·eject·arena 가 같은 리터럴을 각자 복붙하던 것(2026-07 통합).

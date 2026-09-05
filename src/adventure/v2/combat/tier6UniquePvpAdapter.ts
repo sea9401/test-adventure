@@ -1,7 +1,4 @@
-import type {
-  PvPBattleState,
-  PvPSide,
-} from "./engine-pvp";
+import { type PvPBattleState, type PvPSide } from "./engine.pvpState";
 import {
   applyBleedChangeToDots,
   applyV2DotsToTarget,
@@ -20,10 +17,7 @@ import {
   resolvePvPHostileDamageSurvival,
   type PvPHostileDamageSurvival,
 } from "./pvpHostileDamage";
-import {
-  magicBarrierCombatLogEntries,
-  resolveMagicBarrierDamage,
-} from "./magicBarrier";
+import { magicBarrierCombatLogEntries, resolveMagicBarrierDamage } from "./magicBarrier";
 import { pvpSideDamageTakenReductionPct } from "./pvpDamageReduction";
 import {
   effectiveTier6MagicDefense,

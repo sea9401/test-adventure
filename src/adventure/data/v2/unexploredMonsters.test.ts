@@ -42,7 +42,14 @@ describe("unexplored runtime monsters", () => {
       ];
       expect(monsters).toHaveLength(41);
       for (const { monster, monsterId } of monsters) {
-        for (const stat of ["hp", "atk", "def", "magicDef", "spd"] as const) {
+        for (const stat of [
+          "hp",
+          "atk",
+          "def",
+          "magicDef",
+          "magicPenetration",
+          "spd",
+        ] as const) {
           expect(Number.isFinite(monster[stat]), `${monsterId}:${difficulty}:${stat}`).toBe(true);
           expect(monster[stat] ?? 0, `${monsterId}:${difficulty}:${stat}`).toBeGreaterThan(0);
         }
@@ -53,6 +60,9 @@ describe("unexplored runtime monsters", () => {
         expect(current.atk).toBeGreaterThanOrEqual(previous.atk);
         expect(current.def).toBeGreaterThanOrEqual(previous.def);
         expect(current.magicDef).toBeGreaterThanOrEqual(previous.magicDef ?? 0);
+        expect(current.magicPenetration).toBeGreaterThanOrEqual(
+          previous.magicPenetration ?? 0,
+        );
         expect(current.spd).toBeGreaterThanOrEqual(previous.spd);
       }
       previous = current;
@@ -733,7 +743,7 @@ describe("unexplored runtime monsters", () => {
     });
     expect(unexploredBaseMonstersAtDifficulty(100)[0].monster).toMatchObject({
       hp: 494_969,
-      atk: 16_372,
+      atk: 15_769,
       def: 2_370,
       magicDef: 2_461,
       spd: 17,

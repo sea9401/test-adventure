@@ -103,7 +103,8 @@ export function JobCodexList({ codex }: { codex: JobCodex }) {
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold">직업 찾기</h3>
         <span className="text-xs text-zinc-500 sm:text-[11px] dark:text-zinc-400">
-          {filteredJobs.length}/{codex.jobs.length}
+          {filteringActive ? `검색 결과 ${filteredJobs.length}개 · ` : ""}
+          도감 직업 {codex.jobs.length}개
         </span>
       </div>
       <div className="relative">

@@ -82,23 +82,78 @@ describe("coopShop", () => {
   });
 
   it("일/주간 제한은 주기 키가 바뀌면 lazy reset 된다", () => {
-    const stamina = COOP_SHOP_ENTRIES.find((e) => e.itemId === "stamina_potion")!;
+    const summonScroll = COOP_SHOP_ENTRIES.find(
+      (entry) => entry.itemId === "summon_scroll",
+    )!;
     const raw = {
-      daily: { key: "2026-06-30", purchases: { stamina_potion: 3 } },
+      daily: { key: "2026-06-30", purchases: { summon_scroll: 2 } },
       weekly: { key: "2026-06-29", purchases: { mastery_tome: 5 } },
     };
     const reset = parseCoopShopState(raw, "2026-07-01", "2026-06-29");
-    expect(coopShopPurchaseCount(reset, stamina)).toBe(0);
+    expect(coopShopPurchaseCount(reset, summonScroll)).toBe(0);
 
     const weekly = COOP_SHOP_ENTRIES.find((e) => e.itemId === "mastery_tome")!;
     expect(coopShopPurchaseCount(reset, weekly)).toBe(5);
     expect(isCoopShopLimitReached(reset, weekly)).toBe(true);
   });
 
-  it("스태미나 회복약은 하루 5개까지 교환한다", () => {
-    const stamina = COOP_SHOP_ENTRIES.find((e) => e.itemId === "stamina_potion");
-    expect(stamina?.limit).toEqual({ scope: "daily", count: 5 });
-    expect(stamina?.description).toContain("하루 5개");
+  it("스태미나 회복약은 주간 30개까지 교환한다", () => {
+    const stamina = COOP_SHOP_ENTRIES.find(
+      (entry) => entry.itemId === "stamina_potion",
+    )!;
+    expect(stamina.limit).toEqual({ scope: "weekly", count: 30 });
+    expect(stamina.description).toContain("주 30개");
+
+    let state = parseCoopShopState({}, "2026-09-01", "2026-08-31");
+    for (let i = 0; i < 30; i += 1) {
+      state = recordCoopShopPurchase(state, stamina);
+    }
+    expect(isCoopShopLimitReached(state, stamina)).toBe(true);
+    expect(
+      isCoopShopLimitReached(
+        parseCoopShopState(state, "2026-09-06", "2026-08-31"),
+        stamina,
+      ),
+    ).toBe(true);
+    expect(
+      isCoopShopLimitReached(
+        parseCoopShopState(state, "2026-09-07", "2026-09-07"),
+        stamina,
+      ),
+    ).toBe(false);
+  });
+
+  it("현재 일자의 기존 회복약 구매량을 전환 주간에 이어받는다", () => {
+    const stamina = COOP_SHOP_ENTRIES.find(
+      (entry) => entry.itemId === "stamina_potion",
+    )!;
+    const state = parseCoopShopState(
+      {
+        daily: {
+          key: "2026-09-01",
+          purchases: { stamina_potion: 4 },
+        },
+        weekly: {
+          key: "2026-08-31",
+          purchases: { mastery_tome: 2 },
+        },
+      },
+      "2026-09-01",
+      "2026-08-31",
+    );
+
+    expect(coopShopPurchaseCount(state, stamina)).toBe(4);
+    const purchased = recordCoopShopPurchase(state, stamina);
+    expect(
+      coopShopPurchaseCount(
+        parseCoopShopState(
+          purchased,
+          "2026-09-02",
+          "2026-08-31",
+        ),
+        stamina,
+      ),
+    ).toBe(5);
   });
 
   it("재련 비활성 중에는 재련석 교환 상품을 노출하지 않는다", () => {

@@ -38,6 +38,7 @@ export type UnexploredCommonBaseline = {
   magicDef: number;
   spd: number;
   accuracy: number;
+  magicPenetration: number;
 };
 
 const STAR_GRAVE_REFERENCE_DEPTH = 84;
@@ -374,6 +375,9 @@ export function unexploredCommonBaseline(
     ),
     spd: median(monsters.map((monster) => monster.spd)),
     accuracy: median(monsters.map((monster) => monster.accuracy ?? 0)),
+    magicPenetration: median(
+      monsters.map((monster) => monster.magicPenetration ?? 0),
+    ),
   };
 }
 
@@ -431,6 +435,7 @@ export function unexploredSpecialMonsters(
         ),
         spd: unexploredRawSpd(difficulty, definition.speedBand),
         accuracy: baseline.accuracy,
+        magicPenetration: baseline.magicPenetration,
         exp: 0,
       };
       const monster =

@@ -22,7 +22,7 @@ export { SurplusCropLabel } from "./SurplusExchangePanel";
 type CookingSection = "research" | "codex" | "public" | "specialty" | "delivery" | "processing";
 
 const ERROR_TEXT: Record<string, string> = {
-  duplicate_combination: "이미 실패한 조합입니다. 재료는 소비하지 않았습니다.",
+  duplicate_combination: "이미 실패한 조합입니다. 추가 재료는 소비하지 않았습니다.",
   method_locked: "아직 사용할 수 없는 조리법입니다.",
   too_few_ingredients: "재료를 2개 이상 선택해 주세요.",
   too_many_ingredients: "현재 레벨의 연구 슬롯을 초과했습니다.",

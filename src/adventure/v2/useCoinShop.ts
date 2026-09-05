@@ -147,7 +147,24 @@ export function useCoinShop<S extends CoinShopCoreState>(opts: {
         }
         if (j?.error === "limit_reached") {
           setState((s) => (s ? applyResponse(s, j) : s));
-          return { ok: false, message: "오늘 구매 한도에 도달했다." };
+          return {
+            ok: false,
+            message: "오늘 구매 한도에 도달했다.",
+          };
+        }
+        if (j?.error === "boss_already_active") {
+          setState((s) => (s ? applyResponse(s, j) : s));
+          return {
+            ok: false,
+            message: "이미 소환한 심연어룡이 활성 상태다.",
+          };
+        }
+        if (j?.error === "boss_capacity_reached") {
+          setState((s) => (s ? applyResponse(s, j) : s));
+          return {
+            ok: false,
+            message: "현재 소환된 심연어룡이 너무 많다. 잠시 후 다시 시도해 주세요.",
+          };
         }
         return { ok: false, message: "구매하지 못했다." };
       } catch {
@@ -163,6 +180,9 @@ export function useCoinShop<S extends CoinShopCoreState>(opts: {
 }
 
 function consumableSuccessMessage(j: Json, itemId: string): string {
+  if (itemId === "abyssal_tyrant_summon_bait") {
+    return "심연어룡을 소환했다. 협동 보스에서 확인할 수 있다.";
+  }
   if (itemId === "farm_seed_pouch") {
     const pouch = j.seedPouch;
     const name =

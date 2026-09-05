@@ -646,7 +646,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
         buildTags: ["magic", "crit", "speed", "resource"],
         thresholds: [
           { count: 2, bonus: { mp: 180 }, signature: { trigger: "on_skill_cast", label: "마력 재순환", mpRefundPctOfCost: 15 } },
-          { count: 3, bonus: { hp: 300, mp: 260, magicDef: 25 }, signature: { trigger: "on_hit", label: "심층 방전", shockChancePct: 8 } },
+          { count: 3, bonus: { hp: 300, mp: 260, magicDef: 25, spd: 8 }, signature: { trigger: "on_hit", label: "심층 방전", shockChancePct: 8 } },
         ],
       },
     } as const;

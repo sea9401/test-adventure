@@ -40,7 +40,7 @@ function PostListRowImpl({ post, onOpen }: Props) {
           >
             {BULLETIN_CATEGORY_LABELS[post.category].name}
           </span>
-          <span className={`min-w-0 flex-1 truncate text-sm ${titleClass}`}>
+          <span className={`min-w-0 flex-1 truncate text-base ${titleClass}`}>
             {displayTitle}
           </span>
           {post.category === "notice" && !post.viewedByMe && (

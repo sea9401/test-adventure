@@ -53,6 +53,7 @@ export type ReplayPayload = {
     spd?: number;
     actionSpd?: number;
     accuracy?: number;
+    magicPenetration?: number;
     evasionPct?: number;
     atkType?: Monster["atkType"];
     critPct?: number;
@@ -143,6 +144,7 @@ function replayEnemy(
     spd: enemy.spd,
     actionSpd: monsterActionSpd(enemy, depthCorr),
     accuracy: enemy.accuracy,
+    magicPenetration: enemy.magicPenetration,
     evasionPct: enemy.evasionPct,
     atkType: enemy.atkType,
     critPct: enemy.critPct,

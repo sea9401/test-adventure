@@ -57,6 +57,10 @@ import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 
 type FarmSectionKey = "home" | "grow" | "ranch" | "delivery" | "shop";
 
+export function farmSectionFromHash(hash: string): FarmSectionKey | null {
+  return hash === "#ranch" ? "ranch" : null;
+}
+
 type FarmToast = {
   id: number;
   tone: "ok" | "warn";
@@ -145,6 +149,20 @@ export function AdventurerFarmPanel({
   const [activeSection, setActiveSection] = useState<FarmSectionKey>(
     () => lastFarmSection,
   );
+  useEffect(() => {
+    const selectLinkedSection = () => {
+      const linkedSection = farmSectionFromHash(window.location.hash);
+      if (!linkedSection) return;
+      lastFarmSection = linkedSection;
+      setActiveSection(linkedSection);
+    };
+    const initialSync = window.setTimeout(selectLinkedSection, 0);
+    window.addEventListener("hashchange", selectLinkedSection);
+    return () => {
+      window.clearTimeout(initialSync);
+      window.removeEventListener("hashchange", selectLinkedSection);
+    };
+  }, []);
   const cropById = useMemo(
     () => new Map(crops.map((crop) => [crop.id, crop])),
     [crops],

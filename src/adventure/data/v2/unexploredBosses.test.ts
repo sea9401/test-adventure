@@ -104,34 +104,34 @@ describe("미개척지 개인 보스 카탈로그", () => {
     }
   });
 
-  it("추적 병기는 표시 속도 418로 40틱마다 행동한다", () => {
+  it("추적 병기는 표시 속도 418로 38틱마다 행동한다", () => {
     const boss = COOP_BOSSES.tracking_weapon;
     const monster = coopBossForBattle(boss, boss.sharedMaxHp).monster;
     const actionSpd = monsterActionSpd(monster);
 
     expect(monster.spd).toBe(68);
     expect(actionSpd).toBe(418);
-    expect(actionInterval(actionSpd)).toBe(40);
+    expect(actionInterval(actionSpd)).toBe(38);
   });
 
-  it("독혈 군주는 표시 속도 418로 40틱마다 행동한다", () => {
+  it("독혈 군주는 표시 속도 418로 38틱마다 행동한다", () => {
     const boss = COOP_BOSSES.toxic_blood_lord;
     const monster = coopBossForBattle(boss, boss.sharedMaxHp).monster;
     const actionSpd = monsterActionSpd(monster);
 
     expect(monster).toMatchObject({ spd: 68, def: 2_483, magicDef: 2_596 });
     expect(actionSpd).toBe(418);
-    expect(actionInterval(actionSpd)).toBe(40);
+    expect(actionInterval(actionSpd)).toBe(38);
   });
 
-  it("불멸의 광전왕은 첫 생명에서 표시 속도 418로 40틱마다 행동한다", () => {
+  it("불멸의 광전왕은 첫 생명에서 표시 속도 418로 38틱마다 행동한다", () => {
     const boss = COOP_BOSSES.immortal_berserker;
     const monster = coopBossForBattle(boss, boss.sharedMaxHp).monster;
     const actionSpd = monsterActionSpd(monster);
 
     expect(monster.spd).toBe(68);
     expect(actionSpd).toBe(418);
-    expect(actionInterval(actionSpd)).toBe(40);
+    expect(actionInterval(actionSpd)).toBe(38);
   });
 
   it("모든 미개척지 보스는 평타 사이에 정체성에 맞는 기본 스킬을 섞는다", () => {

@@ -52,6 +52,19 @@ export function cookingDeliveryConditionText(
   return parts.join(" · ");
 }
 
+export function cookingDeliveryFoodTraitsText(
+  food: CookingFoodDefinition,
+): string {
+  return [
+    `${COOKING_FIELD_NAMES[food.recipe.field]} 분야`,
+    `${COOKING_METHOD_NAMES[food.recipe.method]} 조리`,
+    ...food.recipe.effectTags.map(
+      (effectTag) => `${COOKING_EFFECT_TAG_NAMES[effectTag]} 효과`,
+    ),
+    `${cookingQualityName(food.quality)} 품질`,
+  ].join(" · ");
+}
+
 const FIELDS: readonly CookingField[] = ["hearth", "pot", "baking", "seafood", "medicinal"];
 const METHODS: readonly CookingMethod[] = ["grill", "boil", "stir_fry", "fry", "steam", "bake", "brew", "ferment"];
 const EFFECTS: readonly CookingEffectTag[] = ["offense", "defense", "recovery", "hunt_exp", "hunt_gold", "life"];

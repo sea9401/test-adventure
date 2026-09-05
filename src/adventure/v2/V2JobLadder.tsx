@@ -269,7 +269,8 @@ export function V2JobLadder({
           <h3 className="text-sm font-semibold">직업 찾기</h3>
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-              {filteredJobs.length}/{visibleJobs.length}
+              {isFiltering ? `검색 결과 ${filteredJobs.length}개 · ` : ""}
+              현재 공개 {visibleJobs.length}개
             </span>
             <button
               type="button"

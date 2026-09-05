@@ -102,6 +102,8 @@ const LEVEL = 100;
 const DEFAULT_SEEDS = 200;
 const DEFAULT_SEED_BASE = 20_260_829;
 const PVP_FIRST_ACTION_KO_HP = 10_000;
+// 속도 곡선과 무관하게 7차 직업 패키지만 비교하도록 기존 80틱 표본 밀도를 유지한다.
+const BALANCE_SAMPLE_SPD = 139;
 
 const BUILDS: readonly BuildDefinition[] = [
   {
@@ -365,7 +367,8 @@ function buildPlayer(build: BuildDefinition): PlayerCombat {
     hp: derived.maxHp,
     maxMp: 100_000,
     mp: 100_000,
-    spd: 100,
+    // 직업별 속도 차이를 제거한다. 새 행동률 곡선에서 표본 속도는 80틱이다.
+    spd: BALANCE_SAMPLE_SPD,
     characterElement: "neutral",
   };
 }
@@ -484,7 +487,7 @@ function runPvp(
       hp: DUMMY.hp,
       maxHp: DUMMY.hp,
       atk: 0,
-      spd: 100,
+      spd: BALANCE_SAMPLE_SPD,
     };
     const result = withSeed(
       (seedBase + index + stringHash("pvp")) >>> 0,

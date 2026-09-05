@@ -920,7 +920,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
       },
       {
         count: 3,
-        bonus: { hp: 300, mp: 260, magicDef: 25 },
+        bonus: { hp: 300, mp: 260, magicDef: 25, spd: 8 },
         signature: {
           trigger: "on_hit",
           label: "심층 방전",

@@ -102,7 +102,7 @@ import {
   trackedShieldBreakEffect,
 } from "./signatureEffects";
 import { canApplyShock, enterShockAction } from "./shockAction";
-import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
+import { advancePatternAlternateState, preservePatternAlternateTransition, V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
 import {
   effectiveCombatPatternFromEquipped,
   aggregateEquippedPassives,
@@ -301,6 +301,7 @@ export type PvPSideBuffs = {
 };
 
 export type PvPSideStacks = {
+  patternAlternateLastSkillByPair?: Record<string, string>;
   tripleWard: TripleWardState;
   fortressImpact: number;
   ironWallReflectCharges: number;
@@ -2761,9 +2762,8 @@ export function castV2SkillOnAttackerTurnPvP(
       (side.stacks.skillProcDownTurns > 0 ? side.stacks.skillProcDownPct : 0),
     // 패턴 경로에서도 procChance 굴림(부활) — 플래그 on 이면 패턴이 고른 스킬도 확률 게이트 통과 필요.
     applyProcInPattern: V2_SKILL_PROC_IN_PATTERN,
-    // 전투 패턴(갬빗) — 플래그 on 일 때만 주입(PvP 양쪽 다 플레이어). off 면 옛 슬롯순서+proc.
-    // 저장된 커스텀 패턴 우선, 없으면 장착 스킬 종류별 스마트 기본 패턴(유틸 스팸 방지).
     turn: side.turn.completedPlayerTurns + 1,
+    alternateLastSkillByPair: side.stacks.patternAlternateLastSkillByPair,
     combatPattern: V2_COMBAT_PATTERN_ENABLED
       ? effectiveCombatPatternFromEquipped(
           side.v2Skills.equipped,
@@ -2929,7 +2929,7 @@ export function castV2SkillOnAttackerTurnPvP(
               ),
             }
           : {};
-    return resolveV2SkillCast({
+    const rerun = resolveV2SkillCast({
       ...castInput,
       ...overrides,
       skills: {
@@ -2956,6 +2956,7 @@ export function castV2SkillOnAttackerTurnPvP(
           : castInput.attacker.mp,
       },
     });
+    return preservePatternAlternateTransition(current, rerun);
   };
   if (
     result.castSkillId === "v2c_swordsaint_flash" &&
@@ -4277,6 +4278,7 @@ export function castV2SkillOnAttackerTurnPvP(
   // 시전 턴 직후 1턴 손실 없이 N 턴 유지(PvE 는 자기 턴에 소비/감소라 turn-end, PvP 는 turn-start).
   const nextStacks: PvPSideStacks = {
     ...side.stacks,
+    patternAlternateLastSkillByPair: advancePatternAlternateState(side.stacks.patternAlternateLastSkillByPair, result.patternAlternateTransition),
     ...(nextTier7 ? { tier7: nextTier7 } : {}),
     tripleWard: refreshedTripleWard,
     evadesRemaining:

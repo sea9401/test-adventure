@@ -121,6 +121,34 @@ describe("recordEconomyEventSoon batching", () => {
     expect(mocks.returning).toHaveBeenCalledOnce();
   });
 
+  it("주간 시설 출처 충돌은 보상 실패로 쓰지 않고 실제 오류는 기록한다", async () => {
+    const { recordRewardFailureSoon } = await import("./economyLog");
+
+    recordRewardFailureSoon({
+      userId: "user-1",
+      source: "guild_training",
+      error: "weekly_source_conflict",
+    });
+
+    expect(mocks.values).not.toHaveBeenCalled();
+
+    recordRewardFailureSoon({
+      userId: "user-1",
+      source: "guild_training",
+      error: "database_unavailable",
+    });
+
+    expect(mocks.values).toHaveBeenCalledOnce();
+    expect(mocks.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        eventType: "reward.failure.guild_training",
+        itemKind: "failure",
+        itemId: "database_unavailable",
+      }),
+    );
+  });
+
   it("배치 INSERT 실패를 지표에 누적하고 즉시 운영 신호로 기록한다", async () => {
     mocks.state.batchError = new Error("database unavailable");
     const { getEconomyEventBatchMetrics, recordEconomyEventSoon } = await import(

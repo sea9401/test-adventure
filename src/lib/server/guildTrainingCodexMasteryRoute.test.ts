@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { WeeklyFacilitySourceSelection } from "@/adventure/data/v2/adventurerAssociation";
 import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
 const {
   store,
   recordCodexMasteryGameplayBatch,
   claimWeeklyFacilitySource,
+  readWeeklyFacilitySourceSelection,
 } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   recordCodexMasteryGameplayBatch: vi.fn(
@@ -19,6 +21,9 @@ const {
     ok: true as const,
     selected: "association" as const,
   })),
+  readWeeklyFacilitySourceSelection: vi.fn(
+    async (): Promise<WeeklyFacilitySourceSelection | null> => null,
+  ),
 }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -31,6 +36,7 @@ vi.mock("@/lib/server/adventurerAssociation", () => ({
   canUseAdventurerAssociation: vi.fn(async () => true),
   associationFacilityLevel: vi.fn(async () => 1),
   claimWeeklyFacilitySource,
+  readWeeklyFacilitySourceSelection,
 }));
 vi.mock("@/lib/server/economyLog", () => ({
   recordEconomyEventSoon: vi.fn(),
@@ -64,7 +70,7 @@ vi.mock("@/lib/server/savesKv", () => ({
   ),
 }));
 
-import { POST } from "@/app/api/v2/guild/training-ground/route";
+import { GET, POST } from "@/app/api/v2/guild/training-ground/route";
 import {
   todayGuildTrainingKey,
   todayGuildTrainingWeekKey,
@@ -80,6 +86,12 @@ function request() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ drillId: "basic_stance" }),
     },
+  );
+}
+
+function viewRequest() {
+  return new Request(
+    "http://test/api/v2/guild/training-ground?scope=association",
   );
 }
 
@@ -108,6 +120,8 @@ describe("guild training codex mastery wiring", () => {
     vi.setSystemTime(NOW);
     recordCodexMasteryGameplayBatch.mockClear();
     claimWeeklyFacilitySource.mockClear();
+    readWeeklyFacilitySourceSelection.mockReset();
+    readWeeklyFacilitySourceSelection.mockResolvedValue(null);
   });
 
   it("수령한 훈련 보상을 현재 직업 도감 숙련도로 기록한다", async () => {
@@ -141,5 +155,23 @@ describe("guild training codex mastery wiring", () => {
 
     expect(response.status).toBe(409);
     expect(recordCodexMasteryGameplayBatch).not.toHaveBeenCalled();
+  });
+
+  it("현재 주간 출처와 협회 훈련장이 충돌하면 GET에서 이용 불가를 알린다", async () => {
+    seedTraining();
+    readWeeklyFacilitySourceSelection.mockResolvedValue({
+      weekKey: todayGuildTrainingWeekKey(new Date(NOW)),
+      source: "guild",
+      guildId: 11,
+    });
+
+    const response = await GET(viewRequest());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      weeklySourceEligible: false,
+      claimableCount: 0,
+    });
   });
 });

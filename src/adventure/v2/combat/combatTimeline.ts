@@ -2,27 +2,28 @@
 //
 // 고정 교대(나 한 번 너 한 번) → "다음 행동 tick 가장 빠른 액터가 행동"하는 타임라인.
 // SPD 는 데미지에 **행동 빈도 하나로만** 기여한다(데미지식·스탯은 불변). 빠른 빌드(도적/궁사)가
-// 느린 빌드보다 자주 행동하되, 단순 1/spd 처럼 궁사가 49배까지 폭주하지 않도록 멱(power)
+// 느린 빌드보다 자주 행동하되, 단순 1/spd 처럼 행동 수가 폭주하지 않도록 구간별 멱(power)
 // 곡선으로 압축한다. 중갑 무게페널티 완화(WEIGHT_SPD_PENALTY 0.5)로 탱 생존도 함께 보정한다.
 //
 // 🔑 "스탯 과열"의 범인은 ATB 가 아니라 기존 SPD 파생 extraAttackChancePct(=spd×0.5)다. ATB 에선
 //    그걸 제거(빈도로 일원화)해야 ~2배로 통제된다 — 그 제거는 엔진 통합 단계에서.
 // 이 모듈은 결정론(Math.random 미사용) — 리플레이가 동일 타임라인을 재현한다.
 
-// 멱지수 — 클수록 SPD 당 빈도 증가가 가파르다. 제곱근 곡선은 저속 구간의 기존 빈도를 거의
-// 유지하면서 최슬로(14)↔기존 최패스트(292) 행동빈도를 약 4.5배로 압축한다.
+// 저속 구간은 제곱근으로 완만하게 압축한다. 속도 100은 행동률 100·간격 100틱의 기준점이다.
 export const SPD_RATE_POW = 0.5;
-// (spd/REF)^POW 기준 스케일 — spd=REF(64) 에서 rate=기준 100.
-// REF 64 × (RATE_CAP/100)² = SPD 1,024에서 상한에 정확히 도달한다.
-export const RATE_REF_SPD = 64;
+export const RATE_REF_SPD = 100;
 // 기준 액터(rate 100)의 행동 간격(tick). interval = ceil(RATE_BASE^2 / rate).
 const RATE_BASE = 100;
-// 플레이어 행동 속도 상한 — 전투력 표시와 초과 속도 전환도 이 값을 단일 기준으로 공유한다.
-export const PLAYER_ACTION_SPD_CAP = 1_024;
-// 속도 매운맛 다이얼 — SPD 상한에서 도달하는 행동 레이트. 고속 성장 구간을 길게 유지하되,
-// 최종 행동 빈도는 기준 속도의 최대 4배로 제한한다.
-export const RATE_CAP =
-  RATE_BASE * Math.pow(PLAYER_ACTION_SPD_CAP / RATE_REF_SPD, SPD_RATE_POW);
+// 중속은 속도 100→1,000에서 행동률 100→480(약 4.8배)이 되도록 기울기를 높인다.
+export const MID_RATE_SPD = 1_000;
+const MID_RATE = 480;
+export const MID_SPD_RATE_POW = Math.log(MID_RATE / RATE_BASE) / Math.log(10);
+// 1,000 이후에는 다시 강하게 점감하고, 속도 20,000에서 기술적 안전 한계에 도달한다.
+export const PLAYER_ACTION_SPD_CAP = 20_000;
+export const RATE_CAP = 1_000;
+export const HIGH_SPD_RATE_POW =
+  Math.log(RATE_CAP / MID_RATE) /
+  Math.log(PLAYER_ACTION_SPD_CAP / MID_RATE_SPD);
 
 // 전투 로그 표시 — 이 틱 폭 단위로 행동들을 한 박스에 묶는다(UI). 기준 액터 1행동≈100틱이라
 //   400 ≈ 약 4교대(플레이어·적 행동 여러 개 + HP 바 1개)를 한 "순간"으로 보여줘 잘게 쪼개짐을 줄임.
@@ -33,10 +34,17 @@ export const ATB_LOG_WINDOW_TICKS = 400;
 // 플레이어 행동 약 30회분으로, 지속형 빌드가 작동할 여지를 주되 장기전을 제한한다.
 export const ATB_TIMELINE_TICK_CAP = 3_000;
 
-// 행동 레이트 — SPD^POW 비례(멱 곡선). spd=REF(64)에서 100 기준, 높을수록 ↑(RATE_CAP 상한).
+// 행동 레이트 — 저속 제곱근, 중속 투자 체감, 초고속 강한 점감을 잇는 연속 곡선.
 export function actionRate(spd: number): number {
   const s = Math.max(1, Number(spd) || 0);
-  return Math.min(RATE_CAP, RATE_BASE * Math.pow(s / RATE_REF_SPD, SPD_RATE_POW));
+  if (s >= PLAYER_ACTION_SPD_CAP) return RATE_CAP;
+  if (s <= RATE_REF_SPD) {
+    return RATE_BASE * Math.pow(s / RATE_REF_SPD, SPD_RATE_POW);
+  }
+  if (s <= MID_RATE_SPD) {
+    return RATE_BASE * Math.pow(s / RATE_REF_SPD, MID_SPD_RATE_POW);
+  }
+  return MID_RATE * Math.pow(s / MID_RATE_SPD, HIGH_SPD_RATE_POW);
 }
 
 // 행동 간격(tick) — rate 의 역수 스케일. 작을수록 자주 행동. 정수 tick(결정론).

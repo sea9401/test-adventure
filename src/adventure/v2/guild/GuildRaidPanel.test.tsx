@@ -151,14 +151,19 @@ describe("길드 토벌전 패널", () => {
 
     const practiceButton = screen.getByRole("button", { name: "연습 전투" });
     expect(practiceButton.hasAttribute("disabled")).toBe(false);
-    expect(screen.getByText("공격 횟수와 피해·보상에 반영되지 않습니다.")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "토벌전이 끝난 뒤에도 연습할 수 있으며, 공격 횟수와 피해·보상에 반영되지 않습니다.",
+      ),
+    ).toBeTruthy();
 
     fireEvent.click(practiceButton);
     expect(onPractice).toHaveBeenCalledTimes(1);
     expect(onAttack).not.toHaveBeenCalled();
   });
 
-  it("토벌 전투 기간이 끝나면 연습 전투도 비활성화한다", () => {
+  it("토벌 전투 기간이 끝나도 일반 공격은 막고 연습 전투는 허용한다", () => {
+    const onPractice = vi.fn();
     render(
       <GuildRaidPanelContent
         state={raidState({
@@ -171,13 +176,20 @@ describe("길드 토벌전 패널", () => {
         attacking={false}
         error={null}
         onAttack={vi.fn()}
-        onPractice={vi.fn()}
+        onPractice={onPractice}
       />,
     );
 
     expect(
-      screen.getByRole("button", { name: "연습 전투" }).hasAttribute("disabled"),
+      screen
+        .getByRole("button", { name: "이번 토벌전이 종료되었습니다" })
+        .hasAttribute("disabled"),
     ).toBe(true);
+    const practiceButton = screen.getByRole("button", { name: "연습 전투" });
+    expect(practiceButton.hasAttribute("disabled")).toBe(false);
+
+    fireEvent.click(practiceButton);
+    expect(onPractice).toHaveBeenCalledTimes(1);
   });
 
   it("연습 피해와 비저장 안내 및 전체 전투 로그를 보여준다", () => {

@@ -58,6 +58,8 @@ describe("combat pattern choice controls", () => {
     expect(html).toContain("발동률 판정에 실패하면 다음");
     expect(html).toContain("서로 다른 스킬은 독립적으로 판정");
     expect(html).toContain("중복 배치해도");
+    expect(html).toContain("실제로 발동한 뒤에만 다음 순서");
+    expect(html).toContain("현재 A/B 차례를 유지");
   });
 
   it("AND/OR 복합 조건의 의미와 혈전 조합 예시를 안내한다", () => {

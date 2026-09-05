@@ -407,6 +407,103 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
     expect(countText(res, "[교차·추격]")).toBeGreaterThan(0);
   });
 
+  it("비천무신 교대 패턴은 발동 실패 뒤 같은 스킬을 재시도해 실제 시전 순서를 지킨다", () => {
+    const firstSkillId = "v2c_skyascendant_fallingstar";
+    const secondSkillId = "v2c_skyascendant_voidbreak";
+    const skills: V2SkillsState = {
+      learned: [firstSkillId, secondSkillId, "v2c_skyascendant_crossover"],
+      equipped: [firstSkillId, secondSkillId, "v2c_skyascendant_crossover"],
+      pattern: {
+        blocks: [
+          {
+            condition: { kind: "always" },
+            action: { kind: "alternate", firstSkillId, secondSkillId },
+          },
+        ],
+      },
+    };
+    let state = initialBattleState(
+      {
+        ...player,
+        atk: 150,
+        dexStat: 200,
+        hp: 5_000,
+        maxHp: 5_000,
+        maxMp: 1_000,
+        mp: 1_000,
+      },
+      {
+        name: "교대 허수아비",
+        tags: [],
+        hp: 100_000,
+        atk: 1,
+        def: 10,
+        spd: 1,
+        exp: 0,
+        evasionPct: 0,
+      },
+      "테스터",
+      skills,
+    );
+    const castSequence: Array<string | null> = [];
+
+    for (let index = 0; index < 5; index += 1) {
+      if (index === 2) {
+        state = {
+          ...state,
+          v2SkillCooldowns: {
+            ...state.v2SkillCooldowns,
+            [firstSkillId]: 2,
+          },
+        };
+      }
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      const logStart = state.log.length;
+      const cast = applyPlayerV2SkillCast(
+        state,
+        {
+          ...player,
+          atk: 150,
+          dexStat: 200,
+          hp: state.playerHp,
+          maxHp: 5_000,
+          maxMp: 1_000,
+          mp: state.playerMp,
+        },
+        { selfBuffs: {}, selfDebuffs: {}, enemyDebuffs: {} },
+        "테스터",
+      );
+      const skillLog = cast.state.log
+        .slice(logStart)
+        .find((entry) => entry.kind === "info" && entry.skillCast);
+      castSequence.push(
+        skillLog && skillLog.kind !== "hp_bar"
+          ? (skillLog.skillCast?.skillId ?? null)
+          : null,
+      );
+      state = {
+        ...cast.state,
+        turn: {
+          ...cast.state.turn,
+          completedPlayerTurns: index + 1,
+        },
+      };
+      vi.restoreAllMocks();
+    }
+
+    expect(castSequence).toEqual([
+      firstSkillId,
+      secondSkillId,
+      null,
+      firstSkillId,
+      secondSkillId,
+    ]);
+    const resolution = { finalState: state } as BattleResolution;
+    // A→B 추격 2회는 피해·가속 각 1줄, B→A 포획 1회는 가속 1줄을 남긴다.
+    expect(countText(resolution, "[교차·추격]")).toBe(4);
+    expect(countText(resolution, "[교차·포획]")).toBe(1);
+  });
+
   it("태초현자는 서로 다른 직접 마법 세 번째 시전에 완전식을 발동한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const res = resolveBattle(

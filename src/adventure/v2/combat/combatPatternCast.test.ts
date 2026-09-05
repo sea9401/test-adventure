@@ -818,6 +818,58 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     expect(pass.castSkillId).toBe(SKILL);
   });
 
+  it("교대 스킬은 발동에 성공한 뒤에만 다음 스킬로 넘어간다", () => {
+    const firstSkillId = "v2c_skyascendant_fallingstar";
+    const secondSkillId = "v2c_skyascendant_voidbreak";
+    const pairKey = `${firstSkillId}\u0000${secondSkillId}`;
+    const pattern: V2CombatPattern = {
+      blocks: [
+        {
+          condition: { kind: "always" },
+          action: { kind: "alternate", firstSkillId, secondSkillId },
+        },
+      ],
+    };
+    const equipped = [firstSkillId, secondSkillId];
+
+    const first = resolveV2SkillCast(
+      castInput(equipped, {
+        combatPattern: pattern,
+        applyProcInPattern: true,
+        procRoll: 0,
+        turn: 1,
+      }),
+    );
+    expect(first.castSkillId).toBe(firstSkillId);
+    expect(first.patternAlternateTransition).toEqual({
+      key: pairKey,
+      skillId: firstSkillId,
+    });
+
+    const failedSecond = resolveV2SkillCast(
+      castInput(equipped, {
+        combatPattern: pattern,
+        applyProcInPattern: true,
+        procRoll: 99,
+        turn: 2,
+        alternateLastSkillByPair: { [pairKey]: firstSkillId },
+      }),
+    );
+    expect(failedSecond.castSkillId).toBeNull();
+    expect(failedSecond.patternAlternateTransition).toBeUndefined();
+
+    const retriedSecond = resolveV2SkillCast(
+      castInput(equipped, {
+        combatPattern: pattern,
+        applyProcInPattern: true,
+        procRoll: 0,
+        turn: 3,
+        alternateLastSkillByPair: { [pairKey]: firstSkillId },
+      }),
+    );
+    expect(retriedSecond.castSkillId).toBe(secondSkillId);
+  });
+
   it("applyProcInPattern=true 에서 1순위 proc 실패 시 다음 패턴 후보를 시도한다", () => {
     const fallback = "v2c_warrior_warcry"; // procChance 100
     const pattern: V2CombatPattern = {

@@ -105,9 +105,18 @@ describe("미개척지 보스 기본 공격 체급", () => {
   });
 
   it("마법 유리 대포를 위협하되 마법 방어 투자에 생존 차이를 준다", () => {
-    const attack = fullHpAttack("skyward_crystal_eye");
-    const glassDamage = damageToMagicDefender(attack, 400);
-    const defensiveDamage = damageToMagicDefender(attack, 1_200);
+    const boss = COOP_BOSSES.skyward_crystal_eye;
+    const monster = coopBossForBattle(boss, boss.sharedMaxHp).monster;
+    const glassDamage = damageToMagicDefender(
+      monster.atk,
+      400,
+      monster.magicPenetration,
+    );
+    const defensiveDamage = damageToMagicDefender(
+      monster.atk,
+      1_200,
+      monster.magicPenetration,
+    );
 
     expect(glassDamage / REFERENCE_HP).toBeGreaterThanOrEqual(0.6);
     expect(glassDamage / REFERENCE_HP).toBeLessThanOrEqual(0.75);

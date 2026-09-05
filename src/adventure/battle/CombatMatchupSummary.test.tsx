@@ -54,6 +54,62 @@ describe("적중·회피 경감 전투 예상", () => {
     expect(result.playerDirectDamageRetainedPct).toBe(50);
   });
 
+  it("PvE 마법 방어 예상은 공격력이 아니라 적 마법 관통도와 대결한다", () => {
+    const defender = {
+      accuracyRating: 0,
+      evasionRating: 0,
+      magicDefense: 500,
+    };
+    const lowAttack = combatMatchupResult(defender, {
+      accuracyRating: 0,
+      evasionRating: 0,
+      incomingAttack: 1_000,
+      incomingAttackType: "magic",
+      magicPenetration: 500,
+    });
+    const highAttack = combatMatchupResult(defender, {
+      accuracyRating: 0,
+      evasionRating: 0,
+      incomingAttack: 100_000,
+      incomingAttackType: "magic",
+      magicPenetration: 500,
+    });
+    const highPenetration = combatMatchupResult(defender, {
+      accuracyRating: 0,
+      evasionRating: 0,
+      incomingAttack: 1_000,
+      incomingAttackType: "magic",
+      magicPenetration: 900,
+    });
+
+    expect(lowAttack.playerDefenseReductionPct).toBeCloseTo(42.5, 5);
+    expect(highAttack.playerDefenseReductionPct).toBeCloseTo(42.5, 5);
+    expect(highPenetration.playerDefenseReductionPct).toBeLessThan(
+      lowAttack.playerDefenseReductionPct,
+    );
+  });
+
+  it("PvP 마법 방어 예상은 기존 공격력-방어력 판정을 유지한다", () => {
+    const result = combatMatchupResult(
+      {
+        accuracyRating: 0,
+        evasionRating: 0,
+        magicDefense: 500,
+      },
+      {
+        accuracyRating: 0,
+        evasionRating: 0,
+        incomingAttack: 1_000,
+        incomingAttackType: "magic",
+        magicPenetration: 900,
+      },
+      "pvp",
+    );
+
+    expect(result.playerDefenseReductionPct).toBe(50);
+    expect(result.playerDirectDamageRetainedPct).toBe(50);
+  });
+
   it("원본 수치와 최종 경감률을 구분해 표시한다", () => {
     const html = renderToStaticMarkup(
       <CombatMatchupSummary player={player} enemy={enemy} />,

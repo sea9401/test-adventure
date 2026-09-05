@@ -19,6 +19,7 @@ import {
 import { STAMINA_POTION_RESTORE } from "@/adventure/v2/staminaPotions";
 
 export const COOP_SHOP_STATE_KEY = "coop-shop.v1";
+const COOP_STAMINA_POTION_ITEM_ID = "stamina_potion";
 
 export type CoopShopLimitScope = "daily" | "weekly";
 
@@ -127,13 +128,13 @@ function allBossMaterialCost(count: number): Record<string, number> {
 export const COOP_SHOP_ENTRIES: readonly CoopShopEntry[] = [
   ...equipmentBoxShopEntries(),
   {
-    itemId: "stamina_potion",
+    itemId: COOP_STAMINA_POTION_ITEM_ID,
     category: "consumable",
     name: "스태미나 회복약",
-    description: `사용 시 스태미나 ${STAMINA_POTION_RESTORE} 회복. 하루 5개까지 교환한다.`,
+    description: `사용 시 스태미나 ${STAMINA_POTION_RESTORE} 회복. 주 30개까지 교환한다.`,
     cost: coinCost(25),
     output: { kind: "stamina_potion", count: 1 },
-    limit: { scope: "daily", count: 5 },
+    limit: { scope: "weekly", count: 30 },
   },
   {
     itemId: "summon_scroll",
@@ -258,6 +259,14 @@ export function parseCoopShopState(
     purchases:
       weeklyRaw.key === weeklyKey ? countsOf(weeklyRaw.purchases) : {},
   };
+  const legacyStaminaPurchases =
+    daily.purchases[COOP_STAMINA_POTION_ITEM_ID] ?? 0;
+  if (
+    legacyStaminaPurchases > 0 &&
+    weekly.purchases[COOP_STAMINA_POTION_ITEM_ID] === undefined
+  ) {
+    weekly.purchases[COOP_STAMINA_POTION_ITEM_ID] = legacyStaminaPurchases;
+  }
   return { daily, weekly };
 }
 

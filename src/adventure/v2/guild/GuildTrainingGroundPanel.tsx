@@ -9,6 +9,7 @@ import {
 } from "@phosphor-icons/react";
 import { SETTLEMENT_BUILDINGS } from "@/adventure/data/v2/settlement";
 import { GameIcon } from "@/adventure/v2/GameIcon";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 import type { GuildTrainingDrillId } from "@/adventure/data/v2/guildTrainingGround";
 import {
   useRewardToast,
@@ -19,6 +20,7 @@ import {
   trainingClaimableCountOf,
   type TrainingState,
 } from "./trainingGroundClient";
+import { weeklyFacilityConflictNotice } from "./weeklyFacilityClient";
 
 const ERROR_TEXT: Record<string, string> = {
   unauthorized: "로그인이 필요해요.",
@@ -98,6 +100,10 @@ export function GuildTrainingGroundPanel({
   }, [load]);
 
   const claim = async (drillId: GuildTrainingDrillId) => {
+    if (state?.weeklySourceEligible === false) {
+      setMessage(ERROR_TEXT.weekly_source_conflict);
+      return;
+    }
     setClaimingId(drillId);
     setMessage(null);
     try {
@@ -175,6 +181,7 @@ export function GuildTrainingGroundPanel({
       ? Math.min(100, Math.max(0, (weeklyCompleted / weekly.target) * 100))
       : 0;
   const nextJob = state?.goals?.nextJob ?? null;
+  const weeklySourceEligible = state?.weeklySourceEligible !== false;
 
   return (
     <section className="space-y-3 rounded-md border border-sky-200 bg-white p-3 text-sm text-zinc-900 shadow-sm dark:border-sky-900/60 dark:bg-slate-950 dark:text-zinc-100">
@@ -186,12 +193,16 @@ export function GuildTrainingGroundPanel({
             {hasTrainingGround && !loading && (
               <span
                 className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                  claimableCount > 0
+                  weeklySourceEligible && claimableCount > 0
                     ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
                     : "bg-zinc-100 text-zinc-500 dark:bg-slate-800 dark:text-zinc-400"
                 }`}
               >
-                {claimableCount > 0 ? `훈련 가능 ${claimableCount}` : "오늘 완료"}
+                {!weeklySourceEligible
+                  ? "이번 주 이용 불가"
+                  : claimableCount > 0
+                    ? `훈련 가능 ${claimableCount}`
+                    : "오늘 완료"}
               </span>
             )}
           </div>
@@ -337,6 +348,12 @@ export function GuildTrainingGroundPanel({
         </div>
       )}
 
+      {state && !weeklySourceEligible && (
+        <div className={`${SURFACE_INSET} px-3 py-2 text-xs text-amber-800 dark:text-amber-200`}>
+          {weeklyFacilityConflictNotice("훈련장")}
+        </div>
+      )}
+
       {message && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-zinc-950 dark:text-amber-200">
           {message}
@@ -369,7 +386,7 @@ export function GuildTrainingGroundPanel({
                       <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                         {drill.title}
                       </span>
-                      {drill.recommended && drill.available && (
+                      {drill.recommended && drill.available && weeklySourceEligible && (
                         <span className="rounded bg-emerald-100 px-1.5 py-px text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                           추천
                         </span>
@@ -401,7 +418,12 @@ export function GuildTrainingGroundPanel({
                   </div>
                   <button
                     type="button"
-                    disabled={!drill.available || busy || claimingId != null}
+                    disabled={
+                      !weeklySourceEligible ||
+                      !drill.available ||
+                      busy ||
+                      claimingId != null
+                    }
                     onClick={() => void claim(drill.id)}
                     className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-emerald-700 bg-emerald-700 px-2.5 text-xs font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-400"
                   >
@@ -409,12 +431,18 @@ export function GuildTrainingGroundPanel({
                       <SpinnerGap className="animate-spin" size={15} />
                     ) : drill.claimed ? (
                       <CheckCircle size={15} weight="fill" />
-                    ) : drill.available ? (
+                    ) : drill.available && weeklySourceEligible ? (
                       <Barbell size={15} weight="bold" />
                     ) : (
                       <LockKey size={15} weight="fill" />
                     )}
-                    {drill.claimed ? "완료" : drill.available ? "훈련" : "잠김"}
+                    {drill.claimed
+                      ? "완료"
+                      : !weeklySourceEligible
+                        ? "이번 주 제한"
+                        : drill.available
+                          ? "훈련"
+                          : "잠김"}
                   </button>
                 </div>
                 {drill.lockedReason && !drill.claimed && (

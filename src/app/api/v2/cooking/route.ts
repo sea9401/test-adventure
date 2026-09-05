@@ -146,9 +146,7 @@ function publicDiscoveryDetails(
     return [{
       recipeName: recipe.name,
       imageSrc: recipe.imageSrc,
-      actorName: row.actorName === DEFAULT_ACTOR_NAME
-        ? row.authoritativeActorName?.trim() || row.actorName
-        : row.actorName,
+      actorName: row.authoritativeActorName?.trim() || row.actorName,
       discoveredAt: row.discoveredAt.getTime(),
       codexRegistered: registeredRecipeIds.has(row.recipeId),
     }];

@@ -100,7 +100,7 @@ const COMPONENTS: Components = {
     return (
       <pre
         {...props}
-        className={`${SURFACE_INSET} mt-4 overflow-x-auto p-3 text-[13px] leading-6`}
+        className={`${SURFACE_INSET} mt-4 overflow-x-auto p-3 text-sm leading-6`}
       >
         {children}
       </pre>
@@ -110,7 +110,7 @@ const COMPONENTS: Components = {
     void node;
     return (
       <div className="mt-4 overflow-x-auto rounded-md border border-zinc-200 dark:border-zinc-700">
-        <table {...props} className="w-full min-w-[28rem] border-collapse text-sm">
+        <table {...props} className="w-full min-w-[28rem] border-collapse text-base">
           {children}
         </table>
       </div>
@@ -283,7 +283,7 @@ export function BulletinMarkdown({
   const segments = parseBulletinMarkdownSegments(normalizedContent);
   return (
     <div
-      className={`bulletin-markdown min-w-0 break-words text-[15px] leading-7 text-zinc-800 dark:text-zinc-200 ${className}
+      className={`bulletin-markdown min-w-0 break-words text-base leading-7 text-zinc-800 dark:text-zinc-200 ${className}
         [&>*:first-child]:mt-0 [&>*:last-child]:mb-0
         [&_h1]:mt-6 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:leading-tight [&_h1]:text-zinc-950 dark:[&_h1]:text-zinc-50
         [&_h2]:mt-6 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:leading-snug [&_h2]:text-sky-800 dark:[&_h2]:text-sky-300

@@ -567,6 +567,8 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("장착 스킬·전투 패턴·장비");
     expect(html).toContain("교대 사용");
     expect(html).toContain("A → B → A → B");
+    expect(html).toContain("실제로 발동한 뒤에만 다음 순서");
+    expect(html).toContain("현재 A/B 차례를 유지");
   });
 
   it("마나 실드의 성장식·피해 순서·예외와 복합 스킬 규칙을 안내한다", () => {
@@ -683,6 +685,7 @@ describe("최신 게임 안내서 내용", () => {
     const html = renderToStaticMarkup(<GuildContent />);
 
     expect(html).toContain("연습 전투");
+    expect(html).toContain("토벌전이 끝난 뒤에도");
     expect(html).toContain("공격 횟수");
     expect(html).toContain("기여도");
     expect(html).toContain("보상");

@@ -171,23 +171,32 @@ export type FishingCoopBossSpawnResult = {
   expiresAt: number;
 } | null;
 
-export async function trySpawnFishingCoopBoss(
+export type FishingCoopBossSummonResult =
+  | { ok: true; boss: Exclude<FishingCoopBossSpawnResult, null> }
+  | { ok: false; error: "already_active" | "capacity_reached" };
+
+async function spawnFishingCoopBoss(
   ex: TxExecutor,
   args: {
     userId: string;
     summonerName: string;
     now: Date;
-    rng?: () => number;
+    rejectOwnActive: boolean;
   },
-): Promise<FishingCoopBossSpawnResult> {
-  const rng = args.rng ?? Math.random;
-  if (!rollFishingCoopBossSpawn(rng)) return null;
-
+): Promise<FishingCoopBossSummonResult> {
   const kindId = FISHING_COOP_BOSS_KIND_ID;
   const kind = COOP_BOSSES[kindId];
   await expireStaleCoopSessions(ex, args.now);
   const active = await findActiveCoopSessions(ex, kindId);
-  if (active.length >= MAX_ACTIVE_PER_KIND) return null;
+  if (
+    args.rejectOwnActive &&
+    active.some((session) => session.summonerId === args.userId)
+  ) {
+    return { ok: false, error: "already_active" };
+  }
+  if (active.length >= MAX_ACTIVE_PER_KIND) {
+    return { ok: false, error: "capacity_reached" };
+  }
 
   const sessionId = randomUUID();
   const expiresAt = new Date(args.now.getTime() + coopBossDurationMs(kind));
@@ -208,9 +217,40 @@ export async function trySpawnFishingCoopBoss(
     visibility: COOP_INITIAL_VISIBILITY,
   });
   return {
-    sessionId,
-    kind: kindId,
-    name: kind.name,
-    expiresAt: expiresAt.getTime(),
+    ok: true,
+    boss: {
+      sessionId,
+      kind: kindId,
+      name: kind.name,
+      expiresAt: expiresAt.getTime(),
+    },
   };
+}
+
+/** 낚시 코인 상점의 소환 미끼용 확정 소환. */
+export function summonFishingCoopBoss(
+  ex: TxExecutor,
+  args: { userId: string; summonerName: string; now: Date },
+): Promise<FishingCoopBossSummonResult> {
+  return spawnFishingCoopBoss(ex, { ...args, rejectOwnActive: true });
+}
+
+export async function trySpawnFishingCoopBoss(
+  ex: TxExecutor,
+  args: {
+    userId: string;
+    summonerName: string;
+    now: Date;
+    rng?: () => number;
+  },
+): Promise<FishingCoopBossSpawnResult> {
+  const rng = args.rng ?? Math.random;
+  if (!rollFishingCoopBossSpawn(rng)) return null;
+  const result = await spawnFishingCoopBoss(ex, {
+    userId: args.userId,
+    summonerName: args.summonerName,
+    now: args.now,
+    rejectOwnActive: false,
+  });
+  return result.ok ? result.boss : null;
 }

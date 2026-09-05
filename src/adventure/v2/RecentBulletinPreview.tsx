@@ -38,7 +38,7 @@ export function RecentBulletinPreview() {
           <p className="py-3 text-xs text-zinc-500">표시할 게시글이 없습니다.</p>
         ) : posts.map((post) => (
           <a key={post.id} href="/plaza/bulletin" className={`${SURFACE_INSET} block min-h-11 px-3 py-2 hover:ring-1 hover:ring-indigo-300`}>
-            <span className="block truncate text-sm font-medium text-zinc-700 dark:text-zinc-200">{post.title || post.content}</span>
+            <span className="block truncate text-base font-medium text-zinc-700 dark:text-zinc-200">{post.title || post.content}</span>
             <span className="block truncate text-[0.6875rem] text-zinc-500">{post.name} · 댓글 {post.commentCount}</span>
           </a>
         ))}

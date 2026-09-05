@@ -8,6 +8,7 @@ import {
   frontierOnsetSoften,
   floorCritHpComp,
   floorAccuracy,
+  floorMagicPenetration,
   fixedFrontierAccuracyMult,
   fixedFrontierAttackMult,
   fixedFrontierDefenseMult,
@@ -21,7 +22,7 @@ import {
   lateStatusDamageReductionBonus,
 } from "./dungeonLadder";
 
-// 던전 깊이(depth)의 사다리 배율로 Monster 의 hp/atk/def/magicDef/exp/accuracy/evasion/
+// 던전 깊이(depth)의 사다리 배율로 Monster 의 hp/atk/def/magicDef/exp/accuracy/magicPenetration/evasion/
 // statusDamageReductionPct 를 조정한다.
 // skill/phaseTrigger/drops/태그 등은 그대로 — 동작 단순화 + 베이스 곡선 의존.
 // 결과는 새 객체 — 호출자가 mutate 해도 베이스 MONSTERS 안 깨짐.
@@ -75,6 +76,11 @@ export function scaleMonsterForFloor(
     ((monster.accuracy ?? 0) + floorAccuracy(depth)) *
     (softenEndgame ? fixedFrontierAccuracyMult(depth) : 1) *
     (softenEndgame ? lateAccuracyMult(depth) : 1);
+  const authoredMagicPenetration = Number.isFinite(monster.magicPenetration)
+    ? Math.max(0, monster.magicPenetration ?? 0)
+    : 0;
+  const magicPenetration =
+    floorMagicPenetration(depth) + authoredMagicPenetration;
   const evasionPct =
     (monster.evasionPct ?? 0) +
     (softenEndgame ? fixedFrontierEvasionBonus(depth) : 0) +
@@ -94,6 +100,7 @@ export function scaleMonsterForFloor(
     magicDef === monster.magicDef &&
     exp === monster.exp &&
     accuracy === (monster.accuracy ?? 0) &&
+    magicPenetration === (monster.magicPenetration ?? 0) &&
     evasionPct === (monster.evasionPct ?? 0) &&
     statusDamageReductionPct === (monster.statusDamageReductionPct ?? 0)
   ) {
@@ -107,6 +114,7 @@ export function scaleMonsterForFloor(
     ...(magicDef != null ? { magicDef } : {}),
     exp,
     accuracy,
+    magicPenetration,
     ...(evasionPct > 0 ? { evasionPct } : {}),
     ...(statusDamageReductionPct > 0 ? { statusDamageReductionPct } : {}),
   };

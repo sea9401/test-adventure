@@ -1,12 +1,15 @@
 import { describe, it, expect } from "vitest";
 import {
+  FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID,
+  FISHING_ABYSSAL_SUMMON_BAIT_PRICE,
+  FISHING_ABYSSAL_SUMMON_BAIT_DAILY_LIMIT,
   FISHING_SEED_POUCH_BASE_PRICE,
   FISHING_SEED_POUCH_DAILY_LIMIT,
   FISHING_SEED_POUCH_ITEM_ID,
   FISHING_SHOP_CONSUMABLES,
   FISHING_SHOP_TITLES,
-  FISHING_STAMINA_POTION_DAILY_LIMIT,
   FISHING_STAMINA_POTION_ITEM_ID,
+  fishingAbyssalSummonBaitView,
   fishingSeedPouchPriceForPurchase,
   fishingSeedPouchView,
   fishingStaminaPotionView,
@@ -64,41 +67,102 @@ describe("낚시 코인 상점 카탈로그", () => {
     expect(taegong?.description.length).toBeGreaterThan(0);
   });
 
-  it("소비품에 스태미나 회복약과 농장 씨앗 주머니를 둔다", () => {
+  it("소비품에 스태미나 회복약, 농장 씨앗 주머니, 심연어룡 소환 미끼를 둔다", () => {
     expect(FISHING_SHOP_CONSUMABLES.map((item) => item.itemId)).toEqual([
       FISHING_STAMINA_POTION_ITEM_ID,
       FISHING_SEED_POUCH_ITEM_ID,
+      FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID,
     ]);
     expect(fishingShopConsumablePriceFor("stamina_potion")).toBe(200);
     expect(fishingShopConsumablePriceFor(FISHING_SEED_POUCH_ITEM_ID)).toBe(
       FISHING_SEED_POUCH_BASE_PRICE,
     );
+    expect(
+      fishingShopConsumablePriceFor(FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID),
+    ).toBe(3_000);
     expect(fishingShopConsumablePriceFor("not_an_item")).toBeUndefined();
   });
 
-  it("스태미나 회복약은 KST 하루 5개까지 구매할 수 있다", () => {
-    expect(FISHING_STAMINA_POTION_DAILY_LIMIT).toBe(5);
-    let state = parseFishingShopState({}, "2026-07-28");
-    for (let i = 0; i < FISHING_STAMINA_POTION_DAILY_LIMIT; i += 1) {
+  it("심연어룡 소환 미끼는 KST 일일 1회만 구매되고 다음 날 초기화된다", () => {
+    expect(FISHING_ABYSSAL_SUMMON_BAIT_PRICE).toBe(3_000);
+    expect(FISHING_ABYSSAL_SUMMON_BAIT_DAILY_LIMIT).toBe(1);
+    const initial = parseFishingShopState(
+      {},
+      "2026-09-05",
+      "2026-08-31",
+    );
+    const bought = recordFishingShopPurchase(
+      initial,
+      FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID,
+    );
+
+    expect(fishingAbyssalSummonBaitView(bought)).toEqual({
+      boughtToday: 1,
+      dailyLimit: 1,
+      remainingToday: 0,
+    });
+    expect(
+      fishingAbyssalSummonBaitView(
+        parseFishingShopState(bought, "2026-09-06", "2026-08-31"),
+      ).boughtToday,
+    ).toBe(0);
+  });
+
+  it("스태미나 회복약은 KST 주간 30개까지 구매하고 월요일에 초기화된다", () => {
+    let state = parseFishingShopState(
+      {},
+      "2026-09-01",
+      "2026-08-31",
+    );
+    for (let i = 0; i < 30; i += 1) {
       state = recordFishingShopPurchase(
         state,
         FISHING_STAMINA_POTION_ITEM_ID,
       );
     }
     expect(fishingStaminaPotionView(state)).toEqual({
-      boughtToday: 5,
-      dailyLimit: 5,
-      remainingToday: 0,
+      boughtThisWeek: 30,
+      weeklyLimit: 30,
+      remainingThisWeek: 0,
     });
 
     expect(
       fishingStaminaPotionView(
-        parseFishingShopState(state, "2026-07-29"),
+        parseFishingShopState(state, "2026-09-06", "2026-08-31"),
       ),
     ).toEqual({
-      boughtToday: 0,
-      dailyLimit: 5,
-      remainingToday: 5,
+      boughtThisWeek: 30,
+      weeklyLimit: 30,
+      remainingThisWeek: 0,
+    });
+
+    expect(
+      fishingStaminaPotionView(
+        parseFishingShopState(state, "2026-09-07", "2026-09-07"),
+      ),
+    ).toEqual({
+      boughtThisWeek: 0,
+      weeklyLimit: 30,
+      remainingThisWeek: 30,
+    });
+  });
+
+  it("주간 기록이 없으면 현재 일자의 기존 회복약 구매량을 전환 주간에 이어받는다", () => {
+    const state = parseFishingShopState(
+      {
+        daily: {
+          key: "2026-09-01",
+          purchases: { [FISHING_STAMINA_POTION_ITEM_ID]: 4 },
+        },
+      },
+      "2026-09-01",
+      "2026-08-31",
+    );
+
+    expect(fishingStaminaPotionView(state)).toEqual({
+      boughtThisWeek: 4,
+      weeklyLimit: 30,
+      remainingThisWeek: 26,
     });
   });
 
@@ -111,7 +175,11 @@ describe("낚시 코인 상점 카탈로그", () => {
   });
 
   it("씨앗 주머니 구매 횟수는 KST 일자 키가 바뀌면 리셋된다", () => {
-    const today = parseFishingShopState({}, "2026-07-10");
+    const today = parseFishingShopState(
+      {},
+      "2026-07-10",
+      "2026-07-06",
+    );
     const boughtOnce = recordFishingShopPurchase(
       today,
       FISHING_SEED_POUCH_ITEM_ID,
@@ -123,10 +191,18 @@ describe("낚시 코인 상점 카탈로그", () => {
       contents: FARM_FISHING_SHOP_SEED_REWARD,
     });
 
-    const loadedToday = parseFishingShopState(boughtOnce, "2026-07-10");
+    const loadedToday = parseFishingShopState(
+      boughtOnce,
+      "2026-07-10",
+      "2026-07-06",
+    );
     expect(fishingSeedPouchView(loadedToday).boughtToday).toBe(1);
 
-    const tomorrow = parseFishingShopState(boughtOnce, "2026-07-11");
+    const tomorrow = parseFishingShopState(
+      boughtOnce,
+      "2026-07-11",
+      "2026-07-06",
+    );
     expect(fishingSeedPouchView(tomorrow)).toMatchObject({
       boughtToday: 0,
       remainingToday: 3,

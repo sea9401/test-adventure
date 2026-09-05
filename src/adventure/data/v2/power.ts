@@ -9,7 +9,10 @@
 // 실제 전투에서 대체 관계인 물리·마법 축은 단순 합산하지 않고, 속도·레이팅은 전투의
 // 점감 구간을 반영한다. 치명·받는 피해 감소·회복은 기대값을 보수적으로 추가한다.
 
-import { PLAYER_ACTION_SPD_CAP } from "@/adventure/v2/combat/combatTimeline";
+import {
+  PLAYER_ACTION_SPD_CAP,
+  actionRate,
+} from "@/adventure/v2/combat/combatTimeline";
 import {
   CRIT_OVERFLOW_DMG_CAP,
   CRIT_OVERFLOW_DMG_PER_PCT,
@@ -44,8 +47,19 @@ export const V2_POWER_WEIGHT = {
   healingSupport: 0.15, // 회복 스킬 장착 여부를 모르므로 HP 기여분에만 보수적으로 반영
 } as const;
 
-// ATB 행동 빈도가 최대치에 도달하는 SPD. 그 이후 원본 SPD를 전투력에 계속 더하지 않는다.
-export const POWER_SPD_CAP = PLAYER_ACTION_SPD_CAP;
+// 기존 전투력과 던전 게이트 호환을 위해 1,024까지는 원본 SPD를 그대로 사용한다.
+// 이후에는 새 고속 구간의 실제 행동률 비율만 반영해 원시 SPD 20,000이 점수를 폭증시키지 않는다.
+export const POWER_SPD_LINEAR_LIMIT = 1_024;
+const POWER_SPD_LINEAR_LIMIT_RATE = actionRate(POWER_SPD_LINEAR_LIMIT);
+export function effectiveSpeedForPower(spd: number): number {
+  const safeSpd = Math.max(0, Number(spd) || 0);
+  if (safeSpd <= POWER_SPD_LINEAR_LIMIT) return safeSpd;
+  return (
+    POWER_SPD_LINEAR_LIMIT *
+    (actionRate(safeSpd) / POWER_SPD_LINEAR_LIMIT_RATE)
+  );
+}
+export const POWER_SPD_CAP = effectiveSpeedForPower(PLAYER_ACTION_SPD_CAP);
 // 회피·적중 레이팅은 상대 수치와 겨루는 점근식이므로 표시 전투력도 같은 성격의 소프트캡을 쓴다.
 export const POWER_RATING_SOFTCAP = 5_000;
 export const SECONDARY_ATTACK_POWER_WEIGHT = 0.25;
@@ -139,7 +153,7 @@ export function derivePowerScore(c: V2PowerInput): number {
       baseSurvivalPower +
       damageReductionPower +
       healingPower +
-      Math.min(POWER_SPD_CAP, Math.max(0, c.spd)) * V2_POWER_WEIGHT.spd +
+      effectiveSpeedForPower(c.spd) * V2_POWER_WEIGHT.spd +
       Math.max(0, c.maxMp ?? 0) * V2_POWER_WEIGHT.mp +
       effectiveRatingForPower(c.accRating ?? 0) * V2_POWER_WEIGHT.accuracy,
   );

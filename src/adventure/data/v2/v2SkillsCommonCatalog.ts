@@ -2769,14 +2769,15 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       mechanics: ["치명타 확률과 직접 스킬의 치명타 피해를 높이고, 현재 속도를 공격력 증가로 전환한다."],
       limitations: ["속도 보정은 무한히 선형 증가하지 않고 점차 효율이 줄어든다."],
     },
-    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 11,
+    // 속도 전환 상한 조정으로 루브릭 비용이 내려가도 기존 장착 비용 14 SP는 유지한다.
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 14,
     effects: [],
     passive: {
       statPct: { dex: 22, luk: 8 },
       accuracyPct: 30,
       critPct: 8,
       skillCritDmgPct: 30,
-      spdToAtkMaxPct: 30,
+      spdToAtkMaxPct: 20,
     },
   },
   v2c_blackmoon_flurry: {

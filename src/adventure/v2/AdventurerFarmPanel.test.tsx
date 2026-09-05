@@ -1,10 +1,14 @@
+// @vitest-environment jsdom
+
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AdventurerFarmPanel,
   FarmBatchActionPanel,
   FarmExchangeShopPanel,
   FarmPlotCard,
+  farmSectionFromHash,
   prioritizeDeliverable,
 } from "./AdventurerFarmPanel";
 import { FARM_CROPS } from "./farm";
@@ -76,7 +80,18 @@ vi.mock("./useFarm", async () => {
   };
 });
 
+afterEach(() => {
+  cleanup();
+  window.history.replaceState(null, "", "/");
+});
+
 describe("모험가 농장 모바일 섹션", () => {
+  it("목장 푸시 해시만 목장 섹션으로 해석한다", () => {
+    expect(farmSectionFromHash("#ranch")).toBe("ranch");
+    expect(farmSectionFromHash("")).toBeNull();
+    expect(farmSectionFromHash("#unknown")).toBeNull();
+  });
+
   it("농장 정보를 홈으로 분리하고 작업 탭 바로가기를 제공한다", () => {
     const html = renderToStaticMarkup(
       <AdventurerFarmPanel
@@ -268,5 +283,24 @@ describe("농장 납품 정렬", () => {
       "unavailable-b",
       "available-b",
     ]);
+  });
+});
+
+describe("목장 푸시 딥링크", () => {
+  it("#ranch로 들어오면 목장 탭을 선택한다", async () => {
+    window.history.replaceState(null, "", "/town/farm#ranch");
+    render(
+      <AdventurerFarmPanel
+        onBack={vi.fn()}
+        onOpenKitchen={vi.fn()}
+        onOpenLifeWorkshop={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("tab", { name: "목장" }).getAttribute("aria-selected"),
+      ).toBe("true");
+    });
   });
 });

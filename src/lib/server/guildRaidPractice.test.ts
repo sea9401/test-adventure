@@ -69,23 +69,40 @@ describe("길드 토벌전 연습 서비스", () => {
     expect(simulate).not.toHaveBeenCalled();
   });
 
-  it.each([
-    [null],
-    [{ ...ACTIVE_CONTEXT.event, status: "settled" }],
-    [
-      {
-        ...ACTIVE_CONTEXT.event,
-        endsAt: new Date("2026-09-03T02:59:59.000Z"),
-      },
-    ],
-  ])("활성 전투 기간이 아니면 연습을 거절한다", async (event) => {
-    readContext.mockResolvedValue({ hasGuild: true, event });
+  it("현재 주차 이벤트가 없으면 연습을 거절한다", async () => {
+    readContext.mockResolvedValue({ hasGuild: true, event: null });
 
     await expect(practice({ userId: "u1", now: ACTIVE_NOW })).resolves.toEqual({
       ok: false,
       error: "event_ended",
     });
     expect(simulate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["정산된", { ...ACTIVE_CONTEXT.event, status: "settled" }],
+    [
+      "종료 시각이 지난",
+      {
+        ...ACTIVE_CONTEXT.event,
+        endsAt: new Date("2026-09-03T02:59:59.000Z"),
+      },
+    ],
+  ])("%s 토벌전에서도 연습 결과를 반환한다", async (_label, event) => {
+    readContext.mockResolvedValue({ hasGuild: true, event });
+
+    await expect(
+      practice({ userId: "u1", now: ACTIVE_NOW }),
+    ).resolves.toMatchObject({
+      ok: true,
+      practice: true,
+      bossKind: "mountain_chief_hard",
+      damageDealt: 1_234,
+    });
+    expect(simulate).toHaveBeenCalledWith({
+      userId: "u1",
+      bossKind: "mountain_chief_hard",
+    });
   });
 
   it("보스 식별자가 잘못되면 연습을 거절한다", async () => {

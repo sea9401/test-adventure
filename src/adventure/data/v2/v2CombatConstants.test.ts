@@ -8,13 +8,43 @@ import {
   physicalDefenseDamageReductionPct,
   partitionWithMagicBarrier,
 } from "./v2CombatConstants";
+import { floorMagicPenetration } from "./dungeonLadder";
 
 describe("방어 경감 UI 공용 계산", () => {
-  it("물리 방어는 85%에 점근하고 마법 방어는 현재 공격력과 대결한다", () => {
+  it("물리·마법 방어는 85%에 점근하고 마법 방어는 별도 관통도와 대결한다", () => {
     expect(physicalDefenseDamageReductionPct(500)).toBeCloseTo(42.5, 5);
     expect(physicalDefenseDamageReductionPct(1_000_000)).toBeLessThan(85);
-    expect(magicDefenseDamageReductionPct(1_000, 500)).toBeCloseTo(60, 5);
+    expect(magicDefenseDamageReductionPct(500, 500)).toBeCloseTo(42.5, 5);
+    expect(magicDefenseDamageReductionPct(1_200, 550)).toBeCloseTo(58.2857, 3);
+    expect(magicDefenseDamageReductionPct(1_000_000, 500)).toBeLessThan(85);
     expect(magicDefenseDamageReductionPct(0, 500)).toBe(0);
+  });
+
+  it("같은 마방에서 관통도가 높을수록 경감률이 내려간다", () => {
+    expect(magicDefenseDamageReductionPct(800, 300)).toBeGreaterThan(
+      magicDefenseDamageReductionPct(800, 900),
+    );
+  });
+
+  it("현재·미래 난이도에서 같은 상대 투자 비율은 같은 마방 경감 구간을 유지한다", () => {
+    for (const depth of [95, 120, 150, 200]) {
+      const penetration = floorMagicPenetration(depth);
+      const specialist = magicDefenseDamageReductionPct(
+        penetration * 1.5,
+        penetration,
+      );
+      const balanced = magicDefenseDamageReductionPct(
+        penetration * 0.75,
+        penetration,
+      );
+      const uninvested = magicDefenseDamageReductionPct(100, penetration);
+
+      expect(specialist, `specialist:${depth}`).toBeGreaterThanOrEqual(45);
+      expect(specialist, `specialist:${depth}`).toBeLessThanOrEqual(55);
+      expect(balanced, `balanced:${depth}`).toBeGreaterThanOrEqual(30);
+      expect(balanced, `balanced:${depth}`).toBeLessThanOrEqual(40);
+      expect(uninvested, `uninvested:${depth}`).toBeLessThan(20);
+    }
   });
 });
 

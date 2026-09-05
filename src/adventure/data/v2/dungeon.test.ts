@@ -32,6 +32,7 @@ import {
   endExtensionCombatSoften,
   frontierOnsetSoften,
   floorAccuracy,
+  floorMagicPenetration,
   floorPowerGate,
   fixedFrontierAccuracyMult,
   fixedFrontierAttackMult,
@@ -422,6 +423,33 @@ describe("v2 몬스터 속성 분포 (PR-5 게이트)", () => {
 
 describe("scaleMonsterForFloor", () => {
   const base = MONSTERS["별빛 박쥐"];
+
+  it("마법 관통은 공격력과 분리된 깊이 곡선으로 미래 난이도까지 단조 증가한다", () => {
+    const depths = [1, 84, 95, 120, 150, 200];
+    const values = depths.map(floorMagicPenetration);
+
+    expect(values).toEqual([
+      101.5,
+      411.78860785801623,
+      550.8269380974646,
+      904.3973465163181,
+      1381.9113740803364,
+      2275.163527497365,
+    ]);
+    expect(values.every(Number.isFinite)).toBe(true);
+    for (let index = 1; index < values.length; index += 1) {
+      expect(values[index]).toBeGreaterThan(values[index - 1]);
+    }
+  });
+
+  it("몬스터 고유 마법 관통 보정을 깊이 기본값에 더한다", () => {
+    const scaled = scaleMonsterForFloor(
+      { ...base, magicPenetration: 35 },
+      8,
+    );
+
+    expect(scaled.magicPenetration).toBeCloseTo(138.51, 10);
+  });
 
   it("들판 1 — hp/atk 는 ×1.0 동일하나 회피 대결용 명중(floorAccuracy)은 가산", () => {
     const weak = MONSTERS["슬라임"];

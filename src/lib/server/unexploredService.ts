@@ -19,7 +19,7 @@ import {
   unexploredAchievementCandidates,
 } from "@/adventure/data/v2/unexploredProgression";
 
-export const UNEXPLORED_REFUND_GOLD_COST = 1_000_000;
+export const UNEXPLORED_REFUND_GOLD_COST = 500_000;
 
 export type UnexploredCharacterSave = {
   level?: number;

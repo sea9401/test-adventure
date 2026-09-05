@@ -30,6 +30,7 @@ import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
 import {
   enemiesForDepth,
   isHuntStageDepth,
+  latestUnlockedHuntStageDepth,
   nextHuntStageDepth,
   MAX_FRONTIER_DEPTH,
 } from "@/adventure/data/v2/dungeon";
@@ -1006,25 +1007,23 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   const { ejectedFrom: _dropEjected, ...charSaveWithoutEject } = charSave;
   void _dropEjected;
 
-  // === 레어맵 갱신 — 입장 중이면 판수 차감(승패 무관), 아니면 신규 드랍 롤(순수 헬퍼·huntRareMaps). ===
+  // === 레어맵 갱신 — 희귀 탐사 입장 중이면 소모, 아니면 승리 시 신규 드랍 롤. ===
+  // 미개척지 발견 지도는 해당 난이도(95+)로 만들면 일반 희귀 탐사에 입장할 수 없으므로
+  // 캐릭터가 정복한 일반 사냥 최고 대표 단계로 저장한다.
   // ⚠️ 반드시 next 빌드 전에 적용 — character.v2 저장(아래 upsertSave)에 rareMaps 가
   //   포함되므로. 과거엔 이 블록이 save 뒤에 있어 판수 차감·신규 드랍이 영속되지 않았다.
-  const rareMapUpdate = unexploredMode
-    ? {
-        rareMaps,
-        rareMapDrop: null,
-        rareMapDropInstance: null,
-        rareMapRunsLeft: null,
-      }
-    : updateRareMaps({
-        activeRareMap,
-        rareMaps,
-        won,
-        depth,
-        now,
-        rareMapDropChanceMult:
-          1 + liberationSnapshot.effects.rareMapAndSummonScrollDropPct / 100,
-      });
+  const rareMapDiscoveryDepth = unexploredMode
+    ? latestUnlockedHuntStageDepth(frontierDepth)
+    : depth;
+  const rareMapUpdate = updateRareMaps({
+    activeRareMap,
+    rareMaps,
+    won,
+    depth: rareMapDiscoveryDepth,
+    now,
+    rareMapDropChanceMult:
+      1 + liberationSnapshot.effects.rareMapAndSummonScrollDropPct / 100,
+  });
   rareMaps = rareMapUpdate.rareMaps;
   const rareMapDrop = rareMapUpdate.rareMapDrop;
   const rareMapDropInstance = rareMapUpdate.rareMapDropInstance;

@@ -13,6 +13,7 @@ import {
   CoinTitleShopList,
 } from "./CoinShopLists";
 import {
+  FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID,
   FISHING_SEED_POUCH_ITEM_ID,
   FISHING_SHOP_CONSUMABLES,
   FISHING_STAMINA_POTION_ITEM_ID,
@@ -200,6 +201,7 @@ export function FishingShopView({
   const progression = state?.progression ?? null;
   const seedPouch = state?.seedPouch ?? null;
   const staminaPotionLimit = state?.staminaPotionLimit ?? null;
+  const abyssalBait = state?.abyssalBait ?? null;
   const consumables = FISHING_SHOP_CONSUMABLES.map((item) => {
     if (
       item.itemId === FISHING_STAMINA_POTION_ITEM_ID &&
@@ -207,10 +209,22 @@ export function FishingShopView({
     ) {
       return {
         ...item,
-        badge: `오늘 ${staminaPotionLimit.boughtToday}/${staminaPotionLimit.dailyLimit}`,
-        disabled: staminaPotionLimit.remainingToday <= 0,
+        badge: `이번 주 ${staminaPotionLimit.boughtThisWeek}/${staminaPotionLimit.weeklyLimit}`,
+        disabled: staminaPotionLimit.remainingThisWeek <= 0,
         buttonLabel:
-          staminaPotionLimit.remainingToday <= 0 ? "오늘 한도" : undefined,
+          staminaPotionLimit.remainingThisWeek <= 0 ? "주간 한도" : undefined,
+      };
+    }
+    if (
+      item.itemId === FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID &&
+      abyssalBait
+    ) {
+      return {
+        ...item,
+        badge: `오늘 ${abyssalBait.boughtToday}/${abyssalBait.dailyLimit}`,
+        disabled: abyssalBait.remainingToday <= 0,
+        buttonLabel:
+          abyssalBait.remainingToday <= 0 ? "오늘 한도" : undefined,
       };
     }
     if (item.itemId !== FISHING_SEED_POUCH_ITEM_ID || !seedPouch) return item;

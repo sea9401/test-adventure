@@ -47,7 +47,7 @@ describe("천공의 수정안 고정 시드 밸런스", () => {
       atk: 1,
       def: 100_000,
       magicDef: 100_000,
-      spd: 50,
+      spd: 77,
       evasionPct: 0,
       attackCount: 1,
       accuracyPct: 100,

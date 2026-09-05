@@ -39,6 +39,12 @@ function remainingLabel(readyAt: number, now: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+function successRateAdjustmentLabel(multiplier: number): string {
+  return multiplier === 1
+    ? "성공률 보정 없음"
+    : `기본 성공률의 ${multiplier * 100}%`;
+}
+
 export function AutoGatheringCard({
   activityName,
   spotId,
@@ -88,10 +94,8 @@ export function AutoGatheringCard({
             {activePlan.durationLabel} 자동 {activityName}
           </div>
           <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            재료 효율 {activePlan.materialEfficiency * 100}% · 성공률{" "}
-            {activePlan.successRateMultiplier === 1
-              ? "그대로"
-              : `기존의 ${activePlan.successRateMultiplier * 100}%`} · 경험치 효율{" "}
+            재료 효율 {activePlan.materialEfficiency * 100}% ·{" "}
+            {successRateAdjustmentLabel(activePlan.successRateMultiplier)} · 경험치 효율{" "}
             {activePlan.xpEfficiency * 100}%
           </div>
         </div>
@@ -119,8 +123,8 @@ export function AutoGatheringCard({
               >
                 <span className="block font-bold">{plan.durationLabel}</span>
                 <span className="mt-0.5 block text-[10px] text-zinc-500 dark:text-zinc-400">
-                  {plan.label} · 재료 {plan.materialEfficiency * 100}% · 성공률{" "}
-                  {plan.successRateMultiplier * 100}%
+                  {plan.label} · 재료 {plan.materialEfficiency * 100}% ·{" "}
+                  {successRateAdjustmentLabel(plan.successRateMultiplier)}
                 </span>
               </button>
             );

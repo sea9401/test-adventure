@@ -100,7 +100,24 @@ export type V2CombatAction =
 
 export type V2CombatPatternCandidate =
   | { kind: "basic_attack" }
-  | { kind: "skill"; skillId: string };
+  | {
+      kind: "skill";
+      skillId: string;
+      /** 교대 후보일 때만 존재. 실제 발동 성공 뒤 해당 순서쌍의 진행 상태를 갱신한다. */
+      alternatePairKey?: string;
+    };
+
+type PatternAlternateTransition = { key: string; skillId: string };
+
+export function preservePatternAlternateTransition<T extends { patternAlternateTransition?: PatternAlternateTransition }>(current: T, rerun: T): T {
+  return current.patternAlternateTransition
+    ? { ...rerun, patternAlternateTransition: current.patternAlternateTransition }
+    : rerun;
+}
+
+export function advancePatternAlternateState(current: Readonly<Record<string, string>> | undefined, transition: PatternAlternateTransition | undefined): Record<string, string> | undefined {
+  return transition ? { ...current, [transition.key]: transition.skillId } : current;
+}
 
 export type V2CombatBlock = {
   condition: V2CombatCondition;
@@ -131,8 +148,16 @@ export type V2PatternCtx = {
   enemySkillProcDownActive?: boolean;
   enemyHealReductionActive?: boolean;
   enemyStatDebuffs?: ReadonlySet<StatKey>;
+  /** 정렬된 A/B 순서쌍별 마지막 실제 발동 스킬. */
+  alternateLastSkillByPair?: Readonly<Record<string, string>>;
   turn: number; // 1-based 공격 차례
 };
+
+function alternatePairKey(
+  action: Extract<V2CombatAction, { kind: "alternate" }>,
+): string {
+  return `${action.firstSkillId}\u0000${action.secondSkillId}`;
+}
 
 function enemyStatusStacks(ctx: V2PatternCtx, tag: V2PatternEnemyStatus): number {
   switch (tag) {
@@ -275,16 +300,26 @@ export function evaluateCombatPatternCandidates(
       out.push({ kind: "basic_attack" });
       break;
     }
-    const id =
-      block.action.kind === "skill"
-        ? block.action.skillId
-        : block.action.kind === "alternate"
-          ? ctx.turn % 2 === 1
-            ? block.action.firstSkillId
-            : block.action.secondSkillId
-          : (resolveRole?.(block.action.role) ?? null);
+    let id: string | null;
+    let alternateKey: string | undefined;
+    if (block.action.kind === "skill") {
+      id = block.action.skillId;
+    } else if (block.action.kind === "alternate") {
+      alternateKey = alternatePairKey(block.action);
+      id =
+        ctx.alternateLastSkillByPair?.[alternateKey] ===
+        block.action.firstSkillId
+          ? block.action.secondSkillId
+          : block.action.firstSkillId;
+    } else {
+      id = resolveRole?.(block.action.role) ?? null;
+    }
     if (!id || !isUsable(id)) continue;
-    out.push({ kind: "skill", skillId: id });
+    out.push({
+      kind: "skill",
+      skillId: id,
+      ...(alternateKey ? { alternatePairKey: alternateKey } : {}),
+    });
   }
   return out;
 }

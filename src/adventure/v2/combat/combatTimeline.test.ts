@@ -1,4 +1,4 @@
-// ATB 타임라인 순수 헬퍼 — 단위테스트. 결정론·기준 3배 천장·동점 player 우선·몬스터 매핑.
+// ATB 타임라인 순수 헬퍼 — 단위테스트. 구간별 속도 점감·동점 player 우선·몬스터 매핑.
 import { describe, it, expect } from "vitest";
 import {
   RATE_CAP,
@@ -13,21 +13,23 @@ import {
   type TimelineEntry,
 } from "./combatTimeline";
 
-describe("actionRate — 멱 곡선", () => {
+describe("actionRate — 구간별 점감 곡선", () => {
   it("SPD↑ 면 rate 단조 증가", () => {
     let prev = -1;
-    for (const s of [0, 20, 50, 120, 200, 292]) {
+    for (const s of [0, 20, 50, 100, 200, 400, 800, 1_000, 2_000, 20_000]) {
       const r = actionRate(s);
       expect(r).toBeGreaterThan(prev);
       prev = r;
     }
   });
-  it("RATE_CAP(400) 에서 평평 — 극단 고SPD 만 캡", () => {
-    expect(actionRate(1_024)).toBe(RATE_CAP);
-    expect(actionRate(10000)).toBe(RATE_CAP);
+  it("속도 20,000에서 기술적 안전 상한에 도달한다", () => {
+    expect(actionRate(19_999)).toBeLessThan(RATE_CAP);
+    expect(actionRate(20_000)).toBe(RATE_CAP);
+    expect(actionRate(200_000)).toBe(RATE_CAP);
   });
-  it("기준(spd REF=64)=100", () => {
-    expect(actionRate(64)).toBeCloseTo(100, 5);
+  it("속도 100을 행동률 100의 기준점으로 삼는다", () => {
+    expect(actionRate(100)).toBeCloseTo(100, 10);
+    expect(actionInterval(100)).toBe(100);
   });
   it("음수/NaN/0 → spd 1 바닥 취급(동일·양수)", () => {
     const floor = actionRate(1);
@@ -41,25 +43,35 @@ describe("actionRate — 멱 곡선", () => {
 describe("actionInterval — 완만한 고속 성장 곡선", () => {
   it("interval 은 정수, SPD↑ 면 단조 감소(자주 행동)", () => {
     let prev = Infinity;
-    for (const s of [20, 50, 120, 200, 292]) {
+    for (const s of [20, 50, 100, 200, 400, 800, 1_000, 2_000, 20_000]) {
       const iv = actionInterval(s);
       expect(Number.isInteger(iv)).toBe(true);
       expect(iv).toBeLessThanOrEqual(prev);
       prev = iv;
     }
   });
-  it("기존 고속 기준(spd292)은 최슬로(spd14) 대비 약 4.5배 행동한다", () => {
-    const ratio = actionInterval(14) / actionInterval(292);
-    expect(ratio).toBeGreaterThanOrEqual(4.3);
-    expect(ratio).toBeLessThanOrEqual(4.7);
+  it("속도 1000은 속도 100보다 약 4.5~5배 자주 행동한다", () => {
+    const ratio = actionInterval(100) / actionInterval(1_000);
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+    expect(ratio).toBeLessThanOrEqual(5);
   });
 
-  it("행동 빈도는 SPD 1,024까지 증가하고 그 이후 고정된다", () => {
-    expect(actionRate(1_000)).toBeLessThan(RATE_CAP);
-    expect(actionInterval(1_000)).toBe(26);
-    expect(actionRate(1_024)).toBe(RATE_CAP);
-    expect(actionInterval(1_024)).toBe(25);
-    expect(actionInterval(10_000)).toBe(25);
+  it("대표 속도 구간의 행동 간격을 보장한다", () => {
+    expect(actionInterval(64)).toBe(125);
+    expect(actionInterval(200)).toBe(63);
+    expect(actionInterval(400)).toBe(39);
+    expect(actionInterval(800)).toBe(25);
+    expect(actionRate(1_000)).toBeCloseTo(480, 10);
+    expect(actionInterval(1_000)).toBe(21);
+    expect(actionInterval(2_000)).toBe(18);
+    expect(actionInterval(4_000)).toBe(15);
+    expect(actionInterval(10_000)).toBe(12);
+  });
+
+  it("속도 20,000부터 10틱으로 고정해 3,000틱 기본 행동을 301개로 제한한다", () => {
+    expect(actionInterval(20_000)).toBe(10);
+    expect(actionInterval(200_000)).toBe(10);
+    expect(Math.floor(3_000 / actionInterval(200_000)) + 1).toBe(301);
   });
 });
 

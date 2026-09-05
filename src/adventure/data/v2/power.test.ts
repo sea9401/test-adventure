@@ -3,6 +3,7 @@ import {
   derivePowerScore,
   effectiveAttackPowerForScore,
   effectiveRatingForPower,
+  effectiveSpeedForPower,
   POWER_SPD_CAP,
   V2_POWER_WEIGHT,
 } from "./power";
@@ -44,14 +45,14 @@ describe("v2 콘텐츠 파워 지표", () => {
     expect(effectiveAttackPowerForScore(80, 100)).toBe(120);
   });
 
-  it("속도는 ATB 상한 이후, 회피·적중은 고레이팅에서 점감한다", () => {
+  it("속도 1024까지 기존 점수를 보존하고 이후 행동률에 맞춰 점감한다", () => {
     const justBelowCap = derivePowerScore({
       atk: 0,
       def: 0,
       spd: 1_022,
       maxHp: 0,
     });
-    const capped = derivePowerScore({
+    const atLinearLimit = derivePowerScore({
       atk: 0,
       def: 0,
       spd: 1_024,
@@ -60,11 +61,30 @@ describe("v2 콘텐츠 파워 지표", () => {
     const overflow = derivePowerScore({
       atk: 0,
       def: 0,
-      spd: POWER_SPD_CAP * 10,
+      spd: 2_000,
       maxHp: 0,
     });
-    expect(capped).toBeGreaterThan(justBelowCap);
-    expect(overflow).toBe(capped);
+    const atActionLimit = derivePowerScore({
+      atk: 0,
+      def: 0,
+      spd: 20_000,
+      maxHp: 0,
+    });
+    const extreme = derivePowerScore({
+      atk: 0,
+      def: 0,
+      spd: 200_000,
+      maxHp: 0,
+    });
+    expect(atLinearLimit).toBeGreaterThan(justBelowCap);
+    expect(overflow).toBeGreaterThan(atLinearLimit);
+    expect(atActionLimit).toBeGreaterThan(overflow);
+    expect(extreme).toBe(atActionLimit);
+    expect(effectiveSpeedForPower(100)).toBe(100);
+    expect(effectiveSpeedForPower(1_024)).toBe(1_024);
+    expect(effectiveSpeedForPower(2_000)).toBeCloseTo(1_206.5081, 3);
+    expect(effectiveSpeedForPower(20_000)).toBeCloseTo(2_120.9732, 3);
+    expect(POWER_SPD_CAP).toBeCloseTo(2_120.9732, 3);
     expect(effectiveRatingForPower(100)).toBeCloseTo(99.0066, 3);
     expect(effectiveRatingForPower(10_000)).toBeLessThan(5_000);
   });

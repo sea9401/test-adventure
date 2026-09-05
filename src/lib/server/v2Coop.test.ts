@@ -9,6 +9,7 @@ vi.mock("@/lib/server/v2EnsureSoloGuild", () => ({ getGuildId }));
 import {
   createCoopBossSession,
   expireStaleCoopSessions,
+  summonFishingCoopBoss,
   trySpawnFishingCoopBoss,
 } from "./v2Coop";
 
@@ -121,7 +122,6 @@ describe("개인 보스 세션 상태", () => {
     }));
   });
 });
-
 describe("낚시 협동 보스 출현", () => {
   beforeEach(() => {
     getGuildId.mockClear();
@@ -158,4 +158,71 @@ describe("낚시 협동 보스 출현", () => {
       visibility: "summoner_only",
     });
   });
+
+  it("소환 미끼는 확률 굴림 없이 심연어룡을 확정 소환한다", async () => {
+    const inserted: Record<string, unknown>[] = [];
+    const tx = fakeTx([], inserted);
+
+    const result = await summonFishingCoopBoss(tx as never, {
+      userId: "angler-1",
+      summonerName: "낚시꾼",
+      now: new Date("2026-09-05T00:00:00.000Z"),
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      boss: { kind: "abyssal_tyrant", name: "심연어룡" },
+    });
+    expect(inserted).toHaveLength(1);
+  });
+
+  it("본인이 소환한 심연어룡이 활성 상태면 중복 소환하지 않는다", async () => {
+    const inserted: Record<string, unknown>[] = [];
+    const tx = fakeTx([{ summonerId: "angler-1" }], inserted);
+
+    const result = await summonFishingCoopBoss(tx as never, {
+      userId: "angler-1",
+      summonerName: "낚시꾼",
+      now: new Date("2026-09-05T00:00:00.000Z"),
+    });
+
+    expect(result).toEqual({ ok: false, error: "already_active" });
+    expect(inserted).toHaveLength(0);
+  });
+
+  it("심연어룡 활성 세션이 20개면 서버 상한으로 소환하지 않는다", async () => {
+    const inserted: Record<string, unknown>[] = [];
+    const active = Array.from({ length: 20 }, (_, index) => ({
+      summonerId: `other-${index}`,
+    }));
+    const tx = fakeTx(active, inserted);
+
+    const result = await summonFishingCoopBoss(tx as never, {
+      userId: "angler-1",
+      summonerName: "낚시꾼",
+      now: new Date("2026-09-05T00:00:00.000Z"),
+    });
+
+    expect(result).toEqual({ ok: false, error: "capacity_reached" });
+    expect(inserted).toHaveLength(0);
+  });
 });
+
+function fakeTx(
+  active: Record<string, unknown>[],
+  inserted: Record<string, unknown>[],
+) {
+  return {
+    update: vi.fn(() => ({
+      set: vi.fn(() => ({ where: vi.fn(async () => undefined) })),
+    })),
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({ where: vi.fn(async () => active) })),
+    })),
+    insert: vi.fn(() => ({
+      values: vi.fn(async (value: Record<string, unknown>) => {
+        inserted.push(value);
+      }),
+    })),
+  };
+}

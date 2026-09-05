@@ -20,7 +20,7 @@ const basePlayer: PlayerCombat = {
   maxHp: 100_000,
   atk: 1,
   def: 0,
-  spd: 16,
+  spd: 25,
   evasionPct: 0,
   attackCount: 1,
   accuracyPct: 100,
@@ -137,7 +137,7 @@ describe("toxic blood lord ATB mechanic", () => {
 
   it("독혈 파열 다섯 행동째 10중첩을 소비해 한 번 폭발한다", () => {
     const result = runBattle({
-      enemy: toxicMonster({ spd: 75, heavyBlowEvery: 1 }),
+      enemy: toxicMonster({ spd: 70, heavyBlowEvery: 1 }),
     });
 
     expect(result.finalState.bossMechanic).toMatchObject({
@@ -204,7 +204,7 @@ describe("toxic blood lord ATB mechanic", () => {
 
   it("독혈 4와 7 구간에 처음 진입할 때 단계별 전조를 한 번씩 남긴다", () => {
     const result = runBattle({
-      enemy: toxicMonster({ spd: 60, heavyBlowEvery: 1 }),
+      enemy: toxicMonster({ spd: 58, heavyBlowEvery: 1 }),
     });
     const logs = result.finalState.log.map((entry) => entry.text);
 
@@ -259,7 +259,7 @@ describe("toxic blood lord ATB mechanic", () => {
 
   it("폭발 후 첫 플레이어 행동의 재생은 50%만 적용된다", () => {
     const result = runBattle({
-      enemy: { ...toxicMonster({ spd: 75, heavyBlowEvery: 1 }), atk: 2_000 },
+      enemy: { ...toxicMonster({ spd: 70, heavyBlowEvery: 1 }), atk: 2_000 },
       player: {
         ...basePlayer,
         regen: { interval: 1, amount: 1_000 },

@@ -25,12 +25,16 @@ import {
 } from "@/lib/server/fishing/coins";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
+import { kstWeekMondayKey } from "@/lib/kst";
 import {
+  FISHING_ABYSSAL_SUMMON_BAIT_DAILY_LIMIT,
+  FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID,
   FISHING_SEED_POUCH_ITEM_ID,
   FISHING_SHOP_STATE_KEY,
   FISHING_SHOP_TITLES,
-  FISHING_STAMINA_POTION_DAILY_LIMIT,
+  FISHING_STAMINA_POTION_WEEKLY_LIMIT,
   FISHING_STAMINA_POTION_ITEM_ID,
+  fishingAbyssalSummonBaitView,
   fishingSeedPouchPriceForPurchase,
   fishingSeedPouchView,
   fishingStaminaPotionView,
@@ -71,6 +75,7 @@ import {
   type FishingProgressionState,
   type FishingRodId,
 } from "@/adventure/v2/fishingProgression";
+import { summonFishingCoopBoss } from "@/lib/server/v2Coop";
 
 type GearKind = "rod" | "lure";
 type GearAction = "buy" | "equip";
@@ -131,7 +136,9 @@ export async function GET() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const dailyKey = kstDailyKey(new Date());
+  const now = new Date();
+  const dailyKey = kstDailyKey(now);
+  const weeklyKey = kstWeekMondayKey(now);
   const [coins, ownedTitleIds, staminaPotions, progression, shopRaw] =
     await Promise.all([
       db
@@ -166,7 +173,7 @@ export async function GET() {
         .limit(1)
         .then((rows) => rows[0]?.value),
     ]);
-  const shop = parseFishingShopState(shopRaw, dailyKey);
+  const shop = parseFishingShopState(shopRaw, dailyKey, weeklyKey);
   return Response.json({
     ok: true,
     coins,
@@ -175,6 +182,7 @@ export async function GET() {
     progression,
     seedPouch: fishingSeedPouchView(shop),
     staminaPotionLimit: fishingStaminaPotionView(shop),
+    abyssalBait: fishingAbyssalSummonBaitView(shop),
   });
 }
 
@@ -375,6 +383,9 @@ async function buyFishingGear(
 //   락 순서: fishing-wallet.v1 → 상점/지급 대상 저장소.
 //   씨앗 주머니는 fishing-wallet.v1 → fishing-shop.v1 → farm.v2 로 잡는다.
 async function buyConsumable(userId: string, itemId: string): Promise<Response> {
+  if (itemId === FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID) {
+    return buyAbyssalSummonBait(userId);
+  }
   if (itemId === FISHING_SEED_POUCH_ITEM_ID) {
     return buySeedPouch(userId);
   }
@@ -387,7 +398,9 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
     return Response.json({ ok: false, error: "unknown_item" }, { status: 400 });
   }
 
-  const dailyKey = kstDailyKey(new Date());
+  const now = new Date();
+  const dailyKey = kstDailyKey(now);
+  const weeklyKey = kstWeekMondayKey(now);
   const outcome = await db.transaction(async (tx) => {
     const wallet = await lockSaveForUpdate<FishingWallet>(
       tx,
@@ -401,15 +414,19 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
         tx,
         userId,
         FISHING_SHOP_STATE_KEY,
-        { daily: { key: dailyKey, purchases: {} } },
+        {
+          daily: { key: dailyKey, purchases: {} },
+          weekly: { key: weeklyKey, purchases: {} },
+        },
       ),
       dailyKey,
+      weeklyKey,
     );
-    const boughtToday = fishingShopPurchaseCount(
+    const boughtThisWeek = fishingShopPurchaseCount(
       shop,
       FISHING_STAMINA_POTION_ITEM_ID,
     );
-    if (boughtToday >= FISHING_STAMINA_POTION_DAILY_LIMIT) {
+    if (boughtThisWeek >= FISHING_STAMINA_POTION_WEEKLY_LIMIT) {
       return {
         kind: "limit" as const,
         coins,
@@ -485,9 +502,148 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
   });
 }
 
+async function buyAbyssalSummonBait(userId: string): Promise<Response> {
+  const now = new Date();
+  const dailyKey = kstDailyKey(now);
+  const weeklyKey = kstWeekMondayKey(now);
+  const price = fishingShopConsumablePriceFor(
+    FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID,
+  );
+  if (price === undefined) {
+    return Response.json({ ok: false, error: "unknown_item" }, { status: 400 });
+  }
+
+  const outcome = await db.transaction(async (tx) => {
+    const wallet = await lockSaveForUpdate<FishingWallet>(
+      tx,
+      userId,
+      FISHING_WALLET_KEY,
+      { coins: 0 },
+    );
+    const coins = walletCoins(wallet);
+    const shop = parseFishingShopState(
+      await lockSaveForUpdate<FishingShopState>(
+        tx,
+        userId,
+        FISHING_SHOP_STATE_KEY,
+        {
+          daily: { key: dailyKey, purchases: {} },
+          weekly: { key: weeklyKey, purchases: {} },
+        },
+      ),
+      dailyKey,
+      weeklyKey,
+    );
+    const boughtToday = fishingShopPurchaseCount(
+      shop,
+      FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID,
+    );
+    if (boughtToday >= FISHING_ABYSSAL_SUMMON_BAIT_DAILY_LIMIT) {
+      return {
+        kind: "limit" as const,
+        coins,
+        abyssalBait: fishingAbyssalSummonBaitView(shop),
+      };
+    }
+    if (coins < price) {
+      return {
+        kind: "insufficient" as const,
+        coins,
+        abyssalBait: fishingAbyssalSummonBaitView(shop),
+      };
+    }
+
+    const summoned = await summonFishingCoopBoss(tx, {
+      userId,
+      summonerName: "모험가",
+      now,
+    });
+    if (!summoned.ok) {
+      return {
+        kind: summoned.error as "already_active" | "capacity_reached",
+        coins,
+        abyssalBait: fishingAbyssalSummonBaitView(shop),
+      };
+    }
+
+    const nextShop = recordFishingShopPurchase(
+      shop,
+      FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID,
+    );
+    const coinBalance = coins - price;
+    await upsertSave(tx, userId, FISHING_SHOP_STATE_KEY, nextShop);
+    await upsertSave(
+      tx,
+      userId,
+      FISHING_WALLET_KEY,
+      fishingWalletWithCoins(wallet, coinBalance),
+    );
+    return {
+      kind: "ok" as const,
+      coinBalance,
+      abyssalBait: fishingAbyssalSummonBaitView(nextShop),
+      coopBoss: summoned.boss,
+    };
+  });
+
+  if (outcome.kind === "limit") {
+    return Response.json(
+      {
+        ok: false,
+        error: "limit_reached",
+        coins: outcome.coins,
+        abyssalBait: outcome.abyssalBait,
+      },
+      { status: 409 },
+    );
+  }
+  if (outcome.kind === "insufficient") {
+    return Response.json(
+      {
+        ok: false,
+        error: "insufficient_coins",
+        coins: outcome.coins,
+        abyssalBait: outcome.abyssalBait,
+      },
+      { status: 402 },
+    );
+  }
+  if (outcome.kind === "already_active") {
+    return Response.json(
+      {
+        ok: false,
+        error: "boss_already_active",
+        coins: outcome.coins,
+        abyssalBait: outcome.abyssalBait,
+      },
+      { status: 409 },
+    );
+  }
+  if (outcome.kind === "capacity_reached") {
+    return Response.json(
+      {
+        ok: false,
+        error: "boss_capacity_reached",
+        coins: outcome.coins,
+        abyssalBait: outcome.abyssalBait,
+      },
+      { status: 409 },
+    );
+  }
+  return Response.json({
+    ok: true,
+    itemId: FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID,
+    coins: outcome.coinBalance,
+    abyssalBait: outcome.abyssalBait,
+    coopBoss: outcome.coopBoss,
+  });
+}
+
 async function buySeedPouch(userId: string): Promise<Response> {
   const now = Date.now();
-  const dailyKey = kstDailyKey(new Date(now));
+  const currentDate = new Date(now);
+  const dailyKey = kstDailyKey(currentDate);
+  const weeklyKey = kstWeekMondayKey(currentDate);
 
   const outcome = await db.transaction(async (tx) => {
     const wallet = await lockSaveForUpdate<FishingWallet>(
@@ -501,9 +657,13 @@ async function buySeedPouch(userId: string): Promise<Response> {
         tx,
         userId,
         FISHING_SHOP_STATE_KEY,
-        { daily: { key: dailyKey, purchases: {} } },
+        {
+          daily: { key: dailyKey, purchases: {} },
+          weekly: { key: weeklyKey, purchases: {} },
+        },
       ),
       dailyKey,
+      weeklyKey,
     );
     const boughtToday = fishingShopPurchaseCount(
       shop,

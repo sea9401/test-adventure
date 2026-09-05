@@ -51,6 +51,25 @@ describe("기본 전투 능력치 표시", () => {
     expect(summary).toContain("마방</span> 578");
     expect(html.match(/마방/g)).toHaveLength(1);
   });
+
+  it("마법형 적의 상세 능력치에 마법 관통도를 보여준다", () => {
+    const html = renderToStaticMarkup(
+      <BattleStatStrip
+        variant="enemy"
+        stats={{
+          atk: 8_000,
+          magicAtk: 8_000,
+          def: 500,
+          spd: 80,
+          primaryAttack: "magic",
+          magicPenetration: 640,
+        }}
+      />,
+    );
+
+    expect(html).toContain("마법 관통");
+    expect(html).toContain("640");
+  });
 });
 
 describe("전투 결과 표면", () => {

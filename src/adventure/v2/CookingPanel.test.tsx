@@ -168,6 +168,33 @@ describe("개편 요리 연구실", () => {
     expect(html).toContain("이번 42점");
   });
 
+  it("납품 후보가 조건을 만족하는 근거를 분야·조리법·효과 분류·품질로 표시한다", () => {
+    const data = fixture();
+    const foodId = cookingFoodId({
+      recipeId: "salt_fresh_fish_soup",
+      quality: "masterpiece",
+      originator: false,
+      specialtyBonusPct: 0,
+    });
+    data.cookingFoods = { [foodId]: 1 };
+    data.cookingFoodDefinitions = {
+      [foodId]: cookingFoodDefinition(foodId)!,
+    };
+    const html = renderToStaticMarkup(
+      <CookingWorkspace
+        data={data}
+        section="delivery"
+        onSectionChange={vi.fn()}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+    expect(html).toContain(
+      "납품 분류: 해산물 분야 · 끓이기 조리 · 공격 효과 · 방어 효과 · 걸작 품질",
+    );
+    expect(html).toContain("적용 효과: DEX +4 · LUK +2 · 방어력 +12");
+  });
+
   it("일일과 주간 납품 카드에 서로 다른 최소 품질 조건을 표시한다", () => {
     const html = renderSection("delivery");
     expect(html).toContain("조건: 화덕 분야 · 일반 이상");
@@ -234,7 +261,7 @@ describe("개편 요리 연구실", () => {
   });
 
   it("중복 오답은 재료 비소모 안내로 번역한다", () => {
-    expect(cookingErrorText("duplicate_combination")).toContain("재료는 소비하지 않았습니다");
+    expect(cookingErrorText("duplicate_combination")).toContain("추가 재료는 소비하지 않았습니다");
   });
 
   it("서버가 중복 오답을 판정하면 현재 조합의 연구 버튼을 막는다", async () => {

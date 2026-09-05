@@ -12,6 +12,10 @@ import {
   type V2EquipRoll,
 } from "@/adventure/data/v2/v2Equipment";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
+import {
+  parseLiberationState,
+  type V2LiberationState,
+} from "@/adventure/data/v2/equipmentLiberation";
 
 // 메시지에 저장하는 전송 시점 장비 스냅샷. iid·잠금·장착 여부는 공개하지 않는다.
 export type ChatEquipmentLink = {
@@ -21,6 +25,7 @@ export type ChatEquipmentLink = {
   enhance?: V2EnhanceState;
   craftQuality?: V2CraftQualityState;
   craftedBy?: V2CraftedBy;
+  liberation?: V2LiberationState;
 };
 
 export function chatEquipmentLinkFromInstance(
@@ -35,6 +40,7 @@ export function chatEquipmentLinkFromInstance(
       ? { craftQuality: instance.craftQuality }
       : {}),
     ...(instance.craftedBy ? { craftedBy: instance.craftedBy } : {}),
+    ...(instance.liberation ? { liberation: instance.liberation } : {}),
   };
 }
 
@@ -61,6 +67,10 @@ export function parseChatEquipmentLink(raw: unknown): ChatEquipmentLink | null {
     value.craftQuality,
     craftedBy,
   );
+  const liberation = parseLiberationState(
+    value.liberation,
+    V2_EQUIPMENT[itemId].slot,
+  );
   return {
     kind: "equipment",
     itemId,
@@ -68,6 +78,7 @@ export function parseChatEquipmentLink(raw: unknown): ChatEquipmentLink | null {
     ...(enhance ? { enhance } : {}),
     ...(craftQuality ? { craftQuality } : {}),
     ...(craftedBy ? { craftedBy } : {}),
+    ...(liberation ? { liberation } : {}),
   };
 }
 

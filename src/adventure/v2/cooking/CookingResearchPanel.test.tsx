@@ -85,8 +85,9 @@ describe("요리 레시피 연구 재료 선택", () => {
     const action = screen.getByRole("button", { name: "이미 실패한 조합" });
     expect((action as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole("status").textContent).toContain(
-      "재료는 소비되지 않습니다",
+      "첫 실패 때 재료가 소비된 조합입니다",
     );
+    expect(screen.getByRole("status").textContent).toContain("추가로 재료를 소비할 수 없습니다");
     fireEvent.click(action);
     expect(mutate).not.toHaveBeenCalled();
   });

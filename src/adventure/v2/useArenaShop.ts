@@ -16,6 +16,11 @@ export function useArenaShop() {
     useCoinShop<ArenaShopState>({
       endpoint: "/api/v2/arena/shop",
       coinLabel: "투기장 코인",
+      consumableMessage: (_itemId, response, succeeded) => succeeded
+        ? "스태미나 회복약을 구매했다."
+        : response.error === "limit_reached"
+          ? "오늘 구매 한도에 도달했다."
+          : undefined,
       parseState: (j) => ({
         coins: typeof j.coins === "number" ? j.coins : 0,
         ownedTitleIds: Array.isArray(j.ownedTitleIds)

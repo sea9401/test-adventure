@@ -1,162 +1,130 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import {
-  Cube,
-  Flask,
-  Gavel,
-  HandPalm,
-  ListPlus,
-  MagnifyingGlass,
-  Package,
-  Receipt,
-  Shield,
-  ShoppingCart,
-  SlidersHorizontal,
-  SneakerMove,
-  Star,
-  Storefront,
-  Sword,
-  X,
-  type Icon,
-} from "@phosphor-icons/react";
-import { NecklaceIcon, RingIcon } from "./EquipmentSlotIcons";
-import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
-import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { Card } from "@/components/ui/Card";
-import { Pagination } from "@/components/ui/Pagination";
-import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
-import { NumberInput, parseAmount } from "@/components/ui/NumberInput";
-import {
-  V2_EQUIPMENT,
-  parseCraftedBy,
-  parseInstanceCraftQuality,
-  parseInstanceEnhance,
-  type V2Equipment,
-  type V2EquipInstance,
-  type V2EquipRoll,
-  type V2EquipSlot,
-  type V2CraftedBy,
-  type V2CraftQualityState,
-} from "@/adventure/data/v2/v2Equipment";
-import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
-import { equipmentProgressionLock } from "@/adventure/data/v2/equipmentProgression";
-import {
-  RARE_MAP_KINDS,
-  RARE_MAP_TTL_MS,
-  parseRareMaps,
-  type RareMapInstance,
-} from "@/adventure/data/v2/rareMaps";
-import {
-  CraftOnlyBadge,
-  CraftQualityBadge,
-  EquipmentTierBadge,
-  EnhanceLevelBadge,
-  MasterworkBadge,
-  QualityPctText,
-  V2ItemCard,
-  V2ItemCompareCard,
-  anchorOf,
-  powerNameClass,
-  type ItemCardAnchor,
-} from "./V2ItemCard";
-import {
-  useEquipmentCodexContext,
-  useGameState,
-} from "./GameStateProvider";
-import { TabBar } from "@/components/ui/TabBar";
-import { usePagination } from "@/lib/usePagination";
-import { useSingleFlightGuard } from "@/lib/useSingleFlight";
-import { marketplaceActionErrorLabel } from "./marketplace/marketplaceActionErrors";
-import {
-  V2_ITEM_TABS,
-  itemTabForMaterial,
-  itemTabForMarketplaceListing,
-  sortEquipInstances,
-  type V2ItemTabKey,
-  type SortMode,
-} from "./v2ItemListShared";
-import {
-  compareMarketplaceListings,
-  equipDetail,
-  isStackableMarketplaceListing,
-  listingEquipRoll,
-  marketplacePriceKeyForPayload,
-  PricePositionBadge,
-  PriceRefLine,
-  priceStatForKey,
-  priceStatForQuantity,
-  type Listing,
-  type MarketplaceBrowseSort,
-  type MarketplaceStackGroup,
-  type PriceStat,
-} from "./marketplace/marketplaceShared";
-import { MarketplaceEquipmentTab } from "./marketplace/MarketplaceEquipmentTab";
-import { MarketplaceMaterialTab } from "./marketplace/MarketplaceMaterialTab";
-import { MarketplaceRareMapTab } from "./marketplace/MarketplaceRareMapTab";
-import { MarketplaceStackBrowse } from "./marketplace/MarketplaceStackBrowse";
-import { useSystemMessageState } from "./RewardToastProvider";
-import { GameIcon } from "@/adventure/v2/GameIcon";
+import { FISH, type FishId } from "@/adventure/data/v2/fish";
 import {
   MUSEUN_CASH_ITEMS,
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import {
+  type RareMapInstance
+} from "@/adventure/data/v2/rareMaps";
+import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
+import {
+  V2_EQUIPMENT,
+  type V2CraftQualityState,
+  type V2CraftedBy,
+  type V2EquipInstance,
+  type V2EquipRoll,
+  type V2EquipSlot,
+  type V2Equipment
+} from "@/adventure/data/v2/v2Equipment";
+import {
   type CookingFoodDefinitionMap,
   type CookingFoodId,
   type CookingFoodInventory,
-} from "./cooking/foodShared";
-import { SURFACE_INSET } from "@/components/ui/surfaces";
+} from "@/adventure/v2/cooking/foodShared";
+import {
+  fishSpecimenItemId,
+  type FishSpecimenInventory,
+} from "@/adventure/v2/fishSpecimens";
+import { GameIcon } from "@/adventure/v2/GameIcon";
+import {
+  useEquipmentCodexContext,
+  useGameState,
+} from "@/adventure/v2/GameStateProvider";
 import {
   equippedInstanceForMarketplaceItem,
   equippedItemIdsForMarketplace,
-} from "./marketplace/equipmentComparison";
-import { EquipmentCodexBadge } from "./EquipmentCodexBadge";
-import { MarketplaceTradeReportButton } from "./marketplace/MarketplaceTradeReportButton";
-import { filterMarketplaceRecentTrades } from "./marketplace/recentTradeSearch";
-import { MarketplaceMyBids } from "./marketplace/MarketplaceMyBids";
-import type { MarketplaceMyBid } from "./marketplace/marketplaceBidTracking";
-import { marketplaceLifeItemDefinition } from "./marketplace/lifeItemCatalog";
+} from "@/adventure/v2/marketplace/equipmentComparison";
+import { marketplaceLifeItemDefinition } from "@/adventure/v2/marketplace/lifeItemCatalog";
+import { listingCraftQuality, listingCraftedBy } from "@/adventure/v2/marketplace/listingPresentation";
+import { marketplaceActionErrorLabel } from "@/adventure/v2/marketplace/marketplaceActionErrors";
+import { BidDialog } from "@/adventure/v2/marketplace/MarketplaceBidDialog";
+import type { MarketplaceMyBid } from "@/adventure/v2/marketplace/marketplaceBidTracking";
 import {
   MARKETPLACE_EQUIPMENT_TIER_OPTIONS,
   matchesMarketplaceEquipmentTier,
   matchesMarketplaceUnregisteredCodex,
   type MarketplaceEquipmentTierFilter,
-} from "./marketplace/marketplaceBrowseFilters";
-import { FISH, type FishId } from "@/adventure/data/v2/fish";
+} from "@/adventure/v2/marketplace/marketplaceBrowseFilters";
+import { MarketplaceEquipmentTab } from "@/adventure/v2/marketplace/MarketplaceEquipmentTab";
+import { ListingList, MarketplaceRecentTradeList } from "@/adventure/v2/marketplace/MarketplaceListingList";
+import { MarketplaceMaterialTab } from "@/adventure/v2/marketplace/MarketplaceMaterialTab";
+import { MarketplaceMyBids } from "@/adventure/v2/marketplace/MarketplaceMyBids";
+import { MarketToolsDialog, PriceAlert, PriceAlertManagement } from "@/adventure/v2/marketplace/MarketplacePriceTools";
+import { MarketplaceRareMapTab } from "@/adventure/v2/marketplace/MarketplaceRareMapTab";
+import { readMarketplaceBrowse, readMarketplaceHistory, readMarketplaceMyBids, readMarketplacePrices } from "@/adventure/v2/marketplace/marketplaceReadClient";
 import {
-  fishSpecimenItemId,
-  type FishSpecimenInventory,
-} from "@/adventure/v2/fishSpecimens";
+  compareMarketplaceListings,
+  type Listing,
+  type MarketplaceBrowseSort,
+  type MarketplaceStackGroup,
+  type PriceStat
+} from "@/adventure/v2/marketplace/marketplaceShared";
+import { MarketplaceStackBrowse } from "@/adventure/v2/marketplace/MarketplaceStackBrowse";
+import { MarketplaceTradeReportButton } from "@/adventure/v2/marketplace/MarketplaceTradeReportButton";
+import { filterMarketplaceRecentTrades } from "@/adventure/v2/marketplace/recentTradeSearch";
+import { useSystemMessageState } from "@/adventure/v2/RewardToastProvider";
+import {
+  V2ItemCard,
+  V2ItemCompareCard,
+  anchorOf,
+  type ItemCardAnchor
+} from "@/adventure/v2/V2ItemCard";
+import {
+  V2_ITEM_TABS,
+  itemTabForMarketplaceListing,
+  itemTabForMaterial,
+  sortEquipInstances,
+  type SortMode,
+  type V2ItemTabKey,
+} from "@/adventure/v2/v2ItemListShared";
+import { Card } from "@/components/ui/Card";
+import { parseAmount } from "@/components/ui/NumberInput";
+import { Pagination } from "@/components/ui/Pagination";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { TabBar } from "@/components/ui/TabBar";
+import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
+import { usePagination } from "@/lib/usePagination";
+import { useSingleFlightGuard } from "@/lib/useSingleFlight";
+import {
+  Gavel,
+  ListPlus,
+  MagnifyingGlass,
+  Package,
+  Receipt,
+  ShoppingCart,
+  SlidersHorizontal,
+  Star,
+  Storefront,
+  X,
+  type Icon
+} from "@phosphor-icons/react";
+import { useCallback, useEffect, useState } from "react";
 
-// v2 거래소 — 모든 품목을 6시간 공개 경매로 거래한다.
-// 백엔드 /api/v2/marketplace (list/bid/cancel/browse).
-//   타입·시세 헬퍼·시세줄/가격입력 leaf 컴포넌트는 marketplace/marketplaceShared 공용.
+export { MarketplaceRecentTradeList } from "@/adventure/v2/marketplace/MarketplaceListingList";
 
-// 리스팅 payload — 굴림(+강화+제작품질+제작자) 혼합형. 옛 행은 raw roll 객체(enhance 없음).
-function listingEnhance(payload: unknown): V2EnhanceState | undefined {
-  const raw = payload as { craftQuality?: unknown; craftedBy?: unknown; enhance?: unknown } | null;
-  const craftedBy = parseCraftedBy(raw?.craftedBy);
-  return parseInstanceEnhance(raw?.enhance, raw?.craftQuality, craftedBy);
-}
-function listingCraftedBy(payload: unknown): V2CraftedBy | undefined {
-  return parseCraftedBy((payload as { craftedBy?: unknown } | null)?.craftedBy);
-}
-function listingCraftQuality(payload: unknown): V2CraftQualityState | undefined {
-  const raw = payload as { craftQuality?: unknown; craftedBy?: unknown; enhance?: unknown } | null;
-  return parseInstanceCraftQuality(raw?.craftQuality, raw?.enhance, listingCraftedBy(payload));
-}
 
 type Tab = "browse" | "sell" | "recent" | "mine";
+
+
+
 type MineTab = "active" | "bids" | "alerts" | "history";
+
+
+
 type SellCraftFilter =
   | "all"
   | "crafted"
   | "quality"
   | "masterwork"
   | "craftOnly";
+
+
+
 
 const MARKETPLACE_TABS: ReadonlyArray<{
   key: Tab;
@@ -170,16 +138,8 @@ const MARKETPLACE_TABS: ReadonlyArray<{
   { key: "mine", label: "내 거래", description: "판매·입찰 관리", Icon: Package },
 ];
 
-const LISTING_ICON: Record<V2ItemTabKey, Icon> = {
-  weapon: Sword,
-  armor: Shield,
-  gloves: HandPalm,
-  boots: SneakerMove,
-  ring: RingIcon,
-  necklace: NecklaceIcon,
-  material: Cube,
-  consumable: Flask,
-};
+
+
 
 export type MarketplacePreviewData = {
   viewerGold: number;
@@ -190,56 +150,22 @@ export type MarketplacePreviewData = {
   prices: Record<string, PriceStat>;
 };
 
-// 최근 거래(체결 내역) 한 행 — /api/v2/marketplace/history. status='sold' 스냅샷.
-type Trade = {
-  id: number;
-  kind: string;
-  itemId: string;
-  itemName: string;
-  quantity: number;
-  price: number;
-  instancePayload: unknown;
-  closedAt: string | null;
-  side?: "buy" | "sell";
-};
 
-function tradeToListing(trade: Trade): Listing {
-  return {
-    id: trade.id,
-    isMine: trade.side === "sell",
-    isHighestBidder: trade.side === "buy",
-    hasMyBid: trade.side === "buy",
-    kind: trade.kind as Listing["kind"],
-    itemId: trade.itemId,
-    itemName: trade.itemName,
-    quantity: trade.quantity,
-    price: trade.price,
-    instancePayload: trade.instancePayload,
-    createdAt: trade.closedAt ?? "",
-    bidEndsAt: trade.closedAt ?? "",
-    expiresAt: trade.closedAt ?? "",
-    highestBid: null,
-    bidCount: 0,
-    bidResolvedAt: trade.closedAt,
-    nextBid: 1,
-  };
-}
 
-type PriceAlert = {
-  id: number;
-  kind: "material" | "consumable";
-  itemId: string;
-  itemName: string;
-  targetUnitPrice: number;
-  status: "active" | "triggered" | "cancelled";
-  createdAt: string;
-  triggeredAt: string | null;
-};
 
 // 거래소 목록 한 페이지에 보여줄 아이템 수.
 const MARKETPLACE_PAGE_SIZE = 10;
+
+
+
 const MARKETPLACE_FAVORITES_KEY = "adventure.marketplace.favorites.v1";
+
+
+
 const MARKETPLACE_RECENT_SEARCHES_KEY = "adventure.marketplace.searches.v1";
+
+
+
 
 type BrowseSortButton = {
   key: string;
@@ -249,6 +175,9 @@ type BrowseSortButton = {
   initial: MarketplaceBrowseSort;
 };
 
+
+
+
 const EQUIPMENT_BROWSE_SORT_BUTTONS: readonly BrowseSortButton[] = [
   { key: "price", label: "가격", ascending: "price_asc", descending: "price_desc", initial: "price_asc" },
   { key: "power", label: "위력", ascending: "power_asc", descending: "power_desc", initial: "power_desc" },
@@ -257,10 +186,16 @@ const EQUIPMENT_BROWSE_SORT_BUTTONS: readonly BrowseSortButton[] = [
   { key: "created", label: "등록일", ascending: "oldest", descending: "newest", initial: "newest" },
 ];
 
+
+
+
 const STACK_BROWSE_SORT_BUTTONS: readonly BrowseSortButton[] = [
   EQUIPMENT_BROWSE_SORT_BUTTONS[0],
   EQUIPMENT_BROWSE_SORT_BUTTONS[4],
 ];
+
+
+
 
 export function actionErrorLabel(
   payload: Parameters<typeof marketplaceActionErrorLabel>[0],
@@ -269,47 +204,8 @@ export function actionErrorLabel(
   return marketplaceActionErrorLabel(payload, status);
 }
 
-function remainingLabel(endsAt: string, clockMs: number) {
-  const remainingMs = Math.max(0, new Date(endsAt).getTime() - clockMs);
-  const totalMinutes = Math.ceil(remainingMs / 60_000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (hours > 0) return `${hours}시간 ${minutes}분 남음`;
-  return `${minutes}분 남음`;
-}
 
-function consumableStatusLine(
-  itemId: string,
-  payload: unknown,
-  nowMs: number,
-): { text: string; expired: boolean } | null {
-  if (!(itemId in RARE_MAP_KINDS)) return null;
-  const raw =
-    typeof payload === "object" && payload !== null
-      ? (payload as { marketplaceRemainingMs?: unknown })
-      : null;
-  const remaining = Number(raw?.marketplaceRemainingMs);
-  const candidate =
-    Number.isFinite(remaining) && typeof payload === "object" && payload !== null
-      ? {
-          ...payload,
-          foundAt:
-            nowMs -
-            (RARE_MAP_TTL_MS -
-              Math.max(1, Math.min(RARE_MAP_TTL_MS, Math.floor(remaining)))),
-        }
-      : payload;
-  const instance = parseRareMaps([candidate], nowMs)[0];
-  if (!instance) return { text: "실물 없음 — 입찰 불가", expired: true };
-  const definition = RARE_MAP_KINDS[instance.kind];
-  const usage =
-    definition?.category === "location"
-      ? "희귀 장소"
-      : definition?.category === "utility"
-        ? `사용 ${instance.runsLeft}회`
-        : `희귀 탐사 ${instance.runsLeft}판`;
-  return { text: usage, expired: false };
-}
+
 
 export function V2MarketplaceView({
   onBack,
@@ -410,17 +306,7 @@ export function V2MarketplaceView({
   } | null>(null);
 
   const loadBrowse = useCallback(async (mineOnly: boolean) => {
-    const res = await fetch(`/api/v2/marketplace/browse${mineOnly ? "?mine=1" : ""}`);
-    const j = (await res.json().catch(() => null)) as {
-      ok?: boolean;
-      viewerGold?: number;
-      serverNow?: number;
-      auctionHours?: number;
-      bidExtensionWindowMinutes?: number;
-      bidExtensionMinutes?: number;
-      listings?: Listing[];
-    } | null;
-    if (!res.ok || !j?.ok) throw new Error(`목록 로드 실패 (${res.status})`);
+    const j = await readMarketplaceBrowse(mineOnly);
     if (typeof j.viewerGold === "number") setGold(j.viewerGold);
     if (typeof j.serverNow === "number" && Number.isFinite(j.serverNow)) {
       setServerClockOffsetMs(j.serverNow - Date.now());
@@ -478,40 +364,18 @@ export function V2MarketplaceView({
   }, [loadEquipment]);
 
   const loadPrices = useCallback(async () => {
-    const res = await fetch("/api/v2/marketplace/prices");
-    if (!res.ok) return;
-    const j = (await res.json().catch(() => null)) as {
-      ok?: boolean;
-      prices?: Record<string, PriceStat>;
-    } | null;
-    if (j?.ok && j.prices) setPriceRef(j.prices);
+    const prices = await readMarketplacePrices();
+    if (prices) setPriceRef(prices);
   }, []);
 
   const loadHistory = useCallback(async (mineOnly: boolean) => {
-    const res = await fetch(
-      `/api/v2/marketplace/history${mineOnly ? "?mine=1" : ""}`,
-    );
-    const j = (await res.json().catch(() => null)) as {
-      ok?: boolean;
-      trades?: Trade[];
-    } | null;
-    if (!res.ok || !j?.ok) throw new Error(`거래 내역 로드 실패 (${res.status})`);
-    // ListingList 재사용 — createdAt 자리에 체결 시각(closedAt). expiry 미전달이라 timeAgo 에만 쓰임.
-    const rows = (j.trades ?? []).map(tradeToListing);
+    const rows = await readMarketplaceHistory(mineOnly);
     if (mineOnly) setMyHistory(rows);
     else setRecentTrades(rows);
   }, []);
 
   const loadMyBids = useCallback(async () => {
-    const res = await fetch("/api/v2/marketplace/my-bids");
-    const payload = (await res.json().catch(() => null)) as {
-      ok?: boolean;
-      bids?: MarketplaceMyBid[];
-    } | null;
-    if (!res.ok || !payload?.ok) {
-      throw new Error(`입찰 내역 로드 실패 (${res.status})`);
-    }
-    setMyBids(payload.bids ?? []);
+    setMyBids(await readMarketplaceMyBids());
   }, []);
 
   const loadPriceAlerts = useCallback(async () => {
@@ -2041,110 +1905,8 @@ export function V2MarketplaceView({
   );
 }
 
-function BidDialog({
-  listing,
-  bids,
-  amount,
-  onAmountChange,
-  busy,
-  clockMs,
-  onSubmit,
-  onClose,
-}: {
-  listing: Listing;
-  bids: Array<{ amount: number; createdAt: string; isMine: boolean }>;
-  amount: string;
-  onAmountChange: (value: string) => void;
-  busy: boolean;
-  clockMs: number;
-  onSubmit: () => void;
-  onClose: () => void;
-}) {
-  const bidding = new Date(listing.bidEndsAt).getTime() > clockMs;
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <h2 className="text-base font-bold">공개 입찰</h2>
-        <div className="mt-1 text-sm font-medium">{listing.itemName}</div>
-        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-          <div className={`${SURFACE_INSET} p-2.5`}>
-            <div className="text-zinc-500 dark:text-zinc-400">시작 입찰가</div>
-            <div className="mt-0.5 font-bold tabular-nums text-amber-700 dark:text-amber-400">
-              {listing.price.toLocaleString()}G
-            </div>
-          </div>
-          <div className={`${SURFACE_INSET} p-2.5`}>
-            <div className="text-zinc-500 dark:text-zinc-400">현재 최고 입찰</div>
-            <div className="mt-0.5 font-bold tabular-nums text-sky-700 dark:text-sky-300">
-              {listing.highestBid?.toLocaleString() ?? "없음"}
-              {listing.highestBid != null ? "G" : ""}
-            </div>
-          </div>
-        </div>
-        <div className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-          {bidding
-            ? `경매 종료까지 ${remainingLabel(listing.bidEndsAt, clockMs)} · 다음 최소 입찰 ${listing.nextBid.toLocaleString()}G`
-            : listing.highestBid != null
-              ? "입찰이 종료되어 최고 입찰자에게 전체 매물이 낙찰됩니다."
-              : "입찰 없이 종료되어 판매자에게 전체 매물이 반환됩니다."}
-        </div>
 
-        <div className="mt-4 max-h-44 space-y-1 overflow-y-auto" aria-label="공개 입찰 기록">
-          {bids.length === 0 ? (
-            <div className="rounded-md border border-dashed border-zinc-300 px-3 py-4 text-center text-xs text-zinc-400 dark:border-zinc-700">
-              아직 입찰이 없습니다.
-            </div>
-          ) : (
-            [...bids].reverse().map((bid, index) => (
-              <div
-                key={`${bid.createdAt}:${bid.amount}:${index}`}
-                className="flex items-center justify-between rounded-md bg-zinc-100 px-3 py-2 text-xs dark:bg-zinc-800"
-              >
-                <span className="font-semibold tabular-nums">
-                  {bid.amount.toLocaleString()}G
-                  {bid.isMine ? " · 내 입찰" : ""}
-                </span>
-                <span className="text-zinc-400">{timeAgo(bid.createdAt)}</span>
-              </div>
-            ))
-          )}
-        </div>
 
-        {bidding && !listing.isMine ? (
-          <div className="mt-4 flex gap-2">
-            <NumberInput
-              value={amount}
-              onValueChange={onAmountChange}
-              placeholder="입찰 금액"
-              className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm tabular-nums dark:border-zinc-700 dark:bg-zinc-950"
-            />
-            <button
-              type="button"
-              onClick={onSubmit}
-              disabled={busy}
-              className="rounded-md border border-sky-700 bg-sky-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              입찰
-            </button>
-          </div>
-        ) : null}
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-3 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700"
-        >
-          닫기
-        </button>
-      </div>
-    </div>
-  );
-}
 
 function SelectControl({
   value,
@@ -2169,624 +1931,5 @@ function SelectControl({
         </option>
       ))}
     </select>
-  );
-}
-
-function PriceAlertManagement({
-  alerts,
-  busy,
-  onCancelAlert,
-}: {
-  alerts: PriceAlert[] | null;
-  busy: boolean;
-  onCancelAlert: (alert: PriceAlert) => unknown;
-}) {
-  if (alerts === null) {
-    return <Card padding="sm"><div className="text-xs text-zinc-400">가격 알림을 불러오는 중…</div></Card>;
-  }
-  const activeAlerts = alerts.filter((alert) => alert.status === "active");
-  return (
-    <Card padding="sm">
-      <div className="text-sm font-semibold">시작 입찰가 알림</div>
-      <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-        설정한 개당 기준가 이하로 경매가 등록되면 알려드립니다.
-      </p>
-      {activeAlerts.length === 0 ? (
-        <div className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">활성 가격 알림이 없어요.</div>
-      ) : (
-        <div className="mt-3 space-y-2">
-          {activeAlerts.map((alert) => (
-            <div key={alert.id} className={`${SURFACE_INSET} flex items-center justify-between gap-2 p-2.5`}>
-              <div className="text-xs">
-                <span className="font-semibold">{alert.itemName}</span>
-                <span className="ml-1.5 text-zinc-500 dark:text-zinc-400">
-                  개당 {alert.targetUnitPrice.toLocaleString()}G 이하
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => onCancelAlert(alert)}
-                disabled={busy}
-                className="text-[11px] font-medium text-rose-600 disabled:opacity-50 dark:text-rose-400"
-              >
-                취소
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
-  );
-}
-
-type PriceHistoryPoint = {
-  date: string;
-  volume: number;
-  trades: number;
-  averageUnitPrice: number;
-  minUnitPrice: number;
-  maxUnitPrice: number;
-};
-
-function MarketToolsDialog({
-  group,
-  existingAlert,
-  busy,
-  onCreateAlert,
-  onClose,
-}: {
-  group: MarketplaceStackGroup;
-  existingAlert?: PriceAlert;
-  busy: boolean;
-  onCreateAlert: (
-    group: MarketplaceStackGroup,
-    targetUnitPrice: number,
-  ) => Promise<unknown>;
-  onClose: () => void;
-}) {
-  const [history, setHistory] = useState<PriceHistoryPoint[] | null>(null);
-  const [alertPrice, setAlertPrice] = useState(
-    String(existingAlert?.targetUnitPrice ?? group.minUnitPrice),
-  );
-  const [localError, setLocalError] = useState<string | null>(null);
-  const sellLevels = (() => {
-    const levels = new Map<
-      number,
-      { unitPrice: number; totalQuantity: number; orderCount: number }
-    >();
-    for (const listing of group.listings) {
-      const unitPrice = Math.max(
-        1,
-        Math.ceil(listing.price / Math.max(1, listing.quantity)),
-      );
-      const level = levels.get(unitPrice);
-      if (level) {
-        level.totalQuantity += listing.quantity;
-        level.orderCount++;
-      } else {
-        levels.set(unitPrice, {
-          unitPrice,
-          totalQuantity: listing.quantity,
-          orderCount: 1,
-        });
-      }
-    }
-    return [...levels.values()]
-      .sort((a, b) => a.unitPrice - b.unitPrice)
-      .slice(0, 5);
-  })();
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void fetch(
-      `/api/v2/marketplace/price-history?kind=${encodeURIComponent(group.kind)}&itemId=${encodeURIComponent(group.itemId)}`,
-      { signal: controller.signal },
-    )
-      .then(async (response) => {
-        if (!response.ok) return { points: [] };
-        return (await response.json()) as { points?: PriceHistoryPoint[] };
-      })
-      .then((payload) => setHistory(payload.points ?? []))
-      .catch((error: unknown) => {
-        if ((error as { name?: string }).name !== "AbortError") setHistory([]);
-      });
-    return () => controller.abort();
-  }, [group.itemId, group.kind]);
-
-  const averages = history?.map((point) => point.averageUnitPrice) ?? [];
-  const chartMax = Math.max(...averages, 1);
-  const chartMin = Math.min(...averages, chartMax);
-  const chartRange = Math.max(1, chartMax - chartMin);
-  const chartPoints = (history ?? [])
-    .map((point, index, rows) => {
-      const x = rows.length <= 1 ? 150 : (index / (rows.length - 1)) * 300;
-      const y = 90 - ((point.averageUnitPrice - chartMin) / chartRange) * 75;
-      return `${x},${y}`;
-    })
-    .join(" ");
-
-  const submitAlert = () => {
-    const target = parseAmount(alertPrice);
-    if (!Number.isInteger(target) || target < 1) {
-      setLocalError("알림 가격을 확인해 주세요.");
-      return;
-    }
-    setLocalError(null);
-    void onCreateAlert(group, target);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-6" onClick={onClose}>
-      <div
-        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-5 shadow-xl sm:rounded-2xl dark:border-zinc-700 dark:bg-zinc-900"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold">{group.itemName}</h2>
-            <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">시세·시작 입찰가 알림</div>
-          </div>
-          <button type="button" onClick={onClose} aria-label="닫기" className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className={`${SURFACE_INSET} mt-4 p-3`}>
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-sm font-semibold">현재 경매 시작가</div>
-            <div className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              10초마다 갱신
-            </div>
-          </div>
-          <div className="mt-2">
-            <OrderBookSide title="등록된 경매" tone="sell" levels={sellLevels} />
-          </div>
-          <div className="mt-2 text-center text-[10px] text-zinc-400">
-            묶음 시작가를 수량으로 나눈 개당 환산값입니다.
-          </div>
-        </div>
-
-        <div className={`${SURFACE_INSET} mt-3 p-3`}>
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold">최근 30일 개당 평균가</span>
-            {history && history.length > 0 ? (
-              <span className="tabular-nums text-sky-700 dark:text-sky-300">
-                {history[history.length - 1].averageUnitPrice.toLocaleString()}G
-              </span>
-            ) : null}
-          </div>
-          {history === null ? (
-            <div className="mt-3 h-24 animate-pulse rounded bg-zinc-200 dark:bg-zinc-800" />
-          ) : history.length === 0 ? (
-            <div className="py-8 text-center text-xs text-zinc-400">최근 체결 기록이 없어요.</div>
-          ) : (
-            <>
-              <svg viewBox="0 0 300 100" role="img" aria-label="최근 30일 평균가 추이" className="mt-2 h-28 w-full overflow-visible">
-                <polyline points={chartPoints} fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" className="text-sky-500" />
-              </svg>
-              <div className="flex justify-between text-[10px] text-zinc-400">
-                <span>{history[0].date.slice(5)}</span>
-                <span>거래량 {history.reduce((sum, point) => sum + point.volume, 0).toLocaleString()}개</span>
-                <span>{history[history.length - 1].date.slice(5)}</span>
-              </div>
-            </>
-          )}
-        </div>
-
-        <div className={`${SURFACE_INSET} mt-3 p-3`}>
-          <div className="text-sm font-semibold">시작 입찰가 알림</div>
-          <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-            새 경매의 묶음 시작가를 개당 가격으로 환산해 비교합니다.
-          </p>
-          <div className="mt-2 flex gap-2">
-            <NumberInput aria-label="가격 알림 기준" placeholder="개당 가격" value={alertPrice} onValueChange={setAlertPrice} className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-900" />
-            <button type="button" onClick={submitAlert} disabled={busy} className="rounded-md border border-sky-700 bg-sky-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
-              {existingAlert ? "알림 수정" : "알림 설정"}
-            </button>
-          </div>
-        </div>
-        {localError ? <div className="mt-2 text-xs text-rose-600 dark:text-rose-400">{localError}</div> : null}
-      </div>
-    </div>
-  );
-}
-
-function OrderBookSide({
-  title,
-  tone,
-  levels,
-}: {
-  title: string;
-  tone: "buy" | "sell";
-  levels: Array<{
-    unitPrice: number;
-    totalQuantity: number;
-    orderCount: number;
-  }>;
-}) {
-  return (
-    <div className="overflow-hidden rounded-md border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
-      <div className="grid grid-cols-[1fr_auto] border-b border-zinc-200 px-2 py-1.5 text-[10px] font-semibold text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-        <span>{title}</span>
-        <span>잔량</span>
-      </div>
-      {levels.length === 0 ? (
-        <div className="px-2 py-5 text-center text-[10px] text-zinc-400">
-          호가 없음
-        </div>
-      ) : (
-        levels.map((level) => (
-          <div
-            key={level.unitPrice}
-            className="grid grid-cols-[1fr_auto] gap-1 border-b border-zinc-100 px-2 py-1.5 text-[10px] last:border-b-0 dark:border-zinc-800"
-          >
-            <span
-              className={`font-semibold tabular-nums ${
-                tone === "buy"
-                  ? "text-emerald-700 dark:text-emerald-300"
-                  : "text-rose-700 dark:text-rose-300"
-              }`}
-            >
-              {level.unitPrice.toLocaleString()}G
-            </span>
-            <span className="text-right tabular-nums text-zinc-600 dark:text-zinc-300">
-              {level.totalQuantity.toLocaleString()}
-              <span className="ml-1 text-zinc-400">({level.orderCount}건)</span>
-            </span>
-          </div>
-        ))
-      )}
-    </div>
-  );
-}
-
-// 구매 확인 모달 — 골드가 HP 회복 통화라 오클릭 방지. 잔액 부족이면 확정 비활성.
-export function MarketplaceRecentTradeList({
-  rows,
-  frontierDepth,
-  clockMs,
-  emptyText = "아직 체결된 거래가 없어요.",
-}: {
-  rows: Listing[] | null;
-  frontierDepth?: number;
-  clockMs: number;
-  emptyText?: string;
-}) {
-  return (
-    <ListingList
-      rows={rows}
-      emptyText={emptyText}
-      historical
-      priceRef={{}}
-      frontierDepth={frontierDepth}
-      clockMs={clockMs}
-      action={(listing) => (
-        <MarketplaceTradeReportButton
-          tradeId={listing.id}
-          itemName={listing.itemName}
-        />
-      )}
-    />
-  );
-}
-
-function ListingList({
-  rows,
-  emptyText,
-  action,
-  historical = false,
-  priceRef,
-  frontierDepth,
-  clockMs,
-  onOpenCard,
-  favoriteKeys,
-  onToggleFavorite,
-}: {
-  rows: Listing[] | null;
-  emptyText: string;
-  action: (l: Listing) => React.ReactNode;
-  historical?: boolean;
-  priceRef: Record<string, PriceStat>;
-  frontierDepth?: number;
-  clockMs: number;
-  favoriteKeys?: Set<string>;
-  onToggleFavorite?: (key: string) => void;
-  // 장비 클릭 → 옵션 카드. (재료는 옵션 없어 미클릭.)
-  onOpenCard?: (
-    itemId: string,
-    roll: V2EquipRoll | undefined,
-    enhance: V2EnhanceState | undefined,
-    craftQuality: V2CraftQualityState | undefined,
-    craftedBy: V2CraftedBy | undefined,
-    el: HTMLElement,
-  ) => void;
-}) {
-  if (rows === null) {
-    return (
-      <div className="space-y-2" aria-label="매물 불러오는 중">
-        {[0, 1, 2].map((index) => (
-          <Card key={index} padding="none" className="overflow-hidden">
-            <div className="flex animate-pulse gap-3 p-4">
-              <div className="h-12 w-12 shrink-0 rounded-md bg-zinc-200 dark:bg-zinc-800" />
-              <div className="flex-1 space-y-2">
-                <div className="h-3 w-2/5 rounded bg-zinc-200 dark:bg-zinc-800" />
-                <div className="h-2.5 w-4/5 rounded bg-zinc-100 dark:bg-zinc-800" />
-                <div className="h-2.5 w-1/3 rounded bg-zinc-100 dark:bg-zinc-800" />
-              </div>
-            </div>
-            <div className="border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
-              <div className="h-4 w-1/4 animate-pulse rounded bg-zinc-200 dark:bg-zinc-800" />
-            </div>
-          </Card>
-        ))}
-      </div>
-    );
-  }
-  if (rows.length === 0) {
-    return (
-      <Card padding="md">
-        <div className="flex flex-col items-center gap-2 py-6 text-zinc-600 dark:text-zinc-400">
-          <Storefront size={32} weight="duotone" />
-          <div className="text-sm">{emptyText}</div>
-        </div>
-      </Card>
-    );
-  }
-  return (
-    <div className="space-y-2">
-      {rows.map((l) => {
-        const item =
-          l.kind === "equip"
-            ? V2_EQUIPMENT[l.itemId as keyof typeof V2_EQUIPMENT]
-            : undefined;
-        const roll = item
-          ? listingEquipRoll(item, l.instancePayload)
-          : undefined;
-        const detail =
-          l.kind === "equip"
-            ? equipDetail(
-                l.itemId,
-                roll,
-                listingEnhance(l.instancePayload),
-                listingCraftQuality(l.instancePayload),
-              )
-            : null;
-        const progressionLock =
-          item && frontierDepth != null
-            ? equipmentProgressionLock(item, frontierDepth)
-            : null;
-        const enhance =
-          l.kind === "equip" ? listingEnhance(l.instancePayload) : undefined;
-        const craftQuality =
-          l.kind === "equip" ? listingCraftQuality(l.instancePayload) : undefined;
-        const craftedBy =
-          l.kind === "equip" ? listingCraftedBy(l.instancePayload) : undefined;
-        const priceKey =
-          l.kind === "equip"
-            ? marketplacePriceKeyForPayload(l.itemId, l.instancePayload)
-            : l.itemId;
-        const priceStat = priceStatForKey(priceRef, l.itemId, priceKey);
-        const comparablePriceStat =
-          l.kind === "equip"
-            ? priceStat
-            : priceStatForQuantity(priceStat, l.quantity);
-        const listingTabKey: V2ItemTabKey =
-          l.kind === "equip"
-            ? (item?.slot ?? "weapon")
-            : l.kind === "material"
-              ? "material"
-              : "consumable";
-        const ListingKindIcon = LISTING_ICON[listingTabKey];
-        const clickable = l.kind === "equip" && !!onOpenCard;
-        const relation = historical
-          ? null
-          : l.isMine
-            ? {
-                key: "mine",
-                label: "내 매물",
-                className:
-                  "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300",
-              }
-            : l.isHighestBidder
-              ? {
-                  key: "leading",
-                  label: "최고 입찰 중",
-                  className:
-                    "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
-                }
-              : l.hasMyBid
-                ? {
-                    key: "bid",
-                    label: "내 입찰",
-                    className:
-                      "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
-                  }
-                : null;
-        const info = (
-          <>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span
-                className={`text-sm font-medium ${
-                  item
-                    ? powerNameClass(
-                        item,
-                        roll,
-                        detail?.enhance,
-                        detail?.craftQuality,
-                      )
-                    : ""
-                } ${
-                  clickable
-                    ? "group-hover:underline group-focus-visible:underline"
-                    : ""
-                }`}
-              >
-                {l.itemName}
-              </span>
-              {item ? <EquipmentTierBadge tier={item.tier} compact /> : null}
-              {item ? <EquipmentCodexBadge itemId={item.id} /> : null}
-              {relation ? (
-                <span
-                  data-marketplace-relation={relation.key}
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${relation.className}`}
-                >
-                  {relation.label}
-                </span>
-              ) : null}
-              <EnhanceLevelBadge enhance={detail?.enhance} />
-              <CraftQualityBadge craftQuality={detail?.craftQuality} />
-              {craftedBy?.masterwork ? <MasterworkBadge /> : null}
-              {l.kind !== "equip" && l.quantity > 1 && (
-                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">×{l.quantity}</span>
-              )}
-              {detail?.pct != null && (
-                <span className="inline-flex items-center gap-1 text-[11px] tabular-nums">
-                  <span className="text-zinc-500 dark:text-zinc-400">품질</span>
-                  <QualityPctText pct={detail.pct} className="font-semibold" />
-                </span>
-              )}
-              {item?.craftOnly ? <CraftOnlyBadge /> : null}
-            </div>
-            {l.kind === "consumable" &&
-              (() => {
-                const st = consumableStatusLine(l.itemId, l.instancePayload, clockMs);
-                return st ? (
-                  <div
-                    className={`mt-0.5 flex items-center gap-1 text-[11px] ${
-                      st.expired
-                        ? "text-rose-600 dark:text-rose-400"
-                        : "text-sky-700 dark:text-sky-400"
-                    }`}
-                  >
-                    <GameIcon name="MapTrifold" size={14} className="shrink-0" />
-                    {st.text}
-                  </div>
-                ) : null;
-              })()}
-            {detail && (
-              <div className="mt-0.5 break-words text-[11px] text-zinc-600 dark:text-zinc-300">
-                {detail.line}
-              </div>
-            )}
-            {progressionLock && (
-              <div className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-amber-700 dark:text-amber-300">
-                <GameIcon name="Lock" size={13} className="shrink-0" />
-                착용 조건: {progressionLock.label}
-              </div>
-            )}
-          </>
-        );
-        return (
-          <Card key={l.id} padding="none" className="overflow-hidden">
-            <div className="flex items-start gap-3 p-3 sm:p-4">
-              <div
-                className={`${SURFACE_INSET} flex h-12 w-12 shrink-0 items-center justify-center text-sky-700 dark:text-sky-300`}
-              >
-                <ListingKindIcon size={25} weight="duotone" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  {clickable ? (
-                    <button
-                      type="button"
-                      onClick={(e) =>
-                        onOpenCard!(
-                          l.itemId,
-                          roll,
-                          enhance,
-                          craftQuality,
-                          craftedBy,
-                          e.currentTarget,
-                        )
-                      }
-                      className="group min-w-0 text-left"
-                    >
-                      {info}
-                    </button>
-                  ) : (
-                    <div className="min-w-0">{info}</div>
-                  )}
-                  {onToggleFavorite ? (
-                    <button
-                      type="button"
-                      onClick={() => onToggleFavorite(`${l.kind}:${l.itemId}`)}
-                      aria-label={`${l.itemName} 즐겨찾기 ${favoriteKeys?.has(`${l.kind}:${l.itemId}`) ? "해제" : "추가"}`}
-                      className="shrink-0 rounded-md p-1.5 text-amber-500 transition hover:bg-amber-50 dark:hover:bg-amber-950"
-                    >
-                      <Star
-                        size={17}
-                        weight={favoriteKeys?.has(`${l.kind}:${l.itemId}`) ? "fill" : "regular"}
-                      />
-                    </button>
-                  ) : null}
-                </div>
-                {craftedBy ? (
-                  <div className="mt-0.5 text-[11px] text-emerald-700 dark:text-emerald-300">
-                    제작:{" "}
-                    <PlayerNameLink
-                      name={craftedBy.name}
-                      className="font-medium"
-                      fallback="모험가"
-                    />{" "}
-                    · 대장장이 Lv {craftedBy.level.toLocaleString()}
-                  </div>
-                ) : null}
-                <div className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-400">
-                  {historical ? "체결" : "등록"} {timeAgo(l.createdAt)}
-                </div>
-              </div>
-            </div>
-            <div
-              data-testid="marketplace-listing-footer"
-              className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end sm:justify-between border-t border-zinc-200 px-3 py-2.5 sm:px-4 dark:border-zinc-700"
-            >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    {historical
-                      ? "체결가"
-                      : isStackableMarketplaceListing(l)
-                        ? "묶음 시작가"
-                        : "시작 입찰가"}
-                  </span>
-                  <span className="text-base font-bold tabular-nums text-amber-700 dark:text-amber-400">
-                    {l.price.toLocaleString()}G
-                  </span>
-                  {historical && l.kind !== "equip" && l.quantity > 1 ? (
-                    <span className="text-[11px] font-medium tabular-nums text-zinc-500 dark:text-zinc-400">
-                      개당 {Math.ceil(l.price / l.quantity).toLocaleString()}G
-                    </span>
-                  ) : null}
-                  {!historical && l.highestBid != null ? (
-                    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-sky-700 dark:bg-sky-950 dark:text-sky-300">
-                      현재 입찰 {l.highestBid.toLocaleString()}G · {l.bidCount}건
-                    </span>
-                  ) : null}
-                  <PricePositionBadge price={l.price} stat={comparablePriceStat} />
-                  {!historical ? (
-                    <span className="text-[11px] text-zinc-600 dark:text-zinc-400">
-                      {new Date(l.bidEndsAt).getTime() > clockMs
-                        ? `경매 · ${remainingLabel(l.bidEndsAt, clockMs)}`
-                        : "입찰 종료 · 정산 중"}
-                    </span>
-                  ) : null}
-                </div>
-                <PriceRefLine
-                  stat={comparablePriceStat}
-                  scoped={priceKey !== l.itemId && !!priceRef[priceKey]}
-                />
-              </div>
-              <div
-                data-testid="marketplace-listing-action"
-                className="w-full sm:w-auto [&>*]:w-full sm:[&>*]:w-auto"
-              >
-                {action(l)}
-              </div>
-            </div>
-          </Card>
-        );
-      })}
-    </div>
   );
 }

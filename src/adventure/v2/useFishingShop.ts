@@ -8,6 +8,7 @@ import type {
 } from "./fishingShop";
 import type { FishingProgressionView } from "./fishingProgression";
 import { useCoinShop, type BuyResult } from "./useCoinShop";
+import { fishingShopConsumableMessage } from "./fishingShopMessages";
 
 export type { BuyResult } from "./useCoinShop";
 export type FishingShopState = {
@@ -47,6 +48,7 @@ export function useFishingShop() {
     useCoinShop<FishingShopState>({
       endpoint: "/api/v2/fishing/shop",
       coinLabel: "낚시 코인",
+      consumableMessage: fishingShopConsumableMessage,
       parseState: (j) => ({
         coins: typeof j.coins === "number" ? j.coins : 0,
         ownedTitleIds: Array.isArray(j.ownedTitleIds)

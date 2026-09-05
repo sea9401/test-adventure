@@ -1,9 +1,6 @@
-import { appendLog } from "./engine";
-import type { PvPBattleState, PvPSide } from "./engine-pvp";
-import {
-  applyBerserkerLethalDamage,
-  clampBerserkerGuardedHp,
-} from "./berserkerCombat";
+import { appendLog } from "./engineSupport";
+import { type PvPBattleState, type PvPSide } from "./engine.pvpState";
+import { applyBerserkerLethalDamage, clampBerserkerGuardedHp } from "./berserkerCombat";
 
 export type PvPHostileDamageSurvival = {
   side: PvPSide;

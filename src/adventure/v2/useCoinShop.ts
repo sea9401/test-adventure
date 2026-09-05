@@ -12,13 +12,20 @@ import { useGameResourceState } from "./GameStateProvider";
 
 export type BuyResult = { ok: boolean; message: string };
 export type CoinShopCoreState = { coins: number; ownedTitleIds: string[] };
-type Json = Record<string, unknown>;
+export type CoinShopResponse = Record<string, unknown>;
+type Json = CoinShopResponse;
+export type CoinShopConsumableMessage = (
+  itemId: string,
+  response: CoinShopResponse,
+  succeeded: boolean,
+) => string | undefined;
 
 export function useCoinShop<S extends CoinShopCoreState>(opts: {
   endpoint: string;
   coinLabel: string;
   parseState: (j: Json) => S;
   applyServer?: (s: S, j: Json) => S;
+  consumableMessage?: CoinShopConsumableMessage;
 }) {
   const { applyResourcePatch } = useGameResourceState();
   const [state, setState] = useState<S | null>(null);
@@ -139,32 +146,26 @@ export function useCoinShop<S extends CoinShopCoreState>(opts: {
             applyResourcePatch({ staminaPotions: j.staminaPotions });
           }
           setState((s) => (s ? applyResponse(s, j) : s));
-          return { ok: true, message: consumableSuccessMessage(j, itemId) };
+          return {
+            ok: true,
+            message: optsRef.current.consumableMessage?.(itemId, j, true)
+              ?? "구매를 완료했다.",
+          };
         }
         if (j?.error === "insufficient_coins") {
           setState((s) => (s ? applyResponse(s, j) : s));
           return { ok: false, message: `${coinLabel}이 부족하다.` };
         }
+        const customMessage = j
+          ? optsRef.current.consumableMessage?.(itemId, j, false)
+          : undefined;
+        if (j && customMessage !== undefined) {
+          setState((s) => (s ? applyResponse(s, j) : s));
+          return { ok: false, message: customMessage };
+        }
         if (j?.error === "limit_reached") {
           setState((s) => (s ? applyResponse(s, j) : s));
-          return {
-            ok: false,
-            message: "오늘 구매 한도에 도달했다.",
-          };
-        }
-        if (j?.error === "boss_already_active") {
-          setState((s) => (s ? applyResponse(s, j) : s));
-          return {
-            ok: false,
-            message: "이미 소환한 심연어룡이 활성 상태다.",
-          };
-        }
-        if (j?.error === "boss_capacity_reached") {
-          setState((s) => (s ? applyResponse(s, j) : s));
-          return {
-            ok: false,
-            message: "현재 소환된 심연어룡이 너무 많다. 잠시 후 다시 시도해 주세요.",
-          };
+          return { ok: false, message: "구매 한도에 도달했다." };
         }
         return { ok: false, message: "구매하지 못했다." };
       } catch {
@@ -177,21 +178,4 @@ export function useCoinShop<S extends CoinShopCoreState>(opts: {
   );
 
   return { state, setState, loading, error, buying, setBuying, buy, buyConsumable };
-}
-
-function consumableSuccessMessage(j: Json, itemId: string): string {
-  if (itemId === "abyssal_tyrant_summon_bait") {
-    return "심연어룡을 소환했다. 협동 보스에서 확인할 수 있다.";
-  }
-  if (itemId === "farm_seed_pouch") {
-    const pouch = j.seedPouch;
-    const name =
-      pouch &&
-      typeof pouch === "object" &&
-      typeof (pouch as { name?: unknown }).name === "string"
-        ? (pouch as { name: string }).name
-        : "씨앗 주머니";
-    return `${name}를 구매했다.`;
-  }
-  return "스태미나 회복약을 구매했다.";
 }

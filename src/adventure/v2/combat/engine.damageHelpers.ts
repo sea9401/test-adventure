@@ -11,7 +11,7 @@ import {
 } from "@/adventure/data/stats";
 import { cappedDefReductionPct } from "@/adventure/data/v2/v2CombatConstants";
 import { extractApEffect } from "./combatShared";
-import { DEF_IGNORE_FRACTION } from "./engine";
+import { DEF_IGNORE_FRACTION } from "./engineResolutionTypes";
 
 // 분쇄 — 강공격 발동 턴이면서 분쇄 보유 시 적 DEF 고정 감산(0 하한). 아니면 baseDef 그대로.
 export function computeAfterCrush(

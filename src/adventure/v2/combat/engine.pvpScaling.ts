@@ -1,4 +1,4 @@
-import type { PvPBattleState } from "./engine-pvp";
+import { type PvPBattleState } from "./engine.pvpState";
 
 type PvPDamageScaleState = Pick<PvPBattleState, "damageMultiplier">;
 type PvPSustainScaleState = Pick<PvPBattleState, "sustainMultiplier">;

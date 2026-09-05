@@ -1,6 +1,5 @@
 import {
   actorKeys,
-  applyBerserkerHostileDamagePvP,
   applyTrackedSetShieldAbsorptionPvP,
   applyOnHitReflect,
   applyPerAttackDodge,
@@ -14,16 +13,19 @@ import {
   finishPvPBerserkerAttackAction,
   maybeApplyRuneCounter,
   maybeApplyMartialCounter,
-  pvpSideDamageTakenReductionPct,
   releaseSwordShadowAfterPvPAction,
   rollPvPAttackCount,
   setSide,
+} from "./engine.pvpOperations";
+import { applyBerserkerHostileDamagePvP } from "./pvpHostileDamage";
+import { pvpSideDamageTakenReductionPct } from "./pvpDamageReduction";
+import {
   type PvPAttackDamageResult,
   type PvPBattleState,
   type PvPPhaseEndOptions,
   type PvPSide,
   type PvPSideBuffs,
-} from "./engine-pvp";
+} from "./engine.pvpState";
 import { scalePvPDamage, scalePvPHealing } from "./engine.pvpScaling";
 import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
 import {
@@ -54,12 +56,9 @@ import {
 } from "./signatureEffects";
 import { canApplyShock } from "./shockAction";
 import { weightSpeedMultiplier } from "./mutationCombat";
-import {
-  appendLog,
-  damageBetween,
-  type EquippedAPSkill,
-  type PlayerAction,
-} from "./engine";
+import { appendLog } from "./engineSupport";
+import { damageBetween } from "./combatShared";
+import { type EquippedAPSkill, type PlayerAction } from "./engineState";
 import {
   applyDefIgnore,
   computeAfterCrush,
@@ -69,9 +68,7 @@ import {
   computeStormBonus,
   resolveCriticalChanceAfterResistance,
 } from "./engine.damageHelpers";
-import {
-  CRIT_PCT_CAP,
-} from "@/adventure/data/stats";
+import { CRIT_PCT_CAP } from "@/adventure/data/stats";
 import {
   CRIT_MULT_BASE,
   ETERNAL_GALE_ABSOLUTE_CAP,
@@ -83,10 +80,7 @@ import {
   applyEvasionDamageReduction,
   pvpEvasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
-import {
-  magicBarrierCombatLogEntries,
-  resolveMagicBarrierDamage,
-} from "./magicBarrier";
+import { magicBarrierCombatLogEntries, resolveMagicBarrierDamage } from "./magicBarrier";
 import {
   applyTier6UniquePvpEvent,
   tier6PvpDotContext,

@@ -50,6 +50,12 @@ const EXTERNAL_ACTIONS: readonly ExternalAction[] = [
 export type ReleaseHandlers = {
   pr?(taskId: string, dryRun: boolean): Promise<number>;
   deployTest?(taskId: string, dryRun: boolean): Promise<number>;
+  promoteStaging?(
+    command: Extract<ToolkitCommand, { kind: "release-promote-staging" }>,
+  ): Promise<number>;
+  recordPromotion?(
+    command: Extract<ToolkitCommand, { kind: "release-record-promotion" }>,
+  ): Promise<number>;
 };
 
 export type ToolkitRuntimeDependencies = {
@@ -561,5 +567,19 @@ export async function executeToolkitCommand(
         command.taskId,
         command.dryRun,
       );
+    case "release-promote-staging":
+      if (dependencies.releaseHandlers?.promoteStaging === undefined) {
+        throw new ToolkitUsageError(
+          "staging production promotion pipeline is not registered",
+        );
+      }
+      return dependencies.releaseHandlers.promoteStaging(command);
+    case "release-record-promotion":
+      if (dependencies.releaseHandlers?.recordPromotion === undefined) {
+        throw new ToolkitUsageError(
+          "production promotion record pipeline is not registered",
+        );
+      }
+      return dependencies.releaseHandlers.recordPromotion(command);
   }
 }

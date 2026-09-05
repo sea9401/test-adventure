@@ -1,6 +1,6 @@
 # 개발·스테이징·운영 출시 흐름
 
-> 최종 확인: 2026-09-03
+> 최종 확인: 2026-09-06
 >
 > 일상 작업과 출시 절차의 요약 문서다. 권한·안전 원칙은 루트 `AGENTS.md`, 실제 실행
 > 동작은 `.github/workflows/`와 `deploy/`의 현재 코드가 우선한다. 기능별
@@ -45,31 +45,66 @@
 ## 정기 운영 출시
 
 1. 사용자의 명시적인 운영 배포 요청과 출시할 `staging` 상태를 확인한다.
-2. `staging → main` PR을 만들고 변경 목록과 운영 영향, 롤백 방법을 확인한다.
-3. PR CI의 필수 `check`가 통과한 뒤 squash merge한다.
-4. 정확한 `main` SHA의 push CI가 모두 통과하고
+2. 마지막 성공 승격 이후의 staging 변경과 그동안의 main 전용 변경을 감사하고, 최신
+   `origin/main`에서 격리된 운영 후보를 준비한다. 아래 명령은 작업 트리와 staged diff만
+   만들며 커밋, 푸시, PR 또는 배포를 실행하지 않는다.
+
+   ```bash
+   npm run toolkit -- release promote-staging \
+     --worktree /tmp/adventure-production-candidate-YYYYMMDD \
+     --branch release/staging-YYYYMMDD \
+     --dry-run
+
+   npm run toolkit -- release promote-staging \
+     --worktree /tmp/adventure-production-candidate-YYYYMMDD \
+     --branch release/staging-YYYYMMDD
+   ```
+
+3. 출력된 staging·main 기준 SHA, 겹친 파일, 마이그레이션, 배포·환경 설정, 이미지와
+   테스트 전용 후보를 확인한다. 생성된 작업 트리에서 staged diff를 검토하고 패치 노트와
+   내용수정 기록을 완성한 뒤 하나의 커밋으로 만들어 `main` PR을 연다.
+4. PR CI의 필수 `check`가 통과한 뒤 squash merge한다.
+5. 정확한 `main` SHA의 push CI가 모두 통과하고
    `production-next-<40자리 SHA>` 아티팩트가 준비될 때까지 기존 서비스를 유지한다.
-5. GitHub Actions의 **Deploy to EC2**를 수동 실행하고 `deploy_sha`에 위 `main`의
+6. GitHub Actions의 **Deploy to EC2**를 수동 실행하고 `deploy_sha`에 위 `main`의
    전체 40자리 SHA를 입력한다. 내용수정 검토 상태를 `not-applicable`,
    `technical-only`, `recorded`, `reported` 중 하나로 선택하고 변경 요약과 판단 근거를
    적는다. 게임 내용 변경을 내부 기록으로 남기고 신고 판단을 운영자 후속으로 둘 때는
    `recorded`와 `docs/content-modification-records/` 아래의 실제 문서 경로를 입력한다.
    실제 신고를 접수한 `reported` 상태만 접수번호 또는 신고 기록 위치를 입력한다.
    `main` push만으로 운영 배포는 시작되지 않는다.
-6. 워크플로가 SHA·CI·아티팩트를 검증하고 아티팩트 전송을 마친 뒤, 실제 런타임 교체
+7. 워크플로가 SHA·CI·아티팩트를 검증하고 아티팩트 전송을 마친 뒤, 실제 런타임 교체
    직전에 점검 모드를 켠다. 일반 배포 요청만으로 점검 모드를 미리 켜지 않는다.
-7. 마이그레이션, 서비스 시작, 내부 health·로그인·운영 스모크가 통과해도 점검 모드는
+8. 마이그레이션, 서비스 시작, 내부 health·로그인·운영 스모크가 통과해도 점검 모드는
    유지된다. 배포 작업은 외부에서 health 200, 정확한 build ID와 점검 503을 확인한다.
-8. 결과를 운영자가 확인하고 사용자가 점검 해제를 별도로 지시한 경우에만 EC2에서
+9. 결과를 운영자가 확인하고 사용자가 점검 해제를 별도로 지시한 경우에만 EC2에서
    `bash deploy/maintenance.sh off`를 실행한다.
-9. 해제 뒤 실제 도메인의 health, version, 로그인·정책 화면과 숨김 경로를 다시 확인한다.
+10. 해제 뒤 실제 도메인의 health, version, 로그인·정책 화면과 숨김 경로를 다시 확인한다.
    저장소 또는 EC2에서 다음 공개 표면 검사를 실행할 수 있다.
 
    ```bash
    PUBLIC_RELEASE_EXPECTED_BUILD_ID=<40자리 SHA> \
      PUBLIC_RELEASE_MAINTENANCE_POLICY=forbid \
-     npm run check-public-release
+   npm run check-public-release
    ```
+
+11. 운영 배포와 공개 검증이 끝나면 다음 승격의 기준점이 되도록 정확한 SHA를 기록한다.
+    `--patch-notes`는 별도 패치 노트 파일이 있을 때만 넣는다. 이 명령도 파일만 수정하며
+    커밋하거나 배포하지 않는다.
+
+    ```bash
+    npm run toolkit -- release record-promotion \
+      --staging-sha <테스트한 staging SHA> \
+      --main-sha <배포한 main SHA> \
+      --promoted-at <ISO-8601 시각> \
+      --pr <PR 번호> \
+      --content-record docs/content-modification-records/<기록>.md \
+      --patch-notes docs/patch-notes/<패치노트>.md
+    ```
+
+승격 이력은 `docs/release-promotions/staging-production.json`에 누적된다. 운영 후보의 감사
+결과와 아직 값이 정해지지 않은 다음 이력 초안은 후보 작업 트리의
+`.toolkit/work/production-promotion/state.json`에만 저장된다.
 
 ## 실패와 롤백
 

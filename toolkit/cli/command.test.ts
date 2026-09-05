@@ -93,6 +93,88 @@ describe("parseToolkitCommand", () => {
     });
   });
 
+  it("parses a staging production candidate without implicit destinations", () => {
+    expect(
+      parseToolkitCommand([
+        "release",
+        "promote-staging",
+        "--worktree",
+        "/tmp/adventure-production-candidate-20260906",
+        "--branch",
+        "release/staging-20260906",
+        "--staging-sha",
+        "a".repeat(40),
+        "--dry-run",
+      ]),
+    ).toEqual({
+      kind: "release-promote-staging",
+      worktreePath: "/tmp/adventure-production-candidate-20260906",
+      branch: "release/staging-20260906",
+      stagingSha: "a".repeat(40),
+      historyPath: "docs/release-promotions/staging-production.json",
+      dryRun: true,
+    });
+  });
+
+  it("parses a completed promotion record", () => {
+    expect(
+      parseToolkitCommand([
+        "release",
+        "record-promotion",
+        "--staging-sha",
+        "a".repeat(40),
+        "--main-sha",
+        "b".repeat(40),
+        "--promoted-at",
+        "2026-09-06T12:34:56+09:00",
+        "--pr",
+        "2520",
+        "--content-record",
+        "docs/content-modification-records/2026-09-06-release.md",
+        "--patch-notes",
+        "docs/patch-notes/2026-09-06.md",
+      ]),
+    ).toEqual({
+      kind: "release-record-promotion",
+      stagingSha: "a".repeat(40),
+      mainSha: "b".repeat(40),
+      promotedAt: "2026-09-06T12:34:56+09:00",
+      pullRequest: 2520,
+      contentRecord:
+        "docs/content-modification-records/2026-09-06-release.md",
+      patchNotes: "docs/patch-notes/2026-09-06.md",
+      historyPath: "docs/release-promotions/staging-production.json",
+      dryRun: false,
+    });
+  });
+
+  it("rejects incomplete or malformed promotion commands", () => {
+    expect(() =>
+      parseToolkitCommand([
+        "release",
+        "promote-staging",
+        "--branch",
+        "release/staging-20260906",
+      ]),
+    ).toThrow("--worktree is required");
+    expect(() =>
+      parseToolkitCommand([
+        "release",
+        "record-promotion",
+        "--staging-sha",
+        "a".repeat(40),
+        "--main-sha",
+        "b".repeat(40),
+        "--promoted-at",
+        "2026-09-06T12:34:56+09:00",
+        "--pr",
+        "not-a-number",
+        "--content-record",
+        "docs/content-modification-records/2026-09-06-release.md",
+      ]),
+    ).toThrow("--pr must be a positive integer");
+  });
+
   it("parses image import and review commands", () => {
     expect(
       parseToolkitCommand([

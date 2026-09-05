@@ -428,6 +428,7 @@ describe("executeToolkitCommand", () => {
   it("delegates registered staging release commands without widening their target", async () => {
     const { fixture, registry, store } = await setup();
     const calls: Array<[string, string, boolean]> = [];
+    const productionCalls: string[] = [];
     const dependencies = {
       projectRoot: fixture.root,
       registry,
@@ -443,6 +444,14 @@ describe("executeToolkitCommand", () => {
           calls.push(["deploy-test", taskId, dryRun]);
           return 0;
         },
+        promoteStaging: async (command: { branch: string }) => {
+          productionCalls.push(`promote:${command.branch}`);
+          return 0;
+        },
+        recordPromotion: async (command: { mainSha: string }) => {
+          productionCalls.push(`record:${command.mainSha}`);
+          return 0;
+        },
       },
     };
 
@@ -454,10 +463,37 @@ describe("executeToolkitCommand", () => {
       { kind: "release-deploy-test", taskId: "boss-red", dryRun: false },
       dependencies,
     );
+    await executeToolkitCommand(
+      {
+        kind: "release-promote-staging",
+        worktreePath: "/tmp/release-candidate",
+        branch: "release/candidate",
+        historyPath: "docs/release-promotions/staging-production.json",
+        dryRun: true,
+      },
+      dependencies,
+    );
+    await executeToolkitCommand(
+      {
+        kind: "release-record-promotion",
+        stagingSha: "a".repeat(40),
+        mainSha: "b".repeat(40),
+        promotedAt: "2026-09-06T12:00:00+09:00",
+        pullRequest: 2520,
+        contentRecord: "docs/content-modification-records/release.md",
+        historyPath: "docs/release-promotions/staging-production.json",
+        dryRun: true,
+      },
+      dependencies,
+    );
 
     expect(calls).toEqual([
       ["pr", "boss-red", true],
       ["deploy-test", "boss-red", false],
+    ]);
+    expect(productionCalls).toEqual([
+      "promote:release/candidate",
+      `record:${"b".repeat(40)}`,
     ]);
   });
 });

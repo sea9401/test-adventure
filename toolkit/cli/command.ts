@@ -47,7 +47,29 @@ export type ToolkitCommand =
       dryRun: boolean;
     }
   | { kind: "release-pr"; taskId: string; dryRun: boolean }
-  | { kind: "release-deploy-test"; taskId: string; dryRun: boolean };
+  | { kind: "release-deploy-test"; taskId: string; dryRun: boolean }
+  | {
+      kind: "release-promote-staging";
+      worktreePath: string;
+      branch: string;
+      stagingSha?: string;
+      historyPath: string;
+      dryRun: boolean;
+    }
+  | {
+      kind: "release-record-promotion";
+      stagingSha: string;
+      mainSha: string;
+      promotedAt: string;
+      pullRequest: number;
+      contentRecord: string;
+      patchNotes?: string;
+      historyPath: string;
+      dryRun: boolean;
+    };
+
+const DEFAULT_PROMOTION_HISTORY =
+  "docs/release-promotions/staging-production.json";
 
 export class ToolkitUsageError extends Error {
   constructor(message: string) {
@@ -256,6 +278,55 @@ function parseRelease(
     : { kind: "release-deploy-test", taskId, dryRun: parsed.dryRun };
 }
 
+function parsePromoteStaging(argv: readonly string[]): ToolkitCommand {
+  const parsed = parseTail(argv, [
+    "--worktree",
+    "--branch",
+    "--staging-sha",
+    "--history",
+  ]);
+  requirePositionals(parsed.positionals, []);
+  return {
+    kind: "release-promote-staging",
+    worktreePath: requireFlag(parsed.values, "--worktree"),
+    branch: requireFlag(parsed.values, "--branch"),
+    stagingSha: parsed.values.get("--staging-sha"),
+    historyPath:
+      parsed.values.get("--history") ?? DEFAULT_PROMOTION_HISTORY,
+    dryRun: parsed.dryRun,
+  };
+}
+
+function parseRecordPromotion(argv: readonly string[]): ToolkitCommand {
+  const parsed = parseTail(argv, [
+    "--staging-sha",
+    "--main-sha",
+    "--promoted-at",
+    "--pr",
+    "--content-record",
+    "--patch-notes",
+    "--history",
+  ]);
+  requirePositionals(parsed.positionals, []);
+  const pullRequestValue = requireFlag(parsed.values, "--pr");
+  const pullRequest = Number(pullRequestValue);
+  if (!Number.isSafeInteger(pullRequest) || pullRequest <= 0) {
+    throw new ToolkitUsageError("--pr must be a positive integer");
+  }
+  return {
+    kind: "release-record-promotion",
+    stagingSha: requireFlag(parsed.values, "--staging-sha"),
+    mainSha: requireFlag(parsed.values, "--main-sha"),
+    promotedAt: requireFlag(parsed.values, "--promoted-at"),
+    pullRequest,
+    contentRecord: requireFlag(parsed.values, "--content-record"),
+    patchNotes: parsed.values.get("--patch-notes"),
+    historyPath:
+      parsed.values.get("--history") ?? DEFAULT_PROMOTION_HISTORY,
+    dryRun: parsed.dryRun,
+  };
+}
+
 export function parseToolkitCommand(argv: readonly string[]): ToolkitCommand {
   if (argv[0] === "content" && argv[1] === "create") {
     return parseContentCreate(argv.slice(2));
@@ -287,6 +358,12 @@ export function parseToolkitCommand(argv: readonly string[]): ToolkitCommand {
   if (argv[0] === "release" && argv[1] === "deploy-test") {
     return parseRelease("deploy-test", argv.slice(2));
   }
+  if (argv[0] === "release" && argv[1] === "promote-staging") {
+    return parsePromoteStaging(argv.slice(2));
+  }
+  if (argv[0] === "release" && argv[1] === "record-promotion") {
+    return parseRecordPromotion(argv.slice(2));
+  }
 
   throw new ToolkitUsageError("unknown or missing toolkit command");
 }
@@ -303,5 +380,7 @@ export function toolkitUsage(): string {
     "  npm run toolkit -- images review <task-id> --role <role> --decision <accept|reject> --reason <reason> [--dry-run]",
     "  npm run toolkit -- verify <fast|full> <task-id> [--dry-run]",
     "  npm run toolkit -- release <pr|deploy-test> <task-id> [--dry-run]",
+    "  npm run toolkit -- release promote-staging --worktree </tmp/path> --branch <release/name> [--staging-sha <sha>] [--history <path>] [--dry-run]",
+    "  npm run toolkit -- release record-promotion --staging-sha <sha> --main-sha <sha> --promoted-at <iso> --pr <number> --content-record <path> [--patch-notes <path>] [--history <path>] [--dry-run]",
   ].join("\n");
 }

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "promotions": [
+    {
+      "stagingSha": "15b031e1f45901c27c515a0754ebcebea7018b47",
+      "mainSha": "39e9d6f78465999a8afd4d375489913ed442945b",
+      "promotedAt": "2026-09-05T04:51:54+09:00",
+      "pullRequest": 2518,
+      "contentRecord": "docs/content-modification-records/2026-09-05-unexplored-production.md"
+    }
+  ]
+}

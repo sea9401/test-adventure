@@ -10,6 +10,10 @@ import { CommandRunner } from "../core/commandRunner";
 import { TaskStateStore } from "../core/taskState";
 import { runStagingRelease } from "../pipelines/stagingRelease";
 import {
+  prepareStagingPromotion,
+  recordStagingPromotion,
+} from "../pipelines/productionPromotion";
+import {
   createReadlineInteractiveIo,
   promptForToolkitCommand,
   shouldPromptInteractively,
@@ -81,6 +85,35 @@ async function main(argv: readonly string[]): Promise<void> {
             store,
             report,
           });
+          return 0;
+        },
+        promoteStaging: async (promotionCommand) => {
+          await prepareStagingPromotion(
+            {
+              worktreePath: promotionCommand.worktreePath,
+              branch: promotionCommand.branch,
+              stagingSha: promotionCommand.stagingSha,
+              historyPath: promotionCommand.historyPath,
+              dryRun: promotionCommand.dryRun,
+            },
+            { projectRoot, report },
+          );
+          return 0;
+        },
+        recordPromotion: async (promotionCommand) => {
+          await recordStagingPromotion(
+            {
+              stagingSha: promotionCommand.stagingSha,
+              mainSha: promotionCommand.mainSha,
+              promotedAt: promotionCommand.promotedAt,
+              pullRequest: promotionCommand.pullRequest,
+              contentRecord: promotionCommand.contentRecord,
+              patchNotes: promotionCommand.patchNotes,
+              historyPath: promotionCommand.historyPath,
+              dryRun: promotionCommand.dryRun,
+            },
+            { projectRoot, report },
+          );
           return 0;
         },
       },

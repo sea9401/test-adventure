@@ -85,6 +85,22 @@ describe("V2MarketplaceView request timing", () => {
     vi.unstubAllGlobals();
   });
 
+  it("coalesces visibility refreshes while a browse read is pending", async () => {
+    let resolveBrowse!: (response: Response) => void;
+    const pending = new Promise<Response>((resolve) => { resolveBrowse = resolve; });
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) =>
+      String(input).includes("/browse") ? pending : responseFor(String(input)),
+    );
+    render(<RewardToastProvider><V2MarketplaceView onBack={() => {}} /></RewardToastProvider>);
+    const browseCalls = () => fetchMock.mock.calls.filter(([input]) => String(input).includes("/browse"));
+    await waitFor(() => expect(browseCalls()).toHaveLength(1));
+    fireEvent(document, new Event("visibilitychange"));
+    fireEvent(document, new Event("visibilitychange"));
+    expect(browseCalls()).toHaveLength(1);
+    resolveBrowse(responseFor("/browse"));
+    await waitFor(() => expect(screen.queryByText("불러오는 중…")).toBeNull());
+  });
+
   it("does not load buy orders or price alerts on the initial browse tab", async () => {
     render(
       <RewardToastProvider>
@@ -448,4 +464,16 @@ describe("V2MarketplaceView request timing", () => {
       );
     });
   });
+
+it("선택한 24시간을 장비 등록 요청에 전달한다",async()=>{
+  ownedEquipment=[{iid:"duration-sword",id:"v2_iron_sword"}];
+  render(<RewardToastProvider><V2MarketplaceView onBack={()=>{}} /></RewardToastProvider>);
+  fireEvent.click(screen.getByRole("button",{name:/판매.*아이템 올리기/}));
+  await screen.findByText("철검");
+  fireEvent.change(screen.getByLabelText("경매 등록 시간"),{target:{value:"24"}});
+  fireEvent.change(screen.getByPlaceholderText("시작 입찰가"),{target:{value:"1000"}});
+  fireEvent.click(screen.getByRole("button",{name:"등록"}));
+  await waitFor(()=>expect(fetchMock.mock.calls.some(([url,init])=>String(url).endsWith("/marketplace/list") && JSON.parse(String(init?.body)).durationHours===24)).toBe(true));
+});
+
 });

@@ -197,6 +197,7 @@ export async function GET(_req: Request, { params }: Ctx) {
       damageDealt: coopBossAttackLog.damageDealt,
       damageTaken: coopBossAttackLog.damageTaken,
       diedEarly: coopBossAttackLog.diedEarly,
+      isSupport: coopBossAttackLog.isSupport,
       createdAt: coopBossAttackLog.createdAt,
     })
     .from(coopBossAttackLog)
@@ -252,6 +253,7 @@ export async function GET(_req: Request, { params }: Ctx) {
       summonedByName: session.summonedByName,
       // 코어루프 — 현재 공개 범위 + 소환자(본인) 여부. 소환자만 상세에서 범위 변경 가능.
       visibility: parseCoopVisibility(session.visibility),
+      allowFreeSupport: session.allowFreeSupport === true,
       isOwner: session.summonerId === userId,
     },
     my: {

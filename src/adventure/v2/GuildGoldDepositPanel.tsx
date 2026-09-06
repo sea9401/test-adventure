@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useGameState } from "./GameStateProvider";
+import { useGameResourceState } from "./GameResourceContext";
 import { NumberInput, parseAmount } from "@/components/ui/NumberInput";
 import { useSystemToast } from "./RewardToastProvider";
 import {
@@ -25,7 +25,7 @@ export function GuildGoldDepositPanel({
   // 입금 성공 후 호출 — 부모(길드 정보)가 길드 자금·활동 내역을 다시 받아오게.
   onChanged?: () => void;
 }) {
-  const { gold, bankedGold, setGold, setBankedGold } = useGameState();
+  const { gold, bankedGold, setGold, setBankedGold } = useGameResourceState();
   const [guildGold, setGuildGold] = useState<number | null>(null);
   const [amountText, setAmountText] = useState("");
   const [busy, setBusy] = useState(false);

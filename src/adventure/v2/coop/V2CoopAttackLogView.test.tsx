@@ -21,7 +21,7 @@ const replay: ReplayPayload = {
   log: [],
 };
 
-function successfulResponse() {
+function successfulResponse(isSupport = false) {
   return new Response(
     JSON.stringify({
       ok: true,
@@ -32,6 +32,7 @@ function successfulResponse() {
         damageDealt: 12_345,
         damageTaken: 678,
         diedEarly: false,
+        isSupport,
         isMe: false,
         avatar: "male1",
         profileBorder: null,
@@ -49,6 +50,12 @@ afterEach(() => {
 });
 
 describe("V2CoopAttackLogView", () => {
+  it("무료 지원 기록에는 보상이 없음을 표시한다", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(successfulResponse(true)));
+    render(<V2CoopAttackLogView sessionId="session-1" attackId="17" viewerGender="male1" onBack={() => {}} />);
+    expect(await screen.findByText(/무료 지원 · 스태미나 소모/)).toBeTruthy();
+  });
+
   it("links another participant's name directly to their public profile", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(successfulResponse()));
 

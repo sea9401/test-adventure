@@ -503,3 +503,19 @@ describe("loadoutEquipmentForApply — 보유(iid) 슬롯만", () => {
     expect(loadoutEquipmentForApply(lo, owned)).toEqual({ weapon: "w1", ring: "r1" });
   });
 });
+
+
+describe("아레나 결계 조건 요약", () => {
+  it.each([
+    ["physicalWard", "금강결계"],
+    ["magicWard", "봉마결계"],
+    ["purificationWard", "정화결계"],
+  ] as const)("%s의 없음·횟수 조건을 표시한다", (resource, label) => {
+    expect(arenaPatternConditionSummary({
+      kind: "self_resource", resource, op: "none", value: 0,
+    })).toBe(`내 ${label} 없음`);
+    expect(arenaPatternConditionSummary({
+      kind: "self_resource", resource, op: "atMost", value: 1,
+    })).toBe(`내 ${label} 1 이하`);
+  });
+});

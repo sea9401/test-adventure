@@ -1301,7 +1301,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_shadow_lethality3: {
     id: "v2c_shadow_lethality3", name: "필살", stat: "luk", category: "passive", tier: 3,
-    description: "급소를 노리는 일격. 치명타 피해가 크게 오른다.", mpCost: 0, cooldown: 0,
+    description: "급소를 노리는 일격. 기본 공격의 치명타 피해가 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { critDmgPct: 25 }, // 크리축 차수 단조 — 그림자=3차(2차20<3차25<4차30).
   },
@@ -1496,7 +1496,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_veteran_lethal: {
     // 전사 심화 — 치명 피해(중장갑 라인의 딜 마무리). str% 는 견습기사·방어%는 기사가 유지.
     id: "v2c_veteran_lethal", name: "필살 II", stat: "str", category: "passive", tier: 3,
-    description: "한 방에 모든 것을 싣는다. 치명타 피해가 오른다.", mpCost: 0, cooldown: 0,
+    description: "한 방에 모든 것을 싣는다. 기본 공격의 치명타 피해가 오른다.", mpCost: 0, cooldown: 0,
     effects: [], spCost: 5,
     passive: { critDmgPct: 30 }, // 크리축 차수 단조 — 정예 기사=4차 최상(2차20<3차25<4차30·25→30).
   },
@@ -1915,7 +1915,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_swordmaster_focus: {
     id: "v2c_swordmaster_focus", name: "검의 집중", stat: "str", category: "passive", tier: 3,
-    description: "칼끝을 흐트러뜨리지 않는다. 힘과 치명타 피해가 오른다.",
+    description: "칼끝을 흐트러뜨리지 않는다. 힘과 기본 공격의 치명타 피해가 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { statPct: { str: 18 }, critDmgPct: 25 },
@@ -2181,7 +2181,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_nightshade_cloak: {
     id: "v2c_nightshade_cloak", name: "은신 II", stat: "luk", category: "passive", tier: 3,
-    description: "어둠 속에서 몸을 숨기고 급소를 정확히 찌른다. 회피와 치명타 확률·피해, 명중이 오른다.",
+    description: "어둠 속에서 몸을 숨기고 급소를 정확히 찌른다. 회피와 명중, 치명타 확률, 기본 공격의 치명타 피해가 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { evasionPct: 18, critPct: 8, critDmgPct: 20, accuracyPct: 15 },

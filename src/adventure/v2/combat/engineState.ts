@@ -63,6 +63,8 @@ export type BattleLogEntry =
        * 이 필드가 없으며, BattleLogList가 대괄호 라벨로 폴백 판별한다.
        */
       effect?: "status" | "status_damage" | "extra_damage";
+      /** 추가 피해의 실제 HP 적용량. 옛 PvP 텍스트는 방어 전 값이므로 UI 합산에 쓰지 않는다. */
+      additionalHpDamage?: number;
       /**
        * 성공한 액티브 스킬 시전의 구조화된 행동 경계. 피해·회복처럼 별도 행동 행이 없는
        * 유틸 스킬도 UI가 정확히 한 개의 행동 카드로 묶을 수 있게 한다.
@@ -731,6 +733,8 @@ export type PlayerCombat = {
   enchantBreakerBossBonusPct?: number;
   // 흡혈(lifesteal) — 가한 피해의 % 만큼 HP 회복. runeLifestealPct 와 합산되는 별개 라벨. 0/undefined = 미보유.
   enchantLifestealPct?: number;
+  // 불사의 순교/불사마혈 — 직접 공격으로 실제 깎은 HP의 %를 회복한다.
+  passiveLifestealPct?: number;
   // 중독 — 적중 시 tagged DoT 로 중독 1스택. 최대HP 비례 + ATK cap, DEF 무시.
   poisonOnHit?: { pctMaxHpPerStack: number };
   // 처형(execute) — 적 HP 25% 이하일 때 추가 피해(%). executionDamageMult 가 0 이면 25%/1+pct 로 자동 시드,

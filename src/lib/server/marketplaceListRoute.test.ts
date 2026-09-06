@@ -395,3 +395,21 @@ describe("거래소 레어맵 등록", () => {
     expect(insertValues).toHaveLength(0);
   });
 });
+
+
+describe("경매 등록 기간 검증", () => {
+  beforeEach(() => {insertValues.length = 0;store.clear();vi.clearAllMocks();});
+  it.each([6,12,24])("선택한 %i시간을 매물에 저장한다", async (durationHours) => {
+    store.set("character.v2", {});
+    store.set("equipment.v2", {owned:[{iid:"duration-sword",id:"v2_iron_sword"}],equipped:{}});
+    const response = await POST(new Request("http://test/api/v2/marketplace/list",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({kind:"equip",iid:"duration-sword",price:100,durationHours})}));
+    expect(response.status).toBe(200);
+    const listing = insertValues.find((v) => (v as {kind?:string}).kind === "equip") as {createdAt:Date;bidEndsAt:Date};
+    expect(listing.bidEndsAt.getTime()-listing.createdAt.getTime()).toBe(durationHours*3600000);
+  });
+  it.each([0,7,48,"12",null])("잘못된 기간 %s는 아이템을 차감하지 않는다",async(durationHours)=>{
+    const response = await POST(new Request("http://test/api/v2/marketplace/list",{method:"POST",body:JSON.stringify({kind:"equip",iid:"duration-sword",price:100,durationHours})}));
+    expect(await response.json()).toMatchObject({error:"bad_duration"});
+    expect(insertValues).toHaveLength(0);expect(upsertSave).not.toHaveBeenCalled();
+  });
+});

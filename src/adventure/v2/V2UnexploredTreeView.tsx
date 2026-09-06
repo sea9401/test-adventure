@@ -44,6 +44,7 @@ import {
 } from "./unexploredTreeModel";
 import { unexploredNodeRadius } from "./unexploredTreeGeometry";
 import { UnexploredTreeViewport } from "./UnexploredTreeViewport";
+import { useGameResourceState } from "./GameResourceContext";
 
 const CRAFTING_LOCKED_TEXT =
   "우두머리의 흔적 노드를 활성화하면 제작할 수 있습니다.";
@@ -129,6 +130,7 @@ export function V2UnexploredTreeView({
   onOpenSession?: (sessionId: string) => void;
 }) {
   const { notifySystem } = useSystemToast();
+  const { applyResourcePatch } = useGameResourceState();
   const [snapshot, setSnapshot] = useState(initialSnapshot);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
     initialSnapshot?.selectedNodeIds[0] ?? null,
@@ -202,6 +204,10 @@ export function V2UnexploredTreeView({
         throw new Error(ERROR_TEXT[body.error ?? ""] ?? body.error ?? "변경 실패");
       }
       setSnapshot(body.snapshot);
+      applyResourcePatch({
+        gold: body.snapshot.gold,
+        bankedGold: body.snapshot.bankedGold,
+      });
       notifySystem(
         mutation.action === "activate_path"
           ? `✓ 탐사 노드 ${nodeCount.toLocaleString()}개를 활성화했습니다.`
@@ -253,6 +259,7 @@ export function V2UnexploredTreeView({
         throw new Error(ERROR_TEXT[body.error ?? ""] ?? body.error ?? "제작 실패");
       }
       pendingCraftRequestIds.current[bossId] = undefined;
+      applyResourcePatch({ gold: body.gold, bankedGold: body.bankedGold });
       setSnapshot((current) =>
         current
           ? {
@@ -654,6 +661,23 @@ export function V2UnexploredTreeView({
                 <p className="text-sm leading-6 text-zinc-600 dark:text-zinc-300">
                   {selected.description}
                 </p>
+                {model.routePointPreview && (
+                  <div className={`${SURFACE_INSET} mt-3 p-3 text-sm`}>
+                    <p className="font-medium">
+                      최단 경로 · 탐사 포인트 {model.routePointPreview.required.toLocaleString()}개 필요
+                    </p>
+                    <p className={model.routePointPreview.shortfall > 0
+                      ? "text-amber-700 dark:text-amber-300"
+                      : "text-zinc-600 dark:text-zinc-300"}>
+                      사용 가능 {model.routePointPreview.available.toLocaleString()}개
+                      {model.routePointPreview.shortfall > 0 &&
+                        ` · ${model.routePointPreview.shortfall.toLocaleString()}개 부족`}
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      목표 노드 포함 · 이미 활성화한 노드 제외
+                    </p>
+                  </div>
+                )}
                 <div className={`${SURFACE_INSET} mt-3 p-3 text-sm`}>
                   <p className="font-medium">난이도</p>
                   <p>

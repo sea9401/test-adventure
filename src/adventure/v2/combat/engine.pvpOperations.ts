@@ -1,52 +1,46 @@
+import { combatRandom } from "./combatRandom";
+import { recordCombatDamage, recordCombatDotDamage, recordCombatMetric } from "./combatDiagnostics";
 import { computeMpRestoreAmount, type Potion } from "@/adventure/data/potions";
 import {
-  applyEvasionDamageReduction,
   BLEED_MAX_STACKS,
-  cappedDefReductionPct,
-  EVASION_DAMAGE_REDUCTION_MAX_PCT,
   HEAVEN_DECREE_HP_PCT,
   LUCKY_STAR_DAMAGE_MULT,
-  pvpEvasionDamageReductionPct,
   RAMPAGE_START_TURN,
 } from "@/adventure/data/v2/v2CombatConstants";
-import { aggregateEquippedPassives, V2_SKILLS } from "@/adventure/data/v2/v2Skills";
+import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
 import {
   finishBerserkerCurrentActionGuard,
   finishBerserkerPlayerAttack,
-  initialBerserkerCombatState,
   type BerserkerCombatState,
 } from "./berserkerCombat";
 import {
   applyPlayerPoisonDamageScaling,
   applyV2DotsToTarget,
-  decrementTimedBuffs,
+  damageBetween,
   distributeV2DotTicks,
   healingAfterReceivedMultiplier,
   makeBleedDot,
   makePoisonDot,
   potionHealAmount,
-  rollAttackCount,
   statusDamageAfterReduction,
   tickV2Dots,
   v2AtkBuffMult,
   v2DefBuffMult,
   v2DotLogCause,
-  type V2SkillDotApply,
 } from "./combatShared";
-import { appendLog } from "./engineSupport";
-import { damageBetween } from "./combatShared";
-import { type BattleLogEntry, type PlayerCombat } from "./engineState";
-import { reducedMagicDefense } from "./engine.damageHelpers";
-import { scalePositivePvPValue, scalePvPDamage, scalePvPHealing } from "./engine.pvpScaling";
+import { scalePvPDamage, scalePvPHealing } from "./engine.pvpScaling";
+import { setSide } from "./engine.pvpSide";
+import { type PvPBattleState, type PvPPhaseEndOptions, type PvPSide } from "./engine.pvpState";
 import {
-  type PvPBattleState,
-  type PvPPhase,
-  type PvPPhaseEndOptions,
-  type PvPSide,
-  type PvPSideBuffs,
-} from "./engine.pvpState";
+  attackerAtkWithMadness,
+  attackerFacingDef,
+  effectiveAttackerAtk,
+  mitigatePvPReflectDamage,
+  playerPvpEvasionReductionPct,
+  rollPvPAttackCount,
+} from "./engine.pvpStats";
+import { appendLog } from "./engineSupport";
 import { consumeReactiveDefenseCharges, resolveFortressReaction } from "./fortressKnight";
-import { emptyLawInscriptionState } from "./lawInscription";
 import { magicBarrierCombatLogEntries, resolveMagicBarrierDamage } from "./magicBarrier";
 import { effectiveMutationDef } from "./mutationCombat";
 import {
@@ -54,23 +48,35 @@ import {
   applyBerserkerHostileDamagePvP,
   resolvePvPHostileDamageSurvival,
 } from "./pvpHostileDamage";
-import { type PvPInitiativeActor } from "./pvpInitiative";
 import { recordChargeHpLoss } from "./ruinBladeCombat";
-import { releaseSwordShadow } from "./shadowBladeCombat";
+import { releaseSwordShadowAfterPvPAction } from "./engine.pvpShadow";
+export { releaseSwordShadowAfterPvPAction } from "./engine.pvpShadow";
 import {
-  battleStartShield,
   healToShield,
   onDodgeSpeedBuff,
   resolveTrackedShieldAbsorption,
   rollEvasionActionRecovery,
   statusBlockOnce,
-  trackedBattleStartShield,
   trackedShieldBreakEffect,
 } from "./signatureEffects";
-import { hasTier6Unique, initialTier6UniqueRuntime } from "./tier6UniqueEffects";
 import { applyTier6UniquePvpEvent } from "./tier6UniquePvpAdapter";
-import { consumePurificationWard, initialTripleWardState } from "./tripleWard";
-
+import { consumePurificationWard } from "./tripleWard";
+export { buildSide, initialBattleStatePvP } from "./engine.pvpInitialState";
+export { actorKeys, setSide } from "./engine.pvpSide";
+export {
+  applyPoisonDamageToDots,
+  attackerAtkWithMadness,
+  attackerFacingDef,
+  decrementTimedEffects,
+  effectiveAttackerAtk,
+  effectivePvPAccuracyRating,
+  mitigatePvPReflectDamage,
+  playerPvpEvasionReductionPct,
+  rollPvPAttackCount,
+  sideHasDot,
+  skillTargetDef,
+  skillTargetMagicDef,
+} from "./engine.pvpStats";
 export function applyTrackedSetShieldAbsorptionPvP(
   side: PvPSide,
   shieldAbsorbed: number,
@@ -137,80 +143,12 @@ export function applyTrackedSetShieldAbsorptionPvP(
 }
 
 
-export function effectivePvPAccuracyRating(side: PvPSide): number {
-  const baseAccuracy = side.player.accRating ?? side.player.accuracyPct ?? 0;
-  const accuracyDownPct =
-    side.stacks.accuracyDownTurns > 0 ? side.stacks.accuracyDownPct : 0;
-  return Math.max(
-    0,
-    baseAccuracy *
-      (1 - Math.min(100, Math.max(0, accuracyDownPct)) / 100),
-  );
-}
-
-
-export function playerPvpEvasionReductionPct(
-  state: PvPBattleState,
-  who: "p1" | "p2",
-): number {
-  const actor = state[who];
-  const opponent = state[who === "p1" ? "p2" : "p1"];
-  const luckEvadeBonus = actor.flags.luckyBuffActive
-    ? actor.player.doubleLuck?.evade ?? 0
-    : 0;
-  const temporaryEvasionIncreasePct =
-    luckEvadeBonus +
-    (actor.player.universalLuckBonusPct ?? 0) +
-    actor.buffs.cyclingChiBonus +
-    (actor.stacks.skillEvasionTurns > 0 ? actor.stacks.skillEvasionPct : 0);
-  const precisionMult = opponent.player.precisionEvasionMult ?? 1;
-  const evasionRating = Math.max(
-    0,
-    (actor.player.evaRating ?? actor.player.evasionPct ?? 0) *
-      precisionMult *
-      (1 + Math.max(0, temporaryEvasionIncreasePct) / 100),
-  );
-  return Math.min(
-    EVASION_DAMAGE_REDUCTION_MAX_PCT,
-    pvpEvasionDamageReductionPct(
-      evasionRating,
-      effectivePvPAccuracyRating(opponent),
-    ) + Math.max(0, actor.player.finalEvasionReductionPctAdd ?? 0),
-  );
-}
-
-
-export function mitigatePvPReflectDamage(
-  state: PvPBattleState,
-  recipientKey: "p1" | "p2",
-  reflectorKey: "p1" | "p2",
-  rawDamage: number,
-): number {
-  if (rawDamage <= 0) return 0;
-  const recipient = state[recipientKey];
-  const reflector = state[reflectorKey];
-  const defMult = v2DefBuffMult(
-    recipient.v2SelfBuffs,
-    recipient.v2SelfDebuffs,
-  );
-  const effectiveDef = attackerFacingDef(reflector, recipient);
-  const defenseDamage = damageBetween(
-    rawDamage,
-    defMult !== 1 ? Math.floor(effectiveDef * defMult) : effectiveDef,
-  );
-  const evasionDamage = applyEvasionDamageReduction(
-    rawDamage,
-    playerPvpEvasionReductionPct(state, recipientKey),
-  );
-  return Math.min(defenseDamage, evasionDamage);
-}
-
 
 // PvP 소유자 행동 시작 회복. 회복량에는 해당 전투 표면의 sustain 배율을 적용한다.
 export function applyEvasionActionRecoveryPvP(
   state: PvPBattleState,
   who: "p1" | "p2",
-  roll: () => number = Math.random,
+  roll: () => number = combatRandom,
 ): PvPBattleState {
   const actor = state[who];
   const recovery = rollEvasionActionRecovery(
@@ -227,6 +165,7 @@ export function applyEvasionActionRecoveryPvP(
   );
   const nextHp = Math.min(actor.maxHp, actor.hp + scaled);
   const actual = nextHp - actor.hp;
+  recordCombatMetric("healing", "evasion_recovery", who, actual);
   if (actual <= 0) return state;
   const shield = healToShield(actor.player.equipSignatures, {
     actualHeal: actual,
@@ -264,123 +203,6 @@ export function applyEvasionActionRecoveryPvP(
   return next;
 }
 
-
-// 공격자가 마주하는 방어자의 effective DEF — analysis 누적 페널티(자기 측 buffs 에 기록) 차감.
-// armorPierceFraction 비례 관통 적용. 분쇄/암살/약점은 호출 측에서 별도 처리.
-// 약점 노출 (attacker 측 enemyDefDebuffPct) 활성 시 위 모든 감산 후 비례 차감.
-// 광기 (defender 측 playerDefDebuffPct) 활성 시 방어자 자신의 effective DEF 더 깎임.
-export function attackerFacingDef(
-  attacker: PvPSide,
-  defender: PvPSide,
-  // 발동턴 AP 시한부 버프(약점 노출 등) 적용을 위해 attacker buffs 를 별도 인자로 받을 수 있음.
-  // 호출 측에서 시한부 버프가 반영된 buffs 를 전달(없으면 attacker.buffs).
-  attackerBuffs: PvPSideBuffs = attacker.buffs,
-): number {
-  const braceDefBonus = defender.stacks.braceDefBonus ?? 0;
-  const raw = Math.max(
-    0,
-    effectiveMutationDef(
-      defender.player.def + braceDefBonus,
-      defender.stacks.mutationWeight,
-      defender.player.stoneskinDefPctPerWeight ?? 0,
-    ) - attackerBuffs.opponentDefPenalty,
-  );
-  const frac = attacker.player.armorPierceFraction ?? 0;
-  let afterPierce = frac > 0 ? Math.round(raw * (1 - frac)) : raw;
-  const physicalReductionPct = cappedDefReductionPct(
-    defender.buffs.playerDefDebuffTurnsLeft > 0
-      ? defender.buffs.playerDefDebuffPct
-      : 0,
-    attackerBuffs.enemyDefDebuffTurnsLeft > 0
-      ? attackerBuffs.enemyDefDebuffPct
-      : 0,
-    attacker.player.enemyPhysicalDefReductionPct ?? 0,
-    sideHasDot(defender, "poison")
-      ? attacker.player.poisonedEnemyDefReductionPct ?? 0
-      : 0,
-  );
-  if (physicalReductionPct > 0) {
-    afterPierce = Math.round(
-      afterPierce * (1 - physicalReductionPct / 100),
-    );
-  }
-  return Math.max(0, afterPierce);
-}
-
-
-// AP 지속 효과 라운드 카운터 -1. 새 attacker 페이즈 진입 시 호출.
-// pct/mult 값은 그대로 두지만 turnsLeft 가 0 이면 적용 쪽에서 무시.
-export function decrementTimedEffects(buffs: PvPSideBuffs): PvPSideBuffs {
-  return decrementTimedBuffs(buffs);
-}
-
-
-// 공격자가 가하는 effective ATK — analysis 페널티는 방어자 측 buffs 에 기록 (이 사이드의 적이 나에게
-// 적용한 페널티). 그래서 effectiveAtk = attacker.atk - defender.buffs.opponentAtkPenalty.
-// 자신 ATK + 광기(AP 시한부 ATK 버프) — 분신·난무·반사회피 raw 추정용 헬퍼.
-export function attackerAtkWithMadness(attacker: PvPSide): number {
-  const buffPct =
-    attacker.buffs.playerAtkBuffTurnsLeft > 0 ? attacker.buffs.playerAtkBuffPct : 0;
-  const bonus = buffPct > 0 ? Math.floor((attacker.player.atk * buffPct) / 100) : 0;
-  return attacker.player.atk + bonus;
-}
-
-
-export function effectiveAttackerAtk(attacker: PvPSide, defender: PvPSide): number {
-  return Math.max(
-    0,
-    attackerAtkWithMadness(attacker) +
-      attacker.buffs.rampageAtkBonus -
-      defender.buffs.opponentAtkPenalty,
-  );
-}
-
-
-export function sideHasDot(side: PvPSide, tag: import("./combatShared").V2DotTag): boolean {
-  return side.v2Dots.some((d) => d.tag === tag && d.stacks > 0 && d.turns > 0);
-}
-
-
-export function skillTargetDef(attacker: PvPSide, defender: PvPSide): number {
-  // 평타와 같은 방어 관통·전투 중 페널티·상시 감소·부식을 그대로 사용한다.
-  // attackerFacingDef 가 부식을 이미 적용하므로 이 경로에서 다시 감산하지 않는다.
-  return attackerFacingDef(attacker, defender);
-}
-
-
-export function skillTargetMagicDef(attacker: PvPSide, defender: PvPSide): number {
-  const base = defender.player.magicDef ?? defender.player.def;
-  const reductionPct = cappedDefReductionPct(
-    (attacker.buffs.enemyMagicDefDebuffTurnsLeft ?? 0) > 0
-      ? attacker.buffs.enemyMagicDefDebuffPct ?? 0
-      : 0,
-    attacker.player.enemyMagicDefReductionPct ?? 0,
-  );
-  return reducedMagicDefense(
-    base,
-    reductionPct,
-  );
-}
-
-
-export function applyPoisonDamageToDots(
-  dots: readonly V2SkillDotApply[],
-  player: PlayerCombat,
-): V2SkillDotApply[] {
-  return applyPlayerPoisonDamageScaling(dots, player.poisonDamagePct);
-}
-
-
-export function rollPvPAttackCount(attacker: PvPSide, defender: PvPSide): number {
-  const bonus = attacker.player.extraAttackChancePctWhileEnemyBleeding ?? 0;
-  if (bonus <= 0 || !sideHasDot(defender, "bleed")) {
-    return rollAttackCount(attacker.player);
-  }
-  return rollAttackCount({
-    ...attacker.player,
-    extraAttackChancePct: (attacker.player.extraAttackChancePct ?? 0) + bonus,
-  });
-}
 
 
 export function applyPvPOnHitDots(
@@ -448,174 +270,6 @@ export function applyPvPOnHitDots(
 }
 
 
-// 사이드 갱신 헬퍼 — p1 또는 p2 슬롯에 새 사이드 객체 박기.
-export function setSide(
-  state: PvPBattleState,
-  which: "p1" | "p2",
-  next: PvPSide,
-): PvPBattleState {
-  return which === "p1" ? { ...state, p1: next } : { ...state, p2: next };
-}
-
-
-// 현 phase 에서 (attacker, defender) 키 결정.
-export function actorKeys(phase: PvPPhase): { atkKey: "p1" | "p2"; defKey: "p1" | "p2" } {
-  if (phase === "p1") return { atkKey: "p1", defKey: "p2" };
-  return { atkKey: "p2", defKey: "p1" };
-}
-
-
-// ── 초기화 ──────────────────────────────────────────────────────────────────
-
-export function buildSide(
-  player: PlayerCombat,
-  name: string,
-  v2Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
-  sustainMultiplier = 1,
-): PvPSide {
-  const sigStartShield = battleStartShield(player.equipSignatures, player.maxHp);
-  const rawStartShield =
-    (player.bulwarkShield ?? 0) + (sigStartShield?.amount ?? 0);
-  const startShield = scalePositivePvPValue(
-    rawStartShield,
-    sustainMultiplier,
-  );
-  const trackedStartShield = trackedBattleStartShield(
-    player.equipSignatures,
-    player.maxHp,
-  );
-  const scaledTrackedStartShield = trackedStartShield
-    ? scalePositivePvPValue(trackedStartShield.amount, sustainMultiplier)
-    : 0;
-  const sideMaxMp = Math.max(0, player.maxMp ?? 0);
-  const maxMagicBarrier = Math.max(0, player.magicBarrierMax ?? 0);
-  const berserkerLineageEquipped = v2Skills.equipped.some((skillId) =>
-    skillId === "v2c_berserker_bloodslash" ||
-    skillId === "v2c_warlord_bloodbath" ||
-    skillId === "v2c_overlord_ruin" ||
-    skillId === "v2c_hegemon_annihilation",
-  );
-  const tripleWardRank = aggregateEquippedPassives(v2Skills.equipped)
-    .tripleWardRank;
-  return {
-    player,
-    name,
-    v2Skills,
-    v2SkillCooldowns: {},
-    v2SelfBuffs: {},
-    v2SelfDebuffs: {},
-    v2Dots: [],
-    hp: player.hp,
-    maxHp: player.maxHp,
-    mp: sideMaxMp, // 매치 시작 풀충전 (단판 모델). 토너먼트는 매치마다 다시 풀충전.
-    maxMp: sideMaxMp,
-    magicBarrier: maxMagicBarrier,
-    maxMagicBarrier,
-    ...((player.berserkerMadnessRank ?? 0) > 0 || berserkerLineageEquipped
-      ? { berserker: initialBerserkerCombatState() }
-      : {}),
-    attacksLeft: 0, // initialBattleStatePvP 에서 선공 측만 채움
-    nextTurnAttackBonus: 0,
-    turn: {
-      completedPlayerTurns: 0,
-      enemyPhasesCompleted: 0,
-      firstAttackPending: true,
-      doubleStrikeUsedThisTurn: false,
-      lightspeedUsedThisTurn: false,
-      galeChainsThisTurn: 0,
-      critThisTurn: false,
-      riposteUsedThisTurn: false,
-      weakpointUsedThisTurn: false,
-      fatedChainTriggeredThisTurn: false,
-      focusedBreathCritDmgBonusPct: 0,
-      queuedExtraAttacks: 0,
-      // PvP 엔진은 양쪽 player 라 enemy phase 자체가 없음 — 필드만 채워 BattleTurnState 형식 만족.
-      enemyAttacksLeft: 0,
-    },
-    flags: {
-      enduranceTriggered: false,
-      assassinateUsed: false,
-      luckyBuffActive: false,
-      fatedChainCritPending: false,
-      skillCritAfterEvadePending: false,
-      statusBlockUsed: false,
-      ...(trackedStartShield ? { trackedShieldBreakUsed: false } : {}),
-    },
-    buffs: {
-      rampageAtkBonus: 0,
-      opponentAtkPenalty: 0,
-      opponentDefPenalty: 0,
-      cyclingChiBonus: 0,
-      potionHealPct: player.potionHealPct ?? 0,
-      playerDmgReductionPct: 0,
-      playerDmgReductionTurnsLeft: 0,
-      playerAtkBuffPct: 0,
-      playerAtkBuffTurnsLeft: 0,
-      playerDefDebuffPct: 0,
-      playerDefDebuffTurnsLeft: 0,
-      playerSpdMult: 1,
-      playerSpdTurnsLeft: 0,
-      enemyDefDebuffPct: 0,
-      enemyDefDebuffTurnsLeft: 0,
-      enemySpdMult: 1,
-      enemySpdTurnsLeft: 0,
-      enemySilenceTurnsLeft: 0,
-      enemyAttackBlockedCount: 0,
-      playerLifestealPct: 0,
-      playerLifestealTurnsLeft: 0,
-    },
-    stacks: {
-      tripleWard: initialTripleWardState(tripleWardRank),
-      fortressImpact: 0,
-      ironWallReflectCharges: 0,
-      mutationWeight: 0,
-      ...(player.lawInscription
-        ? { lawInscriptions: emptyLawInscriptionState() }
-        : {}),
-      playerShield: startShield,
-      ...(trackedStartShield
-        ? { trackedSetShield: scaledTrackedStartShield }
-        : {}),
-      evadesRemaining: player.guaranteedEvades ?? 0,
-      damageTakenThisCombat: 0,
-      weakpointDefIgnoreLeft: 0,
-      braceDefBonus: 0,
-      skillRegenPct: 0,
-      skillRegenTurns: 0,
-      skillCritPct: 0,
-      skillCritTurns: 0,
-      skillEvasionPct: 0,
-      skillEvasionTurns: 0,
-      accuracyDownPct: 0,
-      accuracyDownTurns: 0,
-      skillDmgReducePct: 0,
-      skillDmgReduceTurns: 0,
-      skillReflectBoostPct: 0,
-      skillReflectBoostTurns: 0,
-      enemyVulnPct: 0,
-      enemyVulnTurns: 0,
-      enemyMagicVulnPct: 0,
-      enemyMagicVulnTurns: 0,
-      healReducePct: 0,
-      healReduceTurns: 0,
-      damageDownPct: 0,
-      damageDownTurns: 0,
-      skillProcDownPct: 0,
-      skillProcDownTurns: 0,
-      dotVulnPct: 0,
-      dotVulnTurns: 0,
-      magicVulnStacks: 0,
-      spellCastCount: 0,
-      comboHitCount: 0,
-      signatureHitCount: 0,
-      signatureBonusAttacksLeft: 0,
-      ...(hasTier6Unique(player.equipSignatures)
-        ? { tier6Uniques: initialTier6UniqueRuntime() }
-        : {}),
-    },
-  };
-}
-
 
 /** 공격 시작 시점의 패황 보호만 소비하고, 반사로 새로 얻은 다음 공격 준비는 보존한다. */
 export function finishPvPBerserkerAttackAction(
@@ -635,114 +289,6 @@ export function finishPvPBerserkerAttackAction(
   return setSide(state, key, { ...current, berserker });
 }
 
-
-// 저수준 상태 빌더. 실제 결판은 속도 가중 추첨 결과를 initiative 로 넘긴다.
-// initiative 생략 시의 SPD 비교는 직접 상태를 만드는 기존 전투 메커닉 테스트 호환용이다.
-export function initialBattleStatePvP(
-  p1Player: PlayerCombat,
-  p2Player: PlayerCombat,
-  p1Name: string,
-  p2Name: string,
-  p1Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
-  p2Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
-  damageMultiplier?: number,
-  sustainMultiplier?: number,
-  initiative?: PvPInitiativeActor,
-): PvPBattleState {
-  const normalizedDamageMultiplier =
-    typeof damageMultiplier === "number" &&
-    Number.isFinite(damageMultiplier) &&
-    damageMultiplier > 0
-      ? damageMultiplier
-      : 1;
-  const normalizedSustainMultiplier =
-    typeof sustainMultiplier === "number" &&
-    Number.isFinite(sustainMultiplier) &&
-    sustainMultiplier > 0
-      ? sustainMultiplier
-      : 1;
-  const p1Side = buildSide(
-    p1Player,
-    p1Name,
-    p1Skills,
-    normalizedSustainMultiplier,
-  );
-  const p2Side = buildSide(
-    p2Player,
-    p2Name,
-    p2Skills,
-    normalizedSustainMultiplier,
-  );
-  const resolvedInitiative =
-    initiative ?? (p1Player.spd >= p2Player.spd ? "p1" : "p2");
-  const p1First = resolvedInitiative === "p1";
-  const phase: PvPPhase = p1First ? "p1" : "p2";
-  const initiator = p1First ? p1Name : p2Name;
-  const log: BattleLogEntry[] = [
-    { kind: "info", text: `${p1Name} 와(과) ${p2Name} 가 마주섰다.` },
-    {
-      kind: "info",
-      text: initiative
-        ? `속도 가중 추첨 결과 — ${initiator}의 선공.`
-        : `${initiator}의 선공.`,
-    },
-  ];
-  // 선공자 첫 턴 공격 횟수 세팅 + 기습 보너스.
-  const firstAttacker = p1First ? p1Side : p2Side;
-  const otherSide = p1First ? p2Side : p1Side;
-  const vanguardBonus = firstAttacker.player.vanguardFirstTurnBonus ?? 0;
-  if (vanguardBonus > 0) {
-    log.push({
-      kind: "info",
-      text: `[기습] ${firstAttacker.name} 첫 턴 추가 공격 ${vanguardBonus}회!`,
-    });
-  }
-  const attackerWithCount: PvPSide = {
-    ...firstAttacker,
-    attacksLeft: rollPvPAttackCount(firstAttacker, otherSide) + vanguardBonus,
-  };
-  // 철벽 보호막 알림 — 양쪽 다 표기.
-  if (p1Side.stacks.playerShield > 0) {
-    log.push({
-      kind: "info",
-      text: `[철벽] ${p1Side.name} 보호막 ${p1Side.stacks.playerShield} 전개`,
-    });
-  }
-  if (p2Side.stacks.playerShield > 0) {
-    log.push({
-      kind: "info",
-      text: `[철벽] ${p2Side.name} 보호막 ${p2Side.stacks.playerShield} 전개`,
-    });
-  }
-  if ((p1Side.maxMagicBarrier ?? 0) > 0) {
-    log.push({
-      kind: "info",
-      text: `[마나 실드] ${p1Side.name} 내구도 ${p1Side.maxMagicBarrier ?? 0} 전개`,
-    });
-  }
-  if ((p2Side.maxMagicBarrier ?? 0) > 0) {
-    log.push({
-      kind: "info",
-      text: `[마나 실드] ${p2Side.name} 내구도 ${p2Side.maxMagicBarrier ?? 0} 전개`,
-    });
-  }
-  const state: PvPBattleState = {
-    p1: p1First ? attackerWithCount : otherSide,
-    p2: p1First ? otherSide : attackerWithCount,
-    phase,
-    outcome: null,
-    log,
-  };
-  return {
-    ...state,
-    ...(normalizedDamageMultiplier !== 1
-      ? { damageMultiplier: normalizedDamageMultiplier }
-      : {}),
-    ...(normalizedSustainMultiplier !== 1
-      ? { sustainMultiplier: normalizedSustainMultiplier }
-      : {}),
-  };
-}
 
 
 // ── 헬퍼 — 사이드 mutate 패턴들 ────────────────────────────────────────────
@@ -765,6 +311,7 @@ export function applyRegen(state: PvPBattleState, key: "p1" | "p2"): PvPBattleSt
   );
   const newHp = Math.min(side.maxHp, side.hp + amount);
   const actual = newHp - side.hp;
+  recordCombatMetric("healing", "regen", key, actual);
   const sigShield = healToShield(side.player.equipSignatures, {
     actualHeal: actual,
     calculatedHeal: amount,
@@ -800,6 +347,7 @@ export function applyRegen(state: PvPBattleState, key: "p1" | "p2"): PvPBattleSt
 }
 
 
+
 // 부가 공격 1회 (분신/난무) — 본인 빌드로 발동시킨 추가타라 "**모든 공격**" / "**매 공격마다**"
 // 효과는 함께 적용: 출혈 +1, 행운의 별 ×배수, 천명 %HP, 흡혈류 (비크리 기반만).
 // 미적용: 크리/강공격/충돌파/약점적중/연참/연쇄운명/암살/AP 스킬 발동, AP +1 (페이싱 보호).
@@ -817,14 +365,14 @@ export function dealExtraDamage(
   // 행운의 별.
   const luckyStarPct = player.luckyStarChancePct ?? 0;
   const luckyStarFires =
-    luckyStarPct > 0 && Math.random() * 100 < luckyStarPct;
+    luckyStarPct > 0 && combatRandom() * 100 < luckyStarPct;
   const dmgAfterLuckyStar = luckyStarFires
     ? Math.floor(baseDmg * LUCKY_STAR_DAMAGE_MULT)
     : baseDmg;
   // 천명 — defender 현재 HP %. PvP 에는 boss 감산 없음.
   const decreeFires =
     (player.heavenDecreeChancePct ?? 0) > 0 &&
-    Math.random() * 100 < player.heavenDecreeChancePct!;
+    combatRandom() * 100 < player.heavenDecreeChancePct!;
   const decreeDmg = decreeFires
     ? Math.floor((defender.hp * HEAVEN_DECREE_HP_PCT) / 100)
     : 0;
@@ -838,9 +386,11 @@ export function dealExtraDamage(
     mitigateBody: (bodyRawDamage) => scalePvPDamage(state, bodyRawDamage),
   });
   const totalDmg = barrier.hpBoundDamage;
+  recordCombatDamage("extra", defKey, defender.hp, totalDmg, barrier.absorbedDamage);
   const survival = applyBerserkerHostileDamagePvP(
     { ...defender, magicBarrier: barrier.durabilityLeft },
     defender.hp - totalDmg,
+    defKey,
   );
   let defenderAfterDamage = survival.side;
   const enduranceFires =
@@ -853,6 +403,7 @@ export function dealExtraDamage(
       hp: 1,
       flags: { ...defenderAfterDamage.flags, enduranceTriggered: true },
     };
+    recordCombatMetric("survival_restoration", "endurance", defKey, 1);
   }
   if (defenderAfterDamage.berserker) {
     defenderAfterDamage = {
@@ -881,16 +432,21 @@ export function dealExtraDamage(
     attacker.buffs.playerLifestealPct > 0
       ? Math.floor((rawTotalDmg * attacker.buffs.playerLifestealPct) / 100)
       : 0;
+  const passiveLifestealHeal = Math.floor(
+    (Math.max(0, defender.hp - Math.max(0, defenderAfterDamage.hp)) *
+      (player.passiveLifestealPct ?? 0)) / 100,
+  );
   const totalHeal = healingAfterReceivedMultiplier(
     scalePvPHealing(
       state,
-      luckyLifestealHeal + runeLifestealHeal + apLifestealHeal,
+      luckyLifestealHeal + runeLifestealHeal + apLifestealHeal + passiveLifestealHeal,
     ),
     player.receivedHealMult,
   );
   const newAtkHp =
     totalHeal > 0 ? Math.min(attacker.maxHp, attacker.hp + totalHeal) : attacker.hp;
   const actualHeal = newAtkHp - attacker.hp;
+  recordCombatMetric("healing", "extra_lifesteal", atkKey, actualHeal);
   const dmgLabels: string[] = [label];
   if (luckyStarFires) dmgLabels.push("행운의 별");
   if (decreeFires) dmgLabels.push("천명");
@@ -946,6 +502,7 @@ export function dealExtraDamage(
     if (luckyLifestealHeal > 0) healLabels.push("행운의 흡혈");
     if (runeLifestealHeal > 0) healLabels.push("흡혈의 룬");
     if (apLifestealHeal > 0) healLabels.push("흡령");
+    if (passiveLifestealHeal > 0) healLabels.push("패시브 흡혈");
     next = {
       ...next,
       log: appendLog(next.log, {
@@ -967,6 +524,7 @@ export function dealExtraDamage(
   }
   return next;
 }
+
 
 
 // ── 방어자 측 dodge 헬퍼 ────────────────────────────────────────────────────
@@ -1028,6 +586,7 @@ export function applyDodgeEffects(
   if (evadeHeal > 0 && defForHeal.hp < defForHeal.maxHp) {
     const newHp = Math.min(defForHeal.maxHp, defForHeal.hp + evadeHeal);
     const actual = newHp - defForHeal.hp;
+    recordCombatMetric("healing", "dodge", defKey, actual);
     const sigShield = healToShield(defForHeal.player.equipSignatures, {
       actualHeal: actual,
       calculatedHeal: evadeHeal,
@@ -1142,9 +701,11 @@ export function applyDodgeEffects(
         ),
     });
     const totalReflect = barrier.hpBoundDamage;
+    recordCombatDamage("reflect_on_dodge", atkKey, attackerNow.hp, totalReflect, barrier.absorbedDamage);
     const survival = resolvePvPHostileDamageSurvival(
       { ...attackerNow, magicBarrier: barrier.durabilityLeft },
       attackerNow.hp - totalReflect,
+      atkKey,
     );
     st = setSide(st, atkKey, survival.side);
     for (const entry of magicBarrierCombatLogEntries(barrier)) {
@@ -1205,12 +766,14 @@ export function applyDodgeEffects(
         scalePvPDamage(st, damageBetween(bodyRawDamage, counterDefense)),
     });
     const counterDmg = barrier.hpBoundDamage;
+    recordCombatDamage("counter_on_dodge", atkKey, attackerAfterReflect.hp, counterDmg, barrier.absorbedDamage);
     const survival = resolvePvPHostileDamageSurvival(
       {
         ...attackerAfterReflect,
         magicBarrier: barrier.durabilityLeft,
       },
       attackerAfterReflect.hp - counterDmg,
+      atkKey,
     );
     st = setSide(st, atkKey, survival.side);
     for (const entry of magicBarrierCombatLogEntries(barrier)) {
@@ -1261,6 +824,7 @@ export function applyDodgeEffects(
 }
 
 
+
 // shadowStep dodge — 한 페이즈 통째로 회피 + dodge 효과 + 페이즈 종료.
 export function applyShadowStepDodge(
   state: PvPBattleState,
@@ -1280,6 +844,7 @@ export function applyShadowStepDodge(
   if (dodged.phase === "ended") return dodged;
   return endAttackerPhase(dodged, atkKey, defKey, phaseEndOptions);
 }
+
 
 
 // per-attack dodge — dodge 효과 + 공격 횟수 1 차감. attacksLeft 0 이면 페이즈 종료.
@@ -1312,6 +877,7 @@ export function applyPerAttackDodge(
   }
   return endAttackerPhase(dodged, atkKey, defKey, phaseEndOptions);
 }
+
 
 
 // 데미지 적중 시 반사 (반사 갑주 + 가시 갑옷 + 무한 가시). 공격자가 죽으면 attackerKilled=true.
@@ -1440,6 +1006,7 @@ export function applyOnHitReflect(
   const dmgToHp = barrier.hpBoundDamage - shieldAbsorbed;
   const newShield = attacker.stacks.playerShield - shieldAbsorbed;
   const hpAfterReflect = Math.max(0, attacker.hp - dmgToHp);
+  recordCombatDamage("reflect", atkKey, attacker.hp, dmgToHp, shieldAbsorbed + barrier.absorbedDamage);
   const survival = applyBerserkerHostileDamagePvP(
     {
       ...attacker,
@@ -1450,6 +1017,7 @@ export function applyOnHitReflect(
       },
     },
     hpAfterReflect,
+    atkKey,
   );
   const trackedReflectShieldBreak = applyTrackedSetShieldAbsorptionPvP(
     survival.side,
@@ -1466,6 +1034,7 @@ export function applyOnHitReflect(
       hp: 1,
       flags: { ...nextAttacker.flags, enduranceTriggered: true },
     };
+    recordCombatMetric("survival_restoration", "endurance", atkKey, 1);
   }
   if (finishCurrentAction && nextAttacker.berserker) {
     nextAttacker = {
@@ -1561,6 +1130,7 @@ export function applyOnHitReflect(
 }
 
 
+
 // 반격의 룬 — 피격 후 일정 확률로 카운터 1회 (ATK 데미지). 공격자가 죽으면 attackerKilled=true.
 export function maybeApplyRuneCounter(
   state: PvPBattleState,
@@ -1571,7 +1141,7 @@ export function maybeApplyRuneCounter(
   const defender = state[defKey];
   const attacker = state[atkKey];
   const pct = defender.player.runeCounterChancePct ?? 0;
-  if (pct <= 0 || Math.random() * 100 >= pct) {
+  if (pct <= 0 || combatRandom() * 100 >= pct) {
     return { state, attackerKilled: false };
   }
   // PR-5a: 룬 반격도 v2 buff/debuff 격리 해제. defender 공격자, attacker 방어자.
@@ -1593,9 +1163,11 @@ export function maybeApplyRuneCounter(
       scalePvPDamage(state, damageBetween(bodyRawDamage, counterDefense)),
   });
   const dmg = barrier.hpBoundDamage;
+  recordCombatDamage("rune_counter", atkKey, attacker.hp, dmg, barrier.absorbedDamage);
   const survival = resolvePvPHostileDamageSurvival(
     { ...attacker, magicBarrier: barrier.durabilityLeft },
     attacker.hp - dmg,
+    atkKey,
   );
   if (finishCurrentAction && survival.side.berserker) {
     survival.side = {
@@ -1636,6 +1208,7 @@ export function maybeApplyRuneCounter(
 }
 
 
+
 // 무도가/절정 반격 패시브 — 피격 후 일정 확률로 ATK 카운터(반격의 룬과 동일 패턴·별개 누적). PvE
 //   enemyPhase 의 passiveCounterChancePct 카운터를 PvP 로 미러. pct 0 이면 RNG 미소비(byte-identical).
 export function maybeApplyMartialCounter(
@@ -1647,7 +1220,7 @@ export function maybeApplyMartialCounter(
   const defender = state[defKey];
   const attacker = state[atkKey];
   const pct = defender.player.passiveCounterChancePct ?? 0;
-  if (pct <= 0 || Math.random() * 100 >= pct) {
+  if (pct <= 0 || combatRandom() * 100 >= pct) {
     return { state, attackerKilled: false };
   }
   // 반격 데미지도 v2 buff/debuff 격리 해제. defender 가 공격자, attacker 가 방어자(반격 방향).
@@ -1677,9 +1250,11 @@ export function maybeApplyMartialCounter(
       scalePvPDamage(state, damageBetween(bodyRawDamage, counterDefense)),
   });
   const dmg = barrier.hpBoundDamage;
+  recordCombatDamage("martial_counter", atkKey, attacker.hp, dmg, barrier.absorbedDamage);
   const survival = resolvePvPHostileDamageSurvival(
     { ...attacker, magicBarrier: barrier.durabilityLeft },
     attacker.hp - dmg,
+    atkKey,
   );
   if (finishCurrentAction && survival.side.berserker) {
     survival.side = {
@@ -1718,6 +1293,7 @@ export function maybeApplyMartialCounter(
   }
   return { state: st, attackerKilled: false };
 }
+
 
 
 // 공격 턴 종료 후 처리 — 그림자 분신 → 무피해 난무 → 막다른 격노 → 약점 분석 → 재생.
@@ -1835,6 +1411,7 @@ export function finishAttackerTurn(
         side.player.receivedHealMult,
       );
       const nextHp = Math.min(side.maxHp, side.hp + heal);
+      recordCombatMetric("healing", "skill_regen", atkKey, nextHp - side.hp);
       if (nextHp > side.hp) {
         st = setSide(
           {
@@ -1854,6 +1431,7 @@ export function finishAttackerTurn(
   st = applyRegen(st, atkKey);
   return st;
 }
+
 
 
 // 대상의 행동 시작 시 tagged DoT 를 한 번 tick. ATB 는 실제 스케줄러 행동 진입 시 이 helper 를
@@ -1890,6 +1468,7 @@ export function tickPvPSideDotsOnAction(
       ),
   });
   const dotDamage = barrier.hpBoundDamage;
+  recordCombatDotDamage(dotTick.ticks, targetKey, target.hp, dotDamage, barrier.absorbedDamage);
   const survival = applyBerserkerHostileDamagePvP(
     {
       ...target,
@@ -1897,6 +1476,7 @@ export function tickPvPSideDotsOnAction(
       v2Dots: dotTick.nextDots,
     },
     target.hp - dotDamage,
+    targetKey,
   );
   let nextTarget = survival.side;
   const enduranceFires =
@@ -1909,6 +1489,7 @@ export function tickPvPSideDotsOnAction(
       hp: 1,
       flags: { ...nextTarget.flags, enduranceTriggered: true },
     };
+    recordCombatMetric("survival_restoration", "endurance", targetKey, 1);
   }
   if (nextTarget.berserker) {
     nextTarget = {
@@ -1979,6 +1560,7 @@ export function tickPvPSideDotsOnAction(
       : 0;
   const nextSourceHp = Math.min(source.maxHp, source.hp + bleedTickHeal);
   const actualBleedTickHeal = nextSourceHp - source.hp;
+  recordCombatMetric("healing", "bleed_hunt", sourceKey, actualBleedTickHeal);
   if (actualBleedTickHeal > 0) {
     next = setSide(next, sourceKey, { ...source, hp: nextSourceHp });
     next = {
@@ -2033,91 +1615,8 @@ export function tickPvPSideDotsOnAction(
 }
 
 
-export function releaseSwordShadowAfterPvPAction(
-  state: PvPBattleState,
-  actorKey: "p1" | "p2",
-  shadowOwnerKey: "p1" | "p2",
-): PvPBattleState {
-  const owner = state[shadowOwnerKey];
-  const swordShadow = owner.stacks.tier7?.swordShadow;
-  if (!swordShadow) return state;
-  const actor = state[actorKey];
-  const released = releaseSwordShadow(swordShadow, {
-    nextSingleDamagePct: 12,
-  });
-  const shieldAbsorbed = Math.min(
-    actor.stacks.playerShield,
-    released.damage,
-  );
-  const hpDamage = Math.min(
-    actor.hp,
-    Math.max(0, released.damage - shieldAbsorbed),
-  );
-  const survival = resolvePvPHostileDamageSurvival(
-    {
-      ...actor,
-      stacks: {
-        ...actor.stacks,
-        playerShield: actor.stacks.playerShield - shieldAbsorbed,
-      },
-    },
-    actor.hp - hpDamage,
-  );
-  const actorTier7 = survival.side.stacks.tier7?.ruinCharge
-    ? {
-        ...survival.side.stacks.tier7,
-        ruinCharge: {
-          ...recordChargeHpLoss(
-            survival.side.stacks.tier7.ruinCharge,
-            hpDamage,
-          ),
-          deathBypassTriggered:
-            survival.side.stacks.tier7.ruinCharge.deathBypassTriggered ||
-            survival.berserkerTriggered,
-        },
-      }
-    : survival.side.stacks.tier7;
-  let next = setSide(state, actorKey, {
-    ...survival.side,
-    stacks: {
-      ...survival.side.stacks,
-      ...(actorTier7 ? { tier7: actorTier7 } : {}),
-    },
-  });
-  next = setSide(next, shadowOwnerKey, {
-    ...owner,
-    stacks: {
-      ...owner.stacks,
-      tier7: {
-        ...owner.stacks.tier7,
-        swordShadow: undefined,
-        shadowFollowUpPct: released.followUpPct,
-        shadowReleaseHastePct: swordShadow.refined ? 20 : 0,
-      },
-    },
-  });
-  next = {
-    ...next,
-    log: appendLog(next.log, {
-      kind: "player_attack",
-      text: `[검영] ${actor.name}에게 ${released.damage} 지연 피해${shieldAbsorbed > 0 ? ` (보호막 ${shieldAbsorbed} 흡수)` : ""}.`,
-      side: shadowOwnerKey,
-    }),
-  };
-  next = appendPvPSurvivalLogs(next, actorKey, actor.name, survival);
-  const p1Dead = next.p1.hp <= 0;
-  const p2Dead = next.p2.hp <= 0;
-  if (!p1Dead && !p2Dead) {
-    return state.phase === "ended"
-      ? { ...next, phase: actorKey, outcome: null }
-      : next;
-  }
-  return {
-    ...next,
-    phase: "ended",
-    outcome: p1Dead && p2Dead ? "draw" : p1Dead ? "p2_win" : "p1_win",
-  };
-}
+
+
 
 
 // 공격자 페이즈 종료 → 후처리(분신/난무/막다른 격노/약점 분석/재생) → 방어자 페이즈 시작.
@@ -2185,6 +1684,7 @@ export function endAttackerPhase(
 }
 
 
+
 // 포션 효과 — 단일 사이드의 HP 또는 MP 회복. potionHealPct 자체 buffs 에서 가산 (HP 만).
 export function applyPotionTo(
   state: PvPBattleState,
@@ -2202,6 +1702,7 @@ export function applyPotionTo(
     );
     const newHp = Math.min(side.maxHp, side.hp + heal);
     const actual = newHp - side.hp;
+    recordCombatMetric("healing", "potion", key, actual);
     const sigShield = healToShield(side.player.equipSignatures, {
       actualHeal: actual,
       calculatedHeal: heal,

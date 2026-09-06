@@ -6,6 +6,9 @@ import {
 } from "@/adventure/data/v2/v2Skills";
 
 const SKILL_IDS = [
+  "v2c_skyascendant_voidbreak",
+  "v2c_skyascendant_fallingstar",
+  "v2c_skyascendant_crossover",
   "v2_skill_strike",
   "v2_skill_recover",
   "v2c_warrior_warcry",
@@ -19,6 +22,9 @@ const SKILL_IDS = [
 ] as const satisfies readonly V2SkillId[];
 
 const EQUIPPED = [
+  "v2c_skyascendant_voidbreak",
+  "v2c_skyascendant_fallingstar",
+  "v2c_skyascendant_crossover",
   "v2_skill_strike",
   "v2_skill_recover",
   "v2c_farmer_seedselection",
@@ -51,7 +57,7 @@ export default function SkillLoadoutPreviewPage() {
       <V2LoadoutPanel
         previewMode
         loadout={{
-          spBudget: 12,
+          spBudget: 99,
           spUsed,
           equipped: [...EQUIPPED],
           library,

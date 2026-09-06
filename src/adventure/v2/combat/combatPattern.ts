@@ -40,6 +40,9 @@ export type V2PatternSelfResource =
   | "ironWallReflect"
   | "inscription"
   | "weight"
+  | "physicalWard"
+  | "magicWard"
+  | "purificationWard"
   | "bloodlineBurstReady";
 
 // 조건 — "언제 이 블록을 발동하나". 아군/위치는 1:1 자동전투엔 없어 미포함(파티 도입 시 확장).
@@ -292,10 +295,11 @@ export function evaluateCombatPatternCandidates(
   ctx: V2PatternCtx,
   isUsable: (skillId: string) => boolean,
   resolveRole?: (role: V2CombatRole) => string | null,
+  onConditionRejected?: (block: V2CombatPattern["blocks"][number]) => void,
 ): V2CombatPatternCandidate[] {
   const out: V2CombatPatternCandidate[] = [];
   for (const block of pattern.blocks) {
-    if (!conditionPasses(block.condition, ctx)) continue;
+    if (!conditionPasses(block.condition, ctx)) { onConditionRejected?.(block); continue; }
     if (block.action.kind === "basic_attack") {
       out.push({ kind: "basic_attack" });
       break;
@@ -574,6 +578,9 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
         c.resource === "ironWallReflect" ||
         c.resource === "inscription" ||
         c.resource === "weight" ||
+        c.resource === "physicalWard" ||
+        c.resource === "magicWard" ||
+        c.resource === "purificationWard" ||
         c.resource === "bloodlineBurstReady"
           ? c.resource
           : null;

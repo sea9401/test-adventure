@@ -50,7 +50,19 @@ export type RequestProfileRecord = {
   responseBytes: number;
   database: DatabaseRequestMetrics;
   aborted?: boolean;
+  phases?: RequestPhases;
 };
+
+export type RequestPhase = "hunt.prepare" | "hunt.battle" | "hunt.settlement";
+export type RequestPhaseMetrics = {
+  count: number;
+  failed: number;
+  totalMs: number;
+  maxMs: number;
+  dbQueries: number;
+  dbMs: number;
+};
+export type RequestPhases = Partial<Record<RequestPhase, RequestPhaseMetrics>>;
 
 export type DurationSummary = {
   average: number;
@@ -63,6 +75,10 @@ export type DurationSummary = {
 export type FeatureProfile = {
   requests: number;
   errors: number;
+  /** Optional for snapshots emitted by older deployments. errors remains the union. */
+  serverErrors?: number;
+  abortedRequests?: number;
+  phases?: RequestPhases;
   responseBytes: number;
   durationMs: DurationSummary;
   database: {

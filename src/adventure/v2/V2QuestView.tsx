@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useAdventureDashboard } from "./AdventureDashboardProvider";
 import {
   ArrowRight,
   CheckCircle,
@@ -394,6 +395,7 @@ export function GrowthLeapMissionPanel({
 }
 
 export function V2QuestView({ onBack }: { onBack: () => void }) {
+  const { refresh: refreshDashboard } = useAdventureDashboard();
   const refreshGameState = useRefreshGameState();
   const { notifyReward, notifySystem } = useRewardToast();
   const [lines, setLines] = useState<QuestLine[]>([]);
@@ -443,10 +445,11 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
         setTrackedQuestId(j.trackedQuestId ?? null);
         setGrowthLeap(j.growthLeap ?? { status: "not_purchased" });
         setGrowthLeapNow(Date.now());
+        await refreshDashboard();
       }
     } catch {}
     setLoading(false);
-  }, []);
+  }, [refreshDashboard]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 퀘스트 fetch

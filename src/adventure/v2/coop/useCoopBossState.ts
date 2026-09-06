@@ -77,6 +77,7 @@ export type CoopSessionSummary = CoopFortressStatus &
   expiresAt: number;
   summonedByName: string | null;
   visibility: CoopVisibility;
+  allowFreeSupport: boolean;
   isOwner: boolean;
   participantCount: number;
   myDamage: number;
@@ -98,6 +99,7 @@ export type CoopAttackResult = CoopFortressStatus &
   damageDealt: number;
   damageTaken: number;
   diedEarly: boolean;
+  isSupport?: boolean;
   turns: number;
   bossHp: number;
   bossMaxHp: number;
@@ -168,6 +170,7 @@ export type CoopRecentAttack = {
   damageDealt: number;
   damageTaken: number;
   diedEarly: boolean;
+  isSupport?: boolean;
   isMe?: boolean;
   avatar: Avatar;
   profileBorder: ProfileBorderId | null;
@@ -193,6 +196,7 @@ export type CoopSessionDetail = {
     summonedByName: string | null;
     // 코어루프 — 현재 공개 범위 + 소환자(본인) 여부(소환 후 범위 변경 컨트롤 게이트).
     visibility: CoopVisibility;
+    allowFreeSupport: boolean;
     isOwner: boolean;
   };
   my: {
@@ -306,7 +310,7 @@ export function useCoopListState() {
 
   // 소환 — 성공 시 새 sessionId 반환 + 안내 노티스(목록 잔류 — 연속 소환 가능, 이동 없음).
   const summon = useCallback(
-    async (kind: CoopBossKindId): Promise<string | null> => {
+    async (kind: CoopBossKindId, allowFreeSupport = false): Promise<string | null> => {
       if (busy) return null;
       setBusy(true);
       setNotice(null);
@@ -314,7 +318,7 @@ export function useCoopListState() {
         const res = await fetch("/api/v2/coop/summon", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ kind }),
+          body: JSON.stringify({ kind, allowFreeSupport }),
         });
         const j = (await res.json()) as {
           ok?: boolean;
@@ -436,7 +440,7 @@ export function useCoopSessionState({
     return () => clearInterval(id);
   }, [refresh, stopPolling]);
 
-  const attack = useCallback(async (): Promise<CoopAttackResult | null> => {
+  const attack = useCallback(async (support = false): Promise<CoopAttackResult | null> => {
     if (busy) return null;
     setBusy(true);
     setNotice(null);
@@ -444,7 +448,7 @@ export function useCoopSessionState({
       const res = await fetch("/api/v2/coop/attack", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sessionId }),
+        body: JSON.stringify({ sessionId, support }),
       });
       const j = (await res.json()) as {
         ok?: boolean;
@@ -520,7 +524,9 @@ export function useCoopSessionState({
         setNotice(
           j.error === "cooldown"
             ? `재공격 대기 중 — ${Math.ceil((j.retryAfterMs ?? 0) / 1000)}초 후 가능`
-            : j.error === "out_of_stamina"
+            : j.error === "support_disabled"
+              ? "소환자가 무료 토벌 지원을 허용하지 않았습니다."
+              : j.error === "out_of_stamina"
               ? `스태미너 부족 (${COOP_ATTACK_STAMINA_COST} 필요)`
               : j.error === "no_active_boss"
                 ? "이미 끝난 토벌입니다."
@@ -550,6 +556,34 @@ export function useCoopSessionState({
       if (reward) setLastReward(reward);
       else if (belowThreshold) setNotice("기준 미달 토벌 기록을 정리했습니다.");
       else if (error) setNotice(claimErrorLabel(error));
+    } catch {
+      setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");
+    } finally {
+      await refresh();
+      setBusy(false);
+    }
+  }, [busy, refresh, sessionId]);
+
+  const setFreeSupport = useCallback(async (allowFreeSupport: boolean) => {
+    if (busy) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/v2/coop/${sessionId}/support`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ allowFreeSupport }),
+      });
+      const j = (await res.json()) as { ok?: boolean; error?: string };
+      if (!j.ok) {
+        setNotice(
+          j.error === "not_owner"
+            ? "소환자만 무료 토벌 지원 설정을 바꿀 수 있어요."
+            : j.error === "not_active"
+              ? "이미 끝난 토벌입니다."
+              : "무료 토벌 지원 설정을 변경하지 못했습니다.",
+        );
+      }
     } catch {
       setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");
     } finally {
@@ -602,6 +636,7 @@ export function useCoopSessionState({
     attack,
     claim,
     setVisibility,
+    setFreeSupport,
   };
 }
 

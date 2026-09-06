@@ -1,3 +1,4 @@
+import { combatRandom } from "./combatRandom";
 import type { PotionId } from "@/adventure/data/potions";
 import { ATB_TIMELINE_TICK_CAP, actionInterval } from "./combatTimeline";
 import { appendLog } from "./engineSupport";
@@ -226,7 +227,7 @@ export function resolveBattlePvPAtb(
   const initiative = pickPvpInitiative(
     p1Player.spd,
     p2Player.spd,
-    ctx.initiativeRoll ?? Math.random(),
+    ctx.initiativeRoll ?? combatRandom(),
   );
   const potions = {
     p1: { ...ctx.potions.p1 },
@@ -272,6 +273,7 @@ export function resolveBattlePvPAtb(
   let lastTick = 0; // 최종 hp_bar 스탬프용(루프 밖)
 
   while (state.phase !== "ended") {
+    if (ctx.logMode === "summary") state = { ...state, log: [] };
     const nextTick = Math.min(p1NextTick, p2NextTick);
     lastTick = nextTick;
     if (nextTick > PVP_ATB_TICK_CAP) {

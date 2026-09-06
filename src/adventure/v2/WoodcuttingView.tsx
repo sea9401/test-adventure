@@ -95,6 +95,7 @@ export type WoodcuttingHandlers = {
   finish: (sessionId: string) => Promise<WoodcuttingOutcome>;
   materials: Record<string, number>;
   log: WoodcuttingLogView;
+  failureReductionPct?: number;
   durationReductionPct: number;
   autoSession: AutoGatheringSessionView | null;
   autoResult: AutoGatheringResultView | null;
@@ -1019,6 +1020,7 @@ export function WoodcuttingView({
   finish,
   materials,
   log,
+  failureReductionPct = 0,
   durationReductionPct,
   autoSession,
   autoResult,
@@ -1149,10 +1151,9 @@ export function WoodcuttingView({
     progression.level,
     durationReductionPct,
   );
-  const expectedFailureRate = woodcuttingFailureRate(
-    selectedTree.baseFailureRate,
-    progression.level,
-  );
+  const expectedFailureRate =
+    woodcuttingFailureRate(selectedTree.baseFailureRate, progression.level) *
+    (1 - failureReductionPct / 100);
   const timeReductionPct =
     woodcuttingTotalTimeReduction(progression.level, durationReductionPct) * 100;
   const levelProgressPct = progression.maxLevel

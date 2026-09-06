@@ -1,3 +1,5 @@
+import { combatRandom } from "./combatRandom";
+import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
 import { STAT_LABELS } from "@/adventure/data/stats";
 import { statusNameForDebuffStat } from "@/adventure/data/v2/statusEffects";
 import { applyEvasionDamageReduction } from "@/adventure/data/v2/v2CombatConstants";
@@ -423,6 +425,7 @@ export function evadeIncomingEnemySkill(
       ? Math.min(state.playerMaxHp, state.playerHp + evadeHeal)
       : state.playerHp;
   const actualHeal = nextPlayerHp - state.playerHp;
+  recordCombatMetric("healing", "dodge", "player", actualHeal);
   const sigShield =
     actualHeal > 0
       ? healToShield(player.equipSignatures, {
@@ -518,9 +521,10 @@ export function applyEnemyV2SkillCast(
     return { state, castFired: false };
   }
   let result = resolveV2SkillCast({
+    diagnosticActor: "enemy",
     skills: state.enemyV2Skills,
     cooldowns: state.enemyV2SkillCooldowns,
-    procRoll: Math.random() * 100,
+    procRoll: combatRandom() * 100,
     procChanceBonus:
       state.stacks.enemySkillProcDownTurns > 0
         ? -state.stacks.enemySkillProcDownPct
@@ -643,6 +647,7 @@ export function applyEnemyV2SkillCast(
     },
   );
   if (result.enemyDamage > 0 && result.castSkillName) {
+    recordCombatDamage(result.castSkillId ?? "enemy_skill", "player", nextPlayerHp, enemySkillDamageToHp, enemySkillShieldAbsorbed + enemySkillMagicBarrier.absorbedDamage);
     if (enemySkillShieldAbsorbed > 0) {
       nextLog = appendLog(nextLog, {
         kind: "info",
@@ -675,6 +680,7 @@ export function applyEnemyV2SkillCast(
     });
   }
   if (enemySkillReflection.damage > 0) {
+    recordCombatDamage("reflect", "enemy", nextEnemyHp, enemySkillReflection.damage);
     nextEnemyHp = Math.max(0, nextEnemyHp - enemySkillReflection.damage);
     state = recordEnemyDamage(state, enemySkillReflection.damage);
     nextLog = appendLog(nextLog, {
@@ -695,6 +701,7 @@ export function applyEnemyV2SkillCast(
     !!player.enduranceActive &&
     !state.flags.enduranceTriggered;
   if (enemySkillEnduranceFires) {
+    recordCombatMetric("survival_restoration", "endurance", "player", 1);
     nextPlayerHp = 1;
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -712,6 +719,7 @@ export function applyEnemyV2SkillCast(
     const before = nextEnemyHp;
     nextEnemyHp = Math.min(state.enemy.hp, nextEnemyHp + effHeal);
     const actual = nextEnemyHp - before;
+    recordCombatMetric("healing", result.castSkillId ?? "enemy_skill", "enemy", actual);
     if (actual > 0) {
       nextLog = appendLog(nextLog, {
         kind: "enemy_attack",

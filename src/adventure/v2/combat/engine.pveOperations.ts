@@ -1,3 +1,5 @@
+import { combatRandom } from "./combatRandom";
+import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
 import type { Monster } from "@/adventure/data/monsters";
 import { computeMpRestoreAmount, type Potion } from "@/adventure/data/potions";
 import {
@@ -49,6 +51,8 @@ import {
 } from "./signatureEffects";
 import { hasTier6Unique, initialTier6UniqueRuntime } from "./tier6UniqueEffects";
 import { initialTripleWardState } from "./tripleWard";
+import { applyRegenIfAny, applyEnchantRegenIfAny, applyPassiveTurnHealIfAny } from "./engine.pveRecovery";
+export { applyRegenIfAny, applyEnchantRegenIfAny, applyPassiveTurnHealIfAny } from "./engine.pveRecovery";
 
 export function applyTrackedSetShieldAbsorptionPve(
   state: BattleState,
@@ -254,7 +258,7 @@ export function rollEnemyAttackCount(enemy: Monster): number {
   if (chance <= 0) return 1;
   const guaranteed = Math.floor(chance / 100);
   const remainder = chance - guaranteed * 100;
-  return 1 + guaranteed + (Math.random() * 100 < remainder ? 1 : 0);
+  return 1 + guaranteed + (combatRandom() * 100 < remainder ? 1 : 0);
 }
 
 
@@ -298,6 +302,7 @@ export function applyBerserkerHostileDamage(
     maxHp: state.playerMaxHp,
     source: "hostile",
   });
+  recordCombatMetric("survival_restoration", "berserker", "player", Math.max(0, result.hp) - Math.max(0, hpAfterDamage));
   let log = state.log;
   if (result.triggered) {
     log = appendLog(log, {
@@ -402,7 +407,7 @@ export function applyPassiveCounterOnHitIfAny(
     pct <= 0 ||
     state.playerHp <= 0 ||
     state.enemyHp <= 0 ||
-    Math.random() * 100 >= pct
+    combatRandom() * 100 >= pct
   ) {
     return state;
   }
@@ -450,113 +455,6 @@ export function applyPassiveCounterOnHitIfAny(
 }
 
 
-// 재생 — 플레이어 턴 종료 후 (completedPlayerTurns 증가 후) 호출.
-// completedPlayerTurns 가 interval 의 배수일 때 HP +amount.
-export function applyRegenIfAny(
-  state: BattleState,
-  player: PlayerCombat,
-  playerName: string,
-): BattleState {
-  const regen = player.regen;
-  if (!regen || regen.interval <= 0 || regen.amount <= 0) return state;
-  if (state.turn.completedPlayerTurns === 0) return state;
-  if (state.turn.completedPlayerTurns % regen.interval !== 0) return state;
-  if (state.playerHp >= state.playerMaxHp) return state;
-  const calculatedHeal = healingAfterReceivedMultiplier(
-    regen.amount,
-    player.receivedHealMult,
-  );
-  const newHp = Math.min(state.playerMaxHp, state.playerHp + calculatedHeal);
-  const actual = newHp - state.playerHp;
-  return applyHealShieldIfAny({
-    ...state,
-    playerHp: newHp,
-    log: appendLog(state.log, {
-      kind: "info",
-      text: `[재생] ${playerName}의 HP +${actual}`,
-    }),
-  }, player, actual, calculatedHeal);
-}
-
-
-// 별빛 재생(regen) — 매 플레이어 턴 종료 시 maxHp 의 %만큼 회복.
-// interval 없이 매 턴 발동. 이미 풀 HP 면 노옵. 회복량은 정수 floor.
-export function applyEnchantRegenIfAny(
-  state: BattleState,
-  player: PlayerCombat,
-  playerName: string,
-): BattleState {
-  const pct = player.enchantRegenPctPerTurn ?? 0;
-  if (pct <= 0) return state;
-  if (state.turn.completedPlayerTurns === 0) return state;
-  if (state.playerHp >= state.playerMaxHp) return state;
-  const heal = healingAfterReceivedMultiplier(
-    Math.floor((state.playerMaxHp * pct) / 100),
-    player.receivedHealMult,
-  );
-  if (heal <= 0) return state;
-  const newHp = Math.min(state.playerMaxHp, state.playerHp + heal);
-  const actual = newHp - state.playerHp;
-  return applyHealShieldIfAny({
-    ...state,
-    playerHp: newHp,
-    log: appendLog(state.log, {
-      kind: "info",
-      text: `[재생] ${playerName}의 HP +${actual}`,
-    }),
-  }, player, actual, heal);
-}
-
-
-// 매 플레이어 턴 종료 시 자가 회복 — 직업 패시브 가호(HP %) + 워메이지 마력 순환(MP flat).
-export function applyPassiveTurnHealIfAny(
-  state: BattleState,
-  player: PlayerCombat,
-  playerName: string,
-): BattleState {
-  // 워메이지 마력 순환 — MP 회복(flat). HP 회복과 독립이라 HP 가 가득이어도 돈다.
-  // MP 가 자원화된 v2 에서 시전 페이스를 받쳐 주는 시그니처.
-  let s = state;
-  const mpRegen = player.mpRegenPerTurn ?? 0;
-  if (
-    mpRegen > 0 &&
-    s.turn.completedPlayerTurns > 0 &&
-    s.playerMp < s.playerMaxMp
-  ) {
-    const newMp = Math.min(s.playerMaxMp, s.playerMp + mpRegen);
-    const actualMp = newMp - s.playerMp;
-    if (actualMp > 0) {
-      s = {
-        ...s,
-        playerMp: newMp,
-        log: appendLog(s.log, {
-          kind: "info",
-          text: `[마력 순환] ${playerName}의 MP +${actualMp}`,
-        }),
-      };
-    }
-  }
-
-  const pct = player.passiveTurnHealPctMaxHp ?? 0;
-  if (pct <= 0) return s;
-  if (s.turn.completedPlayerTurns === 0) return s;
-  if (s.playerHp >= s.playerMaxHp) return s;
-  const heal = healingAfterReceivedMultiplier(
-    Math.floor((s.playerMaxHp * pct) / 100),
-    player.receivedHealMult,
-  );
-  if (heal <= 0) return s;
-  const newHp = Math.min(s.playerMaxHp, s.playerHp + heal);
-  const actual = newHp - s.playerHp;
-  return applyHealShieldIfAny({
-    ...s,
-    playerHp: newHp,
-    log: appendLog(s.log, {
-      kind: "info",
-      text: `[가호] ${playerName}의 HP +${actual}`,
-    }),
-  }, player, actual, heal);
-}
 
 
 // 부가 공격(분신/난무 등) 1회 — 본인 빌드로 발동시킨 추가타라 "**모든 공격**" / "**매 공격마다**"
@@ -578,14 +476,14 @@ export function dealExtraEnemyDamage(
   // 행운의 별 — 모든 공격 ×배수.
   const luckyStarPct = player.luckyStarChancePct ?? 0;
   const luckyStarFires =
-    luckyStarPct > 0 && Math.random() * 100 < luckyStarPct;
+    luckyStarPct > 0 && combatRandom() * 100 < luckyStarPct;
   const dmgAfterLuckyStar = luckyStarFires
     ? Math.floor(baseDmg * LUCKY_STAR_DAMAGE_MULT)
     : baseDmg;
   // 천명 — 적 현재 HP % (보스에는 BOSS_PCT_HP_DAMAGE_MULT 감산).
   const decreeFires =
     (player.heavenDecreeChancePct ?? 0) > 0 &&
-    Math.random() * 100 < player.heavenDecreeChancePct!;
+    combatRandom() * 100 < player.heavenDecreeChancePct!;
   const decreeBaseDmg = decreeFires
     ? Math.floor((state.enemyHp * HEAVEN_DECREE_HP_PCT) / 100)
     : 0;
@@ -608,8 +506,11 @@ export function dealExtraEnemyDamage(
     state.buffs.playerLifestealTurnsLeft > 0 && state.buffs.playerLifestealPct > 0
       ? Math.floor((totalDmg * state.buffs.playerLifestealPct) / 100)
       : 0;
+  const passiveLifestealHeal = Math.floor(
+    (Math.max(0, state.enemyHp - enemyHp) * (player.passiveLifestealPct ?? 0)) / 100,
+  );
   const totalHeal = healingAfterReceivedMultiplier(
-    luckyLifestealHeal + runeLifestealHeal + apLifestealHeal,
+    luckyLifestealHeal + runeLifestealHeal + apLifestealHeal + passiveLifestealHeal,
     player.receivedHealMult,
   );
   const newPlayerHp =
@@ -617,6 +518,7 @@ export function dealExtraEnemyDamage(
       ? Math.min(state.playerMaxHp, state.playerHp + totalHeal)
       : state.playerHp;
   const actualHeal = newPlayerHp - state.playerHp;
+  recordCombatMetric("healing", "extra_lifesteal", "player", actualHeal);
   // 메인 데미지 라인 — 라벨에 행운의 별/천명 합쳐 박는다.
   const dmgLabels: string[] = [label];
   if (luckyStarFires) dmgLabels.push("행운의 별");
@@ -630,6 +532,7 @@ export function dealExtraEnemyDamage(
     if (luckyLifestealHeal > 0) healLabels.push("행운의 흡혈");
     if (runeLifestealHeal > 0) healLabels.push("흡혈의 룬");
     if (apLifestealHeal > 0) healLabels.push("흡령");
+    if (passiveLifestealHeal > 0) healLabels.push("패시브 흡혈");
     log = appendLog(log, {
       kind: "info",
       text: `[${healLabels.join(" + ")}] ${playerName}의 HP +${actualHeal}`,
@@ -731,6 +634,7 @@ export function finishPlayerTurn(
       );
       const before = st.playerHp;
       const nextHp = Math.min(st.playerMaxHp, before + heal);
+      recordCombatMetric("healing", "skill_regen", "player", nextHp - before);
       if (nextHp > before) {
         st = {
           ...st,
@@ -1103,10 +1007,12 @@ export function decrementTimedEffects(buffs: BattleBuffs): BattleBuffs {
 export function applyEnemyDamage(
   state: BattleState,
   rawDamage: number,
+  diagnosticSource: string | null = "extra",
 ): BattleState {
   const damage =
     Number.isFinite(rawDamage) && rawDamage > 0 ? Math.floor(rawDamage) : 0;
   if (damage <= 0) return state;
+  if (diagnosticSource) recordCombatDamage(diagnosticSource, "enemy", state.enemyHp, damage);
   return {
     ...recordEnemyDamage(state, damage),
     enemyHp: Math.max(0, state.enemyHp - damage),
@@ -1146,6 +1052,7 @@ export function applyPotionEffect(
     );
     const newHp = Math.min(state.playerMaxHp, state.playerHp + heal);
     const actual = newHp - state.playerHp;
+    recordCombatMetric("healing", "potion", "player", actual);
     return {
       ...state,
       playerHp: newHp,

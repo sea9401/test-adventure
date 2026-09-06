@@ -23,7 +23,7 @@ const {
     newlyCompletedTaskIds: [] as string[],
     completedTaskIds: [] as string[],
   })),
-  recordCodexMasteryGameplayBatch: vi.fn(async () => []),
+  recordCodexMasteryGameplayBatch: vi.fn(async (..._args: unknown[]) => []),
     lockSavesForUpdate: vi.fn(async (
       _tx,
       _uid,
@@ -248,6 +248,9 @@ describe("POST /api/v2/fishing/reel", () => {
     expect(json.masteryGained).toBe(1);
     expect(json.masteryAfter).toBe(6);
     expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledTimes(2);
+    expect(recordCodexMasteryGameplayBatch.mock.calls[0]?.[4]).toBe(
+      recordCodexMasteryGameplayBatch.mock.calls[1]?.[4],
+    );
     expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
       expect.anything(),
       "u-test",
@@ -267,6 +270,7 @@ describe("POST /api/v2/fishing/reel", () => {
         },
       ],
       new Date(now),
+      expect.any(Object),
     );
     expect(json.catchItem).toEqual({
       id: "catch_fresh",

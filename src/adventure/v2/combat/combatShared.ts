@@ -1,3 +1,8 @@
+export * from "./combatDots";
+export { distributeBoostedHits } from "./hitDistribution";
+import { type V2DotTag, type V2Dot, type BleedChangeIntent } from "./combatDots";
+import { combatRandom } from "./combatRandom";
+import { skillGateRecorder } from "./combatDiagnostics";
 // 두 전투 엔진(engine.ts = PvE, engine-pvp.ts = PvP)이 공유하는 순수 헬퍼.
 //
 // 두 엔진은 데이터 모델이 다르다 — PvE 는 비대칭(player vs enemy), PvP 는 대칭(side vs side).
@@ -7,6 +12,7 @@
 // PlayerCombat 은 engine.ts 에서 정의 — type-only import 라 런타임 순환참조 없음(타입은 소거).
 
 import { computeHealAmount, type Potion } from "@/adventure/data/potions";
+import type { TripleWardState } from "./tripleWard";
 import type { APSkillEffect } from "@/adventure/character/apSkills";
 import {
   effectiveCombatPatternFromEquipped,
@@ -29,14 +35,11 @@ import {
 } from "@/adventure/data/v2/skillRitual";
 import { V2_ELEMENT_LABEL, type V2Element } from "@/adventure/data/v2/elements";
 import {
-  PLAYER_BLEED_ATK_COEF_PER_STACK,
   BLEED_MAX_STACKS,
   COMBO_FINISHER_PERIOD,
   DEFAULT_MAGIC_PENETRATION,
   PHYSICAL_DEF_MITIGATION_MAX_PCT,
   PHYSICAL_DEF_MITIGATION_SCALE,
-  POISON_CAP_ATK_COEF,
-  POISON_FULL_BUILD_DAMAGE_MULT,
   POISON_MAX_STACKS,
   magicDefenseDamageReductionPct,
   physicalDefenseDamageReductionPct,
@@ -177,7 +180,7 @@ export function rollAttackCount(player: PlayerCombat): number {
   if (chance <= 0) return base;
   const guaranteed = Math.floor(chance / 100);
   const remainder = chance - guaranteed * 100;
-  const extra = guaranteed + (Math.random() * 100 < remainder ? 1 : 0);
+  const extra = guaranteed + (combatRandom() * 100 < remainder ? 1 : 0);
   return base + extra;
 }
 
@@ -239,247 +242,7 @@ export function potionHealAmount(
 }
 
 // ── v2 DoT ────────────────────────────────────────────────────────────────
-// 지속 피해 (출혈/중독/연소). 모든 출처는 tag 별 V2Dot entry 로 target 에 박힌다.
-// 매 target 의 turn 진입 시 tick — entry 별 스택 피해 합산 후 turns -= 1, turns <= 0 drop.
-// DEF 무시. 같은 tag 는 스택 누적 + turns refresh + 데미지 파라미터 최신값으로 덮어쓰기.
-export type V2DotTag = "bleed" | "poison" | "burn";
-export type V2Dot = {
-  tag: V2DotTag;
-  label: string;
-  stacks: number;
-  maxStacks: number;
-  turns: number;
-  flatPerStack: number;
-  atkCoefPerStack: number;
-  pctMaxHpPerStack: number;
-  sourceAtk: number;
-  /** 플레이어 맹독처럼 상한 계산 뒤 최종 DoT 피해에 적용하는 배율. 미지정은 1. */
-  finalDamageMult?: number;
-};
-export type V2DotList = readonly V2Dot[];
-
-// 플레이어 중독은 완성 세팅(+122.4%)의 기존 피해를 기준점으로 고정한다.
-// 먼저 기존 완성 세팅과 같은 파라미터로 상한까지 계산하고, 실제 맹독 투자 배율을
-// 기준점(2.224) 대비 최종 배율로 적용해 고체력 대상에서도 투자량이 선형으로 반영된다.
-export function applyPlayerPoisonDamageScaling(
-  dots: readonly V2Dot[],
-  poisonDamagePct = 0,
-): V2Dot[] {
-  const actualMult = 1 + Math.max(0, poisonDamagePct) / 100;
-  const finalDamageMult = actualMult / POISON_FULL_BUILD_DAMAGE_MULT;
-  return dots.map((dot) =>
-    dot.tag === "poison"
-      ? {
-          ...dot,
-          flatPerStack:
-            dot.flatPerStack * POISON_FULL_BUILD_DAMAGE_MULT,
-          atkCoefPerStack:
-            dot.atkCoefPerStack * POISON_FULL_BUILD_DAMAGE_MULT,
-          pctMaxHpPerStack:
-            dot.pctMaxHpPerStack * POISON_FULL_BUILD_DAMAGE_MULT,
-          finalDamageMult:
-            (dot.finalDamageMult ?? 1) * finalDamageMult,
-        }
-      : dot,
-  );
-}
-
-// 모든 v2 DoT 의 1틱 피해 = floor(스택 수 × 스택당 피해) (음수 클램프). 갈래 A(리스트 dot,
-// stacks=1)와 갈래 B(출혈·독공 스택 풀)가 공유하는 단일 공식. 스택당 피해의 구성(정액 vs
-// 정액+독공%HP)은 출처별로 다르며 호출부에서 합성한다.
-//   floor — 평타 데미지(v2DamageAmount)와 동일하게 정수로 떨어뜨린다. ATK 계수(0.08)·%최대HP
-//   비례라 곱이 소수로 나오는데, 그대로 HP·로그에 들어가면 "출혈 12.84 피해"처럼 지저분해진다.
-//   곱을 floor(스택당이 아니라) — 원시값에 가장 충실(예 3×8.96=26.88 → 26).
-export function dotTickDamage(stacks: number, perStack: number): number {
-  return Math.max(0, Math.floor(stacks * perStack));
-}
-
-export function v2DotPerStackDamage(
-  dot: V2Dot,
-  targetMaxHp: number,
-  maxHpDamageMult = 1,
-): number {
-  const hpComponent =
-    dot.pctMaxHpPerStack > 0
-      ? Math.min(
-          targetMaxHp * dot.pctMaxHpPerStack,
-          dot.sourceAtk * POISON_CAP_ATK_COEF,
-        )
-      : 0;
-  return (
-    dot.flatPerStack +
-    dot.sourceAtk * dot.atkCoefPerStack +
-    hpComponent * Math.max(0, maxHpDamageMult)
-  ) * Math.max(0, dot.finalDamageMult ?? 1);
-}
-
-// tick: dot 들 turns -1 + 총 dmg 합산. turns 0 도달 dot drop.
-// turns +0 시드 정책 — applyV2DotsToTarget 가 그대로 박음 (cd/buff 의 +1 시드와 다름).
-// 이유: dot 은 tick 시점에 즉시 dmg 적용 + turns-1. buff 는 tick 후 turns > 0 이어야 active.
-export function tickV2Dots(
-  dots: V2DotList,
-  targetMaxHp = 0,
-  maxHpDamageMult = 1,
-): { nextDots: V2Dot[]; totalDmg: number; ticks: V2DotTick[] } {
-  const nextDots: V2Dot[] = [];
-  const ticks: V2DotTick[] = [];
-  let totalDmg = 0;
-  for (const d of dots) {
-    if (d.turns <= 0) continue;
-    const damage = dotTickDamage(
-      d.stacks,
-      v2DotPerStackDamage(d, targetMaxHp, maxHpDamageMult),
-    );
-    totalDmg += damage;
-    if (damage > 0) {
-      ticks.push({ tag: d.tag, label: d.label, damage });
-    }
-    if (d.turns > 1) nextDots.push({ ...d, turns: d.turns - 1 });
-    // turns === 1 → drop (이번 turn 이 마지막 적용).
-  }
-  return { nextDots, totalDmg, ticks };
-}
-
-export type V2DotTick = Pick<V2Dot, "tag" | "label"> & {
-  damage: number;
-};
-
-// DoT 로그용 타격 분배. 엔진은 취약·PvP 보정을 여러 DoT의 총합에 한 번
-// 적용하므로, 표시할 때만 원본 피해 비율로 다시 나눈다. 반환 합은 반드시 totalDamage와
-// 같아 HP 차감값과 로그 합계가 어긋나지 않는다.
-export function distributeV2DotTicks(
-  ticks: readonly V2DotTick[],
-  totalDamage: number,
-): V2DotTick[] {
-  const distributed = distributeBoostedHits(
-    ticks.map((tick) => tick.damage),
-    totalDamage,
-  );
-  return ticks
-    .map((tick, index) => ({ ...tick, damage: distributed[index] ?? 0 }))
-    .filter((tick) => tick.damage > 0);
-}
-
-export function v2DotLogLabel(tick: Pick<V2DotTick, "tag" | "label">): string {
-  // 전투 문장에서는 효과명 "연소"보다 상태명 "화상"이 자연스럽다.
-  return tick.tag === "burn" ? "화상" : tick.label;
-}
-
-export function v2DotLogCause(tick: Pick<V2DotTick, "tag" | "label">): string {
-  const label = v2DotLogLabel(tick);
-  // 받침 ㄹ 뒤에는 "으로"가 아닌 "로"를 쓴다: 출혈로 / 중독으로 / 화상으로.
-  return `${label}${tick.tag === "bleed" ? "로" : "으로"}`;
-}
-
-export function makeBleedDot(args: {
-  stacks?: number;
-  turns?: number;
-  flatPerStack: number;
-  atkCoefPerStack?: number;
-  sourceAtk: number;
-}): V2Dot {
-  return {
-    tag: "bleed",
-    label: "출혈",
-    stacks: args.stacks ?? 1,
-    maxStacks: BLEED_MAX_STACKS,
-    turns: args.turns ?? 3,
-    flatPerStack: args.flatPerStack,
-    atkCoefPerStack:
-      args.atkCoefPerStack ?? PLAYER_BLEED_ATK_COEF_PER_STACK,
-    pctMaxHpPerStack: 0,
-    sourceAtk: args.sourceAtk,
-  };
-}
-
-export function makePoisonDot(args: {
-  stacks?: number;
-  turns?: number;
-  pctMaxHpPerStack: number;
-  sourceAtk: number;
-}): V2Dot {
-  return {
-    tag: "poison",
-    label: "중독",
-    stacks: args.stacks ?? 1,
-    maxStacks: POISON_MAX_STACKS,
-    turns: args.turns ?? 3,
-    flatPerStack: 0,
-    atkCoefPerStack: 0,
-    pctMaxHpPerStack: args.pctMaxHpPerStack,
-    sourceAtk: args.sourceAtk,
-  };
-}
-
-// target 의 dot 목록 갱신. 같은 tag 가 들어오면 스택 누적 + refresh, 새 tag 는 append.
-// turns 는 그대로 박는다 — tick 시점에 즉시 dmg 적용 + turns-1 패턴이라 cd 의 +1 시드 패턴과 다름.
-// 의도: N=3 → 3번 tick 마다 dmg 적용.
-export function applyV2DotsToTarget(
-  current: V2DotList,
-  toApply: ReadonlyArray<V2Dot>,
-): V2Dot[] {
-  if (toApply.length === 0) return [...current];
-  const byTag = new Map<V2DotTag, V2Dot>(current.map((d) => [d.tag, d]));
-  for (const a of toApply) {
-    const prev = byTag.get(a.tag);
-    byTag.set(a.tag, {
-      ...a,
-      stacks: Math.min(a.maxStacks, (prev?.stacks ?? 0) + a.stacks),
-    });
-  }
-  return Array.from(byTag.values());
-}
-
-export type BleedChangeIntent = {
-  stacksToAdd: number;
-  setTurns?: number;
-  extendTurns?: number;
-  maxTurns?: number;
-  reason: "refresh" | "extend";
-};
-
-export function bleedChangeLogText(
-  change: Pick<BleedChangeIntent, "reason">,
-  resultingTurns: number,
-): string {
-  return change.reason === "refresh"
-    ? `출혈 지속이 ${resultingTurns}회로 갱신됐다.`
-    : `출혈 지속이 ${resultingTurns}회로 늘어났다.`;
-}
-
-/** 출혈 사냥은 기존 출혈의 출처 계수를 건드리지 않고 스택과 남은 횟수만 바꾼다. */
-export function applyBleedChangeToDots(
-  current: V2DotList,
-  change: BleedChangeIntent | undefined,
-): V2Dot[] {
-  if (!change) return [...current];
-  return current.map((dot) => {
-    if (dot.tag !== "bleed" || dot.turns <= 0) return dot;
-    const setTurns =
-      change.setTurns == null
-        ? dot.turns
-        : Math.max(dot.turns, Math.max(0, Math.floor(change.setTurns)));
-    const extendedTurns =
-      setTurns + Math.max(0, Math.floor(change.extendTurns ?? 0));
-    const turns =
-      change.maxTurns == null
-        ? extendedTurns
-        : Math.min(
-            Math.max(0, Math.floor(change.maxTurns)),
-            extendedTurns,
-          );
-    return {
-      ...dot,
-      stacks: Math.min(
-        BLEED_MAX_STACKS,
-        dot.maxStacks,
-        Math.max(0, dot.stacks + Math.floor(change.stacksToAdd)),
-      ),
-      turns,
-    };
-  });
-}
-
+// 지속 피해 생성·중첩·만료는 combatDots.ts에서 재노출한다.
 // ── v2 스킬 런타임 (PR-4a~b) ──────────────────────────────────────────────
 // v2 스탯 스킬 시스템 (v2_skill_*, V2_SKILLS) 의 전투 런타임 헬퍼. PR-7a 부터 옛 spell
 // 시스템 (data/v2/spells.ts) 폐기 — 모든 마법은 V2SkillsState 로 통합. MP 풀은 단판 풀충전 모델.
@@ -913,6 +676,7 @@ export function removeMissedV2SkillTargetEffects(
 
 // PR-4b — attacker/target ctx 로 묶음. PR-4a 의 단순 mp/cd 입력에서 확장.
 export type V2SkillCastInput = {
+  diagnosticActor?: "player" | "enemy" | "p1" | "p2";
   skills: V2SkillsState;
   cooldowns: V2SkillCooldowns;
   /** 발동 확률 롤 (0~100). 엔진이 Math.random()*100 로 채움. procChance<100 스킬만 사용 —
@@ -979,6 +743,8 @@ export type V2SkillCastInput = {
     lawInscription?: boolean;
     lawInscriptions?: Partial<LawInscriptionState>;
     mutationWeight?: number;
+    /** 패턴 평가 시점의 시전자 결계 잔여 횟수. 미전개·미지정은 0회. */
+    tripleWard?: Readonly<TripleWardState>;
     bloodlineBurstReady?: boolean;
     bleedPhysicalSkillDamagePctPerStack?: number;
     str?: number;
@@ -1115,6 +881,9 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
       ),
       inscription: lawInscriptionTotal(a.lawInscriptions),
       weight: clampMutationResource(a.mutationWeight ?? 0),
+      physicalWard: a.tripleWard?.physical ?? 0,
+      magicWard: a.tripleWard?.magic ?? 0,
+      purificationWard: a.tripleWard?.purification ?? 0,
       bloodlineBurstReady: a.bloodlineBurstReady ? 1 : 0,
     },
     enemyHpPct: ((t.currentHp ?? enemyMaxHp) / enemyMaxHp) * 100,
@@ -1139,6 +908,7 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
 }
 
 export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
+  const gate = skillGateRecorder(input.diagnosticActor);
   // 1) cd tick.
   const ticked = tickV2SkillCooldowns(input.cooldowns);
   const resonance = resolveElementalResonanceLoadout({
@@ -1171,7 +941,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     return Math.max(1, base - Math.floor((base * reduction) / 100));
   };
   const isUsable = (sid: string) => {
-    if (!activeCombatSet.has(sid)) return false;
+    if (!activeCombatSet.has(sid)) { gate(sid, "inactive"); return false; }
     const d = V2_SKILLS[sid as V2SkillId];
     const hasUsefulEffect =
       (d?.provokeImmediateBasicAttacks ?? 0) > 0 ||
@@ -1197,23 +967,20 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       input.berserker != null &&
       input.berserker.annihilationUsesRemaining <= 0
     ) {
+      gate(sid, "resource");
       return false;
     }
     if (
       d?.consumesLawInscriptions &&
       !canReleaseLawInscriptions(input.attacker.lawInscriptions)
     ) {
+      gate(sid, "resource");
       return false;
     }
-    return (
-      !!d &&
-      hasUsefulEffect &&
-      (isAnnihilation && input.berserker != null
-        ? true
-        : (ticked[sid as V2SkillId] ?? 0) === 0) &&
-      (input.attacker.mp >= castMpCost(d) ||
-        overdraftSkillIds.has(sid as V2SkillId))
-    );
+    if (!d || !hasUsefulEffect) { gate(sid, "effect"); return false; }
+    if (!(isAnnihilation && input.berserker != null) && (ticked[sid as V2SkillId] ?? 0) !== 0) { gate(sid, "cooldown"); return false; }
+    if (!(input.attacker.mp >= castMpCost(d) || overdraftSkillIds.has(sid as V2SkillId))) { gate(sid, "mp"); return false; }
+    return true;
   };
   const resolveRole = (role: V2CombatRole): string | null => {
     for (const sid of activeCombatSkillIds) {
@@ -1233,6 +1000,11 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         buildPatternCtx(input),
         isUsable,
         resolveRole,
+        (block) => {
+          if (block.action.kind === "skill") gate(block.action.skillId, "condition");
+          else if (block.action.kind === "role") gate(`role:${block.action.role}`, "condition");
+          else if (block.action.kind === "alternate") gate(`alternate:${block.action.firstSkillId}/${block.action.secondSkillId}`, "condition");
+        },
       )
     : (activeCombatSkillIds.find((skillId) => isUsable(skillId))
         ? [{
@@ -1300,10 +1072,12 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         candidateProcRoll !== undefined &&
         candidateProcRoll >= procChance
       ) {
+        gate(candidateId, "proc");
         continue;
       }
     }
     id = candidateId;
+    gate(candidateId, "selected");
     selectedPatternUsesProcGate = candidatePatternUsesProcGate;
     selectedAlternatePairKey = candidate.alternatePairKey;
     break;
@@ -2291,38 +2065,6 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     refreshTripleWards: def.refreshTripleWards,
     mutationTransition,
   };
-}
-
-// 다단 스킬 로그용 — 엔진이 부스트(주문중첩·취약 등)를 적용한 최종 총합(boostedTotal)을
-// 타당 raw 피해(rawHits) 비율로 정수 분배한다. 반환 합 == boostedTotal(반올림 누수 없음 —
-// 마지막 칸이 나머지를 흡수). 엔진 HP 차감은 boostedTotal 단일값을 그대로 쓰고, 이 함수는
-// 표시(로그 줄 쪼개기) 전용. rawHits 가 비었으면 [] (호출부에서 단일 라인으로 폴백).
-export function distributeBoostedHits(
-  rawHits: readonly number[],
-  boostedTotal: number,
-): number[] {
-  const n = rawHits.length;
-  if (n === 0) return [];
-  if (n === 1) return [boostedTotal];
-  const rawSum = rawHits.reduce((a, b) => a + b, 0);
-  const out: number[] = [];
-  let allocated = 0;
-  if (rawSum <= 0) {
-    // 퇴화(전부 0) — 균등 분배.
-    const base = Math.floor(boostedTotal / n);
-    for (let i = 0; i < n - 1; i += 1) {
-      out.push(base);
-      allocated += base;
-    }
-  } else {
-    for (let i = 0; i < n - 1; i += 1) {
-      const share = Math.floor((boostedTotal * rawHits[i]) / rawSum);
-      out.push(share);
-      allocated += share;
-    }
-  }
-  out.push(boostedTotal - allocated); // 마지막 칸이 나머지 흡수 → 합 정확.
-  return out;
 }
 
 // 절초 — 평타와 액티브 다단타가 같은 누적 적중 카운터를 공유한다.

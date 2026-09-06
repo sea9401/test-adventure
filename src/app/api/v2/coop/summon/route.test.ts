@@ -67,6 +67,7 @@ describe("POST /api/v2/coop/summon", () => {
         expiresAt: new Date(expiresAt),
         summonerId: args.userId,
         visibility: args.visibility,
+        allowFreeSupport: args.allowFreeSupport === true,
       });
       return { ok: true, sessionId: "session-1", expiresAt };
     });
@@ -93,6 +94,22 @@ describe("POST /api/v2/coop/summon", () => {
     expect(upsertSave).toHaveBeenCalledTimes(1);
     expect(insertFeedEntry).not.toHaveBeenCalled();
     expect(broadcastCoopNotice).not.toHaveBeenCalled();
+  });
+
+  it.each([undefined, false, true])("무료 지원 설정 %s를 기본 거부로 저장한다", async (allowFreeSupport) => {
+    const response = await POST(new Request("http://test/api/v2/coop/summon", {
+      method: "POST", body: JSON.stringify({ kind: "mountain_chief", allowFreeSupport }),
+    }));
+    expect(response.status).toBe(200);
+    expect(insertedSessions[0].allowFreeSupport).toBe(allowFreeSupport === true);
+  });
+
+  it("문자열 지원 설정은 소환서를 쓰기 전에 거부한다", async () => {
+    const response = await POST(new Request("http://test/api/v2/coop/summon", {
+      method: "POST", body: JSON.stringify({ kind: "mountain_chief", allowFreeSupport: "true" }),
+    }));
+    expect(response.status).toBe(400);
+    expect(upsertSave).not.toHaveBeenCalled();
   });
 
   it("신규 HARD 6T 보스는 소환서 30장과 24시간 세션을 사용한다", async () => {

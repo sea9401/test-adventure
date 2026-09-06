@@ -11,6 +11,33 @@ import {
 import { FISHING_DAILY_KEY } from "@/adventure/data/v2/fishingDailyChallenges";
 import { STORM_EXPEDITION_SAVE_KEY } from "@/adventure/data/v2/stormExpedition";
 import { CHARACTER_STATE_KEY } from "@/lib/storage-keys";
+import { activityTabDots, applyActivityPreferences, DEFAULT_ADVENTURE_HOME_PREFERENCES } from "@/adventure/v2/adventureDashboard";
+
+describe("일일 퀘스트 보상 레드닷", () => {
+  it.each([
+    ["수령 가능", "2026-09-06", false, 30, true],
+    ["목표 미달", "2026-09-06", false, 0, false],
+    ["수령 완료", "2026-09-06", true, 30, false],
+    ["자정 초기화", "2026-09-05", false, 30, false],
+  ] as const)("%s", (_name, key, bundleClaimed, kills, ready) => {
+    const activities = resolveAdventureActivities({
+      "repeat-quests.v2": { daily: {
+        key, bundleClaimed, claimed: [],
+        baseline: { battleCount: 0, fishCaught: 0, enhanceAttempts: 0, farmHarvests: 0, woodcuttingCuts: 0, miningSuccesses: 0, workshopCrafts: 0 },
+      } },
+      "adventure-log.v2": { monsters: { slime: { kills } }, enhanceAttempts: 1 },
+      "woodcutting-log.v1": { cuts: 3 },
+      "mining-log.v1": { successes: 3 },
+    }, Date.UTC(2026, 8, 6, 4));
+    expect(activities.find((a) => a.id === "daily_quest_reward")?.state)
+      .toBe(ready ? "actionable" : bundleClaimed ? "completed" : "in_progress");
+    const enabled = applyActivityPreferences(activities, DEFAULT_ADVENTURE_HOME_PREFERENCES);
+    const dots = activityTabDots(enabled, true);
+    expect(dots.tabs.character === true).toBe(ready);
+    expect(dots.paths["/quests"] === true).toBe(ready);
+    expect(activityTabDots(enabled, false).tabs.character).toBeUndefined();
+  });
+});
 
 describe("모험 대시보드 서버 활동 변환", () => {
   it("수확과 자동 채집 완료를 행동 가능한 생활 활동으로 만든다", () => {

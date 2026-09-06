@@ -6,6 +6,8 @@
 
 /* eslint-disable @next/next/no-img-element */
 
+import { CoopFreeSupportOption } from "./CoopFreeSupportOption";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { useEffect, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
@@ -85,6 +87,7 @@ export function V2CoopBossDetailView({
     attack,
     claim,
     setVisibility,
+    setFreeSupport,
   } = useCoopSessionState({
     sessionId,
     setStamina,
@@ -98,8 +101,8 @@ export function V2CoopBossDetailView({
     return () => clearInterval(id);
   }, []);
 
-  const handleAttack = async () => {
-    const result = await attack();
+  const handleAttack = async (support = false) => {
+    const result = await attack(support);
     if (result) onOpenAttackLog(result.attackId);
   };
 
@@ -167,7 +170,9 @@ export function V2CoopBossDetailView({
   const showScopeBadge = !showScopeControl;
 
   return (
-    <main className="mx-auto max-w-[720px] space-y-4 px-4 py-5 text-zinc-900 sm:p-6 dark:text-zinc-100">
+    <main
+      className={`${SURFACE_CARD} mx-auto max-w-[720px] space-y-4 px-4 py-5 text-zinc-900 sm:p-6 dark:text-zinc-100`}
+    >
       <SubViewHeader
         title={def.name}
         onBack={onBack}
@@ -324,10 +329,26 @@ export function V2CoopBossDetailView({
             </button>
             {killingBlowReward && (
               <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
-                처치 확정타 보너스 · 협동 주화 ×{killingBlowReward.coin} +{" "}
+                일반 공격 처치 확정타 보너스 · 협동 주화 ×{killingBlowReward.coin} +{" "}
                 {killingBlowReward.bossMaterialName} ×
                 {killingBlowReward.bossMaterialCount}
               </p>
+            )}
+            {session.allowFreeSupport && (
+              <div className="space-y-1 pt-2">
+                <button
+                  type="button"
+                  disabled={busy || onCooldown}
+                  onClick={() => void handleAttack(true)}
+                  className="mx-auto min-h-11 w-full max-w-xs rounded-md border border-emerald-600 px-3 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 dark:text-emerald-300 dark:hover:bg-emerald-950"
+                >
+                  무료 지원
+                </button>
+                <p className="text-[11px] text-zinc-600 dark:text-zinc-300">
+                  스태미나 소모·기여도·처치 확정타 보상 없음. 기존 보상 자격은 유지됩니다.
+                  일반 공격과 재공격 대기시간을 공유합니다.
+                </p>
+              </div>
             )}
           </div>
         )}
@@ -413,6 +434,16 @@ export function V2CoopBossDetailView({
               </div>
             </div>
           </div>
+        </Card>
+      )}
+
+      {session.isOwner && active && (
+        <Card padding="md">
+          <CoopFreeSupportOption
+            checked={session.allowFreeSupport}
+            disabled={busy}
+            onChange={(allowed) => void setFreeSupport(allowed)}
+          />
         </Card>
       )}
 

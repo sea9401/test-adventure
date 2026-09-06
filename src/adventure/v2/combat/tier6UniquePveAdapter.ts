@@ -1,3 +1,4 @@
+import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
 import type { PlayerCombat } from "./engineState";
 import type { BattleState } from "./engineState";
 import {
@@ -125,6 +126,7 @@ function applyCommand(
   let next = state;
   let signatureDamage = 0;
   if (command.kind === "damage_fixed") {
+    recordCombatDamage(`unique:${command.mechanic}`, "enemy", next.enemyHp, command.amount);
     next = {
       ...next,
       enemyHp: Math.max(0, next.enemyHp - command.amount),
@@ -147,6 +149,7 @@ function applyCommand(
       magicDefense,
     });
     signatureDamage = mitigated;
+    recordCombatDamage(`unique:${command.mechanic}`, "enemy", next.enemyHp, mitigated);
     next = {
       ...next,
       enemyHp: Math.max(0, next.enemyHp - mitigated),
@@ -163,6 +166,7 @@ function applyCommand(
       },
     };
   } else if (command.kind === "heal") {
+    recordCombatMetric("healing", `unique:${command.mechanic}`, "player", Math.min(next.playerMaxHp - next.playerHp, command.amount));
     next = {
       ...next,
       playerHp: Math.min(next.playerMaxHp, next.playerHp + command.amount),

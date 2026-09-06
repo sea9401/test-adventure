@@ -11,6 +11,7 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { GameStateRefreshProvider } from "./GameStateRefreshContext";
+import { useCoreGameStateRefresh } from "./useCoreGameStateRefresh";
 import { tileSettlementErrorMessage } from "./tileSettlementErrors";
 import { GameStateSliceProviders } from "./GameStateSliceProviders";
 export { useGameIdentityState } from "./GameIdentityContext";
@@ -531,7 +532,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
+  const resourceRevision = useRef(0);
   const applyResourcePatch = useCallback((patch: GameResourcePatch) => {
+    resourceRevision.current += 1;
     if (typeof patch.gold === "number") setGold(Math.max(0, patch.gold));
     if (typeof patch.bankedGold === "number") {
       setBankedGold(Math.max(0, patch.bankedGold));
@@ -788,19 +791,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     [applyResourcePatch, replaceDiscoveredFishIds, replaceRegisteredIds],
   );
 
-  const refreshGameState = useCallback(async () => {
-    try {
-      const res = await fetch("/api/v2/me/state?view=core");
-      if (res.ok) {
-        applyGameStateSnapshot((await res.json()) as GameStateSnapshot);
-      }
-    } catch {
-    } finally {
-      // tileSettlements 등 비동기 상태가 채워진(혹은 비어있음이 확정된) 시점. 같은
-      //   continuation 의 setState 들과 배치되어 한 번에 반영된다.
-      setGameStateLoaded(true);
-    }
-  }, [applyGameStateSnapshot]);
+  const refreshGameState = useCoreGameStateRefresh(
+    applyGameStateSnapshot, resourceRevision, setGameStateLoaded,
+  );
 
   useEffect(() => {
     // 비동기 fetch 후 setState 라 cascading render 가 아니지만 린트는 호출 그래프만

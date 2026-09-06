@@ -66,7 +66,7 @@ import { COOP_BOSS_MAX_HP_DAMAGE_MULT } from "@/adventure/data/v2/v2CombatConsta
 
 // POST /api/v2/coop/attack — 협동 보스 1회 공격.
 //
-// 본문: { sessionId } — 같은 종류 동시 다수 소환(#714)이라 kind 가 아닌 세션 인스턴스 대상.
+// 본문: { sessionId, support?: boolean } — 같은 종류 동시 다수 소환(#714)이라 kind 가 아닌 세션 인스턴스 대상.
 // 서버 권위 흐름(hunt 라우트와 같은 골격 — 단일 트랜잭션):
 //   1. character.v2 잠금(전 라우트 공통 첫 락) → 스태미너 차감 가능 검사.
 //   2. equipment/skills/proficiency lock-read → derive(왕복 0).
@@ -77,7 +77,8 @@ import { COOP_BOSS_MAX_HP_DAMAGE_MULT } from "@/adventure/data/v2/v2CombatConsta
 //   5. contributor UPSERT + 공격 로그 1줄.
 //   6. character.v2 에 스태미너와 처치 확정타 보상을 기록 — 협동 보스는 현재 HP/MP 를 소모하지 않는 별도 전투.
 //      세션 검증을 통과한 뒤에만 쓰므로 쿨다운/만료 거부 시 스태미너 미소모.
-// 처치 확정자(킬 CAS)는 트랜잭션 안에서 소액 막타 보상을 즉시 받고, tx 후 coop_kill 피드를
+// 일반 공격의 처치 확정자는 소액 막타 보상을 즉시 받는다. 무료 지원은 비용·기여·막타 보상 없이
+// 동일 쿨다운으로 공유 HP를 깎으며, 소환자의 허용을 잠금 전후 검증한다. tx 후 coop_kill 피드를
 // 발행한다. 기여 보상은 별도 claim(본인 세이브만 — 교차 유저 락 0 원칙).
 
 type CharSave = {
@@ -102,12 +103,19 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
-  let body: { sessionId?: unknown };
+  let body: { sessionId?: unknown; support?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
+  if (
+    !body || typeof body !== "object" ||
+    (body.support !== undefined && typeof body.support !== "boolean")
+  ) {
+    return Response.json({ ok: false, error: "bad_support_mode" }, { status: 400 });
+  }
+  const isSupport = body.support === true;
   const sessionId =
     typeof body.sessionId === "string" && body.sessionId.length > 0
       ? body.sessionId
@@ -130,7 +138,7 @@ export async function POST(req: Request) {
     const staminaMax = staminaConfig.max;
     const afterStamina = tryConsume(
       stamina,
-      COOP_ATTACK_STAMINA_COST,
+      isSupport ? 0 : COOP_ATTACK_STAMINA_COST,
       now,
       staminaMax,
       staminaConfig.regenBonusPct,
@@ -189,6 +197,12 @@ export async function POST(req: Request) {
       return {
         status: 403,
         body: { ok: false as const, error: "no_permission" as const },
+      };
+    }
+    if (isSupport && !sessionPeek.allowFreeSupport) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "support_disabled" as const },
       };
     }
     const kindId = parseCoopBossKindId(sessionPeek.regionId);
@@ -433,6 +447,12 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "no_permission" as const },
       };
     }
+    if (isSupport && !s.allowFreeSupport) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "support_disabled" as const },
+      };
+    }
     const [contrib] = await tx
       .select({ lastAttackAt: coopBossContributors.lastAttackAt })
       .from(coopBossContributors)
@@ -600,7 +620,7 @@ export async function POST(req: Request) {
       .returning({ hp: coopBossSessions.hp });
     const bossHp = updated?.hp ?? s.hp;
     const killingBlowReward =
-      bossHp === 0 && isStandardCoopBossKindId(kindId)
+      bossHp === 0 && !isSupport && isStandardCoopBossKindId(kindId)
         ? coopKillingBlowReward(kindId)
         : null;
     if (bossHp === 0) {
@@ -625,21 +645,24 @@ export async function POST(req: Request) {
       { playerCombat: playerForBattle },
     );
 
+    // 지원도 재공격 시간은 기록하지만 기존 보상 피해량/일반 공격 횟수는 유지한다.
+    const contributionDamage = isSupport ? 0 : appliedDamage;
+    const contributionAttacks = isSupport ? 0 : 1;
     // === 5. contributor UPSERT + 공격 로그 ===
     await tx
       .insert(coopBossContributors)
       .values({
         sessionId: s.id,
         userId,
-        damage: appliedDamage,
-        attackCount: 1,
+        damage: contributionDamage,
+        attackCount: contributionAttacks,
         lastAttackAt: nowDate,
       })
       .onConflictDoUpdate({
         target: [coopBossContributors.sessionId, coopBossContributors.userId],
         set: {
-          damage: sql`${coopBossContributors.damage} + ${appliedDamage}`,
-          attackCount: sql`${coopBossContributors.attackCount} + 1`,
+          damage: sql`${coopBossContributors.damage} + ${contributionDamage}`,
+          attackCount: sql`${coopBossContributors.attackCount} + ${contributionAttacks}`,
           lastAttackAt: nowDate,
         },
       });
@@ -652,7 +675,7 @@ export async function POST(req: Request) {
           eq(coopBossContributors.userId, userId),
         ),
       );
-    const myDamage = myRow?.damage ?? appliedDamage;
+    const myDamage = myRow?.damage ?? contributionDamage;
     const [attackLog] = await tx
       .insert(coopBossAttackLog)
       .values({
@@ -662,31 +685,34 @@ export async function POST(req: Request) {
         damageDealt: appliedDamage,
         damageTaken,
         diedEarly,
+        isSupport,
         log: replay,
         createdAt: nowDate,
       })
       .returning({ id: coopBossAttackLog.id });
 
     // === 6. character.v2 스태미너 + 처치 확정타 보상 기록 — HP/MP·회복약은 협동 보스 전투와 분리 ===
-    await upsertSave(tx, userId, "character.v2", {
-      ...charSave,
-      stamina: afterStamina,
-      ...(killingBlowReward
-        ? {
-            materials: mergeDrops(charSave.materials, {
-              [COOP_COIN_MATERIAL_ID]: killingBlowReward.coin,
-              [killingBlowReward.bossMaterialId]:
-                killingBlowReward.bossMaterialCount,
-            }),
-          }
-        : {}),
-    });
-    await recordGrowthLeapStaminaSpendInTx(
-      tx,
-      userId,
-      COOP_ATTACK_STAMINA_COST,
-      now,
-    );
+    if (!isSupport) {
+      await upsertSave(tx, userId, "character.v2", {
+        ...charSave,
+        stamina: afterStamina,
+        ...(killingBlowReward
+          ? {
+              materials: mergeDrops(charSave.materials, {
+                [COOP_COIN_MATERIAL_ID]: killingBlowReward.coin,
+                [killingBlowReward.bossMaterialId]:
+                  killingBlowReward.bossMaterialCount,
+              }),
+            }
+          : {}),
+      });
+      await recordGrowthLeapStaminaSpendInTx(
+        tx,
+        userId,
+        COOP_ATTACK_STAMINA_COST,
+        now,
+      );
+    }
 
     return {
       status: 200,
@@ -695,6 +721,7 @@ export async function POST(req: Request) {
         stamina: afterStamina,
         result: {
           attackId: attackLog.id,
+          isSupport,
           kind: kindId,
           damageDealt: appliedDamage,
           damageTaken,

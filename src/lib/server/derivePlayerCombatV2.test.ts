@@ -1786,9 +1786,10 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     }).player;
     expect(invested.evaRating).toBeCloseTo(10, 5);
     expect(investedBuffed.evaRating).toBeCloseTo((invested.evaRating ?? 0) * 1.1, 5);
-    // 흡혈 — 미장착 시 미설정(undefined), 장착 시 enchantLifestealPct 훅으로 노출.
+    // 장착 패시브 흡혈은 별빛 흡혈과 분리하여 스킬에도 전달한다.
     expect(plain.enchantLifestealPct ?? 0).toBe(0);
-    expect(buffed.enchantLifestealPct).toBe(4);
+    expect(buffed.passiveLifestealPct).toBe(4);
+    expect(buffed.enchantLifestealPct ?? 0).toBe(0);
   });
 
   it("방어%/명중(다양성 2차)이 derive 레버에 적용된다 (PvE/PvP 공용)", () => {
@@ -2405,5 +2406,22 @@ describe("collectEquipSignatures + equipSignatures 배선 (고유 시그니처 P
       v2Equipped: { ring: "v2_sanctum_sig_sealed_ring" } as never,
     }).player;
     expect(withSig.equipSignatures?.[0]?.trigger).toBe("on_action_evasion");
+  });
+});
+
+
+describe("불사의 순교·불사마혈의 장착 흡혈", () => {
+  it.each([
+    ["v2c_bloodlord_martyrdom", 2],
+    ["v2c_blooddemon_immortalblood", 4],
+  ] as const)("%s의 흡혈 %i를 별도 전투 필드로 전달한다", (skillId, pct) => {
+    const derived = derivePlayerCombatV2FromSaves({
+      character: { level: 50, hp: 500, mp: 100, class: "warrior" },
+      equipmentSave: { owned: [], equipped: {} },
+      proficiencyRaw: {},
+      skillsRaw: { learned: [skillId], equipped: [skillId] },
+    })!;
+    expect(derived.player.passiveLifestealPct).toBe(pct);
+    expect(derived.player.enchantLifestealPct ?? 0).toBe(0);
   });
 });

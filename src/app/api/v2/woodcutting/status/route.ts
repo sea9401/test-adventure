@@ -50,6 +50,7 @@ export async function GET() {
     materials,
     timber: materials[SETTLEMENT_MATERIAL_ID.timber],
     log: parseWoodcuttingLog(logRaw),
+    failureReductionPct: bonuses.failureReductionPct,
     durationReductionPct:
       bonuses.durationReductionPct + LIFE_TOOL_DURATION_REDUCTION_PCT[toolTier],
     autoSession: autoState.session,

@@ -134,6 +134,9 @@ const SELF_RESOURCE_OPTIONS: PatternChoiceOption<V2PatternSelfResource>[] = [
   { value: "ironWallReflect", label: "철벽 반사" },
   { value: "inscription", label: "각인 총합" },
   { value: "weight", label: "중량" },
+  { value: "physicalWard", label: "금강결계" },
+  { value: "magicWard", label: "봉마결계" },
+  { value: "purificationWard", label: "정화결계" },
   { value: "bloodlineBurstReady", label: "혈맥 폭발 상태" },
 ];
 const SELF_RESOURCE_OP_OPTIONS = [
@@ -1167,6 +1170,7 @@ export function V2CombatPatternView({
         아래 블록을 확인하고 현재 A/B 차례를 유지합니다.
         여러 조건은 AND (모두 만족) 또는 OR (하나 만족)으로 묶습니다. 예: 내 HP 50% 이상
         AND 혈전 준비 없음 → 혈전, 혈전 준비 있음 → 필살기.
+        {" "}결계는 내 전투 자원에서 선택합니다. 예: 금강결계 없음 OR 봉마결계 없음 OR 정화결계 없음 → 만법불침.
       </p>
 
       {loading ? (

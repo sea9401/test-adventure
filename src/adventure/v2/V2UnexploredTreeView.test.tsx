@@ -17,7 +17,12 @@ import {
 
 const mocks = vi.hoisted(() => ({
   notifySystem: vi.fn(),
+  applyResourcePatch: vi.fn(),
   confirmGameAction: vi.fn(async () => true),
+}));
+
+vi.mock("./GameResourceContext", () => ({
+  useGameResourceState: () => ({ applyResourcePatch: mocks.applyResourcePatch }),
 }));
 
 vi.mock("@/adventure/v2/RewardToastProvider", () => ({
@@ -31,6 +36,7 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   mocks.notifySystem.mockClear();
+  mocks.applyResourcePatch.mockClear();
   mocks.confirmGameAction.mockReset().mockResolvedValue(true);
 });
 
@@ -80,6 +86,68 @@ function openUnexploredTab(
 }
 
 describe("V2UnexploredTreeView", () => {
+  it.each([
+    { gold: 0, bankedGold: 125_000 },
+    { gold: 125_000, bankedGold: 0 },
+  ])("초기화 후 서버의 보유·은행 잔액을 공용 상태에 반영한다: %j", async (wallet) => {
+    const nextSnapshot = {
+      ...SNAPSHOT,
+      ...wallet,
+      spentPoints: 1,
+      selectedNodeIds: ["start"],
+    };
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: true, snapshot: nextSnapshot })));
+    render(
+      <V2UnexploredTreeView
+        initialSnapshot={{ ...SNAPSHOT, gold: 125_000, bankedGold: 500_000 }}
+        onBack={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "초기화" }));
+
+    await waitFor(() => expect(screen.getByText("1 / 3")).toBeTruthy());
+    expect(mocks.applyResourcePatch).toHaveBeenCalledWith(wallet);
+  });
+
+  it("초기화가 거절되면 공용 잔액을 변경하지 않는다", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json(
+      { ok: false, error: "insufficient_gold" }, { status: 409 },
+    )));
+    render(<V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "초기화" }));
+
+    await waitFor(() => expect(mocks.notifySystem).toHaveBeenCalledWith(
+      "✗ 노드 반환에 필요한 골드가 부족합니다.", "error",
+    ));
+    expect(mocks.applyResourcePatch).not.toHaveBeenCalled();
+    expect(screen.getByText("2 / 3")).toBeTruthy();
+  });
+
+  it.each([[2, 0, 7], [3, 1, 6]])("shows shortest route point shortage with earned=%s without allowing activation", (earnedPoints, available, shortfall) => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { container } = render(<V2UnexploredTreeView initialSnapshot={{ ...SNAPSHOT, earnedPoints }} onBack={vi.fn()} />);
+    fireEvent.click(container.querySelector('[data-unexplored-node="pool-iron_legion"]')!);
+    expect(screen.getByText("최단 경로 · 탐사 포인트 7개 필요")).toBeTruthy();
+    expect(screen.getByText(`사용 가능 ${available}개 · ${shortfall}개 부족`)).toBeTruthy();
+    const button = screen.getByRole("button", { name: /활성화 불가/ });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(button);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("shows affordable route cost and clears it when an active node is selected", () => {
+    const { container } = render(<V2UnexploredTreeView initialSnapshot={{ ...SNAPSHOT, earnedPoints: 9 }} onBack={vi.fn()} />);
+    fireEvent.click(container.querySelector('[data-unexplored-node="pool-iron_legion"]')!);
+    expect(screen.getByText("최단 경로 · 탐사 포인트 7개 필요")).toBeTruthy();
+    expect(screen.getByText("사용 가능 7개")).toBeTruthy();
+    expect((screen.getByRole("button", { name: /7개 활성화/ }) as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(container.querySelector('[data-unexplored-node="inner-0-0"]')!);
+    expect(screen.queryByText(/최단 경로 · 탐사 포인트/)).toBeNull();
+  });
+
   it("흔적 보관함에서 획득 해금 조건과 대상 몬스터를 안내한다", () => {
     const html = renderToStaticMarkup(
       <V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />,
@@ -352,6 +420,7 @@ describe("V2UnexploredTreeView", () => {
       }),
     );
     await waitFor(() => expect(screen.getByText("9 / 30")).toBeTruthy());
+    expect(mocks.applyResourcePatch).toHaveBeenCalledWith({ gold: 0, bankedGold: 0 });
   });
 
   it("흔적 보관함 상단에 보유 골드를 한 번 표시하고 제작식에는 실제 골드 비용만 표시한다", () => {
@@ -490,6 +559,7 @@ describe("V2UnexploredTreeView", () => {
     fireEvent.click(craftButton);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(craftButton.hasAttribute("disabled")).toBe(false));
+    expect(mocks.applyResourcePatch).not.toHaveBeenCalled();
     fireEvent.click(craftButton);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
@@ -500,6 +570,9 @@ describe("V2UnexploredTreeView", () => {
       { bossId: "tracking_weapon", requestId: "craft-request-1" },
       { bossId: "tracking_weapon", requestId: "craft-request-1" },
     ]);
+    await waitFor(() =>
+      expect(mocks.applyResourcePatch).toHaveBeenCalledWith({ gold: 0, bankedGold: 0 }),
+    );
   });
 
   it("잠긴 제작 버튼을 누르면 노드 활성화 안내를 표시하고 제작 요청은 보내지 않는다", async () => {

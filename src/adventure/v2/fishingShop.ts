@@ -124,9 +124,21 @@ export function parseFishingShopState(
     dailyRaw.key === dailyKey ? countsOf(dailyRaw.purchases) : {};
   const weeklyPurchases =
     weeklyRaw.key === weeklyKey ? countsOf(weeklyRaw.purchases) : {};
+  // 일요일(9/6) 주간제 도입 직후의 9/7 초기화만 건너뛴다.
+  // 일간 상품은 그대로 초기화하고 회복약 구매량만 9/13까지 이어받는다.
+  const launchWeekCarryover = weeklyKey === "2026-09-07";
+  if (launchWeekCarryover && weeklyRaw.key === "2026-08-31") {
+    const previousCount = countsOf(weeklyRaw.purchases)[FISHING_STAMINA_POTION_ITEM_ID];
+    if (previousCount !== undefined) {
+      weeklyPurchases[FISHING_STAMINA_POTION_ITEM_ID] = previousCount;
+    }
+  }
   if (!hasWeeklyState) {
+    const legacyPurchases = launchWeekCarryover && dailyRaw.key === "2026-09-06"
+      ? countsOf(dailyRaw.purchases)
+      : dailyPurchases;
     const legacyStaminaPurchases =
-      dailyPurchases[FISHING_STAMINA_POTION_ITEM_ID] ?? 0;
+      legacyPurchases[FISHING_STAMINA_POTION_ITEM_ID] ?? 0;
     if (legacyStaminaPurchases > 0) {
       weeklyPurchases[FISHING_STAMINA_POTION_ITEM_ID] =
         legacyStaminaPurchases;

@@ -2,12 +2,14 @@
 
 import { renderToStaticMarkup } from "react-dom/server";
 import { cleanup, render, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GameChrome } from "./GameChrome";
 import { LoadoutStatResponsiveLayout } from "./LoadoutStatSummary";
 
+const routeState = vi.hoisted(() => ({ pathname: "/", huntStaminaMode: false }));
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/",
+  usePathname: () => routeState.pathname,
   useRouter: () => ({ push: vi.fn() }),
 }));
 
@@ -22,7 +24,7 @@ vi.mock("./GameStateProvider", () => ({
     viewerGuildId: null,
     gameStateLoaded: true,
     coreLoopOn: true,
-    huntStaminaMode: false,
+    huntStaminaMode: routeState.huntStaminaMode,
     refreshGameState: vi.fn(),
   }),
 }));
@@ -48,12 +50,46 @@ vi.mock("./GameSceneBackground", () => ({
   GameSceneBackground: () => null,
 }));
 
+beforeEach(() => {
+  routeState.pathname = "/";
+  routeState.huntStaminaMode = false;
+});
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
 
 describe("GameChrome 결합형 게임 헤더", () => {
+  it.each(["/battle/dungeon", "/battle/dungeon/95"])("미개척지에서 스태미너를 메뉴 아래 고정한다: %s", (pathname) => {
+    routeState.pathname = pathname;
+    routeState.huntStaminaMode = true;
+    const container = document.createElement("div");
+    container.innerHTML = renderToStaticMarkup(<GameChrome><main>전투 결과</main></GameChrome>);
+    const bar = within(container).getByText("스태미너").parentElement?.parentElement;
+    expect(bar?.parentElement?.className).toContain("sticky");
+    expect(bar?.parentElement?.className).toContain("top-[var(--game-header-height,4rem)]");
+    expect(bar?.className).toContain("py-2");
+    expect(bar?.className).toContain("dark:bg-zinc-950");
+  });
+
+  it("협동 보스의 스태미너는 기존 배치를 유지한다", () => {
+    routeState.pathname = "/battle/coop";
+    routeState.huntStaminaMode = true;
+    const container = document.createElement("div");
+    container.innerHTML = renderToStaticMarkup(<GameChrome><main>협동 보스</main></GameChrome>);
+    const bar = within(container).getByText("스태미너").parentElement?.parentElement;
+    expect(bar?.parentElement?.className).not.toContain("sticky");
+    expect(bar?.className).toContain("py-3");
+  });
+
+  it("쿨다운 모드에서는 미개척지 스태미너 바를 숨긴다", () => {
+    routeState.pathname = "/battle/dungeon/95";
+    const container = document.createElement("div");
+    container.innerHTML = renderToStaticMarkup(<GameChrome><main>전투 결과</main></GameChrome>);
+    expect(within(container).queryByText("스태미너")).toBeNull();
+  });
+
   it("키보드 사용자가 반복 메뉴를 건너뛰고 현재 본문으로 이동할 수 있다", () => {
     const container = document.createElement("div");
     container.innerHTML = renderToStaticMarkup(

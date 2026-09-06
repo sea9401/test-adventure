@@ -1718,6 +1718,8 @@ export const coopBossSessions = pgTable(
     summonerGuildId: integer("summoner_guild_id"),
     // 가시성/공격권한 — 'public'(공개·기본) | 'guild_only'(길드원만) | 'summoner_only'(소환자만).
     visibility: text("visibility").notNull().default("public"),
+    // 소환자가 허용한 무료 지원 — 기존 세션은 기본 비허용.
+    allowFreeSupport: boolean("allow_free_support").notNull().default(false),
     // 하드 보스 조건부 발악 상태. 현재는 흉포한 산군 50% 발악 약화 여부만 사용한다.
     hardEnrageWeakened: boolean("hard_enrage_weakened")
       .notNull()
@@ -1790,6 +1792,7 @@ export const coopBossAttackLog = pgTable(
     damageDealt: integer("damage_dealt").notNull(),
     damageTaken: integer("damage_taken").notNull(),
     diedEarly: boolean("died_early").notNull().default(false),
+    isSupport: boolean("is_support").notNull().default(false),
     log: jsonb("log").notNull().default(sql`'[]'::jsonb`),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },

@@ -10,10 +10,7 @@ import type {
 } from "./MiningView";
 import type { MiningSpotId } from "@/adventure/data/v2/miningSpots";
 import { useActivityVerification } from "./useActivityVerification";
-import type {
-  AutoGatheringResultView,
-  AutoGatheringSessionView,
-} from "./AutoGatheringCard";
+import type { AutoGatheringResultView, AutoGatheringSessionView } from "./AutoGatheringCard";
 import {
   parseAutoGatheringSessionView,
   type AutoGatheringActivity,
@@ -23,9 +20,13 @@ import { useGameActivityState } from "./GameStateProvider";
 import { useSystemToast } from "./RewardToastProvider";
 import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
 
-function parseAutoActivity(value: unknown): AutoGatheringActivity | null {
-  return value === "woodcutting" || value === "mining" ? value : null;
-}
+import {
+  parseAutoActivity,
+  parseMaterials,
+  parseNextActionAt,
+  wait,
+  requestAutoGathering,
+} from "./gatheringClient";
 
 function parseLog(value: unknown): MiningLogView {
   const item = (value ?? {}) as Record<string, unknown>;
@@ -55,21 +56,6 @@ function parseNode(value: unknown): MiningNodeView {
   };
 }
 
-function parseMaterials(value: unknown): Record<string, number> {
-  if (!value || typeof value !== "object") return {};
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).map(([id, count]) => [
-      id,
-      Math.max(0, Math.floor(Number(count) || 0)),
-    ]),
-  );
-}
-
-function parseNextActionAt(value: unknown): number | null {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
-}
-
 function parseAutoResult(value: unknown): AutoGatheringResultView {
   const item = (value ?? {}) as Record<string, unknown>;
   const byproducts = Array.isArray(item.byproducts)
@@ -94,14 +80,11 @@ function parseAutoResult(value: unknown): AutoGatheringResultView {
   };
 }
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export function useMining(): MiningHandlers {
   const { setAutoGathering } = useGameActivityState();
   const { notifySystem } = useSystemToast();
   const { verification, verifyHuman, readJson } = useActivityVerification("mining");
+  const [failureReductionPct, setFailureReductionPct] = useState(0);
   const [materials, setMaterials] = useState<Record<string, number>>({});
   const [log, setLog] = useState<MiningLogView>({
     successes: 0,
@@ -125,6 +108,9 @@ export function useMining(): MiningHandlers {
         if (!alive || !json?.ok) return;
         setMaterials(parseMaterials(json.materials));
         setLog(parseLog(json.log));
+        setFailureReductionPct(
+          Math.min(90, Math.max(0, Number(json.failureReductionPct) || 0)),
+        );
         setAutoSession(
           parseAutoGatheringSessionView(json.autoSession, {
             serverNow: json.serverNow,
@@ -161,6 +147,9 @@ export function useMining(): MiningHandlers {
       }
       setMaterials(parseMaterials(json.materials));
       setLog(parseLog(json.log));
+      setFailureReductionPct(
+        Math.min(90, Math.max(0, Number(json.failureReductionPct) || 0)),
+      );
       return {
         sessionId: json.sessionId,
         spotId,
@@ -236,12 +225,7 @@ export function useMining(): MiningHandlers {
   ): Promise<void> => {
     setAutoLoading(true);
     try {
-      const response = await fetch("/api/v2/mining/auto", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "start", spotId, planId }),
-      });
-      const json = await readJson(response);
+      const { response, json } = await requestAutoGathering("mining", { action: "start", spotId, planId }, readJson);
       if (!response.ok || !json?.ok) {
         const active = parseAutoActivity(json?.activeAutoActivity);
         if (active) setActiveAutoActivity(active);
@@ -272,12 +256,7 @@ export function useMining(): MiningHandlers {
   const claimAuto = useCallback(async (): Promise<void> => {
     setAutoLoading(true);
     try {
-      const response = await fetch("/api/v2/mining/auto", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "claim" }),
-      });
-      const json = await readJson(response);
+      const { response, json } = await requestAutoGathering("mining", { action: "claim" }, readJson);
       if (!response.ok || !json?.ok) throw new Error("mining_auto_claim_failed");
       if (json.levelCurveMigrated) {
         notifySystem(LIFE_LEVEL_MIGRATION_NOTICE, "info");
@@ -296,12 +275,7 @@ export function useMining(): MiningHandlers {
   const cancelAuto = useCallback(async (): Promise<void> => {
     setAutoLoading(true);
     try {
-      const response = await fetch("/api/v2/mining/auto", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "cancel" }),
-      });
-      const json = await readJson(response);
+      const { response, json } = await requestAutoGathering("mining", { action: "cancel" }, readJson);
       if (!response.ok || !json?.ok) throw new Error("mining_auto_cancel_failed");
       setMaterials(parseMaterials(json.materials));
       setLog(parseLog(json.log));
@@ -318,6 +292,7 @@ export function useMining(): MiningHandlers {
     start,
     finish,
     materials,
+    failureReductionPct,
     log,
     autoSession,
     autoResult,

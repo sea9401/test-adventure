@@ -18,6 +18,10 @@ export const DEF_IGNORE_FRACTION = 0.3;
 // `pickAction`은 player phase에서 호출. 포션 사용 결정 시 호출 측에서 보유량 체크 X —
 // 함수 내부에서 잔량을 추적하고 부족하면 attack으로 폴백한다.
 export type ResolveContext = {
+  /** Summary retains current-action events for mechanics, discarding completed history. */
+  logMode?: "full" | "summary";
+  /** Optional stream for synchronous repeatable simulations; omitted preserves live RNG. */
+  random?: () => number;
   pickAction: (state: BattleState) => PlayerAction;
   potions: Partial<Record<PotionId, number>>;
   // 보스 전투면 BOSS_TURN_CAP 턴 경과 시 패배로 타임아웃. 일반 전투에는 영향 없음.

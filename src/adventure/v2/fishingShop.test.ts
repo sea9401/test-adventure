@@ -138,7 +138,7 @@ describe("낚시 코인 상점 카탈로그", () => {
 
     expect(
       fishingStaminaPotionView(
-        parseFishingShopState(state, "2026-09-07", "2026-09-07"),
+        parseFishingShopState(state, "2026-09-14", "2026-09-14"),
       ),
     ).toEqual({
       boughtThisWeek: 0,
@@ -234,4 +234,25 @@ describe("낚시 코인 상점 카탈로그", () => {
       else expect(FISHING_LURES[id].price).toBeGreaterThan(0);
     }
   });
+  it.each(["2026-09-07", "2026-09-13"])("첫 주 회복약 구매량을 %s까지 이월하고 다음 주부터 초기화한다", (day) => {
+    const raw = {
+      daily: { key: "2026-09-06", purchases: { farm_seed_pouch: 3 } },
+      weekly: { key: "2026-08-31", purchases: { stamina_potion: 29 } },
+    };
+    const state = parseFishingShopState(raw, day, "2026-09-07");
+    expect(fishingStaminaPotionView(state).remainingThisWeek).toBe(1);
+    expect(fishingSeedPouchView(state).boughtToday).toBe(0);
+    const bought = recordFishingShopPurchase(state, FISHING_STAMINA_POTION_ITEM_ID);
+    const reloaded = parseFishingShopState(bought, "2026-09-13", "2026-09-07");
+    expect(fishingStaminaPotionView(reloaded).remainingThisWeek).toBe(0);
+    expect(fishingStaminaPotionView(parseFishingShopState(reloaded, "2026-09-14", "2026-09-14")).boughtThisWeek).toBe(0);
+    expect(fishingStaminaPotionView(parseFishingShopState(raw, "2026-09-14", "2026-09-14")).boughtThisWeek).toBe(0);
+  });
+
+  it("주간제로 전환 전에 산 9/6 일간 구매 기록도 첫 구매 기간에 포함한다", () => {
+    const raw = { daily: { key: "2026-09-06", purchases: { stamina_potion: 5 } } };
+    expect(fishingStaminaPotionView(parseFishingShopState(raw, "2026-09-07", "2026-09-07")).boughtThisWeek).toBe(5);
+    expect(fishingStaminaPotionView(parseFishingShopState(raw, "2026-09-14", "2026-09-14")).boughtThisWeek).toBe(0);
+  });
+
 });

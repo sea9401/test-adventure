@@ -109,15 +109,16 @@ describe("life requests route", () => {
     expect(store.get(LIFE_REQUESTS_SAVE_KEY)).toMatchObject({ chain: { completedIds: [first.id] }, stats: { chainDeliveries: 1 } });
   });
 
-  it("rerolls one unfinished daily lane and blocks a second reroll", async () => {
+  it("allows five daily rerolls and rejects the sixth", async () => {
     const before = await (await GET(new Request("http://test.local/api/v2/life-requests"))).json();
     const previous = before.reroll.lanes.find((entry: { lane: string }) => entry.lane === "woodcutting").title;
     const response = await post({ action: "reroll", lane: "woodcutting" });
     const after = await response.json();
     expect(response.status).toBe(200);
-    expect(after.reroll).toMatchObject({ used: true, rerolledLane: "woodcutting" });
+    expect(after.reroll).toMatchObject({ used: false, count: 1, remaining: 4, rerolledLane: "woodcutting" });
     expect(after.reroll.lanes.find((entry: { lane: string }) => entry.lane === "woodcutting").title).not.toBe(previous);
 
+    for (let i = 0; i < 4; i++) expect((await post({action:"reroll", lane:"mining"})).status).toBe(200);
     const duplicate = await post({ action: "reroll", lane: "mining" });
     expect(duplicate.status).toBe(400);
     expect(await duplicate.json()).toMatchObject({ error: "reroll_used" });

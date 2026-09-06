@@ -219,6 +219,8 @@ describe("길드 토벌전 패널", () => {
     );
 
     expect(html).toContain("연습 결과");
+    expect(html).toContain("최종 HP 감소량");
+    expect(html).toContain("회복을 반영한 전투 종료 시 HP 감소량이며, 누적 피격량이 아닙니다.");
     expect(html).toContain("1,234,567");
     expect(html).toContain("길드 진행과 개인 기록에는 반영되지 않았습니다.");
     expect(html).toContain("연습 전투 로그 링크");

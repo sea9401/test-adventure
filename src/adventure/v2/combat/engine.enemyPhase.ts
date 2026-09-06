@@ -1,3 +1,5 @@
+import { combatRandom } from "./combatRandom";
+import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
 import { appendLog, playerPveEvasionReductionPct } from "./engineSupport";
 import {
   applyEnemyDamage,
@@ -58,7 +60,7 @@ export function releaseSwordShadowAfterEnemyAction(
     nextSingleDamagePct: 15,
   });
   const shadowDamage = Math.min(state.enemyHp, released.damage);
-  const damagedState = applyEnemyDamage(state, released.damage);
+  const damagedState = applyEnemyDamage(state, released.damage, "sword_shadow");
   return {
     ...damagedState,
     stacks: {
@@ -341,10 +343,13 @@ export function resolveEnemyPhase(
     evadeHeal,
     player.receivedHealMult,
   );
-  const healOnDodge = (hp: number): number =>
-    reducedEvadeHeal > 0
+  const healOnDodge = (hp: number): number => {
+    const healedHp = reducedEvadeHeal > 0
       ? Math.min(state.playerMaxHp, hp + reducedEvadeHeal)
       : hp;
+    recordCombatMetric("healing", "dodge", "player", healedHp - hp);
+    return healedHp;
+  };
   // on-dodge 속도 버프(Phase 2) — 회피 성공 분기들이 next.buffs 로 쓸 값. 미발동=state.buffs
   //   그대로(Math.max 로 기존 버프 미감소) → byte-identical.
   const sigDodgeSpd = onDodgeSpeedBuff(player.equipSignatures);
@@ -432,6 +437,7 @@ export function resolveEnemyPhase(
     if (infiniteThornsDmg > 0) labels.push("무한 가시");
     if (reflexEvadeDmg > 0) labels.push("반사 회피");
     const newEnemyHp = Math.max(0, enemyHp0 - totalReflect);
+    recordCombatDamage("reflect_on_dodge", "enemy", enemyHp0, totalReflect);
     nextLog = appendLog(nextLog, {
       kind: "player_attack",
       text: `[${labels.join(" + ")}] ${state.enemy.name}에게 ${totalReflect} 반사 피해.`,
@@ -446,7 +452,7 @@ export function resolveEnemyPhase(
 
   // 그림자 보법 (2티어 특기) — 적 턴 시작 시 일정 확률로 그 턴 모든 적 공격 무효.
   const shadowStepPct = player.shadowStepPct ?? 0;
-  if (shadowStepPct > 0 && Math.random() * 100 < shadowStepPct) {
+  if (shadowStepPct > 0 && combatRandom() * 100 < shadowStepPct) {
     const healedHp = healOnDodge(state.playerHp);
     let log = appendLog(state.log, {
       kind: "info",
@@ -578,7 +584,7 @@ export function resolveEnemyPhase(
   // 별빛 가드(enchant guard) — 회피/럭키 방패 전에 굴리는 % 블록. 슬롯당 5~20% 누적.
   // 회피와 별개 라벨 — 회피는 비켜서고, 가드는 받아낸 다음 흩어 낸다.
   const enchantGuardPct = player.enchantGuardBlockPct ?? 0;
-  if (enchantGuardPct > 0 && Math.random() * 100 < enchantGuardPct) {
+  if (enchantGuardPct > 0 && combatRandom() * 100 < enchantGuardPct) {
     const log = appendLog(state.log, {
       kind: "info",
       text: `[가드] ${playerName}이(가) ${state.enemy.name}의 공격을 흩어 냈다!`,
@@ -595,7 +601,7 @@ export function resolveEnemyPhase(
   // 흘려막기 (기사 시그니처) — 낮은 확률로 피해를 통째로 흘려낸다. enchant 가드와 동류 지점:
   // 회피·럭키 방패 계열과 나란히, 받아내기 전에 굴리는 % 완전 무효.
   const nullifyPct = player.damageNullifyChancePct ?? 0;
-  if (nullifyPct > 0 && Math.random() * 100 < nullifyPct) {
+  if (nullifyPct > 0 && combatRandom() * 100 < nullifyPct) {
     const log = appendLog(state.log, {
       kind: "info",
       text: `[흘려막기] ${playerName}이(가) ${state.enemy.name}의 공격을 흘려냈다!`,
@@ -611,7 +617,7 @@ export function resolveEnemyPhase(
   }
   // 행운의 방패 (특기) — 위 회피가 모두 실패해도 일정 확률로 피해 무효 (행운 회피).
   const luckyBlockPct = player.luckyShieldBlockPct ?? 0;
-  if (luckyBlockPct > 0 && Math.random() * 100 < luckyBlockPct) {
+  if (luckyBlockPct > 0 && combatRandom() * 100 < luckyBlockPct) {
     const healedHp = healOnDodge(state.playerHp);
     let log = appendLog(state.log, {
       kind: "info",
@@ -770,7 +776,7 @@ export function resolveEnemyPhase(
     (state.enemy.critPct ?? 0) - (player.critResistPct ?? 0),
   );
   const monsterCritFired =
-    effMonsterCritPct > 0 && Math.random() * 100 < effMonsterCritPct;
+    effMonsterCritPct > 0 && combatRandom() * 100 < effMonsterCritPct;
   const monsterCritMult = monsterCritFired
     ? (state.enemy.critMult ?? MONSTER_CRIT_MULT_DEFAULT)
     : 1;
@@ -946,6 +952,7 @@ export function resolveEnemyPhase(
     ? 0
     : Math.min(state.stacks.playerShield, magicBarrier.hpBoundDamage);
   const dmgToHp = magicBarrier.hpBoundDamage - shieldAbsorbed;
+  recordCombatDamage("enemy_direct", "player", state.playerHp, dmgToHp, shieldAbsorbed + magicBarrier.absorbedDamage);
   const newShield = state.stacks.playerShield - shieldAbsorbed;
   const trackedShieldResolution = resolveTrackedShieldAbsorption({
     remaining: state.stacks.trackedSetShield ?? 0,
@@ -989,6 +996,7 @@ export function resolveEnemyPhase(
   const playerHpAfterDmg = enduranceFires
     ? 1
     : state.playerHp;
+  if (enduranceFires) recordCombatMetric("survival_restoration", "endurance", "player", 1);
   // 흡혈 갑옷 (6티어) — 받은 HP 피해의 N% HP 회복. HP 0 으로 죽은 후엔 미발동, 불굴로 버틴 후엔 발동.
   const bloodfeastPct = player.bloodfeastPct ?? 0;
   const bloodfeastHealRaw =
@@ -1007,6 +1015,7 @@ export function resolveEnemyPhase(
       ? Math.min(state.playerMaxHp, playerHpAfterDmg + bloodfeastHeal)
       : playerHpAfterDmg;
   const bloodfeastActualHeal = playerHp - playerHpAfterDmg;
+  recordCombatMetric("healing", "bloodfeast", "player", bloodfeastActualHeal);
   const sigHealShield = healToShield(
     player.equipSignatures,
     {
@@ -1230,6 +1239,7 @@ export function resolveEnemyPhase(
       : 0;
   let reactiveEnemyDamageTotal = reflectDmg;
   const enemyHpAfterThorns = Math.max(0, state.enemyHp - reflectDmg);
+  recordCombatDamage("reflect", "enemy", state.enemyHp, reflectDmg);
   if (reflectDmg > 0) {
     const reflectLabels: string[] = [];
     if (thornsDmg > 0) reflectLabels.push("반사 갑주");
@@ -1259,7 +1269,7 @@ export function resolveEnemyPhase(
     !hitStoppedByShield &&
     playerHp > 0 &&
     enemyHpAfterThorns > 0 &&
-    Math.random() * 100 < runeCounterPct
+    combatRandom() * 100 < runeCounterPct
   ) {
     // PR-5a: 룬 반격도 v2 buff/debuff 격리 해제 일관 적용.
     const v2AtkMultC = v2AtkBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
@@ -1271,6 +1281,7 @@ export function resolveEnemyPhase(
     );
     reactiveEnemyDamageTotal += counterDmg;
     enemyHpAfterRuneCounter = Math.max(0, enemyHpAfterThorns - counterDmg);
+    recordCombatDamage("rune_counter", "enemy", enemyHpAfterThorns, counterDmg);
     log = appendLog(log, {
       kind: "player_attack",
       text: `[반격의 룬] ${state.enemy.name}에게 ${counterDmg} 반격 피해.`,
@@ -1284,7 +1295,7 @@ export function resolveEnemyPhase(
     !hitStoppedByShield &&
     playerHp > 0 &&
     enemyHpAfterRuneCounter > 0 &&
-    Math.random() * 100 < martialCounterPct
+    combatRandom() * 100 < martialCounterPct
   ) {
     const v2AtkMultM = v2AtkBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
     const v2DefMultM = v2DefBuffMult(state.enemyV2SelfBuffs, state.enemyV2Debuffs);
@@ -1306,6 +1317,7 @@ export function resolveEnemyPhase(
     );
     reactiveEnemyDamageTotal += counterDmgM;
     enemyHpAfterMartialCounter = Math.max(0, enemyHpAfterRuneCounter - counterDmgM);
+    recordCombatDamage("martial_counter", "enemy", enemyHpAfterRuneCounter, counterDmgM);
     log = appendLog(log, {
       kind: "player_attack",
       text: `[${counterBoostPct > 0 ? "반격 + 금강인" : "반격"}] ${state.enemy.name}에게 ${counterDmgM} 반격 피해.`,

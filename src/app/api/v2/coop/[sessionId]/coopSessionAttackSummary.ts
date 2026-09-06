@@ -8,6 +8,7 @@ type CoopSessionAttackRow = {
   damageDealt: number;
   damageTaken: number;
   diedEarly: boolean;
+  isSupport?: boolean;
   createdAt: Date;
 };
 
@@ -17,6 +18,7 @@ export type CoopSessionAttackSummary = {
   damageDealt: number;
   damageTaken: number;
   diedEarly: boolean;
+  isSupport?: boolean;
   isMe: boolean;
   avatar: Avatar;
   profileBorder: ProfileBorderId | null;
@@ -40,6 +42,7 @@ export function toCoopSessionAttackSummary({
     damageDealt: attack.damageDealt,
     damageTaken: attack.damageTaken,
     diedEarly: attack.diedEarly,
+    isSupport: attack.isSupport === true,
     isMe: attack.userId === viewerUserId,
     avatar,
     profileBorder,

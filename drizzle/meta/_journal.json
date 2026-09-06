@@ -1289,6 +1289,13 @@
       "when": 1788512563480,
       "tag": "0183_inbox_recipient_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 184,
+      "version": "7",
+      "when": 1788690562345,
+      "tag": "0184_coop_free_support",
+      "breakpoints": true
     }
   ]
 }

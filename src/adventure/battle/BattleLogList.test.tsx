@@ -161,14 +161,9 @@ describe("BattleLogList 표시 기호", () => {
     );
 
     expect(html).toContain("개벽·오원소 회귀");
-    expect(html).toContain("w-full sm:w-[70%]");
-    expect(html).toContain(
-      "grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto]",
-    );
-    expect(html).toContain("break-words sm:truncate");
-    expect(html).toContain(
-      "whitespace-normal break-words sm:whitespace-nowrap",
-    );
+    expect(html).toContain("whitespace-normal break-words");
+    expect(html).not.toContain("sm:truncate");
+    expect(html.replace(/<[^>]+>/g, "")).toContain("개벽·오원소 회귀 · 총 4,557 피해");
   });
 
   it("치명타 라벨 앞에 별 아이콘을 붙이지 않는다", () => {
@@ -317,13 +312,14 @@ describe("BattleLogList 행동 묶음", () => {
     });
   });
 
-  it("연타 카드에 총피해와 각 타격 피해를 바로 표시한다", () => {
+  it("연타 카드에 총피해를 표시하고 각 타격 피해는 상세에 보존한다", () => {
     const html = renderToStaticMarkup(
       <BattleLogList entries={MULTI_HIT_LOG} playerName="궁수" />,
     );
 
     expect(html).toContain("3타");
-    expect(html).toContain("총 600 피해");
+    expect(html.replace(/<[^>]+>/g, "")).toContain("총 600 피해");
+    expect(html).toContain("타격별 기록 보기");
     expect(html).toContain("1타 100");
     expect(html).toContain("2타 200");
     expect(html).toContain("3타 300");
@@ -886,7 +882,7 @@ describe("BattleLogList 행동 묶음", () => {
     expect(html.match(/data-battle-action=/g)).toHaveLength(2);
     expect(html).toContain('data-battle-action="left"');
     expect(html.replace(/<[^>]+>/g, "")).toContain(
-      "내 행동천년이두번지나도영겁 순환행동마다 HP +10% (4행동)활력 +18% (4행동)",
+      "내 행동천년이두번지나도영겁 순환행동마다 HP +10% · 4행동활력 +18% · 4행동",
     );
   });
 
@@ -923,7 +919,7 @@ describe("BattleLogList 행동 묶음", () => {
 
     expect(html.match(/data-battle-action=/g)).toHaveLength(2);
     expect(html.replace(/<[^>]+>/g, "")).toContain(
-      "명상마나 125 회복했다.",
+      "명상 · 마나 125 회복했다.",
     );
     expect(html.replace(/<[^>]+>/g, "")).toContain(
       "버티기보호막 +1501",
@@ -1085,7 +1081,7 @@ describe("BattleLogList 행동 묶음", () => {
     expect(html).toContain("철벽 태세");
   });
 
-  it("상대 행동은 결과를 먼저, 행동 주체와 행동명을 오른쪽에 배치한다", () => {
+  it("양쪽 모두 행동명 다음 결과를 읽고 상대 카드 내용은 오른쪽 정렬한다", () => {
     const playerHtml = renderToStaticMarkup(
       <BattleLogList
         entries={[
@@ -1116,12 +1112,11 @@ describe("BattleLogList 행동 묶음", () => {
     expect(playerHtml.indexOf("기본 공격")).toBeLessThan(
       playerHtml.indexOf("12 피해"),
     );
-    expect(enemyHtml.indexOf("12 피해")).toBeLessThan(
-      enemyHtml.indexOf("기본 공격"),
+    expect(enemyHtml.indexOf("기본 공격")).toBeLessThan(
+      enemyHtml.indexOf("12 피해"),
     );
-    expect(enemyHtml).toContain("grid-cols-[auto_minmax(0,1fr)]");
-    expect(enemyHtml).toContain("justify-start");
-    expect(enemyHtml).toContain("justify-end text-right");
+    expect(enemyHtml).toContain("text-right");
+    expect(enemyHtml).toContain("justify-end");
   });
 
   it("방어 계산이 없는 행동에는 상세 펼침을 만들지 않는다", () => {

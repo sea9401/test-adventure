@@ -28,6 +28,7 @@ import { hash32 } from "@/adventure/data/v2/hash";
 import {
   recordCodexMasteryGameplayBatch,
   type CodexMasteryGameplayEvent,
+  type CodexMasteryGameplayContext,
 } from "@/lib/server/codexMasteryGameplay";
 
 function sessionRng(sessionId: string): () => number {
@@ -51,6 +52,7 @@ export type RecordLifeFieldSuccessArgs = {
   successes?: number;
   now: number;
   features: LifeFieldFeatureSettings;
+  masteryContext?: CodexMasteryGameplayContext;
 };
 
 function recordCount(state: LifeFieldRecordsState, entryId: string): number {
@@ -128,6 +130,7 @@ export async function recordLifeFieldSuccessInTx(
         userId,
         masteryEvents,
         new Date(args.now),
+        ...(args.masteryContext ? [args.masteryContext] : []),
       );
     }
   }

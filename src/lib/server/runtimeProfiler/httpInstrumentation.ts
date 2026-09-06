@@ -100,6 +100,7 @@ export function installHttpRequestInstrumentation(
             durationMs,
             responseBytes: responseByteCount,
             database: profile.database,
+            phases: profile.phases,
             aborted,
           });
         } catch (error) {

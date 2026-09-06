@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { FeedbackEntryActions } from "./FeedbackEntryActions";
 import { CaretDown, CaretUp, ImageSquare } from "@phosphor-icons/react";
 import { Fragment, useEffect, useState } from "react";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
@@ -43,6 +44,7 @@ function feedbackTitle(content: string) {
 }
 
 export function FeedbackHistory({ refreshToken }: { refreshToken: number }) {
+  const [editVersion, setEditVersion] = useState(0);
   const initialSelection =
     typeof window === "undefined"
       ? { targetId: null, expandedId: null }
@@ -59,7 +61,7 @@ export function FeedbackHistory({ refreshToken }: { refreshToken: number }) {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return (await response.json()) as { entries: FeedbackHistoryEntry[] };
     },
-    [refreshToken, targetId],
+    [refreshToken, targetId, editVersion],
   );
   const entries = data?.entries ?? EMPTY_ENTRIES;
   const targetMissing = isFeedbackTargetMissing(targetId, entries);
@@ -232,6 +234,14 @@ export function FeedbackHistory({ refreshToken }: { refreshToken: number }) {
                                 </a>
                               )}
                             </div>
+                            <FeedbackEntryActions entry={entry} onChanged={(deleted) => {
+                              if (deleted) {
+                                setTargetId(null);setExpandedId(null);
+                                const url = new URL(window.location.href);url.hash = "";
+                                window.history.replaceState(null, "", url);
+                              }
+                              setEditVersion(value => value + 1);
+                            }} />
                             {entry.adminReply ? (
                               <div className={`${SURFACE_INSET} p-3`}>
                                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">

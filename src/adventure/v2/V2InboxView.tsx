@@ -32,7 +32,9 @@ import {
   declineGuildInvite,
   GuildError,
 } from "@/adventure/guild/api";
-import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { useGameResourceState } from "./GameResourceContext";
+import { useGameWorldState } from "./GameWorldContext";
+import { useRefreshGameState } from "./GameStateRefreshContext";
 import {
   useRewardToast,
   useSystemMessageState,
@@ -332,7 +334,9 @@ export function V2InboxView({
   embedded?: boolean;
 }) {
   // 초대 수락 시 공유 길드 상태(viewerGuildId) 갱신용 — 수락하면 길드에 합류하므로.
-  const { applyResourcePatch, refreshGameState, refreshGuildId } = useGameState();
+  const { applyResourcePatch } = useGameResourceState();
+  const { refreshGuildId } = useGameWorldState();
+  const refreshGameState = useRefreshGameState();
   const { notifyReward } = useRewardToast();
   const [tab, setTab] = useState<Tab>("inbox");
   const [items, setItems] = useState<InboxItem[] | null>(null);

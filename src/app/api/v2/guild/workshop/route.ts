@@ -1,62 +1,7 @@
-import { and, eq, inArray } from "drizzle-orm";
-import { db } from "@/db";
-import { guildMembers, savesKv } from "@/db/schema";
-import { ensureUser } from "@/lib/server/ensureUser";
-import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
-import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import {
-  currentGuildWorkshopWeek,
-  incrementGuildWorkshopWeeklyProgress,
-} from "@/lib/server/guildWorkshopWeekly";
-import { snapshotStaleArtisanLeaderboards } from "@/lib/server/artisanLeaderboardSnapshots";
-import { logGuildActivity } from "@/lib/server/guildActivityLog";
-import { guildSmithyUpgradeForLevel } from "@/adventure/data/v2/settlement";
-import { readGuildSmithyLevel } from "@/lib/server/guildFacilities";
-import {
-  applyExternalBuildingUseFeeToCharacter,
-  outpostIdFromRequest,
-  resolveOutpostBuildingAccess,
-  type SettlementBuildingAccess,
-} from "@/lib/server/settlementBuildingAccess";
-import { readGuildSettlement } from "@/lib/server/v2Settlement";
-import {
-  GUILD_WORKSHOP_RECIPE_IDS,
-  GUILD_WORKSHOP_RECIPES,
-  GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
-  addGuildWorkshopCraftRecord,
-  addGuildWorkshopCraftStat,
-  guildWorkshopCraftRecordTitleIds,
-  guildWorkshopBonusFromTotalCrafts,
-  guildWorkshopBaseEquipmentCandidates,
-  guildWorkshopRecipeMaterialSpendPlan,
-  guildWorkshopRecipeGoldCost,
-  guildWorkshopRecipeView,
-  hasGuildWorkshopRecipeMaterials,
-  isGuildWorkshopCraftMode,
-  isGuildWorkshopRecipeId,
-  meetsGuildWorkshopRecipeLevel,
-  parseGuildWorkshopMaterialInventory,
-  parseGuildWorkshopCraftRecords,
-  parseGuildWorkshopFavoriteRecipeIds,
-  parseGuildWorkshopStats,
-  rollGuildWorkshopEnhance,
-  shouldLogGuildWorkshopCraftActivity,
-  spendGuildWorkshopBaseEquipment,
-  spendGuildWorkshopMaterialsFromPlan,
-  spendGuildWorkshopRecipeMaterials,
-  type GuildWorkshopBonus,
-} from "@/adventure/data/v2/guildWorkshop";
-import {
-  spendGold,
-  spendableGold,
-} from "@/adventure/data/v2/coreLoopConfig";
-import {
-  ARTISAN_PROFESSION_NAME,
   BLACKSMITH_MASTERWORK_LEVEL,
   addArtisanXp,
   artisanLevel,
-  artisanXpForNextLevel,
-  artisanXpIntoLevel,
   parseArtisanState,
 } from "@/adventure/data/v2/artisan";
 import {
@@ -64,25 +9,8 @@ import {
   parseArtisanWeeklyWorkshopStats,
 } from "@/adventure/data/v2/artisanLeaderboard";
 import {
-  V2_EQUIPMENT,
-  isUnique,
-  parseEquipmentSave,
-} from "@/adventure/data/v2/v2Equipment";
-import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
-import { getGuildIdByUser } from "@/lib/server/v2EnsureSoloGuild";
-import { recordEconomyEventSoon } from "@/lib/server/economyLog";
-import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
-import { recordUniqueEquipmentAcquisitions } from "@/lib/server/uniqueEquipmentAchievement";
-import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
-import {
-  associationFacilityLevel,
-  canUseAdventurerAssociation,
-  claimWeeklyFacilitySource,
-} from "@/lib/server/adventurerAssociation";
-import {
   applyBlacksmithCraftControl,
   blacksmithCatalystMaterialForItem,
-  blacksmithSpecialtyForSlot,
   blacksmithTechniqueView,
   isBlacksmithOptionFocusId,
   isBlacksmithStructureId,
@@ -92,338 +20,68 @@ import {
   type BlacksmithOptionFocusId,
   type BlacksmithStructureId,
 } from "@/adventure/data/v2/blacksmithSpecialization";
-import { mintEquipInstance } from "@/adventure/data/v2/v2EquipMint";
+import { spendGold, spendableGold } from "@/adventure/data/v2/coreLoopConfig";
+import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
+import {
+  GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
+  GUILD_WORKSHOP_RECIPES,
+  GUILD_WORKSHOP_RECIPE_IDS,
+  addGuildWorkshopCraftRecord,
+  addGuildWorkshopCraftStat,
+  guildWorkshopBaseEquipmentCandidates,
+  guildWorkshopBonusFromTotalCrafts,
+  guildWorkshopCraftRecordTitleIds,
+  guildWorkshopRecipeGoldCost,
+  guildWorkshopRecipeMaterialSpendPlan,
+  guildWorkshopRecipeView,
+  hasGuildWorkshopRecipeMaterials,
+  isGuildWorkshopCraftMode,
+  isGuildWorkshopRecipeId,
+  meetsGuildWorkshopRecipeLevel,
+  parseGuildWorkshopCraftRecords,
+  parseGuildWorkshopMaterialInventory,
+  parseGuildWorkshopStats,
+  rollGuildWorkshopEnhance,
+  shouldLogGuildWorkshopCraftActivity,
+  spendGuildWorkshopBaseEquipment,
+  spendGuildWorkshopMaterialsFromPlan,
+  spendGuildWorkshopRecipeMaterials,
+} from "@/adventure/data/v2/guildWorkshop";
+import { guildSmithyUpgradeForLevel } from "@/adventure/data/v2/settlement";
+import { V2_EQUIPMENT, isUnique, parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
+import { mintEquipInstance, mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
+import { db } from "@/db";
+import { claimWeeklyFacilitySource } from "@/lib/server/adventurerAssociation";
+import { snapshotStaleArtisanLeaderboards } from "@/lib/server/artisanLeaderboardSnapshots";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
+import { ensureUser } from "@/lib/server/ensureUser";
 import {
   discountedPersonalCraftGoldCost,
   equippedPersonalCraftGoldDiscountPct,
 } from "@/lib/server/equipmentLiberationCraftDiscount";
-
-type CharacterSaveWithMaterials = {
-  materials?: unknown;
-  gold?: unknown;
-  bankedGold?: unknown;
-  [key: string]: unknown;
-};
-
-async function readGuildWorkshopBonus(
-  guildId: number,
-  extraCrafts = 0,
-): Promise<GuildWorkshopBonus> {
-  const members = await db
-    .select({ userId: guildMembers.userId })
-    .from(guildMembers)
-    .where(eq(guildMembers.guildId, guildId));
-  const memberIds = members.map((m) => m.userId);
-  if (memberIds.length === 0) {
-    return guildWorkshopBonusFromTotalCrafts(extraCrafts);
-  }
-  const rows = await db
-    .select({ value: savesKv.value })
-    .from(savesKv)
-    .where(
-      and(inArray(savesKv.userId, memberIds), eq(savesKv.key, "crafting.v2")),
-    );
-  const totalCrafts =
-    rows.reduce((sum, row) => {
-      const value = (row.value ?? null) as {
-        workshopStats?: unknown;
-      } | null;
-      return sum + parseGuildWorkshopStats(value?.workshopStats).totalCrafts;
-    }, 0) + extraCrafts;
-  return guildWorkshopBonusFromTotalCrafts(totalCrafts);
-}
-
-async function resolveWorkshopAccess(
-  userId: string,
-  outpostId: string | null,
-  association: boolean,
-): Promise<
-  | { ok: true; access: SettlementBuildingAccess }
-  | { ok: false; status: number; body: Record<string, unknown> }
-> {
-  if (association) {
-    if (!(await canUseAdventurerAssociation(db, userId))) {
-      return {
-        ok: false,
-        status: 403,
-        body: { ok: false, error: "association_for_solo_only" },
-      };
-    }
-    const level = await associationFacilityLevel(db, "guild_smithy");
-    return {
-      ok: true,
-      access: {
-        outpostId: "association",
-        guildId: 0,
-        buildingId: "guild_smithy",
-        level,
-        kind: "member",
-        taxRate: 0,
-        useFeeGold: 0,
-      },
-    };
-  }
-  if (outpostId) {
-    const result = await db.transaction((tx) =>
-      resolveOutpostBuildingAccess(tx, userId, outpostId, "guild_smithy"),
-    );
-    if (!result.ok) {
-      return {
-        ok: false,
-        status: result.status,
-        body: {
-          ok: false,
-          error:
-            result.error === "building_required"
-              ? "smithy_required"
-              : result.error,
-        },
-      };
-    }
-    return { ok: true, access: result.access };
-  }
-
-  const guildId = await getGuildIdByUser(userId);
-  if (guildId == null) {
-    return {
-      ok: false,
-      status: 403,
-      body: { ok: false, error: "no_guild" },
-    };
-  }
-  const level = await readGuildSmithyLevel(db, guildId);
-  return {
-    ok: true,
-    access: {
-      outpostId: "",
-      guildId,
-      buildingId: "guild_smithy",
-      level,
-      kind: "member",
-      taxRate: 0,
-      useFeeGold: 0,
-    },
-  };
-}
-
-function externalAccessView(access: SettlementBuildingAccess) {
-  return access.kind === "external"
-    ? {
-        kind: access.kind,
-        outpostId: access.outpostId,
-        guildId: access.guildId,
-        taxRate: access.taxRate,
-        useFeeGold: access.useFeeGold,
-      }
-    : null;
-}
-
-function artisanView(rawCrafting: unknown) {
-  const craft =
-    rawCrafting != null &&
-    typeof rawCrafting === "object" &&
-    !Array.isArray(rawCrafting)
-      ? (rawCrafting as Record<string, unknown>)
-      : {};
-  const artisan = parseArtisanState(craft.artisan);
-  const blacksmith = artisan.blacksmith ?? { xp: 0, crafts: 0 };
-  return {
-    blacksmith: {
-      name: ARTISAN_PROFESSION_NAME.blacksmith,
-      xp: blacksmith.xp,
-      crafts: blacksmith.crafts,
-      level: artisanLevel(blacksmith),
-      xpIntoLevel: artisanXpIntoLevel(blacksmith),
-      xpForNext: artisanXpForNextLevel(blacksmith),
-    },
-  };
-}
-
-function workshopStatsView(rawCrafting: unknown) {
-  const craft =
-    rawCrafting != null &&
-    typeof rawCrafting === "object" &&
-    !Array.isArray(rawCrafting)
-      ? (rawCrafting as Record<string, unknown>)
-      : {};
-  return parseGuildWorkshopStats(craft.workshopStats);
-}
-
-function workshopRecordsView(rawCrafting: unknown) {
-  const craft =
-    rawCrafting != null &&
-    typeof rawCrafting === "object" &&
-    !Array.isArray(rawCrafting)
-      ? (rawCrafting as Record<string, unknown>)
-      : {};
-  return parseGuildWorkshopCraftRecords(craft.workshopRecords);
-}
-
-export async function GET(req: Request) {
-  const userId = await ensureUser();
-  if (!userId) {
-    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
-
-  const resolved = await resolveWorkshopAccess(
-    userId,
-    outpostIdFromRequest(req),
-    new URL(req.url).searchParams.get("scope") === "association",
-  );
-  if (!resolved.ok) {
-    return Response.json(resolved.body, { status: resolved.status });
-  }
-  const { access } = resolved;
-  const guildId = access.guildId;
-  const association = access.outpostId === "association";
-  const smithyLevel = access.level;
-
-  const baseGuildBonus = association
-    ? guildWorkshopBonusFromTotalCrafts(0)
-    : await readGuildWorkshopBonus(guildId);
-  const smithyBonus = guildSmithyUpgradeForLevel(Math.max(1, smithyLevel));
-  const guildBonus = {
-    ...baseGuildBonus,
-    qualityChanceBonusPct:
-      baseGuildBonus.qualityChanceBonusPct + smithyBonus.qualityChanceBonusPct,
-  };
-  const {
-    resources,
-    materials,
-    equipment,
-    artisan,
-    artisanState,
-    blacksmithProgression,
-    workshopStats,
-    workshopRecords,
-    favoriteRecipeIds,
-    playerSpendableGold,
-  } = await db.transaction(async (tx) => {
-    const resources = association ? {} : await readGuildSettlement(tx, guildId);
-    const charRaw = await readSave<CharacterSaveWithMaterials>(
-      tx,
-      userId,
-      "character.v2",
-      {},
-    );
-    const craftingRaw = await readSave<Record<string, unknown>>(
-      tx,
-      userId,
-      "crafting.v2",
-      {},
-    );
-    const equipmentRaw = await readSave<Record<string, unknown>>(
-      tx,
-      userId,
-      "equipment.v2",
-      {},
-    );
-    return {
-      resources,
-      materials: parseGuildWorkshopMaterialInventory(charRaw.materials),
-      equipment: parseEquipmentSave(equipmentRaw),
-      artisan: artisanView(craftingRaw),
-      artisanState: parseArtisanState(craftingRaw.artisan),
-      blacksmithProgression: parseBlacksmithProgressionState(
-        craftingRaw.blacksmithProgression,
-      ),
-      workshopStats: workshopStatsView(craftingRaw),
-      workshopRecords: workshopRecordsView(craftingRaw),
-      favoriteRecipeIds: parseGuildWorkshopFavoriteRecipeIds(
-        craftingRaw.workshopFavoriteRecipeIds,
-      ),
-      playerSpendableGold: spendableGold(
-        Math.max(0, Math.floor(Number(charRaw.gold) || 0)),
-        Math.max(0, Math.floor(Number(charRaw.bankedGold) || 0)),
-      ),
-    };
-  });
-  const signatureCandidates =
-    artisan.blacksmith.level >= 28 && blacksmithProgression.specialty
-      ? equipment.owned.flatMap((instance) => {
-          const item = V2_EQUIPMENT[instance.id];
-          if (
-            instance.craftedBy?.userId !== userId ||
-            blacksmithSpecialtyForSlot(item.slot) !==
-              blacksmithProgression.specialty
-          ) {
-            return [];
-          }
-          return [
-            {
-              iid: instance.iid,
-              equipmentId: instance.id,
-              itemName: item.name,
-              slot: item.slot,
-              masterwork: instance.craftedBy.masterwork === true,
-              craftQualityLevel: instance.craftQuality?.level ?? 0,
-            },
-          ];
-        })
-      : [];
-  const craftSpendableGold = Math.max(
-    0,
-    playerSpendableGold - Math.max(0, Math.floor(access.useFeeGold)),
-  );
-  const liberationDiscountPct =
-    equippedPersonalCraftGoldDiscountPct(equipment);
-  return Response.json({
-    ok: true,
-    hasGuildSmithy: smithyLevel > 0,
-    smithyLevel,
-    smithyBonus,
-    guildBonus,
-    resources,
-    materials,
-    spendableGold: playerSpendableGold,
-    liberationDiscountPct,
-    artisan,
-    blacksmithProgression,
-    signatureCandidates,
-    workshopStats,
-    workshopRecords,
-    favoriteRecipeIds,
-    externalAccess: externalAccessView(access),
-    recipes: GUILD_WORKSHOP_RECIPE_IDS.map((id) => {
-      const recipe = GUILD_WORKSHOP_RECIPES[id];
-      const item = V2_EQUIPMENT[recipe.equipmentId];
-      const techniques = blacksmithTechniqueView({
-        level: artisan.blacksmith.level,
-        specialty: blacksmithProgression.specialty,
-        item,
-      });
-      const catalystMaterialId = blacksmithCatalystMaterialForItem(item);
-      return {
-        ...guildWorkshopRecipeView(
-          recipe,
-          resources,
-          artisanState,
-          guildBonus,
-          smithyLevel,
-          materials,
-          guildWorkshopBaseEquipmentCandidates(
-            equipment.owned,
-            equipment.equipped,
-            recipe,
-          ).length,
-          craftSpendableGold,
-        ),
-        techniques: {
-          ...techniques,
-          catalyst: techniques.catalystUnlocked
-            ? {
-                materialId: catalystMaterialId,
-                required: 1,
-                owned: materials[catalystMaterialId] ?? 0,
-              }
-            : null,
-        },
-      };
-    }),
-  });
-}
-
+import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
+import { logGuildActivity } from "@/lib/server/guildActivityLog";
+import {
+  artisanView,
+  externalAccessView,
+  readGuildWorkshopBonus,
+  resolveWorkshopAccess,
+  type CharacterSaveWithMaterials,
+} from "@/lib/server/guildWorkshopAccess";
+import {
+  currentGuildWorkshopWeek,
+  incrementGuildWorkshopWeeklyProgress,
+} from "@/lib/server/guildWorkshopWeekly";
+import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
+import {
+  applyExternalBuildingUseFeeToCharacter,
+  outpostIdFromRequest,
+} from "@/lib/server/settlementBuildingAccess";
+import { recordUniqueEquipmentAcquisitions } from "@/lib/server/uniqueEquipmentAchievement";
+import { readGuildSettlement } from "@/lib/server/v2Settlement";
+export { GET } from "@/lib/server/guildWorkshopReadHandler";
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {

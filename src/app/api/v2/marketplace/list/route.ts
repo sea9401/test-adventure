@@ -1,3 +1,4 @@
+import { isMarketplaceAuctionDuration } from "@/adventure/v2/marketplace/auctionDuration";
 import { and, count, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { marketplaceListingsV2 } from "@/db/schema";
@@ -89,6 +90,7 @@ export async function POST(req: Request) {
     itemId?: unknown;
     quantity?: unknown;
     price?: unknown;
+    durationHours?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -100,8 +102,10 @@ export async function POST(req: Request) {
   const kind: MarketKind = body.kind;
   if (!isValidPrice(body.price)) return bad("bad_price");
   const price = body.price;
+  const durationHours = body.durationHours === undefined ? 6 : body.durationHours;
+  if (!isMarketplaceAuctionDuration(durationHours)) return bad("bad_duration");
   const createdAt = new Date();
-  const listingTimes = marketplaceAuctionTimes(createdAt);
+  const listingTimes = marketplaceAuctionTimes(createdAt, durationHours);
   const listingWindow = { createdAt, ...listingTimes };
 
   const result = await db.transaction(async (tx) => {

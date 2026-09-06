@@ -9,6 +9,7 @@ import {
   isFeedbackImageStorageConfigured,
   uploadFeedbackImage,
 } from "@/lib/server/feedbackImageStorage";
+import { checkUserRateLimit, userRateLimitResponse } from "@/lib/server/userRateLimit";
 import { resolveActor } from "@/lib/server/resolveActor";
 
 const CONTENT_MIN = 5;
@@ -138,6 +139,10 @@ export async function POST(req: Request) {
   if (content.length > CONTENT_MAX) {
     return Response.json({ ok: false, error: "too_long" }, { status: 400 });
   }
+
+  // 본인이 최신 건의를 삭제해도 접수 쿨다운이 초기화되지 않게 한다.
+  const rate = checkUserRateLimit({ userId, action: "feedback:submit", limit: 1, windowMs: RATE_LIMIT_MS });
+  if (!rate.ok) return userRateLimitResponse(rate.retryAfterSec);
 
   const [last] = await db
     .select({ createdAt: feedbackReports.createdAt })

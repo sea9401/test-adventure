@@ -454,3 +454,23 @@ describe("combat pattern choice controls", () => {
     expect(html).toContain("disabled=\"\"");
   });
 });
+
+describe("결계 패턴 편집", () => {
+  it.each([
+    ["physicalWard", "금강결계"],
+    ["magicWard", "봉마결계"],
+    ["purificationWard", "정화결계"],
+  ] as const)("%s의 없음 조건에 결계 이름을 표시한다", (resource, label) => {
+    const html = renderToStaticMarkup(<ConditionParams
+      condition={{ kind: "self_resource", resource, op: "none", value: 0 }}
+      onChange={vi.fn()}
+    />);
+    expect(html).toContain(label);
+    expect(html).toContain("없을 때");
+  });
+
+  it("세 결계 중 하나가 없을 때 만법불침을 쓰는 OR 예시를 안내한다", () => {
+    const html = renderToStaticMarkup(<V2CombatPatternView onBack={vi.fn()} />);
+    expect(html).toContain("금강결계 없음 OR 봉마결계 없음 OR 정화결계 없음 → 만법불침");
+  });
+});

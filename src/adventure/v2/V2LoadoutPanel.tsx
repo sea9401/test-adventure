@@ -18,7 +18,7 @@ import {
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 import { resolveElementalResonanceLoadout } from "@/adventure/data/v2/elementalResonance";
-import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   DUELIST_STANCE_BONUS_PCT,
   composeDuelistDeclaration,
@@ -1264,10 +1264,10 @@ export function V2LoadoutPanel({
             <li
               key={s.skillId}
               data-skill-drop-id={s.skillId}
-              className={`ui-skill-card relative flex flex-col sm:flex-row gap-2 rounded-md border px-2 py-2 transition-colors sm:items-start sm:px-3 ${
+              className={`ui-skill-card ${SURFACE_CARD} relative flex flex-col gap-2 p-3 transition-colors ${
                 equipped
-                  ? "border-violet-300 bg-violet-50 dark:border-violet-800 dark:bg-zinc-800"
-                  : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
+                  ? "ring-1 ring-violet-300 dark:ring-violet-700"
+                  : ""
               } ${
                 draggingId === s.skillId ? "opacity-55" : ""
               }`}
@@ -1281,7 +1281,7 @@ export function V2LoadoutPanel({
                   }`}
                 />
               )}
-              <div className="flex w-full min-w-0 items-start gap-2 sm:contents">
+              <div className="flex w-full min-w-0 items-start gap-2">
               <span
                 role="button"
                 tabIndex={0}
@@ -1325,24 +1325,19 @@ export function V2LoadoutPanel({
               >
                 <DotsSixVertical size={18} weight="bold" />
               </span>
+              <div className="min-w-0 flex-1">
               <SkillDetailTrigger
                 skillId={s.skillId as V2SkillId}
                 skillName={s.name}
                 onOpen={setDetailSkillId}
-                className="flex min-w-0 flex-1 flex-col text-left"
+                className="min-h-11 w-full text-left"
               >
-                <span className="flex items-center gap-2">
-                  {favorite && (
-                    <Star
-                      size={14}
-                      weight="fill"
-                      className="shrink-0 text-amber-500"
-                    />
-                  )}
-                  <span className="min-w-0 truncate text-sm font-semibold">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="min-w-0 break-words text-base font-semibold">
                     {s.name}
                   </span>
-                  <span className="shrink-0 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] tabular-nums text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                  {equipped && !lifestyle && <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-700 dark:bg-violet-950 dark:text-violet-300">장착 중</span>}
+                  <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 text-xs tabular-nums text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                     SP {effectiveSpCost}
                   </span>
                   {effectiveSpCost !== s.spCost && (
@@ -1351,7 +1346,7 @@ export function V2LoadoutPanel({
                     </span>
                   )}
                 </span>
-                {/* 간단한 효과 설명 — 패시브면 "지능 +10%" 등, 액티브면 피해/회복 + MP·쿨다운. */}
+              </SkillDetailTrigger>
                 {!compact && <SkillEffectChips skillId={s.skillId} />}
                 {skillDef?.exclusiveGroup && (
                   <span className="mt-1 text-[10px] font-medium text-amber-700 dark:text-amber-300">
@@ -1368,9 +1363,9 @@ export function V2LoadoutPanel({
                     근원 촉매 · {effectiveSpCost} SP · 태초회귀 강화
                   </span>
                 )}
-              </SkillDetailTrigger>
               </div>
-              <div className="grid w-full sm:w-[6.25rem] shrink-0 grid-cols-[2.75rem_minmax(0,1fr)] sm:grid-cols-[2rem_minmax(0,1fr)] items-start gap-1.5">
+              </div>
+              <div data-skill-card-actions className="flex w-full items-center justify-between gap-2 border-t border-zinc-100 pt-2 dark:border-zinc-800">
                 <button
                   type="button"
                   onClick={() => toggleFavorite(s.skillId)}
@@ -1379,7 +1374,7 @@ export function V2LoadoutPanel({
                     favorite ? `${s.name} 즐겨찾기 해제` : `${s.name} 즐겨찾기`
                   }
                   title={favorite ? "즐겨찾기 해제" : "즐겨찾기"}
-                  className={`flex h-11 w-11 sm:h-8 sm:w-8 items-center justify-center rounded-md border disabled:cursor-not-allowed disabled:opacity-50 ${
+                  className={`flex h-11 w-11 items-center justify-center rounded-md border disabled:cursor-not-allowed disabled:opacity-50 ${
                     favorite
                       ? "border-amber-400 bg-amber-50 text-amber-600 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
                       : "border-zinc-300 bg-white text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
@@ -1390,7 +1385,7 @@ export function V2LoadoutPanel({
                 {lifestyle ? (
                   <span
                     aria-label={`${s.name} 적용 중`}
-                    className="inline-flex h-8 w-full items-center justify-center whitespace-nowrap rounded-md border border-emerald-500 bg-emerald-50 px-2 text-xs font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                    className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-md border border-emerald-500 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
                   >
                     적용 중
                   </span>
@@ -1400,7 +1395,7 @@ export function V2LoadoutPanel({
                     onClick={() => toggle(s.skillId)}
                     disabled={busy}
                     aria-label={`${s.name} 해제`}
-                    className="w-full whitespace-nowrap rounded-md border border-violet-500 bg-violet-500/15 px-2 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-violet-300"
+                    className="min-h-11 whitespace-nowrap rounded-md border border-zinc-300 bg-white px-4 py-2 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
                   >
                     해제
                   </button>
@@ -1410,7 +1405,7 @@ export function V2LoadoutPanel({
                     onClick={() => toggle(s.skillId)}
                     disabled={busy || !wouldFit}
                     aria-label={`${s.name} 장착`}
-                    className="w-full whitespace-nowrap rounded-md border border-emerald-600 bg-emerald-600 px-2 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="min-h-11 whitespace-nowrap rounded-md border border-emerald-600 bg-emerald-600 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {!wouldFit ? "SP 부족" : "장착"}
                   </button>

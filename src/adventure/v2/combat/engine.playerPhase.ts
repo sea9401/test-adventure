@@ -1,3 +1,5 @@
+import { combatRandom } from "./combatRandom";
+import { recordCombatMetric } from "./combatDiagnostics";
 import {
   BOSS_PCT_HP_DAMAGE_MULT,
   type BattleState,
@@ -218,7 +220,7 @@ function computeAttackDamage(
     fatedChainConsumed || focusedBreathConsumed
       ? true
       : effectiveCritPct > 0
-        ? Math.random() * 100 < effectiveCritPct
+        ? combatRandom() * 100 < effectiveCritPct
         : false;
   // AP 스킬의 atk_multiplier 는 모든 ATK 합산 후 곱 (강공격·격노·질풍 등의 보너스 포함).
   // 광기 (AP) — 자신 ATK +pct%. atk_multiplier 적용 전에 같이 합산.
@@ -302,7 +304,7 @@ function computeAttackDamage(
   // 행운의 별 (5티어) — 크리티컬과 별개, 발동 시 데미지 ×LUCKY_STAR_DAMAGE_MULT.
   const luckyStarPct = player.luckyStarChancePct ?? 0;
   const luckyStarFires =
-    luckyStarPct > 0 && Math.random() * 100 < luckyStarPct;
+    luckyStarPct > 0 && combatRandom() * 100 < luckyStarPct;
   const dmgAfterLuckyStar = luckyStarFires
     ? Math.floor(dmgAfterCrit * LUCKY_STAR_DAMAGE_MULT)
     : dmgAfterCrit;
@@ -365,7 +367,7 @@ function computeAttackDamage(
   // 보스 전투에는 BOSS_PCT_HP_DAMAGE_MULT 배 적용 (%HP 누진 폭딜 방지).
   const decreeFires =
     (player.heavenDecreeChancePct ?? 0) > 0 &&
-    Math.random() * 100 < player.heavenDecreeChancePct!;
+    combatRandom() * 100 < player.heavenDecreeChancePct!;
   const decreeBaseDmg = decreeFires
     ? Math.floor((state.enemyHp * HEAVEN_DECREE_HP_PCT) / 100)
     : 0;
@@ -638,12 +640,16 @@ export function resolvePlayerPhase(
     (player.enchantLifestealPct ?? 0) > 0
       ? Math.floor((dmg * player.enchantLifestealPct!) / 100)
       : 0;
+  const passiveLifestealHeal = Math.floor(
+    (Math.min(state.enemyHp, totalDmg) * (player.passiveLifestealPct ?? 0)) / 100,
+  );
   const totalLifestealHeal = healingAfterReceivedMultiplier(
     lifestealHeal +
       luckyLifestealHeal +
       runeLifestealHeal +
       apLifestealHeal +
-      enchantLifestealHeal,
+      enchantLifestealHeal +
+      passiveLifestealHeal,
     player.receivedHealMult,
   );
   const newPlayerHp =
@@ -651,6 +657,7 @@ export function resolvePlayerPhase(
       ? Math.min(state.playerMaxHp, state.playerHp + totalLifestealHeal)
       : state.playerHp;
   const actualLifesteal = newPlayerHp - state.playerHp;
+  recordCombatMetric("healing", "lifesteal", "player", actualLifesteal);
   if (actualLifesteal > 0) {
     const lifestealLabels: string[] = [];
     if (lifestealHeal > 0) lifestealLabels.push("흡혈");
@@ -658,12 +665,13 @@ export function resolvePlayerPhase(
     if (runeLifestealHeal > 0) lifestealLabels.push("흡혈의 룬");
     if (apLifestealHeal > 0) lifestealLabels.push("흡령");
     if (enchantLifestealHeal > 0) lifestealLabels.push("별빛 흡혈");
+    if (passiveLifestealHeal > 0) lifestealLabels.push("패시브 흡혈");
     log = appendLog(log, {
       kind: "info",
       text: `[${lifestealLabels.join(" + ")}] ${playerName}의 HP +${actualLifesteal}`,
     });
   }
-  const damagedState = applyEnemyDamage(state, totalDmg);
+  const damagedState = applyEnemyDamage(state, totalDmg, "basic");
   const enemyHp = damagedState.enemyHp;
   // 출혈/중독 — 적중 시 tagged DoT 로 누적 (다음 적 턴부터 tick).
   // 약점 적중 (2티어 특기) — 크리 발동 시 그 턴 1회, DEF 무시 큐 + 추가타 1회.
@@ -1120,7 +1128,7 @@ export function resolvePlayerPhase(
   const canLightspeed =
     lightspeedPct > 0 &&
     !state.turn.lightspeedUsedThisTurn &&
-    Math.random() * 100 < lightspeedPct;
+    combatRandom() * 100 < lightspeedPct;
   if (canLightspeed) {
     return {
       ...afterDamage,
@@ -1154,7 +1162,7 @@ export function resolvePlayerPhase(
     effectiveGalePct > 0 &&
     galeChainReady &&
     state.turn.galeChainsThisTurn < galeCap &&
-    Math.random() * 100 < effectiveGalePct;
+    combatRandom() * 100 < effectiveGalePct;
   if (canGaleChain) {
     return {
       ...afterDamage,

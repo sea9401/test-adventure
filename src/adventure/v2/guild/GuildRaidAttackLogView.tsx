@@ -196,7 +196,7 @@ export function GuildRaidAttackLogContent({
                 </div>
               </div>
               <div className={`${SURFACE_INSET} p-3`}>
-                <div className="text-xs text-zinc-500">받은 피해</div>
+                <div className="text-xs text-zinc-500" title="회복을 반영한 전투 종료 시 HP 감소량이며, 누적 피격량이 아닙니다.">최종 HP 감소량</div>
                 <div className="mt-0.5 font-semibold tabular-nums">
                   {attack.damageTaken.toLocaleString("ko-KR")}
                 </div>

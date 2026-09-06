@@ -86,7 +86,7 @@ export type V2PassiveSkillEffect = {
   //   · lifestealPct→흡혈(낮게). 미지정=무적용(byte-identical).
   /** 치명타 확률 +%p 가산(급소·치명). */
   critPct?: number;
-  /** 치명타 피해 +% 가산(맹공) — critMult 에 /100 환산 가산. */
+  /** 기본 공격 치명타 피해 +% 가산(맹공) — critMult 에 /100 환산 가산. */
   critDmgPct?: number;
   /** 회피도 +% 증가(허보) — 스탯·경갑·옵션 회피도 합계에 적용. */
   evasionPct?: number;
@@ -2274,7 +2274,7 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.magicBarrier) chips.push("마나 실드 활성화");
   if (p.atkPerDexCoef) chips.push("민첩이 공격력을 보조");
   if (p.critPct) chips.push(`치명타 확률 +${p.critPct}%`);
-  if (p.critDmgPct) chips.push(`치명타 피해 +${p.critDmgPct}%`);
+  if (p.critDmgPct) chips.push(`기본 공격 치명타 피해 +${p.critDmgPct}%`);
   if (p.evasionPct) chips.push(`회피도 +${p.evasionPct}%`);
   if (p.lifestealPct) chips.push(`흡혈 +${p.lifestealPct}%`);
   if (p.counterChancePct)

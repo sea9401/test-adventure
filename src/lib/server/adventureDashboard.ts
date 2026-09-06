@@ -32,8 +32,13 @@ import {
   parseStormExpeditionState,
   stormExpeditionDateKey,
 } from "@/adventure/data/v2/stormExpedition";
-import { ARENA_STATE_KEY, CHARACTER_STATE_KEY } from "@/lib/storage-keys";
-import { arenaDailyMatchCount, parseArenaState } from "./arena";
+import { ARENA_HISTORY_KEY, ARENA_STATE_KEY, CHARACTER_STATE_KEY } from "@/lib/storage-keys";
+import { arenaDailyMatchCount, parseArenaHistory, parseArenaState } from "./arena";
+import { FISHING_CODEX_KEY, parseFishCodex } from "@/adventure/v2/fishingCodex";
+import { WOODCUTTING_LOG_KEY } from "@/adventure/v2/woodcuttingSession";
+import { MINING_LOG_KEY } from "@/adventure/v2/miningSession";
+import { buildRepeatSignals, REPEAT_QUESTS_KEY } from "./v2QuestContext";
+import { deriveRepeatBundle, nextDailyResetAt, parseRepeatSave, rolloverRepeatSave } from "@/adventure/data/v2/v2RepeatQuests";
 
 export const ADVENTURE_HOME_SAVE_KEY = "adventure-home.v1";
 
@@ -47,9 +52,17 @@ export const ADVENTURE_DASHBOARD_SAVE_FALLBACKS = {
   [STORM_EXPEDITION_SAVE_KEY]: {},
   [CHARACTER_STATE_KEY]: {},
   [ARENA_STATE_KEY]: {},
+  [ARENA_HISTORY_KEY]: {},
+  [FISHING_CODEX_KEY]: {},
+  [WOODCUTTING_LOG_KEY]: {},
+  [MINING_LOG_KEY]: {},
+  [REPEAT_QUESTS_KEY]: {},
+  "adventure-log.v2": {},
+  "crafting.v2": {},
 } satisfies Record<string, unknown>;
 
 export const ADVENTURE_ACTIVITY_IDS = [
+  "daily_quest_reward",
   "farm_daily",
   "farm_weekly",
   "farm_ready",
@@ -152,8 +165,37 @@ export function resolveAdventureActivities(
   const expeditionUnlocked = frontierDepth >= STORM_EXPEDITION_UNLOCK_DEPTH;
   const arena = parseArenaState(saves[ARENA_STATE_KEY]);
   const arenaCount = arenaDailyMatchCount(arena, now);
+  const fishCodex = parseFishCodex(saves[FISHING_CODEX_KEY]);
+  const signals = buildRepeatSignals(saves["adventure-log.v2"], {
+    fishCaught: Object.values(fishCodex.fish).reduce(
+      (sum, entry) => sum + Math.max(0, entry.totalCaught ?? 0), 0,
+    ),
+    arenaTimes: parseArenaHistory(saves[ARENA_HISTORY_KEY])
+      .map((entry) => new Date(entry.at).getTime())
+      .filter(Number.isFinite),
+  }, {
+    farmRaw: saves[FARM_SAVE_KEY],
+    woodcuttingRaw: saves[WOODCUTTING_LOG_KEY],
+    miningRaw: saves[MINING_LOG_KEY],
+    craftingRaw: saves["crafting.v2"],
+  });
+  const repeat = rolloverRepeatSave(parseRepeatSave(saves[REPEAT_QUESTS_KEY]), new Date(now), signals);
+  const dailyReward = deriveRepeatBundle(repeat.save, signals, "daily");
 
   return [
+    {
+      id: "daily_quest_reward",
+      group: "daily",
+      tab: "character",
+      title: "일일 퀘스트",
+      detail: dailyReward.claimable ? "보상 수령 가능" : dailyReward.claimed ? "보상 수령 완료" : `${dailyReward.completed} / ${dailyReward.goal}`,
+      href: "/quests",
+      state: dailyReward.claimable ? "actionable" : dailyReward.claimed ? "completed" : "in_progress",
+      current: dailyReward.completed,
+      target: dailyReward.goal,
+      resetAt: nextDailyResetAt(new Date(now)),
+      defaultEnabled: true,
+    },
     {
       id: "farm_daily",
       group: "daily",

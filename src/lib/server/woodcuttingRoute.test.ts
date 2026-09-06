@@ -19,6 +19,7 @@ const { store, incrementGuildExplorationProgressForUser, rewardReferralTutorialT
       _userId: string,
       _events: readonly CodexMasteryGameplayEvent[],
       _now: Date,
+      _context?: unknown,
     ) => [],
   ),
   upsertSaves: vi.fn(async (_tx, _uid, entries: Record<string, unknown>) => {
@@ -803,6 +804,11 @@ describe("woodcutting routes", () => {
         source: "job.activity",
       }],
       new Date(NOW + 4_600),
+      expect.any(Object),
+    );
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledTimes(2);
+    expect(recordCodexMasteryGameplayBatch.mock.calls[0]?.[4]).toBe(
+      recordCodexMasteryGameplayBatch.mock.calls[1]?.[4],
     );
   });
 
@@ -869,4 +875,10 @@ describe("woodcutting routes", () => {
     expect(json.log.timberEarned).toBe(12);
     expect(json.durationReductionPct).toBe(8);
   });
+  it("status — 예상 성공률에 필요한 장착 패시브의 실패율 감소를 반환한다", async () => {
+    store.set("skills.v2", { learned: ["v2c_lumberjack_woodreading"], equipped: ["v2c_lumberjack_woodreading"] });
+    const json = await (await STATUS()).json();
+    expect(json.failureReductionPct).toBe(20);
+  });
+
 });

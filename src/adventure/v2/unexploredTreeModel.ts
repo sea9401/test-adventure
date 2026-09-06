@@ -121,6 +121,16 @@ export function buildUnexploredTreeModel(
     ? shortestUnexploredPathFromActive(snapshot.selectedNodeIds, selectedNodeId)
     : [];
   const previewPathSet = new Set(previewPath);
+  // 비용 안내는 활성화 가능 여부와 분리해 잔액이 부족해도 전체 필요량을 보여준다.
+  const requiredPoints = previewPath.filter((id) => !active.has(id)).length;
+  const availablePoints = Math.max(0, snapshot.earnedPoints - snapshot.spentPoints);
+  const routePointPreview = requiredPoints > 0
+    ? {
+        required: requiredPoints,
+        available: availablePoints,
+        shortfall: Math.max(0, requiredPoints - availablePoints),
+      }
+    : null;
   let plan: UnexploredTreePlan | null = null;
   if (selectedNodeId && !(active.has(selectedNodeId) && selectedNodeId === "start")) {
     const action = active.has(selectedNodeId) ? "refund" : "activate";
@@ -223,6 +233,7 @@ export function buildUnexploredTreeModel(
     selected,
     plan,
     previewPath,
+    routePointPreview,
     currentDifficulty: snapshot.difficulty,
     previewDifficulty,
     poolSummary,

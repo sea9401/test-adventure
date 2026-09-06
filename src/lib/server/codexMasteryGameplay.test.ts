@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CodexResearchEvent } from "@/adventure/data/v2/codexResearch";
 import type { CodexMasteryRecordInput } from "./codexMasteryService";
+import { readCodexMasteryFeatureSettings } from "./opsSettings";
 import {
   createCodexMasteryGameplayRecorder,
   type CodexMasteryGameplayEvent,
   type CodexMasteryGameplayRecorderRuntime,
+  type CodexMasteryGameplayContext,
 } from "./codexMasteryGameplay";
 
 const NOW = new Date("2026-08-20T03:04:05.000Z");
@@ -55,6 +57,59 @@ function runtime(options: {
 }
 
 describe("codex mastery gameplay recorder", () => {
+  it("reduces actual settings SELECT boundaries from two to one with the real settings reader", async () => {
+    const limit = vi.fn(async () => [{ value: ENABLED }]);
+    const select = vi.fn(() => ({ from: () => ({ where: () => ({ limit }) }) }));
+    const tx = { select } as unknown as Parameters<typeof readCodexMasteryFeatureSettings>[0];
+    const fake = runtime();
+    const record = createCodexMasteryGameplayRecorder({
+      ...fake.value,
+      readSettings: readCodexMasteryFeatureSettings,
+    });
+    const events: CodexMasteryGameplayEvent[] = [{ category: "job", entryId: "fisher", amount: 1, source: "job.activity" }];
+    await record(tx, "user-1", events, NOW);
+    await record(tx, "user-1", events, NOW);
+    expect(select).toHaveBeenCalledTimes(2);
+    select.mockClear();
+    const context: CodexMasteryGameplayContext = {};
+    await record(tx, "user-1", events, NOW, context);
+    await record(tx, "user-1", events, NOW, context);
+    expect(select).toHaveBeenCalledTimes(1);
+    expect(fake.batches).toHaveLength(4);
+    expect(fake.batches.slice(0, 2)).toEqual(fake.batches.slice(2));
+  });
+
+  it("reuses settings within one transaction without combining or reordering writes", async () => {
+    const fake = runtime({ monthlyEnabled: true });
+    const read = vi.spyOn(fake.value, "readSettings");
+    const record = createCodexMasteryGameplayRecorder(fake.value);
+    const tx = {};
+    const context: CodexMasteryGameplayContext = {};
+    const life: CodexMasteryGameplayEvent = { category: "life", entryId: "river", amount: 1, source: "life.complete" };
+    const fish: CodexMasteryGameplayEvent = { category: "fish", entryId: "carp", amount: 1, bestValue: 80, source: "fishing.catch" };
+    await record(tx, "user-1", [life], NOW, context);
+    await record(tx, "user-1", [fish], NOW, context);
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(fake.batches.map((batch) => batch.map((input) => input.category))).toEqual([["life"], ["fish"]]);
+    expect(fake.monthlyBatches).toHaveLength(2);
+    // A context must never leak an old transaction's snapshot to a new one.
+    await record({}, "user-1", [fish], NOW, context);
+    expect(read).toHaveBeenCalledTimes(2);
+    await record(tx, "user-1", [fish], NOW);
+    await record(tx, "user-1", [fish], NOW);
+    expect(read).toHaveBeenCalledTimes(4);
+  });
+
+  it("does not cache a failed settings read", async () => {
+    const fake = runtime();
+    const read = vi.spyOn(fake.value, "readSettings").mockRejectedValueOnce(new Error("database unavailable"));
+    const record = createCodexMasteryGameplayRecorder(fake.value);
+    const tx = {}, context: CodexMasteryGameplayContext = {};
+    await expect(record(tx, "user-1", [], NOW, context)).rejects.toThrow("database unavailable");
+    await expect(record(tx, "user-1", [], NOW, context)).resolves.toEqual([]);
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
   it("aggregates matching events and preserves the greatest fish size", async () => {
     // Break caught: a batched action writes once per raw event or loses a later personal best.
     const fake = runtime();

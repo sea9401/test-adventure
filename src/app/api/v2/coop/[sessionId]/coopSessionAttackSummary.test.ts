@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { toCoopSessionAttackSummary } from "./coopSessionAttackSummary";
 
 describe("toCoopSessionAttackSummary", () => {
-  it("returns a lightweight attack summary without replay data", () => {
+  it.each([false, true])("returns a lightweight attack summary with support=%s", (isSupport) => {
     const summary = toCoopSessionAttackSummary({
       attack: {
         id: 7,
@@ -11,6 +11,7 @@ describe("toCoopSessionAttackSummary", () => {
         damageDealt: 123,
         damageTaken: 45,
         diedEarly: false,
+        isSupport,
         createdAt: new Date("2026-08-21T00:00:00.000Z"),
       },
       viewerUserId: "viewer",
@@ -25,6 +26,7 @@ describe("toCoopSessionAttackSummary", () => {
       damageTaken: 45,
       diedEarly: false,
       isMe: false,
+      isSupport,
       avatar: "male1",
       profileBorder: null,
       at: Date.parse("2026-08-21T00:00:00.000Z"),

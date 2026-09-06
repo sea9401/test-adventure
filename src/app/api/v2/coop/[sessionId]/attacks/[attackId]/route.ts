@@ -93,6 +93,7 @@ export async function GET(_req: Request, { params }: Ctx) {
       damageDealt: coopBossAttackLog.damageDealt,
       damageTaken: coopBossAttackLog.damageTaken,
       diedEarly: coopBossAttackLog.diedEarly,
+      isSupport: coopBossAttackLog.isSupport,
       log: coopBossAttackLog.log,
       createdAt: coopBossAttackLog.createdAt,
     })
@@ -122,6 +123,7 @@ export async function GET(_req: Request, { params }: Ctx) {
       damageDealt: attack.damageDealt,
       damageTaken: attack.damageTaken,
       diedEarly: attack.diedEarly,
+      isSupport: attack.isSupport === true,
       isMe: attack.userId === userId,
       avatar: avatarByUser.get(attack.userId) ?? "male1",
       profileBorder:

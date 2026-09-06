@@ -527,7 +527,7 @@ export async function loadCompletedQuestIds(
 // 반복 퀘스트 신호 — adventure-log 누적치 + extras. ctx(가이드용)와 분리된 얇은 조립.
 export function buildRepeatSignals(
   advLogRaw: unknown,
-  extras: QuestExtras,
+  extras: Pick<QuestExtras, "fishCaught" | "arenaTimes"> & Partial<QuestExtras>,
   raws: {
     farmRaw?: unknown;
     woodcuttingRaw?: unknown;

@@ -134,6 +134,7 @@ import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
 import {
   recordCodexMasteryGameplayBatch,
   type CodexMasteryGameplayEvent,
+  type CodexMasteryGameplayContext,
 } from "@/lib/server/codexMasteryGameplay";
 
 // POST /api/v2/fishing/reel — 챔질. body: { castId, reactionMs }.
@@ -170,6 +171,7 @@ export async function POST(req: Request) {
   const now = Date.now();
 
   const result = await db.transaction(async (tx) => {
+    const masteryContext: CodexMasteryGameplayContext = {};
     const autoStates = await lockAutoGatheringStatesForUpdate(tx, userId);
     const activeAutoActivity = activeAutoGatheringActivity(autoStates);
     if (activeAutoActivity) {
@@ -288,6 +290,7 @@ export async function POST(req: Request) {
       sessionId: session.castId,
       now,
       features: lifeFeatures,
+      masteryContext,
     });
     const completedDiscovery = lifeField.completedTrace
       ? LIFE_FIELD_DISCOVERIES[lifeField.completedTrace.discoveryId]
@@ -551,6 +554,7 @@ export async function POST(req: Request) {
       userId,
       codexMasteryEvents,
       new Date(now),
+      masteryContext,
     );
 
     return {

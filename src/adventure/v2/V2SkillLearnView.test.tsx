@@ -32,6 +32,8 @@ describe("학습 카드 상세와 기존 액션 분리", () => {
 
     expect(html).toContain('aria-label="강타 상세 보기"');
     expect(html).toContain(">학습<");
+    expect(html).toContain("<details");
+    expect(html).not.toMatch(/<button\b[^>]*>(?:(?!<\/button>)[\s\S])*<details/);
   });
 
   it("강화 의식 액션을 상세가 아닌 강화로 부른다", () => {

@@ -9,6 +9,17 @@ vi.mock("./AdventureDashboardProvider", () => ({
     snapshot: {
       activities: [
         {
+          id: "daily_quest_reward",
+          group: "daily",
+          tab: "character",
+          title: "일일 퀘스트",
+          detail: "보상 수령 가능",
+          href: "/quests",
+          state: "actionable",
+          enabled: true,
+          defaultEnabled: true,
+        },
+        {
           id: "farm_ready",
           group: "ready",
           tab: "life",
@@ -43,8 +54,9 @@ vi.mock("./AdventureDashboardProvider", () => ({
         },
       ],
       notifications: {
-        tabs: { battle: true, life: true },
+        tabs: { battle: true, life: true, character: true },
         paths: {
+          "/quests": true,
           "/battle/mastery-tower": true,
           "/town/farm": true,
           "/town/logging": true,
@@ -68,6 +80,12 @@ beforeAll(() => {
 afterEach(cleanup);
 
 describe("상단 캐릭터 하위 메뉴", () => {
+  it("퀘스트 보상 알림을 캐릭터 탭과 퀘스트 메뉴에 표시한다", () => {
+    render(<MainTabNav activeKey="character" gameStateLoaded viewerGuildId={null} onNavigate={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "캐릭터, 처리 가능한 항목 있음" }));
+    expect(screen.getByRole("menuitem", { name: "퀘스트, 처리 가능한 항목 있음" })).toBeTruthy();
+  });
+
   it("전투 프리셋 전용 경로를 제공한다", () => {
     expect(CHARACTER_MENU_ITEMS).toEqual(
       expect.arrayContaining([
@@ -90,7 +108,7 @@ describe("상단 캐릭터 하위 메뉴", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "캐릭터" }));
+    fireEvent.click(screen.getByRole("button", { name: "캐릭터, 처리 가능한 항목 있음" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "개척 노드" }));
 
     expect(onNavigate).toHaveBeenCalledWith("/character/unexplored");

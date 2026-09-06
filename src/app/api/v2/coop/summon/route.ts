@@ -16,7 +16,7 @@ import {
 
 // POST /api/v2/coop/summon — 소환서를 소모해 협동 보스 소환.
 //
-// 본문: { kind: CoopBossKindId }
+// 본문: { kind: CoopBossKindId, allowFreeSupport?: boolean }
 // 같은 종류 동시 다수 소환 허용(#714) — 소환서 비용이 1차 게이트, MAX_ACTIVE_PER_KIND 는
 // 목록/쿼리 비대화를 막는 느슨한 안전캡(엄밀 직렬화 없음 — 동시 소환 race 로 캡을 1~2
 // 초과할 수 있으나 무해). 단일 트랜잭션: character.v2 잠금(공통 첫 락) → 소환서 검증·차감
@@ -31,11 +31,17 @@ export async function POST(req: Request) {
   }
   const userId: string = maybeUserId;
 
-  let body: { kind?: unknown };
+  let body: { kind?: unknown; allowFreeSupport?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+  if (
+    !body || typeof body !== "object" ||
+    (body.allowFreeSupport !== undefined && typeof body.allowFreeSupport !== "boolean")
+  ) {
+    return Response.json({ ok: false, error: "bad_support_setting" }, { status: 400 });
   }
   const kindId = parseCoopBossKindId(body.kind);
   if (!kindId) {
@@ -94,6 +100,7 @@ export async function POST(req: Request) {
         summonerName,
         now,
         visibility: COOP_INITIAL_VISIBILITY,
+        allowFreeSupport: body.allowFreeSupport === true,
       });
       if (!created.ok) {
         return {

@@ -86,6 +86,7 @@ export type MiningHandlers = {
   finish: (sessionId: string) => Promise<MiningOutcome>;
   materials: Record<string, number>;
   log: MiningLogView;
+  failureReductionPct?: number;
   autoSession: AutoGatheringSessionView | null;
   autoResult: AutoGatheringResultView | null;
   autoLoading: boolean;
@@ -467,6 +468,7 @@ export function MiningView({
   finish,
   materials,
   log,
+  failureReductionPct = 0,
   autoSession,
   autoResult,
   autoLoading,
@@ -582,10 +584,9 @@ export function MiningView({
     selectedNode.durationMs,
     progression.level,
   );
-  const expectedFailureRate = miningFailureRate(
-    selectedNode.baseFailureRate,
-    progression.level,
-  );
+  const expectedFailureRate =
+    miningFailureRate(selectedNode.baseFailureRate, progression.level) *
+    (1 - failureReductionPct / 100);
   const timeReductionPct = miningTimeReduction(progression.level) * 100;
   const levelProgressPct = progression.maxLevel
     ? 100

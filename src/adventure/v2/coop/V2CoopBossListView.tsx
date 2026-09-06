@@ -5,6 +5,8 @@
 
 /* eslint-disable @next/next/no-img-element */
 
+import { CoopFreeSupportOption } from "./CoopFreeSupportOption";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { useEffect, useState } from "react";
 import { CaretDown, CaretRight, CaretUp } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -176,6 +178,11 @@ function CoopSessionCard({
                   내 소환
                 </span>
               )}
+              {session.allowFreeSupport && (
+                <span className="ml-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                  무료 지원 가능
+                </span>
+              )}
               {session.summonedByName && (
                 <span className="ml-1.5 text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
                   {session.summonedByName} 님이 소환
@@ -277,6 +284,7 @@ export function V2CoopBossListView({
     summon,
     claim,
   } = useCoopListState();
+  const [allowFreeSupport, setAllowFreeSupport] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   // 소환하기 카드의 정보(특성·보상 테이블) 펼침 — UI 그룹 단위 토글.
   const [infoOpen, setInfoOpen] = useState<string | null>(null);
@@ -298,11 +306,13 @@ export function V2CoopBossListView({
 
   // 소환 후에도 목록에 머문다 — 여러 마리 연속 소환 흐름(이동은 보스 카드 클릭으로).
   const handleSummon = async (kind: CoopBossKindId) => {
-    await summon(kind);
+    await summon(kind, allowFreeSupport);
   };
 
   return (
-    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main
+      className={`${SURFACE_CARD} mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100`}
+    >
       <SubViewHeader title="협동 보스" onBack={onBack} />
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
         사냥에서 모은 소환서로 보스를 소환하면 모든 모험가가 함께 토벌합니다.
@@ -468,6 +478,14 @@ export function V2CoopBossListView({
           </p>
         )}
       </div>
+
+      <Card padding="md">
+        <CoopFreeSupportOption
+          checked={allowFreeSupport}
+          disabled={busy}
+          onChange={setAllowFreeSupport}
+        />
+      </Card>
 
       {/* 소환하기 — 보스별 카드, 난이도 변형은 카드 안에서 선택 */}
       <div className="space-y-2">

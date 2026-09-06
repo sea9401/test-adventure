@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useGameState } from "./GameStateProvider";
+import { useGameWorldState } from "./GameWorldContext";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { confirmGameAction, type ConfirmGameAction } from "@/components/ui/gameDialog";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
@@ -125,7 +125,7 @@ export function V2VillagePanel({
 }) {
   // 거점 표시 이름(헤더·지도)은 GameState occupations.villageName 에서 옴 — 건설/개명 후
   //   동기화해야 같은 화면 헤더가 즉시 새 이름으로 갱신된다.
-  const { refreshOccupations } = useGameState();
+  const { refreshOccupations } = useGameWorldState();
   // 타일 개척마을 — 이름은 개척(found) 때 한 번만 정한다. 건설 시 이름 재입력 없음·개명 없음(불변).
   //   카탈로그 거점은 종전대로 건설 시 이름 입력 + 개명 가능.
   const isTile = isTileOutpostId(outpostId);

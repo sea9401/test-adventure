@@ -101,6 +101,8 @@ export function installHttpRequestInstrumentation(
             responseBytes: responseByteCount,
             database: profile.database,
             phases: profile.phases,
+            stages: profile.stages,
+            counters: profile.counters,
             aborted,
           });
         } catch (error) {

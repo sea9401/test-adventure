@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import type { StageDetails } from "./stageMetrics";
 import {
   DURATION_BUCKETS_MS,
   type DatabaseRequestMetrics,
@@ -6,7 +7,7 @@ import {
   type RequestPhases,
 } from "./types";
 
-export type RequestProfileContext = {
+export type RequestProfileContext = StageDetails & {
   feature: RuntimeFeature;
   operation: string;
   method: string;

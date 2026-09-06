@@ -1,3 +1,4 @@
+import { profileAsyncStage, recordProfileCounter } from "@/lib/server/runtimeProfiler/stages";
 import { HUNT_COOLDOWN_MODE, V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { type DropResult } from "@/adventure/data/v2/dungeonDrops";
 import { GUILD_EXPLORATION_DEEP_HUNT_MIN_DEPTH } from "@/adventure/data/v2/guildExploration";
@@ -27,7 +28,7 @@ import { recordGrowthLeapStaminaSpendInTx } from "@/lib/server/growthLeapProgres
 import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
 
 export async function handleHunt(req: Request, userId: string) {
-  const parsed = await parseHuntRequestIntent(req, userId);
+  const parsed = await profileAsyncStage("hunt.intent", () => parseHuntRequestIntent(req, userId));
   if (!parsed.ok) return parsed.response;
   const {
     mode,
@@ -40,7 +41,8 @@ export async function handleHunt(req: Request, userId: string) {
     autoStopConfig,
   } = parsed.intent;
 
-  const result = await db.transaction(async (tx) => {
+  recordProfileCounter("hunt.requestedBattles", count);
+  const result = await profileAsyncStage("hunt.transaction", () => db.transaction(async (tx) => {
     const ctx: RunOneHuntCtx = {
       tx,
       userId,
@@ -62,7 +64,7 @@ export async function handleHunt(req: Request, userId: string) {
         ...ctx,
         batchState: singleState,
       });
-      await flushHuntSaves(tx, userId, singleState);
+      await profileAsyncStage("hunt.save", () => flushHuntSaves(tx, userId, singleState));
       if (single.ok && !HUNT_COOLDOWN_MODE) {
         await recordGrowthLeapStaminaSpendInTx(tx, userId, HUNT_COST);
       }
@@ -154,7 +156,7 @@ export async function handleHunt(req: Request, userId: string) {
         //   버튼이 스태미나/회복 상태에선 비활성이라 실사용상 드물다. 중간(완료>0) 실패는
         //   완료분 요약 + 라벨로 중단(스태미나 소진·저체력·기타).
         if (completed === 0) {
-          await flushHuntSaves(tx, userId, batchState);
+          await profileAsyncStage("hunt.save", () => flushHuntSaves(tx, userId, batchState));
           return r;
         }
         const err = (r.body as { error?: string }).error;
@@ -273,7 +275,7 @@ export async function handleHunt(req: Request, userId: string) {
 
     // 첫 판이 잡은 row lock을 유지한 채 판간 상태는 메모리로 이월하고, 최종 save만 한 번 쓴다.
     // 중간 실패로 루프가 멈춰도 완료된 판의 최신 상태가 여기서 함께 커밋된다.
-    await flushHuntSaves(tx, userId, batchState);
+    await profileAsyncStage("hunt.save", () => flushHuntSaves(tx, userId, batchState));
     if (completed > 0 && !HUNT_COOLDOWN_MODE) {
       await recordGrowthLeapStaminaSpendInTx(
         tx,
@@ -373,20 +375,20 @@ export async function handleHunt(req: Request, userId: string) {
         },
       },
     };
-  });
+  }));
 
   if (result.status === 200 && "batch" in result.body) {
     const entries = result.body.batch.replays;
-    const deferredPayloads = await deferLongBattleReplays(
+    const deferredPayloads = await profileAsyncStage("hunt.replay", () => deferLongBattleReplays(
       db,
       userId,
       entries.map((entry) => entry.replay),
-    );
+    ));
     result.body.batch.replays = entries.map((entry, index) => ({
       ...entry,
       replay: deferredPayloads[index] ?? entry.replay,
     }));
   }
-  await broadcastHuntUniqueDrops(userId, result.body);
+  await profileAsyncStage("hunt.broadcast", () => broadcastHuntUniqueDrops(userId, result.body));
   return Response.json(result.body, { status: result.status });
 }

@@ -52,6 +52,22 @@ const always: V2CombatPattern = {
 };
 
 describe("resolveV2SkillCast — 전투 패턴 경로", () => {
+  it("스킬 판정은 사용하지 않는 장착 SP 비용을 계산하지 않는다", () => {
+    const skill = V2_SKILLS[SKILL];
+    const original = Object.getOwnPropertyDescriptor(skill, "spCost");
+    Object.defineProperty(skill, "spCost", {
+      configurable: true,
+      get() { throw new Error("combat must not calculate loadout SP"); },
+    });
+    try {
+      const result = resolveV2SkillCast(castInput([SKILL], { combatPattern: always }));
+      expect(result.enemyDamage).toBeGreaterThan(0);
+    } finally {
+      if (original) Object.defineProperty(skill, "spCost", original);
+      else delete skill.spCost;
+    }
+  });
+
   const berserkerCast = (
     skillId: string,
     currentHp: number,

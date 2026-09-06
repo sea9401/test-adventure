@@ -45,13 +45,21 @@ export function selectV2CastVariant(
   );
 }
 
-export function resolveElementalResonanceLoadout({
-  learned,
-  equipped,
-}: {
+export type ElementalResonanceCombat = Omit<
+  ElementalResonanceLoadout,
+  "effectiveSpCosts" | "spUsed"
+>;
+
+type ResonanceInput = {
   learned: readonly V2SkillId[];
   equipped: readonly V2SkillId[];
-}): ElementalResonanceLoadout {
+};
+
+// 전투에서는 시전 후보만 필요하다. 스킬별 SP 산출은 장착 검증/UI에서만 수행한다.
+export function resolveElementalResonanceCombat({
+  learned,
+  equipped,
+}: ResonanceInput): ElementalResonanceCombat {
   const learnedSet = new Set(learned);
   const equippedSet = new Set(equipped);
   const primordialActive =
@@ -79,6 +87,23 @@ export function resolveElementalResonanceLoadout({
   if (catalystActive) absorbedSkillIds.push(ELEMENTAL_SURGE_ID);
 
   const absorbedSet = new Set(absorbedSkillIds);
+
+  return {
+    circuit,
+    castVariant,
+    absorbedSkillIds,
+    catalystActive,
+    activeCombatSkillIds: equipped.filter((id) => !absorbedSet.has(id)),
+  };
+}
+
+export function resolveElementalResonanceLoadout(
+  input: ResonanceInput,
+): ElementalResonanceLoadout {
+  const combat = resolveElementalResonanceCombat(input);
+  const { circuit, absorbedSkillIds } = combat;
+  const { equipped } = input;
+  const absorbedSet = new Set(absorbedSkillIds);
   const absorbedSpCost = circuit === "primordial" ? 1 : 2;
   const effectiveSpCosts = new Map<V2SkillId, number>();
   let spUsed = 0;
@@ -90,13 +115,5 @@ export function resolveElementalResonanceLoadout({
     spUsed += cost;
   }
 
-  return {
-    circuit,
-    castVariant,
-    absorbedSkillIds,
-    catalystActive,
-    effectiveSpCosts,
-    spUsed,
-    activeCombatSkillIds: equipped.filter((id) => !absorbedSet.has(id)),
-  };
+  return { ...combat, effectiveSpCosts, spUsed };
 }

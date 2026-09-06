@@ -1,3 +1,9 @@
+import {
+  profileAsyncStage,
+  profileSyncStage,
+  recordProfileCounter,
+} from "@/lib/server/runtimeProfiler/stages";
+import { PROFILE_RANKING_METRICS } from "@/lib/server/runtimeProfiler/stageMetrics";
 import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -55,17 +61,7 @@ function excludeAdminEmails(): SQL {
   return sql`AND LOWER(u.email) NOT IN (${list})`;
 }
 
-const VALID_METRICS = [
-  "level",
-  "fame",
-  "combatPower",
-  "lifeMastery",
-  "codexCompletion",
-  "masteryTower",
-  "achievementScore",
-  "towerWeek",
-  "towerChallenge",
-] as const;
+const VALID_METRICS = PROFILE_RANKING_METRICS;
 type Metric = (typeof VALID_METRICS)[number];
 const isMetric = (v: string): v is Metric =>
   (VALID_METRICS as readonly string[]).includes(v);
@@ -424,7 +420,7 @@ async function fetchCodexCompletionRows(): Promise<RankRow[]> {
 }
 
 async function fetchAchievementRows(): Promise<RankRow[]> {
-  const result = await db.execute(sql`
+  const result = await profileAsyncStage("ranking.achievementScore.database", () => db.execute(sql`
     WITH pvp AS (
       SELECT user_id,
         COALESCE(SUM(wins), 0)::bigint AS wins,
@@ -520,7 +516,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
     LEFT JOIN guild_activity_archived ON guild_activity_archived.user_id = u.id
     WHERE COALESCE(u.game_name, profile.value->>'name') IS NOT NULL
       ${excludeAdminEmails()}
-  `);
+  `));
   type DbRow = {
     user_id: string; name: string; avatar: string | null;
     bannedUntil: Date | string | null;
@@ -540,7 +536,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
     has_guild: boolean; has_traded: boolean;
     updated_at: Date | string;
   };
-  return filterRankingEligibleRows(result.rows as unknown as DbRow[])
+  return profileSyncStage("ranking.achievementScore.compute", () => filterRankingEligibleRows(result.rows as unknown as DbRow[])
     .map((r) => {
       const fishCodex = parseFishCodex(r.fishing_codex_save);
       const claimed = parseClaimed(r.quests_save);
@@ -598,7 +594,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
       a.updatedAtMs - b.updatedAtMs ||
       a.userId.localeCompare(b.userId),
     )
-    .map(({ updatedAtMs: _updatedAtMs, ...r }, index) => ({ ...r, rank: index + 1 }));
+    .map(({ updatedAtMs: _updatedAtMs, ...r }, index) => ({ ...r, rank: index + 1 })));
 }
 
 async function fetchMasteryTowerRows(): Promise<RankRow[]> {
@@ -683,7 +679,7 @@ async function fetchMasteryTowerRows(): Promise<RankRow[]> {
 }
 
 async function fetchCombatPowerRows(): Promise<RankRow[]> {
-  const result = await db.execute(sql`
+  const result = await profileAsyncStage("ranking.combatPower.database", () => db.execute(sql`
     SELECT
       u.id AS user_id,
       u.banned_until AS "bannedUntil",
@@ -707,7 +703,7 @@ async function fetchCombatPowerRows(): Promise<RankRow[]> {
     LEFT JOIN saves_kv sk ON sk.user_id = u.id AND sk.key = 'skills.v2'
     WHERE COALESCE(u.game_name, p.value->>'name') IS NOT NULL
       ${excludeAdminEmails()}
-  `);
+  `));
   type DbRow = {
     user_id: string;
     bannedUntil: Date | string | null;
@@ -719,7 +715,7 @@ async function fetchCombatPowerRows(): Promise<RankRow[]> {
     skills_save: unknown;
     updated_at: Date | string;
   };
-  return filterRankingEligibleRows(result.rows as unknown as DbRow[])
+  return profileSyncStage("ranking.combatPower.compute", () => filterRankingEligibleRows(result.rows as unknown as DbRow[])
     .flatMap((r) => {
       const combat = derivePlayerCombatV2FromSaves({
         character: r.character_save as SavedCharacterV2 | undefined,
@@ -775,7 +771,7 @@ async function fetchCombatPowerRows(): Promise<RankRow[]> {
       weekHighest: r.weekHighest,
       challengeHighest: r.challengeHighest,
       rank: index + 1,
-    }));
+    })));
 }
 
 // 주간 최고층 랭킹 — tower-weekly.v1 의 weekStartedAt 가 현재 KST 주와 같은 행만 노출.
@@ -896,11 +892,16 @@ async function getRows(metric: Metric): Promise<RankRow[]> {
   const now = Date.now();
   const entry = cache.get(metric);
   if (entry && now - entry.computedAt < CACHE_TTL_MS) {
+    recordProfileCounter(`ranking.${metric}.cacheHit`);
     return entry.rows;
   }
-  if (entry?.inFlight) return entry.inFlight;
+  if (entry?.inFlight) {
+    recordProfileCounter(`ranking.${metric}.cacheShared`);
+    return entry.inFlight;
+  }
+  recordProfileCounter(`ranking.${metric}.cacheMiss`);
 
-  const promise = fetchRows(metric).then(
+  const promise = profileAsyncStage(`ranking.${metric}.refresh`, () => fetchRows(metric)).then(
     (rows) => {
       cache.set(metric, { rows, computedAt: Date.now() });
       return rows;

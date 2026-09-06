@@ -9,6 +9,7 @@
 // 호출해 throw → 이 테스트가 실패한다. 즉 "사냥이 성공한다"는 사실 자체가 폴드 배선을 검증한다.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createRequestProfile, runWithRequestProfile } from "./runtimeProfiler/requestContext";
 import { applyStochasticPercentBonus } from "@/lib/percentBonus";
 import { CODEX_MASTERY_CATALOG } from "@/adventure/data/v2/codexMasteryProductionCatalog";
 import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
@@ -598,6 +599,16 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(json.result.droppedUnique).toBeNull();
   });
 
+  it("보상 처리 오류는 원래 예외와 실패 단계를 보존한다", async () => {
+    const failure = new Error("reward failed");
+    huntDropOverride.beforeRoll = () => { throw failure; };
+    const profile = createRequestProfile({ feature: "combat", method: "POST", startedAtNs: BigInt(0), socketBytesAtStart: 0 });
+    await expect(runWithRequestProfile(profile, () => POST(huntReq({ floor: 2 })))).rejects.toBe(failure);
+    expect(profile.stages?.["hunt.battle"]?.errors).toBe(0);
+    expect(profile.stages?.["hunt.rewards"]?.errors).toBe(1);
+    expect(profile.stages?.["hunt.transaction"]?.errors).toBe(1);
+  });
+
   it.each(["survivor", "mutant"] as const)(
     "0단계 직업 %s은 직업 숙련도를 적립하면서 도감에 없는 직업 이벤트를 만들지 않는다",
     async (classId) => {
@@ -988,7 +999,15 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
   });
 
   it("배치(count=5) — 5회 완료 + 판간 read-your-writes 이월(스태미나·EXP 누적)", async () => {
-    const res = await POST(huntReq({ floor: 2, count: 5 }));
+    const profile = createRequestProfile({ feature: "combat", method: "POST", startedAtNs: BigInt(0), socketBytesAtStart: 0 });
+    const res = await runWithRequestProfile(profile, () => POST(huntReq({ floor: 2, count: 5 })));
+    expect(profile.counters).toMatchObject({ "hunt.requestedBattles": 5, "hunt.resolvedBattles": 5 });
+    expect(profile.counters?.["hunt.turns"]).toBeGreaterThanOrEqual(5);
+    expect(profile.stages?.["hunt.prepare"]?.count).toBe(5);
+    expect(profile.stages?.["hunt.battle"]?.count).toBe(5);
+    expect(profile.stages?.["hunt.rewards"]?.count).toBe(5);
+    expect(profile.stages?.["hunt.save"]?.count).toBe(1);
+    expect(profile.stages?.["hunt.transaction"]?.count).toBe(1);
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       ok: boolean;

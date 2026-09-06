@@ -1,3 +1,5 @@
+import type { StageDetails } from "./stageMetrics";
+
 export const RUNTIME_FEATURES = [
   "admin",
   "auth",
@@ -41,7 +43,7 @@ export type DatabaseRequestMetrics = {
   durationBucketCounts: number[];
 };
 
-export type RequestProfileRecord = {
+export type RequestProfileRecord = StageDetails & {
   feature: RuntimeFeature;
   operation: string;
   method: string;
@@ -72,7 +74,7 @@ export type DurationSummary = {
   p99: number;
 };
 
-export type FeatureProfile = {
+export type FeatureProfile = StageDetails & {
   requests: number;
   errors: number;
   /** Optional for snapshots emitted by older deployments. errors remains the union. */
@@ -88,7 +90,7 @@ export type FeatureProfile = {
   };
 };
 
-export type SlowRequestProfile = {
+export type SlowRequestProfile = StageDetails & {
   feature: RuntimeFeature;
   operation: string;
   method: string;

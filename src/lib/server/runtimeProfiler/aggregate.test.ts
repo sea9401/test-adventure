@@ -34,6 +34,35 @@ describe("createProfilerAggregator", () => {
       errors: 3, serverErrors: 2, abortedRequests: 2,
     });
   });
+  it("단계·카운터를 합산하고 느린 요청과 회전된 표본을 원본 변경에서 격리한다", () => {
+    const aggregator = createProfilerAggregator({ now: () => 0, slowRequestThresholdMs: 1 });
+    const stages = { "hunt.battle": { count: 2, errors: 0, totalMs: 30, maxMs: 20 } };
+    const counters = { "hunt.turns": 10 };
+    const request = {
+      feature: "combat" as const, operation: "POST /api/v2/dungeon/hunt", method: "POST",
+      statusCode: 200, durationMs: 50, responseBytes: 0, database: emptyDb(), stages, counters,
+    };
+    aggregator.recordRequest(request);
+    stages["hunt.battle"].totalMs = 999;
+    counters["hunt.turns"] = 999;
+    aggregator.recordRequest({ ...request,
+      stages: { "hunt.battle": { count: 1, errors: 1, totalMs: 40, maxMs: 40 } },
+      counters: { "hunt.turns": 20 },
+    });
+    const completed = aggregator.rotate(runtime(1));
+    const expected = { "hunt.battle": { count: 3, errors: 1, totalMs: 70, maxMs: 40 } };
+    expect(completed.features.combat?.stages).toEqual(expected);
+    expect(completed.operations[request.operation].stages).toEqual(expected);
+    expect(completed.operations[request.operation].counters).toEqual({ "hunt.turns": 30 });
+    expect(completed.slowRequests[0].stages).toEqual({
+      "hunt.battle": { count: 2, errors: 0, totalMs: 30, maxMs: 20 },
+    });
+    expect(completed.slowRequests[0].counters).toEqual({ "hunt.turns": 10 });
+    completed.features.combat!.stages!["hunt.battle"]!.totalMs = -1;
+    expect(aggregator.snapshot().history[0].features.combat?.stages).toEqual(expected);
+    expect(aggregator.snapshot().current.operations).toEqual({});
+  });
+
   it("기능별 요청·오류·바이트와 요청/DB 지연 분포를 집계한다", () => {
     let now = 1_000;
     const aggregator = createProfilerAggregator({ now: () => now });

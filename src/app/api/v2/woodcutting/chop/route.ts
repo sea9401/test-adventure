@@ -44,7 +44,7 @@ import {
   addJobCumLevel,
   parseProficiencyForChar,
 } from "@/adventure/data/v2/proficiency";
-import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
+import { recordCodexMasteryGameplayBatch, type CodexMasteryGameplayContext } from "@/lib/server/codexMasteryGameplay";
 import {
   V2_JOB_CATALOG,
   isWoodcuttingJobId,
@@ -114,6 +114,7 @@ export async function POST(req: Request) {
 
   const now = Date.now();
   const result = await db.transaction(async (tx) => {
+    const masteryContext: CodexMasteryGameplayContext = {};
     const autoStates = await lockAutoGatheringStatesForUpdate(tx, userId);
     const activeAutoActivity = activeAutoGatheringActivity(autoStates);
     if (activeAutoActivity) {
@@ -220,6 +221,7 @@ export async function POST(req: Request) {
       sessionId: session.sessionId,
       now,
       features: lifeFeatures,
+      masteryContext,
     });
 
     const charSave = await lockSaveForUpdate<CharSave>(
@@ -347,6 +349,7 @@ export async function POST(req: Request) {
             source: "job.activity",
           }],
           new Date(now),
+          masteryContext,
         );
       }
     }

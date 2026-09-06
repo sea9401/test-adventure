@@ -109,6 +109,9 @@ export async function PATCH(req: Request) {
       repliedAt: feedbackReports.repliedAt,
     });
 
+  // 사용자가 확인 처리 전에 삭제한 경우 답변 알림을 보내지 않는다.
+  if (!entry) return Response.json({ ok: false, error: "not_found" }, { status: 404 });
+
   if (
     shouldNotifyFeedbackReply(
       current.adminReply,

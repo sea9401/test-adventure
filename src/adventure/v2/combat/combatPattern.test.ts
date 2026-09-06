@@ -959,3 +959,47 @@ describe("v2PureSkillFormulaCoefficients 주스탯 공격력 환산 보정", () 
     expect(actual.primaryStatCoef).toBe(0);
   });
 });
+
+describe("결계 전투 자원 패턴", () => {
+  const resources = ["physicalWard", "magicWard", "purificationWard"] as const;
+  const pattern: V2CombatPattern = {
+    blocks: [{
+      condition: {
+        kind: "any",
+        conditions: resources.map((resource) => ({
+          kind: "self_resource", resource, op: "none", value: 0,
+        })),
+      },
+      action: { kind: "skill", skillId: "v2c_lawguardian_inviolable" },
+    }],
+  };
+
+  it("저장과 프리셋 왕복에서 세 결계 조건을 보존한다", () => {
+    expect(parseCombatPattern(JSON.parse(JSON.stringify(pattern)))).toEqual(pattern);
+    expect(parseCombatPresets([{ name: "결계 갱신", pattern }])).toEqual([
+      { name: "결계 갱신", pattern },
+    ]);
+  });
+
+  it("모두 남으면 대기하고 미전개 시에는 처음 전개할 수 있다", () => {
+    expect(conditionPasses(pattern.blocks[0].condition, ctx({ selfResources: {
+      physicalWard: 3, magicWard: 2, purificationWard: 1,
+    } }))).toBe(false);
+    expect(conditionPasses(pattern.blocks[0].condition, ctx({ selfResources: {} }))).toBe(true);
+  });
+
+  it.each(resources)("%s 소진과 횟수 비교 경계를 판정한다", (resource) => {
+    const state = ctx({ selfResources: {
+      physicalWard: 3, magicWard: 3, purificationWard: 3, [resource]: 0,
+    } });
+    expect(evaluateCombatPattern(pattern, state, () => true)).toBe("v2c_lawguardian_inviolable");
+    expect(evaluateCombatPattern(pattern, state, () => false)).toBeNull();
+    for (const op of ["atMost", "atLeast"] as const) {
+      const condition = { kind: "self_resource", resource, op, value: 2 } as const;
+      expect(conditionPasses(condition, ctx({ selfResources: { [resource]: 2 } }))).toBe(true);
+      expect(conditionPasses(condition, ctx({ selfResources: {
+        [resource]: op === "atMost" ? 3 : 1,
+      } }))).toBe(false);
+    }
+  });
+});

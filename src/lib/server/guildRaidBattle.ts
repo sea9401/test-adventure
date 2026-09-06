@@ -20,6 +20,7 @@ import {
 export type GuildRaidBattleResult = {
   playerName: string;
   damageDealt: number;
+  /** Historical API field: net HP loss after recovery, not cumulative hostile damage. */
   damageTaken: number;
   diedEarly: boolean;
   turns: number;

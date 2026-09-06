@@ -25,6 +25,7 @@ import {
   lifeRequestsForPeriod,
   parseLifeRequestsState,
   rerollLifeRequestLane,
+  LIFE_REQUEST_REROLL_LIMIT,
   type LifeRequestDefinition,
   type LifeRequestLane,
   type LifeRequestRequesterId,
@@ -81,6 +82,7 @@ function boardPayload(now: Date, snapshot: Snapshot) {
     keys.weeklyKey,
     state.daily.rerolledLane,
     state.daily.rerolledOffset ?? 1,
+    state.daily.rerollOffsets,
   );
   const farm = normalizeFarmForDay(parseFarmState(snapshot.farmRaw), now.getTime());
   const cooking = parseCookingState(snapshot.cookingRaw, now.getTime());
@@ -135,7 +137,10 @@ function boardPayload(now: Date, snapshot: Snapshot) {
       };
     }),
     reroll: {
-      used: state.daily.rerolledLane !== null,
+      used: state.daily.rerollCount >= LIFE_REQUEST_REROLL_LIMIT,
+      count: state.daily.rerollCount,
+      limit: LIFE_REQUEST_REROLL_LIMIT,
+      remaining: LIFE_REQUEST_REROLL_LIMIT - state.daily.rerollCount,
       rerolledLane: state.daily.rerolledLane,
       rerolledOffset: state.daily.rerolledOffset,
       lanes: (["woodcutting", "mining", "processing", "crafting"] as const).map((lane) => {
@@ -148,7 +153,7 @@ function boardPayload(now: Date, snapshot: Snapshot) {
           completed: requests.some((request) => state.daily.completedIds.includes(request.id)),
           candidates: Array.from({ length: candidateCount }, (_, index) => {
             const offset = index + 1;
-            const candidate = lifeRequestsForPeriod(keys.dailyKey, keys.weeklyKey, lane, offset).daily.find((request) => request.lane === lane)!;
+            const candidate = lifeRequestsForPeriod(keys.dailyKey, keys.weeklyKey, lane, offset, { ...state.daily.rerollOffsets, [lane]: (state.daily.rerollOffsets[lane] ?? 0) + offset }).daily.find((request) => request.lane === lane)!;
             return { offset, title: candidate.title, itemName: lifeRequestItemName(candidate) };
           }),
         };
@@ -263,6 +268,7 @@ export async function POST(req: Request) {
         keys.weeklyKey,
         state.daily.rerolledLane,
         state.daily.rerolledOffset ?? 1,
+        state.daily.rerollOffsets,
       );
       const blockReason = lifeRequestRerollBlockReason(state, lane, currentBoard.daily);
       if (blockReason) return { error: blockReason };
@@ -271,7 +277,7 @@ export async function POST(req: Request) {
       if (offset < 1 || offset > maxOffset) return { error: "reroll_candidate_locked" as const };
       const nextState = rerollLifeRequestLane(state, lane, currentBoard.daily, offset)!;
       await upsertSave(tx, userId, LIFE_REQUESTS_SAVE_KEY, nextState);
-      const nextBoard = lifeRequestsForPeriod(keys.dailyKey, keys.weeklyKey, lane, offset);
+      const nextBoard = lifeRequestsForPeriod(keys.dailyKey, keys.weeklyKey, lane, offset, nextState.daily.rerollOffsets);
       return {
         ok: true as const,
         result: {
@@ -306,6 +312,7 @@ export async function POST(req: Request) {
     keys.weeklyKey,
     preliminaryState.daily.rerolledLane,
     preliminaryState.daily.rerolledOffset ?? 1,
+    preliminaryState.daily.rerollOffsets,
   );
   const availableRequests = body.scope === "weekly"
     ? [...board.weekly, ...board.special]
@@ -327,6 +334,7 @@ export async function POST(req: Request) {
       keys.weeklyKey,
       requests.daily.rerolledLane,
       requests.daily.rerolledOffset ?? 1,
+      requests.daily.rerollOffsets,
     );
     const lockedRequests = request.scope === "weekly"
       ? [...lockedBoard.weekly, ...lockedBoard.special]

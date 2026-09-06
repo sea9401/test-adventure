@@ -608,9 +608,7 @@ export function derivePlayerCombatV2Pure(
   );
   const totalBleedDmgPerStack = specEff.bleedDmgPerStack ?? 0;
   const totalPoisonStrength = specEff.poisonPctPerStackBase ?? 0;
-  const totalLifestealPct =
-    (specEff.lifestealPct ?? 0) +
-    (input.passiveLifestealPct ?? 0); // 장착 패시브(포식) — 저수치.
+  const totalLifestealPct = specEff.lifestealPct ?? 0;
   const totalPoisonedEnemyDefReductionPct = combineDefReductionPcts(
     specEff.poisonedEnemyDefReductionPct ?? 0,
     input.passivePoisonedEnemyDefReductionPct ?? 0,
@@ -824,6 +822,10 @@ export function derivePlayerCombatV2Pure(
     // 흡정공/흡정 — 기존 흡혈 훅(enchantLifestealPct) 재사용: 가한 피해의 % HP 회복.
     ...(totalLifestealPct > 0
       ? { enchantLifestealPct: totalLifestealPct }
+      : {}),
+    // 장착 패시브 흡혈은 직접 피해 스킬에도 적용하며 별도 로그로 구분한다.
+    ...((input.passiveLifestealPct ?? 0) > 0
+      ? { passiveLifestealPct: input.passiveLifestealPct }
       : {}),
     // 주문 연사 — 엔진이 resolveV2SkillCast 의 procChance 에 합산.
     ...(specEff.skillProcChanceAdd

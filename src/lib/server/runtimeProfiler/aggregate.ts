@@ -10,11 +10,16 @@ import {
   type RuntimeFeature,
   type RuntimeIntervalMetrics,
   type SlowRequestProfile,
+  type RequestPhases,
+  type RequestPhase,
 } from "./types";
 
 type MutableFeatureProfile = {
   requests: number;
   errors: number;
+  serverErrors: number;
+  abortedRequests: number;
+  phases: RequestPhases;
   responseBytes: number;
   durationTotalMs: number;
   durationMaxMs: number;
@@ -56,6 +61,9 @@ function emptyFeatureProfile(): MutableFeatureProfile {
   return {
     requests: 0,
     errors: 0,
+    serverErrors: 0,
+    abortedRequests: 0,
+    phases: {},
     responseBytes: 0,
     durationTotalMs: 0,
     durationMaxMs: 0,
@@ -116,6 +124,11 @@ function serializeFeature(profile: MutableFeatureProfile): FeatureProfile {
   return {
     requests: profile.requests,
     errors: profile.errors,
+    serverErrors: profile.serverErrors,
+    abortedRequests: profile.abortedRequests,
+    ...(Object.keys(profile.phases).length > 0
+      ? { phases: structuredClone(profile.phases) }
+      : {}),
     responseBytes: profile.responseBytes,
     durationMs: durationSummary(
       profile.requests,
@@ -166,6 +179,21 @@ function addRequestToProfile(
   profile.requests += 1;
   profile.errors +=
     record.aborted === true || record.statusCode >= 500 ? 1 : 0;
+  profile.serverErrors += record.statusCode >= 500 ? 1 : 0;
+  profile.abortedRequests += record.aborted === true ? 1 : 0;
+  for (const phase of Object.keys(record.phases ?? {}) as RequestPhase[]) {
+    const value = record.phases?.[phase];
+    if (!value) continue;
+    const total = profile.phases[phase] ??= {
+      count: 0, failed: 0, totalMs: 0, maxMs: 0, dbQueries: 0, dbMs: 0,
+    };
+    total.count += value.count;
+    total.failed += value.failed;
+    total.totalMs += value.totalMs;
+    total.maxMs = Math.max(total.maxMs, value.maxMs);
+    total.dbQueries += value.dbQueries;
+    total.dbMs += value.dbMs;
+  }
   profile.responseBytes += Math.max(0, Math.round(record.responseBytes));
   profile.durationTotalMs += durationMs;
   profile.durationMaxMs = Math.max(profile.durationMaxMs, durationMs);

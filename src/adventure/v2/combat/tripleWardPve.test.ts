@@ -1,3 +1,4 @@
+import type { V2CombatPattern } from "./combatPattern";
 import type { Monster } from "@/adventure/data/monsters";
 import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
 import { describe, expect, it, vi } from "vitest";
@@ -232,5 +233,40 @@ describe("삼중 결계 PvE", () => {
     } finally {
       random.mockRestore();
     }
+  });
+});
+
+const WARD_PATTERN: V2CombatPattern = {
+  blocks: [{
+    condition: {
+      kind: "any",
+      conditions: (["physicalWard", "magicWard", "purificationWard"] as const).map((resource) => ({
+        kind: "self_resource", resource, op: "none", value: 0,
+      })),
+    },
+    action: { kind: "skill", skillId: "v2c_lawguardian_inviolable" },
+  }],
+};
+
+describe("결계 소진 패턴 PvE", () => {
+  it.each(["physical", "magic", "purification"] as const)("%s가 소진될 때만 재전개한다", (ward) => {
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const combatant = player();
+      const start = initialBattleState(combatant, enemy(), "봉인자", {
+        ...LAWGUARDIAN, pattern: WARD_PATTERN,
+      });
+      const cast = (state: typeof start) => applyPlayerV2SkillCast(
+        state, combatant, { selfBuffs: {}, selfDebuffs: {}, enemyDebuffs: {} }, "봉인자",
+      );
+      expect(cast(start).castFired).toBe(false);
+      const depleted = { ...start, stacks: { ...start.stacks,
+        tripleWard: { ...start.stacks.tripleWard, [ward]: 0 },
+      } };
+      const refreshed = cast(depleted);
+      expect(refreshed.castFired).toBe(true);
+      expect(refreshed.state.stacks.tripleWard).toMatchObject({ physical: 3, magic: 3, purification: 3 });
+      expect(cast({ ...start, stacks: refreshed.state.stacks }).castFired).toBe(false);
+    } finally { random.mockRestore(); }
   });
 });

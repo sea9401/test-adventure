@@ -392,3 +392,13 @@ describe("tradable 판정 + 이름 스냅샷", () => {
     expect(currentMarketplaceItemName("gold", "coin", "골드")).toBe("골드");
   });
 });
+
+
+describe("선택한 경매 기간", () => {
+  it.each([6, 12, 24])("%i시간 뒤 종료한다", (hours) => {
+    const start = new Date("2026-09-06T00:00:00Z");
+    const end = marketplaceAuctionTimes(start, hours);
+    expect(end.bidEndsAt.getTime() - start.getTime()).toBe(hours * 3600000);
+    expect(end.expiresAt.getTime()).toBe(end.bidEndsAt.getTime() + 1);
+  });
+});

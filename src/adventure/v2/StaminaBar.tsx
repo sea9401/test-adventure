@@ -16,6 +16,7 @@ import {
   type StaminaState,
 } from "./stamina";
 import { STAMINA_POTION_RESTORE } from "./staminaPotions";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 
 // 스태미너 표시 바.
 // state 자체는 DB save 시점 (사냥/회복 시) 에만 변경. 화면 표시값은 1초마다
@@ -26,7 +27,9 @@ export function StaminaBar({
   regenBonusPct = 0,
   potions = 0,
   onUsePotion,
+  compact = false,
 }: {
+  compact?: boolean;
   state: StaminaState;
   // per-user 최대치(한계의 비약 보너스 반영) — 미전달이면 기본 캡.
   max?: number;
@@ -58,7 +61,7 @@ export function StaminaBar({
   const showPotionButton = potions > 0 && !!onUsePotion;
 
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50/90 px-4 py-3 backdrop-blur-sm dark:border-zinc-700 dark:bg-zinc-900/90">
+    <div className={`${SURFACE_INSET} ${compact ? "px-3 py-2" : "px-4 py-3"}`}>
       <div className="flex items-baseline justify-between text-sm">
         <span className="text-zinc-500 dark:text-zinc-400">스태미너</span>
         <span className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
@@ -71,7 +74,7 @@ export function StaminaBar({
         </span>
       </div>
       <div className="mt-1.5 flex items-center gap-2">
-        <div className="h-3 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+        <div className={`${compact ? "h-1.5" : "h-3"} flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800`}>
           <div
             className={`h-full transition-[width] duration-500 ${
               overcharged

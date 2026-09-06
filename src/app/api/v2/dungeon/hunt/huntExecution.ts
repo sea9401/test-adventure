@@ -1,4 +1,5 @@
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
+import { createRequestPhaseTracker } from "@/lib/server/runtimeProfiler/requestPhases";
 import {
   HUNT_COOLDOWN_MODE,
   HUNT_COOLDOWN_MS,
@@ -168,6 +169,23 @@ export type RunOneHuntCtx = {
 //   fullReplay=true 면 BattleScene 용 log 를 보존한다. 온라인 단판/5·10·50회 사냥은 기록 확인이
 //   필요하므로 full, 오프라인 정산은 결과 집계만 쓰므로 lite 로 둔다.
 export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
+  const phases = createRequestPhaseTracker();
+  phases.enter("hunt.prepare");
+  try {
+    return await runOneHuntPhased(fullReplay, ctx, phases);
+  } catch (error) {
+    phases.finish(true);
+    throw error;
+  } finally {
+    phases.finish();
+  }
+}
+
+async function runOneHuntPhased(
+  fullReplay: boolean,
+  ctx: RunOneHuntCtx,
+  phases: ReturnType<typeof createRequestPhaseTracker>,
+) {
   const {
     tx,
     userId,
@@ -643,6 +661,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   }
 
   // v2Skills 는 위(derive 직전)에서 이미 lock-read·parse 했다. cast hook 이 그대로 사용.
+  phases.enter("hunt.battle");
   const battleResult = resolveBattle(
     playerForBattle,
     enemyMonster,
@@ -653,9 +672,11 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       potions: {},
       v2Skills,
       depth, // ATB 몬스터 SPD 깊이 보정(레거시 무시)
+      logMode: fullReplay ? "full" : "summary",
     },
   );
 
+  phases.enter("hunt.settlement");
   const won = battleResult.outcome === "win";
   const timedOut = battleResult.endReason === "timeout";
   // 희귀 탐사는 실제 전투를 한 번만 해결하고, 승리 뒤 저장된 runsLeft만큼 기존 보상을

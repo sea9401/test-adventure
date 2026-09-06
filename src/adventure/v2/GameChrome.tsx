@@ -71,6 +71,8 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
   const activeTab = gameTabForPath(pathname);
   // 스태미나 바 — 스태미나를 직접 사용하는 지정 화면에서만 노출한다.
   const showStamina = shouldShowStaminaBar(pathname);
+  const pinStamina =
+    pathname === "/battle/dungeon" || pathname.startsWith("/battle/dungeon/");
 
   useEffect(() => {
     const chrome = chromeRef.current;
@@ -201,8 +203,9 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
       <div id="game-main-content" tabIndex={-1}>
         {/* 쿨다운 모드만 스태미나 폐지(전투 쿨다운 대체) → 바 숨김. 스태미나 모드/off 면 표시. */}
         {showStamina && (!coreLoopOn || huntStaminaMode) && (
-          <div className="mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6">
+          <div className={`mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6 ${pinStamina ? "sticky top-[var(--game-header-height,4rem)] z-30" : ""}`}>
             <StaminaBar
+              compact={pinStamina}
               state={stamina}
               max={staminaMax}
               regenBonusPct={staminaRegenBonusPct}

@@ -53,6 +53,34 @@ function run(): PvPBattleResolution {
 }
 
 describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
+  it.each([0, 100_000])("추격 로그는 보호막 %i 적용 후 HP 피해를 별도로 기록한다", (shield) => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const skillId = "v2c_skyascendant_voidbreak";
+    const skills: V2SkillsState = {
+      learned: [skillId, "v2c_skyascendant_crossover"],
+      equipped: [skillId, "v2c_skyascendant_crossover"],
+      pattern: { blocks: [{ condition: { kind: "always" }, action: { kind: "skill", skillId } }] },
+    };
+    const initial = initialBattleStatePvP(
+      { ...caster, atk: 150, dexStat: 200 },
+      { ...target, hp: 100_000, maxHp: 100_000 },
+      "P1", "P2", skills, { learned: [], equipped: [] }, undefined, undefined, "p1",
+    );
+    initial.p1.stacks.tier7 = { ...initial.p1.stacks.tier7, lastCrossFamily: "ranged" };
+    initial.p2.stacks.playerShield = shield;
+    const result = castV2SkillOnAttackerTurnPvP(initial, "p1");
+    expect(result.castFired).toBe(true);
+    const pursuit = result.state.log.find((entry) => entry.text.startsWith("[교차·추격]") && entry.text.includes("추가 피해"));
+    expect(pursuit && "additionalHpDamage" in pursuit).toBe(true);
+    if (!pursuit || pursuit.kind === "hp_bar") throw new Error("추격 로그 없음");
+    const hits = result.state.log.filter((entry) => entry.text.startsWith("파공!") && entry.text.includes("피해를 입혔다"));
+    expect(hits).toHaveLength(4);
+    const directDamage = hits.reduce((sum, entry) => sum + Number(entry.text.match(/(\d+) 피해를 입혔다/)![1]), 0);
+    expect(directDamage + pursuit.additionalHpDamage!).toBe(initial.p2.hp - result.state.p2.hp);
+    if (shield > 0) expect(pursuit.additionalHpDamage).toBe(0);
+    else expect(pursuit.additionalHpDamage).toBeGreaterThan(0);
+  });
+
   it("교대 패턴은 PvP에서도 사용 불가 뒤 현재 스킬을 재시도한다", () => {
     const firstSkillId = "v2c_skyascendant_fallingstar";
     const secondSkillId = "v2c_skyascendant_voidbreak";

@@ -123,8 +123,8 @@ export function PlazaContent() {
       </P>
       <UL>
         <li>
-          모든 매물은 등록 즉시 <Em>{MARKETPLACE_V2_AUCTION_HOURS}시간 공개 경매</Em>로
-          시작됩니다. 즉시구매와 구매 주문은 이용하지 않습니다.
+          등록 시 <Em>6·12·24시간</Em> 중 기간을 선택할 수 있으며,
+          기본은 <Em>{MARKETPLACE_V2_AUCTION_HOURS}시간 공개 경매</Em>입니다. 등록 즉시 시작됩니다. 즉시구매와 구매 주문은 이용하지 않습니다.
         </li>
         <li>
           재료·음식·스택 소모품은 판매자가 고른 <Em>묶음 전체</Em>를 하나의 매물로

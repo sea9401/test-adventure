@@ -1,3 +1,4 @@
+import { combatRandom } from "./combatRandom";
 // 고유 아이템 발동형 시그니처 — 전투 엔진(PvE enemyPhase/playerPhase·PvP pvpPhase)이 공유하는
 //   순수 헬퍼. docs/v2-signature-uniques-plan.md §10. 데이터는 PlayerCombat.equipSignatures
 //   (derive.collectEquipSignatures 가 활성 세트/마퀴 단품에서 집계). 시그니처 없으면 전부 0/무발화
@@ -111,7 +112,7 @@ export function trackedShieldBreakEffect(
 export function resolveDirectSkillHitSignatures(
   signatures: SignatureEffect[] | undefined,
   input: { dealtDamage: boolean; targetPoisoned: boolean },
-  roll: () => number = Math.random,
+  roll: () => number = combatRandom,
 ): {
   damageMult: number;
   poison: { stacks: number; label: string } | null;
@@ -312,7 +313,7 @@ export function firesOnCritPoison(
 export function rollOnHitPoison(
   signatures: SignatureEffect[] | undefined,
   dealtDamage: boolean,
-  roll: () => number = Math.random,
+  roll: () => number = combatRandom,
 ): { stacks: number; label: string } | null {
   if (!dealtDamage || !signatures) return null;
   let stacks = 0;
@@ -330,7 +331,7 @@ export function rollOnHitPoison(
 export function rollOnHitBleed(
   signatures: SignatureEffect[] | undefined,
   dealtDamage: boolean,
-  roll: () => number = Math.random,
+  roll: () => number = combatRandom,
 ): { stacks: number; label: string } | null {
   if (!dealtDamage || !signatures) return null;
   let stacks = 0;
@@ -348,7 +349,7 @@ export function rollOnHitBleed(
 export function rollOnHitShock(
   signatures: SignatureEffect[] | undefined,
   dealtDamage: boolean,
-  roll: () => number = Math.random,
+  roll: () => number = combatRandom,
 ): { label: string } | null {
   if (!dealtDamage || !signatures) return null;
   const labels: string[] = [];
@@ -379,7 +380,7 @@ export function resolveOffensiveSignatureTriggers(
     dealtDamage: boolean;
     allowShock: boolean;
   },
-  roll: () => number = Math.random,
+  roll: () => number = combatRandom,
 ): OffensiveSignatureTriggers {
   const critSpeed = onCritSpeedBuff(
     signatures,
@@ -431,7 +432,7 @@ export function rollEvasionActionRecovery(
   currentHp: number,
   maxHp: number,
   evasionReductionPct: number,
-  roll: () => number = Math.random,
+  roll: () => number = combatRandom,
 ): { amount: number; label: string } | null {
   if (
     !signatures ||

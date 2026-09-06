@@ -42,9 +42,10 @@ import {
   type LoadoutStatSource,
 } from "./LoadoutStatSummary";
 import {
-  useGameState,
   type GameResourcePatch,
 } from "./GameStateProvider";
+import { useGameResourceState } from "./GameResourceContext";
+import { useRefreshGameState } from "./GameStateRefreshContext";
 import { useSystemMessageState } from "./RewardToastProvider";
 
 // v2 학습 — 숙달 포인트로 직업 스킬을 습득하고 SP 로드아웃을 구성한다.
@@ -104,9 +105,6 @@ export async function refreshLoadoutViews(
 
 function skillName(id: string): string {
   return V2_SKILLS[id as V2SkillId]?.name ?? id;
-}
-function skillDesc(id: string): string {
-  return V2_SKILLS[id as V2SkillId]?.description ?? "";
 }
 function goldLabel(value: number): string {
   return `${value.toLocaleString()}G`;
@@ -348,26 +346,26 @@ export function SkillLearningCard({
   const affordable = usable >= skill.cost;
 
   return (
-    <li className="ui-skill-card flex items-center justify-between gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
+    <li className={`ui-skill-card ${SURFACE_CARD} flex flex-col gap-3 p-3`}>
+      <div className="min-w-0">
       <SkillDetailTrigger
         skillId={skill.skillId as V2SkillId}
         skillName={skill.name}
         onOpen={onOpenDetail}
-        className="min-w-0 flex-1 text-left"
+        className="min-h-11 w-full text-left"
       >
-        <span className="block truncate text-sm font-semibold">
+        <span className="block break-words text-base font-semibold">
           {skill.name}
         </span>
-        <span className="mt-0.5 block line-clamp-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-          {skillDesc(skill.skillId)}
-        </span>
+      </SkillDetailTrigger>
         <SkillLearningCostSummary
           learnCost={skill.cost}
           spCost={skill.spCost}
           learned={skill.learned}
         />
         <SkillEffectChips skillId={skill.skillId} />
-      </SkillDetailTrigger>
+      </div>
+      <div className="flex justify-end border-t border-zinc-100 pt-2 dark:border-zinc-800">
       {!skill.learned ? (
         <Button
           onClick={() => onLearn(skill.skillId, skill.cost)}
@@ -376,15 +374,16 @@ export function SkillLearningCard({
           loadingLabel={`${skill.name} 학습 중`}
           variant="success"
           size="xs"
-          className="shrink-0"
+          className="min-h-11 shrink-0 px-4"
         >
           학습
         </Button>
       ) : (
-        <span className="shrink-0 rounded-md border border-sky-500 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-700 dark:text-sky-300">
+        <span className="shrink-0 rounded-md border border-sky-500 bg-sky-50 px-3 py-2 text-xs font-medium text-sky-700 dark:bg-sky-950 dark:text-sky-300">
           보유
         </span>
       )}
+      </div>
     </li>
   );
 }
@@ -424,7 +423,8 @@ export function V2SkillLearnView({
   // 허브 탭 분리 — "learn"=학습, "loadout"=프리셋+장착, "enhance"=강화 의식, "all"=전부.
   section?: "all" | "learn" | "loadout" | "enhance";
 }) {
-  const { applyResourcePatch, refreshGameState } = useGameState();
+  const { applyResourcePatch } = useGameResourceState();
+  const refreshGameState = useRefreshGameState();
   const [elementalSkills, setElementalSkills] = useState<ElementalRow[]>([]);
   const [loadout, setLoadout] = useState<V2LoadoutData | null>(null);
   const [currentJobId, setCurrentJobId] = useState<string | undefined>();

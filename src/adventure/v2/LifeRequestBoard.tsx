@@ -102,6 +102,9 @@ type BoardPayload = {
   }>;
   reroll: {
     used: boolean;
+    count: number;
+    limit: number;
+    remaining: number;
     rerolledLane: LifeRequestLane | null;
     rerolledOffset: number | null;
     lanes: Array<{
@@ -531,7 +534,7 @@ export function LifeRequestBoard({
         <details className={`${SURFACE_INSET} mt-3 group p-3`}>
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
             <div>
-              <div className="text-sm font-bold">하루 1회 의뢰 교체 가능</div>
+              <div className="text-sm font-bold">하루 {data.reroll.limit}회 의뢰 교체 · {data.reroll.remaining}회 남음</div>
             </div>
             <span className="shrink-0 text-xs font-semibold text-amber-700 group-open:hidden dark:text-amber-300">교체하기</span>
             <span className="hidden shrink-0 text-xs font-semibold text-amber-700 group-open:inline dark:text-amber-300">접기</span>

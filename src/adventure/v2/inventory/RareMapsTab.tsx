@@ -112,6 +112,7 @@ export function RareMapsTab({
   onUseFishSpecimen: (fishId: FishId) => void;
 }) {
   const router = useRouter();
+  const [filter, setFilter] = useState<"all" | "general" | "food">("all");
   const hasSpFruit = SP_FRUIT_TIERS.some(
     (t) => (materials[SP_FRUIT[t].materialId] ?? 0) > 0,
   );
@@ -128,17 +129,19 @@ export function RareMapsTab({
   );
   return (
     <div className="space-y-4">
+      <div className={`${SURFACE_CARD} flex flex-wrap gap-2 p-2`} role="group" aria-label="소모품 분류">
+        {([['all', '전체'], ['general', '일반 소모품'], ['food', '요리']] as const).map(([value, label]) => (
+          <Button key={value} size="sm" variant={filter === value ? "primary" : "secondary"} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</Button>
+        ))}
+      </div>
+      {filter !== "general" && <CookingFoodSection cookingFoods={cookingFoods} cookingFoodDefinitions={cookingFoodDefinitions} busy={busy} onUse={onUseCookingFood} />}
+      {filter === "food" && !hasCookingFood && <p className={`${SURFACE_CARD} p-4 text-sm text-zinc-500 dark:text-zinc-400`}>보유한 요리가 없습니다.</p>}
+      {filter !== "food" && <>
       <FishSpecimenSection
         specimens={fishSpecimens}
         registeredIds={registeredFishIds}
         busyFishId={busy?.startsWith("fish_specimen_") ? (busy.slice(14) as FishId) : null}
         onUse={onUseFishSpecimen}
-      />
-      <CookingFoodSection
-        cookingFoods={cookingFoods}
-        cookingFoodDefinitions={cookingFoodDefinitions}
-        busy={busy}
-        onUse={onUseCookingFood}
       />
       <CashItemSection
         cashItems={cashItems}
@@ -186,7 +189,7 @@ export function RareMapsTab({
         maps={rareMaps}
         busy={busy}
         suppressEmpty={
-          hasCookingFood ||
+          (filter === "all" && hasCookingFood) ||
           hasCashItem ||
           hasSpFruit ||
           hasEquipmentBox ||
@@ -196,6 +199,7 @@ export function RareMapsTab({
         }
         onUse={onUseExpTome}
       />
+      </>}
     </div>
   );
 }

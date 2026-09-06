@@ -1,9 +1,8 @@
+import { applySkillHealing, skillSelfHealingAmount } from "./engine.skillHealing";
+import { combatRandom } from "./combatRandom";
+import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
 import { CRIT_PCT_CAP, STAT_LABELS } from "@/adventure/data/stats";
-import { V2_SKILL_PROC_IN_PATTERN } from "@/adventure/data/v2/coreLoopConfig";
-import {
-  tier7CombatJobIdForSkillId,
-  tier7PvpDirectDamagePct,
-} from "@/adventure/data/v2/tier7SkillMechanics";
+import { tier7CombatJobIdForSkillId, tier7PvpDirectDamagePct } from "@/adventure/data/v2/tier7SkillMechanics";
 import {
   applyEvasionDamageReduction,
   EVASION_DAMAGE_REDUCTION_MAX_PCT,
@@ -14,22 +13,12 @@ import {
 } from "@/adventure/data/v2/v2CombatConstants";
 import {
   aggregateEquippedPassives,
-  effectiveCombatPatternFromEquipped,
   isLimitedRecoverySkillId,
   rebalanceDynamicV2SkillEffects,
-  smartDefaultPatternFromEquipped,
   V2_SKILLS,
 } from "@/adventure/data/v2/v2Skills";
-import {
-  applyBerserkerCastTransition,
-  berserkerCastContext,
-  finishBerserkerCurrentActionGuard,
-} from "./berserkerCombat";
-import {
-  advancePatternAlternateState,
-  preservePatternAlternateTransition,
-  V2_COMBAT_PATTERN_ENABLED,
-} from "./combatPattern";
+import { applyBerserkerCastTransition, finishBerserkerCurrentActionGuard } from "./berserkerCombat";
+import { advancePatternAlternateState, preservePatternAlternateTransition } from "./combatPattern";
 import {
   applyBleedChangeToDots,
   applyComboFinisherToHits,
@@ -42,7 +31,6 @@ import {
   makePoisonDot,
   removeMissedV2SkillTargetEffects,
   resolveV2SkillCast,
-  tickV2BuffMap,
   v2DamageAmount,
   v2MagicBuffMult,
   type V2SkillCastInput,
@@ -53,7 +41,6 @@ import {
   duelistDeclarationSummary,
   interruptDuelistRamp,
 } from "./duelistCombat";
-import { appendLog, appendSkillCastLog } from "./engineSupport";
 import {
   computeCritOverflowBonus,
   computeDirectSkillDamage,
@@ -72,10 +59,11 @@ import {
   skillTargetDef,
   skillTargetMagicDef,
 } from "./engine.pvpOperations";
-import { advanceTurnPvP } from "./engine.pvpPhase";
+import { applyImmediateProvokedBasicAttacksPvP } from "./engine.pvpProvoke";
 import { scalePvPDamage, scalePvPHealing, scalePvPShield } from "./engine.pvpScaling";
+import { preparePvPSkillCast } from "./engine.pvpSkillInput";
 import { type PvPBattleState, type PvPSide, type PvPSideStacks } from "./engine.pvpState";
-import { markForcedActionMainLog } from "./engineState";
+import { appendLog, appendSkillCastLog } from "./engineSupport";
 import {
   formatFrostChillGainLog,
   formatFrostChillTriggerLog,
@@ -89,9 +77,8 @@ import {
   lawInscriptionGainLog,
 } from "./lawInscription";
 import { magicBarrierCombatLogEntries, resolveMagicBarrierDamage } from "./magicBarrier";
-import { effectiveMutationDef, mutationTransitionLogLines } from "./mutationCombat";
+import { mutationTransitionLogLines } from "./mutationCombat";
 import {
-  formulaCompletionOverdraftSkillIds,
   formulaStagesForCast,
   previewFormulaCast,
   settleFormulaManaRecovery,
@@ -113,7 +100,6 @@ import {
   formatChillSlowLog,
   formatDefDebuffLog,
   formatShockAppliedLog,
-  healToShield,
   onHitTakenDefGain,
   onSkillCastMpRefund,
   resolveDirectSkillHitSignatures,
@@ -123,7 +109,6 @@ import {
   statusBlockOnce,
 } from "./signatureEffects";
 import { resolveCrossover, type CrossFamily } from "./skyAscendantCombat";
-import { isBleedBurstReady } from "./tier6UniqueEffects";
 import {
   applyTier6UniquePvpEvent,
   tier6PvpDotContext,
@@ -136,69 +121,7 @@ import {
   TRIPLE_WARD_LABELS,
   tripleWardStabilityReductionPct,
 } from "./tripleWard";
-
-// PR-4b: v2 스킬 cast — MP 차감 + cooldown set + 효과 적용 (damage/heal/buff/debuff) + 로그.
-// 매 side 의 turn 진입 시 1회 — 자기 side 의 buff/debuff turn -1 tick + cast.
-export function applyImmediateProvokedBasicAttacksPvP(
-  state: PvPBattleState,
-  provokerKey: "p1" | "p2",
-  count: number,
-  skillName: string,
-): PvPBattleState {
-  const attacks = Math.max(0, Math.floor(count));
-  if (attacks <= 0 || state.phase === "ended") return state;
-  const attackerKey = provokerKey === "p1" ? "p2" : "p1";
-  const originalPhase = state.phase;
-  const originalAttacker = state[attackerKey];
-  let next = setSide(
-    {
-      ...state,
-      phase: attackerKey,
-      log: appendLog(state.log, {
-        kind: "info",
-        text: `[${skillName}] ${originalAttacker.name}이(가) 즉시 기본 공격 ${attacks}회!`,
-        side: provokerKey,
-      }),
-    },
-    attackerKey,
-    {
-      ...originalAttacker,
-      // 정확히 두 번만 직접 호출하고 페이즈 종료 후처리는 실행하지 않도록 여분 1회를 둔다.
-      attacksLeft: attacks + 1,
-      turn: { ...originalAttacker.turn, firstAttackPending: false },
-    },
-  );
-  for (let index = 0; index < attacks && next.phase !== "ended"; index += 1) {
-    if (next.phase !== attackerKey) break;
-    const logStart = next.log.length;
-    next = advanceTurnPvP(next, { kind: "attack" }, { tickDefenderDots: false });
-    if (next.log.length > logStart) {
-      next = {
-        ...next,
-        log: next.log.map((entry, logIndex) => {
-          if (logIndex < logStart) return entry;
-          return markForcedActionMainLog(
-            entry.side ? entry : { ...entry, side: attackerKey },
-            skillName,
-          );
-        }),
-      };
-    }
-  }
-  if (next.phase === "ended") return next;
-  const attackerAfterProvoke = next[attackerKey];
-  return setSide(
-    { ...next, phase: originalPhase },
-    attackerKey,
-    {
-      ...attackerAfterProvoke,
-      attacksLeft: originalAttacker.attacksLeft,
-      turn: originalAttacker.turn,
-    },
-  );
-}
-
-
+export { applyImmediateProvokedBasicAttacksPvP } from "./engine.pvpProvoke";
 export function castV2SkillOnAttackerTurnPvP(
   state: PvPBattleState,
   who: "p1" | "p2",
@@ -219,166 +142,18 @@ export function castV2SkillOnAttackerTurnPvP(
   st = setSide({ ...st, log: preLog }, who, sideStart);
   const side = st[who];
   const opp = st[otherKey];
-  const tier6UnityPct =
-    (side.buffs.tier6UnityTurnsLeft ?? 0) > 0
-      ? side.buffs.tier6UnityHealPct ?? 0
-      : 0;
-  const tier6UnityMult = 1 + tier6UnityPct / 100;
-  const tier6UnityAtk = Math.floor(side.player.atk * tier6UnityMult);
-  const tier6UnityMagicAtk = Math.floor(
-    (side.player.magicAtk ?? side.player.atk) * tier6UnityMult,
-  );
-  // 1) buff/debuff tick (cast 전에 — 새 buff 는 발동턴부터 turns 만큼 유지).
-  const tickedSelfBuffs = tickV2BuffMap(side.v2SelfBuffs);
-  const tickedSelfDebuffs = tickV2BuffMap(side.v2SelfDebuffs);
-  const shadowCoreEquipped = side.v2Skills.equipped.includes(
-    "v2c_shadowblade_swordshadow",
-  );
-  const shadowCoreMechanic =
-    V2_SKILLS.v2c_shadowblade_swordshadow.tier7Mechanic;
-  const formulaCoreEquipped = side.v2Skills.equipped.includes(
-    "v2c_primordialsage_completeformula",
-  );
-  const formulaOptimizationEquipped = side.v2Skills.equipped.includes(
-    "v2c_primordialsage_optimization",
-  );
-  const formulaState = side.stacks.tier7?.formula ?? {
-    stages: 0,
-    seenSkillIds: [],
-  };
-  const formulaOverdraftSkillIds =
-    formulaCoreEquipped && formulaOptimizationEquipped
-      ? formulaCompletionOverdraftSkillIds({
-          state: formulaState,
-          learned: side.v2Skills.learned,
-          equipped: side.v2Skills.equipped,
-        })
-      : [];
-  const activeOpponentBleed = opp.v2Dots.find(
-    (dot) => dot.tag === "bleed" && dot.turns > 0,
-  );
-  const activeOpponentPoison = opp.v2Dots.find(
-    (dot) => dot.tag === "poison" && dot.turns > 0,
-  );
-  const needsBleedHuntRoll = side.v2Skills.equipped.some(
-    (skillId) =>
-      V2_SKILLS[skillId]?.bleedHunt?.directPhysicalHitBleedExtend != null,
-  );
-  // 2) cast 결정 + 효과 계산. target = 상대 side (opp).
-  const castInput: V2SkillCastInput = {
-    skills: side.v2Skills,
-    cooldowns: side.v2SkillCooldowns,
-    combatMode: "pvp",
-    magicMpCostReductionPct: formulaOptimizationEquipped ? 20 : 0,
-    mpOverdraftSkillIds: formulaOverdraftSkillIds,
-    // PR2-B(Codex) — PvP 도 발동확률 게이트 + 워메이지 proc 보너스. 단 스킬 미보유 전투자에게
-    //   Math.random() 을 소비하면 PvP RNG 가 드리프트하므로(Codex 2차) 장착 스킬 있을 때만 롤.
-    procRoll: side.v2Skills.equipped.length > 0 ? Math.random() * 100 : undefined,
-    nextProcRoll: () => Math.random() * 100,
-    bleedHuntRoll: needsBleedHuntRoll ? Math.random() * 100 : undefined,
-    procChanceBonus:
-      (side.player.skillProcChanceAdd ?? 0) -
-      (side.stacks.skillProcDownTurns > 0 ? side.stacks.skillProcDownPct : 0),
-    // 패턴 경로에서도 procChance 굴림(부활) — 플래그 on 이면 패턴이 고른 스킬도 확률 게이트 통과 필요.
-    applyProcInPattern: V2_SKILL_PROC_IN_PATTERN,
-    turn: side.turn.completedPlayerTurns + 1,
-    alternateLastSkillByPair: side.stacks.patternAlternateLastSkillByPair,
-    combatPattern: V2_COMBAT_PATTERN_ENABLED
-      ? effectiveCombatPatternFromEquipped(
-          side.v2Skills.equipped,
-          side.v2Skills.pattern ??
-            smartDefaultPatternFromEquipped(side.v2Skills.equipped),
-        )
-      : undefined,
-    berserker: side.berserker
-      ? berserkerCastContext(
-          side.player.berserkerMadnessRank ?? 0,
-          side.berserker,
-        )
-      : undefined,
-    attacker: {
-      mp: side.mp,
-      atk: tier6UnityAtk,
-      attackCount: side.player.attackCount,
-      magicAtk: tier6UnityMagicAtk,
-      singleHitPhysicalSkillDamagePct:
-        side.player.singleHitPhysicalSkillDamagePct,
-      minDamage: side.player.minDamage,
-      magicMinDamage: side.player.magicMinDamage,
-      healMult: side.player.healMult,
-      maxHp: side.maxHp,
-      // PR2-B — PvP 시전자도 PlayerCombat → def/vit 비례딜·현재HP(사혈격)·maxMp(보호막/명상)·차수 flat 유효.
-      def: effectiveMutationDef(
-        side.player.def,
-        side.stacks.mutationWeight,
-        side.player.stoneskinDefPctPerWeight ?? 0,
-      ),
-      str: side.player.strStat,
-      int: side.player.intStat,
-      vit: side.player.vitStat,
-      dex: side.player.dexStat,
-      luk: side.player.lukStat,
-      spi: side.player.spiStat,
-      allStatTotal: side.player.allStatTotal,
-      // 활성 파생버프 — 조건식이 만료된 버프만 다시 시전하도록 실제 PvP 스택을 전달한다.
-      selfShield: side.stacks.playerShield,
-      selfShieldActive: side.stacks.playerShield > 0,
-      selfStatBuffActive: {
-        spd: side.buffs.playerSpdTurnsLeft > 0,
-      },
-      selfBuffPctActive: {
-        evasion: side.stacks.skillEvasionTurns > 0,
-        crit: side.stacks.skillCritTurns > 0,
-        damageReduction: side.stacks.skillDmgReduceTurns > 0,
-        reflectDamage: side.stacks.skillReflectBoostTurns > 0,
-        regen: side.stacks.skillRegenTurns > 0,
-        guaranteedEvade: side.stacks.evadesRemaining > 0,
-        duelistDeclaration: (side.duelistBuff?.remainingBasicHits ?? 0) > 0,
-      },
-      currentHp: side.hp,
-      maxMp: side.maxMp,
-      classTier: side.player.classTier,
-      fortressImpact: side.stacks.fortressImpact,
-      ironWallReflectCharges: side.stacks.ironWallReflectCharges,
-      fortressImpactDamagePctPerStack:
-        side.player.fortressImpactDamagePctPerStack,
-      fortressDefSkillStatCoefPct: side.player.fortressDefSkillStatCoefPct,
-      lawInscription: side.player.lawInscription,
-      lawInscriptions: side.stacks.lawInscriptions,
-      mutationWeight: side.stacks.mutationWeight,
-      bloodlineBurstReady: isBleedBurstReady(
-        side.player.equipSignatures,
-        side.stacks.tier6Uniques,
-        side.turn.completedPlayerTurns + 1,
-      ),
-      bleedPhysicalSkillDamagePctPerStack:
-        side.player.bleedPhysicalSkillDamagePctPerStack,
-      selfBuffs: tickedSelfBuffs,
-      selfDebuffs: tickedSelfDebuffs,
-      characterElement: side.player.characterElement,
-    },
-    target: {
-      def: skillTargetDef(side, opp),
-      magicDef: skillTargetMagicDef(side, opp),
-      // PR-5a: PvP 양 side 다 v2 buff slot 있음 — opponent 의 buff 도 def 곱셈에 반영.
-      selfBuffs: opp.v2SelfBuffs,
-      selfDebuffs: opp.v2SelfDebuffs,
-      // PR2-B — 처단(처형 임계)·스택 payoff(참절/중독폭발) 대상 = 상대 side.
-      currentHp: opp.hp,
-      maxHp: opp.maxHp,
-      bleedStacks: activeOpponentBleed?.stacks ?? 0,
-      bleedTurns: activeOpponentBleed?.turns ?? 0,
-      poisonStacks: activeOpponentPoison?.stacks ?? 0,
-      poisonTurns: activeOpponentPoison?.turns ?? 0,
-      // 약점 노출 — 비전 작렬(magicVuln payoff)이 상대 누적 스택을 읽어 추가딜.
-      magicVulnStacks: opp.stacks.magicVulnStacks,
-      frostChillStacks: opp.stacks.frostChillStacks,
-      enemyVulnerabilityActive: opp.stacks.enemyVulnTurns > 0,
-      enemyDamageDownActive: opp.stacks.damageDownTurns > 0,
-      enemySkillProcDownActive: opp.stacks.skillProcDownTurns > 0,
-      enemyHealReductionActive: opp.stacks.healReduceTurns > 0,
-    },
-  };
+  const {
+    tier6UnityMult,
+    tier6UnityMagicAtk,
+    tickedSelfBuffs,
+    tickedSelfDebuffs,
+    shadowCoreEquipped,
+    shadowCoreMechanic,
+    formulaCoreEquipped,
+    formulaOptimizationEquipped,
+    formulaState,
+    castInput,
+  } = preparePvPSkillCast(side, opp, who);
   const ruinChargeAtActionStart = side.stacks.tier7?.ruinCharge;
   const ruinSwordMechanic = V2_SKILLS.v2c_ruinblade_ruinsword.tier7Mechanic;
   const ruinChargeReady =
@@ -734,7 +509,7 @@ export function castV2SkillOnAttackerTurnPvP(
     result.enemyDamage > 0 &&
     (guaranteedSkillCrit ||
       (effectiveSkillCritPct > 0 &&
-        Math.random() * 100 < effectiveSkillCritPct));
+        combatRandom() * 100 < effectiveSkillCritPct));
   const directSkillSignature = resolveDirectSkillHitSignatures(
     side.player.equipSignatures,
     {
@@ -909,13 +684,6 @@ export function castV2SkillOnAttackerTurnPvP(
       .reduce((sum, hit) => sum + hit, 0);
     pursuitDamageAfterReduction =
       pursuitRawDamage > 0 ? perHit.at(-1) ?? 0 : 0;
-    if (pursuitDamageAfterReduction > 0) {
-      nextLog = appendLog(nextLog, {
-        kind: "player_attack",
-        text: `[교차·추격] ${pursuitDamageAfterReduction} 추가 피해.`,
-        side: who,
-      });
-    }
     const skillDamageBeforeReduction = perHitBeforeReduction.reduce(
       (sum, hit) => sum + hit,
       0,
@@ -1011,6 +779,7 @@ export function castV2SkillOnAttackerTurnPvP(
       const absorbed = Math.min(nextOppShield, barrier.hpBoundDamage);
       nextOppShield -= absorbed;
       skillShieldAbsorbed += absorbed;
+      recordCombatDamage(hitIndex >= comboResult.hitDamages.length ? "crossover:pursuit" : result.castSkillId ?? "skill", otherKey, nextOppHp, barrier.hpBoundDamage - absorbed, barrier.absorbedDamage + absorbed);
       const actualHpDamage = Math.min(
         nextOppHp,
         barrier.hpBoundDamage - absorbed,
@@ -1056,6 +825,15 @@ export function castV2SkillOnAttackerTurnPvP(
     }
     actualSkillDamage =
       skillShieldAbsorbed + skillMagicBarrierAbsorbed + skillDamageToHp;
+    if (pursuitDamageAfterReduction > 0) {
+      nextLog = appendLog(nextLog, {
+        kind: "player_attack",
+        effect: "extra_damage",
+        additionalHpDamage: hpHits.at(-1) ?? 0,
+        text: `[교차·추격] ${pursuitDamageAfterReduction} 추가 피해.`,
+        side: who,
+      });
+    }
     for (const hit of hpHits.slice(0, comboResult.hitDamages.length)) {
       nextLog = appendLog(nextLog, {
         kind: "player_attack",
@@ -1491,6 +1269,7 @@ export function castV2SkillOnAttackerTurnPvP(
     const survival = applyBerserkerHostileDamagePvP(
       { ...opp, hp: nextOppHp },
       nextOppHp,
+      otherKey,
     );
     nextOppHp = survival.side.hp;
     nextOppBerserker = survival.side.berserker;
@@ -1515,6 +1294,7 @@ export function castV2SkillOnAttackerTurnPvP(
     !!opp.player.enduranceActive &&
     !opp.flags.enduranceTriggered;
   if (skillEnduranceFires) {
+    recordCombatMetric("survival_restoration", "endurance", otherKey, 1);
     nextOppHp = 1;
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -1522,53 +1302,28 @@ export function castV2SkillOnAttackerTurnPvP(
       side: otherKey,
     });
   }
-  // heal: 같은 player_attack kind (자기 행동). 화상(healReduce)이 걸렸으면 회복 감소.
-  //   디버프 없으면(0) Math.floor 미적용 → byte-identical.
-  const resolvedSelfHealBase =
-    result.selfHeal +
-    Math.floor(
-      (actualSkillDamage *
-        Math.max(0, result.healFromActualDamagePct)) /
-        100,
-    );
-  const resolvedSelfHeal = healingAfterReceivedMultiplier(
-    Math.floor(resolvedSelfHealBase * tier6UnityMult),
-    side.player.receivedHealMult,
-  );
-  if (resolvedSelfHeal > 0 && result.castSkillName) {
-    const hr = side.stacks.healReduceTurns > 0 ? side.stacks.healReducePct : 0;
-    const debuffAdjustedHeal =
-      hr > 0 ? Math.floor(resolvedSelfHeal * (1 - hr / 100)) : resolvedSelfHeal;
-    // 무자원 1회 회복기는 combatShared 의 PvP 50% 제한을 이미 받는다. 아레나 공통
-    // 지속력 배율까지 중복 적용하지 않고, 그 밖의 회복만 호출 표면 보정을 거친다.
-    const effHeal = isLimitedRecoverySkillId(result.castSkillId)
-      ? debuffAdjustedHeal
-      : scalePvPHealing(st, debuffAdjustedHeal);
-    const before = nextSideHp;
-    nextSideHp = Math.min(side.maxHp, nextSideHp + effHeal);
-    const actual = nextSideHp - before;
-    if (actual > 0) {
-      const overflowSuffix = effHeal > actual ? ` (산출 ${effHeal})` : "";
-      nextLog = appendLog(nextLog, {
-        kind: "player_attack",
-        text: `${result.castSkillName}! ${side.name} HP ${actual} 회복했다.${overflowSuffix}`,
-        side: who,
-      });
-      const sigShield = healToShield(side.player.equipSignatures, {
-        actualHeal: actual,
-        calculatedHeal: effHeal,
-        maxHp: side.maxHp,
-      });
-      if (sigShield) {
-        healShieldAmount += sigShield.amount;
-        nextLog = appendLog(nextLog, {
-          kind: "info",
-          text: `[${sigShield.label}] ${side.name} 보호막 +${sigShield.amount}`,
-          side: who,
-        });
-      }
-    }
-  }
+  // 스킬 자체 회복에만 화상 회복 감소를 적용한다.
+  const resolvedSelfHeal = skillSelfHealingAmount(result, actualSkillDamage, tier6UnityMult, side.player.receivedHealMult);
+  const hr = side.stacks.healReduceTurns > 0 ? side.stacks.healReducePct : 0;
+  const debuffAdjustedHeal =
+    hr > 0 ? Math.floor(resolvedSelfHeal * (1 - hr / 100)) : resolvedSelfHeal;
+  // 무자원 1회 회복기는 combatShared에서 PvP 제한을 이미 적용한다.
+  const skillHeal = isLimitedRecoverySkillId(result.castSkillId)
+    ? debuffAdjustedHeal
+    : scalePvPHealing(st, debuffAdjustedHeal);
+  const healed = applySkillHealing({
+    hp: nextSideHp, maxHp: side.maxHp, player: side.player, playerName: side.name,
+    skillName: result.castSkillName, skillId: result.castSkillId, skillHeal, log: nextLog, side: who,
+    // 보호막을 제외한 HP 피해만 흡혈하며 일반 회복 스킬 증폭/감소는 중복 적용하지 않는다.
+    passiveHeal: healingAfterReceivedMultiplier(
+      scalePvPHealing(st, Math.floor(
+        (skillDamageToHp * (side.player.passiveLifestealPct ?? 0)) / 100,
+      )), side.player.receivedHealMult,
+    ),
+  });
+  nextSideHp = healed.hp;
+  nextLog = healed.log;
+  healShieldAmount += healed.shield;
   // 마나 회복(명상 등) — 로그 한 줄(빈 턴 갭 방지). PvE 미러.
   if (result.manaRestored > 0 && result.castSkillName) {
     nextLog = appendLog(nextLog, {
@@ -2163,7 +1918,7 @@ export function castV2SkillOnAttackerTurnPvP(
     result.enemyDamage > 0 &&
     magicVulnApplyChancePct > 0 &&
     (magicVulnApplyChancePct >= 100 ||
-      Math.random() * 100 < magicVulnApplyChancePct);
+      combatRandom() * 100 < magicVulnApplyChancePct);
   const nextOppMagicVuln =
     magicVulnApplied
       ? Math.min(MAGIC_VULN_STACK_CAP, opp.stacks.magicVulnStacks + 1)

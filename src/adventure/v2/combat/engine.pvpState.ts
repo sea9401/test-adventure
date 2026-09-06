@@ -224,6 +224,8 @@ export type PvPAttackDamageResult = {
 // ── 결판 (full simulation) ─────────────────────────────────────────────────
 
 export type PvPResolveContext = {
+  logMode?: "full" | "summary";
+  random?: () => number;
   pickAction: (state: PvPBattleState, who: "p1" | "p2") => PlayerAction;
   potions: { p1: Partial<Record<PotionId, number>>; p2: Partial<Record<PotionId, number>> };
   // 전투 시작 로그에 박을 전술 안내 한 줄(양측 전술 라벨). 호출부가 문자열로 빌드해 넘긴다

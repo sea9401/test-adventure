@@ -1,36 +1,76 @@
 "use client";
 
-import {
-  V2_SKILLS,
-  describeV2Skill,
-  type V2SkillId,
-} from "@/adventure/data/v2/v2Skills";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { buildSkillCardModel } from "./skillCardModel";
 
-// 스킬 효과 칩 — 피해/회복/버프/디버프/DoT (패시브면 "지능 +10%" 등) + MP·쿨다운·속성.
-//   학습 화면과 로드아웃 화면이 같은 표기를 공유한다. id 미존재/무효과면 아무것도 렌더하지 않음.
-export function SkillEffectChips({ skillId }: { skillId: string }) {
-  const def = V2_SKILLS[skillId as V2SkillId];
-  if (!def) return null;
-  // MP 는 고정 절대값 모델 → describeV2Skill 이 "MP 55" 칩으로 자족 표기(maxMp 주입 불필요).
-  const chips = describeV2Skill(def);
-  const kind = def.category === "passive" || def.passive ? "패시브" : "액티브";
-  const kindClass =
-    kind === "패시브"
-      ? "bg-violet-100 text-violet-700 dark:bg-violet-950/70 dark:text-violet-300"
-      : "bg-sky-100 text-sky-700 dark:bg-sky-950/70 dark:text-sky-300";
+function EffectTags({ texts }: { texts: readonly string[] }) {
+  if (texts.length === 0) return null;
   return (
-    <div className="mt-1 flex flex-wrap gap-1">
-      <span className={`rounded px-1.5 py-0.5 text-[10px] ${kindClass}`}>
-        {kind}
-      </span>
-      {chips.map((c, i) => (
-        <span
-          key={i}
-          className="rounded bg-zinc-200/70 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-700/60 dark:text-zinc-300"
-        >
-          {c}
+    <div className="flex flex-wrap gap-1.5">
+      {texts.map((text, index) => (
+        <span key={index} className="rounded-md bg-zinc-100 px-2 py-1 text-xs leading-relaxed text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+          {text}
         </span>
       ))}
+    </div>
+  );
+}
+
+// 학습·장착 공통 요약. details가 있으므로 부모 버튼 밖에 배치한다.
+export function SkillEffectChips({ skillId }: { skillId: string }) {
+  const model = buildSkillCardModel(skillId);
+  if (!model) return null;
+  const hasDetails = model.details.length > 0 || model.pvp.length > 0 || model.synergy;
+  return (
+    <div className="mt-2 min-w-0 space-y-2 text-sm leading-relaxed">
+      <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+        {[model.kind, ...model.meta].join(" · ")}
+      </p>
+      <p className="break-words text-zinc-700 dark:text-zinc-200">
+        {model.summary}
+      </p>
+      <EffectTags texts={model.resources} />
+      <EffectTags texts={model.highlights} />
+      {model.synergy && (
+        <div className={`${SURFACE_INSET} space-y-1.5 p-2.5`}>
+          <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">
+            {model.synergy.name}{" "}
+            <span className="font-normal text-zinc-500 dark:text-zinc-400">· 일반 전투 기준</span>
+          </p>
+          <p className="text-xs text-zinc-600 dark:text-zinc-300">
+            {model.synergy.condition}
+          </p>
+          <EffectTags texts={model.synergy.effects} />
+        </div>
+      )}
+      {hasDetails && (
+        <details className="group border-t border-zinc-200 pt-1 dark:border-zinc-700">
+          <summary className="min-h-11 cursor-pointer content-center rounded-md py-2 text-xs font-medium text-zinc-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 dark:text-zinc-300">
+            상세 계수·효과·PvP 보기
+          </summary>
+          <div className={`${SURFACE_INSET} space-y-2 p-2.5 text-xs text-zinc-700 dark:text-zinc-200`}>
+            {model.details.length > 0 && (
+              <ul className="space-y-1.5">
+                {model.details.map((text, index) => <li key={index} className="break-words">{text}</li>)}
+              </ul>
+            )}
+            {model.synergy && (
+              <div>
+                <p className="font-semibold">PvP {model.synergy.name}</p>
+                <p className="mt-1">{model.synergy.pvp.join(" · ")}</p>
+              </div>
+            )}
+            {model.pvp.length > 0 && (
+              <div>
+                <p className="font-semibold">PvP 차이</p>
+                <ul className="mt-1 space-y-1.5">
+                  {model.pvp.map((text, index) => <li key={index}>{text}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+        </details>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { WOODCUTTING_MATERIALS } from "@/adventure/data/v2/woodcuttingSpots";
 
 export const LIFE_REQUESTS_SAVE_KEY = "life-requests.v1";
 export const LIFE_REQUEST_DAILY_LIMIT = 3;
+export const LIFE_REQUEST_REROLL_LIMIT = 5;
 export const LIFE_REQUEST_WEEKLY_LIMIT = 1;
 export const LIFE_REQUEST_CHAIN_UNLOCK_DELIVERIES = 10;
 export const LIFE_REQUEST_TRUST_REROLL_UNLOCK = 5;
@@ -138,6 +139,8 @@ export type LifeRequestsState = {
     completedIds: string[];
     rerolledLane: LifeRequestLane | null;
     rerolledOffset: number | null;
+    rerollCount: number;
+    rerollOffsets: Partial<Record<LifeRequestLane, number>>;
   };
   weekly: { key: string; completedIds: string[] };
   chain: { key: string; completedIds: string[] };
@@ -338,7 +341,7 @@ export function emptyLifeRequestsState(
 ): LifeRequestsState {
   return {
     version: 3,
-    daily: { key: dailyKey, completedIds: [], rerolledLane: null, rerolledOffset: null },
+    daily: { key: dailyKey, completedIds: [], rerolledLane: null, rerolledOffset: null, rerollCount: 0, rerollOffsets: {} },
     weekly: { key: weeklyKey, completedIds: [] },
     chain: { key: weeklyKey, completedIds: [] },
     requesterTrust: emptyRequesterTrust(),
@@ -353,6 +356,22 @@ export function emptyLifeRequestsState(
   };
 }
 
+function parseDailyRerolls(daily: Record<string, unknown>) {
+  const legacyLane = isLifeRequestLane(daily.rerolledLane) ? daily.rerolledLane : null;
+  const offsets: Partial<Record<LifeRequestLane, number>> = {};
+  if (daily.rerollOffsets && typeof daily.rerollOffsets === "object") {
+    for (const [lane, value] of Object.entries(daily.rerollOffsets)) {
+      if (isLifeRequestLane(lane)) offsets[lane] = Math.min(LIFE_REQUEST_REROLL_LIMIT * 2, safeInt(value));
+    }
+  } else if (legacyLane) {
+    offsets[legacyLane] = Math.min(2, Math.max(1, safeInt(daily.rerolledOffset) || 1));
+  }
+  return {
+    rerollCount: Math.min(LIFE_REQUEST_REROLL_LIMIT, Math.max(legacyLane ? 1 : 0, safeInt(daily.rerollCount))),
+    rerollOffsets: offsets,
+  };
+}
+
 export function parseLifeRequestsState(
   raw: unknown,
   dailyKey: string,
@@ -360,6 +379,7 @@ export function parseLifeRequestsState(
 ): LifeRequestsState {
   const source = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
   const daily = source.daily && typeof source.daily === "object" ? source.daily as Record<string, unknown> : {};
+  const rerolls = parseDailyRerolls(daily);
   const weekly = source.weekly && typeof source.weekly === "object" ? source.weekly as Record<string, unknown> : {};
   const chain = source.chain && typeof source.chain === "object" ? source.chain as Record<string, unknown> : {};
   const stats = source.stats && typeof source.stats === "object" ? source.stats as Record<string, unknown> : {};
@@ -369,12 +389,13 @@ export function parseLifeRequestsState(
       ? {
           key: dailyKey,
           completedIds: completedIds(daily.completedIds),
+          ...rerolls,
           rerolledLane: isLifeRequestLane(daily.rerolledLane) ? daily.rerolledLane : null,
           rerolledOffset: isLifeRequestLane(daily.rerolledLane)
-            ? Math.min(2, Math.max(1, safeInt(daily.rerolledOffset) || 1))
+            ? rerolls.rerollOffsets[daily.rerolledLane] ?? 1
             : null,
         }
-      : { key: dailyKey, completedIds: [], rerolledLane: null, rerolledOffset: null },
+      : { key: dailyKey, completedIds: [], rerolledLane: null, rerolledOffset: null, rerollCount: 0, rerollOffsets: {} },
     weekly: weekly.key === weeklyKey ? { key: weeklyKey, completedIds: completedIds(weekly.completedIds) } : { key: weeklyKey, completedIds: [] },
     chain: chain.key === weeklyKey ? { key: weeklyKey, completedIds: completedIds(chain.completedIds) } : { key: weeklyKey, completedIds: [] },
     requesterTrust: parseRequesterTrust(source.requesterTrust),
@@ -437,6 +458,7 @@ export function lifeRequestsForPeriod(
   weeklyKey: string,
   rerolledLane: LifeRequestLane | null = null,
   rerolledOffset = 1,
+  rerollOffsets?: Partial<Record<LifeRequestLane, number>>,
 ): {
   daily: LifeRequestDefinition[];
   weekly: LifeRequestDefinition[];
@@ -446,7 +468,7 @@ export function lifeRequestsForPeriod(
   const daily = (Object.keys(DAILY_POOLS) as LifeRequestLane[]).flatMap((lane) => {
     const pool = DAILY_POOLS[lane];
     const baseIndex = hash(`${dailyKey}:${lane}`) % pool.length;
-    const offset = rerolledLane === lane ? Math.min(2, Math.max(1, safeInt(rerolledOffset))) : 0;
+    const offset = rerollOffsets ? safeInt(rerollOffsets[lane]) : rerolledLane === lane ? Math.max(1, safeInt(rerolledOffset)) : 0;
     const seed = pool[(baseIndex + offset) % pool.length];
     return LIFE_REQUEST_GRADE_ORDER.map((grade) => gradedDailyRequest(seed, grade));
   });
@@ -516,7 +538,7 @@ export function lifeRequestRerollBlockReason(
   lane: LifeRequestLane,
   currentDaily: readonly LifeRequestDefinition[],
 ): LifeRequestRerollBlockReason | null {
-  if (state.daily.rerolledLane) return "reroll_used";
+  if (state.daily.rerollCount >= LIFE_REQUEST_REROLL_LIMIT) return "reroll_used";
   const completedInLane = currentDaily.some(
     (request) => request.lane === lane && state.daily.completedIds.includes(request.id),
   );
@@ -535,7 +557,12 @@ export function rerollLifeRequestLane(
     daily: {
       ...state.daily,
       rerolledLane: lane,
-      rerolledOffset: Math.min(2, Math.max(1, safeInt(offset))),
+      rerolledOffset: (state.daily.rerollOffsets[lane] ?? 0) + Math.min(2, Math.max(1, safeInt(offset))),
+      rerollCount: state.daily.rerollCount + 1,
+      rerollOffsets: {
+        ...state.daily.rerollOffsets,
+        [lane]: (state.daily.rerollOffsets[lane] ?? 0) + Math.min(2, Math.max(1, safeInt(offset))),
+      },
     },
   };
 }

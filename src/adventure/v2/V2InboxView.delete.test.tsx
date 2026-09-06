@@ -29,12 +29,16 @@ vi.mock("@/adventure/marketplace/api", async (importOriginal) => {
   };
 });
 
-vi.mock("./GameStateProvider", () => ({
-  useGameState: () => ({
+vi.mock("./GameResourceContext", () => ({
+  useGameResourceState: () => ({
     applyResourcePatch: vi.fn(),
-    refreshGameState: vi.fn(),
-    refreshGuildId: vi.fn(),
   }),
+}));
+vi.mock("./GameWorldContext", () => ({
+  useGameWorldState: () => ({ refreshGuildId: vi.fn() }),
+}));
+vi.mock("./GameStateRefreshContext", () => ({
+  useRefreshGameState: () => vi.fn(),
 }));
 
 import { V2InboxView } from "./V2InboxView";

@@ -1,3 +1,4 @@
+import { combatRandom, withCombatRandom } from "./combatRandom";
 // PvP 전투 진행과 공개 API. 상태·기본 행동·스킬 처리는 각각의 하위 모듈에서 담당한다.
 
 import { type PotionId } from "@/adventure/data/potions";
@@ -85,7 +86,7 @@ function resolveBattlePvPLegacy(
   const initiative = pickPvpInitiative(
     p1Player.spd,
     p2Player.spd,
-    ctx.initiativeRoll ?? Math.random(),
+    ctx.initiativeRoll ?? combatRandom(),
   );
   const potions = {
     p1: { ...ctx.potions.p1 },
@@ -196,6 +197,7 @@ function resolveBattlePvPLegacy(
     p2: false,
   };
   while (state.phase !== "ended") {
+    if (ctx.logMode === "summary") state = { ...state, log: [] };
     const who: "p1" | "p2" = state.phase === "p1" ? "p1" : "p2";
     const other: "p1" | "p2" = who === "p1" ? "p2" : "p1";
     // who 가 이번 phase 의 actor — 다른 쪽 flag 는 reset (그 쪽 다음 phase 에서 1회 보장).
@@ -343,8 +345,10 @@ export function resolveBattlePvP(
   p2Name: string,
   ctx: PvPResolveContext,
 ): PvPBattleResolution {
-  if (V2_CORE_LOOP_V2) {
-    return resolveBattlePvPAtb(p1Player, p2Player, p1Name, p2Name, ctx);
-  }
-  return resolveBattlePvPLegacy(p1Player, p2Player, p1Name, p2Name, ctx);
+  const result = withCombatRandom(ctx.random, () => V2_CORE_LOOP_V2
+    ? resolveBattlePvPAtb(p1Player, p2Player, p1Name, p2Name, ctx)
+    : resolveBattlePvPLegacy(p1Player, p2Player, p1Name, p2Name, ctx));
+  return ctx.logMode === "summary"
+    ? { ...result, finalState: { ...result.finalState, log: [] } }
+    : result;
 }

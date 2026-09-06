@@ -1,4 +1,5 @@
 import { appendLog } from "./engineSupport";
+import { recordCombatMetric } from "./combatDiagnostics";
 import { type PvPBattleState, type PvPSide } from "./engine.pvpState";
 import { applyBerserkerLethalDamage, clampBerserkerGuardedHp } from "./berserkerCombat";
 
@@ -11,6 +12,7 @@ export type PvPHostileDamageSurvival = {
 export function applyBerserkerHostileDamagePvP(
   side: PvPSide,
   hpAfterDamage: number,
+  diagnosticTarget = "unknown",
 ): { side: PvPSide; triggered: boolean } {
   if (!side.berserker) {
     return {
@@ -29,6 +31,7 @@ export function applyBerserkerHostileDamagePvP(
     maxHp: side.maxHp,
     source: "hostile",
   });
+  recordCombatMetric("survival_restoration", "berserker", diagnosticTarget, Math.max(0, result.hp) - Math.max(0, hpAfterDamage));
   return {
     side: {
       ...side,
@@ -42,14 +45,16 @@ export function applyBerserkerHostileDamagePvP(
 export function resolvePvPHostileDamageSurvival(
   side: PvPSide,
   hpAfterDamage: number,
+  diagnosticTarget = "unknown",
 ): PvPHostileDamageSurvival {
-  const survival = applyBerserkerHostileDamagePvP(side, hpAfterDamage);
+  const survival = applyBerserkerHostileDamagePvP(side, hpAfterDamage, diagnosticTarget);
   let nextSide = survival.side;
   const enduranceTriggered =
     nextSide.hp <= 0 &&
     !!side.player.enduranceActive &&
     !side.flags.enduranceTriggered;
   if (enduranceTriggered) {
+    recordCombatMetric("survival_restoration", "endurance", diagnosticTarget, 1);
     nextSide = {
       ...nextSide,
       hp: 1,

@@ -113,6 +113,7 @@ export async function createCoopBossSession(
     summonerName: string;
     now: Date;
     visibility: CoopVisibility;
+    allowFreeSupport?: boolean;
   },
 ): Promise<CreateCoopBossSessionResult> {
   const kind = COOP_BOSSES[args.kindId];
@@ -159,6 +160,7 @@ export async function createCoopBossSession(
     summonerId: args.userId,
     summonerGuildId,
     visibility: args.visibility,
+    allowFreeSupport: args.allowFreeSupport === true,
     mechanicState,
   });
   return { ok: true, sessionId, expiresAt };

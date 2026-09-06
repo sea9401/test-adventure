@@ -44,6 +44,9 @@ export function CoopRecentAttackList({
                   나
                 </span>
               )}
+              {attack.isSupport && (
+                <span className="ml-1 text-[10px] text-emerald-700 dark:text-emerald-300">무료 지원</span>
+              )}
               {attack.diedEarly && (
                 <span className="ml-1 text-[10px] text-rose-500">
                   전투불능

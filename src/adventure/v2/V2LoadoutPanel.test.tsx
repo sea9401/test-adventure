@@ -308,7 +308,7 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     expect(html).toContain(">변이자 계열<");
   });
 
-  it("즐겨찾기 옆 동작 버튼을 모바일에서는 넓게, 데스크톱에서는 고정 폭으로 표시한다", () => {
+  it("하단의 작은 동작 버튼과 독립적인 상세 펼치기를 표시한다", () => {
     const html = renderToStaticMarkup(
       <V2LoadoutPanel
         loadout={{
@@ -333,13 +333,15 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
       />,
     );
 
-    expect(html.match(/w-full sm:w-\[6\.25rem\]/g)).toHaveLength(2);
+    expect(html.match(/data-skill-card-actions/g)).toHaveLength(2);
+    expect(html).toContain("<details");
+    expect(html).not.toMatch(/<button\b[^>]*>(?:(?!<\/button>)[\s\S])*<details/);
     expect(html.match(/whitespace-nowrap/g)).toHaveLength(4);
     expect(html).toContain("min-w-0 flex-1 sm:min-w-52");
-    expect(html).toContain("flex-col sm:flex-row");
+    expect(html).toContain("flex flex-col gap-2 p-3");
     expect(html).toContain("min-w-0 max-w-full overflow-x-auto");
     expect(html).toContain("h-11 w-11 sm:h-9 sm:w-8");
-    expect(html).toContain("h-11 w-11 sm:h-8 sm:w-8");
+    expect(html).toContain("h-11 w-11 items-center");
     expect(html).toContain("h-11 w-11 sm:h-6 sm:w-5");
     expect(html).toContain('aria-label="강타 상세 보기"');
     expect(html).toContain('aria-label="독침 상세 보기"');

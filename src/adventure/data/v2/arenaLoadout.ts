@@ -90,6 +90,9 @@ const SELF_RESOURCE_LABEL = {
   ironWallReflect: "철벽 반사",
   inscription: "각인 총합",
   weight: "중량",
+  physicalWard: "금강결계",
+  magicWard: "봉마결계",
+  purificationWard: "정화결계",
   bloodlineBurstReady: "혈맥 폭발 상태",
 } as const;
 

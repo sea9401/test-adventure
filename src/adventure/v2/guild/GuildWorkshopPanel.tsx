@@ -22,7 +22,7 @@ import {
   type CraftServerSync,
 } from "./WorkshopCraftPanel";
 import { workshopBasicMaterialGroups } from "./workshopBasicMaterials";
-import { useGameState } from "../GameStateProvider";
+import { useGameResourceState } from "../GameResourceContext";
 import {
   CraftOnlyBadge,
   CraftQualityBadge,
@@ -60,7 +60,7 @@ export function GuildWorkshopPanel({
   association?: boolean;
 }) {
   const { notifyReward } = useRewardToast();
-  const { setGold, setBankedGold } = useGameState();
+  const { setGold, setBankedGold } = useGameResourceState();
   const smithy = SETTLEMENT_BUILDINGS.guild_smithy;
   const smithyCount = info?.settlementBuildings?.guild_smithy ?? 0;
   const hasSmithy =

@@ -274,7 +274,14 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
   });
 
   it("단판(count=1) 승리 — 200 + EXP/골드/숙련도/킬로그 갱신, 스태미나 1 차감", async () => {
-    const res = await POST(huntReq({ floor: 2 }));
+    const { createRequestProfile, runWithRequestProfile } = await import("./runtimeProfiler/requestContext");
+    const profile = createRequestProfile({ feature: "combat", operation: "POST /api/v2/dungeon/hunt", method: "POST", startedAtNs: BigInt(0), socketBytesAtStart: 0 });
+    const res = await runWithRequestProfile(profile, () => POST(huntReq({ floor: 2 })));
+    expect(profile.phases).toMatchObject({
+      "hunt.prepare": { count: 1, failed: 0 },
+      "hunt.battle": { count: 1, failed: 0 },
+      "hunt.settlement": { count: 1, failed: 0 },
+    });
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       ok: boolean;

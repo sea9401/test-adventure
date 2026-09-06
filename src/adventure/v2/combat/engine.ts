@@ -1,3 +1,5 @@
+import { combatRandom, withCombatRandom } from "./combatRandom";
+import { recordCombatDamage, recordCombatDotDamage, recordCombatMetric } from "./combatDiagnostics";
 // PvE 전투 진행과 공개 API. 개별 행동·스킬 처리는 하위 모듈에서 담당한다.
 
 import { type PotionId } from "@/adventure/data/potions";
@@ -178,7 +180,8 @@ export function advanceTurn(
         distributeV2DotTicks(enemyDotTick.ticks, actualEnemyDotDamage).find(
           (tick) => tick.tag === "bleed",
         )?.damage ?? 0;
-      const damagedState = applyEnemyDamage(state, enemyDotDamage);
+      recordCombatDotDamage(enemyDotTick.ticks, "enemy", state.enemyHp, enemyDotDamage);
+      const damagedState = applyEnemyDamage(state, enemyDotDamage, null);
       const newHp = damagedState.enemyHp;
       let dotLog = distributeV2DotTicks(
         enemyDotTick.ticks,
@@ -216,6 +219,7 @@ export function advanceTurn(
         state.playerHp + bleedTickHeal,
       );
       const actualBleedTickHeal = nextPlayerHp - state.playerHp;
+      recordCombatMetric("healing", "bleed_hunt", "player", actualBleedTickHeal);
       if (actualBleedTickHeal > 0) {
         dotLog = appendLog(dotLog, {
           kind: "info",
@@ -377,6 +381,7 @@ function resolveBattleLegacy(
   let v2CastedThisEnemyPhase = false;
 
   while (state.phase !== "ended") {
+    if (ctx.logMode === "summary") state = { ...state, log: [] };
     let action: PlayerAction = { kind: "attack" };
     // 이 iteration 의 enemy 페이즈에서 몹이 스킬을 실제 발동했는지 — true 면 평타 생략(더블어택 fix).
     let enemySkillFiredThisTurn = false;
@@ -419,6 +424,7 @@ function resolveBattleLegacy(
           player.statusDamageReductionPct,
         );
         if (playerDotDamage > 0) {
+          recordCombatDotDamage(playerDotTick.ticks, "player", state.playerHp, playerDotDamage);
           const before = state.playerHp;
           const newHp = Math.max(0, before - playerDotDamage);
           const dotLog = distributeV2DotTicks(
@@ -456,6 +462,7 @@ function resolveBattleLegacy(
             !!player.enduranceActive &&
             !state.flags.enduranceTriggered;
           if (dotEnduranceFires) {
+            recordCombatMetric("survival_restoration", "endurance", "player", 1);
             state = {
               ...state,
               playerHp: 1,
@@ -569,9 +576,10 @@ function resolveBattleLegacy(
         const tickedEnemyDebuffsLocal = tickV2BuffMap(state.enemyV2Debuffs);
         const tickedPlayerDebuffs = tickV2BuffMap(state.v2SelfDebuffs);
         let result = resolveV2SkillCast({
+          diagnosticActor: "enemy",
           skills: state.enemyV2Skills,
           cooldowns: state.enemyV2SkillCooldowns,
-          procRoll: Math.random() * 100,
+          procRoll: combatRandom() * 100,
           procChanceBonus:
             state.stacks.enemySkillProcDownTurns > 0
               ? -state.stacks.enemySkillProcDownPct
@@ -691,6 +699,7 @@ function resolveBattleLegacy(
           },
         );
         if (result.enemyDamage > 0 && result.castSkillName) {
+          recordCombatDamage(result.castSkillId ?? "enemy_skill", "player", nextPlayerHp, enemySkillDamageToHp, enemySkillShieldAbsorbed + enemySkillMagicBarrier.absorbedDamage);
           if (enemySkillShieldAbsorbed > 0) {
             nextLog = appendLog(nextLog, {
               kind: "info",
@@ -724,6 +733,7 @@ function resolveBattleLegacy(
           });
         }
         if (legacyEnemySkillReflection.damage > 0) {
+          recordCombatDamage("reflect", "enemy", nextEnemyHp, legacyEnemySkillReflection.damage);
           nextEnemyHp = Math.max(
             0,
             nextEnemyHp - legacyEnemySkillReflection.damage,
@@ -746,6 +756,7 @@ function resolveBattleLegacy(
           !!player.enduranceActive &&
           !state.flags.enduranceTriggered;
         if (enemySkillEnduranceFires) {
+          recordCombatMetric("survival_restoration", "endurance", "player", 1);
           nextPlayerHp = 1;
           nextLog = appendLog(nextLog, {
             kind: "info",
@@ -769,6 +780,7 @@ function resolveBattleLegacy(
           const before = nextEnemyHp;
           nextEnemyHp = Math.min(state.enemy.hp, nextEnemyHp + effHeal);
           const actual = nextEnemyHp - before;
+          recordCombatMetric("healing", result.castSkillId ?? "enemy_skill", "enemy", actual);
           if (actual > 0) {
             nextLog = appendLog(nextLog, {
               kind: "enemy_attack",
@@ -1095,8 +1107,10 @@ export function resolveBattle(
   playerName: string,
   ctx: ResolveContext,
 ): BattleResolution {
-  if (V2_CORE_LOOP_V2 || ctx.damageMeter) {
-    return resolveBattleAtb(player, enemy, playerName, ctx);
-  }
-  return resolveBattleLegacy(player, enemy, playerName, ctx);
+  const result = withCombatRandom(ctx.random, () => V2_CORE_LOOP_V2 || ctx.damageMeter
+    ? resolveBattleAtb(player, enemy, playerName, ctx)
+    : resolveBattleLegacy(player, enemy, playerName, ctx));
+  return ctx.logMode === "summary"
+    ? { ...result, finalState: { ...result.finalState, log: [] } }
+    : result;
 }

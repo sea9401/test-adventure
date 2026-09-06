@@ -49,6 +49,7 @@ export async function GET() {
     serverNow: Date.now(),
     materials: miningMaterialBalances(charSave.materials),
     log: parseMiningLog(logRaw),
+    failureReductionPct: bonuses.failureReductionPct,
     durationReductionPct:
       bonuses.durationReductionPct + LIFE_TOOL_DURATION_REDUCTION_PCT[toolTier],
     autoSession: autoState.session,

@@ -1,3 +1,6 @@
+import { applySkillHealing, skillSelfHealingAmount } from "./engine.skillHealing";
+import { combatRandom } from "./combatRandom";
+import { recordCombatDamage } from "./combatDiagnostics";
 import { CRIT_PCT_CAP, STAT_LABELS } from "@/adventure/data/stats";
 import { V2_SKILL_PROC_IN_PATTERN } from "@/adventure/data/v2/coreLoopConfig";
 import { statusNameForDebuffStat } from "@/adventure/data/v2/statusEffects";
@@ -93,7 +96,6 @@ import {
   formatChillSlowLog,
   formatDefDebuffLog,
   formatShockAppliedLog,
-  healToShield,
   onSkillCastMpRefund,
   resolveDirectSkillHitSignatures,
   resolveOffensiveSignatureTriggers,
@@ -217,13 +219,14 @@ export function applyPlayerV2SkillCast(
       V2_SKILLS[skillId]?.bleedHunt?.directPhysicalHitBleedExtend != null,
   );
   const castInput: V2SkillCastInput = {
+    diagnosticActor: "player",
     skills: state.v2Skills,
     cooldowns: state.v2SkillCooldowns,
     magicMpCostReductionPct: formulaOptimizationEquipped ? 20 : 0,
     mpOverdraftSkillIds: formulaOverdraftSkillIds,
-    procRoll: Math.random() * 100,
-    nextProcRoll: () => Math.random() * 100,
-    bleedHuntRoll: needsBleedHuntRoll ? Math.random() * 100 : undefined,
+    procRoll: combatRandom() * 100,
+    nextProcRoll: () => combatRandom() * 100,
+    bleedHuntRoll: needsBleedHuntRoll ? combatRandom() * 100 : undefined,
     procChanceBonus: player.skillProcChanceAdd ?? 0,
     // 패턴 경로에서도 procChance 굴림(부활) — 플래그 on 이면 패턴이 고른 스킬도 확률 게이트 통과 필요.
     applyProcInPattern: V2_SKILL_PROC_IN_PATTERN,
@@ -277,6 +280,7 @@ export function applyPlayerV2SkillCast(
       lawInscription: player.lawInscription,
       lawInscriptions: state.stacks.lawInscriptions,
       mutationWeight: state.stacks.mutationWeight,
+      tripleWard: state.stacks.tripleWard,
       bloodlineBurstReady: tier6Cast.bloodlineBurstReady,
       bleedPhysicalSkillDamagePctPerStack:
         player.bleedPhysicalSkillDamagePctPerStack,
@@ -578,7 +582,7 @@ export function applyPlayerV2SkillCast(
           ? (V2_SKILLS[result.castSkillId]?.skillCritChancePct ?? 0)
           : 0) >
         0 &&
-        Math.random() * 100 <
+        combatRandom() * 100 <
           Math.min(
             CRIT_PCT_CAP,
             (player.critChancePct ?? 0) +
@@ -676,7 +680,7 @@ export function applyPlayerV2SkillCast(
     result.enemyDamage > 0 &&
     magicVulnApplyChancePct > 0 &&
     (magicVulnApplyChancePct >= 100 ||
-      Math.random() * 100 < magicVulnApplyChancePct);
+      combatRandom() * 100 < magicVulnApplyChancePct);
   const nextMagicVulnStacks =
     magicVulnApplied
       ? Math.min(
@@ -804,12 +808,14 @@ export function applyPlayerV2SkillCast(
     damageMeterSkillTotal += boostedSkillDamage;
     dealtDirectSkillDamage = boostedSkillDamage;
     const enemyHpBeforeSkill = nextEnemyHp;
+    recordCombatDamage(result.castSkillId ?? "skill", "enemy", nextEnemyHp, boostedSkillDamage);
     nextEnemyHp = Math.max(0, nextEnemyHp - boostedSkillDamage);
     if (crossover?.bonus === "pursuit") {
       const pursuitDamage = Math.round(
         boostedSkillDamage * (crossover.damagePct / 100),
       );
       damageMeterSkillTotal += pursuitDamage;
+      recordCombatDamage("crossover:pursuit", "enemy", nextEnemyHp, pursuitDamage);
       nextEnemyHp = Math.max(0, nextEnemyHp - pursuitDamage);
       nextLog = appendLog(nextLog, {
         kind: "player_attack",
@@ -1094,43 +1100,20 @@ export function applyPlayerV2SkillCast(
     });
   }
   // heal 효과: damage 없는 회복형 스킬 (회복/강화회복) — player_attack kind 로 통일.
-  const resolvedSelfHealBase =
-    result.selfHeal +
-    Math.floor(
-      (actualSkillDamage *
-        Math.max(0, result.healFromActualDamagePct)) /
-        100,
-    );
-  const resolvedSelfHeal = healingAfterReceivedMultiplier(
-    Math.floor(resolvedSelfHealBase * tier6Cast.tier6UnityMult),
-    player.receivedHealMult,
+  const resolvedSelfHeal = skillSelfHealingAmount(
+    result, actualSkillDamage, tier6Cast.tier6UnityMult, player.receivedHealMult,
   );
-  if (resolvedSelfHeal > 0 && result.castSkillName) {
-    const before = nextPlayerHp;
-    nextPlayerHp = Math.min(state.playerMaxHp, nextPlayerHp + resolvedSelfHeal);
-    const actual = nextPlayerHp - before;
-    if (actual > 0) {
-      const overflowSuffix =
-        resolvedSelfHeal > actual ? ` (산출 ${resolvedSelfHeal})` : "";
-      nextLog = appendLog(nextLog, {
-        kind: "player_attack",
-        text: `${result.castSkillName}! HP ${actual} 회복했다.${overflowSuffix}`,
-      });
-      const sigHealShield = healToShield(player.equipSignatures, {
-        actualHeal: actual,
-        calculatedHeal: resolvedSelfHeal,
-        maxHp: state.playerMaxHp,
-      });
-      if (sigHealShield) {
-        healShieldAmount += sigHealShield.amount;
-        nextLog = appendLog(nextLog, {
-          kind: "info",
-          text: `[${sigHealShield.label}] 보호막 +${sigHealShield.amount}`,
-          turn: "player",
-        });
-      }
-    }
-  }
+  const healed = applySkillHealing({
+    hp: nextPlayerHp, maxHp: state.playerMaxHp, player, playerName,
+    skillName: result.castSkillName, skillId: result.castSkillId, skillHeal: resolvedSelfHeal, log: nextLog,
+    passiveHeal: healingAfterReceivedMultiplier(
+      Math.floor((actualSkillDamage * (player.passiveLifestealPct ?? 0)) / 100),
+      player.receivedHealMult,
+    ),
+  });
+  nextPlayerHp = healed.hp;
+  nextLog = healed.log;
+  healShieldAmount += healed.shield;
   // 마나 회복(명상 등) — 로그 한 줄(없으면 빈 턴처럼 보이는 갭 방지). 1턴 1행동이라
   //   이 턴은 공격 대신 마나를 채운 것. HP 회복 로그와 동형.
   if (result.manaRestored > 0 && result.castSkillName) {

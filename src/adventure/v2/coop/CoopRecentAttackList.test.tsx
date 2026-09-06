@@ -12,7 +12,7 @@ import { CoopRecentAttackList } from "./CoopRecentAttackList";
 afterEach(cleanup);
 
 describe("CoopRecentAttackList", () => {
-  it("opens a persisted attack log without embedded replay data", () => {
+  it.each([false, true])("opens the persisted log and labels support=%s", (isSupport) => {
     const onOpenAttackLog = vi.fn();
 
     render(
@@ -23,6 +23,7 @@ describe("CoopRecentAttackList", () => {
           damageDealt: 123,
           damageTaken: 45,
           diedEarly: false,
+          isSupport,
           isMe: true,
           avatar: "male1",
           profileBorder: null,
@@ -34,6 +35,7 @@ describe("CoopRecentAttackList", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /모험가/ }));
 
+    expect(screen.queryByText("무료 지원") !== null).toBe(isSupport);
     expect(onOpenAttackLog).toHaveBeenCalledWith(17);
   });
 });

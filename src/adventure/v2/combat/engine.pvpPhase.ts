@@ -1,3 +1,5 @@
+import { combatRandom } from "./combatRandom";
+import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
 import {
   actorKeys,
   applyTrackedSetShieldAbsorptionPvP,
@@ -33,6 +35,7 @@ import {
   distributeBoostedHits,
   extractApEffect,
   makePoisonDot,
+  healingAfterReceivedMultiplier,
   v2AtkBuffMult,
   v2DefBuffMult,
 } from "./combatShared";
@@ -231,7 +234,7 @@ function computeAttackDamagePvP(
   const critRoll = guaranteedCrit
     ? true
     : effectiveCritPct > 0
-      ? Math.random() * 100 < effectiveCritPct
+      ? combatRandom() * 100 < effectiveCritPct
       : false;
   // 광기 (AP) — 자신 ATK +pct%. atk_multiplier 적용 전에 가산.
   const madnessAtkBonus =
@@ -302,7 +305,7 @@ function computeAttackDamagePvP(
   // 행운의 별 (5티어).
   const luckyStarPct = attacker.player.luckyStarChancePct ?? 0;
   const luckyStarFires =
-    luckyStarPct > 0 && Math.random() * 100 < luckyStarPct;
+    luckyStarPct > 0 && combatRandom() * 100 < luckyStarPct;
   const dmgAfterLuckyStar = luckyStarFires
     ? Math.floor(dmgAfterCrit * LUCKY_STAR_DAMAGE_MULT)
     : dmgAfterCrit;
@@ -313,7 +316,7 @@ function computeAttackDamagePvP(
   // 천명 (4티어) — 확률로 적 현재 HP 의 N% 추가 고정 피해.
   const decreeFires =
     (attacker.player.heavenDecreeChancePct ?? 0) > 0 &&
-    Math.random() * 100 < attacker.player.heavenDecreeChancePct!;
+    combatRandom() * 100 < attacker.player.heavenDecreeChancePct!;
   const decreeDmg = decreeFires
     ? Math.floor((defender.hp * HEAVEN_DECREE_HP_PCT) / 100)
     : 0;
@@ -507,7 +510,7 @@ export function advanceTurnPvP(
   if (!apIgnoresEvasion) {
     if (isFirstAttackOfTurn) {
       const shadowStepPct = defender.player.shadowStepPct ?? 0;
-      if (shadowStepPct > 0 && Math.random() * 100 < shadowStepPct) {
+      if (shadowStepPct > 0 && combatRandom() * 100 < shadowStepPct) {
         return applyShadowStepDodge(state, atkKey, defKey, phaseEndOptions);
       }
     }
@@ -548,7 +551,7 @@ export function advanceTurnPvP(
       attackerAccR,
     );
     const luckyShieldPct = defender.player.luckyShieldBlockPct ?? 0;
-    if (luckyShieldPct > 0 && Math.random() * 100 < luckyShieldPct) {
+    if (luckyShieldPct > 0 && combatRandom() * 100 < luckyShieldPct) {
       return applyPerAttackDodge(
         state,
         atkKey,
@@ -700,6 +703,7 @@ export function advanceTurnPvP(
     magicBarrier.hpBoundDamage,
   );
   const dmgToHp = magicBarrier.hpBoundDamage - shieldAbsorbed;
+  recordCombatDamage("basic", defKey, defender.hp, dmgToHp, shieldAbsorbed + magicBarrier.absorbedDamage);
   const newShield = defender.stacks.playerShield - shieldAbsorbed;
   // 보호막이 공격을 전부 흡수한 경우에는 피격 반사·반격이 발동하지 않는다.
   // 보호막을 뚫고 HP 피해가 남은 공격은 기존과 동일하게 처리한다.
@@ -708,6 +712,7 @@ export function advanceTurnPvP(
   const berserkerSurvival = applyBerserkerHostileDamagePvP(
     defender,
     defender.hp - dmgToHp,
+    defKey,
   );
   const defenderAfterSurvival = berserkerSurvival.side;
   const wouldKill = defenderAfterSurvival.hp <= 0;
@@ -718,6 +723,7 @@ export function advanceTurnPvP(
   const defenderHpAfterDmg = enduranceFires
     ? 1
     : defenderAfterSurvival.hp;
+  if (enduranceFires) recordCombatMetric("survival_restoration", "endurance", defKey, 1);
   // 흡혈 갑옷 — 받은 HP 피해의 N% HP 회복 (생존 시).
   const bloodfeastPct = defender.player.bloodfeastPct ?? 0;
   const bloodfeastHeal =
@@ -732,6 +738,7 @@ export function advanceTurnPvP(
       ? Math.min(defender.maxHp, defenderHpAfterDmg + bloodfeastHeal)
       : defenderHpAfterDmg;
   const bloodfeastActualHeal = newDefenderHp - defenderHpAfterDmg;
+  recordCombatMetric("healing", "bloodfeast", defKey, bloodfeastActualHeal);
   const defenderHealShield = healToShield(
     defender.player.equipSignatures,
     {
@@ -896,23 +903,31 @@ export function advanceTurnPvP(
           (lifestealDamage * nextBuffsTimedFromAp.playerLifestealPct) / 100,
         )
       : 0;
-  // 별빛 흡혈(enchant lifesteal) + 포식 패시브(둘 다 enchantLifestealPct 로 합류) — 가한 피해의 pct%
-  //   HP 회복. PvE(playerPhase)에선 항상 소비되나 PvP 에선 inert 였던 걸 미러(2026-06-19, full mirror).
+  // 별빛 흡혈은 장착 패시브 흡혈과 별개로 유지한다.
   const enchantLifestealHeal =
     (attacker.player.enchantLifestealPct ?? 0) > 0
       ? Math.floor((lifestealDamage * attacker.player.enchantLifestealPct!) / 100)
       : 0;
+  const passiveLifestealHeal = healingAfterReceivedMultiplier(
+    scalePvPHealing(state, Math.floor(
+      (Math.max(0, defender.hp - Math.max(0, defenderHpAfterDmg)) *
+        (attacker.player.passiveLifestealPct ?? 0)) / 100,
+    )),
+    attacker.player.receivedHealMult,
+  );
   const totalLifestealHeal =
     lifestealHeal +
     luckyLifestealHeal +
     runeLifestealHeal +
     apLifestealHeal +
-    enchantLifestealHeal;
+    enchantLifestealHeal +
+    passiveLifestealHeal;
   const newAttackerHp =
     totalLifestealHeal > 0
       ? Math.min(attacker.maxHp, attacker.hp + totalLifestealHeal)
       : attacker.hp;
   const actualLifesteal = newAttackerHp - attacker.hp;
+  recordCombatMetric("healing", "lifesteal", atkKey, actualLifesteal);
   let attackerHealShieldAmount = 0;
   if (actualLifesteal > 0) {
     const lsLabels: string[] = [];
@@ -921,6 +936,7 @@ export function advanceTurnPvP(
     if (runeLifestealHeal > 0) lsLabels.push("흡혈의 룬");
     if (apLifestealHeal > 0) lsLabels.push("흡령");
     if (enchantLifestealHeal > 0) lsLabels.push("별빛 흡혈");
+    if (passiveLifestealHeal > 0) lsLabels.push("패시브 흡혈");
     log = appendLog(log, {
       kind: "info",
       text: `[${lsLabels.join(" + ")}] ${attacker.name}의 HP +${actualLifesteal}`,
@@ -1561,7 +1577,7 @@ export function advanceTurnPvP(
   const canLightspeed =
     lightspeedPct > 0 &&
     !attacker.turn.lightspeedUsedThisTurn &&
-    Math.random() * 100 < lightspeedPct;
+    combatRandom() * 100 < lightspeedPct;
   if (canLightspeed) {
     next = {
       ...next,
@@ -1595,7 +1611,7 @@ export function advanceTurnPvP(
     effectiveGalePct > 0 &&
     galeChainReady &&
     attacker.turn.galeChainsThisTurn < galeCap &&
-    Math.random() * 100 < effectiveGalePct;
+    combatRandom() * 100 < effectiveGalePct;
   if (canGaleChain) {
     next = {
       ...next,

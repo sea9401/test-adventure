@@ -1,0 +1,2 @@
+ALTER TABLE "coop_boss_attack_log" ADD COLUMN "is_support" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "coop_boss_sessions" ADD COLUMN "allow_free_support" boolean DEFAULT false NOT NULL;

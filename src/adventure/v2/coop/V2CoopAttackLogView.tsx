@@ -21,6 +21,7 @@ type CoopAttackLog = {
   damageDealt: number;
   damageTaken: number;
   diedEarly: boolean;
+  isSupport?: boolean;
   isMe: boolean;
   avatar: Avatar;
   profileBorder: ProfileBorderId | null;
@@ -134,6 +135,11 @@ export function V2CoopAttackLogView({
       {!loading && attack && (
         <>
           <Card padding="md" className="ui-coop-card space-y-3">
+            {attack.isSupport && (
+              <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                무료 지원 · 스태미나 소모 및 이 공격의 기여도·처치 확정타 보상 없음
+              </p>
+            )}
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 <CosmeticAvatar

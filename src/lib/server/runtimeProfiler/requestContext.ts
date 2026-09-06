@@ -3,6 +3,7 @@ import {
   DURATION_BUCKETS_MS,
   type DatabaseRequestMetrics,
   type RuntimeFeature,
+  type RequestPhases,
 } from "./types";
 
 export type RequestProfileContext = {
@@ -12,6 +13,7 @@ export type RequestProfileContext = {
   startedAtNs: bigint;
   socketBytesAtStart: number;
   database: DatabaseRequestMetrics;
+  phases?: RequestPhases;
 };
 
 declare global {

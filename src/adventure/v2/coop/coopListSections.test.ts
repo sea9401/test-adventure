@@ -21,6 +21,7 @@ function session(
     expiresAt: Date.now() + 60_000,
     summonedByName: isOwner ? "나" : "길드원",
     visibility,
+    allowFreeSupport: false,
     isOwner,
     participantCount: 0,
     myDamage,

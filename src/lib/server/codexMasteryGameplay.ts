@@ -69,6 +69,12 @@ export type CodexMasteryGameplayRecorderRuntime<Executor> = {
   ): Promise<unknown>;
 };
 
+/** Optional snapshot owned by one transaction, never a process-wide cache. */
+export type CodexMasteryGameplayContext = {
+  executor?: unknown;
+  settings?: CodexMasteryRecordingSettings & { monthlyProgressEnabled: boolean };
+};
+
 type AggregatedEvent = CodexMasteryGameplayEvent;
 
 function eventKey(event: CodexMasteryGameplayEvent): string {
@@ -162,8 +168,15 @@ export function createCodexMasteryGameplayRecorder<Executor>(
     userId: string,
     events: readonly CodexMasteryGameplayEvent[],
     now: Date,
+    context?: CodexMasteryGameplayContext,
   ): Promise<CodexMasteryRecordResult[]> => {
-    const settings = await runtime.readSettings(executor);
+    const settings = context && context.executor === executor && context.settings
+      ? context.settings
+      : await runtime.readSettings(executor);
+    if (context) {
+      context.executor = executor;
+      context.settings = settings;
+    }
     if (!settings.recordingEnabled && !settings.monthlyProgressEnabled) return [];
 
     const aggregated = new Map<string, AggregatedEvent>();

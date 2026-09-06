@@ -289,11 +289,14 @@ export function GuildRaidPanelContent({
               <span className="font-semibold tabular-nums text-rose-600 dark:text-rose-400">
                 {formatNumber(lastPractice.damageDealt)}
               </span>{" "}
-              피해 · 받은 피해 {formatNumber(lastPractice.damageTaken)} · {lastPractice.turns}행동
+              피해 · 최종 HP 감소량 {formatNumber(lastPractice.damageTaken)} · {lastPractice.turns}행동
               {lastPractice.diedEarly ? " · 전투불능" : " · 공격 완료"}
             </p>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
               길드 진행과 개인 기록에는 반영되지 않았습니다.
+            </p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              회복을 반영한 전투 종료 시 HP 감소량이며, 누적 피격량이 아닙니다.
             </p>
           </Card>
           <ReplayBattleScene

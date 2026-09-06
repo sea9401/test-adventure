@@ -1,3 +1,4 @@
+import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
 import { type PvPBattleState, type PvPSide } from "./engine.pvpState";
 import {
   applyBleedChangeToDots,
@@ -88,7 +89,7 @@ export function applyTier6UniquePvpEvent(
   let log = state.log;
   let finishTargetCurrentActionGuard = false;
   for (const command of resolved.commands) {
-    const applied = applyCommand(state, actor, target, command);
+    const applied = applyCommand(state, actor, target, command, actorKey, targetKey);
     actor = applied.actor;
     target = applied.target;
     if (command.kind === "damage_magic" && applied.signatureDamage > 0) {
@@ -147,6 +148,8 @@ function applyCommand(
   actor: PvPSide,
   target: PvPSide,
   command: Tier6UniqueCommand,
+  actorKey: PvPSideKey,
+  targetKey: PvPSideKey,
 ): {
   actor: PvPSide;
   target: PvPSide;
@@ -156,9 +159,11 @@ function applyCommand(
   defenseLogs: string[];
 } {
   if (command.kind === "damage_fixed") {
+    recordCombatDamage(`unique:${command.mechanic}`, targetKey, target.hp, command.amount);
     const survival = resolvePvPHostileDamageSurvival(
       target,
       target.hp - command.amount,
+      targetKey,
     );
     return {
       actor,
@@ -216,6 +221,7 @@ function applyCommand(
       scaledDamage,
     );
     const hpBoundDamage = scaledDamage - shieldAbsorbed;
+    recordCombatDamage(`unique:${command.mechanic}`, targetKey, target.hp, hpBoundDamage, shieldAbsorbed + magicBarrier.absorbedDamage);
     const defendedTarget: PvPSide = {
       ...target,
       magicBarrier: magicBarrier.durabilityLeft,
@@ -229,6 +235,7 @@ function applyCommand(
       ? resolvePvPHostileDamageSurvival(
           defendedTarget,
           defendedTarget.hp - hpBoundDamage,
+          targetKey,
         )
       : undefined;
     const defenseLogs = magicBarrierCombatLogEntries(magicBarrier).map(
@@ -266,6 +273,7 @@ function applyCommand(
       },
     };
   } else if (command.kind === "heal") {
+    recordCombatMetric("healing", `unique:${command.mechanic}`, actorKey, Math.min(actor.maxHp - actor.hp, command.amount));
     actor = { ...actor, hp: Math.min(actor.maxHp, actor.hp + command.amount) };
   } else if (command.kind === "mp") {
     actor = { ...actor, mp: Math.min(actor.maxMp, actor.mp + command.amount) };

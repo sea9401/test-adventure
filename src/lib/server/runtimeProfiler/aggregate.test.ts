@@ -22,6 +22,18 @@ const runtime = (cpuPercent: number): RuntimeIntervalMetrics => ({
 });
 
 describe("createProfilerAggregator", () => {
+  it("separates server failures and client aborts without double-counting legacy errors", () => {
+    const aggregator = createProfilerAggregator();
+    for (const [statusCode, aborted] of [[200, false], [500, false], [200, true], [500, true]] as const) {
+      aggregator.recordRequest({ feature: "save", operation: "GET /api/v2/me/state", method: "GET", statusCode, aborted, durationMs: 10, responseBytes: 0, database: emptyDb() });
+    }
+    expect(aggregator.snapshot().current.features.save).toMatchObject({
+      requests: 4, errors: 3, serverErrors: 2, abortedRequests: 2,
+    });
+    expect(aggregator.snapshot().current.operations["GET /api/v2/me/state"]).toMatchObject({
+      errors: 3, serverErrors: 2, abortedRequests: 2,
+    });
+  });
   it("기능별 요청·오류·바이트와 요청/DB 지연 분포를 집계한다", () => {
     let now = 1_000;
     const aggregator = createProfilerAggregator({ now: () => now });
@@ -66,6 +78,8 @@ describe("createProfilerAggregator", () => {
     expect(completed.features.chat).toEqual({
       requests: 2,
       errors: 1,
+      serverErrors: 1,
+      abortedRequests: 0,
       responseBytes: 150,
       durationMs: { average: 125, max: 200, p50: 50, p95: 250, p99: 250 },
       database: {

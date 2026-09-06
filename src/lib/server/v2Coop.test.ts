@@ -30,6 +30,16 @@ describe("개인 보스 세션 상태", () => {
     };
   }
 
+  it.each([undefined, false, true])("무료 지원 선택을 세션에 저장한다: %s", async (allowFreeSupport) => {
+    const inserted: Record<string, unknown>[] = [];
+    await createCoopBossSession(sessionTx(inserted) as never, {
+      kindId: "mountain_chief", userId: "owner", summonerName: "소환자",
+      now: new Date("2026-09-06T00:00:00.000Z"), visibility: "summoner_only",
+      allowFreeSupport,
+    });
+    expect(inserted[0]?.allowFreeSupport).toBe(allowFreeSupport === true);
+  });
+
   it("추적 병기 세션은 추적 게이지 0으로 생성한다", async () => {
     const inserted: Record<string, unknown>[] = [];
     const tx = sessionTx(inserted);

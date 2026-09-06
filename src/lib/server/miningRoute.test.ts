@@ -736,4 +736,10 @@ describe("mining routes", () => {
     expect(json.log).toMatchObject({ successes: 3, xp: 30, oreEarned: 3 });
     expect(json.durationReductionPct).toBe(8);
   });
+  it("status — 예상 성공률에 필요한 장착 패시브의 실패율 감소를 반환한다", async () => {
+    store.set("skills.v2", { learned: ["v2c_miner_veinreading"], equipped: ["v2c_miner_veinreading"] });
+    const json = await (await STATUS()).json();
+    expect(json.failureReductionPct).toBe(20);
+  });
+
 });

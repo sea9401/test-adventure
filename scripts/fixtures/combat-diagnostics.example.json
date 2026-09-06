@@ -1,0 +1,18 @@
+{
+  "diagnostics": true,
+  "trials": 2,
+  "seedBase": 20260906,
+  "builds": [
+    {
+      "name": "diagnostic-A",
+      "player": { "hp": 500, "maxHp": 500, "mp": 500, "maxMp": 500, "atk": 40, "def": 10, "spd": 100, "evasionPct": 0, "attackCount": 1, "accuracyPct": 100 },
+      "skills": { "learned": ["v2c_warrior_strike"], "equipped": ["v2c_warrior_strike"] }
+    },
+    {
+      "name": "diagnostic-B",
+      "player": { "hp": 500, "maxHp": 500, "mp": 0, "maxMp": 500, "atk": 40, "def": 10, "spd": 100, "evasionPct": 0, "attackCount": 1, "accuracyPct": 100 },
+      "skills": { "learned": ["v2c_warrior_strike"], "equipped": ["v2c_warrior_strike"] }
+    }
+  ],
+  "target": { "kind": "pve", "monster": { "name": "example", "hp": 800, "atk": 15, "def": 5, "spd": 6, "exp": 0, "tags": [] } }
+}

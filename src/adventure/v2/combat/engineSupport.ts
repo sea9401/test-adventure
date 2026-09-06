@@ -1,3 +1,5 @@
+import { combatRandom } from "./combatRandom";
+import { recordCombatMetric } from "./combatDiagnostics";
 import {
   healingAfterReceivedMultiplier,
 } from "./combatShared";
@@ -36,6 +38,7 @@ export function appendSkillCastLog(
   skillName: string,
   actor: { turn?: "player" | "enemy"; side?: "p1" | "p2" } = {},
 ): BattleLogEntry[] {
+  recordCombatMetric("skill_cast", skillId, actor.side ?? actor.turn ?? "unknown", 1);
   return appendLog(log, {
     kind: "info",
     text: "",
@@ -112,7 +115,7 @@ export function applyEvasionActionRecoveryPvE(
   state: BattleState,
   player: PlayerCombat,
   playerName: string,
-  roll: () => number = Math.random,
+  roll: () => number = combatRandom,
 ): BattleState {
   const recovery = rollEvasionActionRecovery(
     player.equipSignatures,
@@ -128,6 +131,7 @@ export function applyEvasionActionRecoveryPvE(
   );
   const nextHp = Math.min(state.playerMaxHp, state.playerHp + calculatedHeal);
   const actual = nextHp - state.playerHp;
+  recordCombatMetric("healing", "evasion_recovery", "player", actual);
   if (actual <= 0) return state;
   const next = {
     ...state,

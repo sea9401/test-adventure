@@ -159,6 +159,7 @@ export async function GET() {
         expiresAt: s.expiresAt.getTime(),
         summonedByName: s.summonedByName,
         visibility: parseCoopVisibility(s.visibility),
+        allowFreeSupport: s.allowFreeSupport === true,
         isOwner: s.summonerId === userId,
         participantCount: countBySession.get(s.id) ?? 0,
         myDamage,
@@ -188,6 +189,7 @@ export async function GET() {
       and(
         eq(coopBossContributors.userId, userId),
         isNull(coopBossContributors.claimedAt),
+        sql`${coopBossContributors.damage} > 0`,
         sql`${coopBossSessions.defeatedAt} IS NOT NULL`,
         sql`${coopBossSessions.hp} <= 0`,
         inArray(coopBossSessions.regionId, [...COOP_BOSS_KIND_IDS]),

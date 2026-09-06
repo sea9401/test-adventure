@@ -1,0 +1,18 @@
+{
+  "trials": 20,
+  "seedBase": 20260906,
+  "builds": [
+    {
+      "name": "example-A",
+      "player": { "hp": 500, "maxHp": 500, "atk": 40, "def": 10, "spd": 100, "evasionPct": 0, "attackCount": 1, "accuracyPct": 100, "critChancePct": 30 }
+    },
+    {
+      "name": "example-B",
+      "player": { "hp": 500, "maxHp": 500, "atk": 50, "def": 10, "spd": 100, "evasionPct": 0, "attackCount": 1, "accuracyPct": 100, "critChancePct": 30 }
+    }
+  ],
+  "target": {
+    "kind": "pve",
+    "monster": { "name": "example-target", "hp": 800, "atk": 15, "def": 5, "spd": 6, "exp": 0, "tags": [] }
+  }
+}

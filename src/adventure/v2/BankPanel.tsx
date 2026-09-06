@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useGameState } from "./GameStateProvider";
+import { useGameResourceState } from "./GameResourceContext";
 import { NumberInput, parseAmount } from "@/components/ui/NumberInput";
 import { useSystemToast } from "./RewardToastProvider";
 
@@ -28,7 +28,7 @@ const BANK_ERROR_TEXT: Record<string, string> = {
 };
 
 export function BankPanel() {
-  const { gold, bankedGold, applyResourcePatch, coreLoopOn } = useGameState();
+  const { gold, bankedGold, applyResourcePatch, coreLoopOn } = useGameResourceState();
   // 코어루프 — 출금 폐지(입금만). 골드 소비 시 은행이 우선 쓰이므로 은행은 패배 페널티 완충 + 자동 지갑.
   const depositOnly = coreLoopOn;
   const [amountText, setAmountText] = useState("");

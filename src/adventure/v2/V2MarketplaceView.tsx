@@ -1,5 +1,8 @@
 "use client";
 
+import { SelectControl } from "./marketplace/SelectControl";
+import { MarketplaceAuctionSettings } from "./marketplace/MarketplaceAuctionSettings";
+
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { FISH, type FishId } from "@/adventure/data/v2/fish";
 import {
@@ -107,7 +110,8 @@ import {
   X,
   type Icon,
 } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createMarketplaceReadCoordinator } from "./marketplace/marketplaceReadCoordinator";
 
 export { MarketplaceRecentTradeList } from "@/adventure/v2/marketplace/MarketplaceListingList";
 
@@ -251,6 +255,7 @@ export function V2MarketplaceView({
   const [cookingFoods, setCookingFoods] = useState<CookingFoodInventory>({});
   const [cookingFoodDefinitions, setCookingFoodDefinitions] = useState<CookingFoodDefinitionMap>({});
   const [fishSpecimens, setFishSpecimens] = useState<FishSpecimenInventory["items"]>({});
+  const [durationHours, setDurationHours] = useState(6);
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [qtys, setQtys] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -309,23 +314,35 @@ export function V2MarketplaceView({
     compare?: boolean;
   } | null>(null);
 
-  const loadBrowse = useCallback(async (mineOnly: boolean) => {
-    const j = await readMarketplaceBrowse(mineOnly);
-    if (typeof j.viewerGold === "number") setGold(j.viewerGold);
-    if (typeof j.serverNow === "number" && Number.isFinite(j.serverNow)) {
-      setServerClockOffsetMs(j.serverNow - Date.now());
-      setClockMs(j.serverNow);
-    }
-    if (typeof j.auctionHours === "number") setAuctionHours(j.auctionHours);
-    if (typeof j.bidExtensionWindowMinutes === "number") {
-      setBidExtensionWindowMinutes(j.bidExtensionWindowMinutes);
-    }
-    if (typeof j.bidExtensionMinutes === "number") {
-      setBidExtensionMinutes(j.bidExtensionMinutes);
-    }
-    if (mineOnly) setMine(j.listings ?? []);
-    else setListings(j.listings ?? []);
-  }, []);
+  const [reads] = useState(createMarketplaceReadCoordinator);
+  const browseSequence = useRef(0);
+  useEffect(() => () => reads.invalidate(), [reads]);
+
+  const loadBrowse = useCallback((mineOnly: boolean) => reads.run(
+    `browse:${mineOnly}`,
+    async () => {
+      const sequence = ++browseSequence.current;
+      return { j: await readMarketplaceBrowse(mineOnly), sequence };
+    },
+    ({ j, sequence }) => {
+      if (mineOnly) setMine(j.listings ?? []);
+      else setListings(j.listings ?? []);
+      // Both tabs return shared wallet/clock metadata. Only the latest read may update it.
+      if (sequence !== browseSequence.current) return;
+      if (typeof j.viewerGold === "number") setGold(j.viewerGold);
+      if (typeof j.serverNow === "number" && Number.isFinite(j.serverNow)) {
+        setServerClockOffsetMs(j.serverNow - Date.now());
+        setClockMs(j.serverNow);
+      }
+      if (typeof j.auctionHours === "number") setAuctionHours(j.auctionHours);
+      if (typeof j.bidExtensionWindowMinutes === "number") {
+        setBidExtensionWindowMinutes(j.bidExtensionWindowMinutes);
+      }
+      if (typeof j.bidExtensionMinutes === "number") {
+        setBidExtensionMinutes(j.bidExtensionMinutes);
+      }
+    },
+  ), [reads]);
 
   const loadEquipment = useCallback(async () => {
     const response = await fetch("/api/v2/me/equipment");
@@ -367,31 +384,28 @@ export function V2MarketplaceView({
     }
   }, [loadEquipment]);
 
-  const loadPrices = useCallback(async () => {
-    const prices = await readMarketplacePrices();
+  const loadPrices = useCallback(() => reads.run("prices", readMarketplacePrices, (prices) => {
     if (prices) setPriceRef(prices);
-  }, []);
+  }), [reads]);
 
-  const loadHistory = useCallback(async (mineOnly: boolean) => {
-    const rows = await readMarketplaceHistory(mineOnly);
+  const loadHistory = useCallback((mineOnly: boolean) => reads.run(`history:${mineOnly}`, () => readMarketplaceHistory(mineOnly), (rows) => {
     if (mineOnly) setMyHistory(rows);
     else setRecentTrades(rows);
-  }, []);
+  }), [reads]);
 
-  const loadMyBids = useCallback(async () => {
-    setMyBids(await readMarketplaceMyBids());
-  }, []);
+  const loadMyBids = useCallback(() => reads.run("my-bids", readMarketplaceMyBids, setMyBids), [reads]);
 
-  const loadPriceAlerts = useCallback(async () => {
+  const loadPriceAlerts = useCallback(() => reads.run("price-alerts", async () => {
     const response = await fetch("/api/v2/marketplace/price-alerts");
     if (response.ok) {
       const payload = (await response.json()) as {
         ok?: boolean;
         alerts?: PriceAlert[];
       };
-      if (payload.ok) setPriceAlerts(payload.alerts ?? []);
+      if (payload.ok) return payload.alerts ?? [];
     }
-  }, []);
+    return null;
+  }, (alerts) => { if (alerts) setPriceAlerts(alerts); }), [reads]);
 
   // 탭 전환 시 해당 데이터 로드. 둘러보기·팔기는 시세도 함께(가격 판단 참고).
   useEffect(() => {
@@ -433,7 +447,6 @@ export function V2MarketplaceView({
 
   useEffect(() => {
     if (preview || !automationSurfaceOpen) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 화면이 열린 뒤 비동기 응답에서 상태를 갱신한다.
     void loadPriceAlerts();
   }, [automationSurfaceOpen, loadPriceAlerts, preview]);
 
@@ -574,6 +587,7 @@ export function V2MarketplaceView({
           return false;
         }
         setMsg(okMsg);
+        reads.invalidate();
         await after();
         return true;
       } catch (e) {
@@ -584,7 +598,7 @@ export function V2MarketplaceView({
         setBusy(false);
       }
     },
-    [beginAction, setMsg],
+    [beginAction, setMsg, reads],
   );
 
   const cancel = (l: Listing) =>
@@ -657,6 +671,7 @@ export function V2MarketplaceView({
         setError(actionErrorLabel(payload, response.status));
         return false;
       }
+      reads.invalidate();
       const update = (row: Listing): Listing =>
         row.id === listing.id
           ? {
@@ -698,6 +713,7 @@ export function V2MarketplaceView({
     return act(
       "/api/v2/marketplace/list",
       {
+        durationHours,
         kind: "equip",
         iid: inst.iid,
         price,
@@ -724,6 +740,7 @@ export function V2MarketplaceView({
     return act(
       "/api/v2/marketplace/list",
       {
+        durationHours,
         kind: "material",
         itemId: matId,
         quantity: qty,
@@ -744,6 +761,7 @@ export function V2MarketplaceView({
     return act(
       "/api/v2/marketplace/list",
       {
+        durationHours,
         kind: "consumable",
         iid,
         price,
@@ -771,6 +789,7 @@ export function V2MarketplaceView({
     return act(
       "/api/v2/marketplace/list",
       {
+        durationHours,
         kind: "consumable",
         itemId,
         quantity,
@@ -800,6 +819,7 @@ export function V2MarketplaceView({
     return act(
       "/api/v2/marketplace/list",
       {
+        durationHours,
         kind: "consumable",
         itemId,
         quantity,
@@ -829,6 +849,7 @@ export function V2MarketplaceView({
     return act(
       "/api/v2/marketplace/list",
       {
+        durationHours,
         kind: "consumable",
         itemId,
         quantity,
@@ -1168,7 +1189,7 @@ export function V2MarketplaceView({
             </div>
             <div className="space-y-3 p-3">
               <div className={`${SURFACE_INSET} px-3 py-2 text-[11px] text-zinc-600 dark:text-zinc-300`}>
-                모든 매물은 {auctionHours}시간 경매이며, 마감 {bidExtensionWindowMinutes}분 미만에 새 입찰이 들어오면 마감이 {bidExtensionMinutes}분 연장됩니다.
+                매물은 6·12·24시간 중 선택한 기간 동안 경매하며, 마감 {bidExtensionWindowMinutes}분 미만에 새 입찰이 들어오면 마감이 {bidExtensionMinutes}분 연장됩니다.
               </div>
               <button
                 type="button"
@@ -1731,15 +1752,14 @@ export function V2MarketplaceView({
 
       {tab === "sell" && (
         <div className="space-y-3">
-          <Card padding="sm">
-            <div className="text-sm font-semibold">{auctionHours}시간 경매</div>
-            <p className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-300">
-              모든 품목은 등록 즉시 경매가 시작됩니다. 마감 {bidExtensionWindowMinutes}분 미만에 새 입찰이 들어오면 기존 마감에서 {bidExtensionMinutes}분씩 연장됩니다.
-            </p>
-            <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-              스택 아이템은 등록한 묶음 전체가 한 번에 낙찰됩니다. 나누어 팔려면 수량을 나눠 여러 번 등록해 주세요.
-            </p>
-          </Card>
+          <MarketplaceAuctionSettings
+            durationHours={durationHours}
+            busy={busy}
+            onDurationChange={setDurationHours}
+            defaultHours={auctionHours}
+            extensionWindowMinutes={bidExtensionWindowMinutes}
+            extensionMinutes={bidExtensionMinutes}
+          />
           {/* 슬롯 서브탭 — 인벤토리와 동일 구성. 배경 위라 surface 패널로 감쌈(라이트모드 가독성). */}
           <Card padding="none" className="overflow-hidden">
             <div className="px-2 pt-1">
@@ -1906,34 +1926,5 @@ export function V2MarketplaceView({
           );
         })()}
     </main>
-  );
-}
-
-
-
-
-function SelectControl({
-  value,
-  onChange,
-  options,
-  className = "",
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  options: ReadonlyArray<readonly [string, string]>;
-  className?: string;
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className={`rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-900 ${className}`}
-    >
-      {options.map(([optionValue, label]) => (
-        <option key={optionValue} value={optionValue}>
-          {label}
-        </option>
-      ))}
-    </select>
   );
 }

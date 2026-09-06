@@ -53,6 +53,31 @@ function snapshot(
 }
 
 describe("unexplored tree model", () => {
+  it.each([
+    [2, 0, 7], [3, 1, 6], [9, 7, 0], [12, 10, 0],
+  ])("previews full route cost with earned=%s despite insufficient points", (earnedPoints, available, shortfall) => {
+    const model = buildUnexploredTreeModel(snapshot({ earnedPoints }), "pool-iron_legion");
+    expect(model.routePointPreview).toEqual({ required: 7, available, shortfall });
+    expect(model.plan?.error).toBe(shortfall > 0 ? "point_limit" : null);
+  });
+
+  it("counts only the missing adjacent node from the active frontier", () => {
+    const model = buildUnexploredTreeModel(snapshot({
+      earnedPoints: 3, spentPoints: 3,
+      selectedNodeIds: ["start", "inner-0-0", "inner-1-0"],
+    }), "inner-1-1");
+    expect(model.routePointPreview).toEqual({ required: 1, available: 0, shortfall: 1 });
+  });
+
+  it.each([null, "missing-node", "start", "inner-0-0"])("does not show activation cost for %s", (id) => {
+    expect(buildUnexploredTreeModel(snapshot(), id).routePointPreview).toBeNull();
+  });
+
+  it("includes an inactive start node in the point cost", () => {
+    const model = buildUnexploredTreeModel(snapshot({ selectedNodeIds: [], earnedPoints: 0, spentPoints: 0 }), "start");
+    expect(model.routePointPreview).toEqual({ required: 1, available: 0, shortfall: 1 });
+  });
+
   it("maps all 160 nodes to active, available or locked states", () => {
     const model = buildUnexploredTreeModel(snapshot(), "inner-0-1");
     expect(model.nodes).toHaveLength(160);

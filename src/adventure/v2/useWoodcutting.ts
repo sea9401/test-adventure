@@ -1,6 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import type { WoodcuttingSpotId } from "@/adventure/data/v2/woodcuttingSpots";
+import type { AutoGatheringResultView, AutoGatheringSessionView } from "./AutoGatheringCard";
+import { useGameActivityState } from "./GameStateProvider";
+import { useSystemToast } from "./RewardToastProvider";
 import type {
   WoodcuttingHandlers,
   WoodcuttingLogView,
@@ -8,24 +11,21 @@ import type {
   WoodcuttingStart,
   WoodcuttingTreeView,
 } from "./WoodcuttingView";
-import type { WoodcuttingSpotId } from "@/adventure/data/v2/woodcuttingSpots";
-import { useActivityVerification } from "./useActivityVerification";
-import type {
-  AutoGatheringResultView,
-  AutoGatheringSessionView,
-} from "./AutoGatheringCard";
 import {
   parseAutoGatheringSessionView,
   type AutoGatheringActivity,
   type AutoGatheringPlanId,
 } from "./autoGathering";
-import { useGameActivityState } from "./GameStateProvider";
-import { useSystemToast } from "./RewardToastProvider";
+import {
+  parseAutoActivity,
+  parseMaterials,
+  parseNextActionAt,
+  wait,
+  requestAutoGathering,
+} from "./gatheringClient";
 import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
-
-function parseAutoActivity(value: unknown): AutoGatheringActivity | null {
-  return value === "woodcutting" || value === "mining" ? value : null;
-}
+import { useActivityVerification } from "./useActivityVerification";
+import { useCallback, useEffect, useState } from "react";
 
 function parseLog(value: unknown): WoodcuttingLogView {
   const item = (value ?? {}) as Record<string, unknown>;
@@ -41,6 +41,7 @@ function parseLog(value: unknown): WoodcuttingLogView {
   };
 }
 
+
 function parseTree(value: unknown): WoodcuttingTreeView {
   const item = (value ?? {}) as Record<string, unknown>;
   return {
@@ -51,20 +52,6 @@ function parseTree(value: unknown): WoodcuttingTreeView {
   };
 }
 
-function parseMaterials(value: unknown): Record<string, number> {
-  if (!value || typeof value !== "object") return {};
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).map(([id, count]) => [
-      id,
-      Math.max(0, Math.floor(Number(count) || 0)),
-    ]),
-  );
-}
-
-function parseNextActionAt(value: unknown): number | null {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
-}
 
 function parseAutoResult(value: unknown): AutoGatheringResultView {
   const item = (value ?? {}) as Record<string, unknown>;
@@ -77,14 +64,12 @@ function parseAutoResult(value: unknown): AutoGatheringResultView {
   };
 }
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 export function useWoodcutting(): WoodcuttingHandlers {
   const { setAutoGathering } = useGameActivityState();
   const { notifySystem } = useSystemToast();
   const { verification, verifyHuman, readJson } = useActivityVerification("woodcutting");
+  const [failureReductionPct, setFailureReductionPct] = useState(0);
   const [materials, setMaterials] = useState<Record<string, number>>({});
   const [log, setLog] = useState<WoodcuttingLogView>({ cuts: 0, xp: 0, timberEarned: 0 });
   const [durationReductionPct, setDurationReductionPct] = useState(0);
@@ -104,6 +89,9 @@ export function useWoodcutting(): WoodcuttingHandlers {
         if (!alive || !json?.ok) return;
         setMaterials(parseMaterials(json.materials));
         setLog(parseLog(json.log));
+        setFailureReductionPct(
+          Math.min(90, Math.max(0, Number(json.failureReductionPct) || 0)),
+        );
         setDurationReductionPct(
           Math.min(50, Math.max(0, Number(json.durationReductionPct) || 0)),
         );
@@ -142,6 +130,9 @@ export function useWoodcutting(): WoodcuttingHandlers {
     }
     setMaterials(parseMaterials(json.materials));
     setLog(parseLog(json.log));
+    setFailureReductionPct(
+      Math.min(90, Math.max(0, Number(json.failureReductionPct) || 0)),
+    );
     setDurationReductionPct(
       Math.min(50, Math.max(0, Number(json.durationReductionPct) || 0)),
     );
@@ -232,12 +223,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
   ): Promise<void> => {
     setAutoLoading(true);
     try {
-      const response = await fetch("/api/v2/woodcutting/auto", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "start", spotId, planId }),
-      });
-      const json = await readJson(response);
+      const { response, json } = await requestAutoGathering("woodcutting", { action: "start", spotId, planId }, readJson);
       if (!response.ok || !json?.ok) {
         const active = parseAutoActivity(json?.activeAutoActivity);
         if (active) setActiveAutoActivity(active);
@@ -268,12 +254,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
   const claimAuto = useCallback(async (): Promise<void> => {
     setAutoLoading(true);
     try {
-      const response = await fetch("/api/v2/woodcutting/auto", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "claim" }),
-      });
-      const json = await readJson(response);
+      const { response, json } = await requestAutoGathering("woodcutting", { action: "claim" }, readJson);
       if (!response.ok || !json?.ok) throw new Error("woodcutting_auto_claim_failed");
       if (json.levelCurveMigrated) {
         notifySystem(LIFE_LEVEL_MIGRATION_NOTICE, "info");
@@ -292,12 +273,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
   const cancelAuto = useCallback(async (): Promise<void> => {
     setAutoLoading(true);
     try {
-      const response = await fetch("/api/v2/woodcutting/auto", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "cancel" }),
-      });
-      const json = await readJson(response);
+      const { response, json } = await requestAutoGathering("woodcutting", { action: "cancel" }, readJson);
       if (!response.ok || !json?.ok) throw new Error("woodcutting_auto_cancel_failed");
       setMaterials(parseMaterials(json.materials));
       setLog(parseLog(json.log));
@@ -314,6 +290,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
     start,
     finish,
     materials,
+    failureReductionPct,
     log,
     durationReductionPct,
     autoSession,

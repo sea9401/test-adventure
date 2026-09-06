@@ -20,7 +20,8 @@ import { parseV2Class, type V2Class } from "@/adventure/data/v2/classes";
 import { V2ClassGrid, type V2AdvanceInfo } from "./V2ClassGrid";
 import { V2JobLadder, type JobLadderEntry } from "./V2JobLadder";
 import { TabBar } from "@/components/ui/TabBar";
-import { useGameState } from "./GameStateProvider";
+import { useGameResourceState } from "./GameResourceContext";
+import { useRefreshGameState } from "./GameStateRefreshContext";
 import {
   cultivationGroupForJob,
   isLifestyleMasteryJobId,
@@ -93,7 +94,8 @@ type StateShape = {
 };
 
 export function V2CultivationView({ onBack }: { onBack: () => void }) {
-  const { refreshGameState, spendableGold, applyResourcePatch } = useGameState();
+  const { spendableGold, applyResourcePatch } = useGameResourceState();
+  const refreshGameState = useRefreshGameState();
   // 기본 탭 = 직업(사용자 요청 순서). 수행을 기본으로 원하면 "cultivate" 로 바꾸면 됨.
   const [tab, setTab] = useState<ShrineTab>("job");
   const [group, setGroup] = useState<string>("none");

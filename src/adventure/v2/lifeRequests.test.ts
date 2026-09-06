@@ -125,7 +125,7 @@ describe("life request board", () => {
     expect(parsed.history).toHaveLength(1);
   });
 
-  it("rerolls one unfinished lane once per day and changes its request", () => {
+  it("rerolls an unfinished lane and changes its request", () => {
     const dailyKey = "2026-08-06";
     const weeklyKey = "2026-08-03";
     const board = lifeRequestsForPeriod(dailyKey, weeklyKey);
@@ -134,7 +134,7 @@ describe("life request board", () => {
     const rerolled = rerollLifeRequestLane(state, "woodcutting", board.daily)!;
     const next = lifeRequestsForPeriod(dailyKey, weeklyKey, rerolled.daily.rerolledLane);
     expect(next.daily.find((entry) => entry.lane === "woodcutting")!.id).not.toBe(previous.id);
-    expect(lifeRequestRerollBlockReason(rerolled, "mining", next.daily)).toBe("reroll_used");
+    expect(lifeRequestRerollBlockReason(rerolled, "mining", next.daily)).toBeNull();
 
     const completed = completeLifeRequest(state, previous)!;
     expect(lifeRequestRerollBlockReason(completed, "woodcutting", board.daily)).toBe("reroll_completed");
@@ -161,4 +161,41 @@ describe("life request board", () => {
     const second = lifeRequestsForPeriod("2026-08-06", "2026-08-03", "mining", 2).daily.find((request) => request.lane === "mining")!;
     expect(second.id).not.toBe(first.id);
   });
+});
+
+
+describe("하루 5회 의뢰 교체", () => {
+  it("다른 분야의 변경을 보존하고 같은 분야도 다시 교체하며 6회째 거부한다", () => {
+    let state = emptyLifeRequestsState("2026-09-06", "2026-08-31");
+    const board = () => lifeRequestsForPeriod(state.daily.key, state.weekly.key, state.daily.rerolledLane, state.daily.rerolledOffset ?? 1, state.daily.rerollOffsets);
+    state = rerollLifeRequestLane(state, "woodcutting", board().daily)!;
+    const wood = board().daily.filter(r => r.lane === "woodcutting");
+    state = rerollLifeRequestLane(state, "mining", board().daily)!;
+    expect(board().daily.filter(r => r.lane === "woodcutting")).toEqual(wood);
+    state = rerollLifeRequestLane(state, "woodcutting", board().daily)!;
+    expect(board().daily.filter(r => r.lane === "woodcutting")).not.toEqual(wood);
+    state = rerollLifeRequestLane(state, "crafting", board().daily)!;
+    state = rerollLifeRequestLane(state, "processing", board().daily)!;
+    expect(state.daily.rerollCount).toBe(5);
+    expect(parseLifeRequestsState(state, state.daily.key, state.weekly.key)).toEqual(state);
+    expect(rerollLifeRequestLane(state, "mining", board().daily)).toBeNull();
+    const nextDay = parseLifeRequestsState(state, "2026-09-07", "2026-09-07");
+    expect(nextDay.daily.rerollCount).toBe(0);
+    expect(nextDay.daily.rerollOffsets).toEqual({});
+  });
+  it("구 저장값의 교체 1회와 선택 결과를 승계한다", () => {
+    const state = parseLifeRequestsState({daily:{key:"2026-09-06",rerolledLane:"mining",rerolledOffset:2}}, "2026-09-06", "2026-08-31");
+    expect(state.daily.rerollCount).toBe(1);
+    expect(state.daily.rerollOffsets).toEqual({mining:2});
+  });
+});
+
+it("같은 분야를 3회 교체한 저장 결과를 그대로 복원한다", () => {
+  let state = emptyLifeRequestsState("2026-09-06", "2026-08-31");
+  for (let i = 0; i < 3; i++) {
+    const board = lifeRequestsForPeriod(state.daily.key, state.weekly.key, null, 1, state.daily.rerollOffsets);
+    state = rerollLifeRequestLane(state, "crafting", board.daily)!;
+  }
+  expect(state.daily.rerolledOffset).toBe(3);
+  expect(parseLifeRequestsState(state, state.daily.key, state.weekly.key)).toEqual(state);
 });

@@ -5,6 +5,7 @@ import { v2StatusPillColor } from "@/adventure/data/v2/statusEffects";
 import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { additionalActionDamage, compactDurationEffect } from "./battleLogPresentation";
 
 export function battleLogPillColor(label: string): string {
   const status = v2StatusPillColor(label);
@@ -73,7 +74,7 @@ const SIZES: Record<"normal" | "compact", Sizes> = {
     bubble: "text-[15px]",
     info: "text-[13px]",
     label: "text-xs sm:text-[11px]",
-    actionBubble: "text-[13px] sm:text-[15px]",
+    actionBubble: "text-base sm:text-lg",
     actionInfo: "text-xs sm:text-[13px]",
     actionLabel: "text-xs sm:text-[11px]",
     banner: "text-base",
@@ -85,7 +86,7 @@ const SIZES: Record<"normal" | "compact", Sizes> = {
     bubble: "text-[13px]",
     info: "text-xs sm:text-[11px]",
     label: "text-xs sm:text-[10px]",
-    actionBubble: "text-[12px] sm:text-[13px]",
+    actionBubble: "text-sm sm:text-base",
     actionInfo: "text-xs sm:text-[11px]",
     actionLabel: "text-xs sm:text-[10px]",
     banner: "text-[13px]",
@@ -161,7 +162,7 @@ function isLegacyBasicAttackEntry(entry: BattleLogEntry): boolean {
   );
 }
 
-function isDirectActionEntry(entry: BattleLogEntry): boolean {
+function isDirectActionEntry(entry: BattleLogEntry): entry is Exclude<BattleLogEntry, { kind: "hp_bar" }> {
   if (entry.kind !== "player_attack" && entry.kind !== "enemy_attack") {
     return false;
   }
@@ -244,6 +245,7 @@ function isMatchingSkillCastResult(
   if (!skillCast || !isDirectActionEntry(entry)) return false;
   return (
     entryTurnSide(current.main) === entryTurnSide(entry) &&
+    (current.main.t == null || entry.t == null || current.main.t === entry.t) &&
     actionHeadline(entry.text).title === skillCast.skillName
   );
 }
@@ -481,8 +483,16 @@ export function groupBattleLogActions(
     }
     if (isDirectActionEntry(entry)) {
       if (current && isMatchingSkillCastResult(current, entry)) {
-        current.main = entry;
-        current.hits = [entry];
+        const skillCast = actionSkillCast(current);
+        // The placeholder alone carries skillCast in hits. Keep the first actual
+        // result as the main row, retaining the cast boundary through all effects.
+        const firstHit = current.hits[0];
+        if (firstHit.kind !== "hp_bar" && firstHit.skillCast) {
+          current.main = { ...entry, skillCast };
+          current.hits = [entry];
+        } else {
+          current.hits.push(entry);
+        }
         continue;
       }
       if (current && canMergeActionHit(current, entry)) {
@@ -618,10 +628,10 @@ export function BattleLogList({
         // 한 박스 안 HP/MP 바는 마지막 1개만 렌더 — 매 행동 뒤 바가 붙어 너무 많아 보이던 것을,
         //   그 윈도우의 "최종 상태" 한 줄로 축약(중간 스냅샷 생략). 표시 단 처리(로그 데이터 불변).
         const lastHpIdx = lastHpBarIndex(group);
-        const visibleGroup = group.filter(
-          (entry, index) => entry.kind !== "hp_bar" || index === lastHpIdx,
+        // Hide intermediate HP bars only AFTER grouping; they still delimit casts.
+        const displayItems = groupBattleLogActions(group).filter(
+          (item) => item.kind !== "entry" || item.entry.kind !== "hp_bar" || item.entry === group[lastHpIdx],
         );
-        const displayItems = groupBattleLogActions(visibleGroup);
         const groupTick = battleLogGroupFirstTick(group);
         return (
           <div
@@ -889,6 +899,7 @@ function actionEffectContent(
   actionTitle: string,
   sizes: Sizes,
   ownerName?: string,
+  side: "left" | "right" = "left",
 ): ReactNode {
   const { labels, body } = parseBattleLogText(entry.text);
   const visibleLabels = labels.filter((label) => label !== actionTitle);
@@ -897,8 +908,19 @@ function actionEffectContent(
     ? body.slice(actionPrefix.length).trim()
     : body;
   if (visibleLabels.length === 0 && visibleBody.length === 0) return null;
+  const durationEffect = compactDurationEffect(visibleBody);
+  if (durationEffect) {
+    return (
+      <span
+        title={labels.map(battleLogDisplayLabel).join(" · ") || undefined}
+        className={`inline-flex max-w-full items-center rounded-md px-2 py-1 ${sizes.actionInfo} ${battleLogPillColor(labels.at(-1) ?? "")} ${side === "right" ? "text-right" : "text-left"}`}
+      >
+        {ownerName ? `${ownerName}의 ` : ""}{durationEffect}
+      </span>
+    );
+  }
   return (
-    <div className={`flex flex-wrap items-center gap-1 ${sizes.actionInfo}`}>
+    <div className={`flex flex-wrap items-center gap-1 ${sizes.actionInfo} ${side === "right" ? "justify-end text-right" : "justify-start text-left"}`}>
       {visibleLabels.map((label, index) => (
         <span
           key={`${label}-${index}`}
@@ -934,169 +956,129 @@ function ActionCard({
   const { labels, title: rawTitle, result } = actionHeadline(item.main.text);
   const forcedBySkill =
     item.main.kind === "hp_bar" ? undefined : item.main.forcedBySkill;
-  const title = forcedBySkill
-    ? `${forcedBySkill} 강제 공격`
-    : rawTitle;
+  const title = forcedBySkill ? `${forcedBySkill} 강제 공격` : rawTitle;
+  const actor = side === "left" ? "player" : "enemy";
   const hitDamages = item.hits
     .map((entry) => damageActionHeadline(entry)?.damage ?? null)
     .filter((damage): damage is number => damage != null);
-  const isMultiHit =
-    hitDamages.length > 1 && hitDamages.length === item.hits.length;
-  const totalHitDamage = hitDamages.reduce((sum, damage) => sum + damage, 0);
-  const displayedResult = isMultiHit
-    ? `${hitDamages.length}타 · 총 ${totalHitDamage.toLocaleString("ko-KR")} 피해`
+  const isMultiHit = hitDamages.length > 1 && hitDamages.length === item.hits.length;
+  const extraDamageEntries = item.effects.filter(
+    (entry) => additionalActionDamage(entry, actor) != null,
+  );
+  const hasUnresolvedExtraDamage = item.effects.some(
+    (entry) => entry.kind === `${actor}_attack` && entry.side != null
+      && entry.text.startsWith("[교차·추격]") && entry.text.includes("추가 피해")
+      && additionalActionDamage(entry, actor) == null,
+  );
+  const totalDamage = hitDamages.reduce((sum, damage) => sum + damage, 0)
+    + extraDamageEntries.reduce((sum, entry) => sum + (additionalActionDamage(entry, actor) ?? 0), 0);
+  const hasDamageResult = hitDamages.length > 0;
+  const dodged = !hasDamageResult && /회피했다|공격을 피했습니다/.test(result);
+  // Only promote the cast's own immediate HP recovery, never passive lifesteal,
+  // regeneration percentages, mana recovery, or a different actor's reaction.
+  const recoveryEntry = !result ? item.effects.find((entry) => {
+    const parsed = parseBattleLogText(entry.text);
+    return entryTurnSide(entry) === actor && parsed.labels.includes(rawTitle)
+      && /HP\s*\+\s*\d[\d,]*[.!]?$/.test(parsed.body);
+  }) : undefined;
+  const recoveryAmount = recoveryEntry?.text.match(/HP\s*\+\s*(\d[\d,]*)[.!]?$/)?.[1];
+  const displayedResult = hasDamageResult
+    ? `${hasUnresolvedExtraDamage ? "기록된 타격" : "총"} ${totalDamage.toLocaleString("ko-KR")} 피해`
+    : dodged ? "회피"
+    : recoveryAmount ? `${Number(recoveryAmount.replaceAll(",", "")).toLocaleString("ko-KR")} 회복`
     : result;
   const actorName = side === "left" ? playerName : enemyName;
   const actorLabel = side === "left" ? "내 행동" : "상대 행동";
+  const targetName = side === "left" ? enemyName : playerName;
   const damageTargetLabel = side === "left" ? "상대가 받음" : "내가 받음";
-  const hasDamageResult = /\d[\d,]*\s*피해/.test(displayedResult);
-  const effects = item.effects
-    .map((entry, index) => {
-      const effectSide = effectBattleLogSide(entry);
-      const { labels: effectLabels } = parseBattleLogText(entry.text);
-      const isReaction =
-        effectSide != null &&
-        effectSide !== side &&
-        effectLabels.some(
-          (label) => label.includes("반사") || label.includes("반격"),
-        );
-      const ownerName = isReaction
-        ? effectSide === "left"
-          ? playerName
-          : enemyName
-        : undefined;
-      return {
-        content: actionEffectContent(entry, rawTitle, sizes, ownerName),
-        key: index,
-      };
-    })
-    .filter((effect) => effect.content != null);
   const align = side === "left" ? "justify-start" : "justify-end";
-  const accent =
-    side === "left"
-      ? "border-l-4 border-l-blue-500"
-      : "border-r-4 border-r-violet-500";
-  const headerGrid =
-    side === "left"
-      ? "grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto]"
-      : "grid-cols-1 sm:grid-cols-[auto_minmax(0,1fr)]";
-  const identityAlign = side === "left" ? "" : "justify-end text-right";
-  const resultAlign =
-    side === "left"
-      ? "text-left sm:text-right"
-      : "text-right sm:text-left";
-  const labelAlign =
-    side === "left"
-      ? "justify-start sm:justify-end"
-      : "justify-end sm:justify-start";
-  const identityContent = (
-    <div className={`order-1 min-w-0 sm:order-none ${identityAlign}`}>
-      <div className={`mb-0.5 flex min-w-0 items-center gap-1 ${side === "right" ? "justify-end" : ""}`}>
-        <span
-          className={`${sizes.actionLabel} shrink-0 rounded border px-1 py-0.5 font-bold ${
-            side === "left"
-              ? "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300"
-              : "border-violet-300 text-violet-700 dark:border-violet-700 dark:text-violet-300"
-          }`}
-        >
-          {actorLabel}
-        </span>
-        <span className={`${sizes.actionLabel} min-w-0 truncate font-semibold text-zinc-500 dark:text-zinc-400`}>
-          {actorName}
-        </span>
-      </div>
-      <div className={`${sizes.actionBubble} min-w-0 whitespace-normal break-words sm:truncate font-semibold text-zinc-900 dark:text-zinc-100`}>
-        {title}
-      </div>
-    </div>
-  );
-  const resultContent = (
-    <div className={`order-2 min-w-0 sm:order-none ${resultAlign}`}>
-      {hasDamageResult ? (
-        <div className={`${sizes.actionLabel} mb-0.5 font-semibold text-zinc-500 dark:text-zinc-400`}>
-          {damageTargetLabel}
-        </div>
-      ) : null}
-      {labels.length > 0 ? (
-        <div className={`mb-0.5 flex flex-wrap gap-1 sm:mb-1 ${labelAlign}`}>
-          {labels.map((label, index) => (
-            <span
-              key={`${label}-${index}`}
-              className={`rounded px-1 py-0.5 sm:px-1.5 ${sizes.actionLabel} font-semibold tracking-wide ${battleLogPillColor(label)}`}
-            >
-              {battleLogDisplayLabel(label)}
-            </span>
-          ))}
-        </div>
-      ) : null}
-      <div
-        className={`${sizes.actionBubble} whitespace-normal break-words sm:whitespace-nowrap text-zinc-700 dark:text-zinc-200`}
-        aria-label={isMultiHit ? displayedResult : undefined}
-      >
-        {emphasizeNumbers(displayedResult)}
-      </div>
-    </div>
-  );
+  const textAlign = side === "left" ? "text-left" : "text-right";
+  const accent = side === "left"
+    ? "border-l-4 border-l-blue-500 dark:border-l-blue-400"
+    : "border-r-4 border-r-red-400 dark:border-r-red-400";
+  const effectContent = (entry: BattleLogEntry) => {
+    const effectSide = effectBattleLogSide(entry);
+    const effectLabels = parseBattleLogText(entry.text).labels;
+    const isReaction = effectSide != null && effectSide !== side
+      && effectLabels.some((label) => /반사|반격/.test(label));
+    const ownerName = isReaction ? (effectSide === "left" ? playerName : enemyName) : undefined;
+    return actionEffectContent(entry, rawTitle, sizes, ownerName, side);
+  };
+  const effects = item.effects
+    .filter((entry) => !extraDamageEntries.includes(entry))
+    .map((entry, index) => ({ content: effectContent(entry), key: index }))
+    .filter((effect) => effect.content != null);
+  const showHitDetails = isMultiHit || extraDamageEntries.length > 0;
   return (
     <div className={`flex ${align}`} data-battle-action={side}>
-      <section className={`${SURFACE_CARD} ${accent} w-full sm:w-[70%] overflow-hidden`}>
-        <div className={`grid ${headerGrid} items-center gap-2 px-2 py-1.5 sm:gap-3 sm:px-3 sm:py-2.5`}>
-          {side === "left" ? (
-            <>
-              {identityContent}
-              {resultContent}
-            </>
-          ) : (
-            <>
-              {resultContent}
-              {identityContent}
-            </>
-          )}
-        </div>
-
-        {isMultiHit || effects.length > 0 ? (
-          <div className={`${SURFACE_INSET} mx-1.5 mb-1.5 space-y-1 px-2 py-1.5 sm:mx-2 sm:mb-2 sm:space-y-1.5 sm:px-2.5 sm:py-2`}>
-            {isMultiHit ? (
-              <div
-                className={`flex flex-wrap items-center gap-1 ${sizes.actionInfo}`}
-                aria-label="타격별 피해"
-              >
-                {hitDamages.map((damage, index) => (
-                  <span
-                    key={`${index}-${damage}`}
-                    className="rounded bg-rose-50 px-1.5 py-0.5 font-semibold text-rose-700 dark:bg-rose-950 dark:text-rose-300"
-                  >
-                    {index + 1}타 {damage.toLocaleString("ko-KR")} 피해
-                  </span>
-                ))}
-              </div>
+      <section className={`${SURFACE_CARD} ${accent} ${textAlign} w-[96%] min-w-0 overflow-hidden sm:w-[85%]`}>
+        <div className="space-y-2 px-3 py-3 sm:px-4">
+          <div data-battle-identity className={`flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 ${align} ${sizes.actionInfo}`}>
+            <span className={`shrink-0 font-bold ${side === "left" ? "text-blue-700 dark:text-blue-300" : "text-red-700 dark:text-red-300"}`}>
+              {actorLabel}
+            </span>
+            <span className="min-w-0 break-words font-medium text-zinc-600 dark:text-zinc-300">{actorName}</span>
+            {hasDamageResult ? (
+              <span className="min-w-0 break-words text-zinc-500 dark:text-zinc-400" title={damageTargetLabel}>
+                <span aria-hidden="true">→ </span>{targetName}<span className="sr-only"> · {damageTargetLabel}</span>
+              </span>
             ) : null}
-            {effects.map(({ content, key }) => (
-              <div key={key}>{content}</div>
-            ))}
           </div>
-        ) : null}
-
-        {item.calculations.length > 0 ? (
-          <details
-            name="battle-log-action-details"
-            className="border-t border-zinc-200 dark:border-zinc-700"
-          >
-            <summary className={`${sizes.actionLabel} cursor-pointer list-none px-2 py-1.5 text-right font-semibold text-zinc-500 marker:hidden hover:text-zinc-800 sm:px-3 sm:py-2 dark:text-zinc-400 dark:hover:text-zinc-100`}>
-              계산 상세
-            </summary>
-            <div className={`${SURFACE_INSET} mx-1.5 mb-1.5 space-y-1 px-2 py-1.5 sm:mx-2 sm:mb-2 sm:space-y-1.5 sm:px-2.5 sm:py-2`}>
-              <div className={`${sizes.actionLabel} font-semibold text-zinc-700 dark:text-zinc-200`}>
-                방어 계산
-              </div>
-              {item.calculations.map((entry, index) => (
-                <div key={index}>
-                  {actionEffectContent(entry, title, sizes)}
-                </div>
+          <div data-battle-headline className={`${sizes.actionBubble} whitespace-normal break-words font-semibold text-zinc-900 dark:text-zinc-100`}>
+            {title}{displayedResult ? <> · <span className={recoveryAmount ? "text-emerald-700 dark:text-emerald-300" : dodged ? "text-violet-700 dark:text-violet-300" : undefined}>{emphasizeNumbers(displayedResult)}</span></> : null}
+          </div>
+          {dodged ? <div className={`${sizes.actionInfo} text-zinc-600 dark:text-zinc-300`}>{result}</div> : null}
+          {hasUnresolvedExtraDamage ? <div className={`${sizes.actionInfo} text-zinc-500 dark:text-zinc-400`}>이전 기록 · 방어 후 추가 피해 합산 불가</div> : null}
+          {labels.length > 0 ? (
+            <div className={`flex flex-wrap gap-1 ${align}`}>
+              {labels.map((label, index) => (
+                <span key={`${label}-${index}`} className={`rounded px-1.5 py-0.5 ${sizes.actionLabel} font-semibold ${battleLogPillColor(label)}`}>
+                  {battleLogDisplayLabel(label)}
+                </span>
               ))}
             </div>
-          </details>
-        ) : null}
+          ) : null}
+          {effects.length > 0 ? (
+            <div data-battle-effects className={`flex flex-wrap items-center gap-x-2 gap-y-1.5 ${align}`}>
+              {effects.map(({ content, key }) => <div className="min-w-0 max-w-full" key={key}>{content}</div>)}
+            </div>
+          ) : null}
+          {showHitDetails ? (
+            <details className={`${SURFACE_INSET} group`}>
+              <summary className={`flex min-h-11 cursor-pointer list-none items-center gap-2 px-2.5 py-2 ${align} ${sizes.actionInfo} font-semibold text-blue-700 marker:hidden focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:text-blue-300`}>
+                <span aria-hidden="true" className="inline-block transition-transform group-open:rotate-90">▸</span>
+                타격별 기록 보기
+              </summary>
+              <div className={`space-y-1 border-t border-zinc-200 px-2.5 py-2 ${sizes.actionInfo} dark:border-zinc-700`}>
+                <div aria-label="타격별 피해" className={`flex flex-wrap gap-1 ${align}`}>
+                  {hitDamages.map((damage, index) => (
+                    <span key={index} className="rounded bg-rose-50 px-1.5 py-0.5 font-semibold text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                      {index + 1}타 {damage.toLocaleString("ko-KR")} 피해
+                    </span>
+                  ))}
+                </div>
+                {extraDamageEntries.map((entry, index) => (
+                  <div key={index} className={`flex flex-wrap gap-1 ${align}`}>
+                    <span>{parseBattleLogText(entry.text).labels.map(battleLogDisplayLabel).join(" · ")}</span>
+                    <span className="font-semibold text-rose-700 dark:text-rose-300">{(additionalActionDamage(entry, actor) ?? 0).toLocaleString("ko-KR")} 추가 피해</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          ) : null}
+          {item.calculations.length > 0 ? (
+            <details className={`${SURFACE_INSET} group`}>
+              <summary className={`flex min-h-11 cursor-pointer list-none items-center gap-2 px-2.5 py-2 ${align} ${sizes.actionInfo} font-semibold text-zinc-600 marker:hidden focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:text-zinc-300`}>
+                <span aria-hidden="true" className="inline-block transition-transform group-open:rotate-90">▸</span>
+                계산 상세
+              </summary>
+              <div className="space-y-1 border-t border-zinc-200 px-2.5 py-2 dark:border-zinc-700">
+                <div className={`${sizes.actionLabel} font-semibold text-zinc-700 dark:text-zinc-200`}>방어 계산</div>
+                {item.calculations.map((entry, index) => <div key={index}>{effectContent(entry)}</div>)}
+              </div>
+            </details>
+          ) : null}
+        </div>
       </section>
     </div>
   );

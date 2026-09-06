@@ -1,3 +1,4 @@
+import { copyStageDetails, mergeStageDetails, type StageDetails } from "./stageMetrics";
 import {
   DURATION_BUCKETS_MS,
   type CurrentProfilerWindow,
@@ -14,7 +15,7 @@ import {
   type RequestPhase,
 } from "./types";
 
-type MutableFeatureProfile = {
+type MutableFeatureProfile = StageDetails & {
   requests: number;
   errors: number;
   serverErrors: number;
@@ -122,6 +123,7 @@ function durationSummary(
 
 function serializeFeature(profile: MutableFeatureProfile): FeatureProfile {
   return {
+    ...copyStageDetails(profile),
     requests: profile.requests,
     errors: profile.errors,
     serverErrors: profile.serverErrors,
@@ -175,6 +177,7 @@ function addRequestToProfile(
   profile: MutableFeatureProfile,
   record: RequestProfileRecord,
 ): number {
+  mergeStageDetails(profile, record);
   const durationMs = Math.max(0, record.durationMs);
   profile.requests += 1;
   profile.errors +=
@@ -241,6 +244,7 @@ export function createProfilerAggregator(options: AggregatorOptions = {}) {
 
     if (durationMs >= slowRequestThresholdMs && slowRequestLimit > 0) {
       current.slowRequests.push({
+        ...copyStageDetails(record),
         feature: record.feature,
         operation: record.operation,
         method: record.method,

@@ -26,7 +26,7 @@ import {
   type V2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 import {
-  resolveElementalResonanceLoadout,
+  resolveElementalResonanceCombat,
   selectV2CastVariant,
 } from "@/adventure/data/v2/elementalResonance";
 import {
@@ -911,7 +911,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const gate = skillGateRecorder(input.diagnosticActor);
   // 1) cd tick.
   const ticked = tickV2SkillCooldowns(input.cooldowns);
-  const resonance = resolveElementalResonanceLoadout({
+  const resonance = resolveElementalResonanceCombat({
     learned: input.skills.learned,
     equipped: input.skills.equipped,
   });

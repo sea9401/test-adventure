@@ -22,12 +22,68 @@ vi.mock("@/adventure/data/v2/masteryTower", async (importOriginal) => {
 });
 
 import { GET } from "./route";
+import { createRequestProfile, runWithRequestProfile } from "@/lib/server/runtimeProfiler/requestContext";
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 describe("개인 랭킹", () => {
+  it("동시에 기다리는 랭킹 요청은 공유 대기만 기록하고 갱신을 중복 귀속하지 않는다", async () => {
+    vi.resetModules();
+    const route = await import("./route");
+    let beginRead!: () => void;
+    let finishRead!: (value: { rows: [] }) => void;
+    const started = new Promise<void>((resolve) => { beginRead = resolve; });
+    const read = new Promise<{ rows: [] }>((resolve) => { finishRead = resolve; });
+    execute.mockImplementation(() => { beginRead(); return read; });
+    const profile = () => createRequestProfile({ feature: "social", method: "GET", startedAtNs: BigInt(0), socketBytesAtStart: 0 });
+    const a = profile(), b = profile();
+    const request = () => new Request("http://localhost/api/rankings?metric=combatPower");
+    const first = runWithRequestProfile(a, () => route.GET(request()));
+    await started;
+    const second = runWithRequestProfile(b, () => route.GET(request()));
+    await Promise.resolve();
+    finishRead({ rows: [] });
+    const responses = await Promise.all([first, second]);
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    expect(a.stages?.["ranking.combatPower.refresh"]?.count).toBe(1);
+    expect(b.stages).toBeUndefined();
+    expect(b.counters).toEqual({ "ranking.combatPower.cacheShared": 1 });
+  });
+
+  it.each(["combatPower", "achievementScore"] as const)("%s 갱신의 DB/계산과 캐시 적중을 별도로 기록한다", async (metric) => {
+    vi.resetModules();
+    const route = await import("./route");
+    execute.mockResolvedValue({ rows: [] });
+    const profile = () => createRequestProfile({ feature: "social", method: "GET", startedAtNs: BigInt(0), socketBytesAtStart: 0 });
+    const cold = profile(), warm = profile();
+    const request = () => new Request(`http://localhost/api/rankings?metric=${metric}`);
+    const response = await runWithRequestProfile(cold, () => route.GET(request()));
+    expect((await response.json()).list).toEqual([]);
+    await runWithRequestProfile(warm, () => route.GET(request()));
+    expect(cold.stages?.[`ranking.${metric}.database`]).toMatchObject({ count: 1, errors: 0 });
+    expect(cold.stages?.[`ranking.${metric}.compute`]).toMatchObject({ count: 1, errors: 0 });
+    expect(cold.stages?.[`ranking.${metric}.refresh`]).toMatchObject({ count: 1, errors: 0 });
+    expect(cold.counters?.[`ranking.${metric}.cacheMiss`]).toBe(1);
+    expect(warm.counters?.[`ranking.${metric}.cacheHit`]).toBe(1);
+    expect(warm.stages).toBeUndefined();
+  });
+
+  it("실패한 랭킹 갱신은 오류를 기록하고 다음 요청에서 재시도한다", async () => {
+    vi.resetModules();
+    const route = await import("./route");
+    const failure = new Error("database unavailable");
+    execute.mockRejectedValueOnce(failure).mockResolvedValue({ rows: [] });
+    const p = createRequestProfile({ feature: "social", method: "GET", startedAtNs: BigInt(0), socketBytesAtStart: 0 });
+    const request = () => new Request("http://localhost/api/rankings?metric=combatPower");
+    await expect(runWithRequestProfile(p, () => route.GET(request()))).rejects.toBe(failure);
+    expect(p.stages?.["ranking.combatPower.database"]?.errors).toBe(1);
+    expect(p.stages?.["ranking.combatPower.refresh"]?.errors).toBe(1);
+    expect(p.stages?.["ranking.combatPower.compute"]).toBeUndefined();
+    expect((await route.GET(request())).status).toBe(200);
+  });
+
   it("정지 중인 계정을 제외하고 남은 이용자의 순위를 다시 매긴다", async () => {
     execute.mockResolvedValueOnce({
       rows: [

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createProfilerAggregator } from "./aggregate";
 import { installHttpRequestInstrumentation } from "./httpInstrumentation";
 import { currentRequestProfile } from "./requestContext";
+import { profileSyncStage, recordProfileCounter } from "./stages";
 
 class FakeServer extends EventEmitter {}
 
@@ -13,6 +14,23 @@ class FakeResponse extends EventEmitter {
 }
 
 describe("installHttpRequestInstrumentation", () => {
+  it("응답 종료 시 단계 계측을 기존 기능별 로그로 전달한다", () => {
+    class StageServer extends EventEmitter {}
+    const aggregator = createProfilerAggregator();
+    installHttpRequestInstrumentation(aggregator, { serverPrototype: StageServer.prototype });
+    const server = new StageServer();
+    const response = new FakeResponse();
+    server.on("request", () => {
+      profileSyncStage("hunt.battle", () => recordProfileCounter("hunt.turns", 12));
+    });
+    server.emit("request", { method: "POST", url: "/api/v2/dungeon/hunt" }, response);
+    response.emit("finish");
+    response.emit("close");
+    const result = aggregator.snapshot().current.operations["POST /api/v2/dungeon/hunt"];
+    expect(result.stages?.["hunt.battle"]).toMatchObject({ count: 1, errors: 0 });
+    expect(result.counters).toEqual({ "hunt.turns": 12 });
+  });
+
   it("요청 컨텍스트에서 수행된 작업을 응답 완료 시 한 번 집계한다", () => {
     const aggregator = createProfilerAggregator({ now: () => 0 });
     const timestamps = [BigInt(0), BigInt(50_000_000)];

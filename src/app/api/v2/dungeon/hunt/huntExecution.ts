@@ -1,3 +1,5 @@
+import { profileAsyncSequence, recordProfileCounter } from "@/lib/server/runtimeProfiler/stages";
+import type { ProfileStage } from "@/lib/server/runtimeProfiler/stageMetrics";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import { createRequestPhaseTracker } from "@/lib/server/runtimeProfiler/requestPhases";
 import {
@@ -172,7 +174,9 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   const phases = createRequestPhaseTracker();
   phases.enter("hunt.prepare");
   try {
-    return await runOneHuntPhased(fullReplay, ctx, phases);
+    return await profileAsyncSequence("hunt.prepare", (enterStage) =>
+      runOneHuntPhased(fullReplay, ctx, phases, enterStage),
+    );
   } catch (error) {
     phases.finish(true);
     throw error;
@@ -185,6 +189,7 @@ async function runOneHuntPhased(
   fullReplay: boolean,
   ctx: RunOneHuntCtx,
   phases: ReturnType<typeof createRequestPhaseTracker>,
+  enterStage: (stage: ProfileStage) => void,
 ) {
   const {
     tx,
@@ -662,6 +667,7 @@ async function runOneHuntPhased(
 
   // v2Skills 는 위(derive 직전)에서 이미 lock-read·parse 했다. cast hook 이 그대로 사용.
   phases.enter("hunt.battle");
+  enterStage("hunt.battle");
   const battleResult = resolveBattle(
     playerForBattle,
     enemyMonster,
@@ -677,6 +683,9 @@ async function runOneHuntPhased(
   );
 
   phases.enter("hunt.settlement");
+  enterStage("hunt.rewards");
+  recordProfileCounter("hunt.resolvedBattles");
+  recordProfileCounter("hunt.turns", battleResult.turns);
   const won = battleResult.outcome === "win";
   const timedOut = battleResult.endReason === "timeout";
   // 희귀 탐사는 실제 전투를 한 번만 해결하고, 승리 뒤 저장된 runsLeft만큼 기존 보상을

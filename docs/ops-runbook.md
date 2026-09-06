@@ -331,6 +331,50 @@ DB 지연은 다음 순서로 판단한다.
    인스턴스 용량을 조사한다. 작은 RDS에서 근거 없이 풀 크기부터 올리면 커넥션 메모리와
    동시 쿼리 경합이 늘 수 있다.
 
+### 사냥·랭킹 단계별 계측
+
+계측이 적용된 빌드에서는 기존 `features.*`, `operations.*`, `slowRequests[]`에
+선택적 `stages`와 `counters`가 포함된다. 기존 관리자 profiler API에도 같은 데이터가
+나온다. 계측하지 않은 요청은 새 필드가 없다. 설정과 보존 기간은 기존 profiler와 같다.
+
+`stages.<단계>`는 `{ count, errors, totalMs, maxMs }`다. `totalMs / count`로 호출당
+평균을 계산하며, `errors`는 단계 안에서 던져진 예외 수다(정상 반환한 400 응답과는 다름).
+모든 시간은 밀리초다. 사용자 ID·URL·원본 query string·장착 스킬은 기록하지 않는다.
+
+| 단계 | 의미 |
+|---|---|
+| `hunt.intent` | 요청 해석·권한에 따른 사냥 횟수 결정 |
+| `hunt.transaction` | 트랜잭션 대기·실행·커밋 전체 |
+| `hunt.prepare` | 각 전투의 세이브 읽기·능력치 준비·진입 검사 |
+| `hunt.battle` | 동기 전투 계산 |
+| `hunt.rewards` | 전투 후 보상 계산·반영·리플레이 구성(내부 DB 작업 포함) |
+| `hunt.save` | 누적 세이브 최종 flush |
+| `hunt.replay`, `hunt.broadcast` | 배치 리플레이 지연 저장과 드랍 알림 처리 |
+| `ranking.<metric>.refresh` | 캐시 미스 시 랭킹 갱신 전체 |
+| `ranking.combatPower.database`, `ranking.achievementScore.database` | 해당 랭킹의 DB 읽기 완료까지 |
+| `ranking.combatPower.compute`, `ranking.achievementScore.compute` | DB 읽기 뒤 동기 계산·정렬 |
+
+`counters`에는 `hunt.requestedBattles`(권한/상한 적용 후 요청 횟수),
+`hunt.resolvedBattles`(실제 전투 계산 횟수), `hunt.turns`(반환된 전투 턴 수 합계)와
+`ranking.<metric>.cacheHit/cacheMiss/cacheShared`가 들어간다. 요청 횟수가 같아도
+배치 크기·전투 턴이 늘었는지, 랭킹의 캐시 미스가 늘었는지 비교한다. 일반 API 호출의
+횟수/오류는 기존 `requests/errors`를 함께 본다.
+
+해석 시 다음을 지킨다.
+
+- `transaction`과 `refresh`는 하위 단계를 포함한다. 전체 단계 시간을 단순 합산하지 않는다.
+- `prepare/battle/rewards`는 각 전투 안에서 순차적이다. 배치 사냥은 여러 전투의 값이
+  누적되며, prepare에서 거절되면 battle/rewards는 없다. 일부 공통 배치 후처리는
+  transaction에만 들어간다. `rewards`는 순수 CPU 시간이 아니다.
+- `database`는 전송·파싱·이벤트 루프 대기도 포함한 Node 측 경과 시간이다.
+  RDS 실행 시간 자체로 해석하지 않는다.
+- 같은 랭킹 갱신을 기다리는 요청은 `cacheShared`만 기록한다. 갱신 시간은 최초
+  생성 요청에 한 번 귀속된다. 캐시 적중 요청에는 refresh/database/compute가 없다.
+- 응답 종료 또는 연결 중단 시점의 완료된 단계만 HTTP 표본으로 집계한다.
+  연결 중단 뒤 완료된 계산은 해당 요청의 단계 집계에 포함되지 않을 수 있다.
+- 고정 metric 허용 목록은 level, fame, combatPower, lifeMastery, codexCompletion,
+  masteryTower, achievementScore, towerWeek, towerChallenge다.
+
 `pg_stat_statements` 활성화나 RDS Performance/Database Insights 변경은 이 프로파일러보다
 상세한 SQL별 분석이 필요할 때 수행한다. 파라미터 그룹 재부팅 또는 과금·보존기간 변경이
 수반될 수 있으므로 운영 승인 없이 적용하지 않는다. 승인 후에는 변경 전 파라미터 그룹,

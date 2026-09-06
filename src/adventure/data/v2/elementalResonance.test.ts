@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { V2SkillId } from "./v2Skills";
-import { resolveElementalResonanceLoadout } from "./elementalResonance";
+import { resolveElementalResonanceCombat, resolveElementalResonanceLoadout } from "./elementalResonance";
 
 const MATERIALS = [
   "v2c_firemage_inferno",
@@ -23,6 +23,22 @@ const PRIMORDIAL = [
 ] as const satisfies readonly V2SkillId[];
 
 describe("원소 공명 로드아웃 해석", () => {
+  it("전투용 해석은 촉매와 흡수 재료만 시전 후보에서 제외한다", () => {
+    const catalyst = [...PRIMORDIAL, "v2c_elementallord_surge"] as const;
+    expect(resolveElementalResonanceCombat({ learned: catalyst, equipped: catalyst })
+      .activeCombatSkillIds).toEqual([
+      "v2c_primordialmage_return", "v2c_primordialmage_resonance",
+    ]);
+    expect(resolveElementalResonanceCombat({ learned: ELEMENTAL_LORD, equipped: ELEMENTAL_LORD })
+      .activeCombatSkillIds).toEqual([
+      "v2c_elementallord_surge", "v2c_elementallord_resonance",
+    ]);
+    expect(resolveElementalResonanceCombat({ learned: MATERIALS, equipped: MATERIALS })
+      .activeCombatSkillIds).toEqual(MATERIALS);
+    expect(resolveElementalResonanceCombat({ learned: [], equipped: [] })
+      .activeCombatSkillIds).toEqual([]);
+  });
+
   it("완성 회로와 선택 주문식에 맞춰 승인된 총 SP를 계산한다", () => {
     expect(
       resolveElementalResonanceLoadout({

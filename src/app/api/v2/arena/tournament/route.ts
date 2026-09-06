@@ -23,7 +23,7 @@ export async function GET() {
   const season = await getOrCreateCurrentSeason(now);
   const phase = arenaSeasonPhase(season.endAt, now);
   const current =
-    phase === "tournament" ? await ensureArenaTournament(now) : null;
+    phase === "tournament" ? await ensureArenaTournament(now, season) : null;
   const latest =
     current?.kind === "ok"
       ? { seasonId: current.seasonId, bracket: current.bracket }

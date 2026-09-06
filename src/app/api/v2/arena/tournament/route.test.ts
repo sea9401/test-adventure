@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   ensureUser: vi.fn(),
@@ -20,6 +20,7 @@ import { GET } from "./route";
 
 describe("GET arena tournament schedule", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-22T00:00:00.000Z"));
     mocks.ensureUser.mockResolvedValue("viewer");
@@ -53,4 +54,18 @@ describe("GET arena tournament schedule", () => {
     expect(json.season.startsAt).toBe("2026-08-23T04:00:00.000Z");
     expect(json.tournament.bracket.startsAt).toBe("2026-08-16T10:00:00.000Z");
   });
+  afterEach(() => vi.useRealTimers());
+
+  it("reuses the request season when resolving Sunday's tournament", async () => {
+    vi.setSystemTime(new Date("2026-08-23T11:00:00Z"));
+    mocks.ensureArenaTournament.mockResolvedValue(null);
+    const response = await GET();
+    expect(response.status).toBe(200);
+    expect((await response.json()).phase).toBe("tournament");
+    expect(mocks.ensureArenaTournament).toHaveBeenCalledWith(
+      new Date("2026-08-23T11:00:00Z"),
+      { id: "2026-W34", endAt: new Date("2026-08-23T15:00:00Z") },
+    );
+  });
+
 });

@@ -564,8 +564,10 @@ async function advanceTournament(
 
 export async function ensureArenaTournament(
   now: Date = new Date(),
+  resolvedSeason?: Awaited<ReturnType<typeof getOrCreateCurrentSeason>>,
 ): Promise<ArenaTournamentEnsureResult> {
-  const season = await getOrCreateCurrentSeason(now);
+  // Reuse only a season resolved by the caller for this request and `now`.
+  const season = resolvedSeason ?? (await getOrCreateCurrentSeason(now));
   const phase = arenaSeasonPhase(season.endAt, now);
   if (phase !== "tournament") {
     return {
@@ -577,6 +579,27 @@ export async function ensureArenaTournament(
     };
   }
 
+  // Finished tournaments need neither combat snapshots nor write locks. Do not
+  // cache this read: operator changes must remain visible on the next request.
+  const existing = await db
+    .select({ bracket: pvpTournaments.bracket })
+    .from(pvpTournaments)
+    .where(eq(pvpTournaments.seasonId, season.id))
+    .limit(1)
+    .then((rows) => rows[0]);
+  const bracket = existing?.bracket as ArenaTournamentBracket | undefined;
+  if (bracket?.status === "completed" || bracket?.status === "not_enough_players") {
+    return {
+      kind: "ok",
+      seasonId: season.id,
+      created: false,
+      processedMatches: 0,
+      bracket,
+    };
+  }
+
+  // Missing/active brackets are always re-read under the existing locks before
+  // creation, snapshot freezing, match resolution, or reward distribution.
   return db.transaction(async (tx) => {
     await tx
       .select({ id: pvpSeasons.id })

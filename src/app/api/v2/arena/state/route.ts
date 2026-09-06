@@ -58,7 +58,7 @@ export async function GET() {
   const phase = arenaSeasonPhase(season.endAt, now);
   // 일요일 첫 아레나 진입도 크론 누락을 자가 복구한다. 시즌 row 잠금 + 시즌당 PK로
   // 중복 생성/보상은 발생하지 않는다.
-  if (phase === "tournament") await ensureArenaTournament(now);
+  if (phase === "tournament") await ensureArenaTournament(now, season);
   const ratingRow = await db
     .select({
       rating: pvpRatings.rating,

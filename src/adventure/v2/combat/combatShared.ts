@@ -791,6 +791,7 @@ export type V2SkillCastInput = {
     enemyDamageDownActive?: boolean;
     enemySkillProcDownActive?: boolean;
     enemyHealReductionActive?: boolean;
+    enemyDotVulnerabilityActive?: boolean;
     // PR-5a: target buff/debuff 둘 다 필요 — target.vit buff 가 def 증폭, vit debuff 가 def 감소.
     selfBuffs: V2BuffMap;
     selfDebuffs: V2BuffMap;
@@ -897,6 +898,7 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
     enemyDamageDownActive: t.enemyDamageDownActive ?? false,
     enemySkillProcDownActive: t.enemySkillProcDownActive ?? false,
     enemyHealReductionActive: t.enemyHealReductionActive ?? false,
+    enemyDotVulnerabilityActive: t.enemyDotVulnerabilityActive ?? false,
     enemyStatDebuffs: new Set(
       (Object.entries(t.selfDebuffs) as [StatKey, V2BuffEntry | undefined][])
         .filter(([, entry]) => entry != null && entry.turns > 0)

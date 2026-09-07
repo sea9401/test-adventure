@@ -453,15 +453,30 @@ export async function POST(req: Request) {
         const originRows = await tx.select({ userId: cookingFirstDiscoveries.userId }).from(cookingFirstDiscoveries).where(eq(cookingFirstDiscoveries.recipeId, recipe.id)).limit(1);
         const originator = originRows[0]?.userId === userId;
         const specialtyBonusPct = cooking.specialty?.field === recipe.field ? cookingSpecialtyRank(cooking.specialty.xp) : 0;
-        const quality = rollCookingQuality({
+        const qualityArgs = {
           jobTier: job.tier,
           carefulChancePct: skillBonuses.carefulChancePct,
           masterpieceChancePct: skillBonuses.masterpieceChancePct
             + levelBonuses.masterpieceChancePct
             + (usePrepSet ? COOKING_PREP_SET_MASTERPIECE_BONUS_PCT : 0),
-        });
-        const foodId = cookingFoodId({ recipeId: recipe.id, quality, originator, specialtyBonusPct });
-        inventory = { ...inventory, cookingFoods: addCookingFood(inventory.cookingFoods, foodId, quantity) };
+        };
+        const qualityCounts: Record<CookingQuality, number> = {
+          normal: 0,
+          careful: 0,
+          masterpiece: 0,
+        };
+        let cookingFoods = inventory.cookingFoods;
+        let singleQuality: CookingQuality | null = null;
+        let singleFoodId: CookingFoodId | null = null;
+        for (let index = 0; index < quantity; index += 1) {
+          const quality = rollCookingQuality(qualityArgs);
+          const foodId = cookingFoodId({ recipeId: recipe.id, quality, originator, specialtyBonusPct });
+          qualityCounts[quality] += 1;
+          cookingFoods = addCookingFood(cookingFoods, foodId, 1);
+          singleQuality = quality;
+          singleFoodId = foodId;
+        }
+        inventory = { ...inventory, cookingFoods };
         const foodXpBonus = activeCookingBuff(character.activeFoodBuff, now)?.effect.cookingXpPct ?? 0;
         const earnedXp = Math.max(1, Math.round(recipe.craftXp * quantity * (100 + skillBonuses.xpBonusPct + foodXpBonus + (job.tier >= 2 ? 10 : 0)) / 100));
         const applied = applyLifeXpGain({ xp: cooking.xp, gainedXp: earnedXp, legacyThreshold: cookingLevelXpThreshold });
@@ -469,9 +484,21 @@ export async function POST(req: Request) {
           ...cooking, xp: applied.xp, kitchenItems: consumed.balances.kitchen,
           ingredientReductionRemainderBps: consumed.remainders,
           specialty: cooking.specialty?.field === recipe.field ? { ...cooking.specialty, xp: cooking.specialty.xp + recipe.tier * 10 * quantity } : cooking.specialty,
-          stats: { ...cooking.stats, dishesCooked: cooking.stats.dishesCooked + quantity, masterpiecesCooked: cooking.stats.masterpiecesCooked + (quality === "masterpiece" ? quantity : 0) },
+          stats: { ...cooking.stats, dishesCooked: cooking.stats.dishesCooked + quantity, masterpiecesCooked: cooking.stats.masterpiecesCooked + qualityCounts.masterpiece },
         };
-        result = { action, recipeId, quantity, quality, foodId, originator, specialtyBonusPct, earnedXp, usedPrepSets: usePrepSet ? quantity : 0 };
+        result = {
+          action,
+          recipeId,
+          quantity,
+          qualityCounts,
+          ...(quantity === 1 && singleQuality && singleFoodId
+            ? { quality: singleQuality, foodId: singleFoodId }
+            : {}),
+          originator,
+          specialtyBonusPct,
+          earnedXp,
+          usedPrepSets: usePrepSet ? quantity : 0,
+        };
       } else if (action === "buy_pantry") {
         const itemId = body?.itemId as CookingPantryItem["id"];
         const quantity = positiveQuantity(body?.quantity ?? 1, 100);

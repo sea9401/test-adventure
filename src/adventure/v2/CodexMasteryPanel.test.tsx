@@ -1,4 +1,7 @@
+// @vitest-environment jsdom
 import { renderToStaticMarkup } from "react-dom/server";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach } from "vitest";
 import { describe, expect, it, vi } from "vitest";
 import type {
   CodexMasteryCategoryView,
@@ -13,6 +16,8 @@ import {
   formatCodexMasteryDate,
   paginateCodexMasteryEntries,
 } from "./CodexMasteryPanel";
+
+afterEach(cleanup);
 
 function entry(
   overrides: Partial<CodexMasteryEntryView> = {},
@@ -263,6 +268,43 @@ describe("codex mastery exploration helpers", () => {
 });
 
 describe("CodexMasteryPanel", () => {
+  it("expands details inside the selected row, collapses them, and clears selection on filtering", () => {
+    const view = render(<CodexMasteryPanel state={{ status: "ready", snapshot: snapshot() }} onRetry={vi.fn()} onReplacePinnedGoals={vi.fn()} />);
+    const row = view.container.querySelector('[data-mastery-entry="fish:carp"]')!;
+    const toggle = row.querySelector('button[aria-expanded]')!;
+    expect(screen.queryByText("개인 최고 88.4")).toBeNull();
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(row.contains(screen.getByText("개인 최고 88.4"))).toBe(true);
+    fireEvent.click(toggle);
+    expect(screen.queryByText("개인 최고 88.4")).toBeNull();
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole("button", { name: "금 미만" }));
+    expect(screen.queryByText("개인 최고 88.4")).toBeNull();
+  });
+
+  it("keeps a hidden cooking detail anonymous when opened", () => {
+    const hidden = entry({ category: "cooking", key: "cooking:secret_soup", entryId: "secret_soup", label: "비밀 수프", currentTier: "none" });
+    const view = render(<CodexMasteryPanel state={{ status: "ready", snapshot: snapshot([hidden]) }} onRetry={vi.fn()} onReplacePinnedGoals={vi.fn()} />);
+    fireEvent.click(view.container.querySelector('button[aria-expanded]')!);
+    expect(screen.getByText(/아직 발견하지 않은 요리입니다/)).toBeTruthy();
+    expect(view.container.innerHTML).not.toContain("비밀 수프");
+  });
+
+  it("hides undiscovered cooking names in rows and pinned goals and excludes secret name/id searches", () => {
+    const hidden = entry({ category: "cooking", key: "cooking:secret_soup", entryId: "secret_soup", label: "비밀 수프", currentTier: "none" });
+    const value = snapshot([hidden]);
+    value.pinnedGoals = [{ category: "cooking", entryId: "secret_soup" }];
+    const html = renderToStaticMarkup(<CodexMasteryPanel state={{ status: "ready", snapshot: value }} onRetry={vi.fn()} onReplacePinnedGoals={vi.fn()} />);
+    expect(html).not.toContain("비밀 수프");
+    expect(html).toContain("미발견 요리");
+    for (const query of ["비밀", "secret_soup"]) {
+      expect(filterCodexMasteryEntries([hidden], { category: "all", filter: "all", query, sealsEnabled: false })).toEqual([]);
+    }
+    expect(filterCodexMasteryEntries([{ ...hidden, currentTier: "discovered" }], { category: "all", filter: "all", query: "비밀", sealsEnabled: false })).toHaveLength(1);
+    expect(filterCodexMasteryEntries([{ ...hidden, nameHidden: false }], { category: "all", filter: "all", query: "비밀", sealsEnabled: false })).toHaveLength(1);
+  });
+
   it.each([
     ["loading", "도감 숙련을 불러오는 중"],
     ["disabled", "도감 숙련 공개를 준비하고 있어요"],
@@ -287,7 +329,7 @@ describe("CodexMasteryPanel", () => {
     expect(html).toContain("다시 불러오기");
   });
 
-  it("renders the overview, goals, filters, and first entry detail without fake future values", () => {
+  it("renders the overview, goals, and filters with details initially collapsed", () => {
     const html = renderToStaticMarkup(
       <CodexMasteryPanel
         state={{ status: "ready", snapshot: snapshot() }}
@@ -304,9 +346,8 @@ describe("CodexMasteryPanel", () => {
     expect(html).toContain("최근 승급");
     expect(html).toContain("승급 임박 목표");
     expect(html).toContain("황금 잉어");
-    expect(html).toContain("개인 최고 88.4");
-    expect(html).toContain("금 · 10회");
-    expect(html).toContain("특별 인장 1/2");
+    expect(html).not.toContain("개인 최고 88.4");
+    expect(html).toContain('aria-expanded="false"');
     expect(html).toContain("서버 랭킹 · 트로피 · 월간 연구전 기능은 다음 단계에서 연결됩니다");
     expect(html).not.toContain("서버 순위 0위");
   });

@@ -174,6 +174,48 @@ describe("요리 도감 페이지네이션", () => {
     });
   });
 
+  it("레시피별 조리 수량을 한 번의 요청에 전달한다", () => {
+    const data = codexFixture(1);
+    const mutate = vi.fn(async () => undefined);
+    render(
+      <CookingCodexPanel data={data} busy={false} mutate={mutate} />,
+    );
+
+    const quantity = screen.getByRole("spinbutton", {
+      name: `${data.knownRecipes[0].name} 조리 수량`,
+    });
+    fireEvent.change(quantity, { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: "3개 조리" }));
+
+    expect(mutate).toHaveBeenCalledOnce();
+    expect(mutate).toHaveBeenCalledWith({
+      action: "craft",
+      recipeId: data.knownRecipes[0].id,
+      quantity: 3,
+      usePrepSet: false,
+    });
+  });
+
+  it("조리 수량을 1개에서 20개 사이로 제한한다", () => {
+    const data = codexFixture(1);
+    render(
+      <CookingCodexPanel
+        data={data}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+
+    const quantity = screen.getByRole("spinbutton", {
+      name: `${data.knownRecipes[0].name} 조리 수량`,
+    }) as HTMLInputElement;
+    fireEvent.change(quantity, { target: { value: "21" } });
+    expect(quantity.value).toBe("20");
+
+    fireEvent.change(quantity, { target: { value: "0" } });
+    expect(quantity.value).toBe("1");
+  });
+
   it("레시피를 12개씩 보여주고 다음 페이지로 이동한다", () => {
     const { container } = render(
       <CookingCodexPanel

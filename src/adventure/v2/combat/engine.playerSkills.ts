@@ -325,6 +325,7 @@ export function applyPlayerV2SkillCast(
       enemyDamageDownActive: state.stacks.enemyDamageDownTurns > 0,
       enemySkillProcDownActive: state.stacks.enemySkillProcDownTurns > 0,
       enemyHealReductionActive: state.stacks.enemyHealReduceTurns > 0,
+      enemyDotVulnerabilityActive: state.stacks.enemyDotVulnTurns > 0,
     },
   };
   const ruinChargeAtActionStart = state.stacks.tier7?.ruinCharge;

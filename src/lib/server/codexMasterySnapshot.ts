@@ -19,6 +19,7 @@ import type {
   CodexMasteryViewFeatures,
 } from "@/adventure/data/v2/codexMasteryView";
 import type { CodexResearchPersonalView } from "@/adventure/data/v2/codexResearch";
+import { codexMasteryEntryLabel } from "@/adventure/data/v2/codexMasteryView";
 import type { CodexMasterySummaryState } from "./codexMasteryRepository";
 
 const COUNT_STAGES: readonly CodexMasteryCountStage[] = [
@@ -112,6 +113,7 @@ export function buildCodexMasterySnapshot({
   pinnedGoals,
   features,
   monthlyResearch,
+  knownCookingRecipeIds = [],
   catalog = CODEX_MASTERY_CATALOG,
 }: {
   summary: CodexMasterySummaryState;
@@ -119,6 +121,7 @@ export function buildCodexMasterySnapshot({
   pinnedGoals: readonly CodexMasteryPinnedGoal[];
   features: CodexMasteryViewFeatures;
   monthlyResearch: CodexResearchPersonalView | null;
+  knownCookingRecipeIds?: readonly string[];
   catalog?: CodexMasteryCatalog;
 }): CodexMasterySnapshot {
   const progressByKey = new Map<string, CodexMasteryProgress>();
@@ -130,16 +133,20 @@ export function buildCodexMasterySnapshot({
   const pinnedKeys = new Set(
     pinnedGoals.map((goal) => entryKey(goal.category, goal.entryId)),
   );
+  const knownRecipes = new Set(knownCookingRecipeIds);
 
   const entries = catalog.list().map((definition): CodexMasteryEntryView => {
     const key = entryKey(definition.category, definition.entryId);
     const progress = progressByKey.get(key) ??
       emptyCodexMasteryProgress(definition.category, definition.entryId);
+    const nameHidden = definition.category === "cooking" &&
+      progress.currentTier === "none" && !knownRecipes.has(definition.entryId);
     return {
       key,
       category: definition.category,
       entryId: definition.entryId,
-      label: definition.label,
+      label: codexMasteryEntryLabel({ ...definition, currentTier: progress.currentTier, nameHidden }),
+      nameHidden,
       count: progress.count,
       bestValue: progress.bestValue,
       currentTier: progress.currentTier,

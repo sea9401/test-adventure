@@ -12,6 +12,8 @@ import {
 } from "@/lib/server/codexMasteryPins";
 import { buildCodexMasterySnapshot } from "@/lib/server/codexMasterySnapshot";
 import { readCodexResearchPersonalView } from "@/lib/server/codexResearchService";
+import { readSave } from "@/lib/server/savesKv";
+import { COOKING_SAVE_KEY, parseCookingState } from "@/adventure/v2/cooking/state";
 
 export async function GET() {
   const userId = await ensureUser();
@@ -24,13 +26,14 @@ export async function GET() {
     return Response.json({ ok: true, enabled: false });
   }
 
-  const [summary, progressRows, pinnedGoals, monthlyResearch] = await Promise.all([
+  const [summary, progressRows, pinnedGoals, monthlyResearch, cookingRaw] = await Promise.all([
     readCodexMasterySummary(db, userId),
     readCodexMasteryProgressRows(db, userId),
     readCodexMasteryPins(db, userId),
     settings.monthlyProgressEnabled
       ? readCodexResearchPersonalView(db, userId)
       : Promise.resolve(null),
+    readSave(db, userId, COOKING_SAVE_KEY, {}),
   ]);
   const snapshot = buildCodexMasterySnapshot({
     summary,
@@ -43,6 +46,7 @@ export async function GET() {
       monthlyProgressEnabled: settings.monthlyProgressEnabled,
     },
     monthlyResearch,
+    knownCookingRecipeIds: parseCookingState(cookingRaw, Date.now()).discoveredRecipeIds,
   });
   return Response.json({ ok: true, enabled: true, snapshot });
 }

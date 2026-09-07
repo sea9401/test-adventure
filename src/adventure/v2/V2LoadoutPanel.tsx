@@ -3,10 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowsDownUp,
+  CaretDown,
   DotsSixVertical,
   MagnifyingGlass,
-  Rows,
-  SquaresFour,
   Star,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
@@ -39,6 +38,12 @@ import {
   type SkillJobTierFilter,
   type SkillLineageFilter,
 } from "./skillLibraryFilters";
+import {
+  equippedPassiveSummary,
+  isConditionalPassiveSkill,
+  skillLibraryTags,
+  type SkillLibraryViewMode,
+} from "./skillLibraryPresentation";
 
 // SP 로드아웃 패널 — 배운 전투 스킬은 SP 예산 안으로 장착/해제하고, 생활 패시브는 항상 적용한다.
 //   공용/기본기는 직업 무관 장착(오픈믹스), 시그니처는 현 직업 체인 밖이면 잠김(locked).
@@ -146,6 +151,14 @@ type SkillDomain = "combat" | "lifestyle";
 
 const AUTO_SCROLL_EDGE_PX = 80;
 const AUTO_SCROLL_MAX_STEP = 18;
+const SKILL_LIBRARY_VIEW_MODES: ReadonlyArray<{
+  id: SkillLibraryViewMode;
+  label: string;
+}> = [
+  { id: "detailed", label: "상세" },
+  { id: "compact", label: "간략" },
+  { id: "minimal", label: "최소" },
+];
 
 export const V2_SKILL_VISIBILITY_STORAGE_KEY =
   "adventure.v2.loadoutHiddenSkillIds";
@@ -228,7 +241,9 @@ export function V2LoadoutPanel({
   const [skillLineageFilter, setSkillLineageFilter] =
     useState<SkillLineageFilter>("all");
   const [domain, setDomain] = useState<SkillDomain>("combat");
-  const [compact, setCompact] = useState(false);
+  const [viewMode, setViewMode] =
+    useState<SkillLibraryViewMode>("compact");
+  const [expandedSkillId, setExpandedSkillId] = useState<string | null>(null);
   const [combatEquippedOpen, setCombatEquippedOpen] = useState(false);
   const [visibilitySettingsOpen, setVisibilitySettingsOpen] = useState(false);
   const [hiddenSkillIds, setHiddenSkillIds] = useState<Set<string>>(
@@ -344,6 +359,15 @@ export function V2LoadoutPanel({
     () => equippedSkills.filter((skill) => !isLifestyleSkillId(skill.skillId)),
     [equippedSkills],
   );
+  const equippedPassiveSnapshot = useMemo(() => {
+    const skillIds = combatEquippedSkills
+      .filter((skill) => Boolean(V2_SKILLS[skill.skillId as V2SkillId]?.passive))
+      .map((skill) => skill.skillId);
+    return {
+      count: skillIds.length,
+      items: equippedPassiveSummary(skillIds),
+    };
+  }, [combatEquippedSkills]);
   const searchIndex = useMemo(
     () =>
       new Map(
@@ -1022,6 +1046,43 @@ export function V2LoadoutPanel({
           </div>
         </section>
       </div>
+      <section
+        className={`mt-3 p-3 ${SURFACE_INSET}`}
+        aria-labelledby="equipped-passive-summary-heading"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <h3
+            id="equipped-passive-summary-heading"
+            className="text-xs font-semibold text-zinc-700 dark:text-zinc-200"
+          >
+            장착 패시브 합계
+          </h3>
+          <span className="shrink-0 text-[11px] font-medium text-violet-700 dark:text-violet-300">
+            {equippedPassiveSnapshot.count}개 적용
+          </span>
+        </div>
+        {equippedPassiveSnapshot.items.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {equippedPassiveSnapshot.items.map((item) => (
+              <span
+                key={item.id}
+                className="inline-flex min-h-7 items-center gap-1 rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+              >
+                {item.conditional && (
+                  <span className="rounded border border-dashed border-amber-500 bg-amber-50 px-1 py-0.5 text-[9px] font-semibold text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                    조건부
+                  </span>
+                )}
+                {item.label}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+            장착된 전투 패시브가 없어요.
+          </p>
+        )}
+      </section>
       <div className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">
         <div className="grid grid-cols-2 gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
           {(["combat", "lifestyle"] as const).map((item) => {
@@ -1135,18 +1196,30 @@ export function V2LoadoutPanel({
             />
           </label>
           <div className="flex w-full items-center gap-1.5 sm:w-auto">
-            <button
-              type="button"
-              onClick={() => setCompact((v) => !v)}
-              className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 sm:flex-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            >
-              {compact ? (
-                <Rows size={14} weight="bold" />
-              ) : (
-                <SquaresFour size={14} weight="bold" />
-              )}
-              {compact ? "상세" : "간략"}
-            </button>
+            <div className="grid flex-1 grid-cols-3 rounded-md border border-zinc-300 bg-zinc-100 p-0.5 sm:flex-none dark:border-zinc-700 dark:bg-zinc-800">
+              {SKILL_LIBRARY_VIEW_MODES.map((mode) => {
+                const selected = viewMode === mode.id;
+                return (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => {
+                      setViewMode(mode.id);
+                      setExpandedSkillId(null);
+                    }}
+                    aria-label={`${mode.label} 보기 모드`}
+                    aria-pressed={selected}
+                    className={`h-7 rounded px-2 text-[11px] font-semibold transition-colors ${
+                      selected
+                        ? "bg-white text-violet-700 shadow-sm dark:bg-zinc-950 dark:text-violet-300"
+                        : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100"
+                    }`}
+                  >
+                    {mode.label}
+                  </button>
+                );
+              })}
+            </div>
             <button
               type="button"
               onClick={sortPinnedFirst}
@@ -1240,179 +1313,287 @@ export function V2LoadoutPanel({
 
         <ul className="mt-3 space-y-1.5">
           {visibleLibrary.map((s) => {
-          const equipped = equippedSet.has(s.skillId);
-          const lifestyle = isLifestyleSkillId(s.skillId);
-          const favorite = favoriteSet.has(s.skillId);
-          const wouldFit =
-            localLoadoutResolution([...order, s.skillId], learnedSkillIds, meta)
-              .spUsed <= spBudget;
-          const skillDef = V2_SKILLS[s.skillId as V2SkillId];
-          const resonanceRole = equipped
-            ? localResolution.resonance.catalystActive &&
-              s.skillId === "v2c_elementallord_surge"
-              ? "catalyst"
-              : localResolution.absorbedSet.has(s.skillId)
-                ? "material"
-                : undefined
-            : undefined;
-          const effectiveSpCost = resonanceRole
-            ? localResolution.resonance.effectiveSpCosts.get(
-                s.skillId as V2SkillId,
-              ) ?? s.spCost
-            : s.spCost;
-          return (
-            <li
-              key={s.skillId}
-              data-skill-drop-id={s.skillId}
-              className={`ui-skill-card ${SURFACE_CARD} relative flex flex-col gap-2 p-3 transition-colors ${
-                equipped
-                  ? "ring-1 ring-violet-300 dark:ring-violet-700"
-                  : ""
-              } ${
-                draggingId === s.skillId ? "opacity-55" : ""
-              }`}
-            >
-              {dropTarget?.kind === "library" &&
-                dropTarget.skillId === s.skillId && (
-                <span
-                  aria-hidden="true"
-                  className={`pointer-events-none absolute left-3 right-3 h-1 rounded-full bg-sky-400 shadow-[0_0_0_2px_rgba(14,165,233,0.16)] dark:bg-sky-500 ${
-                    dropTarget.edge === "before" ? "-top-1" : "-bottom-1"
-                  }`}
-                />
-              )}
-              <div className="flex w-full min-w-0 items-start gap-2">
-              <span
-                role="button"
-                tabIndex={0}
-                aria-label={`${s.name} 순서 이동`}
-                title="드래그해서 순서 변경"
-                onPointerDown={(e) => {
-                  if (busy || e.button !== 0) return;
-                  e.preventDefault();
-                  e.currentTarget.setPointerCapture(e.pointerId);
-                  startPointerDrag(
-                    "library",
-                    s.skillId,
-                    e.pointerId,
-                    e.clientX,
-                    e.clientY,
-                  );
-                }}
-                onPointerMove={(e) => {
-                  if (dragSessionRef.current?.pointerId !== e.pointerId) return;
-                  e.preventDefault();
-                  updatePointerDrag(e.clientX, e.clientY);
-                }}
-                onPointerUp={(e) => {
-                  if (dragSessionRef.current?.pointerId !== e.pointerId) return;
-                  e.preventDefault();
-                  if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-                    e.currentTarget.releasePointerCapture(e.pointerId);
-                  }
-                  finishPointerDrag(e.clientX, e.clientY);
-                }}
-                onPointerCancel={(e) => {
-                  if (dragSessionRef.current?.pointerId !== e.pointerId) return;
-                  dragSessionRef.current = null;
-                  setDraggingId(null);
-                  setDropTarget(null);
-                  stopAutoScroll();
-                }}
-                className={`flex h-11 w-11 sm:h-9 sm:w-8 shrink-0 touch-none cursor-grab items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-500 active:cursor-grabbing dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 ${
-                  busy ? "pointer-events-none opacity-40" : "hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                }`}
-              >
-                <DotsSixVertical size={18} weight="bold" />
-              </span>
-              <div className="min-w-0 flex-1">
-              <SkillDetailTrigger
-                skillId={s.skillId as V2SkillId}
-                skillName={s.name}
-                onOpen={setDetailSkillId}
-                className="min-h-11 w-full text-left"
-              >
-                <span className="flex flex-wrap items-center gap-2">
-                  <span className="min-w-0 break-words text-base font-semibold">
-                    {s.name}
+            const equipped = equippedSet.has(s.skillId);
+            const lifestyle = isLifestyleSkillId(s.skillId);
+            const favorite = favoriteSet.has(s.skillId);
+            const wouldFit =
+              localLoadoutResolution([...order, s.skillId], learnedSkillIds, meta)
+                .spUsed <= spBudget;
+            const skillDef = V2_SKILLS[s.skillId as V2SkillId];
+            const passive = Boolean(skillDef?.passive || s.category === "passive");
+            const kindLabel = passive ? "패시브" : "액티브";
+            const compactTags = skillLibraryTags(s.skillId);
+            const conditionalPassive = isConditionalPassiveSkill(s.skillId);
+            const expanded =
+              viewMode === "compact" && expandedSkillId === s.skillId;
+            const detailId = `skill-library-detail-${s.skillId}`;
+            const resonanceRole = equipped
+              ? localResolution.resonance.catalystActive &&
+                s.skillId === "v2c_elementallord_surge"
+                ? "catalyst"
+                : localResolution.absorbedSet.has(s.skillId)
+                  ? "material"
+                  : undefined
+              : undefined;
+            const effectiveSpCost = resonanceRole
+              ? localResolution.resonance.effectiveSpCosts.get(
+                  s.skillId as V2SkillId,
+                ) ?? s.spCost
+              : s.spCost;
+            const kindClass = passive
+              ? "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300"
+              : "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300";
+            const heading = (
+              <span className="flex min-w-0 items-center gap-1.5">
+                {favorite && (
+                  <Star
+                    size={14}
+                    weight="fill"
+                    className="shrink-0 text-amber-500"
+                  />
+                )}
+                {viewMode === "minimal" && (
+                  <span
+                    className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${kindClass}`}
+                  >
+                    {kindLabel}
                   </span>
-                  {equipped && !lifestyle && <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-700 dark:bg-violet-950 dark:text-violet-300">장착 중</span>}
-                  <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 text-xs tabular-nums text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                    SP {effectiveSpCost}
-                  </span>
-                  {effectiveSpCost !== s.spCost && (
-                    <span className="shrink-0 text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">
-                      기본 {s.spCost} SP
-                    </span>
-                  )}
+                )}
+                <span className="min-w-0 truncate text-sm font-semibold">
+                  {s.name}
                 </span>
-              </SkillDetailTrigger>
-                {!compact && <SkillEffectChips skillId={s.skillId} />}
+                <span className="shrink-0 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] tabular-nums text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                  SP {effectiveSpCost}
+                </span>
+                {effectiveSpCost !== s.spCost && (
+                  <span className="hidden shrink-0 text-[10px] tabular-nums text-zinc-500 sm:inline dark:text-zinc-400">
+                    기본 {s.spCost} SP
+                  </span>
+                )}
+              </span>
+            );
+            const notices = viewMode !== "minimal" && (
+              <>
                 {skillDef?.exclusiveGroup && (
-                  <span className="mt-1 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                  <span className="mt-1 block text-[10px] font-medium text-amber-700 dark:text-amber-300">
                     같은 계열 1개만 장착
                   </span>
                 )}
                 {resonanceRole === "material" && (
-                  <span className="mt-1 text-[10px] font-medium text-violet-700 dark:text-violet-300">
+                  <span className="mt-1 block text-[10px] font-medium text-violet-700 dark:text-violet-300">
                     공명 재료 · {effectiveSpCost} SP
                   </span>
                 )}
                 {resonanceRole === "catalyst" && (
-                  <span className="mt-1 text-[10px] font-medium text-violet-700 dark:text-violet-300">
+                  <span className="mt-1 block text-[10px] font-medium text-violet-700 dark:text-violet-300">
                     근원 촉매 · {effectiveSpCost} SP · 태초회귀 강화
                   </span>
                 )}
-              </div>
-              </div>
-              <div data-skill-card-actions className="flex w-full items-center justify-between gap-2 border-t border-zinc-100 pt-2 dark:border-zinc-800">
-                <button
-                  type="button"
-                  onClick={() => toggleFavorite(s.skillId)}
-                  disabled={busy}
-                  aria-label={
-                    favorite ? `${s.name} 즐겨찾기 해제` : `${s.name} 즐겨찾기`
-                  }
-                  title={favorite ? "즐겨찾기 해제" : "즐겨찾기"}
-                  className={`flex h-11 w-11 items-center justify-center rounded-md border disabled:cursor-not-allowed disabled:opacity-50 ${
-                    favorite
-                      ? "border-amber-400 bg-amber-50 text-amber-600 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
-                      : "border-zinc-300 bg-white text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              </>
+            );
+            return (
+              <li
+                key={s.skillId}
+                data-skill-drop-id={s.skillId}
+                className={`ui-skill-card ${SURFACE_CARD} ${
+                  passive ? "ui-skill-card--passive" : "ui-skill-card--active"
+                } ${equipped ? "ui-skill-card--equipped ring-1 ring-violet-300 dark:ring-violet-700" : ""} relative overflow-hidden rounded-md transition-colors ${
+                  draggingId === s.skillId ? "opacity-55" : ""
+                }`}
+              >
+                {dropTarget?.kind === "library" &&
+                  dropTarget.skillId === s.skillId && (
+                    <span
+                      aria-hidden="true"
+                      className={`pointer-events-none absolute left-3 right-3 z-10 h-1 rounded-full bg-sky-400 shadow-[0_0_0_2px_rgba(14,165,233,0.16)] dark:bg-sky-500 ${
+                        dropTarget.edge === "before" ? "-top-1" : "-bottom-1"
+                      }`}
+                    />
+                  )}
+                <div
+                  className={`grid items-center gap-2 px-2 sm:px-3 ${
+                    viewMode === "minimal"
+                      ? "grid-cols-[minmax(0,1fr)_6.25rem] py-1.5"
+                      : "grid-cols-[2.75rem_minmax(0,1fr)_6.25rem] py-2 sm:grid-cols-[2rem_minmax(0,1fr)_6.25rem]"
                   }`}
                 >
-                  <Star size={15} weight={favorite ? "fill" : "regular"} />
-                </button>
-                {lifestyle ? (
-                  <span
-                    aria-label={`${s.name} 적용 중`}
-                    className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-md border border-emerald-500 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                  {viewMode !== "minimal" && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${s.name} 순서 이동`}
+                      title="드래그해서 순서 변경"
+                      onPointerDown={(e) => {
+                        if (busy || e.button !== 0) return;
+                        e.preventDefault();
+                        e.currentTarget.setPointerCapture(e.pointerId);
+                        startPointerDrag(
+                          "library",
+                          s.skillId,
+                          e.pointerId,
+                          e.clientX,
+                          e.clientY,
+                        );
+                      }}
+                      onPointerMove={(e) => {
+                        if (dragSessionRef.current?.pointerId !== e.pointerId) return;
+                        e.preventDefault();
+                        updatePointerDrag(e.clientX, e.clientY);
+                      }}
+                      onPointerUp={(e) => {
+                        if (dragSessionRef.current?.pointerId !== e.pointerId) return;
+                        e.preventDefault();
+                        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+                          e.currentTarget.releasePointerCapture(e.pointerId);
+                        }
+                        finishPointerDrag(e.clientX, e.clientY);
+                      }}
+                      onPointerCancel={(e) => {
+                        if (dragSessionRef.current?.pointerId !== e.pointerId) return;
+                        dragSessionRef.current = null;
+                        setDraggingId(null);
+                        setDropTarget(null);
+                        stopAutoScroll();
+                      }}
+                      className={`flex h-11 w-11 shrink-0 touch-none cursor-grab items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-500 active:cursor-grabbing sm:h-9 sm:w-8 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 ${
+                        busy
+                          ? "pointer-events-none opacity-40"
+                          : "hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      <DotsSixVertical size={18} weight="bold" />
+                    </span>
+                  )}
+
+                  {viewMode === "compact" ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedSkillId((current) =>
+                          current === s.skillId ? null : s.skillId,
+                        )
+                      }
+                      aria-expanded={expanded}
+                      aria-controls={detailId}
+                      aria-label={`${s.name} 효과 ${expanded ? "접기" : "펼치기"}`}
+                      className="flex min-w-0 items-center gap-2 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                    >
+                      <span className="min-w-0 flex-1">
+                        {heading}
+                        <span className="mt-1 flex flex-wrap gap-1">
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${kindClass}`}
+                          >
+                            {kindLabel}
+                          </span>
+                          {conditionalPassive && (
+                            <span className="rounded border border-dashed border-amber-500 bg-amber-50 px-1.5 py-0 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                              조건부
+                            </span>
+                          )}
+                          {compactTags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </span>
+                        {notices}
+                      </span>
+                      <CaretDown
+                        size={15}
+                        weight="bold"
+                        aria-hidden
+                        className={`shrink-0 text-zinc-500 transition-transform dark:text-zinc-400 ${
+                          expanded ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+                  ) : (
+                    <SkillDetailTrigger
+                      skillId={s.skillId as V2SkillId}
+                      skillName={s.name}
+                      onOpen={setDetailSkillId}
+                      className="flex min-w-0 flex-col rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                    >
+                      {heading}
+                      {viewMode === "detailed" && (
+                        <SkillEffectChips skillId={s.skillId} />
+                      )}
+                      {notices}
+                    </SkillDetailTrigger>
+                  )}
+
+                  <div className="grid w-[6.25rem] shrink-0 grid-cols-[2rem_minmax(0,1fr)] items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleFavorite(s.skillId)}
+                      disabled={busy}
+                      aria-label={
+                        favorite
+                          ? `${s.name} 즐겨찾기 해제`
+                          : `${s.name} 즐겨찾기`
+                      }
+                      title={favorite ? "즐겨찾기 해제" : "즐겨찾기"}
+                      className={`flex h-11 w-8 items-center justify-center rounded-md border disabled:cursor-not-allowed disabled:opacity-50 sm:h-8 ${
+                        favorite
+                          ? "border-amber-400 bg-amber-50 text-amber-600 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                          : "border-zinc-300 bg-white text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      <Star size={15} weight={favorite ? "fill" : "regular"} />
+                    </button>
+                    {lifestyle ? (
+                      <span
+                        aria-label={`${s.name} 적용 중`}
+                        className="inline-flex h-11 w-full items-center justify-center whitespace-nowrap rounded-md border border-emerald-500 bg-emerald-50 px-2 text-xs font-medium text-emerald-700 sm:h-8 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                      >
+                        적용 중
+                      </span>
+                    ) : equipped ? (
+                      <button
+                        type="button"
+                        onClick={() => toggle(s.skillId)}
+                        disabled={busy}
+                        aria-label={`${s.name} 해제`}
+                        className="h-11 w-full whitespace-nowrap rounded-md border border-violet-500 bg-violet-100 px-2 text-xs font-medium text-violet-700 hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-50 sm:h-8 dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-900"
+                      >
+                        해제
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => toggle(s.skillId)}
+                        disabled={busy || !wouldFit}
+                        aria-label={`${s.name} 장착`}
+                        className="h-11 w-full whitespace-nowrap rounded-md border border-emerald-600 bg-emerald-600 px-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:h-8"
+                      >
+                        {!wouldFit ? "SP 부족" : "장착"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {expanded && (
+                  <div
+                    id={detailId}
+                    className={`${SURFACE_INSET} mx-2 mb-2 border-t border-zinc-200 p-3 dark:border-zinc-700`}
                   >
-                    적용 중
-                  </span>
-                ) : equipped ? (
-                  <button
-                    type="button"
-                    onClick={() => toggle(s.skillId)}
-                    disabled={busy}
-                    aria-label={`${s.name} 해제`}
-                    className="min-h-11 whitespace-nowrap rounded-md border border-zinc-300 bg-white px-4 py-2 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  >
-                    해제
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => toggle(s.skillId)}
-                    disabled={busy || !wouldFit}
-                    aria-label={`${s.name} 장착`}
-                    className="min-h-11 whitespace-nowrap rounded-md border border-emerald-600 bg-emerald-600 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {!wouldFit ? "SP 부족" : "장착"}
-                  </button>
+                    <SkillEffectChips skillId={s.skillId} />
+                    <SkillDetailTrigger
+                      skillId={s.skillId as V2SkillId}
+                      skillName={s.name}
+                      onOpen={setDetailSkillId}
+                      className="mt-2 rounded-md border border-zinc-300 bg-white px-2 py-1 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                    >
+                      전체 상세 보기
+                    </SkillDetailTrigger>
+                  </div>
                 )}
-              </div>
-            </li>
-          );
+              </li>
+            );
           })}
           {visibleLibrary.length === 0 && (
             <li className="rounded-md border border-dashed border-zinc-300 px-3 py-4 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">

@@ -29,6 +29,36 @@ export function skillLibraryTags(skillId: string, limit = 3): string[] {
     .slice(0, Math.max(0, limit));
 }
 
+export function isConditionalPassiveSkill(skillId: string): boolean {
+  const skill = V2_SKILLS[skillId as V2SkillId];
+  const passive = skill?.passive;
+  if (!passive) return false;
+  return Boolean(
+    passive.freezeDamagePct ||
+      passive.freezeDelayPct ||
+      passive.freezeRetainStacks ||
+      passive.counterChancePct ||
+      passive.counterDamageUsesReflectBoost ||
+      passive.thornsDefPct ||
+      passive.fortressImpactOnHit ||
+      passive.fortressImpactDamagePctPerStack ||
+      passive.lawInscription ||
+      passive.bleedPhysicalSkillDamagePctPerStack ||
+      passive.stoneskinDefPctPerWeight ||
+      passive.openingMagicDamageReductionPct ||
+      passive.tripleWardRank ||
+      passive.poisonedEnemyDefReductionPct ||
+      passive.berserkAtkPctPerLostHpPct ||
+      passive.enemyMagicVulnPctPerStack ||
+      passive.singleHitPhysicalSkillDamagePct ||
+      passive.spdToAtkMaxPct ||
+      passive.skillCritAfterEvade ||
+      passive.comboFinisherBonusPct ||
+      passive.basicCritHastePct ||
+      skill.exclusiveGroup === "berserker_madness",
+  );
+}
+
 export function equippedPassiveSummary(
   skillIds: readonly string[],
 ): EquippedPassiveSummaryItem[] {

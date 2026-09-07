@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   equippedPassiveSummary,
+  isConditionalPassiveSkill,
   skillLibraryTags,
 } from "./skillLibraryPresentation";
 
@@ -97,5 +98,14 @@ describe("equippedPassiveSummary", () => {
     expect(equippedPassiveSummary(["v2c_warrior_strike", "missing"])).toEqual(
       [],
     );
+  });
+});
+
+describe("isConditionalPassiveSkill", () => {
+  it("스택·피격·전투 구간에 의존하는 패시브만 조건부로 구분한다", () => {
+    expect(isConditionalPassiveSkill("v2c_beastkin_bloodscent")).toBe(true);
+    expect(isConditionalPassiveSkill("v2c_warder_ward")).toBe(true);
+    expect(isConditionalPassiveSkill("v2c_warrior_might")).toBe(false);
+    expect(isConditionalPassiveSkill("v2c_warrior_strike")).toBe(false);
   });
 });

@@ -1,5 +1,8 @@
+// @vitest-environment jsdom
+
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   isSkillDisplayed,
   formatJobSpGraceRemaining,
@@ -26,6 +29,8 @@ const realLoadoutLibrary = (skillIds: readonly V2SkillId[]) =>
 
 const visibleText = (html: string) =>
   html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
+afterEach(cleanup);
 
 describe("직업 SP 산식 전환 안내", () => {
   it("유예 남은 시간을 올림한 시·분으로 표시한다", () => {
@@ -308,7 +313,7 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     expect(html).toContain(">변이자 계열<");
   });
 
-  it("하단의 작은 동작 버튼과 독립적인 상세 펼치기를 표시한다", () => {
+  it("간략 카드의 즐겨찾기와 장착 동작을 모바일에서도 한 행에 고정한다", () => {
     const html = renderToStaticMarkup(
       <V2LoadoutPanel
         loadout={{
@@ -333,18 +338,19 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
       />,
     );
 
-    expect(html.match(/data-skill-card-actions/g)).toHaveLength(2);
-    expect(html).toContain("<details");
-    expect(html).not.toMatch(/<button\b[^>]*>(?:(?!<\/button>)[\s\S])*<details/);
+    expect(html.match(/w-\[6\.25rem\]/g)).toHaveLength(2);
     expect(html.match(/whitespace-nowrap/g)).toHaveLength(4);
     expect(html).toContain("min-w-0 flex-1 sm:min-w-52");
-    expect(html).toContain("flex flex-col gap-2 p-3");
+    expect(html).toContain(
+      "grid-cols-[2.75rem_minmax(0,1fr)_6.25rem]",
+    );
     expect(html).toContain("min-w-0 max-w-full overflow-x-auto");
-    expect(html).toContain("h-11 w-11 sm:h-9 sm:w-8");
-    expect(html).toContain("h-11 w-11 items-center");
+    expect(html).toContain("h-11 w-11 shrink-0");
+    expect(html).toContain("sm:h-9 sm:w-8");
+    expect(html).toContain("h-11 w-8");
     expect(html).toContain("h-11 w-11 sm:h-6 sm:w-5");
-    expect(html).toContain('aria-label="강타 상세 보기"');
-    expect(html).toContain('aria-label="독침 상세 보기"');
+    expect(html).toContain('aria-label="강타 효과 펼치기"');
+    expect(html).toContain('aria-label="독침 효과 펼치기"');
     expect(html).toContain('aria-label="강타 해제"');
     expect(html).toContain('aria-label="독침 장착"');
     expect(html).toContain(">해제<");
@@ -504,5 +510,115 @@ describe("V2LoadoutPanel 원소 공명 유효 SP", () => {
     );
 
     expect(html).toContain("근원공명 우선 · 원소군주 회로 비활성");
+  });
+});
+
+describe("스킬 카드 보기 모드", () => {
+  const loadout = {
+    spBudget: 40,
+    spUsed: 14,
+    equipped: ["v2c_warrior_strike"],
+    library: realLoadoutLibrary([
+      "v2c_warrior_strike",
+      "v2c_warrior_might",
+    ]),
+  };
+
+  it("기본 간략 모드에서 액티브·패시브와 빌드 태그를 유지한다", () => {
+    render(<V2LoadoutPanel previewMode loadout={loadout} />);
+
+    expect(
+      screen.getByRole("button", { name: "간략 보기 모드" }).getAttribute(
+        "aria-pressed",
+      ),
+    ).toBe("true");
+    expect(screen.getByText("액티브")).toBeTruthy();
+    expect(
+      screen.getAllByText("패시브").some((element) => element.tagName === "SPAN"),
+    ).toBe(true);
+    expect(screen.getAllByText("STR").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("물리").length).toBeGreaterThan(0);
+  });
+
+  it("상세·간략·최소 모드를 명시적으로 전환한다", () => {
+    render(<V2LoadoutPanel previewMode loadout={loadout} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "상세 보기 모드" }));
+    expect(screen.getByText("피해 공격력×1.08 + 힘×0.2")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "최소 보기 모드" }));
+    expect(
+      screen.getByRole("button", { name: "최소 보기 모드" }).getAttribute(
+        "aria-pressed",
+      ),
+    ).toBe("true");
+    expect(screen.queryByText("피해 공격력×1.08 + 힘×0.2")).toBeNull();
+  });
+
+  it("간략 카드 하나를 펼치면 먼저 펼친 카드를 자동으로 접는다", () => {
+    render(<V2LoadoutPanel previewMode loadout={loadout} />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "강타 효과 펼치기" }),
+    );
+    expect(screen.getByText("묵직한 일격을 꽂는다.")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "강타 효과 접기" }),
+    ).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "근력 효과 펼치기" }),
+    );
+    expect(screen.queryByText("묵직한 일격을 꽂는다.")).toBeNull();
+    expect(screen.getByText("단련된 힘. 힘이 비례해 오른다.")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "강타 효과 펼치기" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "근력 효과 접기" }),
+    ).toBeTruthy();
+  });
+});
+
+describe("장착 패시브 합계", () => {
+  it("실제 합산 수치와 조건부 효과를 장착 카드 위에서 요약한다", () => {
+    const equipped = [
+      "v2c_warrior_might",
+      "v2c_squire_might",
+      "v2c_beastkin_bloodscent",
+    ] as const satisfies readonly V2SkillId[];
+    const html = renderToStaticMarkup(
+      <V2LoadoutPanel
+        loadout={{
+          spBudget: 99,
+          spUsed: 16,
+          equipped: [...equipped],
+          library: realLoadoutLibrary(equipped),
+        }}
+      />,
+    );
+
+    expect(html).toContain("장착 패시브 합계");
+    expect(html).toContain("3개 적용");
+    expect(html).toContain("힘 +25%");
+    expect(html).toContain("조건부");
+    expect(html).toContain("대상 출혈 스택당 물리 스킬 피해 +2%");
+    expect(html.match(/ui-skill-card--equipped/g)).toHaveLength(3);
+  });
+
+  it("장착 패시브가 없으면 요약 영역에 빈 상태를 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <V2LoadoutPanel
+        loadout={{
+          spBudget: 10,
+          spUsed: 4,
+          equipped: ["v2c_warrior_strike"],
+          library: realLoadoutLibrary(["v2c_warrior_strike"]),
+        }}
+      />,
+    );
+
+    expect(html).toContain("장착 패시브 합계");
+    expect(html).toContain("장착된 전투 패시브가 없어요.");
   });
 });

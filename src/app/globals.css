@@ -1154,6 +1154,27 @@ body {
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
 }
 
+.ui-skill-card--active:not(.ui-skill-card--equipped) {
+  border-left-color: rgb(14 165 233);
+  border-left-width: 3px;
+}
+
+.ui-skill-card--passive:not(.ui-skill-card--equipped) {
+  border-left-color: rgb(139 92 246);
+  border-left-width: 3px;
+}
+
+.ui-skill-card--equipped,
+.ui-skill-card--equipped:hover {
+  border-color: rgb(196 181 253);
+  transform: none;
+}
+
+:is(.dark .ui-skill-card--equipped),
+:is(.dark .ui-skill-card--equipped:hover) {
+  border-color: rgb(91 33 182);
+}
+
 .ui-quest-card {
   position: relative;
   overflow: hidden;

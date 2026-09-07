@@ -24,7 +24,8 @@ export type V2PatternEnemyDebuff =
   | "vulnerability"
   | "damageDown"
   | "skillProcDown"
-  | "healReduction";
+  | "healReduction"
+  | "dotVulnerability";
 export type V2PatternSelfStatus =
   | "evasion"
   | "crit"
@@ -150,6 +151,7 @@ export type V2PatternCtx = {
   enemyDamageDownActive?: boolean;
   enemySkillProcDownActive?: boolean;
   enemyHealReductionActive?: boolean;
+  enemyDotVulnerabilityActive?: boolean;
   enemyStatDebuffs?: ReadonlySet<StatKey>;
   /** 정렬된 A/B 순서쌍별 마지막 실제 발동 스킬. */
   alternateLastSkillByPair?: Readonly<Record<string, string>>;
@@ -197,6 +199,8 @@ function enemyDebuffActive(
       return ctx.enemyDamageDownActive ?? false;
     case "skillProcDown":
       return ctx.enemySkillProcDownActive ?? false;
+    case "dotVulnerability":
+      return ctx.enemyDotVulnerabilityActive ?? false;
     case "healReduction":
       return ctx.enemyHealReductionActive ?? false;
     default:
@@ -630,7 +634,8 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
         c.target === "vulnerability" ||
         c.target === "damageDown" ||
         c.target === "skillProcDown" ||
-        c.target === "healReduction"
+        c.target === "healReduction" ||
+        c.target === "dotVulnerability"
           ? c.target
           : isStatKey(c.target)
             ? c.target

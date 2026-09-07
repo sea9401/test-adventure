@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { MagnifyingGlass, Star } from "@phosphor-icons/react";
+import { CaretDown, MagnifyingGlass, Star } from "@phosphor-icons/react";
+import { codexMasteryEntryLabel, isCodexMasteryNameHidden } from "@/adventure/data/v2/codexMasteryView";
 import type {
   CodexMasteryCategory,
   CodexMasteryCountStage,
@@ -82,6 +83,25 @@ const tierOrder: Record<CodexMasteryTier, number> = {
   legendary: 6,
 };
 
+const TIER_BADGE: Record<CodexMasteryTier, string> = {
+  none: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
+  discovered: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
+  bronze: "bg-orange-100 text-orange-900 dark:bg-orange-950 dark:text-orange-200",
+  silver: "bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+  gold: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
+  platinum: "bg-teal-100 text-teal-900 dark:bg-teal-950 dark:text-teal-200",
+  diamond: "bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200",
+  legendary: "bg-violet-100 text-violet-900 dark:bg-violet-950 dark:text-violet-200",
+};
+
+function TierBadge({ tier }: { tier: CodexMasteryTier }) {
+  return (
+    <span className={`inline-flex shrink-0 items-center rounded-md px-2.5 py-1 text-xs font-bold ${TIER_BADGE[tier]}`}>
+      {CODEX_MASTERY_STAGE_LABELS[tier]}
+    </span>
+  );
+}
+
 export function filterCodexMasteryEntries(
   entries: readonly CodexMasteryEntryView[],
   options: {
@@ -98,8 +118,9 @@ export function filterCodexMasteryEntries(
     }
     if (
       query &&
-      !entry.label.toLocaleLowerCase("ko-KR").includes(query) &&
-      !entry.entryId.toLocaleLowerCase("en-US").includes(query)
+      !codexMasteryEntryLabel(entry).toLocaleLowerCase("ko-KR").includes(query) &&
+      (isCodexMasteryNameHidden(entry) ||
+        !entry.entryId.toLocaleLowerCase("en-US").includes(query))
     ) {
       return false;
     }
@@ -168,7 +189,7 @@ function ProgressBar({ value, label }: { value: number; label: string }) {
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={percent}
-      className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700"
+      className="h-2.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700"
     >
       <div className="h-full rounded-full bg-amber-500" style={{ width: `${percent}%` }} />
     </div>
@@ -200,13 +221,14 @@ function GoalCard({
   entry: CodexMasteryEntryView;
   title?: string;
 }) {
+  const label = codexMasteryEntryLabel(entry);
   return (
     <div className={`${SURFACE_INSET} p-3`}>
       <div className="flex items-start justify-between gap-2">
         <div>
-          {title && <div className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">{title}</div>}
-          <div className="text-sm font-bold">{entry.label}</div>
-          <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+          {title && <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">{title}</div>}
+          <div className="text-base font-bold">{label}</div>
+          <div className="text-xs text-zinc-600 dark:text-zinc-300">
             {CODEX_MASTERY_CATEGORY_LABELS[entry.category]} · {CODEX_MASTERY_STAGE_LABELS[entry.currentTier]}
           </div>
         </div>
@@ -217,9 +239,9 @@ function GoalCard({
       {entry.nextStage && entry.nextThreshold !== null && (
         <>
           <div className="mt-2">
-            <ProgressBar value={entry.nextProgressPercent} label={`${entry.label} 다음 승급 진행`} />
+            <ProgressBar value={entry.nextProgressPercent} label={`${label} 다음 승급 진행`} />
           </div>
-          <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+          <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
             {CODEX_MASTERY_STAGE_LABELS[entry.nextStage]}까지 {formatNumber(entry.count)}/{formatNumber(entry.nextThreshold)}
           </div>
         </>
@@ -232,6 +254,14 @@ function EntryDetail({ entry, sealsEnabled }: {
   entry: CodexMasteryEntryView;
   sealsEnabled: boolean;
 }) {
+  const label = codexMasteryEntryLabel(entry);
+  if (isCodexMasteryNameHidden(entry)) {
+    return (
+      <div className={`${SURFACE_INSET} p-4 text-sm text-zinc-600 dark:text-zinc-300`}>
+        아직 발견하지 않은 요리입니다. 주방 연구에서 레시피를 발견하면 이름이 공개됩니다.
+      </div>
+    );
+  }
   const stages: Array<{ stage: CodexMasteryStage; threshold: number | null }> = [
     { stage: "discovered", threshold: null },
     ...COUNT_STAGES.map((stage) => ({ stage, threshold: entry.thresholds[stage] })),
@@ -240,14 +270,14 @@ function EntryDetail({ entry, sealsEnabled }: {
     <Card padding="md" className="space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
-            {CODEX_MASTERY_CATEGORY_LABELS[entry.category]} · {entry.entryId}
+          <div className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            {CODEX_MASTERY_CATEGORY_LABELS[entry.category]}
           </div>
-          <h3 className="text-base font-bold">{entry.label}</h3>
+          <h3 className="text-base font-bold">{label}</h3>
         </div>
         <div className="text-right">
-          <div className="text-sm font-bold">{CODEX_MASTERY_STAGE_LABELS[entry.currentTier]}</div>
-          <div className="text-[11px] text-zinc-500 dark:text-zinc-400">항목 점수 {formatNumber(entry.score)}</div>
+          <div className="text-base font-bold">{CODEX_MASTERY_STAGE_LABELS[entry.currentTier]}</div>
+          <div className="text-xs text-zinc-600 dark:text-zinc-300">항목 점수 {formatNumber(entry.score)}</div>
         </div>
       </div>
       <div className="grid gap-2 text-xs sm:grid-cols-3">
@@ -269,7 +299,7 @@ function EntryDetail({ entry, sealsEnabled }: {
           </div>
           {entry.nextThreshold !== null && (
             <div className="mt-2">
-              <ProgressBar value={entry.nextProgressPercent} label={`${entry.label} 상세 승급 진행`} />
+              <ProgressBar value={entry.nextProgressPercent} label={`${label} 상세 승급 진행`} />
             </div>
           )}
         </div>
@@ -285,7 +315,7 @@ function EntryDetail({ entry, sealsEnabled }: {
                   {CODEX_MASTERY_STAGE_LABELS[stage]}
                   {threshold === null ? "" : ` · ${formatNumber(threshold)}회`}
                 </span>
-                <span className="text-zinc-500 dark:text-zinc-400">
+                <span className="text-zinc-600 dark:text-zinc-300">
                   {achievedAt ? formatCodexMasteryDate(achievedAt) : "미달성"}
                 </span>
               </div>
@@ -386,7 +416,7 @@ function MonthlyResearchPanel({
             ["기록", research.recordScore, "3,000"],
           ].map(([label, value, maximum]) => (
             <div key={label} className={`${SURFACE_CARD} p-2.5`}>
-              <div className="text-zinc-500 dark:text-zinc-400">{label}</div>
+              <div className="text-zinc-600 dark:text-zinc-300">{label}</div>
               <div className="mt-0.5 font-bold tabular-nums">
                 {formatNumber(Number(value))} / {maximum}
               </div>
@@ -403,7 +433,7 @@ function MonthlyResearchPanel({
                   : "현재 등급권 밖"}
               </span>
             ) : (
-              <span className="text-zinc-500 dark:text-zinc-400">아직 순위 집계 전</span>
+              <span className="text-zinc-600 dark:text-zinc-300">아직 순위 집계 전</span>
             )}
           </div>
         ) : null}
@@ -417,10 +447,10 @@ function MonthlyResearchPanel({
           return (
             <section key={group} aria-label={CODEX_RESEARCH_GROUP_LABELS[group]}>
               <div className="mb-2 flex items-baseline justify-between gap-2 px-1">
-                <h3 className="text-sm font-bold">
+                <h3 className="text-base font-bold">
                   {CODEX_RESEARCH_GROUP_LABELS[group]}
                 </h3>
-                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs text-zinc-600 dark:text-zinc-300">
                   {objectives.filter((objective) => objective.completedAt).length}/{objectives.length} 완료
                 </span>
               </div>
@@ -433,8 +463,8 @@ function MonthlyResearchPanel({
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-sm font-bold">{objective.label}</div>
-                        <p className="mt-0.5 text-[11px] text-zinc-600 dark:text-zinc-300">
+                        <div className="text-base font-bold">{objective.label}</div>
+                        <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300">
                           {objective.description}
                         </p>
                       </div>
@@ -511,8 +541,6 @@ export function CodexMasteryPanel({
     sealsEnabled: snapshot.features.sealsEnabled,
   });
   const paged = paginateCodexMasteryEntries(filtered, page);
-  const selected = snapshot.entries.find((entry) => entry.key === selectedKey) ??
-    paged.entries[0] ?? null;
   const pinnedEntries = snapshot.pinnedGoals
     .map((goal) => snapshot.entries.find(
       (entry) => entry.category === goal.category && entry.entryId === goal.entryId,
@@ -552,28 +580,30 @@ export function CodexMasteryPanel({
   const changeCategory = (next: "all" | CodexMasteryCategory) => {
     setCategory(next);
     setPage(1);
+    setSelectedKey(null);
   };
   const changeFilter = (next: CodexMasteryEntryFilter) => {
     setFilter(next);
     setPage(1);
+    setSelectedKey(null);
   };
 
   return (
-    <section className={`${SURFACE_INSET} space-y-3 p-2.5 sm:p-3`} aria-label="도감 숙련">
+    <section className={`${SURFACE_INSET} space-y-5 p-3 text-sm leading-relaxed sm:p-5`} aria-label="도감 숙련">
       <div className={`${SURFACE_ACCENT} p-4`}>
-        <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-5">
           <div>
-            <div className="text-xs font-semibold text-amber-800 dark:text-amber-200">종합 숙련 점수</div>
+            <h2 className="text-base font-bold text-amber-800 dark:text-amber-200">종합 숙련 점수</h2>
             <div className="mt-1 text-3xl font-black tabular-nums">{formatNumber(snapshot.summary.totalScore)}</div>
             <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
               발견 {snapshot.summary.discoveredCount}/{snapshot.summary.totalEntries}
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-1.5 text-center text-[11px]">
+          <div className="grid w-full grid-cols-4 gap-2 text-center text-xs sm:w-auto">
             {(["gold", "platinum", "diamond", "legendary"] as const).map((stage) => (
-              <div key={stage} className={`${SURFACE_CARD} min-w-14 px-2 py-1.5`}>
-                <div className="font-bold tabular-nums">{snapshot.summary.stageCounts[stage]}</div>
-                <div className="text-zinc-500 dark:text-zinc-400">{CODEX_MASTERY_STAGE_LABELS[stage]}</div>
+              <div key={stage} className={`${SURFACE_CARD} min-w-0 px-2 py-2.5 sm:min-w-16`}>
+                <div className="text-lg font-bold tabular-nums">{snapshot.summary.stageCounts[stage]}</div>
+                <div className="text-zinc-600 dark:text-zinc-300">{CODEX_MASTERY_STAGE_LABELS[stage]}</div>
               </div>
             ))}
           </div>
@@ -593,76 +623,88 @@ export function CodexMasteryPanel({
         />
       )}
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="space-y-3">
+      <div>
+        <h2 className="text-base font-bold">분야별 숙련</h2>
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">분야를 선택하면 해당 연구 항목만 볼 수 있어요.</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         {snapshot.categories.map((summary) => (
           <button
             key={summary.category}
             type="button"
             aria-pressed={category === summary.category}
             onClick={() => changeCategory(summary.category)}
-            className={`${SURFACE_CARD} p-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-amber-500`}
+            className={`${category === summary.category ? `${SURFACE_ACCENT} ring-2 ring-amber-500` : SURFACE_CARD} min-w-0 p-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-amber-500 sm:p-4`}
           >
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="text-xs font-bold">{CODEX_MASTERY_CATEGORY_LABELS[summary.category]}</span>
-              <span className="text-sm font-black tabular-nums">{formatNumber(summary.score)}</span>
+            <div className="text-sm font-bold">{CODEX_MASTERY_CATEGORY_LABELS[summary.category]}</div>
+            <div className="mt-1 break-words text-xl font-black tabular-nums">
+              {formatNumber(summary.score)}<span className="ml-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">점</span>
             </div>
-            <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-              발견 {summary.discoveredCount}/{summary.totalEntries} · 금 이상 {summary.goldOrHigherCount}
+            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-300">
+              <span>발견 {summary.discoveredCount}/{summary.totalEntries}</span>
+              <span>금 이상 {summary.goldOrHigherCount}</span>
+            </div>
+            <div className="mt-2.5">
+              <ProgressBar value={summary.totalEntries > 0 ? summary.discoveredCount / summary.totalEntries * 100 : 0} label={`${CODEX_MASTERY_CATEGORY_LABELS[summary.category]} 발견 진행`} />
             </div>
           </button>
         ))}
       </div>
+      </div>
 
       <div className="grid gap-2 lg:grid-cols-3">
         <Card padding="md">
-          <h3 className="text-sm font-bold">고정 연구 목표</h3>
+          <h3 className="text-base font-bold">고정 연구 목표</h3>
           <div className="mt-2 space-y-2">
             {pinnedEntries.length > 0
               ? pinnedEntries.map((entry) => <GoalCard key={entry.key} entry={entry} />)
-              : <p className="text-xs text-zinc-500 dark:text-zinc-400">항목의 별을 눌러 최대 5개까지 고정하세요.</p>}
+              : <p className="text-xs text-zinc-600 dark:text-zinc-300">항목의 별을 눌러 최대 5개까지 고정하세요.</p>}
           </div>
         </Card>
         <Card padding="md">
-          <h3 className="text-sm font-bold">최근 승급</h3>
+          <h3 className="text-base font-bold">최근 승급</h3>
           <div className="mt-2 space-y-1.5">
             {snapshot.recentPromotions.length > 0
               ? snapshot.recentPromotions.map((promotion) => (
                   <div key={`${promotion.key}:${promotion.stage}`} className={`${SURFACE_INSET} p-2 text-xs`}>
                     <span className="font-semibold">{promotion.label}</span>
-                    <span className="text-zinc-500 dark:text-zinc-400"> · {CODEX_MASTERY_STAGE_LABELS[promotion.stage]} · {formatCodexMasteryDate(promotion.achievedAt)}</span>
+                    <span className="text-zinc-600 dark:text-zinc-300"> · {CODEX_MASTERY_STAGE_LABELS[promotion.stage]} · {formatCodexMasteryDate(promotion.achievedAt)}</span>
                   </div>
                 ))
-              : <p className="text-xs text-zinc-500 dark:text-zinc-400">아직 승급 기록이 없습니다.</p>}
+              : <p className="text-xs text-zinc-600 dark:text-zinc-300">아직 승급 기록이 없습니다.</p>}
           </div>
         </Card>
         <Card padding="md">
-          <h3 className="text-sm font-bold">승급 임박 목표</h3>
+          <h3 className="text-base font-bold">승급 임박 목표</h3>
           <div className="mt-2 space-y-2">
             {snapshot.nearGoals.length > 0
               ? snapshot.nearGoals.map((goal) => {
                   const full = snapshot.entries.find((entry) => entry.key === goal.key);
                   return full ? <GoalCard key={goal.key} entry={full} /> : null;
                 })
-              : <p className="text-xs text-zinc-500 dark:text-zinc-400">진행을 시작하면 가까운 목표를 찾아드려요.</p>}
+              : <p className="text-xs text-zinc-600 dark:text-zinc-300">진행을 시작하면 가까운 목표를 찾아드려요.</p>}
           </div>
         </Card>
       </div>
 
       <Card padding="md" className="space-y-3">
+        <h2 className="text-base font-bold">연구 항목 찾기</h2>
         <div className="flex flex-wrap items-end gap-2">
-          <label className="min-w-48 flex-1 text-xs font-semibold">
+          <label className="min-w-0 basis-48 flex-1 text-sm font-semibold">
             항목 검색
             <span className="relative mt-1 block">
-              <MagnifyingGlass size={15} aria-hidden className="pointer-events-none absolute left-2.5 top-2.5 text-zinc-400" />
+              <MagnifyingGlass size={15} aria-hidden className="pointer-events-none absolute left-3 top-3.5 text-zinc-400" />
               <input
                 type="search"
                 value={query}
                 onChange={(event) => {
                   setQuery(event.target.value);
                   setPage(1);
+                  setSelectedKey(null);
                 }}
-                placeholder="이름 또는 항목 ID"
-                className="h-9 w-full rounded-md border border-zinc-300 bg-white pl-8 pr-3 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                placeholder="공개된 항목 검색"
+                className="h-11 w-full rounded-lg border border-zinc-300 bg-white pl-9 pr-3 text-base dark:border-zinc-700 dark:bg-zinc-900"
               />
             </span>
           </label>
@@ -670,7 +712,7 @@ export function CodexMasteryPanel({
             type="button"
             onClick={() => changeCategory("all")}
             aria-pressed={category === "all"}
-            className="h-9 rounded-md border border-zinc-300 bg-zinc-100 px-3 text-xs font-semibold dark:border-zinc-700 dark:bg-zinc-800"
+            className="h-11 rounded-lg border border-zinc-300 bg-zinc-100 px-4 text-sm font-semibold dark:border-zinc-700 dark:bg-zinc-800"
           >
             모든 분야
           </button>
@@ -690,7 +732,7 @@ export function CodexMasteryPanel({
               type="button"
               aria-pressed={filter === value}
               onClick={() => changeFilter(value)}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+              className={`min-h-11 rounded-lg px-3 py-2 text-sm font-semibold ${
                 filter === value
                   ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
                   : "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
@@ -703,47 +745,59 @@ export function CodexMasteryPanel({
       </Card>
 
       <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2 px-1 text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="flex items-center justify-between gap-2 px-1 text-xs text-zinc-600 dark:text-zinc-300">
           <span>검색 결과 {paged.total}개</span>
           <span>{paged.page}/{paged.pageCount}쪽</span>
         </div>
         {paged.entries.length === 0 ? (
-          <Card padding="md"><p className="text-sm text-zinc-500 dark:text-zinc-400">현재 조건에 맞는 항목이 없습니다. 필터를 완화해 보세요.</p></Card>
+          <Card padding="md"><p className="text-sm text-zinc-600 dark:text-zinc-300">현재 조건에 맞는 항목이 없습니다. 필터를 완화해 보세요.</p></Card>
         ) : paged.entries.map((entry) => (
-          <div key={entry.key} data-mastery-entry={entry.key} className={`${SURFACE_CARD} flex items-center gap-2 p-2.5`}>
-            <button type="button" onClick={() => setSelectedKey(entry.key)} className="min-w-0 flex-1 text-left">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <span className="truncate text-sm font-bold">{entry.label}</span>
-                <span className="text-xs font-semibold">{CODEX_MASTERY_STAGE_LABELS[entry.currentTier]}</span>
+          <div key={entry.key} data-mastery-entry={entry.key} className={`${SURFACE_CARD} overflow-hidden ${selectedKey === entry.key ? "ring-2 ring-amber-500" : ""}`}>
+          <div className="flex items-start gap-3 p-4">
+            <button type="button" aria-expanded={selectedKey === entry.key} aria-controls={`mastery-detail-${entry.key}`} onClick={() => setSelectedKey(selectedKey === entry.key ? null : entry.key)} className="min-w-0 flex-1 rounded-md text-left focus-visible:outline-2 focus-visible:outline-amber-500">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-base font-bold">{codexMasteryEntryLabel(entry)}</span>
+                <span className="flex items-center gap-2"><TierBadge tier={entry.currentTier} /><CaretDown aria-hidden size={16} className={selectedKey === entry.key ? "rotate-180" : ""} /></span>
               </div>
-              <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                {CODEX_MASTERY_CATEGORY_LABELS[entry.category]} · 누적 {formatNumber(entry.count)}회 · 점수 {formatNumber(entry.score)}
+              <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">{CODEX_MASTERY_CATEGORY_LABELS[entry.category]}</div>
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-700 dark:text-zinc-200">
+                <span>누적 <strong className="tabular-nums">{formatNumber(entry.count)}</strong>회</span>
+                <span>점수 <strong className="tabular-nums">{formatNumber(entry.score)}</strong></span>
               </div>
               {entry.nextThreshold !== null && (
-                <div className="mt-2"><ProgressBar value={entry.nextProgressPercent} label={`${entry.label} 목록 승급 진행`} /></div>
+                <div className="mt-3 space-y-2">
+                  <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs font-medium text-zinc-700 dark:text-zinc-200">
+                    <span>다음 목표 · {entry.nextStage && CODEX_MASTERY_STAGE_LABELS[entry.nextStage]}</span>
+                    <span className="tabular-nums">{formatNumber(entry.count)} / {formatNumber(entry.nextThreshold)}회 · {entry.nextProgressPercent}%</span>
+                  </div>
+                  <ProgressBar value={entry.nextProgressPercent} label={`${codexMasteryEntryLabel(entry)} 목록 승급 진행`} />
+                </div>
               )}
             </button>
             <button
               type="button"
-              aria-label={`${entry.label} ${entry.pinned ? "고정 해제" : "목표 고정"}`}
+              aria-label={`${codexMasteryEntryLabel(entry)} ${entry.pinned ? "고정 해제" : "목표 고정"}`}
               aria-pressed={entry.pinned}
               disabled={pinBusyKey !== null}
               onClick={() => void replacePin(entry)}
-              className="rounded-md border border-zinc-300 bg-white p-2 text-amber-600 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-amber-300"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-zinc-300 bg-white text-amber-700 focus-visible:outline-2 focus-visible:outline-amber-500 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-amber-300"
             >
               <Star size={18} weight={entry.pinned ? "fill" : "regular"} aria-hidden />
             </button>
           </div>
+          <div id={`mastery-detail-${entry.key}`} hidden={selectedKey !== entry.key}>
+            {selectedKey === entry.key && <div className="border-t border-zinc-200 p-3 dark:border-zinc-700"><EntryDetail entry={entry} sealsEnabled={snapshot.features.sealsEnabled} /></div>}
+          </div>
+          </div>
         ))}
         {pinError && <div className={`${SURFACE_CARD} p-3 text-xs text-rose-700 dark:text-rose-300`}>{pinError}</div>}
         <div className="flex items-center justify-center gap-2">
-          <button type="button" disabled={paged.page <= 1} onClick={() => setPage(paged.page - 1)} className="rounded-md bg-zinc-200 px-3 py-2 text-xs font-semibold disabled:opacity-50 dark:bg-zinc-800">이전</button>
+          <button type="button" disabled={paged.page <= 1} onClick={() => setPage(paged.page - 1)} className="min-h-11 rounded-lg bg-zinc-200 px-4 py-2 text-sm font-semibold disabled:opacity-50 dark:bg-zinc-800">이전</button>
           <span className="text-xs tabular-nums">{paged.page}/{paged.pageCount}</span>
-          <button type="button" disabled={paged.page >= paged.pageCount} onClick={() => setPage(paged.page + 1)} className="rounded-md bg-zinc-200 px-3 py-2 text-xs font-semibold disabled:opacity-50 dark:bg-zinc-800">다음</button>
+          <button type="button" disabled={paged.page >= paged.pageCount} onClick={() => setPage(paged.page + 1)} className="min-h-11 rounded-lg bg-zinc-200 px-4 py-2 text-sm font-semibold disabled:opacity-50 dark:bg-zinc-800">다음</button>
         </div>
       </div>
 
-      {selected && <EntryDetail entry={selected} sealsEnabled={snapshot.features.sealsEnabled} />}
     </section>
   );
 }

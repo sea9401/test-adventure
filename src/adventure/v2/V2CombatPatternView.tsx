@@ -223,6 +223,7 @@ export const ENEMY_DEBUFF_OPTIONS: PatternChoiceOption<V2PatternEnemyDebuff>[] =
   { value: "damageDown", label: "주는 피해 감소" },
   { value: "skillProcDown", label: "스킬 발동률 감소" },
   { value: "healReduction", label: "회복 효과 감소" },
+  { value: "dotVulnerability", label: "지속/저주 피해 증가(침식)" },
   ...STAT_KEYS.map((value) => ({
     value,
     label: `${STAT_LABELS[value]} 감소`,

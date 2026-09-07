@@ -175,6 +175,7 @@ export function preparePvPSkillCast(side: PvPSide, opp: PvPSide, diagnosticActor
       enemyDamageDownActive: opp.stacks.damageDownTurns > 0,
       enemySkillProcDownActive: opp.stacks.skillProcDownTurns > 0,
       enemyHealReductionActive: opp.stacks.healReduceTurns > 0,
+      enemyDotVulnerabilityActive: opp.stacks.dotVulnTurns > 0,
     },
   };
   return {

@@ -48,6 +48,7 @@ const mocks = vi.hoisted(() => ({
   readProgress: vi.fn(),
   readPins: vi.fn(),
   readMonthly: vi.fn(),
+  readSave: vi.fn(async () => ({})),
   writePins: vi.fn(),
   buildSnapshot: vi.fn(),
   transaction: vi.fn(),
@@ -78,6 +79,7 @@ vi.mock("@/lib/server/codexMasterySnapshot", () => ({
 vi.mock("@/lib/server/codexResearchService", () => ({
   readCodexResearchPersonalView: mocks.readMonthly,
 }));
+vi.mock("@/lib/server/savesKv", () => ({ readSave: mocks.readSave }));
 
 import { GET, POST } from "./route";
 
@@ -99,6 +101,7 @@ describe("/api/v2/me/codex-mastery", () => {
     mocks.readProgress.mockResolvedValue([]);
     mocks.readPins.mockResolvedValue([]);
     mocks.readMonthly.mockResolvedValue({ status: "no_season" });
+    mocks.readSave.mockResolvedValue({});
     mocks.writePins.mockImplementation(async (_tx, _userId, entries) => entries);
     mocks.buildSnapshot.mockReturnValue(snapshot);
     mocks.transaction.mockImplementation(async (callback) =>
@@ -143,6 +146,7 @@ describe("/api/v2/me/codex-mastery", () => {
     mocks.readSummary.mockResolvedValue(summary);
     mocks.readProgress.mockResolvedValue(progressRows);
     mocks.readPins.mockResolvedValue(pins);
+    mocks.readSave.mockResolvedValue({ version: 2, discoveredRecipeIds: ["potato_stew"] });
 
     const response = await GET();
 
@@ -166,6 +170,7 @@ describe("/api/v2/me/codex-mastery", () => {
         monthlyProgressEnabled: false,
       },
       monthlyResearch: null,
+      knownCookingRecipeIds: expect.arrayContaining(["rustic_bread", "potato_stew"]),
     });
     expect(mocks.readMonthly).not.toHaveBeenCalled();
   });

@@ -12,16 +12,25 @@ import type { CookingMutation, CookingResponse } from "./clientTypes";
 import { cookingIngredientCount, cookingIngredientName } from "./clientDisplay";
 
 const COOKING_CODEX_PAGE_SIZE = 12;
+const COOKING_CRAFT_MAX_QUANTITY = 20;
 type CookingCodexSort = "discovered" | "name" | "level" | "tier";
 
 function normalizeCodexSearch(value: string): string {
   return value.trim().toLocaleLowerCase("ko-KR");
 }
 
+function clampCookingQuantity(raw: unknown): number {
+  return Math.min(
+    COOKING_CRAFT_MAX_QUANTITY,
+    Math.max(1, Math.floor(Number(raw) || 1)),
+  );
+}
+
 export function CookingCodexPanel({ data, busy, mutate }: { data: CookingResponse; busy: boolean; mutate: CookingMutation }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<CookingCodexSort>("discovered");
   const [usePrepSet, setUsePrepSet] = useState(false);
+  const [quantityByRecipe, setQuantityByRecipe] = useState<Record<string, number>>({});
   const prepSetEnabled = usePrepSet && data.cookingPrepSets > 0;
   const visibleRecipes = useMemo(() => {
     const normalizedQuery = normalizeCodexSearch(query);
@@ -130,6 +139,7 @@ export function CookingCodexPanel({ data, busy, mutate }: { data: CookingRespons
       {visibleRecipes.length > 0 ? <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {pager.pageItems.map(({ recipe, index }) => {
           const favorite = recipe ? data.cooking.favoriteRecipeIds.includes(recipe.id) : false;
+          const quantity = recipe ? quantityByRecipe[recipe.id] ?? 1 : 1;
           return (
             <article key={recipe?.id ?? `unknown:${index}`} className={`${SURFACE_INSET} p-3`}>
               <div className="flex gap-3">
@@ -155,9 +165,31 @@ export function CookingCodexPanel({ data, busy, mutate }: { data: CookingRespons
                   <div className="mt-2 text-xs text-zinc-700 dark:text-zinc-300">
                     {recipe.ingredients.map((ingredient) => `${cookingIngredientName(data, ingredient.id)} ${ingredient.count}개 (보유 ${cookingIngredientCount(data, ingredient.id)})`).join(" · ")}
                   </div>
-                  <button type="button" disabled={busy || data.level < recipe.requiredLevel}
-                    onClick={() => void mutate({ action: "craft", recipeId: recipe.id, quantity: 1, usePrepSet: prepSetEnabled })}
-                    className="mt-3 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">1개 조리</button>
+                  <div className="mt-3 flex flex-wrap items-end gap-2">
+                    <label className="grid gap-1 text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                      <span>조리 수량</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={COOKING_CRAFT_MAX_QUANTITY}
+                        step={1}
+                        value={quantity}
+                        aria-label={`${recipe.name} 조리 수량`}
+                        disabled={busy}
+                        onChange={(event) => {
+                          const nextQuantity = clampCookingQuantity(event.target.value);
+                          setQuantityByRecipe((current) => ({
+                            ...current,
+                            [recipe.id]: nextQuantity,
+                          }));
+                        }}
+                        className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm font-normal text-zinc-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:ring-amber-900"
+                      />
+                    </label>
+                    <button type="button" disabled={busy || data.level < recipe.requiredLevel}
+                      onClick={() => void mutate({ action: "craft", recipeId: recipe.id, quantity, usePrepSet: prepSetEnabled })}
+                      className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">{quantity}개 조리</button>
+                  </div>
                 </>
               ) : null}
             </article>

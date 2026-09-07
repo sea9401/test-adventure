@@ -278,6 +278,7 @@ describe("/api/v2/cooking", () => {
     expect(response.status).toBe(200);
     expect(json.result).toMatchObject({
       quality: "masterpiece",
+      qualityCounts: { normal: 0, careful: 0, masterpiece: 1 },
       usedPrepSets: 1,
     });
     expect(json.cookingFoodDefinitions[json.result.foodId]).toMatchObject({
@@ -290,6 +291,57 @@ describe("/api/v2/cooking", () => {
         balances: { cooking_prep_set: 1 },
         aidsUsed: 1,
       },
+    });
+  });
+
+  it("일괄 조리한 음식마다 품질을 독립적으로 판정한다", async () => {
+    const recipe = COOKING_SECRET_RECIPE_BY_ID.get("rustic_bread")!;
+    const farm = emptyFarmState(NOW);
+    const cooking = emptyCookingState(NOW);
+    mocks.store.set("character.v2", {
+      class: "survivor",
+      level: 35,
+      specChoice: "masterchef",
+      gold: 10_000,
+      name: "테스터",
+    });
+    mocks.store.set("skills.v2", {
+      learned: ["v2c_masterchef_heatcontrol"],
+      equipped: ["v2c_masterchef_heatcontrol"],
+    });
+    mocks.store.set("farm.v2", { ...farm, inventory: { wheat: 30 } });
+    mocks.store.set("cooking.v2", {
+      ...cooking,
+      kitchenItems: { "pantry:yeast": 30 },
+    });
+    vi.spyOn(Math, "random")
+      .mockReturnValueOnce(0.01)
+      .mockReturnValueOnce(0.1)
+      .mockReturnValueOnce(0.99);
+
+    const response = await post({
+      action: "craft",
+      recipeId: recipe.id,
+      quantity: 3,
+    });
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.result).toMatchObject({
+      recipeId: recipe.id,
+      quantity: 3,
+      qualityCounts: { normal: 1, careful: 1, masterpiece: 1 },
+    });
+    expect(json.result).not.toHaveProperty("quality");
+    expect(json.result).not.toHaveProperty("foodId");
+    expect(json.cookingFoods).toMatchObject({
+      [`food2:${recipe.id}:normal:o0:s0`]: 1,
+      [`food2:${recipe.id}:careful:o0:s0`]: 1,
+      [`food2:${recipe.id}:masterpiece:o0:s0`]: 1,
+    });
+    expect(json.cooking.stats).toMatchObject({
+      dishesCooked: 3,
+      masterpiecesCooked: 1,
     });
   });
 

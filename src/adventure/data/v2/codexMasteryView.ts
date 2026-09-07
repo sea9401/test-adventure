@@ -6,6 +6,20 @@ import type {
 } from "./codexMasteryTypes";
 import type { CodexResearchPersonalView } from "./codexResearch";
 
+export function isCodexMasteryNameHidden(entry: {
+  category: CodexMasteryCategory;
+  currentTier: CodexMasteryTier;
+  nameHidden?: boolean;
+}): boolean {
+  return entry.nameHidden ?? (entry.category === "cooking" && entry.currentTier === "none");
+}
+
+export function codexMasteryEntryLabel(entry: Pick<CodexMasteryEntryView, "category" | "currentTier" | "label" | "nameHidden">): string {
+  return isCodexMasteryNameHidden(entry)
+    ? "미발견 요리"
+    : entry.label;
+}
+
 export type CodexMasteryPinnedGoal = {
   category: CodexMasteryCategory;
   entryId: string;
@@ -23,6 +37,8 @@ export type CodexMasteryEntryView = {
   category: CodexMasteryCategory;
   entryId: string;
   label: string;
+  /** Recipe discovery may precede the first mastery record. */
+  nameHidden?: boolean;
   count: number;
   bestValue: number | null;
   currentTier: CodexMasteryTier;

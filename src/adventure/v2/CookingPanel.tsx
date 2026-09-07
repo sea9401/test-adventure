@@ -15,6 +15,7 @@ import { CookingSpecialtyPanel } from "./cooking/CookingSpecialtyPanel";
 import { CookingDeliveryPanel } from "./cooking/CookingDeliveryPanel";
 import { CookingProcessingPanel } from "./cooking/CookingProcessingPanel";
 import type { CookingMutation, CookingResponse } from "./cooking/clientTypes";
+import { cookingQualityName, type CookingQuality } from "./cooking/foodShared";
 import { COOKING_FIELD_NAMES } from "./cooking/types";
 
 export { SurplusCropLabel } from "./SurplusExchangePanel";
@@ -65,7 +66,38 @@ export function cookingLevelProgressView(input: { xp: number; currentLevelXp: nu
   };
 }
 
-function resultMessage(data: CookingResponse): string {
+const COOKING_QUALITY_ORDER: readonly CookingQuality[] = [
+  "normal",
+  "careful",
+  "masterpiece",
+];
+
+function isCookingQuality(value: unknown): value is CookingQuality {
+  return COOKING_QUALITY_ORDER.some((quality) => quality === value);
+}
+
+function cookingQualityResultText(result: Record<string, unknown>): string {
+  const quantity = Math.max(1, Math.floor(Number(result.quantity) || 1));
+  if (quantity === 1 && isCookingQuality(result.quality)) {
+    return cookingQualityName(result.quality);
+  }
+  const rawCounts = result.qualityCounts;
+  if (rawCounts && typeof rawCounts === "object" && !Array.isArray(rawCounts)) {
+    const counts = rawCounts as Record<string, unknown>;
+    const parts = COOKING_QUALITY_ORDER.flatMap((quality) => {
+      const count = Math.max(0, Math.floor(Number(counts[quality]) || 0));
+      return count > 0
+        ? [`${cookingQualityName(quality)} ${count.toLocaleString("ko-KR")}개`]
+        : [];
+    });
+    if (parts.length > 0) return parts.join(" · ");
+  }
+  return cookingQualityName(
+    isCookingQuality(result.quality) ? result.quality : "normal",
+  );
+}
+
+export function cookingResultMessage(data: CookingResponse): string {
   const result = data.result ?? {};
   if (result.action === "research") {
     if (result.outcome === "success") {
@@ -75,7 +107,7 @@ function resultMessage(data: CookingResponse): string {
     const failedDishCount = Math.max(0, Math.floor(Number(result.failedDishCount) || 0));
     return `조합 연구 실패 · 선택 재료 각 1개 소비 · 요리 XP +${earnedXp.toLocaleString("ko-KR")} · 실패 음식 +${failedDishCount.toLocaleString("ko-KR")}`;
   }
-  if (result.action === "craft") return `${data.knownRecipes.find((entry) => entry.id === result.recipeId)?.name ?? "요리"} ${Number(result.quantity) || 1}개 완성 · ${String(result.quality ?? "normal")}${Number(result.usedPrepSets) > 0 ? ` · 준비 세트 ${Number(result.usedPrepSets)}개 사용` : ""}`;
+  if (result.action === "craft") return `${data.knownRecipes.find((entry) => entry.id === result.recipeId)?.name ?? "요리"} ${Number(result.quantity) || 1}개 완성 · ${cookingQualityResultText(result)}${Number(result.usedPrepSets) > 0 ? ` · 준비 세트 ${Number(result.usedPrepSets)}개 사용` : ""}`;
   if (result.action === "choose_specialty") return `${COOKING_FIELD_NAMES[result.field as keyof typeof COOKING_FIELD_NAMES]} 전문 분야를 영구 확정했습니다.`;
   if (result.action === "deliver") return result.completedNow ? "납품 목표를 달성해 보상을 받았습니다." : `납품 점수 +${Number(result.scoreAdded) || 0}`;
   if (result.action === "standing_delivery") return `상시 납품 완료 · ${Number(result.gold).toLocaleString()}골드`;
@@ -134,7 +166,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
       const json = await response.json() as CookingResponse & { error?: string };
       if (!response.ok || !json.ok) throw new Error(json.error ?? "cooking_failed");
       setData(json);
-      setNotice(resultMessage(json));
+      setNotice(cookingResultMessage(json));
       onFarmChanged?.();
       await refreshGameState();
     } catch (error) {

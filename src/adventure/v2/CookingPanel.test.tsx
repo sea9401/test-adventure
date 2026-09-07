@@ -304,6 +304,68 @@ describe("개편 요리 연구실", () => {
     expect(cookingErrorText("rate_limited")).toContain("잠시 후");
   });
 
+  it.each([
+    {
+      name: "일괄 조리 품질별 수량",
+      quantity: 4,
+      result: {
+        action: "craft",
+        quantity: 4,
+        qualityCounts: { normal: 2, careful: 1, masterpiece: 1 },
+        usedPrepSets: 0,
+      },
+      expected: "투박한 밀빵 4개 완성 · 일반 2개 · 정성작 1개 · 걸작 1개",
+    },
+    {
+      name: "이전 단일 품질 응답",
+      quantity: 1,
+      result: {
+        action: "craft",
+        quantity: 1,
+        quality: "masterpiece",
+        usedPrepSets: 0,
+      },
+      expected: "투박한 밀빵 1개 완성 · 걸작",
+    },
+  ])("조리 완료 알림에 $name을 한국어로 표시한다", async ({ quantity, result, expected }) => {
+    const initial = fixture();
+    const recipe = initial.knownRecipes[0];
+    const completed: CookingResponse = {
+      ...initial,
+      result: { ...result, recipeId: recipe.id },
+    };
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url === "/api/v2/cooking" && init?.method === "POST") {
+        return Response.json(completed);
+      }
+      if (url === "/api/v2/cooking") return Response.json(initial);
+      return Response.json({ ok: true });
+    });
+
+    render(
+      <GameStateRefreshProvider refreshGameState={vi.fn(async () => undefined)}>
+        <CookingPanel />
+      </GameStateRefreshProvider>,
+    );
+
+    await screen.findByText("레시피 연구");
+    fireEvent.click(screen.getByRole("tab", { name: "도감" }));
+    if (quantity > 1) {
+      fireEvent.change(
+        screen.getByRole("spinbutton", { name: `${recipe.name} 조리 수량` }),
+        { target: { value: String(quantity) } },
+      );
+    }
+    fireEvent.click(
+      screen.getAllByRole("button", { name: `${quantity}개 조리` })[0],
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("status").textContent).toBe(expected);
+    });
+  });
+
   it("현재 레벨 구간 경험치를 계산한다", () => {
     expect(cookingLevelProgressView({ xp: 12_345, currentLevelXp: 10_000, nextLevelXp: 15_000 })).toEqual({ percent: 46.9, label: "2,345 / 5,000 XP" });
   });

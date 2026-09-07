@@ -72,6 +72,27 @@ const features = {
 };
 
 describe("codex mastery view snapshot", () => {
+  it("withholds undiscovered cooking names from the serialized snapshot and reveals discovered names", () => {
+    const cookingCatalog = createCodexMasteryCatalog([
+      { ...definitions[0], category: "cooking", entryId: "secret_soup", label: "비밀 수프" },
+    ]);
+    const build = (progressRows: CodexMasteryProgress[]) => buildCodexMasterySnapshot({
+      summary: emptyCodexMasterySummary(), progressRows,
+      pinnedGoals: [{ category: "cooking", entryId: "secret_soup" }],
+      features, monthlyResearch: null, catalog: cookingCatalog,
+    });
+    const hidden = build([]);
+    expect(hidden.entries[0].label).toBe("미발견 요리");
+    expect(JSON.stringify(hidden)).not.toContain("비밀 수프");
+    const researched = buildCodexMasterySnapshot({
+      summary: emptyCodexMasterySummary(), progressRows: [], pinnedGoals: [],
+      features, monthlyResearch: null, catalog: cookingCatalog,
+      knownCookingRecipeIds: ["secret_soup"],
+    });
+    expect(researched.entries[0]).toMatchObject({ label: "비밀 수프", nameHidden: false, currentTier: "none" });
+    expect(build([progress({ category: "cooking", entryId: "secret_soup", currentTier: "discovered", count: 0 })]).entries[0].label).toBe("비밀 수프");
+  });
+
   it("joins sparse progress to the full catalog and keeps summary scores authoritative", () => {
     const summary = emptyCodexMasterySummary();
     summary.totalScoreMilli = 12_500;

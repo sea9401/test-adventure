@@ -1247,7 +1247,7 @@ export function applyPlayerV2SkillCast(
       kind: "info",
       text: bleedChangeLogText(
         result.bleedChangeToApply,
-        bleedAfterChange.turns,
+        { previousStacks: bleedBeforeChange.stacks, resultingStacks: bleedAfterChange.stacks, resultingTurns: bleedAfterChange.turns },
       ),
       turn: "player",
     });

@@ -138,7 +138,7 @@ describe("출혈 사냥 PvP 적용", () => {
     });
     expect(
       cast.log.some((entry) =>
-        entry.text.includes("출혈 지속이 4회로 갱신됐다"),
+        entry.text === "출혈 +1스택 (6스택), 지속이 4회로 갱신됐다.",
       ),
     ).toBe(true);
   });

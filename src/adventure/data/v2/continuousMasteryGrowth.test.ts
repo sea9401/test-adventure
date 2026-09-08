@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { emptyProficiency, parseProficiency, resetLevelGrowth, addCumLevel } from "./proficiency";
+import { emptyProficiency, parseProficiency, resetLevelGrowth, addCumLevel, addJobCumLevel } from "./proficiency";
 import { computeStatFloors, masteryGrowthBonus, statGrowthRanges, rollLevelGrowth, lifeResourceRangesForProficiency } from "./statGrowth";
 import { masteryResourceRange, rollInitialLifeResourceGrowth, rollLifeResourceLevels } from "./lifeResourceGrowth";
 import { V2_STAT_KEYS } from "./v2StatKeys";
 
-const profAt = (mastery: number) => ({ ...emptyProficiency(), groups: { warrior: { tier: 1, cultivations: 0, cumLevel: mastery } }, caps: Object.fromEntries(V2_STAT_KEYS.map(k => [k, 10_000])) });
+const profAt = (mastery: number) => ({ ...emptyProficiency(), groups: { warrior: { tier: 1, cultivations: 0, cumLevel: mastery } }, jobCumLevel: { warrior: mastery }, caps: Object.fromEntries(V2_STAT_KEYS.map(k => [k, 10_000])) });
 const seq = (...values: number[]) => () => values.shift() ?? 0;
 
 describe("continuous mastery growth", () => {
@@ -20,13 +20,14 @@ describe("continuous mastery growth", () => {
     const p = profAt(5000 * (2 ** 3.3 - 1));
     // Integer stored mastery approximates U=4.3.
     p.groups.warrior.cumLevel = 44_246;
+    p.jobCumLevel.warrior = 44_246;
     expect(statGrowthRanges(p).str.upperProbability).toBeCloseTo(0.3, 4);
     expect(rollLevelGrowth({}, "warrior", p, seq(0.29, 0.999)).str).toBe(5);
     expect(rollLevelGrowth({}, "warrior", p, seq(0.31, 0.999)).str).toBe(4);
     expect(rollLevelGrowth({}, "warrior", p, seq(0.29, 0)).str).toBeUndefined();
   });
   it("can grow all six stats by two in one level and consumes two draws even at caps", () => {
-    const p = { ...profAt(15_000), groups: Object.fromEntries(["warrior", "mage", "rogue"].map(k => [k, { tier: 1, cultivations: 0, cumLevel: 15_000 }])) };
+    const p = { ...profAt(15_000), jobCumLevel: { warrior: 15_000, mage: 15_000, rogue: 15_000 }, groups: Object.fromEntries(["warrior", "mage", "rogue"].map(k => [k, { tier: 1, cultivations: 0, cumLevel: 15_000 }])) };
     const ranges = statGrowthRanges(p);
     const values = V2_STAT_KEYS.flatMap(k => [0.999, 2.5 / (ranges[k].lowerMax! + 1)]);
     expect(rollLevelGrowth({}, "warrior", p, seq(...values))).toEqual(Object.fromEntries(V2_STAT_KEYS.map(k => [k, 2])));
@@ -40,7 +41,7 @@ describe("continuous mastery growth", () => {
     const parsed = parseProficiency(raw);
     expect(computeStatFloors(parsed)).toEqual(before);
     expect(parsed.grown).toEqual(raw.grown);
-    const trained = addCumLevel(parsed, "warrior", 9_900_000);
+    const trained = addJobCumLevel(addCumLevel(parsed, "warrior", 9_900_000), "warrior", 9_900_000);
     expect(computeStatFloors(parseProficiency(trained))).toEqual(before);
     const reset = resetLevelGrowth(trained);
     expect(computeStatFloors(reset).str).toBe(256);

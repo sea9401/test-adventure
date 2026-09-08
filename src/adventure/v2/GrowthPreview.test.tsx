@@ -7,7 +7,7 @@ describe("growth preview", () => {
   it("shows fractional chances, means and next rejob bases without consuming RNG", () => {
     const rng = vi.spyOn(Math, "random").mockImplementation(() => { throw new Error("preview must not roll"); });
     try {
-      const raw = { groups: { warrior: { tier: 1, cumLevel: 100_000 } }, lifeResourceGrowth: { version: 2, rolledLevel: 30, baseHp: 170, baseMp: 80, gainedHp: 200, gainedMp: 100 } };
+      const raw = { jobCumLevel: { warrior: 100_000 }, groups: { warrior: { tier: 1, cumLevel: 100_000 } }, lifeResourceGrowth: { version: 2, rolledLevel: 30, baseHp: 170, baseMp: 80, gainedHp: 200, gainedMp: 100 } };
       const before = JSON.stringify(raw);
       const section = proficiencySection(raw, { class: "warrior", level: 30 });
       const html = renderToStaticMarkup(<GrowthPreview {...section} />);

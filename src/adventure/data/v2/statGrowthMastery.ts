@@ -1,5 +1,4 @@
 import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
-import { V2_CULTIVATE_PROFILE } from "./cultivateProfiles";
 import { V2_JOB_CATALOG } from "./v2JobCatalog";
 import type { V2ProficiencyState } from "./proficiency";
 
@@ -32,11 +31,8 @@ export function statGrowthMasteryTotals(
     }
   };
 
-  // 직군 숙련도는 그 직군으로 쌓은 전체 경력이다. 상위 직업을 거쳐도 해당 계열의 기본 성장 성향은 남긴다.
-  for (const [group, g] of Object.entries(prof.groups)) {
-    addProfile(Math.max(0, Math.floor(g.cumLevel)), V2_CULTIVATE_PROFILE[group]);
-  }
-  // 구체 직업 숙련도는 직군보다 더 세밀한 보정이다. 예: 궁수/자객/방패병/사제 경력이 각자 다른 스탯에 남는다.
+  // groups는 개별 직업과 같은 활동을 합산한 표시·해금용 총계다. 다시 더하지 않는다.
+  // 견습 직업도 직접 쌓은 jobCumLevel만 해당 직업의 프로필로 한 번 반영한다.
   for (const [jobId, cumLevel] of Object.entries(prof.jobCumLevel ?? {})) {
     addProfile(
       Math.max(0, Math.floor(cumLevel)),

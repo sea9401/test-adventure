@@ -734,7 +734,8 @@ function proficiencyForCareer(
   prof.reincarnations = jobIndex;
   prof.jobHistory = spec.jobPath.slice(0, jobIndex + 1);
 
-  for (let i = 1; i < spec.jobPath.length; i++) {
+  // 견습을 포함해 각 직업에서 직접 쌓은 구간만 기록한다.
+  for (let i = 0; i < spec.jobPath.length; i++) {
     const segment = position.segments[i];
     if (!segment) break;
     const amount = Math.max(0, Math.min(segment.end - segment.start, wins - segment.start));

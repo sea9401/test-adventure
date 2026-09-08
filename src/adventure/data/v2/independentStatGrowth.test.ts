@@ -10,6 +10,7 @@ const wideCaps = Object.fromEntries(V2_STAT_KEYS.map((s) => [s, 10_000]));
 describe("independent mastery growth", () => {
   it("growth ranges keep increasing beyond the former mastery soft cap", () => {
     const max = (mastery: number) => statGrowthRanges({ ...emptyProficiency(),
+      jobCumLevel: { warrior: mastery },
       groups: { warrior: { tier: 1, cultivations: 0, cumLevel: mastery } },
     }).str.max;
     expect([0, 10_000, 100_000, 1_000_000, 20_000_000].map(max)).toEqual([1, 3, 6, 9, 13]);
@@ -33,6 +34,7 @@ describe("independent mastery growth", () => {
 
   it("clamps invalid RNG values and clips multi-point growth to remaining cap", () => {
     const prof = { ...emptyProficiency(),
+      jobCumLevel: { warrior: 100_000 },
       groups: { warrior: { tier: 1, cumLevel: 100_000, cultivations: 0 } } };
     expect(rollLevelGrowth({ str: 44 }, "warrior", prof, high).str).toBe(45);
     expect(rollLevelGrowth({}, "warrior", prof, () => Number.NaN)).toEqual({});
@@ -53,6 +55,7 @@ describe("independent mastery growth", () => {
 
   it("mastery increases related amounts without suppressing other stats", () => {
     const prof = { ...emptyProficiency(), caps: wideCaps,
+      jobCumLevel: { warrior: 100_000 },
       groups: { warrior: { tier: 1, cumLevel: 100_000, cultivations: 0 } } };
     expect(rollLevelGrowth({}, "mage", prof, high)).toEqual({
       str: 5, dex: 4, vit: 4, int: 1, spi: 1, luk: 1,
@@ -77,7 +80,7 @@ describe("independent mastery growth", () => {
 
   it("career mastery expands future HP and MP rolls while retaining earlier records", () => {
     const base = emptyProficiency();
-    const trained = { ...base, groups: {
+    const trained = { ...base, jobCumLevel: { warrior: 100_000, mage: 100_000 }, groups: {
       warrior: { tier: 1, cumLevel: 100_000, cultivations: 0 },
       mage: { tier: 1, cumLevel: 100_000, cultivations: 0 },
     } };

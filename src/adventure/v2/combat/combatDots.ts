@@ -207,12 +207,8 @@ export function bleedChangeLogText(
   },
 ): string {
   if (change.reason === "refresh") {
-    const addedStacks = Math.max(
-      0,
-      result.resultingStacks - result.previousStacks,
-    );
-    const stackText =
-      addedStacks > 0
+    const addedStacks = Math.max(0, result.resultingStacks - result.previousStacks);
+    const stackText = addedStacks > 0
         ? `출혈 +${addedStacks}스택 (${result.resultingStacks}스택), `
         : "출혈 ";
     return `${stackText}지속이 ${result.resultingTurns}회로 갱신됐다.`;

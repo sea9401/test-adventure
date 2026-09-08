@@ -1548,7 +1548,7 @@ describe("직업 킷 — 스킬셋", () => {
     ]);
     expect(V2_SKILLS.v2c_vajraarhat_seal.category).toBe("buff");
     expect(V2_SKILLS.v2c_vajraarhat_seal.effects).toEqual([
-      { kind: "shield", pctMaxHp: 18, turns: 3 },
+      { kind: "selfRegen", pctMaxHpPerTurn: 6, turns: 3 },
       { kind: "selfBuffPct", target: "damageReduction", pct: 14, turns: 3 },
       { kind: "selfBuffPct", target: "reflectDamage", pct: 45, turns: 3 },
     ]);

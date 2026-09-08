@@ -89,7 +89,8 @@ describe("independent mastery growth", () => {
       const after = lifeResourceRangesForProficiency(trained, version);
       expect(after.hpPerLevel.min).toBeGreaterThan(before.hpPerLevel.min);
       expect(after.hpPerLevel.max).toBeGreaterThan(before.hpPerLevel.max);
-      expect(after.mpPerLevel.min).toBeGreaterThan(before.mpPerLevel.min);
+      expect(after.mpPerLevel.min).toBeGreaterThanOrEqual(before.mpPerLevel.min);
+      expect(after.mpPerLevel.expected).toBeGreaterThan(before.mpPerLevel.expected!);
       expect(after.mpPerLevel.max).toBeGreaterThan(before.mpPerLevel.max);
       const initial = { ...rollInitialLifeResourceGrowth(before, high), version };
       const first = rollLifeResourceLevels(initial, 1, 1, before, high).record;

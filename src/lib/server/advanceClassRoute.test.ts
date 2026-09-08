@@ -129,7 +129,7 @@ describe("advance-class — 전직 후 숙달 포인트 유지(#1220 전역화 �
         maxHp: 250,
         maxMp: 120,
         hpPerLevel: { min: 8, max: 14 },
-        mpPerLevel: { min: 3, max: 6 },
+        mpPerLevel: { min: 2, max: 5 },
       },
     });
     expect(

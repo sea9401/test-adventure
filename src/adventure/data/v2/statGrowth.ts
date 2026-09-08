@@ -78,8 +78,8 @@ export function lifeResourceRangesForProficiency(
     ),
     mpPerLevel: masteryResourceRange(
       ranges.mpPerLevel,
-      3 * masteryGrowthBonus(mastery.spi),
-      3 * masteryGrowthBonus(mastery.int),
+      0.1 * masteryGrowthBonus(mastery.spi),
+      0.1 * masteryGrowthBonus(mastery.int),
     ),
   };
 }

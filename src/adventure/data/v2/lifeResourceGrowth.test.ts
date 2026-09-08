@@ -21,7 +21,7 @@ describe("v2 생애 HP·MP 성장", () => {
       baseHp: { min: 250, max: 350 },
       baseMp: { min: 120, max: 180 },
       hpPerLevel: { min: 8, max: 12 },
-      mpPerLevel: { min: 3, max: 5 },
+      mpPerLevel: { min: 2, max: 4 },
     });
   });
 
@@ -52,7 +52,7 @@ describe("v2 생애 HP·MP 성장", () => {
     const version2 = lifeResourceRanges(ryuInput, 2);
 
     expect(version1.mpPerLevel).toEqual({ min: 23, max: 25 });
-    expect(version2.mpPerLevel).toEqual({ min: 11, max: 13 });
+    expect(version2.mpPerLevel).toEqual({ min: 10, max: 12 });
     expect(version2.baseMp).toEqual({ min: 140, max: 200 });
     expect(version2.baseMp).toEqual(version1.baseMp);
     expect(version2.baseHp).toEqual(version1.baseHp);
@@ -88,20 +88,20 @@ describe("v2 생애 HP·MP 성장", () => {
         ...record,
         rolledLevel: 3,
         gainedHp: 16,
-        gainedMp: 6,
+        gainedMp: 4,
       },
       hpGain: 16,
-      mpGain: 6,
+      mpGain: 4,
     });
   });
 
-  it("기본 범위의 평균 굴림은 Lv.100에서 생애 HP 1,290과 MP 546이 된다", () => {
+  it("기본 범위의 평균 굴림은 Lv.100에서 생애 HP 1,290과 MP 447이 된다", () => {
     const initial = rollInitialLifeResourceGrowth(baseRanges, () => 0.5);
     const result = rollLifeResourceLevels(initial, 1, 99, baseRanges, () => 0.5);
 
     expect(initial).toMatchObject({ baseHp: 300, baseMp: 150 });
     expect(result.record.baseHp + result.record.gainedHp).toBe(1_290);
-    expect(result.record.baseMp + result.record.gainedMp).toBe(546);
+    expect(result.record.baseMp + result.record.gainedMp).toBe(447);
   });
 
   it("레벨 초기화가 누락된 기존 기록은 Lv.1 생애로 복구한 뒤 새 레벨만 굴린다", () => {
@@ -127,10 +127,10 @@ describe("v2 생애 HP·MP 성장", () => {
         baseHp: 172,
         baseMp: 81,
         gainedHp: 8,
-        gainedMp: 3,
+        gainedMp: 2,
       },
       hpGain: 8,
-      mpGain: 3,
+      mpGain: 2,
     });
   });
 
@@ -143,10 +143,10 @@ describe("v2 생애 HP·MP 성장", () => {
         ...record,
         rolledLevel: 4,
         gainedHp: 24,
-        gainedMp: 9,
+        gainedMp: 6,
       },
       hpGain: 8,
-      mpGain: 3,
+      mpGain: 2,
     });
   });
 

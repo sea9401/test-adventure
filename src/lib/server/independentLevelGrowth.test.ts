@@ -10,6 +10,7 @@ describe("independent level growth across grants", () => {
     const raw = {
       ...emptyProficiency(),
       caps: Object.fromEntries(V2_STAT_KEYS.map((s) => [s, 10_000])),
+      jobCumLevel: { warrior: 100_000, mage: 100_000 },
       groups: {
         warrior: { tier: 1, cultivations: 0, cumLevel: 100_000 },
         mage: { tier: 1, cultivations: 0, cumLevel: 100_000 },

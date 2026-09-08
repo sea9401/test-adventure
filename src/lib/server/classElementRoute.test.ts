@@ -129,6 +129,7 @@ describe("class-element — 코어루프 수동 로드아웃 보존", () => {
     store.set("proficiency.v2", {
       points: 0,
       groups: { warrior: { tier: 5, cultivations: 0, cumLevel: 2250 } },
+      jobCumLevel: { warrior: 2250 },
       caps: {},
       grown: { str: 12 },
       growthRespecPoints: 9,

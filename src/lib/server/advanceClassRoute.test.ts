@@ -109,6 +109,7 @@ describe("advance-class — 전직 후 숙달 포인트 유지(#1220 전역화 �
     seed("warrior", "warrior", 5000);
     store.set("proficiency.v2", {
       ...(store.get("proficiency.v2") as Record<string, unknown>),
+      jobCumLevel: { warrior: 200 },
       lifeResourceGrowth: {
         version: 1,
         rolledLevel: 100,
@@ -148,6 +149,7 @@ describe("advance-class — 전직 후 숙달 포인트 유지(#1220 전역화 �
     store.set("proficiency.v2", {
       ...(store.get("proficiency.v2") as Record<string, unknown>),
       groups: { warrior: { tier: 1, cultivations: 0, cumLevel: 100_000 } },
+      jobCumLevel: { warrior: 100_000 },
       lifeStartStats: { str: 500, dex: 500, vit: 500, int: 500, spi: 500, luk: 500 },
       statFloorLevels: { warrior: 1_000_000 },
     });

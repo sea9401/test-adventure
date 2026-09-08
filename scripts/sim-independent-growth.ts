@@ -7,6 +7,7 @@ import { V2_STAT_KEYS } from "../src/adventure/data/v2/v2StatKeys";
 const samples = 500;
 for (const mastery of [0, 1_000, 5_000, 10_000, 50_000, 100_000, 500_000, 1_000_000, 5_000_000, 10_000_000]) {
   const prof = resetLevelGrowth({ ...emptyProficiency(),
+    jobCumLevel: { warrior: mastery },
     caps: Object.fromEntries(V2_STAT_KEYS.map((s) => [s, 100_000])),
     groups: { warrior: { tier: 1, cumLevel: mastery, cultivations: 0 } } });
   const totals: number[] = [];

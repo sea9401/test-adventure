@@ -37,34 +37,34 @@ Format: package@version | SPDX expression | upstream | bundled text IDs
 @aws-sdk/types@3.974.2 | Apache-2.0 | https://www.npmjs.com/package/%40aws-sdk%2Ftypes | texts: d82ceb8cbd00
 @aws-sdk/xml-builder@3.972.36 | Apache-2.0 | https://www.npmjs.com/package/%40aws-sdk%2Fxml-builder | texts: d82ceb8cbd00
 @aws/lambda-invoke-store@0.3.0 | Apache-2.0 | https://www.npmjs.com/package/%40aws%2Flambda-invoke-store | texts: 09e8a9bcec80
-@emnapi/runtime@1.11.1 | MIT | https://www.npmjs.com/package/%40emnapi%2Fruntime
+@emnapi/runtime@1.11.3 | MIT | https://www.npmjs.com/package/%40emnapi%2Fruntime
 @img/colour@1.1.0 | MIT | https://www.npmjs.com/package/%40img%2Fcolour | texts: e2eaa4603c14
-@img/sharp-darwin-arm64@0.35.3 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-darwin-arm64
-@img/sharp-darwin-x64@0.35.3 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-darwin-x64
-@img/sharp-freebsd-wasm32@0.35.3 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-freebsd-wasm32
-@img/sharp-libvips-darwin-arm64@1.3.2 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
-@img/sharp-libvips-darwin-x64@1.3.2 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
-@img/sharp-libvips-linux-arm@1.3.2 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
-@img/sharp-libvips-linux-arm64@1.3.2 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
-@img/sharp-libvips-linux-ppc64@1.3.2 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
-@img/sharp-libvips-linux-riscv64@1.3.2 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
-@img/sharp-libvips-linux-s390x@1.3.2 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
-@img/sharp-libvips-linux-x64@1.3.2 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
-@img/sharp-libvips-linuxmusl-arm64@1.3.2 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
-@img/sharp-libvips-linuxmusl-x64@1.3.2 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
-@img/sharp-linux-arm@0.35.3 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-linux-arm
-@img/sharp-linux-arm64@0.35.3 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-linux-arm64
-@img/sharp-linux-ppc64@0.35.3 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-linux-ppc64
-@img/sharp-linux-riscv64@0.35.3 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-linux-riscv64
-@img/sharp-linux-s390x@0.35.3 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-linux-s390x
-@img/sharp-linux-x64@0.35.3 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-linux-x64
-@img/sharp-linuxmusl-arm64@0.35.3 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-linuxmusl-arm64
-@img/sharp-linuxmusl-x64@0.35.3 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-linuxmusl-x64
-@img/sharp-wasm32@0.35.3 | Apache-2.0 AND LGPL-3.0-or-later AND MIT | https://www.npmjs.com/package/%40img%2Fsharp-wasm32
-@img/sharp-webcontainers-wasm32@0.35.3 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-webcontainers-wasm32
-@img/sharp-win32-arm64@0.35.3 | Apache-2.0 AND LGPL-3.0-or-later | https://www.npmjs.com/package/%40img%2Fsharp-win32-arm64
-@img/sharp-win32-ia32@0.35.3 | Apache-2.0 AND LGPL-3.0-or-later | https://www.npmjs.com/package/%40img%2Fsharp-win32-ia32
-@img/sharp-win32-x64@0.35.3 | Apache-2.0 AND LGPL-3.0-or-later | https://www.npmjs.com/package/%40img%2Fsharp-win32-x64
+@img/sharp-darwin-arm64@0.35.4 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-darwin-arm64
+@img/sharp-darwin-x64@0.35.4 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-darwin-x64
+@img/sharp-freebsd-wasm32@0.35.4 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-freebsd-wasm32
+@img/sharp-libvips-darwin-arm64@1.3.3 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
+@img/sharp-libvips-darwin-x64@1.3.3 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
+@img/sharp-libvips-linux-arm@1.3.3 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
+@img/sharp-libvips-linux-arm64@1.3.3 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
+@img/sharp-libvips-linux-ppc64@1.3.3 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
+@img/sharp-libvips-linux-riscv64@1.3.3 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
+@img/sharp-libvips-linux-s390x@1.3.3 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
+@img/sharp-libvips-linux-x64@1.3.3 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
+@img/sharp-libvips-linuxmusl-arm64@1.3.3 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
+@img/sharp-libvips-linuxmusl-x64@1.3.3 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips
+@img/sharp-linux-arm@0.35.4 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-linux-arm
+@img/sharp-linux-arm64@0.35.4 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-linux-arm64
+@img/sharp-linux-ppc64@0.35.4 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-linux-ppc64
+@img/sharp-linux-riscv64@0.35.4 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-linux-riscv64
+@img/sharp-linux-s390x@0.35.4 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-linux-s390x
+@img/sharp-linux-x64@0.35.4 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-linux-x64
+@img/sharp-linuxmusl-arm64@0.35.4 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-linuxmusl-arm64
+@img/sharp-linuxmusl-x64@0.35.4 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-linuxmusl-x64
+@img/sharp-wasm32@0.35.4 | Apache-2.0 AND LGPL-3.0-or-later AND MIT | https://www.npmjs.com/package/%40img%2Fsharp-wasm32
+@img/sharp-webcontainers-wasm32@0.35.4 | Apache-2.0 | https://www.npmjs.com/package/%40img%2Fsharp-webcontainers-wasm32
+@img/sharp-win32-arm64@0.35.4 | Apache-2.0 AND LGPL-3.0-or-later | https://www.npmjs.com/package/%40img%2Fsharp-win32-arm64
+@img/sharp-win32-ia32@0.35.4 | Apache-2.0 AND LGPL-3.0-or-later | https://www.npmjs.com/package/%40img%2Fsharp-win32-ia32
+@img/sharp-win32-x64@0.35.4 | Apache-2.0 AND LGPL-3.0-or-later | https://www.npmjs.com/package/%40img%2Fsharp-win32-x64
 @neondatabase/serverless@1.1.0 | MIT | https://www.npmjs.com/package/%40neondatabase%2Fserverless
 @next/env@16.3.3 | MIT | https://www.npmjs.com/package/%40next%2Fenv
 @next/swc-darwin-arm64@16.3.3 | MIT | https://www.npmjs.com/package/%40next%2Fswc-darwin-arm64
@@ -226,7 +226,7 @@ safe-buffer@5.2.1 | MIT | https://www.npmjs.com/package/safe-buffer | texts: c7c
 safer-buffer@2.1.2 | MIT | https://www.npmjs.com/package/safer-buffer | texts: 4bc935e71be1
 scheduler@0.27.0 | MIT | https://www.npmjs.com/package/scheduler | texts: da6d3703ed11
 semver@7.8.5 | ISC | https://www.npmjs.com/package/semver | texts: 4ec3d4c66cd8
-sharp@0.35.3 | Apache-2.0 | https://www.npmjs.com/package/sharp | texts: 73ba74dfaa52
+sharp@0.35.4 | Apache-2.0 | https://www.npmjs.com/package/sharp | texts: 73ba74dfaa52
 source-map-js@1.2.1 | BSD-3-Clause | https://www.npmjs.com/package/source-map-js | texts: 6cb0631f71c7
 space-separated-tokens@2.0.2 | MIT | https://www.npmjs.com/package/space-separated-tokens | texts: ca4662cb5d1b
 split2@4.2.0 | ISC | https://www.npmjs.com/package/split2 | texts: c372ef2fa1df
@@ -3511,7 +3511,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ==============================================================================
 TEXT 73ba74dfaa52 (LICENSE)
-Applies to: sharp@0.35.3
+Applies to: sharp@0.35.4
 ------------------------------------------------------------------------------
 Apache License
 Version 2.0, January 2004

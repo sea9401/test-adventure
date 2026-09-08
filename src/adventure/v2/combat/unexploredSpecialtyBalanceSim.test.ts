@@ -281,16 +281,16 @@ describe("미개척지 상위 특화 세트 결정적 밸런스 시뮬레이션"
     expect(report.ratios).toEqual([
       expect.objectContaining({
         setId: "tracking",
-        stormRoleRatio: expect.closeTo(0.8284987630, 8),
-        pioneerRoleRatio: expect.closeTo(1.1742810221, 8),
+        stormRoleRatio: expect.closeTo(0.82710037015033120, 8),
+        pioneerRoleRatio: expect.closeTo(1.175840981681551, 8),
         bossRoleRatio: null,
         bossSurvivalRatio: null,
       }),
       expect.objectContaining({
         setId: "toxic_blood",
-        stormRoleRatio: expect.closeTo(0.8418756138, 8),
-        pioneerRoleRatio: expect.closeTo(0.9249220571, 8),
-        bossRoleRatio: expect.closeTo(0.8150058047, 8),
+        stormRoleRatio: expect.closeTo(0.8439517330420102, 8),
+        pioneerRoleRatio: expect.closeTo(0.928786041512758, 8),
+        bossRoleRatio: expect.closeTo(0.7947917856998042, 8),
         bossSurvivalRatio: expect.closeTo(1, 8),
       }),
       expect.objectContaining({
@@ -302,8 +302,8 @@ describe("미개척지 상위 특화 세트 결정적 밸런스 시뮬레이션"
       }),
       expect.objectContaining({
         setId: "deep_arcane",
-        stormRoleRatio: expect.closeTo(0.8529388593, 8),
-        pioneerRoleRatio: expect.closeTo(1.0994356283, 8),
+        stormRoleRatio: expect.closeTo(0.8531959602029757, 8),
+        pioneerRoleRatio: expect.closeTo(1.0995438946811773, 8),
         bossRoleRatio: null,
         bossSurvivalRatio: null,
       }),
@@ -326,7 +326,7 @@ describe("미개척지 상위 특화 세트 결정적 밸런스 시뮬레이션"
       expect(output).toContain(
         "세트 | 폭풍 전환/폭풍 | 개척자 전환/개척자 | 전환/보스 역할 | 전환/보스 생존",
       );
-      expect(output).toContain("tracking | 0.828 | 1.174 | - | -");
+      expect(output).toContain("tracking | 0.827 | 1.176 | - | -");
       expect(output).toContain(
         "세트 | 슬롯 | 특화 장비(위력·옵션) | 보스 고유(위력·옵션)",
       );
@@ -477,12 +477,12 @@ describe("미개척지 상위 특화 세트 결정적 밸런스 시뮬레이션"
 
     expect(unexploredSpecialtyBalanceViolations(report)).toEqual({
       warnings: [],
-      // 성장 표본 변경으로 tracking 비율이 1.111배다. 기존 1.08 상한을
+      // 성장 표본 변경으로 tracking 비율이 1.114배다. 기존 1.08 상한을
       // 완화하지 않고 보고서가 이 균형 변화를 계속 검출하도록 고정한다.
       failures: [expect.objectContaining({
         code: "PVE_PIONEER_RANGE",
         setId: "tracking",
-        message: expect.stringContaining("1.111배"),
+        message: expect.stringContaining("1.114배"),
       })],
     });
   }, 120_000);

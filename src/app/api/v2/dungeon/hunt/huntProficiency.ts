@@ -130,9 +130,7 @@ export function applyHuntProficiency(params: {
       const grownBefore = prof.grown; // rollLevelGrowth 는 비파괴 — 시작 맵 보존 안전.
       let grown = grownBefore;
       for (let i = 0; i < levelsGained; i++) {
-        grown = rollLevelGrowth(grown, playerClass, prof, rng, {
-          currentJobId: v2JobId,
-        });
+        grown = rollLevelGrowth(grown, playerClass, prof, rng);
       }
       prof = setGrown(prof, grown);
       // grown 1포인트 = 해당 스탯 +1. 레벨업 전후 delta 가 곧 오른 스탯.

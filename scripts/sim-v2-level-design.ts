@@ -953,9 +953,7 @@ function snapshotFor(
     proficiency,
     mulberry32(hashSeed(seed, arch, depth, level, careerWins, "growth")),
     {
-      currentJobId,
-      targetStats: spec.growthTargets,
-      points: Math.max(0, level - 1) * 3,
+      levels: Math.max(0, level - 1),
     },
   );
   const equipment = overrides.equipment ?? equipmentForEntry(arch, depth);

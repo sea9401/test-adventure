@@ -1,5 +1,5 @@
-// v2 랜덤 레벨 성장 — 레벨업마다 1차 스탯이 직업 앵커 가중 랜덤으로 오른다(cap 까지만).
-// 옛 수동 분배 대체. 누적 성장분(grownStats)은 character.v2.grownStats 에 저장.
+// 레벨업마다 6개 스탯을 독립적으로 굴린다. 관련 숙련도가 성장 범위를 넓힌다.
+// 누적 성장분은 proficiency.v2.grown에 저장하며 각 수행 한계까지만 오른다.
 // 설계: docs/v2-proficiency-redesign.md §2.
 
 import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
@@ -11,6 +11,7 @@ import {
   lifeResourceRanges,
   type V2LifeResourceRanges,
   type V2LifeResourceGrowthVersion,
+  type V2ResourceRange,
 } from "./lifeResourceGrowth";
 import {
   capGain,
@@ -24,28 +25,13 @@ import {
   type V2ProficiencyState,
 } from "./proficiency";
 
-// 레벨업당 성장 포인트. 5/lv 는 100레벨 전에 전 스탯 cap 을 채워 수행이 사실상 현재 스탯이 되는
-// 문제가 있어 3/lv 로 낮춘다. 스탯 자동 성장은 레벨업 때만 적용한다.
-export const V2_GROWTH_POINTS_PER_LEVEL = 3;
-export const V2_CURRENT_PROFILE_GROWTH_BONUS = 2;
-export const V2_TARGET_STAT_GROWTH_BONUS = 2;
-export const V2_MASTERY_GROWTH_BONUS_MAX = 3;
-export const V2_MASTERY_GROWTH_SOFTCAP = 1500;
+// 관련 숙련도 0/1만/10만/100만 → 각 스탯 0~1/0~2/0~4/0~7.
+// 총량 예산이나 고정 천장은 없다. 숙련도가 늘수록 증가 간격이 길어진다.
+export const V2_MASTERY_GROWTH_SCALE = 10_000;
 export type RollLevelGrowthOptions = {
-  /** 현재 장착/선택한 구체 직업 id. 없으면 class 직군 프로필을 쓴다. */
-  currentJobId?: string | null;
-  /** 자유 수행/집중 성장 선택. 지정 시 현재 직업 프로필 대신 이 스탯들을 우선한다. */
-  targetStats?: readonly V2StatKey[];
   /** 밸런스 시뮬레이션에서 여러 레벨의 성장량을 한 번에 계산할 때 사용한다. */
-  points?: number;
+  levels?: number;
 };
-
-function normalizeGrowthOptions(
-  raw?: readonly V2StatKey[] | RollLevelGrowthOptions,
-): RollLevelGrowthOptions {
-  if (!raw) return {};
-  return Array.isArray(raw) ? { targetStats: raw } : (raw as RollLevelGrowthOptions);
-}
 
 function profileWeight(
   profile: Partial<Record<V2StatKey, number>> | undefined,
@@ -89,12 +75,20 @@ export function statGrowthMasteryTotals(
 }
 
 export function masteryGrowthBonus(mastery: number): number {
-  const m = Math.max(0, Math.floor(Number(mastery) || 0));
-  if (m <= 0) return 0;
-  return (
-    V2_MASTERY_GROWTH_BONUS_MAX *
-    (m / (m + V2_MASTERY_GROWTH_SOFTCAP))
-  );
+  const m = Number.isFinite(mastery) ? Math.max(0, Math.floor(mastery)) : 0;
+  return Math.floor(Math.log2(1 + m / V2_MASTERY_GROWTH_SCALE));
+}
+
+export function statGrowthRanges(
+  prof: V2ProficiencyState,
+): Record<V2StatKey, V2ResourceRange> {
+  const totals = statGrowthMasteryTotals(prof);
+  return Object.fromEntries(
+    V2_STAT_KEYS.map((stat) => [
+      stat,
+      { min: 0, max: 1 + masteryGrowthBonus(totals[stat]) },
+    ]),
+  ) as Record<V2StatKey, V2ResourceRange>;
 }
 
 function growthRoom(
@@ -105,30 +99,6 @@ function growthRoom(
 ): number {
   const current = (floors[stat] ?? V2_BASE_STATS[stat]) + (grown[stat] ?? 0);
   return effectiveStatCap(capGain(prof, stat)) - current;
-}
-
-function growthWeight(
-  stat: V2StatKey,
-  playerClass: V2Class,
-  masteryTotals: Record<V2StatKey, number>,
-  options: RollLevelGrowthOptions,
-): number {
-  const targetSet =
-    options.targetStats && options.targetStats.length > 0
-      ? new Set(options.targetStats)
-      : null;
-  const currentProfile =
-    options.currentJobId && V2_JOB_CATALOG[options.currentJobId]
-      ? V2_JOB_CATALOG[options.currentJobId]?.cultivateProfile
-      : V2_CULTIVATE_PROFILE[playerClass];
-
-  const focusBonus = targetSet
-    ? targetSet.has(stat)
-      ? V2_TARGET_STAT_GROWTH_BONUS
-      : 0
-    : profileWeight(currentProfile, stat) * V2_CURRENT_PROFILE_GROWTH_BONUS;
-
-  return 1 + focusBonus + masteryGrowthBonus(masteryTotals[stat] ?? 0);
 }
 
 // 스탯 floor(저점) — base + 실제 레벨 상승 누적분(일반·직군 프로필 가중, off 모드는 차수 보정).
@@ -174,7 +144,7 @@ export function lifeResourceRangesForProficiency(
   version: V2LifeResourceGrowthVersion = LIFE_RESOURCE_GROWTH_VERSION,
 ): V2LifeResourceRanges {
   const floors = computeStatFloors(prof);
-  return lifeResourceRanges(
+  const ranges = lifeResourceRanges(
     {
       strFloor: floors.str,
       vitCap: effectiveStatCap(capGain(prof, "vit")),
@@ -183,48 +153,47 @@ export function lifeResourceRangesForProficiency(
     },
     version,
   );
+  const mastery = statGrowthMasteryTotals(prof);
+  const str = masteryGrowthBonus(mastery.str);
+  const vit = masteryGrowthBonus(mastery.vit);
+  const spi = masteryGrowthBonus(mastery.spi);
+  const int = masteryGrowthBonus(mastery.int);
+  return {
+    ...ranges,
+    hpPerLevel: {
+      min: ranges.hpPerLevel.min + str,
+      max: ranges.hpPerLevel.max + str + vit,
+    },
+    mpPerLevel: {
+      min: ranges.mpPerLevel.min + spi,
+      max: ranges.mpPerLevel.max + spi + int,
+    },
+  };
 }
 
-// 레벨 1회 성장 — 앵커 가중(앵커 3 : 그 외 1)으로 POINTS 만큼 +1씩, cap 미달 스탯에만.
-// cap 가득이면 그 스탯 제외(낭비 없이 다른 스탯으로). 전부 cap 이면 중단(docs §2-c).
-// 비파괴. rng = () => [0,1). 직업 none = 균등 가중.
+// 모든 스탯은 독립 주사위를 가진다. cap에 막힌 굴림은 다른 스탯으로 옮기지 않는다.
+// class 인자는 호출부 호환용이다. 실제 성장 범위는 누적 경력으로 결정된다.
 export function rollLevelGrowth(
   grown: Partial<Record<V2StatKey, number>>,
-  playerClass: V2Class,
+  _playerClass: V2Class,
   prof: V2ProficiencyState,
   rng: () => number,
-  // 자유 수행(가이드형, docs/v2-job-spec-passives-plan.md §6) — 지정 시 클래스 앵커 대신 이 스탯들에
-  // 성장 가중(3:1)을 둬 grown 이 선택 스탯으로 차오르게 한다. 미지정/빈 배열 = 현 동작(클래스 앵커).
-  optionsOrTargetStats?: readonly V2StatKey[] | RollLevelGrowthOptions,
+  options: RollLevelGrowthOptions = {},
 ): Partial<Record<V2StatKey, number>> {
   const next: Partial<Record<V2StatKey, number>> = { ...grown };
-  const options = normalizeGrowthOptions(optionsOrTargetStats);
-  const points = Math.max(
-    0,
-    Math.floor(options.points ?? V2_GROWTH_POINTS_PER_LEVEL),
-  );
-  const masteryTotals = statGrowthMasteryTotals(prof);
+  const rawLevels = options.levels ?? 1;
+  const levels = Number.isFinite(rawLevels) ? Math.max(0, Math.floor(rawLevels)) : 0;
+  const ranges = statGrowthRanges(prof);
   const floors = computeStatFloors(prof);
-  for (let i = 0; i < points; i++) {
-    // 현재 스탯(저점 + 성장분)이 절대 한계치(기본 60 + 수행 이득) 미만인 경우만
-    // 성장 후보에 넣는다. 저점이 오르면 남은 성장 여유는 그만큼 줄어든다.
-    const pool: { k: V2StatKey; w: number }[] = [];
-    let totalW = 0;
+  for (let i = 0; i < levels; i++) {
     for (const k of V2_STAT_KEYS) {
-      if (growthRoom(next, prof, k, floors) > 0) {
-        const w = growthWeight(k, playerClass, masteryTotals, options);
-        pool.push({ k, w });
-        totalW += w;
-      }
-    }
-    if (pool.length === 0) break; // 전부 cap
-    let r = rng() * totalW;
-    for (const { k, w } of pool) {
-      r -= w;
-      if (r <= 0) {
-        next[k] = (next[k] ?? 0) + 1;
-        break;
-      }
+      const raw = rng();
+      const r = Number.isFinite(raw)
+        ? Math.max(0, Math.min(1 - Number.EPSILON, raw))
+        : 0;
+      const rolled = Math.floor(r * (ranges[k].max + 1));
+      const gain = Math.min(rolled, Math.max(0, growthRoom(next, prof, k, floors)));
+      if (gain > 0) next[k] = (next[k] ?? 0) + gain;
     }
   }
   return next;

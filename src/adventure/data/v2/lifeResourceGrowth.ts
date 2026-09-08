@@ -55,7 +55,8 @@ export function lifeResourceRanges(
   const hpMin = 250 + 2 * str;
   const mpMin = 120 + spi;
   const hpLevelMin = 8 + str;
-  const mpLevelMin = 3 + spiLevelStep;
+  // 상향된 시작 MP를 유지하면서 Lv.100 누적량은 종전 수준에 맞춘다.
+  const mpLevelMin = (version === 1 ? 3 : 2) + spiLevelStep;
 
   return {
     baseHp: { min: hpMin, max: hpMin + 100 + 2 * vit },

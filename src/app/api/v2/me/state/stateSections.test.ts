@@ -291,8 +291,8 @@ describe("proficiencySection", () => {
       max: 26,
     });
     expect(section.lifeResourceGrowth.nextRejobRanges?.mpPerLevel).toMatchObject({
-      min: 3,
-      max: 5,
+      min: 2,
+      max: 4,
     });
     expect(section.lifeResourceGrowth.appliesAfterRejob).toBe(false);
   });
@@ -304,8 +304,8 @@ describe("proficiencySection", () => {
     expect(section.lifeResourceGrowth.appliesAfterRejob).toBe(true);
     expect(section.lifeResourceGrowth.nextRejobRanges.baseHp).toEqual({ min: 250, max: 350 });
     expect(section.lifeResourceGrowth.currentRanges.mpPerLevel).toMatchObject({
-      min: 3,
-      max: 5,
+      min: 2,
+      max: 4,
     });
   });
 

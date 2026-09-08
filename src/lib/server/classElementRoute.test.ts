@@ -158,7 +158,7 @@ describe("class-element — 코어루프 수동 로드아웃 보존", () => {
       maxHp: 252,
       maxMp: 120,
       hpPerLevel: { min: 10, max: 16 },
-      mpPerLevel: { min: 3, max: 5 },
+      mpPerLevel: { min: 2, max: 4 },
     });
 
     const skills = store.get("skills.v2") as {

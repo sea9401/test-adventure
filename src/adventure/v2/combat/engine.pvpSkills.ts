@@ -1812,7 +1812,7 @@ export function castV2SkillOnAttackerTurnPvP(
       kind: "info",
       text: bleedChangeLogText(
         result.bleedChangeToApply,
-        bleedAfterChange.turns,
+        { previousStacks: bleedBeforeChange.stacks, resultingStacks: bleedAfterChange.stacks, resultingTurns: bleedAfterChange.turns },
       ),
       side: who,
     });

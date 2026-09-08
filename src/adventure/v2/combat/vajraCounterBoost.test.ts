@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
 import {
+  applyPlayerV2SkillCast,
   applyPassiveCounterOnHitIfAny,
   initialBattleState,
 } from "./engine";
+import { resolveEnemyPhase } from "./engine.enemyPhase";
 import type { PlayerCombat } from "./engineState";
 
 const player: PlayerCombat = {
@@ -21,6 +23,40 @@ const player: PlayerCombat = {
 afterEach(() => vi.restoreAllMocks());
 
 describe("금강인 × 나한금신 반격 연계 — PvE", () => {
+  it("금강인의 생존 효과는 첫 피격의 나한금신 반격을 막지 않는다", () => {
+    const actor: PlayerCombat = {
+      ...player,
+      hp: 200,
+      mp: 200,
+      maxMp: 200,
+    };
+    const initial = initialBattleState(
+      actor,
+      V2_MONSTERS["훈련용 허수아비"],
+      "금강나한",
+      {
+        learned: ["v2c_vajraarhat_seal"],
+        equipped: ["v2c_vajraarhat_seal"],
+      },
+    );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const cast = applyPlayerV2SkillCast(initial, actor, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    });
+    const afterHit = resolveEnemyPhase(cast.state, actor, "금강나한", true);
+
+    expect(cast.castFired).toBe(true);
+    expect(cast.state.stacks.playerShield).toBe(0);
+    expect(cast.state.stacks.skillRegenPct).toBe(6);
+    expect(cast.state.stacks.skillRegenTurns).toBe(3);
+    expect(
+      afterHit.log.some((entry) => entry.text.includes("[반격 + 금강인]")),
+    ).toBe(true);
+  });
+
   it("금강인이 활성화되면 나한금신 반격 피해가 45% 증가한다", () => {
     const state = initialBattleState(
       player,

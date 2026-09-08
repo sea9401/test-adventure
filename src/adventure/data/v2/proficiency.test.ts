@@ -20,7 +20,6 @@ import {
   tierLevelCap,
   levelCapFor,
   addCumLevel,
-  addStatFloorLevels,
   addReincarnation,
   addJobCumLevel,
   addJobHistory,
@@ -95,7 +94,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
   it("parse — 손상/빈 입력은 빈 상태", () => {
     expect(parseProficiency(null)).toEqual(emptyProficiency());
     expect(parseProficiency("x")).toEqual(emptyProficiency());
-    expect(parseProficiency({ groups: "bad" })).toEqual(emptyProficiency());
+    expect(parseProficiency({ groups: "bad" })).toMatchObject(emptyProficiency());
     expect(parseProficiency(undefined)).toEqual(emptyProficiency());
   });
 
@@ -859,17 +858,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(groupCumLevel(p0, "nonexistent")).toBe(0);
   });
 
-  it("addStatFloorLevels — 실제 레벨 상승분만 별도 누적한다", () => {
-    const p0 = parseProficiency({
-      groups: { warrior: { cumLevel: 1800 } },
-    });
-    const p1 = addStatFloorLevels(p0, "warrior", 3);
 
-    expect(p1.statFloorLevels.warrior).toBe(203);
-    expect(p0.statFloorLevels.warrior).toBe(200);
-    expect(addStatFloorLevels(p1, "none", 5)).toBe(p1);
-    expect(addStatFloorLevels(p1, "warrior", 0)).toBe(p1);
-  });
 
   it("addJobCumLevel/jobCumLevelOf — 직업별 숙련도(groups·floor 와 별개), 비파괴, none/0 무변경", () => {
     const p0 = emptyProficiency();

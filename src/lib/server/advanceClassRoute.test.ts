@@ -125,9 +125,9 @@ describe("advance-class — 전직 후 숙달 포인트 유지(#1220 전역화 �
     expect(res.status).toBe(200);
     expect(json).toMatchObject({
       lifeResources: {
-        maxHp: 150,
-        maxMp: 65,
-        hpPerLevel: { min: 8, max: 12 },
+        maxHp: 250,
+        maxMp: 120,
+        hpPerLevel: { min: 8, max: 14 },
         mpPerLevel: { min: 3, max: 6 },
       },
     });
@@ -136,11 +136,25 @@ describe("advance-class — 전직 후 숙달 포인트 유지(#1220 전역화 �
     ).toEqual({
       version: 2,
       rolledLevel: 1,
-      baseHp: 150,
-      baseMp: 65,
+      baseHp: 250,
+      baseMp: 120,
       gainedHp: 0,
       gainedMp: 0,
     });
+  });
+
+  it("재전직은 옛 높은 시작값을 끝내고 현재 숙련도 시작값을 저장한다", async () => {
+    seed("warrior", "warrior", 5000);
+    store.set("proficiency.v2", {
+      ...(store.get("proficiency.v2") as Record<string, unknown>),
+      groups: { warrior: { tier: 1, cultivations: 0, cumLevel: 100_000 } },
+      lifeStartStats: { str: 500, dex: 500, vit: 500, int: 500, spi: 500, luk: 500 },
+      statFloorLevels: { warrior: 1_000_000 },
+    });
+    expect((await POST(advanceReq("warrior"))).status).toBe(200);
+    const stored = parseProficiency(store.get("proficiency.v2"));
+    expect(stored.lifeStartStats).toEqual({ str: 111, dex: 91, vit: 91, int: 15, spi: 15, luk: 15 });
+    expect(stored.grown).toEqual({});
   });
 
   it("다른 직군으로 재전직(마법사→병사): 포인트 유지 + 활성 직업만 변경", async () => {

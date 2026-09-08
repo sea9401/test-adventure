@@ -1,101 +1,43 @@
-// v2 랜덤 레벨 성장 — 레벨업마다 1차 스탯이 직업 앵커 가중 랜덤으로 오른다(cap 까지만).
-// 옛 수동 분배 대체. 누적 성장분(grownStats)은 character.v2.grownStats 에 저장.
+// 레벨업마다 6개 스탯을 독립적으로 굴린다. 관련 숙련도가 성장 범위를 넓힌다.
+// 누적 성장분은 proficiency.v2.grown에 저장하며 각 수행 한계까지만 오른다.
 // 설계: docs/v2-proficiency-redesign.md §2.
 
 import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
 import { V2_BASE_STATS } from "./v2Stats";
 import type { V2Class } from "./classes";
-import { V2_JOB_CATALOG } from "./v2JobCatalog";
+import {
+  statGrowthRanges,
+  statGrowthMasteryTotals,
+  masteryGrowthBonus,
+} from "./statGrowthMastery";
+export {
+  statGrowthRanges,
+  statGrowthMasteryTotals,
+  masteryGrowthBonus,
+  masteryStartingStats,
+  V2_MASTERY_GROWTH_SCALE,
+} from "./statGrowthMastery";
 import {
   LIFE_RESOURCE_GROWTH_VERSION,
   lifeResourceRanges,
+  masteryResourceRange,
+  unitRoll,
   type V2LifeResourceRanges,
   type V2LifeResourceGrowthVersion,
 } from "./lifeResourceGrowth";
 import {
+  computeLegacyStatFloors,
   capGain,
   effectiveStatCap,
-  diminishedCumLevel,
-  V2_CULTIVATE_PROFILE,
-  V2_FLOOR_GLOBAL,
-  V2_FLOOR_PER_PROF,
-  V2_TIER_FLOOR_MULT,
-  V2_FLOOR_ANCHOR_WEIGHT,
   type V2ProficiencyState,
 } from "./proficiency";
 
-// 레벨업당 성장 포인트. 5/lv 는 100레벨 전에 전 스탯 cap 을 채워 수행이 사실상 현재 스탯이 되는
-// 문제가 있어 3/lv 로 낮춘다. 스탯 자동 성장은 레벨업 때만 적용한다.
-export const V2_GROWTH_POINTS_PER_LEVEL = 3;
-export const V2_CURRENT_PROFILE_GROWTH_BONUS = 2;
-export const V2_TARGET_STAT_GROWTH_BONUS = 2;
-export const V2_MASTERY_GROWTH_BONUS_MAX = 3;
-export const V2_MASTERY_GROWTH_SOFTCAP = 1500;
+// 관련 숙련도는 연속적인 범위 선택 확률에 반영한다.
+// 총량 예산이나 고정 천장은 없다. 숙련도가 늘수록 증가 간격이 길어진다.
 export type RollLevelGrowthOptions = {
-  /** 현재 장착/선택한 구체 직업 id. 없으면 class 직군 프로필을 쓴다. */
-  currentJobId?: string | null;
-  /** 자유 수행/집중 성장 선택. 지정 시 현재 직업 프로필 대신 이 스탯들을 우선한다. */
-  targetStats?: readonly V2StatKey[];
   /** 밸런스 시뮬레이션에서 여러 레벨의 성장량을 한 번에 계산할 때 사용한다. */
-  points?: number;
+  levels?: number;
 };
-
-function normalizeGrowthOptions(
-  raw?: readonly V2StatKey[] | RollLevelGrowthOptions,
-): RollLevelGrowthOptions {
-  if (!raw) return {};
-  return Array.isArray(raw) ? { targetStats: raw } : (raw as RollLevelGrowthOptions);
-}
-
-function profileWeight(
-  profile: Partial<Record<V2StatKey, number>> | undefined,
-  stat: V2StatKey,
-): number {
-  if (!profile) return 0;
-  const maxVal = Math.max(...V2_STAT_KEYS.map((s) => profile[s] ?? 0));
-  if (maxVal <= 0) return 0;
-  return (profile[stat] ?? 0) / maxVal;
-}
-
-export function statGrowthMasteryTotals(
-  prof: V2ProficiencyState,
-): Record<V2StatKey, number> {
-  const totals = Object.fromEntries(V2_STAT_KEYS.map((s) => [s, 0])) as Record<
-    V2StatKey,
-    number
-  >;
-  const addProfile = (
-    amount: number,
-    profile: Partial<Record<V2StatKey, number>> | undefined,
-  ) => {
-    if (!profile || amount <= 0) return;
-    for (const stat of V2_STAT_KEYS) {
-      totals[stat] += amount * profileWeight(profile, stat);
-    }
-  };
-
-  // 직군 숙련도는 그 직군으로 쌓은 전체 경력이다. 상위 직업을 거쳐도 해당 계열의 기본 성장 성향은 남긴다.
-  for (const [group, g] of Object.entries(prof.groups)) {
-    addProfile(Math.max(0, Math.floor(g.cumLevel)), V2_CULTIVATE_PROFILE[group]);
-  }
-  // 구체 직업 숙련도는 직군보다 더 세밀한 보정이다. 예: 궁수/자객/방패병/사제 경력이 각자 다른 스탯에 남는다.
-  for (const [jobId, cumLevel] of Object.entries(prof.jobCumLevel ?? {})) {
-    addProfile(
-      Math.max(0, Math.floor(cumLevel)),
-      V2_JOB_CATALOG[jobId]?.cultivateProfile,
-    );
-  }
-  return totals;
-}
-
-export function masteryGrowthBonus(mastery: number): number {
-  const m = Math.max(0, Math.floor(Number(mastery) || 0));
-  if (m <= 0) return 0;
-  return (
-    V2_MASTERY_GROWTH_BONUS_MAX *
-    (m / (m + V2_MASTERY_GROWTH_SOFTCAP))
-  );
-}
 
 function growthRoom(
   grown: Partial<Record<V2StatKey, number>>,
@@ -107,66 +49,9 @@ function growthRoom(
   return effectiveStatCap(capGain(prof, stat)) - current;
 }
 
-function growthWeight(
-  stat: V2StatKey,
-  playerClass: V2Class,
-  masteryTotals: Record<V2StatKey, number>,
-  options: RollLevelGrowthOptions,
-): number {
-  const targetSet =
-    options.targetStats && options.targetStats.length > 0
-      ? new Set(options.targetStats)
-      : null;
-  const currentProfile =
-    options.currentJobId && V2_JOB_CATALOG[options.currentJobId]
-      ? V2_JOB_CATALOG[options.currentJobId]?.cultivateProfile
-      : V2_CULTIVATE_PROFILE[playerClass];
-
-  const focusBonus = targetSet
-    ? targetSet.has(stat)
-      ? V2_TARGET_STAT_GROWTH_BONUS
-      : 0
-    : profileWeight(currentProfile, stat) * V2_CURRENT_PROFILE_GROWTH_BONUS;
-
-  return 1 + focusBonus + masteryGrowthBonus(masteryTotals[stat] ?? 0);
-}
-
-// 스탯 floor(저점) — base + 실제 레벨 상승 누적분(일반·직군 프로필 가중, off 모드는 차수 보정).
-// 승리 기반 해금 숙련도(cumLevel)와 분리해 만렙 사냥만으로 스탯이 오르지 않게 한다.
-// 전직 시 레벨/grown 이 리셋돼도 스탯은 이 floor 부터 시작한다.
-export function computeStatFloors(
-  prof: V2ProficiencyState,
-): Record<V2StatKey, number> {
-  // 환생 누적 완화 — 총 누적 레벨 기준 밴드 감쇠율(decayMult)을 global·profile 양쪽에 균일 적용
-  // (천장 없이 증가율↓). 단일 직군은 선형과 동일, 다직군(respec)도 총량 기준이라 일관.
-  // rawTotal×decayMult = diminishedCumLevel(rawTotal).
-  let rawTotal = 0;
-  for (const levels of Object.values(prof.statFloorLevels)) {
-    rawTotal += Math.max(0, Math.floor(Number(levels) || 0));
-  }
-  const decayMult = rawTotal > 0 ? diminishedCumLevel(rawTotal) / rawTotal : 1;
-  const floors = {} as Record<V2StatKey, number>;
-  for (const stat of V2_STAT_KEYS) {
-    floors[stat] = (V2_BASE_STATS[stat] ?? 0) + rawTotal * decayMult * V2_FLOOR_GLOBAL;
-  }
-  for (const [group, rawLevels] of Object.entries(prof.statFloorLevels)) {
-    const profile = V2_CULTIVATE_PROFILE[group];
-    const floorLevels = Math.max(0, Math.floor(Number(rawLevels) || 0));
-    if (!profile || floorLevels <= 0) continue;
-    const tierMult = V2_TIER_FLOOR_MULT[prof.groups[group]?.tier ?? 1] ?? 1;
-    // 프로필 값 비례 가중 — 최댓값 스탯(직군 주력)=1.0, 나머지는 값 비율. cap(수행)과 동일 규칙.
-    // 앵커-이진 폐기: mage {int:2,spi:2} 의 spi 가 int 와 동급 floor 를 받는다(spi/luk 고향 부여).
-    const maxVal = Math.max(...V2_STAT_KEYS.map((s) => profile[s] ?? 0));
-    for (const stat of V2_STAT_KEYS) {
-      const pv = profile[stat] ?? 0;
-      if (pv <= 0) continue;
-      const weight = (pv / maxVal) * V2_FLOOR_ANCHOR_WEIGHT;
-      floors[stat] +=
-        floorLevels * decayMult * V2_FLOOR_PER_PROF * tierMult * weight;
-    }
-  }
-  for (const stat of V2_STAT_KEYS) floors[stat] = Math.floor(floors[stat]);
-  return floors;
+// 현재 생애 시작값은 고정한다. 스냅샷이 없는 구형 입력만 종전 공식으로 복원한다.
+export function computeStatFloors(prof: V2ProficiencyState): Record<V2StatKey, number> {
+  return prof.lifeStartStats ? { ...prof.lifeStartStats } : computeLegacyStatFloors(prof);
 }
 
 export function lifeResourceRangesForProficiency(
@@ -174,7 +59,7 @@ export function lifeResourceRangesForProficiency(
   version: V2LifeResourceGrowthVersion = LIFE_RESOURCE_GROWTH_VERSION,
 ): V2LifeResourceRanges {
   const floors = computeStatFloors(prof);
-  return lifeResourceRanges(
+  const ranges = lifeResourceRanges(
     {
       strFloor: floors.str,
       vitCap: effectiveStatCap(capGain(prof, "vit")),
@@ -183,48 +68,43 @@ export function lifeResourceRangesForProficiency(
     },
     version,
   );
+  const mastery = statGrowthMasteryTotals(prof);
+  return {
+    ...ranges,
+    hpPerLevel: masteryResourceRange(
+      ranges.hpPerLevel,
+      3 * masteryGrowthBonus(mastery.str),
+      3 * masteryGrowthBonus(mastery.vit),
+    ),
+    mpPerLevel: masteryResourceRange(
+      ranges.mpPerLevel,
+      3 * masteryGrowthBonus(mastery.spi),
+      3 * masteryGrowthBonus(mastery.int),
+    ),
+  };
 }
 
-// 레벨 1회 성장 — 앵커 가중(앵커 3 : 그 외 1)으로 POINTS 만큼 +1씩, cap 미달 스탯에만.
-// cap 가득이면 그 스탯 제외(낭비 없이 다른 스탯으로). 전부 cap 이면 중단(docs §2-c).
-// 비파괴. rng = () => [0,1). 직업 none = 균등 가중.
+// 모든 스탯은 독립 주사위를 가진다. cap에 막힌 굴림은 다른 스탯으로 옮기지 않는다.
+// class 인자는 호출부 호환용이다. 실제 성장 범위는 누적 경력으로 결정된다.
 export function rollLevelGrowth(
   grown: Partial<Record<V2StatKey, number>>,
-  playerClass: V2Class,
+  _playerClass: V2Class,
   prof: V2ProficiencyState,
   rng: () => number,
-  // 자유 수행(가이드형, docs/v2-job-spec-passives-plan.md §6) — 지정 시 클래스 앵커 대신 이 스탯들에
-  // 성장 가중(3:1)을 둬 grown 이 선택 스탯으로 차오르게 한다. 미지정/빈 배열 = 현 동작(클래스 앵커).
-  optionsOrTargetStats?: readonly V2StatKey[] | RollLevelGrowthOptions,
+  options: RollLevelGrowthOptions = {},
 ): Partial<Record<V2StatKey, number>> {
   const next: Partial<Record<V2StatKey, number>> = { ...grown };
-  const options = normalizeGrowthOptions(optionsOrTargetStats);
-  const points = Math.max(
-    0,
-    Math.floor(options.points ?? V2_GROWTH_POINTS_PER_LEVEL),
-  );
-  const masteryTotals = statGrowthMasteryTotals(prof);
+  const rawLevels = options.levels ?? 1;
+  const levels = Number.isFinite(rawLevels) ? Math.max(0, Math.floor(rawLevels)) : 0;
+  const ranges = statGrowthRanges(prof);
   const floors = computeStatFloors(prof);
-  for (let i = 0; i < points; i++) {
-    // 현재 스탯(저점 + 성장분)이 절대 한계치(기본 60 + 수행 이득) 미만인 경우만
-    // 성장 후보에 넣는다. 저점이 오르면 남은 성장 여유는 그만큼 줄어든다.
-    const pool: { k: V2StatKey; w: number }[] = [];
-    let totalW = 0;
+  for (let i = 0; i < levels; i++) {
     for (const k of V2_STAT_KEYS) {
-      if (growthRoom(next, prof, k, floors) > 0) {
-        const w = growthWeight(k, playerClass, masteryTotals, options);
-        pool.push({ k, w });
-        totalW += w;
-      }
-    }
-    if (pool.length === 0) break; // 전부 cap
-    let r = rng() * totalW;
-    for (const { k, w } of pool) {
-      r -= w;
-      if (r <= 0) {
-        next[k] = (next[k] ?? 0) + 1;
-        break;
-      }
+      const range = ranges[k];
+      const cap = range.lowerMax + (unitRoll(rng) < range.upperProbability ? 1 : 0);
+      const rolled = Math.floor(unitRoll(rng) * (cap + 1));
+      const gain = Math.min(rolled, Math.max(0, growthRoom(next, prof, k, floors)));
+      if (gain > 0) next[k] = (next[k] ?? 0) + gain;
     }
   }
   return next;

@@ -200,11 +200,20 @@ export type BleedChangeIntent = {
 
 export function bleedChangeLogText(
   change: Pick<BleedChangeIntent, "reason">,
-  resultingTurns: number,
+  result: {
+    previousStacks: number;
+    resultingStacks: number;
+    resultingTurns: number;
+  },
 ): string {
-  return change.reason === "refresh"
-    ? `출혈 지속이 ${resultingTurns}회로 갱신됐다.`
-    : `출혈 지속이 ${resultingTurns}회로 늘어났다.`;
+  if (change.reason === "refresh") {
+    const addedStacks = Math.max(0, result.resultingStacks - result.previousStacks);
+    const stackText = addedStacks > 0
+        ? `출혈 +${addedStacks}스택 (${result.resultingStacks}스택), `
+        : "출혈 ";
+    return `${stackText}지속이 ${result.resultingTurns}회로 갱신됐다.`;
+  }
+  return `출혈 지속이 ${result.resultingTurns}회로 늘어났다.`;
 }
 
 /** 출혈 사냥은 기존 출혈의 출처 계수를 건드리지 않고 스택과 남은 횟수만 바꾼다. */

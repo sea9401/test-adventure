@@ -299,7 +299,7 @@ export type V2CommonSkillId =
   | "v2c_celestialdragon_combo" // 천룡난무 (연격 + 취약 + 보법 + ATB 지연)
   | "v2c_celestialdragon_breath" // 천룡의 호흡 (힘 + 민첩 + 회피)
   | "v2c_celestialdragon_formationbreak3" // 파진경 III (적 물리 방어 -12%)
-  | "v2c_vajraarhat_seal" // 금강인 (보호막 + 받피감 + 반격 태세)
+  | "v2c_vajraarhat_seal" // 금강인 (지속 회복 + 받피감 + 반격 태세)
   | "v2c_vajraarhat_body" // 나한금신 (최대 HP + 받피감 + 반격)
   | "v2c_eternal_cycle" // 영겁 순환 (지속 재생 + 활력 증폭)
   | "v2c_eternal_body" // 영겁의 육신 (최대 HP + 활력 + 받피감)
@@ -2891,14 +2891,14 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_vajraarhat_seal: {
     id: "v2c_vajraarhat_seal", name: "금강인", stat: "vit", category: "buff", tier: 3,
-    description: "금강의 인을 맺어 보호막을 얻고 받는 피해를 줄인다. 지속 중 이미 발동한 반사 피해와 나한금신의 반격 피해가 증가하며, 반사 원량을 새로 만들지는 않는다.",
+    description: "금강의 인을 맺어 행동마다 체력을 회복하고 받는 피해를 줄인다. 지속 중 이미 발동한 반사 피해와 나한금신의 반격 피해가 증가하며, 반사 원량을 새로 만들지는 않는다.",
     detail: {
-      mechanics: ["금강인 지속 중 일반 반사 피해를 강화하며, 나한금신을 함께 장착하면 자동 반격 피해에도 같은 증가율을 적용한다."],
-      limitations: ["철벽 태세의 전용 반사 피해에는 적용되지 않는다."],
+      mechanics: ["금강인 지속 중 행동마다 최대 HP의 6%를 회복하고 일반 반사 피해를 강화하며, 나한금신을 함께 장착하면 자동 반격 피해에도 같은 증가율을 적용한다."],
+      limitations: ["지속 회복은 회복 감소 효과의 영향을 받는다.", "철벽 태세의 전용 반사 피해에는 적용되지 않는다."],
     },
     mpCost: 58, cooldown: 0, procChance: 100, learnCost: 12000,
     effects: [
-      { kind: "shield", pctMaxHp: 18, turns: 3 },
+      { kind: "selfRegen", pctMaxHpPerTurn: 6, turns: 3 },
       { kind: "selfBuffPct", target: "damageReduction", pct: 14, turns: 3 },
       { kind: "selfBuffPct", target: "reflectDamage", pct: 45, turns: 3 },
     ],

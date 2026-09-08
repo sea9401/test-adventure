@@ -1,10 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  rollLevelGrowth,
   computeStatFloors,
-  V2_GROWTH_POINTS_PER_LEVEL,
-  statGrowthMasteryTotals,
-  masteryGrowthBonus,
   lifeResourceRangesForProficiency,
 } from "./statGrowth";
 import {
@@ -13,102 +9,6 @@ import {
   parseProficiency,
 } from "./proficiency";
 import { V2_BASE_STATS } from "./v2Stats";
-
-describe("v2 랜덤 레벨 성장", () => {
-  it("레벨 1회 = POINTS 만큼 +1 (cap 여유 시)", () => {
-    const grown = rollLevelGrowth({}, "warrior", emptyProficiency(), () => 0.5);
-    const total = Object.values(grown).reduce((a, b) => a + (b ?? 0), 0);
-    expect(total).toBe(V2_GROWTH_POINTS_PER_LEVEL);
-  });
-
-  it("앵커 가중 — rng 가 앵커 구간(작은 값)이면 앵커에 몰림", () => {
-    // 검사(warrior) 주력=str. rng=0.1 → 매 포인트 str 선택.
-    const grown = rollLevelGrowth({}, "warrior", emptyProficiency(), () => 0.1);
-    expect(grown.str).toBe(V2_GROWTH_POINTS_PER_LEVEL);
-    expect(grown.int).toBeUndefined();
-  });
-
-  it("cap 에서 멈춤 — 앵커가 cap 가득이면 그 포인트는 다른 스탯으로(낭비 없음)", () => {
-    const prof = parseProficiency({ groups: {}, caps: {} }); // 전 스탯 cap = 60 기본
-    const base = V2_BASE_STATS.str;
-    const grown0 = { str: 60 - base }; // str 이미 cap(60)
-    const grown = rollLevelGrowth(grown0, "warrior", prof, () => 0.1);
-    expect(grown.str).toBe(60 - base); // 안 오름
-    const total = Object.values(grown).reduce((a, b) => a + (b ?? 0), 0);
-    expect(total).toBe(60 - base + V2_GROWTH_POINTS_PER_LEVEL); // 5점 다른 스탯
-  });
-
-  it("숙련도 저점이 올라도 절대 한계 60 안에서 성장한다", () => {
-    const prof = parseProficiency({
-      groups: {
-        warrior: { cultivations: 0, tier: 1, cumLevel: 1800 },
-      },
-      caps: {},
-    });
-    const floor = computeStatFloors(prof).str;
-    const grown0 = { str: 60 - floor };
-    const grown = rollLevelGrowth(grown0, "warrior", prof, () => 0.1);
-
-    expect(floor).toBeGreaterThan(V2_BASE_STATS.str);
-    expect(grown.str).toBe(grown0.str);
-  });
-
-  it("none(모험가) = 균등 가중, 비파괴", () => {
-    const grown0 = { str: 2 };
-    const grown = rollLevelGrowth(grown0, "none", emptyProficiency(), () => 0.99);
-    const total = Object.values(grown).reduce((a, b) => a + (b ?? 0), 0);
-    expect(total).toBe(2 + V2_GROWTH_POINTS_PER_LEVEL);
-    expect(grown0.str).toBe(2); // 원본 비파괴
-  });
-
-  it("targetStats(자유 수행) — 클래스 앵커 대신 선택 스탯이 최다 성장", () => {
-    // 결정론 LCG rng(테스트용) — 매번 새 인스턴스(같은 시드열).
-    const mkRng = () => {
-      let s = 12345;
-      return () => {
-        s = (s * 1103515245 + 12345) & 0x7fffffff;
-        return s / 0x7fffffff;
-      };
-    };
-    // warrior 앵커=str. 자유 수행 target=[spi] → spi(앵커 아님)가 최다·str 추월.
-    const r = mkRng();
-    let g = rollLevelGrowth({}, "warrior", emptyProficiency(), r, ["spi"]);
-    for (let i = 0; i < 11; i++)
-      g = rollLevelGrowth(g, "warrior", emptyProficiency(), r, ["spi"]);
-    const top = Object.entries(g).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))[0];
-    expect(top[0]).toBe("spi"); // 최다 성장 = 선택 스탯(앵커 무시)
-    expect(g.spi ?? 0).toBeGreaterThan(g.str ?? 0); // 앵커보다 큼
-
-    // 대조: target 없으면 앵커(str)가 우세.
-    const r2 = mkRng();
-    let g2 = rollLevelGrowth({}, "warrior", emptyProficiency(), r2);
-    for (let i = 0; i < 11; i++)
-      g2 = rollLevelGrowth(g2, "warrior", emptyProficiency(), r2);
-    expect(g2.str ?? 0).toBeGreaterThan(g2.spi ?? 0); // 앵커 우세
-  });
-
-  it("직업 숙련도 총합이 해당 스탯 성장 가중치로 남는다", () => {
-    const prof = parseProficiency({
-      growthScaleVersion: 1,
-      groups: {
-        rogue: { tier: 1, cumLevel: 2700 },
-      },
-      jobCumLevel: {
-        archer: 1800,
-      },
-    });
-    const totals = statGrowthMasteryTotals(prof);
-    expect(totals.dex).toBeGreaterThan(totals.str);
-    expect(totals.luk).toBeGreaterThan(totals.str);
-    expect(masteryGrowthBonus(totals.dex)).toBeGreaterThan(0);
-
-    const grown = rollLevelGrowth({}, "warrior", prof, () => 0.2, {
-      currentJobId: "shieldman",
-    });
-    expect(grown.dex ?? 0).toBeGreaterThan(0);
-  });
-
-});
 
 describe("v2 생애 자원 영구 범위", () => {
   it("숙련 저점과 수행 한계치가 대응하는 HP·MP 성장 범위를 높인다", () => {

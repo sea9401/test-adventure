@@ -1,5 +1,7 @@
 "use client";
 
+import { GrowthPreview, type GrowthPreviewState } from "./GrowthPreview";
+
 import { useCallback, useEffect, useState } from "react";
 import { fetchGameState } from "./fetchGameState";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -29,7 +31,6 @@ import { LifeMasterySummaryCard } from "./LifeMasterySummaryCard";
 import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
 import type { BuildAlignmentAdvisory } from "@/adventure/data/v2/buildAlignment";
 import { FriendlySparringProfileLink } from "@/adventure/v2/FriendlySparringProfileLink";
-import { SURFACE_INSET } from "@/components/ui/surfaces";
 
 // v2 캐릭터 "내 정보" 페이지 — 캐릭터 카드(장비 3슬롯 인라인 포함) + StatsPanel.
 // 장착/해제는 인벤토리에서.
@@ -99,22 +100,8 @@ type StateResponse = {
       cultivations?: number;
     };
     groups?: Record<string, { tier?: number }>;
-    lifeResourceGrowth?: {
-      mode: "legacy" | "rolled";
-      appliesAfterRejob: boolean;
-      currentRanges: {
-        baseHp: { min: number; max: number };
-        baseMp: { min: number; max: number };
-        hpPerLevel: { min: number; max: number };
-        mpPerLevel: { min: number; max: number };
-      };
-      nextRejobRanges: {
-        baseHp: { min: number; max: number };
-        baseMp: { min: number; max: number };
-        hpPerLevel: { min: number; max: number };
-        mpPerLevel: { min: number; max: number };
-      } | null;
-    };
+    lifeResourceGrowth?: GrowthPreviewState["lifeResourceGrowth"];
+    statGrowth?: GrowthPreviewState["statGrowth"];
   };
   jobsV2?: {
     currentJobLevelCap?: number;
@@ -375,51 +362,7 @@ export function V2CharacterScreen({
             statLabels={V2_STAT_LABELS}
             statDescriptions={playerName ? undefined : V2_STAT_DESCRIPTIONS}
           />
-          {state?.proficiency?.lifeResourceGrowth && (
-            <div className={`${SURFACE_INSET} mt-4 p-3`}>
-              <div className="text-xs font-semibold">재전직 자원 성장</div>
-              {state.proficiency.lifeResourceGrowth.mode === "rolled" ? (
-                <div className="mt-1 space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
-                  <p>
-                    현재 레벨업 범위: HP +
-                    {state.proficiency.lifeResourceGrowth.currentRanges.hpPerLevel.min}
-                    ~
-                    {state.proficiency.lifeResourceGrowth.currentRanges.hpPerLevel.max}
-                    {" · "}MP +
-                    {state.proficiency.lifeResourceGrowth.currentRanges.mpPerLevel.min}
-                    ~
-                    {state.proficiency.lifeResourceGrowth.currentRanges.mpPerLevel.max}
-                  </p>
-                  {state.proficiency.lifeResourceGrowth.nextRejobRanges && (
-                    <p>
-                      다음 전투 재전직부터: HP +
-                      {state.proficiency.lifeResourceGrowth.nextRejobRanges.hpPerLevel.min}
-                      ~
-                      {state.proficiency.lifeResourceGrowth.nextRejobRanges.hpPerLevel.max}
-                      {" · "}MP +
-                      {state.proficiency.lifeResourceGrowth.nextRejobRanges.mpPerLevel.min}
-                      ~
-                      {state.proficiency.lifeResourceGrowth.nextRejobRanges.mpPerLevel.max}
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-1 space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
-                  <p>현재 캐릭터는 기존 HP·MP 성장 공식을 사용합니다.</p>
-                  <p>
-                    다음 Lv.100 전투 재전직부터: HP +
-                    {state.proficiency.lifeResourceGrowth.currentRanges.hpPerLevel.min}
-                    ~
-                    {state.proficiency.lifeResourceGrowth.currentRanges.hpPerLevel.max}
-                    {" · "}MP +
-                    {state.proficiency.lifeResourceGrowth.currentRanges.mpPerLevel.min}
-                    ~
-                    {state.proficiency.lifeResourceGrowth.currentRanges.mpPerLevel.max}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+          {state?.proficiency && <GrowthPreview {...state.proficiency} />}
         </Card>
       )}
 

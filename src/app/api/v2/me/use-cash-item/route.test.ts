@@ -219,7 +219,7 @@ describe("POST /api/v2/me/use-cash-item — 100레벨 달성의 비약", () => {
         (sum, value) => sum + (value ?? 0),
         0,
       ),
-    ).toBe(90);
+    ).toBe(180); // 30레벨 × 6스탯 × 각 0~1 굴림의 최댓값.
   });
 
   it("이미 100레벨이면 비약을 소모하지 않는다", async () => {

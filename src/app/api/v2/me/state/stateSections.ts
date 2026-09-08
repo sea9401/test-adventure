@@ -60,7 +60,11 @@ import {
 } from "@/adventure/data/v2/proficiency";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import { V2_STAT_KEYS, V2_STAT_LABELS } from "@/adventure/data/v2/v2StatKeys";
-import { lifeResourceRangesForProficiency } from "@/adventure/data/v2/statGrowth";
+import {
+  lifeResourceRangesForProficiency,
+  masteryStartingStats,
+  statGrowthRanges,
+} from "@/adventure/data/v2/statGrowth";
 import { LIFE_RESOURCE_GROWTH_VERSION } from "@/adventure/data/v2/lifeResourceGrowth";
 import {
   V2_JOB_LIST,
@@ -617,13 +621,15 @@ export function proficiencySection(
     prof,
     resourceGrowthVersion ?? LIFE_RESOURCE_GROWTH_VERSION,
   );
-  const nextRejobResourceRanges =
-    resourceGrowthVersion === 1
-      ? lifeResourceRangesForProficiency(prof, LIFE_RESOURCE_GROWTH_VERSION)
-      : null;
+  const nextStartStats = masteryStartingStats(prof);
+  const nextRejobResourceRanges = lifeResourceRangesForProficiency(
+    { ...prof, lifeStartStats: nextStartStats },
+    LIFE_RESOURCE_GROWTH_VERSION,
+  );
   return {
     groups: prof.groups,
     caps: effectiveCaps,
+    statGrowth: { ranges: statGrowthRanges(prof), nextStartStats },
     lifeResourceGrowth: {
       mode: prof.lifeResourceGrowth ? ("rolled" as const) : ("legacy" as const),
       currentRanges: currentResourceRanges,

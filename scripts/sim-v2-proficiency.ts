@@ -5,12 +5,12 @@
 //     ⚠️라이브는 깊이 밴드 비례 2~5(proficiencyPerKillAtDepth) — sim 은 보수적 바닥(들판 2) 고정.
 //   - 사냥 승리당 직군 숙련도(groups.cumLevel)와 현재 직업 숙련도(jobCumLevel) += 1.
 //   - 전직 게이트 = v2JobCatalog 해금 조건(2차는 직군 숙련도, 3차+는 계보 직업 숙련도) AND Lv cap.
-//   - floor(저점) 입력 = 실제 레벨 상승 누적(statFloorLevels). 승리 숙련도와 별개다.
+//   - floor(저점) = 재전직 시 관련 숙련도로 책정한 생애 시작 스냅샷.
 //   - 전직 = 레벨 1 리셋 + grown 리셋. points/직업 숙련도/caps 보존.
 //   - 숙달 포인트로: 레거시 시그니처 학습 기준선 + 수행(앵커+2/관련+1, 8+cap×5).
 //
 // 킬당 EXP 는 대표 몬스터 EXP(MONSTER_EXP) 가정의 근사 — 경제 컬럼은 ballpark.
-// floor/cap/파워 컬럼은 실제 누적 레벨(statFloorLevels)로 계산.
+// floor는 생애 시작값, cap은 수행, 파워는 한계까지 성장한 상태로 계산.
 //
 // 측정(각 계보 직업 도달 시점): 누적킬 / 기준 학습누계 / 수행횟수 / 잔량 / 앵커 cap·floor·floor% / 성숙파워.
 //
@@ -22,11 +22,10 @@ import {
   emptyProficiency,
   addPoints,
   addCumLevel,
-  addStatFloorLevels,
   addJobCumLevel,
   applyCultivation,
   spendProficiency,
-  setGrown,
+  resetLevelGrowth,
   groupCumLevel,
   jobCumLevelOf,
   usablePoints,
@@ -186,7 +185,6 @@ function simulateGroup(t1: V2Class): Row[] {
       if (need == null || expBuf < need) break;
       expBuf -= need;
       tierLevel++;
-      prof = addStatFloorLevels(prof, group, 1);
     }
   };
 
@@ -247,7 +245,7 @@ function simulateGroup(t1: V2Class): Row[] {
 
     // 다음 직업으로 재전직 — 레벨/grown 리셋, 숙련도/포인트/caps 보존.
     if (nextJob) {
-      prof = setGrown(prof, {});
+      prof = resetLevelGrowth(prof);
       tierLevel = 1;
       expBuf = 0;
     }

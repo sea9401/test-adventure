@@ -1,6 +1,5 @@
-import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
+import { parseV2Class } from "@/adventure/data/v2/classes";
 import {
-  addStatFloorLevels,
   parseProficiencyForChar,
   setGrown,
   type V2ProficiencyState,
@@ -9,7 +8,6 @@ import {
   lifeResourceRangesForProficiency,
   rollLevelGrowth,
 } from "@/adventure/data/v2/statGrowth";
-import { jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
 import { MAX_LEVEL } from "@/lib/leveling";
 import { rollLifeResourceLevels } from "@/adventure/data/v2/lifeResourceGrowth";
 import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
@@ -51,22 +49,11 @@ export function applyLevelTargetGrant(
 
   const playerClass = parseV2Class(charSave.class);
   let proficiency = parseProficiencyForChar(proficiencyRaw, charSave);
-  proficiency = addStatFloorLevels(
-    proficiency,
-    tier1ClassOf(playerClass),
-    levelsGained,
-  );
   const grownBefore = proficiency.grown;
   let grown = grownBefore;
-  const currentJobId = jobIdFromLegacy(
-    playerClass,
-    typeof charSave.specChoice === "string" ? charSave.specChoice : null,
-  );
 
   for (let index = 0; index < levelsGained; index += 1) {
-    grown = rollLevelGrowth(grown, playerClass, proficiency, rand, {
-      currentJobId,
-    });
+    grown = rollLevelGrowth(grown, playerClass, proficiency, rand);
   }
   if (levelsGained > 0) proficiency = setGrown(proficiency, grown);
   let hpGain = 0;

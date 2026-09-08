@@ -1,8 +1,6 @@
 import { applyExpGain } from "@/lib/leveling";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
-import { jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
 import {
-  addStatFloorLevels,
   parseProficiencyForChar,
   setGrown,
   effectiveLevelCap,
@@ -60,18 +58,11 @@ export function applyExpTomeGrant(
   let mpGain = 0;
 
   if (expResult.levelsGained > 0) {
-    prof = addStatFloorLevels(prof, group, expResult.levelsGained);
     // 레벨업 수만큼 랜덤 스탯 성장 굴림 — 무직 포함 모든 직군 적용(hunt 와 동일).
     const grownBefore = prof.grown;
     let grown = grownBefore;
-    const currentJobId = jobIdFromLegacy(
-      playerClass,
-      typeof charSave.specChoice === "string" ? charSave.specChoice : null,
-    );
     for (let i = 0; i < expResult.levelsGained; i++) {
-      grown = rollLevelGrowth(grown, playerClass, prof, rand, {
-        currentJobId,
-      });
+      grown = rollLevelGrowth(grown, playerClass, prof, rand);
     }
     prof = setGrown(prof, grown);
     if (prof.lifeResourceGrowth) {

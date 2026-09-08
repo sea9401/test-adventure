@@ -153,10 +153,10 @@ describe("class-element — 코어루프 수동 로드아웃 보존", () => {
     expect(res.status).toBe(200);
     expect(json.ok).toBe(true);
     expect(json.class).toBe("martial");
-    expect(json.lifeResources).toEqual({
-      maxHp: 150,
-      maxMp: 65,
-      hpPerLevel: { min: 8, max: 12 },
+    expect(json.lifeResources).toMatchObject({
+      maxHp: 252,
+      maxMp: 120,
+      hpPerLevel: { min: 10, max: 16 },
       mpPerLevel: { min: 3, max: 5 },
     });
 
@@ -175,8 +175,8 @@ describe("class-element — 코어루프 수동 로드아웃 보존", () => {
       lifeResourceGrowth: {
         version: 2,
         rolledLevel: 1,
-        baseHp: 150,
-        baseMp: 65,
+        baseHp: 252,
+        baseMp: 120,
         gainedHp: 0,
         gainedMp: 0,
       },

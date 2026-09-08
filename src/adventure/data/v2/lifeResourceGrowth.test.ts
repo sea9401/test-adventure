@@ -18,8 +18,8 @@ const baseRanges = lifeResourceRanges({
 describe("v2 생애 HP·MP 성장", () => {
   it("기본 영구 스탯에서는 기본 자원 범위를 사용한다", () => {
     expect(baseRanges).toEqual({
-      baseHp: { min: 150, max: 180 },
-      baseMp: { min: 65, max: 95 },
+      baseHp: { min: 250, max: 350 },
+      baseMp: { min: 120, max: 180 },
       hpPerLevel: { min: 8, max: 12 },
       mpPerLevel: { min: 3, max: 5 },
     });
@@ -34,8 +34,8 @@ describe("v2 생애 HP·MP 성장", () => {
         intCap: 80,
       }, 1),
     ).toEqual({
-      baseHp: { min: 152, max: 184 },
-      baseMp: { min: 67, max: 99 },
+      baseHp: { min: 252, max: 354 },
+      baseMp: { min: 122, max: 184 },
       hpPerLevel: { min: 9, max: 14 },
       mpPerLevel: { min: 5, max: 9 },
     });
@@ -53,7 +53,7 @@ describe("v2 생애 HP·MP 성장", () => {
 
     expect(version1.mpPerLevel).toEqual({ min: 23, max: 25 });
     expect(version2.mpPerLevel).toEqual({ min: 11, max: 13 });
-    expect(version2.baseMp).toEqual({ min: 85, max: 115 });
+    expect(version2.baseMp).toEqual({ min: 140, max: 200 });
     expect(version2.baseMp).toEqual(version1.baseMp);
     expect(version2.baseHp).toEqual(version1.baseHp);
     expect(version2.hpPerLevel).toEqual(version1.hpPerLevel);
@@ -69,14 +69,14 @@ describe("v2 생애 HP·MP 성장", () => {
     expect(rollInitialLifeResourceGrowth(baseRanges, () => 0)).toEqual({
       version: 2,
       rolledLevel: 1,
-      baseHp: 150,
-      baseMp: 65,
+      baseHp: 250,
+      baseMp: 120,
       gainedHp: 0,
       gainedMp: 0,
     });
     expect(
       rollInitialLifeResourceGrowth(baseRanges, () => 0.999999),
-    ).toMatchObject({ baseHp: 180, baseMp: 95, rolledLevel: 1 });
+    ).toMatchObject({ baseHp: 350, baseMp: 180, rolledLevel: 1 });
   });
 
   it("여러 레벨의 굴림과 누적 자원을 함께 반환한다", () => {
@@ -95,13 +95,13 @@ describe("v2 생애 HP·MP 성장", () => {
     });
   });
 
-  it("기본 범위의 평균 굴림은 Lv.100에서 생애 HP 1,155와 MP 476이 된다", () => {
+  it("기본 범위의 평균 굴림은 Lv.100에서 생애 HP 1,290과 MP 546이 된다", () => {
     const initial = rollInitialLifeResourceGrowth(baseRanges, () => 0.5);
     const result = rollLifeResourceLevels(initial, 1, 99, baseRanges, () => 0.5);
 
-    expect(initial).toMatchObject({ baseHp: 165, baseMp: 80 });
-    expect(result.record.baseHp + result.record.gainedHp).toBe(1_155);
-    expect(result.record.baseMp + result.record.gainedMp).toBe(476);
+    expect(initial).toMatchObject({ baseHp: 300, baseMp: 150 });
+    expect(result.record.baseHp + result.record.gainedHp).toBe(1_290);
+    expect(result.record.baseMp + result.record.gainedMp).toBe(546);
   });
 
   it("레벨 초기화가 누락된 기존 기록은 Lv.1 생애로 복구한 뒤 새 레벨만 굴린다", () => {

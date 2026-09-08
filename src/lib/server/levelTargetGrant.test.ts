@@ -79,12 +79,12 @@ describe("applyLevelTargetGrant", () => {
     expect(result.levelsGained).toBe(99);
   });
 
-  it("중간 레벨에서는 남은 레벨 수만큼 성장 포인트를 적용한다", () => {
+  it("중간 레벨에서는 남은 레벨마다 여섯 스탯을 독립적으로 굴린다", () => {
     const result = applyLevelTargetGrant(
       { class: "warrior", level: 73, exp: 456 },
       {},
       100,
-      () => 0,
+      () => 0.999999,
     );
 
     expect(result.levelsGained).toBe(27);
@@ -93,7 +93,7 @@ describe("applyLevelTargetGrant", () => {
         (sum, value) => sum + value,
         0,
       ),
-    ).toBe(81);
+    ).toBe(162);
   });
 
   it("레벨을 올려도 직업 숙련도는 증가시키지 않는다", () => {
@@ -106,7 +106,7 @@ describe("applyLevelTargetGrant", () => {
 
     expect(result.proficiency.groups.warrior?.cumLevel ?? 0).toBe(0);
     expect(result.proficiency.jobCumLevel?.warrior ?? 0).toBe(0);
-    expect(result.proficiency.statFloorLevels.warrior).toBe(50);
+    expect(result.proficiency.statFloorLevels.warrior).toBeUndefined();
   });
 
   it("이미 목표 레벨이면 성장 없이 EXP만 0으로 정규화한다", () => {

@@ -106,7 +106,7 @@ describe("applyExpTomeGrant", () => {
     expect(r.levelsGained).toBeGreaterThan(0);
     expect(r.proficiency.groups.warrior?.cumLevel ?? 0).toBe(0);
     expect(r.proficiency.jobCumLevel?.warrior ?? 0).toBe(0);
-    expect(r.proficiency.statFloorLevels.warrior).toBe(r.levelsGained);
+    expect(r.proficiency.statFloorLevels.warrior).toBeUndefined();
   });
 
   it("레거시 totalLevels 입력이 있어도 결과 모델에는 포함하지 않는다", () => {

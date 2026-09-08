@@ -290,7 +290,9 @@ describe("sim-v2-level-design", () => {
       expect(winRates[i - 1] - winRates[i]).toBeLessThan(20);
     }
     expect(results[0].player.spd).toBeGreaterThan(900);
-    expect(results[0].player.spd).toBeLessThan(1_100);
+    // 연속 숙련 성장 적용 후 같은 경력·난수 표본의 SPD는 1150.55다.
+    // 장비 교체 시 승률 급락 검증은 위에서 별도로 유지한다.
+    expect(results[0].player.spd).toBeLessThan(1_200);
   }, SIMULATION_TEST_TIMEOUT_MS);
 
   it("깊이·빌드별 전투 난수는 전체 실행 순서와 무관하다", () => {

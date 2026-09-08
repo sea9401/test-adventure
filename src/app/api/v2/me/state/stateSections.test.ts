@@ -247,7 +247,7 @@ describe("huntGateSections", () => {
 });
 
 describe("proficiencySection", () => {
-  it("버전 2 기록에는 현재 자원 성장 범위만 제공한다", () => {
+  it("버전 2 기록에도 현재와 다음 재전직 범위를 함께 제공한다", () => {
     const section = proficiencySection(
       {
         lifeResourceGrowth: {
@@ -262,17 +262,12 @@ describe("proficiencySection", () => {
       { class: "warrior", level: 37 },
     );
 
-    expect(section.lifeResourceGrowth).toEqual({
-      mode: "rolled",
-      currentRanges: {
-        baseHp: { min: 150, max: 180 },
-        baseMp: { min: 65, max: 95 },
-        hpPerLevel: { min: 8, max: 12 },
-        mpPerLevel: { min: 3, max: 5 },
-      },
-      appliesAfterRejob: false,
-      nextRejobRanges: null,
-    });
+    expect(section.lifeResourceGrowth.mode).toBe("rolled");
+    expect(section.lifeResourceGrowth.appliesAfterRejob).toBe(false);
+    expect(section.lifeResourceGrowth.currentRanges.hpPerLevel).toMatchObject({ min: 8, max: 12, expected: 10 });
+    expect(section.lifeResourceGrowth.nextRejobRanges.baseHp).toEqual({ min: 250, max: 350 });
+    expect(section.lifeResourceGrowth.nextRejobRanges.baseMp).toEqual({ min: 120, max: 180 });
+    expect(section.statGrowth.ranges.str).toMatchObject({ lowerMax: 1, upperProbability: 0, expected: 0.5 });
   });
 
   it("버전 1 기록에는 종전 현재 범위와 완화된 다음 재전직 범위를 함께 제공한다", () => {
@@ -291,13 +286,13 @@ describe("proficiencySection", () => {
       { class: "mage", level: 37 },
     );
 
-    expect(section.lifeResourceGrowth.currentRanges.mpPerLevel).toEqual({
+    expect(section.lifeResourceGrowth.currentRanges.mpPerLevel).toMatchObject({
       min: 24,
       max: 26,
     });
-    expect(section.lifeResourceGrowth.nextRejobRanges?.mpPerLevel).toEqual({
-      min: 11,
-      max: 13,
+    expect(section.lifeResourceGrowth.nextRejobRanges?.mpPerLevel).toMatchObject({
+      min: 3,
+      max: 5,
     });
     expect(section.lifeResourceGrowth.appliesAfterRejob).toBe(false);
   });
@@ -307,8 +302,8 @@ describe("proficiencySection", () => {
 
     expect(section.lifeResourceGrowth.mode).toBe("legacy");
     expect(section.lifeResourceGrowth.appliesAfterRejob).toBe(true);
-    expect(section.lifeResourceGrowth.nextRejobRanges).toBeNull();
-    expect(section.lifeResourceGrowth.currentRanges.mpPerLevel).toEqual({
+    expect(section.lifeResourceGrowth.nextRejobRanges.baseHp).toEqual({ min: 250, max: 350 });
+    expect(section.lifeResourceGrowth.currentRanges.mpPerLevel).toMatchObject({
       min: 3,
       max: 5,
     });

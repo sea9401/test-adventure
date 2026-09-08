@@ -12,7 +12,7 @@ describe("independent mastery growth", () => {
     const max = (mastery: number) => statGrowthRanges({ ...emptyProficiency(),
       groups: { warrior: { tier: 1, cultivations: 0, cumLevel: mastery } },
     }).str.max;
-    expect([0, 10_000, 100_000, 1_000_000, 20_000_000].map(max)).toEqual([1, 2, 4, 7, 11]);
+    expect([0, 10_000, 100_000, 1_000_000, 20_000_000].map(max)).toEqual([1, 3, 6, 9, 13]);
     expect(max(200_000_000)).toBeGreaterThan(max(20_000_000));
   });
 
@@ -45,7 +45,7 @@ describe("independent mastery growth", () => {
     expect(rollLevelGrowth({}, "warrior", prof, high)).toEqual({
       str: 1, dex: 1, vit: 1, int: 1, spi: 1, luk: 1,
     });
-    const rolls = [0, 0.9, 0, 0.9, 0, 0.9];
+    const rolls = [0, 0, 0, 0.9, 0, 0, 0, 0.9, 0, 0, 0, 0.9];
     expect(rollLevelGrowth({}, "warrior", prof, () => rolls.shift()!)).toEqual({
       dex: 1, int: 1, luk: 1,
     });
@@ -55,7 +55,7 @@ describe("independent mastery growth", () => {
     const prof = { ...emptyProficiency(), caps: wideCaps,
       groups: { warrior: { tier: 1, cumLevel: 100_000, cultivations: 0 } } };
     expect(rollLevelGrowth({}, "mage", prof, high)).toEqual({
-      str: 4, dex: 3, vit: 3, int: 1, spi: 1, luk: 1,
+      str: 5, dex: 4, vit: 4, int: 1, spi: 1, luk: 1,
     });
   });
 
@@ -90,7 +90,10 @@ describe("independent mastery growth", () => {
       expect(after.mpPerLevel.max).toBeGreaterThan(before.mpPerLevel.max);
       const initial = { ...rollInitialLifeResourceGrowth(before, high), version };
       const first = rollLifeResourceLevels(initial, 1, 1, before, high).record;
-      const next = rollLifeResourceLevels(first, 2, 1, after, high);
+      const next = rollLifeResourceLevels(first, 2, 1, after, (() => {
+        let draw = 0;
+        return () => ++draw % 3 === 0 ? high() : 0;
+      })());
       expect(next.record.gainedHp).toBe(first.gainedHp + after.hpPerLevel.max);
       expect(next.record.gainedMp).toBe(first.gainedMp + after.mpPerLevel.max);
       expect(next.record.baseHp).toBe(first.baseHp);

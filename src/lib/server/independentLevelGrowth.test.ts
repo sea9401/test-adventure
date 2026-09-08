@@ -29,7 +29,7 @@ describe("independent level growth across grants", () => {
     expect(hunt.nextProficiency?.grown).toEqual(exp.proficiency.grown);
     expect(hunt.statGains).toEqual(exp.proficiency.grown);
     for (const stat of V2_STAT_KEYS) expect(exp.proficiency.grown[stat]).toBeGreaterThan(0);
-    expect(exp.proficiency.grown.str).toBe(exp.levelsGained * 4);
+    expect(exp.proficiency.grown.str).toBe(exp.levelsGained * 5);
     expect(target.hpGain).toBe(exp.hpGain);
     expect(target.mpGain).toBe(exp.mpGain);
     expect(hunt.hpGain).toBe(exp.hpGain);

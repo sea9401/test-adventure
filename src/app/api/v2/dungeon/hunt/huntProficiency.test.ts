@@ -134,7 +134,7 @@ describe("applyHuntProficiency", () => {
     expect(computeStatFloors(result.nextProficiency!)).toEqual(floorBefore);
   });
 
-  it("실제 레벨 상승분은 스탯 저점 성장치에 누적한다", () => {
+  it("레벨업은 구형 누적 레벨을 적립하지 않고 생애 시작값을 유지한다", () => {
     const result = applyHuntProficiency({
       won: false,
       depth: 1,
@@ -146,7 +146,7 @@ describe("applyHuntProficiency", () => {
       rng: () => 0.1,
     });
 
-    expect(result.nextProficiency?.statFloorLevels.warrior).toBe(1);
+    expect(result.nextProficiency?.statFloorLevels.warrior).toBeUndefined();
     expect(result.nextProficiency?.groups.warrior?.cumLevel ?? 0).toBe(0);
   });
 

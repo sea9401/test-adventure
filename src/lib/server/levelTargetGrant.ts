@@ -1,6 +1,5 @@
-import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
+import { parseV2Class } from "@/adventure/data/v2/classes";
 import {
-  addStatFloorLevels,
   parseProficiencyForChar,
   setGrown,
   type V2ProficiencyState,
@@ -50,11 +49,6 @@ export function applyLevelTargetGrant(
 
   const playerClass = parseV2Class(charSave.class);
   let proficiency = parseProficiencyForChar(proficiencyRaw, charSave);
-  proficiency = addStatFloorLevels(
-    proficiency,
-    tier1ClassOf(playerClass),
-    levelsGained,
-  );
   const grownBefore = proficiency.grown;
   let grown = grownBefore;
 

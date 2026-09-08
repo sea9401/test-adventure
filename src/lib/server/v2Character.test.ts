@@ -55,8 +55,8 @@ describe("ensureV2Character", () => {
       lifeResourceGrowth: {
         version: 2,
         rolledLevel: 1,
-        baseHp: 150,
-        baseMp: 65,
+        baseHp: 250,
+        baseMp: 120,
         gainedHp: 0,
         gainedMp: 0,
       },

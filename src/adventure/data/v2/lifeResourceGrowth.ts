@@ -15,6 +15,9 @@ export type V2LifeResourceGrowth = {
 export type V2ResourceRange = {
   min: number;
   max: number;
+  /** 한계 적용 전 1회 평균. 소수 확률 혼합이므로 (min+max)/2와 다를 수 있다. */
+  expected?: number;
+  mastery?: { baseMin: number; baseMax: number; shift: number; spread: number };
 };
 
 export type V2LifeResourceRanges = {
@@ -49,14 +52,14 @@ export function lifeResourceRanges(
     version === 1 ? spi : Math.floor(spi * MP_LEVEL_STEP_SCALE);
   const intLevelStep =
     version === 1 ? int : Math.floor(int * MP_LEVEL_STEP_SCALE);
-  const hpMin = 150 + 2 * str;
-  const mpMin = 65 + spi;
+  const hpMin = 250 + 2 * str;
+  const mpMin = 120 + spi;
   const hpLevelMin = 8 + str;
   const mpLevelMin = 3 + spiLevelStep;
 
   return {
-    baseHp: { min: hpMin, max: hpMin + 30 + 2 * vit },
-    baseMp: { min: mpMin, max: mpMin + 30 + int },
+    baseHp: { min: hpMin, max: hpMin + 100 + 2 * vit },
+    baseMp: { min: mpMin, max: mpMin + 60 + int },
     hpPerLevel: { min: hpLevelMin, max: hpLevelMin + 4 + vit },
     mpPerLevel: {
       min: mpLevelMin,
@@ -76,12 +79,40 @@ export function trainedIntSpiMpBonus(stats: {
   return trainedAboveBaseline(stats.int) + trainedAboveBaseline(stats.spi);
 }
 
-function rollRange(range: V2ResourceRange, rng: () => number): number {
+export function unitRoll(rng: () => number): number {
   const raw = rng();
-  const normalized = Number.isFinite(raw)
-    ? Math.max(0, Math.min(1 - Number.EPSILON, raw))
-    : 0;
-  return range.min + Math.floor(normalized * (range.max - range.min + 1));
+  return Number.isFinite(raw) ? Math.max(0, Math.min(1 - Number.EPSILON, raw)) : 0;
+}
+
+export function masteryResourceRange(
+  base: V2ResourceRange,
+  shift: number,
+  spread: number,
+): V2ResourceRange {
+  return {
+    min: base.min + Math.floor(shift),
+    max: base.max + Math.ceil(shift) + Math.ceil(spread),
+    expected: (base.min + base.max) / 2 + shift + spread / 2,
+    mastery: { baseMin: base.min, baseMax: base.max, shift, spread },
+  };
+}
+
+function stochasticRound(value: number, rng: () => number): number {
+  const lower = Math.floor(value);
+  return lower + (unitRoll(rng) < value - lower ? 1 : 0);
+}
+
+function rollRange(range: V2ResourceRange, rng: () => number): number {
+  let min = range.min;
+  let max = range.max;
+  if (range.mastery) {
+    const { baseMin, baseMax, shift, spread } = range.mastery;
+    const a = stochasticRound(shift, rng);
+    const b = stochasticRound(spread, rng);
+    min = baseMin + a;
+    max = baseMax + a + b;
+  }
+  return min + Math.floor(unitRoll(rng) * (max - min + 1));
 }
 
 export function rollInitialLifeResourceGrowth(

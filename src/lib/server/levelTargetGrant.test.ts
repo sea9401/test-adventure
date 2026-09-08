@@ -106,7 +106,7 @@ describe("applyLevelTargetGrant", () => {
 
     expect(result.proficiency.groups.warrior?.cumLevel ?? 0).toBe(0);
     expect(result.proficiency.jobCumLevel?.warrior ?? 0).toBe(0);
-    expect(result.proficiency.statFloorLevels.warrior).toBe(50);
+    expect(result.proficiency.statFloorLevels.warrior).toBeUndefined();
   });
 
   it("이미 목표 레벨이면 성장 없이 EXP만 0으로 정규화한다", () => {

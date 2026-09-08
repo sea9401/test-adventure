@@ -6,7 +6,6 @@ import {
   addCumLevel,
   addJobCumLevel,
   addPoints,
-  addStatFloorLevels,
   groupCumLevel,
   parseProficiencyForChar,
   proficiencyPerKillAtDepth,
@@ -125,7 +124,6 @@ export function applyHuntProficiency(params: {
     }
     // 레벨업 시 — 랜덤 스탯 성장. 직업 숙련도는 레벨업이 아니라 사냥 승리에서 적립한다.
     if (levelsGained > 0) {
-      prof = addStatFloorLevels(prof, group, levelsGained);
       // 랜덤 레벨 성장 — 레벨업 수만큼 굴린다(cap 은 prof.caps, 수행 전 기본 60).
       const grownBefore = prof.grown; // rollLevelGrowth 는 비파괴 — 시작 맵 보존 안전.
       let grown = grownBefore;

@@ -35,7 +35,10 @@ describe("equipmentCodex", () => {
     expect(equipmentCodexSpBonusForCount(240)).toBe(10);
     expect(equipmentCodexSpBonusForCount(270)).toBe(11);
     expect(equipmentCodexSpBonusForCount(300)).toBe(12);
-    expect(equipmentCodexSpBonusForCount(304)).toBe(12);
+    expect(equipmentCodexSpBonusForCount(330)).toBe(13);
+    expect(equipmentCodexSpBonusForCount(360)).toBe(14);
+    expect(equipmentCodexSpBonusForCount(390)).toBe(15);
+    expect(equipmentCodexSpBonusForCount(420)).toBe(16);
     expect(nextEquipmentCodexMilestone(0)).toBe(5);
     expect(nextEquipmentCodexMilestone(35)).toBe(65);
     expect(nextEquipmentCodexMilestone(130)).toBe(150);
@@ -44,7 +47,11 @@ describe("equipmentCodex", () => {
     expect(nextEquipmentCodexMilestone(210)).toBe(240);
     expect(nextEquipmentCodexMilestone(240)).toBe(270);
     expect(nextEquipmentCodexMilestone(270)).toBe(300);
-    expect(nextEquipmentCodexMilestone(300)).toBeNull();
+    expect(nextEquipmentCodexMilestone(300)).toBe(330);
+    expect(nextEquipmentCodexMilestone(330)).toBe(360);
+    expect(nextEquipmentCodexMilestone(360)).toBe(390);
+    expect(nextEquipmentCodexMilestone(390)).toBe(420);
+    expect(nextEquipmentCodexMilestone(420)).toBeNull();
   });
 
   it("등록은 카탈로그 id 기준으로 한 번만 추가한다", () => {

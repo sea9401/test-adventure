@@ -715,6 +715,7 @@ export function V2SkillLearnView({
           <LoadoutStatResponsiveLayout
             current={statFeedback.current}
             delta={statFeedback.delta}
+            skillPoints={{ used: loadout.spUsed, max: loadout.spBudget }}
           >
             <V2LoadoutPresetsPanel
               currentEquipped={loadout.equipped}

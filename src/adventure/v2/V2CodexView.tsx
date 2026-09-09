@@ -98,7 +98,6 @@ import type {
   CodexMasteryPinnedGoal,
 } from "@/adventure/data/v2/codexMasteryView";
 import type { CookingCodexRecipeView } from "./cooking/catalogMeta";
-import { UNEXPLORED_SPECIALTY_POOLS } from "@/adventure/data/v2/unexploredSpecialtyPools";
 
 const JobCodexList = dynamic(() =>
   import("./V2JobCodexView").then((module) => module.JobCodexList),
@@ -322,62 +321,6 @@ export function DropChip({
       )}
       <EquipmentRegistrationMark registered={registered} />
     </button>
-  );
-}
-
-export function UnexploredSpecialtyCodexSection({
-  registeredEquipmentIds,
-  onOpen,
-}: {
-  registeredEquipmentIds?: ReadonlySet<string> | null;
-  onOpen: (item: V2Equipment, anchor: ItemCardAnchor) => void;
-}) {
-  return (
-    <section className="mt-3 space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
-          미개척지 특화 장비
-        </h3>
-        <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
-          기본 0.4% · 집중 0.6%
-        </span>
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {UNEXPLORED_SPECIALTY_POOLS.map((pool) => (
-          <div
-            key={pool.id}
-            data-specialty-codex-pool={pool.id}
-            className={`${SURFACE_INSET} p-2.5`}
-          >
-            <div className="text-xs font-semibold text-zinc-800 dark:text-zinc-100">
-              {pool.name}
-            </div>
-            <div className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
-              {pool.combatStyle}
-            </div>
-            <ul className="mt-2 space-y-1.5">
-              {pool.monsters.map((monster) => (
-                <li key={monster.id} className="flex flex-wrap items-center justify-between gap-1.5 text-[11px]">
-                  <span className="text-zinc-600 dark:text-zinc-300">
-                    {monster.name}
-                  </span>
-                  <DropChip
-                    id={monster.equipmentId}
-                    kind="set"
-                    registered={
-                      registeredEquipmentIds
-                        ? registeredEquipmentIds.has(monster.equipmentId)
-                        : undefined
-                    }
-                    onOpen={onOpen}
-                  />
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -1259,12 +1202,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                       )}
                     </div>
                   </div>
-                  {theme.depthStart === 79 ? (
-                    <UnexploredSpecialtyCodexSection
-                      registeredEquipmentIds={registeredEquipmentIds}
-                      onOpen={(item, anchor) => setCard({ item, anchor })}
-                    />
-                  ) : null}
                 </Card>
               );
             })}

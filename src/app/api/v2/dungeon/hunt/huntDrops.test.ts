@@ -24,8 +24,7 @@ import {
 import { emptyEquippedLiberationEffects } from "@/adventure/data/v2/equipmentLiberationEffects";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
-import { pickUnexploredSpecialtyEncounter } from "@/adventure/data/v2/unexploredSpecialtyPools";
-import { rollHuntDrops, rollHuntDropsRepeated, rollUnexploredSpecialtyEquipmentDrop } from "./huntDrops";
+import { rollHuntDrops, rollHuntDropsRepeated } from "./huntDrops";
 
 const baseParams = {
   dropFloor: 1 as const,
@@ -38,92 +37,6 @@ const baseParams = {
 };
 
 afterEach(() => vi.restoreAllMocks());
-
-const IRON_SHIELD_ENCOUNTER = pickUnexploredSpecialtyEncounter(
-  { mode: "focused", poolId: "iron_legion" }, () => 0,
-)!;
-const specialtyParams = {
-  ...baseParams,
-  won: true,
-  depth: 80,
-  dropFloor: 8 as const,
-  monsterKey: "성해의 파수꾼",
-};
-
-describe("unexplored specialty equipment drops", () => {
-  it.each([
-    [false, 0.003999, "v2_unexplored_iron_line_armor"],
-    [false, 0.004000, null],
-    [true, 0.005999, "v2_unexplored_iron_line_armor"],
-    [true, 0.006000, null],
-  ] as const)("focused=%s roll=%s respects the exact boundary", (focused, roll, expected) => {
-    expect(rollUnexploredSpecialtyEquipmentDrop({
-      encounter: IRON_SHIELD_ENCOUNTER, focused, rng: () => roll,
-    })).toBe(expected);
-  });
-
-  it("uses the encounter equipment ID independently of its display name", () => {
-    expect(rollUnexploredSpecialtyEquipmentDrop({
-      encounter: { ...IRON_SHIELD_ENCOUNTER, equipmentId: "v2_unexplored_iron_line_gloves",
-        enemy: { ...IRON_SHIELD_ENCOUNTER.enemy, name: "renamed" } },
-      focused: false, rng: () => 0,
-    })).toBe("v2_unexplored_iron_line_gloves");
-  });
-
-  it("does not consume specialty RNG without an encounter", () => {
-    const rng = vi.fn(() => 0);
-    expect(rollUnexploredSpecialtyEquipmentDrop({ encounter: null, focused: true, rng })).toBeNull();
-    expect(rng).not.toHaveBeenCalled();
-  });
-
-  it("preserves all legacy result fields and the 12-roll no-drop sequence", () => {
-    const rng = vi.spyOn(Math, "random").mockReturnValue(0.99);
-    const { droppedSpecialty, ...legacy } = rollHuntDrops(specialtyParams);
-    expect(legacy).toEqual({ drops: {}, droppedEquipment: null, droppedUnique: null, nextOwned: [] });
-    expect(droppedSpecialty).toBeNull();
-    expect(rng).toHaveBeenCalledTimes(12);
-  });
-
-  it("rolls specialty after legacy drops and mints a normal rolled instance", () => {
-    let calls = 0;
-    vi.spyOn(Math, "random").mockImplementation(() => ++calls <= 12 ? 0.99 : 0);
-    const result = rollHuntDrops({ ...specialtyParams, specialtyEncounter: IRON_SHIELD_ENCOUNTER });
-    expect(result).toMatchObject({ drops: {}, droppedEquipment: null, droppedUnique: null,
-      droppedSpecialty: "v2_unexplored_iron_line_armor" });
-    expect(result.nextOwned).toEqual([expect.objectContaining({
-      id: "v2_unexplored_iron_line_armor", iid: expect.any(String), roll: expect.any(Object),
-    })]);
-  });
-
-  it.each([false, true])("ignores map and liberation chance multipliers (focused=%s)", (specialtyFocused) => {
-    vi.spyOn(Math, "random").mockReturnValue(0.006);
-    const result = rollHuntDrops({ ...specialtyParams, specialtyEncounter: IRON_SHIELD_ENCOUNTER,
-      specialtyFocused, mapDropMult: 1_000, mapUniqueMult: 1_000, mapStoneMult: 1_000,
-      liberationHuntEffects: { ...emptyEquippedLiberationEffects().hunt, equipmentDropPct: 100_000 },
-    });
-    expect(result.droppedSpecialty).toBeNull();
-    expect(result.nextOwned.some(({ id }) => id.startsWith("v2_unexplored_"))).toBe(false);
-  });
-
-  it("accumulates duplicate specialty equipment with separate rolled instances", () => {
-    vi.spyOn(Math, "random").mockReturnValue(0);
-    const result = rollHuntDropsRepeated({ ...specialtyParams, specialtyEncounter: IRON_SHIELD_ENCOUNTER,
-      specialtyFocused: true, rewardRolls: 3 });
-    expect(result.droppedSpecialties).toEqual(Array(3).fill("v2_unexplored_iron_line_armor"));
-    const instances = result.nextOwned.filter(({ id }) => id === "v2_unexplored_iron_line_armor");
-    expect(instances).toHaveLength(3);
-    expect(new Set(instances.map(({ iid }) => iid)).size).toBe(3);
-    expect(instances.every(({ roll }) => roll && Object.keys(roll).length > 0)).toBe(true);
-  });
-
-  it("does not roll specialty on defeat", () => {
-    const rng = vi.spyOn(Math, "random");
-    const result = rollHuntDrops({ ...specialtyParams, won: false, specialtyEncounter: IRON_SHIELD_ENCOUNTER });
-    expect(result.droppedSpecialty).toBeNull();
-    expect(result.nextOwned).toEqual([]);
-    expect(rng).not.toHaveBeenCalled();
-  });
-});
 
 describe("rollHuntDrops global crafting materials", () => {
   it("카테고리 배율을 기존 독립 드롭 확률에 곱한다", () => {

@@ -74,7 +74,6 @@ export type BatchSummary = {
   drops: Partial<Record<V2MaterialId, number>>;
   droppedEquipments: V2EquipmentId[];
   droppedUniques: V2EquipmentId[];
-  droppedSpecialties?: V2EquipmentId[];
   rareMapDrops?: RareMapKindId[];
   rareMapDropInstances?: RareMapInstance[];
   stoppedReason?:
@@ -99,10 +98,7 @@ export function BatchSummaryCard({
   const dropEntries = Object.entries(summary.drops).filter(
     ([, n]) => (n ?? 0) > 0,
   ) as Array<[V2MaterialId, number]>;
-  const equipmentItems = [
-    ...summary.droppedEquipments,
-    ...(summary.droppedSpecialties ?? []),
-  ].map((id) => ({
+  const equipmentItems = summary.droppedEquipments.map((id) => ({
     id,
     item: V2_EQUIPMENT[id],
   }));

@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import {
   CODEX_TAB_ITEMS,
   DropChip,
-  UnexploredSpecialtyCodexSection,
   classifyCodexEquipmentIds,
   codexEquipmentProgress,
   codexTabFromParam,
@@ -140,22 +139,6 @@ describe("모험의 서 사냥터 표시", () => {
     expect(codexUniqueDropSummary(73)).toBe("매우 낮은 확률");
   });
 
-  it("별의 무덤 특화 풀별 몬스터와 전용 장비 및 최종 확률을 표시한다", () => {
-    const html = renderToStaticMarkup(
-      createElement(UnexploredSpecialtyCodexSection, {
-        registeredEquipmentIds: new Set(["v2_unexplored_iron_line_armor"]),
-        onOpen: () => undefined,
-      }),
-    );
-
-    expect(html).toContain("미개척지 특화 장비");
-    expect(html).toContain("기본 0.4% · 집중 0.6%");
-    expect(html).toContain("철갑 군단");
-    expect(html).toContain("철갑 방패병");
-    expect(html).toContain("철갑 전열갑");
-    expect(html).toContain("장비 도감 등록");
-    expect(html.match(/data-specialty-codex-pool/g)).toHaveLength(12);
-  });
 });
 
 describe("모험의 서 사냥터 장비 도감 상태", () => {

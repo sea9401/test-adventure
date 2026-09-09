@@ -316,7 +316,7 @@ describe("tradable 판정 + 이름 스냅샷", () => {
   });
 
   it("채광·생활 가공 재료를 포함한 등재 재료 중 비활성 재련석을 제외해 tradable", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(122);
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(123);
     for (const id of Object.keys(V2_MATERIALS)) {
       expect(isTradableMaterial(id)).toBe(
         id !== "v2_reforge_stone" && id !== "v2_reforge_stone_high",
@@ -401,4 +401,13 @@ describe("선택한 경매 기간", () => {
     expect(end.bidEndsAt.getTime() - start.getTime()).toBe(hours * 3600000);
     expect(end.expiresAt.getTime()).toBe(end.bidEndsAt.getTime() + 1);
   });
+});
+
+
+it("공개 음식 매물은 품질별 효과와 지속시간만 공개하고 비밀 레시피는 전달하지 않는다", () => {
+  const itemId = cookingFoodId({ recipeId: "rustic_bread", quality: "masterpiece", originator: false, specialtyBonusPct: 0 });
+  const row = { itemId, price: 100, sellerId: "seller", highestBidderId: null, highestBid: null };
+  const listing = marketplacePublicListing(row, "viewer");
+  expect(listing).toHaveProperty("foodPreview");
+  expect(JSON.stringify(listing)).not.toContain("ingredients");
 });

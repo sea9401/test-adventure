@@ -28,8 +28,8 @@ describe("buildJobCodex", () => {
       skillsTotal: 3,
     });
     expect(
-      before.jobs.filter((job) => job.tier === 7).map((job) => job.id),
-    ).toEqual([...TIER7_COMBAT_JOB_IDS]);
+      before.jobs.filter((job) => job.tier === 7).map((job) => job.id).sort(),
+    ).toEqual([...TIER7_COMBAT_JOB_IDS].sort());
 
     candidate.jobHistory = ["shadowblade"];
     const after = buildJobCodex(candidate, [], "warrior", "swordsaint");

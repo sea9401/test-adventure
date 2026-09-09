@@ -1,3 +1,4 @@
+import { lockMarketplaceMaintenance, marketplaceMaintenanceFlagExists } from "@/lib/server/marketplaceMaintenance";
 import { and, eq, lte, ne } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -36,6 +37,8 @@ export async function POST(req: Request) {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
 
+  if (marketplaceMaintenanceFlagExists()) return Response.json({ ok: true, paused: true });
+
   const now = new Date();
   const due = await db
     .select({ id: marketplaceListingsV2.id })
@@ -58,6 +61,7 @@ export async function POST(req: Request) {
   let restrictedCancelled = 0;
   for (const { id } of due) {
     const result = await db.transaction(async (tx) => {
+      if (await lockMarketplaceMaintenance(tx)) return { action: "skip" as const };
       const [probe] = await tx
         .select({
           sellerId: marketplaceListingsV2.sellerId,

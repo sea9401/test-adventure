@@ -182,10 +182,6 @@ export function V2MasteryTowerView({
     status?.nextFloor === MASTERY_TOWER_MAX_FLOOR;
   const targetFloor =
     isNewRun && selectedStartOption ? selectedStartOption.floor : status?.nextFloor;
-  const targetRequiredPower =
-    isNewRun && selectedStartOption
-      ? (selectedStartOption.requiredPower ?? null)
-      : (status?.nextRequiredPower ?? null);
   const targetGuardian =
     isNewRun && selectedStartOption
       ? (selectedStartOption.guardian ?? null)
@@ -298,12 +294,6 @@ export function V2MasteryTowerView({
                   ) : (
                     <p className="mt-1 text-3xl font-bold tabular-nums">
                       {targetFloor}층
-                    </p>
-                  )}
-                  {targetFloor != null && (
-                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                      권장 전투력{" "}
-                      {targetRequiredPower?.toLocaleString("ko-KR") ?? "-"}
                     </p>
                   )}
                   {(status.tower.todayBestFloor >=

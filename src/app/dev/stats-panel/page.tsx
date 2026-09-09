@@ -50,7 +50,7 @@ export default function StatsPanelPreview() {
     <div className="mx-auto max-w-[720px] space-y-4 p-4">
       <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
         <strong>DEV</strong> · 내 정보 「상세 + 능력치」 — 각 셀에 마우스 오버(모바일은
-        탭) 시 설명 툴팁. 「상세」는 옛 「전투력」 섹션을 개명.
+        탭) 시 설명 툴팁. 「상세」는 옛 「스탯 합계」 섹션을 개명.
       </div>
 
       <div className="space-y-1">

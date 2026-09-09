@@ -5,15 +5,7 @@ import { type BattleState, type PlayerCombat } from "./engineState";
 import { appendLog } from "./engineSupport";
 import { magicBarrierCombatLogEntries, resolveMagicBarrierDamage } from "./magicBarrier";
 import { recordChargeHpLoss } from "./ruinBladeCombat";
-import {
-  TOXIC_BLOOD_MAX_STACKS,
-  TOXIC_RECOVERY_LOCK_ACTIONS,
-  consumeToxicRecoveryAction,
-  resolveToxicBloodGain,
-  toxicBloodRawDotDamage,
-  toxicBloodRawExplosionDamage,
-  toxicBloodRecoveryMultiplier,
-} from "./toxicBloodLordMechanic";
+import { TOXIC_BLOOD_MAX_STACKS, TOXIC_RECOVERY_LOCK_ACTIONS, consumeToxicRecoveryAction, resolveToxicBloodGain, toxicBloodRawDotDamage, toxicBloodRawExplosionDamage, toxicBloodRecoveryMultiplier } from "./toxicBloodLordMechanic";
 
 export function appendToxicBloodLog(
   state: BattleState,

@@ -28,7 +28,6 @@ import {
   MASTERY_TOWER_REWARD_MAX_FLOOR,
   MASTERY_TOWER_REENTRY_COOLDOWN_MS,
   masteryTowerFloorReward,
-  masteryTowerRequiredPower,
 } from "@/adventure/data/v2/masteryTower";
 import { H2, P, UL, Em, Table, Note } from "./primitives";
 import { JobRoadmapScroller } from "./JobRoadmapScroller";
@@ -110,7 +109,7 @@ export function JobsContent() {
       <Table
         head={["7차 직업", "선행 6차 직업"]}
         rows={TIER7_ROWS}
-        caption="현재 선공개된 네 직업만 표시합니다. 전직 로드맵에서도 같은 계보와 진행 상태를 확인할 수 있습니다."
+        caption="현재 공개된 7차 직업을 표시합니다. 전직 로드맵에서도 같은 계보와 진행 상태를 확인할 수 있습니다."
       />
       <P>
         조건을 모두 갖춘 뒤 <Em>폭풍 기원의 파편 {TIER7_FIRST_UNLOCK_MATERIAL_COST}개</Em>를
@@ -187,8 +186,8 @@ export function JobsContent() {
           입장할 수 있습니다.
         </li>
         <li>
-          탑은 총 <Em>{MASTERY_TOWER_MAX_FLOOR}층</Em>이고, 층마다 요구 전투력이
-          있습니다. 전투력이 요구치를 넘으면 다음 층으로 올라갑니다.
+          탑은 총 <Em>{MASTERY_TOWER_MAX_FLOOR}층</Em>이고, 각 층의 수호자와
+          전투해 승리하면 다음 층으로 올라갑니다.
         </li>
         <li>
           보상은 현재 직업에 바로 들어가지 않고 <Em>숙련 증서</Em>로 지급됩니다.
@@ -218,14 +217,13 @@ export function JobsContent() {
         </li>
       </UL>
       <Table
-        head={["층", "요구 전투력", "일일 기본 증서", "첫 달성 보너스"]}
+        head={["층", "일일 기본 증서", "첫 달성 보너스"]}
         rows={MASTERY_TOWER_SAMPLE_FLOORS.map((floor) => {
           const milestone = MASTERY_TOWER_MILESTONES.find(
             (m) => m.floor === floor,
           );
           return [
             `${floor}층`,
-            masteryTowerRequiredPower(floor).toLocaleString("ko-KR"),
             masteryTowerFloorReward(floor).toLocaleString("ko-KR"),
             milestone ? `+${milestone.bonus}` : "-",
           ];

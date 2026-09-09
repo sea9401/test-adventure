@@ -22,9 +22,11 @@ import {
   formatLiberationOptionRoll,
   type V2LiberationState,
 } from "@/adventure/data/v2/equipmentLiberation";
+import { enchantmentStage } from "../liberation/equipmentLiberationViewModel";
 import type { GameConfirmOptions } from "@/components/ui/gameDialog";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { V2_EQUIPMENT_LIBERATION } from "@/adventure/data/v2/coreLoopConfig";
+import type { UnexploredSetEffect } from "@/adventure/data/v2/unexploredSpecialtyEquipment";
 
 // 굴림 품질 % → 색. 색 기준은 위력이 아니라 같은 장비 안에서의 개체 굴림 품질이다.
 // 인벤 카드 배지와 공유 — V2InventoryView 가 여기서 import(기존 import 방향 유지).
@@ -236,9 +238,9 @@ export function LiberationBadge({
   return (
     <span
       className={`shrink-0 rounded bg-violet-100 px-1.5 py-px text-[10px] font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300 ${className}`}
-      title={`해방 ${liberation.rank} · ${liberation.lineCount}줄`}
+      title={`마법부여 ${enchantmentStage(liberation.rank)}단계 · ${liberation.lineCount}줄`}
     >
-      해방 {liberation.rank} · {liberation.lineCount}줄
+      마법부여 {enchantmentStage(liberation.rank)}단계 · {liberation.lineCount}줄
     </span>
   );
 }
@@ -252,8 +254,8 @@ export function LiberationOptionsPanel({
   return (
     <div className={`${SURFACE_INSET} mt-3 p-2.5`}>
       <div className="flex items-center justify-between gap-2 text-xs font-semibold text-violet-700 dark:text-violet-300">
-        <span>해방 옵션</span>
-        <span>해방 {liberation.rank} · {liberation.lineCount}줄</span>
+        <span>마법부여 옵션</span>
+        <span>마법부여 {enchantmentStage(liberation.rank)}단계 · {liberation.lineCount}줄</span>
       </div>
       <ul className="mt-2 space-y-1 text-xs">
         {liberation.options.map((option) => (
@@ -281,7 +283,7 @@ export function boundEquipmentDisposalConfirmation(
 ): GameConfirmOptions {
   const itemLines = items.map((item) =>
     item.liberation
-      ? `• ${item.itemName} · 해방 ${item.liberation.rank} · ${item.liberation.lineCount}줄`
+      ? `• ${item.itemName} · 마법부여 ${enchantmentStage(item.liberation.rank)}단계 · ${item.liberation.lineCount}줄`
       : `• ${item.itemName} · 귀속 장비`,
   );
   return {
@@ -289,7 +291,7 @@ export function boundEquipmentDisposalConfirmation(
     message: [
       ...itemLines,
       "",
-      `${action}하면 장비 귀속 및 모든 해방 옵션이 영구 소멸하며 되돌릴 수 없습니다.`,
+      `${action}하면 장비 귀속 및 모든 마법부여 옵션이 영구 소멸하며 되돌릴 수 없습니다.`,
     ].join("\n"),
     confirmLabel: `영구 소멸 확인 · ${action}`,
     tone: "danger",
@@ -310,6 +312,9 @@ const SET_BONUS_LABEL: Record<keyof V2EquipOptions, string> = {
   healPowerPct: "회복",
   critResist: "치명타 저항",
   statusDamageReductionPct: "상태이상 피해 감소",
+  basicAttackDamagePct: "기본 공격 피해",
+  extraBasicAttackDamagePct: "추가 기본 공격 피해",
+  statusDotDamagePct: "상태 이상 지속 피해",
 };
 export function formatSetBonus(bonus: Readonly<V2EquipOptions>): string {
   return (Object.keys(SET_BONUS_LABEL) as (keyof V2EquipOptions)[])
@@ -322,12 +327,39 @@ export function formatSetBonus(bonus: Readonly<V2EquipOptions>): string {
         k === "crit" ||
         k === "healPowerPct" ||
         k === "critResist" ||
-        k === "statusDamageReductionPct"
+        k === "statusDamageReductionPct" ||
+        k === "basicAttackDamagePct" ||
+        k === "extraBasicAttackDamagePct" ||
+        k === "statusDotDamagePct"
           ? "%"
           : "";
       return `${SET_BONUS_LABEL[k]} +${bonus[k]}${unit}`;
     })
     .join(", ");
+}
+
+const UNEXPLORED_EFFECT_DESCRIPTION: Record<UnexploredSetEffect["kind"], string> = {
+  iron_wall: "직접 피해로 실제 HP가 감소하면 감소한 HP의 0.75%만큼 방어력을 누적합니다. 전투 시작 방어력의 100%까지 누적되며 전투 종료 시 초기화됩니다.",
+  mana_redeployment: "전투 시작 시 최대 HP의 8% 보호막을 얻고, 스킬을 3번 사용할 때마다 같은 크기로 재전개합니다. 평타는 포함하지 않으며 보호막은 중첩하지 않고 더 높은 수치로만 갱신됩니다. 전투 종료 시 사용 횟수가 초기화됩니다.",
+  colony_regeneration: "자신의 행동 종료 시 잃은 HP의 5%를 최대 HP의 2% 한도로 회복합니다. HP가 40% 이하라면 8%를 최대 HP의 3% 한도로 회복합니다. 회복량 증가는 적용되지 않으며 회복량 감소와 회복 불가 효과는 적용됩니다.",
+  battle_revenge: "적의 한 행동에서 최대 HP의 5% 이상 실제 HP 피해를 받으면 중첩되지 않는 응징을 얻습니다. 다음 평타 또는 직접 피해 스킬의 최종 직접 피해가 20% 증가하고, 실제 직접 피해를 주면 소모됩니다. 회복·강화 행동과 완전 회피 시에는 유지되며 반격과 추가 공격에는 적용되거나 소모되지 않습니다.",
+  crystal_focus: "MP를 실제 소모하는 직접 피해 스킬을 사용할 때 집속 횟수가 증가하고, 세 번째 스킬의 최종 직접 피해가 25% 증가합니다. 다단 공격은 1회로 계산하며 평타·무료 스킬·회복·강화 스킬·지속 피해는 제외됩니다. MP는 반환하지 않고 완전 회피에도 집속을 소모하며 전투 종료 시 초기화됩니다.",
+  precision_shot: "직접 사용한 네 번째 기본 공격은 완전 회피를 제외한 일반 명중 판정에서 빗나가지 않으며 최종 피해가 50% 증가합니다. 치명타와 적중 시 상태 이상은 정상 발동하지만 별도 추가 공격은 만들지 않습니다. 반격과 추가 공격은 횟수에서 제외되며 전투 종료 시 초기화됩니다.",
+  chain_drive: "직접 피해 스킬이 적중하면 스킬당 한 번 25% 확률로 평타의 60%인 추가 기본 공격을 실행합니다. 2세트 효과 적용 시 72%가 되며 치명타와 적중 시 상태 이상도 발동합니다. 다단 스킬은 한 번만 판정하고, 추가 공격은 재귀 발동하지 않으며 회복·강화 스킬과 지속 피해는 제외됩니다.",
+  afterimage_coating: "적의 한 행동이 끝나면 그 행동에서 회피로 줄인 직접 피해 총량의 15%만큼 보호막을 얻습니다. 최대 HP의 3%까지 축적되며 다단 공격은 합산 후 한 번만 생성됩니다. 지속 피해와 완전 회피로는 생성되지 않고 전투 종료 시 제거됩니다.",
+  unyielding_dead: "개별 피해를 받기 직전 HP가 35% 이하라면 평타·직접 피해 스킬과 중독·출혈·연소의 최종 피해를 15% 줄입니다. 35%를 초과하면 비활성화되며 피해로 기준 이하가 된 타격에는 적용되지 않고 다음 타격부터 적용됩니다. 다른 피해 감소와 곱연산하며 최소 피해 1을 유지합니다.",
+  frost_mark: "평타 또는 직접 피해 스킬이 치명타로 적중하면 대상의 속도를 12% 낮춥니다. 대상 행동 2회 동안 유지됩니다.",
+  freezing_lock: "서리 표식의 속도 감소를 20%로 강화하고, 유지되는 동안 대상의 명중이 12 감소합니다. 효과는 중첩하지 않고 재발동 시 지속시간만 갱신하며 다단 스킬은 한 번만 발동합니다. 지속 피해와 독립 추가 피해는 제외되고 한기 스택과 빙결에는 영향을 주지 않습니다.",
+  colossus_crush: "평타와 직접 피해 스킬이 피해 유형에 대응하는 대상 방어력의 10%를 조건 없이 무시합니다. 물리 피해는 방어력, 마법 피해는 마법 방어력을 무시하며 지속 피해·반사 피해·독립 추가 공격에는 적용하지 않습니다. 세 부위 속도 감소 합계 12가 고정 대가입니다.",
+};
+
+export function unexploredSetEffectDescription(effect: UnexploredSetEffect): string {
+  return UNEXPLORED_EFFECT_DESCRIPTION[effect.kind];
+}
+
+export function unexploredTagSetBonusDescription(setId: string): string | null {
+  if (setId !== "unexplored_triad_decay") return null;
+  return "상태 이상 지속 피해 증가는 착용자가 부여한 중독·출혈·연소의 주기 피해에만 적용합니다. 상태 이상 부여 확률·스택 수와 즉발 피해와 부가 효과에는 적용되지 않으며, 같은 종류의 증가 효과끼리는 합연산합니다.";
 }
 
 // 스탯 한 줄 — 라벨(좌) + 값(우). 기본 스탯·옵션이 같은 표기를 공유.

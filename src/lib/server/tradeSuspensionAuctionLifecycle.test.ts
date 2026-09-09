@@ -175,6 +175,7 @@ function query(transactional = false) {
 }
 
 const tx = {
+  execute: vi.fn(async () => ({ rows: [] })),
   select: vi.fn(() => query(true)),
   insert: vi.fn((table: unknown) => ({
     values: vi.fn(async (values: Record<string, unknown>) => {

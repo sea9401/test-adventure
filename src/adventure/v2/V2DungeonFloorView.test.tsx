@@ -132,3 +132,44 @@ describe("미개척지 사냥 화면", () => {
     expect(html).not.toContain("오프라인 사냥");
   });
 });
+
+describe("미개척지 특화 사냥 노출", () => {
+  const baseProps = {
+    outpostId: "outpost-1",
+    outpostName: "별의 무덤 거점",
+    playerName: "모험가",
+    playerGender: "male" as const,
+    stamina: { current: 100, lastUpdatedAt: 0 },
+    setStamina: vi.fn(),
+    onBack: vi.fn(),
+  };
+
+  it("일반 사냥 깊이 79~84에서만 특화 선택을 표시한다", () => {
+    const depth79 = renderToStaticMarkup(
+      <V2DungeonFloorView {...baseProps} floorId={79} frontierDepth={79} />,
+    );
+    const depth78 = renderToStaticMarkup(
+      <V2DungeonFloorView {...baseProps} floorId={78} frontierDepth={79} />,
+    );
+    const depth85 = renderToStaticMarkup(
+      <V2DungeonFloorView {...baseProps} floorId={85} frontierDepth={85} />,
+    );
+
+    expect(depth79).toContain("미개척지 특화 사냥");
+    expect(depth78).not.toContain("미개척지 특화 사냥");
+    expect(depth85).not.toContain("미개척지 특화 사냥");
+  });
+
+  it("희귀 지도에서는 같은 깊이라도 특화 선택을 숨긴다", () => {
+    const html = renderToStaticMarkup(
+      <V2DungeonFloorView
+        {...baseProps}
+        floorId={79}
+        frontierDepth={79}
+        rareMapIid="rare-map-1"
+      />,
+    );
+
+    expect(html).not.toContain("미개척지 특화 사냥");
+  });
+});

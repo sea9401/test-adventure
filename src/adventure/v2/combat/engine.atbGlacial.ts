@@ -1,10 +1,6 @@
 import { type BattleState, type PlayerCombat } from "./engineState";
 import { appendLog } from "./engineSupport";
-import {
-  GLACIAL_CHILL_THRESHOLD,
-  rescaleReservedPlayerTick,
-  resolveGlacialChillGain,
-} from "./glacialColossusMechanic";
+import { GLACIAL_CHILL_THRESHOLD, rescaleReservedPlayerTick, resolveGlacialChillGain } from "./glacialColossusMechanic";
 import { statusBlockOnce } from "./signatureEffects";
 import { TRIPLE_WARD_LABELS, consumePurificationWard } from "./tripleWard";
 

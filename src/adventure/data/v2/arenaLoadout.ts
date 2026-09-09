@@ -86,6 +86,9 @@ const ENEMY_STATUS_LABEL = {
 } as const;
 
 const SELF_RESOURCE_LABEL = {
+  holyPower: "성력",
+  windCurrent: "기류",
+  sanctuary: "성역 남은 행동",
   impact: "충격",
   ironWallReflect: "철벽 반사",
   inscription: "각인 총합",

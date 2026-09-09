@@ -1,7 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
-import { settleOfflineHuntBatches } from "./offlineSettleApi";
+import {
+  formatOfflineSpecialtyDrops,
+  settleOfflineHuntBatches,
+} from "./offlineSettleApi";
 
 describe("settleOfflineHuntBatches", () => {
+  it("오프라인 정산의 특화 장비 이름과 중복 횟수를 표시용 문구로 만든다", () => {
+    expect(formatOfflineSpecialtyDrops([
+      "v2_unexplored_iron_line_armor",
+      "v2_unexplored_iron_line_armor",
+      "v2_unexplored_iron_line_gloves",
+    ])).toBe(" · 특화 장비 철갑 전열갑 ×2, 장창 수호완갑 ×1");
+  });
+
   it("releases the server between batches and aggregates the result", async () => {
     const responses = [
       Response.json({
@@ -13,6 +24,7 @@ describe("settleOfflineHuntBatches", () => {
         totalGold: 200,
         depth: 4,
         remainingBattles: 10,
+        droppedSpecialties: ["v2_unexplored_iron_line_armor"],
       }),
       Response.json({
         ok: true,
@@ -23,6 +35,7 @@ describe("settleOfflineHuntBatches", () => {
         totalGold: 40,
         depth: 4,
         remainingBattles: 0,
+        droppedSpecialties: ["v2_unexplored_iron_line_gloves"],
       }),
     ];
     const fetcher = vi.fn(async () => responses.shift()!);
@@ -43,6 +56,10 @@ describe("settleOfflineHuntBatches", () => {
       totalGold: 240,
       depth: 4,
       remainingBattles: 0,
+      droppedSpecialties: [
+        "v2_unexplored_iron_line_armor",
+        "v2_unexplored_iron_line_gloves",
+      ],
     });
   });
 

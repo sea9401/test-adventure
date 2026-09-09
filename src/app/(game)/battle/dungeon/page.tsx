@@ -17,7 +17,6 @@ export default function DungeonListPage() {
   const {
     frontierDepth,
     offlineHunt,
-    playerCombat,
     viewerLevel,
     viewerLevelCap,
     viewerJobTier,
@@ -61,7 +60,6 @@ export default function DungeonListPage() {
       onSelectFloor={(depth) => router.push(`/battle/dungeon/${depth}`)}
       onBack={() => router.push("/battle")}
       frontierDepth={frontierDepth}
-      playerPower={playerCombat?.power ?? null}
       playerLevel={viewerLevel}
       playerLevelCap={viewerLevelCap}
       playerJobTier={viewerJobTier}

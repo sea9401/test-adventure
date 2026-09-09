@@ -736,3 +736,30 @@ describe("unexplored hunt rewards", () => {
     ).toHaveLength(3);
   });
 });
+
+
+describe("미개척지 공용 SP 열매 VI", () => {
+  it.each(["base", "special"] as const)("%s 몬스터도 확률 경계 미만에서 1개를 지급한다", (source) => {
+    const monster = source === "base"
+      ? unexploredMonsterAtDifficulty({ source, poolId: null, monsterId: "unexplored_star_sea_warden", focused: false, difficulty: 95 })
+      : unexploredMonsterAtDifficulty({ source, poolId: "iron_legion", focused: false, difficulty: 95 });
+    const plan = buildUnexploredRewardPlan(monster, effects({ rareCopyChancePct: 100 }));
+    const hit = rollUnexploredHuntRewards(plan, () => 0.000049);
+    expect(hit.drops.sp_fruit_6).toBe(1);
+    expect(hit.grants).toContainEqual({ kind: "material", id: "sp_fruit_6", amount: 1, tag: "rare", source: "unexplored_monster_drop" });
+    expect(rollUnexploredHuntRewards(plan, () => 0.00005).drops.sp_fruit_6).toBeUndefined();
+  });
+
+  it("노드와 장비 보너스로 열매 확률이나 수량을 늘리지 않는다", () => {
+    const monster = unexploredMonsterAtDifficulty({ source: "base", poolId: null, monsterId: "unexplored_star_sea_warden", focused: false, difficulty: 95 });
+    const boosted = effects({
+      basePoolRewardPct: 100,
+      rareCopyChancePct: 100,
+      rewardPct: { baseMaterial: 100, rare: 100 } as UnexploredEffects["rewardPct"],
+    });
+    const liberation = { ...emptyEquippedLiberationEffects().hunt, rareMaterialDropPct: 100, normalMaterialDropPct: 100 };
+    const plan = buildUnexploredRewardPlan(monster, boosted, liberation);
+    expect(rollUnexploredHuntRewards(plan, () => 0).drops.sp_fruit_6).toBe(1);
+    expect(rollUnexploredHuntRewards(plan, () => 0.00005).drops.sp_fruit_6).toBeUndefined();
+  });
+});

@@ -150,3 +150,13 @@ describe("tier 7 advancement", () => {
     );
   });
 });
+
+
+describe("파라곤 첫 전직",()=>{
+  it.each(["grandchampion","absolute"])("%s에서 두 계보 숙련도와 재료를 요구한다",currentJobId=>{
+    const input={...ready,targetJobId:"paragon",currentJobId,jobCumLevel:{grandchampion:100000,absolute:100000}};
+    expect(tier7AdvancementStatus(input)?.firstUnlockReady).toBe(true);
+    expect(tier7AdvancementStatus({...input,jobCumLevel:{grandchampion:100000,absolute:99999}})?.failure).toBe("tier7_prerequisite_proficiency");
+    expect(tier7AdvancementStatus({...input,materials:{v2_storm_origin_fragment:29}})?.failure).toBe("tier7_material_shortage");
+  });
+});

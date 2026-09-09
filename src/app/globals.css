@@ -1154,26 +1154,18 @@ body {
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
 }
 
-.ui-skill-card--active:not(.ui-skill-card--equipped) {
-  border-left-color: rgb(14 165 233);
-  border-left-width: 3px;
+/* 색상 강조는 장착 카드에만 사용한다. */
+.ui-skill-card--equipped {
+  border-color: #b45309;
+  border-left-width: 5px;
 }
-
-.ui-skill-card--passive:not(.ui-skill-card--equipped) {
-  border-left-color: rgb(139 92 246);
-  border-left-width: 3px;
+.dark .ui-skill-card--equipped { border-color: #fbbf24; }
+.ui-skill-card:focus-within {
+  outline: 2px solid #71717a;
+  outline-offset: 2px;
+  box-shadow: 0 4px 14px rgb(15 23 42 / 18%);
 }
-
-.ui-skill-card--equipped,
-.ui-skill-card--equipped:hover {
-  border-color: rgb(196 181 253);
-  transform: none;
-}
-
-:is(.dark .ui-skill-card--equipped),
-:is(.dark .ui-skill-card--equipped:hover) {
-  border-color: rgb(91 33 182);
-}
+.dark .ui-skill-card:focus-within { outline-color: #a1a1aa; }
 
 .ui-quest-card {
   position: relative;

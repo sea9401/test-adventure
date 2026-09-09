@@ -6,10 +6,10 @@ import {
 } from "./skillLibraryPresentation";
 
 describe("skillLibraryTags", () => {
-  it("간략 카드가 기존 빌드 태그 순서에서 요청한 개수만 표시한다", () => {
+  it("간략 카드가 실제 효과와 수치를 요청한 개수만 표시한다", () => {
     expect(skillLibraryTags("v2c_warrior_strike", 2)).toEqual([
-      "STR",
-      "물리",
+      "피해 공격력×1.08 + 힘×0.2",
+      "발동 75%",
     ]);
   });
 

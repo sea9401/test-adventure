@@ -2,12 +2,13 @@ import Link from "next/link";
 
 // dev 프리뷰 허브 — 로그인 없이 게이트-뒤 UI 를 시나리오별로 확인. production 에선 404(layout 가드).
 const PREVIEWS: { href: string; title: string; desc: string }[] = [
+  { href: "/dev/linked-presets", title: "전투 프리셋 — 연결형 조합 미리보기", desc: "장비·스킬·패턴 연결, 공유 프리셋 수정 반영, 삭제 안내와 기존 설정 전환을 샘플로 체험합니다." },
   {
     href: "/dev/landing",
     title: "대문 — 로그인 전 랜딩 페이지",
     desc: "비로그인 방문자가 보는 /sign-in 대문. 게임 이미지 백그라운드 슬라이드와 로그인 패널·기능 4·푸터를 확인합니다.",
   },
-  { href: "/dev/character-basics", title: "내 정보 — 기본 정보 카드", desc: "옛 직업 숙달 대체. 전투력 헤드라인 + 속성·소속 길드·전투 횟수·숙달 포인트. mock 변형." },
+  { href: "/dev/character-basics", title: "내 정보 — 기본 정보 카드", desc: "옛 직업 숙달 대체. 스탯 합계 헤드라인 + 속성·소속 길드·전투 횟수·숙달 포인트. mock 변형." },
   { href: "/dev/job-ladder", title: "직업 사다리 — 전직 화면", desc: "V2JobLadder 렌더 확인. 잠긴 직업 숨김 + 직업별 해금 조건 표기. 성장중/기본해금/상위해금 3시나리오 mock." },
   { href: "/dev/job-codex", title: "직업 도감 — 수집 대시보드(A 메타 PR-1)", desc: "V2JobCodexView 렌더 확인. 직군/직업 숙련도 진행 + 직업 해금/패시브 수집 표기. mock(전사 정복·일부 수집)." },
   { href: "/dev/skill-loadout", title: "스킬 — 전투·생활 장착 목록 분리", desc: "생활 스킬 SP 0과 전투/생활 장착 목록·라이브러리 탭 분리를 로그인 없이 확인." },

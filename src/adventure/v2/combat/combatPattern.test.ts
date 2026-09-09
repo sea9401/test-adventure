@@ -1003,3 +1003,13 @@ describe("결계 전투 자원 패턴", () => {
     }
   });
 });
+
+describe("기류 패턴", () => {
+  it("저장·재파싱한 기류 조건은 3개일 때만 폭풍을 선택한다", () => {
+    const pattern = {blocks:[{condition:{kind:"self_resource",resource:"windCurrent",op:"atLeast",value:3},action:{kind:"skill",skillId:"v2c_stormbringer_burst"}}]};
+    const parsed = parseCombatPattern(JSON.parse(JSON.stringify(pattern)));
+    expect(parsed).toEqual(pattern);
+    expect(conditionPasses(parsed!.blocks[0].condition, ctx({selfResources:{windCurrent:2}}))).toBe(false);
+    expect(conditionPasses(parsed!.blocks[0].condition, ctx({selfResources:{windCurrent:3}}))).toBe(true);
+  });
+});

@@ -72,3 +72,15 @@ describe("MarketplaceStackBrowse", () => {
     expect(html).not.toContain("구매 주문");
   });
 });
+
+
+it("입찰 전에 실제 음식 효과와 지속 시간을 표시한다", () => {
+  const html = renderToStaticMarkup(<MarketplaceStackBrowse
+    listings={[{...listings[0], kind: "consumable", itemName: "밀빵", foodPreview: {effect: {combatFlat: {maxHp: 120}}, durationMs: 1_800_000}}]}
+    clockMs={Date.parse("2026-08-31T05:00:00Z")} busy={false} favoriteKeys={new Set()}
+    onToggleFavorite={vi.fn()} onBid={vi.fn()} onOpenTools={vi.fn()}
+  />);
+  expect(html).toContain("최대 HP +120");
+  expect(html).toContain("30");
+  expect(html.indexOf("최대 HP +120")).toBeLessThan(html.indexOf("묶음 입찰"));
+});

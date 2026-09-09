@@ -79,6 +79,20 @@ export type UnexploredTreeNodeModel = UnexploredNode & {
   activationError: UnexploredActivationError | "level_required" | null;
 };
 
+export type UnexploredPoolRewardItem = {
+  id: string;
+  kind: "material" | "equipment";
+  name: string;
+  rateText: string;
+};
+
+export type UnexploredPoolRewards = {
+  poolId: UnexploredPoolId;
+  poolName: string;
+  monsterNames: string[];
+  items: UnexploredPoolRewardItem[];
+};
+
 export type UnexploredTreePlan = {
   action: "activate" | "refund";
   nodeIds: string[];
@@ -110,6 +124,35 @@ function categoryLabel(node: UnexploredNode): string {
     enhancer: "특화 강화",
     deep: "심층 선택",
   }[node.kind];
+}
+
+function poolRewards(poolId: UnexploredPoolId): UnexploredPoolRewards {
+  const pool = UNEXPLORED_POOL_BY_ID[poolId];
+  const weapon = pool.weaponEquipmentId
+    ? V2_EQUIPMENT[pool.weaponEquipmentId]
+    : null;
+  const items: UnexploredPoolRewardItem[] = [
+    {
+      id: pool.materialId,
+      kind: "material",
+      name: pool.materialName,
+      rateText: "기본 1% · 집중 1.5%",
+    },
+  ];
+  if (pool.weaponEquipmentId && weapon) {
+    items.push({
+      id: pool.weaponEquipmentId,
+      kind: "equipment",
+      name: weapon.name,
+      rateText: "기본 0.1% · 집중 0.2%",
+    });
+  }
+  return {
+    poolId,
+    poolName: pool.name,
+    monsterNames: pool.activeMonsters.map((monster) => monster.name),
+    items,
+  };
 }
 
 export function buildUnexploredTreeModel(
@@ -183,6 +226,9 @@ export function buildUnexploredTreeModel(
     };
   });
   const selected = nodes.find((node) => node.id === selectedNodeId) ?? null;
+  const selectedPoolRewards = selected?.poolId
+    ? poolRewards(selected.poolId)
+    : null;
   const previewNodeIds = plan?.error === null
     ? plan.action === "activate"
       ? [...snapshot.selectedNodeIds, ...plan.nodeIds]
@@ -237,5 +283,6 @@ export function buildUnexploredTreeModel(
     currentDifficulty: snapshot.difficulty,
     previewDifficulty,
     poolSummary,
+    selectedPoolRewards,
   };
 }

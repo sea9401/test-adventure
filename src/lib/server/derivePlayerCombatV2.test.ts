@@ -57,7 +57,48 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       healPowerPct: 0,
       critResist: 0,
       statusDamageReductionPct: 0,
+      basicAttackDamagePct: 0,
+      extraBasicAttackDamagePct: 0,
+      statusDotDamagePct: 0,
     });
+  });
+
+  it("삼재 침식 2·3세트의 주기 피해 보너스는 15%와 40%로 합산된다", () => {
+    const two = { armor: "v2_unexplored_triad_decay_armor", gloves: "v2_unexplored_triad_decay_gloves" } as const;
+    const three = { ...two, ring: "v2_unexplored_triad_decay_ring" } as const;
+    expect(aggregateV2Equipment(two).statusDotDamagePct).toBe(15);
+    expect(aggregateV2Equipment(three).statusDotDamagePct).toBe(40);
+    const { player } = derivePlayerCombatV2Pure({ level: 50, v2Equipped: three });
+    expect(player.statusDotDamagePct).toBe(40);
+    expect(player).not.toHaveProperty("poisonDamagePct");
+    expect(player).not.toHaveProperty("unexploredSetEffects");
+  });
+
+  it("평타·추가 평타 정적 보너스는 일반 시그니처와 분리해서 전달한다", () => {
+    const precision = { boots: "v2_unexplored_precision_hunt_boots", ring: "v2_unexplored_precision_hunt_ring" } as const;
+    const chain = { boots: "v2_unexplored_chain_drive_boots", ring: "v2_unexplored_chain_drive_ring" } as const;
+    expect(aggregateV2Equipment(precision).basicAttackDamagePct).toBe(15);
+    expect(derivePlayerCombatV2Pure({ level: 50, v2Equipped: precision }).player.basicAttackDamagePct).toBe(15);
+    expect(aggregateV2Equipment(chain).extraBasicAttackDamagePct).toBe(20);
+    expect(derivePlayerCombatV2Pure({ level: 50, v2Equipped: chain }).player.extraBasicAttackDamagePct).toBe(20);
+    expect(collectEquipSignatures(precision)).toEqual([]);
+  });
+
+  it("활성 특화 효과는 2·3단계별로 전달하고 미장착 필드는 생략한다", () => {
+    const two = { gloves: "v2_unexplored_freezing_lock_gloves", ring: "v2_unexplored_freezing_lock_ring" } as const;
+    const three = { ...two, armor: "v2_unexplored_freezing_lock_armor" } as const;
+    expect(derivePlayerCombatV2Pure({ level: 50, v2Equipped: two }).player.unexploredSetEffects).toEqual([
+      { kind: "frost_mark", label: "서리 표식" },
+    ]);
+    expect(derivePlayerCombatV2Pure({ level: 50, v2Equipped: three }).player.unexploredSetEffects).toEqual([
+      { kind: "frost_mark", label: "서리 표식" },
+      { kind: "freezing_lock", label: "빙점 봉쇄" },
+    ]);
+    expect(collectEquipSignatures(three)).toEqual([]);
+    const plain = derivePlayerCombatV2Pure({ level: 50 }).player;
+    for (const key of ["unexploredSetEffects", "basicAttackDamagePct", "extraBasicAttackDamagePct", "statusDotDamagePct"]) {
+      expect(plain).not.toHaveProperty(key);
+    }
   });
 
   it("무통의 성물 상태이상 피해 감소를 전투 스탯으로 전달한다", () => {

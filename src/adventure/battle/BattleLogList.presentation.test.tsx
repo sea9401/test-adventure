@@ -34,7 +34,7 @@ describe("승인된 전투 로그 카드", () => {
     expect(details.open).toBe(false);
     expect(details.textContent).toContain("1타 3,472 피해");
     expect(details.textContent).toContain("4타 5,831 피해");
-    expect(details.textContent).toContain("6,499 추가 피해");
+    expect(details.textContent).toContain("6,499 피해");
     const badge = screen.getByText(/공격력.*3행동/);
     expect(badge.closest("details")).toBeNull();
     expect(badge.textContent).toContain("공격력 +20% · 3행동");

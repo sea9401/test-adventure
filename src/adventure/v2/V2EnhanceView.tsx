@@ -589,7 +589,7 @@ export function V2EnhanceView({
       } else {
         setMsg({ kind: "fail", text: "강화 실패 — 수치 유지, 재료만 소모" });
       }
-      // 강화는 장착 장비의 위력을 바꾸므로 전역 상태(전투력)도 갱신.
+      // 강화는 장착 장비의 위력을 바꾸므로 전역 상태(스탯 합계)도 갱신.
       await Promise.all([refresh(), refreshGameState()]);
     } catch {
       setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
@@ -721,7 +721,7 @@ export function V2EnhanceView({
         kind: json.improved ? "success" : "fail",
         text: `재련 ${resultLabel} — 품질 ${json.oldQuality ?? "?"}% → ${json.newQuality ?? "?"}% (위력 ${oldP} → ${newP})`,
       });
-      // 재련은 장착 장비의 옵션(위력)을 바꾸므로 전역 상태(전투력)도 갱신.
+      // 재련은 장착 장비의 옵션(위력)을 바꾸므로 전역 상태(스탯 합계)도 갱신.
       await Promise.all([refresh(), refreshGameState()]);
     } catch {
       setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
@@ -1606,7 +1606,7 @@ export function V2EnhanceView({
                       <option key={depth} value={depth}>
                         {huntStageName(depth)}
                         {depth === recommendedRareMapDepth
-                          ? " · 전투력 기준 권장"
+                          ? " · 자동 선택"
                           : ""}
                       </option>
                     ))}

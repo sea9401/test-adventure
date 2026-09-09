@@ -76,9 +76,11 @@ export type HuntResult = {
   drops?: Partial<Record<V2MaterialId, number>>;
   droppedEquipment?: V2EquipmentId | null;
   droppedUnique?: V2EquipmentId | null;
+  droppedSpecialty?: V2EquipmentId | null;
   // 압축 희귀 탐사는 기존 여러 회차의 모든 장비 결과를 배열로 함께 돌려준다.
   droppedEquipments?: V2EquipmentId[];
   droppedUniques?: V2EquipmentId[];
+  droppedSpecialties?: V2EquipmentId[];
   rewardRolls?: number;
   ejected?: { outpostId: string; byGuildId: number; at: number } | null;
   // 희귀 탐사 — 새 탐사 개방(kind id) / 입장 중 남은 판수.
@@ -245,10 +247,13 @@ export function HuntResultCard({
   const drops = result.drops
     ? Object.entries(result.drops).filter(([, n]) => (n ?? 0) > 0)
     : [];
-  const droppedEquipments = (
-    result.droppedEquipments ??
-    (result.droppedEquipment ? [result.droppedEquipment] : [])
-  )
+  const droppedEquipmentIds = [
+    ...(result.droppedEquipments ??
+      (result.droppedEquipment ? [result.droppedEquipment] : [])),
+    ...(result.droppedSpecialties ??
+      (result.droppedSpecialty ? [result.droppedSpecialty] : [])),
+  ];
+  const droppedEquipments = droppedEquipmentIds
     .map((id) => V2_EQUIPMENT[id])
     .filter((item) => item != null);
   const droppedUniques = (
@@ -257,8 +262,12 @@ export function HuntResultCard({
   )
     .map((id) => V2_EQUIPMENT[id])
     .filter((item) => item != null);
-  const droppedSets = droppedEquipments.filter((item) => item.setId);
-  const droppedRegulars = droppedEquipments.filter((item) => !item.setId);
+  const droppedSets = droppedEquipments.filter(
+    (item) => item.setId || (item.setTags?.length ?? 0) > 0,
+  );
+  const droppedRegulars = droppedEquipments.filter(
+    (item) => !item.setId && (item.setTags?.length ?? 0) === 0,
+  );
   // 드랍 알림 배너 — 매 사냥마다 (드랍 있을 때만). 1회성 storyFlags 폐기 (사용자
   // 요청 2026-05-28): 매번 어떤 아이템 받았는지 명시적 알림이 후크에 더 효과적.
   const dropBannerText = formatDropBanner(

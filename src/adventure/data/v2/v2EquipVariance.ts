@@ -174,6 +174,9 @@ const QUALITY_OPTION_POWER_UNIT_WEIGHT: Record<keyof V2EquipOptions, number> = {
   healPowerPct: V2_POWER_WEIGHT.healingSupport,
   critResist: 0.25,
   statusDamageReductionPct: 0.25,
+  basicAttackDamagePct: 0,
+  extraBasicAttackDamagePct: 0,
+  statusDotDamagePct: 0,
 };
 
 export type V2EquipRollQualityWeights = {

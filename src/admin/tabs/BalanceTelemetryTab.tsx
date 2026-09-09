@@ -240,8 +240,8 @@ export function BalanceTelemetryTab() {
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
             {[
               { label: "플레이어", value: data.summary.players },
-              { label: "평균 전투력", value: data.summary.avgPower },
-              { label: "중앙 전투력", value: data.summary.medianPower },
+              { label: "평균 스탯 합계", value: data.summary.avgPower },
+              { label: "중앙 스탯 합계", value: data.summary.medianPower },
               { label: "관리자 제외", value: data.summary.adminExcluded },
               { label: "파생 실패", value: data.summary.deriveFailed },
               { label: "최대 깊이", value: data.summary.maxFrontierDepth },
@@ -357,7 +357,7 @@ export function BalanceTelemetryTab() {
 
           <Card
             title="사냥터 진행 분포"
-            hint="난이도 곡선·최종 사냥터 도달 검증 — 정체 구간·진척. 막대=인원, 우측=평균 전투력."
+            hint="난이도 곡선·최종 사냥터 도달 검증 — 정체 구간·진척. 막대=인원, 우측=평균 스탯 합계."
           >
             {data.depthBands.map((b) => (
               <BarRow
@@ -469,7 +469,7 @@ export function BalanceTelemetryTab() {
             </div>
           </Card>
 
-          <Card title="전투력 분포">
+          <Card title="스탯 합계 분포">
             {data.powerBands.map((b) => (
               <BarRow
                 key={b.label}
@@ -481,7 +481,7 @@ export function BalanceTelemetryTab() {
             ))}
           </Card>
 
-          <Card title="레벨 분포" hint="막대=인원, 우측=평균 전투력.">
+          <Card title="레벨 분포" hint="막대=인원, 우측=평균 스탯 합계.">
             {data.levelBands.map((b) => (
               <BarRow
                 key={b.label}

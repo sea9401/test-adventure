@@ -2,11 +2,7 @@ import type { Monster } from "@/adventure/data/monsters";
 import { withoutPrematureVictoryLog } from "./engine.atbFortress";
 import { type BattleState } from "./engineState";
 import { appendLog } from "./engineSupport";
-import {
-  advanceImmortalBerserkerEnemyAction,
-  immortalBerserkerMultipliers,
-  settleImmortalBerserkerDamage,
-} from "./immortalBerserkerMechanic";
+import { advanceImmortalBerserkerEnemyAction, immortalBerserkerMultipliers, settleImmortalBerserkerDamage } from "./immortalBerserkerMechanic";
 
 export function applyImmortalBerserkerLifeToEnemy(
   state: BattleState,

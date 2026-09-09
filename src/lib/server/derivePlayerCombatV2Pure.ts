@@ -4,91 +4,88 @@ import { type V2Class } from "@/adventure/data/v2/classes";
 import { V2_CORE_LOOP_V2, coreLoopMaxHpMult } from "@/adventure/data/v2/coreLoopConfig";
 import type { V2Element } from "@/adventure/data/v2/elements";
 import { type EquippedLiberationEffects } from "@/adventure/data/v2/equipmentLiberationEffects";
-import {
-  trainedIntSpiMpBonus,
-  type V2LifeResourceGrowth,
-} from "@/adventure/data/v2/lifeResourceGrowth";
+import { trainedIntSpiMpBonus, type V2LifeResourceGrowth } from "@/adventure/data/v2/lifeResourceGrowth";
 import { type LiberationCycleGrowth } from "@/adventure/data/v2/proficiency";
 import { equipmentCritMultToMagicSkillCritBonus } from "@/adventure/data/v2/skillCritical";
+import { collectUnexploredSetEffects } from "@/adventure/data/v2/unexploredSpecialtyEquipment";
 import {
-  CRIT_MULT_BASE,
-  PLAYER_BLEED_ATK_COEF_PER_STACK,
-  POISON_PCT_PER_POINT,
-  combineDefReductionPcts,
-  magicBarrierStats,
+PLAYER_BLEED_ATK_COEF_PER_STACK,
+POISON_PCT_PER_POINT,
+combineDefReductionPcts,
+magicBarrierStats
 } from "@/adventure/data/v2/v2CombatConstants";
 import {
-  V2_EQUIPMENT,
-  weaponTypeOf,
-  type V2EquipRoll,
-  type V2EquipSlot,
-  type V2EquipmentId,
+V2_EQUIPMENT,
+weaponTypeOf,
+type V2EquipRoll,
+type V2EquipSlot,
+type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import { type V2JobPassiveEffect } from "@/adventure/data/v2/v2JobPassives";
 import { V2_STAT_KEYS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import {
-  V2_BASE_HP,
-  V2_BASE_MP,
-  V2_BASE_STATS,
-  V2_HP_PER_LEVEL,
-  V2_MP_PER_LEVEL,
+V2_BASE_HP,
+V2_BASE_MP,
+V2_BASE_STATS,
+V2_HP_PER_LEVEL,
+V2_MP_PER_LEVEL,
 } from "@/adventure/data/v2/v2Stats";
 import type { PlayerCombat } from "@/adventure/v2/combat/engine";
 import {
-  stackedDamageReductionPct,
-  stackedDefenseIncreasePct,
-  stackedMaxHpIncreasePct,
+stackedDamageReductionPct,
+stackedDefenseIncreasePct,
+stackedMaxHpIncreasePct,
 } from "./combatStatScaling";
 import { aggregateV2Equipment, collectEquipSignatures } from "./derivePlayerEquipmentV2";
+import { critMultCurve } from "./derivePlayerGrowth";
 import { derivePrimaryStats } from "./derivePlayerPrimaryStats";
 import {
-  ACCURACY_PCT_CAP,
-  ACCURACY_PCT_PER_DEX,
-  ACC_BASE_RATING,
-  ACC_PER_INT,
-  ACC_PER_SPI,
-  ACC_PER_STR,
-  ATK_PER_STR,
-  BOW_ACCURACY_TO_ATK_COEF,
-  BOW_HIT_THRESHOLD,
-  CRIT_DMG_PER_LUK,
-  CRIT_DMG_PER_STR,
-  CRIT_MULT_CEIL,
-  CRIT_MULT_SCALE,
-  CRIT_PER_LUK,
-  CRIT_RESIST_PER_SPI,
-  DEF_PER_VIT,
-  EVA_PER_DEX,
-  EVA_PER_LUK,
-  EXTRA_ATTACK_PCT_PER_SPD,
-  HEAL_MULT_PER_SPI,
-  HEAL_MULT_PER_VIT,
-  HP_PER_STR,
-  HP_PER_VIT,
-  MAGIC_ATK_PER_EXCESS_SPI,
-  MAGIC_ATK_PER_INT,
-  MAGIC_ATK_PER_SPI,
-  MAGIC_DEF_PER_INT,
-  MAGIC_DEF_PER_SPI,
-  MIN_DMG_PER_INT,
-  MIN_DMG_PER_SPI,
-  MIN_DMG_PER_STR,
-  MIN_DMG_PER_VIT,
-  MP_PER_INT,
-  ROGUE_ATK_PER_DEX,
-  SPD_PER_DEX,
-  V2_BASE_COMBAT_BONUS,
-  VIT_ATK_COEF,
-  WEIGHT_SPD_PENALTY,
-  diminishingExtraAttackChancePct,
-  speedToAttackBonusPct,
+ACCURACY_PCT_CAP,
+ACCURACY_PCT_PER_DEX,
+ACC_BASE_RATING,
+ACC_PER_INT,
+ACC_PER_SPI,
+ACC_PER_STR,
+ATK_PER_STR,
+BOW_ACCURACY_TO_ATK_COEF,
+BOW_HIT_THRESHOLD,
+CRIT_DMG_PER_LUK,
+CRIT_DMG_PER_STR,
+CRIT_PER_LUK,
+CRIT_RESIST_PER_SPI,
+DEF_PER_VIT,
+EVA_PER_DEX,
+EVA_PER_LUK,
+EXTRA_ATTACK_PCT_PER_SPD,
+HEAL_MULT_PER_SPI,
+HEAL_MULT_PER_VIT,
+HP_PER_STR,
+HP_PER_VIT,
+MAGIC_ATK_PER_EXCESS_SPI,
+MAGIC_ATK_PER_INT,
+MAGIC_ATK_PER_SPI,
+MAGIC_DEF_PER_INT,
+MAGIC_DEF_PER_SPI,
+MIN_DMG_PER_INT,
+MIN_DMG_PER_SPI,
+MIN_DMG_PER_STR,
+MIN_DMG_PER_VIT,
+MP_PER_INT,
+ROGUE_ATK_PER_DEX,
+SPD_PER_DEX,
+V2_BASE_COMBAT_BONUS,
+VIT_ATK_COEF,
+WEIGHT_SPD_PENALTY,
+diminishingExtraAttackChancePct,
+speedToAttackBonusPct
 } from "./v2CombatCoefficients";
 export {
-  stackedDamageReductionPct,
-  stackedDefenseIncreasePct,
-  stackedMaxHpIncreasePct,
-  stackedVitalityIncreasePct,
+stackedDamageReductionPct,
+stackedDefenseIncreasePct,
+stackedMaxHpIncreasePct,
+stackedVitalityIncreasePct
 } from "./combatStatScaling";
+export { critMultCurve, v2LevelGrowthHpMp } from "./derivePlayerGrowth";
 export type SavedCharacterV2 = {
   hp?: number;
   mp?: number;
@@ -106,8 +103,6 @@ export type SavedCharacterV2 = {
   activeFoodBuff?: unknown;
 };
 
-
-
 export type DerivedPlayerCombatV2 = {
   player: PlayerCombat;
   totalStats: Record<V2StatKey, number>;
@@ -121,36 +116,8 @@ export type DerivedPlayerCombatV2 = {
   classTier: number;
 };
 
-
-
 // 레거시 생애의 레벨업 1회분 maxHp/maxMp 성장량 — 레거시 파생식과 동일 계수.
 // 신형 생애는 lifeResourceGrowth 의 실제 레벨별 굴림을 결과 카드에 사용한다.
-export function v2LevelGrowthHpMp(args: {
-  levelsGained: number;
-  strGained: number;
-  vitGained: number;
-  intGained: number;
-}): { hp: number; mp: number } {
-  return {
-    hp:
-      args.levelsGained * V2_HP_PER_LEVEL +
-      args.strGained * HP_PER_STR +
-      args.vitGained * HP_PER_VIT,
-    mp: args.levelsGained * V2_MP_PER_LEVEL + args.intGained * MP_PER_INT,
-  };
-}
-
-
-
-export function critMultCurve(bonus: number): number {
-  return (
-    CRIT_MULT_CEIL -
-    (CRIT_MULT_CEIL - CRIT_MULT_BASE) *
-      Math.exp(-Math.max(0, bonus) / CRIT_MULT_SCALE)
-  );
-}
-
-
 
 // PR-S2: pure 함수 추출 — DB 의존 없이 (level/allocated/v2Equipped/hp) 입력으로 derive.
 // saves 없이 PlayerCombat 을 빌드해야 하는 곳(sim·단위 테스트)에서 호출. DB wrapper 는
@@ -241,7 +208,15 @@ export type DerivePlayerCombatV2PureInput = {
   passiveDefPct?: number;
   /** 반사(수호자) — 피격 시 내 방어력의 이 %만큼 고정 데미지 반사. def 확정 후 thornsFlatFromDef 로 환산. */
   passiveThornsDefPct?: number;
+  passiveCounterImpactGain?: number;
+  passiveFortressImpactHealPctPerStack?: number;
   passiveFortressImpactOnHit?: boolean;
+  passiveWindCurrentDamagePctPerStack?: number;
+  passiveBurnDurationBonusTurns?: number;
+  passiveWindCurrentMpRestorePctPerStack?: number;
+  passiveWindCurrentRebound?: boolean;
+  passiveWindCurrentShieldPctPerStack?: number;
+  passiveWindCurrentReleaseEvades?: number;
   passiveFortressImpactDamagePctPerStack?: number;
   passiveFortressDefSkillStatCoefPct?: number;
   passiveLawInscription?: boolean;
@@ -267,6 +242,7 @@ export type DerivePlayerCombatV2PureInput = {
   passivePoisonedEnemyDefReductionPct?: number;
   /** 중독 지속 피해 +%(맹독 패시브) — 부식과 독립적으로 합산. */
   passivePoisonDamagePct?: number;
+  passiveBurnDamagePct?: number;
   /** 적 물리 방어 -%(독립 패시브) — 같은 종류끼리 집계 단계에서 곱연산. */
   passiveEnemyPhysicalDefReductionPct?: number;
   /** 적 마법 방어 -%(독립 패시브) — 같은 종류끼리 집계 단계에서 곱연산. */
@@ -309,8 +285,6 @@ export type DerivePlayerCombatV2PureInput = {
   passiveBasicCritChanceCap?: number;
 };
 
-
-
 export function derivePlayerCombatV2Pure(
   input: DerivePlayerCombatV2PureInput,
 ): DerivedPlayerCombatV2 {
@@ -320,6 +294,7 @@ export function derivePlayerCombatV2Pure(
   const liberation = input.liberationEffects;
   // 발동형 시그니처(Phase 2) — 활성 세트/마퀴 단품. 없으면 빈 배열(아래서 undefined 로).
   const equipSignatures = collectEquipSignatures(v2Equipped);
+  const unexploredSetEffects = collectUnexploredSetEffects(v2Equipped);
 
   const playerClass = input.playerClass ?? "none";
   const { baseAllocatedStats, totalStats } = derivePrimaryStats(input);
@@ -613,6 +588,7 @@ export function derivePlayerCombatV2Pure(
     specEff.poisonedEnemyDefReductionPct ?? 0,
     input.passivePoisonedEnemyDefReductionPct ?? 0,
   );
+  const totalBurnDamagePct = Math.max(0, input.passiveBurnDamagePct ?? 0);
   const totalPoisonDamagePct = Math.max(0, input.passivePoisonDamagePct ?? 0);
   const totalMagicSkillDamagePct =
     (specEff.magicSkillDamagePct ?? 0) +
@@ -671,6 +647,10 @@ export function derivePlayerCombatV2Pure(
     // 발동형 시그니처(Phase 2) — 활성분 있을 때만 키 추가(빈 배열이면 키 자체 생략 →
     //   미장착 액터의 player 객체·스냅샷 byte-identical, 엔진 훅 미발화).
     ...(equipSignatures.length > 0 ? { equipSignatures } : {}),
+    ...(unexploredSetEffects.length > 0 ? { unexploredSetEffects } : {}),
+    ...(equipAcc.basicAttackDamagePct ? { basicAttackDamagePct: equipAcc.basicAttackDamagePct } : {}),
+    ...(equipAcc.extraBasicAttackDamagePct ? { extraBasicAttackDamagePct: equipAcc.extraBasicAttackDamagePct } : {}),
+    ...(equipAcc.statusDotDamagePct ? { statusDotDamagePct: equipAcc.statusDotDamagePct } : {}),
     // 치명 한계 확장 — 스킬 치명 오버플로 플래그. 미보유(false/undefined)면 키 생략 → player 객체 byte-identical.
     ...(input.passiveSkillCritOverflow ? { skillCritOverflow: true as const } : {}),
     ...((input.passiveSkillCritDmgPct ?? 0) +
@@ -777,6 +757,14 @@ export function derivePlayerCombatV2Pure(
           thornsFlatFromDef,
         }
       : {}),
+    ...((input.passiveCounterImpactGain ?? 0) > 0 ? { counterImpactGain: input.passiveCounterImpactGain } : {}),
+    ...((input.passiveFortressImpactHealPctPerStack ?? 0) > 0 ? { fortressImpactHealPctPerStack: input.passiveFortressImpactHealPctPerStack } : {}),
+    ...((input.passiveWindCurrentDamagePctPerStack ?? 0) > 0 ? { windCurrentDamagePctPerStack: input.passiveWindCurrentDamagePctPerStack } : {}),
+    ...((input.passiveBurnDurationBonusTurns ?? 0) > 0 ? { burnDurationBonusTurns: input.passiveBurnDurationBonusTurns } : {}),
+    ...((input.passiveWindCurrentMpRestorePctPerStack ?? 0) > 0 ? { windCurrentMpRestorePctPerStack: input.passiveWindCurrentMpRestorePctPerStack } : {}),
+    ...(input.passiveWindCurrentRebound ? { windCurrentRebound: true } : {}),
+    ...((input.passiveWindCurrentShieldPctPerStack ?? 0) > 0 ? { windCurrentShieldPctPerStack: input.passiveWindCurrentShieldPctPerStack } : {}),
+    ...((input.passiveWindCurrentReleaseEvades ?? 0) > 0 ? { windCurrentReleaseEvades: input.passiveWindCurrentReleaseEvades } : {}),
     ...(input.passiveFortressImpactOnHit
       ? { fortressImpactOnHit: true }
       : {}),
@@ -847,6 +835,7 @@ export function derivePlayerCombatV2Pure(
     ...(totalPoisonedEnemyDefReductionPct
       ? { poisonedEnemyDefReductionPct: totalPoisonedEnemyDefReductionPct }
       : {}),
+    ...(totalBurnDamagePct ? { burnDamagePct: totalBurnDamagePct } : {}),
     ...(totalPoisonDamagePct ? { poisonDamagePct: totalPoisonDamagePct } : {}),
     ...((input.passiveEnemyPhysicalDefReductionPct ?? 0) +
       (liberation?.combat.physicalPenetrationPct ?? 0)

@@ -181,20 +181,29 @@ export function marketplaceListingPhase(
   return "auction_settlement";
 }
 
+/** 서버에서 품질 보정을 계산하고 효과·지속시간만 전달한다. */
+export function marketplaceFoodPreview(itemId: unknown) {
+  const food = cookingFoodDefinition(itemId);
+  return food ? { effect: food.effect, durationMs: food.durationMs } : undefined;
+}
+
 /** 공개 매물 응답에서는 판매자 이름·ID와 최고 입찰자 ID를 제거한다. */
 export function marketplacePublicListing<
   T extends {
     price: number;
     sellerId: string;
     sellerName?: string;
+    itemId?: string;
     highestBidderId: string | null;
     highestBid: number | null;
   },
 >(row: T, viewerId: string, hasMyBid = false) {
   const { sellerId, sellerName: _sellerName, highestBidderId, ...publicRow } =
     row;
+  const foodPreview = marketplaceFoodPreview(row.itemId);
   return {
     ...publicRow,
+    ...(foodPreview ? { foodPreview } : {}),
     isMine: sellerId === viewerId,
     isHighestBidder: highestBidderId === viewerId,
     hasMyBid,

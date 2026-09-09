@@ -340,3 +340,8 @@ describe("구매 주문 기능 종료 잠금", () => {
     expect(mocks.order).toMatchObject({ status: "cancelled", goldEscrow: 0 });
   });
 });
+
+vi.mock("@/lib/server/marketplaceMaintenance", () => ({
+  marketplaceMaintenanceFlagExists: vi.fn(() => false),
+  lockMarketplaceMaintenance: vi.fn(async () => false),
+}));

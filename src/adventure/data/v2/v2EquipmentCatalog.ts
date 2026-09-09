@@ -1,8 +1,9 @@
 // v2 장비 카탈로그 — V2_EQUIPMENT 정의. 아이템 추가/튜닝 시 이 파일만 만지면 됨.
 // 공개 타입·로직은 v2Equipment.ts 에서 re-export 한다(import 경로 불변).
 import type { V2EquipmentBase } from "./v2EquipmentTypes";
+import { UNEXPLORED_SPECIALTY_EQUIPMENT } from "./unexploredSpecialtyEquipment";
 
-// V2_EQUIPMENT — 265종. 옛 계파 잔재 정리: 무기종류 8→4(#823)·세트 38→12(#824)·장갑/신발 중갑 폐기
+// V2_EQUIPMENT — 옛 계파 잔재 정리: 무기종류 8→4(#823)·세트 38→12(#824)·장갑/신발 중갑 폐기
 //   (경갑 단일·중갑은 armor 만). 제거분은 LEGACY_ID_REMAP 비파괴 마이그. 무기종류는 직업 늘면 재추가 가능.
 //   - 위력 = 옛 헤드라인(검·활 atk / 지팡이 matk / 방어구 def) 승계. 장신구는 신규 소량 위력
 //     (마방 역할이라 작게). 무게·옵션은 컨셉 정체성으로 차별화.
@@ -5668,6 +5669,7 @@ const V2_EQUIPMENT_BASE = {
     rarity: "unique",
     noDrop: true,
   },
+  ...UNEXPLORED_SPECIALTY_EQUIPMENT,
 } satisfies Record<string, V2EquipmentBase>;
 
 export type V2EquipmentId = keyof typeof V2_EQUIPMENT_BASE;
@@ -5690,6 +5692,7 @@ const LIGHT_WEIGHT_POWER_TRIM = 0.95;
 const SPEED_PENALTY_THRESHOLD = 3;
 
 function equipmentPowerScale(item: V2Equipment): number {
+  if (Object.hasOwn(UNEXPLORED_SPECIALTY_EQUIPMENT, item.id)) return 1;
   let scale = 1;
   if (item.slot === "weapon") scale *= WEAPON_POWER_SCALE;
   if (item.tier >= ENDGAME_POWER_SCALE_FROM_TIER) {

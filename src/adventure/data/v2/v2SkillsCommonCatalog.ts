@@ -11,6 +11,8 @@
 //
 // 학습/장착 게이팅(어느 직군이 무엇을)은 learn 라우트 = elementalSkillsForClass(V2_SKILLS_BY_JOB).
 
+import { TEMPLAR_LINEAGE_JOB_IDS } from "./lineagePassives";
+
 import type {
   V2SkillDefinition,
   V2SkillEffect,
@@ -161,6 +163,10 @@ export type V2CommonSkillId =
   | "v2c_darkpriest_blessing" // 암흑사제: 검은 축복 (회복강화 + 치명피해)
   | "v2c_crusader_judgment" // 성전사: 성전의 심판 (물리 타격 + 자힐 + 받피감)
   | "v2c_crusader_oath" // 성전사: 불굴의 맹세 (방어 + 회복강화 + 받피감)
+  | "v2c_radiantknight_verdict"
+  | "v2c_radiantknight_grace"
+  | "v2c_dawnpaladin_judgment"
+  | "v2c_dawnpaladin_covenant"
   | "v2c_runeknight_carve" // 룬 기사: 룬 검격 (물리 + 마법 이중 타격 + 취약)
   | "v2c_runeknight_inscription" // 룬 기사: 룬 각인 (힘 + 지능 + 치명확률)
   | "v2c_crimsontemplar_judgment" // 진홍성기사: 진홍 심판 (방어 비례 + 회복 억제/받피감)
@@ -266,6 +272,9 @@ export type V2CommonSkillId =
   | "v2c_calamitycaller_brand" // 재앙의 낙인 (마법 피해 + 쇠약 + 금제)
   | "v2c_calamitycaller_omen" // 흉조 III (마법취약 심화)
   // ── 6차 직업 ──
+  | "v2c_dreadnought_siegebreaker"
+  | "v2c_dreadnought_armor"
+  | "v2c_dreadnought_march"
   | "v2c_fortressknight_ram" // 성채 충각 (방어력 비례 피해 + 주는 피해 감소)
   | "v2c_fortressknight_citadel" // 움직이는 성채 (방어 + 받피감 + 충격 소비 공격 강화)
   | "v2c_swordsaint_flash" // 무심검 (강한 일격 + 무력 + ATB 지연)
@@ -1436,6 +1445,59 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     passive: { defPct: 14, healPowerPct: 14, damageTakenReductionPct: 4 },
   },
+  v2c_radiantknight_verdict: {
+    // 저장된 학습/장착/패턴 호환을 위해 기존 ID 유지.
+    id: "v2c_radiantknight_verdict", name: "성역 선포", stat: "vit", category: "buff", tier: 3,
+    description: "성역을 펼쳐 몸을 치유하고 다음 심판에 사용할 성력을 모은다.",
+    detail: {
+      mechanics: ["시전 행동을 포함한 자신의 행동 종료 4회에 최대 HP 4%를 회복하고 성력을 10씩 얻는다. 성력 상한은 100이다."],
+      synergies: ["성력은 여명의 심판이 소비한다. 패시브 없이도 성역과 심판만으로 성력을 운용할 수 있다."],
+      limitations: ["체력이 가득 차도 성력을 얻는다. 재시전은 지속시간만 4행동으로 갱신하며, 성력은 전투가 바뀌면 초기화된다."],
+    },
+    mpCost: 52, fixedMpCost: 130, cooldown: 0, procChance: 100, learnCost: 8000,
+    holyPower: "sanctuary",
+    effects: [],
+    defaultPattern: { priority: 600, condition: { kind: "self_resource", resource: "sanctuary", op: "none", value: 0 } },
+  },
+  v2c_radiantknight_grace: {
+    id: "v2c_radiantknight_grace", name: "성휘의 가호", stat: "vit", category: "passive", tier: 3,
+    description: "성스러운 가호가 몸과 마음을 지킨다. 활력과 정신이 오르고 받는 피해가 줄어든다.",
+    detail: {
+      mechanics: ["장착 중 모든 직업에서 활력·정신이 각각 20% 증가하고 받는 피해가 5% 감소한다."],
+      synergies: ["현재 직업이 성기사·성전사·성휘기사·여명성기사면 회복량이 추가로 10% 증가한다."],
+      limitations: ["혈성기사 계열과 초월자는 계열 추가 효과 대상이 아니다. 성력 운용에 필수인 패시브는 아니다."],
+    },
+    mpCost: 0, cooldown: 0, learnCost: 8000, spCostDiscount: 1,
+    effects: [],
+    passive: { statPct: { vit: 20, spi: 20 }, damageTakenReductionPct: 5 },
+    lineageBonus: { label: "성기사 계열", jobIds: TEMPLAR_LINEAGE_JOB_IDS, passive: { healPowerPct: 10 } },
+  },
+  v2c_dawnpaladin_judgment: {
+    id: "v2c_dawnpaladin_judgment", name: "여명의 심판", stat: "str", category: "attack", tier: 3,
+    description: "성력을 검에 모아 심판을 내린다. 힘과 정신으로 벼린 일격이 모아 둔 성력만큼 강해진다.",
+    detail: {
+      mechanics: ["방어력·버프 적용 전 기본 물리 피해는 공격력×2 + 힘×2 + 정신×2다. 성력 전부를 소비하며 성력 1당 기본 피해가 1.5% 증가한다."],
+      synergies: ["성역 1회의 성력 40이면 1.6배, 최대 성력 100이면 2.5배 피해를 준다. 패턴에서 성력 수치를 조건으로 지정할 수 있다."],
+      limitations: ["성력 0에서도 기본 피해를 준다. 시전이 실패하면 성력을 소비하지 않지만 빗나간 시전은 소비한다. 치유나 보호막 효과는 없다."],
+    },
+    mpCost: 60, fixedMpCost: 150, cooldown: 0, procChance: 35, learnCost: 12000,
+    holyPower: "judgment",
+    effects: [dmg(2, 0)],
+    defaultPattern: { priority: 700, condition: { kind: "self_resource", resource: "holyPower", op: "atLeast", value: 40 } },
+  },
+  v2c_dawnpaladin_covenant: {
+    id: "v2c_dawnpaladin_covenant", name: "영원의 서약", stat: "str", category: "passive", tier: 3,
+    description: "서약으로 육신과 영혼을 다잡는다. 힘과 정신, 회복량이 증가한다.",
+    detail: {
+      mechanics: ["장착 중 모든 직업에서 힘·정신이 각각 20%, 회복량이 25% 증가한다."],
+      synergies: ["현재 직업이 성기사·성전사·성휘기사·여명성기사면 받는 피해가 추가로 3% 감소한다."],
+      limitations: ["혈성기사 계열과 초월자는 계열 추가 효과 대상이 아니다. 성력의 상한이나 소비 배율은 변경하지 않는다."],
+    },
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCostDiscount: 4,
+    effects: [],
+    passive: { statPct: { str: 20, spi: 20 }, healPowerPct: 25 },
+    lineageBonus: { label: "성기사 계열", jobIds: TEMPLAR_LINEAGE_JOB_IDS, passive: { damageTakenReductionPct: 3 } },
+  },
   v2c_runeknight_carve: {
     id: "v2c_runeknight_carve", name: "룬 검격", stat: "str", category: "attack", tier: 3,
     description: "검로에 룬을 새겨 베는 순간, 물리와 마법의 균열을 동시에 터뜨린다.",
@@ -1641,7 +1703,6 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       fire: [
         dmg(1.55, 300, "magic"),
         { kind: "dot", ...V2_DOT_PRESETS.연소 },
-        { kind: "enemyHealReduce", pct: 50, turns: 3 }, // 화상 — 적 회복 −50%(3턴)
       ],
       water: [{ kind: "shield", pctMaxHp: 20, pctMaxMp: 0, turns: 3 }],
       wind: [dmg(1.55, 300, "magic"), { kind: "selfHaste", pct: 50 }], // 바람 — 내 다음 행동 ms −50%
@@ -1666,13 +1727,13 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
 
   // ── 마법 4차 원소별 직업 — 캐릭터 속성 상성이 아니라 스킬 자체의 전투 기믹으로 정체성을 만든다. ──
   v2c_firemage_inferno: {
+    fireMageSpell: true,
     id: "v2c_firemage_inferno", name: "홍련술", stat: "int", category: "attack", tier: 3,
     description: "홍련의 불길을 터뜨려 적을 태우고 회복의 흐름을 끊는다.",
     mpCost: 46, fixedMpCost: 120, cooldown: 0, procChance: 30,
     effects: [
       dmg(1.65, 320, "magic"),
       { kind: "dot", ...V2_DOT_PRESETS.연소 },
-      { kind: "enemyHealReduce", pct: 50, turns: 3 },
     ],
   },
   v2c_firemage_ember: {
@@ -1712,6 +1773,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_windmage_tempest: {
     id: "v2c_windmage_tempest", name: "질풍술", stat: "int", category: "attack", tier: 3,
+    windCurrent: { kind: "gather" },
     description: "압축한 바람을 쏘아 보내고 그 반동으로 다음 행동을 크게 앞당긴다.",
     mpCost: 46, fixedMpCost: 120, cooldown: 0, procChance: 30,
     effects: [dmg(1.55, 300, "magic"), { kind: "selfHaste", pct: 50 }],
@@ -2019,7 +2081,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
         name: "화염폭풍",
         requiredLearnedSkillIds: ["v2c_firemage_inferno", "v2c_windmage_tempest"],
         requiredEquippedSkillIds: ["v2c_firemage_inferno", "v2c_windmage_tempest"],
-        effects: [dmg(2.45, 620, "magic"), { kind: "dot", ...V2_DOT_PRESETS.연소 }, { kind: "enemyHealReduce", pct: 50, turns: 3 }, { kind: "selfHaste", pct: 35 }],
+        effects: [dmg(2.45, 620, "magic"), { kind: "dot", ...V2_DOT_PRESETS.연소 }, { kind: "selfHaste", pct: 35 }],
       },
       {
         name: "영구빙벽",
@@ -2989,6 +3051,42 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     },
   },
   // ═══ 내부 7차 전투 패키지 — 해금 경제/직업 보너스 확정 전 선택 불가 ═══
+  v2c_dreadnought_siegebreaker: {
+    id: "v2c_dreadnought_siegebreaker", name: "시즈 브레이커", stat: "vit", category: "attack", tier: 3,
+    description: "방어력으로 적을 강타하며 충격을 모두 소비한다. 충격마다 피해가 20% 증가하고, 3개를 소비하면 다음 자동 반격 피해가 50% 증가한다.",
+    detail: {
+      mechanics: ["적중 시 충격을 최대 3개 소비한다. 3개 소비로 준비한 반격 강화는 다음 자동 반격 한 번에 적용하며 중첩되지 않는다."],
+      synergies: ["장착한 충격 방벽·움직이는 성채 중 높은 충격당 피해 강화와 합산한다. 끝없는 진군을 장착하면 소비한 충격에 비례해 회복한다."],
+      limitations: ["빗나가면 충격을 소비하지 않는다. 반격 강화는 일반 반사·철벽 반사·룬 반격에는 적용되지 않는다."],
+    },
+    mpCost: 65, cooldown: 0, procChance: 45, learnCost: 20000, spCost: 14,
+    effects: [dmg(2.2, 500, "def")],
+    consumesFortressImpact: true,
+    fortressImpactDamagePctPerStack: 20,
+    fortressFullImpactCounterBoostPct: 50,
+    defaultPattern: { priority: 510, condition: { kind: "self_resource", resource: "impact", op: "atLeast", value: 3 } },
+  },
+  v2c_dreadnought_armor: {
+    id: "v2c_dreadnought_armor", name: "리액티브 아머", stat: "vit", category: "passive", tier: 3,
+    description: "방어력이 20% 증가하고 최종 자동 반격 확률이 10%p 증가한다. 자동 반격 적중 시 충격을 1개 얻는다.",
+    detail: {
+      mechanics: ["기존 패시브 반격 확률을 결합한 뒤 10%p를 더한다(최대 100%). 추가 충격은 적의 공격 행동 한 번당 최대 1개이며 충격 최대치는 3개다."],
+      limitations: ["자동 반격은 HP 피해를 받고 생존했을 때 발동한다. 반사·룬 반격으로는 추가 충격을 얻지 않는다."],
+    },
+    mpCost: 0, cooldown: 0, learnCost: 20000, spCost: 12,
+    effects: [], passive: { defPct: 20, counterChanceFlatPct: 10, counterImpactGain: 1 },
+  },
+  v2c_dreadnought_march: {
+    id: "v2c_dreadnought_march", name: "끝없는 진군", stat: "vit", category: "passive", tier: 3,
+    description: "최대 HP가 20% 증가한다. 충격을 소비하는 공격이 적중하면 소비한 충격 하나마다 최대 HP의 2%를 회복한다.",
+    detail: {
+      mechanics: ["충격 소비 공격 적중 시 소비량에 비례해 한 번 회복한다."],
+      synergies: ["시즈 브레이커와 성채 충각 모두에 적용하며 한 번에 최대 HP의 6%를 회복한다."],
+      limitations: ["충격을 소비하지 않거나 공격이 빗나가면 회복하지 않는다. 회복 감소 및 받는 회복량 보정을 적용한다."],
+    },
+    mpCost: 0, cooldown: 0, learnCost: 20000, spCost: 10,
+    effects: [], passive: { maxHpPct: 20, fortressImpactHealPctPerStack: 2 },
+  },
   v2c_shadowblade_afterimage: {
     id: "v2c_shadowblade_afterimage", name: "잔영", stat: "luk", category: "attack", tier: 3,
     description: "찰나의 참격 뒤 검영을 남긴다. 검영을 익혔다면 최종 피해의 70%를 기록하고 무흔으로 정련한 검영은 85%를 기록한다. PvP 직접 피해는 별도 계수를 적용한다.",

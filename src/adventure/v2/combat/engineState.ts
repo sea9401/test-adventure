@@ -1,18 +1,21 @@
+import type { APSkill,APSkillCondition } from "@/adventure/character/apSkills";
 import type { Monster } from "@/adventure/data/monsters";
+import type { Potion,PotionId } from "@/adventure/data/potions";
 import type { V2Element } from "@/adventure/data/v2/elements";
+import { type UnexploredSetEffect } from "@/adventure/data/v2/unexploredSpecialtyEquipment";
 import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
-import type { Potion, PotionId } from "@/adventure/data/potions";
-import type { APSkill, APSkillCondition } from "@/adventure/character/apSkills";
-import type { Tier6UniqueRuntimeState } from "./tier6UniqueEffects";
-import type { LawInscriptionState } from "./lawInscription";
-import type { TripleWardState } from "./tripleWard";
-import type { SwordShadowState } from "./shadowBladeCombat";
-import type { RuinChargeState } from "./ruinBladeCombat";
-import type { CrossFamily } from "./skyAscendantCombat";
-import type { FormulaState } from "./primordialSageCombat";
-import type { InvincibleFortressBattleState } from "./invincibleFortressMechanic";
-import type { SkywardCrystalEyeBattleState } from "./skywardCrystalEyeMechanic";
-import type { ImmortalBerserkerBattleState } from "./immortalBerserkerMechanic";
+import { type DreadnoughtState } from "./dreadnought";
+import { type HolyPowerState } from "./holyPower";
+import { type ImmortalBerserkerBattleState } from "./immortalBerserkerMechanic";
+import { type InvincibleFortressBattleState } from "./invincibleFortressMechanic";
+import { type LawInscriptionState } from "./lawInscription";
+import { type FormulaState } from "./primordialSageCombat";
+import { type RuinChargeState } from "./ruinBladeCombat";
+import { type SwordShadowState } from "./shadowBladeCombat";
+import { type CrossFamily } from "./skyAscendantCombat";
+import { type SkywardCrystalEyeBattleState } from "./skywardCrystalEyeMechanic";
+import { type Tier6UniqueRuntimeState } from "./tier6UniqueEffects";
+import { type TripleWardState } from "./tripleWard";
 
 export type Tier7BattleResources = {
   swordShadow?: SwordShadowState;
@@ -273,6 +276,10 @@ export type BattleStacks = {
   /** 대결계사·만법수호자 전용 삼중 결계와 영역 안정 상태. */
   tripleWard: TripleWardState;
   // 성채기사 — 피격으로 쌓아 방패 직접 공격에 소비하는 충격, 철벽 태세의 남은 반사 횟수.
+  holyPower?: HolyPowerState;
+  dreadnought?: DreadnoughtState;
+  windCurrent?: number;
+  windCurrentReboundReady?: boolean;
   fortressImpact: number;
   ironWallReflectCharges: number;
   /** 골렘 변이 — 전투 한정 중량(0..3). */
@@ -344,6 +351,7 @@ export type BattleStacks = {
   enemyHealReduceTurns: number;
   enemyDamageDownPct: number; // 쇠약 — 적이 주는 직접 피해 -%(평타·스킬).
   enemyDamageDownTurns: number;
+  nextAttackDamageDownPct?: number; // 다음 적중한 직접 공격 1회, 턴 경과로 소모하지 않음.
   enemySkillProcDownPct: number; // 금제 — 적 v2 스킬 발동률 -%p.
   enemySkillProcDownTurns: number;
   enemyDotVulnPct: number; // 침식 — 적이 받는 DoT 틱/마법취약 폭발 피해 +%.
@@ -351,6 +359,7 @@ export type BattleStacks = {
 };
 
 export type BattleState = {
+  unexploredSetRuntime?: import("./unexploredSetEffects").UnexploredSetPveRuntime;
   enemy: Monster;
   enemyHp: number;
   /** 토벌전 피해 계측 모드에서 적 HP 클램프와 무관하게 누적한 실제 판정 피해. */
@@ -657,6 +666,8 @@ export type PlayerCombat = {
   //   시작 원량 복원용 계수이며, thornsFlatFromDef 가 PvE/PvP 공통 원량이다.
   thornsDefPct?: number;
   thornsFlatFromDef?: number;
+  counterImpactGain?: number;
+  fortressImpactHealPctPerStack?: number;
   fortressImpactOnHit?: boolean;
   fortressImpactDamagePctPerStack?: number;
   fortressDefSkillStatCoefPct?: number;
@@ -769,6 +780,18 @@ export type PlayerCombat = {
   poisonedEnemyDefReductionPct?: number;
   // 맹독 — 중독 지속 피해 +%. 부식과 독립적으로 독 DoT 생성 시 적용. 0/undefined=미보유.
   poisonDamagePct?: number;
+  burnDamagePct?: number;
+  windCurrentDamagePctPerStack?: number;
+  burnDurationBonusTurns?: number;
+  windCurrentMpRestorePctPerStack?: number;
+  windCurrentRebound?: boolean;
+  windCurrentShieldPctPerStack?: number;
+  windCurrentReleaseEvades?: number;
+  /** 미개척 세트의 정적 수치와 발동 효과. 미장착 시 필드 자체를 생략한다. */
+  basicAttackDamagePct?: number;
+  extraBasicAttackDamagePct?: number;
+  statusDotDamagePct?: number;
+  unexploredSetEffects?: readonly UnexploredSetEffect[];
   // 상시 물리 방어 감소 — 물리 평타·스킬이 마주하는 적 DEF -pct%. 0/undefined=미보유.
   enemyPhysicalDefReductionPct?: number;
   // 상시 마법 방어 감소 — 마법 스킬이 마주하는 적 magicDef -pct%. 0/undefined=미보유.

@@ -940,6 +940,32 @@ function actionEffectContent(
   );
 }
 
+function actionAdditionalDamage(
+  item: BattleLogActionItem,
+  side: "left" | "right",
+): { entry: BattleLogEntry; label: string; damage: number }[] {
+  const actor = side === "left" ? "player" : "enemy";
+  return item.effects.flatMap((entry) => {
+    if (entry.kind === "hp_bar") return [];
+    const { labels, body } = parseBattleLogText(entry.text);
+    // 옛 추적 사격은 항상 별도 피해였다. 다른 레거시 효과(교차·추격 등)는
+    // 본 타격에 이미 포함됐을 수 있으므로 extra_damage 표식 없이 합산하지 않는다.
+    if (
+      entry.effect !== "extra_damage" &&
+      !(entry.effect == null && labels.includes("추적 사격")) &&
+      additionalActionDamage(entry, actor) == null
+    ) return [];
+    const effectSide = effectBattleLogSide(entry);
+    if (effectSide != null && effectSide !== side) return [];
+    if (item.main.t != null && entry.t != null && item.main.t !== entry.t) return [];
+    const match = body.match(/^([\d,]+)\s+(?:추가|마법) 피해\.?$/);
+    if (!match) return [];
+    const damage = additionalActionDamage(entry, actor) ?? Number(match[1].replaceAll(",", ""));
+    if (!Number.isSafeInteger(damage) || damage < 0) return [];
+    return [{ entry, label: labels.join(" · ") || "추가 피해", damage }];
+  });
+}
+
 function ActionCard({
   item,
   side,
@@ -962,16 +988,23 @@ function ActionCard({
     .map((entry) => damageActionHeadline(entry)?.damage ?? null)
     .filter((damage): damage is number => damage != null);
   const isMultiHit = hitDamages.length > 1 && hitDamages.length === item.hits.length;
-  const extraDamageEntries = item.effects.filter(
-    (entry) => additionalActionDamage(entry, actor) != null,
-  );
+  const additionalDamage = actionAdditionalDamage(item, side);
+  const extraDamageEntries = additionalDamage.map(({ entry }) => entry);
+  const damageBreakdown = new Map<string, number>();
+  for (const { label, damage } of additionalDamage) {
+    damageBreakdown.set(label, (damageBreakdown.get(label) ?? 0) + damage);
+  }
+  const damageBreakdownRows: [string, number][] = [
+    [title, hitDamages.reduce((sum, damage) => sum + damage, 0)],
+    ...damageBreakdown,
+  ];
   const hasUnresolvedExtraDamage = item.effects.some(
     (entry) => entry.kind === `${actor}_attack` && entry.side != null
       && entry.text.startsWith("[교차·추격]") && entry.text.includes("추가 피해")
       && additionalActionDamage(entry, actor) == null,
   );
   const totalDamage = hitDamages.reduce((sum, damage) => sum + damage, 0)
-    + extraDamageEntries.reduce((sum, entry) => sum + (additionalActionDamage(entry, actor) ?? 0), 0);
+    + additionalDamage.reduce((sum, { damage }) => sum + damage, 0);
   const hasDamageResult = hitDamages.length > 0;
   const dodged = !hasDamageResult && /회피했다|공격을 피했습니다/.test(result);
   // Only promote the cast's own immediate HP recovery, never passive lifesteal,
@@ -983,7 +1016,7 @@ function ActionCard({
   }) : undefined;
   const recoveryAmount = recoveryEntry?.text.match(/HP\s*\+\s*(\d[\d,]*)[.!]?$/)?.[1];
   const displayedResult = hasDamageResult
-    ? `${hasUnresolvedExtraDamage ? "기록된 타격" : "총"} ${totalDamage.toLocaleString("ko-KR")} 피해`
+    ? `${isMultiHit ? `${hitDamages.length}타 · ` : ""}${hasUnresolvedExtraDamage ? "기록된 타격" : "총"} ${totalDamage.toLocaleString("ko-KR")} 피해`
     : dodged ? "회피"
     : recoveryAmount ? `${Number(recoveryAmount.replaceAll(",", "")).toLocaleString("ko-KR")} 회복`
     : result;
@@ -1057,12 +1090,14 @@ function ActionCard({
                     </span>
                   ))}
                 </div>
-                {extraDamageEntries.map((entry, index) => (
-                  <div key={index} className={`flex flex-wrap gap-1 ${align}`}>
-                    <span>{parseBattleLogText(entry.text).labels.map(battleLogDisplayLabel).join(" · ")}</span>
-                    <span className="font-semibold text-rose-700 dark:text-rose-300">{(additionalActionDamage(entry, actor) ?? 0).toLocaleString("ko-KR")} 추가 피해</span>
-                  </div>
-                ))}
+                {extraDamageEntries.length > 0 ? <dl aria-label="피해 구성">
+                  <div className="font-semibold">피해 구성</div>
+                  {damageBreakdownRows.map(([label, damage], index) => (
+                    <div key={index} className={`flex flex-wrap gap-1 ${align}`}>
+                      <dt>{label}</dt><dd>{damage.toLocaleString("ko-KR")} 피해</dd>
+                    </div>
+                  ))}
+                </dl> : null}
               </div>
             </details>
           ) : null}
@@ -1394,6 +1429,9 @@ const SIGNATURE_RESOURCE_LABELS: Record<string, string> = {
   purificationWard: "정화결계",
   domainStability: "영역 안정",
   lawInscriptions: "각인",
+  holyPower: "성력",
+  windCurrent: "기류",
+  sanctuary: "성역",
   frostChill: "한기",
   trackingThreat: "추적 위협",
   toxicBlood: "독혈",

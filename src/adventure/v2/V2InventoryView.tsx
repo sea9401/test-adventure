@@ -17,7 +17,7 @@ import {
 } from "@/adventure/data/v2/museunCashItems";
 import { COOP_MASTERY_TOME_GAIN } from "@/adventure/data/v2/coopRewards";
 import { type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
-import { SP_FRUIT, type SpFruitTier } from "@/adventure/data/v2/spFruit";
+import { SP_FRUIT, parseSpFruitUsed, type SpFruitTier } from "@/adventure/data/v2/spFruit";
 import { canLiberateEquipment } from "@/adventure/data/v2/equipmentLiberation";
 import {
   V2_EQUIPMENT,
@@ -221,13 +221,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     Partial<Record<V2MaterialId, number>>
   >({});
   // SP 열매 등급별 사용 횟수(캐릭터당 캡 표시·캡 도달 시 사용 차단). /me/inventory 동봉.
-  const [spFruitUsed, setSpFruitUsed] = useState<Record<SpFruitTier, number>>({
-    1: 0,
-    2: 0,
-    3: 0,
-    4: 0,
-    5: 0,
-  });
+  const [spFruitUsed, setSpFruitUsed] = useState(() => parseSpFruitUsed(undefined));
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   // busy key = 처리 중인 개체 iid 또는 슬롯(해제). null 이면 유휴.
@@ -239,7 +233,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     compare?: boolean;
   } | null>(null);
 
-  // 장비 변경 후 전역 상태(전투력 등) 갱신 — 사냥터 "내 전투력" 표기가 바로 정확해지도록.
+  // 장비 변경 후 전역 상태(스탯 합계 등) 갱신 — 캐릭터 정보가 바로 정확해지도록.
   const { frontierDepth, refreshGameState, setGold, setBankedGold } =
     useGameState();
   const equipmentCodex = useEquipmentCodexContext();
@@ -267,13 +261,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         setMasteryCertificates(
           Math.max(0, Math.floor(Number(j.masteryCertificates) || 0)),
         );
-        setSpFruitUsed({
-          1: j.spFruitUsed?.[1] ?? 0,
-          2: j.spFruitUsed?.[2] ?? 0,
-          3: j.spFruitUsed?.[3] ?? 0,
-          4: j.spFruitUsed?.[4] ?? 0,
-          5: j.spFruitUsed?.[5] ?? 0,
-        });
+        setSpFruitUsed(parseSpFruitUsed(j.spFruitUsed));
       }
       if (equipRes.ok) {
         const j = (await equipRes.json()) as {
@@ -323,7 +311,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           return false;
         }
         setEquipped(j.equipped ?? {});
-        // 전역 갱신(전투력 등) — 즉시 응답(local equipped)은 유지, 파생 스탯은 백그라운드 반영.
+        // 전역 갱신(스탯 합계 등) — 즉시 응답(local equipped)은 유지, 파생 스탯은 백그라운드 반영.
         void refreshGameState();
         notifySystem(iid == null ? "✓ 해제 완료" : "✓ 장착 완료");
         return true;

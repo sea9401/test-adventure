@@ -31,6 +31,11 @@ export function grantCoreStarterSkill(
 }
 
 export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
+  dragonknight: ["v2c_dragonknight_fang", "v2c_dragonknight_blood"],
+  drakeblood: ["v2c_drakeblood_roar", "v2c_drakeblood_scales"],
+  dragonwing: ["v2c_dragonwing_assault", "v2c_dragonwing_spirit"],
+  dragonsovereign: ["v2c_dragonsovereign_breath", "v2c_dragonsovereign_heart"],
+
   // ── 모험가(none) — 착용형 패시브 2(학습+SP 슬롯). 상위직업과 달리 액티브 없이 패시브 2개. ──
   none: ["v2c_none_toughness", "v2c_none_diligence"],
   mutant: ["v2c_mutant_morphstrike", "v2c_mutant_adaptation"],
@@ -121,9 +126,13 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   phantom: ["v2c_phantom_ambush", "v2c_phantom_stealth", "v2c_phantom_weakpoint"], // 기습 + 은신 + 급소 노출 I
   venomlord: ["v2c_venomlord_plague", "v2c_venomlord_sovereign", "v2c_venomlord_virulence3"], // 독왕진 + 부식 III + 맹독 III
   // ── 마법 4차 두 번째 갈래(원소술사) — 속성 분기 액티브 + 원소 통달 패시브 ──
+  pyromancer: ["v2c_pyromancer_brand", "v2c_pyromancer_spirit", "v2c_pyromancer_burn"],
+  infernomancer: ["v2c_infernomancer_collapse", "v2c_infernomancer_heart", "v2c_infernomancer_burn"],
   firemage: ["v2c_firemage_inferno", "v2c_firemage_ember"],
   frostmage: ["v2c_frostmage_glacier", "v2c_frostmage_frozenheart"],
   lightningmage: ["v2c_lightningmage_thunderbolt", "v2c_lightningmage_overcharge"],
+  aeromancer: ["v2c_aeromancer_blade", "v2c_aeromancer_spirit", "v2c_aeromancer_current"],
+  stormbringer: ["v2c_stormbringer_burst", "v2c_stormbringer_will", "v2c_stormbringer_current"],
   windmage: ["v2c_windmage_tempest", "v2c_windmage_flow"],
   earthmage: ["v2c_earthmage_tectonic", "v2c_earthmage_bedrock"],
   // ── 마법 4차 세 번째 갈래(문장술사) — 저차 총명 패시브 장착 시 액티브 추가 효과 ──
@@ -147,6 +156,8 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   forestmaster: ["v2c_forestmaster_efficientwork"], // 산림 대가 — 능숙한 벌목
   minemaster: ["v2c_minemaster_efficientmining"], // 광산 대가 — 능숙한 채광
   crusader: ["v2c_crusader_judgment", "v2c_crusader_oath"], // 성전사: 성전의 심판 + 불굴의 맹세
+  radiantknight: ["v2c_radiantknight_verdict", "v2c_radiantknight_grace"], // 성휘기사: 성역 선포 + 성휘의 가호
+  dawnpaladin: ["v2c_dawnpaladin_judgment", "v2c_dawnpaladin_covenant"], // 여명성기사: 여명의 심판 + 영원의 서약
   runeknight: ["v2c_runeknight_carve", "v2c_runeknight_inscription"], // 룬 기사: 룬 검격 + 룬 각인
   crimsontemplar: ["v2c_crimsontemplar_judgment", "v2c_crimsontemplar_oath"], // 진홍성기사: 진홍 심판(방어비례/회복억제) + 피의 서약
   contender: ["v2c_contender_insight", "v2c_contender_precision"],
@@ -193,9 +204,11 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   vajraarhat: ["v2c_vajraarhat_seal", "v2c_vajraarhat_body"], // 금강나한: 금강인 + 나한금신
   eternal: ["v2c_eternal_cycle", "v2c_eternal_body"], // 영겁자: 영겁 순환 + 영겁의 육신
   // ── 내부 7차 — 직업 카탈로그/해금 경제 확정 전에는 선택 경로가 없다. ──
+  dreadnought: ["v2c_dreadnought_siegebreaker", "v2c_dreadnought_armor", "v2c_dreadnought_march"],
   shadowblade: ["v2c_shadowblade_afterimage", "v2c_shadowblade_traceless", "v2c_shadowblade_swordshadow"],
   ruinblade: ["v2c_ruinblade_limitstrike", "v2c_ruinblade_oneintent", "v2c_ruinblade_ruinsword"],
   skyascendant: ["v2c_skyascendant_fallingstar", "v2c_skyascendant_voidbreak", "v2c_skyascendant_crossover"],
+  paragon: ["v2c_paragon_form", "v2c_paragon_breakpoint", "v2c_paragon_mastery"],
   primordialsage: ["v2c_primordialsage_greatorb", "v2c_primordialsage_optimization", "v2c_primordialsage_completeformula"],
   legendarytrainer: ["v2c_legendarytrainer_mentorship"], // 전설의 트레이너 — 전설의 지도
   seagod: ["v2c_seagod_deepcurrent"], // 해신 — 심해 해류

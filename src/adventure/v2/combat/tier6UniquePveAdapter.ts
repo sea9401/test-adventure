@@ -1,24 +1,10 @@
 import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
-import type { PlayerCombat } from "./engineState";
-import type { BattleState } from "./engineState";
-import {
-  applyBleedChangeToDots,
-  applyV2DotsToTarget,
-  makeBleedDot,
-  makePoisonDot,
-  v2DotPerStackDamage,
-} from "./combatShared";
-import {
-  initialTier6UniqueRuntime,
-  isBleedBurstReady,
-  resolveTier6UniqueEvent,
-  type Tier6UniqueCommand,
-  type Tier6UniqueEvent,
-} from "./tier6UniqueEffects";
-import {
-  effectiveTier6MagicDefense,
-  tier6MagicDamageAfterMitigation,
-} from "./tier6UniqueMagicDamage";
+import { applyBleedChangeToDots, applyV2DotsToTarget, makeBleedDot, v2DotPerStackDamage } from "./combatShared";
+import { BOSS_MAX_HP_DAMAGE_MULT } from "./engineState";
+import { type BattleState, type PlayerCombat } from "./engineState";
+import { makePlayerPoisonDot } from "./playerDotDamage";
+import { initialTier6UniqueRuntime, isBleedBurstReady, resolveTier6UniqueEvent, type Tier6UniqueCommand, type Tier6UniqueEvent } from "./tier6UniqueEffects";
+import { effectiveTier6MagicDefense, tier6MagicDamageAfterMitigation } from "./tier6UniqueMagicDamage";
 
 export function tier6PveCastContext(
   state: BattleState,
@@ -188,14 +174,14 @@ function applyCommand(
           flatPerStack: Math.max(1, Math.floor(player.atk * 0.04)),
           sourceAtk: player.atk,
         })
-      : makePoisonDot({
+      : makePlayerPoisonDot({
           stacks: command.stacks,
           pctMaxHpPerStack: 0.004,
-          sourceAtk: player.atk,
-        });
+        }, player);
     next = {
       ...next,
-      enemyV2Dots: applyV2DotsToTarget(next.enemyV2Dots, [dot]),
+      enemyV2Dots: applyV2DotsToTarget(next.enemyV2Dots, [dot], next.enemy.hp,
+        next.maxHpDamageMult ?? (next.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1)),
     };
   } else if (command.kind === "refresh_bleed") {
     next = {

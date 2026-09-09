@@ -113,6 +113,10 @@ export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   string,
   Partial<Record<V2StatKey, number>>
 > = {
+  dragonknight: { str: 2, vit: 1, dex: 1 }, // 용기사
+  drakeblood: { str: 2, vit: 2 }, // 용혈기사
+  dragonwing: { str: 3, vit: 2 }, // 용익기사
+  dragonsovereign: { str: 3, vit: 3 }, // 용왕기사
   spellblade: { str: 2, int: 2 }, // 마검사 — 검(str) + 마법(int)
   templar: { str: 2, vit: 1, spi: 1 }, // 성기사 — 기사 힘·활력 + 사제 정신
   bloodtemplar: { str: 2, vit: 1, spi: 1 }, // 혈성기사 — 광전사의 힘·활력 + 사제 정신
@@ -123,6 +127,8 @@ export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   elementallord: { int: 3, spi: 2 }, // 원소군주 — 원소술사 심화, 순수 속성 마법 중심
   inscriber: { int: 3, spi: 2 }, // 각인술사 — 문장술사 심화, 문장 조합형 마법 중심
   crusader: { str: 2, vit: 1, spi: 1 }, // 성전사 — 성기사 심화, 방어·회복 축 유지
+  radiantknight: { str: 2, vit: 2, spi: 1 }, // 성휘기사 — 방어·치유를 함께 키우는 성기사 5차
+  dawnpaladin: { str: 2, vit: 2, spi: 2 }, // 여명성기사 — 힘·활력·정신 균형의 성기사 6차
   runeknight: { str: 2, int: 2 }, // 룬 기사 — 마검사 심화, 검(str) + 마법(int)
   transcendent: { str: 1, vit: 1, dex: 1, int: 1, spi: 1 }, // 초월자 — 행운을 제외한 5능력 균형
   absolute: { str: 1, vit: 1, dex: 1, int: 1, spi: 1, luk: 1 }, // 절대자 — 초월자의 올스탯 균형 완성

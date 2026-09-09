@@ -24,13 +24,13 @@ describe("SP_FRUIT config 일관성", () => {
     }
   });
 
-  it("모든 등급의 사용 캡 = 3 (최대 +15 SP)", () => {
-    expect(SP_FRUIT_TIERS.map((t) => SP_FRUIT[t].useCap)).toEqual([3, 3, 3, 3, 3]);
+  it("I~V는 3회, VI는 5회 사용해 최대 +20 SP", () => {
+    expect(SP_FRUIT_TIERS.map((t) => SP_FRUIT[t].useCap)).toEqual([3, 3, 3, 3, 3, 5]);
     const sum = SP_FRUIT_TIERS.reduce(
       (s, t) => s + SP_FRUIT[t].useCap * SP_FRUIT[t].spPerUse,
       0,
     );
-    expect(sum).toBe(15);
+    expect(sum).toBe(20);
   });
 
   it("보스 kind 가 등급별로 유일", () => {
@@ -41,10 +41,10 @@ describe("SP_FRUIT config 일관성", () => {
 
 describe("parseSpFruitUsed", () => {
   it("기본 0 (빈/불량 입력)", () => {
-    expect(parseSpFruitUsed(undefined)).toEqual({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
-    expect(parseSpFruitUsed(null)).toEqual({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
-    expect(parseSpFruitUsed("nope")).toEqual({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
-    expect(parseSpFruitUsed({ 1: "x", 2: NaN })).toEqual({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
+    expect(parseSpFruitUsed(undefined)).toEqual({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 });
+    expect(parseSpFruitUsed(null)).toEqual({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 });
+    expect(parseSpFruitUsed("nope")).toEqual({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 });
+    expect(parseSpFruitUsed({ 1: "x", 2: NaN })).toEqual({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 });
   });
 
   it("정상 입력 보존", () => {
@@ -54,16 +54,18 @@ describe("parseSpFruitUsed", () => {
       3: 3,
       4: 3,
       5: 2,
+      6: 0,
     });
   });
 
   it("캡 초과·음수·소수 클램프", () => {
-    expect(parseSpFruitUsed({ 1: 99, 2: -5, 3: 4.9, 4: 99, 5: 99 })).toEqual({
+    expect(parseSpFruitUsed({ 1: 99, 2: -5, 3: 4.9, 4: 99, 5: 99, 6: 99 })).toEqual({
       1: SP_FRUIT[1].useCap, // 3
       2: 0,
       3: SP_FRUIT[3].useCap, // 3
       4: SP_FRUIT[4].useCap, // 3
       5: SP_FRUIT[5].useCap, // 3
+      6: 5,
     });
   });
 });
@@ -72,19 +74,19 @@ describe("spCapBonusFromFruits / spCapBonusFromRaw", () => {
   it("없음/null = 0", () => {
     expect(spCapBonusFromFruits(null)).toBe(0);
     expect(spCapBonusFromFruits(undefined)).toBe(0);
-    expect(spCapBonusFromFruits({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 })).toBe(0);
+    expect(spCapBonusFromFruits({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 })).toBe(0);
   });
 
   it("부분 사용 합산", () => {
-    expect(spCapBonusFromFruits({ 1: 2, 2: 0, 3: 1, 4: 1, 5: 1 })).toBe(5);
+    expect(spCapBonusFromFruits({ 1: 2, 2: 0, 3: 1, 4: 1, 5: 1, 6: 0 })).toBe(5);
   });
 
-  it("전부 캡 = 최대 15", () => {
-    expect(spCapBonusFromFruits({ 1: 3, 2: 3, 3: 3, 4: 3, 5: 3 })).toBe(15);
+  it("전부 캡 = 최대 20", () => {
+    expect(spCapBonusFromFruits({ 1: 3, 2: 3, 3: 3, 4: 3, 5: 3, 6: 5 })).toBe(20);
   });
 
-  it("캡 초과 입력도 15로 클램프", () => {
-    expect(spCapBonusFromFruits({ 1: 99, 2: 99, 3: 99, 4: 99, 5: 99 })).toBe(15);
+  it("캡 초과 입력도 20으로 클램프", () => {
+    expect(spCapBonusFromFruits({ 1: 99, 2: 99, 3: 99, 4: 99, 5: 99, 6: 99 })).toBe(20);
   });
 
   it("spCapBonusFromRaw = parse + 합산", () => {
@@ -109,6 +111,7 @@ describe("fruitTierForBoss / fruitTierForMaterial", () => {
     expect(fruitTierForMaterial("sp_fruit_3")).toBe(3);
     expect(fruitTierForMaterial("sp_fruit_4")).toBe(4);
     expect(fruitTierForMaterial("sp_fruit_5")).toBe(5);
+    expect(fruitTierForMaterial("sp_fruit_6")).toBe(6);
     expect(fruitTierForMaterial("v2_timber")).toBeNull();
   });
 });
@@ -136,7 +139,12 @@ describe("calcSpBudget spCapBonus 배선 (byte-identical 가드)", () => {
 
   it("실제 SP 열매 사용분 → 예산 증가", () => {
     const base = calcSpBudget(groups);
-    const used: Record<SpFruitTier, number> = { 1: 3, 2: 3, 3: 3, 4: 3, 5: 3 };
-    expect(calcSpBudget(groups, spCapBonusFromFruits(used))).toBe(base + 15);
+    const used: Record<SpFruitTier, number> = { 1: 3, 2: 3, 3: 3, 4: 3, 5: 3, 6: 5 };
+    expect(calcSpBudget(groups, spCapBonusFromFruits(used))).toBe(base + 20);
   });
+});
+
+it("VI 사용량만 최대 5 SP를 부여한다", () => {
+  expect(spCapBonusFromRaw({ 6: 4 })).toBe(4);
+  expect(spCapBonusFromRaw({ 6: 99 })).toBe(5);
 });

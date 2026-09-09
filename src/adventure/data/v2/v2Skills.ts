@@ -1,3 +1,4 @@
+import { BURN_HEAL_REDUCTION_PCT } from "./statusEffects";
 // v2 스킬 시스템 — 카탈로그 + 타입 + 슬롯/파싱 헬퍼.
 //
 // 디자인 (2026-05-28 사용자 spec):
@@ -12,6 +13,7 @@
 
 import type { StatKey } from "@/adventure/data/stats";
 import { STAT_LABELS } from "@/adventure/data/stats";
+import { holyJudgmentCoefficient } from "@/adventure/v2/combat/holyPower";
 import {
   V2_STAT_LABELS,
   type V2StatKey,
@@ -19,6 +21,12 @@ import {
 import type { V2Element } from "./elements";
 import { V2_ELEMENT_LABEL } from "./elements";
 import { V2_BASE_SKILLS } from "./v2SkillCatalog";
+import type { WindCurrentSkill } from "./windCurrent";
+import { PARAGON_SKILLS, type ParagonSkillId } from "./paragonSkills";
+import { WIND_MAGE_SKILLS, type WindMageSkillId } from "./windMageSkills";
+import { FIRE_MAGE_SKILLS, type FireMageSkillId } from "./fireMageSkills";
+import { DRAGON_KNIGHT_SKILLS, type DragonKnightSkillId } from "./dragonKnightSkills";
+import { passiveForJob, type LineagePassiveBonus } from "./lineagePassives";
 import { V2_COMMON_SKILLS, type V2CommonSkillId } from "./v2SkillsCommonCatalog";
 import { V2_JOB_CATALOG } from "./v2JobCatalog";
 import {
@@ -95,6 +103,12 @@ export type V2PassiveSkillEffect = {
   /** 반격 확률 +%p — 피격 생존 시 이 확률로 적에게 ATK 반격(절정 반격). 엔진 passiveCounterChancePct
    *  훅에 합산(PvE enemyPhase 전용·반격의 룬과 동일 패턴). 미지정=무적용. */
   counterChancePct?: number;
+  /** 독립 확률 결합 후 더하는 반격 확률 %p. */
+  counterChanceFlatPct?: number;
+  /** 자동 반격 적중 시 적 행동당 한 번 얻는 충격. */
+  counterImpactGain?: number;
+  /** 충격 소비 적중 시 스택당 최대 HP 회복 %. */
+  fortressImpactHealPctPerStack?: number;
   /** 활성 반사 피해 증폭을 이 패시브의 반격 피해에도 적용한다. 금강나한 고유 연계. */
   counterDamageUsesReflectBoost?: boolean;
   // ── 다양성 2차(A 메타) — 둘 다 PvE/PvP 양쪽 적용(def=damageBetween 공용·명중=PvP도 소비).
@@ -143,6 +157,18 @@ export type V2PassiveSkillEffect = {
   poisonedEnemyDefReductionPct?: number;
   /** 중독 지속 피해 +% 가산(맹독). 부식과 분리해 독 피해에만 적용한다. */
   poisonDamagePct?: number;
+  /** 시전자가 부여하는 연소 지속 피해 증가(%). */
+  burnDamagePct?: number;
+  windCurrentDamagePctPerStack?: number;
+  burnDurationBonusTurns?: number;
+  burnRekindle?: boolean;
+  fireSpellMpCostReductionPct?: number;
+  fireBurstShieldPctMaxMp?: number;
+  windCurrentShieldPctPerStack?: number;
+  windCurrentReleaseEvades?: number;
+  windCurrentMpRestorePctPerStack?: number;
+  windCurrentRebound?: boolean;
+  paragonMastery?: boolean;
   /** 적 물리 방어 -% — 장착 중 항상 적용하며 같은 효과끼리 남은 방어력 기준 곱연산. */
   enemyPhysicalDefReductionPct?: number;
   /** 적 마법 방어 -% — 마법 피해에만 적용하며 같은 효과끼리 남은 방어력 기준 곱연산. */
@@ -272,7 +298,11 @@ export type V2SkillId =
   | "mob_savage_roar" // 포효 — 자버프 ATK↑(3턴)
   | "mob_arcane_nova" // 비전 폭발 — 강한 마법 단일딜
   // ── 스킬 재설계 — 공용 액티브 18종 (직군당 5, 예기 패시브 제외) ───
-  | V2CommonSkillId;
+  | V2CommonSkillId
+  | DragonKnightSkillId
+  | FireMageSkillId
+  | WindMageSkillId
+  | ParagonSkillId;
 
 // 스킬 효과 — 복합 가능 (효과 배열에 여러 개).
 // 단위 규칙: pct·pctMaxHp 는 "정수 퍼센트 단위" (10 = 10%). 후속 전투 wiring 에서
@@ -370,7 +400,7 @@ export type V2SkillEffect =
   // 화상(원소술사 불) — 적 회복 효과(회복 스킬·재생) −pct% (N턴). 흡혈/공격파생 회복은 제외.
   | { kind: "enemyHealReduce"; pct: number; turns: number }
   // 쇠약 — 적이 주는 모든 직접 피해 −pct% (평타·스킬). STR 감소와 달리 마법형 적에게도 유효.
-  | { kind: "enemyDamageDown"; pct: number; turns: number }
+  | { kind: "enemyDamageDown"; pct: number; turns: number; nextAttackOnly?: boolean }
   // 금제 — 적 스킬 발동률 −pct%p. 완전 침묵 대신 확률을 깎는 소프트 CC.
   | { kind: "enemySkillProcDown"; pct: number; turns: number }
   // 침식 — 적이 받는 DoT 틱과 마법취약 스택 폭발 피해 +pct%.
@@ -473,6 +503,8 @@ export type V2SkillDetail = {
 };
 
 export type V2SkillDefinition = {
+  windCurrent?: WindCurrentSkill;
+  fireMageSpell?: boolean;
   id: V2SkillId;
   name: string;
   /** 분류 메타데이터 — 교관 NPC 그룹화 + 데미지 스케일링 기본 stat. selfBuff/enemyDebuff
@@ -493,8 +525,10 @@ export type V2SkillDefinition = {
   procChance?: number;
   /** 결투가 계보의 준비형 선언. 실제 효과는 장착한 선언을 합성해 전투 상태에 만든다. */
   duelistDeclaration?: {
-    rank: 1 | 2 | 3 | 4;
-    hits: 3 | 4 | 5;
+    rank: 1 | 2 | 3 | 4 | 5;
+    hits: 3 | 4 | 5 | 6;
+    basicAllStatCoef?: number;
+    basicAllStatAtkCapPct?: number;
     basicDamagePct?: number;
     basicCritChancePct?: number;
     basicDefPenetrationPct?: number;
@@ -505,6 +539,9 @@ export type V2SkillDefinition = {
   /** 개별 스킬 전투 리듬. 차수·직업 보정 뒤 마지막 발동률 미세 조정에 사용한다. */
   tempo?: V2SkillTempo;
   effects: readonly V2SkillEffect[];
+  holyPower?: "sanctuary" | "judgment";
+  /** 현재 직업이 지정된 계열에 속할 때 더하는 패시브 보너스. */
+  lineageBonus?: LineagePassiveBonus;
   /** 이 액티브에만 적용되는 치명타 확률 가산(%p). */
   skillCritChancePct?: number;
   /** 이 액티브에만 적용되는 명중도 가산(%p). */
@@ -523,6 +560,10 @@ export type V2SkillDefinition = {
   refreshTripleWards?: boolean;
   /** 적중 시 현재 충격을 모두 소비해 최종 피해를 강화하는 방패 계열 직접 공격. */
   consumesFortressImpact?: boolean;
+  /** 액티브 자체의 충격당 최종 피해 보너스(장착 패시브와 합산). */
+  fortressImpactDamagePctPerStack?: number;
+  /** 충격 3개 소비 적중 시 다음 자동 반격 최종 피해 보너스. */
+  fortressFullImpactCounterBoostPct?: number;
   /** 정상 시전 확정 시 현재 법칙 각인을 모두 소비해 동적 효과를 만든다. */
   consumesLawInscriptions?: boolean;
   /** 시전 뒤 중량을 얻는 양. 피해 계산에는 시전 전 중량을 사용한다. */
@@ -792,7 +833,7 @@ function spEffectValue(
       // 중독은 5턴 완주 전에 적이 쓰러지거나 재시전으로 지속시간이 갱신되는 비중이 크다.
       // 전 틱을 신규 피해처럼 합산하면 고차 독 스킬 비용을 과대평가하므로 실현율을 반영한다.
       const durationRealization = e.tag === "poison" ? 0.55 : 1;
-      return e.stacks * e.turns * perStack * durationRealization;
+      return e.stacks * e.turns * perStack * durationRealization + (e.tag === "burn" ? BURN_HEAL_REDUCTION_PCT * e.turns / 90 : 0);
     }
     case "heal":
       return (
@@ -859,6 +900,9 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     mag += (p.evasionPct ?? 0) / 15;
     mag += (p.lifestealPct ?? 0) / 4;
     mag += (p.counterChancePct ?? 0) / 12;
+    mag += (p.counterChanceFlatPct ?? 0) / 10;
+    mag += (p.counterImpactGain ?? 0) * 1.5;
+    mag += (p.fortressImpactHealPctPerStack ?? 0) * 0.75;
     mag += (p.defPct ?? 0) / 12;
     mag += (p.thornsDefPct ?? 0) / 40;
     // 적중도는 상대가 회피도에 투자한 경우에만 직접 피해 경감을 완화하고, 보장 회피는
@@ -881,6 +925,18 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     mag += (p.poisonedEnemyDefReductionPct ?? 0) / 6;
     // 맹독은 독 계보 안에서 부식과 같은 단계별 선택지다. 각 단계의 명시 SP가
     // 같은 예산 선택을 보장하므로 generic power 루브릭에서 다시 과금하지 않는다.
+    // 연소는 직접 공격과 별도로, 대상에게 부여한 지속 피해에만 적용한다.
+    mag += (p.burnDamagePct ?? 0) / 20;
+    mag += (p.windCurrentDamagePctPerStack ?? 0) * 3 / 20;
+    mag += p.burnDurationBonusTurns ?? 0;
+    if (p.burnRekindle) mag += 0.75; // 조건부 연소는 액티브 시너지 비용과 나눠 평가.
+    mag += (p.windCurrentMpRestorePctPerStack ?? 0) * 1.5;
+    if (p.paragonMastery) mag += 3;
+    if (p.windCurrentRebound) mag += 1;
+    mag += (p.fireSpellMpCostReductionPct ?? 0) / 20;
+    mag += (p.fireBurstShieldPctMaxMp ?? 0) / 16;
+    mag += (p.windCurrentShieldPctPerStack ?? 0) * 3 / 16;
+    mag += (p.windCurrentReleaseEvades ?? 0) * 1.5;
     mag += (p.enemyPhysicalDefReductionPct ?? 0) / 8;
     mag += (p.enemyMagicDefReductionPct ?? 0) / 8;
     mag += (p.berserkAtkPctPerLostHpPct ?? 0) / 0.25;
@@ -901,6 +957,11 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     if (p.skillCritAfterEvade) mag += 0.5;
     if (p.counterDamageUsesReflectBoost) mag += 0.5;
     mag += (p.comboFinisherBonusPct ?? 0) / 25;
+    mag += (def.lineageBonus?.passive.defPct ?? 0) / 12;
+    mag += (def.lineageBonus?.passive.accuracyPct ?? 0) / 30;
+    mag += (def.lineageBonus?.passive.critDmgPct ?? 0) / 20;
+    mag += (def.lineageBonus?.passive.healPowerPct ?? 0) / 16;
+    mag += (def.lineageBonus?.passive.damageTakenReductionPct ?? 0) / 8;
     return (
       mag +
       bleedHuntPowerValue(def.bleedHunt) +
@@ -927,6 +988,14 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     return r;
   };
   let raw = sumEffects(def.effects);
+  // 퍼펙트 폼: 상한 기준 평타 추가 피해를 횟수만큼 평가한다. 하위 선언은 별도 SP를 낸다.
+  if (def.duelistDeclaration?.basicAllStatCoef) raw += (def.duelistDeclaration.basicAllStatAtkCapPct ?? 0) * def.duelistDeclaration.hits / 100;
+  // 최대 기류 소비 보너스는 선행 패시브가 필요한 조건부 효과로 절반 평가한다.
+  if (def.windCurrent?.kind === "release") raw += raw * def.windCurrent.damagePctPerStack * 3 / 200 + def.windCurrent.hastePctPerStack * 3 / 120;
+  // 성역의 16% 지속 회복 + 전용 자원, 심판은 성력 100의 최대 계수를 비용에 반영한다.
+  if (def.holyPower === "sanctuary") raw = 16 / 16 + 40 / 20;
+  if (def.holyPower === "judgment") raw = holyJudgmentCoefficient({ power: 100 }) *
+    (1 + SP_REFERENCE_PRIMARY_STAT_TO_ATTACK + SP_REFERENCE_SPECIALIZED_STAT_TO_ATTACK.spi);
   // 원소술사 — 시전 시 캐릭 속성별 elementEffects 변형이 effects 를 대체(보통 추가 효과로 더 강함).
   //   코스트는 단일값이라 "최강 변형" 기준으로 책정(과소평가 방지).
   if (def.elementEffects) {
@@ -964,6 +1033,8 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     raw += Math.max(0, strongestSynergyRaw - baseVariantRaw) * 0.5;
   }
   // 단일 액티브에만 적용되는 치명 확률은 상시 패시브보다 제한적이므로 낮게 평가한다.
+  raw += (def.fortressImpactDamagePctPerStack ?? 0) / 20;
+  raw += (def.fortressFullImpactCounterBoostPct ?? 0) / 50;
   raw += (def.skillCritChancePct ?? 0) / 20;
   raw += (def.accuracyBonusPct ?? 0) / 30;
   raw += bleedHuntPowerValue(def.bleedHunt);
@@ -1103,6 +1174,8 @@ const ACTIVE_JOB_TEMPO: Partial<Record<string, ActiveJobTempo>> = {
   runeknight: "rapid",
   lightningmage: "rapid",
   windmage: "rapid",
+  aeromancer: "rapid",
+  stormbringer: "rapid",
   dragonfist: "rapid",
   heavenlybow: "rapid",
   blackmoon: "rapid",
@@ -1117,6 +1190,14 @@ const ACTIVE_JOB_TEMPO: Partial<Record<string, ActiveJobTempo>> = {
   templar: "steady",
   crimsontemplar: "steady",
   crusader: "steady",
+  pyromancer: "steady",
+  infernomancer: "burst",
+  dragonknight: "steady",
+  drakeblood: "steady",
+  dragonwing: "rapid",
+  dragonsovereign: "burst",
+  radiantknight: "steady",
+  dawnpaladin: "steady",
   venomlord: "steady",
   frostmage: "steady",
   earthmage: "steady",
@@ -1289,7 +1370,8 @@ function scaledDirectStatCoef(
   // 일반 공격력 계수는 전투 산식의 차수별 기반선으로 하한이 보장되지만, DEX·LUK·최대 HP
   // 직접 비례분은 그대로 사용된다. 발동률 상향 보정을 여기에 다시 적용하면 특화 빌드만
   // 이중으로 약해지므로, 카탈로그에서 의도한 원시 스탯 계수는 보존한다.
-  if (scaling === "dex" || scaling === "luk" || scaling === "maxHp") {
+  // 배율이 1인 모든 능력치 계수는 불필요한 둘째 자리 반올림으로 정밀도를 잃지 않는다.
+  if ((scaling === "all" && scale === 1) || scaling === "dex" || scaling === "luk" || scaling === "maxHp") {
     return statCoef;
   }
 
@@ -1343,9 +1425,9 @@ function rebalanceDamageEffect(effect: V2SkillEffect, scale: number): V2SkillEff
           : {}),
       };
     case "dot":
-      // 플레이어 출혈은 짧고 강한 공용 상태 피해로 별도 밸런싱한다. 직업 차수 배율로
-      // 다시 낮추면 프리셋의 플레이어 전용 ATK 계수와 고정 피해가 훼손된다.
-      if (effect.tag === "bleed") return effect;
+      // 출혈·연소는 공용 상태 피해로 별도 밸런싱한다. 차수 배율을 적용하지 않아
+      // 공통 프리셋의 고정 피해와 공격력 계수를 유지한다.
+      if (effect.tag === "bleed" || effect.tag === "burn") return effect;
       return {
         ...effect,
         flatPerStack: scaledFlat(effect.flatPerStack, scale),
@@ -1443,6 +1525,10 @@ function rebalancePlayerSkill(skill: V2SkillDefinition): V2SkillDefinition {
 const RAW_V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
   ...V2_BASE_SKILLS,
   ...V2_COMMON_SKILLS,
+  ...DRAGON_KNIGHT_SKILLS,
+  ...FIRE_MAGE_SKILLS,
+  ...WIND_MAGE_SKILLS,
+  ...PARAGON_SKILLS,
 };
 
 export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = Object.fromEntries(
@@ -1524,7 +1610,7 @@ export function resolveExclusiveSkills(
 // 장착(로드아웃)된 패시브 스킬들의 상시 효과 집계 — 코어루프 derive 가 호출.
 //   대부분은 합산한다. 반격 확률(counterChancePct)은 100%에 쉽게 닿지 않도록 실패 확률을 곱한다.
 //   배타 그룹은 최고 단계 하나만 적용하고, 패시브 아닌 스킬·미존재 id 는 무시.
-export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
+export function aggregateEquippedPassives(equipped: readonly V2SkillId[], jobId?: string): {
   stat: Partial<Record<V2StatKey, number>>;
   statPct: Partial<Record<V2StatKey, number>>;
   maxHpPct: number;
@@ -1541,6 +1627,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   evasionPct: number;
   lifestealPct: number;
   counterChancePct: number;
+  counterImpactGain?: number;
+  fortressImpactHealPctPerStack?: number;
   counterDamageUsesReflectBoost: boolean;
   defPct: number;
   thornsDefPct: number;
@@ -1560,6 +1648,17 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   tripleWardRank: 0 | 1 | 2;
   poisonedEnemyDefReductionPct: number;
   poisonDamagePct: number;
+  burnDamagePct: number;
+  windCurrentDamagePctPerStack?: number;
+  burnDurationBonusTurns?: number;
+  burnRekindle?: boolean;
+  fireSpellMpCostReductionPct?: number;
+  fireBurstShieldPctMaxMp?: number;
+  windCurrentShieldPctPerStack?: number;
+  windCurrentReleaseEvades?: number;
+  windCurrentMpRestorePctPerStack?: number;
+  windCurrentRebound?: boolean;
+  paragonMastery?: boolean;
   enemyPhysicalDefReductionPct: number;
   enemyMagicDefReductionPct: number;
   berserkAtkPctPerLostHpPct: number;
@@ -1595,6 +1694,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let evasionPct = 0;
   let lifestealPct = 0;
   let counterFailChance = 1;
+  let counterChanceFlatPct = 0;
+  let counterImpactGain = 0;
+  let fortressImpactHealPctPerStack = 0;
   let counterDamageUsesReflectBoost = false;
   let defPct = 0;
   let thornsDefPct = 0;
@@ -1614,6 +1716,17 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let tripleWardRank: 0 | 1 | 2 = 0;
   let poisonedEnemyDefReductionPct = 0;
   let poisonDamagePct = 0;
+  let burnDamagePct = 0;
+  let windCurrentDamagePctPerStack = 0;
+  let burnDurationBonusTurns = 0;
+  let burnRekindle = false;
+  let fireSpellMpCostReductionPct = 0;
+  let fireBurstShieldPctMaxMp = 0;
+  let windCurrentShieldPctPerStack = 0;
+  let windCurrentReleaseEvades = 0;
+  let windCurrentMpRestorePctPerStack = 0;
+  let paragonMastery = false;
+  let windCurrentRebound = false;
   let enemyPhysicalDefReductionPct = 0;
   let enemyMagicDefReductionPct = 0;
   let berserkAtkPctPerLostHpPct = 0;
@@ -1646,7 +1759,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
         rank,
       ) as 0 | 1 | 2 | 3 | 4;
     }
-    const p = def?.passive;
+    const p = passiveForJob(def?.passive, def?.lineageBonus, jobId);
     if (!p) continue;
     for (const [k, v] of Object.entries(p.stat ?? {})) {
       if (v) stat[k as V2StatKey] = (stat[k as V2StatKey] ?? 0) + v;
@@ -1674,6 +1787,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
       const chance = Math.max(0, Math.min(100, p.counterChancePct));
       counterFailChance *= 1 - chance / 100;
     }
+    counterChanceFlatPct += p.counterChanceFlatPct ?? 0;
+    counterImpactGain = Math.max(counterImpactGain, p.counterImpactGain ?? 0);
+    fortressImpactHealPctPerStack = Math.max(fortressImpactHealPctPerStack, p.fortressImpactHealPctPerStack ?? 0);
     if (p.counterDamageUsesReflectBoost) counterDamageUsesReflectBoost = true;
     defPct += p.defPct ?? 0;
     thornsDefPct += p.thornsDefPct ?? 0;
@@ -1706,6 +1822,17 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
       p.poisonedEnemyDefReductionPct ?? 0,
     );
     poisonDamagePct += p.poisonDamagePct ?? 0;
+    burnDamagePct += p.burnDamagePct ?? 0;
+    windCurrentDamagePctPerStack += p.windCurrentDamagePctPerStack ?? 0;
+    burnDurationBonusTurns = Math.max(burnDurationBonusTurns, p.burnDurationBonusTurns ?? 0);
+    burnRekindle ||= p.burnRekindle ?? false;
+    fireSpellMpCostReductionPct += p.fireSpellMpCostReductionPct ?? 0;
+    fireBurstShieldPctMaxMp = Math.max(fireBurstShieldPctMaxMp, p.fireBurstShieldPctMaxMp ?? 0);
+    windCurrentShieldPctPerStack += p.windCurrentShieldPctPerStack ?? 0;
+    windCurrentReleaseEvades = Math.max(windCurrentReleaseEvades, p.windCurrentReleaseEvades ?? 0);
+    windCurrentMpRestorePctPerStack += p.windCurrentMpRestorePctPerStack ?? 0;
+    paragonMastery ||= p.paragonMastery ?? false;
+    windCurrentRebound ||= p.windCurrentRebound ?? false;
     enemyPhysicalDefReductionPct = combineDefReductionPcts(
       enemyPhysicalDefReductionPct,
       p.enemyPhysicalDefReductionPct ?? 0,
@@ -1754,7 +1881,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     critDmgPct,
     evasionPct,
     lifestealPct,
-    counterChancePct: Math.round((1 - counterFailChance) * 10000) / 100,
+    counterChancePct: Math.min(100, Math.round((1 - counterFailChance) * 10000) / 100 + counterChanceFlatPct),
+    ...(counterImpactGain > 0 ? { counterImpactGain } : {}),
+    ...(fortressImpactHealPctPerStack > 0 ? { fortressImpactHealPctPerStack } : {}),
     counterDamageUsesReflectBoost,
     defPct,
     thornsDefPct,
@@ -1774,6 +1903,17 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     tripleWardRank,
     poisonedEnemyDefReductionPct,
     poisonDamagePct,
+    burnDamagePct,
+    ...(windCurrentDamagePctPerStack > 0 ? { windCurrentDamagePctPerStack } : {}),
+    ...(burnDurationBonusTurns > 0 ? { burnDurationBonusTurns } : {}),
+    ...(burnRekindle ? { burnRekindle } : {}),
+    ...(fireSpellMpCostReductionPct > 0 ? { fireSpellMpCostReductionPct } : {}),
+    ...(fireBurstShieldPctMaxMp > 0 ? { fireBurstShieldPctMaxMp } : {}),
+    ...(windCurrentShieldPctPerStack > 0 ? { windCurrentShieldPctPerStack } : {}),
+    ...(windCurrentReleaseEvades > 0 ? { windCurrentReleaseEvades } : {}),
+    ...(windCurrentMpRestorePctPerStack > 0 ? { windCurrentMpRestorePctPerStack } : {}),
+    ...(paragonMastery ? { paragonMastery } : {}),
+    ...(windCurrentRebound ? { windCurrentRebound } : {}),
     enemyPhysicalDefReductionPct,
     enemyMagicDefReductionPct,
     berserkAtkPctPerLostHpPct,
@@ -2211,7 +2351,7 @@ function describeV2Effect(
     case "enemyHealReduce":
       return `적 회복 −${e.pct}% (${targetActionsChip(e.turns)})`;
     case "enemyDamageDown":
-      return `적 주는 피해 −${e.pct}% (${targetActionsChip(e.turns)})`;
+      return e.nextAttackOnly ? `적 다음 적중한 직접 공격 피해 −${e.pct}% (1회)` : `적 주는 피해 −${e.pct}% (${targetActionsChip(e.turns)})`;
     case "enemySkillProcDown":
       return `적 스킬 발동률 −${e.pct}%p (${targetActionsChip(e.turns)})`;
     case "enemyDotVuln":
@@ -2229,7 +2369,7 @@ function describeV2Effect(
     case "stackPayoffDamage":
       return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} + 적 ${STACK_TAG_LABEL[e.tag]} 스택당 ${e.tag === "poison" ? "방어 무시 " : ""}+${e.perStackFlat}`;
     case "dot":
-      return `${e.label} 지속피해 +${e.stacks}스택 (${targetActionsChip(e.turns)}, 최대 ${e.maxStacks}스택${e.tag === "poison" ? ", 보스 최대 HP 비례분 50%" : ""})`;
+      return `${e.label} 지속피해 +${e.stacks}스택${e.tag === "burn" ? ` · 유지 중 회복 스킬·재생 -${BURN_HEAL_REDUCTION_PCT}%` : ""} (${targetActionsChip(e.turns)}, 최대 ${e.maxStacks}스택${e.tag === "poison" ? ", 보스 최대 HP 비례분 50%" : ""})`;
   }
   // 모든 효과 종류 처리됨 — 새 kind 추가 시 컴파일 에러로 누락 방지.
   const _exhaustive: never = e;
@@ -2241,6 +2381,8 @@ export function describeV2SkillEffects(
   effects: readonly V2SkillEffect[],
   activeCastEffects: readonly V2SkillEffect[] = effects,
 ): string[] {
+  if (skill.holyPower === "sanctuary") return ["성역 4행동: 행동 종료마다 최대 HP 4% 회복 · 성력 +10", "성력 상한 100 · 재시전 시 지속시간 갱신"];
+  if (skill.holyPower === "judgment") return ["물리 피해: 공격력×2 + 힘×2 + 정신×2", "성력 전부 소모: 1당 기본 피해 +1.5% (최대 2.5배)"];
   return describeV2Effects(
     effects,
     skill.tier,
@@ -2277,6 +2419,12 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.critDmgPct) chips.push(`기본 공격 치명타 피해 +${p.critDmgPct}%`);
   if (p.evasionPct) chips.push(`회피도 +${p.evasionPct}%`);
   if (p.lifestealPct) chips.push(`흡혈 +${p.lifestealPct}%`);
+  if (p.counterChanceFlatPct)
+    chips.push(`최종 자동 반격 확률 +${p.counterChanceFlatPct}%p`);
+  if (p.counterImpactGain)
+    chips.push(`자동 반격 적중 시 충격 +${p.counterImpactGain} (적 행동당 1회)`);
+  if (p.fortressImpactHealPctPerStack)
+    chips.push(`충격 소비 적중 시 스택당 최대 HP ${p.fortressImpactHealPctPerStack}% 회복`);
   if (p.counterChancePct)
     chips.push(`HP 피해 시 ${p.counterChancePct}% 확률로 공격력 기반 반격`);
   if (p.defPct) chips.push(`물리·마법 방어력 +${p.defPct}%`);
@@ -2318,6 +2466,17 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.poisonedEnemyDefReductionPct)
     chips.push(`중독 적 방어 -${p.poisonedEnemyDefReductionPct}%`);
   if (p.poisonDamagePct) chips.push(`중독 피해 +${p.poisonDamagePct}%`);
+  if (p.windCurrentDamagePctPerStack) chips.push(`질풍술·에어 블레이드 적중 시 기류 +1 (최대 3), 기류당 바람 주문 직접 피해 +${p.windCurrentDamagePctPerStack}%`);
+  if (p.burnDurationBonusTurns) chips.push(`부여하는 연소 지속 +${p.burnDurationBonusTurns}행동`);
+  if (p.burnRekindle) chips.push("겁화 붕괴 적중 시 연소 부여");
+  if (p.fireSpellMpCostReductionPct) chips.push(`화염 계보 주문 MP 소모 -${p.fireSpellMpCostReductionPct}%`);
+  if (p.fireBurstShieldPctMaxMp) chips.push(`겁화 붕괴 사용 시 최대 MP ${p.fireBurstShieldPctMaxMp}% 보호막`);
+  if (p.windCurrentShieldPctPerStack) chips.push(`새 기류 1개당 최대 MP ${p.windCurrentShieldPctPerStack}% 보호막`);
+  if (p.windCurrentReleaseEvades) chips.push(`기류 3개 소비 시 확정 회피 ${p.windCurrentReleaseEvades}회 확보 (누적 없음)`);
+  if (p.windCurrentMpRestorePctPerStack) chips.push(`새 기류 1개당 최대 MP ${p.windCurrentMpRestorePctPerStack}% 회복`);
+  if (p.paragonMastery) chips.push("선언 직후 평타 1회 · 선언 중 공격 스킬 사용 시 연속 평타 단계 유지");
+  if (p.windCurrentRebound) chips.push("기류 3개 소비 후 다음 기류 생성량 +1 (1회)");
+  if (p.burnDamagePct) chips.push(`연소 피해 +${p.burnDamagePct}%`);
   if (p.enemyPhysicalDefReductionPct)
     chips.push(`적 물리 방어 -${p.enemyPhysicalDefReductionPct}%`);
   if (p.enemyMagicDefReductionPct)
@@ -2471,6 +2630,7 @@ function describeDuelistDeclaration(
   declaration: NonNullable<V2SkillDefinition["duelistDeclaration"]>,
 ): string[] {
   const chips = [`다음 평타 ${declaration.hits}회`];
+  if (declaration.basicAllStatCoef) chips.push(`평타 추가 피해: 모든 능력치 합계 ×${declaration.basicAllStatCoef} (현재 공격력의 ${declaration.basicAllStatAtkCapPct}% 상한)`);
   if (declaration.basicDamagePct)
     chips.push(`평타 피해 +${declaration.basicDamagePct}%`);
   if (declaration.basicCritChancePct)
@@ -2639,6 +2799,10 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
     : describeV2SkillEffects(skill, skill.effects);
   chips.push(...describeBerserkerLineageRules(skill));
   chips.push(...describeBleedHunt(skill));
+  if (skill.lineageBonus) {
+    const { label, passive } = skill.lineageBonus;
+    chips.push(...describePassive(passive).map(chip => `${label}: ${chip}`));
+  }
   if (skill.provokeImmediateBasicAttacks) {
     chips.push(
       `도발: 상대가 즉시 시전자를 기본 공격 ${skill.provokeImmediateBasicAttacks}회`,
@@ -2661,6 +2825,11 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   }
   if (skill.tier7Mechanic) {
     chips.push(...describeTier7Mechanic(skill.tier7Mechanic));
+  }
+  if (skill.windCurrent?.kind === "gather") {
+    chips.push("기류 패시브 장착 시 적중 후 기류 +1 (최대 3)");
+  } else if (skill.windCurrent?.kind === "release") {
+    chips.push(`적중 시 기류 전부 소비 · 기류당 자체 피해 +${skill.windCurrent.damagePctPerStack}%, 다음 행동 가속 +${skill.windCurrent.hastePctPerStack}%`);
   }
   if (skill.consumesFortressImpact) chips.push("명중 시 충격 전부 소비");
   if (skill.mutationWeightGain) {

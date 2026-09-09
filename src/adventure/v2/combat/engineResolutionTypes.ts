@@ -1,10 +1,5 @@
 import { type PotionId } from "@/adventure/data/potions";
-import {
-  type BattleOutcome,
-  type BattleState,
-  type BossMechanicContext,
-  type PlayerAction,
-} from "./engineState";
+import { type BattleOutcome, type BattleState, type BossMechanicContext, type PlayerAction } from "./engineState";
 
 // 방어 관통 비율 — 암살/약점 적중/DEF무시 AP 스킬이 무시하는 적 DEF 비율.
 // 2026-05-23: 완전 무시(DEF 0)가 "선턴 이김"·방어 무력화의 주범이라, 0.3(30%)만 무시하도록

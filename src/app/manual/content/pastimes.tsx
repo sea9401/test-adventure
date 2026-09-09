@@ -30,6 +30,7 @@ import { DANGEROUS_REALTIME_TICK_MS } from "@/adventure/v2/dangerousFishingRealt
 import {
   FARM_CROP_LIST,
   FARM_DAILY_DELIVERY_LIMIT,
+  FARM_WEEKLY_DELIVERY_LIMIT,
   FARM_MAX_PLOT_COUNT,
   FARM_PLOT_COUNT,
   FARM_RARE_PITY_HARVESTS,
@@ -145,9 +146,11 @@ export function PastimesContent() {
           얻지 못하면 <Em>{FARM_RARE_PITY_HARVESTS}번째 수확</Em>에서 반드시 희귀 작물이 나옵니다.
         </li>
         <li>
-          주간 납품의 일반 작물은 기본 조건이고 희귀 작물은 선택 보너스입니다. 희귀 작물을
+          주간 납품은 전체 작물 중 서로 다른 <Em>{FARM_WEEKLY_DELIVERY_LIMIT}종</Em>을
+          골라 완료할 수 있습니다. 납품한 작물이 이번 주 선택으로 기록되며 같은 작물은
+          주 1회만 납품할 수 있습니다. 일반 작물은 기본 조건이고 희귀 작물은 선택 보너스입니다. 희귀 작물을
           보유한 채 납품하면 1개가 자동 사용되고 추가 농장 증표를 받습니다. 주간 납품을
-          마치면 해당 기본 작물의 씨앗 6개도 돌려받습니다.
+          마치면 밀·허브·옥수수는 해당 씨앗 6개, 나머지 작물은 주문에 따라 씨앗 1~3개를 받습니다.
         </li>
         <li>
           목장은 기본 닭장 1칸으로 시작해 최대 <Em>{RANCH_SLOT_DEFINITIONS.length}개 부지</Em>까지
@@ -188,7 +191,7 @@ export function PastimesContent() {
           탭에서 사용하면 정확히 <Em>{COOKING_BUFF_DURATION_MS / 3_600_000}시간</Em> 동안 효과를 받습니다.
           같은 음식과 다른 음식 모두 새로 사용한 시점부터 12시간으로 교체되며 시간은 누적되지 않습니다.
           적용 중인 효과는 모험 탭의 캐릭터 간략 정보에서 확인할 수 있습니다. 음식 효과는 <Em>사냥 PvE 전용</Em>이며
-          아레나·챔피언십·거점전·훈련 대련·전투력 랭킹에는 반영되지 않습니다.
+          아레나·챔피언십·거점전·훈련 대련·스탯 합계 랭킹에는 반영되지 않습니다.
         </li>
         <li>
           음식 효과는 공격력·방어력·HP·MP 같은 고정 수치, 소규모 주 능력치, 사냥 경험치·골드,
@@ -274,7 +277,7 @@ export function PastimesContent() {
         </li>
         <li>
           물고기를 낚을 때마다 <Em>낚시 레벨 경험치</Em>가 오릅니다. 낚시 레벨은
-          입질 대기와 특별 손님 등장 확률에 작게 도움을 주지만, 캐릭터 전투력과는
+          입질 대기와 특별 손님 등장 확률에 작게 도움을 주지만, 캐릭터 스탯 합계와는
           분리됩니다.
         </li>
         <li>

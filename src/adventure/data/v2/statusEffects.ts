@@ -18,7 +18,9 @@ import {
 } from "./v2CombatConstants";
 
 // DoT 프리셋 — tag 로 누적되고 label 은 표시용. sourceAtk 은 시전 시점에 엔진이 채운다.
-//   출혈: 강하고 짧게 / 중독: 약하고 길게 / 연소: 폭발적·아주 짧게.
+//   출혈: 강하고 짧게 / 중독: 약하고 길게 / 연소: 짧은 보조 피해와 회복 방해.
+export const BURN_HEAL_REDUCTION_PCT = 50;
+
 export const V2_DOT_PRESETS = {
   출혈: {
     tag: "bleed" as const,
@@ -47,7 +49,7 @@ export const V2_DOT_PRESETS = {
     stacks: 1,
     maxStacks: 1,
     turns: 2,
-    // 연소 버프(2026): 옛 flat 8(무스케일 → 깊을수록 무의미)에 ATK 계수 부여 + flat↑. 짧은 버스트 정체성 유지.
+    // 시전 시 공격력·마법 공격력 중 높은 값을 sourceAtk에 저장한다. 차수와 무관한 공통 피해.
     flatPerStack: 12,
     atkCoefPerStack: 0.2,
     pctMaxHpPerStack: 0,

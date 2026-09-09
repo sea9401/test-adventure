@@ -441,7 +441,7 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipCatalogTier[] {
 }
 
 describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
-  it("기존 카탈로그에 폭풍 원정과 HARD 협동 보스 6T 장비를 더한다", () => {
+  it("기존 카탈로그에 폭풍 원정·미개척지 특화와 HARD 협동 보스 6T 장비를 더한다", () => {
     // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기 · 들판 유니크 6 삭제):
     //   정규 그리드 29 = 비무기 18(갑옷 6 + 장갑 3 + 신발 3 + 반지 3 + 목걸이 3) + 무기 11
     //     (대검 3·지팡이 3·활 3 + 단검 정규 2). 장갑/신발 중갑 정규 6자루 제거(경갑 단일).
@@ -450,6 +450,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     //     신규 고유 아이템 30 → unique. 검은 왕도 이후 보스 유니크 2종 추가.
     //   제작 전용 91 = 기존 79 + 미개척지 상위 특화 12.
     //     총 352 = 기존 328 + 미개척지 개인 보스 고유 12 + 상위 특화 제작 12.
+    //     미개척지 특화 세트 36종(noDrop common)을 더한다.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -463,7 +464,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     expect(
       all.filter((i) => i.noDrop),
       "noDrop(밴드흔한+하드 보스+폭풍 원정+강등 필드유니크)",
-    ).toHaveLength(228);
+    ).toHaveLength(264);
   });
 
   it("미개척지 개척자 장비 18종은 승인된 6.5T 카탈로그와 획득 경계를 가진다", () => {
@@ -1330,7 +1331,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     }
   });
 
-  it("표시 티어는 사냥터 1~4T, 하드 보스 5T, 폭풍 원정 6T로 노출", () => {
+  it("표시 티어는 사냥터 1~4T, 하드 보스 5T, 폭풍 원정·미개척지 특화 6T로 노출", () => {
     expect(
       V2_EQUIP_CATALOG_TIER_ORDER.map((tier) =>
         v2EquipCatalogTierToDisplayTier(tier),
@@ -1343,6 +1344,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     expect(v2EquipCatalogTierDisplayLabel(13)).toBe("5T");
     expect(v2EquipCatalogTierDisplayLabel(16)).toBe("6T");
     expect(Object.keys(V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL)).toHaveLength(6);
+    expect(V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL[6]).toBe("폭풍 원정·미개척지 특화");
   });
 });
 
@@ -1395,6 +1397,31 @@ describe("v2EquipStatRows (표시 행)", () => {
     const rows = v2EquipStatRows(fake);
     expect(rows).toContainEqual({ label: "추가 방어력", value: "+20" });
     expect(rows).toContainEqual({ label: "HP", value: "+40" });
+  });
+
+  it("세트 전용 피해 옵션은 키와 퍼센트 표시 라벨을 가진다", () => {
+    expect(V2_EQUIP_OPTION_KEYS).toEqual(
+      expect.arrayContaining([
+        "basicAttackDamagePct",
+        "extraBasicAttackDamagePct",
+        "statusDotDamagePct",
+      ]),
+    );
+    const rows = v2EquipStatRows({
+      ...V2_EQUIPMENT.v2_iron_sword,
+      options: {
+        basicAttackDamagePct: 15,
+        extraBasicAttackDamagePct: 20,
+        statusDotDamagePct: 25,
+      },
+    });
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        { label: "기본 공격 피해", value: "+15%" },
+        { label: "추가 기본 공격 피해", value: "+20%" },
+        { label: "상태이상 지속 피해", value: "+25%" },
+      ]),
+    );
   });
 
   it("굴림(roll) 주면 굴림값 표시 — 별노래궁(무기) 굴림(16/crit3)", () => {
@@ -1813,7 +1840,7 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
         label: "상흔 계수",
       }),
     ).toBe(
-      "출혈 폭발 시 출혈 중첩은 유지하고 지속 횟수만 최소 5회로 갱신 · 현재 출혈 중첩당 방어 3% 감소",
+      "출혈 폭발 시 출혈 중첩은 유지하고 지속 횟수만 최소 5회로 갱신 · 현재 출혈 중첩당 방어 3% 감소. 출혈 폭발을 발생시키는 장비와 함께 장착해야 발동",
     );
   });
 

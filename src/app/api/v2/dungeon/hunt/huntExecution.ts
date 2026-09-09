@@ -1,35 +1,32 @@
-import { profileAsyncSequence, recordProfileCounter } from "@/lib/server/runtimeProfiler/stages";
-import type { ProfileStage } from "@/lib/server/runtimeProfiler/stageMetrics";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
-import { createRequestPhaseTracker } from "@/lib/server/runtimeProfiler/requestPhases";
 import {
-  HUNT_COOLDOWN_MODE,
-  HUNT_COOLDOWN_MS,
-  V2_CORE_LOOP_V2,
-  V2_EQUIPMENT_LIBERATION,
-  V2_UNEXPLORED,
-  combatCooldownRemainingMs,
+HUNT_COOLDOWN_MODE,
+HUNT_COOLDOWN_MS,
+V2_CORE_LOOP_V2,
+V2_EQUIPMENT_LIBERATION,
+V2_UNEXPLORED,
+combatCooldownRemainingMs,
 } from "@/adventure/data/v2/coreLoopConfig";
 import {
-  MAX_FRONTIER_DEPTH,
-  enemiesForDepth,
-  isHuntStageDepth,
-  latestUnlockedHuntStageDepth,
-  nextHuntStageDepth,
+MAX_FRONTIER_DEPTH,
+enemiesForDepth,
+isHuntStageDepth,
+latestUnlockedHuntStageDepth,
+nextHuntStageDepth,
 } from "@/adventure/data/v2/dungeon";
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import {
-  EMPTY_LIBERATION_HUNT_SNAPSHOT,
-  deriveLiberationHuntSnapshot,
-  type LiberationHuntSnapshot,
+EMPTY_LIBERATION_HUNT_SNAPSHOT,
+deriveLiberationHuntSnapshot,
+type LiberationHuntSnapshot,
 } from "@/adventure/data/v2/equipmentLiberationEffects";
 import { applyGuildCombatRewardBonus } from "@/adventure/data/v2/guildCombatSupply";
 import { GUILD_EXPLORATION_DEEP_HUNT_MIN_DEPTH } from "@/adventure/data/v2/guildExploration";
 import {
-  parseEjectedFrom,
-  type EjectedFrom,
-  type LastHuntedOutpost,
+parseEjectedFrom,
+type EjectedFrom,
+type LastHuntedOutpost,
 } from "@/adventure/data/v2/intruderTracking";
 import { scaleMonsterForHunt } from "@/adventure/data/v2/monsterScale";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
@@ -37,17 +34,15 @@ import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import { RARE_MAP_KINDS, parseRareMaps, type RareMapInstance } from "@/adventure/data/v2/rareMaps";
 import { referralHuntTaskIds } from "@/adventure/data/v2/referralTutorial";
 import { toReplayPayload, toReplayPayloadLite } from "@/adventure/data/v2/replayPayload";
-import type { DungeonEnemy, DungeonFloorId } from "@/adventure/data/v2/types";
+import type { DungeonEnemy,DungeonFloorId } from "@/adventure/data/v2/types";
 import {
-  UNEXPLORED_REGULAR_EQUIPMENT_DROP_MULTIPLIER,
-  buildUnexploredRewardPlan,
-  rollUnexploredHuntRewards,
-  type UnexploredHuntRewardResult,
+UNEXPLORED_REGULAR_EQUIPMENT_DROP_MULTIPLIER,
+buildUnexploredRewardPlan,
+rollUnexploredHuntRewards,
+type UnexploredHuntRewardResult,
 } from "@/adventure/data/v2/unexploredHuntRewards";
-import {
-  EXPLORATION_XP_PER_HUNT_WIN,
-  grantExplorationXp,
-} from "@/adventure/data/v2/unexploredProgression";
+import { EXPLORATION_XP_PER_HUNT_WIN, grantExplorationXp } from "@/adventure/data/v2/unexploredProgression";
+import { parseUnexploredHuntMode,pickUnexploredSpecialtyEncounter } from "@/adventure/data/v2/unexploredSpecialtyPools";
 import { parseUnexploredSave } from "@/adventure/data/v2/unexploredState";
 import { parseEquipmentSave, type EquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
@@ -56,66 +51,65 @@ import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { activeCookingBuff } from "@/adventure/v2/cooking/food";
 import { applyHpRegen, canHuntWithHp, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 import {
-  HUNT_COST,
-  applyRegen,
-  parseStaminaFromSave,
-  staminaConfigForCharacter,
-  tryConsume,
+HUNT_COST,
+applyRegen,
+parseStaminaFromSave,
+staminaConfigForCharacter,
+tryConsume,
 } from "@/adventure/v2/stamina";
-import {
-  preloadHuntSaves,
-  type HuntBatchState,
-  type HuntTransaction as HuntTx,
-  type HuntInventorySave as InventorySave,
-  type HuntOccupationRow as OccupationRow,
-} from "./huntBatchState";
-import {
-  authoritativeCatalogOutpostId,
-  authoritativeTileOutpostId,
-  type HuntCharacterSave as CharSave,
-} from "./huntCharacter";
-import { rollHuntDropsRepeated } from "./huntDrops";
-import {
-  applyHuntAdventureProgress,
-  recordMonsterKill,
-  type AdventureLogSave,
-} from "./huntKillLog";
-import { normalizedHuntLocationIds } from "./huntLocations";
-import { applyHuntProficiency } from "./huntProficiency";
-import { updateRareMaps } from "./huntRareMaps";
-import { HUNT_DROP_FLOOR_CAP } from "./huntRequestIntent";
-import { huntEquipmentCodexEvents } from "./huntResultEffects";
-import {
-  applyChargeRestore,
-  applyLiberationPostHuntRestore,
-  computeBattleRewards,
-  multiplyHuntReward,
-  potionTargetAmount,
-  rareMapRewardRolls,
-} from "./huntRewards";
-import { computeLossTax } from "./huntTax";
 import { outpostOccupations } from "@/db/schema";
 import { applyExpGain, requiredExpToNext } from "@/lib/leveling";
 import { battleCountOf } from "@/lib/server/battleCount";
 import {
-  recordCodexMasteryGameplayBatch,
-  type CodexMasteryGameplayEvent,
+recordCodexMasteryGameplayBatch,
+type CodexMasteryGameplayEvent,
 } from "@/lib/server/codexMasteryGameplay";
 import { readGuildCombatSupplyBonuses } from "@/lib/server/guildCombatSupply";
 import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
 import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
 import { applyPctBonus, bonusDelta, readActiveHotTime } from "@/lib/server/opsSettings";
 import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
+import { createRequestPhaseTracker } from "@/lib/server/runtimeProfiler/requestPhases";
+import type { ProfileStage } from "@/lib/server/runtimeProfiler/stageMetrics";
+import { profileAsyncSequence, recordProfileCounter } from "@/lib/server/runtimeProfiler/stages";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
-  applyUnexploredHuntProgress,
-  mintUnexploredRewardEquipment,
-  prepareUnexploredHunt,
-  type PreparedUnexploredHunt,
+applyUnexploredHuntProgress,
+mintUnexploredRewardEquipment,
+prepareUnexploredHunt,
+type PreparedUnexploredHunt,
 } from "@/lib/server/unexploredHunt";
 import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { inArray } from "drizzle-orm";
+import {
+preloadHuntSaves,
+type HuntBatchState,
+type HuntTransaction as HuntTx,
+type HuntInventorySave as InventorySave,
+type HuntOccupationRow as OccupationRow,
+} from "./huntBatchState";
+import {
+authoritativeCatalogOutpostId,
+authoritativeTileOutpostId,
+type HuntCharacterSave as CharSave,
+} from "./huntCharacter";
+import { rollHuntDropsRepeated } from "./huntDrops";
+import { applyHuntAdventureProgress, recordMonsterKill, type AdventureLogSave } from "./huntKillLog";
+import { normalizedHuntLocationIds } from "./huntLocations";
+import { applyHuntProficiency } from "./huntProficiency";
+import { updateRareMaps } from "./huntRareMaps";
+import { HUNT_DROP_FLOOR_CAP } from "./huntRequestIntent";
+import { huntEquipmentCodexEvents } from "./huntResultEffects";
+import {
+applyChargeRestore,
+applyLiberationPostHuntRestore,
+computeBattleRewards,
+multiplyHuntReward,
+potionTargetAmount,
+rareMapRewardRolls,
+} from "./huntRewards";
+import { computeLossTax } from "./huntTax";
 
 // BattleScene replay UI 의 EXP 바 max — 이미 만렙이면 분모로 쓸 값 없음.
 // EXP 바 안 보이게 0 으로 fallback (현재 exp 와 동일 → pct 0).
@@ -123,14 +117,12 @@ export function requiredExpToNextNullable(level: number): number | null {
   return requiredExpToNext(level);
 }
 
-
 export function pickRandomEnemy(
   enemies: readonly DungeonEnemy[],
 ): DungeonEnemy | null {
   if (enemies.length === 0) return null;
   return enemies[Math.floor(Math.random() * enemies.length)];
 }
-
 
 export type RunOneHuntCtx = {
   tx: HuntTx;
@@ -164,7 +156,6 @@ export type RunOneHuntCtx = {
   // 사냥/정산 시작 장비로 만든 불변 효과. 오프라인 반복은 최초 한 번 만든 값을 전달한다.
   liberationSnapshot?: LiberationHuntSnapshot;
 };
-
 
 // 한 번의 사냥 — 기존 단판 로직 그대로(트랜잭션 클로저 tx 사용). 일괄 모드는 이 함수를
 //   루프로 N회 호출하며 첫 판이 잠근 save의 최신 상태를 batchState로 다음 판에 이월한다.
@@ -205,7 +196,6 @@ async function runOneHuntPhased(
   const dropFloor = unexploredMode
     ? HUNT_DROP_FLOOR_CAP
     : requestedDropFloor;
-  // === 1. outpost 점령 조회 (FOR SHARE) ===
   // v2 의 lock 순서 통일: outpost FOR SHARE → getGuildId → character.v2.
   // FOR SHARE 로 정책 게이트를 일관된 스냅샷에서 평가한다. 점령자가 hunt 도중 정책을
   // 바꿔도 이 hunt 는 진입 시점 정책으로 일관. 공유 잠금은 사냥끼리는
@@ -511,6 +501,10 @@ async function runOneHuntPhased(
 
   // 적 선택만 모드화한다. 일반 사냥은 기존 깊이 카탈로그와 스케일을 그대로 쓰고,
   // 미개척지는 잠긴 character.v2의 탐사 노드에서 이미 확정한 한 개체를 사용한다.
+    const specialtyMode = !rareMapIid && depth >= 79 && depth <= MAX_FRONTIER_DEPTH
+      ? parseUnexploredHuntMode(charSave.unexploredHuntMode)
+      : ({ mode: "standard" } as const);
+    const specialtyEncounter = pickUnexploredSpecialtyEncounter(specialtyMode, Math.random);
   let enemyKey: string;
   let enemyName: string;
   let enemyMonster: import("@/adventure/data/monsters/types").Monster;
@@ -519,7 +513,7 @@ async function runOneHuntPhased(
     enemyName = unexploredHunt.runtime.monster.name;
     enemyMonster = unexploredHunt.runtime.monster;
   } else {
-    const enemy = pickRandomEnemy(enemiesForDepth(depth));
+    const enemy = specialtyEncounter?.enemy ?? pickRandomEnemy(enemiesForDepth(depth));
     if (!enemy) {
       return {
         ok: false as const,
@@ -775,6 +769,8 @@ async function runOneHuntPhased(
     dropFloor,
     depth: unexploredHunt ? MAX_FRONTIER_DEPTH : depth,
     monsterKey: enemyKey,
+    specialtyEncounter: unexploredHunt ? undefined : specialtyEncounter,
+    specialtyFocused: specialtyMode.mode === "focused",
     ownedEquip,
     mapDropMult,
     mapUniqueMult,
@@ -788,6 +784,7 @@ async function runOneHuntPhased(
   let drops = commonDropResult.drops;
   let droppedEquipments = commonDropResult.droppedEquipments;
   let droppedUniques = commonDropResult.droppedUniques;
+  const droppedSpecialties = commonDropResult.droppedSpecialties;
   let nextOwned = commonDropResult.nextOwned;
   let unexploredRewards: UnexploredHuntRewardResult | null = null;
   let unexploredQualityBonusPct = 0;
@@ -826,6 +823,7 @@ async function runOneHuntPhased(
   // 구버전 단판 응답 소비자 호환. 압축 결과 전체는 아래 plural 필드로 함께 보낸다.
   const droppedEquipment = droppedEquipments[0] ?? null;
   const droppedUnique = droppedUniques[0] ?? null;
+  const droppedSpecialty = droppedSpecialties[0] ?? null;
   const nextMaterials = mergeDrops(charSave.materials, drops);
   // equipment.v2 한 번에 기록 — owned(+드랍 개체). 굴림은 개체에 포함. 조기 lock 한 걸 한 번에 기록.
   const nextEquipment: EquipmentSave = {
@@ -1106,7 +1104,7 @@ async function runOneHuntPhased(
       source: "hunt.victory",
     });
   }
-  codexMasteryEvents.push(...huntEquipmentCodexEvents(droppedEquipments, droppedUniques));
+  codexMasteryEvents.push(...huntEquipmentCodexEvents(droppedEquipments, droppedUniques, droppedSpecialties));
   if (masteryJobId && masteryGained > 0) {
     codexMasteryEvents.push({
       category: "job",
@@ -1233,7 +1231,9 @@ async function runOneHuntPhased(
         mpCharges,
         drops,
         droppedEquipment,
+        droppedSpecialties,
         droppedUnique,
+        droppedSpecialty,
         droppedEquipments,
         droppedUniques,
         ...(unexploredHunt

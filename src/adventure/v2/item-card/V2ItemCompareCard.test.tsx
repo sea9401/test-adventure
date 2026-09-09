@@ -16,7 +16,7 @@ describe("장비 세트 표시", () => {
 });
 
 describe("EquipmentPowerPreviewBlock", () => {
-  it("현재·후보 전투력과 상승분을 함께 표시한다", () => {
+  it("현재·후보 스탯 합계와 상승분을 함께 표시한다", () => {
     const html = renderToStaticMarkup(
       <EquipmentPowerPreviewBlock
         preview={{
@@ -28,7 +28,7 @@ describe("EquipmentPowerPreviewBlock", () => {
       />,
     );
 
-    expect(html).toContain("예상 전투력");
+    expect(html).toContain("예상 스탯 합계");
     expect(html).toContain("1,234");
     expect(html).toContain("1,288");
     expect(html).toContain("▲54");

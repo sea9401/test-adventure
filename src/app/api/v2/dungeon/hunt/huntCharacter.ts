@@ -17,6 +17,7 @@ export type HuntCharacterSave = {
   atRiskGold?: number;
   lastHuntDepth?: number;
   frontierDepth?: number;
+  unexploredHuntMode?: unknown;
   lastVisitedOutpost?: { outpostId?: unknown; at?: unknown };
   tilePos?: { col?: unknown; row?: unknown; at?: unknown };
   [key: string]: unknown;

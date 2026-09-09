@@ -38,7 +38,7 @@ describe("변형 스킬 효과 설명", () => {
 
     expect(lines.some((line) => line.startsWith("피해 마법 공격력×"))).toBe(true);
     expect(lines).toContain(
-      "연소 지속피해 +1스택 (대상 행동 2회, 최대 1스택)",
+      "연소 지속피해 +1스택 · 유지 중 회복 스킬·재생 -50% (대상 행동 2회, 최대 1스택)",
     );
     expect(lines.some((line) => line.startsWith("MP "))).toBe(false);
     expect(lines.some((line) => line.startsWith("발동 "))).toBe(false);

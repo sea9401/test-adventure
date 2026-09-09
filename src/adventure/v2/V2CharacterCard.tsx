@@ -1,5 +1,7 @@
 "use client";
 
+import type { V2LiberationState } from "@/adventure/data/v2/equipmentLiberation";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -279,6 +281,7 @@ export function V2CharacterCard({
     enhance?: V2EnhanceState;
     craftQuality?: V2CraftQualityState;
     craftedBy?: V2CraftedBy;
+    liberation?: V2LiberationState;
     anchor: ItemCardAnchor;
   } | null>(null);
 
@@ -522,6 +525,7 @@ export function V2CharacterCard({
                         enhance: inst?.enhance,
                         craftQuality: inst?.craftQuality,
                         craftedBy: inst?.craftedBy,
+                        liberation: inst?.liberation,
                         anchor: anchorOf(e.currentTarget),
                       })
                     }
@@ -565,6 +569,7 @@ export function V2CharacterCard({
           enhance={selected.enhance}
           craftQuality={selected.craftQuality}
           craftedBy={selected.craftedBy}
+          liberation={selected.liberation}
           anchor={selected.anchor}
           onClose={() => setSelected(null)}
           equippedIds={equippedItemIds}

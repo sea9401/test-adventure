@@ -661,6 +661,34 @@ export function V2UnexploredTreeView({
                 <p className="text-sm leading-6 text-zinc-600 dark:text-zinc-300">
                   {selected.description}
                 </p>
+                {model.selectedPoolRewards && (
+                  <section
+                    aria-label={`${model.selectedPoolRewards.poolName} 획득 가능 아이템`}
+                    className={`${SURFACE_INSET} mt-3 space-y-2 p-3`}
+                  >
+                    <div>
+                      <h3 className="text-sm font-bold">획득 가능 아이템</h3>
+                      <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                        대상 몬스터 · {model.selectedPoolRewards.monsterNames.join(" · ")}
+                      </p>
+                    </div>
+                    <ul className="space-y-2">
+                      {model.selectedPoolRewards.items.map((item) => (
+                        <li key={item.id} className={`${SURFACE_CARD} px-3 py-2`}>
+                          <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                            {item.kind === "material" ? "전용 재료" : "전용 장비"}
+                          </p>
+                          <div className="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
+                            <strong className="text-sm">{item.name}</strong>
+                            <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                              {item.rateText}
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
                 {model.routePointPreview && (
                   <div className={`${SURFACE_INSET} mt-3 p-3 text-sm`}>
                     <p className="font-medium">

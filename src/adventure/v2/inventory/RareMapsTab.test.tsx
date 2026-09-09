@@ -18,7 +18,7 @@ describe("RareMapsTab 이벤트 소모품", () => {
     const html = renderToStaticMarkup(
       <RareMapsTab
         materials={{}}
-        spFruitUsed={{ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }}
+        spFruitUsed={{ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }}
         busy={null}
         onUseSpFruit={() => undefined}
         onUseEquipmentBox={() => undefined}
@@ -48,7 +48,7 @@ describe("RareMapsTab 이벤트 소모품", () => {
     const html = renderToStaticMarkup(
       <RareMapsTab
         materials={{}}
-        spFruitUsed={{ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }}
+        spFruitUsed={{ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }}
         busy={null}
         onUseSpFruit={() => undefined}
         onUseEquipmentBox={() => undefined}
@@ -82,7 +82,7 @@ describe("RareMapsTab 이벤트 소모품", () => {
     render(
       <RareMapsTab
         materials={{}}
-        spFruitUsed={{ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }}
+        spFruitUsed={{ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }}
         busy={null}
         onUseSpFruit={() => undefined}
         onUseEquipmentBox={() => undefined}
@@ -124,7 +124,7 @@ describe("RareMapsTab 이벤트 소모품", () => {
 });
 
 it("소모품 분류를 전환하면 일반 아이템을 숨기고 빈 요리 목록을 안내한다", () => {
-  render(<RareMapsTab materials={{}} spFruitUsed={{1:0,2:0,3:0,4:0,5:0}} busy={null}
+  render(<RareMapsTab materials={{}} spFruitUsed={{1:0,2:0,3:0,4:0,5:0,6:0}} busy={null}
     onUseSpFruit={vi.fn()} onUseEquipmentBox={vi.fn()} onUseMasteryTome={vi.fn()}
     masteryCertificates={3} onUseMasteryCertificate={vi.fn()} rareMaps={[]} cashItems={{}}
     onUseCashItem={vi.fn()} cookingFoods={{}} cookingFoodDefinitions={{}} onUseCookingFood={vi.fn()}
@@ -143,7 +143,7 @@ it("요리 필터에서도 옵션별 음식과 사용 기능을 유지한다", (
   const recipe = [...COOKING_PUBLIC_RECIPE_BY_ID.values()][0];
   const foods = [0,1].map(specialty => cookingFoodDefinition(`food2:${recipe.id}:normal:o0:s${specialty}`)!);
   const onUse = vi.fn();
-  render(<RareMapsTab materials={{}} spFruitUsed={{1:0,2:0,3:0,4:0,5:0}} busy={null}
+  render(<RareMapsTab materials={{}} spFruitUsed={{1:0,2:0,3:0,4:0,5:0,6:0}} busy={null}
     onUseSpFruit={vi.fn()} onUseEquipmentBox={vi.fn()} onUseMasteryTome={vi.fn()}
     masteryCertificates={3} onUseMasteryCertificate={vi.fn()} rareMaps={[]} cashItems={{}}
     onUseCashItem={vi.fn()} cookingFoods={Object.fromEntries(foods.map(food=>[food.id,1]))}
@@ -157,4 +157,23 @@ it("요리 필터에서도 옵션별 음식과 사용 기능을 유지한다", (
   fireEvent.click(screen.getAllByRole("button",{name:"사용"})[0]);
   expect(onUse).toHaveBeenCalledTimes(1);
   expect(foods.map(food=>food.id)).toContain(onUse.mock.calls[0][0]);
+});
+
+
+it.each([4, 5])("SP 열매 VI 사용 %i회에서 5회 한도를 표시하고 차단한다", (used) => {
+  const onUse = vi.fn();
+  render(<RareMapsTab
+    materials={{ sp_fruit_6: 1 }} spFruitUsed={{1:0,2:0,3:0,4:0,5:0,6:used}} busy={null}
+    onUseSpFruit={onUse} onUseEquipmentBox={() => undefined} onUseMasteryTome={() => undefined}
+    masteryCertificates={0} onUseMasteryCertificate={() => undefined}
+    rareMaps={[]} cashItems={{}} onUseCashItem={() => undefined}
+    cookingFoods={{}} cookingFoodDefinitions={{}} onUseCookingFood={() => undefined}
+    onUseExpTome={() => undefined} fishSpecimens={{}} registeredFishIds={[]} onUseFishSpecimen={() => undefined}
+  />);
+  expect(screen.getByText("SP 열매 VI")).toBeDefined();
+  const button = screen.getByRole("button", { name: used === 5 ? "한도 도달" : "사용" }) as HTMLButtonElement;
+  expect(button.disabled).toBe(used === 5);
+  fireEvent.click(button);
+  if (used === 4) expect(onUse).toHaveBeenCalledWith(6);
+  else expect(onUse).not.toHaveBeenCalled();
 });

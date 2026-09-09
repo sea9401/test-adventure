@@ -58,6 +58,12 @@ export type V2EquipOptions = {
   critResist?: number;
   /** 중독·출혈 등 status_damage 로 분류되는 피해 감소율. */
   statusDamageReductionPct?: number;
+  /** 기본 공격 피해 +%. 세트 보너스로만 사용한다. */
+  basicAttackDamagePct?: number;
+  /** 추가 기본 공격 피해 +%. 세트 보너스로만 사용한다. */
+  extraBasicAttackDamagePct?: number;
+  /** 상태이상 지속 피해 +%. 세트 보너스로만 사용한다. */
+  statusDotDamagePct?: number;
 };
 
 export type SignatureTrigger =

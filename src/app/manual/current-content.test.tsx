@@ -109,7 +109,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("직군과 직업 사다리");
     expect(html).toContain("숙련의 탑");
     expect(html).not.toContain("전체 직업 도감");
-    expect(html).not.toContain("141개 중 141개");
+    expect(html).not.toContain("153개 중 153개");
   });
 
   it("독립된 전체 직업 도감 문서에서 검색 가능한 전체 목록을 제공한다", () => {
@@ -118,7 +118,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(JobCodexContent).toBeTypeOf("function");
     const html = renderToStaticMarkup(<>{JobCodexContent?.()}</>);
     expect(html).toContain("전체 직업 도감");
-    expect(html).toContain("141개 중 141개");
+    expect(html).toContain("153개 중 153개");
   });
 
   it("도감 숙련의 6분야와 발견부터 전설까지의 장기 수집 단계를 안내한다", () => {
@@ -212,7 +212,7 @@ describe("최신 게임 안내서 내용", () => {
 
     expect(html).toContain("도감 숙련");
     expect(html).toContain("월간 연구");
-    expect(html).toContain("전투력 보상 없이");
+    expect(html).toContain("스탯 합계 보상 없이");
   });
 
   it("정신의 마법 공격 보조와 초과 정신 추가 전환을 안내한다", () => {

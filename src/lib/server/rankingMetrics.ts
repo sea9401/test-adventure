@@ -29,8 +29,6 @@ import { jobUnlockContextFromSaves } from "@/lib/server/jobUnlockContext";
 import { cookingLevelForXp, parseCookingState } from "@/adventure/v2/cooking/state";
 import { parseClaimed } from "@/lib/server/v2QuestContext";
 
-const FARMING_RANKING_LEVEL_CAP = 50;
-
 export type LifeMasteryRanking = {
   totalLevel: number;
   totalXp: number;
@@ -53,10 +51,7 @@ export function lifeMasteryRankingFromSaves(input: {
   const mining = parseMiningLog(input.miningRaw);
   const fishing = parseFishingProgression(input.fishingRaw);
   const cooking = parseCookingState(input.cookingRaw);
-  const farmingLevel = Math.min(
-    FARMING_RANKING_LEVEL_CAP,
-    farmingLevelForState(farm),
-  );
+  const farmingLevel = farmingLevelForState(farm);
   const woodcuttingLevel = Math.min(
     WOODCUTTING_LEVEL_CAP,
     woodcuttingProgressionView(woodcutting.cuts, woodcutting.xp).level,

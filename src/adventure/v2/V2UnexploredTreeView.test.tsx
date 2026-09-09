@@ -148,6 +148,46 @@ describe("V2UnexploredTreeView", () => {
     expect(screen.queryByText(/최단 경로 · 탐사 포인트/)).toBeNull();
   });
 
+  it("특화 노드를 선택하면 연결 몬스터와 획득 가능한 전용 아이템을 표시한다", () => {
+    const { container } = render(
+      <V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />,
+    );
+
+    fireEvent.click(
+      container.querySelector('[data-unexplored-node="pool-iron_legion"]')!,
+    );
+
+    const rewards = screen.getByRole("region", {
+      name: "철갑 군단 획득 가능 아이템",
+    });
+    expect(
+      within(rewards).getByText(
+        "대상 몬스터 · 철갑 방패병 · 철갑 창병 · 철갑 파쇄병",
+      ),
+    ).toBeTruthy();
+    expect(within(rewards).getByText("강화 철편")).toBeTruthy();
+    expect(within(rewards).getByText("기본 1% · 집중 1.5%")).toBeTruthy();
+    expect(within(rewards).getByText("철성 파쇄검")).toBeTruthy();
+    expect(within(rewards).getByText("기본 0.1% · 집중 0.2%")).toBeTruthy();
+  });
+
+  it("전용 장비가 없는 특화 노드는 실제 획득 가능한 재료만 표시한다", () => {
+    const { container } = render(
+      <V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />,
+    );
+
+    fireEvent.click(
+      container.querySelector('[data-unexplored-node="pool-runaway_machines"]')!,
+    );
+
+    const rewards = screen.getByRole("region", {
+      name: "폭주 기계 획득 가능 아이템",
+    });
+    expect(within(rewards).getByText("과열 동력핵")).toBeTruthy();
+    expect(within(rewards).queryByText("철성 파쇄검")).toBeNull();
+    expect(within(rewards).queryByText("전용 장비")).toBeNull();
+  });
+
   it("흔적 보관함에서 획득 해금 조건과 대상 몬스터를 안내한다", () => {
     const html = renderToStaticMarkup(
       <V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />,

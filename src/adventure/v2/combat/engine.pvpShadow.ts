@@ -1,10 +1,10 @@
-import type { PvPBattleState } from "./engine.pvpState";
-import { setSide } from "./engine.pvpSide";
-import { appendLog } from "./engineSupport";
 import { recordCombatDamage } from "./combatDiagnostics";
-import { releaseSwordShadow } from "./shadowBladeCombat";
+import { setSide } from "./engine.pvpSide";
+import { type PvPBattleState } from "./engine.pvpState";
+import { appendLog } from "./engineSupport";
+import { appendPvPSurvivalLogs, resolvePvPHostileDamageSurvival } from "./pvpHostileDamage";
 import { recordChargeHpLoss } from "./ruinBladeCombat";
-import { resolvePvPHostileDamageSurvival, appendPvPSurvivalLogs } from "./pvpHostileDamage";
+import { releaseSwordShadow } from "./shadowBladeCombat";
 
 export function releaseSwordShadowAfterPvPAction(
   state: PvPBattleState,
@@ -33,6 +33,11 @@ export function releaseSwordShadowAfterPvPAction(
       stacks: {
         ...actor.stacks,
         playerShield: actor.stacks.playerShield - shieldAbsorbed,
+        ...(actor.stacks.unexplored ? { unexplored: {
+          ...actor.stacks.unexplored,
+          // Independent shadow damage still consumes the last-priority shield pool.
+          afterimageShield: Math.min(actor.stacks.unexplored.afterimageShield, actor.stacks.playerShield - shieldAbsorbed),
+        } } : {}),
       },
     },
     actor.hp - hpDamage,

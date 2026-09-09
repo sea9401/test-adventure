@@ -17,7 +17,7 @@ import {
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 import { resolveElementalResonanceLoadout } from "@/adventure/data/v2/elementalResonance";
-import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { SURFACE_ACCENT, SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   DUELIST_STANCE_BONUS_PCT,
   composeDuelistDeclaration,
@@ -972,7 +972,7 @@ export function V2LoadoutPanel({
                     key={s.skillId}
                     data-equipped-drop-id={s.skillId}
                     className={`ui-lift-card relative inline-flex min-h-11 sm:h-8 max-w-full shrink-0 items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-1.5 text-xs font-medium text-violet-800 sm:max-w-44 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200 ${
-                      draggingId === s.skillId ? "opacity-55" : ""
+                      draggingId === s.skillId ? "ring-2 ring-sky-500" : ""
                     }`}
                   >
                     {dropTarget?.kind === "equipped" &&
@@ -1340,9 +1340,8 @@ export function V2LoadoutPanel({
                   s.skillId as V2SkillId,
                 ) ?? s.spCost
               : s.spCost;
-            const kindClass = passive
-              ? "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300"
-              : "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300";
+            const kindClass =
+              "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300";
             const heading = (
               <span className="flex min-w-0 items-center gap-1.5">
                 {favorite && (
@@ -1357,6 +1356,11 @@ export function V2LoadoutPanel({
                     className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${kindClass}`}
                   >
                     {kindLabel}
+                  </span>
+                )}
+                {!lifestyle && (
+                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${equipped ? "bg-amber-700 text-white dark:bg-amber-400 dark:text-zinc-950" : "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"}`}>
+                    {equipped ? "✓ 장착 중" : "미장착"}
                   </span>
                 )}
                 <span className="min-w-0 truncate text-sm font-semibold">
@@ -1395,11 +1399,15 @@ export function V2LoadoutPanel({
               <li
                 key={s.skillId}
                 data-skill-drop-id={s.skillId}
-                className={`ui-skill-card ${SURFACE_CARD} ${
+                data-equipped={equipped}
+                data-expanded={expanded}
+                className={`ui-skill-card ${
                   passive ? "ui-skill-card--passive" : "ui-skill-card--active"
-                } ${equipped ? "ui-skill-card--equipped ring-1 ring-violet-300 dark:ring-violet-700" : ""} relative overflow-hidden rounded-md transition-colors ${
-                  draggingId === s.skillId ? "opacity-55" : ""
-                }`}
+                } ${equipped ? "ui-skill-card--equipped" : ""} relative overflow-hidden rounded-md border transition-colors ${
+                  equipped
+                    ? SURFACE_ACCENT
+                    : SURFACE_CARD
+                } ${draggingId === s.skillId ? "ring-2 ring-sky-500" : ""}`}
               >
                 {dropTarget?.kind === "library" &&
                   dropTarget.skillId === s.skillId && (
@@ -1476,7 +1484,7 @@ export function V2LoadoutPanel({
                       aria-expanded={expanded}
                       aria-controls={detailId}
                       aria-label={`${s.name} 효과 ${expanded ? "접기" : "펼치기"}`}
-                      className="flex min-w-0 items-center gap-2 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                      className="flex min-w-0 items-center gap-2 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
                     >
                       <span className="min-w-0 flex-1">
                         {heading}
@@ -1516,7 +1524,7 @@ export function V2LoadoutPanel({
                       skillId={s.skillId as V2SkillId}
                       skillName={s.name}
                       onOpen={setDetailSkillId}
-                      className="flex min-w-0 flex-col rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                      className="flex min-w-0 flex-col rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
                     >
                       {heading}
                       {viewMode === "detailed" && (
@@ -1558,7 +1566,7 @@ export function V2LoadoutPanel({
                         onClick={() => toggle(s.skillId)}
                         disabled={busy}
                         aria-label={`${s.name} 해제`}
-                        className="h-11 w-full whitespace-nowrap rounded-md border border-violet-500 bg-violet-100 px-2 text-xs font-medium text-violet-700 hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-50 sm:h-8 dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-900"
+                        className="h-11 w-full whitespace-nowrap rounded-md border border-amber-600 bg-amber-100 px-2 text-xs font-medium text-amber-800 hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-50 sm:h-8 dark:border-amber-500 dark:bg-amber-900 dark:text-amber-100 dark:hover:bg-amber-800"
                       >
                         해제
                       </button>
@@ -1568,7 +1576,7 @@ export function V2LoadoutPanel({
                         onClick={() => toggle(s.skillId)}
                         disabled={busy || !wouldFit}
                         aria-label={`${s.name} 장착`}
-                        className="h-11 w-full whitespace-nowrap rounded-md border border-emerald-600 bg-emerald-600 px-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:h-8"
+                        className="h-11 w-full whitespace-nowrap rounded-md border border-zinc-300 bg-white px-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 sm:h-8 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                       >
                         {!wouldFit ? "SP 부족" : "장착"}
                       </button>

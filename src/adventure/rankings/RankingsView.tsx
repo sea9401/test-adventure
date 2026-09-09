@@ -37,7 +37,7 @@ import {
 } from "./useRankings";
 
 const TABS: { key: RankingMetric; label: string }[] = [
-  { key: "combatPower", label: "전투력" },
+  { key: "combatPower", label: "스탯 합계" },
   { key: "masteryTower", label: "숙련의 탑" },
   { key: "achievementScore", label: "업적" },
   { key: "level", label: "숙련도" },
@@ -478,7 +478,7 @@ function RankingRow({
         {metric === "level" ? (
           <>숙련도 {entry.cumLevel.toLocaleString()}</>
         ) : metric === "combatPower" ? (
-          <>전투력 {entry.combatPower.toLocaleString()}</>
+          <>스탯 합계 {entry.combatPower.toLocaleString()}</>
         ) : metric === "lifeMastery" ? (
           <>생활 Lv.{entry.lifeMastery.toLocaleString()}</>
         ) : metric === "codexCompletion" ? (

@@ -1,107 +1,44 @@
-import { combatRandom } from "./combatRandom";
-import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
-import {
-  actorKeys,
-  applyTrackedSetShieldAbsorptionPvP,
-  applyOnHitReflect,
-  applyPerAttackDodge,
-  applyPotionTo,
-  applyPvPOnHitDots,
-  applyShadowStepDodge,
-  attackerFacingDef,
-  decrementTimedEffects,
-  endAttackerPhase,
-  effectivePvPAccuracyRating,
-  finishPvPBerserkerAttackAction,
-  maybeApplyRuneCounter,
-  maybeApplyMartialCounter,
-  releaseSwordShadowAfterPvPAction,
-  rollPvPAttackCount,
-  setSide,
-} from "./engine.pvpOperations";
-import { applyBerserkerHostileDamagePvP } from "./pvpHostileDamage";
-import { pvpSideDamageTakenReductionPct } from "./pvpDamageReduction";
-import {
-  type PvPAttackDamageResult,
-  type PvPBattleState,
-  type PvPPhaseEndOptions,
-  type PvPSide,
-  type PvPSideBuffs,
-} from "./engine.pvpState";
-import { scalePvPDamage, scalePvPHealing } from "./engine.pvpScaling";
-import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
-import {
-  applyV2DotsToTarget,
-  distributeBoostedHits,
-  extractApEffect,
-  makePoisonDot,
-  healingAfterReceivedMultiplier,
-  v2AtkBuffMult,
-  v2DefBuffMult,
-} from "./combatShared";
-import {
-  everyNHitsEffect,
-  formatDefDebuffLog,
-  firesOnCritPoison,
-  formatChillSlowLog,
-  formatShockAppliedLog,
-  healToShield,
-  onCritEnemyDefDebuff,
-  onCritEnemyChill,
-  onCritSpeedBuff,
-  onHitTakenDefGain,
-  rollOnHitBleed,
-  rollOnHitPoison,
-  rollOnHitShock,
-  statusBlockOnce,
-  SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
-  SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
-} from "./signatureEffects";
-import { canApplyShock } from "./shockAction";
-import { weightSpeedMultiplier } from "./mutationCombat";
-import { appendLog } from "./engineSupport";
-import { damageBetween } from "./combatShared";
-import { type EquippedAPSkill, type PlayerAction } from "./engineState";
-import {
-  applyDefIgnore,
-  computeAfterCrush,
-  computeBalanceCritBonus,
-  computeBerserkBonus,
-  computeCritOverflowBonus,
-  computeStormBonus,
-  resolveCriticalChanceAfterResistance,
-} from "./engine.damageHelpers";
 import { CRIT_PCT_CAP } from "@/adventure/data/stats";
 import {
-  CRIT_MULT_BASE,
-  ETERNAL_GALE_ABSOLUTE_CAP,
-  GALE_CHAIN_MAX_PER_TURN,
-  HEAVEN_DECREE_HP_PCT,
-  IMPACT_WAVE_INTERVAL,
-  LUCKY_STAR_DAMAGE_MULT,
-  POWER_ATTACK_TURN_INTERVAL,
-  applyEvasionDamageReduction,
-  pvpEvasionDamageReductionPct,
+applyEvasionDamageReduction,
+CRIT_MULT_BASE,
+ETERNAL_GALE_ABSOLUTE_CAP,
+GALE_CHAIN_MAX_PER_TURN,
+HEAVEN_DECREE_HP_PCT,
+IMPACT_WAVE_INTERVAL,
+LUCKY_STAR_DAMAGE_MULT,
+POWER_ATTACK_TURN_INTERVAL,
+pvpEvasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
+import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
+import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
+import { combatRandom } from "./combatRandom";
+import { applyV2DotsToTarget, damageBetween, extractApEffect, healingAfterReceivedMultiplier, v2AtkBuffMult, v2DefBuffMult } from "./combatShared";
+import { distributeBoostedHits } from "./hitDistribution";
+import { consumeDuelistBasicHit, duelistDeclarationProgress, interruptDuelistRamp, type DuelistBasicHitModifiers } from "./duelistCombat";
+import { applyDefIgnore, computeAfterCrush, computeBalanceCritBonus, computeBerserkBonus, computeCritOverflowBonus, computeStormBonus, resolveCriticalChanceAfterResistance } from "./engine.damageHelpers";
+import { actorKeys, setSide } from "./engine.pvpSide";
+import { applyOnHitReflect, applyPerAttackDodge, applyPotionTo, applyPvPOnHitDots, applyShadowStepDodge, applyTrackedSetShieldAbsorptionPvP, endAttackerPhase, finishPvPBerserkerAttackAction, maybeApplyRuneCounter } from "./engine.pvpOperations";
+import { attackerFacingDef, decrementTimedEffects, effectivePvPAccuracyRating, rollPvPAttackCount } from "./engine.pvpStats";
+import { maybeApplyMartialCounter } from "./engine.pvpCounter";
+import { releaseSwordShadowAfterPvPAction } from "./engine.pvpShadow";
+import { scalePvPDamage, scalePvPHealing } from "./engine.pvpScaling";
+import { type PvPAttackDamageResult, type PvPBattleState, type PvPPhaseEndOptions, type PvPSide, type PvPSideBuffs } from "./engine.pvpState";
+import { type EquippedAPSkill, type PlayerAction } from "./engineState";
+import { appendLog } from "./engineSupport";
 import { magicBarrierCombatLogEntries, resolveMagicBarrierDamage } from "./magicBarrier";
-import {
-  applyTier6UniquePvpEvent,
-  tier6PvpDotContext,
-  tier6PvpStatusKindCount,
-} from "./tier6UniquePvpAdapter";
-import {
-  consumeDuelistBasicHit,
-  duelistDeclarationProgress,
-  interruptDuelistRamp,
-  type DuelistBasicHitModifiers,
-} from "./duelistCombat";
-import {
-  consumePurificationWard,
-  resolveTripleWardDamage,
-  TRIPLE_WARD_LABELS,
-  tripleWardStabilityReductionPct,
-} from "./tripleWard";
+import { weightSpeedMultiplier } from "./mutationCombat";
+import { applyNextAttackDamageDown, consumeNextAttackDamageDown, paragonBasicBonus } from "./paragonCombat";
+import { makePlayerPoisonDot } from "./playerDotDamage";
+import { pvpSideDamageTakenReductionPct } from "./pvpDamageReduction";
+import { applyBerserkerHostileDamagePvP } from "./pvpHostileDamage";
 import { recordChargeHpLoss } from "./ruinBladeCombat";
+import { canApplyShock } from "./shockAction";
+import { everyNHitsEffect, firesOnCritPoison, formatChillSlowLog, formatDefDebuffLog, formatShockAppliedLog, healToShield, onCritEnemyChill, onCritEnemyDefDebuff, onCritSpeedBuff, onHitTakenDefGain, rollOnHitBleed, rollOnHitPoison, rollOnHitShock, SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK, SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK, statusBlockOnce } from "./signatureEffects";
+import { applyTier6UniquePvpEvent, tier6PvpDotContext, tier6PvpStatusKindCount } from "./tier6UniquePvpAdapter";
+import { consumePurificationWard, resolveTripleWardDamage, TRIPLE_WARD_LABELS, tripleWardStabilityReductionPct } from "./tripleWard";
+import { type UnexploredAttackContext } from "./unexploredSetEffects";
+import { beginUnexploredAttackPvP, finishUnexploredActionPvP, finishUnexploredAttackPvP, recordUnexploredHitPvP, unexploredDefensePvP, unyieldingDamagePvP } from "./unexploredSetPvpAdapter";
 
 // 평타 1회 데미지 캐스케이드 (engine.ts computeAttackDamage 의 PvP 미러).
 // 암살/분쇄/방어관통 → ATK 보너스 → 크리 → 베이스뎀 → 처형·크리·행운별·암살 배수 →
@@ -119,6 +56,7 @@ function computeAttackDamagePvP(
   apHits: number,
   apIgnoresDef: boolean,
   duelistModifiers: DuelistBasicHitModifiers,
+  attackContext: UnexploredAttackContext,
 ): PvPAttackDamageResult {
   // 암살 (특기) — 전투 첫 공격 시 1회, DEF 무시 + 데미지 배수.
   const assassinFires =
@@ -266,15 +204,16 @@ function computeAttackDamagePvP(
   const v2EffectiveAtk = v2AtkMultAttacker !== 1
     ? Math.floor(baseAtkWithAnalysis * v2AtkMultAttacker)
     : baseAtkWithAnalysis;
-  const v2EffectiveTargetDef = v2DefMultDefender !== 1
+  const selectedTargetDef = v2DefMultDefender !== 1
     ? Math.floor(targetDef * v2DefMultDefender)
     : targetDef;
+  const v2EffectiveTargetDef = unexploredDefensePvP(selectedTargetDef, attacker, attackContext);
   // AP 스킬의 atk_multiplier 는 모든 ATK 합산 후 곱.
   const atkForDmg =
     apAtkMult !== 1
       ? Math.floor(v2EffectiveAtk * apAtkMult)
       : v2EffectiveAtk;
-  const baseDmgSingleHit = damageBetween(atkForDmg, v2EffectiveTargetDef);
+  const baseDmgSingleHit = damageBetween(atkForDmg + paragonBasicBonus(attacker.player, v2EffectiveAtk, duelistModifiers), v2EffectiveTargetDef);
   // 광살참 (AP) — 같은 fire 에서 hits 번 반복. apHits=1 이면 그대로.
   const baseDmgBeforeDuelist = apHits > 1 ? baseDmgSingleHit * apHits : baseDmgSingleHit;
   const stanceDmg = (attacker.player.duelistStanceBonusPct ?? 0) > 0
@@ -340,24 +279,43 @@ function computeAttackDamagePvP(
           Math.floor(totalDmgBeforeVuln * (1 + attacker.stacks.enemyVulnPct / 100)),
         )
       : totalDmgBeforeVuln;
-  const totalDmg =
+  const timedDamageDown =
     attacker.stacks.damageDownTurns > 0 && attacker.stacks.damageDownPct > 0
       ? Math.max(
           1,
           Math.floor(totalDmgAfterVuln * (1 - attacker.stacks.damageDownPct / 100)),
         )
       : totalDmgAfterVuln;
+  const totalDmg = applyNextAttackDamageDown(timedDamageDown, attacker.stacks.nextAttackDamageDownPct);
   const fixedDamage = decreeDmg + impactDmg + stormBonus;
-  const [manaShieldEligibleDmg, manaShieldBypassDmg] = distributeBoostedHits(
-    [executionActive ? 0 : dmg, (executionActive ? dmg : 0) + fixedDamage],
+  // Preserve the existing integer allocation after vulnerability/damage down;
+  // execution bypasses durability without turning its direct body into fixed damage.
+  const [directDmg, independentDmg] = distributeBoostedHits(
+    [dmg, fixedDamage],
     totalDmg,
   );
+  const manaShieldEligibleDmg = executionActive ? 0 : directDmg;
+  const manaShieldBypassDmg = independentDmg + (executionActive ? directDmg : 0);
   return {
-    assassinFires, critRoll, crushReduction, cyclingChiThisTurn, decreeFires, dmg, enduringStrikeBonus, executionActive, fatedChainConsumed, focusedBreathConsumed, impactFires, luckyStarFires, manaShieldBypassDmg, manaShieldEligibleDmg, totalDmg, weakpointDefIgnore,
+    assassinFires, critRoll, crushReduction, cyclingChiThisTurn, decreeFires, dmg, directDmg, enduringStrikeBonus, executionActive, fatedChainConsumed, focusedBreathConsumed, impactFires, luckyStarFires, manaShieldBypassDmg, manaShieldEligibleDmg, totalDmg, weakpointDefIgnore,
   };
 }
 
 export function advanceTurnPvP(
+  state: PvPBattleState,
+  action: PlayerAction = { kind: "attack" },
+  options: PvPPhaseEndOptions = {},
+): PvPBattleState {
+  if (state.phase === "ended") return state;
+  const actor = state.phase;
+  const next = advanceTurnPvPBody(state, action, options);
+  // A normal phase exit already completes its action. Direct lethal hits return before that exit.
+  return next.phase === "ended" && !options.embeddedBasic &&
+    next[actor].turn.completedPlayerTurns === state[actor].turn.completedPlayerTurns
+    ? finishUnexploredActionPvP(next, actor, actor === "p1" ? "p2" : "p1") : next;
+}
+
+function advanceTurnPvPBody(
   state: PvPBattleState,
   action: PlayerAction = { kind: "attack" },
   phaseEndOptions: PvPPhaseEndOptions = {},
@@ -369,7 +327,7 @@ export function advanceTurnPvP(
   // turn 1 (completedPlayerTurns=0) 은 가드 — 발동된 적 없음. endAttackerPhase 가 다음 공격자의
   // attacksLeft 에 rollAttackCount + nextTurnAttackBonus 만 더해두므로 큐 소비는 여기서.
   if (
-    state[atkKey].turn.firstAttackPending &&
+    !phaseEndOptions.embeddedBasic && state[atkKey].turn.firstAttackPending &&
     state[atkKey].turn.completedPlayerTurns > 0
   ) {
     const a = state[atkKey];
@@ -403,7 +361,11 @@ export function advanceTurnPvP(
 
   // 강공격 — POWER_ATTACK_TURN_INTERVAL 턴마다 첫 공격에 ATK + powerAttackBonus.
   const turnNumber = attacker.turn.completedPlayerTurns + 1;
-  const isFirstAttackOfTurn = attacker.turn.firstAttackPending;
+  const isFirstAttackOfTurn = !phaseEndOptions.embeddedBasic && attacker.turn.firstAttackPending;
+  const unexploredAttack = beginUnexploredAttackPvP(state, atkKey,
+    phaseEndOptions.basicOrigin ?? (isFirstAttackOfTurn ? "manual_basic" : "extra_basic"));
+  state = unexploredAttack.state;
+  attacker = state[atkKey];
   if (isFirstAttackOfTurn && attacker.stacks.tier6Uniques) {
     state = applyTier6UniquePvpEvent(state, atkKey, defKey, {
       kind: "action_start",
@@ -479,8 +441,8 @@ export function advanceTurnPvP(
     });
     const nextAttacker: PvPSide = {
       ...attacker,
-      attacksLeft: attacker.attacksLeft - 1,
-      turn: { ...attacker.turn, firstAttackPending: false },
+      attacksLeft: attacker.attacksLeft - (phaseEndOptions.embeddedBasic ? 0 : 1),
+      turn: phaseEndOptions.embeddedBasic ? attacker.turn : { ...attacker.turn, firstAttackPending: false },
     };
     const nextDefender: PvPSide = {
       ...defender,
@@ -494,7 +456,7 @@ export function advanceTurnPvP(
       defKey,
       nextDefender,
     );
-    if (nextAttacker.attacksLeft > 0) return nextSt;
+    if (phaseEndOptions.embeddedBasic || nextAttacker.attacksLeft > 0) return nextSt;
     return endAttackerPhase(nextSt, atkKey, defKey, phaseEndOptions);
   }
 
@@ -569,7 +531,7 @@ export function advanceTurnPvP(
   // dodge cascade 직후이라 — 회피된 공격에는 AP 가 발동 안 하니 위에서 이미 return 된 상태.
   const nextBuffsTimedFromAp = attacker.buffs;
 
-  const { assassinFires, critRoll, crushReduction, cyclingChiThisTurn, decreeFires, dmg: dmgBeforeEvasion, enduringStrikeBonus, executionActive, fatedChainConsumed, focusedBreathConsumed, impactFires, luckyStarFires, manaShieldBypassDmg, manaShieldEligibleDmg, totalDmg: totalDmgBeforeEvasion, weakpointDefIgnore } = computeAttackDamagePvP(
+  const { assassinFires, critRoll, crushReduction, cyclingChiThisTurn, decreeFires, dmg: dmgBeforeEvasion, directDmg, enduringStrikeBonus, executionActive, fatedChainConsumed, focusedBreathConsumed, impactFires, luckyStarFires, manaShieldBypassDmg, manaShieldEligibleDmg, totalDmg: totalDmgBeforeEvasion, weakpointDefIgnore } = computeAttackDamagePvP(
     attacker,
     defender,
     powerBonus,
@@ -581,12 +543,22 @@ export function advanceTurnPvP(
     apHits,
     apIgnoresDef,
     consumedDuelist.modifiers,
+    unexploredAttack.context,
   );
-  const dmg = applyEvasionDamageReduction(
+  const basicDamageMult = phaseEndOptions.basicDamageMult ?? (1 + (
+    unexploredAttack.context.kind === "manual_basic"
+      ? attacker.player.basicAttackDamagePct ?? 0 : attacker.player.extraBasicAttackDamagePct ?? 0
+  ) / 100);
+  const finalDirectMult = basicDamageMult * unexploredAttack.damageMult;
+  const dmg = Math.floor(applyEvasionDamageReduction(
     dmgBeforeEvasion,
     evasionReductionPct,
-  );
+  ) * finalDirectMult + 1e-9);
+  let evasionPreventedDamage = 0;
+  let mitigatedDirectBodyDamage = 0;
   let totalDmg = 0;
+  let damageBeforeSetEffects = 0;
+  let damageAfterUnyielding = 0;
   const labels: string[] = [];
   if (powerBonus > 0) labels.push("강공격");
   if (powerBonus > 0 && crushReduction > 0) labels.push("분쇄");
@@ -642,15 +614,25 @@ export function advanceTurnPvP(
         bodyAndBypassDamage,
         evasionReductionPct,
       );
+      damageBeforeSetEffects = totalDmg;
+      // Mana durability partitions raw damage first. Independent fixed damage stays outside set effects.
+      const bodyDirectRaw = executionActive ? directDmg : bodyRawDamage;
+      const directAfterEvasion = applyEvasionDamageReduction(bodyDirectRaw, evasionReductionPct);
+      evasionPreventedDamage = Math.max(0, bodyDirectRaw - directAfterEvasion);
+      const boostedDirect = Math.floor(directAfterEvasion * finalDirectMult + 1e-9);
+      const reducedDirect = unyieldingDamagePvP(defender, boostedDirect);
+      const independent = totalDmg - directAfterEvasion;
+      totalDmg = independent + boostedDirect;
+      damageAfterUnyielding = independent + reducedDirect;
       dmgAfterResolve = resolveReductionActive
         ? Math.max(
             1,
             Math.floor(
-              totalDmg *
+              damageAfterUnyielding *
                 (1 - defender.buffs.playerDmgReductionPct / 100),
             ),
           )
-        : totalDmg;
+        : damageAfterUnyielding;
       enduredDmg =
         endurePct > 0
           ? Math.max(
@@ -690,10 +672,16 @@ export function advanceTurnPvP(
           : wardReduced;
       afterSteadfast =
         steadfastFlat > 0 ? Math.max(0, guarded - steadfastFlat) : guarded;
-      return scalePvPDamage(state, afterSteadfast);
+      const mitigatedBodyDamage = scalePvPDamage(state, afterSteadfast);
+      // Allocate integers before shield/survival, multiplying before dividing so
+      // an exact 50/97 direct partition cannot round down to 49.
+      [mitigatedDirectBodyDamage] = distributeBoostedHits(
+        [reducedDirect, independent], mitigatedBodyDamage,
+      );
+      return mitigatedBodyDamage;
     },
   });
-  const resolveApplied = dmgAfterResolve < totalDmg;
+  const resolveApplied = dmgAfterResolve < damageAfterUnyielding;
   const endureApplied = enduredDmg < dmgAfterResolve;
   const passiveReduceApplied = passiveReduced < enduredDmg;
   const guardApplied = guarded < wardReduced;
@@ -724,6 +712,12 @@ export function advanceTurnPvP(
     ? 1
     : defenderAfterSurvival.hp;
   if (enduranceFires) recordCombatMetric("survival_restoration", "endurance", defKey, 1);
+  // Durability spill belongs to the eligible direct body, not independent damage.
+  // Ordinary shields absorb the direct partition first; survival bounds actual HP loss.
+  const directHpDamage = Math.max(0, Math.min(
+    defender.hp - defenderHpAfterDmg,
+    mitigatedDirectBodyDamage + magicBarrier.spillDamage - shieldAbsorbed,
+  ));
   // 흡혈 갑옷 — 받은 HP 피해의 N% HP 회복 (생존 시).
   const bloodfeastPct = defender.player.bloodfeastPct ?? 0;
   const bloodfeastHeal =
@@ -761,16 +755,16 @@ export function advanceTurnPvP(
   const braceDefDelta = nextBraceDefBonus - prevBraceDefBonus;
   // ── 로그 — 결의 → 가드 → 굳건한 의지 → 철벽 → 본타 → 불굴 → 흡혈 갑옷 → 이중 행운 → 흡혈 ──
   let log = state.log;
-  if (totalDmg < totalDmgBeforeEvasion) {
+  if (damageBeforeSetEffects < totalDmgBeforeEvasion) {
     log = appendLog(log, {
       kind: "info",
-      text: `[회피 경감 ${evasionReductionPct.toFixed(1)}%] ${defender.name} 피해 -${totalDmgBeforeEvasion - totalDmg}`,
+      text: `[회피 경감 ${evasionReductionPct.toFixed(1)}%] ${defender.name} 피해 -${totalDmgBeforeEvasion - damageBeforeSetEffects}`,
     });
   }
   if (resolveApplied) {
     log = appendLog(log, {
       kind: "info",
-      text: `[결의] ${defender.name} 피해 -${totalDmg - dmgAfterResolve}`,
+      text: `[결의] ${defender.name} 피해 -${damageAfterUnyielding - dmgAfterResolve}`,
     });
   }
   if (endureApplied) {
@@ -1129,6 +1123,7 @@ export function advanceTurnPvP(
   const sigEveryN = sigEvery?.hits ?? 0;
   const signatureBonusAttacksLeft = attacker.stacks.signatureBonusAttacksLeft;
   const isSignatureBonusAttack =
+    !phaseEndOptions.embeddedBasic &&
     signatureBonusAttacksLeft > 0 &&
     attacker.attacksLeft <= signatureBonusAttacksLeft;
   const nextSigHitCount =
@@ -1317,6 +1312,7 @@ export function advanceTurnPvP(
     buffs: nextBuffsTimed,
     stacks: {
       ...attacker.stacks,
+      ...consumeNextAttackDamageDown(attacker.stacks, true),
       playerShield: attacker.stacks.playerShield + attackerHealShieldAmount,
       evadesRemaining: attacker.stacks.evadesRemaining + apEvadesAdd,
       weakpointDefIgnoreLeft: newWeakpointLeft,
@@ -1361,23 +1357,21 @@ export function advanceTurnPvP(
       ? applyV2DotsToTarget(defender.v2Dots, [
           ...(sigCritPoison
             ? [
-                makePoisonDot({
+                makePlayerPoisonDot({
                   stacks: 1,
                   pctMaxHpPerStack: SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
-                  sourceAtk: attacker.player.atk,
-                }),
+                }, attacker.player),
               ]
             : []),
           ...(sigHitPoison
             ? [
-                makePoisonDot({
+                makePlayerPoisonDot({
                   stacks: sigHitPoison.stacks,
                   pctMaxHpPerStack: SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
-                  sourceAtk: attacker.player.atk,
-                }),
+                }, attacker.player),
               ]
             : []),
-        ])
+        ], defender.maxHp)
       : defender.v2Dots,
     hp: newDefenderHp,
     magicBarrier: magicBarrier.durabilityLeft,
@@ -1423,7 +1417,12 @@ export function advanceTurnPvP(
     shieldAbsorbed,
     defender.stacks.playerShield,
   );
-  const newDefender = trackedShieldBreak.side;
+  const newDefender = recordUnexploredHitPvP(trackedShieldBreak.side, {
+    rawDirectDamage: dmgBeforeEvasion, damageAfterEvasion: dmg,
+    evasionPreventedDamage, shieldAbsorbed,
+    hpDamage: directHpDamage,
+    fullyEvaded: false,
+  });
   if (trackedShieldBreak.triggered) {
     log = appendLog(log, {
       kind: "info",
@@ -1438,6 +1437,9 @@ export function advanceTurnPvP(
     defKey,
     newDefender,
   );
+  next = finishUnexploredAttackPvP(next, atkKey, defKey, {
+    ...unexploredAttack.context, hit: dmg > 0, anyCrit: critRoll,
+  }, directHpDamage);
   if (
     newDefender.stacks.tier6Uniques &&
     defender.stacks.playerShield > 0 &&
@@ -1537,6 +1539,11 @@ export function advanceTurnPvP(
     atkKey,
     attacker.berserker,
   );
+  if (phaseEndOptions.embeddedBasic) {
+    return setSide(next, atkKey, { ...next[atkKey],
+      attacksLeft: next[atkKey].attacksLeft + weakpointAdd + comboExtraAttacks + sigExtraAttack,
+    });
+  }
   // 남은 공격 횟수 — 연환격(comboExtraAttacks) 도 포함.
   const attacksLeft =
     next[atkKey].attacksLeft - 1 +

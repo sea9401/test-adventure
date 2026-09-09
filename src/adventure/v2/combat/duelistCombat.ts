@@ -13,6 +13,7 @@ export const DUELIST_DECLARATION_IDS = [
   "v2c_contender_insight",
   "v2c_undefeated_momentum",
   "v2c_grandchampion_hour",
+  "v2c_paragon_form",
 ] as const satisfies readonly V2SkillId[];
 
 export type DuelistDeclarationId = (typeof DUELIST_DECLARATION_IDS)[number];
@@ -71,6 +72,8 @@ export type DuelistBuff = {
   landedBasicHits: number;
   basicCritMultAdd: number;
   basicCritChanceCap: number;
+  basicAllStatCoef?: number;
+  basicAllStatAtkCapPct?: number;
 };
 
 export function isDuelistDeclarationId(id: string): id is DuelistDeclarationId {
@@ -113,6 +116,7 @@ export function composeDuelistDeclaration(
     declarationName: definition.name,
     chainCount: DUELIST_DECLARATION_IDS.filter((id) => equipped.has(id)).length,
     remainingBasicHits: hits,
+    ...(definition.duelistDeclaration?.basicAllStatCoef ? { basicAllStatCoef: definition.duelistDeclaration.basicAllStatCoef, basicAllStatAtkCapPct: definition.duelistDeclaration.basicAllStatAtkCapPct } : {}),
     basicDamagePct: declarations.reduce(
       (sum, declaration) => sum + (declaration.basicDamagePct ?? 0),
       0,
@@ -148,6 +152,8 @@ export type DuelistBasicHitModifiers = {
   rampDamagePct: number;
   basicCritMultAdd: number;
   basicCritChanceCap: number;
+  basicAllStatCoef?: number;
+  basicAllStatAtkCapPct?: number;
 };
 
 export function consumeDuelistBasicHit(buff: DuelistBuff): {
@@ -155,6 +161,7 @@ export function consumeDuelistBasicHit(buff: DuelistBuff): {
   buff: DuelistBuff | null;
 } {
   const modifiers = {
+    ...(buff.basicAllStatCoef ? { basicAllStatCoef: buff.basicAllStatCoef, basicAllStatAtkCapPct: buff.basicAllStatAtkCapPct } : {}),
     basicDamagePct: buff.basicDamagePct,
     basicCritChancePct: buff.basicCritChancePct,
     basicDefPenetrationPct: buff.basicDefPenetrationPct,
@@ -194,6 +201,7 @@ export function consumeDuelistCritHaste(
 
 export function duelistDeclarationSummary(buff: DuelistBuff): string {
   const effects: string[] = [];
+  if (buff.basicAllStatCoef) effects.push(`모든 능력치 합계 ×${buff.basicAllStatCoef} 추가 피해 (공격력 ${buff.basicAllStatAtkCapPct}% 상한)`);
   if (buff.basicDamagePct) effects.push(`평타 피해 +${buff.basicDamagePct}%`);
   if (buff.basicCritChancePct) effects.push(`평타 치명 +${buff.basicCritChancePct}%p`);
   if (buff.basicDefPenetrationPct) effects.push(`평타 방어 관통 +${buff.basicDefPenetrationPct}%p`);

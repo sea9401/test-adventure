@@ -15,7 +15,6 @@ import {
   RARE_MAP_KINDS,
   type RareMapInstance,
 } from "@/adventure/data/v2/rareMaps";
-import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import {
   dungeonGrowthLabel,
@@ -50,7 +49,6 @@ export function V2DungeonList({
   onSelectFloor,
   onBack,
   frontierDepth = 2,
-  playerPower = null,
   playerLevel = null,
   playerLevelCap = null,
   playerJobTier = null,
@@ -63,7 +61,6 @@ export function V2DungeonList({
   // 상단 뒤로가기 — 진입 출처(전투 탭)로 복귀.
   onBack: () => void;
   frontierDepth?: number;
-  playerPower?: number | null;
   playerLevel?: number | null;
   playerLevelCap?: number | null;
   playerJobTier?: number | null;
@@ -190,8 +187,7 @@ export function V2DungeonList({
       {openGroup ? (
         // 이너 — 선택한 테마의 입구·심부·최심부 카드.
         <div className="space-y-3">
-          <PowerSummary
-            playerPower={playerPower}
+          <GrowthSummary
             playerLevel={playerLevel}
             playerLevelCap={playerLevelCap}
             playerJobTier={playerJobTier}
@@ -203,7 +199,6 @@ export function V2DungeonList({
                 depth={depth}
                 isChallenge={depth === challengeDepth}
                 frontierDepth={frontierDepth}
-                playerPower={playerPower}
                 playerLevel={playerLevel}
                 playerLevelCap={playerLevelCap}
                 playerJobTier={playerJobTier}
@@ -215,8 +210,7 @@ export function V2DungeonList({
       ) : (
         // 테마(사냥터) 카드 (+위에 열린 희귀 탐사 섹션).
         <div className="space-y-3">
-          <PowerSummary
-            playerPower={playerPower}
+          <GrowthSummary
             playerLevel={playerLevel}
             playerLevelCap={playerLevelCap}
             playerJobTier={playerJobTier}
@@ -569,7 +563,6 @@ function DepthCard({
   depth,
   isChallenge,
   frontierDepth,
-  playerPower,
   playerLevel,
   playerLevelCap,
   playerJobTier,
@@ -578,18 +571,14 @@ function DepthCard({
   depth: number;
   isChallenge: boolean;
   frontierDepth: number;
-  playerPower?: number | null;
   playerLevel?: number | null;
   playerLevelCap?: number | null;
   playerJobTier?: number | null;
   onSelect: (depth: number) => void;
 }) {
-  const requiredPower = floorPowerGate(depth);
   const readiness = dungeonReadiness({
     depth,
     frontierDepth,
-    playerPower,
-    recommendedPower: requiredPower,
     jobTier: playerJobTier,
     level: playerLevel,
     levelCap: playerLevelCap,
@@ -623,11 +612,6 @@ function DepthCard({
         >
           {huntStageLabel(depth)}
         </div>
-        <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-          {playerPower != null
-            ? `내 ${Math.round(playerPower).toLocaleString()} · 난이도 지표 ${requiredPower.toLocaleString()}`
-            : `난이도 지표 ${requiredPower.toLocaleString()}`}
-        </div>
         <div className={`mt-1 text-xs font-medium ${readinessClass}`}>
           {readiness.label}
         </div>
@@ -645,13 +629,11 @@ function DepthCard({
   );
 }
 
-function PowerSummary({
-  playerPower,
+function GrowthSummary({
   playerLevel,
   playerLevelCap,
   playerJobTier,
 }: {
-  playerPower?: number | null;
   playerLevel?: number | null;
   playerLevelCap?: number | null;
   playerJobTier?: number | null;
@@ -661,19 +643,11 @@ function PowerSummary({
     level: playerLevel,
     levelCap: playerLevelCap,
   });
-  if (playerPower == null && growthLabel == null) return null;
+  if (growthLabel == null) return null;
   return (
     <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-      {playerPower != null && (
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-zinc-500 dark:text-zinc-400">내 전투력</span>
-          <span className="text-sm font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
-            {Math.round(playerPower).toLocaleString()}
-          </span>
-        </div>
-      )}
       {growthLabel && (
-        <div className="mt-1 flex items-center justify-between gap-3 border-t border-zinc-100 pt-1 dark:border-zinc-800">
+        <div className="flex items-center justify-between gap-3">
           <span className="text-zinc-500 dark:text-zinc-400">현재 성장</span>
           <span className="font-medium text-zinc-700 dark:text-zinc-200">
             {growthLabel}

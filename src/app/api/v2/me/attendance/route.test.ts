@@ -128,7 +128,7 @@ describe("월간 출석 보상 수령", () => {
     expect(character.adventureSupport.activeUntil).toBe(
       json.adventureSupportActiveUntil,
     );
-    expect(character.stamina.current).toBe(1_500);
+    expect(character.stamina.current).toBe(500);
   });
 
   it("온보딩을 마치지 않은 계정은 출석 보상을 받을 수 없다", async () => {

@@ -82,7 +82,7 @@ export function EquipmentEnchantmentGuideDialog({
         <section className={`${SURFACE_ACCENT} mt-4 p-3 text-sm`}>
           <h3 className="font-bold">최초 옵션 줄 수</h3>
           <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-            최초 마법부여에서 결정되며 이후 재마법부여를 해도 늘어나거나 줄어들지 않습니다.
+            최초 마법부여에서 결정되며 재마법부여로는 바뀌지 않습니다. 다른 장비의 마법부여를 전체 이전받으면 원본의 줄 수로 교체됩니다.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {LIBERATION_LINE_COUNT_CHANCES.map(({ lineCount, chancePct }) => (
@@ -216,7 +216,7 @@ export function InitialEnchantmentConfirmDialog({
             마법부여된 장비는 <strong>즉시 귀속</strong>되어 거래할 수 없습니다.
           </p>
           <p>
-            결정된 <strong>옵션 줄 수는 영구 고정</strong>되며 재마법부여로 늘릴 수 없습니다.
+            결정된 <strong>옵션 줄 수는 재마법부여로 바꿀 수 없습니다.</strong> 다른 장비의 마법부여를 전체 이전받으면 그 줄 수로 교체됩니다.
           </p>
         </div>
 

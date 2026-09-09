@@ -1,167 +1,63 @@
-import { applySkillHealing, skillSelfHealingAmount } from "./engine.skillHealing";
-import { combatRandom } from "./combatRandom";
-import { recordCombatDamage } from "./combatDiagnostics";
 import { CRIT_PCT_CAP, STAT_LABELS } from "@/adventure/data/stats";
 import { V2_SKILL_PROC_IN_PATTERN } from "@/adventure/data/v2/coreLoopConfig";
 import { statusNameForDebuffStat } from "@/adventure/data/v2/statusEffects";
 import { tier7CombatJobIdForSkillId } from "@/adventure/data/v2/tier7SkillMechanics";
 import {
-  applyEvasionDamageReduction,
-  evasionDamageReductionPct,
-  MAGIC_VULN_STACK_CAP,
-  SKILL_CRIT_MULT,
-  SPELL_STACK_CAP,
+applyEvasionDamageReduction,
+evasionDamageReductionPct,
+MAGIC_VULN_STACK_CAP,
+SKILL_CRIT_MULT,
+SPELL_STACK_CAP,
 } from "@/adventure/data/v2/v2CombatConstants";
 import {
-  aggregateEquippedPassives,
-  effectiveCombatPatternFromEquipped,
-  rebalanceDynamicV2SkillEffects,
-  smartDefaultPatternFromEquipped,
-  V2_SKILLS,
+aggregateEquippedPassives,
+effectiveCombatPatternFromEquipped,
+rebalanceDynamicV2SkillEffects,
+smartDefaultPatternFromEquipped,
+V2_SKILLS,
 } from "@/adventure/data/v2/v2Skills";
-import {
-  applyBerserkerCastTransition,
-  berserkerCastContext,
-  finishBerserkerPlayerAttack,
-} from "./berserkerCombat";
-import {
-  advancePatternAlternateState,
-  preservePatternAlternateTransition,
-  V2_COMBAT_PATTERN_ENABLED,
-} from "./combatPattern";
-import {
-  applyBleedChangeToDots,
-  applyComboFinisherToHits,
-  applyV2BuffsToMap,
-  applyV2DotsToTarget,
-  bleedChangeLogText,
-  distributeBoostedHits,
-  healingAfterReceivedMultiplier,
-  makeBleedDot,
-  makePoisonDot,
-  resolveV2SkillCast,
-  v2DamageAmount,
-  v2MagicBuffMult,
-  type V2SkillCastInput,
-  type V2SkillCastResult,
-} from "./combatShared";
-import {
-  composeDuelistDeclaration,
-  duelistDeclarationSummary,
-  interruptDuelistRamp,
-} from "./duelistCombat";
+import { applyBerserkerCastTransition, berserkerCastContext, finishBerserkerPlayerAttack } from "./berserkerCombat";
+import { healingAfterBurn, healingReductionPct } from "./burnHealing";
+import { recordCombatDamage } from "./combatDiagnostics";
+import { advancePatternAlternateState, preservePatternAlternateTransition, V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
+import { combatRandom } from "./combatRandom";
+import { applyBleedChangeToDots, applyComboFinisherToHits, applyV2BuffsToMap, applyV2DotsToTarget, bleedChangeLogText, healingAfterReceivedMultiplier, makeBleedDot, resolveV2SkillCast, v2DamageAmount, v2MagicBuffMult, type V2SkillCastInput, type V2SkillCastResult } from "./combatShared";
+import { distributeBoostedHits } from "./hitDistribution";
+import { duelistDeclarationSummary } from "./duelistCombat";
+import { beginUnexploredPlayerAttack, finishUnexploredPlayerAttack, hasUnexploredEffect, unexploredDefensePve } from "./unexploredSetPveAdapter";
+import { BOSS_MAX_HP_DAMAGE_MULT } from "./engineState";
+import { playerFacingEnemyDef } from "./engine.pveOperations";
 import { computeCritOverflowBonus, computeDirectSkillDamage } from "./engine.damageHelpers";
-import { resolveEnemyPhase } from "./engine.enemyPhase";
-import {
-  applyPoisonDamageToDots,
-  applySkillTempBuffs,
-  isEnemyPoisoned,
-  playerSkillTargetDef,
-  playerSkillTargetMagicDef,
-  recordEnemyDamage,
-} from "./engine.pveOperations";
+import { applyDreadnoughtImpactSpend } from "./engine.dreadnought";
+import { resolvePlayerPhase } from "./engine.playerPhase";
+import { applySkillTempBuffs, isEnemyPoisoned, playerSkillTargetMagicDef, recordEnemyDamage } from "./engine.pveOperations";
+import { applyImmediateProvokedEnemyBasicAttacks } from "./engine.pveProvoke";
+import { applyColonyRegenerationPve, applySkillHealing, skillSelfHealingAmount } from "./engine.skillHealing";
 import { NORMAL_MONSTER_EXECUTION_HP_PCT } from "./engineResolutionTypes";
-import { markForcedActionMainLog, type BattleState, type PlayerCombat } from "./engineState";
+import { type BattleState, type PlayerCombat } from "./engineState";
 import { appendLog, appendSkillCastLog } from "./engineSupport";
-import {
-  formatFrostChillGainLog,
-  formatFrostChillTriggerLog,
-  freezeRawDamage,
-  resolveFrostChillGain,
-} from "./frostChill";
-import {
-  addLawInscriptionGain,
-  emptyLawInscriptionState,
-  lawInscriptionConsumeLog,
-  lawInscriptionGainLog,
-} from "./lawInscription";
+import { formatFrostChillGainLog, formatFrostChillTriggerLog, freezeRawDamage, resolveFrostChillGain } from "./frostChill";
+import { applyHolyPowerPveCast } from "./holyPowerAdapters";
+import { addLawInscriptionGain, emptyLawInscriptionState, lawInscriptionConsumeLog, lawInscriptionGainLog } from "./lawInscription";
 import { effectiveMutationDef, mutationTransitionLogLines } from "./mutationCombat";
-import {
-  formulaCompletionOverdraftSkillIds,
-  formulaStagesForCast,
-  previewFormulaCast,
-  settleFormulaManaRecovery,
-} from "./primordialSageCombat";
-import {
-  canStartRuinCharge,
-  gainSwordIntent,
-  ruinIntentStrikeBonus,
-  ruinSwordBonusesForMechanic,
-  startRuinCharge,
-} from "./ruinBladeCombat";
+import { resolveDeclarationCast } from "./paragonCombat";
+import { applyDotDamageToDots, makePlayerPoisonDot } from "./playerDotDamage";
+import { formulaCompletionOverdraftSkillIds, formulaStagesForCast, previewFormulaCast, settleFormulaManaRecovery } from "./primordialSageCombat";
+import { canStartRuinCharge, gainSwordIntent, ruinIntentStrikeBonus, ruinSwordBonusesForMechanic, startRuinCharge } from "./ruinBladeCombat";
 import { consumeShadowFollowUp, recordSwordShadow, refineSwordShadow } from "./shadowBladeCombat";
 import { canApplyShock } from "./shockAction";
-import {
-  everyNHitsEffect,
-  formatChillSlowLog,
-  formatDefDebuffLog,
-  formatShockAppliedLog,
-  onSkillCastMpRefund,
-  resolveDirectSkillHitSignatures,
-  resolveOffensiveSignatureTriggers,
-  SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
-  SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
-} from "./signatureEffects";
+import { everyNHitsEffect, formatChillSlowLog, formatDefDebuffLog, formatShockAppliedLog, onSkillCastMpRefund, resolveDirectSkillHitSignatures, resolveOffensiveSignatureTriggers, SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK, SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK } from "./signatureEffects";
 import { resolveCrossover, type CrossFamily } from "./skyAscendantCombat";
-import {
-  applyTier6UniquePveEvent,
-  tier6DotContext,
-  tier6PveCastContext,
-  tier6StatusKindCount,
-} from "./tier6UniquePveAdapter";
+import { applyTier6UniquePveEvent, tier6DotContext, tier6PveCastContext, tier6StatusKindCount } from "./tier6UniquePveAdapter";
 import { refreshTripleWardState } from "./tripleWard";
+import { chainDriveFollowUp, manaRedeployment, type UnexploredAttackContext } from "./unexploredSetEffects";
+import { previewPlayerWindCurrent, settlePlayerWindCurrent } from "./windCurrentCast";
+export { applyImmediateProvokedEnemyBasicAttacks } from "./engine.pveProvoke";
 
 // v2 플레이어 스킬 시전 + 효과 적용 — resolveBattleLegacy 에서 추출(ATB 경로 공유용).
 // buff/debuff tick 은 호출부 책임(legacy=인라인 tick, ATB=tickPlayerBundleEntry). lethal 체크와
 // "시전=완료 턴"(평타 XOR) 처리도 호출부가 루프 모델에 맞게 한다. 이 함수는 cast 결정 + 데미지/힐/
 // 마나/HP비용/버프/디버프/도트/취약·실명·암흑 + state 업데이트(로그 포함)까지만 한다(byte-identical).
-export function applyImmediateProvokedEnemyBasicAttacks(
-  state: BattleState,
-  player: PlayerCombat,
-  playerName: string,
-  count: number,
-  skillName: string,
-): BattleState {
-  const attacks = Math.max(0, Math.floor(count));
-  if (attacks <= 0 || state.phase === "ended") return state;
-  const originalPhase = state.phase;
-  const originalEnemyAttacksLeft = state.turn.enemyAttacksLeft;
-  const originalEnemyPhasesCompleted = state.turn.enemyPhasesCompleted;
-  let next: BattleState = {
-    ...state,
-    phase: "enemy",
-    turn: { ...state.turn, enemyAttacksLeft: attacks },
-    log: appendLog(state.log, {
-      kind: "info",
-      text: `[${skillName}] ${state.enemy.name}이(가) 즉시 기본 공격 ${attacks}회!`,
-      turn: "player",
-    }),
-  };
-  for (let index = 0; index < attacks && next.phase !== "ended"; index += 1) {
-    if (index > 0 && next.phase !== "enemy") break;
-    const logStart = next.log.length;
-    next = resolveEnemyPhase(next, player, playerName, false, false, true);
-    if (next.log.length > logStart) {
-      next = {
-        ...next,
-        log: next.log.map((entry, logIndex) => {
-          if (logIndex < logStart) return entry;
-          return markForcedActionMainLog(entry.turn ? entry : { ...entry, turn: "enemy" as const }, skillName);
-        }),
-      };
-    }
-  }
-  if (next.phase === "ended") return next;
-  return {
-    ...next,
-    phase: originalPhase,
-    turn: {
-      ...next.turn,
-      enemyAttacksLeft: originalEnemyAttacksLeft,
-      enemyPhasesCompleted: originalEnemyPhasesCompleted,
-    },
-  };
-}
 
 export function applyPlayerV2SkillCast(
   state: BattleState,
@@ -184,6 +80,7 @@ export function applyPlayerV2SkillCast(
   const tickedSelfBuffs = ticked.selfBuffs;
   const tickedSelfDebuffs = ticked.selfDebuffs;
   const tickedEnemyDebuffs = ticked.enemyDebuffs;
+  const enemyHpBeforePlayerSkill = state.enemyHp;
   const shadowCoreEquipped = state.v2Skills.equipped.includes(
     "v2c_shadowblade_swordshadow",
   );
@@ -208,6 +105,9 @@ export function applyPlayerV2SkillCast(
         })
       : [];
   const tier6Cast = tier6PveCastContext(state, player);
+  const directContext: UnexploredAttackContext = {
+    kind: "direct_skill", mpActuallySpent: 0, hit: false, anyCrit: false, multiHitIndex: 0, multiHitCount: 1,
+  };
   const activeEnemyBleed = state.enemyV2Dots.find(
     (dot) => dot.tag === "bleed" && dot.turns > 0,
   );
@@ -272,6 +172,8 @@ export function applyPlayerV2SkillCast(
       currentHp: state.playerHp,
       maxMp: state.playerMaxMp,
       classTier: player.classTier,
+      holyPower: state.stacks.holyPower,
+      windCurrent: state.stacks.windCurrent,
       fortressImpact: state.stacks.fortressImpact,
       ironWallReflectCharges: state.stacks.ironWallReflectCharges,
       fortressImpactDamagePctPerStack:
@@ -305,8 +207,8 @@ export function applyPlayerV2SkillCast(
       characterElement: player.characterElement,
     },
     target: {
-      def: playerSkillTargetDef(state, player),
-      magicDef: playerSkillTargetMagicDef(state, player),
+      def: unexploredDefensePve(playerFacingEnemyDef(state, player), player, directContext),
+      magicDef: unexploredDefensePve(playerSkillTargetMagicDef(state, player), player, directContext),
       // PR-5b: monster 측 v2 self buff 도 def 곱셈에 반영 (격리 해제 일관).
       selfBuffs: state.enemyV2SelfBuffs,
       selfDebuffs: tickedEnemyDebuffs,
@@ -322,9 +224,9 @@ export function applyPlayerV2SkillCast(
       magicVulnStacks: state.stacks.enemyMagicVulnStacks,
       frostChillStacks: state.stacks.enemyFrostChillStacks,
       enemyVulnerabilityActive: state.stacks.enemyVulnTurns > 0,
-      enemyDamageDownActive: state.stacks.enemyDamageDownTurns > 0,
+      enemyDamageDownActive: state.stacks.enemyDamageDownTurns > 0 || (state.stacks.nextAttackDamageDownPct ?? 0) > 0,
       enemySkillProcDownActive: state.stacks.enemySkillProcDownTurns > 0,
-      enemyHealReductionActive: state.stacks.enemyHealReduceTurns > 0,
+      enemyHealReductionActive: healingReductionPct(state.enemyV2Dots, state.stacks.enemyHealReduceTurns > 0 ? state.stacks.enemyHealReducePct : 0) > 0,
       enemyDotVulnerabilityActive: state.stacks.enemyDotVulnTurns > 0,
     },
   };
@@ -665,7 +567,8 @@ export function applyPlayerV2SkillCast(
       baseSingleSkillDamageBeforeEvasion * (1 + tier7FinalDamagePct / 100),
     ),
   });
-  const singleSkillDamage = shadowFollowUp.damage;
+  const windPreview = previewPlayerWindCurrent(state.stacks, player, castDefinition?.windCurrent);
+  const singleSkillDamage = Math.round(shadowFollowUp.damage * windPreview.damageMultiplier);
   let nextComboHitCount = state.stacks.comboHitCount;
   let landedSkillHits = 0;
   let dealtDirectSkillDamage = 0;
@@ -710,6 +613,22 @@ export function applyPlayerV2SkillCast(
     state.playerMaxMp,
     result.nextMp + mpRefund + sigMpRefundAmount,
   );
+  const formulaManaSettlement = formulaPreview ? settleFormulaManaRecovery({
+        state: formulaState, next: formulaPreview.next,
+        completes: formulaPreview.completes, castMpSpent: result.mpSpent,
+        castMpRestored: result.manaRestored + mpRefund + sigMpRefundAmount,
+        requestedCompletionRestore: formulaOptimizationEquipped ? Math.floor(state.playerMaxMp * 0.1) : 0,
+        advancesFormula: formulaPreview.next !== formulaState,
+      }) : null;
+  const formulaRestore = formulaManaSettlement?.completionRestore ?? 0;
+  const settledCastMp = Math.min(state.playerMaxMp, adjustedNextMp + formulaRestore);
+  // Count only the actual net loss after every same-cast restoration and MP cap.
+  // Later on-hit/turn-end regeneration is outside this reservation boundary.
+  const unexploredAttack = beginUnexploredPlayerAttack(
+    state, player, result.castSkillId && result.enemyDamage > 0 ? "direct_skill" : "independent",
+    Math.max(0, state.playerMp - settledCastMp),
+  );
+  state = unexploredAttack.state;
   // 3) state 업데이트 — MP, cooldown, buff/debuff map, HP delta, log.
   let nextEnemyHp = state.enemyHp;
   let nextPlayerHp = state.playerHp;
@@ -785,15 +704,18 @@ export function applyPlayerV2SkillCast(
       player.comboFinisherBonusPct,
     );
     const perHitBeforeEvasion = comboResult.hitDamages;
-    const perHit = perHitBeforeEvasion.map((hit) =>
+    const perHitAfterEvasion = perHitBeforeEvasion.map((hit) =>
       applyEvasionDamageReduction(hit, skillEvasionReductionPct),
+    );
+    const perHit = perHitAfterEvasion.map((hit) =>
+      Math.floor(hit * unexploredAttack.damageMult + 1e-9),
     );
     tier6SkillHitDamages = perHit.filter((hit) => hit > 0);
     const rawDamageBeforeEvasion = perHitBeforeEvasion.reduce(
       (sum, hit) => sum + hit,
       0,
     );
-    const rawDamageAfterEvasion = perHit.reduce(
+    const rawDamageAfterEvasion = perHitAfterEvasion.reduce(
       (sum, hit) => sum + hit,
       0,
     );
@@ -836,6 +758,7 @@ export function applyPlayerV2SkillCast(
       });
     }
   }
+  const windFinal = settlePlayerWindCurrent(windPreview, landedSkillHits > 0, state.playerMaxMp);
   const frostChill = resolveFrostChillGain(
     state.stacks.enemyFrostChillStacks,
     landedSkillHits > 0 ? result.frostChillGain : 0,
@@ -882,7 +805,7 @@ export function applyPlayerV2SkillCast(
         attackerMagicAtk: 0,
         attackerMagicMinDamage: player.magicMinDamage,
         scaling: "magic",
-        targetDef: playerSkillTargetDef(state, player),
+        targetDef: playerFacingEnemyDef(state, player),
         targetMagicDef: playerSkillTargetMagicDef(state, player),
         statCoef: 0,
         baseFlat: tierScaledRaw,
@@ -950,29 +873,26 @@ export function applyPlayerV2SkillCast(
   const sigSkillTargetDots = [
     ...(directSkillSignature.poison
       ? [
-          makePoisonDot({
+          makePlayerPoisonDot({
             stacks: directSkillSignature.poison.stacks,
             pctMaxHpPerStack: SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
-            sourceAtk: player.atk,
-          }),
+          }, player),
         ]
       : []),
     ...(sigSkill.critPoison
       ? [
-          makePoisonDot({
+          makePlayerPoisonDot({
             stacks: 1,
             pctMaxHpPerStack: SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
-            sourceAtk: player.atk,
-          }),
+          }, player),
         ]
       : []),
     ...(sigSkill.hitPoison
       ? [
-          makePoisonDot({
+          makePlayerPoisonDot({
             stacks: sigSkill.hitPoison.stacks,
             pctMaxHpPerStack: SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
-            sourceAtk: player.atk,
-          }),
+          }, player),
         ]
       : []),
     ...(sigSkill.hitBleed
@@ -1101,12 +1021,20 @@ export function applyPlayerV2SkillCast(
     });
   }
   // heal 효과: damage 없는 회복형 스킬 (회복/강화회복) — player_attack kind 로 통일.
+  const dreadnoughtSpend = applyDreadnoughtImpactSpend({
+    state: state.stacks.dreadnought, result, landed: landedSkillHits > 0,
+    hp: nextPlayerHp, maxHp: state.playerMaxHp, player, playerName,
+    dots: state.playerV2Dots, log: nextLog,
+  });
+  nextPlayerHp = dreadnoughtSpend.hp;
+  nextLog = dreadnoughtSpend.log;
+  healShieldAmount += dreadnoughtSpend.shield;
   const resolvedSelfHeal = skillSelfHealingAmount(
     result, actualSkillDamage, tier6Cast.tier6UnityMult, player.receivedHealMult,
   );
   const healed = applySkillHealing({
     hp: nextPlayerHp, maxHp: state.playerMaxHp, player, playerName,
-    skillName: result.castSkillName, skillId: result.castSkillId, skillHeal: resolvedSelfHeal, log: nextLog,
+    skillName: result.castSkillName, skillId: result.castSkillId, skillHeal: healingAfterBurn(resolvedSelfHeal, state.playerV2Dots), log: nextLog,
     passiveHeal: healingAfterReceivedMultiplier(
       Math.floor((actualSkillDamage * (player.passiveLifestealPct ?? 0)) / 100),
       player.receivedHealMult,
@@ -1193,7 +1121,7 @@ export function applyPlayerV2SkillCast(
   }
   if (
     result.fortressImpactToConsume > 0 &&
-    result.enemyDamage > 0 &&
+    landedSkillHits > 0 &&
     result.castSkillName
   ) {
     nextLog = appendLog(nextLog, {
@@ -1217,14 +1145,19 @@ export function applyPlayerV2SkillCast(
   }
   const nextSelfBuffs = applyV2BuffsToMap(tickedSelfBuffs, result.selfBuffsToApply);
   const nextEnemyDebuffs = applyV2BuffsToMap(tickedEnemyDebuffs, result.enemyDebuffsToApply);
-  const dotsToApplyToTarget = applyPoisonDamageToDots(
+  const dotsToApplyToTarget = applyDotDamageToDots(
     result.dotsToApplyToTarget,
     player,
   );
   // PR-8 — dot effect 결과를 적 측 v2Dots 에 박음. 같은 label refresh.
   const dotsBeforeBleedHunt = applyV2DotsToTarget(
-    applyV2DotsToTarget(state.enemyV2Dots, dotsToApplyToTarget),
+    applyV2DotsToTarget(
+      state.enemyV2Dots, dotsToApplyToTarget, state.enemy.hp,
+      state.maxHpDamageMult ?? (state.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1),
+    ),
     sigSkillTargetDots,
+    state.enemy.hp,
+    state.maxHpDamageMult ?? (state.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1),
   );
   const nextEnemyDots = applyBleedChangeToDots(
     dotsBeforeBleedHunt,
@@ -1275,9 +1208,9 @@ export function applyPlayerV2SkillCast(
   }
   // PR2-B temp 버프 적용 로그 — PvP(engine-pvp) 와 동일하게 시전 시점에 표기(보호막·운기·
   //   연환집중·선풍각·속박). 미보유 스킬은 전부 undefined/빈 배열 → 무로그(골든 불변).
-  const shieldGainForLog = result.shieldToApply
+  const shieldGainForLog = windFinal.shieldGain + (result.shieldToApply
     ? result.shieldToApply.hp + result.shieldToApply.mp
-    : 0;
+    : 0);
   if (shieldGainForLog > 0) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -1356,7 +1289,7 @@ export function applyPlayerV2SkillCast(
   if (result.enemyDamageDownToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "쇠약"}] 적 주는 피해 −${result.enemyDamageDownToApply.pct}% (적 행동 ${result.enemyDamageDownToApply.turns}회)`,
+      text: `[${result.castSkillName ?? "쇠약"}] 적 주는 피해 −${result.enemyDamageDownToApply.pct}% (${result.enemyDamageDownToApply.nextAttackOnly ? "다음 적중한 직접 공격 1회" : `적 행동 ${result.enemyDamageDownToApply.turns}회`})`,
       turn: "player",
     });
   }
@@ -1419,18 +1352,12 @@ export function applyPlayerV2SkillCast(
   const tier6DotsBefore = tier6DotContext(state);
   const tier6StatusKindsBefore = tier6StatusKindCount(state);
   const tier6ShieldGain =
-    healShieldAmount +
+    healShieldAmount + windFinal.shieldGain +
     (result.shieldToApply
       ? result.shieldToApply.hp + result.shieldToApply.mp
       : 0);
-  const castDeclaration = result.castSkillId
-    ? composeDuelistDeclaration(state.v2Skills.equipped, result.castSkillId)
-    : null;
-  const nextDuelistBuff = castDeclaration
-    ? castDeclaration
-    : result.castSkillId
-      ? interruptDuelistRamp(state.duelistBuff)
-      : state.duelistBuff;
+  const { declaration: castDeclaration, buff: nextDuelistBuff, extraActions: declarationExtraActions } =
+    resolveDeclarationCast(state.v2Skills.equipped, result.castSkillId, state.duelistBuff);
   if (castDeclaration) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -1540,14 +1467,6 @@ export function applyPlayerV2SkillCast(
       });
     }
   }
-  const formulaManaSettlement = formulaPreview ? settleFormulaManaRecovery({
-        state: formulaState, next: formulaPreview.next,
-        completes: formulaPreview.completes, castMpSpent: result.mpSpent,
-        castMpRestored: result.manaRestored + mpRefund + sigMpRefundAmount,
-        requestedCompletionRestore: formulaOptimizationEquipped ? Math.floor(state.playerMaxMp * 0.1) : 0,
-        advancesFormula: formulaPreview.next !== formulaState,
-      }) : null;
-  const formulaRestore = formulaManaSettlement?.completionRestore ?? 0;
   if (nextTier7 && formulaPreview) {
     nextTier7.formula = formulaManaSettlement?.next ?? formulaPreview.next;
     if (formulaPreview.completes) {
@@ -1562,7 +1481,7 @@ export function applyPlayerV2SkillCast(
     playerHp: nextPlayerHp,
     ...(nextBerserker ? { berserker: nextBerserker } : {}),
     enemyHp: nextEnemyHp,
-    playerMp: Math.min(state.playerMaxMp, adjustedNextMp + formulaRestore),
+    playerMp: Math.min(state.playerMaxMp, settledCastMp + windFinal.mpRestore),
     duelistBuff: nextDuelistBuff,
     v2SkillCooldowns: result.nextCooldowns,
     v2SelfBuffs: nextSelfBuffs,
@@ -1581,7 +1500,7 @@ export function applyPlayerV2SkillCast(
       patternAlternateLastSkillByPair: advancePatternAlternateState(state.stacks.patternAlternateLastSkillByPair, result.patternAlternateTransition),
       tripleWard: refreshedTripleWard,
       evadesRemaining:
-        state.stacks.evadesRemaining + result.guaranteedEvadesToAdd,
+        Math.max(state.stacks.evadesRemaining + result.guaranteedEvadesToAdd, windFinal.guaranteedEvades),
       comboHitCount: nextComboHitCount,
       signatureHitCount: nextSigHitCount,
       signatureBonusAttacksLeft:
@@ -1589,10 +1508,12 @@ export function applyPlayerV2SkillCast(
       ...(sigSkill.hitShock ? { enemyShockAction: "pending" as const } : {}),
       spellCastCount: nextSpellCastCount,
       enemyMagicVulnStacks: nextMagicVulnStacks,
+      ...windFinal.stacks,
       fortressImpact: Math.max(
         0,
-        state.stacks.fortressImpact - result.fortressImpactToConsume,
+        state.stacks.fortressImpact - (landedSkillHits > 0 ? result.fortressImpactToConsume : 0),
       ),
+      ...(dreadnoughtSpend.state ? { dreadnought: dreadnoughtSpend.state } : {}),
       mutationWeight: result.mutationTransition.weightAfter,
       ...(landedSkillHits > 0 && frostChill.requestedGain > 0
         ? { enemyFrostChillStacks: frostChill.next }
@@ -1608,7 +1529,7 @@ export function applyPlayerV2SkillCast(
       // PR2-B 마나 보호막 — 흡수량(maxHP%+maxMP%)을 playerShield 풀에 누적.
       playerShield:
         state.stacks.playerShield +
-        healShieldAmount +
+        healShieldAmount + windFinal.shieldGain +
         (result.shieldToApply
           ? result.shieldToApply.hp + result.shieldToApply.mp
           : 0),
@@ -1616,6 +1537,10 @@ export function applyPlayerV2SkillCast(
     },
     log: nextLog,
   };
+  state = finishUnexploredPlayerAttack(state, player, {
+    ...unexploredAttack.context, hit: landedSkillHits > 0, anyCrit: skillCritFired,
+    multiHitCount: tier6SkillHitDamages.length,
+  }, Math.min(dealtDirectSkillDamage, enemyHpBeforePlayerSkill));
   let tier6ExtraActions = 0;
   if (result.castSkillId && state.stacks.tier6Uniques) {
     const actionId = state.turn.completedPlayerTurns + 1;
@@ -1685,14 +1610,44 @@ export function applyPlayerV2SkillCast(
       result.castSkillName,
     );
   }
+  state = applyHolyPowerPveCast(state, result.castSkillId);
+  if (landedSkillHits > 0 && state.enemyHp > 0 && state.phase !== "ended" &&
+      state.unexploredSetRuntime && !state.unexploredSetRuntime.chainDriveResolving &&
+      hasUnexploredEffect(player, "chain_drive")) {
+    const followUp = chainDriveFollowUp({
+      eligibleDirectSkillHit: true, alreadyResolving: false, roll: combatRandom(),
+      extraBasicAttackDamagePct: player.extraBasicAttackDamagePct ?? 0,
+    });
+    if (followUp.fires) {
+      state = { ...state, unexploredSetRuntime: { ...state.unexploredSetRuntime, chainDriveResolving: true } };
+      const attacksBefore = state.playerAttacksLeft;
+      state = resolvePlayerPhase(state, player, playerName, { kind: "attack" }, {
+        kind: "extra_basic", embedded: true, damageMult: followUp.basicDamageMult,
+      });
+      tier6ExtraActions += Math.max(0, state.playerAttacksLeft - attacksBefore);
+      state = { ...state, unexploredSetRuntime: { ...state.unexploredSetRuntime!, chainDriveResolving: false } };
+    }
+  }
+  if (result.castSkillId && (state.enemyHp <= 0 || state.phase === "ended")) {
+    state = applyColonyRegenerationPve(state, player, playerName);
+  }
+  if (result.castSkillId && state.unexploredSetRuntime && hasUnexploredEffect(player, "mana_redeployment")) {
+    const deployed = manaRedeployment({ currentSkillCount: state.unexploredSetRuntime.manaSkillCount, isSkill: true, currentShield: state.stacks.playerShield, maxHp: state.playerMaxHp });
+    state = {
+      ...state,
+      unexploredSetRuntime: { ...state.unexploredSetRuntime, manaSkillCount: deployed.skillCount },
+      stacks: { ...state.stacks, playerShield: deployed.shield },
+    };
+  }
   return {
     state,
     castFired: result.castSkillId != null,
-    signatureExtraActions: signatureExtraActions + tier6ExtraActions,
+    signatureExtraActions: signatureExtraActions + tier6ExtraActions + declarationExtraActions,
     selfHastePct: Math.max(
       result.selfHasteToApply?.pct ?? 0,
       crossover?.hastePct ?? 0,
       formulaPreview?.completes ? 20 : 0,
+      windFinal.hastePct,
     ),
     enemyDelayPct: Math.max(
       result.enemyDelayToApply?.pct ?? 0,

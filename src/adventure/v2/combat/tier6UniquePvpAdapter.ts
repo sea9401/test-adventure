@@ -1,35 +1,14 @@
-import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
-import { type PvPBattleState, type PvPSide } from "./engine.pvpState";
-import {
-  applyBleedChangeToDots,
-  applyV2DotsToTarget,
-  makeBleedDot,
-  makePoisonDot,
-  v2DotPerStackDamage,
-} from "./combatShared";
-import {
-  resolveTier6UniqueEvent,
-  type Tier6UniqueCommand,
-  type Tier6UniqueEvent,
-} from "./tier6UniqueEffects";
 import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
-import {
-  appendPvPSurvivalLogs,
-  resolvePvPHostileDamageSurvival,
-  type PvPHostileDamageSurvival,
-} from "./pvpHostileDamage";
+import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
+import { applyBleedChangeToDots, applyV2DotsToTarget, makeBleedDot, v2DotPerStackDamage } from "./combatShared";
+import { type PvPBattleState, type PvPSide } from "./engine.pvpState";
 import { magicBarrierCombatLogEntries, resolveMagicBarrierDamage } from "./magicBarrier";
+import { makePlayerPoisonDot } from "./playerDotDamage";
 import { pvpSideDamageTakenReductionPct } from "./pvpDamageReduction";
-import {
-  effectiveTier6MagicDefense,
-  tier6DamageAfterMultiplier,
-  tier6MagicDamageAfterMitigation,
-} from "./tier6UniqueMagicDamage";
-import {
-  resolveTripleWardDamage,
-  TRIPLE_WARD_LABELS,
-  tripleWardStabilityReductionPct,
-} from "./tripleWard";
+import { appendPvPSurvivalLogs, resolvePvPHostileDamageSurvival, type PvPHostileDamageSurvival } from "./pvpHostileDamage";
+import { resolveTier6UniqueEvent, type Tier6UniqueCommand, type Tier6UniqueEvent } from "./tier6UniqueEffects";
+import { effectiveTier6MagicDefense, tier6DamageAfterMultiplier, tier6MagicDamageAfterMitigation } from "./tier6UniqueMagicDamage";
+import { resolveTripleWardDamage, TRIPLE_WARD_LABELS, tripleWardStabilityReductionPct } from "./tripleWard";
 
 export type PvPSideKey = "p1" | "p2";
 
@@ -286,12 +265,11 @@ function applyCommand(
           flatPerStack: Math.max(1, Math.floor(actor.player.atk * 0.04)),
           sourceAtk: actor.player.atk,
         })
-      : makePoisonDot({
+      : makePlayerPoisonDot({
           stacks: command.stacks,
           pctMaxHpPerStack: 0.004,
-          sourceAtk: actor.player.atk,
-        });
-    target = { ...target, v2Dots: applyV2DotsToTarget(target.v2Dots, [dot]) };
+        }, actor.player);
+    target = { ...target, v2Dots: applyV2DotsToTarget(target.v2Dots, [dot], target.maxHp) };
   } else if (command.kind === "refresh_bleed") {
     target = {
       ...target,

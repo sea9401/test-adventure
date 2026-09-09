@@ -54,13 +54,15 @@ describe("job roadmap model", () => {
     ]);
   });
 
-  it("공개된 네 7차를 실제 로드맵에 한 번씩 배치하고 두 선행 계보를 보존한다", () => {
+  it("공개된 다섯 7차를 실제 로드맵에 한 번씩 배치하고 두 선행 계보를 보존한다", () => {
     const nodes = flatten(buildJobRoadmap());
     const tier7Ids = nodes
       .filter((node) => node.tier === 7)
       .map((node) => node.id)
       .sort();
     expect(tier7Ids).toEqual([
+      "dreadnought",
+      "paragon",
       "primordialsage",
       "ruinblade",
       "shadowblade",

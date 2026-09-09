@@ -415,6 +415,12 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
 
   // ─── Tier 3: 고차 직업 — 🔑 계보 게이팅: 바로 아래 2차 직업의 jobCumLevel ≥ TIER3_UNLOCK_CUMLEVEL ───
+  dragonknight: {
+    id: "dragonknight", name: "용기사", tier: 3,
+    cultivateProfile: { str: 2, vit: 1, dex: 1 },
+    jobBonus: { str: 11, vit: 7, dex: 2 },
+    unlock: { prereqs: { paladin: TIER3_UNLOCK_CUMLEVEL, beastkin: TIER3_UNLOCK_CUMLEVEL } },
+  },
   //   (견습 기사→기사·마법사→마도사·사제→대사제 …). 직군 단일풀이 아니라 계보 직업을 키워야 열린다.
   //   트리 성장(A 메타 PR-3). 작은 이중 내장 보너스 + 액티브 1(강) + III티어 % 패시브(직군 축).
   paladin: {
@@ -694,6 +700,12 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
 
   // ─── Tier 4: 심화 직업 — 🔑 계보 게이팅: 바로 아래 3차 직업의 jobCumLevel ≥ TIER4_UNLOCK_CUMLEVEL ───
+  drakeblood: {
+    id: "drakeblood", name: "용혈기사", tier: 4,
+    cultivateProfile: { str: 2, vit: 2 },
+    jobBonus: { str: 13, vit: 11 },
+    unlock: { prereqs: { dragonknight: TIER4_UNLOCK_CUMLEVEL } },
+  },
   //   (기사→정예 기사·마도사→대마법사/원소별 마법사·궁사→신궁 …).
   //   이중 내장 보너스 + 액티브 1(강) + 패시브. 새 derive 배선 없음 — 기존 효과 어휘 재사용.
   veteran: {
@@ -983,6 +995,32 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
 
   // ─── Tier 5: 상급 심화 직업 — 4차 직업 숙련도 TIER5_UNLOCK_CUMLEVEL + 도감 요건으로 여는 장기 목표 ───
+  aeromancer: {
+    id: "aeromancer", name: "에어로맨서", tier: 5,
+    cultivateProfile: { int: 3, spi: 2 },
+    jobBonus: { int: 20, spi: 8 },
+    unlock: { prereqs: { windmage: TIER5_UNLOCK_CUMLEVEL } },
+  },
+  pyromancer: {
+    id: "pyromancer", name: "홍염술사", tier: 5,
+    cultivateProfile: { int: 3, spi: 2 },
+    jobBonus: { int: 20, spi: 8 },
+    unlock: { prereqs: { firemage: TIER5_UNLOCK_CUMLEVEL } },
+  },
+  dragonwing: {
+    id: "dragonwing", name: "용익기사", tier: 5,
+    cultivateProfile: { str: 3, vit: 2 },
+    jobBonus: { str: 16, vit: 12 },
+    unlock: { prereqs: { drakeblood: TIER5_UNLOCK_CUMLEVEL } },
+  },
+  radiantknight: {
+    id: "radiantknight",
+    name: "성휘기사",
+    tier: 5,
+    cultivateProfile: { str: 2, vit: 2, spi: 1 },
+    jobBonus: { str: 10, vit: 10, spi: 8 },
+    unlock: { prereqs: { crusader: TIER5_UNLOCK_CUMLEVEL } },
+  },
   swordmaster: {
     id: "swordmaster",
     name: "검호",
@@ -1233,6 +1271,32 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
 
   // ─── Tier 6: 초월 심화 직업 — 5차 직업 숙련도 기반 엔드 성장 ───
+  stormbringer: {
+    id: "stormbringer", name: "스톰브링어", tier: 6,
+    cultivateProfile: { int: 4, spi: 2 },
+    jobBonus: { int: 28, spi: 12 },
+    unlock: { prereqs: { aeromancer: TIER6_UNLOCK_CUMLEVEL } },
+  },
+  infernomancer: {
+    id: "infernomancer", name: "겁화술사", tier: 6,
+    cultivateProfile: { int: 4, spi: 2 },
+    jobBonus: { int: 28, spi: 12 },
+    unlock: { prereqs: { pyromancer: TIER6_UNLOCK_CUMLEVEL } },
+  },
+  dragonsovereign: {
+    id: "dragonsovereign", name: "용왕기사", tier: 6,
+    cultivateProfile: { str: 3, vit: 3 },
+    jobBonus: { str: 23, vit: 17 },
+    unlock: { prereqs: { dragonwing: TIER6_UNLOCK_CUMLEVEL } },
+  },
+  dawnpaladin: {
+    id: "dawnpaladin",
+    name: "여명성기사",
+    tier: 6,
+    cultivateProfile: { str: 2, vit: 2, spi: 2 },
+    jobBonus: { str: 14, vit: 14, spi: 12 },
+    unlock: { prereqs: { radiantknight: TIER6_UNLOCK_CUMLEVEL } },
+  },
   fortressknight: {
     id: "fortressknight",
     name: "성채기사",
@@ -1470,6 +1534,12 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
 
   // ─── Tier 7: 두 6차 계보를 결합한 최상위 전투 직업 ───
+  dreadnought: {
+    id: "dreadnought", name: TIER7_COMBAT_JOB_NAMES.dreadnought, tier: 7,
+    cultivateProfile: { vit: 4, str: 2, spi: 1 },
+    jobBonus: { vit: 32, str: 10, spi: 6 },
+    unlock: { prereqs: tier7Prerequisites("dreadnought") },
+  },
   shadowblade: {
     id: "shadowblade",
     name: TIER7_COMBAT_JOB_NAMES.shadowblade,
@@ -1501,6 +1571,12 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { int: 4, spi: 3 },
     jobBonus: { int: 32, spi: 16 },
     unlock: { prereqs: tier7Prerequisites("primordialsage") },
+  },
+  paragon: {
+    id: "paragon", name: TIER7_COMBAT_JOB_NAMES.paragon, tier: 7,
+    cultivateProfile: { str: 2, vit: 1, dex: 1, int: 1, spi: 1, luk: 1 },
+    jobBonus: { str: 8, vit: 8, dex: 8, int: 8, spi: 8, luk: 8 },
+    unlock: { prereqs: tier7Prerequisites("paragon") },
   },
 };
 
@@ -1856,6 +1932,10 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   string,
   { class: string; spec: string | null }
 > = {
+  dragonknight: { class: "warrior", spec: "dragonknight" },
+  drakeblood: { class: "warrior", spec: "drakeblood" },
+  dragonwing: { class: "warrior", spec: "dragonwing" },
+  dragonsovereign: { class: "warrior", spec: "dragonsovereign" },
   warrior: { class: "warrior", spec: null },
   martial: { class: "martial", spec: null },
   mage: { class: "mage", spec: null },
@@ -1923,9 +2003,13 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   sensei: { class: "martial", spec: "sensei" },
   sage: { class: "mage", spec: "sage" },
   firemage: { class: "mage", spec: "firemage" },
+  pyromancer: { class: "mage", spec: "pyromancer" },
+  infernomancer: { class: "mage", spec: "infernomancer" },
   frostmage: { class: "mage", spec: "frostmage" },
   lightningmage: { class: "mage", spec: "lightningmage" },
   windmage: { class: "mage", spec: "windmage" },
+  aeromancer: { class: "mage", spec: "aeromancer" },
+  stormbringer: { class: "mage", spec: "stormbringer" },
   earthmage: { class: "mage", spec: "earthmage" },
   runecaster: { class: "mage", spec: "runecaster" }, // 마법 4차 세 번째 갈래(문장 시너지)
   archshaman: { class: "mage", spec: "archshaman" }, // 마법 4차 네 번째 갈래(주술사 계승·마법취약)
@@ -1946,6 +2030,8 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   masterlumberjack: { class: "survivor", spec: "masterlumberjack" },
   masterminer: { class: "survivor", spec: "masterminer" },
   crusader: { class: "warrior", spec: "crusader" }, // 성기사 4차 — 저장 class=전사, spec=고유 id
+  radiantknight: { class: "warrior", spec: "radiantknight" },
+  dawnpaladin: { class: "warrior", spec: "dawnpaladin" },
   runeknight: { class: "warrior", spec: "runeknight" }, // 마검사 4차 — 저장 class=전사, spec=고유 id
   crimsontemplar: { class: "warrior", spec: "crimsontemplar" }, // 혈성기사 4차 — 방어와 회복 억제의 탱딜
   contender: { class: "warrior", spec: "contender" },
@@ -2002,10 +2088,12 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   blooddemon: { class: "warrior", spec: "blooddemon" },
   absolute: { class: "warrior", spec: "absolute" },
   // tier 7 — 첫 선행 계보 직군을 저장 class로 사용하고 고유 spec으로 왕복한다.
+  dreadnought: { class: "warrior", spec: "dreadnought" },
   shadowblade: { class: "warrior", spec: "shadowblade" },
   ruinblade: { class: "warrior", spec: "ruinblade" },
   skyascendant: { class: "rogue", spec: "skyascendant" },
   primordialsage: { class: "mage", spec: "primordialsage" },
+  paragon: { class: "warrior", spec: "paragon" },
 };
 
 /**

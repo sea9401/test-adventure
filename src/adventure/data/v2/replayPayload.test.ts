@@ -1,4 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import { resolveBattlePvPAtb } from "@/adventure/v2/combat/engine.pvp-atb";
+import type { PlayerCombat } from "@/adventure/v2/combat/engine";
 import {
   buildBattleStateFromReplay,
   toDeferredReplayPayload,
@@ -382,6 +384,37 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
     expect(p.playerMp).toBe(25);
     expect(p.enemyMaxMp).toBe(100);
     expect(p.enemyMp).toBe(40);
+  });
+
+  it("serializes meaningful unexplored counters on both lanes without exposing action internals", () => {
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const player: PlayerCombat = { hp: 10000, maxHp: 10000, atk: 400, def: 100, spd: 100, evasionPct: 0, accuracyPct: 100, attackCount: 1, critChancePct: 75,
+        unexploredSetEffects: [{ kind: "precision_shot", label: "정밀 사격" }, { kind: "frost_mark", label: "서리 표식" }] };
+      const target: PlayerCombat = { ...player, critChancePct: 0, unexploredSetEffects: [{ kind: "iron_wall", label: "철벽 누적" }, { kind: "battle_revenge", label: "격전 본능" }] };
+      const final = resolveBattlePvPAtb(player, target, "P1", "P2", { pickAction: () => ({ kind: "attack" }), potions: { p1: {}, p2: {} }, initiativeRoll: 0 }).finalState;
+      const payload = toPvpReplayPayloadForSide(final, "p2", "P1");
+      const first = payload.log.find(e => e.kind === "hp_bar");
+      expect(first?.enemySignatureResources).toMatchObject({ unexploredPrecisionShot: "정밀 사격 1/4" });
+      expect(first?.playerSignatureResources).toMatchObject({ unexploredIronWall: "철벽 누적 방어 +3", unexploredFrost: "서리 표식 2행동" });
+      const wire = JSON.stringify(payload);
+      expect(wire).not.toContain("enemyActionHpDamage");
+      expect(wire).not.toContain("chainDriveResolving");
+      expect(wire).not.toContain("battleStartDef");
+      const restored = buildBattleStateFromReplay(JSON.parse(wire), final.p2.hp, final.p1.hp);
+      expect(restored.log.find(e => e.kind === "hp_bar")).toEqual(first);
+    } finally {
+      random.mockRestore();
+    }
+  });
+
+  it("parses legacy replay snapshots with all optional signature fields omitted", () => {
+    const oldPayload = toPvpReplayPayloadForSide(pvpFinal([{ kind: "hp_bar", text: "", playerHp: 500, playerMaxHp: 600, enemyHp: 200, enemyMaxHp: 450 }]), "p2", "P1");
+    const restored = buildBattleStateFromReplay(JSON.parse(JSON.stringify(oldPayload)), 200, 500);
+    const snapshot = restored.log.find(entry => entry.kind === "hp_bar");
+    expect(snapshot?.playerSignatureResources).toBeUndefined();
+    expect(snapshot?.enemySignatureResources).toBeUndefined();
+    expect(restored.unexploredSetRuntime).toBeUndefined();
   });
 
   it("메타 — enemy.hp=상대 maxHp, playerMax*/playerMp=p1 사이드", () => {

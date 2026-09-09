@@ -33,7 +33,7 @@ describe("MessageBody item links", () => {
     render(<MessageBody content="" itemLink={itemLink} />);
     fireEvent.click(screen.getByRole("button", { name: /아이템 옵션 보기/ }));
 
-    expect(screen.getByText("해방 옵션")).toBeTruthy();
+    expect(screen.getByText("마법부여 옵션")).toBeTruthy();
     expect(screen.getByText("기초 STR +4.5%")).toBeTruthy();
     expect(screen.getByText("스킬 치명타 피해 +16%p")).toBeTruthy();
   });

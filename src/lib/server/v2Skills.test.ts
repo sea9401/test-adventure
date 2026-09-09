@@ -120,10 +120,9 @@ const REBALANCE_LOADOUT = [
   "v2c_monk_spirit",
 ] as const;
 const REBALANCED_EQUIPPED = [
-  ...REBALANCE_LOADOUT.slice(0, 34),
+  ...REBALANCE_LOADOUT.slice(0, 35),
 ] as const;
 const REBALANCED_REMOVED = [
-  "v2c_squire_might",
   "v2c_boxer_fortitude",
   "v2c_monk_spirit",
 ] as const;
@@ -371,7 +370,7 @@ describe("v2Skills — 직업 SP 산식 전환 유예", () => {
     expect(next.equipped).toEqual([...REBALANCE_LOADOUT]);
   });
 
-  it("유예 종료 후에는 현재 우선순위를 보존하며 신규 132 SP 안으로 정리한다", () => {
+  it("유예 종료 후에는 현재 우선순위를 보존하며 신규 직업 SP 한도 안으로 정리한다", () => {
     const { proficiency, context } = fullyUnlocked();
     context.jobSpRebalance = {
       startedAt: 1,

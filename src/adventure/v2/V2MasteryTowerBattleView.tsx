@@ -70,7 +70,7 @@ export function masteryTowerResultMessage(
   const attemptLabel = result.practice
     ? `${result.floor ?? "-"}층 연습 실패`
     : `${result.floor ?? "-"}층 실패`;
-  return `${attemptLabel} · 전투력 ${(result.power ?? 0).toLocaleString("ko-KR")}/${(result.requiredPower ?? 0).toLocaleString("ko-KR")}${retry}`;
+  return `${attemptLabel}${retry}`;
 }
 
 export function canContinueMasteryTowerAttempt(

@@ -1,4 +1,4 @@
-import type { CombatDiagnosticRow } from "./combatDiagnostics";
+import { type CombatDiagnosticRow } from "./combatDiagnostics";
 
 export type CombatHpBaseline = { target: string; initialHp: number; finalHp: number };
 

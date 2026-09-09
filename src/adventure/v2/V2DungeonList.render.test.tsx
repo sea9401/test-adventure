@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { newRareMapInstance } from "@/adventure/data/v2/rareMaps";
-import { RareMapButton, UnexploredDungeonCard } from "./V2DungeonList";
+import { RareMapButton, UnexploredDungeonCard, V2DungeonList } from "./V2DungeonList";
 
 describe("열린 희귀 탐사 카드", () => {
   it("한 번의 탐사로 정산할 보상 횟수와 남은 시간을 표시한다", () => {
@@ -83,5 +83,27 @@ describe("미개척지 사냥터 카드", () => {
     expect(underLevel).toContain(' disabled=""');
     expect(beforeStart).toContain("탐사 시작 필요");
     expect(beforeStart).toContain(' disabled=""');
+  });
+});
+
+describe("사냥터 성장 안내", () => {
+  it("단계 선택에서 성장과 정복 기록을 표시하고 스탯 난이도는 숨긴다", () => {
+    const html = renderToStaticMarkup(
+      <V2DungeonList
+        frontierDepth={6}
+        initialOpenDepth={1}
+        playerLevel={80}
+        playerLevelCap={100}
+        playerJobTier={2}
+        onSelectFloor={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+    expect(html).toContain("현재 성장");
+    expect(html).toContain("정복 기록 있음");
+    expect(html).toContain("입장");
+    expect(html).not.toContain("전투력");
+    expect(html).not.toContain("스탯 합계");
+    expect(html).not.toContain("난이도 지표");
   });
 });

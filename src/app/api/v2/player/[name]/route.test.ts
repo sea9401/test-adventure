@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   selectCall: 0,
+  equipment: {} as Record<string, unknown>,
   execute: vi.fn(async () => ({
     rows: [
       {
@@ -61,6 +62,7 @@ vi.mock("@/db", () => ({
                 key: "character.v2",
                 value: { level: 100, class: "mage" },
               },
+              { key: "equipment.v2", value: mocks.equipment },
             ]),
           })),
         };
@@ -89,6 +91,7 @@ describe("GET /api/v2/player/[name]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.selectCall = 0;
+    mocks.equipment = {};
   });
 
   it("원초 증폭의 장비 치명타 변환값을 공개 캐릭터 정보에 전달한다", async () => {
@@ -114,4 +117,19 @@ describe("GET /api/v2/player/[name]", () => {
     expect(response.status).toBe(200);
     expect(json.combat).toMatchObject({ critResistPct: 101.5 });
   });
+});
+
+
+it("공개 장착 장비에 해방 옵션을 포함하고 미장착 장비와 개인 플래그는 숨긴다", async () => {
+  const liberation = {rank: 2, lineCount: 2, revision: 7, options: [{id: "base_str_pct", level: 10}, {id: "skill_crit_damage_pp", level: 8}]};
+  mocks.selectCall = 0;
+  mocks.equipment = {equipped: {gloves: "shown"}, owned: [
+    {iid: "shown", id: "v2_boss_catastrophe_gloves", liberation, locked: true},
+    {iid: "hidden", id: "v2_boss_catastrophe_gloves", liberation},
+  ]};
+  const response = await GET(new Request("http://test/api/v2/player/test"), {params: Promise.resolve({name: "test"})});
+  const json = await response.json();
+  expect(json.equipment.owned).toHaveLength(1);
+  expect(json.equipment.owned[0].liberation).toEqual(liberation);
+  expect(json.equipment.owned[0]).not.toHaveProperty("locked");
 });

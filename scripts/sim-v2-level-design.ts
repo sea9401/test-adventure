@@ -1314,8 +1314,6 @@ function auditStage(
     const readiness = dungeonReadiness({
       depth,
       frontierDepth: previousDepth ?? depth,
-      playerPower: snapshot.power,
-      recommendedPower: gate,
       jobTier: snapshot.jobTier,
       level: snapshot.level,
       levelCap: rejobRequiredLevel(snapshot.currentJobId),

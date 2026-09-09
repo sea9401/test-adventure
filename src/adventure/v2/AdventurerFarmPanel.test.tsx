@@ -1,17 +1,46 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AdventurerFarmPanel,
+  WeeklyDeliveryBoard,
   FarmBatchActionPanel,
   FarmExchangeShopPanel,
   FarmPlotCard,
   farmSectionFromHash,
   prioritizeDeliverable,
 } from "./AdventurerFarmPanel";
-import { FARM_CROPS } from "./farm";
+import { FARM_CROPS, getFarmWeeklyDeliveryRequests } from "./farm";
+
+describe("주간 납품 선택 보드", () => {
+  it("3건 완료 시 다른 주문은 재료가 있어도 납품할 수 없다", () => {
+    const onDeliver = vi.fn();
+    render(<WeeklyDeliveryBoard
+      deliveries={getFarmWeeklyDeliveryRequests()} inventory={{ wheat: 100, herb: 100, corn: 100 }}
+      claimedIds={["weekly-tomato", "weekly-strawberry", "weekly-cacao"]}
+      busyDeliveryId={null} onDeliver={onDeliver}
+    />);
+    expect(screen.getByText("3 / 3 완료")).toBeTruthy();
+    const buttons = screen.getAllByRole("button") as HTMLButtonElement[];
+    expect(buttons.every(button => button.disabled)).toBe(true);
+    fireEvent.click(buttons[0]);
+    expect(onDeliver).not.toHaveBeenCalled();
+  });
+
+  it("미리 고르지 않고 준비된 작물을 납품하며 같은 작물을 중복 선택하지 않는다", () => {
+    const onDeliver = vi.fn();
+    render(<WeeklyDeliveryBoard
+      deliveries={getFarmWeeklyDeliveryRequests()} inventory={{ wheat: 100, herb: 100 }}
+      claimedIds={["weekly-bakery-crate"]} busyDeliveryId={null} onDeliver={onDeliver}
+    />);
+    expect(screen.getByText("1 / 3 완료")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "이번 주 완료" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "주간 납품" }));
+    expect(onDeliver).toHaveBeenCalledWith("weekly-clinic-bundle");
+  });
+});
 
 vi.mock("./useFarm", async () => {
   const farmModule = await import("./farm");

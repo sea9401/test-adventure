@@ -32,7 +32,7 @@ describe("다섯 원소 마법사 직업", () => {
 
   it("화염·냉기·전격·바람·대지가 서로 다른 전투 기믹을 가진다", () => {
     expect(V2_SKILLS.v2c_firemage_inferno.effects.map((e) => e.kind)).toEqual([
-      "damage", "dot", "enemyHealReduce",
+      "damage", "dot",
     ]);
     expect(V2_SKILLS.v2c_frostmage_glacier.effects.map((e) => e.kind)).toEqual([
       "damage",

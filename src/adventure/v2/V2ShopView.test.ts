@@ -41,7 +41,7 @@ describe("shopSellEquipmentInstances", () => {
 });
 
 describe("귀속 장비 판매 재확인", () => {
-  it("장비 이름·해방 단계와 영구 소멸 경고를 표시한다", () => {
+  it("장비 이름·마법부여 단계와 영구 소멸 경고를 표시한다", () => {
     const confirmation = boundEquipmentDisposalConfirmation(
       [{
         iid: "bound-1",
@@ -57,8 +57,8 @@ describe("귀속 장비 판매 재확인", () => {
     );
 
     expect(confirmation.message).toContain("재앙독 완갑");
-    expect(confirmation.message).toContain("해방 2 · 3줄");
-    expect(confirmation.message).toContain("귀속 및 모든 해방 옵션이 영구 소멸");
+    expect(confirmation.message).toContain("마법부여 2단계 · 3줄");
+    expect(confirmation.message).toContain("귀속 및 모든 마법부여 옵션이 영구 소멸");
     expect(confirmation.confirmLabel).toBe("영구 소멸 확인 · 판매");
   });
 });

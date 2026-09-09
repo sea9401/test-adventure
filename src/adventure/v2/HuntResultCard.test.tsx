@@ -196,6 +196,46 @@ describe("희귀맵 발견 바로가기", () => {
 });
 
 describe("사냥 장비 획득 분류", () => {
+  it("단판·자동 결과에서 특화 장비를 일반 장비와 함께 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <HuntResultCard
+        result={{
+          ...BASE_RESULT,
+          won: true,
+          hpAfter: 100,
+          droppedSpecialty: "v2_unexplored_iron_line_armor",
+          droppedSpecialties: ["v2_unexplored_iron_line_armor"],
+        }}
+      />,
+    );
+
+    expect(html).toContain("세트 「철갑 전열갑」 획득!");
+  });
+
+  it("일괄 결과에서 중복 특화 장비를 모두 표시한다", () => {
+    const summary: BatchSummary = {
+      attempted: 5,
+      completed: 5,
+      wins: 5,
+      losses: 0,
+      totalExp: 100,
+      totalProficiency: 2,
+      totalGold: 100,
+      levelsGained: 0,
+      statGains: {},
+      drops: {},
+      droppedEquipments: [],
+      droppedUniques: [],
+      droppedSpecialties: [
+        "v2_unexplored_iron_line_armor",
+        "v2_unexplored_iron_line_armor",
+      ],
+    };
+
+    const html = renderToStaticMarkup(<BatchSummaryCard summary={summary} />);
+    expect(html.match(/철갑 전열갑/g)).toHaveLength(2);
+  });
+
   it("단판에서 정규 세트 장비를 전용 문구로 표시한다", () => {
     const html = renderToStaticMarkup(
       <HuntResultCard

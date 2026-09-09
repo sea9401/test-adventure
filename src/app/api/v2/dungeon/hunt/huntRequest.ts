@@ -110,6 +110,7 @@ export async function handleHunt(req: Request, userId: string) {
     const drops: DropResult = {};
     const droppedEquipments: V2EquipmentId[] = [];
     const droppedUniques: V2EquipmentId[] = [];
+    const droppedSpecialties: V2EquipmentId[] = [];
     const rareMapDrops: RareMapKindId[] = [];
     const rareMapDropInstances: RareMapInstance[] = [];
     let rareMapRunsLeft: number | null = null;
@@ -202,6 +203,7 @@ export async function handleHunt(req: Request, userId: string) {
       }
       droppedEquipments.push(...res.droppedEquipments);
       droppedUniques.push(...res.droppedUniques);
+      droppedSpecialties.push(...res.droppedSpecialties);
       if (res.rareMapDrop) rareMapDrops.push(res.rareMapDrop);
       if (res.rareMapDropInstance) {
         rareMapDropInstances.push(res.rareMapDropInstance);
@@ -354,6 +356,7 @@ export async function handleHunt(req: Request, userId: string) {
           drops,
           droppedEquipments,
           droppedUniques,
+          droppedSpecialties,
           rareMapDrops,
           rareMapDropInstances,
           rareMapRunsLeft,

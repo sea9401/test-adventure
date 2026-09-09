@@ -5,9 +5,8 @@ import { insertFeedEntry } from "@/lib/server/serverFeed";
 export function huntEquipmentCodexEvents(
   droppedEquipments: readonly V2EquipmentId[],
   droppedUniques: readonly V2EquipmentId[],
-  droppedSpecialties: readonly V2EquipmentId[] = [],
 ): CodexMasteryGameplayEvent[] {
-  return [...droppedEquipments, ...droppedUniques, ...droppedSpecialties].map((entryId) => ({
+  return [...droppedEquipments, ...droppedUniques].map((entryId) => ({
     category: "equipment",
     entryId,
     amount: 1,

@@ -42,7 +42,6 @@ rollUnexploredHuntRewards,
 type UnexploredHuntRewardResult,
 } from "@/adventure/data/v2/unexploredHuntRewards";
 import { EXPLORATION_XP_PER_HUNT_WIN, grantExplorationXp } from "@/adventure/data/v2/unexploredProgression";
-import { parseUnexploredHuntMode,pickUnexploredSpecialtyEncounter } from "@/adventure/data/v2/unexploredSpecialtyPools";
 import { parseUnexploredSave } from "@/adventure/data/v2/unexploredState";
 import { parseEquipmentSave, type EquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
@@ -499,12 +498,7 @@ async function runOneHuntPhased(
   }
   const { player, skills: v2Skills, proficiencyRaw } = preparedActor;
 
-  // 적 선택만 모드화한다. 일반 사냥은 기존 깊이 카탈로그와 스케일을 그대로 쓰고,
   // 미개척지는 잠긴 character.v2의 탐사 노드에서 이미 확정한 한 개체를 사용한다.
-    const specialtyMode = !rareMapIid && depth >= 79 && depth <= MAX_FRONTIER_DEPTH
-      ? parseUnexploredHuntMode(charSave.unexploredHuntMode)
-      : ({ mode: "standard" } as const);
-    const specialtyEncounter = pickUnexploredSpecialtyEncounter(specialtyMode, Math.random);
   let enemyKey: string;
   let enemyName: string;
   let enemyMonster: import("@/adventure/data/monsters/types").Monster;
@@ -513,7 +507,7 @@ async function runOneHuntPhased(
     enemyName = unexploredHunt.runtime.monster.name;
     enemyMonster = unexploredHunt.runtime.monster;
   } else {
-    const enemy = specialtyEncounter?.enemy ?? pickRandomEnemy(enemiesForDepth(depth));
+    const enemy = pickRandomEnemy(enemiesForDepth(depth));
     if (!enemy) {
       return {
         ok: false as const,
@@ -769,8 +763,6 @@ async function runOneHuntPhased(
     dropFloor,
     depth: unexploredHunt ? MAX_FRONTIER_DEPTH : depth,
     monsterKey: enemyKey,
-    specialtyEncounter: unexploredHunt ? undefined : specialtyEncounter,
-    specialtyFocused: specialtyMode.mode === "focused",
     ownedEquip,
     mapDropMult,
     mapUniqueMult,
@@ -784,7 +776,6 @@ async function runOneHuntPhased(
   let drops = commonDropResult.drops;
   let droppedEquipments = commonDropResult.droppedEquipments;
   let droppedUniques = commonDropResult.droppedUniques;
-  const droppedSpecialties = commonDropResult.droppedSpecialties;
   let nextOwned = commonDropResult.nextOwned;
   let unexploredRewards: UnexploredHuntRewardResult | null = null;
   let unexploredQualityBonusPct = 0;
@@ -823,7 +814,6 @@ async function runOneHuntPhased(
   // 구버전 단판 응답 소비자 호환. 압축 결과 전체는 아래 plural 필드로 함께 보낸다.
   const droppedEquipment = droppedEquipments[0] ?? null;
   const droppedUnique = droppedUniques[0] ?? null;
-  const droppedSpecialty = droppedSpecialties[0] ?? null;
   const nextMaterials = mergeDrops(charSave.materials, drops);
   // equipment.v2 한 번에 기록 — owned(+드랍 개체). 굴림은 개체에 포함. 조기 lock 한 걸 한 번에 기록.
   const nextEquipment: EquipmentSave = {
@@ -1104,7 +1094,7 @@ async function runOneHuntPhased(
       source: "hunt.victory",
     });
   }
-  codexMasteryEvents.push(...huntEquipmentCodexEvents(droppedEquipments, droppedUniques, droppedSpecialties));
+  codexMasteryEvents.push(...huntEquipmentCodexEvents(droppedEquipments, droppedUniques));
   if (masteryJobId && masteryGained > 0) {
     codexMasteryEvents.push({
       category: "job",
@@ -1231,9 +1221,7 @@ async function runOneHuntPhased(
         mpCharges,
         drops,
         droppedEquipment,
-        droppedSpecialties,
         droppedUnique,
-        droppedSpecialty,
         droppedEquipments,
         droppedUniques,
         ...(unexploredHunt

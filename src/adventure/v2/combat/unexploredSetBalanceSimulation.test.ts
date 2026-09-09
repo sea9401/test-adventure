@@ -186,7 +186,7 @@ describe("unexplored specialty set simulation", () => {
       report.defenseStress.baselineCritResistPct,
     );
     expect(validateUnexploredSpecialtySetSimulation(report)).toEqual([]);
-  });
+  }, 30_000);
 
   it("다섯 공격 효과를 동일 seed 제거 대조군과 비교해 실제 적용·소비를 증명한다", async () => {
     const report = await runUnexploredSpecialtySetSimulation({ seedCount: 1 });

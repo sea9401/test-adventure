@@ -7,7 +7,7 @@ import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
 import { combatRandom } from "./combatRandom";
 import { applyV2BuffsToMap, applyV2DotsToTarget, healingAfterReceivedMultiplier, resolveV2SkillCast, type V2SkillCastResult } from "./combatShared";
 import { distributeBoostedHits } from "./hitDistribution";
-import { sumMagicBarrierDamage, unyieldingDamagePve } from "./unexploredSetPveAdapter";
+import { unyieldingDamagePve } from "./unexploredSetPveAdapter";
 import { resolveEnemySkillReflection } from "./engine.enemySkillReflection";
 import { applyBerserkerHostileDamage, applyCounterIfAny, applyTrackedSetShieldAbsorptionPve, recordEnemyDamage } from "./engine.pveOperations";
 import { applyPassiveCounterOnHitIfAny } from "./engine.passiveCounter";
@@ -49,8 +49,15 @@ export function reduceIncomingEnemySkillDamage(
   player: PlayerCombat,
   result: Pick<V2SkillCastResult, "enemyDamage" | "magicEnemyDamage">,
   applyTripleWard = true,
+  prepared?: {
+    damageAfterEvasion: number;
+    evasionReductionPct: number;
+    evasionReducedBy: number;
+    magicDamageShare: number;
+  },
 ): EnemySkillMitigation {
-  const damage = applyNextAttackDamageDown(result.enemyDamage, state.stacks.nextAttackDamageDownPct);
+  const damage = prepared?.damageAfterEvasion ??
+    applyNextAttackDamageDown(result.enemyDamage, state.stacks.nextAttackDamageDownPct);
   if (damage <= 0) {
     return {
       damage: 0,
@@ -67,12 +74,13 @@ export function reduceIncomingEnemySkillDamage(
       steadfastReducedBy: 0,
     };
   }
-  const evasionReductionPct = playerPveEvasionReductionPct(state, player);
-  const afterEvasion = applyEvasionDamageReduction(
-    damage,
-    evasionReductionPct,
-  );
-  const afterUnyielding = unyieldingDamagePve(state, player, afterEvasion);
+  const evasionReductionPct =
+    prepared?.evasionReductionPct ?? playerPveEvasionReductionPct(state, player);
+  const afterEvasion = prepared?.damageAfterEvasion ??
+    applyEvasionDamageReduction(damage, evasionReductionPct);
+  const afterUnyielding = prepared
+    ? afterEvasion
+    : unyieldingDamagePve(state, player, afterEvasion);
   const afterEnemyDamageDown =
     state.stacks.enemyDamageDownTurns > 0 &&
     state.stacks.enemyDamageDownPct > 0
@@ -119,7 +127,7 @@ export function reduceIncomingEnemySkillDamage(
       (player.passiveOpeningMagicDamageReductionPhases ?? 0)
       ? (player.passiveOpeningMagicDamageReductionPct ?? 0)
       : 0;
-  const magicDamageShare = Math.min(
+  const magicDamageShare = prepared?.magicDamageShare ?? Math.min(
     1,
     Math.max(0, result.magicEnemyDamage / Math.max(1, damage)),
   );
@@ -176,7 +184,7 @@ export function reduceIncomingEnemySkillDamage(
   return {
     damage: afterSteadfast,
     evasionReductionPct,
-    evasionReducedBy: damage - afterEvasion,
+    evasionReducedBy: prepared?.evasionReducedBy ?? damage - afterEvasion,
     resolveReducedBy: afterEnemyDamageDown - afterResolve,
     endureReducedBy: afterResolve - afterEndure,
     passiveReducedBy: afterEndure - afterPassive,
@@ -199,32 +207,91 @@ export function resolveIncomingEnemySkillWithBarrier(
   hits?: EnemyHitResolution[];
 } {
   if (state.unexploredSetRuntime && (result.hitDamages?.length ?? 0) > 1 && result.enemyDamage > 0) {
-    const rawHits = distributeBoostedHits(result.hitDamages!, result.enemyDamage);
-    const magicHits = distributeBoostedHits(result.hitDamages!, result.magicEnemyDamage);
-    let current = state;
-    let combined: ReturnType<typeof resolveIncomingEnemySkillWithBarrier> | undefined;
+    const actionDamage = result.enemyDamage;
+    const rawHits = distributeBoostedHits(result.hitDamages!, actionDamage);
+    const magicDamageShare = Math.min(1, Math.max(0,
+      result.magicEnemyDamage / Math.max(1, result.enemyDamage)));
+    const barrierPartition = resolveMagicBarrierDamage({
+      rawDamage: actionDamage,
+      durability: state.playerMagicBarrier ?? 0,
+      absorbPct: player.magicBarrierAbsorbPct,
+      efficiencyPct: player.magicBarrierEfficiencyPct,
+      eligible: true,
+      mitigateBody: (bodyRawDamage) => bodyRawDamage,
+    });
+    const bodyAfterDamageDown = applyNextAttackDamageDown(
+      barrierPartition.bodyRawDamage,
+      state.stacks.nextAttackDamageDownPct,
+    );
+    const bodyRawHits = distributeBoostedHits(rawHits, bodyAfterDamageDown);
+    const evasionReductionPct = playerPveEvasionReductionPct(state, player);
+    const bodyAfterEvasion = applyEvasionDamageReduction(
+      bodyAfterDamageDown,
+      evasionReductionPct,
+    );
+    const bodyAfterEvasionHits = distributeBoostedHits(bodyRawHits, bodyAfterEvasion);
+    const evasionReducedHits = distributeBoostedHits(
+      bodyRawHits,
+      bodyAfterDamageDown - bodyAfterEvasion,
+    );
+    const spillHits = distributeBoostedHits(rawHits, barrierPartition.spillDamage);
+    let currentHp = state.playerHp;
+    let currentShield = state.stacks.playerShield;
+    let cumulativeAfterUnyielding = 0;
+    let previousMitigatedBody = 0;
+    let finalMitigation: EnemySkillMitigation | undefined;
     const hits: EnemyHitResolution[] = [];
-    for (let index = 0; index < rawHits.length; index++) {
-      const resolved = resolveIncomingEnemySkillWithBarrier(current, player, {
-        enemyDamage: rawHits[index]!, magicEnemyDamage: magicHits[index]!,
+    for (let index = 0; index < rawHits.length; index += 1) {
+      const hitAfterUnyielding = unyieldingDamagePve(
+        { ...state, playerHp: currentHp },
+        player,
+        bodyAfterEvasionHits[index]!,
+      );
+      cumulativeAfterUnyielding += hitAfterUnyielding;
+      const cumulativeMitigation = reduceIncomingEnemySkillDamage(
+        state,
+        player,
+        {
+          enemyDamage: cumulativeAfterUnyielding,
+          magicEnemyDamage: Math.floor(cumulativeAfterUnyielding * magicDamageShare),
+        },
+        true,
+        {
+          damageAfterEvasion: cumulativeAfterUnyielding,
+          evasionReductionPct,
+          evasionReducedBy: bodyAfterDamageDown - bodyAfterEvasion,
+          magicDamageShare,
+        },
+      );
+      const mitigatedBody = Math.max(0, cumulativeMitigation.damage - previousMitigatedBody);
+      previousMitigatedBody += mitigatedBody;
+      const hpBoundDamage = mitigatedBody + spillHits[index]!;
+      const shieldAbsorbed = Math.min(currentShield, hpBoundDamage);
+      const hpDamage = Math.min(currentHp, hpBoundDamage - shieldAbsorbed);
+      hits.push({
+        rawDirectDamage: rawHits[index]!,
+        damageAfterEvasion: rawHits[index]! - evasionReducedHits[index]!,
+        evasionPreventedDamage: evasionReducedHits[index]!,
+        shieldAbsorbed,
+        hpDamage,
+        fullyEvaded: false,
       });
-      const shieldAbsorbed = Math.min(current.stacks.playerShield, resolved.barrier.hpBoundDamage);
-      const hpDamage = Math.min(current.playerHp, resolved.barrier.hpBoundDamage - shieldAbsorbed);
-      hits.push({ rawDirectDamage: rawHits[index]!, damageAfterEvasion: rawHits[index]! - resolved.mitigation.evasionReducedBy,
-        evasionPreventedDamage: resolved.mitigation.evasionReducedBy, shieldAbsorbed, hpDamage, fullyEvaded: false });
-      current = { ...current, playerHp: Math.max(0, current.playerHp - hpDamage), playerMagicBarrier: resolved.barrier.durabilityLeft,
-        stacks: { ...current.stacks, playerShield: current.stacks.playerShield - shieldAbsorbed, tripleWard: resolved.mitigation.tripleWard } };
-      if (!combined) {
-        combined = resolved;
-      } else {
-        const mitigation = { ...resolved.mitigation, wardReductions: [...combined.mitigation.wardReductions, ...resolved.mitigation.wardReductions], stabilityStacksBefore: combined.mitigation.stabilityStacksBefore };
-        for (const key of ["damage", "evasionReducedBy", "resolveReducedBy", "endureReducedBy", "passiveReducedBy", "stabilityReducedBy", "guardReducedBy", "steadfastReducedBy"] as const) {
-          mitigation[key] += combined.mitigation[key];
-        }
-        combined = { barrier: sumMagicBarrierDamage(combined.barrier, resolved.barrier), mitigation };
-      }
+      currentShield -= shieldAbsorbed;
+      currentHp -= hpDamage;
+      finalMitigation = cumulativeMitigation;
     }
-    return { ...combined!, hits };
+    const mitigation = finalMitigation ?? reduceIncomingEnemySkillDamage(
+      state, player, { enemyDamage: 0, magicEnemyDamage: 0 }, false,
+    );
+    return {
+      barrier: {
+        ...barrierPartition,
+        mitigatedBodyDamage: previousMitigatedBody,
+        hpBoundDamage: previousMitigatedBody + barrierPartition.spillDamage,
+      },
+      mitigation,
+      hits,
+    };
   }
   let mitigation: EnemySkillMitigation | undefined;
   const magicShare = Math.min(

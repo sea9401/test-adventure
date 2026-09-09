@@ -362,6 +362,9 @@ function advanceTurnPvPBody(
   // 강공격 — POWER_ATTACK_TURN_INTERVAL 턴마다 첫 공격에 ATK + powerAttackBonus.
   const turnNumber = attacker.turn.completedPlayerTurns + 1;
   const isFirstAttackOfTurn = !phaseEndOptions.embeddedBasic && attacker.turn.firstAttackPending;
+  // Embedded basics resolve their own normal hit effects, but never recurse into
+  // another generated attack through weakpoint, every-N, or tier-6 hooks.
+  const allowGeneratedAttackHooks = !phaseEndOptions.embeddedBasic;
   const unexploredAttack = beginUnexploredAttackPvP(state, atkKey,
     phaseEndOptions.basicOrigin ?? (isFirstAttackOfTurn ? "manual_basic" : "extra_basic"));
   state = unexploredAttack.state;
@@ -954,6 +957,7 @@ function advanceTurnPvPBody(
   // 출혈/중독 — 적중 시 defender.v2Dots 에 tagged DoT 로 누적.
   // 약점 적중 — 크리 발동 시 그 턴 1회, DEF 무시 큐 추가 + 추가타.
   const weakpointFires =
+    allowGeneratedAttackHooks &&
     critRoll &&
     (attacker.player.weakpointExtraAttacks ?? 0) > 0 &&
     !attacker.turn.weakpointUsedThisTurn;
@@ -1127,6 +1131,7 @@ function advanceTurnPvPBody(
     signatureBonusAttacksLeft > 0 &&
     attacker.attacksLeft <= signatureBonusAttacksLeft;
   const nextSigHitCount =
+    allowGeneratedAttackHooks &&
     sigEveryN > 0 && sigDealtDamage && !isSignatureBonusAttack
       ? attacker.stacks.signatureHitCount + 1
       : attacker.stacks.signatureHitCount;
@@ -1473,6 +1478,7 @@ function advanceTurnPvPBody(
             : 1),
       ),
       maxHp: attacker.maxHp,
+      suppressGeneratedAttacks: !allowGeneratedAttackHooks,
       origin: { actionId: turnNumber, eventId: next.log.length + 1 },
     });
   }
@@ -1540,9 +1546,7 @@ function advanceTurnPvPBody(
     attacker.berserker,
   );
   if (phaseEndOptions.embeddedBasic) {
-    return setSide(next, atkKey, { ...next[atkKey],
-      attacksLeft: next[atkKey].attacksLeft + weakpointAdd + comboExtraAttacks + sigExtraAttack,
-    });
+    return next;
   }
   // 남은 공격 횟수 — 연환격(comboExtraAttacks) 도 포함.
   const attacksLeft =

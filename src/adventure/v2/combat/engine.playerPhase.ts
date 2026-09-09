@@ -413,6 +413,9 @@ export function resolvePlayerPhase(
   // (확률 기반 추가 공격 / 기습 보너스로 attackCount 비교가 신뢰할 수 없음).
   const turnNumber = state.turn.completedPlayerTurns + 1;
   const isFirstAttackOfTurn = !options.embedded && state.turn.firstAttackPending;
+  // Embedded basics (chain drive / forced follow-ups) deal a normal hit, but cannot
+  // recursively create more attacks from weakpoint, every-N, or tier-6 hooks.
+  const allowGeneratedAttackHooks = !options.embedded;
   const unexploredAttack = beginUnexploredPlayerAttack(
     state, player, options.kind ?? (isFirstAttackOfTurn ? "manual_basic" : "extra_basic"),
   );
@@ -648,6 +651,7 @@ export function resolvePlayerPhase(
   // 출혈/중독 — 적중 시 tagged DoT 로 누적 (다음 적 턴부터 tick).
   // 약점 적중 (2티어 특기) — 크리 발동 시 그 턴 1회, DEF 무시 큐 + 추가타 1회.
   const weakpointFires =
+    allowGeneratedAttackHooks &&
     critRoll &&
     (player.weakpointExtraAttacks ?? 0) > 0 &&
     !state.turn.weakpointUsedThisTurn;
@@ -801,6 +805,7 @@ export function resolvePlayerPhase(
     !options.embedded && signatureBonusAttacksLeft > 0 &&
     state.playerAttacksLeft <= signatureBonusAttacksLeft;
   const nextSigHitCount =
+    allowGeneratedAttackHooks &&
     sigEveryN > 0 && sigDealtDamage && !isSignatureBonusAttack
       ? state.stacks.signatureHitCount + 1
       : state.stacks.signatureHitCount;
@@ -1041,6 +1046,7 @@ export function resolvePlayerPhase(
             : 1),
       ),
       maxHp: state.playerMaxHp,
+      suppressGeneratedAttacks: !allowGeneratedAttackHooks,
       origin: { actionId: turnNumber, eventId: state.log.length + 1 },
     });
   }
@@ -1052,7 +1058,7 @@ export function resolvePlayerPhase(
   }
   // A chain follow-up stays inside its parent skill. Its caller owns terminal/action completion.
   if (options.embedded) {
-    return { ...afterDamage, playerAttacksLeft: afterDamage.playerAttacksLeft + weakpointAdd + comboExtraAttacks + sigExtraAttack };
+    return afterDamage;
   }
   if (afterDamage.enemyHp <= 0) {
     return applyColonyRegenerationPve({

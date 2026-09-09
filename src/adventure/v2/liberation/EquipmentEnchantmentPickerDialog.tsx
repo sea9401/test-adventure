@@ -188,12 +188,14 @@ function EquipmentCandidateCard({
 }
 
 export function EquipmentEnchantmentPickerDialog({
+  title = "마법부여 장비 선택",
   candidates,
   selectedIid,
   busy,
   onSelect,
   onClose,
 }: {
+  title?: string;
   candidates: readonly LiberationCandidateRow[];
   selectedIid: string;
   busy: boolean;
@@ -237,7 +239,7 @@ export function EquipmentEnchantmentPickerDialog({
               마법부여 대상 변경
             </p>
             <h2 id="equipment-enchantment-picker-title" className="mt-0.5 text-lg font-bold">
-              마법부여 장비 선택
+              {title}
             </h2>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
               품질과 옵션을 비교한 뒤 카드를 선택하세요.

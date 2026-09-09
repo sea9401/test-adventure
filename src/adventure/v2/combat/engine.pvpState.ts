@@ -1,30 +1,27 @@
 import { type PotionId } from "@/adventure/data/potions";
 import { type BerserkerCombatState } from "./berserkerCombat";
-import {
-  type BattleLogEntry,
-  type BattleTurnState,
-  type PlayerAction,
-  type PlayerCombat,
-} from "./engineState";
-import { type Tier7BattleResources } from "./engineState";
+import { type DreadnoughtState } from "./dreadnought";
+import { type BattleLogEntry, type BattleTurnState, type PlayerAction, type PlayerCombat, type Tier7BattleResources } from "./engineState";
+import { type HolyPowerState } from "./holyPower";
 import { type LawInscriptionState } from "./lawInscription";
 import { type Tier6UniqueRuntimeState } from "./tier6UniqueEffects";
 import { type TripleWardState } from "./tripleWard";
+import { type UnexploredDebuffs, type UnexploredSetPvpRuntime } from "./unexploredSetEffects";
 
 // ── 타입 정의 ───────────────────────────────────────────────────────────────
 
 export type PvPPhase = "p1" | "p2" | "ended";
 
-
 export type PvPOutcome = "p1_win" | "p2_win" | "draw";
-
 
 export type PvPPhaseEndOptions = {
   tickDefenderDots?: boolean;
   /** 감전 등으로 본 행동이 취소됐을 때 분신·난무 같은 공격 후속타만 생략한다. */
   skipOffensiveFollowups?: boolean;
+  basicOrigin?: "extra_basic";
+  embeddedBasic?: boolean;
+  basicDamageMult?: number;
 };
-
 
 // 각 사이드별 1회성 토글. PvE 의 BattleFlags 와 비교해 Monster 전용(phaseTriggered, enrageTriggered) 제거.
 export type PvPSideFlags = {
@@ -36,7 +33,6 @@ export type PvPSideFlags = {
   statusBlockUsed: boolean;
   trackedShieldBreakUsed?: boolean;
 };
-
 
 // 각 사이드별 누적 보너스/페널티. PvE 의 BattleBuffs 와 비교해 enemyDefBonus(phase trigger),
 // enemyAtkBonus(enrage) 제거. enemyAtkPenalty/enemyDefPenalty 는 opponentAtkPenalty/opponentDefPenalty
@@ -82,10 +78,15 @@ export type PvPSideBuffs = {
   tier6UnityTurnsLeft?: number;
 };
 
-
 export type PvPSideStacks = {
+  unexplored?: UnexploredSetPvpRuntime;
+  /** 전투 패턴 교대 행동의 정렬된 A/B 순서쌍별 마지막 실제 발동 스킬. */
   patternAlternateLastSkillByPair?: Record<string, string>;
   tripleWard: TripleWardState;
+  holyPower?: HolyPowerState;
+  dreadnought?: DreadnoughtState;
+  windCurrent?: number;
+  windCurrentReboundReady?: boolean;
   fortressImpact: number;
   ironWallReflectCharges: number;
   /** 골렘 변이 — 전투 한정 중량(0..3). */
@@ -123,6 +124,7 @@ export type PvPSideStacks = {
   healReduceTurns: number;
   damageDownPct: number; // 쇠약 — 이 side 가 주는 직접 피해 -%.
   damageDownTurns: number;
+  nextAttackDamageDownPct?: number; // 다음 적중한 직접 공격 1회, 턴 경과로 소모하지 않음.
   skillProcDownPct: number; // 금제 — 이 side 의 스킬 발동률 -%p.
   skillProcDownTurns: number;
   dotVulnPct: number; // 침식 — 이 side 가 받는 DoT/마법취약 피해 +%.
@@ -147,8 +149,8 @@ export type PvPSideStacks = {
   tier7?: Tier7BattleResources;
 };
 
-
 export type PvPSide = {
+  unexploredDebuffs?: UnexploredDebuffs;
   player: PlayerCombat;
   name: string;
   hp: number;
@@ -181,7 +183,6 @@ export type PvPSide = {
   berserker?: BerserkerCombatState;
 };
 
-
 export type PvPBattleState = {
   p1: PvPSide;
   p2: PvPSide;
@@ -196,7 +197,6 @@ export type PvPBattleState = {
   sustainMultiplier?: number;
 };
 
-
 // ── 메인 advanceTurn ─────────────────────────────────────────────────────────
 
 export type PvPAttackDamageResult = {
@@ -206,6 +206,7 @@ export type PvPAttackDamageResult = {
   cyclingChiThisTurn: number;
   decreeFires: boolean;
   dmg: number;
+  directDmg: number;
   enduringStrikeBonus: number;
   executionActive: boolean;
   fatedChainConsumed: boolean;
@@ -217,7 +218,6 @@ export type PvPAttackDamageResult = {
   totalDmg: number;
   weakpointDefIgnore: boolean;
 };
-
 
 // 방어자 측 능력 통합은 PR-1b 에서. (파일 상단 시리즈 노트 참조.)
 
@@ -245,7 +245,6 @@ export type PvPResolveContext = {
   };
 };
 
-
 export type PvPBattleResolution = {
   outcome: PvPOutcome;
   finalState: PvPBattleState;
@@ -255,7 +254,6 @@ export type PvPBattleResolution = {
   };
   turns: number;
 };
-
 
 // PvP 결판 — 양쪽이 turn cap 까지 결판 못 내면 무승부.
 export const PVP_TURN_CAP = 100;

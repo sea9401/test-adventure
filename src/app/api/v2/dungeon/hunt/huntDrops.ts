@@ -36,11 +36,28 @@ import {
 import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import type { LiberationHuntEffects } from "@/adventure/data/v2/equipmentLiberationEffects";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
+import type { UnexploredSpecialtyEncounter } from "@/adventure/data/v2/unexploredSpecialtyPools";
+
+export const UNEXPLORED_EQUIPMENT_DROP_CHANCE = 0.004;
+export const UNEXPLORED_FOCUSED_EQUIPMENT_DROP_CHANCE = 0.006;
+
+export function rollUnexploredSpecialtyEquipmentDrop(input: {
+  encounter: UnexploredSpecialtyEncounter | null;
+  focused: boolean;
+  rng: () => number;
+}): V2EquipmentId | null {
+  if (!input.encounter) return null;
+  const chance = input.focused
+    ? UNEXPLORED_FOCUSED_EQUIPMENT_DROP_CHANCE
+    : UNEXPLORED_EQUIPMENT_DROP_CHANCE;
+  return input.rng() < chance ? input.encounter.equipmentId : null;
+}
 
 export type HuntDropResult = {
   drops: DropResult;
   droppedEquipment: V2EquipmentId | null;
   droppedUnique: V2EquipmentId | null;
+  droppedSpecialty: V2EquipmentId | null;
   nextOwned: V2EquipInstance[];
 };
 
@@ -48,6 +65,7 @@ export type HuntRepeatedDropResult = {
   drops: DropResult;
   droppedEquipments: V2EquipmentId[];
   droppedUniques: V2EquipmentId[];
+  droppedSpecialties: V2EquipmentId[];
   nextOwned: V2EquipInstance[];
 };
 
@@ -67,6 +85,8 @@ export function rollHuntDrops(params: {
   mapStoneMult: number;
   regularEquipmentChanceMult?: number;
   liberationHuntEffects?: LiberationHuntEffects;
+  specialtyEncounter?: UnexploredSpecialtyEncounter | null;
+  specialtyFocused?: boolean;
 }): HuntDropResult {
   const {
     won,
@@ -104,6 +124,7 @@ export function rollHuntDrops(params: {
     : {};
   let droppedEquipment: V2EquipmentId | null = null;
   let droppedUnique: V2EquipmentId | null = null;
+  let droppedSpecialty: V2EquipmentId | null = null;
   let nextOwned: V2EquipInstance[] = ownedEquip;
 
   if (won) {
@@ -237,9 +258,24 @@ export function rollHuntDrops(params: {
       drops[TORN_MAP_FRAGMENT_MATERIAL_ID] =
         (drops[TORN_MAP_FRAGMENT_MATERIAL_ID] ?? 0) + tornMapFragment;
     }
+
+    // 특화 장비는 기존 모든 굴림 뒤의 독립 슬롯. 지도·해방의 확률 배율은 적용하지 않는다.
+    droppedSpecialty = rollUnexploredSpecialtyEquipmentDrop({
+      encounter: params.specialtyEncounter ?? null,
+      focused: params.specialtyFocused ?? false,
+      rng: Math.random,
+    });
+    if (droppedSpecialty !== null) {
+      nextOwned = [
+        ...nextOwned,
+        mintRolledEquipInstance(droppedSpecialty, Math.random, {
+          minimumQualityPct: minimumEquipmentQualityPp,
+        }),
+      ];
+    }
   }
 
-  return { drops, droppedEquipment, droppedUnique, nextOwned };
+  return { drops, droppedEquipment, droppedUnique, droppedSpecialty, nextOwned };
 }
 
 /**
@@ -255,6 +291,7 @@ export function rollHuntDropsRepeated(
   const drops: DropResult = {};
   const droppedEquipments: V2EquipmentId[] = [];
   const droppedUniques: V2EquipmentId[] = [];
+  const droppedSpecialties: V2EquipmentId[] = [];
   let nextOwned = params.ownedEquip;
 
   for (let i = 0; i < rewardRolls; i += 1) {
@@ -268,7 +305,8 @@ export function rollHuntDropsRepeated(
       droppedEquipments.push(result.droppedEquipment);
     }
     if (result.droppedUnique) droppedUniques.push(result.droppedUnique);
+    if (result.droppedSpecialty) droppedSpecialties.push(result.droppedSpecialty);
   }
 
-  return { drops, droppedEquipments, droppedUniques, nextOwned };
+  return { drops, droppedEquipments, droppedUniques, droppedSpecialties, nextOwned };
 }

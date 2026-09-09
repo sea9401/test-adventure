@@ -58,7 +58,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
   //   FromSaves 가 아니라 Pure 를 직접 호출(골든)하므로 이 경로를 타지 않아 바이트 동일 유지.
   const v2JobId = jobIdFromLegacy(parsedClass, specId ?? null);
   const equippedSkillIds = parseV2SkillsState(skillsRaw).equipped;
-  const passiveAgg = aggregateEquippedPassives(equippedSkillIds);
+  const passiveAgg = aggregateEquippedPassives(equippedSkillIds, v2JobId);
   // 직업 내장 보너스 — 현재 직업 1개분(카탈로그 jobBonus, "이 직업에 머무를 이유")을 휴대용
   //   패시브 스탯과 합산. 직업은 하나뿐이라 내장분은 상한이 잡히고, 패시브는 SP 예산 내 누적.
   const innateBonus = V2_JOB_CATALOG[v2JobId]?.jobBonus ?? {};
@@ -131,7 +131,15 @@ export function derivePlayerCombatV2FromSaves(saves: {
       passiveAgg.counterDamageUsesReflectBoost,
     passiveDefPct: passiveAgg.defPct,
     passiveThornsDefPct: passiveAgg.thornsDefPct,
+    passiveCounterImpactGain: passiveAgg.counterImpactGain,
+    passiveFortressImpactHealPctPerStack: passiveAgg.fortressImpactHealPctPerStack,
     passiveFortressImpactOnHit: passiveAgg.fortressImpactOnHit,
+    passiveWindCurrentDamagePctPerStack: passiveAgg.windCurrentDamagePctPerStack,
+    passiveBurnDurationBonusTurns: passiveAgg.burnDurationBonusTurns,
+    passiveWindCurrentMpRestorePctPerStack: passiveAgg.windCurrentMpRestorePctPerStack,
+    passiveWindCurrentRebound: passiveAgg.windCurrentRebound,
+    passiveWindCurrentShieldPctPerStack: passiveAgg.windCurrentShieldPctPerStack,
+    passiveWindCurrentReleaseEvades: passiveAgg.windCurrentReleaseEvades,
     passiveFortressImpactDamagePctPerStack:
       passiveAgg.fortressImpactDamagePctPerStack,
     passiveFortressDefSkillStatCoefPct:
@@ -152,6 +160,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passivePoisonedEnemyDefReductionPct:
       passiveAgg.poisonedEnemyDefReductionPct,
     passivePoisonDamagePct: passiveAgg.poisonDamagePct,
+    passiveBurnDamagePct: passiveAgg.burnDamagePct,
     passiveEnemyPhysicalDefReductionPct:
       passiveAgg.enemyPhysicalDefReductionPct,
     passiveEnemyMagicDefReductionPct: passiveAgg.enemyMagicDefReductionPct,

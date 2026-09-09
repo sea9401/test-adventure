@@ -26,6 +26,7 @@ import {
 } from "@/adventure/data/v2/equipmentLiberationEffects";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
 import { runOneHunt, type RunOneHuntCtx } from "@/app/api/v2/dungeon/hunt/huntExecution";
+import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import {
   recordCodexMasteryGameplayBatch,
   type CodexMasteryGameplayEvent,
@@ -150,6 +151,7 @@ export async function POST(req: Request) {
     let totalMastery = 0;
     let levelsGained = 0;
     let spMilestonesGained = 0; // 코어루프 — 자리 비운 동안 새로 넘은 SP 마일스톤 합산.
+    const droppedSpecialties: V2EquipmentId[] = [];
     let stopped: "hp" | "error" | AutoHuntStopReason | null = null;
     const codexMasteryEvents: CodexMasteryGameplayEvent[] = [];
 
@@ -188,6 +190,7 @@ export async function POST(req: Request) {
       totalMastery += res.masteryGained ?? 0;
       levelsGained += res.levelsGained;
       spMilestonesGained += res.spMilestonesGained ?? 0;
+      droppedSpecialties.push(...res.droppedSpecialties);
       const autoStopReason = getAutoHuntStopReason(autoStopConfig, {
         hpCharges: res.hpCharges,
         mpCharges: res.mpCharges,
@@ -254,6 +257,7 @@ export async function POST(req: Request) {
       totalMastery,
       levelsGained,
       ...(V2_CORE_LOOP_V2 ? { spMilestonesGained } : {}),
+      droppedSpecialties,
       depth,
       finalLevel: Math.max(1, Math.floor(Number(after.level) || 1)),
       stopped,

@@ -1,144 +1,43 @@
-import { combatRandom } from "./combatRandom";
-import { recordCombatDotDamage, recordCombatMetric } from "./combatDiagnostics";
 import type { Monster } from "@/adventure/data/monsters";
 import type { PotionId } from "@/adventure/data/potions";
 import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
 import { BLEED_MAX_STACKS } from "@/adventure/data/v2/v2CombatConstants";
 import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
 import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
-import {
-  decrementTimedBuffs,
-  distributeV2DotTicks,
-  healingAfterReceivedMultiplier,
-  statusDamageAfterReduction,
-  tickV2BuffMap,
-  tickV2Dots,
-  v2DotLogCause,
-} from "./combatShared";
-import {
-  ATB_TIMELINE_TICK_CAP,
-  actionInterval,
-  depthSpdCorrection,
-  monsterActionSpd,
-  nextActor1v1,
-} from "./combatTimeline";
+import { recordCombatDotDamage, recordCombatMetric } from "./combatDiagnostics";
+import { decrementTimedBuffs, distributeV2DotTicks, healingAfterReceivedMultiplier, statusDamageAfterReduction, tickV2BuffMap, tickV2Dots, v2DotLogCause } from "./combatShared";
+import { ATB_TIMELINE_TICK_CAP, actionInterval, depthSpdCorrection, nextActor1v1 } from "./combatTimeline";
 import { consumeDuelistCritHaste } from "./duelistCombat";
-import {
-  applyImmortalBerserkerLifeToEnemy,
-  settleImmortalBerserkerAfterEnemyAction,
-  settleImmortalBerserkerAfterPlayerDamage,
-} from "./engine.atbBerserker";
-import {
-  fireSkywardCrystalEyeAtbArtillery,
-  settleSkywardCrystalEyeAfterPlayerAction,
-  settleSkywardCrystalEyeExposureDamage,
-} from "./engine.atbCrystal";
-import {
-  appendInvincibleFortressDamageEvents,
-  applyInvincibleFortressTierToEnemy,
-  settleInvincibleFortressAfterPlayerDamage,
-} from "./engine.atbFortress";
-import {
-  applyGlacialFieldChill,
-  consumeGlacialFrozenPlayerAction,
-  settleGlacialChillAfterEnemyAction,
-} from "./engine.atbGlacial";
+import { finishUnexploredFrostEnemyAction, hasUnexploredEffect, sumMagicBarrierDamage, unyieldingDamagePve } from "./unexploredSetPveAdapter";
+import { applyImmortalBerserkerLifeToEnemy, settleImmortalBerserkerAfterEnemyAction, settleImmortalBerserkerAfterPlayerDamage } from "./engine.atbBerserker";
+import { fireSkywardCrystalEyeAtbArtillery, settleSkywardCrystalEyeAfterPlayerAction, settleSkywardCrystalEyeExposureDamage } from "./engine.atbCrystal";
+import { appendInvincibleFortressDamageEvents, applyInvincibleFortressTierToEnemy, settleInvincibleFortressAfterPlayerDamage } from "./engine.atbFortress";
+import { applyGlacialFieldChill, consumeGlacialFrozenPlayerAction, settleGlacialChillAfterEnemyAction } from "./engine.atbGlacial";
 import { hpBarEntry, stampTick, tagNewLogEntries } from "./engine.atbLog";
-import {
-  consumeToxicRecoveryAfterPlayerAction,
-  playerWithToxicRecoveryMultiplier,
-  settleToxicBloodAfterEnemyAction,
-  tickToxicBloodOnPlayerAction,
-} from "./engine.atbToxic";
-import {
-  accumulateTrackingFromEnemyAction,
-  settleTrackingAfterPlayerAction,
-} from "./engine.atbTracking";
+import { activeFrostSpeedReduction, effectiveEnemyTimelineSpd, effectivePlayerSpd, rollEnemyAttackCount } from "./engine.atbSpeed";
+import { consumeToxicRecoveryAfterPlayerAction, playerWithToxicRecoveryMultiplier, settleToxicBloodAfterEnemyAction, tickToxicBloodOnPlayerAction } from "./engine.atbToxic";
+import { accumulateTrackingFromEnemyAction, settleTrackingAfterPlayerAction } from "./engine.atbTracking";
 import { releaseSwordShadowAfterEnemyAction, resolveEnemyPhase } from "./engine.enemyPhase";
 import { applyEnemyV2SkillCast } from "./engine.enemySkills";
 import { resolvePlayerPhase } from "./engine.playerPhase";
 import { applyPlayerV2SkillCast } from "./engine.playerSkills";
-import {
-  applyBerserkerHostileDamage,
-  applyPhaseTriggerIfAny,
-  finishEnemyAttack,
-  finishPlayerTurn,
-  initialBattleState,
-  recordEnemyDamage,
-  rollPlayerAttackCountWithBleed,
-} from "./engine.pveOperations";
+import { applyBerserkerHostileDamage, applyPhaseTriggerIfAny, finishEnemyAttack, finishPlayerTurn, initialBattleState, recordEnemyDamage, rollPlayerAttackCountWithBleed } from "./engine.pveOperations";
 import { type BattleResolution, type ResolveContext } from "./engineResolutionTypes";
-import {
-  BOSS_MAX_HP_DAMAGE_MULT,
-  type BattleLogEntry,
-  type BattleState,
-  type PlayerAction,
-  type PlayerCombat,
-} from "./engineState";
+import { BOSS_MAX_HP_DAMAGE_MULT, type BattleLogEntry, type BattleState, type PlayerAction, type PlayerCombat } from "./engineState";
 import { appendLog, applyEvasionActionRecoveryPvE } from "./engineSupport";
-import {
-  GLACIAL_FIELD_INTERVAL_TICKS,
-  glacialChillSpeedMultiplier,
-} from "./glacialColossusMechanic";
-import {
-  immortalBerserkerMultipliers,
-  normalizeImmortalBerserkerState,
-  settleImmortalBerserkerDamage,
-} from "./immortalBerserkerMechanic";
-import {
-  advanceInvincibleFortressBarrier,
-  normalizeInvincibleFortressState,
-  settleInvincibleFortressDamage,
-} from "./invincibleFortressMechanic";
+import { GLACIAL_FIELD_INTERVAL_TICKS } from "./glacialColossusMechanic";
+import { immortalBerserkerMultipliers, normalizeImmortalBerserkerState, settleImmortalBerserkerDamage } from "./immortalBerserkerMechanic";
+import { advanceInvincibleFortressBarrier, normalizeInvincibleFortressState, settleInvincibleFortressDamage } from "./invincibleFortressMechanic";
 import { magicBarrierCombatLogEntries, resolveMagicBarrierDamage } from "./magicBarrier";
-import { weightSpeedMultiplier } from "./mutationCombat";
 import { recordChargeHpLoss } from "./ruinBladeCombat";
 import { enterShockAction } from "./shockAction";
-import {
-  advanceSkywardCrystalEyeTimers,
-  normalizeSkywardCrystalEyeState,
-} from "./skywardCrystalEyeMechanic";
+import { advanceSkywardCrystalEyeTimers, normalizeSkywardCrystalEyeState } from "./skywardCrystalEyeMechanic";
 import { accumulateTrackingThreat } from "./trackingWeaponMechanic";
 export { skywardCrystalEyeStackGainFromLogs } from "./engine.atbCrystal";
+export { activeFrostSpeedReduction,effectiveEnemyTimelineSpd,effectivePlayerSpd,rollEnemyAttackCount } from "./engine.atbSpeed";
 export const ATB_TICK_CAP = ATB_TIMELINE_TICK_CAP;
 
 export const ATB_ACTION_GUARD = 1000;
-
-
-function rollEnemyAttackCount(enemy: Monster): number {
-  const chance = enemy.bonusAttackChancePct ?? 0;
-  if (chance <= 0) return 1;
-  const guaranteed = Math.floor(chance / 100);
-  const remainder = chance - guaranteed * 100;
-  return 1 + guaranteed + (combatRandom() * 100 < remainder ? 1 : 0);
-}
-
-
-export function effectivePlayerSpd(
-  player: PlayerCombat,
-  state: BattleState,
-): number {
-  const buffed = state.buffs.playerSpdTurnsLeft > 0
-    ? player.spd * state.buffs.playerSpdMult
-    : player.spd;
-  const weighted = buffed * weightSpeedMultiplier(state.stacks.mutationWeight);
-  return state.bossMechanic?.kind === "glacial_colossus"
-    ? weighted *
-        glacialChillSpeedMultiplier(state.bossMechanic.glacialChillStacks)
-    : weighted;
-}
-
-
-function effectiveEnemyTimelineSpd(
-  state: BattleState,
-  depthCorr: number,
-): number {
-  const base = monsterActionSpd(state.enemy, depthCorr);
-  return state.buffs.enemySpdTurnsLeft > 0
-    ? base * state.buffs.enemySpdMult
-    : base;
-}
-
 
 // 플레이어 행동 진입 시 — 버프/디버프 tick + 추가타 큐 반영. DoT 는 별도 helper 에서 먼저 처리한다.
 function tickPlayerBundleEntry(state: BattleState): BattleState {
@@ -155,7 +54,6 @@ function tickPlayerBundleEntry(state: BattleState): BattleState {
   };
 }
 
-
 // 적 행동 진입 시 — 적 버프/디버프 tick. DoT 는 별도 helper 에서 먼저 처리한다.
 function tickEnemyBundleEntry(state: BattleState): BattleState {
   return {
@@ -164,7 +62,6 @@ function tickEnemyBundleEntry(state: BattleState): BattleState {
     enemyV2Debuffs: tickV2BuffMap(state.enemyV2Debuffs),
   };
 }
-
 
 function tickEnemyTargetDebuffs(state: BattleState): BattleState {
   const s = state.stacks;
@@ -187,7 +84,6 @@ function tickEnemyTargetDebuffs(state: BattleState): BattleState {
   };
 }
 
-
 // 플레이어 행동 시작 — 플레이어에게 걸린 DoT 가 DEF/보호막을 무시하고 먼저 틱한다.
 // 로그는 플레이어 행동 묶음(tick)에 붙인다.
 export function tickPlayerDotsOnAction(
@@ -196,7 +92,7 @@ export function tickPlayerDotsOnAction(
   playerName: string,
 ): BattleState {
   const pTick = tickV2Dots(state.playerV2Dots, state.playerMaxHp);
-  const barrier = resolveMagicBarrierDamage({
+  let barrier = resolveMagicBarrierDamage({
     rawDamage: pTick.totalDmg,
     durability: state.playerMagicBarrier ?? 0,
     absorbPct: player.magicBarrierAbsorbPct,
@@ -204,16 +100,34 @@ export function tickPlayerDotsOnAction(
     eligible: true,
     mitigateBody: (bodyRawDamage) =>
       statusDamageAfterReduction(
-        bodyRawDamage,
+        unyieldingDamagePve(state, player, bodyRawDamage),
         player.statusDamageReductionPct,
       ),
   });
+  let resolvedTicks = distributeV2DotTicks(pTick.ticks, barrier.hpBoundDamage);
+  if (hasUnexploredEffect(player, "unyielding_dead") && pTick.ticks.length > 1) {
+    let hp = state.playerHp;
+    let durability = state.playerMagicBarrier ?? 0;
+    let combined: typeof barrier | undefined;
+    resolvedTicks = pTick.ticks.map(tick => {
+      const part = resolveMagicBarrierDamage({
+        rawDamage: tick.damage, durability,
+        absorbPct: player.magicBarrierAbsorbPct, efficiencyPct: player.magicBarrierEfficiencyPct, eligible: true,
+        mitigateBody: raw => statusDamageAfterReduction(unyieldingDamagePve({ ...state, playerHp: hp }, player, raw), player.statusDamageReductionPct),
+      });
+      hp = Math.max(0, hp - part.hpBoundDamage);
+      durability = part.durabilityLeft;
+      combined = combined ? sumMagicBarrierDamage(combined, part) : part;
+      return { ...tick, damage: part.hpBoundDamage };
+    });
+    barrier = combined!;
+  }
   const damage = barrier.hpBoundDamage;
   recordCombatDotDamage(pTick.ticks, "player", state.playerHp, damage, barrier.absorbedDamage);
   if (damage <= 0 && barrier.absorbedDamage <= 0) {
     return { ...state, playerV2Dots: pTick.nextDots };
   }
-  let dotLog = distributeV2DotTicks(pTick.ticks, damage).reduce(
+  let dotLog = resolvedTicks.reduce(
     (log, tick) =>
       appendLog(log, {
         kind: "info",
@@ -294,7 +208,6 @@ export function tickPlayerDotsOnAction(
     outcome: "lose",
   };
 }
-
 
 // 적 행동 시작 — 적에게 걸린 DoT 가 먼저 틱한다. 로그는 적 행동 묶음(tick)에 붙인다.
 function tickEnemyDotsOnAction(
@@ -438,7 +351,6 @@ function tickEnemyDotsOnAction(
   };
 }
 
-
 function forceAtbLoss(
   state: BattleState,
   turns: number,
@@ -467,7 +379,6 @@ function forceAtbLoss(
   };
 }
 
-
 function continueDamageMeterAfterEnemyDefeat(
   state: BattleState,
   ctx: ResolveContext,
@@ -495,7 +406,6 @@ function continueDamageMeterAfterEnemyDefeat(
     }),
   };
 }
-
 
 export function resolveBattleAtb(
   player: PlayerCombat,
@@ -810,6 +720,7 @@ export function resolveBattleAtb(
         };
         continue;
       }
+      const frostBeforePlayerAction = activeFrostSpeedReduction(state);
       state = {
         ...state,
         phase: "player",
@@ -858,12 +769,14 @@ export function resolveBattleAtb(
       state = stampTick(state, playerBundleStart, nextTick);
       // 바람(원소술사) — 시전 시 내 다음 행동 틱 가속 %. 행동 루프 밖(아래 틱 증가)에서 쓰므로 분기 밖 선언.
       let castSelfHastePct = 0;
+      let castEnemyDelayTicks = 0;
       if (state.phase !== "ended") {
         // v2 스킬 시전(V2_ATB_SKILLS) — cast 가 발동하면 그 행동(틱)은 시전으로 소진되고 평타
         //   루프를 건너뛴다(legacy "1틱 1행동: 강타 OR 평타" 미러). buff/debuff tick 은 위
         //   tickPlayerBundleEntry 가 self 측을 이미 했으므로(enemyV2Debuffs 는 적 번들 소유)
         //   헬퍼엔 현재 맵을 그대로 넘긴다 — 헬퍼는 tick 없이 cast+적용만 한다(이중 tick 방지).
         let castFired = false;
+        let generatedBasics = false;
         if (V2_ATB_SKILLS || ctx.forceAtbSkills) {
           const prevLogLen = state.log.length;
           const beforeCast = state;
@@ -893,7 +806,7 @@ export function resolveBattleAtb(
           castSelfHastePct = cast.selfHastePct;
           if (cast.enemyDelayPct > 0) {
             // 대지 — 적의 다음 행동(enemyNextTick 에 예약됨)을 적 인터벌의 pct% 만큼 뒤로 민다.
-            enemyNextTick +=
+            castEnemyDelayTicks =
               actionInterval(effectiveEnemyTimelineSpd(state, depthCorr)) *
               (cast.enemyDelayPct / 100);
           }
@@ -931,8 +844,11 @@ export function resolveBattleAtb(
                 fatedChainTriggeredThisTurn: false,
               },
             };
-            state = finishPlayerTurn(ended, actionPlayer, playerName);
-            if (cast.signatureExtraActions > 0) {
+            state = finishPlayerTurn(ended, actionPlayer, playerName, {
+              deferColonyRegeneration: cast.signatureExtraActions > 0,
+            });
+            if (cast.signatureExtraActions > 0 && state.phase !== "ended") {
+              generatedBasics = true;
               // 스킬 적중으로 발생한 보너스 행동은 같은 ATB 시점에서 즉시 평타 행동으로
               // 처리한다. 아래 공용 평타 루프를 열기 위해 castFired 를 해제한다.
               state = {
@@ -966,7 +882,8 @@ export function resolveBattleAtb(
           while (state.phase === "player") {
             const prevLogLen = state.log.length;
             const beforeAttack = state;
-            state = resolvePlayerPhase(state, actionPlayer, playerName, action);
+            state = resolvePlayerPhase(state, actionPlayer, playerName, action, { kind: generatedBasics ? "extra_basic" : undefined });
+            if (action.kind === "use_potion") generatedBasics = true;
             state = settleInvincibleFortressAfterPlayerDamage({
               before: beforeAttack,
               after: state,
@@ -1032,6 +949,14 @@ export function resolveBattleAtb(
         nextTick,
       );
       // 바람 — 이번 행동 후 내 다음 행동 틱을 가속(pct% 만큼 단축). 미시전이면 0 → 무변.
+      if (activeFrostSpeedReduction(state) !== frostBeforePlayerAction) {
+        // Preserve progress toward the already queued enemy action when frost first lands.
+        const previousInterval = actionInterval(effectiveEnemyTimelineSpd(state, depthCorr, frostBeforePlayerAction));
+        const nextInterval = actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));
+        enemyNextTick = nextTick + Math.ceil(Math.max(0, enemyNextTick - nextTick) * nextInterval / previousInterval);
+      }
+      // Frost rescales only previously queued progress, never this cast's new delay.
+      enemyNextTick += castEnemyDelayTicks;
       const duelistHaste = consumeDuelistCritHaste(
         actionInterval(effectivePlayerSpd(atbPlayer, state)) *
           (1 - castSelfHastePct / 100),
@@ -1123,7 +1048,7 @@ export function resolveBattleAtb(
             t: nextTick,
           }),
         };
-        state = releaseSwordShadowAfterEnemyAction(state);
+        state = finishUnexploredFrostEnemyAction(releaseSwordShadowAfterEnemyAction(state));
         if (state.enemyHp <= 0) {
           state = {
             ...state,

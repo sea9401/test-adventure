@@ -45,7 +45,7 @@ type StatDefinition = {
 };
 
 const STAT_DEFINITIONS: readonly StatDefinition[] = [
-  { key: "power", label: "전투력" },
+  { key: "power", label: "스탯 합계" },
   { key: "maxHp", label: "최대 HP" },
   { key: "maxMp", label: "최대 MP", optional: true },
   { key: "atk", label: "공격력" },

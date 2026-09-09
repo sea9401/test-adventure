@@ -1,4 +1,5 @@
-import { setSide } from "./engine.pvpOperations";
+import { setDreadnoughtCounterAction } from "./engine.pvpCounter";
+import { setSide } from "./engine.pvpSide";
 import { advanceTurnPvP } from "./engine.pvpPhase";
 import { type PvPBattleState } from "./engine.pvpState";
 import { markForcedActionMainLog } from "./engineState";
@@ -17,6 +18,9 @@ export function applyImmediateProvokedBasicAttacksPvP(
   const attackerKey = provokerKey === "p1" ? "p2" : "p1";
   const originalPhase = state.phase;
   const originalAttacker = state[attackerKey];
+  const provoker = state[provokerKey];
+  const originalCounterAction = provoker.stacks.dreadnought?.enemyActionId;
+  state = setDreadnoughtCounterAction(state, provokerKey, -(provoker.turn.completedPlayerTurns + 1));
   let next = setSide(
     {
       ...state,
@@ -30,15 +34,16 @@ export function applyImmediateProvokedBasicAttacksPvP(
     attackerKey,
     {
       ...originalAttacker,
-      // 정확히 두 번만 직접 호출하고 페이즈 종료 후처리는 실행하지 않도록 여분 1회를 둔다.
-      attacksLeft: attacks + 1,
+      // 도발 공격은 상대의 예약 행동이 아니라 시전자의 행동에 포함된 추가 공격이다.
       turn: { ...originalAttacker.turn, firstAttackPending: false },
     },
   );
   for (let index = 0; index < attacks && next.phase !== "ended"; index += 1) {
     if (next.phase !== attackerKey) break;
     const logStart = next.log.length;
-    next = advanceTurnPvP(next, { kind: "attack" }, { tickDefenderDots: false });
+    next = advanceTurnPvP(next, { kind: "attack" }, {
+      tickDefenderDots: false, basicOrigin: "extra_basic", embeddedBasic: true,
+    });
     if (next.log.length > logStart) {
       next = {
         ...next,
@@ -52,10 +57,10 @@ export function applyImmediateProvokedBasicAttacksPvP(
       };
     }
   }
-  if (next.phase === "ended") return next;
+  next = setDreadnoughtCounterAction(next, provokerKey, originalCounterAction);
   const attackerAfterProvoke = next[attackerKey];
   return setSide(
-    { ...next, phase: originalPhase },
+    { ...next, phase: next.phase === "ended" ? "ended" : originalPhase },
     attackerKey,
     {
       ...attackerAfterProvoke,

@@ -1,80 +1,67 @@
 import { combatRandom, withCombatRandom } from "./combatRandom";
+import { pvpSideResourceSnapshot } from "./unexploredSetPvpAdapter";
+export {
+actorKeys,
+applyEvasionActionRecoveryPvP,
+applyOnHitReflect,
+applyPerAttackDodge,
+applyPotionTo,
+applyPvPOnHitDots,
+applyShadowStepDodge,
+applyTrackedSetShieldAbsorptionPvP,
+attackerFacingDef,
+decrementTimedEffects,
+effectivePvPAccuracyRating,
+endAttackerPhase,
+finishPvPBerserkerAttackAction,
+initialBattleStatePvP,
+
+maybeApplyRuneCounter,
+mitigatePvPReflectDamage,
+playerPvpEvasionReductionPct,
+releaseSwordShadowAfterPvPAction,
+rollPvPAttackCount,
+setSide,
+tickPvPSideDotsOnAction
+} from "./engine.pvpOperations";
+export { castV2SkillOnAttackerTurnPvP } from "./engine.pvpSkillAction";
+export {
+PVP_TURN_CAP,
+type PvPAttackDamageResult,
+type PvPBattleResolution,
+type PvPBattleState,
+type PvPOutcome,
+type PvPPhase,
+type PvPPhaseEndOptions,
+type PvPResolveContext,
+type PvPSide,
+type PvPSideBuffs,
+type PvPSideFlags,
+type PvPSideStacks
+} from "./engine.pvpState";
+export { pvpSideDamageTakenReductionPct } from "./pvpDamageReduction";
+export { applyUnexploredFrostMarkPvP,beginUnexploredAttackPvP,finishUnexploredActionPvP,finishUnexploredAttackPvP,pvpSideResourceSnapshot,recordUnexploredHitPvP,tickUnexploredDebuffs,unexploredDefensePvP,unyieldingDamagePvP } from "./unexploredSetPvpAdapter";
 // PvP 전투 진행과 공개 API. 상태·기본 행동·스킬 처리는 각각의 하위 모듈에서 담당한다.
 
 import { type PotionId } from "@/adventure/data/potions";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { tickV2BuffMap } from "./combatShared";
-import { appendLog } from "./engineSupport";
-import { type BattleLogEntry, type PlayerAction, type PlayerCombat } from "./engineState";
 import { resolveBattlePvPAtb } from "./engine.pvp-atb";
-import {
-  applyEvasionActionRecoveryPvP,
-  decrementTimedEffects,
-  endAttackerPhase,
-  initialBattleStatePvP,
-  setSide,
-} from "./engine.pvpOperations";
+import { applyEvasionActionRecoveryPvP, endAttackerPhase } from "./engine.pvpOperations";
+import { decrementTimedEffects } from "./engine.pvpStats";
+import { initialBattleStatePvP } from "./engine.pvpInitialState";
+import { setSide } from "./engine.pvpSide";
 import { advanceTurnPvP } from "./engine.pvpPhase";
-import { castV2SkillOnAttackerTurnPvP } from "./engine.pvpSkills";
-import {
-  PVP_TURN_CAP,
-  type PvPBattleResolution,
-  type PvPBattleState,
-  type PvPOutcome,
-  type PvPResolveContext,
-} from "./engine.pvpState";
-import { mergeTier7ResourceSnapshot } from "./engineState";
-import { mergeFrostChillSnapshot } from "./frostChill";
-import { mergeLawInscriptionSnapshot } from "./lawInscription";
+import { castV2SkillOnAttackerTurnPvP } from "./engine.pvpSkillAction";
+import { PVP_TURN_CAP, type PvPBattleResolution, type PvPBattleState, type PvPOutcome, type PvPResolveContext } from "./engine.pvpState";
+import { type BattleLogEntry, type PlayerAction, type PlayerCombat } from "./engineState";
+import { appendLog } from "./engineSupport";
 import { pickPvpInitiative } from "./pvpInitiative";
 import { enterShockAction } from "./shockAction";
-import { activeTier6ResourceSnapshot } from "./tier6UniqueEffects";
-import { mergeTripleWardResourceSnapshot } from "./tripleWard";
-export {
-  actorKeys,
-  applyEvasionActionRecoveryPvP,
-  applyOnHitReflect,
-  applyPerAttackDodge,
-  applyPotionTo,
-  applyPvPOnHitDots,
-  applyShadowStepDodge,
-  applyTrackedSetShieldAbsorptionPvP,
-  attackerFacingDef,
-  decrementTimedEffects,
-  effectivePvPAccuracyRating,
-  endAttackerPhase,
-  finishPvPBerserkerAttackAction,
-  initialBattleStatePvP,
-  maybeApplyMartialCounter,
-  maybeApplyRuneCounter,
-  mitigatePvPReflectDamage,
-  playerPvpEvasionReductionPct,
-  releaseSwordShadowAfterPvPAction,
-  rollPvPAttackCount,
-  setSide,
-  tickPvPSideDotsOnAction,
-} from "./engine.pvpOperations";
-export { castV2SkillOnAttackerTurnPvP } from "./engine.pvpSkills";
-export {
-  PVP_TURN_CAP,
-  type PvPAttackDamageResult,
-  type PvPBattleResolution,
-  type PvPBattleState,
-  type PvPOutcome,
-  type PvPPhase,
-  type PvPPhaseEndOptions,
-  type PvPResolveContext,
-  type PvPSide,
-  type PvPSideBuffs,
-  type PvPSideFlags,
-  type PvPSideStacks,
-} from "./engine.pvpState";
-export { pvpSideDamageTakenReductionPct } from "./pvpDamageReduction";
 
 export { applyBerserkerHostileDamagePvP } from "./pvpHostileDamage";
 
 export { advanceTurnPvP };
-
 
 function resolveBattlePvPLegacy(
   p1Player: PlayerCombat,
@@ -128,32 +115,8 @@ function resolveBattlePvPLegacy(
   // 호출하므로 그대로 도전자 시점 렌더에 맞음. (대전자 시점 미러가 필요해지면
   // 동일 데이터를 그쪽 관점으로 swap 해 새 entry 생성.)
   const hpBarEntry = (s: PvPBattleState): BattleLogEntry => {
-    const playerResources = mergeFrostChillSnapshot(
-      mergeLawInscriptionSnapshot(
-        mergeTripleWardResourceSnapshot(
-          mergeTier7ResourceSnapshot(
-            activeTier6ResourceSnapshot(s.p1.stacks.tier6Uniques),
-            s.p1.stacks.tier7,
-          ),
-          s.p1.stacks.tripleWard,
-        ),
-        s.p1.stacks.lawInscriptions,
-      ),
-      s.p1.stacks.frostChillStacks,
-    );
-    const enemyResources = mergeFrostChillSnapshot(
-      mergeLawInscriptionSnapshot(
-        mergeTripleWardResourceSnapshot(
-          mergeTier7ResourceSnapshot(
-            activeTier6ResourceSnapshot(s.p2.stacks.tier6Uniques),
-            s.p2.stacks.tier7,
-          ),
-          s.p2.stacks.tripleWard,
-        ),
-        s.p2.stacks.lawInscriptions,
-      ),
-      s.p2.stacks.frostChillStacks,
-    );
+    const playerResources = pvpSideResourceSnapshot(s.p1);
+    const enemyResources = pvpSideResourceSnapshot(s.p2);
     return {
       kind: "hp_bar",
     text: "",
@@ -292,7 +255,7 @@ function resolveBattlePvPLegacy(
           }
         }
         const prevLogLen = state.log.length;
-        state = advanceTurnPvP(state, action);
+        state = advanceTurnPvP(state, action, castFiredThisPhase ? { basicOrigin: "extra_basic" } : {});
         // advanceTurnPvP 안에서 push 된 entry 들은 모두 이번 액터(who) 의 것.
         // 이미 side 가 박힌 entry 는 보존.
         if (state.log.length > prevLogLen) {
@@ -337,7 +300,6 @@ function resolveBattlePvPLegacy(
   };
 }
 
-
 export function resolveBattlePvP(
   p1Player: PlayerCombat,
   p2Player: PlayerCombat,
@@ -352,3 +314,6 @@ export function resolveBattlePvP(
     ? { ...result, finalState: { ...result.finalState, log: [] } }
     : result;
 }
+
+
+export { maybeApplyMartialCounter } from "./engine.pvpCounter";

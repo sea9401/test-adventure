@@ -3,6 +3,10 @@ import {
   OFFLINE_SETTLE_BATCH_SIZE,
 } from "@/adventure/data/v2/coreLoopConfig";
 import type { AutoHuntStopReason } from "@/adventure/v2/autoHuntStopPolicy";
+import {
+  V2_EQUIPMENT,
+  type V2EquipmentId,
+} from "@/adventure/data/v2/v2Equipment";
 
 export type OfflineSettleResult = {
   battles: number;
@@ -18,6 +22,7 @@ export type OfflineSettleResult = {
   depth: number;
   remainingBattles: number;
   stoppedReason: AutoHuntStopReason | "hp" | "error" | null;
+  droppedSpecialties: V2EquipmentId[];
 };
 
 export function offlineSettleStopReasonLabel(
@@ -29,6 +34,21 @@ export function offlineSettleStopReasonLabel(
   if (reason === "hp") return "체력 부족으로 정지";
   if (reason === "error") return "처리 오류로 정지";
   return null;
+}
+
+export function formatSpecialtyEquipmentDrops(ids: readonly V2EquipmentId[]): string {
+  if (ids.length === 0) return "";
+  const counts = new Map<V2EquipmentId, number>();
+  for (const id of ids) counts.set(id, (counts.get(id) ?? 0) + 1);
+  const labels = [...counts].map(
+    ([id, count]) => `${V2_EQUIPMENT[id]?.name ?? id} ×${count}`,
+  );
+  return labels.join(", ");
+}
+
+export function formatOfflineSpecialtyDrops(ids: readonly V2EquipmentId[]): string {
+  const labels = formatSpecialtyEquipmentDrops(ids);
+  return labels ? ` · 특화 장비 ${labels}` : "";
 }
 
 type OfflineSettleBatch = Partial<OfflineSettleResult> & {
@@ -55,6 +75,7 @@ function emptyResult(): OfflineSettleResult {
     depth: 0,
     remainingBattles: 0,
     stoppedReason: null,
+    droppedSpecialties: [],
   };
 }
 
@@ -84,6 +105,7 @@ export async function settleOfflineHuntBatches(
     total.totalMastery += batch.totalMastery ?? 0;
     total.levelsGained += batch.levelsGained ?? 0;
     total.spMilestonesGained += batch.spMilestonesGained ?? 0;
+    total.droppedSpecialties.push(...(batch.droppedSpecialties ?? []));
     total.depth = batch.depth ?? total.depth;
     total.remainingBattles = batch.remainingBattles ?? 0;
     total.stoppedReason = batch.stoppedReason ?? total.stoppedReason;

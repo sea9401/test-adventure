@@ -40,6 +40,14 @@ describe("일일 퀘스트 보상 레드닷", () => {
 });
 
 describe("모험 대시보드 서버 활동 변환", () => {
+  it("주간 농장 납품은 선택지 수와 무관하게 3건이면 완료된다", () => {
+    const now = Date.parse("2026-09-09T12:00:00+09:00");
+    const farm = emptyFarmState(now);
+    farm.weekly.claimedIds = ["weekly-bakery-crate", "weekly-tomato", "weekly-cacao"];
+    const weekly = resolveAdventureActivities({ [FARM_SAVE_KEY]: farm }, now)
+      .find(activity => activity.id === "farm_weekly");
+    expect(weekly).toMatchObject({ current: 3, target: 3, detail: "3 / 3", state: "completed" });
+  });
   it("수확과 자동 채집 완료를 행동 가능한 생활 활동으로 만든다", () => {
     const now = Date.UTC(2026, 7, 24, 4);
     const farm = emptyFarmState(now);

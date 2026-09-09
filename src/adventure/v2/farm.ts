@@ -25,6 +25,7 @@ export const FARM_PLOT_COUNT = 2;
 export const FARM_MAX_PLOT_COUNT = 24;
 
 export const FARM_DAILY_DELIVERY_LIMIT = 2;
+export const FARM_WEEKLY_DELIVERY_LIMIT = 3;
 export const FARM_RARE_PITY_HARVESTS = 20;
 
 export const FARMING_LEVEL_XP_SCALE = 10;
@@ -993,6 +994,14 @@ export function getFarmSpecialDeliveryRequests(): FarmSpecialDeliveryRequest[] {
 }
 
 export function getFarmWeeklyDeliveryRequests(): FarmWeeklyDeliveryRequest[] {
+  // 기본 평균 수확량으로 밭 한 칸 약 15~17시간 분량. 씨앗은 재파종 부담에 맞춘다.
+  const additionalCrops: readonly [FarmCropId, number, number][] = [
+    ["tomato", 15, 3], ["strawberry", 8, 2], ["potato", 10, 1], ["onion", 7, 1],
+    ["rice", 8, 1], ["soybean", 7, 1], ["sugarcane", 6, 1], ["cacao", 4, 1],
+  ];
+  const rareRewards = new Map(getFarmSpecialDeliveryRequests().map(request => [
+    Object.keys(request.requiredItems)[0], request.rewardReputation,
+  ]));
   return [
     {
       id: "weekly-bakery-crate",
@@ -1027,6 +1036,20 @@ export function getFarmWeeklyDeliveryRequests(): FarmWeeklyDeliveryRequest[] {
       optionalRareItemName: "달콤 옥수수",
       optionalRareBonusReputation: 7,
     },
+    ...additionalCrops.map(([cropId, quantity, seeds]) => {
+      const crop = FARM_CROPS[cropId];
+      return {
+        id: `weekly-${cropId}`,
+        title: `주간 ${crop.itemName} 납품`,
+        note: "마을에서 이번 주에 사용할 식재료를 모아 납품합니다.",
+        requiredItems: { [crop.itemId]: quantity },
+        rewardSeeds: { [cropId]: seeds },
+        rewardReputation: 7,
+        optionalRareItemId: crop.rareItemId,
+        optionalRareItemName: crop.rareItemName,
+        optionalRareBonusReputation: rareRewards.get(crop.rareItemId)! + 2,
+      };
+    }),
   ];
 }
 
@@ -1283,6 +1306,9 @@ export function claimFarmWeeklyDelivery(
   if (!request) throw new FarmError("weekly_delivery_not_found");
   if (weeklyState.weekly.claimedIds.includes(request.id)) {
     throw new FarmError("weekly_delivery_already_claimed");
+  }
+  if (weeklyState.weekly.claimedIds.length >= FARM_WEEKLY_DELIVERY_LIMIT) {
+    throw new FarmError("weekly_delivery_limit");
   }
   if (!hasFarmItems(weeklyState.inventory, request.requiredItems)) {
     throw new FarmError("not_enough_items");

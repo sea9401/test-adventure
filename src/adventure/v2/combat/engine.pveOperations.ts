@@ -1,58 +1,34 @@
-import { combatRandom } from "./combatRandom";
-import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
 import type { Monster } from "@/adventure/data/monsters";
 import { computeMpRestoreAmount, type Potion } from "@/adventure/data/potions";
 import {
-  ANALYSIS_PENALTY_CAP_PCT,
-  cappedDefReductionPct,
-  HEAVEN_DECREE_HP_PCT,
-  LUCKY_STAR_DAMAGE_MULT,
-  RAMPAGE_START_TURN,
+ANALYSIS_PENALTY_CAP_PCT,
+cappedDefReductionPct,
+HEAVEN_DECREE_HP_PCT,
+LUCKY_STAR_DAMAGE_MULT,
+RAMPAGE_START_TURN,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { aggregateEquippedPassives } from "@/adventure/data/v2/v2Skills";
-import {
-  applyBerserkerLethalDamage,
-  clampBerserkerGuardedHp,
-  finishBerserkerCurrentActionGuard,
-  initialBerserkerCombatState,
-} from "./berserkerCombat";
-import {
-  applyPlayerPoisonDamageScaling,
-  applyV2DotsToTarget,
-  damageBetween,
-  decrementTimedBuffs,
-  defaultV2MaxMpFor,
-  healingAfterReceivedMultiplier,
-  makeBleedDot,
-  makePoisonDot,
-  potionHealAmount,
-  rollAttackCount,
-  v2AtkBuffMult,
-  v2DefBuffMult,
-  type V2SkillCastResult,
-  type V2SkillDotApply,
-} from "./combatShared";
+import { applyBerserkerLethalDamage, clampBerserkerGuardedHp, finishBerserkerCurrentActionGuard, initialBerserkerCombatState } from "./berserkerCombat";
+import { healingAfterBurn } from "./burnHealing";
+import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
+import { combatRandom } from "./combatRandom";
+import { applyPlayerPoisonDamageScaling, applyV2DotsToTarget, damageBetween, decrementTimedBuffs, defaultV2MaxMpFor, healingAfterReceivedMultiplier, makeBleedDot, potionHealAmount, rollAttackCount, v2AtkBuffMult, v2DefBuffMult, type V2SkillCastResult, type V2SkillDotApply } from "./combatShared";
+import { BOSS_MAX_HP_DAMAGE_MULT } from "./engineState";
+import { hasUnexploredEffect } from "./unexploredSetPveAdapter";
 import { reducedMagicDefense } from "./engine.damageHelpers";
-import {
-  BOSS_PCT_HP_DAMAGE_MULT,
-  type BattleBuffs,
-  type BattleLogEntry,
-  type BattleStacks,
-  type BattleState,
-  type PlayerCombat,
-} from "./engineState";
+import { applyEnchantRegenIfAny, applyPassiveTurnHealIfAny, applyRegenIfAny } from "./engine.pveRecovery";
+import { applyColonyRegenerationPve } from "./engine.skillHealing";
+import { BOSS_PCT_HP_DAMAGE_MULT, type BattleBuffs, type BattleLogEntry, type BattleStacks, type BattleState, type PlayerCombat } from "./engineState";
 import { appendLog, applyHealShieldIfAny } from "./engineSupport";
+import { initialHolyPower, tickHolyPowerPve } from "./holyPowerAdapters";
 import { emptyLawInscriptionState } from "./lawInscription";
-import {
-  battleStartShield,
-  resolveTrackedShieldAbsorption,
-  trackedBattleStartShield,
-  trackedShieldBreakEffect,
-} from "./signatureEffects";
+import { nextAttackDamageDownApplication } from "./paragonCombat";
+import { makePlayerPoisonDot } from "./playerDotDamage";
+import { battleStartShield, resolveTrackedShieldAbsorption, trackedBattleStartShield, trackedShieldBreakEffect } from "./signatureEffects";
 import { hasTier6Unique, initialTier6UniqueRuntime } from "./tier6UniqueEffects";
 import { initialTripleWardState } from "./tripleWard";
-import { applyRegenIfAny, applyEnchantRegenIfAny, applyPassiveTurnHealIfAny } from "./engine.pveRecovery";
-export { applyRegenIfAny, applyEnchantRegenIfAny, applyPassiveTurnHealIfAny } from "./engine.pveRecovery";
+import { initialUnexploredSetRuntime } from "./unexploredSetEffects";
+export { applyEnchantRegenIfAny, applyPassiveTurnHealIfAny, applyRegenIfAny } from "./engine.pveRecovery";
 
 export function applyTrackedSetShieldAbsorptionPve(
   state: BattleState,
@@ -63,7 +39,7 @@ export function applyTrackedSetShieldAbsorptionPve(
   if (!effect) return state;
   const resolution = resolveTrackedShieldAbsorption({
     remaining: state.stacks.trackedSetShield ?? 0,
-    totalShieldBefore: state.stacks.playerShield + shieldAbsorbed,
+    totalShieldBefore: state.stacks.playerShield + shieldAbsorbed - (state.unexploredSetRuntime?.afterimageShield ?? 0),
     shieldAbsorbed,
     alreadyTriggered: state.flags.trackedShieldBreakUsed ?? false,
   });
@@ -103,7 +79,6 @@ export function applyTrackedSetShieldAbsorptionPve(
   };
 }
 
-
 // 플레이어 공격이 마주하는 적 DEF — 누적 페이즈 보너스 포함, 보스 취약(armorVulnerable)·
 // 정확 스킬(armorPierceFraction) 비례 관통을 차례로 적용. 본타는 여기에 분쇄(고정 감산)/
 // 암살(DEF 0)을 추가로 얹으므로 호출 측에서 따로 처리하고, 단순 추가타(분신/난무/반격)는 이 값 그대로.
@@ -142,22 +117,18 @@ export function playerFacingEnemyDef(
     : afterEnchantPierce;
 }
 
-
 export function isEnemyBleeding(state: BattleState): boolean {
   return state.enemyV2Dots.some((d) => d.tag === "bleed" && d.stacks > 0 && d.turns > 0);
 }
-
 
 export function isEnemyPoisoned(state: BattleState): boolean {
   return state.enemyV2Dots.some((d) => d.tag === "poison" && d.stacks > 0 && d.turns > 0);
 }
 
-
 export function playerSkillTargetDef(state: BattleState, player: PlayerCombat): number {
   // 평타와 같은 고정·비율 관통, 전투 중 방어 디버프, 상시 감소와 부식을 순서대로 한 번만 적용한다.
   return playerFacingEnemyDef(state, player);
 }
-
 
 export function playerSkillTargetMagicDef(
   state: BattleState,
@@ -176,14 +147,12 @@ export function playerSkillTargetMagicDef(
   );
 }
 
-
 export function applyPoisonDamageToDots(
   dots: readonly V2SkillDotApply[],
   player: PlayerCombat,
 ): V2SkillDotApply[] {
   return applyPlayerPoisonDamageScaling(dots, player.poisonDamagePct);
 }
-
 
 export function applyPlayerOnHitDots(
   state: BattleState,
@@ -205,25 +174,21 @@ export function applyPlayerOnHitDots(
     (add?.poisonStacks ?? 0) + (player.poisonOnHit ? 1 : 0);
   if (player.poisonOnHit && poisonStacks > 0) {
     dots.push(
-      ...applyPlayerPoisonDamageScaling(
-        [
-          makePoisonDot({
-            stacks: poisonStacks,
-            pctMaxHpPerStack: player.poisonOnHit.pctMaxHpPerStack,
-            sourceAtk: player.atk,
-          }),
-        ],
-        player.poisonDamagePct,
-      ),
+      makePlayerPoisonDot({
+        stacks: poisonStacks,
+        pctMaxHpPerStack: player.poisonOnHit.pctMaxHpPerStack,
+      }, player),
     );
   }
   if (dots.length === 0) return state;
   return {
     ...state,
-    enemyV2Dots: applyV2DotsToTarget(state.enemyV2Dots, dots),
+    enemyV2Dots: applyV2DotsToTarget(
+      state.enemyV2Dots, dots, state.enemy.hp,
+      state.maxHpDamageMult ?? (state.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1),
+    ),
   };
 }
-
 
 // 다음 플레이어 턴의 공격 횟수. 로직(100% 초과 = 정수부 확정 추가타 + 나머지 확률)은
 // combatShared.rollAttackCount 로 단일화 — PvP 엔진과 공유해 한쪽만 바뀌는 divergence 방지.
@@ -231,7 +196,6 @@ export function applyPlayerOnHitDots(
 export function rollPlayerAttackCount(player: PlayerCombat): number {
   return rollAttackCount(player);
 }
-
 
 // 혈광 (검투사 시그니처) — 적이 출혈 중이면 그 턴 공격 횟수 굴림에 추가 공격 확률 +%p.
 // rollPlayerAttackCount 를 감싸 enemyBleeding 일 때만 extraAttackChancePct 를 부풀린다.
@@ -250,7 +214,6 @@ export function rollPlayerAttackCountWithBleed(
   });
 }
 
-
 // 한 번의 enemy phase 진입 시 결정되는 총 공격 횟수 — base 1 + bonusAttackChancePct 기반.
 // rollPlayerAttackCount 와 같은 100%↑ 정수확정 규칙. 0/undefined = 1대.
 export function rollEnemyAttackCount(enemy: Monster): number {
@@ -260,7 +223,6 @@ export function rollEnemyAttackCount(enemy: Monster): number {
   const remainder = chance - guaranteed * 100;
   return 1 + guaranteed + (combatRandom() * 100 < remainder ? 1 : 0);
 }
-
 
 // enemy 공격 1회 종료 시 호출 — 남은 공격이 있으면 phase="enemy" 유지, 0 이면 "player".
 // 그림자 보법처럼 모든 공격 무효인 경우 호출자가 enemyAttacksLeft 를 0 으로 강제하고 phase: "player" 직접 set.
@@ -276,7 +238,6 @@ export function finishEnemyAttack(state: BattleState): BattleState {
     phase: remaining > 0 ? "enemy" : "player",
   };
 }
-
 
 /** 보호막·경감 뒤 적대 피해를 사망 극복 → 일반 불굴 순으로 넘기기 위한 PvE 공통 관문. */
 export function applyBerserkerHostileDamage(
@@ -329,7 +290,6 @@ export function applyBerserkerHostileDamage(
   };
 }
 
-
 // 페이즈 트리거 — 적 HP 가 phaseTrigger.hpFraction 미만으로 떨어진 순간 1회 발동.
 // enemyDefBonus 누적 + 알림 로그. 이미 죽었거나 발동했으면 무시. 호출 측은 enemyHp 가
 // 갱신된 state 를 넘겨야 한다.
@@ -349,7 +309,6 @@ export function applyPhaseTriggerIfAny(state: BattleState): BattleState {
     log: appendLog(state.log, { kind: "phase_trigger", text: trigger.message }),
   };
 }
-
 
 // 반격 — 회피 직후 카운터 1회. 적이 죽으면 ended 로 종료.
 // 크리티컬 / 강공격 등은 적용하지 않음 — 별도 단순 데미지.
@@ -396,65 +355,7 @@ export function applyCounterIfAny(
   return { state: next, ended: false };
 }
 
-
 // 피격 생존 반격 패시브 — enemyPhase 기본 공격뿐 아니라 몬스터 v2 스킬 피해에도 같은 조건으로 발동.
-export function applyPassiveCounterOnHitIfAny(
-  state: BattleState,
-  player: PlayerCombat,
-): BattleState {
-  const pct = player.passiveCounterChancePct ?? 0;
-  if (
-    pct <= 0 ||
-    state.playerHp <= 0 ||
-    state.enemyHp <= 0 ||
-    combatRandom() * 100 >= pct
-  ) {
-    return state;
-  }
-
-  const v2AtkMult = v2AtkBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
-  const v2DefMult = v2DefBuffMult(state.enemyV2SelfBuffs, state.enemyV2Debuffs);
-  const counterDef = playerFacingEnemyDef(state, player);
-  const counterBoostPct =
-    player.passiveCounterDamageUsesReflectBoost &&
-    state.stacks.skillReflectBoostTurns > 0
-      ? state.stacks.skillReflectBoostPct
-      : 0;
-  const counterAtk =
-    v2AtkMult !== 1 ? Math.floor(player.atk * v2AtkMult) : player.atk;
-  const boostedCounterAtk =
-    counterBoostPct > 0
-      ? Math.floor(counterAtk * (1 + counterBoostPct / 100))
-      : counterAtk;
-  const dmg = damageBetween(
-    boostedCounterAtk,
-    v2DefMult !== 1 ? Math.floor(counterDef * v2DefMult) : counterDef,
-  );
-  const damagedState = applyEnemyDamage(state, dmg);
-  const enemyHp = damagedState.enemyHp;
-  let next: BattleState = {
-    ...damagedState,
-    enemyHp,
-    log: appendLog(state.log, {
-      kind: "player_attack",
-      text: `[${counterBoostPct > 0 ? "반격 + 금강인" : "반격"}] ${state.enemy.name}에게 ${dmg} 반격 피해.`,
-    }),
-  };
-  if (enemyHp <= 0) {
-    next = {
-      ...next,
-      log: appendLog(next.log, {
-        kind: "info",
-        text: `${state.enemy.name}을(를) 쓰러뜨렸다!`,
-      }),
-      phase: "ended",
-      outcome: "win",
-    };
-  }
-  return next;
-}
-
-
 
 
 // 부가 공격(분신/난무 등) 1회 — 본인 빌드로 발동시킨 추가타라 "**모든 공격**" / "**매 공격마다**"
@@ -566,7 +467,6 @@ export function dealExtraEnemyDamage(
   return next;
 }
 
-
 // 플레이어 턴 종료 후 처리 — 그림자 분신 추가타 → 무피해 난무 추가타들 → 재생.
 // 추가타로 적이 죽으면 즉시 종료(이후 단계 건너뜀). 종전 applyRegenIfAny 호출을 이 함수로 대체.
 // export — offlineSim 의 시전 턴 종료가 resolveBattle 과 동일한 턴 종료 효과(재생·격노 등)를 거치도록.
@@ -608,8 +508,9 @@ export function applySkillTempBuffs(
     enemyAccuracyDownTurns: result.enemyAccuracyDownToApply ? result.enemyAccuracyDownToApply.turns : prev.enemyAccuracyDownTurns,
     enemyHealReducePct: result.enemyHealReduceToApply?.pct ?? prev.enemyHealReducePct,
     enemyHealReduceTurns: result.enemyHealReduceToApply ? result.enemyHealReduceToApply.turns : prev.enemyHealReduceTurns,
-    enemyDamageDownPct: result.enemyDamageDownToApply?.pct ?? prev.enemyDamageDownPct,
-    enemyDamageDownTurns: result.enemyDamageDownToApply ? result.enemyDamageDownToApply.turns : prev.enemyDamageDownTurns,
+    ...nextAttackDamageDownApplication(result.enemyDamageDownToApply, result.enemyDamage > 0),
+    enemyDamageDownPct: !result.enemyDamageDownToApply?.nextAttackOnly ? result.enemyDamageDownToApply?.pct ?? prev.enemyDamageDownPct : prev.enemyDamageDownPct,
+    enemyDamageDownTurns: result.enemyDamageDownToApply && !result.enemyDamageDownToApply.nextAttackOnly ? result.enemyDamageDownToApply.turns : prev.enemyDamageDownTurns,
     enemySkillProcDownPct: result.enemySkillProcDownToApply?.pct ?? prev.enemySkillProcDownPct,
     enemySkillProcDownTurns: result.enemySkillProcDownToApply ? result.enemySkillProcDownToApply.turns : prev.enemySkillProcDownTurns,
     enemyDotVulnPct: result.enemyDotVulnToApply?.pct ?? prev.enemyDotVulnPct,
@@ -617,19 +518,19 @@ export function applySkillTempBuffs(
   };
 }
 
-
 export function finishPlayerTurn(
   state: BattleState,
   player: PlayerCombat,
   playerName: string,
+  options: { deferColonyRegeneration?: boolean } = {},
 ): BattleState {
-  let st = state;
+  let st = tickHolyPowerPve(state, player, playerName);
   // PR2-B-2c — 운기 리젠(매턴 maxHP%) 적용 후 전 temp 버프 tick(turns -1).
   {
     const s = st.stacks;
     if (s.skillRegenTurns > 0 && s.skillRegenPct > 0 && st.playerHp > 0) {
       const heal = healingAfterReceivedMultiplier(
-        Math.floor((st.playerMaxHp * s.skillRegenPct) / 100),
+        healingAfterBurn(Math.floor((st.playerMaxHp * s.skillRegenPct) / 100), st.playerV2Dots),
         player.receivedHealMult,
       );
       const before = st.playerHp;
@@ -720,7 +621,8 @@ export function finishPlayerTurn(
       st = dealExtraEnemyDamage(st, fd, "무피해 난무", player, playerName);
     }
   }
-  if (st.phase === "ended") return st;
+  // A lethal turn-end attack completes the action, even if generated basics were queued.
+  if (st.phase === "ended") return applyColonyRegenerationPve(st, player, playerName);
   // 막다른 격노 (5티어) — RAMPAGE_START_TURN 턴 후부터 매 플레이어 턴 종료 시 ATK 영구 누적.
   // completedPlayerTurns 는 이 시점에 막 +1 된 상태 (ended state 진입 후) — 1턴 종료 시 1.
   const rampage = player.rampagePerTurn ?? 0;
@@ -765,9 +667,9 @@ export function finishPlayerTurn(
   st = applyRegenIfAny(st, player, playerName);
   st = applyEnchantRegenIfAny(st, player, playerName);
   st = applyPassiveTurnHealIfAny(st, player, playerName);
-  return st;
+  // Generated basics still belong to this skill action; their final completion heals once.
+  return options.deferColonyRegeneration ? st : applyColonyRegenerationPve(st, player, playerName);
 }
-
 
 // 선공 — SPD가 높은 쪽이 먼저 공격. 동점이면 플레이어 우선.
 export function initialBattleState(
@@ -813,7 +715,8 @@ export function initialBattleState(
     player.maxHp,
   );
   const startShield =
-    bulwarkStart + barrierStart + (sigStartShield?.amount ?? 0);
+    bulwarkStart + barrierStart + (sigStartShield?.amount ?? 0) +
+    (hasUnexploredEffect(player, "mana_redeployment") ? Math.floor(player.maxHp * 0.08) : 0);
   if (bulwarkStart > 0) {
     log.push({ kind: "info", text: `[철벽] 보호막 ${bulwarkStart} 전개` });
   }
@@ -850,6 +753,12 @@ export function initialBattleState(
     .tripleWardRank;
   return {
     enemy,
+    ...(player.unexploredSetEffects?.length ? {
+      unexploredSetRuntime: {
+        ...initialUnexploredSetRuntime(), battleStartDef: player.def,
+        ironWallDefBonus: 0, afterimageShield: 0, enemyActionHpDamage: 0,
+      },
+    } : {}),
     enemyHp:
       initialEnemyHp == null
         ? enemy.hp
@@ -920,7 +829,9 @@ export function initialBattleState(
     },
     stacks: {
       tripleWard: initialTripleWardState(tripleWardRank),
+      ...initialHolyPower(v2Skills.equipped),
       fortressImpact: 0,
+      ...((player.windCurrentDamagePctPerStack ?? 0) > 0 ? { windCurrent: 0 } : {}),
       ironWallReflectCharges: 0,
       mutationWeight: 0,
       ...(player.lawInscription
@@ -995,14 +906,12 @@ export function initialBattleState(
   };
 }
 
-
 // AP 지속 효과 라운드 카운터 -1. 새 플레이어 턴 진입 시(직전 적 페이즈 종료 후)
 // 호출되어 결의/광기/약점 노출/둔화/폭주 의 turnsLeft 를 1씩 깎고 0 으로 클램프.
 // pct/mult 값은 그대로 두지만 turnsLeft 가 0 이면 적용 쪽에서 무시한다.
 export function decrementTimedEffects(buffs: BattleBuffs): BattleBuffs {
   return decrementTimedBuffs(buffs);
 }
-
 
 export function applyEnemyDamage(
   state: BattleState,
@@ -1019,7 +928,6 @@ export function applyEnemyDamage(
   };
 }
 
-
 export function recordEnemyDamage(
   state: BattleState,
   rawDamage: number,
@@ -1032,7 +940,6 @@ export function recordEnemyDamage(
     enemyDamageDealtTotal: state.enemyDamageDealtTotal + damage,
   };
 }
-
 
 // 물약 효과 적용 — 순수 함수. 인벤토리 차감은 호출 측 책임.
 export function applyPotionEffect(

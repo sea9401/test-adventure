@@ -1,36 +1,21 @@
-import { combatRandom } from "./combatRandom";
 import type { PotionId } from "@/adventure/data/potions";
-import { ATB_TIMELINE_TICK_CAP, actionInterval } from "./combatTimeline";
-import { appendLog } from "./engineSupport";
-import { type BattleLogEntry, type PlayerAction, type PlayerCombat } from "./engineState";
-import { advanceTurnPvP } from "./engine.pvpPhase";
-import {
-  applyEvasionActionRecoveryPvP,
-  decrementTimedEffects,
-  endAttackerPhase,
-  initialBattleStatePvP,
-  rollPvPAttackCount,
-  tickPvPSideDotsOnAction,
-} from "./engine.pvpOperations";
-import { castV2SkillOnAttackerTurnPvP } from "./engine.pvpSkills";
-import {
-  type PvPBattleResolution,
-  type PvPBattleState,
-  type PvPOutcome,
-  type PvPResolveContext,
-  type PvPSide,
-} from "./engine.pvpState";
 import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
-import { activeTier6ResourceSnapshot } from "./tier6UniqueEffects";
-import { consumeDuelistCritHaste } from "./duelistCombat";
+import { combatRandom } from "./combatRandom";
 import { tickV2BuffMap } from "./combatShared";
-import { enterShockAction } from "./shockAction";
-import { mergeTripleWardResourceSnapshot } from "./tripleWard";
-import { mergeLawInscriptionSnapshot } from "./lawInscription";
-import { mergeTier7ResourceSnapshot } from "./engineState";
-import { mergeFrostChillSnapshot } from "./frostChill";
-import { pickPvpInitiative, type PvPInitiativeActor } from "./pvpInitiative";
+import { ATB_TIMELINE_TICK_CAP, actionInterval } from "./combatTimeline";
+import { consumeDuelistCritHaste } from "./duelistCombat";
+import { pvpSideResourceSnapshot } from "./unexploredSetPvpAdapter";
+import { applyEvasionActionRecoveryPvP, endAttackerPhase, tickPvPSideDotsOnAction } from "./engine.pvpOperations";
+import { decrementTimedEffects, rollPvPAttackCount } from "./engine.pvpStats";
+import { initialBattleStatePvP } from "./engine.pvpInitialState";
+import { advanceTurnPvP } from "./engine.pvpPhase";
+import { castV2SkillOnAttackerTurnPvP } from "./engine.pvpSkillAction";
+import { type PvPBattleResolution, type PvPBattleState, type PvPOutcome, type PvPResolveContext, type PvPSide } from "./engine.pvpState";
+import { type BattleLogEntry, type PlayerAction, type PlayerCombat } from "./engineState";
+import { appendLog } from "./engineSupport";
 import { weightSpeedMultiplier } from "./mutationCombat";
+import { pickPvpInitiative, type PvPInitiativeActor } from "./pvpInitiative";
+import { enterShockAction } from "./shockAction";
 
 // PvE 사냥과 같은 3000틱 상한을 사용한다. 양쪽 모두 플레이어 스케일 SPD를 쓰므로 실제 행동 수는
 // 각자의 actionInterval에 따라 달라지며, 장기전만 사냥과 동일한 타임라인 길이까지 허용한다.
@@ -38,32 +23,8 @@ export const PVP_ATB_TICK_CAP = ATB_TIMELINE_TICK_CAP;
 export const PVP_ATB_ACTION_GUARD = 2000;
 
 function hpBarEntry(state: PvPBattleState, tick?: number): BattleLogEntry {
-  const playerResources = mergeFrostChillSnapshot(
-    mergeLawInscriptionSnapshot(
-      mergeTripleWardResourceSnapshot(
-        mergeTier7ResourceSnapshot(
-          activeTier6ResourceSnapshot(state.p1.stacks.tier6Uniques),
-          state.p1.stacks.tier7,
-        ),
-        state.p1.stacks.tripleWard,
-      ),
-      state.p1.stacks.lawInscriptions,
-    ),
-    state.p1.stacks.frostChillStacks,
-  );
-  const enemyResources = mergeFrostChillSnapshot(
-    mergeLawInscriptionSnapshot(
-      mergeTripleWardResourceSnapshot(
-        mergeTier7ResourceSnapshot(
-          activeTier6ResourceSnapshot(state.p2.stacks.tier6Uniques),
-          state.p2.stacks.tier7,
-        ),
-        state.p2.stacks.tripleWard,
-      ),
-      state.p2.stacks.lawInscriptions,
-    ),
-    state.p2.stacks.frostChillStacks,
-  );
+  const playerResources = pvpSideResourceSnapshot(state.p1);
+  const enemyResources = pvpSideResourceSnapshot(state.p2);
   return {
     kind: "hp_bar",
     text: "",
@@ -114,7 +75,8 @@ export function effectiveSideSpd(
   if (other.buffs.enemySpdTurnsLeft > 0) {
     spd *= other.buffs.enemySpdMult;
   }
-  return spd * weightSpeedMultiplier(side.stacks.mutationWeight);
+  return spd * weightSpeedMultiplier(side.stacks.mutationWeight) *
+    (1 - (side.unexploredDebuffs?.speedReductionPct ?? 0) / 100);
 }
 
 function nextActorPvP(
@@ -286,6 +248,9 @@ export function resolveBattlePvPAtb(
     const tied = p1NextTick === p2NextTick;
     const who = nextActorPvP(p1NextTick, p2NextTick, tiePriority);
     const other = who === "p1" ? "p2" : "p1";
+    const frostBefore = state[other].unexploredDebuffs?.speedReductionPct ?? 0;
+    const otherIntervalBefore = actionInterval(effectiveSideSpd(state, other));
+    let newEnemyDelay = 0;
     if (tied) tiePriority = other;
     actions += 1;
     state = ensureBundleReady({ ...state, phase: who }, who);
@@ -344,8 +309,7 @@ export function resolveBattlePvPAtb(
           const push =
             actionInterval(effectiveSideSpd(state, other)) *
             (cast.enemyDelayPct / 100);
-          if (other === "p1") p1NextTick += push;
-          else p2NextTick += push;
+          newEnemyDelay += push;
         }
       }
       if (state.phase !== "ended") {
@@ -375,8 +339,7 @@ export function resolveBattlePvPAtb(
           const push =
             actionInterval(effectiveSideSpd(state, other)) *
             (cast.enemyDelayPct / 100);
-          if (other === "p1") p1NextTick += push;
-          else p2NextTick += push;
+          newEnemyDelay += push;
         }
         if (
           cast.castFired &&
@@ -411,7 +374,9 @@ export function resolveBattlePvPAtb(
         while (state.phase === who) {
           const prevLogLen = state.log.length;
           state = withAtbPlayers(
-            advanceTurnPvP(state, action, { tickDefenderDots: false }),
+            advanceTurnPvP(state, action, { tickDefenderDots: false,
+              ...(castFired ? { basicOrigin: "extra_basic" as const } : {}),
+            }),
           );
           state = tagNewLogEntries(state, prevLogLen, who, nextTick);
           action = { kind: "attack" };
@@ -419,6 +384,17 @@ export function resolveBattlePvPAtb(
         }
       }
     }
+
+    // Rescale only existing progress when frost strength changes. Same-cast delay is added afterward.
+    if (frostBefore !== (state[other].unexploredDebuffs?.speedReductionPct ?? 0)) {
+      const queued = other === "p1" ? p1NextTick : p2NextTick;
+      const rescheduled = nextTick + Math.ceil(Math.max(0, queued - nextTick) *
+        actionInterval(effectiveSideSpd(state, other)) / otherIntervalBefore);
+      if (other === "p1") p1NextTick = rescheduled;
+      else p2NextTick = rescheduled;
+    }
+    if (other === "p1") p1NextTick += newEnemyDelay;
+    else p2NextTick += newEnemyDelay;
 
     const shadowReleaseHastePct =
       state[other].stacks.tier7?.shadowReleaseHastePct ?? 0;

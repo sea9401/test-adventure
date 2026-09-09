@@ -232,3 +232,20 @@ describe("입찰 전용 경매 정산", () => {
     ]);
   });
 });
+
+vi.mock("@/lib/server/marketplaceMaintenance", () => ({
+  marketplaceMaintenanceFlagExists: vi.fn(() => false),
+  lockMarketplaceMaintenance: vi.fn(async () => false),
+}));
+
+
+it("점검 시작이 조회와 정산 사이에 끼어들어도 낙찰·반환을 보류한다", async () => {
+  const { lockMarketplaceMaintenance } = await import("@/lib/server/marketplaceMaintenance");
+  vi.mocked(lockMarketplaceMaintenance).mockResolvedValueOnce(true);
+  mocks.currentIds.push(1);
+  mocks.transactionRows.push(currentListing(700));
+  const response = await POST(cronRequest());
+  await expect(response.json()).resolves.toMatchObject({auctionsSold: 0, auctionsReturned: 0});
+  expect(mocks.delivered).toHaveLength(0);
+  expect(mocks.listingCancellations).toHaveLength(0);
+});

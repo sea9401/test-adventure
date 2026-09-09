@@ -1,5 +1,7 @@
 "use client";
 
+import { MarketplaceFoodEffect } from "./MarketplaceFoodEffect";
+
 import { remainingLabel } from "./listingPresentation";
 import { type Listing } from "./marketplaceShared";
 import { NumberInput } from "@/components/ui/NumberInput";
@@ -36,6 +38,7 @@ export function BidDialog({
         onClick={(event) => event.stopPropagation()}
       >
         <h2 className="text-base font-bold">공개 입찰</h2>
+        <MarketplaceFoodEffect food={listing.foodPreview} />
         <div className="mt-1 text-sm font-medium">{listing.itemName}</div>
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
           <div className={`${SURFACE_INSET} p-2.5`}>

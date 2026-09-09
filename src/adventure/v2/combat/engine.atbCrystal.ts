@@ -2,13 +2,7 @@ import { tagNewLogEntries } from "./engine.atbLog";
 import { resolveForcedEnemyMagicHit } from "./engine.enemyPhase";
 import { type BattleLogEntry, type BattleState, type PlayerCombat } from "./engineState";
 import { appendLog } from "./engineSupport";
-import {
-  SKYWARD_CRYSTAL_EYE_EXPOSURE_DAMAGE_PCT,
-  SKYWARD_CRYSTAL_EYE_STACK_CAP,
-  addSkywardCrystalEyeHit,
-  fireSkywardCrystalEyeArtillery,
-  skywardCrystalEyeBasePowerPct,
-} from "./skywardCrystalEyeMechanic";
+import { SKYWARD_CRYSTAL_EYE_EXPOSURE_DAMAGE_PCT, SKYWARD_CRYSTAL_EYE_STACK_CAP, addSkywardCrystalEyeHit, fireSkywardCrystalEyeArtillery, skywardCrystalEyeBasePowerPct } from "./skywardCrystalEyeMechanic";
 
 export function skywardCrystalEyeStackGainFromLogs(
   log: readonly BattleLogEntry[],

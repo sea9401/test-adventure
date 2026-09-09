@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
 import { Button } from "@/components/ui/Button";
 import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
@@ -35,11 +35,11 @@ import {
 } from "@/adventure/v2/stamina";
 import { HUNT_COOLDOWN_MS } from "@/adventure/data/v2/coreLoopConfig";
 import {
+  formatOfflineSpecialtyDrops,
   offlineSettleStopReasonLabel,
   settleOfflineHuntBatches,
 } from "@/adventure/v2/offlineSettleApi";
-import { MAIN_DUNGEON, huntStageName } from "@/adventure/data/v2/dungeon";
-import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
+import { huntStageName } from "@/adventure/data/v2/dungeon";
 import {
   dungeonGrowthLabel,
   dungeonReadiness,
@@ -86,6 +86,7 @@ import {
   type HuntEndReason,
 } from "@/adventure/v2/huntEndNotice";
 import { UNEXPLORED_POOL_BY_ID } from "@/adventure/data/v2/unexploredMonsterPools";
+import { UnexploredSpecialtyPanel } from "@/adventure/v2/UnexploredSpecialtyPanel";
 
 // 한 층 전용 던전 페이지. 1회 사냥 + 5/10/50회 일괄 사냥 (한 번에 N회, 합산 결과).
 // 옛 무한 자동/연속 useEffect 트리거 폐기 — runBatch 가 직접 for-loop with await.
@@ -401,28 +402,17 @@ export function V2DungeonFloorView({
   offlineHunt?: { active: boolean; endsAt: number; depth: number } | null;
   onRefresh?: () => void | Promise<void>;
 }) {
-  // 이름은 테마명 + 3단계명(예 "들판 · 입구"). authored 층은 깊이 1(들판)
-  // 하나뿐 — 그 객체(floor)는 권장 파워 조회용이고, 없으면 floorPowerGate(depth) 로 폴백한다.
-  // ⚠️ floor 존재 ≠ 깊이 유효성(깊이 2~6 도 들판이지만 authored 층 없음). 유효성은 page 가 검증.
-  const floor = MAIN_DUNGEON.floors.find((f) => f.id === floorId);
   const depth = Number(floorId);
   const isUnexplored = huntMode === "unexplored";
   const displayName = isUnexplored
     ? `미개척지 · 난이도 ${unexploredSummary?.difficulty ?? depth}`
     : huntStageName(depth);
-  const powerGate = floor
-    ? floor.requirement.kind === "power"
-      ? floor.requirement.min
-      : floorPowerGate(depth)
-    : floorPowerGate(depth);
-  // 내 전투력 — me/state 가 보낸 power(권장 파워와 동일 derivePowerScore 단위)라 직접 비교 가능.
-  //   없으면(미로딩) 표시 생략. 난이도 지표는 빌드 간 환산 편차가 커 입장·경고 기준으로 쓰지 않는다.
-  const myPower = playerCombat?.power ?? null;
+  const specialtyPanelKey = !isUnexplored && !rareMapIid && depth >= 79 && depth <= 84
+    ? `normal:${depth}`
+    : null;
   const readiness = dungeonReadiness({
     depth,
     frontierDepth,
-    playerPower: myPower,
-    recommendedPower: powerGate,
     jobTier: currentJobTier,
     level: currentLevel,
     levelCap: currentLevelCap,
@@ -498,6 +488,18 @@ export function V2DungeonFloorView({
   // 일괄 사냥 상태.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
+  const [specialtyLock, setSpecialtyLock] = useState(() => ({
+    key: specialtyPanelKey,
+    busy: specialtyPanelKey !== null,
+    mounted: specialtyPanelKey !== null,
+  }));
+  const specialtyBusy = specialtyLock.busy || (
+    specialtyPanelKey !== null && specialtyLock.key !== specialtyPanelKey
+  );
+  const handleSpecialtyBusyChange = useCallback((busy: boolean) => {
+    setSpecialtyLock({ key: specialtyPanelKey, busy, mounted: true });
+  }, [specialtyPanelKey]);
+  const specialtyControllerMounted = specialtyPanelKey !== null || specialtyLock.mounted;
   const [batchSummary, setBatchSummary] = useState<BatchSummary | null>(null);
   const [latestPresentedResult, setLatestPresentedResult] = useState<
     | { kind: "single"; result: HuntResultPayload }
@@ -674,6 +676,7 @@ export function V2DungeonFloorView({
   const [offlineBusy, setOfflineBusy] = useState(false);
   const [offlineMsg, setOfflineMsg] = useState<string | null>(null);
   const startOffline = async () => {
+    if (specialtyBusy) return;
     const stopReason = getAutoHuntStopReason(autoStopConfigRef.current, {
       hpCharges: statusHpCharges,
       mpCharges: statusMpCharges,
@@ -727,7 +730,7 @@ export function V2DungeonFloorView({
       }
       setOfflineMsg(
         j.battles > 0
-          ? `오프라인 사냥 정산 — ${j.battles}판 · 경험치 +${j.totalExp.toLocaleString()} · 골드 +${j.totalGold.toLocaleString()}${j.totalProficiency > 0 ? ` · 숙달 포인트 +${j.totalProficiency.toLocaleString()}` : ""}${j.totalMastery > 0 ? ` · 직업 숙련도 +${j.totalMastery.toLocaleString()}` : ""}${offlineSettleStopReasonLabel(j.stoppedReason) ? ` · ${offlineSettleStopReasonLabel(j.stoppedReason)}` : ""}`
+          ? `오프라인 사냥 정산 — ${j.battles}판 · 경험치 +${j.totalExp.toLocaleString()} · 골드 +${j.totalGold.toLocaleString()}${j.totalProficiency > 0 ? ` · 숙달 포인트 +${j.totalProficiency.toLocaleString()}` : ""}${j.totalMastery > 0 ? ` · 직업 숙련도 +${j.totalMastery.toLocaleString()}` : ""}${formatOfflineSpecialtyDrops(j.droppedSpecialties)}${offlineSettleStopReasonLabel(j.stoppedReason) ? ` · ${offlineSettleStopReasonLabel(j.stoppedReason)}` : ""}`
           : "오프라인 사냥 정지 (정산할 누적 없음)",
       );
       onRefresh?.();
@@ -802,6 +805,7 @@ export function V2DungeonFloorView({
         drops: b.drops,
         droppedEquipments: b.droppedEquipments,
         droppedUniques: b.droppedUniques,
+        droppedSpecialties: b.droppedSpecialties,
         rareMapDrops: b.rareMapDrops,
         rareMapDropInstances: b.rareMapDropInstances,
         stoppedReason: b.stoppedReason,
@@ -962,7 +966,7 @@ export function V2DungeonFloorView({
     staminaMax,
     staminaRegenBonusPct,
   ]);
-  const oneActionDisabled = busy || batchRunning;
+  const oneActionDisabled = busy || batchRunning || specialtyBusy;
   // 라이브 HP(시간 재생 반영) 기준 회복 필요 여부 — 5% 미만이면 사냥 차단(서버와 동일 기준).
   // hp 미로딩(null)이면 게이트 비활성 — 서버 가드가 최종 차단.
   const liveHp = hp
@@ -1150,6 +1154,12 @@ export function V2DungeonFloorView({
       longPressTimer.current = null;
     }
   };
+  useEffect(() => {
+    if (!oneActionDisabled || longPressTimer.current == null) return;
+    clearTimeout(longPressTimer.current);
+    longPressTimer.current = null;
+    longPressFired.current = false;
+  }, [oneActionDisabled]);
   // 언마운트 시 타이머 정리 — press 중 화면을 떠나도 unmounted setState 안 나게.
   useEffect(
     () => () => {
@@ -1160,7 +1170,7 @@ export function V2DungeonFloorView({
   const startAutoHunt = () => {
     // 스태미나 모드에서도 자동 사냥 허용(coreLoopOn 게이트 제거). 능동적 길게누르기라 방치
     //   자동전투(#840 우려)와 무관하고, 스태미나·체력으로 자연 제한된다(소진 시 triggerHunt 정지).
-    if (rareMapIid || offlineLocked || autoHunt) return;
+    if (rareMapIid || offlineLocked || autoHunt || oneActionDisabled) return;
     const stopReason = getAutoHuntStopReason(autoStopConfigRef.current, {
       hpCharges: statusHpCharges,
       mpCharges: statusMpCharges,
@@ -1197,7 +1207,7 @@ export function V2DungeonFloorView({
   // 누르기 시작 → 0.5초 유지하면 자동 시작(두 모드 공용). 자동 중·잠금이면 길게 무의미(탭만 동작).
   const onHuntPressStart = () => {
     longPressFired.current = false;
-    if (rareMapIid || offlineLocked || autoHunt) return;
+    if (rareMapIid || offlineLocked || autoHunt || oneActionDisabled) return;
     cancelLongPress();
     longPressTimer.current = setTimeout(() => {
       longPressFired.current = true;
@@ -1234,8 +1244,6 @@ export function V2DungeonFloorView({
         displayName={displayName}
         outpostName={outpostName}
         challenge={isChallenge}
-        playerPower={myPower}
-        difficultyPower={isUnexplored ? depth : powerGate}
         growthLabel={isUnexplored ? null : growthLabel}
         readiness={
           isUnexplored
@@ -1244,6 +1252,18 @@ export function V2DungeonFloorView({
         }
         onBack={onBack}
       />
+      {specialtyControllerMounted ? (
+        <UnexploredSpecialtyPanel
+          unlocked={frontierDepth >= 79}
+          initialMode={{ mode: "standard" }}
+          loadFromServer
+          visible={specialtyPanelKey !== null}
+          onSavingChange={handleSpecialtyBusyChange}
+          onModeChange={() => {
+            void onRefresh?.();
+          }}
+        />
+      ) : null}
       {isUnexplored && unexploredSummary && (
         <UnexploredHuntSummaryPanel summary={unexploredSummary} />
       )}
@@ -1632,7 +1652,7 @@ export function V2DungeonFloorView({
               <button
                 type="button"
                 onClick={startOffline}
-                disabled={offlineBusy}
+                disabled={offlineBusy || specialtyBusy}
                 className="ui-game-button w-full rounded-md border border-indigo-500 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-800 transition hover:bg-indigo-100 disabled:opacity-50 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-200"
               >
                 {offlineBusy ? "시작 중…" : "오프라인 사냥"}

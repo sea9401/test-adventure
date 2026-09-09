@@ -130,6 +130,9 @@ const SELF_STATUS_OPTIONS: PatternChoiceOption<V2PatternSelfStatus>[] = [
   { value: "berserkerDeathOvercome", label: "사망 극복 공격 준비" },
 ];
 const SELF_RESOURCE_OPTIONS: PatternChoiceOption<V2PatternSelfResource>[] = [
+  { value: "holyPower", label: "성력" },
+  { value: "windCurrent", label: "기류" },
+  { value: "sanctuary", label: "성역 남은 행동" },
   { value: "impact", label: "충격" },
   { value: "ironWallReflect", label: "철벽 반사" },
   { value: "inscription", label: "각인 총합" },
@@ -1620,7 +1623,7 @@ export function ConditionParams({
                 <PatternNumberInput
                   key="self-resource-value"
                   min={0}
-                  max={c.resource === "inscription" ? 8 : 3}
+                  max={c.resource === "holyPower" ? 100 : c.resource === "sanctuary" ? 4 : c.resource === "inscription" ? 8 : 3}
                   value={c.value}
                   onValueChange={(value) => onChange({ ...c, value })}
                 />

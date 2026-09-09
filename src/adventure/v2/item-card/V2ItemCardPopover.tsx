@@ -38,6 +38,8 @@ import {
   UniqueBadge,
   WIDTH,
   formatSetBonus,
+  unexploredSetEffectDescription,
+  unexploredTagSetBonusDescription,
   powerNameClass,
   statRowWithRollRange,
   type ItemCardAnchor,
@@ -209,9 +211,9 @@ export function V2ItemCard({
   codexRegistered?: boolean;
   /** 인벤토리 보유 장비의 미등록 배지에서 즉시 등록 절차를 시작한다. */
   codexRegister?: { busy: boolean; onRegister: () => void };
-  /** 보유 장비의 해방 상태. 카탈로그 미리보기에는 주입하지 않는다. */
+  /** 보유 장비의 마법부여 상태. 카탈로그 미리보기에는 주입하지 않는다. */
   liberation?: V2LiberationState;
-  /** 인벤토리에서만 주입하는 대장간 해방 작업대 바로가기. */
+  /** 인벤토리에서만 주입하는 대장간 마법부여 작업대 바로가기. */
   liberationHref?: string;
 }) {
   useEscapeKey(onClose);
@@ -471,11 +473,22 @@ export function V2ItemCard({
                             {signatureLabel(threshold.signature)}
                           </span>
                         ) : null}
+                        {threshold.effect ? (
+                          <span className="mt-0.5 block max-w-64 normal-case leading-relaxed">
+                            <span className="block font-semibold">★ {threshold.effect.label}</span>
+                            <span className="block">{unexploredSetEffectDescription(threshold.effect)}</span>
+                          </span>
+                        ) : null}
                       </span>
                     </div>
                   );
                 })}
               </div>
+              {unexploredTagSetBonusDescription(tagSet.id) ? (
+                <p className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+                  {unexploredTagSetBonusDescription(tagSet.id)}
+                </p>
+              ) : null}
               <SetEquipmentList
                 pieceIds={tagSetPieceIds(tagSet.id)}
                 equippedIds={equippedIds}
@@ -501,7 +514,7 @@ export function V2ItemCard({
             href={liberationHref}
             className="mt-3 flex min-h-10 items-center justify-center rounded-lg border border-violet-600 bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-700 dark:border-violet-500 dark:bg-violet-500 dark:hover:bg-violet-400"
           >
-            {liberation ? "재해방 작업대로 이동" : "해방 작업대로 이동"}
+            {liberation ? "재마법부여 작업대로 이동" : "마법부여 작업대로 이동"}
           </a>
         ) : null}
 

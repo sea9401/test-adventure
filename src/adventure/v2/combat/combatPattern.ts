@@ -37,6 +37,9 @@ export type V2PatternSelfStatus =
   | "berserkerFinisher"
   | "berserkerDeathOvercome";
 export type V2PatternSelfResource =
+  | "windCurrent"
+  | "holyPower"
+  | "sanctuary"
   | "impact"
   | "ironWallReflect"
   | "inscription"
@@ -578,6 +581,9 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
     }
     case "self_resource": {
       const resource =
+        c.resource === "windCurrent" ||
+        c.resource === "holyPower" ||
+        c.resource === "sanctuary" ||
         c.resource === "impact" ||
         c.resource === "ironWallReflect" ||
         c.resource === "inscription" ||

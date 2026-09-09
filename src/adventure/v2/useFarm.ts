@@ -775,6 +775,7 @@ function errorMessage(error: unknown): string {
       delivery_already_claimed: "이미 완료한 납품입니다.",
       delivery_daily_limit: "오늘 가능한 납품 횟수를 모두 사용했습니다.",
       weekly_delivery_already_claimed: "이미 완료한 주간 납품입니다.",
+      weekly_delivery_limit: "이번 주에는 서로 다른 작물 3종까지 납품할 수 있습니다.",
       plot_upgrade_not_available: "더 늘릴 수 있는 밭이 없습니다.",
       crop_locked: "해당 작물을 심으려면 필요한 농부 계열 패시브를 먼저 배워야 합니다.",
       shop_item_locked: "해당 씨앗 상자를 구매하려면 필요한 농부 계열 패시브를 먼저 배워야 합니다.",

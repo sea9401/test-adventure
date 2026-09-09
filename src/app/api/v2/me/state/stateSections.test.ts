@@ -183,7 +183,7 @@ describe("loadoutSection — 직업 SP 산식 전환", () => {
     expect(section.spUsed).toBe(31);
     expect(
       section.library.find((row) => row.skillId === "v2c_firemage_inferno"),
-    ).toMatchObject({ spCost: 8, effectiveSpCost: 1, resonanceRole: "material" });
+    ).toMatchObject({ spCost: 7, effectiveSpCost: 1, resonanceRole: "material" });
     expect(
       section.library.find((row) => row.skillId === "v2c_elementallord_surge"),
     ).toMatchObject({ spCost: 16, effectiveSpCost: 1, resonanceRole: "catalyst" });

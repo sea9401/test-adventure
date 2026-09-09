@@ -81,7 +81,7 @@ type StateResponse = {
     skillCritOverflow?: boolean;
     skillCritDmgPct?: number;
     equipmentMagicSkillCritDmgPct?: number;
-    // 콘텐츠 파워(합성 전투력) — 기본 정보 카드 헤드라인.
+    // 콘텐츠 파워(합성 스탯 합계) — 기본 정보 카드 헤드라인.
     power?: number;
   } | null;
   buildAdvisory?: BuildAlignmentAdvisory | null;

@@ -50,11 +50,6 @@ export function DungeonHunt({
             className="flex items-center justify-between rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-left text-sm hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900/50 dark:hover:bg-zinc-800"
           >
             <span className="font-medium">{floor.name}</span>
-            <span className="text-xs text-zinc-500">
-              {floor.requirement.kind === "power"
-                ? `난이도 지표 ${floor.requirement.min}`
-                : `엔드 ${floor.requirement.tier}`}
-            </span>
           </button>
         ))}
       </div>

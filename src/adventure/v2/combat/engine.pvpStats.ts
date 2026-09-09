@@ -4,14 +4,7 @@ import {
   EVASION_DAMAGE_REDUCTION_MAX_PCT,
   pvpEvasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
-import {
-  applyPlayerPoisonDamageScaling,
-  damageBetween,
-  decrementTimedBuffs,
-  rollAttackCount,
-  v2DefBuffMult,
-  type V2SkillDotApply,
-} from "./combatShared";
+import { applyPlayerPoisonDamageScaling, damageBetween, decrementTimedBuffs, rollAttackCount, v2DefBuffMult, type V2SkillDotApply } from "./combatShared";
 import { reducedMagicDefense } from "./engine.damageHelpers";
 import { type PvPBattleState, type PvPSide, type PvPSideBuffs } from "./engine.pvpState";
 import { type PlayerCombat } from "./engineState";
@@ -24,7 +17,8 @@ export function effectivePvPAccuracyRating(side: PvPSide): number {
   return Math.max(
     0,
     baseAccuracy *
-      (1 - Math.min(100, Math.max(0, accuracyDownPct)) / 100),
+      (1 - Math.min(100, Math.max(0, accuracyDownPct)) / 100) -
+      (side.unexploredDebuffs?.accuracyPenalty ?? 0),
   );
 }
 
@@ -104,7 +98,7 @@ export function attackerFacingDef(
   const raw = Math.max(
     0,
     effectiveMutationDef(
-      defender.player.def + braceDefBonus,
+      defender.player.def + braceDefBonus + (defender.stacks.unexplored?.ironWallDefBonus ?? 0),
       defender.stacks.mutationWeight,
       defender.player.stoneskinDefPctPerWeight ?? 0,
     ) - attackerBuffs.opponentDefPenalty,

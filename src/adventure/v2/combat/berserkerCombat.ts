@@ -1,7 +1,4 @@
-import type {
-  V2BerserkerCastContext,
-  V2BerserkerCastTransition,
-} from "./combatShared";
+import { type V2BerserkerCastContext, type V2BerserkerCastTransition } from "./combatShared";
 
 export type BerserkerMadnessRank = 0 | 1 | 2 | 3 | 4;
 export type BerserkerCombatState = {

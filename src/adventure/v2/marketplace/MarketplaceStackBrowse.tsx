@@ -1,6 +1,7 @@
 "use client";
 
 import { ChartLine, Cube, Flask, Star } from "@phosphor-icons/react";
+import { MarketplaceFoodEffect } from "./MarketplaceFoodEffect";
 import { Card } from "@/components/ui/Card";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import type { Listing } from "./marketplaceShared";
@@ -83,6 +84,7 @@ export function MarketplaceStackBrowse({
                     </button>
                   </div>
                 </div>
+                <MarketplaceFoodEffect food={listing.foodPreview} />
                 <div className="mt-2 grid grid-cols-2 gap-2 border-t border-zinc-200 pt-2 text-[11px] dark:border-zinc-700 sm:grid-cols-3">
                   <div>
                     <div className="text-zinc-500 dark:text-zinc-400">

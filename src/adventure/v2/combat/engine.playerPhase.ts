@@ -1,81 +1,35 @@
-import { combatRandom } from "./combatRandom";
-import { recordCombatMetric } from "./combatDiagnostics";
-import {
-  BOSS_PCT_HP_DAMAGE_MULT,
-  type BattleState,
-  type EquippedAPSkill,
-  type PlayerAction,
-  type PlayerCombat,
-} from "./engineState";
-import { COMBO_FINISHER_PERIOD } from "../../data/v2/v2CombatConstants";
-import { NORMAL_MONSTER_EXECUTION_HP_FRACTION } from "./engineResolutionTypes";
-import { appendLog } from "./engineSupport";
-import {
-  applyEnemyDamage,
-  applyPhaseTriggerIfAny,
-  applyPlayerOnHitDots,
-  applyPotionEffect,
-  finishPlayerTurn,
-  playerFacingEnemyDef,
-  rollPlayerAttackCountWithBleed,
-} from "./engine.pveOperations";
-import {
-  applyDefIgnore,
-  computeAfterCrush,
-  computeBalanceCritBonus,
-  computeBerserkBonus,
-  computeCritOverflowBonus,
-  computeStormBonus,
-} from "./engine.damageHelpers";
-import {
-  applyV2DotsToTarget,
-  damageBetween,
-  extractApEffect,
-  healingAfterReceivedMultiplier,
-  makePoisonDot,
-  v2AtkBuffMult,
-  v2DefBuffMult,
-} from "./combatShared";
-import { finishBerserkerPlayerAttack } from "./berserkerCombat";
-import {
-  everyNHitsEffect,
-  formatDefDebuffLog,
-  firesOnCritPoison,
-  formatChillSlowLog,
-  formatShockAppliedLog,
-  onCritEnemyDefDebuff,
-  onCritEnemyChill,
-  onCritSpeedBuff,
-  rollOnHitBleed,
-  rollOnHitPoison,
-  rollOnHitShock,
-  SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
-  SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
-} from "./signatureEffects";
-import { canApplyShock } from "./shockAction";
 import { CRIT_PCT_CAP } from "@/adventure/data/stats";
 import {
-  CRIT_MULT_BASE,
-  ETERNAL_GALE_ABSOLUTE_CAP,
-  GALE_CHAIN_MAX_PER_TURN,
-  HEAVEN_DECREE_HP_PCT,
-  IMPACT_WAVE_INTERVAL,
-  LUCKY_STAR_DAMAGE_MULT,
-  POWER_ATTACK_TURN_INTERVAL,
-  applyEvasionDamageReduction,
-  evasionDamageReductionPct,
+applyEvasionDamageReduction,
+CRIT_MULT_BASE,
+ETERNAL_GALE_ABSOLUTE_CAP,
+evasionDamageReductionPct,
+GALE_CHAIN_MAX_PER_TURN,
+HEAVEN_DECREE_HP_PCT,
+IMPACT_WAVE_INTERVAL,
+LUCKY_STAR_DAMAGE_MULT,
+POWER_ATTACK_TURN_INTERVAL,
 } from "@/adventure/data/v2/v2CombatConstants";
-import {
-  applyTier6UniquePveEvent,
-  tier6DotContext,
-  tier6StatusKindCount,
-} from "./tier6UniquePveAdapter";
-import {
-  consumeDuelistBasicHit,
-  duelistDeclarationProgress,
-  interruptDuelistRamp,
-  type DuelistBasicHitModifiers,
-} from "./duelistCombat";
+import { COMBO_FINISHER_PERIOD } from "../../data/v2/v2CombatConstants";
+import { finishBerserkerPlayerAttack } from "./berserkerCombat";
+import { recordCombatMetric } from "./combatDiagnostics";
+import { combatRandom } from "./combatRandom";
+import { applyV2DotsToTarget, damageBetween, extractApEffect, healingAfterReceivedMultiplier, v2AtkBuffMult, v2DefBuffMult } from "./combatShared";
+import { consumeDuelistBasicHit, duelistDeclarationProgress, interruptDuelistRamp, type DuelistBasicHitModifiers } from "./duelistCombat";
+import { beginUnexploredPlayerAttack, finishUnexploredPlayerAttack, unexploredDefensePve } from "./unexploredSetPveAdapter";
+import { BOSS_MAX_HP_DAMAGE_MULT } from "./engineState";
+import { applyDefIgnore, computeAfterCrush, computeBalanceCritBonus, computeBerserkBonus, computeCritOverflowBonus, computeStormBonus } from "./engine.damageHelpers";
+import { applyEnemyDamage, applyPhaseTriggerIfAny, applyPlayerOnHitDots, applyPotionEffect, finishPlayerTurn, playerFacingEnemyDef, rollPlayerAttackCountWithBleed } from "./engine.pveOperations";
+import { applyColonyRegenerationPve } from "./engine.skillHealing";
+import { NORMAL_MONSTER_EXECUTION_HP_FRACTION } from "./engineResolutionTypes";
+import { BOSS_PCT_HP_DAMAGE_MULT, type BattleState, type EquippedAPSkill, type PlayerAction, type PlayerCombat } from "./engineState";
+import { appendLog } from "./engineSupport";
+import { paragonBasicBonus } from "./paragonCombat";
+import { makePlayerPoisonDot } from "./playerDotDamage";
+import { canApplyShock } from "./shockAction";
+import { everyNHitsEffect, firesOnCritPoison, formatChillSlowLog, formatDefDebuffLog, formatShockAppliedLog, onCritEnemyChill, onCritEnemyDefDebuff, onCritSpeedBuff, rollOnHitBleed, rollOnHitPoison, rollOnHitShock, SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK, SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK } from "./signatureEffects";
+import { applyTier6UniquePveEvent, tier6DotContext, tier6StatusKindCount } from "./tier6UniquePveAdapter";
+import { type UnexploredAttackContext } from "./unexploredSetEffects";
 
 type AttackDamageResult = {
   assassinFires: boolean;
@@ -111,6 +65,7 @@ function computeAttackDamage(
   apHits: number,
   apIgnoresDef: boolean,
   duelistModifiers: DuelistBasicHitModifiers,
+  attackContext: UnexploredAttackContext,
 ): AttackDamageResult {
   // 암살 (특기) — 전투 첫 공격이면 발동: 적 DEF 무시 + 데미지 배수 (배수는 아래에서 적용).
   const assassinFires =
@@ -249,9 +204,12 @@ function computeAttackDamage(
   const v2AtkMultPlayer = v2AtkBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
   const v2DefMultEnemy = v2DefBuffMult(state.enemyV2SelfBuffs, state.enemyV2Debuffs);
   const v2EffectiveAtk = v2AtkMultPlayer !== 1 ? Math.floor(atkBeforeApMult * v2AtkMultPlayer) : atkBeforeApMult;
-  const v2EffectiveTargetDef = v2DefMultEnemy !== 1 ? Math.floor(targetDef * v2DefMultEnemy) : targetDef;
+  const v2EffectiveTargetDef = unexploredDefensePve(
+    v2DefMultEnemy !== 1 ? Math.floor(targetDef * v2DefMultEnemy) : targetDef,
+    player, attackContext,
+  );
   const baseDmgSingleHit = damageBetween(
-    apAtkMult !== 1 ? Math.floor(v2EffectiveAtk * apAtkMult) : v2EffectiveAtk,
+    (apAtkMult !== 1 ? Math.floor(v2EffectiveAtk * apAtkMult) : v2EffectiveAtk) + paragonBasicBonus(player, v2EffectiveAtk, duelistModifiers),
     v2EffectiveTargetDef,
   );
   // 광살참 (AP) — 같은 fire 에서 hits 번 반복 데미지. apHits=1 이면 baseDmgSingleHit 그대로.
@@ -421,6 +379,7 @@ export function resolvePlayerPhase(
   player: PlayerCombat,
   playerName: string,
   action: PlayerAction,
+  options: { kind?: "extra_basic"; embedded?: boolean; damageMult?: number } = {},
 ): BattleState {
   if (action.kind === "use_potion") {
     const next = {
@@ -441,19 +400,23 @@ export function resolvePlayerPhase(
     if (attacksLeft > 0) {
       return { ...next, playerAttacksLeft: attacksLeft };
     }
-    return {
+    return applyColonyRegenerationPve({
       ...next,
       phase: "enemy",
       playerAttacksLeft: rollPlayerAttackCountWithBleed(next, player),
       turn: { ...next.turn, firstAttackPending: true },
-    };
+    }, player, playerName);
   }
 
   // 강공격 발동 — POWER_ATTACK_TURN_INTERVAL 턴마다 그 턴의 첫 공격이 ATK + bonus.
   // 진행 중인 턴 번호 = completedPlayerTurns + 1. 첫 공격 여부는 firstAttackPending 으로 판단
   // (확률 기반 추가 공격 / 기습 보너스로 attackCount 비교가 신뢰할 수 없음).
   const turnNumber = state.turn.completedPlayerTurns + 1;
-  const isFirstAttackOfTurn = state.turn.firstAttackPending;
+  const isFirstAttackOfTurn = !options.embedded && state.turn.firstAttackPending;
+  const unexploredAttack = beginUnexploredPlayerAttack(
+    state, player, options.kind ?? (isFirstAttackOfTurn ? "manual_basic" : "extra_basic"),
+  );
+  state = unexploredAttack.state;
   if (isFirstAttackOfTurn && state.stacks.tier6Uniques) {
     state = applyTier6UniquePveEvent(state, player, {
       kind: "action_start",
@@ -550,15 +513,24 @@ export function resolvePlayerPhase(
     apHits,
     apIgnoresDef,
     consumedDuelist.modifiers,
+    unexploredAttack.context,
   );
-  const dmg = applyEvasionDamageReduction(
+  const directDamageAfterEvasion = applyEvasionDamageReduction(
     dmgBeforeEvasion,
     evasionReductionPct,
   );
-  const totalDmg = applyEvasionDamageReduction(
+  const totalDamageAfterEvasion = applyEvasionDamageReduction(
     totalDmgBeforeEvasion,
     evasionReductionPct,
   );
+  // Explicit follow-up multiplier already includes its extra-basic stat exactly once.
+  const basicDamageMult = options.damageMult ?? (1 + (
+    unexploredAttack.context.kind === "manual_basic"
+      ? player.basicAttackDamagePct ?? 0 : player.extraBasicAttackDamagePct ?? 0
+  ) / 100);
+  const dmg = Math.floor(directDamageAfterEvasion * basicDamageMult * unexploredAttack.damageMult + 1e-9);
+  // Independent equipment/AP damage is outside the direct-body multipliers.
+  const totalDmg = totalDamageAfterEvasion - directDamageAfterEvasion + dmg;
   const labels: string[] = [];
   if (bonus > 0) labels.push("강공격");
   if (bonus > 0 && crushReduction > 0) labels.push("분쇄");
@@ -579,10 +551,10 @@ export function resolvePlayerPhase(
   const prefix = labels.length > 0 ? `[${labels.join(" + ")}] ` : "";
   // 항상 "공격! " 접두 → 라벨(크리티컬·강공격 등)은 [..] 인라인(스킬 "마탄! [크리티컬] N…"과 통일).
   let log = state.log;
-  if (totalDmg < totalDmgBeforeEvasion) {
+  if (totalDamageAfterEvasion < totalDmgBeforeEvasion) {
     log = appendLog(log, {
       kind: "info",
-      text: `[회피 경감 ${evasionReductionPct.toFixed(1)}%] ${state.enemy.name} 피해 -${totalDmgBeforeEvasion - totalDmg}`,
+      text: `[회피 경감 ${evasionReductionPct.toFixed(1)}%] ${state.enemy.name} 피해 -${totalDmgBeforeEvasion - totalDamageAfterEvasion}`,
     });
   }
   log = appendLog(log, {
@@ -826,7 +798,7 @@ export function resolvePlayerPhase(
   const sigEveryN = sigEvery?.hits ?? 0;
   const signatureBonusAttacksLeft = state.stacks.signatureBonusAttacksLeft;
   const isSignatureBonusAttack =
-    signatureBonusAttacksLeft > 0 &&
+    !options.embedded && signatureBonusAttacksLeft > 0 &&
     state.playerAttacksLeft <= signatureBonusAttacksLeft;
   const nextSigHitCount =
     sigEveryN > 0 && sigDealtDamage && !isSignatureBonusAttack
@@ -859,26 +831,27 @@ export function resolvePlayerPhase(
   const sigPoisonDots = [
     ...(sigCritPoison
       ? [
-          makePoisonDot({
+          makePlayerPoisonDot({
             stacks: 1,
             pctMaxHpPerStack: SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
-            sourceAtk: player.atk,
-          }),
+          }, player),
         ]
       : []),
     ...(sigHitPoison
       ? [
-          makePoisonDot({
+          makePlayerPoisonDot({
             stacks: sigHitPoison.stacks,
             pctMaxHpPerStack: SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
-            sourceAtk: player.atk,
-          }),
+          }, player),
         ]
       : []),
   ];
   const sigEnemyDots =
     sigPoisonDots.length > 0
-      ? applyV2DotsToTarget(state.enemyV2Dots, sigPoisonDots)
+      ? applyV2DotsToTarget(
+          state.enemyV2Dots, sigPoisonDots, state.enemy.hp,
+          state.maxHpDamageMult ?? (state.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1),
+        )
       : state.enemyV2Dots;
   // 시그니처 발동 시 속도 버프 병합 — 기존 버프(폭주 등)보다 약하면 유지(Math.max·미감소).
   const sigSpdActiveMult =
@@ -1045,6 +1018,9 @@ export function resolvePlayerPhase(
         : state.turn.queuedExtraAttacks,
     },
   }, player, { bleedStacks: apBleedAdd + (sigHitBleed?.stacks ?? 0) }));
+  afterDamage = finishUnexploredPlayerAttack(afterDamage, player, {
+    ...unexploredAttack.context, hit: dmg > 0, anyCrit: critRoll,
+  }, Math.min(state.enemyHp, dmg));
   if (sigDealtDamage && afterDamage.stacks.tier6Uniques) {
     const dots = tier6DotContext(state);
     afterDamage = applyTier6UniquePveEvent(afterDamage, player, {
@@ -1074,8 +1050,12 @@ export function resolvePlayerPhase(
       berserker: finishBerserkerPlayerAttack(afterDamage.berserker),
     };
   }
+  // A chain follow-up stays inside its parent skill. Its caller owns terminal/action completion.
+  if (options.embedded) {
+    return { ...afterDamage, playerAttacksLeft: afterDamage.playerAttacksLeft + weakpointAdd + comboExtraAttacks + sigExtraAttack };
+  }
   if (afterDamage.enemyHp <= 0) {
-    return {
+    return applyColonyRegenerationPve({
       ...afterDamage,
       duelistBuff: null,
       log: appendLog(afterDamage.log, {
@@ -1088,7 +1068,7 @@ export function resolvePlayerPhase(
         ...afterDamage.turn,
         completedPlayerTurns: state.turn.completedPlayerTurns + 1,
       },
-    };
+    }, player, playerName);
   }
   const attacksLeft =
     afterDamage.playerAttacksLeft - 1 +

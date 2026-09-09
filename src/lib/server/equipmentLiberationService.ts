@@ -1,3 +1,4 @@
+import { equipmentLiberationRevision } from "@/adventure/data/v2/equipmentEnchantmentTransfer";
 import { spendGoldWalletFirstWithBank } from "@/adventure/data/v2/coreLoopConfig";
 import {
   canLiberateEquipment,
@@ -61,7 +62,7 @@ export function applyEquipmentLiberation(args: {
     return { ok: false, error: "ineligible" };
   }
 
-  const currentRevision = instance.liberation?.revision ?? 0;
+  const currentRevision = equipmentLiberationRevision(instance);
   if (currentRevision !== args.expectedRevision) {
     return { ok: false, error: "stale_state", item: instance };
   }
@@ -90,7 +91,8 @@ export function applyEquipmentLiberation(args: {
   const item: V2EquipInstance = {
     ...instance,
     bound: true,
-    liberation,
+    liberation: { ...liberation, revision: currentRevision + 1 },
+    liberationRevision: currentRevision + 1,
   };
   const owned = [...equipment.owned];
   owned[itemIndex] = item;

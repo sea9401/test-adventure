@@ -58,7 +58,7 @@ export default function CharacterBasicsPreview() {
   return (
     <div className="mx-auto max-w-[720px] space-y-4 p-4">
       <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-        <strong>DEV</strong> · 내 정보 「기본 정보」 카드 — 옛 직업 숙달 대체. 전투력
+        <strong>DEV</strong> · 내 정보 「기본 정보」 카드 — 옛 직업 숙달 대체. 스탯 합계
         헤드라인 + 속성·소속 길드·전투 횟수·숙달 포인트. mock 변형.
       </div>
       {CASES.map((c) => (

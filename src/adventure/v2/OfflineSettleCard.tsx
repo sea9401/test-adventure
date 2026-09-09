@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useGameState } from "./GameStateProvider";
 import {
+  formatSpecialtyEquipmentDrops,
   offlineSettleStopReasonLabel,
   settleOfflineHuntBatches,
   type OfflineSettleResult as SettleResult,
@@ -96,6 +97,13 @@ export function OfflineSettleCard() {
             <Row
               label="패배로 잃은 골드"
               value={`-${result.totalLossTax.toLocaleString()}`}
+            />
+          )}
+          {result.droppedSpecialties.length > 0 && (
+            <Row
+              label="특화 장비"
+              value={formatSpecialtyEquipmentDrops(result.droppedSpecialties)}
+              positive
             />
           )}
         </dl>

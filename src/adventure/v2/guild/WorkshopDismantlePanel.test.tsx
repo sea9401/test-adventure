@@ -23,7 +23,7 @@ afterEach(() => {
   mocks.notifyReward.mockClear();
 });
 
-describe("해방 장비 해체 재확인", () => {
+describe("마법부여 장비 해체 재확인", () => {
   it("서버 경고를 확인한 뒤 같은 iid에 confirmBound를 붙여 다시 요청한다", async () => {
     const candidate = {
       iid: "liberated-craft",
@@ -81,7 +81,7 @@ describe("해방 장비 해체 재확인", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
     expect(mocks.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      message: expect.stringContaining("해방 1 · 2줄"),
+      message: expect.stringContaining("마법부여 3단계 · 2줄"),
     }));
     expect(fetchMock.mock.calls.slice(1, 3).map((call) =>
       JSON.parse(String((call[1] as RequestInit).body)),

@@ -42,6 +42,8 @@ export type UnexploredHuntSummary = {
 
 // hunt API 응답 — UI 기록용 + replay 용 추가 필드.
 export type HuntResultPayload = HuntResult & {
+  droppedSpecialty?: V2EquipmentId | null;
+  droppedSpecialties?: V2EquipmentId[];
   referralRewardEarned?: boolean;
   replay?: ReplayPayload;
   startPlayerHp?: number;
@@ -109,6 +111,7 @@ export type BatchHuntPayload = {
   drops: Partial<Record<V2MaterialId, number>>;
   droppedEquipments: V2EquipmentId[];
   droppedUniques: V2EquipmentId[];
+  droppedSpecialties?: V2EquipmentId[];
   rareMapDrops?: RareMapKindId[];
   // 이번 일괄에서 발견한 지도 개체 — 결과 화면 바로가기용 iid/depth 포함.
   rareMapDropInstances?: RareMapInstance[];

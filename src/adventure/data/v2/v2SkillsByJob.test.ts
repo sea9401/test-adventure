@@ -64,6 +64,8 @@ describe("7차 전투 패키지", () => {
       ruinblade: ["swordsaint", "hegemon"],
       skyascendant: ["heavenlybow", "celestialdragon"],
       primordialsage: ["archmage", "primordialmage"],
+      dreadnought: ["fortressknight", "vajraarhat"],
+      paragon: ["grandchampion", "absolute"],
     });
     expect(packages.shadowblade.map((id) => V2_SKILLS[id].name)).toEqual([
       "잔영",
@@ -1082,7 +1084,7 @@ describe("직업 킷 — 스킬셋", () => {
       V2_SKILLS.v2c_elementallord_surge.castVariants?.find(
         (variant) => variant.name === "화염폭풍",
       )?.effects.map((effect) => effect.kind),
-    ).toEqual(["damage", "dot", "enemyHealReduce", "selfHaste"]);
+    ).toEqual(["damage", "dot", "selfHaste"]);
     expect(V2_SKILLS.v2c_elementallord_surge.equippedSynergies?.[0]).toMatchObject({
       requiredSkillId: "v2c_elementallord_resonance",
     });

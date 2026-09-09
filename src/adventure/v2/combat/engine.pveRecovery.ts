@@ -1,4 +1,5 @@
-import type { BattleState, PlayerCombat } from "./engineState";
+import { healingAfterBurn } from "./burnHealing";
+import { type BattleState, type PlayerCombat } from "./engineState";
 import { appendLog, applyHealShieldIfAny } from "./engineSupport";
 import { healingAfterReceivedMultiplier } from "./combatShared";
 import { recordCombatMetric } from "./combatDiagnostics";
@@ -16,7 +17,7 @@ export function applyRegenIfAny(
   if (state.turn.completedPlayerTurns % regen.interval !== 0) return state;
   if (state.playerHp >= state.playerMaxHp) return state;
   const calculatedHeal = healingAfterReceivedMultiplier(
-    regen.amount,
+    healingAfterBurn(regen.amount, state.playerV2Dots),
     player.receivedHealMult,
   );
   const newHp = Math.min(state.playerMaxHp, state.playerHp + calculatedHeal);
@@ -45,7 +46,7 @@ export function applyEnchantRegenIfAny(
   if (state.turn.completedPlayerTurns === 0) return state;
   if (state.playerHp >= state.playerMaxHp) return state;
   const heal = healingAfterReceivedMultiplier(
-    Math.floor((state.playerMaxHp * pct) / 100),
+    healingAfterBurn(Math.floor((state.playerMaxHp * pct) / 100), state.playerV2Dots),
     player.receivedHealMult,
   );
   if (heal <= 0) return state;
@@ -97,7 +98,7 @@ export function applyPassiveTurnHealIfAny(
   if (s.turn.completedPlayerTurns === 0) return s;
   if (s.playerHp >= s.playerMaxHp) return s;
   const heal = healingAfterReceivedMultiplier(
-    Math.floor((s.playerMaxHp * pct) / 100),
+    healingAfterBurn(Math.floor((s.playerMaxHp * pct) / 100), s.playerV2Dots),
     player.receivedHealMult,
   );
   if (heal <= 0) return s;

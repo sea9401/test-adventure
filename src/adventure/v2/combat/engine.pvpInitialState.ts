@@ -1,14 +1,17 @@
 import { aggregateEquippedPassives } from "@/adventure/data/v2/v2Skills";
 import { initialBerserkerCombatState } from "./berserkerCombat";
+import { hasUnexploredEffect } from "./unexploredSetPveAdapter";
 import { scalePositivePvPValue } from "./engine.pvpScaling";
 import { type PvPBattleState, type PvPPhase, type PvPSide } from "./engine.pvpState";
 import { rollPvPAttackCount } from "./engine.pvpStats";
 import { type BattleLogEntry, type PlayerCombat } from "./engineState";
+import { initialHolyPower } from "./holyPowerAdapters";
 import { emptyLawInscriptionState } from "./lawInscription";
 import { type PvPInitiativeActor } from "./pvpInitiative";
 import { battleStartShield, trackedBattleStartShield } from "./signatureEffects";
 import { hasTier6Unique, initialTier6UniqueRuntime } from "./tier6UniqueEffects";
 import { initialTripleWardState } from "./tripleWard";
+import { initialUnexploredSetRuntime } from "./unexploredSetEffects";
 
 // ── 초기화 ──────────────────────────────────────────────────────────────────
 
@@ -20,7 +23,8 @@ export function buildSide(
 ): PvPSide {
   const sigStartShield = battleStartShield(player.equipSignatures, player.maxHp);
   const rawStartShield =
-    (player.bulwarkShield ?? 0) + (sigStartShield?.amount ?? 0);
+    (player.bulwarkShield ?? 0) + (sigStartShield?.amount ?? 0) +
+    (hasUnexploredEffect(player, "mana_redeployment") ? Math.floor(player.maxHp * 0.08) : 0);
   const startShield = scalePositivePvPValue(
     rawStartShield,
     sustainMultiplier,
@@ -110,8 +114,15 @@ export function buildSide(
       playerLifestealTurnsLeft: 0,
     },
     stacks: {
+      ...(player.unexploredSetEffects?.length ? { unexplored: {
+        ...initialUnexploredSetRuntime(), battleStartDef: player.def,
+        battleStartMaxHp: player.maxHp, ironWallDefBonus: 0,
+        afterimageShield: 0, enemyActionHpDamage: 0,
+      } } : {}),
       tripleWard: initialTripleWardState(tripleWardRank),
+      ...initialHolyPower(v2Skills.equipped),
       fortressImpact: 0,
+      ...((player.windCurrentDamagePctPerStack ?? 0) > 0 ? { windCurrent: 0 } : {}),
       ironWallReflectCharges: 0,
       mutationWeight: 0,
       ...(player.lawInscription

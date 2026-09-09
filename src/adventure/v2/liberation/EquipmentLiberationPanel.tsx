@@ -2,6 +2,8 @@
 
 import { useMemo, useRef, useState } from "react";
 import { Lock, Question, Sparkle } from "@phosphor-icons/react";
+import { equipmentLiberationRevision } from "@/adventure/data/v2/equipmentEnchantmentTransfer";
+import { EquipmentEnchantmentTransfer } from "./EquipmentEnchantmentTransfer";
 import { Button } from "@/components/ui/Button";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import { StatusBanner } from "@/components/ui/StatusBanner";
@@ -92,6 +94,7 @@ export function EquipmentLiberationPanel({
     [equipped, owned],
   );
   const [selectedIid, setSelectedIid] = useState(initialItemIid ?? "");
+  const [transferOpen, setTransferOpen] = useState(false);
   const [selectionOpen, setSelectionOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -126,7 +129,7 @@ export function EquipmentLiberationPanel({
 
   async function submit(): Promise<void> {
     if (!instance || busy) return;
-    const revision = current?.revision ?? 0;
+    const revision = equipmentLiberationRevision(instance);
     const reusable = pendingRequest.current;
     const request =
       reusable?.iid === instance.iid && reusable.revision === revision
@@ -193,6 +196,26 @@ export function EquipmentLiberationPanel({
         </p>
       </section>
     );
+  }
+
+  if (transferOpen && selected) {
+    return <EquipmentEnchantmentTransfer
+      source={selected}
+      candidates={candidates}
+      gold={gold}
+      bankedGold={bankedGold}
+      onItemUpdated={onItemUpdated}
+      onClose={() => setTransferOpen(false)}
+      onComplete={(response) => {
+        onItemUpdated(response.source);
+        onItemUpdated(response.target);
+        onWalletUpdated(response.gold, response.bankedGold);
+        pendingRequest.current = null;
+        setTransferOpen(false);
+        setResult(null);
+        setMessage({ tone: "success", text: "마법부여 이전이 완료되었습니다." });
+      }}
+    />;
   }
 
   return (
@@ -398,6 +421,11 @@ export function EquipmentLiberationPanel({
         >
           {busy ? "마법부여 중…" : isReroll ? "재마법부여" : "마법부여"}
         </Button>
+        {current ? <Button className="mt-2" fullWidth disabled={busy} onClick={() => {
+          setMessage(null);
+          setResult(null);
+          setTransferOpen(true);
+        }}>마법부여 이전</Button> : null}
       </section>
 
       {selectionOpen ? (

@@ -84,7 +84,7 @@ type RankRow = {
   fame: number;
   /** 캐릭터 화면과 같은 derivePowerScore 합성 전투력. */
   combatPower: number;
-  /** 농사·벌목·채광·낚시·요리 레벨 합계(각 50 상한). */
+  /** 농사·벌목·채광·낚시·요리 레벨 합계(각 100 상한). */
   lifeMastery: number;
   /** 직업 해금 + 장비 등록 + 어보 발견 수 / 전체 수집 가능 수. */
   codexCollected: number;

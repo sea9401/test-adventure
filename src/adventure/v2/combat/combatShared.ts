@@ -1,8 +1,10 @@
+import { skillGateRecorder } from "./combatDiagnostics";
+import { type BleedChangeIntent, type V2Dot, type V2DotTag } from "./combatDots";
+import { combatRandom } from "./combatRandom";
+import { v2SkillHasDirectMagicDamage } from "./skillDamageClassification";
 export * from "./combatDots";
 export { distributeBoostedHits } from "./hitDistribution";
-import { type V2DotTag, type V2Dot, type BleedChangeIntent } from "./combatDots";
-import { combatRandom } from "./combatRandom";
-import { skillGateRecorder } from "./combatDiagnostics";
+export { v2SkillHasDirectMagicDamage } from "./skillDamageClassification";
 // 두 전투 엔진(engine.ts = PvE, engine-pvp.ts = PvP)이 공유하는 순수 헬퍼.
 //
 // 두 엔진은 데이터 모델이 다르다 — PvE 는 비대칭(player vs enemy), PvP 는 대칭(side vs side).
@@ -11,70 +13,40 @@ import { skillGateRecorder } from "./combatDiagnostics";
 //
 // PlayerCombat 은 engine.ts 에서 정의 — type-only import 라 런타임 순환참조 없음(타입은 소거).
 
-import { computeHealAmount, type Potion } from "@/adventure/data/potions";
-import type { TripleWardState } from "./tripleWard";
 import type { APSkillEffect } from "@/adventure/character/apSkills";
-import {
-  effectiveCombatPatternFromEquipped,
-  isLimitedRecoverySkillId,
-  rebalanceDynamicV2SkillEffects,
-  V2_SKILLS,
-  v2SkillMpCostValue,
-  type V2SkillDefinition,
-  type V2SkillEffect,
-  type V2SkillId,
-  type V2SkillsState,
-} from "@/adventure/data/v2/v2Skills";
-import {
-  resolveElementalResonanceCombat,
-  selectV2CastVariant,
-} from "@/adventure/data/v2/elementalResonance";
-import {
-  skillRitualFocusBonusFor,
-  skillRitualPowerBonusFor,
-} from "@/adventure/data/v2/skillRitual";
-import { V2_ELEMENT_LABEL, type V2Element } from "@/adventure/data/v2/elements";
-import {
-  BLEED_MAX_STACKS,
-  COMBO_FINISHER_PERIOD,
-  DEFAULT_MAGIC_PENETRATION,
-  PHYSICAL_DEF_MITIGATION_MAX_PCT,
-  PHYSICAL_DEF_MITIGATION_SCALE,
-  POISON_MAX_STACKS,
-  magicDefenseDamageReductionPct,
-  physicalDefenseDamageReductionPct,
-} from "@/adventure/data/v2/v2CombatConstants";
+import { computeHealAmount, type Potion } from "@/adventure/data/potions";
 import type { StatKey } from "@/adventure/data/stats";
+import { resolveElementalResonanceCombat, selectV2CastVariant } from "@/adventure/data/v2/elementalResonance";
+import { V2_ELEMENT_LABEL, type V2Element } from "@/adventure/data/v2/elements";
+import { skillRitualFocusBonusFor, skillRitualPowerBonusFor } from "@/adventure/data/v2/skillRitual";
+import {
+BLEED_MAX_STACKS,
+COMBO_FINISHER_PERIOD,
+DEFAULT_MAGIC_PENETRATION,
+magicDefenseDamageReductionPct,
+PHYSICAL_DEF_MITIGATION_MAX_PCT,
+PHYSICAL_DEF_MITIGATION_SCALE,
+physicalDefenseDamageReductionPct,
+POISON_MAX_STACKS,
+} from "@/adventure/data/v2/v2CombatConstants";
+import {
+effectiveCombatPatternFromEquipped,
+isLimitedRecoverySkillId,
+rebalanceDynamicV2SkillEffects,
+V2_SKILLS,
+v2SkillMpCostValue,
+type V2SkillDefinition,
+type V2SkillEffect,
+type V2SkillId,
+type V2SkillsState,
+} from "@/adventure/data/v2/v2Skills";
+import { normalizeWindCurrent } from "@/adventure/data/v2/windCurrent";
+import { evaluateCombatPatternCandidates, V2_PATTERN_DOT_POWER_MULT, V2_PATTERN_SKILL_MIN_BASIC_MULT_BY_TIER, V2_PATTERN_SKILL_POWER_MULT_BY_TIER, v2PureSkillFormulaCoefficients, v2SkillAttackCoef, v2SkillHealStatCoef, v2SpecializedSkillStatCoef, type V2CombatPattern, type V2CombatRole, type V2PatternCtx, type V2PatternSelfStatus } from "./combatPattern";
 import { type PlayerCombat } from "./engineState";
-import {
-  evaluateCombatPatternCandidates,
-  V2_PATTERN_DOT_POWER_MULT,
-  V2_PATTERN_SKILL_MIN_BASIC_MULT_BY_TIER,
-  V2_PATTERN_SKILL_POWER_MULT_BY_TIER,
-  v2PureSkillFormulaCoefficients,
-  v2SkillHealStatCoef,
-  v2SkillAttackCoef,
-  v2SpecializedSkillStatCoef,
-  type V2CombatPattern,
-  type V2CombatRole,
-  type V2PatternCtx,
-  type V2PatternSelfStatus,
-} from "./combatPattern";
-import {
-  canReleaseLawInscriptions,
-  emptyLawInscriptionState,
-  lawInscriptionGainForCast,
-  lawInscriptionRelease,
-  lawInscriptionTotal,
-  normalizeLawInscriptionState,
-  type LawInscriptionState,
-} from "./lawInscription";
-import {
-  clampMutationResource,
-  mutationCastTransition,
-  weightPhysicalSkillMultiplier,
-  type MutationCastTransition,
-} from "./mutationCombat";
+import { holyJudgmentCoefficient, normalizeHolyPower, type HolyPowerState } from "./holyPower";
+import { canReleaseLawInscriptions, emptyLawInscriptionState, lawInscriptionGainForCast, lawInscriptionRelease, lawInscriptionTotal, normalizeLawInscriptionState, type LawInscriptionState } from "./lawInscription";
+import { clampMutationResource, mutationCastTransition, weightPhysicalSkillMultiplier, type MutationCastTransition } from "./mutationCombat";
+import { type TripleWardState } from "./tripleWard";
 
 // 기본 명중 상수는 v2CombatConstants 로 이관(UI StatsPanel 이 무거운 combatShared 를 끌어오지
 // 않고 가벼운 상수 파일에서 읽도록). 두 엔진은 여전히 combatShared 에서 import 하므로 재노출.
@@ -144,7 +116,6 @@ export function isOffensiveApEffect(effect: APSkillEffect): boolean {
     effect.kind === "atk_plus_spd_pct_bonus"
   );
 }
-
 
 // AP 스킬 effect → 공격 배수/방어무시/회피무시/타격수. atk_multiplier 계열(광살참
 // multi_hit_self_damage·천뢰 일격 atk_multiplier_with_silence 포함)이 atkMult/ignoresDef/
@@ -404,26 +375,6 @@ export function v2SkillMpCost(def: V2SkillDefinition): number {
   return v2SkillMpCostValue(def);
 }
 
-export function v2SkillHasDirectMagicDamage(
-  def: V2SkillDefinition,
-): boolean {
-  const hasMagicDamage = (effects: readonly V2SkillEffect[]) =>
-    effects.some(
-      (effect) =>
-        effect.kind === "damage" &&
-        (effect.scaling === "magic" || effect.scaling === "spi"),
-    );
-  return (
-    hasMagicDamage(def.effects) ||
-    Object.values(def.elementEffects ?? {}).some(
-      (effects) => effects != null && hasMagicDamage(effects),
-    ) ||
-    (def.castVariants ?? []).some((variant) =>
-      hasMagicDamage(variant.effects),
-    )
-  );
-}
-
 // PR-5b — monster.v2MaxMp 미지정 시 자동 시드. equipped 중 max mpCost × 3 → 약 3-5 회 cast.
 // 0 = equipped 비어 cast 불가능. monster 데이터 작성 부담 줄이는 default.
 export function defaultV2MaxMpFor(skills: V2SkillsState): number {
@@ -475,6 +426,7 @@ export function pickAutoCastV2Skill(args: {
       !def.provokeImmediateBasicAttacks &&
       !def.duelistDeclaration &&
       !def.ironWallReflect &&
+      !def.holyPower &&
       !def.consumesLawInscriptions &&
       !(def.mutationWeightGain ?? 0)
     ) continue;
@@ -596,7 +548,7 @@ export type V2SkillCastResult = {
   selfHasteToApply?: { pct: number }; // 바람(원소술사) — ATB 내 다음 행동 가속 %(1회). 비-ATB 무시.
   enemyDelayToApply?: { pct: number }; // 대지(원소술사) — ATB 적 다음 행동 지연 %(1회). 비-ATB 무시.
   enemyHealReduceToApply?: { pct: number; turns: number }; // 화상(원소술사 불) — 적 회복 −%(N턴)
-  enemyDamageDownToApply?: { pct: number; turns: number }; // 쇠약 — 적 주는 직접 피해 −%(N턴)
+  enemyDamageDownToApply?: { pct: number; turns: number; nextAttackOnly?: boolean }; // 쇠약 — 적 주는 직접 피해 −%(N턴)
   enemySkillProcDownToApply?: { pct: number; turns: number }; // 금제 — 적 스킬 발동률 −%p(N턴)
   enemyDotVulnToApply?: { pct: number; turns: number }; // 침식 — 적 지속/저주 피해 +%(N턴)
   manaRestored: number; // 명상 등 — 이번 시전이 회복한 마나(nominal). 0 = 마나회복 효과 없음. 로그용.
@@ -737,6 +689,8 @@ export type V2SkillCastInput = {
     //   maxMp(마나보호막·명상), 차수(전문화 스킬 baseFlatByTier flat 성장). 미지정=안전 폴백.
     def?: number;
     fortressImpact?: number;
+    holyPower?: HolyPowerState;
+    windCurrent?: number;
     ironWallReflectCharges?: number;
     fortressImpactDamagePctPerStack?: number;
     fortressDefSkillStatCoefPct?: number;
@@ -875,6 +829,9 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
       ),
     ),
     selfResources: {
+      holyPower: normalizeHolyPower(a.holyPower).power,
+      windCurrent: normalizeWindCurrent(a.windCurrent),
+      sanctuary: normalizeHolyPower(a.holyPower).sanctuaryTurns,
       impact: Math.max(0, Math.floor(a.fortressImpact ?? 0)),
       ironWallReflect: Math.max(
         0,
@@ -932,12 +889,14 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const activeCombatSet = new Set<string>(activeCombatSkillIds);
   const learnedSet = new Set<V2SkillId>(input.skills.learned);
   const overdraftSkillIds = new Set(input.mpOverdraftSkillIds ?? []);
+  const fireSpellMpReduction = [...equippedSet].reduce((sum, id) =>
+    sum + (learnedSet.has(id as V2SkillId) ? V2_SKILLS[id as V2SkillId]?.passive?.fireSpellMpCostReductionPct ?? 0 : 0), 0);
   const castMpCost = (def: V2SkillDefinition): number => {
     const base = v2SkillMpCost(def);
     if (!v2SkillHasDirectMagicDamage(def)) return base;
     const reduction = Math.min(
       100,
-      Math.max(0, input.magicMpCostReductionPct ?? 0),
+      Math.max(0, input.magicMpCostReductionPct ?? 0) + (def.fireMageSpell ? Math.max(0, fireSpellMpReduction) : 0),
     );
     if (base <= 0 || reduction <= 0) return base;
     return Math.max(1, base - Math.floor((base * reduction) / 100));
@@ -949,6 +908,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       (d?.provokeImmediateBasicAttacks ?? 0) > 0 ||
       d?.duelistDeclaration != null ||
       d?.ironWallReflect != null ||
+      d?.holyPower != null ||
       d?.consumesLawInscriptions === true ||
       (d?.mutationWeightGain ?? 0) > 0 ||
       d?.effects.some((effect) => {
@@ -1230,8 +1190,10 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         });
     const purePrimaryStat =
       scale === "magic" ? input.attacker.int : input.attacker.str;
-    const pureFormula =
-      !def.monsterOnly && specialized == null && purePrimaryStat != null
+    const holyCoef = def.holyPower === "judgment" ? holyJudgmentCoefficient(input.attacker.holyPower) : null;
+    const pureFormula = holyCoef != null
+      ? { attackCoef: holyCoef, primaryStatCoef: holyCoef }
+      : !def.monsterOnly && specialized == null && purePrimaryStat != null
         ? v2PureSkillFormulaCoefficients({
             tier: def.tier,
             scaling: scale,
@@ -1286,7 +1248,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         (def.monsterOnly ? legacyBaseFlat : 0) +
         specializedBonus +
         purePrimaryStatBonus +
-        extraFlat,
+        extraFlat + (holyCoef == null ? 0 : Math.floor((input.attacker.spi ?? 0) * holyCoef * (skillElementMult ?? 1) + 1e-9)),
       attackerSelfBuffs: input.attacker.selfBuffs,
       attackerSelfDebuffs: input.attacker.selfDebuffs,
       targetSelfBuffs: input.target.selfBuffs,
@@ -1593,7 +1555,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       // 화상 — 적 회복 효과 감소 디버프(N턴). 소비는 적/상대 회복 지점(회복 스킬·재생).
       enemyHealReduceToApply = { pct: effect.pct, turns: effect.turns };
     } else if (effect.kind === "enemyDamageDown") {
-      enemyDamageDownToApply = { pct: effect.pct, turns: effect.turns };
+      enemyDamageDownToApply = { pct: effect.pct, turns: effect.turns, ...(effect.nextAttackOnly ? { nextAttackOnly: true } : {}) };
     } else if (effect.kind === "enemySkillProcDown") {
       enemySkillProcDownToApply = { pct: effect.pct, turns: effect.turns };
     } else if (effect.kind === "enemyDotVuln") {
@@ -1805,7 +1767,9 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       const dotSourceAtk =
         effect.tag === "poison"
           ? Math.max(input.attacker.atk, input.attacker.luk ?? 0)
-          : input.attacker.atk;
+          : effect.tag === "burn"
+            ? Math.max(input.attacker.atk, input.attacker.magicAtk ?? 0)
+            : input.attacker.atk;
       dotsToApplyToTarget.push({
         tag: effect.tag,
         label: effect.label,
@@ -1844,7 +1808,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     (e) => e.kind === "missingHpDamage",
   );
   const scaledEnemyDamage = ((): number => {
-    if (!viaPattern || enemyDamage <= 0 || ambushOpener || missingHpFinisher) {
+    if (!viaPattern || enemyDamage <= 0 || ambushOpener || missingHpFinisher || def.holyPower === "judgment") {
       return enemyDamage;
     }
     // 평타 바닥 — 단타 평타(statCoef 1·baseFlat 0) × 한 턴 평타 횟수. 스킬에 마법 데미지 효과가
@@ -1912,7 +1876,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     fortressImpactToConsume > 0
       ? 1 +
         (fortressImpactToConsume *
-          (input.attacker.fortressImpactDamagePctPerStack ?? 0)) /
+          ((input.attacker.fortressImpactDamagePctPerStack ?? 0) + (def.fortressImpactDamagePctPerStack ?? 0))) /
           100
       : 1;
   const fortressBoostedEnemyDamage =

@@ -922,7 +922,7 @@ describe("adventurer farm", () => {
 
   it("주간 기본 납품은 해당 작물 씨앗 6개를 지급한다", () => {
     expect(
-      getFarmWeeklyDeliveryRequests().map((request) => request.rewardSeeds),
+      getFarmWeeklyDeliveryRequests().slice(0, 3).map((request) => request.rewardSeeds),
     ).toEqual([{ wheat: 6 }, { herb: 6 }, { corn: 6 }]);
   });
 

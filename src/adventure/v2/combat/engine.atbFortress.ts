@@ -1,12 +1,7 @@
 import type { Monster } from "@/adventure/data/monsters";
 import { type BattleLogEntry, type BattleState } from "./engineState";
 import { appendLog } from "./engineSupport";
-import {
-  INVINCIBLE_FORTRESS_BARRIER_HP,
-  invincibleFortressEnrageMultipliers,
-  settleInvincibleFortressDamage,
-  type InvincibleFortressDamageEvent,
-} from "./invincibleFortressMechanic";
+import { INVINCIBLE_FORTRESS_BARRIER_HP, invincibleFortressEnrageMultipliers, settleInvincibleFortressDamage, type InvincibleFortressDamageEvent } from "./invincibleFortressMechanic";
 
 export function applyInvincibleFortressTierToEnemy(
   state: BattleState,

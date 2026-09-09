@@ -9,6 +9,8 @@ import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 import {
   V2_EQUIP_SETS,
+  V2_EQUIP_TAG_SETS,
+  V2_EQUIPMENT,
   signatureLabel,
   v2EquipCompareRows,
   v2EquipStatRows,
@@ -26,7 +28,10 @@ import {
   CraftQualityBadge,
   EquipmentTierBadge,
   EnhanceLevelBadge,
+  formatSetBonus,
   QualityPctText,
+  unexploredSetEffectDescription,
+  unexploredTagSetBonusDescription,
   powerNameClass,
   type ItemCardLockAction,
 } from "./shared";
@@ -82,7 +87,7 @@ export function EquipmentPowerPreviewBlock({
     >
       <div className="flex items-baseline justify-between gap-3 text-xs">
         <span className="font-medium text-zinc-500 dark:text-zinc-400">
-          예상 전투력
+          예상 스탯 합계
         </span>
         {preview.status === "loading" ? (
           <span className="text-zinc-400 dark:text-zinc-500">계산 중…</span>
@@ -228,6 +233,65 @@ export function CompareSetLine({
         {active ? " 발동" : ""})
       </span>
     </p>
+  );
+}
+
+function CompareTagSetDetails({
+  item,
+  equippedIds,
+}: {
+  item: V2Equipment;
+  equippedIds?: ReadonlySet<V2EquipmentId>;
+}) {
+  const sets = (item.setTags ?? [])
+    .map((tag) => V2_EQUIP_TAG_SETS.find((set) => set.id === tag))
+    .filter((set): set is (typeof V2_EQUIP_TAG_SETS)[number] => Boolean(set));
+  if (sets.length === 0) return null;
+
+  const counts = new Map<string, number>();
+  for (const id of equippedIds ?? []) {
+    for (const tag of V2_EQUIPMENT[id]?.setTags ?? []) {
+      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+  }
+
+  return (
+    <div className="space-y-2 border-t border-zinc-100 pt-2 dark:border-zinc-700">
+      {sets.map((set) => {
+        const count = counts.get(set.id) ?? 0;
+        return (
+          <div key={set.id} className="space-y-1 text-[10px] leading-relaxed">
+            <p className="font-semibold text-zinc-700 dark:text-zinc-200">
+              {set.name} 세트
+            </p>
+            {set.thresholds.map((threshold) => (
+              <div
+                key={threshold.count}
+                className={
+                  count >= threshold.count
+                    ? "text-amber-700 dark:text-amber-300"
+                    : "text-zinc-500 dark:text-zinc-400"
+                }
+              >
+                <span className="font-semibold">{threshold.count}세트</span>
+                <span className="block">{formatSetBonus(threshold.bonus)}</span>
+                {threshold.effect ? (
+                  <span className="block">
+                    <span className="font-semibold">★ {threshold.effect.label}</span>{" "}
+                    {unexploredSetEffectDescription(threshold.effect)}
+                  </span>
+                ) : null}
+              </div>
+            ))}
+            {unexploredTagSetBonusDescription(set.id) ? (
+              <p className="text-zinc-500 dark:text-zinc-400">
+                {unexploredTagSetBonusDescription(set.id)}
+              </p>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -393,6 +457,7 @@ export function V2ItemCompareCard({
             {showSet && (
               <CompareSetLine item={equipped.item} equippedIds={equippedIds} />
             )}
+            <CompareTagSetDetails item={equipped.item} equippedIds={equippedIds} />
             {equip && unequip ? (
               <Button
                 onClick={unequip.onUnequip}
@@ -430,6 +495,7 @@ export function V2ItemCompareCard({
             {showSet && (
               <CompareSetLine item={candidate.item} equippedIds={equippedIds} />
             )}
+            <CompareTagSetDetails item={candidate.item} equippedIds={equippedIds} />
             {candidate.item.signature && (
               <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
                 ★ {signatureLabel(candidate.item.signature)}

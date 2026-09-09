@@ -18,6 +18,7 @@ import {
   canReforge,
   equipRollFromPercentiles,
   equipRollPercentiles,
+  equipRollQualityWeights,
   effectiveStats,
   reforgeGoldCost,
   reforgeRollCount,
@@ -279,6 +280,21 @@ describe("rollQualityPct", () => {
 
     expect(hpHigh).toBe(1);
     expect(defHigh).toBe(10);
+  });
+});
+
+describe("equipRollQualityWeights", () => {
+  it("세트 전용 피해 옵션은 개체 품질 가중치에 섞지 않는다", () => {
+    const item = {
+      ...V2_EQUIPMENT.v2_iron_sword,
+      options: {
+        basicAttackDamagePct: 15,
+        extraBasicAttackDamagePct: 20,
+        statusDotDamagePct: 25,
+      },
+    };
+
+    expect(equipRollQualityWeights(item).options).toBeUndefined();
   });
 });
 

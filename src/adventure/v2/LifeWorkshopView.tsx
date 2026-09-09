@@ -115,7 +115,7 @@ export function personalCraftGoldCostText(cost: {
   goldCost: number;
   liberationDiscountPct: number;
 }): string {
-  return `기본 ${cost.baseGoldCost.toLocaleString()}G → 실제 ${cost.goldCost.toLocaleString()}G · 해방 할인 ${cost.liberationDiscountPct.toLocaleString()}%`;
+  return `기본 ${cost.baseGoldCost.toLocaleString()}G → 실제 ${cost.goldCost.toLocaleString()}G · 마법부여 할인 ${cost.liberationDiscountPct.toLocaleString()}%`;
 }
 
 export type WorkshopTab =

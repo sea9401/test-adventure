@@ -1,0 +1,156 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { initialBattleState, applyPlayerV2SkillCast, type PlayerCombat } from "./engine";
+import { initialBattleStatePvP, castV2SkillOnAttackerTurnPvP } from "./engine-pvp";
+import { playerResourceSnapshot } from "./playerResourceSnapshot";
+import type { V2SkillId, V2SkillsState } from "@/adventure/data/v2/v2Skills";
+import { derivePlayerCombatV2FromSaves } from "@/lib/server/derivePlayerCombatV2";
+vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/adventure/data/v2/coreLoopConfig")>();
+  return { ...actual, V2_SKILL_PROC_IN_PATTERN: true };
+});
+const player: PlayerCombat = {hp:10000,maxHp:10000,mp:500,maxMp:1000,atk:100,magicAtk:100,intStat:100,def:0,spd:100,evasionPct:0,accuracyPct:100,attackCount:1,burnDurationBonusTurns:1,windCurrentDamagePctPerStack:20,windCurrentMpRestorePctPerStack:1,windCurrentRebound:true};
+const enemy = {name:"허수아비",tags:[],hp:100000,atk:1,def:0,spd:1,exp:0,drops:[]};
+const blade = "v2c_aeromancer_blade";
+const burst = "v2c_stormbringer_burst";
+const collapse = "v2c_infernomancer_collapse";
+const skills = (id:V2SkillId, extra:V2SkillId[] = []): V2SkillsState => ({learned:[id,...extra],equipped:[id,...extra],pattern:{blocks:[{condition:{kind:"always"},action:{kind:"skill",skillId:id}}]}});
+const castPve = (state:ReturnType<typeof initialBattleState>, actor=player) => applyPlayerV2SkillCast(state,actor,{selfBuffs:{},selfDebuffs:{},enemyDebuffs:{}});
+beforeEach(() => vi.spyOn(Math,"random").mockReturnValue(0.1));
+afterEach(() => vi.restoreAllMocks());
+
+describe("속성 패시브 실제 전투", () => {
+  it("PvE 겁화 붕괴에 연소를 추가하고 재시전해도 3행동을 넘지 않는다", () => {
+    const initial = initialBattleState(player,enemy,"화염",skills(collapse,["v2c_infernomancer_heart","v2c_pyromancer_spirit"]));
+    const first = castPve(initial).state;
+    expect(first.enemyV2Dots).toEqual([expect.objectContaining({tag:"burn",turns:3})]);
+    const again = castPve(first).state;
+    expect(again.enemyV2Dots).toEqual([expect.objectContaining({tag:"burn",turns:3})]);
+    expect(castPve({...initial,v2Skills:skills(collapse)}).state.enemyV2Dots).toEqual([]);
+    expect(castPve({...initial,playerMp:0}).state.enemyV2Dots).toEqual([]);
+  });
+  it("PvE 바람은 실제 생성량만 MP를 회복하고 최대 MP를 넘지 않는다", () => {
+    const initial = initialBattleState(player,enemy,"바람",skills(blade));
+    const base = castPve(initial,{...player,windCurrentMpRestorePctPerStack:undefined});
+    const cast = castPve(initial);
+    expect(cast.state.playerMp - base.state.playerMp).toBe(10);
+    const full = {...initial,stacks:{...initial.stacks,windCurrent:3}};
+    expect(castPve(full).state.playerMp).toBe(castPve(full,{...player,windCurrentMpRestorePctPerStack:undefined}).state.playerMp);
+    expect(castPve(initial,{...player,windCurrentMpRestorePctPerStack:200}).state.playerMp).toBe(1000);
+  });
+  it("PvE 폭풍 뒤 재생성 강화가 이어지고 전투가 바뀌면 초기화된다", () => {
+    const initial = initialBattleState(player,enemy,"바람",skills(burst));
+    initial.stacks.windCurrent=3;
+    const spent=castPve(initial).state;
+    expect(spent.stacks.windCurrentReboundReady).toBe(true);
+    expect(playerResourceSnapshot(spent.stacks)?.windCurrent).toBe("0/3 · 재생성 준비");
+    const next=castPve({...spent,v2Skills:skills(blade)}).state;
+    expect(next.stacks.windCurrent).toBe(2);
+    expect(next.stacks.windCurrentReboundReady).toBe(false);
+    expect(initialBattleState(player,enemy,"바람",skills(blade)).stacks.windCurrentReboundReady).toBeFalsy();
+  });
+  it.each(["p1","p2"] as const)("PvP %s의 재점화와 확정 회피를 처리한다", who => {
+    const other=who==="p1"?"p2":"p1";
+    const kit=skills(collapse,["v2c_infernomancer_heart","v2c_pyromancer_spirit"]);
+    const initial=initialBattleStatePvP(player,player,"A","B",kit,kit);
+    expect(castV2SkillOnAttackerTurnPvP(initial,who).state[other].v2Dots).toEqual([expect.objectContaining({tag:"burn",turns:3})]);
+    initial[other].stacks.evadesRemaining=1;
+    expect(castV2SkillOnAttackerTurnPvP(initial,who).state[other].v2Dots).toEqual([]);
+  });
+  it.each(["p1","p2"] as const)("PvP %s의 소비·재생성·MP 회복은 적중 후에만 적용한다", who => {
+    const other=who==="p1"?"p2":"p1";
+    let state=initialBattleStatePvP(player,player,"A","B",skills(burst),skills(burst));
+    state[who].stacks.windCurrent=3;
+    state=castV2SkillOnAttackerTurnPvP(state,who).state;
+    expect(state[who].stacks.windCurrentReboundReady).toBe(true);
+    state[who].v2Skills=skills(blade);
+    const base=castV2SkillOnAttackerTurnPvP({...state,[who]:{...state[who],player:{...player,windCurrentMpRestorePctPerStack:undefined}}},who).state;
+    const gained=castV2SkillOnAttackerTurnPvP(state,who).state;
+    expect(gained[who].stacks).toMatchObject({windCurrent:2,windCurrentReboundReady:false});
+    expect(gained[who].mp-base[who].mp).toBe(20);
+    state[other].stacks.evadesRemaining=1;
+    const missed=castV2SkillOnAttackerTurnPvP(state,who).state;
+    expect(missed[who].stacks).toMatchObject({windCurrent:0,windCurrentReboundReady:true});
+    const dry=castV2SkillOnAttackerTurnPvP({...state,[who]:{...state[who],mp:0}},who).state;
+    expect(dry[who].stacks.windCurrentReboundReady).toBe(true);
+  });
+  it("발동 실패는 PvE·PvP의 재생성 준비와 MP를 그대로 유지한다", () => {
+    vi.mocked(Math.random).mockReturnValue(0.99);
+    const pve=initialBattleState(player,enemy,"바람",skills(blade));
+    pve.stacks.windCurrentReboundReady=true;
+    const failedPve=castPve(pve);
+    expect(failedPve.castFired).toBe(false);
+    expect(failedPve.state.stacks).toMatchObject({windCurrent:0,windCurrentReboundReady:true});
+    expect(failedPve.state.playerMp).toBe(pve.playerMp);
+    const pvp=initialBattleStatePvP(player,player,"A","B",skills(blade),skills(blade));
+    pvp.p1.stacks.windCurrentReboundReady=true;
+    const failedPvp=castV2SkillOnAttackerTurnPvP(pvp,"p1");
+    expect(failedPvp.castFired).toBe(false);
+    expect(failedPvp.state.p1.stacks).toMatchObject({windCurrent:0,windCurrentReboundReady:true});
+    expect(failedPvp.state.p1.mp).toBe(pvp.p1.mp);
+  });
+  it("PvE 겁화의 심장은 시전 시 MP 보호막을 추가하고 미장착이면 추가하지 않는다", () => {
+    const initial=initialBattleState(player,enemy,"화염",skills(collapse,["v2c_infernomancer_heart"]));
+    expect(castPve(initial).state.stacks.playerShield).toBe(200);
+    expect(castPve({...initial,v2Skills:skills(collapse)}).state.stacks.playerShield).toBe(0);
+    expect(castPve({...initial,playerMp:0}).state.stacks.playerShield).toBe(0);
+  });
+  it("PvE 새 기류만 보호막을 제공하고 폭풍의 회피는 누적하지 않는다", () => {
+    const actor={...player,windCurrentShieldPctPerStack:5,windCurrentReleaseEvades:1};
+    const initial=initialBattleState(actor,enemy,"바람",skills(blade));
+    expect(castPve(initial,actor).state.stacks.playerShield).toBe(50);
+    initial.stacks.windCurrent=3;
+    expect(castPve(initial,actor).state.stacks.playerShield).toBe(0);
+    initial.v2Skills=skills(burst);
+    const first=castPve(initial,actor).state;
+    expect(first.stacks.evadesRemaining).toBe(1);
+    first.playerMp=500;first.stacks.windCurrent=3;
+    expect(castPve(first,actor).state.stacks.evadesRemaining).toBe(1);
+    first.stacks.evadesRemaining=3;
+    expect(castPve(first,actor).state.stacks.evadesRemaining).toBe(3);
+    initial.stacks.windCurrent=2;
+    expect(castPve(initial,actor).state.stacks.evadesRemaining).toBe(0);
+  });
+  it.each(["p1","p2"] as const)("PvP %s의 보호막 배율·회피 획득 조건을 적용한다", who => {
+    const other=who==="p1"?"p2":"p1";
+    const actor={...player,windCurrentShieldPctPerStack:5,windCurrentReleaseEvades:1};
+    const initial=initialBattleStatePvP(actor,actor,"A","B",skills(blade),skills(blade));
+    initial.sustainMultiplier=0.5;
+    expect(castV2SkillOnAttackerTurnPvP(initial,who).state[who].stacks.playerShield).toBe(25);
+    initial[who].v2Skills=skills(collapse,["v2c_infernomancer_heart"]);
+    initial[other].stacks.evadesRemaining=1;
+    expect(castV2SkillOnAttackerTurnPvP(initial,who).state[who].stacks.playerShield).toBe(100);
+    initial[who].v2Skills=skills(burst);initial[who].stacks.windCurrent=3;
+    expect(castV2SkillOnAttackerTurnPvP(initial,who).state[who].stacks.evadesRemaining).toBe(0);
+    initial[other].stacks.evadesRemaining=0;
+    const cast=castV2SkillOnAttackerTurnPvP(initial,who).state;
+    expect(cast[who].stacks.evadesRemaining).toBe(1);
+    cast[who].mp=500;cast[who].stacks.windCurrent=3;
+    expect(castV2SkillOnAttackerTurnPvP(cast,who).state[who].stacks.evadesRemaining).toBe(1);
+    cast[who].stacks.evadesRemaining=3;
+    expect(castV2SkillOnAttackerTurnPvP(cast,who).state[who].stacks.evadesRemaining).toBe(3);
+  });
+  it("할인된 비용만 보유한 PvE·PvP 캐릭터도 겁화 붕괴를 사용할 수 있다", () => {
+    const kit=skills(collapse,["v2c_pyromancer_spirit"]);
+    const initial=initialBattleState({...player,mp:112},enemy,"화염",kit);
+    const pve=castPve(initial);
+    expect(pve.castFired).toBe(true);expect(pve.state.playerMp).toBe(0);
+    const pvp=initialBattleStatePvP({...player,mp:112},player,"A","B",kit,kit);
+    pvp.p1.mp=112;
+    const cast=castV2SkillOnAttackerTurnPvP(pvp,"p1");
+    expect(cast.castFired).toBe(true);expect(cast.state.p1.mp).toBe(0);
+  });
+  it("장착 저장값에서 새 효과를 전달하고 미장착이면 제외한다", () => {
+    const ids:V2SkillId[]=["v2c_pyromancer_spirit","v2c_infernomancer_heart","v2c_aeromancer_spirit","v2c_stormbringer_will"];
+    const saves={character:{level:50,hp:500,mp:100,class:"mage"},equipmentSave:{owned:[],equipped:{}},proficiencyRaw:{}};
+    const active=derivePlayerCombatV2FromSaves({...saves,skillsRaw:{learned:ids,equipped:ids}})!.player;
+    expect(active).toMatchObject({burnDurationBonusTurns:1,windCurrentMpRestorePctPerStack:1,windCurrentRebound:true,windCurrentShieldPctPerStack:5,windCurrentReleaseEvades:1});
+    const learned=derivePlayerCombatV2FromSaves({...saves,skillsRaw:{learned:ids,equipped:[]}})!.player;
+    expect(learned.burnDurationBonusTurns).toBeUndefined();
+    expect(learned.windCurrentMpRestorePctPerStack).toBeUndefined();
+    expect(learned.windCurrentRebound).toBeUndefined();
+    expect(learned.windCurrentShieldPctPerStack).toBeUndefined();
+    expect(learned.windCurrentReleaseEvades).toBeUndefined();
+    expect(active.magicSkillDamagePct??0).toBe(learned.magicSkillDamagePct??0);
+    expect(active.intStat).toBe(learned.intStat);
+  });
+});

@@ -6,7 +6,7 @@ import { SURFACE_ACCENT } from "@/components/ui/surfaces";
 import type { BuildAlignmentAdvisory } from "@/adventure/data/v2/buildAlignment";
 
 // 내 정보 "기본 정보" 카드 — 옛 「직업 숙달」(숙련도·수행 횟수, 성장의 신전과 중복) 대체.
-// 캐릭터 한눈 정보: 전투력(헤드라인) + 소속 길드·전투 횟수·숙달 포인트.
+// 캐릭터 한눈 정보: 스탯 합계(헤드라인) + 소속 길드·전투 횟수·숙달 포인트.
 // 표시 전용 — 값은 me/state 에서 주입(실게임)·mock(/dev 하니스).
 
 export function V2CharacterBasics({
@@ -26,16 +26,16 @@ export function V2CharacterBasics({
     <Card padding="md">
       <h2 className="text-sm font-semibold">기본 정보</h2>
 
-      {/* 전투력 — 공격·방어·생존·속도 합산 콘텐츠 강도 지표(헤드라인).
+      {/* 스탯 합계 — 공격·방어·생존·속도 가중 합산 참고 수치(헤드라인).
           상단 요소라 툴팁은 아래(placement="bottom")로 띄워 헤더를 안 가린다. */}
       <Tooltip
         className="mt-3"
         placement="bottom"
-        content="물리·마법 공격과 방어, 치명타, 생존, 피해 감소, 회복, 속도를 합산한 콘텐츠 강도 지표예요."
+        content="물리·마법 공격과 방어, 치명타, 생존, 피해 감소, 회복, 속도를 가중 합산한 참고 수치예요. 실제 전투 성능은 스킬과 장비 조합, 상대에 따라 달라져요."
         triggerClassName={`${SURFACE_ACCENT} flex w-full cursor-help flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3 text-left transition-colors hover:border-amber-400 dark:hover:border-amber-800`}
       >
         <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
-          전투력
+          스탯 합계
         </span>
         <span className="min-w-0 break-all text-right text-2xl font-bold tabular-nums text-amber-700 dark:text-amber-300">
           {power.toLocaleString()}

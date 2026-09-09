@@ -1,9 +1,9 @@
 import type { AdventureActivityView } from "@/adventure/v2/adventureDashboard";
 import {
   FARM_DAILY_DELIVERY_LIMIT,
+  FARM_WEEKLY_DELIVERY_LIMIT,
   FARM_SAVE_KEY,
   emptyFarmState,
-  getFarmWeeklyDeliveryRequests,
   normalizeFarmForDay,
   parseFarmState,
 } from "@/adventure/v2/farm";
@@ -135,7 +135,7 @@ export function resolveAdventureActivities(
     FARM_DAILY_DELIVERY_LIMIT,
     farm.deliveries.claimedIds.length,
   );
-  const weeklyTarget = getFarmWeeklyDeliveryRequests().length;
+  const weeklyTarget = FARM_WEEKLY_DELIVERY_LIMIT;
   const weeklyCurrent = Math.min(weeklyTarget, farm.weekly.claimedIds.length);
 
   const fishing = rolloverFishingDaily(

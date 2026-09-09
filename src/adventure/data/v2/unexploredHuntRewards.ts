@@ -1,3 +1,4 @@
+import { SP_FRUIT } from "./spFruit";
 import type { DropResult } from "./dungeonDrops";
 import { MAX_FRONTIER_DEPTH } from "./dungeon";
 import {
@@ -32,6 +33,9 @@ const UNEXPLORED_REGULAR_EQUIPMENT_DROP_CHANCE =
 export const UNEXPLORED_REGULAR_EQUIPMENT_DROP_MULTIPLIER =
   UNEXPLORED_REGULAR_EQUIPMENT_DROP_CHANCE /
   bandCommonChanceForDepth(MAX_FRONTIER_DEPTH);
+
+// 노드 선택 후 미개척지 사냥 전용. 배율·복사·천장 없는 독립 0.005% 굴림.
+export const UNEXPLORED_SP_FRUIT_DROP_CHANCE = 1 / 20_000;
 
 export type UnexploredDropTag =
   | "base"
@@ -421,6 +425,19 @@ export function rollUnexploredHuntRewards(
         });
       }
     }
+  }
+
+  // 기존 보상 RNG 뒤에서 판정해 몬스터 종류나 노드 보너스와 무관하게 1개 지급한다.
+  if (normalizedRoll(rng) < UNEXPLORED_SP_FRUIT_DROP_CHANCE) {
+    const id = SP_FRUIT[6].materialId;
+    addDrop(drops, id, 1);
+    grants.push({
+      kind: "material",
+      id,
+      amount: 1,
+      tag: "rare",
+      source: "unexplored_monster_drop",
+    });
   }
 
   return {

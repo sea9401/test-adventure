@@ -1,5 +1,6 @@
-import { PLAYER_BLEED_ATK_COEF_PER_STACK, BLEED_MAX_STACKS, POISON_CAP_ATK_COEF, POISON_FULL_BUILD_DAMAGE_MULT, POISON_MAX_STACKS } from "@/adventure/data/v2/v2CombatConstants";
+import { BLEED_MAX_STACKS,PLAYER_BLEED_ATK_COEF_PER_STACK,POISON_CAP_ATK_COEF,POISON_FULL_BUILD_DAMAGE_MULT,POISON_MAX_STACKS } from "@/adventure/data/v2/v2CombatConstants";
 import { distributeBoostedHits } from "./hitDistribution";
+export { applyBleedChangeToDots, bleedChangeLogText } from "./combatDotChanges";
 
 // 대상 행동마다 피해 적용 후 turns -= 1. 같은 tag는 스택 누적 및 지속시간 갱신.
 export type V2DotTag = "bleed" | "poison" | "burn";
@@ -12,9 +13,12 @@ export type V2Dot = {
   flatPerStack: number;
   atkCoefPerStack: number;
   pctMaxHpPerStack: number;
+  /** 시전 시 피해 기준값. 연소는 마법 공격력, 중독은 max(공격력, 행운), 출혈은 공격력. */
   sourceAtk: number;
   /** 플레이어 맹독처럼 상한 계산 뒤 최종 DoT 피해에 적용하는 배율. 미지정은 1. */
   finalDamageMult?: number;
+  /** 착용자의 통합 지속 피해 증폭. 주기 틱에만 적용하며 폭발·즉발 피해는 제외한다. */
+  periodicDamageMult?: number;
 };
 export type V2DotList = readonly V2Dot[];
 
@@ -88,7 +92,7 @@ export function tickV2Dots(
     if (d.turns <= 0) continue;
     const damage = dotTickDamage(
       d.stacks,
-      v2DotPerStackDamage(d, targetMaxHp, maxHpDamageMult),
+      v2DotPerStackDamage(d, targetMaxHp, maxHpDamageMult) * Math.max(0, d.periodicDamageMult ?? 1),
     );
     totalDmg += damage;
     if (damage > 0) {
@@ -177,11 +181,26 @@ export function makePoisonDot(args: {
 export function applyV2DotsToTarget(
   current: V2DotList,
   toApply: ReadonlyArray<V2Dot>,
+  targetMaxHp = Number.POSITIVE_INFINITY,
+  maxHpDamageMult = 1,
 ): V2Dot[] {
   if (toApply.length === 0) return [...current];
   const byTag = new Map<V2DotTag, V2Dot>(current.map((d) => [d.tag, d]));
   for (const a of toApply) {
     const prev = byTag.get(a.tag);
+    if (a.tag === "poison") {
+      const active = prev && prev.turns > 0 && prev.stacks > 0 ? prev : undefined;
+      const stronger = active &&
+        v2DotPerStackDamage(active, targetMaxHp, maxHpDamageMult) >
+          v2DotPerStackDamage(a, targetMaxHp, maxHpDamageMult)
+        ? active : a;
+      byTag.set(a.tag, {
+        ...stronger,
+        stacks: Math.min(a.maxStacks, (active?.stacks ?? 0) + a.stacks),
+        turns: Math.max(active?.turns ?? 0, a.turns),
+      });
+      continue;
+    }
     byTag.set(a.tag, {
       ...a,
       stacks: Math.min(a.maxStacks, (prev?.stacks ?? 0) + a.stacks),
@@ -198,53 +217,4 @@ export type BleedChangeIntent = {
   reason: "refresh" | "extend";
 };
 
-export function bleedChangeLogText(
-  change: Pick<BleedChangeIntent, "reason">,
-  result: {
-    previousStacks: number;
-    resultingStacks: number;
-    resultingTurns: number;
-  },
-): string {
-  if (change.reason === "refresh") {
-    const addedStacks = Math.max(0, result.resultingStacks - result.previousStacks);
-    const stackText = addedStacks > 0
-        ? `출혈 +${addedStacks}스택 (${result.resultingStacks}스택), `
-        : "출혈 ";
-    return `${stackText}지속이 ${result.resultingTurns}회로 갱신됐다.`;
-  }
-  return `출혈 지속이 ${result.resultingTurns}회로 늘어났다.`;
-}
-
 /** 출혈 사냥은 기존 출혈의 출처 계수를 건드리지 않고 스택과 남은 횟수만 바꾼다. */
-export function applyBleedChangeToDots(
-  current: V2DotList,
-  change: BleedChangeIntent | undefined,
-): V2Dot[] {
-  if (!change) return [...current];
-  return current.map((dot) => {
-    if (dot.tag !== "bleed" || dot.turns <= 0) return dot;
-    const setTurns =
-      change.setTurns == null
-        ? dot.turns
-        : Math.max(dot.turns, Math.max(0, Math.floor(change.setTurns)));
-    const extendedTurns =
-      setTurns + Math.max(0, Math.floor(change.extendTurns ?? 0));
-    const turns =
-      change.maxTurns == null
-        ? extendedTurns
-        : Math.min(
-            Math.max(0, Math.floor(change.maxTurns)),
-            extendedTurns,
-          );
-    return {
-      ...dot,
-      stacks: Math.min(
-        BLEED_MAX_STACKS,
-        dot.maxStacks,
-        Math.max(0, dot.stacks + Math.floor(change.stacksToAdd)),
-      ),
-      turns,
-    };
-  });
-}

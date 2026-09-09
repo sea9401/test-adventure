@@ -463,7 +463,7 @@ describe("V2LoadoutPanel 원소 공명 유효 SP", () => {
 
     expect(visibleText(html)).toContain("스킬포인트 28 / 99");
     expect(html.match(/공명 재료 · 2 SP/g)).toHaveLength(5);
-    expect(visibleText(html)).toContain("기본 8 SP");
+    expect(visibleText(html)).toContain("기본 7 SP");
   });
 
   it("태초술사 회로의 재료와 오원소 폭주 촉매를 각각 1 SP로 표시한다", () => {
@@ -524,7 +524,7 @@ describe("스킬 카드 보기 모드", () => {
     ]),
   };
 
-  it("기본 간략 모드에서 액티브·패시브와 빌드 태그를 유지한다", () => {
+  it("기본 간략 모드에서 종류와 실제 효과, 장착 여부를 구분한다", () => {
     render(<V2LoadoutPanel previewMode loadout={loadout} />);
 
     expect(
@@ -536,8 +536,11 @@ describe("스킬 카드 보기 모드", () => {
     expect(
       screen.getAllByText("패시브").some((element) => element.tagName === "SPAN"),
     ).toBe(true);
-    expect(screen.getAllByText("STR").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("물리").length).toBeGreaterThan(0);
+    expect(screen.getByText("피해 공격력×1.08 + 힘×0.2")).toBeTruthy();
+    expect(screen.getByText("미장착")).toBeTruthy();
+    expect(screen.getByText("✓ 장착 중")).toBeTruthy();
+    const card = screen.getByText("미장착").closest("li")!;
+    expect(card.getAttribute("data-equipped")).toBe("false");
   });
 
   it("상세·간략·최소 모드를 명시적으로 전환한다", () => {

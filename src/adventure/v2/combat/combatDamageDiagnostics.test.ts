@@ -7,7 +7,7 @@ import { seededCombatRandom, withCombatRandom } from "./combatRandom";
 import { tickPlayerDotsOnAction } from "./engine.atb";
 import { applyPlayerV2SkillCast } from "./engine.playerSkills";
 import { initialBattleStatePvP } from "./engine.pvpInitialState";
-import { castV2SkillOnAttackerTurnPvP } from "./engine.pvpSkills";
+import { castV2SkillOnAttackerTurnPvP } from "./engine.pvpSkillAction";
 
 const player: PlayerCombat = { hp: 95, maxHp: 100, atk: 30, def: 10, spd: 500, evasionPct: 0, attackCount: 1, accuracyPct: 100, regen: { interval: 1, amount: 20 } };
 const enemy = { name: "test", hp: 100, atk: 10, def: 5, spd: 6, exp: 0, tags: [] };

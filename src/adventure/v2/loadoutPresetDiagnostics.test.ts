@@ -97,7 +97,7 @@ describe("프리셋 SP 진단", () => {
     expect(diagnosis).toMatchObject({ spUsed: 31, overBy: 0, canApply: true });
     expect(
       diagnosis.rows.find((row) => row.skillId === "v2c_firemage_inferno"),
-    ).toMatchObject({ spCost: 8, effectiveSpCost: 1 });
+    ).toMatchObject({ spCost: 7, effectiveSpCost: 1 });
     expect(
       diagnosis.rows.find((row) => row.skillId === "v2c_elementallord_surge"),
     ).toMatchObject({ spCost: 16, effectiveSpCost: 1 });

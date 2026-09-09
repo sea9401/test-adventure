@@ -46,7 +46,21 @@ export function coopBossPauseMilliseconds({
   return resumed - Math.max(started, spawned);
 }
 
+// 정산 경로와 같은 잠금을 잡아 점검 시작/해제와 낙찰 처리가 겹치지 않게 한다.
 export async function recordPauseStart(client, requestedStartedAt) {
+  await client.query("BEGIN");
+  try {
+    await client.query("SELECT pg_advisory_xact_lock(6180909)");
+    const result = await recordPauseStartUnlocked(client, requestedStartedAt);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  }
+}
+
+async function recordPauseStartUnlocked(client, requestedStartedAt) {
   const startedAt = parseMaintenanceTimestamp(
     requestedStartedAt,
     "maintenance start",
@@ -77,6 +91,7 @@ export async function recordPauseStart(client, requestedStartedAt) {
 export async function resumeBossTimers(client, resumedAt = new Date()) {
   await client.query("BEGIN");
   try {
+    await client.query("SELECT pg_advisory_xact_lock(6180909)");
     const stored = await client.query(
       `SELECT value
          FROM ops_settings
@@ -86,7 +101,7 @@ export async function resumeBossTimers(client, resumedAt = new Date()) {
     );
     if (stored.rowCount === 0) {
       await client.query("COMMIT");
-      return { resumed: false, extendedBosses: 0, pausedMilliseconds: 0 };
+      return { resumed: false, extendedBosses: 0, extendedAuctions: 0, pausedMilliseconds: 0 };
     }
 
     const startedAt = parseMaintenanceTimestamp(
@@ -122,6 +137,30 @@ export async function resumeBossTimers(client, resumedAt = new Date()) {
       [startedAt.toISOString(), resumedAt.toISOString()],
     );
 
+    const auctions = await client.query(
+      `WITH pause AS (
+         SELECT ($1::timestamptz AT TIME ZONE 'UTC') AS started_at,
+                ($2::timestamptz AT TIME ZONE 'UTC') AS resumed_at
+       ), eligible AS (
+         SELECT listing.id,
+                pause.resumed_at - GREATEST(pause.started_at, listing.created_at) AS paused_for
+           FROM marketplace_listings_v2 AS listing
+           CROSS JOIN pause
+          WHERE listing.status = 'active'
+            AND listing.auction_mode_version = 1
+            AND listing.bid_resolved_at IS NULL
+            AND listing.bid_ends_at > pause.started_at
+            AND listing.created_at < pause.resumed_at
+       )
+       UPDATE marketplace_listings_v2 AS listing
+          SET bid_ends_at = listing.bid_ends_at + eligible.paused_for,
+              expires_at = listing.expires_at + eligible.paused_for
+         FROM eligible
+        WHERE listing.id = eligible.id
+       RETURNING listing.id`,
+      [startedAt.toISOString(), resumedAt.toISOString()],
+    );
+
     await client.query(`DELETE FROM ops_settings WHERE key = $1`, [
       COOP_MAINTENANCE_OPS_KEY,
     ]);
@@ -129,6 +168,7 @@ export async function resumeBossTimers(client, resumedAt = new Date()) {
     return {
       resumed: true,
       extendedBosses: extension.rowCount ?? 0,
+      extendedAuctions: auctions.rowCount ?? 0,
       pausedMilliseconds: resumedAt.getTime() - startedAt.getTime(),
     };
   } catch (error) {
@@ -167,7 +207,7 @@ export async function runCoopMaintenanceTimer(args, env = process.env) {
     const result = await resumeBossTimers(client);
     process.stdout.write(
       result.resumed
-        ? `coop boss timers resumed: ${result.extendedBosses} active session(s), ${result.pausedMilliseconds}ms paused\n`
+        ? `coop boss timers resumed: ${result.extendedBosses} active boss session(s), ${result.extendedAuctions} auction(s), ${result.pausedMilliseconds}ms paused\n`
         : "coop boss timers already resumed\n",
     );
     return result;

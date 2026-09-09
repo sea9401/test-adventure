@@ -12,10 +12,10 @@ const base = {
 };
 
 describe("dungeonReadiness", () => {
-  it("전투력이 참고 난이도 이상이면 난이도 지표 상회", () => {
-    expect(dungeonReadiness({ ...base, playerPower: 2_060 })).toMatchObject({
-      status: "stable",
-      label: "난이도 지표 상회",
+  it("스탯 합계가 높아도 미정복 단계는 도전으로 안내한다", () => {
+    expect(dungeonReadiness({ ...base, ...{ playerPower: 2_060 } })).toMatchObject({
+      status: "challenge",
+      label: "도전 가능 · 빌드별 차이",
     });
   });
 
@@ -33,7 +33,7 @@ describe("dungeonReadiness", () => {
         frontierDepth: 48,
         jobTier: 6,
         level: 20,
-        playerPower: 3_000,
+        ...{ playerPower: 3_000 },
       }),
     ).toMatchObject({ status: "rebuilding", tone: "warning" });
   });

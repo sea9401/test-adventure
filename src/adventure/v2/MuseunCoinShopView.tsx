@@ -971,9 +971,7 @@ function CashItemDetailDialog({
                 {itemId === "adventure_support_premium_30d" ? (
                   <>
                     구매하면 가방에 들어오며 거래소에서 다른 모험가와 거래할 수 있습니다.
-                    사용할 때마다 프리미엄 혜택이 30일 적용되고 에너지{" "}
-                    {PREMIUM_ADVENTURE_SUPPORT_PASS.staminaActivationGrant.toLocaleString()}
-                    과 꾸미기 30일 연장권{" "}
+                    사용할 때마다 프리미엄 혜택이 30일 적용되고 꾸미기 30일 연장권{" "}
                     {PREMIUM_ADVENTURE_SUPPORT_PASS.cosmeticExtensionGrant}개를 받습니다.
                     남아 있는 일반 지원권 기간은 프리미엄 이용 중 소모되지 않고 종료 뒤
                     이어집니다.
@@ -982,10 +980,7 @@ function CashItemDetailDialog({
                   <>
                     구매하면 가방에 들어오며, 사용한 시점부터 30일이 적용됩니다. 거래소에서
                     다른 모험가와 거래할 수도 있습니다. 지원권이 없으면 일괄 전투는 최대{" "}
-                    {ADVENTURE_SUPPORT_PASS.freeMaxHuntBatch}회까지 이용할 수 있습니다. 최초
-                    활성화 시 에너지{" "}
-                    {ADVENTURE_SUPPORT_PASS.staminaActivationGrant.toLocaleString()}이 즉시
-                    지급됩니다.
+                    {ADVENTURE_SUPPORT_PASS.freeMaxHuntBatch}회까지 이용할 수 있습니다.
                   </>
                 )}
               </p>

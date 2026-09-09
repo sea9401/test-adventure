@@ -113,7 +113,7 @@ case "${1:-}" in
       # on 시점의 DB가 불통이었어도 최초 로컬 시각으로 멱등 복구한다.
       record_coop_timer_pause "$STARTED_AT"
     fi
-    # 연장이 실패하면 nginx 점검 화면과 시작 시각을 그대로 보존한다.
+    # 보스·경매 시간 연장이 실패하면 nginx 점검 화면과 시작 시각을 그대로 보존한다.
     resume_coop_timers
     $SUDO_CMD rm -f "$COOP_TIMER_STATE_FILE"
     $SUDO_CMD rm -f "$FLAG_FILE"

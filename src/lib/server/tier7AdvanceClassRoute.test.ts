@@ -168,6 +168,14 @@ beforeEach(() => {
 });
 
 describe("advance-class tier 7 first unlock", () => {
+  it.each(["fortressknight", "vajraarhat"])("%s에서 드레드노트를 해금하고 파편 30개를 소비한다", async currentJobId => {
+    seedCandidate({ currentJobId, fragments: 35, jobCumLevel: { fortressknight: 100_000, vajraarhat: 100_000 } });
+    const response = await POST(advanceReq("dreadnought"));
+    expect(response.status).toBe(200);
+    expect(character()).toMatchObject({ class: "warrior", specChoice: "dreadnought", level: 1, materials: { v2_storm_origin_fragment: 5 } });
+    expect(proficiency().jobHistory).toContain("dreadnought");
+  });
+
   it("consumes 30 fragments and records the first unlock atomically", async () => {
     seedCandidate({ fragments: 35 });
 

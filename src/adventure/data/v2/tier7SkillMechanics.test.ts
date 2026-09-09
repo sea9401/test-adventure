@@ -41,12 +41,16 @@ describe("tier 7 capstone contract", () => {
       "ruinblade",
       "skyascendant",
       "primordialsage",
+      "dreadnought",
+      "paragon",
     ]);
     expect(TIER7_COMBAT_JOB_PREREQS).toEqual({
       shadowblade: ["swordsaint", "blackmoon"],
       ruinblade: ["swordsaint", "hegemon"],
       skyascendant: ["heavenlybow", "celestialdragon"],
       primordialsage: ["archmage", "primordialmage"],
+      dreadnought: ["fortressknight", "vajraarhat"],
+      paragon: ["grandchampion", "absolute"],
     });
   });
 

@@ -109,7 +109,7 @@ describe("원소 공명 로드아웃 해석", () => {
 
     expect(resolved.circuit).toBe("none");
     expect(resolved.absorbedSkillIds).toEqual([]);
-    expect(resolved.spUsed).toBe(50);
+    expect(resolved.spUsed).toBe(49);
     expect(resolved.activeCombatSkillIds).toEqual(equipped);
   });
 

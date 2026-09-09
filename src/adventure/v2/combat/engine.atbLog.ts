@@ -1,26 +1,15 @@
-import { mergeTier7ResourceSnapshot, type BattleLogEntry, type BattleState } from "./engineState";
+import { type BattleLogEntry, type BattleState } from "./engineState";
 import { mergeFrostChillSnapshot } from "./frostChill";
 import { GLACIAL_CHILL_THRESHOLD } from "./glacialColossusMechanic";
 import { immortalBerserkerDisplay } from "./immortalBerserkerMechanic";
 import { invincibleFortressResourceSnapshot } from "./invincibleFortressMechanic";
-import { mergeLawInscriptionSnapshot } from "./lawInscription";
+import { playerResourceSnapshot } from "./playerResourceSnapshot";
 import { skywardCrystalEyeResourceSnapshot } from "./skywardCrystalEyeMechanic";
-import { activeTier6ResourceSnapshot } from "./tier6UniqueEffects";
 import { TOXIC_BLOOD_MAX_STACKS, TOXIC_RECOVERY_LOCK_ACTIONS } from "./toxicBloodLordMechanic";
 import { TRACKING_THREAT_MAX } from "./trackingWeaponMechanic";
-import { mergeTripleWardResourceSnapshot } from "./tripleWard";
 
 export function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {
-  const playerResources = mergeLawInscriptionSnapshot(
-    mergeTripleWardResourceSnapshot(
-      mergeTier7ResourceSnapshot(
-        activeTier6ResourceSnapshot(state.stacks.tier6Uniques),
-        state.stacks.tier7,
-      ),
-      state.stacks.tripleWard,
-    ),
-    state.stacks.lawInscriptions,
-  );
+  const playerResources = playerResourceSnapshot(state.stacks);
   const bossResources: Record<string, number | string> | undefined =
     state.bossMechanic?.kind === "invincible_fortress"
       ? invincibleFortressResourceSnapshot(

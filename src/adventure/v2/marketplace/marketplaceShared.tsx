@@ -1,3 +1,4 @@
+import type { MarketplaceFoodPreview } from "./MarketplaceFoodEffect";
 // v2 거래소 공용 — 타입·시세/시가 헬퍼·시세줄/가격입력 leaf 컴포넌트.
 //   V2MarketplaceView(코디네이터)와 판매 탭 컴포넌트들이 공유(중복 방지).
 
@@ -73,6 +74,7 @@ export type Listing = {
   quantity: number;
   price: number;
   instancePayload: unknown;
+  foodPreview?: MarketplaceFoodPreview;
   createdAt: string;
   bidEndsAt: string;
   expiresAt: string;

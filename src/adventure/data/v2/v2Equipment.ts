@@ -20,6 +20,10 @@
 import type { V2Element } from "@/adventure/data/v2/elements";
 import type { V2BuildTagId } from "./buildTags";
 import {
+  UNEXPLORED_SPECIALTY_TAG_SETS,
+  type UnexploredSetEffect,
+} from "./unexploredSpecialtyEquipment";
+import {
   parseLiberationState,
   type V2LiberationState,
 } from "./equipmentLiberation";
@@ -89,7 +93,7 @@ export const V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL: Record<
   3: "잊힌 성소~짐승의 소굴",
   4: "검은 왕도~심해 폐허",
   5: "하드 보스",
-  6: "폭풍 원정",
+  6: "폭풍 원정·미개척지 특화",
 };
 
 export function v2EquipCatalogTierToDisplayTier(
@@ -169,6 +173,12 @@ export type V2EquipOptions = {
   critResist?: number;
   /** 중독·출혈 등 상태이상 피해 감소율. 직접 피해와 둔화에는 적용하지 않는다. */
   statusDamageReductionPct?: number;
+  /** 기본 공격 피해 +%. 세트 보너스로만 사용한다. */
+  basicAttackDamagePct?: number;
+  /** 추가 기본 공격 피해 +%. 세트 보너스로만 사용한다. */
+  extraBasicAttackDamagePct?: number;
+  /** 상태이상 지속 피해 +%. 세트 보너스로만 사용한다. */
+  statusDotDamagePct?: number;
 };
 
 export const V2_EQUIP_OPTION_KEYS: readonly (keyof V2EquipOptions)[] = [
@@ -184,6 +194,9 @@ export const V2_EQUIP_OPTION_KEYS: readonly (keyof V2EquipOptions)[] = [
   "healPowerPct",
   "critResist",
   "statusDamageReductionPct",
+  "basicAttackDamagePct",
+  "extraBasicAttackDamagePct",
+  "statusDotDamagePct",
 ];
 
 export type V2Equipment = {
@@ -556,16 +569,16 @@ export function signatureLabel(sig: SignatureEffect): string {
       return `${sig.everyNHits ?? 0}회 공격 적중마다 추가 기본 공격 1회`;
     case "tier6_unique": {
       const labels: Record<Tier6UniqueMechanic, string> = {
-        gravity_reprisal: "보호막 파괴 시 충격의 35%를 저장해 다음 직접 공격으로 반격",
-        gravity_feedback: "보호막 획득량의 20%를 반발로 저장하고 반발 시 최대 HP 5% 보호막",
+        gravity_reprisal: "보호막 파괴 시 파괴 직전 보호막과 초과 피해 합계의 35%를 저장(최대 HP까지). 다음 직접 공격 적중 시 중력 반발 피해로 방출",
+        gravity_feedback: "보호막 획득량의 20%를 중력 반발(저장 피해)로 축적. 붕괴성의 흉갑과 함께 장착하면 다음 직접 공격 적중 시 저장 피해를 방출하고 최대 HP 5% 보호막 획득",
         bleed_burst: "기본 공격 시 출혈을 소비하지 않고 남은 피해의 50%를 즉시 적용 (4행동당 1회)",
-        bleed_aftermath: "출혈 폭발 시 출혈 중첩은 유지하고 지속 횟수만 최소 5회로 갱신 · 현재 출혈 중첩당 방어 3% 감소",
+        bleed_aftermath: "출혈 폭발 시 출혈 중첩은 유지하고 지속 횟수만 최소 5회로 갱신 · 현재 출혈 중첩당 방어 3% 감소. 출혈 폭발을 발생시키는 장비와 함께 장착해야 발동",
         pursuit_mark: "연속 적중 5회마다 직전 공격 피해 60%의 추적 사격",
         shadow_echo: "회피로 잔상을 쌓아 다음 치명타 피해의 45%를 복제",
         venom_burst: "스킬로 중독을 쌓고 기본 공격으로 5스택 이상 중독을 폭발",
-        venom_balance: "중독 폭발 시 절반을 재부여하고 스택당 마법방어 2% 감소",
+        venom_balance: "중독 폭발 시 소비한 중독 스택의 절반(올림)을 재부여하고 소비한 스택당 마법방어 2% 감소(2행동). 중독 폭발을 발생시키는 장비와 함께 장착해야 발동",
         arcane_overload: "MP 100 소모마다 마법공격력 140%의 마법 피해를 주는 과부하 낙뢰",
-        arcane_feedback: "과부하 낙뢰 시 MP 20% 환급, 상태이상 대상이면 과부하 25 회수",
+        arcane_feedback: "과부하 낙뢰 발동 시 그때 소모한 MP의 20% 환급, 상태이상 대상이면 과부하 25 회수. 과부하 낙뢰를 발생시키는 장비와 함께 장착해야 발동",
         sanctuary_reserve: "산출 회복량 30%를 저장해 HP 35% 이하에서 긴급 회복",
         mechanic_unity: "서로 다른 핵심 기믹 3종 발동 시 3행동 동안 합일 강화",
         shield_conversion: "행동마다 보호막 10%를 소비해 다음 직접 공격 피해로 전환",
@@ -600,6 +613,7 @@ export type V2EquipTagSet = {
   thresholds: readonly {
     count: number;
     bonus: Readonly<V2EquipOptions>;
+    effect?: UnexploredSetEffect;
     signature?: SignatureEffect;
     buildTags?: readonly V2BuildTagId[];
   }[];
@@ -1537,6 +1551,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
       },
     ],
   },
+  ...UNEXPLORED_SPECIALTY_TAG_SETS,
 ];
 
 // 슬롯별 catalog id 모음 — UI 가 슬롯 탭 표시할 때 사용.
@@ -1617,6 +1632,9 @@ const OPTION_LABELS: Record<keyof V2EquipOptions, string> = {
   healPowerPct: "회복",
   critResist: "치명타 저항",
   statusDamageReductionPct: "상태이상 피해 감소",
+  basicAttackDamagePct: "기본 공격 피해",
+  extraBasicAttackDamagePct: "추가 기본 공격 피해",
+  statusDotDamagePct: "상태이상 지속 피해",
 };
 
 // 단위가 % 인 옵션 키 — UI 표시 시 "+2%" 처럼 후행 % 붙임.
@@ -1627,6 +1645,9 @@ const OPTION_PERCENT_KEYS: ReadonlySet<keyof V2EquipOptions> = new Set<
   "healPowerPct",
   "critResist",
   "statusDamageReductionPct",
+  "basicAttackDamagePct",
+  "extraBasicAttackDamagePct",
+  "statusDotDamagePct",
 ]);
 
 // 장갑·신발 카탈로그는 역사적으로 concept="light"를 공통 기본값으로 사용했다. 중갑 갑옷과
@@ -2007,6 +2028,8 @@ export type V2EquipInstance = {
   stormRefined?: true;
   /** 장비 해방 단계·영구 줄 수·현재 옵션. 기능 플래그와 무관하게 저장은 보존한다. */
   liberation?: V2LiberationState;
+  /** 마법부여 이전 후에도 보존하는 장비별 변경 번호. */
+  liberationRevision?: number;
 };
 
 // 개체 iid 생성 — 서버/클라 공용. crypto.randomUUID 우선, 없으면 폴백.
@@ -2223,6 +2246,7 @@ export function parseEquipmentSave(raw: unknown): {
       craftedBy?: unknown;
       stormRefined?: unknown;
       liberation?: unknown;
+      liberationRevision?: unknown;
     };
     if (typeof e.id !== "string" || !VALID_IDS.has(e.id)) continue;
     const id = e.id as V2EquipmentId;
@@ -2252,6 +2276,9 @@ export function parseEquipmentSave(raw: unknown): {
     if (e.stormRefined === true) inst.stormRefined = true;
     const liberation = parseLiberationState(e.liberation, V2_EQUIPMENT[id].slot);
     if (liberation) inst.liberation = liberation;
+    if (typeof e.liberationRevision === "number" && Number.isSafeInteger(e.liberationRevision) && e.liberationRevision > 0) {
+      inst.liberationRevision = Math.max(e.liberationRevision, liberation?.revision ?? 0);
+    }
     owned.push(inst);
     byIid.set(iid, inst);
   }

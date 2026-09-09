@@ -10,19 +10,19 @@ export type EquipmentLiberationReceiptResponse = {
   spentGold: number;
 };
 
-export type EquipmentLiberationReceipt = {
+export type EquipmentLiberationReceipt<Response = EquipmentLiberationReceiptResponse> = {
   userId: string;
   requestId: string;
   iid: string;
   expectedRevision: number;
-  response: EquipmentLiberationReceiptResponse;
+  response: Response;
 };
 
-export async function readEquipmentLiberationReceipt(
+export async function readEquipmentLiberationReceipt<Response = EquipmentLiberationReceiptResponse>(
   executor: DbExecutor,
   userId: string,
   requestId: string,
-): Promise<EquipmentLiberationReceipt | null> {
+): Promise<EquipmentLiberationReceipt<Response> | null> {
   const row = (
     await executor
       .select({
@@ -42,12 +42,12 @@ export async function readEquipmentLiberationReceipt(
       .limit(1)
   )[0];
   if (!row) return null;
-  return row as EquipmentLiberationReceipt;
+  return row as EquipmentLiberationReceipt<Response>;
 }
 
-export async function insertEquipmentLiberationReceipt(
+export async function insertEquipmentLiberationReceipt<Response = EquipmentLiberationReceiptResponse>(
   executor: DbExecutor,
-  receipt: EquipmentLiberationReceipt,
+  receipt: EquipmentLiberationReceipt<Response>,
 ): Promise<void> {
   await executor.insert(equipmentLiberationRequests).values(receipt);
 }

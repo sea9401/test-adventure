@@ -21,6 +21,7 @@ import { TabBar } from "@/components/ui/TabBar";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   FARM_DAILY_DELIVERY_LIMIT,
+  FARM_WEEKLY_DELIVERY_LIMIT,
   FARM_CROPS,
   FARM_ITEMS,
   FARM_MAX_PLOT_COUNT,
@@ -221,6 +222,7 @@ export function AdventurerFarmPanel({
           ).length +
           weeklyDeliveries.filter(
             (delivery) =>
+              farm.weekly.claimedIds.length < FARM_WEEKLY_DELIVERY_LIMIT &&
               !farm.weekly.claimedIds.includes(delivery.id) &&
               hasRequiredItems(farm.inventory, delivery.requiredItems),
           ).length
@@ -1054,7 +1056,7 @@ function RareDeliveryBoard({
   );
 }
 
-function WeeklyDeliveryBoard({
+export function WeeklyDeliveryBoard({
   deliveries,
   inventory,
   claimedIds,
@@ -1067,19 +1069,27 @@ function WeeklyDeliveryBoard({
   busyDeliveryId: string | null;
   onDeliver: (requestId: string) => void;
 }) {
+  const completedCount = Math.min(claimedIds.length, FARM_WEEKLY_DELIVERY_LIMIT);
+  const limitReached = completedCount >= FARM_WEEKLY_DELIVERY_LIMIT;
   const orderedDeliveries = prioritizeDeliverable(
     deliveries,
     (delivery) =>
-      !claimedIds.includes(delivery.id) &&
+      !limitReached && !claimedIds.includes(delivery.id) &&
       hasRequiredItems(inventory, delivery.requiredItems),
   );
 
   return (
-    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+    <div className={`${SURFACE_CARD} p-3`}>
       <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
         <Package size={17} weight="duotone" className="text-emerald-500" />
         주간 농장 납품
+        <span className="ml-auto text-xs font-medium text-zinc-600 dark:text-zinc-300">
+          {completedCount} / {FARM_WEEKLY_DELIVERY_LIMIT} 완료
+        </span>
       </div>
+      <p className="mb-3 text-xs text-zinc-600 dark:text-zinc-300">
+        매주 전체 작물 중 서로 다른 {FARM_WEEKLY_DELIVERY_LIMIT}종을 납품할 수 있습니다. 납품한 작물이 이번 주 선택으로 기록됩니다.
+      </p>
       <div className="grid gap-2 lg:grid-cols-3">
         {orderedDeliveries.map((delivery) => {
           const claimed = claimedIds.includes(delivery.id);
@@ -1107,11 +1117,13 @@ function WeeklyDeliveryBoard({
                   ? "납품 중..."
                   : claimed
                     ? "이번 주 완료"
-                    : enough
-                      ? "주간 납품"
-                      : "재료 부족"
+                    : limitReached
+                      ? "이번 주 한도 도달"
+                      : enough
+                        ? "주간 납품"
+                        : "재료 부족"
               }
-              disabled={claimed || !enough || busy}
+              disabled={claimed || limitReached || !enough || busyDeliveryId !== null}
               onClick={() => onDeliver(delivery.id)}
             />
           );
@@ -1141,7 +1153,7 @@ function DeliveryRequestCard({
   onClick: () => void;
 }) {
   return (
-    <div className="flex min-h-[12rem] flex-col rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+    <div className={`${SURFACE_CARD} flex min-h-[12rem] flex-col p-3 text-sm`}>
       <div className="flex items-start gap-3">
         {imageItemId ? (
           <FarmItemImage

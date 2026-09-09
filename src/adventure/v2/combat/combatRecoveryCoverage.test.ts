@@ -10,7 +10,7 @@ import { advanceTurn, resolveBattle } from "./engine";
 import { resolveBattleAtb } from "./engine.atb";
 import { advanceTurnPvP } from "./engine.pvpPhase";
 import { applyEnemyV2SkillCast } from "./engine.enemySkills";
-import { castV2SkillOnAttackerTurnPvP } from "./engine.pvpSkills";
+import { castV2SkillOnAttackerTurnPvP } from "./engine.pvpSkillAction";
 import { createCombatDiagnostics, withCombatDiagnostics } from "./combatDiagnostics";
 import { withCombatRandom } from "./combatRandom";
 

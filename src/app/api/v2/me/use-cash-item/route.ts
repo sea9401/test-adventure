@@ -19,7 +19,6 @@ import {
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import {
-  ADVENTURE_SUPPORT_PASS,
   PREMIUM_ADVENTURE_SUPPORT_PASS,
   adventureSupportTier,
   grantAdventureSupport,
@@ -29,7 +28,6 @@ import {
   applyRegen,
   parseStaminaFromSave,
   staminaConfigForCharacter,
-  staminaOverchargeCap,
 } from "@/adventure/v2/stamina";
 import {
   CHAT_BADGE_VARIANTS,
@@ -501,33 +499,24 @@ export async function POST(req: Request) {
       cashItems,
       adventureSupport: grant.state,
     };
-    let grantedStamina: { current: number; lastUpdatedAt: number } | null =
+    let settledStamina: { current: number; lastUpdatedAt: number } | null =
       null;
     if (premium || grant.firstActivation) {
+      // 즉시 지급 없이 지원권 적용 전의 자연 회복분만 정산한다.
       const previousConfig = staminaConfigForCharacter(character, now);
-      const nextConfig = staminaConfigForCharacter(nextCharacter, now);
       const current = applyRegen(
         parseStaminaFromSave(character.stamina, now),
         now,
         previousConfig.max,
         previousConfig.regenBonusPct,
       );
-      grantedStamina = {
-        current: premium
-          ? Math.min(
-              nextConfig.max,
-              current.current +
-                PREMIUM_ADVENTURE_SUPPORT_PASS.staminaActivationGrant,
-            )
-          : Math.min(
-              staminaOverchargeCap(nextConfig.max),
-              current.current + ADVENTURE_SUPPORT_PASS.staminaActivationGrant,
-            ),
+      settledStamina = {
+        current: current.current,
         lastUpdatedAt: current.lastUpdatedAt,
       };
       nextCharacter = {
         ...nextCharacter,
-        stamina: grantedStamina,
+        stamina: settledStamina,
       };
     }
 
@@ -543,7 +532,7 @@ export async function POST(req: Request) {
         premiumUntil: grant.state.premiumUntil ?? null,
         daysAdded: grant.days,
         firstActivation: grant.firstActivation,
-        ...(grantedStamina ? { stamina: grantedStamina } : {}),
+        ...(settledStamina ? { stamina: settledStamina } : {}),
       },
     };
   });

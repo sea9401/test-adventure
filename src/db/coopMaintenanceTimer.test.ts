@@ -70,7 +70,7 @@ describe("coop maintenance timer", () => {
             ? { rowCount: 1, rows: [{ value: { startedAt: STARTED_AT } }] }
             : { rowCount: 0, rows: [] };
         }
-        if (sql.includes("WITH pause AS")) {
+        if (sql.includes("UPDATE coop_boss_sessions")) {
           extensionQueries += 1;
           extensionSql = sql;
           return { rowCount: 2, rows: [{ id: "boss-1" }, { id: "boss-2" }] };
@@ -86,11 +86,13 @@ describe("coop maintenance timer", () => {
     expect(first).toEqual({
       resumed: true,
       extendedBosses: 2,
+      extendedAuctions: 0,
       pausedMilliseconds: 30 * 60 * 1_000,
     });
     expect(second).toEqual({
       resumed: false,
       extendedBosses: 0,
+      extendedAuctions: 0,
       pausedMilliseconds: 0,
     });
     expect(extensionQueries).toBe(1);

@@ -138,10 +138,7 @@ export function ControlsContent() {
           스태미나 회복 속도 +{ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct}%,
           일괄 사냥 최대 {ADVENTURE_SUPPORT_PASS.activeMaxHuntBatch}회, 거래소 등록 +
           {ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus}개와 판매세{" "}
-          {ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}% 혜택을 받습니다. 지원권을
-          처음 활성화할 때는 스태미나도 최대{" "}
-          {ADVENTURE_SUPPORT_PASS.staminaActivationGrant.toLocaleString("ko-KR")}{" "}
-          회복합니다.
+          {ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}% 혜택을 받습니다.
         </li>
         <li>
           <Em>월간 모험 지원권 프리미엄</Em>은 최대 스태미나 +
@@ -153,11 +150,7 @@ export function ControlsContent() {
           {PREMIUM_ADVENTURE_SUPPORT_PASS.activeMaxHuntBatch}회, 거래소 등록 +
           {PREMIUM_ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus}개와 판매세{" "}
           {PREMIUM_ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}% 혜택을
-          제공합니다. 사용할 때마다 스태미나{" "}
-          {PREMIUM_ADVENTURE_SUPPORT_PASS.staminaActivationGrant.toLocaleString(
-            "ko-KR",
-          )}
-          과 꾸미기 30일 연장권{" "}
+          제공합니다. 사용할 때마다 꾸미기 30일 연장권{" "}
           {PREMIUM_ADVENTURE_SUPPORT_PASS.cosmeticExtensionGrant}개를 받습니다.
           일반 지원권의 남은 기간은 프리미엄 이용 중 소모되지 않고 종료 뒤 이어집니다.
         </li>

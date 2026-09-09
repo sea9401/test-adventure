@@ -1,21 +1,12 @@
 import { combatRandom } from "./combatRandom";
 import { recordCombatMetric } from "./combatDiagnostics";
-import {
-  healingAfterReceivedMultiplier,
-} from "./combatShared";
+import { healingAfterReceivedMultiplier } from "./combatShared";
 import {
   EVASION_DAMAGE_REDUCTION_MAX_PCT,
   pveEvasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
-import {
-  healToShield,
-  rollEvasionActionRecovery,
-} from "./signatureEffects";
-import type {
-  BattleLogEntry,
-  BattleState,
-  PlayerCombat,
-} from "./engineState";
+import { healToShield, rollEvasionActionRecovery } from "./signatureEffects";
+import { type BattleLogEntry, type BattleState, type PlayerCombat } from "./engineState";
 
 // 오프라인 시뮬레이션은 전투 로그를 읽지 않는다. 로그 수집을 끄면 매 턴 배열을
 // 복사하는 O(턴²) 비용 없이 같은 배열 참조를 유지한다.
@@ -96,7 +87,9 @@ export function playerPveEvasionReductionPct(
   const enemyAccuracy = Math.max(
     0,
     (state.enemy.accuracy ?? 0) *
-      (1 - Math.min(100, Math.max(0, accuracyDownPct)) / 100),
+      (1 - Math.min(100, Math.max(0, accuracyDownPct)) / 100) -
+      ((state.unexploredSetRuntime?.frost?.actions ?? 0) > 0
+        ? state.unexploredSetRuntime!.frost!.accuracyPenalty : 0),
   );
   const evasionRating = Math.max(
     0,

@@ -1,5 +1,4 @@
 export type DungeonReadinessStatus =
-  | "stable"
   | "proven"
   | "rebuilding"
   | "challenge";
@@ -13,8 +12,6 @@ export type DungeonReadiness = {
 export type DungeonReadinessInput = {
   depth: number;
   frontierDepth: number;
-  playerPower?: number | null;
-  recommendedPower: number;
   jobTier?: number | null;
   level?: number | null;
   levelCap?: number | null;
@@ -23,8 +20,8 @@ export type DungeonReadinessInput = {
 const REJOB_RECOVERY_RATIO = 0.35;
 
 /**
- * 던전 준비도는 전투력 하나로 입장을 판정하지 않는다.
- * 정복 기록은 실제 승리 증거이고, 상위 직업 초반은 레벨 초기화 직후라 같은 전투력이어도
+ * 사냥터 안내는 정복 기록과 현재 성장 상태만 사용한다.
+ * 정복 기록은 실제 승리 증거이고, 상위 직업 초반은 레벨 초기화 직후라 같은 스탯 합계여도
  * 성능이 크게 낮을 수 있다. 이 값은 안내 전용이며 서버 입장 조건에 사용하지 않는다.
  */
 export function dungeonReadiness(input: DungeonReadinessInput): DungeonReadiness {
@@ -44,12 +41,6 @@ export function dungeonReadiness(input: DungeonReadinessInput): DungeonReadiness
       label: "전직 후 성장 회복 권장",
       tone: "warning",
     };
-  }
-
-  const powerReady =
-    input.playerPower != null && input.playerPower >= input.recommendedPower;
-  if (powerReady) {
-    return { status: "stable", label: "난이도 지표 상회", tone: "positive" };
   }
 
   if (input.depth <= input.frontierDepth) {

@@ -29,7 +29,7 @@ const PREVIEW_METRICS: Array<{
   key: PreviewMetric;
   title: string;
 }> = [
-  { key: "combatPower", title: "전투력" },
+  { key: "combatPower", title: "스탯 합계" },
   { key: "masteryTower", title: "숙련의 탑" },
   { key: "achievementScore", title: "업적" },
   { key: "guild", title: "길드" },
@@ -288,7 +288,7 @@ function rankingValue(entry: PreviewEntry, metric: PreviewMetric): string {
   }
   if (isGuildRankingEntry(entry)) return "—";
   if (metric === "combatPower") {
-    return `전투력 ${entry.combatPower.toLocaleString("ko-KR")}`;
+    return `스탯 합계 ${entry.combatPower.toLocaleString("ko-KR")}`;
   }
   if (metric === "masteryTower") {
     return `최고 ${entry.masteryTowerFloor.toLocaleString("ko-KR")}층`;

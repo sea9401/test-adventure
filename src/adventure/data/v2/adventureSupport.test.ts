@@ -54,7 +54,7 @@ describe("월간 모험 지원권", () => {
 
   it("에너지와 거래소 혜택을 고정한다", () => {
     expect(ADVENTURE_SUPPORT_PASS.staminaMaxBonus).toBe(1_000);
-    expect(ADVENTURE_SUPPORT_PASS.staminaActivationGrant).toBe(1_000);
+    expect(ADVENTURE_SUPPORT_PASS.staminaActivationGrant).toBe(0);
     expect(ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct).toBe(20);
     expect(ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus).toBe(10);
     expect(ADVENTURE_SUPPORT_PASS.marketplaceTaxRate).toBe(0.05);
@@ -143,7 +143,7 @@ describe("월간 모험 지원권", () => {
       coinPrice: 2_500,
       durationDays: 30,
       staminaMaxBonus: 3_000,
-      staminaActivationGrant: 3_000,
+      staminaActivationGrant: 0,
       staminaRegenBonusPct: 20,
       marketplaceSlotBonus: 20,
       marketplaceTaxRate: 0.05,

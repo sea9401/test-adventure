@@ -287,10 +287,11 @@ describe("미개척지 상위 특화 세트 결정적 밸런스 시뮬레이션"
         bossSurvivalRatio: null,
       }),
       expect.objectContaining({
+        // 통합 중독 보정: 스킬·장비 독에 같은 행운 기준과 최종 배율을 적용한다.
         setId: "toxic_blood",
-        stormRoleRatio: expect.closeTo(0.8439517330420102, 8),
-        pioneerRoleRatio: expect.closeTo(0.928786041512758, 8),
-        bossRoleRatio: expect.closeTo(0.7947917856998042, 8),
+        stormRoleRatio: expect.closeTo(0.8747745757991876, 8),
+        pioneerRoleRatio: expect.closeTo(0.9162378766764808, 8),
+        bossRoleRatio: expect.closeTo(0.8884676996593588, 8),
         bossSurvivalRatio: expect.closeTo(1, 8),
       }),
       expect.objectContaining({

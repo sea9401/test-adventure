@@ -1,13 +1,10 @@
 import {
   aggregateEquippedPassives,
+  describeV2Skill,
   V2_SKILLS,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 import { V2_STAT_LABELS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
-import {
-  buildTagsForSkill,
-  V2_BUILD_TAG_LABEL,
-} from "@/adventure/data/v2/buildTags";
 
 export type SkillLibraryViewMode = "detailed" | "compact" | "minimal";
 
@@ -21,11 +18,10 @@ function formatSummaryNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
 }
 
-export function skillLibraryTags(skillId: string, limit = 3): string[] {
+export function skillLibraryTags(skillId: string, limit = Number.POSITIVE_INFINITY): string[] {
   const skill = V2_SKILLS[skillId as V2SkillId];
   if (!skill) return [];
-  return buildTagsForSkill(skill)
-    .map((tag) => V2_BUILD_TAG_LABEL[tag])
+  return describeV2Skill(skill)
     .slice(0, Math.max(0, limit));
 }
 
@@ -37,9 +33,22 @@ export function isConditionalPassiveSkill(skillId: string): boolean {
     passive.freezeDamagePct ||
       passive.freezeDelayPct ||
       passive.freezeRetainStacks ||
+      passive.counterChanceFlatPct ||
+      passive.counterImpactGain ||
+      passive.fortressImpactHealPctPerStack ||
       passive.counterChancePct ||
       passive.counterDamageUsesReflectBoost ||
       passive.thornsDefPct ||
+      passive.burnDurationBonusTurns ||
+      passive.burnRekindle ||
+      passive.fireSpellMpCostReductionPct ||
+      passive.fireBurstShieldPctMaxMp ||
+      passive.windCurrentShieldPctPerStack ||
+      passive.windCurrentReleaseEvades ||
+      passive.windCurrentMpRestorePctPerStack ||
+      passive.paragonMastery ||
+      passive.windCurrentRebound ||
+      passive.windCurrentDamagePctPerStack ||
       passive.fortressImpactOnHit ||
       passive.fortressImpactDamagePctPerStack ||
       passive.lawInscription ||
@@ -150,6 +159,12 @@ export function equippedPassiveSummary(
       true,
     );
   }
+  if (aggregate.counterImpactGain) {
+    add("counterImpactGain", `자동 반격 적중 시 충격 +${aggregate.counterImpactGain} (적 행동당 1회)`, true);
+  }
+  if (aggregate.fortressImpactHealPctPerStack) {
+    add("fortressImpactHealPctPerStack", `충격 소비 적중 시 스택당 최대 HP ${aggregate.fortressImpactHealPctPerStack}% 회복`, true);
+  }
   if (aggregate.counterDamageUsesReflectBoost) {
     add(
       "counterDamageUsesReflectBoost",
@@ -164,6 +179,18 @@ export function equippedPassiveSummary(
       `HP 피해 시 방어력의 ${formatSummaryNumber(aggregate.thornsDefPct)}% 반사`,
       true,
     );
+  }
+  if (aggregate.burnDurationBonusTurns) add("burnDurationBonusTurns", `연소 지속 +${aggregate.burnDurationBonusTurns}행동`, true);
+  if (aggregate.burnRekindle) add("burnRekindle", "겁화 붕괴 적중 시 연소 부여", true);
+  if (aggregate.fireSpellMpCostReductionPct) add("fireSpellMpCostReductionPct", `화염 계보 주문 MP 소모 -${aggregate.fireSpellMpCostReductionPct}%`, true);
+  if (aggregate.fireBurstShieldPctMaxMp) add("fireBurstShieldPctMaxMp", `겁화 붕괴 사용 시 최대 MP ${aggregate.fireBurstShieldPctMaxMp}% 보호막`, true);
+  if (aggregate.windCurrentShieldPctPerStack) add("windCurrentShieldPctPerStack", `새 기류 1개당 최대 MP ${aggregate.windCurrentShieldPctPerStack}% 보호막`, true);
+  if (aggregate.windCurrentReleaseEvades) add("windCurrentReleaseEvades", `기류 3개 소비 시 확정 회피 ${aggregate.windCurrentReleaseEvades}회 확보 (누적 없음)`, true);
+  if (aggregate.windCurrentMpRestorePctPerStack) add("windCurrentMpRestorePctPerStack", `새 기류 1개당 최대 MP ${aggregate.windCurrentMpRestorePctPerStack}% 회복`, true);
+  if (aggregate.paragonMastery) add("paragonMastery", "선언 직후 평타 1회 · 선언 중 공격 스킬 사용 시 연속 평타 단계 유지", true);
+  if (aggregate.windCurrentRebound) add("windCurrentRebound", "기류 3개 소비 후 다음 생성량 +1", true);
+  if (aggregate.windCurrentDamagePctPerStack) {
+    add("windCurrentDamagePctPerStack", `기류 생성 활성화 · 기류당 바람 주문 피해 +${formatSummaryNumber(aggregate.windCurrentDamagePctPerStack)}%`, true);
   }
   if (aggregate.fortressImpactOnHit) {
     add("fortressImpactOnHit", "적 직접 공격 명중 시 충격 +1", true);

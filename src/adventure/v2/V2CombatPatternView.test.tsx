@@ -194,6 +194,15 @@ describe("combat pattern choice controls", () => {
     expect(html).toContain('value="100"');
   });
 
+  it.each([
+    ["holyPower", "성력", 100], ["sanctuary", "성역 남은 행동", 4],
+  ] as const)("%s 조건은 해당 자원의 최대값까지 입력할 수 있다", (resource, label, max) => {
+    const html = renderToStaticMarkup(<ConditionParams condition={{ kind: "self_resource", resource, op: "atLeast", value: max }} onChange={vi.fn()} />);
+    expect(html).toContain(label);
+    expect(html).toContain(`max="${max}"`);
+    expect(html).toContain(`value="${max}"`);
+  });
+
   it("누적형 전투 자원 조건은 비교 방식과 기준값을 표시한다", () => {
     const html = renderToStaticMarkup(
       <ConditionParams

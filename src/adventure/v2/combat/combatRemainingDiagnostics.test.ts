@@ -1,9 +1,10 @@
+import { maybeApplyMartialCounter } from "./engine.pvpCounter";
 import { describe, expect, it } from "vitest";
 import { POTIONS } from "@/adventure/data/potions";
 import type { PlayerCombat } from "./engineState";
 import { initialBattleState, applyPotionEffect, dealExtraEnemyDamage } from "./engine.pveOperations";
 import { initialBattleStatePvP } from "./engine.pvpInitialState";
-import { applyPotionTo, dealExtraDamage, applyDodgeEffects, maybeApplyRuneCounter, maybeApplyMartialCounter, finishAttackerTurn, applyOnHitReflect, tickPvPSideDotsOnAction } from "./engine.pvpOperations";
+import { applyPotionTo, dealExtraDamage, applyDodgeEffects, maybeApplyRuneCounter, finishAttackerTurn, applyOnHitReflect, tickPvPSideDotsOnAction } from "./engine.pvpOperations";
 import { resolveEnemyPhase } from "./engine.enemyPhase";
 import { tickPlayerDotsOnAction } from "./engine.atb";
 import { createCombatDiagnostics, withCombatDiagnostics } from "./combatDiagnostics";

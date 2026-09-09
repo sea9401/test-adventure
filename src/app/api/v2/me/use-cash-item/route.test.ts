@@ -268,7 +268,7 @@ describe("POST /api/v2/me/use-cash-item — 100레벨 달성의 비약", () => {
 });
 
 describe("POST /api/v2/me/use-cash-item — 프리미엄 모험 지원권", () => {
-  it("사용 한 번으로 프리미엄 기간·에너지·꾸미기 연장권을 함께 지급한다", async () => {
+  it("프리미엄 기간과 꾸미기 연장권을 지급하고 즉시 스태미나는 지급하지 않는다", async () => {
     const now = Date.UTC(2026, 7, 30);
     const dateNow = vi.spyOn(Date, "now").mockReturnValue(now);
     mocks.store.set("character.v2", {
@@ -293,13 +293,13 @@ describe("POST /api/v2/me/use-cash-item — 프리미엄 모험 지원권", () =
       premiumUntil: now + 30 * 86_400_000,
       activeUntil: now + 30 * 86_400_000,
     });
-    expect(saved.stamina).toEqual({ current: 4_500, lastUpdatedAt: now });
+    expect(saved.stamina).toEqual({ current: 1_500, lastUpdatedAt: now });
     expect(json).toMatchObject({
       ok: true,
       itemId: "adventure_support_premium_30d",
       tier: "premium",
       cashItems: { cosmetic_extension_30d: 3 },
-      stamina: { current: 4_500, lastUpdatedAt: now },
+      stamina: { current: 1_500, lastUpdatedAt: now },
       premiumUntil: now + 30 * 86_400_000,
       activeUntil: now + 30 * 86_400_000,
     });
@@ -326,7 +326,43 @@ describe("POST /api/v2/me/use-cash-item — 프리미엄 모험 지원권", () =
     expect(response.status).toBe(200);
     expect(saved.adventureSupport.premiumUntil).toBe(now + 30 * 86_400_000);
     expect(saved.adventureSupport.activeUntil).toBe(now + 40 * 86_400_000);
-    expect(saved.stamina.current).toBe(5_000);
+    expect(saved.stamina.current).toBe(4_900);
+    dateNow.mockRestore();
+  });
+
+  it.each(["adventure_support_30d", "adventure_support_premium_30d"])(
+    "%s 최초 사용 시 현재 스태미나를 추가 지급하지 않는다",
+    async (itemId) => {
+      const now = Date.UTC(2026, 7, 30);
+      const dateNow = vi.spyOn(Date, "now").mockReturnValue(now);
+      mocks.store.set("character.v2", {
+        cashItems: { [itemId]: 1 },
+        stamina: { current: 500, lastUpdatedAt: now },
+      });
+      const response = await POST(request(itemId));
+      expect(response.status).toBe(200);
+      const saved = mocks.store.get("character.v2") as SavedAdventureSupportCharacter;
+      expect(saved.stamina).toEqual({ current: 500, lastUpdatedAt: now });
+      dateNow.mockRestore();
+    },
+  );
+
+  it("프리미엄 재사용 시 초과 보유 스태미나를 보존한다", async () => {
+    const now = Date.UTC(2026, 7, 30);
+    const dateNow = vi.spyOn(Date, "now").mockReturnValue(now);
+    mocks.store.set("character.v2", {
+      cashItems: { adventure_support_premium_30d: 1 },
+      adventureSupport: {
+        activatedAt: now - 1000,
+        premiumUntil: now + 86_400_000,
+        activeUntil: now + 86_400_000,
+      },
+      stamina: { current: 6000, lastUpdatedAt: now },
+    });
+    const response = await POST(request("adventure_support_premium_30d"));
+    expect(response.status).toBe(200);
+    const saved = mocks.store.get("character.v2") as SavedAdventureSupportCharacter;
+    expect(saved.stamina).toEqual({ current: 6000, lastUpdatedAt: now });
     dateNow.mockRestore();
   });
 

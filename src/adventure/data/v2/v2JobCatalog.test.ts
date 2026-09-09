@@ -270,25 +270,25 @@ describe("jobUnlockSpBonus", () => {
       woodcuttingLevel: 1_000,
       miningLevel: 1_000,
     };
-    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(92);
+    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(97);
 
     proficiency.jobHistory = [...TIER7_COMBAT_JOB_IDS];
-    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(94);
+    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(100);
   });
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("빙결술사·빙천제, 수인 2~6차와 선공개 7차를 포함한 141개 직업을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(141);
+  it("화염·바람 5·6차와 선공개 7차를 포함한 153개 직업을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(153);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(3);
     expect(byTier(1)).toBe(6);
     expect(byTier(2)).toBe(19);
-    expect(byTier(3)).toBe(26);
-    expect(byTier(4)).toBe(31);
-    expect(byTier(5)).toBe(26);
-    expect(byTier(6)).toBe(26);
-    expect(byTier(7)).toBe(4);
+    expect(byTier(3)).toBe(27);
+    expect(byTier(4)).toBe(32);
+    expect(byTier(5)).toBe(30);
+    expect(byTier(6)).toBe(30);
+    expect(byTier(7)).toBe(6);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -358,6 +358,13 @@ describe("released tier-7 boundary", () => {
       prereqs: { archmage: 100_000, primordialmage: 100_000 },
       legacy: { class: "mage", spec: "primordialsage" },
     },
+    {
+      id: "paragon", name: "파라곤",
+      cultivateProfile: {str:2,vit:1,dex:1,int:1,spi:1,luk:1},
+      jobBonus: {str:8,vit:8,dex:8,int:8,spi:8,luk:8},
+      prereqs: {grandchampion:100_000,absolute:100_000},
+      legacy: {class:"warrior",spec:"paragon"},
+    },
   ] as const;
 
   it.each(released)(
@@ -380,18 +387,22 @@ describe("released tier-7 boundary", () => {
     },
   );
 
-  it("승인된 네 직업 외의 7차는 공개하지 않는다", () => {
+  it("승인된 여섯 직업 외의 7차는 공개하지 않는다", () => {
     expect(V2_JOB_LIST.filter((job) => job.tier === 7).map((job) => job.id)).toEqual([
+      "dreadnought",
       "shadowblade",
       "ruinblade",
       "skyascendant",
       "primordialsage",
+      "paragon",
     ]);
     expect(TIER7_COMBAT_JOB_IDS).toEqual([
       "shadowblade",
       "ruinblade",
       "skyascendant",
       "primordialsage",
+      "dreadnought",
+      "paragon",
     ]);
   });
 

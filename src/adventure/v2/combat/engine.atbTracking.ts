@@ -2,14 +2,7 @@ import { stampTick } from "./engine.atbLog";
 import { resolveForcedEnemyPhysicalHit } from "./engine.enemyPhase";
 import { type BattleLogEntry, type BattleState, type PlayerCombat } from "./engineState";
 import { appendLog } from "./engineSupport";
-import {
-  TRACKING_ELIMINATION_HIT_MULTIPLIER,
-  TRACKING_ELIMINATION_PHYSICAL_DEFENSE_PIERCE_PCT,
-  TRACKING_THREAT_MAX,
-  accumulateTrackingThreat,
-  resolveTrackingThreatAfterPlayerAction,
-  trackingThreatGain,
-} from "./trackingWeaponMechanic";
+import { TRACKING_ELIMINATION_HIT_MULTIPLIER, TRACKING_ELIMINATION_PHYSICAL_DEFENSE_PIERCE_PCT, TRACKING_THREAT_MAX, accumulateTrackingThreat, resolveTrackingThreatAfterPlayerAction, trackingThreatGain } from "./trackingWeaponMechanic";
 
 export function appendTrackingLog(
   state: BattleState,

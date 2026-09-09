@@ -1,15 +1,16 @@
-import { combatRandom } from "./combatRandom";
 import { V2_SKILL_PROC_IN_PATTERN } from "@/adventure/data/v2/coreLoopConfig";
 import {
-  effectiveCombatPatternFromEquipped,
-  smartDefaultPatternFromEquipped,
-  V2_SKILLS,
+effectiveCombatPatternFromEquipped,
+smartDefaultPatternFromEquipped,
+V2_SKILLS,
 } from "@/adventure/data/v2/v2Skills";
 import { berserkerCastContext } from "./berserkerCombat";
+import { healingReductionPct } from "./burnHealing";
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
+import { combatRandom } from "./combatRandom";
 import { tickV2BuffMap, type V2SkillCastInput } from "./combatShared";
-import { skillTargetDef, skillTargetMagicDef } from "./engine.pvpStats";
 import { type PvPSide } from "./engine.pvpState";
+import { skillTargetDef, skillTargetMagicDef } from "./engine.pvpStats";
 import { effectiveMutationDef } from "./mutationCombat";
 import { formulaCompletionOverdraftSkillIds } from "./primordialSageCombat";
 import { isBleedBurstReady } from "./tier6UniqueEffects";
@@ -24,7 +25,6 @@ export function preparePvPSkillCast(side: PvPSide, opp: PvPSide, diagnosticActor
   const tier6UnityMagicAtk = Math.floor(
     (side.player.magicAtk ?? side.player.atk) * tier6UnityMult,
   );
-  // 1) buff/debuff tick (cast 전에 — 새 buff 는 발동턴부터 turns 만큼 유지).
   const tickedSelfBuffs = tickV2BuffMap(side.v2SelfBuffs);
   const tickedSelfDebuffs = tickV2BuffMap(side.v2SelfDebuffs);
   const shadowCoreEquipped = side.v2Skills.equipped.includes(
@@ -69,7 +69,7 @@ export function preparePvPSkillCast(side: PvPSide, opp: PvPSide, diagnosticActor
     magicMpCostReductionPct: formulaOptimizationEquipped ? 20 : 0,
     mpOverdraftSkillIds: formulaOverdraftSkillIds,
     // PR2-B(Codex) — PvP 도 발동확률 게이트 + 워메이지 proc 보너스. 단 스킬 미보유 전투자에게
-    //   Math.random() 을 소비하면 PvP RNG 가 드리프트하므로(Codex 2차) 장착 스킬 있을 때만 롤.
+    //   combatRandom() 을 소비하면 PvP RNG 가 드리프트하므로(Codex 2차) 장착 스킬 있을 때만 롤.
     procRoll: side.v2Skills.equipped.length > 0 ? combatRandom() * 100 : undefined,
     nextProcRoll: () => combatRandom() * 100,
     bleedHuntRoll: needsBleedHuntRoll ? combatRandom() * 100 : undefined,
@@ -135,6 +135,8 @@ export function preparePvPSkillCast(side: PvPSide, opp: PvPSide, diagnosticActor
       currentHp: side.hp,
       maxMp: side.maxMp,
       classTier: side.player.classTier,
+      holyPower: side.stacks.holyPower,
+      windCurrent: side.stacks.windCurrent,
       fortressImpact: side.stacks.fortressImpact,
       ironWallReflectCharges: side.stacks.ironWallReflectCharges,
       fortressImpactDamagePctPerStack:
@@ -172,9 +174,9 @@ export function preparePvPSkillCast(side: PvPSide, opp: PvPSide, diagnosticActor
       magicVulnStacks: opp.stacks.magicVulnStacks,
       frostChillStacks: opp.stacks.frostChillStacks,
       enemyVulnerabilityActive: opp.stacks.enemyVulnTurns > 0,
-      enemyDamageDownActive: opp.stacks.damageDownTurns > 0,
+      enemyDamageDownActive: opp.stacks.damageDownTurns > 0 || (opp.stacks.nextAttackDamageDownPct ?? 0) > 0,
       enemySkillProcDownActive: opp.stacks.skillProcDownTurns > 0,
-      enemyHealReductionActive: opp.stacks.healReduceTurns > 0,
+      enemyHealReductionActive: healingReductionPct(opp.v2Dots, opp.stacks.healReduceTurns > 0 ? opp.stacks.healReducePct : 0) > 0,
       enemyDotVulnerabilityActive: opp.stacks.dotVulnTurns > 0,
     },
   };

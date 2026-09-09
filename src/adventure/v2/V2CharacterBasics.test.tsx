@@ -31,5 +31,8 @@ describe("V2CharacterBasics 성장 방향 안내", () => {
   it("안내가 없으면 경고 영역을 만들지 않는다", () => {
     const html = renderToStaticMarkup(<V2CharacterBasics {...BASE_PROPS} />);
     expect(html).not.toContain("세팅 방향 확인");
+    expect(html).toContain("스탯 합계");
+    expect(html).toContain("3,000");
+    expect(html).not.toContain("전투력");
   });
 });

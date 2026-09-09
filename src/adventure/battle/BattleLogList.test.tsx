@@ -1199,12 +1199,16 @@ describe("BattleLogList 행동 묶음", () => {
             enemyMaxHp: 1_000,
             playerSignatureResources: {
               lawInscriptions: "4/8 · 공격 2 · 환류 2",
+              holyPower: "40/100",
+              sanctuary: "2행동",
             },
           },
         ]}
       />,
     );
     expect(withInscription).toContain("각인 4/8 · 공격 2 · 환류 2");
+    expect(withInscription).toContain("성력 40/100");
+    expect(withInscription).toContain("성역 2행동");
 
     const legacy = renderToStaticMarkup(
       <BattleLogList

@@ -1,54 +1,28 @@
-import { combatRandom } from "./combatRandom";
-import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
 import { STAT_LABELS } from "@/adventure/data/stats";
 import { statusNameForDebuffStat } from "@/adventure/data/v2/statusEffects";
 import { applyEvasionDamageReduction } from "@/adventure/data/v2/v2CombatConstants";
 import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
-import {
-  applyV2BuffsToMap,
-  applyV2DotsToTarget,
-  damageBetween,
-  healingAfterReceivedMultiplier,
-  resolveV2SkillCast,
-  v2DefBuffMult,
-  type V2SkillCastResult,
-} from "./combatShared";
-import {
-  applyBerserkerHostileDamage,
-  applyCounterIfAny,
-  applyPassiveCounterOnHitIfAny,
-  applyTrackedSetShieldAbsorptionPve,
-  playerFacingEnemyDef,
-  recordEnemyDamage,
-} from "./engine.pveOperations";
+import { healingReductionPct } from "./burnHealing";
+import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
+import { combatRandom } from "./combatRandom";
+import { applyV2BuffsToMap, applyV2DotsToTarget, healingAfterReceivedMultiplier, resolveV2SkillCast, type V2SkillCastResult } from "./combatShared";
+import { distributeBoostedHits } from "./hitDistribution";
+import { sumMagicBarrierDamage, unyieldingDamagePve } from "./unexploredSetPveAdapter";
+import { resolveEnemySkillReflection } from "./engine.enemySkillReflection";
+import { applyBerserkerHostileDamage, applyCounterIfAny, applyTrackedSetShieldAbsorptionPve, recordEnemyDamage } from "./engine.pveOperations";
+import { applyPassiveCounterOnHitIfAny } from "./engine.passiveCounter";
 import { type BattleLogEntry, type BattleState, type PlayerCombat } from "./engineState";
 import { appendLog, appendSkillCastLog, playerPveEvasionReductionPct } from "./engineSupport";
-import {
-  consumeReactiveDefenseCharges,
-  ironWallDamageReductionPct,
-  resolveFortressReaction,
-} from "./fortressKnight";
-import {
-  magicBarrierCombatLogEntries,
-  resolveMagicBarrierDamage,
-  type MagicBarrierDamageResult,
-} from "./magicBarrier";
+import { consumeReactiveDefenseCharges, ironWallDamageReductionPct, resolveFortressReaction } from "./fortressKnight";
+import { magicBarrierCombatLogEntries, resolveMagicBarrierDamage, type MagicBarrierDamageResult } from "./magicBarrier";
 import { effectiveMutationDef } from "./mutationCombat";
-import {
-  healToShield,
-  lowHpDamageReductionPct,
-  onDodgeSpeedBuff,
-  statusBlockOnce,
-} from "./signatureEffects";
+import { applyNextAttackDamageDown, consumeNextAttackDamageDown } from "./paragonCombat";
+import { healToShield, lowHpDamageReductionPct, onDodgeSpeedBuff, statusBlockOnce } from "./signatureEffects";
 import { applyTier6UniquePveEvent } from "./tier6UniquePveAdapter";
-import {
-  consumePurificationWard,
-  resolveTripleWardDamage,
-  TRIPLE_WARD_LABELS,
-  tripleWardStabilityReductionPct,
-  type TripleWardDamageKind,
-  type TripleWardState,
-} from "./tripleWard";
+import { consumePurificationWard, resolveTripleWardDamage, TRIPLE_WARD_LABELS, tripleWardStabilityReductionPct, type TripleWardDamageKind, type TripleWardState } from "./tripleWard";
+import { type EnemyHitResolution } from "./unexploredSetEffects";
+import { recordUnexploredEnemySkillHits } from "./unexploredSetPveAdapter";
+export { resolveEnemySkillReflection } from "./engine.enemySkillReflection";
 
 export type EnemySkillMitigation = {
   damage: number;
@@ -70,96 +44,13 @@ export type EnemySkillMitigation = {
   steadfastReducedBy: number;
 };
 
-
-export function resolveEnemySkillReflection(
-  state: BattleState,
-  player: PlayerCombat,
-  result: Pick<V2SkillCastResult, "enemyDamage">,
-  mitigation: EnemySkillMitigation,
-  damageToHp: number,
-  shieldAbsorbed: number,
-  fortressReaction: ReturnType<typeof resolveFortressReaction>,
-): { damage: number; labels: string[]; genericReflectEligible: boolean } {
-  const landed = result.enemyDamage > 0;
-  const hitStoppedByShield = shieldAbsorbed > 0 && damageToHp <= 0;
-  const reflectBase = Math.max(
-    0,
-    result.enemyDamage - mitigation.evasionReducedBy,
-  );
-  const thornsDamage =
-    landed && !hitStoppedByShield && (player.thornsPct ?? 0) > 0
-      ? Math.floor((reflectBase * (player.thornsPct ?? 0)) / 100)
-      : 0;
-  const brambleDamage =
-    landed && !hitStoppedByShield && (player.bramblePct ?? 0) > 0
-      ? Math.floor((reflectBase * (player.bramblePct ?? 0)) / 100)
-      : 0;
-  const infiniteDamage =
-    landed && !hitStoppedByShield && (player.infiniteThornsAtkPct ?? 0) > 0
-      ? Math.floor(
-          (state.enemy.atk * (player.infiniteThornsAtkPct ?? 0)) / 100,
-        )
-      : 0;
-  const enchantDamage =
-    landed && (player.enchantReflectPct ?? 0) > 0 && damageToHp > 0
-      ? Math.floor((damageToHp * (player.enchantReflectPct ?? 0)) / 100)
-      : 0;
-  const wardenDamage =
-    landed && !hitStoppedByShield && (player.thornsFlatFromDef ?? 0) > 0
-      ? player.thornsFlatFromDef ?? 0
-      : 0;
-  const genericRaw =
-    thornsDamage +
-    brambleDamage +
-    infiniteDamage +
-    enchantDamage +
-    wardenDamage;
-  const reflectBoostPct =
-    state.stacks.skillReflectBoostTurns > 0
-      ? state.stacks.skillReflectBoostPct
-      : 0;
-  const boostedGenericRaw =
-    reflectBoostPct > 0
-      ? Math.floor(genericRaw * (1 + reflectBoostPct / 100))
-      : genericRaw;
-  const totalRaw = boostedGenericRaw + fortressReaction.rawReflectDamage;
-  const targetDef = playerFacingEnemyDef(state, player);
-  const targetDefMult = v2DefBuffMult(
-    state.enemyV2SelfBuffs,
-    state.enemyV2Debuffs,
-  );
-  const damage =
-    totalRaw > 0
-      ? damageBetween(
-          totalRaw,
-          targetDefMult !== 1
-            ? Math.floor(targetDef * targetDefMult)
-            : targetDef,
-        )
-      : 0;
-  const labels: string[] = [];
-  if (thornsDamage > 0) labels.push("반사 갑주");
-  if (brambleDamage > 0) labels.push("가시 갑옷");
-  if (infiniteDamage > 0) labels.push("무한 가시");
-  if (enchantDamage > 0) labels.push("별빛 반사");
-  if (wardenDamage > 0) labels.push("수호 반사");
-  if (reflectBoostPct > 0 && genericRaw > 0) labels.push("반사 증폭");
-  if (fortressReaction.ironWallReflected) labels.push("철벽 반사");
-  return {
-    damage,
-    labels,
-    genericReflectEligible: genericRaw > 0,
-  };
-}
-
-
 export function reduceIncomingEnemySkillDamage(
   state: BattleState,
   player: PlayerCombat,
   result: Pick<V2SkillCastResult, "enemyDamage" | "magicEnemyDamage">,
   applyTripleWard = true,
 ): EnemySkillMitigation {
-  const damage = result.enemyDamage;
+  const damage = applyNextAttackDamageDown(result.enemyDamage, state.stacks.nextAttackDamageDownPct);
   if (damage <= 0) {
     return {
       damage: 0,
@@ -181,16 +72,17 @@ export function reduceIncomingEnemySkillDamage(
     damage,
     evasionReductionPct,
   );
+  const afterUnyielding = unyieldingDamagePve(state, player, afterEvasion);
   const afterEnemyDamageDown =
     state.stacks.enemyDamageDownTurns > 0 &&
     state.stacks.enemyDamageDownPct > 0
       ? Math.max(
           1,
           Math.floor(
-            afterEvasion * (1 - state.stacks.enemyDamageDownPct / 100),
+            afterUnyielding * (1 - state.stacks.enemyDamageDownPct / 100),
           ),
         )
-      : afterEvasion;
+      : afterUnyielding;
   const afterResolve =
     state.buffs.playerDmgReductionTurnsLeft > 0 &&
     state.buffs.playerDmgReductionPct > 0
@@ -297,15 +189,43 @@ export function reduceIncomingEnemySkillDamage(
   };
 }
 
-
 export function resolveIncomingEnemySkillWithBarrier(
   state: BattleState,
   player: PlayerCombat,
-  result: Pick<V2SkillCastResult, "enemyDamage" | "magicEnemyDamage">,
+  result: Pick<V2SkillCastResult, "enemyDamage" | "magicEnemyDamage"> & Partial<Pick<V2SkillCastResult, "hitDamages">>,
 ): {
   barrier: MagicBarrierDamageResult;
   mitigation: EnemySkillMitigation;
+  hits?: EnemyHitResolution[];
 } {
+  if (state.unexploredSetRuntime && (result.hitDamages?.length ?? 0) > 1 && result.enemyDamage > 0) {
+    const rawHits = distributeBoostedHits(result.hitDamages!, result.enemyDamage);
+    const magicHits = distributeBoostedHits(result.hitDamages!, result.magicEnemyDamage);
+    let current = state;
+    let combined: ReturnType<typeof resolveIncomingEnemySkillWithBarrier> | undefined;
+    const hits: EnemyHitResolution[] = [];
+    for (let index = 0; index < rawHits.length; index++) {
+      const resolved = resolveIncomingEnemySkillWithBarrier(current, player, {
+        enemyDamage: rawHits[index]!, magicEnemyDamage: magicHits[index]!,
+      });
+      const shieldAbsorbed = Math.min(current.stacks.playerShield, resolved.barrier.hpBoundDamage);
+      const hpDamage = Math.min(current.playerHp, resolved.barrier.hpBoundDamage - shieldAbsorbed);
+      hits.push({ rawDirectDamage: rawHits[index]!, damageAfterEvasion: rawHits[index]! - resolved.mitigation.evasionReducedBy,
+        evasionPreventedDamage: resolved.mitigation.evasionReducedBy, shieldAbsorbed, hpDamage, fullyEvaded: false });
+      current = { ...current, playerHp: Math.max(0, current.playerHp - hpDamage), playerMagicBarrier: resolved.barrier.durabilityLeft,
+        stacks: { ...current.stacks, playerShield: current.stacks.playerShield - shieldAbsorbed, tripleWard: resolved.mitigation.tripleWard } };
+      if (!combined) {
+        combined = resolved;
+      } else {
+        const mitigation = { ...resolved.mitigation, wardReductions: [...combined.mitigation.wardReductions, ...resolved.mitigation.wardReductions], stabilityStacksBefore: combined.mitigation.stabilityStacksBefore };
+        for (const key of ["damage", "evasionReducedBy", "resolveReducedBy", "endureReducedBy", "passiveReducedBy", "stabilityReducedBy", "guardReducedBy", "steadfastReducedBy"] as const) {
+          mitigation[key] += combined.mitigation[key];
+        }
+        combined = { barrier: sumMagicBarrierDamage(combined.barrier, resolved.barrier), mitigation };
+      }
+    }
+    return { ...combined!, hits };
+  }
   let mitigation: EnemySkillMitigation | undefined;
   const magicShare = Math.min(
     1,
@@ -331,7 +251,6 @@ export function resolveIncomingEnemySkillWithBarrier(
       mitigation ?? reduceIncomingEnemySkillDamage(state, player, result, false),
   };
 }
-
 
 export function appendEnemySkillMitigationLogs(
   log: BattleLogEntry[],
@@ -388,7 +307,6 @@ export function appendEnemySkillMitigationLogs(
   }
   return next;
 }
-
 
 export function evadeIncomingEnemySkill(
   state: BattleState,
@@ -505,7 +423,6 @@ export function evadeIncomingEnemySkill(
   };
 }
 
-
 // v2 적(몬스터) 스킬 시전 — applyPlayerV2SkillCast 의 적 대칭판(ATB 라이브 경로용).
 //   ⚠️ ATB 전용: 버프/디버프 tick 은 tickEnemyBundleEntry/tickPlayerBundleEntry(번들)가 이미 했으므로
 //   여기선 tick 없이 cast 결정 + 효과 적용만 한다(player cast 헬퍼와 동일 소유권 모델 — 이중 tick 방지).
@@ -542,7 +459,7 @@ export function applyEnemyV2SkillCast(
     },
     target: {
       def: effectiveMutationDef(
-        player.def,
+        player.def + (state.unexploredSetRuntime?.ironWallDefBonus ?? 0),
         state.stacks.mutationWeight,
         player.stoneskinDefPctPerWeight ?? 0,
       ),
@@ -595,6 +512,7 @@ export function applyEnemyV2SkillCast(
     };
   }
   let nextPlayerHp = state.playerHp;
+  const hpBeforeEnemySkill = state.playerHp;
   let nextEnemyHp = state.enemyHp;
   let nextLog = state.log;
   const fortressReaction = resolveFortressReaction({
@@ -711,7 +629,7 @@ export function applyEnemyV2SkillCast(
   }
   if (nextEnemyHp > 0 && result.selfHeal > 0 && result.castSkillName) {
     const healReduce =
-      state.stacks.enemyHealReduceTurns > 0 ? state.stacks.enemyHealReducePct : 0;
+      healingReductionPct(state.enemyV2Dots, state.stacks.enemyHealReduceTurns > 0 ? state.stacks.enemyHealReducePct : 0);
     const effHeal =
       healReduce > 0
         ? Math.floor(result.selfHeal * (1 - healReduce / 100))
@@ -756,7 +674,7 @@ export function applyEnemyV2SkillCast(
     : applyV2BuffsToMap(state.v2SelfDebuffs, result.enemyDebuffsToApply);
   const nextPlayerDots = blockHostileStatus
     ? state.playerV2Dots
-    : applyV2DotsToTarget(state.playerV2Dots, result.dotsToApplyToTarget);
+    : applyV2DotsToTarget(state.playerV2Dots, result.dotsToApplyToTarget, state.playerMaxHp);
   for (const b of result.selfBuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -792,11 +710,13 @@ export function applyEnemyV2SkillCast(
       turn: "enemy",
     });
   }
+  const actualEnemySkillHpDamage = Math.max(0, hpBeforeEnemySkill - nextPlayerHp);
   const countered =
     enemySkillDamageToHp > 0 && result.castSkillName
       ? applyPassiveCounterOnHitIfAny(
           {
             ...state,
+            stacks: { ...state.stacks, fortressImpact: fortressReaction.impact },
             playerHp: nextPlayerHp,
             enemyHp: nextEnemyHp,
             log: nextLog,
@@ -829,11 +749,13 @@ export function applyEnemyV2SkillCast(
     stacks: {
       ...state.stacks,
       tripleWard: nextTripleWard,
+      ...consumeNextAttackDamageDown(state.stacks, result.enemyDamage > 0),
       playerShield: nextPlayerShield,
       skillEvasionTurns: reactiveDefenseCharges.evasion,
       skillDmgReduceTurns: reactiveDefenseCharges.damageReduction,
       skillReflectBoostTurns: reactiveDefenseCharges.reflect,
-      fortressImpact: fortressReaction.impact,
+      ...(countered?.stacks.dreadnought ? { dreadnought: countered.stacks.dreadnought } : {}),
+      fortressImpact: countered?.stacks.fortressImpact ?? fortressReaction.impact,
       ironWallReflectCharges: fortressReaction.ironWallReflectCharges,
     },
     log: nextLog,
@@ -843,6 +765,15 @@ export function applyEnemyV2SkillCast(
     player,
     enemySkillShieldAbsorbed,
   );
+  const skillHits = resolvedEnemySkill.hits ?? [{
+    rawDirectDamage: result.enemyDamage,
+    damageAfterEvasion: result.enemyDamage - mitigation.evasionReducedBy,
+    evasionPreventedDamage: mitigation.evasionReducedBy,
+    shieldAbsorbed: enemySkillShieldAbsorbed,
+    hpDamage: Math.max(0, hpBeforeEnemySkill - (enemySkillEnduranceFires ? 1 : Math.max(0, hpBeforeEnemySkill - enemySkillDamageToHp))),
+    fullyEvaded: result.enemyDamage <= 0,
+  }];
+  nextState = recordUnexploredEnemySkillHits(nextState, player, skillHits, actualEnemySkillHpDamage);
   if (
     nextState.stacks.tier6Uniques &&
     state.stacks.playerShield > 0 &&

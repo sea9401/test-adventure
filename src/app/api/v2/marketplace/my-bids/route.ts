@@ -1,3 +1,4 @@
+import { marketplaceFoodPreview } from "@/lib/server/marketplaceV2";
 import { desc, eq, max } from "drizzle-orm";
 import { db } from "@/db";
 import { marketplaceBidsV2, marketplaceListingsV2 } from "@/db/schema";
@@ -81,6 +82,7 @@ export async function GET(req: Request) {
           row.itemId,
           row.itemName,
         ),
+        foodPreview: marketplaceFoodPreview(row.itemId),
         myHighestBid: Number(row.myHighestBid),
         isHighestBidder: highestBidderId === userId,
         isBuyer: buyerId === userId,

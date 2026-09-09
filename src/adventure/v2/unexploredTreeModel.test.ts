@@ -239,6 +239,58 @@ describe("unexplored tree model", () => {
     expect(model.selected?.categoryLabel).toBe("보상 전환");
   });
 
+  it("shows the selected specialty pool's monster drops on every linked node", () => {
+    for (const nodeId of [
+      "pool-iron_legion",
+      "enh-iron_legion-frequency",
+      "enh-iron_legion-material",
+      "enh-iron_legion-loot",
+      "enh-iron_legion-focus",
+    ]) {
+      const model = buildUnexploredTreeModel(snapshot(), nodeId);
+
+      expect(model.selectedPoolRewards).toEqual({
+        poolId: "iron_legion",
+        poolName: "철갑 군단",
+        monsterNames: ["철갑 방패병", "철갑 창병", "철갑 파쇄병"],
+        items: [
+          {
+            id: "v2_unexplored_iron_legion_material",
+            kind: "material",
+            name: "강화 철편",
+            rateText: "기본 1% · 집중 1.5%",
+          },
+          {
+            id: "v2_pioneer_ironstar_greatsword",
+            kind: "equipment",
+            name: "철성 파쇄검",
+            rateText: "기본 0.1% · 집중 0.2%",
+          },
+        ],
+      });
+    }
+  });
+
+  it("does not claim that a boss specialty pool drops pool-exclusive equipment", () => {
+    const model = buildUnexploredTreeModel(snapshot(), "pool-runaway_machines");
+
+    expect(model.selectedPoolRewards?.poolName).toBe("폭주 기계");
+    expect(model.selectedPoolRewards?.items).toEqual([
+      {
+        id: "v2_unexplored_runaway_machines_material",
+        kind: "material",
+        name: "과열 동력핵",
+        rateText: "기본 1% · 집중 1.5%",
+      },
+    ]);
+  });
+
+  it("does not expose specialty rewards for an unrelated node", () => {
+    expect(
+      buildUnexploredTreeModel(snapshot(), "inner-0-0").selectedPoolRewards,
+    ).toBeNull();
+  });
+
   it("잠긴 노드에 보상 전환 충돌 이유를 노출한다", () => {
     const selectedNodeIds = [
       ...new Set([

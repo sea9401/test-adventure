@@ -90,7 +90,7 @@ describe("장비 마법부여 작업대", () => {
     fireEvent.click(screen.getByRole("button", { name: "마법부여" }));
     expect(screen.getByRole("dialog", { name: "최초 마법부여 확인" })).toBeTruthy();
     expect(screen.getByText(/즉시 귀속/)).toBeTruthy();
-    expect(screen.getByText(/옵션 줄 수는 영구 고정/)).toBeTruthy();
+    expect(screen.getByText(/옵션 줄 수는 재마법부여로 바꿀 수 없습니다/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "15,000,000 G 지불하고 마법부여" })).toBeTruthy();
   });
 

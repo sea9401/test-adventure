@@ -39,7 +39,7 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex,nofollow" />
-<title>9월 6일 서버 점검 안내 — 무슨무슨게임</title>
+<title>서버 점검 진행 중 — 무슨무슨게임</title>
 <style>
   html,body{margin:0;padding:0;height:100%;background:#09090b;color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
   main{min-height:100%;display:flex;align-items:center;justify-content:center;padding:1.5rem;box-sizing:border-box}
@@ -58,15 +58,15 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 </style>
 </head>
 <body>
-<main>
+<main data-msmsge-maintenance="true">
   <div class="box" role="status" aria-live="polite">
     <div class="status">서비스 점검</div>
-    <h1>9월 6일 서버 점검 안내</h1>
-    <p class="lead">안녕하세요, 모험가 여러분.<br />아래 일정으로 서버 점검이 진행됩니다.</p>
-    <h2 class="details-title">점검 일정</h2>
+    <h1>서버 점검 진행 중</h1>
+    <p class="lead">안녕하세요, 모험가 여러분.<br />안정적인 서비스 제공을 위해 서버 점검을 진행하고 있습니다.</p>
+    <h2 class="details-title">점검 안내</h2>
     <dl class="details">
-      <div class="row"><dt>일시:</dt><dd>2026년 9월 6일 23:00 ~ 23:30 (한국 시간)</dd></div>
-      <div class="row"><dt>시간:</dt><dd>30분간</dd></div>
+      <div class="row"><dt>상태:</dt><dd>점검 진행 중</dd></div>
+      <div class="row"><dt>서비스 재개:</dt><dd>점검 완료 후</dd></div>
       <div class="row"><dt>영향:</dt><dd>점검 중 게임 접속 및 이용이 일시적으로 제한됩니다.</dd></div>
     </dl>
     <p class="notice">이용에 불편을 드려 죄송합니다.<br />점검 시간은 진행 상황에 따라 변경될 수 있으며, 변경 시 추가로 안내드리겠습니다.</p>

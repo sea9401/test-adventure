@@ -9,10 +9,7 @@ import {
 import { resolveBattleAtb } from "../src/adventure/v2/combat/engine.atb";
 import { resolveBattlePvPAtb } from "../src/adventure/v2/combat/engine.pvp-atb";
 import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
-import {
-  buildLevelDesignProgressionSnapshot,
-  type LevelDesignArchetype,
-} from "./sim-v2-level-design";
+import { buildLevelDesignProgressionSnapshot, type LevelDesignArchetype } from "./sim-v2-level-design";
 
 export type UnexploredSpecialtySetId =
   | "tracking"
@@ -995,6 +992,9 @@ function cliInteger(
 }
 
 const EQUIPMENT_OPTION_LABELS: Record<keyof V2EquipOptions, string> = {
+  basicAttackDamagePct: "기본 공격 피해",
+  extraBasicAttackDamagePct: "추가 기본 공격 피해",
+  statusDotDamagePct: "지속 피해",
   crit: "치명",
   eva: "회피",
   accuracy: "명중",

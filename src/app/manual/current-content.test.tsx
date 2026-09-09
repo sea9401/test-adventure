@@ -613,8 +613,10 @@ describe("최신 게임 안내서 내용", () => {
     expect(hunting).toContain("총 0.0035%");
     expect(hunting).toContain("경험치와 골드");
     expect(hunting).toContain("천공 균열 최심부와 동일");
-    expect(hunting).not.toContain("73~78단계");
-    expect(hunting).not.toContain("79~84단계");
+    const equipmentGuide = hunting.split("미개척지 특화 사냥")[0];
+    expect(equipmentGuide).not.toContain("73~78단계");
+    expect(equipmentGuide).not.toContain("79~84단계");
+    expect(hunting).toContain("특화 선택은 79~84단계의 일반 사냥에 적용");
     expect(equipment).toContain("난이도와 관계없이 같은 6티어");
     expect(equipment).toContain("천공 균열의 입구·심부·최심부");
     expect(compendium).toContain("난이도에 따라 후보가 바뀌지 않고");
@@ -783,8 +785,10 @@ describe("최신 게임 안내서 내용", () => {
   it("현재 레벨 성장량·누적 EXP·신참 기준을 안내한다", () => {
     const html = renderToStaticMarkup(<LevelingContent />);
 
-    expect(html).toContain("최대 HP가 10");
-    expect(html).toContain("최대 MP가 3");
+    expect(html).toContain("각각 독립적으로 성장");
+    expect(html).toContain("관련 숙련도");
+    expect(html).not.toContain("최대 HP가 10");
+    expect(html).not.toContain("최대 MP가 3");
     expect(html).toContain("2,275,428 EXP");
     expect(html).toContain("30,000회 이하");
   });

@@ -1,9 +1,5 @@
 import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 import {
-  V2_HP_PER_LEVEL,
-  V2_MP_PER_LEVEL,
-} from "@/adventure/data/v2/v2Stats";
-import {
   NEWBIE_BONUS_BATTLE_THRESHOLD,
   NEWBIE_EXP_MULTIPLIER,
   XP_RATE_MULT,
@@ -19,8 +15,8 @@ export function LevelingContent() {
       <H2>레벨 1~{V2_LEVEL_CAP}</H2>
       <P>
         최고 레벨은 <Em>{V2_LEVEL_CAP}</Em>입니다. 레벨이 오를 때마다 스탯이
-        자동으로 배분되고 최대 HP가 {V2_HP_PER_LEVEL}, 최대 MP가{" "}
-        {V2_MP_PER_LEVEL} 늘어납니다. 직접 스탯을 나누는 방식은 아닙니다. 자세한
+        각각 독립적으로 성장하며, 관련 숙련도가 성장 범위와 확률에 반영됩니다.
+        HP·MP도 생애의 성장 방식에 따라 증가합니다. 직접 스탯을 나누는 방식은 아닙니다. 자세한
         성장 규칙은 <Em>스탯과 성장</Em>에서 확인할 수 있습니다.
       </P>
 

@@ -23,7 +23,7 @@ import { appendLog, applyHealShieldIfAny } from "./engineSupport";
 import { initialHolyPower, tickHolyPowerPve } from "./holyPowerAdapters";
 import { emptyLawInscriptionState } from "./lawInscription";
 import { nextAttackDamageDownApplication } from "./paragonCombat";
-import { makePlayerPoisonDot } from "./playerDotDamage";
+import { applyStatusDotDamageBonus, makePlayerPoisonDot } from "./playerDotDamage";
 import { battleStartShield, resolveTrackedShieldAbsorption, trackedBattleStartShield, trackedShieldBreakEffect } from "./signatureEffects";
 import { hasTier6Unique, initialTier6UniqueRuntime } from "./tier6UniqueEffects";
 import { initialTripleWardState } from "./tripleWard";
@@ -184,7 +184,9 @@ export function applyPlayerOnHitDots(
   return {
     ...state,
     enemyV2Dots: applyV2DotsToTarget(
-      state.enemyV2Dots, dots, state.enemy.hp,
+      state.enemyV2Dots,
+      applyStatusDotDamageBonus(dots, player.statusDotDamagePct),
+      state.enemy.hp,
       state.maxHpDamageMult ?? (state.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1),
     ),
   };

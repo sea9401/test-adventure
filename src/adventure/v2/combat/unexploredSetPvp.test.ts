@@ -395,14 +395,59 @@ describe.each(["p1", "p2"] as const)("%s unexplored set symmetry", side => {
     expect(damageLines(next)).toHaveLength(hitCount);
     expect(random).toHaveBeenCalledTimes(2);
   });
-  it("chain preserves a queued signature bonus and cannot reenter", () => {
+  it("chain preserves a queued signature bonus without counting or generating another", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const state = battle(side, fighter({ unexploredSetEffects: effects("chain_drive"), equipSignatures: [{ trigger: "every_n_hits", label: "추가타", everyNHits: 5 }] }), fighter(), ["v2c_martial_combo"]);
     const next = cast(state, side);
     expect(next.signatureExtraActions).toBe(1);
     expect(next.state[side].stacks.signatureBonusAttacksLeft).toBe(1);
-    expect(next.state[side].stacks.signatureHitCount).toBe(6);
+    expect(next.state[side].stacks.signatureHitCount).toBe(5);
     expect(damageLines(cast(withRuntime(state, side, { chainDriveResolving: true }), side).state)).toHaveLength(5);
+  });
+  it("leaves only the skill-generated every-third-hit basic after a chain proc", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const state = battle(side, fighter({
+      unexploredSetEffects: effects("chain_drive"),
+      equipSignatures: [{ trigger: "every_n_hits", label: "분쇄 도끼", everyNHits: 3 }],
+    }), fighter(), ["v2c_martial_combo"]);
+    const next = cast(state, side);
+    expect(next.signatureExtraActions).toBe(1);
+    expect(next.state[side].stacks.signatureBonusAttacksLeft).toBe(1);
+    expect(next.state[side].stacks.signatureHitCount).toBe(5);
+    expect(damageLines(next.state)).toHaveLength(6);
+  });
+  it("chain embedded basic suppresses weakpoint and tier-6 extra-attack hooks", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const player = fighter({
+      critChancePct: 100,
+      weakpointExtraAttacks: 1,
+      unexploredSetEffects: effects("chain_drive"),
+      equipSignatures: [{ trigger: "tier6_unique", mechanic: "gale_circuit", label: "질풍 연계" }],
+    });
+    let state = withRuntime(battle(side, player), side, { chainDriveResolving: true });
+    state = {
+      ...state,
+      [side]: {
+        ...state[side],
+        stacks: {
+          ...state[side].stacks,
+          tier6Uniques: {
+            ...state[side].stacks.tier6Uniques!,
+            galeEvents: ["dodge" as const, "hit" as const],
+          },
+        },
+      },
+    };
+    const next = advanceTurnPvP(state, { kind: "attack" }, {
+      tickDefenderDots: false,
+      basicOrigin: "extra_basic",
+      embeddedBasic: true,
+      basicDamageMult: 0.6,
+    });
+    expect(next[side].attacksLeft).toBe(state[side].attacksLeft);
+    expect(next[side].stacks.weakpointDefIgnoreLeft).toBe(0);
+    expect(next[side].stacks.tier6Uniques?.galeEvents).toEqual(["dodge", "hit"]);
+    expect(next.log.some(entry => entry.text.includes("약점 적중") || entry.text.includes("질풍 연계"))).toBe(false);
   });
   it.each([["legacy", resolveBattlePvP], ["ATB", resolveBattlePvPAtb]] as const)("%s completes a lethal chain with exactly one colony recovery", (_mode, resolve) => {
     vi.spyOn(Math, "random").mockReturnValue(0);

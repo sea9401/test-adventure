@@ -3,11 +3,13 @@ import {
   countCraftOnlyEquipmentCodex,
   craftOnlyCodexRewardViews,
   craftOnlyCodexRewardTitleIds,
+  equipmentCodexSummary,
   equipmentCodexSpBonusForCount,
   nextEquipmentCodexMilestone,
   parseEquipmentCodex,
   withRegisteredEquipmentId,
 } from "./equipmentCodex";
+import { UNEXPLORED_SPECIALTY_EQUIPMENT_IDS } from "./unexploredSpecialtyEquipment";
 
 describe("equipmentCodex", () => {
   it("유효 장비 id만 중복 없이 정규화한다", () => {
@@ -62,6 +64,17 @@ describe("equipmentCodex", () => {
     const again = withRegisteredEquipmentId(first.codex, "v2_iron_sword");
     expect(again.added).toBe(false);
     expect(again.codex.registeredIds).toEqual(["v2_iron_sword"]);
+  });
+
+  it("미개척지 특화 장비 36종을 모두 도감 등록 대상으로 유지한다", () => {
+    expect(UNEXPLORED_SPECIALTY_EQUIPMENT_IDS).toHaveLength(36);
+    const summary = equipmentCodexSummary({
+      registeredIds: UNEXPLORED_SPECIALTY_EQUIPMENT_IDS,
+    });
+    expect(summary.registeredIds).toEqual(
+      expect.arrayContaining(UNEXPLORED_SPECIALTY_EQUIPMENT_IDS),
+    );
+    expect(summary.registeredCount).toBe(36);
   });
 
   it("제작 전용 도감 등록 수와 칭호 보상 단계를 계산한다", () => {

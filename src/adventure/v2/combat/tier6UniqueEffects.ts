@@ -69,6 +69,7 @@ export type Tier6UniqueEvent =
       poisonRemainingDamage: number;
       magicAtk: number;
       maxHp: number;
+      suppressGeneratedAttacks?: boolean;
       origin: Tier6EventOrigin;
     }
   | { kind: "direct_miss"; origin: Tier6EventOrigin }
@@ -325,6 +326,7 @@ export function resolveTier6UniqueEvent(
   };
 
   const noteGale = (galeEvent: "hit" | "crit" | "dodge") => {
+    if (event.kind === "direct_hit" && event.suppressGeneratedAttacks) return;
     if (!owns("gale_circuit") || state.galeEvents.includes(galeEvent)) return;
     const galeEvents = [...state.galeEvents, galeEvent];
     if (galeEvents.length === 3) {

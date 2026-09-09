@@ -3,7 +3,7 @@ import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
 import { applyBleedChangeToDots, applyV2DotsToTarget, makeBleedDot, v2DotPerStackDamage } from "./combatShared";
 import { type PvPBattleState, type PvPSide } from "./engine.pvpState";
 import { magicBarrierCombatLogEntries, resolveMagicBarrierDamage } from "./magicBarrier";
-import { makePlayerPoisonDot } from "./playerDotDamage";
+import { applyStatusDotDamageBonus, makePlayerPoisonDot } from "./playerDotDamage";
 import { pvpSideDamageTakenReductionPct } from "./pvpDamageReduction";
 import { appendPvPSurvivalLogs, resolvePvPHostileDamageSurvival, type PvPHostileDamageSurvival } from "./pvpHostileDamage";
 import { resolveTier6UniqueEvent, type Tier6UniqueCommand, type Tier6UniqueEvent } from "./tier6UniqueEffects";
@@ -269,7 +269,14 @@ function applyCommand(
           stacks: command.stacks,
           pctMaxHpPerStack: 0.004,
         }, actor.player);
-    target = { ...target, v2Dots: applyV2DotsToTarget(target.v2Dots, [dot], target.maxHp) };
+    target = {
+      ...target,
+      v2Dots: applyV2DotsToTarget(
+        target.v2Dots,
+        applyStatusDotDamageBonus([dot], actor.player.statusDotDamagePct),
+        target.maxHp,
+      ),
+    };
   } else if (command.kind === "refresh_bleed") {
     target = {
       ...target,

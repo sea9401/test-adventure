@@ -41,7 +41,7 @@ import { addLawInscriptionGain, emptyLawInscriptionState, lawInscriptionConsumeL
 import { magicBarrierCombatLogEntries, resolveMagicBarrierDamage } from "./magicBarrier";
 import { mutationTransitionLogLines } from "./mutationCombat";
 import { consumeNextAttackDamageDown, nextAttackDamageDownApplication, resolveDeclarationCast } from "./paragonCombat";
-import { applyDotDamageToDots, makePlayerPoisonDot } from "./playerDotDamage";
+import { applyDotDamageToDots, applyStatusDotDamageBonus, makePlayerPoisonDot } from "./playerDotDamage";
 import { formulaStagesForCast, previewFormulaCast, settleFormulaManaRecovery } from "./primordialSageCombat";
 import { pvpSideDamageTakenReductionPct } from "./pvpDamageReduction";
 import { applyBerserkerHostileDamagePvP } from "./pvpHostileDamage";
@@ -1729,7 +1729,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
     ? opp.v2Dots
     : applyV2DotsToTarget(
         applyV2DotsToTarget(opp.v2Dots, dotsToApplyToTarget, opp.maxHp),
-        sigSkillTargetDots,
+        applyStatusDotDamageBonus(sigSkillTargetDots, side.player.statusDotDamagePct),
         opp.maxHp,
       );
   const nextOppDots = blockHostileStatus

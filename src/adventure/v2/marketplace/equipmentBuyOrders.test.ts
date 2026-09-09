@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
+import { UNEXPLORED_SPECIALTY_EQUIPMENT_IDS } from "@/adventure/data/v2/unexploredSpecialtyEquipment";
 import {
   bestEquipmentBuyOrder,
   equipmentBatchSaleCandidates,
@@ -38,6 +39,20 @@ describe("equipment buy order matching", () => {
     expect(
       equipmentBuyOrderMatches(order(1, 10_000, { minPower: 21 }), instance),
     ).toBe(false);
+  });
+
+  it("noDrop인 미개척지 특화 장비 36종도 거래 주문 후보로 유지한다", () => {
+    expect(UNEXPLORED_SPECIALTY_EQUIPMENT_IDS).toHaveLength(36);
+    for (const id of UNEXPLORED_SPECIALTY_EQUIPMENT_IDS) {
+      expect(
+        equipmentOrderSnapshot({
+          iid: `test_${id}`,
+          id,
+          roll: { power: 0, weight: 0 },
+        }),
+        id,
+      ).not.toBeNull();
+    }
   });
 
   it("본인 주문을 제외하고 최고가 주문을 자동 선택한다", () => {

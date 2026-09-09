@@ -12,6 +12,7 @@ import { resolvePlayerPhase } from "./engine.playerPhase";
 import { resolveEnemyPhase } from "./engine.enemyPhase";
 import { resolveBattleAtb, tickPlayerDotsOnAction } from "./engine.atb";
 import { afterimageShield, colonyRegeneration, ironWallDefGain, manaRedeployment, shouldQueueRevenge, unyieldingDamage } from "./unexploredSetEffects";
+import { initialTripleWardState } from "./tripleWard";
 
 const PLAYER: PlayerCombat = { hp: 1000, maxHp: 1000, mp: 1000, maxMp: 1000, atk: 1, def: 0, spd: 50, evasionPct: 0, accuracyPct: 100, attackCount: 1 };
 const ENEMY: Monster = { name: "표적", tags: [], hp: 100000, atk: 100, def: 0, spd: 1, exp: 0 };
@@ -299,13 +300,57 @@ describe("PvE unexplored offensive integration", () => {
     const guarded = cast({ ...initial, unexploredSetRuntime: { ...initial.unexploredSetRuntime!, chainDriveResolving: true } }, player).state;
     expect(damageLines(guarded)).toHaveLength(5);
   });
-  it("chain keeps already queued signature basics intact and counts its own on-hit trigger", () => {
+  it("chain keeps the skill's queued signature basic without counting or generating another", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const player: PlayerCombat = { ...attacker("chain_drive"), equipSignatures: [{ trigger: "every_n_hits", label: "추가타", everyNHits: 5 }] };
     const result = cast(skillState(player), player);
     expect(result.signatureExtraActions).toBe(1);
     expect(result.state.stacks.signatureBonusAttacksLeft).toBe(1);
-    expect(result.state.stacks.signatureHitCount).toBe(6);
+    expect(result.state.stacks.signatureHitCount).toBe(5);
+  });
+  it("leaves only the skill-generated every-third-hit basic after a chain proc", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const player: PlayerCombat = {
+      ...attacker("chain_drive"),
+      equipSignatures: [{ trigger: "every_n_hits", label: "분쇄 도끼", everyNHits: 3 }],
+    };
+    const result = cast(skillState(player), player);
+    expect(result.signatureExtraActions).toBe(1);
+    expect(result.state.stacks.signatureBonusAttacksLeft).toBe(1);
+    expect(result.state.stacks.signatureHitCount).toBe(5);
+    expect(damageLines(result.state)).toHaveLength(6);
+  });
+  it("chain embedded basic suppresses weakpoint and tier-6 extra-attack hooks", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const player: PlayerCombat = {
+      ...attacker("chain_drive"),
+      critChancePct: 100,
+      weakpointExtraAttacks: 1,
+      equipSignatures: [{ trigger: "tier6_unique", mechanic: "gale_circuit", label: "질풍 연계" }],
+    };
+    const initial = skillState(player);
+    const primed = {
+      ...initial,
+      unexploredSetRuntime: { ...initial.unexploredSetRuntime!, chainDriveResolving: true },
+      stacks: {
+        ...initial.stacks,
+        tier6Uniques: {
+          ...initial.stacks.tier6Uniques!,
+          galeEvents: ["dodge" as const, "hit" as const],
+        },
+      },
+    };
+    const next = resolvePlayerPhase(
+      primed,
+      player,
+      "용사",
+      { kind: "attack" },
+      { kind: "extra_basic", embedded: true, damageMult: 0.6 },
+    );
+    expect(next.playerAttacksLeft).toBe(primed.playerAttacksLeft);
+    expect(next.stacks.weakpointDefIgnoreLeft).toBe(0);
+    expect(next.stacks.tier6Uniques?.galeEvents).toEqual(["dodge", "hit"]);
+    expect(next.log.some(entry => entry.text.includes("약점 적중") || entry.text.includes("질풍 연계"))).toBe(false);
   });
   it("logs ordinary skill evasion before the final revenge multiplier", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
@@ -518,6 +563,80 @@ describe("PvE unexplored defensive integration", () => {
     expect(plain.playerHp).toBe(296); // collapsed floor(130*.8), not five floor(26*.8).
     expect(run({ ...PLAYER, hp: 400, passiveDamageTakenReductionPct: 20, unexploredSetEffects: [] })).toEqual(plain);
     expect(plain.log.filter(entry => entry.kind === "enemy_attack").map(entry => entry.text)).toEqual(["연환 난타! 104 피해를 입혔다."]);
+  });
+  it.each([
+    ["no unexplored runtime", undefined],
+    ["unrelated offensive set", effects("precision_shot")],
+    ["unrelated defensive set", effects("iron_wall")],
+  ] as const)("preserves one aggregate steadfast budget for %s", (_label, unexploredSetEffects) => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const player: PlayerCombat = { ...PLAYER, hp: 1000, steadfastWillFlat: 20, unexploredSetEffects };
+    const next = applyEnemyV2SkillCast({
+      ...enemyState(player),
+      enemyMp: 1000,
+      enemyMaxMp: 1000,
+      enemyV2Skills: { learned: ["v2c_martial_combo"], equipped: ["v2c_martial_combo"] },
+    }, player).state;
+    expect(next.playerHp).toBe(890);
+    expect(next.log.filter(entry => entry.text === "[굳건한 의지] 피해 -20")).toHaveLength(1);
+  });
+  it.each([
+    ["without flat mitigation", 0, 282],
+    ["with one aggregate flat mitigation budget", 20, 298],
+  ] as const)("rechecks unyielding from actual sequential HP %s", (_label, steadfastWillFlat, expectedHp) => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const player: PlayerCombat = {
+      ...playerWith("unyielding_dead"),
+      hp: 400,
+      steadfastWillFlat,
+    };
+    const next = applyEnemyV2SkillCast({
+      ...enemyState(player),
+      enemyMp: 1000,
+      enemyMaxMp: 1000,
+      enemyV2Skills: { learned: ["v2c_martial_combo"], equipped: ["v2c_martial_combo"] },
+    }, player).state;
+    expect(next.playerHp).toBe(expectedHp);
+  });
+  it("keeps barrier, ward, shield, and survival consumption aggregate with unrelated sets", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const run = (unexploredSetEffects: PlayerCombat["unexploredSetEffects"]) => {
+      const player: PlayerCombat = {
+        ...PLAYER,
+        hp: 20,
+        steadfastWillFlat: 20,
+        bulwarkShield: 10,
+        enduranceActive: true,
+        magicBarrierMax: 100,
+        magicBarrierAbsorbPct: 25,
+        magicBarrierEfficiencyPct: 20,
+        unexploredSetEffects,
+      };
+      const initial = enemyState(player);
+      const state = {
+        ...initial,
+        stacks: { ...initial.stacks, tripleWard: initialTripleWardState(1) },
+        enemyMp: 1000,
+        enemyMaxMp: 1000,
+        enemyV2Skills: { learned: ["v2c_martial_combo" as const], equipped: ["v2c_martial_combo" as const] },
+      };
+      return applyEnemyV2SkillCast(state, player).state;
+    };
+    const plain = run(undefined);
+    const unrelated = run(effects("crystal_focus"));
+    expect(unrelated).toMatchObject({
+      playerHp: plain.playerHp,
+      playerMagicBarrier: plain.playerMagicBarrier,
+      stacks: {
+        playerShield: plain.stacks.playerShield,
+        tripleWard: plain.stacks.tripleWard,
+      },
+      flags: { enduranceTriggered: true },
+    });
+    expect(unrelated.playerHp).toBe(1);
+    expect(unrelated.playerMagicBarrier).toBe(74);
+    expect(unrelated.stacks.playerShield).toBe(0);
+    expect(unrelated.stacks.tripleWard.physical).toBe(0);
   });
   it("regenerates after a successful lethal basic action", () => {
     const player = { ...playerWith("colony_regeneration"), hp: 500, atk: 100000 };

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { applyPlayerDotDamageBonuses } from "./playerDotDamage";
+import {
+  applyPlayerDotDamageBonuses,
+  applyStatusDotDamageBonus,
+} from "./playerDotDamage";
 import { applyV2DotsToTarget, tickV2Dots, v2DotPerStackDamage, type V2Dot } from "./combatShared";
 
 const dot = (tag: V2Dot["tag"]): V2Dot => ({ tag, label: tag, stacks: 1, maxStacks: 5, turns: 3, flatPerStack: 11, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 100 });
@@ -32,5 +35,14 @@ describe("삼재 침식 주기 피해", () => {
     const raw = [dot("poison"), dot("bleed"), dot("burn")];
     expect(applyPlayerDotDamageBonuses(raw, 30, 80, 0)).toEqual(applyPlayerDotDamageBonuses(raw, 30, 80));
     expect(applyPlayerDotDamageBonuses(raw, 30, 80, 0, -10)).toEqual(applyPlayerDotDamageBonuses(raw, 30, 80));
+  });
+
+  it("같은 착용자 지속 피해 보너스를 여러 생성 경로가 전달해도 한 번만 적용한다", () => {
+    const once = applyStatusDotDamageBonus([dot("bleed")], 40);
+    const twice = applyStatusDotDamageBonus(once, 40);
+
+    expect(twice).toEqual(once);
+    expect(twice[0]?.periodicDamageMult).toBe(1.4);
+    expect(twice[0]?.statusDotDamageBonusApplied).toBe(true);
   });
 });

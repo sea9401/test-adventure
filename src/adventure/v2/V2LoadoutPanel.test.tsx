@@ -313,7 +313,7 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     expect(html).toContain(">변이자 계열<");
   });
 
-  it("간략 카드의 즐겨찾기와 장착 동작을 모바일에서도 한 행에 고정한다", () => {
+  it("간략 카드의 이름 행과 모바일 동작 행을 분리한다", () => {
     const html = renderToStaticMarkup(
       <V2LoadoutPanel
         loadout={{
@@ -342,8 +342,9 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     expect(html.match(/whitespace-nowrap/g)).toHaveLength(4);
     expect(html).toContain("min-w-0 flex-1 sm:min-w-52");
     expect(html).toContain(
-      "grid-cols-[2.75rem_minmax(0,1fr)_6.25rem]",
+      "grid-cols-[2.75rem_minmax(0,1fr)] py-2 sm:grid-cols-[2rem_minmax(0,1fr)_6.25rem]",
     );
+    expect(html).toContain("col-start-2 row-start-2");
     expect(html).toContain("min-w-0 max-w-full overflow-x-auto");
     expect(html).toContain("h-11 w-11 shrink-0");
     expect(html).toContain("sm:h-9 sm:w-8");

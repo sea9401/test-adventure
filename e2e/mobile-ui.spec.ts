@@ -131,6 +131,7 @@ test("직업 도감의 긴 섹션은 필요할 때 펼친다", async ({ page }) 
 
 test("스킬 상세는 장착 액션과 분리해 열고 닫는다", async ({ page }) => {
   await page.goto("/dev/skill-loadout");
+  await page.getByRole("button", { name: "상세 보기 모드" }).click();
 
   const detailTrigger = page.getByRole("button", { name: "강타 상세 보기" });
   await detailTrigger.click();
@@ -144,6 +145,25 @@ test("스킬 상세는 장착 액션과 분리해 열고 닫는다", async ({ pa
   await page.getByRole("button", { name: "강타 해제" }).click();
   await page.getByRole("button", { name: "독침 장착" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("모바일 스킬 카드에서 스킬 이름을 잘림 없이 보여준다", async ({
+  page,
+}) => {
+  await page.goto("/dev/skill-loadout");
+  await page.getByRole("button", { name: /생활 스킬/ }).click();
+  await page.getByRole("button", { name: "상세 보기 모드" }).click();
+
+  const skillName = page
+    .locator('[data-skill-drop-id="v2c_farmer_seedselection"]')
+    .getByText("씨앗 선별", { exact: true });
+  await expect(skillName).toBeVisible();
+
+  const width = await skillName.evaluate((element) => ({
+    client: element.clientWidth,
+    scroll: element.scrollWidth,
+  }));
+  expect(width.client).toBeGreaterThanOrEqual(width.scroll);
 });
 
 test("로드맵은 스킬 상세를 먼저 닫은 뒤 부모를 닫는다", async ({ page }) => {

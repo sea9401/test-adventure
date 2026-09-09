@@ -30,7 +30,7 @@ afterEach(() => {
 });
 
 describe("OfflineSettleCard", () => {
-  it("앱 복귀 정산 모달에 특화 장비명과 중복 수량을 표시한다", async () => {
+  it("앱 복귀 정산 모달에 정산 결과를 표시한다", async () => {
     mocks.settle.mockResolvedValue({
       battles: 3,
       wins: 3,
@@ -45,17 +45,12 @@ describe("OfflineSettleCard", () => {
       depth: 79,
       remainingBattles: 0,
       stoppedReason: null,
-      droppedSpecialties: [
-        "v2_unexplored_iron_line_armor",
-        "v2_unexplored_iron_line_armor",
-        "v2_unexplored_iron_line_gloves",
-      ],
     });
 
     render(<OfflineSettleCard />);
 
     await screen.findByRole("dialog");
-    expect(await screen.findByText("철갑 전열갑 ×2, 장창 수호완갑 ×1")).toBeTruthy();
-    expect(screen.getByText("특화 장비")).toBeTruthy();
+    expect(screen.getByText("경험치")).toBeTruthy();
+    expect(screen.getByText("승/패")).toBeTruthy();
   });
 });

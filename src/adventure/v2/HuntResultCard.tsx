@@ -76,11 +76,9 @@ export type HuntResult = {
   drops?: Partial<Record<V2MaterialId, number>>;
   droppedEquipment?: V2EquipmentId | null;
   droppedUnique?: V2EquipmentId | null;
-  droppedSpecialty?: V2EquipmentId | null;
   // 압축 희귀 탐사는 기존 여러 회차의 모든 장비 결과를 배열로 함께 돌려준다.
   droppedEquipments?: V2EquipmentId[];
   droppedUniques?: V2EquipmentId[];
-  droppedSpecialties?: V2EquipmentId[];
   rewardRolls?: number;
   ejected?: { outpostId: string; byGuildId: number; at: number } | null;
   // 희귀 탐사 — 새 탐사 개방(kind id) / 입장 중 남은 판수.
@@ -247,13 +245,10 @@ export function HuntResultCard({
   const drops = result.drops
     ? Object.entries(result.drops).filter(([, n]) => (n ?? 0) > 0)
     : [];
-  const droppedEquipmentIds = [
-    ...(result.droppedEquipments ??
-      (result.droppedEquipment ? [result.droppedEquipment] : [])),
-    ...(result.droppedSpecialties ??
-      (result.droppedSpecialty ? [result.droppedSpecialty] : [])),
-  ];
-  const droppedEquipments = droppedEquipmentIds
+  const droppedEquipments = (
+    result.droppedEquipments ??
+    (result.droppedEquipment ? [result.droppedEquipment] : [])
+  )
     .map((id) => V2_EQUIPMENT[id])
     .filter((item) => item != null);
   const droppedUniques = (

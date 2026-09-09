@@ -64,13 +64,11 @@ vi.mock("@/lib/server/savesKv", () => {
 
 import { POST } from "./route";
 import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
-import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import { newRareMapInstance } from "@/adventure/data/v2/rareMaps";
-import type { UnexploredHuntMode } from "@/adventure/data/v2/unexploredSpecialtyPools";
 
 const focused = { mode: "focused", poolId: "iron_legion" } as const;
 
-function seed(mode: UnexploredHuntMode = { mode: "standard" }, depth = 80, rareMap = false) {
+function seed(mode: unknown = { mode: "standard" }, depth = 80, rareMap = false) {
   store.clear();
   codexEvents.length = 0;
   resetUserRateLimitForTests();
@@ -105,35 +103,23 @@ async function hunt(body: Record<string, unknown> = {}) {
 beforeEach(() => { seed(); });
 afterEach(() => vi.restoreAllMocks());
 
-describe("unexplored specialty hunt route", () => {
-  it.each([
-    [{ mode: "random" }, 0.003999, "v2_unexplored_iron_line_armor"],
-    [{ mode: "random" }, 0.004, null],
-    [focused, 0.005999, "v2_unexplored_iron_line_armor"],
-    [focused, 0.006, null],
-  ] as const)("uses saved %j with drop boundary %s", async (mode, roll, expected) => {
-    seed(mode);
-    vi.spyOn(Math, "random").mockReturnValue(roll);
-    // A conflicting body field must not override the saved mode.
-    const { result } = await hunt({ unexploredHuntMode: { mode: "standard" } });
-    expect(result).toMatchObject({ won: true, enemyName: "철갑 방패병", droppedSpecialty: expected,
-      droppedSpecialties: expected ? [expected] : [] });
-    expect(result.droppedEquipment).not.toBe("v2_unexplored_iron_line_armor");
-    expect(result.droppedUnique).not.toBe("v2_unexplored_iron_line_armor");
-    const instances = parseEquipmentSave(store.get("equipment.v2")).owned.filter(({ id }) => id.startsWith("v2_unexplored_"));
-    expect(instances).toHaveLength(expected ? 1 : 0);
-    if (expected) {
-      expect(instances[0]).toMatchObject({ id: expected, iid: expect.any(String), roll: expect.any(Object) });
-      expect(codexEvents).toContainEqual({ category: "equipment", entryId: expected, amount: 1, source: "equipment.drop" });
-    }
-    // Specialty display names preserve the underlying monster identity used by material/codex routing.
-    expect(codexEvents).toContainEqual({ category: "monster", entryId: "성해의 파수꾼", amount: 1, source: "hunt.victory" });
+describe("별의 무덤 일반 사냥 라우트", () => {
+  it("ignores a legacy specialty mode saved on a normal Star Grave hunt", async () => {
+    seed(focused);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const { result } = await hunt({ floor: 80 });
+
+    expect(result).toMatchObject({
+      won: true,
+      enemyName: "성해의 파수꾼",
+    });
   });
 
   it("keeps standard hunts on the existing enemy pool", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0.003999);
     const { result } = await hunt();
-    expect(result).toMatchObject({ won: true, enemyName: "성해의 파수꾼", droppedSpecialty: null, droppedSpecialties: [] });
+    expect(result).toMatchObject({ won: true, enemyName: "성해의 파수꾼" });
   });
 
   it.each([[78, false], [80, true]] as const)("ignores saved specialty mode and preserves RNG at depth=%s rareMap=%s", async (depth, rareMap) => {
@@ -147,20 +133,6 @@ describe("unexplored specialty hunt route", () => {
     const specialty = await hunt(body);
     if (rareMap) expect(specialty.result.rewardRolls).toBe(30);
     expect(specialty.result.enemyName).toBe(standard.result.enemyName);
-    expect(specialty.result.droppedSpecialties).toEqual([]);
     expect(random).toHaveBeenCalledTimes(standardCalls);
-  });
-
-  it("aggregates all five specialty drops, persists unique instances and records all equipment events", async () => {
-    seed(focused);
-    vi.spyOn(Math, "random").mockReturnValue(0.005999);
-    const { batch } = await hunt({ count: 5 });
-    expect(batch).toMatchObject({ completed: 5, wins: 5,
-      droppedSpecialties: Array(5).fill("v2_unexplored_iron_line_armor") });
-    const instances = parseEquipmentSave(store.get("equipment.v2")).owned.filter(({ id }) => id === "v2_unexplored_iron_line_armor");
-    expect(instances).toHaveLength(5);
-    expect(new Set(instances.map(({ iid }) => iid)).size).toBe(5);
-    expect(codexEvents.filter(({ entryId }) => entryId === "v2_unexplored_iron_line_armor")).toHaveLength(5);
-    expect(batch.replays.every((replay: { enemyName: string }) => replay.enemyName === "철갑 방패병")).toBe(true);
   });
 });

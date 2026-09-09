@@ -19,6 +19,8 @@ export type V2Dot = {
   finalDamageMult?: number;
   /** 착용자의 통합 지속 피해 증폭. 주기 틱에만 적용하며 폭발·즉발 피해는 제외한다. */
   periodicDamageMult?: number;
+  /** 착용자 기원 DOT에 통합 지속 피해 증폭을 이미 적용했는지 표시한다. */
+  statusDotDamageBonusApplied?: true;
 };
 export type V2DotList = readonly V2Dot[];
 

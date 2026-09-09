@@ -23,7 +23,7 @@ import { tickHolyPowerPvp } from "./holyPowerAdapters";
 import { magicBarrierCombatLogEntries, resolveMagicBarrierDamage } from "./magicBarrier";
 import { effectiveMutationDef } from "./mutationCombat";
 import { consumeNextAttackDamageDown } from "./paragonCombat";
-import { makePlayerPoisonDot } from "./playerDotDamage";
+import { applyStatusDotDamageBonus, makePlayerPoisonDot } from "./playerDotDamage";
 import { appendPvPSurvivalLogs, applyBerserkerHostileDamagePvP, resolvePvPHostileDamageSurvival } from "./pvpHostileDamage";
 import { recordChargeHpLoss } from "./ruinBladeCombat";
 import { healToShield, onDodgeSpeedBuff, resolveTrackedShieldAbsorption, rollEvasionActionRecovery, statusBlockOnce, trackedShieldBreakEffect } from "./signatureEffects";
@@ -233,7 +233,11 @@ export function applyPvPOnHitDots(
   }
   return {
     ...defender,
-    v2Dots: applyV2DotsToTarget(defender.v2Dots, dots, defender.maxHp),
+    v2Dots: applyV2DotsToTarget(
+      defender.v2Dots,
+      applyStatusDotDamageBonus(dots, attacker.player.statusDotDamagePct),
+      defender.maxHp,
+    ),
   };
 }
 

@@ -2,7 +2,7 @@ import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
 import { applyBleedChangeToDots, applyV2DotsToTarget, makeBleedDot, v2DotPerStackDamage } from "./combatShared";
 import { BOSS_MAX_HP_DAMAGE_MULT } from "./engineState";
 import { type BattleState, type PlayerCombat } from "./engineState";
-import { makePlayerPoisonDot } from "./playerDotDamage";
+import { applyStatusDotDamageBonus, makePlayerPoisonDot } from "./playerDotDamage";
 import { initialTier6UniqueRuntime, isBleedBurstReady, resolveTier6UniqueEvent, type Tier6UniqueCommand, type Tier6UniqueEvent } from "./tier6UniqueEffects";
 import { effectiveTier6MagicDefense, tier6MagicDamageAfterMitigation } from "./tier6UniqueMagicDamage";
 
@@ -180,7 +180,7 @@ function applyCommand(
         }, player);
     next = {
       ...next,
-      enemyV2Dots: applyV2DotsToTarget(next.enemyV2Dots, [dot], next.enemy.hp,
+      enemyV2Dots: applyV2DotsToTarget(next.enemyV2Dots, applyStatusDotDamageBonus([dot], player.statusDotDamagePct), next.enemy.hp,
         next.maxHpDamageMult ?? (next.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1)),
     };
   } else if (command.kind === "refresh_bleed") {

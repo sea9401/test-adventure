@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Monster } from "@/adventure/data/monsters";
 import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
-import type { V2SkillsState } from "@/adventure/data/v2/v2Skills";
+import type { V2SkillId, V2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { applyV2DotsToTarget, tickV2Dots, type V2Dot } from "./combatShared";
 import { applyPlayerV2SkillCast, initialBattleState, type PlayerCombat } from "./engine";
 import { castV2SkillOnAttackerTurnPvP, initialBattleStatePvP, applyPvPOnHitDots } from "./engine-pvp";
@@ -11,6 +11,7 @@ import { applyTier6UniquePvpEvent } from "./tier6UniquePvpAdapter";
 import type { Tier6UniqueEvent } from "./tier6UniqueEffects";
 import { resolvePlayerPhase } from "./engine.playerPhase";
 import { advanceTurnPvP } from "./engine.pvpPhase";
+import { healingReductionPct } from "./burnHealing";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -78,6 +79,188 @@ const event: Tier6UniqueEvent = {
   poisonRemainingDamage: 1000, magicAtk: 1000, maxHp: 10000,
   origin: { actionId: 1, eventId: 1 },
 };
+
+const skillDotCases = [
+  ["v2c_rogue_poison", "poison"],
+  ["v2c_beastkin_rend", "bleed"],
+  ["v2c_mage_fireball", "burn"],
+] as const satisfies ReadonlyArray<readonly [V2SkillId, V2Dot["tag"]]>;
+
+function castStatusSkill(
+  skillId: V2SkillId,
+  statusDotDamagePct: number,
+  mode: "pve" | "p1" | "p2",
+) {
+  vi.spyOn(Math, "random").mockReturnValue(0);
+  const actor: PlayerCombat = {
+    ...player,
+    poisonDamagePct: 0,
+    burnDamagePct: 0,
+    statusDotDamagePct,
+    magicAtk: 1000,
+    intStat: 1000,
+    classTier: 4,
+  };
+  const skillState: V2SkillsState = {
+    learned: [skillId],
+    equipped: [skillId],
+  };
+  if (mode === "pve") {
+    const state = initialBattleState(actor, boss, "공격", skillState);
+    const result = applyPlayerV2SkillCast(
+      state,
+      actor,
+      { selfBuffs: {}, selfDebuffs: {}, enemyDebuffs: {} },
+    ).state;
+    return { dots: result.enemyV2Dots, targetHp: result.enemyHp };
+  }
+  const target = { ...player, hp: boss.hp, maxHp: boss.hp, spd: 1 };
+  const initial = initialBattleStatePvP(
+    mode === "p1" ? actor : target,
+    mode === "p2" ? actor : target,
+    "P1",
+    "P2",
+    mode === "p1" ? skillState : undefined,
+    mode === "p2" ? skillState : undefined,
+    undefined,
+    undefined,
+    mode,
+  );
+  const result = castV2SkillOnAttackerTurnPvP(initial, mode).state;
+  const defender = mode === "p1" ? result.p2 : result.p1;
+  return { dots: defender.v2Dots, targetHp: defender.hp };
+}
+
+function basicEquipmentDots(
+  statusDotDamagePct: number,
+  mode: "pve" | "p1" | "p2",
+  randomRoll = 0,
+) {
+  vi.spyOn(Math, "random").mockReturnValue(randomRoll);
+  const actor: PlayerCombat = {
+    ...player,
+    poisonDamagePct: 0,
+    statusDotDamagePct,
+    equipSignatures: [
+      {
+        trigger: "on_hit",
+        label: "장비 중독",
+        poisonChancePct: 50,
+        poisonStacks: 1,
+      },
+      {
+        trigger: "on_hit",
+        label: "장비 출혈",
+        bleedChancePct: 50,
+        bleedStacks: 1,
+      },
+    ],
+  };
+  if (mode === "pve") {
+    const result = resolvePlayerPhase(
+      initialBattleState(actor, boss, "공격"),
+      actor,
+      "공격",
+      { kind: "attack" },
+    );
+    return { dots: result.enemyV2Dots, targetHp: result.enemyHp };
+  }
+  const target = { ...player, hp: boss.hp, maxHp: boss.hp, spd: 1 };
+  const initial = initialBattleStatePvP(
+    mode === "p1" ? actor : target,
+    mode === "p2" ? actor : target,
+    "P1",
+    "P2",
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    mode,
+  );
+  const result = advanceTurnPvP(initial, { kind: "attack" }, { tickDefenderDots: false });
+  const defender = mode === "p1" ? result.p2 : result.p1;
+  return { dots: defender.v2Dots, targetHp: defender.hp };
+}
+
+describe("상태 지속 피해 장비 옵션 실제 엔진 전달", () => {
+  it.each(skillDotCases)("PvE %s의 %s 주기 피해만 정확히 한 번 증폭한다", (skillId, tag) => {
+    const plain = castStatusSkill(skillId, 0, "pve");
+    vi.restoreAllMocks();
+    const boosted = castStatusSkill(skillId, 40, "pve");
+    const plainDot = plain.dots.find((dot) => dot.tag === tag)!;
+    const boostedDot = boosted.dots.find((dot) => dot.tag === tag)!;
+
+    expect(boostedDot.periodicDamageMult).toBe(1.4);
+    expect(tickV2Dots([boostedDot], boss.hp).totalDmg).toBeGreaterThan(
+      tickV2Dots([plainDot], boss.hp).totalDmg,
+    );
+    expect(boosted.targetHp).toBe(plain.targetHp);
+    expect(boostedDot).toMatchObject({
+      tag: plainDot.tag,
+      stacks: plainDot.stacks,
+      maxStacks: plainDot.maxStacks,
+      turns: plainDot.turns,
+    });
+    expect(healingReductionPct([boostedDot])).toBe(
+      healingReductionPct([plainDot]),
+    );
+  });
+
+  it.each(["p1", "p2"] as const)("PvP %s 스킬 중독·출혈·연소를 대칭 적용한다", (side) => {
+    for (const [skillId, tag] of skillDotCases) {
+      const plain = castStatusSkill(skillId, 0, side);
+      vi.restoreAllMocks();
+      const boosted = castStatusSkill(skillId, 40, side);
+      const plainDot = plain.dots.find((dot) => dot.tag === tag)!;
+      const boostedDot = boosted.dots.find((dot) => dot.tag === tag)!;
+
+      expect(boostedDot.periodicDamageMult).toBe(1.4);
+      expect(tickV2Dots([boostedDot], boss.hp).totalDmg).toBeGreaterThan(
+        tickV2Dots([plainDot], boss.hp).totalDmg,
+      );
+      expect(boosted.targetHp).toBe(plain.targetHp);
+      expect(boostedDot.stacks).toBe(plainDot.stacks);
+      expect(boostedDot.turns).toBe(plainDot.turns);
+      expect(healingReductionPct([boostedDot])).toBe(
+        healingReductionPct([plainDot]),
+      );
+      vi.restoreAllMocks();
+    }
+  });
+
+  it.each(["pve", "p1", "p2"] as const)("%s 평타 장비 중독·출혈의 부여와 직접 피해는 그대로 둔다", (mode) => {
+    const plain = basicEquipmentDots(0, mode);
+    vi.restoreAllMocks();
+    const boosted = basicEquipmentDots(40, mode);
+
+    expect(boosted.targetHp).toBe(plain.targetHp);
+    expect(boosted.dots.map((dot) => [dot.tag, dot.stacks, dot.turns])).toEqual(
+      plain.dots.map((dot) => [dot.tag, dot.stacks, dot.turns]),
+    );
+    for (const tag of ["poison", "bleed"] as const) {
+      const baseDamage = tickV2Dots(
+        [plain.dots.find((dot) => dot.tag === tag)!],
+        boss.hp,
+      ).totalDmg;
+      const boostedDamage = tickV2Dots(
+        [boosted.dots.find((dot) => dot.tag === tag)!],
+        boss.hp,
+      ).totalDmg;
+      expect(boosted.dots.find((dot) => dot.tag === tag)?.periodicDamageMult).toBe(1.4);
+      expect(boostedDamage).toBeGreaterThan(baseDamage);
+    }
+  });
+
+  it.each(["pve", "p1", "p2"] as const)("%s 평타 장비 DOT의 실패 확률은 지속 피해 증폭과 무관하다", (mode) => {
+    const plain = basicEquipmentDots(0, mode, 0.75);
+    vi.restoreAllMocks();
+    const boosted = basicEquipmentDots(40, mode, 0.75);
+
+    expect(plain.dots).toEqual([]);
+    expect(boosted.dots).toEqual([]);
+    expect(boosted.targetHp).toBe(plain.targetHp);
+  });
+});
 
 function cast(signatures: SignatureEffect[], pvp: boolean) {
   vi.spyOn(Math, "random").mockReturnValue(0);
@@ -150,5 +333,50 @@ describe.each([false, true])("장비 독 연동 PvP=%s", pvp => {
       expect(tickV2Dots(after.enemyV2Dots, boss.hp).totalDmg).toBe(poisonDamagePct === 0 ? 3642 : 8100);
       expect(after.enemyHp).toBeLessThan(injected.enemyHp);
     }
+  });
+
+  it("통합 지속 피해 증폭은 양면침 폭발 즉발 피해를 바꾸지 않는다", () => {
+    const run = (statusDotDamagePct: number) => {
+      const actor = {
+        ...player,
+        poisonDamagePct: 0,
+        statusDotDamagePct,
+        equipSignatures: [venom, balance],
+      };
+      if (pvp) {
+        const initial = initialBattleStatePvP(
+          actor,
+          { ...player, hp: boss.hp, maxHp: boss.hp },
+          "공격",
+          "방어",
+        );
+        const injected = applyTier6UniquePvpEvent(initial, "p1", "p2", event);
+        return applyTier6UniquePvpEvent(injected, "p1", "p2", {
+          ...event,
+          attackKind: "basic",
+          origin: { actionId: 2, eventId: 2 },
+        });
+      }
+      const initial = initialBattleState(actor, boss, "공격");
+      const injected = applyTier6UniquePveEvent(initial, actor, event);
+      return applyTier6UniquePveEvent(injected, actor, {
+        ...event,
+        attackKind: "basic",
+        origin: { actionId: 2, eventId: 2 },
+      });
+    };
+    const plain = run(0);
+    const boosted = run(40);
+    const targetSnapshot = (result: ReturnType<typeof run>) =>
+      "p2" in result
+        ? { hp: result.p2.hp, dots: result.p2.v2Dots }
+        : { hp: result.enemyHp, dots: result.enemyV2Dots };
+    const plainTarget = targetSnapshot(plain);
+    const boostedTarget = targetSnapshot(boosted);
+
+    expect(boostedTarget.hp).toBe(plainTarget.hp);
+    expect(tickV2Dots(boostedTarget.dots, boss.hp).totalDmg).toBeGreaterThan(
+      tickV2Dots(plainTarget.dots, boss.hp).totalDmg,
+    );
   });
 });

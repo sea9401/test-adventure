@@ -41,7 +41,7 @@ import { applyHolyPowerPveCast } from "./holyPowerAdapters";
 import { addLawInscriptionGain, emptyLawInscriptionState, lawInscriptionConsumeLog, lawInscriptionGainLog } from "./lawInscription";
 import { effectiveMutationDef, mutationTransitionLogLines } from "./mutationCombat";
 import { resolveDeclarationCast } from "./paragonCombat";
-import { applyDotDamageToDots, makePlayerPoisonDot } from "./playerDotDamage";
+import { applyDotDamageToDots, applyStatusDotDamageBonus, makePlayerPoisonDot } from "./playerDotDamage";
 import { formulaCompletionOverdraftSkillIds, formulaStagesForCast, previewFormulaCast, settleFormulaManaRecovery } from "./primordialSageCombat";
 import { canStartRuinCharge, gainSwordIntent, ruinIntentStrikeBonus, ruinSwordBonusesForMechanic, startRuinCharge } from "./ruinBladeCombat";
 import { consumeShadowFollowUp, recordSwordShadow, refineSwordShadow } from "./shadowBladeCombat";
@@ -1155,7 +1155,7 @@ export function applyPlayerV2SkillCast(
       state.enemyV2Dots, dotsToApplyToTarget, state.enemy.hp,
       state.maxHpDamageMult ?? (state.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1),
     ),
-    sigSkillTargetDots,
+    applyStatusDotDamageBonus(sigSkillTargetDots, player.statusDotDamagePct),
     state.enemy.hp,
     state.maxHpDamageMult ?? (state.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1),
   );

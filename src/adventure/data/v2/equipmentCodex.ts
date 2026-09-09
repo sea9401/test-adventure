@@ -20,6 +20,10 @@ export const EQUIPMENT_CODEX_SP_MILESTONES = [
   240,
   270,
   300,
+  330,
+  360,
+  390,
+  420,
 ] as const;
 
 export type EquipmentCodexState = {

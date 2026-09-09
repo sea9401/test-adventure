@@ -250,7 +250,7 @@ describe("모험의 서 SP 수집 목록", () => {
       { current: 30, maximum: 30 },
       { current: 8, maximum: 42 },
       { current: 3, maximum: 7 },
-      { current: 5, maximum: 12 },
+      { current: 5, maximum: 16 },
     ]);
   });
 

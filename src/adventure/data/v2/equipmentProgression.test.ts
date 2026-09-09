@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { V2_EQUIPMENT } from "./v2Equipment";
+import { UNEXPLORED_SPECIALTY_EQUIPMENT_IDS } from "./unexploredSpecialtyEquipment";
 import {
   equipmentProgressionLock,
   equipmentProgressionRequirement,
@@ -66,6 +67,16 @@ describe("equipment progression requirements", () => {
       "마른 협곡 · 최심부 돌파",
     );
     expect(equipmentProgressionLock("v2_lake_greatsword", 12)).toBeNull();
+  });
+
+  it("미개척지 특화 장비는 별의 무덤 돌파 뒤 장착 가능하다", () => {
+    for (const id of UNEXPLORED_SPECIALTY_EQUIPMENT_IDS) {
+      expect(
+        equipmentProgressionLock(V2_EQUIPMENT[id], 77)?.minFrontierDepth,
+        id,
+      ).toBe(78);
+      expect(equipmentProgressionLock(V2_EQUIPMENT[id], 78), id).toBeNull();
+    }
   });
 
   it("assigns every non-starter catalog item a progression requirement", () => {

@@ -18,6 +18,7 @@ function minFrontierDepthForEquipment(item: V2Equipment): number | null {
 
   if (item.id.startsWith("v2_stormpeak_")) return 60;
   if (item.id.startsWith("v2_abyssruin_")) return 66;
+  if (item.id.startsWith("v2_unexplored_")) return 78;
 
   // 협동 보스 장비는 보스가 스케일되는 사냥터 깊이를 진행 게이트로 사용한다.
   if (item.id.startsWith("v2_boss_void_")) return 60;

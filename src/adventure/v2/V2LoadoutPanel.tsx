@@ -1421,8 +1421,8 @@ export function V2LoadoutPanel({
                 <div
                   className={`grid items-center gap-2 px-2 sm:px-3 ${
                     viewMode === "minimal"
-                      ? "grid-cols-[minmax(0,1fr)_6.25rem] py-1.5"
-                      : "grid-cols-[2.75rem_minmax(0,1fr)_6.25rem] py-2 sm:grid-cols-[2rem_minmax(0,1fr)_6.25rem]"
+                      ? "grid-cols-[minmax(0,1fr)] py-1.5 sm:grid-cols-[minmax(0,1fr)_6.25rem]"
+                      : "grid-cols-[2.75rem_minmax(0,1fr)] py-2 sm:grid-cols-[2rem_minmax(0,1fr)_6.25rem]"
                   }`}
                 >
                   {viewMode !== "minimal" && (
@@ -1463,7 +1463,7 @@ export function V2LoadoutPanel({
                         setDropTarget(null);
                         stopAutoScroll();
                       }}
-                      className={`flex h-11 w-11 shrink-0 touch-none cursor-grab items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-500 active:cursor-grabbing sm:h-9 sm:w-8 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 ${
+                      className={`row-span-2 flex h-11 w-11 shrink-0 touch-none cursor-grab items-center justify-center self-center rounded-md border border-zinc-300 bg-white text-zinc-500 active:cursor-grabbing sm:row-span-1 sm:h-9 sm:w-8 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 ${
                         busy
                           ? "pointer-events-none opacity-40"
                           : "hover:bg-zinc-50 dark:hover:bg-zinc-800"
@@ -1534,7 +1534,11 @@ export function V2LoadoutPanel({
                     </SkillDetailTrigger>
                   )}
 
-                  <div className="grid w-[6.25rem] shrink-0 grid-cols-[2rem_minmax(0,1fr)] items-center gap-1.5">
+                  <div
+                    className={`grid w-[6.25rem] shrink-0 grid-cols-[2rem_minmax(0,1fr)] items-center gap-1.5 justify-self-end sm:col-start-auto sm:row-start-auto sm:justify-self-auto ${
+                      viewMode === "minimal" ? "" : "col-start-2 row-start-2"
+                    }`}
+                  >
                     <button
                       type="button"
                       onClick={() => toggleFavorite(s.skillId)}

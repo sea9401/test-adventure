@@ -16,6 +16,10 @@ export type LoadoutStatKey =
 
 export type LoadoutStatSnapshot = Partial<Record<LoadoutStatKey, number>>;
 export type LoadoutStatDelta = Partial<Record<LoadoutStatKey, number>>;
+export type LoadoutSkillPoints = {
+  used: number;
+  max: number;
+};
 
 export type LoadoutStatSource = {
   character?: {
@@ -158,9 +162,11 @@ function mobileChangeLabel(delta: LoadoutStatDelta | null): string {
 function SummaryBody({
   current,
   delta,
+  skillPoints,
 }: {
   current: LoadoutStatSnapshot | null;
   delta: LoadoutStatDelta | null;
+  skillPoints?: LoadoutSkillPoints;
 }) {
   const definitions = visibleDefinitions(current, delta);
   const hasConfirmedChange = delta !== null;
@@ -168,6 +174,25 @@ function SummaryBody({
 
   return (
     <div className="space-y-2">
+      {skillPoints && (
+        <dl className={`${SURFACE_INSET} px-2.5`}>
+          <div className="flex min-h-9 items-center justify-between gap-2 py-1.5 text-xs">
+            <dt className="font-medium text-zinc-600 dark:text-zinc-300">
+              스킬포인트
+            </dt>
+            <dd
+              className="text-right tabular-nums text-zinc-600 dark:text-zinc-300"
+              aria-live="polite"
+              aria-label={`사용 ${formatValue(skillPoints.used)} / 최대 ${formatValue(skillPoints.max)}`}
+            >
+              <strong className="text-violet-700 dark:text-violet-400">
+                {formatValue(skillPoints.used)}
+              </strong>{" "}
+              / {formatValue(skillPoints.max)}
+            </dd>
+          </div>
+        </dl>
+      )}
       {hasConfirmedChange && changed.length === 0 && (
         <div
           className={`${SURFACE_INSET} px-2.5 py-2 text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-300`}
@@ -233,10 +258,12 @@ function SummaryBody({
 export function LoadoutStatSummary({
   current,
   delta,
+  skillPoints,
   collapsible = false,
 }: {
   current: LoadoutStatSnapshot | null;
   delta: LoadoutStatDelta | null;
+  skillPoints?: LoadoutSkillPoints;
   collapsible?: boolean;
 }) {
   if (collapsible) {
@@ -252,7 +279,11 @@ export function LoadoutStatSummary({
           </span>
         </summary>
         <div className="border-t border-zinc-200 px-3 py-3 dark:border-zinc-700">
-          <SummaryBody current={current} delta={delta} />
+          <SummaryBody
+            current={current}
+            delta={delta}
+            skillPoints={skillPoints}
+          />
         </div>
       </details>
     );
@@ -268,7 +299,7 @@ export function LoadoutStatSummary({
           장착 저장 후 실제 적용 수치
         </p>
       </div>
-      <SummaryBody current={current} delta={delta} />
+      <SummaryBody current={current} delta={delta} skillPoints={skillPoints} />
     </section>
   );
 }
@@ -276,22 +307,33 @@ export function LoadoutStatSummary({
 export function LoadoutStatResponsiveLayout({
   current,
   delta,
+  skillPoints,
   children,
 }: {
   current: LoadoutStatSnapshot | null;
   delta: LoadoutStatDelta | null;
+  skillPoints?: LoadoutSkillPoints;
   children: ReactNode;
 }) {
   return (
     <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,720px)_minmax(240px,280px)]">
       <div className="min-w-0 space-y-3">
         <div className="lg:hidden">
-          <LoadoutStatSummary current={current} delta={delta} collapsible />
+          <LoadoutStatSummary
+            current={current}
+            delta={delta}
+            skillPoints={skillPoints}
+            collapsible
+          />
         </div>
         {children}
       </div>
       <aside className="sticky top-[calc(var(--game-header-height,4rem)+0.75rem)] hidden lg:block">
-        <LoadoutStatSummary current={current} delta={delta} />
+        <LoadoutStatSummary
+          current={current}
+          delta={delta}
+          skillPoints={skillPoints}
+        />
       </aside>
     </div>
   );

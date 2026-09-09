@@ -68,6 +68,20 @@ describe("diffLoadoutStats", () => {
 });
 
 describe("LoadoutStatSummary", () => {
+  it("스킬포인트 사용량과 최대치를 능력치보다 앞에 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <LoadoutStatSummary
+        current={{ atk: 100 }}
+        delta={null}
+        skillPoints={{ used: 148, max: 150 }}
+      />,
+    );
+
+    expect(html).toContain("스킬포인트");
+    expect(html).toContain('aria-label="사용 148 / 최대 150"');
+    expect(html.indexOf("스킬포인트")).toBeLessThan(html.indexOf("공격력"));
+  });
+
   it("변경된 값은 이전값·현재값·증감을, 비율은 퍼센트로 표시한다", () => {
     const html = renderToStaticMarkup(
       <LoadoutStatSummary
@@ -96,7 +110,11 @@ describe("LoadoutStatSummary", () => {
 describe("LoadoutStatResponsiveLayout", () => {
   it("모바일 접이식 요약과 데스크톱 고정 요약을 모두 제공한다", () => {
     const html = renderToStaticMarkup(
-      <LoadoutStatResponsiveLayout current={{ atk: 100 }} delta={null}>
+      <LoadoutStatResponsiveLayout
+        current={{ atk: 100 }}
+        delta={null}
+        skillPoints={{ used: 48, max: 150 }}
+      >
         <div>스킬 목록</div>
       </LoadoutStatResponsiveLayout>,
     );
@@ -107,6 +125,7 @@ describe("LoadoutStatResponsiveLayout", () => {
     expect(html).toContain(
       "sticky top-[calc(var(--game-header-height,4rem)+0.75rem)] hidden lg:block",
     );
+    expect(html.match(/aria-label="사용 48 \/ 최대 150"/g)).toHaveLength(2);
     expect(html).toContain("스킬 목록");
   });
 });

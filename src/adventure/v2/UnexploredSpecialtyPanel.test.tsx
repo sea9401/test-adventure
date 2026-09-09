@@ -81,9 +81,11 @@ describe("UnexploredSpecialtyPanel", () => {
     );
 
     resolveRequest(Response.json({ ok: true, mode: { mode: "focused", poolId: "iron_legion" } }));
-    await waitFor(() => expect((focused as HTMLInputElement).checked).toBe(true));
+    await waitFor(() => {
+      expect((focused as HTMLInputElement).checked).toBe(true);
+      expect(onSavingChange).toHaveBeenLastCalledWith(false);
+    });
     expect(onModeChange).toHaveBeenCalledWith({ mode: "focused", poolId: "iron_legion" });
-    expect(onSavingChange).toHaveBeenLastCalledWith(false);
   });
 
   it("서버의 저장 모드를 읽는 동안 선택을 잠그고 권위값을 반영한다", async () => {

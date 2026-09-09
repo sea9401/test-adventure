@@ -81,12 +81,12 @@ describe("job manual model", () => {
     ]);
   });
 
-  it("explains every public tier seven job with concrete play examples", () => {
+  it("explains every public tier seven and new advancement with concrete play examples", () => {
     for (const jobId of [
-      "shadowblade",
-      "ruinblade",
-      "skyascendant",
-      "primordialsage",
+      ...V2_JOB_LIST.filter((job) => job.tier === 7).map((job) => job.id),
+      "radiantknight", "dawnpaladin", "dragonknight", "drakeblood",
+      "dragonwing", "dragonsovereign", "pyromancer", "infernomancer",
+      "aeromancer", "stormbringer",
     ]) {
       const entry = buildJobManualEntry(jobId);
 

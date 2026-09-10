@@ -1,5 +1,7 @@
 "use client";
 
+import { filterItemCounts, matchesItemSearch } from "../itemSearch";
+import { FISH } from "@/adventure/data/v2/fish";
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -73,25 +75,27 @@ function cashItemUseLabel(itemId: MuseunCashItemId): string {
 
 // 소모품 탭 — SP 열매 섹션 + 실제 소모품 목록. 레어맵은 사냥터 목록에서 표시한다.
 export function RareMapsTab({
-  materials,
+  search = "",
+  materials: allMaterials,
   spFruitUsed,
   busy,
   onUseSpFruit,
   onUseEquipmentBox,
   onUseMasteryTome,
-  masteryCertificates,
+  masteryCertificates: allMasteryCertificates,
   onUseMasteryCertificate,
-  rareMaps,
-  cashItems,
+  rareMaps: allRareMaps,
+  cashItems: allCashItems,
   onUseCashItem,
-  cookingFoods,
+  cookingFoods: allCookingFoods,
   cookingFoodDefinitions,
   onUseCookingFood,
   onUseExpTome,
-  fishSpecimens,
+  fishSpecimens: allFishSpecimens,
   registeredFishIds,
   onUseFishSpecimen,
 }: {
+  search?: string;
   materials: Partial<Record<V2MaterialId, number>>;
   spFruitUsed: Record<SpFruitTier, number>;
   busy: string | null;
@@ -111,6 +115,12 @@ export function RareMapsTab({
   registeredFishIds: readonly string[];
   onUseFishSpecimen: (fishId: FishId) => void;
 }) {
+  const materials = filterItemCounts(allMaterials, search, (id) => V2_MATERIALS[id]?.name);
+  const cashItems = filterItemCounts(allCashItems, search, (id) => MUSEUN_CASH_ITEMS[id]?.name);
+  const cookingFoods = filterItemCounts(allCookingFoods, search, (id) => cookingFoodDefinitions[id]?.name);
+  const fishSpecimens = filterItemCounts(allFishSpecimens, search, (id) => `${FISH[id]?.name} 표본`);
+  const masteryCertificates = matchesItemSearch("숙련 증서", search) ? allMasteryCertificates : 0;
+  const rareMaps = allRareMaps?.filter((map) => matchesItemSearch(RARE_MAP_KINDS[map.kind]?.name, search)) ?? null;
   const router = useRouter();
   const [filter, setFilter] = useState<"all" | "general" | "food">("all");
   const hasSpFruit = SP_FRUIT_TIERS.some(
@@ -127,6 +137,12 @@ export function RareMapsTab({
   const hasCookingFood = Object.values(cookingFoods).some(
     (count) => (count ?? 0) > 0,
   );
+  const noSearchResults = search.trim() &&
+    !(filter !== "general" && hasCookingFood) &&
+    !(filter !== "food" && (hasSpFruit || hasEquipmentBox || hasMasteryTome ||
+      hasMasteryCertificate || hasCashItem ||
+      Object.values(fishSpecimens).some((count) => (count ?? 0) > 0) ||
+      rareMaps?.some((map) => RARE_MAP_KINDS[map.kind]?.category === "utility")));
   return (
     <div className="space-y-4">
       <div className={`${SURFACE_CARD} flex flex-wrap gap-2 p-2`} role="group" aria-label="소모품 분류">
@@ -135,7 +151,8 @@ export function RareMapsTab({
         ))}
       </div>
       {filter !== "general" && <CookingFoodSection cookingFoods={cookingFoods} cookingFoodDefinitions={cookingFoodDefinitions} busy={busy} onUse={onUseCookingFood} />}
-      {filter === "food" && !hasCookingFood && <p className={`${SURFACE_CARD} p-4 text-sm text-zinc-500 dark:text-zinc-400`}>보유한 요리가 없습니다.</p>}
+      {noSearchResults && <EmptyState icon={<Diamond size={40} weight="duotone" />} title="검색 결과가 없습니다" message="다른 이름으로 검색하거나 검색어를 지워 주세요." />}
+      {!search.trim() && filter === "food" && !hasCookingFood && <p className={`${SURFACE_CARD} p-4 text-sm text-zinc-500 dark:text-zinc-400`}>보유한 요리가 없습니다.</p>}
       {filter !== "food" && <>
       <FishSpecimenSection
         specimens={fishSpecimens}
@@ -189,6 +206,7 @@ export function RareMapsTab({
         maps={rareMaps}
         busy={busy}
         suppressEmpty={
+          Boolean(search.trim()) ||
           (filter === "all" && hasCookingFood) ||
           hasCashItem ||
           hasSpFruit ||

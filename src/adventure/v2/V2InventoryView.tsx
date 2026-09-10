@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { ItemSearchInput } from "./ItemSearchInput";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { PageShell } from "@/components/ui/PageShell";
@@ -132,6 +133,7 @@ function itemTabFromParam(value: string | null): V2ItemTabKey {
 export function V2InventoryView({ onBack }: { onBack: () => void }) {
   const tabParam = useSearchParams().get("tab");
   const itemParam = useSearchParams().get("item");
+  const [search, setSearch] = useState("");
   const [tab, setTab] = useState<V2ItemTabKey>(() =>
     itemTabFromParam(tabParam),
   );
@@ -1114,6 +1116,11 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           scrollable
         />
 
+        <ItemSearchInput value={search} onChange={setSearch} label="인벤토리 검색" />
+        {search.trim() && tab !== "material" && tab !== "consumable" && (
+          <p className="text-xs text-zinc-600 dark:text-zinc-300">일괄 판매·도감 일괄 등록은 검색 결과와 관계없이 현재 부위 전체에 적용됩니다. 찾은 장비만 팔려면 선택 판매를 이용해 주세요.</p>
+        )}
+
         {loadError && <LoadErrorBanner onRetry={() => void refresh(true)} />}
 
         {loading ? (
@@ -1124,6 +1131,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           </div>
         ) : tab === "consumable" ? (
           <RareMapsTab
+            search={search}
             materials={materials}
             spFruitUsed={spFruitUsed}
             busy={busy}
@@ -1144,9 +1152,10 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             onUseFishSpecimen={useFishSpecimen}
           />
         ) : tab === "material" ? (
-          <MaterialsTab materials={materials} pageSize={INVENTORY_PAGE_SIZE} />
+          <MaterialsTab search={search} materials={materials} pageSize={INVENTORY_PAGE_SIZE} />
         ) : (
           <EquipmentTab
+            search={search}
             slot={tab}
             instances={ownedBySlot[tab]}
             equippedIid={equipped[tab] ?? null}

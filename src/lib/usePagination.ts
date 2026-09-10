@@ -29,8 +29,9 @@ export function usePagination<T>(
   // page=0 은 항상 유효 (빈 목록이어도 "1/1" 표시) — pageCount 가 1 인 경우 포함.
   useEffect(() => {
     if (page > pageCount - 1) {
+      // 같은 렌더에서 resetKey 효과가 먼저 0으로 바꿨다면 그 값을 보존한다.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setPageState(Math.max(0, pageCount - 1));
+      setPageState((current) => Math.min(current, Math.max(0, pageCount - 1)));
     }
   }, [page, pageCount]);
 

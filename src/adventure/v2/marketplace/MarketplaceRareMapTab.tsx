@@ -43,6 +43,7 @@ import {
 
 // 판매 탭 — 레어맵/희귀 장소. 빈 목록 안내 / 개체 단위 가격 입력 카드 목록.
 export function MarketplaceRareMapTab({
+  searchActive = false,
   rareMaps,
   cashItems,
   cookingFoods,
@@ -61,6 +62,7 @@ export function MarketplaceRareMapTab({
   onListFishSpecimen,
   hideEmpty = false,
 }: {
+  searchActive?: boolean;
   rareMaps: RareMapInstance[];
   cashItems: MuseunCashItemCounts;
   cookingFoods: CookingFoodInventory;
@@ -103,7 +105,7 @@ export function MarketplaceRareMapTab({
     return (
       <Card padding="sm">
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
-          팔 수 있는 표본·음식·캐시 소모품이나 레어맵이 없어요.
+          {searchActive ? "검색 결과가 없습니다. 검색어를 지우거나 다른 이름으로 검색해 주세요." : "팔 수 있는 표본·음식·캐시 소모품이나 레어맵이 없어요."}
         </div>
       </Card>
     );

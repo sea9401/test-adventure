@@ -2,6 +2,8 @@
 
 import { SelectControl } from "./marketplace/SelectControl";
 import { MarketplaceAuctionSettings } from "./marketplace/MarketplaceAuctionSettings";
+import { ItemSearchInput } from "./ItemSearchInput";
+import { filterItemCounts, matchesItemSearch } from "./itemSearch";
 
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { FISH, type FishId } from "@/adventure/data/v2/fish";
@@ -10,7 +12,7 @@ import {
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
-import { type RareMapInstance } from "@/adventure/data/v2/rareMaps";
+import { RARE_MAP_KINDS, type RareMapInstance } from "@/adventure/data/v2/rareMaps";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 import {
   V2_EQUIPMENT,
@@ -232,6 +234,7 @@ export function V2MarketplaceView({
   // 둘러보기 — 인벤토리/판매 탭과 같은 6부위 + 재료 + 소모품 하위 탭.
   const [browseTab, setBrowseTab] = useState<V2ItemTabKey>("weapon");
   // 판매 탭 — 인벤토리와 동일하게 슬롯 서브탭 + 정렬 + 페이지네이션.
+  const [sellSearch, setSellSearch] = useState("");
   const [sellTab, setSellTab] = useState<V2ItemTabKey>("weapon");
   const [sellSort, setSellSort] = useState<SortMode>("default");
   const [sellCraftFilter, setSellCraftFilter] =
@@ -864,7 +867,13 @@ export function V2MarketplaceView({
   const sellableEquip = owned.filter(
     (i) => !i.locked && !equippedIids.has(i.iid),
   );
-  const sellableMats = Object.keys(materials).filter((id) => (materials[id] ?? 0) > 0);
+  const sellableMats = Object.keys(materials).filter((id) =>
+    (materials[id] ?? 0) > 0 && matchesItemSearch(V2_MATERIALS[id]?.name, sellSearch),
+  );
+  const searchedRareMaps = rareMaps.filter((map) => matchesItemSearch(RARE_MAP_KINDS[map.kind]?.name, sellSearch));
+  const searchedCashItems = filterItemCounts(cashItems, sellSearch, (id) => MUSEUN_CASH_ITEMS[id]?.name);
+  const searchedCookingFoods = filterItemCounts(cookingFoods, sellSearch, (id) => cookingFoodDefinitions[id]?.name);
+  const searchedFishSpecimens = filterItemCounts(fishSpecimens, sellSearch, (id) => `${FISH[id]?.name} 표본`);
   const sellableMaterialItems = sellableMats.filter(
     (id) => itemTabForMaterial(id) === "material",
   );
@@ -888,29 +897,30 @@ export function V2MarketplaceView({
       : sortEquipInstances(
           sellableEquip
             .filter((i) => V2_EQUIPMENT[i.id]?.slot === sellTab)
-            .filter((i) => matchesSellCraftFilter(i, sellCraftFilter)),
+            .filter((i) => matchesSellCraftFilter(i, sellCraftFilter))
+            .filter((i) => matchesItemSearch(V2_EQUIPMENT[i.id]?.name, sellSearch)),
           sellSort,
         );
   // 탭/정렬 바뀌면 1페이지로(resetKey).
   const sellEquipPager = usePagination(
     sellTabEquip,
     MARKETPLACE_PAGE_SIZE,
-    `${sellTab}:${sellSort}:${sellCraftFilter}`,
+    `${sellTab}:${sellSort}:${sellCraftFilter}:${sellSearch}`,
   );
   const sellMatPager = usePagination(
     sellableMaterialItems,
     MARKETPLACE_PAGE_SIZE,
-    sellTab,
+    `${sellTab}:${sellSearch}`,
   );
   const sellConsumableMaterialPager = usePagination(
     sellableConsumableMaterials,
     MARKETPLACE_PAGE_SIZE,
-    sellTab,
+    `${sellTab}:${sellSearch}`,
   );
   const sellRareMapPager = usePagination(
-    rareMaps,
+    searchedRareMaps,
     MARKETPLACE_PAGE_SIZE,
-    sellTab,
+    `${sellTab}:${sellSearch}`,
   );
 
   // 둘러보기 표시 매물 — 하위 탭(6부위/재료/소모품) + 검색/정렬. 반환된 활성 매물 위에서만.
@@ -1774,9 +1784,12 @@ export function V2MarketplaceView({
             </div>
           </Card>
 
+          <ItemSearchInput value={sellSearch} onChange={setSellSearch} label="판매 아이템 검색" />
+
           {sellTab === "consumable" ? (
             <div className="space-y-2">
               <MarketplaceMaterialTab
+                searchActive={Boolean(sellSearch.trim())}
                 items={sellableConsumableMaterials}
                 pager={sellConsumableMaterialPager}
                 materials={materials}
@@ -1790,11 +1803,12 @@ export function V2MarketplaceView({
                 hideEmpty
               />
               <MarketplaceRareMapTab
-                rareMaps={rareMaps}
-                cashItems={cashItems}
-                cookingFoods={cookingFoods}
+                searchActive={Boolean(sellSearch.trim())}
+                rareMaps={searchedRareMaps}
+                cashItems={searchedCashItems}
+                cookingFoods={searchedCookingFoods}
                 cookingFoodDefinitions={cookingFoodDefinitions}
-                fishSpecimens={fishSpecimens}
+                fishSpecimens={searchedFishSpecimens}
                 pager={sellRareMapPager}
                 prices={prices}
                 setPrices={setPrices}
@@ -1811,6 +1825,7 @@ export function V2MarketplaceView({
             </div>
           ) : sellTab === "material" ? (
             <MarketplaceMaterialTab
+              searchActive={Boolean(sellSearch.trim())}
               items={sellableMaterialItems}
               pager={sellMatPager}
               materials={materials}
@@ -1824,6 +1839,7 @@ export function V2MarketplaceView({
             />
           ) : (
             <MarketplaceEquipmentTab
+              searchActive={Boolean(sellSearch.trim())}
               items={sellTabEquip}
               pager={sellEquipPager}
               sellSort={sellSort}

@@ -3,6 +3,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as GameStateModule from "./GameStateProvider";
+import { invalidateGameStateRequests } from "./fetchGameState";
 import { useRefreshGameState } from "./GameStateRefreshContext";
 
 vi.mock("next/navigation", () => ({
@@ -38,6 +39,7 @@ describe("GameStateProvider narrow contexts", () => {
 
   afterEach(() => {
     cleanup();
+    invalidateGameStateRequests();
     vi.unstubAllGlobals();
   });
 
@@ -52,7 +54,7 @@ describe("GameStateProvider narrow contexts", () => {
       return <button onClick={() => applyResourcePatch({ gold: 123 })}>gold:{gold}</button>;
     }
     render(<GameStateModule.GameStateProvider><Probe /></GameStateModule.GameStateProvider>);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v2/me/state?view=core"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v2/me/state?view=core", undefined));
     fireEvent.click(screen.getByRole("button"));
     await act(async () => {
       resolveCore(Response.json({ character: { gold: 999 } }));

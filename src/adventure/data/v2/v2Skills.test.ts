@@ -1081,7 +1081,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 
   it("반격 패시브는 30%가 피해 비율이 아니라 발동 확률임을 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_vajraarhat_body)).toContain(
-      "HP 피해 시 30% 확률로 공격력 기반 반격",
+      "직접 피격 시(보호막 포함) 30% 확률로 공격력 기반 반격",
     );
   });
 
@@ -1090,7 +1090,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
       "회복 잃은 체력 1.44% + 마법 공격력×0.12 +12~12 (회복량 보정 적용)",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_darkpriest_reap)).toContain(
-      "피해량 14% 회복 (회복량 보정 미적용)",
+      "고통을 최대 HP 4%만큼 소비하고 최대 HP 1%를 회복한다. 피해량 비례 흡혈과 처형 효과는 없다.",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_blooddemon_reign)).toContain(
       "피해량 20% 회복 (회복량 보정 미적용)",

@@ -1,3 +1,4 @@
+import { initialPain } from "./darkPriestAdapters";
 import { aggregateEquippedPassives } from "@/adventure/data/v2/v2Skills";
 import { initialBerserkerCombatState } from "./berserkerCombat";
 import { hasUnexploredEffect } from "./unexploredSetPveAdapter";
@@ -121,6 +122,7 @@ export function buildSide(
       } } : {}),
       tripleWard: initialTripleWardState(tripleWardRank),
       ...initialHolyPower(v2Skills.equipped),
+      ...initialPain(v2Skills.equipped, player.maxHp),
       fortressImpact: 0,
       ...((player.windCurrentDamagePctPerStack ?? 0) > 0 ? { windCurrent: 0 } : {}),
       ironWallReflectCharges: 0,

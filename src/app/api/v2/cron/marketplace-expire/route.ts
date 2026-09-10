@@ -16,6 +16,11 @@ import {
   saleProceeds,
 } from "@/lib/server/marketplaceV2";
 import { deliverMarketplaceListing } from "@/lib/server/marketplaceV2Fulfillment";
+import { insertNotificationWith } from "@/lib/server/v2Notifications";
+import {
+  pushMessageForNotification,
+  sendWebPushToUser,
+} from "@/lib/server/webPush";
 import { adventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import { lockTradeParticipantStatuses } from "@/lib/server/tradeSuspension";
 import {
@@ -157,8 +162,21 @@ export async function POST(req: Request) {
             closedAt: now,
           })
           .where(eq(marketplaceListingsV2.id, id));
+        const notificationPayload = {
+          listingId: id,
+          itemName: listing.itemName,
+          quantity: listing.quantity,
+          totalPrice: gross,
+        };
+        await insertNotificationWith(
+          tx,
+          bidderId,
+          "auction_won",
+          notificationPayload,
+        );
         return {
           action: "auction_sold" as const,
+          notificationPayload,
           sellerId: listing.sellerId,
           buyerId: bidderId,
           itemKind: listing.kind,
@@ -193,6 +211,19 @@ export async function POST(req: Request) {
         quantity: result.quantity,
         detail: { listingId: id, grossGold: result.gross, taxRate: result.taxRate },
       });
+      // 지급·정산·인게임 알림이 커밋된 뒤에만 푸시한다. 전송 실패는 정산에 영향을 주지 않는다.
+      try {
+        const message = pushMessageForNotification(
+          "auction_won",
+          result.notificationPayload,
+        );
+        if (message) await sendWebPushToUser(result.buyerId, message);
+      } catch (error) {
+        console.warn("[marketplace-expire] auction push failed", {
+          listingId: id,
+          error,
+        });
+      }
     } else if (result.action === "auction_returned") {
       auctionsReturned++;
       if (result.refundedGold > 0) bidsRefunded++;

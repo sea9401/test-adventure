@@ -1,3 +1,4 @@
+import { settlePainPvp } from "./darkPriestAdapters";
 import type { PotionId } from "@/adventure/data/potions";
 import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
 import { combatRandom } from "./combatRandom";
@@ -115,8 +116,8 @@ function forceAtbTimeout(
   turns: number,
   consumed: PvPBattleResolution["potionsConsumed"],
 ): PvPBattleResolution {
-  const p1Frac = state.p1.hp / state.p1.maxHp;
-  const p2Frac = state.p2.hp / state.p2.maxHp;
+  const p1Frac = Math.max(0, state.p1.hp - (state.p1.stacks.pain?.debt ?? 0)) / state.p1.maxHp;
+  const p2Frac = Math.max(0, state.p2.hp - (state.p2.stacks.pain?.debt ?? 0)) / state.p2.maxHp;
   const outcome: PvPOutcome =
     p1Frac > p2Frac ? "p1_win" : p2Frac > p1Frac ? "p2_win" : "draw";
   return {
@@ -210,7 +211,7 @@ export function resolveBattlePvPAtb(
     ctx.sustainMultiplier,
     initiative,
   );
-  state = withAtbPlayers(state);
+  state = { ...withAtbPlayers(state), usesAtb: true };
   if (state.p1.hp <= 0 && state.p2.hp <= 0) {
     state = { ...state, outcome: "draw", phase: "ended" };
   } else if (state.p1.hp <= 0) {
@@ -396,6 +397,9 @@ export function resolveBattlePvPAtb(
     if (other === "p1") p1NextTick += newEnemyDelay;
     else p2NextTick += newEnemyDelay;
 
+    const painLogStart = state.log.length;
+    state = settlePainPvp(state, who);
+    state = tagNewLogEntries(state, painLogStart, who, nextTick);
     const shadowReleaseHastePct =
       state[other].stacks.tier7?.shadowReleaseHastePct ?? 0;
     if (shadowReleaseHastePct > 0) {

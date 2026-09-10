@@ -86,6 +86,12 @@ const ENEMY_STATUS_LABEL = {
 } as const;
 
 const SELF_RESOURCE_LABEL = {
+  pain: "고통 (최대 HP %)",
+  darkSanctuary: "검은 성역 남은 행동",
+  painAbsolution: "다음 사죄 강화",
+  painCondemnation: "다음 단죄 강화",
+  darkSanctuaryUsed: "검은 성역 사용 여부",
+
   holyPower: "성력",
   windCurrent: "기류",
   sanctuary: "성역 남은 행동",

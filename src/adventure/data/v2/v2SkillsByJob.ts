@@ -117,7 +117,10 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   templar: ["v2c_templar_smite", "v2c_templar_aegis"], // 성기사: 심판의 빛(타격+자힐) + 신성한 가호(방어10%·회복강화10%)
   spellblade: ["v2c_spellblade_strike", "v2c_spellblade_unity"], // 마검사: 마검 일섬(검+마법 이중타) + 마검 합일(힘8%·지능8%)
   bloodtemplar: ["v2c_bloodtemplar_stigma", "v2c_bloodtemplar_martyr"], // 혈성기사: 피의 성흔(HP소모+방벽/약화) + 순교의 맹세
-  darkpriest: ["v2c_darkpriest_reap", "v2c_darkpriest_blessing"], // 암흑사제: 영혼 수확(처형+회복) + 검은 축복
+  confessor: ["v2c_confessor_absolution", "v2c_confessor_condemnation"],
+  atonementbishop: ["v2c_atonementbishop_sentence", "v2c_atonementbishop_cycle"],
+  darksaint: ["v2c_darksaint_sanctuary", "v2c_darksaint_officiant"],
+  darkpriest: ["v2c_darkpriest_reap", "v2c_darkpriest_blessing"], // 암흑사제: 고통의 기도(고통 소비·독립 회복) + 검은 축복(피해 유예)
   // ── 심화 직업(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·라인 비포화) ──
   veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal", "v2c_veteran_armorinsight"], // 결전의 일격 + 필살 II + 갑주 간파 I
   sensei: ["v2c_sensei_combo", "v2c_sensei_ironbody", "v2c_sensei_formationbreak"], // 권룡연파 + 근력 III + 파진경 I
@@ -126,6 +129,8 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   phantom: ["v2c_phantom_ambush", "v2c_phantom_stealth", "v2c_phantom_weakpoint"], // 기습 + 은신 + 급소 노출 I
   venomlord: ["v2c_venomlord_plague", "v2c_venomlord_sovereign", "v2c_venomlord_virulence3"], // 독왕진 + 부식 III + 맹독 III
   // ── 마법 4차 두 번째 갈래(원소술사) — 속성 분기 액티브 + 원소 통달 패시브 ──
+  geomancer: ["v2c_geomancer_upheaval", "v2c_geomancer_heart", "v2c_geomancer_barrier"],
+  tectomancer: ["v2c_tectomancer_cataclysm", "v2c_tectomancer_resolve", "v2c_tectomancer_ground"],
   pyromancer: ["v2c_pyromancer_brand", "v2c_pyromancer_spirit", "v2c_pyromancer_burn"],
   infernomancer: ["v2c_infernomancer_collapse", "v2c_infernomancer_heart", "v2c_infernomancer_burn"],
   firemage: ["v2c_firemage_inferno", "v2c_firemage_ember"],
@@ -203,13 +208,16 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   celestialdragon: ["v2c_celestialdragon_combo", "v2c_celestialdragon_breath", "v2c_celestialdragon_formationbreak3"], // 천룡권성: 천룡난무 + 천룡의 호흡 + 파진경 III
   vajraarhat: ["v2c_vajraarhat_seal", "v2c_vajraarhat_body"], // 금강나한: 금강인 + 나한금신
   eternal: ["v2c_eternal_cycle", "v2c_eternal_body"], // 영겁자: 영겁 순환 + 영겁의 육신
-  // ── 내부 7차 — 직업 카탈로그/해금 경제 확정 전에는 선택 경로가 없다. ──
+  // ── 7차 — 최초 전직 후 현재 직업 학습 규칙으로 고유 스킬을 배운다. ──
   dreadnought: ["v2c_dreadnought_siegebreaker", "v2c_dreadnought_armor", "v2c_dreadnought_march"],
   shadowblade: ["v2c_shadowblade_afterimage", "v2c_shadowblade_traceless", "v2c_shadowblade_swordshadow"],
   ruinblade: ["v2c_ruinblade_limitstrike", "v2c_ruinblade_oneintent", "v2c_ruinblade_ruinsword"],
   skyascendant: ["v2c_skyascendant_fallingstar", "v2c_skyascendant_voidbreak", "v2c_skyascendant_crossover"],
   paragon: ["v2c_paragon_form", "v2c_paragon_breakpoint", "v2c_paragon_mastery"],
   primordialsage: ["v2c_primordialsage_greatorb", "v2c_primordialsage_optimization", "v2c_primordialsage_completeformula"],
+  aegis: ["v2c_aegis_strike", "v2c_aegis_barrier", "v2c_aegis_guardian"],
+  seraphim: ["v2c_seraphim_judgment", "v2c_seraphim_wings", "v2c_seraphim_grace"],
+  dragonlord: ["v2c_dragonlord_claw", "v2c_dragonlord_breath", "v2c_dragonlord_heart"],
   legendarytrainer: ["v2c_legendarytrainer_mentorship"], // 전설의 트레이너 — 전설의 지도
   seagod: ["v2c_seagod_deepcurrent"], // 해신 — 심해 해류
   earthartisan: ["v2c_earthartisan_landcare"], // 전설의 농부 — 대지 돌보기

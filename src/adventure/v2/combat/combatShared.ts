@@ -15,6 +15,7 @@ export { v2SkillHasDirectMagicDamage } from "./skillDamageClassification";
 
 import type { APSkillEffect } from "@/adventure/character/apSkills";
 import { computeHealAmount, type Potion } from "@/adventure/data/potions";
+import { createPain, castPainRitual, painResources, PAIN_CORE, PAIN_CYCLE, PAIN_OFFICIANT, type PainState } from "./darkPriest";
 import type { StatKey } from "@/adventure/data/stats";
 import { resolveElementalResonanceCombat, selectV2CastVariant } from "@/adventure/data/v2/elementalResonance";
 import { V2_ELEMENT_LABEL, type V2Element } from "@/adventure/data/v2/elements";
@@ -427,6 +428,7 @@ export function pickAutoCastV2Skill(args: {
       !def.duelistDeclaration &&
       !def.ironWallReflect &&
       !def.holyPower &&
+      !def.painRitual &&
       !def.consumesLawInscriptions &&
       !(def.mutationWeightGain ?? 0)
     ) continue;
@@ -523,6 +525,7 @@ export type V2SkillCastResult = {
   /** hitDamages 각 타격이 마나 실드 분할 대상인지 여부. 처형 피해처럼 명시적으로
    *  우회하는 타격만 false이며, 복합 스킬에서도 타격별 분류를 보존한다. */
   hitManaShieldEligible: boolean[];
+  painCast?: ReturnType<typeof castPainRitual>;
   selfHeal: number;
   /** 빗나감 시에도 유지되는 직접 회복분. healFromDamage 회복은 포함하지 않는다. */
   selfHealOnMiss: number;
@@ -689,6 +692,7 @@ export type V2SkillCastInput = {
     //   maxMp(마나보호막·명상), 차수(전문화 스킬 baseFlatByTier flat 성장). 미지정=안전 폴백.
     def?: number;
     fortressImpact?: number;
+    pain?: PainState;
     holyPower?: HolyPowerState;
     windCurrent?: number;
     ironWallReflectCharges?: number;
@@ -711,6 +715,8 @@ export type V2SkillCastInput = {
     currentHp?: number;
     maxMp?: number;
     classTier?: number;
+    /** 직접 스킬의 새 보호막 생성량 증가. 장비 보호막·기존 잔량과 무관하다. */
+    skillShieldPowerPct?: number;
     // 능력치 밖의 활성 상태 효과 — 패턴 조건 self_buff_pct 평가용. 엔진이 turns/잔여 횟수로 채운다.
     // 미지정=전부 비활성(구 호출 안전).
     selfShield?: number;
@@ -829,6 +835,7 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
       ),
     ),
     selfResources: {
+      ...painResources(a.pain),
       holyPower: normalizeHolyPower(a.holyPower).power,
       windCurrent: normalizeWindCurrent(a.windCurrent),
       sanctuary: normalizeHolyPower(a.holyPower).sanctuaryTurns,
@@ -909,6 +916,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       d?.duelistDeclaration != null ||
       d?.ironWallReflect != null ||
       d?.holyPower != null ||
+      d?.painRitual != null ||
       d?.consumesLawInscriptions === true ||
       (d?.mutationWeightGain ?? 0) > 0 ||
       d?.effects.some((effect) => {
@@ -923,6 +931,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         }
         return true;
       });
+    if (d?.painRitual === "sanctuary" && (!equippedSet.has(PAIN_CORE) || !input.attacker.pain || !castPainRitual(input.attacker.pain, "sanctuary", false, false).allowed)) return false;
     const isAnnihilation = sid === "v2c_hegemon_annihilation";
     if (
       isAnnihilation &&
@@ -1058,6 +1067,12 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     };
   }
   const def = V2_SKILLS[id];
+  const painEnabled = equippedSet.has(PAIN_CORE) && input.attacker.pain != null;
+  const painCast = def.painRitual ? castPainRitual(
+    painEnabled ? input.attacker.pain! : createPain(input.attacker.maxHp),
+    def.painRitual, painEnabled && equippedSet.has(PAIN_CYCLE), painEnabled && equippedSet.has(PAIN_OFFICIANT),
+  ) : undefined;
+  const painDamageMult = painCast?.damageMult ?? 1;
   const lawRelease = def.consumesLawInscriptions
     ? lawInscriptionRelease(input.attacker.lawInscriptions)
     : null;
@@ -1108,7 +1123,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     hitDamages.push(x);
     hitManaShieldEligible.push(manaShieldEligible);
   };
-  let selfHeal = 0;
+  let selfHeal = Math.floor((painCast?.heal ?? 0) * (input.attacker.healMult ?? 1));
   let selfHpCost = 0;
   let manaRestore = 0;
   const selfBuffsToApply: V2SkillBuffApply[] = [];
@@ -1243,11 +1258,11 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       scaling: scale,
       targetDef: targetPhysicalDef,
       targetMagicDef,
-      statCoef: resolvedAttackCoef,
+      statCoef: resolvedAttackCoef * painDamageMult,
       baseFlat:
         (def.monsterOnly ? legacyBaseFlat : 0) +
-        specializedBonus +
-        purePrimaryStatBonus +
+        specializedBonus * painDamageMult +
+        purePrimaryStatBonus * painDamageMult +
         extraFlat + (holyCoef == null ? 0 : Math.floor((input.attacker.spi ?? 0) * holyCoef * (skillElementMult ?? 1) + 1e-9)),
       attackerSelfBuffs: input.attacker.selfBuffs,
       attackerSelfDebuffs: input.attacker.selfDebuffs,
@@ -1934,14 +1949,17 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const scaledSelfHealOnMiss = Math.floor(
     selfHeal * limitedRecoveryEffectMult,
   );
+  const shieldPowerMult =
+    1 + (Number.isFinite(input.attacker.skillShieldPowerPct)
+      ? Math.max(0, input.attacker.skillShieldPowerPct ?? 0) : 0) / 100;
   const boostedShield = shieldToApply
     ? {
         ...shieldToApply,
         hp: Math.floor(
-          applyRitualPower(shieldToApply.hp) * limitedRecoveryEffectMult,
+          Math.floor(applyRitualPower(shieldToApply.hp) * shieldPowerMult) * limitedRecoveryEffectMult,
         ),
         mp: Math.floor(
-          applyRitualPower(shieldToApply.mp) * limitedRecoveryEffectMult,
+          Math.floor(applyRitualPower(shieldToApply.mp) * shieldPowerMult) * limitedRecoveryEffectMult,
         ),
       }
     : undefined;
@@ -1990,6 +2008,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         ? [finalEnemyDamage]
         : hitDamages,
     hitManaShieldEligible,
+    ...(painCast && painEnabled ? { painCast } : {}),
     selfHeal: applyRitualPower(scaledSelfHeal),
     selfHealOnMiss: applyRitualPower(scaledSelfHealOnMiss),
     skillAccuracyBonusPct,

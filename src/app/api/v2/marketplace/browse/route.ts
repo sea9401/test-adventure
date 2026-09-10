@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   marketplaceBidsV2,
@@ -23,7 +23,9 @@ import {
 // GET /api/v2/marketplace/browse — 활성 매물 목록.
 //   ?kind=equip|material  종류 필터(생략 시 전체)
 //   ?mine=1               내 활성 매물만(취소 UI 용)
-// 최신순, 최대 MARKETPLACE_V2_BROWSE_LIMIT. 판매자 식별자는 숨기고 isMine 만 반환한다.
+//   ?sort=ending_asc|ending_desc 실제 입찰 마감순
+//   ?watchIds=1,2          관심 매물 등록 번호(최대 200개)
+// 기본 최신순, 최대 MARKETPLACE_V2_BROWSE_LIMIT. 판매자 식별자는 숨기고 isMine 만 반환한다.
 // viewerGold = 뷰어 현재 골드(구매 가능 여부·구매 확인 표시용 — UI 가 browse 만으로 골드도 최신 유지).
 
 export async function GET(req: Request) {
@@ -42,6 +44,12 @@ export async function GET(req: Request) {
   const kindParam = url.searchParams.get("kind");
   const mine = url.searchParams.get("mine") === "1";
 
+  const watchParam = url.searchParams.get("watchIds");
+  const watchIds = watchParam === null ? null : watchParam.split(",").filter(Boolean).map(Number);
+  if (watchIds && (watchIds.length > 200 || watchIds.some(id => !Number.isSafeInteger(id) || id <= 0 || id > 2_147_483_647))) {
+    return Response.json({ ok: false, error: "invalid_watch_ids" }, { status: 400 });
+  }
+  const sort = url.searchParams.get("sort");
   const conds = [
     eq(marketplaceListingsV2.status, "active"),
     eq(
@@ -53,6 +61,8 @@ export async function GET(req: Request) {
     conds.push(eq(marketplaceListingsV2.kind, kindParam));
   }
   if (mine) conds.push(eq(marketplaceListingsV2.sellerId, userId));
+
+  if (watchIds !== null) conds.push(inArray(marketplaceListingsV2.id, watchIds));
 
   const rows = await db
     .select({
@@ -75,7 +85,12 @@ export async function GET(req: Request) {
     })
     .from(marketplaceListingsV2)
     .where(and(...conds))
-    .orderBy(desc(marketplaceListingsV2.createdAt))
+    .orderBy(
+      sort === "ending_asc" ? asc(marketplaceListingsV2.bidEndsAt)
+        : sort === "ending_desc" ? desc(marketplaceListingsV2.bidEndsAt)
+        : desc(marketplaceListingsV2.createdAt),
+      asc(marketplaceListingsV2.id),
+    )
     .limit(MARKETPLACE_V2_BROWSE_LIMIT);
 
   const participatedRows = rows.length === 0

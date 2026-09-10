@@ -557,3 +557,42 @@ it("선택한 24시간을 장비 등록 요청에 전달한다",async()=>{
 });
 
 });
+
+describe("경매장 건의 #658", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    browseListings = [1, 2].map(id => ({ ...marketplacePreview.listings[0], id }));
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => responseFor(String(input))));
+  });
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); localStorage.clear(); });
+
+  it("같은 이름의 두 매물 중 선택한 등록 건만 모아 보고 재진입해도 유지한다", async () => {
+    const view = () => <RewardToastProvider><V2MarketplaceView onBack={() => {}} /></RewardToastProvider>;
+    const first = render(view());
+    const name = `${browseListings[0].itemName} 관심 매물 추가`;
+    const buttons = await screen.findAllByRole("button", { name });
+    fireEvent.click(buttons[0]);
+    fireEvent.click(screen.getByRole("button", { name: "관심 매물만 보기" }));
+    await waitFor(() => expect(screen.queryAllByRole("button", { name })).toHaveLength(0));
+    expect(screen.getAllByRole("button", { name: /관심 매물 해제/ })).toHaveLength(1);
+    first.unmount();
+    render(view());
+    await screen.findByRole("button", { name: /관심 매물 해제/ });
+    expect(screen.getAllByRole("button", { name })).toHaveLength(1);
+  });
+
+  it("미판매 탭에서 만료·취소와 등록가를 표시하며 체결로 표시하지 않는다", async () => {
+    historyTrades = ["expired", "cancelled"].map((status, index) => ({
+      id: index + 1, kind: "material", itemId: "v2_iron_ore", itemName: "철광석",
+      quantity: 5, price: 500, instancePayload: null, closedAt: "2026-09-12T00:00:00Z", side: "sell", status,
+    }));
+    render(<RewardToastProvider><V2MarketplaceView onBack={() => {}} /></RewardToastProvider>);
+    fireEvent.click(screen.getByRole("button", { name: /내 거래.*판매·입찰 관리/ }));
+    fireEvent.click(screen.getByRole("button", { name: "미판매 종료" }));
+    await screen.findByText("기간 만료");
+    expect(screen.getByText("등록 취소")).not.toBeNull();
+    expect(screen.getAllByText("등록가")).toHaveLength(2);
+    expect(screen.queryByText("체결가")).toBeNull();
+    expect(screen.getAllByTestId("marketplace-listing-action").map(node => node.textContent)).toEqual([expect.stringContaining("기간 만료"), expect.stringContaining("등록 취소")]);
+  });
+});

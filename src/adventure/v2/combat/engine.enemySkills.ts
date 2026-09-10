@@ -1,3 +1,5 @@
+import { deferPainPveSkill } from "./darkPriestAdapters";
+import { canMartialCounterHit } from "./martialCounter";
 import { STAT_LABELS } from "@/adventure/data/stats";
 import { statusNameForDebuffStat } from "@/adventure/data/v2/statusEffects";
 import { applyEvasionDamageReduction } from "@/adventure/data/v2/v2CombatConstants";
@@ -605,8 +607,8 @@ export function applyEnemyV2SkillCast(
     state.stacks.playerShield,
     enemySkillMagicBarrier.hpBoundDamage,
   );
-  const enemySkillDamageToHp =
-    enemySkillMagicBarrier.hpBoundDamage - enemySkillShieldAbsorbed;
+  let enemySkillDamageToHp: number;
+  [state, nextLog, enemySkillDamageToHp] = deferPainPveSkill(state, result.hitDamages.length ? result.hitDamages : [result.enemyDamage], enemySkillMagicBarrier.hpBoundDamage, state.stacks.playerShield, nextLog);
   const nextPlayerShield =
     state.stacks.playerShield - enemySkillShieldAbsorbed;
   const enemySkillReflection = resolveEnemySkillReflection(
@@ -779,7 +781,7 @@ export function applyEnemyV2SkillCast(
   }
   const actualEnemySkillHpDamage = Math.max(0, hpBeforeEnemySkill - nextPlayerHp);
   const countered =
-    enemySkillDamageToHp > 0 && result.castSkillName
+    canMartialCounterHit(player, enemySkillDamageToHp, enemySkillShieldAbsorbed, enemySkillMagicBarrier.absorbedDamage) && result.castSkillName
       ? applyPassiveCounterOnHitIfAny(
           {
             ...state,

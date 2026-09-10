@@ -39,3 +39,16 @@ describe("시스템 푸시 이벤트 매핑", () => {
     ).toBeNull();
   });
 });
+
+
+it("낙찰 푸시로 지급 품목과 가격을 알리고 매물별로 구분한다", () => {
+  const message = pushMessageForNotification("auction_won", {
+    listingId: 42, itemName: "철광석", quantity: 4, totalPrice: 1500,
+  });
+  expect(message).toEqual({
+    title: "거래소 낙찰",
+    body: "철광석 ×4을(를) 1,500골드에 낙찰받았습니다. 물품 지급이 완료되었습니다.",
+    url: "/notifications",
+    tag: "auction-won-42",
+  });
+});

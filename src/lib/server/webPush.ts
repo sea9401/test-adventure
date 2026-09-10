@@ -6,9 +6,11 @@ import { db } from "@/db";
 import { pushSubscriptions } from "@/db/schema";
 import { feedbackReplyHref } from "@/lib/feedbackNavigation";
 import type { GamePushMessage } from "@/lib/push-notifications";
-import type {
-  V2NotificationPayload,
-  V2NotificationType,
+import {
+  auctionWonNotificationText,
+  type AuctionWonNotificationPayload,
+  type V2NotificationPayload,
+  type V2NotificationType,
 } from "@/lib/v2-notification-config";
 
 type PushConfig = {
@@ -123,6 +125,15 @@ export function pushMessageForNotification(
   payload: V2NotificationPayload,
 ): GamePushMessage | null {
   switch (type) {
+    case "auction_won": {
+      const value = payload as AuctionWonNotificationPayload;
+      return {
+        title: "거래소 낙찰",
+        body: auctionWonNotificationText(value),
+        url: "/notifications",
+        tag: `auction-won-${value.listingId}`,
+      };
+    }
     case "guild_join_requested": {
       const value = payload as { applicantName: string };
       return {

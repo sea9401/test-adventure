@@ -1,3 +1,4 @@
+import { settlePainPvp } from "./darkPriestAdapters";
 import { computeMpRestoreAmount, type Potion } from "@/adventure/data/potions";
 import {
 BLEED_MAX_STACKS,
@@ -1515,7 +1516,8 @@ export function endAttackerPhase(
   options: PvPPhaseEndOptions = {},
 ): PvPBattleState {
   if (state.phase === "ended") {
-    return releaseSwordShadowAfterPvPAction(state, atkKey, defKey);
+    const ended = releaseSwordShadowAfterPvPAction(state, atkKey, defKey);
+    return ended.usesAtb ? ended : settlePainPvp(ended, atkKey);
   }
   // 턴 카운터 갱신 — 공격자: completedPlayerTurns +1, 게이트 리셋.
   let next: PvPBattleState = setSide(state, atkKey, {
@@ -1542,6 +1544,7 @@ export function endAttackerPhase(
   );
   next = releaseSwordShadowAfterPvPAction(next, atkKey, defKey);
   next = finishUnexploredActionPvP(next, atkKey, defKey, options.skipOffensiveFollowups !== true);
+  if (!next.usesAtb) next = settlePainPvp(next, atkKey);
   if (next.phase === "ended") return next;
   if (options.tickDefenderDots !== false) {
     next = tickPvPSideDotsOnAction(next, defKey);

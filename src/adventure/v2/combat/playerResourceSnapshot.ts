@@ -1,3 +1,4 @@
+import { mergePainSnapshot } from "./darkPriest";
 import { mergeTier7ResourceSnapshot, type BattleState } from "./engineState";
 import { activeTier6ResourceSnapshot } from "./tier6UniqueEffects";
 import { mergeTripleWardResourceSnapshot } from "./tripleWard";
@@ -6,7 +7,7 @@ import { mergeWindCurrentSnapshot } from "@/adventure/data/v2/windCurrent";
 import { mergeHolyPowerSnapshot } from "./holyPower";
 
 /** ATB/레거시와 PvE/PvP가 같은 자원 표시를 사용한다. */
-export function playerResourceSnapshot(stacks: Pick<BattleState["stacks"], "tier6Uniques" | "tier7" | "tripleWard" | "lawInscriptions" | "holyPower" | "windCurrent" | "windCurrentReboundReady">) {
+export function playerResourceSnapshot(stacks: Pick<BattleState["stacks"], "tier6Uniques" | "tier7" | "tripleWard" | "lawInscriptions" | "holyPower" | "windCurrent" | "windCurrentReboundReady" | "pain">) {
   const base = mergeHolyPowerSnapshot(
     mergeLawInscriptionSnapshot(
       mergeTripleWardResourceSnapshot(
@@ -17,5 +18,5 @@ export function playerResourceSnapshot(stacks: Pick<BattleState["stacks"], "tier
     ),
     stacks.holyPower,
   );
-  return mergeWindCurrentSnapshot(base, stacks.windCurrent, stacks.windCurrentReboundReady);
+  return mergePainSnapshot(mergeWindCurrentSnapshot(base, stacks.windCurrent, stacks.windCurrentReboundReady), stacks.pain);
 }

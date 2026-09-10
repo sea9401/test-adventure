@@ -271,8 +271,8 @@ function resolveBattlePvPLegacy(
     turns += 1;
     // PvP 무한 루프 가드 / 시간 캡. 양쪽 다 데미지 0 이면 hp% 로 승부 결정 (높은 쪽 승, 동률 무승부).
     if (turns > PVP_TURN_CAP && state.phase !== "ended") {
-      const p1Frac = state.p1.hp / state.p1.maxHp;
-      const p2Frac = state.p2.hp / state.p2.maxHp;
+      const p1Frac = Math.max(0, state.p1.hp - (state.p1.stacks.pain?.debt ?? 0)) / state.p1.maxHp;
+      const p2Frac = Math.max(0, state.p2.hp - (state.p2.stacks.pain?.debt ?? 0)) / state.p2.maxHp;
       const outcome: PvPOutcome =
         p1Frac > p2Frac ? "p1_win" : p2Frac > p1Frac ? "p2_win" : "draw";
       return {

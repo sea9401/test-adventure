@@ -7,7 +7,12 @@ import { Pagination } from "@/components/ui/Pagination";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { usePagination } from "@/lib/usePagination";
 import { cookingEffectText } from "./foodShared";
-import { COOKING_FIELD_NAMES, COOKING_METHOD_NAMES } from "./types";
+import {
+  COOKING_EFFECT_TAG_NAMES,
+  COOKING_FIELD_NAMES,
+  COOKING_METHOD_NAMES,
+  type CookingEffectTag,
+} from "./types";
 import type { CookingMutation, CookingResponse } from "./clientTypes";
 import { cookingIngredientCount, cookingIngredientName } from "./clientDisplay";
 
@@ -17,6 +22,12 @@ type CookingCodexSort = "discovered" | "name" | "level" | "tier";
 
 function normalizeCodexSearch(value: string): string {
   return value.trim().toLocaleLowerCase("ko-KR");
+}
+
+function cookingEffectTagsText(effectTags: readonly CookingEffectTag[]): string {
+  return effectTags
+    .map((effectTag) => `${COOKING_EFFECT_TAG_NAMES[effectTag]} 효과`)
+    .join(" · ");
 }
 
 function clampCookingQuantity(raw: unknown): number {
@@ -49,6 +60,7 @@ export function CookingCodexPanel({ data, busy, mutate }: { data: CookingRespons
           COOKING_METHOD_NAMES[recipe.method],
           `T${recipe.tier}`,
           `Lv ${recipe.requiredLevel}`,
+          cookingEffectTagsText(recipe.effectTags),
           cookingEffectText(recipe.effect),
           ...recipe.ingredients.map((ingredient) =>
             cookingIngredientName(data, ingredient.id),
@@ -101,7 +113,7 @@ export function CookingCodexPanel({ data, busy, mutate }: { data: CookingRespons
             aria-label="요리 도감 검색"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="요리명·재료·효과 검색"
+            placeholder="요리명·재료·효과 분류 검색"
             className="min-h-11 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-normal text-zinc-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:ring-amber-900"
           />
         </label>
@@ -156,7 +168,10 @@ export function CookingCodexPanel({ data, busy, mutate }: { data: CookingRespons
                       ? `${COOKING_FIELD_NAMES[recipe.field]} · ${COOKING_METHOD_NAMES[recipe.method]} · T${recipe.tier} · Lv ${recipe.requiredLevel}`
                       : "분야 · 조리법 · 등급 미확인"}
                   </div>
-                  {recipe ? <div className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">{cookingEffectText(recipe.effect)}</div> : <div className="mt-1 text-xs text-zinc-500">직접 연구해 조합을 밝혀내세요.</div>}
+                  {recipe ? <>
+                    <div className="mt-1 text-xs font-semibold text-sky-700 dark:text-sky-300">효과 분류: {cookingEffectTagsText(recipe.effectTags)}</div>
+                    <div className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">적용 효과: {cookingEffectText(recipe.effect)}</div>
+                  </> : <div className="mt-1 text-xs text-zinc-500">직접 연구해 조합을 밝혀내세요.</div>}
                   {recipe ? <div className="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">기본 조리 XP +{recipe.craftXp.toLocaleString("ko-KR")}</div> : null}
                 </div>
               </div>

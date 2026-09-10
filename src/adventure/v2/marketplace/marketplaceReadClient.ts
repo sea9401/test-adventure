@@ -18,8 +18,8 @@ type BrowseResponse = {
 };
 
 
-export async function readMarketplaceBrowse(mineOnly: boolean) {
-  const response = await fetch(`/api/v2/marketplace/browse${mineOnly ? "?mine=1" : ""}`);
+export async function readMarketplaceBrowse(mineOnly: boolean, browseQuery = "") {
+  const response = await fetch(`/api/v2/marketplace/browse${mineOnly ? "?mine=1" : browseQuery}`);
   const payload = (await response.json().catch(() => null)) as BrowseResponse | null;
   if (!response.ok || !payload?.ok) throw new Error(`목록 로드 실패 (${response.status})`);
   return payload;

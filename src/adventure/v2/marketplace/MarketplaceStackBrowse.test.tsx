@@ -84,3 +84,13 @@ it("입찰 전에 실제 음식 효과와 지속 시간을 표시한다", () => 
   expect(html).toContain("30");
   expect(html.indexOf("최대 HP +120")).toBeLessThan(html.indexOf("묶음 입찰"));
 });
+it("같은 재료의 품목 즐겨찾기와 개별 관심 매물을 구분한다", () => {
+  const html = renderToStaticMarkup(<MarketplaceStackBrowse
+    listings={listings} clockMs={0} busy={false}
+    favoriteKeys={new Set(["material:iron_ore"])} onToggleFavorite={vi.fn()}
+    watchlist={{ ids: new Set([2]), toggle: vi.fn() }} onBid={vi.fn()} onOpenTools={vi.fn()}
+  />);
+  expect(html.match(/철광석 즐겨찾기 해제/g)).toHaveLength(2);
+  expect(html.match(/철광석 관심 매물 추가/g)).toHaveLength(1);
+  expect(html.match(/철광석 관심 매물 해제/g)).toHaveLength(1);
+});

@@ -1,3 +1,4 @@
+import { martialCounterVitality } from "./martialCounter";
 import { recordCombatDamage } from "./combatDiagnostics";
 import { effectiveAttackerAtk } from "./engine.pvpStats";
 import { combatRandom } from "./combatRandom";
@@ -36,7 +37,7 @@ export function maybeApplyMartialCounter(
     defender.stacks.skillReflectBoostTurns > 0
       ? defender.stacks.skillReflectBoostPct
       : 0;
-  const counterAtk = v2AtkMultMC !== 1 ? Math.floor(mcAtk * v2AtkMultMC) : mcAtk;
+  const counterAtk = (v2AtkMultMC !== 1 ? Math.floor(mcAtk * v2AtkMultMC) : mcAtk) + martialCounterVitality(defender.player, v2DefBuffMult(defender.v2SelfBuffs, defender.v2SelfDebuffs));
   const boostedCounterAtk =
     counterBoostPct > 0
       ? Math.floor(counterAtk * (1 + counterBoostPct / 100))

@@ -40,6 +40,7 @@ const rows = [
 ];
 
 let listingRows = rows;
+const queryCalls = vi.hoisted(() => ({ where: vi.fn(), orderBy: vi.fn() }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "viewer"),
@@ -60,8 +61,8 @@ vi.mock("@/db", () => ({
             : listingRows;
       const chain = {
         from: () => chain,
-        where: () => chain,
-        orderBy: () => chain,
+        where: (condition: unknown) => { queryCalls.where(condition); return chain; },
+        orderBy: (...order: unknown[]) => { queryCalls.orderBy(...order); return chain; },
         limit: (limit: number) => Promise.resolve(result.slice(0, limit)),
         groupBy: () => Promise.resolve(result),
       };
@@ -75,6 +76,7 @@ import { GET } from "./route";
 describe("경매장 조회", () => {
   beforeEach(() => {
     listingRows = rows;
+    vi.clearAllMocks();
   });
 
   it("현재 경매 버전만 노출하고 6시간·10분 정책을 반환한다", async () => {
@@ -119,4 +121,27 @@ describe("경매장 조회", () => {
     expect(body.listings).toHaveLength(500);
     expect(body.listings.at(-1)?.id).toBe(500);
   });
+});
+
+
+it("마감순과 관심 등록 번호를 조회 제한보다 먼저 DB에 적용한다", async () => {
+  const { PgDialect } = await import("drizzle-orm/pg-core");
+  queryCalls.where.mockClear();
+  queryCalls.orderBy.mockClear();
+  await GET(new Request("http://test/api/v2/marketplace/browse?sort=ending_asc&watchIds=1,9999"));
+  const dialect = new PgDialect();
+  const filter = dialect.sqlToQuery(queryCalls.where.mock.calls[0][0]);
+  expect(filter.params).toEqual(["active", 1, 1, 9999]);
+  const order = dialect.sqlToQuery(queryCalls.orderBy.mock.calls[0][0]);
+  expect(order.sql).toContain('"bid_ends_at" asc');
+});
+
+it("빈 관심 목록은 전체 조회가 되지 않고 잘못된 번호는 거부한다", async () => {
+  const { PgDialect } = await import("drizzle-orm/pg-core");
+  queryCalls.where.mockClear();
+  await GET(new Request("http://test/api/v2/marketplace/browse?watchIds="));
+  expect(new PgDialect().sqlToQuery(queryCalls.where.mock.calls[0][0]).sql).toContain("false");
+  for (const value of ["-1", "1.2", "abc", "2147483648", Array.from({ length: 201 }, (_, i) => i + 1).join(",")]) {
+    expect((await GET(new Request(`http://test/api/v2/marketplace/browse?watchIds=${value}`))).status).toBe(400);
+  }
 });

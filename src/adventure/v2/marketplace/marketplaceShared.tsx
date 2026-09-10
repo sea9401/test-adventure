@@ -65,6 +65,7 @@ export function marketplacePricePosition(
 
 export type Listing = {
   id: number;
+  closedStatus?: "expired" | "cancelled";
   isMine: boolean;
   isHighestBidder: boolean;
   hasMyBid: boolean;
@@ -94,7 +95,9 @@ export type MarketplaceBrowseSort =
   | "crafter_asc"
   | "crafter_desc"
   | "newest"
-  | "oldest";
+  | "oldest"
+  | "ending_asc"
+  | "ending_desc";
 
 function listingCraftMetadata(payload: unknown) {
   const raw = payload as {
@@ -172,6 +175,9 @@ export function compareMarketplaceListings(
       (aMetadata.craftedBy?.level ?? 0) -
       (bMetadata.craftedBy?.level ?? 0);
     if (sort === "crafter_desc") compared *= -1;
+  } else if (sort === "ending_asc" || sort === "ending_desc") {
+    compared = Date.parse(a.bidEndsAt) - Date.parse(b.bidEndsAt);
+    if (sort === "ending_desc") compared *= -1;
   } else {
     compared = a.createdAt.localeCompare(b.createdAt);
     if (sort === "newest") compared *= -1;

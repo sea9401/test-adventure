@@ -90,6 +90,27 @@ describe("요리 도감 페이지네이션", () => {
     expect(screen.getByText("검색 결과 1개")).toBeTruthy();
   });
 
+  it("납품 효과 분류명으로 레시피를 검색하고 실제 적용 효과와 구분해 표시한다", () => {
+    const { container } = render(
+      <CookingCodexPanel
+        data={codexFixture(13)}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "요리 도감 검색" }),
+      { target: { value: "생활 효과" } },
+    );
+
+    expect(container.querySelectorAll("article")).toHaveLength(1);
+    expect(screen.getByText("깨달음의 허브차")).toBeTruthy();
+    expect(screen.getByText("효과 분류: 생활 효과")).toBeTruthy();
+    expect(screen.getByText("적용 효과: 요리 경험치 +4%")).toBeTruthy();
+    expect(screen.getByText("검색 결과 1개")).toBeTruthy();
+  });
+
   it("미발견 레시피의 숨겨진 이름은 검색으로 노출하지 않는다", () => {
     const data = codexFixture(7);
     const hiddenName = COOKING_PUBLIC_RECIPES[6].name;

@@ -38,6 +38,7 @@ export type V2PatternSelfStatus =
   | "berserkerDeathOvercome";
 export type V2PatternSelfResource =
   | "windCurrent"
+  | "pain" | "darkSanctuary" | "painAbsolution" | "painCondemnation" | "darkSanctuaryUsed"
   | "holyPower"
   | "sanctuary"
   | "impact"
@@ -582,6 +583,7 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
     case "self_resource": {
       const resource =
         c.resource === "windCurrent" ||
+        (c.resource === "pain" || c.resource === "darkSanctuary" || c.resource === "painAbsolution" || c.resource === "painCondemnation" || c.resource === "darkSanctuaryUsed") ||
         c.resource === "holyPower" ||
         c.resource === "sanctuary" ||
         c.resource === "impact" ||

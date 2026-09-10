@@ -28,11 +28,26 @@ export const V2_NOTIFICATION_TYPES = [
   "feedback_replied",
   "farm_ready",
   "codex_research_trophy",
+  "auction_won",
 ] as const;
 export type V2NotificationType = (typeof V2_NOTIFICATION_TYPES)[number];
 
+export type AuctionWonNotificationPayload = {
+  listingId: number;
+  itemName: string;
+  quantity: number;
+  totalPrice: number;
+};
+
+export function auctionWonNotificationText(
+  payload: AuctionWonNotificationPayload,
+): string {
+  return `${payload.itemName} ×${payload.quantity.toLocaleString("ko-KR")}을(를) ${payload.totalPrice.toLocaleString("ko-KR")}골드에 낙찰받았습니다. 물품 지급이 완료되었습니다.`;
+}
+
 // type 별 payload — 거점 이름은 클라에서 OUTPOST_BY_ID 해석, 라벨은 시점 스냅샷.
 export type V2NotificationPayload =
+  | AuctionWonNotificationPayload
   // outpost_attacked — 내(길드) 거점 성벽 피격. fortHp = 타격 후 잔량.
   | {
       outpostId: string;

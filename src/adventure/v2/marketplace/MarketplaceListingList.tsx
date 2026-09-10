@@ -1,5 +1,7 @@
 "use client";
 
+import { MarketplaceWatchButton, type MarketplaceWatchlist } from "./useMarketplaceWatchlist";
+
 import { equipmentProgressionLock } from "@/adventure/data/v2/equipmentProgression";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 import {
@@ -113,7 +115,9 @@ export function ListingList({
   onOpenCard,
   favoriteKeys,
   onToggleFavorite,
+  watchlist,
 }: {
+  watchlist?: MarketplaceWatchlist;
   rows: Listing[] | null;
   emptyText: string;
   action: (l: Listing) => React.ReactNode;
@@ -338,6 +342,7 @@ export function ListingList({
                   ) : (
                     <div className="min-w-0">{info}</div>
                   )}
+                  <MarketplaceWatchButton listing={l} watchlist={watchlist} />
                   {onToggleFavorite ? (
                     <button
                       type="button"
@@ -364,7 +369,7 @@ export function ListingList({
                   </div>
                 ) : null}
                 <div className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-400">
-                  {historical ? "체결" : "등록"} {timeAgo(l.createdAt)}
+                  {l.closedStatus ? "종료" : historical ? "체결" : "등록"} {timeAgo(l.createdAt)}
                 </div>
               </div>
             </div>
@@ -375,7 +380,7 @@ export function ListingList({
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    {historical
+                    {l.closedStatus ? "등록가" : historical
                       ? "체결가"
                       : isStackableMarketplaceListing(l)
                         ? "묶음 시작가"

@@ -1,4 +1,7 @@
 import { CRIT_PCT_CAP } from "@/adventure/data/stats";
+import { canMartialCounterHit } from "./martialCounter";
+import { deferPain } from "./darkPriest";
+import { painDeferLog, settlePainPvp } from "./darkPriestAdapters";
 import {
 applyEvasionDamageReduction,
 CRIT_MULT_BASE,
@@ -693,7 +696,9 @@ function advanceTurnPvPBody(
     defender.stacks.playerShield,
     magicBarrier.hpBoundDamage,
   );
-  const dmgToHp = magicBarrier.hpBoundDamage - shieldAbsorbed;
+  const painHit = deferPain(defender.stacks.pain, magicBarrier.hpBoundDamage - shieldAbsorbed, true);
+  const dmgToHp = painHit.immediate;
+  if (painHit.deferred > 0) defender = { ...defender, stacks: { ...defender.stacks, pain: painHit.state } };
   recordCombatDamage("basic", defKey, defender.hp, dmgToHp, shieldAbsorbed + magicBarrier.absorbedDamage);
   const newShield = defender.stacks.playerShield - shieldAbsorbed;
   // 보호막이 공격을 전부 흡수한 경우에는 피격 반사·반격이 발동하지 않는다.
@@ -758,6 +763,7 @@ function advanceTurnPvPBody(
   const braceDefDelta = nextBraceDefBonus - prevBraceDefBonus;
   // ── 로그 — 결의 → 가드 → 굳건한 의지 → 철벽 → 본타 → 불굴 → 흡혈 갑옷 → 이중 행운 → 흡혈 ──
   let log = state.log;
+  if (painHit.deferred > 0) log = appendLog(log, painDeferLog(painHit.deferred, painHit.state!.debt, { side: atkKey }));
   if (damageBeforeSetEffects < totalDmgBeforeEvasion) {
     log = appendLog(log, {
       kind: "info",
@@ -1501,7 +1507,7 @@ function advanceTurnPvPBody(
       outcome: atkKey === "p1" ? "p1_win" : "p2_win",
     };
     return releaseSwordShadowAfterPvPAction(
-      endedState,
+      endedState.usesAtb ? endedState : settlePainPvp(endedState, atkKey),
       atkKey,
       defKey,
     );
@@ -1527,6 +1533,11 @@ function advanceTurnPvPBody(
     );
     next = runeCounterResult.state;
     if (runeCounterResult.attackerKilled) return next;
+  } else {
+    // 철벽 태세와 충격 방벽은 일반 보호막이 피해를 전부 받아도 적중한 직접 공격에 반응한다.
+    next = applyOnHitReflect(next, atkKey, defKey, totalDmg, false, true).state;
+  }
+  if ((!hitStoppedByShield || canMartialCounterHit(defender.player, dmgToHp, shieldAbsorbed, magicBarrier.absorbedDamage)) && next[atkKey].hp > 0 && next[defKey].hp > 0) {
     // ── 무도가/절정 반격 패시브 — 피격 후 일정 확률로 ATK 카운터(PvE enemyPhase 미러) ──
     const martialCounterResult = maybeApplyMartialCounter(
       next,
@@ -1536,9 +1547,6 @@ function advanceTurnPvPBody(
     );
     next = martialCounterResult.state;
     if (martialCounterResult.attackerKilled) return next;
-  } else {
-    // 철벽 태세와 충격 방벽은 일반 보호막이 피해를 전부 받아도 적중한 직접 공격에 반응한다.
-    next = applyOnHitReflect(next, atkKey, defKey, totalDmg, false, true).state;
   }
   next = finishPvPBerserkerAttackAction(
     next,

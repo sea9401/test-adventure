@@ -20,6 +20,17 @@ describe("skillLibraryTags", () => {
 });
 
 describe("equippedPassiveSummary", () => {
+  it("고대 용의 심장은 물리·마법 피해를 표시하고 힘·지능 보너스를 표시하지 않는다", () => {
+    const summary = equippedPassiveSummary(["v2c_dragonlord_heart"]);
+    expect(summary).toEqual(expect.arrayContaining([
+      { id: "physicalSkillDamagePct", label: "물리 스킬 피해 +20%", conditional: false },
+      { id: "magicSkillDamagePct", label: "마법 스킬 피해 +20%", conditional: false },
+      { id: "maxHpPct", label: "최대 HP +20%", conditional: false },
+    ]));
+    expect(summary.some((row) => row.id === "statPct:str" || row.id === "statPct:int")).toBe(false);
+    expect(skillLibraryTags("v2c_dragonlord_heart", 20)).toEqual(expect.arrayContaining(["물리 스킬 피해 +20%", "마법 스킬 피해 +20%"]));
+  });
+
   it("실제 전투 집계 규칙으로 장착 패시브의 같은 스탯을 합산한다", () => {
     const summary = equippedPassiveSummary([
       "v2c_warrior_might",
@@ -72,7 +83,12 @@ describe("equippedPassiveSummary", () => {
       expect.arrayContaining([
         {
           id: "counterChancePct",
-          label: "HP 피해 시 반격 확률 54.5%",
+          label: "직접 피격 시(보호막 포함) 반격 확률 54.5%",
+          conditional: true,
+        },
+        {
+          id: "counterVitCoef",
+          label: "반격 원량에 활력 100% 추가 · 중첩 불가",
           conditional: true,
         },
         {

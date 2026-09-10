@@ -1,9 +1,5 @@
 import { V2_SKILL_PROC_IN_PATTERN } from "@/adventure/data/v2/coreLoopConfig";
-import {
-effectiveCombatPatternFromEquipped,
-smartDefaultPatternFromEquipped,
-V2_SKILLS,
-} from "@/adventure/data/v2/v2Skills";
+import { effectiveCombatPatternFromEquipped, smartDefaultPatternFromEquipped, V2_SKILLS } from "@/adventure/data/v2/v2Skills";
 import { berserkerCastContext } from "./berserkerCombat";
 import { healingReductionPct } from "./burnHealing";
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
@@ -14,7 +10,6 @@ import { skillTargetDef, skillTargetMagicDef } from "./engine.pvpStats";
 import { effectiveMutationDef } from "./mutationCombat";
 import { formulaCompletionOverdraftSkillIds } from "./primordialSageCombat";
 import { isBleedBurstReady } from "./tier6UniqueEffects";
-
 export function preparePvPSkillCast(side: PvPSide, opp: PvPSide, diagnosticActor?: V2SkillCastInput["diagnosticActor"]) {
   const tier6UnityPct =
     (side.buffs.tier6UnityTurnsLeft ?? 0) > 0
@@ -135,6 +130,8 @@ export function preparePvPSkillCast(side: PvPSide, opp: PvPSide, diagnosticActor
       currentHp: side.hp,
       maxMp: side.maxMp,
       classTier: side.player.classTier,
+      pain: side.stacks.pain,
+      skillShieldPowerPct: side.player.skillShieldPowerPct,
       holyPower: side.stacks.holyPower,
       windCurrent: side.stacks.windCurrent,
       fortressImpact: side.stacks.fortressImpact,

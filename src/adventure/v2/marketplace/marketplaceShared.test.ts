@@ -187,3 +187,12 @@ describe("거래소 매물 정렬", () => {
     ).toEqual([1, 2]);
   });
 });
+
+describe("경매 마감순", () => {
+  it("등록일과 보관 만료일 대신 연장된 실제 입찰 마감으로 정렬한다", () => {
+    const older = { ...stackListing(1, 1, 100), bidEndsAt: "2026-08-04T00:10:00Z" };
+    const newer = { ...stackListing(2, 1, 100), bidEndsAt: "2026-08-03T06:00:00Z" };
+    expect([older, newer].sort((a, b) => compareMarketplaceListings(a, b, "ending_asc")).map(l => l.id)).toEqual([2, 1]);
+    expect([newer, older].sort((a, b) => compareMarketplaceListings(a, b, "ending_desc")).map(l => l.id)).toEqual([1, 2]);
+  });
+});

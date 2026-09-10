@@ -223,6 +223,23 @@ describe("개편 요리 연구실", () => {
     expect(html).toContain(`조건: ${label} · 정성작 이상`);
   });
 
+  it("효과 납품 후보가 없으면 도감 검색어와 필요한 품질을 안내한다", () => {
+    const data = fixture("life");
+    const html = renderToStaticMarkup(
+      <CookingWorkspace
+        data={data}
+        section="delivery"
+        onSectionChange={vi.fn()}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+
+    expect(html).toContain(
+      "요리 도감에서 ‘생활 효과’로 검색하면 대상 레시피를 찾을 수 있습니다. 정성작 이상만 납품할 수 있습니다.",
+    );
+  });
+
   it("상시 납품은 요리와 판매 대금을 확인한 뒤에만 실행한다", async () => {
     const mutate = vi.fn(async () => undefined);
     render(

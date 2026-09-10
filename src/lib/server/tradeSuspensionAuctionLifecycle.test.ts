@@ -3,6 +3,7 @@ import {
   marketplaceBuyOrdersV2,
   marketplaceInbox,
   marketplaceListingsV2,
+  marketplaceBidsV2,
 } from "@/db/schema";
 
 const mocks = vi.hoisted(() => ({
@@ -145,6 +146,8 @@ function query(transactional = false) {
     where() {
       return builder;
     },
+    orderBy() { return builder; },
+    offset() { return builder; },
     for() {
       locked = true;
       return builder;
@@ -180,7 +183,7 @@ const tx = {
   insert: vi.fn((table: unknown) => ({
     values: vi.fn(async (values: Record<string, unknown>) => {
       if (table === marketplaceInbox) mocks.inboxRows.push(values);
-      else mocks.bidRows.push(values);
+      else if (table === marketplaceBidsV2) mocks.bidRows.push(values);
     }),
   })),
   update: vi.fn((table: unknown) => ({

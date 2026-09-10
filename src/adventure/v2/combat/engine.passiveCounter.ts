@@ -1,3 +1,4 @@
+import { martialCounterVitality } from "./martialCounter";
 import { combatRandom } from "./combatRandom";
 import { type BattleState, type PlayerCombat } from "./engineState";
 import { applyEnemyDamage, playerFacingEnemyDef } from "./engine.pveOperations";
@@ -29,7 +30,7 @@ export function applyPassiveCounterOnHitIfAny(
       ? state.stacks.skillReflectBoostPct
       : 0;
   const counterAtk =
-    v2AtkMult !== 1 ? Math.floor(player.atk * v2AtkMult) : player.atk;
+    (v2AtkMult !== 1 ? Math.floor(player.atk * v2AtkMult) : player.atk) + martialCounterVitality(player, v2DefBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs));
   const boostedCounterAtk =
     counterBoostPct > 0
       ? Math.floor(counterAtk * (1 + counterBoostPct / 100))

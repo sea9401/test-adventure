@@ -1,5 +1,8 @@
 import type { Monster } from "@/adventure/data/monsters";
 import { applyEvasionDamageReduction } from "@/adventure/data/v2/v2CombatConstants";
+import { martialCounterVitality, canMartialCounterHit } from "./martialCounter";
+import { deferPain } from "./darkPriest";
+import { painDeferLog } from "./darkPriestAdapters";
 import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
 import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
 import { combatRandom } from "./combatRandom";
@@ -1151,7 +1154,9 @@ function resolveEnemyPhaseHit(
   const shieldAbsorbed = damagePolicy.bypassPlayerShield
     ? 0
     : Math.min(state.stacks.playerShield, magicBarrier.hpBoundDamage);
-  const dmgToHp = magicBarrier.hpBoundDamage - shieldAbsorbed;
+  const painHit = deferPain(state.stacks.pain, magicBarrier.hpBoundDamage - shieldAbsorbed, false);
+  const dmgToHp = painHit.immediate;
+  if (painHit.deferred > 0) state = { ...state, stacks: { ...state.stacks, pain: painHit.state }, log: appendLog(state.log, painDeferLog(painHit.deferred, painHit.state!.debt, { turn: "enemy" })) };
   recordCombatDamage("enemy_direct", "player", state.playerHp, dmgToHp, shieldAbsorbed + magicBarrier.absorbedDamage);
   const newShield = state.stacks.playerShield - shieldAbsorbed;
   const trackedShieldResolution = resolveTrackedShieldAbsorption({
@@ -1495,7 +1500,7 @@ function resolveEnemyPhaseHit(
   let impactAfterCounter = fortressReaction.impact;
   if (
     martialCounterPct > 0 &&
-    !hitStoppedByShield &&
+    (!hitStoppedByShield || canMartialCounterHit(player, dmgToHp, shieldAbsorbed, magicBarrier.absorbedDamage)) &&
     playerHp > 0 &&
     enemyHpAfterRuneCounter > 0 &&
     combatRandom() * 100 < martialCounterPct
@@ -1509,7 +1514,7 @@ function resolveEnemyPhaseHit(
         ? state.stacks.skillReflectBoostPct
         : 0;
     const counterAtkM =
-      v2AtkMultM !== 1 ? Math.floor(player.atk * v2AtkMultM) : player.atk;
+      (v2AtkMultM !== 1 ? Math.floor(player.atk * v2AtkMultM) : player.atk) + martialCounterVitality(player, v2DefBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs));
     const boostedCounterAtkM =
       counterBoostPct > 0
         ? Math.floor(counterAtkM * (1 + counterBoostPct / 100))

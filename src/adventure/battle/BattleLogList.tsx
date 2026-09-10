@@ -263,6 +263,7 @@ function isDamageCalculationEntry(entry: BattleLogEntry): boolean {
 
 function isActionOpeningEffect(entry: BattleLogEntry): boolean {
   if (entry.kind === "hp_bar") return false;
+  if (entry.kind === "info" && entry.painEvent?.kind === "defer") return true;
   const { labels, body } = parseBattleLogText(entry.text);
   return (
     labels.some((label) =>
@@ -482,6 +483,20 @@ export function groupBattleLogActions(
       continue;
     }
     if (isDirectActionEntry(entry)) {
+      // 피해 뒤에 기록되는 같은 시전의 직접 회복은 별도 공격/타격이 아니다.
+      // 저장된 PvP 로그도 player_attack/enemy_attack으로 회복을 기록한다.
+      const recovery = actionHeadline(entry.text);
+      const damage = current && damageActionHeadline(current.main);
+      if (
+        current && damage &&
+        recovery.title === damage.title &&
+        /(?:^|\s)(?:HP|마나)\s+[\d,]+\s+회복했다\./.test(recovery.result) &&
+        entryTurnSide(current.main) === entryTurnSide(entry) &&
+        (current.main.t == null || entry.t == null || current.main.t === entry.t)
+      ) {
+        current.effects.push(entry);
+        continue;
+      }
       if (current && isMatchingSkillCastResult(current, entry)) {
         const skillCast = actionSkillCast(current);
         // The placeholder alone carries skillCast in hits. Keep the first actual
@@ -1429,6 +1444,10 @@ const SIGNATURE_RESOURCE_LABELS: Record<string, string> = {
   purificationWard: "정화결계",
   domainStability: "영역 안정",
   lawInscriptions: "각인",
+  pain: "고통",
+  painRepayment: "예상 상환",
+  darkSanctuary: "검은 성역",
+  painCycle: "의식 순환",
   holyPower: "성력",
   windCurrent: "기류",
   sanctuary: "성역",

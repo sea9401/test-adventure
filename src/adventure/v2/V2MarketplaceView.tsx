@@ -5,6 +5,8 @@ import { startAdaptiveVisiblePolling } from "@/lib/adaptiveVisiblePolling";
 import { marketplaceBrowseSnapshotKey, marketplacePollDelayMs } from "./marketplace/marketplacePolling";
 import { SelectControl } from "./marketplace/SelectControl";
 import { MarketplaceAuctionSettings } from "./marketplace/MarketplaceAuctionSettings";
+import { MarketplaceWatchFilter, useMarketplaceWatchlist } from "./marketplace/useMarketplaceWatchlist";
+import { useMarketplaceUnsold } from "./marketplace/useMarketplaceUnsold";
 import { ItemSearchInput } from "./ItemSearchInput";
 import { filterItemCounts, matchesItemSearch } from "./itemSearch";
 
@@ -121,9 +123,7 @@ import { createMarketplaceReadCoordinator } from "./marketplace/marketplaceReadC
 export { MarketplaceRecentTradeList } from "@/adventure/v2/marketplace/MarketplaceListingList";
 
 type Tab = "browse" | "sell" | "recent" | "mine";
-
-type MineTab = "active" | "bids" | "alerts" | "history";
-
+type MineTab = "active" | "bids" | "alerts" | "history" | "unsold";
 type SellCraftFilter =
   | "all"
   | "crafted"
@@ -172,11 +172,13 @@ const EQUIPMENT_BROWSE_SORT_BUTTONS: readonly BrowseSortButton[] = [
   { key: "power", label: "위력", ascending: "power_asc", descending: "power_desc", initial: "power_desc" },
   { key: "roll", label: "품질", ascending: "roll_asc", descending: "roll_desc", initial: "roll_desc" },
   { key: "crafter", label: "제작 숙련", ascending: "crafter_asc", descending: "crafter_desc", initial: "crafter_desc" },
+  { key: "ending", label: "남은 시간", ascending: "ending_asc", descending: "ending_desc", initial: "ending_asc" },
   { key: "created", label: "등록일", ascending: "oldest", descending: "newest", initial: "newest" },
 ];
 
 const STACK_BROWSE_SORT_BUTTONS: readonly BrowseSortButton[] = [
   EQUIPMENT_BROWSE_SORT_BUTTONS[0],
+  EQUIPMENT_BROWSE_SORT_BUTTONS[5],
   EQUIPMENT_BROWSE_SORT_BUTTONS[4],
 ];
 
@@ -201,6 +203,9 @@ export function V2MarketplaceView({
   const equipmentCodexLoaded = equipmentCodex?.loaded === true;
   const [tab, setTab] = useState<Tab>("browse");
   const [mineTab, setMineTab] = useState<MineTab>("active");
+  const unsold = useMarketplaceUnsold(tab === "mine" && mineTab === "unsold" && !preview);
+  const watchlist = useMarketplaceWatchlist();
+  const browseRequestIds = useRef([0, 0]);
   // 둘러보기 — 인벤토리/판매 탭과 같은 6부위 + 재료 + 소모품 하위 탭.
   const [browseTab, setBrowseTab] = useState<V2ItemTabKey>("weapon");
   // 판매 탭 — 인벤토리와 동일하게 슬롯 서브탭 + 정렬 + 페이지네이션.
@@ -287,18 +292,25 @@ export function V2MarketplaceView({
     compare?: boolean;
   } | null>(null);
 
+  const browseParams = new URLSearchParams();
+  if (sort === "ending_asc" || sort === "ending_desc") browseParams.set("sort", sort);
+  if (watchlist.only) browseParams.set("watchIds", [...watchlist.ids].join(","));
+  const browseQuery = browseParams.size ? `?${browseParams}` : "";
   const [reads] = useState(createMarketplaceReadCoordinator);
   const browseSequence = useRef(0);
   const browseSnapshots = useRef<Record<string, string>>({});
   useEffect(() => () => reads.invalidate(), [reads]);
 
   const loadBrowse = useCallback((mineOnly: boolean) => reads.run(
-    `browse:${mineOnly}`,
+    `browse:${mineOnly}:${mineOnly ? "" : browseQuery}`,
     async () => {
       const sequence = ++browseSequence.current;
-      return { j: await readMarketplaceBrowse(mineOnly), sequence };
+      const slot = mineOnly ? 1 : 0;
+      const requestId = ++browseRequestIds.current[slot];
+      return { j: await readMarketplaceBrowse(mineOnly, browseQuery), sequence, slot, requestId };
     },
-    ({ j, sequence }) => {
+    ({ j, sequence, slot, requestId }) => {
+      if (requestId !== browseRequestIds.current[slot]) return;
       browseSnapshots.current[String(mineOnly)] = marketplaceBrowseSnapshotKey(
         mineOnly, typeof j.viewerGold === "number" ? j.viewerGold : null, j.listings ?? [],
       );
@@ -319,7 +331,7 @@ export function V2MarketplaceView({
         setBidExtensionMinutes(j.bidExtensionMinutes);
       }
     },
-  ).then(() => browseSnapshots.current[String(mineOnly)] ?? ""), [reads]);
+  ).then(() => browseSnapshots.current[String(mineOnly)] ?? ""), [reads, browseQuery]);
 
   const loadEquipment = useCallback(async () => {
     const response = await fetch("/api/v2/me/equipment");
@@ -936,12 +948,16 @@ export function V2MarketplaceView({
         ["crafter_asc", "제작자 Lv 낮은순"],
         ["newest", "최근 등록순"],
         ["oldest", "오래된 등록순"],
+        ["ending_asc", "남은 시간 짧은순"],
+        ["ending_desc", "남은 시간 긴순"],
       ]
     : [
         ["price_asc", "가격 낮은순"],
         ["price_desc", "가격 높은순"],
         ["newest", "최근 등록순"],
         ["oldest", "오래된 등록순"],
+        ["ending_asc", "남은 시간 짧은순"],
+        ["ending_desc", "남은 시간 긴순"],
       ];
   const browseSortButtons = browseEquipmentTab
     ? EQUIPMENT_BROWSE_SORT_BUTTONS
@@ -951,6 +967,7 @@ export function V2MarketplaceView({
     .filter(
       (l) => !personalOnly || l.isMine || l.isHighestBidder || l.hasMyBid,
     )
+    .filter((l) => !watchlist.only || watchlist.ids.has(l.id))
     .filter((l) => !favoriteOnly || favoriteKeys.has(favoriteKeyForListing(l)))
     .filter(
       (l) =>
@@ -983,6 +1000,7 @@ export function V2MarketplaceView({
     .sort((a, b) => compareMarketplaceListings(a, b, sort));
   const displayedItemCount = displayedListings.length;
   const activeFilterCount =
+    Number(watchlist.only) +
     Number(favoriteOnly) +
     Number(personalOnly) +
     (browseEquipmentTab
@@ -1000,13 +1018,14 @@ export function V2MarketplaceView({
     setCraftedOnly(false);
     setCraftedQualityFilter("all");
     setCraftedLevelFilter("all");
+    watchlist.setOnly(false);
     setFavoriteOnly(false);
     setPersonalOnly(false);
   };
   const browsePager = usePagination(
     displayedListings,
     MARKETPLACE_PAGE_SIZE,
-    `browse:${browseTab}:${q}:${favoriteOnly}:${personalOnly}:${equipmentTierFilter}:${unregisteredCodexOnly}:${craftedOnly}:${craftedQualityFilter}:${craftedLevelFilter}:${sort}`,
+    `browse:${watchlist.only}:${browseTab}:${q}:${favoriteOnly}:${personalOnly}:${equipmentTierFilter}:${unregisteredCodexOnly}:${craftedOnly}:${craftedQualityFilter}:${craftedLevelFilter}:${sort}`,
   );
   const filteredRecentTrades = filterMarketplaceRecentTrades(
     recentTrades ?? [],
@@ -1017,10 +1036,11 @@ export function V2MarketplaceView({
     MARKETPLACE_PAGE_SIZE,
     `recent-trades:${recentSearch.trim().toLocaleLowerCase("ko-KR")}`,
   );
+  const historyRows = mineTab === "unsold" ? unsold.rows : myHistory;
   const myHistoryPager = usePagination(
-    myHistory ?? [],
+    historyRows ?? [],
     MARKETPLACE_PAGE_SIZE,
-    "my-history",
+    `my-history:${mineTab}`,
   );
   const minePager = usePagination(mine ?? [], MARKETPLACE_PAGE_SIZE, "mine");
 
@@ -1426,6 +1446,7 @@ export function V2MarketplaceView({
                 </div>
               )}
 
+              <MarketplaceWatchFilter watchlist={watchlist} />
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="font-semibold text-zinc-700 dark:text-zinc-200">
@@ -1492,6 +1513,7 @@ export function V2MarketplaceView({
               listings={browsePager.pageItems}
               clockMs={clockMs}
               busy={busy}
+              watchlist={watchlist}
               favoriteKeys={favoriteKeys}
               onToggleFavorite={toggleFavorite}
               onBid={(listing) => void openBid(listing)}
@@ -1551,6 +1573,7 @@ export function V2MarketplaceView({
               frontierDepth={frontierDepth}
               clockMs={clockMs}
               onOpenCard={openCardFor}
+              watchlist={watchlist}
               favoriteKeys={favoriteKeys}
               onToggleFavorite={toggleFavorite}
             />
@@ -1613,12 +1636,13 @@ export function V2MarketplaceView({
       {tab === "mine" && (
         <>
           <Card padding="none" className="overflow-hidden">
-            <div className="grid grid-cols-4 p-1.5">
+            <div className="grid grid-cols-2 p-1.5 sm:grid-cols-5">
               {([
                 ["active", "판매 중", Package],
                 ["bids", "내 입찰", Gavel],
                 ["alerts", "가격 알림", Star],
                 ["history", "거래 내역", Receipt],
+                ["unsold", "미판매 종료", Package],
               ] as const).map(([key, label, Icon]) => (
                 <button
                   key={key}
@@ -1709,9 +1733,10 @@ export function V2MarketplaceView({
             />
           ) : (
             <>
-              <ListingList
-                rows={myHistory === null ? null : myHistoryPager.pageItems}
-                emptyText="아직 체결된 거래가 없어요."
+              {mineTab === "unsold" && <Card padding="sm" className="text-xs text-zinc-600 dark:text-zinc-300">판매되지 않고 만료되거나 취소된 최근 100건이에요.</Card>}
+              {mineTab === "unsold" && unsold.error ? <Card padding="sm"><p role="alert">{unsold.error}</p><button type="button" onClick={unsold.retry} className="mt-2 rounded-md border border-zinc-300 px-3 py-2 text-xs dark:border-zinc-700">다시 시도</button></Card> : <ListingList
+                rows={historyRows === null ? null : myHistoryPager.pageItems}
+                emptyText={mineTab === "unsold" ? "미판매 종료 내역이 없어요." : "아직 체결된 거래가 없어요."}
                 historical
                 priceRef={{}}
                 frontierDepth={frontierDepth}
@@ -1720,14 +1745,14 @@ export function V2MarketplaceView({
                 action={(l) => (
                   <span className="shrink-0 text-right text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">
                     <span className={l.isMine ? "text-emerald-600 dark:text-emerald-400" : "text-sky-600 dark:text-sky-400"}>
-                      {l.isMine ? "판매" : "구매"}
+                      {l.closedStatus === "expired" ? "기간 만료" : l.closedStatus === "cancelled" ? "등록 취소" : l.isMine ? "판매" : "구매"}
                     </span>
                     <br />
                     {timeAgo(l.createdAt)}
                   </span>
                 )}
-              />
-              {myHistory !== null && myHistory.length > 0 && (
+              />}
+              {historyRows !== null && historyRows.length > 0 && (
                 <Pagination
                   page={myHistoryPager.page}
                   pageCount={myHistoryPager.pageCount}

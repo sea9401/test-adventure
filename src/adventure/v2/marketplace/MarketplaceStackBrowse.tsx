@@ -1,5 +1,6 @@
 "use client";
 
+import { MarketplaceWatchButton, type MarketplaceWatchlist } from "./useMarketplaceWatchlist";
 import { ChartLine, Cube, Flask, Star } from "@phosphor-icons/react";
 import { MarketplaceFoodEffect } from "./MarketplaceFoodEffect";
 import { Card } from "@/components/ui/Card";
@@ -20,6 +21,7 @@ export function MarketplaceStackBrowse({
   listings,
   clockMs,
   busy,
+  watchlist,
   favoriteKeys,
   onToggleFavorite,
   onBid,
@@ -28,6 +30,7 @@ export function MarketplaceStackBrowse({
   listings: Listing[];
   clockMs: number;
   busy: boolean;
+  watchlist?: MarketplaceWatchlist;
   favoriteKeys: Set<string>;
   onToggleFavorite: (key: string) => void;
   onBid: (listing: Listing) => void;
@@ -66,6 +69,7 @@ export function MarketplaceStackBrowse({
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
+                    <MarketplaceWatchButton listing={listing} watchlist={watchlist} />
                     <button
                       type="button"
                       onClick={() => onOpenTools(listing)}

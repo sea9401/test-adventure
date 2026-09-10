@@ -1,3 +1,6 @@
+import { applyPainCastPve } from "./darkPriestAdapters";
+import { directMagicSkillDamageBonus } from "./shieldedMagicDamage";
+import { directPhysicalSkillDamageBonus } from "./directPhysicalSkillDamage";
 import { CRIT_PCT_CAP, STAT_LABELS } from "@/adventure/data/stats";
 import { V2_SKILL_PROC_IN_PATTERN } from "@/adventure/data/v2/coreLoopConfig";
 import { statusNameForDebuffStat } from "@/adventure/data/v2/statusEffects";
@@ -172,6 +175,7 @@ export function applyPlayerV2SkillCast(
       currentHp: state.playerHp,
       maxMp: state.playerMaxMp,
       classTier: player.classTier,
+      pain: state.stacks.pain,
       holyPower: state.stacks.holyPower,
       windCurrent: state.stacks.windCurrent,
       fortressImpact: state.stacks.fortressImpact,
@@ -187,6 +191,7 @@ export function applyPlayerV2SkillCast(
       bleedPhysicalSkillDamagePctPerStack:
         player.bleedPhysicalSkillDamagePctPerStack,
       // 활성 상태 효과 — self_buff_pct 조건 평가용(만료 시 재시전 선풍각·철포·운기 등).
+      skillShieldPowerPct: player.skillShieldPowerPct,
       selfShield: state.stacks.playerShield,
       selfShieldActive: state.stacks.playerShield > 0,
       // 군림·질주·적랑 등 장비 발동형 속도 버프는 v2SelfBuffs 가 아니라 BattleBuffs 에 저장된다.
@@ -454,12 +459,13 @@ export function applyPlayerV2SkillCast(
     state.stacks.enemyVulnTurns > 0
       ? 1 + state.stacks.enemyVulnPct / 100
       : 1;
-  const magicSkillDamageBonus =
-    result.magicEnemyDamage > 0 && (player.magicSkillDamagePct ?? 0) > 0
-      ? Math.floor(
-          (result.magicEnemyDamage * (player.magicSkillDamagePct ?? 0)) / 100,
-        )
-      : 0;
+  const magicSkillDamageBonus = directMagicSkillDamageBonus({
+    damage: result.magicEnemyDamage,
+    shield: state.stacks.playerShield,
+    basePct: player.magicSkillDamagePct,
+    passivePct: player.shieldedMagicSkillDamagePct,
+    skillPct: result.castSkillId ? V2_SKILLS[result.castSkillId]?.shieldedDirectMagicDamagePct : undefined,
+  });
   const lawMagicVulnBonus =
     result.magicEnemyDamage > 0 &&
     (state.stacks.enemyMagicVulnTurns ?? 0) > 0
@@ -469,8 +475,8 @@ export function applyPlayerV2SkillCast(
             100,
         )
       : 0;
-  const skillDamageBase =
-    result.enemyDamage + magicSkillDamageBonus + lawMagicVulnBonus;
+  const skillDamageBase = result.enemyDamage + magicSkillDamageBonus + lawMagicVulnBonus +
+    directPhysicalSkillDamageBonus(result.enemyDamage, result.magicEnemyDamage, player.physicalSkillDamagePct);
   // 스킬 치명타 — 평타와 같은 크리 확률(min(critChancePct, 75%)) 공유, 배수만 SKILL_CRIT_MULT 로
   //   분리(평타 critMult 비연동 → 비폭주). 오버플로는 관련 패시브 보유 시에만 스킬에도 적용.
   //   데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → 기존 RNG 스트림 보존).
@@ -1601,6 +1607,7 @@ export function applyPlayerV2SkillCast(
       origin: { actionId, eventId: state.log.length },
     });
   }
+  state = applyPainCastPve(state, result.painCast);
   if (provokeImmediateBasicAttacks > 0 && result.castSkillName) {
     state = applyImmediateProvokedEnemyBasicAttacks(
       state,

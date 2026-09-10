@@ -707,16 +707,17 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
     expect(second.guaranteedEvadesToAdd).toBe(0);
   });
 
-  it("healFromDamage effect — 스킬 피해량의 %를 회복하되 회복량 증가 보정은 받지 않는다", () => {
+  it("healFromDamage effect — 실제 피해 회복 비율에는 회복량 증가를 곱하지 않는다", () => {
     const result = resolveV2SkillCast({
       skills: {
-        learned: ["v2c_darkpriest_reap"],
-        equipped: ["v2c_darkpriest_reap"],
+        learned: ["v2c_blooddemon_reign"],
+        equipped: ["v2c_blooddemon_reign"],
       },
       cooldowns: {},
       attacker: {
         mp: 1000,
-        atk: 0,
+        atk: 100,
+        str: 100,
         luk: 100,
         maxHp: 200,
         currentHp: 100,
@@ -732,9 +733,9 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
         selfDebuffs: {},
       },
     });
-    // atk 0 이어도 상향된 LUK 계수(0.42×1.15)는 유지되며, 옛 고정 기본 피해는 더하지 않는다.
-    expect(result.enemyDamage).toBe(47);
-    expect(result.selfHeal).toBe(Math.floor(47 * 0.14));
+    expect(result.enemyDamage).toBeGreaterThan(0);
+    expect(result.selfHeal).toBe(0);
+    expect(result.healFromActualDamagePct).toBe(20);
   });
 
   it("healFromDamage effect — 공격이 빗나가면 회복하지 않는다", () => {

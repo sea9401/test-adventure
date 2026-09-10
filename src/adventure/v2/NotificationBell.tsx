@@ -15,10 +15,10 @@ import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { feedbackReplyHref } from "@/lib/feedbackNavigation";
 import { formatRelative } from "@/lib/notifications";
 import {
-  NOTIF_POLL_MS,
   unreadV2Notifications,
   type V2NotificationEntry,
 } from "@/lib/v2-notification-config";
+import { useChromeStatus } from "./ChromeStatusProvider";
 
 const PREVIEW_LIMIT = 5;
 
@@ -108,35 +108,19 @@ type PreviewEntry =
 export function NotificationBell() {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [notificationUnread, setNotificationUnread] = useState(0);
-  const [mailUnread, setMailUnread] = useState(0);
+  const chromeStatus = useChromeStatus();
+  const [localNotificationUnread, setLocalNotificationUnread] = useState(0);
+  const [localMailUnread, setLocalMailUnread] = useState(0);
+  const notificationUnread =
+    chromeStatus?.notificationUnread ?? localNotificationUnread;
+  const mailUnread = chromeStatus?.mailUnread ?? localMailUnread;
+  const setNotificationUnread =
+    chromeStatus?.setNotificationUnread ?? setLocalNotificationUnread;
+  const setMailUnread = chromeStatus?.setMailUnread ?? setLocalMailUnread;
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<PreviewEntry[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
-
-  const fetchCount = useCallback(async () => {
-    const [notificationResult, mailResult] = await Promise.allSettled([
-      fetch("/api/v2/notifications?count=1").then(async (res) => {
-        if (!res.ok) throw new Error("notification count failed");
-        return (await res.json()) as { ok?: boolean; unreadCount?: number };
-      }),
-      fetch("/api/marketplace/inbox?count=1").then(async (res) => {
-        if (!res.ok) throw new Error("mail count failed");
-        return (await res.json()) as { unreadCount?: number };
-      }),
-    ]);
-
-    if (
-      notificationResult.status === "fulfilled" &&
-      notificationResult.value.ok
-    ) {
-      setNotificationUnread(notificationResult.value.unreadCount ?? 0);
-    }
-    if (mailResult.status === "fulfilled") {
-      setMailUnread(mailResult.value.unreadCount ?? 0);
-    }
-  }, []);
 
   const fetchPreview = useCallback(async () => {
     setLoading(true);
@@ -180,26 +164,7 @@ export function NotificationBell() {
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    // 비동기 fetch 후 setState — cascading render 아님(ServerFeedView 동일 패턴).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void fetchCount();
-    const tick = () => {
-      if (typeof document !== "undefined" && document.hidden) return;
-      void fetchCount();
-    };
-    const id = setInterval(tick, NOTIF_POLL_MS);
-    const onRefresh = () => void fetchCount();
-    window.addEventListener("v2notif:read", onRefresh);
-    window.addEventListener("v2inbox:refresh", onRefresh);
-    return () => {
-      clearInterval(id);
-      window.removeEventListener("v2notif:read", onRefresh);
-      window.removeEventListener("v2inbox:refresh", onRefresh);
-    };
-  }, [fetchCount]);
+  }, [setMailUnread, setNotificationUnread]);
 
   useEffect(() => {
     if (!open) return;

@@ -1,7 +1,15 @@
+// @vitest-environment jsdom
+
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { newRareMapInstance } from "@/adventure/data/v2/rareMaps";
 import { RareMapButton, UnexploredDungeonCard, V2DungeonList } from "./V2DungeonList";
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe("열린 희귀 탐사 카드", () => {
   it("한 번의 탐사로 정산할 보상 횟수와 남은 시간을 표시한다", () => {
@@ -105,5 +113,33 @@ describe("사냥터 성장 안내", () => {
     expect(html).not.toContain("전투력");
     expect(html).not.toContain("스탯 합계");
     expect(html).not.toContain("난이도 지표");
+  });
+});
+
+describe("사냥터 희귀 지도 요청", () => {
+  it("부모가 선택 콜백을 새로 만들어도 희귀 지도 목록을 다시 요청하지 않는다", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({ ok: true, rareMaps: [], serverNow: Date.now() }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const baseProps = {
+      frontierDepth: 6,
+      onSelectFloor: vi.fn(),
+      onBack: vi.fn(),
+    };
+    const { rerender } = render(
+      <V2DungeonList {...baseProps} onSelectRareMap={vi.fn()} />,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const initialRequestCount = fetchMock.mock.calls.length;
+
+    await act(async () => {
+      rerender(<V2DungeonList {...baseProps} onSelectRareMap={vi.fn()} />);
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(initialRequestCount);
   });
 });

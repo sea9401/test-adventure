@@ -81,7 +81,9 @@ export function PlayerSanctionGate({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 시 서버의 최신 제재 상태를 1회 로드
     void refresh();
-    const timer = window.setInterval(() => void refresh(), PLAYER_SANCTION_POLL_MS);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refresh();
+    }, PLAYER_SANCTION_POLL_MS);
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") void refresh();
     };

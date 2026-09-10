@@ -16,6 +16,7 @@ import { GameContentTransition } from "@/adventure/v2/GameContentTransition";
 import { gameSceneBackgroundForPath } from "@/adventure/v2/gameSceneBackgroundForPath";
 import { gameTabForPath, type GameTabId } from "@/adventure/v2/gameTabForPath";
 import { SURFACE_GAME_HEADER } from "@/components/ui/surfaces";
+import { ChromeStatusProvider } from "@/adventure/v2/ChromeStatusProvider";
 
 // v2 게임 chrome — 모든 라우트가 공유하는 영속 틀(상단바·탭바·배경).
 // (game)/layout.tsx 안에 마운트되어 네비게이션마다 remount 되지 않는다 → 자식 page 만 교체.
@@ -156,16 +157,18 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         className={`${SURFACE_GAME_HEADER} sticky top-0 z-[60] pt-[env(safe-area-inset-top)]`}
       >
         <div className="w-full md:grid md:min-h-16 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center md:px-5">
-          <V2TopBar
-            stamina={stamina}
-            staminaMax={staminaMax}
-            staminaRegenBonusPct={staminaRegenBonusPct}
-            staminaPotions={staminaPotions}
-            onUsePotion={usePotion}
-            spendableGold={spendableGold}
-            autoGathering={autoGathering}
-            fishingActive={fishingActive}
-          />
+          <ChromeStatusProvider>
+            <V2TopBar
+              stamina={stamina}
+              staminaMax={staminaMax}
+              staminaRegenBonusPct={staminaRegenBonusPct}
+              staminaPotions={staminaPotions}
+              onUsePotion={usePotion}
+              spendableGold={spendableGold}
+              autoGathering={autoGathering}
+              fishingActive={fishingActive}
+            />
+          </ChromeStatusProvider>
           {/* 메인 내비 — 마을 시설과 생활 콘텐츠를 분리한 6탭. */}
           <MainTabNav
             activeKey={activeTab}

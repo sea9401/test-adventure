@@ -11,7 +11,10 @@ import {
   latestChatMessageId,
   mergeChatMessages,
 } from "./chat/chatMessagesApi";
-import { chatPollDelayMs } from "./chat/chatPollingPolicy";
+import {
+  chatPollDelayMs,
+  nextChatIdlePollCount,
+} from "./chat/chatPollingPolicy";
 
 const ChatPanel = dynamic(
   () => import("./ChatPanel").then((module) => module.ChatPanel),
@@ -97,6 +100,7 @@ export function ChatButton({
     let globalAfterId = 0;
     let tradeAfterId = 0;
     let guildAfterId = 0;
+    let consecutiveIdlePolls = 0;
     let running = false;
     let timeoutId: number | null = null;
 
@@ -111,7 +115,7 @@ export function ChatButton({
       if (cancelled || document.visibilityState === "hidden") return;
       timeoutId = window.setTimeout(
         () => void tick(),
-        chatPollDelayMs(open),
+        chatPollDelayMs(open, consecutiveIdlePolls),
       );
     };
 
@@ -134,6 +138,9 @@ export function ChatButton({
             : {}),
         });
         if (cancelled) return;
+        const wasInitialized = initialized;
+        const receivedNewMessages =
+          next.length > 0 || nextTrade.length > 0 || nextGuild.length > 0;
         globalAfterId = Math.max(globalAfterId, latestChatMessageId(next));
         tradeAfterId = Math.max(tradeAfterId, latestChatMessageId(nextTrade));
         guildAfterId = Math.max(guildAfterId, latestChatMessageId(nextGuild));
@@ -146,6 +153,14 @@ export function ChatButton({
         setGuildMessages((previous) =>
           mergeChatMessages(previous, nextGuild),
         );
+        // 첫 응답은 과거 스냅샷이므로 활동 신호로 세지 않는다. 이후 delta 응답부터
+        // 연속 무변화 횟수를 누적하고 새 메시지가 오면 기본 30초 단계로 돌아간다.
+        if (wasInitialized) {
+          consecutiveIdlePolls = nextChatIdlePollCount(
+            consecutiveIdlePolls,
+            receivedNewMessages,
+          );
+        }
         if (!initialized) {
           initialized = true;
           // 한 번도 채팅을 본 적 없는 유저라면 (lastSeen === 0), 첫 폴링 결과의

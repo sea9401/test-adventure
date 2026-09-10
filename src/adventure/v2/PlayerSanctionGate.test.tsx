@@ -34,17 +34,65 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
+function setVisibility(value: DocumentVisibilityState) {
+  Object.defineProperty(document, "visibilityState", {
+    configurable: true,
+    value,
+  });
+}
+
 describe("PlayerSanctionGate 거래 이용 제한 안내", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
+    setVisibility("visible");
   });
 
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    setVisibility("visible");
+  });
+
+  it("숨겨진 동안 정기 상태 조회를 멈추고 다시 보이면 즉시 동기화한다", async () => {
+    vi.useFakeTimers();
+    const initial = deferred<Response>();
+    const readyStatus = {
+      ok: true,
+      suspension: null,
+      tradeSuspension: null,
+      warning: null,
+    };
+    fetchMock
+      .mockImplementationOnce(() => initial.promise)
+      .mockImplementation(async () => response(readyStatus));
+
+    render(
+      <PlayerSanctionGate>
+        <div>게임 본문</div>
+      </PlayerSanctionGate>,
+    );
+    await act(async () => {
+      initial.resolve(response(readyStatus));
+      await initial.promise;
+    });
+    expect(screen.getByText("게임 본문")).toBeDefined();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    setVisibility("hidden");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    setVisibility("visible");
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await Promise.resolve();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("최초 상태 확인 실패 후 2초 뒤 자동 재시도해 게임 본문을 복구한다", async () => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { invalidateGameStateRequests } from "./fetchGameState";
 import {
   createContext,
   useCallback,
@@ -535,6 +536,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const resourceRevision = useRef(0);
   const applyResourcePatch = useCallback((patch: GameResourcePatch) => {
     resourceRevision.current += 1;
+    invalidateGameStateRequests();
     if (typeof patch.gold === "number") setGold(Math.max(0, patch.gold));
     if (typeof patch.bankedGold === "number") {
       setBankedGold(Math.max(0, patch.bankedGold));

@@ -52,5 +52,8 @@ export async function POST(req: Request) {
 
   // build version 동봉 — 옛 클라이언트가 새 deploy 후 이 응답으로 자기 버전과
   // 비교해 강제 reload. 30초 heartbeat 주기로 모든 활성 유저가 분 단위로 갱신됨.
-  return Response.json({ buildVersion: APP_BUILD_VERSION });
+  return Response.json({
+    buildVersion: APP_BUILD_VERSION,
+    buildId: process.env.NEXT_PUBLIC_BUILD_ID || "dev",
+  });
 }

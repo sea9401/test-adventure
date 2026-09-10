@@ -1,5 +1,8 @@
 "use client";
 
+import { invalidateMarketplacePrices, readMarketplacePrices } from "./marketplace/marketplacePriceCache";
+import { startAdaptiveVisiblePolling } from "@/lib/adaptiveVisiblePolling";
+import { marketplaceBrowseSnapshotKey, marketplacePollDelayMs } from "./marketplace/marketplacePolling";
 import { SelectControl } from "./marketplace/SelectControl";
 import { MarketplaceAuctionSettings } from "./marketplace/MarketplaceAuctionSettings";
 import { ItemSearchInput } from "./ItemSearchInput";
@@ -66,7 +69,7 @@ import {
   readMarketplaceBrowse,
   readMarketplaceHistory,
   readMarketplaceMyBids,
-  readMarketplacePrices,
+  readMarketplaceSellOverview,
 } from "@/adventure/v2/marketplace/marketplaceReadClient";
 import {
   compareMarketplaceListings,
@@ -117,14 +120,9 @@ import { createMarketplaceReadCoordinator } from "./marketplace/marketplaceReadC
 
 export { MarketplaceRecentTradeList } from "@/adventure/v2/marketplace/MarketplaceListingList";
 
-
 type Tab = "browse" | "sell" | "recent" | "mine";
 
-
-
 type MineTab = "active" | "bids" | "alerts" | "history";
-
-
 
 type SellCraftFilter =
   | "all"
@@ -132,9 +130,6 @@ type SellCraftFilter =
   | "quality"
   | "masterwork"
   | "craftOnly";
-
-
-
 
 const MARKETPLACE_TABS: ReadonlyArray<{
   key: Tab;
@@ -148,9 +143,6 @@ const MARKETPLACE_TABS: ReadonlyArray<{
   { key: "mine", label: "내 거래", description: "판매·입찰 관리", Icon: Package },
 ];
 
-
-
-
 export type MarketplacePreviewData = {
   viewerGold: number;
   auctionHours: number;
@@ -160,22 +152,12 @@ export type MarketplacePreviewData = {
   prices: Record<string, PriceStat>;
 };
 
-
-
-
 // 거래소 목록 한 페이지에 보여줄 아이템 수.
 const MARKETPLACE_PAGE_SIZE = 10;
 
-
-
 const MARKETPLACE_FAVORITES_KEY = "adventure.marketplace.favorites.v1";
 
-
-
 const MARKETPLACE_RECENT_SEARCHES_KEY = "adventure.marketplace.searches.v1";
-
-
-
 
 type BrowseSortButton = {
   key: string;
@@ -185,9 +167,6 @@ type BrowseSortButton = {
   initial: MarketplaceBrowseSort;
 };
 
-
-
-
 const EQUIPMENT_BROWSE_SORT_BUTTONS: readonly BrowseSortButton[] = [
   { key: "price", label: "가격", ascending: "price_asc", descending: "price_desc", initial: "price_asc" },
   { key: "power", label: "위력", ascending: "power_asc", descending: "power_desc", initial: "power_desc" },
@@ -196,16 +175,10 @@ const EQUIPMENT_BROWSE_SORT_BUTTONS: readonly BrowseSortButton[] = [
   { key: "created", label: "등록일", ascending: "oldest", descending: "newest", initial: "newest" },
 ];
 
-
-
-
 const STACK_BROWSE_SORT_BUTTONS: readonly BrowseSortButton[] = [
   EQUIPMENT_BROWSE_SORT_BUTTONS[0],
   EQUIPMENT_BROWSE_SORT_BUTTONS[4],
 ];
-
-
-
 
 export function actionErrorLabel(
   payload: Parameters<typeof marketplaceActionErrorLabel>[0],
@@ -213,9 +186,6 @@ export function actionErrorLabel(
 ) {
   return marketplaceActionErrorLabel(payload, status);
 }
-
-
-
 
 export function V2MarketplaceView({
   onBack,
@@ -225,7 +195,7 @@ export function V2MarketplaceView({
   preview?: MarketplacePreviewData;
 }) {
   // 구매 affordability — flag off 면 보유(viewerGold)만, on 이면 보유+은행(은행 골드로도 구매).
-  const { coreLoopOn, bankedGold, frontierDepth, refreshGameState } =
+  const { coreLoopOn, bankedGold, frontierDepth, refreshGameState, applyResourcePatch } =
     useGameState();
   const equipmentCodex = useEquipmentCodexContext();
   const equipmentCodexLoaded = equipmentCodex?.loaded === true;
@@ -319,6 +289,7 @@ export function V2MarketplaceView({
 
   const [reads] = useState(createMarketplaceReadCoordinator);
   const browseSequence = useRef(0);
+  const browseSnapshots = useRef<Record<string, string>>({});
   useEffect(() => () => reads.invalidate(), [reads]);
 
   const loadBrowse = useCallback((mineOnly: boolean) => reads.run(
@@ -328,6 +299,9 @@ export function V2MarketplaceView({
       return { j: await readMarketplaceBrowse(mineOnly), sequence };
     },
     ({ j, sequence }) => {
+      browseSnapshots.current[String(mineOnly)] = marketplaceBrowseSnapshotKey(
+        mineOnly, typeof j.viewerGold === "number" ? j.viewerGold : null, j.listings ?? [],
+      );
       if (mineOnly) setMine(j.listings ?? []);
       else setListings(j.listings ?? []);
       // Both tabs return shared wallet/clock metadata. Only the latest read may update it.
@@ -345,7 +319,7 @@ export function V2MarketplaceView({
         setBidExtensionMinutes(j.bidExtensionMinutes);
       }
     },
-  ), [reads]);
+  ).then(() => browseSnapshots.current[String(mineOnly)] ?? ""), [reads]);
 
   const loadEquipment = useCallback(async () => {
     const response = await fetch("/api/v2/me/equipment");
@@ -359,37 +333,20 @@ export function V2MarketplaceView({
   }, []);
 
   const loadInventory = useCallback(async () => {
-    const [, inv, rm, specimenResponse] = await Promise.all([
-      loadEquipment(),
-      fetch("/api/v2/me/inventory"),
-      fetch("/api/v2/me/rare-maps"),
-      fetch("/api/v2/me/fishing-specimens"),
-    ]);
-    if (inv.ok) {
-      const j = (await inv.json()) as { materials?: Record<string, number>; marketplaceMaterials?: Record<string, number>; cookingFoods?: CookingFoodInventory; cookingFoodDefinitions?: CookingFoodDefinitionMap };
-      setMaterials(j.marketplaceMaterials ?? j.materials ?? {});
-      setCookingFoods(j.cookingFoods ?? {});
-      setCookingFoodDefinitions(j.cookingFoodDefinitions ?? {});
-    }
-    if (rm.ok) {
-      const j = (await rm.json()) as {
-        rareMaps?: RareMapInstance[];
-        cashItems?: MuseunCashItemCounts;
-      };
-      setRareMaps(j.rareMaps ?? []);
-      setCashItems(j.cashItems ?? {});
-    }
-    if (specimenResponse.ok) {
-      const json = (await specimenResponse.json()) as {
-        specimens?: FishSpecimenInventory["items"];
-      };
-      setFishSpecimens(json.specimens ?? {});
-    }
-  }, [loadEquipment]);
+    const json = await readMarketplaceSellOverview();
+    setOwned(json.owned ?? []);
+    setEquipped(json.equipped ?? {});
+    setMaterials(json.materials ?? {});
+    setRareMaps(json.rareMaps ?? []);
+    setCashItems(json.cashItems ?? {});
+    setCookingFoods(json.cookingFoods ?? {});
+    setCookingFoodDefinitions(json.cookingFoodDefinitions ?? {});
+    setFishSpecimens(json.specimens ?? {});
+  }, []);
 
   const loadPrices = useCallback(() => reads.run("prices", readMarketplacePrices, (prices) => {
     if (prices) setPriceRef(prices);
-  }), [reads]);
+  }).catch(() => {}), [reads]);
 
   const loadHistory = useCallback((mineOnly: boolean) => reads.run(`history:${mineOnly}`, () => readMarketplaceHistory(mineOnly), (rows) => {
     if (mineOnly) setMyHistory(rows);
@@ -463,21 +420,27 @@ export function V2MarketplaceView({
 
   useEffect(() => {
     if (preview || (tab !== "browse" && tab !== "mine")) return;
-    const refresh = () => {
-      if (document.visibilityState !== "visible") return;
-      const requests = [loadBrowse(tab === "mine")];
-      if (tab === "mine") requests.push(loadMyBids());
-      if (automationSurfaceOpen) requests.push(loadPriceAlerts());
-      void Promise.all(requests).catch(() => {
-        // 주기 갱신 실패는 현재 목록을 유지하고 다음 주기에 재시도한다.
-      });
-    };
-    const timer = window.setInterval(refresh, 10_000);
-    document.addEventListener("visibilitychange", refresh);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", refresh);
-    };
+    let previousSnapshot: string | undefined;
+    return startAdaptiveVisiblePolling({
+      task: async () => {
+        try {
+          const [snapshot] = await Promise.all([
+            loadBrowse(tab === "mine"),
+            ...(tab === "mine" ? [loadMyBids()] : []),
+            ...(automationSurfaceOpen ? [loadPriceAlerts()] : []),
+          ]);
+          const changed =
+            previousSnapshot === undefined || previousSnapshot !== snapshot;
+          previousSnapshot = snapshot;
+          return changed ? "changed" : "unchanged";
+        } catch {
+          // 주기 갱신 실패는 현재 목록을 유지하고 다음 주기에 재시도한다.
+          return "failed";
+        }
+      },
+      delayMs: marketplacePollDelayMs,
+      runImmediately: false,
+    });
   }, [
     automationSurfaceOpen,
     loadBrowse,
@@ -557,7 +520,7 @@ export function V2MarketplaceView({
       url: string,
       body: Record<string, unknown>,
       okMsg: string,
-      after: () => Promise<void>,
+      after: () => Promise<unknown>,
       method: "POST" | "PATCH" = "POST",
     ) => {
       const release = beginAction();
@@ -591,6 +554,7 @@ export function V2MarketplaceView({
         }
         setMsg(okMsg);
         reads.invalidate();
+        invalidateMarketplacePrices();
         await after();
         return true;
       } catch (e) {
@@ -669,12 +633,17 @@ export function V2MarketplaceView({
         nextBid?: number;
         bidEndsAt?: string;
         extended?: boolean;
+        expiresAt?: string;
+        bidCount?: number;
+        gold?: number;
+        bankedGold?: number;
       } | null;
       if (!response.ok || !payload?.ok) {
         setError(actionErrorLabel(payload, response.status));
         return false;
       }
       reads.invalidate();
+      invalidateMarketplacePrices();
       const update = (row: Listing): Listing =>
         row.id === listing.id
           ? {
@@ -682,8 +651,10 @@ export function V2MarketplaceView({
               highestBid: payload.highestBid ?? amount,
               nextBid: payload.nextBid ?? row.nextBid,
               bidEndsAt: payload.bidEndsAt ?? row.bidEndsAt,
-              bidCount: row.bidCount + 1,
-              isHighestBidder: !row.isMine,
+              expiresAt: payload.expiresAt ?? row.expiresAt,
+              bidCount: payload.bidCount ?? row.bidCount + 1,
+              isHighestBidder: true,
+              hasMyBid: true,
             }
           : row;
       setListings((current) => current?.map(update) ?? current);
@@ -692,11 +663,19 @@ export function V2MarketplaceView({
       setMsg(
         `✓ ${amount.toLocaleString()}골드 입찰 완료${payload.extended ? ` · 마감 ${bidExtensionMinutes}분 연장` : ""}`,
       );
+      const hasWallet = typeof payload.gold === "number" &&
+        typeof payload.bankedGold === "number";
+      if (hasWallet) {
+        setGold(payload.gold!);
+        applyResourcePatch({ gold: payload.gold!, bankedGold: payload.bankedGold! });
+      }
+      // 구 서버 응답에는 완전한 patch가 없으므로 기존 재조회로 보완한다.
       await Promise.all([
-        loadBrowse(false),
+        ...(typeof payload.bidCount === "number" && payload.expiresAt && hasWallet
+          ? [] : [loadBrowse(false)]),
         ...(myBids !== null ? [loadMyBids()] : []),
+        ...(hasWallet ? [] : [refreshGameState()]),
       ]);
-      await refreshGameState();
       return true;
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "처리 실패");

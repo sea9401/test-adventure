@@ -64,6 +64,23 @@ const securityHeaders = [
   },
 ];
 
+// public/ 자산은 Next.js 기본값(max-age=0)이면 재방문 때마다 CloudFront까지
+// 재검증 요청이 간다. 파일명이 콘텐츠 해시가 아니므로 하루만 fresh로 유지한다.
+const staticAssetCacheHeaders = [
+  {
+    key: "Cache-Control",
+    value: "public, max-age=86400, stale-while-revalidate=604800",
+  },
+];
+
+const staticAssetPaths = [
+  "/images/:path*",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/favicon.ico",
+  "/manifest.webmanifest",
+];
+
 const nextConfig: NextConfig = {
   // 모바일 UI 회귀 테스트는 실행 중인 기본 개발 서버의 .next 잠금/캐시와 격리한다.
   // 환경 변수가 없으면 모든 일반 개발·빌드가 기존 .next 를 그대로 사용한다.
@@ -93,6 +110,10 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: securityHeaders,
       },
+      ...staticAssetPaths.map((source) => ({
+        source,
+        headers: staticAssetCacheHeaders,
+      })),
       {
         source: "/sw.js",
         headers: [

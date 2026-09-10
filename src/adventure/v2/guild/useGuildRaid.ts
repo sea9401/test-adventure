@@ -7,6 +7,11 @@ import type {
   GuildRaidPracticeResult,
   GuildRaidState,
 } from "./guildRaidTypes";
+import { startAdaptiveVisiblePolling } from "@/lib/adaptiveVisiblePolling";
+import {
+  guildRaidPollDelayMs,
+  sharedStateSnapshotKey,
+} from "../sharedStatePolling";
 
 function guildRaidRequestId(): string {
   return globalThis.crypto?.randomUUID?.() ??
@@ -47,7 +52,7 @@ export function useGuildRaid() {
     quiet?: boolean;
     leaderboardPage?: number;
     recentPage?: number;
-  } = {}) => {
+  } = {}): Promise<string | undefined> => {
     leaderboardPageRef.current = leaderboardPage;
     recentPageRef.current = recentPage;
     if (!quiet) setLoading(true);
@@ -67,21 +72,32 @@ export function useGuildRaid() {
             body && "error" in body ? body.error ?? "load_failed" : "load_failed",
           );
         }
-        return;
+        return undefined;
       }
       setState(body);
       if (!quiet) setError(null);
+      return sharedStateSnapshotKey(body);
     } catch {
       if (!quiet) setError("load_failed");
     } finally {
       if (!quiet) setLoading(false);
     }
+    return undefined;
   }, []);
 
   useEffect(() => {
-    queueMicrotask(() => void load());
-    const interval = window.setInterval(() => void load({ quiet: true }), 20_000);
-    return () => window.clearInterval(interval);
+    let previousSnapshot: string | undefined;
+    return startAdaptiveVisiblePolling({
+      task: async () => {
+        const snapshot = await load({ quiet: previousSnapshot !== undefined });
+        if (snapshot === undefined) return "failed";
+        const changed = previousSnapshot === undefined || previousSnapshot !== snapshot;
+        previousSnapshot = snapshot;
+        return changed ? "changed" : "unchanged";
+      },
+      delayMs: guildRaidPollDelayMs,
+      runImmediately: true,
+    });
   }, [load]);
 
   const attack = useCallback(async () => {

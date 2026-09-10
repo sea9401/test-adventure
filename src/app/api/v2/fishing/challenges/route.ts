@@ -1,7 +1,11 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { readSave } from "@/lib/server/savesKv";
-import { readFishingCoins } from "@/lib/server/fishing/coins";
+import {
+  readFishingCatchCoinProgress,
+  readFishingCoins,
+} from "@/lib/server/fishing/coins";
+import { readActiveAutoGatheringActivity } from "@/lib/server/lifeActivityLock";
 import {
   kstDailyKey,
   nextDailyResetAt,
@@ -19,6 +23,12 @@ import {
   fishingProgressionView,
   parseFishingProgression,
 } from "@/adventure/v2/fishingProgression";
+import {
+  FISHING_STOCK_KEY,
+  emptyFishingStock,
+  fishingCatchItemDailyProgress,
+  parseFishingStock,
+} from "@/adventure/v2/fishingStock";
 
 // GET /api/v2/fishing/challenges — 오늘의 낚시 도전 진행 + 낚시 코인 잔액 + 다음 리셋 시각.
 //   진행 카운트는 reel 이 올린다(이벤트 구동). 여기선 읽기 + lazy 롤오버 뷰만(잠금 없음).
@@ -33,12 +43,25 @@ export async function GET() {
     parseFishingDaily(await readSave(db, userId, FISHING_DAILY_KEY, {})),
     dayKey,
   );
-  const [coins, progression] = await Promise.all([
+  const [
+    coins,
+    progression,
+    dailyCatchCoins,
+    activeAutoActivity,
+    fishingStockRaw,
+  ] = await Promise.all([
     readFishingCoins(userId),
     readSave(db, userId, FISHING_PROGRESS_KEY, emptyFishingProgression()).then(
       (raw) => fishingProgressionView(parseFishingProgression(raw)),
     ),
+    readFishingCatchCoinProgress(userId, dayKey),
+    readActiveAutoGatheringActivity(db, userId),
+    readSave(db, userId, FISHING_STOCK_KEY, emptyFishingStock()),
   ]);
+  const dailyCatchItems = fishingCatchItemDailyProgress(
+    parseFishingStock(fishingStockRaw),
+    dayKey,
+  );
   return Response.json({
     ok: true,
     challenges: deriveFishingDailyViews(state),
@@ -46,6 +69,9 @@ export async function GET() {
     goals: progression.goals,
     progression,
     coins,
+    dailyCatchCoins,
+    dailyCatchItems,
+    activeAutoActivity,
     nextResetAt: nextDailyResetAt(now),
   });
 }

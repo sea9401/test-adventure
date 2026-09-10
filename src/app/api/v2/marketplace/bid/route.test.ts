@@ -176,6 +176,10 @@ describe("전 품목 입찰", () => {
       nextBid: 525,
       bidEndsAt: "2026-08-31T06:10:00.000Z",
       extended: true,
+      bidCount: 1,
+      expiresAt: "2026-08-31T06:10:00.001Z",
+      gold: 9500,
+      bankedGold: 0,
     });
   });
 

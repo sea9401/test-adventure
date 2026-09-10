@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, type RefObject } from "react";
+import { fetchCoreGameState } from "./fetchGameState";
 import { createStateRefreshCoordinator } from "./stateRefreshCoordinator";
 
 export function useCoreGameStateRefresh<T>(
@@ -11,7 +12,7 @@ export function useCoreGameStateRefresh<T>(
   const coordinator = useMemo(() => createStateRefreshCoordinator(
     async () => {
       const revision = resourceRevision.current;
-      const response = await fetch("/api/v2/me/state?view=core");
+      const response = await fetchCoreGameState();
       if (!response.ok) throw new Error("Core state refresh failed");
       return { revision, snapshot: await response.json() as T };
     },

@@ -69,21 +69,13 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
 
   useEffect(() => {
     mounted.current = true;
-    fetch("/api/v2/fishing/progression")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (!mounted.current) return;
-        if (j?.ok && j.progression && typeof j.progression === "object") {
-          setProgression(j.progression as FishingProgressionView);
-        }
-      })
-      .finally(() => {
-        if (mounted.current) setProgressionLoading(false);
-      });
     fetch("/api/v2/fishing/challenges")
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (!mounted.current || !j?.ok) return;
+        if (j.progression && typeof j.progression === "object") {
+          setProgression(j.progression as FishingProgressionView);
+        }
         setChallengeBadgeCount(
           countClaimableFishingTasks([
             Array.isArray(j.contracts) ? j.contracts : [],
@@ -91,14 +83,6 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
             Array.isArray(j.goals) ? j.goals : [],
           ]),
         );
-      })
-      .catch(() => {
-        // 배지는 보조 정보다. 실패해도 낚시 자체를 막지 않는다.
-      });
-    fetch("/api/v2/fishing/status")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (!mounted.current || !j?.ok) return;
         const next = parseDailyCatchCoins(j.dailyCatchCoins);
         if (next) setDailyCatchCoins(next);
         const nextItems = parseFishingCatchItemDailyProgress(j.dailyCatchItems);
@@ -106,7 +90,10 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
         setActiveAutoActivity(parseAutoActivity(j.activeAutoActivity));
       })
       .catch(() => {
-        // 표시용 상태라 실패해도 낚시 자체는 막지 않는다.
+        // 표시용 overview라 실패해도 낚시 자체는 막지 않는다.
+      })
+      .finally(() => {
+        if (mounted.current) setProgressionLoading(false);
       });
     return () => {
       mounted.current = false;

@@ -21,11 +21,12 @@ import {
   type CoopRewardTier,
   type CoopVisibility,
 } from "@/adventure/data/v2/coopBosses";
-
-const POLL_MS = 20_000;
-// 상세(토벌) 화면은 더 자주 폴링 — 공유 HP 가 실시간으로 깎이는 체감(여러 명 동시 공격).
-//   처치/만료 확정 시 폴링 중단(죽은 세션 무한 폴링 방지).
-const DETAIL_POLL_MS = 5_000;
+import { startAdaptiveVisiblePolling } from "@/lib/adaptiveVisiblePolling";
+import {
+  coopDetailPollDelayMs,
+  coopListPollDelayMs,
+  sharedStateSnapshotKey,
+} from "../sharedStatePolling";
 
 export type CoopFortressStatus = {
   fortressBarrierActive?: boolean;
@@ -282,10 +283,10 @@ export function useCoopListState() {
   const [notice, setNotice] = useState<string | null>(null);
   const [lastReward, setLastReward] = useState<CoopClaimReward | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<string | undefined> => {
     try {
       const res = await fetch("/api/v2/coop");
-      if (!res.ok) return;
+      if (!res.ok) return undefined;
       const j = (await res.json()) as {
         ok?: boolean;
         scrolls?: number;
@@ -293,19 +294,32 @@ export function useCoopListState() {
         claimables?: CoopClaimable[];
       };
       if (j.ok) {
-        setScrolls(j.scrolls ?? 0);
-        setSessions(j.sessions ?? []);
-        setClaimables(j.claimables ?? []);
+        const nextScrolls = j.scrolls ?? 0;
+        const nextSessions = j.sessions ?? [];
+        const nextClaimables = j.claimables ?? [];
+        setScrolls(nextScrolls);
+        setSessions(nextSessions);
+        setClaimables(nextClaimables);
         setLoaded(true);
+        return sharedStateSnapshotKey([nextScrolls, nextSessions, nextClaimables]);
       }
     } catch {}
+    return undefined;
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- refresh 는 async(fetch 후 set)
-    void refresh();
-    const id = setInterval(() => void refresh(), POLL_MS);
-    return () => clearInterval(id);
+    let previousSnapshot: string | undefined;
+    return startAdaptiveVisiblePolling({
+      task: async () => {
+        const snapshot = await refresh();
+        if (snapshot === undefined) return "failed";
+        const changed = previousSnapshot === undefined || previousSnapshot !== snapshot;
+        previousSnapshot = snapshot;
+        return changed ? "changed" : "unchanged";
+      },
+      delayMs: coopListPollDelayMs,
+      runImmediately: true,
+    });
   }, [refresh]);
 
   // 소환 — 성공 시 새 sessionId 반환 + 안내 노티스(목록 잔류 — 연속 소환 가능, 이동 없음).
@@ -404,28 +418,31 @@ export function useCoopSessionState({
   const [notice, setNotice] = useState<string | null>(null);
   const [lastReward, setLastReward] = useState<CoopClaimReward | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<string | undefined> => {
     try {
       const res = await fetch(`/api/v2/coop/${sessionId}`);
       if (res.status === 404) {
         setMissing(true);
-        return;
+        return "missing";
       }
-      if (!res.ok) return;
+      if (!res.ok) return undefined;
       const j = (await res.json()) as
         | ({ ok?: boolean } & CoopSessionDetail)
         | null;
       if (j?.ok) {
-        setDetail({
+        const nextDetail = {
           session: j.session,
           my: j.my,
           combatPreview: j.combatPreview ?? null,
           participantCount: j.participantCount,
           top: j.top,
           recentAttacks: j.recentAttacks,
-        });
+        };
+        setDetail(nextDetail);
+        return sharedStateSnapshotKey(nextDetail);
       }
     } catch {}
+    return undefined;
   }, [sessionId]);
 
   // 서버가 처치/만료를 확정하면 폴링 중단(HP 더 안 변함). 시간상 만료(expiresAt≤now)는 매초
@@ -433,11 +450,19 @@ export function useCoopSessionState({
   const stopPolling =
     detail?.session.defeated === true || detail?.session.expired === true;
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- refresh 는 async(fetch 후 set)
-    void refresh();
-    if (stopPolling) return; // 종료 세션 — 한 번만 갱신, 인터벌 없음.
-    const id = setInterval(() => void refresh(), DETAIL_POLL_MS);
-    return () => clearInterval(id);
+    if (stopPolling) return;
+    let previousSnapshot: string | undefined;
+    return startAdaptiveVisiblePolling({
+      task: async () => {
+        const snapshot = await refresh();
+        if (snapshot === undefined) return "failed";
+        const changed = previousSnapshot === undefined || previousSnapshot !== snapshot;
+        previousSnapshot = snapshot;
+        return changed ? "changed" : "unchanged";
+      },
+      delayMs: coopDetailPollDelayMs,
+      runImmediately: true,
+    });
   }, [refresh, stopPolling]);
 
   const attack = useCallback(async (support = false): Promise<CoopAttackResult | null> => {

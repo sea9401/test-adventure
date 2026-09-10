@@ -104,8 +104,9 @@ export function V2DungeonList({
   const [rareMaps, setRareMaps] = useState<RareMapInstance[]>([]);
   const [rareMapServerNow, setRareMapServerNow] = useState<number | null>(null);
   const [discardingMapIid, setDiscardingMapIid] = useState<string | null>(null);
+  const rareMapSelectionEnabled = onSelectRareMap != null;
   useEffect(() => {
-    if (!onSelectRareMap) return;
+    if (!rareMapSelectionEnabled) return;
     let alive = true;
     fetch("/api/v2/me/rare-maps")
       .then((r) => (r.ok ? r.json() : null))
@@ -132,7 +133,7 @@ export function V2DungeonList({
     return () => {
       alive = false;
     };
-  }, [onSelectRareMap]);
+  }, [rareMapSelectionEnabled]);
 
   async function discardRareMap(map: RareMapInstance) {
     const name = RARE_MAP_KINDS[map.kind]?.name ?? map.kind;

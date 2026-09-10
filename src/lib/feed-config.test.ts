@@ -5,6 +5,8 @@ import {
   FEED_RETENTION_MS,
   FEED_TYPES,
   WAR_FEED_TYPES,
+  feedPollDelayMs,
+  nextFeedIdlePollCount,
   parseFeedBeforeId,
 } from "@/lib/feed-config";
 
@@ -51,5 +53,19 @@ describe("feed visibility config", () => {
     expect(parseFeedBeforeId("1.5")).toBeNull();
     expect(parseFeedBeforeId("2147483648")).toBeNull();
     expect(parseFeedBeforeId("9007199254740992")).toBeNull();
+  });
+
+  it("전광판 무변화가 이어지면 30초에서 120초까지 폴링을 늦춘다", () => {
+    expect(feedPollDelayMs(0)).toBe(30_000);
+    expect(feedPollDelayMs(1)).toBe(30_000);
+    expect(feedPollDelayMs(2)).toBe(60_000);
+    expect(feedPollDelayMs(5)).toBe(60_000);
+    expect(feedPollDelayMs(6)).toBe(120_000);
+    expect(feedPollDelayMs(100)).toBe(120_000);
+  });
+
+  it("새 전광판 사건이 오면 idle 단계를 초기화한다", () => {
+    expect(nextFeedIdlePollCount(5, true)).toBe(0);
+    expect(nextFeedIdlePollCount(5, false)).toBe(6);
   });
 });

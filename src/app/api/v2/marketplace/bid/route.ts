@@ -202,12 +202,13 @@ export async function POST(req: Request) {
       listing.bidEndsAt,
       listing.expiresAt,
     );
+    const bidCount = listing.bidCount + 1;
     await tx
       .update(marketplaceListingsV2)
       .set({
         highestBid: amount,
         highestBidderId: userId,
-        bidCount: listing.bidCount + 1,
+        bidCount,
         bidEndsAt: nextTimes.bidEndsAt,
         expiresAt: nextTimes.expiresAt,
       })
@@ -226,6 +227,8 @@ export async function POST(req: Request) {
         highestBid: amount,
         nextBid: marketplaceNextBidMinimum(listing.price, amount),
         bidEndsAt: nextTimes.bidEndsAt.toISOString(),
+        expiresAt: nextTimes.expiresAt.toISOString(),
+        bidCount,
         extended: nextTimes.extended,
         gold: spend.gold,
         bankedGold: spend.bankedGold,

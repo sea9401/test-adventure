@@ -145,4 +145,41 @@ describe("희귀 탐사 지도 전환", () => {
       rareMapButton.closest("[data-rare-map-quick-entry]")?.className,
     ).toContain("col-start-1");
   });
+
+  it("부모가 탐사 콜백을 새로 만들어도 희귀 지도 목록을 다시 요청하지 않는다", async () => {
+    const now = Date.now();
+    fetchMock.mockResolvedValue(
+      response({ ok: true, rareMaps: [], serverNow: now }),
+    );
+
+    const baseProps = {
+      floorId: 10,
+      outpostId: "outpost-1",
+      outpostName: "마른 협곡 거점",
+      playerName: "모험가",
+      playerGender: "male" as const,
+      stamina: { current: 100, lastUpdatedAt: 0 },
+      setStamina: vi.fn(),
+      onBack: vi.fn(),
+    };
+    const { rerender } = render(
+      <V2DungeonFloorView
+        {...baseProps}
+        onEnterRareMap={vi.fn()}
+        onReturnToNormalHunt={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    rerender(
+      <V2DungeonFloorView
+        {...baseProps}
+        onEnterRareMap={vi.fn()}
+        onReturnToNormalHunt={vi.fn()}
+      />,
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

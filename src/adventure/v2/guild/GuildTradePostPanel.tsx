@@ -21,6 +21,11 @@ import {
   isTradeSuspensionMessagePayload,
   tradeSuspensionMessage,
 } from "@/lib/tradeSuspension";
+import { startAdaptiveVisiblePolling } from "@/lib/adaptiveVisiblePolling";
+import {
+  guildTradePollDelayMs,
+  sharedStateSnapshotKey,
+} from "../sharedStatePolling";
 
 type TradeContract = GuildTradeItem & {
   progress: number;
@@ -103,8 +108,6 @@ export function guildTradeQuickDelivery(contract: {
 }
 
 const PANEL_CLASS = `${SURFACE_CARD} space-y-3 p-3 text-sm text-zinc-900 dark:text-zinc-100`;
-const SHARED_TOKENS_POLL_MS = 10_000;
-
 export function GuildTradePostPanel({
   shopOnly = false,
   endpoint = "/api/v2/guild/trade-post",
@@ -129,7 +132,7 @@ export function GuildTradePostPanel({
     text: string;
   } | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<string | undefined> => {
     try {
       const response = await fetch(endpoint, {
         cache: "no-store",
@@ -137,26 +140,36 @@ export function GuildTradePostPanel({
       const json = (await response.json().catch(() => null)) as TradeResponse | null;
       if (!response.ok || !json?.ok) {
         setNotice({ kind: "err", text: tradeErrorText(json, response.status) });
-        return;
+        return undefined;
       }
       setState(json);
+      return sharedStateSnapshotKey(json);
     } catch {
       setNotice({ kind: "err", text: `${title} 정보를 불러오지 못했습니다.` });
     } finally {
       setLoading(false);
     }
+    return undefined;
   }, [endpoint, title]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void load(), 0);
-    const poll = window.setInterval(() => {
-      if (document.visibilityState === "visible") void load();
-    }, SHARED_TOKENS_POLL_MS);
-    return () => {
-      window.clearTimeout(timer);
-      window.clearInterval(poll);
-    };
-  }, [load]);
+    if (!sharedTokens) {
+      const timer = window.setTimeout(() => void load(), 0);
+      return () => window.clearTimeout(timer);
+    }
+    let previousSnapshot: string | undefined;
+    return startAdaptiveVisiblePolling({
+      task: async () => {
+        const snapshot = await load();
+        if (snapshot === undefined) return "failed";
+        const changed = previousSnapshot === undefined || previousSnapshot !== snapshot;
+        previousSnapshot = snapshot;
+        return changed ? "changed" : "unchanged";
+      },
+      delayMs: guildTradePollDelayMs,
+      runImmediately: true,
+    });
+  }, [load, sharedTokens]);
 
   async function submit(
     key: string,

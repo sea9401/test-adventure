@@ -20,7 +20,7 @@ import {
 } from "./useActivityVerification";
 
 const STORAGE_VERSION = 1 as const;
-const CHECKPOINT_TICKS = 2_000 / DANGEROUS_REALTIME_TICK_MS;
+const CHECKPOINT_TICKS = 4_000 / DANGEROUS_REALTIME_TICK_MS;
 const LOOP_INTERVAL_MS = DANGEROUS_REALTIME_TICK_MS;
 const MAX_AUTOMATIC_REQUESTS = 5;
 const MAX_RETRY_DELAY_MS = 8_000;
@@ -771,7 +771,7 @@ export function useDangerousFishingRealtime({
       controllers.clear();
       activeControllerRef.current = null;
     };
-    // The server may refresh the same encounter object every 10 seconds. Its
+    // The server may refresh the same encounter object while status polling. Its
     // fixed config is immutable for an encounter ID, so restarting here would
     // incorrectly release a held input and tear down an in-flight checkpoint.
     // eslint-disable-next-line react-hooks/exhaustive-deps

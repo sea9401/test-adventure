@@ -36,11 +36,12 @@ import {
   FEED_CATEGORIES,
   FEED_CATEGORY_LABEL,
   FEED_FETCH_LIMIT,
-  FEED_POLL_MS,
+  feedPollDelayMs,
   type FeedCategory,
   type FeedEntry,
   type FeedType,
 } from "@/lib/feed-config";
+import { startAdaptiveVisiblePolling } from "@/lib/adaptiveVisiblePolling";
 
 type FeedResponse = {
   entries?: FeedEntry[];
@@ -434,7 +435,7 @@ export function ServerFeedView() {
   const beforeIdRef = useRef<number | null>(null);
   const latestRequestId = useRef(0);
 
-  const fetchFeed = useCallback(async (signal?: AbortSignal) => {
+  const fetchFeed = useCallback(async (signal?: AbortSignal): Promise<string | undefined> => {
     const requestedCategory = category;
     const requestedBeforeId = beforeId;
     const requestId = ++latestRequestId.current;
@@ -455,7 +456,7 @@ export function ServerFeedView() {
           setLoaded(true);
           setLoading(false);
         }
-        return;
+        return undefined;
       }
       const data = (await res.json()) as FeedResponse;
       if (
@@ -463,12 +464,14 @@ export function ServerFeedView() {
         categoryRef.current !== requestedCategory ||
         beforeIdRef.current !== requestedBeforeId
       ) {
-        return;
+        return undefined;
       }
       setEntries(Array.isArray(data.entries) ? data.entries : []);
       setHasMore(data.hasMore === true);
       setLoaded(true);
       setLoading(false);
+      const entries = Array.isArray(data.entries) ? data.entries : [];
+      return `${data.hasMore === true ? "more" : "end"}:${entries.map((entry) => entry.id).join(",")}`;
     } catch {
       if (
         !signal?.aborted &&
@@ -479,27 +482,37 @@ export function ServerFeedView() {
         setLoaded(true);
         setLoading(false);
       }
+      return undefined;
     }
   }, [beforeId, category]);
 
   useEffect(() => {
     const controller = new AbortController();
-    // 상태 변경은 첫 fetch가 resolve된 뒤 실행되지만 lint는 비동기 호출 그래프를 보수적으로 판정한다.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void fetchFeed(controller.signal);
-    const tick = () => {
-      if (typeof document !== "undefined" && document.hidden) return;
-      void fetchFeed();
-    };
-    const id = setInterval(tick, FEED_POLL_MS);
-    const onFocus = () => void fetchFeed();
-    window.addEventListener("focus", onFocus);
+    if (beforeId !== null) {
+      // 과거 페이지는 append-only 기록의 고정 구간이므로 진입할 때 한 번만 읽는다.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void fetchFeed(controller.signal);
+      return () => controller.abort();
+    }
+
+    let previousSnapshot: string | undefined;
+    const stopPolling = startAdaptiveVisiblePolling({
+      task: async () => {
+        const snapshot = await fetchFeed(controller.signal);
+        if (snapshot === undefined) return "failed";
+        const changed = previousSnapshot === undefined || previousSnapshot !== snapshot;
+        previousSnapshot = snapshot;
+        return changed ? "changed" : "unchanged";
+      },
+      delayMs: feedPollDelayMs,
+      runImmediately: true,
+      refreshOnFocus: true,
+    });
     return () => {
       controller.abort();
-      clearInterval(id);
-      window.removeEventListener("focus", onFocus);
+      stopPolling();
     };
-  }, [fetchFeed]);
+  }, [beforeId, fetchFeed]);
 
   const selectCategory = (next: FeedCategory | null) => {
     if (next === categoryRef.current) return;

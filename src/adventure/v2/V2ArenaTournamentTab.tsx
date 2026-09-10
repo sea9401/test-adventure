@@ -13,6 +13,11 @@ import type { ArenaTournamentBracket } from "@/lib/server/pvp/arenaTournament";
 import { arenaChampionshipBadgeForPlacement } from "@/adventure/data/v2/arenaChampionshipBadges";
 import { ArenaChampionshipBadge } from "@/components/chat/ChatCosmetics";
 import { arenaTournamentReplayHref } from "@/lib/chat-config";
+import { startAdaptiveVisiblePolling } from "@/lib/adaptiveVisiblePolling";
+import {
+  sharedStateSnapshotKey,
+  tournamentPollDelayMs,
+} from "./sharedStatePolling";
 
 type TournamentResponse = {
   ok?: boolean;
@@ -63,7 +68,7 @@ export function V2ArenaTournamentTab() {
   const [failed, setFailed] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
-  const load = useCallback(async (showLoading = true) => {
+  const load = useCallback(async (showLoading = true): Promise<string | undefined> => {
     if (showLoading) setLoading(true);
     setFailed(false);
     try {
@@ -72,12 +77,16 @@ export function V2ArenaTournamentTab() {
         | TournamentResponse
         | null;
       if (!response.ok || !json?.ok) setFailed(true);
-      else setData(json);
+      else {
+        setData(json);
+        return sharedStateSnapshotKey(json);
+      }
     } catch {
       setFailed(true);
     } finally {
       if (showLoading) setLoading(false);
     }
+    return undefined;
   }, []);
 
   useEffect(() => {
@@ -87,19 +96,27 @@ export function V2ArenaTournamentTab() {
 
   useEffect(() => {
     const clock = window.setInterval(() => setNowMs(Date.now()), 1_000);
-    const poll = window.setInterval(() => {
-      if (
-        data?.tournament?.isCurrent &&
-        data.tournament.bracket.status !== "completed"
-      ) {
-        load(false);
-      }
-    }, 15_000);
-    return () => {
-      window.clearInterval(clock);
-      window.clearInterval(poll);
-    };
-  }, [data?.tournament?.bracket.status, data?.tournament?.isCurrent, load]);
+    return () => window.clearInterval(clock);
+  }, []);
+
+  const tournamentPollingActive =
+    data?.tournament?.isCurrent === true &&
+    data.tournament.bracket.status !== "completed";
+  useEffect(() => {
+    if (!tournamentPollingActive) return;
+    let previousSnapshot: string | undefined;
+    return startAdaptiveVisiblePolling({
+      task: async () => {
+        const snapshot = await load(false);
+        if (snapshot === undefined) return "failed";
+        const changed = previousSnapshot === undefined || previousSnapshot !== snapshot;
+        previousSnapshot = snapshot;
+        return changed ? "changed" : "unchanged";
+      },
+      delayMs: tournamentPollDelayMs,
+      runImmediately: false,
+    });
+  }, [load, tournamentPollingActive]);
 
   const tournament = data?.tournament;
   const bracket = tournament?.bracket;

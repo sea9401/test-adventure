@@ -9,6 +9,7 @@ import type {
   V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import { marketplacePreview } from "@/app/dev/marketplace/MarketplaceHarness";
+import { invalidateMarketplacePrices } from "./marketplace/marketplacePriceCache";
 
 let ownedEquipment: V2EquipInstance[] = [];
 let equippedEquipment: Partial<Record<V2EquipSlot, string>> = {};
@@ -18,13 +19,18 @@ let historyTrades: Array<Record<string, unknown>> = [];
 
 type MarketplacePreviewListing = (typeof marketplacePreview.listings)[number];
 
+const gameMocks = vi.hoisted(() => ({
+  refreshGameState: vi.fn(async () => {}),
+  applyResourcePatch: vi.fn(),
+}));
+
 vi.mock("./GameStateProvider", () => ({
   useEquipmentCodexContext: () => null,
   useGameState: () => ({
     coreLoopOn: true,
     bankedGold: 0,
     frontierDepth: 42,
-    refreshGameState: vi.fn(async () => {}),
+    ...gameMocks,
   }),
 }));
 
@@ -40,6 +46,19 @@ function responseFor(url: string): Response {
       bidExtensionWindowMinutes: 10,
       bidExtensionMinutes: 10,
       listings: browseListings,
+    });
+  }
+  if (url.includes("/sell-overview")) {
+    return Response.json({
+      ok: true,
+      owned: ownedEquipment,
+      equipped: equippedEquipment,
+      materials: {},
+      rareMaps: [],
+      cashItems: {},
+      cookingFoods: {},
+      cookingFoodDefinitions: {},
+      specimens: {},
     });
   }
   if (url.includes("/equipment")) {
@@ -67,7 +86,8 @@ describe("V2MarketplaceView request timing", () => {
   );
 
   beforeEach(() => {
-    fetchMock.mockClear();
+    invalidateMarketplacePrices();
+    vi.clearAllMocks();
     fetchMock.mockImplementation(async (input: RequestInfo | URL) =>
       responseFor(String(input)),
     );
@@ -121,6 +141,18 @@ describe("V2MarketplaceView request timing", () => {
     expect(requestedUrls.some((url) => url.includes("/price-alerts"))).toBe(false);
   });
 
+  it("reuses shared prices on a quick screen revisit while reloading personal equipment", async () => {
+    const view = () => (
+      <RewardToastProvider><V2MarketplaceView onBack={() => {}} /></RewardToastProvider>
+    );
+    const first = render(view());
+    await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/prices"))).toBe(true));
+    first.unmount();
+    render(view());
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/equipment"))).toHaveLength(2));
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/prices"))).toHaveLength(1);
+  });
+
   it("강화 장비를 판매 등록 목록에 표시한다", async () => {
     ownedEquipment = [
       {
@@ -147,8 +179,18 @@ describe("V2MarketplaceView request timing", () => {
   it("판매 입력 오류를 즉시 읽을 수 있는 alert로 표시한다", async () => {
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);
-      if (url.includes("/api/v2/me/inventory")) {
-        return Response.json({ materials: { v2_timber: 10 } });
+      if (url.includes("/api/v2/marketplace/sell-overview")) {
+        return Response.json({
+          ok: true,
+          owned: [],
+          equipped: {},
+          materials: { v2_timber: 10 },
+          rareMaps: [],
+          cashItems: {},
+          cookingFoods: {},
+          cookingFoodDefinitions: {},
+          specimens: {},
+        });
       }
       return responseFor(url);
     });
@@ -186,6 +228,33 @@ describe("V2MarketplaceView request timing", () => {
       expect(requestedUrls.some((url) => url.includes("/price-alerts"))).toBe(true);
       expect(requestedUrls.some((url) => url.includes("/buy-orders"))).toBe(false);
     });
+  });
+
+  it("판매 탭 진입 시 inventory 네 요청 대신 overview 한 건을 사용한다", async () => {
+    render(
+      <RewardToastProvider>
+        <V2MarketplaceView onBack={() => {}} />
+      </RewardToastProvider>,
+    );
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/browse"))).toBe(true);
+    });
+    fetchMock.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: /판매.*아이템 올리기/ }));
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.filter(([input]) =>
+          String(input).includes("/api/v2/marketplace/sell-overview"),
+        ),
+      ).toHaveLength(1);
+    });
+
+    const urls = fetchMock.mock.calls.map(([input]) => String(input));
+    expect(urls.some((url) => url.includes("/api/v2/me/equipment"))).toBe(false);
+    expect(urls.some((url) => url.includes("/api/v2/me/inventory"))).toBe(false);
+    expect(urls.some((url) => url.includes("/api/v2/me/rare-maps"))).toBe(false);
+    expect(urls.some((url) => url.includes("/api/v2/me/fishing-specimens"))).toBe(false);
   });
 
   it("merges an extended bid deadline into the visible whole-lot card", async () => {
@@ -230,6 +299,10 @@ describe("V2MarketplaceView request timing", () => {
           nextBid: 105,
           bidEndsAt: new Date(now + 15 * 60_000).toISOString(),
           extended: true,
+          bidCount: 8,
+          expiresAt: new Date(now + 15 * 60_000 + 1).toISOString(),
+          gold: 9900,
+          bankedGold: 0,
         });
       }
       return responseFor(url);
@@ -251,12 +324,19 @@ describe("V2MarketplaceView request timing", () => {
       expect(screen.getByText("15분 남음")).toBeTruthy();
       expect(screen.getAllByText(/마감 10분 연장/).length).toBeGreaterThan(0);
     });
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/browse"))).toHaveLength(1);
+    expect(gameMocks.refreshGameState).not.toHaveBeenCalled();
+    expect(gameMocks.applyResourcePatch).toHaveBeenCalledWith({ gold: 9900, bankedGold: 0 });
     const bidRequest = fetchMock.mock.calls.find(
       ([input, init]) => String(input).endsWith("/bid") && init?.method === "POST",
     );
     expect(JSON.parse(String(bidRequest?.[1]?.body))).toEqual({
       listingId: 7,
       amount: 100,
+    });
+    fireEvent.click(screen.getByRole("button", { name: /판매.*아이템 올리기/ }));
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/prices"))).toHaveLength(2);
     });
   });
 

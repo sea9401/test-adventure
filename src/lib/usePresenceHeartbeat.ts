@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRemoteSave } from "./storage/SaveProvider";
 import { APP_BUILD_VERSION } from "./clientVersion";
+import { trackPresenceBuildVersion } from "./presenceBuildVersion";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 // buildVersion 불일치 감지 후 reload 까지 대기 시간. PATCH 디바운스(500ms) +
@@ -35,6 +36,7 @@ export function usePresenceHeartbeat({
   useEffect(() => {
     if (!name || !className) return;
     let cancelled = false;
+    let inFlight: Promise<string | null> | null = null;
 
     const triggerReload = () => {
       if (reloadFired || typeof window === "undefined") return;
@@ -73,7 +75,7 @@ export function usePresenceHeartbeat({
       const timer = setTimeout(fire, RELOAD_GRACE_MS);
     };
 
-    const ping = async () => {
+    const requestPing = async (): Promise<string | null> => {
       try {
         const res = await fetch("/api/presence", {
           method: "POST",
@@ -81,17 +83,18 @@ export function usePresenceHeartbeat({
         });
         if (res.status === 410) {
           remote.invalidateSession();
-          return;
+          return null;
         }
-        if (cancelled || !res.ok) return;
+        if (cancelled || !res.ok) return null;
         try {
           const body = (await res.json()) as {
             buildVersion?: string;
+            buildId?: string;
             sessionInvalidated?: boolean;
           };
           if (body.sessionInvalidated) {
             remote.invalidateSession();
-            return;
+            return null;
           }
           if (
             typeof body.buildVersion === "string" &&
@@ -99,16 +102,27 @@ export function usePresenceHeartbeat({
           ) {
             triggerReload();
           }
+          return typeof body.buildId === "string" && body.buildId ? body.buildId : null;
         } catch {
           // 응답 본문이 옛 형식 (204) 일 수 있음 — ignore.
         }
       } catch {
         // 네트워크 오류는 다음 주기에 자동 재시도.
       }
+      return null;
+    };
+    const ping = () => {
+      if (inFlight) return inFlight;
+      const request = requestPing().finally(() => {
+        if (inFlight === request) inFlight = null;
+      });
+      inFlight = request;
+      trackPresenceBuildVersion(request);
+      return request;
     };
     ping();
     const id = setInterval(() => {
-      if (!cancelled) ping();
+      if (!cancelled && document.visibilityState === "visible") ping();
     }, HEARTBEAT_INTERVAL_MS);
     // 백그라운드 모바일은 타이머가 멈출 수 있다. 다시 화면을 보는 순간 바로 검증한다.
     const onVisibilityChange = () => {

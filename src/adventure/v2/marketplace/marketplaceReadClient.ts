@@ -1,3 +1,8 @@
+import type { V2EquipInstance, V2EquipSlot } from "@/adventure/data/v2/v2Equipment";
+import type { RareMapInstance } from "@/adventure/data/v2/rareMaps";
+import type { MuseunCashItemCounts } from "@/adventure/data/v2/museunCashItems";
+import type { CookingFoodInventory, CookingFoodDefinitionMap } from "../cooking/foodShared";
+import type { FishSpecimenInventory } from "../fishSpecimens";
 import type { MarketplaceMyBid } from "./marketplaceBidTracking";
 import type { PriceStat } from "./marketplaceShared";
 import { type Listing } from "./marketplaceShared";
@@ -81,4 +86,21 @@ export function tradeToListing(trade: Trade): Listing {
     bidResolvedAt: trade.closedAt,
     nextBid: 1,
   };
+}
+
+export async function readMarketplaceSellOverview() {
+  const response = await fetch("/api/v2/marketplace/sell-overview");
+  const json = (await response.json().catch(() => null)) as {
+    ok?: boolean;
+    owned?: V2EquipInstance[];
+    equipped?: Partial<Record<V2EquipSlot, string>>;
+    materials?: Record<string, number>;
+    rareMaps?: RareMapInstance[];
+    cashItems?: MuseunCashItemCounts;
+    cookingFoods?: CookingFoodInventory;
+    cookingFoodDefinitions?: CookingFoodDefinitionMap;
+    specimens?: FishSpecimenInventory["items"];
+  } | null;
+  if (!response.ok || !json?.ok) throw new Error("sell_overview_failed");
+  return json;
 }

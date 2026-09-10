@@ -25,9 +25,10 @@ import {
 } from "@/adventure/v2/lifeCrafting";
 import { LIFE_FIELD_DISCOVERIES } from "@/adventure/v2/lifeFieldRecords";
 import {
-  FEED_POLL_MS,
   WAR_TICKER_MAX_ITEMS,
   WAR_TICKER_WINDOW_MIN,
+  feedPollDelayMs,
+  nextFeedIdlePollCount,
   type FeedEntry,
 } from "@/lib/feed-config";
 
@@ -234,7 +235,7 @@ export function WarTicker() {
   const fetchWarFeed = useCallback(async () => {
     try {
       const res = await fetch("/api/feed?types=war");
-      if (!res.ok) return;
+      if (!res.ok) return null;
       const data = (await res.json()) as { entries?: FeedEntry[] };
       const now = Date.now();
       // 최근 윈도우 안 사건을 최신순으로, 최대 N개만. 만료·처치된 보스 소환은 모집에서 제외.
@@ -244,37 +245,91 @@ export function WarTicker() {
         .map((entry) => warTickerText(entry, now))
         .filter((text): text is string => text != null);
       const nextTextSig = nextTexts.join("\u0000");
+      const changed = nextSig !== sigRef.current;
       // 사건과 상대시간 문구가 모두 같으면 state를 건드리지 않는다. 시간만 바뀌면 동일 key로
       // 텍스트만 갱신해 애니메이션을 처음부터 다시 시작하지 않는다.
       if (nextSig === sigRef.current && nextTextSig === textSigRef.current) {
-        return;
+        return { changed: false };
       }
       textSigRef.current = nextTextSig;
       setTexts(nextTexts);
-      if (nextSig !== sigRef.current) {
+      if (changed) {
         sigRef.current = nextSig;
         setSig(nextSig);
       }
+      return { changed };
     } catch {
       /* 폴링 — 조용히 무시 */
+      return null;
     }
   }, []);
 
   useEffect(() => {
-    // 비동기 fetch 후 setState 라 cascading render 아님 — ServerFeedView 와 동일 패턴.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void fetchWarFeed();
-    const tick = () => {
-      // 비활성 탭은 폴링 중단 — 전광판은 영속 chrome 의 유일한 폴링이라 필수.
-      if (typeof document !== "undefined" && document.hidden) return;
-      void fetchWarFeed();
+    let cancelled = false;
+    let initialized = false;
+    let consecutiveUnchangedPolls = 0;
+    let running = false;
+    let timeoutId: number | null = null;
+
+    const clearScheduledTick = () => {
+      if (timeoutId == null) return;
+      window.clearTimeout(timeoutId);
+      timeoutId = null;
     };
-    const id = setInterval(tick, FEED_POLL_MS);
-    const onFocus = () => void fetchWarFeed();
-    window.addEventListener("focus", onFocus);
+
+    const scheduleNextTick = () => {
+      clearScheduledTick();
+      if (cancelled || document.visibilityState !== "visible") return;
+      timeoutId = window.setTimeout(
+        () => void tick(),
+        feedPollDelayMs(consecutiveUnchangedPolls),
+      );
+    };
+
+    const tick = async () => {
+      if (
+        cancelled ||
+        running ||
+        document.visibilityState !== "visible"
+      ) {
+        return;
+      }
+      running = true;
+      try {
+        const result = await fetchWarFeed();
+        if (cancelled || !result) return;
+        if (initialized) {
+          consecutiveUnchangedPolls = nextFeedIdlePollCount(
+            consecutiveUnchangedPolls,
+            result.changed,
+          );
+        } else {
+          initialized = true;
+        }
+      } finally {
+        running = false;
+        scheduleNextTick();
+      }
+    };
+
+    const runNow = () => {
+      clearScheduledTick();
+      if (document.visibilityState === "visible") void tick();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") runNow();
+      else clearScheduledTick();
+    };
+
+    void tick();
+    window.addEventListener("focus", runNow);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
-      clearInterval(id);
-      window.removeEventListener("focus", onFocus);
+      cancelled = true;
+      clearScheduledTick();
+      window.removeEventListener("focus", runNow);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [fetchWarFeed]);
 

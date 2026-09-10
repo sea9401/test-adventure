@@ -43,7 +43,8 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useFishingCodexContext } from "@/adventure/v2/GameStateProvider";
 import {
-  LifeFieldEnvironmentCard,
+  LifeFieldEnvironmentSnapshotCard,
+  lifeFieldEnvironmentStatusFromFull,
   useFullLifeFieldStatus,
 } from "@/adventure/v2/LifeFieldPanels";
 import { lifeFieldRegionRecordId } from "@/adventure/v2/lifeFieldRecords";
@@ -694,10 +695,16 @@ export function WorldRumorMapView({
                   id={selected.id}
                   materialBalances={materialBalances}
                 />
-                <LifeFieldEnvironmentCard
-                  activity={selected.kind}
-                  spotId={selected.id}
-                />
+                {lifeFieldStatus ? (
+                  <LifeFieldEnvironmentSnapshotCard
+                    data={lifeFieldEnvironmentStatusFromFull(
+                      lifeFieldStatus,
+                      selected.kind,
+                      selected.id,
+                    )}
+                    spotId={selected.id}
+                  />
+                ) : null}
 
                 {lifeFieldStatus?.summary.entries.some(
                   (entry) =>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Compass, Medal, Sparkle } from "@phosphor-icons/react";
 import {
   LIFE_FIELD_DISCOVERIES,
@@ -15,7 +15,10 @@ import type {
 } from "@/adventure/data/v2/lifeFieldEnvironment";
 import { SURFACE_ACCENT, SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { confirmGameAction } from "@/components/ui/gameDialog";
-import { environmentRefreshDelay } from "./lifeFieldRefresh";
+import {
+  earliestEnvironmentRefreshDelay,
+  environmentRefreshDelay,
+} from "./lifeFieldRefresh";
 import { lifeFieldStatusPresentation } from "./lifeFieldStatusPresentation";
 
 type DailyView = {
@@ -37,7 +40,7 @@ type LifeFieldFeatures = {
   milestonesEnabled: boolean;
 };
 
-type LifeFieldEnvironmentStatus = {
+export type LifeFieldEnvironmentStatus = {
   ok: true;
   serverNow: number;
   features: LifeFieldFeatures;
@@ -61,7 +64,7 @@ type LifeFieldCodexStatus = {
   traces: Partial<Record<LifeFieldActivity, LifeFieldTrace>>;
 };
 
-type LifeFieldFullStatus = LifeFieldCodexStatus & {
+export type LifeFieldFullStatus = LifeFieldCodexStatus & {
   environments: Record<
     LifeFieldActivity,
     Record<
@@ -89,6 +92,7 @@ function useLifeFieldStatus<T extends { ok: true; serverNow: number }>(
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const refreshDueRef = useRef(false);
 
   const load = useCallback(async () => {
     const response = await fetch(url, { cache: "no-store" });
@@ -132,26 +136,58 @@ function useLifeFieldStatus<T extends { ok: true; serverNow: number }>(
   useEffect(() => {
     const onRefresh = () => void refresh();
     window.addEventListener("life-field:refresh", onRefresh);
-    window.addEventListener("focus", onRefresh);
     return () => {
       window.removeEventListener("life-field:refresh", onRefresh);
-      window.removeEventListener("focus", onRefresh);
     };
   }, [refresh]);
 
   useEffect(() => {
     if (!data || !refreshDelay) return;
+    refreshDueRef.current = false;
     const delay = refreshDelay(data);
     if (delay == null) return;
-    const timeout = window.setTimeout(() => void refresh(), delay);
-    return () => window.clearTimeout(timeout);
+    const timeout = window.setTimeout(() => {
+      if (document.visibilityState === "hidden") {
+        refreshDueRef.current = true;
+        return;
+      }
+      void refresh();
+    }, delay);
+    const onVisible = () => {
+      if (
+        document.visibilityState === "hidden" ||
+        !refreshDueRef.current
+      ) {
+        return;
+      }
+      refreshDueRef.current = false;
+      void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearTimeout(timeout);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [data, refresh, refreshDelay]);
 
   return { data, loading, error, refresh };
 }
 
 export function useFullLifeFieldStatus() {
-  return useLifeFieldStatus<LifeFieldFullStatus>("/api/v2/life-fields");
+  return useLifeFieldStatus<LifeFieldFullStatus>(
+    "/api/v2/life-fields",
+    fullStatusRefreshDelay,
+  );
+}
+
+function fullStatusRefreshDelay(data: LifeFieldFullStatus): number | null {
+  if (!data.environments) return null;
+  return earliestEnvironmentRefreshDelay(
+    data.serverNow,
+    Object.values(data.environments).flatMap((bySpot) =>
+      Object.values(bySpot).map((row) => row.current.endsAt),
+    ),
+  );
 }
 
 function environmentStatusRefreshDelay(
@@ -197,7 +233,6 @@ export function LifeFieldEnvironmentCard({
       url,
       environmentStatusRefreshDelay,
     );
-  const clock = useServerMinuteClock(data?.serverNow ?? null);
   const presentation = lifeFieldStatusPresentation({
     hasData: data !== null,
     loading,
@@ -209,6 +244,31 @@ export function LifeFieldEnvironmentCard({
   if (presentation === "error" || !data) {
     return <div className={`${SURFACE_INSET} p-3 text-xs text-zinc-500`}>현장 정보를 불러오지 못했습니다.</div>;
   }
+  return <LifeFieldEnvironmentSnapshotCard data={data} spotId={spotId} />;
+}
+
+export function lifeFieldEnvironmentStatusFromFull(
+  data: LifeFieldFullStatus,
+  activity: LifeFieldActivity,
+  spotId: string,
+): LifeFieldEnvironmentStatus {
+  return {
+    ok: true,
+    serverNow: data.serverNow,
+    features: data.features,
+    environment: data.environments?.[activity]?.[spotId] ?? null,
+    trace: data.traces[activity] ?? null,
+  };
+}
+
+export function LifeFieldEnvironmentSnapshotCard({
+  data,
+  spotId,
+}: {
+  data: LifeFieldEnvironmentStatus;
+  spotId: string;
+}) {
+  const clock = useServerMinuteClock(data.serverNow);
   if (!data.features.environmentEnabled || !data.environment) return null;
   const row = data.environment;
   if (!row) return null;

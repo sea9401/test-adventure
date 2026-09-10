@@ -28,6 +28,19 @@ export const LIFE_DISCOVERY_FEED_DEBOUNCE_MS = 10 * 60_000;
 // 클라이언트 패널 폴링 주기.
 export const FEED_POLL_MS = 30_000;
 
+export function feedPollDelayMs(consecutiveUnchangedPolls: number): number {
+  if (consecutiveUnchangedPolls >= 6) return 120_000;
+  if (consecutiveUnchangedPolls >= 2) return 60_000;
+  return FEED_POLL_MS;
+}
+
+export function nextFeedIdlePollCount(
+  current: number,
+  receivedNewEvent: boolean,
+): number {
+  return receivedNewEvent ? 0 : current + 1;
+}
+
 // 피드 항목 종류. outpost_* 3종 = 전쟁 사건(docs/v2-war-visibility-plan.md PR-3).
 // (옛 shareFeed opt-out/force 구분은 제거 — 모든 종류가 항상 기록된다.)
 export const FEED_TYPES = [

@@ -67,6 +67,7 @@ import {
   getAutoHuntStopReason,
   useAutoHuntStopConfig,
 } from "@/adventure/v2/autoHuntStopConditions";
+import { autoHuntRequestPlan } from "@/adventure/v2/autoHuntRequestPolicy";
 import {
   adventureSupportBenefits,
   huntCountsForAdventureSupport,
@@ -436,9 +437,14 @@ export function V2DungeonFloorView({
   const [expiredRareMapIid, setExpiredRareMapIid] = useState<string | null>(
     null,
   );
+  const onReturnToNormalHuntRef = useRef(onReturnToNormalHunt);
+  useEffect(() => {
+    onReturnToNormalHuntRef.current = onReturnToNormalHunt;
+  }, [onReturnToNormalHunt]);
+  const rareMapEntryEnabled = onEnterRareMap != null;
   useEffect(() => {
     if (isUnexplored) return;
-    if (!rareMapIid && !onEnterRareMap) return;
+    if (!rareMapIid && !rareMapEntryEnabled) return;
     let alive = true;
     fetch("/api/v2/me/rare-maps")
       .then((response) => (response.ok ? response.json() : null))
@@ -467,7 +473,7 @@ export function V2DungeonFloorView({
             !Number.isFinite(data.serverNow)
           ) {
             setExpiredRareMapIid(rareMapIid);
-            onReturnToNormalHunt?.();
+            onReturnToNormalHuntRef.current?.();
             return;
           }
           setExpiredRareMapIid(null);
@@ -479,7 +485,7 @@ export function V2DungeonFloorView({
     return () => {
       alive = false;
     };
-  }, [isUnexplored, onEnterRareMap, onReturnToNormalHunt, rareMapIid]);
+  }, [isUnexplored, rareMapEntryEnabled, rareMapIid]);
   // 일괄 사냥 상태.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
@@ -633,9 +639,8 @@ export function V2DungeonFloorView({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // 자동 사냥 루프 — 사냥 버튼을 길게 누르면 켜진다(두 모드 공용). 켜져 있으면 1.5초마다 발동.
-  //   쿨다운/처리중 가드는 triggerHunt 내부라 일시 조건이면 no-op(풀리면 재개). 스태미나·체력
-  //   소진이면 triggerHunt 가 자동 정지. 서버 거부·언마운트도 정지.
+  // 자동 사냥 루프 — 사냥 버튼을 길게 누르면 켜진다(두 모드 공용).
+  //   실제 타이머는 coreLoopOn과 batch 판수를 계산한 아래 구간에서 설정한다.
   const [autoHunt, setAutoHunt] = useState(false);
   const [autoStopReason, setAutoStopReason] =
     useState<HuntEndReason | null>(null);
@@ -644,11 +649,6 @@ export function V2DungeonFloorView({
     configRef: autoStopConfigRef,
     updateConfig: updateAutoStopConfig,
   } = useAutoHuntStopConfig();
-  useEffect(() => {
-    if (!autoHunt) return;
-    const id = setInterval(() => triggerHuntRef.current(), 1500);
-    return () => clearInterval(id);
-  }, [autoHunt]);
   // 자동 사냥(오프라인 세션)과 직접 사냥은 상호 배타 — 세션이 켜지면 온라인 루프를 멈춘다.
   const offlineSessionActive = !!offlineHunt?.active;
   useEffect(() => {
@@ -898,6 +898,19 @@ export function V2DungeonFloorView({
 
   // 코어루프 on(쿨다운 객체 전달됨) = 스태미나 폐지·전투 쿨다운 게이트. off/dev = 기존 스태미나.
   const coreLoopOn = combatCooldown != null;
+  const autoHuntPlan = autoHuntRequestPlan({
+    selectedCount: huntCount,
+    coreLoopOn,
+    rareMap: rareMapIid != null,
+  });
+  useEffect(() => {
+    if (!autoHunt) return;
+    const id = setInterval(
+      () => triggerHuntRef.current(),
+      autoHuntPlan.intervalMs,
+    );
+    return () => clearInterval(id);
+  }, [autoHunt, autoHuntPlan.intervalMs]);
   const onCooldown = combatCooldown != null && now < combatCooldown.nextBattleAt;
   const cooldownLeftSec = onCooldown
     ? Math.ceil((combatCooldown.nextBattleAt - now) / 1000)
@@ -1000,9 +1013,10 @@ export function V2DungeonFloorView({
     }
     setBatchSummary(null);
     setSelectedBatchReplay(null);
-    // 코어루프 on = 항상 단판(일괄 폐지 — 누적은 오프라인 정산). 스태미나 모드는
-    // 수동/자동 모두 설정한 huntCount 를 반영한다.
-    if (rareMapIid || coreLoopOn || huntCount === 1) {
+    // 수동은 선택 count를 그대로 사용한다. 스태미나 자동사냥의 기본 1회 설정만
+    // 5회 batch로 승격하며, 코어루프와 희귀 지도는 항상 단판이다.
+    const requestCount = autoRun ? autoHuntPlan.count : huntCount;
+    if (rareMapIid || coreLoopOn || requestCount === 1) {
       // 이미 한 판이 진행 중이면 무발동(동시 제출 차단). hunt 결과 .then 에서 해제.
       if (huntInFlightRef.current) return;
       huntInFlightRef.current = true;
@@ -1120,7 +1134,7 @@ export function V2DungeonFloorView({
         }
       });
     } else {
-      void runBatch(huntCount, autoRun);
+      void runBatch(requestCount, autoRun);
     }
   };
 

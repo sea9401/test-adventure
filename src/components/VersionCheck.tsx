@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "@phosphor-icons/react";
 import { isForegroundHunting } from "@/lib/huntingSignal";
+import { readPresenceBuildVersion } from "@/lib/presenceBuildVersion";
 
 // 새 배포 감지 → 보고 있으면 "새 버전 — 새로고침" 토스트, 안 보고 있으면(탭 숨김) 조용히 자동 reload.
 //
 // 로드한 빌드(NEXT_PUBLIC_BUILD_ID, 빌드 시점에 인라인)와 /api/version 의 현재 배포 buildId 를
 // 비교 — 다르면 그 사이 새 배포가 떴다는 뜻. 마운트 직후 + 탭이 다시 보일 때(visibilitychange/
-// focus) + 주기적으로(5분) 검사. 로컬/CLI 빌드(둘 다 "dev")는 비교 무의미 → 건너뜀.
+// focus) + 주기적으로(15분) 검사. 로컬/CLI 빌드(둘 다 "dev")는 비교 무의미 → 건너뜀.
 //
 // 자동 reload 정책: 탭이 visible 일 땐 토스트만(전투/입력 중 갑자기 reload 하면 곤란) — 사용자가
 // 누르거나 탭을 벗어나면 처리. 탭이 hidden 이면 즉시 reload (안 보는 동안 새 빌드로 갈아끼움).
@@ -21,50 +22,67 @@ import { isForegroundHunting } from "@/lib/huntingSignal";
 // 않는다. 사냥 중엔 토스트로만 알리고, 사냥을 끝낸 뒤 다음 hidden/visible 전환에서 갈아끼운다.
 
 const LOADED_BUILD_ID = process.env.NEXT_PUBLIC_BUILD_ID ?? "dev";
-const POLL_INTERVAL_MS = 5 * 60 * 1000;
+const POLL_INTERVAL_MS = 15 * 60 * 1000;
 
 export function VersionCheck() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const detectedBuildIdRef = useRef<string | null>(null);
   const dismissedBuildIdRef = useRef<string | null>(null);
+  const checkInFlightRef = useRef<Promise<void> | null>(null);
   // onHide 핸들러는 deps [check] 인 effect 안에 있어 최신 state 를 못 본다 — ref 로 미러링.
   const updateAvailableRef = useRef(false);
   useEffect(() => {
     updateAvailableRef.current = updateAvailable;
   }, [updateAvailable]);
 
-  const check = useCallback(async () => {
-    if (LOADED_BUILD_ID === "dev") return;
-    try {
-      const res = await fetch("/api/version", { cache: "no-store" });
-      if (!res.ok) return;
-      const data = (await res.json()) as { buildId?: string };
-      if (
-        data.buildId &&
-        data.buildId !== "dev" &&
-        data.buildId !== LOADED_BUILD_ID
-      ) {
-        detectedBuildIdRef.current = data.buildId;
-        if (dismissedBuildIdRef.current === data.buildId) return;
-        // 탭이 숨겨져 있으면(유저가 안 보는 동안) 토스트 띄울 것 없이 바로 갈아끼운다.
-        // 단 실시간 사냥 중이면 미룬다 — reload 가 huntingActive 를 리셋해 사냥이 끊긴다.
-        if (document.visibilityState === "hidden" && !isForegroundHunting()) {
-          window.location.reload();
-          return;
+  const check = useCallback((): Promise<void> => {
+    if (LOADED_BUILD_ID === "dev") return Promise.resolve();
+    if (checkInFlightRef.current) return checkInFlightRef.current;
+
+    const pending = (async () => {
+      try {
+        // 같은 mount/visibility 이벤트에서 시작되는 heartbeat에 합류할 기회를 준다.
+        await Promise.resolve();
+        let buildId = await readPresenceBuildVersion();
+        if (!buildId) {
+          const res = await fetch("/api/version", { cache: "no-store" });
+          if (!res.ok) return;
+          const payload = (await res.json()) as { buildId?: string };
+          buildId = payload.buildId ?? null;
         }
-        setUpdateAvailable(true);
+        const data = { buildId };
+        if (
+          data.buildId &&
+          data.buildId !== "dev" &&
+          data.buildId !== LOADED_BUILD_ID
+        ) {
+          detectedBuildIdRef.current = data.buildId;
+          if (dismissedBuildIdRef.current === data.buildId) return;
+          // 탭이 숨겨져 있으면(유저가 안 보는 동안) 토스트 띄울 것 없이 바로 갈아끼운다.
+          // 단 실시간 사냥 중이면 미룬다 — reload 가 huntingActive 를 리셋해 사냥이 끊긴다.
+          if (document.visibilityState === "hidden" && !isForegroundHunting()) {
+            window.location.reload();
+            return;
+          }
+          setUpdateAvailable(true);
+        }
+      } catch {
+        // 일시적 실패 — 다음 검사에서 재시도.
       }
-    } catch {
-      // 일시적 실패 — 다음 검사에서 재시도.
-    }
+    })();
+    checkInFlightRef.current = pending;
+    void pending.finally(() => {
+      if (checkInFlightRef.current === pending) checkInFlightRef.current = null;
+    });
+    return pending;
   }, []);
 
   useEffect(() => {
     if (LOADED_BUILD_ID === "dev") return;
-    // check() 는 비동기 fetch 후 외부(배포된 버전)에 따라 setState — 동기 cascade 아님.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void check();
-    const id = setInterval(() => void check(), POLL_INTERVAL_MS);
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") void check();
+    }, POLL_INTERVAL_MS);
     const onVisible = () => {
       if (document.visibilityState === "visible") void check();
     };

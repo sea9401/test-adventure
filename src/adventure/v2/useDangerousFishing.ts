@@ -89,6 +89,8 @@ export type DangerousFishingBusy =
   | "boss"
   | null;
 
+export const DANGEROUS_FISHING_STATUS_POLL_MS = 30_000;
+
 type DangerousFishingJsonReader = (response: Response) => Promise<unknown>;
 
 async function apiJson(
@@ -206,8 +208,34 @@ export function useDangerousFishing() {
   const activeBossId = boss?.event?.status === "active" ? boss.event.id : null;
   useEffect(() => {
     if (!activeEncounterId && !activeBossId) return;
-    const timer = window.setInterval(() => void refresh(), 10_000);
-    return () => window.clearInterval(timer);
+    let cancelled = false;
+    let timer: number | null = null;
+
+    const clearTimer = () => {
+      if (timer !== null) window.clearTimeout(timer);
+      timer = null;
+    };
+    const schedule = () => {
+      clearTimer();
+      if (cancelled || document.visibilityState === "hidden") return;
+      timer = window.setTimeout(() => {
+        timer = null;
+        void refresh().finally(schedule);
+      }, DANGEROUS_FISHING_STATUS_POLL_MS);
+    };
+    const handleVisibility = () => {
+      clearTimer();
+      if (document.visibilityState === "hidden") return;
+      void refresh().finally(schedule);
+    };
+
+    schedule();
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      cancelled = true;
+      clearTimer();
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [activeBossId, activeEncounterId, refresh]);
 
   const mutate = useCallback(

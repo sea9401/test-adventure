@@ -215,6 +215,18 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
+function setVisibility(value: "visible" | "hidden") {
+  Object.defineProperty(document, "visibilityState", {
+    configurable: true,
+    value,
+  });
+  Object.defineProperty(document, "hidden", {
+    configurable: true,
+    value: value === "hidden",
+  });
+  document.dispatchEvent(new Event("visibilitychange"));
+}
+
 beforeEach(() => {
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
 });
@@ -235,6 +247,47 @@ afterEach(() => {
 });
 
 describe("위험 해역 시작 요청 선택", () => {
+  it("활성 조우 상태를 visible에서만 30초마다 갱신한다", async () => {
+    vi.useFakeTimers();
+    setVisibility("visible");
+    const state = emptyDangerousFishingState();
+    const voyage = {
+      id: "voyage-poll",
+      zoneId: "shattered_reef" as const,
+      depthId: "surface" as const,
+      risk: 1,
+      startedAt: 1_800_000_000_000,
+      cargo: [],
+      encounter: realtimeEncounter(),
+    };
+    const fetcher = installFishingApi(
+      model({
+        state: { ...state, voyage, bossAttempt: null },
+      }),
+      activeBossModel(),
+    );
+    const hook = renderHook(() => useDangerousFishing());
+
+    await act(async () => vi.advanceTimersByTimeAsync(0));
+    expect(fetcher).toHaveBeenCalledTimes(2);
+
+    act(() => setVisibility("hidden"));
+    await act(async () => vi.advanceTimersByTimeAsync(60_000));
+    expect(fetcher).toHaveBeenCalledTimes(2);
+
+    act(() => setVisibility("visible"));
+    await act(async () => Promise.resolve());
+    expect(fetcher).toHaveBeenCalledTimes(4);
+
+    await act(async () => vi.advanceTimersByTimeAsync(29_999));
+    expect(fetcher).toHaveBeenCalledTimes(4);
+    await act(async () => vi.advanceTimersByTimeAsync(1));
+    expect(fetcher).toHaveBeenCalledTimes(6);
+
+    hook.unmount();
+    vi.useRealTimers();
+  });
+
   it("조우 시작 뒤 늦게 끝난 이전 상태 조회가 낚시터 선택 화면으로 되돌리지 않는다", async () => {
     const state = emptyDangerousFishingState();
     const encounter = realtimeEncounter();

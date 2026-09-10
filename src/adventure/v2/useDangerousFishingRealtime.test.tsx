@@ -294,7 +294,7 @@ describe("useDangerousFishingRealtime", () => {
     vi.stubGlobal("fetch", fetcher);
     const { result } = renderRealtime(encounter);
 
-    await act(async () => vi.advanceTimersByTimeAsync(2_050));
+    await act(async () => vi.advanceTimersByTimeAsync(4_050));
 
     expect(result.current.connection).toBe("online");
     expect(
@@ -322,7 +322,7 @@ describe("useDangerousFishingRealtime", () => {
       );
       const { result, unmount } = renderRealtime(encounter);
 
-      await act(async () => vi.advanceTimersByTimeAsync(2_050));
+      await act(async () => vi.advanceTimersByTimeAsync(4_050));
 
       expect(result.current.connection).toBe("offline");
       unmount();
@@ -476,14 +476,15 @@ describe("useDangerousFishingRealtime", () => {
     expect(hook.result.current.connection).toBe("finished");
 
     const second = {
-      ...encounterFixture(),
+      ...encounterFixture({ initialDistance: 100_000 }),
       id: "encounter-after-finish",
       startedAt: Date.now(),
       expiresAt: Date.now() + 400 * 50,
     };
     hook.rerender({ current: second });
+    await act(async () => vi.advanceTimersByTimeAsync(3_950));
     act(() => hook.result.current.onPointerDown(pointerEvent() as never));
-    await act(async () => vi.advanceTimersByTimeAsync(2_050));
+    await act(async () => vi.advanceTimersByTimeAsync(100));
 
     const bodies = fetcher.mock.calls.map((call) =>
       JSON.parse(String(call[1]?.body)) as { encounterId: string },
@@ -526,7 +527,7 @@ describe("useDangerousFishingRealtime", () => {
       { initialProps: { current: first } },
     );
 
-    await act(async () => vi.advanceTimersByTimeAsync(2_050));
+    await act(async () => vi.advanceTimersByTimeAsync(4_050));
     expect(fetcher).toHaveBeenCalledTimes(1);
 
     hook.rerender({ current: second });
@@ -552,7 +553,7 @@ describe("useDangerousFishingRealtime", () => {
   });
 
   it("pointer cancel, 창 blur, hidden 전환에서 reel을 즉시 해제한다", () => {
-    const encounter = encounterFixture();
+    const encounter = encounterFixture({ initialDistance: 100_000 });
     vi.stubGlobal("fetch", successfulFetch(encounter));
     const { result } = renderRealtime(encounter);
 
@@ -583,14 +584,16 @@ describe("useDangerousFishingRealtime", () => {
     expect(result.current.view.tick).toBe(100);
   });
 
-  it("약 2초마다 transcript checkpoint를 보내고 복구 세션을 저장한다", async () => {
-    const encounter = encounterFixture();
+  it("약 4초마다 transcript checkpoint를 보내고 복구 세션을 저장한다", async () => {
+    const encounter = encounterFixture({ initialDistance: 100_000 });
     const fetcher = successfulFetch(encounter);
     vi.stubGlobal("fetch", fetcher);
     const { result } = renderRealtime(encounter);
 
+    await act(async () => vi.advanceTimersByTimeAsync(3_950));
+    expect(fetcher).not.toHaveBeenCalled();
     act(() => result.current.onPointerDown(pointerEvent() as never));
-    await act(async () => vi.advanceTimersByTimeAsync(2_050));
+    await act(async () => vi.advanceTimersByTimeAsync(100));
 
     expect(fetcher).toHaveBeenCalledWith(
       expect.stringContaining("dangerous-fishing"),
@@ -603,8 +606,8 @@ describe("useDangerousFishingRealtime", () => {
       action: "checkpoint",
       encounterId: encounter.id,
       revision: 0,
-      clientTick: 40,
-      inputs: [{ tick: 0, mode: "reel" }],
+      clientTick: 80,
+      inputs: [{ tick: 79, mode: "reel" }],
     });
     expect(
       JSON.parse(
@@ -622,7 +625,7 @@ describe("useDangerousFishingRealtime", () => {
     vi.stubGlobal("fetch", fetcher);
     const { result } = renderRealtime(encounter, { onFinish });
 
-    await act(async () => vi.advanceTimersByTimeAsync(2_050));
+    await act(async () => vi.advanceTimersByTimeAsync(4_050));
 
     expect(result.current.connection).toBe("offline");
     expect(result.current.view.status).toBe("active");
@@ -658,7 +661,7 @@ describe("useDangerousFishingRealtime", () => {
     const { result } = renderRealtime(encounter);
 
     act(() => result.current.onPointerDown(pointerEvent() as never));
-    await act(async () => vi.advanceTimersByTimeAsync(2_050));
+    await act(async () => vi.advanceTimersByTimeAsync(4_050));
 
     expect(result.current.view.tick).toBeGreaterThanOrEqual(40);
     expect(result.current.view.mode).toBe("reel");
@@ -683,8 +686,8 @@ describe("useDangerousFishingRealtime", () => {
     });
     vi.stubGlobal("fetch", fetcher);
     const { result } = renderRealtime(encounter);
-    await act(async () => vi.advanceTimersByTimeAsync(2_000));
-    expect(result.current.view.tick).toBe(40);
+    await act(async () => vi.advanceTimersByTimeAsync(4_000));
+    expect(result.current.view.tick).toBe(80);
 
     act(() => result.current.onPointerDown(pointerEvent() as never));
     act(() => window.dispatchEvent(new Event("online")));
@@ -720,7 +723,7 @@ describe("useDangerousFishingRealtime", () => {
       sessionStorage.getItem(dangerousFishingRealtimeStorageKey(encounter.id))!,
     ) as { inputs: DangerousRealtimeInput[] };
     expect(stored.inputs).toContainEqual({
-      tick: 40,
+      tick: 80,
       mode: "release",
       sequence: expect.any(Number),
     });
@@ -728,7 +731,7 @@ describe("useDangerousFishingRealtime", () => {
   });
 
   it("deferred stale 409 rebase 중 기록한 입력을 authoritative checkpoint 위에 유지한다", async () => {
-    const encounter = encounterFixture();
+    const encounter = encounterFixture({ initialDistance: 100_000 });
     const pending = deferred<Response>();
     const fetcher = vi.fn(async (
       _input: RequestInfo | URL,
@@ -739,7 +742,7 @@ describe("useDangerousFishingRealtime", () => {
     });
     vi.stubGlobal("fetch", fetcher);
     const { result } = renderRealtime(encounter);
-    await act(async () => vi.advanceTimersByTimeAsync(2_000));
+    await act(async () => vi.advanceTimersByTimeAsync(4_000));
 
     act(() => result.current.onPointerDown(pointerEvent() as never));
     act(() => window.dispatchEvent(new Event("online")));
@@ -776,7 +779,7 @@ describe("useDangerousFishingRealtime", () => {
     ) as { inputs: DangerousRealtimeInput[]; server: { revision: number } };
     expect(stored.server.revision).toBe(1);
     expect(stored.inputs).toContainEqual({
-      tick: 40,
+      tick: 80,
       mode: "release",
       sequence: expect.any(Number),
     });
@@ -1097,13 +1100,13 @@ describe("useDangerousFishingRealtime", () => {
     );
     const { result } = renderRealtime(encounter);
 
-    await act(async () => vi.advanceTimersByTimeAsync(3_000));
+    await act(async () => vi.advanceTimersByTimeAsync(4_050));
     expect(result.current.connection).toBe("offline");
-    expect(result.current.view.tick).toBe(60);
+    expect(result.current.view.tick).toBe(81);
   });
 
   it("실제 activity reader의 verification challenge 동안 retry budget을 쓰지 않고 인증 완료 신호로 재개한다", async () => {
-    const encounter = encounterFixture();
+    const encounter = encounterFixture({ initialDistance: 100_000 });
     const online = successfulFetch(encounter);
     let verified = false;
     let dangerousRequests = 0;
@@ -1144,11 +1147,13 @@ describe("useDangerousFishingRealtime", () => {
       return { ...activity, realtime };
     });
 
+    await act(async () => vi.advanceTimersByTimeAsync(3_950));
+    expect(dangerousRequests).toBe(0);
     act(() => hook.result.current.realtime.onPointerDown(pointerEvent() as never));
     expect(hook.result.current.realtime.holding).toBe(true);
     expect(hook.result.current.realtime.view.mode).toBe("reel");
 
-    await act(async () => vi.advanceTimersByTimeAsync(2_050));
+    await act(async () => vi.advanceTimersByTimeAsync(100));
     expect(hook.result.current.verification).toMatchObject({
       activity: "fishing",
       siteKey: "turnstile-site",
@@ -1193,7 +1198,7 @@ describe("useDangerousFishingRealtime", () => {
     const removeDocumentListener = vi.spyOn(document, "removeEventListener");
     vi.stubGlobal("fetch", fetcher);
     const hook = renderRealtime(encounter, { onFinish });
-    await act(async () => vi.advanceTimersByTimeAsync(2_000));
+    await act(async () => vi.advanceTimersByTimeAsync(4_000));
     expect(fetcher).toHaveBeenCalledTimes(1);
 
     hook.unmount();

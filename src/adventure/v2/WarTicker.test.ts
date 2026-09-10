@@ -1,10 +1,20 @@
-import { describe, expect, it, vi } from "vitest";
+// @vitest-environment jsdom
+
+import { act, cleanup, render } from "@testing-library/react";
+import { createElement } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { FeedEntry } from "@/lib/feed-config";
-import { visibleWarTickerEntries, warTickerText } from "./WarTicker";
+import { WarTicker, visibleWarTickerEntries, warTickerText } from "./WarTicker";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
+
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 const NOW = Date.UTC(2026, 7, 4, 11, 20);
 
@@ -131,5 +141,42 @@ describe("WarTicker 도감 연구 명예", () => {
     expect(warTickerText(honor, NOW)).toBe(
       "모험가8 님, 2026-08 강과 호수의 달 확정 1위 · 전설 트로피!",
     );
+  });
+});
+
+describe("WarTicker adaptive polling", () => {
+  it("동일한 사건이 이어지면 늦추고 새 사건이 오면 30초로 복귀한다", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible",
+    });
+    const fetchMock = vi.fn(async () => {
+      const entries =
+        fetchMock.mock.calls.length === 4
+          ? [entry(101, "newcomer", { newcomer: true }, Date.now())]
+          : [];
+      return Response.json({ entries });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(createElement(WarTicker));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 });

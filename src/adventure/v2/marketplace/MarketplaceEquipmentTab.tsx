@@ -37,6 +37,7 @@ const SELL_CRAFT_FILTER_OPTIONS: [SellCraftFilter, string][] = [
 
 // 판매 탭 — 장비 슬롯. 빈 목록 안내 / 정렬 토글 + 장비 카드 목록 + 페이지네이션.
 export function MarketplaceEquipmentTab({
+  searchActive = false,
   items,
   pager,
   sellSort,
@@ -50,6 +51,7 @@ export function MarketplaceEquipmentTab({
   onListEquip,
   onOpenCard,
 }: {
+  searchActive?: boolean;
   items: V2EquipInstance[];
   pager: MarketplacePager<V2EquipInstance>;
   sellSort: SortMode;
@@ -70,7 +72,7 @@ export function MarketplaceEquipmentTab({
     el: HTMLElement,
   ) => void;
 }) {
-  if (items.length === 0 && craftFilter === "all") {
+  if (items.length === 0 && craftFilter === "all" && !searchActive) {
     return (
       <Card padding="sm">
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -109,7 +111,7 @@ export function MarketplaceEquipmentTab({
       {items.length === 0 ? (
         <Card padding="sm">
           <div className="text-xs text-zinc-500 dark:text-zinc-400">
-            선택한 조건에 맞는 판매 가능 장비가 없어요.
+            {searchActive ? "검색 결과가 없습니다. 검색어를 지우거나 다른 이름으로 검색해 주세요." : "선택한 조건에 맞는 판매 가능 장비가 없어요."}
           </div>
         </Card>
       ) : (

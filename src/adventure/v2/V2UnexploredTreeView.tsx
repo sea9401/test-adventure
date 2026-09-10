@@ -63,10 +63,10 @@ const ERROR_TEXT: Record<string, string> = {
   insufficient_gold: "노드 반환에 필요한 골드가 부족합니다.",
   boss_node_required: CRAFTING_LOCKED_TEXT,
   insufficient_trace: "소환석 제작에 필요한 흔적이 부족합니다.",
-  insufficient_material: "소환석 제작에 필요한 특화 재료가 부족합니다.",
+  insufficient_material: "소환석 제작에 필요한 특화 전용 재료가 부족합니다.",
   insufficient_scrolls: "소환석 제작에 필요한 보스 소환서가 부족합니다.",
   insufficient_boss_cores: "장비 제작에 필요한 우두머리 핵이 부족합니다.",
-  insufficient_pool_material: "장비 제작에 필요한 연결 특화 재료가 부족합니다.",
+  insufficient_pool_material: "장비 제작에 필요한 연결 특화 전용 재료가 부족합니다.",
   not_craftable: "확정 제작할 수 없는 장비입니다.",
   invalid_request: "장비 제작 요청을 확인해 주세요.",
   request_conflict: "제작 요청 식별자가 충돌했습니다. 다시 시도해 주세요.",
@@ -813,10 +813,32 @@ export function V2UnexploredTreeView({
             <h3 className="mb-2 font-bold">현재 보상 보정</h3>
             <div className="grid grid-cols-2 gap-2">
               <span>골드</span><strong className="text-right">{formatPct(snapshot.rewardSummary.gold)}</strong>
-              <span>일반 재료</span><strong className="text-right">{formatPct(snapshot.rewardSummary.baseMaterial)}</strong>
+              <span>공통·기본 재료</span><strong className="text-right">{formatPct(snapshot.rewardSummary.baseMaterial)}</strong>
               <span>장비</span><strong className="text-right">{formatPct(snapshot.rewardSummary.equipment)}</strong>
-              <span>특화 재료</span><strong className="text-right">{formatPct(snapshot.rewardSummary.specialMaterial)}</strong>
+              <span>특화 전용 재료</span><strong className="text-right">{formatPct(snapshot.rewardSummary.specialMaterial)}</strong>
             </div>
+            <details className="mt-3 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
+              <summary className="cursor-pointer font-medium">재료 구분과 적용 대상</summary>
+              <div className="mt-2 space-y-2">
+                <p>
+                  공통·기본 재료: 공통 사냥 재료와 미개척지 기본 몬스터의 일반 재료입니다.
+                  강화석·활력의 파편·강화의 불씨·찢어진 지도 조각과 성해 갑각·혜성 깃털 등이 포함됩니다.
+                </p>
+                <p>
+                  특화 전용 재료: 철갑 군단의 강화 철편, 마력 방벽체의 방벽 결정처럼
+                  특화 몬스터 무리에서 얻는 재료입니다. 무리별 재료 탐색 노드는 설명에 표시된 재료에만 적용됩니다.
+                </p>
+                <p>
+                  희귀 재료: 성해의 핵·빛바랜 별침·적색거성의 제의구·압축 공허낭·죽은 별의 눈입니다.
+                  희귀 재료·아이템 추가 획득 효과는 이 재료들과 유니크 장비·개척자 희귀 무기에 적용됩니다.
+                  특화 전용 재료와 활력의 파편·찢어진 지도 조각에는 적용되지 않습니다.
+                </p>
+                <p>
+                  이 구분은 개척 노드 기준입니다. 장비 해방의 희귀 재료 드롭 효과는
+                  강화석·활력의 파편·강화의 불씨·찢어진 지도 조각에도 적용됩니다.
+                </p>
+              </div>
+            </details>
           </section>
         </aside>
       </div>
@@ -954,7 +976,7 @@ export function V2UnexploredTreeView({
             <div>
               <h2 className="font-bold">우두머리 핵 제작소</h2>
               <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                일반 고유 장비는 핵과 연결 특화 재료로 확정 제작할 수 있습니다.
+                일반 고유 장비는 핵과 연결 특화 전용 재료로 확정 제작할 수 있습니다.
                 초희귀 고유는 개인 보스 토벌에서만 획득할 수 있습니다.
               </p>
             </div>

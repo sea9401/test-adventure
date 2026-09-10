@@ -175,7 +175,7 @@ const smallEffectSeeds: Array<{
   })),
   ...Array.from({ length: 18 }, () => ({
     name: "재료 탐색",
-    description: "일반 재료 획득량이 2% 증가합니다.",
+    description: "공통·기본 재료 획득량이 2% 증가합니다.",
     icon: "material",
     effect: { kind: "reward", reward: "base_material", pct: 2 } as const,
   })),
@@ -193,7 +193,7 @@ const smallEffectSeeds: Array<{
   })),
   ...Array.from({ length: 12 }, () => ({
     name: "특화 채집",
-    description: "특화 몬스터 전용 재료 기대 획득량이 2% 증가합니다.",
+    description: "특화 전용 재료 기대 획득량이 2% 증가합니다.",
     icon: "special-material",
     effect: { kind: "reward", reward: "special_material", pct: 2 } as const,
   })),
@@ -221,13 +221,13 @@ const mediumSeeds: readonly MediumSeed[] = [
   },
   {
     name: "채집 감식",
-    description: "일반 재료 획득량이 8% 증가합니다.",
+    description: "공통·기본 재료 획득량이 8% 증가합니다.",
     icon: "material",
     effects: [{ kind: "reward", reward: "base_material", pct: 8 }],
   },
   {
     name: "기본 보상 I",
-    description: "난이도 +1, 일반 재료·장비 기대 획득량 +10%.",
+    description: "난이도 +1, 공통·기본 재료·장비 기대 획득량 +10%.",
     icon: "base-risk",
     effects: [{ kind: "difficulty_reward", difficulty: 1, reward: "base", amount: 10 }],
   },
@@ -238,8 +238,8 @@ const mediumSeeds: readonly MediumSeed[] = [
     effects: [{ kind: "reward", reward: "equipment", pct: 8 }],
   },
   {
-    name: "특화 재료 I",
-    description: "난이도 +1, 활성 특화 풀 전용 재료 +10%.",
+    name: "특화 전용 재료 I",
+    description: "난이도 +1, 특화 전용 재료 +10%.",
     icon: "special-risk",
     effects: [{ kind: "difficulty_reward", difficulty: 1, reward: "special", amount: 10 }],
   },
@@ -257,7 +257,7 @@ const mediumSeeds: readonly MediumSeed[] = [
   },
   {
     name: "특화 채집",
-    description: "특화 몬스터 전용 재료 기대 획득량이 8% 증가합니다.",
+    description: "특화 전용 재료 기대 획득량이 8% 증가합니다.",
     icon: "special-material",
     effects: [{ kind: "reward", reward: "special_material", pct: 8 }],
   },
@@ -269,7 +269,7 @@ const mediumSeeds: readonly MediumSeed[] = [
   },
   {
     name: "풍부한 전리품",
-    description: "일반 재료와 장비 기대 획득량이 각각 5% 증가합니다.",
+    description: "공통·기본 재료와 장비 기대 획득량이 각각 5% 증가합니다.",
     icon: "base",
     effects: [
       { kind: "reward", reward: "base_material", pct: 5 },
@@ -284,13 +284,13 @@ const mediumSeeds: readonly MediumSeed[] = [
   },
   {
     name: "기본 보상 II",
-    description: "난이도 +2, 일반 재료·장비 기대 획득량 +20%.",
+    description: "난이도 +2, 공통·기본 재료·장비 기대 획득량 +20%.",
     icon: "base-risk",
     effects: [{ kind: "difficulty_reward", difficulty: 2, reward: "base", amount: 20 }],
   },
   {
     name: "균형 잡힌 수확",
-    description: "골드와 특화 몬스터 전용 재료가 각각 5% 증가합니다.",
+    description: "골드와 특화 전용 재료가 각각 5% 증가합니다.",
     icon: "balanced",
     effects: [
       { kind: "reward", reward: "gold", pct: 5 },
@@ -298,8 +298,8 @@ const mediumSeeds: readonly MediumSeed[] = [
     ],
   },
   {
-    name: "특화 재료 II",
-    description: "난이도 +2, 활성 특화 풀 전용 재료 +20%.",
+    name: "특화 전용 재료 II",
+    description: "난이도 +2, 특화 전용 재료 +20%.",
     icon: "special-risk",
     effects: [{ kind: "difficulty_reward", difficulty: 2, reward: "special", amount: 20 }],
   },
@@ -317,13 +317,13 @@ const mediumSeeds: readonly MediumSeed[] = [
   },
   {
     name: "기본 보상 III",
-    description: "난이도 +3, 일반 재료·장비 기대 획득량 +35%.",
+    description: "난이도 +3, 공통·기본 재료·장비 기대 획득량 +35%.",
     icon: "base-risk",
     effects: [{ kind: "difficulty_reward", difficulty: 3, reward: "base", amount: 35 }],
   },
   {
-    name: "특화 재료 III",
-    description: "난이도 +3, 활성 특화 풀 전용 재료 +35%.",
+    name: "특화 전용 재료 III",
+    description: "난이도 +3, 특화 전용 재료 +35%.",
     icon: "special-risk",
     effects: [{ kind: "difficulty_reward", difficulty: 3, reward: "special", amount: 35 }],
   },
@@ -334,8 +334,8 @@ const mediumSeeds: readonly MediumSeed[] = [
     effects: [{ kind: "difficulty_reward", difficulty: 4, reward: "trace", amount: 35 }],
   },
   {
-    name: "특화 재료 IV",
-    description: "난이도 +4, 활성 특화 풀 전용 재료 +50%.",
+    name: "특화 전용 재료 IV",
+    description: "난이도 +4, 특화 전용 재료 +50%.",
     icon: "special-risk",
     effects: [{ kind: "difficulty_reward", difficulty: 4, reward: "special", amount: 50 }],
   },
@@ -532,7 +532,7 @@ UNEXPLORED_MONSTER_POOLS.forEach((pool, index) => {
     {
       id: `enh-${pool.id}-frequency`,
       name: `${pool.name} · 출현 강화`,
-      description: "해당 풀 요청 출현 비중을 10%p 추가합니다.",
+      description: `${pool.name} 요청 출현 비중을 10%p 추가합니다.`,
       icon: "frequency",
       position: leftInner,
       angle: leftAngle,
@@ -542,7 +542,7 @@ UNEXPLORED_MONSTER_POOLS.forEach((pool, index) => {
     {
       id: `enh-${pool.id}-material`,
       name: `${pool.name} · 재료 탐색`,
-      description: "해당 풀 전용 재료 기대 획득량이 20% 증가합니다.",
+      description: `${pool.name}의 특화 전용 재료(${pool.materialName}) 기대 획득량이 20% 증가합니다.`,
       icon: "material",
       position: leftOuter,
       angle: leftAngle,
@@ -553,8 +553,8 @@ UNEXPLORED_MONSTER_POOLS.forEach((pool, index) => {
       id: thirdId,
       name: `${pool.name} · ${isFront ? "전리품 탐색" : "흔적 추적"}`,
       description: isFront
-        ? "해당 풀 몬스터의 일반 장비·골드 기대량이 20% 증가합니다."
-        : "해당 풀 흔적의 추가 획득 확률이 20%p 증가합니다.",
+        ? `${pool.name} 몬스터의 일반 장비·골드 기대량이 20% 증가합니다.`
+        : `${pool.name} 흔적의 추가 획득 확률이 20%p 증가합니다.`,
       icon: isFront ? "loot" : "trace",
       position: rightInner,
       angle: rightAngle,
@@ -564,7 +564,7 @@ UNEXPLORED_MONSTER_POOLS.forEach((pool, index) => {
     {
       id: `enh-${pool.id}-focus`,
       name: `${pool.name} · 집중 강화`,
-      description: `${pool.focusDescription}. 전용 재료 기본 확률이 1.5%로 증가합니다.`,
+      description: `${pool.focusDescription}. 특화 전용 재료(${pool.materialName}) 기본 확률이 1.5%로 증가합니다.`,
       icon: "focus",
       position: rightOuter,
       angle: rightAngle,
@@ -650,7 +650,7 @@ const deepSeeds: ReadonlyArray<{
   {
     id: "collector",
     name: "수집가의 길",
-    description: "일반·특화 재료 +80%, 골드·장비 -50%.",
+    description: "공통·기본 재료와 특화 전용 재료 +80%, 골드·장비 -50%.",
     icon: "material",
     effect: "collector",
   },
@@ -671,7 +671,7 @@ const deepSeeds: ReadonlyArray<{
   {
     id: "tracking",
     name: "집중 추적",
-    description: "기본 풀 비중을 25%로 낮추고 특화 재료와 흔적을 강화합니다.",
+    description: "기본 몬스터 무리 비중을 25%로 낮추고 특화 전용 재료와 흔적을 강화합니다.",
     icon: "tracking",
     effect: "tracking",
   },

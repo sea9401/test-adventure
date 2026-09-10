@@ -20,6 +20,8 @@ import {
   type SortMode,
 } from "../v2ItemListShared";
 import { EquipmentCardGrid } from "./EquipmentCardGrid";
+import { matchesItemSearch } from "../itemSearch";
+import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 
 export type EquipmentSaleSelection = {
   active: boolean;
@@ -48,6 +50,7 @@ const INVENTORY_SORT_OPTIONS: ReadonlyArray<{
 // 보유 장비 카드 그리드 + 페이지네이션. 정렬·일괄판매 임계값 상태는 코디네이터(부모)가
 // 보유하고, 탭-로컬 정렬/페이지네이션만 여기서 파생한다(거동 불변).
 export function EquipmentTab({
+  search = "",
   slot,
   instances,
   equippedIid,
@@ -66,6 +69,7 @@ export function EquipmentTab({
   codexBulk,
   selection,
 }: {
+  search?: string;
   slot: V2EquipSlot;
   instances: V2EquipInstance[];
   equippedIid: string | null;
@@ -95,10 +99,11 @@ export function EquipmentTab({
   );
   const tabInstances = useMemo(
     () =>
-      lockedOnly
-        ? sortedInstances.filter((instance) => instance.locked === true)
-        : sortedInstances,
-    [lockedOnly, sortedInstances],
+      sortedInstances.filter((instance) =>
+        (!lockedOnly || instance.locked === true) &&
+        matchesItemSearch(V2_EQUIPMENT[instance.id]?.name, search),
+      ),
+    [lockedOnly, sortedInstances, search],
   );
   const lockedCount = useMemo(
     () => instances.filter((instance) => instance.locked === true).length,
@@ -110,7 +115,7 @@ export function EquipmentTab({
   const equipPager = usePagination(
     tabInstances,
     pageSize,
-    `${slot}:${sortMode}:${lockedOnly ? "locked" : "all"}`,
+    `${slot}:${sortMode}:${lockedOnly ? "locked" : "all"}:${search}`,
   );
   const qualitySellCount = useMemo(
     () =>
@@ -255,7 +260,9 @@ export function EquipmentTab({
         }
         frontierDepth={frontierDepth}
         emptyState={
-          lockedOnly
+          search.trim()
+            ? { title: "검색 결과가 없습니다", message: "다른 이름으로 검색하거나 검색어를 지워 주세요." }
+            : lockedOnly
             ? {
                 title: "잠근 장비가 없습니다",
                 message:

@@ -15,6 +15,7 @@ import {
 
 // 판매 탭 — 재료. 빈 목록 안내 / 수량+가격 입력 카드 목록 + 페이지네이션.
 export function MarketplaceMaterialTab({
+  searchActive = false,
   items,
   pager,
   materials,
@@ -27,6 +28,7 @@ export function MarketplaceMaterialTab({
   onListMaterial,
   hideEmpty = false,
 }: {
+  searchActive?: boolean;
   items: string[];
   pager: MarketplacePager<string>;
   materials: Record<string, number>;
@@ -44,7 +46,7 @@ export function MarketplaceMaterialTab({
     return (
       <Card padding="sm">
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
-          팔 수 있는 재료가 없어요.
+          {searchActive ? "검색 결과가 없습니다. 검색어를 지우거나 다른 이름으로 검색해 주세요." : "팔 수 있는 재료가 없어요."}
         </div>
       </Card>
     );

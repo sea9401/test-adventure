@@ -17,12 +17,15 @@ import {
   type ItemCardAnchor,
 } from "../V2ItemCard";
 import { InventoryItemIcon } from "./InventoryItemIcon";
+import { matchesItemSearch } from "../itemSearch";
 
 // 재료 탭 — 보유 재료(드랍)만 모아 2열 카드 그리드 + 페이지네이션. 보유 0인 재료는 숨김.
 export function MaterialsTab({
+  search = "",
   materials,
   pageSize,
 }: {
+  search?: string;
   materials: Partial<Record<V2MaterialId, number>>;
   pageSize: number;
 }) {
@@ -35,15 +38,18 @@ export function MaterialsTab({
           count: materials[id] ?? 0,
         }))
         .filter((e) => e.count > 0 && itemTabForMaterial(e.id) === "material")
+        .filter((e) => matchesItemSearch(e.material.name, search))
         .sort((a, b) => a.material.name.localeCompare(b.material.name)),
-    [materials],
+    [materials, search],
   );
 
-  const materialPager = usePagination(ownedMaterials, pageSize, "material");
+  const materialPager = usePagination(ownedMaterials, pageSize, `material:${search}`);
 
   return (
     <>
-      <MaterialCardGrid materials={materialPager.pageItems} />
+      {search.trim() && ownedMaterials.length === 0 ? (
+        <EmptyState icon={<Diamond size={40} weight="duotone" />} title="검색 결과가 없습니다" message="다른 이름으로 검색하거나 검색어를 지워 주세요." />
+      ) : <MaterialCardGrid materials={materialPager.pageItems} />}
       <Pagination
         page={materialPager.page}
         pageCount={materialPager.pageCount}

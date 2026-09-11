@@ -1124,6 +1124,11 @@ export function V2DungeonFloorView({
               setAutoStopReason(stopReason);
             }
           }
+          // 목록 재조회에 의존하지 않고 전투 응답의 지도 소진을 기준으로 복귀한다.
+          // 보상·HP 등 결과 반영을 마친 뒤 이동해야 일반 사냥에도 최신 상태가 이어진다.
+          if (rareMapIid && r.rareMapRunsLeft === 0) {
+            onReturnToNormalHuntRef.current?.();
+          }
         } else {
           // 사냥이 서버에서 거부됨(depth_locked·policy_blocked·hp_zero 등) — 실패 시
           // 쿨다운이 안 잡혀 자동 사냥이 1.5초마다 무한 재시도할 수 있으니 즉시 정지.

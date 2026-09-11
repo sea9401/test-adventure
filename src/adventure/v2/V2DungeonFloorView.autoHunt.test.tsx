@@ -35,9 +35,9 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("던전 자동사냥 batch", () => {
-  it("첫 batch가 진행 중이어도 길게 누른 손을 떼면 자동사냥을 유지한다", async () => {
-    mocks.huntBatch.mockReturnValue(new Promise(() => {}));
+describe("던전 자동사냥 연속 실행", () => {
+  it("첫 단판이 진행 중이어도 길게 누른 손을 떼면 자동사냥을 유지한다", async () => {
+    mocks.hunt.mockReturnValue(new Promise(() => {}));
     render(
       <V2DungeonFloorView
         floorId={1}
@@ -57,12 +57,8 @@ describe("던전 자동사냥 batch", () => {
     fireEvent.pointerDown(huntButton);
     await act(async () => vi.advanceTimersByTimeAsync(500));
 
-    expect(mocks.hunt).not.toHaveBeenCalled();
-    expect(mocks.huntBatch).toHaveBeenCalledWith(
-      1,
-      5,
-      expect.any(Object),
-    );
+    expect(mocks.hunt).toHaveBeenCalledWith(1, expect.any(Object));
+    expect(mocks.huntBatch).not.toHaveBeenCalled();
 
     fireEvent.pointerUp(huntButton);
     fireEvent.click(huntButton);
@@ -70,39 +66,19 @@ describe("던전 자동사냥 batch", () => {
     expect(huntButton.getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("100회가 선택돼도 길게 누른 뒤 손을 떼면 5회 batch를 7.5초 간격으로 반복한다", async () => {
+  it("100회가 선택돼도 자동사냥은 단판을 1.5초 간격으로 반복한다", async () => {
     localStorage.setItem("v2-hunt-count.v1", "100");
-    mocks.huntBatch.mockResolvedValue({
-      attempted: 5,
-      completed: 5,
-      wins: 5,
-      losses: 0,
-      totalExp: 50,
-      totalProficiency: 0,
-      proficiencyPointsAfter: 0,
-      totalMastery: 0,
-      totalGold: 50,
-      totalLossTax: 0,
-      finalGoldAfter: 50,
-      expAfter: 50,
-      maxExpAfter: 100,
+    mocks.hunt.mockResolvedValue({
+      floor: 1,
+      enemyName: "슬라임",
+      won: true,
+      expGained: 5,
+      goldGained: 3,
       levelsGained: 0,
-      statGains: {},
-      hpGained: 0,
-      mpGained: 0,
-      drops: {},
-      droppedEquipments: [],
-      droppedUniques: [],
-      rareMapDrops: [],
-      rareMapDropInstances: [],
-      stoppedReason: null,
-      replays: [],
-      finalHpAfter: 100,
-      finalMaxHp: 100,
-      playerMaxMp: 0,
-      hpCharges: 999,
-      mpCharges: 0,
-      finalLevelAfter: 1,
+      turns: 1,
+      hpBefore: 100,
+      hpAfter: 95,
+      maxHp: 100,
     });
     render(
       <V2DungeonFloorView
@@ -123,17 +99,13 @@ describe("던전 자동사냥 batch", () => {
     const huntButton = screen.getByRole("button", { name: /사냥 \(/ });
     fireEvent.pointerDown(huntButton);
     await act(async () => vi.advanceTimersByTimeAsync(500));
-    expect(mocks.huntBatch).toHaveBeenCalledTimes(1);
-    expect(mocks.huntBatch).toHaveBeenLastCalledWith(
-      1,
-      5,
-      expect.any(Object),
-    );
+    expect(mocks.hunt).toHaveBeenCalledTimes(1);
+    expect(mocks.huntBatch).not.toHaveBeenCalled();
 
     fireEvent.pointerUp(huntButton);
     fireEvent.click(huntButton);
 
-    await act(async () => vi.advanceTimersByTimeAsync(7_500));
-    expect(mocks.huntBatch).toHaveBeenCalledTimes(2);
+    await act(async () => vi.advanceTimersByTimeAsync(1_500));
+    expect(mocks.hunt).toHaveBeenCalledTimes(2);
   });
 });

@@ -36,7 +36,7 @@ afterEach(() => {
 });
 
 describe("던전 자동사냥 batch", () => {
-  it("기본 1회 설정에서 길게 누르면 단판 대신 5회 batch를 즉시 시작한다", async () => {
+  it("첫 batch가 진행 중이어도 길게 누른 손을 떼면 자동사냥을 유지한다", async () => {
     mocks.huntBatch.mockReturnValue(new Promise(() => {}));
     render(
       <V2DungeonFloorView
@@ -53,7 +53,8 @@ describe("던전 자동사냥 batch", () => {
       />,
     );
 
-    fireEvent.pointerDown(screen.getByRole("button", { name: /^사냥 \(/ }));
+    const huntButton = screen.getByRole("button", { name: /^사냥 \(/ });
+    fireEvent.pointerDown(huntButton);
     await act(async () => vi.advanceTimersByTimeAsync(500));
 
     expect(mocks.hunt).not.toHaveBeenCalled();
@@ -62,9 +63,14 @@ describe("던전 자동사냥 batch", () => {
       5,
       expect.any(Object),
     );
+
+    fireEvent.pointerUp(huntButton);
+    fireEvent.click(huntButton);
+
+    expect(huntButton.getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("100회가 선택돼도 5회 batch로 시작하고 7.5초 뒤 다시 사냥한다", async () => {
+  it("100회가 선택돼도 길게 누른 뒤 손을 떼면 5회 batch를 7.5초 간격으로 반복한다", async () => {
     localStorage.setItem("v2-hunt-count.v1", "100");
     mocks.huntBatch.mockResolvedValue({
       attempted: 5,
@@ -114,7 +120,8 @@ describe("던전 자동사냥 batch", () => {
       />,
     );
 
-    fireEvent.pointerDown(screen.getByRole("button", { name: /사냥 \(/ }));
+    const huntButton = screen.getByRole("button", { name: /사냥 \(/ });
+    fireEvent.pointerDown(huntButton);
     await act(async () => vi.advanceTimersByTimeAsync(500));
     expect(mocks.huntBatch).toHaveBeenCalledTimes(1);
     expect(mocks.huntBatch).toHaveBeenLastCalledWith(
@@ -122,6 +129,9 @@ describe("던전 자동사냥 batch", () => {
       5,
       expect.any(Object),
     );
+
+    fireEvent.pointerUp(huntButton);
+    fireEvent.click(huntButton);
 
     await act(async () => vi.advanceTimersByTimeAsync(7_500));
     expect(mocks.huntBatch).toHaveBeenCalledTimes(2);

@@ -1153,7 +1153,8 @@ export function V2DungeonFloorView({
     if (!oneActionDisabled || longPressTimer.current == null) return;
     clearTimeout(longPressTimer.current);
     longPressTimer.current = null;
-    longPressFired.current = false;
+    // 이미 길게 누르기가 성립했다면 손을 뗄 때 이어지는 click이 이를 소비해야 한다.
+    // 여기서 false로 되돌리면 첫 요청의 busy 전환 뒤 click이 자동사냥 중지로 오인된다.
   }, [oneActionDisabled]);
   // 언마운트 시 타이머 정리 — press 중 화면을 떠나도 unmounted setState 안 나게.
   useEffect(

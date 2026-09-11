@@ -8,6 +8,7 @@ import {
   useSearchParams,
 } from "next/navigation";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { useDungeonResultHandoff } from "@/adventure/v2/DungeonResultHandoffProvider";
 import { V2DungeonFloorView } from "@/adventure/v2/V2DungeonFloorView";
 import {
   isHuntStageDepth,
@@ -64,6 +65,11 @@ export default function DungeonFloorPage() {
   } = useGameState();
 
   const n = Number(params.floorId);
+  const { returnResult, setReturnResult } = useDungeonResultHandoff();
+  useEffect(() => {
+    // 새 전투 화면이 초기 결과를 받은 뒤 전달값을 소비한다. 재방문 시 복원하지 않는다.
+    setReturnResult(null);
+  }, [n, rareMapIid, setReturnResult]);
   // 형식/콘텐츠 끝은 즉시 판정하되, 최고 도달 깊이(frontierDepth)는 me/state 로딩 뒤 판정한다.
   // 새로고침 직후 기본값(2)으로 깊은 사냥터를 404 처리하는 레이스를 막는다.
   const validDepthShape =
@@ -94,6 +100,11 @@ export default function DungeonFloorPage() {
   return (
     <V2DungeonFloorView
       key={`${n}:${rareMapIid ?? "normal"}`}
+      initialPresentedResult={
+        !rareMapIid && returnResult?.href === `/battle/dungeon/${n}`
+          ? returnResult.result
+          : null
+      }
       floorId={n}
       outpostId={currentOutpost.id}
       outpostName={currentOutpost.name}
@@ -137,6 +148,11 @@ export default function DungeonFloorPage() {
       onExperienceChange={applyResourcePatch}
       onRecoveryChargesChange={applyResourcePatch}
       onEnterRareMap={(map) => router.push(rareMapEntryHref(map))}
+      onRareMapComplete={(result) => {
+        const href = normalHuntFloorHref(n);
+        setReturnResult({ href, result });
+        router.push(href);
+      }}
       onReturnToNormalHunt={() =>
         router.push(normalHuntFloorHref(n))
       }

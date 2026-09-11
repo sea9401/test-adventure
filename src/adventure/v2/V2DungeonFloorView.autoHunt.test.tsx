@@ -66,19 +66,39 @@ describe("던전 자동사냥 연속 실행", () => {
     expect(huntButton.getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("100회가 선택돼도 자동사냥은 단판을 1.5초 간격으로 반복한다", async () => {
-    localStorage.setItem("v2-hunt-count.v1", "100");
-    mocks.hunt.mockResolvedValue({
-      floor: 1,
-      enemyName: "슬라임",
-      won: true,
-      expGained: 5,
-      goldGained: 3,
+  it.each([5, 10, 50, 100])("선택한 %i회 일괄 사냥을 1.5초 간격으로 반복한다", async (count) => {
+    localStorage.setItem("v2-hunt-count.v1", String(count));
+    mocks.huntBatch.mockResolvedValue({
+      attempted: count,
+      completed: count,
+      wins: count,
+      losses: 0,
+      totalExp: 50,
+      totalProficiency: 0,
+      proficiencyPointsAfter: 0,
+      totalMastery: 0,
+      totalGold: 50,
+      totalLossTax: 0,
+      finalGoldAfter: 50,
+      expAfter: 50,
+      maxExpAfter: 100,
       levelsGained: 0,
-      turns: 1,
-      hpBefore: 100,
-      hpAfter: 95,
-      maxHp: 100,
+      statGains: {},
+      hpGained: 0,
+      mpGained: 0,
+      drops: {},
+      droppedEquipments: [],
+      droppedUniques: [],
+      rareMapDrops: [],
+      rareMapDropInstances: [],
+      stoppedReason: null,
+      replays: [],
+      finalHpAfter: 100,
+      finalMaxHp: 100,
+      playerMaxMp: 0,
+      hpCharges: 999,
+      mpCharges: 0,
+      finalLevelAfter: 1,
     });
     render(
       <V2DungeonFloorView
@@ -99,13 +119,17 @@ describe("던전 자동사냥 연속 실행", () => {
     const huntButton = screen.getByRole("button", { name: /사냥 \(/ });
     fireEvent.pointerDown(huntButton);
     await act(async () => vi.advanceTimersByTimeAsync(500));
-    expect(mocks.hunt).toHaveBeenCalledTimes(1);
-    expect(mocks.huntBatch).not.toHaveBeenCalled();
+    expect(mocks.huntBatch).toHaveBeenCalledTimes(1);
+    expect(mocks.huntBatch).toHaveBeenLastCalledWith(1, count, expect.any(Object));
+    expect(mocks.hunt).not.toHaveBeenCalled();
 
     fireEvent.pointerUp(huntButton);
     fireEvent.click(huntButton);
 
-    await act(async () => vi.advanceTimersByTimeAsync(1_500));
-    expect(mocks.hunt).toHaveBeenCalledTimes(2);
+    await act(async () => vi.advanceTimersByTimeAsync(1_499));
+    expect(mocks.huntBatch).toHaveBeenCalledTimes(1);
+    await act(async () => vi.advanceTimersByTimeAsync(1));
+    expect(mocks.huntBatch).toHaveBeenCalledTimes(2);
+    expect(mocks.huntBatch).toHaveBeenLastCalledWith(1, count, expect.any(Object));
   });
 });

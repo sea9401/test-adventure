@@ -1013,8 +1013,7 @@ export function V2DungeonFloorView({
     }
     setBatchSummary(null);
     setSelectedBatchReplay(null);
-    // 수동은 선택 count를 그대로 사용한다. 스태미나 자동사냥은 선택값과 무관하게
-    // 5회 batch로 반복하며, 코어루프와 희귀 지도는 항상 단판이다.
+    // 일반 사냥은 수동·자동 모두 선택 횟수를 사용한다. 코어루프와 희귀 지도는 단판이다.
     const requestCount = autoRun ? autoHuntPlan.count : huntCount;
     if (rareMapIid || coreLoopOn || requestCount === 1) {
       // 이미 한 판이 진행 중이면 무발동(동시 제출 차단). hunt 결과 .then 에서 해제.

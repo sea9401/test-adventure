@@ -8,14 +8,14 @@ describe("autoHuntRequestPlan", () => {
     10,
     50,
     100,
-  ] as const)("%i회가 선택돼도 자동사냥은 1회씩 1.5초 간격으로 진행한다", (selectedCount) => {
+  ] as const)("자동사냥은 선택한 %i회를 1.5초 간격으로 요청한다", (selectedCount) => {
     expect(
       autoHuntRequestPlan({
         selectedCount,
         coreLoopOn: false,
         rareMap: false,
       }),
-    ).toEqual({ count: 1, intervalMs: 1_500 });
+    ).toEqual({ count: selectedCount, intervalMs: 1_500 });
   });
 
   it.each([

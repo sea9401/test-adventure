@@ -40,6 +40,7 @@ describe("희귀 탐사 전투 후 자동 복귀", () => {
       rareMapRunsLeft: runsLeft,
     });
     const onReturnToNormalHunt = vi.fn();
+    const onRareMapComplete = vi.fn();
     const setHp = vi.fn();
     render(<V2DungeonFloorView
       floorId={1} outpostId="start" outpostName="초원 거점"
@@ -48,6 +49,7 @@ describe("희귀 탐사 전투 후 자동 복귀", () => {
       hp={{ hp: 100, maxHp: 100, anchorMs: now }} setHp={setHp}
       onBack={vi.fn()} rareMapIid={rare ? "rare-map" : undefined}
       onReturnToNormalHunt={onReturnToNormalHunt}
+      onRareMapComplete={onRareMapComplete}
     />);
     if (rare) await screen.findByText(/희귀 탐사 진행 중 · 1회 전투/);
     expect(onReturnToNormalHunt).not.toHaveBeenCalled();
@@ -56,7 +58,9 @@ describe("희귀 탐사 전투 후 자동 복귀", () => {
 
     await waitFor(() => expect(setHp).toHaveBeenCalled());
     expect(mocks.hunt).toHaveBeenCalledTimes(1);
-    expect(onReturnToNormalHunt).toHaveBeenCalledTimes(returns);
+    expect(onReturnToNormalHunt).not.toHaveBeenCalled();
+    expect(onRareMapComplete).toHaveBeenCalledTimes(returns);
+    if (returns) expect(onRareMapComplete).toHaveBeenCalledWith(expect.objectContaining({ enemyName: "슬라임", rareMapRunsLeft: 0 }));
     // 전투 후 목록을 다시 조회하지 않아도 서버의 소진 응답만으로 복귀한다.
     expect(fetchMock.mock.calls.filter(([url]) => url === "/api/v2/me/rare-maps")).toHaveLength(rare ? 1 : 0);
   });

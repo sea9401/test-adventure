@@ -326,6 +326,8 @@ export function V2DungeonFloorView({
   onRecoveryChargesChange,
   onEnterRareMap,
   onReturnToNormalHunt,
+  onRareMapComplete,
+  initialPresentedResult = null,
   offlineHunt,
   onRefresh,
 }: {
@@ -397,6 +399,9 @@ export function V2DungeonFloorView({
   onEnterRareMap?: (map: RareMapInstance) => void;
   // 희귀 탐사와 같은 단계의 일반 사냥터로 즉시 복귀. 일반 사냥 모드에서는 사용하지 않는다.
   onReturnToNormalHunt?: () => void;
+  // 지도 소진 시 결과를 일반 사냥 화면에 전달한다.
+  onRareMapComplete?: (result: HuntResultPayload) => void;
+  initialPresentedResult?: HuntResultPayload | null;
   // 오프라인 사냥 세션 상태(전역) + 시작/정지 후 me/state 재조회 콜백.
   offlineHunt?: { active: boolean; endsAt: number; depth: number } | null;
   onRefresh?: () => void | Promise<void>;
@@ -438,9 +443,11 @@ export function V2DungeonFloorView({
     null,
   );
   const onReturnToNormalHuntRef = useRef(onReturnToNormalHunt);
+  const onRareMapCompleteRef = useRef(onRareMapComplete);
   useEffect(() => {
     onReturnToNormalHuntRef.current = onReturnToNormalHunt;
-  }, [onReturnToNormalHunt]);
+    onRareMapCompleteRef.current = onRareMapComplete;
+  }, [onReturnToNormalHunt, onRareMapComplete]);
   const rareMapEntryEnabled = onEnterRareMap != null;
   useEffect(() => {
     if (isUnexplored) return;
@@ -494,7 +501,9 @@ export function V2DungeonFloorView({
     | { kind: "single"; result: HuntResultPayload }
     | { kind: "batch"; summary: BatchSummary }
     | null
-  >(null);
+  >(() => initialPresentedResult
+    ? { kind: "single", result: initialPresentedResult }
+    : null);
   const newlyDiscoveredRareMaps = latestPresentedResult
     ? latestPresentedResult.kind === "single"
       ? latestPresentedResult.result.rareMapDropInstance
@@ -1124,10 +1133,9 @@ export function V2DungeonFloorView({
               setAutoStopReason(stopReason);
             }
           }
-          // 목록 재조회에 의존하지 않고 전투 응답의 지도 소진을 기준으로 복귀한다.
-          // 보상·HP 등 결과 반영을 마친 뒤 이동해야 일반 사냥에도 최신 상태가 이어진다.
+          // 세션을 새로 만드는 일반 사냥 복귀에도 마지막 전투 결과를 전달한다.
           if (rareMapIid && r.rareMapRunsLeft === 0) {
-            onReturnToNormalHuntRef.current?.();
+            onRareMapCompleteRef.current?.(r);
           }
         } else {
           // 사냥이 서버에서 거부됨(depth_locked·policy_blocked·hp_zero 등) — 실패 시

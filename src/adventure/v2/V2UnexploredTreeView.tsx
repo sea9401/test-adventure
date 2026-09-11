@@ -223,6 +223,30 @@ export function V2UnexploredTreeView({
     }
   }
 
+  async function resetTree() {
+    if (!snapshot || busy) return;
+    const refundableCount = snapshot.selectedNodeIds.filter(
+      (nodeId) => nodeId !== "start",
+    ).length;
+    const resetGoldCost = refundableCount * snapshot.refundGoldCost;
+    const confirmed = await confirmGameAction({
+      title: "탐사망 초기화",
+      message: [
+        `활성 노드 ${refundableCount.toLocaleString()}개를 반환합니다.`,
+        `초기화 비용 ${resetGoldCost.toLocaleString()}G`,
+        `현재 보유 골드 ${(
+          snapshot.gold + snapshot.bankedGold
+        ).toLocaleString()}G`,
+        "",
+        "초기화한 노드 구성은 되돌릴 수 없습니다.",
+      ].join("\n"),
+      confirmLabel: `${resetGoldCost.toLocaleString()}G 사용 · 초기화`,
+      tone: "danger",
+    });
+    if (!confirmed) return;
+    await mutate({ action: "reset" });
+  }
+
   async function craftSummonStone(bossId: UnexploredBossId) {
     if (bossBusy) return;
     const requestId =
@@ -421,7 +445,7 @@ export function V2UnexploredTreeView({
             size="xs"
             variant="secondary"
             disabled={!snapshot.eligible || snapshot.spentPoints <= 1 || busy}
-            onClick={() => void mutate({ action: "reset" })}
+            onClick={() => void resetTree()}
           >
             <ArrowClockwise size={15} /> 초기화
           </Button>

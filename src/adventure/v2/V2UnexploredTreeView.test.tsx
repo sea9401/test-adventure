@@ -86,6 +86,40 @@ function openUnexploredTab(
 }
 
 describe("V2UnexploredTreeView", () => {
+  it("초기화 비용과 보유 골드를 확인하고 취소하면 요청하지 않는다", async () => {
+    mocks.confirmGameAction.mockResolvedValueOnce(false);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <V2UnexploredTreeView
+        initialSnapshot={{
+          ...SNAPSHOT,
+          gold: 1_000_000,
+          bankedGold: 500_000,
+          spentPoints: 3,
+          selectedNodeIds: ["start", "inner-0-0", "inner-1-0"],
+        }}
+        onBack={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "초기화" }));
+
+    await waitFor(() => expect(mocks.confirmGameAction).toHaveBeenCalledWith({
+      title: "탐사망 초기화",
+      message: [
+        "활성 노드 2개를 반환합니다.",
+        "초기화 비용 1,000,000G",
+        "현재 보유 골드 1,500,000G",
+        "",
+        "초기화한 노드 구성은 되돌릴 수 없습니다.",
+      ].join("\n"),
+      confirmLabel: "1,000,000G 사용 · 초기화",
+      tone: "danger",
+    }));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it.each([
     { gold: 0, bankedGold: 125_000 },
     { gold: 125_000, bankedGold: 0 },

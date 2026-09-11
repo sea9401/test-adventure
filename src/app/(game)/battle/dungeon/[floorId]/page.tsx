@@ -93,6 +93,7 @@ export default function DungeonFloorPage() {
 
   return (
     <V2DungeonFloorView
+      key={`${n}:${rareMapIid ?? "normal"}`}
       floorId={n}
       outpostId={currentOutpost.id}
       outpostName={currentOutpost.name}

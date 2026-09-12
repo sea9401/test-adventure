@@ -1,3 +1,8 @@
+import { applyPainCastPvp, settlePainPvp, painDeferLog } from "./darkPriestAdapters";
+import { deferPain } from "./darkPriest";
+import { canMartialCounterHit } from "./martialCounter";
+import { directMagicSkillDamageBonus } from "./shieldedMagicDamage";
+import { directPhysicalSkillDamageBonus } from "./directPhysicalSkillDamage";
 import { CRIT_PCT_CAP, STAT_LABELS } from "@/adventure/data/stats";
 import { tier7CombatJobIdForSkillId, tier7PvpDirectDamagePct } from "@/adventure/data/v2/tier7SkillMechanics";
 import {
@@ -351,6 +356,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
       : st.log;
   let nextSideHp = side.hp;
   let nextOppHp = opp.hp;
+  let nextOppPain = opp.stacks.pain;
   let tier6SkillHitDamages: number[] = [];
   let nextOppShield = opp.stacks.playerShield;
   let nextOppMagicBarrier = opp.magicBarrier ?? 0;
@@ -406,13 +412,13 @@ export function castV2SkillOnAttackerTurnPvPBody(
   const nextEnemyVulnPct =
     result.enemyVulnToApply?.pct ?? side.stacks.enemyVulnPct;
   const vulnMult = nextEnemyVulnTurns > 0 ? 1 + nextEnemyVulnPct / 100 : 1;
-  const magicSkillDamageBonus =
-    result.magicEnemyDamage > 0 && (side.player.magicSkillDamagePct ?? 0) > 0
-      ? Math.floor(
-          (result.magicEnemyDamage * (side.player.magicSkillDamagePct ?? 0)) /
-            100,
-        )
-      : 0;
+  const magicSkillDamageBonus = directMagicSkillDamageBonus({
+    damage: result.magicEnemyDamage,
+    shield: side.stacks.playerShield,
+    basePct: side.player.magicSkillDamagePct,
+    passivePct: side.player.shieldedMagicSkillDamagePct,
+    skillPct: result.castSkillId ? V2_SKILLS[result.castSkillId]?.shieldedDirectMagicDamagePct : undefined,
+  });
   const lawMagicVulnBonus =
     result.magicEnemyDamage > 0 &&
     (side.stacks.enemyMagicVulnTurns ?? 0) > 0
@@ -422,8 +428,8 @@ export function castV2SkillOnAttackerTurnPvPBody(
             100,
         )
       : 0;
-  const skillDamageBase =
-    result.enemyDamage + magicSkillDamageBonus + lawMagicVulnBonus;
+  const skillDamageBase = result.enemyDamage + magicSkillDamageBonus + lawMagicVulnBonus +
+    directPhysicalSkillDamageBonus(result.enemyDamage, result.magicEnemyDamage, side.player.physicalSkillDamagePct);
   // 스킬 치명타 — PvE 미러. 평타와 같은 크리 확률(min(critChancePct, 75%)) 공유, 배수만 SKILL_CRIT_MULT
   //   로 분리. PvP 확률 판정은 대상의 치명타 저항을 차감하며, 강제 치명타는 저항을 무시한다.
   //   데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → RNG 스트림 보존).
@@ -583,18 +589,20 @@ export function castV2SkillOnAttackerTurnPvPBody(
     const perHitAfterEvasion = directHits.map((hit) =>
       applyEvasionDamageReduction(hit, skillEvasionReductionPct),
     );
-    const rawDamageBeforeEvasion = directHits.reduce(
-      (sum, hit) => sum + hit,
+    // 받피감·최종 피해 로그와 같은 PvP 배율을 사용한다. 각 타격을 먼저
+    // 정수화해야 다단 공격의 표시 경감량이 실제 피해 차이와 일치한다.
+    const damageBeforeEvasion = directHits.reduce(
+      (sum, hit) => sum + scalePvPDamage(st, hit),
       0,
     );
-    const rawDamageAfterEvasion = perHitAfterEvasion.reduce(
-      (sum, hit) => sum + hit,
+    const damageAfterEvasion = perHitAfterEvasion.reduce(
+      (sum, hit) => sum + scalePvPDamage(st, hit),
       0,
     );
-    if (rawDamageAfterEvasion < rawDamageBeforeEvasion) {
+    if (damageAfterEvasion < damageBeforeEvasion) {
       nextLog = appendLog(nextLog, {
         kind: "info",
-        text: `[회피 경감 ${skillEvasionReductionPct.toFixed(1)}%] ${opp.name} 피해 -${rawDamageBeforeEvasion - rawDamageAfterEvasion}`,
+        text: `[회피 경감 ${skillEvasionReductionPct.toFixed(1)}%] ${opp.name} 피해 -${damageBeforeEvasion - damageAfterEvasion}`,
         side: otherKey,
       });
     }
@@ -725,11 +733,11 @@ export function castV2SkillOnAttackerTurnPvPBody(
       const absorbed = Math.min(nextOppShield, barrier.hpBoundDamage);
       nextOppShield -= absorbed;
       skillShieldAbsorbed += absorbed;
-      recordCombatDamage(hitIndex >= comboResult.hitDamages.length ? "crossover:pursuit" : result.castSkillId ?? "skill", otherKey, nextOppHp, barrier.hpBoundDamage - absorbed, barrier.absorbedDamage + absorbed);
-      const actualHpDamage = Math.min(
-        nextOppHp,
-        barrier.hpBoundDamage - absorbed,
-      );
+      const painHit = deferPain(nextOppPain, barrier.hpBoundDamage - absorbed, true);
+      nextOppPain = painHit.state;
+      if (painHit.deferred > 0) nextLog = appendLog(nextLog, painDeferLog(painHit.deferred, painHit.state!.debt, { side: who }));
+      recordCombatDamage(hitIndex >= comboResult.hitDamages.length ? "crossover:pursuit" : result.castSkillId ?? "skill", otherKey, nextOppHp, painHit.immediate, barrier.absorbedDamage + absorbed);
+      const actualHpDamage = Math.min(nextOppHp, painHit.immediate);
       nextOppHp -= actualHpDamage;
       skillDamageToHp += actualHpDamage;
       if (eligibleDirect) unexploredSkillHits.push({
@@ -1899,6 +1907,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
     v2Dots: nextOppDots,
     stacks: {
       ...opp.stacks,
+      ...(nextOppPain ? { pain: nextOppPain } : {}),
       ...(nextOppTier7 ? { tier7: nextOppTier7 } : {}),
       tripleWard: nextOppTripleWard,
       playerShield: nextOppShield,
@@ -2127,7 +2136,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
     }
   }
   if (
-    skillDamageToHp > 0 &&
+    canMartialCounterHit(next[otherKey].player, skillDamageToHp, skillShieldAbsorbed, skillMagicBarrierAbsorbed) &&
     next[otherKey].hp > 0 &&
     next[who].hp > 0 &&
     next.phase !== "ended"
@@ -2164,6 +2173,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
   //   이 가드가 없으면 상대 HP 0 인 채로 시전자의 후속 액션이 한 스텝 더 진행된다 — 평타면 시체를
   //   한 번 더 때려(cosmetic) 결국 종료되지만, 포션 등 비공격 액션이면 죽은 쪽으로 페이즈가 넘어가는
   //   잠재 버그. 다단히트로 치명 시전이 흔해져 가드 필수. main loop 가 phase==="ended" 를 받아 처리.
+  next = applyPainCastPvp(next, who, result.painCast);
   if (nextOppHp <= 0 && next.phase !== "ended") {
     const endedState: PvPBattleState = {
       ...next,
@@ -2177,7 +2187,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
     };
     return {
       state: releaseSwordShadowAfterPvPAction(
-        endedState,
+        endedState.usesAtb ? endedState : settlePainPvp(endedState, who),
         who,
         otherKey,
       ),

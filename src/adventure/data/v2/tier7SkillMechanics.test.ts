@@ -43,6 +43,9 @@ describe("tier 7 capstone contract", () => {
       "primordialsage",
       "dreadnought",
       "paragon",
+      "aegis",
+      "seraphim",
+      "dragonlord",
     ]);
     expect(TIER7_COMBAT_JOB_PREREQS).toEqual({
       shadowblade: ["swordsaint", "blackmoon"],
@@ -51,6 +54,9 @@ describe("tier 7 capstone contract", () => {
       primordialsage: ["archmage", "primordialmage"],
       dreadnought: ["fortressknight", "vajraarhat"],
       paragon: ["grandchampion", "absolute"],
+      aegis: ["fortressknight", "lawguardian"],
+      seraphim: ["savior", "dawnpaladin"],
+      dragonlord: ["dragonsovereign", "infernomancer"],
     });
   });
 

@@ -196,6 +196,8 @@ describe("combat pattern choice controls", () => {
 
   it.each([
     ["holyPower", "성력", 100], ["sanctuary", "성역 남은 행동", 4],
+    ["pain", "고통", 20], ["darkSanctuary", "검은 성역", 4],
+    ["painAbsolution", "사죄", 1], ["painCondemnation", "단죄", 1], ["darkSanctuaryUsed", "성역", 1],
   ] as const)("%s 조건은 해당 자원의 최대값까지 입력할 수 있다", (resource, label, max) => {
     const html = renderToStaticMarkup(<ConditionParams condition={{ kind: "self_resource", resource, op: "atLeast", value: max }} onChange={vi.fn()} />);
     expect(html).toContain(label);

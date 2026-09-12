@@ -270,25 +270,25 @@ describe("jobUnlockSpBonus", () => {
       woodcuttingLevel: 1_000,
       miningLevel: 1_000,
     };
-    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(97);
+    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(99);
 
     proficiency.jobHistory = [...TIER7_COMBAT_JOB_IDS];
-    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(100);
+    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(104);
   });
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("화염·바람 5·6차와 선공개 7차를 포함한 153개 직업을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(153);
+  it("화염·바람·대지 5·6차와 선공개 7차를 포함한 161개 직업을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(161);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(3);
     expect(byTier(1)).toBe(6);
     expect(byTier(2)).toBe(19);
     expect(byTier(3)).toBe(27);
-    expect(byTier(4)).toBe(32);
-    expect(byTier(5)).toBe(30);
-    expect(byTier(6)).toBe(30);
-    expect(byTier(7)).toBe(6);
+    expect(byTier(4)).toBe(33);
+    expect(byTier(5)).toBe(32);
+    expect(byTier(6)).toBe(32);
+    expect(byTier(7)).toBe(9);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -387,7 +387,7 @@ describe("released tier-7 boundary", () => {
     },
   );
 
-  it("승인된 여섯 직업 외의 7차는 공개하지 않는다", () => {
+  it("승인된 아홉 직업만 7차로 공개한다", () => {
     expect(V2_JOB_LIST.filter((job) => job.tier === 7).map((job) => job.id)).toEqual([
       "dreadnought",
       "shadowblade",
@@ -395,6 +395,9 @@ describe("released tier-7 boundary", () => {
       "skyascendant",
       "primordialsage",
       "paragon",
+      "aegis",
+      "seraphim",
+      "dragonlord",
     ]);
     expect(TIER7_COMBAT_JOB_IDS).toEqual([
       "shadowblade",
@@ -403,6 +406,9 @@ describe("released tier-7 boundary", () => {
       "primordialsage",
       "dreadnought",
       "paragon",
+      "aegis",
+      "seraphim",
+      "dragonlord",
     ]);
   });
 

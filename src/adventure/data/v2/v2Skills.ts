@@ -24,8 +24,13 @@ import { V2_BASE_SKILLS } from "./v2SkillCatalog";
 import type { WindCurrentSkill } from "./windCurrent";
 import { PARAGON_SKILLS, type ParagonSkillId } from "./paragonSkills";
 import { WIND_MAGE_SKILLS, type WindMageSkillId } from "./windMageSkills";
+import type { PainRitual } from "@/adventure/v2/combat/darkPriest";
+import { darkPriestPattern } from "./darkPriestPattern";
+import { DARK_PRIEST_SKILLS, type DarkPriestSkillId } from "./darkPriestSkills";
+import { EARTH_MAGE_SKILLS, type EarthMageSkillId } from "./earthMageSkills";
 import { FIRE_MAGE_SKILLS, type FireMageSkillId } from "./fireMageSkills";
 import { DRAGON_KNIGHT_SKILLS, type DragonKnightSkillId } from "./dragonKnightSkills";
+import { TIER7_EXPANSION_SKILLS, type Tier7ExpansionSkillId } from "./tier7ExpansionSkills";
 import { passiveForJob, type LineagePassiveBonus } from "./lineagePassives";
 import { V2_COMMON_SKILLS, type V2CommonSkillId } from "./v2SkillsCommonCatalog";
 import { V2_JOB_CATALOG } from "./v2JobCatalog";
@@ -109,6 +114,8 @@ export type V2PassiveSkillEffect = {
   counterImpactGain?: number;
   /** 충격 소비 적중 시 스택당 최대 HP 회복 %. */
   fortressImpactHealPctPerStack?: number;
+  /** 무승 반격의 활력 계수. 여러 개 장착해도 최댓값만 적용하고 보호막 피격도 반격한다. */
+  counterVitCoef?: number;
   /** 활성 반사 피해 증폭을 이 패시브의 반격 피해에도 적용한다. 금강나한 고유 연계. */
   counterDamageUsesReflectBoost?: boolean;
   // ── 다양성 2차(A 메타) — 둘 다 PvE/PvP 양쪽 적용(def=damageBetween 공용·명중=PvP도 소비).
@@ -179,8 +186,14 @@ export type V2PassiveSkillEffect = {
   enemyMagicVulnPctPerStack?: number;
   /** 약점 노출 누적 확률 +%p. 미지정이면 기존 호환을 위해 100%로 처리. */
   enemyMagicVulnApplyChancePct?: number;
+  /** 직접 스킬의 비마법 피해분 +%. 평타·지속 피해에는 미적용. */
+  physicalSkillDamagePct?: number;
   /** 마법 스킬 피해 +% — damage effect 의 scaling="magic"/"spi" 피해분에만 적용. */
   magicSkillDamagePct?: number;
+  /** 직접 스킬이 새로 생성하는 보호막 +%. 장비/기존 잔량에는 미적용. */
+  skillShieldPowerPct?: number;
+  /** 시전 전 보호막이 있으면 직접 마법 스킬 피해 +%. */
+  shieldedMagicSkillDamagePct?: number;
   /** 일검필살 — 단일 일반 물리 damage 효과만 가진 공격 스킬의 직접 피해 +%. */
   singleHitPhysicalSkillDamagePct?: number;
   // ── 경제(비전투) — 장착 시 사냥 승리당 숙달 포인트 획득 +N. 전투 derive 무관(hunt 지급부에서 소비).
@@ -302,7 +315,10 @@ export type V2SkillId =
   | DragonKnightSkillId
   | FireMageSkillId
   | WindMageSkillId
-  | ParagonSkillId;
+  | ParagonSkillId
+  | DarkPriestSkillId
+  | EarthMageSkillId
+  | Tier7ExpansionSkillId;
 
 // 스킬 효과 — 복합 가능 (효과 배열에 여러 개).
 // 단위 규칙: pct·pctMaxHp 는 "정수 퍼센트 단위" (10 = 10%). 후속 전투 wiring 에서
@@ -539,11 +555,14 @@ export type V2SkillDefinition = {
   /** 개별 스킬 전투 리듬. 차수·직업 보정 뒤 마지막 발동률 미세 조정에 사용한다. */
   tempo?: V2SkillTempo;
   effects: readonly V2SkillEffect[];
+  painRitual?: PainRitual;
   holyPower?: "sanctuary" | "judgment";
   /** 현재 직업이 지정된 계열에 속할 때 더하는 패시브 보너스. */
   lineageBonus?: LineagePassiveBonus;
   /** 이 액티브에만 적용되는 치명타 확률 가산(%p). */
   skillCritChancePct?: number;
+  /** 시전 전 보호막 조건. 범용 직접 마법 증폭에 가산하며 보호막을 소모하지 않는다. */
+  shieldedDirectMagicDamagePct?: number;
   /** 이 액티브에만 적용되는 명중도 가산(%p). */
   accuracyBonusPct?: number;
   /** 적중한 시전 1회당 대상에게 쌓는 한기. 다단 피해여도 한 번만 적용한다. */
@@ -778,7 +797,10 @@ function spEffectValue(
       const base = spDirectDamageValue(def, e, directDamageEffectCount);
       // 관통분은 0방어 피해를 기준으로 추가되므로 일반 계수보다 가치가 높지만, 모든 적이
       // 고방어는 아닌 점을 반영해 표기 수치의 75%만 평균 가치로 환산한다.
-      return base * (1 + ((e.pierceDamagePct ?? 0) / 100) * 0.75);
+      const shieldBonus = e.scaling === "magic" || e.scaling === "spi"
+        ? (def.shieldedDirectMagicDamagePct ?? 0) / 100 * 0.5
+        : 0;
+      return base * (1 + ((e.pierceDamagePct ?? 0) / 100) * 0.75) * (1 + shieldBonus);
     }
     case "hpCostDamage": {
       const base = spDirectDamageValue(def, e, directDamageEffectCount);
@@ -899,6 +921,7 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     mag += (p.critDmgPct ?? 0) / 20;
     mag += (p.evasionPct ?? 0) / 15;
     mag += (p.lifestealPct ?? 0) / 4;
+    // 무승 활력 계수·보호막 반격은 기존 반격의 독립 성능 보정으로 추가 SP를 부과하지 않는다.
     mag += (p.counterChancePct ?? 0) / 12;
     mag += (p.counterChanceFlatPct ?? 0) / 10;
     mag += (p.counterImpactGain ?? 0) * 1.5;
@@ -943,7 +966,10 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     mag +=
       ((p.enemyMagicVulnPctPerStack ?? 0) / 5) *
       ((p.enemyMagicVulnApplyChancePct ?? 100) / 100);
-    mag += (p.magicSkillDamagePct ?? 0) / 8;
+    // 물리·마법은 서로 다른 피해분에 적용되어 같은 타격을 두 번 증폭하지 않는다.
+    mag += Math.max(p.physicalSkillDamagePct ?? 0, p.magicSkillDamagePct ?? 0) / 8;
+    mag += (p.skillShieldPowerPct ?? 0) / 20;
+    mag += (p.shieldedMagicSkillDamagePct ?? 0) / 16;
     mag += (p.singleHitPhysicalSkillDamagePct ?? 0) / 10;
     mag += (p.spdToAtkMaxPct ?? 0) / 20;
     if (p.atkPerLukCoef) {
@@ -993,6 +1019,7 @@ export function skillPowerScore(def: V2SkillDefinition): number {
   // 최대 기류 소비 보너스는 선행 패시브가 필요한 조건부 효과로 절반 평가한다.
   if (def.windCurrent?.kind === "release") raw += raw * def.windCurrent.damagePctPerStack * 3 / 200 + def.windCurrent.hastePctPerStack * 3 / 120;
   // 성역의 16% 지속 회복 + 전용 자원, 심판은 성력 100의 최대 계수를 비용에 반영한다.
+  if (def.painRitual) raw += def.painRitual === "sanctuary" ? 3 : def.painRitual === "absolve" ? 2 : 1;
   if (def.holyPower === "sanctuary") raw = 16 / 16 + 40 / 20;
   if (def.holyPower === "judgment") raw = holyJudgmentCoefficient({ power: 100 }) *
     (1 + SP_REFERENCE_PRIMARY_STAT_TO_ATTACK + SP_REFERENCE_SPECIALIZED_STAT_TO_ATTACK.spi);
@@ -1190,6 +1217,8 @@ const ACTIVE_JOB_TEMPO: Partial<Record<string, ActiveJobTempo>> = {
   templar: "steady",
   crimsontemplar: "steady",
   crusader: "steady",
+  geomancer: "steady",
+  tectomancer: "burst",
   pyromancer: "steady",
   infernomancer: "burst",
   dragonknight: "steady",
@@ -1529,6 +1558,9 @@ const RAW_V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
   ...FIRE_MAGE_SKILLS,
   ...WIND_MAGE_SKILLS,
   ...PARAGON_SKILLS,
+  ...EARTH_MAGE_SKILLS,
+  ...DARK_PRIEST_SKILLS,
+  ...TIER7_EXPANSION_SKILLS,
 };
 
 export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = Object.fromEntries(
@@ -1629,6 +1661,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[], jobId?
   counterChancePct: number;
   counterImpactGain?: number;
   fortressImpactHealPctPerStack?: number;
+  counterVitCoef: number;
   counterDamageUsesReflectBoost: boolean;
   defPct: number;
   thornsDefPct: number;
@@ -1664,7 +1697,10 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[], jobId?
   berserkAtkPctPerLostHpPct: number;
   enemyMagicVulnPctPerStack: number;
   enemyMagicVulnApplyChancePct: number;
+  physicalSkillDamagePct: number;
   magicSkillDamagePct: number;
+  skillShieldPowerPct: number;
+  shieldedMagicSkillDamagePct: number;
   singleHitPhysicalSkillDamagePct: number;
   spdToAtkMaxPct: number;
   spdPerLukCoef: number;
@@ -1697,6 +1733,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[], jobId?
   let counterChanceFlatPct = 0;
   let counterImpactGain = 0;
   let fortressImpactHealPctPerStack = 0;
+  let counterVitCoef = 0;
   let counterDamageUsesReflectBoost = false;
   let defPct = 0;
   let thornsDefPct = 0;
@@ -1732,7 +1769,10 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[], jobId?
   let berserkAtkPctPerLostHpPct = 0;
   let enemyMagicVulnPctPerStack = 0;
   let enemyMagicVulnApplyChancePct = 0;
+  let physicalSkillDamagePct = 0;
   let magicSkillDamagePct = 0;
+  let skillShieldPowerPct = 0;
+  let shieldedMagicSkillDamagePct = 0;
   let singleHitPhysicalSkillDamagePct = 0;
   let spdToAtkMaxPct = 0;
   let spdPerLukCoef = 0;
@@ -1790,6 +1830,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[], jobId?
     counterChanceFlatPct += p.counterChanceFlatPct ?? 0;
     counterImpactGain = Math.max(counterImpactGain, p.counterImpactGain ?? 0);
     fortressImpactHealPctPerStack = Math.max(fortressImpactHealPctPerStack, p.fortressImpactHealPctPerStack ?? 0);
+    counterVitCoef = Math.max(counterVitCoef, p.counterVitCoef ?? 0);
     if (p.counterDamageUsesReflectBoost) counterDamageUsesReflectBoost = true;
     defPct += p.defPct ?? 0;
     thornsDefPct += p.thornsDefPct ?? 0;
@@ -1849,7 +1890,10 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[], jobId?
         p.enemyMagicVulnApplyChancePct ?? 100,
       );
     }
+    physicalSkillDamagePct += p.physicalSkillDamagePct ?? 0;
     magicSkillDamagePct += p.magicSkillDamagePct ?? 0;
+    skillShieldPowerPct += p.skillShieldPowerPct ?? 0;
+    shieldedMagicSkillDamagePct += p.shieldedMagicSkillDamagePct ?? 0;
     singleHitPhysicalSkillDamagePct +=
       p.singleHitPhysicalSkillDamagePct ?? 0;
     spdToAtkMaxPct += p.spdToAtkMaxPct ?? 0;
@@ -1884,6 +1928,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[], jobId?
     counterChancePct: Math.min(100, Math.round((1 - counterFailChance) * 10000) / 100 + counterChanceFlatPct),
     ...(counterImpactGain > 0 ? { counterImpactGain } : {}),
     ...(fortressImpactHealPctPerStack > 0 ? { fortressImpactHealPctPerStack } : {}),
+    counterVitCoef,
     counterDamageUsesReflectBoost,
     defPct,
     thornsDefPct,
@@ -1919,7 +1964,10 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[], jobId?
     berserkAtkPctPerLostHpPct,
     enemyMagicVulnPctPerStack,
     enemyMagicVulnApplyChancePct,
+    physicalSkillDamagePct,
     magicSkillDamagePct,
+    skillShieldPowerPct,
+    shieldedMagicSkillDamagePct,
     singleHitPhysicalSkillDamagePct,
     spdToAtkMaxPct,
     spdPerLukCoef,
@@ -2381,6 +2429,7 @@ export function describeV2SkillEffects(
   effects: readonly V2SkillEffect[],
   activeCastEffects: readonly V2SkillEffect[] = effects,
 ): string[] {
+  if (skill.painRitual || ["v2c_darkpriest_blessing", "v2c_atonementbishop_cycle", "v2c_darksaint_officiant"].includes(skill.id)) return [...describeV2Effects(effects, skill.tier, skill.monsterOnly === true, activeCastEffects), ...(skill.detail?.mechanics ?? [])];
   if (skill.holyPower === "sanctuary") return ["성역 4행동: 행동 종료마다 최대 HP 4% 회복 · 성력 +10", "성력 상한 100 · 재시전 시 지속시간 갱신"];
   if (skill.holyPower === "judgment") return ["물리 피해: 공격력×2 + 힘×2 + 정신×2", "성력 전부 소모: 1당 기본 피해 +1.5% (최대 2.5배)"];
   return describeV2Effects(
@@ -2426,7 +2475,8 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.fortressImpactHealPctPerStack)
     chips.push(`충격 소비 적중 시 스택당 최대 HP ${p.fortressImpactHealPctPerStack}% 회복`);
   if (p.counterChancePct)
-    chips.push(`HP 피해 시 ${p.counterChancePct}% 확률로 공격력 기반 반격`);
+    chips.push(`${p.counterVitCoef ? "직접 피격 시(보호막 포함)" : "HP 피해 시"} ${p.counterChancePct}% 확률로 공격력 기반 반격`);
+  if (p.counterVitCoef) chips.push(`반격 원량에 활력 ${p.counterVitCoef * 100}% 추가 · 같은 계수 중첩 불가`);
   if (p.defPct) chips.push(`물리·마법 방어력 +${p.defPct}%`);
   if (p.thornsDefPct) chips.push(`HP 피해 시 방어력의 ${p.thornsDefPct}% 반사`);
   if (p.fortressImpactOnHit) chips.push("적의 직접 공격 명중 시 충격 +1 (최대 3)");
@@ -2487,6 +2537,10 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`마법취약 스택당 받는 스킬피해 +${p.enemyMagicVulnPctPerStack}%`);
   if (p.enemyMagicVulnApplyChancePct)
     chips.push(`마법취약 누적 확률 ${p.enemyMagicVulnApplyChancePct}%`);
+  if (p.skillShieldPowerPct) chips.push(`스킬 보호막 생성량 +${p.skillShieldPowerPct}%`);
+  if (p.shieldedMagicSkillDamagePct) chips.push(`보호막 유지 중 직접 마법 스킬 피해 +${p.shieldedMagicSkillDamagePct}%`);
+  if (p.physicalSkillDamagePct)
+    chips.push(`물리 스킬 피해 +${p.physicalSkillDamagePct}%`);
   if (p.magicSkillDamagePct)
     chips.push(`마법 스킬 피해 +${p.magicSkillDamagePct}%`);
   if (p.singleHitPhysicalSkillDamagePct)
@@ -2795,7 +2849,7 @@ export function describeV2Effects(
 
 export function describeV2Skill(skill: V2SkillDefinition): string[] {
   const chips = skill.passive
-    ? describePassive(skill.passive)
+    ? [...describePassive(skill.passive), ...(["v2c_darkpriest_blessing", "v2c_atonementbishop_cycle", "v2c_darksaint_officiant"].includes(skill.id) ? skill.detail?.mechanics ?? [] : [])]
     : describeV2SkillEffects(skill, skill.effects);
   chips.push(...describeBerserkerLineageRules(skill));
   chips.push(...describeBleedHunt(skill));
@@ -2816,6 +2870,9 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   if (skill.refreshTripleWards) chips.push("삼중 결계 전부 재전개");
   if (skill.duelistDeclaration) {
     chips.push(...describeDuelistDeclaration(skill.duelistDeclaration));
+  }
+  if (skill.shieldedDirectMagicDamagePct) {
+    chips.push(`시전 전 보호막이 있으면 직접 마법 피해 +${skill.shieldedDirectMagicDamagePct}%`);
   }
   if (skill.skillCritChancePct) {
     chips.push(`이 스킬 치명타 확률 +${skill.skillCritChancePct}%p`);
@@ -3252,6 +3309,12 @@ function withoutLowerDuelistDeclarations(
 export function smartDefaultPatternFromEquipped(
   equipped: readonly string[],
 ): V2CombatPattern {
+  const painPattern = darkPriestPattern(equipped);
+  if (painPattern) {
+    const other = equipped.filter(id => !V2_SKILLS[id as V2SkillId]?.painRitual && id !== "v2c_darkpriest_blessing");
+    const remaining = smartDefaultPatternFromEquipped(other).blocks;
+    return { blocks: [...remaining.filter(b => b.action.kind === "skill" && isOncePerBattleEvadeOpener(b.action.skillId)), ...painPattern.blocks, ...remaining.filter(b => b.action.kind !== "skill" || !isOncePerBattleEvadeOpener(b.action.skillId))] };
+  }
   const activeSkillIds = equipped.filter(
     (skillId) => {
       const definition = V2_SKILLS[skillId as V2SkillId];

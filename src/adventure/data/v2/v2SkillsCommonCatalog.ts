@@ -1412,21 +1412,17 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { maxHpPct: 12, defPct: 10, damageTakenReductionPct: 6 },
   },
   v2c_darkpriest_reap: {
-    id: "v2c_darkpriest_reap", name: "영혼 수확", stat: "luk", category: "attack", tier: 3,
-    description: "약해진 영혼을 거두어 들인다. 적이 위태로울수록 깊게 베고 제 상처를 메운다.",
-    mpCost: 42, cooldown: 0, procChance: 35,
-    effects: [
-      { kind: "damage", statCoef: 0.18, baseFlat: 120, scaling: "luk" },
-      { kind: "executeDamage", statCoef: 0.24, baseFlatByTier: [210, 210, 210], hpThresholdPct: 20, bonusMult: 2.4, scaling: "luk" },
-      { kind: "healFromDamage", pct: 14 },
-    ],
+    id: "v2c_darkpriest_reap", name: "고통의 기도", stat: "luk", category: "attack", tier: 3,
+    description: "고통을 기도로 거두고 상처를 메운다. 고통이 없어도 공격과 회복은 발동한다.",
+    detail: { mechanics: ["고통을 최대 HP 4%만큼 소비하고 최대 HP 1%를 회복한다. 피해량 비례 흡혈과 처형 효과는 없다."], limitations: ["소비는 검은 축복으로 저장한 고통에만 적용된다. 빗나가도 자기 회복과 소비는 유지된다."] },
+    mpCost: 42, fixedMpCost: 70, cooldown: 0, procChance: 35, spCost: 5,
+    painRitual: "prayer", effects: [{ kind: "damage", statCoef: 1.1, attackCoef: 1.1, scaling: "luk" }],
   },
   v2c_darkpriest_blessing: {
     id: "v2c_darkpriest_blessing", name: "검은 축복", stat: "luk", category: "passive", tier: 3,
-    description: "어두운 축복이 치유와 급소 감각을 함께 날카롭게 한다.",
-    mpCost: 0, cooldown: 0,
-    effects: [],
-    passive: { healPowerPct: 18, critDmgPct: 20 },
+    description: "감당할 고통을 잠시 뒤로 미룬다.",
+    detail: { mechanics: ["방어·보호막 이후 직접 HP 피해 20%를 고통으로 유예한다(PvP 12%). 저장 상한은 최대 HP 20%. 자기 행동 종료마다 최대 HP 5%만큼 상환한다."], limitations: ["지속 피해·자해·반사·파생 추가 피해는 유예하지 않는다. 고통 상환은 방어와 보호막을 무시한다."] },
+    mpCost: 0, cooldown: 0, spCost: 6, effects: [], passive: {},
   },
   v2c_crusader_judgment: {
     id: "v2c_crusader_judgment", name: "성전의 심판", stat: "str", category: "attack", tier: 3,
@@ -1926,11 +1922,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   //   바뀌며 탱 정체성(반격+철신)이 무승 계보 정점 투승으로 이동. 신규 전용 id(직업별 id 컨벤션).
   v2c_battlemonk_counter: {
     // 투승 반격(패시브) — 피격 생존 시 30% 확률로 적에게 ATK 반격(passiveCounterChancePct 훅·PvE
-    //   enemyPhase). 투승은 VIT 탱이라 반격 데미지는 ATK 기준. 옛 절정 반격(v2c_sensei_combo)에서 상속.
+    //   enemyPhase). 활력 육성이 반격 위력에 연결되며 보호막 피격도 판정한다.
     id: "v2c_battlemonk_counter", name: "반격", stat: "vit", category: "passive", tier: 3,
-    description: "공격을 받아넘기며 즉시 되받아친다.", mpCost: 0, cooldown: 0,
+    description: "직접 공격을 받아내면 공격력과 활력으로 되받아친다. 보호막 피격에도 발동한다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { counterChancePct: 30 },
+    passive: { counterVitCoef: 1, counterChancePct: 30 },
   },
   v2c_battlemonk_ironbody: {
     // 투승 철신(패시브) — 최대 HP(심층 탱). 옛 절정 철신(v2c_sensei_ironbody)에서 상속.
@@ -2350,10 +2346,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_adamantmonk_body: {
     id: "v2c_adamantmonk_body", name: "금강불괴", stat: "vit", category: "passive", tier: 3,
-    description: "무너지지 않는 몸. 최대 체력과 반격 확률이 오른다.",
+    description: "무너지지 않는 몸. 최대 체력과 반격 확률이 오른다. 반격에 활력을 더하며 보호막 피격에도 발동한다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
-    passive: { maxHpPct: 25, counterChancePct: 35 },
+    passive: { maxHpPct: 25, counterVitCoef: 1, counterChancePct: 35 },
   },
   v2c_immortal_lifestrike: {
     id: "v2c_immortal_lifestrike", name: "생명 강타", stat: "vit", category: "attack", tier: 3,
@@ -2969,15 +2965,15 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_vajraarhat_body", name: "나한금신", stat: "vit", category: "passive", tier: 3,
     description: "나한의 금빛 몸으로 버틴다. 최대 체력과 피해 저항, 반격 확률이 오른다.",
     detail: {
-      mechanics: ["HP 피해를 받고 생존했을 때 조건에 맞는 자동 반격을 수행한다."],
-      limitations: ["피해를 받지 않았거나 해당 타격으로 전투 불능이 되면 반격하지 않는다."],
+      mechanics: ["직접 공격을 받고 생존하면 보호막 흡수를 포함해 자동 반격을 판정한다. 반격 원량은 공격력 + 활력 100%이며, 활력 계수는 같은 계열끼리 중첩되지 않는다."],
+      limitations: ["회피한 공격·지속 피해·반사에는 발동하지 않으며, 해당 타격으로 전투 불능이 되면 반격하지 않는다."],
     },
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: {
       maxHpPct: 32,
       damageTakenReductionPct: 8,
-      counterChancePct: 30,
+      counterVitCoef: 1, counterChancePct: 30,
       counterDamageUsesReflectBoost: true,
     },
   },

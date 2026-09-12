@@ -1,3 +1,5 @@
+import { settlePainPve } from "./darkPriestAdapters";
+import { initialPain } from "./darkPriestAdapters";
 import type { Monster } from "@/adventure/data/monsters";
 import { computeMpRestoreAmount, type Potion } from "@/adventure/data/potions";
 import {
@@ -8,7 +10,7 @@ LUCKY_STAR_DAMAGE_MULT,
 RAMPAGE_START_TURN,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { aggregateEquippedPassives } from "@/adventure/data/v2/v2Skills";
-import { applyBerserkerLethalDamage, clampBerserkerGuardedHp, finishBerserkerCurrentActionGuard, initialBerserkerCombatState } from "./berserkerCombat";
+import { finishBerserkerCurrentActionGuard, initialBerserkerCombatState } from "./berserkerCombat";
 import { healingAfterBurn } from "./burnHealing";
 import { recordCombatDamage, recordCombatMetric } from "./combatDiagnostics";
 import { combatRandom } from "./combatRandom";
@@ -241,56 +243,7 @@ export function finishEnemyAttack(state: BattleState): BattleState {
   };
 }
 
-/** 보호막·경감 뒤 적대 피해를 사망 극복 → 일반 불굴 순으로 넘기기 위한 PvE 공통 관문. */
-export function applyBerserkerHostileDamage(
-  state: BattleState,
-  player: PlayerCombat,
-  hpAfterDamage: number,
-  turn: "player" | "enemy" = "enemy",
-): { state: BattleState; triggered: boolean } {
-  if (!state.berserker) {
-    return {
-      state: { ...state, playerHp: Math.max(0, hpAfterDamage) },
-      triggered: false,
-    };
-  }
-  const guardedHp = clampBerserkerGuardedHp(
-    state.berserker,
-    hpAfterDamage,
-  );
-  const result = applyBerserkerLethalDamage({
-    state: state.berserker,
-    madnessRank: player.berserkerMadnessRank ?? 0,
-    hp: guardedHp,
-    maxHp: state.playerMaxHp,
-    source: "hostile",
-  });
-  recordCombatMetric("survival_restoration", "berserker", "player", Math.max(0, result.hp) - Math.max(0, hpAfterDamage));
-  let log = state.log;
-  if (result.triggered) {
-    log = appendLog(log, {
-      kind: "info",
-      text: `[사망 극복] 쓰러지지 않고 HP ${result.hp}로 돌아왔다.`,
-      turn,
-    });
-    if ((player.berserkerMadnessRank ?? 0) >= 4) {
-      log = appendLog(log, {
-        kind: "info",
-        text: `[패황의 지배] 다음 공격 강화 · 멸왕일도 1회 재충전.`,
-        turn,
-      });
-    }
-  }
-  return {
-    state: {
-      ...state,
-      playerHp: Math.max(0, result.hp),
-      berserker: result.state,
-      log,
-    },
-    triggered: result.triggered,
-  };
-}
+export { applyBerserkerHostileDamage } from "./pveHostileDamage";
 
 // 페이즈 트리거 — 적 HP 가 phaseTrigger.hpFraction 미만으로 떨어진 순간 1회 발동.
 // enemyDefBonus 누적 + 알림 로그. 이미 죽었거나 발동했으면 무시. 호출 측은 enemyHp 가
@@ -524,7 +477,7 @@ export function finishPlayerTurn(
   state: BattleState,
   player: PlayerCombat,
   playerName: string,
-  options: { deferColonyRegeneration?: boolean } = {},
+  options: { deferColonyRegeneration?: boolean; deferPainSettlement?: boolean } = {},
 ): BattleState {
   let st = tickHolyPowerPve(state, player, playerName);
   // PR2-B-2c — 운기 리젠(매턴 maxHP%) 적용 후 전 temp 버프 tick(turns -1).
@@ -624,7 +577,10 @@ export function finishPlayerTurn(
     }
   }
   // A lethal turn-end attack completes the action, even if generated basics were queued.
-  if (st.phase === "ended") return applyColonyRegenerationPve(st, player, playerName);
+  if (st.phase === "ended") {
+    st = applyColonyRegenerationPve(st, player, playerName);
+    return st.usesAtb ? st : settlePainPve(st, player);
+  }
   // 막다른 격노 (5티어) — RAMPAGE_START_TURN 턴 후부터 매 플레이어 턴 종료 시 ATK 영구 누적.
   // completedPlayerTurns 는 이 시점에 막 +1 된 상태 (ended state 진입 후) — 1턴 종료 시 1.
   const rampage = player.rampagePerTurn ?? 0;
@@ -670,7 +626,8 @@ export function finishPlayerTurn(
   st = applyEnchantRegenIfAny(st, player, playerName);
   st = applyPassiveTurnHealIfAny(st, player, playerName);
   // Generated basics still belong to this skill action; their final completion heals once.
-  return options.deferColonyRegeneration ? st : applyColonyRegenerationPve(st, player, playerName);
+  st = options.deferColonyRegeneration ? st : applyColonyRegenerationPve(st, player, playerName);
+  return st.usesAtb || options.deferPainSettlement ? st : settlePainPve(st, player);
 }
 
 // 선공 — SPD가 높은 쪽이 먼저 공격. 동점이면 플레이어 우선.
@@ -832,6 +789,7 @@ export function initialBattleState(
     stacks: {
       tripleWard: initialTripleWardState(tripleWardRank),
       ...initialHolyPower(v2Skills.equipped),
+      ...initialPain(v2Skills.equipped, player.maxHp),
       fortressImpact: 0,
       ...((player.windCurrentDamagePctPerStack ?? 0) > 0 ? { windCurrent: 0 } : {}),
       ironWallReflectCharges: 0,

@@ -1,3 +1,5 @@
+import { settlePainPve, deferPainPveSkill } from "./darkPriestAdapters";
+import { canMartialCounterHit } from "./martialCounter";
 import { healingReductionPct } from "./burnHealing";
 import { recordCombatDamage, recordCombatDotDamage, recordCombatMetric } from "./combatDiagnostics";
 import { combatRandom, withCombatRandom } from "./combatRandom";
@@ -336,6 +338,7 @@ function resolveBattleLegacy(
               completedPlayerTurns: state.turn.completedPlayerTurns + 1,
             },
           };
+          state = settlePainPve(state, player);
           continue;
         }
         // cast 발동 시 그 턴 전체 소진 → phase=enemy 직행. 다대시(attacksLeft>1) 캐릭도
@@ -368,6 +371,7 @@ function resolveBattleLegacy(
           };
           state = finishPlayerTurn(ended, player, playerName, {
             deferColonyRegeneration: cast.signatureExtraActions > 0,
+            deferPainSettlement: cast.signatureExtraActions > 0,
           });
           if (cast.signatureExtraActions > 0 && state.phase !== "ended") {
             generatedBasicsThisPlayerPhase = true;
@@ -489,8 +493,8 @@ function resolveBattleLegacy(
           enemySkillShieldBefore,
           enemySkillMagicBarrier.hpBoundDamage,
         );
-        const enemySkillDamageToHp =
-          enemySkillMagicBarrier.hpBoundDamage - enemySkillShieldAbsorbed;
+        let enemySkillDamageToHp: number;
+        [state, nextLog, enemySkillDamageToHp] = deferPainPveSkill(state, result.hitDamages.length ? result.hitDamages : [result.enemyDamage], enemySkillMagicBarrier.hpBoundDamage, state.stacks.playerShield, nextLog);
         const enemySkillAfterShield = enemySkillDamageToHp;
         const nextPlayerShield =
           enemySkillShieldBefore - enemySkillShieldAbsorbed;
@@ -674,7 +678,7 @@ function resolveBattleLegacy(
         }
         const actualEnemySkillHpDamage = Math.max(0, hpBeforeEnemySkill - nextPlayerHp);
         const countered =
-          enemySkillDamageToHp > 0 && result.castSkillName
+          canMartialCounterHit(player, enemySkillDamageToHp, enemySkillShieldAbsorbed, enemySkillMagicBarrier.absorbedDamage) && result.castSkillName
             ? applyPassiveCounterOnHitIfAny(
                 {
                   ...state,

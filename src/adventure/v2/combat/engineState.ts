@@ -1,4 +1,5 @@
 import type { APSkill,APSkillCondition } from "@/adventure/character/apSkills";
+import type { PainState } from "./darkPriest";
 import type { Monster } from "@/adventure/data/monsters";
 import type { Potion,PotionId } from "@/adventure/data/potions";
 import type { V2Element } from "@/adventure/data/v2/elements";
@@ -65,6 +66,7 @@ export type BattleLogEntry =
        * 일반 공격과 다른 효과 행을 UI가 구분할 때 사용한다. 예전 리플레이는
        * 이 필드가 없으며, BattleLogList가 대괄호 라벨로 폴백 판별한다.
        */
+      painEvent?: { kind: "defer" | "consume" | "repay" | "sanctuary"; amount: number; remaining: number };
       effect?: "status" | "status_damage" | "extra_damage";
       /** 추가 피해의 실제 HP 적용량. 옛 PvP 텍스트는 방어 전 값이므로 UI 합산에 쓰지 않는다. */
       additionalHpDamage?: number;
@@ -276,6 +278,7 @@ export type BattleStacks = {
   /** 대결계사·만법수호자 전용 삼중 결계와 영역 안정 상태. */
   tripleWard: TripleWardState;
   // 성채기사 — 피격으로 쌓아 방패 직접 공격에 소비하는 충격, 철벽 태세의 남은 반사 횟수.
+  pain?: PainState;
   holyPower?: HolyPowerState;
   dreadnought?: DreadnoughtState;
   windCurrent?: number;
@@ -759,6 +762,8 @@ export type PlayerCombat = {
   passiveDefPenetrationPct?: number;
   // 무도가 — 피격 생존 시 chancePct% 로 적에게 ATK 반격(반격의 룬과 동일 패턴). 0/undefined=미보유.
   passiveCounterChancePct?: number;
+  /** 무승 계열의 반격 활력 계수 및 보호막 피격 반격 활성화. */
+  passiveCounterVitCoef?: number;
   // 명시적 훅 — 평타를 마법공격력(magicAtk) 기반으로 전환, 적 magicDef(없으면 def 폴백)로 경감. undefined=미보유.
   passiveMagicBasicAttack?: boolean;
   // 전문화 패시브(철벽검류 등) — 받는 피해 -pct%(항상 활성, 곱연산). enchantEndurePct 와 동류,
@@ -811,8 +816,11 @@ export type PlayerCombat = {
   enemyMagicVulnPctPerStack?: number;
   // 약점 노출 누적 확률. undefined 는 기존 직접 주입 테스트/호환을 위해 100%로 처리.
   enemyMagicVulnApplyChancePct?: number;
-  // 대마도 이론 — scaling="magic" 스킬 피해 +%. 0/undefined=미보유.
+  // 물리·마법 스킬의 해당 직접 피해분 +%. 0/undefined=미보유.
+  physicalSkillDamagePct?: number;
   magicSkillDamagePct?: number;
+  skillShieldPowerPct?: number;
+  shieldedMagicSkillDamagePct?: number;
   // 일검필살 — 단일 일반 물리 damage 효과만 가진 공격 스킬 피해 +%. 0/undefined=미보유.
   singleHitPhysicalSkillDamagePct?: number;
   // 워메이지 절제(직업 특성) — 스킬 마나 소모 -pct%(시전 시 소모분 일부 환급). 0/undefined=미보유.

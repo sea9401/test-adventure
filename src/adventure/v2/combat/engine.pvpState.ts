@@ -1,3 +1,4 @@
+import type { PainState } from "./darkPriest";
 import { type PotionId } from "@/adventure/data/potions";
 import { type BerserkerCombatState } from "./berserkerCombat";
 import { type DreadnoughtState } from "./dreadnought";
@@ -83,6 +84,7 @@ export type PvPSideStacks = {
   /** 전투 패턴 교대 행동의 정렬된 A/B 순서쌍별 마지막 실제 발동 스킬. */
   patternAlternateLastSkillByPair?: Record<string, string>;
   tripleWard: TripleWardState;
+  pain?: PainState;
   holyPower?: HolyPowerState;
   dreadnought?: DreadnoughtState;
   windCurrent?: number;
@@ -184,6 +186,7 @@ export type PvPSide = {
 };
 
 export type PvPBattleState = {
+  usesAtb?: boolean;
   p1: PvPSide;
   p2: PvPSide;
   phase: PvPPhase;

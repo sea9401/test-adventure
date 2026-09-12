@@ -155,7 +155,7 @@ export function equippedPassiveSummary(
   if (aggregate.counterChancePct) {
     add(
       "counterChancePct",
-      `HP 피해 시 반격 확률 ${formatSummaryNumber(aggregate.counterChancePct)}%`,
+      `${aggregate.counterVitCoef ? "직접 피격 시(보호막 포함)" : "HP 피해 시"} 반격 확률 ${formatSummaryNumber(aggregate.counterChancePct)}%`,
       true,
     );
   }
@@ -165,6 +165,7 @@ export function equippedPassiveSummary(
   if (aggregate.fortressImpactHealPctPerStack) {
     add("fortressImpactHealPctPerStack", `충격 소비 적중 시 스택당 최대 HP ${aggregate.fortressImpactHealPctPerStack}% 회복`, true);
   }
+  if (aggregate.counterVitCoef) add("counterVitCoef", `반격 원량에 활력 ${formatSummaryNumber(aggregate.counterVitCoef * 100)}% 추가 · 중첩 불가`, true);
   if (aggregate.counterDamageUsesReflectBoost) {
     add(
       "counterDamageUsesReflectBoost",
@@ -264,6 +265,7 @@ export function equippedPassiveSummary(
       true,
     );
   }
+  addPositivePct("physicalSkillDamagePct", "물리 스킬 피해");
   addPositivePct("magicSkillDamagePct", "마법 스킬 피해");
   addPositivePct(
     "singleHitPhysicalSkillDamagePct",

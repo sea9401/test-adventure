@@ -55,6 +55,39 @@ function stateWith(
 afterEach(() => vi.restoreAllMocks());
 
 describe("PvP 호출 표면별 최종 피해 배율", () => {
+  it.each(["v2c_fortressknight_ram", "v2c_warrior_flurry"] as const)(
+    "%s 회피 경감 로그는 최종 피해와 같은 배율로 타별 정수 처리를 반영한다",
+    (skillId) => {
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      const skills: V2SkillsState = { learned: [skillId], equipped: [skillId] };
+      for (const multiplier of [1, 0.65, 0.01]) {
+        const cast = (evaRating: number) => {
+          const initial = initialBattleStatePvP(
+            { ...BASE, accRating: 100, attackCount: 2 },
+            { ...BASE, hp: 100_000, maxHp: 100_000, evaRating },
+            "P1", "P2", skills, EMPTY_SKILLS, multiplier,
+          );
+          initial.p1.stacks.fortressImpact = 3;
+          return castV2SkillOnAttackerTurnPvP(initial, "p1").state;
+        };
+        const unmitigated = cast(0);
+        const mitigated = cast(600);
+        const reduction = mitigated.log.find((entry) => entry.text.includes("[회피 경감"));
+        expect(unmitigated.p2.hp).toBeLessThan(100_000);
+        if (multiplier === 0.01 && skillId === "v2c_warrior_flurry") {
+          // 타당 최소 피해 1에 도달하면 회피로 줄어든 피해가 없다.
+          expect(mitigated.p2.hp).toBe(unmitigated.p2.hp);
+          expect(reduction).toBeUndefined();
+        } else {
+          expect(reduction).toBeDefined();
+        }
+        expect(Number(reduction?.text.match(/피해 -(\d+)/)?.[1] ?? 0)).toBe(
+          mitigated.p2.hp - unmitigated.p2.hp,
+        );
+      }
+    },
+  );
+
   it("아레나 배율은 0.65이고 기본 PvP 상태에는 배율이 주입되지 않는다", () => {
     expect(ARENA_DAMAGE_MULTIPLIER).toBe(0.65);
     expect(ARENA_SUSTAIN_MULTIPLIER).toBe(0.65);

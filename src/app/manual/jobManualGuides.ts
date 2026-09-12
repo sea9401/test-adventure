@@ -1,3 +1,5 @@
+import { JOB_MANUAL_EXPANSION_GUIDES } from "./jobManualExpansionGuides";
+
 export type JobManualGuide = {
   overview: string;
   rules: string[];
@@ -233,5 +235,5 @@ const JOB_MANUAL_GUIDES: Record<string, JobManualGuide> = {
 };
 
 export function jobManualGuideFor(jobId: string): JobManualGuide | null {
-  return JOB_MANUAL_GUIDES[jobId] ?? null;
+  return JOB_MANUAL_EXPANSION_GUIDES[jobId] ?? JOB_MANUAL_GUIDES[jobId] ?? null;
 }

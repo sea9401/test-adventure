@@ -127,6 +127,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveEvasionPct: passiveAgg.evasionPct,
     passiveLifestealPct: passiveAgg.lifestealPct,
     passiveCounterChancePct: passiveAgg.counterChancePct,
+    passiveCounterVitCoef: passiveAgg.counterVitCoef,
     passiveCounterDamageUsesReflectBoost:
       passiveAgg.counterDamageUsesReflectBoost,
     passiveDefPct: passiveAgg.defPct,
@@ -171,7 +172,10 @@ export function derivePlayerCombatV2FromSaves(saves: {
       passiveAgg.enemyMagicVulnPctPerStack,
     passiveEnemyMagicVulnApplyChancePct:
       passiveAgg.enemyMagicVulnApplyChancePct,
+    passivePhysicalSkillDamagePct: passiveAgg.physicalSkillDamagePct,
     passiveMagicSkillDamagePct: passiveAgg.magicSkillDamagePct,
+    passiveSkillShieldPowerPct: passiveAgg.skillShieldPowerPct,
+    passiveShieldedMagicSkillDamagePct: passiveAgg.shieldedMagicSkillDamagePct,
     passiveSingleHitPhysicalSkillDamagePct:
       passiveAgg.singleHitPhysicalSkillDamagePct,
     passiveSpdToAtkMaxPct: passiveAgg.spdToAtkMaxPct,

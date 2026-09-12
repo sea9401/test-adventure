@@ -174,6 +174,21 @@ describe("advance-class tier 7 first unlock", () => {
     expect(response.status).toBe(200);
     expect(character()).toMatchObject({ class: "warrior", specChoice: "dreadnought", level: 1, materials: { v2_storm_origin_fragment: 5 } });
     expect(proficiency().jobHistory).toContain("dreadnought");
+});
+  it.each([
+    ["aegis", "fortressknight", "lawguardian", "warrior"],
+    ["seraphim", "savior", "dawnpaladin", "mage"],
+    ["dragonlord", "dragonsovereign", "infernomancer", "warrior"],
+  ])("%s는 어느 선행 직업에서도 최초 전직하고 재전직 때 중복 소비하지 않는다", async (id, first, second, cls) => {
+    for (const currentJobId of [first, second]) {
+      seedCandidate({ currentJobId, jobCumLevel: { [first]: 100_000, [second]: 100_000 } });
+      expect((await POST(advanceReq(id))).status).toBe(200);
+      expect(character()).toMatchObject({ class: cls, specChoice: id, level: 1, materials: {} });
+      expect(proficiency().jobHistory).toContain(id);
+    }
+    seedCandidate({ currentJobId: "swordsaint", fragments: 0, jobCumLevel: {}, jobHistory: [id] });
+    expect((await POST(advanceReq(id))).status).toBe(200);
+    expect(character()).toMatchObject({ class: cls, specChoice: id, level: 1, materials: {} });
   });
 
   it("consumes 30 fragments and records the first unlock atomically", async () => {

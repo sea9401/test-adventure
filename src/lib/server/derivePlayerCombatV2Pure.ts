@@ -202,6 +202,7 @@ export type DerivePlayerCombatV2PureInput = {
   passiveLifestealPct?: number;
   /** 반격 확률 +%p(절정 반격) — passiveCounterChancePct 에 가산(클래스 패시브·전문화와 합산). */
   passiveCounterChancePct?: number;
+  passiveCounterVitCoef?: number;
   /** 금강나한 연계 — 활성 반사 증폭을 나한금신 반격 피해에도 적용. */
   passiveCounterDamageUsesReflectBoost?: boolean;
   /** 방어력 +%(철벽, 다양성 2차) — def 와 magicDef 에 곱연산. PvE/PvP 양쪽. */
@@ -255,8 +256,11 @@ export type DerivePlayerCombatV2PureInput = {
   passiveEnemyMagicVulnPctPerStack?: number;
   /** 약점 노출 누적 확률. */
   passiveEnemyMagicVulnApplyChancePct?: number;
-  /** 마법 스킬 피해 +% — scaling="magic"/"spi" 피해분에만 적용. */
+  /** 물리·마법 스킬의 해당 직접 피해분 +%. */
+  passivePhysicalSkillDamagePct?: number;
   passiveMagicSkillDamagePct?: number;
+  passiveSkillShieldPowerPct?: number;
+  passiveShieldedMagicSkillDamagePct?: number;
   /** 일검필살 — 단일 일반 물리 damage 효과만 가진 공격 스킬 피해 +%. */
   passiveSingleHitPhysicalSkillDamagePct?: number;
   /** 전체 속도를 공격력 %로 환산(점근, 값=상한%). 장착 패시브 합산분. */
@@ -734,6 +738,7 @@ export function derivePlayerCombatV2Pure(
       input.passiveCounterChancePct,
       sumOrUndef(undefined, specEff.counterChancePct),
     ), // 절정 반격(장착 패시브·input) + 철벽검류(전문화)
+    ...(input.passiveCounterVitCoef ? { passiveCounterVitCoef: input.passiveCounterVitCoef } : {}),
     ...(input.passiveCounterDamageUsesReflectBoost
       ? { passiveCounterDamageUsesReflectBoost: true }
       : {}),
@@ -893,6 +898,12 @@ export function derivePlayerCombatV2Pure(
             input.passiveEnemyMagicVulnApplyChancePct ?? 100,
         }
       : {}),
+    ...(input.passiveSkillShieldPowerPct && input.passiveSkillShieldPowerPct > 0
+      ? { skillShieldPowerPct: input.passiveSkillShieldPowerPct } : {}),
+    ...(input.passiveShieldedMagicSkillDamagePct && input.passiveShieldedMagicSkillDamagePct > 0
+      ? { shieldedMagicSkillDamagePct: input.passiveShieldedMagicSkillDamagePct } : {}),
+    ...(input.passivePhysicalSkillDamagePct && input.passivePhysicalSkillDamagePct > 0
+      ? { physicalSkillDamagePct: input.passivePhysicalSkillDamagePct } : {}),
     ...(totalMagicSkillDamagePct > 0
       ? { magicSkillDamagePct: totalMagicSkillDamagePct }
       : {}),

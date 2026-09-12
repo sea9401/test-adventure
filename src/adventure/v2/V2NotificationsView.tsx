@@ -12,6 +12,7 @@ import {
   Flag,
   Handshake,
   Plant,
+  ShoppingBag,
   ShieldWarning,
   Skull,
   Sword,
@@ -27,6 +28,8 @@ import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { formatRelative } from "@/lib/notifications";
 import {
+  auctionWonNotificationText,
+  type AuctionWonNotificationPayload,
   unreadV2Notifications,
   type V2NotificationEntry,
   type V2NotificationType,
@@ -35,6 +38,13 @@ import {
 export type NotificationCenterTab = "all" | "notifications" | "mail";
 
 const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
+  auction_won: (
+    <ShoppingBag
+      size={16}
+      weight="duotone"
+      className="shrink-0 text-emerald-600 dark:text-emerald-400"
+    />
+  ),
   outpost_attacked: (
     <ShieldWarning
       size={16}
@@ -149,6 +159,9 @@ function mailBody(item: InboxItem): string {
 }
 
 function entryText(n: V2NotificationEntry): React.ReactNode {
+  if (n.type === "auction_won") {
+    return auctionWonNotificationText(n.payload as AuctionWonNotificationPayload);
+  }
   if (n.type === "outpost_attacked") {
     return (
       <>

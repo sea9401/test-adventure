@@ -15,6 +15,8 @@ import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { feedbackReplyHref } from "@/lib/feedbackNavigation";
 import { formatRelative } from "@/lib/notifications";
 import {
+  auctionWonNotificationText,
+  type AuctionWonNotificationPayload,
   unreadV2Notifications,
   type V2NotificationEntry,
 } from "@/lib/v2-notification-config";
@@ -43,6 +45,8 @@ const MAIL_KIND_LABEL: Record<InboxItem["kind"], string> = {
 function previewText(notification: V2NotificationEntry): string {
   const payload = notification.payload;
   switch (notification.type) {
+    case "auction_won":
+      return auctionWonNotificationText(payload as AuctionWonNotificationPayload);
     case "outpost_attacked":
       return "길드 시설이 공격받았습니다.";
     case "outpost_lost":

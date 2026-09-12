@@ -13,7 +13,12 @@ import {
   cookingStandingDeliveryReward,
   type CookingDeliveryRequest,
 } from "./delivery";
-import { cookingEffectText, type CookingFoodDefinition } from "./foodShared";
+import {
+  cookingEffectText,
+  cookingQualityName,
+  type CookingFoodDefinition,
+} from "./foodShared";
+import { COOKING_EFFECT_TAG_NAMES } from "./types";
 import type { CookingMutation, CookingResponse } from "./clientTypes";
 
 type PendingCookingSale = {
@@ -30,6 +35,9 @@ function RequestCard({ request, data, busy, mutate }: { request: CookingDelivery
   });
   const progress = request.kind === "daily" ? data.cooking.daily.requestScores[request.id] ?? 0 : data.cooking.weekly.requestScore;
   const complete = request.kind === "daily" ? data.cooking.daily.completedRequestIds.includes(request.id) : data.cooking.weekly.completed;
+  const emptyText = request.condition.effectTag
+    ? `요리 도감에서 ‘${COOKING_EFFECT_TAG_NAMES[request.condition.effectTag]} 효과’로 검색하면 대상 레시피를 찾을 수 있습니다. ${cookingQualityName(request.condition.minimumQuality)} 이상만 납품할 수 있습니다.`
+    : "현재 조건에 맞는 완성 음식이 없습니다.";
   return (
     <article className={`${SURFACE_INSET} p-3`}>
       <div className="flex items-start justify-between gap-2">
@@ -41,7 +49,7 @@ function RequestCard({ request, data, busy, mutate }: { request: CookingDelivery
       {!complete && foods.length > 0 ? <div className="mt-3 space-y-2">{foods.map(({ food, count, score }) => (
         <FoodDeliveryRow key={food.id} food={food} count={count} score={score} quantity={quantity} setQuantity={setQuantity} busy={busy}
           onDeliver={() => mutate({ action: "deliver", requestId: request.id, foodId: food.id, quantity: Math.min(quantity, count) })} />
-      ))}</div> : !complete ? <div className="mt-3 text-xs text-zinc-500">현재 조건에 맞는 완성 음식이 없습니다.</div> : null}
+      ))}</div> : !complete ? <div className="mt-3 text-xs text-zinc-500">{emptyText}</div> : null}
     </article>
   );
 }

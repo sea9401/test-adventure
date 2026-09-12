@@ -1443,3 +1443,13 @@ describe("BattleLogList 행동 묶음", () => {
     expect(html).toContain('data-active="false"');
   });
 });
+
+it("고통 유예는 이전 행동이 아닌 해당 피격 카드에 표시한다", () => {
+  const items = groupBattleLogActions([
+    { kind: "player_attack", text: "고통의 기도! 100 피해를 입혔다.", turn: "player", t: 100 },
+    { kind: "info", text: "[고통 유예] 20 유예 (고통 20)", turn: "enemy", t: 200, painEvent: { kind: "defer", amount: 20, remaining: 20 } },
+    { kind: "enemy_attack", text: "기본 공격! 80 피해를 입혔다.", turn: "enemy", t: 200 },
+  ]);
+  expect(items).toHaveLength(2);
+  expect(items[1]).toMatchObject({ kind: "action", effects: [{ painEvent: { kind: "defer", amount: 20 } }] });
+});

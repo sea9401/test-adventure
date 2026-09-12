@@ -66,6 +66,9 @@ describe("7차 전투 패키지", () => {
       primordialsage: ["archmage", "primordialmage"],
       dreadnought: ["fortressknight", "vajraarhat"],
       paragon: ["grandchampion", "absolute"],
+      aegis: ["fortressknight", "lawguardian"],
+      seraphim: ["savior", "dawnpaladin"],
+      dragonlord: ["dragonsovereign", "infernomancer"],
     });
     expect(packages.shadowblade.map((id) => V2_SKILLS[id].name)).toEqual([
       "잔영",
@@ -1709,24 +1712,9 @@ describe("직업 킷 — 스킬셋", () => {
       kind: "damage",
       scaling: "luk",
     });
-    expect(
-      V2_SKILLS.v2c_darkpriest_reap.effects.some(
-        (e) =>
-          e.kind === "executeDamage" &&
-          e.scaling === "luk" &&
-          e.hpThresholdPct === 20 &&
-          e.bonusMult === 2.4,
-      ),
-    ).toBe(true);
-    expect(
-      V2_SKILLS.v2c_darkpriest_reap.effects.some(
-        (e) => e.kind === "healFromDamage" && e.pct === 14,
-      ),
-    ).toBe(true);
-    expect(V2_SKILLS.v2c_darkpriest_blessing.passive).toMatchObject({
-      healPowerPct: 18,
-      critDmgPct: 20,
-    });
+    expect(V2_SKILLS.v2c_darkpriest_reap.painRitual).toBe("prayer");
+    expect(V2_SKILLS.v2c_darkpriest_reap.effects.some(e => e.kind === "healFromDamage" || e.kind === "executeDamage")).toBe(false);
+    expect(V2_SKILLS.v2c_darkpriest_blessing.passive).toEqual({});
   });
 
   it("모험가(none) = 착용형 패시브 2종, 없는 jobId = 빈 배열", () => {

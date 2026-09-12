@@ -675,6 +675,8 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
       "v2c_rescueexpert_rescue",
       "v2c_returner_survive",
       "v2c_saint_miracle",
+      "v2c_seraphim_judgment",
+      "v2c_seraphim_wings",
       "v2c_survivor_firstaid",
       "v2c_templar_smite",
     ]);

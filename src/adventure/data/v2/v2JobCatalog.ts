@@ -677,12 +677,15 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
       },
     },
   },
+  confessor: { id: "confessor", name: "고해사제", tier: 4, cultivateProfile: { luk: 2, spi: 2 }, jobBonus: { luk: 13, spi: 10 }, unlock: { prereqs: { darkpriest: TIER4_UNLOCK_CUMLEVEL } } },
+  atonementbishop: { id: "atonementbishop", name: "속죄주교", tier: 5, cultivateProfile: { luk: 3, spi: 2 }, jobBonus: { luk: 16, spi: 12 }, unlock: { prereqs: { confessor: TIER5_UNLOCK_CUMLEVEL } } },
+  darksaint: { id: "darksaint", name: "검은 성자", tier: 6, cultivateProfile: { luk: 3, spi: 3 }, jobBonus: { luk: 22, spi: 18 }, unlock: { prereqs: { atonementbishop: TIER6_UNLOCK_CUMLEVEL } } },
   darkpriest: {
     id: "darkpriest",
     name: "암흑사제",
     tier: 3,
     cultivateProfile: { luk: 2, spi: 1, int: 1 },
-    jobBonus: { luk: 9, spi: 6, int: 5 }, // 그림자+사제 — 처형·흡수·회복 강화
+    jobBonus: { luk: 9, spi: 6, int: 5 }, // 그림자+사제 — 행운 공격·고통 의식
     unlock: {
       prereqs: {
         shadow: TIER3_UNLOCK_CUMLEVEL, // 그림자(도적 3차) — 첫 키 = 저장 class(도적)
@@ -1001,6 +1004,12 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { int: 20, spi: 8 },
     unlock: { prereqs: { windmage: TIER5_UNLOCK_CUMLEVEL } },
   },
+  geomancer: {
+    id: "geomancer", name: "지맥술사", tier: 5,
+    cultivateProfile: { int: 2, spi: 3 },
+    jobBonus: { int: 16, spi: 12 },
+    unlock: { prereqs: { earthmage: TIER5_UNLOCK_CUMLEVEL } },
+  },
   pyromancer: {
     id: "pyromancer", name: "홍염술사", tier: 5,
     cultivateProfile: { int: 3, spi: 2 },
@@ -1276,6 +1285,12 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { int: 4, spi: 2 },
     jobBonus: { int: 28, spi: 12 },
     unlock: { prereqs: { aeromancer: TIER6_UNLOCK_CUMLEVEL } },
+  },
+  tectomancer: {
+    id: "tectomancer", name: "지각술사", tier: 6,
+    cultivateProfile: { int: 3, spi: 3 },
+    jobBonus: { int: 22, spi: 18 },
+    unlock: { prereqs: { geomancer: TIER6_UNLOCK_CUMLEVEL } },
   },
   infernomancer: {
     id: "infernomancer", name: "겁화술사", tier: 6,
@@ -1577,6 +1592,24 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { str: 2, vit: 1, dex: 1, int: 1, spi: 1, luk: 1 },
     jobBonus: { str: 8, vit: 8, dex: 8, int: 8, spi: 8, luk: 8 },
     unlock: { prereqs: tier7Prerequisites("paragon") },
+  },
+  aegis: {
+    id: "aegis", name: TIER7_COMBAT_JOB_NAMES.aegis, tier: 7,
+    cultivateProfile: { vit: 4, spi: 3 },
+    jobBonus: { vit: 28, spi: 20 },
+    unlock: { prereqs: tier7Prerequisites("aegis") },
+  },
+  seraphim: {
+    id: "seraphim", name: TIER7_COMBAT_JOB_NAMES.seraphim, tier: 7,
+    cultivateProfile: { spi: 4, int: 2, vit: 1 },
+    jobBonus: { spi: 32, int: 10, vit: 6 },
+    unlock: { prereqs: tier7Prerequisites("seraphim") },
+  },
+  dragonlord: {
+    id: "dragonlord", name: TIER7_COMBAT_JOB_NAMES.dragonlord, tier: 7,
+    cultivateProfile: { str: 3, int: 3, vit: 1 },
+    jobBonus: { str: 20, int: 20, vit: 8 },
+    unlock: { prereqs: tier7Prerequisites("dragonlord") },
   },
 };
 
@@ -1997,12 +2030,17 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   //   해금 게이트일 뿐 저장 class 아님. 왕복 = jobIdFromLegacy("warrior","spellblade")→spellblade.
   spellblade: { class: "warrior", spec: "spellblade" },
   bloodtemplar: { class: "warrior", spec: "bloodtemplar" }, // 광전사×사제 하이브리드
+  confessor: { class: "rogue", spec: "confessor" },
+  atonementbishop: { class: "rogue", spec: "atonementbishop" },
+  darksaint: { class: "rogue", spec: "darksaint" },
   darkpriest: { class: "rogue", spec: "darkpriest" }, // 그림자×사제 하이브리드
   // tier 4 — 새 unique spec id.
   veteran: { class: "warrior", spec: "veteran" },
   sensei: { class: "martial", spec: "sensei" },
   sage: { class: "mage", spec: "sage" },
   firemage: { class: "mage", spec: "firemage" },
+  geomancer: { class: "mage", spec: "geomancer" },
+  tectomancer: { class: "mage", spec: "tectomancer" },
   pyromancer: { class: "mage", spec: "pyromancer" },
   infernomancer: { class: "mage", spec: "infernomancer" },
   frostmage: { class: "mage", spec: "frostmage" },
@@ -2094,6 +2132,9 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   skyascendant: { class: "rogue", spec: "skyascendant" },
   primordialsage: { class: "mage", spec: "primordialsage" },
   paragon: { class: "warrior", spec: "paragon" },
+  aegis: { class: "warrior", spec: "aegis" },
+  seraphim: { class: "mage", spec: "seraphim" },
+  dragonlord: { class: "warrior", spec: "dragonlord" },
 };
 
 /**

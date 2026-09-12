@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { marketplaceListingsV2 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -22,6 +22,7 @@ type HistoryPayload = {
     instancePayload: unknown;
     closedAt: Date | null;
     side?: "buy" | "sell";
+    status?: string;
   }>;
 };
 
@@ -90,10 +91,11 @@ async function loadHistoryPayloadFresh(): Promise<HistoryPayload> {
   return payload;
 }
 
-async function loadMyHistoryPayload(userId: string): Promise<HistoryPayload> {
+async function loadMyHistoryPayload(userId: string, unsold: boolean): Promise<HistoryPayload> {
   const rows = await db
     .select({
       id: marketplaceListingsV2.id,
+      ...(unsold ? { status: marketplaceListingsV2.status } : {}),
       sellerId: marketplaceListingsV2.sellerId,
       buyerId: marketplaceListingsV2.buyerId,
       kind: marketplaceListingsV2.kind,
@@ -107,9 +109,11 @@ async function loadMyHistoryPayload(userId: string): Promise<HistoryPayload> {
     .from(marketplaceListingsV2)
     .where(
       and(
-        eq(marketplaceListingsV2.status, "sold"),
+        unsold
+          ? inArray(marketplaceListingsV2.status, ["expired", "cancelled"])
+          : eq(marketplaceListingsV2.status, "sold"),
         isNotNull(marketplaceListingsV2.closedAt),
-        or(
+        unsold ? eq(marketplaceListingsV2.sellerId, userId) : or(
           eq(marketplaceListingsV2.sellerId, userId),
           eq(marketplaceListingsV2.buyerId, userId),
         ),
@@ -134,6 +138,7 @@ async function loadMyHistoryPayload(userId: string): Promise<HistoryPayload> {
 
 // GET /api/v2/marketplace/history — 최근 체결된 거래(거래소 "최근 거래" 탭).
 //   status='sold' 매물을 체결 시각(closedAt) 최신순, 최대 MARKETPLACE_V2_HISTORY_LIMIT.
+//   ?mine=1&status=unsold 는 본인 판매의 만료·취소 이력(공개 캐시 제외).
 //   판매자·구매자 식별자는 모두 숨기고 아이템·체결가·시각만 공개한다.
 export async function GET(req: Request) {
   const userId = await ensureUser();
@@ -149,7 +154,7 @@ export async function GET(req: Request) {
   if (limited) return limited;
 
   if (new URL(req.url).searchParams.get("mine") === "1") {
-    return Response.json(await loadMyHistoryPayload(userId));
+    return Response.json(await loadMyHistoryPayload(userId, new URL(req.url).searchParams.get("status") === "unsold"));
   }
   return Response.json(await loadHistoryPayload());
 }

@@ -120,10 +120,9 @@ const REBALANCE_LOADOUT = [
   "v2c_monk_spirit",
 ] as const;
 const REBALANCED_EQUIPPED = [
-  ...REBALANCE_LOADOUT.slice(0, 35),
+  ...REBALANCE_LOADOUT.slice(0, 36),
 ] as const;
 const REBALANCED_REMOVED = [
-  "v2c_boxer_fortitude",
   "v2c_monk_spirit",
 ] as const;
 

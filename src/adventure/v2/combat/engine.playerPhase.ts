@@ -1,4 +1,5 @@
 import { CRIT_PCT_CAP } from "@/adventure/data/stats";
+import { settlePainPve } from "./darkPriestAdapters";
 import {
 applyEvasionDamageReduction,
 CRIT_MULT_BASE,
@@ -1061,7 +1062,7 @@ export function resolvePlayerPhase(
     return afterDamage;
   }
   if (afterDamage.enemyHp <= 0) {
-    return applyColonyRegenerationPve({
+    const ended = applyColonyRegenerationPve({
       ...afterDamage,
       duelistBuff: null,
       log: appendLog(afterDamage.log, {
@@ -1075,6 +1076,7 @@ export function resolvePlayerPhase(
         completedPlayerTurns: state.turn.completedPlayerTurns + 1,
       },
     }, player, playerName);
+    return ended.usesAtb ? ended : settlePainPve(ended, player);
   }
   const attacksLeft =
     afterDamage.playerAttacksLeft - 1 +

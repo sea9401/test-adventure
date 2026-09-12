@@ -2,6 +2,8 @@
 
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { darkPriestPattern } from "@/adventure/data/v2/darkPriestPattern";
+import { arenaPatternActionSummary } from "@/adventure/data/v2/arenaLoadout";
 import { fetchGameState } from "./fetchGameState";
 import { ArrowClockwise, CheckCircle, X } from "@phosphor-icons/react";
 import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
@@ -130,6 +132,11 @@ const SELF_STATUS_OPTIONS: PatternChoiceOption<V2PatternSelfStatus>[] = [
   { value: "berserkerDeathOvercome", label: "사망 극복 공격 준비" },
 ];
 const SELF_RESOURCE_OPTIONS: PatternChoiceOption<V2PatternSelfResource>[] = [
+  { value: "pain", label: "고통 (최대 HP %)" },
+  { value: "darkSanctuary", label: "검은 성역 남은 행동" },
+  { value: "painAbsolution", label: "다음 사죄 강화" },
+  { value: "painCondemnation", label: "다음 단죄 강화" },
+  { value: "darkSanctuaryUsed", label: "검은 성역 사용 여부" },
   { value: "holyPower", label: "성력" },
   { value: "windCurrent", label: "기류" },
   { value: "sanctuary", label: "성역 남은 행동" },
@@ -1165,6 +1172,19 @@ export function V2CombatPatternView({
       }
     >
       {!embedded && <SubViewHeader title="스킬 패턴" onBack={onBack} />}
+      {equipped.includes("v2c_darkpriest_blessing") && (
+        <section className={`${SURFACE_INSET} rounded-lg p-3 text-sm`}>
+          <p className="font-semibold">암흑사제 의식 리워크</p>
+          <p className="mt-1">영혼 수확이 고통의 기도로 변경되었습니다. 피해량 흡혈 대신 고통을 소비합니다. 기존 패턴은 유지되며, 다음 추천을 확인하고 적용할 수 있습니다.</p>
+          <ol className="my-2 list-inside list-decimal text-xs">
+            {arenaPatternActionSummary({ pattern: darkPriestPattern(equipped) }).map((item) => <li key={item.key}>{item.condition} → {item.name}</li>)}
+          </ol>
+          <button type="button" disabled={loading || busy} className="rounded border px-3 py-1 disabled:opacity-50" onClick={() => {
+            const suggested = darkPriestPattern(equipped);
+            if (suggested) { setBlocks(suggested.blocks); setSaveState("pending"); }
+          }}>암흑사제 추천 패턴 적용</button>
+        </section>
+      )}
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
         위에서부터 조건과 사용 가능 여부를 확인합니다. 스킬 발동률 판정에 실패하면 다음
         블록을 확인하고, 모두 실패하면 기본 공격을 사용합니다. 서로 다른 스킬은 독립적으로
@@ -1623,7 +1643,7 @@ export function ConditionParams({
                 <PatternNumberInput
                   key="self-resource-value"
                   min={0}
-                  max={c.resource === "holyPower" ? 100 : c.resource === "sanctuary" ? 4 : c.resource === "inscription" ? 8 : 3}
+                  max={c.resource === "pain" ? 20 : c.resource === "darkSanctuary" ? 4 : ["painAbsolution", "painCondemnation", "darkSanctuaryUsed"].includes(c.resource) ? 1 : c.resource === "holyPower" ? 100 : c.resource === "sanctuary" ? 4 : c.resource === "inscription" ? 8 : 3}
                   value={c.value}
                   onValueChange={(value) => onChange({ ...c, value })}
                 />

@@ -1,3 +1,4 @@
+import { settlePainPve } from "./darkPriestAdapters";
 import type { Monster } from "@/adventure/data/monsters";
 import type { PotionId } from "@/adventure/data/potions";
 import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
@@ -942,6 +943,9 @@ export function resolveBattleAtb(
         toxicRecoveryActionsAtStart,
         nextTick,
       );
+      const painLogStart = state.log.length;
+      state = settlePainPve(state, atbPlayer);
+      state = tagNewLogEntries(state, painLogStart, "player", nextTick);
       state = continueDamageMeterAfterEnemyDefeat(
         state,
         ctx,

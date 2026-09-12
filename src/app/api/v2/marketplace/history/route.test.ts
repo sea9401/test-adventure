@@ -125,3 +125,32 @@ describe("거래소 최근 체결 API", () => {
     }
   });
 });
+
+it("미판매 조회는 판매자 본인의 만료·취소 건만 조건에 포함한다", async () => {
+  const { PgDialect } = await import("drizzle-orm/pg-core");
+  mocks.state.rows = [{ ...soldRow, sellerId: "viewer-id", status: "expired" }];
+  const response = await GET(new Request("http://localhost/api/v2/marketplace/history?mine=1&status=unsold"));
+  const query = new PgDialect().sqlToQuery(mocks.builder.where.mock.calls[0][0]);
+  expect(query.params).toEqual(["expired", "cancelled", "viewer-id"]);
+  expect(query.sql).not.toContain('"buyer_id"');
+  expect((await response.json()).trades[0]).toMatchObject({ status: "expired", side: "sell", price: 500 });
+});
+
+
+it("미판매 조회 결과를 공개 이력 캐시에 넣지 않는다", async () => {
+  mocks.state.rows = [{ ...soldRow, id: 99, sellerId: "viewer-id", status: "cancelled" }];
+  await GET(new Request("http://localhost/api/v2/marketplace/history?mine=1&status=unsold"));
+  mocks.state.rows = [soldRow];
+  const response = await GET(new Request("http://localhost/api/v2/marketplace/history?status=unsold"));
+  const body = await response.json();
+  expect(body.trades[0].id).toBe(41);
+  expect(body.trades[0]).not.toHaveProperty("status");
+  expect(body.trades[0]).not.toHaveProperty("side");
+});
+
+it("인증 없이 미판매 내역을 조회할 수 없다", async () => {
+  mocks.ensureUser.mockResolvedValueOnce("");
+  const response = await GET(new Request("http://localhost/api/v2/marketplace/history?mine=1&status=unsold"));
+  expect(response.status).toBe(401);
+  expect(mocks.builder.where).not.toHaveBeenCalled();
+});

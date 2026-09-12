@@ -87,6 +87,7 @@ describe("job manual model", () => {
       "radiantknight", "dawnpaladin", "dragonknight", "drakeblood",
       "dragonwing", "dragonsovereign", "pyromancer", "infernomancer",
       "aeromancer", "stormbringer",
+      "geomancer", "tectomancer", "darkpriest", "confessor", "atonementbishop", "darksaint",
     ]) {
       const entry = buildJobManualEntry(jobId);
 

@@ -934,7 +934,7 @@ export function V2CombatPatternView({
         );
         setPresets(j?.skills?.presets ?? []);
         const saved = j?.skills?.pattern?.blocks;
-        // 저장 패턴은 보존하되 그림자 도약 같은 필수 오프너는 엔진과 같은 규칙으로 첫 블록에 보완한다.
+        // 엔진과 동일하게 저장된 조건·순서를 유지하고 미설정 패턴만 기본값으로 보완한다.
         setBlocks(
           effectiveCombatPatternFromEquipped(
             eq,

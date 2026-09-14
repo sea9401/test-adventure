@@ -131,6 +131,7 @@ describe("tier 7 capstone contract", () => {
         currentMissingHpCapPct: 75,
         chargeLostHpCapPct: 75,
         requiredIntentStacks: 3,
+        maxUsesPerBattle: 3,
         pvpCapPct: 40,
         pvpPenetrationPct: 30,
         pvpDirectDamagePct: 100,

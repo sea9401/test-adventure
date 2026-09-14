@@ -434,7 +434,7 @@ describe("masteryTower", () => {
     });
   });
 
-  it("이번 주 최고층으로 최근 10층 체크포인트의 다음 층을 계산한다", () => {
+  it("기존 저장 최고층으로 최근 10층 체크포인트의 다음 층을 계산한다", () => {
     for (const [weekBestFloor, expected] of [
       [0, null],
       [9, null],
@@ -457,7 +457,7 @@ describe("masteryTower", () => {
     }
   });
 
-  it("새 등반은 1층과 최근 주간 체크포인트만 시작할 수 있다", () => {
+  it("새 등반은 1층과 최근 체크포인트만 시작할 수 있다", () => {
     const state = parseMasteryTowerState(
       {
         date: "2026-08-09",
@@ -549,7 +549,19 @@ describe("masteryTower", () => {
     });
   });
 
-  it("월요일이 되면 주간 진행만 초기화하고 영구 기록은 유지한다", () => {
+  it("이미 주간 초기화된 계정도 역대 최고층 체크포인트에서 시작한다", () => {
+    const state = parseMasteryTowerState({
+      date: "2026-08-10",
+      lifetimeBestFloor: 100,
+      weekStartedAt: "2026-08-10",
+      weekBestFloor: 0,
+    }, "2026-08-10");
+    expect(masteryTowerStartFloors(state)).toEqual([1, 91]);
+    expect(resolveMasteryTowerAttemptFloor(state, 91)).toEqual({ ok: true, floor: 91 });
+    expect(masteryTowerClaimPreview(state).total).toBe(0);
+  });
+
+  it("월요일에도 최고층 체크포인트를 유지한다", () => {
     const monday = parseMasteryTowerState(
       {
         date: "2026-08-09",
@@ -565,6 +577,7 @@ describe("masteryTower", () => {
       "2026-08-10",
     );
 
+    expect(masteryTowerStartFloors(monday)).toEqual([1, 41]);
     expect(monday).toMatchObject({
       date: "2026-08-10",
       todayBestFloor: 0,
@@ -573,11 +586,11 @@ describe("masteryTower", () => {
       lifetimeBestFloor: 44,
       firstClearRewardsClaimed: [10, 20, 30, 40],
       weekStartedAt: "2026-08-10",
-      weekBestFloor: 0,
+      weekBestFloor: 37,
     });
   });
 
-  it("승리하면 주간 최고층을 올리고 패배해도 유지한다", () => {
+  it("승리하면 저장 최고층을 올리고 패배해도 유지한다", () => {
     const state = parseMasteryTowerState(
       {
         date: "2026-08-09",

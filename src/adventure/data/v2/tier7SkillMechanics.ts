@@ -58,6 +58,7 @@ export type Tier7Mechanic =
       currentMissingHpCapPct: number;
       chargeLostHpCapPct: number;
       requiredIntentStacks: number;
+      maxUsesPerBattle: number;
       pvpCapPct: number;
       pvpPenetrationPct: number;
       pvpDirectDamagePct: number;

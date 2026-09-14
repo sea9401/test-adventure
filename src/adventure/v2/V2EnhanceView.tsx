@@ -541,6 +541,13 @@ export function V2EnhanceView({
 
   const doEnhance = useCallback(async () => {
     if (!selected || busy) return;
+    const destroyPct = enhanceOutcomeRow(level, stone)[3];
+    if (
+      destroyPct > 0 &&
+      !window.confirm(
+        `${item?.name ?? selected.id} (+${level} → +${level + 1}) 강화 시 파괴 확률은 ${destroyPct}%입니다.\n장비가 파괴되면 사라집니다. 강화를 진행할까요?`,
+      )
+    ) return;
     setBusy(true);
     setMsg(null);
     try {
@@ -596,7 +603,7 @@ export function V2EnhanceView({
     } finally {
       setBusy(false);
     }
-  }, [selected, stone, feedIid, busy, refresh, refreshGameState]);
+  }, [selected, item, level, stone, feedIid, busy, refresh, refreshGameState]);
 
   // ── 폭풍 개량 — 특화 유니크의 옵션·강화는 유지하고 위력만 6T 밴드로 확정 이전 ──
   const refineable = !!(

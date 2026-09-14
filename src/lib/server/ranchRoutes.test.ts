@@ -41,7 +41,7 @@ import {
   emptyFarmState,
   type FarmState,
 } from "@/adventure/v2/farm";
-import { addRanchFeed } from "@/adventure/v2/ranch";
+import { addRanchFeed, unlockRanchSlot } from "@/adventure/v2/ranch";
 import {
   LIFE_WORKSHOP_SAVE_KEY,
   emptyLifeWorkshopState,
@@ -64,6 +64,47 @@ function unlockRanch() {
 }
 
 describe("ranch routes", () => {
+  it.each([20, 7, 0])("fills recurring barns in order with %i available feed and never admits pigs", async (owned) => {
+    const base = emptyFarmState(NOW);
+    let ranch = unlockRanchSlot(base.ranch, "slot-2", "cow", 100, NOW).ranch;
+    ranch = unlockRanchSlot(ranch, "slot-3", "pig", 100, NOW).ranch;
+    store.set(FARM_SAVE_KEY, { ...base, ranch, inventory: { compound_feed: owned } });
+
+    const response = await feed(request("/api/v2/farm/ranch/feed", { slotId: "all" }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ ranchFeedResult: {
+      slotId: "all", amount: Math.min(8, owned), feedRemaining: Math.max(0, owned - 8),
+    } });
+    const saved = store.get(FARM_SAVE_KEY) as FarmState;
+    expect(saved.ranch.slots["slot-1"].feed).toBe(Math.min(6, owned));
+    expect(saved.ranch.slots["slot-2"].feed).toBe(Math.min(2, Math.max(0, owned - 6)));
+    expect(saved.ranch.slots["slot-3"].shipmentStartedAt).toEqual(ranch.slots["slot-3"].shipmentStartedAt);
+    expect(saved.ranch.slots["slot-4"].unlocked).toBe(false);
+
+    const again = await feed(request("/api/v2/farm/ranch/feed", { slotId: "all" }));
+    expect(await again.json()).toMatchObject({ ranchFeedResult: { amount: 0 } });
+    expect((store.get(FARM_SAVE_KEY) as FarmState).inventory).toEqual(saved.inventory);
+  });
+
+  it("settles production before filling and preserves output and partial progress", async () => {
+    const base = emptyFarmState(NOW - 3 * HOUR);
+    store.set(FARM_SAVE_KEY, { ...base, inventory: { compound_feed: 10 },
+      ranch: addRanchFeed(base.ranch, "slot-1", 6, NOW - 3 * HOUR) });
+    const response = await feed(request("/api/v2/farm/ranch/feed", { slotId: "all" }));
+    expect(response.status).toBe(200);
+    const saved = store.get(FARM_SAVE_KEY) as FarmState;
+    expect(saved.ranch.slots["slot-1"]).toMatchObject({ feed: 6, readyItems: 2, progressMs: HOUR });
+    expect(saved.inventory.compound_feed).toBe(9);
+  });
+
+  it("rejects bulk feeding before the ranch skill is learned", async () => {
+    store.set("skills.v2", { learned: [] });
+    const response = await feed(request("/api/v2/farm/ranch/feed", { slotId: "all" }));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: "ranch_locked" });
+    expect(upsertSave).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     vi.spyOn(Date, "now").mockReturnValue(NOW);
     unlockRanch();

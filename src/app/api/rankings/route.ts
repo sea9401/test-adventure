@@ -1,6 +1,6 @@
+import { mapWithCooperativeYield } from "@/lib/server/cooperativeYield";
 import {
   profileAsyncStage,
-  profileSyncStage,
   recordProfileCounter,
 } from "@/lib/server/runtimeProfiler/stages";
 import { PROFILE_RANKING_METRICS } from "@/lib/server/runtimeProfiler/stageMetrics";
@@ -536,8 +536,8 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
     has_guild: boolean; has_traded: boolean;
     updated_at: Date | string;
   };
-  return profileSyncStage("ranking.achievementScore.compute", () => filterRankingEligibleRows(result.rows as unknown as DbRow[])
-    .map((r) => {
+  return profileAsyncStage("ranking.achievementScore.compute", async () => {
+    const scored = await mapWithCooperativeYield(filterRankingEligibleRows(result.rows as unknown as DbRow[]), (r) => {
       const fishCodex = parseFishCodex(r.fishing_codex_save);
       const claimed = parseClaimed(r.quests_save);
       const fishCaught = Object.values(fishCodex.fish).reduce(
@@ -587,14 +587,16 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
         weekHighest: 0, challengeHighest: 0, rank: 0,
         updatedAtMs: new Date(r.updated_at).getTime(),
       };
-    })
+    });
+    return scored
     .sort((a, b) =>
       b.achievementScore - a.achievementScore ||
       b.achievementCompleted - a.achievementCompleted ||
       a.updatedAtMs - b.updatedAtMs ||
       a.userId.localeCompare(b.userId),
     )
-    .map(({ updatedAtMs: _updatedAtMs, ...r }, index) => ({ ...r, rank: index + 1 })));
+    .map(({ updatedAtMs: _updatedAtMs, ...r }, index) => ({ ...r, rank: index + 1 }));
+  });
 }
 
 async function fetchMasteryTowerRows(): Promise<RankRow[]> {
@@ -715,8 +717,8 @@ async function fetchCombatPowerRows(): Promise<RankRow[]> {
     skills_save: unknown;
     updated_at: Date | string;
   };
-  return profileSyncStage("ranking.combatPower.compute", () => filterRankingEligibleRows(result.rows as unknown as DbRow[])
-    .flatMap((r) => {
+  return profileAsyncStage("ranking.combatPower.compute", async () => {
+    const scored = await mapWithCooperativeYield(filterRankingEligibleRows(result.rows as unknown as DbRow[]), (r) => {
       const combat = derivePlayerCombatV2FromSaves({
         character: r.character_save as SavedCharacterV2 | undefined,
         equipmentSave: r.equipment_save,
@@ -748,7 +750,8 @@ async function fetchCombatPowerRows(): Promise<RankRow[]> {
         rank: 0,
         updatedAtMs: new Date(r.updated_at).getTime(),
       }];
-    })
+    });
+    return scored.flat()
     .sort(
       (a, b) =>
         b.combatPower - a.combatPower ||
@@ -771,7 +774,8 @@ async function fetchCombatPowerRows(): Promise<RankRow[]> {
       weekHighest: r.weekHighest,
       challengeHighest: r.challengeHighest,
       rank: index + 1,
-    })));
+    }));
+  });
 }
 
 // 주간 최고층 랭킹 — tower-weekly.v1 의 weekStartedAt 가 현재 KST 주와 같은 행만 노출.

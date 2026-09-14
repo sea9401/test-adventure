@@ -26,7 +26,7 @@ import {
   runFarmPlotBatch,
   type FarmBatchAction,
 } from "./farmBatchActions";
-import type { RanchAnimalId, RanchSlotId } from "./ranch";
+import type { RanchAnimalId, RanchFeedTarget, RanchSlotId } from "./ranch";
 import { useSystemToast } from "./RewardToastProvider";
 import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
 import {
@@ -76,7 +76,7 @@ export type FarmClientState = {
   busyShopItemId: string | null;
   busyEndgameShopItemId: string | null;
   busyPlotUpgrade: boolean;
-  busyRanchFeedSlotId: RanchSlotId | null;
+  busyRanchFeedSlotId: RanchFeedTarget | null;
   busyRanchCollect: boolean;
   busyRanchUpgradeSlotId: RanchSlotId | null;
   busyRanchRebuildSlotId: RanchSlotId | null;
@@ -116,7 +116,7 @@ export type FarmClientState = {
   buyShopItem: (itemId: string) => Promise<void>;
   buyEndgameShopItem: (itemId: string) => Promise<void>;
   buyPlotUpgrade: () => Promise<void>;
-  feedRanchSlot: (slotId: RanchSlotId, amount: number) => Promise<void>;
+  feedRanchSlot: (slotId: RanchFeedTarget, amount: number) => Promise<void>;
   collectRanch: () => Promise<void>;
   buyRanchSlot: (slotId: RanchSlotId, animalId: RanchAnimalId) => Promise<void>;
   rebuildRanchSlot: (slotId: RanchSlotId, animalId: RanchAnimalId) => Promise<void>;
@@ -165,7 +165,7 @@ export function useFarm(): FarmClientState {
   );
   const [busyPlotUpgrade, setBusyPlotUpgrade] = useState(false);
   const [busyRanchFeedSlotId, setBusyRanchFeedSlotId] =
-    useState<RanchSlotId | null>(null);
+    useState<RanchFeedTarget | null>(null);
   const [busyRanchCollect, setBusyRanchCollect] = useState(false);
   const [busyRanchUpgradeSlotId, setBusyRanchUpgradeSlotId] =
     useState<RanchSlotId | null>(null);
@@ -610,7 +610,7 @@ export function useFarm(): FarmClientState {
   }, [apply, reportError]);
 
   const feedRanchSlot = useCallback(
-    async (slotId: RanchSlotId, amount: number) => {
+    async (slotId: RanchFeedTarget, amount: number) => {
       setBusyRanchFeedSlotId(slotId);
       setError(null);
       try {

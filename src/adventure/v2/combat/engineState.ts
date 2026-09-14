@@ -24,6 +24,8 @@ export type Tier7BattleResources = {
   shadowReleaseHastePct?: number;
   swordIntent?: number;
   ruinCharge?: RuinChargeState;
+  /** 충전 시작 시 차감하며 자동 해방에서는 다시 차감하지 않는다. */
+  ruinChargesUsed?: number;
   lastCrossFamily?: CrossFamily;
   formula?: FormulaState;
 };

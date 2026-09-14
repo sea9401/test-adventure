@@ -239,6 +239,7 @@ export function applyPlayerV2SkillCast(
   const ruinSwordMechanic = V2_SKILLS.v2c_ruinblade_ruinsword.tier7Mechanic;
   const ruinChargeReady =
     ruinSwordMechanic?.kind === "chargedFinisher" &&
+    (state.stacks.tier7?.ruinChargesUsed ?? 0) < ruinSwordMechanic.maxUsesPerBattle &&
     canStartRuinCharge(
       state.stacks.tier7?.swordIntent ?? 0,
       ruinSwordMechanic.requiredIntentStacks,
@@ -1444,6 +1445,7 @@ export function applyPlayerV2SkillCast(
     });
   }
   if (nextTier7 && startingRuinCharge) {
+    nextTier7.ruinChargesUsed = (nextTier7.ruinChargesUsed ?? 0) + 1;
     nextTier7.ruinCharge = startRuinCharge({
       hp: state.playerHp,
       intent: nextTier7.swordIntent ?? 0,

@@ -378,8 +378,8 @@ export function parseMasteryTowerState(
     lifetimeBestFloor: clampFloor(obj.lifetimeBestFloor),
     firstClearRewardsClaimed: [...new Set(claimedFloors)].sort((a, b) => a - b),
     weekStartedAt,
-    weekBestFloor:
-      obj.weekStartedAt === weekStartedAt ? clampFloor(obj.weekBestFloor) : 0,
+    // 기존 저장 필드는 호환성을 위해 유지하되 주간 초기화하지 않는다.
+    weekBestFloor: clampFloor(obj.weekBestFloor),
     entryStaminaPaid: obj.entryStaminaPaid === true,
     ...(typeof obj.cooldownUntil === "number" && Number.isFinite(obj.cooldownUntil)
       ? { cooldownUntil: Math.max(0, Math.floor(obj.cooldownUntil)) }
@@ -508,8 +508,13 @@ export function clearMasteryTowerFloor(
 export function masteryTowerCheckpointStartFloor(
   state: MasteryTowerState,
 ): number | null {
+  // 이미 주간 초기화된 계정도 역대 기록으로 체크포인트를 복구한다.
+  const bestFloor = Math.max(
+    clampFloor(state.lifetimeBestFloor),
+    clampFloor(state.weekBestFloor),
+  );
   const checkpointFloor = Math.min(
-    Math.floor(clampFloor(state.weekBestFloor ?? 0) / 10) * 10,
+    Math.floor(bestFloor / 10) * 10,
     MASTERY_TOWER_MAX_FLOOR - 10,
   );
   return checkpointFloor >= 10 ? checkpointFloor + 1 : null;

@@ -8,6 +8,8 @@
 // 4개 모두 preload 한다. preload 가 빠지면(회귀) REAL derive 래퍼가 더미 tx({}) 에 .select() 를
 // 호출해 throw → 이 테스트가 실패한다. 즉 "사냥이 성공한다"는 사실 자체가 폴드 배선을 검증한다.
 
+import { performance } from "node:perf_hooks";
+import { setImmediate as nextTurn } from "node:timers/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRequestProfile, runWithRequestProfile } from "./runtimeProfiler/requestContext";
 import { applyStochasticPercentBonus } from "@/lib/percentBonus";
@@ -996,6 +998,64 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(prof.points).toBe(proficiencyPerKillAtDepth(2));
     expect(prof.groups.survivor?.cumLevel).toBe(30);
     expect(prof.jobCumLevel?.farmer).toBe(11);
+  });
+
+  it("50회를 모두 정산하면서 완료 전 다른 이벤트 루프 작업을 처리한다", async () => {
+    const now = Date.now();
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    store.set("character.v2", {
+      ...(store.get("character.v2") as Record<string, unknown>),
+      adventureSupport: { activatedAt: now - 1_000, activeUntil: now + 86_400_000 },
+      stamina: { current: 5000, lastUpdatedAt: now },
+    });
+    let clock = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => clock += 8);
+    let battles = 0;
+    let battlesAtPulse = 0;
+    let savesAtPulse = -1;
+    let duplicateStatus = 0;
+    let pulse: Promise<void> | undefined;
+    huntDropOverride.beforeRoll = () => {
+      battles += 1;
+      if (battles === 1) {
+        pulse = nextTurn().then(async () => {
+          battlesAtPulse = battles;
+          savesAtPulse = vi.mocked(upsertSaves).mock.calls.length;
+          duplicateStatus = (await POST(huntReq({ floor: 2, count: 50 }))).status;
+        });
+      }
+    };
+
+    const response = await POST(huntReq({ floor: 2, count: 50 }));
+    const json = await response.json();
+    await pulse;
+
+    expect(response.status).toBe(200);
+    expect(battlesAtPulse).toBeGreaterThan(0);
+    expect(battlesAtPulse).toBeLessThan(50);
+    expect(savesAtPulse).toBe(0);
+    expect(duplicateStatus).toBe(429);
+    expect(json.batch).toMatchObject({
+      attempted: 50, completed: 50, wins: 50, losses: 0,
+      stoppedReason: null, totalProficiency: 50 * proficiencyPerKillAtDepth(2),
+      totalMastery: 50,
+    });
+    expect(json.batch.replays).toHaveLength(50);
+    expect(json.batch.replays.map((replay: { index: number }) => replay.index))
+      .toEqual(Array.from({ length: 50 }, (_, index) => index + 1));
+    expect(battles).toBe(50);
+    expect(store.get("character.v2")).toMatchObject({
+      stamina: { current: 4950 },
+      exp: json.batch.totalExp,
+      gold: 1000 + json.batch.totalGold,
+    });
+    expect(store.get(GROWTH_LEAP_SAVE_KEY)).toMatchObject({ mission: { staminaSpent: 50 } });
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledOnce();
+    expect(recordCodexMasteryGameplayBatch.mock.calls[0]?.[2]).toHaveLength(100);
+    expect(lockSavesForUpdate).toHaveBeenCalledOnce();
+    expect(upsertSaves).toHaveBeenCalledOnce();
+    expect(vi.mocked(lockSaveForUpdate).mock.calls.filter((call) => call[2] === "character.v2"))
+      .toHaveLength(1);
   });
 
   it("배치(count=5) — 5회 완료 + 판간 read-your-writes 이월(스태미나·EXP 누적)", async () => {

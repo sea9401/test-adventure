@@ -3149,14 +3149,15 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_ruinblade_ruinsword: {
     id: "v2c_ruinblade_ruinsword", name: "멸검", stat: "str", category: "attack", tier: 3,
-    description: "검의가 정확히 3개일 때 현재 행동을 충전에 쓰고 다음 행동 기회에 자동으로 해방하는 전투당 한 번의 필살검이다. 해방 뒤 검의 1개를 되찾으며 PvP 직접 피해는 별도 계수를 적용한다.",
+    description: "검의가 정확히 3개일 때 현재 행동을 충전에 쓰고 다음 행동 기회에 자동으로 해방하는 전투당 최대 세 번의 필살검이다. 해방 뒤 검의 1개를 되찾으며 PvP 직접 피해는 별도 계수를 적용한다.",
     detail: {
       mechanics: ["검의 3개가 필요하며 현재 행동을 충전에 사용한 뒤 다음 행동 기회에 자동 해방한다. 현재와 충전 중 잃은 HP가 각각 최대 75%까지 피해를 강화한다."],
       synergies: ["일념의 검의당 15% 피해 증가를 받고, 해방 뒤 검의 1개를 되찾는다."],
-      limitations: ["전투당 한 번만 사용할 수 있고 충전 행동에는 피해를 주지 않는다."],
+      limitations: ["전투당 최대 세 번 사용할 수 있고 충전 행동에는 피해를 주지 않는다."],
       pvp: ["PvP에서는 두 잃은 HP 보너스를 각각 최대 40%로 제한하고 관통 30%를 적용한다."],
     },
-    mpCost: 100, cooldown: 0, procChance: 100, learnCost: 20000, spCost: 24, spCostDiscount: 8,
+    // 전투당 3회 완화 뒤에도 기존 장착 비용 24 SP를 유지한다.
+    mpCost: 100, cooldown: 0, procChance: 100, learnCost: 20000, spCost: 24, spCostDiscount: 17,
     defaultPattern: {
       priority: 350,
       condition: {
@@ -3167,8 +3168,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
         ],
       },
     },
-    effects: [dmg(6.5, 1537, undefined, 45)], oncePerBattle: true,
-    tier7Mechanic: { kind: "chargedFinisher", currentMissingHpCapPct: 75, chargeLostHpCapPct: 75, requiredIntentStacks: 3, pvpCapPct: 40, pvpPenetrationPct: 30, pvpDirectDamagePct: 100 },
+    effects: [dmg(6.5, 1537, undefined, 45)],
+    tier7Mechanic: { kind: "chargedFinisher", currentMissingHpCapPct: 75, chargeLostHpCapPct: 75, requiredIntentStacks: 3, maxUsesPerBattle: 3, pvpCapPct: 40, pvpPenetrationPct: 30, pvpDirectDamagePct: 100 },
   },
   v2c_skyascendant_fallingstar: {
     id: "v2c_skyascendant_fallingstar", name: "낙성", stat: "dex", category: "attack", tier: 3,

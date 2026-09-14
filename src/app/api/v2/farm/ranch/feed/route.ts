@@ -6,6 +6,7 @@ import {
   FarmError,
   emptyFarmState,
   feedFarmRanch,
+  fillFarmRanchFeed,
   getFarmDeliveryRequests,
   getFarmShopItems,
   getFarmSpecialDeliveryRequests,
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
   if (guarded) return guarded;
   const body = await req.json().catch(() => null) as { slotId?: unknown; amount?: unknown } | null;
   const amount = Math.floor(Number(body?.amount));
-  if (!isRanchSlotId(body?.slotId) || !Number.isFinite(amount) || amount < 1) {
+  if (!body || (body.slotId !== "all" && (!isRanchSlotId(body.slotId) || !Number.isFinite(amount) || amount < 1))) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
   const { slotId } = body;
@@ -43,12 +44,17 @@ export async function POST(req: Request) {
       const skills = parseV2SkillsState(await lockSaveForUpdate(tx, userId, "skills.v2", emptyV2SkillsState()));
       if (!skills.learned.includes(FARM_CROP_REQUIRED_SKILL_ID)) return { ok: false as const, error: "ranch_locked" as const };
       const farm = normalizeFarmForDay(parseFarmState(await lockSaveForUpdate(tx, userId, FARM_SAVE_KEY, emptyFarmState(now)), now), now);
-      const next = feedFarmRanch(farm, slotId, amount, now);
+      const next = slotId === "all" ? fillFarmRanchFeed(farm, now) : feedFarmRanch(farm, slotId, amount, now);
       await upsertSave(tx, userId, FARM_SAVE_KEY, next);
-      return { ok: true as const, farm: next, learnedSkillIds: skills.learned };
+      const ranchFeedResult = {
+        slotId,
+        amount: (farm.inventory.compound_feed ?? 0) - (next.inventory.compound_feed ?? 0),
+        feedRemaining: slotId === "all" ? (next.inventory.compound_feed ?? 0) : next.ranch.slots[slotId].feed,
+      };
+      return { ok: true as const, farm: next, learnedSkillIds: skills.learned, ranchFeedResult };
     });
     if (!result.ok) return Response.json({ ok: false, error: result.error }, { status: 400 });
-    return Response.json({ now, ...result, crops: FARM_CROP_LIST, deliveries: getFarmDeliveryRequests(), specialDeliveries: getFarmSpecialDeliveryRequests(), weeklyDeliveries: getFarmWeeklyDeliveryRequests(), shopItems: getFarmShopItems(), ranchFeedResult: { slotId, amount, feedRemaining: result.farm.ranch.slots[slotId].feed } });
+    return Response.json({ now, ...result, crops: FARM_CROP_LIST, deliveries: getFarmDeliveryRequests(), specialDeliveries: getFarmSpecialDeliveryRequests(), weeklyDeliveries: getFarmWeeklyDeliveryRequests(), shopItems: getFarmShopItems() });
   } catch (error) {
     if (error instanceof FarmError || error instanceof RanchError) {
       return Response.json({ ok: false, error: error instanceof FarmError ? error.code : error.message }, { status: 409 });

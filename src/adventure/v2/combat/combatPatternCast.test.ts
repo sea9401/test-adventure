@@ -324,7 +324,7 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     ).toBe(savedPattern);
   });
 
-  it("저장 패턴에서 빠진 그림자 도약도 장착 중이면 첫 행동으로 보완한다", () => {
+  it("저장 패턴에서 제외한 그림자 도약은 장착 중이어도 강제 사용하지 않는다", () => {
     const shadowStep = "v2c_shadow_shadowstep";
     const combo = "v2c_brawler_combo";
     const equipped = [combo, shadowStep];
@@ -341,8 +341,8 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
       castInput(equipped, { combatPattern: savedPattern, turn: 1 }),
     );
 
-    expect(first.castSkillId).toBe(shadowStep);
-    expect(first.guaranteedEvadesToAdd).toBe(1);
+    expect(first.castSkillId).toBe(combo);
+    expect(first.guaranteedEvadesToAdd).toBe(0);
 
     const second = resolveV2SkillCast(
       castInput(equipped, {
@@ -352,6 +352,55 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
       }),
     );
     expect(second.castSkillId).toBe(combo);
+  });
+
+  it.each(["pve", "pvp"] as const)("그림자 도약은 %s에서 HP 조건을 기다리고 전투당 한 번만 사용한다", (combatMode) => {
+    const shadowStep = "v2c_shadow_shadowstep";
+    const strike = "v2c_warrior_strike";
+    const combatPattern: V2CombatPattern = {
+      blocks: [
+        { condition: { kind: "self_hp", op: "below", pct: 30 }, action: { kind: "skill", skillId: shadowStep } },
+        { condition: { kind: "always" }, action: { kind: "skill", skillId: strike } },
+      ],
+    };
+    const base = castInput([shadowStep, strike], { combatPattern, combatMode, turn: 1 });
+    const first = resolveV2SkillCast(base);
+    expect(first.castSkillId).toBe(strike);
+    expect(first.guaranteedEvadesToAdd).toBe(0);
+
+    const lowHp = { ...base.attacker, currentHp: 200 };
+    const later = resolveV2SkillCast({ ...base, turn: 4, attacker: lowHp, cooldowns: first.nextCooldowns });
+    expect(later.castSkillId).toBe(shadowStep);
+    expect(later.guaranteedEvadesToAdd).toBe(1);
+
+    const repeated = resolveV2SkillCast({ ...base, turn: 5, attacker: lowHp, cooldowns: later.nextCooldowns });
+    expect(repeated.castSkillId).toBe(strike);
+    expect(repeated.guaranteedEvadesToAdd).toBe(0);
+  });
+
+  it("그림자 도약보다 앞에 둔 행동을 먼저 사용한다", () => {
+    const shadowStep = "v2c_shadow_shadowstep";
+    const strike = "v2c_warrior_strike";
+    const combatPattern: V2CombatPattern = {
+      blocks: [
+        { condition: { kind: "turn", op: "atMost", value: 1 }, action: { kind: "skill", skillId: strike } },
+        { condition: { kind: "always" }, action: { kind: "skill", skillId: shadowStep } },
+      ],
+    };
+    const base = castInput([shadowStep, strike], { combatPattern, turn: 1 });
+    const first = resolveV2SkillCast(base);
+    expect(first.castSkillId).toBe(strike);
+    const second = resolveV2SkillCast({ ...base, turn: 2, cooldowns: first.nextCooldowns });
+    expect(second.castSkillId).toBe(shadowStep);
+    expect(second.guaranteedEvadesToAdd).toBe(1);
+  });
+
+  it.each([null, undefined, { blocks: [] }])("미설정·빈 패턴은 그림자 도약을 기본 첫 행동으로 사용한다 (%j)", (savedPattern) => {
+    const equipped = ["v2c_shadow_assassinate", "v2c_shadow_shadowstep"];
+    const combatPattern = effectiveCombatPatternFromEquipped(equipped, savedPattern);
+    const first = resolveV2SkillCast(castInput(equipped, { combatPattern, turn: 1 }));
+    expect(first.castSkillId).toBe("v2c_shadow_shadowstep");
+    expect(first.guaranteedEvadesToAdd).toBe(1);
   });
 
   it("그림자 도약은 첫 턴에 단독 시전되고 다음 공격 스킬에 효과가 섞이지 않는다", () => {

@@ -64,7 +64,7 @@ describe("숙련의 탑 날짜 변경 정산", () => {
     });
   });
 
-  it("새 주에는 주간 최고층만 초기화하고 영구 기록을 보존한다", async () => {
+  it("새 주에도 최고층을 보존하고 일일 진행만 초기화한다", async () => {
     mocks.saves.set("mastery-tower.v1", {
       date: "2026-08-09",
       todayBestFloor: 37,
@@ -92,7 +92,7 @@ describe("숙련의 탑 날짜 변경 정산", () => {
       lifetimeBestFloor: 44,
       firstClearRewardsClaimed: [10, 20, 30, 40],
       weekStartedAt: "2026-08-10",
-      weekBestFloor: 0,
+      weekBestFloor: 37,
     });
   });
 

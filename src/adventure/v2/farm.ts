@@ -3,9 +3,11 @@ import {
   collectRanchProducts,
   emptyRanchState,
   parseRanchState,
+  ranchFeedPlan,
   rebuildRanchSlot as rebuildRanchSlotDomain,
   unlockRanchSlot,
   type RanchAnimalId,
+  type RanchFeedTarget,
   type RanchSlotId,
   type RanchState,
 } from "./ranch";
@@ -423,7 +425,7 @@ export type FarmPlotUpgradeResult = {
 };
 
 export type FarmRanchFeedResult = {
-  slotId: RanchSlotId;
+  slotId: RanchFeedTarget;
   amount: number;
   feedRemaining: number;
 };
@@ -1355,6 +1357,14 @@ export function nextFarmPlotUpgrade(state: FarmState): FarmPlotUpgrade | null {
   const count = normalizeFarmPlotCount(state).plots.length;
   return (
     FARM_PLOT_UPGRADES.find((upgrade) => upgrade.plotCount > count) ?? null
+  );
+}
+
+export function fillFarmRanchFeed(state: FarmState, now = Date.now()): FarmState {
+  const plan = ranchFeedPlan(state.ranch, state.inventory.compound_feed ?? 0, now);
+  return plan.reduce(
+    (current, { slotId, amount }) => feedFarmRanch(current, slotId, amount, now),
+    state,
   );
 }
 

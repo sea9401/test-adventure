@@ -39,6 +39,17 @@ function renderRanch(farm: FarmState, now = 1_000, learned = true) {
 }
 
 describe("farm ranch panel", () => {
+  it("사료가 있으면 모두 채우기를 표시하고 없거나 가득 찼거나 잠겼으면 비활성화한다", () => {
+    const base = emptyFarmState(1_000);
+    const stocked = { ...base, inventory: { compound_feed: 10 } };
+    const button = (html: string) => html.match(/<button[^>]*>사료 모두 채우기<\/button>/)?.[0];
+    expect(button(renderRanch(stocked))).toBeDefined();
+    expect(button(renderRanch(stocked))).not.toContain('disabled=""');
+    expect(button(renderRanch(base))).toContain('disabled=""');
+    expect(button(renderRanch(stocked, 1_000, false))).toContain('disabled=""');
+    expect(button(renderRanch({ ...stocked, ranch: addRanchFeed(base.ranch, "slot-1", 6, 1_000) }))).toContain('disabled=""');
+  });
+
   it("모바일에서는 목장 설명과 요약 동작을 서로 다른 행에 배치한다", () => {
     const html = renderRanch(emptyFarmState(1_000));
 

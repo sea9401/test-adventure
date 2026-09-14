@@ -14,6 +14,8 @@ export type RanchSlotId =
   | "slot-9"
   | "slot-10";
 
+export type RanchFeedTarget = RanchSlotId | "all";
+
 export type RanchAnimalDefinition = {
   id: RanchAnimalId;
   name: string;
@@ -399,6 +401,23 @@ export function parseRanchState(raw: unknown, now = Date.now()): RanchState {
     : emptySlotState(true, "chicken", safeTimestamp);
 
   return { version: 3, slots, stats: parseStats(source.stats) };
+}
+
+export function ranchFeedPlan(state: RanchState, feedOwned: number, now = Date.now()) {
+  const settled = settleRanch(state, now);
+  let remaining = Math.max(0, Math.floor(feedOwned));
+  const plan: { slotId: RanchSlotId; amount: number }[] = [];
+  for (const { id } of RANCH_SLOT_DEFINITIONS) {
+    const slot = settled.slots[id];
+    if (!slot.unlocked || !slot.animalId) continue;
+    const animal = RANCH_ANIMAL_DEFINITIONS[slot.animalId];
+    if (animal.mode !== "recurring") continue;
+    const amount = Math.min(remaining, Math.max(0, animal.feedCapacity - slot.feed));
+    if (amount < 1) continue;
+    plan.push({ slotId: id, amount });
+    remaining -= amount;
+  }
+  return plan;
 }
 
 export function settleRanch(state: RanchState, now = Date.now()): RanchState {

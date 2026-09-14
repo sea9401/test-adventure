@@ -82,6 +82,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
   const ruinSwordMechanic = V2_SKILLS.v2c_ruinblade_ruinsword.tier7Mechanic;
   const ruinChargeReady =
     ruinSwordMechanic?.kind === "chargedFinisher" &&
+    (side.stacks.tier7?.ruinChargesUsed ?? 0) < ruinSwordMechanic.maxUsesPerBattle &&
     canStartRuinCharge(
       side.stacks.tier7?.swordIntent ?? 0,
       ruinSwordMechanic.requiredIntentStacks,
@@ -1448,6 +1449,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
     });
   }
   if (nextTier7 && startingRuinCharge) {
+    nextTier7.ruinChargesUsed = (nextTier7.ruinChargesUsed ?? 0) + 1;
     nextTier7.ruinCharge = startRuinCharge({
       hp: side.hp,
       intent: nextTier7.swordIntent ?? 0,

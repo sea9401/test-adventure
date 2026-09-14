@@ -2646,6 +2646,7 @@ function describeTier7Mechanic(mechanic: Tier7Mechanic): string[] {
       ];
     case "chargedFinisher":
       return [
+        `전투당 ${mechanic.maxUsesPerBattle}회`,
         `검의 ${mechanic.requiredIntentStacks}개 필요 · 한 행동 충전 · 다음 행동 자동 해방`,
         `현재 잃은 HP 최대 +${mechanic.currentMissingHpCapPct}% · 충전 중 잃은 HP 최대 +${mechanic.chargeLostHpCapPct}%`,
         `PvP 각 보너스 최대 ${mechanic.pvpCapPct}% · 관통 ${mechanic.pvpPenetrationPct}%`,
@@ -3302,7 +3303,7 @@ function withoutLowerDuelistDeclarations(
 }
 
 // 장착 스킬을 스마트 기본 조건으로 묶은 패턴. 미설정 캐릭의 폴백.
-//   전투당 1회 생존 오프너(그림자 도약)는 "항상" 공격보다 먼저 독립 시전되어야 하므로 최우선에
+//   전투당 1회 생존 오프너(그림자 도약)는 기본 패턴에서 공격보다 먼저 독립 시전하도록 최우선에
 //   둔다. 그 뒤 카탈로그가 명시한 기본 우선순위를 적용하고, 메타데이터가 없는 나머지는 슬롯
 //   순서를 유지한다. 카탈로그에 없는 id 는 안전하게 "항상".
 //   엔진·에디터·PvP 가 공유(단일 소스).
@@ -3357,31 +3358,14 @@ export function smartDefaultPatternFromEquipped(
   };
 }
 
-// 저장된 사용자 패턴은 그대로 보존하되, 장착한 전투당 1회 확정 회피 오프너가 누락됐거나
-// 후순위에 있으면 전투용 패턴의 첫 블록으로 정규화한다. 장착만 해도 적용된다는 스킬 계약을
-// 사용자 패턴이 우연히 무효화하지 않게 하며, 나머지 사용자 블록의 조건과 순서는 유지한다.
+// 저장된 사용자 패턴의 조건과 순서를 보존한다. 미설정·빈 패턴만 기본 패턴으로 보완하고,
+// 중복 장착된 하위 결투 선언을 제외한다. 그림자 도약도 사용자 지정 시점을 따른다.
 export function effectiveCombatPatternFromEquipped(
   equipped: readonly string[],
   savedPattern: V2CombatPattern | null | undefined,
 ): V2CombatPattern {
-  const basePattern = withoutLowerDuelistDeclarations(equipped,
+  return withoutLowerDuelistDeclarations(equipped,
     savedPattern && savedPattern.blocks.length > 0
       ? savedPattern
       : smartDefaultPatternFromEquipped(equipped));
-  const openerSkillId = equipped.find(isOncePerBattleEvadeOpener);
-  if (!openerSkillId) return basePattern;
-
-  return {
-    blocks: [
-      {
-        condition: { kind: "turn", op: "atMost", value: 1 },
-        action: { kind: "skill", skillId: openerSkillId },
-      },
-      ...basePattern.blocks.filter(
-        (block) =>
-          block.action.kind !== "skill" ||
-          block.action.skillId !== openerSkillId,
-      ),
-    ],
-  };
 }

@@ -16,8 +16,10 @@ import {
   RANCH_ANIMAL_DEFINITIONS,
   RANCH_REBUILD_COSTS,
   RANCH_SLOT_DEFINITIONS,
+  ranchFeedPlan,
   type RanchAnimalDefinition,
   type RanchAnimalId,
+  type RanchFeedTarget,
   type RanchSlotId,
 } from "./ranch";
 
@@ -101,11 +103,11 @@ export function FarmRanchPanel({
   farm: FarmState;
   now: number;
   learnedSkillIds: string[];
-  busyFeedSlotId: RanchSlotId | null;
+  busyFeedSlotId: RanchFeedTarget | null;
   busyCollect: boolean;
   busyUpgradeSlotId: RanchSlotId | null;
   busyRebuildSlotId: RanchSlotId | null;
-  onFeed: (slotId: RanchSlotId, amount: number) => void;
+  onFeed: (slotId: RanchFeedTarget, amount: number) => void;
   onCollect: () => void;
   onUpgrade: (slotId: RanchSlotId, animalId: RanchAnimalId) => void;
   onRebuild: (slotId: RanchSlotId, animalId: RanchAnimalId) => void;
@@ -126,6 +128,7 @@ export function FarmRanchPanel({
     (definition) => !farm.ranch.slots[definition.id].unlocked,
   );
   const feedOwned = farm.inventory.compound_feed ?? 0;
+  const canFillFeed = ranchFeedPlan(farm.ranch, feedOwned, now).length > 0;
   const farmingLevel = farmingLevelForState(farm);
   const availableReputation = farmAvailableReputation(farm);
 
@@ -158,6 +161,15 @@ export function FarmRanchPanel({
           </div>
           <button
             type="button"
+            onClick={() => onFeed("all", 0)}
+            disabled={!ranchUnlocked || !canFillFeed || busyFeedSlotId !== null}
+            title="닭장·외양간을 부지 순서대로 보유 사료만큼 채웁니다"
+            className="rounded-md bg-amber-600 px-3 py-2 text-sm font-bold text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busyFeedSlotId === "all" ? "채우는 중..." : "사료 모두 채우기"}
+          </button>
+          <button
+            type="button"
             onClick={onCollect}
             disabled={!ranchUnlocked || totalReady < 1 || busyCollect}
             className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
@@ -166,6 +178,12 @@ export function FarmRanchPanel({
           </button>
         </div>
       </div>
+
+      {ranchUnlocked ? (
+        <p className={`${SURFACE_CARD} px-3 py-2 text-xs text-zinc-600 dark:text-zinc-300`}>
+          사료 모두 채우기는 닭장·외양간에 부지 순서대로 보유 사료만큼 채웁니다.
+        </p>
+      ) : null}
 
       {!ranchUnlocked ? (
         <div className={`${SURFACE_CARD} px-4 py-8 text-center`}>

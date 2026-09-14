@@ -1,3 +1,4 @@
+import { createCooperativeYield } from "@/lib/server/cooperativeYield";
 import { profileAsyncStage, recordProfileCounter } from "@/lib/server/runtimeProfiler/stages";
 import { HUNT_COOLDOWN_MODE, V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { type DropResult } from "@/adventure/data/v2/dungeonDrops";
@@ -149,7 +150,11 @@ export async function handleHunt(req: Request, userId: string) {
       mpCharges: number;
     }> = [];
 
+    const checkpoint = createCooperativeYield();
     for (let i = 0; i < count; i++) {
+      // 같은 트랜잭션과 잠금을 유지하며 판 사이에 다른 요청을 처리한다.
+      const pause = i > 0 ? checkpoint() : undefined;
+      if (pause) await pause;
       const r = await runOneHunt(true, batchCtx);
       if (!r.ok) {
         // 첫 사냥부터 실패면 단판과 동일하게 에러 응답 그대로(409 스태미나/HP·403 정책 등).
